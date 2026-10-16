@@ -9332,6 +9332,34 @@
       "changelog": [],
       "reopenWhen": "① 若日后给 `CapabilitySelector` 加「离线能力清单」，加载失败文案需相应改为「当前显示离线清单」之类的**区分态**文案（不要两态共用一句话）；② 客户端仍只有 zh / en 两语言 ⇒ 新增键只补这两个地方（与 B4 ②③ 同口径，新增语言须一并补）；③ 本片只处理「列表加载失败」，**保存…（全文见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-LOAD-FAILED-MSG）",
       "notes": "【问题】上一片删掉伪造降级数据后，两个组件的加载失败**没有专用文案**：`CapabilitySelector` 的空态按「有搜索词 ? `capabilityNoMatch`：「未找到匹配的能力」 : `capabilityNone`（「暂无可用能力」）」二分 —— 加载失败时落在后者，读起来像**后端真的没有能…（全文见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-LOAD-FAILED-MSG）"
+    },
+    {
+      "id": "TOAST-SINGLE-CHANNEL",
+      "title": "toast 收敛为**唯一通道**：KnowledgePage 摘除第二套 + 删除 `hooks/useToast` + 写明「错误呈现口径」+ 单通道源码守卫",
+      "source": "用户裁定「**统一错误呈现机制**」（先盘清现状再定范围；盘清发现真正的问题是**双通道**，而非「没有机制」）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/components/views/KnowledgePage.tsx",
+        "client/src/stores/toastStore.ts",
+        "client/src/tests/toastSingleChannel.test.ts"
+      ],
+      "tests": [
+        "client/src/tests/toastSingleChannel.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若日后需要「页面级独立提示（不跨页浮层）」，**不要**复活第二套 toast —— 应在既有容器/ store 上加能力（如按 position/variant 参数），否则又回到双通道；② 守卫判据 ③（容器只能挂载在 `src/App.tsx`）若因路由/懒加载确需多处挂载 ⇒ 先裁定「允许多少个挂载点、为…（全文见 archive/evidence-detail.jsonl#TOAST-SINGLE-CHANNEL）",
+      "notes": "【盘清（本片先做证据，再定范围）】前端错误呈现实际有**四条**路径，此前无任何一处写明分工：① `stores/toastStore`（zustand + 全局容器 `components/common/ToastContainer`，由 `App.tsx` 挂载、支持展开原始异常 `detail`，带 `toas…（全文见 archive/evidence-detail.jsonl#TOAST-SINGLE-CHANNEL）"
     }
   ]
 }

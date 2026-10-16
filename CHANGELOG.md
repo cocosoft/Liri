@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TOAST-SINGLE-CHANNEL**：toast 收敛为唯一通道：KnowledgePage 摘除第二套 + 删除 hooks/useToast + 写明错误呈现口径 + 守卫 —— 验证 guard1|ut630|tc1|ts6630；基线 改前：toast 两套并行（store 与 hooks/useToast），KnowledgePage 同页两条通道、两种位置样式（详情见 archive/evidence-detail.jsonl#TOAST-SINGLE-CHANNEL）
 - ✅ **CAPS-CAPABILITY-LOAD-FAILED-MSG**：补「能力加载失败」专用文案键：两组件如实报错（空态三态区分）+ 契约 ⑤ 钉住 —— 验证 ct14|ut629|tc1；基线 改前：加载失败时 CapabilitySelector 显示「暂无可用能力」、ModelMetaEditor 一片空白 —— 均把故障读成正常（详情见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-LOAD-FAILED-MSG）
 - ✅ **CAPS-CAPABILITY-PRESET-CLEANUP**：清理客户端伪造能力降级数据：删两处硬编码能力列表 + 硬编码默认能力 + 加防回流锁 —— 验证 ct13|ut629|tc1|grep2；基线 改前：加载失败即注入 10 项硬编码能力（28 项的部分副本、无 labelKey ⇒ 只能显示英文 fallback）（详情见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-PRESET-CLEANUP）
 - ✅ **CAPS-CAPABILITY-LABEL-CONVENTION**：能力标签解析修复：locale 的 model.capability 块上移为顶层 capability —— 验证 ct13|ut629|tc1|ts6628|probe1；基线 改前：28 个 labelKey 与 locale 的 model.capability.* 不匹配 ⇒ t() 恒 miss（详情见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-LABEL-CONVENTION）

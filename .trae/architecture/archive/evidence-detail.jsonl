@@ -5222,6 +5222,27 @@
 {"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"code#3","i":0,"c":"client/src/components/modelAdmin/ModelMetaEditor.tsx"}
 {"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"code#4","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
 {"id":"CAPS-CAPABILITY-LOAD-FAILED-MSG","k":"tests#0","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"title","i":0,"c":"toast 收敛为**唯一通道**：KnowledgePage 摘除第二套 + 删除 `hooks/useToast` + 写明「错误呈现口径」+ 单通道源码守卫"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"source","i":0,"c":"用户裁定「**统一错误呈现机制**」（先盘清现状再定范围；盘清发现真正的问题是**双通道**，而非「没有机制」）"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"reopenWhen","i":0,"c":"① 若日后需要「页面级独立提示（不跨页浮层）」，**不要**复活第二套 toast —— 应在既有容器/ store 上加能力（如按 position/variant 参数），否则又回到双通道；② 守卫判据 ③（容器只能挂载在 `src/App.tsx`）若因路由/懒加载确需多处挂载 ⇒ 先裁定「允许多少个挂载点、为何」再改守卫，不许直接放宽；③ `"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"reopenWhen","i":1,"c":"handleClientError` 仍**不做 UI**（有意分工）—— 若日后希望它自动弹 toast，须先定「何种严重级/哪些场景才弹」的口径，否则会变成每个 catch 都弹的噪音；④ **内联错误区有意未统一**（`bg-red/text-red` 类命中 275 处 / 60 文件，其中含大量非错误的状态色）：它们是「就地反馈」（错在哪由位置传达"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"reopenWhen","i":2,"c":"），改成 toast 会丢信息 ⇒ 若日后要统一**外观**，方向是抽 `<ErrorBanner>` 组件（样式单源），而不是改通道；⑤ 本片未动 `friendlyError`（`utils/friendlyError.ts`）的文案质量，只在口径里指明「异常优先 `toastError`（带可展开 detail）」。"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"notes","i":0,"c":"【盘清（本片先做证据，再定范围）】前端错误呈现实际有**四条**路径，此前无任何一处写明分工：① `stores/toastStore`（zustand + 全局容器 `components/common/ToastContainer`，由 `App.tsx` 挂载、支持展开原始异常 `detail`，带 `"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"notes","i":1,"c":"toastError/toastWarning/toastInfo`）；② `hooks/useToast`（自管 `useState` + 自带容器，右上角、**无 detail**）；③ 各组件自己的内联 error 区（`bg-red-50`/`text-red-*` 类命中 **275 处 / 60 文件**，其中含大量**非错误**的状态色，故这是"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"notes","i":2,"c":"上界）；④ `handleClientError`（标准化 + 日志 + OTEL + 内存统计 + 后端上报，**不做 UI**）。⇒ 真正的问题是 **① 与 ② 两条 toast 通道并存**：`hooks/useToast` 的唯一使用者是 `KnowledgePage`，而**同一页面**又在用 ① 的 `toastError` ⇒ 一页两条通道、"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"notes","i":3,"c":"两种位置与样式（同类失败弹出两种提示）。【为什么不「把内联都改成 toast」】toast 与内联**不是同一件事**：与表单/字段强绑定的失败（保存、校验）靠**位置**传达「错在哪」，改 toast 会丢信息；275 处里还混着大量非错误的状态色 ⇒ 全量迁移属「为统一而统一」，本片**有意不做**，只把口径写明并把**通道**收敛。【改了什么】按 "}
+{"id":"TOAST-SINGLE-CHANNEL","k":"notes","i":4,"c":"CD05 分**两提交**：(1) `a31736b6a` 先**摘入口** —— `KnowledgePage` 改用 store 通道（`useToastStore((s) => s.addToast)`：store 的 `addToast(type, message, detail)` 与原 `show(type, message)` 签名一致 ⇒ 调"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"notes","i":5,"c":"用点零改动），并移除本页挂载的第二个容器；同时在 `stores/toastStore` 头注写明**错误呈现口径**（三条通道各司其职 + 容器唯一 + handleClientError 不上屏）。(2) `22c16f70d` 再**删实现** —— 删除 `client/src/hooks/useToast.tsx`（依据 CD01：全仓 grep "}
+{"id":"TOAST-SINGLE-CHANNEL","k":"notes","i":6,"c":"确认唯一使用者已迁走；CD02：纯 UI hook 无动态导入/注册入口；CD03：无 DI/外部协议；CD04：无测试引用；CD07：不属关键域），并新增源码守卫 `client/src/tests/toastSingleChannel.test.ts`。【守卫四条判据（仅代码行、跳过注释）】① 不得再引用 `hooks/useToast`；② `"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"notes","i":7,"c":"ToastContainer` 只能**定义**在 `components/common/ToastContainer.tsx`；③ 只能**挂载**在 `src/App.tsx`；④ 除 store 与容器外不得再出现 `useState<Toast…`（自攒 toast 列表）。【负向自证（守卫非恒真）】实现体尚存时守卫**报红 2 条**（`"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"notes","i":8,"c":"hooks/useToast.tsx` 定义第二个容器 + 自攒列表），删除后转绿；且**首跑因注释里提到该名字误报 2 条**（我在 KnowledgePage/toastStore 写的说明文字）⇒ 据此把判据改为**逐行 + 跳过注释行**（该教训已写进守卫注释）。【验证】守卫 1 passed（删前红、删后绿）；客户端 `tsc --noEmit` "}
+{"id":"TOAST-SINGLE-CHANNEL","k":"notes","i":9,"c":"⇒ 0（无残留引用）；客户端 `bun run test` ⇒ **81 files / 630 tests 全 pass**；改动文件 `eslint` ⇒ 0 error（KnowledgePage 既有 `exhaustive-deps` 警告与本片无关）；app 全链 `bun run ci` 通过。【口径边界（如实）】① 本片**未**新增任何 "}
+{"id":"TOAST-SINGLE-CHANNEL","k":"notes","i":10,"c":"toast 的**渲染断言**（client 无组件测试基建用于该容器）⇒ 通道唯一性由源码守卫保证，呈现细节未做快照；② 未统一**内联错误**外观（见 reopenWhen ④）；③ 未改 `friendlyError` 文案质量；④ 该 hook 的删除属「入口与实现分两提交」，但**没有真正的时间观察期**——「无消费者」是由 grep + tsc "}
+{"id":"TOAST-SINGLE-CHANNEL","k":"notes","i":11,"c":"+ 全量测试在删除当时证实的，不是靠上线观察。"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"code#0","i":0,"c":"client/src/components/views/KnowledgePage.tsx"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"code#1","i":0,"c":"client/src/stores/toastStore.ts"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"code#2","i":0,"c":"client/src/tests/toastSingleChannel.test.ts"}
+{"id":"TOAST-SINGLE-CHANNEL","k":"tests#0","i":0,"c":"client/src/tests/toastSingleChannel.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

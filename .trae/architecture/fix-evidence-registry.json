@@ -8196,6 +8196,33 @@
       "changelog": [],
       "reopenWhen": "① **同流程仍有未修缺陷（另立片，务必先看这条）**：切换已修正，但 `truncate` 在新会话仍被后端 404 ⇒ 截断落空 ⇒ 分支重载后**旧消息回显**（真机复现：分支含 4 条/2 轮，编辑前 `你好` 与编辑后 `你好-分支终验` 同时可见）。根因修法方向 = 用 fork 的**事件边界** `b…（全文见 archive/evidence-detail.jsonl#BRANCH-EDIT-FORK-UPSERT）",
       "notes": "① 真机取证（本机 1420/18990，会话 `session_mva9ipfjb15d261845` → 分支 `b180032e-8c98-4c58-a882-c8d19be6a76c`）：分支流程 `POST /fork` → `POST /switch(新id)` → 修复前逐字出现 `switchChat…（全文见 archive/evidence-detail.jsonl#BRANCH-EDIT-FORK-UPSERT）"
+    },
+    {
+      "id": "BRANCH-EDIT-ZERO-HISTORY",
+      "title": "「编辑并另存为分支」编辑首条消息 ⇒ **零历史**（建空会话，不再 fork 全量 + 事后截断）：修掉「分支重载后旧消息回显」的一类；非首条仍需后端解析事件边界",
+      "source": "用户 2026-10-16「按 boundary 方向修复截断层」（承接 BRANCH-EDIT-FORK-UPSERT 的 reopenWhen ①）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "client/src/components/ChatArea/ChatInput.tsx",
+        "client/src/stores/chat/branchBoundary.ts"
+      ],
+      "tests": [
+        "client/src/stores/chat/__tests__/branchBoundary.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **非首条编辑仍未修（根因，下一片）**：需要「编辑点之前的事件边界」，客户端**拿不到可信值** —— 实测前一条 `lastEventSeq` 为 `null`；且 `withPaginationSeq` 对缺 seq 消息按数组顺序**合成**序号（那是消息分页游标语义、非事件 seq，用它当 `bound…（全文见 archive/evidence-detail.jsonl#BRANCH-EDIT-ZERO-HISTORY）",
+      "notes": "① 真机缺陷（本机 1420/18990）：分支流程原实现 = fork 全量 + 事后 `editTruncate`；该截断在**新会话**恒被后端 404（`Target message not found`，见 `app/src/runtime/api/messageMutation.ts` 按 `before…（全文见 archive/evidence-detail.jsonl#BRANCH-EDIT-ZERO-HISTORY）"
     }
   ]
 }

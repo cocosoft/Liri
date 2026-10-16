@@ -4414,6 +4414,20 @@
 {"id":"BRANCH-EDIT-FORK-UPSERT","k":"code#0","i":0,"c":"client/src/stores/root-store/sessionSlice.ts"}
 {"id":"BRANCH-EDIT-FORK-UPSERT","k":"code#1","i":0,"c":"client/src/components/ChatArea/ChatInput.tsx"}
 {"id":"BRANCH-EDIT-FORK-UPSERT","k":"tests#0","i":0,"c":"client/src/tests/session-slice-race.test.ts"}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"title","i":0,"c":"「编辑并另存为分支」编辑首条消息 ⇒ **零历史**（建空会话，不再 fork 全量 + 事后截断）：修掉「分支重载后旧消息回显」的一类；非首条仍需后端解析事件边界"}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"source","i":0,"c":"用户 2026-10-16「按 boundary 方向修复截断层」（承接 BRANCH-EDIT-FORK-UPSERT 的 reopenWhen ①）"}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"reopenWhen","i":0,"c":"① **非首条编辑仍未修（根因，下一片）**：需要「编辑点之前的事件边界」，客户端**拿不到可信值** —— 实测前一条 `lastEventSeq` 为 `null`；且 `withPaginationSeq` 对缺 seq 消息按数组顺序**合成**序号（那是消息分页游标语义、非事件 seq，用它当 `boundary` 会切错位置）；即便拿到真实写盘戳"}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"reopenWhen","i":1,"c":"（写盘时刻的会话 tail seq）也可能落在**未闭合 turn 内**被后端 400。正确修法 = 后端在**源会话**上解析（源会话里编辑点 messageId 有效）：建议给 `fork` 加参数如 `truncateAfterMessageId`，后端映射到该消息事件 seq 后 `copyPrefixTo [1..seq-1]`。② 客户端**不"}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"reopenWhen","i":2,"c":"要**再尝试用 `lastEventSeq` 自算边界（本轮已试并被真机打回，理由见 branchBoundary 文件头注）。③ `boundary` 语义备忘：`SessionGateway.forkSession` 的 `copyPrefixTo` 复制 `[1..boundary]`（**含边界**）。"}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"notes","i":0,"c":"① 真机缺陷（本机 1420/18990）：分支流程原实现 = fork 全量 + 事后 `editTruncate`；该截断在**新会话**恒被后端 404（`Target message not found`，见 `app/src/runtime/api/messageMutation.ts` 按 `beforeMessageId` 查找）⇒ 截断落空 "}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"notes","i":1,"c":"⇒ 分支重载后旧消息回显（实测场景 A：分支含 `第一问`/`第二问`/`第二问-改` 三轮，编辑前的 `第二问` 仍在）。② 本轮落地并**真机验证通过**的一类：编辑点为**首条** ⇒ 零历史。证据（逐字）：分支初始 `loadConversation: … messageCount: 0`（**无整份复制**）；`"}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"notes","i":2,"c":"streamMessage:editTruncate` / `Target message not found` / `branchBoundary` warn **零命中**；重载后仅 `甲-改`+其回复（1 轮），无 `甲`。③ **两次试错如实记录**：首版把「编辑首条」并入「边界不可用」⇒ 真机显示旧消息照旧回显（退回了有缺陷的旧路径）；次版用「前一"}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"notes","i":3,"c":"条 `lastEventSeq`」算前缀边界 ⇒ 真机 `prevSeq: null` 直接打回，并暴露两条更根本的反证（分页合成序号不可当事件边界 + 写盘 tail 戳可能落在未闭合 turn 内）⇒ **故本轮不做客户端前缀边界猜测**，只保留可证的一类。④ 测试：`"}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"notes","i":4,"c":"client/src/stores/chat/__tests__/branchBoundary.test.ts` 4 例（首条 ⇒ empty；非首条 ⇒ fallback；不在列表 ⇒ fallback；空 editTarget ⇒ fallback）；`vitest` 23 例绿（含既有 session-slice-race 19 例）+ client "}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"notes","i":5,"c":"`tsc --noEmit` 0。⑤ 清理：复验的 4 个测试会话已用 API 删除。"}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"code#0","i":0,"c":"client/src/components/ChatArea/ChatInput.tsx"}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"code#1","i":0,"c":"client/src/stores/chat/branchBoundary.ts"}
+{"id":"BRANCH-EDIT-ZERO-HISTORY","k":"tests#0","i":0,"c":"client/src/stores/chat/__tests__/branchBoundary.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

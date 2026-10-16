@@ -64,48 +64,24 @@ import {
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
 import { createLogger } from "@/utils/logger";
+// 事件名单一事实源（台账 D-57）：`KNOWN_EVENT_TYPES` 由此派生，禁用本端手写副本
+import { LIRI_EVENT_NAMES } from "@shared/events/eventNames";
 
 const logger = createLogger("stores:chat:derive");
 
-/** D2（2026-08-24）：已知事件类型集合——与 LiriEventType 保持同步，
- *  用于 default 分支区分"已知但视图无关"与"真正未知"类型 */
-const KNOWN_EVENT_TYPES = new Set([
-  "turn/start",
-  "turn/end",
-  "user/message",
-  "assistant/thinking",
-  "assistant/text",
-  "assistant/text-batch",
-  "assistant/tool_call",
-  "tool/result",
-  "tool/canceled",
-  "assistant/status",
-  "assistant/progress",
-  "assistant/question",
-  "assistant/todo",
-  "assistant/doc_workflow",
-  "assistant/pdca_workflow",
-  // P0-1 接入点第二刀 ②b（2026-09-24）：工作流 run 记录（run 级 2 + 成员级 2）
-  "assistant/workflow_run_start",
-  "assistant/workflow_step_start",
-  "assistant/workflow_step_end",
-  "assistant/workflow_run_end",
-  "assistant/truncation",
-  "assistant/deliverable",
-  "assistant/diff",
-  "context/compaction",
-  "context/summary",
-  "session/summary",
-  "system/error",
-  "system/warning",
-  "system/info",
-  "metric/timing",
-  "channel/connect",
-  "channel/disconnect",
-  "channel/message",
-  "session/start",
-  "session/end",
-]);
+/** 已知事件类型集合 —— **从 shared 单一事实源派生**（`shared/events/eventNames.ts`，台账 D-57）
+ *
+ *  用于 `default` 分支区分「已知但视图无关」与「真正未知」类型。
+ *
+ *  2026-10-16 根因修复（台账 `CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE`）：此前这里是**手写副本**
+ *  （34 项，注释自称「与 LiriEventType 保持同步」，实际无任何机制保证）⇒ 已**漂移 20 个**
+ *  （`session/title` / `request/start` / `context/model-input` / `goal/*` / `validation/*` /
+ *  `execution/*` / `agent/recovery` …）：真机 61 个有事件的会话累计 ≈3775 条
+ *  「遇到未知事件类型」误报（正常每轮 2–3 条：`request/start` + `context/model-input`）
+ *  ⇒ **诊断信号被正常流量淹没**。
+ *  派生后不可能再漂移（与后端 `app/src/session/types/knownEventTypes.ts` 同口径）。
+ */
+const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set<string>(LIRI_EVENT_NAMES);
 
 /**
  * 工作流 run 聚合卡片辅助（P1-3 §12 D14，2026-10-05）。

@@ -698,6 +698,15 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
           const forked = await sessionService.forkSession(currentSession.id, {
             childTitle: branchTitle,
           });
+          // 真机缺陷修复（2026-10-16）：fork 后端已建会话，但侧栏 `chatSessions` 尚未收录
+          // ⇒ 立刻 switch 会被 `switchChatSession` 的 G5 守卫判为「目标会话已不在列表」并
+          // **丢弃切换**（回落旧会话）⇒ 后续 `editTruncate` 会把旧会话的消息 id 打到新会话上
+          //（Console：`Target message not found`）。此处先轻量 upsert 收录，再切换。
+          // ⚠ 仍未修（另立片）：即便切对会话，该 `truncate` 在新会话仍被后端 404（fork 后派生
+          // 消息 id 与后端不认）⇒ 截断落空 ⇒ 分支重载后旧消息回显（真机已复现 4 条/2 轮）。
+          // 根因修法方向 = 改用 fork 的事件边界 `boundary`（fork 时就只复制编辑点之前的历史），
+          // 从而**不再需要**事后 truncate —— 需先确认 boundary 的 inclusive 语义与 open-turn 400。
+          useRootStore.getState().upsertChatSession(forked.session);
           await useSessionStore.getState().switchSession(forked.session.id);
           sessionId = forked.session.id;
         } else {

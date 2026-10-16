@@ -238,6 +238,11 @@ export interface SessionSlice {
   renameChatSession: (id: string, title: string) => Promise<void>;
   /** 清空所有会话 */
   clearAllChatSessions: () => Promise<void>;
+  /**
+   * 轻量 upsert：把**后端已建、前端列表尚未收录**的会话并进 `chatSessions`
+   *（`/fork` 分支等路径用；详见实现处注释）
+   */
+  upsertChatSession: (session: Session) => void;
 }
 
 // ─── Slice 实现 ────────────────────────────────────────
@@ -534,6 +539,29 @@ export const createSessionSlice: StateCreator<
   isPinned: (id) => get().chatSessions.some((s) => s.id === id && s.pinned),
 
   // ─── 旧 sessionStore 兼容动作（异步）────────────────
+
+  /**
+   * 轻量 upsert：把**后端已创建、但前端列表尚未收录**的会话并入 `chatSessions`。
+   *
+   * 为什么需要（真机缺陷 2026-10-16「编辑并另存为分支」）：`fork` 出会话后立刻
+   * `switchChatSession(新id)`，此刻列表还没被 SSE/刷新补齐 ⇒ G5 守卫判「目标会话已不在列表」
+   * 并**丢弃切换**（回落旧会话）⇒ 随后的 `editTruncate` 用旧会话的消息 id 打新会话
+   *（Console：`Target message not found`）⇒ 截断落空 ⇒ 分支重载后旧消息回显。
+   *
+   * 与 `createChatSession`（内部重拉整表 + 排序）相比，本方法只做**单条插入/合并**：
+   * fork 这类"后端已建"的路径不必为一条新会话付整表刷新与排队代价，排序交给随后的
+   * SSE 刷新（`session:created`）自然收敛。
+   */
+  upsertChatSession: (session) => {
+    const list = get().chatSessions;
+    const exists = list.some((s) => s.id === session.id);
+    set({
+      chatSessions: exists
+        ? list.map((s) => (s.id === session.id ? { ...s, ...session } : s))
+        : // 新会话置顶：刚 fork 的会话 createdAt/updatedAt 最新，与列表排序方向一致
+          [session, ...list],
+    });
+  },
 
   loadChatSessions: async () => {
     // P2-4 修复：早退条件从"列表非空"改为"正在加载"——原实现首次加载成功后

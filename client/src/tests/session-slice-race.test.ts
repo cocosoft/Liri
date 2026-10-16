@@ -711,3 +711,48 @@ describe("方案 1（渐进 UI）：clearAllChatSessions 立即清空 + 后台�
     }
   });
 });
+
+/**
+ * 真机缺陷（2026-10-16）「编辑并另存为分支」：fork 后立刻 `switchChatSession`，但侧栏
+ * `chatSessions` 尚未收录该新会话 ⇒ G5 守卫判「目标会话已不在列表」并**丢弃切换**（回落旧会话）
+ * ⇒ 随后的 `editTruncate` 用旧会话消息 id 打新会话（Console：`Target message not found`）
+ * ⇒ 截断落空、分支重载后旧消息回显。修法：切之前先 `upsertChatSession` 收录（本用例即其契约）。
+ */
+describe("upsertChatSession（fork 后切换前置，真机缺陷修复）", () => {
+  it("新会话 ⇒ 置顶插入且不丢既有项", () => {
+    useTestStore.setState({ chatSessions: [makeSession("old-1") as never] });
+    useTestStore
+      .getState()
+      .upsertChatSession(
+        makeSession("fork-1", { title: "分支：源会话" }) as never,
+      );
+
+    const list = useTestStore.getState().chatSessions;
+    expect(list.map((s) => s.id)).toEqual(["fork-1", "old-1"]);
+    expect(list[0]!.title).toBe("分支：源会话");
+  });
+
+  it("已存在 ⇒ 原位合并（不重复、顺序不变）", () => {
+    useTestStore.setState({
+      chatSessions: [
+        makeSession("s-1", { title: "旧标题" }) as never,
+        makeSession("s-2") as never,
+      ],
+    });
+    useTestStore
+      .getState()
+      .upsertChatSession(makeSession("s-1", { title: "新标题" }) as never);
+
+    const list = useTestStore.getState().chatSessions;
+    expect(list.map((s) => s.id)).toEqual(["s-1", "s-2"]);
+    expect(list[0]!.title).toBe("新标题");
+  });
+
+  it("空列表 ⇒ 单条插入", () => {
+    useTestStore.setState({ chatSessions: [] });
+    useTestStore.getState().upsertChatSession(makeSession("only") as never);
+    expect(useTestStore.getState().chatSessions.map((s) => s.id)).toEqual([
+      "only",
+    ]);
+  });
+});

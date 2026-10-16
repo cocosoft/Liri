@@ -16,6 +16,8 @@ import SessionContextMenu from "./SessionContextMenu";
 import SessionListItem from "./SessionListItem";
 import SessionTitle from "./SessionTitle";
 import { useDreamSessionIds } from "./useDreamSessionIds";
+// 2026-10-16：折叠状态策略外迁为可测 hook（窄屏自动折叠不写偏好 + 回宽屏恢复）
+import { useSidebarCollapse } from "./useSidebarCollapse";
 
 // P2-6（2026-09-27 审计）：本文件的 `sanitizeFilename` / `triggerBlobDownload` 与
 // `utils/exportMessage.ts` 重复实现 ⇒ 收敛为唯一来源（改一处即全域生效）。
@@ -118,38 +120,34 @@ function SessionHistorySidebar({
   // 已被梦境处理的会话 ID 集合
   const dreamProcessedIds = useDreamSessionIds();
 
-  // 从 localStorage 恢复折叠状态，默认展开
-  const [isExpanded, setIsExpanded] = useState(() => {
-    const saved = localStorage.getItem("liri-sidebar-expanded");
-    return saved !== null ? saved === "true" : true;
-  });
-
-  // 折叠状态变更时持久化
-  const toggleSidebar = useCallback(() => {
-    setIsExpanded((prev) => {
-      const next = !prev;
-      localStorage.setItem("liri-sidebar-expanded", String(next));
-      return next;
-    });
+  // 折叠状态（2026-10-16 根因修复：窄屏自动折叠只改内存、回宽屏恢复偏好；
+  // 详见 `useSidebarCollapse.ts` 头注与台账 SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK）
+  const { isExpanded, toggleSidebar } = useSidebarCollapse();
+  /**
+   * 折叠栏（48px）的**临时展开（hover peek）**：鼠标移入即按展开态渲染完整列表。
+   *
+   * 原实现只有 CSS `hover:w-60`（宽度变宽）而内容分支仍走折叠 JSX ⇒ 展开后里面是
+   * 「全部会话」占位符，**hover 也选不了会话**（真机实证 `[data-session-id]` = 0）。
+   */
+  const [hoverExpanded, setHoverExpanded] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  /**
+   * 离开面板 ⇒ 结束 peek。
+   *
+   * ⚠️ `SessionContextMenu` / 确认框是 `position: fixed`（在面板盒子之外）但仍是面板的
+   * **DOM 后代**：鼠标移入它们会先触发面板的 `mouseleave`（指针已离开盒子）——若不识别这一点，
+   * 右键菜单/确认框会在点击瞬间被卸载。故用 `relatedTarget` 做后代判定。
+   */
+  const handlePanelMouseLeave = useCallback((e: React.MouseEvent) => {
+    const next = e.relatedTarget as Node | null;
+    if (next && panelRef.current?.contains(next)) return;
+    setHoverExpanded(false);
   }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "pinned">("all");
 
-  // 窄屏（< 1024px）自动折叠侧栏（不覆盖用户手动设置）
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 1023px)");
-    const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      if (e.matches) {
-        setIsExpanded(false);
-        localStorage.setItem("liri-sidebar-expanded", "false");
-      }
-    };
-    handleChange(mediaQuery);
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, []);
   // 确认对话框状态
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -710,10 +708,13 @@ function SessionHistorySidebar({
     setShowClearConfirm(false);
   };
 
-  if (!isExpanded) {
+  if (!isExpanded && !hoverExpanded) {
     return (
-      <div className="group bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col w-12 hover:w-60">
-        <div className="p-2 border-b border-gray-200 dark:border-gray-700 flex justify-center group-hover:justify-between group-hover:px-3">
+      <div
+        onMouseEnter={() => setHoverExpanded(true)}
+        className="bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col w-12"
+      >
+        <div className="p-2 border-b border-gray-200 dark:border-gray-700 flex justify-center">
           <button
             onClick={toggleSidebar}
             className="p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
@@ -733,11 +734,9 @@ function SessionHistorySidebar({
               />
             </svg>
           </button>
-          <span className="hidden group-hover:inline text-xs font-medium text-gray-500 dark:text-gray-400">
-            {t("chat.sessionHistory")}
-          </span>
         </div>
-        <div className="flex-1 flex flex-col items-center py-2 gap-2 group-hover:hidden">
+        {/* 折叠态只作"图标 + 计数"缩略条；鼠标移入即切到展开态（见 hoverExpanded 注释） */}
+        <div className="flex-1 flex flex-col items-center py-2 gap-2">
           <svg
             className="w-5 h-5 text-gray-400"
             fill="none"
@@ -757,17 +756,16 @@ function SessionHistorySidebar({
             </span>
           )}
         </div>
-        <div className="hidden group-hover:flex flex-1 flex-col overflow-y-auto p-2">
-          <p className="text-xs text-gray-400 dark:text-gray-500 text-center mt-4">
-            {t("chat.allSessions")}
-          </p>
-        </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col w-60">
+    <div
+      ref={panelRef}
+      onMouseLeave={handlePanelMouseLeave}
+      className="bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 flex flex-col w-60"
+    >
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
           {t("chat.sessionHistory")}

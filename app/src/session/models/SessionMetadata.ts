@@ -119,7 +119,9 @@ export class SessionMetadata implements SessionMetadata {
       worktreeState: this.worktreeState,
       prLink: this.prLink,
       ...(this.workMode !== undefined ? { workMode: this.workMode } : {}),
-      ...(this.toolProfile !== undefined ? { toolProfile: this.toolProfile } : {}),
+      ...(this.toolProfile !== undefined
+        ? { toolProfile: this.toolProfile }
+        : {}),
       ...(this.pinned !== undefined ? { pinned: this.pinned } : {}),
       ...(this.tokenUsage ? { tokenUsage: this.tokenUsage } : {}),
       ...(this.sessionSource ? { sessionSource: this.sessionSource } : {}),
@@ -143,7 +145,9 @@ export class SessionMetadata implements SessionMetadata {
     }
     // P4b（2026-10-16）：工具 profile 标签——仅接受字符串数组（非法形态视为未设置，不造默认值）
     if (Array.isArray(data.toolProfile)) {
-      meta.toolProfile = data.toolProfile.filter((t: unknown): t is string => typeof t === 'string');
+      meta.toolProfile = data.toolProfile.filter(
+        (t: unknown): t is string => typeof t === 'string'
+      );
     }
     return meta;
   }

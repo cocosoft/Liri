@@ -9508,6 +9508,41 @@
       "changelog": [],
       "reopenWhen": "① 若日后新增**第三种挂起事实源或第三条链**，须同步「只认最新」判据与「放行成功落失效标记」两条 —— 判据：该链上出现「已续跑却被重启重登记」。② `budget_resumed` 标记会**多占一条检查点**（File 存储 = 一个文件、DB = 一行）：若某会话检查点数量出现异常增长，考虑并入既有链头或纳…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-RESTART-IDEMPOTENT）",
       "notes": "【问题（用户指令驱动 + 真机复现）】现象：`budgetSuspend:suspended{reason:'restored_budget_suspend'}` 反复出现 —— 真机日志实证**同一会话当日被登记 10 次**，且用户 17:19 在界面上**又看到「已挂起」卡片并再点了一次「继续」**（其 17:…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-RESTART-IDEMPOTENT）"
+    },
+    {
+      "id": "CHANNEL-BUDGET-INLINE-RELIEF",
+      "title": "通道侧「就地放行」：预算挂起卡片（带按钮）+ 按钮回调入站动作（先做 QQ）",
+      "source": "用户裁定「A + C2（卡片回调，真·就地放行）→ 先 QQ（你实际在用的）」；上游 = 桌面端挂起入口收口后暴露的通道侧缺口（Spec long-task-suspend-resume v1.10 遗留「通道侧继续入口未做」）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        ".trae/specs/channel-budget-inline-relief.md",
+        "app/src/channels/bridge/budgetReliefCard.ts",
+        "app/src/channels/bridge/budgetReliefAction.ts",
+        "app/src/channels/routing/messageRouter.ts",
+        "app/src/channels/routing/messageRouterContract.ts",
+        "app/src/channels/qq/keyboard.ts",
+        "app/src/channels/qq/QQChannel.ts",
+        "app/src/channels/qq/types.ts",
+        "app/src/channels/qq/apiUrls.ts",
+        "app/src/main.ts"
+      ],
+      "tests": [
+        "app/tests/channels/budgetInlineRelief.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **真机端到端仍未做**（`e2eVerified=false`）：按钮点击必须**真人在 QQ 客户端**点 ⇒ 待用户开通「自定义按钮」并在 QQ 里点一次后补齐（判据：日志出现 `channels:budgetReliefAction: 放行已处理` + `budgetSuspend:resumed{tar…（全文见 archive/evidence-detail.jsonl#CHANNEL-BUDGET-INLINE-RELIEF）",
+      "notes": "【问题（用户裁定「A + C2，先 QQ」）】通道（QQ/飞书）里的会话撞上日预算后，**放行动作只在桌面端** ⇒ 手机上的通道用户卡住。上一片收口桌面端入口后，这一半成了唯一缺口。 【取证（只读十条，含一条纠正）】① 通道侧**已有**「发送被拦」文案（`resolveLlmFailure('DAILY_BUDG…（全文见 archive/evidence-detail.jsonl#CHANNEL-BUDGET-INLINE-RELIEF）"
     }
   ]
 }

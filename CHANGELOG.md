@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **CHANNEL-BUDGET-INLINE-RELIEF**：通道侧「就地放行」：预算挂起卡片（带按钮）+ 按钮回调入站动作（先做 QQ） —— 验证 ut24|tc1|ts6630；基线 改前：通道侧只有「发送被拦」一种文案；运行中被挂起时把桌面措辞当普通文本投递；入站零「一次交互→动作」通道；QQ 的 sendInteractiveMessage 把卡片拍平成 Markdown（详情见 archive/evidence-detail.jsonl#CHANNEL-BUDGET-INLINE-RELIEF）
 - ✅ **BUDGET-SUSPEND-RESTART-IDEMPOTENT**：挂起事实的失效条件：修「已放行续跑过的会话每次重启又变回已挂起」（只认最新检查点 + 放行成功落已恢复标记） —— 验证 e2e1|ut4|tc1|ts6606；基线 改前：启动扫描扫全部检查点（find）且挂起标记无失效机制 ⇒ 已续跑过的会话每次重启/重载又被登记为「已挂起」（真机同一会话当日 10 次、用户被迫再点一次）（详情见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-RESTART-IDEMPOTENT）
 - ✅ **BUDGET-SUSPEND-DELETE-RELEASE**：会话删除/清空一并释放预算挂起协调器的内存登记：不再留「已删会话仍在挂起清单」的幽灵条目 —— 验证 e2e1|ut3|tc1|ts6602；基线 改前：删除仍挂起的会话只清检查点（磁盘），协调器内存登记不释放 ⇒ 真机实测删后挂起清单仍是 2 条（含已删会话）（详情见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-DELETE-RELEASE）
 - ✅ **BUDGET-SUSPEND-WAKE-SCOPE**：放行可带「唤醒收窄目标」：点一条会话的「继续」不再唤醒当日别的挂起会话 —— 验证 e2e1|ut7|cln634|tc1|ts6599；基线 改前：卡片「继续」走全局放行 ⇒ 协调器按挂起时间唤醒当日最多 3 条挂起会话（真机 woken:[用户的会话, 我的会话]），别的会话自行开跑并花钱（详情见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-WAKE-SCOPE）

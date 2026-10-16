@@ -5384,6 +5384,41 @@
 {"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"code#3","i":0,"c":".trae/specs/long-task-suspend-resume.md"}
 {"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"tests#0","i":0,"c":"app/tests/chat/budgetSuspendStartupRestore.test.ts"}
 {"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"tests#1","i":0,"c":"app/tests/chat/budgetSuspendStream.test.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"title","i":0,"c":"通道侧「就地放行」：预算挂起卡片（带按钮）+ 按钮回调入站动作（先做 QQ）"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"source","i":0,"c":"用户裁定「A + C2（卡片回调，真·就地放行）→ 先 QQ（你实际在用的）」；上游 = 桌面端挂起入口收口后暴露的通道侧缺口（Spec long-task-suspend-resume v1.10 遗留「通道侧继续入口未做」）"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"reopenWhen","i":0,"c":"① **真机端到端仍未做**（`e2eVerified=false`）：按钮点击必须**真人在 QQ 客户端**点 ⇒ 待用户开通「自定义按钮」并在 QQ 里点一次后补齐（判据：日志出现 `channels:budgetReliefAction: 放行已处理` + `budgetSuspend:resumed{targetSessionId}`）。② "}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"reopenWhen","i":1,"c":"**QQ 自定义按钮属平台「内邀开通」能力**：未开通时本片**降级为纯文案**（用户仍可见出路）—— 若用户始终收不到按钮，先核对平台侧权限/模版，而不是改代码。③ 通道侧入口目前**只覆盖 QQ**：飞书出站按钮**已实现**（`FeishuChannel.ts:569-578`）但**入站回调（`card.action.trigger`）未做**；另有"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"reopenWhen","i":2,"c":" 11 个通道实现 `sendInteractiveMessage`，其入站回调面同样未做 —— 若要覆盖须逐平台加事件分支 + 复用本片 `budgetReliefAction` 端口（**不要**各平台各写一套放行逻辑）。④ 去重标记（`sentSessions`）为**进程内**：重启后同一挂起点可能再发一次卡（不影响正确性）；若成为噪音再收敛为按检查"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"reopenWhen","i":3,"c":"点去重。⑤ 若日后挂起态新增按钮档位（如 `waive-once`），须同步 `parseBudgetReliefActionData` 的值域与桌面端口径（本片有意不做 `waive-once`：单次豁免语义在通道内易被误解为永久放行）。"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":0,"c":"【问题（用户裁定「A + C2，先 QQ」）】通道（QQ/飞书）里的会话撞上日预算后，**放行动作只在桌面端** ⇒ 手机上的通道用户卡住。上一片收口桌面端入口后，这一半成了唯一缺口。\n【取证（只读十条，含一条纠正）】① 通道侧**已有**「发送被拦」文案（`resolveLlmFailure('DAILY_BUDGET_EXCEEDED')`，含出路）；②"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":1,"c":" **运行中被挂起**时把助手侧的 ⏸ **桌面措辞**当普通文本投递（无通道内动作）；③ 流内**已有结构化信号** `finishReason='budget_exhausted'`（`chat/ReActToolLoop.ts:2376-2377`），通道侧流消费者**看得见** `finishReason`（`"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":2,"c":"channels/routing/streamConsumption.ts:110-137`）⇒ **无需**新总线/反向依赖；④ `InteractiveCard.buttons[]` 契约**本就带按钮**（`channels/types/IChannel.ts:135-144`）；⑤ 出站有 `sendInteractive` 与 `"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":3,"c":"interactive→markdown→text` 降级链 + 现成先例（`channels/bridge/inboxChannelReply.ts:100-152`）；⑥ 会话↔通道归属**已落元数据**（`messageRouter.ts:547-556`）；⑦ **入站侧零「一次交互→服务端动作」通道**（全仓无卡片回调处理；通道消息一律当普通对话）"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":4,"c":"—— 这也是 `relayReplyToChannel` 只做**反向**（把审批结果投回通道）；⑧ **QQ 出站是空的**：`sendInteractiveMessage` 把卡片**拍平成 Markdown**（丢按钮）；⑨ **QQ 入站未处理交互事件**且**意图掩码不含** `INTERACTION`；⑩ **纠正**：spec 原先点名的前置（"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":5,"c":"通道治理**阶段 2.3**）**引用错配** —— 2.3 = **出站 SSE 订阅面**（供订阅状态机四原语广播），已裁定**暂缓**（理由 = CS03「无消费者不建空抽象」），而阶段 **2.4 早已落地**。\n【QQ 官方协议（外部权威，落地依据）】带按钮消息 = `keyboard.content.rows[].buttons[]`，每按钮 `"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":6,"c":"render_data{label,visited_label,style}` + `action{type,permission{type},data,unsupport_tips}`；`action.type` 0 跳转 / **1 回调** / 2 指令；`permission.type` **2 = 所有人**。⚠️ **两处硬约束**：① **自定"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":7,"c":"义按钮属「内邀开通」**（模版按钮需「申请使用」）⇒ 未开通可能发送失败；② 点击回调按钮触发 `INTERACTION_CREATE`（**Intent `INTERACTION (1<<26)`**，原掩码不含 ⇒ **不加则收不到点击**），事件体 `type=11` + `data.resolved.button_data`，且**必须** `PUT"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":8,"c":" /interactions/{id}`（`{code:0..5}`）回应，否则客户端一直 loading。来源：QQ 机器人官方文档「消息按钮」「互动事件」「互动事件响应」三页。\n【做法（四层，依赖方向全部向下）】① **A 文案两态**（`messageRouterContract.buildBudgetSuspendedNotice`）：区分「**发送"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":9,"c":"被拦**（本条未处理 ⇒ 放行后**重发**）」与「**运行中被挂起**（进度已保存 ⇒ 放行后**自动续跑、无需重发**）」，并按**实际投递路径**取词（有按钮/无按钮）；② **出站卡片**（`channels/bridge/budgetReliefCard`）：`messageRouter` 在 `finishReason==='"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":10,"c":"budget_exhausted'` 分支（**结构化判据**，非正文匹配，守 CS02）追加一张两个按钮（临时提额 / 今日解除）的卡片，走 `sendInteractive → markdown → text` 降级链、失败只告警不阻塞主流程、按会话去重；③ **入站动作**（`channels/bridge/budgetReliefAction`）：解"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":11,"c":"析**自描述**载荷（`{a:'budget-relief',k,s}`，**不猜**）、交**注入端口**、结果码与 QQ 回应同值域；④ **QQ 适配**：出站 `buildQQKeyboard` 翻按钮 + **带按钮失败 ⇒ 纯 Markdown 重发**（防「没权限连消息都收不到」）；入站 `"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":12,"c":"QQEventType.INTERACTION_CREATE` + 意图补 `1<<26` + `PUT /interactions/{id}` **无条件回应**；⑤ **组合根装配**（`main.ts`，守 R01-007：channels **不得**反依赖 `query`）：注册端口 = **复核** `"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":13,"c":"coordinator.isSuspended(sessionId)`（防伪造/陈旧按钮）→ `applyRelief(input, sessionId)`（**收窄**唤醒到本会话，复用 v1.11 口径）→ 返回 `{code}`。\n【验证（单测 24 例 / 0 fail，覆盖 spec §4 验收 1–7）】两态文案不混（挂起态**不得**出现「重发"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":14,"c":"本条消息」、无按钮时**不得**说「点下方」）· 卡片与载荷**同源自洽**（写出即可被读入还原）· 解析**不猜**（8 种非法载荷 ⇒ null）· 动作端口三态（未注册 / 抛错 / 非法载荷**均不静默**，且非法载荷**不调用**端口 —— 负向：伪造数据不得触发放行）· QQ keyboard 协议形状（`action.type=1` / `"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":15,"c":"permission.type=2` / `data` 原样 / 无按钮 ⇒ null）· **意图自证**（断言 `1<<26` 置位，反向证明「不加就收不到点击」）· 出站降级链（`sendInteractive` 抛错 ⇒ 降级 Markdown 且文案**换成无按钮版**；无出站 ⇒ 返回 false **不谎报**；同会话重复调用只发一次）。\n【如"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":16,"c":"实边界】① **`e2eVerified=false`**：按钮点击必须**真人在 QQ 客户端**点 ⇒ 本片交付到「单测 + 协议合规 + 降级」；真机验证待用户开通权限并点一次。② QQ 自定义按钮属**内邀**能力 ⇒ 未开通时降级为纯文案（用户仍能看到出路，只是不能在通道内点）。③ 本片**只覆盖 QQ**；飞书出站按钮已实现但入站回调未做；其余 "}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"notes","i":17,"c":"11 个实现 `sendInteractiveMessage` 的通道同理（见 reopenWhen ③）。④ 通道治理**阶段 2.3（出站 SSE 订阅面）维持暂缓** —— 本片走**流内信号**，不需要它；同时**纠正**了 spec 里把它当「通道侧放行前置」的引用错配。⑤ 去重为进程内；`waive-once` 有意不做。"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#0","i":0,"c":".trae/specs/channel-budget-inline-relief.md"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#1","i":0,"c":"app/src/channels/bridge/budgetReliefCard.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#2","i":0,"c":"app/src/channels/bridge/budgetReliefAction.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#3","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#4","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#5","i":0,"c":"app/src/channels/qq/keyboard.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#6","i":0,"c":"app/src/channels/qq/QQChannel.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#7","i":0,"c":"app/src/channels/qq/types.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#8","i":0,"c":"app/src/channels/qq/apiUrls.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"code#9","i":0,"c":"app/src/main.ts"}
+{"id":"CHANNEL-BUDGET-INLINE-RELIEF","k":"tests#0","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

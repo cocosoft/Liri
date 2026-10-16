@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore, inferFileType } from "../../stores/chat";
+import { resolveBranchBoundary } from "../../stores/chat/branchBoundary";
 import { useShallow } from "zustand/shallow";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useConfigStore } from "../../stores/configStore";
@@ -694,21 +695,36 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
         const branchTitle = currentSession
           ? `${t("chat.branchPrefix")}${currentSession.title}`
           : t("chat.newBranchSession");
+        // 源消息列表快照：fork 需按**事件边界**只复制"编辑点之前"的历史
+        const sourceMessages = useChatStore.getState().messages;
         if (currentSession) {
-          const forked = await sessionService.forkSession(currentSession.id, {
-            childTitle: branchTitle,
-          });
-          // 真机缺陷修复（2026-10-16）：fork 后端已建会话，但侧栏 `chatSessions` 尚未收录
-          // ⇒ 立刻 switch 会被 `switchChatSession` 的 G5 守卫判为「目标会话已不在列表」并
-          // **丢弃切换**（回落旧会话）⇒ 后续 `editTruncate` 会把旧会话的消息 id 打到新会话上
-          //（Console：`Target message not found`）。此处先轻量 upsert 收录，再切换。
-          // ⚠ 仍未修（另立片）：即便切对会话，该 `truncate` 在新会话仍被后端 404（fork 后派生
-          // 消息 id 与后端不认）⇒ 截断落空 ⇒ 分支重载后旧消息回显（真机已复现 4 条/2 轮）。
-          // 根因修法方向 = 改用 fork 的事件边界 `boundary`（fork 时就只复制编辑点之前的历史），
-          // 从而**不再需要**事后 truncate —— 需先确认 boundary 的 inclusive 语义与 open-turn 400。
-          useRootStore.getState().upsertChatSession(forked.session);
-          await useSessionStore.getState().switchSession(forked.session.id);
-          sessionId = forked.session.id;
+          // 真机缺陷修复（2026-10-16）：原实现「fork 全量 → 事后 editTruncate」在新会话恒被
+          // 后端 404（`Target message not found`）⇒ 截断落空 ⇒ 分支重载后旧消息回显。
+          // 本轮只修**可被客户端证明**的一类：编辑点为**首条** ⇒ 零历史（建空会话即可，
+          // fork 全量会把被"删掉"的旧消息一起带过去 —— 真机已实证该回退路径会回显）。
+          // 非首条需要"编辑点之前的事件边界"，客户端拿不到可信值（详见 `branchBoundary`
+          // 文件头注：字段常为 null + `withPaginationSeq` 合成序号非事件 seq + tail 戳可能
+          // 落在未闭合 turn 内 ⇒ 后端 400）⇒ 保持既有行为并留痕，待后端支持
+          // `fork { truncateAfterMessageId }` 再收口。
+          const plan = resolveBranchBoundary(sourceMessages, editTarget);
+          if (plan.kind === "empty") {
+            // 注：**不 early-return** —— 下方还有"上传附件 + 发送"主流程要用 sessionId；
+            // 这里只负责把会话切好、并把编辑点清空（空会话里无事可截断，且截断会 404）。
+            const branchSession = await createSession(branchTitle);
+            await useSessionStore.getState().switchSession(branchSession.id);
+            sessionId = branchSession.id;
+            useChatStore.getState().setEditTarget(null);
+          } else {
+            const forked = await sessionService.forkSession(currentSession.id, {
+              childTitle: branchTitle,
+            });
+            // fork 后端已建会话，但侧栏 `chatSessions` 尚未收录 ⇒ 立刻 switch 会被
+            // `switchChatSession` 的 G5 守卫判「目标会话已不在列表」并丢弃切换（回落旧会话）
+            // ⇒ 先轻量 upsert 收录再切。
+            useRootStore.getState().upsertChatSession(forked.session);
+            await useSessionStore.getState().switchSession(forked.session.id);
+            sessionId = forked.session.id;
+          }
         } else {
           const branchSession = await createSession(branchTitle);
           await useSessionStore.getState().switchSession(branchSession.id);

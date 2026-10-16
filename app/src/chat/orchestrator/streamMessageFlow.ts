@@ -219,6 +219,15 @@ export async function* runStreamMessage(
   // 开关关闭时治理器内部为 no-op（见 `resourceGovernor/index.ts` 头注）。
   let governorAdmitted = false;
 
+  // 中止补齐（2026-10-16，真机取证「切走会话杀长任务 ⇒ 切回呈现假空闲」）：
+  // `turn/start` ↔ `turn/end` 必须成对（崩溃恢复期由 `EventLogRepair` 以 `canceled` 补闭合），
+  // 但**客户端中止**（切走 / 关页 / 断连 ⇒ 消费方 `.return()` 关闭本生成器）会跳过正常路径的
+  // `turn/end` 写入 ⇒ 该轮**无终态**：事件派生拿不到 `finishReason` ⇒ 切回会话时前端不显示
+  // "该回复已中断"、也无任何终态（用户看到进度冻结的假空闲，且 Console 无 warn/error）。
+  // 与 `mutexHeld` 同理：holder 必须在 try **外**声明，最外层 finally 才看得到
+  // （finally 与 try Block 平行，看不到 try 内声明的 let —— 见上方 BUG-1 注）。
+  const turnTrace = { started: false, turnNo: 0, ended: false };
+
   try {
     streamSpan.addEvent('streamMessage.start', {
       'session.id': session.id,
@@ -1100,6 +1109,8 @@ export async function* runStreamMessage(
         if (turn.started) {
           currentTurnNo = turn.turnNo;
           turnStarted = true;
+          turnTrace.started = true;
+          turnTrace.turnNo = turn.turnNo;
         }
       }
 
@@ -1636,6 +1647,7 @@ export async function* runStreamMessage(
           finishReason,
         },
       });
+      turnTrace.ended = true;
     }
 
     streamSpan.addEvent('streamMessage.llm.done', {
@@ -2310,7 +2322,9 @@ export async function* runStreamMessage(
       );
 
     // P2-3.5: 资源清理 + 持久化 + 构建返回消息
-    return await _finalizeStreamMessage(
+    // 工具调用轮次的 `turn/end` 由 `_finalizeStreamMessage` 落盘后补写（见上方 P0-fix-3），
+    // 故该处**正常返回**即代表终态已写 ⇒ 置位以阻止 finally 兜底重复补写。
+    const finalized = await _finalizeStreamMessage(
       session,
       ctx.content,
       accumulatedContent,
@@ -2322,6 +2336,8 @@ export async function* runStreamMessage(
       // TB-16（2026-09-24）：主循环终止判定（无工具调用时为 undefined）
       toolLoopTermination
     );
+    turnTrace.ended = true;
+    return finalized;
   } finally {
     // P2 修复（AB-2）+ BUG-1/2 收敛 + P2-1e：**唯一释放点**，释放恰好一次。
     // 「只释放确实持有的」「内层不再 release」「时序为何不可外移」等口径沉淀在
@@ -2341,6 +2357,42 @@ export async function* runStreamMessage(
       getOTelTracing().endSpan(streamSpan);
     } catch {
       /* span 可能已结束 */
+    }
+
+    // 中止补齐（2026-10-16）：`turn/start` 已写、`turn/end` 未写 ⇒ 本轮**无终态**
+    //（客户端中止：切走会话 / 关页 / 断连，消费方 `.return()` 关闭本生成器；或异常穿透）。
+    // 补写 `canceled` 与 `EventLogRepair`（崩溃恢复期补闭合）**同口径** ⇒ 事件派生会带上
+    // `finishReason: 'canceled'`，前端 `ChatMessage` 据此显示"该回复已中断（任务被中止）"，
+    // 而不是切回会话后看到进度冻结的假空闲。
+    // ⚠ 顺序：必须放在既有清理之后 —— 上面几步是**资源释放**，不可因 append 失败而跳过；
+    // append 自身失败只 warn（与非阻断口径一致，CS03）。
+    if (turnTrace.started && !turnTrace.ended) {
+      try {
+        await emitEvent({
+          type: 'turn/end',
+          seq: 0,
+          time: Date.now(),
+          sessionId: session.id,
+          data: {
+            turn:
+              turnTrace.turnNo > 0 ? turnTrace.turnNo : host.toolRoundCount + 1,
+            finishReason: 'canceled',
+          },
+        });
+        logger.warn(
+          'streamMessageFlow: turn 中止未闭合 ⇒ 补写 turn/end(canceled)',
+          {
+            sessionId: session.id,
+            turn: turnTrace.turnNo,
+            aborted: streamAbortController.signal.aborted,
+          }
+        );
+      } catch (err) {
+        logger.warn('streamMessageFlow: 补写 turn/end(canceled) 失败', {
+          sessionId: session.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
   }
 }

@@ -75,7 +75,11 @@ import type {
   AgentResult,
   ConvertFileParams,
 } from './CoreAPI';
-import type { ConversionResult, FileInfo } from '@modules/tools';
+import type {
+  ConversionResult,
+  FileInfo,
+  ToolVisibilityReport,
+} from '@modules/tools';
 // D-227（2026-10-02，B12）：仅保留**类型位**（`ReturnType<typeof getConverterEngine>` / `FileTypeDetector`）；
 // 值改经 `CoreApiAppDeps` 注入 ⇒ 删除 `@modules/tools` 静态值导入。
 import type { getConverterEngine, FileTypeDetector } from '@modules/tools';
@@ -1559,6 +1563,14 @@ export class CoreAPIImpl implements CoreAPI {
 
   async getTool(name: string): Promise<ToolInfo | undefined> {
     return this.sessionAgentOps.getTool(name);
+  }
+
+  /** P1「可解释性」（2026-10-16）：薄转发到 `sessionAgentOps`，只读、零行为变更 */
+  async getToolVisibilityReport(query?: {
+    taskType?: string;
+    extraCategories?: readonly string[];
+  }): Promise<ToolVisibilityReport[]> {
+    return this.sessionAgentOps.getToolVisibilityReport(query);
   }
 
   async createSession(params?: SessionCreateParams): Promise<SessionInfo> {

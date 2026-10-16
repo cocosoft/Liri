@@ -437,7 +437,10 @@ export const DEFAULT_TASK_KEY = 'default';
  * 等子代理结算"，属长流程；若模型登记了却无人结算，会话会停在 running 等待态。
  * 它仍留在全量注册表（`sessions_yield` 可被越清单调用，恢复通路已装配）。
  */
-const MANDATORY_TOOLS: ReadonlySet<string> = new Set(['todo_write', 'agent']);
+export const MANDATORY_TOOLS: ReadonlySet<string> = new Set([
+  'todo_write',
+  'agent',
+]);
 
 /**
  * 获取任务的工具类别白名单；未配置的任务回退 default 保底集。

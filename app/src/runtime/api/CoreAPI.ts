@@ -24,7 +24,11 @@
  * 统一的应用门面，为所有外部入口（CLI、Bridge、通道插件）提供一致的功能入口
  liriliri*/
 
-import type { ConversionResult, FileInfo } from '@modules/tools';
+import type {
+  ConversionResult,
+  FileInfo,
+  ToolVisibilityReport,
+} from '@modules/tools';
 import type { TodoBlockData } from './todo-types';
 import type { DocWorkflowProgressData } from '@modules/doc/types/outline';
 import type { LiriEvent } from '@modules/session/types/events';
@@ -448,6 +452,22 @@ export interface CoreAPI {
 
   /** 获取指定工具详情 */
   getTool(name: string): Promise<ToolInfo | undefined>;
+
+  /**
+   * 工具**可见性报表**（P1「可解释性」，2026-10-16，方案 `dev_docs/20261016/工具可见性治理方案`）。
+   *
+   * 与 `listTools()` 的区别：后者是**注册表全量**（"装了什么"），本方法是**每轮裁剪后的
+   * 可见性解释**（"模型这轮为什么看不见它"）。口径与 `filterToolsByTask` 逐条一致，
+   * 由 `tools/toolVisibilityReport.ts` 单实现派生 ⇒ 本方法**只读、零行为变更**。
+   *
+   * @param query.taskType 任务类型（缺省 `'default'`）
+   * @param query.extraCategories 额外类别**名**（带图消息追加 `image` / `toolProfile` 映射）。
+   *   取自 HTTP 查询串 ⇒ 此处为字符串；实现侧用 `isKnownToolCategory` 校验，非法类别丢弃并告警。
+   */
+  getToolVisibilityReport(query?: {
+    taskType?: string;
+    extraCategories?: readonly string[];
+  }): Promise<ToolVisibilityReport[]>;
 
   // ========== 领域只读快照（HTTP 等 service 侧消费；2026-09-30 D-85）==========
 

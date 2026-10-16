@@ -28,7 +28,11 @@
 
 import type http from 'http';
 import type { HandlerCtx } from '../handler-utils';
-import { handleExecuteTool, handleListTools } from '../tools-handlers';
+import {
+  handleExecuteTool,
+  handleGetToolVisibility,
+  handleListTools,
+} from '../tools-handlers';
 import {
   handleImageDelete,
   handleImageList,
@@ -62,6 +66,12 @@ export async function dispatchToolMediaRoutes(
 ): Promise<boolean> {
   const method = req.method || 'GET';
   // ---- Tools ----
+  // P1（2026-10-16）：可见性报表 —— 必须置于 `/v1/tools` 精确匹配**之前**（`===` 本不会吞，
+  // 但顺序明确可防后续把此处改成 `startsWith` 时静默劫持）。
+  if (method === 'GET' && url === '/v1/tools/visibility') {
+    await handleGetToolVisibility(handlerCtx, req, res);
+    return true;
+  }
   if (method === 'GET' && url === '/v1/tools') {
     await handleListTools(handlerCtx, req, res);
     return true;

@@ -4561,6 +4561,26 @@
 {"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"tests#0","i":0,"c":"client/src/components/Trajectory/__tests__/trajectoryEventTypes.test.ts"}
 {"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"tests#1","i":0,"c":"client/src/components/Trajectory/__tests__/TrajectoryFilter.test.tsx"}
 {"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"tests#2","i":0,"c":"client/src/tests/trajectory-filter.test.tsx"}
+{"id":"TOOLVIS-P1-REPORT","k":"title","i":0,"c":"工具可见性治理 P1（可解释性）：可见性报表 + GET /v1/tools/visibility"}
+{"id":"TOOLVIS-P1-REPORT","k":"source","i":0,"c":"导出会话 chat-export-1792134736803.md / chat-export-1792134730056.md（computer_use 追查 → 建议加可见性覆写层）+ 回仓逐条取证（订正 3 处）；方案 dev_docs/20261016/工具可见性治理方案-20261016.md"}
+{"id":"TOOLVIS-P1-REPORT","k":"reopenWhen","i":0,"c":"新增/删除内置工具名、改动 TASK_TOOL_CATEGORIES / ARCHIVED_MISC_TOOLS / MANDATORY_TOOLS，或改 filterToolsByTask 的裁剪判据时（报表须与裁剪同步 —— 交叉断言会红；P2 引入覆写层后须同步补 tool→flag policy 表与 user-off / "}
+{"id":"TOOLVIS-P1-REPORT","k":"reopenWhen","i":1,"c":"user-on-bypass 原因）"}
+{"id":"TOOLVIS-P1-REPORT","k":"notes","i":0,"c":"① 新增 tools/toolVisibilityReport.ts：名字域与判据**全部派生**（常量表 90 / 生成物 75 / getToolCategory / getTaskToolCategories / MANDATORY_TOOLS / ARCHIVED_MISC_TOOLS），零手写清单（CS01）；只读、不参与注册·裁剪·执行 ⇒ **"}
+{"id":"TOOLVIS-P1-REPORT","k":"notes","i":1,"c":"零行为变更**。② 新增 GET /v1/tools/visibility：CoreAPI.getToolVisibilityReport 薄转发；因 app 层的值不可被 service 层静态导入（R00-001，分层违规 0），实现取**方法内动态导入**（同 CoreAPIImpl.getToolsPort() 先例）；extraCategories"}
+{"id":"TOOLVIS-P1-REPORT","k":"notes","i":2,"c":" 走 isKnownToolCategory 校验，非法类别丢弃并告警（不把任意字符串塞进白名单 ⇒ 报表不谎报可见）。③ 与 GET /v1/tools 的区别：后者=注册表全量（装了什么），本接口=每轮裁剪后的可见性解释（模型这轮为什么看不见它）—— 该可见性此前**从不外露**。④ 自证：单测 11 例，其中与 filterToolsByTask 对 "}
+{"id":"TOOLVIS-P1-REPORT","k":"notes","i":3,"c":"75 个生效名**全量交叉一致**（防口径漂移主闸）；真机 GET 200 / 90 条、computer_use·browser=archived、pdf·tts=conditional+unregistered-category、code 类随 taskType 在 coding/default 间改判、extraCategories=image 生效且"}
+{"id":"TOOLVIS-P1-REPORT","k":"notes","i":4,"c":"非法类别被丢弃。⑤ P1 边界（如实）：不报 flag 门控（生成物取不到被 cond 关掉的名字 ⇒ 无法可靠反推 flag 名）、暂无 risk 字段（随 P3 设置页接 D5 契约）；P2–P4（覆写层 / 设置页 / 15 个影子工具评估接线）见方案 §4，未在本片实施。"}
+{"id":"TOOLVIS-P1-REPORT","k":"code#0","i":0,"c":"app/src/tools/toolVisibilityReport.ts"}
+{"id":"TOOLVIS-P1-REPORT","k":"code#1","i":0,"c":"app/src/tools/index.ts"}
+{"id":"TOOLVIS-P1-REPORT","k":"code#2","i":0,"c":"app/src/tools/toolCategories.ts"}
+{"id":"TOOLVIS-P1-REPORT","k":"code#3","i":0,"c":"app/src/runtime/api/CoreAPI.ts"}
+{"id":"TOOLVIS-P1-REPORT","k":"code#4","i":0,"c":"app/src/runtime/api/CoreAPIImpl.ts"}
+{"id":"TOOLVIS-P1-REPORT","k":"code#5","i":0,"c":"app/src/runtime/api/sessionAgentOps.ts"}
+{"id":"TOOLVIS-P1-REPORT","k":"code#6","i":0,"c":"app/src/infrastructure/http/handlers/tools-handlers.ts"}
+{"id":"TOOLVIS-P1-REPORT","k":"code#7","i":0,"c":"app/src/infrastructure/http/handlers/routes/tool-media-routes.ts"}
+{"id":"TOOLVIS-P1-REPORT","k":"code#8","i":0,"c":".trae/docs/api-spec.md"}
+{"id":"TOOLVIS-P1-REPORT","k":"code#9","i":0,"c":"dev_docs/20261016/工具可见性治理方案-20261016.md"}
+{"id":"TOOLVIS-P1-REPORT","k":"tests#0","i":0,"c":"app/tests/tools/toolVisibilityReport.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

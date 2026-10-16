@@ -195,6 +195,17 @@ export {
   resetToolFlags,
 } from './utils/ToolFeatureFlags';
 
+// P1（2026-10-16，方案 `dev_docs/20261016/工具可见性治理方案-20261016.md`）：
+// 工具可见性报表 —— 只读解释"为什么不可见"，不改变任何行为
+export {
+  resolveToolVisibilityReport,
+  isKnownToolCategory,
+} from './toolVisibilityReport';
+export type {
+  ToolVisibilityReport,
+  ToolVisibilityReason,
+} from './toolVisibilityReport';
+
 // 导出工具编排服务
 export {
   ToolOrchestration,

@@ -43,7 +43,11 @@ import type {
   ConversionResult,
   FileInfo,
   ConversionOptions,
+  ToolVisibilityReport,
 } from '@modules/tools';
+// 注：`resolveToolVisibilityReport` / `isKnownToolCategory` 是 app 层**值**，本文件属 `runtime`（service 层）
+// ⇒ 禁止静态值导入（R00-001 分层倒挂），改为 `getToolVisibilityReport()` 内**方法内动态导入**
+// （与本仓既有先例同法：`CoreAPIImpl.getToolsPort()` 内的 `await import('@modules/tools')`）。
 import type {
   ToolInfo,
   ToolCallSpec,
@@ -114,6 +118,38 @@ export class SessionAgentOps {
         : {},
       enabled: reg.definition.enabled ?? true,
     }));
+  }
+
+  /**
+   * P1（2026-10-16，方案 `dev_docs/20261016/工具可见性治理方案`）：**工具可见性报表**（只读）。
+   *
+   * 解释"某个工具为什么现在不可见"（归档 / 未登记类别 / 不在本任务白名单 / 未进生成物 /
+   * 恒保留）；口径与 `filterToolsByTask` **逐条一致**（由 `toolVisibilityReport` 单实现，测试交叉钉死）。
+   * 不参与任何执行路径 ⇒ **零行为变更**。
+   *
+   * ⚠️ 分层：实现体是 app 层的**纯函数** ⇒ 方法内动态导入（见文件顶部注释）。
+   * `extraCategories` 来自 HTTP 查询串（字符串），故此处用 `isKnownToolCategory` **校验**：
+   * 非合法类别一律丢弃并告警（不把任意字符串塞进白名单 ⇒ 报表不会谎报可见）。
+   */
+  async getToolVisibilityReport(query?: {
+    taskType?: string;
+    extraCategories?: readonly string[];
+  }): Promise<ToolVisibilityReport[]> {
+    const { resolveToolVisibilityReport, isKnownToolCategory } = await import(
+      '@modules/tools'
+    );
+    const raw = query?.extraCategories ?? [];
+    const extraCategories = raw.filter(isKnownToolCategory);
+    if (extraCategories.length !== raw.length) {
+      logger.warn('getToolVisibilityReport() 丢弃了未知类别', {
+        requested: raw,
+        accepted: extraCategories,
+      });
+    }
+    return resolveToolVisibilityReport({
+      taskType: query?.taskType,
+      extraCategories,
+    });
   }
 
   async getTool(name: string): Promise<ToolInfo | undefined> {

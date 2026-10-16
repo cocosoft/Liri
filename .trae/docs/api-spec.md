@@ -254,6 +254,8 @@
 |------|------|----------|-----------|
 | GET | `/v1/tools` | ✅ | `toolService.list` |
 | POST | `/v1/tools/{name}/execute` | ✅ | `toolService.execute` |
+| GET | `/v1/tools/visibility` | ✅ **P1（2026-10-16，方案 `dev_docs/20261016/工具可见性治理方案-20261016.md`）** | 待接（P3 `ToolsPanel`） |
+|  | 查询参数 `?taskType=<t>&extraCategories=<c>`（`extraCategories` **可重复**；非法类别丢弃并告警） |  | **只读**：返回**全量**工具（常量表 90 个）的**可见性解释**（`category` / `registration` / `visibleByDefault` / `effective` / `reasons`），即"模型这轮为什么看不见它"。与 `GET /v1/tools`（注册表全量 = "装了什么"）**不同**：后者不含当轮裁剪结论。口径由 `tools/toolVisibilityReport.ts` 单实现派生，与 `filterToolsByTask` 逐条一致（单测全量交叉钉死）。**不改变**任何注册/裁剪/执行行为 |
 
 ### §3.8 Agent 任务
 
@@ -918,6 +920,7 @@ data: {"type":"done","result":{...}}
 | | `stop` | `POST /v1/agents/{id}/stop` | — | ✅ (HTTP only；**新增**：body 可带 `sessionId` ⇒ **O10a① Tier2 归属校验**，不一致则拒绝并返回 409) |
 | **toolService** | `list` | `GET /v1/tools` | `list_tools` | ✅ |
 | | `execute` | `POST /v1/tools/{name}/execute` | `execute_tool` | ✅ |
+| | `getToolVisibilityReport` | `GET /v1/tools/visibility?taskType=&extraCategories=` | — | ✅ (HTTP only；**2026-10-16 P1 新增**：工具**可见性报表**（`reasons` 解释"为什么不可见"），**只读**、不参与注册/裁剪/执行 —— 详见 §3.7) |
 | **configService** | `get` | `GET /v1/config/{key}` | `get_config` | ✅ |
 | | `set` | `PUT /v1/config/{key}` | `set_config` | ✅ |
 | | `list` | `GET /v1/config` | `list_config` | ✅ |

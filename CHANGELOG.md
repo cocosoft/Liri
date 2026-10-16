@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TOOLVIS-P1-REPORT**：工具可见性报表：解释每个工具为什么不可见（只读、零行为变更） —— 验证 tc1|ut11|e2e6|gate6；基线 真机 GET /v1/tools/visibility 200 / 90 条：computer_use=archived、pdf=conditional、code 类随 taskType 改判；此前可见性从不外露（GET /v1/tools 仅注册表全量）（详情见 archive/evidence-detail.jsonl#TOOLVIS-P1-REPORT）
 - ✅ **SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK**：窄屏自动折叠不再写偏好、回宽屏恢复偏好，且 48px 折叠栏 hover 真正展开出会话列表 —— 验证 tc0|ut9|e2e1|gate6；基线 真机 1090x569：窗口曾 <=1023px ⇒ localStorage 被写 false 且无回宽屏恢复 ⇒ 侧栏永久 48px，折叠态 DOM 零会话行（占位符）选不了会话（详情见 archive/evidence-detail.jsonl#SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK）
 - ✅ **TRAJECTORY-TYPE-FILTER-DYNAMIC**：轨迹类型按钮改动态候选（原静态 21 项只覆盖 39%，最吵两类反而筛不到）+ 标签单一实现 —— 验证 tc0|ut10|e2e1|gate6；基线 真机：静态清单无 metric/timing（6.5%）与 request/start（3.3%）⇒ 每 1000 条约 98 行筛不掉；另 12 按钮无中文标签、9 标签无按钮（详情见 archive/evidence-detail.jsonl#TRAJECTORY-TYPE-FILTER-DYNAMIC）
 - ✅ **CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE**：消掉每轮刷屏的「未知事件类型」误报（手写副本漂移 20/54）+ 守则测试钉单一事实源 —— 验证 tc0|ut3|e2e1|gate6；基线 真机：derive 的已知事件集是手写副本（34/54）⇒ request/start 3137、context/model-input 503、session/title 105 次等累计 ≈3775 条误报（详情见 archive/evidence-detail.jsonl#CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE）

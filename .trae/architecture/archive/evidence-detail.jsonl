@@ -5056,6 +5056,31 @@
 {"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":10,"c":"fail**（受扰域回归）· 门禁 `consts`/`arch`/`unref`/`exit`/`refs`/`models` + `lint:fix-evidence` / `evidence-linewidth` / `evidence-views-drift` / `doc-code` 全绿。【如实边界】无单测改动（改的是注释，且**不该**为「无消"}
 {"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"notes","i":11,"c":"费者的桥」新写断言 —— 那会把死面固化成期望）；本条目**不**主张该桥可删（明确反对：CD07）。"}
 {"id":"SESSION-ADAPTER-METADATA-BRIDGE","k":"code#0","i":0,"c":"app/src/session/storage/UnifiedStorageAdapter.ts"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"title","i":0,"c":"新建能力声明静态一致性门禁 lint:capabilities（C1–C7）；并修 capabilities.default.yaml 4 处废弃 token（code→coding）"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"source","i":0,"c":"兑现 `LINTMODELS-CAPABILITY-SCOPE` 的 reopenWhen ② ——「应另立一个按 tracked 事实源（`capabilities.default.yaml`）做静态一致性检查的门禁，而不是复活 `lint:models` 的能力覆盖子检查」（后者输入是用户启用模型 ⇒ CI 恒未执行）"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"reopenWhen","i":0,"c":"① 若 `ALL_TASK_TYPES` 新增任务类型而 `taskMappings` 未登记 ⇒ C7 变红 —— **这是设计意图**（不是缺陷）：补一条映射行即可（`requiredCapabilities` 可为空数组，参 `knowledge_compile`）；② 若把 `capabilities[].taskTypes` 从「描述性 / UI "}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"reopenWhen","i":1,"c":"展示」提升为**路由判据**，则头注里「有意不校验的双向包含」必须重新评估（届时两条声明才真正互为约束）；③ 若 `CapabilityService.mergeYamlToDatabase()` 由「一次性播种」改为「幂等 upsert」，则存量 DB 的 `model_capabilities.task_types` 会随 YAML 更新 ⇒ 本片 "}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"reopenWhen","i":2,"c":"notes 的「已知边界 ①」须订正。"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":0,"c":"【问题】`capabilities.default.yaml` 有两个**手写**声明面：`capabilities[].taskTypes`（能力 → 可用于哪些任务，描述性、UI 展示）与 `taskMappings[]`（任务 → 必需/可选能力，路由判据）。两者此前**没有任何静态校验** ⇒ 与代码 `TaskType` 漂移后无人发现。【实证（度"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":1,"c":"量探针，2026-10-16，用完即删）】量得 codeTasks=19 / capsDefined=28 / taskMappings=19 / categories=5；`code` 这个 token **不在代码 `ALL_TASK_TYPES` 内**（真实任务类型是 `coding`），却出现在 4 个能力的 taskTypes 里（"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":2,"c":"function_calling / structured_output / bash_sandbox / code_execution）。溯源：`.trae/specs/capability-task-mapping-unify.md` 记录过 `code`→`coding` 改名，但当时**只改了 taskMappings**，`capabilities"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":3,"c":"[].taskTypes` 的 4 处**遗留**至今。探针同时证伪了另一个候选判据：按 `capabilities[].taskTypes` ↔ `taskMappings.required` 的**双向相等**校验会产出 12 条所谓违规，但它们不是缺陷（见下「如实边界 ②」）⇒ 未收进门禁。【门禁】新增 `"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":4,"c":"app/scripts/lint-capabilities.ts`（npm `lint:capabilities`；与 `lint:tool-schema` 同为 **app 本地脚本**，故 CI 以 `working-directory: app` 调用）。判据 C1–C7 **全 error 级**：C1 映射 taskType ⊆ 代码 "}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":5,"c":"ALL_TASK_TYPES；C2 required∪optional ⊆ 能力键；C3 能力 taskTypes ⊆ 代码 ALL_TASK_TYPES；C4 dependencies ⊆ 能力键；C5 category ∈ categories；C6 唯一性（能力 key / 任务 taskType / 分类内 sortOrder / 任务 "}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":6,"c":"sortOrder，对应 DB 的 PRIMARY KEY 与 UNIQUE 约束）；C7 代码侧**每个**任务类型必有映射行（缺失时 `CapabilityService.validateTaskAssignment()` 直接返回 `mapping_not_found`，用户会在任务分工看到告警）。判据抽为纯函数 `"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":7,"c":"checkCapabilityConsistency()` 供自证/负向夹具复用；真源 YAML 缺失或解析失败 ⇒ **fail-closed**（`exit 1`，不得把「没跑」当「干净」）。【为什么它能进 CI（与 `lint:models` 的能力覆盖子检查相反）】其输入**全在 tracked 域**（YAML + `modelRouter.ts`"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":8,"c":" 的 `ALL_TASK_TYPES` 常量），不读 `~/.pyapp` 用户数据 ⇒ 本地与 CI **同一结论**，不存在「CI 里只得到假红、除非伪造数据（违 CS04）」的问题。【修法】`capabilities.default.yaml` 的 4 处 `code` → `coding`（与 taskMappings 侧对齐）。【如实边界】① 本门"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":9,"c":"禁只校验 YAML（**播种源**）：`CapabilityService.mergeYamlToDatabase()` 的播种是**一次性**的（行已存在即 `continue`、保留用户覆盖）⇒ 存量 DB 的 `model_capabilities.task_types` 列**不会**回溯更新；该列**无路由消费者**（路由读 `"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":10,"c":"task_capability_mappings`），仅经 API/UI 展示 ⇒ 只影响展示语义、不影响行为；② **有意不校验** `capabilities[].taskTypes` ↔ `taskMappings.required` 的**双向包含**：两者粒度不同（前者 = 能力适用面描述，后者 = 路由硬门槛最小集），实测按「双向相等」会产生 "}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":11,"c":"12 条**非缺陷**告警（例：chat 的必需集仅 streaming/function_calling/tool_use(+可选 vision)，而 15 个能力都声明可用于 chat）⇒ 收进门禁只会制造噪声并诱使真实判据被削弱；脚本**每次运行都如实打印**该不校验项，避免被读成「已全覆盖」。【验证】`bun run "}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":12,"c":"lint:capabilities` PASS（C1–C7 一致，且修复前先以同一判据复现出 4 处 `code` 违规 ⇒ 门禁非恒真）；门禁自证 `app/tests/gates/capabilityConsistencyGate.test.ts` **12 pass / 0 fail**（真源零违规 + 真源规模非空 + C1–C7 逐条负向夹具 + "}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"notes","i":13,"c":"`app/package.json#ci` 与 `ci.yml` 的**接线断言**）；`lint:exit`（47 个入口）/ `lint:refs`（71 处引用）/ `lint:unref` / `typecheck:scripts` 全绿。"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"code#0","i":0,"c":"app/scripts/lint-capabilities.ts"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"code#1","i":0,"c":"app/tests/gates/capabilityConsistencyGate.test.ts"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"code#2","i":0,"c":"app/src/ai/config/capabilities.default.yaml"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"code#3","i":0,"c":"app/package.json"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"code#4","i":0,"c":".github/workflows/ci.yml"}
+{"id":"LINTCAPS-CONSISTENCY-GATE","k":"tests#0","i":0,"c":"app/tests/gates/capabilityConsistencyGate.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -253,6 +253,22 @@ jobs:
       run: |
         bun run scripts/lint-tool-schema.ts
 
+    # ══════════════════════════════════════════════
+    # 能力声明静态一致性门禁（2026-10-16）
+    #   兑现 `LINTMODELS-CAPABILITY-SCOPE` 的 reopenWhen ② —— 「另立一个按 tracked 事实源
+    #   做静态一致性检查的门禁」（**不是**复活 `lint:models` 的能力覆盖子检查：那条输入是
+    #   用户启用的模型，语义本地专属，见本案上方 ①）。
+    #   与它的关键区别：本项**输入全在 tracked 域**
+    #   （`capabilities.default.yaml` + `app/src/ai/modelRouter.ts` 的 `ALL_TASK_TYPES`），
+    #   不读 `~/.pyapp` 的用户数据 ⇒ **CI 与本地同一结论**，无"假红/需伪造数据"问题（CS04）。
+    #   判据 C1–C7（全部 error 级）：任务/能力/分类/依赖的**引用完整性** + 唯一性 +
+    #   「代码任务类型 ⇒ 必有映射行」（缺映射 ⇒ 用户侧 `mapping_not_found` 告警）。
+    # ══════════════════════════════════════════════
+    - name: Capability declaration consistency gate (capabilities.default.yaml · tracked 事实源)
+      working-directory: app
+      run: |
+        bun run scripts/lint-capabilities.ts
+
   # ══════════════════════════════════════════════
   # S3-1 G3（2026-10-11）：**构建变体矩阵** —— typecheck + 工具面/契约门禁
   #   每个变体：生成 `BUILD_VARIANT_FLAGS`（D1 接线后由 `feature()` 消费）→ typecheck →

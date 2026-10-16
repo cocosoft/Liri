@@ -9103,6 +9103,36 @@
       "changelog": [],
       "reopenWhen": "① 若**新代码开始经旧接口读写元数据**（即 `SessionStore.loadMetadata` / `saveMetadata` 出现生产调用）：**必须**把本桥改为**通用字段透传**（全量 `{...metadata}` + 由 `SessionMetadata.fromJSON` 统一收敛），而不是在…（全文见 archive/evidence-detail.jsonl#SESSION-ADAPTER-METADATA-BRIDGE）",
       "notes": "【问题（承接的含糊表述）】早先在做 `toolProfile` 时发现：旧链 `UnifiedStorageAdapter.saveMetadata/loadMetadata` **只透传 `title`/`tags`/`mode`**（因为旧 `Session` 模型的元数据形状只有这三字段）⇒ `pinned`/…（全文见 archive/evidence-detail.jsonl#SESSION-ADAPTER-METADATA-BRIDGE）"
+    },
+    {
+      "id": "LINTCAPS-CONSISTENCY-GATE",
+      "title": "新建能力声明静态一致性门禁 lint:capabilities（C1–C7）；并修 capabilities.default.yaml 4 处废弃 token（code→coding）",
+      "source": "兑现 `LINTMODELS-CAPABILITY-SCOPE` 的 reopenWhen ② ——「应另立一个按 tracked 事实源（`capabilities.default.yaml`）做静态一致性检查的门禁，而不是复活 `lint:models` 的能力覆盖子检查」（后者输入是用户启用模型 ⇒ CI 恒未执行）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/scripts/lint-capabilities.ts",
+        "app/tests/gates/capabilityConsistencyGate.test.ts",
+        "app/src/ai/config/capabilities.default.yaml",
+        "app/package.json",
+        ".github/workflows/ci.yml"
+      ],
+      "tests": [
+        "app/tests/gates/capabilityConsistencyGate.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `ALL_TASK_TYPES` 新增任务类型而 `taskMappings` 未登记 ⇒ C7 变红 —— **这是设计意图**（不是缺陷）：补一条映射行即可（`requiredCapabilities` 可为空数组，参 `knowledge_compile`）；② 若把 `capabilities[].t…（全文见 archive/evidence-detail.jsonl#LINTCAPS-CONSISTENCY-GATE）",
+      "notes": "【问题】`capabilities.default.yaml` 有两个**手写**声明面：`capabilities[].taskTypes`（能力 → 可用于哪些任务，描述性、UI 展示）与 `taskMappings[]`（任务 → 必需/可选能力，路由判据）。两者此前**没有任何静态校验** ⇒ 与代码 `Ta…（全文见 archive/evidence-detail.jsonl#LINTCAPS-CONSISTENCY-GATE）"
     }
   ]
 }

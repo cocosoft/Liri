@@ -41,7 +41,7 @@ capabilities:
     descriptionFallback: "Supports calling external functions"
     isDefault: true
     enabled: true
-    taskTypes: ["chat", "default", "code"]
+    taskTypes: ["chat", "default", "coding"]
     sortOrder: 2
     sinceVersion: "0.4.0"
     dependencies: []
@@ -67,7 +67,7 @@ capabilities:
     descriptionFallback: "Supports JSON and other structured output formats"
     isDefault: false
     enabled: true
-    taskTypes: ["chat", "default", "code"]
+    taskTypes: ["chat", "default", "coding"]
     sortOrder: 4
     sinceVersion: "0.4.0"
     dependencies: []
@@ -265,7 +265,7 @@ capabilities:
     descriptionFallback: "Supports executing bash commands in a sandbox"
     isDefault: false
     enabled: true
-    taskTypes: ["code"]
+    taskTypes: ["coding"]
     sortOrder: 3
     sinceVersion: "0.4.0"
     dependencies: []
@@ -278,7 +278,7 @@ capabilities:
     descriptionFallback: "Supports executing code in various languages"
     isDefault: false
     enabled: true
-    taskTypes: ["code"]
+    taskTypes: ["coding"]
     sortOrder: 4
     sinceVersion: "0.4.0"
     dependencies: []

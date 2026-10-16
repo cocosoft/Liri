@@ -23,10 +23,9 @@ import type {
 import { SearchHitCard } from "../Knowledge/SearchHitCard";
 import { StrengthBadge } from "../Knowledge/StrengthBadge";
 import { CitationText } from "../Knowledge/CitationText";
-import { toastError } from "../../stores/toastStore";
+import { toastError, useToastStore } from "../../stores/toastStore";
 import { createLogger } from "@/utils/logger";
 import { APP_EVENTS } from "@/constants/events";
-import { useToast, ToastContainer } from "../../hooks/useToast";
 // P1：打包版（Tauri 自定义协议）下相对 /v1 不可达，统一用绝对 backend URL
 import { getBackendBaseUrl } from "../../services/backendUrl";
 
@@ -328,7 +327,12 @@ function KnowledgePage() {
   // KB：列表刷新信号——保存/删除/trash 后递增，useKnowledgeBaseList 监听并重载左侧列表
   const dispatchList = useKnowledgeStore((s) => s.dispatchList);
 
-  const { toasts, show: showToast, dismiss } = useToast(3000);
+  // 2026-10-16（台账 `TOAST-SINGLE-CHANNEL`）：toast 收敛到**全站唯一通道** `stores/toastStore`
+  // （其容器 `components/common/ToastContainer` 由 `App.tsx` 全局挂载，支持展开原始异常 `detail`）。
+  // 本页原先另起一套 `hooks/useToast`（右上角、无 detail），且**同页**又用 store 的 `toastError`
+  // ⇒ 一页两条通道、两种位置与样式。这里沿用原 `show(type, message)` 形状（store 的
+  // `addToast(type, message, detail)` 签名一致）⇒ 调用点零改动。
+  const showToast = useToastStore((s) => s.addToast);
   const [showStats, setShowStats] = useState(false);
   // P1-3: 列表真实总数（与侧边栏分页列表口径一致，替代 store.items 全量计数）
   const [listTotal, setListTotal] = useState(0);
@@ -692,7 +696,8 @@ function KnowledgePage() {
   return (
     <div className={`flex-1 overflow-y-auto ${bgClass}`}>
       <div className="h-full flex flex-col">
-        <ToastContainer toasts={toasts} dismiss={dismiss} isDark={isDark} />
+        {/* 本页原先在此挂载**第二套** toast 容器（`hooks/useToast`）——已收敛到全局唯一通道：
+            容器由 `App.tsx` 挂载（`components/common/ToastContainer`，读 `stores/toastStore`） */}
 
         {/* F5：原文 PDF 应用内预览（浏览器原生 PDF viewer；#page=N 尽力定位） */}
         {rawPdf && (

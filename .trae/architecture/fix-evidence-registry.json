@@ -9133,6 +9133,30 @@
       "changelog": [],
       "reopenWhen": "① 若 `ALL_TASK_TYPES` 新增任务类型而 `taskMappings` 未登记 ⇒ C7 变红 —— **这是设计意图**（不是缺陷）：补一条映射行即可（`requiredCapabilities` 可为空数组，参 `knowledge_compile`）；② 若把 `capabilities[].t…（全文见 archive/evidence-detail.jsonl#LINTCAPS-CONSISTENCY-GATE）",
       "notes": "【问题】`capabilities.default.yaml` 有两个**手写**声明面：`capabilities[].taskTypes`（能力 → 可用于哪些任务，描述性、UI 展示）与 `taskMappings[]`（任务 → 必需/可选能力，路由判据）。两者此前**没有任何静态校验** ⇒ 与代码 `Ta…（全文见 archive/evidence-detail.jsonl#LINTCAPS-CONSISTENCY-GATE）"
+    },
+    {
+      "id": "FNSIZE-BASELINE-ACCEPT-GROWTH",
+      "title": "上调 fn-size 棘轮基线、接受既有增长：runStreamMessage 2167→2218 行 / 文件 2345→2398 行（源自 2e757024b）",
+      "source": "复核 `bun run ci` 时发现 `lint:fn-size` 在 **HEAD 上本就为红**（非本次改动引入）；按用户裁定「上调基线、接受既有增长」处置（承台账 L-10 / P2-1 的棘轮基线）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        ".trae/architecture/function-size-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 推进 `.trae/specs/stream-message-flow-split.md` 的后续拆分阶段时，须**继续下调**本基线以锁定成果；本条目若长期不降，应视为拆分停滞的信号。② 若 `runStreamMessage` 再出现增长，本门禁会照常变红（本次上抬**不构成**对后续增长的豁免）。（全文见 archive/evidence-detail.jsonl#FNSIZE-BASELINE-ACCEPT-GROWTH）",
+      "notes": "【发现】本次跑 `bun run ci`（本地全链）时，`lint:fn-size` 报：`app/src/chat/orchestrator/streamMessageFlow.ts :: runStreamMessage` 行数 **2167 → 2218**、文件行数 **2345 → 2398**（棘轮只允许…（全文见 archive/evidence-detail.jsonl#FNSIZE-BASELINE-ACCEPT-GROWTH）"
     }
   ]
 }

@@ -5081,6 +5081,17 @@
 {"id":"LINTCAPS-CONSISTENCY-GATE","k":"code#3","i":0,"c":"app/package.json"}
 {"id":"LINTCAPS-CONSISTENCY-GATE","k":"code#4","i":0,"c":".github/workflows/ci.yml"}
 {"id":"LINTCAPS-CONSISTENCY-GATE","k":"tests#0","i":0,"c":"app/tests/gates/capabilityConsistencyGate.test.ts"}
+{"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"title","i":0,"c":"上调 fn-size 棘轮基线、接受既有增长：runStreamMessage 2167→2218 行 / 文件 2345→2398 行（源自 2e757024b）"}
+{"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"source","i":0,"c":"复核 `bun run ci` 时发现 `lint:fn-size` 在 **HEAD 上本就为红**（非本次改动引入）；按用户裁定「上调基线、接受既有增长」处置（承台账 L-10 / P2-1 的棘轮基线）"}
+{"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"reopenWhen","i":0,"c":"① 推进 `.trae/specs/stream-message-flow-split.md` 的后续拆分阶段时，须**继续下调**本基线以锁定成果；本条目若长期不降，应视为拆分停滞的信号。② 若 `runStreamMessage` 再出现增长，本门禁会照常变红（本次上抬**不构成**对后续增长的豁免）。"}
+{"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"notes","i":0,"c":"【发现】本次跑 `bun run ci`（本地全链）时，`lint:fn-size` 报：`app/src/chat/orchestrator/streamMessageFlow.ts :: runStreamMessage` 行数 **2167 → 2218**、文件行数 **2345 → 2398**（棘轮只允许缩小）。【定性 —— 非本次改动引入】① "}
+{"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"notes","i":1,"c":"本次改动**没有触碰**该文件（`git status` 干净，最近提交只改文档路径引用 1 行：`d4916e52a`）；② 溯源得该文件最后一次内容变更来自更早的提交 `2e757024b fix(chat): 中止补齐 turn/end{canceled}（切走会话杀长任务后不再呈现无报错的假空闲）`（2026-10-16）—— 该提交在 `"}
+{"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"notes","i":2,"c":"runStreamMessage` 内补齐 turn/end{canceled} 分支，属**有意修复**（不是「边治理边长个」）；③ 而基线 `.trae/architecture/function-size-baseline.json` 停在 `65cf8b062`（2026-10-11，G18 下调后的 2167 / 2345）⇒ **HEAD 本身就"}
+{"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"notes","i":3,"c":"是红的**：这一次修复改了代码但**未同步上调基线**，门禁因此长期处于必红状态（CI 的 `doc-gate` 与本地 `bun run ci` 都拦）。【处置（用户裁定：上调基线、接受既有增长）】把基线条目的 `functionLines` / `fileLines` 上抬到实测值 **2218 / 2398**（`recordedAt` 同步为 `"}
+{"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"notes","i":4,"c":"2026-10-16`），并在该条目 `note` 内**逐字留下**：上调原因（`2e757024b` 的性质）、上抬前后的数值、以及 **reopenWhen**（拆分推进时须继续下调；长期不降即视为拆分停滞信号）。**明确不是静默豁免**：数值是实测的、理由有提交号、降回路径写在同一条目里。【口径边界】本次只动**数值 + note**，不改门禁判据（"}
+{"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"notes","i":5,"c":"`scripts/lint-function-size-ratchet.ts` 未变更）；复杂度记录同步为 248 → 253（取自 ESLint `complexity` 实测输出），基线 JSON 无复杂度字段，故只写在 note。【验证】`bun run scripts/lint-function-size-ratchet.ts` ⇒ `✅ 未增长（棘"}
+{"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"notes","i":6,"c":"轮维持）`（exit 0）；随后完整 `bun run ci` 全链通过。"}
+{"id":"FNSIZE-BASELINE-ACCEPT-GROWTH","k":"code#0","i":0,"c":".trae/architecture/function-size-baseline.json"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

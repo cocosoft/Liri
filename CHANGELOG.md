@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **FNSIZE-BASELINE-ACCEPT-GROWTH**：上调 fn-size 棘轮基线接受既有增长：runStreamMessage 2167→2218 / 文件 2345→2398（源自 2e757024b） —— 验证 gate3|grep2|read3；基线 改前：基线停在 65cf8b062（2026-10-11），而 2e757024b 已把该函数 +51 行 ⇒ HEAD 上 lint:fn-size 恒红（非本次改动引入）（详情见 archive/evidence-detail.jsonl#FNSIZE-BASELINE-ACCEPT-GROWTH）
 - ✅ **LINTCAPS-CONSISTENCY-GATE**：新建 lint:capabilities 能力声明静态一致性门禁（C1–C7）+ 修 4 处废弃 token（code→coding） —— 验证 gate|ut12|tc1|grep1；基线 改前：code→coding 改名只落到 taskMappings，capabilities[].taskTypes 的 4 处遗留无门禁可查（详情见 archive/evidence-detail.jsonl#LINTCAPS-CONSISTENCY-GATE）
 - ✅ **SESSION-ADAPTER-METADATA-BRIDGE**：旧链 metadata 桥（UnifiedStorageAdapter）取证：只透传 title/tags/mode 但无生产消费者 ⇒ 不补不删，钉注释 —— 验证 grep4|ut332|tc1|gate8；基线 改前：该桥的有损只在早先一片的 notes 里含糊记为「不在 P4 范围」，未区分「有损且有消费者」与「有损且无消费者」（详情见 archive/evidence-detail.jsonl#SESSION-ADAPTER-METADATA-BRIDGE）
 - ✅ **LINTMODELS-TASK-EXEMPT**：lint-models 能力覆盖加「故意无模型」豁免表（task:capability 精确键 + 理由非空 + 豁免如实打印） —— 验证 tc1|probe4|gate13；基线 改前：已登记的 tts/stt 也会打进 ⚠️ 告警；改后：已登记项打 ⚪ 豁免（不计入告警），未登记者仍 ⚠️（详情见 archive/evidence-detail.jsonl#LINTMODELS-TASK-EXEMPT）

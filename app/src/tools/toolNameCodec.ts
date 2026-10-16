@@ -14,7 +14,8 @@
  * ⚠️ 回归警示（2026-09-27 实测）：本文件曾只存在于未合入 main 的提交上，
  * main 长期缺失 ⇒ 冒号工具名原样下发 ⇒ `tools[36].function.name` 400 ⇒
  * 整轮 `chunkCount:0` + 空回复兜底 ⇒ 用户感知「长程任务中断」。
- * 详见 `debug-long-task-interrupt.md` 与 `.trae/specs/tool-name-wire-codec.md`。
+ * 详见 `dev_docs/debug-long-task-interrupt.md` 与 `.trae/specs/tool-name-wire-codec.md`
+ * （2026-10-16：该报告已由仓库根移入 `dev_docs/`，引用路径同步）。
  *
  * 与 MCP 归一化的关系：`services/mcp/normalization.ts` 解决的是同一类问题
  * （MCP 工具名含 `/`、`.` 等非法字符，故归一为 `mcp__server__tool`）。本文件服务的是

@@ -4803,6 +4803,26 @@
 {"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"notes","i":8,"c":"称精确对应。"}
 {"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"code#0","i":0,"c":"dev_docs/20261016/工具可见性治理方案-20261016.md"}
 {"id":"TOOLVIS-P2-BOUNDARY-RULING","k":"code#1","i":0,"c":"dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"title","i":0,"c":"根目录清零：7 篇被引用报告移入 dev_docs/ + 7 处引用路径同步（5 源码/测试 + 2 spec）"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"source","i":0,"c":"用户 2026-10-16 裁定「清干净根目录（移入 dev_docs）」；承上一提交 ROOTCLEAN-REPORTS-SCRIPTS（只清了零引用子集，被引用的 7 篇因 CD01 取证而保留在根目录）"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"reopenWhen","i":0,"c":"① 若 `dev_docs/` 的「全量本地、不推送」裁定被推翻（dev_docs 入库）：本批移入的 7 篇报告随之入库，届时须复核它们是否仍应是**仓库内**文档（尤其 `Liri_契约层详细设计文档.md` 是**外部产出物**，本仓不维护）；② 若日后要删这批报告：仍须先摘引用（CD05）—— 引用点即本片 code[] 列的 7 处（已全部改指 `"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"reopenWhen","i":1,"c":"dev_docs/...`）；③ 若 `app/` 目录自身的一次性文件（`check_db.py` / `list_tables.ts` / `typecheck*.log` / `src.zip` 等）要清理：那是**另一批**（用户本次裁定的是「根目录」），须另走 CD01 取证。"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"notes","i":0,"c":"【背景】上一提交（ROOTCLEAN-REPORTS-SCRIPTS）按 CD01 取证只清了**零引用**子集，并把 7 篇**被引用**报告留在了仓库根（引用点见下）。本片处理这 7 篇：**原位移入仓内 `dev_docs/`**（与该处既有 26 篇报告同级、同为本地不推送域）—— 比「删掉」或「移出仓外」都更优：根目录真正清零、**留档不丢**、"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"notes","i":1,"c":"provenance 不悬空。【移入的 7 篇】`04_终版复核报告_按当前代码实测.md` · `06_最新复核_架构不足按当前代码实测.md` · `11_复查_代码更新后架构差异与优化建议.md` · `12_复查_代码更新后收敛进度与优化建议.md` · `第四次架构复查报告.md` · `debug-long-task-interrupt.md` "}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"notes","i":2,"c":"· `Liri_契约层详细设计文档.md`。【引用同步（7 处，全部改指 `dev_docs/...`）】① `app/src/tools/toolNameCodec.ts:17`（附一行说明该报告已由根移入）；② `app/src/tools/GlobTool/GlobTool.ts:33`；③ `"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"notes","i":3,"c":"app/src/chat/orchestrator/streamMessageWatermark.ts:8`；④ `app/src/chat/orchestrator/streamMessageFlow.ts:1075`；⑤ `app/tests/tools/toolNameCodec.test.ts:8`；⑥ `"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"notes","i":4,"c":".trae/specs/orchestration-family-convergence.md:4`（「原始出处」两份报告）；⑦ `.trae/specs/contract-layer-6-proposals.md:4,75`（源文档路径 + §7 边界第 3 条同步改写为「由仓库根移入 dev_docs；原件产出在外部输出目录，本仓不维护」）。另订正 1 "}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"notes","i":5,"c":"处**本地台账**的过期表述：`dev_docs/任务计划-20261004.md:1816` 原写「**仓库根** `11_...md` / `Liri_契约层详细设计文档.md`」⇒ 改为 `dev_docs/...` 并注明移入日（该文件在 dev_docs 内，属本地不推送域，不计入 code[]）。【结果】仓库根由 11 个 .md + 1 脚本收"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"notes","i":6,"c":"敛为 **4 个正当 .md**（AGENTS/CHANGELOG/CONTRIBUTING/README）+ `liri_logo.png` + `probe_sessions.ps1`（后者按 CD01 保留：被台账当可用工具、含可执行命令示例）。【验证】`lint:doc-code`（38 条断言：漂移点 8 + 安全开关 17 + 登记完整性 13，"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"notes","i":7,"c":"文档侧 35 处已校验）✅ · `lint:arch` ✅（仅既有 WARNING）· `bun run typecheck` 0 错 · `lint:refs`（70 处入口引用）✅ · `lint:case` ✅ · 6 门禁全绿。【如实边界】本片为**文档/注释级**改动（零行为变更）⇒ 未跑单元测试、无端到端（`flags` 如实为 dc）；`"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"notes","i":8,"c":"debug-long-task-interrupt.md` 的 4 处源码引用是**注释**，改的是路径而非语义，相关逻辑（冒号工具名 wire codec、GlobTool 噪音节流、水位节流）本身未动。"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"code#0","i":0,"c":"app/src/tools/toolNameCodec.ts"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"code#1","i":0,"c":"app/src/tools/GlobTool/GlobTool.ts"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"code#2","i":0,"c":"app/src/chat/orchestrator/streamMessageWatermark.ts"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"code#3","i":0,"c":"app/src/chat/orchestrator/streamMessageFlow.ts"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"code#4","i":0,"c":"app/tests/tools/toolNameCodec.test.ts"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"code#5","i":0,"c":".trae/specs/orchestration-family-convergence.md"}
+{"id":"ROOTCLEAN-REPORTS-INTO-DEV_DOCS","k":"code#6","i":0,"c":".trae/specs/contract-layer-6-proposals.md"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -8766,6 +8766,36 @@
       "changelog": [],
       "reopenWhen": "① flag-gated-off 归因：出现「用户/模型确实需要知道该翻哪个开关」的实证诉求（如某个 flag-gated 工具被反复问起），或工具注册面**本就要**重构（届时把门控改为结构化数据，报表顺带消费、零额外表）；② on 对 conditional：某项 conditional 工具经 P4b 接线后进…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P2-BOUNDARY-RULING）",
       "notes": "【裁定：两项均不做（终局），但依据从「理念性」升级为「量化」】首版理由只有一句「反推 flag 名要手写第 7 张 tool→flag 表，与本域六套映射表漂移的历史根因自相矛盾」。本次复核补上**对象集量化**（生成器自报，可复跑 `bun run app/scripts/gen-tool-names.ts` 逐条…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P2-BOUNDARY-RULING）"
+    },
+    {
+      "id": "ROOTCLEAN-REPORTS-INTO-DEV_DOCS",
+      "title": "根目录清零：7 篇被引用报告移入 dev_docs/ + 7 处引用路径同步（5 源码/测试 + 2 spec）",
+      "source": "用户 2026-10-16 裁定「清干净根目录（移入 dev_docs）」；承上一提交 ROOTCLEAN-REPORTS-SCRIPTS（只清了零引用子集，被引用的 7 篇因 CD01 取证而保留在根目录）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/toolNameCodec.ts",
+        "app/src/tools/GlobTool/GlobTool.ts",
+        "app/src/chat/orchestrator/streamMessageWatermark.ts",
+        "app/src/chat/orchestrator/streamMessageFlow.ts",
+        "app/tests/tools/toolNameCodec.test.ts",
+        ".trae/specs/orchestration-family-convergence.md",
+        ".trae/specs/contract-layer-6-proposals.md"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若 `dev_docs/` 的「全量本地、不推送」裁定被推翻（dev_docs 入库）：本批移入的 7 篇报告随之入库，届时须复核它们是否仍应是**仓库内**文档（尤其 `Liri_契约层详细设计文档.md` 是**外部产出物**，本仓不维护）；② 若日后要删这批报告：仍须先摘引用（CD05）—— 引用点即本片 …（全文见 archive/evidence-detail.jsonl#ROOTCLEAN-REPORTS-INTO-DEV_DOCS）",
+      "notes": "【背景】上一提交（ROOTCLEAN-REPORTS-SCRIPTS）按 CD01 取证只清了**零引用**子集，并把 7 篇**被引用**报告留在了仓库根（引用点见下）。本片处理这 7 篇：**原位移入仓内 `dev_docs/`**（与该处既有 26 篇报告同级、同为本地不推送域）—— 比「删掉」或「移出仓外」都…（全文见 archive/evidence-detail.jsonl#ROOTCLEAN-REPORTS-INTO-DEV_DOCS）"
     }
   ]
 }

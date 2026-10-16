@@ -30,7 +30,7 @@ const GLOB_TOOL_MAX_FILES = 100;
  * 根因修复（2026-09-27，实测取证）：原实现对**每个**不可读目录调用 `handleError`
  * ⇒ 一次全盘 glob 会产出数十条 `severity:medium` 的 `[readdir] EPERM…`（`AppData` /
  * `$Recycle.Bin` 等系统保护目录在多轮遍历中反复出现）⇒ **噪音风暴**并污染告警面
- * （见 `debug-long-task-interrupt.md`）。
+ * （见 `dev_docs/debug-long-task-interrupt.md`）。
  * 现改为：计数 + 每 30s 至多一条 debug —— 保住可观测性，不再逐目录上报错误。
  */
 const SKIPPED_DIR_LOG_INTERVAL_MS = 30_000;

@@ -1072,7 +1072,7 @@ export async function* runStreamMessage(
       //（口径与事故背景见其头注）；日志与 `onProgress` 的**动作**留在此处。
       // 节流口径：normal ⇒ debug（**不节流**）；非 normal ⇒ 状态跃迁必记 + 同级每
       // WATERMARK_LOG_THROTTLE_MS 至多一条（此前 compact 级无节流 ⇒ 单会话单日 14852 条
-      // warn，日志膨胀掩盖真因，见 `debug-long-task-interrupt.md`）。
+      // warn，日志膨胀掩盖真因，见 `dev_docs/debug-long-task-interrupt.md`）。
       const WATERMARK_LOG_THROTTLE_MS = 15_000;
       const watermarkReporter = createWatermarkReporter(
         session.id,

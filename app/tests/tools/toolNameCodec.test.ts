@@ -5,7 +5,7 @@
  * （OpenAI 兼容 `tools[].function.name` 只接受 `^[a-zA-Z0-9_-]+$`）。混用导致冒号工具
  * 一旦进入 `tools[]` 即被 provider 以 400 拒绝（`invalid_request_error`），整轮对话失败
  * —— 实测（2026-09-27）表现为用户感知的「长程任务中断」
- * （`debug-long-task-interrupt.md`）。
+ * （`dev_docs/debug-long-task-interrupt.md`）。
  *
  * 本测试固化四件事：
  *  ① codec 转换正确且幂等；

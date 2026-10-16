@@ -5,7 +5,7 @@
  * `runStreamMessage`：既做**节流决策**（状态跃迁必记 + 同级时间节流），又构造**日志载荷**与
  * **前端进度载荷**，还持有两个跨回调的节流状态（`lastWatermarkWarnAt` / `lastWatermarkSeverity`）
  * ⇒ 无法独立测试，且节流口径与其事故背景（compact 级此前无节流 ⇒ 水位长期持平时每 1.5s 一条
- * warn，**单会话单日 14852 条**，见 `debug-long-task-interrupt.md`）绑死在编排函数里。
+ * warn，**单会话单日 14852 条**，见 `dev_docs/debug-long-task-interrupt.md`）绑死在编排函数里。
  *
  * 拆分手法（与 P2-1d-3 / P2-1d-4 一致）：**判据/载荷纯化、动作留下** ——
  * 本模块产出「该记哪一级 + 两份载荷」；**日志与 `onProgress` 的实际调用留在编排函数**。

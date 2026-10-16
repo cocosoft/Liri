@@ -8342,6 +8342,33 @@
       "changelog": [],
       "reopenWhen": "① **关键词维度仍不匹配 `type` 字段本身**（只匹配 data.content/name/error/result/toolCallId/turn/model）⇒ 要按类型检索只能用类型按钮（有意保留：类型维度已覆盖，且给 keyword 加 type 会稀释其「内容检索」语义）。② 候选按**已加载窗口*…（全文见 archive/evidence-detail.jsonl#TRAJECTORY-TYPE-FILTER-DYNAMIC）",
       "notes": "① **根因（静态子集 + 两份清单错位）**：类型按钮原为**静态 21 项手写清单**，只覆盖事件名清单（54 项，`shared/events/eventNames.ts`）的 **39%**；类型标签又是**另一份 18 项手写清单**（在 `TrajectoryRow`）⇒ 实测：**12 个按钮无中文标签…（全文见 archive/evidence-detail.jsonl#TRAJECTORY-TYPE-FILTER-DYNAMIC）"
+    },
+    {
+      "id": "SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK",
+      "title": "会话侧栏「窄屏自动折叠」把偏好写死且不回宽屏恢复（窗口曾 ≤1023px ⇒ 之后 1090px 也永久 48px）：自动折叠改为只改内存 + 回宽屏恢复偏好；并让 48px 折叠栏 hover 真正展开成会话列表",
+      "source": "用户 2026-10-16「请修复窄视口下左侧会话栏被挤成 48px 的问题」→ AskUserQuestion 裁定「修泄漏 + 折叠态可用（推荐）」（承 TRAJECTORY-TYPE-FILTER-DYNAMIC 的 reopenWhen ④）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "client/src/components/ChatArea/useSidebarCollapse.ts",
+        "client/src/components/ChatArea/SessionHistorySidebar.tsx"
+      ],
+      "tests": [
+        "client/src/components/ChatArea/__tests__/useSidebarCollapse.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 折叠栏 hover 展开是**内存态 peek**（鼠标移入即按展开态渲染完整列表含虚拟滚动，移出收回）；若日后要求「窄屏也常显 240px」，改 `SIDEBAR_NARROW_QUERY`（当前与 `lg`=1024 对齐）即可。② 持久化键**升到 v2**（`liri-sidebar-expanded-v…（全文见 archive/evidence-detail.jsonl#SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK）",
+      "notes": "① **真机 DOM 取证（1090×569，逐字）**：`aside.w-20`=80px（应用图标栏）+ 会话栏 `div.w-12 hover:w-60`=**48px**（折叠态）+ 右侧检查器栏 48px；`localStorage['liri-sidebar-expanded']='false'`；折叠态…（全文见 archive/evidence-detail.jsonl#SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK）"
     }
   ]
 }

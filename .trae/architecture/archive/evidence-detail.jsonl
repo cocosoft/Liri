@@ -4490,32 +4490,6 @@
 {"id":"FORK-PREFIX-WINDOW","k":"code#2","i":0,"c":"client/src/components/ChatArea/ChatInput.tsx"}
 {"id":"FORK-PREFIX-WINDOW","k":"tests#0","i":0,"c":"app/tests/session/forkPrefixPaging.test.ts"}
 {"id":"FORK-PREFIX-WINDOW","k":"tests#1","i":0,"c":"app/tests/session/forkBoundaryBeforeMessage.test.ts"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"title","i":0,"c":"轨迹面板的「类型筛选」去静态 21 项手写清单、改由**已加载事件**动态派生候选；类型标签并做单一实现：消掉「最吵的类型反而筛不到」等覆盖缺口（真机 request/start 与 metric/timing 现已有按钮）"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"source","i":0,"c":"用户 2026-10-16「请评估 TrajectoryFilter.tsx 的筛选覆盖问题」→ AskUserQuestion 裁定「动态候选（推荐）」（承 CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE 的 reopenWhen ②）"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"reopenWhen","i":0,"c":"① **关键词维度仍不匹配 `type` 字段本身**（只匹配 data.content/name/error/result/toolCallId/turn/model）⇒ 要按类型检索只能用类型按钮（有意保留：类型维度已覆盖，且给 keyword 加 type 会稀释其「内容检索」语义）。② 候选按**已加载窗口**派生（store 每页 1000 条 +"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"reopenWhen","i":1,"c":" `loadOlder` 向前补页）⇒ 只在更早页出现的类型，需翻到该页才会出现按钮（数据驱动取舍；静态清单下则是「永远没有按钮」，两害相权）。③ `TYPE_LABEL_KEYS` 仍只有 18 项，其余类型回落**原始 type 串**（有意：不新增 i18n 键、不发明文案）。④ 同批真机复验时发现**另一条 UI 线索（未处理）**：窄视口（1090"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"reopenWhen","i":2,"c":"×569）下左侧会话栏被 flex 挤压成 48px（`.w-60` 实测 computed width=48px、行内按钮 `getBoundingClientRect().width=0`）⇒ 点侧栏切不了会话，只能走全局搜索。"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":0,"c":"① **根因（静态子集 + 两份清单错位）**：类型按钮原为**静态 21 项手写清单**，只覆盖事件名清单（54 项，`shared/events/eventNames.ts`）的 **39%**；类型标签又是**另一份 18 项手写清单**（在 `TrajectoryRow`）⇒ 实测：**12 个按钮无中文标签**（行内显示原始 type 串）、**9"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":1,"c":" 个标签无按钮**（有中文名却筛不到）。分类/来源两维因走 `categorizeEvent` 前缀 + `lifecycle` 兜底而 **100% 覆盖** ⇒ 事件**可见性无损**（`filter.types` 是白名单、空集不过滤），问题只在「按类型筛/隐」的粒度。② **真实数据（61 个有事件的会话 / 103,935 条 / 实际出现 27 "}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":2,"c":"种类型）**：未被按钮覆盖但真实出现的有 14 种，其中 `metric/timing` **6773（6.5%）** 与 `request/start` **3468（3.3%）** 合计 **9.9%**（面板每 1000 条里约 98 行）——**恰是最想一键隐掉的两类**；另有 `context/model-input` 505、`"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":3,"c":"session/title` 105、`assistant/deliverable` 23、`context/steering` 21、`session/summary` 10、`assistant/diff` 8 等（含「有内容语义」的交付物/diff/摘要）。另 19 种真实数据 0 次。③ **修法**：新增 `"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":4,"c":"components/Trajectory/trajectoryEventTypes.ts` 作为**单一实现** —— `countEventTypes`（按出现次数降序、同次数按类型名字典序 ⇒ 结果确定）+ `TYPE_LABEL_KEYS`/`trajectoryTypeLabel`（命中 i18n 键显译文、否则回落原始 type 串）；`"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":5,"c":"TrajectoryFilter` 改为从 `availableTypes` prop **动态生成**按钮（并保留「已选但当前会话未出现」的类型，否则切会话后筛出 0 条又取消不掉）；`TrajectoryRow` 改用同一标签实现；`ChatInspector` 以 `useMemo(() => countEventTypes(events), ["}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":6,"c":"events])` 提供候选。按钮 `title` 带 `type · 次数`，便于看噪音量级。④ **真机 UI 复验（逐字）**：轨迹 Tab「边界终验需求澄清」会话实测 **13 个动态 chip**（次数降序）：思考 ← `assistant/thinking · 147`、工具调用 ← `assistant/tool_call · 58`、工具结果"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":7,"c":" ← `tool/result · 58`、**性能指标 ← `metric/timing · 37`**、**`request/start · 31`**、`assistant/status · 28`、`context/model-input · 6`、`session/title · 4`、Turn 结束 ← `turn/end · 4`、`"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":8,"c":"assistant/text-batch · 3`、Turn 开始 ← `turn/start · 3`、用户消息 ← `user/message · 3`、`context/steering · 1`；筛选计数：**383/383** →（点 `request/start`）**31/383**（摘要变「已启用 1 项」）→ 取消 → "}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":9,"c":"**383/383**；Console 全量 grep `未知事件类型`/`Uncaught`/`TypeError`/`Failed to` = **0 命中**。⑤ **测试**：新增 `components/Trajectory/__tests__/trajectoryEventTypes.test.ts` 6 例（候选计数/降序/同次数字典序/空输入"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":10,"c":"/**最吵两类必在候选**/标签译文与回落/对 54 成员均非空）+ 新增 `__tests__/TrajectoryFilter.test.tsx` 4 例（动态渲染、点击回传、**已选但未出现仍保留**、缺省不渲染）；同步更新既有 `src/tests/trajectory-filter.test.tsx`（去掉「文案恒为类型原文 + 短别名」旧契约，改"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":11,"c":"为按 `title` 定位 + `request/start` 回落原串断言）。**负向对照已做**：临时把候选改为 `filter(剔除 metric/timing 与 request/start)` 并去掉「已选兜底」⇒ 组件测试 **3/4 转红**（含关键回归例），改回即绿。⑥ 门禁：`lint:arch`（错误 0）/`lint:consts`/`"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":12,"c":"lint:unref`/`lint:fix-evidence`/`lint:evidence-linewidth`/`lint:evidence-views-drift` 全绿；client `tsc --noEmit` 0；client `vitest` **76 文件 / 597 例**绿。⑦ 真机复验时未改动任何设置/未删除会话；出现的 `"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":13,"c":"net::ERR_ABORTED /v1/events` 与 SSE 重连告警属切换会话时旧流断开，与本次无关。"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"code#0","i":0,"c":"client/src/components/Trajectory/trajectoryEventTypes.ts"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"code#1","i":0,"c":"client/src/components/Trajectory/TrajectoryFilter.tsx"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"code#2","i":0,"c":"client/src/components/Trajectory/TrajectoryRow.tsx"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"code#3","i":0,"c":"client/src/components/ChatInspector/ChatInspector.tsx"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"tests#0","i":0,"c":"client/src/components/Trajectory/__tests__/trajectoryEventTypes.test.ts"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"tests#1","i":0,"c":"client/src/components/Trajectory/__tests__/TrajectoryFilter.test.tsx"}
-{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"tests#2","i":0,"c":"client/src/tests/trajectory-filter.test.tsx"}
 {"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"title","i":0,"c":"客户端 derive 的「已知事件类型」判据去手写副本（承 D-57 单一事实源）：消掉每轮刷屏的「遇到未知事件类型」误报（真机 61 会话累计 ≈3775 条）并补守则测试"}
 {"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"source","i":0,"c":"用户 2026-10-16「请排查前端未识别 session/title 事件类型的告警」（承 FORK-PREFIX-WINDOW 的 reopenWhen ③）"}
 {"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"reopenWhen","i":0,"c":"① 本轮只治**客户端 derive 这一处**手写副本：后端早已是派生口径（`app/src/session/types/knownEventTypes.ts` 用 `satisfies` + 穷尽断言）。若将来别处再引入「事件名清单」，应直接 import `LIRI_EVENT_NAMES`；新守则测试只覆盖 derive 这一处，不构成全局门禁。② "}
@@ -4539,6 +4513,54 @@
 {"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"notes","i":14,"c":"用会话（`简单加法问答`）已用 API 删除。"}
 {"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"code#0","i":0,"c":"client/src/stores/chat/deriveConversationBlocks.ts"}
 {"id":"CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE","k":"tests#0","i":0,"c":"client/src/stores/chat/__tests__/deriveKnownEventTypes.test.ts"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"title","i":0,"c":"会话侧栏「窄屏自动折叠」把偏好写死且不回宽屏恢复（窗口曾 ≤1023px ⇒ 之后 1090px 也永久 48px）：自动折叠改为只改内存 + 回宽屏恢复偏好；并让 48px 折叠栏 hover 真正展开成会话列表"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"source","i":0,"c":"用户 2026-10-16「请修复窄视口下左侧会话栏被挤成 48px 的问题」→ AskUserQuestion 裁定「修泄漏 + 折叠态可用（推荐）」（承 TRAJECTORY-TYPE-FILTER-DYNAMIC 的 reopenWhen ④）"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"reopenWhen","i":0,"c":"① 折叠栏 hover 展开是**内存态 peek**（鼠标移入即按展开态渲染完整列表含虚拟滚动，移出收回）；若日后要求「窄屏也常显 240px」，改 `SIDEBAR_NARROW_QUERY`（当前与 `lg`=1024 对齐）即可。② 持久化键**升到 v2**（`liri-sidebar-expanded-v2`）：v1 的值被旧版 bug 无条件写"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"reopenWhen","i":1,"c":"成 `false`，**无法区分「用户手动折叠」与「被污染」**⇒ 不复用；旧键保留未删（非破坏式清理）。③ **未在真机验证的一步**：沙箱浏览器无 viewport/emulation 能力（`window.resizeTo` 实测无效、innerWidth 恒 1090）⇒「窄屏自动折叠 → 回宽屏恢复偏好」只有单测覆盖；浏览器侧只验证了「hover "}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"reopenWhen","i":2,"c":"展开出 7 条真实会话行」与「hover 展开不回写偏好」。④ 另两个遗留键（`sidebar_expanded`、`liri-ui-store.sidebarCollapsed`）在代码中**零引用**（死键），未清理。⑤ 真机上现存的 `-v2=\"false\"` 是**修复后**由某次手动「收起」写入的显式偏好 ⇒ 该机 1090px 仍显 48px 属"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"reopenWhen","i":3,"c":"「尊重用户偏好」而非缺陷；点一次「展开侧边栏」即恢复 240px 并持久化。"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":0,"c":"① **真机 DOM 取证（1090×569，逐字）**：`aside.w-20`=80px（应用图标栏）+ 会话栏 `div.w-12 hover:w-60`=**48px**（折叠态）+ 右侧检查器栏 48px；`localStorage['liri-sidebar-expanded']='false'`；折叠态下 `[data-session-id]`"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":1,"c":" = **0**、侧栏 `innerText` 只有计数 `191`，hover 面板是 `hidden group-hover:flex` 里**仅一个 `<p>全部会话</p>` 占位** ⇒ 48px 时侧栏**完全选不了会话**（只能点「展开侧边栏」或走全局搜索）。② **根因**：`SessionHistorySidebar` 的 `("}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":2,"c":"max-width:1023px)` effect 一旦命中就 `setIsExpanded(false)` **并 `localStorage.setItem('liri-sidebar-expanded','false')`**（注释却写「不覆盖用户手动设置」），且**没有「回宽屏恢复」分支** ⇒ 窗口只要曾 ≤1023px，之后在 1090px（≥"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":3,"c":"1024，本不该折叠）也永久停在 48px。③ **修法（三条不变量，抽为可测纯函数）**：新增 `components/ChatArea/useSidebarCollapse.ts` —— `applyNarrow/applyManualToggle/readSidebarPreference` 纯策略 + `useSidebarCollapse()` "}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":4,"c":"hook（storage/matchMedia 可注入）：(a) 自动折叠**只改内存**（不写持久化）；(b) 回宽屏**恢复用户偏好**（而非无条件展开）；(c) 手动切换**优先**（清掉自动标记，此后不被自动恢复覆盖）。组件侧：折叠栏加 `onMouseEnter ⇒ hoverExpanded`（hover 时走**同一套展开 JSX**，复用其虚"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":5,"c":"拟列表，避免常驻挂载 191 行），展开态加 `onMouseLeave`；`mouseleave` 用 `relatedTarget` 做**后代判定**（`SessionContextMenu`/确认框是 `position:fixed` 但仍是面板 DOM 后代，否则右键菜单会在点击瞬间被卸载）。同时删掉折叠态里失效的 `hover:w-60` / `"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":6,"c":"group-hover:*` / 占位面板（它们编码了「宽度展开但内容不展开」的旧机制）。④ **测试**：新增 `components/ChatArea/__tests__/useSidebarCollapse.test.ts` **9 例**（可控 matchMedia + 内存 storage 替身）：读偏好三态、纯策略（进入窄屏记偏好 / 回宽屏恢复"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":7,"c":" / 非自动态不动 / 手动优先）、真实时序 4 例（含**回归主例**：窄屏自动折叠**不写 localStorage** 且回宽屏恢复为偏好；偏好 false 者不被擅自展开；窄屏里手动展开后回宽屏不被覆盖；初始窄屏未设偏好 ⇒ 回宽屏按默认展开且全程未写偏好）。**负向对照已做**：临时还原旧行为（窄屏写偏好 + 不回宽屏恢复）⇒ **4 例转红**（"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":8,"c":"含回归主例），改回即绿。⑤ **真机复验（逐字）**：新标签页硬载新代码 → 折叠态（`w-12`/48px，因该机存有显式偏好 `-v2=false`）；(a) 原生 hover 折叠栏 ⇒ className 变 `w-60`、**实测 240px**、侧栏内出现 **7 条真实会话行**（`Liri 编程助手规划模式介绍 …8 轮对话` / `边界终验"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":9,"c":"需求澄清 …2 轮对话` / `请依次对 app/src 下的每一个一级子目录用 glob …`）；(b) 按指定方式 `dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))` ⇒ **React onMouseEnter 确实触发**、className 变 `w-60` 并渲染 7 行（像素宽"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":10,"c":"读数停在 48 是**隐藏标签页冻结 CSSTransition**的测量假象：`getAnimations()` 报 `state:'running', prop:'width', currentTime:0`、`document.visibilityState='hidden'`；窗口可见时同元素实测 240）；(c) hover 展开后 `-v2` 仍"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":11,"c":"为 `false` ⇒ **未被回写**（旧实现会在窄屏写脏）。⑥ 门禁：`lint:arch`（错误 0）/`lint:consts`/`lint:unref`/`lint:fix-evidence`/`lint:evidence-linewidth`/`lint:evidence-views-drift` 全绿；client `tsc --noEmit`"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"notes","i":12,"c":" 0；client `vitest` **77 文件 / 606 例**绿。⑦ 真机复验未改设置/未删会话/未点按钮；唯一的 console error 是切会话时旧 SSE 流断开（`net::ERR_ABORTED /v1/events`），与本次无关。"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"code#0","i":0,"c":"client/src/components/ChatArea/useSidebarCollapse.ts"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"code#1","i":0,"c":"client/src/components/ChatArea/SessionHistorySidebar.tsx"}
+{"id":"SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK","k":"tests#0","i":0,"c":"client/src/components/ChatArea/__tests__/useSidebarCollapse.test.ts"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"title","i":0,"c":"轨迹面板的「类型筛选」去静态 21 项手写清单、改由**已加载事件**动态派生候选；类型标签并做单一实现：消掉「最吵的类型反而筛不到」等覆盖缺口（真机 request/start 与 metric/timing 现已有按钮）"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"source","i":0,"c":"用户 2026-10-16「请评估 TrajectoryFilter.tsx 的筛选覆盖问题」→ AskUserQuestion 裁定「动态候选（推荐）」（承 CLIENT-EVENT-TYPE-SET-SINGLE-SOURCE 的 reopenWhen ②）"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"reopenWhen","i":0,"c":"① **关键词维度仍不匹配 `type` 字段本身**（只匹配 data.content/name/error/result/toolCallId/turn/model）⇒ 要按类型检索只能用类型按钮（有意保留：类型维度已覆盖，且给 keyword 加 type 会稀释其「内容检索」语义）。② 候选按**已加载窗口**派生（store 每页 1000 条 +"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"reopenWhen","i":1,"c":" `loadOlder` 向前补页）⇒ 只在更早页出现的类型，需翻到该页才会出现按钮（数据驱动取舍；静态清单下则是「永远没有按钮」，两害相权）。③ `TYPE_LABEL_KEYS` 仍只有 18 项，其余类型回落**原始 type 串**（有意：不新增 i18n 键、不发明文案）。④ **2026-10-16 已收口**：当轮记的「左侧会话栏 48px」经"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"reopenWhen","i":2,"c":"复核**不是被 flex 挤压**，而是**折叠态**（`w-12`）加上旧版窄屏自动折叠把偏好写死且不回宽屏恢复（真机 1090×569：`liri-sidebar-expanded` 为 false、`[data-session-id]`=0）⇒ 已修，详见 `SIDEBAR-NARROW-AUTOCOLLAPSE-LEAK`。"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":0,"c":"① **根因（静态子集 + 两份清单错位）**：类型按钮原为**静态 21 项手写清单**，只覆盖事件名清单（54 项，`shared/events/eventNames.ts`）的 **39%**；类型标签又是**另一份 18 项手写清单**（在 `TrajectoryRow`）⇒ 实测：**12 个按钮无中文标签**（行内显示原始 type 串）、**9"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":1,"c":" 个标签无按钮**（有中文名却筛不到）。分类/来源两维因走 `categorizeEvent` 前缀 + `lifecycle` 兜底而 **100% 覆盖** ⇒ 事件**可见性无损**（`filter.types` 是白名单、空集不过滤），问题只在「按类型筛/隐」的粒度。② **真实数据（61 个有事件的会话 / 103,935 条 / 实际出现 27 "}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":2,"c":"种类型）**：未被按钮覆盖但真实出现的有 14 种，其中 `metric/timing` **6773（6.5%）** 与 `request/start` **3468（3.3%）** 合计 **9.9%**（面板每 1000 条里约 98 行）——**恰是最想一键隐掉的两类**；另有 `context/model-input` 505、`"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":3,"c":"session/title` 105、`assistant/deliverable` 23、`context/steering` 21、`session/summary` 10、`assistant/diff` 8 等（含「有内容语义」的交付物/diff/摘要）。另 19 种真实数据 0 次。③ **修法**：新增 `"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":4,"c":"components/Trajectory/trajectoryEventTypes.ts` 作为**单一实现** —— `countEventTypes`（按出现次数降序、同次数按类型名字典序 ⇒ 结果确定）+ `TYPE_LABEL_KEYS`/`trajectoryTypeLabel`（命中 i18n 键显译文、否则回落原始 type 串）；`"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":5,"c":"TrajectoryFilter` 改为从 `availableTypes` prop **动态生成**按钮（并保留「已选但当前会话未出现」的类型，否则切会话后筛出 0 条又取消不掉）；`TrajectoryRow` 改用同一标签实现；`ChatInspector` 以 `useMemo(() => countEventTypes(events), ["}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":6,"c":"events])` 提供候选。按钮 `title` 带 `type · 次数`，便于看噪音量级。④ **真机 UI 复验（逐字）**：轨迹 Tab「边界终验需求澄清」会话实测 **13 个动态 chip**（次数降序）：思考 ← `assistant/thinking · 147`、工具调用 ← `assistant/tool_call · 58`、工具结果"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":7,"c":" ← `tool/result · 58`、**性能指标 ← `metric/timing · 37`**、**`request/start · 31`**、`assistant/status · 28`、`context/model-input · 6`、`session/title · 4`、Turn 结束 ← `turn/end · 4`、`"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":8,"c":"assistant/text-batch · 3`、Turn 开始 ← `turn/start · 3`、用户消息 ← `user/message · 3`、`context/steering · 1`；筛选计数：**383/383** →（点 `request/start`）**31/383**（摘要变「已启用 1 项」）→ 取消 → "}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":9,"c":"**383/383**；Console 全量 grep `未知事件类型`/`Uncaught`/`TypeError`/`Failed to` = **0 命中**。⑤ **测试**：新增 `components/Trajectory/__tests__/trajectoryEventTypes.test.ts` 6 例（候选计数/降序/同次数字典序/空输入"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":10,"c":"/**最吵两类必在候选**/标签译文与回落/对 54 成员均非空）+ 新增 `__tests__/TrajectoryFilter.test.tsx` 4 例（动态渲染、点击回传、**已选但未出现仍保留**、缺省不渲染）；同步更新既有 `src/tests/trajectory-filter.test.tsx`（去掉「文案恒为类型原文 + 短别名」旧契约，改"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":11,"c":"为按 `title` 定位 + `request/start` 回落原串断言）。**负向对照已做**：临时把候选改为 `filter(剔除 metric/timing 与 request/start)` 并去掉「已选兜底」⇒ 组件测试 **3/4 转红**（含关键回归例），改回即绿。⑥ 门禁：`lint:arch`（错误 0）/`lint:consts`/`"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":12,"c":"lint:unref`/`lint:fix-evidence`/`lint:evidence-linewidth`/`lint:evidence-views-drift` 全绿；client `tsc --noEmit` 0；client `vitest` **76 文件 / 597 例**绿。⑦ 真机复验时未改动任何设置/未删除会话；出现的 `"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"notes","i":13,"c":"net::ERR_ABORTED /v1/events` 与 SSE 重连告警属切换会话时旧流断开，与本次无关。"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"code#0","i":0,"c":"client/src/components/Trajectory/trajectoryEventTypes.ts"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"code#1","i":0,"c":"client/src/components/Trajectory/TrajectoryFilter.tsx"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"code#2","i":0,"c":"client/src/components/Trajectory/TrajectoryRow.tsx"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"code#3","i":0,"c":"client/src/components/ChatInspector/ChatInspector.tsx"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"tests#0","i":0,"c":"client/src/components/Trajectory/__tests__/trajectoryEventTypes.test.ts"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"tests#1","i":0,"c":"client/src/components/Trajectory/__tests__/TrajectoryFilter.test.tsx"}
+{"id":"TRAJECTORY-TYPE-FILTER-DYNAMIC","k":"tests#2","i":0,"c":"client/src/tests/trajectory-filter.test.tsx"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

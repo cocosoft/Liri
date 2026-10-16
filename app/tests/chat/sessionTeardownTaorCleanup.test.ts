@@ -40,6 +40,10 @@ import { afterEach, describe, expect, it, spyOn } from 'bun:test';
 import { ChatSessionTeardown } from '../../src/chat/manager/sessionTeardown.js';
 import type { ChatSessionTeardownDeps } from '../../src/chat/manager/sessionTeardown.js';
 import { ResumeManager } from '../../src/query/ResumeManager.js';
+import {
+  getBudgetSuspendCoordinator,
+  resetBudgetSuspendForTest,
+} from '../../src/query/budgetSuspend.js';
 import { getLogger } from '../../src/monitoring/logs/Logger.js';
 
 /** 轮询等待异步 fire-and-forget 清理落地（动态 import + 清理均为异步） */
@@ -56,12 +60,20 @@ async function waitFor(pred: () => boolean, timeoutMs = 2000): Promise<void> {
  * 无关的级联（PDCA 收口 / 审批项关闭——它们会动态 import 真实模块并触库），
  * 只保留检查点清理路径为真实实现。
  */
-function makeTeardown(): ChatSessionTeardown {
+function makeTeardown(
+  opts: {
+    /** `clearAllSessions` 用例用：存储层会话清单（含 `metadata.moduleType` 供过滤） */
+    stored?: Array<{ id: string; metadata?: Record<string, unknown> }>;
+  } = {}
+): ChatSessionTeardown {
   const deps = {
     // 会话生命周期删除（fake：立即成功，不落盘）
-    getSessionLifecycle: () => ({ deleteSession: async () => {} }),
-    // 会话网关（本测试不经 clearAllSessions，占位即可）
-    getSessionGateway: () => ({ listSessions: async () => [] }),
+    getSessionLifecycle: () => ({
+      deleteSession: async () => {},
+      clearAllSessions: async () => {},
+    }),
+    // 会话网关（默认空清单；`clearAllSessions` 用例可按需注入）
+    getSessionGateway: () => ({ listSessions: async () => opts.stored ?? [] }),
     // 检查点服务（fake：无检查点、删除为空操作 ⇒ 只为走通流式链路径）
     getCheckpointService: () => ({
       listCheckpoints: async () => [],
@@ -128,5 +140,79 @@ describe('Task Ghost：deleteSession 同步清理 taor 链检查点', () => {
     expect(warnSpy.mock.calls.some((c) => String(c[0]).includes('taor'))).toBe(
       true
     );
+  });
+});
+
+/**
+ * Task Ghost-2（2026-10-17，台账 `BUDGET-SUSPEND-DELETE-RELEASE`）：会话删除/清空一并释放
+ * **预算挂起协调器**的**进程内登记**。
+ *
+ * 缺陷（真机实证）：上面两条清理只覆盖**检查点**（磁盘）；协调器另持
+ * `sessionId → 挂起条目` 的**内存**登记（非持久化事实源），会话被删后**不会自行消失** ⇒
+ *  ① `GET /v1/cost/daily-budget/suspend` 仍列出已删会话（**幽灵条目**，重启才消失）；
+ *  ② 全局放行会尝试唤醒已不存在的会话 ⇒ 续跑失败回滚 + warn（无害但噪音）。
+ *
+ * 修复前 ① 必然红（删除后 `isSuspended` 仍为 `true`）。
+ */
+describe('Task Ghost-2：deleteSession / clearAllSessions 释放预算挂起登记', () => {
+  it('① 删除**挂起中**的会话 ⇒ 协调器登记被释放（先红后绿）', async () => {
+    resetBudgetSuspendForTest();
+    const c = getBudgetSuspendCoordinator();
+    c.suspend({
+      sessionId: 'susp-1',
+      chain: 'stream',
+      reason: 'daily_budget_exhausted',
+    });
+    expect(c.isSuspended('susp-1')).toBe(true); // 修复前删除后此断言仍为 true ⇒ 红
+
+    await makeTeardown().deleteSession('susp-1');
+    await waitFor(() => !c.isSuspended('susp-1'));
+
+    expect(c.isSuspended('susp-1')).toBe(false);
+    expect(c.list().map((e) => e.sessionId)).toEqual([]);
+    resetBudgetSuspendForTest();
+  });
+
+  it('② 只释放被删会话；未挂起者删除是幂等 no-op，不误伤其它挂起会话', async () => {
+    resetBudgetSuspendForTest();
+    const c = getBudgetSuspendCoordinator();
+    c.suspend({ sessionId: 'keep-1', chain: 'stream', reason: 'r1' });
+    c.suspend({ sessionId: 'susp-2', chain: 'taor', reason: 'r2' });
+
+    const teardown = makeTeardown();
+    await teardown.deleteSession('susp-2');
+    await expect(teardown.deleteSession('never-suspended')).resolves.toBe(
+      undefined
+    );
+    await waitFor(() => !c.isSuspended('susp-2'));
+
+    expect(c.isSuspended('susp-2')).toBe(false);
+    expect(c.isSuspended('keep-1')).toBe(true);
+    expect(c.list().map((e) => e.sessionId)).toEqual(['keep-1']);
+    resetBudgetSuspendForTest();
+  });
+
+  it('③ 清空会话 ⇒ 被清会话的登记**成批**释放，且过滤口径与清空一致', async () => {
+    resetBudgetSuspendForTest();
+    const c = getBudgetSuspendCoordinator();
+    c.suspend({ sessionId: 'b1', chain: 'stream', reason: 'r' });
+    c.suspend({ sessionId: 'b2', chain: 'stream', reason: 'r' });
+    c.suspend({ sessionId: 'other-module', chain: 'stream', reason: 'r' });
+
+    const teardown = makeTeardown({
+      stored: [
+        { id: 'b1', metadata: { moduleType: 'chat' } },
+        { id: 'b2', metadata: { moduleType: 'chat' } },
+        { id: 'other-module', metadata: { moduleType: 'project' } },
+      ],
+    });
+    await teardown.clearAllSessions('chat');
+    await waitFor(() => !c.isSuspended('b1'));
+
+    expect(c.isSuspended('b1')).toBe(false);
+    expect(c.isSuspended('b2')).toBe(false);
+    // 不在本次清空范围内的会话**不受影响**（释放口径与清空过滤同源）
+    expect(c.isSuspended('other-module')).toBe(true);
+    resetBudgetSuspendForTest();
   });
 });

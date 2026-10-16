@@ -74,6 +74,12 @@ export class ChatSessionTeardown {
     // （taor_checkpoints）。taor 行残留会让服务重启时 resumeBudgetSuspends() 把已删
     // 会话重新登记为「幽灵挂起」，放行时对已删会话尝试续跑（额外 LLM 开销/误导日志）。
     void this.clearSessionTaorCheckpoints(sessionId);
+    // 2026-10-17（台账 `BUDGET-SUSPEND-DELETE-RELEASE`）：释放**预算挂起协调器的内存登记**。
+    // 上面两条只清**检查点**（磁盘）—— 协调器另持有 `sessionId → 挂起条目` 的**进程内**登记，
+    // 删除会话后不释放 ⇒ ① 挂起清单留**幽灵条目**（`GET /v1/cost/daily-budget/suspend` 列出
+    // 已删会话）；② 全局放行会尝试唤醒已不存在的会话 ⇒ 续跑失败回滚 + warn（无害但噪音）。
+    // 判据（真机实证，2026-10-17）：删一个仍挂起的会话后，该 sessionId 仍在挂起清单里。
+    this.releaseBudgetSuspends([sessionId]);
     // 清理协商状态文件（避免残留）
     deleteNegotiationState(sessionId);
     // BUG-J 修复（2026-08-26）：清理事件日志缓存——原 deleteSession 不删
@@ -247,6 +253,34 @@ export class ChatSessionTeardown {
     }
   }
 
+  /**
+   * 2026-10-17（台账 `BUDGET-SUSPEND-DELETE-RELEASE`）：释放**预算挂起协调器**的进程内登记。
+   *
+   * 与上面两条**检查点**清理职责不同：协调器持的是 `sessionId → {chain, suspendedAt, kind, …}`
+   * 的**内存**登记（非持久化事实源）⇒ 会话被删后它不会自行消失。不释放的后果见 `deleteSession`
+   * 内的注释（幽灵条目 + 放行时对已删会话续跑失败）。
+   *
+   * **幂等**（`release` 不存在即 no-op）；失败仅告警、不阻塞删除主流程（与本文件其它清理同口径）。
+   * 动态 import：沿用本文件既有惯例（`clearSessionTaorCheckpoints` / `dismissSessionInboxItems`），
+   * 避免新增 chat → query 静态跨模块边。
+   */
+  private releaseBudgetSuspends(sessionIds: readonly string[]): void {
+    if (sessionIds.length === 0) return;
+    void (async () => {
+      try {
+        const { getBudgetSuspendCoordinator } =
+          await import('../../query/budgetSuspend.js');
+        const coordinator = getBudgetSuspendCoordinator();
+        for (const sessionId of sessionIds) coordinator.release(sessionId);
+      } catch (e) {
+        logger.warn('deleteSession:释放预算挂起登记失败', {
+          count: sessionIds.length,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    })();
+  }
+
   async clearAllSessions(moduleType?: string): Promise<void> {
     const startedAt = Date.now();
     logger.info('clearAllSessions:开始批量清空会话', {
@@ -257,27 +291,29 @@ export class ChatSessionTeardown {
     logger.info('clearAllSessions:发现待清理存储会话', {
       count: stored.length,
     });
-    await Promise.all(
-      stored
-        .filter(
-          (s) =>
-            !moduleType ||
-            (s.metadata as Record<string, unknown> | undefined)?.moduleType ===
-              moduleType
-        )
-        .map((s) =>
-          this.deps
-            .getCheckpointService()
-            .deleteSessionCheckpoints(s.id)
-            .catch((e) =>
-              handleError(e, {
-                module: 'chat:manager',
-                action: 'clearAllSessions:清理检查点失败',
-                context: { sessionId: s.id },
-              })
-            )
-        )
+    const targets = stored.filter(
+      (s) =>
+        !moduleType ||
+        (s.metadata as Record<string, unknown> | undefined)?.moduleType ===
+          moduleType
     );
+    await Promise.all(
+      targets.map((s) =>
+        this.deps
+          .getCheckpointService()
+          .deleteSessionCheckpoints(s.id)
+          .catch((e) =>
+            handleError(e, {
+              module: 'chat:manager',
+              action: 'clearAllSessions:清理检查点失败',
+              context: { sessionId: s.id },
+            })
+          )
+      )
+    );
+    // 2026-10-17（台账 `BUDGET-SUSPEND-DELETE-RELEASE`）：被清空的会话若处于挂起态，
+    // 其协调器登记须一并释放 —— 否则"清空历史"会留下**成批**幽灵条目（与 `deleteSession` 同根因）。
+    this.releaseBudgetSuspends(targets.map((s) => s.id));
     await this.deps.getSessionLifecycle().clearAllSessions(moduleType);
     logger.info('clearAllSessions:批量清空完成', {
       sessions: stored.length,

@@ -5169,10 +5169,13 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * D3（2026-08-24）：事件级 fork——从源会话任意历史 seq fork 出子会话
    * 委托 SessionGateway.forkSession（血缘注入 + 前缀事件复制）
+   *
+   * 2026-10-16：`truncateBeforeMessageId` = 「编辑并另存为分支」只保留编辑点之前的历史
+   *（边界由网关在源会话事件上解析；解析出的 0 表示该消息之前无历史 ⇒ 零种子分支）。
    */
   async forkSession(
     sourceId: string,
-    options: { boundary?: number; childTitle?: string; childId?: string } = {}
+    options: Parameters<SessionGateway['forkSession']>[1] = {}
   ): ReturnType<SessionGateway['forkSession']> {
     return this.sessionGateway.forkSession(sourceId, options);
   }

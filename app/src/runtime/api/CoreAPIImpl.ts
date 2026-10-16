@@ -1568,7 +1568,12 @@ export class CoreAPIImpl implements CoreAPI {
   /** D3（2026-08-24）：事件级 fork（实现已外迁 `sessionAgentOps.ts`） */
   async forkSession(
     sourceId: string,
-    options: { boundary?: number; childTitle?: string } = {}
+    options: {
+      boundary?: number;
+      childTitle?: string;
+      childId?: string;
+      truncateBeforeMessageId?: string;
+    } = {}
   ): Promise<{
     success: boolean;
     session?: SessionInfo;

@@ -472,12 +472,19 @@ export const sessionService = {
   /**
    * D3（2026-08-24）：事件级 fork——复制源会话事件前缀生成分支会话
    * @param sourceId 源会话 ID
-   * @param options boundary（缺省 = 源 tailSeq，fork 全量历史）、childTitle
-   * @returns 子会话 + 复制边界与数量；open turn / 无效 boundary 时后端 400 → 抛错
+   * @param options boundary（缺省 = 源 tailSeq，fork 全量历史）、childTitle、
+   *   truncateBeforeMessageId（2026-10-16：「编辑并另存为分支」只保留该消息**之前**的
+   *   历史；边界由后端在源会话事件上解析，`boundary` 解析为 0 时子会话为零种子）
+   * @returns 子会话 + 复制边界与数量；open turn / 无效 boundary / 截断目标不在事件日志
+   *   时后端 400 → 抛错
    */
   forkSession: (
     sourceId: string,
-    options?: { boundary?: number; childTitle?: string },
+    options?: {
+      boundary?: number;
+      childTitle?: string;
+      truncateBeforeMessageId?: string;
+    },
   ): Promise<{ session: Session; boundary: number; copied: number }> => {
     return getOTelTracing().asyncWrap(
       "services:session:forkSession",
@@ -486,6 +493,8 @@ export const sessionService = {
         if (options?.boundary !== undefined) body.boundary = options.boundary;
         if (options?.childTitle !== undefined)
           body.childTitle = options.childTitle;
+        if (options?.truncateBeforeMessageId !== undefined)
+          body.truncateBeforeMessageId = options.truncateBeforeMessageId;
         const res = await apiHttp.post<{
           session: Session;
           boundary: number;

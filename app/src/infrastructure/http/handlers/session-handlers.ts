@@ -1300,13 +1300,16 @@ export async function handleGetSessionStats(
 /**
  * POST /v1/sessions/:id/fork — D3（2026-08-24）事件级 fork
  *
- * body: { boundary?: number, childTitle?: string }
+ * body: { boundary?: number, childTitle?: string, truncateBeforeMessageId?: string }
  *  - boundary 缺省 = 源会话 tailSeq（fork 全量历史）；须为 [1..tailSeq] 内整数
+ *  - truncateBeforeMessageId（2026-10-16，「编辑并另存为分支」）：只保留该消息**之前**
+ *    的历史，边界由后端在源会话事件上解析（**优先于** boundary）；解析出的 0 表示该消息
+ *    之前无历史（首轮编辑）⇒ 零种子分支。该消息不在事件日志中 ⇒ 400（不猜测边界）
  *  - boundary 落在 open turn（未闭合 turn/start）内 → 400
  *
  * 响应：
  *   200: { session, boundary, copied }（血缘在 session.metadata.parentSessionId/seedLength）
- *   400: { error }（boundary 无效 / open turn）
+ *   400: { error }（boundary 无效 / open turn / 截断目标不在事件日志）
  *   404: { error }（源会话不存在）
  *   500: 服务器错误
  */
@@ -1323,6 +1326,10 @@ export async function handleForkSession(
       data && typeof data.boundary === 'number' ? data.boundary : undefined;
     const childTitle =
       data && typeof data.childTitle === 'string' ? data.childTitle : undefined;
+    const truncateBeforeMessageId =
+      data && typeof data.truncateBeforeMessageId === 'string'
+        ? data.truncateBeforeMessageId
+        : undefined;
 
     const coreAPI = getCoreAPI();
     await coreAPI.ensureSessionsLoaded();
@@ -1330,6 +1337,7 @@ export async function handleForkSession(
     const result = await coreAPI.forkSession(sessionId, {
       boundary,
       childTitle,
+      truncateBeforeMessageId,
     });
 
     if (!result.success) {

@@ -667,10 +667,19 @@ export interface CoreAPI {
    * D3（2026-08-24）：事件级 fork——从源会话任意历史 seq（boundary）fork 出子会话
    * 复制 [1..boundary] 前缀事件 + 血缘（parentSessionId/seedLength），保留原 seq。
    * boundary 落在 open turn 内或无效时 success=false 并返回 error。
+   *
+   * 2026-10-16：`truncateBeforeMessageId` —— 只保留该消息**之前**的历史（「编辑并另存为
+   * 分支」用），边界由网关在源会话事件上解析并**优先于** `boundary`；解析出的 0 表示
+   * 该消息之前无历史（首轮编辑）⇒ 零种子分支（等价空会话）。
    */
   forkSession(
     sourceId: string,
-    options?: { boundary?: number; childTitle?: string }
+    options?: {
+      boundary?: number;
+      childTitle?: string;
+      childId?: string;
+      truncateBeforeMessageId?: string;
+    }
   ): Promise<{
     success: boolean;
     session?: SessionInfo;

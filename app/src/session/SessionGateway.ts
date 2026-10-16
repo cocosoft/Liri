@@ -34,6 +34,8 @@ import {
 } from './gateway/LiteSessionLister.js';
 // 大文件拆分（spec §34 批 C3）：FTS5 分片索引簇外迁（存储/引擎/定时器/重建/检索）
 import { SessionGatewayFtsIndex } from './gateway/GatewayFtsIndex.js';
+// 大文件拆分（R04-001 文件行数门禁）：fork 边界解析外迁
+import { resolveBoundaryBeforeMessage } from './gateway/ForkBoundary.js';
 // 2026-10-01 B14b 步 3：本条为**相对路径**类型导入，此前未被识别为 `session -> context` 边
 // （写的是 `../context/...` 而非 `@modules/context`），故 B14 长期未清零的**真实根因**在此。
 // 依 B′ 步已确立约定改指类型中心（core）⇒ `session -> context` 的「文件 × 模块」对**整条消失**。
@@ -724,16 +726,27 @@ export class SessionGateway {
    *
    * 流程：
    *   1. 读源会话 + 源事件（read 自动触发 D4 崩溃修复，保证复制一致性）
-   *   2. 校验 boundary（默认 = tailSeq；须为 [1..tailSeq] 内整数）
+   *   2. 定 boundary：显式 `boundary`（默认 = tailSeq，须为 [1..tailSeq] 内整数），
+   *      或由 `truncateBeforeMessageId` 在源事件上解析（见 `resolveBoundaryBeforeMessage`）
    *   3. open turn 校验：seq ≤ boundary 内存在未闭合 turn/start → 拒绝
    *   4. createSession 建子会话（metadata 注入 parentSessionId/seedLength 血缘）
-   *   5. copyPrefixTo 复制 [1..boundary] 前缀事件（保留原 seq，子会话继承祖先 seq 空间）
+   *   5. copyPrefixTo 复制 [1..boundary] 前缀事件（保留原 seq，子会话继承祖先 seq 空间）；
+   *      `boundary === 0`（截断点之前无历史）⇒ 零种子，不复制
    *
    * 返回结果对象（不抛错，对齐本类既有模式）；HTTP 层据此映射 4xx/201
    */
   async forkSession(
     sourceId: string,
-    options: { boundary?: number; childTitle?: string; childId?: string } = {}
+    options: {
+      boundary?: number;
+      childTitle?: string;
+      childId?: string;
+      /**
+       * 「编辑并另存为分支」：只保留该消息**之前**的历史（在源会话事件上解析边界）。
+       * 传入时**优先于** `boundary`；解析不出（消息不在事件日志）即失败，不猜测。
+       */
+      truncateBeforeMessageId?: string;
+    } = {}
   ): Promise<{
     success: boolean;
     session?: UnifiedSession;
@@ -747,6 +760,7 @@ export class SessionGateway {
     logger.debug('forkSession:入口', {
       sourceId,
       boundary: options.boundary ?? null,
+      truncateBeforeMessageId: options.truncateBeforeMessageId ?? null,
       childTitle: options.childTitle ?? null,
     });
 
@@ -776,16 +790,39 @@ export class SessionGateway {
       const events = await sourceLog.read();
       const tailSeq = await sourceLog.getTailSeq();
 
-      const boundary = options.boundary ?? tailSeq;
-      if (!Number.isInteger(boundary) || boundary <= 0 || boundary > tailSeq) {
-        return {
-          success: false,
-          error: `invalid boundary: ${boundary} (tailSeq=${tailSeq})`,
-        };
+      // boundary 的两条来源：① 显式 seq（缺省 = tailSeq，须在 [1..tailSeq] 内）；
+      // ② 「编辑点之前」—— 按源事件解析（优先），`0` = 截断点之前无历史 ⇒ 零种子 fork。
+      let boundary: number;
+      if (options.truncateBeforeMessageId) {
+        const resolved = resolveBoundaryBeforeMessage(
+          events,
+          options.truncateBeforeMessageId
+        );
+        if (resolved === null) {
+          return {
+            success: false,
+            error: `truncate-before message not in event log: ${options.truncateBeforeMessageId}`,
+          };
+        }
+        boundary = resolved;
+        logger.debug('forkSession:截断边界由源事件解析', {
+          sourceId,
+          truncateBeforeMessageId: options.truncateBeforeMessageId,
+          boundary,
+          tailSeq,
+        });
+      } else {
+        boundary = options.boundary ?? tailSeq;
+        if (!Number.isInteger(boundary) || boundary <= 0 || boundary > tailSeq) {
+          return {
+            success: false,
+            error: `invalid boundary: ${boundary} (tailSeq=${tailSeq})`,
+          };
+        }
       }
 
       // open turn 校验：boundary 落在未闭合轮次内 → 拒绝（复制残缺 turn 无意义）
-      const openTurn = findOpenTurn(events, boundary);
+      const openTurn = boundary > 0 ? findOpenTurn(events, boundary) : null;
       if (openTurn) {
         return {
           success: false,

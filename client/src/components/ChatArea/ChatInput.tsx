@@ -7,7 +7,6 @@ import React, {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore, inferFileType } from "../../stores/chat";
-import { resolveBranchBoundary } from "../../stores/chat/branchBoundary";
 import { useShallow } from "zustand/shallow";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useConfigStore } from "../../stores/configStore";
@@ -690,37 +689,48 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     try {
       let sessionId = currentSession?.id;
 
-      // 编辑重发 + 另存为分支：真实事件级 fork（复制历史对话事件，而非新建空会话）
+      // 编辑重发 + 另存为分支：真实事件级 fork（只复制编辑点**之前**的历史）
       if (editTarget && branchOnEdit) {
         const branchTitle = currentSession
           ? `${t("chat.branchPrefix")}${currentSession.title}`
           : t("chat.newBranchSession");
-        // 源消息列表快照：fork 需按**事件边界**只复制"编辑点之前"的历史
-        const sourceMessages = useChatStore.getState().messages;
         if (currentSession) {
           // 真机缺陷修复（2026-10-16）：原实现「fork 全量 → 事后 editTruncate」在新会话恒被
-          // 后端 404（`Target message not found`）⇒ 截断落空 ⇒ 分支重载后旧消息回显。
-          // 本轮只修**可被客户端证明**的一类：编辑点为**首条** ⇒ 零历史（建空会话即可，
-          // fork 全量会把被"删掉"的旧消息一起带过去 —— 真机已实证该回退路径会回显）。
-          // 非首条需要"编辑点之前的事件边界"，客户端拿不到可信值（详见 `branchBoundary`
-          // 文件头注：字段常为 null + `withPaginationSeq` 合成序号非事件 seq + tail 戳可能
-          // 落在未闭合 turn 内 ⇒ 后端 400）⇒ 保持既有行为并留痕，待后端支持
-          // `fork { truncateAfterMessageId }` 再收口。
-          const plan = resolveBranchBoundary(sourceMessages, editTarget);
-          if (plan.kind === "empty") {
-            // 注：**不 early-return** —— 下方还有"上传附件 + 发送"主流程要用 sessionId；
-            // 这里只负责把会话切好、并把编辑点清空（空会话里无事可截断，且截断会 404）。
-            const branchSession = await createSession(branchTitle);
-            await useSessionStore.getState().switchSession(branchSession.id);
-            sessionId = branchSession.id;
-            useChatStore.getState().setEditTarget(null);
-          } else {
+          // 后端 404（`Target message not found`）——fork 只复制**事件**，子会话 `messages.jsonl`
+          // 为空，而截断按投影查 id ⇒ 截断落空 ⇒ 分支重载后旧消息回显。
+          // 现改为把边界交给**后端按源会话事件解析**（`truncateBeforeMessageId`）：只复制
+          // 编辑点之前**已闭合轮次**的前缀；编辑点在首轮时后端解析出 0 ⇒ 零种子（等价空分支）。
+          // 客户端不自算边界（`lastEventSeq` 常为 null、`withPaginationSeq` 合成的是分页游标
+          // 而非事件 seq、写盘 tail 戳可能落在未闭合 turn 内 ⇒ 两次真机被打回）。
+          try {
             const forked = await sessionService.forkSession(currentSession.id, {
               childTitle: branchTitle,
+              truncateBeforeMessageId: editTarget.id,
             });
             // fork 后端已建会话，但侧栏 `chatSessions` 尚未收录 ⇒ 立刻 switch 会被
             // `switchChatSession` 的 G5 守卫判「目标会话已不在列表」并丢弃切换（回落旧会话）
             // ⇒ 先轻量 upsert 收录再切。
+            useRootStore.getState().upsertChatSession(forked.session);
+            await useSessionStore.getState().switchSession(forked.session.id);
+            sessionId = forked.session.id;
+            // 子会话已只含编辑点之前的历史 ⇒ 无需（也不应）再截断：清空编辑点，
+            // 否则 `streamMessage` 会拿**旧会话**的 messageId 去截新会话（404 噪音）。
+            useChatStore.getState().setEditTarget(null);
+          } catch (err) {
+            // 边界无法解析（该消息不在源会话事件日志中，如纯投影的存量会话）⇒ 退回既有行为：
+            // fork 全量 + 由 `streamMessage` 事后截断（该路径已知可能回显旧消息，见台账
+            // BRANCH-EDIT-ZERO-HISTORY；此处只保证"不静默、有留痕"）。
+            handleClientError(
+              err,
+              {
+                module: "components:chatInput",
+                action: "forkSession:truncateBefore",
+              },
+              "warn",
+            );
+            const forked = await sessionService.forkSession(currentSession.id, {
+              childTitle: branchTitle,
+            });
             useRootStore.getState().upsertChatSession(forked.session);
             await useSessionStore.getState().switchSession(forked.session.id);
             sessionId = forked.session.id;

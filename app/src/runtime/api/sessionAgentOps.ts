@@ -236,7 +236,12 @@ export class SessionAgentOps {
    */
   async forkSession(
     sourceId: string,
-    options: { boundary?: number; childTitle?: string } = {}
+    options: {
+      boundary?: number;
+      childTitle?: string;
+      childId?: string;
+      truncateBeforeMessageId?: string;
+    } = {}
   ): Promise<{
     success: boolean;
     session?: SessionInfo;

@@ -251,9 +251,8 @@ dev_docs/*
 
 # 临时会话去重备份与一次性脚本
 app/scripts/session-dedup-backup-*.jsonl
-liri_check.py
-liri_serve.py
-rand_pick.py
+# 2026-10-16：`liri_check.py` / `liri_serve.py` / `rand_pick.py` 三条忽略规则已删 ——
+# 对应的一次性脚本已于根目录清理中移除，规则成死规则（无对象可忽略）。
 
 # 运行时诊断件与任务类归档文档：原各有独立忽略/反排除规则（2026-09-25 / 2026-10-02）。
 # 2026-10-10 用户裁定 `dev_docs/` 全量本地化后，这些规则均由上方 `dev_docs/*` 统一覆盖，

@@ -12,8 +12,8 @@
  * - **B2 日限额 SSE 事件名**：后端导出的 `DAILY_BUDGET_SSE_EVENT`
  *   ⟷ 前端组件常量（并断言前端**仅一处**定义）。
  *
- * **不纳入（如实）**：`_check_api.cjs`（仓库根的一次性接口调试脚本，非任何部署单元的契约；
- * 端口变更时它会自然失效，属开发期工具，不纳入门禁以免制造噪音）。
+ * **不纳入（如实）**：仓库根的**开发期一次性调试脚本**（非任何部署单元的契约）；
+ * 端口变更时它们会自然失效，属开发期工具，不纳入门禁以免制造噪音。
  */
 import { describe, it, expect } from 'bun:test';
 import { readFileSync, readdirSync } from 'node:fs';

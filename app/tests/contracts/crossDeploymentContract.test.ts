@@ -264,7 +264,8 @@ describe('HD-P0-3 · B3 模型能力标签集（跨部署单元同值契约）',
  *   ② **键集**：服务端每个分类 / 每个能力（含 `*Desc`）在 zh 与 en 中都有标签键
  *      （漏一个 ⇒ 该标签在 UI 上退到 fallback 或显示原始键）。
  *
- * 并附**防回流**负向锁：客户端不得再出现「分类键集 / 分类标签」的第二份声明。
+ * 并附**防回流**负向锁：客户端不得再出现「分类键集 / 分类标签」的第二份声明，
+ * 也不得再内联**能力降级数据**（`labelFallback: "…"` 字面量 —— 那是生产代码里的假数据，CS04）。
  */
 describe('HD-P0-3 · B4 能力/分类标签（跨部署单元契约）', () => {
   /**
@@ -387,6 +388,12 @@ describe('HD-P0-3 · B4 能力/分类标签（跨部署单元契约）', () => {
           );
         if (/\benum\s+CapabilityCategory\b/.test(line))
           offenders.push(`${rel}: 又声明了客户端 CapabilityCategory 枚举`);
+        // 能力**降级数据**：`labelFallback: "…"` 字面量（类型声明 `labelFallback: string;` 不匹配）
+        // —— 数值型字面量即"生产代码里的假数据"（CS04），能力数据只应来自服务端 `/v1/capabilities`
+        if (/labelFallback:\s*["'`]/.test(line))
+          offenders.push(
+            `${rel}: 又内联了能力降级数据（labelFallback 字面量）—— 应让加载失败如实报错`
+          );
       }
     }
     expect(offenders).toEqual([]);

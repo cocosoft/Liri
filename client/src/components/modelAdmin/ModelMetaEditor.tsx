@@ -8,7 +8,6 @@ import type {
   ModelCapabilityDefinition,
   CapabilityCategoryDefinition,
 } from "../../services/capabilityService";
-import { CAPABILITY } from "../../constants/capabilities";
 
 interface ModelMetaEditorProps {
   modelId: string;
@@ -147,18 +146,17 @@ function ModelMetaEditor({
         const result = await capabilityService.getCapabilitiesCached();
         setCapabilities(result);
 
-        // 如果表单中没有设置能力，使用默认能力
+        // 如果表单中没有设置能力，使用**服务端标记的**默认能力（`isDefault`）
         setForm((prev) => {
           if (prev.capabilities.length === 0) {
-            const defaultCaps = (result || [])
-              .filter((c) => c.isDefault)
-              .map((c) => c.key);
+            // 2026-10-16（台账 `CAPS-CAPABILITY-PRESET-CLEANUP`）：服务端**未**标记任何默认能力时
+            // 不再回落到硬编码的 `["streaming","function_calling","tool_use"]` —— 那是**猜**，
+            // 且会把这 3 项当作新模型的默认能力写出去。如实留空，由用户自己选。
             return {
               ...prev,
-              capabilities:
-                defaultCaps.length > 0
-                  ? defaultCaps
-                  : ["streaming", "function_calling", "tool_use"],
+              capabilities: (result || [])
+                .filter((c) => c.isDefault)
+                .map((c) => c.key),
             };
           }
           return prev;
@@ -168,71 +166,10 @@ function ModelMetaEditor({
           module: "components:modelAdmin:ModelMetaEditor",
           action: "loadCapabilities",
         });
-        // 加载失败使用基础能力列表作为 fallback
-        setCapabilities([
-          {
-            key: CAPABILITY.streaming,
-            labelFallback: "Streaming",
-            isDefault: true,
-            enabled: true,
-            category: "core",
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.function_calling,
-            labelFallback: "Function Calling",
-            isDefault: true,
-            enabled: true,
-            category: "core",
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.vision,
-            labelFallback: "Vision",
-            isDefault: false,
-            enabled: true,
-            category: "vision",
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.thinking,
-            labelFallback: "Thinking",
-            isDefault: false,
-            enabled: true,
-            category: "special",
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.tool_use,
-            labelFallback: "Tool Use",
-            isDefault: true,
-            enabled: true,
-            category: "tools",
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.structured_output,
-            labelFallback: "Structured Output",
-            isDefault: false,
-            enabled: true,
-            category: "core",
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.image_input,
-            labelFallback: "Image Input",
-            isDefault: false,
-            enabled: true,
-            category: "vision",
-          } as ModelCapabilityDefinition,
-          {
-            key: "pdf_input",
-            labelFallback: "PDF Input",
-            isDefault: false,
-            enabled: true,
-            category: "tools",
-          } as ModelCapabilityDefinition,
-        ]);
-        if (!form.capabilities || form.capabilities.length === 0) {
-          setForm((prev) => ({
-            ...prev,
-            capabilities: ["streaming", "function_calling", "tool_use"],
-          }));
-        }
+        // 2026-10-16（台账 `CAPS-CAPABILITY-PRESET-CLEANUP`）：**不再注入伪造的能力列表**
+        // （原实现为 10 项硬编码；它是服务端 28 项能力的部分副本、无 labelKey ⇒ 只能显示英文
+        // labelFallback，且 `sortOrder`/`isDefault` 是编的 ⇒ 让「后端不可用」看起来像「功能正常」）。
+        // 现约定：加载失败 ⇒ 保持空列表（上方 handleClientError 已提示），能力数据只有一个来源。
       } finally {
         setCapabilitiesLoaded(true);
       }

@@ -12,7 +12,6 @@ import type {
   ModelCapabilityDefinition,
   CapabilityCategoryDefinition,
 } from "../../services/capabilityService";
-import { CAPABILITY } from "../../constants/capabilities";
 
 interface CapabilitySelectorProps {
   /** 当前选中的能力 key 列表 */
@@ -74,89 +73,12 @@ export default function CapabilitySelector({
           module: "components:common:CapabilitySelector",
           action: "loadCapabilities",
         });
-        // 使用基础 fallback 列表
-        setCapabilities([
-          {
-            key: CAPABILITY.streaming,
-            labelFallback: "Streaming",
-            isDefault: true,
-            enabled: true,
-            category: "core",
-            sortOrder: 1,
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.function_calling,
-            labelFallback: "Function Calling",
-            isDefault: true,
-            enabled: true,
-            category: "core",
-            sortOrder: 2,
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.tool_use,
-            labelFallback: "Tool Use",
-            isDefault: true,
-            enabled: true,
-            category: "tools",
-            sortOrder: 1,
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.vision,
-            labelFallback: "Vision",
-            isDefault: false,
-            enabled: true,
-            category: "vision",
-            sortOrder: 1,
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.image_generation,
-            labelFallback: "Image Generation",
-            isDefault: false,
-            enabled: true,
-            category: "media",
-            sortOrder: 1,
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.text_to_speech,
-            labelFallback: "Text to Speech",
-            isDefault: false,
-            enabled: true,
-            category: "media",
-            sortOrder: 2,
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.speech_recognition,
-            labelFallback: "Speech Recognition",
-            isDefault: false,
-            enabled: true,
-            category: "media",
-            sortOrder: 3,
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.embedding,
-            labelFallback: "Embedding",
-            isDefault: false,
-            enabled: true,
-            category: "special",
-            sortOrder: 1,
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.structured_output,
-            labelFallback: "Structured Output",
-            isDefault: false,
-            enabled: true,
-            category: "core",
-            sortOrder: 3,
-          } as ModelCapabilityDefinition,
-          {
-            key: CAPABILITY.thinking,
-            labelFallback: "Thinking",
-            isDefault: false,
-            enabled: true,
-            category: "special",
-            sortOrder: 2,
-          } as ModelCapabilityDefinition,
-        ]);
+        // 2026-10-16（台账 `CAPS-CAPABILITY-PRESET-CLEANUP`）：**不再注入伪造的能力列表**。
+        // 原实现在此 `setCapabilities([…10 项硬编码…])` —— 属**生产代码里的假数据**（CS04），
+        // 且它是服务端 28 项能力的**部分副本**（缺 18 项、无 labelKey ⇒ 只能显示英文 labelFallback，
+        // `sortOrder`/`isDefault` 也是编的）⇒ 让「后端不可用」看起来像「功能正常」。
+        // 现约定：加载失败 ⇒ 保持空列表（上方 handleClientError 已提示 + 下方空态呈现），不猜、不伪造；
+        // 能力数据只有**一个来源**：服务端 `/v1/capabilities`（或显式传入的 `presetCapabilities`）。
       } finally {
         setLoading(false);
       }

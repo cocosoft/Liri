@@ -21,6 +21,15 @@ export interface ModelCapabilityDefinition {
    */
   category: string;
   labelKey: string;
+  /**
+   * 能力描述 key。
+   *
+   * ⚠️ **当前无客户端消费者**（2026-10-16 台账 `CAPS-CAPABILITY-LABEL-CONVENTION` reopenWhen ③）：
+   * 描述走 `getDescription()` 的 `${labelKey}Desc` **扁平**形态（原因见该方法注释：i18next 的
+   * `labelKey` 叶子字符串与 `labelKey.desc` 嵌套路径冲突）；而服务端播种值与 DB 存量值是这个
+   * **嵌套**形态（`capability.<x>.desc`）。⇒ 若日后要改用它，**必须同时**在 locale 里补出嵌套键，
+   * 否则又是一次「键写对了但解析不到」（与 labelKey 前缀问题同源）。
+   */
   descriptionKey: string;
   labelFallback: string;
   descriptionFallback: string;

@@ -9274,6 +9274,34 @@
       "changelog": [],
       "reopenWhen": "① 新增能力时（`capabilities.default.yaml` 加 `labelKey: capability.<x>`）⇒ B4 ③ 要求 zh/en 同步补 `<x>` 与 `<x>Desc`，**这是设计意图**（补标签才算登记完成）；② 客户端 locale 只有 `zh` / `en`（`clien…（全文见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-LABEL-CONVENTION）",
       "notes": "【问题】能力标签（28 个）与分类标签同源不同命：`capabilities[].labelKey` = `capability.<x>`（YAML 声明 + 播种进 DB `model_capabilities.label_key` 列），而客户端 i18n 把它放在 **`model.capability.*`*…（全文见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-LABEL-CONVENTION）"
+    },
+    {
+      "id": "CAPS-CAPABILITY-PRESET-CLEANUP",
+      "title": "清理客户端「伪造能力降级数据」：删两处 10 项硬编码能力列表 + 删硬编码默认能力 + 增防回流锁",
+      "source": "承 `CAPS-CAPABILITY-LABEL-CONVENTION` 的 reopenWhen ⑤ ——「`CapabilitySelector` / `ModelMetaEditor` 仍各留一份预设能力列表（无 labelKey 的降级数据），能力标签加载失败时只给英文 `labelFallback`」（用户裁定一并清理）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/components/common/CapabilitySelector.tsx",
+        "client/src/components/modelAdmin/ModelMetaEditor.tsx",
+        "app/tests/contracts/crossDeploymentContract.test.ts"
+      ],
+      "tests": [
+        "app/tests/contracts/crossDeploymentContract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若产品要求「后端不可用也能选能力」（离线编辑等），**不要**恢复硬编码列表 —— 应改为**显式**的离线能力清单（带 labelKey、走 i18n、并在 UI 标注「离线清单」），否则又是一次「假数据让故障看起来像正常」；② 本片删掉了 `ModelMetaEditor` 的硬编码默认能力（`[stream…（全文见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-PRESET-CLEANUP）",
+      "notes": "【问题】两个组件在能力列表**加载失败**时 `setCapabilities([...10 项硬编码...])` —— 属**生产代码里的假数据**（编码铁律 CS04「Mock 数据零容忍」），且危害具体：① 它是服务端 **28 项能力的部分副本**（缺 18 项）⇒ 用户看到的能力面是**错的**；② 这些对…（全文见 archive/evidence-detail.jsonl#CAPS-CAPABILITY-PRESET-CLEANUP）"
     }
   ]
 }

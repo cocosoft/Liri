@@ -5184,6 +5184,25 @@
 {"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"code#2","i":0,"c":"app/src/ai/services/CapabilityService.ts"}
 {"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"code#3","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
 {"id":"CAPS-CAPABILITY-LABEL-CONVENTION","k":"tests#0","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"title","i":0,"c":"清理客户端「伪造能力降级数据」：删两处 10 项硬编码能力列表 + 删硬编码默认能力 + 增防回流锁"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"source","i":0,"c":"承 `CAPS-CAPABILITY-LABEL-CONVENTION` 的 reopenWhen ⑤ ——「`CapabilitySelector` / `ModelMetaEditor` 仍各留一份预设能力列表（无 labelKey 的降级数据），能力标签加载失败时只给英文 `labelFallback`」（用户裁定一并清理）"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"reopenWhen","i":0,"c":"① 若产品要求「后端不可用也能选能力」（离线编辑等），**不要**恢复硬编码列表 —— 应改为**显式**的离线能力清单（带 labelKey、走 i18n、并在 UI 标注「离线清单」），否则又是一次「假数据让故障看起来像正常」；② 本片删掉了 `ModelMetaEditor` 的硬编码默认能力（`[streaming,function_calling,"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"reopenWhen","i":1,"c":"tool_use]`），**仅在服务端未标记任何 `isDefault` 能力时**行为不同（原：自动勾 3 项；现：留空由用户选）⇒ 若收到「新建模型默认没勾能力」反馈，先确认服务端 `capabilities` 的 `isDefault` 标记是否齐全，而不是回退这段代码；③ 客户端只有 zh/en 两语言，`getDisplayName` 未命中时给 "}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"reopenWhen","i":2,"c":"`labelFallback`（英文）—— 现已由 B4 ②③ 保证 labelKey 可解析，故正常路径不会走到 fallback；④ `getDescription`（客户端）**仍无调用点**、`descriptionKey`（服务端下发）仍无消费者（见 `CAPS-CAPABILITY-LABEL-CONVENTION` reopenWhen ③，已"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"reopenWhen","i":3,"c":"在客户端类型上加注说明）。"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"notes","i":0,"c":"【问题】两个组件在能力列表**加载失败**时 `setCapabilities([...10 项硬编码...])` —— 属**生产代码里的假数据**（编码铁律 CS04「Mock 数据零容忍」），且危害具体：① 它是服务端 **28 项能力的部分副本**（缺 18 项）⇒ 用户看到的能力面是**错的**；② 这些对象**没有 `labelKey`**（且 "}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"notes","i":1,"c":"`sortOrder`/`isDefault` 是编的）⇒ 只能显示英文 `labelFallback`，等于把「后端挂了」呈现成「功能正常、只是英文」；③ `ModelMetaEditor` 还在同一分支里回落到硬编码默认能力 `[streaming,function_calling,tool_use]`，会把**猜的** 3 项当作新模型的默认能力写出去"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"notes","i":2,"c":"。与上一片的根因同源：都是「宁可造数据也不如实报错」。【改了什么】① `CapabilitySelector` 与 `ModelMetaEditor` 的 catch 分支删除伪造列表（保留 `handleClientError` 提示），加载失败 ⇒ **保持空列表**（`CapabilitySelector` 由既有空态呈现；`"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"notes","i":3,"c":"ModelMetaEditor` 由外层提示）；② `ModelMetaEditor` 的默认能力改为**只用服务端标记的** `isDefault`（服务端没标 ⇒ 如实留空）；③ 两个文件随之删去已无用的 `CAPABILITY` 常量导入（`tsc` 的 `noUnusedLocals` 先报 TS6133 ⇒ 证明它确实只被那段假数据使用）；④ B4"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"notes","i":4,"c":" ④ 防回流锁**加一条**：客户端不得再出现 `labelFallback: \"…\"` 字面量（类型声明 `labelFallback: string;` 不匹配该判据）—— 清理后全仓 client 里 `labelFallback:`/`descriptionFallback:` **只剩类型定义的 2 处**（grep 实测），故该锁当前零命中且能拦"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"notes","i":5,"c":"住「再造一份降级列表」。【验证】`crossDeploymentContract.test.ts` ⇒ **13 pass / 0 fail**（含新锁，零命中）；客户端 `tsc --noEmit` ⇒ 0（未删导入前先报 TS6133，删后绿）；客户端 `bun run test` ⇒ **80 files / 629 tests 全 pass**；客户"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"notes","i":6,"c":"端 `eslint` 改动文件 0 error；app 全链 `bun run ci` 通过。【口径边界（如实）】① 这两个组件**没有组件级单测**（全仓 client 无 `CapabilitySelector`/`ModelMetaEditor` 测试 ⇒ 本片行为变化仅由「类型检查 + 全量测试 + 契约锁」间接保证，未新增 UI 用例）；② 本片"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"notes","i":7,"c":"**未**改 i18n：加载失败时 `CapabilitySelector` 的空态仍复用既有 `common.capabilityNoMatch`（「未找到匹配的能力」）—— 严格说该文案面向「搜索无结果」，对「加载失败」不够准确，但新增专用文案属产品决策，未擅自新增键；③ 「离线可用」若确为需求，须按 reopenWhen ① 的做法做成**显式**离线"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"notes","i":8,"c":"清单，而不是恢复本片删掉的假数据。"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"code#0","i":0,"c":"client/src/components/common/CapabilitySelector.tsx"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"code#1","i":0,"c":"client/src/components/modelAdmin/ModelMetaEditor.tsx"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"code#2","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
+{"id":"CAPS-CAPABILITY-PRESET-CLEANUP","k":"tests#0","i":0,"c":"app/tests/contracts/crossDeploymentContract.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

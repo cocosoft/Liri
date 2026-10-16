@@ -274,9 +274,7 @@ describe('fork 长会话（事件数 > 1000，窗口截断回归）', () => {
     events: LiriEvent[];
     userIds: string[];
   } {
-    const events: LiriEvent[] = [
-      makeEvent(1, sessionId, 'metric/timing', {}),
-    ];
+    const events: LiriEvent[] = [makeEvent(1, sessionId, 'metric/timing', {})];
     const userIds: string[] = [];
     let seq = 1;
     for (let r = 1; r <= ROUNDS; r++) {

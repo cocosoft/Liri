@@ -68,7 +68,11 @@ function writeLog(sessionId: string, events: LiriEvent[]): EventLogStorage {
     events.map((e) => JSON.stringify(e)).join('\n') + '\n',
     'utf-8'
   );
-  return new EventLogStorage(sessionId, WORKTREE_HASH, join(dataDir, 'sessions'));
+  return new EventLogStorage(
+    sessionId,
+    WORKTREE_HASH,
+    join(dataDir, 'sessions')
+  );
 }
 
 /**
@@ -167,7 +171,10 @@ describe('comparePrefixIsomorphic：长前缀逐条比对', () => {
   it('两侧一致（1201 条）⇒ ok', async () => {
     const src = longEvents('fp-iso-src', ROUNDS).events;
     const sourceLog = writeLog('fp-iso-src', src);
-    const childLog = writeLog('fp-iso-child', src.map((e) => ({ ...e })));
+    const childLog = writeLog(
+      'fp-iso-child',
+      src.map((e) => ({ ...e }))
+    );
 
     expect(await comparePrefixIsomorphic(sourceLog, childLog, 1201)).toEqual({
       ok: true,

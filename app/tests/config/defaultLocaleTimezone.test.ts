@@ -100,10 +100,9 @@ describe('Q-H2：默认语言 / 时区口径归一（zh-CN / Asia/Shanghai）', 
     const declared = clientLocale.match(
       /export const DEFAULT_TIMEZONE\s*=\s*["']([^"']+)["']/
     )?.[1];
-    expect(
-      declared,
-      '客户端 constants/locale.ts 未声明 DEFAULT_TIMEZONE'
-    ).toBe(DEFAULT_TIMEZONE);
+    expect(declared, '客户端 constants/locale.ts 未声明 DEFAULT_TIMEZONE').toBe(
+      DEFAULT_TIMEZONE
+    );
 
     // 消费点：时区兜底必须**引用真源**，且**不得**出现写死的时区字面量
     for (const rel of [
@@ -116,9 +115,10 @@ describe('Q-H2：默认语言 / 时区口径归一（zh-CN / Asia/Shanghai）', 
       );
       // 形状限定为 **IANA 时区字面量**（`区域/城市`，两侧首字母大写）⇒ 不误伤
       // `"application/json"` 这类 MIME / 路由串
-      expect(code, `${rel} 仍写死时区字面量（应引用 DEFAULT_TIMEZONE）`).not.toMatch(
-        /["'][A-Z][A-Za-z_]+\/[A-Z][A-Za-z_]+["']/
-      );
+      expect(
+        code,
+        `${rel} 仍写死时区字面量（应引用 DEFAULT_TIMEZONE）`
+      ).not.toMatch(/["'][A-Z][A-Za-z_]+\/[A-Z][A-Za-z_]+["']/);
     }
   });
 

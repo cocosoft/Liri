@@ -9478,6 +9478,36 @@
       "changelog": [],
       "reopenWhen": "① 若将来出现**绕过 `ChatSessionTeardown` 的会话销毁路径**（直接调存储层 / 账号级清理 / DB 直删），须同样释放协调器登记 —— 判据：删除后 `GET /v1/cost/daily-budget/suspend` 不应再列出该 id。② 协调器登记为**进程内**、重启靠检查点重建…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-DELETE-RELEASE）",
       "notes": "【问题（上一片真机复测如实发现的缺口，用户指令收口）】`BudgetSuspendCoordinator` 持 `sessionId → 挂起条目` 的**进程内**登记（内存 Map，非持久化事实源）；而 `ChatSessionTeardown.deleteSession` 当时只清**两条链的检查点**（`se…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-DELETE-RELEASE）"
+    },
+    {
+      "id": "BUDGET-SUSPEND-RESTART-IDEMPOTENT",
+      "title": "挂起事实的「失效条件」：修「已放行续跑过的会话，每次重启/重载后又变回『已挂起』」",
+      "source": "用户连续两次「继续」指令驱动，先复现后定根因；复现现场 = 用户自己的会话（当日被登记 restored_budget_suspend **10 次**，当日 17:19 被迫再点一次「继续」）；Spec §D6 仅定义「何时不再唤醒（TTL）」、未定义「放行成功后事实如何失效」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/chat/manager/bootstrap.ts",
+        "app/src/chat/services/StreamingAutoCheckpoint.ts",
+        "app/src/chat/ChatManager.ts",
+        ".trae/specs/long-task-suspend-resume.md"
+      ],
+      "tests": [
+        "app/tests/chat/budgetSuspendStartupRestore.test.ts",
+        "app/tests/chat/budgetSuspendStream.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若日后新增**第三种挂起事实源或第三条链**，须同步「只认最新」判据与「放行成功落失效标记」两条 —— 判据：该链上出现「已续跑却被重启重登记」。② `budget_resumed` 标记会**多占一条检查点**（File 存储 = 一个文件、DB = 一行）：若某会话检查点数量出现异常增长，考虑并入既有链头或纳…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-RESTART-IDEMPOTENT）",
+      "notes": "【问题（用户指令驱动 + 真机复现）】现象：`budgetSuspend:suspended{reason:'restored_budget_suspend'}` 反复出现 —— 真机日志实证**同一会话当日被登记 10 次**，且用户 17:19 在界面上**又看到「已挂起」卡片并再点了一次「继续」**（其 17:…（全文见 archive/evidence-detail.jsonl#BUDGET-SUSPEND-RESTART-IDEMPOTENT）"
     }
   ]
 }

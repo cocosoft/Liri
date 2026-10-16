@@ -5355,6 +5355,35 @@
 {"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"notes","i":12,"c":"`e2eVerified=true` 只覆盖**本地 HTTP** 的删除路径（`DELETE /v1/sessions/:id` 与「清空历史」共用同一 facade；清空侧的成批释放由单测 ③ 覆盖，未在真机做「清空历史」的破坏性操作）。"}
 {"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"code#0","i":0,"c":"app/src/chat/manager/sessionTeardown.ts"}
 {"id":"BUDGET-SUSPEND-DELETE-RELEASE","k":"tests#0","i":0,"c":"app/tests/chat/sessionTeardownTaorCleanup.test.ts"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"title","i":0,"c":"挂起事实的「失效条件」：修「已放行续跑过的会话，每次重启/重载后又变回『已挂起』」"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"source","i":0,"c":"用户连续两次「继续」指令驱动，先复现后定根因；复现现场 = 用户自己的会话（当日被登记 restored_budget_suspend **10 次**，当日 17:19 被迫再点一次「继续」）；Spec §D6 仅定义「何时不再唤醒（TTL）」、未定义「放行成功后事实如何失效」"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"reopenWhen","i":0,"c":"① 若日后新增**第三种挂起事实源或第三条链**，须同步「只认最新」判据与「放行成功落失效标记」两条 —— 判据：该链上出现「已续跑却被重启重登记」。② `budget_resumed` 标记会**多占一条检查点**（File 存储 = 一个文件、DB = 一行）：若某会话检查点数量出现异常增长，考虑并入既有链头或纳入清理策略（判据：单会话检查点文件/行数远"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"reopenWhen","i":1,"c":"超其工具轮数）。③ 若日后把「重启后**只登记不续跑**」改成「重启后自动续跑」，本判据（不再复活）须与之一致重审（两者共用同一事实源语义）。④ 若出现「续跑成功但用户**仍**看到挂起卡」的报告，先核对是否为**本片未覆盖的路径**（如 batch 链在极端情况下未写新检查点、或经 `POST /v1/sessions/:id/resume` 的非 "}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"reopenWhen","i":2,"c":"relief 唤醒 —— 该入口**不落** `budget_resumed` 标记，因为协调器未参与、也无「放行」事实）。"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":0,"c":"【问题（用户指令驱动 + 真机复现）】现象：`budgetSuspend:suspended{reason:'restored_budget_suspend'}` 反复出现 —— 真机日志实证**同一会话当日被登记 10 次**，且用户 17:19 在界面上**又看到「已挂起」卡片并再点了一次「继续」**（其 17:10 已成功续跑过）。用户影响：① 已放行"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":1,"c":"的会话在每次重启/重载后「复活」，用户被迫重复操作；② 重复放行/重复续跑 = 额外额度消耗与潜在的重复执行。\n【根因（file:line）】`app/src/chat/manager/bootstrap.ts` 的 `resumeBudgetSuspends` **流式支路**原判据 = `checkpoints.find(cp => "}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":2,"c":"cp.metadata?.budgetSuspend !== undefined)` —— ① **扫全部**检查点（而非最新一条）；② **没有任何机制让挂起标记失效**（`StreamingAutoCheckpoint.restore()` 只认 `streamingAutoCheckpoint` 标记，挂起检查点**不入 auto 链** ⇒ 永不被覆"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":3,"c":"写/删除）。语义缺口在 spec 层：D2 定义「挂起事实源 = 检查点」、D6 定义「TTL 过期不再唤醒」，但**未定义「放行续跑成功后该事实如何失效」**。（batch 支路本就经 `ResumeManager.scanBudgetSuspends` → `getLatestIncomplete` ⇒ 天然只认最新。）\n【做法】① **启动扫描只认最新"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":4,"c":"检查点**（流式）：挂起点按构造是**当轮最后一条**（`suspend()` 在轮间安全点落盘）⇒ 其后出现任何更新的检查点即证明该挂起已过期。⚠️ **顺序陷阱**：`listCheckpoints` 的顺序**因存储而异**（`FileCheckpointStorage` **新在前** `sort((a,b)=>"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":5,"c":"b.createdAt-a.createdAt)`；`CheckpointDatabase` **旧在前** `ORDER BY created_at ASC`）⇒ 「最新」判据**不得依赖数组下标**，本片改为按 `createdAt` 求最值。② **放行续跑成功 ⇒ 落一条「已恢复」轻量标记**（`"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":6,"c":"StreamingAutoCheckpoint.markResumed()`：`label='budget_resumed'` + `metadata.budgetResumed`，**空消息**、`autoCreated:true`）—— 补上「续跑轮不产生新检查点」的空隙（如整轮纯文本回答不触发工具 ⇒ 不落 `auto` 检查点 ⇒ 旧挂起点一直是「最"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":7,"c":"新」）；**空消息**且不含 `streamingAutoCheckpoint` ⇒ **不入** `restore()` 的 auto 链、不干扰既有恢复素材。挂点在 `ChatManager._resumeSuspendedStream` 的**两个成功出口**（「重放有进展」/「重发一轮」）；**重放与重发均失败 ⇒ 不落**（与协调器「失败回滚为挂起"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":8,"c":"」对称 —— 只有真续跑才算恢复）；落标记失败仅告警（CS03：登记面失败不得把一次成功的续跑判成失败）。\n【验证（单测，先红后绿）】`app/tests/chat/budgetSuspendStartupRestore.test.ts` 新增 4 例：① 挂起点之后有更新的检查点 ⇒ **不**登记（修复前会登记 ⇒ 红）② 最新一条仍是挂起点 ⇒ 登记且"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":9,"c":" `checkpointRef` = 该挂起点（零回归）③ **顺序无关**：同一组检查点**倒序**返回（File 存储形态）⇒ 结论不变 ④ 放行成功落下的 `budget_resumed` 标记（更新的空消息检查点）⇒ 视作已恢复 ⇒ 不登记。`app/tests/chat/budgetSuspendStream.test.ts`：两个成功出口各断言"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":10,"c":"**落了** `budget_resumed`（①③），失败出口断言**没落**（②）；并把 `_checkpointService` 纳入 stub（否则新写入会污染真实数据目录 —— 该 harness 缺口一并补上）。**反证**：`git stash` 摘掉三个源文件改动 ⇒ **14 pass / 5 fail**（5 条新判定全红）；装回 ⇒ "}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":11,"c":"**19 pass / 0 fail**。广域：app 全链 `bun run ci` 通过（**6606 pass / 42 skip / 0 fail**，较上片基线 6602 +4 = 本片新增 4 例）；`tsc --noEmit` 0 错。\n【真实落盘验证（真实检查点服务，不依赖 UI/LLM）】用 `createCheckpointService"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":12,"c":"()`（真实 File 存储）+ `StreamingAutoCheckpoint.markResumed()` 探针实测：`listCheckpoints -> [{ id: 'cp_mvb8rianfd71335e', label: 'budget_resumed', messages: 0, metadataKeys: ['budgetResumed'"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":13,"c":"] }]` ⇒ ② 的落盘形态与「空消息」口径均属实；探针结束即删除该会话检查点（复核残留 **0** 条）。\n【真机端到端（2026-10-17，本机真机，未 mock）】环境：用户正在运行的实例（`--watch` @18990；改动落盘即热重载）。**对照实验**：修复前（17:18:52）一次无害重载即把用户那条**已续跑过**的会话重新登记（日志 "}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":14,"c":"`restored_budget_suspend`）；修复后（本轮）同样用「只改 mtime、不动内容」触发一次真实重载（新 PID + 日志『启动完成』确认重启发生）⇒ `GET /v1/cost/daily-budget/suspend` **仍为空**、且**无新的** `restored_budget_suspend` 日志 ⇒ 不再复活。\n【如实边"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":15,"c":"界】① ②**仅流式链**：batch 链每轮必写检查点（TAORLoop 逐轮 `saveCheckpoint`）⇒ ① 的「只认最新」已足够，未再加一条 batch 专用标记（避免为一个不存在的空隙扩 `TAORCheckpoint['type']` 联合类型）。② **UI 点击路径本片未重跑**：第一次尝试走浏览器时 IDE 浏览器桥连续两次 60s"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":16,"c":" 超时（与代码无关），改以「真实 HTTP + 真实检查点服务探针」取证；该点击路径由上一片（`BUDGET-SUSPEND-WAKE-SCOPE`）的真机 E2E 覆盖，且**本片未改动其代码路径**。③ 经 `POST /v1/sessions/:id/resume` 的**非 relief 唤醒**不落 `budget_resumed` 标记（协调器未"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"notes","i":17,"c":"参与、无「放行」事实）—— 这类唤醒本就不会产生挂起登记，故不在本片判据面内（已记 reopenWhen ④）。"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"code#0","i":0,"c":"app/src/chat/manager/bootstrap.ts"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"code#1","i":0,"c":"app/src/chat/services/StreamingAutoCheckpoint.ts"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"code#2","i":0,"c":"app/src/chat/ChatManager.ts"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"code#3","i":0,"c":".trae/specs/long-task-suspend-resume.md"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"tests#0","i":0,"c":"app/tests/chat/budgetSuspendStartupRestore.test.ts"}
+{"id":"BUDGET-SUSPEND-RESTART-IDEMPOTENT","k":"tests#1","i":0,"c":"app/tests/chat/budgetSuspendStream.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **LINTEXIT-ENTRY-EXPLICIT-EXIT**：修 lint:exit 的 5 处误报：入口补兜底显式收尾（实退由 ratchet() 承担） —— 验证 tc1|exit46|gate7；基线 修前 lint:exit 红：5 个入口脚本文本内无 exit，真实退出发生在 lib 的 ratchet() 内（详情见 archive/evidence-detail.jsonl#LINTEXIT-ENTRY-EXPLICIT-EXIT）
 - ✅ **APPCLEAN-ONEOFF-FILES**：app/ 顶层一次性文件清理（17 个：零引用脚本/日志/产物/2B 残留 + 10.5MB src.zip）+ 补 7 条产物忽略规则 —— 验证 tc1|gate7；基线 清理前：app/ 顶层混有 6 个 ad-hoc 调试脚本、1 个指向不存在路径的死 bat、3 个日志、5 个产物与 10.5MB src.zip（详情见 archive/evidence-detail.jsonl#APPCLEAN-ONEOFF-FILES）
 - ✅ **TOOLVIS-P4B-PROPOSE-PLAN-RETIRE**：propose_plan 下线：审批入口合并到 ask_user_question（生成物 78→77、声明面 90→89、差额集仍 12） —— 验证 tc1|ut1489|gate6；基线 下线前：propose_plan 已由 P4b 接线（78 名、interaction 类别、PLAN flag 门控），与 ask_user_question 同为审批入口（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PROPOSE-PLAN-RETIRE）
 - ✅ **ROOTCLEAN-REPORTS-INTO-DEV_DOCS**：根目录清零：7 篇被引用报告移入 dev_docs/ + 7 处引用路径同步（5 源码/测试 + 2 spec） —— 验证 tc1|doc2|gate6；基线 上一提交只清了零引用子集（7 篇）⇒ 被引用的 7 篇仍在根目录；本次原位移入 dev_docs 并改指引用（不删、留档不丢）（详情见 archive/evidence-detail.jsonl#ROOTCLEAN-REPORTS-INTO-DEV_DOCS）

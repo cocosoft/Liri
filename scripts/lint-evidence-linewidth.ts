@@ -112,3 +112,6 @@ function main(): void {
 }
 
 main();
+// 兜底显式收尾（`lint:exit` 门禁要求）：正常路径已在 `ratchet()` 内部退出（其返回类型为
+// `never`）；此处保证「若日后 `ratchet` 不再自退出，入口仍显式结束」，不会挂在长驻句柄上。
+process.exit(0);

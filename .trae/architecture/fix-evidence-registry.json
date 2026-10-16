@@ -8853,6 +8853,34 @@
       "changelog": [],
       "reopenWhen": "① 若需恢复某个被删的调试脚本（如 `list_tables.ts` / `check_user_db.ts`）：`git revert` 本提交即可（文件级删除，无副作用）；② 若日后要在 app/ 顶层新增入口脚本：仍须走「是否该入库」的评审 —— 本批**只**给产物/日志补了忽略通配，**故意不给** `ch…（全文见 archive/evidence-detail.jsonl#APPCLEAN-ONEOFF-FILES）",
       "notes": "【取证结论（CD01/CD02）】全仓 `--no-ignore` 检索（排除 `dev_docs` 历史日志 / `**/target/**` / `node_modules`）后，17 个文件**零消费者**，只有两处命中且都是**写方**而非读方：① `app/scripts/analyze-deps.ts:1…（全文见 archive/evidence-detail.jsonl#APPCLEAN-ONEOFF-FILES）"
+    },
+    {
+      "id": "LINTEXIT-ENTRY-EXPLICIT-EXIT",
+      "title": "修 lint:exit 的 5 处误报：入口补兜底显式收尾（真实退出由 ratchet() 承担）",
+      "source": "2026-10-16 清理 app/ 时发现的预存红（`bun run lint:exit`，与那次清理无因果）；用户裁定「一并修掉」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lint-consts.ts",
+        "scripts/lint-endpoints.ts",
+        "scripts/lint-locale.ts",
+        "scripts/lint-failmsg-refs.ts",
+        "scripts/lint-evidence-linewidth.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若日后要「治本」：应把退出**从 lib 移回入口** —— 让 `scripts/lib/hardcodeScan.ts` 的 `ratchet()` **返回**退出码（0/1）而非自行 `process.exit`，5 个入口改为 `process.exit(main())`、`main()` 改为 `re…（全文见 archive/evidence-detail.jsonl#LINTEXIT-ENTRY-EXPLICIT-EXIT）",
+      "notes": "【现象与定性：门禁误报，非代码缺陷】`bun run lint:exit`（= `scripts/lint-script-exit.ts`）报 5 个入口脚本「缺少显式退出」：`lint-consts.ts` / `lint-endpoints.ts` / `lint-locale.ts` / `lint-failm…（全文见 archive/evidence-detail.jsonl#LINTEXIT-ENTRY-EXPLICIT-EXIT）"
     }
   ]
 }

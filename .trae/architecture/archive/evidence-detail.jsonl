@@ -4871,6 +4871,28 @@
 {"id":"APPCLEAN-ONEOFF-FILES","k":"notes","i":13,"c":"退出（`scripts/lint-consts.ts` / `lint-endpoints.ts` / `lint-locale.ts` / `lint-failmsg-refs.ts` / `lint-evidence-linewidth.ts`）—— 已核实：这 5 个文件**我未触碰**（`git log` 最近提交均为他人变更）、**不在 CI**（"}
 {"id":"APPCLEAN-ONEOFF-FILES","k":"notes","i":14,"c":"`ci.yml` 无 `lint:exit`）⇒ 属**预存问题**、与本批无因果；且其处方 `process.exit(0)` 对**管道输出**有截断风险（门禁亦接受 `process.exitCode =` 这一安全形态），故留待单独处置；③ `app/` 顶层的其它非一次性文件（如部署/构建配置）经核实为活文件，**未动**。"}
 {"id":"APPCLEAN-ONEOFF-FILES","k":"code#0","i":0,"c":".gitignore"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"title","i":0,"c":"修 lint:exit 的 5 处误报：入口补兜底显式收尾（真实退出由 ratchet() 承担）"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"source","i":0,"c":"2026-10-16 清理 app/ 时发现的预存红（`bun run lint:exit`，与那次清理无因果）；用户裁定「一并修掉」"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"reopenWhen","i":0,"c":"① 若日后要「治本」：应把退出**从 lib 移回入口** —— 让 `scripts/lib/hardcodeScan.ts` 的 `ratchet()` **返回**退出码（0/1）而非自行 `process.exit`，5 个入口改为 `process.exit(main())`、`main()` 改为 `return ratchet(...)`；这样"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"reopenWhen","i":1,"c":"既消掉「lib 杀宿主进程」（正是 `lint-script-exit.ts` 头注明确警告 helper 不该做的事），也让门禁的文本判据**天然成立**、无需兜底行。**本轮故意不做**：改动跨 1 个共享 lib + 5 个门禁入口，且一旦某个入口误写成 `main();`（丢掉 `process.exit(...)`），违规路径会**静默退出 0**"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"reopenWhen","i":2,"c":"（fail-open）—— 对门禁脚本而言这是比误报严重得多的失败模式；② 若 `lint:exit` 的判据升级（如能感知 `never`-returning 的终结函数）：本批 5 行兜底可随之移除。"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"notes","i":0,"c":"【现象与定性：门禁误报，非代码缺陷】`bun run lint:exit`（= `scripts/lint-script-exit.ts`）报 5 个入口脚本「缺少显式退出」：`lint-consts.ts` / `lint-endpoints.ts` / `lint-locale.ts` / `lint-failmsg-refs.ts` / `"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"notes","i":1,"c":"lint-evidence-linewidth.ts`。回仓复核后确认这是**误报**：这 5 个脚本的 `main()` 末行都调用 `ratchet(name, counts)`，而 `scripts/lib/hardcodeScan.ts:181` 的签名是 `export function ratchet(name: string, counts: "}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"notes","i":2,"c":"GateCounts): **never**`，其内部三条分支**全部**显式退出（`BASELINE_WRITE ⇒ seedBaseline + process.exit(0)`；新增/扩大违规 ⇒ `process.exit(1)`；PASS ⇒ `process.exit(0)`，见 `:182-213`）⇒ **进程确实会显式结束**，不存在门禁所"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"notes","i":3,"c":"担心的「挂在长驻句柄上」。门禁之所以误报，是因为它的判据是**文本匹配**（`process.exit(/process.exitCode =`，先剥注释，见 `lint-script-exit.ts:38,50-52,88`），且检查范围只覆盖**入口文件自身**（`:11-13` 的「只查 package.json 被引用的入口」设计）—— 它看不到「退"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"notes","i":4,"c":"出被委托给一个位于 `scripts/lib/` 的终结函数」这种形态。【本批处置】按本仓既有惯例在每个入口补**兜底**显式收尾（与 `app/scripts/gen-tool-names.ts` 同款做法：该文件也带 `process.exit(0)` + 「lint:exit 门禁要求」注释），共 5 处、每处 3 行（1 行 `"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"notes","i":5,"c":"process.exit(0)` + 2 行注释说明它为何可达性上属兜底）。**零行为变更**，见下「反向自证」。【反向自证（可复现）】临时把 `scripts/lint-consts.ts` 的兜底行改成 `process.exit(42)` 后直接运行（`PYAPP_PROJECT_DIR=.. bun run "}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"notes","i":6,"c":"../scripts/lint-consts.ts`）⇒ **退出码仍为 0**（而非 42）⇒ 证明该行**运行时不可达**（真实退出发生在 `ratchet()` 内）⇒ 本批只改「文本判据的满足方式」，不改任何运行路径；随后文件已**逐字节还原**（比对相等）。【为什么不做「治本」重构（如实）】见 reopenWhen ①：治本要改共享 lib 的返回"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"notes","i":7,"c":"契约 + 5 个门禁入口，而收益只在「门禁判据更优雅」；风险却落在**门禁自身**——入口若漏写 `process.exit(...)`，违规路径会静默退出 0（fail-open），这比 5 行兜底难看要严重得多。故本批选择「最小、零风险、与既有惯例一致」的处置，并把治本路径与其风险**写进重开条件**。【验证】`bun run lint:exit` ✅ "}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"notes","i":8,"c":"通过（已检查 **46** 个入口脚本，0 违规）· `bun run typecheck` 0 错（`scripts/**` 由 `tsconfig.root-scripts.json` 覆盖）· 5 个门禁仍各自 PASS 且退出码 **0**（`lint:consts` / `lint:endpoints` / `lint:locale` / `"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"notes","i":9,"c":"lint-failmsg-refs` / `lint:evidence-linewidth`）· 6 门禁全绿。【附带发现（已处置）】自证过程中在 `app/scripts/` 落下一个 **0 字节、未跟踪**的 `lint-consts.ts`（时间戳即本次自证时刻，全仓零引用、真实门禁在 `scripts/lint-consts.ts`）⇒ 已删除，`"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"notes","i":10,"c":"app/scripts/` 无其它今日残留（已逐项核对 LastWriteTime）。【如实边界】本项无单测（改的是 5 个门禁脚本的收尾行，判据即为运行退出码）⇒ `flags` 如实为 `dc`；`lint:exit` 此前**不在 CI**（`.github/workflows/ci.yml` 无该 step），故它变绿不改变 CI 结果，价值在于**"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"notes","i":11,"c":"本地门禁自洽**。"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"code#0","i":0,"c":"scripts/lint-consts.ts"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"code#1","i":0,"c":"scripts/lint-endpoints.ts"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"code#2","i":0,"c":"scripts/lint-locale.ts"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"code#3","i":0,"c":"scripts/lint-failmsg-refs.ts"}
+{"id":"LINTEXIT-ENTRY-EXPLICIT-EXIT","k":"code#4","i":0,"c":"scripts/lint-evidence-linewidth.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

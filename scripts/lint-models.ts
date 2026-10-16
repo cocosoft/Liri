@@ -5,6 +5,8 @@
  *  - 禁止硬编码模型名/供应商名/Claude 代称/代称 env 变量
  *  - 禁止按模型名建属性表（context_window/thinking/cache 须读 DB）
  *  - 能力覆盖检查：每个 task 的必需能力必须有 enabled 模型
+ *    ⚠️ 例外：**已登记「故意无模型」的 (task:capability)** 从告警中摘出并如实打印（见
+ *    `INTENTIONALLY_MODEL_LESS`）—— 用于"该能力由**独立子系统**提供、不经模型路由"的场景。
  *
  * 运行：cd app && bun run lint:models（cwd = app/，项目根 = ../）
  * 实现约束：Windows 无系统 grep，全部用 Bun 内置 API（Bun.file/readdirSync/正则）。
@@ -44,6 +46,27 @@ const DB_PATHS = [
   'data/pyapp/data/app.db', // 兼容「数据目录随仓库布局」的部署
   '../data/pyapp/data/app.db',
 ];
+
+/**
+ * 已登记「**故意无模型**」的 `(task:capability)` ⇒ 从能力覆盖告警中摘出（**仍如实打印**，不静默）。
+ *
+ * 用途：某 task 的必需能力由**独立子系统**提供、**不经模型路由**时，模型表里当然不会有对应模型 ——
+ * 这不是配置缺口，而是设计如此（见台账 `VOICE-TTS-STT-NO-MODEL-NEEDED` 的排查证据链）。
+ *
+ * 硬约束：**理由必须非空**（"显式且附理由"，对齐 `tests/tools/toolDataSourcesNotNewTools.test.ts`
+ * 的 `NEW_TOOL_REGISTRY` 口径）—— 空理由即 `exit 1`（fail-loud，防止登记退化成万能免死金牌）；
+ * 键必须是 `task:capability` 的**精确组合**，别只写 task（否则该 task 日后新增的其它要求会被**过宽豁免**）。
+ *
+ * ⚠️ 别用它掩盖真实配置缺口：调用方若真要某个 TTS/STT **模型**（走模型路由），必须删掉这里的登记。
+ */
+const INTENTIONALLY_MODEL_LESS: Readonly<Record<string, string>> = {
+  'tts:text_to_speech':
+    '语音合成走**独立语音子系统**（EdgeTTS 默认且免费 / OpenAI TTS / Piper / Command），' +
+    '不读 model_registry ⇒ 该 task 无需模型（台账 VOICE-TTS-STT-NO-MODEL-NEEDED）',
+  'stt:speech_recognition':
+    '语音识别走**独立语音子系统**（SenseVoice 本地 / faster-whisper 本地 / cloudSTT），' +
+    '不读 model_registry ⇒ 该 task 无需模型（台账 VOICE-TTS-STT-NO-MODEL-NEEDED）',
+};
 
 /**
  * 白名单路径（协议适配/生态兼容/预设/渠道类型/播种/类型枚举，均为合法项，见 model-usage.md）
@@ -345,7 +368,30 @@ function main(): void {
     }
   }
 
-  if (coverage.violations.length === 0) {
+  // 已登记「故意无模型」的 (task:capability)：从告警摘出，但**如实打印豁免行**（可审计、不静默）。
+  // 硬约束：理由必须非空 —— 空理由 = 登记无效（fail-loud，避免登记退化成"万能免死金牌"）。
+  const badRegistry = Object.entries(INTENTIONALLY_MODEL_LESS).filter(
+    ([, reason]) => !reason.trim()
+  );
+  if (badRegistry.length > 0) {
+    console.error(
+      `[lint:models] ❌ INTENTIONALLY_MODEL_LESS 存在**空理由**登记（须"显式且附理由"）：` +
+        badRegistry.map(([k]) => k).join(', ')
+    );
+    process.exit(1);
+  }
+  const exempt: string[] = [];
+  const unexpected: CapabilityCheckResult[] = [];
+  for (const v of coverage.violations) {
+    const key = `${v.taskKey}:${v.capability}`;
+    if (Object.prototype.hasOwnProperty.call(INTENTIONALLY_MODEL_LESS, key)) {
+      exempt.push(key);
+    } else {
+      unexpected.push(v);
+    }
+  }
+
+  if (unexpected.length === 0) {
     if (coverage.note) {
       // ⚠️ 「未执行」不得说成「通过」（对照 architecture-compliance AR-3：不得把"没跑"当成"干净"）。
       // 该子检查的**输入是用户本机启用的模型**（`model_registry where enabled = 1`）⇒ 语义上
@@ -355,6 +401,15 @@ function main(): void {
       );
     } else {
       console.log('[lint:models] ✅ 能力覆盖检查通过');
+      for (const key of exempt) {
+        console.log(`  ⚪ 豁免（已登记「故意无模型」）：${key}`);
+      }
+      // 防陈旧：**仅在真跑过时**提示（CI 的「未执行」分支下 exempt 恒空，不能据此判陈旧）
+      if (exempt.length === 0) {
+        console.log(
+          `  ℹ️ INTENTIONALLY_MODEL_LESS 的 ${Object.keys(INTENTIONALLY_MODEL_LESS).length} 条登记当前**未命中**（该能力已有启用模型？）⇒ 可考虑移除登记`
+        );
+      }
     }
   } else {
     // ⚠️ **告警级（不阻断）** —— 2026-10-16 用户裁定（台账 `LINTMODELS-CAPABILITY-WARN`）：
@@ -362,12 +417,15 @@ function main(): void {
     // 不是代码质量违规 ⇒ 不该让 `bun run ci` 与 CI 因此变红（曾实测：tts/stt 各 0 个启用模型）。
     // 但仍**如实打印**，不静默（否则等于把真实缺口藏起来）。
     console.log(
-      `[lint:models] ⚠️ 能力断链 ${coverage.violations.length} 项（**告警，不阻断** —— 属本机模型配置缺口）：`
+      `[lint:models] ⚠️ 能力断链 ${unexpected.length} 项（**告警，不阻断** —— 属本机模型配置缺口）：`
     );
-    for (const v of coverage.violations) {
+    for (const v of unexpected) {
       console.log(
         `  task=${v.taskKey} 能力=${v.capability} 有 0 个 enabled 模型`
       );
+    }
+    for (const key of exempt) {
+      console.log(`  ⚪ 已登记豁免（故意无模型，不计入上列）：${key}`);
     }
   }
 
@@ -377,12 +435,15 @@ function main(): void {
     console.log('\n[lint:models] 结果：FAIL');
     process.exit(1);
   }
-  // 汇总行后缀：把「未执行」「降级为告警」这两种"非干净但通过"如实标出，避免被读成已检查且干净
+  // 汇总行后缀：把「未执行」「降级为告警」「已登记豁免」三种"非干净但通过"如实标出，
+  // 避免被读成已检查且干净。
   const suffix = coverage.note
     ? `（⚠️ 能力覆盖检查未执行：${coverage.note}）`
-    : coverage.violations.length > 0
-      ? `（⚠️ 能力断链 ${coverage.violations.length} 项为告警，不阻断）`
-      : '';
+    : unexpected.length > 0
+      ? `（⚠️ 能力断链 ${unexpected.length} 项为告警，不阻断）`
+      : exempt.length > 0
+        ? `（⚪ 豁免 ${exempt.length} 项：已登记「故意无模型」）`
+        : '';
   console.log(`[lint:models] 结果：PASS${suffix}`);
 }
 

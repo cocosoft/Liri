@@ -226,9 +226,12 @@ jobs:
     #      「静态硬编码」那部分的拦截。
     #      2026-10-16 已修好其**本地可用性**（`DB_PATHS` 补 `~/.pyapp/data/app.db`；此前两条候选
     #      都在仓库内 ⇒ 本机也恒跳过），并把它按**用户裁定**降为**告警不阻断**（其发现属
-    #      「本机模型配置缺口」而非代码质量违规）⇒ 本机现在打印 `⚠️ 能力断链 N 项（告警，不阻断）`
-    #      且仍 exit 0；CI 无该库 ⇒ 打印 `⏭️ 未执行`。台账 `LINTMODELS-CAPABILITY-WARN`
-    #      （承 `LINTMODELS-CAPABILITY-SCOPE`）。
+    #      「本机模型配置缺口」而非代码质量违规）；同日再按裁定加入**豁免表**
+    #      `INTENTIONALLY_MODEL_LESS`（键 = `task:capability` 精确组合、**理由非空为硬约束**
+    #      （空理由即 exit 1）、每条豁免**如实打印**）⇒ 本机对已登记项打印
+    #      `⚪ 豁免（已登记「故意无模型」）`，未登记者仍 `⚠️ 告警`，两者都 exit 0；
+    #      CI 无该库 ⇒ 打印 `⏭️ 未执行`。台账 `LINTMODELS-CAPABILITY-WARN` / `LINTMODELS-TASK-EXEMPT`
+    #      （承 `LINTMODELS-CAPABILITY-SCOPE`、`VOICE-TTS-STT-NO-MODEL-NEEDED`）。
     #   ② **未纳入 `lint:case`**（大小写同名碰撞）：该判据的语义与**文件系统大小写敏感性**
     #      绑定 —— Windows 无法表示仅大小写不同的同级条目，故在本机恒为 0 违规、
     #      **无法验证 ubuntu 行为**；不引入「未验证就接、可能即红」的 CI 项。

@@ -9054,6 +9054,31 @@
       "changelog": [],
       "reopenWhen": "① 若日后**语音链路改为经模型路由**（即 `tts`/`stt` 任务类型被真实消费）：届时必须在模型管理里登记具备 `text_to_speech`/`speech_recognition` 的模型，本结论随之失效；② 若要消掉这两条告警：三条路都动事实源、须先裁定 —— (a) 删 `tts`/`stt` 的…（全文见 archive/evidence-detail.jsonl#VOICE-TTS-STT-NO-MODEL-NEEDED）",
       "notes": "【问题】门禁 `lint-models` 的「能力覆盖」子检查报两条断链：`task=tts 能力=text_to_speech`、`task=stt 能力=speech_recognition` 各 `0 个 enabled 模型`（第 8 轮修好该检查的本地可用性后**首次**可见）。用户问：该配哪个模型。【三条…（全文见 archive/evidence-detail.jsonl#VOICE-TTS-STT-NO-MODEL-NEEDED）"
+    },
+    {
+      "id": "LINTMODELS-TASK-EXEMPT",
+      "title": "lint-models 能力覆盖加「故意无模型」豁免表：task:capability 精确键 + 理由非空硬约束 + 豁免如实打印",
+      "source": "用户 2026-10-16 裁定（三选项之 (c)「在门禁里登记该 task 故意无模型」）；承 `VOICE-TTS-STT-NO-MODEL-NEEDED`（该排查以三条证据证明 tts/stt 由**独立语音子系统**提供、不经模型路由）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lint-models.ts",
+        ".github/workflows/ci.yml"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若**语音链路将来改走模型路由**（`tts`/`stt` 任务类型被真实消费）：**必须删掉**对应登记 —— 否则真实缺口会被豁免掩盖，本表就成了后门；② 登记**只**接受「该能力由独立子系统提供」这一类理由，**不得**用于掩盖「忘了启用模型」—— 若发现自己正在为后者登记，应改为去修配置；③ 若 `.t…（全文见 archive/evidence-detail.jsonl#LINTMODELS-TASK-EXEMPT）",
+      "notes": "【改了什么】在 `scripts/lint-models.ts` 新增豁免表 `INTENTIONALLY_MODEL_LESS: Record<task:capability, 理由>`（与文件内既有 `IGNORE_PATH_FRAGMENTS` 白名单**同风格**，不另建 JSON 表），登记两条：`tts:…（全文见 archive/evidence-detail.jsonl#LINTMODELS-TASK-EXEMPT）"
     }
   ]
 }

@@ -8934,6 +8934,30 @@
       "changelog": [],
       "reopenWhen": "① 若要把**其余 8 项**不在 CI 的门禁（`lint:unref` / `lint:tool-schema` / `lint:refs` / `lint:mock` / `lint:models` / `lint:no-module-mock` / `lint:case` / `lint:legacy-env…（全文见 archive/evidence-detail.jsonl#LINTEXIT-CI-WIRING）",
       "notes": "【做了什么】在 `.github/workflows/ci.yml` 的 `static-check` 作业中，紧随「Run session regression check (BUG-A/B/C)」新增一步：`Entry scripts explicit exit (lint:exit · 台账 N-16 / N-…（全文见 archive/evidence-detail.jsonl#LINTEXIT-CI-WIRING）"
+    },
+    {
+      "id": "CI-GATES-LOCAL-SET-EXPAND",
+      "title": "7 项本地门禁接入 CI（unref / script-refs / mock / no-module-mock / legacy-env / models / tool-schema）；lint:case 因不可验证而未纳入",
+      "source": "承 `LINTEXIT-CI-WIRING` 的 reopenWhen ①（「其余 8 项不在 CI 的门禁须逐项评估 CI 就绪度，不可一刀切」）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        ".github/workflows/ci.yml"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① `lint:case`（大小写同名碰撞）仍未在 CI：若要在 CI 验它，应**先在 ubuntu 上跑一遍** `bun run scripts/lint-case-collision.ts` 看是否真核出碰撞（Windows 无法表示仅大小写不同的同级条目，本机恒 0 违规 ⇒ 无法本地预判），确认后再按同一…（全文见 archive/evidence-detail.jsonl#CI-GATES-LOCAL-SET-EXPAND）",
+      "notes": "【评估方法（逐项，非一刀切）】对 `LINTEXIT-CI-WIRING` 列出的 8 项各做四问：① 是否 exit 0？② 耗时？③ 有没有环境依赖（`PYAPP_PROJECT_DIR` / 本机数据目录 / SQLite / 网络 / OS 语义）？④ 扫描域是否都在 **tracked** 目录（CI 是*…（全文见 archive/evidence-detail.jsonl#CI-GATES-LOCAL-SET-EXPAND）"
     }
   ]
 }

@@ -4937,6 +4937,24 @@
 {"id":"LINTEXIT-CI-WIRING","k":"notes","i":12,"c":"）。【痕迹说明】本片**不改**上一片已提交的明细文本（`archive/evidence-detail.jsonl` 里那条陈述保持原样）—— 台账是 append-only 证据日志，订正以**新增条目**的方式留痕：本条即对上一条的显式更正，读者沿 id 链可见完整轨迹。（另：尝试用 `--detail` **就地替换**上一条时被 migrate 的"}
 {"id":"LINTEXIT-CI-WIRING","k":"notes","i":13,"c":"校验挡住 —— 它按 registry 的「短化头」比对 `title`，改标题会判「归档 title 非短化头前缀」；这属工具的正确约束，故改为新增条目。）"}
 {"id":"LINTEXIT-CI-WIRING","k":"code#0","i":0,"c":".github/workflows/ci.yml"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"title","i":0,"c":"7 项本地门禁接入 CI（unref / script-refs / mock / no-module-mock / legacy-env / models / tool-schema）；lint:case 因不可验证而未纳入"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"source","i":0,"c":"承 `LINTEXIT-CI-WIRING` 的 reopenWhen ①（「其余 8 项不在 CI 的门禁须逐项评估 CI 就绪度，不可一刀切」）"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"reopenWhen","i":0,"c":"① `lint:case`（大小写同名碰撞）仍未在 CI：若要在 CI 验它，应**先在 ubuntu 上跑一遍** `bun run scripts/lint-case-collision.ts` 看是否真核出碰撞（Windows 无法表示仅大小写不同的同级条目，本机恒 0 违规 ⇒ 无法本地预判），确认后再按同一风格加步骤；② 若新入 CI 的任一门禁在"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"reopenWhen","i":1,"c":" CI 变红（环境差异导致）：按「先在本机**按 CI 的调用方式与 cwd** 复现 → 再决定是修脚本还是撤出 CI」处理，**不得**直接在 CI 里加 `continue-on-error` 掩盖；③ `lint-models` 的「能力覆盖」子检查在无 DB 环境（含 CI）恒被跳过 —— 若要在 CI 真跑它，需为 runner 提供 DB 夹具"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"reopenWhen","i":2,"c":"或改为需求方自证（另立项）。"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":0,"c":"【评估方法（逐项，非一刀切）】对 `LINTEXIT-CI-WIRING` 列出的 8 项各做四问：① 是否 exit 0？② 耗时？③ 有没有环境依赖（`PYAPP_PROJECT_DIR` / 本机数据目录 / SQLite / 网络 / OS 语义）？④ 扫描域是否都在 **tracked** 目录（CI 是**全新检出**，`dev_docs/` 等"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":1,"c":"本地不推送目录为空 —— 若门禁依赖它们，会出现「本地绿、CI 行为不同」）。**实测结果**（exit / 耗时，均在本机按 CI 的调用方式跑）：`lint:unref` 0 / 761ms · `lint:tool-schema` 0 / 152ms · `lint:script-refs` 0 / 101ms · `lint:mock` 0 / "}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":2,"c":"124ms（扫描 146 个文件）· `lint:models` 0 / 808ms · `lint:no-module-mock` 0 / 270ms · `lint:legacy-env` 0 / 598ms · `lint:case` 0 / 180ms。**环境依赖核查**：6 个仓库级脚本的 `PROJECT_ROOT` 由 `"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":3,"c":"import.meta.dir` 解析 ⇒ **与 cwd 无关**（唯一例外 `scripts/lint-mock.ts` 走 `PYAPP_PROJECT_DIR` 或 `process.cwd()`，在**仓库根**运行时两种情形都解析正确 ✓）；扫描域分别为 `app/src` / `client/src` / `app/tests` / `"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":4,"c":"scripts/` —— **全部 tracked**，无 `dev_docs/`（仅文档注释里提到）与 `~/.pyapp` 依赖 ✓。【处置】新增 2 个步骤（`ci.yml` 的 `static-check` 作业，紧随 `lint:exit` 那步）：① `Repo-level lint gates (…)`（`working-directory: "}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":5,"c":".`，串行跑 6 个仓库级脚本）；② `Tool schema gate (…)`（`working-directory: app`，`bun run scripts/lint-tool-schema.ts` —— 该脚本位于 **`app/scripts/`**，与其它 6 个不同根，故单列一步并注明）。**验证**：`ci.yml` 用 `js-yaml"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":6,"c":"` 解析通过，`static-check` 共 **13** 步、两步位次 11/12、`working-directory` 分别 `.` 与 `app` ✓；两步内每条命令都**按 CI 的 cwd 逐个实跑过**（见上表）。【如实边界 ①：`lint-models` 在 CI 只承担一半】它的「能力覆盖」子检查需读 SQLite（`"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":7,"c":"scripts/lint-models.ts:219`），DB 找不到时**明示跳过**并仍 `PASS`（`:214-216`：`DB 未找到，能力覆盖检查跳过`）—— 属其**既有 fail-open 设计**，**非静默**（有输出）。⇒ CI 对它只拦「静态硬编码」部分；本片**不改**该设计（改它会动到门的语义，另议）。【如实边界 ②：`"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":8,"c":"lint:case` **未纳入**】其判据是「仅大小写不同的同级条目」，而该现象**在 Windows 上根本无法表示** ⇒ 本机恒为 0 违规、**无法预判 ubuntu（大小写敏感）行为**；若在 ubuntu 上真核出碰撞，CI 会**当即变红并阻断 PR**。按「不引入未验证就接的 CI 项」原则**排除**，并把验证路径写进 "}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":9,"c":"reopenWhen ① 与 `ci.yml` 的注释。【自查纠错（如实）】首轮按 CI 方式试跑时，我把 `lint:refs` 的门禁文件误写成 `scripts/lint-refs.ts`（实为 **`scripts/lint-script-refs.ts`**）⇒ 报 `Module not found` exit=1；正是「必须按 CI 的调用方式"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":10,"c":"实跑、而非照抄 npm 脚本名」这一步把它抓了出来（npm 脚本名是 `lint:refs`，文件名不同）。已修正并复跑 ✅（70 处入口引用）。【影响面】CI 变严格：这 7 项此后会拦 PR —— 但它们当前全绿，故**不可能引入即红**，收益是把这个本地纪律变成 CI 纪律（本仓的 `app/package.json#ci` 聚合脚本早已含全部这些，本"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"notes","i":11,"c":"片只是把 CI 的子集扩到与之一致）。"}
+{"id":"CI-GATES-LOCAL-SET-EXPAND","k":"code#0","i":0,"c":".github/workflows/ci.yml"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

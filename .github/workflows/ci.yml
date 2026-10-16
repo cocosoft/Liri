@@ -210,6 +210,40 @@ jobs:
       run: |
         bun run scripts/lint-script-exit.ts
 
+    # ══════════════════════════════════════════════
+    # 其余本地门禁入 CI（2026-10-16，台账 LINTEXIT-CI-WIRING 的 reopenWhen ①）
+    #   背景：CI 此前已覆盖约 20 项门禁，但下列 7 项此前只在 `app/package.json` 的
+    #   `ci` 聚合脚本（**本地全链**）里 ⇒ 本地绿、CI 不拦。
+    #   逐项 CI 就绪度已实测（按本文件同样的调用方式、同样的 cwd 实跑）：
+    #     · 全绿（exit 0）且**非空扫描**（防"扫了个空也绿"）；
+    #     · 各自 ≤ 0.9s；
+    #     · 只扫 **tracked 域**（`app/src` / `client/src` / `app/tests` / `scripts/`），
+    #       不依赖 `dev_docs/`（本地不推送）与 `~/.pyapp` 数据。
+    #   ⚠️ 如实边界（两处）：
+    #   ① `lint-models` 在无 DB 的环境（含 CI 干净 runner）会**明示跳过**「能力覆盖」子检查
+    #      （输出 `DB 未找到，能力覆盖检查跳过`，属其既有 fail-open 设计，**非静默**）
+    #      ⇒ CI 对它只承担「静态硬编码」那部分的拦截；
+    #   ② **未纳入 `lint:case`**（大小写同名碰撞）：该判据的语义与**文件系统大小写敏感性**
+    #      绑定 —— Windows 无法表示仅大小写不同的同级条目，故在本机恒为 0 违规、
+    #      **无法验证 ubuntu 行为**；不引入「未验证就接、可能即红」的 CI 项。
+    #      若日后要在 CI 验它：直接 `working-directory: . && bun run scripts/lint-case-collision.ts`
+    #      并在 ubuntu 上先跑一遍看是否真核出碰撞。
+    # ══════════════════════════════════════════════
+    - name: Repo-level lint gates (unref / script-refs / mock / no-module-mock / legacy-env / models)
+      working-directory: .
+      run: |
+        bun run scripts/lint-unref.ts
+        bun run scripts/lint-script-refs.ts
+        bun run scripts/lint-mock.ts
+        bun run scripts/lint-no-module-mock.ts
+        bun run scripts/lint-legacy-env.ts
+        bun run scripts/lint-models.ts
+
+    - name: Tool schema gate (capability/risk 声明棘轮 · app 本地脚本)
+      working-directory: app
+      run: |
+        bun run scripts/lint-tool-schema.ts
+
   # ══════════════════════════════════════════════
   # S3-1 G3（2026-10-11）：**构建变体矩阵** —— typecheck + 工具面/契约门禁
   #   每个变体：生成 `BUILD_VARIANT_FLAGS`（D1 接线后由 `feature()` 消费）→ typecheck →

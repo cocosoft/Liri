@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **CI-GATES-LOCAL-SET-EXPAND**：7 项本地门禁接入 CI（unref/script-refs/mock/no-module-mock/legacy-env/models/tool-schema）；lint:case 未纳入 —— 验证 ci8|gate7|tc0；基线 接入前：CI 覆盖约 20 项，下列 7 项只在 app/package.json 的 ci 聚合脚本（本地全链）里 ⇒ 本地绿、CI 不拦（详情见 archive/evidence-detail.jsonl#CI-GATES-LOCAL-SET-EXPAND）
 - ✅ **LINTEXIT-CI-WIRING**：把 lint:exit 补进 CI（static-check 新步骤）+ 订正上一片「同族门禁不在 CI」的错误陈述 —— 验证 ci1|exit46|tc0|gate7；基线 订正前的前提：以为 lint:consts/locale/endpoints/failmsg-refs/... 同样不在 CI；复核发现 CI 实际覆盖约 20 项，它们都在（详情见 archive/evidence-detail.jsonl#LINTEXIT-CI-WIRING）
 - ✅ **LINTEXIT-RATCHET-RETURN-CODE**：lint:exit 治本：ratchet() 改返回退出码，出口移回 5 个入口（fail-closed 已实证） —— 验证 tc1|exit46|gate7|probe5；基线 治本前：退出发生在 lib 的 ratchet() 内，入口无 exit 记号 ⇒ 上一片只能用入口兜底行（详情见 archive/evidence-detail.jsonl#LINTEXIT-RATCHET-RETURN-CODE）
 - ✅ **LINTEXIT-ENTRY-EXPLICIT-EXIT**：修 lint:exit 的 5 处误报：入口补兜底显式收尾（实退由 ratchet() 承担） —— 验证 tc1|exit46|gate7；基线 修前 lint:exit 红：5 个入口脚本文本内无 exit，真实退出发生在 lib 的 ratchet() 内（详情见 archive/evidence-detail.jsonl#LINTEXIT-ENTRY-EXPLICIT-EXIT）

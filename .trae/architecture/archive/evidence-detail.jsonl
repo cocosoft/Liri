@@ -5243,6 +5243,26 @@
 {"id":"TOAST-SINGLE-CHANNEL","k":"code#1","i":0,"c":"client/src/stores/toastStore.ts"}
 {"id":"TOAST-SINGLE-CHANNEL","k":"code#2","i":0,"c":"client/src/tests/toastSingleChannel.test.ts"}
 {"id":"TOAST-SINGLE-CHANNEL","k":"tests#0","i":0,"c":"client/src/tests/toastSingleChannel.test.ts"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"title","i":0,"c":"修「预算耗尽收尾文案与事实脱节」：按 kind（上下文窗口预算 / 日限额）+ **是否已挂起**三态区分，并给可执行出路"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"source","i":0,"c":"用户追问「为什么还会有『⚠️ 已达到本轮 token 预算上限，工具链提前终止。』？不是要求从根源上解决吗？」 ⇒ 取证定位到该句的**唯一来源**与「两种语义共用一个分支」的脱节"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"reopenWhen","i":0,"c":"① 文案里的出路指向**具体 UI 入口**（「用量中心 → 日限额」的临时提额/今日解除）⇒ 若该入口改名或新增「继续/续跑」按钮，必须同步本处文案（本处是**后端硬编码中文**，与其同族收尾文案一致、未入后端 i18n；若日后后端文案统一入 i18n，本处一并迁移）；② `'loop'`（**上下文窗口预算**）目前**有意不挂起**（日限额 "}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"reopenWhen","i":1,"c":"relief 与窗口正交、放行解除不了窗口）⇒ 若日后要求「撞窗口也能自动续跑」，必须先解决该语义冲突（可能方向：撞窗口时先触发压缩再续跑，而不是挂起）；③ 本片**只改文案，不改行为**（何时终止、何时挂起、92% 阈值、检查点/协调器全部不变）；④ 若用户仍频繁撞 `'loop'` 线，下一步应查**窗口事实源与压缩策略**（`"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"reopenWhen","i":2,"c":"resolveContextWindow` 取 DB `model_registry`；`createStreamBudget` 记账量纲 2026-09-26 已修），而不是继续改文案。"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"notes","i":0,"c":"【问题（用户实证）】用户反复看到「⚠️ 已达到本轮 token 预算上限，工具链提前终止。」并追问为何「没从根源解决」。【取证：这句话的唯一来源与两种来源语义】① `grep '工具链提前终止'` 全仓只有 **1 处生产来源**：`chat/ReActToolLoop.resolveTerminationOutput()` 的 `case '"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"notes","i":1,"c":"budget_exhausted'`；`query/ReActLoop.ts:371-372` 的既有注释亦记明它是「那句话的**唯一来源**」。② 该相位由骨架两处置位（`ReActLoop.ts:803-814` 与 `:826-833`），分别调用 `onBudgetExhausted('loop')` 与 `'daily'`：`'loop'` = "}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"notes","i":2,"c":"**上下文窗口预算**（`createStreamBudget(model)`：`spent ≥ 92% × 窗口` ⇒ EXCEEDED；由 `createAgentLoop()` 对流式路径**默认注入** ⇒ **生产活路径**）；`'daily'` = **日预算**。③ 挂起续跑（`BUDGET-SUSPEND-RESUME`，v1.7 默认开）"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"notes","i":3,"c":"**只接 `'daily'`**（`ReActToolLoop.onBudgetExhausted` 里 `if (kind !== 'daily') return;`）—— 代码注释写明理由：窗口预算与日限额 relief **正交**，挂起它没有「续跑」语义。④ 但收尾文案对两者**共用一句**，且**不感知是否已挂起** ⇒ 即便日预算**已成功挂起（"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"notes","i":4,"c":"放行即可自动续跑）**，用户读到的仍是「已提前终止」。【结论：为什么「还会有」】不是此前两次根因修复失效（① 2026-09-26 量纲错配/窗口同源，② 2026-10-12 挂起续跑），而是**文案层从未同步**：机制上「有出路」了，话术上还说「终止」；且「窗口阈值」被说成「token 预算上限」，名不副实、也无任何可执行指引。【改了什么】`"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"notes","i":5,"c":"onBudgetExhausted` 先记事实（`kind` + 仅在**拿到有效 `checkpoint.id` 并登记成功**后才置 `suspended=true`），`resolveTerminationOutput()` 的 `budget_exhausted` 分支据此产出**四态**：① `daily` + 已挂起 ⇒ 「⏸ 今日预算已用完 —"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"notes","i":6,"c":"— **本轮进度已保存**：在「用量中心 → 日限额」放行（临时提额 / 今日解除）后，本会话会**自动从这里续跑**，无需重发消息。」（**不再说「提前终止」**）；② `daily` + 未挂起 ⇒ 如实说「未能保存续跑点」+「放行后**重发本条消息**继续」（**不承诺**自动续跑）；③ `loop` ⇒ 「⚠️ 本轮上下文已接近模型窗口上限…工具链提"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"notes","i":7,"c":"前收尾。**发送新消息即可继续**（新一轮会重新计算上下文占用）；若经常撞线，建议改用上下文窗口更大的模型。」；④ 无事实记录（兜底）⇒ 保留原句，保证其它入口零回归。措辞对齐既有产品词汇（`channels/routing/messageRouterContract.ts` 的「用量中心 → 日限额」临时提额/今日解除）。【验证】新增 `"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"notes","i":8,"c":"tests/chat/budgetExhaustedTerminationCopy.test.ts` **4 pass / 0 fail**：其中 `'loop'` 用例是**真驱动**（恒 EXCEEDED 的假预算跑一遍循环 ⇒ 从最终助手消息断言），另两态为定向断言（经窄断言写入相位与事实）；断言按构造即**负向**——旧文案「已达到本轮 token "}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"notes","i":9,"c":"预算上限」/「工具链提前终止」正是被断言**不存在**者（旧实现下必然红）。广域：`tests/chat` + `tests/query` **907 pass / 0 fail**；app 全链 `bun run ci` 通过。【口径边界（如实）】① 本片只改**流式链**（那句话的唯一来源）；**batch/TAOR 链不发这句话**（grep 实证），"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"notes","i":10,"c":"故未改；② **未改任何行为**（终止/挂起/阈值/记账都不变）；③ 后端收尾文案仍为硬编码中文，**未**入后端 i18n（与其同族文案一致；`goal-entity.md` 已把同族文案登记为「待议」）；④ `e2eVerified=false` —— 未做「真实日限额耗尽 → 挂起 → 放行 → 观察新文案 + 自动续跑」的端到端复测（该 E2E 已有"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"notes","i":11,"c":"专项证据 `BUDGET-SUSPEND-RESUME`；本片只改文案，未复跑）。"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"code#0","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"code#1","i":0,"c":"app/tests/chat/budgetExhaustedTerminationCopy.test.ts"}
+{"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"tests#0","i":0,"c":"app/tests/chat/budgetExhaustedTerminationCopy.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

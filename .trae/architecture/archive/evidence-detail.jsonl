@@ -4704,6 +4704,16 @@
 {"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"notes","i":2,"c":"3 个真接线（task_output / propose_plan / pdf，生成物 75 → 78）+ 1 个有意不做（send_message）；条件工具差额集 15 → 12。"}
 {"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"code#0","i":0,"c":"dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md"}
 {"id":"TOOLVIS-P4B-SEND-MESSAGE-SKIP","k":"code#1","i":0,"c":"dev_docs/20261016/工具可见性治理方案-20261016.md"}
+{"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"title","i":0,"c":"修正过期的跨部署单元时区守卫（客户端改用 constants/locale 单一真源后守卫恒红）"}
+{"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"source","i":0,"c":"P4b 收口时的预存失败排查：app 全量 bun test 中唯一红项（defaultLocaleTimezone ③）；2026-10-16 用户裁定「一并修掉」"}
+{"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"reopenWhen","i":0,"c":"若客户端时区真源迁走（如并入 shared/types 或改为运行时配置）：③ 的取值断言与 import 形状断言须同步指向新真源；若日后允许组件写死 IANA 时区字面量（撤销 constants/locale.ts 头注的禁令），则须移除本用例的负向断言并说明理由"}
+{"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"notes","i":0,"c":"① 现象：③ 恒红 —— 它断言 client 的 Footer.tsx 与 DashboardPage.tsx 源码文本**含字面量** Asia/Shanghai；而客户端早已引入自己的单一真源 client/src/constants/locale.ts，并在其头注**明令**「不得再在组件里写死 Asia/Shanghai（应引用本常量）」⇒ 旧断言"}
+{"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"notes","i":1,"c":"与仓内规则**互相矛盾**（断言要求写死、规则禁止写死）。② 根因（CS05）：守卫的**意图**（前端时区兜底与后端口径一致）仍成立，但**机制**（grep 字面量）随架构演进而失效 ⇒ 不是回退组件去写死字面量（那会违规则），而是让守卫跟上新架构。③ 修法：改为两条更严的断言 —— (a) **双真源同值**：客户端 "}
+{"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"notes","i":2,"c":"constants/locale.ts 的 DEFAULT_TIMEZONE 取值 === 后端 constants/common.ts 的 DEFAULT_TIMEZONE（改任一侧即红）；(b) **消费点只引用真源**：两个组件必须 import 该常量，且**不得**出现 IANA 形状的时区字面量（正则限定 区域/城市 且两侧首字母大写 ⇒ 不误伤"}
+{"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"notes","i":3,"c":" application/json 这类 MIME/路由串）。④ 负向自证（本轮实测）：临时把客户端常量改成 UTC ⇒ ③ 立即报 Expected Asia/Shanghai / Received UTC（非恒真）；还原后 4 例全绿。⑤ 自证：该文件 4 例全绿；app 全量 **6606 例 / 6564 pass / 0 fail**（修前为 "}
+{"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"notes","i":4,"c":"6605 pass / 1 fail）⇒ 这是唯一的预存红项。⑥ 边界（如实）：本片只改测试守卫，**未改任何产品代码**（客户端常量原值本就正确）；e2eVerified=false（静态源码守卫，无真机面）。"}
+{"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"code#0","i":0,"c":"app/tests/config/defaultLocaleTimezone.test.ts"}
+{"id":"QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD","k":"tests#0","i":0,"c":"app/tests/config/defaultLocaleTimezone.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

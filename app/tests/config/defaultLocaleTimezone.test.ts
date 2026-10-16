@@ -11,8 +11,16 @@
  * ① 真源取值（值断言）；
  * ② **决策点已引用真源**（源码守卫，精确到"该行"而非"全文件无字面量"—— 因为语言清单等处
  *    合法地仍会列出 `'zh-CN'`/`'en-US'`）；
- * ③ **跨部署单元同值契约**（前端无法 import 后端常量）⇒ 断言前端时区兜底同为 `Asia/Shanghai`；
+ * ③ **跨部署单元同值契约**（前端无法 import 后端常量）⇒ 见下方用例：**客户端也有自己的单一真源**
+ *    `client/src/constants/locale.ts`（该文件明令「不得再在组件里写死 `"Asia/Shanghai"`」）
+ *    ⇒ 故断言两件事：(a) 两侧真源**同值**；(b) 时区兜底点**引用**客户端真源而非写死字面量。
  * ④ **cron 的"跟随系统时区"语义保留**（不得被误改为硬编码城市时区）。
+ *
+ * ⚠️ ③ 的**机制已随架构演进修正**（2026-10-16）：原实现直接断言两个组件源码文本**含字面量**
+ * `Asia/Shanghai`；后来客户端引入 `constants/locale.ts` 单一真源并**明令禁止组件写死字面量**
+ * ⇒ 旧断言与规则**互相矛盾**（守卫恒红）。现改为"**双真源同值 + 消费点引用真源**"，
+ * 既保留原意图（前端时区兜底 = 后端口径），又比旧写法更强的两点：改任一侧取值即红、
+ * 且有组件写死字面量也红。
  */
 import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'fs';
@@ -85,15 +93,31 @@ describe('Q-H2：默认语言 / 时区口径归一（zh-CN / Asia/Shanghai）', 
     );
   });
 
-  it('③ 跨部署单元同值契约：前端时区兜底 = 后端 DEFAULT_TIMEZONE', () => {
-    // 前端为独立部署单元，物理上无法 import 后端常量 ⇒ 用"同值断言"钉住口径
+  it('③ 跨部署单元同值契约：客户端时区真源与后端同值，且兜底点只引用真源', () => {
+    // 前端为独立部署单元，物理上无法 import 后端常量 ⇒ 用"**双真源同值**"断言钉住口径
+    // （客户端的真源是 `client/src/constants/locale.ts`，见其头注：不得在组件里写死字面量）。
+    const clientLocale = read('constants/locale.ts', CLIENT_SRC);
+    const declared = clientLocale.match(
+      /export const DEFAULT_TIMEZONE\s*=\s*["']([^"']+)["']/
+    )?.[1];
+    expect(
+      declared,
+      '客户端 constants/locale.ts 未声明 DEFAULT_TIMEZONE'
+    ).toBe(DEFAULT_TIMEZONE);
+
+    // 消费点：时区兜底必须**引用真源**，且**不得**出现写死的时区字面量
     for (const rel of [
       'components/common/Footer.tsx',
       'components/views/DashboardPage.tsx',
     ]) {
       const code = read(rel, CLIENT_SRC);
-      expect(code, `${rel} 的时区兜底与后端口径不一致`).toContain(
-        DEFAULT_TIMEZONE
+      expect(code, `${rel} 未 import 客户端时区真源`).toMatch(
+        /import\s*\{[^}]*DEFAULT_TIMEZONE[^}]*\}\s*from\s*["'][^"']*constants\/locale["']/
+      );
+      // 形状限定为 **IANA 时区字面量**（`区域/城市`，两侧首字母大写）⇒ 不误伤
+      // `"application/json"` 这类 MIME / 路由串
+      expect(code, `${rel} 仍写死时区字面量（应引用 DEFAULT_TIMEZONE）`).not.toMatch(
+        /["'][A-Z][A-Za-z_]+\/[A-Z][A-Za-z_]+["']/
       );
     }
   });

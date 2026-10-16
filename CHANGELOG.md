@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD**：修正过期的时区守卫（客户端单一真源后恒红） —— 验证 tc0|ut6606|gate4；基线 修前恒红：断言组件源码含 Asia/Shanghai 字面量，而客户端已改用 constants/locale 真源并禁止写死（详情见 archive/evidence-detail.jsonl#QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD）
 - ✅ **TOOLVIS-P4B-SEND-MESSAGE-SKIP**：P4b 第 4 项裁定：send_message 保持默认关闭（有意不做，零行为变更） —— 验证 doc2|gate3；基线 裁定前：send_message 属 D 类（loader + 类别 notify 已就绪，仅缺 SEND_MESSAGE flag 默认值）；裁定：保持默认关闭 ⇒ 不改代码（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-SEND-MESSAGE-SKIP）
 - ✅ **TOOLVIS-P4B-PDF**：P4b 接线③：pdf 转生效工具（生成物 77→78）+ 收口 extract/info 两个假成功分支 —— 验证 tc1|ut887|e2e3|gate3；基线 真机：接线前 pdf = conditional+misc；接线后 registered+doc（default 可见，与 doc_generate 同档）；extract/info 由假成功改为 fail-closed（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PDF）
 - ✅ **TOOLVIS-P4B-PROPOSE-PLAN**：P4b 接线②：propose_plan 转生效工具（生成物 76→77，conditional 14→13） —— 验证 tc1|ut1436|e2e3|gate3；基线 真机：接线前 conditional+misc，接线后 registered+interaction（default 可见、coding 不可见，与 ask_user_question 逐项同档）（详情见 archive/evidence-detail.jsonl#TOOLVIS-P4B-PROPOSE-PLAN）

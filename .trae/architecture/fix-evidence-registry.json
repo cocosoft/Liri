@@ -8624,6 +8624,32 @@
       "changelog": [],
       "reopenWhen": "若产品决定启用「AI 向 teammate 发消息」能力：应把 SEND_MESSAGE 由编译期默认值改为**设置项**（而非直接改 featureFlags 默认），并同步 (a) TOOL_EFFECTS 声明（send_message 现未声明，开 flag 后 Record<ToolName,…> 会强制要…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-SEND-MESSAGE-SKIP）",
       "notes": "① 裁定内容：`send_message` 属 **D 类**（loader 与类别 `notify` 均已就绪，仅差 `SEND_MESSAGE` flag 默认值）；用户裁定「**保持默认关闭**」⇒ 本批**不改任何代码**（零行为变更），故无单测/真机证据（flags 如实为 dc 而非 dcue，tests…（全文见 archive/evidence-detail.jsonl#TOOLVIS-P4B-SEND-MESSAGE-SKIP）"
+    },
+    {
+      "id": "QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD",
+      "title": "修正过期的跨部署单元时区守卫（客户端改用 constants/locale 单一真源后守卫恒红）",
+      "source": "P4b 收口时的预存失败排查：app 全量 bun test 中唯一红项（defaultLocaleTimezone ③）；2026-10-16 用户裁定「一并修掉」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/tests/config/defaultLocaleTimezone.test.ts"
+      ],
+      "tests": [
+        "app/tests/config/defaultLocaleTimezone.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若客户端时区真源迁走（如并入 shared/types 或改为运行时配置）：③ 的取值断言与 import 形状断言须同步指向新真源；若日后允许组件写死 IANA 时区字面量（撤销 constants/locale.ts 头注的禁令），则须移除本用例的负向断言并说明理由（全文见 archive/evidence-detail.jsonl#QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD）",
+      "notes": "① 现象：③ 恒红 —— 它断言 client 的 Footer.tsx 与 DashboardPage.tsx 源码文本**含字面量** Asia/Shanghai；而客户端早已引入自己的单一真源 client/src/constants/locale.ts，并在其头注**明令**「不得再在组件里写死 Asia/S…（全文见 archive/evidence-detail.jsonl#QH2-CLIENT-TZ-SINGLE-SOURCE-GUARD）"
     }
   ]
 }

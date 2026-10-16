@@ -5263,6 +5263,32 @@
 {"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"code#0","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
 {"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"code#1","i":0,"c":"app/tests/chat/budgetExhaustedTerminationCopy.test.ts"}
 {"id":"BUDGET-EXHAUSTED-TERMINATION-COPY","k":"tests#0","i":0,"c":"app/tests/chat/budgetExhaustedTerminationCopy.test.ts"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"title","i":0,"c":"补「预算挂起」后的继续入口：同一张限额卡两态化（撞限当下 / 已挂起），挂起态主按钮=放行并自动续跑"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"source","i":0,"c":"用户在前一片（BUDGET-EXHAUSTED-TERMINATION-COPY）修完收尾文案后裁定「补『继续』入口（推荐）」；Spec long-task-suspend-resume.md v1.10 §0 早已把「前端/通道侧『继续』按钮与卡片未做」登记为遗留项"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"reopenWhen","i":0,"c":"① 若日后要覆盖 guard 挂起（kind==='guard'）或 'loop'（上下文窗口预算），须先解「放行不唤醒 guard / 放行解除不了窗口占用」的语义冲突，再扩本入口的过滤条件（现为 kind==='budget' && !expired）；② 通道侧（非桌面端）要补同一入口时，应复用本片的 BudgetSuspendEntry 与同一端点，"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"reopenWhen","i":1,"c":"不要在通道里另起一套；③ 若后端把挂起清单端点改名或改字段（如去掉 kind/expired），须同步 client/src/services/usageService.ts 的 BudgetSuspendEntry 与 ChatArea 的筛选；④ 若卡片文案（cost.card.suspended / "}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"reopenWhen","i":2,"c":"cost.action.continueSuspended）或按钮语义再变，须同步 client/src/tests/dailyLimitNotice.test.tsx 的两态断言。"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":0,"c":"【问题（用户痛点，承接上一片）】上一片修好「预算耗尽收尾文案」后，用户裁定「补『继续』入口（推荐）」—— Spec long-task-suspend-resume.md v1.10 §0 早已把「前端/通道侧『继续』按钮与卡片未做」登记为遗留项：撞限额当时前端有 DailyLimitNotice 卡片（靠 chat store 的 errorCode），但"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":1,"c":"**用户若没当场点继续**、或**重启/切换会话后回来**，errorCode 已不在内存态 ⇒ 该会话虽在服务端协调器里**已挂起**（进度已保存、等放行后自动续跑），界面上却**没有任何入口**。本机实证：撞日限额后重启，会话一直挂起却无从操作。\n【取证：既有入口与缺口的边界】① 撞限当时有卡片：ChatArea 以 "}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":2,"c":"isDailyLimitErrorCode(errorCode) 判定并渲染 DailyLimitNotice（T6 / D-a/D-b/D-f）；② 后端**已有只读挂起清单**：GET /v1/cost/daily-budget/suspend（A2，spec §6.5 可见性；"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":3,"c":"daily-budget-handlers.handleGetDailyBudgetSuspends 直接 list 协调器，expired 由协调器按 24h TTL 现算，且不受 FEATURE_BUDGET_SUSPEND_RESUME 门控 —— 开关关时清单恒空）；③ 客户端**从未消费**该端点（只读扫描实证：接线前全仓仅本次新增的 "}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":4,"c":"ENDPOINTS.cost.dailyBudgetSuspend 与 usageService.getDailyBudgetSuspends 提到该路径）。⇒ 缺口是**前端未接线**，不是后端缺能力。\n【做法（复用同一张卡两态化，不新造组件）】① services/endpoints.ts 增 cost.dailyBudgetSuspend；② "}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":5,"c":"services/usageService.ts 增 BudgetSuspendEntry（sessionId/chain/suspendedAt/reason/kind/expired/checkpointRef，字段与后端 handler 逐一对齐）与 getDailyBudgetSuspends()；③ DailyLimitNotice 增 "}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":6,"c":"suspended?: boolean：图标 ⛽→⏸、data-suspended 属性、正文换 cost.card.suspended、主按钮换 cost.action.continueSuspended；④ ChatArea 按 currentSid 拉清单并筛 sessionId 命中 且 kind==='budget' 且 "}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":7,"c":"expired===false，命中即渲染挂起卡片，且**挂起态优先于撞限当下**；⑤ 挂起态主按钮 = **放行**（setDailyBudgetRelief({kind:'boost',factor:2,ttlMs:3600000})）⇒ 后端 onReliefApplied 自动续跑，**无需重发消息**（与撞限当下的「显式重发」语义不同，故文案与按钮"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":8,"c":"标签区分）；⑥ 挂起态「关闭」只收起本次展示（挂起态仍在服务端，切会话/重启会再次提示）。\n【验证】新增 client/src/tests/dailyLimitNotice.test.tsx 3 例锁定两态契约：挂起态用 cost.card.suspended + continueSuspended + data-suspended=true；撞限当下保持 "}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":9,"c":"cost.card.hint + cost.action.continue（**零回归**）；三档放行/设置/关闭按钮在两态都可用。client 全量 82 文件 / 633 pass（较前 81/630 新增 1 文件 / 3 例）；client tsc --noEmit 0 错；改动文件 eslint 0 error（1 个既有 "}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":10,"c":"react-refresh warning：isDailyLimitErrorCode 与组件同文件导出，非本次引入）；app 全链 bun run ci 通过（6592 pass / 42 skip / 0 fail）。\n【如实边界】① e2eVerified=false：未做「真实日限额耗尽 → 挂起 → 重启 → 看到挂起卡片 → 点继续 → 观察自动"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":11,"c":"续跑」的端到端复测（续跑机制本身已有专项证据 BUDGET-SUSPEND-RESUME；本片新增的是**入口**，未复跑全链）；② 只在**桌面端**（client）接线，**通道侧**（飞书等）仍无「继续」入口；③ **guard 挂起（kind==='guard'）不适用本入口**：按 T3-12，guard（熵门禁/轮上限）**放行不唤醒**，故前端"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":12,"c":"按 kind==='budget' 过滤、不为其显示放行按钮（若日后需要，须先给 guard 定义唤醒语义）；④ 'loop'（上下文窗口预算）**仍不挂起**（放行解除不了窗口占用），故本入口同样不覆盖它。\n【负向自证（两态不混）】测试用同一 harness 分别以 suspended=false/true 渲染：断言两态的文案键、主按钮标签与 "}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"notes","i":13,"c":"data-suspended 三者**互斥**；旧实现（无 suspended prop）下挂起态用例必然红（其断言要求 cost.card.suspended 存在而旧码恒渲染 cost.card.hint）。"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"code#0","i":0,"c":"client/src/components/ChatArea/ChatArea.tsx"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"code#1","i":0,"c":"client/src/components/ChatArea/DailyLimitNotice.tsx"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"code#2","i":0,"c":"client/src/services/usageService.ts"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"code#3","i":0,"c":"client/src/services/endpoints.ts"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"code#4","i":0,"c":"client/src/i18n/locales/zh.ts"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"code#5","i":0,"c":"client/src/i18n/locales/en.ts"}
+{"id":"BUDGET-SUSPEND-CONTINUE-ENTRY","k":"tests#0","i":0,"c":"client/src/tests/dailyLimitNotice.test.tsx"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

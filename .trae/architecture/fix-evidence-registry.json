@@ -9007,6 +9007,31 @@
       "changelog": [],
       "reopenWhen": "① 若日后把 `DB_PATHS` 指向真实数据目录（那属**行为变更**，见 `LINTMODELS-CAPABILITY-SCOPE` 的 reopenWhen ①）：本片的 `existsSync` 已是正确形态，**无需再改** —— 真接上真实 DB 时不再每次整读 129MB；② 若该子检查未来改为 **…（全文见 archive/evidence-detail.jsonl#LINTMODELS-DB-EXISTS-PROBE）",
       "notes": "【改动（2 处）】`checkCapabilityCoverage()` 的候选路径探测由 `try { if (readFileSync(full, 'utf-8')) { … } } catch { /* 下一个 */ }` 改为 `if (existsSync(full)) { … }`；import 行补 `…（全文见 archive/evidence-detail.jsonl#LINTMODELS-DB-EXISTS-PROBE）"
+    },
+    {
+      "id": "LINTMODELS-CAPABILITY-WARN",
+      "title": "lint-models 能力覆盖：DB_PATHS 补真实数据目录（本地终于生效）+ 按用户裁定降为告警不阻断",
+      "source": "用户 2026-10-16 裁定（三选项之「修路径 + 降为告警」）；承 `LINTMODELS-CAPABILITY-SCOPE` 的 reopenWhen ①（该片认定「修路径」属行为变更、须先裁定）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lint-models.ts",
+        ".github/workflows/ci.yml"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "① 若日后要把「能力断链」重新**升为阻断**：必须先解决「CI/干净环境无输入」—— 而 CI 里造输入只能伪造模型数据（违 CS04）⇒ 届时应把它明确为**本地专用门禁**并从 CI 步骤的语义里摘出该子检查（而不是靠伪造数据让 CI 绿）；② 若 `~/.pyapp` 改名 / 支持多 profile（如 `…（全文见 archive/evidence-detail.jsonl#LINTMODELS-CAPABILITY-WARN）",
+      "notes": "【改动（3 处）】① `DB_PATHS` 补**运行时真实数据目录** `~/.pyapp/data/app.db`（`join(homedir(), '.pyapp','data','app.db')`，用绝对路径 ⇒ 循环里 `isAbsolute(p) ? p : join(cwd,p)`，因为 `join(…（全文见 archive/evidence-detail.jsonl#LINTMODELS-CAPABILITY-WARN）"
     }
   ]
 }

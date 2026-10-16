@@ -11,7 +11,8 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join, sep } from 'node:path';
+import { isAbsolute, join, sep } from 'node:path';
+import { homedir } from 'node:os';
 import { Database } from 'bun:sqlite';
 
 // ============ 配置 ============
@@ -26,17 +27,23 @@ const SCAN_DIRS = [
 /** 检查的文件扩展名 */
 const CHECK_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
 /**
- * DB 候选路径（两处都落在**仓库内** `<root>/data/pyapp/data/app.db`；后者适配 cwd=app/）。
+ * DB 候选路径（**含运行时真实数据目录**）。
  *
- * ⚠️ 两点须知道，**别顺手把它指向真实数据目录**（2026-10-16 实测，台账 `LINTMODELS-CAPABILITY-SCOPE`）：
- * ① 运行时的真实数据目录是 `~/.pyapp/data/`（见 `core/paths.ts` 的 `resolveDataDir()`），
- *    而这两个候选路径在本机/CI 都**不存在** ⇒ 「能力覆盖」子检查在标准布局下**恒被跳过**；
- * ② 若把它改指 `~/.pyapp/data/app.db`，该子检查会**立刻按用户本机启用的模型判红**
- *    （本次实测：`task=tts 能力=text_to_speech` / `task=stt 能力=speech_recognition`
- *    各有 0 个 enabled 模型 ⇒ FAIL）。那是**用户配置缺口**、不是门禁故障 ——
- *    改动属**行为变更**（会让本地 `bun run ci` 变红），须先裁定。
+ * 2026-10-16（台账 `LINTMODELS-CAPABILITY-WARN`，用户裁定「修路径 + 降为告警」）：加入
+ * `~/.pyapp/data/app.db`。此前两条候选都落在**仓库内** `<root>/data/pyapp/data/app.db`，
+ * 而运行时真实数据目录是 `~/.pyapp/data/`（见 `core/paths.ts` 的 `resolveDataDir()`）
+ * ⇒ 本机标准布局下**恒查不到**，该子检查形同不存在。
+ *
+ * ⚠️ 绝对路径必须用 `isAbsolute` 直取：`join(cwd, abs)` 在 Windows 下会拼坏（实测）。
+ *
+ * 该子检查的**输入是用户启用的模型**（`model_registry where enabled = 1`）⇒ 语义上**本地专属**：
+ * CI / 干净环境无此库 ⇒ 走「未执行」分支；且它的发现是**配置告警、不阻断**（见 `main()` 汇总）。
  */
-const DB_PATHS = ['data/pyapp/data/app.db', '../data/pyapp/data/app.db'];
+const DB_PATHS = [
+  join(homedir(), '.pyapp', 'data', 'app.db'), // 运行时真实数据目录（首选）
+  'data/pyapp/data/app.db', // 兼容「数据目录随仓库布局」的部署
+  '../data/pyapp/data/app.db',
+];
 
 /**
  * 白名单路径（协议适配/生态兼容/预设/渠道类型/播种/类型枚举，均为合法项，见 model-usage.md）
@@ -211,11 +218,11 @@ function checkCapabilityCoverage(): {
 } {
   let dbPath = '';
   for (const p of DB_PATHS) {
-    const full = join(process.cwd(), p);
-    // `existsSync` 而非 `readFileSync`：后者用于"是否存在"会**整读文件**（真接上真实 DB
-    // 时是 129MB/次），且空文件会因"空串为假"被漏判。改为纯存在性判断后**结论不变**：
-    // 路径不存在 ⇒ 换下一个；存在但不可用 ⇒ 由下方表结构/异常分支同样归为"跳过"
-    // （实测：空文件 ⇒ `task_capability_mappings 列名未识别`，仍 exit 0）。
+    // 绝对路径直取（`join(cwd, abs)` 在 Windows 下会拼坏）；相对路径按 cwd 解析
+    const full = isAbsolute(p) ? p : join(process.cwd(), p);
+    // `existsSync` 而非 `readFileSync`：后者用于"是否存在"会**整读文件**（真实 DB 实测 129MB），
+    // 且空文件会因"空串为假"被漏判。纯存在性判断 ⇒ 结论不变：不存在 ⇒ 换下一个；
+    // 存在但不可用 ⇒ 由下方表结构/异常分支同样归为"跳过"。
     if (existsSync(full)) {
       dbPath = full;
       break;
@@ -350,7 +357,13 @@ function main(): void {
       console.log('[lint:models] ✅ 能力覆盖检查通过');
     }
   } else {
-    console.log('[lint:models] ❌ 能力断链：');
+    // ⚠️ **告警级（不阻断）** —— 2026-10-16 用户裁定（台账 `LINTMODELS-CAPABILITY-WARN`）：
+    // 该检查的输入是**用户配置**（哪些模型 enabled）⇒ 「某能力没有启用模型」是**配置选择/缺口**，
+    // 不是代码质量违规 ⇒ 不该让 `bun run ci` 与 CI 因此变红（曾实测：tts/stt 各 0 个启用模型）。
+    // 但仍**如实打印**，不静默（否则等于把真实缺口藏起来）。
+    console.log(
+      `[lint:models] ⚠️ 能力断链 ${coverage.violations.length} 项（**告警，不阻断** —— 属本机模型配置缺口）：`
+    );
     for (const v of coverage.violations) {
       console.log(
         `  task=${v.taskKey} 能力=${v.capability} 有 0 个 enabled 模型`
@@ -358,16 +371,19 @@ function main(): void {
     }
   }
 
-  const failed = violations.length > 0 || coverage.violations.length > 0;
+  // 阻断项**只有**「硬编码违规」（代码质量）；能力断链为告警
+  const failed = violations.length > 0;
   if (failed) {
     console.log('\n[lint:models] 结果：FAIL');
     process.exit(1);
   }
-  console.log(
-    coverage.note
-      ? `[lint:models] 结果：PASS（⚠️ 能力覆盖检查未执行：${coverage.note}）`
-      : '[lint:models] 结果：PASS'
-  );
+  // 汇总行后缀：把「未执行」「降级为告警」这两种"非干净但通过"如实标出，避免被读成已检查且干净
+  const suffix = coverage.note
+    ? `（⚠️ 能力覆盖检查未执行：${coverage.note}）`
+    : coverage.violations.length > 0
+      ? `（⚠️ 能力断链 ${coverage.violations.length} 项为告警，不阻断）`
+      : '';
+  console.log(`[lint:models] 结果：PASS${suffix}`);
 }
 
 main();

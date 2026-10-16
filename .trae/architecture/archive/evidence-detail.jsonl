@@ -4985,6 +4985,22 @@
 {"id":"LINTMODELS-DB-EXISTS-PROBE","k":"notes","i":4,"c":"data/pyapp/data/app.db`（空文件）并从该目录运行脚本 —— 因为 `DB_PATHS` 是 **cwd 相对**的，这样无需往仓库树里写任何文件（临时目录已删除，`cleanup_ok=True`）。【验证】`bun run lint:models` exit 0（跳过路径）· 上述三路径逐一实跑 · `bun run "}
 {"id":"LINTMODELS-DB-EXISTS-PROBE","k":"notes","i":5,"c":"typecheck` 0 错 · 6 门禁 + `lint:exit` / `lint:refs` / `lint:doc-code` 全绿。【如实边界】本片**未**改 `DB_PATHS`、**未**改 fail-open 判定（两者都是行为变更，须先裁定）；无单测（改的是探测方式，判据为运行输出与退出码）⇒ `flags` 如实为 `dc`。"}
 {"id":"LINTMODELS-DB-EXISTS-PROBE","k":"code#0","i":0,"c":"scripts/lint-models.ts"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"title","i":0,"c":"lint-models 能力覆盖：DB_PATHS 补真实数据目录（本地终于生效）+ 按用户裁定降为告警不阻断"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"source","i":0,"c":"用户 2026-10-16 裁定（三选项之「修路径 + 降为告警」）；承 `LINTMODELS-CAPABILITY-SCOPE` 的 reopenWhen ①（该片认定「修路径」属行为变更、须先裁定）"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"reopenWhen","i":0,"c":"① 若日后要把「能力断链」重新**升为阻断**：必须先解决「CI/干净环境无输入」—— 而 CI 里造输入只能伪造模型数据（违 CS04）⇒ 届时应把它明确为**本地专用门禁**并从 CI 步骤的语义里摘出该子检查（而不是靠伪造数据让 CI 绿）；② 若 `~/.pyapp` 改名 / 支持多 profile（如 `PYAPP_HOME` 之类）：`"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"reopenWhen","i":1,"c":"DB_PATHS` 的首选路径须同步 —— 本片用 `homedir()` 直拼而**未**调用 `resolveDataDir()`（后者在 app 运行时域，root `scripts/` 引入它会制造层级倒挂），两者若分叉须归一；③ 若用户想消除本机的 `⚠️ 能力断链` 提示：那是**配置动作**（在模型管理里启用一个具备该能力的模型），不是代码改动"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"reopenWhen","i":2,"c":"；④ 若将来该检查改为读 `capabilities.default.yaml` 做静态一致性检查（见 `LINTMODELS-CAPABILITY-SCOPE` reopenWhen ②）：本片的 DB 探测与告警降级随之作废，应一并清理。"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"notes","i":0,"c":"【改动（3 处）】① `DB_PATHS` 补**运行时真实数据目录** `~/.pyapp/data/app.db`（`join(homedir(), '.pyapp','data','app.db')`，用绝对路径 ⇒ 循环里 `isAbsolute(p) ? p : join(cwd,p)`，因为 `join(cwd, abs)` 在 Windows "}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"notes","i":1,"c":"下会拼坏 —— 这点在上一片已实测）；保留原有两条仓库内相对路径（兼容「数据目录随仓库布局」的部署）。② 阻断判定由 `violations.length > 0 || coverage.violations.length > 0` 改为**仅** `violations.length > 0`：能力断链**降为告警**；输出由 `❌ 能力断链` 改为 `⚠"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"notes","i":2,"c":"️ 能力断链 N 项（**告警，不阻断** —— 属本机模型配置缺口）`，并在汇总行加后缀 `（⚠️ 能力断链 N 项为告警，不阻断）`，避免被读成「已检查且干净」。③ `ci.yml` 的边界注释同步改写（旧文案称「本机标准布局下恒被跳过」，本片后已不成立）。**【为什么这么定（用户裁定的语义）】该子检查的输入是用户配置（哪些模型 `enabled`）⇒ "}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"notes","i":3,"c":"「某能力没有启用模型」是**配置选择/缺口**，不是代码质量违规 ⇒ 不该阻断 `bun run ci`/CI；但也不该**静默**，故降为告警并如实打印。【前后对比（本机实测，同一台机）】改前：`⏭️ 未执行（DB 未找到…）`（子检查形同不存在）；改后：`⚠️ 能力断链 2 项（告警，不阻断）` + `task=tts 能力=text_to_speech"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"notes","i":4,"c":" 有 0 个 enabled 模型` + `task=stt 能力=speech_recognition 有 0 个 enabled 模型` + `结果：PASS（⚠️ 能力断链 2 项为告警，不阻断）`、**exit 0** ✓。【CI 路径的验证手法（如实）】本机 `~/.pyapp/data/app.db` 存在 ⇒ 「未执行」分支在本机已不可达，故用"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"notes","i":5,"c":"**模拟干净环境**验证：把 `USERPROFILE` 指向空临时目录（Node 在 Windows 下 `os.homedir()` 取 `USERPROFILE`）后运行 ⇒ 实测 `⏭️ 能力覆盖检查未执行（DB 未找到…）` + `结果：PASS（…未执行…）`、**exit 0** ✓（临时目录已删）。⇒ CI（无 `~/.pyapp`、且仓库内"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"notes","i":6,"c":"两条相对路径在全新检出下也不存在）走的正是这条分支，**不会因此变红** ✓。【验证】`lint:models` exit 0（本机，带告警）· 模拟 CI 路径 exit 0 · `bun run typecheck` 0 错 · `ci.yml` 经 js-yaml 解析 ✓ · 6 门禁 + `lint:exit`/`lint:refs`/`"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"notes","i":7,"c":"lint:mock`/`lint:no-module-mock`/`lint:legacy-env`/`lint:tool-schema` 全绿。【如实边界】本片**不改**硬编码违规的阻断语义（仍是硬失败）；无单测（改的是门禁脚本的探测路径与告警级别，判据为运行输出与退出码）⇒ `flags` 如实为 `dc`；`homedir()` 直拼而非 `"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"notes","i":8,"c":"resolveDataDir()` 的理由与其风险已写入 reopenWhen ②。"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"code#0","i":0,"c":"scripts/lint-models.ts"}
+{"id":"LINTMODELS-CAPABILITY-WARN","k":"code#1","i":0,"c":".github/workflows/ci.yml"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

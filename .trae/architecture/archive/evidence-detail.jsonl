@@ -4581,6 +4581,24 @@
 {"id":"TOOLVIS-P1-REPORT","k":"code#8","i":0,"c":".trae/docs/api-spec.md"}
 {"id":"TOOLVIS-P1-REPORT","k":"code#9","i":0,"c":"dev_docs/20261016/工具可见性治理方案-20261016.md"}
 {"id":"TOOLVIS-P1-REPORT","k":"tests#0","i":0,"c":"app/tests/tools/toolVisibilityReport.test.ts"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"title","i":0,"c":"工具可见性治理 P2（可控性）：用户三态覆写层 + settings.tools 持久化"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"source","i":0,"c":"方案 dev_docs/20261016/工具可见性治理方案-20261016.md §3.2/§3.3/§3.4（用户裁定 Q1-Q4 四期全做、Q2 落 settings.tools）"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"reopenWhen","i":0,"c":"改动工具可见性裁剪口径（filterToolsByTask / extraCategories / forcedVisibleTools 重放路径）、新增或删除内置工具名、或调整 MANDATORY_TOOLS / ARCHIVED_MISC_TOOLS / 归档语义（含 ToolSearchTool 检索面）时；另：P3 设置页接三态 UI、P4a 影子工"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"reopenWhen","i":1,"c":"具评估后须复核 on 对 conditional 的无效语义是否仍然成立"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"notes","i":0,"c":"① 新增 tools/toolVisibilityOverrides.ts：三态 auto/on/off（缺省 auto = 不登记），**归一化在读取侧单一真源**（含未知工具名、非法值、MANDATORY_TOOLS 的 off ⇒ 丢弃 + 一次性告警）—— 因为写入走通用 PUT /v1/settings/{ns}（service 层不引 app 类"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"notes","i":1,"c":"型、原样落盘），若在写入侧校验会留下「手工改 config.json 即绕过校验」的缺口。② applyToolVisibilityOverrides **切在 filterToolsByTask 之后**（selectToolsForTurn 单出口）⇒ 既有裁剪语义与既有测试零改动；off 后置移除、on 从**裁剪前全量**补回（故可放开类别白名单之外"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"notes","i":2,"c":"与有意归档的工具）。③ 分层与零行为变更：空表 ⇒ 逐元素恒等（对 5 个 taskType 全量交叉断言）；重放路径（forcedVisibleTools）**不叠覆写** ⇒ 重放工具面恒等于落盘快照（✅-4 / 方案 R6）。④ 持久化复用既有 GET/PUT /v1/settings/tools（settings.tools，**零新增端点**）；报"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"notes","i":3,"c":"表与覆写同源（reasons 增 user-off / user-on-bypass）。⑤ 两条如实边界：flag-gated-off 原因**延后**（反推 flag 名需手写 tool→flag 表 ⇒ 与该域「六套映射表漂移」的历史根因自相矛盾；现状由 conditional 覆盖，不撒谎）；on 对 conditional（未进生成物）**无效**（"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"notes","i":4,"c":"无法凭空实例化 ⇒ 保持 hidden 且不加 user-on-bypass，不给假承诺）。⑥ 真机：PUT→GET→报表三连（computer_use:on ⇒ visible+user-on-bypass；bash:off ⇒ hidden+user-off；非法值/未知名被丢弃），探针后已复位为 {overrides:{}}。"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"code#0","i":0,"c":"app/src/tools/toolVisibilityOverrides.ts"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"code#1","i":0,"c":"app/src/tools/toolVisibilityReport.ts"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"code#2","i":0,"c":"app/src/tools/index.ts"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"code#3","i":0,"c":"app/src/tools/ToolSearchTool/ToolSearchTool.ts"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"code#4","i":0,"c":"app/src/chat/orchestrator/streamMessageToolSelection.ts"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"code#5","i":0,"c":"app/src/chat/orchestrator/streamMessageToolSelectionFlow.ts"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"code#6","i":0,"c":"app/src/runtime/api/sessionAgentOps.ts"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"code#7","i":0,"c":"dev_docs/20261016/工具可见性治理方案-20261016.md"}
+{"id":"TOOLVIS-P2-OVERRIDES","k":"tests#0","i":0,"c":"app/tests/tools/toolVisibilityOverrides.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

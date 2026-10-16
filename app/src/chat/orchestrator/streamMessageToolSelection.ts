@@ -17,7 +17,9 @@
 import {
   filterToolsByTask,
   resolveToolProfileCategories,
+  applyToolVisibilityOverrides,
   type ToolCategory,
+  type ToolVisibilityOverrides,
 } from '@modules/tools';
 import type { ToolDefinition } from '@modules/ai';
 import { isLocalLlmEndpoint } from '../services/ChatHelper.js';
@@ -48,6 +50,13 @@ export interface ToolSelectionInput {
    * 取名字命中该集合的工具 ⇒ 重放工具面 = **落盘快照**。未提供 ⇒ 逐字等价现状。
    */
   forcedVisibleTools?: readonly string[];
+  /**
+   * P2（2026-10-16，方案 `dev_docs/20261016/工具可见性治理方案`）：**用户可见性覆写**（三态）。
+   * 由调用方经 `readToolVisibilityOverrides()` 取（`settings.tools`）。**未提供 / 空表 ⇒ 恒等
+   * ⇒ 零行为变更**。⚠️ 与 `forcedVisibleTools`（重放）**互斥**：重放路径不得叠加覆写，否则
+   * 重放工具面会与落盘快照分叉（方案 R6 / `✅-4`）。
+   */
+  overrides?: ToolVisibilityOverrides;
 }
 
 export interface ToolSelectionResult {
@@ -113,12 +122,20 @@ export function selectToolsForTurn(
     ...(input.hasImages ? ['image' as const] : []),
     ...resolveToolProfileCategories(input.profile),
   ];
+  // P2（2026-10-16）：用户覆写层 —— **切在 `filterToolsByTask` 之后**（§3.3），故既有裁剪
+  // 语义与其测试零改动；`on` 从 `tools`（**裁剪前全量**）补回 ⇒ 可放开类别白名单之外的工具。
+  // ⚠️ 重放路径（`forcedVisibleTools`）**不叠加**覆写：重放工具面须恒等于落盘快照
+  //（方案 R6 / `✅-4`；否则运行期改设置会让历史重放分叉）。
   const filteredTools =
     input.forcedVisibleTools !== undefined
       ? tools.filter((t) =>
           input.forcedVisibleTools?.includes(t.function?.name ?? '')
         )
-      : filterToolsByTask(tools, taskType, extraCategories);
+      : applyToolVisibilityOverrides(
+          filterToolsByTask(tools, taskType, extraCategories),
+          tools,
+          input.overrides ?? {}
+        );
   const removedNames = tools
     .filter((t) => !filteredTools.includes(t))
     .map((t) => t.function?.name ?? '');

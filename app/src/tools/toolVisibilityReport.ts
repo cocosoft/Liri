@@ -54,31 +54,39 @@ import {
 } from './toolCategories';
 import type { ToolCategory } from './toolCategories';
 import { TOOL_NAME_CONSTANTS } from './toolNameConstants';
+import type { ToolVisibilityOverrides } from './toolVisibilityOverrides';
 import { TOOL_NAMES } from '@modules/constants/toolNames.generated';
 
-/** 可见/不可见的**结构化原因**（对齐方案 §3.2；P1 只产出这 5 种） */
+/** 可见/不可见的**结构化原因**（对齐方案 §3.2；P1 产出前 5 种，P2 追加后 2 种） */
 export type ToolVisibilityReason =
-  /** 恒保留（`MANDATORY_TOOLS`）⇒ **可见**（唯一"可见且带原因"的情形） */
+  /** 恒保留（`MANDATORY_TOOLS`）⇒ **可见**（唯一"可见且带原因"的情形之一） */
   | 'mandatory'
-  /** 有意归档（`ARCHIVED_MISC_TOOLS`）⇒ 永久不可见（裁剪 + 检索双封死） */
+  /** 有意归档（`ARCHIVED_MISC_TOOLS`）⇒ 默认不可见（裁剪 + 检索双封死；用户 `on` 可放开） */
   | 'archived'
   /** 未登记类别 ⇒ 落 `misc` 且非归档 ⇒ 任何任务下都被裁 */
   | 'unregistered-category'
   /** 类别已登记，但当前 `taskType` 的白名单不含它 ⇒ 换个任务才有 */
   | 'not-in-task-whitelist'
   /** ∉ 生成物 ⇒ 工厂实例化失败（未接线 / 工厂内门控关闭）⇒ 根本不在注册表里 */
-  | 'conditional';
+  | 'conditional'
+  /** P2：用户显式 `off`（`settings.tools`） */
+  | 'user-off'
+  /** P2：用户显式 `on` —— 覆盖了类别白名单 / 归档判定 ⇒ **可见** */
+  | 'user-on-bypass';
 
 export interface ToolVisibilityReport {
   name: string;
   category: ToolCategory;
   /** 注册面静态实况（P1 只区分「在不在生成物里」） */
   registration: 'registered' | 'conditional';
-  /** 当前任务白名单下的可见性（**未叠加任何用户覆写**；覆写层由 P2 引入） */
+  /** 当前任务白名单下的可见性（**未叠加任何用户覆写**；覆写结果见 `effective`） */
   visibleByDefault: boolean;
-  /** P1 恒等于 `visibleByDefault`（P2 起才可能被用户覆写改变） */
+  /** **覆写后**的最终判定（P1 无覆写 ⇒ 恒等于 `visibleByDefault`；P2 起可被改变） */
   effective: 'visible' | 'hidden';
-  /** 结构化原因：`hidden` 必非空；`visible` 或为空（常规命中白名单）或仅含 `mandatory` */
+  /**
+   * 结构化原因：`effective === 'hidden'` ⇒ **必非空**；`visible` ⇒ 或为空（常规命中白名单）
+   * 或含 `mandatory` / `user-on-bypass`（"可见但非默认"的两种情形，UI 可据此标注）。
+   */
   reasons: ToolVisibilityReason[];
 }
 
@@ -87,6 +95,11 @@ export interface ResolveToolVisibilityOptions {
   taskType?: string;
   /** 额外追加的类别（带图消息追加 `image` / 会话 `toolProfile` 映射），与调用方同口径 */
   extraCategories?: readonly ToolCategory[];
+  /**
+   * P2：用户可见性覆写（**须为 `normalizeToolVisibilityOverrides` 的产物**）。
+   * 缺省 / 空表 ⇒ `effective` 恒等于 `visibleByDefault`（P1 语义不变）。
+   */
+  overrides?: ToolVisibilityOverrides;
 }
 
 /**
@@ -132,12 +145,25 @@ export function resolveToolVisibilityReport(
         reasons.push('conditional');
       }
 
+      // P2：叠加用户覆写（**只影响 `effective` 与原因，不改 `visibleByDefault`**）。
+      // ⚠️ `on` 对 `conditional`（未进生成物 ⇒ 根本不在注册表）**无能为力** —— 覆写层只能
+      // 改变"可见性判定"，无法凭空实例化工具 ⇒ 如实保持 hidden（不给假承诺）。
+      let effective = visible;
+      const override = options.overrides?.[name];
+      if (override === 'off') {
+        effective = false;
+        reasons.push('user-off');
+      } else if (override === 'on' && !conditional) {
+        effective = true;
+        if (!visible) reasons.push('user-on-bypass');
+      }
+
       return {
         name,
         category,
         registration: conditional ? 'conditional' : 'registered',
         visibleByDefault: visible,
-        effective: visible ? 'visible' : 'hidden',
+        effective: effective ? 'visible' : 'hidden',
         reasons,
       };
     })

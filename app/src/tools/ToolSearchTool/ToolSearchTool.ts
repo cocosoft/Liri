@@ -19,6 +19,7 @@ import type { ToolSearchInput, ToolSearchOutput } from './schemas';
 import { getToolRegistry } from '../ToolRegistry';
 // 2026-10-11：检索面须排除**有意归档**工具（见 `execute()` 内注释）
 import { ARCHIVED_MISC_TOOLS } from '../toolCategories';
+import { readToolVisibilityOverrides } from '../toolVisibilityOverrides';
 import { getSkillRegistryLazy } from '../SkillTool/skillRegistryAccess';
 
 /**
@@ -328,8 +329,12 @@ export class ToolSearchTool extends BaseTool<
     // 可检索面 = 全量已注册 − **有意归档**工具（`ARCHIVED_MISC_TOOLS`，如 `computer_use`
     // 高风险桌面自动化）。归档语义是"对模型**永久不可见**"（见 toolCategories.ts 注释）⇒
     // 2026-10-11 放宽关键词检索面时必须同步排除，否则检索会成为绕过归档的旁路。
+    // P2（2026-10-16，方案 §3.3）：归档语义由「永久」放宽为「**默认**不可见」—— 用户显式
+    // `on` 的工具（`settings.tools`）纳入检索面（否则"设置页开了却搜不到"）；默认空表 ⇒ 与
+    // 改动前逐字等价（零行为变更）。
+    const overrides = readToolVisibilityOverrides();
     const searchableTools = allTools.filter(
-      (t) => !ARCHIVED_MISC_TOOLS.has(t.name)
+      (t) => !ARCHIVED_MISC_TOOLS.has(t.name) || overrides[t.name] === 'on'
     );
 
     // 检查直接选择前缀

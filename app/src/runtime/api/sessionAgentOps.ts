@@ -135,9 +135,11 @@ export class SessionAgentOps {
     taskType?: string;
     extraCategories?: readonly string[];
   }): Promise<ToolVisibilityReport[]> {
-    const { resolveToolVisibilityReport, isKnownToolCategory } = await import(
-      '@modules/tools'
-    );
+    const {
+      resolveToolVisibilityReport,
+      isKnownToolCategory,
+      readToolVisibilityOverrides,
+    } = await import('@modules/tools');
     const raw = query?.extraCategories ?? [];
     const extraCategories = raw.filter(isKnownToolCategory);
     if (extraCategories.length !== raw.length) {
@@ -149,6 +151,9 @@ export class SessionAgentOps {
     return resolveToolVisibilityReport({
       taskType: query?.taskType,
       extraCategories,
+      // P2：报表与覆写**同源**（同一份 `settings.tools` 既驱动判定也驱动展示）；
+      // 归一化由 `readToolVisibilityOverrides` 单实现承担（含未知名 / 非法值 / mandatory 的 off）。
+      overrides: readToolVisibilityOverrides(),
     });
   }
 

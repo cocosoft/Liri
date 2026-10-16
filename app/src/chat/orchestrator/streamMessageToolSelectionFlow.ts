@@ -18,7 +18,10 @@ import { getLogger } from '@modules/monitoring';
 import { estimateTokens } from '@modules/ai';
 import type { ToolDefinition } from '@modules/ai';
 import { resolveContextWindow } from '@modules/context';
-import { recordToolSchemaEntropy } from '@modules/tools';
+import {
+  recordToolSchemaEntropy,
+  readToolVisibilityOverrides,
+} from '@modules/tools';
 import { emitPreparedSnapshot } from '@modules/execution';
 import { guardSuspendFromEntropy } from '../../query/guardSuspend.js';
 import { lastUserMessageText } from '../taskIntent.js';
@@ -86,6 +89,12 @@ export function selectAndObserveToolDefinitions(
     lastUserText: lastUserMessageText(apiMessages),
     hasImages,
     profile,
+    // P2（2026-10-16，方案 §3.3/§3.4）：用户可见性覆写（`settings.tools`，三态）——
+    // **仅在非重放分支读**：重放工具面必须恒等于落盘快照（`✅-4`，方案 R6）；
+    // 空表 / 未配置 ⇒ `applyToolVisibilityOverrides` 恒等 ⇒ 零行为变更。
+    ...(options?.forcedVisibleTools === undefined
+      ? { overrides: readToolVisibilityOverrides() }
+      : {}),
     // T1-13 / `✅-4` R-A：重放强制集（有则短路任务/profile 裁剪 ⇒ 重放工具面 = 落盘快照）
     ...(options?.forcedVisibleTools !== undefined
       ? { forcedVisibleTools: options.forcedVisibleTools }

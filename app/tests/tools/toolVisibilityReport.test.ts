@@ -159,9 +159,15 @@ describe('P1 工具可见性报表', () => {
   it('纯函数：同参两次结果深相等（确定性）', () => {
     expect(resolveToolVisibilityReport()).toEqual(report);
     expect(
-      resolveToolVisibilityReport({ taskType: 'agent', extraCategories: ['not-a-category' as never] })
+      resolveToolVisibilityReport({
+        taskType: 'agent',
+        extraCategories: ['not-a-category' as never],
+      })
     ).toEqual(
-      resolveToolVisibilityReport({ taskType: 'agent', extraCategories: ['not-a-category' as never] })
+      resolveToolVisibilityReport({
+        taskType: 'agent',
+        extraCategories: ['not-a-category' as never],
+      })
     );
   });
 

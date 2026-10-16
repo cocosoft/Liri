@@ -206,6 +206,18 @@ export type {
   ToolVisibilityReason,
 } from './toolVisibilityReport';
 
+// P2（2026-10-16，同方案 §3.2/§3.3）：**可见性覆写层**（三态；默认空 ⇒ 恒等 ⇒ 零行为变更）
+export {
+  TOOL_VISIBILITY_SETTINGS_KEY,
+  normalizeToolVisibilityOverrides,
+  readToolVisibilityOverrides,
+  applyToolVisibilityOverrides,
+} from './toolVisibilityOverrides';
+export type {
+  ToolVisibilityOverrideValue,
+  ToolVisibilityOverrides,
+} from './toolVisibilityOverrides';
+
 // 导出工具编排服务
 export {
   ToolOrchestration,

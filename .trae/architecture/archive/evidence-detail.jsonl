@@ -5456,6 +5456,20 @@
 {"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"code#3","i":0,"c":".trae/specs/channel-budget-inline-relief.md"}
 {"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"tests#0","i":0,"c":"app/tests/channels/feishuCardAction.test.ts"}
 {"id":"CHANNEL-RELIEF-FEISHU-INBOUND","k":"tests#1","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"title","i":0,"c":"飞书 webhook 卡片回传的**传输层**验证：真起 HTTP 服务 + 真发 POST，断言 200 / `{toast}` / 动作端口被调（补「只到纯函数单测」的证据缺口）"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"source","i":0,"c":"自查的**证据缺口**：上一片 `CHANNEL-RELIEF-FEISHU-INBOUND` 的凭据只到纯函数级（识别体式 + 造回执），而「webhook 先分流 + 3 秒内 200 + `{toast}`」是**传输层契约**"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"reopenWhen","i":0,"c":"① 若飞书 webhook 的**分支顺序**被改动（如把通用 `{}` 的 200 挪到卡片分流之前）⇒ 本组会红（`{toast}` 与端口调用同时消失）——这正是本组的主要防回归面（纯函数单测**测不到**它）。② 本组**不覆盖真机**：本机飞书未配置/未启用 ⇒ 平台侧的**回调地址注册**与**订阅版本**（`"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"reopenWhen","i":1,"c":"card.action.trigger` / `trigger_v1`）仍未被验证（见 `CHANNEL-RELIEF-FEISHU-INBOUND` reopenWhen ①）。③ 端口固定 `18089`（本仓既有测试惯例：`acpContract` / `voice-e2e` 亦起真实端口）⇒ 若 CI 上该端口被占会红，届时改端口或改 `listen"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"reopenWhen","i":2,"c":"(0)` + 读回端口。"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"notes","i":0,"c":"【问题（**证据缺口**，自查）】上一片 `CHANNEL-RELIEF-FEISHU-INBOUND` 对飞书卡片回传的凭据只到**纯函数单测**（`extractFeishuCardAction` 识别三形 + 造回执体）；而台账里那句「webhook 侧**先分流**卡片回传、3 秒内回 **HTTP 200** + `{toast}`」是**传输层契"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"notes","i":1,"c":"约** —— 分支顺序、状态码、响应体这三件事**纯函数测不到**：若日后有人把通用 `{}` 的 200 挪到卡片分流之前，单测**全绿**而真机必然超时（客户端报交互失败）。\n【做法】新增 `tests/channels/feishuWebhookCardAction.test.ts`：**真起 HTTP 服务**（`"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"notes","i":2,"c":"plugin.lifecycle.connect` → `plugin.inbound.start`，端口 18089）并**真发 POST**。只对 `tenant_access_token` 调用做桩（`onConnect` 会取 token；不触网），`afterAll` **还原** `globalThis.fetch`（守台账 `"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"notes","i":3,"c":"L-23-test-global-pollution` 的教训：污染未还原 ⇒ 隔离绿 / 全量红）并 `inbound.stop()`（否则测试进程不退出）。\n【验证（5 例，均真实 HTTP）】① 旧版扁平体（本仓出站卡片结构）⇒ **200** + `{toast}`（含「已放行」）+ **动作端口被调用** `{sessionId,kind:'"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"notes","i":4,"c":"boost'}`（真·就地放行的接线凭据；响应体**不含** `card` ⇒ 保持原卡片）；② 新版体（`schema:'2.0'` + `header.event_type`）⇒ 同样分流；③ **动作端口未注册** ⇒ 仍回 200 + 「未放行」toast（网关绝不被晾住，守 CS03）；④ URL 验证体 ⇒ 原样回显 `challenge`（原有"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"notes","i":5,"c":"行为不回归）；⑤ 消息事件体 ⇒ 走原消息路径（200 `{}`）且**端口零调用**（不误当卡片回传）。全量 `bun test` **6656 pass / 0 fail**（6698 tests / 749 files ⇒ 同时**验证无全局污染**）；`tsc --noEmit` 0 错。\n【如实边界】① **不覆盖真机**（本机飞书未配置/未启用）"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"notes","i":6,"c":"⇒ 平台侧的回调地址注册与订阅版本仍未被验证。② 端口固定 18089（既有测试惯例）⇒ 被占会红，届时改端口或 `listen(0)` + 读回端口。③ 本片**无生产代码改动**（`files=0`）⇒ `stages/flags` 记 `DT / du`（只到「已设计 + 已单测」），**不**称 `fixed`（守「只改代码即称验收」的反面：这里连代"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"notes","i":7,"c":"码都没改，更不得称修复）。"}
+{"id":"CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG","k":"tests#0","i":0,"c":"app/tests/channels/feishuWebhookCardAction.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

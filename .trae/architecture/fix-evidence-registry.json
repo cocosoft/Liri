@@ -9599,6 +9599,30 @@
       "changelog": [],
       "reopenWhen": "① **飞书无真机验证**（`e2eVerified=false`）：本机飞书通道**未配置/未启用** ⇒ 本片证据只到**单测级**。真机判据：在飞书点卡片按钮 ⇒ 日志出现「飞书卡片回传（webhook）：动作已处理」+ `channels:budgetReliefAction: 放行已处理` + `daily…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-FEISHU-INBOUND）",
       "notes": "【问题（上一片刻意留下的缺口）】上一片 `CHANNEL-RELIEF-BUTTON-GATE` 把按钮收敛为「**入站回调已接线**」白名单，当时白名单只有 `qq`：飞书出站按钮**已实现**（`sendInteractiveMessage`），但**入站只处理消息事件**（长连接的 `im.message.re…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-FEISHU-INBOUND）"
+    },
+    {
+      "id": "CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG",
+      "title": "飞书 webhook 卡片回传的**传输层**验证：真起 HTTP 服务 + 真发 POST，断言 200 / `{toast}` / 动作端口被调（补「只到纯函数单测」的证据缺口）",
+      "source": "自查的**证据缺口**：上一片 `CHANNEL-RELIEF-FEISHU-INBOUND` 的凭据只到纯函数级（识别体式 + 造回执），而「webhook 先分流 + 3 秒内 200 + `{toast}`」是**传输层契约**",
+      "stages": {
+        "discovered": true,
+        "fixed": false,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": false,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [],
+      "tests": [
+        "app/tests/channels/feishuWebhookCardAction.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若飞书 webhook 的**分支顺序**被改动（如把通用 `{}` 的 200 挪到卡片分流之前）⇒ 本组会红（`{toast}` 与端口调用同时消失）——这正是本组的主要防回归面（纯函数单测**测不到**它）。② 本组**不覆盖真机**：本机飞书未配置/未启用 ⇒ 平台侧的**回调地址注册**与**订阅版本*…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG）",
+      "notes": "【问题（**证据缺口**，自查）】上一片 `CHANNEL-RELIEF-FEISHU-INBOUND` 对飞书卡片回传的凭据只到**纯函数单测**（`extractFeishuCardAction` 识别三形 + 造回执体）；而台账里那句「webhook 侧**先分流**卡片回传、3 秒内回 **HTTP 200*…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG）"
     }
   ]
 }

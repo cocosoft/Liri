@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG**：飞书 webhook 卡片回传的传输层验证：真起 HTTP 服务 + 真发 POST（200 / {toast} / 动作端口被调） —— 验证 integ5|tc1|ts6656；基线 改前：该路由的凭据只到纯函数单测（识别体式 + 造回执）；分支顺序/状态码/响应体三件事测不到 —— 若把通用 200 挪到卡片分流之前，单测全绿而真机必然超时（详情见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG）
 - ✅ **CHANNEL-RELIEF-FEISHU-INBOUND**：飞书卡片回传入站接线：两版回调体（card.action.trigger / 旧版扁平）→ 同一放行动作端口 + {toast} 回执；飞书加入按钮白名单 —— 验证 ut45|tc1|ts6651；基线 改前：飞书出站按钮已实现但入站只处理消息事件（长连接/webhook 两条路都无卡片回传分支）⇒ 白名单只有 qq，飞书只能收无按钮文案（详情见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-FEISHU-INBOUND）
 - ✅ **CHANNEL-RELIEF-BUTTON-GATE**：通道就地放行的按钮按白名单给：入站回调未接线的通道不得给按钮（防「点了没反应」的假按钮） —— 验证 ut26|tc1|ts6632；基线 改前：出站按 sendInteractive 能力给按钮，而入站回调只接了 QQ ⇒ 飞书等 11 个通道会给出「点了毫无反应」的按钮（用户以为按了、其实什么都没发生）（详情见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-BUTTON-GATE）
 - ✅ **CHANNEL-BUDGET-INLINE-RELIEF**：通道侧「就地放行」：预算挂起卡片（带按钮）+ 按钮回调入站动作（先做 QQ） —— 验证 ut24|tc1|ts6630；基线 改前：通道侧只有「发送被拦」一种文案；运行中被挂起时把桌面措辞当普通文本投递；入站零「一次交互→动作」通道；QQ 的 sendInteractiveMessage 把卡片拍平成 Markdown（详情见 archive/evidence-detail.jsonl#CHANNEL-BUDGET-INLINE-RELIEF）

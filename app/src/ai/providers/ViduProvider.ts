@@ -43,6 +43,7 @@ import {
 } from './AsyncVideoTaskProvider.js';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { VIDU_API_BASE_URL } from '@modules/core';
 
 /** 官方 state 枚举 → 基类轮询状态枚举 */
 const STATE_MAP: Record<string, VideoTaskPollState['state']> = {
@@ -63,7 +64,7 @@ export class ViduProvider extends AsyncVideoTaskProvider {
         providerId: 'vidu',
         displayName: 'Vidu',
         envApiKey: 'VIDU_API_KEY',
-        defaultBaseUrl: 'https://api.vidu.cn',
+        defaultBaseUrl: VIDU_API_BASE_URL,
         ...options,
       },
       polling

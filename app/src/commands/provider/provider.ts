@@ -26,7 +26,7 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome, DEEPSEEK_API_BASE_URL } from '@modules/core';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -183,7 +183,7 @@ async function handleAdd(rawArgs: string): Promise<CommandResult> {
       message: `用法: /provider add <name> <type> <baseUrl> [apiKey] [--local]
 
 示例:
-  /provider add "DeepSeek" deepseek https://api.deepseek.com sk-xxx
+  /provider add "DeepSeek" deepseek ${DEEPSEEK_API_BASE_URL} sk-xxx
   /provider add "Ollama" ollama http://localhost:11434 --local
   /provider add "LM Studio" custom http://localhost:1234/v1 --local
 
@@ -637,10 +637,10 @@ async function handleSeed(): Promise<CommandResult> {
         '  方式一（统一格式，支持任意供应商）：\n' +
         '    PROVIDER_DEEPSEEK_KEY=sk-xxx\n' +
         '    PROVIDER_DEEPSEEK_TYPE=deepseek\n' +
-        '    PROVIDER_DEEPSEEK_URL=https://api.deepseek.com\n\n' +
+        `    PROVIDER_DEEPSEEK_URL=${DEEPSEEK_API_BASE_URL}\n\n` +
         '  方式二（专用变量名，大厂快捷配置）：\n' +
         '    DEEPSEEK_API_KEY=sk-xxx\n' +
-        '    DEEPSEEK_BASE_URL=https://api.deepseek.com\n' +
+        `    DEEPSEEK_BASE_URL=${DEEPSEEK_API_BASE_URL}\n` +
         '    OPENAI_API_KEY=sk-xxx\n' +
         '    ANTHROPIC_API_KEY=sk-xxx\n' +
         '    GOOGLE_API_KEY=xxx\n' +

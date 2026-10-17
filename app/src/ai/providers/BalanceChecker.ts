@@ -35,6 +35,7 @@ import {
   saveBalanceWarnState,
   type RecurringWarnRecord,
 } from './balanceWarnPersistence.js';
+import { DEEPSEEK_API_BASE_URL, OPENROUTER_API_V1_BASE_URL, BIGMODEL_API_BASE_URL } from '@modules/core';
 const logger = getLogger('ai:providers:balanceChecker');
 
 /**
@@ -227,7 +228,7 @@ async function httpGet(
 async function queryDeepSeek(apiKey: string): Promise<BalanceResult> {
   try {
     const { status, body } = await httpGet(
-      'https://api.deepseek.com/user/balance',
+      `${DEEPSEEK_API_BASE_URL}/user/balance`,
       apiKey
     );
 
@@ -490,7 +491,7 @@ async function querySiliconFlow(
 async function queryOpenRouter(apiKey: string): Promise<BalanceResult> {
   try {
     const { status, body } = await httpGet(
-      'https://openrouter.ai/api/v1/credits',
+      `${OPENROUTER_API_V1_BASE_URL}/credits`,
       apiKey
     );
 
@@ -612,7 +613,7 @@ async function queryNovita(apiKey: string): Promise<BalanceResult> {
 async function queryZhipu(apiKey: string): Promise<BalanceResult> {
   try {
     const { status, body } = await httpGet(
-      'https://open.bigmodel.cn/api/biz/account/query-customer-account-report',
+      `${BIGMODEL_API_BASE_URL}/api/biz/account/query-customer-account-report`,
       apiKey
     );
 

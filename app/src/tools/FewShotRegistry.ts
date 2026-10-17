@@ -1,3 +1,4 @@
+import { OPENAI_PLATFORM_URL } from '@modules/core';
 /**
  * FewShotRegistry — Few-shot 示例管理系统
  *
@@ -268,7 +269,7 @@ export const BUILTIN_EXAMPLES: FewShotEntry[] = [
     examples: [
       {
         scenario: '读取 API 文档页面',
-        input: { url: 'https://platform.openai.com/docs/api-reference/chat' },
+        input: { url: `${OPENAI_PLATFORM_URL}/docs/api-reference/chat` },
         expectedBehavior: '返回 markdown 格式的文档内容',
         commonMistakes: ['抓取需登录的页面（返回空）', 'URL 包含认证参数'],
       },

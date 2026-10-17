@@ -14,10 +14,7 @@ import { getLogger } from '@modules/monitoring';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import {
-  resolveProjectRoot,
-  OPENAI_API_V1_BASE_URL,
-  ANTHROPIC_API_V1_BASE_URL,
-} from '@modules/core';
+  resolveProjectRoot, OPENAI_API_V1_BASE_URL, ANTHROPIC_API_V1_BASE_URL, DEEPSEEK_API_V1_BASE_URL, OPENAI_PLATFORM_URL, ANTHROPIC_CONSOLE_URL } from '@modules/core';
 import { createInterface } from 'readline';
 import { setConfigValue, getConfig } from '@modules/config';
 import { writeSoulMd, readSoulMd } from '@modules/services/soul/SoulReader';
@@ -256,7 +253,7 @@ const CHANNEL_INFO: Record<
   },
   claude: {
     name: 'Claude',
-    signupUrl: 'https://console.anthropic.com/',
+    signupUrl: `${ANTHROPIC_CONSOLE_URL}/`,
     envVars: [{ key: 'CHANNEL_CLAUDE_API_KEY', label: 'API Key' }],
     channelType: 'claude',
   },
@@ -283,7 +280,7 @@ const PROVIDER_INFO: Record<
   },
   anthropic: {
     name: 'Claude (Anthropic)',
-    signupUrl: 'https://console.anthropic.com/',
+    signupUrl: `${ANTHROPIC_CONSOLE_URL}/`,
     hasFreeTier: false,
     freeQuota: '',
     price: '$3/百万输入 tokens',
@@ -291,7 +288,7 @@ const PROVIDER_INFO: Record<
   },
   openai: {
     name: 'OpenAI (GPT)',
-    signupUrl: 'https://platform.openai.com/api-keys',
+    signupUrl: `${OPENAI_PLATFORM_URL}/api-keys`,
     hasFreeTier: true,
     freeQuota: '$5 免费额度（新用户）',
     price: '$2.5/百万输入 tokens',
@@ -351,7 +348,7 @@ async function testApiConnection(
   try {
     if (provider === 'deepseek') {
       const response = await fetch(
-        'https://api.deepseek.com/v1/chat/completions',
+        `${DEEPSEEK_API_V1_BASE_URL}/chat/completions`,
         {
           method: 'POST',
           headers: {

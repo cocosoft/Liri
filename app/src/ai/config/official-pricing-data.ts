@@ -15,6 +15,7 @@ import type {
   BillingMode,
   TimeBasedPrice,
 } from '../models/ModelPricingService.js';
+import { GOOGLE_AI_DEV_URL } from '@modules/core';
 
 export interface OfficialModelPrice {
   modelId: string;
@@ -132,7 +133,7 @@ export const OFFICIAL_PRICING: OfficialProviderPricing[] = [
   },
   {
     providerType: 'google',
-    sourceUrl: 'https://ai.google.dev/gemini-api/docs/pricing',
+    sourceUrl: `${GOOGLE_AI_DEV_URL}/gemini-api/docs/pricing`,
     updatedAt: '2026-08-12',
     models: [
       {

@@ -6,6 +6,7 @@
  */
 import type { ProviderFormData } from "../../types";
 import { PROVIDER_TYPE_LABELS } from "../../config/providerPresets";
+import { PROVIDER_API_BASE_URLS } from '../../services/endpoints';
 
 export type SchemaFieldType =
   "text" | "password" | "select" | "checkbox" | "textarea";
@@ -53,7 +54,7 @@ export const PROVIDER_FORM_SCHEMA: SchemaField[] = [
     label: "Base URL",
     type: "text",
     required: true,
-    placeholder: "https://api.deepseek.com",
+    placeholder: PROVIDER_API_BASE_URLS.deepseek,
   },
   {
     key: "apiKey",

@@ -32,11 +32,7 @@
  *   NAME 段规则：大写字母、数字、下划线（A-Z、0-9、_）
  */
 import type { ProviderType } from './ProviderManager';
-import {
-  DEFAULT_OLLAMA_OPENAI_ENDPOINT,
-  OPENAI_API_V1_BASE_URL,
-  ANTHROPIC_API_BASE_URL,
-} from '@modules/core';
+import { DEFAULT_OLLAMA_OPENAI_ENDPOINT, OPENAI_API_V1_BASE_URL, ANTHROPIC_API_BASE_URL, DEEPSEEK_API_BASE_URL, GEMINI_API_BASE_URL, SILICONFLOW_API_V1_BASE_URL } from '@modules/core';
 
 /** 检测出的供应商配置 */
 export interface UnifiedProviderConfig {
@@ -69,7 +65,7 @@ const LEGACY_KEYS: Record<string, LegacyMapping> = {
   DEEPSEEK_API_KEY: {
     name: 'deepseek',
     providerType: 'deepseek',
-    defaultUrl: 'https://api.deepseek.com',
+    defaultUrl: DEEPSEEK_API_BASE_URL,
   },
   OPENAI_API_KEY: {
     name: 'openai',
@@ -84,17 +80,17 @@ const LEGACY_KEYS: Record<string, LegacyMapping> = {
   GOOGLE_API_KEY: {
     name: 'google',
     providerType: 'google',
-    defaultUrl: 'https://generativelanguage.googleapis.com',
+    defaultUrl: GEMINI_API_BASE_URL,
   },
   GEMINI_API_KEY: {
     name: 'google',
     providerType: 'google',
-    defaultUrl: 'https://generativelanguage.googleapis.com',
+    defaultUrl: GEMINI_API_BASE_URL,
   },
   SILICONFLOW_API_KEY: {
     name: 'siliconflow',
     providerType: 'custom',
-    defaultUrl: 'https://api.siliconflow.cn/v1',
+    defaultUrl: SILICONFLOW_API_V1_BASE_URL,
   },
   // Phase 3: Ollama local model support (VerifierAgent offline-friendly)
   OLLAMA_BASE_URL: {

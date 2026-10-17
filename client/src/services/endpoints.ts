@@ -41,6 +41,32 @@ export const LOCAL_PROVIDER_ENDPOINTS = {
   mcpExample: "http://localhost:8080/mcp",
 } as const;
 
+/**
+ * 官方供应商 API 基址 / 站点（前端唯一编辑点；U-20/B5-2-99）。
+ *
+ * 后端对应真源为 `app/src/core/providerEndpoints.ts`；两个部署单元无法共享模块，
+ * 同值靠评审与契约测试保证。**值逐字不变**。
+ */
+export const PROVIDER_API_BASE_URLS = {
+  openai: "https://api.openai.com",
+  anthropic: "https://api.anthropic.com",
+  gemini: "https://generativelanguage.googleapis.com",
+  deepseek: "https://api.deepseek.com",
+  siliconflow: "https://api.siliconflow.cn",
+  moonshot: "https://api.moonshot.cn",
+  xai: "https://api.x.ai",
+  openrouter: "https://openrouter.ai",
+  bigmodel: "https://open.bigmodel.cn",
+  dashscope: "https://dashscope.aliyuncs.com",
+} as const;
+
+export const PROVIDER_SITE_URLS = {
+  openaiPlatform: "https://platform.openai.com",
+  anthropicConsole: "https://console.anthropic.com",
+  googleAiDev: "https://ai.google.dev",
+  googleAiStudio: "https://aistudio.google.com",
+} as const;
+
 export const ENDPOINTS = {
   auth: {
     login: "/v1/auth/login",

@@ -26,12 +26,8 @@
 
 // T-②05（2026-10-03）：快速路径判据的**类型与默认值**下沉 core（`types/`）单一事实源
 // —— `config`(infra) 与 `tasks`(app) 同时引用，落任一侧都会造成反向依赖。
-import {
-  DEFAULT_DANGEROUS_INTENT_PATTERNS,
-  DEFAULT_FAST_PATH_MAX_LENGTH,
-  type FastPathConfig,
-} from '@modules/types/fastPath';
-import { OPENAI_API_V1_BASE_URL } from '@modules/core';
+import { DEFAULT_DANGEROUS_INTENT_PATTERNS, DEFAULT_FAST_PATH_MAX_LENGTH, type FastPathConfig, } from '@modules/types/fastPath';
+import { OPENAI_API_V1_BASE_URL, DEEPSEEK_API_BASE_URL } from '@modules/core';
 
 /**
  * 项目配置接口
@@ -595,7 +591,7 @@ export function createDefaultGlobalConfig(): GlobalConfig {
       model: '',
       deepseek: {
         apiKey: process.env['DEEPSEEK_API_KEY'] || '',
-        baseUrl: process.env['DEEPSEEK_BASE_URL'] || 'https://api.deepseek.com',
+        baseUrl: process.env['DEEPSEEK_BASE_URL'] || DEEPSEEK_API_BASE_URL,
         model: '',
       },
       anthropic: {

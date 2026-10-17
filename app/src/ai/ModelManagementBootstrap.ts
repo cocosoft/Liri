@@ -35,11 +35,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { ProviderType } from '@modules/ai';
 import {
-  DEFAULT_OLLAMA_ENDPOINT,
-  DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL,
-  OPENAI_API_V1_BASE_URL,
-  ANTHROPIC_API_BASE_URL,
-} from '@modules/core';
+  DEFAULT_OLLAMA_ENDPOINT, DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL, OPENAI_API_V1_BASE_URL, ANTHROPIC_API_BASE_URL, DEEPSEEK_API_BASE_URL, GEMINI_API_V1BETA_BASE_URL, GEMINI_API_BASE_URL, SILICONFLOW_API_V1_BASE_URL, MOONSHOT_API_V1_BASE_URL, XAI_API_V1_BASE_URL } from '@modules/core';
 
 const logger = getLogger('ai:modelManagementBootstrap');
 
@@ -56,7 +52,7 @@ const ENV_PRESETS: EnvPreset[] = [
   {
     key: 'DEEPSEEK_API_KEY',
     baseUrlKey: 'DEEPSEEK_BASE_URL',
-    defaultBaseUrl: 'https://api.deepseek.com',
+    defaultBaseUrl: DEEPSEEK_API_BASE_URL,
     name: 'DeepSeek',
     providerType: 'deepseek',
   },
@@ -77,7 +73,7 @@ const ENV_PRESETS: EnvPreset[] = [
   {
     key: 'GOOGLE_API_KEY',
     baseUrlKey: 'GOOGLE_AI_BASE_URL',
-    defaultBaseUrl: 'https://generativelanguage.googleapis.com',
+    defaultBaseUrl: GEMINI_API_BASE_URL,
     name: 'Google Gemini',
     providerType: 'google',
   },
@@ -85,28 +81,28 @@ const ENV_PRESETS: EnvPreset[] = [
   {
     key: 'GEMINI_API_KEY',
     baseUrlKey: 'GOOGLE_AI_BASE_URL',
-    defaultBaseUrl: 'https://generativelanguage.googleapis.com',
+    defaultBaseUrl: GEMINI_API_BASE_URL,
     name: 'Google Gemini',
     providerType: 'google',
   },
   {
     key: 'SILICONFLOW_API_KEY',
     baseUrlKey: '',
-    defaultBaseUrl: 'https://api.siliconflow.cn/v1',
+    defaultBaseUrl: SILICONFLOW_API_V1_BASE_URL,
     name: 'SiliconFlow',
     providerType: 'custom',
   },
   {
     key: 'MOONSHOT_API_KEY',
     baseUrlKey: 'MOONSHOT_BASE_URL',
-    defaultBaseUrl: 'https://api.moonshot.cn/v1',
+    defaultBaseUrl: MOONSHOT_API_V1_BASE_URL,
     name: 'Moonshot',
     providerType: 'moonshot',
   },
   {
     key: 'GROK_API_KEY',
     baseUrlKey: 'GROK_BASE_URL',
-    defaultBaseUrl: 'https://api.x.ai/v1',
+    defaultBaseUrl: XAI_API_V1_BASE_URL,
     name: 'Grok',
     providerType: 'grok',
   },
@@ -127,7 +123,7 @@ const REFERENCED_PROVIDER_PRESETS: Array<{
   {
     providerType: 'deepseek',
     name: 'DeepSeek',
-    baseUrl: 'https://api.deepseek.com',
+    baseUrl: DEEPSEEK_API_BASE_URL,
     requiresAuth: true,
     envKey: 'DEEPSEEK_API_KEY',
   },
@@ -141,7 +137,7 @@ const REFERENCED_PROVIDER_PRESETS: Array<{
   {
     providerType: 'google',
     name: 'Google Gemini',
-    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    baseUrl: GEMINI_API_V1BETA_BASE_URL,
     requiresAuth: true,
     envKey: 'GOOGLE_API_KEY',
   },

@@ -6,7 +6,11 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { OPENAI_API_BASE_URL, ANTHROPIC_API_BASE_URL } from '@modules/core';
+import {
+  OPENAI_API_BASE_URL,
+  ANTHROPIC_API_BASE_URL,
+  DEEPSEEK_API_BASE_URL,
+} from '@modules/core';
 
 const logger = getLogger('ai:health:modelHealthCheck');
 
@@ -184,7 +188,7 @@ export class ModelHealthChecker {
 
       const urls: Record<string, string> = {
         anthropic: `${ANTHROPIC_API_BASE_URL}/`,
-        deepseek: 'https://api.deepseek.com/',
+        deepseek: `${DEEPSEEK_API_BASE_URL}/`,
         openai: `${OPENAI_API_BASE_URL}/`,
       };
       const url = urls[provider] || urls['anthropic'];

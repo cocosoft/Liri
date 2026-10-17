@@ -47,11 +47,12 @@ import { GeminiTransport } from '../transports/GeminiTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
+import { GEMINI_API_V1BETA_BASE_URL } from '@modules/core';
 
 const logger = getLogger('ai:google');
 
 const GOOGLE_PROVIDER_BASE_URL =
-  'https://generativelanguage.googleapis.com/v1beta';
+  GEMINI_API_V1BETA_BASE_URL;
 
 export class GoogleProvider extends BaseAIProvider {
   private apiKey: string;

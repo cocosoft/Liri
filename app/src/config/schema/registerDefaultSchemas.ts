@@ -3,7 +3,7 @@
  * 将 GlobalConfig 中所有配置项注册到 configSchema，用于文档生成和校验
  */
 import { configSchema } from './ConfigSchema.js';
-import { OPENAI_API_V1_BASE_URL, ANTHROPIC_API_BASE_URL } from '@modules/core';
+import { OPENAI_API_V1_BASE_URL, ANTHROPIC_API_BASE_URL, DEEPSEEK_API_BASE_URL } from '@modules/core';
 
 /**
  * 注册所有默认配置项到 configSchema
@@ -129,8 +129,8 @@ function registerAiSettings(): void {
     key: 'ai.deepseek.baseUrl',
     description: 'DeepSeek API 地址',
     type: 'string',
-    defaultValue: 'https://api.deepseek.com',
-    example: 'https://api.deepseek.com',
+    defaultValue: DEEPSEEK_API_BASE_URL,
+    example: DEEPSEEK_API_BASE_URL,
   });
 
   configSchema.registerItem('AI 设置', {

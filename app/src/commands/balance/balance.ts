@@ -29,6 +29,7 @@ import { checkBalance, formatBalanceResult } from '@modules/ai';
 import { providerManager } from '@modules/ai';
 
 import { getLogger } from '@modules/monitoring';
+import { DEEPSEEK_API_BASE_URL } from '@modules/core';
 const logger = getLogger('commands:balance:balance');
 
 const balanceCommand = {
@@ -52,7 +53,7 @@ const balanceCommand = {
   /balance <providerId>          使用已保存的供应商
 
 示例:
-  /balance https://api.deepseek.com sk-xxx
+  /balance ${DEEPSEEK_API_BASE_URL} sk-xxx
   /balance abc-123-456
 
 支持的供应商: DeepSeek, SiliconFlow, OpenRouter, Novita AI`,

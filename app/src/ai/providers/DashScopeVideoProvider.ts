@@ -52,6 +52,7 @@ import {
 } from './AsyncVideoTaskProvider.js';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { DASHSCOPE_API_BASE_URL } from '@modules/core';
 
 /** 官方 task_status 枚举 → 基类轮询状态枚举 */
 const STATE_MAP: Record<string, VideoTaskPollState['state']> = {
@@ -109,7 +110,7 @@ export class DashScopeVideoProvider extends AsyncVideoTaskProvider {
         providerId: 'dashscope',
         displayName: '通义万相',
         envApiKey: 'DASHSCOPE_API_KEY',
-        defaultBaseUrl: 'https://dashscope.aliyuncs.com',
+        defaultBaseUrl: DASHSCOPE_API_BASE_URL,
         ...options,
       },
       polling

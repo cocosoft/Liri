@@ -223,6 +223,11 @@ export class DailyBudgetManager {
   private usedUsd = 0;
   /** 债四 S5：USD 口径透支欠账（次日由 `_rolloverIfNeeded()` 计入用量扣回；`reset()` 不抹除）。 */
   private debtUsd = 0;
+  /**
+   * T3-7（2026-10-17）：`waive-once` 的 USD 事务预检额度。
+   * 键 = 会话；值 = 已预占金额（实际用量落账时用实际值替换估计值）。
+   */
+  private waiverPrecheckUsd = new Map<string, number>();
   /** D7（Task 7）：放行应用回调集（进程内唤醒端口；非持久化、非事实源）。 */
   private readonly reliefAppliedListeners = new Set<
     (e: ReliefAppliedEvent) => void
@@ -285,6 +290,7 @@ export class DailyBudgetManager {
     this.reliefState = null;
     this.waiveOncePending = null;
     this._waiverGrantedForSession = null;
+    this.waiverPrecheckUsd.clear();
     if (hadUsage) this._schedulePersist();
   }
 
@@ -645,6 +651,7 @@ export class DailyBudgetManager {
     this.reliefState = null;
     this.waiveOncePending = null;
     this._waiverGrantedForSession = null;
+    this.waiverPrecheckUsd.clear();
     void this.persistNow();
     if (!hadRelief) return;
     logger.info('dailyBudget:relief_revoked', {
@@ -735,9 +742,57 @@ export class DailyBudgetManager {
   recordUsdUsage(usd: number, sessionId?: string): void {
     if (!Number.isFinite(usd) || usd <= 0) return;
     this._rolloverIfNeeded();
+    // T3-7：放行轮的实际金额替换预检估计（差额回补/追补欠账），保证不做双记。
+    if (sessionId) {
+      const estimated = this.waiverPrecheckUsd.get(sessionId);
+      if (estimated !== undefined) {
+        this.debtUsd = Math.max(0, this.debtUsd - estimated + usd);
+        this.waiverPrecheckUsd.delete(sessionId);
+        logger.info('dailyBudget:waiver_precheck_settled', {
+          sessionId,
+          estimatedUsd: estimated,
+          actualUsd: usd,
+          debtUsd: this.debtUsd,
+        });
+      }
+    }
     this.usedUsd += usd;
     this._schedulePersist();
-    void sessionId; // 预留会话归属（USD 闸门启用后按会话记账；当前无消费点）
+  }
+
+  /**
+   * T3-7（2026-10-17，用户裁定「改为事务预检」）：`waive-once` 放行前，
+   * 用**当前模型价表**估算本轮金额并预占为「pending debt」（`debtUsd`）。
+   *
+   * - USD 闸门未配置（`limitUsd === undefined`）⇒ 不预占（与现口径一致）；
+   * - 估算金额 <= 0（免费/本地模型）⇒ 不预占；
+   * - 实际用量落账时由 `recordUsdUsage()` 用实际值替换估计值（不做双记）。
+   */
+  preAuthorizeWaiverUsd(
+    sessionId: string,
+    estimatedCostUsd: number
+  ): { ok: boolean; reservedUsd: number } {
+    if (this.config.limitUsd === undefined) {
+      return { ok: true, reservedUsd: 0 };
+    }
+    if (!Number.isFinite(estimatedCostUsd) || estimatedCostUsd <= 0) {
+      return { ok: true, reservedUsd: 0 };
+    }
+    // 同一会话重复预检（重试/重入）⇒ 替换上一次预占，避免重复计入欠账。
+    const previous = this.waiverPrecheckUsd.get(sessionId);
+    if (previous !== undefined) {
+      this.debtUsd = Math.max(0, this.debtUsd - previous);
+    }
+    this.waiverPrecheckUsd.set(sessionId, estimatedCostUsd);
+    this.debtUsd += estimatedCostUsd;
+    this._schedulePersist();
+    logger.info('dailyBudget:waiver_precheck_reserved', {
+      sessionId,
+      estimatedCostUsd,
+      debtUsd: this.debtUsd,
+      limitUsd: this.config.limitUsd,
+    });
+    return { ok: true, reservedUsd: estimatedCostUsd };
   }
 
   /**
@@ -1100,6 +1155,7 @@ export class DailyBudgetManager {
     this.reliefState = null;
     this.waiveOncePending = null;
     this._waiverGrantedForSession = null;
+    this.waiverPrecheckUsd.clear();
     this.lastObservedMode = 'normal'; // LRO-17：重置观测基线
     // P1：重置同样落盘，避免"重置后重启"把旧用量恢复回来。
     void this.persistNow();

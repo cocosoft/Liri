@@ -55,6 +55,7 @@ import type { ToolDefinition } from '@modules/ai';
 // R16：日预算改为**进程共享单例**（与 TAORLoop 闸门同源），定义在 query/DailyBudgetManager。
 import { getDailyBudget } from '../../query/DailyBudgetManager.js';
 import { estimateAttachmentsTokens } from '../../query/attachmentBudget.js';
+import { estimateTurnCostUsd } from '../../query/modelPricingAdapter.js';
 import {
   checkDailyBudget,
   formatBudgetExhausted,
@@ -63,6 +64,12 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = getLogger('chat:streamFlow');
+
+/**
+ * T3-7：`waive-once` 事务预检的**输出 token 保守估计**（调用方未显式给 max_tokens 时）。
+ * 仅用于预占欠账，实际金额在 `recordUsdUsage()` 落账时替换。
+ */
+const WAIVER_PRECHECK_OUTPUT_TOKENS = 4096;
 
 /** 压缩前/压缩后 token 诊断日志（仅 info 级，前端日志面板按 streamMessage:token 过滤） */
 export async function logTokenSnapshot(
@@ -208,6 +215,31 @@ export async function applyPreSendProtection(
       estimatedTokens: reservedTokens,
     });
     const reservation = dailyBudget.reserveFor(session.id, reservedTokens);
+
+    // T3-7（2026-10-17，用户裁定「改为事务预检」）：`waive-once` 放行轮在真正发模型前，
+    // 用当前模型价表估算金额并预占为 pending debt；实际用量落账时用实际值替换（不做双记）。
+    if (
+      decision.allowed &&
+      budgetMode.mode === 'locked' &&
+      dailyBudget.hasActiveWaiver()
+    ) {
+      const costModel = turnModel ?? 'unknown';
+      const estimate = estimateTurnCostUsd(costModel, {
+        inputTokens: reservedTokens,
+        outputTokens: options?.maxTokens ?? WAIVER_PRECHECK_OUTPUT_TOKENS,
+      });
+      const precheck = dailyBudget.preAuthorizeWaiverUsd(
+        session.id,
+        estimate.costUsd
+      );
+      logger.info('streamMessage:budget — waive-once 事务预检', {
+        sessionId: session.id,
+        model: costModel,
+        estimatedCostUsd: estimate.costUsd,
+        unknownModel: estimate.unknownModel,
+        reservedUsd: precheck.reservedUsd,
+      });
+    }
     if (budgetMode.mode !== 'normal') {
       logger.warn('streamMessage:budget — 每日预算前置检查', {
         sessionId: session.id,

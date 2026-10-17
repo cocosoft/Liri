@@ -57,7 +57,7 @@ const LOCAL_STT_PROVIDER_ID = 'local';
 const LOCAL_STT_PROVIDER_NAME = 'Local Whisper';
 
 /** Python 可执行文件名称（平台相关） */
-const PYTHON_CMD = getPlatform() === 'win32' ? 'python' : 'python3';
+const LOCAL_STT_PYTHON_CMD = getPlatform() === 'win32' ? 'python' : 'python3';
 
 /** 3.9/P2-5：worker 脚本目录（当前文件所在目录，独立 .py 随代码分发） */
 const workerScriptDir = dirname(fileURLToPath(import.meta.url));
@@ -82,12 +82,12 @@ const LOCAL_STT_DEFAULT_CONFIG = {
   beamSize: 5,
   vadFilter: true,
   vadMinSilenceMs: 500,
-  pythonCmd: PYTHON_CMD,
+  pythonCmd: LOCAL_STT_PYTHON_CMD,
   hfEndpoint: '',
 };
 
 /** 允许的模型大小（白名单） */
-const ALLOWED_MODELS = ['tiny', 'base', 'small', 'medium', 'large-v3'] as const;
+const LOCAL_STT_ALLOWED_MODELS = ['tiny', 'base', 'small', 'medium', 'large-v3'] as const;
 
 /** 允许的计算设备 */
 const ALLOWED_DEVICES = ['cpu', 'cuda'] as const;
@@ -102,10 +102,10 @@ const LANGUAGE_CODE_REGEX = /^[a-z]{2,3}$/;
 const LOCAL_STT_REQUEST_TIMEOUT_MS = 30_000;
 
 /** 进程崩溃后最大重启次数 */
-const MAX_RESTART_ATTEMPTS = 3;
+const LOCAL_STT_MAX_RESTART_ATTEMPTS = 3;
 
 /** 重启间隔（毫秒） */
-const RESTART_DELAY_MS = 1_000;
+const LOCAL_STT_RESTART_DELAY_MS = 1_000;
 
 /**
  * stdin 直传音频上限（字节，25MB，对齐方案 §6 风险缓解承诺）
@@ -525,7 +525,7 @@ export class LocalSTTProvider implements STTProvider {
       );
 
       // 自动重启（非 dispose 场景）
-      if (!this._disposing && this._restartCount < MAX_RESTART_ATTEMPTS) {
+      if (!this._disposing && this._restartCount < LOCAL_STT_MAX_RESTART_ATTEMPTS) {
         this._restartCount++;
         setTimeout(() => {
           if (!this._disposing) {
@@ -536,7 +536,7 @@ export class LocalSTTProvider implements STTProvider {
               });
             });
           }
-        }, RESTART_DELAY_MS);
+        }, LOCAL_STT_RESTART_DELAY_MS);
       }
     });
 
@@ -875,9 +875,9 @@ function validateConfig(
   computeType: string,
   language: string
 ): void {
-  if (!(ALLOWED_MODELS as readonly string[]).includes(model)) {
+  if (!(LOCAL_STT_ALLOWED_MODELS as readonly string[]).includes(model)) {
     throw new Error(
-      `不支持的模型 "${model}"，允许值: ${ALLOWED_MODELS.join(', ')}`
+      `不支持的模型 "${model}"，允许值: ${LOCAL_STT_ALLOWED_MODELS.join(', ')}`
     );
   }
   if (!(ALLOWED_DEVICES as readonly string[]).includes(device)) {

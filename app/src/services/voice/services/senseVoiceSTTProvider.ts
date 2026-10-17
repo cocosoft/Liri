@@ -57,7 +57,7 @@ const SENSEVOICE_STT_PROVIDER_ID = 'sensevoice';
 const SENSEVOICE_STT_PROVIDER_NAME = 'SenseVoice (sherpa-onnx)';
 
 /** Python 可执行文件名称（平台相关） */
-const PYTHON_CMD = getPlatform() === 'win32' ? 'python' : 'python3';
+const SENSEVOICE_PYTHON_CMD = getPlatform() === 'win32' ? 'python' : 'python3';
 
 /** 3.9/P2-5：worker 脚本目录（当前文件所在目录，独立 .py 随代码分发） */
 const workerScriptDir = dirname(fileURLToPath(import.meta.url));
@@ -75,12 +75,12 @@ function buildSenseVoiceWorkerScript(): string {
 const SENSE_VOICE_STT_DEFAULT_CONFIG = {
   model: 'SenseVoiceSmall',
   device: 'cpu',
-  pythonCmd: PYTHON_CMD,
+  pythonCmd: SENSEVOICE_PYTHON_CMD,
   hfEndpoint: '',
 };
 
 /** 允许的 SenseVoice 模型 */
-const ALLOWED_MODELS = ['SenseVoiceSmall'] as const;
+const SENSEVOICE_ALLOWED_MODELS = ['SenseVoiceSmall'] as const;
 
 /** SenseVoiceSTTProvider 配置项 */
 export interface SenseVoiceSTTConfig {
@@ -111,10 +111,10 @@ interface PendingRequest {
 const SENSEVOICE_STT_REQUEST_TIMEOUT_MS = 60_000;
 
 /** 进程崩溃后最大重启次数 */
-const MAX_RESTART_ATTEMPTS = 3;
+const SENSEVOICE_MAX_RESTART_ATTEMPTS = 3;
 
 /** 重启间隔（毫秒） */
-const RESTART_DELAY_MS = 1_000;
+const SENSEVOICE_RESTART_DELAY_MS = 1_000;
 
 /**
  * SenseVoice STT 提供者
@@ -426,7 +426,7 @@ export class SenseVoiceSTTProvider implements STTProvider {
       );
 
       // 自动重启
-      if (!this._disposing && this._restartCount < MAX_RESTART_ATTEMPTS) {
+      if (!this._disposing && this._restartCount < SENSEVOICE_MAX_RESTART_ATTEMPTS) {
         this._restartCount++;
         setTimeout(() => {
           if (!this._disposing) {
@@ -437,7 +437,7 @@ export class SenseVoiceSTTProvider implements STTProvider {
               });
             });
           }
-        }, RESTART_DELAY_MS);
+        }, SENSEVOICE_RESTART_DELAY_MS);
       }
     });
 
@@ -688,9 +688,9 @@ function assertSafePythonCmd(cmd: string): void {
  * @throws 当参数不在白名单中时抛出错误
  */
 function validateSenseVoiceConfig(model: string): void {
-  if (!(ALLOWED_MODELS as readonly string[]).includes(model)) {
+  if (!(SENSEVOICE_ALLOWED_MODELS as readonly string[]).includes(model)) {
     throw new Error(
-      `不支持的模型 "${model}"，允许值: ${ALLOWED_MODELS.join(', ')}`
+      `不支持的模型 "${model}"，允许值: ${SENSEVOICE_ALLOWED_MODELS.join(', ')}`
     );
   }
 }

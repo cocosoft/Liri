@@ -7,7 +7,7 @@
     "lint:endpoints": 30,
     "lint:locale": 6
   },
-  "nextAction": "U-22 余：LRTO S2b（executeSingleStep 562 / _runExecuteDecideLoop 344 / runFullPdca 84，当前 2383）→ i18n zh/en；ChatManager 余 +2323；U-13 待新数据窗口重采",
+  "nextAction": "U-22 余：LRTO S2b 按 dev_docs/20261017/LRTO-执行主链-交接单-20261017.md 开工（executeSingleStep 562 / _runExecuteDecideLoop 344 / runFullPdca 84，当前 2383，目标 ≤2000）；随后 i18n zh/en；ChatManager 余 +2323；U-13 待新数据窗口重采",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为门禁实测口径（lint:consts 按组计：同名 17 + 同值 68 = 85；lint:endpoints / locale 按文件键计），非估算",

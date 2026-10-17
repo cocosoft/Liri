@@ -904,36 +904,49 @@ export class DailyBudgetManager {
 
   /**
    * 检查收益递减（每轮结束后调用）
-   * 连续两轮 Token 增量 < minTokenDelta 时触发递减
+   * 连续两轮 Token 增量 < minTokenDelta，且**没有新工具结果/新产物**时触发递减。
+   *
+   * U-10（2026-10-17）：新增“实际进展”维度 —— 长任务的工具结果/写盘产物即使
+   * Token 增量很低也可能是有效推进，不能只按 Token 判死。
+   *
    * @param currentTotalTokens 当前累计 Token 消耗
    * @param elapsedMs 本轮耗时（可选，用于补充耗时维度检测）
+   * @param progress 本轮新增进展（工具结果数 / 产物数）；缺省视为 0（兼容旧调用）
    */
   checkDiminishingReturns(
     currentTotalTokens: number,
-    elapsedMs?: number
+    elapsedMs?: number,
+    progress?: { newToolResults?: number; newArtifacts?: number }
   ): { diminishing: boolean; reason?: string } {
     const delta = currentTotalTokens - this.lastTotalTokens;
     this.lastTotalTokens = currentTotalTokens;
+    const hasNewProgress =
+      (progress?.newToolResults ?? 0) > 0 || (progress?.newArtifacts ?? 0) > 0;
 
-    // 耗时维度：连续 2 轮耗时 > 30s 但 token 增量 < 1000，跳级加速触发
-    if (elapsedMs !== undefined && elapsedMs > 30_000 && delta < 1000) {
+    // 耗时维度：连续 2 轮耗时 > 30s 但 token 增量 < 1000，且无实际进展 ⇒ 跳级加速触发
+    if (
+      !hasNewProgress &&
+      elapsedMs !== undefined &&
+      elapsedMs > 30_000 &&
+      delta < 1000
+    ) {
       this.diminishingTurnsCount += 2;
     }
 
-    if (delta < this.config.minTokenDelta) {
+    if (delta < this.config.minTokenDelta && !hasNewProgress) {
       this.diminishingTurnsCount++;
 
       if (this.diminishingTurnsCount >= this.config.diminishingTurnsThreshold) {
         return {
           diminishing: true,
-          reason: `连续 ${this.diminishingTurnsCount} 轮 Token 增量低于阈值 (${this.config.minTokenDelta})，可能已陷入低效循环`,
+          reason: `连续 ${this.diminishingTurnsCount} 轮无新工具结果/产物且 Token 增量低于阈值 (${this.config.minTokenDelta})，可能已陷入低效循环`,
         };
       }
 
       return { diminishing: false };
     }
 
-    // Token 有进展 → 重置
+    // Token 有进展，或本轮确实产出了新工具结果/产物 → 重置
     this.diminishingTurnsCount = 0;
     return { diminishing: false };
   }

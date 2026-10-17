@@ -20,6 +20,7 @@ import { handleError } from '@modules/error';
 import { CONTINUATION_TEMPLATES, renderGoalTemplate } from '@modules/tasks';
 // 阶段 A（N-28 修复）：yield 轮次登记（与 stream 路径 ReActToolLoop 共用同一实现）
 import { registerYieldFromResults } from '../session/yield';
+import { RoundProgressTracker } from './taor/roundProgress.js';
 import {
   messageProjector,
   resolveContextWindow,
@@ -165,7 +166,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private _lastRoundHadToolErrors: boolean = false;
   /** 本次 run 的工具执行统计（方案 C：修正 RunLogger 硬编码全 0 的假数据） */
   private toolCallStats: Map<string, number> = new Map();
-  private failedToolCalls: number = 0;
+  /** U-10（2026-10-17）：单轮工具结果/产物统计（收益递减的“实际进展”维度） */
+  private roundProgress = new RoundProgressTracker();
   // 检查点相关
   private checkpointStorage: TAORCheckpointStorage;
   private lastCheckpointId: string | null = null;
@@ -786,11 +788,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     for (let i = 0; i < calls.length; i++) {
       const tc = calls[i];
       const r = rawResults[i];
-      this.toolCallStats.set(
-        tc.name,
-        (this.toolCallStats.get(tc.name) ?? 0) + 1
-      );
-      if (r?.error) this.failedToolCalls++;
+      this.roundProgress.record(tc.name, !!r?.error, this.toolCallStats);
       void this.runLogger.recordTrace({
         type: 'tool',
         runId: this.runId,
@@ -1208,7 +1206,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       this.stopped = true;
       return;
     }
-    const diminishingCheck = this.dailyBudget.checkDiminishingReturns(
+    const diminishingCheck = this.roundProgress.check(
+      this.dailyBudget,
       currentBudgetState.currentTokens
     );
     if (diminishingCheck.diminishing) {
@@ -1974,7 +1973,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.fileIOLoopDetector.reset();
     this.verifier.reset();
     this.toolCallStats.clear();
-    this.failedToolCalls = 0;
+    this.roundProgress.reset();
     this._lastRoundHadToolErrors = false;
     this._forceContinueRound = false;
     // L3（2026-09-06）：回合质量重试计数随 run 归零（不跨 run 累积）

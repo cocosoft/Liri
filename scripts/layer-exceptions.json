@@ -100,15 +100,6 @@
       "plan": "命令注册表 barrel：为保持公共 API 命名导出兼容，命令归集期间保留。二期按域拆分 barrel 后移除",
       "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
-    },
-    {
-      "id": "BRL-002",
-      "ruleId": "R06-010",
-      "file": "app/src/cli/handlers/index.ts",
-      "exports": 30,
-      "plan": "CLI handler 聚合 barrel，按域拆分",
-      "expiresAt": "2026-10-31",
-      "owner": "@arch-lead"
     }
   ],
   "tinyFileExceptions": [

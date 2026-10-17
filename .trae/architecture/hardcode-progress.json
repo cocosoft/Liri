@@ -1,13 +1,13 @@
 {
-  "nextKey": "B5-2-88",
-  "doneKeys": ["B5-2-82", "B5-2-83", "B5-2-84", "B5-2-85", "B5-2-86", "B5-2-87"],
-  "lastCommit": "a031d9cec",
+  "nextKey": "B5-2-91",
+  "doneKeys": ["B5-2-85", "B5-2-86", "B5-2-87", "B5-2-88", "B5-2-89", "B5-2-90"],
+  "lastCommit": "f5d439254",
   "baselineKeys": {
-    "lint:consts": 131,
+    "lint:consts": 119,
     "lint:endpoints": 96,
     "lint:locale": 6
   },
-  "nextAction": "继续 B5-2-88：TOOL_DEFAULTS/MAX_IMAGE_SIZE/DANGEROUS_COMMANDS 等剩余同名常量组按域消歧；client 内部组（MAX_CACHE/PADDING/DEFAULT_COLOR 等）随后单独推进",
+  "nextAction": "同名常量已收敛至 17 组（跨包契约 12 组 + bash 死副本 5 组，均已裁定保留）⇒ 下一批转向 lint:endpoints 96 文件键的存量收敛",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为实测值（node 解析 hardcode-gate-baseline.json），非估算",

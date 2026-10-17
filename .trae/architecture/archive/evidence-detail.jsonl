@@ -6587,3 +6587,38 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#5","i":0,"c":"app/src/tools/utils/toolSearch.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#6","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#7","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"title","i":0,"c":"U-20/B5-2-88：仓库根 / 危险命令集 / 工具默认值按域命名"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"notes","i":0,"c":"evals 冒烟任务与批测脚本各自解析仓库根 ⇒ EVAL_/BATCH_TEST_ 前缀；utils/bash/registry 的命令名集合与 bashCommandPolicy 的字符串前缀表同名异形 ⇒ DANGEROUS_COMMAND_NAMES；ToolBuilder 本地默认值 ⇒ BUILDER_TOOL_DEFAULTS；基线 131→128。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#0","i":0,"c":"app/src/evals/tasks/smoke.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#1","i":0,"c":"app/src/scripts/batch-test-all.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#2","i":0,"c":"app/src/utils/bash/registry.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#3","i":0,"c":"app/src/tools/ToolBuilder.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"title","i":0,"c":"U-20/B5-2-89：client 六组同名常量按域命名"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"notes","i":0,"c":"缓存上限（10/20）、画布内边距（50/16）、重试次数（5/3）、两个 localStorage 键、长/短星期键、项目 API 与空基址均语义不同 ⇒ 按域改名；常量值零改动（含 storage 键）；基线 128→122。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#0","i":0,"c":"client/src/components/ChatArea/OfficePreview.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#1","i":0,"c":"client/src/stores/officeStore.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#2","i":0,"c":"client/src/components/Knowledge/Graph/GraphCanvas.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#3","i":0,"c":"client/src/components/views/DAGView.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#4","i":0,"c":"client/src/components/views/FileExplorerPage.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#5","i":0,"c":"client/src/services/httpClient.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#6","i":0,"c":"client/src/components/views/image/taskHistoryStore.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#7","i":0,"c":"client/src/utils/logStore.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#8","i":0,"c":"client/src/components/views/office/DayView.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#9","i":0,"c":"client/src/components/views/office/OfficeCalendarPage.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#10","i":0,"c":"client/src/services/projectArtifactService.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#11","i":0,"c":"client/src/stores/councilStore.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"code#12","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"title","i":0,"c":"U-20/B5-2-90：client 同值同义常量收敛到 constants/ui"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"notes","i":0,"c":"DEFAULT_COLOR（两处同 Tailwind 类）、INTERACTIONS（同数组）、ENABLE_TRACE_REDESIGN（同开关）均同值同义 ⇒ 新建 client/src/constants/ui.ts 单一事实源，6 个消费方改导入；基线 122→119。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"code#0","i":0,"c":"client/src/constants/ui.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"code#1","i":0,"c":"client/src/components/modelAdmin/ProviderPresetPanel.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"code#2","i":0,"c":"client/src/components/views/ModelPage.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"code#3","i":0,"c":"client/src/components/views/BuddyPage.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"code#4","i":0,"c":"client/src/components/views/LiriPage.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"code#5","i":0,"c":"client/src/components/views/DashboardPage.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"code#6","i":0,"c":"client/src/components/views/LogViewerPage.tsx"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"code#7","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}

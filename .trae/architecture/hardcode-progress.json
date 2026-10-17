@@ -1,13 +1,13 @@
 {
   "nextKey": "B5-2-100",
-  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99"],
-  "lastCommit": "3e88af49c",
+  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "U-22-S1"],
+  "lastCommit": "a9664de12",
   "baselineKeys": {
     "lint:consts": 85,
     "lint:endpoints": 30,
     "lint:locale": 6
   },
-  "nextAction": "U-20 暂停于此（同值 68 组余项多为 channel 域 URL 与示例文案）；下一片转 U-22：先拆 ChatManager（>2000 行，11-30 到期）",
+  "nextAction": "U-22/S2：ChatManager 继续外移会话生命周期/访问器簇（目标 ≤2000 行；当前 5420）；U-20 同值 68 组余项暂缓",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为门禁实测口径（lint:consts 按组计：同名 17 + 同值 68 = 85；lint:endpoints / locale 按文件键计），非估算",
@@ -17,6 +17,7 @@
     "2026-10-17：lint:endpoints 剩 30 文件保留理由 —— 安全检测与回环判定（ssrf/preapproved/providers/SecurityManager/permission/sandbox/VideoGenerateTool/LocalHTTPService CORS）、帮助与示例文案（docs/commands/i18n/elicitationHandler）、测试夹具（ConfigModuleTest）、STT keyterm 词表、协议默认端口（DirectConnectManager :3000）、刻意零静态依赖（entrypoints/http-server.ts）、CD07 关键域（sandbox/**）",
     "2026-10-17：B5-2-98 —— 新增 core/providerEndpoints.ts（OPENAI/ANTHROPIC 基址真源）并在 core/index 再导出；19 个消费方改用常量；置于 core 而非 ai 以避开 service→app 分层倒挂（R00-001）",
     "2026-10-17：B5-2-99 —— app 扩展 core/providerEndpoints.ts；client 在 services/endpoints.ts 新增 PROVIDER_API_BASE_URLS/PROVIDER_SITE_URLS（双端独立真源）；lint:consts 同值组 84→68",
+    "2026-10-17：U-22/S1 —— ChatManager 外移 PDCA 自动启动簇（8 个方法 → manager/pdcaLaunch.ts，PdcaLaunchDeps 注入）；5922→5420 行，FSZ-005 lines 同步下调；行为等价（tests/chat 570 通过）",
     "2026-10-17：query/patternAssembly.ts:49（:1977）与 state/engine/stateMachineCatalog.ts:185（:3184）是**行号/定位串**被 FIXED_PORT_RE 误判，非遗留硬编码；constants/common.ts 的 DEFAULT_HOST 为零消费者死常量，按 CD05/CD06 走独立变更"
   ]
 }

@@ -11503,6 +11503,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-CONSTS-B5-2-99）",
       "notes": "app 侧扩展 core/providerEndpoints.ts（DeepSeek/Gemini/SiliconFlow/Moonshot/xAI/OpenRouter/BigModel/DashScope/Kling/MiniMax/Volcengine/Vidu + 厂商站点）；client 侧在 servic…（全文见 archive/evidence-detail.jsonl#HARDCODE-CONSTS-B5-2-99）"
+    },
+    {
+      "id": "U22-CHATMANAGER-S1-PDCA",
+      "title": "U-22/S1：ChatManager 外移 PDCA 自动启动簇",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ChatManager S1）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/manager/pdcaLaunch.ts",
+        "app/src/chat/ChatManager.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S1-PDCA）",
+      "notes": "把 _maybeLaunchPdca / _autoCreateProject / _escalateToPdcaViaBareSession / onLongTaskSignal / _persistPatternDecision / _persistPdcaSnapshot / _extractKeywords …（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S1-PDCA）"
     }
   ]
 }

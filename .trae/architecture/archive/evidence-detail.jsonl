@@ -6698,3 +6698,9 @@
 {"id":"HARDCODE-CONSTS-B5-2-99","k":"code#2","i":2,"c":"client/src/services/endpoints.ts"}
 {"id":"HARDCODE-CONSTS-B5-2-99","k":"code#3","i":3,"c":"client/src/config/providerPresets.ts"}
 {"id":"HARDCODE-CONSTS-B5-2-99","k":"code#4","i":4,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"U22-CHATMANAGER-S1-PDCA","k":"title","i":0,"c":"U-22/S1：ChatManager 外移 PDCA 自动启动簇"}
+{"id":"U22-CHATMANAGER-S1-PDCA","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ChatManager S1）"}
+{"id":"U22-CHATMANAGER-S1-PDCA","k":"notes","i":0,"c":"把 _maybeLaunchPdca / _autoCreateProject / _escalateToPdcaViaBareSession / onLongTaskSignal / _persistPatternDecision / _persistPdcaSnapshot / _extractKeywords / _jaccardSimilarity 迁到 chat/manager/pdcaLaunch.ts（PdcaLaunchCoordinator + PdcaLaunchDeps 注入）；宿主保留薄转发，launch 锁仍在宿主。行为逐字等价，日志 module 名不变。"}
+{"id":"U22-CHATMANAGER-S1-PDCA","k":"code#0","i":0,"c":"app/src/chat/manager/pdcaLaunch.ts"}
+{"id":"U22-CHATMANAGER-S1-PDCA","k":"code#1","i":1,"c":"app/src/chat/ChatManager.ts"}
+{"id":"U22-CHATMANAGER-S1-PDCA","k":"code#2","i":2,"c":"scripts/layer-exceptions.json"}

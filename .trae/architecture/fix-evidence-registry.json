@@ -10760,6 +10760,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-72-73）",
       "notes": "语义/取值不同 ⇒ 不改值、按域改名（APPROVAL/SESSION_CACHE_MAX_ENTRIES、DREAM/EXECUTION_MAX_RECORDS）；基线 175→173。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-72-73）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-74",
+      "title": "U-20/B5-2-74：SCHEDULER_CHECK_INTERVAL_MS 收敛到 types/schedulerLifecycle",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/types/schedulerLifecycle.ts",
+        "app/src/dream/DreamScheduler.ts",
+        "app/src/monitoring/archival/archivalCronTask.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-74）",
+      "notes": "两处语义一致（cron 每分钟检查）⇒ 统一为 60s 常量；基线 173→172。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-74）"
     }
   ]
 }

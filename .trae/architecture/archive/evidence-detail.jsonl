@@ -6475,3 +6475,9 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#1","i":0,"c":"app/src/core/cache/SessionCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#2","i":0,"c":"app/src/dream/DreamPersistence.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#3","i":0,"c":"app/src/execution/ExecutionManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"title","i":0,"c":"U-20/B5-2-74：SCHEDULER_CHECK_INTERVAL_MS 收敛到 types/schedulerLifecycle"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"notes","i":0,"c":"两处语义一致（cron 每分钟检查）⇒ 统一为 60s 常量；基线 173→172。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#0","i":0,"c":"app/src/types/schedulerLifecycle.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#1","i":0,"c":"app/src/dream/DreamScheduler.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#2","i":0,"c":"app/src/monitoring/archival/archivalCronTask.ts"}

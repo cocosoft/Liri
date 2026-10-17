@@ -32,7 +32,8 @@
  * - 单文件 ≤30MB（QQ 富媒体上限）；单条回复最多随附 2 个文件（被动配额保护）
  */
 
-import { realpathSync, statSync, type Stats } from 'fs';
+import { readFileSync, realpathSync, statSync, type Stats } from 'fs';
+import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { resolve, sep } from 'node:path';
 import {
@@ -171,6 +172,10 @@ function isUnder(realPath: string, surfaceWithSep: string): boolean {
  *
  * 仍**如实告知**（`skipped`）的只剩两类：**超 30MB** 与 **单条超 2 个** —— 这两类是「用户本该拿到
  * 却没发出去」，必须不静默（守 CS03）。
+ *
+ * **内容去重（2026-10-17 真机）**：模型曾把同一份内容同时写到项目 `output/` 与 `~/.pyapp/output/`
+ * 两个路径并都写进正文 ⇒ 用户收到两个同名同大小的附件。故按 **MD5** 去重（首个保留，其余**静默**
+ * 跳过 —— 这不是失败，无需噪音）。读盘失败时退回按路径处理（不因去重而漏发）。
  */
 export function filterSendableFiles(
   paths: string[],
@@ -178,6 +183,7 @@ export function filterSendableFiles(
 ): ExtractedFiles {
   const sendable: string[] = [];
   const skipped: Array<{ path: string; reason: string }> = [];
+  const seenHashes = new Set<string>();
   const surfaces = sendableSurfaces();
   const freshSince =
     opts.runStartedAtMs === undefined
@@ -212,6 +218,15 @@ export function filterSendableFiles(
       });
       continue;
     }
+    // 同一份内容只发一次（模型可能把文件复制到第二个目录并同时写进正文）
+    const hash = contentHashOf(p);
+    if (hash !== null) {
+      if (seenHashes.has(hash)) {
+        logger.info('出站文件：内容与已选文件相同 ⇒ 跳过重复副本', { path: p });
+        continue;
+      }
+      seenHashes.add(hash);
+    }
     if (sendable.length >= MAX_FILES_PER_REPLY) {
       skipped.push({ path: p, reason: '单条回复最多随附 2 个文件' });
       continue;
@@ -220,6 +235,15 @@ export function filterSendableFiles(
   }
 
   return { sendable, skipped };
+}
+
+/** 文件内容 MD5（读失败 ⇒ `null`，由调用方按"无法判重"处理，不因去重漏发） */
+function contentHashOf(p: string): string | null {
+  try {
+    return createHash('md5').update(readFileSync(p)).digest('hex');
+  } catch {
+    return null;
+  }
 }
 
 /**

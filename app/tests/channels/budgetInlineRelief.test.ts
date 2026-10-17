@@ -386,4 +386,9 @@ describe('验收 9：通道投递契约（防模型臆断发送状态）', () =>
     expect(CHANNEL_DELIVERY_CONTRACT).toContain('无法观测');
     expect(CHANNEL_DELIVERY_CONTRACT).toContain('不要猜测');
   });
+
+  it('禁止「为投递而复制文件」与重复路径（真机曾收到两份同名附件）', () => {
+    expect(CHANNEL_DELIVERY_CONTRACT).toContain('不要为了投递而复制文件');
+    expect(CHANNEL_DELIVERY_CONTRACT).toContain('一个');
+  });
 });

@@ -117,7 +117,10 @@ describe('仍**如实告知**的两类（守 CS03：用户本该拿到却没发�
   });
 
   it('面内超过 2 个 ⇒ 前 2 个 sendable、其余 skipped（被动配额保护）', () => {
-    const paths = [1, 2, 3].map((n) => makeFile(`output/many-${n}.txt`, OLD));
+    // ⚠️ 三个文件内容必须**互不相同**：内容去重发生在数量截断之前（重复副本不占配额）
+    const paths = [1, 2, 3].map((n) =>
+      makeFile(`output/many-${n}.txt`, OLD, 16 + n)
+    );
     const { sendable, skipped } = filterSendableFiles(paths);
     expect(sendable).toEqual(paths.slice(0, 2));
     expect(skipped).toHaveLength(1);
@@ -141,6 +144,27 @@ describe('realpath 加固：交付面内的链接不可指向面外', () => {
     });
     expect(sendable).toEqual([]); // realpath 落到 elsewhere ⇒ 既不在面内、也非本轮产出
     expect(skipped).toEqual([]);
+  });
+});
+
+describe('内容去重：同一份内容出现在两个可外发路径 ⇒ 只发一次', () => {
+  it('项目 output 副本 + 交付面副本（内容相同）⇒ 首个保留，第二个**静默**跳过', () => {
+    const a = makeFile('output/dup-a.md', new Date(), 32);
+    const b = makeFile('elsewhere/dup-b.md', new Date(), 32); // 同内容（makeFile 用等长 'x'）
+    const { sendable, skipped } = filterSendableFiles([a, b], {
+      runStartedAtMs: Date.now() - 1000,
+    });
+    expect(sendable).toEqual([a]);
+    expect(skipped).toEqual([]); // 重复副本不是失败 ⇒ 不产生用户可见噪音
+  });
+
+  it('内容不同 ⇒ 两个都发（去重不得误伤）', () => {
+    const a = makeFile('output/uniq-a.md', new Date(), 16);
+    const b = makeFile('elsewhere/uniq-b.md', new Date(), 24);
+    const { sendable } = filterSendableFiles([a, b], {
+      runStartedAtMs: Date.now() - 1000,
+    });
+    expect(sendable).toEqual([a, b]);
   });
 });
 

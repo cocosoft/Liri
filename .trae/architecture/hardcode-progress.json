@@ -1,13 +1,13 @@
 {
-  "nextKey": "B5-2-87",
-  "doneKeys": ["B5-2-81", "B5-2-82", "B5-2-83", "B5-2-84", "B5-2-85", "B5-2-86"],
-  "lastCommit": "82014e8f8",
+  "nextKey": "B5-2-88",
+  "doneKeys": ["B5-2-82", "B5-2-83", "B5-2-84", "B5-2-85", "B5-2-86", "B5-2-87"],
+  "lastCommit": "a031d9cec",
   "baselineKeys": {
-    "lint:consts": 135,
+    "lint:consts": 131,
     "lint:endpoints": 96,
     "lint:locale": 6
   },
-  "nextAction": "继续 B5-2-87：HEARTBEAT_INTERVAL_MS/MAX_CACHE/PADDING 等剩余同名常量组按域消歧；已裁定保留组见 decisions",
+  "nextAction": "继续 B5-2-88：TOOL_DEFAULTS/MAX_IMAGE_SIZE/DANGEROUS_COMMANDS 等剩余同名常量组按域消歧；client 内部组（MAX_CACHE/PADDING/DEFAULT_COLOR 等）随后单独推进",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为实测值（node 解析 hardcode-gate-baseline.json），非估算",

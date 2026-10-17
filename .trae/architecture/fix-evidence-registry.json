@@ -11121,6 +11121,37 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-86）",
       "notes": "VERIFICATION_AGENT_TYPE 同模块内同值 ⇒ 收敛到 AgentTool/constants；auth 的 CONFIG_FILE 是绝对路径 ⇒ USER_CONFIG_PATH；两个 VFS 驱动的列表上限/挂载 scheme 按驱动命名；Gemini 与 OpenAI 实时适配器重连延迟按适…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-86）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-87",
+      "title": "U-20/B5-2-87：存储文件名 / 注册表前缀 / 梦境只读集 / 工具搜索默认窗口",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/skills/BuiltinEnabledStore.ts",
+        "app/src/tokenBudget/CalibrationStore.ts",
+        "app/src/tasks/dream/DreamPhases.ts",
+        "app/src/state/task/TaskStateMachine.ts",
+        "app/src/state/background/BackgroundTaskStateMachine.ts",
+        "app/src/tools/utils/toolSearch.ts",
+        "app/tests/tools/toolNameLists.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-87）",
+      "notes": "builtin-enabled.json 与 calibration.json 分属技能与预算标定；task/background 注册表前缀不同；梦境阶段只读集与并发分区只读集用途不同；工具搜索的函数内默认窗口改名以免与解析器 fallback 混淆；基线 135→131。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-87）"
     }
   ]
 }

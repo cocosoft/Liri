@@ -11868,6 +11868,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-LRTO-STEPARTIFACTS）",
       "notes": "collectPendingReadBacks（纯函数）+ readBackWrittenArtifacts（对本步写入未读回的产物补做只读 file_read，上限 3，失败如实记录）+ recordEscalation（reviewResult.issues → 缺陷清单并持久化）→ tasks/lro/step…（全文见 archive/evidence-detail.jsonl#U22-LRTO-STEPARTIFACTS）"
+    },
+    {
+      "id": "U22-LRTO-REVIEWDECIDE",
+      "title": "U-22/LRTO S3：外移 REVIEW/DECIDE（含 ReviewGate 上下文与自动决策）",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（LRTO S3 review 收口）/§4",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/lro/stepReviewDecide.ts",
+        "app/src/tasks/LongRunningTaskOrchestrator.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-LRTO-REVIEWDECIDE）",
+      "notes": "buildReviewGateContext + reviewStep + decideStep + autoDecideStep → tasks/lro/stepReviewDecide.ts（StepReviewDecideDeps：taskId/planId/sessionId/isolation/execut…（全文见 archive/evidence-detail.jsonl#U22-LRTO-REVIEWDECIDE）"
     }
   ]
 }

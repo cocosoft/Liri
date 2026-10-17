@@ -6782,3 +6782,9 @@
 {"id":"U22-LRTO-STEPARTIFACTS","k":"code#0","i":0,"c":"app/src/tasks/lro/stepArtifacts.ts"}
 {"id":"U22-LRTO-STEPARTIFACTS","k":"code#1","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
 {"id":"U22-LRTO-STEPARTIFACTS","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"U22-LRTO-REVIEWDECIDE","k":"title","i":0,"c":"U-22/LRTO S3：外移 REVIEW/DECIDE（含 ReviewGate 上下文与自动决策）"}
+{"id":"U22-LRTO-REVIEWDECIDE","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（LRTO S3 review 收口）/§4"}
+{"id":"U22-LRTO-REVIEWDECIDE","k":"notes","i":0,"c":"buildReviewGateContext + reviewStep + decideStep + autoDecideStep → tasks/lro/stepReviewDecide.ts（StepReviewDecideDeps：taskId/planId/sessionId/isolation/executor/verifier/reviewGate/getPlan/生命周期/缺陷捕获/上轮耗时）。approved/retry（含上限升级 escalate）/skip/escalate 处置与 pdca:stage:phase 广播逐字保留；宿主保留薄转发 + stepReviewDeps()。"}
+{"id":"U22-LRTO-REVIEWDECIDE","k":"code#0","i":0,"c":"app/src/tasks/lro/stepReviewDecide.ts"}
+{"id":"U22-LRTO-REVIEWDECIDE","k":"code#1","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"U22-LRTO-REVIEWDECIDE","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}

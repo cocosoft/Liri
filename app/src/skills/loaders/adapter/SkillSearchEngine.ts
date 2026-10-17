@@ -35,6 +35,7 @@ import { existsSync, readFileSync, writeFileSync, renameSync } from 'fs';
 import type { LocalSkillSearchResult } from './types';
 import type { ThirdPartySkillSearchResult } from './ThirdPartySkillAdapter';
 import { getLogger } from '@modules/monitoring';
+import { LOCAL_SERVICE_HOST, WILDCARD_BIND_HOST } from '@modules/core';
 const logger = getLogger('skills:searchEngine');
 
 /** 自定义源条目 */
@@ -150,16 +151,16 @@ export class SkillSearchEngine {
     }
     const hostname = url.hostname.toLowerCase();
     const isPrivate =
-      hostname === 'localhost' ||
+      hostname === LOCAL_SERVICE_HOST ||
       hostname.endsWith('.local') ||
-      hostname.endsWith('.localhost') ||
+      hostname.endsWith(`.${LOCAL_SERVICE_HOST}`) ||
       /^127\./.test(hostname) ||
       /^10\./.test(hostname) ||
       /^192\.168\./.test(hostname) ||
       /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
       // 2026-08-06 修复：补 169.254.0.0/16 链路本地段（云元数据/AWS metadata 所在网段）
       hostname.startsWith('169.254.') ||
-      hostname === '0.0.0.0' ||
+      hostname === WILDCARD_BIND_HOST ||
       hostname === '[::1]' ||
       hostname === '::1';
     if (isPrivate) {

@@ -10,6 +10,7 @@
 
 import { z } from 'zod';
 import { getLogger } from '@modules/monitoring';
+import { WILDCARD_BIND_HOST } from '@modules/core';
 import {
   loadUserSettings,
   saveUserSettings,
@@ -95,7 +96,7 @@ const ConfigSchema = z.object({
       websocket: z
         .object({
           enabled: z.boolean().default(true),
-          host: z.string().default('0.0.0.0'),
+          host: z.string().default(WILDCARD_BIND_HOST),
           port: z.number().int().positive().default(8080),
           path: z.string().default('/'),
           maxMessageSize: z.number().int().positive().default(1048576),

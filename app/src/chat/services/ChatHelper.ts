@@ -9,7 +9,12 @@ import { getLogger } from '@modules/monitoring';
 import type { SessionConfirmedPaths } from './SessionConfirmedPaths';
 import type { Message, UsageInfo } from '@modules/session/types/message.js';
 import { MessageRole } from '@modules/session/types/message.js';
-import { DataSessionStatus } from '@modules/core';
+import {
+  DataSessionStatus,
+  LOCAL_HTTP_HOST,
+  LOCAL_SERVICE_HOST,
+  WILDCARD_BIND_HOST,
+} from '@modules/core';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolResult } from '@modules/session/types/tool.js';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types.js';
@@ -439,9 +444,9 @@ export function isLocalLlmEndpoint(baseUrl: string): boolean {
   try {
     const { hostname } = new URL(baseUrl);
     const isLocal =
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      hostname === '0.0.0.0' ||
+      hostname === LOCAL_SERVICE_HOST ||
+      hostname === LOCAL_HTTP_HOST ||
+      hostname === WILDCARD_BIND_HOST ||
       hostname === '::1';
     // 端点识别排查日志：baseUrl → hostname → 判定结果。
     // 决策链路：本地 → 走 llama.cpp 精确截断；远程 → 跳过 /tokenize（避免 401 噪音）

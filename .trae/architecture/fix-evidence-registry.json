@@ -11894,6 +11894,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-LRTO-REVIEWDECIDE）",
       "notes": "buildReviewGateContext + reviewStep + decideStep + autoDecideStep → tasks/lro/stepReviewDecide.ts（StepReviewDecideDeps：taskId/planId/sessionId/isolation/execut…（全文见 archive/evidence-detail.jsonl#U22-LRTO-REVIEWDECIDE）"
+    },
+    {
+      "id": "U22-LRTO-RESUME",
+      "title": "U-22/LRTO S4：外移跨重启恢复（终态拒绝 / 半自动 replan / 扩容乘子 / Plan 重建与回填）",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（LRTO）/§4",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/lro/resumeFromCheckpoint.ts",
+        "app/src/tasks/LongRunningTaskOrchestrator.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-LRTO-RESUME）",
+      "notes": "resumeFromCheckpoint（165 行）→ tasks/lro/resumeFromCheckpoint.ts（ResumeDeps：executePlanPhase/runExecuteDecideLoop/getStatus/setPhase/生命周期/重建 Plan/扩容乘子/缺陷清单/planI…（全文见 archive/evidence-detail.jsonl#U22-LRTO-RESUME）"
     }
   ]
 }

@@ -6788,3 +6788,9 @@
 {"id":"U22-LRTO-REVIEWDECIDE","k":"code#0","i":0,"c":"app/src/tasks/lro/stepReviewDecide.ts"}
 {"id":"U22-LRTO-REVIEWDECIDE","k":"code#1","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
 {"id":"U22-LRTO-REVIEWDECIDE","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"U22-LRTO-RESUME","k":"title","i":0,"c":"U-22/LRTO S4：外移跨重启恢复（终态拒绝 / 半自动 replan / 扩容乘子 / Plan 重建与回填）"}
+{"id":"U22-LRTO-RESUME","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（LRTO）/§4"}
+{"id":"U22-LRTO-RESUME","k":"notes","i":0,"c":"resumeFromCheckpoint（165 行）→ tasks/lro/resumeFromCheckpoint.ts（ResumeDeps：executePlanPhase/runExecuteDecideLoop/getStatus/setPhase/生命周期/重建 Plan/扩容乘子/缺陷清单/planId/sessionId/token 累计，经注入或 get-set）。终态拒绝与半自动 replan 例外、依赖按位置映射回填、扩容候选重跑、token 累计续接逐字保留。"}
+{"id":"U22-LRTO-RESUME","k":"code#0","i":0,"c":"app/src/tasks/lro/resumeFromCheckpoint.ts"}
+{"id":"U22-LRTO-RESUME","k":"code#1","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"U22-LRTO-RESUME","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}

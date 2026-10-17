@@ -5550,6 +5550,26 @@
 {"id":"BALANCE-WARN-DEDUPE","k":"notes","i":8,"c":"reopenWhen ①）。② 只覆盖 SiliconFlow 的两条持续性告警（其它 provider 未接，见 ②）。③ 本轮实验本身踩过一个坑：`GET /v1/usage/balances` 有 300s 缓存 ⇒ 头两次「零新增」是**缓存导致没真查**，改用单条端点后才拿到决定性证据（已写进 reopenWhen ④，供后人复测时避免误判）。"}
 {"id":"BALANCE-WARN-DEDUPE","k":"code#0","i":0,"c":"app/src/ai/providers/BalanceChecker.ts"}
 {"id":"BALANCE-WARN-DEDUPE","k":"tests#0","i":0,"c":"app/tests/ai/providers/balanceRecurringWarn.test.ts"}
+{"id":"BALANCE-WARN-PERSIST","k":"title","i":0,"c":"余额告警闸门**落盘**：跨进程重启不重复刷（`~/.pyapp/data/balance-warn-state.json`；**查询成功即清除**以保留状态变化上报）"}
+{"id":"BALANCE-WARN-PERSIST","k":"source","i":0,"c":"用户裁定「按这个方案实现持久化」；上游 = `BALANCE-WARN-DEDUPE` 的 `reopenWhen` ①（进程内闸门 ⇒ 每次重启首轮仍记一条）"}
+{"id":"BALANCE-WARN-PERSIST","k":"reopenWhen","i":0,"c":"① 落盘文件属**外部输入**（可能被手改 / 旧版本写入）：读取容错为「缺 `entries` 或整份损坏 ⇒ 空表（不抛）」+「单条形状非法 ⇒ **丢弃该条**」；若日后要加字段，务必保持这条向后兼容。② 条目上限 `BALANCE_WARN_MAX_ENTRIES=200`，超出按 `warnedAt` **丢最旧**；若某 provider 长期抖"}
+{"id":"BALANCE-WARN-PERSIST","k":"reopenWhen","i":1,"c":"动产生大量 `api-error:<code>` 键，淘汰可能丢掉「仍在持续」的键 ⇒ 该故障会**再报一次**（可接受，且不掩盖状态变化）。③ 「成功即清」的判据是 `querySiliconFlow` **整轮 success**（401/403、无效响应、字段缺失都**不算**成功、不清记忆）⇒ 若平台改成「部分可用」并返回 success，则会清记忆"}
+{"id":"BALANCE-WARN-PERSIST","k":"reopenWhen","i":2,"c":"（属预期语义）。④ `lint:consts` **同名常量棘轮**：本片首版用了通用名 `MAX_ENTRIES`，成为全仓第 3 处 ⇒ 门禁红（基线 2→3）并连带两个门禁自测失败；已按仓内惯例改名为 `BALANCE_WARN_MAX_ENTRIES`（新增常量请带域前缀）。⑤ 想人工重置告警记忆：删掉 `"}
+{"id":"BALANCE-WARN-PERSIST","k":"reopenWhen","i":3,"c":"balance-warn-state.json` 里对应键（或整个文件）即可。"}
+{"id":"BALANCE-WARN-PERSIST","k":"notes","i":0,"c":"【问题（重启即复活）】上一片（`BALANCE-WARN-DEDUPE`）只做了**进程内**闸门 ⇒ 「同一持续性故障在一个进程里只记一次」成立，但本仓 **dev 模式每次保存源码都会重启**（真机实测：一轮编辑触发 3 次 `LocalHTTPService 已启动`），生产也会重启 ⇒ 每次重启后的首轮又刷一条，噪音只解决一半。\n【做法】① 新增 `"}
+{"id":"BALANCE-WARN-PERSIST","k":"notes","i":1,"c":"app/src/ai/providers/balanceWarnPersistence.ts`（形态对齐既有先例 `query/dailyBudgetPersistence.ts`：`resolveDataDir()` 下 `balance-warn-state.json`、`mkdir` 递归、读容错 ENOENT、**写盘失败只告警不抛**）——落盘形状"}
+{"id":"BALANCE-WARN-PERSIST","k":"notes","i":2,"c":" `{version:1, entries:{'provider|kind': {warnedAt, apiCode?}}}`，并有 `BALANCE_WARN_MAX_ENTRIES=200` 上限（丢最旧）。② `BalanceChecker` 的闸门由 `Set` 改为 `Map<string, RecurringWarnRecord>`，三处 API"}
+{"id":"BALANCE-WARN-PERSIST","k":"notes","i":3,"c":" 改**异步**：`shouldWarnRecurring(key, apiCode?)`（首次 ⇒ 落盘 + true）、`clearRecurringWarn(provider)`（按 `provider|` 前缀清 + 落盘）、`resetRecurringWarnForTest()`（清内存 + 置空懒加载标志 = 模拟「新进程」）。③ **首次判定"}
+{"id":"BALANCE-WARN-PERSIST","k":"notes","i":4,"c":"懒加载**一次落盘（启动不阻塞）；`querySiliconFlow` 的**成功出口** `await clearRecurringWarn(provider)` ⇒ **恢复即清记忆**，状态真的变化时仍会重新告警（不做「永久静音」）。**用户可见行为不变**（返回值与 error 文案一字未改）。\n【验证（单测 10 例 + 真机时间线）】单测（`"}
+{"id":"BALANCE-WARN-PERSIST","k":"notes","i":5,"c":"tests/ai/providers/balanceRecurringWarn.test.ts`，用 `LIRI_HOME` 把落盘重定向到临时目录、`afterAll` 还原）：原有闸门 5 例（含「clear 后再次 true」「前缀不误伤 `siliconflow-en`」）+ 新增 5 例：**路径重定向自证**（`"}
+{"id":"BALANCE-WARN-PERSIST","k":"notes","i":6,"c":"balanceWarnStatePath()` 以临时根开头 ⇒ 绝不写真实 `~/.pyapp`）、首次告警**落盘且含 `apiCode`**、**★ 模拟进程重启（清内存 + 重读落盘）⇒ 仍为 false**、恢复清除后**一并落盘** ⇒ 重启后仍能上报、**落盘损坏 ⇒ 空表且不抛**。全量 `bun test` **6681 pass / 0 "}
+{"id":"BALANCE-WARN-PERSIST","k":"notes","i":7,"c":"fail**（6723 tests / 752 files）；`tsc --noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错；`lint:doc-code` 绿；`lint:consts` PASS。**真机跨重启（决定性时间线）**：01:18:31 进程 P1 启动 → **01:18:57 P1 真实查询 ⇒ 唯一一"}
+{"id":"BALANCE-WARN-PERSIST","k":"notes","i":8,"c":"条告警 + 落盘**（文件实测 `{\"version\":1,\"entries\":{\"siliconflow|retired\":{\"warnedAt\":1792199937886,\"apiCode\":20092}}}`）→ **01:19:15 进程 P2 启动（真·重启）** → **01:20:21 P2 里真实查询（`查询余额: "}
+{"id":"BALANCE-WARN-PERSIST","k":"notes","i":9,"c":"provider=siliconflow`，响应仍是「已下线…暂不可查」）⇒ 零新告警**（告警总数自 01:18:57 起恒为 67）；01:21:04 起 P3 同样零新增。若无落盘，P2/P3 必然各刷一条。\n【如实边界】① 落盘读容错与上限淘汰见 `reopenWhen` ①②。② 「成功即清」的语义边界见 ③。③ 本片**不改**其它 "}
+{"id":"BALANCE-WARN-PERSIST","k":"notes","i":10,"c":"provider 的告警面（仍只接 SiliconFlow 的两条持续性告警）。④ **踩坑（已修）**：首版常量名 `MAX_ENTRIES` 撞 `lint:consts` 同名常量棘轮（基线 2→3）⇒ 两个门禁自测红；改 `BALANCE_WARN_MAX_ENTRIES` 后恢复，教训已写进 `reopenWhen` ④。"}
+{"id":"BALANCE-WARN-PERSIST","k":"code#0","i":0,"c":"app/src/ai/providers/BalanceChecker.ts"}
+{"id":"BALANCE-WARN-PERSIST","k":"code#1","i":0,"c":"app/src/ai/providers/balanceWarnPersistence.ts"}
+{"id":"BALANCE-WARN-PERSIST","k":"tests#0","i":0,"c":"app/tests/ai/providers/balanceRecurringWarn.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

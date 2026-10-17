@@ -9727,6 +9727,33 @@
       "changelog": [],
       "reopenWhen": "① 闸门是**进程内**的 ⇒ **进程重启后首个周期仍会记一条**（重启即状态重置；真机已观察：00:56:43 重启后 1 条）。要跨重启静音须持久化「已告警」状态 —— 但那会掩盖真实的**状态变化**（恢复后再次故障不再被发现），需先裁定。② 目前只接了 SiliconFlow 的**两条**持续性告警（`$…（全文见 archive/evidence-detail.jsonl#BALANCE-WARN-DEDUPE）",
       "notes": "【问题（噪音）】余额查询按周期轮询（真机实测间隔 ~19 分钟起、且每次应用重启会重置计时），而「接口已官方下线」这类**持续性**失败**每轮都会命中** ⇒ 旧实现每轮刷同一条 warning：真机日志里 `SiliconFlow 余额接口 /user/info 已被官方下线（code=20092 …）` 在 0…（全文见 archive/evidence-detail.jsonl#BALANCE-WARN-DEDUPE）"
+    },
+    {
+      "id": "BALANCE-WARN-PERSIST",
+      "title": "余额告警闸门**落盘**：跨进程重启不重复刷（`~/.pyapp/data/balance-warn-state.json`；**查询成功即清除**以保留状态变化上报）",
+      "source": "用户裁定「按这个方案实现持久化」；上游 = `BALANCE-WARN-DEDUPE` 的 `reopenWhen` ①（进程内闸门 ⇒ 每次重启首轮仍记一条）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/ai/providers/BalanceChecker.ts",
+        "app/src/ai/providers/balanceWarnPersistence.ts"
+      ],
+      "tests": [
+        "app/tests/ai/providers/balanceRecurringWarn.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 落盘文件属**外部输入**（可能被手改 / 旧版本写入）：读取容错为「缺 `entries` 或整份损坏 ⇒ 空表（不抛）」+「单条形状非法 ⇒ **丢弃该条**」；若日后要加字段，务必保持这条向后兼容。② 条目上限 `BALANCE_WARN_MAX_ENTRIES=200`，超出按 `warnedAt` **…（全文见 archive/evidence-detail.jsonl#BALANCE-WARN-PERSIST）",
+      "notes": "【问题（重启即复活）】上一片（`BALANCE-WARN-DEDUPE`）只做了**进程内**闸门 ⇒ 「同一持续性故障在一个进程里只记一次」成立，但本仓 **dev 模式每次保存源码都会重启**（真机实测：一轮编辑触发 3 次 `LocalHTTPService 已启动`），生产也会重启 ⇒ 每次重启后的首轮又刷一…（全文见 archive/evidence-detail.jsonl#BALANCE-WARN-PERSIST）"
     }
   ]
 }

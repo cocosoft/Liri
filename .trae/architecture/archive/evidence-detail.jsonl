@@ -6720,3 +6720,8 @@
 {"id":"U13-ORCH-METRICS-BASELINE","k":"source","i":0,"c":"dev_docs/20261012/长程任务编排链路优化方案-20261012.md §4 阶段 2"}
 {"id":"U13-ORCH-METRICS-BASELINE","k":"notes","i":0,"c":"新增 scripts/measure-orchestration-metrics.ts（只读扫 events.jsonl，--split 前后对照；误调用率=isError/total、执行/回合/TTFB-TTFT P50-P95）。实测暴露三处缺口：isError 状态位未落（误调用率恒 0）、编排事件未持久化、OrchestrationMetrics latency 恒 undefined。口径与数据见 dev_docs/20261017/U-13-编排可观测量化口径与实测-20261017.md。"}
 {"id":"U13-ORCH-METRICS-BASELINE","k":"code#0","i":0,"c":"scripts/measure-orchestration-metrics.ts"}
+{"id":"U13-T13A-TOOL-ERROR-STATE","k":"title","i":0,"c":"T-13-a：工具失败结果落 status/metadata 状态位（误调用率口径可信化）"}
+{"id":"U13-T13A-TOOL-ERROR-STATE","k":"source","i":0,"c":"dev_docs/20261017/U-13-编排可观测量化口径与实测-20261017.md §5（T-13-a）"}
+{"id":"U13-T13A-TOOL-ERROR-STATE","k":"notes","i":0,"c":"读路径（MessageToEventMigrator.isToolError）早已认 status===FAILED / metadata.isError，但写路径（MessageService.createToolResultMessage）从不落这两个位 ⇒ 事件 isError 恒 false。修复在唯一构造点按 toolResult.error 落位，并保留调用方 metadata；新增 6 条守卫测试（构造端 3 + 投影端 3）。"}
+{"id":"U13-T13A-TOOL-ERROR-STATE","k":"code#0","i":0,"c":"app/src/chat/services/MessageService.ts"}
+{"id":"U13-T13A-TOOL-ERROR-STATE","k":"code#1","i":1,"c":"app/tests/session/MessageToEventMigrator.test.ts"}

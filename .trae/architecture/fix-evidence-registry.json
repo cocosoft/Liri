@@ -11605,6 +11605,31 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U13-ORCH-METRICS-BASELINE）",
       "notes": "新增 scripts/measure-orchestration-metrics.ts（只读扫 events.jsonl，--split 前后对照；误调用率=isError/total、执行/回合/TTFB-TTFT P50-P95）。实测暴露三处缺口：isError 状态位未落（误调用率恒 0）、编排事件未持久化、…（全文见 archive/evidence-detail.jsonl#U13-ORCH-METRICS-BASELINE）"
+    },
+    {
+      "id": "U13-T13A-TOOL-ERROR-STATE",
+      "title": "T-13-a：工具失败结果落 status/metadata 状态位（误调用率口径可信化）",
+      "source": "dev_docs/20261017/U-13-编排可观测量化口径与实测-20261017.md §5（T-13-a）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/services/MessageService.ts",
+        "app/tests/session/MessageToEventMigrator.test.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U13-T13A-TOOL-ERROR-STATE）",
+      "notes": "读路径（MessageToEventMigrator.isToolError）早已认 status===FAILED / metadata.isError，但写路径（MessageService.createToolResultMessage）从不落这两个位 ⇒ 事件 isError 恒 false。修复在唯一构造点…（全文见 archive/evidence-detail.jsonl#U13-T13A-TOOL-ERROR-STATE）"
     }
   ]
 }

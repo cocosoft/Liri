@@ -5510,6 +5510,29 @@
 {"id":"QQ-FILE-UPLOAD-MEDIA-PAYLOAD","k":"code#0","i":0,"c":"app/src/channels/qq/QQChannel.ts"}
 {"id":"QQ-FILE-UPLOAD-MEDIA-PAYLOAD","k":"code#1","i":0,"c":".trae/specs/qq-file-transfer.md"}
 {"id":"QQ-FILE-UPLOAD-MEDIA-PAYLOAD","k":"tests#0","i":0,"c":"app/tests/channels/qqFileTransferPayload.test.ts"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"title","i":0,"c":"QQ 出站文件「可外发资格」收窄：由「存在 + 非禁区」改为「**交付面内** 或 **本轮新产出**」，其余**静默忽略** —— 修「回复回显既有路径即被当投递意图」的频繁误触发"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"source","i":0,"c":"用户裁定「先修复那个频繁误触发的启发式逻辑」；上游 = 上一条目（`QQ-FILE-UPLOAD-MEDIA-PAYLOAD`）⑤ 更正条款登记的待裁定项 + 真机实证（连续两条消息各误触发一次）"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"reopenWhen","i":0,"c":"① **真机未复测**（`e2eVerified=false`）：**正向**样本 = 在 QQ 里让机器人在**本轮生成**一个文件（或把文件放进 `output/`）后发给我 ⇒ 判据 `outbound_files 单文件发送成功`；**反向**样本 = 让机器人 `file_read` 某源码并回显其路径 ⇒ 判据 = **不再**出现 `"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"reopenWhen","i":1,"c":"outbound_files 阶段开始`（应静默忽略）。② 交付面 = `~/.pyapp/{output,downloads,attachments}`（`resolveOutputDir`/`resolveDownloadsDir`/`resolveAttachmentsDir`）；若产品要把面扩到工作区（如 `dev_docs/`），须重审「误触发」风"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"reopenWhen","i":2,"c":"险 —— 面的宽度 = 误触发的概率。③ 「**已有旧文档主动索要**」在**面外**时**不再自动外发**（本次收窄的代价）；要恢复该能力必须先有**显式投递意图**信号（当前仓内**无**结构化生产者；`DeliverableBlockData` 是死类型），**勿**退回「存在即投递」。④ 「本轮新产出」用 `mtime ≥ llmStartMs − "}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"reopenWhen","i":3,"c":"2s` 判定：若出现「工具产出但 mtime 偏旧」（如复制保留 mtime）或跨机时钟偏差 ⇒ 该文件只剩「交付面内」一条路。⑤ 本片**未**动入站方向与 QQ 上传/发送口径（那属 `QQ-FILE-UPLOAD-MEDIA-PAYLOAD`）。"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":0,"c":"【问题（真机实证的频繁误触发）】旧资格 = 「路径存在 + 非禁区」⇒ 只要**最终回复正文**里出现一个已存在的绝对路径，就被当成「用户在索要这个文件」而投递。真机连续两条消息**各误触发一次**：两条都是「让机器人 `file_read` 某文件、它顺势把路径回显在回复里」——用户在只想知道字段值，系统却在试着发文件（其中一次还因上传口径错误把「⚠️ 以"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":1,"c":"下文件未能发送」推给了用户）。\n【取证（三处）】① **spec 原意**：`qq-file-transfer.md` §3.2-③ 从 v1 起就写着「**限定 output/downloads/attachments 目录**（安全：防止发送任意系统文件）」——是实现**做宽了**（只留了「禁 pyapp 根 + 禁系统目录」的**黑名单**），故本片是"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":2,"c":"**回到 spec 原意**再收紧一步。② 三个目录**都有真源函数**（`app/src/core/paths.ts:687/710/720` 的 `resolveAttachmentsDir`/`resolveOutputDir`/`resolveDownloadsDir`）⇒ 交付面不是臆造的约定。③ 真机日志：`outbound_files 阶段开始"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":3,"c":" {candidates:1,sendable:1}`（08:07 与 08:33 各一次），两次都是回显场景。\n【做法（`outboundFileRouter.filterSendableFiles`）】资格改为**双信号**（满足其一）：① **在交付面内**（`~/.pyapp/{output,downloads,attachments}`；判定走 "}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":4,"c":"**realpath** + 补尾分隔符 ⇒ 面内符号链接指向面外**不**放行、`outputs/` 之类前缀不会误命中）；② **本轮新产出**（`mtime ≥ runStartedAtMs − 2s`；`runStartedAtMs` 取 `messageRouter` 的 `llmStartMs`，经 `channelOutbound` 透传）。"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":5,"c":"**两者都不满足 ⇒ 静默忽略**（按叙述性路径处理：既不投递、也**不**产生用户可见噪音）。同时**删掉**已不可达的 `isForbidden` 黑名单（白名单收紧后它成死代码；且白名单 = fail-closed，安全性更高）。仍**如实告知**（`skipped` ⇒ 「⚠️ 以下文件未能发送」）的只剩两类：**超 30MB** 与 **单条超 2"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":6,"c":" 个**（用户本该拿到却没发出去，守 CS03）。\n【验证（新增 10 例，`tests/channels/outboundFileEligibility.test.ts`）】用 `LIRI_HOME` 把交付面重定向到临时目录（**不碰**真实 `~/.pyapp`，且 `afterAll` 还原环境变量 —— 守台账 `"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":7,"c":"L-23-test-global-pollution`）：① 面内旧文件（output/downloads/attachments 各一）⇒ 仍可发（**保留**「把已有附件发给我」能力）；② 面外 + 本轮新产出 ⇒ 可发（工具刚写出的文件）；③ 不给 `runStartedAtMs` ⇒ 只认交付面（面外新文件也不发）；④ **★ 面外 + 非本轮产出（"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":8,"c":"事故场景）⇒ `sendable` 与 `skipped` 都为空**（关键负向：不再投递、也不再制造噪音）；⑤ 不存在路径 ⇒ 静默（零回归）；⑥ 面内超 30MB ⇒ `skipped` 且带原因；⑦ 面内 3 个 ⇒ 前 2 个可发、第 3 个 `skipped`；⑧ 面内符号链接指向面外 ⇒ 不放行（**本次在本机被如实跳过**：Windows 建符"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":9,"c":"号链接需开发者模式/管理员，用例打印 `[skip]` 说明）。全量 `bun test` **6671 pass / 0 fail**（6713 tests / 751 files）；`tsc --noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错；`lint:doc-code` 绿。\n【如实边界】① **真机未复测**（"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":10,"c":"正向/反向判据见 `reopenWhen` ①）。② 收窄的**代价**：面外的旧文档不再自动外发（`reopenWhen` ③）—— 这是「消噪」与「能力」之间的取舍，本片选了消噪。③「本轮新产出」依赖 `mtime`（`reopenWhen` ④）。④ 上一条目 `QQ-FILE-UPLOAD-MEDIA-PAYLOAD` 的 `"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":11,"c":"e2eVerified=true` 指的是「**上传/发送口径**正确」——本片后**其复测所用样本不再触发**（预期，spec v3 已注明），要复测外发能力需换**合规样本**。"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#0","i":0,"c":"app/src/channels/routing/outboundFileRouter.ts"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#1","i":0,"c":"app/src/channels/routing/channelOutbound.ts"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#2","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#3","i":0,"c":".trae/specs/qq-file-transfer.md"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"tests#0","i":0,"c":"app/tests/channels/outboundFileEligibility.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

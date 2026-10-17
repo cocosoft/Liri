@@ -9672,6 +9672,35 @@
       "changelog": [],
       "reopenWhen": "① **真机未复测**（`e2eVerified=false`）：需一次「回复正文含本地路径」的触发（已知可行：在 QQ 里让机器人 `file_read` 某文件并把路径回显到回复里）。判据：**不再**出现「⚠️ 以下文件未能发送」，且 QQ 收到文件消息；若仍回 400 ⇒ 按官方**分片上传**重做（见 sp…（全文见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-MEDIA-PAYLOAD）",
       "notes": "【问题（真机事故）】用户在 QQ 里让机器人读某文件（正文里因此回显了该文件的绝对路径）⇒ 出站文件链路被触发 ⇒ 日志 `QQ 媒体上传失败 {fileType:4,status:400,apiMessage:\"请求参数错误\"}` ⇒ `outbound_files 单文件发送失败` ⇒ 再把「⚠️ 以下文件未能发…（全文见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-MEDIA-PAYLOAD）"
+    },
+    {
+      "id": "QQ-FILE-OUTBOUND-ELIGIBILITY",
+      "title": "QQ 出站文件「可外发资格」收窄：由「存在 + 非禁区」改为「**交付面内** 或 **本轮新产出**」，其余**静默忽略** —— 修「回复回显既有路径即被当投递意图」的频繁误触发",
+      "source": "用户裁定「先修复那个频繁误触发的启发式逻辑」；上游 = 上一条目（`QQ-FILE-UPLOAD-MEDIA-PAYLOAD`）⑤ 更正条款登记的待裁定项 + 真机实证（连续两条消息各误触发一次）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/routing/outboundFileRouter.ts",
+        "app/src/channels/routing/channelOutbound.ts",
+        "app/src/channels/routing/messageRouter.ts",
+        ".trae/specs/qq-file-transfer.md"
+      ],
+      "tests": [
+        "app/tests/channels/outboundFileEligibility.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **真机未复测**（`e2eVerified=false`）：**正向**样本 = 在 QQ 里让机器人在**本轮生成**一个文件（或把文件放进 `output/`）后发给我 ⇒ 判据 `outbound_files 单文件发送成功`；**反向**样本 = 让机器人 `file_read` 某源码并回显其路径 ⇒…（全文见 archive/evidence-detail.jsonl#QQ-FILE-OUTBOUND-ELIGIBILITY）",
+      "notes": "【问题（真机实证的频繁误触发）】旧资格 = 「路径存在 + 非禁区」⇒ 只要**最终回复正文**里出现一个已存在的绝对路径，就被当成「用户在索要这个文件」而投递。真机连续两条消息**各误触发一次**：两条都是「让机器人 `file_read` 某文件、它顺势把路径回显在回复里」——用户在只想知道字段值，系统却在试着发…（全文见 archive/evidence-detail.jsonl#QQ-FILE-OUTBOUND-ELIGIBILITY）"
     }
   ]
 }

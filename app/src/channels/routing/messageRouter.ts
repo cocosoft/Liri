@@ -78,6 +78,7 @@ import {
   SESSION_ADMISSION_WAIT_MS,
   ADMISSION_POLL_MS,
   resolveLlmFailure,
+  resolveSuspendedOutboundContent,
 } from './messageRouterContract';
 import type {
   RouteResult,
@@ -767,25 +768,40 @@ export async function routeChannelMessage(
       };
     }
 
-    // ⑥ 出站回调 + 追踪完成（C3-S3：出站已内聚到 `./channelOutbound`，语义不变）
-    // `runStartedAtMs` = 本轮起点 ⇒ 出站文件资格判定用它识别「本轮新产出」（2026-10-17 修订）
-    await deliverChannelOutbound({
-      responseContent: response.content,
-      target: message.conversationId ?? message.senderId,
-      traceId,
-      messageId: message.messageId,
-      runStartedAtMs: llmStartMs,
-      onOutbound,
-      onOutboundFile,
-    });
-
-    // ⑥b 运行中**被预算挂起** ⇒ 追加一张「就地放行」卡片（Spec `channel-budget-inline-relief.md` §D2）
-    // 判据用**结构化** `finishReason`（**非**正文匹配，守 CS02）；失败不阻塞主流程（卡片的失败自己吞并留痕）。
-    if (finishReason === 'budget_exhausted') {
-      await sendBudgetReliefCard({
+    // ⑥ 运行中**被预算挂起** ⇒ **先**发「就地放行」卡片（Spec `channel-budget-inline-relief.md` §D2）
+    // 判据用**结构化** `finishReason`（**非**正文匹配，守 CS02）；失败不阻塞主流程（卡片自己吞并留痕）。
+    // 发卡成功 ⇒ 卡片已承载「已挂起 + 出路」全部信息，而正文里内核追加的 `⏸ …` 提示块是**重复的**
+    //（真机 2026-10-17 09:56 实测：同一条信息发了两遍）⇒ 剥掉提示块，只留模型正文；空则不再发文本。
+    const suspended = finishReason === 'budget_exhausted';
+    let outboundContent: string | null = response.content;
+    if (suspended) {
+      const cardSent = await sendBudgetReliefCard({
         channelName,
         target: message.conversationId ?? message.senderId,
         sessionId: safeSessionId,
+      });
+      outboundContent = resolveSuspendedOutboundContent({
+        cardSent,
+        content: response.content,
+      });
+    }
+
+    // ⑥b 出站回调 + 追踪完成（C3-S3：出站已内聚到 `./channelOutbound`，语义不变）
+    // `runStartedAtMs` = 本轮起点 ⇒ 出站文件资格判定用它识别「本轮新产出」（2026-10-17 修订）
+    if (outboundContent !== null) {
+      await deliverChannelOutbound({
+        responseContent: outboundContent,
+        target: message.conversationId ?? message.senderId,
+        traceId,
+        messageId: message.messageId,
+        runStartedAtMs: llmStartMs,
+        onOutbound,
+        onOutboundFile,
+      });
+    } else {
+      logger.info('[TRACE] 挂起卡片已送达且正文无额外内容 ⇒ 跳过重复文本投递', {
+        messageId: message.messageId,
+        channelName,
       });
     }
 

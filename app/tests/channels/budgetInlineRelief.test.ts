@@ -24,6 +24,10 @@ import {
 import {
   buildBudgetSuspendedNotice,
   resolveLlmFailure,
+  resolveSuspendedOutboundContent,
+  splitSuspensionNotice,
+  stripBoldMarkers,
+  SUSPENSION_NOTICE_MARKER,
 } from '../../src/channels/routing/messageRouterContract';
 import { buildQQKeyboard } from '../../src/channels/qq/keyboard';
 import { QQ_INTENT_FULL, QQEventType } from '../../src/channels/qq/types';
@@ -281,5 +285,79 @@ describe('D2 风险项：入站回调未接线的通道**不得**给按钮（防
     expect(BUTTON_CAPABLE_CHANNELS.has('qq')).toBe(true);
     expect(BUTTON_CAPABLE_CHANNELS.has('feishu')).toBe(true);
     expect(BUTTON_CAPABLE_CHANNELS.has('slack')).toBe(false);
+  });
+});
+
+/**
+ * 验收 8（2026-10-17，真机截图驱动）：**发卡成功 ⇒ 不再重复发同一段文本**；
+ * 纯文本兜底路径**不得**把 Markdown 星号当正文露出。
+ *
+ * 真机现象（QQ，09:56）：同一条「已挂起 + 出路」发了**两遍**（先文本 `⏸ …`、后卡片），
+ * 且纯文本里 `**本轮进度已保存**` 的星号明文可见。
+ */
+describe('验收 8：挂起正文与卡片去重（真机重复发送 / 星号外露）', () => {
+  // 内核实际追加的形态（`ReActToolLoop.resolveTerminationOutput`：`\n\n⏸ …`）
+  const KERNEL_NOTICE =
+    '\n\n⏸ 今日预算已用完 —— **本轮进度已保存**：在「用量中心 → 日限额」放行' +
+    '（临时提额 / 今日解除）后，本会话会**自动从这里续跑**，无需重发消息。';
+
+  it('splitSuspensionNotice：正文 + 内核提示块 ⇒ 只留正文', () => {
+    const { body, notice } = splitSuspensionNotice(
+      `已改完 3 个文件。${KERNEL_NOTICE}`
+    );
+    expect(body).toBe('已改完 3 个文件。');
+    expect(notice.startsWith(SUSPENSION_NOTICE_MARKER)).toBe(true);
+    expect(notice).toContain('进度已保存');
+  });
+
+  it('splitSuspensionNotice：正文**就是**提示块（含前导空白）⇒ body 为空', () => {
+    const { body, notice } = splitSuspensionNotice(`  ${KERNEL_NOTICE.trim()}`);
+    expect(body).toBe('');
+    expect(notice.startsWith(SUSPENSION_NOTICE_MARKER)).toBe(true);
+  });
+
+  it('splitSuspensionNotice：无提示块 ⇒ 原样返回（正文里出现 `⏸` 不致误切）', () => {
+    const text = '这里提到 ⏸ 符号，但不是提示块';
+    expect(splitSuspensionNotice(text)).toEqual({ body: text, notice: '' });
+  });
+
+  it('stripBoldMarkers：只去 `**`，其余字符原样', () => {
+    expect(stripBoldMarkers('**今日预算已用完**\n无需重发消息')).toBe(
+      '今日预算已用完\n无需重发消息'
+    );
+  });
+
+  it('发卡成功 + 正文只有提示块 ⇒ null（**跳过**文本投递，杜绝重复发送）', () => {
+    expect(
+      resolveSuspendedOutboundContent({
+        cardSent: true,
+        content: KERNEL_NOTICE.trim(),
+      })
+    ).toBeNull();
+  });
+
+  it('发卡成功 + 有模型正文 ⇒ 只发正文（提示块已由卡片承载）', () => {
+    expect(
+      resolveSuspendedOutboundContent({
+        cardSent: true,
+        content: `已改完 3 个文件。${KERNEL_NOTICE}`,
+      })
+    ).toBe('已改完 3 个文件。');
+  });
+
+  it('发卡失败 ⇒ 保留**完整出路**文本，且不含 `**`', () => {
+    const out = resolveSuspendedOutboundContent({
+      cardSent: false,
+      content: `已改完。${KERNEL_NOTICE}`,
+    });
+    expect(out).not.toBeNull();
+    expect(out).toContain('无需重发消息');
+    expect(out).not.toContain('**');
+  });
+
+  it('卡片文案与内核提示**同用**行首 `⏸` 标记（否则分割契约失效）', () => {
+    const cardText = buildBudgetSuspendedNotice({ hasButtons: true });
+    expect(cardText.startsWith(SUSPENSION_NOTICE_MARKER)).toBe(true);
+    expect(splitSuspensionNotice(cardText).body).toBe('');
   });
 });

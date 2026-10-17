@@ -281,6 +281,68 @@ export function buildBudgetSuspendedNotice(args: {
 }
 
 /**
+ * 内核在**挂起收尾**时追加到正文末尾的提示块**起始标记**（`ReActToolLoop.resolveTerminationOutput` 写入）。
+ *
+ * ⚠️ 契约：改那段文案时**必须保留**行首的 `⏸` —— 通道侧据此把「模型正文」与「挂起提示」分开
+ * （发卡成功时避免同一条信息发两遍，见 `messageRouter` 的挂起分支）。
+ */
+export const SUSPENSION_NOTICE_MARKER = '⏸';
+
+/**
+ * 把「模型正文」与「内核追加的挂起提示块」分开（**纯函数**）。
+ *
+ * 为什么需要：运行中被预算挂起时，正文 = 模型已产出的文字 + 内核追加的 `⏸ …` 提示；而通道侧
+ * 会再发一张「就地放行」卡片（文案同源）⇒ 真机实测（2026-10-17 09:56，QQ）**同一条信息发了两遍**。
+ * 发卡成功后剥掉提示块，只留模型正文（为空则不再发文本）。
+ *
+ * 判定只看**结构标记**（首行 `⏸` 或 `\n\n⏸` 起头），不解析文案内容。
+ */
+export function splitSuspensionNotice(content: string): {
+  body: string;
+  notice: string;
+} {
+  const text = content ?? '';
+  const trimmedStart = text.trimStart();
+  if (trimmedStart.startsWith(SUSPENSION_NOTICE_MARKER)) {
+    return { body: '', notice: trimmedStart };
+  }
+  const at = text.indexOf(`\n\n${SUSPENSION_NOTICE_MARKER}`);
+  if (at < 0) return { body: text, notice: '' };
+  return { body: text.slice(0, at), notice: text.slice(at).trim() };
+}
+
+/**
+ * 去掉 Markdown 粗体标记（**纯函数**）。
+ *
+ * 为什么需要：QQ 的纯文本发送（`sendText`）不渲染 Markdown ⇒ 真机截图里「**本轮进度已保存**」
+ * 带着星号露出。仅在**纯文本承载**的路径（卡片发送失败/通道不支持按钮）使用；走 Markdown 的
+ * 通道保持原样。
+ */
+export function stripBoldMarkers(text: string): string {
+  return (text ?? '').replace(/\*\*/g, '');
+}
+
+/**
+ * 决定「挂起」分支**还要不要发正文**（**纯函数**，供单测钉住两条分支）。
+ *
+ * @returns `null` = 卡片已承载全部信息且正文无额外内容 ⇒ **跳过文本投递**
+ *          （否则同一条信息发两遍）；否则为「应当投递的正文」。
+ *
+ *  - 发卡**成功** ⇒ 剥掉内核追加的提示块（与卡片同源），只留模型正文；
+ *  - 发卡**失败** ⇒ 文本必须承载出路；纯文本通道不渲染 Markdown ⇒ 去掉 `**`。
+ */
+export function resolveSuspendedOutboundContent(args: {
+  cardSent: boolean;
+  content: string;
+}): string | null {
+  if (args.cardSent) {
+    const { body } = splitSuspensionNotice(args.content);
+    return body.trim() ? body : null;
+  }
+  return stripBoldMarkers(args.content);
+}
+
+/**
  * 解析 LLM 失败回执（纯函数，便于单测）。
  *
  * 仅 `DAILY_BUDGET_EXCEEDED` 走限额文案；其余（含无码 / `LLM_ERROR`）保持既有通用兜底 ⇒ **不回归**。

@@ -1,6 +1,6 @@
 # Spec：通道侧「就地放行」——预算挂起卡片与按钮回调
 
-> 版本: **1.1** ｜ 创建: 2026-10-17 ｜ 状态: **已批准（用户裁定「A + C2，先 QQ」；v1.1 扩第二平台：飞书入站）** ｜ 证据：`.trae/architecture/fix-evidence-registry.json` **`CHANNEL-BUDGET-INLINE-RELIEF`** · **`CHANNEL-RELIEF-BUTTON-GATE`**
+> 版本: **1.2** ｜ 创建: 2026-10-17 ｜ 状态: **已批准（用户裁定「A + C2，先 QQ」；v1.1 扩第二平台：飞书入站；v1.2 收尾去重）** ｜ 证据：`.trae/architecture/fix-evidence-registry.json` **`CHANNEL-BUDGET-INLINE-RELIEF`** · **`CHANNEL-RELIEF-BUTTON-GATE`** · **`CHANNEL-RELIEF-CARD-COPY-DEDUPE`**
 > 关联：`.trae/specs/long-task-suspend-resume.md`（挂起事实源 / 协调器 / 放行语义）· `.trae/specs/daily-budget-over-limit-ux.md`（撞限卡片 D-b/D-f）· `dev_docs/20261012/通道治理方案-20261012.md` §3 阶段 2.3（**出站 SSE 订阅面，已裁定暂缓**）与 §7「预算闸门卡片」
 > 关联规则：**GR16-002**（跨模块变更须建 Spec）· **CS01**（不重复造轮子）· **CS02**（禁止字符串匹配做状态判断）· **CS03**（回退最小化 / 不掩盖错误）· **R01-007**（分层：channels 不得反向依赖 app 层）
 
@@ -71,6 +71,10 @@
 - **风险与降级（守 CS03）**：QQ 自定义按钮属内邀能力 ⇒ 带 `keyboard` 发送**若失败**，**自动以纯 Markdown 重发同一文案**（不静默、记 warn）⇒ 任何权限状态下用户都能收到消息。
 - **去重**：同一 `sessionId + 事件` 不重复发卡（按会话维度的一次性标记；重启即清，属可接受语义）。
 - **按钮按「入站已接线」白名单给**（2026-10-17 收口，台账 `CHANNEL-RELIEF-BUTTON-GATE`）：`BUTTON_CAPABLE_CHANNELS`（当前 = `qq` / `feishu`）**之外**的通道**不建卡**，改发**无按钮**文案（含桌面端出路）。理由：实现 `sendInteractive` 的通道有 12 个，而**入站回调已接线**的只有白名单内那些 ⇒ 对「出站能发、入站没接」的通道给按钮 = 用户点了**毫无反应**（**比没有按钮更糟**）。新增通道须**同时**接完出站与入站后再把 id 加进来（守 CD05 次序）。
+- **正文与卡片去重，且纯文本不露 Markdown**（v1.2，台账 `CHANNEL-RELIEF-CARD-COPY-DEDUPE`）：内核在挂起收尾时会把 `⏸ …` 提示块**追加到正文**（`ReActToolLoop.resolveTerminationOutput`），与本卡文案同源 ⇒ 真机（QQ 2026-10-17 09:56）同一条说明发了**两遍**，且纯文本路径把 `**` 星号明文露出。故出站顺序改为「**先发卡**，再决定文本」：
+  - 卡片**投递成功** ⇒ 用 `splitSuspensionNotice`（只认**行首 `⏸` / `\n\n⏸` 结构标记**，不解析文案，守 CS02）剥掉提示块，只投递模型正文；正文为空 ⇒ **跳过文本投递**（`[TRACE]` 留痕）。
+  - 卡片**未投出**（通道不支持 / 发送失败 / 同会话已发过去重）⇒ 文本必须承载出路，并用 `stripBoldMarkers` 去掉 `**`（QQ `sendText` 不渲染 Markdown）。
+  - ⚠️ 契约：内核提示块的**行首 `⏸`** 是分割标记（`SUSPENSION_NOTICE_MARKER`）；改文案时不得删。
 
 ### D3 入站：按钮回调（C2-in）
 
@@ -134,3 +138,15 @@ export function setBudgetReliefActionHandler(h: BudgetReliefActionHandler | null
 | 10 | 飞书回执体 = `{toast}` 且**不含** `card`（保持原卡片）；成功/失败文案**如实**（失败含端口给出的原因） |
 | 11 | 飞书按钮载荷 ⇒ 走**同一** `handleBudgetReliefAction` 端口（与 QQ 同源）；非本动作载荷 ⇒ 非零码且**不调用**端口 |
 | 12 | `BUTTON_CAPABLE_CHANNELS` 之外（如 `slack`）⇒ 发**无按钮**文案、**零** `sendInteractive` 调用（防「假按钮」） |
+| 13 | 挂起且**卡片投递成功** ⇒ 正文里的 `⏸ …` 提示块被剥掉；若正文只剩提示块 ⇒ **不再投递文本**（同一条说明不发两遍） |
+| 14 | 挂起且**卡片未投出** ⇒ 文本兜底保留完整出路，且**不含** `**`（纯文本通道不渲染 Markdown） |
+
+---
+
+## §5 变更记录
+
+| 版本 | 日期 | 变更 | 依据 |
+|---|---|---|---|
+| **v1.2** | 2026-10-17 | 出站改为「先发卡、再定文本」：卡片成功 ⇒ 剥 `⏸` 提示块/空则跳过文本；失败 ⇒ 去 `**` 保留出路；新增 8 例单测 | 用户上传 QQ 真机截图（同一条说明发两遍 + 星号外露）⇒ 台账 `CHANNEL-RELIEF-CARD-COPY-DEDUPE` |
+| v1.1 | 2026-10-17 | 飞书入站接线（两版回调体 + `{toast}` 回执 + 白名单扩充） | 台账 `CHANNEL-RELIEF-FEISHU-INBOUND` / `-WEBHOOK-INTEG` |
+| v1 | 2026-10-17 | 初版（文案两态 + 挂起卡片 + QQ 按钮回路） | 用户裁定「A + C2，先 QQ」 |

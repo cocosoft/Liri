@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **QQ-FILE-UPLOAD-MEDIA-PAYLOAD**：QQ 文件外发口径订正：上传改 JSON（file_data/url）+ 发送改 media.file_info —— 验证 ut5|tc1|ts6661；基线 改前：上传用 multipart + 字段 file ⇒ 真机 400；发送还用 media.file_uuid（文档要求 file_info）（详情见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-MEDIA-PAYLOAD）
 - ✅ **LOOP-BUDGET-COMPRESS-THEN-CONTINUE**：取证结论：'loop'（上下文窗口）预算的「先压缩再续跑」已由既有机制落地（对称记账退款 + 真实用量 + 每轮压缩 + 一次宽限轮）⇒ 不新增实现 —— 验证 read6|grep5；基线 搁置项原口径：'loop' 窗口预算撞顶即硬终止、需改为「先压缩再续跑」（疑似需解语义冲突）—— 取证后推翻：该行为已存在（且有四处单测钉住）（详情见 archive/evidence-detail.jsonl#LOOP-BUDGET-COMPRESS-THEN-CONTINUE）
 - ✅ **CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG**：飞书 webhook 卡片回传的传输层验证：真起 HTTP 服务 + 真发 POST（200 / {toast} / 动作端口被调） —— 验证 integ5|tc1|ts6656；基线 改前：该路由的凭据只到纯函数单测（识别体式 + 造回执）；分支顺序/状态码/响应体三件事测不到 —— 若把通用 200 挪到卡片分流之前，单测全绿而真机必然超时（详情见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-FEISHU-WEBHOOK-INTEG）
 - ✅ **CHANNEL-RELIEF-FEISHU-INBOUND**：飞书卡片回传入站接线：两版回调体（card.action.trigger / 旧版扁平）→ 同一放行动作端口 + {toast} 回执；飞书加入按钮白名单 —— 验证 ut45|tc1|ts6651；基线 改前：飞书出站按钮已实现但入站只处理消息事件（长连接/webhook 两条路都无卡片回传分支）⇒ 白名单只有 qq，飞书只能收无按钮文案（详情见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-FEISHU-INBOUND）

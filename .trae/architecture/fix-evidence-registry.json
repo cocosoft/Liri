@@ -9645,6 +9645,33 @@
       "changelog": [],
       "reopenWhen": "① 若 `REACT_LAYER_WINDOW_TOKENS`（默认 45000）被设为 **0** ⇒ **关掉**轮内分层压缩 ⇒ 本结论的前提（每轮都有压缩机会）**失效**，届时应重审「先压缩再续跑」是否仍成立。② 若某 provider **不返回 usage** ⇒ `_chargeStreamBudge…（全文见 archive/evidence-detail.jsonl#LOOP-BUDGET-COMPRESS-THEN-CONTINUE）",
       "notes": "【搁置项的原口径（被本片推翻）】原记为「`'loop'` 窗口预算撞顶即**硬终止**，需改为**先压缩再续跑**（行为变更，且疑似需解语义冲突）」。**只读取证后结论：该行为已落地**，无需新增实现。 【取证：四处机制（每处都有历史根因修复记录）】① **记账口径 = 当前占用**（不是累计增长）：`createS…（全文见 archive/evidence-detail.jsonl#LOOP-BUDGET-COMPRESS-THEN-CONTINUE）"
+    },
+    {
+      "id": "QQ-FILE-UPLOAD-MEDIA-PAYLOAD",
+      "title": "QQ 文件外发口径订正：上传改官方 JSON（`file_data` base64 / `url`）+ 发送改 **`media.file_info`** —— 修真机 400 导致「文件永远发不出」",
+      "source": "真机事故（用户上传截图 + 日志）：回复正文里回显了本地路径 ⇒ 出站文件链路被触发 ⇒ QQ 回 `400 请求参数错误` ⇒ 用户收到「⚠️ 以下文件未能发送」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/qq/QQChannel.ts",
+        ".trae/specs/qq-file-transfer.md"
+      ],
+      "tests": [
+        "app/tests/channels/qqFileTransferPayload.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① **真机未复测**（`e2eVerified=false`）：需一次「回复正文含本地路径」的触发（已知可行：在 QQ 里让机器人 `file_read` 某文件并把路径回显到回复里）。判据：**不再**出现「⚠️ 以下文件未能发送」，且 QQ 收到文件消息；若仍回 400 ⇒ 按官方**分片上传**重做（见 sp…（全文见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-MEDIA-PAYLOAD）",
+      "notes": "【问题（真机事故）】用户在 QQ 里让机器人读某文件（正文里因此回显了该文件的绝对路径）⇒ 出站文件链路被触发 ⇒ 日志 `QQ 媒体上传失败 {fileType:4,status:400,apiMessage:\"请求参数错误\"}` ⇒ `outbound_files 单文件发送失败` ⇒ 再把「⚠️ 以下文件未能发…（全文见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-MEDIA-PAYLOAD）"
     }
   ]
 }

@@ -6450,3 +6450,9 @@
 {"id":"FILE-SIZE-EXCEPTION-REFRESH","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md"}
 {"id":"FILE-SIZE-EXCEPTION-REFRESH","k":"notes","i":0,"c":"未执行拆分；expiresAt 维持 2026-11-30；11-30 前按计划拆分或走续期流程（不得静默过期）。"}
 {"id":"FILE-SIZE-EXCEPTION-REFRESH","k":"code#0","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"title","i":0,"c":"U-21 收尾：skills 3 键 + security 4 键收口；D-3-c 结项（11 收口/5 保留）"}
+{"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"source","i":0,"c":"dev_docs/20261004/p0-pending-proposals-20261004.md P0-6；scripts/lint-architecture.ts D-3-c"}
+{"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"notes","i":0,"c":"保留 5 键均有环/空壳理由；复核日 2027-01-31。R03-002 0 违规。"}
+{"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"code#0","i":0,"c":"app/src/skills/index.ts"}
+{"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"code#1","i":0,"c":"app/src/security/index.ts"}
+{"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"code#2","i":0,"c":"scripts/lint-architecture.ts"}

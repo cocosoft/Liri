@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **ARCH-R03-002-SKILLS-SECURITY-CLOSE**：D-3-c 批次⑥⑦ + 结项（11 收口 / 5 保留） —— 验证 tc0|arch0；基线 改前 skills 3 键 + security 4 键走叶子直连；其余 5 键无复核日（详情见 archive/evidence-detail.jsonl#ARCH-R03-002-SKILLS-SECURITY-CLOSE）
 - ✅ **FILE-SIZE-EXCEPTION-REFRESH**：文件尺寸例外实测基线刷新 + U-22 拆分计划 —— 验证 doc-only；基线 改前例外 lines 字段与实际（5922/3060/…）漂移（详情见 archive/evidence-detail.jsonl#FILE-SIZE-EXCEPTION-REFRESH）
 - ✅ **ARCH-R03-002-SECURITY-ENTRIES**：security patterns/redact 子入口收口（D-3-c 批次⑤） —— 验证 tc0|arch0；基线 改前 patterns/redact 仅类型入桶，统一规则集与脱敏中间件走叶子直连（详情见 archive/evidence-detail.jsonl#ARCH-R03-002-SECURITY-ENTRIES）
 - ✅ **STATE-PROJECTION-4-3-UW**：状态机 4.3 统一出站管道 UW 口径与触发条件 —— 验证 doc-only；基线 改前只写「暂缓 ⇒ UW」，缺重开触发条件（详情见 archive/evidence-detail.jsonl#STATE-PROJECTION-4-3-UW）

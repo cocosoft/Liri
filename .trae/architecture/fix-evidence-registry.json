@@ -10655,6 +10655,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#FILE-SIZE-EXCEPTION-REFRESH）",
       "notes": "未执行拆分；expiresAt 维持 2026-11-30；11-30 前按计划拆分或走续期流程（不得静默过期）。（全文见 archive/evidence-detail.jsonl#FILE-SIZE-EXCEPTION-REFRESH）"
+    },
+    {
+      "id": "ARCH-R03-002-SKILLS-SECURITY-CLOSE",
+      "title": "U-21 收尾：skills 3 键 + security 4 键收口；D-3-c 结项（11 收口/5 保留）",
+      "source": "dev_docs/20261004/p0-pending-proposals-20261004.md P0-6；scripts/lint-architecture.ts D-3-c",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/skills/index.ts",
+        "app/src/security/index.ts",
+        "scripts/lint-architecture.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#ARCH-R03-002-SKILLS-SECURITY-CLOSE）",
+      "notes": "保留 5 键均有环/空壳理由；复核日 2027-01-31。R03-002 0 违规。（全文见 archive/evidence-detail.jsonl#ARCH-R03-002-SKILLS-SECURITY-CLOSE）"
     }
   ]
 }

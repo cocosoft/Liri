@@ -2,14 +2,21 @@
  * ProviderDiscovery 提供者发现
  * 自动发现可用 AI 提供者，支持静态注册和动态扫描
  */
-import { providerCatalog, type ProviderMetadata, type ProviderType, } from './ProviderCatalog.js';
+import {
+  providerCatalog,
+  type ProviderMetadata,
+  type ProviderType,
+} from './ProviderCatalog.js';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 import { existsSync, readFileSync } from 'fs';
 
 import { getLogger } from '@modules/monitoring';
 import {
-  OPENAI_API_V1_BASE_URL, ANTHROPIC_API_V1_BASE_URL, GEMINI_API_BASE_URL } from '@modules/core';
+  OPENAI_API_V1_BASE_URL,
+  ANTHROPIC_API_V1_BASE_URL,
+  GEMINI_API_BASE_URL,
+} from '@modules/core';
 const logger = getLogger('plugins:provider:ProviderDiscovery');
 
 /**

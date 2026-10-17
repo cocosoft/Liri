@@ -35,7 +35,11 @@ import {
   saveBalanceWarnState,
   type RecurringWarnRecord,
 } from './balanceWarnPersistence.js';
-import { DEEPSEEK_API_BASE_URL, OPENROUTER_API_V1_BASE_URL, BIGMODEL_API_BASE_URL } from '@modules/core';
+import {
+  DEEPSEEK_API_BASE_URL,
+  OPENROUTER_API_V1_BASE_URL,
+  BIGMODEL_API_BASE_URL,
+} from '@modules/core';
 const logger = getLogger('ai:providers:balanceChecker');
 
 /**

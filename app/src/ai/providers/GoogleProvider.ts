@@ -51,8 +51,7 @@ import { GEMINI_API_V1BETA_BASE_URL } from '@modules/core';
 
 const logger = getLogger('ai:google');
 
-const GOOGLE_PROVIDER_BASE_URL =
-  GEMINI_API_V1BETA_BASE_URL;
+const GOOGLE_PROVIDER_BASE_URL = GEMINI_API_V1BETA_BASE_URL;
 
 export class GoogleProvider extends BaseAIProvider {
   private apiKey: string;

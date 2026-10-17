@@ -32,7 +32,14 @@
  *   NAME 段规则：大写字母、数字、下划线（A-Z、0-9、_）
  */
 import type { ProviderType } from './ProviderManager';
-import { DEFAULT_OLLAMA_OPENAI_ENDPOINT, OPENAI_API_V1_BASE_URL, ANTHROPIC_API_BASE_URL, DEEPSEEK_API_BASE_URL, GEMINI_API_BASE_URL, SILICONFLOW_API_V1_BASE_URL } from '@modules/core';
+import {
+  DEFAULT_OLLAMA_OPENAI_ENDPOINT,
+  OPENAI_API_V1_BASE_URL,
+  ANTHROPIC_API_BASE_URL,
+  DEEPSEEK_API_BASE_URL,
+  GEMINI_API_BASE_URL,
+  SILICONFLOW_API_V1_BASE_URL,
+} from '@modules/core';
 
 /** 检测出的供应商配置 */
 export interface UnifiedProviderConfig {

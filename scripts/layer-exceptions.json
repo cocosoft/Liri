@@ -51,16 +51,6 @@
       "owner": "@arch-lead"
     },
     {
-      "id": "FSZ-107",
-      "ruleId": "R04-001",
-      "file": "app/src/chat/orchestrator/streamMessageFlow.ts",
-      "lines": 2316,
-      "targetLines": 2000,
-      "plan": "会话链路修复（异步压缩 skipTier3Sync/onToolCall 透传/usage 守卫/水位告警降噪）致行数微超 21 行；后续按 orchestration 子域拆分",
-      "expiresAt": "2026-11-30",
-      "owner": "@arch-lead"
-    },
-    {
       "id": "FSZ-108",
       "ruleId": "R04-001",
       "file": "app/src/chat/ReActToolLoop.ts",

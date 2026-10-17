@@ -197,7 +197,28 @@ async function extractWithPdfJs(
   } catch {
     // worker 解析失败不阻断（pdfjs 内部回退）
   }
-  const { createCanvas } = await import('@napi-rs/canvas');
+  // U-25（2026-10-17）：`@napi-rs/canvas` 为**可选依赖**（平台原生二进制，安装可能失败）。
+  // 缺依赖时给出可执行出路，不抛裸 `Cannot find module`。
+  interface CanvasLike {
+    getContext(type: '2d'): {
+      getImageData(
+        x: number,
+        y: number,
+        width: number,
+        height: number
+      ): { data: Uint8ClampedArray };
+    };
+  }
+  let createCanvas: (width: number, height: number) => CanvasLike;
+  try {
+    ({ createCanvas } = (await import('@napi-rs/canvas')) as {
+      createCanvas: (width: number, height: number) => CanvasLike;
+    });
+  } catch (err) {
+    throw new Error(
+      `PDF 页面渲染依赖 @napi-rs/canvas 不可用（可选依赖；安装失败或当前平台无预编译包）。运行: bun add @napi-rs/canvas。原始错误: ${String(err)}`
+    );
+  }
   const canvasFactory = {
     create(width: number, height: number) {
       const canvas = createCanvas(

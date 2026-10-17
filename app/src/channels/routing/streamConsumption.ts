@@ -63,6 +63,8 @@ export interface ConsumeStreamDeps {
    * Stage 1 恒 false ⇒ question 到达时给出明确提示并 fail-closed 中止，避免静默死等。
    */
   supportsQuestionAnswer?: boolean;
+  /** U-05b：question 到达且渠道支持回答时登记“下一条消息即答案”。 */
+  onQuestionAsked?: (question: ChatStreamChunk['questionData']) => void;
   /** 终态回调（done 分支：置 COMPLETED/FAILED 并释放 lease） */
   finishExecution: (ok: boolean, reason?: string) => void;
 }
@@ -308,6 +310,8 @@ export async function consumeStreamChunks(
             cancelController.abort(unsupported);
             throw unsupported;
           }
+          // U-05b：登记待答问题；下一入站消息由 messageRouter 作为答案消费。
+          deps.onQuestionAsked?.(chunk.questionData);
           break;
         }
         default:

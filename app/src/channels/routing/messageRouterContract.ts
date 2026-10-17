@@ -32,6 +32,15 @@ export interface RouteMessageOptions {
       sessionId: string;
       metadata?: Record<string, unknown>;
     }): Promise<{ content: string; finishReason?: string }>;
+    /**
+     * U-05b（2026-10-17）：提交流程中的交互提问回答。
+     * 缺省（旧 mock）⇒ 待答消费按失败处理，不影响普通消息路径。
+     */
+    resolveInteraction?(
+      questionId: string,
+      answers: string[],
+      sessionId?: string
+    ): Promise<boolean>;
     /** 流式并轨（2026-08-20）：渠道消息主路径，与 client /v1/chat/stream 同管线 */
     chatStream(params: {
       content: string;

@@ -16,6 +16,7 @@ import type {
 } from './types/IChannel';
 import { routeChannelMessage } from './routing/messageRouter';
 import { configManager } from '@modules/config';
+import { feature } from '@modules/core';
 import { handleError } from '@modules/error';
 import { getDeliveryRouter } from './DeliveryRouter';
 import { CHANNEL_CATALOG, getChannelCatalogEntry } from './ChannelCatalog';
@@ -408,6 +409,10 @@ export async function lazyConnectChannels(): Promise<void> {
             // AC-5③（2026-08-20 渠道对齐）：仅被动回复窗口渠道（QQ 等）启用长任务占位提示
             enableLongTaskPlaceholder:
               plugin.capabilities?.passiveReplyWindow === true,
+            // U-05b（2026-10-17）：交互问答灰度 —— 开关 + 渠道 interactive 能力双门控
+            supportsQuestionAnswer:
+              feature('CHANNEL_QUESTION_ANSWER') &&
+              plugin.capabilities?.interactive === true,
             // 2026-08-06（P0-2）：传入渠道 DM 策略配置，启用授权检查（未提供时默认不拦截）
             dmPolicy: {
               policy: plugin.security?.dmPolicy ?? 'open',

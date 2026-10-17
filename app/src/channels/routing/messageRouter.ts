@@ -63,6 +63,13 @@ import { isBridgeEnabled } from '../setupChannels';
 import { DmPolicyEngine } from '../policy/DmPolicy';
 // 2026-08-06 接入（P1-5）：渠道入站限流（按渠道+sender 令牌桶）
 import { checkRateLimit } from './rateLimiter';
+// U-05b（2026-10-17）：渠道交互提问的“下一条消息即答案”注册表
+import {
+  buildQuestionKey,
+  peekPendingQuestion,
+  registerPendingQuestion,
+  removePendingQuestion,
+} from './pendingQuestions';
 // 2026-08-20 流式并轨：渠道消息改走 chatStream 流式轨道（与 client 同管线）
 // PR1（2026-10-09）：Execution 生命周期（ownership + generation fencing；详见 spec）
 // PR2（2026-10-09）：类型化中止原因（替代 error.message 文案匹配；CS02）
@@ -134,6 +141,12 @@ export async function routeChannelMessage(
     channelName = 'unknown',
     enableTracing = false,
   } = options;
+
+  const questionKey = buildQuestionKey(
+    channelName,
+    message.senderId,
+    message.conversationId
+  );
 
   const otel = getOTelTracing();
   const routeSpan = otel.startSpan('channel.routeMessage', {
@@ -312,6 +325,71 @@ export async function routeChannelMessage(
       messageTraceBuffer.finish(traceId, 'rejected', 'content_dedup');
       otel.endSpan(routeSpan);
       return { valid: true, response: 'duplicate_skipped' };
+    }
+  }
+
+  // ②-②b U-05b（2026-10-17）：若本会话存在待答问题，本条消息作为答案消费，
+  // **不创建新回合/新 lease**；resolve 成功后由原流继续执行并出最终回复。
+  if (options.supportsQuestionAnswer === true) {
+    const pending = peekPendingQuestion(questionKey);
+    if (pending) {
+      let resolved = false;
+      try {
+        resolved = coreAPI.resolveInteraction
+          ? await coreAPI.resolveInteraction(
+              pending.questionId,
+              [message.content ?? ''],
+              pending.sessionId
+            )
+          : false;
+      } catch (e) {
+        await handleError(e, {
+          module: 'channels:routing',
+          action: 'resolveQuestionAnswer',
+          context: {
+            traceId,
+            questionId: pending.questionId,
+            sessionId: pending.sessionId,
+          },
+        });
+      }
+
+      releaseProcessing(dedupKey);
+      recordMessageProcessing(channelName, Date.now() - processingStartMs);
+
+      if (!resolved) {
+        messageTraceBuffer.addStage(
+          traceId,
+          'question_answer',
+          'fail',
+          'resolve_failed'
+        );
+        messageTraceBuffer.finish(traceId, 'fail', 'QUESTION_RESOLVE_FAILED');
+        otel.endSpan(routeSpan);
+        return {
+          valid: false,
+          errorCode: 'QUESTION_RESOLVE_FAILED',
+          errorMessage: '回答提交失败，请重试（问题仍保持待答）',
+        };
+      }
+
+      removePendingQuestion(questionKey);
+      try {
+        await onOutbound?.(
+          '✅ 已收到回答，正在继续执行…',
+          message.conversationId ?? message.senderId
+        );
+      } catch (ackErr) {
+        await handleError(ackErr, {
+          module: 'channels:routing',
+          action: 'questionAnswerAck',
+          context: { traceId, questionId: pending.questionId },
+        });
+      }
+      messageTraceBuffer.addStage(traceId, 'question_answer', 'ok');
+      messageTraceBuffer.finish(traceId, 'ok');
+      otel.endSpan(routeSpan);
+      return { valid: true, response: 'question_answered' };
     }
   }
 
@@ -580,6 +658,18 @@ export async function routeChannelMessage(
           traceId,
           enableLongTaskPlaceholder: options.enableLongTaskPlaceholder === true,
           supportsQuestionAnswer: options.supportsQuestionAnswer === true,
+          onQuestionAsked: (question) => {
+            if (!question?.questionId) return;
+            registerPendingQuestion(questionKey, {
+              questionId: question.questionId,
+              sessionId: safeSessionId,
+              questionType: question.questionType,
+            });
+            logger.info(`[TRACE] ${traceId} 已登记待答问题`, {
+              questionId: question.questionId,
+              questionType: question.questionType,
+            });
+          },
           onOutbound,
           llmStartMs,
           finishExecution,
@@ -639,6 +729,11 @@ export async function routeChannelMessage(
           finishExecution(false, String(streamErr));
         }
         throw streamErr;
+      } finally {
+        // U-05b：流结束/失败即清理待答登记（正常答完已被拦截路径移除，此处幂等）。
+        if (options.supportsQuestionAnswer === true) {
+          removePendingQuestion(questionKey);
+        }
       }
     });
 

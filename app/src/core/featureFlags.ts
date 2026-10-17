@@ -212,6 +212,11 @@ export const FEATURE_FLAGS = {
   FEATURE_CHANNEL_TELEGRAM: true,
   /** Discord 通道 */
   FEATURE_CHANNEL_DISCORD: true,
+  /**
+   * U-05b（2026-10-17）：渠道交互提问“下一条消息即答案”。
+   * 默认关闭；开启后仅对声明 `capabilities.interactive` 的渠道生效。
+   */
+  CHANNEL_QUESTION_ANSWER: false,
   /** 远程触发器工具 */
   REMOTE_TRIGGER: false,
   /** 发送用户文件工具 */

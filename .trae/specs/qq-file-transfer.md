@@ -1,7 +1,13 @@
 # QQ 通道文件传输（双向）
 
-> 状态：待评审 | 创建：2026-08-20 | 版本：v1
+> 状态：待评审 | 创建：2026-08-20 | 版本：**v2（2026-10-17 订正上传/发送口径）**
 > 范围：QQ c2c 私聊（群消息当前 BYPASS，本 spec 不启用群，仅预留字段兼容）
+>
+> ⚠️ **v2 订正的由来（真机事故）**：2026-10-17 真机出现 `QQ 媒体上传失败
+> {fileType:4,status:400,apiMessage:"请求参数错误"}` ⇒ 文件**永远发不出去**。取证 QQ 官方
+> 「富媒体消息」（最后更新 2026-06-26）后确认：**v1 的 §3.2-①/② 两处口径与文档不符**
+> （v1 写 multipart + `srv_send_msg`；实为 JSON + `url`/`file_data`），且发送用 `media.file_uuid`
+> 而文档要求 **`media.file_info`** ⇒ v2 订正，并加「捕获真实请求体」的单测钉住。
 
 ## 1. 背景与目标
 
@@ -56,21 +62,26 @@ interface QQC2cMessageCreatePayload {
 
 ### 3.2 出站（Liri → QQ）
 
-**① 重写 `uploadQQFile` 本地路径 → multipart 上传**：
+**① 重写 `uploadQQFile`：按官方文档口径（**JSON**，不是 multipart）**：
 
 ```
-POST https://api.sgroup.qq.com/v2/users/{openid}/files
-Content-Type: multipart/form-data
-  file_type: 1(图片)/2(视频)/3(语音)/4(文件)
-  file: <二进制>（Bun FormData + Blob，无需第三方库）
-  srv_send_msg: false
-→ { file_uuid }
+POST https://api.sgroup.qq.com/v2/users/{openid}/files      # 群：/v2/groups/{group_openid}/files
+Content-Type: application/json
+  file_type: 1(图片)/2(视频)/3(语音)/4(文件)      # 必填
+  url:      <公网 http(s) 地址>                    # 必填（远程资源走这条）
+  file_data: <本地文件内容的 base64>                # 可选（本地文件走这条）
+→ { file_uuid, file_info, ttl }                    # 发消息用的是 file_info
 ```
-公网 http(s) URL 输入保留现有 JSON 方式。file_type 依据扩展名推断（png/jpg→1，mp4→2，mp3/wav→3，其余→4）。
+- **本地文件** ⇒ 读为 **base64** 放进 `file_data`（v1 的 multipart + 字段 `file` **不是**文档参数 ⇒ 真机 400）。
+- **公网 URL** ⇒ 走 `url`。
+- **不得**再带 v1 里那个文档没有的 `srv_send_msg`。
+- `file_type` 依据扩展名推断（png/jpg→1，mp4→2，mp3/wav→3，其余→4）。
+- 上传返回**必须**含 `file_info`（发消息要用）；缺失 ⇒ **不臆造**，如实报错并**不**发消息。
 
-**② 修复 `sendQQMediaMessage` 假 msg_id**：
-- 删除 `msg_id: Date.now()`，改为 `...this.consumePassiveReplyFields(target)`（与 sendTextMessage 一致：窗口内被动回复不耗主动配额，超窗降级不带 msg_id）
-- 被动失败降级主动重试一次（对齐 sendTextMessage L622-632 模式）
+**② 修复 `sendQQMediaMessage`：假 msg_id + `media` 字段口径**：
+- 删除 `msg_id: Date.now()`，改为 `...this.consumePassiveReplyFields(target)`（与 sendTextMessage 一致：窗口内被动回复不耗主动配额，超窗降级不带 msg_id）；被动失败降级主动重试一次
+- **`media` 用 `file_info`**（v1 用的 `file_uuid` 与文档不符 ⇒ 上传修好后发送仍会失败）：`{ msg_type: 7, media: { file_info } }`
+  依据：官方「富媒体消息」返回参数说明（「file_info：文件信息，**用于发消息接口的 media 字段**」）与「发送单聊消息」示例
 
 **③ messageRouter 出站文件路由**（流结束后追加发送）：
 - 最终回复 `content` 提取本地文件路径：正则匹配 Windows 绝对路径（`[A-Za-z]:\\[^\s*"'）]+`），`fs.existsSync` 过滤 + 限定 output/downloads/attachments 目录（安全：防止发送任意系统文件）+ 大小 ≤30MB
@@ -93,6 +104,7 @@ Content-Type: multipart/form-data
 |------|------|------|
 | QQ 开放平台**富媒体权限**：正式环境需申请，沙箱一般可用 | 上传 API 可能 403 | 失败时回复明确原因（API 返回 message），提示用户在 QQ 开放平台申请 |
 | 文件 ≤30MB / 图片 ≤10MB / 视频 ≤100MB | 超限文件无法发送 | 超限跳过并在文本中说明 |
+| `file_data` 是 **base64**（体积 ≈ 原文 ×4/3） | 30MB 文件的请求体 ≈ 40MB（平台对请求体大小的上限**未获权威文档**） | 现状按「路径提取层 ≤30MB」守卫；若真机出现体积相关的 4xx/超时，改走官方**推荐的分片上传**（`reopenWhen` 已记） |
 | QQ CDN 入站 URL 时效（分钟级） | 延迟下载失败 | 立即异步下载（飞书同模式） |
 
 ## 5. 合规检查清单
@@ -110,15 +122,26 @@ Content-Type: multipart/form-data
 
 1. QQ 发图片 → AI 回复确认看到图片（FileRegistry 有记录，jsonl content 含提示文本）
 2. QQ 发文档 → AI 能 file_read 并总结内容
-3. client 中让 AI"把某个本地文档发给我" → QQ 收到文件消息（multipart 上传成功）
+3. client 中让 AI"把某个本地文档发给我" → QQ 收到文件消息（**v2 口径**：`application/json` 上传 + `media.file_info` 发送）
 4. 无富媒体权限环境 → QQ 收到含原因的失败提示（而非静默）
 5. 纯文本消息行为零回归（messageType=text 原路径）
 6. typecheck + lint:arch（例外更新后）通过
+7. **请求体口径单测**（`app/tests/channels/qqFileTransferPayload.test.ts`，5 例，**捕获真实请求体**）：上传 `Content-Type: application/json` + `file_data`(base64)/`url`，且**无** `file` / **无** `srv_send_msg`；发送 `media.file_info` 且**无** `file_uuid`；上传 400 与「上传成功但缺 `file_info`」⇒ 如实报错且**不**发消息
+
+> **v2 复测状态（如实）**：第 3 条（真机文件外发）**尚未复测** —— 需一次「回复正文含本地路径」的真机触发（v2 目前证据 = 协议口径对齐 + 上述单测）。
+> 触发方式（已知可行）：在 QQ 里让机器人 `file_read` 某文件并把路径回显到回复里即可复现该链路。
 
 ## 7. 实施步骤
 
 1. QQChannel：QQAttachment 类型 + 入站 attachments 处理（下载/注册/提示文本）
-2. QQChannel：uploadQQFile multipart 重写 + sendQQMediaMessage 被动字段修复
+2. QQChannel：uploadQQFile **JSON 口径**重写（`file_data`/`url`）+ sendQQMediaMessage 被动字段与 `media.file_info` 修复
 3. messageRouter：出站文件路径提取 + 追加发送 + 失败反馈
 4. layer-exceptions.json：QQChannel 行数例外更新
 5. typecheck + lint:arch + QQ 实测（用户配合发文件）
+
+## 8. 变更记录
+
+| 版本 | 日期 | 变更 | 依据 |
+|---|---|---|---|
+| **v2** | 2026-10-17 | ① 上传改 **JSON 口径**（本地 → `file_data` base64；远程 → `url`；**删** multipart 的 `file` 与文档没有的 `srv_send_msg`）；② 发送改 **`media.file_info`**；③ 上传缺 `file_info` ⇒ 报错且不发；④ 新增请求体口径单测 5 例 | 真机事故 `{status:400,apiMessage:"请求参数错误"}` + QQ 官方「富媒体消息」「发送单聊消息」两篇 |
+| v1 | 2026-08-20 | 初版（入站附件下载/注册 + 出站路径提取与发送；上传按 multipart 假设） | 用户裁定 |

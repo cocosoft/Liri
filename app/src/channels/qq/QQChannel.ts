@@ -534,20 +534,26 @@ class QQChannelPlugin extends BaseChannelPlugin {
   }
 
   /**
-   * 上传文件到 QQ Bot 媒体库（2026-08-20 spec qq-file-transfer 重写）
-   * POST /v2/groups/{group_id}/files 或 /v2/users/{user_id}/files
+   * 上传文件换取发消息所需的 **`file_info`**。
    *
-   * - 公网 http(s) URL → JSON body { url }（官方 url 方式）
-   * - 本地路径 → multipart/form-data 二进制上传（官方 file 方式；
-   *   旧实现将本地文件编码为 data URI 塞 JSON url 字段，QQ 服务端不接受）
+   * 依据（**外部权威**，2026-10-17 取证并订正）：QQ 官方「富媒体消息」
+   * （`bot.q.qq.com/wiki/develop/api-v2/server-inter/message/send-receive/rich-media.html`）
+   * 对 `POST /v2/users/{openid}/files`（群为 `/v2/groups/{group_openid}/files`）的**请求参数只有三个**：
+   * `file_type`（必填）/ `url`（必填，公网 url）/ **`file_data`（可选，base64 二进制）**；
+   * 返回 `file_uuid` / **`file_info`**（文档明示「文件信息，**用于发消息接口的 media 字段**」）/ `ttl`。
+   * ⇒ 本仓只消费 **`file_info`**（`file_uuid` 不使用，故不出现在返回类型里）。
    *
-   * @param fileType QQ file_type: 1=图片 2=视频 3=语音 4=文件
+   * ⚠️ 订正前的实现是 **multipart/form-data + 字段 `file`**（还多带了文档里没有的 `srv_send_msg`）
+   * —— 那不是文档参数：真机实测服务端回 **400**（日志 `QQ 媒体上传失败
+   * {fileType:4,status:400,apiMessage:"请求参数错误"}`）⇒ 文件**永远发不出去**。
+   *
+   * @param fileUrlOrPath 公网 `http(s)` URL ⇒ 走 `url`；本地路径 ⇒ 读为 **base64** 走 `file_data`
    */
   private async uploadQQFile(
     target: string,
     fileUrlOrPath: string,
     fileType: number
-  ): Promise<{ fileUuid?: string; error?: string }> {
+  ): Promise<{ fileInfo?: string; error?: string }> {
     try {
       const uploadUrlApi = getMediaUploadApiUrl(target);
       const token = await this.getAccessToken();
@@ -555,35 +561,26 @@ class QQChannelPlugin extends BaseChannelPlugin {
         fileUrlOrPath.startsWith('http://') ||
         fileUrlOrPath.startsWith('https://');
 
-      let resp: Response;
+      // 文档口径：两种来源都用 **JSON**（不是 multipart）
+      let body: Record<string, unknown>;
       if (isRemoteUrl) {
-        resp = await fetch(uploadUrlApi, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `QQBot ${token}`,
-          },
-          body: JSON.stringify({
-            file_type: fileType,
-            url: fileUrlOrPath,
-            srv_send_msg: false,
-          }),
-        });
+        body = { file_type: fileType, url: fileUrlOrPath };
       } else {
         const fs = await import('fs');
-        const path = await import('path');
-        const buf = fs.readFileSync(fileUrlOrPath);
-        const fileName = path.basename(fileUrlOrPath);
-        const form = new FormData();
-        form.append('file_type', String(fileType));
-        form.append('srv_send_msg', 'false');
-        form.append('file', new Blob([new Uint8Array(buf)]), fileName);
-        resp = await fetch(uploadUrlApi, {
-          method: 'POST',
-          headers: { Authorization: `QQBot ${token}` },
-          body: form,
-        });
+        body = {
+          file_type: fileType,
+          file_data: fs.readFileSync(fileUrlOrPath).toString('base64'),
+        };
       }
+
+      const resp = await fetch(uploadUrlApi, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `QQBot ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
 
       const data = (await resp.json()) as Record<string, unknown>;
       if (!resp.ok) {
@@ -607,7 +604,18 @@ class QQChannelPlugin extends BaseChannelPlugin {
             `上传失败: HTTP ${resp.status}${permissionHint}`,
         };
       }
-      return { fileUuid: data['file_uuid'] as string };
+
+      // ⚠️ 发消息用的是 **`file_info`**（不是 `file_uuid`）⇒ 缺它就**不臆造**，如实报错
+      const fileInfo = data['file_info'] as string | undefined;
+      if (!fileInfo) {
+        this.logger.warning('QQ 媒体上传返回缺少 file_info（无法用于发消息）', {
+          target,
+          fileType,
+          keys: Object.keys(data),
+        });
+        return { error: '上传返回缺少 file_info，无法发送' };
+      }
+      return { fileInfo };
     } catch (e) {
       await handleError(e, {
         module: 'channels:qq',
@@ -624,10 +632,14 @@ class QQChannelPlugin extends BaseChannelPlugin {
    * 2026-08-20 spec qq-file-transfer：修复假 msg_id——原实现传 Date.now()
    * 时间戳会被服务端拒绝或误耗主动消息配额；改为接入被动回复字段
    * （窗口内携带 msg_id/msg_seq，超窗降级不带，与 sendTextMessage 一致）
+   *
+   * ⚠️ 2026-10-17 取证订正：`media` 字段用 **`file_info`**（上传返回里那个「用于发消息接口的
+   * media 字段」的值），**不是** `file_uuid` —— 依据 QQ 官方「富媒体消息」返回参数说明与
+   * 「发送单聊消息」示例（`media.file_info`）。
    */
   private async sendQQMediaMessage(
     target: string,
-    fileUuid: string
+    fileInfo: string
   ): Promise<SendResult> {
     try {
       const token = await this.getAccessToken();
@@ -650,7 +662,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
       const passiveFields = this.passiveReply.consumePassiveReplyFields(target);
       const body: Record<string, unknown> = {
         msg_type: 7,
-        media: { file_uuid: fileUuid },
+        media: { file_info: fileInfo },
         ...passiveFields,
       };
 
@@ -665,7 +677,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
         });
         ({ resp, data } = await sendOnce({
           msg_type: 7,
-          media: { file_uuid: fileUuid },
+          media: { file_info: fileInfo },
         }));
       }
 
@@ -721,12 +733,12 @@ class QQChannelPlugin extends BaseChannelPlugin {
         return { success: false, error: (err as Error).message };
       }
     }
-    // C2C/群消息：先上传图片获取 file_uuid
+    // C2C/群消息：先上传图片换取 `file_info`（不是 `file_uuid`，见 `uploadQQFile` 头注）
     const upload = await this.uploadQQFile(target, imageUrl, 1);
-    if (!upload.fileUuid) {
+    if (!upload.fileInfo) {
       return { success: false, error: upload.error || '上传图片失败' };
     }
-    return this.sendQQMediaMessage(target, upload.fileUuid);
+    return this.sendQQMediaMessage(target, upload.fileInfo);
   }
 
   protected async sendFileMessage(
@@ -739,12 +751,12 @@ class QQChannelPlugin extends BaseChannelPlugin {
     if (scope === 'guild') {
       return { success: false, error: 'QQ 频道消息不支持文件发送' };
     }
-    // C2C/群消息：先上传文件获取 file_uuid
+    // C2C/群消息：先上传文件换取 `file_info`（不是 `file_uuid`，见 `uploadQQFile` 头注）
     const upload = await this.uploadQQFile(target, filePath, 4);
-    if (!upload.fileUuid) {
+    if (!upload.fileInfo) {
       return { success: false, error: upload.error || '上传文件失败' };
     }
-    return this.sendQQMediaMessage(target, upload.fileUuid);
+    return this.sendQQMediaMessage(target, upload.fileInfo);
   }
 
   protected override async sendInteractiveMessage(

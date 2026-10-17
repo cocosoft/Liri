@@ -9511,7 +9511,7 @@
     },
     {
       "id": "CHANNEL-BUDGET-INLINE-RELIEF",
-      "title": "通道侧「就地放行」：预算挂起卡片（带按钮）+ 按钮回调入站动作（先做 QQ）",
+      "title": "通道侧「就地放行」：预算挂起卡片（带按钮）+ 按钮回调入站动作（先做 QQ）（真机已复测：发卡 → 点击 → 放行 → 仅唤醒该会话 → 续跑）",
       "source": "用户裁定「A + C2（卡片回调，真·就地放行）→ 先 QQ（你实际在用的）」；上游 = 桌面端挂起入口收口后暴露的通道侧缺口（Spec long-task-suspend-resume v1.10 遗留「通道侧继续入口未做」）",
       "stages": {
         "discovered": true,
@@ -9546,7 +9546,7 @@
     },
     {
       "id": "CHANNEL-RELIEF-BUTTON-GATE",
-      "title": "通道就地放行的按钮**按白名单**给：入站回调未接线的通道不得给按钮（防「点了没反应」的假按钮）",
+      "title": "通道就地放行的按钮**按白名单**给：入站回调未接线的通道不得给按钮（防「点了没反应」的假按钮）（白名单**内**路径真机已证）",
       "source": "上一片（CHANNEL-BUDGET-INLINE-RELIEF）**自查发现的自身隐患**：出站按 `sendInteractive` 能力给按钮，而入站回调只接了 QQ ⇒ 对飞书等 11 个通道会给出「点了毫无反应」的按钮",
       "stages": {
         "discovered": true,
@@ -9754,6 +9754,32 @@
       "changelog": [],
       "reopenWhen": "① 落盘文件属**外部输入**（可能被手改 / 旧版本写入）：读取容错为「缺 `entries` 或整份损坏 ⇒ 空表（不抛）」+「单条形状非法 ⇒ **丢弃该条**」；若日后要加字段，务必保持这条向后兼容。② 条目上限 `BALANCE_WARN_MAX_ENTRIES=200`，超出按 `warnedAt` **…（全文见 archive/evidence-detail.jsonl#BALANCE-WARN-PERSIST）",
       "notes": "【问题（重启即复活）】上一片（`BALANCE-WARN-DEDUPE`）只做了**进程内**闸门 ⇒ 「同一持续性故障在一个进程里只记一次」成立，但本仓 **dev 模式每次保存源码都会重启**（真机实测：一轮编辑触发 3 次 `LocalHTTPService 已启动`），生产也会重启 ⇒ 每次重启后的首轮又刷一…（全文见 archive/evidence-detail.jsonl#BALANCE-WARN-PERSIST）"
+    },
+    {
+      "id": "COREAPI-FINISH-REASON-BUDGET-SUSPEND",
+      "title": "`chatStream` 出口的 `finishReason` 回落读 `metadata.finishReason` —— 修「预算挂起被降级为 `stop`」导致通道侧**不发挂起卡片**（真机才发现）",
+      "source": "真机复测 `CHANNEL-BUDGET-INLINE-RELIEF`（用户裁定「真机测预算挂起卡片」）时发现：09:53 首次实测挂起成立却**没有卡片**；09:56 修复后同一路径四步全通",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/runtime/api/CoreAPIImpl.ts"
+      ],
+      "tests": [
+        "app/tests/runtime/streamFinishReason.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 终止原因的**单一来源**仍是 `ReActToolLoop.computeFinalMessage` 写进 `metadata.finishReason`（← `resolveTerminationOutput`）；本片只在 **CoreAPI 出口回落读取**，未改落点。若日后把落点改回顶层，本回落变冗余（不…（全文见 archive/evidence-detail.jsonl#COREAPI-FINISH-REASON-BUDGET-SUSPEND）",
+      "notes": "【问题（**只在真机可见**）】2026-10-17 09:53 首次真机复测通道侧放行：预算挂起**已成立**（`reActLoop:daily_budget_exhausted` + `budgetSuspend:suspended` + 检查点 `cp_mvbqsf3x1f0fb29a` 已登记），⏸ 文案也正…（全文见 archive/evidence-detail.jsonl#COREAPI-FINISH-REASON-BUDGET-SUSPEND）"
     }
   ]
 }

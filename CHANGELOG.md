@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **COREAPI-FINISH-REASON-BUDGET-SUSPEND**：修 chatStream 出口把终止原因降级为 stop（回落读 metadata） —— 验证 e2e3|ut5|tc1|ts6686；基线 改前：出口只读顶层 finishReason ⇒ budget_exhausted 变 stop ⇒ 通道发卡判据永不成立（详情见 archive/evidence-detail.jsonl#COREAPI-FINISH-REASON-BUDGET-SUSPEND）
 - ✅ **BALANCE-WARN-PERSIST**：余额告警闸门落盘：跨进程重启不重复刷（查询成功即清除，保留状态变化上报） —— 验证 e2e3|ut10|tc1|ts6681；基线 改前：闸门仅进程内 ⇒ dev 每次存盘重启后又刷一条（真机实测一轮编辑触发 3 次重启）（详情见 archive/evidence-detail.jsonl#BALANCE-WARN-PERSIST）
 - ✅ **BALANCE-WARN-DEDUPE**：余额查询的持续性告警收敛为只记一次（进程内闸门 + 恢复即清记忆） —— 验证 e2e3|ut5|tc1|ts6676；基线 改前：同一持续性故障（SiliconFlow /user/info 已被官方下线）每轮轮询重复刷同一 warning（真机 00:32、00:51 各一条，无限重复且零新信息）（详情见 archive/evidence-detail.jsonl#BALANCE-WARN-DEDUPE）
 - ✅ **QQ-FILE-OUTBOUND-ELIGIBILITY**：QQ 出站文件「可外发资格」收窄：交付面内 或 本轮新产出，其余静默忽略 —— 验证 ut10|tc1|ts6671；基线 改前：资格=存在+非禁区 ⇒ 回复正文回显任一既有路径即被当投递意图（真机连续两条消息各误触发一次）（详情见 archive/evidence-detail.jsonl#QQ-FILE-OUTBOUND-ELIGIBILITY）

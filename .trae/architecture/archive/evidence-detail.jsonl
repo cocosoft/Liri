@@ -6725,3 +6725,8 @@
 {"id":"U13-T13A-TOOL-ERROR-STATE","k":"notes","i":0,"c":"读路径（MessageToEventMigrator.isToolError）早已认 status===FAILED / metadata.isError，但写路径（MessageService.createToolResultMessage）从不落这两个位 ⇒ 事件 isError 恒 false。修复在唯一构造点按 toolResult.error 落位，并保留调用方 metadata；新增 6 条守卫测试（构造端 3 + 投影端 3）。"}
 {"id":"U13-T13A-TOOL-ERROR-STATE","k":"code#0","i":0,"c":"app/src/chat/services/MessageService.ts"}
 {"id":"U13-T13A-TOOL-ERROR-STATE","k":"code#1","i":1,"c":"app/tests/session/MessageToEventMigrator.test.ts"}
+{"id":"U13-T13B-ORCH-LATENCY","k":"title","i":0,"c":"T-13-b：编排事件按起止配对派生链路耗时（P50/P95 不再恒 0）"}
+{"id":"U13-T13B-ORCH-LATENCY","k":"source","i":0,"c":"dev_docs/20261017/U-13-编排可观测量化口径与实测-20261017.md §5（T-13-b）"}
+{"id":"U13-T13B-ORCH-LATENCY","k":"notes","i":0,"c":"修复前：startTracking 只传 recordEvent(eventType, undefined, payload)，全仓无调用方注入 latencyMs ⇒ latencies 恒空。修复：订阅端按「起始事件 → 终止事件」配对派生（关联键 planId/chainId/taskId+stepName/stepIndex/sessionId/ruleId；同键 FIFO 支持嵌套；缺键仅在唯一待配对桶时退化配对，避免跨会话错配）；耗时记在起始事件类型上（与 OTel span 同语义）；窗口与待配对均设上限防无界增长。样本为进程内，需真实编排流量重采。"}
+{"id":"U13-T13B-ORCH-LATENCY","k":"code#0","i":0,"c":"app/src/core/events/OrchestrationMetrics.ts"}
+{"id":"U13-T13B-ORCH-LATENCY","k":"tests#0","i":0,"c":"app/tests/core/OrchestrationMetrics.test.ts"}

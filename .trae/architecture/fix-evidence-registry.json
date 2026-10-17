@@ -11630,6 +11630,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U13-T13A-TOOL-ERROR-STATE）",
       "notes": "读路径（MessageToEventMigrator.isToolError）早已认 status===FAILED / metadata.isError，但写路径（MessageService.createToolResultMessage）从不落这两个位 ⇒ 事件 isError 恒 false。修复在唯一构造点…（全文见 archive/evidence-detail.jsonl#U13-T13A-TOOL-ERROR-STATE）"
+    },
+    {
+      "id": "U13-T13B-ORCH-LATENCY",
+      "title": "T-13-b：编排事件按起止配对派生链路耗时（P50/P95 不再恒 0）",
+      "source": "dev_docs/20261017/U-13-编排可观测量化口径与实测-20261017.md §5（T-13-b）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/core/events/OrchestrationMetrics.ts"
+      ],
+      "tests": [
+        "app/tests/core/OrchestrationMetrics.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U13-T13B-ORCH-LATENCY）",
+      "notes": "修复前：startTracking 只传 recordEvent(eventType, undefined, payload)，全仓无调用方注入 latencyMs ⇒ latencies 恒空。修复：订阅端按「起始事件 → 终止事件」配对派生（关联键 planId/chainId/taskId+stepName/s…（全文见 archive/evidence-detail.jsonl#U13-T13B-ORCH-LATENCY）"
     }
   ]
 }

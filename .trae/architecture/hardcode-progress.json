@@ -1,13 +1,13 @@
 {
   "nextKey": "B5-2-100",
-  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "U-22-S1", "U-22-S2", "U-22-S3", "U-13-P1", "T-13-a"],
-  "lastCommit": "8511b9877",
+  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "U-22-S1", "U-22-S2", "U-22-S3", "U-13-P1", "T-13-a", "T-13-b"],
+  "lastCommit": "2e172c12d",
   "baselineKeys": {
     "lint:consts": 85,
     "lint:endpoints": 30,
     "lint:locale": 6
   },
-  "nextAction": "长程任务剩余批次：T-13-b（编排耗时注入/持久化 → 2.3 可验收）；随后 U-22/S4（ChatManager 流式收尾，当前 4790）",
+  "nextAction": "U-22/S4（ChatManager 流式收尾，当前 4790）；U-13 待用新数据窗口重采误调用率与编排 P50/P95（T-13-c 按需）",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为门禁实测口径（lint:consts 按组计：同名 17 + 同值 68 = 85；lint:endpoints / locale 按文件键计），非估算",
@@ -22,6 +22,7 @@
     "2026-10-17：U-22/S3 —— ChatManager 外移持久化/事件簇（_addAndPersistMessage + _appendEventsForMessage + updateMessageBlocks，共 452 行 → manager/messagePersistence.ts）；5245→4790 行；_turnToolChars 随迁由模块持有",
     "2026-10-17：U-13 阶段 2.1/2.4 —— 新增 measure-orchestration-metrics.ts 并出首轮数据（TTFT P95 31064→5442ms，n=38）；暴露三缺口：isError 状态位未落（误调用率恒 0）、编排事件未持久化、OrchestrationMetrics latency 恒 undefined ⇒ 2.3 未达标",
     "2026-10-17：T-13-a —— MessageService.createToolResultMessage 按 toolResult.error 落 status=FAILED + metadata.isError=true（唯一构造点，保留调用方 metadata）；补 6 条守卫测试；历史事件不可回填，误调用率对比需用新数据窗口",
+    "2026-10-17：T-13-b —— OrchestrationMetrics 订阅端按「起始事件 → 终止事件」配对派生耗时（关联键 planId/chainId/taskId/stepName/sessionId/ruleId，同键 FIFO；缺键仅在唯一桶时退化配对；耗时挂起始事件类型，窗口/待配对均有上限）；补 5 条守卫测试；样本为进程内，需真实编排流量重采",
     "2026-10-17：query/patternAssembly.ts:49（:1977）与 state/engine/stateMachineCatalog.ts:185（:3184）是**行号/定位串**被 FIXED_PORT_RE 误判，非遗留硬编码；constants/common.ts 的 DEFAULT_HOST 为零消费者死常量，按 CD05/CD06 走独立变更"
   ]
 }

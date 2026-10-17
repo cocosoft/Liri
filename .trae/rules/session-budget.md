@@ -61,12 +61,13 @@
 
 - 字段：`{nextKey, doneKeys[], lastCommit, baselineKeys, nextAction, decisions[]}`；
   **每片结束必写 `nextAction` 一行**（下轮照此一行即可续跑）。
-- 状态：**待阶段 C**（当前以交接单 + `reopenWhen` 承担）。
+- 状态：**已落地（2026-10-17，阶段 C）** —— `.trae/architecture/hardcode-progress.json` 已建；
+  写作纪律：每片结束**只改 `nextAction`/`lastCommit`/`doneKeys`**（短行锚点，SB08-2）。
 
 ### SB07 [SHOULD] 交接单由脚本生成（≤30 行）
 
 - 内容 = SB06 字段的渲染；替代人手写长交接单。
-- 状态：**待阶段 C**。
+- 状态：**已落地（2026-10-17，阶段 C）** —— `bun run scripts/gen-handoff.ts`（≤30 行；`--out` 可落盘）。
 
 ---
 
@@ -121,8 +122,8 @@
 | SB03 | 台账类文件单行 ≤300（JSONL ≤400）+ 棘轮门禁 | MUST | **已生效** |
 | SB04 | 长分析迁 `dev_docs/`，台账只放指针 | SHOULD | 规范已落 |
 | SB05 | 4 检查点；**先提交代码、后补台账** | MUST | **已生效（纪律）** |
-| SB06 | `hardcode-progress.json` + 每片写 `nextAction` | MUST | 规范已落 / 机制待 C |
-| SB07 | 交接单脚本生成（≤30 行） | SHOULD | 规范已落 / 机制待 C |
+| SB06 | `hardcode-progress.json` + 每片写 `nextAction` | MUST | **已生效（阶段 C，2026-10-17）** |
+| SB07 | 交接单脚本生成（≤30 行） | SHOULD | **已生效（阶段 C，2026-10-17）** |
 | SB08 | 工具纪律四则（输出裁剪 / 短行编辑 / 一次聚合 / 报告模板化） | MUST | **已生效（含 R5 配方）** |
 | SB09 | 单片 ≤18 调用 / ≤10k tokens，超限拆分 | MUST | **已生效（纪律）** |
 | SB10 | 计划变更必须登记 | MUST | 规范已落 |

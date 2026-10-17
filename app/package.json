@@ -75,6 +75,8 @@
     "lint:failmsg-refs": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-failmsg-refs.ts",
     "lint:evidence-linewidth": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-evidence-linewidth.ts",
     "lint:evidence-views-drift": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-evidence-views-drift.ts",
+    "handoff": "bun run ../scripts/gen-handoff.ts",
+    "measure:session-cost": "bun run ../scripts/measure-session-cost.ts",
     "lint:license": "bun run ../scripts/check-license-compliance.ts",
     "audit:complexity": "bun run scripts/state-complexity-audit.ts",
     "bench:otel": "bun run scripts/bench-otel-overhead.ts",

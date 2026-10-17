@@ -1,0 +1,15 @@
+{
+  "nextKey": "B5-2-69",
+  "doneKeys": ["B5-2-65", "B5-2-66", "B5-2-67", "B5-2-68"],
+  "lastCommit": "2b9afc07b",
+  "baselineKeys": {
+    "lint:consts": 180,
+    "lint:endpoints": 96,
+    "lint:locale": 6
+  },
+  "nextAction": "继续 B5-2-69：从 lint:consts 基线按「同名同义优先」收敛 1 键，同批补守卫并下调基线",
+  "decisions": [
+    "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
+    "基线键数为实测值（node 解析 hardcode-gate-baseline.json），非估算"
+  ]
+}

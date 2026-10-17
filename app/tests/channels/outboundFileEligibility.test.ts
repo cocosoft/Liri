@@ -20,10 +20,14 @@ import {
   utimesSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 
-import { filterSendableFiles } from '../../src/channels/routing/outboundFileRouter';
+import {
+  expandTildePath,
+  extractLocalFilePaths,
+  filterSendableFiles,
+} from '../../src/channels/routing/outboundFileRouter';
 
 let root = '';
 const savedLiriHome = process.env['LIRI_HOME'];
@@ -137,5 +141,46 @@ describe('realpath 加固：交付面内的链接不可指向面外', () => {
     });
     expect(sendable).toEqual([]); // realpath 落到 elsewhere ⇒ 既不在面内、也非本轮产出
     expect(skipped).toEqual([]);
+  });
+});
+
+/**
+ * 路径提取（2026-10-17 真机）：模型在正文写 `~/.pyapp/output/x.md`，
+ * 旧提取器只认 `C:\…` ⇒ 候选为 0、**零日志静默退出**，用户什么也收不到。
+ */
+describe('路径提取：Windows 绝对路径 + `~` 主目录简写', () => {
+  it('反引号包裹的 Windows 路径 ⇒ 原样提取', () => {
+    expect(extractLocalFilePaths('见 `C:\\tmp\\a.md`')).toEqual([
+      'C:\\tmp\\a.md',
+    ]);
+  });
+
+  it('裸 Windows 路径 ⇒ 提取并去掉结尾标点', () => {
+    expect(extractLocalFilePaths('见 C:\\tmp\\a.md.')).toEqual([
+      'C:\\tmp\\a.md',
+    ]);
+  });
+
+  it('反引号包裹的 `~/…` ⇒ 展开为主目录绝对路径（允许含空格）', () => {
+    const p = '~/.pyapp/output/a b.md';
+    expect(extractLocalFilePaths(`见 \`${p}\``)).toEqual([
+      join(homedir(), '.pyapp', 'output', 'a b.md'),
+    ]);
+  });
+
+  it('裸 `~\\…` ⇒ 同样展开', () => {
+    expect(extractLocalFilePaths('见 ~\\pyapp\\output\\a.md')).toEqual([
+      join(homedir(), 'pyapp', 'output', 'a.md'),
+    ]);
+  });
+
+  it('同一路径重复出现 ⇒ 去重（大小写不敏感）', () => {
+    expect(extractLocalFilePaths('`C:\\Tmp\\A.md` 与 C:\\tmp\\a.md')).toEqual([
+      'C:\\Tmp\\A.md',
+    ]);
+  });
+
+  it('expandTildePath：非 `~` 开头原样返回', () => {
+    expect(expandTildePath('C:\\x')).toBe('C:\\x');
   });
 });

@@ -33,6 +33,7 @@
  */
 
 import { realpathSync, statSync, type Stats } from 'fs';
+import { homedir } from 'node:os';
 import { resolve, sep } from 'node:path';
 import {
   resolveAttachmentsDir,
@@ -63,9 +64,15 @@ export interface ExtractedFiles {
 /**
  * 从回复文本提取本地文件路径
  *
- * 识别两类形态（AI 输出惯例）：
- * 1. 反引号包裹：`C:\Users\x\文档.docx`
+ * 识别四类形态（AI 输出惯例）：
+ * 1. 反引号包裹的 Windows 绝对路径：`C:\Users\x\文档.docx`
  * 2. 裸 Windows 绝对路径（无空格段）
+ * 3. 反引号包裹的主目录简写：`~/pyapp/output/x.md`（模型常用；允许含空格）
+ * 4. 裸主目录简写：`~/pyapp/output/x.md`
+ *
+ * 为什么认 `~/`（2026-10-17 真机）：模型在正文里写 `~/.pyapp/output/xxx.md`，
+ * 而提取器只认 `C:\…` ⇒ 候选为 0、**零日志静默退出**，用户什么也收不到
+ * （当时文件实际也不在该目录，见 `FileWriteTool` 回执修复）。
  */
 export function extractLocalFilePaths(content: string): string[] {
   const paths: string[] = [];
@@ -78,12 +85,33 @@ export function extractLocalFilePaths(content: string): string[] {
   }
 
   // 2) 裸路径（不含空格/中文标点结尾）
+  // ⚠️ 在**剔除反引号片段**后的文本上匹配：否则 `~/a b.md` 里的 `~/a` 会被当成另一个候选
+  const bareText = content.replace(/`[^`]*`/g, ' ');
   const bareRe = /[A-Za-z]:\\[^\s*"'<>|，。；！？）】`]+/g;
-  for (const m of content.matchAll(bareRe)) {
+  for (const m of bareText.matchAll(bareRe)) {
     pushUnique(paths, seen, m[0].replace(/[.,;:!?)]+$/, ''));
   }
 
+  // 3) 反引号包裹的 `~/…` / `~\…`（允许含空格）
+  const tildeBacktickRe = /`(~[\\/][^`]+)`/g;
+  for (const m of content.matchAll(tildeBacktickRe)) {
+    pushUnique(paths, seen, expandTildePath(m[1]!.trim()));
+  }
+
+  // 4) 裸 `~/…` / `~\…`
+  const tildeBareRe = /~[\\/][^\s*"'<>|，。；！？）】`]+/g;
+  for (const m of bareText.matchAll(tildeBareRe)) {
+    pushUnique(paths, seen, expandTildePath(m[0].replace(/[.,;:!?)]+$/, '')));
+  }
+
   return paths;
+}
+
+/** `~/…` / `~\…` ⇒ 绝对路径（其它形态原样返回） */
+export function expandTildePath(p: string): string {
+  if (!p.startsWith('~')) return p;
+  const rest = p.slice(1).replace(/^[\\/]+/, '');
+  return resolve(homedir(), rest);
 }
 
 function pushUnique(paths: string[], seen: Set<string>, p: string): void {

@@ -133,7 +133,8 @@ export class FileWriteTool extends BaseTool {
     '当内容已存在于磁盘上（例如其它工具已产出本地文件）时，' +
     '必须传入 source_file，而不是把完整内容作为字符串复述——' +
     '这样可避免输出 token 爆炸、JSON 截断与内存膨胀。' +
-    '注意：产物落在全局输出目录（~/.pyapp/output/），不属于任何项目、不会登记到「成果」面板；' +
+    '路径解析：绝对路径按原样使用；**相对路径/纯文件名解析到会话工作目录**（无工作目录时才回退全局输出目录 `~/.pyapp/output/`）。' +
+    '回执会给出**实际写入的绝对路径**——在回复里转述位置时请用它，不要自行改写为 `~/...` 或其它目录。' +
     '若该文件须归入某项目的交付物，请改用 write_project_file 写入该项目 output/。';
 
   override tags = [ToolTag.FILE, ToolTag.WRITE];
@@ -143,10 +144,8 @@ export class FileWriteTool extends BaseTool {
       name: 'file_path',
       type: 'string',
       description:
-        '目标文件路径。优先使用相对路径或纯文件名——' +
-        '它会被保存到应用输出目录（~/.pyapp/output）下。' +
-        '不要臆造用户主目录或项目根目录下的绝对路径，' +
-        '除非用户明确指定了具体位置。',
+        '目标文件路径。绝对路径按原样使用；相对路径会解析到**会话工作目录**（无工作目录时才回退 `~/.pyapp/output`）。' +
+        '回执返回实际绝对路径，回复中请直接引用它。',
       required: true,
     },
     {
@@ -211,6 +210,10 @@ export class FileWriteTool extends BaseTool {
       const append = (input.append as boolean) || false;
       // G3：相对路径优先解析到会话工作目录（cwd），缺省回退 outputDir
       const baseDir = getToolBaseDir(context);
+      // 2026-10-17：**只解析一次**，写盘与回执用同一个绝对路径 ——
+      // 此前回执原样回显 `input.file_path`（相对路径）⇒ 模型误以为落在 `~/.pyapp/output`，
+      // 在正文里写出该路径（文件实际在工作区根）⇒ 出站文件路由取不到，用户什么也收不到。
+      const resolvedPath = resolveFilePath(input.file_path as string, baseDir);
 
       // content 与 source_file 至少提供一个：内容在磁盘时必须优先走 source_file（0 输出 token）
       const hasContent =
@@ -267,16 +270,15 @@ export class FileWriteTool extends BaseTool {
       }
 
       if (append) {
-        const resolved = resolveFilePath(input.file_path as string, baseDir);
         // 使用编码感知的文件读取（自动检测 UTF-8 / GBK / GB18030）
-        const existingContent = readFileWithEncoding(resolved);
+        const existingContent = readFileWithEncoding(resolvedPath);
         writeFile({
-          filePath: resolved,
+          filePath: resolvedPath,
           content: existingContent + effectiveContent,
         });
       } else {
         writeFile({
-          filePath: resolveFilePath(input.file_path as string, baseDir),
+          filePath: resolvedPath,
           content: effectiveContent,
         });
       }
@@ -289,7 +291,7 @@ export class FileWriteTool extends BaseTool {
           toolUseID: 'file-write-tool',
           data: {
             type: 'file_write',
-            filePath: input.file_path as string,
+            filePath: resolvedPath,
             isRunning: false,
             isComplete: true,
           },
@@ -297,11 +299,12 @@ export class FileWriteTool extends BaseTool {
       }
 
       const verb = append ? 'appended to' : 'written';
-      return createToolResult(`File ${verb} successfully: ${input.file_path}`, {
+      // 回执必须是**绝对路径**：模型据此在正文里复述位置，出站文件路由也只认绝对路径
+      return createToolResult(`File ${verb} successfully: ${resolvedPath}`, {
         newMessages: [
           {
             role: 'system',
-            content: `Successfully ${verb} file: ${input.file_path}`,
+            content: `Successfully ${verb} file: ${resolvedPath}`,
           },
         ],
       });

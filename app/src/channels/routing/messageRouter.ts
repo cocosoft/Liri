@@ -531,6 +531,9 @@ export async function routeChannelMessage(
       const generator = coreAPI.chatStream({
         content: message.content,
         sessionId: safeSessionId,
+        // U-07（2026-10-17）：透传入站 messageId —— 与 chat-handlers 对齐，
+        // 让 ChatManager 复用写前落盘的用户消息 id（重投幂等/避免 id 漂移）。
+        messageId: message.messageId,
         // PR1（2026-10-09）：执行标识外显（契约；消费者接线随 PR2/PR5 展开）
         executionId: lease.executionId,
         // T1-6（通道治理 §1.3 收口，2026-10-13）：**入站附件透传进 R16 预留口径** ——
@@ -576,6 +579,7 @@ export async function routeChannelMessage(
           channelName,
           traceId,
           enableLongTaskPlaceholder: options.enableLongTaskPlaceholder === true,
+          supportsQuestionAnswer: options.supportsQuestionAnswer === true,
           onOutbound,
           llmStartMs,
           finishExecution,

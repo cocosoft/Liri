@@ -36,6 +36,11 @@ export interface RouteMessageOptions {
     chatStream(params: {
       content: string;
       sessionId: string;
+      /**
+       * U-07（2026-10-17）：入站消息 id（写前落盘复用/重投幂等）。
+       * 缺省时后端自行生成；渠道侧应传 `MessageContext.messageId`。
+       */
+      messageId?: string;
       /** P26-1 §9.1（2026-10-07）：请求优先级（渠道入站传 `background`） */
       priority?: RequestPriority;
       /** PR1（2026-10-09）：执行标识（Execution 生命周期归属；见 spec） */
@@ -77,6 +82,11 @@ export interface RouteMessageOptions {
    * （email/sms/webhook 等主动 API 出站）发占位是纯干扰，缺省不发送。
    */
   enableLongTaskPlaceholder?: boolean;
+  /**
+   * U-05（2026-10-17）：渠道是否支持回答交互提问。
+   * 缺省 false ⇒ question 到达时提示用户并 fail-closed 中止（防静默死等）。
+   */
+  supportsQuestionAnswer?: boolean;
   /** 通道名称（用于日志和追踪） */
   channelName?: string;
   /** 是否启用端到端追踪 */

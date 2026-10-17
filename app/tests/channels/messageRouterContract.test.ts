@@ -270,3 +270,26 @@ describe('R4 契约⑥：不同账号相同 messageId ⇒ 不跨账号误去重'
     expect(r2.response).not.toBe('duplicate_skipped');
   });
 });
+
+describe('U-07（2026-10-17）：入站 messageId 透传', () => {
+  it('chatStream 收到的 messageId == 入站 MessageContext.messageId', async () => {
+    let captured: { messageId?: string } | undefined;
+    const msg = makeMessage({ senderId: 'c-u07' });
+    await routeChannelMessage(msg, {
+      coreAPI: {
+        chat: async () => ({ content: 'x' }),
+        chatStream: (request: unknown) => {
+          captured = request as { messageId?: string };
+          return (async function* () {
+            yield { type: 'text', content: 'ok', sessionId: '' } as const;
+            return { content: 'ok', finishReason: 'stop' };
+          })();
+        },
+      },
+      channelName: 'telegram',
+      dmPolicy: allow('c-u07'),
+    });
+
+    expect(captured?.messageId).toBe(msg.messageId);
+  });
+});

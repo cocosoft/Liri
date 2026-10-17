@@ -1,10 +1,8 @@
 {
   "lint:consts": {
-    "同名常量:FORK_DIRECTIVE_PREFIX": 2,
     "同名常量:MAX_TRACKED": 2,
     "同名常量:MAX_RECENT": 2,
     "同名常量:REPO_ROOT": 2,
-    "同名常量:READ_TOOLS": 2,
     "同名常量:DANGEROUS_PATTERNS": 2,
     "同名常量:DAILY_BUDGET_SSE_EVENT": 2,
     "同名常量:MAX_ENTRIES": 2,

@@ -25,6 +25,8 @@
 
 // U-03b（2026-10-17）：路径语义入参键的单一事实源（LRO workspace 收敛复用）
 export { PATH_ARG_KEYS } from './tool-constants.js';
+// U-20/B5-2-78（2026-10-17）：读类工具名清单的单一事实源（evals 过程断言复用，避免同名常量分叉）
+export { READ_TOOLS } from './tool-constants.js';
 
 export {
   ReActLoop,

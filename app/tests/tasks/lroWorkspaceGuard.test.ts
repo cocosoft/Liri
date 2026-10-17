@@ -32,6 +32,7 @@ describe('findWorkspaceEscape', () => {
       file_path: '../../etc/passwd',
     });
     expect(escape?.key).toBe('file_path');
+    expect(escape?.via).toBe('lexical');
   });
 
   it('工作区外绝对路径 ⇒ 拒绝', () => {
@@ -39,6 +40,39 @@ describe('findWorkspaceEscape', () => {
     const escape = findWorkspaceEscape(workspace, { path: outside });
     expect(escape?.key).toBe('path');
     expect(escape?.resolved).toBe(outside);
+    expect(escape?.via).toBe('lexical');
+  });
+
+  // U-24：符号链接旁路（纯词法检查看不见链接目标）。
+  describe('符号链接 / 真实路径（U-24）', () => {
+    it('字面在 workspace 内、真实路径越界 ⇒ 拒绝（via=symlink）', () => {
+      const escape = findWorkspaceEscape(
+        workspace,
+        { file_path: 'link/secret.env' },
+        {
+          realPath: (p) => {
+            if (p === workspace) return resolve('/real/ws');
+            if (p.endsWith('secret.env')) return resolve('/outside/secret.env');
+            return p;
+          },
+        }
+      );
+      expect(escape?.key).toBe('file_path');
+      expect(escape?.via).toBe('symlink');
+    });
+
+    it('workspace 自身为符号链接，子路径仍在其真实根内 ⇒ 放行（不误拦）', () => {
+      const realRoot = resolve('/real/ws');
+      const escape = findWorkspaceEscape(
+        workspace,
+        { file_path: 'out/a.txt' },
+        {
+          realPath: (p) =>
+            p.startsWith(workspace) ? p.replace(workspace, realRoot) : p,
+        }
+      );
+      expect(escape).toBeNull();
+    });
   });
 
   it('无路径参数 / 空值 ⇒ 不放行也不误拦', () => {

@@ -17,7 +17,7 @@ import type { ModuleBridgeDependencies } from './ModuleBridgeRuntime.js';
 import type { AcpWebSocketServerConfig } from '@modules/acp/types.js';
 import { configManager } from '@modules/config';
 import type { AcpRuntime } from '@modules/acp';
-import { LOCAL_HTTP_HOST } from '@modules/core';
+import { LOCAL_HTTP_HOST, LOCAL_SERVICE_HOST } from '@modules/core';
 
 const logger = getLogger('bridge:moduleSetup');
 
@@ -60,7 +60,7 @@ function isLoopbackHost(host: string | undefined): boolean {
     .toLowerCase()
     .replace(/^\[|\]$/g, '');
   if (h === '') return true;
-  if (h === 'localhost') return true;
+  if (h === LOCAL_SERVICE_HOST) return true;
   const ipVersion = isIP(h);
   if (ipVersion === 6) return h === '::1';
   if (ipVersion === 4) return h.startsWith('127.');
@@ -87,7 +87,7 @@ export function resolveAcpRemoteRefusalReason(config: {
   if (config.authToken?.trim()) return null;
   return (
     `监听地址 ${config.host} 非本机回环，且未配置 ACP_REMOTE_AUTH_TOKEN —— ` +
-    'ACP 的免认证仅适用于回环地址；请配置 token，或把 ACP_REMOTE_HOST 改回 127.0.0.1'
+    `ACP 的免认证仅适用于回环地址；请配置 token，或把 ACP_REMOTE_HOST 改回 ${LOCAL_HTTP_HOST}`
   );
 }
 

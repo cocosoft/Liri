@@ -25,6 +25,7 @@ import { mcpAuthManager } from './auth/MCPAuth';
 import { feature } from '@modules/featureflags';
 import type { MCPOAuthConfig } from './auth/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 /**
  * MCP服务器连接
@@ -138,7 +139,7 @@ export class MCPConnection {
         '/.well-known/oauth-authorization-server',
         '/token'
       ),
-      redirectUri: `http://localhost:${oauth.callbackPort || 3000}/callback`,
+      redirectUri: `http://${LOCAL_SERVICE_HOST}:${oauth.callbackPort || 3000}/callback`,
       scopes: ['read', 'write'],
     };
   }

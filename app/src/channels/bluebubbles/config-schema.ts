@@ -2,6 +2,8 @@
  * BlueBubbles 通道配置模式
  */
 
+import { DEFAULT_BLUEBUBBLES_SERVER_URL } from '@modules/core';
+
 export interface BlueBubblesConfig {
   enabled: boolean;
   serverUrl: string;
@@ -13,7 +15,7 @@ export interface BlueBubblesConfig {
 export function getDefaultBlueBubblesConfig(): BlueBubblesConfig {
   return {
     enabled: false,
-    serverUrl: 'http://localhost:1234',
+    serverUrl: DEFAULT_BLUEBUBBLES_SERVER_URL,
     password: '',
     homeHandle: '',
     allowPrivateNetwork: false,

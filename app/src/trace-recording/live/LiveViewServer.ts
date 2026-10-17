@@ -14,6 +14,7 @@ import { TraceEngine } from '../engine/TraceEngine';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 const logger = getLogger('trace-recording:live:LiveViewServer');
 
 /** SSE 客户端连接 */
@@ -93,7 +94,7 @@ export class LiveViewServer {
    * 获取服务器 URL
    */
   getUrl(): string {
-    return `http://localhost:${this.port}`;
+    return `http://${LOCAL_SERVICE_HOST}:${this.port}`;
   }
 
   /**
@@ -129,7 +130,7 @@ export class LiveViewServer {
   ): void {
     const url = new URL(
       req.url || '/',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const path = url.pathname;
 

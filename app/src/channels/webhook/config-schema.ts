@@ -3,6 +3,8 @@
  * 对标 IRC config-schema.ts 模式
  */
 
+import { WILDCARD_BIND_HOST } from '@modules/core';
+
 export interface WebhookConfig {
   listenPort: number;
   listenHost: string;
@@ -13,7 +15,7 @@ export interface WebhookConfig {
 
 const DEFAULTS: Partial<WebhookConfig> = {
   listenPort: 9100,
-  listenHost: '0.0.0.0',
+  listenHost: WILDCARD_BIND_HOST,
   path: '/webhook',
 };
 

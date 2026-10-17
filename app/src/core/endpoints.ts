@@ -75,6 +75,25 @@ export const DEFAULT_LOCAL_OAUTH_API_BASE = `http://${LOCAL_SERVICE_HOST}:8000`;
 export const DEFAULT_LOCAL_OAUTH_APPS_BASE = `http://${LOCAL_SERVICE_HOST}:4000`;
 
 /**
+ * 对外**绑定**的通配 host（`0.0.0.0`）。
+ *
+ * ⚠️ 仅用于「监听/绑定」语义（例如 webhook 通道的 `listenHost`），**不得**用于连接目标 ——
+ * 否则会把"对外暴露"与"本机自连"绑死（见本文件 §语义边界 1；U-20/B5-2-94）。
+ */
+export const WILDCARD_BIND_HOST = '0.0.0.0';
+
+/** BlueBubbles 服务默认地址（本机默认端口 1234；U-20/B5-2-94） */
+export const DEFAULT_BLUEBUBBLES_SERVER_URL = `http://${LOCAL_SERVICE_HOST}:1234`;
+
+/**
+ * 供应商引导记录里 llama.cpp 的默认 baseUrl（历史值为 8080）。
+ *
+ * 与 `LOCAL_INFERENCE_ENDPOINTS.llamacpp`（11435）**数值不同、来源不同**（引导记录 vs
+ * 运行时预设）⇒ 按方案 §5 N7 口径**不合并**，仅按域命名（U-20/B5-2-94）。
+ */
+export const DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL = `http://${LOCAL_SERVICE_HOST}:8080`;
+
+/**
  * 本地推理服务的 OpenAI 兼容端点（供供应商预设的候选清单使用；U-20/B5-2-92）。
  *
  * 每个服务保留 `hostname`（本机名形式）与 `loopback`（`127.0.0.1`）两种候选，

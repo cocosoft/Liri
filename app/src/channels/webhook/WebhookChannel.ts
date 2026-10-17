@@ -17,6 +17,7 @@ import type {
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { WILDCARD_BIND_HOST } from '@modules/core';
 const logger = getLogger('channels:webhook:WebhookChannel');
 
 // ── 4.2（P0-2）：webhook 入站真实性校验 ──
@@ -121,7 +122,7 @@ export class WebhookChannel extends EventEmitter {
     this.config = {
       enabled: config?.enabled || false,
       listenPort: config?.listenPort || 9100,
-      listenHost: config?.listenHost || '0.0.0.0',
+      listenHost: config?.listenHost || WILDCARD_BIND_HOST,
       secret: config?.secret,
       path: config?.path || '/webhook',
       endpoints: config?.endpoints || [],
@@ -332,7 +333,7 @@ class WebhookChannelPlugin extends BaseChannelPlugin {
   protected getDefaultConfig(): Record<string, unknown> {
     return {
       listenPort: 9100,
-      listenHost: '0.0.0.0',
+      listenHost: WILDCARD_BIND_HOST,
       path: '/webhook',
       endpoints: [],
       secret: '',

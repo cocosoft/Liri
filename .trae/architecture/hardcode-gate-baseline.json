@@ -124,15 +124,10 @@
     "同值host:localhost:11434": 4
   },
   "lint:endpoints": {
-    "app/src/ai/ModelManagementBootstrap.ts": 2,
     "app/src/ai/providers/FALProvider.ts": 3,
     "app/src/ai/providers/OpenAIProvider.ts": 5,
     "app/src/ai/utils/LLMOutputValidator.ts": 2,
-    "app/src/bridge/ModuleBridgeSetup.ts": 2,
     "app/src/bridge/utils/bridgeConfig.ts": 1,
-    "app/src/channels/bluebubbles/config-schema.ts": 2,
-    "app/src/channels/webhook/config-schema.ts": 1,
-    "app/src/channels/webhook/WebhookChannel.ts": 2,
     "app/src/chat/services/ChatHelper.ts": 3,
     "app/src/cli/config.ts": 1,
     "app/src/cli/handlers/authHandler.ts": 6,
@@ -190,7 +185,6 @@
     "app/src/sandbox/docker/NetworkPolicyEngine.ts": 1,
     "app/src/sandbox/IsolationManager.ts": 5,
     "app/src/services/mcp/elicitationHandler.ts": 2,
-    "app/src/services/mcp/MCPConnection.ts": 1,
     "app/src/services/voice/voiceKeyterms.ts": 1,
     "app/src/skills/loaders/adapter/SkillSearchEngine.ts": 3,
     "app/src/state/engine/stateMachineCatalog.ts": 1,
@@ -200,7 +194,6 @@
     "app/src/tools/WebFetchTool/preapproved.ts": 4,
     "app/src/tools/WebFetchTool/ssrf.ts": 9,
     "app/src/tools/WebSearchTool/providers.ts": 5,
-    "app/src/trace-recording/live/LiveViewServer.ts": 2,
     "client/src/i18n/locales/en.ts": 3,
     "client/src/i18n/locales/zh.ts": 3
   },

@@ -22,7 +22,10 @@ export async function handleListGraphEdges(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`);
+    const url = new URL(
+      req.url!,
+      `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`
+    );
     const domain = url.searchParams.get('domain') ?? undefined;
     const entityId = url.searchParams.get('entityId') ?? undefined;
     const type = url.searchParams.get('type') ?? undefined;

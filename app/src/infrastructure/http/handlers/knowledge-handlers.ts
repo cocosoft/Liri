@@ -15,7 +15,11 @@ import { SandboxPermission } from '../../../core/sandboxPermission.js';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 import { handleError } from '@modules/error';
-import { globalEventBus, LOCAL_REQUEST_BASE_URL, LOCAL_SERVICE_HOST } from '@modules/core';
+import {
+  globalEventBus,
+  LOCAL_REQUEST_BASE_URL,
+  LOCAL_SERVICE_HOST,
+} from '@modules/core';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // C1（2026-09-30 D-97，`knowledge` 域 P3）：类型位改为服务层端口类型
 // （原文由 docs 域提供；此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
@@ -354,7 +358,10 @@ export async function handleSearchKnowledge(
     }
 
     // 解析 URL 查询参数（base, domain, tags 等）
-    const url = new URL(req.url!, `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`);
+    const url = new URL(
+      req.url!,
+      `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`
+    );
     const base = url.searchParams.get('base') ?? undefined;
     const domain = url.searchParams.get('domain') ?? undefined;
     const urlTags = url.searchParams
@@ -486,7 +493,10 @@ export async function handleKnowledgeRawPreview(
     const { resolve, sep, extname, basename } = await import('path');
     const { realpath, readFile } = await import('fs/promises');
 
-    const url = new URL(req.url!, `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`);
+    const url = new URL(
+      req.url!,
+      `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`
+    );
     const file = url.searchParams.get('file');
     if (!file) {
       res.writeHead(400, { 'Content-Type': 'application/json' });

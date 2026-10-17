@@ -326,7 +326,10 @@ export async function handleImageMetadata(
 ): Promise<void> {
   try {
     const rawUrl = req.url || '/';
-    const urlObj = new URL(rawUrl, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const urlObj = new URL(
+      rawUrl,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const filePath = urlObj.searchParams.get('path');
 
     if (!filePath) {
@@ -532,7 +535,10 @@ export async function handleImageList(
 ): Promise<void> {
   try {
     const rawUrl = req.url || '/';
-    const urlObj = new URL(rawUrl, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const urlObj = new URL(
+      rawUrl,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const page = Math.max(
       1,
       parseInt(urlObj.searchParams.get('page') || '1', 10)
@@ -648,7 +654,10 @@ export async function handleImageDelete(
 ): Promise<void> {
   try {
     const rawUrl = req.url || '/';
-    const urlObj = new URL(rawUrl, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const urlObj = new URL(
+      rawUrl,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const filePath = urlObj.searchParams.get('path');
 
     if (!filePath) {

@@ -410,7 +410,10 @@ export async function handleCronRuns(
   url: string
 ): Promise<void> {
   try {
-    const urlObj = new URL(url, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const urlObj = new URL(
+      url,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const jobId = urlObj.searchParams.get('jobId') || undefined;
     const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
     const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);

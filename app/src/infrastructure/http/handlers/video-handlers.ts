@@ -340,7 +340,10 @@ export async function handleVideoMetadata(
 ): Promise<void> {
   try {
     const rawUrl = req.url || '/';
-    const urlObj = new URL(rawUrl, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const urlObj = new URL(
+      rawUrl,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const filePath = urlObj.searchParams.get('path');
 
     if (!filePath) {
@@ -445,7 +448,10 @@ export async function handleVideoBySourceImage(
 ): Promise<void> {
   try {
     const rawUrl = req.url || '/';
-    const urlObj = new URL(rawUrl, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const urlObj = new URL(
+      rawUrl,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const imagePath = urlObj.searchParams.get('path');
 
     if (!imagePath) {
@@ -501,7 +507,10 @@ export async function handleVideoList(
 ): Promise<void> {
   try {
     const rawUrl = req.url || '/';
-    const urlObj = new URL(rawUrl, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const urlObj = new URL(
+      rawUrl,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const page = Math.max(
       1,
       parseInt(urlObj.searchParams.get('page') || '1', 10)
@@ -628,7 +637,10 @@ export async function handleVideoDelete(
 ): Promise<void> {
   try {
     const rawUrl = req.url || '/';
-    const urlObj = new URL(rawUrl, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const urlObj = new URL(
+      rawUrl,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const filePath = urlObj.searchParams.get('path');
 
     if (!filePath) {
@@ -705,7 +717,10 @@ export async function handleVideoExtractAudio(
 ): Promise<void> {
   try {
     const rawUrl = req.url || '/';
-    const urlObj = new URL(rawUrl, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const urlObj = new URL(
+      rawUrl,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const filePath = urlObj.searchParams.get('path');
 
     if (!filePath) {
@@ -778,7 +793,10 @@ export async function handleVideoThumbnail(
 ): Promise<void> {
   try {
     const rawUrl = req.url || '/';
-    const urlObj = new URL(rawUrl, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const urlObj = new URL(
+      rawUrl,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const filePath = urlObj.searchParams.get('path');
 
     if (!filePath) {

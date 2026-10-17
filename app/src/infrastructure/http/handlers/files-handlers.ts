@@ -134,7 +134,10 @@ export async function handleFileList(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const url = new URL(
+      req.url!,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const rawPath = url.searchParams.get('path') || '.';
     const absPath = resolveStorePath(rawPath);
 
@@ -276,7 +279,10 @@ export async function handleFileRead(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const url = new URL(
+      req.url!,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const rawPath = url.searchParams.get('path') || '';
     if (!rawPath) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -368,7 +374,10 @@ export async function handleFileRegistryList(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const url = new URL(
+      req.url!,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const { FileRegistry } =
       await import('@modules/services/file/FileRegistry');
 
@@ -512,7 +521,10 @@ export async function handleFileRegistryDetail(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const url = new URL(
+      req.url!,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const fileId = url.searchParams.get('fileId');
     if (!fileId) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -554,7 +566,10 @@ export async function handleFileRegistrySearch(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const url = new URL(
+      req.url!,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const q = url.searchParams.get('q');
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
 
@@ -646,7 +661,10 @@ export async function handleFileRegistryDelete(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
+    const url = new URL(
+      req.url!,
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
+    );
     const fileIdsParam = url.searchParams.get('fileIds');
     if (!fileIdsParam) {
       res.writeHead(400, { 'Content-Type': 'application/json' });

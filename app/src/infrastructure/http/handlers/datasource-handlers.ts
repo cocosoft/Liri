@@ -115,7 +115,10 @@ export async function handleDeleteDataSource(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`);
+    const url = new URL(
+      req.url!,
+      `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`
+    );
     const segs = url.pathname.split('/');
     const dsType = segs[segs.length - 1];
 
@@ -145,7 +148,10 @@ export async function handleSyncDataSource(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`);
+    const url = new URL(
+      req.url!,
+      `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`
+    );
     const segs = url.pathname.split('/');
     const dsType = segs[segs.length - 2];
 

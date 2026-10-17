@@ -532,27 +532,15 @@ bun run monitor
 
 ### Q: 如何使用沙箱？
 
-A: 创建沙箱并执行代码：
-```typescript
-import { getSandboxManager } from './src/security';
-const sandboxManager = getSandboxManager();
-const sandbox = await sandboxManager.createSandbox({
-  name: 'safe-sandbox',
-  allowedModules: ['fs', 'path'],
-  memoryLimit: 1024 * 1024 * 100,
-  cpuLimit: 0.5,
-  timeout: 5000
-});
-const result = await sandboxManager.executeInSandbox(sandbox.id, 'return "Hello, World!"');
-```
+A: 沙箱能力已收口到工具执行链（`bash` / `code_run` → PathGuard + Landlock + 进程树清理）。
+旧的 `getSandboxManager()` 工厂已删除，业务代码不应自行实例化沙箱；如需受限执行，请调用工具执行器。
 
 ### Q: 如何配置权限？
 
-A: 使用权限管理器来配置权限：
+A: 经安全门面获取权限视图：
 ```typescript
-import { getPermissionManager } from './src/security';
-const permissionManager = getPermissionManager();
-await permissionManager.grantPermission('user123', 'tool.file_read');
+import { completeSecuritySystem } from '@modules/security';
+const permissionManager = completeSecuritySystem.getPermissionManager();
 ```
 
 ## 贡献

@@ -692,101 +692,43 @@ console.log('Sessions:', sessions);
 
 ## 安全性增强
 
-### 导入
+> 旧示例中的 `getSandboxManager` / `getPermissionManager` / `getSecurityAudit` **工厂已删除**
+> （沙箱能力收口到工具执行链；权限与审计走门面/具名导出）。以下为当前可用入口：
 
 ```typescript
-import { getSandboxManager, getPermissionManager, getSecurityAudit } from './src/security';
-import type { SandboxConfig, Permission, SecurityEvent } from './src/security';
-```
+import {
+  completeSecuritySystem,
+  logSecurityAuditEvent,
+  queryAuditLogs,
+  runSecurityAudit,
+} from '@modules/security';
+import type { SecurityAuditReport } from '@modules/security';
 
-### 沙箱管理
+// 权限：门面返回 SecurityPermissionView（具体方法见源码头注）
+const permissionManager = completeSecuritySystem.getPermissionManager();
 
-```typescript
-// 获取沙箱管理器
-const sandboxManager = getSandboxManager();
-
-// 创建沙箱
-const sandbox = await sandboxManager.createSandbox({
-  name: 'safe-sandbox',
-  allowedModules: ['fs', 'path'],
-  memoryLimit: 1024 * 1024 * 100, // 100MB
-  cpuLimit: 0.5, // 50%
-  timeout: 5000 // 5秒
+// 审计：记录 / 查询 / 运行审计
+logSecurityAuditEvent({
+  timestamp: new Date(),
+  command: 'file_read',
+  originalCommand: 'file_read',
+  truncatedResult: '',
+  sessionContext: {
+    sessionId: 's1',
+    taskDescription: 'demo',
+    currentMode: 'normal',
+  },
+  matchedRules: [],
+  behavior: 'allow',
+  decision: 'auto_allowed',
+  riskLevel: 'low',
 });
-
-// 执行代码
-const result = await sandboxManager.executeInSandbox(sandbox.id, `
-  const fs = require('fs');
-  return fs.readFileSync('package.json', 'utf8');
-`);
-console.log('Execution result:', result);
-
-// 销毁沙箱
-await sandboxManager.destroySandbox(sandbox.id);
-
-// 列出所有沙箱
-const sandboxes = sandboxManager.listSandboxes();
-console.log('Sandboxes:', sandboxes);
+const logs = queryAuditLogs({ sessionId: 's1', limit: 100 });
+const report: SecurityAuditReport = await runSecurityAudit();
 ```
 
-### 权限管理
-
-```typescript
-// 获取权限管理器
-const permissionManager = getPermissionManager();
-
-// 检查权限
-const hasPermission = permissionManager.hasPermission('user123', 'tool.file_read');
-console.log('Has permission:', hasPermission);
-
-// 授予权限
-await permissionManager.grantPermission('user123', 'tool.file_read');
-
-// 撤销权限
-await permissionManager.revokePermission('user123', 'tool.file_write');
-
-// 获取用户权限
-const userPermissions = permissionManager.getUserPermissions('user123');
-console.log('User permissions:', userPermissions);
-
-// 检查工具权限
-const canUseTool = permissionManager.canUseTool('user123', 'file_read');
-console.log('Can use tool:', canUseTool);
-```
-
-### 安全审计
-
-```typescript
-// 获取安全审计
-const securityAudit = getSecurityAudit();
-
-// 记录安全事件
-securityAudit.logEvent({
-  type: 'auth',
-  action: 'login',
-  userId: 'user123',
-  resource: 'system',
-  details: { success: true, ip: '192.168.1.1' },
-  severity: 'info'
-});
-
-// 获取审计日志
-const logs = securityAudit.getLogs({
-  type: 'auth',
-  startDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
-  endDate: new Date(),
-  limit: 100
-});
-console.log('Audit logs:', logs);
-
-// 分析安全事件
-const analysis = securityAudit.analyzeEvents();
-console.log('Security analysis:', analysis);
-
-// 导出审计日志
-const exportPath = await securityAudit.exportLogs('./audit-logs.json');
-console.log('Logs exported to:', exportPath);
-```
+**沙箱**：不再提供可直接实例化的 `SandboxManager`；请通过 `bash` / `code_run` 工具的安全执行链
+（PathGuard + Landlock + 进程树清理）使用，勿在业务代码中自行创建沙箱。
 
 ## 性能优化
 

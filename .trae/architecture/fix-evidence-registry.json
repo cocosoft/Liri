@@ -10921,6 +10921,92 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-79）",
       "notes": "hook 脚本硬拦截正则 vs bash 工具静态策略；安全存储绝对路径 vs TAOR 子目录名 ⇒ 分别改名（仅重命名，不改判定）；基线 165→163。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-79）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-80",
+      "title": "U-20/B5-2-80：MCP 重连退避收敛与 PathGuard 别名集按域命名",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/services/mcp/types/index.ts",
+        "app/src/services/mcp/MCPConnectionManager.ts",
+        "app/src/services/mcp/client.ts",
+        "app/src/query/PathGuard.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-80）",
+      "notes": "INITIAL/MAX_BACKOFF_MS 收敛到 services/mcp/types（client 侧原为零引用死常量）；PathGuard 的 SEARCH/WRITE_TOOL_NAMES 是含别名的本地集合，改名 *_ALIASES 以免与注册名清单混淆；基线 163→159。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-80）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-81",
+      "title": "U-20/B5-2-81：PERMISSION_MODES / SCHEMA_VERSION 按域命名，EMAIL_PATTERN 收敛",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/services/agent/parseAgent.ts",
+        "app/src/state/app/AppLifecycle.ts",
+        "app/src/security/rollback/SnapshotStorage.ts",
+        "app/src/security/services/SensitiveDataService.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-81）",
+      "notes": "agent frontmatter 模式清单是权限模式子集 ⇒ AGENT_PERMISSION_MODES；两处快照版本分属回滚快照与应用状态 ⇒ 各自改名；邮箱正则复用 redact 侧唯一事实源；基线 159→156。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-81）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-82",
+      "title": "U-20/B5-2-82：LSM 路径 / 沙箱退出码 / 批测清单按域命名",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/sandbox/landlock/types.ts",
+        "app/src/sandbox/landlock/LandlockDetector.ts",
+        "app/src/sandbox/landlock/runWithLandlock.ts",
+        "app/src/tools/bash/bashLandlockGap.ts",
+        "app/src/scripts/batch-test-v2.ts",
+        "app/src/scripts/batch-test-v3.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-82）",
+      "notes": "LSM 路径分属 landlock 探测与 bash 缺口提示 ⇒ KERNEL_LSM_LIST_PATH；exit 125 收敛到 landlock/types（单一事实源）；v2/v3 批测脚本各带版本前缀；基线 156→153。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-82）"
     }
   ]
 }

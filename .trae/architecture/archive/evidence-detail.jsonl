@@ -6516,3 +6516,29 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#1","i":0,"c":"app/src/utils/secureStorage.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#2","i":0,"c":"app/src/query/FileTAORCheckpointStorage.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"title","i":0,"c":"U-20/B5-2-80：MCP 重连退避收敛与 PathGuard 别名集按域命名"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"notes","i":0,"c":"INITIAL/MAX_BACKOFF_MS 收敛到 services/mcp/types（client 侧原为零引用死常量）；PathGuard 的 SEARCH/WRITE_TOOL_NAMES 是含别名的本地集合，改名 *_ALIASES 以免与注册名清单混淆；基线 163→159。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#0","i":0,"c":"app/src/services/mcp/types/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#1","i":0,"c":"app/src/services/mcp/MCPConnectionManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#2","i":0,"c":"app/src/services/mcp/client.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#3","i":0,"c":"app/src/query/PathGuard.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"title","i":0,"c":"U-20/B5-2-81：PERMISSION_MODES / SCHEMA_VERSION 按域命名，EMAIL_PATTERN 收敛"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"notes","i":0,"c":"agent frontmatter 模式清单是权限模式子集 ⇒ AGENT_PERMISSION_MODES；两处快照版本分属回滚快照与应用状态 ⇒ 各自改名；邮箱正则复用 redact 侧唯一事实源；基线 159→156。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#0","i":0,"c":"app/src/services/agent/parseAgent.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#1","i":0,"c":"app/src/state/app/AppLifecycle.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#2","i":0,"c":"app/src/security/rollback/SnapshotStorage.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#3","i":0,"c":"app/src/security/services/SensitiveDataService.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"title","i":0,"c":"U-20/B5-2-82：LSM 路径 / 沙箱退出码 / 批测清单按域命名"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"notes","i":0,"c":"LSM 路径分属 landlock 探测与 bash 缺口提示 ⇒ KERNEL_LSM_LIST_PATH；exit 125 收敛到 landlock/types（单一事实源）；v2/v3 批测脚本各带版本前缀；基线 156→153。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#0","i":0,"c":"app/src/sandbox/landlock/types.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#1","i":0,"c":"app/src/sandbox/landlock/LandlockDetector.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#2","i":0,"c":"app/src/sandbox/landlock/runWithLandlock.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#3","i":0,"c":"app/src/tools/bash/bashLandlockGap.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#4","i":0,"c":"app/src/scripts/batch-test-v2.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#5","i":0,"c":"app/src/scripts/batch-test-v3.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#6","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}

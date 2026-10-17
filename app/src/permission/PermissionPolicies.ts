@@ -7,10 +7,7 @@ import { join, resolve, normalize } from 'path';
 import { handleError } from '@modules/error';
 import type { PermissionDecision } from './PermissionResult';
 import { createDenyDecision, createAskDecision } from './PermissionResult';
-import {
-  ALL_UNIFIED_RULES,
-  type UnifiedRulePlatform,
-} from '@modules/security';
+import { ALL_UNIFIED_RULES, type UnifiedRulePlatform } from '@modules/security';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('permission:PermissionPolicies');

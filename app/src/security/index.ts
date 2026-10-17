@@ -275,10 +275,7 @@ export type {
   PatternLibraryConfig,
 } from './patterns';
 // U-21（批次⑤，2026-10-17）：统一危险规则集入桶（原只有叶子直连）
-export {
-  DELETION_RULES,
-  ALL_UNIFIED_RULES,
-} from './patterns';
+export { DELETION_RULES, ALL_UNIFIED_RULES } from './patterns';
 export type { UnifiedRulePlatform } from './patterns';
 export { getRedactMiddleware } from './redact';
 export type { RedactResult, ObjectRedactResult } from './redact';

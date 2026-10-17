@@ -21,6 +21,13 @@ import { trackUsage, modelRouter, estimateMessagesTokens } from '@modules/ai';
 import { taskOrchestrator } from './TaskOrchestrator';
 import { emitPdcaLiveEvent } from './PdcaLiveEvents';
 import type { Plan, PlanStep } from './TaskOrchestrator';
+import { parsePlanDraft } from './planOutputParser';
+import type { PlanDraft } from './planOutputParser';
+import {
+  validatePlanAdmission,
+  computeProgressFingerprint,
+  shouldStopForStall,
+} from './planAdmission';
 import { TaskStatus } from './types';
 import {
   AppError,
@@ -752,38 +759,51 @@ ${replanSection}
         })
       ).content;
 
-      // 解析 Planner 输出
+      // 解析 Planner 输出（U-01，2026-10-17）：只接受结构化 JSON；
+      // 解析失败先做一次“修复重问”，仍失败则整体失败 —— **禁止按行切分兜底**。
       let steps: string[] = [description];
       let acceptance: string[] = [];
       // 1-1a（2026-09-03）：可选依赖（按步骤 0-based 序号）。仅首轮规划解析——
       // 增量 replan（缺陷修订）时步骤编号与旧计划可能漂移，填充错误依赖风险大于收益，保持串行保守。
       let dependsOn: number[][] | undefined;
 
-      try {
-        const parsed = JSON.parse(planText);
-        steps = parsed.steps || [description];
-        acceptance = parsed.acceptanceCriteria || [];
-        if (
-          this._lastEscalations.length === 0 &&
-          Array.isArray(parsed.dependsOn)
-        ) {
-          dependsOn = parsed.dependsOn.map((deps: unknown) =>
-            Array.isArray(deps)
-              ? deps
-                  .map((d) => Number(d))
-                  .filter((d) => Number.isInteger(d) && d >= 0)
-              : []
-          );
-        }
-      } catch (err) {
-        // 非 JSON 输出，按行分割（非关键路径，无需 handleError）
-        const lines = planText.split('\n').filter((l) => l.trim());
-        if (lines.length > 1) {
-          steps = lines.slice(0, 10);
-        }
-        logger.debug('Plan output is not JSON, splitting by lines', {
-          error: String(err),
-        });
+      const parsedPlan = parsePlanDraft(planText);
+      let draft = parsedPlan.ok ? parsedPlan.draft : undefined;
+      if (!draft) {
+        logger.warn(
+          '[orchestrator] Planner 输出不是可解析的 JSON，发起一次修复重问',
+          {
+            taskId: this.taskId,
+            reason: parsedPlan.ok ? 'unknown' : parsedPlan.reason,
+          }
+        );
+        draft = await this._repairPlanJson(
+          description,
+          planText,
+          parsedPlan.ok ? 'unknown' : parsedPlan.reason
+        );
+      }
+      if (!draft) {
+        throw new AppError(
+          'Planner 输出无法解析为有效计划（已重问一次）',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.HIGH,
+          'PLAN_PARSE_FAILED',
+          { taskId: this.taskId, outputPreview: planText.slice(0, 200) }
+        );
+      }
+
+      steps = draft.steps;
+      acceptance = draft.acceptanceCriteria;
+      if (
+        this._lastEscalations.length === 0 &&
+        Array.isArray(draft.dependsOn)
+      ) {
+        dependsOn = draft.dependsOn.map((deps) =>
+          deps
+            .map((d) => Number(d))
+            .filter((d) => Number.isInteger(d) && d >= 0)
+        );
       }
 
       // 2026-10-08（方案1 全面修复）：验收标准**可证性**机械校验。
@@ -967,6 +987,64 @@ ${replanSection}
       sessionId: this._sessionId,
       workspace: this.isolation.workspace,
     });
+  }
+
+  /**
+   * U-01（2026-10-17）：Planner 输出修复重问（只做一次）。
+   *
+   * 与 `_repairAcceptanceCriteria` 同模式：把不可解析的原始输出回灌，要求**仅输出 JSON**。
+   * 返回 `undefined` 表示修复不可用 —— 调用方据此整体失败（不再行切兜底）。
+   */
+  private async _repairPlanJson(
+    description: string,
+    originalOutput: string,
+    reason: string
+  ): Promise<PlanDraft | undefined> {
+    const prompt = [
+      '你先前输出的执行计划无法被 JSON 解析。请**只输出修正后的 JSON**（不要围栏、不要解释、不要前后缀）。',
+      '',
+      `任务描述: ${description}`,
+      `解析失败原因: ${reason}`,
+      '',
+      '【原始输出（可能被截断）】',
+      originalOutput.slice(0, 6000),
+      '',
+      '【输出格式】',
+      '{"steps": ["步骤1描述", "步骤2描述"], "acceptanceCriteria": ["步骤1验收", "步骤2验收"], "dependsOn": [[], [0]]}',
+      'steps 必须是非空字符串数组（1–10 条）；acceptanceCriteria 条数须与 steps 一致；',
+      'dependsOn 可选，只允许引用更早步骤的下标（0-based）。',
+    ].join('\n');
+
+    try {
+      const text = normalizeExecutorResult(
+        await this.executor({
+          systemPrompt: PLANNER_ROLE.systemPrompt,
+          userPrompt: prompt,
+          tools: roleToolNames(PLANNER_ROLE),
+          taskType: PLANNER_ROLE.taskType,
+          isolation: this.isolation,
+        })
+      ).content;
+      const parsed = parsePlanDraft(text);
+      if (!parsed.ok) {
+        logger.warn('[orchestrator] Planner JSON 修复重问仍不可解析', {
+          taskId: this.taskId,
+          reason: parsed.reason,
+        });
+        return undefined;
+      }
+      logger.info('[orchestrator] Planner JSON 修复重问成功', {
+        taskId: this.taskId,
+        steps: parsed.draft.steps.length,
+      });
+      return parsed.draft;
+    } catch (e) {
+      await handleError(e, {
+        module: 'tasks:longRunning',
+        action: 'repairPlanJson',
+      });
+      return undefined;
+    }
   }
 
   /**
@@ -2123,6 +2201,18 @@ ${replanSection}
     return configuredMax > 0 ? configuredMax : dynamicMax;
   }
 
+  /** U-04：计划步骤数上限（默认 10，`TASK_GOAL_MAX_STEPS` 可覆盖）。 */
+  private resolveMaxPlanSteps(): number {
+    const raw = Number(configManager.env('TASK_GOAL_MAX_STEPS')) || 0;
+    return raw > 0 ? raw : 10;
+  }
+
+  /** U-04：连续无进展轮数阈值（默认 3，`TASK_GOAL_STALL_ROUNDS` 可覆盖）。 */
+  private resolveStallRounds(): number {
+    const raw = Number(configManager.env('TASK_GOAL_STALL_ROUNDS')) || 0;
+    return raw > 0 ? raw : 3;
+  }
+
   /**
    * P0(M2/M9)：统一 EXECUTE → REVIEW → DECIDE 循环。
    * 从 runFullPdca 与 resumeAfterApproval 的后半段抽取（两处原为重复实现）。
@@ -2163,10 +2253,43 @@ ${replanSection}
     };
     maxIterations = resolveMaxIterations();
 
+    // U-04（2026-10-17）：连续无进展硬停止。
+    let lastFingerprint = '';
+    let stallRounds = 0;
+    const stallThreshold = this.resolveStallRounds();
+
     while (!allDone && iterations < maxIterations) {
       iterations++;
       // P1/L8：每轮以最新 plan 重算（replan 后新 steps 当轮即生效）
       maxIterations = resolveMaxIterations();
+
+      // U-04：准入校验（含 replan 后的计划）——坏计划不进入执行。
+      const admission = validatePlanAdmission(this.requirePlan(), {
+        maxSteps: this.resolveMaxPlanSteps(),
+      });
+      if (!admission.ok) {
+        const badPlan = this.requirePlan();
+        badPlan.status = 'failed';
+        badPlan.completedAt = new Date().toISOString();
+        taskOrchestrator['savePlan']?.(badPlan);
+        void handleError(
+          new AppError(
+            `计划未通过准入校验：${admission.reason}`,
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.HIGH,
+            'PLAN_ADMISSION_REJECTED',
+            {
+              taskId: this.taskId,
+              planId: this.planId,
+              reason: admission.reason,
+              steps: badPlan.steps.map((s) => s.id),
+            }
+          ),
+          { module: 'tasks:longRunning', action: 'planAdmission' }
+        );
+        break;
+      }
+
       // Execute
       await this.executeAllSteps();
 
@@ -2203,6 +2326,52 @@ ${replanSection}
             (s) => s.status === 'pending' && s.decision === undefined
           ),
       });
+
+      // U-04（2026-10-17）：连续 N 轮指纹不变 ⇒ 硬停止（避免原地重试耗尽配额）。
+      if (!allDone) {
+        const fingerprint = computeProgressFingerprint(latestPlan);
+        const previous = lastFingerprint;
+        if (previous && previous === fingerprint) {
+          stallRounds++;
+        } else {
+          stallRounds = 0;
+          lastFingerprint = fingerprint;
+        }
+        if (
+          previous &&
+          shouldStopForStall(previous, fingerprint, stallRounds, stallThreshold)
+        ) {
+          latestPlan.status = 'failed';
+          latestPlan.completedAt = new Date().toISOString();
+          taskOrchestrator['savePlan']?.(latestPlan);
+          void handleError(
+            new AppError(
+              `PDCA 连续 ${stallRounds} 轮无进展，已硬停止`,
+              ErrorCategory.OPERATION,
+              ErrorSeverity.HIGH,
+              'PDCA_NO_PROGRESS',
+              {
+                taskId: this.taskId,
+                planId: this.planId,
+                iterations,
+                stallRounds,
+                stallThreshold,
+                stepStatuses: latestPlan.steps.map((s) => ({
+                  id: s.id,
+                  status: s.status,
+                  decision: s.decision,
+                  retryCount: s.retryCount,
+                })),
+              }
+            ),
+            { module: 'tasks:longRunning', action: 'stallStop' }
+          );
+          break;
+        }
+      } else {
+        stallRounds = 0;
+        lastFingerprint = '';
+      }
 
       // P1-3（2026-08-31）：目标级收敛判定（对标 Hermes evaluate_after_turn）
       // 步骤全部终态后，用副模型确认"整体目标是否真正达成"；未收敛则阻止

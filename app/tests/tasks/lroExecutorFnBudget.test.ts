@@ -134,16 +134,32 @@ describe('T10：长程任务执行器的日预算收口（G-2/D）', () => {
     expect((await readPdcaCheckpoint(taskId))?.phase).toBe('plan');
   });
 
-  it('自定义执行器返回纯文本（旧形态）⇒ 不记账、不报错（向后兼容）', async () => {
+  it('自定义执行器返回合法 JSON ⇒ 不记账、不报错', async () => {
     const orchestrator = new LongRunningTaskOrchestrator(
       `t10-compat-${Date.now()}`,
-      async () => 'mock'
+      async () => '{"steps":["mock"],"acceptanceCriteria":["ok"]}'
     ) as unknown as OrchestratorWithPrivates;
 
     const before = getDailyBudget().getMode().todayUsed;
-    // 'mock' 非 JSON ⇒ PLAN 阶段回落"单步骤"计划（既有行为，不抛）
     await orchestrator.executePlanPhase('T10 兼容', SESSION_ID);
 
     expect(getDailyBudget().getMode().todayUsed).toBe(before);
+  });
+
+  it('纯文本且修复重问仍失败 ⇒ PLAN_PARSE_FAILED（不再行切兜底）', async () => {
+    const orchestrator = new LongRunningTaskOrchestrator(
+      `t10-plaintext-${Date.now()}`,
+      async () => 'mock'
+    ) as unknown as OrchestratorWithPrivates;
+
+    let thrown: unknown;
+    try {
+      await orchestrator.executePlanPhase('T10 纯文本', SESSION_ID);
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(AppError);
+    expect((thrown as AppError).code).toBe('PLAN_PARSE_FAILED');
   });
 });

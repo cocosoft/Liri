@@ -1,13 +1,13 @@
 {
-  "nextKey": "B5-2-91",
-  "doneKeys": ["B5-2-85", "B5-2-86", "B5-2-87", "B5-2-88", "B5-2-89", "B5-2-90"],
-  "lastCommit": "f5d439254",
+  "nextKey": "B5-2-94",
+  "doneKeys": ["B5-2-88", "B5-2-89", "B5-2-90", "B5-2-91", "B5-2-92", "B5-2-93"],
+  "lastCommit": "bebf3b8e0",
   "baselineKeys": {
     "lint:consts": 119,
-    "lint:endpoints": 96,
+    "lint:endpoints": 79,
     "lint:locale": 6
   },
-  "nextAction": "同名常量已收敛至 17 组（跨包契约 12 组 + bash 死副本 5 组，均已裁定保留）⇒ 下一批转向 lint:endpoints 96 文件键的存量收敛",
+  "nextAction": "继续 B5-2-94：lint:endpoints 剩余 79 文件中继续挑可收敛项（provider/bridge/channels 的本机地址），安全检测类（ssrf/WebFetch）与 i18n 文案保留",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为实测值（node 解析 hardcode-gate-baseline.json），非估算",

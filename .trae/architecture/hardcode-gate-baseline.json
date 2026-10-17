@@ -124,10 +124,6 @@
     "同值host:localhost:11434": 4
   },
   "lint:endpoints": {
-    "app/src/ai/api/CapabilitiesAPI.ts": 1,
-    "app/src/ai/api/PricingAPI.ts": 5,
-    "app/src/ai/api/ProviderAPI.ts": 1,
-    "app/src/ai/api/TranslateAPI.ts": 2,
     "app/src/ai/ModelManagementBootstrap.ts": 2,
     "app/src/ai/providers/FALProvider.ts": 3,
     "app/src/ai/providers/OpenAIProvider.ts": 5,
@@ -144,7 +140,6 @@
     "app/src/commands/tools/file/edit.ts": 2,
     "app/src/config/ConfigModuleTest.ts": 3,
     "app/src/constants/common.ts": 1,
-    "app/src/constants/oauth.ts": 10,
     "app/src/constants/product.ts": 3,
     "app/src/docs/ContextHelp.ts": 2,
     "app/src/docs/ToolGuide.ts": 2,

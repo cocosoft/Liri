@@ -6622,3 +6622,31 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"code#5","i":0,"c":"client/src/components/views/DashboardPage.tsx"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"code#6","i":0,"c":"client/src/components/views/LogViewerPage.tsx"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-90","k":"code#7","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"title","i":0,"c":"U-20/B5-2-91：本地 host 与本地推理地址收敛到端点真源"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"notes","i":0,"c":"client 端点真源新增 LOCAL_HOST 与 LOCAL_PROVIDER_ENDPOINTS（值逐字不变，属性名避开 localhost 字样以免被字面量检测误伤）；后端 core/endpoints 新增 LOCAL_SERVICE_HOST、SD WebUI、CDP 端点；8 个文件改引用；lint:endpoints 96→88。"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#0","i":0,"c":"client/src/services/endpoints.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#1","i":0,"c":"app/src/core/endpoints.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#2","i":0,"c":"client/src/config/providerPresets.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#3","i":0,"c":"client/src/components/settings/OllamaConfigPanel.tsx"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#4","i":0,"c":"client/src/services/backendUrl.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#5","i":0,"c":"app/src/tasks/MonitorTask.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#6","i":0,"c":"app/src/tools/BrowserVisionTool/BrowserVisionTool.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"title","i":0,"c":"U-20/B5-2-92：本地推理候选 / ComfyUI / REPL 提示统一走真源"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"notes","i":0,"c":"core/endpoints 新增 LOCAL_INFERENCE_ENDPOINTS（hostname/loopback 双候选，与 client 同值）与 DEFAULT_COMFYUI_ENDPOINT；服务端预设、LlamaCppProvider、ComfyUIProvider、repl 启动提示改引用；lint:endpoints 88→84。"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"code#0","i":0,"c":"app/src/core/endpoints.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"code#1","i":0,"c":"app/src/ai/providers/providerPresetsData.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"code#2","i":0,"c":"app/src/ai/providers/LlamaCppProvider.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"code#3","i":0,"c":"app/src/ai/providers/ComfyUIProvider.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"code#4","i":0,"c":"app/src/entrypoints/repl.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"title","i":0,"c":"U-20/B5-2-93：请求占位基址与 OAuth 本机地址收敛"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"notes","i":0,"c":"core/endpoints 新增 LOCAL_REQUEST_BASE_URL（仅解析 req.url 的占位 origin）、MCP 代理与本地 OAuth 三常量；4 个 AI API 与 constants/oauth 改引用；lint:endpoints 84→79。"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#0","i":0,"c":"app/src/core/endpoints.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#1","i":0,"c":"app/src/ai/api/PricingAPI.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#2","i":0,"c":"app/src/ai/api/CapabilitiesAPI.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#3","i":0,"c":"app/src/ai/api/ProviderAPI.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#4","i":0,"c":"app/src/ai/api/TranslateAPI.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#5","i":0,"c":"app/src/constants/oauth.ts"}

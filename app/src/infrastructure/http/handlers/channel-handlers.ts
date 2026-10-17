@@ -27,6 +27,7 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { messageTraceBuffer } from '@modules/channels';
 import { getChannelCatalogEntry } from '@modules/channels/ChannelCatalog';
 import type { IChannelPlugin } from '@modules/channels/types/IChannel';
+import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 
 const logger = getLogger('infrastructure:http:handlers:channel-handlers');
 
@@ -985,7 +986,7 @@ export async function handleChannelMessageTraces(
     url: req.url,
   });
   try {
-    const parsed = new URL(req.url || '/', 'http://localhost');
+    const parsed = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const limit = Math.min(
       Math.max(Number(parsed.searchParams.get('limit')) || 50, 1),
       200

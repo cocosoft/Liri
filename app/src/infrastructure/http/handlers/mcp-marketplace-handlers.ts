@@ -6,6 +6,7 @@ import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { handleError } from '@modules/error';
 import type { RegistryType, ThirdPartyRegistry } from '@modules/services/mcp';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 /**
  * 处理 MCP 市场搜索请求 GET /v1/mcp/marketplace/search?query=xx&category=xx
@@ -17,7 +18,7 @@ export async function handleMCPMarketplaceSearch(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const query = parsedUrl.searchParams.get('query') || '';
     const category = parsedUrl.searchParams.get('category') || undefined;

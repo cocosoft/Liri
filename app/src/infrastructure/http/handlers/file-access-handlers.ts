@@ -33,6 +33,7 @@ import { homedir } from 'os';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 /**
  * 文件访问统一白名单（Access denied 根治，2026-08-12）：
@@ -88,7 +89,7 @@ export async function handleFileOpen(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const filePath = parsedUrl.searchParams.get('path');
 
@@ -177,7 +178,7 @@ export async function handleFileRead(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const filePath = parsedUrl.searchParams.get('path');
 
@@ -408,7 +409,7 @@ export async function handleFileResolvePath(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const rawPath = parsedUrl.searchParams.get('path');
 
@@ -513,7 +514,7 @@ export async function handleFilePreview(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const filePath = parsedUrl.searchParams.get('path');
 

@@ -28,6 +28,7 @@ import { handleError } from '@modules/error';
 // C1（2026-09-30 D-101，`tasks` 域 P2）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { CronJobRecord } from '@modules/runtime/api/taskOpsPorts';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 /** 前端 CronTask 响应格式（`jobToCronTask` 的产物） */
 interface CronTaskResponse {
@@ -409,7 +410,7 @@ export async function handleCronRuns(
   url: string
 ): Promise<void> {
   try {
-    const urlObj = new URL(url, `http://${req.headers.host || 'localhost'}`);
+    const urlObj = new URL(url, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
     const jobId = urlObj.searchParams.get('jobId') || undefined;
     const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
     const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);

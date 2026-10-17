@@ -10,7 +10,7 @@ import type http from 'http';
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { randomUUID } from 'crypto';
-import { resolveDataDir } from '@modules/core';
+import { resolveDataDir, LOCAL_SERVICE_HOST } from '@modules/core';
 // C1（D-117）：构件存储 / 上下文服务 / 引擎钩子 的导入已移除（改经服务层端口，见下方 C1 注释块）
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -66,7 +66,7 @@ export async function handleListArtifacts(
 ): Promise<void> {
   const url = new URL(
     req.url || '/',
-    `http://${req.headers.host || 'localhost'}`
+    `http://${req.headers.host || LOCAL_SERVICE_HOST}`
   );
   const kind = url.searchParams.get('kind') as ArtifactKindDto | null;
   const effectiveKind =
@@ -503,7 +503,7 @@ export async function handleGetProjectHistory(
   try {
     const url = new URL(
       req.url || '/',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const since = url.searchParams.get('since') || undefined;
     const groups = await (

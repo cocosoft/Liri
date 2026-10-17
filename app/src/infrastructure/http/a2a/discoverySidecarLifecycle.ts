@@ -27,6 +27,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
+import { LOCAL_HTTP_HOST } from '@modules/core';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import {
   hasA2ADelegator,
@@ -45,7 +46,7 @@ let supervisor: DiscoverySidecarSupervisor | null = null;
 /** 卡片对外基址：显式 `A2A_PUBLIC_URL` 优先，否则本机主服务地址（**不硬编码域名**） */
 function resolveCardBaseUrl(fallbackPort: number): string {
   const explicit = configManager.env('A2A_PUBLIC_URL')?.trim();
-  return explicit || `http://127.0.0.1:${fallbackPort}`;
+  return explicit || `http://${LOCAL_HTTP_HOST}:${fallbackPort}`;
 }
 
 /** 构建只读快照（卡片 + ETag + delegatorReady）；失败 ⇒ null（不启动/不推送假数据） */

@@ -30,6 +30,7 @@ import type http from 'http';
 import type { HandlerCtx } from '../handler-utils';
 import { json, readBody } from '../handler-utils';
 import { configManager } from '@modules/config';
+import { LOCAL_HTTP_HOST } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 // 复用既有请求鉴权语义（`x-api-key` / `Bearer`）——GR01：不新造第二套头部解析
@@ -210,7 +211,7 @@ function resolveMaxWaitMs(): number {
 function resolveBaseUrl(req: http.IncomingMessage): string {
   const explicit = configManager.env(ENV_A2A_PUBLIC_URL)?.trim();
   if (explicit) return explicit;
-  const host = req.headers.host ?? '127.0.0.1';
+  const host = req.headers.host ?? LOCAL_HTTP_HOST;
   const forwardedProto = req.headers['x-forwarded-proto'];
   const proto = typeof forwardedProto === 'string' ? forwardedProto : 'http';
   return `${proto}://${host}`;

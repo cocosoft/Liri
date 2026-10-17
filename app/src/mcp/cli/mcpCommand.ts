@@ -10,6 +10,7 @@ import { MCPServerConfig } from '../types';
 import { readMcpConfig, writeMcpConfig } from '../utils/mcpConfig';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { DEFAULT_MCP_OAUTH_CALLBACK_PORT, LOCAL_SERVICE_HOST } from '@modules/core';
 
 const logger = getLogger('mcpCommand');
 
@@ -33,7 +34,7 @@ function deriveOAuthConfig(config: MCPServerConfig): MCPOAuthConfig | null {
       clientId: config.oauth.clientId,
       authUrl: `${origin}/authorize`,
       tokenUrl: `${origin}/token`,
-      redirectUri: `http://localhost:${config.oauth.callbackPort || 8205}/callback`,
+      redirectUri: `http://${LOCAL_SERVICE_HOST}:${config.oauth.callbackPort || DEFAULT_MCP_OAUTH_CALLBACK_PORT}/callback`,
     };
   } catch {
     return null;

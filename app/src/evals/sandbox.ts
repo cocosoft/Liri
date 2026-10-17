@@ -256,7 +256,7 @@ export async function createSandbox(opts: {
   }
 
   const port = await pickFreePort();
-  const baseUrl = `http://127.0.0.1:${port}`;
+  const baseUrl = `http://${LOCAL_HTTP_HOST}:${port}`;
   const logFile = join(root, 'daemon.log');
   const logStream = createWriteStream(logFile, { flags: 'a' });
   logStream.write(`[sandbox] root=${root}\n[sandbox] db 快照方式=${dbMode}\n`);

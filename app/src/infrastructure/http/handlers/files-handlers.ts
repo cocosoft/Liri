@@ -27,6 +27,7 @@ import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
 import { logSecurityBlock } from '../../../security/SecurityAuditLogger.js';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 const logger = getLogger('infrastructure:http:handlers:files-handlers');
 
 // 已注册的存储分区别名 → 绝对路径解析函数（延迟动态 import）
@@ -133,7 +134,7 @@ export async function handleFileList(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
     const rawPath = url.searchParams.get('path') || '.';
     const absPath = resolveStorePath(rawPath);
 
@@ -275,7 +276,7 @@ export async function handleFileRead(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
     const rawPath = url.searchParams.get('path') || '';
     if (!rawPath) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -367,7 +368,7 @@ export async function handleFileRegistryList(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
     const { FileRegistry } =
       await import('@modules/services/file/FileRegistry');
 
@@ -511,7 +512,7 @@ export async function handleFileRegistryDetail(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
     const fileId = url.searchParams.get('fileId');
     if (!fileId) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -553,7 +554,7 @@ export async function handleFileRegistrySearch(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
     const q = url.searchParams.get('q');
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
 
@@ -645,7 +646,7 @@ export async function handleFileRegistryDelete(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host || 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host || LOCAL_SERVICE_HOST}`);
     const fileIdsParam = url.searchParams.get('fileIds');
     if (!fileIdsParam) {
       res.writeHead(400, { 'Content-Type': 'application/json' });

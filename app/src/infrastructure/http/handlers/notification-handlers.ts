@@ -22,6 +22,7 @@ import type {
   NotificationStatus,
   NotificationPriority,
 } from '@modules/runtime/NotificationPersistence.js';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 function sendJSON(
   res: http.ServerResponse,
@@ -33,7 +34,7 @@ function sendJSON(
 }
 
 function parseURL(req: http.IncomingMessage): URL {
-  const host = req.headers.host || 'localhost';
+  const host = req.headers.host || LOCAL_SERVICE_HOST;
   return new URL(req.url || '/', `http://${host}`);
 }
 

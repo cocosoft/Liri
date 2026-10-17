@@ -18,6 +18,7 @@ import { handleError } from '@modules/error';
 // 二者**同删**才算消除本文件对该层的引用；实现改经 **service 侧端口**（`getCoreAPI().getToolsPort()`）。
 // C1（2026-09-30 D-93）：工具运行时改经服务层端口（消除 service → app 跨层**动态**引用）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 /** 从 URL 路径中提取 taskId（/v1/video/tasks/{id}） */
 function extractTaskId(url: string): string | null {
@@ -183,7 +184,7 @@ async function handleListTasks(
   try {
     const url = new URL(
       req.url || '/',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const statusFilter = url.searchParams.get('status') || 'all';
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);

@@ -17,6 +17,7 @@ import { sendError, readRequestBody } from './handler-utils';
 import { handleError } from '@modules/error';
 // C1（2026-09-30 D-95，`knowledge` 域 P1）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 /** 从 URL 路径中提取知识库名称 */
 function extractBaseName(url: string): string | null {
@@ -56,7 +57,7 @@ export async function handleListFAQ(
       return;
     }
 
-    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`);
     const category = url.searchParams.get('category') ?? undefined;
     const offset = parseInt(url.searchParams.get('offset') ?? '0', 10);
     const limit = Math.min(
@@ -243,7 +244,7 @@ export async function handleSearchFAQ(
       return;
     }
 
-    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`);
     const query = url.searchParams.get('q');
     if (!query) {
       sendError(res, 'Missing query parameter q', 400);

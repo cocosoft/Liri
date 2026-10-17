@@ -35,6 +35,7 @@ import type {
   TaskNodeDto,
   TaskStatusDto,
 } from '@modules/runtime/api/workspaceOpsPorts';
+import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 
 const logger = getLogger('http:workspaces');
 
@@ -1610,7 +1611,7 @@ export async function handleListTasks(
   try {
     const taskStore = await getTaskStore();
 
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const workspaceId = url.searchParams.get('workspaceId');
     const projectId = url.searchParams.get('projectId');
     const status = url.searchParams.get('status');

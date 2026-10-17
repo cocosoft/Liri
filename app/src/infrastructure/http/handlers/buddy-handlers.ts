@@ -23,6 +23,7 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 // C1（2026-09-30 D-111，零散单点收尾）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 // ========== Buddy Handlers ==========
 
@@ -116,7 +117,7 @@ export async function handleGetDreamLogs(
   try {
     const urlObj = new URL(
       req.url || '',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const limit = parseInt(urlObj.searchParams.get('limit') || '50', 10);
     const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);

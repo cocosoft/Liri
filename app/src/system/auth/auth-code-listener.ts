@@ -14,7 +14,7 @@
 import { createServer, type Server } from 'http';
 import type { AddressInfo } from 'net';
 import { handleError } from '@modules/error';
-import { LOCAL_HTTP_HOST } from '@modules/core';
+import { LOCAL_HTTP_HOST, LOCAL_SERVICE_HOST } from '@modules/core';
 
 /** 默认端口范围（对标 cline-main 48801-48811） */
 const DEFAULT_PORT_RANGE = { start: 48801, end: 48811 };
@@ -152,7 +152,7 @@ export class AuthCodeListener {
 
     const parsedUrl = new URL(
       req.url || '',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
 
     if (parsedUrl.pathname !== this.callbackPath) {

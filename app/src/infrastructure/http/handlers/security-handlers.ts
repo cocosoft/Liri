@@ -7,6 +7,7 @@ import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { queryAuditLogs } from '@modules/security';
 import { denialTracker, PermissionManager } from '@modules/permission';
+import { LOCAL_REQUEST_BASE_URL, LOCAL_SERVICE_HOST } from '@modules/core';
 
 /** 解析可选日期参数（ISO 或 epoch ms），非法返回 undefined */
 function parseDateParam(value: string | null): Date | undefined {
@@ -35,7 +36,7 @@ export async function handleSecurityDashboard(
 ): Promise<void> {
   try {
     // 2-4（2026-09-03）：from/to 时间窗（默认近 7 天）
-    const url = new URL(req.url ?? '/', 'http://localhost');
+    const url = new URL(req.url ?? '/', LOCAL_REQUEST_BASE_URL);
     const from = parseDateParam(url.searchParams.get('from'));
     const to = parseDateParam(url.searchParams.get('to'));
     const now = new Date();
@@ -183,7 +184,7 @@ export async function handleQueryAuditLogs(
   try {
     const url = new URL(
       req.url || '',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const sessionId = url.searchParams.get('sessionId') || undefined;
     const riskLevel = url.searchParams.get('riskLevel') || undefined;

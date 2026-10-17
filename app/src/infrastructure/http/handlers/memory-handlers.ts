@@ -14,6 +14,7 @@ import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
 import { SandboxPermission } from '../../../core/sandboxPermission.js';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 /** v1.3: 后端 MemoryType → 前端类型名映射 */
 const MEMORY_TYPE_TO_FRONTEND: Record<string, string> = {
@@ -63,7 +64,7 @@ export async function handleSearchMemories(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const query = parsedUrl.searchParams.get('query') || '';
     if (!query) {
@@ -520,7 +521,7 @@ export async function handleDreamCyclesList(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     // 2026-09-30（台账 D-87，C1「口径 C」）：改经 CoreAPI 门面，消除 service → app 跨层引用
     const result = await getCoreAPI().listDreamCycles({
@@ -557,7 +558,7 @@ export async function handleDreamCycleAnalytics(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const p = parsedUrl.searchParams;
     const finite = (v: string | null): number | undefined => {
@@ -629,7 +630,7 @@ export async function handleFileOpen(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const filePath = parsedUrl.searchParams.get('path');
 
@@ -720,7 +721,7 @@ export async function handleFileRead(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const filePath = parsedUrl.searchParams.get('path');
 
@@ -952,7 +953,7 @@ export async function handleFilePreview(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const filePath = parsedUrl.searchParams.get('path');
 
@@ -1031,7 +1032,7 @@ export async function handleFileStream(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const filePath = parsedUrl.searchParams.get('path');
 

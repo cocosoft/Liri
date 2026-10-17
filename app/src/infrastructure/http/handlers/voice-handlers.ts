@@ -16,6 +16,7 @@ import {
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
+import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 
 const logger = getLogger('http:voice');
 
@@ -612,7 +613,7 @@ export async function handleListVoices(
 
     // 解析 provider 查询参数
     const queryStr = req.url?.includes('?')
-      ? new URL(req.url, 'http://localhost').searchParams
+      ? new URL(req.url, LOCAL_REQUEST_BASE_URL).searchParams
       : null;
     const providerName = queryStr?.get('provider') || undefined;
 

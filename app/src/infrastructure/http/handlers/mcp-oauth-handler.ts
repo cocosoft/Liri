@@ -13,7 +13,7 @@ import type { MCPOAuthConfig } from '@modules/services/mcp/auth/types';
 import type { McpOAuthConfig } from '@modules/services/mcp/types';
 import { readMcpConfig } from '@modules/mcp';
 import { configManager } from '@modules/config';
-import { DEFAULT_HTTP_PORT } from '@modules/core';
+import { DEFAULT_HTTP_PORT, LOCAL_HTTP_HOST, LOCAL_SERVICE_HOST } from '@modules/core';
 
 /**
  * 通过 OAuth Discovery 将 McpOAuthConfig 解析为 MCPOAuthConfig
@@ -61,7 +61,7 @@ export async function handleMCPOAuthCallback(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
 
     const serverKey = parsedUrl.searchParams.get('server');
@@ -93,7 +93,7 @@ export async function handleMCPOAuthCallback(
     }
 
     // 通过 Discovery 解析 OAuth 端点
-    const callbackBase = `http://127.0.0.1:${parsedUrl.port || String(DEFAULT_HTTP_PORT)}`;
+    const callbackBase = `http://${LOCAL_HTTP_HOST}:${parsedUrl.port || String(DEFAULT_HTTP_PORT)}`;
     const oauthConfig = await resolveOAuthConfig(mcpConfig.oauth, callbackBase);
 
     const token = await mcpAuthManager.handleCallback(

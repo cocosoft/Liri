@@ -16,6 +16,7 @@ import { resolveWorkspacePath } from './workspaces-handlers';
 import type { CostReportDto } from '@modules/runtime/api/workspaceOpsPorts';
 // C1（2026-09-30 D-108，`ai` 域 P2）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 
 const logger = getLogger('http:cost');
 
@@ -345,7 +346,7 @@ export async function handleGlobalCostRecords(
     const { getCostRecordRepository } = await import('@modules/cost');
     const repo = getCostRecordRepository();
 
-    const url = new URL(req.url || '', 'http://localhost');
+    const url = new URL(req.url || '', LOCAL_REQUEST_BASE_URL);
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
     const offset = (page - 1) * limit;
@@ -388,7 +389,7 @@ export async function handleGlobalCostRange(
     const { getCostRecordRepository } = await import('@modules/cost');
     const repo = getCostRecordRepository();
 
-    const url = new URL(req.url || '', 'http://localhost');
+    const url = new URL(req.url || '', LOCAL_REQUEST_BASE_URL);
     const startDate = url.searchParams.get('startDate');
     const endDate = url.searchParams.get('endDate');
 
@@ -435,7 +436,7 @@ export async function handleCostReconcile(
     const { getCostRecordRepository } = await import('@modules/cost');
     const repo = getCostRecordRepository();
 
-    const url = new URL(req.url || '', 'http://localhost');
+    const url = new URL(req.url || '', LOCAL_REQUEST_BASE_URL);
     const startDate = url.searchParams.get('startDate');
     const endDate = url.searchParams.get('endDate');
 

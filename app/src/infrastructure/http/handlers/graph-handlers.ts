@@ -14,6 +14,7 @@ import { sendError } from './handler-utils';
 import { handleError } from '@modules/error';
 // C1（2026-09-30 D-95，`knowledge` 域 P1）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 /** GET /v1/knowledge/graph/edges?domain=&limit=&entityId=&type= */
 export async function handleListGraphEdges(
@@ -21,7 +22,7 @@ export async function handleListGraphEdges(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`);
     const domain = url.searchParams.get('domain') ?? undefined;
     const entityId = url.searchParams.get('entityId') ?? undefined;
     const type = url.searchParams.get('type') ?? undefined;

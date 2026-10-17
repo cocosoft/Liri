@@ -30,6 +30,7 @@ import { AgentEventType } from '@modules/types/agentEvents';
 import { globalEventBus } from '../../../core/events/EventBus.js';
 import type { EventSubscription } from '../../../core/events/EventBus.js';
 import { getOrchestrationHistoryAdapter } from './OrchestrationHistoryAdapter.js';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 const logger = getLogger('http:orchestration');
 
@@ -436,7 +437,7 @@ export async function handleGetOrchestrationHistory(
     // 解析查询参数
     const urlObj = new URL(
       req.url || '',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const sinceParam = urlObj.searchParams.get('since');
     const limitParam = urlObj.searchParams.get('limit');

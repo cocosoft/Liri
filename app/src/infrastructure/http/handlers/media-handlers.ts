@@ -22,6 +22,7 @@ import { handleError } from '@modules/error';
 import { resolveTempDir } from '@modules/core/paths';
 import { videoProcessor } from '../../../media/video/VideoProcessor';
 import { MAX_HTTP_BODY_BYTES } from './handler-utils';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 /** 支持的媒体文件扩展名 */
 const SUPPORTED_AUDIO_EXTS = new Set([
@@ -374,7 +375,7 @@ export async function handleMediaSubtitleDownload(
     // 解析 format 查询参数
     const urlObj = new URL(
       req.url || '/',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const format = urlObj.searchParams.get('format') || 'srt';
 

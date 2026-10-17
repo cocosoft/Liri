@@ -35,6 +35,7 @@ import {
 import { getLogger } from '@modules/monitoring';
 import { resolveLlamaModelsDir } from '@modules/core/paths';
 import { sendError, readRequestBody } from './handler-utils';
+import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 
 const logger = getLogger('http:llama');
 
@@ -258,7 +259,7 @@ export async function handleLlamaLogs(
     const llamaCppServerManager = await (
       await getCoreAPI().getAiOpsPort()
     ).getLlamaManager();
-    const url = new URL(req.url ?? '/', 'http://localhost');
+    const url = new URL(req.url ?? '/', LOCAL_REQUEST_BASE_URL);
     const maxLines = parseInt(url.searchParams.get('lines') || '200', 10);
     const logs = llamaCppServerManager.getLogContent(maxLines);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -293,7 +294,7 @@ export async function handleLlamaLogsStream(
   });
 
   // 发送初始日志内容
-  const url = new URL(req.url ?? '/', 'http://localhost');
+  const url = new URL(req.url ?? '/', LOCAL_REQUEST_BASE_URL);
   const initialLines = parseInt(
     url.searchParams.get('initialLines') || '100',
     10
@@ -579,7 +580,7 @@ export async function handleLlamaHardware(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url ?? '/', 'http://localhost');
+    const url = new URL(req.url ?? '/', LOCAL_REQUEST_BASE_URL);
     const forceRefresh = url.searchParams.get('forceRefresh') === '1';
     const hardware = await (
       await getCoreAPI().getAiOpsPort()

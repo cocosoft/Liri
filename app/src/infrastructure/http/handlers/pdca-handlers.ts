@@ -24,7 +24,7 @@ import type http from 'http';
 import { randomIdSuffix } from '../../../utils/common';
 import { join } from 'path';
 import { existsSync, writeFileSync, readFileSync } from 'fs';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome, LOCAL_REQUEST_BASE_URL } from '@modules/core';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 import { handleError } from '@modules/error';
@@ -49,7 +49,7 @@ export async function handlePdcaDecisionLog(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const parsed = new URL(req.url ?? '', 'http://localhost');
+    const parsed = new URL(req.url ?? '', LOCAL_REQUEST_BASE_URL);
     const rawLimit = Number(parsed.searchParams.get('limit') ?? 100);
     const limit = Number.isFinite(rawLimit)
       ? Math.min(Math.max(Math.floor(rawLimit), 1), 500)

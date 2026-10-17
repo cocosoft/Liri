@@ -15,6 +15,7 @@ import { handleError } from '@modules/error';
 // C1（2026-09-30 D-117，`project` 域静态面）：迁移服务改经服务层端口
 // （原相对导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import { readBody, json } from './handler-utils';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 const logger = getLogger('project:handlers');
 
@@ -37,7 +38,7 @@ export async function handleListProjects(
   try {
     const url = new URL(
       req.url || '/',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const workspaceId = url.searchParams.get('workspaceId') || 'default';
     const store = await getProjectStore();

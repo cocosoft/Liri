@@ -11,6 +11,7 @@ import { sendError } from './handler-utils';
 import { handleError } from '@modules/error';
 // C1（2026-09-30 D-92）：插件管理改经服务层端口（消除 service → app 跨层引用）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 /**
  * 处理插件市场搜索 GET /v1/plugins/marketplace/search?query=xx&page=1&pageSize=20
@@ -22,7 +23,7 @@ export async function handlePluginMarketplaceSearch(
   try {
     const parsedUrl = new URL(
       req.url!,
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const query = parsedUrl.searchParams.get('query') || '';
     const page = Number(parsedUrl.searchParams.get('page') || '1') || 1;

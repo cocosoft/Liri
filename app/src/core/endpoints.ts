@@ -65,8 +65,11 @@ export const DEFAULT_COMFYUI_ENDPOINT = `http://${LOCAL_HTTP_HOST}:8188`;
  */
 export const LOCAL_REQUEST_BASE_URL = `http://${LOCAL_SERVICE_HOST}`;
 
+/** MCP OAuth 回调端口默认值（与 `DEFAULT_MCP_PROXY_URL` 的 8205 对齐；U-20/B5-2-97） */
+export const DEFAULT_MCP_OAUTH_CALLBACK_PORT = 8205;
+
 /** 本机 MCP 代理地址（OAuth 侧的 `MCP_PROXY_URL`；U-20/B5-2-93） */
-export const DEFAULT_MCP_PROXY_URL = `http://${LOCAL_SERVICE_HOST}:8205`;
+export const DEFAULT_MCP_PROXY_URL = `http://${LOCAL_SERVICE_HOST}:${DEFAULT_MCP_OAUTH_CALLBACK_PORT}`;
 
 /** 本地 OAuth 开发服务的 API 面默认地址（U-20/B5-2-93） */
 export const DEFAULT_LOCAL_OAUTH_API_BASE = `http://${LOCAL_SERVICE_HOST}:8000`;

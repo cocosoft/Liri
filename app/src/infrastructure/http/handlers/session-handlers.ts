@@ -38,6 +38,7 @@ import {
   sendNotFound,
   normalizeTimestamp,
 } from './session-handlers-utils';
+import { LOCAL_REQUEST_BASE_URL, LOCAL_SERVICE_HOST } from '@modules/core';
 
 const logger = getLogger('infra:http:session-handlers');
 
@@ -85,7 +86,7 @@ export async function handleSearchMessagesFTS(
   try {
     const url = new URL(
       req.url || '/',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const q = (url.searchParams.get('q') ?? '').trim();
     // N-66（2026-09-20）：**可选**作用域参数 —— 侧栏搜索传当前 moduleType；全局搜索不传
@@ -152,7 +153,7 @@ export async function handleListSessions(
     await coreAPI.ensureSessionsLoaded();
     const url = new URL(
       req.url || '/',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const lite = url.searchParams.get('lite') === 'true';
     const moduleType = url.searchParams.get('moduleType');
@@ -384,7 +385,7 @@ export async function handleGetSessionMessages(
     }
     // KB-LONG-SESSION（2026-08-29）：分页参数——limit 传 >0 时取末尾 limit 条，
     // before 为 lastEventSeq 游标（加载更早历史）。不传 limit 返回全量（行为不变）。
-    const url = new URL(req.url ?? '', 'http://localhost');
+    const url = new URL(req.url ?? '', LOCAL_REQUEST_BASE_URL);
     const limitParam = url.searchParams.get('limit');
     const beforeParam = url.searchParams.get('before');
     const result = await coreAPI.getSessionMessages(sessionId, {
@@ -1136,7 +1137,7 @@ export async function handleGetSessionMemory(
     const mm = getSessionMemoryManager();
     const url = new URL(
       req.url || '/',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const query = url.searchParams.get('q') || undefined;
     const topK = parseInt(url.searchParams.get('topK') || '5', 10);
@@ -1200,7 +1201,7 @@ export async function handleGetSessionEvents(
     // 解析查询参数
     const url = new URL(
       req.url || '/',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const fromSeqParam = url.searchParams.get('fromSeq');
     const toSeqParam = url.searchParams.get('toSeq');
@@ -1432,7 +1433,7 @@ export async function handleExportSessionEvents(
 
     const url = new URL(
       req.url || '/',
-      `http://${req.headers.host || 'localhost'}`
+      `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const format = (url.searchParams.get('format') ?? 'jsonl') as
       | 'jsonl'

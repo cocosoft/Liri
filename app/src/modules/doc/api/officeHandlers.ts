@@ -7,6 +7,7 @@ import type http from 'http';
 import type { EmailAccount } from '../../mail/types';
 import { getLogger } from '../../../core/loggerFacade.js';
 import { handleError } from '../../../core/errorHandler.js';
+import { LOCAL_SERVICE_HOST } from '../../../core/endpoints.js';
 
 const logger = getLogger('doc:api');
 
@@ -1158,7 +1159,7 @@ export async function handleDocDelete(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`);
     const file = url.searchParams.get('file') || '';
     if (!file) {
       res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -1481,7 +1482,7 @@ export async function handleCalendarMerged(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`);
     const start = url.searchParams.get('start');
     const end = url.searchParams.get('end');
     const timezone = url.searchParams.get('timezone') ?? undefined;

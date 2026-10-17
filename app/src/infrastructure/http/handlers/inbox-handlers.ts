@@ -28,6 +28,7 @@ import {
   type ApprovalScope,
   type ApprovalSnapshot,
 } from '@modules/permission';
+import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 
 const logger = getLogger('http:inbox');
 
@@ -50,7 +51,7 @@ export async function handleListInbox(
   const span = otel.startSpan('inbox.list', {});
 
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const sessionId = url.searchParams.get('sessionId') || undefined;
     const status = url.searchParams.get('status') as
       | InboxItemStatus
@@ -92,7 +93,7 @@ export async function handleInboxCount(
   const span = otel.startSpan('inbox.count', {});
 
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const sessionId = url.searchParams.get('sessionId') || undefined;
 
     const count = await inboxManager.getPendingCount(sessionId);
@@ -122,7 +123,7 @@ export async function handleGetInbox(
   const span = otel.startSpan('inbox.get', {});
 
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const segments = url.pathname.split('/');
     const id = segments[segments.length - 1];
 
@@ -164,7 +165,7 @@ export async function handleReplyInbox(
   const span = otel.startSpan('inbox.reply', {});
 
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const segments = url.pathname.split('/');
     // Path: /v1/inbox/:id/reply
     const replyIdx = segments.indexOf('reply');
@@ -385,7 +386,7 @@ export async function handleUndoApproval(
   const COOL_OFF_MS = 30_000; // 30 秒冷却窗口
 
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const segments = url.pathname.split('/');
     const undoIdx = segments.indexOf('undo');
     const id = undoIdx > 0 ? segments[undoIdx - 1] : '';

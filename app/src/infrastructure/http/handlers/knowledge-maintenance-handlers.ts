@@ -17,6 +17,7 @@ import {
   assertDocPathWithin,
   publishKnowledgeChanged,
 } from './knowledge-handlers';
+import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 
 export async function handleKnowledgeHealth(
   req: http.IncomingMessage,
@@ -314,7 +315,7 @@ export async function handlePurgeKnowledgeTrash(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const parsedUrl = new URL(req.url || '', 'http://localhost');
+    const parsedUrl = new URL(req.url || '', LOCAL_REQUEST_BASE_URL);
     const docPath = parsedUrl.searchParams.get('docPath');
     if (!docPath) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -348,7 +349,7 @@ export async function handleExportKnowledge(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const parsedUrl = new URL(req.url || '', 'http://localhost');
+    const parsedUrl = new URL(req.url || '', LOCAL_REQUEST_BASE_URL);
     const baseFilter = parsedUrl.searchParams.get('base');
 
     const { readFile, readdir } = await import('fs/promises');

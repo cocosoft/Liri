@@ -18,7 +18,7 @@ import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { resolveDataSubDir } from '@modules/core';
+import { resolveDataSubDir, LOCAL_SERVICE_HOST } from '@modules/core';
 import { existsSync } from 'fs';
 
 const DS_CONFIG_PATH = join(
@@ -115,7 +115,7 @@ export async function handleDeleteDataSource(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`);
     const segs = url.pathname.split('/');
     const dsType = segs[segs.length - 1];
 
@@ -145,7 +145,7 @@ export async function handleSyncDataSource(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const url = new URL(req.url!, `http://${req.headers.host ?? LOCAL_SERVICE_HOST}`);
     const segs = url.pathname.split('/');
     const dsType = segs[segs.length - 2];
 

@@ -29,9 +29,10 @@ import {
 type NonPluginSource = Exclude<SettingSource, 'built-in' | 'plugin'>;
 
 /**
- * 权限模式列表
+ * Agent 文件允许的权限模式清单（**是 `permission/PermissionMode` 的子集**：
+ * agent frontmatter 不接受 `ask` / `alwaysAsk` / `strict` / `bypass`）⇒ 按域命名（U-20/B5-2-81）。
  */
-export const PERMISSION_MODES = [
+export const AGENT_PERMISSION_MODES = [
   'default',
   'auto',
   'acceptEdits',
@@ -148,11 +149,11 @@ export function parseAgentFromMarkdown(
       | undefined;
     const isValidPermissionMode =
       permissionModeRaw &&
-      (PERMISSION_MODES as readonly string[]).includes(permissionModeRaw);
+      (AGENT_PERMISSION_MODES as readonly string[]).includes(permissionModeRaw);
 
     if (permissionModeRaw && !isValidPermissionMode) {
       logger.debug(
-        `Agent file ${filePath} has invalid permissionMode '${permissionModeRaw}'. Valid options: ${PERMISSION_MODES.join(', ')}`
+        `Agent file ${filePath} has invalid permissionMode '${permissionModeRaw}'. Valid options: ${AGENT_PERMISSION_MODES.join(', ')}`
       );
     }
 

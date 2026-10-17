@@ -45,7 +45,7 @@ const logger = getLogger('state:app-lifecycle');
 const MACHINE_ID = 'app';
 const SNAPSHOT_DIR = 'state';
 const SNAPSHOT_FILE = 'app-state.json';
-const SCHEMA_VERSION = 1;
+const APP_STATE_SCHEMA_VERSION = 1;
 
 function snapshotPath(): string {
   return path.join(resolveDataSubDir(SNAPSHOT_DIR), SNAPSHOT_FILE);
@@ -57,7 +57,7 @@ function persistSnapshot(machine: StateMachine<AppState>): void {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
       snapshotPath(),
-      JSON.stringify(machine.snapshot('AppStateMachine', SCHEMA_VERSION))
+      JSON.stringify(machine.snapshot('AppStateMachine', APP_STATE_SCHEMA_VERSION))
     );
   } catch (e) {
     // @ignore-catch — 快照落盘失败不影响运行

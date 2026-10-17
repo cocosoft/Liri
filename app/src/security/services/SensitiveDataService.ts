@@ -4,11 +4,11 @@ import { getLogger } from '@modules/monitoring';
 // P26-2 P1（2026-10-07）：秘密**形态**规则复用既有唯一事实源（`memory` 侧 gitleaks 式规则表）
 // —— 不再在此维护第二套"字段名"正则（CS01）。
 import { redactSecretsFully } from '../scanner/secret/index.js';
+// U-20/B5-2-81：邮箱正则复用 redact 侧唯一事实源（同模块内，避免两处同值正则分叉）
+import { EMAIL_PATTERN } from '../redact/RedactPatterns.js';
 
 const logger = getLogger('security\services\SensitiveDataService');
 
-/** 邮箱（**豁免 MIT 协议头行** —— 见 `redactEmails`，P26-2 P2） */
-const EMAIL_PATTERN = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
 /** 协议头标记（`Copyright …` / `©`）—— 命中的**整行**跳过邮箱打码 */
 const COPYRIGHT_LINE_PATTERN = /copyright|©/i;
 /** PII（SSN / 卡号） */

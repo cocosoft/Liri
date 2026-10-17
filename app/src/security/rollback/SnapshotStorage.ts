@@ -52,8 +52,8 @@ import type { RoundSnapshot, FileChange, SessionIndexEntry } from './types';
 
 const logger = getLogger('SnapshotStorage');
 
-/** 数据模型版本号 */
-const SCHEMA_VERSION = 1;
+/** 数据模型版本号（回滚快照专用，区别于 `state/app` 的快照版本） */
+const ROLLBACK_SCHEMA_VERSION = 1;
 
 /**
  * 获取存储根目录
@@ -234,7 +234,7 @@ export async function createRoundSnapshot(
     createdAt: new Date().toISOString(),
     changedFiles,
     totalSize: 0,
-    schemaVersion: SCHEMA_VERSION,
+    schemaVersion: ROLLBACK_SCHEMA_VERSION,
     storeAfterVersion,
     scanStatus,
     status: 'active',

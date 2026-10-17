@@ -42,8 +42,7 @@ import { appendWithinLimit } from '../SandboxPolicy';
 // R21（2026-10-09）：取消/中止时按**进程树**强杀（防 shell 与孙进程成为孤儿）
 import { killProcessTree } from '../utils/killProcessTree';
 
-/** fail-closed：沙箱初始化失败退出码 */
-const EXIT_SANDBOX_INIT_FAILED = 125;
+import { EXIT_SANDBOX_INIT_FAILED } from './types';
 
 /**
  * exit 125 归因契约（postmortem 0004）：

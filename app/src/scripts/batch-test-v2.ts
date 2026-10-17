@@ -11,7 +11,7 @@ import type { CommandContext } from '../commands/types';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('scripts:batch-test-v2');
 
-const TEST_COMMANDS = [
+const V2_TEST_COMMANDS = [
   // A组: 基础命令
   { cmd: 'help args=help', label: 'help' },
   { cmd: 'status', label: 'status' },
@@ -75,7 +75,7 @@ const baseContext: CommandContext = {
 let passed = 0;
 let failed = 0;
 
-for (const { cmd, label } of TEST_COMMANDS) {
+for (const { cmd, label } of V2_TEST_COMMANDS) {
   try {
     const start = Date.now();
     const result = await commandExecutor.execute(cmd, baseContext);
@@ -100,5 +100,5 @@ for (const { cmd, label } of TEST_COMMANDS) {
 }
 
 console.log(
-  `\n完成: ${TEST_COMMANDS.length} 个命令 | ✅ ${passed} | ❌ ${failed}`
+  `\n完成: ${V2_TEST_COMMANDS.length} 个命令 | ✅ ${passed} | ❌ ${failed}`
 );

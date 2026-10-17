@@ -33,13 +33,12 @@
 import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import type { LandlockCapability } from './types';
+import { EXIT_SANDBOX_INIT_FAILED } from './types';
 import { MAX_SUPPORTED_ABI, MIN_FS_ABI } from './LandlockPolicyBuilder';
 
 const DEFAULT_HELPER = 'landlock-run';
 const LSM_PATH = '/sys/kernel/security/lsm';
 const DEFAULT_PROBE_TIMEOUT_MS = 5000;
-/** fail-closed：helper 初始化失败退出码（对齐参考仓库 cli-contract.md） */
-const EXIT_SANDBOX_INIT_FAILED = 125;
 
 let cached: LandlockCapability | null = null;
 

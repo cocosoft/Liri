@@ -8,7 +8,7 @@ import { commandExecutor } from '../commands/executor/index.js';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('scripts:batch-test-v3');
 
-const TEST_COMMANDS = [
+const V3_TEST_COMMANDS = [
   // A组: 基础命令
   { cmd: 'help', label: 'help' },
   { cmd: 'status', label: 'status' },
@@ -68,8 +68,8 @@ let passed = 0;
 let failed: { label: string; err: string }[] = [];
 let warnings: { label: string; err: string }[] = [];
 
-for (let i = 0; i < TEST_COMMANDS.length; i++) {
-  const { cmd, label } = TEST_COMMANDS[i];
+for (let i = 0; i < V3_TEST_COMMANDS.length; i++) {
+  const { cmd, label } = V3_TEST_COMMANDS[i];
 
   try {
     const start = Date.now();
@@ -104,11 +104,11 @@ for (let i = 0; i < TEST_COMMANDS.length; i++) {
     failed.push({ label, err: msg });
   }
 
-  process.stdout.write(`\r进度: ${i + 1}/${TEST_COMMANDS.length}`);
+  process.stdout.write(`\r进度: ${i + 1}/${V3_TEST_COMMANDS.length}`);
 }
 
 console.log(`\n\n========= 汇总 =========`);
-console.log(`总计: ${TEST_COMMANDS.length} 个命令`);
+console.log(`总计: ${V3_TEST_COMMANDS.length} 个命令`);
 console.log(`✅ 通过: ${passed}`);
 console.log(`⚠ 警告: ${warnings.length}`);
 console.log(`❌ 失败: ${failed.length}`);

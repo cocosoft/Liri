@@ -50,7 +50,7 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:bash:landlock');
 
 /** 内核 LSM 列表路径（内容含 `landlock` 表示该 LSM 已启用） */
-const LSM_PATH = '/sys/kernel/security/lsm';
+const KERNEL_LSM_LIST_PATH = '/sys/kernel/security/lsm';
 
 /** 全进程只提示一次 */
 let reported = false;
@@ -100,7 +100,7 @@ export function judgeBashLandlockGap(input: {
 /** 默认读 LSM 列表；文件不存在 / 权限不足（含非 Linux）⇒ `null` */
 async function readLsmDefault(): Promise<string | null> {
   try {
-    return await readFile(LSM_PATH, 'utf8');
+    return await readFile(KERNEL_LSM_LIST_PATH, 'utf8');
   } catch {
     // @ignore-catch 读不到 LSM 列表＝"无法判断能力"，按"未启用"处理（不臆断为可用）
     return null;
@@ -137,7 +137,7 @@ export async function reportBashLandlockGapOnce(
       'bash 无内核级约束：本机 Landlock 可用，但 bash 执行路径未接入（仅事前黑名单检查）—— 已知安全缺口（G1-C），本轮只提示不改行为',
       {
         platform,
-        lsmPath: LSM_PATH,
+        lsmPath: KERNEL_LSM_LIST_PATH,
         options: '接入=选项 A（需 Linux 验证）/ 记录=选项 B',
       }
     );

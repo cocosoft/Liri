@@ -26,6 +26,12 @@
  * policy.json 契约与 CLI 协议（见 dev_docs/20260824/沙箱隔离机制与Landlock集成方案-20260824.md §4.2）。
  */
 
+/**
+ * fail-closed：helper 初始化失败退出码（对齐参考仓库 cli-contract；
+ * `runWithLandlock` 与 `LandlockDetector` 共用，U-20/B5-2-82）。
+ */
+export const EXIT_SANDBOX_INIT_FAILED = 125;
+
 /** Landlock 不可用原因 */
 export type LandlockUnavailableReason =
   | 'no-linux'

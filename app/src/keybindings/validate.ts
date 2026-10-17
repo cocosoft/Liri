@@ -6,11 +6,11 @@ import type {
   KeybindingBlock,
 } from './types.js';
 import { KEYBINDING_CONTEXTS } from './schema.js';
-import { KEYBINDING_ACTIONS } from './types.js';
+import { KEYBINDING_ACTION_IDS } from './types.js';
 import { parseChord, parseKeystroke } from './parser.js';
 import { NON_REBINDABLE, TERMINAL_RESERVED } from './reservedShortcuts.js';
 
-const ALL_ACTIONS = new Set<string>(Object.values(KEYBINDING_ACTIONS));
+const ALL_ACTIONS = new Set<string>(Object.values(KEYBINDING_ACTION_IDS));
 const COMMAND_PREFIX = 'command:';
 const COMMAND_PATTERN = /^command:[a-zA-Z0-9:\-_]+$/;
 

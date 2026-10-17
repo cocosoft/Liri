@@ -158,7 +158,13 @@ export interface KeySequence {
   description?: string;
 }
 
-export const KEYBINDING_ACTIONS = {
+/**
+ * 动作标识符映射（`动作名 → 动作 id`）。
+ *
+ * 与 `schema.ts` 的 `KEYBINDING_ACTIONS` **同名异义**：那里是 z.enum 需要的元组清单，
+ * 这里是按动作名索引的常量表；按域改名为 `KEYBINDING_ACTION_IDS` 消歧（U-20/B5-2-76）。
+ */
+export const KEYBINDING_ACTION_IDS = {
   COPY: 'edit.copy',
   CUT: 'edit.cut',
   PASTE: 'edit.paste',

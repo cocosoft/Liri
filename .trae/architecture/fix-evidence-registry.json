@@ -11683,6 +11683,33 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S4-STREAMFINALIZE）",
       "notes": "finalize（294 行）→ chat/manager/streamFinalize.ts（ChatStreamFinalize + StreamFinalizeDeps）；resumeStream（289 行）→ chat/manager/streamResume.ts（ChatStreamResume + S…（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S4-STREAMFINALIZE）"
+    },
+    {
+      "id": "U18-STREAMFLOW-TOOLLOOP",
+      "title": "U-18/S1：工具轮主体外移为内层 async generator（streamMessageToolLoop）",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（streamMessageFlow S1）/§4；.trae/specs/stream-message-flow-split.md",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/orchestrator/streamMessageToolLoop.ts",
+        "app/src/chat/orchestrator/streamMessageFlow.ts",
+        "scripts/layer-exceptions.json",
+        ".trae/architecture/function-size-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U18-STREAMFLOW-TOOLLOOP）",
+      "notes": "从 runStreamMessage 外移「处理工具调用 — 流式工具执行循环」整段（约 400 行）：回滚轮次登记 + buildToolLoopContext 装配 + ReActEvent 单 in-flight 消费 + 5s 心跳 + assistant/tool_call 即时落盘 + todo 落盘/补…（全文见 archive/evidence-detail.jsonl#U18-STREAMFLOW-TOOLLOOP）"
     }
   ]
 }

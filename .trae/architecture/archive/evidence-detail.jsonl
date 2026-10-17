@@ -6737,3 +6737,10 @@
 {"id":"U22-CHATMANAGER-S4-STREAMFINALIZE","k":"code#1","i":0,"c":"app/src/chat/manager/streamResume.ts"}
 {"id":"U22-CHATMANAGER-S4-STREAMFINALIZE","k":"code#2","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"U22-CHATMANAGER-S4-STREAMFINALIZE","k":"code#3","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"U18-STREAMFLOW-TOOLLOOP","k":"title","i":0,"c":"U-18/S1：工具轮主体外移为内层 async generator（streamMessageToolLoop）"}
+{"id":"U18-STREAMFLOW-TOOLLOOP","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（streamMessageFlow S1）/§4；.trae/specs/stream-message-flow-split.md"}
+{"id":"U18-STREAMFLOW-TOOLLOOP","k":"notes","i":0,"c":"从 runStreamMessage 外移「处理工具调用 — 流式工具执行循环」整段（约 400 行）：回滚轮次登记 + buildToolLoopContext 装配 + ReActEvent 单 in-flight 消费 + 5s 心跳 + assistant/tool_call 即时落盘 + todo 落盘/补发 + 终止副作用 flush + 跨轮预算持久化 + 长任务信号分流 + 工具轮异常留痕。调用方 yield* 逐帧转发，chunk 顺序/心跳语义/日志文案逐字未变。fileSize 2316→1936（低于 targetLines 2000 ⇒ 删除 FSZ-107 例外）；function-size-baseline 同步下调（runStreamMessage 2132→1757 / 文件 2315→1936）。"}
+{"id":"U18-STREAMFLOW-TOOLLOOP","k":"code#0","i":0,"c":"app/src/chat/orchestrator/streamMessageToolLoop.ts"}
+{"id":"U18-STREAMFLOW-TOOLLOOP","k":"code#1","i":0,"c":"app/src/chat/orchestrator/streamMessageFlow.ts"}
+{"id":"U18-STREAMFLOW-TOOLLOOP","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"U18-STREAMFLOW-TOOLLOOP","k":"code#3","i":0,"c":".trae/architecture/function-size-baseline.json"}

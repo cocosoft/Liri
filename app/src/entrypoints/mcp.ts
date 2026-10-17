@@ -38,7 +38,11 @@ import { getEmptyToolPermissionContext } from '../tools/types/PermissionContext'
 import { ToolUseContext } from '../tools/types/ToolUseContext';
 import { createToolManager } from '@modules/tools';
 import { createAbortController } from '../utils/abortController';
-import { createFileStateCacheWithSizeLimit } from '../utils/fileStateCache';
+// U-20（B5-2-70，2026-10-17）：缓存容量改引 utils 单一事实源
+import {
+  createFileStateCacheWithSizeLimit,
+  READ_FILE_STATE_CACHE_SIZE,
+} from '../utils/fileStateCache';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('entrypoints:mcp');
 
@@ -83,7 +87,6 @@ export async function startMCPServer(
 
   // 使用大小受限的LRU缓存来防止内存无限增长
   // 100个文件和25MB限制应该足够MCP服务器操作
-  const READ_FILE_STATE_CACHE_SIZE = 100;
   const readFileStateCache = createFileStateCacheWithSizeLimit(
     READ_FILE_STATE_CACHE_SIZE
   );

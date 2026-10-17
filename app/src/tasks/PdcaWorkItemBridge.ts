@@ -350,9 +350,10 @@ class PdcaCheckpointStore {
 
     for (const { taskId, terminal } of toDelete) {
       try {
-        await this.run(`DELETE FROM ${PDCA_CHECKPOINT_TABLE} WHERE task_id = ?`, [
-          taskId,
-        ]);
+        await this.run(
+          `DELETE FROM ${PDCA_CHECKPOINT_TABLE} WHERE task_id = ?`,
+          [taskId]
+        );
         result.pruned++;
         if (terminal) result.prunedTerminal++;
         else result.prunedOrphan++;

@@ -2187,9 +2187,11 @@ class ArchitectureLinter {
       //     `tokenBudget/{TokenBudgetController,UnifiedTokenTracker}` 的跨模块导入全部改走
       //     `@modules/tokenBudget`（桶增补 Status/Params/State/getDefaultTokenBudget + 叶子再导出；
       //     `SubAgentTokenBridge` 一并入桶）⇒ 登记键已移除。
+      //   ✅ 收口批次⑤已完成（2026-10-17，U-21）：security 两键收口 ——
+      //     `security/{patterns,redact}` 的跨模块导入改走 `@modules/security`
+      //     （patterns barrel 补 DELETION_RULES/ALL_UNIFIED_RULES/UnifiedRulePlatform；
+      //      security barrel 补 getRedactMiddleware）⇒ 登记键已移除。
       //   其余未收口键（批次②保留 + 后续批：security / skills / workspace / components）：
-      'security/patterns', // barrel 仅导出 patterns 的 **type**（值未导出）→ 收口：评估为 barrel 增补值导出
-      'security/redact', // barrel 仅导出 redact 的 type
       'security/scanners', // 子路径唯一入口（barrel 导出件在 `scanner/secret`，命名不一致）
       'security/validators', // 子路径唯一入口（barrel 未导出）
       'security/bash', // 子路径唯一入口（barrel 导出件在 `BashAllowlistMatcher`）

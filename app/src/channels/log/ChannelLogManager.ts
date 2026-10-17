@@ -10,7 +10,7 @@ import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';
 
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
-import { getRedactMiddleware } from '../../security/redact/RedactMiddleware';
+import { getRedactMiddleware } from '@modules/security';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:log:ChannelLogManager');

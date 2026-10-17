@@ -26,7 +26,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 import { realpathSync, existsSync } from 'fs';
-import { DELETION_RULES } from '../../security/patterns/dangerousCommands';
+import { DELETION_RULES } from '@modules/security';
 import { SandboxSecurityChecker } from '@modules/sandbox';
 import { completeSecuritySystem } from '@modules/security';
 import { configManager } from '@modules/config';

@@ -274,6 +274,13 @@ export type {
   PatternUpdateEvent,
   PatternLibraryConfig,
 } from './patterns';
+// U-21（批次⑤，2026-10-17）：统一危险规则集入桶（原只有叶子直连）
+export {
+  DELETION_RULES,
+  ALL_UNIFIED_RULES,
+} from './patterns';
+export type { UnifiedRulePlatform } from './patterns';
+export { getRedactMiddleware } from './redact';
 export type { RedactResult, ObjectRedactResult } from './redact';
 export type { RedactStats } from './redact';
 // A3（2026-10-09）：敏感环境变量剥离单一事实源（供 BashTool spawn / hooks 脚本执行复用）

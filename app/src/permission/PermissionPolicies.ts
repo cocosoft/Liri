@@ -10,7 +10,7 @@ import { createDenyDecision, createAskDecision } from './PermissionResult';
 import {
   ALL_UNIFIED_RULES,
   type UnifiedRulePlatform,
-} from '../security/patterns/dangerousCommands';
+} from '@modules/security';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('permission:PermissionPolicies');

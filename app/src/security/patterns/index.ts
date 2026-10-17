@@ -25,7 +25,11 @@
 export {
   DANGEROUS_COMMAND_PATTERNS,
   DANGEROUS_BASE_COMMANDS,
+  // U-21（D-3-c 批次⑤，2026-10-17）：统一规则集原仅可从叶子导入 ⇒ 补 barrel 导出
+  DELETION_RULES,
+  ALL_UNIFIED_RULES,
 } from './dangerousCommands';
+export type { UnifiedRulePlatform } from './dangerousCommands';
 export {
   INJECTION_PATTERNS,
   IFS_INJECTION_PATTERNS,

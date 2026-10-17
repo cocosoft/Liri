@@ -33,7 +33,7 @@ import {
 const logger = getLogger('execution:manager');
 
 /** 记录上限（超出时清理最旧的终态记录，防长进程内存无界增长；PR5 改由 DB 承载） */
-const MAX_RECORDS = 1000;
+const EXECUTION_MAX_RECORDS = 1000;
 
 /** PR5-S2：心跳陈旧阈值（默认 90s；env `EXEC_HEARTBEAT_STALE_MS` 覆盖） */
 export const DEFAULT_EXEC_HEARTBEAT_STALE_MS = 90_000;
@@ -619,9 +619,9 @@ export class ExecutionManager {
 
   /** 终态记录超过上限时清理最旧的（防内存无界增长） */
   private sweep(): void {
-    if (this.records.size <= MAX_RECORDS) return;
+    if (this.records.size <= EXECUTION_MAX_RECORDS) return;
     for (const [id, rec] of this.records) {
-      if (this.records.size <= MAX_RECORDS) break;
+      if (this.records.size <= EXECUTION_MAX_RECORDS) break;
       if (isTerminalStatus(rec.status)) this.records.delete(id);
     }
   }

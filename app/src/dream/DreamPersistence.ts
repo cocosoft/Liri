@@ -34,7 +34,7 @@ import { handleError } from '@modules/error';
 const logger = getLogger('dream:dreamPersistence');
 
 const DREAM_RECORDS_FILE = 'dream_records.json';
-const MAX_RECORDS = 50;
+const DREAM_MAX_RECORDS = 50;
 const CYCLES_DIR = 'cycles';
 const CYCLES_MAX = 100;
 const CYCLES_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 天
@@ -76,8 +76,8 @@ export class DreamPersistence {
   async save(record: DreamRecord): Promise<void> {
     await this.load();
     this.records.push(record);
-    if (this.records.length > MAX_RECORDS) {
-      this.records = this.records.slice(-MAX_RECORDS);
+    if (this.records.length > DREAM_MAX_RECORDS) {
+      this.records = this.records.slice(-DREAM_MAX_RECORDS);
     }
     try {
       await writeFile(

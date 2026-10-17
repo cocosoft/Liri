@@ -31,7 +31,7 @@ export interface SessionCacheOptions {
 }
 
 const SESSION_CACHE_TTL_MS = 5 * 60 * 1000; // 默认 5 分钟
-const DEFAULT_MAX_ENTRIES = 500;
+const SESSION_CACHE_MAX_ENTRIES = 500;
 const DEFAULT_CLEANUP_INTERVAL = 60 * 1000; // 1 分钟
 
 export class SessionCache<T = unknown> {
@@ -42,7 +42,8 @@ export class SessionCache<T = unknown> {
   constructor(options: SessionCacheOptions = {}) {
     this.options = {
       ttlMs: options.ttlMs ?? SESSION_CACHE_TTL_MS,
-      maxEntriesPerSession: options.maxEntriesPerSession ?? DEFAULT_MAX_ENTRIES,
+      maxEntriesPerSession:
+        options.maxEntriesPerSession ?? SESSION_CACHE_MAX_ENTRIES,
       cleanupIntervalMs: options.cleanupIntervalMs ?? DEFAULT_CLEANUP_INTERVAL,
     };
   }

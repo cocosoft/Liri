@@ -1,20 +1,21 @@
 {
-  "nextKey": "B5-2-98",
-  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97"],
-  "lastCommit": "53e33c3a1",
+  "nextKey": "B5-2-99",
+  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98"],
+  "lastCommit": "014d5b389",
   "baselineKeys": {
-    "lint:consts": 103,
+    "lint:consts": 101,
     "lint:endpoints": 30,
     "lint:locale": 6
   },
-  "nextAction": "lint:endpoints 剩 30 文件 / 78 处，已全部裁定为「字面量即语义」保留（安全检测清单 / 回环判定 / 帮助与示例文案 / i18n 文案 / 测试夹具 / 行号误报 / CD07 关键域）；下一轮转 lint:consts 同值字面量 86 组或 U-13/U-17/U-22",
+  "nextAction": "B5-2-99 继续 lint:consts（剩 84 组同值：供应商其余域名 / channel 域 URL / 示例文案；同名 17 组已裁定保留）；随后 U-22 拆分、U-13/U-17 量化取证",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
-    "基线键数为门禁实测口径（lint:consts 按组计：同名 17 + 同值 86 = 103；lint:endpoints / locale 按文件键计），非估算",
+    "基线键数为门禁实测口径（lint:consts 按组计：同名 17 + 同值 84 = 101；lint:endpoints / locale 按文件键计），非估算",
     "2026-10-17：跨包同义组（MAX_TRACKED/MAX_RECENT、DAILY_BUDGET_SSE_EVENT、DEFAULT_SOUL/DEFAULT_USER 等）保留 —— app 与 client 独立构建，无法共享单一事实源，改名只会制造假差异",
     "2026-10-17：tools/bash/semantics/**（3 文件）全仓零消费者，但 bash 属 CD07 关键域 ⇒ 本轮只登记不删除，待独立变更按 CD05/CD06 处置",
     "2026-10-17：B5-2-97 —— infrastructure/http/handlers/**（31 文件 / 76 处）占位 origin 收敛到 LOCAL_REQUEST_BASE_URL / LOCAL_SERVICE_HOST / LOCAL_HTTP_HOST；新增 DEFAULT_MCP_OAUTH_CALLBACK_PORT（8205，与 DEFAULT_MCP_PROXY_URL 共用）",
     "2026-10-17：lint:endpoints 剩 30 文件保留理由 —— 安全检测与回环判定（ssrf/preapproved/providers/SecurityManager/permission/sandbox/VideoGenerateTool/LocalHTTPService CORS）、帮助与示例文案（docs/commands/i18n/elicitationHandler）、测试夹具（ConfigModuleTest）、STT keyterm 词表、协议默认端口（DirectConnectManager :3000）、刻意零静态依赖（entrypoints/http-server.ts）、CD07 关键域（sandbox/**）",
+    "2026-10-17：B5-2-98 —— 新增 core/providerEndpoints.ts（OPENAI/ANTHROPIC 基址真源）并在 core/index 再导出；19 个消费方改用常量；置于 core 而非 ai 以避开 service→app 分层倒挂（R00-001）",
     "2026-10-17：query/patternAssembly.ts:49（:1977）与 state/engine/stateMachineCatalog.ts:185（:3184）是**行号/定位串**被 FIXED_PORT_RE 误判，非遗留硬编码；constants/common.ts 的 DEFAULT_HOST 为零消费者死常量，按 CD05/CD06 走独立变更"
   ]
 }

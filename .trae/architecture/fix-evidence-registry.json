@@ -11421,6 +11421,60 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-ENDPOINTS-B5-2-96）",
       "notes": "cli 配置 websocket 绑定默认改用 WILDCARD_BIND_HOST；技能源 SSRF 回环判定与本地 LLM 端点判定改用 LOCAL_SERVICE_HOST/LOCAL_HTTP_HOST/WILDCARD_BIND_HOST（行为不变）；lint:endpoints 70→67。（全文见 archive/evidence-detail.jsonl#HARDCODE-ENDPOINTS-B5-2-96）"
+    },
+    {
+      "id": "HARDCODE-ENDPOINTS-B5-2-97",
+      "title": "U-20/2-97：请求占位 origin 收敛到端点真源",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；棘轮存量收敛",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/infrastructure/http/handlers/",
+        "app/src/core/endpoints.ts",
+        "app/src/system/auth/auth-code-listener.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-ENDPOINTS-B5-2-97）",
+      "notes": "infrastructure/http/handlers/** 占位 origin 改用 LOCAL_REQUEST_BASE_URL / LOCAL_SERVICE_HOST / LOCAL_HTTP_HOST；新增 DEFAULT_MCP_OAUTH_CALLBACK_PORT 与 DEFAULT_MCP_PRO…（全文见 archive/evidence-detail.jsonl#HARDCODE-ENDPOINTS-B5-2-97）"
+    },
+    {
+      "id": "HARDCODE-CONSTS-B5-2-98",
+      "title": "U-20/2-98：官方供应商 API 基址收敛到 core 真源",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；棘轮存量收敛",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/core/providerEndpoints.ts",
+        "app/src/ai/providers/providerPresetsData.ts",
+        "app/src/plugins/provider/ProviderDiscovery.ts",
+        "scripts/lint-consts.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-CONSTS-B5-2-98）",
+      "notes": "新增 core/providerEndpoints.ts（OPENAI/ANTHROPIC 的 BASE/V1 常量）并在 core/index 再导出；19 个消费方改用常量；lint-consts 真源白名单登记该文件；放在 core 而非 ai，避免 service→app 分层倒挂（R00-001）。（全文见 archive/evidence-detail.jsonl#HARDCODE-CONSTS-B5-2-98）"
     }
   ]
 }

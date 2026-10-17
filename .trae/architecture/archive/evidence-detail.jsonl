@@ -6704,3 +6704,9 @@
 {"id":"U22-CHATMANAGER-S1-PDCA","k":"code#0","i":0,"c":"app/src/chat/manager/pdcaLaunch.ts"}
 {"id":"U22-CHATMANAGER-S1-PDCA","k":"code#1","i":1,"c":"app/src/chat/ChatManager.ts"}
 {"id":"U22-CHATMANAGER-S1-PDCA","k":"code#2","i":2,"c":"scripts/layer-exceptions.json"}
+{"id":"U22-CHATMANAGER-S2-STREAMSETUP","k":"title","i":0,"c":"U-22/S2：ChatManager 外移流式请求准备段"}
+{"id":"U22-CHATMANAGER-S2-STREAMSETUP","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ChatManager S2）"}
+{"id":"U22-CHATMANAGER-S2-STREAMSETUP","k":"notes","i":0,"c":"_prepareStreamSession（208 行）迁到 chat/manager/streamSetup.ts（ChatStreamSetup + StreamSetupDeps 注入）；宿主保留薄转发与同一出参类型；执行顺序、日志文案、异常类型不变。"}
+{"id":"U22-CHATMANAGER-S2-STREAMSETUP","k":"code#0","i":0,"c":"app/src/chat/manager/streamSetup.ts"}
+{"id":"U22-CHATMANAGER-S2-STREAMSETUP","k":"code#1","i":1,"c":"app/src/chat/ChatManager.ts"}
+{"id":"U22-CHATMANAGER-S2-STREAMSETUP","k":"code#2","i":2,"c":"scripts/layer-exceptions.json"}

@@ -11529,6 +11529,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S1-PDCA）",
       "notes": "把 _maybeLaunchPdca / _autoCreateProject / _escalateToPdcaViaBareSession / onLongTaskSignal / _persistPatternDecision / _persistPdcaSnapshot / _extractKeywords …（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S1-PDCA）"
+    },
+    {
+      "id": "U22-CHATMANAGER-S2-STREAMSETUP",
+      "title": "U-22/S2：ChatManager 外移流式请求准备段",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ChatManager S2）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/manager/streamSetup.ts",
+        "app/src/chat/ChatManager.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S2-STREAMSETUP）",
+      "notes": "_prepareStreamSession（208 行）迁到 chat/manager/streamSetup.ts（ChatStreamSetup + StreamSetupDeps 注入）；宿主保留薄转发与同一出参类型；执行顺序、日志文案、异常类型不变。（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S2-STREAMSETUP）"
     }
   ]
 }

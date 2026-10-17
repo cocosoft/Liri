@@ -12,6 +12,7 @@ import { handleError } from '@modules/error';
 import { existsSync, readFileSync } from 'fs';
 
 import { getLogger } from '@modules/monitoring';
+import { OPENAI_API_V1_BASE_URL, ANTHROPIC_API_V1_BASE_URL } from '@modules/core';
 const logger = getLogger('plugins:provider:ProviderDiscovery');
 
 /**
@@ -102,7 +103,7 @@ export class ProviderDiscovery {
           },
         ],
         authMethods: ['api-key'],
-        baseUrl: 'https://api.openai.com/v1',
+        baseUrl: OPENAI_API_V1_BASE_URL,
         status: 'active',
         priority: 100,
       },
@@ -123,7 +124,7 @@ export class ProviderDiscovery {
           },
         ],
         authMethods: ['api-key'],
-        baseUrl: 'https://api.anthropic.com/v1',
+        baseUrl: ANTHROPIC_API_V1_BASE_URL,
         status: 'active',
         priority: 90,
       },
@@ -234,7 +235,7 @@ export class ProviderDiscovery {
             },
           ],
           authMethods: ['api-key'],
-          baseUrl: 'https://api.openai.com/v1',
+          baseUrl: OPENAI_API_V1_BASE_URL,
           status: 'active',
           priority: 50,
         },
@@ -261,7 +262,7 @@ export class ProviderDiscovery {
             },
           ],
           authMethods: ['api-key'],
-          baseUrl: 'https://api.anthropic.com/v1',
+          baseUrl: ANTHROPIC_API_V1_BASE_URL,
           status: 'active',
           priority: 50,
         },

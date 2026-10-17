@@ -4,6 +4,7 @@
  */
 
 import { createProviderPlugin, type ProviderPlugin } from '../categories.js';
+import { ANTHROPIC_API_V1_BASE_URL } from '@modules/core';
 
 /**
  * Anthropic 配置
@@ -26,7 +27,7 @@ export function createAnthropicProvider(
 ): ProviderPlugin {
   const cfg: AnthropicProviderConfig = {
     apiKey: config.apiKey || '',
-    baseUrl: config.baseUrl || 'https://api.anthropic.com/v1',
+    baseUrl: config.baseUrl || ANTHROPIC_API_V1_BASE_URL,
     models: config.models || [
       'claude-sonnet-4-20250514',
       'claude-opus-4-20250514',

@@ -56,10 +56,11 @@ import { TransportProviderAdapter } from '../transports/TransportProviderAdapter
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 import { randomUUID } from 'crypto';
+import { OPENAI_API_V1_BASE_URL } from '@modules/core';
 
 const logger = getLogger('ai:openai');
 
-const OPENAI_PROVIDER_BASE_URL = 'https://api.openai.com/v1';
+const OPENAI_PROVIDER_BASE_URL = OPENAI_API_V1_BASE_URL;
 
 /**
  * 模型请求超时（毫秒）。

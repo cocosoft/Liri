@@ -10,6 +10,7 @@
  * */
 
 import { getLogger } from '@modules/monitoring';
+import { ANTHROPIC_API_BASE_URL } from '@modules/core';
 const logger = getLogger('services:mcp:officialRegistry');
 
 interface RegistryServer {
@@ -97,7 +98,7 @@ function normalizeUrl(url: string): string | undefined {
 export async function prefetchOfficialMcpUrls(): Promise<void> {
   try {
     const response = await fetch(
-      'https://api.anthropic.com/mcp-registry/v0/servers?version=latest&visibility=commercial',
+      `${ANTHROPIC_API_BASE_URL}/mcp-registry/v0/servers?version=latest&visibility=commercial`,
       { signal: AbortSignal.timeout(5000) }
     );
 

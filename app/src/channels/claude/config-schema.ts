@@ -1,3 +1,4 @@
+import { ANTHROPIC_API_V1_BASE_URL } from '@modules/core';
 /**
  * Claude 通道配置模式定义
  * 对标 IRC config-schema.ts 模式
@@ -21,7 +22,7 @@ export function getDefaultClaudeConfig(): ClaudeConfig {
   return {
     enabled: false,
     apiKey: '',
-    apiUrl: 'https://api.anthropic.com/v1',
+    apiUrl: ANTHROPIC_API_V1_BASE_URL,
     organizationId: '',
     model: DEFAULTS.model!,
     maxTokens: DEFAULTS.maxTokens!,

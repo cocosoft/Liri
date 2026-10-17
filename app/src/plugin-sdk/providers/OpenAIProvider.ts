@@ -4,6 +4,7 @@
  */
 
 import { createProviderPlugin, type ProviderPlugin } from '../categories.js';
+import { OPENAI_API_V1_BASE_URL } from '@modules/core';
 
 /**
  * OpenAI 配置
@@ -27,7 +28,7 @@ export function createOpenAIProvider(
 ): ProviderPlugin {
   const cfg: OpenAIProviderConfig = {
     apiKey: config.apiKey || '',
-    baseUrl: config.baseUrl || 'https://api.openai.com/v1',
+    baseUrl: config.baseUrl || OPENAI_API_V1_BASE_URL,
     organization: config.organization,
     models: config.models || [],
     maxRetries: config.maxRetries ?? 3,

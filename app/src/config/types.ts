@@ -31,6 +31,7 @@ import {
   DEFAULT_FAST_PATH_MAX_LENGTH,
   type FastPathConfig,
 } from '@modules/types/fastPath';
+import { OPENAI_API_V1_BASE_URL } from '@modules/core';
 
 /**
  * 项目配置接口
@@ -604,7 +605,7 @@ export function createDefaultGlobalConfig(): GlobalConfig {
       },
       openai: {
         apiKey: process.env['OPENAI_API_KEY'] || '',
-        baseUrl: 'https://api.openai.com/v1',
+        baseUrl: OPENAI_API_V1_BASE_URL,
         model: '',
       },
       azure: {

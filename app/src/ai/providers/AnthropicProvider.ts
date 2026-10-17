@@ -30,6 +30,7 @@ import { configManager } from '@modules/config';
 import { MessagesApiTransport } from '../transports/AnthropicMessagesTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
+import { ANTHROPIC_API_BASE_URL } from '@modules/core';
 
 const logger = getLogger('ai:anthropic');
 
@@ -53,7 +54,7 @@ export class AnthropicProvider extends BaseAIProvider {
 
     const apiKey = this.resolveApiKey() || '';
     const baseUrl = (
-      this.resolveBaseUrl() || 'https://api.anthropic.com'
+      this.resolveBaseUrl() || ANTHROPIC_API_BASE_URL
     ).replace(/\/+$/, '');
 
     this.config = {
@@ -149,7 +150,7 @@ export class AnthropicProvider extends BaseAIProvider {
       options?.model || this.config.model || (await this.resolveModel('chat'));
     const apiKey = this.resolveApiKey() || this.config.apiKey || '';
     const baseUrl = (
-      this.resolveBaseUrl() || 'https://api.anthropic.com'
+      this.resolveBaseUrl() || ANTHROPIC_API_BASE_URL
     ).replace(/\/+$/, '');
 
     const { systemPrompt } = this.transport!.splitMessages(messages);
@@ -395,7 +396,7 @@ export class AnthropicProvider extends BaseAIProvider {
 
     const base64 = params.imageBuffer.toString('base64');
     const baseUrl = (
-      this.resolveBaseUrl() || 'https://api.anthropic.com'
+      this.resolveBaseUrl() || ANTHROPIC_API_BASE_URL
     ).replace(/\/+$/, '');
     const apiKey = this.resolveApiKey() || this.config.apiKey || '';
 
@@ -498,7 +499,7 @@ export class AnthropicProvider extends BaseAIProvider {
     options?: ChatOptions
   ): Promise<ChatResponse> {
     const baseUrl = (
-      this.resolveBaseUrl() || 'https://api.anthropic.com'
+      this.resolveBaseUrl() || ANTHROPIC_API_BASE_URL
     ).replace(/\/+$/, '');
     const { systemPrompt } = this.transport!.splitMessages(messages);
 

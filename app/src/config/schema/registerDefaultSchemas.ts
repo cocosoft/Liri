@@ -3,6 +3,7 @@
  * 将 GlobalConfig 中所有配置项注册到 configSchema，用于文档生成和校验
  */
 import { configSchema } from './ConfigSchema.js';
+import { OPENAI_API_V1_BASE_URL, ANTHROPIC_API_BASE_URL } from '@modules/core';
 
 /**
  * 注册所有默认配置项到 configSchema
@@ -153,8 +154,8 @@ function registerAiSettings(): void {
     key: 'ai.anthropic.baseUrl',
     description: 'Anthropic API 地址',
     type: 'string',
-    defaultValue: 'https://api.anthropic.com',
-    example: 'https://api.anthropic.com',
+    defaultValue: ANTHROPIC_API_BASE_URL,
+    example: ANTHROPIC_API_BASE_URL,
   });
 
   configSchema.registerItem('AI 设置', {
@@ -178,8 +179,8 @@ function registerAiSettings(): void {
     key: 'ai.openai.baseUrl',
     description: 'OpenAI API 地址',
     type: 'string',
-    defaultValue: 'https://api.openai.com/v1',
-    example: 'https://api.openai.com/v1',
+    defaultValue: OPENAI_API_V1_BASE_URL,
+    example: OPENAI_API_V1_BASE_URL,
   });
 
   configSchema.registerItem('AI 设置', {

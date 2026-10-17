@@ -35,9 +35,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { ProviderType } from '@modules/ai';
 import {
-  DEFAULT_OLLAMA_ENDPOINT,
-  DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL,
-} from '@modules/core';
+  DEFAULT_OLLAMA_ENDPOINT, DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL, OPENAI_API_V1_BASE_URL, ANTHROPIC_API_BASE_URL } from '@modules/core';
 
 const logger = getLogger('ai:modelManagementBootstrap');
 
@@ -61,14 +59,14 @@ const ENV_PRESETS: EnvPreset[] = [
   {
     key: 'OPENAI_API_KEY',
     baseUrlKey: 'OPENAI_BASE_URL',
-    defaultBaseUrl: 'https://api.openai.com/v1',
+    defaultBaseUrl: OPENAI_API_V1_BASE_URL,
     name: 'OpenAI',
     providerType: 'openai',
   },
   {
     key: 'ANTHROPIC_API_KEY',
     baseUrlKey: '',
-    defaultBaseUrl: 'https://api.anthropic.com',
+    defaultBaseUrl: ANTHROPIC_API_BASE_URL,
     name: 'Anthropic',
     providerType: 'anthropic',
   },
@@ -132,7 +130,7 @@ const REFERENCED_PROVIDER_PRESETS: Array<{
   {
     providerType: 'openai',
     name: 'OpenAI',
-    baseUrl: 'https://api.openai.com/v1',
+    baseUrl: OPENAI_API_V1_BASE_URL,
     requiresAuth: true,
     envKey: 'OPENAI_API_KEY',
   },
@@ -146,7 +144,7 @@ const REFERENCED_PROVIDER_PRESETS: Array<{
   {
     providerType: 'anthropic',
     name: 'Anthropic',
-    baseUrl: 'https://api.anthropic.com',
+    baseUrl: ANTHROPIC_API_BASE_URL,
     requiresAuth: true,
     envKey: 'ANTHROPIC_API_KEY',
   },

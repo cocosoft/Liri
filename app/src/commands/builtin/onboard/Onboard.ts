@@ -13,7 +13,7 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { resolveProjectRoot } from '@modules/core';
+import { resolveProjectRoot, OPENAI_API_V1_BASE_URL, ANTHROPIC_API_V1_BASE_URL } from '@modules/core';
 import { createInterface } from 'readline';
 import { setConfigValue, getConfig } from '@modules/config';
 import { writeSoulMd, readSoulMd } from '@modules/services/soul/SoulReader';
@@ -365,7 +365,7 @@ async function testApiConnection(
     }
     if (provider === 'openai') {
       const response = await fetch(
-        'https://api.openai.com/v1/chat/completions',
+        `${OPENAI_API_V1_BASE_URL}/chat/completions`,
         {
           method: 'POST',
           headers: {
@@ -382,7 +382,7 @@ async function testApiConnection(
       return response.ok;
     }
     if (provider === 'anthropic') {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch(`${ANTHROPIC_API_V1_BASE_URL}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

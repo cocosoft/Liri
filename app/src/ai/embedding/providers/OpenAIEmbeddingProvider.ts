@@ -10,6 +10,7 @@ import {
 } from '../EmbeddingBase';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
+import { OPENAI_API_V1_BASE_URL } from '@modules/core';
 
 const logger = getLogger('ai:embedding:providers:OpenAIEmbeddingProvider');
 
@@ -27,7 +28,7 @@ export interface OpenAIEmbeddingConfig {
   dimensions?: number;
 }
 
-const OPENAI_EMBEDDING_BASE_URL = 'https://api.openai.com/v1';
+const OPENAI_EMBEDDING_BASE_URL = OPENAI_API_V1_BASE_URL;
 
 /**
  * OpenAI 嵌入提供者

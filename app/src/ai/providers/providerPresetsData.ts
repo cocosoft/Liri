@@ -26,10 +26,7 @@
  * 保持与 client/src/config/providerPresets.ts 同步。
  */
 
-import {
-  DEFAULT_OLLAMA_OPENAI_ENDPOINT,
-  LOCAL_INFERENCE_ENDPOINTS,
-} from '@modules/core';
+import { DEFAULT_OLLAMA_OPENAI_ENDPOINT, LOCAL_INFERENCE_ENDPOINTS, OPENAI_API_V1_BASE_URL, ANTHROPIC_API_BASE_URL } from '@modules/core';
 
 export interface ProviderPresetTheme {
   icon: string;
@@ -75,11 +72,11 @@ export const PRESETS: ProviderPreset[] = [
     providerType: 'openai',
     requiresOAuth: false,
     modelsUrl: '/v1/models',
-    endpointCandidates: ['https://api.openai.com/v1'],
+    endpointCandidates: [OPENAI_API_V1_BASE_URL],
     settingsConfig: {
       name: 'OpenAI',
       providerType: 'openai',
-      baseUrl: 'https://api.openai.com/v1',
+      baseUrl: OPENAI_API_V1_BASE_URL,
       apiKey: '',
       modelsUrl: '',
       notes: '',
@@ -98,11 +95,11 @@ export const PRESETS: ProviderPreset[] = [
     providerType: 'anthropic',
     requiresOAuth: false,
     modelsUrl: '/v1/models',
-    endpointCandidates: ['https://api.anthropic.com'],
+    endpointCandidates: [ANTHROPIC_API_BASE_URL],
     settingsConfig: {
       name: 'Anthropic',
       providerType: 'anthropic',
-      baseUrl: 'https://api.anthropic.com',
+      baseUrl: ANTHROPIC_API_BASE_URL,
       apiKey: '',
       modelsUrl: '',
       notes: '',

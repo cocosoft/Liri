@@ -8,6 +8,7 @@
  * 健康检查结果
  */
 import { getLogger } from '@modules/monitoring';
+import { OPENAI_API_V1_BASE_URL } from '@modules/core';
 const logger = getLogger('ai:credentials:CredentialHealth');
 
 export interface CredentialHealthResult {
@@ -58,7 +59,7 @@ export class CredentialHealth {
    */
   async check(
     apiKey: string,
-    endpoint: string = 'https://api.openai.com/v1/models'
+    endpoint: string = `${OPENAI_API_V1_BASE_URL}/models`
   ): Promise<CredentialHealthResult> {
     const startTime = Date.now();
 

@@ -42,6 +42,7 @@ import type {
 } from './AIProvider';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { OPENAI_API_V1_BASE_URL } from '@modules/core';
 
 const logger = getLogger('ai:codex-provider');
 
@@ -103,7 +104,7 @@ export class OpenAICodexProvider extends BaseAIProvider {
   /**
    * 通过 Codex Responses API 生成图片（无 API Key 方案）
    *
-   * POST https://api.openai.com/v1/responses
+   * POST <OPENAI_API_V1_BASE_URL>/responses
    * 使用 gpt-image-2 模型 + image_generation tool
    * 参照 openclaw 的 SSE 流式读取
    */
@@ -157,7 +158,7 @@ export class OpenAICodexProvider extends BaseAIProvider {
     }
 
     try {
-      const response = await fetch('https://api.openai.com/v1/responses', {
+      const response = await fetch(`${OPENAI_API_V1_BASE_URL}/responses`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

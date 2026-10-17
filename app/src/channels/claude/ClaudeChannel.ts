@@ -9,6 +9,7 @@ import type {
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { ANTHROPIC_API_V1_BASE_URL } from '@modules/core';
 const logger = getLogger('channels:claude:ClaudeChannel');
 
 export interface ClaudeConfig {
@@ -54,7 +55,7 @@ const CHANNEL_CAPABILITIES: ChannelCapabilities = {
 export class ClaudeChannel extends BaseChannelPlugin {
   private eventBus = new EventEmitter();
   private _apiKey = '';
-  private _apiUrl = 'https://api.anthropic.com/v1';
+  private _apiUrl = ANTHROPIC_API_V1_BASE_URL;
   private _organizationId = '';
   private _model = '';
 
@@ -66,7 +67,7 @@ export class ClaudeChannel extends BaseChannelPlugin {
     return {
       enabled: false,
       apiKey: '',
-      apiUrl: 'https://api.anthropic.com/v1',
+      apiUrl: ANTHROPIC_API_V1_BASE_URL,
       organizationId: '',
       model: '',
       maxTokens: 4096,
@@ -82,7 +83,7 @@ export class ClaudeChannel extends BaseChannelPlugin {
   protected async onConnect(config: Record<string, unknown>): Promise<void> {
     this._apiKey = (config['apiKey'] as string) || '';
     this._apiUrl =
-      (config['apiUrl'] as string) || 'https://api.anthropic.com/v1';
+      (config['apiUrl'] as string) || ANTHROPIC_API_V1_BASE_URL;
     this._organizationId = (config['organizationId'] as string) || '';
     this._model = (config['model'] as string) || '';
 

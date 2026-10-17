@@ -34,6 +34,7 @@ const TRUTH_SOURCE_FRAGMENTS = [
   'core/paths.ts', // 后端路径真源
   'core/ports.ts', // 后端端口真源
   'core/endpoints.ts', // 后端端点真源
+  'core/providerEndpoints.ts', // 官方供应商 API 端点真源
   'client/src/services/endpoints.ts', // 前端端点真源
   'client/src/constants/locale.ts', // 前端 locale 真源
   'client/src/constants/events.ts', // 前端事件名真源

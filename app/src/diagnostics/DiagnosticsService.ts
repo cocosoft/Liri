@@ -9,7 +9,7 @@ import { existsSync, statSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir, hostname } from 'os';
 import { randomUUID } from 'crypto';
-import { resolveDbPath, resolveProjectRoot } from '@modules/core';
+import { resolveDbPath, resolveProjectRoot, OPENAI_API_BASE_URL, ANTHROPIC_API_BASE_URL } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('diagnostics:DiagnosticsService');
@@ -483,8 +483,8 @@ class DiagnosticsService {
       const testUrls = [
         { url: 'https://api.github.com', name: 'GitHub API' },
         { url: 'https://www.npmjs.com', name: 'npm registry' },
-        { url: 'https://api.openai.com', name: 'OpenAI API' },
-        { url: 'https://api.anthropic.com', name: 'Anthropic API' },
+        { url: OPENAI_API_BASE_URL, name: 'OpenAI API' },
+        { url: ANTHROPIC_API_BASE_URL, name: 'Anthropic API' },
       ];
 
       for (const { url, name } of testUrls) {

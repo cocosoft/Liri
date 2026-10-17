@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-70-71**：缓存容量 + SSL 错误码收敛到单一事实源 —— 验证 tc0|arch0；基线 改前 READ_FILE_STATE_CACHE_SIZE/SSL_ERROR_CODES 各定义 2 份（基线 177 键）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-70-71）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-69**：媒体根目录三常量收敛为 core 单一事实源 —— 验证 tc0|arch0；基线 改前 IMAGES/MEDIA_IMAGES/ATTACHMENTS_ROOT 各定义 2 份（基线 180 键）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-69）
 - ✅ **ARCH-R03-002-SKILLS-SECURITY-CLOSE**：D-3-c 批次⑥⑦ + 结项（11 收口 / 5 保留） —— 验证 tc0|arch0；基线 改前 skills 3 键 + security 4 键走叶子直连；其余 5 键无复核日（详情见 archive/evidence-detail.jsonl#ARCH-R03-002-SKILLS-SECURITY-CLOSE）
 - ✅ **FILE-SIZE-EXCEPTION-REFRESH**：文件尺寸例外实测基线刷新 + U-22 拆分计划 —— 验证 doc-only；基线 改前例外 lines 字段与实际（5922/3060/…）漂移（详情见 archive/evidence-detail.jsonl#FILE-SIZE-EXCEPTION-REFRESH）

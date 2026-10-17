@@ -6462,3 +6462,9 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#0","i":0,"c":"app/src/core/mediaRoots.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#1","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#2","i":0,"c":".trae/architecture/hardcode-progress.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"title","i":0,"c":"U-20/B5-2-70..71：readFile 缓存容量与 SSL 错误码收敛"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"notes","i":0,"c":"mcp 入口改用 utils 常量；error/api 复用 error/network 的 SSL 集合（同模块无环）；基线 177→175。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"code#0","i":0,"c":"app/src/entrypoints/mcp.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"code#1","i":0,"c":"app/src/error/api/errorUtils.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"code#2","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}

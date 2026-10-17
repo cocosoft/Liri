@@ -10707,6 +10707,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-69）",
       "notes": "lint:consts 180→177 键；解析时机与拼接逐字保留（零行为变化）。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-69）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-70-71",
+      "title": "U-20/B5-2-70..71：readFile 缓存容量与 SSL 错误码收敛",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/entrypoints/mcp.ts",
+        "app/src/error/api/errorUtils.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-70-71）",
+      "notes": "mcp 入口改用 utils 常量；error/api 复用 error/network 的 SSL 集合（同模块无环）；基线 177→175。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-70-71）"
     }
   ]
 }

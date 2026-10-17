@@ -1,6 +1,6 @@
 # QQ 通道文件传输（双向）
 
-> 状态：待评审 | 创建：2026-08-20 | 版本：**v2（2026-10-17 订正上传/发送口径）**
+> 状态：待评审 | 创建：2026-08-20 | 版本：**v3（2026-10-17：订正上传/发送口径 + 收窄可外发资格）**
 > 范围：QQ c2c 私聊（群消息当前 BYPASS，本 spec 不启用群，仅预留字段兼容）
 >
 > ⚠️ **v2 订正的由来（真机事故）**：2026-10-17 真机出现 `QQ 媒体上传失败
@@ -84,10 +84,17 @@ Content-Type: application/json
   依据：官方「富媒体消息」返回参数说明（「file_info：文件信息，**用于发消息接口的 media 字段**」）与「发送单聊消息」示例
 
 **③ messageRouter 出站文件路由**（流结束后追加发送）：
-- 最终回复 `content` 提取本地文件路径：正则匹配 Windows 绝对路径（`[A-Za-z]:\\[^\s*"'）]+`），`fs.existsSync` 过滤 + 限定 output/downloads/attachments 目录（安全：防止发送任意系统文件）+ 大小 ≤30MB
+- 最终回复 `content` 提取本地文件路径：正则匹配 Windows 绝对路径（反引号包裹或裸路径）
+- **可外发资格（v3 修订，2026-10-17 —— 修「频繁误触发」）**：满足其一才投递 ——
+  ① **在交付面内** = `~/.pyapp/{output,downloads,attachments}`（`resolveOutputDir`/`resolveDownloadsDir`/`resolveAttachmentsDir`），
+     判定用 **realpath**（面内符号链接指向面外 ⇒ **不**放行，防绕过）；
+  ② **本轮新产出** = `mtime ≥ 本轮起点（`llmStartMs`）− 2s`（覆盖「工具刚写出来的文件」）。
+  两者都不满足 ⇒ **静默忽略**（按「叙述性路径」处理）：正文里**回显**一个既有路径**不**构成投递意图，
+  且**不得**产生用户可见的「未能发送」噪音（v1 只按「存在 + 非禁区」判定 ⇒ 真机连续两条消息各误触发一次）。
+- 大小 ≤30MB、单条 ≤2 个；**这两类仍如实告知**（`skipped` ⇒ 追加「⚠️ 以下文件未能发送」文本）——
+  它们属「用户本该拿到却没发出去」，必须不静默（守 CS03）
 - 文本回复先发（现有 sendText 路径不变），随后逐个 `onOutbound` 发文件
-- 发送结果追加日志；全部文件发送失败不影响文本已送达的事实，仅在文本后补一句"⚠️ 文件发送失败: {原因}"（QQ 权限未开通富媒体时报 QQ 返回的 message）
-- 配额感知：文件消息占用被动 seq（consumePassiveReplyFields 天然管理），文本+文件总条数 ≤5 内安全（文本1 + 文件≤2 截断，超出部分改为路径列表文本告知）
+- 配额感知：文件消息占用被动 seq（consumePassiveReplyFields 天然管理），文本+文件总条数 ≤5 内安全（文本1 + 文件≤2 截断）
 
 **④ AttachmentDownloadDebouncer 不引入**：下载立即触发，无需新组件。
 
@@ -127,6 +134,7 @@ Content-Type: application/json
 5. 纯文本消息行为零回归（messageType=text 原路径）
 6. typecheck + lint:arch（例外更新后）通过
 7. **请求体口径单测**（`app/tests/channels/qqFileTransferPayload.test.ts`，5 例，**捕获真实请求体**）：上传 `Content-Type: application/json` + `file_data`(base64)/`url`，且**无** `file` / **无** `srv_send_msg`；发送 `media.file_info` 且**无** `file_uuid`；上传 400 与「上传成功但缺 `file_info`」⇒ 如实报错且**不**发消息
+8. **可外发资格单测**（`app/tests/channels/outboundFileEligibility.test.ts`，10 例）：交付面内旧文件 ⇒ 可发；面外**本轮新产出** ⇒ 可发；**面外 + 非本轮产出 ⇒ 既不投递也不产生噪音**（事故场景）；超 30MB / 超 2 个 ⇒ 仍如实告知；面内符号链接指向面外 ⇒ 不放行
 
 > **v2 复测状态（如实）**：第 3 条（真机文件外发）**已真机复测通过**（2026-10-17 08:33）——
 > 同一条消息（让机器人 `file_read` 并把路径回显到回复里）再走一遍该链路，日志出现
@@ -134,6 +142,11 @@ Content-Type: application/json
 > 判据验真：`setupChannels.onOutboundFile` 仅在 `sendFile` 返回 `success:false` 时 `throw`，`outboundFileRouter` 只有不抛才记「成功」；
 > `success` 来自 `sendQQMediaMessage` 的 `resp.ok` ⇒ 该条「成功」**同时**覆盖「上传 200」与「发送 200」两段。
 > 样本为 **12KB 小文件**（`app/package.json`）⇒ 大文件（base64 体积）与群路径仍未验证（见 §4 与台账 `reopenWhen` ②③）。
+>
+> ⚠️ **v3 后该复测场景不再触发**（这是**预期**）：v3 把资格收窄为「交付面内 或 本轮新产出」，而上述样本
+> （`E:\…\app\package.json`，既不在交付面、也非本轮产出）现按**叙述性路径静默忽略** ⇒ 不会再发文件、也不会有噪音。
+> 要复测**外发能力**本身，请用**合规样本**：在 QQ 里让机器人「在本轮生成一个文件（或把文件放进 `output/`）后发给我」——
+> 判据仍为 `outbound_files 单文件发送成功`。
 
 ## 7. 实施步骤
 
@@ -147,5 +160,6 @@ Content-Type: application/json
 
 | 版本 | 日期 | 变更 | 依据 |
 |---|---|---|---|
+| **v3** | 2026-10-17 | **可外发资格收窄**（§3.2-③）：由「存在 + 非禁区」改为「**交付面内**（`~/.pyapp/{output,downloads,attachments}`，realpath 判定）**或本轮新产出**（`mtime ≥ 本轮起点 − 2s`）」；**面外 + 非本轮产出 ⇒ 静默忽略**（不再产生「未能发送」噪音）；新增资格单测 10 例 | 真机实证「连续两条消息各误触发一次」（回复回显既有路径即被当投递意图）；spec §3.2-③ 原文已写明「限定 output/downloads/attachments」——**是实现做宽了** |
 | **v2** | 2026-10-17 | ① 上传改 **JSON 口径**（本地 → `file_data` base64；远程 → `url`；**删** multipart 的 `file` 与文档没有的 `srv_send_msg`）；② 发送改 **`media.file_info`**；③ 上传缺 `file_info` ⇒ 报错且不发；④ 新增请求体口径单测 5 例 | 真机事故 `{status:400,apiMessage:"请求参数错误"}` + QQ 官方「富媒体消息」「发送单聊消息」两篇 |
 | v1 | 2026-08-20 | 初版（入站附件下载/注册 + 出站路径提取与发送；上传按 multipart 假设） | 用户裁定 |

@@ -15,6 +15,11 @@ export interface ChannelOutboundInput {
   target: string;
   traceId: string;
   messageId: string;
+  /**
+   * 本轮请求的起点（毫秒）。用于出站文件的**可外发资格**判定：`mtime ≥ 本轮起点` ⇒ 「本轮新产出」
+   * 的文件允许外发（缺省 ⇒ 只认交付面，见 `outboundFileRouter.filterSendableFiles`）。
+   */
+  runStartedAtMs?: number;
   onOutbound?: (content: string, target: string) => Promise<void>;
   onOutboundFile?: (filePath: string, target: string) => Promise<void>;
 }
@@ -61,16 +66,17 @@ export async function deliverChannelOutbound(
     outboundDurationMs: Date.now() - outboundStartMs,
   });
 
-  // 2026-08-20 spec qq-file-transfer：回复文本中含本地文件路径时
-  // 追加文件消息发送（multipart 上传 QQ 媒体库）。文本已送达为事实，
-  // 文件失败不抛错，补发一条文本反馈。
+  // 2026-08-20 spec qq-file-transfer（2026-10-17 修订资格）：仅当回复文本中的路径
+  // **在交付面内**或**为本轮新产出**时才追加文件消息发送（详见 `outboundFileRouter`）。
+  // 文本已送达为事实，文件失败不抛错，补发一条文本反馈。
   if (onOutboundFile) {
     await sendOutboundFiles(
       responseContent,
       target,
       traceId,
       onOutboundFile,
-      onOutbound
+      onOutbound,
+      { runStartedAtMs: input.runStartedAtMs }
     );
   }
 }

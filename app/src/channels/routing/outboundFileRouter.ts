@@ -20,26 +20,37 @@
 // SOFTWARE.
 
 /**
- * 出站文件路由（2026-08-20 spec qq-file-transfer）
+ * 出站文件路由（2026-08-20 spec qq-file-transfer；**2026-10-17 修订可外发资格**）
  *
  * 从 AI 最终回复文本中提取本地文件路径，过滤后经渠道 sendFile 发送。
- * 覆盖两类场景："找到已有文档发给我" + "生成文件发给我"。
+ * 覆盖两类场景："**本轮产出**的文件发给我" + "（交付面内的）已有附件发给我"。
  *
- * 安全边界：
- * - 路径必须真实存在且是文件（fs.statSync 校验）
- * - 禁止 ~/.pyapp/ 根（配置/DB/密钥）与系统目录（Windows/Program Files）
+ * 安全边界（2026-10-17 修订，见 `filterSendableFiles` 头注）：
+ * - **资格是白名单式的**：只有在**交付面**（`~/.pyapp/{output,downloads,attachments}`）内、
+ *   或**本轮新产出**（mtime ≥ 本轮起点）的文件才外发；其余**静默忽略**（叙述性路径）
+ * - 资格判定用 **realpath** ⇒ 交付面内的符号链接**不可**指向面外（防绕过）
  * - 单文件 ≤30MB（QQ 富媒体上限）；单条回复最多随附 2 个文件（被动配额保护）
  */
 
-import { statSync, type Stats } from 'fs';
-import { resolvePyappHome } from '@modules/core/paths';
+import { realpathSync, statSync, type Stats } from 'fs';
+import { resolve, sep } from 'node:path';
+import {
+  resolveAttachmentsDir,
+  resolveDownloadsDir,
+  resolveOutputDir,
+} from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('channels:routing');
 
 /** QQ 富媒体单文件上限 30MB */
 const MAX_FILE_BYTES = 30 * 1024 * 1024;
 
 /** 单条回复最多随附文件数（QQ 被动回复 5 条配额：文本 1 + 工具通知 1 + 文件 ≤2 + 余量） */
 const MAX_FILES_PER_REPLY = 2;
+
+/** 本轮产出的时间容差（毫秒）：吸收「工具写盘」与「请求起点」之间的时钟/精度抖动 */
+const FRESH_MTIME_EPSILON_MS = 2000;
 
 /** 提取结果 */
 export interface ExtractedFiles {
@@ -83,25 +94,67 @@ function pushUnique(paths: string[], seen: Set<string>, p: string): void {
   }
 }
 
+/** `filterSendableFiles` 的判定入参 */
+export interface SendableFilterOptions {
+  /**
+   * 本轮请求的起点（毫秒；缺省 ⇒ **只认交付面**）。用于识别「**本轮新产出**的文件」。
+   */
+  runStartedAtMs?: number;
+}
+
+/** `realpathSync` 的安全包装（不存在 / 权限不足 ⇒ `null`，不抛） */
+function realpathOf(p: string): string | null {
+  try {
+    return realpathSync(p);
+  } catch {
+    return null;
+  }
+}
+
 /**
- * 过滤可发送文件：存在性 + 安全目录 + 大小 + 数量截断
+ * 交付面（可外发目录，spec `qq-file-transfer.md` §3.2③ 原意）：
+ * `~/.pyapp/{output,downloads,attachments}`。返回值已 **realpath + 补尾分隔符**
+ * （防 `outputs/` 之类前缀误命中）。
  */
-export function filterSendableFiles(paths: string[]): ExtractedFiles {
+function sendableSurfaces(): string[] {
+  return [
+    resolveOutputDir(),
+    resolveDownloadsDir(),
+    resolveAttachmentsDir(),
+  ].map((d) => `${realpathOf(d) ?? resolve(d)}${sep}`);
+}
+
+function isUnder(realPath: string, surfaceWithSep: string): boolean {
+  return realPath.toLowerCase().startsWith(surfaceWithSep.toLowerCase());
+}
+
+/**
+ * 过滤可发送文件：存在性 + **可外发资格** + 大小 + 数量截断。
+ *
+ * **可外发资格（2026-10-17 修订 —— 本条即「频繁误触发」的修复）**：满足其一即放行 ——
+ * ① **在交付面内**（`~/.pyapp/{output,downloads,attachments}`；判定用 **realpath** ⇒ 面内符号链接
+ *    指向面外时**不**放行，防绕过）；
+ * ② **本轮新产出**（`mtime ≥ runStartedAtMs − 2s`）—— 覆盖「工具刚写出来的文件」；
+ * 两者都不满足 ⇒ **静默忽略**（按「叙述性路径」处理，既不投递、也不产生用户可见噪音）。
+ *
+ * 为什么必须改（真机实证 2026-10-17）：旧判定只有「存在 + 非禁区」⇒ 只要回复正文里**回显**一个
+ * 已存在的路径（如让模型 `file_read` 某源码后复述其路径）就会被当成投递意图 —— 连续两条真机消息
+ * **各误触发一次**（其中一次还因上传口径错误把「⚠️ 文件未能发送」推给了用户）。
+ *
+ * 仍**如实告知**（`skipped`）的只剩两类：**超 30MB** 与 **单条超 2 个** —— 这两类是「用户本该拿到
+ * 却没发出去」，必须不静默（守 CS03）。
+ */
+export function filterSendableFiles(
+  paths: string[],
+  opts: SendableFilterOptions = {}
+): ExtractedFiles {
   const sendable: string[] = [];
   const skipped: Array<{ path: string; reason: string }> = [];
-
-  const pyappHome = resolvePyappHome().toLowerCase();
-  const lowered = (p: string) => p.toLowerCase();
-  const isForbidden = (p: string): string | undefined => {
-    const lp = lowered(p);
-    if (lp.startsWith(pyappHome)) {
-      return '应用数据目录（含配置与密钥）禁止外发';
-    }
-    if (/\\windows\\/.test(lp) || /\\program files( \(x86\))?\\/.test(lp)) {
-      return '系统目录禁止外发';
-    }
-    return undefined;
-  };
+  const surfaces = sendableSurfaces();
+  const freshSince =
+    opts.runStartedAtMs === undefined
+      ? undefined
+      : opts.runStartedAtMs - FRESH_MTIME_EPSILON_MS;
 
   for (const p of paths) {
     let stat: Stats;
@@ -113,11 +166,17 @@ export function filterSendableFiles(paths: string[]): ExtractedFiles {
     if (!stat.isFile()) {
       continue;
     }
-    const forbiddenReason = isForbidden(p);
-    if (forbiddenReason) {
-      skipped.push({ path: p, reason: forbiddenReason });
+
+    const real = realpathOf(p);
+    const inSurface = real !== null && surfaces.some((s) => isUnder(real, s));
+    const isFresh = freshSince !== undefined && stat.mtimeMs >= freshSince;
+    if (!inSurface && !isFresh) {
+      logger.debug('出站文件：不在交付面且非本轮产出 ⇒ 忽略（叙述性路径）', {
+        path: p,
+      });
       continue;
     }
+
     if (stat.size > MAX_FILE_BYTES) {
       skipped.push({
         path: p,
@@ -135,8 +194,6 @@ export function filterSendableFiles(paths: string[]): ExtractedFiles {
   return { sendable, skipped };
 }
 
-const logger = getLogger('channels:routing');
-
 /**
  * 出站文件发送编排（由 messageRouter 在文本回复送达后调用）
  *
@@ -145,20 +202,22 @@ const logger = getLogger('channels:routing');
  * @param traceId  全链路追踪 ID
  * @param onOutboundFile 渠道文件发送回调
  * @param onOutbound     文本回调（用于失败/跳过反馈）
+ * @param opts     可外发资格判定入参（`runStartedAtMs` ⇒ 本轮产出识别）
  */
 export async function sendOutboundFiles(
   content: string,
   target: string,
   traceId: string,
   onOutboundFile: (filePath: string, target: string) => Promise<void>,
-  onOutbound?: (content: string, target: string) => Promise<void>
+  onOutbound?: (content: string, target: string) => Promise<void>,
+  opts: SendableFilterOptions = {}
 ): Promise<void> {
   const candidatePaths = extractLocalFilePaths(content);
   if (candidatePaths.length === 0) {
     return; // 多数回复不含文件路径，零开销退出
   }
 
-  const { sendable, skipped } = filterSendableFiles(candidatePaths);
+  const { sendable, skipped } = filterSendableFiles(candidatePaths, opts);
   if (sendable.length === 0 && skipped.length === 0) {
     return; // 均为叙述性路径（不存在），不干预
   }

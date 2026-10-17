@@ -768,11 +768,13 @@ export async function routeChannelMessage(
     }
 
     // ⑥ 出站回调 + 追踪完成（C3-S3：出站已内聚到 `./channelOutbound`，语义不变）
+    // `runStartedAtMs` = 本轮起点 ⇒ 出站文件资格判定用它识别「本轮新产出」（2026-10-17 修订）
     await deliverChannelOutbound({
       responseContent: response.content,
       target: message.conversationId ?? message.senderId,
       traceId,
       messageId: message.messageId,
+      runStartedAtMs: llmStartMs,
       onOutbound,
       onOutboundFile,
     });

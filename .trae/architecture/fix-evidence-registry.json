@@ -9809,6 +9809,34 @@
       ],
       "reopenWhen": "① 分割只认**行首 `⏸`** 结构标记（`SUSPENSION_NOTICE_MARKER`）：内核 `ReActToolLoop.resolveTerminationOutput` 若改掉行首标记或改用其它收尾形态 ⇒ 会静默退回「重复发送」。② 本片只处理 `budget_exhausted` 分支；其它终止…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-CARD-COPY-DEDUPE）",
       "notes": "【问题（真机截图）】预算挂起时通道侧发了两条同义消息：先 `⏸ 今日预算已用完 …` 纯文本，后「今日预算已用完」卡片；且纯文本里 `**` 星号明文露出（QQ `sendText` 不渲染 Markdown）。来源不同：文本里的提示块由内核 `ReActToolLoop.resolveTerminationOutp…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-CARD-COPY-DEDUPE）"
+    },
+    {
+      "id": "QQ-FILE-UPLOAD-FILE-NAME",
+      "title": "QQ 二进制上传补 `file_name`（官方必填）—— 修附件气泡显示「未命名」",
+      "source": "用户上传 QQ 真机截图（2026-10-17 10:41）：助手生成的 9,444 字节报告已收到，但文件名显示「未命名 / 9.22KB」；日志 `02:35:11 outbound_files 单文件发送成功` 证明发送链路本身成功",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/qq/QQChannel.ts"
+      ],
+      "tests": [
+        "app/tests/channels/qqFileTransferPayload.test.ts"
+      ],
+      "changelog": [
+        "fix(channels/qq): 本地文件二进制上传补 file_name（官方必填），修 QQ 附件显示「未命名」"
+      ],
+      "reopenWhen": "① 官方接口后续若把 `file_name` 改为可选/移除，本字段无害但会被忽略；若 QQ 仍显示「未命名」，先核对是否走了 `url` 分支（该分支暂不带 `file_name`）。② 二进制直传有 **5MB** 上限（官方文档），5MB~30MB 的本地文件会失败：需改分片上传（`upload_prepare…（全文见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-FILE-NAME）",
+      "notes": "【问题（真机截图）】报告文件已到达 QQ（9,444 字节 = 9.22KB），但气泡标题是**「未命名」**，用户无法确认收到的是哪个文件。日志证明发送链路成功（`outbound_files 单文件发送成功`），故问题只可能在**上传口径**。 【根因】`QQChannel.uploadQQFile` 的二进制分…（全文见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-FILE-NAME）"
     }
   ]
 }

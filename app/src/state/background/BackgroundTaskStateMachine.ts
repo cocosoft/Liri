@@ -95,7 +95,7 @@ export class BackgroundTaskStateMachine extends StateMachine<BackgroundTaskState
 }
 
 /** 注册表键前缀 */
-const REGISTRY_PREFIX = 'background';
+const BACKGROUND_REGISTRY_PREFIX = 'background';
 
 /**
  * §十 阶段 B：转移事件发布钩子 — 桥接 SSE `background:state`，前端可实时感知后台任务状态。
@@ -131,7 +131,7 @@ function createTransitionHook(
 export function getBackgroundTaskStateMachine(
   taskId: string
 ): BackgroundTaskStateMachine {
-  const id = `${REGISTRY_PREFIX}:${taskId}`;
+  const id = `${BACKGROUND_REGISTRY_PREFIX}:${taskId}`;
   const registry = StateMachineRegistry.getInstance();
   const existing = registry.find<BackgroundTaskState>(id);
   if (existing) {

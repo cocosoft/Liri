@@ -46,14 +46,14 @@ const READ_ONLY_TOOL_NAMES = [
   'sessions',
   'get_task_list',
 ] as const satisfies readonly ToolName[];
-export const READ_ONLY_TOOLS = new Set<string>(READ_ONLY_TOOL_NAMES);
+export const DREAM_READ_ONLY_TOOLS = new Set<string>(READ_ONLY_TOOL_NAMES);
 // 2026-09-29（P2-3/T2）：移除 `'file_search'` —— 它**不是**注册名（仅存在于 `ToolFactory.getAllBaseTools()`
 // 的死路径，台账 N-27；真实类 `FileSearchTool` 亦无 loader 引用）⇒ 属"永不命中的假覆盖"。
 // 2026-09-29（D-34 收尾）：上列名字现由 `satisfies readonly ToolName[]` **编译期**校验（T2 手法）；
 // 守卫用例（对照生成物 `TOOL_NAMES`）仍保留，作**运行期**双重保险。
 
 export function isToolReadOnly(toolName: string): boolean {
-  return READ_ONLY_TOOLS.has(toolName);
+  return DREAM_READ_ONLY_TOOLS.has(toolName);
 }
 
 export type DreamPhaseProgressCallback = (

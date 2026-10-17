@@ -138,7 +138,7 @@ export class TaskStateMachine extends StateMachine<TaskStatus> {
 }
 
 /** 注册表键前缀 */
-const REGISTRY_PREFIX = 'task';
+const TASK_REGISTRY_PREFIX = 'task';
 
 /**
  * 获取（并首次注册）指定任务的状态机实例。
@@ -148,7 +148,7 @@ export function getTaskStateMachine(
   taskId: string,
   initialState: TaskStatus = TaskStatus.PENDING
 ): TaskStateMachine {
-  const id = `${REGISTRY_PREFIX}:${taskId}`;
+  const id = `${TASK_REGISTRY_PREFIX}:${taskId}`;
   const registry = StateMachineRegistry.getInstance();
   const existing = registry.find<TaskStatus>(id);
   if (existing) {

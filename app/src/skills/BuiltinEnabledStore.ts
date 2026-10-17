@@ -41,11 +41,11 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 const logger = getLogger('skills:builtinEnabled');
 
-const FILE_NAME = 'builtin-enabled.json';
+const BUILTIN_ENABLED_FILE = 'builtin-enabled.json';
 
 /** 内置技能启用状态文件路径（与 index.json 同级；dir 参数供测试注入临时目录） */
 export function builtinEnabledFilePath(dir?: string): string {
-  return join(dir ?? resolveUserSkillsDir(), FILE_NAME);
+  return join(dir ?? resolveUserSkillsDir(), BUILTIN_ENABLED_FILE);
 }
 
 /**

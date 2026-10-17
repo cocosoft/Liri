@@ -18,7 +18,7 @@ import { readdirSync, readFileSync, type Dirent } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'bun:test';
 import { COMPACTABLE_TOOL_NAMES } from '../../src/context/compaction/MicroCompactionEngine';
-import { READ_ONLY_TOOLS } from '../../src/tasks/dream/DreamPhases';
+import { DREAM_READ_ONLY_TOOLS as READ_ONLY_TOOLS } from '../../src/tasks/dream/DreamPhases';
 import {
   SAFE_READ_ONLY_TOOLS,
   SPECULATION_WRITE_TOOLS,

@@ -13,13 +13,13 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@modules/core/paths';
 
-const FILE_NAME = 'calibration.json';
+const CALIBRATION_FILE = 'calibration.json';
 
 /** 内存缓存（避免每次读盘） */
 let cached: Record<string, number> | null = null;
 
 function filePath(): string {
-  return join(resolveDataDir(), FILE_NAME);
+  return join(resolveDataDir(), CALIBRATION_FILE);
 }
 
 function loadAll(): Record<string, number> {

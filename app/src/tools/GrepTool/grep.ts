@@ -9,8 +9,41 @@ import { yieldToEventLoop } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 // 2026-09-22 归一化（CS01）：跳过清单纯量迁至 `tools/utils/searchSkipDirs`，
 // 与 glob 共用同一事实来源（原为本文件私有常量，glob 侧无任何跳过逻辑）。
-import { SKIP_DIRS } from '../utils/searchSkipDirs';
+import { getSkipDirsForRoot } from '../utils/searchSkipDirs';
 const logger = getLogger('tools:GrepTool:grep');
+
+/**
+ * U-03a（2026-10-17）：不可读目录聚合上报。
+ *
+ * `EACCES/EPERM/EBUSY/ENOENT` 属遍历用户目录/系统目录时的预期噪音；逐目录
+ * `handleError` 会刷屏。此处按 30s 窗口聚合成一条 warn；其它错误仍走统一错误链。
+ */
+const GREP_SKIPPED_DIR_LOG_INTERVAL_MS = 30_000;
+let skippedDirCount = 0;
+let skippedDirLastLogAt = 0;
+
+function noteSkippedDir(dir: string, err: unknown): void {
+  const code = (err as NodeJS.ErrnoException)?.code;
+  if (
+    code !== 'EACCES' &&
+    code !== 'EPERM' &&
+    code !== 'EBUSY' &&
+    code !== 'ENOENT'
+  ) {
+    handleError(err, { module: 'tools:grep', action: 'readdir' });
+    return;
+  }
+  skippedDirCount++;
+  const now = Date.now();
+  if (now - skippedDirLastLogAt < GREP_SKIPPED_DIR_LOG_INTERVAL_MS) return;
+  skippedDirLastLogAt = now;
+  logger.warn('[readdir] 目录不可读，跳过（窗口聚合）', {
+    skippedInWindow: skippedDirCount,
+    lastDir: dir,
+    code,
+  });
+  skippedDirCount = 0;
+}
 
 // 懒初始化 Rust 原生模块，用于自动检测文件编码
 let nativeReadFile: ((filePath: string) => string) | null = null;
@@ -156,7 +189,15 @@ export function grep(options: GrepOptions): GrepResult {
       stats.files++;
       searchFile(searchPath, regex, options, fileMatches, MAX_RESULTS);
     } else {
-      searchDir(searchPath, regex, options, fileMatches, MAX_RESULTS, stats);
+      searchDir(
+        searchPath,
+        regex,
+        options,
+        fileMatches,
+        MAX_RESULTS,
+        stats,
+        getSkipDirsForRoot(searchPath)
+      );
     }
   } catch (err) {
     handleError(err, {
@@ -253,7 +294,8 @@ export async function grepAsync(options: GrepOptions): Promise<GrepResult> {
         options,
         fileMatches,
         MAX_RESULTS,
-        stats
+        stats,
+        getSkipDirsForRoot(searchPath)
       );
     }
   } catch (err) {
@@ -317,21 +359,14 @@ async function searchDirAsync(
   options: GrepOptions,
   results: Map<string, string[]>,
   maxTotal: number,
-  stats: GrepStats
+  stats: GrepStats,
+  skipDirs: ReadonlySet<string>
 ): Promise<void> {
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch (err) {
-    const code = (err as NodeJS.ErrnoException)?.code;
-    if (code === 'EPERM') {
-      logger.warn('[readdir] 目录不可读，跳过', { dir, error: String(err) });
-    } else {
-      handleError(err, {
-        module: 'tools:grep',
-        action: 'readdir',
-      });
-    }
+    noteSkippedDir(dir, err);
     return;
   }
 
@@ -344,8 +379,16 @@ async function searchDirAsync(
     stats.entries++;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue;
-      await searchDirAsync(fullPath, regex, options, results, maxTotal, stats);
+      if (skipDirs.has(entry.name)) continue;
+      await searchDirAsync(
+        fullPath,
+        regex,
+        options,
+        results,
+        maxTotal,
+        stats,
+        skipDirs
+      );
     } else if (entry.isFile()) {
       if (options.include && !matchGlob(entry.name, options.include)) continue;
       stats.files++;
@@ -373,24 +416,15 @@ function searchDir(
   options: GrepOptions,
   results: Map<string, string[]>,
   maxTotal: number,
-  stats: GrepStats
+  stats: GrepStats,
+  skipDirs: ReadonlySet<string>
 ): void {
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch (err) {
-    // K2 修复（日志排查 2026-08-13）：EPERM（Windows 上目录被其他进程占用/锁定）
-    // 属可跳过噪音——行为正确（跳过该目录不中断整体搜索），仅日志级别偏高，降 warn；
-    // 其余错误保持 error 级。
-    const code = (err as NodeJS.ErrnoException)?.code;
-    if (code === 'EPERM') {
-      logger.warn('[readdir] 目录不可读，跳过', { dir, error: String(err) });
-    } else {
-      handleError(err, {
-        module: 'tools:grep',
-        action: 'readdir',
-      });
-    }
+    // U-03a（2026-10-17）：EPERM/EACCES/EBUSY/ENOENT 聚合上报，避免逐目录刷屏。
+    noteSkippedDir(dir, err);
     return;
   }
 
@@ -403,8 +437,8 @@ function searchDir(
     stats.entries++;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue;
-      searchDir(fullPath, regex, options, results, maxTotal, stats);
+      if (skipDirs.has(entry.name)) continue;
+      searchDir(fullPath, regex, options, results, maxTotal, stats, skipDirs);
     } else if (entry.isFile()) {
       if (options.include && !matchGlob(entry.name, options.include)) continue;
       stats.files++;

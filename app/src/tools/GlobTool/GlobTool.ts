@@ -83,7 +83,7 @@ export function glob(
         results,
         GLOB_TOOL_MAX_FILES,
         normalizedSearchPath,
-        resolveSkipDirs(normalizedPattern)
+        resolveSkipDirs(normalizedPattern, normalizedSearchPath)
       );
     } catch (err) {
       handleError(err, {
@@ -139,7 +139,7 @@ export async function globAsync(
         results,
         GLOB_TOOL_MAX_FILES,
         normalizedSearchPath,
-        resolveSkipDirs(normalizedPattern)
+        resolveSkipDirs(normalizedPattern, normalizedSearchPath)
       );
     } catch (err) {
       handleError(err, {

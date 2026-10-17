@@ -32,6 +32,45 @@
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ai:providers:balanceChecker');
 
+/**
+ * **持续性告警的「只记一次」闸门**（2026-10-17 收敛噪音）。
+ *
+ * 为什么需要：余额查询按周期轮询（真机实测 ~10 分钟一轮），而「接口已官方下线」「固定错误码」
+ * 这类**持续性**失败是**每轮都会命中**的 —— 旧实现每轮刷同一条 warning（同一 provider 的同一
+ * 故障在 `app.log` 里每 10 分钟重复一条，无限增长且无新信息）。
+ *
+ * 语义：同一 `key` 首次 ⇒ `true`（调用方据此打印一次）；此后同 key ⇒ `false`（不打印）。
+ * **恢复即清记忆**（`clearRecurringWarn(provider)`）⇒ 若日后恢复正常、之后再坏，仍会再记一次
+ * （避免把「曾经坏过」永久静音而丢掉真实的**状态变化**）。
+ *
+ * `key` 约定：`${provider}|${kind}`（如 `siliconflow|retired`、`siliconflow|api-error:20092`）。
+ *
+ * ⚠️ 如实边界：闸门是**进程内**的（与仓内其它一次性标记同口径，如 `budgetReliefCard.sentSessions`）
+ * ⇒ **进程重启后首个周期仍会记一条**（重启本身即状态重置）；它解决的是「同一运行期内每轮重复刷同一
+ * 条告警」，不是「跨重启永久静音」（后者会掩盖真实的状态变化）。
+ */
+const recurringWarned = new Set<string>();
+
+/** 见 {@link recurringWarned} 头注：本次**是否应当打印**（首次 ⇒ `true`；重复 ⇒ `false`） */
+export function shouldWarnRecurring(key: string): boolean {
+  if (recurringWarned.has(key)) return false;
+  recurringWarned.add(key);
+  return true;
+}
+
+/** 见 {@link recurringWarned} 头注：某 provider 恢复正常 ⇒ 清掉其记忆（键前缀 `provider|`，不会误伤 `siliconflow-en`） */
+export function clearRecurringWarn(provider: string): void {
+  const prefix = `${provider}|`;
+  for (const k of [...recurringWarned]) {
+    if (k.startsWith(prefix)) recurringWarned.delete(k);
+  }
+}
+
+/** 仅供测试：清空闸门状态 */
+export function resetRecurringWarnForTest(): void {
+  recurringWarned.clear();
+}
+
 /** 余额查询结果 */
 export interface BalanceResult {
   success: boolean;
@@ -285,9 +324,12 @@ async function querySiliconFlow(
       apiCode === 20092 ||
       /deprecated|no longer available|停止服务|不再可用/i.test(apiMessage);
     if (isRetired) {
-      logger.warning(
-        `SiliconFlow 余额接口 /user/info 已被官方下线（code=${apiCode} msg=${apiMessage}），官方暂无替代接口，余额暂不可查`
-      );
+      // 持续性故障（接口已下线）⇒ **每个 provider 只记一次**（见 `shouldWarnRecurring` 头注）
+      if (shouldWarnRecurring(`${provider}|retired`)) {
+        logger.warning(
+          `SiliconFlow 余额接口 /user/info 已被官方下线（code=${apiCode} msg=${apiMessage}），官方暂无替代接口，余额暂不可查（同状态后续不再重复告警）`
+        );
+      }
       return {
         success: false,
         provider,
@@ -304,7 +346,12 @@ async function querySiliconFlow(
       apiCode !== 0 &&
       apiCode !== 200
     ) {
-      logger.warning(`SiliconFlow API 错误: code=${apiCode} msg=${apiMessage}`);
+      // 同类持续性错误码 ⇒ **只记一次**（见 `shouldWarnRecurring` 头注）
+      if (shouldWarnRecurring(`${provider}|api-error:${apiCode}`)) {
+        logger.warning(
+          `SiliconFlow API 错误: code=${apiCode} msg=${apiMessage}（同类错误只记一次）`
+        );
+      }
       return {
         success: false,
         provider,
@@ -361,6 +408,9 @@ async function querySiliconFlow(
         unit: 'CNY',
       });
     }
+
+    // 查询恢复正常 ⇒ 清掉本 provider 的告警记忆（下次再坏仍会记一次，见 `clearRecurringWarn`）
+    clearRecurringWarn(provider);
 
     return {
       success: true,

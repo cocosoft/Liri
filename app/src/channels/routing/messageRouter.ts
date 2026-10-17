@@ -70,6 +70,8 @@ import {
   registerPendingQuestion,
   removePendingQuestion,
 } from './pendingQuestions';
+// U-26（2026-10-17）：入站附件 MIME 分类 + 单附件/条数上限
+import { applyAttachmentPolicy } from './attachmentPolicy';
 // 2026-08-20 流式并轨：渠道消息改走 chatStream 流式轨道（与 client 同管线）
 // PR1（2026-10-09）：Execution 生命周期（ownership + generation fencing；详见 spec）
 // PR2（2026-10-09）：类型化中止原因（替代 error.message 文案匹配；CS02）
@@ -606,6 +608,16 @@ export async function routeChannelMessage(
       // 超时时 `abort()` 它 ⇒ 经 CoreAPI → ChatManager 中继到会话 controller ⇒
       // 底层 Provider fetch / 工具执行停止（复用既有内部取消链路）。
       const cancelController = new AbortController();
+      // U-26（2026-10-17）：入站附件先过 MIME 分类 + 上限（条数 / 单附件字节）。
+      // 超限项不进入预算预留，且**必须留痕**（不静默丢弃）。
+      const attachmentPolicy = applyAttachmentPolicy(message.attachments);
+      if (attachmentPolicy.rejected.length > 0) {
+        logger.warn('channels:attachment_policy — 入站附件超限已忽略', {
+          traceId,
+          channel: message.channelId || channelName,
+          rejected: attachmentPolicy.rejected,
+        });
+      }
       const generator = coreAPI.chatStream({
         content: message.content,
         sessionId: safeSessionId,
@@ -621,7 +633,7 @@ export async function routeChannelMessage(
         // `attachmentSizes`（预算侧只读 `size`，见 `query/attachmentBudget.ts:28-30`）。
         // ⚠️ 两个 `MessageAttachment` **同名不同物**（通道协议层 vs 会话领域层，`enums.ts:142-145`）
         // ⇒ 此处**显式适配**：只取 `size`，**不互换类型、不携带 url/data**。
-        attachmentSizes: (message.attachments ?? []).map((a) => ({
+        attachmentSizes: attachmentPolicy.accepted.map((a) => ({
           size: a.size,
         })),
         // PR2（2026-10-09）：ABORT 信号端到端贯通（Router → CoreAPI → ChatManager → ToolRunner）

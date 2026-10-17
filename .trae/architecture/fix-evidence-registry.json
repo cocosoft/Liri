@@ -11736,6 +11736,33 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-AGENTTOOL-SWARM）",
       "notes": "runSwarmPath（461 行：批次目标建行/取消注册与父级桥接/per-task 描述符/单一派生源汇总/目标绑定/摘要预算/输出裁剪/工具结果）与 buildSwarmExecutor（251 行：类别→工具集 memo、定义侧禁用项合取、空池与解析失败 fail-closed、逐任务台账）外移到 tool…（全文见 archive/evidence-detail.jsonl#U22-AGENTTOOL-SWARM）"
+    },
+    {
+      "id": "U22-REACTLOOP-INTERACTION",
+      "title": "U-22/ReActToolLoop S1/S2：外移 question 交互链路（登记/等待心跳/结算）与终止输出映射",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ReActToolLoop S1/S2）/§4",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/agentInteraction.ts",
+        "app/src/chat/terminationOutput.ts",
+        "app/src/chat/ReActToolLoop.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-REACTLOOP-INTERACTION）",
+      "notes": "交互链路：_registerInteraction + _awaitAnswersWithHeartbeat（Promise.race 心跳 + abort/超时 fail-closed）+ _emitSuspensionSettled → chat/agentInteraction.ts（AgentInteract…（全文见 archive/evidence-detail.jsonl#U22-REACTLOOP-INTERACTION）"
     }
   ]
 }

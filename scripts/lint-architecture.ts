@@ -2136,7 +2136,9 @@ class ArchitectureLinter {
       // `moduleRoots` 改为从 `modules-to-layers.json` 派生后，以下子入口**首次被计入** R03-002。
       // 按 D1(b)：**显式登记为存量例外**并**分批收口**（不是静默放宽 —— 这些模块此前**根本不在**
       // moduleRoots 内、同为零检查；本批把「隐式盲区」变为「显式债」，并把新增直连纳入拦截）。
-      // TODO(D-3-c 收口)：逐项判定 barrel 是否已导出 → 改走桶；未导出者为其增补 barrel 导出。
+      // D-3-c 收口（✅ 批次 ①–⑦ 已完成，2026-10-17）：逐项判定 barrel 是否已导出 → 改走桶；
+      //   未导出者为其增补 barrel 导出。16 键中 **11 键已收口**（批次④⑤⑥⑦见下），
+      //   **5 键保留**（均有环/空壳理由，见文件末尾；复核日 2027-01-31 或触发条件变化）。
       //   ✅ 收口批次①已完成（提交见 git log）：tokenBudget{BudgetPolicy,PriceManager,CacheAwareBudget} ·
       //     streaming/scrubbers · constants{common,systemPromptSections} · security/injection ·
       //     skills/SkillRegistry —— 对应子路径导入已改走各模块 barrel，登记键已移除。
@@ -2196,7 +2198,7 @@ class ArchitectureLinter {
       //     `security/{scanners,validators,bash,files}` 改走 `@modules/security`
       //     （桶补 createSecurityScanner / inputValidator / parseForSecurity / isDangerousCommand /
       //      getReadProtectionService）⇒ 登记键已移除。
-      //   其余未收口键（批次②保留 + 后续批：workspace / components / knowledge / governance）：
+      //   保留键（5，复核日 2027-01-31 或触发条件变化）：
       'workspace/CouncilOrchestrator', // 保留：ChatManager 静态引用叶子 containsComplexKeywords（barrel 未聚合）+ CouncilOrchestrator 动态导入打破环
       'components/TaskListV2', // 保留：components/index.ts 近乎空壳（仅 ink Text/Box），聚合 UI 面待评估
       'components/ui', // 保留：同上

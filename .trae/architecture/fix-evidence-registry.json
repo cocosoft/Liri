@@ -10786,6 +10786,141 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-74）",
       "notes": "两处语义一致（cron 每分钟检查）⇒ 统一为 60s 常量；基线 173→172。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-74）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-75",
+      "title": "U-20/B5-2-75：MAX_FILE_CHARS 按域改名",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/context/ProjectFileReader.ts",
+        "app/src/workspaces/WorkspaceScanner.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-75）",
+      "notes": "两处取值不同（项目文件 10k / 工作区扫描 12k）⇒ 不改值，改名为 PROJECT_FILE_MAX_CHARS 与 WORKSPACE_FILE_MAX_CHARS；基线 172→171。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-75）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-76",
+      "title": "U-20/B5-2-76：KEYBINDING_ACTIONS 同名异义消歧",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/keybindings/types.ts",
+        "app/src/keybindings/validate.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-76）",
+      "notes": "schema.ts 是 z.enum 需要的元组清单，types.ts 是按动作名索引的映射表 ⇒ 后者改名 KEYBINDING_ACTION_IDS，唯一消费方 validate.ts 同步；基线 171→170。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-76）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-77",
+      "title": "U-20/B5-2-77：STORE_VERSION / PROBE_TIMEOUT_MS / OPS 按域消歧",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/services/mcp/marketplace/LocalServerStore.ts",
+        "app/src/media/ffmpeg/FFmpegWrapper.ts",
+        "app/src/media/pdf/PdfPageExtractor.ts",
+        "app/src/permission/ApprovedCommandRegistry.ts",
+        "app/src/mcp/cli/mcpCommand.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-77）",
+      "notes": "三对同名常量语义不同（知识语义库 vs MCP 本地清单；MCP CLI vs ffprobe；pdfjs 操作码 vs shell 运算符）⇒ 按域改名；mcpCommand 的 PROBE_TIMEOUT_MS 零引用随批删除；基线 170→167。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-77）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-78",
+      "title": "U-20/B5-2-78：删除死常量 FORK_DIRECTIVE_PREFIX 并收敛 READ_TOOLS",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/constants/xml.ts",
+        "app/src/query/index.ts",
+        "app/src/evals/processAssertions.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-78）",
+      "notes": "xml.ts 的 FORK_DIRECTIVE_PREFIX 全仓零消费（CD01/CD02 已核查）⇒ 删除；evals 的 READ_TOOLS 与 query/tool-constants 同值 ⇒ 改由 query 桶导入；基线 167→165。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-78）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-79",
+      "title": "U-20/B5-2-79：DANGEROUS_PATTERNS / STORAGE_DIR 按域消歧",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/hooks/executors/ScriptHookExecutor.ts",
+        "app/src/utils/secureStorage.ts",
+        "app/src/query/FileTAORCheckpointStorage.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-79）",
+      "notes": "hook 脚本硬拦截正则 vs bash 工具静态策略；安全存储绝对路径 vs TAOR 子目录名 ⇒ 分别改名（仅重命名，不改判定）；基线 165→163。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-79）"
     }
   ]
 }

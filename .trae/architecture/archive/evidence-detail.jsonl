@@ -6481,3 +6481,38 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#0","i":0,"c":"app/src/types/schedulerLifecycle.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#1","i":0,"c":"app/src/dream/DreamScheduler.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#2","i":0,"c":"app/src/monitoring/archival/archivalCronTask.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"title","i":0,"c":"U-20/B5-2-75：MAX_FILE_CHARS 按域改名"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"notes","i":0,"c":"两处取值不同（项目文件 10k / 工作区扫描 12k）⇒ 不改值，改名为 PROJECT_FILE_MAX_CHARS 与 WORKSPACE_FILE_MAX_CHARS；基线 172→171。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"code#0","i":0,"c":"app/src/context/ProjectFileReader.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"code#1","i":0,"c":"app/src/workspaces/WorkspaceScanner.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"code#2","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-76","k":"title","i":0,"c":"U-20/B5-2-76：KEYBINDING_ACTIONS 同名异义消歧"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-76","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-76","k":"notes","i":0,"c":"schema.ts 是 z.enum 需要的元组清单，types.ts 是按动作名索引的映射表 ⇒ 后者改名 KEYBINDING_ACTION_IDS，唯一消费方 validate.ts 同步；基线 171→170。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-76","k":"code#0","i":0,"c":"app/src/keybindings/types.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-76","k":"code#1","i":0,"c":"app/src/keybindings/validate.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-76","k":"code#2","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"title","i":0,"c":"U-20/B5-2-77：STORE_VERSION / PROBE_TIMEOUT_MS / OPS 按域消歧"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"notes","i":0,"c":"三对同名常量语义不同（知识语义库 vs MCP 本地清单；MCP CLI vs ffprobe；pdfjs 操作码 vs shell 运算符）⇒ 按域改名；mcpCommand 的 PROBE_TIMEOUT_MS 零引用随批删除；基线 170→167。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#0","i":0,"c":"app/src/services/mcp/marketplace/LocalServerStore.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#1","i":0,"c":"app/src/media/ffmpeg/FFmpegWrapper.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#2","i":0,"c":"app/src/media/pdf/PdfPageExtractor.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#3","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#4","i":0,"c":"app/src/mcp/cli/mcpCommand.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"title","i":0,"c":"U-20/B5-2-78：删除死常量 FORK_DIRECTIVE_PREFIX 并收敛 READ_TOOLS"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"notes","i":0,"c":"xml.ts 的 FORK_DIRECTIVE_PREFIX 全仓零消费（CD01/CD02 已核查）⇒ 删除；evals 的 READ_TOOLS 与 query/tool-constants 同值 ⇒ 改由 query 桶导入；基线 167→165。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#0","i":0,"c":"app/src/constants/xml.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#1","i":0,"c":"app/src/query/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#2","i":0,"c":"app/src/evals/processAssertions.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"title","i":0,"c":"U-20/B5-2-79：DANGEROUS_PATTERNS / STORAGE_DIR 按域消歧"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"notes","i":0,"c":"hook 脚本硬拦截正则 vs bash 工具静态策略；安全存储绝对路径 vs TAOR 子目录名 ⇒ 分别改名（仅重命名，不改判定）；基线 165→163。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#0","i":0,"c":"app/src/hooks/executors/ScriptHookExecutor.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#1","i":0,"c":"app/src/utils/secureStorage.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#2","i":0,"c":"app/src/query/FileTAORCheckpointStorage.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}

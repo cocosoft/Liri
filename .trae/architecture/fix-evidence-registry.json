@@ -10605,6 +10605,56 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#STATE-PROJECTION-4-3-UW）",
       "notes": "触发：通道 2.3 解冻落地出站订阅面，或出现第二个统一出站消费者域；随 U-17 复核。（全文见 archive/evidence-detail.jsonl#STATE-PROJECTION-4-3-UW）"
+    },
+    {
+      "id": "ARCH-R03-002-SECURITY-ENTRIES",
+      "title": "U-21 批次⑤：security patterns/redact 改走 @modules/security 桶",
+      "source": "dev_docs/20261004/p0-pending-proposals-20261004.md P0-6；scripts/lint-architecture.ts D-3-c",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/security/index.ts",
+        "app/src/security/patterns/index.ts",
+        "scripts/lint-architecture.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#ARCH-R03-002-SECURITY-ENTRIES）",
+      "notes": "桶补 DELETION_RULES/ALL_UNIFIED_RULES/UnifiedRulePlatform/getRedactMiddleware；R03-002 0 违规。（全文见 archive/evidence-detail.jsonl#ARCH-R03-002-SECURITY-ENTRIES）"
+    },
+    {
+      "id": "FILE-SIZE-EXCEPTION-REFRESH",
+      "title": "U-22 部分：7 条文件尺寸例外 lines 刷新为实测 + 拆分计划",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md",
+      "stages": {
+        "discovered": true,
+        "fixed": false,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": false,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#FILE-SIZE-EXCEPTION-REFRESH）",
+      "notes": "未执行拆分；expiresAt 维持 2026-11-30；11-30 前按计划拆分或走续期流程（不得静默过期）。（全文见 archive/evidence-detail.jsonl#FILE-SIZE-EXCEPTION-REFRESH）"
     }
   ]
 }

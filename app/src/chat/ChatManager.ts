@@ -1261,7 +1261,8 @@ export class ChatManagerImpl implements ChatManager {
         }
         return mutex;
       },
-      executePreMessageHook: (args) => this.hookChainManager.execute('chat', args),
+      executePreMessageHook: (args) =>
+        this.hookChainManager.execute('chat', args),
       createUserMessage: (content, opts) =>
         this.messageService.createUserMessage(content, opts),
       addAndPersistMessage: (sid, msg) => {
@@ -3407,7 +3408,7 @@ export class ChatManagerImpl implements ChatManager {
       maxContextTokens,
       outputBudgetTokens
     );
-  }  /** U-22/S2 外移：流式请求准备段（实现在 `manager/streamSetup.ts`，顺序/日志/异常不变） */
+  } /** U-22/S2 外移：流式请求准备段（实现在 `manager/streamSetup.ts`，顺序/日志/异常不变） */
   private async _prepareStreamSession(
     content: string,
     options?: StreamMessageOptions

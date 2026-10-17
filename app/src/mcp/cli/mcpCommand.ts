@@ -15,9 +15,6 @@ const logger = getLogger('mcpCommand');
 
 import type { MCPOAuthConfig } from '@modules/services/mcp/auth/types.js';
 
-/** 探测模式超时（毫秒） */
-const PROBE_TIMEOUT_MS = 30_000;
-
 /**
  * 从 MCPServerConfig 派生 MCPOAuthConfig。
  * 如果服务器配置中缺少 OAuth 信息则返回 null。

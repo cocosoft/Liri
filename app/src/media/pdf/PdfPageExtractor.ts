@@ -183,7 +183,7 @@ async function extractWithPdfJs(
     throw new Error('pdf.js 未安装。运行: bun add pdfjs-dist');
   }
   const lib = pdfjsModule as unknown as Record<string, Function>;
-  const OPS = (lib.OPS ?? {}) as unknown as Record<string, number>;
+  const canvasOps = (lib.OPS ?? {}) as unknown as Record<string, number>;
   const GlobalWorkerOptions = (lib.GlobalWorkerOptions ?? {}) as unknown as {
     workerSrc?: string;
   };
@@ -290,7 +290,7 @@ async function extractWithPdfJs(
       opList !== null &&
       opList.fnArray.some(
         (fn) =>
-          fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject
+          fn === canvasOps.paintImageXObject || fn === canvasOps.paintInlineImageXObject
       );
     if (hasImageOp) {
       let opaquePixels = 0;

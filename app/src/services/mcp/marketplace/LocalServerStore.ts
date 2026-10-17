@@ -6,7 +6,8 @@ import type { InstalledMCPServer, MCPLocalStoreData } from './types';
 
 const logger = getLogger('services:mcp:localServerStore');
 
-const STORE_VERSION = 1;
+/** 本地已装服务器清单的 schema 版本（与 knowledge/semantic 的 STORE_VERSION 无关，按域命名） */
+const LOCAL_SERVER_STORE_VERSION = 1;
 
 export class LocalServerStore {
   private storePath: string;
@@ -32,7 +33,7 @@ export class LocalServerStore {
   private loadStore(): MCPLocalStoreData {
     if (!fs.existsSync(this.storePath)) {
       return {
-        version: STORE_VERSION,
+        version: LOCAL_SERVER_STORE_VERSION,
         updatedAt: new Date().toISOString(),
         servers: {},
         disabledTools: [],
@@ -54,7 +55,7 @@ export class LocalServerStore {
         context: { storePath: this.storePath },
       });
       return {
-        version: STORE_VERSION,
+        version: LOCAL_SERVER_STORE_VERSION,
         updatedAt: new Date().toISOString(),
         servers: {},
         disabledTools: [],

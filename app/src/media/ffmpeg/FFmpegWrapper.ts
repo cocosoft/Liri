@@ -9,7 +9,7 @@ import { handleError } from '@modules/error/handleError';
 const logger = getLogger('media:ffmpeg');
 
 /** ffprobe 单次调用超时上限（正常毫秒级，给 15s 上限防挂死） */
-const PROBE_TIMEOUT_MS = 15 * 1000;
+const FFMPEG_PROBE_TIMEOUT_MS = 15 * 1000;
 
 /**
  * FFmpeg 选项
@@ -117,7 +117,7 @@ export class FFmpegWrapper {
       timer = setTimeout(() => {
         proc.kill('SIGKILL');
         resolve(null);
-      }, PROBE_TIMEOUT_MS);
+      }, FFMPEG_PROBE_TIMEOUT_MS);
 
       proc.on('close', (code) => {
         if (timer) clearTimeout(timer);

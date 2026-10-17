@@ -62,7 +62,7 @@ export function normalizeCommand(command: string): string {
   let out = '';
   let quote: string | null = null;
   let pendingSpace = false;
-  const OPS = '|&;<>()';
+  const NORMALIZE_OPERATORS = '|&;<>()';
   for (let i = 0; i < command.length; i++) {
     const ch = command[i];
     if (quote) {
@@ -81,7 +81,7 @@ export function normalizeCommand(command: string): string {
       pendingSpace = true;
       continue;
     }
-    if (OPS.includes(ch)) {
+    if (NORMALIZE_OPERATORS.includes(ch)) {
       // 运算符贴边：去前导空白，且不追加后置空白
       pendingSpace = false;
       out += ch;

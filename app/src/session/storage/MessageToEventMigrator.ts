@@ -184,9 +184,21 @@ export class MessageToEventMigrator {
     }
 
     // Step 1: 读取全部消息（按文件顺序）
+    // U-11（2026-10-17）：区分「文件为空」与「读取失败」——
+    // 原实现二者同为空数组 + 一条合并告警，无法定位 disk-behind/权限问题。
     const messages = await this.readAllMessages();
+    if (messages === null) {
+      logger.warn(
+        'migrator: messages.jsonl 读取失败，跳过迁移（请检查文件权限/磁盘）',
+        {
+          sessionId: this.sessionId,
+          messagesFilePath: this.messagesFilePath,
+        }
+      );
+      return result;
+    }
     if (messages.length === 0) {
-      logger.warn('migrator: messages.jsonl 为空或读取失败', {
+      logger.warn('migrator: messages.jsonl 为空，跳过迁移', {
         sessionId: this.sessionId,
       });
       return result;
@@ -626,7 +638,7 @@ export class MessageToEventMigrator {
    *
    * 损坏行跳过，不影响其他消息。
    */
-  private async readAllMessages(): Promise<Message[]> {
+  private async readAllMessages(): Promise<Message[] | null> {
     const messages: Message[] = [];
 
     try {
@@ -658,7 +670,8 @@ export class MessageToEventMigrator {
           messagesFilePath: this.messagesFilePath,
         },
       }).catch(() => {});
-      return [];
+      // U-11：读取失败返回 null（与「空文件」区分）
+      return null;
     }
 
     return messages;

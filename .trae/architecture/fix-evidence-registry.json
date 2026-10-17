@@ -9701,6 +9701,32 @@
       "changelog": [],
       "reopenWhen": "① **真机未复测**（`e2eVerified=false`）：**正向**样本 = 在 QQ 里让机器人在**本轮生成**一个文件（或把文件放进 `output/`）后发给我 ⇒ 判据 `outbound_files 单文件发送成功`；**反向**样本 = 让机器人 `file_read` 某源码并回显其路径 ⇒…（全文见 archive/evidence-detail.jsonl#QQ-FILE-OUTBOUND-ELIGIBILITY）",
       "notes": "【问题（真机实证的频繁误触发）】旧资格 = 「路径存在 + 非禁区」⇒ 只要**最终回复正文**里出现一个已存在的绝对路径，就被当成「用户在索要这个文件」而投递。真机连续两条消息**各误触发一次**：两条都是「让机器人 `file_read` 某文件、它顺势把路径回显在回复里」——用户在只想知道字段值，系统却在试着发…（全文见 archive/evidence-detail.jsonl#QQ-FILE-OUTBOUND-ELIGIBILITY）"
+    },
+    {
+      "id": "BALANCE-WARN-DEDUPE",
+      "title": "余额查询的**持续性告警**收敛为「只记一次」：进程内闸门（首次记 / 重复不记）+ **恢复即清记忆**",
+      "source": "用户裁定「先帮我收敛那个余额接口的噪音日志」；上游 = 排查「新报错」时发现 `SiliconFlow 余额接口 /user/info 已被官方下线` 每 ~10 分钟轮询重复记一条 warning",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": true
+      },
+      "code": [
+        "app/src/ai/providers/BalanceChecker.ts"
+      ],
+      "tests": [
+        "app/tests/ai/providers/balanceRecurringWarn.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 闸门是**进程内**的 ⇒ **进程重启后首个周期仍会记一条**（重启即状态重置；真机已观察：00:56:43 重启后 1 条）。要跨重启静音须持久化「已告警」状态 —— 但那会掩盖真实的**状态变化**（恢复后再次故障不再被发现），需先裁定。② 目前只接了 SiliconFlow 的**两条**持续性告警（`$…（全文见 archive/evidence-detail.jsonl#BALANCE-WARN-DEDUPE）",
+      "notes": "【问题（噪音）】余额查询按周期轮询（真机实测间隔 ~19 分钟起、且每次应用重启会重置计时），而「接口已官方下线」这类**持续性**失败**每轮都会命中** ⇒ 旧实现每轮刷同一条 warning：真机日志里 `SiliconFlow 余额接口 /user/info 已被官方下线（code=20092 …）` 在 0…（全文见 archive/evidence-detail.jsonl#BALANCE-WARN-DEDUPE）"
     }
   ]
 }

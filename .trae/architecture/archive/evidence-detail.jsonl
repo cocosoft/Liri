@@ -5533,6 +5533,23 @@
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#2","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"code#3","i":0,"c":".trae/specs/qq-file-transfer.md"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"tests#0","i":0,"c":"app/tests/channels/outboundFileEligibility.test.ts"}
+{"id":"BALANCE-WARN-DEDUPE","k":"title","i":0,"c":"余额查询的**持续性告警**收敛为「只记一次」：进程内闸门（首次记 / 重复不记）+ **恢复即清记忆**"}
+{"id":"BALANCE-WARN-DEDUPE","k":"source","i":0,"c":"用户裁定「先帮我收敛那个余额接口的噪音日志」；上游 = 排查「新报错」时发现 `SiliconFlow 余额接口 /user/info 已被官方下线` 每 ~10 分钟轮询重复记一条 warning"}
+{"id":"BALANCE-WARN-DEDUPE","k":"reopenWhen","i":0,"c":"① 闸门是**进程内**的 ⇒ **进程重启后首个周期仍会记一条**（重启即状态重置；真机已观察：00:56:43 重启后 1 条）。要跨重启静音须持久化「已告警」状态 —— 但那会掩盖真实的**状态变化**（恢复后再次故障不再被发现），需先裁定。② 目前只接了 SiliconFlow 的**两条**持续性告警（`${provider}|retired` 与"}
+{"id":"BALANCE-WARN-DEDUPE","k":"reopenWhen","i":1,"c":" `${provider}|api-error:${code}`）；其它 provider 若出现「每轮重复刷同一条」的告警，应**复用同一闸门**（`shouldWarnRecurring` / `clearRecurringWarn`），勿各写一套。③ `clearRecurringWarn(provider)` 在**查询成功**时清记忆 ⇒ 若某 "}
+{"id":"BALANCE-WARN-DEDUPE","k":"reopenWhen","i":2,"c":"provider 长期「成功→失败」抖动，会**每次**都记一条（属真实状态变化，预期如此，不算噪音）。④ **复测须知**：`GET /v1/usage/balances` 有 **300s 缓存**（`PricingAPI.ts:205`）⇒ 用它复测会「看不到任何新日志」而误判为「没触发」；**必须**用 `POST /v1/usage/balance"}
+{"id":"BALANCE-WARN-DEDUPE","k":"reopenWhen","i":3,"c":" {providerId}`（直连 `checkBalance`、绕过缓存）。"}
+{"id":"BALANCE-WARN-DEDUPE","k":"notes","i":0,"c":"【问题（噪音）】余额查询按周期轮询（真机实测间隔 ~19 分钟起、且每次应用重启会重置计时），而「接口已官方下线」这类**持续性**失败**每轮都会命中** ⇒ 旧实现每轮刷同一条 warning：真机日志里 `SiliconFlow 余额接口 /user/info 已被官方下线（code=20092 …）` 在 00:32:02、00:51:05 各一条，"}
+{"id":"BALANCE-WARN-DEDUPE","k":"notes","i":1,"c":"**无限重复且零新信息**（该分支自 2026-08-14 起就是永久状态）。\n【做法（`app/src/ai/providers/BalanceChecker.ts`）】新增**持续性告警闸门**（模块级 `Set`，与仓内其它一次性标记同口径，如 `budgetReliefCard.sentSessions`）：`shouldWarnRecurring("}
+{"id":"BALANCE-WARN-DEDUPE","k":"notes","i":2,"c":"key)`（同 key 首次 ⇒ true、此后 false；`key = ${provider}|${kind}`）+ `clearRecurringWarn(provider)`（按 `provider|` 前缀清）。接在**两处持续性告警**上：① `retired`（接口已下线）；② `api-error:<code>`（固定错误码）。并在**查询成"}
+{"id":"BALANCE-WARN-DEDUPE","k":"notes","i":3,"c":"功**时 `clearRecurringWarn(provider)` ⇒ **恢复即清记忆**（日后若再坏，仍会记一次，不把「曾经坏过」永久静音）。**用户可见行为不变**：返回值与 `error` 文案（「硅基流动已下线余额查询接口…余额暂不可查」）一字未改 —— 收敛的只是**重复日志**。\n【验证（单测 5 例 + 真机 3 次调用）】单测 `"}
+{"id":"BALANCE-WARN-DEDUPE","k":"notes","i":4,"c":"tests/ai/providers/balanceRecurringWarn.test.ts`：同 key 首次 true/其后 false；不同 provider 与不同 kind 互不吞掉；`clear` 后同 key **再次** true；一整个 provider 的多个 kind 都清；前缀 `provider|` **不误伤** `"}
+{"id":"BALANCE-WARN-DEDUPE","k":"notes","i":5,"c":"siliconflow-en`。全量 `bun test` **6676 pass / 0 fail**（6718 tests / 752 files）；`tsc --noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错；`lint:doc-code` 绿。**真机实验**（用 `POST /v1/usage/balance "}
+{"id":"BALANCE-WARN-DEDUPE","k":"notes","i":6,"c":"{providerId:siliconflow}` 连发 3 次，**绕缓存**）：`SiliconFlow 响应: status=410`（每次真实查询都打）计数 66→66→**68**→68（证明**确实发生了真实查询**），而「已被官方下线」warning 计数 **66→66→66→66（零新增）**；第 3 次响应仍为 `{"}
+{"id":"BALANCE-WARN-DEDUPE","k":"notes","i":7,"c":"success:false, error:\"硅基流动已下线余额查询接口 /user/info…余额暂不可查\"}` ⇒ **走到了该分支却没再打告警** = 闸门生效（不是「没触发」的假阴性）。另观察到「重启后首轮 +1」（00:56:43），与所声明的**进程内**边界一致。\n【如实边界】① 进程内闸门 ⇒ 每次重启后首轮仍记 1 条（见 "}
+{"id":"BALANCE-WARN-DEDUPE","k":"notes","i":8,"c":"reopenWhen ①）。② 只覆盖 SiliconFlow 的两条持续性告警（其它 provider 未接，见 ②）。③ 本轮实验本身踩过一个坑：`GET /v1/usage/balances` 有 300s 缓存 ⇒ 头两次「零新增」是**缓存导致没真查**，改用单条端点后才拿到决定性证据（已写进 reopenWhen ④，供后人复测时避免误判）。"}
+{"id":"BALANCE-WARN-DEDUPE","k":"code#0","i":0,"c":"app/src/ai/providers/BalanceChecker.ts"}
+{"id":"BALANCE-WARN-DEDUPE","k":"tests#0","i":0,"c":"app/tests/ai/providers/balanceRecurringWarn.test.ts"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

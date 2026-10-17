@@ -2,6 +2,11 @@
  * 产品配置常量
  */
 
+import {
+  DEFAULT_LOCAL_OAUTH_APPS_BASE,
+  LOCAL_SERVICE_HOST,
+} from '@modules/core';
+
 /**
  * 产品主页URL
  */
@@ -12,7 +17,8 @@ export const PRODUCT_URL = 'https://openliri.com';
  */
 export const APP_BASE_URL = 'https://app.openliri.com';
 export const APP_STAGING_BASE_URL = 'https://app-staging.openliri.com';
-export const APP_LOCAL_BASE_URL = 'http://localhost:4000';
+/** 本地应用前端地址（与本地 OAuth 的 apps 面同址：`http://localhost:4000`） */
+export const APP_LOCAL_BASE_URL = DEFAULT_LOCAL_OAUTH_APPS_BASE;
 
 /**
  * 判断是否为预发布环境的远程会话
@@ -38,7 +44,7 @@ export function isRemoteSessionLocal(
 ): boolean {
   return (
     sessionId?.includes('_local_') === true ||
-    ingressUrl?.includes('localhost') === true
+    ingressUrl?.includes(LOCAL_SERVICE_HOST) === true
   );
 }
 

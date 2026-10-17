@@ -86,6 +86,13 @@ export const WILDCARD_BIND_HOST = '0.0.0.0';
 export const DEFAULT_BLUEBUBBLES_SERVER_URL = `http://${LOCAL_SERVICE_HOST}:1234`;
 
 /**
+ * CLI OAuth 回调地址默认值（GitHub / Google 登录共用；U-20/B5-2-95）。
+ *
+ * 可被 `OAUTH_*_REDIRECT_URI` 环境变量覆盖；默认值与本地回调服务端口 3000 对齐。
+ */
+export const DEFAULT_OAUTH_REDIRECT_URI = `http://${LOCAL_SERVICE_HOST}:3000/callback`;
+
+/**
  * 供应商引导记录里 llama.cpp 的默认 baseUrl（历史值为 8080）。
  *
  * 与 `LOCAL_INFERENCE_ENDPOINTS.llamacpp`（11435）**数值不同、来源不同**（引导记录 vs

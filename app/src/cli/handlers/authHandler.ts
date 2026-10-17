@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 认证处理器
  * 处理CLI中的认证相关命令，集成 OAuth 系统
  */
@@ -14,6 +14,7 @@ import { createGoogleOAuthProvider } from '@modules/oauth';
 import { AuthorizationCodeFlow } from '@modules/oauth';
 import type { OAuthConfig } from '@modules/oauth/types';
 import { configManager } from '@modules/config';
+import { DEFAULT_OAUTH_REDIRECT_URI } from '@modules/core';
 
 const logger = getLogger('authHandler');
 
@@ -44,7 +45,7 @@ export class AuthHandler {
     if (githubClientId && githubClientSecret) {
       const redirectUri =
         configManager.env('OAUTH_GITHUB_REDIRECT_URI') ||
-        'http://localhost:3000/callback';
+        DEFAULT_OAUTH_REDIRECT_URI;
       const provider = createGitHubOAuthProvider(
         githubClientId,
         githubClientSecret,
@@ -57,7 +58,7 @@ export class AuthHandler {
     if (googleClientId && googleClientSecret) {
       const redirectUri =
         configManager.env('OAUTH_GOOGLE_REDIRECT_URI') ||
-        'http://localhost:3000/callback';
+        DEFAULT_OAUTH_REDIRECT_URI;
       const provider = createGoogleOAuthProvider(
         googleClientId,
         googleClientSecret,
@@ -99,7 +100,7 @@ export class AuthHandler {
         profileUrl: '',
         clientId: '',
         scopes: [],
-        redirectUri: 'http://localhost:3000/callback',
+        redirectUri: DEFAULT_OAUTH_REDIRECT_URI,
       };
 
       if (provider === 'github') {

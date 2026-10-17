@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **FILE-WRITE-RESOLVED-PATH**：写入回执给实际绝对路径 + 出站提取认 `~/`（修「写了却发不出」） —— 验证 ut7|tc2|ts6709；基线 改前：file_write 只回显相对入参 ⇒ 模型以为在 ~/.pyapp/output，正文写该路径；文件实际在工作区根 ⇒ 候选 0（详情见 archive/evidence-detail.jsonl#FILE-WRITE-RESOLVED-PATH）
 - ✅ **CHANNEL-DELIVERY-CONTRACT**：通道入站注入投递契约（按请求）：附件自动投递、模型不得臆断发送状态 —— 验证 ut8|tc2|ts6702；基线 改前：模型无投递事实源 ⇒ 两次臆断（「附件还没发出」/ 编造 broadcast send 返回 false），文件均随后送达（详情见 archive/evidence-detail.jsonl#CHANNEL-DELIVERY-CONTRACT）
 - ✅ **QQ-FILE-UPLOAD-FILE-NAME**：QQ 二进制上传补 file_name（官方必填）—— 修附件气泡显示「未命名」 —— 验证 e2e1|ut1|tc1|ts6694；基线 改前：只发 file_type+file_data ⇒ QQ 拿不到文件名，9,444 字节的报告显示「未命名」（详情见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-FILE-NAME）
 - ✅ **CHANNEL-RELIEF-CARD-COPY-DEDUPE**：预算挂起收尾去重：发卡成功不再重复发文本；纯文本兜底去 Markdown 星号 —— 验证 ut8|tc1|ts6694；基线 改前：真机同一条「已挂起 + 出路」发了两遍（文本 ⏸ + 卡片），且纯文本里 ** 星号明文（详情见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-CARD-COPY-DEDUPE）

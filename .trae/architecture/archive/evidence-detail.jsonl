@@ -5651,6 +5651,23 @@
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"tests#0","i":0,"c":"app/tests/chat/systemPromptComposition.test.ts"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"tests#1","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
 {"id":"CHANNEL-DELIVERY-CONTRACT","k":"changelog#0","i":0,"c":"fix(channels): 通道入站注入投递契约（runtimeSystemNote），禁止模型臆断「已发送/发送失败」"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"title","i":0,"c":"`FileWriteTool` 回执给**实际绝对路径** + 出站提取认 `~/` —— 修「文件写了却发不出」"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"source","i":0,"c":"用户真机复测（2026-10-17 11:24–11:28）：「再测试一下，发一个 md 文件给我」→ 模型三轮都回「文件位置 `~/.pyapp/output/…`」但用户始终收不到附件；实查 `~/.pyapp/output` 下**没有**这些文件，它们都在工作区根 `E:\\PY\\Documents\\CODES\\PY_APP\\`"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"reopenWhen","i":0,"c":"① `FileWriteTool` 只改**回执与描述**，未改解析策略：相对路径仍解析到会话 cwd（`getToolBaseDir`），无 cwd 才回退 `outputDir`。若日后希望「相对路径默认落到 output」，必须同时改实现与描述，否则模型又会按旧描述误报位置。② 出站提取新增 `~/` 展开，但**资格判定不变**（交付面内 或 本轮新"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"reopenWhen","i":1,"c":"产出）；`~/` 指向面外且非本轮产出时仍静默忽略。③ 裸路径匹配现在先剔除反引号片段：若日后有「反引号内故意写非路径内容 + 裸路径紧邻」的形态，需复核是否漏提取。④ 本片未做真机复测（需再让模型「发一个 md 文件」，观察正文路径与附件同时正确）。"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"notes","i":0,"c":"【问题（真机三轮）】用户要求发 md 文件；模型每轮 `file_write` 成功，随后在正文写「文件位置 `~/.pyapp/output/通道投递测试_20261017.md`」；用户回「文件没有发过来」。实查：`~/.pyapp/output` 下**没有任何** `通道投递测试*`；三个文件都在工作区根（`"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"notes","i":1,"c":"E:\\PY\\Documents\\CODES\\PY_APP\\通道投递测试.md` 等，mtime 与工具调用一致）。日志中**没有** `outbound_files 阶段开始`（候选为 0，零日志静默退出）。\n【根因（两处，同一事实链）】① `FileWriteTool` 写盘用 `resolveFilePath(input.file_path, "}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"notes","i":2,"c":"baseDir)`（baseDir = 会话 cwd），但回执原样回显 `input.file_path`（相对名）⇒ 模型**唯一能拿到的位置信息**就是相对名；而工具**描述**仍写着「相对路径会被保存到应用输出目录（~/.pyapp/output）」⇒ 模型据此「合理推断」出 `~/.pyapp/output/…`，并非凭空编造。② `"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"notes","i":3,"c":"outboundFileRouter.extractLocalFilePaths` 只认 `C:\\…` 形态 ⇒ 正文里的 `~/…` **不是候选**，即便文件真在面内也不会投递。\n【做法】① `FileWriteTool` **只解析一次** `resolvedPath`，写盘、完成态进度、回执、system 消息共用它 ⇒ 模型拿到的是真实绝对路径；工"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"notes","i":4,"c":"具描述/参数说明同步订正为「相对路径 → 会话 cwd，无 cwd 才回退 outputDir；回执给绝对路径，请直接引用」。② 提取器新增反引号内与裸 `~/…`/`~\\…` 两形（`expandTildePath` 展开主目录）；裸路径匹配前先**剔除反引号片段**，避免 `~/a b.md` 被截成 `~/a` 产生第二条候选。\n【验证】`"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"notes","i":5,"c":"tests/tools/fileWriteToolPath.test.ts` 1 例（相对名 + cwd ⇒ 回执含绝对路径，且文件真写在那里）；`tests/channels/outboundFileEligibility.test.ts` 新增 6 例（Windows 反引号/裸、`~/` 反引号含空格/裸 `~\\`、大小写不敏感去重、非 `~` 原样）"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"notes","i":6,"c":"。全量 `bun test` **6709 pass / 0 fail**（6751 tests / 755 files）；`tsc --noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错误；`lint:consts` PASS；`lint:doc-code` PASS。\n【如实边界】见 reopenWhen ①-④（尤其未"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"notes","i":7,"c":"做真机复测；工作区根仍留着三轮测试产物 `通道投递测试*.md`）。"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"code#0","i":0,"c":"app/src/tools/FileWriteTool/FileWriteTool.ts"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"code#1","i":0,"c":"app/src/channels/routing/outboundFileRouter.ts"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"tests#0","i":0,"c":"app/tests/tools/fileWriteToolPath.test.ts"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"tests#1","i":0,"c":"app/tests/channels/outboundFileEligibility.test.ts"}
+{"id":"FILE-WRITE-RESOLVED-PATH","k":"changelog#0","i":0,"c":"fix(tools/channels): file_write 回执给实际绝对路径；出站提取认 `~/` —— 修「写了却发不出」"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

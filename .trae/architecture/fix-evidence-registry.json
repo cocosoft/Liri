@@ -9873,6 +9873,36 @@
       ],
       "reopenWhen": "① 契约只在**渠道入站走 `chatStream`** 时注入（`messageRouter`）；桌面端 / CLI 不注入（它们能看到自己的投递状态，无需此契约）。② 系统提示的组装在 `apiMessages` 已有 system 消息时**直接跳过**：当前渠道链路每轮由管线组装，故契约每轮生效；若日后把 s…（全文见 archive/evidence-detail.jsonl#CHANNEL-DELIVERY-CONTRACT）",
       "notes": "【问题（真机两次）】① 10:35 那轮正文写「附件还没实际发出」，而附件在 1 秒后（10:35:11）成功送达；② 11:02 那轮正文写「`broadcast send channel=qq` 返回 `{sent:false}`，重试同样结果」并宣告发送失败，实际文件在 11:02:55 成功送达，且 `Cha…（全文见 archive/evidence-detail.jsonl#CHANNEL-DELIVERY-CONTRACT）"
+    },
+    {
+      "id": "FILE-WRITE-RESOLVED-PATH",
+      "title": "`FileWriteTool` 回执给**实际绝对路径** + 出站提取认 `~/` —— 修「文件写了却发不出」",
+      "source": "用户真机复测（2026-10-17 11:24–11:28）：「再测试一下，发一个 md 文件给我」→ 模型三轮都回「文件位置 `~/.pyapp/output/…`」但用户始终收不到附件；实查 `~/.pyapp/output` 下**没有**这些文件，它们都在工作区根 `E:\\PY\\Documents\\CODES\\PY_APP\\`",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/FileWriteTool/FileWriteTool.ts",
+        "app/src/channels/routing/outboundFileRouter.ts"
+      ],
+      "tests": [
+        "app/tests/tools/fileWriteToolPath.test.ts",
+        "app/tests/channels/outboundFileEligibility.test.ts"
+      ],
+      "changelog": [
+        "fix(tools/channels): file_write 回执给实际绝对路径；出站提取认 `~/` —— 修「写了却发不出」"
+      ],
+      "reopenWhen": "① `FileWriteTool` 只改**回执与描述**，未改解析策略：相对路径仍解析到会话 cwd（`getToolBaseDir`），无 cwd 才回退 `outputDir`。若日后希望「相对路径默认落到 output」，必须同时改实现与描述，否则模型又会按旧描述误报位置。② 出站提取新增 `~/` 展开，但…（全文见 archive/evidence-detail.jsonl#FILE-WRITE-RESOLVED-PATH）",
+      "notes": "【问题（真机三轮）】用户要求发 md 文件；模型每轮 `file_write` 成功，随后在正文写「文件位置 `~/.pyapp/output/通道投递测试_20261017.md`」；用户回「文件没有发过来」。实查：`~/.pyapp/output` 下**没有任何** `通道投递测试*`；三个文件都在工作区根（`…（全文见 archive/evidence-detail.jsonl#FILE-WRITE-RESOLVED-PATH）"
     }
   ]
 }

@@ -6776,3 +6776,9 @@
 {"id":"U22-LRTO-PLANPHASE","k":"code#0","i":0,"c":"app/src/tasks/lro/planPhase.ts"}
 {"id":"U22-LRTO-PLANPHASE","k":"code#1","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
 {"id":"U22-LRTO-PLANPHASE","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"U22-LRTO-STEPARTIFACTS","k":"title","i":0,"c":"U-22/LRTO S2a：外移写后读回（机械证据）与 escalate 缺陷捕获"}
+{"id":"U22-LRTO-STEPARTIFACTS","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（LRTO）/§4"}
+{"id":"U22-LRTO-STEPARTIFACTS","k":"notes","i":0,"c":"collectPendingReadBacks（纯函数）+ readBackWrittenArtifacts（对本步写入未读回的产物补做只读 file_read，上限 3，失败如实记录）+ recordEscalation（reviewResult.issues → 缺陷清单并持久化）→ tasks/lro/stepArtifacts.ts（StepArtifactsDeps：taskId/createToolContext/persistCheckpoint/共享缺陷清单）。collectPendingReadBacks 由宿主 re-export，测试导入路径不变；日志与失败语义逐字未变。"}
+{"id":"U22-LRTO-STEPARTIFACTS","k":"code#0","i":0,"c":"app/src/tasks/lro/stepArtifacts.ts"}
+{"id":"U22-LRTO-STEPARTIFACTS","k":"code#1","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"U22-LRTO-STEPARTIFACTS","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}

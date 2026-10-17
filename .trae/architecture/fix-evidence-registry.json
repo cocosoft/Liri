@@ -11842,6 +11842,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-LRTO-PLANPHASE）",
       "notes": "executePlanPhase（175 行）→ tasks/lro/planPhase.ts（runPlanPhase + PlanPhaseDeps：setPhase / recordLifecycle / lastEscalations / executor / resolveWorkspaceId / cre…（全文见 archive/evidence-detail.jsonl#U22-LRTO-PLANPHASE）"
+    },
+    {
+      "id": "U22-LRTO-STEPARTIFACTS",
+      "title": "U-22/LRTO S2a：外移写后读回（机械证据）与 escalate 缺陷捕获",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（LRTO）/§4",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/lro/stepArtifacts.ts",
+        "app/src/tasks/LongRunningTaskOrchestrator.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-LRTO-STEPARTIFACTS）",
+      "notes": "collectPendingReadBacks（纯函数）+ readBackWrittenArtifacts（对本步写入未读回的产物补做只读 file_read，上限 3，失败如实记录）+ recordEscalation（reviewResult.issues → 缺陷清单并持久化）→ tasks/lro/step…（全文见 archive/evidence-detail.jsonl#U22-LRTO-STEPARTIFACTS）"
     }
   ]
 }

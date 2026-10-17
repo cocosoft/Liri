@@ -127,7 +127,8 @@ export class McpResourcesDriver implements IVfsDriver {
     opts: { recursive: boolean; limit: number }
   ): Promise<VfsEntry[]> {
     const client = this.requireClient(vfsPath);
-    const limit = opts.limit > 0 ? opts.limit : MCP_RESOURCES_DEFAULT_LIST_LIMIT;
+    const limit =
+      opts.limit > 0 ? opts.limit : MCP_RESOURCES_DEFAULT_LIST_LIMIT;
     const { resources } = await this.listResources(client, vfsPath);
     return resources.slice(0, limit).map((resource) => ({
       name: resource.uri,

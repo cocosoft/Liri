@@ -5668,6 +5668,22 @@
 {"id":"FILE-WRITE-RESOLVED-PATH","k":"tests#0","i":0,"c":"app/tests/tools/fileWriteToolPath.test.ts"}
 {"id":"FILE-WRITE-RESOLVED-PATH","k":"tests#1","i":0,"c":"app/tests/channels/outboundFileEligibility.test.ts"}
 {"id":"FILE-WRITE-RESOLVED-PATH","k":"changelog#0","i":0,"c":"fix(tools/channels): file_write 回执给实际绝对路径；出站提取认 `~/` —— 修「写了却发不出」"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"title","i":0,"c":"出站附件按**内容 MD5** 去重 + 投递契约禁「为投递而复制文件」—— 修真机「同一份文件收到两次」"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"source","i":0,"c":"用户真机复测（2026-10-17 11:43）：模型先 `write_project_file` 写入项目 output，又把同一份内容 `file_write`（source_file）复制到 `~/.pyapp/output/`，随后在正文列出**两个**路径 ⇒ 用户收到两个同名同大小（test.md / 491B）附件；日志 `"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"source","i":1,"c":"outbound_files candidates:2 sendable:2` + 两次发送成功"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"reopenWhen","i":0,"c":"① 去重按 **MD5** 全量读文件（≤30MB 且单条候选极少）；若日后放宽大小上限或候选数量显著增加，改为「先比 size、再算 hash」或流式 hash，避免读盘放大。② 去重发生在**数量截断之前** ⇒ 重复副本不占 2 个配额；若日后调整顺序，需保留「重复不算配额」语义（现有单测已注明）。③ 读盘失败（权限等）时按「无法判重」放行，可能仍重复"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"reopenWhen","i":1,"c":"发送——这属如实降级（不因去重漏发）。④ 本片未做真机复测（需再发一次文件，确认只收到一个附件）。"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"notes","i":0,"c":"【问题（真机截图）】用户要一个 md，客户端收到**两个** `test.md`（均 491B）。日志同一 trace：`11:43:23` `write_project_file` → 项目 `output/test.md`；`11:43:25` 模型又用 `file_write` + `source_file` 把同一份复制到 `"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"notes","i":1,"c":"C:\\Users\\csdnc\\.pyapp\\output\\test.md`；`11:43:33` `outbound_files 阶段开始 {candidates:2, sendable:2}`，`11:43:34/35` 两次「单文件发送成功」。\n【根因（两层）】① 出站路由只按**路径**判重（realpath 不同即视为两个文件），没有内容判重 ⇒ 同"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"notes","i":2,"c":"一份内容的两个副本被各发一次。② 模型之所以复制：投递契约只说了「在交付面内 或 本轮新建」，它无法判断项目 `output/` 算不算可发，于是「保险起见」再复制一份到白名单目录——这是契约没讲清「**不需要复制**」导致的额外动作。\n【做法】① `filterSendableFiles` 在资格/大小校验后按 **MD5** 判重：首个保留，重复副本**"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"notes","i":3,"c":"静默跳过**（不是失败，不产生用户可见噪音）；去重放在**数量截断之前** ⇒ 重复副本不占 2 个配额；读盘失败退回「按路径处理」（不因去重漏发）。② `CHANNEL_DELIVERY_CONTRACT` 增一句「**不要为了投递而复制文件**（文件在哪个目录就写哪个路径即可）；同一份内容只写**一个**路径」。\n【验证】新增 2 例（同内容双路径 ⇒ "}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"notes","i":4,"c":"只发首个且 `skipped` 为空；不同内容 ⇒ 两个都发）+ 1 例契约（含「不要为了投递而复制文件」）。既有「超过 2 个 ⇒ 前 2 个」用例因去重先于截断而改为**互不相同**的内容（注释已写明顺序语义）。全量 `bun test` **6712 pass / 0 fail**（6754 tests / 755 files）；`tsc "}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"notes","i":5,"c":"--noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错误；`lint:consts` PASS；`lint:doc-code` PASS。\n【如实边界】见 reopenWhen ①-④（尤其未做真机复测）。"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"code#0","i":0,"c":"app/src/channels/routing/outboundFileRouter.ts"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"tests#0","i":0,"c":"app/tests/channels/outboundFileEligibility.test.ts"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"tests#1","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
+{"id":"CHANNEL-FILE-CONTENT-DEDUPE","k":"changelog#0","i":0,"c":"fix(channels): 出站附件按内容去重（MD5）+ 契约禁止「为投递而复制文件」，修重复附件"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

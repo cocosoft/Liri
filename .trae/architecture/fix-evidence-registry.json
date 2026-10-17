@@ -11816,6 +11816,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-LRTO-PLANNER）",
       "notes": "roleToolNames（按 RoleConfig.taskType 从 TOOL_CATEGORIES 派生，禁止手写清单）+ groupStepsByDependency（dependsOn 拓扑分批，循环依赖兜底串行）+ repairPlanJson / repairAcceptanceCriteria（各一…（全文见 archive/evidence-detail.jsonl#U22-LRTO-PLANNER）"
+    },
+    {
+      "id": "U22-LRTO-PLANPHASE",
+      "title": "U-22/LRTO S1：外移 PLAN 阶段（增量 replan / 结构化解析 + 修复重问 / 验收可证性纠正 / 建 Plan）",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（LRTO S1 plan 阶段）/§4",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/lro/planPhase.ts",
+        "app/src/tasks/LongRunningTaskOrchestrator.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-LRTO-PLANPHASE）",
+      "notes": "executePlanPhase（175 行）→ tasks/lro/planPhase.ts（runPlanPhase + PlanPhaseDeps：setPhase / recordLifecycle / lastEscalations / executor / resolveWorkspaceId / cre…（全文见 archive/evidence-detail.jsonl#U22-LRTO-PLANPHASE）"
     }
   ]
 }

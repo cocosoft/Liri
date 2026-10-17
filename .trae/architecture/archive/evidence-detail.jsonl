@@ -6770,3 +6770,9 @@
 {"id":"U22-LRTO-PLANNER","k":"code#0","i":0,"c":"app/src/tasks/lro/plannerSupport.ts"}
 {"id":"U22-LRTO-PLANNER","k":"code#1","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
 {"id":"U22-LRTO-PLANNER","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"U22-LRTO-PLANPHASE","k":"title","i":0,"c":"U-22/LRTO S1：外移 PLAN 阶段（增量 replan / 结构化解析 + 修复重问 / 验收可证性纠正 / 建 Plan）"}
+{"id":"U22-LRTO-PLANPHASE","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（LRTO S1 plan 阶段）/§4"}
+{"id":"U22-LRTO-PLANPHASE","k":"notes","i":0,"c":"executePlanPhase（175 行）→ tasks/lro/planPhase.ts（runPlanPhase + PlanPhaseDeps：setPhase / recordLifecycle / lastEscalations / executor / resolveWorkspaceId / createPlan / setPlanId 全注入）。修复重问直接复用 lro/plannerSupport（不再经宿主薄转发）。提示词文案、日志字段、AppError 分类与 OTel span 语义逐字未变。"}
+{"id":"U22-LRTO-PLANPHASE","k":"code#0","i":0,"c":"app/src/tasks/lro/planPhase.ts"}
+{"id":"U22-LRTO-PLANPHASE","k":"code#1","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"U22-LRTO-PLANPHASE","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}

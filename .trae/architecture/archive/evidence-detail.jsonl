@@ -6375,3 +6375,9 @@
 {"id":"DOCS-SECURITY-IMPORT-FIX","k":"notes","i":0,"c":"改为 completeSecuritySystem + 具名审计导出；沙箱说明指向工具执行链。"}
 {"id":"DOCS-SECURITY-IMPORT-FIX","k":"code#0","i":0,"c":"app/docs/API.md"}
 {"id":"DOCS-SECURITY-IMPORT-FIX","k":"code#1","i":0,"c":"app/docs/DEVELOPMENT.md"}
+{"id":"BUDGET-WAIVER-USD-PRECHECK","k":"title","i":0,"c":"U-12/T3-7：waive-once 放行前按价表估算金额预占（pending debt），落账按实际替换"}
+{"id":"BUDGET-WAIVER-USD-PRECHECK","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md U-12（用户裁定：改为事务预检）"}
+{"id":"BUDGET-WAIVER-USD-PRECHECK","k":"notes","i":0,"c":"预占只加 debtUsd（不提前动 usedUsd）；同会话重复预检替换不累加；未配置上限或估算为 0 不预占。"}
+{"id":"BUDGET-WAIVER-USD-PRECHECK","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-WAIVER-USD-PRECHECK","k":"code#1","i":0,"c":"app/src/chat/orchestrator/preSendContextProtection.ts"}
+{"id":"BUDGET-WAIVER-USD-PRECHECK","k":"tests#0","i":0,"c":"app/tests/query/dailyBudgetWaiverPrecheck.test.ts"}

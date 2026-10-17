@@ -10314,6 +10314,33 @@
       "changelog": [],
       "reopenWhen": "安全门面 API 再次调整时重开（全文见 archive/evidence-detail.jsonl#DOCS-SECURITY-IMPORT-FIX）",
       "notes": "改为 completeSecuritySystem + 具名审计导出；沙箱说明指向工具执行链。（全文见 archive/evidence-detail.jsonl#DOCS-SECURITY-IMPORT-FIX）"
+    },
+    {
+      "id": "BUDGET-WAIVER-USD-PRECHECK",
+      "title": "U-12/T3-7：waive-once 放行前按价表估算金额预占（pending debt），落账按实际替换",
+      "source": "dev_docs/20261017/未完成任务清单-20261017.md U-12（用户裁定：改为事务预检）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/DailyBudgetManager.ts",
+        "app/src/chat/orchestrator/preSendContextProtection.ts"
+      ],
+      "tests": [
+        "app/tests/query/dailyBudgetWaiverPrecheck.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#BUDGET-WAIVER-USD-PRECHECK）",
+      "notes": "预占只加 debtUsd（不提前动 usedUsd）；同会话重复预检替换不累加；未配置上限或估算为 0 不预占。（全文见 archive/evidence-detail.jsonl#BUDGET-WAIVER-USD-PRECHECK）"
     }
   ]
 }

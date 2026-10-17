@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **BUDGET-WAIVER-USD-PRECHECK**：waive-once 放行前 USD 事务预检 —— 验证 tc0|ut5|arch0；基线 改前只有事后记账，放行轮无金额预占（详情见 archive/evidence-detail.jsonl#BUDGET-WAIVER-USD-PRECHECK）
 - ✅ **DOCS-SECURITY-IMPORT-FIX**：API/开发文档失效导入修正 —— 验证 doc-only；基线 改前文档导入已删除的工厂，照抄必失败（详情见 archive/evidence-detail.jsonl#DOCS-SECURITY-IMPORT-FIX）
 - ✅ **SECRET-SCANNER-NEW-PREFIXES**：秘密扫描补 OpenAI/Anthropic 新前缀 —— 验证 tc0|ut4；基线 改前仅旧 sk-...T3BlbkFJ 格式，新前缀漏检（详情见 archive/evidence-detail.jsonl#SECRET-SCANNER-NEW-PREFIXES）
 - ✅ **CHANNEL-QUESTION-ANSWER-STAGE2**：渠道交互提问 Stage 2（下一条消息即答案） —— 验证 tc0|ut15|arch0；基线 改前渠道 question 只能 fail-closed；无法把下一条消息作为答案（详情见 archive/evidence-detail.jsonl#CHANNEL-QUESTION-ANSWER-STAGE2）

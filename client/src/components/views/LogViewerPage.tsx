@@ -16,10 +16,9 @@ import { OTELSpanViewer } from "../common/OTELSpanViewer";
 import { OTELTraceViewer } from "../common/OTELTraceViewer";
 import SecurityDashboard from "./SecurityDashboard";
 import { createLogger } from "@/utils/logger";
+import { ENABLE_TRACE_REDESIGN } from "@/constants/ui";
 
 const logger = createLogger("components:logViewer");
-
-const ENABLE_TRACE_REDESIGN = true;
 
 type TabType = "logs" | "frontend" | "sessions" | "security" | "otel";
 

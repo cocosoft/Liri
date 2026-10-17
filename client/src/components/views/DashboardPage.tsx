@@ -23,8 +23,7 @@ import type { Alert, SystemHealth } from "../../types";
 import { SkeletonCard } from "../common/Skeleton";
 import { SPECIES_MAP } from "../Buddy/buddySprites";
 import { sseService } from "../../services/sseService";
-
-const ENABLE_TRACE_REDESIGN = true;
+import { ENABLE_TRACE_REDESIGN } from "../../constants/ui";
 import { useConfigStore } from "../../stores/configStore";
 import MetricsChart from "../common/MetricsChart";
 import {

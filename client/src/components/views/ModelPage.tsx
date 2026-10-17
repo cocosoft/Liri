@@ -14,6 +14,7 @@ import { PROVIDER_TYPE_LABELS } from "../../config/providerPresets";
 import { usageService } from "../../services/usageService";
 import { modelSwitchService } from "../../services/modelSwitchService";
 import { CAPABILITY } from "../../constants/capabilities";
+import { DEFAULT_BADGE_COLOR } from "../../constants/ui";
 import {
   modelService,
   type CapabilityProbeResult,
@@ -39,9 +40,6 @@ const TYPE_COLORS: Record<string, string> = {
     "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   llamacpp: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
 };
-
-const DEFAULT_COLOR =
-  "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
 
 function formatDate(ts: number, locale = "zh-CN"): string {
   return new Date(ts * 1000).toLocaleDateString(locale);
@@ -656,7 +654,7 @@ function ProviderPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span
-                            className={`px-2 py-0.5 text-xs rounded-full font-medium ${TYPE_COLORS[p.providerType] || DEFAULT_COLOR}`}
+                            className={`px-2 py-0.5 text-xs rounded-full font-medium ${TYPE_COLORS[p.providerType] || DEFAULT_BADGE_COLOR}`}
                           >
                             {PROVIDER_TYPE_LABELS[p.providerType] ||
                               p.providerType}
@@ -968,7 +966,7 @@ function ProviderPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`px-2 py-0.5 text-xs rounded-full font-medium shrink-0 ${TYPE_COLORS[model.provider] || DEFAULT_COLOR}`}
+                            className={`px-2 py-0.5 text-xs rounded-full font-medium shrink-0 ${TYPE_COLORS[model.provider] || DEFAULT_BADGE_COLOR}`}
                           >
                             {model.provider}
                           </span>

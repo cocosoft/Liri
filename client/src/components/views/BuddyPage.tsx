@@ -14,8 +14,8 @@ import {
 } from "../Buddy/buddySprites";
 import type { BuddyStat } from "../../types";
 import { useNavigationStore } from "../../stores/navigationStore";
+import { BUDDY_INTERACTIONS } from "../../constants/ui";
 
-const INTERACTIONS = ["pet", "feed", "play", "praise", "scold"];
 const INTERACTION_LABEL_KEYS: Record<string, string> = {
   pet: "buddy.interactPet",
   feed: "buddy.interactFeed",
@@ -264,7 +264,7 @@ function BuddyPage() {
                 {t("buddy.interactionsSection")}
               </h3>
               <div className="flex items-center gap-2 flex-wrap">
-                {INTERACTIONS.map((action) => (
+                {BUDDY_INTERACTIONS.map((action) => (
                   <button
                     key={action}
                     onClick={() => handleInteract(action)}

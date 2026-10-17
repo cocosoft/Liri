@@ -10,6 +10,7 @@ import {
   CATEGORY_LABELS,
 } from "../../config/providerPresets";
 import type { ProviderFormData } from "../../types";
+import { DEFAULT_BADGE_COLOR } from "../../constants/ui";
 
 interface ProviderPresetPanelProps {
   onSelect: (formData: ProviderFormData) => void;
@@ -24,9 +25,6 @@ const TYPE_COLORS: Record<string, string> = {
   cn_official:
     "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
 };
-
-const DEFAULT_COLOR =
-  "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300";
 
 export default function ProviderPresetPanel({
   onSelect,
@@ -67,7 +65,7 @@ export default function ProviderPresetPanel({
                   className="p-3 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-left transition-colors border border-transparent hover:border-blue-300 dark:hover:border-blue-600"
                 >
                   <div
-                    className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium mb-1 ${TYPE_COLORS[preset.category] || DEFAULT_COLOR}`}
+                    className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium mb-1 ${TYPE_COLORS[preset.category] || DEFAULT_BADGE_COLOR}`}
                   >
                     {preset.name}
                   </div>

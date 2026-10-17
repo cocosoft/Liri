@@ -64,6 +64,16 @@ const SECRET_RULES: SecretRule[] = [
     source:
       '\\b(sk-[a-zA-Z0-9]{20}T3BlbkFJ[a-zA-Z0-9]{20})(?:[\\x60\'"\\s;]|\\\\[nr]|$)',
   },
+  // U-27（2026-10-17）：OpenAI 项目/服务账号新前缀（sk-proj- / sk-svcacct-）
+  {
+    id: 'openai-project-key',
+    source: '\\bsk-(?:proj|svcacct)-[A-Za-z0-9_-]{20,}',
+  },
+  // U-27：Anthropic API Key（sk-ant-）
+  {
+    id: 'anthropic-api-key',
+    source: '\\bsk-ant-[A-Za-z0-9_-]{20,}',
+  },
 
   // GitHub
   {
@@ -159,6 +169,8 @@ const RULE_LABELS: Record<string, string> = {
   'azure-ad-client-secret': 'Azure AD Client Secret',
   'digitalocean-pat': 'DigitalOcean PAT',
   'openai-api-key': 'OpenAI API Key',
+  'openai-project-key': 'OpenAI Project Key',
+  'anthropic-api-key': 'Anthropic API Key',
   'github-pat': 'GitHub PAT',
   'github-fine-grained-pat': 'GitHub Fine-grained PAT',
   'github-oauth': 'GitHub OAuth',

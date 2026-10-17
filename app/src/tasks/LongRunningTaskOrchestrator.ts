@@ -1365,7 +1365,10 @@ export class LongRunningTaskOrchestrator {
     }
 
     const finalPlan = this.requirePlan();
-    const hasEscalated = finalPlan.steps.some((s) => s.decision === 'escalate');
+    // escalate 只在"全部步骤终态 + 某步决策为 escalate"时成立（与旧语义一致）；
+    // 停滞/准入/超轮次等中途失败一律走 failed 终态，不得借 escalate 保留可续跑状态。
+    const hasEscalated =
+      allDone && finalPlan.steps.some((s) => s.decision === 'escalate');
     const succeeded = allDone && !hasEscalated;
     finalPlan.status = succeeded ? 'completed' : 'failed';
     finalPlan.completedAt = new Date().toISOString();

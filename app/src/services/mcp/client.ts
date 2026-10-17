@@ -19,8 +19,6 @@ import type { McpCommand } from './commandManager';
 
 // 重连常量
 const MCP_CLIENT_MAX_RECONNECT_ATTEMPTS = 5;
-const INITIAL_BACKOFF_MS = 1000;
-const MAX_BACKOFF_MS = 30000;
 
 /**
  * 从MCP服务器获取工具

@@ -33,6 +33,10 @@ import { z } from 'zod';
 // MCP协议版本
 export const MCP_PROTOCOL_VERSION = '2024-11-05';
 
+// 重连退避（单一事实源：client 与 MCPConnectionManager 共用，U-20/B5-2-80）
+export const MCP_RECONNECT_INITIAL_BACKOFF_MS = 1_000;
+export const MCP_RECONNECT_MAX_BACKOFF_MS = 30_000;
+
 // 配置作用域
 export const ConfigScopeSchema = z.enum([
   'local',

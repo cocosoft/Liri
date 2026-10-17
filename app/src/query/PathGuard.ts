@@ -172,8 +172,8 @@ function getCachedRegex(pattern: string): RegExp {
 /** 整文件读（入参键 `file_path`）+ 别名 */
 const READ_FILE_TOOL_NAMES = new Set([...FILE_READ_TOOLS, 'read', 'cat']);
 
-/** 搜索类读（入参键 `path` / `searchPath`）+ 别名 */
-const SEARCH_TOOL_NAMES = new Set([
+/** 搜索类读（入参键 `path` / `searchPath`）+ 别名（本地别名集，区别于 `tool-constants` 的注册名清单） */
+const SEARCH_TOOL_ALIASES = new Set([
   ...SHARED_SEARCH_TOOLS,
   'find',
   'files',
@@ -184,8 +184,8 @@ const SEARCH_TOOL_NAMES = new Set([
   'find_files',
 ]);
 
-/** 写类（入参键 `file_path` / `notebook_path`）+ 别名 */
-const WRITE_TOOL_NAMES = new Set([
+/** 写类（入参键 `file_path` / `notebook_path`）+ 别名（本地别名集，区别于 `tool-constants` 的注册名清单） */
+const WRITE_TOOL_ALIASES = new Set([
   ...SHARED_WRITE_TOOLS,
   'write',
   'echo',
@@ -353,7 +353,7 @@ export class PathGuard {
       return pickPathArg(args, ['file_path', 'path', 'filePath']);
     }
     // 写文件类工具
-    if (WRITE_TOOL_NAMES.has(toolName)) {
+    if (WRITE_TOOL_ALIASES.has(toolName)) {
       return pickPathArg(args, [
         'file_path',
         'notebook_path',
@@ -364,7 +364,7 @@ export class PathGuard {
       ]);
     }
     // 搜索/glob 类
-    if (SEARCH_TOOL_NAMES.has(toolName)) {
+    if (SEARCH_TOOL_ALIASES.has(toolName)) {
       return pickPathArg(args, [
         'path',
         'directory',
@@ -378,7 +378,7 @@ export class PathGuard {
   /**
    * 判断是否写操作工具
    *
-   * 与 `_extractPath()` 的写分支共用 `WRITE_TOOL_NAMES`（其真实名来自 `./tool-constants.js`）。
+   * 与 `_extractPath()` 的写分支共用 `WRITE_TOOL_ALIASES`（其真实名来自 `./tool-constants.js`）。
    *
    * ⚠️ 已知边界（2026-09-29，如实标注）：**写判定仍只用静态名单** —— 注册表分支解析出的
    * 名单外工具（含 MCP 动态工具）会落到此处 ⇒ `false` ⇒ 按**读**处理（只套 `denyRead`）。
@@ -386,7 +386,7 @@ export class PathGuard {
    * 需让注册表同时声明"读写语义"（本 spec 未涉及）。
    */
   private _isWriteTool(toolName: string): boolean {
-    return WRITE_TOOL_NAMES.has(toolName);
+    return WRITE_TOOL_ALIASES.has(toolName);
   }
 }
 

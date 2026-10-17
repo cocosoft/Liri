@@ -31,6 +31,10 @@ import {
   type ServerResource,
   type SerializedTool,
 } from './types';
+import {
+  MCP_RECONNECT_INITIAL_BACKOFF_MS,
+  MCP_RECONNECT_MAX_BACKOFF_MS,
+} from './types';
 import type { McpCommand } from './commandManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { getMCPServerManager } from './MCPServerManager';
@@ -39,8 +43,6 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
 // 重连常量
 const MCP_MANAGER_MAX_RECONNECT_ATTEMPTS = 5;
-const INITIAL_BACKOFF_MS = 1000;
-const MAX_BACKOFF_MS = 30000;
 
 // 批量更新常量
 const MCP_BATCH_FLUSH_MS = 16;
@@ -307,8 +309,8 @@ export class MCPConnectionManager {
       }
 
       const backoffMs = Math.min(
-        INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1),
-        MAX_BACKOFF_MS
+        MCP_RECONNECT_INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1),
+        MCP_RECONNECT_MAX_BACKOFF_MS
       );
 
       logger.info(

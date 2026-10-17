@@ -53,8 +53,8 @@ const logger = getLogger('voice:stt:senseVoice');
 const execFileAsync = promisify(execFile);
 
 /** SenseVoice STT 提供者标识 */
-const PROVIDER_ID = 'sensevoice';
-const PROVIDER_NAME = 'SenseVoice (sherpa-onnx)';
+const SENSEVOICE_STT_PROVIDER_ID = 'sensevoice';
+const SENSEVOICE_STT_PROVIDER_NAME = 'SenseVoice (sherpa-onnx)';
 
 /** Python 可执行文件名称（平台相关） */
 const PYTHON_CMD = getPlatform() === 'win32' ? 'python' : 'python3';
@@ -121,8 +121,8 @@ const RESTART_DELAY_MS = 1_000;
  * 通过长驻 Python sherpa-onnx 进程实现语音转文字
  */
 export class SenseVoiceSTTProvider implements STTProvider {
-  readonly id = PROVIDER_ID;
-  readonly name = PROVIDER_NAME;
+  readonly id = SENSEVOICE_STT_PROVIDER_ID;
+  readonly name = SENSEVOICE_STT_PROVIDER_NAME;
   readonly type: STTProviderType = 'local';
   readonly supportsStreaming = false;
   readonly supportsKeyterms = false;
@@ -280,7 +280,7 @@ export class SenseVoiceSTTProvider implements STTProvider {
             isFinal: true,
             duration: parsed.duration || 0,
             language: parsed.language || language,
-            provider: PROVIDER_ID,
+            provider: SENSEVOICE_STT_PROVIDER_ID,
             segments: parsed.segments || [],
           };
         } catch (error) {
@@ -297,7 +297,7 @@ export class SenseVoiceSTTProvider implements STTProvider {
             isFinal: true,
             duration: 0,
             language,
-            provider: PROVIDER_ID,
+            provider: SENSEVOICE_STT_PROVIDER_ID,
             error: { code: 'TRANSCRIBE_FAILED', message: errorMsg },
           };
         } finally {

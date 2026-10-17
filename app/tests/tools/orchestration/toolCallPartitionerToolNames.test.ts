@@ -2,7 +2,7 @@
  * 工具名口径判据：分区器（Partitioner）必须按**本仓真实注册名**判定
  *
  * 背景（2026-09-26「第 5 处」取证）：`tools/orchestration/types.ts` 的三个清单
- * （`READ_ONLY_TOOLS` / `SERIALIZING_TOOLS` / `SEARCH_TOOLS`）沿用外部命名
+ * （`READ_ONLY_TOOLS` / `SERIALIZING_TOOLS` / `PARTITIONER_SEARCH_TOOLS`）沿用外部命名
  * （`Read`/`Write`/`Edit`/`Grep`/`Glob`…），而 `Partitioner` 收到的 `block.name`
  * 是**模型调用名**，本仓即**注册名**（`file_read`/`grep`/`glob`…）
  * ⇒ `isReadOnlyTool()` 对真实名**恒 false** ⇒ 只读工具永不被判为"可并发"。
@@ -23,7 +23,7 @@ import {
 import {
   READ_ONLY_TOOLS,
   SERIALIZING_TOOLS,
-  SEARCH_TOOLS,
+  PARTITIONER_SEARCH_TOOLS,
   isReadOnlyTool,
   needsSerialExecution,
   isSearchTool,
@@ -71,13 +71,13 @@ describe('Partitioner 工具名口径（本仓真实注册名）', () => {
     ]);
   });
 
-  test('搜索工具集合按真实名成立（SEARCH_TOOLS/isSearchTool）', () => {
+  test('搜索工具集合按真实名成立（PARTITIONER_SEARCH_TOOLS/isSearchTool）', () => {
     expect(isSearchTool('grep')).toBe(true);
     expect(isSearchTool('glob')).toBe(true);
     // 2026-09-29（P2-3）：`file_search` **不是注册名**（仅存在于 `ToolFactory.getAllBaseTools()`
-    // 死路径，台账 N-27）⇒ 已从 `SEARCH_TOOLS` 移除，此处**反向断言**防回退。
+    // 死路径，台账 N-27）⇒ 已从 `PARTITIONER_SEARCH_TOOLS` 移除，此处**反向断言**防回退。
     expect(isSearchTool('file_search')).toBe(false);
-    expect(SEARCH_TOOLS.has('file_search')).toBe(false);
+    expect(PARTITIONER_SEARCH_TOOLS.has('file_search')).toBe(false);
   });
 
   test('防漂移守卫：三清单不得含外部（CC）命名', () => {
@@ -98,11 +98,11 @@ describe('Partitioner 工具名口径（本仓真实注册名）', () => {
     for (const cc of ccNames) {
       expect(READ_ONLY_TOOLS.has(cc)).toBe(false);
       expect(SERIALIZING_TOOLS.has(cc)).toBe(false);
-      expect(SEARCH_TOOLS.has(cc)).toBe(false);
+      expect(PARTITIONER_SEARCH_TOOLS.has(cc)).toBe(false);
     }
     // 且真实名必须在位
     expect(READ_ONLY_TOOLS.has('file_read')).toBe(true);
     expect(SERIALIZING_TOOLS.has('file_write')).toBe(true);
-    expect(SEARCH_TOOLS.has('grep')).toBe(true);
+    expect(PARTITIONER_SEARCH_TOOLS.has('grep')).toBe(true);
   });
 });

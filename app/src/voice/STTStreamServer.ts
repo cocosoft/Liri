@@ -31,7 +31,7 @@ const INTERIM_MIN_SECONDS = 2.5;
 /** interim 转写节流：音频达到该字节数即触发（2.5s * 16kHz * 2B ≈ 80KB） */
 const INTERIM_MIN_BYTES = 80 * 1024;
 /** 单次转写的最大音频时长（秒），超过则只取尾部，防止转录过长音频耗时 */
-const MAX_TRANSCRIBE_SECONDS = 30;
+const STT_MAX_TRANSCRIBE_SECONDS = 30;
 
 /** 会话配置 */
 interface STTSessionConfig {
@@ -98,7 +98,7 @@ class STTStreamSession {
   private handleBinary(data: Buffer): void {
     if (!this.configured || this.finalized || data.length === 0) return;
     this.audioBuffer = Buffer.concat([this.audioBuffer, data]);
-    // 内存保护（§6 同类防御）：audioBuffer 只保留最近 MAX_TRANSCRIBE_SECONDS 音频（滑窗），
+    // 内存保护（§6 同类防御）：audioBuffer 只保留最近 STT_MAX_TRANSCRIBE_SECONDS 音频（滑窗），
     // 防止异常/长时推流导致内存无限增长；转录目标恒为"最近 30s"，与 trimSnapshot 语义一致
     this.audioBuffer = this.trimSnapshot();
 
@@ -126,7 +126,7 @@ class STTStreamSession {
 
   /** 截取用于转写的音频快照（限长取尾） */
   private trimSnapshot(): Buffer {
-    const maxBytes = MAX_TRANSCRIBE_SECONDS * 16000 * 2;
+    const maxBytes = STT_MAX_TRANSCRIBE_SECONDS * 16000 * 2;
     if (this.audioBuffer.length <= maxBytes) return this.audioBuffer;
     return this.audioBuffer.subarray(this.audioBuffer.length - maxBytes);
   }

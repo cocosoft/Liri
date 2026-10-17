@@ -53,8 +53,8 @@ const logger = getLogger('voice:stt:local');
 const execFileAsync = promisify(execFile);
 
 /** 本地 STT 提供者标识 */
-const PROVIDER_ID = 'local';
-const PROVIDER_NAME = 'Local Whisper';
+const LOCAL_STT_PROVIDER_ID = 'local';
+const LOCAL_STT_PROVIDER_NAME = 'Local Whisper';
 
 /** Python 可执行文件名称（平台相关） */
 const PYTHON_CMD = getPlatform() === 'win32' ? 'python' : 'python3';
@@ -165,8 +165,8 @@ interface PendingRequest {
  * 通过长驻 Python faster-whisper 进程实现语音转文字
  */
 export class LocalSTTProvider implements STTProvider {
-  readonly id = PROVIDER_ID;
-  readonly name = PROVIDER_NAME;
+  readonly id = LOCAL_STT_PROVIDER_ID;
+  readonly name = LOCAL_STT_PROVIDER_NAME;
   readonly type: STTProviderType = 'local';
   readonly supportsStreaming = false;
   readonly supportsKeyterms = false;
@@ -371,7 +371,7 @@ export class LocalSTTProvider implements STTProvider {
             isFinal: true,
             duration: parsed.duration || 0,
             language: parsed.language || language,
-            provider: PROVIDER_ID,
+            provider: LOCAL_STT_PROVIDER_ID,
             segments: parsed.segments || [],
           };
         } catch (error) {
@@ -388,7 +388,7 @@ export class LocalSTTProvider implements STTProvider {
             isFinal: true,
             duration: 0,
             language,
-            provider: PROVIDER_ID,
+            provider: LOCAL_STT_PROVIDER_ID,
             error: { code: 'TRANSCRIBE_FAILED', message: errorMsg },
           };
         }

@@ -37,7 +37,7 @@ export interface ToolCallPartition {
 
 // 2026-10-08：`MessageUpdate` 与 `ContextModifier` 已删除 —— 前者**全仓零消费者**，后者的
 // **唯一**引用方是 `ContextModifierQueue`（同批删除）⇒ 二者构成一条与"并发分区"无关的死链。
-// 本模块的活面（`ToolCallPartition` / `READ_ONLY_TOOLS` / `SERIALIZING_TOOLS` / `SEARCH_TOOLS`
+// 本模块的活面（`ToolCallPartition` / `READ_ONLY_TOOLS` / `SERIALIZING_TOOLS` / `PARTITIONER_SEARCH_TOOLS`
 // 及其判定函数）不动 —— 由 `Partitioner` 消费、`toolCallPartitionerToolNames.test.ts` 守卫。
 
 /**
@@ -77,7 +77,7 @@ export const SERIALIZING_TOOLS = new Set([...SHARED_FILE_WRITE_TOOLS, 'bash']);
  * 2026-09-29（P2-3）：移除 `'file_search'` —— **非注册名**（仅存在于 `ToolFactory.getAllBaseTools()`
  * 死路径，台账 N-27）⇒ 属"永不命中的假覆盖"。
  */
-export const SEARCH_TOOLS = new Set(['grep', 'glob']);
+export const PARTITIONER_SEARCH_TOOLS = new Set(['grep', 'glob']);
 
 /**
  * 判断是否为只读工具
@@ -106,7 +106,7 @@ export function needsSerialExecution(toolName: string): boolean {
  * @returns 是否为搜索工具
  */
 export function isSearchTool(toolName: string): boolean {
-  return SEARCH_TOOLS.has(toolName);
+  return PARTITIONER_SEARCH_TOOLS.has(toolName);
 }
 
 /**

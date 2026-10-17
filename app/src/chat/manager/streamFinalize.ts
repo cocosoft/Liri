@@ -196,7 +196,9 @@ export class ChatStreamFinalize {
     getOTelTracing().endSpan(streamSpan, SpanStatusCode.OK);
 
     // Bug Fix: 清理 AbortController（当前流已完成，允许新请求）
-    if (deps.sessionAbortControllers.get(session.id) === streamAbortController) {
+    if (
+      deps.sessionAbortControllers.get(session.id) === streamAbortController
+    ) {
       deps.sessionAbortControllers.delete(session.id);
     }
     // B-05（2026-10-09）：同步清理会话 `executionId`（仅当仍属本次流）

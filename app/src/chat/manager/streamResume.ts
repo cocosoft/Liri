@@ -16,7 +16,11 @@
  * （仅把 `this.` 换成注入的 deps）。E2E-1 的「锁释放在最外层」根因修复原样保留。
  */
 
-import type { ParsedToolCall, ToolAwareClient, ToolDefinition } from '@modules/ai';
+import type {
+  ParsedToolCall,
+  ToolAwareClient,
+  ToolDefinition,
+} from '@modules/ai';
 import { estimateMessagesTokens } from '@modules/ai';
 import { SimpleMutex } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
@@ -278,9 +282,8 @@ export class ChatStreamResume {
         ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
       }));
 
-      const { toolResultRegistry } = await import(
-        '../../tool/ToolResultRegistry.js'
-      );
+      const { toolResultRegistry } =
+        await import('../../tool/ToolResultRegistry.js');
       const toolLoopCtx = {
         session,
         options: {},
@@ -333,9 +336,12 @@ export class ChatStreamResume {
       const { reactEventsToChunks } = await import('../reactEventsToChunks.js');
       // 空 assistant 消息占位：ReActToolLoop 首轮直接执行剩余工具，工具轮内自行构建
       // assistant 消息（含叙述/达上限提示），input.assistantMessage 仅作 finalize 兜底 base
-      const resumeAssistantMsg = deps.messageService.createAssistantMessage('', {
-        sessionId,
-      });
+      const resumeAssistantMsg = deps.messageService.createAssistantMessage(
+        '',
+        {
+          sessionId,
+        }
+      );
       const loop = createChatAgentLoop({
         mode: 'stream',
         ctx: toolLoopCtx,

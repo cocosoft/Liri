@@ -233,6 +233,10 @@ export function resolveStreamErrorCode(error: unknown): string | undefined {
  * 既有行为：零产出且有 `sessionId` 时落一条 assistant fallback 消息（Write-Ahead，避免刷新后空白）。
  * **撞限例外**：日预算耗尽是**本机环境状态**、不是对话内容 ⇒ 落盘会把它写进对话上下文
  * （后续模型会读到 + 跨机重放分叉）⇒ `DAILY_BUDGET_EXCEEDED` 时**跳过**落盘（仅留日志/审计）。
+ *
+ * P8（2026-10-17）：**任何带业务码的失败**都跳过通用 fallback —— 流式 `error` chunk
+ * 已把真实原因/出路展示给用户；再落一条「未能生成回复」的泛化消息会形成重复。
+ * 仅**无业务码**的未知失败保留 Write-Ahead 兜底。
  */
 export function shouldPersistStreamFallback(input: {
   fullContent: string;
@@ -240,7 +244,7 @@ export function shouldPersistStreamFallback(input: {
   errorCode?: string;
 }): boolean {
   if (input.fullContent || !input.sessionId) return false;
-  return input.errorCode !== 'DAILY_BUDGET_EXCEEDED';
+  return input.errorCode === undefined;
 }
 
 /**

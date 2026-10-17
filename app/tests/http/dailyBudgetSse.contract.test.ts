@@ -52,6 +52,16 @@ describe('D-l：流式错误码保真 + 限额提示不落盘', () => {
     ).toBe(true);
   });
 
+  it('P8：任意已分类业务码 + 零产出 ⇒ 不落通用 fallback（避免与 error chunk 重复）', () => {
+    expect(
+      shouldPersistStreamFallback({
+        fullContent: '',
+        sessionId: 's1',
+        errorCode: 'PERMISSION_DENIED',
+      })
+    ).toBe(false);
+  });
+
   it('撞限但已有部分产出 ⇒ 不落盘、不吞已产出内容（Review Focus #1）', () => {
     expect(
       shouldPersistStreamFallback({

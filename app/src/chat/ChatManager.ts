@@ -25,7 +25,6 @@ import path from 'path';
 
 import { configManager } from '@modules/config';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { SpanStatusCode } from '@opentelemetry/api';
 import { repairModelJson } from '@modules/utils/json';
 import { abortSessionPlans } from './planAbortRegistry.js';
 import { resolveBaseToolTurns } from './loopTurnLimits.js';
@@ -107,6 +106,8 @@ import { PdcaLaunchCoordinator } from './manager/pdcaLaunch';
 import { ChatStreamSetup, type StreamSetupResult } from './manager/streamSetup';
 // U-22/S3：消息持久化 / 事件投影簇外移
 import { ChatMessagePersistence } from './manager/messagePersistence';
+// U-22/S4：流式消息收尾簇外移（`_finalizeStreamMessage` 的实现，见 `manager/streamFinalize.ts`）
+import { ChatStreamFinalize } from './manager/streamFinalize';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
 // R16：每日预算（进程共享单例；S3 后**主口径=金额**，Token 轨只观测）——记账点收敛到本类的 recordChatResponseUsage。
 // 债四「换算接线」（2026-10-13）：同一记账点并行记**金额**台账（`recordTurnCostUsd`）。
@@ -114,16 +115,12 @@ import { getDailyBudget, recordTurnCostUsd } from '../query/DailyBudgetManager';
 // Task 7（2026-10-12，预算挂起续跑）：放行 ⇒ 唤醒挂起会话的进程内协调器。
 // `query/budgetSuspend` **不得** import `chat/**`（防环）⇒ 唤醒经注入的 handler 端口（下方装配）。
 import { getBudgetSuspendCoordinator } from '../query/budgetSuspend';
-// K4（2026-09-06）：执行意图判定提取共用（goal fallback / streamMessageFlow 裁剪）
-// R4（2026-09-06）：强产出意图判定（首条消息轮次闸放宽）
-import { isExecutionTaskIntent, isStrongBuildIntent } from './taskIntent';
 
 const logger = getLogger('chat:manager');
 
 import { SimpleMutex, feature } from '@modules/core';
 // T2-8 / `✅-17`（2026-10-13）：编排域只读投影（形态 A）
 import { publishOrchestrationProjection } from '../state/engine/orchestrationProjection.js';
-import { ImplicitEngineHook } from '../project/ImplicitEngineHook';
 import { resolveWorktreeHash } from '@modules/core/paths';
 import { join } from 'path';
 import { getModelPricing } from '@modules/cost';
@@ -968,6 +965,8 @@ export class ChatManagerImpl implements ChatManager {
   private _streamSetup!: ChatStreamSetup;
   /** U-22/S3：消息持久化 / 事件投影（`_addAndPersistMessage` 等的实现，见 `manager/messagePersistence.ts`） */
   private _msgPersist!: ChatMessagePersistence;
+  /** U-22/S4：流式消息收尾（`_finalizeStreamMessage` 的实现，见 `manager/streamFinalize.ts`） */
+  private _streamFinalize!: ChatStreamFinalize;
   /** P0-2（2026-08-25）：正在执行隐性 PDCA launch 的会话集合（会话级锁，防重复任务卡片） */
   private _pdcaLaunchingSessions = new Set<string>();
 
@@ -1276,6 +1275,48 @@ export class ChatManagerImpl implements ChatManager {
       createAssistantMessage: (content, opts) =>
         this.messageService.createAssistantMessage(content, opts),
       getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
+    });
+
+    // 流式消息收尾（U-22/S4 外移）：注入 host 端口，方法体在
+    // `chat/manager/streamFinalize.ts`；abort/executionId 两个 Map 与宿主共享。
+    this._streamFinalize = new ChatStreamFinalize({
+      addAndPersistMessage: (sid, msg) => this._addAndPersistMessage(sid, msg),
+      getStreamMaxTurn: (sid) => this.getStreamMaxTurn(sid),
+      getToolRound: (sid) => this.getToolRound(sid),
+      hasTurnEnded: (sid, turn) => this.hasTurnEnded(sid, turn),
+      getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
+      appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
+      endStreamSession: (sid) => this.unifiedTracker.endStreamSession(sid),
+      finishSessionMachine: (sid, reason) => {
+        this.getSessionMachine(sid).finish(reason);
+      },
+      sessionAbortControllers: this._sessionAbortControllers,
+      sessionExecutionIds: this._sessionExecutionIds,
+      persistTurnSummary: (session) => this._persistTurnSummary(session),
+      accumulateSessionMemory: (sid, user, assistant, tokens, toolCalls) => {
+        this._memoryManager!.accumulate(sid, user, assistant, tokens, toolCalls);
+      },
+      recentUserText: (session, n) => this._recentUserText(session, n),
+      shouldUseCodeMode: (msg) => this._shouldUseCodeMode(msg),
+      escalateToPdcaViaBareSession: (params) =>
+        this._escalateToPdcaViaBareSession(params),
+      autoCreateProject: (session, workspaceId, result) =>
+        this._autoCreateProject(session, workspaceId, result),
+      maybeLaunchPdca: (session, assistantContent, projectId, lastUser) =>
+        this._maybeLaunchPdca(
+          session,
+          assistantContent,
+          projectId,
+          lastUser
+        ),
+      isTelemetryEnabled: () => this.ENABLE_TELEMETRY,
+      summarizeSession: (session, message) => {
+        void this._summarizer!.summarize(session, message).catch(() => {
+          /* 摘要生成失败不阻塞 */
+        });
+      },
+      flushPendingPersists: () => this.flushPendingPersists(),
+      incToolRound: (sid) => this.incToolRound(sid),
     });
 
     // 消息编排门面：注入 host 端口（sendMessage/streamMessage 编排委托）
@@ -3000,12 +3041,10 @@ export class ChatManagerImpl implements ChatManager {
       finalResponse: null,
     };
     return new StreamPipeline(ctx);
-  }
-
-  /**
+  }  /**
    * P2-3.5: 流式消息最终化 — 清理资源 + 持久化 + 构建返回消息
    *
-   * 提取自 streamMessage 的 finally 块和最终 return 逻辑。
+   * U-22/S4：方法体已外移到 `manager/streamFinalize.ts`（`ChatStreamFinalize`），此处仅薄转发。
    */
   private async _finalizeStreamMessage(
     session: ChatSession,
@@ -3019,280 +3058,17 @@ export class ChatManagerImpl implements ChatManager {
     /** TB-16（2026-09-24）：主循环终止判定（写入 `turn/end.terminationReason`） */
     terminationReason?: string
   ): Promise<Message> {
-    // P0-fix: 确保助手消息已持久化（非工具调用路径在此处落盘，工具调用路径已由 _buildToolRoundMessages 处理）
-    const lastMsg = session.messages[session.messages.length - 1];
-    if (!lastMsg || lastMsg.id !== assistantMessage.id) {
-      await this._addAndPersistMessage(session.id, assistantMessage);
-    }
-
-    // P0-fix-3（2026-08-23，顺序错乱根因）：工具调用轮次的 turn/end 在此补写。
-    // 时机关键：assistant/tool_call 事件由 _addAndPersistMessage 落盘时（convertMessage）生成，
-    // 必须在本方法内、落盘 assistant 消息**之后**写入 turn/end，才能保证：
-    //   events.jsonl 顺序 = turn/start → text/thinking → tool/result → assistant/tool_call → turn/end
-    // （此前在 streamMessageFlow 工具循环后补写，tool_call 事件晚于 turn/end，仍无 turn 包裹。）
-    // 无工具调用轮次：turn/end 已在 streamMessageFlow LLM 流结束后写入（!hasToolCalls 分支），此处不重复写。
-    // 2026-08-24 修复：写入条件从"最终响应有 tool_calls"放宽为"本轮发生过工具活动"——
-    // 工具型轮次若最终响应无 tool_calls（工具执行后直接给答案），原逻辑不写 turn/end，
-    // turn 永久未闭合 → 崩溃恢复每次启动合成 canceled closers → 前端所有回复显示"该回复已中断"。
-    const hasFinalToolCalls =
-      Array.isArray(finalResponse?.tool_calls) &&
-      finalResponse!.tool_calls.length > 0;
-    const hasToolActivity =
-      hasFinalToolCalls ||
-      (Array.isArray(assistantMessage.blocks) &&
-        assistantMessage.blocks.some(
-          (b) => b.type === 'tool_call' || b.type === 'tool_result'
-        ));
-    if (hasToolActivity) {
-      try {
-        // turn 编号与 turn/start 一致：turn/start 已写入事件日志，读取最大 turn 即为当前轮编号
-        const persistedTurn = await this.getStreamMaxTurn(session.id);
-        const turn =
-          persistedTurn > 0 ? persistedTurn : this.getToolRound(session.id) + 1;
-        // Fix2（2026-09-05）：turn/end 单写者幂等——若该 turn 已被 streamMessageFlow
-        // 或本 finalize 写过 end（appendStreamEvent 中央登记），跳过，杜绝双 end。
-        // 阶段 A（A1-d）：本轮若以 sessions_yield 让出（act 阶段已登记等待），
-        // turn/end 携带 yield 语义；并回填 turn 编号供恢复侧的"取代判定"使用。
-        // 注意：**不写 PAUSED**——会话对外状态保持 running（阶段A-恢复通路设计Spec §3-D2）。
-        const yieldRegistry = getYieldRegistry();
-        const yieldPending = yieldRegistry.get(session.id);
-        if (yieldPending) {
-          yieldRegistry.updateTurn(session.id, turn, yieldPending);
-        }
-        if (!this.hasTurnEnded(session.id, turn)) {
-          const ts = await this.getStreamTailSeq(session.id);
-          await this.appendStreamEvent(session.id, {
-            type: 'turn/end',
-            seq: ts + 1,
-            time: Date.now(),
-            sessionId: session.id,
-            data: {
-              turn,
-              finishReason: yieldPending
-                ? 'yielded'
-                : hasFinalToolCalls
-                  ? 'tool_use'
-                  : 'stop',
-              // TB-16（2026-09-24）：主循环终止判定（与 finishReason 语义不同；无循环时省略）
-              ...(terminationReason ? { terminationReason } : {}),
-              ...(yieldPending ? { yielded: true } : {}),
-            },
-          });
-        }
-      } catch {
-        // @ignore-catch — 事件追加失败不阻断主流程
-      }
-    }
-
-    // Phase 1c: 停止流式水位监测（仅停本会话，不再误停其他并发会话）
-    this.unifiedTracker.endStreamSession(session.id);
-    // 通知会话状态变化为空闲状态
-    this.getSessionMachine(session.id).finish('工具执行完成');
-    getOTelTracing().endSpan(streamSpan, SpanStatusCode.OK);
-
-    // Bug Fix: 清理 AbortController（当前流已完成，允许新请求）
-    if (
-      this._sessionAbortControllers.get(session.id) === streamAbortController
-    ) {
-      this._sessionAbortControllers.delete(session.id);
-    }
-    // B-05（2026-10-09）：同步清理会话 `executionId`（仅当仍属本次流）
-    if (this._sessionExecutionIds.get(session.id) === options?.executionId) {
-      this._sessionExecutionIds.delete(session.id);
-    }
-
-    // 跨轮对话摘要：保存关键决策
-    this._persistTurnSummary(session);
-
-    // Session Memory: 累计本轮数据，达到阈值则触发提炼
-    this._memoryManager!.accumulate(
-      session.id,
+    return this._streamFinalize.finalize(
+      session,
       content,
       accumulatedContent,
-      finalResponse?.usage?.inputTokens || 0,
-      finalResponse?.tool_calls?.length || 0
+      assistantMessage,
+      finalResponse,
+      streamAbortController,
+      streamSpan,
+      options,
+      terminationReason
     );
-
-    options?.onComplete?.(assistantMessage);
-
-    // 隐性引擎钩子：项目会话的消息完成后，触发 Plan/Do/Check/Act 分析
-    // P0-4: 优先使用 projectId（项目上下文），兜底 workspaceId（UI 环境）
-    const contextId =
-      (session.metadata?.projectId as string | undefined) ??
-      (session.metadata?.workspaceId as string | undefined);
-
-    // P0-1（2026-09-06，A1/C2）：裸会话（无 projectId/workspaceId）不经过 persist 门
-    // （persist 被 contextId 门控），此处独立轻量预筛——执行意图（X 预筛）+ 非 code mode
-    // → 强意图直接自动：自动建项目（default workspace）→ 同轮 _maybeLaunchPdca（决策 1-A）。
-    // A4 轮次闸（R4 放宽，2026-09-06 走查 W5）：第 2+ 轮一律可升级；首轮仅当首条消息命中
-    // 【强产出意图】（帮我/我要…做/写/开发）放行——"首条即复杂任务"的小白场景不再被
-    // 拦（走查实证：首条"帮我做个游戏"因轮次闸被拦、长跑无方法论接管）；弱动词
-    // （检查/验证/补）与纯闲聊首条仍要求 2+ 轮，防一次性求助/闲聊被误升级。
-    // P0-1 修正（走查发现）：任务轮内模型可能 ask_user_question 澄清，澄清回答/后续
-    // 消息会占住"最后一条 user"位置使任务原句被覆盖 → 判定聚合最近 3 条 user 文本。
-    const bareUserMessages =
-      session.messages?.filter((m) => m.role === 'user') ?? [];
-    const bareLastContent = this._recentUserText(session, 3);
-    const bareFirstContent =
-      bareUserMessages.length > 0
-        ? (((bareUserMessages[0] as unknown as Record<string, unknown>)
-            ?.content as string) ?? '')
-        : '';
-    if (
-      !contextId &&
-      assistantMessage.content &&
-      (bareUserMessages.length >= 2 || isStrongBuildIntent(bareFirstContent)) &&
-      isExecutionTaskIntent(bareLastContent) &&
-      !this._shouldUseCodeMode(bareLastContent)
-    ) {
-      logger.info('pdca:bare_session_intent_detected', {
-        sessionId: session.id,
-        intent: bareLastContent.slice(0, 60),
-      });
-      await this._escalateToPdcaViaBareSession({
-        session,
-        assistantContent: assistantMessage.content as string,
-        lastUserContent: bareLastContent,
-      });
-    }
-
-    // S6/PDCA 门控修正（2026-09-06）：persist 分支不再要求 assistantMessage.content 非空——
-    // 工具型收尾消息 content 常为 ''（chatStream fullContentLength=0），原门控令项目会话内的
-    // 新目标消息被整段跳过：引擎无判定、PDCA 不 launch（走查实证 04:40:51，620s 任务完成零判定）。
-    const userMessagesForGoal =
-      session.messages?.filter((m) => m.role === 'user') ?? [];
-    const lastUserContent =
-      userMessagesForGoal.length > 0
-        ? (((
-            userMessagesForGoal[
-              userMessagesForGoal.length - 1
-            ] as unknown as Record<string, unknown>
-          ).content as string) ?? '')
-        : '';
-    if (contextId && (assistantMessage.content || lastUserContent.trim())) {
-      // S6 修正（2026-09-06）：把用户最后一条消息一并交给引擎做 goal 判定（persist userText）——
-      // "帮我做xx"请求句在用户消息里、而 persist 主输入是助手回复；不纳入则引擎 hasGoal 恒漏判
-      // （走查实证 03:30:06），下方 fallback 退化为常驻路径而非兜底。
-      ImplicitEngineHook.persist(
-        contextId,
-        (assistantMessage.content as string) ?? '',
-        undefined,
-        session.id,
-        lastUserContent
-      )
-        .then(async (result) => {
-          // P0: 自动建项目 — 检测到 goal + deliverable 且会话未关联项目时自动创建
-          // P3-1: 用户消息含明确项目意图时降阈值为 1，否则保持 2
-          const hasExplicitIntent =
-            /(?:帮我|我要|我想|给我)\s*(?:做|开发|规划|设计|建|创建|写|整理|实现|搭建|部署)/.test(
-              lastUserContent
-            );
-          const deliverableThreshold = hasExplicitIntent ? 1 : 2;
-
-          // PDL 启动修复（2026-09-05，K3 排查）：ImplicitEngineHook 的 hasGoal 仅靠文本
-          // 正则（须含"目标：…"等字样），普通"实现计划/分步/补测试"措辞永不命中 → 自动
-          // PDCA/PDL 在项目会话形同虚设。此处对【项目会话 + 用户明确产出意图】兜底放行
-          // goal；复杂/危险任务仍由 _shouldUsePlanDrivenLoop 分流进 LRTO（只放行升级通道）。
-          const userTaskIntent = isExecutionTaskIntent(lastUserContent);
-          const goalTriggered =
-            result.hasGoal ||
-            (Boolean(session.metadata?.projectId) &&
-              userTaskIntent &&
-              !this._shouldUseCodeMode(lastUserContent || ''));
-          if (goalTriggered && !result.hasGoal && session.metadata?.projectId) {
-            logger.info('pdca:goal_fallback_by_user_intent', {
-              sessionId: session.id,
-              projectId: session.metadata.projectId,
-              intent: lastUserContent.slice(0, 60),
-            });
-          }
-
-          // P0-1（2026-09-06，A1 同轮串联）：await 自动建项目完成（内部已写
-          // session.metadata.projectId 并持久化），使下方 launch 判定在本轮即可读到
-          // projectId —— 消除"首轮只建项目、绝不 launch PDCA"的时序互斥。
-          // 失败返回 null 仅告警，不阻塞消息流（CS03）。
-          if (
-            result.hasGoal &&
-            result.deliverables >= deliverableThreshold &&
-            !session.metadata?.projectId
-          ) {
-            await this._autoCreateProject(session, contextId, result);
-          }
-
-          // 升级通道：检测到目标时自动发起完整 PDCA 循环（统一出口 _maybeLaunchPdca，
-          // P0-1 提取：含会话级 launch 锁防重复卡片、分流决策 trace、双路径 launch）
-          // CM-6 互斥（2026-08-25）：Code Mode 分流命中时跳过 PDCA，避免双引擎并发
-          if (goalTriggered && session.metadata?.projectId) {
-            if (!this._shouldUseCodeMode(lastUserContent || '')) {
-              this._maybeLaunchPdca(
-                session,
-                assistantMessage.content as string,
-                session.metadata.projectId as string,
-                lastUserContent
-              );
-            } else {
-              // A4（2026-09-06，P1-1）：Code Mode 命中目标意图 → 显式提示而非静默跳过
-              // （原 CM-6 静默互斥让用户以为"没触发"，现经 pdca:decision 事件告知前端）。
-              logger.info('pdca:skip_code_mode', {
-                sessionId: session.id,
-                projectId: session.metadata.projectId,
-              });
-              import('../tasks/PdcaLiveEvents')
-                .then((m) =>
-                  m.emitPdcaLiveEvent(
-                    'pdca:decision',
-                    {
-                      sessionId: session.id,
-                      projectId: session.metadata?.projectId,
-                    },
-                    {
-                      decision: 'code-mode',
-                      message:
-                        '检测到目标任务，但当前处于 Code Mode（CM-6 互斥未启动 PDCA）。如需分步执行可退出 Code Mode 后重发。',
-                    }
-                  )
-                )
-                .catch(() => {
-                  // @ignore-catch — 事件广播失败不影响主流程（CS03）
-                });
-            }
-          }
-        })
-        .catch(() => {
-          /* 隐性引擎失败不阻塞消息流 */
-        });
-    }
-
-    // Phase 2: Telemetry + Trajectory 完成
-    if (this.ENABLE_TELEMETRY) {
-      try {
-        agentTelemetry.endTurn(session.id, 'completed');
-      } catch (err) {
-        logger.debug('Telemetry recording skipped', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
-    // S6: 会话摘要生成（异步，不阻塞消息流）
-    if (session.metadata?.projectId) {
-      this._summarizer!.summarize(session, assistantMessage).catch(() => {
-        /* 摘要生成失败不阻塞 */
-      });
-    }
-
-    // P4-fix: 等待所有未完成的持久化完成后再返回（WAP 规范）
-    await this.flushPendingPersists();
-
-    // 修复：每完成一次完整 turn 递增计数，确保 turn 编号唯一（否则恒为 turn=1）
-    // 设计三：per-session 计数，并发会话互不干扰
-    this.incToolRound(session.id);
-    logger.debug('chat:streamFinalize toolRoundCount 递增', {
-      sessionId: session.id,
-      newValue: this.getToolRound(session.id),
-    });
-
-    return assistantMessage;
   }
 
   /**

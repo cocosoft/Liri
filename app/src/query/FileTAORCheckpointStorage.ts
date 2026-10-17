@@ -18,7 +18,7 @@ import type { TAORCheckpoint, TAORCheckpointStorage } from './types.js';
 
 const logger = getLogger('query:fileTAORCheckpoint');
 
-const STORAGE_DIR = 'taor-checkpoints';
+const TAOR_CHECKPOINT_DIR = 'taor-checkpoints';
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -37,7 +37,7 @@ export class FileTAORCheckpointStorage implements TAORCheckpointStorage {
   private storageDir: string;
 
   constructor(customDir?: string) {
-    this.storageDir = customDir ?? path.join(resolveDataDir(), STORAGE_DIR);
+    this.storageDir = customDir ?? path.join(resolveDataDir(), TAOR_CHECKPOINT_DIR);
     if (!fs.existsSync(this.storageDir)) {
       fs.mkdirSync(this.storageDir, { recursive: true });
     }

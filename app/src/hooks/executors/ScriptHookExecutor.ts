@@ -78,8 +78,11 @@ export interface ScriptHookConfig {
 
 /**
  * 危险命令模式列表（沙箱模式下拦截）
+ *
+ * 与 `tools/bash/bashCommandPolicy` 的同名清单**语义不同**（这里是 hook 脚本的硬拦截
+ * 正则，那边是 bash 工具的静态策略）⇒ 按域命名 `HOOK_DANGEROUS_PATTERNS`（U-20/B5-2-79）。
  */
-const DANGEROUS_PATTERNS = [
+const HOOK_DANGEROUS_PATTERNS = [
   /\brm\s+-rf\s+\/\s*$/,
   /\brm\s+-rf\s+\/\*+/,
   /\bmkfs\./,
@@ -200,7 +203,7 @@ export class ScriptHookExecutor {
     }
 
     if (config.sandbox && config.script) {
-      for (const pattern of DANGEROUS_PATTERNS) {
+      for (const pattern of HOOK_DANGEROUS_PATTERNS) {
         if (pattern.test(config.script)) {
           return `Sandbox blocked dangerous command pattern: ${pattern.source}`;
         }

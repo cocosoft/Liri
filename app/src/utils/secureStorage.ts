@@ -20,8 +20,8 @@ import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('utils:secureStorage');
 
-const STORAGE_DIR = join(resolvePyappHome(), 'secure');
-const MASTER_KEY_FILE = join(STORAGE_DIR, '.master_key');
+const SECURE_STORAGE_DIR = join(resolvePyappHome(), 'secure');
+const MASTER_KEY_FILE = join(SECURE_STORAGE_DIR, '.master_key');
 
 function getOrCreateMasterKey(): Buffer {
   try {
@@ -64,7 +64,7 @@ export async function secureSave(key: string, value: string): Promise<void> {
     data: encrypted.ciphertext,
   });
 
-  const filePath = join(STORAGE_DIR, `${key}.json`);
+  const filePath = join(SECURE_STORAGE_DIR, `${key}.json`);
   const dir = dirname(filePath);
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true });
@@ -74,7 +74,7 @@ export async function secureSave(key: string, value: string): Promise<void> {
 }
 
 export async function secureLoad(key: string): Promise<string | null> {
-  const filePath = join(STORAGE_DIR, `${key}.json`);
+  const filePath = join(SECURE_STORAGE_DIR, `${key}.json`);
 
   try {
     if (!existsSync(filePath)) return null;
@@ -95,7 +95,7 @@ export async function secureLoad(key: string): Promise<string | null> {
 }
 
 export async function secureDelete(key: string): Promise<void> {
-  const filePath = join(STORAGE_DIR, `${key}.json`);
+  const filePath = join(SECURE_STORAGE_DIR, `${key}.json`);
   try {
     if (existsSync(filePath)) {
       await writeFile(filePath, '', 'utf-8');

@@ -35,12 +35,13 @@ describe('T4：日预算 relief 状态机（boost / waive-once / unlock-today）
     const b = getDailyBudget();
     expect(b.getSnapshot().limit).toBe(LIMIT);
 
-    const v = b.applyRelief({ kind: 'boost', ttlMs: 1 });
+    // ttl 取 50ms：`ttlMs: 1` 会在同一毫秒边界内过期，导致 ×2 断言偶发失败。
+    const v = b.applyRelief({ kind: 'boost', ttlMs: 50 });
     expect(v.kind).toBe('boost');
     expect(v.effectiveLimit).toBe(LIMIT * 2);
     expect(b.getSnapshot().limit).toBe(LIMIT * 2);
 
-    await new Promise((r) => setTimeout(r, 5));
+    await new Promise((r) => setTimeout(r, 60));
     expect(b.getRelief()).toBeNull();
     expect(b.getSnapshot().limit).toBe(LIMIT);
   });

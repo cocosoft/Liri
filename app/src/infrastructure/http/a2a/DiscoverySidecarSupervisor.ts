@@ -44,6 +44,8 @@ import {
   isHeartbeatFrame,
 } from '@modules/utils/sidecarIpc';
 import type { A2ADiscoverySnapshot } from './discoverySurface';
+// U-16（2026-10-17）：取消/超时复用**进程树强杀**（复用 R21 基座；实现已在 `utils`）
+import { killProcessTree } from '@modules/utils/killProcessTree';
 
 const logger = getLogger('infra:http:a2a:discoverySupervisor');
 
@@ -80,6 +82,10 @@ export interface SupervisorDeps {
     agentId: string | undefined,
     waitMs?: number
   ) => Promise<{ completed: boolean; task: unknown }>;
+  /**
+   * U-16：进程树强杀注入（缺省 `killProcessTree`）。测试注入替身 ⇒ 不真杀进程。
+   */
+  killTree?: (child: ChildProcess) => void;
 }
 
 /** 发现面 sidecar 的单例监督器 */
@@ -115,12 +121,20 @@ export class DiscoverySidecarSupervisor {
     });
     this.child = child;
 
+    // U-16：就绪握手失败（超时/版本不兼容）⇒ **进程树强杀**并解绑单例，
+    // 避免半启动的 sidecar 及其孙进程悬挂，也避免后续 `start()` 误判"已在运行"。
+    const abortStart = (): void => {
+      this.child = null;
+      this.killChildTree(child);
+    };
+
     const timeoutMs = this.deps.startupTimeoutMs ?? 10_000;
     const port = await new Promise<number>((resolve, reject) => {
       let settled = false;
       const timer = setTimeout(() => {
         if (settled) return;
         settled = true;
+        abortStart();
         reject(new Error('A2A 发现面 sidecar 就绪超时'));
       }, timeoutMs);
       const rl = readline.createInterface({ input: child.stdout! });
@@ -131,6 +145,7 @@ export class DiscoverySidecarSupervisor {
           if (!isCompatibleVersion(frame.protocolVersion)) {
             settled = true;
             clearTimeout(timer);
+            abortStart();
             reject(
               new Error(
                 `sidecar 协议版本不兼容：${String(frame.protocolVersion)} vs ${SIDECAR_IPC_PROTOCOL_VERSION}`
@@ -149,6 +164,7 @@ export class DiscoverySidecarSupervisor {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
+        this.child = null;
         reject(err);
       });
     });
@@ -208,17 +224,26 @@ export class DiscoverySidecarSupervisor {
     if (this.child?.stdin?.writable) this.child.stdin.write(encodeFrame(out));
   }
 
-  /** 停止 sidecar（清理子进程；不再重启） */
+  /**
+   * 停止 sidecar（取消路径：**进程树**强杀；不再重启）。
+   *
+   * U-16：原 `child.kill()` 只终止直接子进程 ⇒ sidecar 派生的孙进程会成为孤儿。
+   */
   stop(): void {
     this.stopping = true;
     const child = this.child;
     this.child = null;
     this.port = null;
     if (!child) return;
+    this.killChildTree(child);
+  }
+
+  /** 进程树强杀（可注入替身；清理路径不抛错） */
+  private killChildTree(child: ChildProcess): void {
     try {
-      child.kill();
+      (this.deps.killTree ?? killProcessTree)(child);
     } catch {
-      // @ignore-catch — 进程可能已退出
+      // @ignore-catch — 进程树强杀是尽力而为，失败不得打断关停流程
     }
   }
 

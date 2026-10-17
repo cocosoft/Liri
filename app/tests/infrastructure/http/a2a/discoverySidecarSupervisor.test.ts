@@ -157,6 +157,59 @@ describe('① P2 监督器：快照推送 / 停止 / 重启', () => {
     expect(sup.getPort()).toBeNull();
   });
 
+  it('U-16：stop() 走**进程树强杀**（注入替身，不直接 child.kill）', async () => {
+    const fake = new FakeChild();
+    const killed: ChildProcess[] = [];
+    const sup = new DiscoverySidecarSupervisor({
+      spawnFn: () => asChild(fake),
+      killTree: (child) => killed.push(child),
+    });
+    const p = sup.start();
+    fake.stdout.write(
+      encodeFrame({
+        type: SIDECAR_STARTUP_TYPE,
+        protocolVersion: SIDECAR_IPC_PROTOCOL_VERSION,
+        port: 6200,
+      }) + '\n'
+    );
+    await p;
+
+    sup.stop();
+    expect(killed).toEqual([asChild(fake)]);
+    expect(fake.killed).toBe(false);
+  });
+
+  it('U-16：就绪超时 ⇒ 强杀进程树并解绑（可再次 start）', async () => {
+    const first = new FakeChild();
+    const second = new FakeChild();
+    let calls = 0;
+    const killed: ChildProcess[] = [];
+    const sup = new DiscoverySidecarSupervisor({
+      startupTimeoutMs: 10,
+      spawnFn: () => {
+        calls += 1;
+        return asChild(calls === 1 ? first : second);
+      },
+      killTree: (child) => killed.push(child),
+    });
+
+    await expect(sup.start()).rejects.toThrow('就绪超时');
+    expect(killed).toEqual([asChild(first)]);
+    expect(sup.getPort()).toBeNull();
+
+    // 解绑后再次 start 可正常握手（不会被误判为"已在运行"）
+    const p = sup.start();
+    second.stdout.write(
+      encodeFrame({
+        type: SIDECAR_STARTUP_TYPE,
+        protocolVersion: SIDECAR_IPC_PROTOCOL_VERSION,
+        port: 6201,
+      }) + '\n'
+    );
+    expect(await p).toBe(6201);
+    sup.stop();
+  });
+
   it('意外退出 ⇒ 有界重启（再次 spawn）', async () => {
     let calls = 0;
     const first = new FakeChild();

@@ -20,71 +20,14 @@
 // SOFTWARE.
 
 /**
- * 进程树终止助手（R21，2026-10-09）
+ * 进程树终止助手 —— **沙箱侧稳定入口**（R21，2026-10-09）。
  *
- * **动机**：bash / code_run 的子进程是**多层**（`landlock-run` helper → `/bin/sh -c` → 命令自身
- * 派生的孙进程）。仅 `child.kill()` 只终止**直接子进程** ⇒ shell 与其孙进程会成为**孤儿进程**
- * 继续消耗 CPU/FD（Gemini 二轮审计所指的 "Orphan Processes"）。
- *
- * **口径**：
- *  - **Unix**：`spawn(..., { detached: true })` 使子进程自成**进程组组长** ⇒
- *    `process.kill(-pid, 'SIGKILL')` 一次终止**整组**（含孙进程）。
- *  - **Windows**：无信号语义 ⇒ `taskkill /PID <pid> /T /F` 终止整树。
- *  - 任一分支失败（进程已退出 / 组不存在 / taskkill 缺失）⇒ **降级**为 `child.kill('SIGKILL')`，
- *    尽力而为、**不抛错**（清理路径不得反过来打断主流程）。
- *
- * `deps` 可注入 ⇒ 离线可测（不真正杀进程）。
+ * U-16（2026-10-17）：实现已下沉到 `utils/killProcessTree.ts`（infra），使 `infrastructure`
+ * 层（A2A sidecar 监督器）可在不跨层直连 `@modules/sandbox` 的前提下复用同一份强杀逻辑。
+ * 本文件保留导出（`@modules/sandbox` 的公开面不变），沙箱侧消费者与单测**零改动**。
  */
-import { spawn } from 'node:child_process';
-
-/** 终止所需的最小子进程投影（便于用替身离线断言） */
-export interface KillableChild {
-  pid?: number | undefined;
-  kill(signal?: NodeJS.Signals): boolean;
-}
-
-export interface KillProcessTreeDeps {
-  platform?: NodeJS.Platform;
-  /** Unix：按**进程组**强杀（默认 `process.kill(-pid, 'SIGKILL')`） */
-  killGroup?: (pid: number) => void;
-  /** Windows：整树强杀（默认 `taskkill /PID <pid> /T /F`，异步、失败忽略） */
-  runTaskkill?: (pid: number) => void;
-}
-
-function defaultKillGroup(pid: number): void {
-  process.kill(-pid, 'SIGKILL');
-}
-
-function defaultTaskkill(pid: number): void {
-  const proc = spawn('taskkill', ['/PID', String(pid), '/T', '/F'], {
-    stdio: 'ignore',
-  });
-  proc.on('error', () => {
-    /* taskkill 缺失 / 进程已退出：忽略 */
-  });
-}
-
-export function killProcessTree(
-  child: KillableChild,
-  deps: KillProcessTreeDeps = {}
-): void {
-  const platform = deps.platform ?? process.platform;
-  const pid = child.pid;
-  try {
-    if (pid !== undefined && pid > 0) {
-      if (platform === 'win32') {
-        (deps.runTaskkill ?? defaultTaskkill)(pid);
-      } else {
-        (deps.killGroup ?? defaultKillGroup)(pid);
-      }
-      return;
-    }
-  } catch {
-    // 落下方"直接子进程"降级
-  }
-  try {
-    child.kill('SIGKILL');
-  } catch {
-    // @ignore-catch: 进程可能已退出（清理路径不得抛错）
-  }
-}
+export {
+  killProcessTree,
+  type KillableChild,
+  type KillProcessTreeDeps,
+} from '../../utils/killProcessTree.js';

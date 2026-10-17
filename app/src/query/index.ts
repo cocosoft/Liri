@@ -23,6 +23,9 @@
  * 查询模块主入口
  */
 
+// U-03b（2026-10-17）：路径语义入参键的单一事实源（LRO workspace 收敛复用）
+export { PATH_ARG_KEYS } from './tool-constants.js';
+
 export {
   ReActLoop,
   EXTERNAL_FETCH_TOOLS,

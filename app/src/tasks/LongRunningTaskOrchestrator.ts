@@ -88,6 +88,7 @@ import type { ToolUseContext } from '../tools/types/Tool.js';
 // 大文件拆分（spec file-size-debt-partition-plan §44）：类型契约与任务消息助手外迁 `./lro/*`；
 // 下述 re-export 保持**公开面不变**（原 `export` 的 4 个类型仍可从本文件取）。
 import { PLANNER_ROLE, EXECUTOR_ROLE } from './lro/contracts.js';
+import { findWorkspaceEscape } from './lro/workspaceGuard.js';
 import { resolveAuditStore, replanMaxRetries } from './lro/portResolvers.js';
 import {
   recordGoalStageMetric,
@@ -1241,6 +1242,13 @@ ${replanSection}
       step.reviewResult
         ? `注意: 上次审查发现以下问题，本次请修正：\n${step.reviewResult.issues.map((i) => `- ${i.description}`).join('\n')}`
         : '',
+      // U-08 / LRO-08 / LRO-16（2026-10-17）：步骤级硬约束。
+      [
+        '【硬约束】',
+        '- 不得向用户提问、请求确认或等待用户答复；信息不足时基于现有信息做可回退的最小决策，并在结果中写明假设。',
+        '- 不得以 shell 管道（|）、逻辑与（&&）、逻辑或（||）作为判定动作；需要多步时逐次调用工具并说明结果。',
+        '- 交付声明必须区分“已实测（附命令/输出证据）”与“未实测”；未实测时禁止使用“完成/已交付/可直接使用”等措辞，应明确标注未验证项。',
+      ].join('\n'),
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -1371,6 +1379,31 @@ ${replanSection}
                     toolCallId: tc.id,
                     toolName: tc.name,
                     error: `工具未注册: ${tc.name}`,
+                  });
+                  continue;
+                }
+                // U-03b / U-09（2026-10-17）：工具路径入参必须落在 LRO 隔离工作区内；
+                // 越界（绝对路径或 `../`）直接拒绝，避免读系统目录/写项目根。
+                const escape = findWorkspaceEscape(
+                  this.isolation.workspace,
+                  tc.arguments
+                );
+                if (escape) {
+                  logger.warn('[orchestrator] 工具路径越界，已拒绝执行', {
+                    taskId: this.taskId,
+                    stepId: step.id,
+                    toolName: tc.name,
+                    argKey: escape.key,
+                    argValue: escape.value,
+                    resolved: escape.resolved,
+                    workspace: this.isolation.workspace,
+                  });
+                  results.push({
+                    toolCallId: tc.id,
+                    toolName: tc.name,
+                    error:
+                      `路径越界：${escape.key}=${escape.value} 不在任务工作区内；` +
+                      '请改用工作区内相对路径。',
                   });
                   continue;
                 }

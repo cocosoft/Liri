@@ -1,6 +1,6 @@
 # Spec：`runStreamMessage` 分阶段拆分（StreamMessageFlow Split）
 
-> 版本 2.8 ｜ 创建 2026-10-10 ｜ 状态：✅ **切片计划已执行**（P2-1a…o；`runStreamMessage` **2532 → 2132 行**、文件 **2684 → 2315 行**、复杂度 **309 → 253**）；**不声称"拆分完成"**（见 §6 ③）
+> 版本 2.8 ｜ 创建 2026-10-10 ｜ 状态：✅ **切片计划已执行**（P2-1a…o；`runStreamMessage` **2532 → 2132 行**、文件 **2684 → 2315 行**、复杂度 **309 → 247**）；**不声称"拆分完成"**（见 §6 ③）
 > **来源**：`dev_docs/20261010/升级优化方案-20261010.md` §3 **P2-1**（对应核验项 D-9 / 台账 **L-10**）
 > **关联规则**：GR15（Spec-Driven）· CS01（归一化）· CS03（不做死抽象）· R04-001（文件行数）· `architecture-compliance.md`
 > **关联基线**：`.trae/architecture/function-size-baseline.json` · 门禁 `scripts/lint-function-size-ratchet.ts`
@@ -91,7 +91,7 @@
 - ① 棘轮门禁生效：**人为增长 ⇒ 变红**（自证用例覆盖）；
 - ② 门禁接入 `bun run ci` + `.github/workflows/doc-gate.yml`；
 - ③ **切片计划已执行**（`P2-1b…o` 见 §5 与修复证据表 `PLAN-P2-1*`）；**但不声称"拆分完成"** ——
-  `runStreamMessage` 仍有 **2132 行**（复杂度 253），且 §3 的 S2/S3/S5 大部分**动作**因
+  `runStreamMessage` 仍有 **2132 行**（复杂度 247），且 §3 的 S2/S3/S5 大部分**动作**因
   `continue`/`break`/`yield` 的**语法约束**必然留在编排函数内（详见各切片「如实边界」）。
   **收尾说明（2026-10-10，2026-10-17 补 P2-1o）**：可外移的**判据/载荷/装配**单元已基本抽净（S1/S3/S4/S6/S7）；
   再往下只剩 chunk `for await` + `yield` 主体与工具循环 `while` 主体 —— **在 TS 语法上不可外移**

@@ -9933,6 +9933,171 @@
       ],
       "reopenWhen": "① 去重按 **MD5** 全量读文件（≤30MB 且单条候选极少）；若日后放宽大小上限或候选数量显著增加，改为「先比 size、再算 hash」或流式 hash，避免读盘放大。② 去重发生在**数量截断之前** ⇒ 重复副本不占 2 个配额；若日后调整顺序，需保留「重复不算配额」语义（现有单测已注明）。③ 读盘失败…（全文见 archive/evidence-detail.jsonl#CHANNEL-FILE-CONTENT-DEDUPE）",
       "notes": "【问题（真机截图）】用户要一个 md，客户端收到**两个** `test.md`（均 491B）。日志同一 trace：`11:43:23` `write_project_file` → 项目 `output/test.md`；`11:43:25` 模型又用 `file_write` + `source_file` …（全文见 archive/evidence-detail.jsonl#CHANNEL-FILE-CONTENT-DEDUPE）"
+    },
+    {
+      "id": "ARCH-BRL002-BARREL-EXPORTS",
+      "title": "BRL-002：cli/handlers/index.ts 删除重复显式导出，30 行 export 降至 10",
+      "source": "dev_docs/20261017/P0与BRL-002修复计划-20261017.md §1",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/cli/handlers/index.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "R06-010 上限变化或 CLI handler 子域继续膨胀时重开（全文见 archive/evidence-detail.jsonl#ARCH-BRL002-BARREL-EXPORTS）",
+      "notes": "类与工厂由 export * 统一导出；layer-exceptions 移除 BRL-002；lint:arch 桶文件 87 个、超限 0。（全文见 archive/evidence-detail.jsonl#ARCH-BRL002-BARREL-EXPORTS）"
+    },
+    {
+      "id": "LRO-PLAN-PARSE-ADMISSION",
+      "title": "U-01/U-04：计划解析只接受结构化 JSON（重问一次后整体失败）+ 计划准入与连续无进展硬停止",
+      "source": "dev_docs/20261017/P0与BRL-002修复计划-20261017.md §2/§4",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/planOutputParser.ts",
+        "app/src/tasks/planAdmission.ts",
+        "app/src/tasks/LongRunningTaskOrchestrator.ts"
+      ],
+      "tests": [
+        "app/tests/tasks/lroPlanParsing.test.ts",
+        "app/tests/tasks/planAdmission.test.ts",
+        "app/tests/tasks/lroExecutorFnBudget.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "Planner 改为结构化输出协议或计划来源变化时重开（全文见 archive/evidence-detail.jsonl#LRO-PLAN-PARSE-ADMISSION）",
+      "notes": "解析器剥离首尾围栏/提取平衡 JSON；失败不再按行切分。准入拒绝空/超长/非法依赖；连续 3 轮指纹不变抛 PDCA_NO_PROGRESS。（全文见 archive/evidence-detail.jsonl#LRO-PLAN-PARSE-ADMISSION）"
+    },
+    {
+      "id": "LRO-GHOST-PLAN-HEARTBEAT",
+      "title": "U-02：createPlan 前同步完成加载；仅 running 且心跳过期（默认 10 分钟）才终结 ghost plan",
+      "source": "dev_docs/20261017/P0与BRL-002修复计划-20261017.md §3",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/TaskOrchestrator.ts"
+      ],
+      "tests": [
+        "app/tests/tasks/taskOrchestratorGhost.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "跨重启恢复引入租约/执行方注册后重开（全文见 archive/evidence-detail.jsonl#LRO-GHOST-PLAN-HEARTBEAT）",
+      "notes": "savePlan 写 lastHeartbeatAt；pending 不再被加载期 abort；TASK_GOAL_GHOST_GRACE_MS 可覆盖。（全文见 archive/evidence-detail.jsonl#LRO-GHOST-PLAN-HEARTBEAT）"
+    },
+    {
+      "id": "SEARCH-ROOT-SCOPE-EBUSY",
+      "title": "U-03a：home/盘根追加系统与浏览器目录跳过；grep 不可读目录按 30s 窗口聚合",
+      "source": "dev_docs/20261017/P0与BRL-002修复计划-20261017.md §5",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/utils/searchSkipDirs.ts",
+        "app/src/tools/GrepTool/grep.ts",
+        "app/src/tools/GlobTool/GlobTool.ts"
+      ],
+      "tests": [
+        "app/tests/tools/GlobTool/searchSkipDirsRootScope.test.ts",
+        "app/tests/tools/GlobTool/globSkipDirs.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "搜索根作用域语义变化或出现合法系统目录扫描需求时重开（全文见 archive/evidence-detail.jsonl#SEARCH-ROOT-SCOPE-EBUSY）",
+      "notes": "项目根不追加系统目录；模式显式点名可豁免；EACCES/EPERM/EBUSY/ENOENT 不再逐目录刷屏。（全文见 archive/evidence-detail.jsonl#SEARCH-ROOT-SCOPE-EBUSY）"
+    },
+    {
+      "id": "CHANNEL-QUESTION-FAIL-CLOSED-TIMER",
+      "title": "U-05 Stage1/U-06：question 先转发并 fail-closed；长任务占位与 chunk 消费解耦",
+      "source": "dev_docs/20261017/P0与BRL-002修复计划-20261017.md §6/§8",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/routing/streamConsumption.ts",
+        "app/src/execution/types.ts"
+      ],
+      "tests": [
+        "app/tests/channels/streamConsumptionQuestion.test.ts",
+        "app/tests/channels/streamConsumptionPlaceholder.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "渠道交互问答 Stage 2 或占位配额策略变化时重开（全文见 archive/evidence-detail.jsonl#CHANNEL-QUESTION-FAIL-CLOSED-TIMER）",
+      "notes": "新增 ABORT_REASONS.CHANNEL_INTERACTION_UNSUPPORTED；占位定时器在 finally 清理并等待发送完成。（全文见 archive/evidence-detail.jsonl#CHANNEL-QUESTION-FAIL-CLOSED-TIMER）"
+    },
+    {
+      "id": "CHANNEL-MESSAGEID-PASSTHROUGH",
+      "title": "U-07：messageRouter 向 chatStream 透传入站 messageId；契约补字段",
+      "source": "dev_docs/20261017/P0与BRL-002修复计划-20261017.md §7/§8",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/routing/messageRouter.ts",
+        "app/src/channels/routing/messageRouterContract.ts"
+      ],
+      "tests": [
+        "app/tests/channels/messageRouterContract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "渠道平台 messageId 不再唯一或出现跨会话碰撞时重开（全文见 archive/evidence-detail.jsonl#CHANNEL-MESSAGEID-PASSTHROUGH）",
+      "notes": "与 chat-handlers 对齐，ChatManager 可复用写前落盘的用户消息 id；supportsQuestionAnswer 透传供 Stage2 使用。（全文见 archive/evidence-detail.jsonl#CHANNEL-MESSAGEID-PASSTHROUGH）"
     }
   ]
 }

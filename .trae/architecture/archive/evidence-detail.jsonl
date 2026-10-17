@@ -6272,3 +6272,49 @@
 {"id":"@changelog-unreleased","k":"block#0","i":585,"c":"：在夹具 `beforeAll` 里补出该定义目录（**零依赖纯数据** `STATE_MACHINES = []` + `BOUNDARY_STATE_MACHINES = []`；夹具内无状态机候选 ⇒ 空登记即满足完整性）——**夹具必须满足门禁前置**，否则它验的不是\"合法性\"而是\"缺文件\"；**未改任何产品代码、未放宽门禁语义**（`"}
 {"id":"@changelog-unreleased","k":"block#0","i":586,"c":"scripts/lint-architecture.ts` 一字未动）。**验证**：该用例 **14 pass / 0 fail**（原本恒红那条现为 pass）；**全量 `bun test` = 6365 pass / 42 skip / 0 fail（726 文件）**；`lint:fix-evidence` **149 条绿**。证据 `"}
 {"id":"@changelog-unreleased","k":"block#0","i":587,"c":"GATE-SELFPROOF-R09006-FIXTURE`。\n"}
+{"id":"ARCH-BRL002-BARREL-EXPORTS","k":"title","i":0,"c":"BRL-002：cli/handlers/index.ts 删除重复显式导出，30 行 export 降至 10"}
+{"id":"ARCH-BRL002-BARREL-EXPORTS","k":"source","i":0,"c":"dev_docs/20261017/P0与BRL-002修复计划-20261017.md §1"}
+{"id":"ARCH-BRL002-BARREL-EXPORTS","k":"reopenWhen","i":0,"c":"R06-010 上限变化或 CLI handler 子域继续膨胀时重开"}
+{"id":"ARCH-BRL002-BARREL-EXPORTS","k":"notes","i":0,"c":"类与工厂由 export * 统一导出；layer-exceptions 移除 BRL-002；lint:arch 桶文件 87 个、超限 0。"}
+{"id":"ARCH-BRL002-BARREL-EXPORTS","k":"code#0","i":0,"c":"app/src/cli/handlers/index.ts"}
+{"id":"ARCH-BRL002-BARREL-EXPORTS","k":"code#1","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"LRO-PLAN-PARSE-ADMISSION","k":"title","i":0,"c":"U-01/U-04：计划解析只接受结构化 JSON（重问一次后整体失败）+ 计划准入与连续无进展硬停止"}
+{"id":"LRO-PLAN-PARSE-ADMISSION","k":"source","i":0,"c":"dev_docs/20261017/P0与BRL-002修复计划-20261017.md §2/§4"}
+{"id":"LRO-PLAN-PARSE-ADMISSION","k":"reopenWhen","i":0,"c":"Planner 改为结构化输出协议或计划来源变化时重开"}
+{"id":"LRO-PLAN-PARSE-ADMISSION","k":"notes","i":0,"c":"解析器剥离首尾围栏/提取平衡 JSON；失败不再按行切分。准入拒绝空/超长/非法依赖；连续 3 轮指纹不变抛 PDCA_NO_PROGRESS。"}
+{"id":"LRO-PLAN-PARSE-ADMISSION","k":"code#0","i":0,"c":"app/src/tasks/planOutputParser.ts"}
+{"id":"LRO-PLAN-PARSE-ADMISSION","k":"code#1","i":0,"c":"app/src/tasks/planAdmission.ts"}
+{"id":"LRO-PLAN-PARSE-ADMISSION","k":"code#2","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"LRO-PLAN-PARSE-ADMISSION","k":"tests#0","i":0,"c":"app/tests/tasks/lroPlanParsing.test.ts"}
+{"id":"LRO-PLAN-PARSE-ADMISSION","k":"tests#1","i":0,"c":"app/tests/tasks/planAdmission.test.ts"}
+{"id":"LRO-PLAN-PARSE-ADMISSION","k":"tests#2","i":0,"c":"app/tests/tasks/lroExecutorFnBudget.test.ts"}
+{"id":"LRO-GHOST-PLAN-HEARTBEAT","k":"title","i":0,"c":"U-02：createPlan 前同步完成加载；仅 running 且心跳过期（默认 10 分钟）才终结 ghost plan"}
+{"id":"LRO-GHOST-PLAN-HEARTBEAT","k":"source","i":0,"c":"dev_docs/20261017/P0与BRL-002修复计划-20261017.md §3"}
+{"id":"LRO-GHOST-PLAN-HEARTBEAT","k":"reopenWhen","i":0,"c":"跨重启恢复引入租约/执行方注册后重开"}
+{"id":"LRO-GHOST-PLAN-HEARTBEAT","k":"notes","i":0,"c":"savePlan 写 lastHeartbeatAt；pending 不再被加载期 abort；TASK_GOAL_GHOST_GRACE_MS 可覆盖。"}
+{"id":"LRO-GHOST-PLAN-HEARTBEAT","k":"code#0","i":0,"c":"app/src/tasks/TaskOrchestrator.ts"}
+{"id":"LRO-GHOST-PLAN-HEARTBEAT","k":"tests#0","i":0,"c":"app/tests/tasks/taskOrchestratorGhost.test.ts"}
+{"id":"SEARCH-ROOT-SCOPE-EBUSY","k":"title","i":0,"c":"U-03a：home/盘根追加系统与浏览器目录跳过；grep 不可读目录按 30s 窗口聚合"}
+{"id":"SEARCH-ROOT-SCOPE-EBUSY","k":"source","i":0,"c":"dev_docs/20261017/P0与BRL-002修复计划-20261017.md §5"}
+{"id":"SEARCH-ROOT-SCOPE-EBUSY","k":"reopenWhen","i":0,"c":"搜索根作用域语义变化或出现合法系统目录扫描需求时重开"}
+{"id":"SEARCH-ROOT-SCOPE-EBUSY","k":"notes","i":0,"c":"项目根不追加系统目录；模式显式点名可豁免；EACCES/EPERM/EBUSY/ENOENT 不再逐目录刷屏。"}
+{"id":"SEARCH-ROOT-SCOPE-EBUSY","k":"code#0","i":0,"c":"app/src/tools/utils/searchSkipDirs.ts"}
+{"id":"SEARCH-ROOT-SCOPE-EBUSY","k":"code#1","i":0,"c":"app/src/tools/GrepTool/grep.ts"}
+{"id":"SEARCH-ROOT-SCOPE-EBUSY","k":"code#2","i":0,"c":"app/src/tools/GlobTool/GlobTool.ts"}
+{"id":"SEARCH-ROOT-SCOPE-EBUSY","k":"tests#0","i":0,"c":"app/tests/tools/GlobTool/searchSkipDirsRootScope.test.ts"}
+{"id":"SEARCH-ROOT-SCOPE-EBUSY","k":"tests#1","i":0,"c":"app/tests/tools/GlobTool/globSkipDirs.test.ts"}
+{"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"title","i":0,"c":"U-05 Stage1/U-06：question 先转发并 fail-closed；长任务占位与 chunk 消费解耦"}
+{"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"source","i":0,"c":"dev_docs/20261017/P0与BRL-002修复计划-20261017.md §6/§8"}
+{"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"reopenWhen","i":0,"c":"渠道交互问答 Stage 2 或占位配额策略变化时重开"}
+{"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"notes","i":0,"c":"新增 ABORT_REASONS.CHANNEL_INTERACTION_UNSUPPORTED；占位定时器在 finally 清理并等待发送完成。"}
+{"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"code#0","i":0,"c":"app/src/channels/routing/streamConsumption.ts"}
+{"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"code#1","i":0,"c":"app/src/execution/types.ts"}
+{"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"tests#0","i":0,"c":"app/tests/channels/streamConsumptionQuestion.test.ts"}
+{"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"tests#1","i":0,"c":"app/tests/channels/streamConsumptionPlaceholder.test.ts"}
+{"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"title","i":0,"c":"U-07：messageRouter 向 chatStream 透传入站 messageId；契约补字段"}
+{"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"source","i":0,"c":"dev_docs/20261017/P0与BRL-002修复计划-20261017.md §7/§8"}
+{"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"reopenWhen","i":0,"c":"渠道平台 messageId 不再唯一或出现跨会话碰撞时重开"}
+{"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"notes","i":0,"c":"与 chat-handlers 对齐，ChatManager 可复用写前落盘的用户消息 id；supportsQuestionAnswer 透传供 Stage2 使用。"}
+{"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"code#0","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"tests#0","i":0,"c":"app/tests/channels/messageRouterContract.test.ts"}

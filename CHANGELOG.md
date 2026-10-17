@@ -19,6 +19,12 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **CHANNEL-MESSAGEID-PASSTHROUGH**：渠道入站 messageId 透传 + 回答能力字段 —— 验证 tc0|ut1|arch0；基线 改前 Router 不传 messageId，后端自行生成 id（详情见 archive/evidence-detail.jsonl#CHANNEL-MESSAGEID-PASSTHROUGH）
+- ✅ **CHANNEL-QUESTION-FAIL-CLOSED-TIMER**：渠道 question fail-closed + 占位独立定时器 —— 验证 tc0|ut5|arch0；基线 改前 question 只记日志；静默期占位判定在循环体内永不触发（详情见 archive/evidence-detail.jsonl#CHANNEL-QUESTION-FAIL-CLOSED-TIMER）
+- ✅ **SEARCH-ROOT-SCOPE-EBUSY**：搜索根作用域系统目录跳过 + EBUSY 窗口聚合 —— 验证 tc0|ut14|arch0；基线 改前只跳构建目录；home 扫描深入 AppData 且 EBUSY 逐条上报（详情见 archive/evidence-detail.jsonl#SEARCH-ROOT-SCOPE-EBUSY）
+- ✅ **LRO-GHOST-PLAN-HEARTBEAT**：TaskOrchestrator 同步加载 + ghost 心跳宽限 —— 验证 tc0|ut5|arch0；基线 改前 void initialize() 与创建交叉；pending 无活跃步骤即被 abort（详情见 archive/evidence-detail.jsonl#LRO-GHOST-PLAN-HEARTBEAT）
+- ✅ **LRO-PLAN-PARSE-ADMISSION**：Planner 计划解析 fail-closed + 准入/零产出硬停止 —— 验证 tc0|ut17|arch0；基线 改前 JSON.parse 失败按行切前 10 行；坏计划只会跑到轮次上限（详情见 archive/evidence-detail.jsonl#LRO-PLAN-PARSE-ADMISSION）
+- ✅ **ARCH-BRL002-BARREL-EXPORTS**：CLI handlers barrel 去重（30→10），移除 BRL-002 例外 —— 验证 tc0|arch0；基线 改前 30 行 export，超 R06-010 上限 20，依赖 2026-10-31 到期例外（详情见 archive/evidence-detail.jsonl#ARCH-BRL002-BARREL-EXPORTS）
 - ✅ **CHANNEL-FILE-CONTENT-DEDUPE**：出站附件按内容 MD5 去重 + 契约禁「为投递而复制」—— 修重复附件 —— 验证 ut3|tc2|ts6712；基线 改前：同一 test.md 被写到项目 output 与 ~/.pyapp/output 并都写进正文 ⇒ 用户收到两个同名附件（详情见 archive/evidence-detail.jsonl#CHANNEL-FILE-CONTENT-DEDUPE）
 - ✅ **FILE-WRITE-RESOLVED-PATH**：写入回执给实际绝对路径 + 出站提取认 `~/`（修「写了却发不出」） —— 验证 ut7|tc2|ts6709；基线 改前：file_write 只回显相对入参 ⇒ 模型以为在 ~/.pyapp/output，正文写该路径；文件实际在工作区根 ⇒ 候选 0（详情见 archive/evidence-detail.jsonl#FILE-WRITE-RESOLVED-PATH）
 - ✅ **CHANNEL-DELIVERY-CONTRACT**：通道入站注入投递契约（按请求）：附件自动投递、模型不得臆断发送状态 —— 验证 ut8|tc2|ts6702；基线 改前：模型无投递事实源 ⇒ 两次臆断（「附件还没发出」/ 编造 broadcast send 返回 false），文件均随后送达（详情见 archive/evidence-detail.jsonl#CHANNEL-DELIVERY-CONTRACT）

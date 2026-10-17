@@ -243,6 +243,33 @@ export function shouldPersistStreamFallback(input: {
   return input.errorCode !== 'DAILY_BUDGET_EXCEEDED';
 }
 
+/**
+ * 解析 `chatStream` 出口的 `finishReason`（2026-10-17，真机缺陷修复）。
+ *
+ * **为什么需要**：骨架把「终止原因」的**单一来源**落在消息的 `metadata.finishReason`
+ * （`ReActToolLoop.computeFinalMessage` ← `resolveTerminationOutput`），而消息**顶层**的
+ * `finishReason` 只承载 provider 末次响应的原值。此前这里**只读顶层** ⇒ 终止原因在 CoreAPI
+ * 出口被降级成 `stop`：
+ * - 真机证据（2026-10-17 09:53，QQ）：`reActLoop:daily_budget_exhausted` +
+ *   `budgetSuspend:suspended` 均已成立，但 `chatStream:完成` 报 `finishReason:"stop"` ⇒
+ *   通道侧判据 `finishReason === 'budget_exhausted'` **永不成立** ⇒ **不发预算挂起卡片**
+ *   （`CHANNEL-BUDGET-INLINE-RELIEF` 的整条通道放行入口在真机上不可达）。
+ *
+ * 优先级：失败 ⇒ `error`（AB-3：禁止用 `stop` 掩盖失败）> 顶层值（provider 语义）>
+ * `metadata.finishReason`（骨架终止原因）> `stop`（兜底）。
+ */
+export function resolveStreamFinishReason(input: {
+  streamFailed: boolean;
+  topLevelFinishReason?: string;
+  metadata?: Record<string, unknown>;
+}): string {
+  if (input.streamFailed) return 'error';
+  if (input.topLevelFinishReason) return input.topLevelFinishReason;
+  const fromMeta = input.metadata?.['finishReason'];
+  if (typeof fromMeta === 'string' && fromMeta) return fromMeta;
+  return 'stop';
+}
+
 export class CoreAPIImpl implements CoreAPI {
   /**
    * D-227（2026-10-02，B12）：内联 app 依赖（构造器注入；测试/入口覆盖用）。
@@ -1134,9 +1161,15 @@ export class CoreAPIImpl implements CoreAPI {
 
     // 从 finalMessage 提取实际的 finishReason，而非硬编码 'stop'
     // P1 修复（AB-3）：出错时强制 'error'，防止前端把失败流误判为成功
-    const actualFinishReason = streamFailed
-      ? 'error'
-      : finalMessage?.finishReason || 'stop';
+    // 2026-10-17：终止原因（如 `budget_exhausted`）落在 `metadata.finishReason`，须回落读取
+    //（详见 `resolveStreamFinishReason` 头注：否则通道侧发卡判据永不成立）
+    const actualFinishReason = resolveStreamFinishReason({
+      streamFailed,
+      topLevelFinishReason: finalMessage?.finishReason,
+      metadata: (
+        finalMessage as { metadata?: Record<string, unknown> } | undefined
+      )?.metadata,
+    });
 
     // E-1 接入（2026-08-23）：工具执行完成 → 发射 deliverable chunk + 写 assistant/deliverable 事件
     // （复用 ExecutionPhaseTracker.buildDeliverableData，纯事件回放由前端聚合器/后端派生器重建）

@@ -32,8 +32,22 @@ export * from './ContextStatsCollector';
 export * from './BudgetPolicy';
 export {
   TokenBudgetController,
+  TokenBudgetStatus,
   type CacheAwareTokenUsage,
+  type TokenBudgetParams,
+  type TokenBudgetState,
+  getDefaultTokenBudget,
 } from './TokenBudgetController';
+// U-21（D-3-c 批次④，2026-10-17）：收敛子路径直连 —— 以下原需 `@modules/tokenBudget/<leaf>`。
+// 叶子间无环（UnifiedTokenTracker → ai/context/core 与同模块帮手），桶导出安全。
+export * from './UnifiedTokenTracker';
+export {
+  setUnifiedTokenTracker,
+  getUnifiedTokenTracker,
+  type RegisteredTracker,
+} from './trackerRegistry';
+export { UNIFIED_THRESHOLDS } from './thresholds';
+export * from './SubAgentTokenBridge';
 export {
   ModelContextCache,
   modelContextCache,

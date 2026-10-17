@@ -241,8 +241,8 @@ import {
   TokenBudgetStatus,
   type TokenBudgetParams,
   getDefaultTokenBudget,
-} from '../tokenBudget/TokenBudgetController.js';
-import { UnifiedTokenTracker } from '../tokenBudget/UnifiedTokenTracker.js';
+} from '@modules/tokenBudget';
+import { UnifiedTokenTracker } from '@modules/tokenBudget';
 import { ContextTracker } from '@modules/query';
 // A8 最后一公里（B1，2026-10-04）：装配入口——assembler → 可执行路由（未接线者显式 unavailable）
 // 13-P1-3（2026-10-05）：新增执行配方（recipe）与配方→验证器配置

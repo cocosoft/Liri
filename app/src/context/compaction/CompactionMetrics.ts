@@ -8,7 +8,7 @@
  *   /context debug    — 压缩决策树打印
  */
 import { getLogger } from '@modules/monitoring';
-import { getModelThresholds } from '@modules/tokenBudget/UnifiedTokenTracker';
+import { getModelThresholds } from '@modules/tokenBudget';
 import type { RetentionResult } from './retentionProbe';
 const logger = getLogger('context:compaction:diag');
 

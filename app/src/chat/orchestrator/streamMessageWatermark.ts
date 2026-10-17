@@ -15,7 +15,7 @@
  * 依赖方向：本模块**仅类型依赖**，无运行时环。
  */
 
-import type { WatermarkState } from '@modules/tokenBudget/UnifiedTokenTracker';
+import type { WatermarkState } from '@modules/tokenBudget';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 
 /** 水位日志载荷（与会话排查口径一致；`ratio` 保留 3 位，避免长小数） */

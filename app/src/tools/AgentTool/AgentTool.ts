@@ -59,7 +59,7 @@ import {
   SUMMARY_MIN_CHARS,
 } from './summaryTrim';
 // O9/G14：真实预算取数来源（父当前上下文 + 模型窗口）
-import { getUnifiedTokenTracker } from '@modules/tokenBudget/UnifiedTokenTracker';
+import { getUnifiedTokenTracker } from '@modules/tokenBudget';
 // O10b（v7.1）：控制面 Tier1 血缘链（会话祖先判定）
 import { isAncestorSession } from '@modules/session';
 import { resolveContextWindowAsync } from '@modules/context';
@@ -110,7 +110,7 @@ import { handleError } from '@modules/error';
 import { trackUsage } from '@modules/ai';
 // G-2/E（2026-10-11，Spec §5-D-1 E）：日预算闸门（派生前）与子代理用量计账
 import { getDailyBudget, recordDailyBudgetFromUsage } from '@modules/query';
-import { subAgentTokenListeners } from '../../tokenBudget/SubAgentTokenBridge';
+import { subAgentTokenListeners } from '@modules/tokenBudget';
 // N-41（2026-09-21 真机实证）：工具池兜底来源 —— 唯一注册表（project_rules §1.16）
 import { getToolRegistry } from '../ToolRegistry';
 // B1（2026-10-05 文件规模债拆分）：工具池/授权/定义 + 进度发射簇（C3+C4）外迁

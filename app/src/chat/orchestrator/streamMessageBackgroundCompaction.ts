@@ -23,7 +23,7 @@
 
 import { estimateMessagesTokens } from '@modules/ai';
 import type { ChatMessage } from '@modules/ai';
-import { getModelThresholds } from '@modules/tokenBudget/UnifiedTokenTracker';
+import { getModelThresholds } from '@modules/tokenBudget';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import { resolveMaxContextTokens } from '../services/ChatHelper.js';
 

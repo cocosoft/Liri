@@ -118,8 +118,8 @@ export type {
 export {
   TokenBudgetController as TokenBudgetManagerImpl,
   TokenBudgetStatus,
-} from '../tokenBudget/TokenBudgetController.js';
-export type { TokenBudgetState } from '../tokenBudget/TokenBudgetController.js';
+} from '@modules/tokenBudget';
+export type { TokenBudgetState } from '@modules/tokenBudget';
 
 // Legacy type re-exports (keep query/TokenBudget types for config compatibility)
 export type { TokenBudgetConfig, TokenBudgetManager } from './TokenBudget.js';

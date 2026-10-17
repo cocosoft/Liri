@@ -74,7 +74,7 @@ import type { ToolResult } from '@modules/session/types/tool.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
 import type { SessionCurrentIdPort } from '../services/SessionLifecycleManager.js';
 import type { MessageService } from '../services/MessageService.js';
-import type { UnifiedTokenTracker } from '../../tokenBudget/UnifiedTokenTracker.js';
+import type { UnifiedTokenTracker } from '@modules/tokenBudget';
 import type { ImageContextService } from '../services/ImageContextService.js';
 import type { HookChainManager } from '@modules/hooks';
 import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';

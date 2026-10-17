@@ -43,7 +43,7 @@ import { feature } from '@modules/core';
 import type { ToolAwareClient } from '@modules/ai';
 import { mapSessionStatusToState } from '../services/ChatHelper';
 import type { SessionAccessFacade } from '../services/SessionAccessFacade';
-import type { TokenBudgetController } from '../../tokenBudget/TokenBudgetController.js';
+import type { TokenBudgetController } from '@modules/tokenBudget';
 
 const logger = getLogger('chat:manager');
 

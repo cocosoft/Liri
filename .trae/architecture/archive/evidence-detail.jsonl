@@ -6800,3 +6800,11 @@
 {"id":"U22-CHATMANAGER-TAORCTX","k":"code#0","i":0,"c":"app/src/chat/manager/taorContext.ts"}
 {"id":"U22-CHATMANAGER-TAORCTX","k":"code#1","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"U22-CHATMANAGER-TAORCTX","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"U22-LRTO-STEPEXEC","k":"title","i":0,"c":"U-22/LRTO S2b：外移步骤执行主链（executeSingleStep）+ 纯函数助手"}
+{"id":"U22-LRTO-STEPEXEC","k":"source","i":0,"c":"dev_docs/20261017/LRTO-执行主链-交接单-20261017.md §1–§5"}
+{"id":"U22-LRTO-STEPEXEC","k":"notes","i":0,"c":"executeSingleStep（562 行）→ tasks/lro/stepExecution.ts（StepExecutionDeps：isolation/executor/工具上下文/loop 工厂与共享实例/stepDurations/token 累计/写后读回/缺陷捕获/任务消息/生命周期/checkpoint/planId/sessionId 均注入）；前置把 5 个宿主私有纯函数（isSecurityIntercepted / MAX_SECURITY_STEERS_PER_STEP / buildSecuritySteeringMessage / classifyArtifactAccess / buildTaorStepResult）迁入 lro/stepHelpers.ts，宿主对前 4 个 re-export 保持公开面，同时打断「stepExecution→宿主→stepExecution」循环依赖。执行提示词三段与三条硬约束、工具安全语义（未注册/越界/拦截改道上限 2）、写后读回证据、中止不重试、超限 escalate 逐字保留。"}
+{"id":"U22-LRTO-STEPEXEC","k":"code#0","i":0,"c":"app/src/tasks/lro/stepExecution.ts"}
+{"id":"U22-LRTO-STEPEXEC","k":"code#1","i":0,"c":"app/src/tasks/lro/stepHelpers.ts"}
+{"id":"U22-LRTO-STEPEXEC","k":"code#2","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"U22-LRTO-STEPEXEC","k":"code#3","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"U22-LRTO-STEPEXEC","k":"tests#0","i":0,"c":"app/tests/tasks/lroStepExecution.test.ts"}

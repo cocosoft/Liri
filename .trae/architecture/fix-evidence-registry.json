@@ -1,7 +1,7 @@
 {
   "$comment": "修复证据登记（生成物）：改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts；stages/flags 判据见 scripts/lint-fix-evidence.ts。",
   "version": 1,
-  "updatedAt": "2026-10-13",
+  "updatedAt": "2026-10-17",
   "stages": [
     "discovered",
     "fixed",
@@ -11946,6 +11946,35 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-TAORCTX）",
       "notes": "_buildTAORContext（120 行）→ chat/manager/taorContext.ts（buildTAORContext + TaorContextDeps：工具可见性/待处理交互/模型请求（发送前投影+截断）/工具执行/消息落盘/进度与工具回调/事件通道）。日志、投影告警、tool_calls …（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-TAORCTX）"
+    },
+    {
+      "id": "U22-LRTO-STEPEXEC",
+      "title": "U-22/LRTO S2b：外移步骤执行主链（executeSingleStep）+ 纯函数助手",
+      "source": "dev_docs/20261017/LRTO-执行主链-交接单-20261017.md §1–§5",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/lro/stepExecution.ts",
+        "app/src/tasks/lro/stepHelpers.ts",
+        "app/src/tasks/LongRunningTaskOrchestrator.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [
+        "app/tests/tasks/lroStepExecution.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-LRTO-STEPEXEC）",
+      "notes": "executeSingleStep（562 行）→ tasks/lro/stepExecution.ts（StepExecutionDeps：isolation/executor/工具上下文/loop 工厂与共享实例/stepDurations/token 累计/写后读回/缺陷捕获/任务消息/生命周期/checkpo…（全文见 archive/evidence-detail.jsonl#U22-LRTO-STEPEXEC）"
     }
   ]
 }

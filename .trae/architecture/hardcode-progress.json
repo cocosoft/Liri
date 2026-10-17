@@ -1,13 +1,13 @@
 {
   "nextKey": "B5-2-100",
-  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "U-22-S1", "U-22-S2", "U-22-S3", "U-22-S4", "U-18-S1", "U-22-AGENTTOOL", "U-22-REACTLOOP-P1", "U-22-REACTLOOP-P2", "U-22-LRTO-S0", "U-22-LRTO-S1", "U-22-LRTO-S2A", "U-22-LRTO-S3", "U-22-LRTO-S4", "U-22-CM-S5", "U-13-P1", "T-13-a", "T-13-b"],
-  "lastCommit": "c7e3b10cd",
+  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "U-22-S1", "U-22-S2", "U-22-S3", "U-22-S4", "U-18-S1", "U-22-AGENTTOOL", "U-22-REACTLOOP-P1", "U-22-REACTLOOP-P2", "U-22-LRTO-S0", "U-22-LRTO-S1", "U-22-LRTO-S2A", "U-22-LRTO-S3", "U-22-LRTO-S4", "U-22-CM-S5", "U-22-LRTO-S2B", "U-13-P1", "T-13-a", "T-13-b"],
+  "lastCommit": "37504e15d",
   "baselineKeys": {
     "lint:consts": 85,
     "lint:endpoints": 30,
     "lint:locale": 6
   },
-  "nextAction": "U-22 余：LRTO S2b 按 dev_docs/20261017/LRTO-执行主链-交接单-20261017.md 开工（executeSingleStep 562 / _runExecuteDecideLoop 344 / runFullPdca 84，当前 2383，目标 ≤2000）；随后 i18n zh/en；ChatManager 余 +2237；U-13 待新数据窗口重采",
+  "nextAction": "U-22 余：i18n zh/en（6489 / 6727，按顶层 namespace 切文件 + i18nKeyParity 守卫）；ChatManager 余 +2237（_sendMessageDowngradePath / _createStreamPipeline / 查询工具常量）；LRTO 1746 已达标（FSZ-015 已删）；U-13 待新数据窗口重采",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为门禁实测口径（lint:consts 按组计：同名 17 + 同值 68 = 85；lint:endpoints / locale 按文件键计），非估算",
@@ -34,6 +34,7 @@
     "2026-10-17：U-22/LRTO S2a —— collectPendingReadBacks（纯函数）+ _readBackWrittenArtifacts + _recordEscalation → tasks/lro/stepArtifacts.ts（StepArtifactsDeps；collectPendingReadBacks 宿主 re-export 保持测试路径）；2800→2713（仍 +713）",
     "2026-10-17：U-22/LRTO S3 —— _buildReviewGateContext + reviewStep + decideStep + autoDecideStep → tasks/lro/stepReviewDecide.ts（StepReviewDecideDeps 注入 reviewGate/executor/verifier/getPlan/生命周期/缺陷捕获/上轮耗时）；2713→2489（仍 +489）",
     "2026-10-17：U-22/LRTO S4 —— resumeFromCheckpoint（165）→ tasks/lro/resumeFromCheckpoint.ts（ResumeDeps：replan/统一循环/阶段/重建 Plan/扩容乘子/缺陷清单/planId/sessionId/token 累计）；2489→2383（仍 +383）",
+    "2026-10-17：U-22/LRTO S2b —— 5 个宿主私有纯函数 → lro/stepHelpers.ts（前 4 个宿主 re-export 保公开面，打断循环依赖）；executeSingleStep（562）→ lro/stepExecution.ts（StepExecutionDeps 注入）；2383→1746（≤2000 ⇒ 删除 FSZ-015）；新增 3 条收尾分支守卫测试，tests/tasks 416 通过",
     "2026-10-17：query/patternAssembly.ts:49（:1977）与 state/engine/stateMachineCatalog.ts:185（:3184）是**行号/定位串**被 FIXED_PORT_RE 误判，非遗留硬编码；constants/common.ts 的 DEFAULT_HOST 为零消费者死常量，按 CD05/CD06 走独立变更"
   ]
 }

@@ -1,13 +1,13 @@
 {
-  "nextKey": "B5-2-94",
-  "doneKeys": ["B5-2-88", "B5-2-89", "B5-2-90", "B5-2-91", "B5-2-92", "B5-2-93"],
-  "lastCommit": "bebf3b8e0",
+  "nextKey": "B5-2-97",
+  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96"],
+  "lastCommit": "82925af32",
   "baselineKeys": {
     "lint:consts": 119,
-    "lint:endpoints": 79,
+    "lint:endpoints": 67,
     "lint:locale": 6
   },
-  "nextAction": "继续 B5-2-94：lint:endpoints 剩余 79 文件中继续挑可收敛项（provider/bridge/channels 的本机地址），安全检测类（ssrf/WebFetch）与 i18n 文案保留",
+  "nextAction": "继续 B5-2-97：endpoints 剩 67 文件中挑可收敛项（cli/config 已完成；余为安全检测/示例文案/i18n，需逐项判定保留）",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为实测值（node 解析 hardcode-gate-baseline.json），非估算",

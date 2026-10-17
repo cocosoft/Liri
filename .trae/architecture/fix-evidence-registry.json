@@ -11335,6 +11335,92 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-ENDPOINTS-B5-2-93）",
       "notes": "core/endpoints 新增 LOCAL_REQUEST_BASE_URL（仅解析 req.url 的占位 origin）、MCP 代理与本地 OAuth 三常量；4 个 AI API 与 constants/oauth 改引用；lint:endpoints 84→79。（全文见 archive/evidence-detail.jsonl#HARDCODE-ENDPOINTS-B5-2-93）"
+    },
+    {
+      "id": "HARDCODE-ENDPOINTS-B5-2-94",
+      "title": "U-20/B5-2-94：回环 / 通配绑定 / 本地服务默认地址收敛",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/core/endpoints.ts",
+        "app/src/bridge/ModuleBridgeSetup.ts",
+        "app/src/channels/webhook/WebhookChannel.ts",
+        "app/src/channels/webhook/config-schema.ts",
+        "app/src/channels/bluebubbles/config-schema.ts",
+        "app/src/trace-recording/live/LiveViewServer.ts",
+        "app/src/services/mcp/MCPConnection.ts",
+        "app/src/ai/ModelManagementBootstrap.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-ENDPOINTS-B5-2-94）",
+      "notes": "core/endpoints 新增 WILDCARD_BIND_HOST（仅绑定语义）、DEFAULT_BLUEBUBBLES_SERVER_URL、DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL；bridge/回环判定、webhook、BlueBubbles、LiveView、MCP OAu…（全文见 archive/evidence-detail.jsonl#HARDCODE-ENDPOINTS-B5-2-94）"
+    },
+    {
+      "id": "HARDCODE-ENDPOINTS-B5-2-95",
+      "title": "U-20/B5-2-95：CLI OAuth 回调与本地应用基址收敛",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/core/endpoints.ts",
+        "app/src/cli/handlers/authHandler.ts",
+        "app/src/constants/product.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-ENDPOINTS-B5-2-95）",
+      "notes": "core/endpoints 新增 DEFAULT_OAUTH_REDIRECT_URI；product 的本地应用基址复用本地 OAuth apps 面常量、ingress 判定改用 LOCAL_SERVICE_HOST；lint:endpoints 72→70。（全文见 archive/evidence-detail.jsonl#HARDCODE-ENDPOINTS-B5-2-95）"
+    },
+    {
+      "id": "HARDCODE-ENDPOINTS-B5-2-96",
+      "title": "U-20/B5-2-96：绑定 host 与本机端点判定统一走常量",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/cli/config.ts",
+        "app/src/skills/loaders/adapter/SkillSearchEngine.ts",
+        "app/src/chat/services/ChatHelper.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-ENDPOINTS-B5-2-96）",
+      "notes": "cli 配置 websocket 绑定默认改用 WILDCARD_BIND_HOST；技能源 SSRF 回环判定与本地 LLM 端点判定改用 LOCAL_SERVICE_HOST/LOCAL_HTTP_HOST/WILDCARD_BIND_HOST（行为不变）；lint:endpoints 70→67。（全文见 archive/evidence-detail.jsonl#HARDCODE-ENDPOINTS-B5-2-96）"
     }
   ]
 }

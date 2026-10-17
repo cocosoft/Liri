@@ -6650,3 +6650,29 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#3","i":0,"c":"app/src/ai/api/ProviderAPI.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#4","i":0,"c":"app/src/ai/api/TranslateAPI.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#5","i":0,"c":"app/src/constants/oauth.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"title","i":0,"c":"U-20/B5-2-94：回环 / 通配绑定 / 本地服务默认地址收敛"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"notes","i":0,"c":"core/endpoints 新增 WILDCARD_BIND_HOST（仅绑定语义）、DEFAULT_BLUEBUBBLES_SERVER_URL、DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL；bridge/回环判定、webhook、BlueBubbles、LiveView、MCP OAuth、引导记录 7 文件改引用；lint:endpoints 79→72。"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#0","i":0,"c":"app/src/core/endpoints.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#1","i":0,"c":"app/src/bridge/ModuleBridgeSetup.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#2","i":0,"c":"app/src/channels/webhook/WebhookChannel.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#3","i":0,"c":"app/src/channels/webhook/config-schema.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#4","i":0,"c":"app/src/channels/bluebubbles/config-schema.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#5","i":0,"c":"app/src/trace-recording/live/LiveViewServer.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#6","i":0,"c":"app/src/services/mcp/MCPConnection.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#7","i":0,"c":"app/src/ai/ModelManagementBootstrap.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#8","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"title","i":0,"c":"U-20/B5-2-95：CLI OAuth 回调与本地应用基址收敛"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"notes","i":0,"c":"core/endpoints 新增 DEFAULT_OAUTH_REDIRECT_URI；product 的本地应用基址复用本地 OAuth apps 面常量、ingress 判定改用 LOCAL_SERVICE_HOST；lint:endpoints 72→70。"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#0","i":0,"c":"app/src/core/endpoints.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#1","i":0,"c":"app/src/cli/handlers/authHandler.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#2","i":0,"c":"app/src/constants/product.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"title","i":0,"c":"U-20/B5-2-96：绑定 host 与本机端点判定统一走常量"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"notes","i":0,"c":"cli 配置 websocket 绑定默认改用 WILDCARD_BIND_HOST；技能源 SSRF 回环判定与本地 LLM 端点判定改用 LOCAL_SERVICE_HOST/LOCAL_HTTP_HOST/WILDCARD_BIND_HOST（行为不变）；lint:endpoints 70→67。"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"code#0","i":0,"c":"app/src/cli/config.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"code#1","i":0,"c":"app/src/skills/loaders/adapter/SkillSearchEngine.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"code#2","i":0,"c":"app/src/chat/services/ChatHelper.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}

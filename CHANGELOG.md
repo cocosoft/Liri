@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **CHANNEL-DELIVERY-CONTRACT**：通道入站注入投递契约（按请求）：附件自动投递、模型不得臆断发送状态 —— 验证 ut8|tc2|ts6702；基线 改前：模型无投递事实源 ⇒ 两次臆断（「附件还没发出」/ 编造 broadcast send 返回 false），文件均随后送达（详情见 archive/evidence-detail.jsonl#CHANNEL-DELIVERY-CONTRACT）
 - ✅ **QQ-FILE-UPLOAD-FILE-NAME**：QQ 二进制上传补 file_name（官方必填）—— 修附件气泡显示「未命名」 —— 验证 e2e1|ut1|tc1|ts6694；基线 改前：只发 file_type+file_data ⇒ QQ 拿不到文件名，9,444 字节的报告显示「未命名」（详情见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-FILE-NAME）
 - ✅ **CHANNEL-RELIEF-CARD-COPY-DEDUPE**：预算挂起收尾去重：发卡成功不再重复发文本；纯文本兜底去 Markdown 星号 —— 验证 ut8|tc1|ts6694；基线 改前：真机同一条「已挂起 + 出路」发了两遍（文本 ⏸ + 卡片），且纯文本里 ** 星号明文（详情见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-CARD-COPY-DEDUPE）
 - ✅ **COREAPI-FINISH-REASON-BUDGET-SUSPEND**：修 chatStream 出口把终止原因降级为 stop（回落读 metadata） —— 验证 e2e3|ut5|tc1|ts6686；基线 改前：出口只读顶层 finishReason ⇒ budget_exhausted 变 stop ⇒ 通道发卡判据永不成立（详情见 archive/evidence-detail.jsonl#COREAPI-FINISH-REASON-BUDGET-SUSPEND）

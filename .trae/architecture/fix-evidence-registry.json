@@ -9837,6 +9837,42 @@
       ],
       "reopenWhen": "① 官方接口后续若把 `file_name` 改为可选/移除，本字段无害但会被忽略；若 QQ 仍显示「未命名」，先核对是否走了 `url` 分支（该分支暂不带 `file_name`）。② 二进制直传有 **5MB** 上限（官方文档），5MB~30MB 的本地文件会失败：需改分片上传（`upload_prepare…（全文见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-FILE-NAME）",
       "notes": "【问题（真机截图）】报告文件已到达 QQ（9,444 字节 = 9.22KB），但气泡标题是**「未命名」**，用户无法确认收到的是哪个文件。日志证明发送链路成功（`outbound_files 单文件发送成功`），故问题只可能在**上传口径**。 【根因】`QQChannel.uploadQQFile` 的二进制分…（全文见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-FILE-NAME）"
+    },
+    {
+      "id": "CHANNEL-DELIVERY-CONTRACT",
+      "title": "通道入站注入「投递契约」（`runtimeSystemNote`，按请求）：附件由通道自动投递，模型不得臆断发送状态",
+      "source": "用户真机复测两次出现同一类问题：正文先断言「附件还没实际发出」/「`broadcast send channel=qq` 返回 `{sent:false}`」，而日志显示文件在 1 秒后由 `channelOutbound` 成功送达（`outbound_files 单文件发送成功`）；`ChannelTool` 根本没有 send/broadcast 动作",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/routing/messageRouterContract.ts",
+        "app/src/channels/routing/messageRouter.ts",
+        "app/src/chat/services/systemPromptComposition.ts",
+        "app/src/chat/pipeline/StreamPipeline.ts",
+        "app/src/chat/orchestrator/sendMessageFlow.ts",
+        "app/src/runtime/api/CoreAPI.ts",
+        "app/src/runtime/api/CoreAPIImpl.ts",
+        "app/src/session/types/message/options.ts"
+      ],
+      "tests": [
+        "app/tests/chat/systemPromptComposition.test.ts",
+        "app/tests/channels/budgetInlineRelief.test.ts"
+      ],
+      "changelog": [
+        "fix(channels): 通道入站注入投递契约（runtimeSystemNote），禁止模型臆断「已发送/发送失败」"
+      ],
+      "reopenWhen": "① 契约只在**渠道入站走 `chatStream`** 时注入（`messageRouter`）；桌面端 / CLI 不注入（它们能看到自己的投递状态，无需此契约）。② 系统提示的组装在 `apiMessages` 已有 system 消息时**直接跳过**：当前渠道链路每轮由管线组装，故契约每轮生效；若日后把 s…（全文见 archive/evidence-detail.jsonl#CHANNEL-DELIVERY-CONTRACT）",
+      "notes": "【问题（真机两次）】① 10:35 那轮正文写「附件还没实际发出」，而附件在 1 秒后（10:35:11）成功送达；② 11:02 那轮正文写「`broadcast send channel=qq` 返回 `{sent:false}`，重试同样结果」并宣告发送失败，实际文件在 11:02:55 成功送达，且 `Cha…（全文见 archive/evidence-detail.jsonl#CHANNEL-DELIVERY-CONTRACT）"
     }
   ]
 }

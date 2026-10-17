@@ -5628,6 +5628,29 @@
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"code#0","i":0,"c":"app/src/channels/qq/QQChannel.ts"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"tests#0","i":0,"c":"app/tests/channels/qqFileTransferPayload.test.ts"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"changelog#0","i":0,"c":"fix(channels/qq): 本地文件二进制上传补 file_name（官方必填），修 QQ 附件显示「未命名」"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"title","i":0,"c":"通道入站注入「投递契约」（`runtimeSystemNote`，按请求）：附件由通道自动投递，模型不得臆断发送状态"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"source","i":0,"c":"用户真机复测两次出现同一类问题：正文先断言「附件还没实际发出」/「`broadcast send channel=qq` 返回 `{sent:false}`」，而日志显示文件在 1 秒后由 `channelOutbound` 成功送达（`outbound_files 单文件发送成功`）；`ChannelTool` 根本没有 send/broadcast 动作"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"reopenWhen","i":0,"c":"① 契约只在**渠道入站走 `chatStream`** 时注入（`messageRouter`）；桌面端 / CLI 不注入（它们能看到自己的投递状态，无需此契约）。② 系统提示的组装在 `apiMessages` 已有 system 消息时**直接跳过**：当前渠道链路每轮由管线组装，故契约每轮生效；若日后把 system 消息持久化进会话，契约会**静"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"reopenWhen","i":1,"c":"默失效**，需改为独立 system 段。③ 契约只能约束「不要断言」，无法阻止模型编造其它事实；若再出现「假装调用了某工具」，应优先检查是否有**看似能发送**的新工具被暴露给模型（`ChannelTool` 只有 list/status/connect/disconnect/health/logs）。④ 本片未做真机复测（需再触发一轮「发文件」，观察正文"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"reopenWhen","i":2,"c":"不再出现发送结果断言）。"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"notes","i":0,"c":"【问题（真机两次）】① 10:35 那轮正文写「附件还没实际发出」，而附件在 1 秒后（10:35:11）成功送达；② 11:02 那轮正文写「`broadcast send channel=qq` 返回 `{sent:false}`，重试同样结果」并宣告发送失败，实际文件在 11:02:55 成功送达，且 `ChannelTool` 的动作只有 "}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"notes","i":1,"c":"list/status/connect/disconnect/health/logs，**不存在** send/broadcast（日志中也无该调用）。\n【根因】模型对「出站文件路由」**没有任何事实源**：附件投递发生在正文之后、由 `channelOutbound` 完成，模型既看不到结果、也没有对应工具 ⇒ 只能按上下文猜（两次都猜成失败）。单看代码与"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"notes","i":2,"c":"单测均无异常，属「只有真机才看得见」的语义缺口。\n【做法】① `messageRouterContract` 新增 `CHANNEL_DELIVERY_CONTRACT`（自动投递 / 正文写路径即可 / 没有发送广播工具 / 不得断言发送结果 / 不猜测原因），由 `messageRouter` 以 `runtimeSystemNote` 注入 `"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"notes","i":3,"c":"chatStream`；② 该补充经 `CoreAPI` → `ChatManager` → `SendMessageOptions` 透传，在系统提示**末尾**追加（**不进会话历史、不影响提示缓存**）；③ 顺带把流式（`StreamPipeline`）与非流式（`sendMessageFlow`）两处重复的「基础 + 自定义提示」拼接收敛为纯函数 `"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"notes","i":4,"c":"composeSystemPrompt`（CS01），避免接第三段时漂移。\n【验证】`tests/chat/systemPromptComposition.test.ts` 5 例（顺序固定：基础 → 自定义 → 运行时补充；空值不产出空段）；`tests/channels/budgetInlineRelief.test.ts` 新增验收 9（契约三要素）。"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"notes","i":5,"c":"全量 `bun test` **6702 pass / 0 fail**（6744 tests / 754 files）；`tsc --noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错误；`lint:consts` PASS；`lint:doc-code` PASS。\n【如实边界】见 reopenWhen ①-④（尤其未做"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"notes","i":6,"c":"真机复测、system 消息一旦持久化契约会静默失效）。"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#0","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#2","i":0,"c":"app/src/chat/services/systemPromptComposition.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#3","i":0,"c":"app/src/chat/pipeline/StreamPipeline.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#4","i":0,"c":"app/src/chat/orchestrator/sendMessageFlow.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#5","i":0,"c":"app/src/runtime/api/CoreAPI.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#6","i":0,"c":"app/src/runtime/api/CoreAPIImpl.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"code#7","i":0,"c":"app/src/session/types/message/options.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"tests#0","i":0,"c":"app/tests/chat/systemPromptComposition.test.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"tests#1","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
+{"id":"CHANNEL-DELIVERY-CONTRACT","k":"changelog#0","i":0,"c":"fix(channels): 通道入站注入投递契约（runtimeSystemNote），禁止模型臆断「已发送/发送失败」"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

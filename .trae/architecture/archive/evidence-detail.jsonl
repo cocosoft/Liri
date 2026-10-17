@@ -5600,6 +5600,20 @@
 {"id":"COREAPI-FINISH-REASON-BUDGET-SUSPEND","k":"notes","i":11,"c":" reopenWhen ①）。② 影响面：CoreAPI 的所有消费方现在会看到更精确的终止原因（语义更正确），已核查客户端分支不受影响（见 ②）。③ 这类失效**没有任何报错**，只能靠真机判据兜住（③）。"}
 {"id":"COREAPI-FINISH-REASON-BUDGET-SUSPEND","k":"code#0","i":0,"c":"app/src/runtime/api/CoreAPIImpl.ts"}
 {"id":"COREAPI-FINISH-REASON-BUDGET-SUSPEND","k":"tests#0","i":0,"c":"app/tests/runtime/streamFinishReason.test.ts"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"title","i":0,"c":"预算挂起收尾去重：发卡成功不再重复投递 `⏸ …` 文本；纯文本兜底去掉 Markdown `**` 星号"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"source","i":0,"c":"用户上传 QQ 真机截图（2026-10-17 09:56 复测 `CHANNEL-BUDGET-INLINE-RELIEF`）：同一段「已挂起 + 出路」发了两次（先文本、后卡片），且纯文本里 `**本轮进度已保存**` 的星号明文可见"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"reopenWhen","i":0,"c":"① 分割只认**行首 `⏸`** 结构标记（`SUSPENSION_NOTICE_MARKER`）：内核 `ReActToolLoop.resolveTerminationOutput` 若改掉行首标记或改用其它收尾形态 ⇒ 会静默退回「重复发送」。② 本片只处理 `budget_exhausted` 分支；其它终止原因的提示块（如 `⚠️ 今日预算已用完`"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"reopenWhen","i":1,"c":" 未挂起态）仍随正文原样投递。③ `sendBudgetReliefCard` 返回 false 有两种情形（同会话已发过去重 / 发送失败）都走文本兜底 ⇒ 去重场景会再发一遍文本（信息不重复但略啰嗦）。④ 本片**未做真机复测**（需再触发一次挂起观察「只有卡片」），故 `e2eVerified=false`。"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"notes","i":0,"c":"【问题（真机截图）】预算挂起时通道侧发了两条同义消息：先 `⏸ 今日预算已用完 …` 纯文本，后「今日预算已用完」卡片；且纯文本里 `**` 星号明文露出（QQ `sendText` 不渲染 Markdown）。来源不同：文本里的提示块由内核 `ReActToolLoop.resolveTerminationOutput` 追加（`\\n\\n⏸ …`），卡片由"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"notes","i":1,"c":" `channels/bridge/budgetReliefCard` 发出，两者文案同源 ⇒ 用户看到两遍。\n【做法】① `messageRouterContract` 新增纯函数 `splitSuspensionNotice`（只按**结构标记**拆分：首行 `⏸` 或 `\\n\\n⏸`，不解析文案，守 CS02）、`stripBoldMarkers`、`"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"notes","i":2,"c":"resolveSuspendedOutboundContent`。② `messageRouter` 把「发卡」**提前到**出站之前，用 `sendBudgetReliefCard` 的返回值决定：成功 ⇒ 剥掉提示块、只发模型正文（为空则**跳过**文本投递并留 `[TRACE]` 日志）；失败 ⇒ 文本兜底但去掉 `**`，保住「放行后自动续跑 + 无"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"notes","i":3,"c":"需重发」的完整出路。\n【验证】`tests/channels/budgetInlineRelief.test.ts` 新增 8 例（验收 8）：内核提示块形态拆分 / 正文即提示块 / 正文含 `⏸` 不误切 / 去星号 / 发卡成功且无正文 ⇒ `null`（杜绝重复发送）/ 发卡成功且有正文 ⇒ 只发正文 / 发卡失败 ⇒ 完整出路且无 `**` / 卡"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"notes","i":4,"c":"片文案与内核提示同用行首 `⏸`。该文件 34 pass；全量 `bun test` **6694 pass / 0 fail**（6736 tests / 753 files）；`tsc --noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错误；`lint:consts` PASS。\n【如实边界】见 reopenWhen "}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"notes","i":5,"c":"①-④（尤其真机未复测）。"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"code#0","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"tests#0","i":0,"c":"app/tests/channels/budgetInlineRelief.test.ts"}
+{"id":"CHANNEL-RELIEF-CARD-COPY-DEDUPE","k":"changelog#0","i":0,"c":"fix(channels): 预算挂起收尾不再重复发同一段文本（发卡成功即跳过，只留模型正文），纯文本兜底去掉 Markdown 星号"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"- ✅ **硬编码治理 · 「同名常量」B5-2 第二十五项：`DEFAULT_CONFIG` ×3 按域消歧 —— `lint:consts` 231 → 230 键（−1）**\n  - 判定：3 处默认配置形状各异（同目录三家 STT 提供者）⇒ `CLOUD_STT_DEFAULT_CONFIG`（`model: 'whisper-1'`）· `"}
 {"id":"@changelog-unreleased","k":"block#0","i":1,"c":"LOCAL_STT_DEFAULT_CONFIG`（`model: 'base'`）· `SENSE_VOICE_STT_DEFAULT_CONFIG`（`model: 'SenseVoiceSmall'`）；**内容一字未改**（各含 `{ ...新名, ...config }` 用法同步）。\n  - **口径澄清（重要）**：门禁正则 `^\\s*("}
 {"id":"@changelog-unreleased","k":"block#0","i":2,"c":"export )?const NAME\\s*=` **只认无类型标注**的同名定义 ⇒ 本键恰为这 3 个文件（同目录 `streamSTTProvider.ts` 用带类型写法，因此不计入）。\n  - ⚠️ **门禁盲区（已登记，本片未动）**：带类型写法 `const DEFAULT_CONFIG: T = {…}` 全仓仍有 **16+ 处**（"}

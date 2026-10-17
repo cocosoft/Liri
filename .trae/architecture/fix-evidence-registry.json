@@ -9780,6 +9780,35 @@
       "changelog": [],
       "reopenWhen": "① 终止原因的**单一来源**仍是 `ReActToolLoop.computeFinalMessage` 写进 `metadata.finishReason`（← `resolveTerminationOutput`）；本片只在 **CoreAPI 出口回落读取**，未改落点。若日后把落点改回顶层，本回落变冗余（不…（全文见 archive/evidence-detail.jsonl#COREAPI-FINISH-REASON-BUDGET-SUSPEND）",
       "notes": "【问题（**只在真机可见**）】2026-10-17 09:53 首次真机复测通道侧放行：预算挂起**已成立**（`reActLoop:daily_budget_exhausted` + `budgetSuspend:suspended` + 检查点 `cp_mvbqsf3x1f0fb29a` 已登记），⏸ 文案也正…（全文见 archive/evidence-detail.jsonl#COREAPI-FINISH-REASON-BUDGET-SUSPEND）"
+    },
+    {
+      "id": "CHANNEL-RELIEF-CARD-COPY-DEDUPE",
+      "title": "预算挂起收尾去重：发卡成功不再重复投递 `⏸ …` 文本；纯文本兜底去掉 Markdown `**` 星号",
+      "source": "用户上传 QQ 真机截图（2026-10-17 09:56 复测 `CHANNEL-BUDGET-INLINE-RELIEF`）：同一段「已挂起 + 出路」发了两次（先文本、后卡片），且纯文本里 `**本轮进度已保存**` 的星号明文可见",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/routing/messageRouterContract.ts",
+        "app/src/channels/routing/messageRouter.ts"
+      ],
+      "tests": [
+        "app/tests/channels/budgetInlineRelief.test.ts"
+      ],
+      "changelog": [
+        "fix(channels): 预算挂起收尾不再重复发同一段文本（发卡成功即跳过，只留模型正文），纯文本兜底去掉 Markdown 星号"
+      ],
+      "reopenWhen": "① 分割只认**行首 `⏸`** 结构标记（`SUSPENSION_NOTICE_MARKER`）：内核 `ReActToolLoop.resolveTerminationOutput` 若改掉行首标记或改用其它收尾形态 ⇒ 会静默退回「重复发送」。② 本片只处理 `budget_exhausted` 分支；其它终止…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-CARD-COPY-DEDUPE）",
+      "notes": "【问题（真机截图）】预算挂起时通道侧发了两条同义消息：先 `⏸ 今日预算已用完 …` 纯文本，后「今日预算已用完」卡片；且纯文本里 `**` 星号明文露出（QQ `sendText` 不渲染 Markdown）。来源不同：文本里的提示块由内核 `ReActToolLoop.resolveTerminationOutp…（全文见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-CARD-COPY-DEDUPE）"
     }
   ]
 }

@@ -61,7 +61,7 @@ import {
   runAdaptationEvolution,
   createEvolutionDeps,
 } from './evolution/AdaptationEvolutionService';
-import { TAORLoop, createTAORLoopDeps } from '@modules/query';
+import { TAORLoop } from '@modules/query';
 import type { TAORLoopDeps } from '@modules/query';
 import { VerifierAgent, createVerifierAgent } from '@modules/query';
 import type { VerificationResult } from '@modules/query';
@@ -76,24 +76,16 @@ import {
 } from './PdcaWorkItemBridge';
 import type { PdcaPhase } from '@modules/core';
 import { pdcaCheckpointStatus, findUnprovableCriteria } from '@modules/core';
-import {
-  globalToolManager,
-  getToolRegistry,
-  buildToolDefinitions,
-  getToolCategory,
-} from '../tools/index.js';
+import { getToolRegistry, buildToolDefinitions } from '../tools/index.js';
 import type { ToolUseContext } from '../tools/types/Tool.js';
 
 // 大文件拆分（spec file-size-debt-partition-plan §44）：类型契约与任务消息助手外迁 `./lro/*`；
 // 下述 re-export 保持**公开面不变**（原 `export` 的 4 个类型仍可从本文件取）。
-import { PLANNER_ROLE, EXECUTOR_ROLE } from './lro/contracts.js';
-import { findWorkspaceEscape } from './lro/workspaceGuard.js';
 // U-22/S1（2026-10-17）：计划生成/修复与步骤拓扑外移（行为等价搬迁）
 import {
   groupStepsByDependency,
   repairAcceptanceCriteria,
   repairPlanJson,
-  roleToolNames,
   type PlannerRepairDeps,
 } from './lro/plannerSupport.js';
 // U-22/S1（2026-10-17）：PLAN 阶段外移（行为等价搬迁）
@@ -113,6 +105,11 @@ import {
   type StepReviewDecideDeps,
 } from './lro/stepReviewDecide.js';
 // U-22/S1（2026-10-17）：跨重启恢复外移（行为等价搬迁）
+// U-22/S2b（2026-10-17）：步骤执行主链外移（行为等价搬迁）
+import {
+  executeSingleStep,
+  type StepExecutionDeps,
+} from './lro/stepExecution.js';
 import { resumeFromCheckpoint } from './lro/resumeFromCheckpoint.js';
 import { resolveAuditStore, replanMaxRetries } from './lro/portResolvers.js';
 import {
@@ -172,123 +169,15 @@ const logger = getLogger('tasks:longRunning');
 
 export type { PdcaPhase };
 
-/**
- * 安全策略拦截的**显式标记**判定（2026-10-08）。
- *
- * 各工具的拦截分支（`security_analyzer_deny` / `security_analyzer_ask` /
- * `command_whitelist` / `ast_analysis` / `COMMAND_NOT_ALLOWED`）统一写
- * `metadata.securityIntercepted: true` ⇒ 本函数**只认这一布尔标记**，不做错误文案匹配
- * （CS02：状态判定禁止字符串匹配）。
- */
-export function isSecurityIntercepted(result: unknown): boolean {
-  const meta = (
-    result as
-      | { metadata?: { securityIntercepted?: boolean } }
-      | null
-      | undefined
-  )?.metadata;
-  return meta?.securityIntercepted === true;
-}
-
-/** 每步最多注入多少次"改道"steering（防 runaway；拦截本身已被安全层硬拒，不会执行） */
-export const MAX_SECURITY_STEERS_PER_STEP = 2;
-
-/**
- * 构造"改道"steering 文案（被安全策略拦截后注入，令模型**下一轮**改用专用工具）。
- *
- * 约束（与 `TAORLoop.injectSteering` 的 `_steeringFilter` 对齐）：长度 < 2000，
- * 且不得包含 `system:` / `<|im_start|>`（否则被过滤器整条拒收）。前缀由骨架的
- * `steering` 片段渲染给出 ⇒ **此处不再手写 `[STEERING]`**（避免双轨）。
- */
-export function buildSecuritySteeringMessage(
-  blockedToolNames: readonly string[]
-): string {
-  const names = [...new Set(blockedToolNames)].join('、');
-  return (
-    `上一次工具调用被**安全策略拦截**（${names}）：本仓对 shell 管道（|）、重定向（> >>）、` +
-    '命令连接（&& ; ）与 .NET 直调（如 [System.IO.File]::WriteAllText）**一律拒绝**。\n' +
-    '请**立即改道**，不要重复同类命令形式：文件读写/编辑用 `file_write` / `file_read` / `file_edit`，' +
-    '路径查找用 `glob`，内容检索用 `grep`。\n' +
-    '若本步要求产出文件：直接用 `file_write` 写入，随后用 `file_read` 读回内容作为验收证据。'
-  );
-}
-
-/**
- * 步骤执行结果摘要 —— REVIEW 的唯一"实际输出"输入（`buildReviewPrompt` 取 `step.result`）。
- * **2026-10-08（真机实测暴露）**：原先 `markStepCompleted` 只写
- * `[TAORLoop] turns=… tokens=… elapsed=…ms` —— 只有**循环统计**、零执行证据 ⇒ Reviewer
- * 只能判"无任何证据"⇒ 每步 failed ⇒ `PDCA_GOAL_NOT_CONVERGED`
- * （实测：工具已真实执行、目标文件确实生成，任务仍报未收敛）。
- * 现把**助手文本 + 工具执行结果**一并写入。
- *
- * @param messages 本轮**最终**消息快照（TAORLoop 每轮传全量 `this.messages`）
- */
-function buildTaorStepResult(
-  messages: ReadonlyArray<{
-    role?: string;
-    name?: string;
-    content?: unknown;
-  }>,
-  stats: { turns: number; tokens: number; elapsedMs: number }
-): string {
-  const MAX_MSG_CHARS = 800;
-  const LRO_MAX_MESSAGES = 12;
-  const lines: string[] = [
-    `[TAORLoop] turns=${stats.turns} tokens=${stats.tokens} elapsed=${stats.elapsedMs}ms`,
-  ];
-  for (const m of messages.slice(-LRO_MAX_MESSAGES)) {
-    const text =
-      typeof m.content === 'string'
-        ? m.content
-        : m.content === undefined || m.content === null
-          ? ''
-          : JSON.stringify(m.content);
-    if (!text) continue;
-    const role = m.name
-      ? `${m.role ?? 'assistant'}:${m.name}`
-      : (m.role ?? 'assistant');
-    lines.push(`[${role}] ${text.slice(0, MAX_MSG_CHARS)}`);
-  }
-  return lines.join('\n');
-}
-
-/** 一步内某次工具调用对「产物」的读写意图（机械保障：写后读回用） */
-export interface ArtifactAccess {
-  kind: 'write' | 'read';
-  path: string;
-}
-
-/**
- * 从工具调用推断其对产物的读写意图（纯函数，可单测）。
- *
- * 分类**不手写工具名**，直接复用 `TOOL_CATEGORIES` 的既有口径：
- * `'file'` = 写/改类（`file_write` / `file_edit` / `file_convert` / `write_project_file`），
- * `'file_read'` = 只读类（`file_read` / `glob` / `read_project_file`）。新增工具只要类别登记正确即自动纳入。
- *
- * 路径取 `file_path`（本仓写/读类工具的统一参数名），兼容常见别名 `path`。
- */
-export function classifyArtifactAccess(
-  toolName: string,
-  args: Record<string, unknown> | undefined
-): ArtifactAccess | undefined {
-  const category = getToolCategory(toolName);
-  const kind: ArtifactAccess['kind'] | undefined =
-    category === 'file'
-      ? 'write'
-      : category === 'file_read'
-        ? 'read'
-        : undefined;
-  if (!kind) return undefined;
-  const raw =
-    typeof args?.file_path === 'string'
-      ? args.file_path
-      : typeof args?.path === 'string'
-        ? args.path
-        : undefined;
-  const path = raw?.trim();
-  if (!path) return undefined;
-  return { kind, path };
-} // U-22/S1（2026-10-17）：随步骤产物簇外移，保持公开面（测试导入路径不变）
+// U-22/S2b（2026-10-17）：步骤执行纯函数助手外移 `./lro/stepHelpers`；
+// 以下 re-export 保持**公开面不变**（既有导入路径/测试无需改动）。
+export {
+  isSecurityIntercepted,
+  MAX_SECURITY_STEERS_PER_STEP,
+  buildSecuritySteeringMessage,
+  classifyArtifactAccess,
+} from './lro/stepHelpers.js';
+export type { ArtifactAccess } from './lro/stepHelpers.js';
 export { collectPendingReadBacks } from './lro/stepArtifacts.js';
 
 // （审计存储/记忆回写两个惰性端口解析器 + `AuditLogEntry`/`AuditStoreLike`/
@@ -899,565 +788,40 @@ export class LongRunningTaskOrchestrator {
     });
   }
 
+  /** U-22/S2b（2026-10-17）：实现外移 `./lro/stepExecution`；此处仅注入宿主状态。 */
   private async executeSingleStep(step: PlanStep, plan: Plan): Promise<void> {
-    taskOrchestrator.markStepRunning(step.id);
-    await this._persistCheckpoint(); // P0(M2)：步骤状态变更即落盘
-    this.stepDurations.set(step.id, { startMs: Date.now() });
-    this._recordLifecycle(
-      'progress',
-      TaskStatus.RUNNING,
-      `Executing step: ${step.description}`
-    );
+    return executeSingleStep(step, plan, this.stepExecutionDeps());
+  }
 
-    logger.info('[orchestrator] executeSingleStep 开始', {
+  /** U-22/S2b：步骤执行依赖（每次调用重建；可变状态经共享引用/回调回写宿主） */
+  private stepExecutionDeps(): StepExecutionDeps {
+    return {
       taskId: this.taskId,
-      planId: plan.id,
-      stepId: step.id,
-      stepDesc: step.description.slice(0, 80),
-      hasTAORLoop: !!this.taorLoop,
-      hasAcceptanceCriteria: !!step.acceptanceCriteria,
-      hasReviewResult: !!step.reviewResult,
-      retryCount: step.retryCount,
-      maxRetries: step.maxRetries,
-    });
-
-    if (step.retryCount > 0) {
-      logger.info('[orchestrator] 执行重试步骤', {
-        taskId: this.taskId,
-        stepId: step.id,
-        retryCount: step.retryCount,
-        maxRetries: step.maxRetries,
-        hasReviewResult: !!step.reviewResult,
-        reviewIssues: step.reviewResult?.issues
-          ?.slice(0, 3)
-          .map((i) => i.description),
-      });
-    }
-
-    const execPrompt = [
-      `执行以下步骤: ${step.description}`,
-      step.acceptanceCriteria ? `验收标准: ${step.acceptanceCriteria}` : '',
-      step.reviewResult
-        ? `注意: 上次审查发现以下问题，本次请修正：\n${step.reviewResult.issues.map((i) => `- ${i.description}`).join('\n')}`
-        : '',
-      // U-08 / LRO-08 / LRO-16（2026-10-17）：步骤级硬约束。
-      [
-        '【硬约束】',
-        '- 不得向用户提问、请求确认或等待用户答复；信息不足时基于现有信息做可回退的最小决策，并在结果中写明假设。',
-        '- 不得以 shell 管道（|）、逻辑与（&&）、逻辑或（||）作为判定动作；需要多步时逐次调用工具并说明结果。',
-        '- 交付声明必须区分“已实测（附命令/输出证据）”与“未实测”；未实测时禁止使用“完成/已交付/可直接使用”等措辞，应明确标注未验证项。',
-      ].join('\n'),
-    ]
-      .filter(Boolean)
-      .join('\n\n');
-
-    // Phase 2: 委托 TAORLoop 编排（统一编排已常驻；开关 ENABLE_LOOP_V8_PHASE2 已退役——L5 清理 2026-09-06）
-    // D2（M3，2026-08-13）：优先每步独立实例（工厂注入，并行安全）；否则共享实例（串行）
-    const loop = this.taorLoopFactory
-      ? this.taorLoopFactory(this.taskId, {
-          // S1/PR9 私有化：LRTO 步骤始终要全新私有实例（不进会话缓存）
-          privateInstance: true,
-          // S2/B（PR9）：扩容续跑乘子透传工厂（翻倍轮次预算）
-          maxTurnsMultiplier:
-            this._stepTurnsMultiplier > 1
-              ? this._stepTurnsMultiplier
-              : undefined,
-        })
-      : this.taorLoop;
-    // S4（PR9）：记录当前步骤 loop，任务中止时级联 abort（私有实例可安全中止）
-    this._currentLoop = loop;
-    if (loop) {
-      logger.info('[orchestrator] 进入 TAORLoop 分支（真实工具执行）', {
-        taskId: this.taskId,
-        stepId: step.id,
-        perStepInstance: !!this.taorLoopFactory,
-        toolNames: roleToolNames(EXECUTOR_ROLE),
-      });
-      let taorStart = 0;
-      try {
-        const isolation = this.isolation;
-        const executor = this.executor;
-        const taskId = this.taskId;
-        (loop as any).config.sessionId = this.taskId;
-
-        // 持久化缓冲区（PDCA 模式下保持消息上下文）
-        const persistedMessages: any[] = [];
-        // 本轮**最终**消息快照（TAORLoop 每轮传全量 `this.messages`，故最后一次即完整对话）
-        let lastMessagesSnapshot: any[] = [];
-        // 2026-10-08（机械保障）：本步的产物读写台账 —— 用于"写后读回"补做
-        const writtenPaths = new Set<string>();
-        const readPaths = new Set<string>();
-        // 2026-10-08（steering）：本步已注入的"改道"次数（上限见 MAX_SECURITY_STEERS_PER_STEP）
-        let securitySteerCount = 0;
-
-        const deps = createTAORLoopDeps({
-          callModel: async function* (msgs: any[], signal: AbortSignal) {
-            // 构建完整对话上下文（修复：之前只取最后一条消息）
-            const conversationContext = msgs
-              .map((m) =>
-                typeof m.content === 'string'
-                  ? `[${m.role}] ${m.content}`
-                  : `[${m.role}] ${JSON.stringify(m.content)}`
-              )
-              .join('\n\n');
-            const callStart = Date.now();
-            const result = normalizeExecutorResult(
-              await executor({
-                systemPrompt: EXECUTOR_ROLE.systemPrompt,
-                userPrompt: execPrompt + '\n\n' + conversationContext,
-                tools: roleToolNames(EXECUTOR_ROLE),
-                taskType: EXECUTOR_ROLE.taskType,
-                isolation,
-              })
-            );
-            const callElapsed = Date.now() - callStart;
-            logger.info('[orchestrator] callModel 完成', {
-              taskId,
-              stepId: step.id,
-              elapsedMs: callElapsed,
-              resultLength: result.content.length,
-              toolCallCount: result.toolCalls.length,
-              msgCount: msgs.length,
-            });
-            if (result.content) {
-              yield { type: 'text', content: result.content };
-            }
-            // 工具调用须以**单数** `toolCall` 逐块 yield —— `TAORLoop._collectCallModel`
-            // 正是按 `chunk.toolCall` 聚合成 `tool_calls`（复数）。此前只 yield 文本
-            // ⇒ `executeTools` 结构性不可达（事故指纹：callModel 完成 84 / executeTools 开始 0）。
-            for (const tc of result.toolCalls) {
-              yield { type: 'tool_call', toolCall: tc };
-            }
-            yield { type: 'done' };
-          },
-          executeTools: async (
-            toolCalls: Array<{
-              id: string;
-              name: string;
-              arguments: Record<string, unknown>;
-            }>,
-            _signal: AbortSignal
-          ) => {
-            // RC-C 修复：真实工具执行（替代 LLM 模拟）
-            // 复用对话侧 ToolExecutor，豁免审批（任务启动即用户授权）
-            const toolContext = this._createToolContext();
-            const executeToolsStart = Date.now();
-            const results: Array<{
-              toolCallId?: string;
-              toolName?: string;
-              result?: unknown;
-              error?: string;
-            }> = [];
-            /** 本轮被安全策略拦截的工具名（用于事后注入改道 steering） */
-            const blockedBySecurity: string[] = [];
-            logger.info('[orchestrator] executeTools 开始执行', {
-              taskId: this.taskId,
-              stepId: step.id,
-              toolCount: toolCalls.length,
-              toolNames: toolCalls.map((tc) => tc.name),
-            });
-            for (const tc of toolCalls) {
-              const toolStart = Date.now();
-              try {
-                // 模型回传的是 **wire 安全名**（`calendar_add`），注册表登记的是真名
-                // （`calendar:add`）；`getTool()` 内置别名解析（注册期为非 wire 安全名
-                // 自动登记 wire 别名），故必须经注册表而非直接比对 `tool.name`。
-                const tool = getToolRegistry().getTool(tc.name);
-                if (!tool) {
-                  logger.warn('[orchestrator] 工具未注册', {
-                    taskId: this.taskId,
-                    stepId: step.id,
-                    toolName: tc.name,
-                    toolCallId: tc.id,
-                    registeredTools: globalToolManager
-                      .getAllTools()
-                      .map((t) => t.name),
-                  });
-                  results.push({
-                    toolCallId: tc.id,
-                    toolName: tc.name,
-                    error: `工具未注册: ${tc.name}`,
-                  });
-                  continue;
-                }
-                // U-03b / U-09（2026-10-17）：工具路径入参必须落在 LRO 隔离工作区内；
-                // 越界（绝对路径或 `../`）直接拒绝，避免读系统目录/写项目根。
-                const escape = findWorkspaceEscape(
-                  this.isolation.workspace,
-                  tc.arguments
-                );
-                if (escape) {
-                  logger.warn('[orchestrator] 工具路径越界，已拒绝执行', {
-                    taskId: this.taskId,
-                    stepId: step.id,
-                    toolName: tc.name,
-                    argKey: escape.key,
-                    argValue: escape.value,
-                    resolved: escape.resolved,
-                    workspace: this.isolation.workspace,
-                  });
-                  results.push({
-                    toolCallId: tc.id,
-                    toolName: tc.name,
-                    error:
-                      `路径越界：${escape.key}=${escape.value} 不在任务工作区内；` +
-                      '请改用工作区内相对路径。',
-                  });
-                  continue;
-                }
-                const toolResult = await tool.execute(
-                  tc.arguments,
-                  toolContext
-                );
-                // 2026-10-08（steering）：被安全策略拦截的工具名先记账，本轮结束后统一注入改道指令
-                if (isSecurityIntercepted(toolResult)) {
-                  blockedBySecurity.push(tc.name);
-                }
-                // 2026-10-08（机械保障 · 写后读回）：登记本步的产物读写台账。
-                // 仅在**调用未报错**时登记（失败调用不构成"已写入/已读回"）。
-                {
-                  const access = classifyArtifactAccess(tc.name, tc.arguments);
-                  const tr = toolResult as
-                    | { success?: boolean; error?: string }
-                    | null
-                    | undefined;
-                  const ok =
-                    !!tr && tr.error === undefined && tr.success !== false;
-                  if (access && ok) {
-                    (access.kind === 'write' ? writtenPaths : readPaths).add(
-                      access.path
-                    );
-                  }
-                }
-                const elapsed = Date.now() - toolStart;
-                const resultPreview: string =
-                  typeof toolResult === 'string'
-                    ? (toolResult as string).slice(0, 100)
-                    : typeof toolResult === 'object' && toolResult !== null
-                      ? JSON.stringify(toolResult).slice(0, 100)
-                      : String(toolResult).slice(0, 100);
-                logger.info('[orchestrator] 工具执行成功', {
-                  taskId: this.taskId,
-                  stepId: step.id,
-                  toolName: tc.name,
-                  toolCallId: tc.id,
-                  elapsedMs: elapsed,
-                  resultType: typeof toolResult,
-                  resultPreview,
-                });
-                results.push({
-                  toolCallId: tc.id,
-                  toolName: tc.name,
-                  result: toolResult,
-                });
-              } catch (e) {
-                const elapsed = Date.now() - toolStart;
-                await handleError(e, {
-                  module: 'tasks:longRunning',
-                  action: 'executeTools',
-                  context: {
-                    toolName: tc.name,
-                    stepId: step.id,
-                    toolCallId: tc.id,
-                    elapsedMs: elapsed,
-                  },
-                });
-                results.push({
-                  toolCallId: tc.id,
-                  toolName: tc.name,
-                  error: String(e),
-                });
-              }
-            }
-            logger.info('[orchestrator] executeTools 执行完毕', {
-              taskId: this.taskId,
-              stepId: step.id,
-              total: results.length,
-              success: results.filter((r) => !r.error).length,
-              failed: results.filter((r) => r.error).length,
-              failedNames: results
-                .filter((r) => r.error)
-                .map((r) => r.toolName),
-              totalElapsedMs: Date.now() - executeToolsStart,
-            });
-
-            // 2026-10-08（steering · 机械改道）：有调用被安全策略拦截 ⇒ **不中断**当前步，
-            // 只向循环队列注入一条改道指令，令模型**下一轮**改用专用工具（拦截本身已硬拒、
-            // 没有任何副作用被执行）。上限 `MAX_SECURITY_STEERS_PER_STEP` 防 runaway。
-            if (
-              blockedBySecurity.length > 0 &&
-              securitySteerCount < MAX_SECURITY_STEERS_PER_STEP
-            ) {
-              securitySteerCount++;
-              loop.injectSteering(
-                buildSecuritySteeringMessage(blockedBySecurity),
-                'orchestrator'
-              );
-              logger.warn(
-                '[orchestrator] 工具调用被安全策略拦截 ⇒ 注入 steering 令其改道',
-                {
-                  taskId: this.taskId,
-                  stepId: step.id,
-                  blocked: [...new Set(blockedBySecurity)],
-                  steerCount: securitySteerCount,
-                  maxSteers: MAX_SECURITY_STEERS_PER_STEP,
-                }
-              );
-            }
-            return results;
-          },
-          persistMessages: async (msgs: any[], _signal?: AbortSignal) => {
-            // 缓存消息到内存，PDCA 完成后统一持久化
-            persistedMessages.push(...msgs);
-            lastMessagesSnapshot = msgs;
-          },
-        });
-
-        const messages: any[] = [{ role: 'user', content: execPrompt }];
-        taorStart = Date.now();
-        const result = await loop.runCollect({
-          messages: messages as never,
-          deps,
-        } as never);
-        const taorElapsed = Date.now() - taorStart;
-        // S2（2026-08-13）：累计 TAORLoop token，阶段边界结算落库 goal_metrics
-        // 1-1d（2026-09-03）：每步独立记账（跨 retry 累计）+ 聚合单值双写。
-        // 并发安全依据：本结算点为无 await 的同步语句，事件循环下 += 不丢更新；
-        // stepDurations[].tokens 提供 per-step 明细，供审计/评估集聚合校验。
-        this._totalTokensTracked += result.totalTokens;
-        const stepTok = this.stepDurations.get(step.id);
-        if (stepTok) {
-          stepTok.tokens = (stepTok.tokens ?? 0) + result.totalTokens;
-        }
-
-        // 2026-10-08（机械保障 · 写后读回）：提示词层引导**不可靠** —— 真机实测执行器常漏做
-        // 读回，审查（正确地）判"验收标准未被实际验证"⇒ 步骤 failed。此处由编排器**机械补做**：
-        // 对本步成功写入、但本步内未被读回的产物，各补一次**只读**的读回并原样并入步骤证据
-        // （明确标注"编排器补做"，不冒充模型行为）。
-        const readBackEvidence = await this._readBackWrittenArtifacts(
-          writtenPaths,
-          readPaths
-        );
-
-        taskOrchestrator.markStepCompleted(
-          step.id,
-          // 执行证据（助手文本 + 工具结果）—— Reviewer 的唯一"实际输出"输入，
-          // 只写循环统计会让审查必然判"无证据"（见 buildTaorStepResult 注释）
-          buildTaorStepResult(lastMessagesSnapshot, {
-            turns: result.turnCount,
-            tokens: result.totalTokens,
-            elapsedMs: taorElapsed,
-          }) + readBackEvidence,
-          // E1①（2026-09-05，方案甲）：终止原因透传落 PlanStep
-          { terminationReason: result.terminationReason }
-        );
-        await this._persistCheckpoint(); // P0(M2)
-        const log = (loop as any).getLastRunLog?.();
-        const dur = this.stepDurations.get(step.id);
-        if (dur) dur.endMs = Date.now();
-        const stepElapsed = dur && dur.endMs ? dur.endMs - dur.startMs : -1;
-        logger.info('[orchestrator] TAORLoop 步骤完成', {
-          taskId: this.taskId,
-          stepId: step.id,
-          turns: result.turnCount,
-          totalTokens: result.totalTokens,
-          taorElapsedMs: taorElapsed,
-          stepElapsedMs: stepElapsed,
-          persistedMsgCount: persistedMessages.length,
-          taorResult: log,
-        });
-        // OBS（M1b）：经典链步骤完成 → pdca:stage:phase（独立通道，非会话消息）
-        void emitPdcaLiveEvent(
-          'pdca:stage:phase',
-          {
-            taskId: this.taskId,
-            planId: this.planId ?? undefined,
-            sessionId: this._sessionId ?? '',
-          },
-          {
-            stage: 'execute',
-            status: 'completed',
-            stepId: step.id,
-            completedSteps: this.stepDurations.size,
-            totalSteps: plan.steps.length,
-            tokenCost: result.totalTokens,
-            durationMs: taorElapsed,
-            currentStep: step.description.slice(0, 80),
-          }
-        );
-        // §5 P1: 消费死缓冲 — step 完成后批量回写（此前 persistedMessages 只 push 从未消费）
-        if (persistedMessages.length > 0) {
-          this._emitTaskMessage(
-            persistedMessages.slice(-10).map((m) => ({
-              // P2（08-09）：保留原始 role（不再强制伪装为 assistant）
-              role: (m.role === 'user' || m.role === 'tool'
-                ? m.role
-                : 'assistant') as TaskMessage['role'],
-              content:
-                typeof m.content === 'string'
-                  ? m.content.slice(0, 500)
-                  : JSON.stringify(m.content).slice(0, 500),
-              toolCallId: m.toolCallId as string | undefined,
-            }))
-          );
-        }
-        return;
-      } catch (e) {
-        // PR3（#3）：中止引发 → 按 cancelled 收尾并终止该步骤（不再降级重试/告警）
-        if (this.isolation.abortController.signal.aborted) {
-          logger.info('[orchestrator] TAOR 步骤因中止取消', {
-            taskId: this.taskId,
-            stepId: step.id,
-          });
-          taskOrchestrator.markStepCancelled(step.id, '用户中止');
-          await this._persistCheckpoint();
-          return;
-        }
-        const taorElapsedOnFail = Date.now() - taorStart;
-        await handleError(e, {
-          module: 'tasks:longRunning',
-          action: 'taorLoop_delegation',
-          context: { stepId: step.id },
-        });
-        logger.warn('[orchestrator] TAORLoop 执行失败，降级到默认 executor', {
-          taskId: this.taskId,
-          stepId: step.id,
-          stepDesc: step.description.slice(0, 60),
-          elapsedMs: taorElapsedOnFail,
-          error: String(e),
-          errorType: e instanceof Error ? e.constructor.name : typeof e,
-        });
-      }
-    }
-
-    // 默认路径：直接调用 executor
-    logger.info('[orchestrator] 进入默认 executor 路径（纯 LLM 文本执行）', {
-      taskId: this.taskId,
-      stepId: step.id,
-      hasTAORLoop: !!this.taorLoop,
-    });
-    try {
-      const executorStart = Date.now();
-      const executed = normalizeExecutorResult(
-        await this.executor({
-          systemPrompt: EXECUTOR_ROLE.systemPrompt,
-          userPrompt: execPrompt,
-          tools: roleToolNames(EXECUTOR_ROLE),
-          taskType: EXECUTOR_ROLE.taskType,
-          isolation: this.isolation,
-        })
-      );
-      // 本路径**无工具执行能力**（无 TAORLoop）：模型若仍请求了工具，如实告警而非静默丢弃
-      // （2026-10-08：注册 `setStepLoopFactory` 后生产不再走此路径；仅启动早期/测试可达）
-      if (executed.toolCalls.length > 0) {
-        logger.warn(
-          '[orchestrator] 无 TAORLoop ⇒ 步骤工具调用无法执行（已丢弃）',
-          {
-            taskId: this.taskId,
-            stepId: step.id,
-            toolNames: executed.toolCalls.map((tc) => tc.name),
-            hint: '未注册步骤 TAORLoop 工厂（setStepLoopFactory）',
-          }
-        );
-      }
-      const result = executed.content;
-      const executorElapsed = Date.now() - executorStart;
-
-      taskOrchestrator.markStepCompleted(step.id, result);
-      await this._persistCheckpoint(); // P0(M2)
-      const dur = this.stepDurations.get(step.id);
-      if (dur) dur.endMs = Date.now();
-      const stepElapsed = dur && dur.endMs ? dur.endMs - dur.startMs : -1;
-
-      logger.info('[orchestrator] 默认 executor 步骤完成', {
-        taskId: this.taskId,
-        stepId: step.id,
-        executorElapsedMs: executorElapsed,
-        stepElapsedMs: stepElapsed,
-        resultLength: result.length,
-      });
-
-      // §5 P1: 默认路径从零建立消息记录（此前直接 executor 路径无任何消息回写）
-      this._emitTaskMessage([
-        {
-          role: 'assistant',
-          content: `[任务步骤完成] ${step.description}\n${(result || '').slice(0, 500)}`,
-        },
-      ]);
-
-      this._recordLifecycle(
-        'progress',
-        TaskStatus.RUNNING,
-        `Step completed: ${step.description}`
-      );
-    } catch (e) {
-      // PR3（#3）：中止引发 → 按 cancelled 收尾，不标 failed、不告警
-      if (this.isolation.abortController.signal.aborted) {
-        logger.info('[orchestrator] executor 步骤因中止取消', {
-          taskId: this.taskId,
-          stepId: step.id,
-        });
-        taskOrchestrator.markStepCancelled(step.id, '用户中止');
-        await this._persistCheckpoint();
-        return;
-      }
-      const errMsg = e instanceof Error ? e.message : String(e);
-      const maxRetries = step.maxRetries ?? 3;
-      if (step.retryCount < maxRetries) {
-        // PR5（#5，2026-09-05）：执行级有界重试——瞬时工具/网络异常不直接终态 failed。
-        // 复用 decide-retry 同一 retryCount 语义；重试在下一轮 executeAllSteps 中再次执行。
-        step.status = 'pending';
-        step.retryCount += 1;
-        step.error = errMsg;
-        this._recordLifecycle(
-          'progress',
-          TaskStatus.RUNNING,
-          `执行异常，重试 #${step.retryCount}/${maxRetries}: ${step.description}`
-        );
-        logger.info('[orchestrator] 步骤执行异常，进入有界重试', {
-          taskId: this.taskId,
-          stepId: step.id,
-          stepDesc: step.description.slice(0, 60),
-          retryCount: step.retryCount,
-          maxRetries,
-          error: errMsg.slice(0, 200),
-        });
-        await this._persistCheckpoint();
-        return;
-      }
-      // 超限 → 升级 escalate（缺陷落 _lastEscalations → replan 通道；与 #5/#6 验收口径一致）
-      step.status = 'failed';
-      step.decision = 'escalate';
-      step.error = `Exceeded max retries (${maxRetries}): ${errMsg}`;
-      await this._recordEscalation(step);
-      await handleError(
-        new AppError(
-          step.error,
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          'PDCA_STEP_EXECUTION_EXHAUSTED',
-          { taskId: this.taskId, stepId: step.id, maxRetries }
-        ),
-        { module: 'tasks:longRunning', action: 'executor_exhausted' }
-      );
-      taskOrchestrator.markStepFailed(step.id, step.error);
-      await this._persistCheckpoint(); // P0(M2)
-      // §5 P1: 失败也回写执行摘要
-      this._emitTaskMessage([
-        {
-          role: 'assistant',
-          content: `[任务步骤失败] ${step.description} — ${step.error}`,
-        },
-      ]);
-      const dur = this.stepDurations.get(step.id);
-      if (dur) dur.endMs = Date.now();
-
-      this._recordLifecycle(
-        'progress',
-        TaskStatus.RUNNING,
-        `Step failed (escalated): ${step.description} — ${step.error}`
-      );
-    }
+      isolation: this.isolation,
+      executor: this.executor,
+      createToolContext: () => this._createToolContext(),
+      getSharedLoop: () => this.taorLoop,
+      hasStepLoopFactory: !!this.taorLoopFactory,
+      createStepLoop: (taskId, opts) =>
+        this.taorLoopFactory ? this.taorLoopFactory(taskId, opts) : undefined,
+      setCurrentLoop: (loop) => {
+        this._currentLoop = loop;
+      },
+      stepTurnsMultiplier: this._stepTurnsMultiplier,
+      stepDurations: this.stepDurations,
+      addTotalTokens: (tokens) => {
+        this._totalTokensTracked += tokens;
+      },
+      readBackWrittenArtifacts: (written, alreadyRead) =>
+        this._readBackWrittenArtifacts(written, alreadyRead),
+      recordEscalation: (s) => this._recordEscalation(s),
+      emitTaskMessage: (msgs) => this._emitTaskMessage(msgs),
+      recordLifecycle: (phase, status, detail) =>
+        this._recordLifecycle(phase, status, detail),
+      persistCheckpoint: () => this._persistCheckpoint(),
+      getPlanId: () => this.planId,
+      getSessionId: () => this._sessionId,
+    };
   } /** Phase 3: REVIEW（U-22/S3 外移；实现在 `./lro/stepReviewDecide`）。 */
   async reviewStep(stepId: string): Promise<PlanReview> {
     return reviewStep(stepId, this.stepReviewDeps());

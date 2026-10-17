@@ -103,7 +103,7 @@ describe('executeSingleStep 收尾分支（U-22/S2b 外移守卫）', () => {
     expect(step.error).toContain('exhausted-error');
   });
 
-  it('中止引发 ⇒ markStepCancelled「用户中止」，不重试不升级', async () => {
+  it('中止引发 ⇒ cancelled「用户中止」，不重试不升级', async () => {
     const holder: { o?: OrchestratorUnderTest } = {};
     const o = makeOrchestrator(async () => {
       holder.o?.isolation.abort('test-abort');
@@ -112,21 +112,12 @@ describe('executeSingleStep 收尾分支（U-22/S2b 外移守卫）', () => {
     holder.o = o;
     const { plan, step } = prepareStep(o, 'S2b 用户中止', 3);
 
-    // 断言收尾调用：`taskOrchestrator` 的步骤索引只覆盖**磁盘重载**的计划
-    // （新建计划不经 buildStepIndex），故此处用 spy 观测而非读回 status。
-    const calls: Array<{ stepId: string; reason?: string }> = [];
-    const original = taskOrchestrator.markStepCancelled.bind(taskOrchestrator);
-    taskOrchestrator.markStepCancelled = (stepId: string, reason?: string) => {
-      calls.push({ stepId, reason });
-      return original(stepId, reason);
-    };
-    try {
-      await o.executeSingleStep(step, plan);
-    } finally {
-      taskOrchestrator.markStepCancelled = original;
-    }
+    await o.executeSingleStep(step, plan);
 
-    expect(calls).toEqual([{ stepId: step.id, reason: '用户中止' }]);
+    // 2026-10-17：`createPlan` 现在会建 stepId→Plan 索引（此前 no-op），
+    // 故可直接读回步骤终态，无需 spy。
+    expect(step.status).toBe('cancelled');
+    expect(step.error).toBe('用户中止');
     // 不重试、不升级：retryCount 未递增，decision 未被置 escalate
     expect(step.retryCount).toBe(0);
     expect(step.decision).toBeUndefined();

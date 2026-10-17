@@ -312,8 +312,13 @@ export class LongRunningTaskOrchestrator {
   /** S2/B（2026-09-05，PR9）：步骤轮次预算乘子（resume 扩容续跑时=2）与累计次数 */
   private _stepTurnsMultiplier: number = 1;
   private _turnsExtensions: number = 0;
-  /** S4（PR9）：当前步骤私有 loop（中止级联 abort；每次步骤执行后更新） */
-  private _currentLoop?: TAORLoop;
+  /**
+   * S4（PR9）/ 2026-10-17 修复：**在飞步骤 loop 集合**（中止级联 abort）。
+   * 原实现是单槽 `_currentLoop`，并行批次（Promise.allSettled）只保留最后一个 ⇒
+   * 中止/dispose 时其余在飞 loop 继续真实模型调用与工具执行（持续烧钱）。
+   * 每个 loop 由步骤执行结束时的 release 回调移除（完成后不再被 abort）。
+   */
+  private readonly _activeStepLoops = new Set<TAORLoop>();
   /**
    * Phase 4: VerifierAgent（双指标验证：CheckPassRate + Confidence）
    */
@@ -522,6 +527,8 @@ export class LongRunningTaskOrchestrator {
         lastEscalations: this._lastEscalations,
         // D4（M4）：TAORLoop token 累计（阶段边界结算 → StageOrchestrator 成本护栏）
         totalTokens: this._totalTokensTracked,
+        // 2026-10-17：任务开始时间（跨重启恢复 duration 口径；0 ⇒ 不写）
+        startedAt: this._startedAt || undefined,
         // S2/B（PR9）：max_turns 扩容续跑次数（跨重启累计，上限门禁）
         turnsExtensions: this._turnsExtensions,
       });
@@ -654,6 +661,28 @@ export class LongRunningTaskOrchestrator {
     for (const batch of batches) {
       if (this.isolation.abortController.signal.aborted) break;
 
+      // 依赖失败阻断（与 PlanDrivenLoop 的 computeTopoSkips 同语义）：
+      // 前置步骤 failed/cancelled ⇒ 后继不得基于失败输入"成功"，直接终态为 cancelled。
+      const blocked = batch.filter((s) =>
+        (s.dependsOn ?? []).some((depId) => {
+          const dep = plan.steps.find((p) => p.id === depId);
+          return (
+            !!dep && (dep.status === 'failed' || dep.status === 'cancelled')
+          );
+        })
+      );
+      for (const s of blocked) {
+        s.status = 'cancelled';
+        s.error = `[DEPENDENCY_BLOCKED] 前置步骤未成功（${(s.dependsOn ?? []).join(', ')}）`;
+        logger.warn('[orchestrator] 前置步骤未成功，跳过本步', {
+          taskId: this.taskId,
+          stepId: s.id,
+          stepDesc: s.description.slice(0, 60),
+          dependsOn: s.dependsOn,
+        });
+      }
+      if (blocked.length > 0) await this._persistCheckpoint();
+
       const runnable = batch.filter(
         (s) =>
           s.status !== 'completed' &&
@@ -681,6 +710,13 @@ export class LongRunningTaskOrchestrator {
       }
     }
 
+    // 中止：**不得**推进到 review（否则 phase=review 会覆盖 abort 终态，
+    // 使 getStatus()/checkpoint 显示"仍在执行"）
+    if (this.isolation.abortController.signal.aborted) {
+      await this._persistCheckpoint();
+      return plan;
+    }
+
     // 检查全部完成
     await this.setPhase('review');
     // OBS/C3（2026-09-06）：链条 C 阶段广播——此前 review/decide 从不发 pdca:stage 事件，
@@ -696,7 +732,9 @@ export class LongRunningTaskOrchestrator {
         stage: 'review',
         status: 'running',
         message: '步骤审查与决策',
-        completedSteps: this.stepDurations.size,
+        // 进度口径：真正终态为 completed 的步骤数（此前误用 stepDurations.size —— 步骤**开始**即计入）
+        completedSteps: plan.steps.filter((s) => s.status === 'completed')
+          .length,
         totalSteps: plan.steps.length,
       }
     );
@@ -804,8 +842,11 @@ export class LongRunningTaskOrchestrator {
       hasStepLoopFactory: !!this.taorLoopFactory,
       createStepLoop: (taskId, opts) =>
         this.taorLoopFactory ? this.taorLoopFactory(taskId, opts) : undefined,
-      setCurrentLoop: (loop) => {
-        this._currentLoop = loop;
+      registerStepLoop: (loop) => {
+        this._activeStepLoops.add(loop);
+        return () => {
+          this._activeStepLoops.delete(loop);
+        };
       },
       stepTurnsMultiplier: this._stepTurnsMultiplier,
       stepDurations: this.stepDurations,
@@ -1086,6 +1127,9 @@ export class LongRunningTaskOrchestrator {
     let lastFingerprint = '';
     let stallRounds = 0;
     const stallThreshold = this.resolveStallRounds();
+    // 终态裁决（2026-10-17）：记录"为何以失败退出"，供循环外区分
+    // completed / failed / escalate，避免失败出口被无条件写成 completed。
+    let failureReason: string | null = null;
 
     while (!allDone && iterations < maxIterations) {
       iterations++;
@@ -1116,6 +1160,7 @@ export class LongRunningTaskOrchestrator {
           ),
           { module: 'tasks:longRunning', action: 'planAdmission' }
         );
+        failureReason = 'PLAN_ADMISSION_REJECTED';
         break;
       }
 
@@ -1195,6 +1240,7 @@ export class LongRunningTaskOrchestrator {
             ),
             { module: 'tasks:longRunning', action: 'stallStop' }
           );
+          failureReason = 'PDCA_NO_PROGRESS';
           break;
         }
       } else {
@@ -1254,6 +1300,7 @@ export class LongRunningTaskOrchestrator {
             { module: 'tasks:longRunning', action: 'runFullPdca' }
           );
           allDone = false;
+          failureReason = 'PDCA_GOAL_NOT_CONVERGED';
           break;
         }
       }
@@ -1288,58 +1335,73 @@ export class LongRunningTaskOrchestrator {
             ),
             { module: 'tasks:longRunning', action: 'runFullPdca' }
           );
+          failureReason = 'PDCA_MAX_ITERATIONS';
           break;
         }
       }
     }
 
-    // 标记终态
-    if (this.isolation.abortController.signal.aborted) {
-      // PR3（#3）：中止收尾——plan 置 aborted（不标 completed/failed），
-      // 避免 abort 语义被覆盖；持久化由下方早退前的 savePlan 完成。
-      const finalPlan = this.requirePlan();
-      finalPlan.status = 'aborted';
-      finalPlan.completedAt = new Date().toISOString();
-      taskOrchestrator['savePlan']?.(finalPlan);
-    } else if (allDone) {
-      const finalPlan = this.requirePlan();
-      const hasEscalated = finalPlan.steps.some(
-        (s) => s.decision === 'escalate'
-      );
-      finalPlan.status = hasEscalated ? 'failed' : 'completed';
-      finalPlan.completedAt = new Date().toISOString();
-      if (hasEscalated) {
-        // PR5（#6，2026-09-05）：escalate 收尾 → checkpoint 写 replanPending /
-        // replanFailCount（半自动闭环，决策 4/6/7）。计数持久化、跨 resume/重启累计；
-        // 达上限 replanPending=false（转人工介入），resume 入口据此拒绝（见 resumeFromCheckpoint）。
-        const prevCk = (await readPdcaCheckpoint(this.taskId)) ?? {};
-        const prevFail = Number(prevCk.replanFailCount) || 0;
-        const next = prevFail + 1;
-        const maxReplan = replanMaxRetries();
-        const replanPending = next < maxReplan;
-        await writePdcaCheckpoint(this.taskId, {
-          taskId: this.taskId,
-          phase: 'execute',
-          status: 'failed',
-          replanPending,
-          replanFailCount: next,
-          replanConvergedAt: replanPending
-            ? undefined
-            : new Date().toISOString(),
-        });
-        logger.info('[orchestrator] escalate 收尾（半自动 replan）', {
-          taskId: this.taskId,
-          replanFailCount: next,
-          maxReplan,
-          replanPending,
-        });
-      }
+    // 循环因轮次上限自然退出（仍有待重试步骤）同样属失败退出
+    if (!allDone && !failureReason) {
+      failureReason = 'PDCA_MAX_ITERATIONS';
+      const cappedPlan = this.requirePlan();
+      cappedPlan.status = 'failed';
+      cappedPlan.completedAt = new Date().toISOString();
+      taskOrchestrator['savePlan']?.(cappedPlan);
     }
 
+    // ── 终态裁决（2026-10-17 根因修复）────────────────────────────
+    // 旧实现：除中止外**一律**落 `setPhase('completed')` ⇒ 准入拒绝 / 停滞 /
+    // 目标未收敛 / 超轮次 / escalate 在用户与上游（WorkItem、StageOrchestrator、
+    // /goal list）眼里都是"成功"，且 escalate 写下的 replanPending 立即被覆盖失效。
     if (this.isolation.abortController.signal.aborted) {
-      // PR3（#3）：中止已在 abort() 完成收尾（checkpoint/lifecycle/metric），
-      // 此处直接返回状态，不再执行 completed 语义的审计/事件/指标收尾（避免双重写入）。
+      // 中止收尾——plan 置 aborted（不标 completed/failed）。
+      // abort() 已完成 checkpoint/lifecycle/指标收尾，此处只返回状态。
+      const abortedPlan = this.requirePlan();
+      abortedPlan.status = 'aborted';
+      abortedPlan.completedAt = new Date().toISOString();
+      taskOrchestrator['savePlan']?.(abortedPlan);
       return this.getStatus();
+    }
+
+    const finalPlan = this.requirePlan();
+    const hasEscalated = finalPlan.steps.some((s) => s.decision === 'escalate');
+    const succeeded = allDone && !hasEscalated;
+    finalPlan.status = succeeded ? 'completed' : 'failed';
+    finalPlan.completedAt = new Date().toISOString();
+    taskOrchestrator['savePlan']?.(finalPlan);
+
+    if (hasEscalated) {
+      // PR5（#6，2026-09-05）：escalate 收尾 → checkpoint 写 replanPending /
+      // replanFailCount（半自动闭环，决策 4/6/7）。计数持久化、跨 resume/重启累计；
+      // 达上限 replanPending=false（转人工介入），resume 入口据此拒绝（见 resumeFromCheckpoint）。
+      // **2026-10-17**：此分支**不**调用 setPhase —— phase 必须保持 execute 且
+      // status=failed，否则 replanPending 会被终态覆盖，半自动 replan 永远无法被 resume。
+      const prevCk = (await readPdcaCheckpoint(this.taskId)) ?? {};
+      const prevFail = Number(prevCk.replanFailCount) || 0;
+      const next = prevFail + 1;
+      const maxReplan = replanMaxRetries();
+      const replanPending = next < maxReplan;
+      await writePdcaCheckpoint(this.taskId, {
+        taskId: this.taskId,
+        phase: 'execute',
+        status: 'failed',
+        replanPending,
+        replanFailCount: next,
+        replanConvergedAt: replanPending ? undefined : new Date().toISOString(),
+      });
+      logger.info('[orchestrator] escalate 收尾（半自动 replan）', {
+        taskId: this.taskId,
+        replanFailCount: next,
+        maxReplan,
+        replanPending,
+      });
+    } else if (!succeeded) {
+      await this.setPhase('failed');
+    }
+
+    if (!succeeded) {
+      return this.finalizeFailedPdca(failureReason, hasEscalated);
     }
 
     // 生成审计报告
@@ -1383,7 +1445,58 @@ export class LongRunningTaskOrchestrator {
     );
 
     return _finalStatus;
-  } /**
+  }
+
+  /**
+   * 失败/升级终态收尾（2026-10-17 根因修复）。
+   *
+   * 旧实现把所有非中止出口都当成功收尾 ⇒ 失败被伪装为"已完成"。
+   * 本方法只做失败语义：审计落盘 + FAILED 生命周期 + 失败事件；
+   * **不**写"已完成"记忆与完成样例（CS04：不制造假成果）。
+   */
+  private async finalizeFailedPdca(
+    failureReason: string | null,
+    hasEscalated: boolean
+  ): Promise<PdcaStatus> {
+    const failedStatus = this.getStatus();
+    this.auditReport = this.generateReport();
+    this.persistAuditReport(this.auditReport);
+    this._recordLifecycle(
+      'finalized',
+      TaskStatus.FAILED,
+      hasEscalated
+        ? 'PDCA escalated (replan pending)'
+        : `PDCA failed: ${failureReason ?? 'unknown'}`
+    );
+    void this._recordGoalStageMetric('pdca_failed').then(() =>
+      this._evaluateGoalDeviation()
+    );
+    void this._emitTaskEvent('task:error', {
+      sessionId: this._sessionId ?? '',
+      planId: this.planId,
+      status: failedStatus.phase,
+      reason: hasEscalated ? 'escalated' : failureReason,
+    });
+    void emitPdcaLiveEvent(
+      'pdca:stage:complete',
+      {
+        taskId: this.taskId,
+        planId: this.planId ?? undefined,
+        sessionId: this._sessionId ?? '',
+      },
+      {
+        stage: 'execute',
+        status: 'failed',
+        tokenCost: this._totalTokensTracked,
+        message: hasEscalated
+          ? 'PDCA escalate（待 replan）'
+          : `PDCA 失败：${failureReason ?? 'unknown'}`,
+      }
+    );
+    return failedStatus;
+  }
+
+  /**
    * 从 checkpoint 跨重启恢复（U-22/S1 外移；实现在 `./lro/resumeFromCheckpoint`）。
    */
   async resumeFromCheckpoint(ck: Record<string, unknown>): Promise<PdcaStatus> {
@@ -1436,6 +1549,9 @@ export class LongRunningTaskOrchestrator {
       setTotalTokensTracked: (value) => {
         this._totalTokensTracked = value;
       },
+      setStartedAt: (value) => {
+        this._startedAt = value;
+      },
     }) as Promise<PdcaStatus>;
   }
 
@@ -1474,9 +1590,31 @@ export class LongRunningTaskOrchestrator {
 
   async abort(): Promise<void> {
     this.isolation.abort('User aborted');
-    // S4（PR9）：级联中止当前步骤私有 loop（私有实例安全；共享实例不可中止）
-    this._currentLoop?.abort();
-    this._currentLoop = undefined;
+    // 2026-10-17 修复：内存 phase 同步终态。原实现只写 checkpoint，
+    // `getStatus()`（读 this.phase）在中止后仍显示 execute/review ⇒ 上游以为任务仍在跑。
+    this.phase = 'abort';
+    const plan = this.planId
+      ? taskOrchestrator.getPlan(this.planId)
+      : undefined;
+    if (plan) {
+      plan.status = 'aborted';
+      plan.completedAt = plan.completedAt ?? new Date().toISOString();
+      taskOrchestrator['savePlan']?.(plan);
+    }
+    // 2026-10-17 修复：并行批次可能有多个在飞私有 loop ⇒ **逐个**中止
+    // （原单槽 `_currentLoop` 只覆盖最后一个，其余继续真实模型调用/工具执行）。
+    for (const loop of this._activeStepLoops) {
+      try {
+        void loop.abort();
+      } catch (err) {
+        void handleError(err, {
+          module: 'tasks:longRunning',
+          action: 'abortActiveLoop',
+          context: { taskId: this.taskId },
+        });
+      }
+    }
+    this._activeStepLoops.clear();
     this._recordLifecycle('finalized', TaskStatus.FAILED, 'Aborted by user');
     // Gap D（1-0c，2026-09-03）：中止必须落 checkpoint 终态。
     // 原实现仅落库 goal_metrics、不写 checkpoint → phase 停留中止前值，
@@ -1629,6 +1767,17 @@ export class LongRunningTaskOrchestrator {
 
     // 1. 中止所有异步操作
     this.isolation.abort('Orchestrator disposed');
+
+    // 1.1（2026-10-17）：dispose 同样要中止在飞步骤 loop（会话拆除 / 24h 清理 /
+    // plan 被删除都会走到这里）——原实现只 dispose 共享 taorLoop，私有实例继续烧模型。
+    for (const loop of this._activeStepLoops) {
+      try {
+        void loop.abort();
+      } catch {
+        // dispose 容错：单个 loop 取消失败不阻断清理
+      }
+    }
+    this._activeStepLoops.clear();
 
     // 1.5 T1.2: 释放执行副作用作用域（abort/文件/沙箱按 LIFO 释放，
     //    dispose 幂等 + 内部容错上报，不阻断主流程）

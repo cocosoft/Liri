@@ -366,6 +366,11 @@ export class TaskOrchestrator {
     };
 
     this.plans.set(planId, plan);
+    // P0 修复（2026-10-17）：**新建计划也必须建 stepId→Plan 索引**。
+    // 此前只有磁盘重载路径（ensureInitializedSync）调用 buildStepIndex，导致
+    // 进程内新建计划的 markStepRunning/Completed/Failed/Cancelled 与 review/decide
+    // 全部静默 no-op（步骤状态、checkpoint、进度、审查、恢复全线失真）。
+    this.buildStepIndex(plan);
     this.savePlan(plan);
 
     // 发射计划开始事件

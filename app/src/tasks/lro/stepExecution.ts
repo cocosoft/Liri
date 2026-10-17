@@ -61,8 +61,8 @@ export interface StepExecutionDeps {
     taskId: string,
     opts: { privateInstance: boolean; maxTurnsMultiplier?: number }
   ) => TAORLoop | undefined;
-  /** 记录当前步骤 loop（任务中止时级联 abort） */
-  setCurrentLoop: (loop: TAORLoop | undefined) => void;
+  /** 注册在飞步骤 loop（返回 release；任务中止时由宿主逐个级联 abort） */
+  registerStepLoop: (loop: TAORLoop) => () => void;
   /** 步骤轮次预算乘子（resume 扩容续跑时 > 1） */
   stepTurnsMultiplier: number;
   stepDurations: Map<
@@ -155,8 +155,9 @@ export async function executeSingleStep(
           deps.stepTurnsMultiplier > 1 ? deps.stepTurnsMultiplier : undefined,
       })
     : sharedLoop;
-  // S4（PR9）：记录当前步骤 loop，任务中止时级联 abort（私有实例可安全中止）
-  deps.setCurrentLoop(loop);
+  // S4（PR9）/ 2026-10-17：把在飞 loop 登记到宿主集合（任务中止时**逐个**级联 abort）。
+  // 返回的 release 在本步收尾时移除登记，避免已完成的 loop 被后续 abort 再打一次。
+  const releaseLoop = loop ? deps.registerStepLoop(loop) : undefined;
   if (loop) {
     logger.info('[orchestrator] 进入 TAORLoop 分支（真实工具执行）', {
       taskId: deps.taskId,
@@ -464,7 +465,10 @@ export async function executeSingleStep(
           stage: 'execute',
           status: 'completed',
           stepId: step.id,
-          completedSteps: deps.stepDurations.size,
+          // 2026-10-17：进度口径改为"真正 completed 的步骤数"（原用 stepDurations.size，
+          // 该 Map 在步骤**开始**时写入 ⇒ 进度虚高）
+          completedSteps: plan.steps.filter((s) => s.status === 'completed')
+            .length,
           totalSteps: plan.steps.length,
           tokenCost: result.totalTokens,
           durationMs: taorElapsed,
@@ -513,6 +517,9 @@ export async function executeSingleStep(
         error: String(e),
         errorType: e instanceof Error ? e.constructor.name : typeof e,
       });
+    } finally {
+      // 本步 loop 已结束（成功/中止/降级）⇒ 从在飞集合移除，避免后续 abort 再打一次
+      releaseLoop?.();
     }
   }
 

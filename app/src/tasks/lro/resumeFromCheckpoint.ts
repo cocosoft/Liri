@@ -65,6 +65,8 @@ export interface ResumeDeps {
   setPlanId: (planId: string) => void;
   setSessionId: (sessionId: string | null) => void;
   setTotalTokensTracked: (value: number) => void;
+  /** 任务开始时间（duration 口径；旧 checkpoint 无该字段 ⇒ 0） */
+  setStartedAt: (value: number) => void;
 }
 
 /** P0(M9)：从 checkpoint 跨重启恢复执行（/goal resume 入口）。 */
@@ -89,8 +91,15 @@ export async function resumeFromCheckpoint(
     ckStatus === 'failed' &&
     replanPending &&
     replanFailCount < replanMaxRetries();
+  // 2026-10-17（M2 可达性修复）：启动扫描 `scanAndAbortStalePdcaTasks` 会把**崩溃遗留**
+  // 的活跃任务写成 `status:'abort'`，但保留非终态 phase（execute/review/decide）。
+  // 旧判据把该组合当终态一律拒绝 ⇒ P0(M2) 的步骤快照在生产没有有效消费路径。
+  // 放行条件严格限定：status=abort **且** phase 非终态 **且** 步骤快照非空。
+  const interruptedByScan =
+    ckStatus === 'abort' && !isTerminal(phase) && steps.length > 0;
   const refuseResume =
-    isTerminal(phase) || (isTerminal(ckStatus) && !replanResumable);
+    isTerminal(phase) ||
+    (isTerminal(ckStatus) && !replanResumable && !interruptedByScan);
   if (refuseResume) {
     throw new AppError(
       `任务 ${deps.taskId} 已处于终态（phase=${phase}, status=${ckStatus ?? '-'}）${
@@ -111,6 +120,12 @@ export async function resumeFromCheckpoint(
     deps.setLastEscalations(
       (ck.lastEscalations as CheckpointEscalation[] | undefined) ?? []
     );
+    // 2026-10-17 修复：replan 分支原**提前 return**，漏掉会话/用量/扩容计数回填 ⇒
+    // 任务消息不再回写对话、token 从 0 起、扩容次数跨重启重置（可突破上限）。
+    deps.setSessionId(sessionId || null);
+    deps.setTotalTokensTracked(Number(ck.totalTokens) || 0);
+    deps.setTurnsExtensions(Number(ck.turnsExtensions) || 0);
+    deps.setStartedAt(Number(ck.startedAt) || 0);
     const descriptionText =
       (ck.description as string | undefined) ?? '恢复的 PDCA 任务';
     logger.info('[orchestrator] resume 触发增量 replan（半自动闭环）', {
@@ -201,6 +216,8 @@ export async function resumeFromCheckpoint(
 
   deps.setPlanId(restored.id);
   deps.setSessionId(sessionId || null);
+  // 2026-10-17：恢复任务开始时间（duration 口径；旧 checkpoint 无该字段 ⇒ 0）
+  deps.setStartedAt(Number(ck.startedAt) || 0);
   // D5（M6）：恢复 escalate 缺陷清单（增量 replan 输入跨重启保持）
   deps.setLastEscalations(
     (ck.lastEscalations as CheckpointEscalation[] | undefined) ?? []

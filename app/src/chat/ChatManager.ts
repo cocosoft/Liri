@@ -111,6 +111,8 @@ import { TaskFacade } from './facades/TaskFacade';
 import { PdcaLauncher } from './launchers/PdcaLauncher';
 // U-22/S1：PDCA 自动启动簇外移（自动建项目 → launch → 决策轨迹）
 import { PdcaLaunchCoordinator } from './manager/pdcaLaunch';
+// U-22/S2：流式请求准备段外移（输入净化 → 取会话 → abort/锁 → 用户消息落盘）
+import { ChatStreamSetup, type StreamSetupResult } from './manager/streamSetup';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
 // R16：每日预算（进程共享单例；S3 后**主口径=金额**，Token 轨只观测）——记账点收敛到本类的 recordChatResponseUsage。
 // 债四「换算接线」（2026-10-13）：同一记账点并行记**金额**台账（`recordTurnCostUsd`）。
@@ -180,11 +182,6 @@ import { StreamingAutoCheckpoint } from './services/StreamingAutoCheckpoint.js';
 import { PlainTextCheckpoint } from './services/PlainTextCheckpoint.js';
 import { isCheckpointLogEnabled } from '@modules/config';
 import { HookChainManager } from '@modules/hooks';
-import {
-  recursivelySanitizeUnicode,
-  sanitizeHTML,
-  validateInput,
-} from '@modules/utils/sanitization.js';
 import { toolResultRegistry } from '../tool/ToolResultRegistry.js';
 import { ToolAwareClient } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
@@ -334,7 +331,7 @@ import {
 
 import { TaskStatus } from '@modules/tasks/types';
 
-import { RollbackIntegration, SensitiveErrorType } from '@modules/security';
+import { RollbackIntegration } from '@modules/security';
 import type { FileOperation } from '@modules/security';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 import { taskRegistry } from '@modules/tasks';
@@ -980,6 +977,8 @@ export class ChatManagerImpl implements ChatManager {
   private _pdcaLauncher: PdcaLauncher | null = null;
   /** U-22/S1：PDCA 自动启动簇，方法体见 `manager/pdcaLaunch.ts` */
   private _pdcaLaunch!: PdcaLaunchCoordinator;
+  /** U-22/S2：流式请求准备段（`_prepareStreamSession` 的实现，见 `manager/streamSetup.ts`） */
+  private _streamSetup!: ChatStreamSetup;
   /** P0-2（2026-08-25）：正在执行隐性 PDCA launch 的会话集合（会话级锁，防重复任务卡片） */
   private _pdcaLaunchingSessions = new Set<string>();
 
@@ -1235,6 +1234,42 @@ export class ChatManagerImpl implements ChatManager {
       persistSessionMetadata: (session) => this.persistSessionMetadata(session),
       recentUserText: (session, n) => this._recentUserText(session, n),
       lastAssistantText: (session) => this._lastAssistantText(session),
+    });
+
+    // 流式请求准备段（U-22/S2 外移）：注入 host 端口，方法体在 `chat/manager/streamSetup.ts`。
+    this._streamSetup = new ChatStreamSetup({
+      currentSessionId: () => this._currentSessionId,
+      getOrLoadSession: (sid, metadata) =>
+        this.sessionLifecycle.getOrLoadSession(sid, metadata),
+      onModelSwitch: (model) => this.unifiedTracker.onModelSwitch(model),
+      beginStreamSession: (sid, model) =>
+        this.unifiedTracker.beginStreamSession(sid, model),
+      getExistingAbort: (sid) => this._sessionAbortControllers.get(sid),
+      waitForAbortSettled: (sid, ac) => this._waitForAbortSettled(sid, ac),
+      setAbortController: (sid, ac) => {
+        this._sessionAbortControllers.set(sid, ac);
+      },
+      setExecutionId: (sid, executionId) => {
+        this._sessionExecutionIds.set(sid, executionId);
+      },
+      checkpointService: this._checkpointService,
+      getOrCreateMutex: (sid) => {
+        let mutex = this._sessionMutexes.get(sid);
+        if (!mutex) {
+          mutex = new SimpleMutex();
+          this._sessionMutexes.set(sid, mutex);
+        }
+        return mutex;
+      },
+      executePreMessageHook: (args) => this.hookChainManager.execute('chat', args),
+      createUserMessage: (content, opts) =>
+        this.messageService.createUserMessage(content, opts),
+      addAndPersistMessage: (sid, msg) => {
+        this._addAndPersistMessage(sid, msg);
+      },
+      startProcessing: (sid) => {
+        this.getSessionMachine(sid).start('processUserInput');
+      },
     });
 
     // 消息编排门面：注入 host 端口（sendMessage/streamMessage 编排委托）
@@ -3372,220 +3407,12 @@ export class ChatManagerImpl implements ChatManager {
       maxContextTokens,
       outputBudgetTokens
     );
-  }
-
-  /**
-   * P2-3.5: 流式消息预处理 — 会话准备、安全检查、Mutex 获取
-   *
-   * 提取自 streamMessage，返回 streamMessage 后续阶段所需的上下文对象。
-   */
+  }  /** U-22/S2 外移：流式请求准备段（实现在 `manager/streamSetup.ts`，顺序/日志/异常不变） */
   private async _prepareStreamSession(
     content: string,
     options?: StreamMessageOptions
-  ): Promise<{
-    content: string;
-    session: ChatSession;
-    streamAbortController: AbortController;
-    streamingCheckpoint: StreamingAutoCheckpoint;
-    mutex: SimpleMutex;
-    userMessage: Message;
-    streamSpan: ReturnType<typeof getOTelTracing> extends {
-      startSpan: (...args: any[]) => infer S;
-    }
-      ? S
-      : never;
-  }> {
-    // 清理用户输入，防止XSS和隐藏字符攻击
-    content = recursivelySanitizeUnicode(content) as string;
-
-    // 验证输入安全性
-    const validationResult = securityService.validateInput(content);
-    if (!validationResult.valid) {
-      logger.warn('用户输入包含敏感数据，已自动脱敏处理', {
-        module: 'chat:manager',
-        action: 'streamMessage',
-      });
-      content = securityService.sanitize(content);
-      securityService.logSecurityError({
-        type: SensitiveErrorType.SENSITIVE_DATA_DETECTED,
-        message: '用户输入包含敏感数据，已自动脱敏处理',
-      });
-    }
-
-    // 获取或创建会话
-    const sessionId = options?.sessionId || this._currentSessionId;
-    if (!sessionId) {
-      throw new AppError(
-        'No session id provided',
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-    const session = await this.sessionLifecycle.getOrLoadSession(
-      sessionId,
-      options?.metadata
-    );
-    if (!session) {
-      throw new AppError(
-        'No session found or created',
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-
-    // 根据实际模型更新 token 预算
-    if (options?.model) {
-      this.unifiedTracker.onModelSwitch(options.model);
-    }
-    // 设计一（2026-08-26）：流式监测按会话隔离——多会话并发时水位互不覆盖
-    this.unifiedTracker.beginStreamSession(session.id, options?.model ?? '');
-
-    // 中止同一会话的旧流（P1-4: 确定性等待旧流清理，替代硬编码 100ms）
-    const existingAbort = this._sessionAbortControllers.get(session.id);
-    if (existingAbort) {
-      logger.info('中止同一会话的旧流式请求', { sessionId: session.id });
-      existingAbort.abort();
-      await this._waitForAbortSettled(session.id, existingAbort);
-    }
-    const streamAbortController = new AbortController();
-    this._sessionAbortControllers.set(session.id, streamAbortController);
-
-    // B-05（2026-10-09）：登记本次执行的 `executionId`（按会话）—— 供工具执行器前置记账
-    if (options?.executionId) {
-      this._sessionExecutionIds.set(session.id, options.executionId);
-    }
-
-    // PR2（2026-10-09）AbortSignal 端到端贯通：外部 signal（Router/入口注入）**中继**到本会话
-    // controller —— abort 外部 ⇒ abort 内部，复用既有内部取消链路（Provider fetch 取消 /
-    // ToolRunner 检查 / Agent 桥接）；内部 controller 仍是唯一"会话级"句柄（新请求顶替旧流语义不变）。
-    // 外部 signal 随请求生命周期 GC，`once` 监听无需显式摘除。
-    const externalSignal = options?.signal;
-    if (externalSignal) {
-      if (externalSignal.aborted) {
-        streamAbortController.abort(externalSignal.reason);
-      } else {
-        externalSignal.addEventListener(
-          'abort',
-          () => streamAbortController.abort(externalSignal.reason),
-          { once: true }
-        );
-      }
-    }
-
-    // P2-1: 初始化流式自动检查点（局部实例随流式上下文传递，非全局字段）
-    const streamingCheckpoint = new StreamingAutoCheckpoint(
-      this._checkpointService,
-      session.id
-    );
-
-    // 获取会话互斥锁（仅保护工具执行循环，setup 阶段无需锁）
-    let mutex = this._sessionMutexes.get(session.id);
-    if (!mutex) {
-      mutex = new SimpleMutex();
-      this._sessionMutexes.set(session.id, mutex);
-    }
-
-    // 触发 ChatPreMessage Hook
-    const preMsgResult = await this.hookChainManager.execute('chat', {
-      event: 'chat.pre-message',
-      data: { message: content, sessionId: session.id },
-      sessionId: session.id,
-    });
-    for (const hr of preMsgResult.before) {
-      if (
-        hr.data &&
-        typeof hr.data === 'object' &&
-        'message' in (hr.data as Record<string, unknown>)
-      ) {
-        content = (hr.data as Record<string, string>).message;
-      }
-    }
-
-    // 创建用户消息（前端写前落盘后按 id 复用，避免重复持久化）
-    let userMessage: Message;
-    const prePersisted = options?.messageId
-      ? (session.messages.find((m) => m.id === options.messageId) as
-          | Message
-          | undefined)
-      : undefined;
-    const prevRoundCount = session.metadata.roundCount ?? 0;
-    session.metadata.roundCount = prevRoundCount + 1;
-    const fromInternal = options?._fromInternal === true;
-    if (!fromInternal) {
-      // Buddy 成长：用户发起对话才计数（内部调用不计入，精确"用户真实对话轮数"）
-      void import('@modules/buddy')
-        .then(({ recordUserSession }) => recordUserSession())
-        .catch((err) =>
-          logger.warn('Buddy 用户对话轮次埋点失败', { error: String(err) })
-        );
-    }
-    if (fromInternal) {
-      // 现场调试断点：内部调用触发时醒目提示（默认日志级别可见）
-      logger.info(
-        '[内部调用断点] _fromInternal=true，本轮不计入 userSessions',
-        {
-          sessionId: session.id,
-          roundCountFrom: prevRoundCount,
-          roundCountTo: session.metadata.roundCount,
-          source: options?._fromInternalSource ?? 'unknown',
-        }
-      );
-    }
-    logger[fromInternal ? 'debug' : 'info']('用户对话轮次+1（流式）', {
-      sessionId: session.id,
-      roundCountFrom: prevRoundCount,
-      roundCountTo: session.metadata.roundCount,
-      model: options?.model ?? null,
-      contentLength: content.length,
-      prePersisted: !!prePersisted,
-      messageId: options?.messageId ?? null,
-      _fromInternal: options?._fromInternal ?? false,
-      source: fromInternal ? 'internal' : 'user',
-    });
-    if (prePersisted) {
-      userMessage = prePersisted;
-    } else {
-      userMessage = this.messageService.createUserMessage(content, {
-        sessionId: session.id,
-        metadata: options?.metadata,
-      });
-      // AB-14 修复：写前落盘可能失败（断网/后端重启），内存无该 id 时
-      // 创建用户消息强制沿用前端 messageId，避免前后端消息 id 漂移。
-      // 后端 addMessage 幂等查重会命中同 id，outbox 补发不产生重复。
-      if (options?.messageId) {
-        userMessage.id = options.messageId;
-      }
-      this._addAndPersistMessage(session.id, userMessage);
-    }
-    this.getSessionMachine(session.id).start('processUserInput');
-
-    // OTel span
-    const otel = getOTelTracing();
-    const streamSpan = otel.startSpan('chat.streamMessage', {
-      'session.id': session.id,
-    });
-
-    logger.info('streamMessage:会话准备完成', {
-      sessionId: session.id,
-      model: options?.model ?? null,
-      messageCount: session.messages.length,
-      userMessageId: userMessage.id,
-      contentLength: content.length,
-      hasImages: Array.isArray(options?.images) && options.images.length > 0,
-      mutexLocked: false,
-    });
-
-    return {
-      content,
-      session,
-      streamAbortController,
-      streamingCheckpoint,
-      mutex,
-      userMessage,
-      streamSpan,
-    };
+  ): Promise<StreamSetupResult> {
+    return this._streamSetup.prepare(content, options);
   }
 
   /**

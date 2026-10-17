@@ -25,6 +25,7 @@ import {
   unlinkSync,
 } from 'fs';
 import { taskRegistry } from './TaskRegistry';
+import { configManager } from '@modules/config';
 import {
   resolveDataSubDir,
   parseSuccessCriteria,
@@ -221,7 +222,7 @@ export class TaskOrchestrator {
 
   /** ghost 宽限期（ms）：默认 10 分钟，可用 `TASK_GOAL_GHOST_GRACE_MS` 覆盖。 */
   private resolveGhostGraceMs(): number {
-    const raw = Number(process.env.TASK_GOAL_GHOST_GRACE_MS);
+    const raw = Number(configManager.env('TASK_GOAL_GHOST_GRACE_MS'));
     return Number.isFinite(raw) && raw > 0 ? raw : 10 * 60_000;
   }
 

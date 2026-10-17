@@ -11475,6 +11475,34 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-CONSTS-B5-2-98）",
       "notes": "新增 core/providerEndpoints.ts（OPENAI/ANTHROPIC 的 BASE/V1 常量）并在 core/index 再导出；19 个消费方改用常量；lint-consts 真源白名单登记该文件；放在 core 而非 ai，避免 service→app 分层倒挂（R00-001）。（全文见 archive/evidence-detail.jsonl#HARDCODE-CONSTS-B5-2-98）"
+    },
+    {
+      "id": "HARDCODE-CONSTS-B5-2-99",
+      "title": "U-20/B5-2-99：供应商 API/站点地址收敛到双端真源",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；棘轮存量收敛",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/core/providerEndpoints.ts",
+        "app/src/ai/providers/providerPresetsData.ts",
+        "client/src/services/endpoints.ts",
+        "client/src/config/providerPresets.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-CONSTS-B5-2-99）",
+      "notes": "app 侧扩展 core/providerEndpoints.ts（DeepSeek/Gemini/SiliconFlow/Moonshot/xAI/OpenRouter/BigModel/DashScope/Kling/MiniMax/Volcengine/Vidu + 厂商站点）；client 侧在 servic…（全文见 archive/evidence-detail.jsonl#HARDCODE-CONSTS-B5-2-99）"
     }
   ]
 }

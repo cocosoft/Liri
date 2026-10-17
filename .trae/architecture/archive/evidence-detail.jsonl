@@ -6690,3 +6690,11 @@
 {"id":"HARDCODE-CONSTS-B5-2-98","k":"code#1","i":1,"c":"app/src/ai/providers/providerPresetsData.ts"}
 {"id":"HARDCODE-CONSTS-B5-2-98","k":"code#2","i":2,"c":"app/src/plugins/provider/ProviderDiscovery.ts"}
 {"id":"HARDCODE-CONSTS-B5-2-98","k":"code#3","i":3,"c":"scripts/lint-consts.ts"}
+{"id":"HARDCODE-CONSTS-B5-2-99","k":"title","i":0,"c":"U-20/B5-2-99：供应商 API/站点地址收敛到双端真源"}
+{"id":"HARDCODE-CONSTS-B5-2-99","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；棘轮存量收敛"}
+{"id":"HARDCODE-CONSTS-B5-2-99","k":"notes","i":0,"c":"app 侧扩展 core/providerEndpoints.ts（DeepSeek/Gemini/SiliconFlow/Moonshot/xAI/OpenRouter/BigModel/DashScope/Kling/MiniMax/Volcengine/Vidu + 厂商站点）；client 侧在 services/endpoints.ts 新增 PROVIDER_API_BASE_URLS / PROVIDER_SITE_URLS，providerPresets 与 ProviderFormSchema 改用；lint:consts 同值组 84→68。"}
+{"id":"HARDCODE-CONSTS-B5-2-99","k":"code#0","i":0,"c":"app/src/core/providerEndpoints.ts"}
+{"id":"HARDCODE-CONSTS-B5-2-99","k":"code#1","i":1,"c":"app/src/ai/providers/providerPresetsData.ts"}
+{"id":"HARDCODE-CONSTS-B5-2-99","k":"code#2","i":2,"c":"client/src/services/endpoints.ts"}
+{"id":"HARDCODE-CONSTS-B5-2-99","k":"code#3","i":3,"c":"client/src/config/providerPresets.ts"}
+{"id":"HARDCODE-CONSTS-B5-2-99","k":"code#4","i":4,"c":".trae/architecture/hardcode-gate-baseline.json"}

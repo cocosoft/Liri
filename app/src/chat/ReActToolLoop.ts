@@ -22,13 +22,12 @@
  *  G. 流式检查点（streamingCheckpoint.onToolCompleted）+ completedToolCallIds 维护
  */
 
-import { ReActLoop, EXTERNAL_FETCH_TOOLS } from '@modules/query';
+import { ReActLoop } from '@modules/query';
 // 二期 F2-1（2026-09-23 修复计划 §六）：终止原因类型（单一来源 = ReActLoop 判别器）
 import type { TerminationReason, SteeringEntry } from '@modules/query';
 // 2026-10-08（§1.6 红线审计修复）：steering 来源联合（单一事实源在 session 载荷契约）
 import type { SteeringSource } from '@modules/session/types/eventPayloads';
 import { createPathGuard } from '@modules/query';
-import { configManager } from '@modules/config';
 // G-1（2026-10-11）：日预算闸门单一收口（逐轮复检用；与 `@modules/query` 同层，沿用既有直引形态）
 import { checkDailyBudget } from '../query/dailyBudgetGate.js';
 // Task 5（债二-预算挂起续跑）：日预算耗尽挂起落点（协调器 + 特性开关）
@@ -62,15 +61,11 @@ import {
   FRAGMENT_KIND_FIELD,
 } from '@modules/context';
 import { registerYieldFromResults } from '../session/yield';
-// M-7（2026-09-22）：续接指令文案**单一来源**（原为本文件内 4 个硬编码常量，逐字迁移）
-// 保留子路径直连（不走 `@modules/tasks` 桶）：本文件在**模块顶层**读取
-// `CONTINUATION_TEMPLATES.*`（L121-125），桶求值期 tasks 桶可能仍在循环中未初始化
+// M-7（2026-09-22）：续接指令文案**单一来源**（续接指令随 `agentIncompleteTurn.ts` 外移）
+// 保留子路径直连（不走 `@modules/tasks` 桶）：桶求值期 tasks 桶可能仍在循环中未初始化
 // ⇒ 走桶会触发 `ReferenceError: Cannot access 'CONTINUATION_TEMPLATES' before initialization`
 // （2026-09-24 R03-002 收敛时实测复现）。goalTemplates 是无依赖叶子模块，子路径直连为循环安全入口。
-import {
-  CONTINUATION_TEMPLATES,
-  renderGoalTemplate,
-} from '../tasks/goal/goalTemplates';
+import { renderGoalTemplate } from '../tasks/goal/goalTemplates';
 // P1-1②（2026-09-28）：终稿 mermaid **结构预检**（零依赖启发式，边界见该模块头注释）。
 // 该模块无任何 import ⇒ 叶子，无循环风险。
 import {
@@ -82,16 +77,10 @@ import type { LiriEvent } from '@modules/session/types/events';
 // P1-2 / P1-4（B2-4，2026-09-23）：轮级熔断 / 压缩停滞 ⇒ **落 Goal**（目标层可见"为何停下"）。
 // 注意：`tasks/` 不是 `chat/`，此处不构成"反向层依赖"（与 goalTemplates 同向）。
 import { settleGoalForTurn, type GoalTurnReason } from '@modules/tasks';
-// X8（2026-09-23，Spec §5.5）：主会话预算触顶 ⇒ 下一轮请求前经 steering 注入收尾指令
-import { injectMainSessionBudgetWrapUp } from '@modules/tasks';
 import {
   prepareToolResultsForContext,
   resolveToolParamNames,
 } from '@modules/tools';
-import {
-  truncateApiMessages,
-  sanitizeApiMessages,
-} from './services/MessageContextPipeline';
 import { StreamingThinkScrubber } from '@modules/streaming';
 import { stripBareExploration } from './services/bareExplorationStripper';
 import { extractTodoData } from './services/ChatHelper';
@@ -115,6 +104,14 @@ import {
   mapTerminationToGoalReason,
   resolveTerminationOutput,
 } from './terminationOutput';
+// U-22/S1（2026-10-17）：reason 前钩子（清理/动态上限/检查点/上下文保护）外移
+import {
+  runBeforeReasoning,
+  sanitizeForNewTask,
+  type AgentPreReasoningDeps,
+} from './agentPreReasoning';
+// U-22/S1（2026-10-17）：不完整回合检测外移（行为等价搬迁）
+import { onIncompleteTurn } from './agentIncompleteTurn';
 import { handleError } from '@modules/error';
 import {
   loadNegotiationState,
@@ -123,35 +120,12 @@ import {
   recordAnswer,
   type NegotiationState,
 } from './services/NegotiationState';
-// 工具轮内上下文压缩（2026-08-23）：复用主流程压缩策略/编排器，
-// 防止长工具会话消息膨胀导致 LLM 请求超限（deepseek 1M 窗口请求 1.78M 实测）
-import { compactionOrchestrator } from '@modules/context';
-// 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
-import { memProfile } from '../monitoring/memProfile.js';
-// 内存水位（2026-09-02，OS kswapd 式；见 dev_docs/内存水位触发机制-详细设计）
-import { getMemoryPressureMonitor } from '@modules/monitoring';
 
 const logger = getLogger('chat:reactToolLoop');
 
 /** 残缺工具调用检测：LLM 输出尾部残留未闭合的标签 */
 const TRUNCATED_TAG_RE =
   /<\/?(?:parameter|invoke|tool_call|tool_calls)\b[^>]*>\s*$/i;
-
-/**
- * 分层窗口压缩最小间隔（2026-09-02）：同一轮压缩后若仍超窗口，避免每轮重复
- * 触发 snip 抖动——间隔内只评估不压缩，靠既有 truncate/PAIR-GUARD 兜底。
- */
-const LAYER_COMPACT_MIN_INTERVAL_MS = 30_000;
-
-/** 不完整回合重试指令（对标 openclaw incomplete-turn.ts:172-179，2026-09-01） */
-const EMPTY_RESPONSE_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.empty;
-const REASONING_ONLY_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.reasoning;
-const PLANNING_ONLY_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.planning;
-/** 输出被 max_tokens 截断的续接指令（2026-09-03）：不再重复已输出内容/思考，直接续完被截断的部分 */
-const TRUNCATED_RESPONSE_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.truncated;
-/** planning-only 启发式判定：纯计划陈述模式（保守，避免误判正常回答） */
-const PLANNING_ONLY_RE =
-  /(?:以下(?:是)?(?:我(?:的)?)?(?:执行)?计划|我的计划(?:如下|是)|\bplan(?:\s*:|\s+is|\s+to)\b|步骤\s*[:：]|接下来(?:我)?(?:将|会))/i;
 
 /**
  * 一期 F1-2（2026-09-23 修复计划）："provider 未报结束原因"的统一哨兵值。
@@ -216,7 +190,7 @@ export class ReActToolLoop extends ReActLoop<
 
   private loopState: ReActToolLoopState;
 
-  /** 分层窗口压缩最近触发时间（2026-09-02，防抖用，见 LAYER_COMPACT_MIN_INTERVAL_MS） */
+  /** 分层窗口压缩最近触发时间（2026-09-02，防抖用，最小间隔见 `agentPreReasoning.ts`） */
   private _lastLayerCompactAt = 0;
   /** 本轮 reason 是否产出 thinking（reasoning-only 检测，对标 openclaw 2026-09-01） */
   private _lastRoundHadThinking = false;
@@ -504,372 +478,61 @@ export class ReActToolLoop extends ReActLoop<
    * 用途：`resolveTerminationOutput()` 的 `budget_exhausted` 分支据此产出**与事实一致**的文案
    * —— `loop`（窗口预算，不可放行续跑）vs `daily`（日限额，已挂起 ⇒ 可放行自动续跑）。
    */
-  private _lastBudgetExhausted?: { kind: 'loop' | 'daily'; suspended: boolean };
-
-  // ─── 骨架 hooks：检查点 + 循环检测（reason 前） ────────
-
+  private _lastBudgetExhausted?: {
+    kind: 'loop' | 'daily';
+    suspended: boolean;
+  }; /**
+   * 骨架 hook：每轮 reason 前（U-22/S1 外移；实现在 `./agentPreReasoning`，行为等价搬迁）。
+   */
   protected override async beforeReasoning(): Promise<void> {
-    // P11（2026-09-01）：新对话轮次（用户新消息）首轮清理旧任务残留——
-    // 旧任务的 [STEERING] 求助指令 + 探索类工具结果会污染上下文，导致模型无视
-    // 用户最新消息、继续旧任务（实测 seq 1247-1248 模型明确纠结后仍陷旧任务）。
-    if (this.loopState.toolTurnCount === 0) {
-      this._sanitizeForNewTask();
-    }
-
-    // 动态上限（2026-09-01）：任务越复杂（未完成 todo 越多），轮次上限越高，
-    // 避免长程任务在基础阈值（默认 30 轮）被误杀截断。仅扩容不缩容，硬顶 500。
-    // 缺陷 A/C 修复（2026-09-25）：续期速率与消耗 1:1、todo 项读扩容快照；
-    // 跨 run 预算（2026-09-25，spec §3.5 最小变体）：额度按**任务累计消耗**算 ⇒ 续段不回退
-    // 续期斜坡，但本段仍可再至硬顶（长任务可持续推进；无任务级总量上限）。
-    const { max: dynamicMax, breakdown } = this._resolveDynamicMaxIterations();
-    if (dynamicMax > this.config.maxIterations) {
-      logger.info('reactToolLoop:dynamic_max_turns_expanded', {
-        sessionId: this.ctx.session.id,
-        base: this.config.maxIterations,
-        expanded: dynamicMax,
-        toolTurn: this.loopState.toolTurnCount,
-        expansionBreakdown: breakdown,
-      });
-      this.config.maxIterations = dynamicMax;
-    }
-    // 跨 run 预算：内存写（每轮，零 IO）—— 落盘节流见 `_publishToolTurnBudget` 注释
-    this._publishToolTurnBudget();
-
-    // R4（2026-09-16）：任务硬收敛——工具轮次距上限还剩 CONVERGE_WINDOW 轮时，注入强制
-    // 收尾 steering。软收敛（非硬熔断多轮）：提示模型停止新探索、基于已掌握信息产出最终
-    // 结论，避免长任务空转到被 max_tokens 截断才终止（截断常致输出被裁、任务半途而废）。
-    // 锚定当前生效上限（动态扩容后），每会话仅注入 1 次。
-    if (
-      !this.convergeSteeringPrompted &&
-      this.config.maxIterations > 0 &&
-      this.loopState.toolTurnCount >=
-        this.config.maxIterations - ReActToolLoop.CONVERGE_WINDOW
-    ) {
-      this.convergeSteeringPrompted = true;
-      this.queueSteering(
-        `⚠️ 你已接近本轮任务的最大工具轮次限制（当前 ${this.loopState.toolTurnCount} / 上限 ${this.config.maxIterations}），` +
-          '剩余轮次不足，请停止新的探索/搜索。现在请直接基于已掌握的信息输出最终完整结论；' +
-          '若部分关键数据确实缺失，请明确列出缺失项而非继续尝试获取，以便我后续补充。',
-        'loop-guard'
-      );
-      logger.warn('reactToolLoop:converge_steering_injected', {
-        sessionId: this.ctx.session.id,
-        toolTurn: this.loopState.toolTurnCount,
-        maxIterations: this.config.maxIterations,
-      });
-    }
-
-    // 3. 周期性检查点：每 5 轮保存（失败不阻塞，对齐旧类 _savePeriodicCheckpoint）
-    if (
-      this.loopState.toolTurnCount > 0 &&
-      this.loopState.toolTurnCount % 5 === 0
-    ) {
-      try {
-        const { session } = this.ctx;
-        await this.ctx.checkpointService.saveCheckpointWithData(
-          session.id,
-          session.messages,
-          session.metadata,
-          session.state,
-          `auto-round-${this.loopState.toolTurnCount}`,
-          `工具执行第 ${this.loopState.toolTurnCount} 轮自动检查点`,
-          true,
-          this.ctx.estimateMessagesTokens(
-            session.messages as unknown as Record<string, unknown>[]
-          )
-        );
-      } catch {
-        // 检查点保存失败不影响执行（@ignore-catch）
-      }
-    }
-
-    // 4. 工具轮内上下文保护（2026-08-23 修复）：
-    //    消息随工具轮累积膨胀（LLM 回复 + 工具结果逐轮回填），而主流程压缩只在
-    //    streamMessageFlow 首轮评估一次，工具轮内不再评估 → 长工具会话请求超限
-    //    （实测 deepseek-v4-flash 1M 窗口请求 1.78M，OpenAI stream error 400）。
-    //    每轮 reason 前对齐主流程：① 评估 → 超限压缩 loopState.messages（本轮 LLM 输入）
-    //    ② 发送前兜底截断（压缩不足/未触发时丢弃旧消息，确保输入 ≤ 窗口 - 输出预留）。
-    try {
-      const { session } = this.ctx;
-      const model = (this.ctx.options?.model as string | undefined) ?? '';
-      // 分层窗口压缩触发（2026-09-02，C 单轮长任务残留风险收口）：
-      // 工具轮内压缩原按模型 ctx 触发（deepseek-v4-flash 1M → ~60-75% ≈ 600-750K），
-      // 单轮长任务（无 user 边界、computePaginationPoint 禁止头部切窗）在该点之前
-      // 上下文/构建分配已很大。此处估算超 REACT_LAYER_WINDOW_TOKENS（默认 45K，
-      // 设 0 关闭）时提前对旧轮做分层压缩（Tier2 snip + 既有后台摘要链兜底），
-      // 把单请求封顶在 ~45K 附近，降低重复构建/分配对 RSS 与 GC STW 的压力。
-      // 经统一出入口（R05-012）
-      const baseWindow = Number(
-        configManager.env('REACT_LAYER_WINDOW_TOKENS', '45000')
-      );
-      // 内存水位 tick（工具轮边界驱动；零日志除非级别变化）
-      getMemoryPressureMonitor().tick();
-      // 压力（L1+）下收紧分层窗口（缩小工作集，OS kswapd 式提前收缩）
-      const layerWindowTokens =
-        baseWindow > 0
-          ? getMemoryPressureMonitor().effectiveLayerWindow(baseWindow)
-          : 0;
-      // R2（2026-09-16）：路径①分层窗口压缩也接入 consecutiveCompactNoEffect 退避——
-      // 基础 30s 间隔按 no_effect 次数指数（2^n，n 封顶 4）递增，上限 LAYER_COMPACT_BACKOFF_CAP，
-      // 避免"context 恒超窗口 → 每 30s 必触 + 无退避"的高频空转白跑（no_effect 计数见 L467-479）。
-      const layerNoEffect = this.loopState.consecutiveCompactNoEffect ?? 0;
-      const layerMinIntervalMs = Math.min(
-        LAYER_COMPACT_MIN_INTERVAL_MS * (1 << Math.min(layerNoEffect, 4)),
-        ReActToolLoop.LAYER_COMPACT_BACKOFF_CAP_MS
-      );
-      if (
-        layerWindowTokens > 0 &&
-        this.loopState.messages.length > 0 &&
-        Date.now() - this._lastLayerCompactAt > layerMinIntervalMs
-      ) {
-        const estLayer = this.ctx.estimateMessagesTokens(
-          this.loopState.messages as unknown as Record<string, unknown>[]
-        );
-        if (estLayer > layerWindowTokens) {
-          this._lastLayerCompactAt = Date.now();
-          logger.warn('reactToolLoop:分层窗口压缩触发（提前压缩点）', {
-            sessionId: session.id,
-            toolTurn: this.loopState.toolTurnCount,
-            messageCount: this.loopState.messages.length,
-            estimatedTokens: estLayer,
-            layerWindow: layerWindowTokens,
-          });
-          // 反向信号（2026-09-02 v1.1 §3.2）：压力下窗口收紧导致同一任务内
-          // 反复分层压缩（可能过度收紧/重做）→ 上报 monitor，60s 内 ≥2 次放宽窗口
-          getMemoryPressureMonitor().recordReverseSignal(
-            session.id,
-            'react 分层窗口压缩触发'
-          );
-          // R2①（2026-09-16 fix A）：去掉 skipTier3Sync，循环内同步执行 Tier3 迭代折叠。
-          // 根因：skipTier3Sync 使 LLM 折叠在 ReAct 循环内从不执行（且无人调用 compactSessionInBackground），
-          // 而 Tier2 snip 因 ReAct 单任务 user 轮次少（turns≤6）天然不生效 → applied 恒 false → 退避白跑。
-          // 这是 ReAct 循环内唯一能真实削减上下文的路径，代价是工具循环最多让步 60s（_runFullCompactionWithTimeout 兜底）。
-          const layered = await compactionOrchestrator.compact(
-            this.loopState.messages as unknown as ChatMessage[],
-            { model, sessionId: session.id },
-            {
-              preEvaluated: {
-                decision: 'trigger',
-                beforeTokens: estLayer,
-                snapshot: {
-                  tokens: estLayer,
-                  maxTokens: layerWindowTokens,
-                  ratio: estLayer / layerWindowTokens,
-                },
-              },
-            }
-          );
-          if (layered.applied) {
-            this.loopState.messages = layered.messages as unknown as Record<
-              string,
-              unknown
-            >[];
-            this.loopState.consecutiveCompactNoEffect = 0;
-            logger.info('reactToolLoop:分层窗口压缩完成', {
-              sessionId: session.id,
-              toolTurn: this.loopState.toolTurnCount,
-              afterMessageCount: layered.messages.length,
-            });
-          } else {
-            // R2（2026-09-16）：路径①压缩未生效也递增 no_effect —— 与路径②行为对齐，
-            // 触发指数退避（见 L422-429），避免高频白跑；计数与路径②共享，稳态豁免判据见 L493-499。
-            this.loopState.consecutiveCompactNoEffect =
-              (this.loopState.consecutiveCompactNoEffect ?? 0) + 1;
-            logger.warn('reactToolLoop:分层窗口压缩未生效（触发退避）', {
-              sessionId: session.id,
-              toolTurn: this.loopState.toolTurnCount,
-              consecutiveNoEffect: this.loopState.consecutiveCompactNoEffect,
-            });
-          }
-        }
-      }
-      if (this.loopState.messages.length > 0) {
-        const evalResult = await this.ctx.unifiedTracker.checkBeforeRequest(
-          this.loopState.messages as unknown as ChatMessage[],
-          model
-        );
-        // 压缩失败暂停续接（2026-09-22）：记录本轮**实测**占用比 —— `onIncompleteTurn`
-        // 据此区分"压不动且吃紧"（该停续接）与"低占用会话里的输出截断"（该照常续接）。
-        this.loopState.lastCompactRatio = Number(
-          evalResult.snapshot?.ratio ?? 0
-        );
-        if (evalResult.decision !== 'skip') {
-          const ratio = Number(evalResult.snapshot?.ratio ?? 0);
-          // R2（2026-09-16）：压缩稳态豁免——上下文占用远低于模型窗口（容量充足）且压缩已连续 no_effect，
-          // 说明当前场景"压不动但也没有爆窗风险"；跳过本轮压缩尝试，避免每轮白跑全量 token 重估/大请求构造。
-          const steadySkip =
-            ratio < ReActToolLoop.COMPACT_STEADY_RATIO &&
-            (this.loopState.consecutiveCompactNoEffect ?? 0) >=
-              ReActToolLoop.COMPACT_NO_EFFECT_SKIP_THRESHOLD;
-          if (steadySkip) {
-            logger.info('reactToolLoop:compact_steady_state_skip', {
-              sessionId: session.id,
-              ratio: Number(ratio.toFixed(3)),
-              windowTokens: evalResult.snapshot?.maxTokens,
-              estimatedTokens: evalResult.snapshot?.tokens,
-              consecutiveNoEffect: this.loopState.consecutiveCompactNoEffect,
-              toolTurn: this.loopState.toolTurnCount,
-            });
-          } else {
-            logger.info('reactToolLoop:工具轮内压缩评估触发', {
-              sessionId: session.id,
-              decision: evalResult.decision,
-              tokens: evalResult.snapshot.tokens,
-              maxTokens: evalResult.snapshot.maxTokens,
-              ratio: Number(evalResult.snapshot.ratio.toFixed(3)),
-              messageCount: this.loopState.messages.length,
-              toolTurn: this.loopState.toolTurnCount,
-            });
-            const compactResult = await compactionOrchestrator.compact(
-              this.loopState.messages as unknown as ChatMessage[],
-              { model, sessionId: session.id },
-              { skipTier3Sync: true, preEvaluated: evalResult }
-            );
-            if (compactResult.applied) {
-              this.loopState.messages =
-                compactResult.messages as unknown as Record<string, unknown>[];
-              this.loopState.consecutiveCompactNoEffect = 0;
-              logger.info('reactToolLoop:工具轮内上下文压缩完成', {
-                sessionId: session.id,
-                beforeTokens: evalResult.snapshot.tokens,
-                afterMessageCount: compactResult.messages.length,
-                toolTurn: this.loopState.toolTurnCount,
-              });
-            } else {
-              this.loopState.consecutiveCompactNoEffect =
-                (this.loopState.consecutiveCompactNoEffect ?? 0) + 1;
-            }
-          }
-        }
-        // 兜底：无论压缩是否生效，发送前强制截断（估算超窗口-输出预留才截断，否则零开销早退）
-        await truncateApiMessages(
-          this.loopState.messages as unknown as Record<string, unknown>[],
-          evalResult.snapshot.maxTokens,
-          new Map([[session.id, session]]),
-          session.id,
-          (this.ctx.options?.maxTokens as number | undefined) ?? undefined
-        );
-        // PAIR-GUARD（2026-08-30）：发送前无条件配对清理——truncateApiMessages 未超限时
-        // 早退（不执行内部 sanitize），历史残留/事件派生可能产生"assistant tool_calls 无配对
-        // tool 消息"→ OpenAI 400 "insufficient tool messages following tool_calls"。
-        // 删除不完整 assistant 而非补占位，保守且与 OpenAI 配对约束一致（sanitize 幂等）。
-        sanitizeApiMessages(
-          this.loopState.messages as unknown as Record<string, unknown>[]
-        );
-        // 内存画像（MEM_PROFILE=1）：压缩评估/截断后采样，观察工具轮消息累积对
-        // RSS/堆的影响（排查 agentic 运行期 RSS 2-4.4GB 尖峰与 GC STW）
-        memProfile('react-toolloop:presend', {
-          sessionId: session.id,
-          toolTurn: this.loopState.toolTurnCount,
-          messageCount: this.loopState.messages.length,
-        });
-      }
-    } catch {
-      // 压缩/截断失败不阻断工具循环（@ignore-catch，CS03）
-    }
-
-    // X8（2026-09-23，Spec §5.5）：**主会话预算触顶 ⇒ 下一轮请求前经 steering 注入收尾指令**。
-    // 一个**独立的、幂等的检查**（与 compression / token 预算决策无关，不改其既有行为）：
-    // - **开销极小**：读库一次；该会话无"已触顶且尚未报告"的目标 ⇒ 立即返回；
-    // - **幂等**：认领走 `budget_limit_reported_at` 的单条条件 UPDATE（`changes` 判首次）
-    //   ⇒ 至多注入一次，跨进程/重启亦然（不用内存 flag）；
-    // - **形态 = steering**：正文进 `steeringQueue`，骨架在**下一轮 reason 前**注入
-    //   （`ReActLoop` 的 steering 消费点）⇒ 正是"下一轮请求前"，且**不主动发起新请求**（软停）。
-    try {
-      await injectMainSessionBudgetWrapUp({
-        sessionId: this.ctx.session.id,
-        steer: (text) => this.queueSteering(text, 'budget'),
-      });
-    } catch (err) {
-      // @ignore-catch — 收尾注入属"意图面"，读库/注入失败不得中断本轮推理（CS03）
-      logger.warn('reactToolLoop:budget_wrapup_inject_failed', {
-        sessionId: this.ctx.session.id,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+    return runBeforeReasoning(this.preReasoningDeps());
   }
 
-  // ─── 抽象方法 ──────────────────────────────────────
-
-  /**
-   * P11（2026-09-01）：新对话轮次首轮清理旧任务残留——解决"用户发新消息，模型仍按
-   * 旧任务执行"（实测：模型 thinking 已看到"升级 CLI"新要求，但因旧任务上下文 +
-   * [STEERING] 求助指令主导，行动上继续旧任务探索）。
-   * 1) 移除注入指令残留（旧任务求助指令干扰）——按结构化标记 `FRAGMENT_KIND_FIELD`
-   *    判别（`system`/`steering`），**不再**匹配 `[STEERING]`/`[SYSTEM]` 前缀字符串；
-   * 2) 成对移除探索类工具（skill_view/glob/grep/web_fetch 等）的 assistant(tool_calls)
-   *    + tool 结果——旧任务探索结果污染上下文（首轮时这些均为历史残留，无当前轮配对）；
-   * 3) 若清理过旧任务残留，注入任务切换提示（最新用户指令优先）。
-   * 注：普通对话文本/非探索类工具结果完整保留；注入提示本轮生效，下次新消息清理时移除。
+  /** U-22/S1：reason 前钩子依赖（每次调用重建，全部为轻量引用/闭包） */
+  private preReasoningDeps(): AgentPreReasoningDeps {
+    return {
+      sessionId: this.ctx.session.id,
+      loopState: this.loopState,
+      config: this.config,
+      session: this.ctx.session,
+      saveCheckpointWithData:
+        this.ctx.checkpointService.saveCheckpointWithData.bind(
+          this.ctx.checkpointService
+        ) as unknown as AgentPreReasoningDeps['saveCheckpointWithData'],
+      estimateMessagesTokens: (messages) =>
+        this.ctx.estimateMessagesTokens(
+          messages as Parameters<typeof this.ctx.estimateMessagesTokens>[0]
+        ),
+      checkBeforeRequest: (messages, model) =>
+        this.ctx.unifiedTracker.checkBeforeRequest(
+          messages,
+          model
+        ) as unknown as ReturnType<AgentPreReasoningDeps['checkBeforeRequest']>,
+      options: this.ctx.options,
+      queueSteering: (text, source) => this.queueSteering(text, source),
+      resolveDynamicMaxIterations: () => this._resolveDynamicMaxIterations(),
+      publishToolTurnBudget: () => this._publishToolTurnBudget(),
+      isConvergeSteeringPrompted: () => this.convergeSteeringPrompted,
+      setConvergeSteeringPrompted: (value) => {
+        this.convergeSteeringPrompted = value;
+      },
+      getLastLayerCompactAt: () => this._lastLayerCompactAt,
+      setLastLayerCompactAt: (value) => {
+        this._lastLayerCompactAt = value;
+      },
+      consts: {
+        convergeWindow: ReActToolLoop.CONVERGE_WINDOW,
+        layerCompactBackoffCapMs: ReActToolLoop.LAYER_COMPACT_BACKOFF_CAP_MS,
+        compactSteadyRatio: ReActToolLoop.COMPACT_STEADY_RATIO,
+        compactNoEffectSkipThreshold:
+          ReActToolLoop.COMPACT_NO_EFFECT_SKIP_THRESHOLD,
+      },
+    };
+  } /**
+   * 新任务首轮清理旧任务残留（U-22/S1 外移；实现在 `./agentPreReasoning`）。
    */
   private _sanitizeForNewTask(): void {
-    const msgs = this.loopState.messages;
-    const cleaned: Record<string, unknown>[] = [];
-    let skipExplorePair = false; // 正在跳过一组探索类工具结果
-    let removedCount = 0;
-    for (const m of msgs) {
-      // 1) 移除系统注入指令残留（CS02：按**结构化标记**判别，禁止前缀字符串匹配）
-      //    标记 `FRAGMENT_KIND_FIELD` 由所有注入指令的 push 点（本文件 4 处 + onSteering，
-      //    以及 cross-loop 的 TAORLoop 注入点）写入；前缀口径变化不再影响本判别。
-      const fragmentKind = m[FRAGMENT_KIND_FIELD];
-      if (
-        m.role === 'user' &&
-        (fragmentKind === 'system' || fragmentKind === 'steering')
-      ) {
-        removedCount++;
-        continue;
-      }
-      // 2) 成对移除探索类工具的 assistant(tool_calls) + 后续 tool 结果
-      if (
-        m.role === 'assistant' &&
-        Array.isArray(m.tool_calls) &&
-        m.tool_calls.length > 0
-      ) {
-        const names = m.tool_calls.map(
-          (tc) =>
-            (tc as { function?: { name?: string }; name?: string }).function
-              ?.name ??
-            (tc as { name?: string }).name ??
-            ''
-        );
-        if (
-          names.length > 0 &&
-          names.every((n) => EXTERNAL_FETCH_TOOLS.has(n))
-        ) {
-          skipExplorePair = true;
-          removedCount++;
-          continue;
-        }
-      }
-      if (m.role === 'tool') {
-        if (skipExplorePair) {
-          removedCount++;
-          continue; // 跳过配对 tool 结果
-        }
-      } else {
-        skipExplorePair = false;
-      }
-      cleaned.push(m);
-    }
-
-    if (removedCount > 0) {
-      this.loopState.messages = cleaned;
-      this.loopState.messages.push({
-        role: 'user',
-        content: renderFragment(
-          createFragment({
-            kind: 'system',
-            text: '请以最新一条用户消息为准重新规划当前任务；之前工具循环中未完成的工作仅在与最新消息直接相关时继续，否则忽略，不要重复执行旧任务步骤。',
-          })
-        ),
-        [FRAGMENT_KIND_FIELD]: 'system',
-      });
-      logger.info('reactToolLoop:new_task_sanitized', {
-        sessionId: this.ctx.session.id,
-        removedCount,
-        remainingMessages: this.loopState.messages.length,
-      });
-    }
+    sanitizeForNewTask(this.preReasoningDeps());
   }
 
   /** todo 登记（消费队列 + 扩容快照双写；实现见 `toolTurnBudget`） */
@@ -1815,111 +1478,38 @@ export class ReActToolLoop extends ReActLoop<
       (this.loopState.lastCompactRatio ?? 0) >=
         ReActToolLoop.COMPACT_STEADY_RATIO
     );
-  }
-
-  /** 对标 openclaw（2026-09-01）：不完整回合检测——空回复 / 只思考无答案 / 只计划不行动，
-   *  注入重试指令（每类最多 1 次，防死循环）让骨架再给一次机会。 */
+  } /**
+   * 不完整回合检测（U-22/S1 外移；实现在 `./agentIncompleteTurn`，行为等价搬迁）。
+   */
   protected override async onIncompleteTurn(
     result: ReasonResult<ToolLoopContext>,
     _context?: ToolLoopContext
   ): Promise<boolean> {
-    if (result.toolCalls.length > 0) {
-      // 二期 F2-0（2026-09-23 修复计划 §六）：**统一两处对立判据** —— 本轮已产出 tool_calls
-      // 通常不属"不完整回合"，不该由本钩子接管；但若本轮是**外部拦停**（超时），这批调用
-      // 已被丢弃 ⇒ 必须**显式留痕**（结构化日志 + 收尾文案），不得静默消失。
-      if (this.state.phase === 'timeout' && this.droppedToolCallsAtStop > 0) {
-        logger.warn('reactToolLoop:tool_calls_dropped_on_stop', {
-          sessionId: this.ctx.session.id,
-          reason: 'timeout',
-          droppedToolCalls: this.droppedToolCallsAtStop,
-          toolNames: result.toolCalls.map((tc) => tc.name),
-        });
-      }
-      return false;
-    }
-    const text = (result.text ?? '').trim();
-
-    let kind: 'empty' | 'reasoning' | 'planning' | 'truncated' | null = null;
-    // 修复（2026-09-03）：输出被长度限制截断（finishReason=max_tokens）是最常见的
-    // "任务中断"伪装——模型没写完就被预算打断且未产出 tool_calls。此前该信号被
-    // reason() 改写为 'stop' 且此处无截断分支 → 直接 finalize → 用户看到"才提要求就中断"。
-    if (result.finishReason === 'max_tokens') {
-      kind = 'truncated';
-    } else if (!text && !this._lastRoundHadThinking) {
-      kind = 'empty'; // 空回复
-    } else if (!text && this._lastRoundHadThinking) {
-      kind = 'reasoning'; // 只思考未给出可见答案
-    } else if (text && PLANNING_ONLY_RE.test(text)) {
-      kind = 'planning'; // 只描述计划未行动（保守启发式）
-    }
-    if (!kind) return false;
-    // R4（2026-09-16）：已注入强制收尾 steering（接近上限）后，截断输出**不再续接重发**——
-    // 续接会用放大后的 maxTokens 重发并加剧上下文膨胀；此时直接取当前部分文本作为最终
-    // 交付（收敛场景下"有残缺结论"优于"为求完整继续膨胀/空转"）。
-    if (kind === 'truncated' && this.convergeSteeringPrompted) {
-      logger.info('reactToolLoop:truncated_converge_no_continue', {
-        sessionId: this.ctx.session.id,
-        textPreview: text.slice(0, 80),
-      });
-      return false;
-    }
-    // 压缩失败暂停续接（2026-09-22）：压缩已连续压不动 **且** 上下文确实吃紧 ⇒
-    // 续接会按「放大后的 maxTokens + 压不下来的上下文」重发，只会加剧膨胀与空转。
-    // 发送前虽有 `truncateApiMessages` 硬截断兜底（`MessageContextPipeline.ts:291`），
-    // 但那是"削足适履"（丢掉旧消息）而非真压缩 ⇒ 不宜以此为由继续续接。
-    // 处置与 R4 一致：直接取当前部分文本交付 —— "有残缺结论"优于"继续膨胀/空转"。
-    if (kind === 'truncated' && this.isCompactionStalled()) {
-      logger.warn('reactToolLoop:truncated_compaction_stalled_no_continue', {
-        sessionId: this.ctx.session.id,
-        consecutiveNoEffect: this.loopState.consecutiveCompactNoEffect,
-        lastCompactRatio: this.loopState.lastCompactRatio ?? null,
-        textPreview: text.slice(0, 80),
-      });
-      // P1-4（B2-4，2026-09-23）：压缩停滞**落 Goal** —— 此前只"暂停本轮续接"，
-      // 目标层看不到"为何停下"（缺口 X9）。连续 3 次 ⇒ 终态 `failed` ⇒ **续接有界**
-      //（D7：否则"落 blocked → 续接 → 又压缩失败"会成死循环）。
-      // 三期 F3-1：本处（循环中途）**不再 `void` 显式 detach** —— 二期 O2-2（2026-09-24）
-      // 把它**登记进 `_terminalSettle`**：与 `settleTerminalState()` 同机制，由
-      // `flushTerminalSettlement()` 在轮次边界 await ⇒ 落盘失败/耗时**可被观测与断言**。
-      // （原实现 `void ...` 且未登记，而 `mapTerminationToGoalReason('compaction_failed')`
-      //   返回 null ⇒ 该次落盘既不被 await 也不并入链，治 N4 的目标在此路径未闭环。）
-      this._terminalSettle = this.settleGoalForTurnNow('compaction_stalled');
-      // 三期 F3-2（2026-09-23 修复计划 §六）：压缩失败**必须联动收尾** —— 置专门相位，
-      // 使判别器给出 `compaction_failed`（不再被折叠成 `completed` 后只落一句通用兜底），
-      // 用户可见"为何停下"。原实现只 `return false`，收尾文案与压缩无任何关联。
-      this.state.phase = 'compaction_failed';
-      return false;
-    }
-    if (this._incompleteRetries[kind] >= 1) return false; // 每类最多重试 1 次
-
-    const instruction =
-      kind === 'empty'
-        ? EMPTY_RESPONSE_RETRY_INSTRUCTION
-        : kind === 'reasoning'
-          ? REASONING_ONLY_RETRY_INSTRUCTION
-          : kind === 'planning'
-            ? PLANNING_ONLY_RETRY_INSTRUCTION
-            : TRUNCATED_RESPONSE_RETRY_INSTRUCTION;
-    this._incompleteRetries[kind]++;
-    // 截断续接：下一轮 reason 放大输出预算（截断是硬性预算不足，重试需更多额度）
-    if (kind === 'truncated') this._boostNextReasonMaxTokens = true;
-    // O2-4：回捞轮正文**取代**前一轮已下发正文（前端据此从零重建，与落盘 content 同源）
-    this._supersedeNextRoundText = true;
-    // 注入重试指令：下一轮 reason 的 LLM 输入会携带（对齐 openclaw 重试语义）
-    this.loopState.messages.push({
-      role: 'user',
-      content: renderFragment(
-        createFragment({ kind: 'system', text: instruction })
-      ),
-      [FRAGMENT_KIND_FIELD]: 'system',
-    } as Record<string, unknown>);
-    logger.info('reactToolLoop:incomplete_turn_retry', {
+    return onIncompleteTurn(result, {
       sessionId: this.ctx.session.id,
-      kind,
-      retries: { ...this._incompleteRetries },
-      textPreview: text.slice(0, 80),
+      phase: this.state.phase,
+      droppedToolCallsAtStop: this.droppedToolCallsAtStop,
+      lastRoundHadThinking: this._lastRoundHadThinking,
+      convergeSteeringPrompted: this.convergeSteeringPrompted,
+      compactionStalled: this.isCompactionStalled(),
+      consecutiveCompactNoEffect: this.loopState.consecutiveCompactNoEffect,
+      lastCompactRatio: this.loopState.lastCompactRatio,
+      messages: this.loopState.messages,
+      setTerminalSettle: (promise) => {
+        this._terminalSettle = promise;
+      },
+      settleGoalForTurnNow: (reason) => this.settleGoalForTurnNow(reason),
+      incompleteRetries: this._incompleteRetries,
+      setBoostNextReasonMaxTokens: (value) => {
+        this._boostNextReasonMaxTokens = value;
+      },
+      setSupersedeNextRoundText: (value) => {
+        this._supersedeNextRoundText = value;
+      },
+      setPhaseCompactionFailed: () => {
+        this.state.phase = 'compaction_failed';
+      },
     });
-    return true;
   }
 
   /**

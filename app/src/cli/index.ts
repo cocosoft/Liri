@@ -51,7 +51,7 @@ import { createRemoteIO } from './remoteIO';
 import { createStructuredIO } from './structuredIO';
 import { createExitHandler } from './exitHandler';
 import { createAutoUpdater } from './autoUpdater';
-import { registerSkillsCommands } from '../skills/cli/skills';
+import { registerSkillsCommands } from '@modules/skills';
 import { UpdateHandler } from './update';
 import * as print from './print';
 import type { CommandImplementation, CommandContext } from '@modules/commands';

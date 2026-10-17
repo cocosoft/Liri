@@ -102,3 +102,9 @@ export { SkillDB, getSkillDB } from './persistence/index.js';
 
 // 全局单例（惰性 Proxy：SkillRegistry / SkillInjectionService）
 export { skillRegistry, skillInjectionService } from './skillSingletons.js';
+// U-21（D-3-c 批次⑥，2026-10-17）：services/cli 子入口入桶（原仅叶子直连）
+export {
+  skillUsageTracker,
+  type SkillUsageStats,
+} from './services/SkillUsageTracker.js';
+export { registerSkillsCommands } from './cli/skills.js';

@@ -5,7 +5,7 @@ import { getUIEnhancer } from '../ui/UIEnhancer';
 import { getToolManager } from '@modules/tools';
 import { profileReport } from '../performance/StartupProfiler.js';
 import { SkillRegistry } from '../skills/SkillRegistry';
-import { BundledSkillLoader } from '../skills/loaders/sources/BundledSkillLoader';
+import { BundledSkillLoader } from '@modules/skills';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('cli:cli');

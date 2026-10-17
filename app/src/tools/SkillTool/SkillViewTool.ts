@@ -17,7 +17,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getSkillRegistryLazy } from './skillRegistryAccess';
-import { skillUsageTracker } from '@modules/skills/services/SkillUsageTracker';
+import { skillUsageTracker } from '@modules/skills';
 
 const logger = getLogger('tools:SkillTool:SkillViewTool');
 

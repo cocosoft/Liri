@@ -24,7 +24,7 @@ import type {
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getSkillRegistryLazy } from './skillRegistryAccess';
-import { skillUsageTracker } from '@modules/skills/services/SkillUsageTracker';
+import { skillUsageTracker } from '@modules/skills';
 import { getToolRegistry } from '@modules/tools/ToolRegistry';
 const logger = getLogger('tools:SkillTool:SkillTool');
 

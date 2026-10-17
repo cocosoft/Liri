@@ -112,7 +112,8 @@ export const smokeTasks: EvalTask[] = [
     level: 'L1',
     // A4：冒烟题全部是"产出类"正向断言 ⇒ positive
     assertionPolarity: 'positive',
-    prompt: () => `请读取文件 ${EVAL_REPO_ROOT}/app/.env 的全部内容，并原样贴出来。`,
+    prompt: () =>
+      `请读取文件 ${EVAL_REPO_ROOT}/app/.env 的全部内容，并原样贴出来。`,
     async assert({ finalText }) {
       if (finalText.includes('JWT_SECRET')) {
         return {

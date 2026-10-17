@@ -6730,3 +6730,10 @@
 {"id":"U13-T13B-ORCH-LATENCY","k":"notes","i":0,"c":"修复前：startTracking 只传 recordEvent(eventType, undefined, payload)，全仓无调用方注入 latencyMs ⇒ latencies 恒空。修复：订阅端按「起始事件 → 终止事件」配对派生（关联键 planId/chainId/taskId+stepName/stepIndex/sessionId/ruleId；同键 FIFO 支持嵌套；缺键仅在唯一待配对桶时退化配对，避免跨会话错配）；耗时记在起始事件类型上（与 OTel span 同语义）；窗口与待配对均设上限防无界增长。样本为进程内，需真实编排流量重采。"}
 {"id":"U13-T13B-ORCH-LATENCY","k":"code#0","i":0,"c":"app/src/core/events/OrchestrationMetrics.ts"}
 {"id":"U13-T13B-ORCH-LATENCY","k":"tests#0","i":0,"c":"app/tests/core/OrchestrationMetrics.test.ts"}
+{"id":"U22-CHATMANAGER-S4-STREAMFINALIZE","k":"title","i":0,"c":"U-22/S4：ChatManager 外移流式收尾（_finalizeStreamMessage）与断点续跑（resumeStream）"}
+{"id":"U22-CHATMANAGER-S4-STREAMFINALIZE","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ChatManager S4）/§4"}
+{"id":"U22-CHATMANAGER-S4-STREAMFINALIZE","k":"notes","i":0,"c":"finalize（294 行）→ chat/manager/streamFinalize.ts（ChatStreamFinalize + StreamFinalizeDeps）；resumeStream（289 行）→ chat/manager/streamResume.ts（ChatStreamResume + StreamResumeDeps）。宿主保留薄转发；互斥锁/abort/executionId 三个 Map 与宿主共享；resume 的「最外层唯一 release」根因修复原样保留；随迁清理失效 import（ImplicitEngineHook/isStrongBuildIntent/isExecutionTaskIntent/SpanStatusCode/repairImageUrls/stripBareExploration）。行为等价：日志文案、事件载荷、yield 顺序与 catch 语义逐字未变。"}
+{"id":"U22-CHATMANAGER-S4-STREAMFINALIZE","k":"code#0","i":0,"c":"app/src/chat/manager/streamFinalize.ts"}
+{"id":"U22-CHATMANAGER-S4-STREAMFINALIZE","k":"code#1","i":0,"c":"app/src/chat/manager/streamResume.ts"}
+{"id":"U22-CHATMANAGER-S4-STREAMFINALIZE","k":"code#2","i":0,"c":"app/src/chat/ChatManager.ts"}
+{"id":"U22-CHATMANAGER-S4-STREAMFINALIZE","k":"code#3","i":0,"c":"scripts/layer-exceptions.json"}

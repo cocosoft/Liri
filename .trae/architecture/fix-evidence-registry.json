@@ -11656,6 +11656,33 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U13-T13B-ORCH-LATENCY）",
       "notes": "修复前：startTracking 只传 recordEvent(eventType, undefined, payload)，全仓无调用方注入 latencyMs ⇒ latencies 恒空。修复：订阅端按「起始事件 → 终止事件」配对派生（关联键 planId/chainId/taskId+stepName/s…（全文见 archive/evidence-detail.jsonl#U13-T13B-ORCH-LATENCY）"
+    },
+    {
+      "id": "U22-CHATMANAGER-S4-STREAMFINALIZE",
+      "title": "U-22/S4：ChatManager 外移流式收尾（_finalizeStreamMessage）与断点续跑（resumeStream）",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ChatManager S4）/§4",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/manager/streamFinalize.ts",
+        "app/src/chat/manager/streamResume.ts",
+        "app/src/chat/ChatManager.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S4-STREAMFINALIZE）",
+      "notes": "finalize（294 行）→ chat/manager/streamFinalize.ts（ChatStreamFinalize + StreamFinalizeDeps）；resumeStream（289 行）→ chat/manager/streamResume.ts（ChatStreamResume + S…（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S4-STREAMFINALIZE）"
     }
   ]
 }

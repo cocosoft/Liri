@@ -1,13 +1,13 @@
 {
   "nextKey": "B5-2-100",
-  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "U-22-S1", "U-22-S2", "U-22-S3", "U-13-P1", "T-13-a", "T-13-b"],
-  "lastCommit": "2e172c12d",
+  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "U-22-S1", "U-22-S2", "U-22-S3", "U-22-S4", "U-13-P1", "T-13-a", "T-13-b"],
+  "lastCommit": "b65b5f402",
   "baselineKeys": {
     "lint:consts": 85,
     "lint:endpoints": 30,
     "lint:locale": 6
   },
-  "nextAction": "U-22/S4（ChatManager 流式收尾，当前 4790）；U-13 待用新数据窗口重采误调用率与编排 P50/P95（T-13-c 按需）",
+  "nextAction": "U-22 其余文件按 §3 优先序（streamMessageFlow +316 → AgentTool +709 → ReActToolLoop +749 → LRTO +1060 → i18n）；ChatManager 余 +2323（_buildTAORContext/_sendMessageDowngradePath 等）；U-13 待新数据窗口重采",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为门禁实测口径（lint:consts 按组计：同名 17 + 同值 68 = 85；lint:endpoints / locale 按文件键计），非估算",
@@ -23,6 +23,7 @@
     "2026-10-17：U-13 阶段 2.1/2.4 —— 新增 measure-orchestration-metrics.ts 并出首轮数据（TTFT P95 31064→5442ms，n=38）；暴露三缺口：isError 状态位未落（误调用率恒 0）、编排事件未持久化、OrchestrationMetrics latency 恒 undefined ⇒ 2.3 未达标",
     "2026-10-17：T-13-a —— MessageService.createToolResultMessage 按 toolResult.error 落 status=FAILED + metadata.isError=true（唯一构造点，保留调用方 metadata）；补 6 条守卫测试；历史事件不可回填，误调用率对比需用新数据窗口",
     "2026-10-17：T-13-b —— OrchestrationMetrics 订阅端按「起始事件 → 终止事件」配对派生耗时（关联键 planId/chainId/taskId/stepName/sessionId/ruleId，同键 FIFO；缺键仅在唯一桶时退化配对；耗时挂起始事件类型，窗口/待配对均有上限）；补 5 条守卫测试；样本为进程内，需真实编排流量重采",
+    "2026-10-17：U-22/S4 —— ChatManager 外移 _finalizeStreamMessage（294→manager/streamFinalize.ts）与 resumeStream（289→manager/streamResume.ts）；4790→4323（累计 -1599），FSZ-005 同步下调；互斥锁/abort/executionId 三 Map 与宿主共享，resume「最外层唯一 release」修复保留；清除 6 个失效 import",
     "2026-10-17：query/patternAssembly.ts:49（:1977）与 state/engine/stateMachineCatalog.ts:185（:3184）是**行号/定位串**被 FIXED_PORT_RE 误判，非遗留硬编码；constants/common.ts 的 DEFAULT_HOST 为零消费者死常量，按 CD05/CD06 走独立变更"
   ]
 }

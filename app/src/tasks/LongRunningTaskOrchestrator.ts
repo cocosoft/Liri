@@ -104,6 +104,14 @@ import {
   recordEscalation,
   type StepArtifactsDeps,
 } from './lro/stepArtifacts.js';
+// U-22/S3（2026-10-17）：REVIEW/DECIDE 阶段外移（行为等价搬迁）
+import {
+  autoDecideStep,
+  buildReviewGateContext,
+  decideStep,
+  reviewStep,
+  type StepReviewDecideDeps,
+} from './lro/stepReviewDecide.js';
 import { resolveAuditStore, replanMaxRetries } from './lro/portResolvers.js';
 import {
   recordGoalStageMetric,
@@ -676,17 +684,29 @@ export class LongRunningTaskOrchestrator {
       taskId: this.taskId,
       gateName: gate.name,
     });
+  } /** ReviewGate 上下文（U-22/S3 外移；实现在 `./lro/stepReviewDecide`）。 */
+  private _buildReviewGateContext(step: PlanStep): ReviewGateContext {
+    return buildReviewGateContext(this.stepReviewDeps(), step);
   }
 
-  /** 构建 ReviewGate 执行上下文（Orchestrator 运行时依赖注入） */
-  private _buildReviewGateContext(step: PlanStep): ReviewGateContext {
+  /** U-22/S3：审查/决策依赖（每次调用重建，全部为轻量引用） */
+  private stepReviewDeps(): StepReviewDecideDeps {
     return {
       taskId: this.taskId,
-      planId: this.planId!,
-      step,
+      planId: this.planId,
+      sessionId: this._sessionId,
       isolation: this.isolation,
       executor: this.executor,
       verifier: this.verifier,
+      reviewGate: this.reviewGate,
+      getPlan: (planId) => taskOrchestrator.getPlan(planId) ?? null,
+      recordLifecycle: (phase, status, detail) =>
+        this._recordLifecycle(phase as LifecyclePhase, status, detail),
+      recordEscalation: (step) => this._recordEscalation(step),
+      previousStepDurationMs: (stepId) => {
+        const d = this.stepDurations.get(stepId);
+        return d?.endMs ? d.endMs - d.startMs : undefined;
+      },
     };
   } /**
    * Phase 1: PLAN（U-22/S1 外移；实现在 `./lro/planPhase`，行为等价搬迁）。
@@ -1436,52 +1456,9 @@ export class LongRunningTaskOrchestrator {
         `Step failed (escalated): ${step.description} — ${step.error}`
       );
     }
-  }
-
-  // ─── Phase 3: REVIEW ────────────────────────────────
-
+  } /** Phase 3: REVIEW（U-22/S3 外移；实现在 `./lro/stepReviewDecide`）。 */
   async reviewStep(stepId: string): Promise<PlanReview> {
-    throwIfAborted(this.isolation);
-    if (!this.planId) throw new Error('No plan created');
-
-    const plan = taskOrchestrator.getPlan(this.planId)!;
-    const step = plan.steps.find((s) => s.id === stepId);
-    if (!step) throw new Error(`Step not found: ${stepId}`);
-
-    const otel = getOTelTracing();
-    const span = otel.startSpan('pdca.review', {
-      'task.id': this.taskId,
-      'plan.id': this.planId,
-      'step.id': stepId,
-    });
-
-    try {
-      // 委托 ReviewGate 执行审查（默认实现：机械验证 + LLM Reviewer + VerifierAgent 双指标）
-      const review = await this.reviewGate.reviewStep(
-        this._buildReviewGateContext(step)
-      );
-      step.reviewResult = review;
-
-      this._recordLifecycle(
-        'progress',
-        TaskStatus.RUNNING,
-        `Review: ${formatReviewSummary(review)}`
-      );
-
-      span.setAttribute('review.pass', review.pass);
-      span.setAttribute('review.score', review.score);
-      otel.endSpan(span, SpanStatusCode.OK);
-      return review;
-    } catch (e) {
-      await handleError(e, {
-        module: 'tasks:longRunning',
-        action: 'reviewStep',
-        context: { taskId: this.taskId, stepId },
-      });
-      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
-      otel.endSpan(span, SpanStatusCode.ERROR, String(e));
-      throw e;
-    }
+    return reviewStep(stepId, this.stepReviewDeps());
   }
 
   async reviewAllSteps(): Promise<PlanReview[]> {
@@ -1498,215 +1475,15 @@ export class LongRunningTaskOrchestrator {
     }
 
     return reviews;
-  }
-
-  // ─── Phase 4: DECIDE ────────────────────────────────
-
+  } /** Phase 4: DECIDE（U-22/S3 外移；实现在 `./lro/stepReviewDecide`）。 */
   async decideStep(stepId: string, decision: ReviewDecision): Promise<void> {
-    throwIfAborted(this.isolation);
-    if (!this.planId) throw new Error('No plan created');
-
-    const plan = taskOrchestrator.getPlan(this.planId)!;
-    const step = plan.steps.find((s) => s.id === stepId);
-    if (!step) throw new Error(`Step not found: ${stepId}`);
-
-    const otel = getOTelTracing();
-    const span = otel.startSpan('pdca.decide', {
-      'task.id': this.taskId,
-      'plan.id': this.planId,
-      'step.id': stepId,
-      decision: decision,
-    });
-
-    try {
-      step.decision = decision;
-
-      switch (decision) {
-        case 'approved':
-          // 已完成，无需更多操作
-          this._recordLifecycle(
-            'progress',
-            TaskStatus.RUNNING,
-            `Approved: ${step.description}`
-          );
-          break;
-
-        case 'retry': {
-          const maxRetries = step.maxRetries ?? 3;
-          if (step.retryCount >= maxRetries) {
-            // 超过重试上限
-            step.decision = 'escalate';
-            step.status = 'failed';
-            step.error = `Exceeded max retries (${maxRetries})`;
-            // D5（M6）：重试上限升级 escalate 同样捕获缺陷 → 增量 replan
-            await this._recordEscalation(step);
-            this._recordLifecycle(
-              'progress',
-              TaskStatus.RUNNING,
-              `Retry limit exceeded for: ${step.description}`
-            );
-            logger.warn('[orchestrator] 重试上限超标，升级为 escalate', {
-              taskId: this.taskId,
-              planId: this.planId,
-              stepId: step.id,
-              stepDesc: step.description.slice(0, 60),
-              retryCount: step.retryCount,
-              maxRetries,
-              reviewScore: step.reviewResult?.score,
-              reviewPass: step.reviewResult?.pass,
-              reviewIssues: step.reviewResult?.issues
-                ?.slice(0, 3)
-                .map((i) => i.description),
-            });
-            break;
-          }
-
-          // 重置状态准备重试
-          step.status = 'pending';
-          step.retryCount++;
-          step.decision = undefined;
-          step.reviewResult = undefined;
-          this._recordLifecycle(
-            'progress',
-            TaskStatus.RUNNING,
-            `Retry #${step.retryCount} for: ${step.description}`
-          );
-          logger.info('[orchestrator] 步骤重试已就绪', {
-            taskId: this.taskId,
-            planId: this.planId,
-            stepId: step.id,
-            stepDesc: step.description.slice(0, 60),
-            retryCount: step.retryCount,
-            maxRetries,
-            prevDurationMs: this.stepDurations.get(step.id)?.endMs
-              ? this.stepDurations.get(step.id)!.endMs! -
-                this.stepDurations.get(step.id)!.startMs
-              : undefined,
-          });
-          break;
-        }
-
-        case 'skip':
-          step.status = 'cancelled';
-          this._recordLifecycle(
-            'progress',
-            TaskStatus.RUNNING,
-            `Skipped: ${step.description}`
-          );
-          break;
-
-        case 'escalate':
-          step.status = 'failed';
-          this._recordLifecycle(
-            'progress',
-            TaskStatus.RUNNING,
-            `Escalated: ${step.description}`
-          );
-          // D5（M6）：捕获缺陷清单 → 增量 replan 输入（基线 + 缺陷 → 局部修订）
-          await this._recordEscalation(step);
-          break;
-      }
-
-      otel.endSpan(span, SpanStatusCode.OK);
-    } catch (e) {
-      await handleError(e, {
-        module: 'tasks:longRunning',
-        action: 'decideStep',
-        context: { taskId: this.taskId, stepId },
-      });
-      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
-      otel.endSpan(span, SpanStatusCode.ERROR, String(e));
-      throw e;
-    }
+    return decideStep(stepId, decision, this.stepReviewDeps());
   } /** escalate 缺陷捕获（U-22/S1 外移；实现在 `./lro/stepArtifacts`）。 */
   private async _recordEscalation(step: PlanStep): Promise<void> {
     return recordEscalation(this.stepArtifactsDeps(), step);
-  }
-
-  /**
-   * 自动决策：委托 ReviewGate.decide（默认：审查通过 → approve，未通过且可重试 → retry，否则 escalate）
-   * 若 ReviewGate.shouldReview 返回 false（如 disabled 模式），直接 approve。
-   */
+  } /** 自动决策（U-22/S3 外移；实现在 `./lro/stepReviewDecide`）。 */
   async autoDecideStep(stepId: string): Promise<ReviewDecision> {
-    if (!this.planId) throw new Error('No plan created');
-
-    const plan = taskOrchestrator.getPlan(this.planId)!;
-    const step = plan.steps.find((s) => s.id === stepId);
-    if (!step) throw new Error(`Step not found: ${stepId}`);
-
-    const gateCtx = this._buildReviewGateContext(step);
-
-    // 门关闭：跳过审查直接批准（NoopReviewGate / disabled 模式）
-    if (!this.reviewGate.shouldReview(gateCtx)) {
-      logger.info('[orchestrator] ReviewGate 关闭，直接批准', {
-        taskId: this.taskId,
-        planId: this.planId,
-        stepId: step.id,
-        stepDesc: step.description.slice(0, 60),
-        gateName: this.reviewGate.name,
-      });
-      await this.decideStep(stepId, 'approved');
-      // OBS/C3（2026-09-06）：链条 A 阶段（decision 结果）广播
-      void emitPdcaLiveEvent(
-        'pdca:stage:phase',
-        {
-          taskId: this.taskId,
-          planId: this.planId ?? undefined,
-          sessionId: this._sessionId ?? '',
-        },
-        {
-          stage: 'decide',
-          status: 'completed',
-          decision: 'approved',
-          message: '步骤决策: approved（审查通过）',
-          stepId: step.id,
-        }
-      );
-      return 'approved';
-    }
-
-    if (!step.reviewResult) {
-      await this.reviewStep(stepId);
-    }
-
-    const decision = await this.reviewGate.decide(
-      this._buildReviewGateContext(step)
-    );
-
-    logger.info('[orchestrator] autoDecideStep 决策', {
-      taskId: this.taskId,
-      planId: this.planId,
-      stepId: step.id,
-      stepDesc: step.description.slice(0, 60),
-      decision,
-      reviewScore: step.reviewResult?.score,
-      reviewPass: step.reviewResult?.pass,
-      reviewIssues: step.reviewResult?.issues
-        ?.slice(0, 3)
-        .map((i) => `${i.severity}:${i.description}`.slice(0, 80)),
-      remainingRetries:
-        (step.maxRetries ?? this.reviewGate.getConfig().maxRetries) -
-        step.retryCount,
-    });
-
-    await this.decideStep(stepId, decision);
-    // OBS/C3（2026-09-06）：链条 A 阶段（decision 结果）广播——retry 语义为进入下一轮 Do
-    void emitPdcaLiveEvent(
-      'pdca:stage:phase',
-      {
-        taskId: this.taskId,
-        planId: this.planId ?? undefined,
-        sessionId: this._sessionId ?? '',
-      },
-      {
-        stage: 'decide',
-        status: decision === 'retry' ? 'running' : 'completed',
-        decision,
-        message: `步骤决策: ${decision}`,
-        stepId: step.id,
-      }
-    );
-    return decision;
+    return autoDecideStep(stepId, this.stepReviewDeps());
   }
 
   // ─── 全流程自动化 ───────────────────────────────────

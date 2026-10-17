@@ -128,8 +128,12 @@ Content-Type: application/json
 6. typecheck + lint:arch（例外更新后）通过
 7. **请求体口径单测**（`app/tests/channels/qqFileTransferPayload.test.ts`，5 例，**捕获真实请求体**）：上传 `Content-Type: application/json` + `file_data`(base64)/`url`，且**无** `file` / **无** `srv_send_msg`；发送 `media.file_info` 且**无** `file_uuid`；上传 400 与「上传成功但缺 `file_info`」⇒ 如实报错且**不**发消息
 
-> **v2 复测状态（如实）**：第 3 条（真机文件外发）**尚未复测** —— 需一次「回复正文含本地路径」的真机触发（v2 目前证据 = 协议口径对齐 + 上述单测）。
-> 触发方式（已知可行）：在 QQ 里让机器人 `file_read` 某文件并把路径回显到回复里即可复现该链路。
+> **v2 复测状态（如实）**：第 3 条（真机文件外发）**已真机复测通过**（2026-10-17 08:33）——
+> 同一条消息（让机器人 `file_read` 并把路径回显到回复里）再走一遍该链路，日志出现
+> **`outbound_files 单文件发送成功`**（此前为 `单文件发送失败{reason:"请求参数错误"}`）且**无** `QQ 媒体上传失败`、**无**「未能发送」反馈文本。
+> 判据验真：`setupChannels.onOutboundFile` 仅在 `sendFile` 返回 `success:false` 时 `throw`，`outboundFileRouter` 只有不抛才记「成功」；
+> `success` 来自 `sendQQMediaMessage` 的 `resp.ok` ⇒ 该条「成功」**同时**覆盖「上传 200」与「发送 200」两段。
+> 样本为 **12KB 小文件**（`app/package.json`）⇒ 大文件（base64 体积）与群路径仍未验证（见 §4 与台账 `reopenWhen` ②③）。
 
 ## 7. 实施步骤
 

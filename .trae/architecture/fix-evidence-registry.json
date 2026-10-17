@@ -9648,7 +9648,7 @@
     },
     {
       "id": "QQ-FILE-UPLOAD-MEDIA-PAYLOAD",
-      "title": "QQ 文件外发口径订正：上传改官方 JSON（`file_data` base64 / `url`）+ 发送改 **`media.file_info`** —— 修真机 400 导致「文件永远发不出」",
+      "title": "QQ 文件外发口径订正：上传改官方 JSON（`file_data` base64 / `url`）+ 发送改 **`media.file_info`** —— 修真机 400 导致「文件永远发不出」（已真机复测通过）",
       "source": "真机事故（用户上传截图 + 日志）：回复正文里回显了本地路径 ⇒ 出站文件链路被触发 ⇒ QQ 回 `400 请求参数错误` ⇒ 用户收到「⚠️ 以下文件未能发送」",
       "stages": {
         "discovered": true,
@@ -9660,7 +9660,7 @@
         "designed": true,
         "coded": true,
         "unitTested": true,
-        "e2eVerified": false
+        "e2eVerified": true
       },
       "code": [
         "app/src/channels/qq/QQChannel.ts",

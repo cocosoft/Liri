@@ -10681,6 +10681,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#ARCH-R03-002-SKILLS-SECURITY-CLOSE）",
       "notes": "保留 5 键均有环/空壳理由；复核日 2027-01-31。R03-002 0 违规。（全文见 archive/evidence-detail.jsonl#ARCH-R03-002-SKILLS-SECURITY-CLOSE）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-69",
+      "title": "U-20/B5-2-69：媒体根目录 3 组同名常量收敛到 core/mediaRoots",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；.trae/architecture/hardcode-gate-baseline.json",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/core/mediaRoots.ts",
+        ".trae/architecture/hardcode-gate-baseline.json",
+        ".trae/architecture/hardcode-progress.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-69）",
+      "notes": "lint:consts 180→177 键；解析时机与拼接逐字保留（零行为变化）。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-69）"
     }
   ]
 }

@@ -1797,6 +1797,14 @@ const en = {
     routerJudgeModel: "Judge Model:",
     routerJudgeModelDesc:
       "Judged by a cloud Judge model (falls back to the default tier when unconfigured)",
+    fastPathMaxLength: "Fast Path Length Threshold",
+    fastPathMaxLengthHint:
+      "Messages within this length and without dangerous intent use the fast path (default 60)",
+    fastPathPatterns: "Dangerous Intent Regex (one per line)",
+    fastPathPatternsHint:
+      "Leave empty to use the default 7 patterns; invalid entries are ignored",
+    fastPathSave: "Save Fast Path Policy",
+    fastPathSaved: "Saved (takes effect next request)",
     userLoadFailed: "Failed to load user profile",
     userContentEmpty: "Content cannot be empty",
     userSaved: "User profile saved",

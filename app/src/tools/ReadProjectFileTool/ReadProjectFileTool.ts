@@ -38,6 +38,15 @@ function getStores() {
   return { projectStore: _projectStore };
 }
 
+/**
+ * 仅测试：清空惰性 store 单例，使 `LIRI_DATA_DIR` / 数据目录覆盖在**同进程多测试文件**下生效。
+ * （单例首次构造后不再重读路径 ⇒ 批量运行时后者会沿用先者的数据目录。）
+ */
+export function resetReadProjectFileStoresForTest(): void {
+  _workItemStore = null;
+  _projectStore = null;
+}
+
 export class ReadProjectFileTool {
   static create(): Tool {
     return {
@@ -108,7 +117,18 @@ export class ReadProjectFileTool {
           }
 
           // 路径安全校验：resolve + normalize + realpath
-          const rawPath = resolve(sandboxPath, normalize(relativePath));
+          let rawPath = resolve(sandboxPath, normalize(relativePath));
+          // U-23（2026-10-17）：单段交付类名回读兜底 —— 写侧会把无目录前缀的交付文件落入
+          // `output/`（`WriteProjectFileTool.isDeliverablePath`），读侧此前只查项目根 ⇒
+          // 裸名回读恒 not-found。仅当"根处不存在 + 单段路径"才回退，最终仍经 realpath 越界校验。
+          if (!existsSync(rawPath) && !/[\\/]/.test(relativePath)) {
+            const outputPath = resolve(
+              sandboxPath,
+              'output',
+              normalize(relativePath)
+            );
+            if (existsSync(outputPath)) rawPath = outputPath;
+          }
           if (!existsSync(rawPath)) {
             span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(

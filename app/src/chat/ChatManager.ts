@@ -22,7 +22,6 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { homedir } from 'node:os';
 
 import { configManager } from '@modules/config';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
@@ -91,11 +90,7 @@ import {
   startRequest,
   type RequestEventAppender,
 } from './services/requestBoundary';
-import {
-  feature as coreFeature,
-  patternFeatureFlag,
-  selectPattern,
-} from '@modules/core';
+import { feature as coreFeature } from '@modules/core';
 import { configureCodeRunner } from '@modules/tools';
 import {
   persistTurnSummary,
@@ -114,6 +109,8 @@ import { SessionSummarizer } from './services/SessionSummarizer';
 import { SessionMemoryManager } from './services/SessionMemoryManager';
 import { TaskFacade } from './facades/TaskFacade';
 import { PdcaLauncher } from './launchers/PdcaLauncher';
+// U-22/S1：PDCA 自动启动簇外移（自动建项目 → launch → 决策轨迹）
+import { PdcaLaunchCoordinator } from './manager/pdcaLaunch';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
 // R16：每日预算（进程共享单例；S3 后**主口径=金额**，Token 轨只观测）——记账点收敛到本类的 recordChatResponseUsage。
 // 债四「换算接线」（2026-10-13）：同一记账点并行记**金额**台账（`recordTurnCostUsd`）。
@@ -126,11 +123,7 @@ import { getBudgetSuspendCoordinator } from '../query/budgetSuspend';
 import {
   isExecutionTaskIntent,
   isStrongBuildIntent,
-  hasResearchIntent,
-  hasVerifyIntent,
 } from './taskIntent';
-// D3（2026-09-25）：运行中长任务信号 ⇒ 自动升级闸门（纯判定，见 `.trae/specs/long-task-routing.md` §3.6）
-import { shouldEscalateLongTask } from './longTaskEscalation';
 
 const logger = getLogger('chat:manager');
 
@@ -138,9 +131,7 @@ import { SimpleMutex, feature } from '@modules/core';
 // T2-8 / `✅-17`（2026-10-13）：编排域只读投影（形态 A）
 import { publishOrchestrationProjection } from '../state/engine/orchestrationProjection.js';
 import { ImplicitEngineHook } from '../project/ImplicitEngineHook';
-import { createProjectStore } from '../workspace/ProjectStore.js';
-import { WorkItemStore } from '../workspace/WorkItemStore.js';
-import { resolveDataDir, resolveWorktreeHash } from '@modules/core/paths';
+import { resolveWorktreeHash } from '@modules/core/paths';
 import { join } from 'path';
 import { getModelPricing } from '@modules/cost';
 
@@ -248,11 +239,7 @@ import { ContextTracker } from '@modules/query';
 // 13-P1-3（2026-10-05）：新增执行配方（recipe）与配方→验证器配置
 // I4（最终整支评审）：`buildBudgetResumePrompt` = `pendingToolCalls` 的**运行时消费者**（续跑提示）。
 // 经 `@modules/query` 模块出口导入（守 R03-002：不经 `query/taor` 子目录）。
-import {
-  instantiatePattern,
-  verifierConfigForRecipe,
-  buildBudgetResumePrompt,
-} from '@modules/query';
+import { buildBudgetResumePrompt } from '@modules/query';
 import type { PendingToolCallRef } from '@modules/query';
 // 13-P2-1（2026-10-05）：输出侧统一护栏组合根注册（默认关 ⇒ 空注册）
 import { registerDefaultOutputGuards } from './outputGuards/index.js';
@@ -994,6 +981,8 @@ export class ChatManagerImpl implements ChatManager {
 
   /** 第一阶段收敛：PDCA 启动器 */
   private _pdcaLauncher: PdcaLauncher | null = null;
+  /** U-22/S1：PDCA 自动启动簇，方法体见 `manager/pdcaLaunch.ts` */
+  private _pdcaLaunch!: PdcaLaunchCoordinator;
   /** P0-2（2026-08-25）：正在执行隐性 PDCA launch 的会话集合（会话级锁，防重复任务卡片） */
   private _pdcaLaunchingSessions = new Set<string>();
 
@@ -1235,6 +1224,20 @@ export class ChatManagerImpl implements ChatManager {
           this._currentSessionId = id;
         },
       },
+    });
+
+    // PDCA 自动启动簇（U-22/S1 外移）：注入 host 端口，方法体在 `chat/manager/pdcaLaunch.ts`。
+    this._pdcaLaunch = new PdcaLaunchCoordinator({
+      launchingSessions: this._pdcaLaunchingSessions,
+      getPdcaLauncher: () => this._pdcaLauncher,
+      shouldUsePlanDrivenLoop: (msg) => this._shouldUsePlanDrivenLoop(msg),
+      shouldUseCodeMode: (msg) => this._shouldUseCodeMode(msg),
+      getOrCreateTAORLoop: (sid) => this._getOrCreateTAORLoop(sid),
+      getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
+      appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
+      persistSessionMetadata: (session) => this.persistSessionMetadata(session),
+      recentUserText: (session, n) => this._recentUserText(session, n),
+      lastAssistantText: (session) => this._lastAssistantText(session),
     });
 
     // 消息编排门面：注入 host 端口（sendMessage/streamMessage 编排委托）
@@ -3923,33 +3926,6 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * P0 跨会话去重：提取关键词集合（归一化后分词）
-   */
-  private _extractKeywords(text: string): Set<string> {
-    if (!text) return new Set();
-    const normalized = text
-      .toLowerCase()
-      .replace(/[^a-z0-9\u4e00-\u9fff]/g, ' ')
-      .split(/\s+/)
-      .filter((w) => w.length > 1)
-      .slice(0, 10);
-    return new Set(normalized);
-  }
-
-  /**
-   * P3-2: Jaccard 相似度 — 替代精确 hash 匹配，语义相近项目可被识别
-   */
-  private _jaccardSimilarity(a: Set<string>, b: Set<string>): number {
-    if (a.size === 0 && b.size === 0) return 1;
-    if (a.size === 0 || b.size === 0) return 0;
-    let intersection = 0;
-    for (const k of a) {
-      if (b.has(k)) intersection++;
-    }
-    return intersection / (a.size + b.size - intersection);
-  }
-
-  /**
    * P2-4: 获取会话绑定的工作区路径（仅项目模块会话有值 = sandboxPath）
    * 用于工具默认 cwd 的会话上下文化，替代全局 SandboxConfigBuilder.defaultWorkspacePath
    */
@@ -4009,88 +3985,19 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
     return '';
-  }
-
-  /**
-   * 裸会话 ⇒ PDCA 编排升级（**单一动作入口**，两个触发方共用）：
-   * ① 既有：执行类长任务**意图**（调用方保留 `pdca:bare_session_intent_detected` 日志与轮次闸）；
-   * ② D3 新增（2026-09-25）：**运行中长任务信号**（`onLongTaskSignal`）。
-   *
-   * 动作与既有实现**逐字一致**：建项目（最近用户文本前 30 字作 `goalSummary` 占位，裸会话无
-   * ImplicitEngine 结果可依赖）→ `_maybeLaunchPdca`（内含会话级 launch 锁与决策 trace）。
-   */
+  }  /** 裸会话 ⇒ PDCA 编排升级（U-22/S1 外移；单一动作入口，实现在 `manager/pdcaLaunch.ts`） */
   private async _escalateToPdcaViaBareSession(params: {
     session: ChatSession;
     assistantContent: string;
     lastUserContent: string;
   }): Promise<void> {
-    const { session, assistantContent, lastUserContent } = params;
-    const goalSummary = lastUserContent
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 30);
-    const projectId = await this._autoCreateProject(session, undefined, {
-      hasGoal: true,
-      deliverables: 1,
-      goalSummary,
-    });
-    if (projectId) {
-      this._maybeLaunchPdca(
-        session,
-        assistantContent,
-        projectId,
-        lastUserContent
-      );
-    }
-  }
-
-  /**
-   * D3（2026-09-25，`.trae/specs/long-task-routing.md` §3.6）：**运行中长任务信号**触发的升级入口
-   * （由 `streamMessageFlow` 在回合收尾时经 `host.onLongTaskSignal` 调用）。
-   *
-   * 为什么需要：既有自动升级只看"**消息文本** + 轮次闸"，运行中才展开成长任务（多 todo / 多轮）
-   * 时无人接管，只能到轮次上限收尾。本入口把该信号接进**既有**升级通道（不新建第二套链路）。
-   *
-   * 闸门（纯判定 `shouldEscalateLongTask`，与既有裸会话分支同口径）：长任务信号 + 裸会话
-   * （无 projectId/workspaceId）+ **轮次闸 ≥2 轮** + 非 Code Mode（互斥，CM-6）。
-   * 不满足 ⇒ 只记 debug 日志（可观测"为何没升级"），不做任何动作。
-   */
+    return this._pdcaLaunch.escalateViaBareSession(params);
+  }  /** D3：运行中长任务信号 ⇒ 升级入口（U-22/S1 外移；闸门与动作见 `manager/pdcaLaunch.ts`） */
   async onLongTaskSignal(
     session: ChatSession,
     fact: { pendingTodoCount: number; consumedTurns: number }
   ): Promise<void> {
-    const lastUserContent = this._recentUserText(session, 3);
-    const userMessageCount = (
-      session.messages?.filter((m) => m.role === 'user') ?? []
-    ).length;
-    const shouldEscalate = shouldEscalateLongTask({
-      longTask: true,
-      hasProjectContext: Boolean(
-        session.metadata?.projectId ?? session.metadata?.workspaceId
-      ),
-      codeMode: this._shouldUseCodeMode(lastUserContent),
-      userMessageCount,
-    });
-    if (!shouldEscalate) {
-      logger.debug('pdca:long_task_signal_skipped', {
-        sessionId: session.id,
-        pendingTodoCount: fact.pendingTodoCount,
-        consumedTurns: fact.consumedTurns,
-        userMessageCount,
-      });
-      return;
-    }
-    logger.info('pdca:long_task_signal_escalation', {
-      sessionId: session.id,
-      pendingTodoCount: fact.pendingTodoCount,
-      consumedTurns: fact.consumedTurns,
-      userMessageCount,
-    });
-    await this._escalateToPdcaViaBareSession({
-      session,
-      assistantContent: this._lastAssistantText(session),
-      lastUserContent,
-    });
+    return this._pdcaLaunch.onLongTaskSignal(session, fact);
   }
 
   /**
@@ -4110,307 +4017,19 @@ export class ChatManagerImpl implements ChatManager {
         action: '持久化会话 metadata 失败',
       });
     }
-  }
-
-  /**
-   * P0-1（2026-09-06，A1）：PDCA launch 统一出口（同轮串联）。
-   *
-   * 原 launch 逻辑内联在 persist 回调的 launch 分支；提取为方法后：
-   *  - 项目/工作区会话命中 → 直接调用（K3/K4 语义不变）
-   *  - 普通会话自动建项目完成（await）→ 拿到 projectId 后调用（同轮启动，
-   *    消除"首轮只建项目、绝不 launch PDCA"的时序互斥——_autoCreateProject
-   *    原为 fire-and-forget，projectId 在微任务才赋值，launch 门同步判断恒 false）
-   *
-   * 含：会话级 launch 锁（防重复卡片）、分流决策 trace（SSE + task_audit_log）、
-   * _pdcaLauncher.launch 双路径（PDL 快速 / 阶段链）调用。
-   */
+  }  /** P0-1：PDCA launch 统一出口（U-22/S1 外移；锁/trace/双路径语义见 `manager/pdcaLaunch.ts`） */
   private _maybeLaunchPdca(
     session: ChatSession,
     assistantContent: string,
     projectId: string,
     lastUserContent: string | undefined
   ): void {
-    if (this._pdcaLaunchingSessions.has(session.id)) {
-      logger.warn('pdca:launch_skip_duplicate', {
-        sessionId: session.id,
-        projectId,
-      });
-      return;
-    }
-    this._pdcaLaunchingSessions.add(session.id);
-    // P0-3（2026-09-06，Teamwork）：研究模式分流——研究型意图 && COMPETITIVE_STRATEGY
-    // feature 开启时优先走候选生成 + 对抗评审编排（launchResearch），不占用 PDCA 阶段链；
-    // 与 Code Mode 互斥（研究任务由编排直接回复，不进 code_run 沙箱）。成本门控：feature 默认关。
-    //
-    // A1（2026-10-01，`.trae/specs/pattern-executable-assembly.md` §3.3）：模式规则收敛到
-    // `selectPattern`（单一事实源）——本层不再重述「研究 → competitive_strategy」，只
-    // ① 用任务特征构造 spec ② 读装配入口标识决定去向。决策权此前分散在 PDL（无法行动，
-    // 返回值只进日志）与本处（绕过 selector）两处，现归位到本层（唯一能 launchResearch 的层）。
-    //
-    // 注（如实）：此处 `complexity` 固定为 complex —— 本分流点的**唯一**判据历来是"消息意图"
-    // （P0-3 起即无复杂度门），固定值用于维持该语义逐字不变；复杂度维度属 PDL 快速路径门
-    // （`_shouldUsePlanDrivenLoop`），与本决策正交（见 spec §6.5 记录）。
-    const researchIntent = hasResearchIntent(lastUserContent || '');
-    // 2026-10-07（`.trae/specs/pattern-wiring-closure.md` §4「P1」）：`self_verify` 的触发信号。
-    // 规则表顺序保证：研究意图命中 ⇒ 仍取 competitive_strategy（既有行为逐字不变）。
-    const verifyIntent = hasVerifyIntent(lastUserContent || '');
-    const researchPattern = selectPattern({
-      complexity: 'complex',
-      research: researchIntent,
-      verify: verifyIntent,
-    });
-    // A8 最后一公里（2026-10-04，`.trae/specs/pattern-assembly-runtime.md` §4.1）：
-    // 装配描述不再由本层**裸读 assembler 字符串比较**，改经装配入口 `instantiatePattern`
-    // 解析为可执行路由（未接线者显式 `unavailable`）。行为不变：
-    // `competitive_strategy` → `route === 'research'` → launchResearch。
-    const researchInstantiation = researchPattern
-      ? instantiatePattern(researchPattern)
-      : null;
-    // 2026-10-07（`.trae/specs/pattern-catalog-reachability-and-persistence.md` §3.2）：门控**声明**
-    // 收敛到选择规则（`PATTERN_SELECTION_RULES[].feature`）⇒ 本层不再硬编码开关名（CS01 单点）。
-    const patternFeature = researchPattern
-      ? patternFeatureFlag(researchPattern.name)
-      : undefined;
-    const patternGateEnabled = patternFeature
-      ? coreFeature(patternFeature)
-      : true;
-    // 13-P1-3（2026-10-05）：装配结果的**执行配方**应用 —— `self_verify` 线路 ⇒ 把配方落到
-    // **既有** VerifierAgent（blocking + 严格预算），不新建运行时。
-    // 2026-10-07（`.trae/specs/pattern-wiring-closure.md` §4）：① **触发面已补齐**（选择规则新增
-    // `verify`）⇒ 本分支由"当前不可达"变为**可达**；② **补门控** —— 修复前本分支**无门控**，
-    // 触发面一旦补齐会绕过 `SELF_VERIFY_PATTERN` 直接改回合质量判定（必须挡住）；③ 记录
-    // `verifyApplied` 供下方 `applied` 语义（= 该模式分支**实际生效**）。
-    let verifyApplied = false;
-    if (
-      patternGateEnabled &&
-      researchInstantiation?.status === 'ready' &&
-      researchInstantiation.route === 'verify'
-    ) {
-      const recipeVerifierConfig = verifierConfigForRecipe(
-        researchInstantiation.recipe
-      );
-      this._getOrCreateTAORLoop(session.id).applyVerifierConfig(
-        recipeVerifierConfig
-      );
-      verifyApplied = true;
-      logger.info('pattern 配方应用（self_verify ⇒ 验证器配置）', {
-        sessionId: session.id,
-        verifyPolicy: researchInstantiation.recipe.verifyPolicy,
-        budgetPolicy: researchInstantiation.recipe.budgetPolicy,
-        verifier: recipeVerifierConfig,
-      });
-    }
-    const researchMode =
-      patternGateEnabled &&
-      researchInstantiation?.status === 'ready' &&
-      researchInstantiation.route === 'research';
-    // 2026-10-07（§3.5）：模式**决策轨迹** —— 仅"意图命中"时落一条（无意图 = 噪声）。
-    // 记录两类可判定事实：**命中并生效** / **命中但被拦**（门控关 / 装配 `unavailable`）。
-    // `applied` 语义 = **该模式分支实际生效**（研究分流生效 ∨ 验证配方已应用）—— 修复前恒等于
-    // `researchMode`，在新增 `verify` route 后会**失真**（把已生效的 verify 记成未生效）。
-    if (researchIntent || verifyIntent) {
-      this._persistPatternDecision(session.id, {
-        site: 'research_dispatch',
-        selected: researchPattern?.name ?? null,
-        ...(researchInstantiation
-          ? researchInstantiation.status === 'ready'
-            ? { status: 'ready' as const, route: researchInstantiation.route }
-            : { status: 'unavailable' as const }
-          : {}),
-        ...(patternFeature
-          ? {
-              featureGate: {
-                flag: patternFeature,
-                enabled: patternGateEnabled,
-              },
-            }
-          : {}),
-        applied: researchMode || verifyApplied,
-      }).catch((e: unknown) => {
-        // @ignore-catch — 轨迹落盘失败不影响编排分流（CS03）
-        logger.debug('pattern:decision_persist_failed', { error: String(e) });
-      });
-    }
-    if (researchMode) {
-      logger.info('研究模式分流（P0-3）', {
-        sessionId: session.id,
-        projectId,
-        messagePreview: (lastUserContent || '').slice(0, 50),
-      });
-      import('../tasks/PdcaLiveEvents')
-        .then((m) => {
-          void m.emitPdcaLiveEvent(
-            'pdca:auto_launched',
-            { sessionId: session.id, projectId },
-            { decision: 'research', message: '研究模式：候选生成 + 对抗评审' }
-          );
-          return m.emitPdcaLiveEvent(
-            'pdca:decision',
-            { sessionId: session.id, projectId },
-            {
-              decision: 'research',
-              reasons: ['research-intent', 'competitive-feature'],
-              message: '研究型任务命中研究模式（候选生成 + 对抗评审）',
-            }
-          );
-        })
-        .then(() =>
-          this._persistPdcaSnapshot(
-            session,
-            projectId,
-            'research',
-            '研究模式：候选生成 + 对抗评审',
-            ['research-intent', 'competitive-feature']
-          )
-        )
-        .catch(() => {
-          // @ignore-catch — 研究分流 trace 失败不影响编排（CS03）
-        });
-      this._pdcaLauncher!.launchResearch(
-        projectId,
-        assistantContent,
-        session.id,
-        lastUserContent
-      )
-        .catch(() => {
-          /* 研究模式失败不阻塞消息流 */
-        })
-        .finally(() => {
-          this._pdcaLaunchingSessions.delete(session.id);
-        });
-      return;
-    }
-    // OBS（M3a）：分流决策 trace——记录走 PDL 快速路径还是经典阶段链
-    const usePlanDriven = this._shouldUsePlanDrivenLoop(lastUserContent || '');
-    const decisionReasons = usePlanDriven
-      ? ['simple', 'no-dangerous-tool']
-      : ['complex-or-dangerous'];
-    // OBS（M3a/M3b-DB）：分流决策 trace（SSE 实时 + task_audit_log 持久化；
-    // 动态 import 链式，避免在同步回调中 await）
-    const decisionMsg = usePlanDriven
-      ? '简单任务走 PlanDrivenLoop 快速路径'
-      : '复杂/危险任务走经典 PDCA 阶段链';
-    import('../tasks/PdcaLiveEvents')
-      .then((m) => {
-        // B1（2026-09-06，P0-2）：自动启动信号——供前端 banner/执行模式徽标消费
-        void m.emitPdcaLiveEvent(
-          'pdca:auto_launched',
-          {
-            sessionId: session.id,
-            projectId,
-          },
-          {
-            decision: usePlanDriven ? 'pdl' : 'stage-chain',
-            message: decisionMsg,
-          }
-        );
-        return m.emitPdcaLiveEvent(
-          'pdca:decision',
-          {
-            sessionId: session.id,
-            projectId,
-          },
-          {
-            decision: usePlanDriven ? 'pdl' : 'stage-chain',
-            reasons: decisionReasons,
-            message: decisionMsg,
-          }
-        );
-      })
-      .then(() =>
-        import('../tasks/db/SqliteTaskStore').then((mod) =>
-          new mod.SqliteTaskStore().writeAuditLogWithDetail({
-            taskId: `session:${session.id}`,
-            eventType: 'pdca_decision',
-            oldStatus: null,
-            newStatus: usePlanDriven ? 'pdl' : 'stage-chain',
-            detail: JSON.stringify({
-              reasons: decisionReasons,
-              message: decisionMsg,
-              projectId: projectId ?? null,
-            }),
-            timestamp: Date.now(),
-          })
-        )
-      )
-      .then(() =>
-        this._persistPdcaSnapshot(
-          session,
-          projectId,
-          usePlanDriven ? 'pdl' : 'stage-chain',
-          decisionMsg,
-          decisionReasons
-        )
-      )
-      .catch(() => {
-        // @ignore-catch — 决策 trace 失败不影响分流（CS03）
-      });
-    this._pdcaLauncher!.launch(
-      projectId,
+    this._pdcaLaunch.maybeLaunch(
+      session,
       assistantContent,
-      session.id,
-      lastUserContent || undefined,
-      // S3（P1-5 §5 S3）：两层分流决策（复杂度门 + 危险工具 + message 粒度 hash 10%）
-      usePlanDriven
-    )
-      .catch(() => {
-        /* 隐性引擎失败不阻塞消息流 */
-      })
-      .finally(() => {
-        this._pdcaLaunchingSessions.delete(session.id);
-      });
-  }
-
-  /**
-   * 2026-10-07（`.trae/specs/pattern-catalog-reachability-and-persistence.md` §3.5）：
-   * 编排模式**决策轨迹**落 session 事件（log-only，**不入消息 surface**）。
-   *
-   * 与 `_persistPdcaSnapshot` 同法：seq 由 `tailSeq` 分配、写入走**唯一入口** `appendStreamEvent`
-   * （不绕过事件写入链路与 seq 分配）。CS03：落盘失败不阻断分流（调用方 `.catch` + 本链路已有兜底）。
-   */
-  private async _persistPatternDecision(
-    sessionId: string,
-    data: LiriEventData<'pattern/decision'>
-  ): Promise<void> {
-    const ts = await this.getStreamTailSeq(sessionId);
-    await this.appendStreamEvent(sessionId, {
-      type: 'pattern/decision',
-      seq: ts + 1,
-      time: Date.now(),
-      sessionId,
-      data,
-    });
-  }
-
-  /**
-   * P2-A（2026-09-17）：PDCA 自动启动 → 聊天正文内嵌卡片（只存启动快照）。
-   *
-   * 把自动启动快照以 assistant/pdca_workflow 富块事件持久化，经 EventMessageDeriver
-   * 派生为当前 assistant 消息的 pdca_workflow 块，重开会话回放还原卡片；实时阶段
-   * 进度由 /v1/events 的 pdca:* 事件驱动（不经此快照）。CS03：落盘失败不阻断消息流。
-   */
-  private async _persistPdcaSnapshot(
-    session: ChatSession,
-    projectId: string | undefined,
-    decision: 'pdl' | 'stage-chain' | 'research',
-    message: string,
-    reasons?: string[]
-  ): Promise<void> {
-    const ts = await this.getStreamTailSeq(session.id);
-    await this.appendStreamEvent(session.id, {
-      type: 'assistant/pdca_workflow',
-      seq: ts + 1,
-      time: Date.now(),
-      sessionId: session.id,
-      data: {
-        decision,
-        stage: 'plan',
-        status: 'started',
-        message,
-        ...(projectId ? { projectId } : {}),
-        ...(reasons ? { reasons } : {}),
-      },
-    });
+      projectId,
+      lastUserContent
+    );
   }
 
   /**
@@ -4436,133 +4055,13 @@ export class ChatManagerImpl implements ChatManager {
       sessionId,
       data,
     });
-  }
-
-  /**
-   * P0: 自动建项目 — 检测到 goal + deliverables 时静默创建项目
-   * P0-1（2026-09-06）：返回值由 void 改为 projectId（成功新建/关联）或 null（失败）——
-   * 供调用方 await 后同轮串联 launch（消除"首轮只建不 launch"时序互斥）。
-   * 仍不打断用户：失败仅告警，不阻塞消息流（CS03）。
-   */
+  }  /** P0: 自动建项目（U-22/S1 外移；实现在 `manager/pdcaLaunch.ts`，行为/返回值不变） */
   private async _autoCreateProject(
     session: ChatSession,
     workspaceId: string | undefined,
     result: { hasGoal: boolean; deliverables: number; goalSummary?: string }
   ): Promise<string | null> {
-    try {
-      const dataDir = resolveDataDir();
-      const workItemStore = new WorkItemStore(dataDir);
-      const projectStore = createProjectStore(dataDir, workItemStore);
-
-      // 项目名：优先使用引擎提取的 goal 摘要，否则用产出物数生成默认名
-      const projectName =
-        result.goalSummary || `项目 ${result.deliverables} 个产出`;
-      const newKeywords = this._extractKeywords(projectName);
-      if (newKeywords.size > 0) {
-        const existingProjects = projectStore.list(workspaceId ?? 'default');
-        const matched = existingProjects.find((p) => {
-          const pKeywords = this._extractKeywords(p.description ?? p.name);
-          return this._jaccardSimilarity(newKeywords, pKeywords) >= 0.6;
-        });
-        if (matched) {
-          // 命中已有项目：关联 session，不新建
-          if (!session.metadata) {
-            (session as unknown as Record<string, unknown>).metadata = {};
-          }
-          session.metadata.projectId = matched.id;
-          logger.info('P0 跨会话去重 — 关联到已有项目', {
-            existingProjectId: matched.id,
-            sessionId: session.id,
-          });
-          // P0-D: 持久化 projectId 到 gateway 存储，防止重启后丢失
-          await this.persistSessionMetadata(session);
-          return matched.id;
-        }
-      }
-
-      const project = projectStore.create({
-        workspaceId: workspaceId ?? 'default',
-        name: projectName,
-        description:
-          result.goalSummary || `自动创建：${result.deliverables} 个产出物`,
-        delaySandbox: true,
-      });
-
-      // 关联 session 到新项目
-      if (!session.metadata) {
-        (session as unknown as Record<string, unknown>).metadata = {};
-      }
-      session.metadata.projectId = project.id;
-
-      // P0-D: 持久化 projectId 到 gateway 存储，防止重启后丢失
-      await this.persistSessionMetadata(session);
-
-      // S5b: 项目上下文文件由 ProjectStore.create() 统一写入
-      // P0: 迁移已有 context/artifacts 到新项目目录
-      try {
-        const {
-          mkdirSync,
-          copyFileSync,
-          existsSync: _exists,
-        } = await import('fs');
-        const projDir = join(dataDir, 'projects', project.id);
-        mkdirSync(projDir, { recursive: true });
-
-        // P0 context 迁移：复制 ImplicitEngineHook 已写入的 rules/artifacts
-        // S2 上线前：物理复制（S2 后改为 items.db 引用）
-        if (workspaceId) {
-          const srcDir = join(homedir(), '.pyapp', 'projects', workspaceId);
-          for (const file of ['rules.md', 'artifacts.json']) {
-            const srcPath = join(srcDir, file);
-            const dstPath = join(projDir, file);
-            if (_exists(srcPath) && !_exists(dstPath)) {
-              copyFileSync(srcPath, dstPath);
-            }
-          }
-        }
-      } catch {
-        /* 写上下文文件失败不影响主流程 */
-      }
-
-      logger.info('P0 自动建项目', {
-        projectId: project.id,
-        sessionId: session.id,
-        deliverables: result.deliverables,
-      });
-
-      // P0 增强：通知前端导航到新项目
-      // P2-2: 事件携带 sandboxPath，前端 worktree.path 用真实路径（此前 path=projectId 导致工具默认 cwd 错误）
-      const autoCreatedPayload = {
-        projectId: project.id,
-        name: project.name,
-        sandboxPath: project.sandboxPath,
-      };
-      logger.info('P0 自动建项目事件：emitCustomEvent 发出', {
-        event: 'project:auto_created',
-        ...autoCreatedPayload,
-      });
-      eventNotificationService.emitCustomEvent(
-        'project:auto_created',
-        autoCreatedPayload
-      );
-      // P0b-3: 同步广播到全局 SSE 事件总线，前端 worktree 同步创建
-      try {
-        const { broadcastEvent } = await import('@modules/infrastructure');
-        await broadcastEvent('project:auto_created', autoCreatedPayload);
-        logger.info('P0 自动建项目事件：SSE 广播完成', autoCreatedPayload);
-      } catch (e) {
-        logger.warn('P0 自动建项目 SSE 广播失败', {
-          error: (e as Error)?.message ?? String(e),
-        });
-        /* SSE 广播失败不影响主流程 */
-      }
-      return project.id;
-    } catch (e) {
-      logger.warn('P0 自动建项目失败', {
-        error: (e as Error)?.message ?? String(e),
-      });
-      return null;
-    }
+    return this._pdcaLaunch.autoCreateProject(session, workspaceId, result);
   }
 
   /** 阶段 A（A1-e）：yield 恢复器是否已装配（懒装配幂等守卫） */

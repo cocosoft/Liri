@@ -156,10 +156,13 @@ import {
   truncationLargerBudgetNotice,
   buildTruncationContinueMessages,
   // P2-1g（S1 请求准备函数化）：发送前历史污染清洗（纯函数）
-  sanitizeHistoryPollution,
+  // P2-1o（2026-10-17）：清洗调用随 apiMessages 构建段迁入
+  // `streamMessageApiMessagesBuild.ts` ⇒ 本文件不再直接引用。
   // P2-1m（请求级延迟载荷函数化）：`metric/timing` 载荷构造（纯函数）
   buildRequestTimingPayload,
 } from './streamMessageHelpers.js';
+// P2-1o（U-18 收尾切片，2026-10-17）：apiMessages 构建段（切窗 + 心跳 + 超时 + 清洗）
+import { buildStreamApiMessages } from './streamMessageApiMessagesBuild.js';
 export {
   isStreamedContentSuperset,
   resolveCompactionFailureAttribution,
@@ -546,103 +549,17 @@ export async function* runStreamMessage(
       sessionId: session.id,
     });
     let apiMessages: Array<Record<string, unknown>>;
-    {
-      const buildStart = Date.now();
-      let buildHeartbeatCount = 0;
-      logger.info('compaction:build_start', {
-        sessionId: session.id,
-        messageCount: session.messages.length,
-        preCompacted,
-      });
-      const buildPromise = _buildApiMessagesForStream(
-        session.messages,
-        // C-2（2026-09-02，v4 §7.2）：构建期预算切窗——超窗大会话 map 前先丢
-        // 头部旧轮次，构建期内存 O(全量)→O(窗口)
-        resolveMaxContextTokens(turnModel),
-        options?.maxTokens
-      )
-        // P0-1 修复（2026-08-27）：构建失败不再静默中断——原 buildPromise reject →
-        // Promise.race reject → 整条流式在压缩占位块后静默中断（模型未被调用）。
-        // 现捕获错误 → 产出可见 error 状态块 → 抛明确错误由上层落盘 error/finishReason。
-        .then((value) => ({ ok: true as const, value }))
-        .catch((error) => ({
-          ok: false as const,
-          value: null as never,
-          error: error instanceof Error ? error.message : String(error),
-        }));
-      // P0-2 修复（2026-08-27）：构建总超时守卫——原 Promise.race 循环仅产生心跳，
-      // _buildApiMessagesForStream 若挂起会无限循环；超过上限后中止并抛错。
-      const BUILD_TIMEOUT_MS = 120_000;
-      const buildDeadline = Date.now() + BUILD_TIMEOUT_MS;
-      while (true) {
-        if (Date.now() > buildDeadline) {
-          yield {
-            type: 'status',
-            statusType: 'compaction',
-            phase: 'error',
-            content: '上下文构建超时，已中止本次回复',
-            sessionId: session.id,
-          } as ChatStreamChunk;
-          throw new Error(
-            `上下文构建超时（>${BUILD_TIMEOUT_MS / 1000}s），已中止本次回复`
-          );
-        }
-        const settled = await Promise.race([
-          buildPromise,
-          sleep(10_000).then(() => ({
-            ok: false as const,
-            value: null as never,
-            timedOut: true as const,
-          })),
-        ]);
-        if ('timedOut' in settled) {
-          buildHeartbeatCount++;
-          yield {
-            type: 'status',
-            statusType: 'compaction',
-            phase: 'compacting',
-            content: '正在读取上下文...',
-            sessionId: session.id,
-          } as ChatStreamChunk;
-          continue;
-        }
-        if (settled.ok) {
-          apiMessages = settled.value;
-          break;
-        }
-        yield {
-          type: 'status',
-          statusType: 'compaction',
-          phase: 'error',
-          content: `上下文构建失败：${settled.error}`,
-          sessionId: session.id,
-        } as ChatStreamChunk;
-        throw new Error(`上下文构建失败：${settled.error}`);
-      }
-      // 2026-08-20 QQ 空响应事故防御：发送前清洗历史污染。
-      // P2-1g（2026-10-10）：清洗**变换**外移为纯函数 `sanitizeHistoryPollution`
-      //（规则 a/b 与事故根因见其头注）；本处仅保留**写回与留痕**（动作留在编排函数）。
-      const beforeSanitize = apiMessages.length;
-      const sanitizeResult = sanitizeHistoryPollution(apiMessages);
-      if (sanitizeResult.droppedEmpty > 0 || sanitizeResult.mergedRuns > 0) {
-        apiMessages = sanitizeResult.messages;
-        logger.warn('compaction:历史污染清洗（发送前防御）', {
-          sessionId: session.id,
-          beforeCount: beforeSanitize,
-          afterCount: apiMessages.length,
-          droppedEmptyAssistant: sanitizeResult.droppedEmpty,
-          mergedConsecutiveAssistant: sanitizeResult.mergedRuns,
-          hint: '历史含旧版全量重写 bug 落盘的重复/空 assistant，已清洗防止 LLM 空响应',
-        });
-      }
-      logger.info('compaction:build_done', {
-        sessionId: session.id,
-        elapsedMs: Date.now() - buildStart,
-        beforeMessageCount: session.messages.length,
-        apiMessageCount: apiMessages.length,
-        heartbeatCount: buildHeartbeatCount,
-      });
-    }
+    // P2-1o（U-18 收尾切片，2026-10-17）：构建段（构建期切窗 + 心跳保活 + 总超时 +
+    // 发送前污染清洗）外移为**内层 async generator**，`yield*` **逐帧转发**其中的 status
+    // chunk（顺序与拆分前等价）；返回值为构建结果（唯一出口变量）。
+    apiMessages = yield* buildStreamApiMessages({
+      sessionId: session.id,
+      messages: session.messages,
+      preCompacted,
+      maxContextTokens: resolveMaxContextTokens(turnModel),
+      maxTokens: options?.maxTokens,
+      buildApiMessages: _buildApiMessagesForStream,
+    });
     // 诊断日志：压缩前 token 基线
     await logTokenSnapshot(
       'API 消息构建后（压缩前）',

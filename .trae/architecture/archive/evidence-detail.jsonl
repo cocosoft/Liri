@@ -6794,3 +6794,9 @@
 {"id":"U22-LRTO-RESUME","k":"code#0","i":0,"c":"app/src/tasks/lro/resumeFromCheckpoint.ts"}
 {"id":"U22-LRTO-RESUME","k":"code#1","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
 {"id":"U22-LRTO-RESUME","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"U22-CHATMANAGER-TAORCTX","k":"title","i":0,"c":"U-22/ChatManager S5：外移非流式 TAOR 上下文装配（_buildTAORContext）"}
+{"id":"U22-CHATMANAGER-TAORCTX","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ChatManager）/§4"}
+{"id":"U22-CHATMANAGER-TAORCTX","k":"notes","i":0,"c":"_buildTAORContext（120 行）→ chat/manager/taorContext.ts（buildTAORContext + TaorContextDeps：工具可见性/待处理交互/模型请求（发送前投影+截断）/工具执行/消息落盘/进度与工具回调/事件通道）。日志、投影告警、tool_calls 归一逐字未变；宿主保留薄转发。"}
+{"id":"U22-CHATMANAGER-TAORCTX","k":"code#0","i":0,"c":"app/src/chat/manager/taorContext.ts"}
+{"id":"U22-CHATMANAGER-TAORCTX","k":"code#1","i":0,"c":"app/src/chat/ChatManager.ts"}
+{"id":"U22-CHATMANAGER-TAORCTX","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}

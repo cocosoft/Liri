@@ -1,13 +1,13 @@
 {
   "nextKey": "B5-2-100",
-  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "U-22-S1", "U-22-S2", "U-22-S3", "U-22-S4", "U-18-S1", "U-22-AGENTTOOL", "U-22-REACTLOOP-P1", "U-22-REACTLOOP-P2", "U-22-LRTO-S0", "U-22-LRTO-S1", "U-22-LRTO-S2A", "U-22-LRTO-S3", "U-22-LRTO-S4", "U-13-P1", "T-13-a", "T-13-b"],
-  "lastCommit": "59eaa143a",
+  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "U-22-S1", "U-22-S2", "U-22-S3", "U-22-S4", "U-18-S1", "U-22-AGENTTOOL", "U-22-REACTLOOP-P1", "U-22-REACTLOOP-P2", "U-22-LRTO-S0", "U-22-LRTO-S1", "U-22-LRTO-S2A", "U-22-LRTO-S3", "U-22-LRTO-S4", "U-22-CM-S5", "U-13-P1", "T-13-a", "T-13-b"],
+  "lastCommit": "c7e3b10cd",
   "baselineKeys": {
     "lint:consts": 85,
     "lint:endpoints": 30,
     "lint:locale": 6
   },
-  "nextAction": "U-22 余：LRTO S2b 按 dev_docs/20261017/LRTO-执行主链-交接单-20261017.md 开工（executeSingleStep 562 / _runExecuteDecideLoop 344 / runFullPdca 84，当前 2383，目标 ≤2000）；随后 i18n zh/en；ChatManager 余 +2323；U-13 待新数据窗口重采",
+  "nextAction": "U-22 余：LRTO S2b 按 dev_docs/20261017/LRTO-执行主链-交接单-20261017.md 开工（executeSingleStep 562 / _runExecuteDecideLoop 344 / runFullPdca 84，当前 2383，目标 ≤2000）；随后 i18n zh/en；ChatManager 余 +2237；U-13 待新数据窗口重采",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为门禁实测口径（lint:consts 按组计：同名 17 + 同值 68 = 85；lint:endpoints / locale 按文件键计），非估算",
@@ -24,6 +24,7 @@
     "2026-10-17：T-13-a —— MessageService.createToolResultMessage 按 toolResult.error 落 status=FAILED + metadata.isError=true（唯一构造点，保留调用方 metadata）；补 6 条守卫测试；历史事件不可回填，误调用率对比需用新数据窗口",
     "2026-10-17：T-13-b —— OrchestrationMetrics 订阅端按「起始事件 → 终止事件」配对派生耗时（关联键 planId/chainId/taskId/stepName/sessionId/ruleId，同键 FIFO；缺键仅在唯一桶时退化配对；耗时挂起始事件类型，窗口/待配对均有上限）；补 5 条守卫测试；样本为进程内，需真实编排流量重采",
     "2026-10-17：U-22/S4 —— ChatManager 外移 _finalizeStreamMessage（294→manager/streamFinalize.ts）与 resumeStream（289→manager/streamResume.ts）；4790→4323（累计 -1599），FSZ-005 同步下调；互斥锁/abort/executionId 三 Map 与宿主共享，resume「最外层唯一 release」修复保留；清除 6 个失效 import",
+    "2026-10-17：U-22/ChatManager S5 —— _buildTAORContext（120）→ manager/taorContext.ts（buildTAORContext + TaorContextDeps）；4323→4237（FSZ-005 同步下调，仍 +2237）",
     "2026-10-17：U-18/S1 —— streamMessageFlow 工具轮主体（约 400 行）外移为内层 async generator streamMessageToolLoop.ts（yield* 逐帧转发）；2316→1936（≤2000 ⇒ 删除 FSZ-107 例外）；function-size-baseline 下调 2132→1757 / 2315→1936",
     "2026-10-17：U-22/AgentTool —— runSwarmPath（461）+ buildSwarmExecutor（251）→ tools/AgentTool/swarmPath.ts（SwarmPathDeps 注入，宿主薄转发 + swarmPathDeps）；resolveDeniedTools 与两个 descriptor 类型随迁并 re-export；2709→1964（≤2000 ⇒ 删除 FSZ-050 例外）；清理 15 处失效 import",
     "2026-10-17：U-22/ReActToolLoop S1/S2 —— 交互链路（_registerInteraction/_awaitAnswersWithHeartbeat/_emitSuspensionSettled）→ chat/agentInteraction.ts；终止输出（resolveTerminationOutput + mapTerminationToGoalReason + EMPTY_OUTPUT_FALLBACK_TEXT）→ chat/terminationOutput.ts；2749→2397（FSZ-108 lines 同步下调，仍 +397）",

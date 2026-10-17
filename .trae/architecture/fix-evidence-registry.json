@@ -11920,6 +11920,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-LRTO-RESUME）",
       "notes": "resumeFromCheckpoint（165 行）→ tasks/lro/resumeFromCheckpoint.ts（ResumeDeps：executePlanPhase/runExecuteDecideLoop/getStatus/setPhase/生命周期/重建 Plan/扩容乘子/缺陷清单/planI…（全文见 archive/evidence-detail.jsonl#U22-LRTO-RESUME）"
+    },
+    {
+      "id": "U22-CHATMANAGER-TAORCTX",
+      "title": "U-22/ChatManager S5：外移非流式 TAOR 上下文装配（_buildTAORContext）",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ChatManager）/§4",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/manager/taorContext.ts",
+        "app/src/chat/ChatManager.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-TAORCTX）",
+      "notes": "_buildTAORContext（120 行）→ chat/manager/taorContext.ts（buildTAORContext + TaorContextDeps：工具可见性/待处理交互/模型请求（发送前投影+截断）/工具执行/消息落盘/进度与工具回调/事件通道）。日志、投影告警、tool_calls …（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-TAORCTX）"
     }
   ]
 }

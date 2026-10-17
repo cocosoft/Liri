@@ -24,7 +24,11 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { getLogger } from '@modules/monitoring';
-import { feature as coreFeature, patternFeatureFlag, selectPattern } from '@modules/core';
+import {
+  feature as coreFeature,
+  patternFeatureFlag,
+  selectPattern,
+} from '@modules/core';
 import { instantiatePattern, verifierConfigForRecipe } from '@modules/query';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
@@ -41,9 +45,7 @@ const logger = getLogger('chat:manager');
 
 /** TAORLoop 上本簇唯一使用的接缝（self_verify 配方落点） */
 export interface VerifierConfigSink {
-  applyVerifierConfig(
-    config: ReturnType<typeof verifierConfigForRecipe>
-  ): void;
+  applyVerifierConfig(config: ReturnType<typeof verifierConfigForRecipe>): void;
 }
 
 export interface PdcaLaunchDeps {
@@ -126,7 +128,10 @@ export class PdcaLaunchCoordinator {
     lastUserContent: string;
   }): Promise<void> {
     const { session, assistantContent, lastUserContent } = params;
-    const goalSummary = lastUserContent.replace(/\s+/g, ' ').trim().slice(0, 30);
+    const goalSummary = lastUserContent
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 30);
     const projectId = await this.autoCreateProject(session, undefined, {
       hasGoal: true,
       deliverables: 1,
@@ -181,7 +186,9 @@ export class PdcaLaunchCoordinator {
     const patternFeature = researchPattern
       ? patternFeatureFlag(researchPattern.name)
       : undefined;
-    const patternGateEnabled = patternFeature ? coreFeature(patternFeature) : true;
+    const patternGateEnabled = patternFeature
+      ? coreFeature(patternFeature)
+      : true;
     let verifyApplied = false;
     if (
       patternGateEnabled &&
@@ -265,7 +272,12 @@ export class PdcaLaunchCoordinator {
           // @ignore-catch — 研究分流 trace 失败不影响编排（CS03）
         });
       launcher!
-        .launchResearch(projectId, assistantContent, session.id, lastUserContent)
+        .launchResearch(
+          projectId,
+          assistantContent,
+          session.id,
+          lastUserContent
+        )
         .catch(() => {
           /* 研究模式失败不阻塞消息流 */
         })
@@ -275,7 +287,9 @@ export class PdcaLaunchCoordinator {
       return;
     }
     // OBS（M3a）：分流决策 trace——记录走 PDL 快速路径还是经典阶段链
-    const usePlanDriven = this.deps.shouldUsePlanDrivenLoop(lastUserContent || '');
+    const usePlanDriven = this.deps.shouldUsePlanDrivenLoop(
+      lastUserContent || ''
+    );
     const decisionReasons = usePlanDriven
       ? ['simple', 'no-dangerous-tool']
       : ['complex-or-dangerous'];

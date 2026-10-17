@@ -120,10 +120,7 @@ import { getDailyBudget, recordTurnCostUsd } from '../query/DailyBudgetManager';
 import { getBudgetSuspendCoordinator } from '../query/budgetSuspend';
 // K4（2026-09-06）：执行意图判定提取共用（goal fallback / streamMessageFlow 裁剪）
 // R4（2026-09-06）：强产出意图判定（首条消息轮次闸放宽）
-import {
-  isExecutionTaskIntent,
-  isStrongBuildIntent,
-} from './taskIntent';
+import { isExecutionTaskIntent, isStrongBuildIntent } from './taskIntent';
 
 const logger = getLogger('chat:manager');
 
@@ -3985,14 +3982,14 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
     return '';
-  }  /** 裸会话 ⇒ PDCA 编排升级（U-22/S1 外移；单一动作入口，实现在 `manager/pdcaLaunch.ts`） */
+  } /** 裸会话 ⇒ PDCA 编排升级（U-22/S1 外移；单一动作入口，实现在 `manager/pdcaLaunch.ts`） */
   private async _escalateToPdcaViaBareSession(params: {
     session: ChatSession;
     assistantContent: string;
     lastUserContent: string;
   }): Promise<void> {
     return this._pdcaLaunch.escalateViaBareSession(params);
-  }  /** D3：运行中长任务信号 ⇒ 升级入口（U-22/S1 外移；闸门与动作见 `manager/pdcaLaunch.ts`） */
+  } /** D3：运行中长任务信号 ⇒ 升级入口（U-22/S1 外移；闸门与动作见 `manager/pdcaLaunch.ts`） */
   async onLongTaskSignal(
     session: ChatSession,
     fact: { pendingTodoCount: number; consumedTurns: number }
@@ -4017,7 +4014,7 @@ export class ChatManagerImpl implements ChatManager {
         action: '持久化会话 metadata 失败',
       });
     }
-  }  /** P0-1：PDCA launch 统一出口（U-22/S1 外移；锁/trace/双路径语义见 `manager/pdcaLaunch.ts`） */
+  } /** P0-1：PDCA launch 统一出口（U-22/S1 外移；锁/trace/双路径语义见 `manager/pdcaLaunch.ts`） */
   private _maybeLaunchPdca(
     session: ChatSession,
     assistantContent: string,
@@ -4055,7 +4052,7 @@ export class ChatManagerImpl implements ChatManager {
       sessionId,
       data,
     });
-  }  /** P0: 自动建项目（U-22/S1 外移；实现在 `manager/pdcaLaunch.ts`，行为/返回值不变） */
+  } /** P0: 自动建项目（U-22/S1 外移；实现在 `manager/pdcaLaunch.ts`，行为/返回值不变） */
   private async _autoCreateProject(
     session: ChatSession,
     workspaceId: string | undefined,

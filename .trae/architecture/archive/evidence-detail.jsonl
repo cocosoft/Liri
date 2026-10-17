@@ -6716,3 +6716,7 @@
 {"id":"U22-CHATMANAGER-S3-PERSISTENCE","k":"code#0","i":0,"c":"app/src/chat/manager/messagePersistence.ts"}
 {"id":"U22-CHATMANAGER-S3-PERSISTENCE","k":"code#1","i":1,"c":"app/src/chat/ChatManager.ts"}
 {"id":"U22-CHATMANAGER-S3-PERSISTENCE","k":"code#2","i":2,"c":"scripts/layer-exceptions.json"}
+{"id":"U13-ORCH-METRICS-BASELINE","k":"title","i":0,"c":"U-13 阶段 2.1/2.4：编排可观测性口径 + 首轮实测"}
+{"id":"U13-ORCH-METRICS-BASELINE","k":"source","i":0,"c":"dev_docs/20261012/长程任务编排链路优化方案-20261012.md §4 阶段 2"}
+{"id":"U13-ORCH-METRICS-BASELINE","k":"notes","i":0,"c":"新增 scripts/measure-orchestration-metrics.ts（只读扫 events.jsonl，--split 前后对照；误调用率=isError/total、执行/回合/TTFB-TTFT P50-P95）。实测暴露三处缺口：isError 状态位未落（误调用率恒 0）、编排事件未持久化、OrchestrationMetrics latency 恒 undefined。口径与数据见 dev_docs/20261017/U-13-编排可观测量化口径与实测-20261017.md。"}
+{"id":"U13-ORCH-METRICS-BASELINE","k":"code#0","i":0,"c":"scripts/measure-orchestration-metrics.ts"}

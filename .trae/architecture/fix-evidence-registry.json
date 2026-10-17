@@ -11581,6 +11581,30 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S3-PERSISTENCE）",
       "notes": "_addAndPersistMessage（156 行）+ _appendEventsForMessage（163）+ updateMessageBlocks（133）迁到 chat/manager/messagePersistence.ts（ChatMessagePersistence + MessagePersi…（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S3-PERSISTENCE）"
+    },
+    {
+      "id": "U13-ORCH-METRICS-BASELINE",
+      "title": "U-13 阶段 2.1/2.4：编排可观测性口径 + 首轮实测",
+      "source": "dev_docs/20261012/长程任务编排链路优化方案-20261012.md §4 阶段 2",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/measure-orchestration-metrics.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U13-ORCH-METRICS-BASELINE）",
+      "notes": "新增 scripts/measure-orchestration-metrics.ts（只读扫 events.jsonl，--split 前后对照；误调用率=isError/total、执行/回合/TTFB-TTFT P50-P95）。实测暴露三处缺口：isError 状态位未落（误调用率恒 0）、编排事件未持久化、…（全文见 archive/evidence-detail.jsonl#U13-ORCH-METRICS-BASELINE）"
     }
   ]
 }

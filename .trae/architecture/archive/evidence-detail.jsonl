@@ -6808,3 +6808,20 @@
 {"id":"U22-LRTO-STEPEXEC","k":"code#2","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
 {"id":"U22-LRTO-STEPEXEC","k":"code#3","i":0,"c":"scripts/layer-exceptions.json"}
 {"id":"U22-LRTO-STEPEXEC","k":"tests#0","i":0,"c":"app/tests/tasks/lroStepExecution.test.ts"}
+{"id":"LRO-PDCA-STATEMACHINE-ROOTFIX","k":"title","i":0,"c":"长程任务 PDCA 状态机根因修复（stepIndex / 失败终态 / 中止级联 / 恢复可达）"}
+{"id":"LRO-PDCA-STATEMACHINE-ROOTFIX","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md §8 + 内部审计"}
+{"id":"LRO-PDCA-STATEMACHINE-ROOTFIX","k":"notes","i":0,"c":"① TaskOrchestrator.createPlan 补 buildStepIndex（此前只有磁盘重载建索引，新建计划的 markStep*/review/decide 全部静默 no-op，导致重复执行/checkpoint 全 pending/进度恒 0）；② _runExecuteDecideLoop 失败出口不再被 setPhase(completed) 覆盖（准入拒绝/停滞/未收敛/超轮次 → failed；escalate 保留 execute+failed+replanPending 供 resume）；③ abort() 同步内存 phase 与 plan 终态；④ 在飞 loop 由单槽改 Set（并行批次逐个 abort，dispose 同样覆盖）；⑤ resume 放行「status=abort + 非终态 phase + 有步骤快照」（启动扫描遗留可续跑），replan 分支补齐 sessionId/totalTokens/turnsExtensions/startedAt，checkpoint 增写 startedAt；⑥ executeAllSteps 补依赖失败阻断 [DEPENDENCY_BLOCKED]，中止后不再推进 review。"}
+{"id":"LRO-PDCA-STATEMACHINE-ROOTFIX","k":"code#0","i":0,"c":"app/src/tasks/TaskOrchestrator.ts"}
+{"id":"LRO-PDCA-STATEMACHINE-ROOTFIX","k":"code#1","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"LRO-PDCA-STATEMACHINE-ROOTFIX","k":"code#2","i":0,"c":"app/src/tasks/lro/stepExecution.ts"}
+{"id":"LRO-PDCA-STATEMACHINE-ROOTFIX","k":"code#3","i":0,"c":"app/src/tasks/lro/resumeFromCheckpoint.ts"}
+{"id":"LRO-PDCA-STATEMACHINE-ROOTFIX","k":"tests#0","i":0,"c":"app/tests/tasks/longRunningRootFix.test.ts"}
+{"id":"LRO-PDCA-STATEMACHINE-ROOTFIX","k":"tests#1","i":0,"c":"app/tests/tasks/lroStepExecution.test.ts"}
+{"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"title","i":0,"c":"架构报告 G2/G10 落地：pattern 可达性自描述 + 截断路径保留度探针"}
+{"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"source","i":0,"c":"Liri架构缺口分析报告-AgenticDesignPatterns-20261017.md G2/G10（工作区外）"}
+{"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"notes","i":0,"c":"① PatternInstantiation.ready 分支补 reachable（事实源 PatternSelector#PATTERN_SELECTION_RULES）与 featureGate（patternFeatureFlag + feature）；目录层既有字段不变。② StreamPipeline._truncateApiMessages 与 MessageContextPipeline.truncateByPreciseTokens 记录被丢弃原文，调用既有 measureRetention 对照保留文本，低于 DEFAULT_RETENTION_WARN_RATIO 时 logger.warn（只告警，不改截断决策）。③ measureRetention/DEFAULT_RETENTION_WARN_RATIO 经 @modules/context 统一出口导出（R03-002）。"}
+{"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#0","i":0,"c":"app/src/query/patternAssembler.ts"}
+{"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#1","i":0,"c":"app/src/chat/pipeline/StreamPipeline.ts"}
+{"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#2","i":0,"c":"app/src/chat/services/MessageContextPipeline.ts"}
+{"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#3","i":0,"c":"app/src/context/index.ts"}
+{"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"tests#0","i":0,"c":"app/tests/query/patternAssemblerRecipe.test.ts"}

@@ -11975,6 +11975,65 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-LRTO-STEPEXEC）",
       "notes": "executeSingleStep（562 行）→ tasks/lro/stepExecution.ts（StepExecutionDeps：isolation/executor/工具上下文/loop 工厂与共享实例/stepDurations/token 累计/写后读回/缺陷捕获/任务消息/生命周期/checkpo…（全文见 archive/evidence-detail.jsonl#U22-LRTO-STEPEXEC）"
+    },
+    {
+      "id": "LRO-PDCA-STATEMACHINE-ROOTFIX",
+      "title": "长程任务 PDCA 状态机根因修复（stepIndex / 失败终态 / 中止级联 / 恢复可达）",
+      "source": "dev_docs/20261017/未完成任务清单-20261017.md §8 + 内部审计",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/TaskOrchestrator.ts",
+        "app/src/tasks/LongRunningTaskOrchestrator.ts",
+        "app/src/tasks/lro/stepExecution.ts",
+        "app/src/tasks/lro/resumeFromCheckpoint.ts"
+      ],
+      "tests": [
+        "app/tests/tasks/longRunningRootFix.test.ts",
+        "app/tests/tasks/lroStepExecution.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#LRO-PDCA-STATEMACHINE-ROOTFIX）",
+      "notes": "① TaskOrchestrator.createPlan 补 buildStepIndex（此前只有磁盘重载建索引，新建计划的 markStep*/review/decide 全部静默 no-op，导致重复执行/checkpoint 全 pending/进度恒 0）；② _runExecuteDecideLoop …（全文见 archive/evidence-detail.jsonl#LRO-PDCA-STATEMACHINE-ROOTFIX）"
+    },
+    {
+      "id": "PATTERN-REACHABLE-RETENTION-PROBE",
+      "title": "架构报告 G2/G10 落地：pattern 可达性自描述 + 截断路径保留度探针",
+      "source": "Liri架构缺口分析报告-AgenticDesignPatterns-20261017.md G2/G10（工作区外）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/patternAssembler.ts",
+        "app/src/chat/pipeline/StreamPipeline.ts",
+        "app/src/chat/services/MessageContextPipeline.ts",
+        "app/src/context/index.ts"
+      ],
+      "tests": [
+        "app/tests/query/patternAssemblerRecipe.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#PATTERN-REACHABLE-RETENTION-PROBE）",
+      "notes": "① PatternInstantiation.ready 分支补 reachable（事实源 PatternSelector#PATTERN_SELECTION_RULES）与 featureGate（patternFeatureFlag + feature）；目录层既有字段不变。② StreamPipeline._…（全文见 archive/evidence-detail.jsonl#PATTERN-REACHABLE-RETENTION-PROBE）"
     }
   ]
 }

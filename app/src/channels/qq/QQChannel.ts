@@ -8,6 +8,7 @@
  */
 
 // C1（2026-10-09）：配对码熵源改用 crypto（弱随机 → 强随机）
+import { basename } from 'node:path';
 import { randomIdSuffix } from '../../utils/common';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type {
@@ -562,14 +563,18 @@ class QQChannelPlugin extends BaseChannelPlugin {
         fileUrlOrPath.startsWith('https://');
 
       // 文档口径：两种来源都用 **JSON**（不是 multipart）
+      // ⚠️ `file_name` 在「二进制上传」时**必填**：不传 ⇒ QQ 客户端把附件显示成「未命名」
+      //    （2026-10-17 真机截图：报告 9,444 字节，气泡标题却是「未命名」）。
       let body: Record<string, unknown>;
       if (isRemoteUrl) {
         body = { file_type: fileType, url: fileUrlOrPath };
       } else {
         const fs = await import('fs');
+        const fileName = basename(fileUrlOrPath);
         body = {
           file_type: fileType,
           file_data: fs.readFileSync(fileUrlOrPath).toString('base64'),
+          ...(fileName ? { file_name: fileName } : {}),
         };
       }
 

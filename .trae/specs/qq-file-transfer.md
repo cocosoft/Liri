@@ -1,6 +1,6 @@
 # QQ 通道文件传输（双向）
 
-> 状态：待评审 | 创建：2026-08-20 | 版本：**v3（2026-10-17：订正上传/发送口径 + 收窄可外发资格）**
+> 状态：待评审 | 创建：2026-08-20 | 版本：**v4（2026-10-17：二进制上传补 `file_name`，修「未命名」附件）**
 > 范围：QQ c2c 私聊（群消息当前 BYPASS，本 spec 不启用群，仅预留字段兼容）
 >
 > ⚠️ **v2 订正的由来（真机事故）**：2026-10-17 真机出现 `QQ 媒体上传失败
@@ -68,11 +68,12 @@ interface QQC2cMessageCreatePayload {
 POST https://api.sgroup.qq.com/v2/users/{openid}/files      # 群：/v2/groups/{group_openid}/files
 Content-Type: application/json
   file_type: 1(图片)/2(视频)/3(语音)/4(文件)      # 必填
-  url:      <公网 http(s) 地址>                    # 必填（远程资源走这条）
-  file_data: <本地文件内容的 base64>                # 可选（本地文件走这条）
+  url:      <公网 http(s) 地址>                    # 远程资源走这条
+  file_data: <本地文件内容的 base64>                # 本地文件走这条
+  file_name: <文件名>                              # ★ 二进制上传**必填**（v4）
 → { file_uuid, file_info, ttl }                    # 发消息用的是 file_info
 ```
-- **本地文件** ⇒ 读为 **base64** 放进 `file_data`（v1 的 multipart + 字段 `file` **不是**文档参数 ⇒ 真机 400）。
+- **本地文件** ⇒ 读为 **base64** 放进 `file_data`（v1 的 multipart + 字段 `file` **不是**文档参数 ⇒ 真机 400），**并带 `file_name` = 路径末段**（v4；官方 autogen 文档写明二进制上传必填 —— 不传则 QQ 客户端把附件显示成**「未命名」**，2026-10-17 真机截图已见）。
 - **公网 URL** ⇒ 走 `url`。
 - **不得**再带 v1 里那个文档没有的 `srv_send_msg`。
 - `file_type` 依据扩展名推断（png/jpg→1，mp4→2，mp3/wav→3，其余→4）。
@@ -112,6 +113,7 @@ Content-Type: application/json
 | QQ 开放平台**富媒体权限**：正式环境需申请，沙箱一般可用 | 上传 API 可能 403 | 失败时回复明确原因（API 返回 message），提示用户在 QQ 开放平台申请 |
 | 文件 ≤30MB / 图片 ≤10MB / 视频 ≤100MB | 超限文件无法发送 | 超限跳过并在文本中说明 |
 | `file_data` 是 **base64**（体积 ≈ 原文 ×4/3） | 30MB 文件的请求体 ≈ 40MB（平台对请求体大小的上限**未获权威文档**） | 现状按「路径提取层 ≤30MB」守卫；若真机出现体积相关的 4xx/超时，改走官方**推荐的分片上传**（`reopenWhen` 已记） |
+| **二进制直传上限 5MB**（官方文档明确） | 5MB~30MB 的本地文件走 `file_data` 会失败 | v4 只补 `file_name`；>5MB 需改**分片上传**（`upload_prepare` → PUT → `part_finish` → 合并），失败时如实上报、不静默 |
 | QQ CDN 入站 URL 时效（分钟级） | 延迟下载失败 | 立即异步下载（飞书同模式） |
 
 ## 5. 合规检查清单
@@ -160,6 +162,7 @@ Content-Type: application/json
 
 | 版本 | 日期 | 变更 | 依据 |
 |---|---|---|---|
+| **v4** | 2026-10-17 | ① 二进制上传补 **`file_name`**（官方 autogen 文档：二进制/分片上传必填）⇒ 修 QQ 附件显示**「未命名」**；② 记录「二进制直传 ≤5MB」限制（>5MB 需分片上传） | 真机截图：报告 9,444 字节已收到，但气泡标题为「未命名」（日志 `02:35:11 outbound_files 单文件发送成功`） |
 | **v3** | 2026-10-17 | **可外发资格收窄**（§3.2-③）：由「存在 + 非禁区」改为「**交付面内**（`~/.pyapp/{output,downloads,attachments}`，realpath 判定）**或本轮新产出**（`mtime ≥ 本轮起点 − 2s`）」；**面外 + 非本轮产出 ⇒ 静默忽略**（不再产生「未能发送」噪音）；新增资格单测 10 例 | 真机实证「连续两条消息各误触发一次」（回复回显既有路径即被当投递意图）；spec §3.2-③ 原文已写明「限定 output/downloads/attachments」——**是实现做宽了** |
 | **v2** | 2026-10-17 | ① 上传改 **JSON 口径**（本地 → `file_data` base64；远程 → `url`；**删** multipart 的 `file` 与文档没有的 `srv_send_msg`）；② 发送改 **`media.file_info`**；③ 上传缺 `file_info` ⇒ 报错且不发；④ 新增请求体口径单测 5 例 | 真机事故 `{status:400,apiMessage:"请求参数错误"}` + QQ 官方「富媒体消息」「发送单聊消息」两篇 |
 | v1 | 2026-08-20 | 初版（入站附件下载/注册 + 出站路径提取与发送；上传按 multipart 假设） | 用户裁定 |

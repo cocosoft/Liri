@@ -8,9 +8,9 @@
 // 而发送阶段又误用 `media.file_uuid`（文档要求 `media.file_info`）。这两处都是**线上真金白银踩出来的**，
 // 故用「捕获真实请求体」的方式把它们钉死 —— 单测**不触网**（stub `globalThis.fetch`，用完还原）。
 //
-// 依据（外部权威）：QQ 官方「富媒体消息」
-// `bot.q.qq.com/wiki/develop/api-v2/server-inter/message/send-receive/rich-media.html`
-//   · 请求参数：`file_type`（必填）/ `url`（必填，公网）/ `file_data`（可选，base64）
+// 依据（外部权威）：QQ 官方「单聊富媒体上传」（autogen 版，比 wiki 老表更全）
+// `bot.qq.com/wiki/develop/api-v2/autogen/api/v2_users_user_openid_files.post.html`
+//   · 请求参数：`file_type` / `url` / `file_data`（≤5M）/ **`file_name`（二进制上传必填）**
 //   · 返回：`file_uuid` / **`file_info`**（「用于发消息接口的 media 字段」）/ `ttl`
 // 与「发送单聊消息」示例（`media.file_info`）。
 
@@ -95,7 +95,7 @@ afterEach(() => {
 });
 
 describe('QQ 文件上传：请求体必须是**文档口径的 JSON**', () => {
-  it('本地文件 ⇒ `{file_type:4, file_data:<base64>}`；**无** `file`、**无** `srv_send_msg`', async () => {
+  it('本地文件 ⇒ `{file_type:4, file_data:<base64>, file_name}`；**无** `file`、**无** `srv_send_msg`', async () => {
     const plugin = makeConnectedChannel();
     const res = await plugin.outbound.sendFile(TARGET, LOCAL_FILE);
 
@@ -108,6 +108,8 @@ describe('QQ 文件上传：请求体必须是**文档口径的 JSON**', () => {
     expect(up!.body['file_data']).toBe(
       readFileSync(LOCAL_FILE).toString('base64')
     );
+    // ★ 真机症状：不传 `file_name` ⇒ QQ 附件气泡显示「未命名」（9,444 字节的报告也是）
+    expect(up!.body['file_name']).toBe('package.json');
     expect(up!.body['file']).toBeUndefined(); // ★ multipart 的 `file` 字段
     expect(up!.body['srv_send_msg']).toBeUndefined(); // ★ 文档里没有的字段
     expect(up!.body['url']).toBeUndefined(); // 本地文件不走 url

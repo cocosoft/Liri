@@ -6542,3 +6542,27 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#4","i":0,"c":"app/src/scripts/batch-test-v2.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#5","i":0,"c":"app/src/scripts/batch-test-v3.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"code#6","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"title","i":0,"c":"U-20/B5-2-83：分区搜索集 / 转写时长 / STT 提供者标识按域命名"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"notes","i":0,"c":"orchestration 的搜索集用于并发分区 ⇒ PARTITIONER_SEARCH_TOOLS（守卫用例同步）；流式 STT 的 30s 滑窗 ⇒ STT_MAX_TRANSCRIBE_SECONDS；两家 STT 提供者标识各自加域前缀；基线 153→149。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#0","i":0,"c":"app/src/tools/orchestration/types.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#1","i":0,"c":"app/src/voice/STTStreamServer.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#2","i":0,"c":"app/src/services/voice/services/localSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#3","i":0,"c":"app/src/services/voice/services/senseVoiceSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#4","i":0,"c":"app/tests/tools/orchestration/toolCallPartitionerToolNames.test.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"title","i":0,"c":"U-20/B5-2-84：STT 提供者进程常量按域命名"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"notes","i":0,"c":"Local Whisper 与 SenseVoice 是同形两实现，但模型白名单不同 ⇒ 不做跨实现合一，按提供者加前缀（LOCAL_STT_*/SENSEVOICE_*）；基线 149→145。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"code#0","i":0,"c":"app/src/services/voice/services/localSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"code#1","i":0,"c":"app/src/services/voice/services/senseVoiceSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"code#2","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"title","i":0,"c":"U-20/B5-2-85：压缩阈值 / 记忆模板与文件 / PDCA 表名按域命名"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"notes","i":0,"c":"两处 DEFAULT_THRESHOLD 阈值语义不同（80/60）；两份不同内容的记忆模板同名；memory.md 与 memory.json 分属会话记忆与工作区配置；PDCA 表与 session_checkpoints 不同表；基线 145→141。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#0","i":0,"c":"app/src/session/compaction/LayeredCompactor.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#1","i":0,"c":"app/src/session/compaction/KeyInfoExtractor.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#2","i":0,"c":"app/src/session/memory/SessionMemoryManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#3","i":0,"c":"app/src/workspace/LiriConfigManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#4","i":0,"c":"app/src/tasks/PdcaWorkItemBridge.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}

@@ -1,13 +1,13 @@
 {
-  "nextKey": "B5-2-83",
-  "doneKeys": ["B5-2-77", "B5-2-78", "B5-2-79", "B5-2-80", "B5-2-81", "B5-2-82"],
-  "lastCommit": "4084e0068",
+  "nextKey": "B5-2-86",
+  "doneKeys": ["B5-2-80", "B5-2-81", "B5-2-82", "B5-2-83", "B5-2-84", "B5-2-85"],
+  "lastCommit": "b9ecef28f",
   "baselineKeys": {
-    "lint:consts": 153,
+    "lint:consts": 141,
     "lint:endpoints": 96,
     "lint:locale": 6
   },
-  "nextAction": "继续 B5-2-83：SEARCH_TOOLS/DEFAULT_SOUL/DEFAULT_USER 等剩余同名常量组按域消歧或标注跨包保留",
+  "nextAction": "继续 B5-2-86：FILE_NAME/REGISTRY_PREFIX/READ_ONLY_TOOLS 等剩余同名常量组按域消歧；跨包（app↔client）同义组登记为保留理由",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为实测值（node 解析 hardcode-gate-baseline.json），非估算"

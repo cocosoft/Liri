@@ -11007,6 +11007,90 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-82）",
       "notes": "LSM 路径分属 landlock 探测与 bash 缺口提示 ⇒ KERNEL_LSM_LIST_PATH；exit 125 收敛到 landlock/types（单一事实源）；v2/v3 批测脚本各带版本前缀；基线 156→153。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-82）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-83",
+      "title": "U-20/B5-2-83：分区搜索集 / 转写时长 / STT 提供者标识按域命名",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/orchestration/types.ts",
+        "app/src/voice/STTStreamServer.ts",
+        "app/src/services/voice/services/localSTTProvider.ts",
+        "app/src/services/voice/services/senseVoiceSTTProvider.ts",
+        "app/tests/tools/orchestration/toolCallPartitionerToolNames.test.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-83）",
+      "notes": "orchestration 的搜索集用于并发分区 ⇒ PARTITIONER_SEARCH_TOOLS（守卫用例同步）；流式 STT 的 30s 滑窗 ⇒ STT_MAX_TRANSCRIBE_SECONDS；两家 STT 提供者标识各自加域前缀；基线 153→149。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-83）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-84",
+      "title": "U-20/B5-2-84：STT 提供者进程常量按域命名",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/services/voice/services/localSTTProvider.ts",
+        "app/src/services/voice/services/senseVoiceSTTProvider.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-84）",
+      "notes": "Local Whisper 与 SenseVoice 是同形两实现，但模型白名单不同 ⇒ 不做跨实现合一，按提供者加前缀（LOCAL_STT_*/SENSEVOICE_*）；基线 149→145。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-84）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-85",
+      "title": "U-20/B5-2-85：压缩阈值 / 记忆模板与文件 / PDCA 表名按域命名",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/session/compaction/LayeredCompactor.ts",
+        "app/src/session/compaction/KeyInfoExtractor.ts",
+        "app/src/session/memory/SessionMemoryManager.ts",
+        "app/src/workspace/LiriConfigManager.ts",
+        "app/src/tasks/PdcaWorkItemBridge.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-85）",
+      "notes": "两处 DEFAULT_THRESHOLD 阈值语义不同（80/60）；两份不同内容的记忆模板同名；memory.md 与 memory.json 分属会话记忆与工作区配置；PDCA 表与 session_checkpoints 不同表；基线 145→141。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-85）"
     }
   ]
 }

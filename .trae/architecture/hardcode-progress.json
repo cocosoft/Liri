@@ -1,15 +1,17 @@
 {
-  "nextKey": "B5-2-86",
-  "doneKeys": ["B5-2-80", "B5-2-81", "B5-2-82", "B5-2-83", "B5-2-84", "B5-2-85"],
-  "lastCommit": "b9ecef28f",
+  "nextKey": "B5-2-87",
+  "doneKeys": ["B5-2-81", "B5-2-82", "B5-2-83", "B5-2-84", "B5-2-85", "B5-2-86"],
+  "lastCommit": "82014e8f8",
   "baselineKeys": {
-    "lint:consts": 141,
+    "lint:consts": 135,
     "lint:endpoints": 96,
     "lint:locale": 6
   },
-  "nextAction": "继续 B5-2-86：FILE_NAME/REGISTRY_PREFIX/READ_ONLY_TOOLS 等剩余同名常量组按域消歧；跨包（app↔client）同义组登记为保留理由",
+  "nextAction": "继续 B5-2-87：HEARTBEAT_INTERVAL_MS/MAX_CACHE/PADDING 等剩余同名常量组按域消歧；已裁定保留组见 decisions",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
-    "基线键数为实测值（node 解析 hardcode-gate-baseline.json），非估算"
+    "基线键数为实测值（node 解析 hardcode-gate-baseline.json），非估算",
+    "2026-10-17：跨包同义组（MAX_TRACKED/MAX_RECENT、DAILY_BUDGET_SSE_EVENT、DEFAULT_SOUL/DEFAULT_USER 等）保留 —— app 与 client 独立构建，无法共享单一事实源，改名只会制造假差异",
+    "2026-10-17：tools/bash/semantics/**（3 文件）全仓零消费者，但 bash 属 CD07 关键域 ⇒ 本轮只登记不删除，待独立变更按 CD05/CD06 处置"
   ]
 }

@@ -11091,6 +11091,36 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-85）",
       "notes": "两处 DEFAULT_THRESHOLD 阈值语义不同（80/60）；两份不同内容的记忆模板同名；memory.md 与 memory.json 分属会话记忆与工作区配置；PDCA 表与 session_checkpoints 不同表；基线 145→141。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-85）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-86",
+      "title": "U-20/B5-2-86：验证代理类型 / 用户配置路径 / VFS 默认值 / 语音重连延迟",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/AgentTool/strategies/VerificationStrategy.ts",
+        "app/src/utils/auth.ts",
+        "app/src/vfs/drivers/DevDocsDriver.ts",
+        "app/src/vfs/drivers/McpResourcesDriver.ts",
+        "app/src/voice/GeminiLiveAdapter.ts",
+        "app/src/voice/OpenAIRealtimeAdapter.ts",
+        ".trae/architecture/hardcode-gate-baseline.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-86）",
+      "notes": "VERIFICATION_AGENT_TYPE 同模块内同值 ⇒ 收敛到 AgentTool/constants；auth 的 CONFIG_FILE 是绝对路径 ⇒ USER_CONFIG_PATH；两个 VFS 驱动的列表上限/挂载 scheme 按驱动命名；Gemini 与 OpenAI 实时适配器重连延迟按适…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-86）"
     }
   ]
 }

@@ -6566,3 +6566,13 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#3","i":0,"c":"app/src/workspace/LiriConfigManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#4","i":0,"c":"app/src/tasks/PdcaWorkItemBridge.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"title","i":0,"c":"U-20/B5-2-86：验证代理类型 / 用户配置路径 / VFS 默认值 / 语音重连延迟"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"notes","i":0,"c":"VERIFICATION_AGENT_TYPE 同模块内同值 ⇒ 收敛到 AgentTool/constants；auth 的 CONFIG_FILE 是绝对路径 ⇒ USER_CONFIG_PATH；两个 VFS 驱动的列表上限/挂载 scheme 按驱动命名；Gemini 与 OpenAI 实时适配器重连延迟按适配器加前缀；基线 141→135。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#0","i":0,"c":"app/src/tools/AgentTool/strategies/VerificationStrategy.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#1","i":0,"c":"app/src/utils/auth.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#2","i":0,"c":"app/src/vfs/drivers/DevDocsDriver.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#3","i":0,"c":"app/src/vfs/drivers/McpResourcesDriver.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#4","i":0,"c":"app/src/voice/GeminiLiveAdapter.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#5","i":0,"c":"app/src/voice/OpenAIRealtimeAdapter.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#6","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}

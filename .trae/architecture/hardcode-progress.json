@@ -1,13 +1,13 @@
 {
-  "nextKey": "B5-2-70",
-  "doneKeys": ["B5-2-65", "B5-2-66", "B5-2-67", "B5-2-68", "B5-2-69"],
-  "lastCommit": "d42032f9f",
+  "nextKey": "B5-2-72",
+  "doneKeys": ["B5-2-66", "B5-2-67", "B5-2-68", "B5-2-69", "B5-2-70", "B5-2-71"],
+  "lastCommit": "650e2aeec",
   "baselineKeys": {
-    "lint:consts": 177,
+    "lint:consts": 175,
     "lint:endpoints": 96,
     "lint:locale": 6
   },
-  "nextAction": "继续 B5-2-70：从 lint:consts 的 75 组同名常量中再收敛 1 组（优先 READ_FILE_STATE_CACHE_SIZE / SSL_ERROR_CODES），同批补守卫并下调基线",
+  "nextAction": "继续 B5-2-72：从 lint:consts 的 73 组同名常量中再收敛 1 组（优先 DEFAULT_MAX_ENTRIES / MAX_RECORDS），同批补守卫并下调基线",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为实测值（node 解析 hardcode-gate-baseline.json），非估算"

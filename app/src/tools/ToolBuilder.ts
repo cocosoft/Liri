@@ -9,7 +9,7 @@ import { createAllowResult } from './types/PermissionResult';
  * 工具默认值
  * 采用fail-closed策略（默认不安全、默认写操作）
  */
-const TOOL_DEFAULTS = {
+const BUILDER_TOOL_DEFAULTS = {
   /**
    * 默认启用
    */
@@ -57,7 +57,7 @@ const TOOL_DEFAULTS = {
 export function buildTool(def: Partial<Tool>): Tool {
   return {
     // 先展开默认值
-    ...TOOL_DEFAULTS,
+    ...BUILDER_TOOL_DEFAULTS,
     // 设置userFacingName默认值为工具名称
     userFacingName: (input?: Record<string, unknown>) => def.name || '',
     // 最后展开用户定义（用户定义覆盖默认值）

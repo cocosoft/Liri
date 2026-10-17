@@ -43,7 +43,7 @@ export interface CommandSpec {
 /**
  * 危险命令集合 — 具有破坏性潜力的命令
  */
-const DANGEROUS_COMMANDS = new Set([
+const DANGEROUS_COMMAND_NAMES = new Set([
   'rm',
   'del',
   'deltree',
@@ -184,7 +184,7 @@ const BUILTIN_SPECS: CommandSpec[] = [
  * 检查命令是否为危险命令
  */
 export function isDangerousCommand(command: string): boolean {
-  return DANGEROUS_COMMANDS.has(command);
+  return DANGEROUS_COMMAND_NAMES.has(command);
 }
 
 /**

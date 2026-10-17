@@ -122,7 +122,7 @@ const SCRIPT_DIR = import.meta.dirname;
 // 最后 `await import('./main')`；已实测 `bun run src/pyapp.ts --print "/help"` 可用）。
 // ⚠️ 同时把子进程 cwd 提到**仓库根**：原 cwd=`app/src` 会让 pyapp 的根目录推断落到 `app/src`。
 const INDEX_PATH = join(SCRIPT_DIR, '..', 'pyapp.ts');
-const REPO_ROOT = join(SCRIPT_DIR, '..', '..', '..');
+const BATCH_TEST_REPO_ROOT = join(SCRIPT_DIR, '..', '..', '..');
 
 console.log('===== 全量命令批量测试 =====\n');
 console.log(`共 ${ALL_COMMANDS.length} 个命令\n`);
@@ -147,7 +147,7 @@ for (let i = 0; i < ALL_COMMANDS.length; i++) {
     'bun',
     ['run', '--silent', INDEX_PATH, '--print', `/${cmdName}`, 'help'],
     {
-      cwd: REPO_ROOT,
+      cwd: BATCH_TEST_REPO_ROOT,
       timeout: 15_000,
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: true,

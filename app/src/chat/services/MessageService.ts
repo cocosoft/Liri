@@ -491,7 +491,15 @@ export class MessageServiceImpl implements MessageService {
       content,
       toolCallId: toolResult.toolCallId,
       sessionId: options?.sessionId || toolResult.sessionId,
-      metadata: options?.metadata,
+      // T-13-a（2026-10-17）：失败状态位**在构造处落定** —— 事件投影
+      // （`MessageToEventMigrator.isToolError`）与误调用率口径都读这两个持久化标记，
+      // 此前只有文案前缀 ⇒ `tool/result.isError` 恒 false（U-13 实测暴露）。
+      ...(hasError
+        ? {
+            status: MessageStatus.FAILED,
+            metadata: { ...(options?.metadata ?? {}), isError: true },
+          }
+        : { metadata: options?.metadata }),
     });
   }
 

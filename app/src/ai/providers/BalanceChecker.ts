@@ -30,45 +30,97 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import {
+  loadBalanceWarnState,
+  saveBalanceWarnState,
+  type RecurringWarnRecord,
+} from './balanceWarnPersistence.js';
 const logger = getLogger('ai:providers:balanceChecker');
 
 /**
- * **持续性告警的「只记一次」闸门**（2026-10-17 收敛噪音）。
+ * **持续性告警的「只记一次」闸门**（2026-10-17；台账 `BALANCE-WARN-DEDUPE` + `BALANCE-WARN-PERSIST`）。
  *
- * 为什么需要：余额查询按周期轮询（真机实测 ~10 分钟一轮），而「接口已官方下线」「固定错误码」
+ * 为什么需要：余额查询按周期轮询（真机实测 ~10 分钟一轮起），而「接口已官方下线」「固定错误码」
  * 这类**持续性**失败是**每轮都会命中**的 —— 旧实现每轮刷同一条 warning（同一 provider 的同一
- * 故障在 `app.log` 里每 10 分钟重复一条，无限增长且无新信息）。
+ * 故障在 `app.log` 里重复出现，无限增长且无新信息）。
  *
  * 语义：同一 `key` 首次 ⇒ `true`（调用方据此打印一次）；此后同 key ⇒ `false`（不打印）。
  * **恢复即清记忆**（`clearRecurringWarn(provider)`）⇒ 若日后恢复正常、之后再坏，仍会再记一次
  * （避免把「曾经坏过」永久静音而丢掉真实的**状态变化**）。
  *
+ * **落盘**：闸门内容持久化到 `~/.pyapp/data/balance-warn-state.json`（形态见
+ * `balanceWarnPersistence.ts`）⇒ **跨进程重启**也不重复刷 —— 本仓 dev 模式每次保存源码都会重启
+ * （实测一轮编辑触发 3 次重启），只靠进程内记忆仅解决一半噪音。首次判定时**懒加载**一次；
+ * 写盘失败只记警告（内存闸门仍生效）。
+ *
  * `key` 约定：`${provider}|${kind}`（如 `siliconflow|retired`、`siliconflow|api-error:20092`）。
  *
- * ⚠️ 如实边界：闸门是**进程内**的（与仓内其它一次性标记同口径，如 `budgetReliefCard.sentSessions`）
- * ⇒ **进程重启后首个周期仍会记一条**（重启本身即状态重置）；它解决的是「同一运行期内每轮重复刷同一
- * 条告警」，不是「跨重启永久静音」（后者会掩盖真实的状态变化）。
+ * **排查与重置**：想知道「某 provider 的某类故障**首次**发现于何时」看落盘文件里的 `warnedAt`；
+ * 想让它**重新告警**（如确认已修复后要再观察）删掉对应键或整个 `balance-warn-state.json` 即可。
  */
-const recurringWarned = new Set<string>();
+const recurringWarned = new Map<string, RecurringWarnRecord>();
 
-/** 见 {@link recurringWarned} 头注：本次**是否应当打印**（首次 ⇒ `true`；重复 ⇒ `false`） */
-export function shouldWarnRecurring(key: string): boolean {
+/** 懒加载标志（首次判定读盘一次；`resetRecurringWarnForTest` 置空 ⇒ 模拟「新进程」重读） */
+let warnStateLoaded: Promise<void> | null = null;
+
+async function ensureWarnStateLoaded(): Promise<void> {
+  if (!warnStateLoaded) {
+    warnStateLoaded = (async () => {
+      const state = await loadBalanceWarnState();
+      for (const [key, rec] of Object.entries(state.entries)) {
+        recurringWarned.set(key, rec);
+      }
+    })();
+  }
+  return warnStateLoaded;
+}
+
+/** 落盘当前闸门内容（**永不抛**：失败只告警，详见 `saveBalanceWarnState`） */
+async function persistWarnState(): Promise<void> {
+  await saveBalanceWarnState({
+    version: 1,
+    entries: Object.fromEntries(recurringWarned),
+  });
+}
+
+/**
+ * 本次**是否应当打印**（首次 ⇒ `true` 并落盘；重复 ⇒ `false`）。
+ *
+ * @param key 见 {@link recurringWarned} 头注的键约定
+ * @param apiCode 可选：触发时的平台错误码（随记录落盘，便于排查「同类错误是否换了码」）
+ */
+export async function shouldWarnRecurring(
+  key: string,
+  apiCode?: number
+): Promise<boolean> {
+  await ensureWarnStateLoaded();
   if (recurringWarned.has(key)) return false;
-  recurringWarned.add(key);
+  recurringWarned.set(key, {
+    warnedAt: Date.now(),
+    ...(typeof apiCode === 'number' ? { apiCode } : {}),
+  });
+  await persistWarnState();
   return true;
 }
 
-/** 见 {@link recurringWarned} 头注：某 provider 恢复正常 ⇒ 清掉其记忆（键前缀 `provider|`，不会误伤 `siliconflow-en`） */
-export function clearRecurringWarn(provider: string): void {
+/** 某 provider 恢复正常 ⇒ 清掉其记忆（键前缀 `provider|`，不会误伤 `siliconflow-en`）并落盘 */
+export async function clearRecurringWarn(provider: string): Promise<void> {
+  await ensureWarnStateLoaded();
   const prefix = `${provider}|`;
-  for (const k of [...recurringWarned]) {
-    if (k.startsWith(prefix)) recurringWarned.delete(k);
+  let changed = false;
+  for (const k of [...recurringWarned.keys()]) {
+    if (k.startsWith(prefix)) {
+      recurringWarned.delete(k);
+      changed = true;
+    }
   }
+  if (changed) await persistWarnState();
 }
 
-/** 仅供测试：清空闸门状态 */
-export function resetRecurringWarnForTest(): void {
+/** 仅供测试：清空**内存**闸门并让下次判定重新读盘（= 模拟「新进程」，**不**删落盘文件） */
+export async function resetRecurringWarnForTest(): Promise<void> {
   recurringWarned.clear();
+  warnStateLoaded = null;
 }
 
 /** 余额查询结果 */
@@ -324,8 +376,8 @@ async function querySiliconFlow(
       apiCode === 20092 ||
       /deprecated|no longer available|停止服务|不再可用/i.test(apiMessage);
     if (isRetired) {
-      // 持续性故障（接口已下线）⇒ **每个 provider 只记一次**（见 `shouldWarnRecurring` 头注）
-      if (shouldWarnRecurring(`${provider}|retired`)) {
+      // 持续性故障（接口已下线）⇒ **每个 provider 只记一次**（落盘 ⇒ 跨重启也不重复；见 `shouldWarnRecurring`）
+      if (await shouldWarnRecurring(`${provider}|retired`, apiCode)) {
         logger.warning(
           `SiliconFlow 余额接口 /user/info 已被官方下线（code=${apiCode} msg=${apiMessage}），官方暂无替代接口，余额暂不可查（同状态后续不再重复告警）`
         );
@@ -346,8 +398,10 @@ async function querySiliconFlow(
       apiCode !== 0 &&
       apiCode !== 200
     ) {
-      // 同类持续性错误码 ⇒ **只记一次**（见 `shouldWarnRecurring` 头注）
-      if (shouldWarnRecurring(`${provider}|api-error:${apiCode}`)) {
+      // 同类持续性错误码 ⇒ **只记一次**（落盘 ⇒ 跨重启也不重复；见 `shouldWarnRecurring`）
+      if (
+        await shouldWarnRecurring(`${provider}|api-error:${apiCode}`, apiCode)
+      ) {
         logger.warning(
           `SiliconFlow API 错误: code=${apiCode} msg=${apiMessage}（同类错误只记一次）`
         );
@@ -409,8 +463,8 @@ async function querySiliconFlow(
       });
     }
 
-    // 查询恢复正常 ⇒ 清掉本 provider 的告警记忆（下次再坏仍会记一次，见 `clearRecurringWarn`）
-    clearRecurringWarn(provider);
+    // 查询恢复正常 ⇒ 清掉本 provider 的告警记忆（含落盘；下次再坏仍会记一次，见 `clearRecurringWarn`）
+    await clearRecurringWarn(provider);
 
     return {
       success: true,

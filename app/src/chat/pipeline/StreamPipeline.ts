@@ -39,6 +39,8 @@ import { getModelPricing } from '@modules/cost';
 import { calculateTotalCost } from '@modules/cost';
 import {
   compactionOrchestrator,
+  DEFAULT_RETENTION_WARN_RATIO,
+  measureRetention,
   type CompactionOutcome,
 } from '@modules/context';
 import { validatePathsInOutput } from '../services/PathGuardService';
@@ -60,6 +62,15 @@ import type { ImageContextService } from '../services/ImageContextService.js';
 import { withPhase } from '@modules/diagnostics';
 
 const logger = getLogger('chat:pipeline');
+
+/** 消息内容 → 保留度探针用纯文本（非字符串按 JSON 展平；空 ⇒ ''） */
+function messageText(message: unknown): string {
+  const content = (message as { content?: unknown } | null | undefined)
+    ?.content;
+  if (typeof content === 'string') return content;
+  if (content === undefined || content === null) return '';
+  return JSON.stringify(content);
+}
 
 /* ===================================================================
  *  PipelineContext — 管线共享上下文
@@ -486,6 +497,9 @@ export class StreamPipeline {
     sessionId: string
   ): Promise<void> {
     let totalTokens = estimateMessagesTokens(this.ctx.apiMessages);
+    // 2026-10-17（M5 收口）：记录被丢弃消息原文，用于**保留度探针**（此前只有 token 体积，
+    // 无法回答"关键文件路径/工具名是否被截没了"）。
+    const removedTexts: string[] = [];
     while (totalTokens > maxTokens && this.ctx.apiMessages.length > 2) {
       // BUG-C 修复：从 index 1 起跳过 role === 'system' 的消息，
       // 避免截断误删系统提示（角色设定/工具定义/压缩摘要）。
@@ -495,12 +509,33 @@ export class StreamPipeline {
       );
       if (idx === -1) break;
       const [removed] = this.ctx.apiMessages.splice(idx, 1);
+      removedTexts.push(messageText(removed));
       logger.debug('截断消息', {
         sessionId,
         removedRole: (removed as Record<string, unknown>)?.role,
         remainingTokens: estimateMessagesTokens(this.ctx.apiMessages),
       });
       totalTokens = estimateMessagesTokens(this.ctx.apiMessages);
+    }
+    // 保留度探针：只告警、不改行为（阈值与折叠区口径同源）
+    if (removedTexts.length > 0) {
+      const retention = measureRetention(
+        removedTexts.join('\n'),
+        this.ctx.apiMessages.map(messageText).join('\n')
+      );
+      if (
+        retention.total > 0 &&
+        retention.ratio < DEFAULT_RETENTION_WARN_RATIO
+      ) {
+        logger.warn('truncate:low_retention', {
+          sessionId,
+          removedCount: removedTexts.length,
+          ratio: Number(retention.ratio.toFixed(3)),
+          total: retention.total,
+          retained: retention.retained,
+          missing: retention.missing,
+        });
+      }
     }
   }
 

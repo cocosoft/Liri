@@ -61,6 +61,14 @@ export type PatternInstantiation =
       route: PatternRunRoute;
       /** 13-P1-3：执行配方（并发/验证/预算），供消费方配置**既有**运行时 */
       recipe: PatternRecipe;
+      /**
+       * 2026-10-17（外部架构报告 G2 收口）：**触发可达性**自描述。
+       * `true` = 选择层规则会产出本模式；`false` = 已接线但选择层无规则（不可达）。
+       * 事实源 = `core/patterns/PatternSelector#PATTERN_SELECTION_RULES`。
+       */
+      reachable: boolean;
+      /** 命中后**仍需开启**的功能开关（无门控 ⇒ 缺省；`enabled` 为读取时刻值） */
+      featureGate?: { flag: string; enabled: boolean };
     }
   | { status: 'unavailable'; assembler: PatternAssemblerId; reason: string };
 
@@ -124,9 +132,19 @@ export function instantiatePattern(
 ): PatternInstantiation {
   const assembler = selection.descriptor.assembly.assembler;
   const spec = ASSEMBLER_SPECS[assembler];
-  return 'route' in spec
-    ? { status: 'ready', assembler, route: spec.route, recipe: spec.recipe }
-    : { status: 'unavailable', assembler, reason: spec.reason };
+  if (!('route' in spec)) {
+    return { status: 'unavailable', assembler, reason: spec.reason };
+  }
+  const name = selection.descriptor.name;
+  const flag = patternFeatureFlag(name);
+  return {
+    status: 'ready',
+    assembler,
+    route: spec.route,
+    recipe: spec.recipe,
+    reachable: isPatternReachable(name),
+    ...(flag ? { featureGate: { flag, enabled: feature(flag) } } : {}),
+  };
 }
 
 /**

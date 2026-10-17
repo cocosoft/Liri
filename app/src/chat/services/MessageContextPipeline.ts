@@ -34,8 +34,21 @@ import {
 } from '@modules/constants';
 import { skillInjectionService } from '@modules/skills';
 import { handleError } from '@modules/error';
+// 2026-10-17（M5）：整条消息级截断同样接保留度探针（只告警、不改行为）
+import {
+  DEFAULT_RETENTION_WARN_RATIO,
+  measureRetention,
+} from '@modules/context';
 
 const logger = getLogger('chat:context-pipeline');
+
+/** 消息内容 → 保留度探针用纯文本（非字符串按 JSON 展平；空 ⇒ ''） */
+function contentText(message: Record<string, unknown>): string {
+  const content = message?.content;
+  if (typeof content === 'string') return content;
+  if (content === undefined || content === null) return '';
+  return JSON.stringify(content);
+}
 
 /** 系统提示词中的上下文保持 + 行为约束规则 */
 const MEMORY_CONTEXT_RULES = `## 上下文保持规则
@@ -825,6 +838,24 @@ export async function truncateByPreciseTokens(
 
   if (dropCount > 0) {
     const kept = apiMessages.filter((_: unknown, i: number) => !dropped[i]);
+    // 保留度探针：丢弃/保留两边的关键实体对照（只告警，不改截断决策）
+    const retention = measureRetention(
+      apiMessages
+        .filter((_, i) => dropped[i])
+        .map(contentText)
+        .join('\n'),
+      kept.map(contentText).join('\n')
+    );
+    if (retention.total > 0 && retention.ratio < DEFAULT_RETENTION_WARN_RATIO) {
+      logger.warn('truncate:precise — 低保留度（关键实体随截断丢失）', {
+        baseUrl: normalizedBase,
+        droppedCount: dropCount,
+        ratio: Number(retention.ratio.toFixed(3)),
+        total: retention.total,
+        retained: retention.retained,
+        missing: retention.missing,
+      });
+    }
     apiMessages.length = 0;
     apiMessages.push(...kept);
   }

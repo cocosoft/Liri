@@ -80,6 +80,12 @@ export * from './DependencyRegistry.js';
 // 2026-08-29 R03-002 收敛：compaction / window / async 统一出口
 // C7 收敛（2026-08-30）：AutoCompactionPolicy 已删除，评估统一走 UnifiedTokenTracker
 export { compactionOrchestrator } from './compaction/CompactionOrchestrator';
+// 2026-10-17（M5）：保留度探针统一出口 —— 折叠区与截断兜底共用同一度量口径
+export {
+  DEFAULT_RETENTION_WARN_RATIO,
+  measureRetention,
+  type RetentionResult,
+} from './compaction/retentionProbe';
 export {
   compactionMetricsTracker,
   type ContextSnapshot,

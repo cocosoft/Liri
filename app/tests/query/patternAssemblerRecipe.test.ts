@@ -15,9 +15,9 @@ import {
 import type { PatternAssemblerId } from '../../src/core/patterns/types.js';
 import { VerifierAgent } from '../../src/query/VerifierAgent.js';
 
-function selection(assembler: PatternAssemblerId): never {
+function selection(assembler: PatternAssemblerId, name?: string): never {
   return {
-    descriptor: { assembly: { assembler } },
+    descriptor: { assembly: { assembler }, ...(name ? { name } : {}) },
   } as unknown as never;
 }
 
@@ -49,6 +49,22 @@ describe('instantiatePattern 携带执行配方（13-P1-3）', () => {
       if (r.status !== 'unavailable') continue;
       expect(r.reason.length).toBeGreaterThan(0);
     }
+  });
+
+  it('ready 分支自描述**可达性 + 门控**（外部报告 G2 收口）', () => {
+    const research = instantiatePattern(
+      selection('competitive_strategy', 'competitive_strategy')
+    );
+    expect(research.status).toBe('ready');
+    if (research.status !== 'ready') return;
+    expect(research.reachable).toBe(true);
+
+    const verify = instantiatePattern(selection('self_verify', 'self_verify'));
+    expect(verify.status).toBe('ready');
+    if (verify.status !== 'ready') return;
+    expect(verify.reachable).toBe(true);
+    expect(verify.featureGate?.flag).toBe('SELF_VERIFY_PATTERN');
+    expect(typeof verify.featureGate?.enabled).toBe('boolean');
   });
 });
 

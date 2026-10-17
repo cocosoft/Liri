@@ -10733,6 +10733,33 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-70-71）",
       "notes": "mcp 入口改用 utils 常量；error/api 复用 error/network 的 SSL 集合（同模块无环）；基线 177→175。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-70-71）"
+    },
+    {
+      "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-72-73",
+      "title": "U-20/B5-2-72..73：按域消歧 DEFAULT_MAX_ENTRIES 与 MAX_RECORDS",
+      "source": "dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/core/approval/ApprovalCache.ts",
+        "app/src/core/cache/SessionCache.ts",
+        "app/src/dream/DreamPersistence.ts",
+        "app/src/execution/ExecutionManager.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-72-73）",
+      "notes": "语义/取值不同 ⇒ 不改值、按域改名（APPROVAL/SESSION_CACHE_MAX_ENTRIES、DREAM/EXECUTION_MAX_RECORDS）；基线 175→173。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-72-73）"
     }
   ]
 }

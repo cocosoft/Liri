@@ -19,6 +19,14 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **DOCS-SECURITY-IMPORT-FIX**：API/开发文档失效导入修正 —— 验证 doc-only；基线 改前文档导入已删除的工厂，照抄必失败（详情见 archive/evidence-detail.jsonl#DOCS-SECURITY-IMPORT-FIX）
+- ✅ **SECRET-SCANNER-NEW-PREFIXES**：秘密扫描补 OpenAI/Anthropic 新前缀 —— 验证 tc0|ut4；基线 改前仅旧 sk-...T3BlbkFJ 格式，新前缀漏检（详情见 archive/evidence-detail.jsonl#SECRET-SCANNER-NEW-PREFIXES）
+- ✅ **CHANNEL-QUESTION-ANSWER-STAGE2**：渠道交互提问 Stage 2（下一条消息即答案） —— 验证 tc0|ut15|arch0；基线 改前渠道 question 只能 fail-closed；无法把下一条消息作为答案（详情见 archive/evidence-detail.jsonl#CHANNEL-QUESTION-ANSWER-STAGE2）
+- ✅ **TASK-GHOST-GRACE-CONFIG**：ghost 宽限期读取改走 ConfigManager —— 验证 tc0|ut5|arch0；基线 改前直接 process.env 读取，触发 R05-012 警告（详情见 archive/evidence-detail.jsonl#TASK-GHOST-GRACE-CONFIG）
+- ✅ **STREAM-FALLBACK-DEDUPE**：已分类失败不再落通用 fallback —— 验证 tc0|ut1；基线 改前所有零产出失败都落通用 fallback，与 error chunk 重复（详情见 archive/evidence-detail.jsonl#STREAM-FALLBACK-DEDUPE）
+- ✅ **MIGRATOR-READ-FAILURE-SPLIT**：迁移空文件/读取失败告警拆分 —— 验证 tc0|ut5；基线 改前空文件与读取失败共用一条告警，无法区分 disk-behind/权限（详情见 archive/evidence-detail.jsonl#MIGRATOR-READ-FAILURE-SPLIT）
+- ✅ **BUDGET-DIMINISHING-PROGRESS**：收益递减纳入工具结果/产物维度 —— 验证 tc0|ut3|arch0|size0；基线 改前只按 Token 增量判定，工具有效推进但 Token 低会被误停（详情见 archive/evidence-detail.jsonl#BUDGET-DIMINISHING-PROGRESS）
+- ✅ **LRO-STEP-CONSTRAINTS-WORKSPACE**：LRO 步骤硬约束 + 工具路径 workspace 收敛 —— 验证 tc0|ut5|arch0；基线 改前步骤提示无禁问/禁管道/交付口径；LRO 工具可传绝对路径越界（详情见 archive/evidence-detail.jsonl#LRO-STEP-CONSTRAINTS-WORKSPACE）
 - ✅ **CHANNEL-MESSAGEID-PASSTHROUGH**：渠道入站 messageId 透传 + 回答能力字段 —— 验证 tc0|ut1|arch0；基线 改前 Router 不传 messageId，后端自行生成 id（详情见 archive/evidence-detail.jsonl#CHANNEL-MESSAGEID-PASSTHROUGH）
 - ✅ **CHANNEL-QUESTION-FAIL-CLOSED-TIMER**：渠道 question fail-closed + 占位独立定时器 —— 验证 tc0|ut5|arch0；基线 改前 question 只记日志；静默期占位判定在循环体内永不触发（详情见 archive/evidence-detail.jsonl#CHANNEL-QUESTION-FAIL-CLOSED-TIMER）
 - ✅ **SEARCH-ROOT-SCOPE-EBUSY**：搜索根作用域系统目录跳过 + EBUSY 窗口聚合 —— 验证 tc0|ut14|arch0；基线 改前只跳构建目录；home 扫描深入 AppData 且 EBUSY 逐条上报（详情见 archive/evidence-detail.jsonl#SEARCH-ROOT-SCOPE-EBUSY）

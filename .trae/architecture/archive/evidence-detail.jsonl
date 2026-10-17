@@ -6318,3 +6318,60 @@
 {"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"code#0","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
 {"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
 {"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"tests#0","i":0,"c":"app/tests/channels/messageRouterContract.test.ts"}
+{"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"title","i":0,"c":"U-03b/U-08/U-09/LRO-08/LRO-16：步骤禁问/禁管道/交付口径 + 工具路径越界拒绝"}
+{"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md U-03b/U-08/U-09/U-28"}
+{"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"reopenWhen","i":0,"c":"LRO 执行模型改为多租户共享工作区或允许外部路径时重开"}
+{"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"notes","i":0,"c":"workspaceGuard 复用 PATH_ARG_KEYS；越界返回工具错误而非中断任务；交付声明强制区分已实测/未实测。"}
+{"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"code#0","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"code#1","i":0,"c":"app/src/tasks/lro/workspaceGuard.ts"}
+{"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"code#2","i":0,"c":"app/src/query/index.ts"}
+{"id":"LRO-STEP-CONSTRAINTS-WORKSPACE","k":"tests#0","i":0,"c":"app/tests/tasks/lroWorkspaceGuard.test.ts"}
+{"id":"BUDGET-DIMINISHING-PROGRESS","k":"title","i":0,"c":"U-10：低 Token 增量但有新工具结果/产物时不再判定收益递减"}
+{"id":"BUDGET-DIMINISHING-PROGRESS","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md U-10"}
+{"id":"BUDGET-DIMINISHING-PROGRESS","k":"reopenWhen","i":0,"c":"收益递减改用统一进度指标或引入真实产物度量时重开"}
+{"id":"BUDGET-DIMINISHING-PROGRESS","k":"notes","i":0,"c":"RoundProgressTracker 从 TAORLoop 外移（同时把 TAORLoop 压回 1909 行）；写类工具按 WRITE_TOOLS 计产物。"}
+{"id":"BUDGET-DIMINISHING-PROGRESS","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
+{"id":"BUDGET-DIMINISHING-PROGRESS","k":"code#1","i":0,"c":"app/src/query/TAORLoop.ts"}
+{"id":"BUDGET-DIMINISHING-PROGRESS","k":"code#2","i":0,"c":"app/src/query/taor/roundProgress.ts"}
+{"id":"BUDGET-DIMINISHING-PROGRESS","k":"tests#0","i":0,"c":"app/tests/query/dailyBudgetDiminishingProgress.test.ts"}
+{"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"title","i":0,"c":"U-11：readAllMessages 用 null 表示读取失败，空文件与失败分别告警"}
+{"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md U-11"}
+{"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"reopenWhen","i":0,"c":"迁移改为事件源直读或不再读取 messages.jsonl 时重开"}
+{"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"notes","i":0,"c":"空文件提示检查内容；读取失败提示权限/磁盘；均跳过迁移且不产生半成品事件。"}
+{"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"code#0","i":0,"c":"app/src/session/storage/MessageToEventMigrator.ts"}
+{"id":"MIGRATOR-READ-FAILURE-SPLIT","k":"tests#0","i":0,"c":"app/tests/session/MessageToEventMigrator.test.ts"}
+{"id":"STREAM-FALLBACK-DEDUPE","k":"title","i":0,"c":"P8：带业务码的失败只保留 error chunk，避免与「未能生成回复」重复"}
+{"id":"STREAM-FALLBACK-DEDUPE","k":"source","i":0,"c":"dev_docs/20261011/token日限额全面排查与前端管理页优化方案-20261011.md §2.8"}
+{"id":"STREAM-FALLBACK-DEDUPE","k":"reopenWhen","i":0,"c":"错误呈现改为持久化错误消息或前端需要 fallback 兜底时重开"}
+{"id":"STREAM-FALLBACK-DEDUPE","k":"notes","i":0,"c":"无业务码的未知失败仍保留 Write-Ahead fallback。"}
+{"id":"STREAM-FALLBACK-DEDUPE","k":"code#0","i":0,"c":"app/src/runtime/api/CoreAPIImpl.ts"}
+{"id":"STREAM-FALLBACK-DEDUPE","k":"tests#0","i":0,"c":"app/tests/http/dailyBudgetSse.contract.test.ts"}
+{"id":"TASK-GHOST-GRACE-CONFIG","k":"title","i":0,"c":"R05-012：TaskOrchestrator 不再直接读 process.env"}
+{"id":"TASK-GHOST-GRACE-CONFIG","k":"source","i":0,"c":"scripts/lint-architecture.ts R05-012"}
+{"id":"TASK-GHOST-GRACE-CONFIG","k":"reopenWhen","i":0,"c":"环境变量访问策略调整时重开"}
+{"id":"TASK-GHOST-GRACE-CONFIG","k":"notes","i":0,"c":"保持 TASK_GOAL_GHOST_GRACE_MS 语义不变。"}
+{"id":"TASK-GHOST-GRACE-CONFIG","k":"code#0","i":0,"c":"app/src/tasks/TaskOrchestrator.ts"}
+{"id":"TASK-GHOST-GRACE-CONFIG","k":"tests#0","i":0,"c":"app/tests/tasks/taskOrchestratorGhost.test.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"title","i":0,"c":"U-05b：pendingQuestions 注册表 + 入站拦截 + 5 分钟 TTL + 灰度开关"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"source","i":0,"c":"dev_docs/20261017/P0与BRL-002修复计划-20261017.md §8.3"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"reopenWhen","i":0,"c":"渠道需要卡片/按钮式回答或跨进程多实例部署时重开"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"notes","i":0,"c":"CHANNEL_QUESTION_ANSWER 默认 false；仅 interactive 渠道；resolve 失败保留待答可重试。"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#0","i":0,"c":"app/src/channels/routing/pendingQuestions.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#2","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#3","i":0,"c":"app/src/channels/routing/streamConsumption.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#4","i":0,"c":"app/src/channels/setupChannels.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#5","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"tests#0","i":0,"c":"app/tests/channels/pendingQuestions.test.ts"}
+{"id":"SECRET-SCANNER-NEW-PREFIXES","k":"title","i":0,"c":"U-27：识别 sk-proj-/sk-svcacct-/sk-ant- 密钥"}
+{"id":"SECRET-SCANNER-NEW-PREFIXES","k":"source","i":0,"c":"dev_docs/20261009/Liri-21模式完成度对照与未达标清单-20261009.md SR-1"}
+{"id":"SECRET-SCANNER-NEW-PREFIXES","k":"reopenWhen","i":0,"c":"厂商再次更换密钥前缀或引入结构化凭据时重开"}
+{"id":"SECRET-SCANNER-NEW-PREFIXES","k":"notes","i":0,"c":"保留旧 openai-api-key 规则；普通文本 sk-proj 不误报。"}
+{"id":"SECRET-SCANNER-NEW-PREFIXES","k":"code#0","i":0,"c":"app/src/memory/scanners/MemorySecretScanner.ts"}
+{"id":"SECRET-SCANNER-NEW-PREFIXES","k":"tests#0","i":0,"c":"app/tests/memory/secretScannerPrefixes.test.ts"}
+{"id":"DOCS-SECURITY-IMPORT-FIX","k":"title","i":0,"c":"U-23：移除已删除的 getSandboxManager/getPermissionManager/getSecurityAudit 示例"}
+{"id":"DOCS-SECURITY-IMPORT-FIX","k":"source","i":0,"c":"dev_docs/dailys/20261001/pending-tasks-consolidated-20261001.md T-①05 遗留"}
+{"id":"DOCS-SECURITY-IMPORT-FIX","k":"reopenWhen","i":0,"c":"安全门面 API 再次调整时重开"}
+{"id":"DOCS-SECURITY-IMPORT-FIX","k":"notes","i":0,"c":"改为 completeSecuritySystem + 具名审计导出；沙箱说明指向工具执行链。"}
+{"id":"DOCS-SECURITY-IMPORT-FIX","k":"code#0","i":0,"c":"app/docs/API.md"}
+{"id":"DOCS-SECURITY-IMPORT-FIX","k":"code#1","i":0,"c":"app/docs/DEVELOPMENT.md"}

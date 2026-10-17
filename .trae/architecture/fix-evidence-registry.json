@@ -10098,6 +10098,222 @@
       "changelog": [],
       "reopenWhen": "渠道平台 messageId 不再唯一或出现跨会话碰撞时重开（全文见 archive/evidence-detail.jsonl#CHANNEL-MESSAGEID-PASSTHROUGH）",
       "notes": "与 chat-handlers 对齐，ChatManager 可复用写前落盘的用户消息 id；supportsQuestionAnswer 透传供 Stage2 使用。（全文见 archive/evidence-detail.jsonl#CHANNEL-MESSAGEID-PASSTHROUGH）"
+    },
+    {
+      "id": "LRO-STEP-CONSTRAINTS-WORKSPACE",
+      "title": "U-03b/U-08/U-09/LRO-08/LRO-16：步骤禁问/禁管道/交付口径 + 工具路径越界拒绝",
+      "source": "dev_docs/20261017/未完成任务清单-20261017.md U-03b/U-08/U-09/U-28",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/LongRunningTaskOrchestrator.ts",
+        "app/src/tasks/lro/workspaceGuard.ts",
+        "app/src/query/index.ts"
+      ],
+      "tests": [
+        "app/tests/tasks/lroWorkspaceGuard.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "LRO 执行模型改为多租户共享工作区或允许外部路径时重开（全文见 archive/evidence-detail.jsonl#LRO-STEP-CONSTRAINTS-WORKSPACE）",
+      "notes": "workspaceGuard 复用 PATH_ARG_KEYS；越界返回工具错误而非中断任务；交付声明强制区分已实测/未实测。（全文见 archive/evidence-detail.jsonl#LRO-STEP-CONSTRAINTS-WORKSPACE）"
+    },
+    {
+      "id": "BUDGET-DIMINISHING-PROGRESS",
+      "title": "U-10：低 Token 增量但有新工具结果/产物时不再判定收益递减",
+      "source": "dev_docs/20261017/未完成任务清单-20261017.md U-10",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/DailyBudgetManager.ts",
+        "app/src/query/TAORLoop.ts",
+        "app/src/query/taor/roundProgress.ts"
+      ],
+      "tests": [
+        "app/tests/query/dailyBudgetDiminishingProgress.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "收益递减改用统一进度指标或引入真实产物度量时重开（全文见 archive/evidence-detail.jsonl#BUDGET-DIMINISHING-PROGRESS）",
+      "notes": "RoundProgressTracker 从 TAORLoop 外移（同时把 TAORLoop 压回 1909 行）；写类工具按 WRITE_TOOLS 计产物。（全文见 archive/evidence-detail.jsonl#BUDGET-DIMINISHING-PROGRESS）"
+    },
+    {
+      "id": "MIGRATOR-READ-FAILURE-SPLIT",
+      "title": "U-11：readAllMessages 用 null 表示读取失败，空文件与失败分别告警",
+      "source": "dev_docs/20261017/未完成任务清单-20261017.md U-11",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/session/storage/MessageToEventMigrator.ts"
+      ],
+      "tests": [
+        "app/tests/session/MessageToEventMigrator.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "迁移改为事件源直读或不再读取 messages.jsonl 时重开（全文见 archive/evidence-detail.jsonl#MIGRATOR-READ-FAILURE-SPLIT）",
+      "notes": "空文件提示检查内容；读取失败提示权限/磁盘；均跳过迁移且不产生半成品事件。（全文见 archive/evidence-detail.jsonl#MIGRATOR-READ-FAILURE-SPLIT）"
+    },
+    {
+      "id": "STREAM-FALLBACK-DEDUPE",
+      "title": "P8：带业务码的失败只保留 error chunk，避免与「未能生成回复」重复",
+      "source": "dev_docs/20261011/token日限额全面排查与前端管理页优化方案-20261011.md §2.8",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/runtime/api/CoreAPIImpl.ts"
+      ],
+      "tests": [
+        "app/tests/http/dailyBudgetSse.contract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "错误呈现改为持久化错误消息或前端需要 fallback 兜底时重开（全文见 archive/evidence-detail.jsonl#STREAM-FALLBACK-DEDUPE）",
+      "notes": "无业务码的未知失败仍保留 Write-Ahead fallback。（全文见 archive/evidence-detail.jsonl#STREAM-FALLBACK-DEDUPE）"
+    },
+    {
+      "id": "TASK-GHOST-GRACE-CONFIG",
+      "title": "R05-012：TaskOrchestrator 不再直接读 process.env",
+      "source": "scripts/lint-architecture.ts R05-012",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/TaskOrchestrator.ts"
+      ],
+      "tests": [
+        "app/tests/tasks/taskOrchestratorGhost.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "环境变量访问策略调整时重开（全文见 archive/evidence-detail.jsonl#TASK-GHOST-GRACE-CONFIG）",
+      "notes": "保持 TASK_GOAL_GHOST_GRACE_MS 语义不变。（全文见 archive/evidence-detail.jsonl#TASK-GHOST-GRACE-CONFIG）"
+    },
+    {
+      "id": "CHANNEL-QUESTION-ANSWER-STAGE2",
+      "title": "U-05b：pendingQuestions 注册表 + 入站拦截 + 5 分钟 TTL + 灰度开关",
+      "source": "dev_docs/20261017/P0与BRL-002修复计划-20261017.md §8.3",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/routing/pendingQuestions.ts",
+        "app/src/channels/routing/messageRouter.ts",
+        "app/src/channels/routing/messageRouterContract.ts",
+        "app/src/channels/routing/streamConsumption.ts",
+        "app/src/channels/setupChannels.ts",
+        "app/src/core/featureFlags.ts"
+      ],
+      "tests": [
+        "app/tests/channels/pendingQuestions.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "渠道需要卡片/按钮式回答或跨进程多实例部署时重开（全文见 archive/evidence-detail.jsonl#CHANNEL-QUESTION-ANSWER-STAGE2）",
+      "notes": "CHANNEL_QUESTION_ANSWER 默认 false；仅 interactive 渠道；resolve 失败保留待答可重试。（全文见 archive/evidence-detail.jsonl#CHANNEL-QUESTION-ANSWER-STAGE2）"
+    },
+    {
+      "id": "SECRET-SCANNER-NEW-PREFIXES",
+      "title": "U-27：识别 sk-proj-/sk-svcacct-/sk-ant- 密钥",
+      "source": "dev_docs/20261009/Liri-21模式完成度对照与未达标清单-20261009.md SR-1",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/memory/scanners/MemorySecretScanner.ts"
+      ],
+      "tests": [
+        "app/tests/memory/secretScannerPrefixes.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "厂商再次更换密钥前缀或引入结构化凭据时重开（全文见 archive/evidence-detail.jsonl#SECRET-SCANNER-NEW-PREFIXES）",
+      "notes": "保留旧 openai-api-key 规则；普通文本 sk-proj 不误报。（全文见 archive/evidence-detail.jsonl#SECRET-SCANNER-NEW-PREFIXES）"
+    },
+    {
+      "id": "DOCS-SECURITY-IMPORT-FIX",
+      "title": "U-23：移除已删除的 getSandboxManager/getPermissionManager/getSecurityAudit 示例",
+      "source": "dev_docs/dailys/20261001/pending-tasks-consolidated-20261001.md T-①05 遗留",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/docs/API.md",
+        "app/docs/DEVELOPMENT.md"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "安全门面 API 再次调整时重开（全文见 archive/evidence-detail.jsonl#DOCS-SECURITY-IMPORT-FIX）",
+      "notes": "改为 completeSecuritySystem + 具名审计导出；沙箱说明指向工具执行链。（全文见 archive/evidence-detail.jsonl#DOCS-SECURITY-IMPORT-FIX）"
     }
   ]
 }

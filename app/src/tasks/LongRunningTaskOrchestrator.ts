@@ -80,7 +80,6 @@ import {
   globalToolManager,
   getToolRegistry,
   buildToolDefinitions,
-  getRealToolNamesForTask,
   getToolCategory,
 } from '../tools/index.js';
 import type { ToolUseContext } from '../tools/types/Tool.js';
@@ -89,6 +88,14 @@ import type { ToolUseContext } from '../tools/types/Tool.js';
 // 下述 re-export 保持**公开面不变**（原 `export` 的 4 个类型仍可从本文件取）。
 import { PLANNER_ROLE, EXECUTOR_ROLE } from './lro/contracts.js';
 import { findWorkspaceEscape } from './lro/workspaceGuard.js';
+// U-22/S1（2026-10-17）：计划生成/修复与步骤拓扑外移（行为等价搬迁）
+import {
+  groupStepsByDependency,
+  repairAcceptanceCriteria,
+  repairPlanJson,
+  roleToolNames,
+  type PlannerRepairDeps,
+} from './lro/plannerSupport.js';
 import { resolveAuditStore, replanMaxRetries } from './lro/portResolvers.js';
 import {
   recordGoalStageMetric,
@@ -146,16 +153,6 @@ export {
 const logger = getLogger('tasks:longRunning');
 
 export type { PdcaPhase };
-
-/**
- * 角色可用工具名：由角色的**任务类型**经 `TOOL_CATEGORIES` 派生（单一事实源）。
- *
- * 2026-10-08：禁止手写工具名清单 —— 原 `RoleConfig.toolsets`（hermes 名）展开后 19/23
- * 永不命中 ⇒ 步骤 0 工具可用（事故指纹：73 步 / 0 次工具调用）。
- */
-function roleToolNames(role: RoleConfig): string[] {
-  return role.useTools ? getRealToolNamesForTask(role.taskType) : [];
-}
 
 /**
  * 安全策略拦截的**显式标记**判定（2026-10-08）。
@@ -939,35 +936,18 @@ ${replanSection}
       }
     );
     return taskOrchestrator.getPlan(this.planId)!;
+  } /** 步骤拓扑批次分组（U-22/S1 外移；实现在 `./lro/plannerSupport`）。 */
+  private _groupStepsByDependency(steps: PlanStep[]): PlanStep[][] {
+    return groupStepsByDependency(steps);
   }
 
-  /**
-   * D2（M3，2026-08-13）：按 step.dependsOn 做拓扑批次分组。
-   * 无 dependsOn 的步骤视为相互独立（可并行）；有 dependsOn 的步骤延迟到依赖批次之后。
-   * 当前 PDCA 流程未填充 dependsOn → 单批次（全部独立）；依赖模型启用后自动生效。
-   * 死锁/循环依赖兜底：整批剩余步骤串行执行（不阻塞主流程）。
-   */
-  private _groupStepsByDependency(steps: PlanStep[]): PlanStep[][] {
-    const remaining = new Map(steps.map((s) => [s.id, s]));
-    const batches: PlanStep[][] = [];
-
-    while (remaining.size > 0) {
-      const ready: PlanStep[] = [];
-      for (const step of remaining.values()) {
-        const deps = step.dependsOn ?? [];
-        // 依赖不在剩余集合 = 已执行完成或属于更早批次
-        if (deps.every((d) => !remaining.has(d))) ready.push(step);
-      }
-      if (ready.length === 0) {
-        // 循环依赖或残留依赖缺失：兜底按剩余顺序串行执行
-        batches.push([...remaining.values()]);
-        remaining.clear();
-        break;
-      }
-      for (const s of ready) remaining.delete(s.id);
-      batches.push(ready);
-    }
-    return batches;
+  /** U-22/S1：planner 修复依赖（每次调用重建，全部为轻量引用） */
+  private plannerRepairDeps(): PlannerRepairDeps {
+    return {
+      taskId: this.taskId,
+      executor: this.executor,
+      isolation: this.isolation,
+    };
   }
 
   /**
@@ -988,136 +968,30 @@ ${replanSection}
       sessionId: this._sessionId,
       workspace: this.isolation.workspace,
     });
-  }
-
-  /**
-   * U-01（2026-10-17）：Planner 输出修复重问（只做一次）。
-   *
-   * 与 `_repairAcceptanceCriteria` 同模式：把不可解析的原始输出回灌，要求**仅输出 JSON**。
-   * 返回 `undefined` 表示修复不可用 —— 调用方据此整体失败（不再行切兜底）。
-   */
+  } /** Planner JSON 修复重问（U-22/S1 外移；实现在 `./lro/plannerSupport`）。 */
   private async _repairPlanJson(
     description: string,
     originalOutput: string,
     reason: string
   ): Promise<PlanDraft | undefined> {
-    const prompt = [
-      '你先前输出的执行计划无法被 JSON 解析。请**只输出修正后的 JSON**（不要围栏、不要解释、不要前后缀）。',
-      '',
-      `任务描述: ${description}`,
-      `解析失败原因: ${reason}`,
-      '',
-      '【原始输出（可能被截断）】',
-      originalOutput.slice(0, 6000),
-      '',
-      '【输出格式】',
-      '{"steps": ["步骤1描述", "步骤2描述"], "acceptanceCriteria": ["步骤1验收", "步骤2验收"], "dependsOn": [[], [0]]}',
-      'steps 必须是非空字符串数组（1–10 条）；acceptanceCriteria 条数须与 steps 一致；',
-      'dependsOn 可选，只允许引用更早步骤的下标（0-based）。',
-    ].join('\n');
-
-    try {
-      const text = normalizeExecutorResult(
-        await this.executor({
-          systemPrompt: PLANNER_ROLE.systemPrompt,
-          userPrompt: prompt,
-          tools: roleToolNames(PLANNER_ROLE),
-          taskType: PLANNER_ROLE.taskType,
-          isolation: this.isolation,
-        })
-      ).content;
-      const parsed = parsePlanDraft(text);
-      if (!parsed.ok) {
-        logger.warn('[orchestrator] Planner JSON 修复重问仍不可解析', {
-          taskId: this.taskId,
-          reason: parsed.reason,
-        });
-        return undefined;
-      }
-      logger.info('[orchestrator] Planner JSON 修复重问成功', {
-        taskId: this.taskId,
-        steps: parsed.draft.steps.length,
-      });
-      return parsed.draft;
-    } catch (e) {
-      await handleError(e, {
-        module: 'tasks:longRunning',
-        action: 'repairPlanJson',
-      });
-      return undefined;
-    }
-  }
-
-  /**
-   * 验收标准**一次纠正**（2026-10-08，方案1 全面修复）：
-   * 要求 planner **只重写 `acceptanceCriteria`**（步骤描述与顺序不变、条数对齐），
-   * 使每条都落在"工具输出可直接证明"的范围内（正例/反例与 `UNPROVABLE_CRITERIA_PATTERNS` 同源）。
-   *
-   * 返回 `undefined` 表示纠正不可用（解析失败/条数不齐/调用异常）—— 调用方**保留原验收标准**
-   * （绝不因纠正失败而丢条件）。
-   */
+    return repairPlanJson(
+      this.plannerRepairDeps(),
+      description,
+      originalOutput,
+      reason
+    );
+  } /** 验收标准一次纠正（U-22/S1 外移；实现在 `./lro/plannerSupport`）。 */
   private async _repairAcceptanceCriteria(
     description: string,
     steps: readonly string[],
     offending: readonly string[]
   ): Promise<string[] | undefined> {
-    const stepList = steps.map((s, i) => `${i + 1}. ${s}`).join('\n');
-    const prompt = [
-      '你先前给出的验收标准中，下列条目**无法用工具输出证明**，请**只重写验收标准**（步骤描述与顺序保持不变）。',
-      '',
-      `任务描述: ${description}`,
-      '',
-      `步骤（共 ${steps.length} 步，顺序不变）:`,
-      stepList,
-      '',
-      '【不合格条目】',
-      ...offending.map((s) => `- ${s}`),
-      '',
-      '【硬性要求】每条验收标准执行完后，用**一次**工具调用的输出即可直接判定真假。',
-      '✅ 正例：`file_read 读取 <路径> 返回内容等于 <值>`；`glob 在 <目录> 下能列出 <文件名>`；',
-      '`grep 在 <文件> 中命中 <文本>`。',
-      '❌ 禁止：字节级/编码级（严格 N 字节、无 BOM、无多余换行/空格、校验和/哈希）；',
-      '**以 shell（bash/powershell）作为判定动作**（shell 受安全策略门控，可能被硬拒）；',
-      '指定"必须调用某具体工具"；需文件系统元数据（权限位/时间戳/磁盘空间）；"可写性（需显式写入测试）"；"执行前后对比"。',
-      '若某点无法被证明，改写成**可观察的近似条件**（如"内容等于 X"），不要叠加不可证修饰。',
-      '',
-      `只输出 JSON（不要其他内容），且必须恰好 ${steps.length} 条、与步骤一一对应：`,
-      '{"acceptanceCriteria": ["第1步的验收标准", "第2步的验收标准"]}',
-    ].join('\n');
-
-    try {
-      const text = normalizeExecutorResult(
-        await this.executor({
-          systemPrompt: PLANNER_ROLE.systemPrompt,
-          userPrompt: prompt,
-          tools: roleToolNames(PLANNER_ROLE),
-          taskType: PLANNER_ROLE.taskType,
-          isolation: this.isolation,
-        })
-      ).content;
-      const parsed = JSON.parse(text) as { acceptanceCriteria?: unknown };
-      const next = Array.isArray(parsed?.acceptanceCriteria)
-        ? parsed.acceptanceCriteria.map((s) => String(s))
-        : undefined;
-      if (!next || next.length !== steps.length) {
-        logger.warn(
-          '[orchestrator] 验收标准纠正结果不可用（条数不齐/解析失败）',
-          {
-            taskId: this.taskId,
-            expected: steps.length,
-            got: next?.length ?? -1,
-          }
-        );
-        return undefined;
-      }
-      return next;
-    } catch (e) {
-      await handleError(e, {
-        module: 'tasks:longRunning',
-        action: 'repairAcceptanceCriteria',
-      });
-      return undefined;
-    }
+    return repairAcceptanceCriteria(
+      this.plannerRepairDeps(),
+      description,
+      steps,
+      offending
+    );
   }
 
   /**

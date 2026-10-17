@@ -114,7 +114,9 @@ describe('tool/result isError 状态位（T-13-a）', () => {
       result: 'ok',
     } as never);
     expect(msg.status).not.toBe(MessageStatus.FAILED);
-    expect((msg.metadata as Record<string, unknown> | undefined)?.isError).toBeUndefined();
+    expect(
+      (msg.metadata as Record<string, unknown> | undefined)?.isError
+    ).toBeUndefined();
   });
 
   it('createToolResultMessage(error) 保留调用方 metadata', () => {
@@ -124,7 +126,9 @@ describe('tool/result isError 状态位（T-13-a）', () => {
       { sessionId: 's1', metadata: { parentMessageId: 'p1' } }
     );
     expect((msg.metadata as Record<string, unknown>)?.isError).toBe(true);
-    expect((msg.metadata as Record<string, unknown>)?.parentMessageId).toBe('p1');
+    expect((msg.metadata as Record<string, unknown>)?.parentMessageId).toBe(
+      'p1'
+    );
   });
 
   it('投影：status=FAILED → isError=true', () => {

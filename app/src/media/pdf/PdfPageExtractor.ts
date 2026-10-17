@@ -290,7 +290,8 @@ async function extractWithPdfJs(
       opList !== null &&
       opList.fnArray.some(
         (fn) =>
-          fn === canvasOps.paintImageXObject || fn === canvasOps.paintInlineImageXObject
+          fn === canvasOps.paintImageXObject ||
+          fn === canvasOps.paintInlineImageXObject
       );
     if (hasImageOp) {
       let opaquePixels = 0;

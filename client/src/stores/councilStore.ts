@@ -99,10 +99,10 @@ export const useCouncilStore = create<CouncilState>((set, get) => ({
 
     const workspaceId =
       useWorkspaceStore.getState().currentWorkspace?.id || "default";
-    const API_BASE = "";
+    const COUNCIL_SSE_BASE = "";
 
     const es = new EventSource(
-      `${API_BASE}/v1/workspaces/${workspaceId}/council/${sessionId}/stream`,
+      `${COUNCIL_SSE_BASE}/v1/workspaces/${workspaceId}/council/${sessionId}/stream`,
     );
 
     es.addEventListener("council_started", () => {

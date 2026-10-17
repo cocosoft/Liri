@@ -31,7 +31,7 @@ import DayView from "./DayView";
 
 const logger = createLogger("components:office:CalendarPage");
 
-const WEEKDAY_KEYS = [
+const CALENDAR_WEEKDAY_KEYS = [
   "office.calWeekdayShortSun",
   "office.calWeekdayShortMon",
   "office.calWeekdayShortTue",
@@ -845,7 +845,7 @@ export default function OfficeCalendarPage() {
             </button>
           </div>
           <div className="grid grid-cols-7 px-2 pb-1">
-            {WEEKDAY_KEYS.map((k) => (
+            {CALENDAR_WEEKDAY_KEYS.map((k) => (
               <div key={k} className="text-center text-xs text-gray-400 py-1">
                 {t(k)}
               </div>
@@ -1288,7 +1288,7 @@ export default function OfficeCalendarPage() {
             {viewMode === "month" && (
               <>
                 <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
-                  {WEEKDAY_KEYS.map((k, i) => (
+                  {CALENDAR_WEEKDAY_KEYS.map((k, i) => (
                     <div
                       key={k}
                       className={`text-center text-xs font-medium py-2 ${i === 0 || i === 6 ? "text-red-400 dark:text-red-500" : "text-gray-500 dark:text-gray-400"}`}
@@ -1502,7 +1502,7 @@ export default function OfficeCalendarPage() {
                           )}
                       </div>
                       <div className="grid grid-cols-7 gap-px">
-                        {WEEKDAY_KEYS.map((k) => (
+                        {CALENDAR_WEEKDAY_KEYS.map((k) => (
                           <div
                             key={k}
                             className="text-[9px] text-center text-gray-400 py-0.5"

@@ -20,7 +20,7 @@ interface LayoutNode {
 }
 
 const NODE_RADIUS = 8;
-const PADDING = 50;
+const GRAPH_CANVAS_PADDING = 50;
 const DOMAIN_COLORS = [
   "var(--color-info)",
   "#a855f7",
@@ -69,8 +69,8 @@ export const GraphCanvas = memo(function GraphCanvas({
       if (!nodeMap.has(e.from)) {
         nodeMap.set(e.from, {
           id: e.from,
-          x: Math.random() * (dim.w - PADDING * 2) + PADDING,
-          y: Math.random() * (dim.h - PADDING * 2) + PADDING,
+          x: Math.random() * (dim.w - GRAPH_CANVAS_PADDING * 2) + GRAPH_CANVAS_PADDING,
+          y: Math.random() * (dim.h - GRAPH_CANVAS_PADDING * 2) + GRAPH_CANVAS_PADDING,
           vx: 0,
           vy: 0,
           domain: e.domain,
@@ -79,8 +79,8 @@ export const GraphCanvas = memo(function GraphCanvas({
       if (!nodeMap.has(e.to)) {
         nodeMap.set(e.to, {
           id: e.to,
-          x: Math.random() * (dim.w - PADDING * 2) + PADDING,
-          y: Math.random() * (dim.h - PADDING * 2) + PADDING,
+          x: Math.random() * (dim.w - GRAPH_CANVAS_PADDING * 2) + GRAPH_CANVAS_PADDING,
+          y: Math.random() * (dim.h - GRAPH_CANVAS_PADDING * 2) + GRAPH_CANVAS_PADDING,
           vx: 0,
           vy: 0,
           domain: e.domain,
@@ -141,8 +141,8 @@ export const GraphCanvas = memo(function GraphCanvas({
         for (const n of nodesArr) {
           n.vx *= damping;
           n.vy *= damping;
-          n.x = Math.max(PADDING, Math.min(dim.w - PADDING, n.x + n.vx));
-          n.y = Math.max(PADDING, Math.min(dim.h - PADDING, n.y + n.vy));
+          n.x = Math.max(GRAPH_CANVAS_PADDING, Math.min(dim.w - GRAPH_CANVAS_PADDING, n.x + n.vx));
+          n.y = Math.max(GRAPH_CANVAS_PADDING, Math.min(dim.h - GRAPH_CANVAS_PADDING, n.y + n.vy));
         }
       }
     };

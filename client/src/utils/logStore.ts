@@ -21,7 +21,7 @@ export interface FrontendLogEntry {
   data?: unknown;
 }
 
-const STORAGE_KEY = "liri-frontend-logs";
+const FRONTEND_LOG_STORAGE_KEY = "liri-frontend-logs";
 const MAX_LOGS = 500;
 
 function generateId(): string {
@@ -31,7 +31,7 @@ function generateId(): string {
 function getStoredLogs(): FrontendLogEntry[] {
   let data: string | null = null;
   try {
-    data = localStorage.getItem(STORAGE_KEY);
+    data = localStorage.getItem(FRONTEND_LOG_STORAGE_KEY);
     if (!data) return [];
     const parsed: unknown = JSON.parse(data);
     // 仅接受数组（null/对象/原始值视为损坏数据，避免遍历或 slice 崩溃）
@@ -60,7 +60,7 @@ function saveLogs(logs: FrontendLogEntry[]): void {
   try {
     // 限制日志数量
     const trimmed = logs.slice(-MAX_LOGS);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    localStorage.setItem(FRONTEND_LOG_STORAGE_KEY, JSON.stringify(trimmed));
     // 清除缓存（日志内容变化）
     _levelCountsCache = null;
   } catch {

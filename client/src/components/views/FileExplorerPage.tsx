@@ -169,7 +169,7 @@ function FileExplorerPage() {
   const [showRegistry, setShowRegistry] = useState(false);
   const [showTree, setShowTree] = useState(true);
   const retryCountRef = useRef(0);
-  const MAX_RETRIES = 5;
+  const FILE_EXPLORER_MAX_RETRIES = 5;
 
   /** 初始化加载（带重试机制：后端可能还未启动完成） */
   useEffect(() => {
@@ -180,7 +180,7 @@ function FileExplorerPage() {
         retryCountRef.current = 0;
       } catch {
         // 加载失败时重试
-        if (retryCountRef.current < MAX_RETRIES) {
+        if (retryCountRef.current < FILE_EXPLORER_MAX_RETRIES) {
           retryCountRef.current++;
           const delay = Math.min(
             1000 * Math.pow(2, retryCountRef.current - 1),

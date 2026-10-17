@@ -23,7 +23,7 @@ const NODE_W = 140;
 const NODE_H = 40;
 const LAYER_GAP_X = 200;
 const NODE_GAP_Y = 56;
-const PADDING = 16;
+const DAG_VIEW_PADDING = 16;
 
 // ─── 状态样式映射 ──────────────────────────────────
 
@@ -133,7 +133,7 @@ function layoutDAG(dag: DAGData): LayoutNode[] {
       if (!node) continue;
       result.push({
         node,
-        x: PADDING + li * LAYER_GAP_X,
+        x: DAG_VIEW_PADDING + li * LAYER_GAP_X,
         y: startY + ni * NODE_GAP_Y,
         layer: li,
       });
@@ -218,11 +218,11 @@ export default function DAGView({ planId, onNodeClick }: DAGViewProps) {
 
   // 计算 SVG 画布大小
   const maxLayer = Math.max(...layout.map((n) => n.layer), 0);
-  const svgW = PADDING * 2 + maxLayer * LAYER_GAP_X + NODE_W;
+  const svgW = DAG_VIEW_PADDING * 2 + maxLayer * LAYER_GAP_X + NODE_W;
   const allY = layout.map((n) => n.y);
   const minY = Math.min(...allY);
   const maxY = Math.max(...allY);
-  const svgH = maxY - minY + NODE_H + PADDING * 2;
+  const svgH = maxY - minY + NODE_H + DAG_VIEW_PADDING * 2;
 
   const layoutMap = new Map(layout.map((n) => [n.node.id, n]));
 

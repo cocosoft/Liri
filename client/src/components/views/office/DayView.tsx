@@ -41,7 +41,7 @@ const OVERDUE_STYLE = "border-l-2 border-l-red-500";
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 /** 星期文案键（0=周日 … 6=周六，与 Date.getDay() 对齐） */
-const WEEKDAY_KEYS = [
+const DAY_VIEW_WEEKDAY_KEYS = [
   "office.calWeekdaySun",
   "office.calWeekdayMon",
   "office.calWeekdayTue",
@@ -112,7 +112,7 @@ export default function DayView({
       year: d.getFullYear(),
       month: d.getMonth() + 1,
       day: d.getDate(),
-      weekday: t(WEEKDAY_KEYS[d.getDay()]),
+      weekday: t(DAY_VIEW_WEEKDAY_KEYS[d.getDay()]),
     });
   })();
 

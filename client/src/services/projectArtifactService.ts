@@ -26,14 +26,14 @@ export interface ProjectContext {
   line: number;
 }
 
-const API_BASE = ENDPOINTS.project.base;
+const ARTIFACT_API_BASE = ENDPOINTS.project.base;
 
 export async function fetchArtifacts(
   projectId: string,
   kind?: "input" | "output",
 ): Promise<ProjectArtifact[]> {
   const params = kind ? `?kind=${kind}` : "";
-  const res = await fetch(`${API_BASE}/${projectId}/artifacts${params}`);
+  const res = await fetch(`${ARTIFACT_API_BASE}/${projectId}/artifacts${params}`);
   if (!res.ok)
     throw new Error(
       i18n.t("projects.artifactFetchFailed", { status: res.status }),
@@ -48,7 +48,7 @@ export async function saveArtifact(
     content: string;
   },
 ): Promise<ProjectArtifact> {
-  const res = await fetch(`${API_BASE}/${artifact.projectId}/artifacts`, {
+  const res = await fetch(`${ARTIFACT_API_BASE}/${artifact.projectId}/artifacts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(artifact),
@@ -64,7 +64,7 @@ export async function deleteArtifact(
   projectId: string,
   artifactId: string,
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/${projectId}/artifacts/${artifactId}`, {
+  const res = await fetch(`${ARTIFACT_API_BASE}/${projectId}/artifacts/${artifactId}`, {
     method: "DELETE",
   });
   if (!res.ok)
@@ -77,7 +77,7 @@ export async function deleteArtifact(
 export async function fetchProjectContext(
   projectId: string,
 ): Promise<ProjectContext[]> {
-  const res = await fetch(`${API_BASE}/${projectId}/context`);
+  const res = await fetch(`${ARTIFACT_API_BASE}/${projectId}/context`);
   if (!res.ok) return [];
   return res.json();
 }
@@ -95,7 +95,7 @@ export interface ProjectSummary {
 export async function fetchSummaries(
   projectId: string,
 ): Promise<ProjectSummary[]> {
-  const res = await fetch(`${API_BASE}/${projectId}/summaries`);
+  const res = await fetch(`${ARTIFACT_API_BASE}/${projectId}/summaries`);
   if (!res.ok) return [];
   return res.json();
 }
@@ -118,7 +118,7 @@ export interface ProjectFilesResult {
 export async function fetchProjectFiles(
   projectId: string,
 ): Promise<ProjectFilesResult | null> {
-  const res = await fetch(`${API_BASE}/${projectId}/files`);
+  const res = await fetch(`${ARTIFACT_API_BASE}/${projectId}/files`);
   if (!res.ok) return null;
   return res.json();
 }
@@ -133,7 +133,7 @@ export async function uploadProjectFile(
     reader.onload = () => {
       const result = reader.result as string;
       const base64 = result.split(",")[1];
-      fetch(`${API_BASE}/${projectId}/files`, {
+      fetch(`${ARTIFACT_API_BASE}/${projectId}/files`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ filename: file.name, data: base64 }),
@@ -177,7 +177,7 @@ export async function deleteProjectFile(
   filename: string,
 ): Promise<{ deleted: string }> {
   const res = await fetch(
-    `${API_BASE}/${projectId}/files/${encodeURIComponent(filename)}`,
+    `${ARTIFACT_API_BASE}/${projectId}/files/${encodeURIComponent(filename)}`,
     { method: "DELETE" },
   );
   if (!res.ok)
@@ -214,7 +214,7 @@ export async function fetchProjectHistory(
   since?: string,
 ): Promise<HistoryGroup[]> {
   const params = since ? `?since=${encodeURIComponent(since)}` : "";
-  const res = await fetch(`${API_BASE}/${projectId}/history${params}`);
+  const res = await fetch(`${ARTIFACT_API_BASE}/${projectId}/history${params}`);
   if (!res.ok) return [];
   return res.json();
 }
@@ -228,7 +228,7 @@ export async function triggerEngineHook(
   text: string,
 ): Promise<void> {
   try {
-    await fetch(`${API_BASE}/${projectId}/engine-hook`, {
+    await fetch(`${ARTIFACT_API_BASE}/${projectId}/engine-hook`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
@@ -263,7 +263,7 @@ export async function fetchProjects(
   const params = workspaceId
     ? `?workspaceId=${encodeURIComponent(workspaceId)}`
     : "";
-  const res = await fetch(`${API_BASE}${params}`);
+  const res = await fetch(`${ARTIFACT_API_BASE}${params}`);
   if (!res.ok) return [];
   return res.json();
 }
@@ -276,7 +276,7 @@ export async function createProject(params: {
   sandboxPath?: string;
   tags?: string[];
 }): Promise<ProjectInfo> {
-  const res = await fetch(API_BASE, {
+  const res = await fetch(ARTIFACT_API_BASE, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -292,7 +292,7 @@ export async function createProject(params: {
 export async function fetchProject(
   projectId: string,
 ): Promise<ProjectInfo | null> {
-  const res = await fetch(`${API_BASE}/${projectId}`);
+  const res = await fetch(`${ARTIFACT_API_BASE}/${projectId}`);
   if (!res.ok) return null;
   return res.json();
 }
@@ -304,7 +304,7 @@ export async function updateProject(
     Pick<ProjectInfo, "name" | "description" | "status" | "tags">
   >,
 ): Promise<ProjectInfo | null> {
-  const res = await fetch(`${API_BASE}/${projectId}`, {
+  const res = await fetch(`${ARTIFACT_API_BASE}/${projectId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(updates),
@@ -315,7 +315,7 @@ export async function updateProject(
 
 /** P0b: 删除项目 */
 export async function deleteProject(projectId: string): Promise<boolean> {
-  const res = await fetch(`${API_BASE}/${projectId}`, { method: "DELETE" });
+  const res = await fetch(`${ARTIFACT_API_BASE}/${projectId}`, { method: "DELETE" });
   return res.ok;
 }
 
@@ -372,7 +372,7 @@ export async function migrateLegacyData(): Promise<MigrationResult | null> {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/migrate`, {
+    const res = await fetch(`${ARTIFACT_API_BASE}/migrate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ worktrees }),

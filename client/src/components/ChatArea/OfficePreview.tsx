@@ -25,7 +25,7 @@ interface OfficePreviewProps {
 
 /** 模块级 HTML 缓存，避免重复解析同一文件（上限 10 条，LRU） */
 const htmlCache = new Map<string, string>();
-const MAX_CACHE = 10;
+const OFFICE_PREVIEW_CACHE_MAX = 10;
 
 export default function OfficePreview({ file }: OfficePreviewProps) {
   const { t } = useTranslation();
@@ -187,7 +187,7 @@ export default function OfficePreview({ file }: OfficePreviewProps) {
             ],
           });
           // 写入缓存（LRU 淘汰）
-          if (htmlCache.size >= MAX_CACHE) {
+          if (htmlCache.size >= OFFICE_PREVIEW_CACHE_MAX) {
             const firstKey = htmlCache.keys().next().value;
             if (firstKey) htmlCache.delete(firstKey);
           }

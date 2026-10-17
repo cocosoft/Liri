@@ -13,12 +13,12 @@ export interface TaskHistory {
   completedAt: number;
 }
 
-const STORAGE_KEY = "liri-image-task-history";
+const IMAGE_TASK_STORAGE_KEY = "liri-image-task-history";
 const IMAGE_TASK_MAX_HISTORY = 50;
 
 export function getHistory(): TaskHistory[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(IMAGE_TASK_STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -40,12 +40,12 @@ export function addHistory(
   });
   if (list.length > IMAGE_TASK_MAX_HISTORY) list.length = IMAGE_TASK_MAX_HISTORY;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    localStorage.setItem(IMAGE_TASK_STORAGE_KEY, JSON.stringify(list));
   } catch {
     // localStorage 满了则清空旧的重新存
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(IMAGE_TASK_STORAGE_KEY);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, 10)));
+      localStorage.setItem(IMAGE_TASK_STORAGE_KEY, JSON.stringify(list.slice(0, 10)));
     } catch {
       /* silent */
     }
@@ -53,5 +53,5 @@ export function addHistory(
 }
 
 export function clearHistory(): void {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(IMAGE_TASK_STORAGE_KEY);
 }

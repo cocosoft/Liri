@@ -131,7 +131,7 @@ async function fetchWithRetry(
   responseType: "json" | "blob" = "json",
 ): Promise<ApiResponse<unknown>> {
   const RETRYABLE_STATUSES = new Set([429, 503, 504]);
-  const MAX_RETRIES = 3;
+  const HTTP_MAX_RETRIES = 3;
   const BASE_BACKOFF_MS = 1000;
   // 启动窗口专用退避（2026-08-30）：503「Service starting」与连接拒绝
   // （Failed to fetch）多发生在后端重启/启动间隙（实测 10-11s），标准退避
@@ -140,7 +140,7 @@ async function fetchWithRetry(
 
   const method = (options.method ?? "GET").toUpperCase();
   const isIdempotent = method !== "POST" && method !== "PATCH";
-  const effectiveMaxRetries = isIdempotent ? MAX_RETRIES : 0;
+  const effectiveMaxRetries = isIdempotent ? HTTP_MAX_RETRIES : 0;
 
   let lastError: unknown;
 

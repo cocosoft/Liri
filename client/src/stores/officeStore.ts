@@ -123,7 +123,7 @@ export interface OfficeState {
 }
 
 /** LRU 缓存条目上限 */
-const MAX_CACHE = 20;
+const OFFICE_STORE_CACHE_MAX = 20;
 
 export const useOfficeStore = create<OfficeState>((set, get) => ({
   fileList: [],
@@ -210,9 +210,9 @@ export const useOfficeStore = create<OfficeState>((set, get) => ({
     const entries = Object.entries(cache);
 
     // 若已达上限，按 timestamp 排序并淘汰最旧的
-    if (entries.length >= MAX_CACHE) {
+    if (entries.length >= OFFICE_STORE_CACHE_MAX) {
       entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-      const toRemove = entries.slice(0, entries.length - MAX_CACHE + 1);
+      const toRemove = entries.slice(0, entries.length - OFFICE_STORE_CACHE_MAX + 1);
       for (const [key] of toRemove) {
         delete cache[key];
       }

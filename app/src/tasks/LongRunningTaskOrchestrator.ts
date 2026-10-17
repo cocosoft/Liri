@@ -112,6 +112,8 @@ import {
   reviewStep,
   type StepReviewDecideDeps,
 } from './lro/stepReviewDecide.js';
+// U-22/S1（2026-10-17）：跨重启恢复外移（行为等价搬迁）
+import { resumeFromCheckpoint } from './lro/resumeFromCheckpoint.js';
 import { resolveAuditStore, replanMaxRetries } from './lro/portResolvers.js';
 import {
   recordGoalStageMetric,
@@ -2017,170 +2019,60 @@ export class LongRunningTaskOrchestrator {
     );
 
     return _finalStatus;
-  }
-
-  /**
-   * P0(M9)：从 checkpoint 跨重启恢复执行（/goal resume 入口）。
-   * 读取 checkpoint 中的 plan.steps 快照 → 重建 Plan 到 taskOrchestrator →
-   * 回填步骤状态 → 按 phase 继续（plan_pending 等待审批；否则进入统一执行循环）。
+  } /**
+   * 从 checkpoint 跨重启恢复（U-22/S1 外移；实现在 `./lro/resumeFromCheckpoint`）。
    */
   async resumeFromCheckpoint(ck: Record<string, unknown>): Promise<PdcaStatus> {
-    const sessionId = (ck.sessionId as string | undefined) ?? '';
-    const steps =
-      (ck.steps as Array<Record<string, unknown>> | undefined) ?? [];
-    const phase = (ck.phase as string | undefined) ?? 'execute';
-
-    // Gap D（1-0c，2026-09-03）：终态任务拒绝恢复。
-    // PR5（#6，2026-09-05）：半自动 replan 例外——status=failed + replanPending 且
-    // replanFailCount 未达上限的任务允许 resume（缺陷驱动增量 replan）；其余终态
-    // （completed/abort、或 failed 但 replanPending=false = 收敛达上限或旧数据）仍拒绝。
-    const ckStatus = ck.status as string | undefined;
-    const replanPending = Boolean(ck.replanPending);
-    const replanFailCount = Number(ck.replanFailCount) || 0;
-    const isTerminal = (st?: string): boolean =>
-      st === 'completed' || st === 'abort' || st === 'failed';
-    const replanResumable =
-      ckStatus === 'failed' &&
-      replanPending &&
-      replanFailCount < replanMaxRetries();
-    const refuseResume =
-      isTerminal(phase) || (isTerminal(ckStatus) && !replanResumable);
-    if (refuseResume) {
-      throw new AppError(
-        `任务 ${this.taskId} 已处于终态（phase=${phase}, status=${ckStatus ?? '-'}）${
-          ckStatus === 'failed' && !replanPending
-            ? '，且 replan 已达上限/未挂起，需人工介入'
-            : '，不可恢复'
-        }`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        'PDCA_RESUME_TERMINAL',
-        { taskId: this.taskId, phase, status: ckStatus }
-      );
-    }
-
-    // PR5（#6）：半自动 replan resume——failed+replanPending → 用上轮缺陷驱动
-    // executePlanPhase（增量 replan）后进入统一执行循环，而不是原样续跑旧步骤快照。
-    if (replanResumable) {
-      this._lastEscalations =
-        (ck.lastEscalations as EscalationRecord[] | undefined) ?? [];
-      const descriptionText =
-        (ck.description as string | undefined) ?? '恢复的 PDCA 任务';
-      logger.info('[orchestrator] resume 触发增量 replan（半自动闭环）', {
-        taskId: this.taskId,
-        replanFailCount,
-        defectCount: this._lastEscalations.length,
-      });
-      await this.executePlanPhase(descriptionText, sessionId);
-      this._lastEscalations = [];
-      return this._runExecuteDecideLoop();
-    }
-
-    // S2/B（2026-09-05，PR9）：max_turns 扩容续跑判定（决策逻辑见纯函数）
-    const extLimit =
-      parseInt(configManager.env('PDCA_MAX_TURNS_EXTENSION_LIMIT') || '') || 3;
-    this._turnsExtensions = Number(ck.turnsExtensions) || 0;
-    const extDecision = planTurnsExtensionDecision(
-      steps,
-      this._turnsExtensions,
-      extLimit
-    );
-    if (extDecision.apply) {
-      this._stepTurnsMultiplier = extDecision.multiplier;
-      this._turnsExtensions = extDecision.count;
-      logger.info('[orchestrator] resume 触发 max_turns 扩容续跑', {
-        taskId: this.taskId,
-        turnsExtensions: this._turnsExtensions,
-        stepTurnsMultiplier: this._stepTurnsMultiplier,
-      });
-    }
-
-    // 重建 Plan（新 taskId 由 taskOrchestrator 生成；workspaceId 从会话解析）
-    const workspaceId = await taskOrchestrator.resolveWorkspaceId(sessionId);
-    const restored = taskOrchestrator.createPlan(
-      (ck.description as string | undefined) ?? '恢复的 PDCA 任务',
-      steps.map((s) => (s.description as string | undefined) ?? ''),
-      sessionId,
-      undefined,
-      undefined,
-      workspaceId
-    );
-    // 1-1c（2026-09-03）：依赖恢复用快照顺序位置映射——
-    // checkpoint 存的是旧 plan 的 stepId，resume 重建 plan 生成新 stepId，
-    // 按快照中旧 stepId 的位置（== 重建后 steps 同一下标）换算依赖。
-    const ckStepIds = steps.map((s) => (s.id as string | undefined) ?? '');
-    // 回填步骤状态（executeAllSteps 会跳过 completed/failed/cancelled）
-    steps.forEach((s, i) => {
-      const step = restored.steps[i];
-      if (!step) return;
-      step.status = (s.status as PlanStep['status']) ?? 'pending';
-      step.result = s.result as string | undefined;
-      step.error = s.error as string | undefined;
-      step.reviewResult = s.reviewResult as PlanReview | undefined;
-      step.decision = s.decision as ReviewDecision | undefined;
-      step.retryCount = (s.retryCount as number) ?? 0;
-      step.maxRetries = (s.maxRetries as number) ?? 3;
-      step.acceptanceCriteria = s.acceptanceCriteria as string | undefined;
-      // 13-P0-2（2026-10-05）：结构化验收标准回填（旧存档无该字段 ⇒ 由文本重新派生）
-      step.successCriteria =
-        (s.successCriteria as ReturnType<typeof parseSuccessCriteria>) ??
-        parseSuccessCriteria(step.acceptanceCriteria);
-      // E1①/B（2026-09-05）：终止原因回填（扩容判定/审计输入；先前丢失）
-      step.terminationReason = s.terminationReason as string | undefined;
-      // S2/B（PR9）：扩容候选步骤置回 pending 重跑（决策谓词见纯函数 shouldReRollMaxTurnsStep，
-      // 本轮完成时由 markStepCompleted 重新落盘新 reason）
-      if (
-        shouldReRollMaxTurnsStep(
-          this._stepTurnsMultiplier > 1,
-          s.terminationReason as string | undefined
-        )
-      ) {
-        step.status = 'pending';
-        step.result = undefined;
-        step.terminationReason = undefined;
-      }
-      // 1-1c：恢复依赖（旧 stepId → 位置 → 新 stepId；仅前置、越界/缺失自愈忽略）
-      const depIds = (s.dependsOn as string[] | undefined) ?? [];
-      if (depIds.length > 0) {
-        const mapped = depIds
-          .map((d) => ckStepIds.indexOf(d))
-          .filter((j) => j >= 0 && j < i && restored.steps[j]);
-        if (mapped.length > 0) {
-          step.dependsOn = mapped.map((j) => restored.steps[j].id);
-        }
-      }
-    });
-    restored.status = 'running';
-
-    this.planId = restored.id;
-    this._sessionId = sessionId || null;
-    // D5（M6）：恢复 escalate 缺陷清单（增量 replan 输入跨重启保持）
-    this._lastEscalations =
-      (ck.lastEscalations as EscalationRecord[] | undefined) ?? [];
-    // 1-1d（2026-09-03）：resume 回填 token 累计，防跨重启少计——
-    // checkpoint 阶段边界已持久化 totalTokens（_persistCheckpoint），恢复续跑必须续上，
-    // 否则终态 goal_metrics.total_tokens 从 0 起少计。
-    this._totalTokensTracked = Number(ck.totalTokens) || 0;
-    this._recordLifecycle(
-      'started',
-      TaskStatus.RUNNING,
-      'PDCA resumed from checkpoint'
-    );
-    await this._persistCheckpoint();
-
-    logger.info('[orchestrator] 从 checkpoint 恢复', {
+    return resumeFromCheckpoint(ck, {
       taskId: this.taskId,
-      planId: this.planId,
-      phase,
-      stepCount: steps.length,
-    });
-
-    if (phase === 'plan_pending') {
-      await this.setPhase('plan_pending');
-      return this.getStatus(); // 等待审批
-    }
-    await this.setPhase('execute');
-    return this._runExecuteDecideLoop();
+      executePlanPhase: (description, sessionId) =>
+        this.executePlanPhase(description, sessionId),
+      runExecuteDecideLoop: () => this._runExecuteDecideLoop(),
+      getStatus: () => this.getStatus(),
+      setPhase: (phase) => this.setPhase(phase),
+      recordLifecycle: (phase, status, detail) =>
+        this._recordLifecycle(phase as LifecyclePhase, status, detail),
+      persistCheckpoint: () => this._persistCheckpoint(),
+      resolveWorkspaceId: (sessionId) =>
+        taskOrchestrator.resolveWorkspaceId(sessionId),
+      createPlan: (
+        description,
+        steps,
+        sessionId,
+        existingTaskIds,
+        acceptanceCriteria,
+        workspaceId
+      ) =>
+        taskOrchestrator.createPlan(
+          description,
+          steps,
+          sessionId,
+          existingTaskIds,
+          acceptanceCriteria,
+          workspaceId
+        ),
+      getLastEscalations: () => this._lastEscalations,
+      setLastEscalations: (value) => {
+        this._lastEscalations = value;
+      },
+      getTurnsExtensions: () => this._turnsExtensions,
+      setTurnsExtensions: (value) => {
+        this._turnsExtensions = value;
+      },
+      getStepTurnsMultiplier: () => this._stepTurnsMultiplier,
+      setStepTurnsMultiplier: (value) => {
+        this._stepTurnsMultiplier = value;
+      },
+      setPlanId: (planId) => {
+        this.planId = planId;
+      },
+      setSessionId: (sessionId) => {
+        this._sessionId = sessionId;
+      },
+      setTotalTokensTracked: (value) => {
+        this._totalTokensTracked = value;
+      },
+    }) as Promise<PdcaStatus>;
   }
 
   /**

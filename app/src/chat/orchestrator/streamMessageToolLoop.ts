@@ -104,16 +104,15 @@ export async function* runStreamToolLoop(
   try {
     streamSpan.addEvent('streamMessage.toolLoop.start', {
       'toolCalls.count': finalResponse.tool_calls!.length,
-      toolNames: finalResponse.tool_calls!.map(
-        (tc: ParsedToolCall) => tc.name
-      ),
+      toolNames: finalResponse.tool_calls!.map((tc: ParsedToolCall) => tc.name),
     });
     let currentMessages: Record<string, unknown>[] = [...apiMessages];
     let currentToolCalls: ParsedToolCall[] = [...finalResponse.tool_calls!];
     let currentAssistantMsg = assistantMessage;
     const firstAssistantContent = String(assistantMessage.content ?? '');
 
-    const { toolResultRegistry } = await import('../../tool/ToolResultRegistry');
+    const { toolResultRegistry } =
+      await import('../../tool/ToolResultRegistry');
     const rollbackRoundId = toolResultRegistry.nextRound(session.id);
     if (!session.metadata.roundIndex) session.metadata.roundIndex = {};
     session.metadata.roundIndex[userMessageId] = rollbackRoundId;
@@ -205,7 +204,9 @@ export async function* runStreamToolLoop(
             phase: 'implementing' as const,
             progress: hb?.totalCompletedToolCount ?? 0,
             description: '任务执行中，正在等待模型/工具响应...',
-            steps: truncated ? fullSteps.slice(-MAX_HEARTBEAT_STEPS) : fullSteps,
+            steps: truncated
+              ? fullSteps.slice(-MAX_HEARTBEAT_STEPS)
+              : fullSteps,
             totalSteps: fullSteps.length,
             truncated,
             currentStep: '',

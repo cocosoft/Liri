@@ -164,6 +164,11 @@ export const ABORT_REASONS = [
   'SUPERSEDED',
   /** 进程/服务关闭 */
   'SHUTDOWN',
+  /**
+   * U-05（2026-10-17）：渠道收到交互提问但无回答能力 ⇒ fail-closed 中止。
+   * 与“空转超时”区分：这不是故障，而是明确的“当前入口不支持”。
+   */
+  'CHANNEL_INTERACTION_UNSUPPORTED',
 ] as const;
 export type AbortReason = (typeof ABORT_REASONS)[number];
 

@@ -13,7 +13,7 @@ export interface ProjectFiles {
   readme: string | null;
 }
 
-const MAX_FILE_CHARS = 10_000;
+const PROJECT_FILE_MAX_CHARS = 10_000;
 
 function safeReadFile(filePath: string): string | null {
   try {
@@ -22,8 +22,8 @@ function safeReadFile(filePath: string): string | null {
     if (stat.isDirectory()) return null;
     if (stat.size > 1024 * 1024) return null;
     const content = fs.readFileSync(filePath, 'utf-8');
-    if (content.length > MAX_FILE_CHARS) {
-      return content.substring(0, MAX_FILE_CHARS) + '\n...(truncated)';
+    if (content.length > PROJECT_FILE_MAX_CHARS) {
+      return content.substring(0, PROJECT_FILE_MAX_CHARS) + '\n...(truncated)';
     }
     return content;
   } catch {

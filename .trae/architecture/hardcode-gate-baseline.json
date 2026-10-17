@@ -1,7 +1,6 @@
 {
   "lint:consts": {
     "同名常量:FORK_DIRECTIVE_PREFIX": 2,
-    "同名常量:MAX_FILE_CHARS": 2,
     "同名常量:MAX_TRACKED": 2,
     "同名常量:MAX_RECENT": 2,
     "同名常量:REPO_ROOT": 2,

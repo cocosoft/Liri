@@ -34,7 +34,7 @@ export type { WorkspaceFile, WorkspaceFiles };
 
 const logger = getLogger('workspaces:scanner');
 
-const MAX_FILE_CHARS = 12_000;
+const WORKSPACE_FILE_MAX_CHARS = 12_000;
 const MAX_TOTAL_CHARS = 60_000;
 
 const AGENTS_FILE_NAMES = ['AGENTS.md', 'agents.md', 'Agents.md'];
@@ -63,7 +63,7 @@ function readCached(filePath: string): WorkspaceFile | null {
     const content = fs.readFileSync(filePath, 'utf-8');
     const { content: safeContent, truncated } = headTailTruncate(
       content,
-      MAX_FILE_CHARS
+      WORKSPACE_FILE_MAX_CHARS
     );
 
     fileCache.set(filePath, { content: safeContent, mtimeMs: stat.mtimeMs });

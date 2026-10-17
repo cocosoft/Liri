@@ -10,7 +10,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { getReadProtectionService } from '../../security/files/ReadProtectionService';
+import { getReadProtectionService } from '@modules/security';
 import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
 import { resolveReadFileState } from '../../utils/fileStateCache';
 import type { FileOperationResult } from '../types/ToolResult';

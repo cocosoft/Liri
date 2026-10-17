@@ -8,10 +8,8 @@ import type {
   SecurityAnalysisResult,
   SecurityPattern,
 } from '@modules/security';
-// eslint-disable-next-line no-restricted-imports
-import { createSecurityScanner } from '@modules/security/scanners/SecurityScanner.js';
-// eslint-disable-next-line no-restricted-imports
-import { inputValidator } from '@modules/security/validators/InputValidator.js';
+// U-21（批次⑦）：scanners/validators 子入口收口为桶导入
+import { createSecurityScanner, inputValidator } from '@modules/security';
 
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';

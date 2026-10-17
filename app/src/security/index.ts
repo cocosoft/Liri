@@ -278,6 +278,11 @@ export type {
 export { DELETION_RULES, ALL_UNIFIED_RULES } from './patterns';
 export type { UnifiedRulePlatform } from './patterns';
 export { getRedactMiddleware } from './redact';
+// U-21（批次⑦，2026-10-17）：scanners/validators/bash/files 子入口入桶
+export { createSecurityScanner } from './scanners/SecurityScanner';
+export { inputValidator } from './validators/InputValidator';
+export { parseForSecurity, isDangerousCommand } from './bash/BashAST';
+export { getReadProtectionService } from './files/ReadProtectionService';
 export type { RedactResult, ObjectRedactResult } from './redact';
 export type { RedactStats } from './redact';
 // A3（2026-10-09）：敏感环境变量剥离单一事实源（供 BashTool spawn / hooks 脚本执行复用）

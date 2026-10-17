@@ -29,11 +29,7 @@ import { getLogger } from '@modules/monitoring';
 import { feature } from '@modules/core';
 import { SandboxSecurityChecker } from '@modules/sandbox';
 import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
-// eslint-disable-next-line no-restricted-imports
-import {
-  parseForSecurity,
-  isDangerousCommand,
-} from '@modules/security/bash/BashAST';
+import { parseForSecurity, isDangerousCommand } from '@modules/security';
 import {
   DANGEROUS_COMMANDS,
   DANGEROUS_PATTERNS,

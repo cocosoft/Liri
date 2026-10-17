@@ -2192,14 +2192,11 @@ class ArchitectureLinter {
       //     （patterns barrel 补 DELETION_RULES/ALL_UNIFIED_RULES/UnifiedRulePlatform；
       //      security barrel 补 getRedactMiddleware）⇒ 登记键已移除。
       //   其余未收口键（批次②保留 + 后续批：security / skills / workspace / components）：
-      'security/scanners', // 子路径唯一入口（barrel 导出件在 `scanner/secret`，命名不一致）
-      'security/validators', // 子路径唯一入口（barrel 未导出）
-      'security/bash', // 子路径唯一入口（barrel 导出件在 `BashAllowlistMatcher`）
-      'security/files', // 子路径唯一入口（barrel 未导出）
-      //   ✅ 收口批次⑥已完成（2026-10-17，U-21）：skills 三键收口 ——
-      //     `skills/{loaders,services,cli}` 改走 `@modules/skills`（桶补 skillUsageTracker /
-      //     SkillUsageStats / registerSkillsCommands；loaders 符号原已入桶）⇒ 登记键已移除。
-      //   其余未收口键（批次②保留 + 后续批：workspace / components）：
+      //   ✅ 收口批次⑦已完成（2026-10-17，U-21）：security 四键收口 ——
+      //     `security/{scanners,validators,bash,files}` 改走 `@modules/security`
+      //     （桶补 createSecurityScanner / inputValidator / parseForSecurity / isDangerousCommand /
+      //      getReadProtectionService）⇒ 登记键已移除。
+      //   其余未收口键（批次②保留 + 后续批：workspace / components / knowledge / governance）：
       'workspace/CouncilOrchestrator', // 保留：ChatManager 静态引用叶子 containsComplexKeywords（barrel 未聚合）+ CouncilOrchestrator 动态导入打破环
       'components/TaskListV2', // 保留：components/index.ts 近乎空壳（仅 ink Text/Box），聚合 UI 面待评估
       'components/ui', // 保留：同上

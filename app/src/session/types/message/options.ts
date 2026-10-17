@@ -140,6 +140,13 @@ export interface SendMessageOptions {
   systemPrompt?: string;
 
   /**
+   * 运行时补充系统提示（**追加**在基础提示与 `systemPrompt` 之后，按请求注入、不缓存）
+   *
+   * 2026-10-17：通道入站用它注入「投递契约」（附件由通道侧自动投递，模型不得臆断发送状态）。
+   */
+  runtimeSystemNote?: string;
+
+  /**
    * 是否使用共享上下文
    * 启用后，LLM 将看到 CombinedSessionGateway 中所有通道的历史消息
    */

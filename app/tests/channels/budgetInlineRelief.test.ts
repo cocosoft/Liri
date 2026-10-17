@@ -28,6 +28,7 @@ import {
   splitSuspensionNotice,
   stripBoldMarkers,
   SUSPENSION_NOTICE_MARKER,
+  CHANNEL_DELIVERY_CONTRACT,
 } from '../../src/channels/routing/messageRouterContract';
 import { buildQQKeyboard } from '../../src/channels/qq/keyboard';
 import { QQ_INTENT_FULL, QQEventType } from '../../src/channels/qq/types';
@@ -359,5 +360,30 @@ describe('验收 8：挂起正文与卡片去重（真机重复发送 / 星号�
     const cardText = buildBudgetSuspendedNotice({ hasButtons: true });
     expect(cardText.startsWith(SUSPENSION_NOTICE_MARKER)).toBe(true);
     expect(splitSuspensionNotice(cardText).body).toBe('');
+  });
+});
+
+/**
+ * 验收 9（2026-10-17，真机两次臆断驱动）：**通道投递契约**必须讲清三件事 ——
+ * ① 投递是通道侧自动完成的（正文写路径即可）；② 模型**没有**发送/广播工具；
+ * ③ 不确定时**不得**断言投递结果（真机曾编造 `broadcast send` 返回 `{sent:false}`）。
+ */
+describe('验收 9：通道投递契约（防模型臆断发送状态）', () => {
+  it('说明「自动投递 + 正文写路径即可」', () => {
+    expect(CHANNEL_DELIVERY_CONTRACT).toContain('自动投递');
+    expect(CHANNEL_DELIVERY_CONTRACT).toContain('文件路径');
+    expect(CHANNEL_DELIVERY_CONTRACT).toContain('附件');
+  });
+
+  it('明确「没有发送/广播工具」且「不得在正文断言发送结果」', () => {
+    expect(CHANNEL_DELIVERY_CONTRACT).toContain('没有');
+    expect(CHANNEL_DELIVERY_CONTRACT).toContain('不要尝试调用');
+    expect(CHANNEL_DELIVERY_CONTRACT).toContain('不要');
+    expect(CHANNEL_DELIVERY_CONTRACT).toContain('断言');
+  });
+
+  it('要求不确定时如实说明（不得猜测原因）', () => {
+    expect(CHANNEL_DELIVERY_CONTRACT).toContain('无法观测');
+    expect(CHANNEL_DELIVERY_CONTRACT).toContain('不要猜测');
   });
 });

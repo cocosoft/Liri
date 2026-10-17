@@ -43,6 +43,11 @@ export interface RouteMessageOptions {
       /** PR2（2026-10-09）：外部取消信号（端到端贯通 Router → CoreAPI → ChatManager） */
       signal?: AbortSignal;
       /**
+       * 运行时补充系统提示（2026-10-17）：渠道入站注入**投递契约**（附件由通道侧自动投递，
+       * 模型不得臆断发送状态）。按请求追加、不进会话历史。
+       */
+      runtimeSystemNote?: string;
+      /**
        * T1-6（通道治理 §1.3 收口，2026-10-13）：**入站附件的字节口径**（供 R16 日预算预留）。
        *
        * **仅取 `size`**（与 `query/attachmentBudget.estimateAttachmentsTokens` 的结构化入参同形）；
@@ -341,6 +346,23 @@ export function resolveSuspendedOutboundContent(args: {
   }
   return stripBoldMarkers(args.content);
 }
+
+/**
+ * 通道投递契约（**按请求**注入系统提示；2026-10-17）。
+ *
+ * 为什么需要：模型看不到「出站文件路由」的存在。真机两次在正文里**臆断投递结果**——
+ * ① 「附件还没实际发出」；② 「`broadcast send channel=qq` 返回 `{sent:false}`」（此工具根本不存在）。
+ * 而两次文件都在 1 秒后由 `channelOutbound` 成功送达。根因是模型**没有事实源**，只能编。
+ *
+ * 本契约把「投递由通道侧完成、模型不作断言」讲清楚；它按请求追加在系统提示末尾
+ * （`composeSystemPrompt` 的 `runtimeNote`），**不进入**会话历史、也不影响提示缓存。
+ */
+export const CHANNEL_DELIVERY_CONTRACT = [
+  '## 通道投递（当前会话来自聊天通道，不是桌面端）',
+  '- 本轮回复由通道侧**自动投递**；需要给用户发文件时，只需在正文写出文件路径（本轮新建或在交付面内），通道会把它作为附件发送。',
+  '- 你**看不到**投递结果，也**没有**「发送 / 广播」类工具：不要尝试调用它们，也不要在正文断言「已发送 / 发送失败 / 没收到」。',
+  '- 若用户问是否收到、为何没收到，如实说明你无法观测投递状态、请以客户端实际显示为准；不要猜测原因（如「通道未绑定」）。',
+].join('\n');
 
 /**
  * 解析 LLM 失败回执（纯函数，便于单测）。

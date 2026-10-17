@@ -79,6 +79,7 @@ import {
   ADMISSION_POLL_MS,
   resolveLlmFailure,
   resolveSuspendedOutboundContent,
+  CHANNEL_DELIVERY_CONTRACT,
 } from './messageRouterContract';
 import type {
   RouteResult,
@@ -547,6 +548,10 @@ export async function routeChannelMessage(
         // P26-1 §9.1（2026-10-07）：渠道入站**非人工实时对话** ⇒ 显式声明后台优先级
         // （供 resourceGovernor 在同会话外按优先级取舍；缺省本为 interactive）
         priority: 'background',
+        // 2026-10-17：注入**通道投递契约**（按请求、不进历史）—— 模型看不到出站文件路由，
+        // 曾两次在正文里臆断投递结果（"附件还没实际发出" / 编造 `broadcast send` 返回 false）。
+        // 契约见 `messageRouterContract.CHANNEL_DELIVERY_CONTRACT`。
+        runtimeSystemNote: CHANNEL_DELIVERY_CONTRACT,
         metadata: {
           channel: message.channelId || channelName,
           sender: message.senderId,

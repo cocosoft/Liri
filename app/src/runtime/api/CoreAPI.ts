@@ -99,6 +99,12 @@ export interface ChatRequest {
   max_tokens?: number;
   /** 自定义系统提示词（覆盖默认） */
   systemPrompt?: string;
+  /**
+   * 运行时补充系统提示（**追加**在基础提示之后、按请求注入、不缓存）
+   *
+   * 2026-10-17：渠道入站注入「投递契约」（附件由通道侧自动投递；模型不得臆断发送状态）。
+   */
+  runtimeSystemNote?: string;
   /** P0-1（2026-08-26）：流中断续写——携带已生成内容，请求从断点继续而非从头重发 */
   continue_from?: { content: string; messageId?: string };
   /**

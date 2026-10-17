@@ -61,6 +61,7 @@ import {
   isCodeContextMessage,
 } from '../services/MessageContextPipeline';
 import { stripBareExploration } from '../services/bareExplorationStripper';
+import { composeSystemPrompt } from '../services/systemPromptComposition';
 import { StreamingToolCallScrubber } from '@modules/streaming';
 import { validatePathsInOutput } from '../services/PathGuardService';
 import { trackUsage, extractModelFromResponse } from '@modules/ai';
@@ -317,9 +318,12 @@ export async function assembleSystemPrompt(
   if (hasSystemMessage) return ctx.apiMessages;
 
   const assembled = await host.getOrAssembleSystemPrompt(session, content);
-  const sysPrompt = options?.systemPrompt
-    ? `${assembled}\n\n## 用户自定义系统提示\n${options.systemPrompt}`
-    : assembled;
+  // 2026-10-17：与 `StreamPipeline` 共用同一拼装函数（基础 → 自定义 → 运行时补充）
+  const sysPrompt = composeSystemPrompt({
+    assembled,
+    customPrompt: options?.systemPrompt,
+    runtimeNote: options?.runtimeSystemNote,
+  });
   ctx.apiMessages.unshift({ role: 'system', content: sysPrompt });
   return ctx.apiMessages;
 }

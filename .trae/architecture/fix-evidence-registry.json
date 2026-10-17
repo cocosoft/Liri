@@ -11763,6 +11763,33 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-REACTLOOP-INTERACTION）",
       "notes": "交互链路：_registerInteraction + _awaitAnswersWithHeartbeat（Promise.race 心跳 + abort/超时 fail-closed）+ _emitSuspensionSettled → chat/agentInteraction.ts（AgentInteract…（全文见 archive/evidence-detail.jsonl#U22-REACTLOOP-INTERACTION）"
+    },
+    {
+      "id": "U22-REACTLOOP-TURNHOOKS",
+      "title": "U-22/ReActToolLoop 收尾：外移 reason 前钩子（清理/动态上限/检查点/上下文保护）与不完整回合检测",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ReActToolLoop）/§4",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/agentPreReasoning.ts",
+        "app/src/chat/agentIncompleteTurn.ts",
+        "app/src/chat/ReActToolLoop.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-REACTLOOP-TURNHOOKS）",
+      "notes": "beforeReasoning（284）+ _sanitizeForNewTask（84）→ chat/agentPreReasoning.ts（runBeforeReasoning/sanitizeForNewTask + AgentPreReasoningDeps：loopState/config 引用共享、co…（全文见 archive/evidence-detail.jsonl#U22-REACTLOOP-TURNHOOKS）"
     }
   ]
 }

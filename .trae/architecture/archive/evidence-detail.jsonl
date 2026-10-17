@@ -6757,3 +6757,10 @@
 {"id":"U22-REACTLOOP-INTERACTION","k":"code#1","i":0,"c":"app/src/chat/terminationOutput.ts"}
 {"id":"U22-REACTLOOP-INTERACTION","k":"code#2","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
 {"id":"U22-REACTLOOP-INTERACTION","k":"code#3","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"U22-REACTLOOP-TURNHOOKS","k":"title","i":0,"c":"U-22/ReActToolLoop 收尾：外移 reason 前钩子（清理/动态上限/检查点/上下文保护）与不完整回合检测"}
+{"id":"U22-REACTLOOP-TURNHOOKS","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ReActToolLoop）/§4"}
+{"id":"U22-REACTLOOP-TURNHOOKS","k":"notes","i":0,"c":"beforeReasoning（284）+ _sanitizeForNewTask（84）→ chat/agentPreReasoning.ts（runBeforeReasoning/sanitizeForNewTask + AgentPreReasoningDeps：loopState/config 引用共享、convergeSteeringPrompted 与 lastLayerCompactAt 经 get/set、阈值经 consts）；onIncompleteTurn（106）+ 4 条续接指令常量 + planning 正则 → chat/agentIncompleteTurn.ts（重试计数对象共享、终态 settle 经 setter 登记、相位经 setter 置 compaction_failed）。宿主保留薄转发；日志文案/阈值/退避公式/判定顺序逐字未变。"}
+{"id":"U22-REACTLOOP-TURNHOOKS","k":"code#0","i":0,"c":"app/src/chat/agentPreReasoning.ts"}
+{"id":"U22-REACTLOOP-TURNHOOKS","k":"code#1","i":0,"c":"app/src/chat/agentIncompleteTurn.ts"}
+{"id":"U22-REACTLOOP-TURNHOOKS","k":"code#2","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
+{"id":"U22-REACTLOOP-TURNHOOKS","k":"code#3","i":0,"c":"scripts/layer-exceptions.json"}

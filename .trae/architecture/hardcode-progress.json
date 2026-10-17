@@ -1,13 +1,13 @@
 {
   "nextKey": "B5-2-100",
-  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "U-22-S1", "U-22-S2", "U-22-S3", "U-22-S4", "U-18-S1", "U-22-AGENTTOOL", "U-22-REACTLOOP-P1", "U-13-P1", "T-13-a", "T-13-b"],
-  "lastCommit": "32025679e",
+  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "U-22-S1", "U-22-S2", "U-22-S3", "U-22-S4", "U-18-S1", "U-22-AGENTTOOL", "U-22-REACTLOOP-P1", "U-22-REACTLOOP-P2", "U-13-P1", "T-13-a", "T-13-b"],
+  "lastCommit": "dc5525cbf",
   "baselineKeys": {
     "lint:consts": 85,
     "lint:endpoints": 30,
     "lint:locale": 6
   },
-  "nextAction": "U-22 续：ReActToolLoop 末段（beforeReasoning 284 / onIncompleteTurn 106，当前 2397）→ LRTO +1060 → i18n；ChatManager 余 +2323；U-13 待新数据窗口重采",
+  "nextAction": "U-22 余：LRTO（+1060，S1 plan / S2 execute / S3 review 收口）→ i18n zh/en（+4489/+4727）；ChatManager 余 +2323（可选续拆或 11-30 续期）；U-13 待新数据窗口重采",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为门禁实测口径（lint:consts 按组计：同名 17 + 同值 68 = 85；lint:endpoints / locale 按文件键计），非估算",
@@ -27,6 +27,7 @@
     "2026-10-17：U-18/S1 —— streamMessageFlow 工具轮主体（约 400 行）外移为内层 async generator streamMessageToolLoop.ts（yield* 逐帧转发）；2316→1936（≤2000 ⇒ 删除 FSZ-107 例外）；function-size-baseline 下调 2132→1757 / 2315→1936",
     "2026-10-17：U-22/AgentTool —— runSwarmPath（461）+ buildSwarmExecutor（251）→ tools/AgentTool/swarmPath.ts（SwarmPathDeps 注入，宿主薄转发 + swarmPathDeps）；resolveDeniedTools 与两个 descriptor 类型随迁并 re-export；2709→1964（≤2000 ⇒ 删除 FSZ-050 例外）；清理 15 处失效 import",
     "2026-10-17：U-22/ReActToolLoop S1/S2 —— 交互链路（_registerInteraction/_awaitAnswersWithHeartbeat/_emitSuspensionSettled）→ chat/agentInteraction.ts；终止输出（resolveTerminationOutput + mapTerminationToGoalReason + EMPTY_OUTPUT_FALLBACK_TEXT）→ chat/terminationOutput.ts；2749→2397（FSZ-108 lines 同步下调，仍 +397）",
+    "2026-10-17：U-22/ReActToolLoop 收尾 —— beforeReasoning（284）+ _sanitizeForNewTask（84）→ chat/agentPreReasoning.ts；onIncompleteTurn（106）+ 4 条续接指令常量 → chat/agentIncompleteTurn.ts；2397→1986（≤2000 ⇒ 删除 FSZ-108 例外）；清理 8 处失效 import",
     "2026-10-17：query/patternAssembly.ts:49（:1977）与 state/engine/stateMachineCatalog.ts:185（:3184）是**行号/定位串**被 FIXED_PORT_RE 误判，非遗留硬编码；constants/common.ts 的 DEFAULT_HOST 为零消费者死常量，按 CD05/CD06 走独立变更"
   ]
 }

@@ -42,11 +42,12 @@ import type {
   ThinkingProviderChunk,
   ToolDefinition,
 } from '@modules/ai';
+import { LOCAL_INFERENCE_ENDPOINTS } from '@modules/core';
 
 const logger = getLogger('ai:llama');
 
 /** llama-server 默认 OpenAI 兼容端点（与 LlamaCppServerManager 默认端口对齐） */
-const LLAMACPP_PROVIDER_BASE_URL = 'http://127.0.0.1:11435/v1';
+const LLAMACPP_PROVIDER_BASE_URL = LOCAL_INFERENCE_ENDPOINTS.llamacpp.loopback;
 
 /**
  * llama.cpp 单次请求工具数量上限。

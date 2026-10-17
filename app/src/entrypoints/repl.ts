@@ -193,7 +193,7 @@ export async function launchRepl(
   if (finalConfig.preStartedHttp) {
     localHTTPService = finalConfig.preStartedHttp;
     ui.showInfo(
-      `HTTP API 服务已在运行: http://127.0.0.1:${finalConfig.httpPort}`
+      `HTTP API 服务已在运行: http://${LOCAL_HTTP_HOST}:${finalConfig.httpPort}`
     );
   } else if (finalConfig.httpPort) {
     try {
@@ -206,7 +206,7 @@ export async function launchRepl(
       });
       await localHTTPService.start();
       ui.showInfo(
-        `HTTP API 服务已启动: http://127.0.0.1:${finalConfig.httpPort}`
+        `HTTP API 服务已启动: http://${LOCAL_HTTP_HOST}:${finalConfig.httpPort}`
       );
       profileCheckpoint('repl_http_service_end');
     } catch (error) {

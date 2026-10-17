@@ -54,3 +54,33 @@ export const DEFAULT_SD_WEBUI_ENDPOINT = `http://${LOCAL_HTTP_HOST}:7860`;
 
 /** 本地 Chrome / Edge 的 CDP 调试端点（浏览器截图用；U-20/B5-2-91） */
 export const DEFAULT_CDP_ENDPOINT = `http://${LOCAL_HTTP_HOST}:9222`;
+
+/** 本地 ComfyUI 默认地址（U-20/B5-2-92） */
+export const DEFAULT_COMFYUI_ENDPOINT = `http://${LOCAL_HTTP_HOST}:8188`;
+
+/**
+ * 本地推理服务的 OpenAI 兼容端点（供供应商预设的候选清单使用；U-20/B5-2-92）。
+ *
+ * 每个服务保留 `hostname`（本机名形式）与 `loopback`（`127.0.0.1`）两种候选，
+ * 与前端 `client/src/services/endpoints.ts` 的 `LOCAL_PROVIDER_ENDPOINTS` **同值**；
+ * 两个部署单元无法共享模块，同值由契约测试钉住。
+ * 注意：`localAI` 的 8080 与本地 OAuth 回调服务数值相同、事实不同（不复用）。
+ */
+export const LOCAL_INFERENCE_ENDPOINTS = {
+  ollama: {
+    hostname: DEFAULT_OLLAMA_OPENAI_ENDPOINT,
+    loopback: `http://${LOCAL_HTTP_HOST}:11434/v1`,
+  },
+  llamacpp: {
+    hostname: `http://${LOCAL_SERVICE_HOST}:11435/v1`,
+    loopback: `http://${LOCAL_HTTP_HOST}:11435/v1`,
+  },
+  lmStudio: {
+    hostname: `http://${LOCAL_SERVICE_HOST}:1234/v1`,
+    loopback: `http://${LOCAL_HTTP_HOST}:1234/v1`,
+  },
+  localAI: {
+    hostname: `http://${LOCAL_SERVICE_HOST}:8080/v1`,
+    loopback: `http://${LOCAL_HTTP_HOST}:8080/v1`,
+  },
+} as const;

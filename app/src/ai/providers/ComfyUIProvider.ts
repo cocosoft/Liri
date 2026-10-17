@@ -46,6 +46,7 @@ import type {
 } from './AIProvider';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { DEFAULT_COMFYUI_ENDPOINT } from '@modules/core';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('ai:comfy-provider');
@@ -55,7 +56,7 @@ export class ComfyUIProvider extends BaseAIProvider {
 
   constructor(options: BaseProviderOptions) {
     super(options);
-    this.baseUrl = options.defaultBaseUrl || 'http://127.0.0.1:8188';
+    this.baseUrl = options.defaultBaseUrl || DEFAULT_COMFYUI_ENDPOINT;
     this.capabilities = { videoGeneration: true };
   }
 

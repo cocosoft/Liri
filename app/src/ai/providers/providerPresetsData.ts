@@ -26,7 +26,10 @@
  * 保持与 client/src/config/providerPresets.ts 同步。
  */
 
-import { DEFAULT_OLLAMA_OPENAI_ENDPOINT } from '@modules/core';
+import {
+  DEFAULT_OLLAMA_OPENAI_ENDPOINT,
+  LOCAL_INFERENCE_ENDPOINTS,
+} from '@modules/core';
 
 export interface ProviderPresetTheme {
   icon: string;
@@ -512,7 +515,7 @@ export const PRESETS: ProviderPreset[] = [
     modelsUrl: '/v1/models',
     endpointCandidates: [
       DEFAULT_OLLAMA_OPENAI_ENDPOINT,
-      'http://127.0.0.1:11434/v1',
+      LOCAL_INFERENCE_ENDPOINTS.ollama.loopback,
     ],
     settingsConfig: {
       name: 'Ollama',
@@ -536,13 +539,13 @@ export const PRESETS: ProviderPreset[] = [
     requiresOAuth: false,
     modelsUrl: '/v1/models',
     endpointCandidates: [
-      'http://localhost:1234/v1',
-      'http://127.0.0.1:1234/v1',
+      LOCAL_INFERENCE_ENDPOINTS.lmStudio.hostname,
+      LOCAL_INFERENCE_ENDPOINTS.lmStudio.loopback,
     ],
     settingsConfig: {
       name: 'LM Studio',
       providerType: 'custom',
-      baseUrl: 'http://localhost:1234/v1',
+      baseUrl: LOCAL_INFERENCE_ENDPOINTS.lmStudio.hostname,
       apiKey: '',
       modelsUrl: '',
       notes: '本地运行，无需 API Key',
@@ -565,13 +568,13 @@ export const PRESETS: ProviderPreset[] = [
     requiresOAuth: false,
     modelsUrl: '/v1/models',
     endpointCandidates: [
-      'http://localhost:8080/v1',
-      'http://127.0.0.1:8080/v1',
+      LOCAL_INFERENCE_ENDPOINTS.localAI.hostname,
+      LOCAL_INFERENCE_ENDPOINTS.localAI.loopback,
     ],
     settingsConfig: {
       name: 'LocalAI',
       providerType: 'custom',
-      baseUrl: 'http://localhost:8080/v1',
+      baseUrl: LOCAL_INFERENCE_ENDPOINTS.localAI.hostname,
       apiKey: '',
       modelsUrl: '',
       notes: '本地运行，无需 API Key',

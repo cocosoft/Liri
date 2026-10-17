@@ -10504,6 +10504,107 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#PDF-CANVAS-OPTIONAL-DEP）",
       "notes": "量化评估见 dev_docs/20261017/liri-native侧车量化评估-20261017.md（12 调用点；延迟未实测，附度量方案）。（全文见 archive/evidence-detail.jsonl#PDF-CANVAS-OPTIONAL-DEP）"
+    },
+    {
+      "id": "SESSION-BUDGET-PHASE-C",
+      "title": "U-19：会话预算阶段 C（SB06 续跑状态 + SB07 交接单 + 成本度量脚本）",
+      "source": "dev_docs/20261014/会话token预算与交接整改方案-20261014.md §5 阶段 C",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        ".trae/architecture/hardcode-progress.json",
+        "scripts/gen-handoff.ts",
+        "scripts/measure-session-cost.ts",
+        "app/package.json",
+        ".trae/rules/session-budget.md"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#SESSION-BUDGET-PHASE-C）",
+      "notes": "台账字符为实测；toolCalls/hook/report 需会话侧采集，缺失显示 - 且判 INCOMPLETE（不臆造）。（全文见 archive/evidence-detail.jsonl#SESSION-BUDGET-PHASE-C）"
+    },
+    {
+      "id": "ARCH-R03-002-TOKENBUDGET-ENTRIES",
+      "title": "U-21 批次④：tokenBudget 两键改走 @modules/tokenBudget 桶",
+      "source": "dev_docs/20261004/p0-pending-proposals-20261004.md P0-6；scripts/lint-architecture.ts D-3-c",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tokenBudget/index.ts",
+        "scripts/lint-architecture.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#ARCH-R03-002-TOKENBUDGET-ENTRIES）",
+      "notes": "桶增补 Status/Params/State/getDefault + UnifiedTokenTracker/registry/thresholds/SubAgentTokenBridge 再导出；R03-002 违规 0。（全文见 archive/evidence-detail.jsonl#ARCH-R03-002-TOKENBUDGET-ENTRIES）"
+    },
+    {
+      "id": "ORCH-SNAPSHOT-CAPABLE-ASSESS",
+      "title": "U-14 评估：Council/PDCA 不接入 ISnapshotCapable（无消费者；触发条件已落盘）",
+      "source": "dev_docs/20261012/长程任务编排链路优化方案-20261012.md §3 替代采纳④",
+      "stages": {
+        "discovered": true,
+        "fixed": false,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": false,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "dev_docs/20261012/长程任务编排链路优化方案-20261012.md"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#ORCH-SNAPSHOT-CAPABLE-ASSESS）",
+      "notes": "Council 状态为进程内 Map；PDCA 已 checkpoint 持久化；探测面仅工具实例 ⇒ 现接入即死接线。（全文见 archive/evidence-detail.jsonl#ORCH-SNAPSHOT-CAPABLE-ASSESS）"
+    },
+    {
+      "id": "STATE-PROJECTION-4-3-UW",
+      "title": "U-15：状态机 4.3 维持 UW，补触发重开条件",
+      "source": "dev_docs/20261012/状态机规范管理方案-20261012.md §4 步骤 4.3",
+      "stages": {
+        "discovered": true,
+        "fixed": false,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": false,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "dev_docs/20261012/状态机规范管理方案-20261012.md"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#STATE-PROJECTION-4-3-UW）",
+      "notes": "触发：通道 2.3 解冻落地出站订阅面，或出现第二个统一出站消费者域；随 U-17 复核。（全文见 archive/evidence-detail.jsonl#STATE-PROJECTION-4-3-UW）"
     }
   ]
 }

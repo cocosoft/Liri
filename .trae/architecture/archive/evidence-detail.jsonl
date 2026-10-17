@@ -6419,3 +6419,24 @@
 {"id":"PDF-CANVAS-OPTIONAL-DEP","k":"notes","i":0,"c":"量化评估见 dev_docs/20261017/liri-native侧车量化评估-20261017.md（12 调用点；延迟未实测，附度量方案）。"}
 {"id":"PDF-CANVAS-OPTIONAL-DEP","k":"code#0","i":0,"c":"app/package.json"}
 {"id":"PDF-CANVAS-OPTIONAL-DEP","k":"code#1","i":0,"c":"app/src/media/pdf/PdfPageExtractor.ts"}
+{"id":"SESSION-BUDGET-PHASE-C","k":"title","i":0,"c":"U-19：会话预算阶段 C（SB06 续跑状态 + SB07 交接单 + 成本度量脚本）"}
+{"id":"SESSION-BUDGET-PHASE-C","k":"source","i":0,"c":"dev_docs/20261014/会话token预算与交接整改方案-20261014.md §5 阶段 C"}
+{"id":"SESSION-BUDGET-PHASE-C","k":"notes","i":0,"c":"台账字符为实测；toolCalls/hook/report 需会话侧采集，缺失显示 - 且判 INCOMPLETE（不臆造）。"}
+{"id":"SESSION-BUDGET-PHASE-C","k":"code#0","i":0,"c":".trae/architecture/hardcode-progress.json"}
+{"id":"SESSION-BUDGET-PHASE-C","k":"code#1","i":0,"c":"scripts/gen-handoff.ts"}
+{"id":"SESSION-BUDGET-PHASE-C","k":"code#2","i":0,"c":"scripts/measure-session-cost.ts"}
+{"id":"SESSION-BUDGET-PHASE-C","k":"code#3","i":0,"c":"app/package.json"}
+{"id":"SESSION-BUDGET-PHASE-C","k":"code#4","i":0,"c":".trae/rules/session-budget.md"}
+{"id":"ARCH-R03-002-TOKENBUDGET-ENTRIES","k":"title","i":0,"c":"U-21 批次④：tokenBudget 两键改走 @modules/tokenBudget 桶"}
+{"id":"ARCH-R03-002-TOKENBUDGET-ENTRIES","k":"source","i":0,"c":"dev_docs/20261004/p0-pending-proposals-20261004.md P0-6；scripts/lint-architecture.ts D-3-c"}
+{"id":"ARCH-R03-002-TOKENBUDGET-ENTRIES","k":"notes","i":0,"c":"桶增补 Status/Params/State/getDefault + UnifiedTokenTracker/registry/thresholds/SubAgentTokenBridge 再导出；R03-002 违规 0。"}
+{"id":"ARCH-R03-002-TOKENBUDGET-ENTRIES","k":"code#0","i":0,"c":"app/src/tokenBudget/index.ts"}
+{"id":"ARCH-R03-002-TOKENBUDGET-ENTRIES","k":"code#1","i":0,"c":"scripts/lint-architecture.ts"}
+{"id":"ORCH-SNAPSHOT-CAPABLE-ASSESS","k":"title","i":0,"c":"U-14 评估：Council/PDCA 不接入 ISnapshotCapable（无消费者；触发条件已落盘）"}
+{"id":"ORCH-SNAPSHOT-CAPABLE-ASSESS","k":"source","i":0,"c":"dev_docs/20261012/长程任务编排链路优化方案-20261012.md §3 替代采纳④"}
+{"id":"ORCH-SNAPSHOT-CAPABLE-ASSESS","k":"notes","i":0,"c":"Council 状态为进程内 Map；PDCA 已 checkpoint 持久化；探测面仅工具实例 ⇒ 现接入即死接线。"}
+{"id":"ORCH-SNAPSHOT-CAPABLE-ASSESS","k":"code#0","i":0,"c":"dev_docs/20261012/长程任务编排链路优化方案-20261012.md"}
+{"id":"STATE-PROJECTION-4-3-UW","k":"title","i":0,"c":"U-15：状态机 4.3 维持 UW，补触发重开条件"}
+{"id":"STATE-PROJECTION-4-3-UW","k":"source","i":0,"c":"dev_docs/20261012/状态机规范管理方案-20261012.md §4 步骤 4.3"}
+{"id":"STATE-PROJECTION-4-3-UW","k":"notes","i":0,"c":"触发：通道 2.3 解冻落地出站订阅面，或出现第二个统一出站消费者域；随 U-17 复核。"}
+{"id":"STATE-PROJECTION-4-3-UW","k":"code#0","i":0,"c":"dev_docs/20261012/状态机规范管理方案-20261012.md"}

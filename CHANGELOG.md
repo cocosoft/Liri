@@ -19,6 +19,10 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **STATE-PROJECTION-4-3-UW**：状态机 4.3 统一出站管道 UW 口径与触发条件 —— 验证 doc-only；基线 改前只写「暂缓 ⇒ UW」，缺重开触发条件（详情见 archive/evidence-detail.jsonl#STATE-PROJECTION-4-3-UW）
+- ✅ **ORCH-SNAPSHOT-CAPABLE-ASSESS**：Council/PDCA 接入 ISnapshotCapable 评估（不接入） —— 验证 doc-only；基线 改前方案要求导出可选接口，未评估消费者与持久化语义（详情见 archive/evidence-detail.jsonl#ORCH-SNAPSHOT-CAPABLE-ASSESS）
+- ✅ **ARCH-R03-002-TOKENBUDGET-ENTRIES**：tokenBudget 子入口收口（D-3-c 批次④） —— 验证 tc0|arch0；基线 改前 tokenBudget 两键子路径直连，桶未导出叶子（详情见 archive/evidence-detail.jsonl#ARCH-R03-002-TOKENBUDGET-ENTRIES）
+- ✅ **SESSION-BUDGET-PHASE-C**：会话预算阶段 C（续跑状态 + 交接单/成本度量脚本） —— 验证 tc0|arch0；基线 改前 SB06/SB07 仅有规范，无状态文件与生成脚本（详情见 archive/evidence-detail.jsonl#SESSION-BUDGET-PHASE-C）
 - ✅ **PDF-CANVAS-OPTIONAL-DEP**：@napi-rs/canvas 可选依赖 + 缺依赖可执行报错 —— 验证 tc0|arch0；基线 改前依赖未声明，缺失时抛裸 Cannot find module（详情见 archive/evidence-detail.jsonl#PDF-CANVAS-OPTIONAL-DEP）
 - ✅ **TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI**：read_project_file 回读 output/ 兜底 + fast-path 设置 UI —— 验证 tc0|ut4|arch0；基线 改前裸名回读 output/ 恒 not-found；fastPath 无设置 UI（详情见 archive/evidence-detail.jsonl#TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI）
 - ✅ **CHANNEL-ATTACHMENT-MIME-POLICY**：入站附件 MIME 分类与单附件/条数上限 —— 验证 tc0|ut9|arch0；基线 改前非图像附件无 MIME 分类与上限，超大附件直接抬高预留（详情见 archive/evidence-detail.jsonl#CHANNEL-ATTACHMENT-MIME-POLICY）

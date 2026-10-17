@@ -13,18 +13,15 @@ import { ImageUrlHelper } from '../ImageUrlHelper';
 import { existsSync, statSync } from 'fs';
 import path from 'path';
 import {
-  resolveMediaDir,
-  resolveOutputDir,
-  resolveAttachmentsDir,
-} from '@modules/core/paths';
+  ATTACHMENTS_ROOT,
+  IMAGES_ROOT,
+  MEDIA_IMAGES_ROOT,
+} from '../../core/mediaRoots';
 import { resolveAccessibleMediaUrl, MediaRoot } from '../MediaUrlResolver';
 
 const logger = getLogger('tools:imageDisplay');
 
-/** 与 image-handlers.ts 对齐的安全图片根目录（静态服务仅允许这些目录） */
-const MEDIA_IMAGES_ROOT = path.join(resolveMediaDir(), 'images');
-const IMAGES_ROOT = path.join(resolveOutputDir(), 'images');
-const ATTACHMENTS_ROOT = resolveAttachmentsDir();
+/** 与 image-handlers.ts 共用的安全图片根目录（单一事实源：core/mediaRoots） */
 
 /** 图片可访问根映射（URL 前缀与 handleImageStatic 解析规则对应） */
 const IMAGE_MEDIA_ROOTS: MediaRoot[] = [

@@ -108,6 +108,8 @@ import { ChatMessagePersistence } from './manager/messagePersistence';
 import { ChatStreamFinalize } from './manager/streamFinalize';
 // U-22/S4：断点续跑外移（`resumeStream` 的实现，见 `manager/streamResume.ts`）
 import { ChatStreamResume } from './manager/streamResume';
+// U-22/S5（2026-10-17）：非流式 TAORLoop 依赖装配外移（行为等价搬迁）
+import { buildTAORContext } from './manager/taorContext';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
 // R16：每日预算（进程共享单例；S3 后**主口径=金额**，Token 轨只观测）——记账点收敛到本类的 recordChatResponseUsage。
 // 债四「换算接线」（2026-10-13）：同一记账点并行记**金额**台账（`recordTurnCostUsd`）。
@@ -1722,130 +1724,42 @@ export class ChatManagerImpl implements ChatManager {
       this._planDrivenLoops.set(sessionId, planDrivenLoop);
     }
     return planDrivenLoop;
-  }
-
-  /**
-   * 构建 TAORLoopDeps 上下文（批次4：sendMessage 路径）
+  } /**
+   * 构建 TAORLoopDeps 上下文（U-22/S5 外移；实现在 `manager/taorContext.ts`）。
    */
   private _buildTAORContext(
     sessionId: string,
     toolDefinitions: ToolDefinition[],
     options?: SendMessageOptions
   ): ChatManagerTAORContext {
-    // B-6 补发（2026-08-23）：注入 TAOR 事件通道前记录通道可用性，
-    // 便于排查"守卫拦截无 tool/canceled 终态"（通道未注入/丢失）问题。
-    logger.info('chat:manager 注入 TAOR 事件通道（B-6 补发）', {
-      sessionId,
-      appendStreamEvent: typeof this.appendStreamEvent,
-      getStreamTailSeq: typeof this.getStreamTailSeq,
-      flushPendingPersists: typeof this.flushPendingPersists,
-      hasOptions: !!options,
-      hasToolDefinitions: toolDefinitions.length > 0,
-    });
-    return {
-      sessionId,
-      toolDefinitions,
-      // v0.5：注入 toolRegistry + pendingInteractions，支持非流式路径 requiresUserInteraction 检测
-      toolRegistry: this.toolRegistry
-        ? {
-            getTool: (name: string) => {
-              const tool = this.toolRegistry!.getTool(name);
-              return tool
-                ? {
-                    requiresUserInteraction: () =>
-                      typeof (
-                        tool as { requiresUserInteraction?: () => boolean }
-                      ).requiresUserInteraction === 'function'
-                        ? (
-                            tool as { requiresUserInteraction: () => boolean }
-                          ).requiresUserInteraction()
-                        : false,
-                  }
-                : undefined;
-            },
-          }
-        : undefined,
-      pendingInteractions: this._pendingInteractions,
-      sendModelRequest: async (messages, opts) => {
-        // A1（2026-08-31 对标 PilotDeck P1-1）：发送前投影——修复 tool 配对 + 安全截断，
-        // 防 provider 拒收（降级/非流式路径，对齐 ChatManagerTAORAdapter 主路径）
-        const projected = messageProjector.project(
-          messages as unknown as import('@modules/ai').ChatMessage[]
-        );
-        if (projected.warnings.length > 0) {
-          logger.warn('chatManager:projector warnings', {
-            count: projected.warnings.length,
-            warnings: projected.warnings.slice(0, 5),
-          });
-        }
-        const client = this.getClientForModel(options?.model);
-        const response = await client.sendMessage(projected.messages, {
-          ...options,
-          tools: (opts?.tools as Array<Record<string, unknown>>)?.length
-            ? (opts?.tools as unknown as import('@modules/ai').ToolDefinition[])
-            : undefined,
-        });
+    return buildTAORContext(sessionId, toolDefinitions, options, {
+      getToolInteraction: (name) => {
+        const tool = this.toolRegistry?.getTool(name);
+        if (!tool) return undefined;
         return {
-          content:
-            typeof response.content === 'string'
-              ? response.content
-              : JSON.stringify(response.content),
-          tool_calls: response.tool_calls?.map(
-            (tc: import('@modules/ai').ParsedToolCall) => ({
-              id: tc.id,
-              name: tc.name,
-              arguments:
-                typeof tc.arguments === 'string'
-                  ? JSON.parse(tc.arguments)
-                  : tc.arguments,
-            })
-          ),
-          usage: response.usage,
+          requiresUserInteraction: () =>
+            typeof (tool as { requiresUserInteraction?: () => boolean })
+              .requiresUserInteraction === 'function'
+              ? (
+                  tool as { requiresUserInteraction: () => boolean }
+                ).requiresUserInteraction()
+              : false,
         };
       },
+      pendingInteractions: this._pendingInteractions,
+      getClientForModel: (model) => this.getClientForModel(model),
       executeTool: (toolCall, opts) => this.executeTool(toolCall, opts),
-      persistMessage: (sid, content, role, toolCallId, metadata) => {
-        const msg =
-          role === 'tool'
-            ? this.messageService.createToolResultMessage(
-                {
-                  toolCallId: toolCallId || '',
-                  toolName: '',
-                  result: content,
-                  error: undefined,
-                },
-                { sessionId: sid }
-              )
-            : this.messageService.createAssistantMessage(content, {
-                sessionId: sid,
-                metadata,
-              });
-        this._addAndPersistMessage(sid, msg);
+      createToolResultMessage: (toolResult, opts) =>
+        this.messageService.createToolResultMessage(toolResult, opts),
+      createAssistantMessage: (content, opts) =>
+        this.messageService.createAssistantMessage(content, opts),
+      addAndPersistMessage: (sid, message) => {
+        this._addAndPersistMessage(sid, message);
       },
-      onProgress: options?.onProgress
-        ? (p) =>
-            options.onProgress!(
-              p as {
-                stage:
-                  | 'completed'
-                  | 'analyzing'
-                  | 'tool_executing'
-                  | 'generating';
-                message: string;
-                toolName?: string;
-              }
-            )
-        : undefined,
-      onToolCall: options?.onToolCall
-        ? (event, name, id, detail) =>
-            options.onToolCall!(event as 'start' | 'end', name, id, detail)
-        : undefined,
-      // B-2 补发（2026-08-23）：TAOR 守卫拦截时补发 tool/canceled 事件的事件通道
-      appendStreamEvent: (sid, event) =>
-        this.appendStreamEvent(sid, event as unknown as LiriEvent),
+      appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
       getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
       flushPendingPersists: () => this.flushPendingPersists(),
-    };
+    });
   } /** U-22/S3 外移：消息持久化主入口（实现在 `manager/messagePersistence.ts`） */
   private async _addAndPersistMessage(
     sessionId: string,

@@ -26,7 +26,12 @@
  * 保持与 client/src/config/providerPresets.ts 同步。
  */
 
-import { DEFAULT_OLLAMA_OPENAI_ENDPOINT, LOCAL_INFERENCE_ENDPOINTS, OPENAI_API_V1_BASE_URL, ANTHROPIC_API_BASE_URL } from '@modules/core';
+import {
+  DEFAULT_OLLAMA_OPENAI_ENDPOINT,
+  LOCAL_INFERENCE_ENDPOINTS,
+  OPENAI_API_V1_BASE_URL,
+  ANTHROPIC_API_BASE_URL,
+} from '@modules/core';
 
 export interface ProviderPresetTheme {
   icon: string;

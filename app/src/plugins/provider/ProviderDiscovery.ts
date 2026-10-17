@@ -12,7 +12,10 @@ import { handleError } from '@modules/error';
 import { existsSync, readFileSync } from 'fs';
 
 import { getLogger } from '@modules/monitoring';
-import { OPENAI_API_V1_BASE_URL, ANTHROPIC_API_V1_BASE_URL } from '@modules/core';
+import {
+  OPENAI_API_V1_BASE_URL,
+  ANTHROPIC_API_V1_BASE_URL,
+} from '@modules/core';
 const logger = getLogger('plugins:provider:ProviderDiscovery');
 
 /**

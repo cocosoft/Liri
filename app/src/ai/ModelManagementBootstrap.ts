@@ -35,7 +35,11 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { ProviderType } from '@modules/ai';
 import {
-  DEFAULT_OLLAMA_ENDPOINT, DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL, OPENAI_API_V1_BASE_URL, ANTHROPIC_API_BASE_URL } from '@modules/core';
+  DEFAULT_OLLAMA_ENDPOINT,
+  DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL,
+  OPENAI_API_V1_BASE_URL,
+  ANTHROPIC_API_BASE_URL,
+} from '@modules/core';
 
 const logger = getLogger('ai:modelManagementBootstrap');
 

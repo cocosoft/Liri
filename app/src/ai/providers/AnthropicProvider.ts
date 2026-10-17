@@ -53,9 +53,10 @@ export class AnthropicProvider extends BaseAIProvider {
     super(options, _extraConfig);
 
     const apiKey = this.resolveApiKey() || '';
-    const baseUrl = (
-      this.resolveBaseUrl() || ANTHROPIC_API_BASE_URL
-    ).replace(/\/+$/, '');
+    const baseUrl = (this.resolveBaseUrl() || ANTHROPIC_API_BASE_URL).replace(
+      /\/+$/,
+      ''
+    );
 
     this.config = {
       apiKey,
@@ -149,9 +150,10 @@ export class AnthropicProvider extends BaseAIProvider {
     const model =
       options?.model || this.config.model || (await this.resolveModel('chat'));
     const apiKey = this.resolveApiKey() || this.config.apiKey || '';
-    const baseUrl = (
-      this.resolveBaseUrl() || ANTHROPIC_API_BASE_URL
-    ).replace(/\/+$/, '');
+    const baseUrl = (this.resolveBaseUrl() || ANTHROPIC_API_BASE_URL).replace(
+      /\/+$/,
+      ''
+    );
 
     const { systemPrompt } = this.transport!.splitMessages(messages);
 
@@ -395,9 +397,10 @@ export class AnthropicProvider extends BaseAIProvider {
     const model = params.model;
 
     const base64 = params.imageBuffer.toString('base64');
-    const baseUrl = (
-      this.resolveBaseUrl() || ANTHROPIC_API_BASE_URL
-    ).replace(/\/+$/, '');
+    const baseUrl = (this.resolveBaseUrl() || ANTHROPIC_API_BASE_URL).replace(
+      /\/+$/,
+      ''
+    );
     const apiKey = this.resolveApiKey() || this.config.apiKey || '';
 
     const requestBody = {
@@ -498,9 +501,10 @@ export class AnthropicProvider extends BaseAIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    const baseUrl = (
-      this.resolveBaseUrl() || ANTHROPIC_API_BASE_URL
-    ).replace(/\/+$/, '');
+    const baseUrl = (this.resolveBaseUrl() || ANTHROPIC_API_BASE_URL).replace(
+      /\/+$/,
+      ''
+    );
     const { systemPrompt } = this.transport!.splitMessages(messages);
 
     const requestBody = this.transport!.buildRequest({

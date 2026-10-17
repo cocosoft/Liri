@@ -13,7 +13,11 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { resolveProjectRoot, OPENAI_API_V1_BASE_URL, ANTHROPIC_API_V1_BASE_URL } from '@modules/core';
+import {
+  resolveProjectRoot,
+  OPENAI_API_V1_BASE_URL,
+  ANTHROPIC_API_V1_BASE_URL,
+} from '@modules/core';
 import { createInterface } from 'readline';
 import { setConfigValue, getConfig } from '@modules/config';
 import { writeSoulMd, readSoulMd } from '@modules/services/soul/SoulReader';

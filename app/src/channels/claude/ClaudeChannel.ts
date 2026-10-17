@@ -82,8 +82,7 @@ export class ClaudeChannel extends BaseChannelPlugin {
 
   protected async onConnect(config: Record<string, unknown>): Promise<void> {
     this._apiKey = (config['apiKey'] as string) || '';
-    this._apiUrl =
-      (config['apiUrl'] as string) || ANTHROPIC_API_V1_BASE_URL;
+    this._apiUrl = (config['apiUrl'] as string) || ANTHROPIC_API_V1_BASE_URL;
     this._organizationId = (config['organizationId'] as string) || '';
     this._model = (config['model'] as string) || '';
 

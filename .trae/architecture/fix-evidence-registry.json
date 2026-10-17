@@ -10341,6 +10341,62 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#BUDGET-WAIVER-USD-PRECHECK）",
       "notes": "预占只加 debtUsd（不提前动 usedUsd）；同会话重复预检替换不累加；未配置上限或估算为 0 不预占。（全文见 archive/evidence-detail.jsonl#BUDGET-WAIVER-USD-PRECHECK）"
+    },
+    {
+      "id": "A2A-SIDECAR-KILL-TREE",
+      "title": "U-16：A2A 发现面 sidecar 取消/超时复用进程树强杀",
+      "source": "dev_docs/20261010/A2A-MCP网关进程级侧车隔离-设计方案-20261010.md §8.7 边界①",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/utils/killProcessTree.ts",
+        "app/src/sandbox/utils/killProcessTree.ts",
+        "app/src/infrastructure/http/a2a/DiscoverySidecarSupervisor.ts"
+      ],
+      "tests": [
+        "app/tests/infrastructure/http/a2a/discoverySidecarSupervisor.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#A2A-SIDECAR-KILL-TREE）",
+      "notes": "killProcessTree 实现下沉 utils（infra），sandbox 侧保留再导出；stop/超时/版本不兼容均走 killTree（可注入）。（全文见 archive/evidence-detail.jsonl#A2A-SIDECAR-KILL-TREE）"
+    },
+    {
+      "id": "STREAM-API-MESSAGES-BUILD",
+      "title": "U-18/P2-1o：apiMessages 构建段外移为内层 async generator",
+      "source": ".trae/specs/stream-message-flow-split.md §5 P2-1o；dev_docs/20261017 未完成任务清单 U-18",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/orchestrator/streamMessageApiMessagesBuild.ts",
+        "app/src/chat/orchestrator/streamMessageFlow.ts",
+        ".trae/architecture/function-size-baseline.json"
+      ],
+      "tests": [
+        "app/tests/chat/orchestrator/streamApiMessagesBuild.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#STREAM-API-MESSAGES-BUILD）",
+      "notes": "yield* 逐帧转发 3 个 status chunk；2218→2132 行、2398→2315 行；棘轮基线下调锁定。（全文见 archive/evidence-detail.jsonl#STREAM-API-MESSAGES-BUILD）"
     }
   ]
 }

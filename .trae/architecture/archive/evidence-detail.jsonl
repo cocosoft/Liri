@@ -6381,3 +6381,17 @@
 {"id":"BUDGET-WAIVER-USD-PRECHECK","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
 {"id":"BUDGET-WAIVER-USD-PRECHECK","k":"code#1","i":0,"c":"app/src/chat/orchestrator/preSendContextProtection.ts"}
 {"id":"BUDGET-WAIVER-USD-PRECHECK","k":"tests#0","i":0,"c":"app/tests/query/dailyBudgetWaiverPrecheck.test.ts"}
+{"id":"A2A-SIDECAR-KILL-TREE","k":"title","i":0,"c":"U-16：A2A 发现面 sidecar 取消/超时复用进程树强杀"}
+{"id":"A2A-SIDECAR-KILL-TREE","k":"source","i":0,"c":"dev_docs/20261010/A2A-MCP网关进程级侧车隔离-设计方案-20261010.md §8.7 边界①"}
+{"id":"A2A-SIDECAR-KILL-TREE","k":"notes","i":0,"c":"killProcessTree 实现下沉 utils（infra），sandbox 侧保留再导出；stop/超时/版本不兼容均走 killTree（可注入）。"}
+{"id":"A2A-SIDECAR-KILL-TREE","k":"code#0","i":0,"c":"app/src/utils/killProcessTree.ts"}
+{"id":"A2A-SIDECAR-KILL-TREE","k":"code#1","i":0,"c":"app/src/sandbox/utils/killProcessTree.ts"}
+{"id":"A2A-SIDECAR-KILL-TREE","k":"code#2","i":0,"c":"app/src/infrastructure/http/a2a/DiscoverySidecarSupervisor.ts"}
+{"id":"A2A-SIDECAR-KILL-TREE","k":"tests#0","i":0,"c":"app/tests/infrastructure/http/a2a/discoverySidecarSupervisor.test.ts"}
+{"id":"STREAM-API-MESSAGES-BUILD","k":"title","i":0,"c":"U-18/P2-1o：apiMessages 构建段外移为内层 async generator"}
+{"id":"STREAM-API-MESSAGES-BUILD","k":"source","i":0,"c":".trae/specs/stream-message-flow-split.md §5 P2-1o；dev_docs/20261017 未完成任务清单 U-18"}
+{"id":"STREAM-API-MESSAGES-BUILD","k":"notes","i":0,"c":"yield* 逐帧转发 3 个 status chunk；2218→2132 行、2398→2315 行；棘轮基线下调锁定。"}
+{"id":"STREAM-API-MESSAGES-BUILD","k":"code#0","i":0,"c":"app/src/chat/orchestrator/streamMessageApiMessagesBuild.ts"}
+{"id":"STREAM-API-MESSAGES-BUILD","k":"code#1","i":0,"c":"app/src/chat/orchestrator/streamMessageFlow.ts"}
+{"id":"STREAM-API-MESSAGES-BUILD","k":"code#2","i":0,"c":".trae/architecture/function-size-baseline.json"}
+{"id":"STREAM-API-MESSAGES-BUILD","k":"tests#0","i":0,"c":"app/tests/chat/orchestrator/streamApiMessagesBuild.test.ts"}

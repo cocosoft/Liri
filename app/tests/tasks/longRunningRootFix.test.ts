@@ -144,7 +144,11 @@ function makeResumeDeps(taskId: string): {
   const deps: ResumeDeps = {
     taskId,
     executePlanPhase: async (description, sessionId) => {
-      return taskOrchestrator.createPlan(description, ['重规划步骤'], sessionId);
+      return taskOrchestrator.createPlan(
+        description,
+        ['重规划步骤'],
+        sessionId
+      );
     },
     runExecuteDecideLoop: async () => {
       state.loopRan = true;
@@ -231,7 +235,9 @@ describe('resume 可达性与字段回填', () => {
         totalTokens: 42,
         turnsExtensions: 2,
         startedAt: 1700000000000,
-        lastEscalations: [{ stepId: 's1', stepDescription: '步骤1', defects: ['x'] }],
+        lastEscalations: [
+          { stepId: 's1', stepDescription: '步骤1', defects: ['x'] },
+        ],
       },
       deps
     );

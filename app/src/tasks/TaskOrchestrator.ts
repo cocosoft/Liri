@@ -20,6 +20,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   writeFileSync,
   unlinkSync,
 } from 'fs';
@@ -100,6 +101,13 @@ export interface Plan {
   sessionId: string;
   /** 所属工作空间（项目）ID，用于项目编排面板隔离；无项目归属时省略 */
   workspaceId?: string;
+  /**
+   * U-02（2026-10-17）：最近一次心跳（ISO 时间）。
+   *
+   * 由 `savePlan` 在每次持久化时写入；恢复加载时用于区分“刚创建/仍在推进的
+   * running 计划”与“崩溃残留的幽灵计划”。旧数据缺失该字段时回退 createdAt。
+   */
+  lastHeartbeatAt?: string;
 }
 
 export interface PlanProgress {
@@ -139,9 +147,17 @@ export class TaskOrchestrator {
   }
 
   /**
-   * 从磁盘加载已持久化的计划
+   * 从磁盘加载已持久化的计划（保留 async 签名给既有调用方）。
+   *
+   * U-02（2026-10-17）：内部改为**同步**加载 —— `createPlan` 等同步路径必须
+   * 在创建计划前完成加载，否则加载过程会与新计划交叉（ghost 判定误杀/覆盖）。
    */
   async initialize(): Promise<void> {
+    this.ensureInitializedSync();
+  }
+
+  /** 同步加载（唯一实现）：createPlan 与执行路径在入口调用。 */
+  private ensureInitializedSync(): void {
     if (this.initialized) return;
     this.initialized = true;
 
@@ -150,18 +166,18 @@ export class TaskOrchestrator {
       return;
     }
 
-    const { readdir } = await import('fs/promises');
     let files: string[];
     try {
-      files = await readdir(this.plansDir);
+      files = readdirSync(this.plansDir);
     } catch (e) {
-      await handleError(e, {
+      void handleError(e, {
         module: 'tasks:TaskOrchestrator',
         action: 'readPlansDir',
       });
       return;
     }
 
+    const graceMs = this.resolveGhostGraceMs();
     for (const file of files) {
       if (!file.endsWith('.json')) continue;
       const filePath = join(this.plansDir, file);
@@ -170,32 +186,43 @@ export class TaskOrchestrator {
         const plan = JSON.parse(data) as Plan;
         this.plans.set(plan.id, plan);
         this.buildStepIndex(plan);
-        // PR2（#2，V3-3）：ghost plan 防御（惰性写回）——恢复加载时若计划为
-        // running/pending 但无任何 running 步骤，说明无活跃执行方（崩溃残留/旧数据），
-        // 幂等置 aborted，避免刷新后出现"执行中但无活动步骤"的卡死幽灵。
+        // U-02（2026-10-17）：ghost plan 防御收窄 ——
+        // ① 仅 `running` 参与（`pending` 无活跃执行方是正常态，不得加载期直接 abort）；
+        // ② 必须**心跳过期**（默认 10 分钟；旧数据回退 createdAt）才判定为崩溃残留。
         const hasActiveStep = plan.steps.some((s) => s.status === 'running');
-        if (
-          (plan.status === 'running' || plan.status === 'pending') &&
-          !hasActiveStep
-        ) {
-          logger.warn('恢复时终结 ghost plan（无活跃步骤的 running/pending）', {
-            planId: plan.id,
-            status: plan.status,
-            stepStatuses: plan.steps.map((s) => s.status),
-          });
+        const heartbeatMs = Date.parse(plan.lastHeartbeatAt ?? plan.createdAt);
+        const stale =
+          !Number.isFinite(heartbeatMs) || Date.now() - heartbeatMs > graceMs;
+        if (plan.status === 'running' && !hasActiveStep && stale) {
+          logger.warn(
+            '恢复时终结 ghost plan（running 且心跳过期/无活跃步骤）',
+            {
+              planId: plan.id,
+              status: plan.status,
+              lastHeartbeatAt: plan.lastHeartbeatAt ?? null,
+              graceMs,
+              stepStatuses: plan.steps.map((s) => s.status),
+            }
+          );
           plan.status = 'aborted';
           plan.completedAt = plan.completedAt ?? new Date().toISOString();
           this.savePlan(plan);
         }
       } catch (err) {
         // 跳过损坏的文件（非关键路径）
-        await handleError(err, {
+        void handleError(err, {
           module: 'tasks:TaskOrchestrator',
           action: 'parsePlanFile',
           context: { file },
         });
       }
     }
+  }
+
+  /** ghost 宽限期（ms）：默认 10 分钟，可用 `TASK_GOAL_GHOST_GRACE_MS` 覆盖。 */
+  private resolveGhostGraceMs(): number {
+    const raw = Number(process.env.TASK_GOAL_GHOST_GRACE_MS);
+    return Number.isFinite(raw) && raw > 0 ? raw : 10 * 60_000;
   }
 
   private getPlanFilePath(planId: string): string {
@@ -218,6 +245,8 @@ export class TaskOrchestrator {
     if (!existsSync(this.plansDir)) {
       mkdirSync(this.plansDir, { recursive: true });
     }
+    // U-02（2026-10-17）：任何持久化都视为一次心跳（状态推进/重试/决策均会 save）。
+    plan.lastHeartbeatAt = new Date().toISOString();
     const filePath = this.getPlanFilePath(plan.id);
     const tmpPath = filePath + '.tmp';
     try {
@@ -274,7 +303,8 @@ export class TaskOrchestrator {
     workspaceId?: string,
     dependsOn?: number[][]
   ): Plan {
-    void this.initialize();
+    // U-02（2026-10-17）：同步加载完成后再创建，避免与加载过程交叉。
+    this.ensureInitializedSync();
 
     const planId = `plan_${Date.now().toString(36)}_${randomIdSuffix(4)}`;
 

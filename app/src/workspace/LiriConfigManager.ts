@@ -23,7 +23,7 @@ const CONFIG_FILE = 'config.json';
 const RULES_FILE = 'rules.md';
 const KNOWLEDGE_FILE = 'knowledge.json';
 const TOOLS_FILE = 'tools.json';
-const MEMORY_FILE = 'memory.json';
+const WORKSPACE_MEMORY_FILE = 'memory.json';
 
 /** 默认 .liri/ 子目录 */
 const DEFAULT_SUBDIRS = ['workflows', 'agents', 'projects', 'teams', 'memory'];
@@ -82,7 +82,7 @@ export class LiriConfigManager {
       RULES_FILE,
       KNOWLEDGE_FILE,
       TOOLS_FILE,
-      MEMORY_FILE,
+      WORKSPACE_MEMORY_FILE,
     ].filter((file) => existsSync(join(this.liriDir, file)));
 
     return {
@@ -179,7 +179,7 @@ export class LiriConfigManager {
       this.writeJsonFile(toolsPath, defaultTools);
     }
 
-    const memoryPath = join(this.liriDir, MEMORY_FILE);
+    const memoryPath = join(this.liriDir, WORKSPACE_MEMORY_FILE);
     if (!existsSync(memoryPath)) {
       const defaultMemory: LiriMemoryConfig = {
         entries: [],
@@ -297,7 +297,7 @@ export class LiriConfigManager {
    * 加载工作空间记忆
    */
   loadMemory(): LiriMemoryConfig {
-    const memoryPath = join(this.liriDir, MEMORY_FILE);
+    const memoryPath = join(this.liriDir, WORKSPACE_MEMORY_FILE);
     return (
       this.readJsonFile<LiriMemoryConfig>(memoryPath) || {
         entries: [],
@@ -310,7 +310,7 @@ export class LiriConfigManager {
    * 保存工作空间记忆
    */
   saveMemory(config: LiriMemoryConfig): void {
-    const memoryPath = join(this.liriDir, MEMORY_FILE);
+    const memoryPath = join(this.liriDir, WORKSPACE_MEMORY_FILE);
     config.lastUpdated = new Date().toISOString();
     this.writeJsonFile(memoryPath, config);
   }

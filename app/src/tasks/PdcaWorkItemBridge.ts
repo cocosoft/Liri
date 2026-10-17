@@ -29,7 +29,7 @@ export { PDCA_TERMINAL_PHASES } from '@modules/core';
 const logger = getLogger('tasks:pdcaBridge');
 
 // ─── 表名（新增表；`app.db` 无同名表，见 spec §3.1 冲突前置校验） ───
-const CHECKPOINT_TABLE = 'pdca_checkpoints';
+const PDCA_CHECKPOINT_TABLE = 'pdca_checkpoints';
 const WORKITEM_TABLE = 'workitems';
 
 /** 从记录中取非空字符串（否则 null，用于提升列） */
@@ -116,7 +116,7 @@ class PdcaCheckpointStore {
 
   private async createTables(db: Database): Promise<void> {
     const ddl = [
-      `CREATE TABLE IF NOT EXISTS ${CHECKPOINT_TABLE} (
+      `CREATE TABLE IF NOT EXISTS ${PDCA_CHECKPOINT_TABLE} (
         task_id       TEXT PRIMARY KEY,
         data          TEXT NOT NULL,
         phase         TEXT,
@@ -126,7 +126,7 @@ class PdcaCheckpointStore {
         project_id    TEXT,
         updated_at    TEXT NOT NULL
       )`,
-      `CREATE INDEX IF NOT EXISTS idx_pdca_checkpoints_updated_at ON ${CHECKPOINT_TABLE}(updated_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_pdca_checkpoints_updated_at ON ${PDCA_CHECKPOINT_TABLE}(updated_at)`,
       `CREATE TABLE IF NOT EXISTS ${WORKITEM_TABLE} (
         work_item_id  TEXT PRIMARY KEY,
         data          TEXT NOT NULL,
@@ -206,7 +206,7 @@ class PdcaCheckpointStore {
     taskId: string
   ): Promise<Record<string, unknown> | null> {
     const row = await this.getRow(
-      `SELECT data FROM ${CHECKPOINT_TABLE} WHERE task_id = ?`,
+      `SELECT data FROM ${PDCA_CHECKPOINT_TABLE} WHERE task_id = ?`,
       [taskId]
     );
     return row ? parseCheckpointData(row.data) : null;
@@ -222,7 +222,7 @@ class PdcaCheckpointStore {
   ): Promise<void> {
     await this.enqueue(async () => {
       const row = await this.getRow(
-        `SELECT data FROM ${CHECKPOINT_TABLE} WHERE task_id = ?`,
+        `SELECT data FROM ${PDCA_CHECKPOINT_TABLE} WHERE task_id = ?`,
         [taskId]
       );
       const existing = row ? (parseCheckpointData(row.data) ?? {}) : {};
@@ -243,7 +243,7 @@ class PdcaCheckpointStore {
   ): Promise<boolean> {
     return this.enqueue(async () => {
       const existing = await this.getRow(
-        `SELECT 1 AS present FROM ${CHECKPOINT_TABLE} WHERE task_id = ?`,
+        `SELECT 1 AS present FROM ${PDCA_CHECKPOINT_TABLE} WHERE task_id = ?`,
         [taskId]
       );
       if (existing) return false;
@@ -258,7 +258,7 @@ class PdcaCheckpointStore {
     updatedAt: string
   ): Promise<void> {
     await this.run(
-      `INSERT INTO ${CHECKPOINT_TABLE}
+      `INSERT INTO ${PDCA_CHECKPOINT_TABLE}
         (task_id, data, phase, status, work_item_id, workspace_id, project_id, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(task_id) DO UPDATE SET
@@ -284,7 +284,7 @@ class PdcaCheckpointStore {
 
   async listCheckpoints(): Promise<Array<Record<string, unknown>>> {
     const rows = await this.allRows(
-      `SELECT data FROM ${CHECKPOINT_TABLE} ORDER BY task_id`
+      `SELECT data FROM ${PDCA_CHECKPOINT_TABLE} ORDER BY task_id`
     );
     const out: Array<Record<string, unknown>> = [];
     for (const row of rows) {
@@ -315,7 +315,7 @@ class PdcaCheckpointStore {
     };
 
     const rows = await this.allRows(
-      `SELECT task_id, phase, status, updated_at FROM ${CHECKPOINT_TABLE}`
+      `SELECT task_id, phase, status, updated_at FROM ${PDCA_CHECKPOINT_TABLE}`
     );
     const cutoff = Date.now() - maxAgeDays * DAY_MS;
     const toDelete: Array<{ taskId: string; terminal: boolean }> = [];
@@ -350,7 +350,7 @@ class PdcaCheckpointStore {
 
     for (const { taskId, terminal } of toDelete) {
       try {
-        await this.run(`DELETE FROM ${CHECKPOINT_TABLE} WHERE task_id = ?`, [
+        await this.run(`DELETE FROM ${PDCA_CHECKPOINT_TABLE} WHERE task_id = ?`, [
           taskId,
         ]);
         result.pruned++;

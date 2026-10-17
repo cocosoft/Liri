@@ -6,7 +6,7 @@ import type {
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('session:keyInfoExtractor');
 
-const DEFAULT_THRESHOLD = 60;
+const KEY_INFO_EXTRACT_THRESHOLD = 60;
 
 /**
  * 关键信息提取器 — 从消息中提取决策、TODO、文件变更等关键信息
@@ -17,7 +17,7 @@ export class KeyInfoExtractor implements CompactionEngine {
   private autoCompactService: AutoCompactServiceRef | null = null;
 
   constructor(
-    threshold: number = DEFAULT_THRESHOLD,
+    threshold: number = KEY_INFO_EXTRACT_THRESHOLD,
     autoCompactService?: AutoCompactServiceRef
   ) {
     this.threshold = threshold;

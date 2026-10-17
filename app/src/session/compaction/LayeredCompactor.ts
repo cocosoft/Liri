@@ -6,7 +6,7 @@ import type {
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('session:layeredCompactor');
 
-const DEFAULT_THRESHOLD = 80;
+const LAYERED_COMPACT_THRESHOLD = 80;
 const DEFAULT_RECENT_WINDOW = 20;
 
 /**
@@ -19,7 +19,7 @@ export class LayeredCompactor implements CompactionEngine {
   private autoCompactService: AutoCompactServiceRef | null = null;
 
   constructor(
-    threshold: number = DEFAULT_THRESHOLD,
+    threshold: number = LAYERED_COMPACT_THRESHOLD,
     recentWindow: number = DEFAULT_RECENT_WINDOW,
     autoCompactService?: AutoCompactServiceRef
   ) {

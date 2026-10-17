@@ -91,7 +91,7 @@ const DEFAULT_CONFIG: MemoryThresholdConfig = {
   toolCallThreshold: 5,
 };
 
-const MEMORY_FILE = 'memory.md';
+const SESSION_MEMORY_FILE = 'memory.md';
 
 /** memory.md 大小上限（bytes），约 2.5K token，超出后触发 LLM 压缩 */
 const MAX_MEMORY_FILE_SIZE = 10_000;
@@ -100,7 +100,7 @@ const MAX_MEMORY_FILE_SIZE = 10_000;
 // Markdown 模板
 // ============================================================================
 
-const MEMORY_TEMPLATE = `# Session Memory
+const SESSION_MEMORY_TEMPLATE = `# Session Memory
 
 > 自动维护的会话记忆，记录关键讨论、决策、文件变更和代码引用。
 
@@ -163,7 +163,7 @@ export class SessionMemoryManager implements SessionMemoryPort {
     // 路径格式: <sessionsDir>/<sessionId>/memory.md
     // 安全加固：sessionId 含 ../ 等可穿越到 memoryDir 外（sessionId 多来源于
     // 用户输入/通道 ID），用 path.join 归一化并校验仍位于 memoryDir 内。
-    const normalized = join(this.memoryDir, sessionId, MEMORY_FILE);
+    const normalized = join(this.memoryDir, sessionId, SESSION_MEMORY_FILE);
     if (!normalized.startsWith(this.memoryDir)) {
       throw new Error(`非法 sessionId，拒绝穿越路径: ${sessionId}`);
     }
@@ -229,7 +229,7 @@ export class SessionMemoryManager implements SessionMemoryPort {
     }
 
     if (!existsSync(path)) {
-      writeFileSync(path, MEMORY_TEMPLATE, 'utf-8');
+      writeFileSync(path, SESSION_MEMORY_TEMPLATE, 'utf-8');
     }
 
     return {
@@ -521,9 +521,9 @@ export class SessionMemoryManager implements SessionMemoryPort {
     }
 
     if (!existsSync(path)) {
-      // B7 修复：新文件统一写 MEMORY_TEMPLATE（Markdown 模板），
+      // B7 修复：新文件统一写 SESSION_MEMORY_TEMPLATE（Markdown 模板），
       // 与 initMemory 保持一致，消除双格式双模板
-      writeFileSync(path, MEMORY_TEMPLATE, 'utf-8');
+      writeFileSync(path, SESSION_MEMORY_TEMPLATE, 'utf-8');
     }
 
     const lines = items.map(

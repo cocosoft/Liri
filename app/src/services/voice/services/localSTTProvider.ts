@@ -87,7 +87,13 @@ const LOCAL_STT_DEFAULT_CONFIG = {
 };
 
 /** 允许的模型大小（白名单） */
-const LOCAL_STT_ALLOWED_MODELS = ['tiny', 'base', 'small', 'medium', 'large-v3'] as const;
+const LOCAL_STT_ALLOWED_MODELS = [
+  'tiny',
+  'base',
+  'small',
+  'medium',
+  'large-v3',
+] as const;
 
 /** 允许的计算设备 */
 const ALLOWED_DEVICES = ['cpu', 'cuda'] as const;
@@ -525,7 +531,10 @@ export class LocalSTTProvider implements STTProvider {
       );
 
       // 自动重启（非 dispose 场景）
-      if (!this._disposing && this._restartCount < LOCAL_STT_MAX_RESTART_ATTEMPTS) {
+      if (
+        !this._disposing &&
+        this._restartCount < LOCAL_STT_MAX_RESTART_ATTEMPTS
+      ) {
         this._restartCount++;
         setTimeout(() => {
           if (!this._disposing) {

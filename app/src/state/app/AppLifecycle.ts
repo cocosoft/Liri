@@ -57,7 +57,9 @@ function persistSnapshot(machine: StateMachine<AppState>): void {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
       snapshotPath(),
-      JSON.stringify(machine.snapshot('AppStateMachine', APP_STATE_SCHEMA_VERSION))
+      JSON.stringify(
+        machine.snapshot('AppStateMachine', APP_STATE_SCHEMA_VERSION)
+      )
     );
   } catch (e) {
     // @ignore-catch — 快照落盘失败不影响运行

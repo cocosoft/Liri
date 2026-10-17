@@ -426,7 +426,10 @@ export class SenseVoiceSTTProvider implements STTProvider {
       );
 
       // 自动重启
-      if (!this._disposing && this._restartCount < SENSEVOICE_MAX_RESTART_ATTEMPTS) {
+      if (
+        !this._disposing &&
+        this._restartCount < SENSEVOICE_MAX_RESTART_ATTEMPTS
+      ) {
         this._restartCount++;
         setTimeout(() => {
           if (!this._disposing) {

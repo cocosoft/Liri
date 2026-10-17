@@ -19,7 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
-- ✅ **QQ-FILE-UPLOAD-FILE-NAME**：QQ 二进制上传补 file_name（官方必填）—— 修附件气泡显示「未命名」 —— 验证 ut1|tc1|ts6694；基线 改前：只发 file_type+file_data ⇒ QQ 拿不到文件名，9,444 字节的报告显示「未命名」（详情见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-FILE-NAME）
+- ✅ **QQ-FILE-UPLOAD-FILE-NAME**：QQ 二进制上传补 file_name（官方必填）—— 修附件气泡显示「未命名」 —— 验证 e2e1|ut1|tc1|ts6694；基线 改前：只发 file_type+file_data ⇒ QQ 拿不到文件名，9,444 字节的报告显示「未命名」（详情见 archive/evidence-detail.jsonl#QQ-FILE-UPLOAD-FILE-NAME）
 - ✅ **CHANNEL-RELIEF-CARD-COPY-DEDUPE**：预算挂起收尾去重：发卡成功不再重复发文本；纯文本兜底去 Markdown 星号 —— 验证 ut8|tc1|ts6694；基线 改前：真机同一条「已挂起 + 出路」发了两遍（文本 ⏸ + 卡片），且纯文本里 ** 星号明文（详情见 archive/evidence-detail.jsonl#CHANNEL-RELIEF-CARD-COPY-DEDUPE）
 - ✅ **COREAPI-FINISH-REASON-BUDGET-SUSPEND**：修 chatStream 出口把终止原因降级为 stop（回落读 metadata） —— 验证 e2e3|ut5|tc1|ts6686；基线 改前：出口只读顶层 finishReason ⇒ budget_exhausted 变 stop ⇒ 通道发卡判据永不成立（详情见 archive/evidence-detail.jsonl#COREAPI-FINISH-REASON-BUDGET-SUSPEND）
 - ✅ **BALANCE-WARN-PERSIST**：余额告警闸门落盘：跨进程重启不重复刷（查询成功即清除，保留状态变化上报） —— 验证 e2e3|ut10|tc1|ts6681；基线 改前：闸门仅进程内 ⇒ dev 每次存盘重启后又刷一条（真机实测一轮编辑触发 3 次重启）（详情见 archive/evidence-detail.jsonl#BALANCE-WARN-PERSIST）

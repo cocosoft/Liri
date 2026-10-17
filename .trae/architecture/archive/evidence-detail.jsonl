@@ -5617,12 +5617,14 @@
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"title","i":0,"c":"QQ 二进制上传补 `file_name`（官方必填）—— 修附件气泡显示「未命名」"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"source","i":0,"c":"用户上传 QQ 真机截图（2026-10-17 10:41）：助手生成的 9,444 字节报告已收到，但文件名显示「未命名 / 9.22KB」；日志 `02:35:11 outbound_files 单文件发送成功` 证明发送链路本身成功"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"reopenWhen","i":0,"c":"① 官方接口后续若把 `file_name` 改为可选/移除，本字段无害但会被忽略；若 QQ 仍显示「未命名」，先核对是否走了 `url` 分支（该分支暂不带 `file_name`）。② 二进制直传有 **5MB** 上限（官方文档），5MB~30MB 的本地文件会失败：需改分片上传（`upload_prepare` → PUT → `"}
-{"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"reopenWhen","i":1,"c":"part_finish` → 合并），本片未做。③ 本片只改**上传请求体**，未动发送/资格/路由；`e2eVerified=false`（需真机再发一次文件确认气泡标题）。"}
+{"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"reopenWhen","i":1,"c":"part_finish` → 合并），本片未做。③ 本片只改**上传请求体**，未动发送/资格/路由；真机已于 2026-10-17 11:02:55 复验气泡标题正确（见 notes）。"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"notes","i":0,"c":"【问题（真机截图）】报告文件已到达 QQ（9,444 字节 = 9.22KB），但气泡标题是**「未命名」**，用户无法确认收到的是哪个文件。日志证明发送链路成功（`outbound_files 单文件发送成功`），故问题只可能在**上传口径**。\n【根因】`QQChannel.uploadQQFile` 的二进制分支只发 `{file_type, "}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"notes","i":1,"c":"file_data}`。取证 QQ 官方「单聊富媒体上传」（autogen 版，2026-10-09 更新）请求体：`file_type` / `url` / `file_data`（≤5M）/ **`file_name`（分片上传或二进制上传时必填）** / `upload_id`。旧 wiki 表漏了 `file_name` ⇒ 实现按老表写，QQ 侧拿"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"notes","i":2,"c":"不到文件名 ⇒ 客户端显示「未命名」。\n【做法】本地文件分支用 `node:path.basename` 取路径末段作 `file_name`（空则不带）；URL 分支保持原样（该分支不强制）。\n【验证】`tests/channels/qqFileTransferPayload.test.ts` 的本地文件用例新增断言 `file_name === '"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"notes","i":3,"c":"package.json'`；该文件 5 pass；全量 `bun test` **6694 pass / 0 fail**（6736 tests / 753 files）；`tsc --noEmit` 0；`lint:arch` 违规 0；`lint:size` 0 错误；`lint:consts` PASS；`lint:doc-code` PASS。\n【"}
-{"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"notes","i":4,"c":"如实边界】见 reopenWhen ①-③（尤其 5MB 直传上限与真机未复测）。"}
+{"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"notes","i":4,"c":"真机（修复后，2026-10-17 11:02:55）】同一路径再发一次：`outbound_files 单文件发送成功`，filePath = `C:\\Users\\csdnc\\.pyapp\\output\\Liri-代码库扫描报告-20261017.md`；用户截图气泡标题已是 **`Liri-代码库扫描报告-20261017.md` / 9.22KB**（"}
+{"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"notes","i":5,"c":"此前为「未命名」）⇒ 修复点闭合。\n【附带发现（另案）】同一轮模型在正文里声称「`broadcast send channel=qq` 返回 {sent:false}」并据此宣告发送失败——但 `ChannelTool` 只有 list/status/connect/disconnect/health/logs，**不存在** send/broadcast "}
+{"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"notes","i":6,"c":"动作，日志中也没有该调用 ⇒ 属模型臆造（文件实际在 1 秒后由通道出站路由成功投递）。\n【如实边界】见 reopenWhen ①-③（尤其 5MB 直传上限）。"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"code#0","i":0,"c":"app/src/channels/qq/QQChannel.ts"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"tests#0","i":0,"c":"app/tests/channels/qqFileTransferPayload.test.ts"}
 {"id":"QQ-FILE-UPLOAD-FILE-NAME","k":"changelog#0","i":0,"c":"fix(channels/qq): 本地文件二进制上传补 file_name（官方必填），修 QQ 附件显示「未命名」"}

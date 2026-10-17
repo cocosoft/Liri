@@ -9824,7 +9824,7 @@
         "designed": true,
         "coded": true,
         "unitTested": true,
-        "e2eVerified": false
+        "e2eVerified": true
       },
       "code": [
         "app/src/channels/qq/QQChannel.ts"

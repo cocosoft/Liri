@@ -10397,6 +10397,113 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#STREAM-API-MESSAGES-BUILD）",
       "notes": "yield* 逐帧转发 3 个 status chunk；2218→2132 行、2398→2315 行；棘轮基线下调锁定。（全文见 archive/evidence-detail.jsonl#STREAM-API-MESSAGES-BUILD）"
+    },
+    {
+      "id": "LRO-WORKSPACE-SYMLINK-ESCAPE",
+      "title": "U-24：workspace 守卫补符号链接真实路径判定（via=lexical/symlink）",
+      "source": "dev_docs/20261009/复查任务计划.md N2（路径竞态/符号链接）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/lro/workspaceGuard.ts"
+      ],
+      "tests": [
+        "app/tests/tasks/lroWorkspaceGuard.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#LRO-WORKSPACE-SYMLINK-ESCAPE）",
+      "notes": "默认 realpath 取最近存在祖先再拼回；并发替换窗口仍由执行侧沙箱兜底（如实标注）。（全文见 archive/evidence-detail.jsonl#LRO-WORKSPACE-SYMLINK-ESCAPE）"
+    },
+    {
+      "id": "CHANNEL-ATTACHMENT-MIME-POLICY",
+      "title": "U-26：入站附件 MIME 分类 + 单附件/条数上限（超限不预留且留痕）",
+      "source": "dev_docs/20261017/未完成任务清单-20261017.md U-26（五方案总览 §8.2）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/routing/attachmentPolicy.ts",
+        "app/src/channels/routing/messageRouter.ts"
+      ],
+      "tests": [
+        "app/tests/channels/attachmentPolicy.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#CHANNEL-ATTACHMENT-MIME-POLICY）",
+      "notes": "MIME 缺省按扩展名归类；未知类型走 other 最严档；缺 size 接受（不臆造）。（全文见 archive/evidence-detail.jsonl#CHANNEL-ATTACHMENT-MIME-POLICY）"
+    },
+    {
+      "id": "TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI",
+      "title": "U-23 余：裸名回读 output/ 兜底 + fast-path 判据设置 UI",
+      "source": "dev_docs/dailys/20261001/pending-tasks-consolidated-20261001.md T-④02 / T-②05",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/ReadProjectFileTool/ReadProjectFileTool.ts",
+        "client/src/components/settings/RouterConfigPanel.tsx",
+        "client/src/i18n/locales/zh.ts",
+        "client/src/i18n/locales/en.ts"
+      ],
+      "tests": [
+        "app/tests/tools/readProjectFile-outputFallback.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI）",
+      "notes": "读侧仅根缺失且单段时回退 output/（根优先）；UI 写 config.fastPath，默认值仍由后端单一事实源兜底。（全文见 archive/evidence-detail.jsonl#TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI）"
+    },
+    {
+      "id": "PDF-CANVAS-OPTIONAL-DEP",
+      "title": "U-25：@napi-rs/canvas 声明为可选依赖 + 缺失时给出可执行报错",
+      "source": "dev_docs/20261017/未完成任务清单-20261017.md U-25（重型工具盘点 L106-107）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/package.json",
+        "app/src/media/pdf/PdfPageExtractor.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#PDF-CANVAS-OPTIONAL-DEP）",
+      "notes": "量化评估见 dev_docs/20261017/liri-native侧车量化评估-20261017.md（12 调用点；延迟未实测，附度量方案）。（全文见 archive/evidence-detail.jsonl#PDF-CANVAS-OPTIONAL-DEP）"
     }
   ]
 }

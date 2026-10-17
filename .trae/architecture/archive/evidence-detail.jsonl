@@ -6395,3 +6395,27 @@
 {"id":"STREAM-API-MESSAGES-BUILD","k":"code#1","i":0,"c":"app/src/chat/orchestrator/streamMessageFlow.ts"}
 {"id":"STREAM-API-MESSAGES-BUILD","k":"code#2","i":0,"c":".trae/architecture/function-size-baseline.json"}
 {"id":"STREAM-API-MESSAGES-BUILD","k":"tests#0","i":0,"c":"app/tests/chat/orchestrator/streamApiMessagesBuild.test.ts"}
+{"id":"LRO-WORKSPACE-SYMLINK-ESCAPE","k":"title","i":0,"c":"U-24：workspace 守卫补符号链接真实路径判定（via=lexical/symlink）"}
+{"id":"LRO-WORKSPACE-SYMLINK-ESCAPE","k":"source","i":0,"c":"dev_docs/20261009/复查任务计划.md N2（路径竞态/符号链接）"}
+{"id":"LRO-WORKSPACE-SYMLINK-ESCAPE","k":"notes","i":0,"c":"默认 realpath 取最近存在祖先再拼回；并发替换窗口仍由执行侧沙箱兜底（如实标注）。"}
+{"id":"LRO-WORKSPACE-SYMLINK-ESCAPE","k":"code#0","i":0,"c":"app/src/tasks/lro/workspaceGuard.ts"}
+{"id":"LRO-WORKSPACE-SYMLINK-ESCAPE","k":"tests#0","i":0,"c":"app/tests/tasks/lroWorkspaceGuard.test.ts"}
+{"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"title","i":0,"c":"U-26：入站附件 MIME 分类 + 单附件/条数上限（超限不预留且留痕）"}
+{"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md U-26（五方案总览 §8.2）"}
+{"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"notes","i":0,"c":"MIME 缺省按扩展名归类；未知类型走 other 最严档；缺 size 接受（不臆造）。"}
+{"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"code#0","i":0,"c":"app/src/channels/routing/attachmentPolicy.ts"}
+{"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"code#1","i":0,"c":"app/src/channels/routing/messageRouter.ts"}
+{"id":"CHANNEL-ATTACHMENT-MIME-POLICY","k":"tests#0","i":0,"c":"app/tests/channels/attachmentPolicy.test.ts"}
+{"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"title","i":0,"c":"U-23 余：裸名回读 output/ 兜底 + fast-path 判据设置 UI"}
+{"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"source","i":0,"c":"dev_docs/dailys/20261001/pending-tasks-consolidated-20261001.md T-④02 / T-②05"}
+{"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"notes","i":0,"c":"读侧仅根缺失且单段时回退 output/（根优先）；UI 写 config.fastPath，默认值仍由后端单一事实源兜底。"}
+{"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"code#0","i":0,"c":"app/src/tools/ReadProjectFileTool/ReadProjectFileTool.ts"}
+{"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"code#1","i":0,"c":"client/src/components/settings/RouterConfigPanel.tsx"}
+{"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"code#2","i":0,"c":"client/src/i18n/locales/zh.ts"}
+{"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"code#3","i":0,"c":"client/src/i18n/locales/en.ts"}
+{"id":"TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI","k":"tests#0","i":0,"c":"app/tests/tools/readProjectFile-outputFallback.test.ts"}
+{"id":"PDF-CANVAS-OPTIONAL-DEP","k":"title","i":0,"c":"U-25：@napi-rs/canvas 声明为可选依赖 + 缺失时给出可执行报错"}
+{"id":"PDF-CANVAS-OPTIONAL-DEP","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md U-25（重型工具盘点 L106-107）"}
+{"id":"PDF-CANVAS-OPTIONAL-DEP","k":"notes","i":0,"c":"量化评估见 dev_docs/20261017/liri-native侧车量化评估-20261017.md（12 调用点；延迟未实测，附度量方案）。"}
+{"id":"PDF-CANVAS-OPTIONAL-DEP","k":"code#0","i":0,"c":"app/package.json"}
+{"id":"PDF-CANVAS-OPTIONAL-DEP","k":"code#1","i":0,"c":"app/src/media/pdf/PdfPageExtractor.ts"}

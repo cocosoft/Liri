@@ -19,6 +19,10 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **PDF-CANVAS-OPTIONAL-DEP**：@napi-rs/canvas 可选依赖 + 缺依赖可执行报错 —— 验证 tc0|arch0；基线 改前依赖未声明，缺失时抛裸 Cannot find module（详情见 archive/evidence-detail.jsonl#PDF-CANVAS-OPTIONAL-DEP）
+- ✅ **TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI**：read_project_file 回读 output/ 兜底 + fast-path 设置 UI —— 验证 tc0|ut4|arch0；基线 改前裸名回读 output/ 恒 not-found；fastPath 无设置 UI（详情见 archive/evidence-detail.jsonl#TOOL-READ-OUTPUT-FALLBACK-FASTPATH-UI）
+- ✅ **CHANNEL-ATTACHMENT-MIME-POLICY**：入站附件 MIME 分类与单附件/条数上限 —— 验证 tc0|ut9|arch0；基线 改前非图像附件无 MIME 分类与上限，超大附件直接抬高预留（详情见 archive/evidence-detail.jsonl#CHANNEL-ATTACHMENT-MIME-POLICY）
+- ✅ **LRO-WORKSPACE-SYMLINK-ESCAPE**：workspace 守卫补符号链接真实路径判定 —— 验证 tc0|ut2|arch0；基线 改前仅词法判定，workspace 内链接指向外部可绕过（详情见 archive/evidence-detail.jsonl#LRO-WORKSPACE-SYMLINK-ESCAPE）
 - ✅ **STREAM-API-MESSAGES-BUILD**：apiMessages 构建段外移为内层 generator —— 验证 tc0|ut3|arch0；基线 改前构建段内联 97 行，runStreamMessage 2218 行（详情见 archive/evidence-detail.jsonl#STREAM-API-MESSAGES-BUILD）
 - ✅ **A2A-SIDECAR-KILL-TREE**：A2A sidecar 取消/超时进程树强杀 —— 验证 tc0|ut2|arch0；基线 改前 stop() 仅 child.kill()，超时/取消会留下孙进程孤儿（详情见 archive/evidence-detail.jsonl#A2A-SIDECAR-KILL-TREE）
 - ✅ **BUDGET-WAIVER-USD-PRECHECK**：waive-once 放行前 USD 事务预检 —— 验证 tc0|ut5|arch0；基线 改前只有事后记账，放行轮无金额预占（详情见 archive/evidence-detail.jsonl#BUDGET-WAIVER-USD-PRECHECK）

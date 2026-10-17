@@ -26,6 +26,7 @@
  */
 
 import type http from 'http';
+import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { modelPricingService } from '../models/ModelPricingService.js';
@@ -42,7 +43,7 @@ export async function handleUsageSummary(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     // model_usage_logs.timestamp 为秒，前端 getDateRange 传毫秒 → 统一转秒
     const startDate = parseSecondsParam(url.searchParams.get('startDate'));
     const endDate = parseSecondsParam(url.searchParams.get('endDate'));
@@ -73,7 +74,7 @@ export async function handleUsageTrend(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const startDate = parseSecondsParam(url.searchParams.get('startDate'));
     const endDate = parseSecondsParam(url.searchParams.get('endDate'));
     const model = url.searchParams.get('model') || undefined;
@@ -101,7 +102,7 @@ export async function handleUsageModelStats(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const startDate = parseSecondsParam(url.searchParams.get('startDate'));
     const endDate = parseSecondsParam(url.searchParams.get('endDate'));
 
@@ -124,7 +125,7 @@ export async function handleUsageProviderStats(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const startDate = parseSecondsParam(url.searchParams.get('startDate'));
     const endDate = parseSecondsParam(url.searchParams.get('endDate'));
 
@@ -147,7 +148,7 @@ export async function handleUsageLogs(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const page = parseInt(url.searchParams.get('page') || '1');
     const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
     const model = url.searchParams.get('model') || undefined;

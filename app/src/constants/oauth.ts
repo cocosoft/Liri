@@ -1,6 +1,11 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
-import { DEFAULT_OAUTH_LOCAL_BASE_URL } from '@modules/core';
+import {
+  DEFAULT_OAUTH_LOCAL_BASE_URL,
+  DEFAULT_LOCAL_OAUTH_API_BASE,
+  DEFAULT_LOCAL_OAUTH_APPS_BASE,
+  DEFAULT_MCP_PROXY_URL,
+} from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('constants\oauth');
@@ -73,7 +78,7 @@ const PROD_OAUTH_CONFIG: OauthConfig = {
   MANUAL_REDIRECT_URL: 'https://openliri.com/auth/callback',
   CLIENT_ID: 'py-app-client-id',
   OAUTH_FILE_SUFFIX: '-oauth',
-  MCP_PROXY_URL: 'http://localhost:8205',
+  MCP_PROXY_URL: DEFAULT_MCP_PROXY_URL,
   MCP_PROXY_PATH: '/v1/mcp/{server_id}',
 };
 
@@ -87,7 +92,7 @@ const STAGING_OAUTH_CONFIG: OauthConfig = {
   MANUAL_REDIRECT_URL: 'https://staging.openliri.com/auth/callback',
   CLIENT_ID: 'py-app-staging-client-id',
   OAUTH_FILE_SUFFIX: '-staging-oauth',
-  MCP_PROXY_URL: 'http://localhost:8205',
+  MCP_PROXY_URL: DEFAULT_MCP_PROXY_URL,
   MCP_PROXY_PATH: '/v1/mcp/{server_id}',
 };
 
@@ -98,10 +103,10 @@ const STAGING_OAUTH_CONFIG: OauthConfig = {
 function getLocalOauthConfig(): OauthConfig {
   const api =
     configManager.env('LIRI_LOCAL_OAUTH_API_BASE')?.replace(/\/$/, '') ??
-    'http://localhost:8000';
+    DEFAULT_LOCAL_OAUTH_API_BASE;
   const apps =
     configManager.env('LIRI_LOCAL_OAUTH_APPS_BASE')?.replace(/\/$/, '') ??
-    'http://localhost:4000';
+    DEFAULT_LOCAL_OAUTH_APPS_BASE;
 
   return {
     BASE_API_URL: api,
@@ -113,7 +118,7 @@ function getLocalOauthConfig(): OauthConfig {
     MANUAL_REDIRECT_URL: `${apps}/oauth/code/callback`,
     CLIENT_ID: 'py-app-local-client-id',
     OAUTH_FILE_SUFFIX: '-local-oauth',
-    MCP_PROXY_URL: 'http://localhost:8205',
+    MCP_PROXY_URL: DEFAULT_MCP_PROXY_URL,
     MCP_PROXY_PATH: '/v1/mcp/{server_id}',
   };
 }

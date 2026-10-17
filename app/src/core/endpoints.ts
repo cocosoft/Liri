@@ -59,6 +59,22 @@ export const DEFAULT_CDP_ENDPOINT = `http://${LOCAL_HTTP_HOST}:9222`;
 export const DEFAULT_COMFYUI_ENDPOINT = `http://${LOCAL_HTTP_HOST}:8188`;
 
 /**
+ * 解析相对请求 URL 用的**占位基址**（`new URL(req.url, …)`）。
+ *
+ * 仅用于补全 `req.url` 的 origin，**不是**真实连接目标（U-20/B5-2-93）。
+ */
+export const LOCAL_REQUEST_BASE_URL = `http://${LOCAL_SERVICE_HOST}`;
+
+/** 本机 MCP 代理地址（OAuth 侧的 `MCP_PROXY_URL`；U-20/B5-2-93） */
+export const DEFAULT_MCP_PROXY_URL = `http://${LOCAL_SERVICE_HOST}:8205`;
+
+/** 本地 OAuth 开发服务的 API 面默认地址（U-20/B5-2-93） */
+export const DEFAULT_LOCAL_OAUTH_API_BASE = `http://${LOCAL_SERVICE_HOST}:8000`;
+
+/** 本地 OAuth 开发服务的应用面默认地址（U-20/B5-2-93） */
+export const DEFAULT_LOCAL_OAUTH_APPS_BASE = `http://${LOCAL_SERVICE_HOST}:4000`;
+
+/**
  * 本地推理服务的 OpenAI 兼容端点（供供应商预设的候选清单使用；U-20/B5-2-92）。
  *
  * 每个服务保留 `hostname`（本机名形式）与 `loopback`（`127.0.0.1`）两种候选，

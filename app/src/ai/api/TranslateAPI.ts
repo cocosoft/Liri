@@ -26,6 +26,7 @@
  */
 
 import type http from 'http';
+import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 import { handleError, AppError } from '@modules/error';
 import { parseBody, sendJson, sendError } from './utils.js';
 
@@ -135,7 +136,7 @@ export async function handleTranslateHistory(
   _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const page = parseInt(url.searchParams.get('page') || '1');
     const pageSize = parseInt(url.searchParams.get('pageSize') || '20');
     const sourceLang = url.searchParams.get('sourceLang') || undefined;
@@ -233,7 +234,7 @@ export async function handleTranslateExport(
   _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const sourceLang = url.searchParams.get('sourceLang') || undefined;
     const targetLang = url.searchParams.get('targetLang') || undefined;
 

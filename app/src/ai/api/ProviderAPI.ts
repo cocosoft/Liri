@@ -26,6 +26,7 @@
  */
 
 import type http from 'http';
+import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 import { handleError, AppError } from '@modules/error';
 import { parseBody, sendJson, sendError } from './utils.js';
 import type { ProviderRecord } from '../providers/ProviderManager.js';
@@ -327,7 +328,7 @@ export async function handleProviderModels(
   const id = decodeURIComponent(match![1]);
 
   // 解析分页参数
-  const url = new URL(req.url || '/', 'http://localhost');
+  const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
   const page = parseInt(url.searchParams.get('page') || '1');
   const pageSize = parseInt(url.searchParams.get('pageSize') || '50');
   const search = url.searchParams.get('search') || undefined;

@@ -26,6 +26,7 @@
  */
 
 import type http from 'http';
+import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 import { handleError, AppError } from '@modules/error';
 import { CapabilityCategory } from '../services/CapabilityService.js';
 import { parseBody, sendJson, sendError } from './utils.js';
@@ -39,7 +40,7 @@ export async function handleListCapabilities(
   _match: RegExpMatchArray | null
 ): Promise<void> {
   try {
-    const url = new URL(req.url || '/', 'http://localhost');
+    const url = new URL(req.url || '/', LOCAL_REQUEST_BASE_URL);
     const category = url.searchParams.get('category') || undefined;
     const enabled = url.searchParams.has('enabled')
       ? url.searchParams.get('enabled') === 'true'

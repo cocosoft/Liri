@@ -216,7 +216,9 @@ export class ChatMessagePersistence {
     })();
     deps.pendingPersistPromises.add(persistPromise);
     // 完成后自动从集合中移除，避免内存泄漏
-    persistPromise.finally(() => deps.pendingPersistPromises.delete(persistPromise));
+    persistPromise.finally(() =>
+      deps.pendingPersistPromises.delete(persistPromise)
+    );
     await persistPromise;
   }
 

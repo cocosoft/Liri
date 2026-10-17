@@ -1270,7 +1270,8 @@ export class ChatManagerImpl implements ChatManager {
       getOrCreateEventLog: (sid) => this._getOrCreateEventLog(sid),
       rebuildToolCallSeqMap: (sid) => this._rebuildToolCallSeqMap(sid),
       toolCallSeqMap: this._toolCallSeqMap,
-      requestReconcile: (sid, eventLog) => this._requestReconcile(sid, eventLog),
+      requestReconcile: (sid, eventLog) =>
+        this._requestReconcile(sid, eventLog),
       pendingPersistPromises: this._pendingPersistPromises,
       createAssistantMessage: (content, opts) =>
         this.messageService.createAssistantMessage(content, opts),
@@ -1769,14 +1770,14 @@ export class ChatManagerImpl implements ChatManager {
       getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
       flushPendingPersists: () => this.flushPendingPersists(),
     };
-  }  /** U-22/S3 外移：消息持久化主入口（实现在 `manager/messagePersistence.ts`） */
+  } /** U-22/S3 外移：消息持久化主入口（实现在 `manager/messagePersistence.ts`） */
   private async _addAndPersistMessage(
     sessionId: string,
     message: Message,
     options?: { throwOnError?: boolean }
   ): Promise<void> {
     return this._msgPersist.addAndPersistMessage(sessionId, message, options);
-  }  /** U-22/S3 外移：消息 → 事件日志（实现在 `manager/messagePersistence.ts`） */
+  } /** U-22/S3 外移：消息 → 事件日志（实现在 `manager/messagePersistence.ts`） */
   private async _appendEventsForMessage(
     sessionId: string,
     message: Message
@@ -2091,7 +2092,7 @@ export class ChatManagerImpl implements ChatManager {
           persistErr instanceof Error ? persistErr.message : String(persistErr),
       });
     }
-  }  /** U-22/S3 外移：终态 blocks 落盘（实现在 `manager/messagePersistence.ts`） */
+  } /** U-22/S3 外移：终态 blocks 落盘（实现在 `manager/messagePersistence.ts`） */
   public async updateMessageBlocks(
     sessionId: string,
     messageId: string,

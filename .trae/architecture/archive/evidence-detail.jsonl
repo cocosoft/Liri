@@ -6710,3 +6710,9 @@
 {"id":"U22-CHATMANAGER-S2-STREAMSETUP","k":"code#0","i":0,"c":"app/src/chat/manager/streamSetup.ts"}
 {"id":"U22-CHATMANAGER-S2-STREAMSETUP","k":"code#1","i":1,"c":"app/src/chat/ChatManager.ts"}
 {"id":"U22-CHATMANAGER-S2-STREAMSETUP","k":"code#2","i":2,"c":"scripts/layer-exceptions.json"}
+{"id":"U22-CHATMANAGER-S3-PERSISTENCE","k":"title","i":0,"c":"U-22/S3：ChatManager 外移消息持久化/事件投影簇"}
+{"id":"U22-CHATMANAGER-S3-PERSISTENCE","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ChatManager S3）"}
+{"id":"U22-CHATMANAGER-S3-PERSISTENCE","k":"notes","i":0,"c":"_addAndPersistMessage（156 行）+ _appendEventsForMessage（163）+ updateMessageBlocks（133）迁到 chat/manager/messagePersistence.ts（ChatMessagePersistence + MessagePersistenceDeps）；_turnToolChars 随迁由模块持有；pendingPersistPromises 仍归宿主。行为逐字等价。"}
+{"id":"U22-CHATMANAGER-S3-PERSISTENCE","k":"code#0","i":0,"c":"app/src/chat/manager/messagePersistence.ts"}
+{"id":"U22-CHATMANAGER-S3-PERSISTENCE","k":"code#1","i":1,"c":"app/src/chat/ChatManager.ts"}
+{"id":"U22-CHATMANAGER-S3-PERSISTENCE","k":"code#2","i":2,"c":"scripts/layer-exceptions.json"}

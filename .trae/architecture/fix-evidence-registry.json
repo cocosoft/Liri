@@ -11555,6 +11555,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S2-STREAMSETUP）",
       "notes": "_prepareStreamSession（208 行）迁到 chat/manager/streamSetup.ts（ChatStreamSetup + StreamSetupDeps 注入）；宿主保留薄转发与同一出参类型；执行顺序、日志文案、异常类型不变。（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S2-STREAMSETUP）"
+    },
+    {
+      "id": "U22-CHATMANAGER-S3-PERSISTENCE",
+      "title": "U-22/S3：ChatManager 外移消息持久化/事件投影簇",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ChatManager S3）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/manager/messagePersistence.ts",
+        "app/src/chat/ChatManager.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S3-PERSISTENCE）",
+      "notes": "_addAndPersistMessage（156 行）+ _appendEventsForMessage（163）+ updateMessageBlocks（133）迁到 chat/manager/messagePersistence.ts（ChatMessagePersistence + MessagePersi…（全文见 archive/evidence-detail.jsonl#U22-CHATMANAGER-S3-PERSISTENCE）"
     }
   ]
 }

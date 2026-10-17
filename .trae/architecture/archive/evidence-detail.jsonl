@@ -6764,3 +6764,9 @@
 {"id":"U22-REACTLOOP-TURNHOOKS","k":"code#1","i":0,"c":"app/src/chat/agentIncompleteTurn.ts"}
 {"id":"U22-REACTLOOP-TURNHOOKS","k":"code#2","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
 {"id":"U22-REACTLOOP-TURNHOOKS","k":"code#3","i":0,"c":"scripts/layer-exceptions.json"}
+{"id":"U22-LRTO-PLANNER","k":"title","i":0,"c":"U-22/LRTO S0：外移角色工具名派生、步骤拓扑分组与 planner 输出两条修复重问"}
+{"id":"U22-LRTO-PLANNER","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（LRTO）/§4"}
+{"id":"U22-LRTO-PLANNER","k":"notes","i":0,"c":"roleToolNames（按 RoleConfig.taskType 从 TOOL_CATEGORIES 派生，禁止手写清单）+ groupStepsByDependency（dependsOn 拓扑分批，循环依赖兜底串行）+ repairPlanJson / repairAcceptanceCriteria（各一次重问，失败返回 undefined 由调用方保留原值）→ tasks/lro/plannerSupport.ts（PlannerRepairDeps：taskId/executor/isolation）。宿主保留薄转发 + plannerRepairDeps()；提示词文案、日志字段与失败语义逐字未变；getRealToolNamesForTask 随迁。"}
+{"id":"U22-LRTO-PLANNER","k":"code#0","i":0,"c":"app/src/tasks/lro/plannerSupport.ts"}
+{"id":"U22-LRTO-PLANNER","k":"code#1","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"U22-LRTO-PLANNER","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}

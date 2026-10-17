@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+import { DEFAULT_SD_WEBUI_ENDPOINT } from '@modules/core';
 
 const logger = getLogger('tools:imageGenerate');
 
@@ -23,7 +24,7 @@ export class SDWebUIProvider implements ImageGenerationProvider {
   private readonly endpoint: string;
 
   constructor(config?: ProviderConfig) {
-    this.endpoint = config?.endpoint ?? 'http://127.0.0.1:7860';
+    this.endpoint = config?.endpoint ?? DEFAULT_SD_WEBUI_ENDPOINT;
   }
 
   /** 本地 SD WebUI 免费 */

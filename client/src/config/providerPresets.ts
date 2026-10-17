@@ -4,6 +4,7 @@
  */
 
 import type { ProviderPreset, ProviderFormData } from "../types";
+import { LOCAL_PROVIDER_ENDPOINTS } from "../services/endpoints";
 
 /** 供应商类型标签映射 */
 export const PROVIDER_TYPE_LABELS: Record<string, string> = {
@@ -495,13 +496,13 @@ export const PRESETS: ProviderPreset[] = [
     requiresOAuth: false,
     modelsUrl: "/v1/models",
     endpointCandidates: [
-      "http://localhost:11434/v1",
-      "http://127.0.0.1:11434/v1",
+      LOCAL_PROVIDER_ENDPOINTS.ollama.hostname,
+      LOCAL_PROVIDER_ENDPOINTS.ollama.loopback,
     ],
     settingsConfig: {
       name: "Ollama",
       providerType: "ollama",
-      baseUrl: "http://localhost:11434/v1",
+      baseUrl: LOCAL_PROVIDER_ENDPOINTS.ollama.hostname,
       apiKey: "",
       modelsUrl: "",
       notes: "本地运行，无需 API Key",
@@ -520,13 +521,13 @@ export const PRESETS: ProviderPreset[] = [
     requiresOAuth: false,
     modelsUrl: "/v1/models",
     endpointCandidates: [
-      "http://127.0.0.1:11435/v1",
-      "http://localhost:11435/v1",
+      LOCAL_PROVIDER_ENDPOINTS.llamacpp.loopback,
+      LOCAL_PROVIDER_ENDPOINTS.llamacpp.hostname,
     ],
     settingsConfig: {
       name: "llama.cpp",
       providerType: "llamacpp",
-      baseUrl: "http://127.0.0.1:11435/v1",
+      baseUrl: LOCAL_PROVIDER_ENDPOINTS.llamacpp.loopback,
       apiKey: "",
       modelsUrl: "",
       notes: "本地 llama-server（内置），无需 API Key",
@@ -549,13 +550,13 @@ export const PRESETS: ProviderPreset[] = [
     requiresOAuth: false,
     modelsUrl: "/v1/models",
     endpointCandidates: [
-      "http://localhost:1234/v1",
-      "http://127.0.0.1:1234/v1",
+      LOCAL_PROVIDER_ENDPOINTS.lmStudio.hostname,
+      LOCAL_PROVIDER_ENDPOINTS.lmStudio.loopback,
     ],
     settingsConfig: {
       name: "LM Studio",
       providerType: "custom",
-      baseUrl: "http://localhost:1234/v1",
+      baseUrl: LOCAL_PROVIDER_ENDPOINTS.lmStudio.hostname,
       apiKey: "",
       modelsUrl: "",
       notes: "本地运行，无需 API Key",
@@ -578,13 +579,13 @@ export const PRESETS: ProviderPreset[] = [
     requiresOAuth: false,
     modelsUrl: "/v1/models",
     endpointCandidates: [
-      "http://localhost:8080/v1",
-      "http://127.0.0.1:8080/v1",
+      LOCAL_PROVIDER_ENDPOINTS.localAI.hostname,
+      LOCAL_PROVIDER_ENDPOINTS.localAI.loopback,
     ],
     settingsConfig: {
       name: "LocalAI",
       providerType: "custom",
-      baseUrl: "http://localhost:8080/v1",
+      baseUrl: LOCAL_PROVIDER_ENDPOINTS.localAI.hostname,
       apiKey: "",
       modelsUrl: "",
       notes: "本地运行，无需 API Key",

@@ -10,6 +10,7 @@ import {
 import { useModelAdminStore } from "../../stores/modelAdminStore";
 import { useModelStore } from "../../stores/modelStore";
 import { modelService } from "../../services/modelService";
+import { LOCAL_PROVIDER_ENDPOINTS } from "../../services/endpoints";
 import { PROVIDER_TYPE_LABELS, PRESETS } from "../../config/providerPresets";
 import { createLogger } from "../../utils/logger";
 import { handleClientError } from "../../utils/handleError";
@@ -107,7 +108,8 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
       const { providers: latestProviders } = useModelAdminStore.getState();
       const { models: latestModels } = useModelStore.getState();
       const provider = latestProviders.find((p) => p.providerType === "ollama");
-      const url = provider?.baseUrl || "http://localhost:11434/v1";
+      const url =
+        provider?.baseUrl || LOCAL_PROVIDER_ENDPOINTS.ollama.hostname;
       setConfigUrl(url);
       const ollamaModelsCount = latestModels.filter(
         (m) => provider && m.providerId === provider.id,
@@ -344,11 +346,13 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
               isDark={isDark}
               value={configUrl}
               onChange={setConfigUrl}
-              placeholder="http://localhost:11434/v1"
+              placeholder={LOCAL_PROVIDER_ENDPOINTS.ollama.hostname}
               className="min-w-[240px]"
             />
             <button
-              onClick={() => setConfigUrl("http://localhost:11434/v1")}
+              onClick={() =>
+                setConfigUrl(LOCAL_PROVIDER_ENDPOINTS.ollama.hostname)
+              }
               className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
             >
               {t("settings.ollamaRestoreDefault")}

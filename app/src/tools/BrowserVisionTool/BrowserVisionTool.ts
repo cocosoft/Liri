@@ -33,6 +33,7 @@ import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 import { resolveTempDir } from '@modules/core/paths';
+import { DEFAULT_CDP_ENDPOINT } from '@modules/core';
 import * as path from 'path';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
@@ -177,7 +178,7 @@ export class BrowserVisionTool extends BaseTool {
     try {
       // 尝试通过 CDP 获取浏览器截图
       // 默认连接本地 CDP 端口 9222（Chrome/Edge 调试端口）
-      const cdpUrl = 'http://127.0.0.1:9222';
+      const cdpUrl = DEFAULT_CDP_ENDPOINT;
 
       // 获取第一个页面的 CDP WebSocket URL
       const cdpResponse = await fetch(`${cdpUrl}/json`, {

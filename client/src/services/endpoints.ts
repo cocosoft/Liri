@@ -4,6 +4,43 @@
  * **值逐字不变**（含模板插值位置）；本文件是这些路径的**唯一编辑点**。
  * 约定：无参路径用**字符串常量**，含参路径用**构造器函数**。
  */
+
+/**
+ * 本机回环 host（前端唯一编辑点；U-20/B5-2-91）。
+ *
+ * 后端对应真源为 `app/src/core/endpoints.ts` 的 `LOCAL_HTTP_HOST` —— 两个部署单元
+ * 物理上无法共享模块，同值由 `crossDeploymentContract` 契约测试钉住。
+ */
+export const LOCAL_HOST = "127.0.0.1";
+
+/**
+ * 本地推理 / 本地服务的默认地址（前端唯一编辑点；U-20/B5-2-91）。
+ *
+ * 每个供应商同时保留 `loopback`（`127.0.0.1`）与 `hostname`（本机名形式）两种候选，供
+ * 预设的 `endpointCandidates` 与设置面板占位符共用；**值逐字不变**。
+ * 注意：`localAI` 的 8080 与后端 OAuth 回调服务数值相同、事实不同（不复用）。
+ */
+export const LOCAL_PROVIDER_ENDPOINTS = {
+  ollama: {
+    loopback: `http://${LOCAL_HOST}:11434/v1`,
+    hostname: "http://localhost:11434/v1",
+  },
+  llamacpp: {
+    loopback: `http://${LOCAL_HOST}:11435/v1`,
+    hostname: "http://localhost:11435/v1",
+  },
+  lmStudio: {
+    loopback: `http://${LOCAL_HOST}:1234/v1`,
+    hostname: "http://localhost:1234/v1",
+  },
+  localAI: {
+    loopback: `http://${LOCAL_HOST}:8080/v1`,
+    hostname: "http://localhost:8080/v1",
+  },
+  /** MCP 设置面板的示例地址（仅占位提示，非实际连接目标） */
+  mcpExample: "http://localhost:8080/mcp",
+} as const;
+
 export const ENDPOINTS = {
   auth: {
     login: "/v1/auth/login",

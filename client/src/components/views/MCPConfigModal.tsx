@@ -5,6 +5,7 @@ import type {
   InstalledMCPServer,
   MCPTransport,
 } from "../../services/mcpMarketplaceService";
+import { LOCAL_PROVIDER_ENDPOINTS } from "../../services/endpoints";
 
 // ─── 配置数据类型 ─────────────────────────────────────
 
@@ -342,7 +343,7 @@ function MCPConfigModal({
                 type="text"
                 value={form.url}
                 onChange={(e) => update({ url: e.target.value })}
-                placeholder="http://localhost:8080/mcp"
+                placeholder={LOCAL_PROVIDER_ENDPOINTS.mcpExample}
                 className={`w-full text-sm bg-transparent outline-none border-b pb-1 ${
                   isDark
                     ? "border-gray-600 text-white placeholder-gray-500 focus:border-blue-400"

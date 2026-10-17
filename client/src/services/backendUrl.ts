@@ -1,4 +1,5 @@
 import { handleClientError } from "../utils/handleError";
+import { LOCAL_HOST } from "./endpoints";
 
 /**
  * 默认后端 HTTP 端口
@@ -17,7 +18,7 @@ import { handleClientError } from "../utils/handleError";
  */
 export const DEFAULT_BACKEND_PORT = 18990;
 
-let _backendBase = `http://127.0.0.1:${DEFAULT_BACKEND_PORT}`;
+let _backendBase = `http://${LOCAL_HOST}:${DEFAULT_BACKEND_PORT}`;
 let _port = DEFAULT_BACKEND_PORT;
 let _apiSecret = "";
 
@@ -35,7 +36,7 @@ export function getApiSecret(): string {
 
 export function setBackendPort(port: number): void {
   _port = port;
-  _backendBase = `http://127.0.0.1:${port}`;
+  _backendBase = `http://${LOCAL_HOST}:${port}`;
 }
 
 export function setApiSecret(secret: string): void {

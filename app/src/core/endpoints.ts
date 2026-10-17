@@ -26,6 +26,14 @@
 /** 本机回环地址（IPv4）。默认绑定 host；亦用于连接/探测本机服务的默认目标。 */
 export const LOCAL_HTTP_HOST = '127.0.0.1';
 
+/**
+ * 本机服务的**名称形式** host（`localhost`）—— 用于对用户展示/健康探测的地址。
+ *
+ * 与 `LOCAL_HTTP_HOST` 指向同一台机器，但字符串形式不同（用户可读、与文档一致），
+ * 故按域分立（U-20/B5-2-91）。
+ */
+export const LOCAL_SERVICE_HOST = 'localhost';
+
 /** Ollama 本地服务默认地址（A1） */
 export const DEFAULT_OLLAMA_ENDPOINT = 'http://localhost:11434';
 
@@ -40,3 +48,9 @@ export const DEFAULT_WECHAT_BOT_ENDPOINT = 'http://localhost:7600';
 
 /** 本地 OAuth 服务默认地址（A4；本地开发 / 自建部署用） */
 export const DEFAULT_OAUTH_LOCAL_BASE_URL = 'http://localhost:8080';
+
+/** 本地 SD WebUI 默认地址（默认绑定回环；U-20/B5-2-91） */
+export const DEFAULT_SD_WEBUI_ENDPOINT = `http://${LOCAL_HTTP_HOST}:7860`;
+
+/** 本地 Chrome / Edge 的 CDP 调试端点（浏览器截图用；U-20/B5-2-91） */
+export const DEFAULT_CDP_ENDPOINT = `http://${LOCAL_HTTP_HOST}:9222`;

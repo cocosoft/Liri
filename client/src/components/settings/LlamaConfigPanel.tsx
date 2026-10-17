@@ -16,6 +16,7 @@ import {
   TextConfig,
   ToggleConfig,
 } from "./ConfigComponents";
+import { LOCAL_HOST } from "../../services/endpoints";
 import {
   llamaService,
   type LlamaConfig,
@@ -543,9 +544,9 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
         <ConfigItem label={t("settings.listenAddress")} isDark={isDark}>
           <TextConfig
             isDark={isDark}
-            value={config?.host ?? "127.0.0.1"}
+            value={config?.host ?? LOCAL_HOST}
             onChange={(v) => update({ host: v })}
-            placeholder="127.0.0.1"
+            placeholder={LOCAL_HOST}
             className="w-48"
           />
         </ConfigItem>

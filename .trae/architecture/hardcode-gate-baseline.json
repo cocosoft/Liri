@@ -204,22 +204,14 @@
     "app/src/skills/loaders/adapter/SkillSearchEngine.ts": 3,
     "app/src/state/engine/stateMachineCatalog.ts": 1,
     "app/src/system/auth/auth-code-listener.ts": 1,
-    "app/src/tasks/MonitorTask.ts": 1,
     "app/src/tools/AgentTool/strategies/VerificationStrategy.ts": 2,
-    "app/src/tools/BrowserVisionTool/BrowserVisionTool.ts": 2,
-    "app/src/tools/ImageGenerateTool/providers/SDWebUIProvider.ts": 2,
     "app/src/tools/VideoGenerateTool/VideoGenerateTool.ts": 2,
     "app/src/tools/WebFetchTool/preapproved.ts": 4,
     "app/src/tools/WebFetchTool/ssrf.ts": 9,
     "app/src/tools/WebSearchTool/providers.ts": 5,
     "app/src/trace-recording/live/LiveViewServer.ts": 2,
-    "client/src/components/settings/LlamaConfigPanel.tsx": 2,
-    "client/src/components/settings/OllamaConfigPanel.tsx": 6,
-    "client/src/components/views/MCPConfigModal.tsx": 2,
-    "client/src/config/providerPresets.ts": 24,
     "client/src/i18n/locales/en.ts": 3,
-    "client/src/i18n/locales/zh.ts": 3,
-    "client/src/services/backendUrl.ts": 2
+    "client/src/i18n/locales/zh.ts": 3
   },
   "lint:locale": {
     "app/src/chronos/cron.ts": 1,

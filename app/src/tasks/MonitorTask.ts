@@ -13,7 +13,7 @@ import { BaseTask } from './BaseTask';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { DEFAULT_HTTP_PORT } from '@modules/core';
+import { DEFAULT_HTTP_PORT, LOCAL_SERVICE_HOST } from '@modules/core';
 const logger = getLogger('tasks:MonitorTask');
 
 export interface MonitorTarget {
@@ -29,7 +29,7 @@ export function getDefaultMonitorTargets(): MonitorTarget[] {
   return [
     {
       name: 'mcp-server',
-      url: `http://localhost:${DEFAULT_HTTP_PORT}/health`,
+      url: `http://${LOCAL_SERVICE_HOST}:${DEFAULT_HTTP_PORT}/health`,
       checkIntervalMs: 30_000,
       timeoutMs: 5000,
     },

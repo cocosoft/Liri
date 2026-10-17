@@ -11710,6 +11710,32 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U18-STREAMFLOW-TOOLLOOP）",
       "notes": "从 runStreamMessage 外移「处理工具调用 — 流式工具执行循环」整段（约 400 行）：回滚轮次登记 + buildToolLoopContext 装配 + ReActEvent 单 in-flight 消费 + 5s 心跳 + assistant/tool_call 即时落盘 + todo 落盘/补…（全文见 archive/evidence-detail.jsonl#U18-STREAMFLOW-TOOLLOOP）"
+    },
+    {
+      "id": "U22-AGENTTOOL-SWARM",
+      "title": "U-22/AgentTool：外移 swarm 批次路径（runSwarmPath）与 worker executor 适配器（buildSwarmExecutor）",
+      "source": "dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（AgentTool S1）/§4",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/AgentTool/swarmPath.ts",
+        "app/src/tools/AgentTool/AgentTool.ts",
+        "scripts/layer-exceptions.json"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U22-AGENTTOOL-SWARM）",
+      "notes": "runSwarmPath（461 行：批次目标建行/取消注册与父级桥接/per-task 描述符/单一派生源汇总/目标绑定/摘要预算/输出裁剪/工具结果）与 buildSwarmExecutor（251 行：类别→工具集 memo、定义侧禁用项合取、空池与解析失败 fail-closed、逐任务台账）外移到 tool…（全文见 archive/evidence-detail.jsonl#U22-AGENTTOOL-SWARM）"
     }
   ]
 }

@@ -6744,3 +6744,9 @@
 {"id":"U18-STREAMFLOW-TOOLLOOP","k":"code#1","i":0,"c":"app/src/chat/orchestrator/streamMessageFlow.ts"}
 {"id":"U18-STREAMFLOW-TOOLLOOP","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}
 {"id":"U18-STREAMFLOW-TOOLLOOP","k":"code#3","i":0,"c":".trae/architecture/function-size-baseline.json"}
+{"id":"U22-AGENTTOOL-SWARM","k":"title","i":0,"c":"U-22/AgentTool：外移 swarm 批次路径（runSwarmPath）与 worker executor 适配器（buildSwarmExecutor）"}
+{"id":"U22-AGENTTOOL-SWARM","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（AgentTool S1）/§4"}
+{"id":"U22-AGENTTOOL-SWARM","k":"notes","i":0,"c":"runSwarmPath（461 行：批次目标建行/取消注册与父级桥接/per-task 描述符/单一派生源汇总/目标绑定/摘要预算/输出裁剪/工具结果）与 buildSwarmExecutor（251 行：类别→工具集 memo、定义侧禁用项合取、空池与解析失败 fail-closed、逐任务台账）外移到 tools/AgentTool/swarmPath.ts，经 SwarmPathDeps 注入（toolName/ledger/pool/engine/继承池/描述符解析）。resolveDeniedTools 与 SwarmTaskDescriptor/SwarmToolDefinition 随迁，AgentTool 保留 re-export（测试导入路径零改动）。宿主保留 runSwarmPath/buildSwarmExecutor 薄转发 + swarmPathDeps()。日志文案/事件载荷/取消语义/汇总格式逐字未变。"}
+{"id":"U22-AGENTTOOL-SWARM","k":"code#0","i":0,"c":"app/src/tools/AgentTool/swarmPath.ts"}
+{"id":"U22-AGENTTOOL-SWARM","k":"code#1","i":0,"c":"app/src/tools/AgentTool/AgentTool.ts"}
+{"id":"U22-AGENTTOOL-SWARM","k":"code#2","i":0,"c":"scripts/layer-exceptions.json"}

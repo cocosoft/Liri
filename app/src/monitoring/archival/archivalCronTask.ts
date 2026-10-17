@@ -18,6 +18,7 @@ import { computeNextCronRunMs } from '@modules/utils/cron';
 import { addCronTask, removeCronTasks, updateCronTask } from '@modules/chronos';
 import { getLogger } from '../logs/Logger.js';
 import { handleError } from '@modules/error';
+import { SCHEDULER_CHECK_INTERVAL_MS } from '@modules/types/schedulerLifecycle';
 import { IncidentManager } from '../incidents/IncidentManager.js';
 
 const logger = getLogger('monitoring:archival_cron');
@@ -56,8 +57,7 @@ export interface ArchivalSchedulerHandle {
   executeTaskManually(taskId: string): Promise<boolean>;
 }
 
-/** 调度检查间隔 */
-const CHECK_INTERVAL_MS = 60_000;
+/** 调度检查间隔（单一事实源见 `types/schedulerLifecycle`，U-20/B5-2-74） */
 
 /**
  * 执行归档维护
@@ -122,7 +122,7 @@ export function setupArchivalScheduler(
 
       nextRunMs = computeNextCronRunMs(cron, now) ?? null;
     }
-  }, CHECK_INTERVAL_MS);
+  }, SCHEDULER_CHECK_INTERVAL_MS);
 
   logger.info('归档调度器已启动', { cron });
 

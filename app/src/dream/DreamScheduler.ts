@@ -32,6 +32,7 @@ import type { DreamSchedulerConfig, DreamTriggerSource } from './types';
 import { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types';
 import { getLogger } from '@modules/monitoring';
 import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';
+import { SCHEDULER_CHECK_INTERVAL_MS } from '@modules/types/schedulerLifecycle';
 const logger = getLogger('dream:dreamScheduler');
 
 export type DreamTriggerCallback = (
@@ -39,7 +40,6 @@ export type DreamTriggerCallback = (
 ) => Promise<void>;
 
 const DREAM_CRON_EXPRESSION = '0 2 * * *';
-const CHECK_INTERVAL_MS = 60_000;
 
 export class DreamScheduler implements SchedulerLifecycle {
   private idleDetector: DreamIdleDetector;
@@ -131,7 +131,7 @@ export class DreamScheduler implements SchedulerLifecycle {
         this.tryTrigger('cron');
         this.nextCronRunMs = computeNextCronRunMs(cronExp, now) ?? null;
       }
-    }, CHECK_INTERVAL_MS);
+    }, SCHEDULER_CHECK_INTERVAL_MS);
 
     logger.info(`[DreamScheduler] cron 触发已注册: ${cronExp}`);
   }

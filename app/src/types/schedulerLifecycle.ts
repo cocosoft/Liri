@@ -26,3 +26,12 @@ export interface SchedulerLifecycle {
   /** 是否处于已启动状态 */
   isRunning(): boolean;
 }
+
+/**
+ * 定时调度器的默认**检查间隔**（60s；U-20/B5-2-74 收敛，2026-10-17）。
+ *
+ * 原 `DreamScheduler` 与 `monitoring/archival/archivalCronTask` 各自定义同值同名
+ * `CHECK_INTERVAL_MS = 60_000` ⇒ lint:consts 报同名常量重复；两处语义一致（都是
+ * 「每分钟检查一次 cron 是否到点」），故收敛为单一事实源。
+ */
+export const SCHEDULER_CHECK_INTERVAL_MS = 60_000;

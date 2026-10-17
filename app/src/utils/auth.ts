@@ -31,7 +31,7 @@ export interface AuthConfig {
 }
 
 const CONFIG_DIR = resolvePyappHome();
-const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
+const USER_CONFIG_PATH = join(CONFIG_DIR, 'config.json');
 const SESSION_FILE = join(CONFIG_DIR, 'session.json');
 
 function resolveApiKeyFromEnv(): string | undefined {
@@ -64,8 +64,8 @@ export async function resolveAuthToken(): Promise<string | undefined> {
 
 export async function loadAuthConfig(): Promise<AuthConfig> {
   try {
-    if (existsSync(CONFIG_FILE)) {
-      const data = await readFile(CONFIG_FILE, 'utf-8');
+    if (existsSync(USER_CONFIG_PATH)) {
+      const data = await readFile(USER_CONFIG_PATH, 'utf-8');
       return JSON.parse(data) as AuthConfig;
     }
   } catch (err) {
@@ -77,11 +77,11 @@ export async function loadAuthConfig(): Promise<AuthConfig> {
 }
 
 export async function saveAuthConfig(config: AuthConfig): Promise<void> {
-  const dir = dirname(CONFIG_FILE);
+  const dir = dirname(USER_CONFIG_PATH);
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true });
   }
-  await writeFile(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+  await writeFile(USER_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
 }
 
 export async function loadSession(): Promise<AuthSession | null> {

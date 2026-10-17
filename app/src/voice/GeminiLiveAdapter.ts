@@ -18,10 +18,10 @@ import type {
 const GEMINI_WS_BASE = 'wss://generativelanguage.googleapis.com/ws';
 
 /** 重连延迟基数（毫秒） */
-const RECONNECT_BASE_DELAY = 1000;
+const GEMINI_RECONNECT_BASE_DELAY = 1000;
 
 /** 重连最大延迟（毫秒） */
-const RECONNECT_MAX_DELAY = 10000;
+const GEMINI_RECONNECT_MAX_DELAY = 10000;
 
 /** 默认语音配置 */
 const DEFAULT_VOICE_NAME = 'Puck';
@@ -373,8 +373,8 @@ export class GeminiLiveAdapter implements VoiceProviderAdapter {
   private scheduleReconnect(): void {
     this.reconnect.attempt++;
     const delay = Math.min(
-      RECONNECT_BASE_DELAY * Math.pow(2, this.reconnect.attempt - 1),
-      RECONNECT_MAX_DELAY
+      GEMINI_RECONNECT_BASE_DELAY * Math.pow(2, this.reconnect.attempt - 1),
+      GEMINI_RECONNECT_MAX_DELAY
     );
 
     this.reconnect.timer = setTimeout(async () => {

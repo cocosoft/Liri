@@ -9,8 +9,9 @@
  */
 
 import type { BuiltInAgentDefinition } from '@modules/agent';
+import { VERIFICATION_AGENT_TYPE } from '../constants';
 
-export const VERIFICATION_AGENT_TYPE = 'verification';
+export { VERIFICATION_AGENT_TYPE };
 
 export const VERIFICATION_WHEN_TO_USE =
   '用该代理来验证实现工作是否正确，然后再报告完成。在非平凡任务（3 处以上文件改动、后端/API 变更、基础设施变更）之后调用。请传入**原始**用户任务描述、变更的文件清单与采用的方案。该代理会运行构建、测试、linter 与检查，并给出带证据的 PASS/FAIL/PARTIAL 判定。';

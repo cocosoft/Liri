@@ -60,10 +60,10 @@ import { vfsRelativePath } from '../VfsPath.js';
 const MAX_READ_BYTES = 50 * 1024;
 
 /** 目录枚举默认上限 */
-const DEFAULT_LIST_LIMIT = 200;
+const DEV_DOCS_DEFAULT_LIST_LIMIT = 200;
 
 /** 默认挂载点 scheme（`stat.mount` 回显；装配面按该 scheme 注册） */
-const DEFAULT_MOUNT_SCHEME = 'dev_docs';
+const DEV_DOCS_MOUNT_SCHEME = 'dev_docs';
 
 /** 常见文档扩展名 → MIME（`stat` / `read` 出参用；无共享工具，故此处最小自持） */
 const MIME_BY_EXT: Record<string, string> = {
@@ -108,7 +108,7 @@ export class DevDocsDriver implements IVfsDriver {
   constructor(
     root: string = resolveDocsDir(),
     guard: PathGuard = createPathGuard(),
-    scheme: string = DEFAULT_MOUNT_SCHEME
+    scheme: string = DEV_DOCS_MOUNT_SCHEME
   ) {
     this.root = resolve(root);
     this.guard = guard;
@@ -125,7 +125,7 @@ export class DevDocsDriver implements IVfsDriver {
       throw vfsError('VFS_NOT_DIR', `不是目录: ${vfsRelativePath(vfsPath)}`);
     }
 
-    const limit = opts.limit > 0 ? opts.limit : DEFAULT_LIST_LIMIT;
+    const limit = opts.limit > 0 ? opts.limit : DEV_DOCS_DEFAULT_LIST_LIMIT;
     const entries: VfsEntry[] = [];
     const walk = (dir: string, prefix: string): void => {
       if (entries.length >= limit) return;

@@ -22,8 +22,8 @@ const OPENAI_WS_BASE = 'wss://api.openai.com/v1/realtime';
 /** 语音配置 */
 const DEFAULT_VOICE = 'alloy';
 
-const RECONNECT_BASE_DELAY = 1000;
-const RECONNECT_MAX_DELAY = 10000;
+const OPENAI_RECONNECT_BASE_DELAY = 1000;
+const OPENAI_RECONNECT_MAX_DELAY = 10000;
 
 /** OpenAI Realtime 事件类型 */
 const OA_EVENT = {
@@ -476,8 +476,8 @@ export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
   private scheduleReconnect(): void {
     this.reconnect.attempt++;
     const delay = Math.min(
-      RECONNECT_BASE_DELAY * Math.pow(2, this.reconnect.attempt - 1),
-      RECONNECT_MAX_DELAY
+      OPENAI_RECONNECT_BASE_DELAY * Math.pow(2, this.reconnect.attempt - 1),
+      OPENAI_RECONNECT_MAX_DELAY
     );
 
     this.reconnect.timer = setTimeout(() => {

@@ -58,10 +58,10 @@ import {
 import { formatVfsPath } from '../VfsPath.js';
 
 /** 列表默认上限（`opts.limit <= 0` 时生效；对齐 `DevDocsDriver` 的 200） */
-const DEFAULT_LIST_LIMIT = 200;
+const MCP_RESOURCES_DEFAULT_LIST_LIMIT = 200;
 
 /** 默认挂载点 scheme（`stat.mount` 回显；装配面按该 scheme 注册） */
-const DEFAULT_MOUNT_SCHEME = 'mcp';
+const MCP_RESOURCES_MOUNT_SCHEME = 'mcp';
 
 /** 取客户端的可测 seam（默认 = 真实单例 `mcpConnectionManager.getSdkClient`） */
 type GetSdkClient = (server: string) => Client | undefined;
@@ -127,7 +127,7 @@ export class McpResourcesDriver implements IVfsDriver {
     opts: { recursive: boolean; limit: number }
   ): Promise<VfsEntry[]> {
     const client = this.requireClient(vfsPath);
-    const limit = opts.limit > 0 ? opts.limit : DEFAULT_LIST_LIMIT;
+    const limit = opts.limit > 0 ? opts.limit : MCP_RESOURCES_DEFAULT_LIST_LIMIT;
     const { resources } = await this.listResources(client, vfsPath);
     return resources.slice(0, limit).map((resource) => ({
       name: resource.uri,
@@ -159,7 +159,7 @@ export class McpResourcesDriver implements IVfsDriver {
       size: 0,
       mtime: 0,
       ...(match.mimeType ? { mimeType: match.mimeType } : {}),
-      mount: DEFAULT_MOUNT_SCHEME,
+      mount: MCP_RESOURCES_MOUNT_SCHEME,
       readOnly: true,
     };
   }
@@ -221,7 +221,7 @@ export class McpResourcesDriver implements IVfsDriver {
     // 只读驱动：fail-closed 拒绝（MCP 资源为服务器托管，VFS 侧不可写）
     throw vfsError(
       'VFS_READ_ONLY_MOUNT',
-      `挂载点 ${DEFAULT_MOUNT_SCHEME}:// 为只读，不支持写入`
+      `挂载点 ${MCP_RESOURCES_MOUNT_SCHEME}:// 为只读，不支持写入`
     );
   }
 

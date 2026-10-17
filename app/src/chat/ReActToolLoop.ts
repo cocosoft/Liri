@@ -96,17 +96,25 @@ import { StreamingThinkScrubber } from '@modules/streaming';
 import { stripBareExploration } from './services/bareExplorationStripper';
 import { extractTodoData } from './services/ChatHelper';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types';
-import type {
-  QuestionData,
-  QuestionOption,
-} from '@modules/runtime/api/CoreAPI.js';
+import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
 import {
   shouldAsk as decisionGateCheck,
   isGateCancelled,
   type GateTier,
   type PendingOption,
 } from './services/DecisionGate';
-import { SUSPENSION_SETTLED_STATUS_TYPE } from './services/pendingSuspensions';
+// U-22/S1（2026-10-17）：提问/等待/结算链路外移（行为等价搬迁）
+import {
+  awaitAnswersWithHeartbeat,
+  emitSuspensionSettled,
+  registerInteraction,
+  type AgentInteractionDeps,
+} from './agentInteraction';
+// U-22/S1（2026-10-17）：终止输出/目标原因码外移（行为等价搬迁）
+import {
+  mapTerminationToGoalReason,
+  resolveTerminationOutput,
+} from './terminationOutput';
 import { handleError } from '@modules/error';
 import {
   loadNegotiationState,
@@ -145,9 +153,6 @@ const TRUNCATED_RESPONSE_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.truncated;
 const PLANNING_ONLY_RE =
   /(?:以下(?:是)?(?:我(?:的)?)?(?:执行)?计划|我的计划(?:如下|是)|\bplan(?:\s*:|\s+is|\s+to)\b|步骤\s*[:：]|接下来(?:我)?(?:将|会))/i;
 
-/** 延时工具（v3：交互心跳轮询用；文件此前无定义，直接使用会编译报错） */
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
 /**
  * 一期 F1-2（2026-09-23 修复计划）："provider 未报结束原因"的统一哨兵值。
  *
@@ -156,15 +161,6 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
  * ——后者会把"未知"谎报为"正常结束"（与 AB-3 既有修复方向一致）。
  */
 const UNKNOWN_FINISH_REASON = 'unknown';
-
-/**
- * 一期 F1-1（2026-09-23 修复计划）："未返回任何可见信息即终止"的兜底文案。
- *
- * 系统生成的**事实性提示**（非模型产出，CS04）：只陈述"本轮无可见回复"这一事实，
- * 不臆断具体成因（输出被截断 / 空回复重试耗尽 / 压缩失败均可能），并给出可操作建议。
- */
-const EMPTY_OUTPUT_FALLBACK_TEXT =
-  '\n\n⚠️ 本次未能生成回复（模型本轮未产出可见内容，可能因输出被截断或空回复重试已达上限）。请重发消息或换个问法重试。';
 
 /** P2-3（2026-09-02）：工具调用参数归一化——键排序 + 字符串化（截断防超长 key） */
 function _toolCallArgsKey(args: Record<string, unknown>): string {
@@ -2226,269 +2222,35 @@ export class ReActToolLoop extends ReActLoop<
    */
   async flushTerminalSettlement(): Promise<void> {
     await (this._terminalSettle ?? Promise.resolve());
-  }
-
-  /**
-   * 二期 N2（2026-09-23 修复计划 §六）：终止原因 ⇒ 目标层原因码（`null` = 正常完成，无需落目标）。
-   *
-   * 映射原则：**语义等价才共用原因码**。`loop_detected` 表示"真·无进展"（推进
-   * `no_progress_streak`）；其余四类在语义上都不是"无进展" ⇒ 走"只记录"路径。
-   * `compaction_stalled` 不在此表 —— 它由 `onIncompleteTurn` 直接落（压缩停滞的判点在那里）。
+  } /**
+   * 终止原因 ⇒ 目标层原因码（U-22/S1 外移；实现在 `./terminationOutput`）。
    */
   private mapTerminationToGoalReason(
     reason: TerminationReason
   ): GoalTurnReason | null {
-    switch (reason) {
-      case 'loop_detected':
-        return 'turn_error';
-      case 'max_turns':
-        return 'turn_limit';
-      case 'timeout':
-        return 'turn_timeout';
-      case 'budget_exhausted':
-        return 'turn_budget_exhausted';
-      case 'error':
-        return 'turn_interrupted';
-      // 二期 O2-1（2026-09-24）：**真·无进展**（轮签名重复熔断 / 连续全失败电路熔断）
-      // ⇒ 与 `loop_detected` 同语义，**推进** `no_progress_streak`。此前它们折叠进 `error`
-      // ⇒ 映射成 `turn_interrupted`（只记录、不计数），使"最该计数的无进展"失效（G1）。
-      case 'no_progress':
-      case 'circuit_breaker':
-        return 'turn_error';
-      // 二期 O2-1：其余细分成员都不是"无进展" ⇒ 只记录（见 N2 语义边界）
-      case 'reasoning_error':
-      case 'exploration_fatigue':
-      case 'internal_error':
-        return 'turn_interrupted';
-      case 'aborted':
-        return 'user_aborted';
-      // 二期 O2-1：系统中止 ≠ 用户主动放弃 ⇒ 独立原因码（只记录）
-      case 'system_aborted':
-        return 'system_aborted';
-      // 三期 F3-2：压缩停滞**已由 `onIncompleteTurn` 直接落** `compaction_stalled`
-      //（判点在压缩停滞处）⇒ 此处返回 null，避免同一次终止落两次目标状态。
-      case 'compaction_failed':
-        return null;
-      // 正常完成 / 其余子类专属 stop reason：不落目标
-      case 'completed':
-      case 'verifier_escalate':
-      case 'diminishing_returns':
-        return null;
-      default: {
-        // 穷尽断言：新增 TerminationReason 成员而未在此映射 ⇒ 编译失败
-        const exhaustive: never = reason;
-        throw new Error(
-          `reactToolLoop:unhandled goal turn reason (${String(exhaustive)})`
-        );
-      }
-    }
-  }
-
-  /**
-   * 二期 F2-1（2026-09-23 修复计划 §六）：终止输出**单一来源**，且判别**接线既有判别器**。
-   *
-   * 一期只做到"文案单点"（仍在本方法内自行重写判别条件）；二期改为：
-   *   1. 原因一律取自 `getTerminationReason()`（`ReActLoop.ts` —— TAORLoop / SubAgentEngine /
-   *      LongRunningTaskOrchestrator 三处生产路径已验证）⇒ 消除"同一事实两套判据"；
-   *   2. 文案由 `switch (reason)` **穷尽映射**，`default` 用 `never` 断言 ⇒ **新增
-   *      `TerminationReason` 成员而不补文案会编译失败**（对标事件类型三处同步的编译期约束）。
-   *
-   * 返回的 `reason` 供 `finalize()` 判定"是否需落 Goal"（副作用与判据同源）。
+    return mapTerminationToGoalReason(reason);
+  } /**
+   * 终止输出（U-22/S1 外移；实现在 `./terminationOutput`，行为等价搬迁）。
    */
-  private resolveTerminationOutput(): {
-    suffix: string;
-    finishReason?: string;
-    reason: TerminationReason;
-    /**
-     * 一期 O1-1（2026-09-24）：与主原因**同时命中**的其它终止原因（并列上报）。
-     *
-     * 唯一来源：判别器把 `max_turns` 排在 `loop_detected` **之前** ⇒ 长任务"既循环又到
-     * 轮次上限"时，循环信号此前只出现在**文案/日志**里，`metadata.finishReason` 仍是
-     * `max_turns` ⇒ 按 metadata 消费的下游（统计/前端归因/审计）看不到循环（问题清单 G2）。
-     * 本字段**不改判别器优先级语义**，只把已被识别的事实结构化（与 F2-5 文案并列同源）。
-     */
-    concurrentReasons?: TerminationReason[];
-  } {
-    const reason = this.getTerminationReason();
-    let suffix = '';
-    let finishReason: string | undefined;
-    let concurrentReasons: TerminationReason[] | undefined;
-
-    switch (reason) {
-      // 6. maxTurns 提示文案：达 maxIterations 时附加。
-      // 对标 hermes（2026-09-01）：有 onMaxIterations 生成的总结则输出"已自动总结当前进度"，
-      // 无总结（请求失败/超时）回退为默认提示（CS03）。
-      // B1（2026-09-01）：不依赖 phase==='completed'——达上限后 phase 可能非 completed，
-      // 原条件导致提示被吞（实测达上限后最终消息仅 30 字符，用户无感知任务中断）。
-      case 'max_turns': {
-        // 判别器把 `phase === 'truncated'`（输出长度截断）也归为 max_turns，但"轮次上限
-        // 总结"只在真正达 maxIterations 时才有 ⇒ 文案以其为准（截断场景走下方统一兜底）。
-        if (this.state.iteration >= this.config.maxIterations) {
-          finishReason = 'max_turns';
-          // 跨 run 预算（spec §3.5 最小变体）：本段额度**就是**任务级 grant（可再至硬顶）
-          // ⇒ 文案直接展示该值（单段运行与修复前逐字一致，既有用例不受影响）。
-          suffix = this.loopState.maxIterationsSummary
-            ? `\n\n⚠️ 已达到最大工具轮次限制 (${this.config.maxIterations})，已自动总结当前进度：\n${this.loopState.maxIterationsSummary}`
-            : `\n\n⚠️ 已达到最大工具轮次限制 (${this.config.maxIterations})，工具链提前终止。`;
-          // G3（2026-09-25，`.trae/specs/long-task-routing.md`）：**长任务**触顶时给出
-          // **可执行**的编排建议。载体选择（与 spec D2 的偏离，如实记录）：走**用户可见的
-          // 收尾提示**而非模型可见的 steering —— ① 既有 `goal/injected` 载荷要求
-          // `goalId` + 闭集 `templateKind`，非目标任务无法复用；② 新增事件类型与 spec N5 冲突；
-          // ③ 该提示随最终助手消息落盘 ⇒ 无需新增模型可见输入（§1.6 红线面为零）。
-          // 命令名事实来源：`/goal start`（command-registry 的 `goal` 命令，与
-          // `POST /v1/pdca/start` 同链）；`OnboardHints.PDCA_EXPLICIT_ENTRY` 与本文案
-          // 由用例断言保持一致（防第二处漂移）。
-          if (this._isLongTaskSignal()) {
-            suffix +=
-              '\n\n💡 该任务仍需多步推进？可改用编排分步执行：`/goal start <描述>`' +
-              '（也可在新消息里说明"请分步做并自检"，我会自动升级为 PDCA）。';
-          }
-        }
-        // 二期 F2-5（治 N3，2026-09-23）：判别器顺序使 `max_turns` **先于** `loop_detected`，
-        // 两者同时命中时（长任务里"既循环又到轮次上限"很常见）循环检测信息会被**整个吞掉**
-        // （既无提示也无 metadata）⇒ 此处**并列上报**（不改变既有优先级的排序语义）。
-        // 留痕（logger）在 settleTerminalState() 内，保证每轮只记一次（投影可重入）。
-        if (this.loopState.loopDetected) {
-          const ld = this.loopState.loopDetected;
-          suffix += `\n\n（同时检测到工具调用循环 [${ld.detector}] ${ld.message}）`;
-          // 一期 O1-1：与文案并列上报到**结构化字段**（此前只进文案，metadata 丢失该事实）。
-          concurrentReasons = ['loop_detected'];
-        }
-        break;
-      }
-      // 4. 循环检测提示
-      case 'loop_detected':
-        finishReason = 'loop_detected';
-        suffix = `\n\n⚠️ 检测到工具调用循环 [${this.loopState.loopDetected?.detector ?? 'unknown'}] ${this.loopState.loopDetected?.message ?? ''}，任务提前终止。`;
-        break;
-      // L1（2026-09-06）：骨架 budget_exhausted phase（流式预算耗尽）附加原因提示——
-      // 对齐 A3 截断/循环提示风格，避免用户看到"无正文直接中断"的困惑。
-      //
-      // 2026-10-16（台账 `BUDGET-EXHAUSTED-TERMINATION-COPY`）：**按事实区分三态**（此前两种
-      // 语义完全不同的耗尽共用一句「已达到本轮 token 预算上限，工具链提前终止」，实测用户据此
-      // 反复追问"为什么还会提前终止"）：
-      //   · `loop`  = **上下文窗口**预算（`createStreamBudget`，`spent ≥ 92% × 窗口`）：不可放行续跑
-      //     ⇒ 文案点明"窗口"并给**可执行出路**（发新消息 / 换大窗口模型）；
-      //   · `daily` + **已挂起**：如实告诉用户"进度已保存 + 放行后自动续跑"（**不再说"提前终止"**）
-      //     —— 否则与已实现的挂起续跑机制自相矛盾；
-      //   · `daily` + 未挂起（开关关 / 无检查点）：给"放行后重发本条消息"的出路。
-      // 兜底（无事实记录）保留原句，保证其它入口零回归。
-      case 'budget_exhausted': {
-        finishReason = 'budget_exhausted';
-        const b = this._lastBudgetExhausted;
-        if (b?.kind === 'daily' && b.suspended) {
-          suffix =
-            `\n\n⏸ 今日预算已用完 —— **本轮进度已保存**：在「用量中心 → 日限额」放行` +
-            `（临时提额 / 今日解除）后，本会话会**自动从这里续跑**，无需重发消息。`;
-        } else if (b?.kind === 'daily') {
-          suffix =
-            `\n\n⚠️ 今日预算已用完，本轮提前收尾（本次未能保存续跑点）。` +
-            `请在「用量中心 → 日限额」放行（临时提额 / 今日解除）后**重发本条消息**继续。`;
-        } else if (b?.kind === 'loop') {
-          suffix =
-            `\n\n⚠️ 本轮上下文已接近模型窗口上限，为避免超出窗口，工具链提前收尾。` +
-            `**发送新消息即可继续**（新一轮会重新计算上下文占用）；` +
-            `若经常撞线，建议改用上下文窗口更大的模型。`;
-        } else {
-          suffix = `\n\n⚠️ 已达到本轮 token 预算上限，工具链提前终止。`;
-        }
-        break;
-      }
-      // P4（2026-09-01）：error 终止时附加 lastError——no_progress 熔断/电路熔断的
-      // 降级提示此前只 yield 了 error 事件、finalize 未附加（assistantMessage 空正文时
-      // 用户看不到任何原因，实测熔断后仅 24 字符）。此处统一附加。
-      // P8（2026-09-01）：不再加 ⚠️ 前缀——降级/部分完成是正常收尾（需用户提供信息的
-      // 协作请求），前端对 ⚠️ 开头的消息有警告样式，用户误以为系统异常。
-      case 'error':
-      // 二期 O2-1（2026-09-24）：`error` 细分后的 5 类**共用"透传 lastError"的正文策略**
-      // ——各产出点写入的 lastError 本身已是该场景的可操作文案（P1/P8/P12 已调优，不动文案）；
-      // 但 `finishReason` **各自如实落 metadata** ⇒ 下游（统计/前端归因/审计/目标层）可据
-      // metadata 区分"无进展熔断 / 探索疲劳 / 电路熔断 / 推理错误 / 内部异常"，不再只有 error。
-      case 'reasoning_error':
-      case 'no_progress':
-      case 'exploration_fatigue':
-      case 'circuit_breaker':
-      case 'internal_error':
-        finishReason = reason;
-        // ⚠️ **新增 `error` 类相位必须同批写入 `state.lastError`**（台账 S15 约束，2026-10-08 取证）：
-        // 本条正文**即由该字段透传**；若为空 ⇒ 助手消息正文为空 ⇒ 被 `ChatManager._addAndPersistMessage`
-        // 的"空正文护栏"拒持久化（`ChatManager.ts:1600-1621`）⇒ 该轮**在会话历史中消失**（用户只看到流式提示语）。
-        // 现状：5 个产出点均写可操作文案，且 `tests/chat/reactToolLoop-termination-o2.test.ts` 逐相位断言正文含之。
-        suffix = this.state.lastError ? `\n\n${this.state.lastError}` : '';
-        break;
-      // 二期 O2-1：系统中止 ⇒ 明确"这不是你点的停止"（此前文案是"已按你的请求停止"）
-      case 'system_aborted':
-        finishReason = 'system_aborted';
-        suffix = `\n\n⏹ 本轮生成已中止（连接中断或会话被关闭）。如需继续，请重新发送消息。`;
-        break;
-      // 一期 F1-3（2026-09-23）：用户主动停止——此前无对应分支，若此时尚无正文
-      // ⇒ 落盘空消息（用户点"停止"却拿到一片空白）。
-      case 'aborted':
-        suffix = `\n\n⏹ 已按你的请求停止本轮生成。`;
-        break;
-      // 二期 F2-2（2026-09-23）：会话级总时长上限——此前该支不置相位，被判别器误判为
-      // 'completed' ⇒ 用户看到"正常完成"却拿不到任何结论；并如实交代被丢弃的工具调用。
-      case 'timeout': {
-        const dropped = this.droppedToolCallsAtStop;
-        suffix =
-          `\n\n⚠️ 本轮已达会话总时长上限（${Math.round(ReActToolLoop.MAX_TOTAL_DURATION_MS / 60000)} 分钟），已停止继续执行。` +
-          (dropped > 0
-            ? `另有 ${dropped} 个已生成但未执行的工具调用随之作废。`
-            : '');
-        break;
-      }
-      // 三期 F3-2（2026-09-23）：上下文压缩失败/停滞 ⇒ 明确告知"为何停下"。
-      // 此前该路径只 `return false`，phase 落 `completed` ⇒ 收尾文案与压缩无任何关联
-      //（有正文时连兜底都不给，用户只看到"莫名其妙结束了"）。
-      case 'compaction_failed':
-        suffix = `\n\n⚠️ 上下文压缩未能生效（连续压不动且上下文已吃紧），本轮已停止继续执行。你可以重试、精简上下文，或新开一个会话继续。`;
-        break;
-      // 无专属文案的原因（正常完成 / 其余子类专属 stop reason）：是否兜底取决于正文是否
-      // 为空 —— 见下方统一兜底（一期 F1-1）。
-      case 'completed':
-      case 'verifier_escalate':
-      case 'diminishing_returns':
-        break;
-      default: {
-        // 二期 F2-1：**穷尽断言** —— 新增 TerminationReason 成员而未在此补文案 ⇒ 编译失败
-        const exhaustive: never = reason;
-        throw new Error(
-          `reactToolLoop:unhandled termination reason (${String(exhaustive)})`
-        );
-      }
-    }
-
-    // 一期 F1-1：无提示且正文为空 ⇒ 兜底（"正常结束但零文本"此前是静默空白，即本 BUG 现象）。
-    if (!suffix) {
-      const rawContent = this.loopState.assistantMessage?.content;
-      // 结构化内容（ContentBlock[]）视为"已有内容"——不在此处改写，避免丢块
-      const hasVisibleText = Array.isArray(rawContent)
-        ? true
-        : (typeof rawContent === 'string' ? rawContent : '').trim().length > 0;
-      if (!hasVisibleText) {
-        suffix = EMPTY_OUTPUT_FALLBACK_TEXT;
-        // T-⑥08（2026-10-02 实证）：该兜底触发时**此前不落任何诊断字段** —— 实测会话里
-        // 4 次命中的助手消息 `finishReason` / `tokenUsage` / `startedAt` **全为 null**，
-        // 导致"高频空回复"无法归因（其中 3 次是"只出思考、无正文"）。此处补一条结构化
-        // 诊断日志（**只加日志，不改文案** —— 文案受"流式补发与落库逐字一致"回归守卫）。
-        const blocks = this.loopState.assistantMessage?.blocks ?? [];
-        const blockTypes = Array.from(new Set(blocks.map((b) => b.type)));
-        logger.warn(
-          'reactToolLoop:emptyOutputFallback（本轮无可见回复，已落兜底文案）',
-          {
-            finishReason,
-            reason,
-            concurrentReasons,
-            blockTypes,
-            /** 只产出了思考、没有正文 —— 空回复的一个具体可诊断形态 */
-            reasoningOnly:
-              blockTypes.includes('thinking') && !blockTypes.includes('text'),
-          }
-        );
-      }
-    }
-
-    return { suffix, finishReason, reason, concurrentReasons };
+  private resolveTerminationOutput(): ReturnType<
+    typeof resolveTerminationOutput
+  > {
+    return resolveTerminationOutput({
+      reason: this.getTerminationReason(),
+      iteration: this.state.iteration,
+      maxIterations: this.config.maxIterations,
+      maxIterationsSummary: this.loopState.maxIterationsSummary,
+      isLongTaskSignal: this._isLongTaskSignal(),
+      loopDetected: this.loopState.loopDetected,
+      lastBudgetExhausted: this._lastBudgetExhausted,
+      lastError: this.state.lastError,
+      droppedToolCallsAtStop: this.droppedToolCallsAtStop,
+      maxTotalDurationMs: ReActToolLoop.MAX_TOTAL_DURATION_MS,
+      assistantMessageContent: this.loopState.assistantMessage?.content as
+        | string
+        | Array<{ type: string }>
+        | undefined,
+    });
   }
 
   // ─── 私有辅助 ───────────────────────────────────────
@@ -2548,164 +2310,51 @@ export class ReActToolLoop extends ReActLoop<
    */
   protected override getCurrentMessageId(): string | undefined {
     return this.streamingLlm.currentMessageId();
-  }
-
-  /**
-   * 注册 pendingInteraction，返回 questionData + 等待 promise（v3：不挂起调用方，
-   * 由 act 内迭代消费 _awaitAnswersWithHeartbeat 产出心跳并等待答案）。
+  } /**
+   * 注册 pendingInteraction（U-22/S1 外移；实现在 `./agentInteraction`）。
    */
   private _registerInteraction(tc: ToolCallEntry): {
     questionData: QuestionData;
     promise: Promise<string[]>;
   } {
-    const questionId = `q_${Date.now()}_${(tc.id || '').slice(0, 8)}`;
-    const args = tc.input as Record<string, unknown>;
-    const questionData: QuestionData = {
-      questionId,
-      question: String(args.question),
-      header: String(args.header),
-      options: (args.options as QuestionOption[]) ?? [],
-      multiSelect: args.multiSelect === true,
-      questionType:
-        (args.questionType as QuestionData['questionType']) ?? 'choice',
-    };
-    let resolve!: (answers: string[]) => void;
-    const promise = new Promise<string[]>((res) => (resolve = res));
-    this.ctx.pendingInteractions.set(this.ctx.session.id, {
-      questionId,
-      promise,
-      resolve,
-    });
-    logger.info('reactToolLoop:interaction_registered', {
-      sessionId: this.ctx.session.id,
-      questionId,
-      question: String(args.question).slice(0, 100),
-      optionCount: (args.options as QuestionOption[])?.length ?? 0,
-      multiSelect: args.multiSelect === true,
-    });
-    return { questionData, promise };
+    return registerInteraction(
+      tc.id ?? '',
+      tc.input as Record<string, unknown>,
+      this.interactionDeps()
+    );
   }
 
-  /**
-   * 等待答案：Promise.race 轮询产出心跳事件 + abort/超时兜底。
+  /** U-22/S1：交互链路依赖（每次调用重建，全部为轻量引用） */
+  private interactionDeps(): AgentInteractionDeps {
+    return {
+      sessionId: this.ctx.session.id,
+      pendingInteractions: this.ctx.pendingInteractions,
+      abortSignal: this.ctx.abortSignal,
+      heartbeatMs: this.heartbeatMs,
+      maxWaitMs: this.maxWaitMs,
+      appendStreamEvent: this.ctx.appendStreamEvent,
+    };
+  } /**
+   * 等待答案（U-22/S1 外移；实现在 `./agentInteraction`）。
    * ★ async generator，必须迭代消费（act 内 while 转发 yield），禁止直接 await。
    */
   private async *_awaitAnswersWithHeartbeat(
     questionId: string,
     promise: Promise<string[]>
   ): AsyncGenerator<ReActEvent, string[] | undefined> {
-    const sig = this.ctx.abortSignal;
-    const onAbort = () => abortResolve('abort');
-    let abortResolve!: (v: 'abort') => void;
-    const abortPromise = new Promise<'abort'>((res) => {
-      abortResolve = res;
-      // v3：sig undefined 时禁用 abort 兜底（超时兜底仍生效），不再静默挂起
-      if (!sig) return;
-      if (sig.aborted) {
-        res('abort');
-        return;
-      }
-      sig.addEventListener('abort', onAbort, { once: true });
-    });
-    const timeoutPromise = new Promise<'timeout'>((res) =>
-      setTimeout(res, this.maxWaitMs, 'timeout' as const)
+    return yield* awaitAnswersWithHeartbeat(
+      questionId,
+      promise,
+      this.interactionDeps()
     );
-    try {
-      const waitStart = Date.now();
-      logger.info('reactToolLoop:interaction_wait_start', {
-        sessionId: this.ctx.session.id,
-        questionId,
-        heartbeatMs: this.heartbeatMs,
-        maxWaitMs: this.maxWaitMs,
-      });
-      while (true) {
-        const winner = await Promise.race([
-          promise.then((a) => ({ kind: 'answer' as const, value: a })),
-          sleep(this.heartbeatMs).then(() => ({
-            kind: 'hb' as const,
-          })),
-          abortPromise.then((v) => ({ kind: v as 'abort' })),
-          timeoutPromise.then((v) => ({ kind: v as 'timeout' })),
-        ]);
-        if (winner.kind === 'answer') {
-          logger.info('reactToolLoop:interaction_resolved', {
-            sessionId: this.ctx.session.id,
-            questionId,
-            answerCount: winner.value.length,
-            waitMs: Date.now() - waitStart,
-          });
-          return winner.value;
-        }
-        if (winner.kind === 'abort' || winner.kind === 'timeout') {
-          logger.warn('reactToolLoop:interaction_stopped', {
-            sessionId: this.ctx.session.id,
-            questionId,
-            reason: winner.kind,
-            waitMs: Date.now() - waitStart,
-          });
-          const content =
-            winner.kind === 'timeout'
-              ? '本次提问等待已超时（未获回答），已按 fail-closed 结算。'
-              : '本次提问等待被中止，已按 fail-closed 结算。';
-          // A1 T4：落盘结算标记事件（持久化 + 幂等，重载后回放可见）
-          await this._emitSuspensionSettled(questionId, content);
-          // A1 T5：同一结算**实时**下发 status chunk（前端即时可见，无需重载会话）
-          yield { type: 'suspension_settled', content };
-          return undefined;
-        }
-        // 心跳事件（高频：仅 debug，避免刷屏；配合 wait_start/resolved 可还原完整等待曲线）
-        logger.debug('reactToolLoop:interaction_heartbeat', {
-          sessionId: this.ctx.session.id,
-          questionId,
-          waitMs: Date.now() - waitStart,
-        });
-        yield { type: 'question_waiting' }; // 心跳事件
-      }
-    } finally {
-      // v3：显式移除 abort 监听器，避免跨轮多次提问累积
-      if (sig) sig.removeEventListener('abort', onAbort);
-      // A1 T4（2026-10-05）：等待结束即**结算** —— 移除 entry（超时/中止后晚到回答走
-      // `answeredAfterExpiry` 兜底落盘，不复活已完成的任务）。
-      // ⚠️ 原 `_interactionTimedOut` 判据**从未被置 true**（死分支），声称的"timeout 保留 entry
-      // 宽限"从未生效；已删除该字段，行为即"结算即移除"（与 T4 语义一致，无行为变化）。
-      this.ctx.pendingInteractions.delete(this.ctx.session.id);
-    }
-  }
-
-  /**
-   * A1 T4（2026-10-05）：落盘**挂起结算标记**事件（`assistant/status` / `suspension_settled`）。
-   *
-   * 用途：① 持久化（重载/回放可见）；② 挂起清单投影据此把该问视为**已解析**（幂等）。
-   * 实时下发由调用方另 yield `suspension_settled` 事件承担（T5）。
-   * 复用 `_emitValidationInjected` 同款原始事件追加路径（`seq:0` 由 append 原子分配）；
-   * 观测面能力缺失（单测替身）⇒ 如实不落（不伪造）；落盘失败经 `handleError()` 上报，不抛。
+  } /**
+   * 落盘挂起结算标记（U-22/S1 外移；实现在 `./agentInteraction`）。
    */
   private async _emitSuspensionSettled(
     questionId: string,
     content: string
   ): Promise<void> {
-    const { appendStreamEvent } = this.ctx;
-    if (!appendStreamEvent) return;
-    const event: LiriEvent<'assistant/status'> = {
-      type: 'assistant/status',
-      schemaVersion: 1,
-      seq: 0,
-      time: Date.now(),
-      sessionId: this.ctx.session.id,
-      data: {
-        content,
-        statusType: SUSPENSION_SETTLED_STATUS_TYPE,
-        questionId,
-      },
-    };
-    try {
-      await appendStreamEvent(this.ctx.session.id, event);
-    } catch (err) {
-      await handleError(err, {
-        module: 'chat:reactToolLoop',
-        action: 'emitSuspensionSettled',
-      });
-    }
+    return emitSuspensionSettled(questionId, content, this.interactionDeps());
   }
 
   /** 供调用点读取最终消息（A2 runCollect 取 return 值即达）。

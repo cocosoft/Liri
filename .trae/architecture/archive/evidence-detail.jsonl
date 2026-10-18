@@ -6825,3 +6825,27 @@
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#2","i":0,"c":"app/src/chat/services/MessageContextPipeline.ts"}
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"code#3","i":0,"c":"app/src/context/index.ts"}
 {"id":"PATTERN-REACHABLE-RETENTION-PROBE","k":"tests#0","i":0,"c":"app/tests/query/patternAssemblerRecipe.test.ts"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"title","i":0,"c":"U-20 B5-2-100：通道域厂商站点 / 默认 API 基址单一事实源"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"source","i":0,"c":".trae/architecture/hardcode-gate-baseline.json（lint:consts）"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"notes","i":0,"c":"新增 channels/constants.ts（WECOM_VENDOR_SITE_URL / YUANBAO_VENDOR_SITE_URL / YUANBAO_API_BASE_URL），经 channels/index 统一出口；WeComChannel、yuanbao config-schema、YuanbaoChannel、Onboard 引导页改引用常量（7 处字面量 → 3 常量）。门禁 lint:consts 由 85 降至 82，基线同步删除 3 组同值 host。"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#0","i":0,"c":"app/src/channels/constants.ts"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#1","i":0,"c":"app/src/channels/index.ts"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#2","i":0,"c":"app/src/channels/wecom/WeComChannel.ts"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#3","i":0,"c":"app/src/channels/yuanbao/config-schema.ts"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#4","i":0,"c":"app/src/channels/yuanbao/YuanbaoChannel.ts"}
+{"id":"U20-B5-2-100-CHANNEL-URLS","k":"code#5","i":0,"c":"app/src/commands/builtin/onboard/Onboard.ts"}
+{"id":"U17-P2-TAIL-STRUCTURE","k":"title","i":0,"c":"U-17 P2 收尾：尾部结构恢复点（findStructuralResume）与围栏补齐"}
+{"id":"U17-P2-TAIL-STRUCTURE","k":"source","i":0,"c":"dev_docs/20261010/AST语法觉知型上下文回收引擎-设计方案-20261010.md §8.6"}
+{"id":"U17-P2-TAIL-STRUCTURE","k":"notes","i":0,"c":"structureCut 新增 findStructuralResume（跳到行首 → 结构闭合则返回 → 逐行找重新闭合点 → 找不到返回原 from）与 isFenceOpen；SnipEngine.truncateUnicodeSafe 接入：头部若停在围栏内补关闭围栏，尾部按恢复点切。bench-truncation-closure 扩展尾部行首对齐/结构闭合/保留量指标（真实 321 文件语料）。补 8 例测试（6 单元 + 2 集成）。pass^k 直接证据仍缺：evals 无压缩任务且 runner 单轮、最后 user 不被截断 ⇒ 收益口径维持结构闭合代理指标。"}
+{"id":"U17-P2-TAIL-STRUCTURE","k":"code#0","i":0,"c":"app/src/utils/structureCut.ts"}
+{"id":"U17-P2-TAIL-STRUCTURE","k":"code#1","i":0,"c":"app/src/context/compaction/SnipEngine.ts"}
+{"id":"U17-P2-TAIL-STRUCTURE","k":"code#2","i":0,"c":"app/scripts/bench-truncation-closure.ts"}
+{"id":"U17-P2-TAIL-STRUCTURE","k":"tests#0","i":0,"c":"app/tests/utils/structureCut.test.ts"}
+{"id":"U17-P2-TAIL-STRUCTURE","k":"tests#1","i":0,"c":"app/tests/context/snipStructureClosure.test.ts"}
+{"id":"U25-NATIVE-SIDECAR-BENCH","k":"title","i":0,"c":"U-25：liri-native 侧车化延迟实测（P50/P95 + IPC 往返代理）"}
+{"id":"U25-NATIVE-SIDECAR-BENCH","k":"source","i":0,"c":"dev_docs/20261017/liri-native侧车量化评估-20261017.md §3"}
+{"id":"U25-NATIVE-SIDECAR-BENCH","k":"notes","i":0,"c":"新增 scripts/bench-native-sidecar.ts：覆盖 estimateTokens（64KB/256KB/1MB，native vs unified-JS vs chars/4）、closeStructure（64/256KB）、scanJsCalls、analyzeBashCommand、parseBashForSecurity、readFileWithEncoding（1MB vs fs）与 fork IPC 1KB echo 往返。关键发现：原生并非总是更快（token 估算与 UTF-8 读取均慢于 JS/fs），原生价值在能力（编码探测/结构闭合/JS 静态扫描/bash AST）。以 IPC P50 0.071ms 与全部热路径计，维持「不侧车化」。"}
+{"id":"U25-NATIVE-SIDECAR-BENCH","k":"code#0","i":0,"c":"app/scripts/bench-native-sidecar.ts"}
+{"id":"U13-METRICS-RESAMPLE","k":"title","i":0,"c":"U-13：T-13-a 修复后新数据窗口重采（2026-10-18）"}
+{"id":"U13-METRICS-RESAMPLE","k":"source","i":0,"c":"dev_docs/20261017/U-13-编排可观测量化口径与实测-20261017.md §3b"}
+{"id":"U13-METRICS-RESAMPLE","k":"notes","i":0,"c":"命令 measure-orchestration-metrics.ts --split 2026-10-17：247 日志 / 684,177 事件。改进后窗口首次出现非零工具错误（20 条，误调用率 2.04%，powershell 8.33% 为主）；改进前仍为 0（历史不可回填，不作显著性对比）。编排链路事件仍仅 goal/created×1，OrchestrationMetrics 为进程内指标 ⇒ P50/P95 需真实流量，不臆造。"}

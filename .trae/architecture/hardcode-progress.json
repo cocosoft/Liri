@@ -1,16 +1,16 @@
 {
-  "nextKey": "B5-2-100",
-  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "U-22-S1", "U-22-S2", "U-22-S3", "U-22-S4", "U-18-S1", "U-22-AGENTTOOL", "U-22-REACTLOOP-P1", "U-22-REACTLOOP-P2", "U-22-LRTO-S0", "U-22-LRTO-S1", "U-22-LRTO-S2A", "U-22-LRTO-S3", "U-22-LRTO-S4", "U-22-CM-S5", "U-22-LRTO-S2B", "LRO-PDCA-ROOTFIX", "PATTERN-REACHABLE-PROBE", "U-13-P1", "T-13-a", "T-13-b"],
-  "lastCommit": "3c5870af4",
+  "nextKey": "B5-2-101",
+  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "B5-2-100", "U-22-S1", "U-22-S2", "U-22-S3", "U-22-S4", "U-18-S1", "U-22-AGENTTOOL", "U-22-REACTLOOP-P1", "U-22-REACTLOOP-P2", "U-22-LRTO-S0", "U-22-LRTO-S1", "U-22-LRTO-S2A", "U-22-LRTO-S3", "U-22-LRTO-S4", "U-22-CM-S5", "U-22-LRTO-S2B", "LRO-PDCA-ROOTFIX", "PATTERN-REACHABLE-PROBE", "U-13-P1", "T-13-a", "T-13-b"],
+  "lastCommit": "45ac6f3d2",
   "baselineKeys": {
-    "lint:consts": 85,
+    "lint:consts": 82,
     "lint:endpoints": 30,
     "lint:locale": 6
   },
-  "nextAction": "U-22 余：i18n zh/en（6489 / 6727，按顶层 namespace 切文件 + i18nKeyParity 守卫）；ChatManager 余 +2237（_sendMessageDowngradePath / _createStreamPipeline / 查询工具常量）；随后 U-13（新窗口重采）/ U-17（pass^k）/ U-20（B5-2-100+）/ U-25（延迟量化）/ U-30–U-32（文档裁定）；可选增强见未完成任务清单 §8（G5/G8）",
+  "nextAction": "U-22 余：i18n zh/en（6489 / 6727，按顶层 namespace 切文件 + i18nKeyParity 守卫）；ChatManager 余 +2237；U-20 继续 B5-2-101+（provider 站点/示例文案）；U-13 编排 P50/P95 待真实编排流量；U-17 pass^k 需多轮 runner + 小窗口（否则维持结构闭合代理指标）；U-25 已完成（原生侧车量化实测）；U-30–U-32 文档裁定",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
-    "基线键数为门禁实测口径（lint:consts 按组计：同名 17 + 同值 68 = 85；lint:endpoints / locale 按文件键计），非估算",
+    "基线键数为门禁实测口径（lint:consts 按组计：2026-10-18 为同名 17 + 同值 65 = 82；lint:endpoints / locale 按文件键计），非估算",
     "2026-10-17：跨包同义组（MAX_TRACKED/MAX_RECENT、DAILY_BUDGET_SSE_EVENT、DEFAULT_SOUL/DEFAULT_USER 等）保留 —— app 与 client 独立构建，无法共享单一事实源，改名只会制造假差异",
     "2026-10-17：tools/bash/semantics/**（3 文件）全仓零消费者，但 bash 属 CD07 关键域 ⇒ 本轮只登记不删除，待独立变更按 CD05/CD06 处置",
     "2026-10-17：B5-2-97 —— infrastructure/http/handlers/**（31 文件 / 76 处）占位 origin 收敛到 LOCAL_REQUEST_BASE_URL / LOCAL_SERVICE_HOST / LOCAL_HTTP_HOST；新增 DEFAULT_MCP_OAUTH_CALLBACK_PORT（8205，与 DEFAULT_MCP_PROXY_URL 共用）",
@@ -37,6 +37,10 @@
     "2026-10-17：U-22/LRTO S2b —— 5 个宿主私有纯函数 → lro/stepHelpers.ts（前 4 个宿主 re-export 保公开面，打断循环依赖）；executeSingleStep（562）→ lro/stepExecution.ts（StepExecutionDeps 注入）；2383→1746（≤2000 ⇒ 删除 FSZ-015）；新增 3 条收尾分支守卫测试，tests/tasks 416 通过",
     "2026-10-17：长程任务状态机根因修复（LRO-PDCA-STATEMACHINE-ROOTFIX，7b1644eaf）—— createPlan 建 stepIndex（新建计划的 markStep*/review/decide 原为静默 no-op）；失败出口不再落 completed（escalate 保留 replanPending）；abort 同步 phase/plan 终态；在飞 loop 改 Set（并行逐个 abort，dispose 覆盖）；resume 放行启动扫描遗留（status=abort + 非终态 phase + 有快照）并补 replan 分支字段；依赖失败 [DEPENDENCY_BLOCKED]",
     "2026-10-17：外部架构报告复核（PATTERN-REACHABLE-RETENTION-PROBE，9bad1cf39）—— instantiatePattern 补 reachable/featureGate；截断兜底接保留度探针；报告 G7（无目标漂移）/G10（无启动续跑、无压缩探针）经源码复核不成立（符号名漏检）；G3 自动降档、G4/G6/G9 维持既有裁定不重复立项",
+    "2026-10-18：U-13 新数据窗口重采 —— 修复后 979 次调用 / 20 错误 ⇒ 误调用率 2.04%（powershell 8.33% 为主，方向性）；TTFB/TTFT P95 4,128/4,167ms（n≈25）；编排链路 P50/P95 仍无持久化样本（指标为进程内），不臆造",
+    "2026-10-18：U-17 尾部结构收口 —— 新增 findStructuralResume + isFenceOpen 并接入 SnipEngine.truncateUnicodeSafe；尾部结构闭合率 3.7%~7.7% → 11.5%~19.8%（512 字符无恢复点则零变更回退）；pass^k 仍缺（evals 无压缩任务且 runner 单轮），P2 收益口径维持代理指标",
+    "2026-10-18：U-20 B5-2-100 —— 通道域厂商站点/默认 API 基址收敛到 channels/constants.ts（wecom/yuanbao 3 组，7 处 → 3 常量）；lint:consts 85 → 82（基线同步下调）",
+    "2026-10-18：U-25 侧车量化实测 —— 新增 scripts/bench-native-sidecar.ts；原生 estimateTokens 1MB 2.04ms vs unified-JS 0.24ms、readFileWithEncoding 1MB 4.68ms vs fs 0.36ms、IPC 往返 P50 0.071ms ⇒ 维持不侧车化；原生价值在能力而非吞吐",
     "2026-10-17：query/patternAssembly.ts:49（:1977）与 state/engine/stateMachineCatalog.ts:185（:3184）是**行号/定位串**被 FIXED_PORT_RE 误判，非遗留硬编码；constants/common.ts 的 DEFAULT_HOST 为零消费者死常量，按 CD05/CD06 走独立变更"
   ]
 }

@@ -1,7 +1,7 @@
 {
   "$comment": "修复证据登记（生成物）：改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts；stages/flags 判据见 scripts/lint-fix-evidence.ts。",
   "version": 1,
-  "updatedAt": "2026-10-17",
+  "updatedAt": "2026-10-18",
   "stages": [
     "discovered",
     "fixed",
@@ -12034,6 +12034,110 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#PATTERN-REACHABLE-RETENTION-PROBE）",
       "notes": "① PatternInstantiation.ready 分支补 reachable（事实源 PatternSelector#PATTERN_SELECTION_RULES）与 featureGate（patternFeatureFlag + feature）；目录层既有字段不变。② StreamPipeline._…（全文见 archive/evidence-detail.jsonl#PATTERN-REACHABLE-RETENTION-PROBE）"
+    },
+    {
+      "id": "U20-B5-2-100-CHANNEL-URLS",
+      "title": "U-20 B5-2-100：通道域厂商站点 / 默认 API 基址单一事实源",
+      "source": ".trae/architecture/hardcode-gate-baseline.json（lint:consts）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/constants.ts",
+        "app/src/channels/index.ts",
+        "app/src/channels/wecom/WeComChannel.ts",
+        "app/src/channels/yuanbao/config-schema.ts",
+        "app/src/channels/yuanbao/YuanbaoChannel.ts",
+        "app/src/commands/builtin/onboard/Onboard.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U20-B5-2-100-CHANNEL-URLS）",
+      "notes": "新增 channels/constants.ts（WECOM_VENDOR_SITE_URL / YUANBAO_VENDOR_SITE_URL / YUANBAO_API_BASE_URL），经 channels/index 统一出口；WeComChannel、yuanbao config-schema、Yuanb…（全文见 archive/evidence-detail.jsonl#U20-B5-2-100-CHANNEL-URLS）"
+    },
+    {
+      "id": "U17-P2-TAIL-STRUCTURE",
+      "title": "U-17 P2 收尾：尾部结构恢复点（findStructuralResume）与围栏补齐",
+      "source": "dev_docs/20261010/AST语法觉知型上下文回收引擎-设计方案-20261010.md §8.6",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/utils/structureCut.ts",
+        "app/src/context/compaction/SnipEngine.ts",
+        "app/scripts/bench-truncation-closure.ts"
+      ],
+      "tests": [
+        "app/tests/utils/structureCut.test.ts",
+        "app/tests/context/snipStructureClosure.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U17-P2-TAIL-STRUCTURE）",
+      "notes": "structureCut 新增 findStructuralResume（跳到行首 → 结构闭合则返回 → 逐行找重新闭合点 → 找不到返回原 from）与 isFenceOpen；SnipEngine.truncateUnicodeSafe 接入：头部若停在围栏内补关闭围栏，尾部按恢复点切。bench-trunca…（全文见 archive/evidence-detail.jsonl#U17-P2-TAIL-STRUCTURE）"
+    },
+    {
+      "id": "U25-NATIVE-SIDECAR-BENCH",
+      "title": "U-25：liri-native 侧车化延迟实测（P50/P95 + IPC 往返代理）",
+      "source": "dev_docs/20261017/liri-native侧车量化评估-20261017.md §3",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/scripts/bench-native-sidecar.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U25-NATIVE-SIDECAR-BENCH）",
+      "notes": "新增 scripts/bench-native-sidecar.ts：覆盖 estimateTokens（64KB/256KB/1MB，native vs unified-JS vs chars/4）、closeStructure（64/256KB）、scanJsCalls、analyzeBashCommand、pa…（全文见 archive/evidence-detail.jsonl#U25-NATIVE-SIDECAR-BENCH）"
+    },
+    {
+      "id": "U13-METRICS-RESAMPLE",
+      "title": "U-13：T-13-a 修复后新数据窗口重采（2026-10-18）",
+      "source": "dev_docs/20261017/U-13-编排可观测量化口径与实测-20261017.md §3b",
+      "stages": {
+        "discovered": true,
+        "fixed": false,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": false,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U13-METRICS-RESAMPLE）",
+      "notes": "命令 measure-orchestration-metrics.ts --split 2026-10-17：247 日志 / 684,177 事件。改进后窗口首次出现非零工具错误（20 条，误调用率 2.04%，powershell 8.33% 为主）；改进前仍为 0（历史不可回填，不作显著性对比）。编排链路事件仍…（全文见 archive/evidence-detail.jsonl#U13-METRICS-RESAMPLE）"
     }
   ]
 }

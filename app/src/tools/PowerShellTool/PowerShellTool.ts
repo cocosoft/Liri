@@ -241,6 +241,9 @@ export class PowerShellTool extends BaseTool {
 
   override tags = [ToolTag.CODE];
 
+  /** A-4（2026-10-18）：能力声明位 —— 执行任意 PowerShell 命令 */
+  override sandboxLevel = 'execution' as const;
+
   params: ToolParam[] = [
     {
       name: 'command',

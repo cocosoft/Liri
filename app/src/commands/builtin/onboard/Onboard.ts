@@ -30,6 +30,13 @@ import { detectUnifiedProviders } from '@modules/ai';
 import {
   WECOM_VENDOR_SITE_URL,
   YUANBAO_VENDOR_SITE_URL,
+  MATRIX_SITE_URL,
+  DINGTALK_SITE_URL,
+  DISCORD_SITE_URL,
+  FEISHU_SITE_URL,
+  NOSTR_SITE_URL,
+  QQ_SITE_URL,
+  SIGNAL_SITE_URL,
 } from '@modules/channels';
 
 /**
@@ -72,7 +79,7 @@ const CHANNEL_INFO: Record<
 > = {
   qq: {
     name: 'QQ Bot',
-    signupUrl: 'https://q.qq.com/',
+    signupUrl: `${QQ_SITE_URL}/`,
     envVars: [
       { key: 'QQ_APP_ID', label: 'QQ Bot AppID' },
       { key: 'QQ_APP_SECRET', label: 'QQ Bot AppSecret' },
@@ -87,7 +94,7 @@ const CHANNEL_INFO: Record<
   },
   dingtalk: {
     name: '钉钉',
-    signupUrl: 'https://open.dingtalk.com/',
+    signupUrl: `${DINGTALK_SITE_URL}/`,
     envVars: [
       { key: 'DINGTALK_APP_KEY', label: 'App Key' },
       { key: 'DINGTALK_APP_SECRET', label: 'App Secret' },
@@ -96,7 +103,7 @@ const CHANNEL_INFO: Record<
   },
   feishu: {
     name: '飞书',
-    signupUrl: 'https://open.feishu.cn/',
+    signupUrl: `${FEISHU_SITE_URL}/`,
     envVars: [
       { key: 'FEISHU_APP_ID', label: 'App ID' },
       { key: 'FEISHU_APP_SECRET', label: 'App Secret' },
@@ -124,7 +131,7 @@ const CHANNEL_INFO: Record<
   },
   discord: {
     name: 'Discord',
-    signupUrl: 'https://discord.com/developers/applications',
+    signupUrl: `${DISCORD_SITE_URL}/developers/applications`,
     envVars: [{ key: 'DISCORD_TOKEN', label: 'Bot Token' }],
     channelType: 'discord',
   },
@@ -157,7 +164,7 @@ const CHANNEL_INFO: Record<
   },
   nostr: {
     name: 'Nostr',
-    signupUrl: 'https://nostr.com/',
+    signupUrl: `${NOSTR_SITE_URL}/`,
     envVars: [
       { key: 'NOSTR_PRIVATE_KEY', label: 'Private Key (nsec)' },
       { key: 'NOSTR_RELAYS', label: 'Relay URLs (逗号分隔)' },
@@ -232,13 +239,13 @@ const CHANNEL_INFO: Record<
   },
   signal: {
     name: 'Signal',
-    signupUrl: 'https://signal.org/download/',
+    signupUrl: `${SIGNAL_SITE_URL}/download/`,
     envVars: [{ key: 'SIGNAL_ACCOUNT', label: 'Signal Account' }],
     channelType: 'signal',
   },
   matrix: {
     name: 'Matrix',
-    signupUrl: 'https://matrix.org/',
+    signupUrl: `${MATRIX_SITE_URL}/`,
     envVars: [
       { key: 'MATRIX_HOMESERVER_URL', label: 'Homeserver URL' },
       { key: 'MATRIX_ACCESS_TOKEN', label: 'Access Token' },

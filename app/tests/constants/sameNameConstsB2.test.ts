@@ -14,6 +14,15 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import {
+  COMMON_HEARTBEAT_INTERVAL,
+  DEFAULT_MAX_RESULT_SIZE_CHARS,
+  DEFAULT_MAX_TOKENS,
+  DEFAULT_SESSION_TIMEOUT,
+  MAX_CACHE_SIZE_BYTES,
+  MAX_FILENAME_LENGTH,
+} from '@modules/constants';
+
 const APP = resolve(import.meta.dir, '../..');
 const read = (rel: string) => readFileSync(join(APP, rel), 'utf8');
 
@@ -543,9 +552,13 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B5-2④：`MAX_CACHE_SIZE` ×4 已按域消歧（取值/单位一字未改）', () => {
-    // 4 处同名 `MAX_CACHE_SIZE` 单位各异：字节（通用 100 MiB）· 条数（1000 / 10000 / 100）
+    // D-1：通用字节上限改为「defaults 默认值 + LIRI_* env 覆盖」⇒ 值断言
+    expect(MAX_CACHE_SIZE_BYTES).toBe(100 * 1024 * 1024);
+    expect(read('src/constants/defaults.ts')).toContain(
+      "envInt('LIRI_MAX_CACHE_SIZE_BYTES', 100 * 1024 * 1024)"
+    );
+    // 其余 3 处单位各异：条数（1000 / 10000 / 100），仍按源码形态钉住
     const items: Array<[string, string, string]> = [
-      ['src/constants/common.ts', 'MAX_CACHE_SIZE_BYTES', '100 * 1024 * 1024'],
       [
         'src/ink/ink/line-width-cache.ts',
         'LINE_WIDTH_CACHE_MAX_ENTRIES',
@@ -1037,9 +1050,10 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B5-2㉑：`DEFAULT_MAX_RESULT_SIZE_CHARS` 已收敛为单一真源（重复导出面保留）', () => {
-    // 真源：`constants/toolLimits.ts`（唯一保留定义处）
-    expect(read('src/constants/toolLimits.ts')).toContain(
-      'export const DEFAULT_MAX_RESULT_SIZE_CHARS = 50_000;'
+    // 真源：`constants/defaults.ts` 默认值（D-1：env 可覆盖）→ `toolLimits.ts` 具名导出
+    expect(DEFAULT_MAX_RESULT_SIZE_CHARS).toBe(50_000);
+    expect(read('src/constants/defaults.ts')).toContain(
+      "envInt('LIRI_TOOL_MAX_RESULT_CHARS', 50_000)"
     );
     // `context/budget`：删本地私有副本 ⇒ 改引用真源
     const budget = read('src/context/budget/ToolResultBudget.ts');
@@ -1413,11 +1427,13 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(otel).not.toMatch(/(^|[^_A-Za-z])const HEARTBEAT_INTERVAL\s*=/);
     expect(otel).toContain('const OTEL_HEARTBEAT_INTERVAL = 4 * 60 * 1000;');
     expect(otel).toContain('}, OTEL_HEARTBEAT_INTERVAL);');
+    // D-1：通用心跳改为「defaults 默认值 + LIRI_* env 覆盖」⇒ 值断言
+    expect(COMMON_HEARTBEAT_INTERVAL).toBe(30 * 1000);
+    expect(read('src/constants/defaults.ts')).toContain(
+      "envInt('LIRI_HEARTBEAT_INTERVAL_MS', 30 * 1000)"
+    );
     const common = read('src/constants/common.ts');
     expect(common).not.toMatch(/(^|[^_A-Za-z])const HEARTBEAT_INTERVAL\s*=/);
-    expect(common).toContain(
-      'export const COMMON_HEARTBEAT_INTERVAL = 30 * 1000;'
-    );
   });
 
   test('B5-2㊱：`IMAGE_EXTENSIONS` ×3 已按域消歧（异值异域，取值一字未改）', () => {
@@ -1748,8 +1764,11 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B5-2-58：`DEFAULT_SESSION_TIMEOUT` ×2 已按域消歧（通用 30min 真源保留 / voice 10min 改名，取值一字未改）', () => {
-    expect(read('src/constants/common.ts')).toContain(
-      'export const DEFAULT_SESSION_TIMEOUT = 30 * 60 * 1000;'
+    // D-1（2026-10-18）：B 类改为「defaults.ts 默认值 + LIRI_* env 覆盖」，
+    // 断言从「源码字面量」升级为「运行值 + 默认值登记」——取值仍一字未改。
+    expect(DEFAULT_SESSION_TIMEOUT).toBe(30 * 60 * 1000);
+    expect(read('src/constants/defaults.ts')).toContain(
+      "envInt('LIRI_SESSION_TIMEOUT_MS', 30 * 60 * 1000)"
     );
     const voice = read('src/voice/VoiceSession.ts');
     expect(voice).not.toMatch(
@@ -1760,8 +1779,10 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B5-2-59：`MAX_FILENAME_LENGTH` ×2 已按域消歧（app 文件系统 255 真源保留 / client 导出名 120 改名，取值一字未改）', () => {
-    expect(read('src/constants/common.ts')).toContain(
-      'export const MAX_FILENAME_LENGTH = 255;'
+    // D-1：取值断言 + defaults 默认值登记（同 B5-2-58 口径）
+    expect(MAX_FILENAME_LENGTH).toBe(255);
+    expect(read('src/constants/defaults.ts')).toContain(
+      "envInt('LIRI_MAX_FILENAME_LENGTH', 255)"
     );
     const client = read('../client/src/utils/exportMessage.ts');
     expect(client).not.toMatch(/(^|[^_A-Za-z])const MAX_FILENAME_LENGTH\s*=/);
@@ -1783,8 +1804,10 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B5-2-61：`DEFAULT_MAX_TOKENS` ×2 已按域消歧（通用 4096 真源保留 / evals 红队 16384 改名，取值一字未改）', () => {
-    expect(read('src/constants/common.ts')).toContain(
-      'export const DEFAULT_MAX_TOKENS = 4096;'
+    // D-1：取值断言 + defaults 默认值登记（同 B5-2-58 口径）
+    expect(DEFAULT_MAX_TOKENS).toBe(4096);
+    expect(read('src/constants/defaults.ts')).toContain(
+      "envInt('LIRI_DEFAULT_MAX_TOKENS', 4096)"
     );
     const evals = read('src/evals/adversarialProposer.ts');
     expect(evals).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_MAX_TOKENS\s*=/);

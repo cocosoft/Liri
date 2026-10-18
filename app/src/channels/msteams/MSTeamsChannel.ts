@@ -18,9 +18,13 @@ import { TTLCache } from '@modules/utils/cache';
 import { Logger, LogLevel } from '@modules/monitoring';
 import path from 'path';
 import { resolveDataDir } from '@modules/core';
+import {
+  MICROSOFT_LOGIN_BASE_URL,
+  MSTEAMS_BOT_FRAMEWORK_BASE_URL,
+} from '../constants';
 
-const MICROSOFT_LOGIN_BASE = 'https://login.microsoftonline.com';
-const BOT_FRAMEWORK_BASE = 'https://smba.trafficmanager.net/amer';
+const MICROSOFT_LOGIN_BASE = MICROSOFT_LOGIN_BASE_URL;
+const BOT_FRAMEWORK_BASE = MSTEAMS_BOT_FRAMEWORK_BASE_URL;
 const BOT_FRAMEWORK_SCOPE = 'https://api.botframework.com/.default';
 const BOT_FRAMEWORK_OPENID_CONFIG =
   'https://login.botframework.com/v1/.well-known/openidconfiguration';
@@ -252,8 +256,8 @@ class MSTeamsChannelPlugin extends BaseChannelPlugin {
       appId: '',
       appPassword: '',
       webhookPort: 8089,
-      microsoftLoginBase: 'https://login.microsoftonline.com',
-      botFrameworkBase: 'https://smba.trafficmanager.net/amer',
+      microsoftLoginBase: MICROSOFT_LOGIN_BASE_URL,
+      botFrameworkBase: MSTEAMS_BOT_FRAMEWORK_BASE_URL,
     };
   }
 

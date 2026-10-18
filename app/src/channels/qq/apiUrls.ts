@@ -6,6 +6,8 @@
  * 无状态、无依赖 ⇒ 宿主单向 import，无循环。
  */
 
+import { QQ_API_BASE_URL } from '../constants';
+
 /**
  * 解析 target 格式，返回目标类型和真实 ID
  * "c2c:{openid}" → { scope: "c2c", targetId: "{openid}" }
@@ -31,7 +33,7 @@ export function parseTarget(target: string): {
  */
 export function getMessageApiUrl(target: string): string {
   const parsed = parseTarget(target);
-  const base = 'https://api.sgroup.qq.com';
+  const base = QQ_API_BASE_URL;
 
   switch (parsed.scope) {
     case 'c2c':
@@ -48,7 +50,7 @@ export function getMessageApiUrl(target: string): string {
  */
 export function getMediaUploadApiUrl(target: string): string {
   const parsed = parseTarget(target);
-  const base = 'https://api.sgroup.qq.com';
+  const base = QQ_API_BASE_URL;
 
   switch (parsed.scope) {
     case 'c2c':
@@ -67,5 +69,5 @@ export function getMediaUploadApiUrl(target: string): string {
  * `type=11/12` **必须**回应，否则客户端一直 loading。
  */
 export function getInteractionApiUrl(interactionId: string): string {
-  return `https://api.sgroup.qq.com/interactions/${encodeURIComponent(interactionId)}`;
+  return `${QQ_API_BASE_URL}/interactions/${encodeURIComponent(interactionId)}`;
 }

@@ -46,6 +46,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { getLogger } from '@modules/monitoring';
+import { killProcessTree } from '@modules/utils/killProcessTree';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   SIDECAR_JOB_SUBMIT_METHOD,
@@ -89,6 +90,13 @@ export interface ToolSidecarDeps {
    * 到期 ⇒ 该作业 `completion` reject（**绝不永久悬挂**）。
    */
   jobTimeoutMs?: number;
+  /**
+   * U-16 同类面（2026-10-18）：进程树强杀注入（缺省 `killProcessTree`）。
+   *
+   * 侧车会派生孙进程（如语言服务器子进程）⇒ 只 `child.kill()` 会留下孤儿。
+   * 测试注入替身 ⇒ 不真杀进程（与 `DiscoverySidecarSupervisor.killTree` 同形态）。
+   */
+  killTree?: (child: ChildProcess) => void;
 }
 
 interface PendingRequest {
@@ -148,12 +156,21 @@ export class ToolSidecarSupervisor {
     });
     this.child = child;
 
+    // U-16 同类面：就绪失败（超时 / 版本不兼容 / spawn 错误）⇒ **进程树强杀**并解绑，
+    // 避免半启动的侧车及其孙进程悬挂，也避免后续 `start()` 误判"已在运行"。
+    const abortStart = (): void => {
+      this.child = null;
+      this.ready = false;
+      this.killChildTree(child);
+    };
+
     const timeoutMs = this.deps.startupTimeoutMs ?? 10_000;
     const pid = await new Promise<number | undefined>((resolve, reject) => {
       let settled = false;
       const timer = setTimeout(() => {
         if (settled) return;
         settled = true;
+        abortStart();
         reject(new Error('工具侧车就绪超时'));
       }, timeoutMs);
       const rl = readline.createInterface({ input: child.stdout! });
@@ -165,6 +182,7 @@ export class ToolSidecarSupervisor {
           if (!isCompatibleVersion(frame.protocolVersion)) {
             settled = true;
             clearTimeout(timer);
+            abortStart();
             reject(
               new Error(
                 `工具侧车协议版本不兼容：${String(frame.protocolVersion)} vs ${SIDECAR_IPC_PROTOCOL_VERSION}`
@@ -183,6 +201,7 @@ export class ToolSidecarSupervisor {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
+        abortStart();
         reject(err);
       });
     });
@@ -287,7 +306,7 @@ export class ToolSidecarSupervisor {
     return this.jobs.size;
   }
 
-  /** 停止侧车（清理子进程；不再重启） */
+  /** 停止侧车（清理子进程；不再重启）—— U-16 同类面：按**进程树**强杀，避免孙进程孤儿 */
   stop(): void {
     this.stopping = true;
     this.ready = false;
@@ -296,10 +315,15 @@ export class ToolSidecarSupervisor {
     this.rejectAllPending(new Error('工具侧车已停止'));
     this.settleReady(new Error('工具侧车已停止'));
     if (!child) return;
+    this.killChildTree(child);
+  }
+
+  /** 进程树强杀（可注入替身；清理路径不抛错） */
+  private killChildTree(child: ChildProcess): void {
     try {
-      child.kill();
+      (this.deps.killTree ?? killProcessTree)(child);
     } catch {
-      // @ignore-catch — 进程可能已退出
+      // @ignore-catch — 进程树强杀是尽力而为，失败不得打断关停/失败路径
     }
   }
 

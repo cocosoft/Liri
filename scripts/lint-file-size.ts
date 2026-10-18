@@ -9,7 +9,6 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { EOL } from 'node:os';
 
 // ============ 配置 ============
 

@@ -82,6 +82,12 @@ export async function initializeOTelSystem(): Promise<void> {
     orchMetrics.setOTelMetrics(otelMetrics);
     logger.info('OrchestrationMetrics 初始化完成');
 
+    // H-2（2026-10-18）：编排事件持久化（独立指标日志，支撑生产流量窗口离线复算）
+    const { startOrchestrationEventLog } =
+      await import('@modules/monitoring/orchestrationEventLog.js');
+    startOrchestrationEventLog();
+    logger.info('编排事件持久化初始化完成');
+
     logger.info('OTel 桥接组件初始化完成');
 
     // 初始化集中日志配置（LogConfigManager 注册到 Logger）

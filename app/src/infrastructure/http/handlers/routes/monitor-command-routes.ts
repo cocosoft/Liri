@@ -39,6 +39,7 @@ import {
   handleMonitorSessions,
   handleMonitorSummary,
   handleOTelMetrics,
+  handleOrchestrationMetrics,
   handlePathGuardMetrics,
   handlePathGuardMetricsReset,
   handleSessionsSummary,
@@ -286,6 +287,11 @@ export async function dispatchMonitorCommandRoutes(
 
   if (method === 'GET' && url === '/v1/monitor/otel/metrics') {
     await handleOTelMetrics(handlerCtx, req, res);
+    return true;
+  }
+  // U-13/H-2：编排链路 P50/P95（进程内，只读观测面）
+  if (method === 'GET' && url === '/v1/monitor/orchestration') {
+    await handleOrchestrationMetrics(handlerCtx, req, res);
     return true;
   }
   if (method === 'GET' && url === '/v1/infrastructure/status') {

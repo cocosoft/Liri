@@ -30,6 +30,11 @@ import type {
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
+import type {
+  ISnapshotCapable,
+  SnapshotHandle,
+  SnapshotFreezeScope,
+} from '../utils/toolContract/Tool.js';
 
 const logger = getLogger('CouncilEngine');
 
@@ -39,6 +44,8 @@ export interface CouncilConfig {
   maxRounds?: number;
   /** 是否启用辩论 */
   enabled?: boolean;
+  /** 聊天会话 ID（U-14 阶段 1.3：会话级挂起快照的关联键） */
+  ownerSessionId?: string;
 }
 
 /** 提交发言的回调 */
@@ -65,12 +72,82 @@ export type CouncilEventEmitter = (event: CouncilStreamEvent) => void;
 /**
  * Agent Council 引擎
  */
-export class CouncilEngine {
+export class CouncilEngine implements ISnapshotCapable {
+  /** U-14：可挂起能力标记（字面量 true；探测见 `isSnapshotCapable()`） */
+  readonly snapshotCapable = true as const;
+
   private activeSessions: Map<string, CouncilSession> = new Map();
   private emit: CouncilEventEmitter;
 
   constructor(emit: CouncilEventEmitter) {
     this.emit = emit;
+  }
+
+  /**
+   * U-14：冻结 Council 会话（可序列化句柄）。
+   *
+   * 只做**内存态**快照，不改 `activeSessions` 结构与 Council 继承树；
+   * 中心层（预算挂起/续跑）只做不透明搬运。
+   *
+   * **按会话过滤**（阶段 1.3）：传 `scope.sessionId` 时只冻结该会话 —— 挂起中心按会话挂起，
+   * 全量快照在恢复时会覆盖其它仍在运行的会话。缺省保持旧的全量语义。
+   */
+  freezeForSuspend(scope?: SnapshotFreezeScope): SnapshotHandle {
+    const sessionId = scope?.sessionId;
+    const sessions = [...this.activeSessions.values()]
+      // 关联键是**聊天会话**（`ownerSessionId`），不是辩论自身的 UUID
+      .filter((s) => sessionId === undefined || s.ownerSessionId === sessionId)
+      .map((s) => JSON.parse(JSON.stringify(s)) as CouncilSession);
+    return {
+      kind: 'council-engine',
+      version: 2,
+      mode: sessionId === undefined ? 'full' : 'session',
+      ...(sessionId !== undefined ? { sessionId } : {}),
+      capturedAt: Date.now(),
+      sessions,
+    };
+  }
+
+  /**
+   * U-14：从快照恢复活跃会话（不触发 emit / 不写盘，保持只读投影语义）。
+   *
+   * `mode='full'`（缺省，兼容 v1 句柄）⇒ 整体覆盖；`mode='session'` ⇒ **只覆盖该会话**，
+   * 其它会话原样保留（避免把无关会话回滚到旧状态）。
+   */
+  resumeFromSnapshot(handle: SnapshotHandle): void {
+    if (handle.kind !== 'council-engine' || !Array.isArray(handle.sessions)) {
+      throw new Error('invalid council snapshot handle');
+    }
+    const sessions = handle.sessions as CouncilSession[];
+    const scoped = handle.mode === 'session';
+    if (scoped) {
+      const sessionId = handle.sessionId;
+      if (typeof sessionId !== 'string' || sessionId.length === 0) {
+        throw new Error('invalid council snapshot handle');
+      }
+      // 作用域恢复 = 该聊天会话的辩论集合**恰好**回到快照：先清掉快照之后新开的辩论
+      const keep = new Set(
+        sessions
+          .filter((s) => s && s.ownerSessionId === sessionId)
+          .map((s) => s.sessionId)
+      );
+      for (const [id, session] of this.activeSessions) {
+        if (session.ownerSessionId === sessionId && !keep.has(id)) {
+          this.activeSessions.delete(id);
+        }
+      }
+    } else {
+      this.activeSessions.clear();
+    }
+    for (const session of sessions) {
+      if (!session || typeof session.sessionId !== 'string') continue;
+      // 作用域快照只允许恢复被冻结的那个聊天会话（防御句柄内混入其它会话）
+      if (scoped && session.ownerSessionId !== handle.sessionId) continue;
+      this.activeSessions.set(
+        session.sessionId,
+        JSON.parse(JSON.stringify(session)) as CouncilSession
+      );
+    }
   }
 
   /**
@@ -100,6 +177,9 @@ export class CouncilEngine {
 
     const session: CouncilSession = {
       sessionId,
+      ...(config.ownerSessionId !== undefined
+        ? { ownerSessionId: config.ownerSessionId }
+        : {}),
       workspaceId,
       phase: 'convening',
       topic,
@@ -206,6 +286,7 @@ export class CouncilEngine {
           const speakingData: CouncilAgentSpeakingData = {
             agentId: agent.agentId,
             agentName: agent.name,
+            agentRole: agent.agentId,
             round,
             sessionId,
           };
@@ -251,6 +332,7 @@ export class CouncilEngine {
             const deltaData: CouncilAgentDeltaData = {
               agentId: agent.agentId,
               agentName: agent.name,
+              agentRole: agent.agentId,
               content: response.content,
               round,
               isFinal: true,
@@ -300,6 +382,7 @@ export class CouncilEngine {
             const errorDelta: CouncilAgentDeltaData = {
               agentId: agent.agentId,
               agentName: agent.name,
+              agentRole: agent.agentId,
               content: `[${agent.name} 本轮发言失败，已跳过]`,
               round,
               isFinal: true,

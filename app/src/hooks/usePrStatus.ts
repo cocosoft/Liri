@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
+import { GITHUB_API_BASE } from '@modules/constants';
 const logger = getLogger('hooks:usePrStatus');
 
 /**
@@ -102,7 +103,7 @@ export function usePrStatus(repo: string, prNumber: number): UsePrStatusResult {
       }
 
       const response = await fetch(
-        `https://api.github.com/repos/${repo}/pulls/${prNumber}`,
+        `${GITHUB_API_BASE}/repos/${repo}/pulls/${prNumber}`,
         { headers }
       );
 
@@ -113,7 +114,7 @@ export function usePrStatus(repo: string, prNumber: number): UsePrStatusResult {
       const data = await response.json();
 
       const checksResponse = await fetch(
-        `https://api.github.com/repos/${repo}/commits/${data.head.sha}/check-runs`,
+        `${GITHUB_API_BASE}/repos/${repo}/commits/${data.head.sha}/check-runs`,
         { headers }
       );
       const checksData = checksResponse.ok
@@ -121,7 +122,7 @@ export function usePrStatus(repo: string, prNumber: number): UsePrStatusResult {
         : { check_runs: [] };
 
       const reviewsResponse = await fetch(
-        `https://api.github.com/repos/${repo}/pulls/${prNumber}/reviews`,
+        `${GITHUB_API_BASE}/repos/${repo}/pulls/${prNumber}/reviews`,
         { headers }
       );
       const reviewsData = reviewsResponse.ok
@@ -129,7 +130,7 @@ export function usePrStatus(repo: string, prNumber: number): UsePrStatusResult {
         : [];
 
       const combinedStatusResponse = await fetch(
-        `https://api.github.com/repos/${repo}/commits/${data.head.sha}/status`,
+        `${GITHUB_API_BASE}/repos/${repo}/commits/${data.head.sha}/status`,
         { headers }
       );
       const combinedStatusData = combinedStatusResponse.ok

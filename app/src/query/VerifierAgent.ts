@@ -24,6 +24,8 @@ import {
   type SuccessCriteria,
 } from '@modules/core';
 
+import { recordVerifierResult } from './taor/verifierMetrics.js';
+
 const logger = getLogger('query:verifierAgent');
 
 // ─── 类型定义 ──────────────────────────────────────────
@@ -300,6 +302,11 @@ export class VerifierAgent {
   /**
    * 验证最近一轮的工具调用结果
    *
+   * G-3（2026-10-18）：本方法是 **指标采集的唯一收口点** —— 主对话 TAORLoop、
+   * `ReviewGate`、研究编排、`turnQualityReviewer` 的每次验证都在此计时并按
+   * `input.sessionId` / `input.turnCount` 记账（见 `taor/verifierMetrics`）。
+   * 采集只写内存，不参与判定 ⇒ 行为零变化；`enabled=false`（用户显式关闭验证）不记账。
+   *
    * @param input 验证输入（消息历史 + 工具结果）
    * @param signal 中断信号
    * @returns 验证结果
@@ -311,7 +318,22 @@ export class VerifierAgent {
     if (!this.config.enabled) {
       return { passed: true, confidence: 1.0, verdict: 'APPROVE' };
     }
+    const startedAt = Date.now();
+    const result = await this._verifyInner(input, signal);
+    recordVerifierResult({
+      sessionId: input.sessionId,
+      turn: input.turnCount,
+      verdict: result.verdict,
+      durationMs: Date.now() - startedAt,
+      feedback: result.feedback,
+    });
+    return result;
+  }
 
+  private async _verifyInner(
+    input: VerificationInput,
+    signal: AbortSignal
+  ): Promise<VerificationResult> {
     if (this.cycleCount >= this.config.maxCycles) {
       logger.warn('验证循环已达上限，强制升级', {
         sessionId: input.sessionId,

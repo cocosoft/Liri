@@ -23,6 +23,13 @@ export {
   WECOM_VENDOR_SITE_URL,
   YUANBAO_API_BASE_URL,
   YUANBAO_VENDOR_SITE_URL,
+  MATRIX_SITE_URL,
+  DINGTALK_SITE_URL,
+  DISCORD_SITE_URL,
+  FEISHU_SITE_URL,
+  NOSTR_SITE_URL,
+  QQ_SITE_URL,
+  SIGNAL_SITE_URL,
 } from './constants.js';
 export { createIrcChannel, ircChannelPlugin } from './irc/index.js';
 export { createSlackChannel, slackChannelPlugin } from './slack/index.js';

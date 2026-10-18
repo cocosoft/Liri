@@ -37,6 +37,7 @@ import {
   filterEntries,
   groupOf,
   overrideValueOf,
+  primaryReasonOf,
   requiresRiskConfirm,
   summarize,
   withOverride,
@@ -204,5 +205,28 @@ describe("P3 原因穷尽映射", () => {
     for (const r of ALL_REASONS) {
       expect(TOOL_VISIBILITY_REASON_KEYS[r].startsWith("settings.")).toBe(true);
     }
+  });
+});
+
+describe("I-4：单行只显示一个主因（conditional 优先）", () => {
+  it("同时命中未登记类别与 conditional ⇒ 主因取 conditional", () => {
+    const e = entry({
+      name: "kanban",
+      category: "misc",
+      registration: "conditional",
+      visibleByDefault: false,
+      effective: "hidden",
+      reasons: ["unregistered-category", "conditional"],
+    });
+    expect(primaryReasonOf(e)).toBe("conditional");
+  });
+
+  it("无原因（常规可见）⇒ null；强制开启绕过白名单 ⇒ user-on-bypass", () => {
+    expect(primaryReasonOf(entry({ name: "file_read" }))).toBeNull();
+    expect(
+      primaryReasonOf(
+        entry({ name: "pdf", reasons: ["not-in-task-whitelist", "user-on-bypass"] }),
+      ),
+    ).toBe("not-in-task-whitelist");
   });
 });

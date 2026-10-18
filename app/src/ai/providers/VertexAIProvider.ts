@@ -8,6 +8,7 @@
 import { createSign } from 'crypto';
 import { readFileSync, existsSync } from 'fs';
 import { configManager } from '@modules/config';
+import { GOOGLE_API_BASE_URL, GOOGLE_OAUTH2_BASE_URL } from '@modules/core';
 import type {
   ChatMessage,
   ChatResponse,
@@ -31,8 +32,8 @@ import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 const logger = getLogger('ai:vertexAI');
 
 const DEFAULT_REGION = 'us-central1';
-const TOKEN_URI = 'https://oauth2.googleapis.com/token';
-const SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
+const TOKEN_URI = `${GOOGLE_OAUTH2_BASE_URL}/token`;
+const SCOPE = `${GOOGLE_API_BASE_URL}/auth/cloud-platform`;
 const CACHE_MARGIN_MS = 5 * 60 * 1000;
 
 interface ServiceAccountKey {

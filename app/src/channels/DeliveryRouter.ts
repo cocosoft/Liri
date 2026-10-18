@@ -472,14 +472,16 @@ export class DeliveryRouter {
    *
    * 缺省 **true** ⇒ 保留既有"逐级尝试、失败再降级"语义（**零行为变更**，防回归）；
    * 仅当通道**明确声明不支持**时才跳级：
-   * - `interactive` ← `plugin.capabilities.interactive`
-   * - `markdown`    ← `plugin.meta.markdownCapable`
+   * - `interactive` ← `channel.capabilities.interactive`
+   * - `markdown`    ← `channel.meta.markdownCapable`
+   *
+   * B-2（2026-10-18）：只读**顶层投影字段**（`ChannelInterface.capabilities/meta`），
+   * 不再穿透 `plugin.capabilities/meta`（消除第二处需同步维护的位置）。
    */
   private _formatSupport(channel: ChannelInterface): DeliveryFormatSupport {
-    const plugin = channel.plugin;
     return {
-      interactive: plugin?.capabilities?.interactive !== false,
-      markdown: plugin?.meta?.markdownCapable !== false,
+      interactive: channel.capabilities?.interactive !== false,
+      markdown: channel.meta?.markdownCapable !== false,
     };
   }
 

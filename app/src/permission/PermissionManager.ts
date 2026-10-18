@@ -31,6 +31,7 @@ import {
   createPermissionRule,
 } from './types/PermissionRule';
 import { logSecurityAuditEvent, truncateCommand } from '@modules/security';
+import { isShellToolName } from '@modules/utils/toolContract/toolRoles';
 import type { SecurityAuditEvent } from '@modules/security';
 import {
   RuleMatcherPermissionContext,
@@ -626,10 +627,7 @@ export class PermissionManager {
 
     // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）—
     // 黑名单命中 deny；whitelist 模式命中 allow（覆盖工具级 ask 规则，实现"白名单免审批"）
-    if (
-      (toolName === 'bash' || toolName === 'shell' || toolName === 'command') &&
-      typeof input.command === 'string'
-    ) {
+    if (isShellToolName(toolName) && typeof input.command === 'string') {
       const cmdDecision = checkCommandCustomRules(input.command);
       if (cmdDecision) return cmdDecision;
     }
@@ -742,10 +740,7 @@ export class PermissionManager {
     }
 
     // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）— 与 handleDefault 一致
-    if (
-      (toolName === 'bash' || toolName === 'shell' || toolName === 'command') &&
-      typeof input.command === 'string'
-    ) {
+    if (isShellToolName(toolName) && typeof input.command === 'string') {
       const cmdDecision = checkCommandCustomRules(input.command);
       if (cmdDecision) return cmdDecision;
     }

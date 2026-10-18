@@ -13,6 +13,7 @@ import {
 import { OAuthClient, OAuthConfig } from '@modules/oauth';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
+import { OAUTH_AUTH_BASE_URL } from '@modules/constants';
 
 /**
  * Core OAuth提供者
@@ -27,13 +28,13 @@ export class CoreOAuthProvider implements OAuthProvider {
     this.config = {
       authorizeUrl:
         configManager.env('OAUTH_AUTH_URL') ||
-        'https://auth.openliri.com/oauth/authorize',
+        `${OAUTH_AUTH_BASE_URL}/oauth/authorize`,
       tokenUrl:
         configManager.env('OAUTH_TOKEN_URL') ||
-        'https://auth.openliri.com/oauth/token',
+        `${OAUTH_AUTH_BASE_URL}/oauth/token`,
       profileUrl:
         configManager.env('OAUTH_PROFILE_URL') ||
-        'https://auth.openliri.com/oauth/userinfo',
+        `${OAUTH_AUTH_BASE_URL}/oauth/userinfo`,
       clientId: (configManager.env('OAUTH_CLIENT_ID') || '') as string,
       clientSecret: (configManager.env('OAUTH_CLIENT_SECRET') || '') as string,
       redirectUri: (configManager.env('OAUTH_REDIRECT_URI') ||

@@ -113,6 +113,16 @@ interface RuleViolation {
   suggestion: string;
 }
 
+/** `layer-exceptions.json` 条目（bulk / perModule 两类字段的并集，全部可选） */
+interface LayerExceptionRecord {
+  id?: string;
+  ruleId?: string;
+  pattern?: string;
+  expiresAt?: string;
+  sourceModule?: string;
+  targetModule?: string;
+}
+
 // ============ 工具函数 ============
 
 /** 递归收集目录下所有 .ts 文件（排除 node_modules） */
@@ -1105,7 +1115,6 @@ class ArchitectureLinter {
   async checkJsFilesInSrc(): Promise<void> {
     const jsFiles: string[] = [];
     try {
-      const entries = readdirSyncFull(this.srcPath);
       const queue = [this.srcPath];
       while (queue.length > 0) {
         const dir = queue.pop()!;
@@ -2433,7 +2442,10 @@ class ArchitectureLinter {
   // ============ R00 分层合规 ============
 
   private layerExceptions: Set<string> = new Set();
-  private exceptionData: { bulk: any[]; perModule: any[] } = {
+  private exceptionData: {
+    bulk: LayerExceptionRecord[];
+    perModule: LayerExceptionRecord[];
+  } = {
     bulk: [],
     perModule: [],
   };
@@ -2564,7 +2576,10 @@ class ArchitectureLinter {
       return;
     }
     const data = JSON.parse(readFileSync(mappingPath, 'utf-8'));
-    for (const [mod, info] of Object.entries(data.modules) as [string, any][]) {
+    for (const [mod, info] of Object.entries(data.modules) as [
+      string,
+      { layer: string },
+    ][]) {
       this.moduleToLayer.set(mod, info.layer);
     }
     this.allowedDeps = data.allowedDependencies;
@@ -3073,7 +3088,6 @@ class ArchitectureLinter {
     for (const file of this.allFiles) {
       const content = readFileSync(file, 'utf-8');
       const relPath = relative(process.cwd(), file);
-      const lines = content.split('\n');
 
       // 收集本文件 import 的符号名（import { x, y } / import x），
       // 用于排除 "return 外部函数(...)" 的正常实现（非薄转发）
@@ -3233,7 +3247,6 @@ class ArchitectureLinter {
             // 2) return 目标是本文件顶层 export 的符号（公开 API 内部复用，如 semver gt→compare）
             if (localExports.has(retTarget[1])) continue;
             // 3) 其余保留为疑似薄转发
-            const fullLine = lines[lines.length - 1]; // 近似行号
             this.violations.push({
               ruleId: 'R06-006-2',
               severity: 'warning',
@@ -3253,27 +3266,6 @@ class ArchitectureLinter {
   /** R06-010: 检查桶文件超限 */
   async checkBarrelOverflow(): Promise<void> {
     const MAX_BARREL_EXPORTS = 20;
-    const MODULE_ROOTS = [
-      'chat',
-      'core',
-      'ai',
-      'permission',
-      'tools',
-      'channels',
-      'infrastructure',
-      'modules',
-      'services',
-      'query',
-      'session',
-      'memory',
-      'agent',
-      'dream',
-      'bridge',
-      'mcp',
-      'skills',
-      'plugins',
-      'notebook',
-    ];
 
     let barrelCount = 0;
     let overflowCount = 0;

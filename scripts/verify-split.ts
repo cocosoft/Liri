@@ -13,13 +13,7 @@
  *   6. newModuleTests  — 新模块单元测试 ≥ 5 个
  */
 
-import {
-  readFileSync,
-  writeFileSync,
-  existsSync,
-  readdirSync,
-  statSync,
-} from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, relative, dirname } from 'node:path';
 import { execSync } from 'node:child_process';
 
@@ -38,12 +32,6 @@ const BASELINE_PATH = resolve(
 const NEW_MODULES = [
   resolve(ROOT, 'app', 'src', 'chat', 'services', 'ImageContextService.ts'),
   resolve(ROOT, 'app', 'src', 'chat', 'services', 'ChatHelper.ts'),
-];
-
-// 后续迭代中会新增的模块，先预留
-const EXPECTED_NEW_MODULES: string[] = [
-  // 迭代 4: MessageContextPipeline
-  // resolve(ROOT, "app", "src", "chat", "services", "MessageContextPipeline.ts"),
 ];
 
 // ============ 类型 ============

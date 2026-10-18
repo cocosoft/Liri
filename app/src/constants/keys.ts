@@ -1,5 +1,7 @@
 /**
  * 按键名称常量
+ *
+ * @kind-default A
  */
 
 export const KEY_NAMES = {
@@ -70,20 +72,6 @@ export const EDITING_KEYS = [
   'Insert',
   'Delete',
 ] as const;
-
-export const KEY_ALIASES: Record<string, string[]> = {
-  escape: ['Escape', 'Esc'],
-  return: ['Enter', 'Return'],
-  up: ['UpArrow', 'ArrowUp'],
-  down: ['DownArrow', 'ArrowDown'],
-  left: ['LeftArrow', 'ArrowLeft'],
-  right: ['RightArrow', 'ArrowRight'],
-  space: ['Space', ' '],
-  tab: ['Tab', '\t'],
-  enter: ['Enter', 'Return'],
-  backspace: ['Backspace', 'Back'],
-  delete: ['Delete', 'Del'],
-};
 
 export type KeyName = (typeof KEY_NAMES)[keyof typeof KEY_NAMES];
 export type ModifierKey = (typeof MODIFIER_KEYS)[number];

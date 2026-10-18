@@ -59,6 +59,8 @@ import { sendBudgetReliefCard } from '../bridge/budgetReliefCard';
 import type { SessionSpanContext } from '../../core/SessionSpanTracer.js';
 import { channelSessionManager } from '../session/ChannelSessionManager';
 import { isBridgeEnabled } from '../setupChannels';
+// G-2（2026-10-18）：通道来源 → 默认任务面（远程通道最小权限；开关默认关 ⇒ 零变更）
+import { resolveChannelTaskTypeOverride } from '../toolPolicy';
 // 2026-08-06 接入（P0-2）：DM 策略授权引擎（pairing/allowlist/open）
 import { DmPolicyEngine } from '../policy/DmPolicy';
 // 2026-08-06 接入（P1-5）：渠道入站限流（按渠道+sender 令牌桶）
@@ -618,6 +620,11 @@ export async function routeChannelMessage(
           rejected: attachmentPolicy.rejected,
         });
       }
+      // G-2（2026-10-18）：远程通道默认最小工具面 —— 仅**注入缺省 taskType**，
+      // 由 `filterToolsByTask` 同一条过滤链裁剪（开关默认关 ⇒ undefined ⇒ 与现状逐字一致）。
+      const channelTaskType = resolveChannelTaskTypeOverride(
+        message.channelId || channelName
+      );
       const generator = coreAPI.chatStream({
         content: message.content,
         sessionId: safeSessionId,
@@ -647,6 +654,7 @@ export async function routeChannelMessage(
         runtimeSystemNote: CHANNEL_DELIVERY_CONTRACT,
         metadata: {
           channel: message.channelId || channelName,
+          ...(channelTaskType ? { taskType: channelTaskType } : {}),
           sender: message.senderId,
           messageType: message.messageType,
           isDirectMessage: message.isDirectMessage,

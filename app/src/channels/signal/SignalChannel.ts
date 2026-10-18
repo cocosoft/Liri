@@ -11,6 +11,7 @@ import type {
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { SIGNAL_SERVICE_URL, SIGNAL_SITE_URL } from '../constants';
 const logger = getLogger('channels:signal:SignalChannel');
 
 const execFileAsync = promisify(execFile);
@@ -35,7 +36,7 @@ const SIGNAL_META: ChannelMeta = {
   id: 'signal',
   displayName: 'Signal',
   vendor: 'Signal Messenger',
-  vendorSite: 'https://signal.org',
+  vendorSite: SIGNAL_SITE_URL,
   icon: '🔒',
   markdownCapable: false,
   maxMessageLength: 2000,
@@ -71,7 +72,7 @@ export class SignalChannel extends BaseChannelPlugin {
       account: '',
       phoneNumber: '',
       signalCliPath: 'signal-cli',
-      signalServiceUrl: 'https://chat.signal.org',
+      signalServiceUrl: SIGNAL_SERVICE_URL,
     };
   }
 

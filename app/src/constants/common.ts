@@ -1,13 +1,24 @@
 /**
  * 通用常量
+ *
+ * `@kind` 四分类（清单 §5 D-1）：
+ * - **A** 协议 / 结构 / 键名 / 目录名 / 版本 / UA（不可调）
+ * - **B** 超时 / 并发 / 上限 / 阈值 / 大小（默认值在 `./defaults.ts`，`LIRI_*` env 覆盖）
+ * - **C** 模型 window / 价格 / 能力（**禁止**出现在常量文件）
+ * - **D** 提示词 / 文案（走工作流 C 资源体系）
  */
 
 import { existsSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
+import { getRuntimeDefaults } from './defaults';
+
+/** B 类默认值快照（模块加载时读一次 env ⇒「启动前设置生效」） */
+const B = getRuntimeDefaults();
+
+/** @kind A */
 export const APP_NAME = 'Liri';
-export const APP_NAME_LOWER = 'liri';
 
 /**
  * 版本号唯一事实来源：app/package.json
@@ -29,30 +40,20 @@ function resolveAppVersion(): string {
   return process.env.APP_VERSION || '0.0.0';
 }
 
+/** @kind A */
 export const APP_VERSION = resolveAppVersion();
 
-export const DEFAULT_SESSION_TIMEOUT = 30 * 60 * 1000;
-export const MAX_CONCURRENT_TASKS = 10;
-export const MAX_RETRY_COUNT = 3;
-export const DEFAULT_RETRY_DELAY = 1000;
-export const COMMON_HEARTBEAT_INTERVAL = 30 * 1000;
-export const CONNECTION_TIMEOUT = 10 * 1000;
-export const REQUEST_TIMEOUT = 60 * 1000;
-export const MAX_LOG_FILE_SIZE = 10 * 1024 * 1024;
-export const MAX_CACHE_SIZE_BYTES = 100 * 1024 * 1024;
-export const CACHE_EXPIRY = 24 * 60 * 60 * 1000;
+/** @kind B */
+export const DEFAULT_SESSION_TIMEOUT = B.sessionTimeoutMs;
+/** @kind B */
+export const COMMON_HEARTBEAT_INTERVAL = B.heartbeatIntervalMs;
+/** @kind B */
+export const CONNECTION_TIMEOUT = B.connectionTimeoutMs;
+/** @kind B */
+export const REQUEST_TIMEOUT = B.requestTimeoutMs;
+/** @kind B */
+export const MAX_CACHE_SIZE_BYTES = B.maxCacheSizeBytes;
 
-export const DEFAULT_PORT = 3000;
-export const DEFAULT_HOST = 'localhost';
-export const ENV_PREFIX = 'LIRI_';
-
-export const CONFIG_FILE_NAME = 'config.json';
-export const DATA_DIR_NAME = 'data';
-export const CACHE_DIR_NAME = 'cache';
-export const LOGS_DIR_NAME = 'logs';
-export const TEMP_DIR_NAME = 'tmp';
-
-export const DEFAULT_ENCODING = 'utf-8';
 /**
  * 产品默认语言 / 时区（**唯一真源**）。
  *
@@ -65,21 +66,27 @@ export const DEFAULT_ENCODING = 'utf-8';
  * 且**零消费者**（grep 仅命中定义处）——本轮改值并**接上消费者**（真源必须被引用，否则是"假真源"）。
  * ⚠️ **`core` 层不得引用本文件**（`constants` = infra，而 `core` 仅可依赖 `core`，R00-001）⇒
  * 需要同值的 core 侧常量只能"**同值自持 + 由测试锁同值**"（不跨层引用）。
+ *
+ * @kind A
  */
 export const DEFAULT_LOCALE = 'zh-CN';
+/** @kind A */
 export const DEFAULT_TIMEZONE = 'Asia/Shanghai';
 
-export const MAX_FILE_SIZE = 10 * 1024 * 1024;
-export const MAX_PATH_LENGTH = 4096;
-export const MAX_FILENAME_LENGTH = 255;
+/** @kind B */
+export const MAX_FILE_SIZE = B.maxFileSizeBytes;
+/** @kind B */
+export const MAX_FILENAME_LENGTH = B.maxFilenameLength;
 
-export const TOKEN_ENCODING = 'o200k_base'; // P1-13: upgraded from cl100k_base
+/** @kind A */
 export const DEFAULT_MODEL = '';
 
 /**
  * 哨兵值：表示"未选择具体模型，由 SmartRouter 自动决策"。
  * 前端传此值时，后端 resolveSmartModel() 通过 SmartRouter 动态选择模型。
  * 客户端同步定义在 client/src/services/chatService.ts，Rust 侧同步定义在 client/src-tauri/src/commands/chat.rs。
+ *
+ * @kind A
  */
 export const DEFAULT_MODEL_SENTINEL = 'pyapp-default';
 
@@ -91,10 +98,13 @@ export const DEFAULT_MODEL_SENTINEL = 'pyapp-default';
  * 与 `chronos/maintenance/ChronosBackgroundHousekeeping.ts`（infra 层）**各写一份** —— 后者注释
  * 自述「本地复刻**避免跨层引用**」（D-146）⇒ 本片把真源**上提到 infra**（本文件），
  * 使 `chronos`=infra 与 `ai`=app **都能合法引用**（app→infra / infra→infra 均合 R00-001）。
+ *
+ * @kind A
  */
 export const CRED_STORED_MARKER = '__stored__';
 
-export const DEFAULT_MAX_TOKENS = 4096;
+/** @kind B */
+export const DEFAULT_MAX_TOKENS = B.defaultMaxTokens;
 
 /**
  * 产品 **User-Agent 标识**（**唯一真源**）：`Liri/<APP_VERSION>`。
@@ -108,6 +118,8 @@ export const DEFAULT_MAX_TOKENS = 4096;
  * ⚠️ **不适用**（协议要求，见治理方案 §5）：抓 HTML 反爬用的 **Chrome 伪装 UA**
  * （`tools/WebSearchTool/providers.ts`）与 edge-tts 的 **Chromium UA**（`edgeTTSProvider`）——
  * 它们不是"产品标识"，**不可**合并到本常量。
+ *
+ * @kind A
  */
 export const USER_AGENT = `${APP_NAME}/${APP_VERSION}`;
 
@@ -123,11 +135,5 @@ export function buildUserAgent(purpose: string): string {
   return `${USER_AGENT} (${purpose})`;
 }
 
-export const PROTOCOL_VERSION = '1.0';
-export const API_VERSION = 'v1';
-
+/** @kind A */
 export const CLIENT_ID = 'liri_client';
-export const CLIENT_NAME = 'Liri';
-
-export const FEATURE_FLAGS_PREFIX = 'LIRI_FEATURE_';
-export const EXPERIMENT_PREFIX = 'LIRI_EXP_';

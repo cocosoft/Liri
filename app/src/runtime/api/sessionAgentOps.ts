@@ -137,6 +137,7 @@ export class SessionAgentOps {
   }): Promise<ToolVisibilityReport[]> {
     const {
       resolveToolVisibilityReport,
+      attachToolDescriptions,
       isKnownToolCategory,
       readToolVisibilityOverrides,
     } = await import('@modules/tools');
@@ -148,13 +149,35 @@ export class SessionAgentOps {
         accepted: extraCategories,
       });
     }
-    return resolveToolVisibilityReport({
-      taskType: query?.taskType,
-      extraCategories,
-      // P2：报表与覆写**同源**（同一份 `settings.tools` 既驱动判定也驱动展示）；
-      // 归一化由 `readToolVisibilityOverrides` 单实现承担（含未知名 / 非法值 / mandatory 的 off）。
-      overrides: readToolVisibilityOverrides(),
-    });
+    // C-3b T3（2026-10-18）：附带工具描述 —— 与模型侧 `getToolSchemas()` 同一描述源
+    // （`Tool.getInfo().description`，经 `resolveToolParam` 解析）；采集失败不阻断报表。
+    const descriptions = new Map<string, string>();
+    try {
+      for (const tool of this.deps.getToolManager().getAllTools()) {
+        const info = tool.getInfo();
+        if (
+          info?.name &&
+          typeof info.description === 'string' &&
+          info.description.trim() !== ''
+        ) {
+          descriptions.set(info.name, info.description);
+        }
+      }
+    } catch (err) {
+      logger.warn('getToolVisibilityReport() 工具描述采集失败（报表仍返回）', {
+        error: String(err),
+      });
+    }
+    return attachToolDescriptions(
+      resolveToolVisibilityReport({
+        taskType: query?.taskType,
+        extraCategories,
+        // P2：报表与覆写**同源**（同一份 `settings.tools` 既驱动判定也驱动展示）；
+        // 归一化由 `readToolVisibilityOverrides` 单实现承担（含未知名 / 非法值 / mandatory 的 off）。
+        overrides: readToolVisibilityOverrides(),
+      }),
+      descriptions
+    );
   }
 
   async getTool(name: string): Promise<ToolInfo | undefined> {

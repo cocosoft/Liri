@@ -3,6 +3,8 @@
  * 对标 OpenClaw extensions/feishu/src/config-schema.ts
  */
 
+import { FEISHU_API_BASE_URL } from '../constants';
+
 export interface FeishuConfig {
   appId: string;
   appSecret: string;
@@ -21,7 +23,7 @@ const DEFAULTS: Partial<FeishuConfig> = {
   wsReconnectDelayMs: 5000,
   wsMaxReconnectAttempts: 10,
   wsPingIntervalS: 30,
-  apiBase: 'https://open.feishu.cn/open-apis',
+  apiBase: FEISHU_API_BASE_URL,
 };
 
 export function getDefaultFeishuConfig(): FeishuConfig {

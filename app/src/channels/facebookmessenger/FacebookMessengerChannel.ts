@@ -9,6 +9,7 @@ import type {
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { FACEBOOK_GRAPH_API_BASE_URL } from '../constants';
 const logger = getLogger('channels:facebookmessenger:FacebookMessengerChannel');
 
 export interface FacebookMessengerConfig {
@@ -99,7 +100,7 @@ export class FacebookMessengerChannel extends BaseChannelPlugin {
     content: string
   ): Promise<SendResult> {
     try {
-      const url = new URL('https://graph.facebook.com/v21.0/me/messages');
+      const url = new URL(`${FACEBOOK_GRAPH_API_BASE_URL}/v21.0/me/messages`);
       url.searchParams.set('access_token', this._pageAccessToken);
       const resp = await fetch(url.toString(), {
         method: 'POST',
@@ -130,7 +131,7 @@ export class FacebookMessengerChannel extends BaseChannelPlugin {
     imageUrl: string
   ): Promise<SendResult> {
     try {
-      const url = new URL('https://graph.facebook.com/v21.0/me/messages');
+      const url = new URL(`${FACEBOOK_GRAPH_API_BASE_URL}/v21.0/me/messages`);
       url.searchParams.set('access_token', this._pageAccessToken);
       const resp = await fetch(url.toString(), {
         method: 'POST',
@@ -166,7 +167,7 @@ export class FacebookMessengerChannel extends BaseChannelPlugin {
     filePath: string
   ): Promise<SendResult> {
     try {
-      const url = new URL('https://graph.facebook.com/v21.0/me/messages');
+      const url = new URL(`${FACEBOOK_GRAPH_API_BASE_URL}/v21.0/me/messages`);
       url.searchParams.set('access_token', this._pageAccessToken);
       const resp = await fetch(url.toString(), {
         method: 'POST',
@@ -203,7 +204,9 @@ export class FacebookMessengerChannel extends BaseChannelPlugin {
     url: string
   ): Promise<boolean> {
     try {
-      const apiUrl = new URL('https://graph.facebook.com/v21.0/me/messages');
+      const apiUrl = new URL(
+        `${FACEBOOK_GRAPH_API_BASE_URL}/v21.0/me/messages`
+      );
       apiUrl.searchParams.set('access_token', this._pageAccessToken);
       const resp = await fetch(apiUrl.toString(), {
         method: 'POST',

@@ -31,7 +31,7 @@
 
 | # | 项 | 当前默认 | 触发条件（可操作判据） | 复评节奏 | 依据 |
 |:-:|---|:--:|---|---|---|
-| 1 | `OUTPUT_GUARD` | false | ① 护栏接入点 **≥4**（含流式 chunk / 工具回传 / 文件写入；现 2）；② 语料改写文件数 **≤5**（现 47，`guardrails-dual-side.md §10.3`）**持续 ≥1 发布周期**；③ 真实泄漏事故或用户明确要求"默认打码"；④ `project_rules §1.3` 由"无正式用户"变更为"引入用户" | ①② 季度 · ③④ 事件 | `guardrails-dual-side.md §11` |
+| 1 | `OUTPUT_GUARD` | false | ① 护栏接入点 **≥4**（含流式 chunk / 工具回传 / 文件写入；**现 6，G-8 已达标**：终稿×2 / 流式 chunk×1 / 工具回传×1 / 文件写入×2，2026-10-18 `report:output-guard-corpus` 实测）；② 语料改写文件数 **≤5**（**现 45**，同报表实测；2026-10-07 基线 47，`guardrails-dual-side.md §10.3`）**持续 ≥1 发布周期**；③ 真实泄漏事故或用户明确要求"默认打码"；④ `project_rules §1.3` 由"无正式用户"变更为"引入用户" | ①② 季度 · ③④ 事件 | `guardrails-dual-side.md §11` |
 | 2 | `OUTPUT_GUARD_BLOCK` | false | **跟随 #1**：`OUTPUT_GUARD` 满足且用户要求"发现即阻断" | 随 #1 | `featureFlags.ts:256` |
 | 3 | `OUTPUT_GUARD_KEEP_ORIGINAL` | false | **显式 opt-in（无"默认开"计划）**：需 FP 排查且接受"未打码内容落本地事件日志" | 事件 | `guardrails-dual-side.md §10.6` |
 | 4 | `RESOURCE_GOVERNOR` | false | ① 观测（O2）：`observedPeakInflight` **≥8**，且 `resourceGovernor:inflight_at_limit` 日志在窗口内出现 **≥3 次**；② 用户要求"后台任务不得挤占人工对话"；③ `project_rules §1.3` 引入正式用户后出现投诉 | ① 季度 · ②③ 事件 | `resource-governance-default-and-granularity-assessment.md §2.3` |
@@ -44,6 +44,8 @@
 | 11 | `SELF_VERIFY_PATTERN` | false | 须**同时**满足：① `verify` 意图命中 **≥20 会话**（观测 O5）；② 开启后 A/B 显示质量提升**可量化**；③ 重试增量**可接受**（建议 ≤10%） | 埋点落地后下一季度 | `pattern-wiring-closure.md §9-3` |
 | 12 | `CODE_RUN_DEEP_SCAN_STRICT` | false | ① **真实事件**：深扫不可用（原生模块缺失 / 平台缺库）期间出现**危险调用漏检**；② 原生深扫在**目标交付环境**稳定可用（`scanStatus='ran'` 比例达 100%）；③ 用户要求"code_run 深扫必须完成" | 事件 / 与 P0-3 联动 | `featureFlags.ts:326` · `.trae/specs/security-decision-verdict.md` |
 | 13 | `CLIENT_STREAM_EXECUTION` | false | ① **真实事件**：客户端 `/v1/chat/stream` 出现**未记账工具调用**或**崩溃后重复副作用**（无 executionId 导致）；② 前端/第三方调用方**回归清单通过**（`ChatRequest.executionId` 注入兼容）；③ 与渠道路径记账口径对齐验证（终态事件同构） | 事件 / 与 P0-2 联动 | `featureFlags.ts:338` · `.trae/specs/client-stream-execution.md` |
+| 14 | `CHANNEL_TOOL_POLICY` | false | ① 远程通道会话中 `bash` / `file_write` 等执行/写盘工具的调用率与审批拒绝率**可观测**（灰度期基线）；② `messaging` 任务面在灰度期**无「模型自述工具不可用」类反馈**（否则该通道需补类别）；③ 至少 **1 个发布周期**的灰度观察记录 | 季度 / 事件 | `featureFlags.ts`（`CHANNEL_TOOL_POLICY`）· G-2（`dev_docs/20261018/待修复任务清单-20261018.md`） |
+| 15 | `SWARM_VERIFY_RETRY` | false | ① verifier **明确判不过**的 worker 占比与「回灌后转通过」比例**可观测**（灰度期基线，见 `AgentSwarm` 的 `retried` 字段）；② 回灌增量 token 占批次 worker 用量**可量化且 ≤10%**；③ 至少 **1 个发布周期**的灰度观察记录；④ 独立 token 上限（默认 20k）未出现"预算半途耗尽导致回灌被系统性跳过" | 季度 / 事件 | `featureFlags.ts`（`SWARM_VERIFY_RETRY`）· E-1（`dev_docs/20261018/待修复任务清单-20261018.md`） |
 
 **未列入（如实边界）**：`iterative_refine` / `parallel_distributed` 的**装配触发条件**已有（`pattern-wiring-closure.md §5/§6`），属"pattern 装配"而非"默认关开关"，本表**不重复登记**（同源去重，§2.14 规则 5）；其**可操作化判据已落入** `pattern-wiring-closure.md **§11**`（2026-10-09 追加，引用 O3/O4）。
 

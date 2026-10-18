@@ -165,6 +165,8 @@ export async function continueSuspendedSession(
     };
   }
 
+  // U-14 阶段 1.3：续跑通道启动**前**恢复该会话的编排内存态（无快照 ⇒ no-op）
+  coordinator.restoreSnapshot(sessionId);
   coordinator.release(sessionId);
   let ok = false;
   try {

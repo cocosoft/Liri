@@ -68,6 +68,9 @@
 
 - 内容 = SB06 字段的渲染；替代人手写长交接单。
 - 状态：**已落地（2026-10-17，阶段 C）** —— `bun run scripts/gen-handoff.ts`（≤30 行；`--out` 可落盘）。
+- **输出位置纪律（2026-10-18 补）**：生成物**不得**写入 `.trae/architecture/` —— 该目录是
+  `lint:evidence-linewidth`（SB03）的观测面，新增文件会以「新增键」触发棘轮阻断（即使每行 ≤300）。
+  `--out` 建议 `.trae/handoff.md`；脚本已按 ≤120 字符折行（含 `doneKeys` 与 `nextAction`）。
 
 ---
 

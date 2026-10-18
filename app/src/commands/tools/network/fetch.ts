@@ -23,6 +23,7 @@ import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';
+import { GITHUB_API_BASE } from '@modules/constants';
 const logger = getLogger('commands:tools:network:fetch');
 
 /** 默认内容截断长度 */
@@ -169,7 +170,7 @@ function buildHelpText(): string {
     '  /fetch https://example.com',
     '  /fetch https://example.com --md                    # HTML 转 Markdown',
     '  /fetch https://example.com --prompt "提取正文"     # 提示词提取',
-    '  /fetch https://api.github.com/repos/vercel/next.js',
+    `  /fetch ${GITHUB_API_BASE}/repos/vercel/next.js`,
     '  /fetch https://httpbin.org/post -X POST -d \'{"key":"value"}\'',
     '  /fetch https://example.com -H "Authorization: Bearer token123"',
     '  /fetch https://slow-api.example.com --timeout 60000',

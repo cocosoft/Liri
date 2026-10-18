@@ -39,6 +39,7 @@ import type { ChatSession } from '@modules/session/types/session.js';
 import type { TAORLoop } from '@modules/query';
 import type { TAORCheckpoint } from '../../query/types.js';
 import { getBudgetSuspendCoordinator } from '../../query/budgetSuspend.js';
+import { installOrchestrationSnapshotProviders } from '../../query/orchestrationSnapshotProviders.js';
 import { feature } from '@modules/core';
 import type { ToolAwareClient } from '@modules/ai';
 import { mapSessionStatusToState } from '../services/ChatHelper';
@@ -332,6 +333,10 @@ export class ChatBootstrap {
     } else {
       logger.info('Durable Resume 已通过 ENABLE_DURABLE_RESUME=false 关闭');
     }
+
+    // U-14 阶段 1.3：把编排引擎（Council / TaskOrchestrator）接入会话级快照注册表 ——
+    // 挂起时按会话冻结、放行续跑前恢复；未装配 ⇒ 协调器零行为（不造空快照）。
+    installOrchestrationSnapshotProviders();
 
     // I2（最终整支评审）：启动期把 `budget_suspend` 条目**登记为"待放行挂起"**。
     // 与 Durable Resume **正交**（各自的开关）：Durable Resume 只扫描并自动恢复普通检查点，

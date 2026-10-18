@@ -8,6 +8,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveFilePath } from '../utils/ToolUtils';
+import { runRegisteredOutputGuards } from '@modules/core';
 import type { FileOperationResult } from '../types/ToolResult';
 
 // 懒初始化 Rust 原生模块，用于自动检测文件编码
@@ -118,11 +119,12 @@ export function editFile(input: FileEditInput): FileEditResult {
     );
   }
 
-  const newContent = content.replace(input.oldString, input.newString);
+  const guardedNewString = guardEditDelta(input.newString, input.filePath);
+  const newContent = content.replace(input.oldString, guardedNewString);
   fs.writeFileSync(resolved, newContent, 'utf-8');
 
   const oldLines = input.oldString.split('\n').length;
-  const newLines = input.newString.split('\n').length;
+  const newLines = guardedNewString.split('\n').length;
   const linesChanged = Math.abs(newLines - oldLines);
 
   return {
@@ -143,6 +145,34 @@ function countOccurrences(str: string, search: string): number {
     pos += search.length;
   }
   return count;
+}
+
+/**
+ * G-8（2026-10-18）：**文件写入（edit 面）**输出护栏接入点（评审门禁 §2-#1①）——
+ * 只护栏**模型新增 delta**（`new_string`）；既有文件内容非本轮模型输出，不在护栏面内
+ * （避免护栏改写与本次编辑无关的既有内容）。`OUTPUT_GUARD=false` 默认 ⇒ 空注册 ⇒
+ * 原样返回（零变更）；redact ⇒ 打码后参与替换；block（`OUTPUT_GUARD_BLOCK`）⇒ 拒写。
+ */
+function guardEditDelta(newString: string, filePath: string): string {
+  const gated = runRegisteredOutputGuards(newString);
+  if (!gated || (!gated.blocked && gated.redactedBy.length === 0)) {
+    return newString;
+  }
+  logger.warn('editFile:output_guard_applied', {
+    filePath,
+    blocked: gated.blocked,
+    redactedBy: gated.redactedBy,
+    deltaLen: newString.length,
+  });
+  if (gated.blocked) {
+    throw new AppError(
+      '编辑内容命中输出护栏（敏感内容），已按策略阻断写入',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      'OUTPUT_GUARD_BLOCKED'
+    );
+  }
+  return gated.text ?? newString;
 }
 
 import { BaseTool } from '../BaseTool';
@@ -315,7 +345,11 @@ export class FileEditTool extends BaseTool {
         )
           ? oldString
           : oldString;
-        const newContent = content.replaceAll(normalizedOld, newString);
+        // G-8：edit 面护栏只作用于模型新增 delta（见 guardEditDelta）
+        const newContent = content.replaceAll(
+          normalizedOld,
+          guardEditDelta(newString, input.file_path as string)
+        );
         fs.writeFileSync(resolved, newContent, 'utf-8');
         // B1：编辑成功后更新快照
         if (cache) this.recordSnapshot(cache, resolved);

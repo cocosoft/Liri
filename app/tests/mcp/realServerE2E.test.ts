@@ -40,6 +40,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { mcpConnectionManager } from '../../src/services/mcp/MCPConnectionManager.js';
+import { McpToolWrapper } from '../../src/services/mcp/McpToolWrapper.js';
 import type { ScopedMcpServerConfig } from '../../src/services/mcp/types';
 import { MCPTool, type MCPToolParams } from '../../src/mcp/MCPTool.js';
 import { MCPResourceTool } from '../../src/tools/MCPResourceTool/MCPResourceTool.js';
@@ -59,6 +60,12 @@ const SERVER = 'everything';
 const SERVER_PKG = '@modelcontextprotocol/server-everything';
 
 /**
+ * G-1：**假密钥**（OpenAI 风格，命中 `MCPSecurityFilter` 的 `/sk-(?:ant|proj)-[A-Za-z0-9_-]{32,}/`）。
+ * 用固定假值（非真实凭据）⇒ 断言"明文不出现"即可证明脱敏生效。
+ */
+const FAKE_API_KEY = `sk-proj-${'G'.repeat(40)}`;
+
+/**
  * stdio 启动方式。
  *
  * Windows 上 `npx` 实为 `npx.cmd`；SDK 的 `StdioClientTransport` 用 `cross-spawn`
@@ -72,8 +79,16 @@ const CONFIG: ScopedMcpServerConfig = {
   scope: 'local',
 };
 
-/** 最小假上下文（不 new 真会话；被测工具均不读取其中的业务字段） */
-const ctx = {} as ToolUseContext;
+/**
+ * 最小假上下文（不 new 真会话）。
+ *
+ * ⚠️ 2026-10-18（G-1 实测修正）：**必须**带 `abortController` ——
+ * `MCPTool.call`（S2-2 起）会读 `context.abortController.signal`，空对象会抛
+ * TypeError 并被兜底成 `success:false`（本文件此前因门控默认跳过而长期未暴露）。
+ */
+const ctx = {
+  abortController: new AbortController(),
+} as ToolUseContext;
 
 const mcpTool = MCPTool;
 const resourceTool = new MCPResourceTool();
@@ -323,6 +338,77 @@ describe.skipIf(process.env.MCP_E2E !== '1')(
         expect(r.success).toBe(false);
         expect(r.error).toContain('VFS_READ_ONLY_MOUNT');
         expect(r.metadata?.errorCode).toBe('VFS_READ_ONLY_MOUNT');
+      });
+    });
+
+    describe('凭据脱敏（G-1，模型可见出口 = McpToolWrapper）', () => {
+      it('真实 echo 回传的密钥在输出中**不出现明文**，且非密钥内容原样保留', async () => {
+        const client = requireSdkClient();
+        // 生产路径：`mcp__<server>__<tool>` 由 MCPToolBridge 以 McpToolWrapper 注册
+        const wrapper = new McpToolWrapper(
+          SERVER,
+          { name: 'echo', description: 'echo' } as never,
+          () => client
+        );
+        const marker = 'e2e-redaction-marker';
+        const r = await wrapper.execute(
+          { message: `${marker} token=${FAKE_API_KEY}` },
+          { abortController: new AbortController() } as ToolUseContext
+        );
+
+        expect(r.success).toBe(true);
+        const out = String(r.output ?? '');
+        // ① 真实服务器回传已发生（非密钥内容保留 ⇒ 排除"整体为空"的假通过）
+        expect(out).toContain(marker);
+        // ② 模型可见出口不含明文密钥
+        expect(out).not.toContain(FAKE_API_KEY);
+        // ③ 脱敏有可解释标记
+        expect(out).toContain('[REDACTED:');
+        // ④ 结构化 data 同步脱敏（JSON 往返）
+        expect(JSON.stringify(r.data ?? '')).not.toContain(FAKE_API_KEY);
+      });
+
+      it('Bearer token / 环境变量键值同样被剥离（同一出口）', async () => {
+        const client = requireSdkClient();
+        const wrapper = new McpToolWrapper(
+          SERVER,
+          { name: 'echo', description: 'echo' } as never,
+          () => client
+        );
+        const marker = 'e2e-bearer-marker';
+        const bearerToken = `e2e${'F'.repeat(40)}`;
+        const r = await wrapper.execute(
+          {
+            message:
+              `${marker} Authorization: Bearer ${bearerToken} ` +
+              `OPENAI_API_KEY=${FAKE_API_KEY}`,
+          },
+          { abortController: new AbortController() } as ToolUseContext
+        );
+
+        expect(r.success).toBe(true);
+        const out = String(r.output ?? '');
+        expect(out).toContain(marker);
+        expect(out).not.toContain(bearerToken);
+        expect(out).toContain('Bearer [REDACTED]');
+        expect(out).not.toContain(FAKE_API_KEY);
+      });
+
+      it('无密钥回传 ⇒ 输出原样（零改动，避免过度脱敏）', async () => {
+        const client = requireSdkClient();
+        const wrapper = new McpToolWrapper(
+          SERVER,
+          { name: 'echo', description: 'echo' } as never,
+          () => client
+        );
+        const marker = 'e2e-plain-marker';
+        const r = await wrapper.execute({ message: marker }, {
+          abortController: new AbortController(),
+        } as ToolUseContext);
+
+        expect(r.success).toBe(true);
+        expect(String(r.output ?? '')).toContain(marker);
+        expect(String(r.output ?? '')).not.toContain('[REDACTED:');
       });
     });
 

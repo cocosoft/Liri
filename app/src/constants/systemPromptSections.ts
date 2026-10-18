@@ -6,6 +6,8 @@
  * 本文件**只保留框架**（类型 / 工厂 / 缓存 / 注册槽），不含任何 app / service 依赖。
  * - 内置段落定义 → `context/promptSections/builtinSections.ts`（app）
  * - 缓存清理回调 + 注册入口 → `context/promptSections/index.ts`（app）
+ *
+ * @kind-default A（段框架 / 缓存断点 / 段名清单 —— 协议与结构常量）
  */
 
 import { getFrozenSnapshotService } from '@modules/memory';
@@ -43,8 +45,33 @@ export type SystemPromptSection<N extends string = string> = {
 /**
  * 段落缓存
  * 在/clear或/compact时清除
+ *
+ * C-2（2026-10-18）：key 必须经 `sectionCacheKey()` 构造（带 locale 前缀）——
+ * 直接以裸段名为 key 会跨 locale 串缓存（locale 切换后读到旧语言文本）。
  */
 export const sectionCache = new Map<string, string | null>();
+
+/**
+ * C-2：段落缓存的当前 locale（缺省 zh-CN —— 与内置提示词文本语言一致，行为零变化）。
+ * 由组装入口（PromptAssembler，service 层）按请求设置；infra 不感知 locale 推导逻辑
+ * （`resolveLanguage` 在 app 层 languageProfiles，infra 引它会倒挂）。
+ */
+let _sectionCacheLocale = 'zh-CN';
+
+/** 设置段落缓存 locale（组装入口每次组装前调用；空值回退 zh-CN） */
+export function setSectionCacheLocale(locale: string | undefined): void {
+  _sectionCacheLocale = locale && locale.trim() ? locale.trim() : 'zh-CN';
+}
+
+/** 读取段落缓存当前 locale（测试复位用） */
+export function getSectionCacheLocale(): string {
+  return _sectionCacheLocale;
+}
+
+/** C-2：段落缓存 key = `<locale>:<段名>` —— locale 切换 ⇒ 旧 key 全 miss（缓存正确失效） */
+export function sectionCacheKey(name: string): string {
+  return `${_sectionCacheLocale}:${name}`;
+}
 
 /**
  * 已注册的段落列表
@@ -241,11 +268,12 @@ export async function resolveSystemPromptSections(
   const targetSections = sections ?? getRegisteredSections();
   return Promise.all(
     targetSections.map(async (s) => {
-      if (!s.cacheBreak && sectionCache.has(s.name)) {
-        return sectionCache.get(s.name) ?? null;
+      const key = sectionCacheKey(s.name);
+      if (!s.cacheBreak && sectionCache.has(key)) {
+        return sectionCache.get(key) ?? null;
       }
       const value = await s.compute();
-      sectionCache.set(s.name, value);
+      sectionCache.set(key, value);
       return value;
     })
   );

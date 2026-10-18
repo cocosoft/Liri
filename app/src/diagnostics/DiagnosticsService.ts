@@ -14,9 +14,11 @@ import {
   resolveProjectRoot,
   OPENAI_API_BASE_URL,
   ANTHROPIC_API_BASE_URL,
+  NPM_SITE_URL,
 } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
+import { GITHUB_API_BASE } from '@modules/constants';
 const logger = getLogger('diagnostics:DiagnosticsService');
 
 const execAsync = promisify(exec);
@@ -486,8 +488,8 @@ class DiagnosticsService {
   async checkNetwork() {
     try {
       const testUrls = [
-        { url: 'https://api.github.com', name: 'GitHub API' },
-        { url: 'https://www.npmjs.com', name: 'npm registry' },
+        { url: GITHUB_API_BASE, name: 'GitHub API' },
+        { url: NPM_SITE_URL, name: 'npm registry' },
         { url: OPENAI_API_BASE_URL, name: 'OpenAI API' },
         { url: ANTHROPIC_API_BASE_URL, name: 'Anthropic API' },
       ];

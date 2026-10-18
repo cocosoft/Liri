@@ -16,6 +16,11 @@
 import { join } from 'path';
 // C1（2026-10-09）：plan id 熵源改用 crypto
 import { randomIdSuffix } from '../utils/common';
+import type {
+  ISnapshotCapable,
+  SnapshotHandle,
+  SnapshotFreezeScope,
+} from '../utils/toolContract/Tool.js';
 import {
   existsSync,
   mkdirSync,
@@ -128,7 +133,10 @@ function generateStepId(): string {
 
 const PLANS_DIR = resolveDataSubDir('plans');
 
-export class TaskOrchestrator {
+export class TaskOrchestrator implements ISnapshotCapable {
+  /** U-14：可挂起能力标记（字面量 true；探测见 `isSnapshotCapable()`） */
+  readonly snapshotCapable = true as const;
+
   private plans: Map<string, Plan> = new Map();
   private initialized = false;
   /** stepId → Plan 索引，O(1) 查找替代 O(n²) 遍历 */
@@ -137,6 +145,80 @@ export class TaskOrchestrator {
   private lastProgressEmit: Map<string, number> = new Map();
   /** 计划持久化目录，默认用户数据目录；测试可通过 setPlansDir 指向临时目录避免污染 */
   private plansDir: string = PLANS_DIR;
+
+  /**
+   * U-14：冻结内存中的计划与步骤索引（可序列化句柄）。
+   *
+   * 只做**内存态**快照，不写盘、不改 `Plan` 结构；中心层只做不透明搬运。
+   *
+   * **按会话过滤**（阶段 1.3）：传 `scope.sessionId` 时只冻结该会话的计划 —— 挂起中心按
+   * 会话挂起，全量快照在恢复时会覆盖其它仍在运行的会话。缺省保持旧的全量语义。
+   */
+  freezeForSuspend(scope?: SnapshotFreezeScope): SnapshotHandle {
+    const sessionId = scope?.sessionId;
+    const plans = [...this.plans.values()]
+      .filter((p) => sessionId === undefined || p.sessionId === sessionId)
+      .map((p) => JSON.parse(JSON.stringify(p)) as Plan);
+    return {
+      kind: 'task-orchestrator',
+      version: 2,
+      mode: sessionId === undefined ? 'full' : 'session',
+      ...(sessionId !== undefined ? { sessionId } : {}),
+      capturedAt: Date.now(),
+      plans,
+    };
+  }
+
+  /**
+   * U-14：从快照恢复内存态计划（重建 stepIndex；不写盘，避免把冻结态误当持久化事实）。
+   *
+   * `mode='full'`（缺省，兼容 v1 句柄）⇒ 整体覆盖并标记已初始化；
+   * `mode='session'` ⇒ **只覆盖该会话的计划**，其它计划原样保留（也不改 `initialized`，
+   * 否则会跳过尚未加载的磁盘计划）。
+   */
+  resumeFromSnapshot(handle: SnapshotHandle): void {
+    if (handle.kind !== 'task-orchestrator' || !Array.isArray(handle.plans)) {
+      throw new Error('invalid task-orchestrator snapshot handle');
+    }
+    const plans = handle.plans as Plan[];
+    const scoped = handle.mode === 'session';
+    if (scoped) {
+      if (
+        typeof handle.sessionId !== 'string' ||
+        handle.sessionId.length === 0
+      ) {
+        throw new Error('invalid task-orchestrator snapshot handle');
+      }
+      // 作用域恢复 = 该会话的计划集合**恰好**回到快照：先清掉快照之后新建的计划
+      const keep = new Set(
+        plans
+          .filter((p) => p && p.sessionId === handle.sessionId)
+          .map((p) => p.id)
+      );
+      for (const [planId, plan] of this.plans) {
+        if (plan.sessionId === handle.sessionId && !keep.has(planId)) {
+          this.dropStepIndex(planId);
+          this.plans.delete(planId);
+          this.lastProgressEmit.delete(planId);
+        }
+      }
+    } else {
+      this.plans.clear();
+      this.stepIndex.clear();
+      this.lastProgressEmit.clear();
+    }
+    for (const plan of plans) {
+      if (!plan || typeof plan.id !== 'string') continue;
+      // 作用域快照只允许恢复被冻结的那个会话（防御句柄内混入其它会话）
+      if (scoped && plan.sessionId !== handle.sessionId) continue;
+      const restored = JSON.parse(JSON.stringify(plan)) as Plan;
+      if (scoped) this.dropStepIndex(restored.id);
+      this.plans.set(restored.id, restored);
+      this.buildStepIndex(restored);
+    }
+    // 全量快照已完整覆盖内存态 ⇒ 后续 createPlan 不应再从磁盘合并旧计划
+    if (!scoped) this.initialized = true;
+  }
 
   /**
    * 覆盖计划持久化目录（测试隔离用）
@@ -234,6 +316,13 @@ export class TaskOrchestrator {
   private buildStepIndex(plan: Plan): void {
     for (const step of plan.steps) {
       this.stepIndex.set(step.id, plan);
+    }
+  }
+
+  /** U-14（阶段 1.3）：移除某计划在 `stepIndex` 中的旧映射（按会话恢复时防残留） */
+  private dropStepIndex(planId: string): void {
+    for (const [stepId, plan] of this.stepIndex) {
+      if (plan.id === planId) this.stepIndex.delete(stepId);
     }
   }
 

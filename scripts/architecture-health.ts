@@ -16,7 +16,7 @@ import {
   writeFileSync,
   mkdirSync,
 } from 'node:fs';
-import { join, relative, dirname } from 'node:path';
+import { join, relative } from 'node:path';
 
 // 解析项目根：优先使用环境变量 PYAPP_PROJECT_DIR（与 lint 脚本约定一致），其次取 cwd
 const PROJECT_DIR = process.env.PYAPP_PROJECT_DIR || process.cwd();

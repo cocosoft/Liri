@@ -5,10 +5,15 @@
 
 import type { UserInfo } from '../types/OAuthProvider';
 import { BaseOAuthProvider } from './BaseOAuthProvider';
+import {
+  GOOGLE_ACCOUNTS_BASE_URL,
+  GOOGLE_API_BASE_URL,
+  GOOGLE_OAUTH2_BASE_URL,
+} from '@modules/core';
 
-const GOOGLE_AUTHORIZE = 'https://accounts.google.com/o/oauth2/v2/auth';
-const GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token';
-const GOOGLE_PROFILE = 'https://www.googleapis.com/oauth2/v3/userinfo';
+const GOOGLE_AUTHORIZE = `${GOOGLE_ACCOUNTS_BASE_URL}/o/oauth2/v2/auth`;
+const GOOGLE_TOKEN = `${GOOGLE_OAUTH2_BASE_URL}/token`;
+const GOOGLE_PROFILE = `${GOOGLE_API_BASE_URL}/oauth2/v3/userinfo`;
 
 export class GoogleOAuthProvider extends BaseOAuthProvider {
   readonly id = 'google';

@@ -138,6 +138,22 @@ export function detectLang(content: string): LangKey {
 }
 
 /**
+ * C-4（2026-10-18）：读取用户显式配置的语言（仅 `config.language`）。
+ *
+ * 与 `resolveLanguage` 的区别：**不含**系统 locale 与内容检测 —— 提示词语言只应由
+ * 显式配置决定；带入系统 locale / 消息内容检测会让提示词随机器或消息内容抖动，
+ * 破坏 provider 端 prompt cache。未配置 ⇒ `undefined`（调用方回退源语言 `zh-CN`）。
+ */
+export function resolveConfiguredLanguage(): LangKey | undefined {
+  try {
+    return normalizeLang(configManager.getConfigValue<string>('language'));
+  } catch {
+    // @ignore-catch 配置读取异常 ⇒ 回退源语言（不阻断提示词组装）
+    return undefined;
+  }
+}
+
+/**
  * 解析生成语言：工具参数 → 通用设置 config.language → 系统语言 → 内容检测。
  * 最终收敛到表内 key，杜绝未注册语言导致的 undefined 访问。
  */
@@ -149,15 +165,8 @@ export function resolveLanguage(
     const n = normalizeLang(paramLanguage);
     if (n) return n;
   }
-  try {
-    const configured = configManager.getConfigValue<string>('language');
-    if (configured) {
-      const n = normalizeLang(configured);
-      if (n) return n;
-    }
-  } catch {
-    // 配置读取异常 → 继续走系统/内容兜底
-  }
+  const configured = resolveConfiguredLanguage();
+  if (configured) return configured;
   const system = normalizeLang(detectSystemLocale());
   if (system) return system;
   return detectLang(content);

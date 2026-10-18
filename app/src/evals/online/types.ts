@@ -35,6 +35,18 @@
 /** 轮次终态（与 `agent/AgentTelemetry.TurnMetrics['status']` 同集，**结构化枚举**，禁止字符串匹配） */
 export type TurnStatus = 'running' | 'completed' | 'error' | 'aborted';
 
+/**
+ * 轮次**来源路径**（E-2，2026-10-18）。
+ *
+ * 由**已落事件**派生（禁按文案推断，CS02）：
+ * - `agent`：纯对话/推理轮（无工具调用）；
+ * - `tool`：普通工具路径（有工具调用，但无子 agent 调用）；
+ * - `subagent`：子 agent 路径（该轮调用过 `agent` 工具，见 `TOOL_NAME_CONSTANTS.agent`）。
+ *
+ * 口径边界：这是**单轮内最高层级**的归类（一轮既调工具又派子 agent ⇒ `subagent`）。
+ */
+export type TurnSource = 'agent' | 'tool' | 'subagent';
+
 /** 验证器三态（`query/VerifierAgent` 的 `VerdictType`；此处**本地字面量联合**，避免跨模块类型依赖） */
 export type ReviewVerdictType = 'APPROVE' | 'REJECT' | 'ESCALATE';
 

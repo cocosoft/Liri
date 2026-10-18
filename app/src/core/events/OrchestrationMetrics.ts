@@ -22,6 +22,7 @@
 
 import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 import { globalEventBus, type EventSubscription } from './EventBus';
+import { OrchestrationEventPairer } from './orchestrationPairing';
 import { getLogger } from '../loggerFacade.js';
 
 /**
@@ -51,79 +52,6 @@ const logger = getLogger('core:events:OrchestrationMetrics');
 
 /** 滑动窗口大小（记录最近 N 条延迟） */
 const SLIDING_WINDOW_SIZE = 100;
-
-/** 单个关联键最多保留的待配对起始时刻（超出丢弃最旧，防无终态事件导致无界增长） */
-const MAX_PENDING_PER_KEY = 32;
-
-/** 单个起始事件类型最多保留的关联键数（同上，防止键空间无界增长） */
-const MAX_PENDING_KEYS = 256;
-
-/**
- * 终止事件 → 起始事件（耗时配对表）
- *
- * 与 `EventBusOTelBridge.END_EVENT_TO_START` 同源，并补齐其未覆盖的
- * PLAN / CHAIN / PARALLEL / STEP 链路（本模块是**指标**口径，需要全链路覆盖）。
- */
-const END_TO_START_EVENT: Record<string, string> = {
-  [OrchestrationEventType.ORCH_END]: OrchestrationEventType.ORCH_START,
-  [OrchestrationEventType.ORCH_ERROR]: OrchestrationEventType.ORCH_START,
-  [OrchestrationEventType.ORCH_TASK_END]:
-    OrchestrationEventType.ORCH_TASK_START,
-  [OrchestrationEventType.ORCH_STEP_COMPLETED]:
-    OrchestrationEventType.ORCH_STEP_START,
-  [OrchestrationEventType.PLAN_COMPLETED]: OrchestrationEventType.PLAN_START,
-  [OrchestrationEventType.PLAN_STEP_COMPLETED]:
-    OrchestrationEventType.PLAN_STEP_START,
-  [OrchestrationEventType.CHAIN_END]: OrchestrationEventType.CHAIN_START,
-  [OrchestrationEventType.COUNCIL_END]: OrchestrationEventType.COUNCIL_START,
-  [OrchestrationEventType.SWARM_COMPLETE]:
-    OrchestrationEventType.SWARM_DISPATCH,
-  [OrchestrationEventType.RULE_CHECK_PASS]:
-    OrchestrationEventType.RULE_CHECK_START,
-  [OrchestrationEventType.RULE_CHECK_FAIL]:
-    OrchestrationEventType.RULE_CHECK_START,
-  [OrchestrationEventType.PARALLEL_END]: OrchestrationEventType.PARALLEL_START,
-};
-
-/** 需要登记起始时刻的事件类型集合 */
-const START_EVENTS = new Set<string>(Object.values(END_TO_START_EVENT));
-
-/**
- * 起始事件的关联键字段（按顺序取值拼接）
- *
- * 未列出的起始事件（`PARALLEL_START` / `SWARM_DISPATCH`）载荷无稳定标识 ⇒ 单桶 FIFO。
- */
-const PAIR_KEY_FIELDS: Record<string, readonly string[]> = {
-  [OrchestrationEventType.ORCH_START]: ['workItemId'],
-  [OrchestrationEventType.ORCH_TASK_START]: ['taskId'],
-  [OrchestrationEventType.ORCH_STEP_START]: ['taskId', 'stepName'],
-  [OrchestrationEventType.PLAN_START]: ['planId'],
-  [OrchestrationEventType.PLAN_STEP_START]: ['planId', 'stepIndex'],
-  [OrchestrationEventType.CHAIN_START]: ['chainId'],
-  [OrchestrationEventType.COUNCIL_START]: ['sessionId'],
-  [OrchestrationEventType.RULE_CHECK_START]: ['ruleId', 'filePath'],
-};
-
-/**
- * 从载荷提取关联键
- *
- * @returns 各字段值拼接的键；任一字段缺失或载荷非对象 ⇒ `''`（退化单桶）
- */
-function extractPairKey(
-  fields: readonly string[] | undefined,
-  payload: unknown
-): string {
-  if (!fields || fields.length === 0) return '';
-  if (!payload || typeof payload !== 'object') return '';
-  const obj = payload as Record<string, unknown>;
-  const parts: string[] = [];
-  for (const field of fields) {
-    const value = obj[field];
-    if (value === undefined || value === null) return '';
-    parts.push(String(value));
-  }
-  return parts.join('\u0000');
-}
 
 /** 事件类型统计 */
 interface EventTypeStats {
@@ -177,7 +105,14 @@ interface EventDimensions {
   category?: string;
 }
 
-/** 事件类型前缀 → 业务类别映射 */
+/**
+ * 事件类型前缀 → 业务类别映射（**兼容分支**）
+ *
+ * H-2-R1（2026-10-18）：真实事件值形如 `orch:<category>:<phase>`
+ * （见 `types/orchestrationEvents.ts`），原实现直接用本表的枚举名前缀
+ * （`COUNCIL_` / `SWARM_` …）做 `startsWith` ⇒ **永不命中**，`byCategory` 恒空。
+ * 现优先解析 `orch:<category>:`；本表仅保留给历史/外部自定义事件。
+ */
 const EVENT_CATEGORY_MAP: Record<string, string> = {
   COUNCIL_: 'council',
   SWARM_: 'swarm',
@@ -188,6 +123,25 @@ const EVENT_CATEGORY_MAP: Record<string, string> = {
   TOKEN_: 'token',
   AGENT_: 'agent',
 };
+
+/**
+ * 由事件类型派生业务类别（H-2-R1）
+ *
+ * - `orch:dag:*` ⇒ `orchestration`（与原 `ORCH_` 映射语义一致）
+ * - `orch:plan:*` / `orch:council:*` / `orch:swarm:*` / `orch:chain:*` / `orch:parallel:*`
+ *   / `orch:token:*` / `orch:rule:*` / `orch:context:*` ⇒ 取中段
+ * - 其余（历史枚举名式前缀）⇒ 兼容表
+ */
+function deriveCategory(eventType: string): string | undefined {
+  const scoped = /^orch:([a-z][a-z0-9_-]*):/.exec(eventType);
+  if (scoped) {
+    return scoped[1] === 'dag' ? 'orchestration' : scoped[1];
+  }
+  for (const [prefix, category] of Object.entries(EVENT_CATEGORY_MAP)) {
+    if (eventType.startsWith(prefix)) return category;
+  }
+  return undefined;
+}
 
 /**
  * 从事件类型和 payload 中提取维度信息
@@ -211,13 +165,8 @@ function extractDimensions(
     }
   }
 
-  // 从事件类型前缀推导业务类别
-  for (const [prefix, category] of Object.entries(EVENT_CATEGORY_MAP)) {
-    if (eventType.startsWith(prefix)) {
-      dims.category = category;
-      break;
-    }
-  }
+  // 从事件类型派生业务类别（H-2-R1：按真实词表 `orch:<category>:`）
+  dims.category = deriveCategory(eventType);
 
   return dims;
 }
@@ -257,8 +206,8 @@ export class OrchestrationMetrics {
   private trackingStarted = false;
   /** 订阅列表 */
   private subscriptions: EventSubscription[] = [];
-  /** 待配对的起始时刻（起始事件类型 → 关联键 → 起始时刻 FIFO） */
-  private pendingStarts: Map<string, Map<string, number[]>> = new Map();
+  /** 起止配对器（与离线分析共用同一实现，见 `orchestrationPairing.ts`） */
+  private pairer = new OrchestrationEventPairer();
   /** 可选的 OTelMetrics 实例 */
   private otelMetrics: IOTelMetricsPort | null = null;
 
@@ -309,91 +258,12 @@ export class OrchestrationMetrics {
   private handleOrchestrationEvent(eventType: string, payload: unknown): void {
     const now = Date.now();
 
-    const startEvent = END_TO_START_EVENT[eventType];
-    if (startEvent) {
-      const startedAt = this.takeStartTime(startEvent, payload);
-      // 时钟回拨时 `now < startedAt` ⇒ 丢弃该样本（不记负数）
-      if (startedAt !== undefined && now >= startedAt) {
-        this.pushLatency(startEvent, now - startedAt);
-      }
-    }
-
-    if (START_EVENTS.has(eventType)) {
-      this.pushStartTime(eventType, payload, now);
+    const paired = this.pairer.push(eventType, payload, now);
+    if (paired) {
+      this.pushLatency(paired.startEvent, paired.latencyMs);
     }
 
     this.recordEvent(eventType, undefined, payload);
-  }
-
-  /**
-   * 登记一条起始时刻
-   */
-  private pushStartTime(
-    startEvent: string,
-    payload: unknown,
-    at: number
-  ): void {
-    let buckets = this.pendingStarts.get(startEvent);
-    if (!buckets) {
-      buckets = new Map();
-      this.pendingStarts.set(startEvent, buckets);
-    }
-
-    const key = extractPairKey(PAIR_KEY_FIELDS[startEvent], payload);
-    let times = buckets.get(key);
-    if (!times) {
-      // 键空间上限：丢弃最早登记的键（Map 保序）
-      if (buckets.size >= MAX_PENDING_KEYS) {
-        const oldestKey = buckets.keys().next().value;
-        if (oldestKey !== undefined) buckets.delete(oldestKey);
-      }
-      times = [];
-      buckets.set(key, times);
-    }
-
-    times.push(at);
-    if (times.length > MAX_PENDING_PER_KEY) {
-      times.shift();
-    }
-  }
-
-  /**
-   * 取出与终止事件配对的起始时刻（FIFO）
-   */
-  private takeStartTime(
-    startEvent: string,
-    payload: unknown
-  ): number | undefined {
-    const buckets = this.pendingStarts.get(startEvent);
-    if (!buckets || buckets.size === 0) return undefined;
-
-    const key = extractPairKey(PAIR_KEY_FIELDS[startEvent], payload);
-    const exact = this.shiftTime(buckets, key);
-    if (exact !== undefined) return exact;
-
-    // 两侧键不一致（终止载荷缺标识，或起始载荷缺标识落入 `''` 桶）：
-    // 仅当该起始事件只有一个待配对桶时退化配对，避免跨会话错配。
-    if (buckets.size === 1) {
-      const onlyKey = buckets.keys().next().value;
-      if (onlyKey !== undefined && onlyKey !== key) {
-        return this.shiftTime(buckets, onlyKey);
-      }
-    }
-    return undefined;
-  }
-
-  /**
-   * 从指定桶取出最早一条起始时刻
-   */
-  private shiftTime(
-    buckets: Map<string, number[]>,
-    key: string
-  ): number | undefined {
-    const times = buckets.get(key);
-    if (!times || times.length === 0) return undefined;
-    const at = times.shift();
-    if (times.length === 0) buckets.delete(key);
-    return at;
   }
 
   /**
@@ -565,7 +435,7 @@ export class OrchestrationMetrics {
    */
   reset(): void {
     this.stats.clear();
-    this.pendingStarts.clear();
+    this.pairer.reset();
     this.startTime = Date.now();
   }
 }

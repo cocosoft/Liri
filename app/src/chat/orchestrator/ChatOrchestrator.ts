@@ -345,7 +345,9 @@ export interface ChatOrchestratorHost {
   triggerCouncilDebate(
     workspaceId: string,
     topic: string,
-    context: string
+    context: string,
+    /** 发起辩论的聊天会话 ID（U-14 阶段 1.3：会话级挂起快照的关联键） */
+    ownerSessionId?: string
   ): Promise<void>;
   sendMessageDowngradePath(
     session: ChatSession,

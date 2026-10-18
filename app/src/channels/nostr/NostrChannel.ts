@@ -14,6 +14,7 @@ import type {
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { NOSTR_SITE_URL } from '../constants';
 const logger = getLogger('channels:nostr:NostrChannel');
 
 /**
@@ -132,7 +133,7 @@ const NOSTR_META: ChannelMeta = {
   id: 'nostr',
   displayName: 'Nostr',
   vendor: 'Nostr',
-  vendorSite: 'https://nostr.com',
+  vendorSite: NOSTR_SITE_URL,
   icon: 'nostr',
   markdownCapable: false,
   maxMessageLength: 64000,

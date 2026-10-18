@@ -1,16 +1,13 @@
 /**
  * 产品配置常量
+ *
+ * @kind-default A
  */
 
 import {
   DEFAULT_LOCAL_OAUTH_APPS_BASE,
   LOCAL_SERVICE_HOST,
 } from '@modules/core';
-
-/**
- * 产品主页URL
- */
-export const PRODUCT_URL = 'https://openliri.com';
 
 /**
  * 远程会话基础URL
@@ -79,7 +76,12 @@ export function getRemoteSessionUrl(
 export const GITHUB_OWNER = 'cocosoft';
 export const GITHUB_REPO = 'Liri';
 export const GITHUB_API_BASE = 'https://api.github.com';
+/** GitHub raw 文件基址（技能/脚本分发；U-20/B5-2-102） */
+export const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com';
 export const GITHUB_RELEASES_URL = `${GITHUB_API_BASE}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases`;
+
+/** Gitee 站点（第三方技能仓镜像；U-20/B5-2-102） */
+export const GITEE_SITE_URL = 'https://gitee.com';
 
 /**
  * 更新通道

@@ -26,6 +26,7 @@ import path from 'path';
 import { configManager } from '@modules/config';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { repairModelJson } from '@modules/utils/json';
+import { isShellToolName } from '@modules/utils/toolContract/toolRoles';
 import { abortSessionPlans } from './planAbortRegistry.js';
 import { resolveBaseToolTurns } from './loopTurnLimits.js';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
@@ -206,6 +207,8 @@ import type {
   QuestionData,
 } from '@modules/runtime/api/CoreAPI.js';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
+// G-3：主对话验证器独立模型——按角色（`verifier`）解析模型并注入 TAOR 配置
+import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
 import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
 import {
@@ -701,6 +704,25 @@ export class ChatManagerImpl implements ChatManager {
    * 共用绑定空 id 的 TAORLoop → steering 队列/检查点跨会话串扰。Map 化 + 非空校验根治。
    */
   private readonly _taorLoops = new Map<string, TAORLoop>();
+
+  /**
+   * G-3（2026-10-18）：主对话验证器的**独立模型**调用函数。
+   *
+   * - `null` = 未配置 `verifier` 角色 ⇒ **不注入** TAOR 配置（现状：验证器跳过/共享，行为零变化）；
+   * - 非空 ⇒ 注入 `TAORLoopConfig.verifierModel`（日志/追踪里可见"生产者/验证器"两个模型）。
+   *
+   * 惰性解析：`resolveRoleModel('verifier')` 是异步，而 `_getOrCreateTAORLoop` 同步 ——
+   * 故在 `sendMessage` 入口先 await `_ensureVerifierCallModel()` 再建实例。
+   */
+  private _verifierCallModel:
+    | ((
+        messages: Array<{ role: string; content: string }>,
+        signal: AbortSignal
+      ) => AsyncGenerator<{ content?: string }>)
+    | null = null;
+
+  /** 角色解析幂等（成功/失败都只尝试一次） */
+  private _verifierRoleResolved: Promise<void> | null = null;
 
   /**
    * I1（最终整支评审）：已登记进进程级注册表（`checkpoint-handlers.activeLoops`）的 sessionId 集合。
@@ -1470,8 +1492,8 @@ export class ChatManagerImpl implements ChatManager {
           this.executeStepPrompt(prompt, session, options),
         executePlanSteps: (session, options) =>
           this.executePlanSteps(session, options),
-        triggerCouncilDebate: (wid, topic, ctx) =>
-          this.triggerCouncilDebate(wid, topic, ctx),
+        triggerCouncilDebate: (wid, topic, ctx, ownerSessionId) =>
+          this.triggerCouncilDebate(wid, topic, ctx, ownerSessionId),
         sendMessageDowngradePath: (session, tcs, msgs, client, options) =>
           this._sendMessageDowngradePath(session, tcs, msgs, client, options),
         shouldTriggerCouncil: (session, content, options) =>
@@ -1482,7 +1504,8 @@ export class ChatManagerImpl implements ChatManager {
           this.triggerCouncilDebate(
             session.metadata?.workspaceId || 'default',
             content,
-            session.metadata?.context || ''
+            session.metadata?.context || '',
+            session.id
           ).catch((err) => {
             handleError(err, {
               module: 'chat:manager',
@@ -1596,6 +1619,54 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * G-3（2026-10-18）：解析 `verifier` 角色模型（幂等）。
+   *
+   * 未配置角色（`resolveRoleModel` 返回空串）⇒ 保持 `_verifierCallModel = null`，
+   * 主对话 TAOR 配置**不注入** `verifierModel` ⇒ 与改动前完全一致（行为零变化）。
+   *
+   * 解析失败（DB / 端口不可用）⇒ warn + 不注入（fail-open 到现状，不阻断主对话）。
+   */
+  private async _ensureVerifierCallModel(): Promise<void> {
+    if (this._verifierRoleResolved) return this._verifierRoleResolved;
+    this._verifierRoleResolved = (async () => {
+      try {
+        const aiOps = await getCoreAPI().getAiOpsPort();
+        const modelId = await aiOps.resolveRoleModel('verifier');
+        if (!modelId) {
+          logger.debug(
+            'verifier 角色未配置模型，主对话验证器保持现状（不注入独立模型）'
+          );
+          return;
+        }
+        // 与 `research-handlers` 的 verifier 正例同构：流式聚合正文（思考模型非流会空响应）
+        const service = await aiOps.createAiService({
+          defaultModel: '',
+          apiKey: '',
+        });
+        this._verifierCallModel = async function* (messages, signal) {
+          if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+          const gen = service.stream(messages as never, modelId, {
+            max_tokens: 4000,
+          });
+          for await (const chunk of gen) {
+            const content = (chunk as { content?: unknown })?.content;
+            if (typeof content === 'string' && content) yield { content };
+          }
+        };
+        logger.info('verifier 角色模型已解析：主对话验证器将使用独立模型', {
+          modelId,
+        });
+      } catch (error) {
+        // G-3：解析失败 ⇒ 不注入（保持现状），不阻断主对话
+        logger.warn('verifier 角色模型解析失败，主对话验证器保持现状', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
+    return this._verifierRoleResolved;
+  }
+
+  /**
    * 获取或创建 TAORLoop 实例（懒初始化）
    * TAORLoop 统一编排已常驻（ENABLE_LOOP_V8_PHASE2 于阶段 3 退役，2026-09-01）——L6 注释清理 2026-09-06
    */
@@ -1628,6 +1699,10 @@ export class ChatManagerImpl implements ChatManager {
           // 当作会话恢复（sessionId=taskId）造成任务上下文串入普通对话恢复。
           enableCheckpoint: false,
           checkpointInterval: 0,
+          // G-3：仅在配置了 verifier 角色时注入（未配置 ⇒ 键不存在，行为零变化）
+          ...(this._verifierCallModel
+            ? { verifierModel: this._verifierCallModel }
+            : {}),
         },
       });
     }
@@ -1649,6 +1724,10 @@ export class ChatManagerImpl implements ChatManager {
           /** 启用检查点，每 3 轮自动保存（原值：关闭 + 5 轮） */
           enableCheckpoint: true,
           checkpointInterval: 3,
+          // G-3：仅在配置了 verifier 角色时注入（未配置 ⇒ 键不存在，行为零变化）
+          ...(this._verifierCallModel
+            ? { verifierModel: this._verifierCallModel }
+            : {}),
         },
       });
       this._taorLoops.set(cacheKey, taorLoop);
@@ -2307,6 +2386,9 @@ export class ChatManagerImpl implements ChatManager {
     this._ensureYieldResumerInstalled();
     // Fix round 2（2026-10-12）：惰性装配预算挂起唤醒端口（同 yield 恢复器；构造期不再装配）。
     this._ensureBudgetSuspendResumeInstalled();
+    // G-3：解析 verifier 角色模型（幂等；未配置 ⇒ 不注入，行为零变化）。
+    // 必须在 `chatOrchestrator.sendMessage` 创建/复用 TAORLoop **之前**完成。
+    await this._ensureVerifierCallModel();
     // G-T3-1 / Important-1（Fix round 2）：进入**普通轮**前无条件清空该会话的残留续跑意图。
     // `resumeSuspendedSession` 的 taor 分支只在委托执行**前**登记意图，而消费点在 TAOR 分支
     // **内部**（`ChatOrchestrator` 的 `tool_calls` + `shouldUseTAORLoop` 两层）⇒ 若续跑轮未进入
@@ -2623,19 +2705,29 @@ export class ChatManagerImpl implements ChatManager {
   private async triggerCouncilDebate(
     workspaceId: string,
     topic: string,
-    context: string
+    context: string,
+    /** 发起辩论的聊天会话 ID（U-14 阶段 1.3：会话级挂起快照的关联键） */
+    ownerSessionId?: string
   ): Promise<void> {
     // T2-8 / `✅-17`（2026-10-13，形态 A）：编排**入口**只读上报 `PREPARED` —— **不**承载
     // "断言/锁定"裁决（四原语严格无状态、只读，见 `state/engine/projectionBroker.ts` 头注）。
     // 受 `STATE_PROJECTION_BROADCAST`（默认关）门控 ⇒ 关时零发布、零行为变更。
     publishOrchestrationProjection({
       primitive: 'PREPARED',
-      orchestrationId: workspaceId,
+      ...(ownerSessionId !== undefined
+        ? { sessionId: ownerSessionId }
+        : { orchestrationId: workspaceId }),
     });
     // A10（2026-10-06）：走单一构造点 —— 原 `new CouncilOrchestrator(getCouncilEngine())`
     const { getCouncilOrchestrator } =
       await import('@modules/workspace/CouncilOrchestrator');
-    await getCouncilOrchestrator().startCouncil(workspaceId, topic, context);
+    await getCouncilOrchestrator().startCouncil(
+      workspaceId,
+      topic,
+      context,
+      undefined,
+      ownerSessionId !== undefined ? { ownerSessionId } : undefined
+    );
   }
 
   /**
@@ -3412,11 +3504,8 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string | undefined
   ): Promise<boolean> {
     try {
-      if (
-        toolName !== 'bash' &&
-        toolName !== 'shell' &&
-        toolName !== 'command'
-      ) {
+      // A-4（2026-10-18）：命令类工具名判定收敛到角色集合（含历史别名）
+      if (!isShellToolName(toolName)) {
         return false;
       }
       const command = typeof input.command === 'string' ? input.command : '';

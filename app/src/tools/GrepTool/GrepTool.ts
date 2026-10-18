@@ -27,6 +27,7 @@ import { grep, grepAsync } from './grep';
 import type { GrepInputType, GrepOutputType } from './schemas';
 import { validateGrepInput, GrepOutputSchema } from './schemas';
 import { getDescription } from './prompt';
+import { resolveToolPrompt } from '@modules/services/prompt/PromptVersionManager';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:GrepTool:GrepTool');
@@ -104,7 +105,16 @@ export function buildEmptyResultDiagnostic(params: {
  */
 export class GrepTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.grep;
-  description = getDescription();
+  /**
+   * C-3：模型侧工具描述走 T2 解析链（用户 → 项目 → 包内 → 母语回退 → 内置兜底）。
+   *
+   * 用 getter 而非字段：字段在**实例化时**求值，会把 locale 固定为创建那一刻的值；
+   * getter 让 locale 切换与 30s 热更在每次 `getInfo()` 时生效（命中缓存仅一次 Map 查找）。
+   * 内置兜底 = `getDescription()`（包内 zh-CN 资源与其 diff=0 ⇒ 行为零变化）。
+   */
+  get description(): string {
+    return resolveToolPrompt('GrepTool', 'getDescription', getDescription());
+  }
 
   override tags = [ToolTag.CODE, ToolTag.READ];
 

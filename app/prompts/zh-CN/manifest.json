@@ -1,0 +1,226 @@
+{
+  "schemaVersion": 1,
+  "locale": "zh-CN",
+  "generatedBy": "app/scripts/export-prompts.ts",
+  "counts": {
+    "sections": 22,
+    "sectionsStatic": 9,
+    "sectionsDynamic": 13,
+    "toolModules": 3,
+    "toolPrompts": 3
+  },
+  "entries": [
+    {
+      "id": "section:identity",
+      "layer": "system",
+      "kind": "static",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "file": "sections/identity.md",
+      "sha256": "d338142f4c3427543679bc124073a467c27bb2196fafecb2246172db67d9c338"
+    },
+    {
+      "id": "section:projectRules",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "读取工作区 AGENTS.md（内容随工作区变化）"
+    },
+    {
+      "id": "section:toolsConvention",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "读取工作区 TOOLS.md（内容随工作区变化）"
+    },
+    {
+      "id": "section:toolUse",
+      "layer": "system",
+      "kind": "static",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "file": "sections/toolUse.md",
+      "sha256": "622daffdfbd9fc17b627a7feded506edb9c45645f0283c2077a1c0ad2a116e4e"
+    },
+    {
+      "id": "section:toolIntegrity",
+      "layer": "system",
+      "kind": "static",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "file": "sections/toolIntegrity.md",
+      "sha256": "e19933479c2eef46498af81837e1ad2af0d206e5b8229c57ff3c87be72ab11a2"
+    },
+    {
+      "id": "section:shellDeclaration",
+      "layer": "system",
+      "kind": "static",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "file": "sections/shellDeclaration.md",
+      "sha256": "fcd61e60300c17737fbf08e7fa6184f919ee39dd7b223095b8047e8b642177e2"
+    },
+    {
+      "id": "section:taskNegotiation",
+      "layer": "system",
+      "kind": "static",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "file": "sections/taskNegotiation.md",
+      "sha256": "61a02ea8a81928804324763e9936f39236b423c0f2d75bb16093cec54db052b2"
+    },
+    {
+      "id": "section:pdcaThinking",
+      "layer": "system",
+      "kind": "static",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "file": "sections/pdcaThinking.md",
+      "sha256": "aeed159793e62ab72ec7111b0c50fe1c611e6c0932fb5b530614f6d9066d4e52"
+    },
+    {
+      "id": "section:userProfile",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "读取用户 USER.md / settings.user（随用户变化）"
+    },
+    {
+      "id": "section:personality",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "读取 SOUL.md / Core Truths / Boundaries / Vibe（随用户变化）"
+    },
+    {
+      "id": "section:memoryContext",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "记忆检索结果 / 会话级冻结快照（运行时数据）"
+    },
+    {
+      "id": "section:promptEvolution",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "读取受管演化覆盖层（文件存在与否决定该段）"
+    },
+    {
+      "id": "section:gitContext",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "读取实时 git 状态（分支/变更）"
+    },
+    {
+      "id": "section:projectMeta",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "读取项目元数据（DB / 工作区）"
+    },
+    {
+      "id": "section:skills",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "读取技能清单（随安装的技能变化）"
+    },
+    {
+      "id": "section:sessionContext",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "读取当前会话状态（运行时数据）"
+    },
+    {
+      "id": "section:projectContext",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "读取项目文件清单（随工作区变化）"
+    },
+    {
+      "id": "section:knowledgeContext",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "知识库检索结果（运行时数据）"
+    },
+    {
+      "id": "section:knowledgeDigest",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "知识摘要异步生成（定时更新）"
+    },
+    {
+      "id": "section:fewShotExamples",
+      "layer": "system",
+      "kind": "static",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "file": "sections/fewShotExamples.md",
+      "sha256": "9b73e1d71ff1836ce7e055f67653ee9f289753014a7494e409e2ee2660862736"
+    },
+    {
+      "id": "section:knowledgeSaveGuide",
+      "layer": "system",
+      "kind": "static",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "file": "sections/knowledgeSaveGuide.md",
+      "sha256": "0b7630d928e897e7fd4c585dd4ba3fd0ef13a6e1d0086ba51b587d1868913ea8"
+    },
+    {
+      "id": "section:outputArtifactBoundary",
+      "layer": "system",
+      "kind": "static",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "file": "sections/outputArtifactBoundary.md",
+      "sha256": "0a5a4b3965ee61b8bd647908328b5c3e6b730004eabc8db01985d93f56a051d4"
+    },
+    {
+      "id": "tool:FileEditTool/getEditToolDescription",
+      "layer": "tools",
+      "kind": "static",
+      "locale": "zh-CN",
+      "source": "app/src/tools/FileEditTool/prompt.ts",
+      "file": "tools/FileEditTool/getEditToolDescription.md",
+      "sha256": "6a88f4921385604bba379ee79e776c65800d89b33f7188472dc192eac7cae308"
+    },
+    {
+      "id": "tool:FileWriteTool/getWriteToolDescription",
+      "layer": "tools",
+      "kind": "static",
+      "locale": "zh-CN",
+      "source": "app/src/tools/FileWriteTool/prompt.ts",
+      "file": "tools/FileWriteTool/getWriteToolDescription.md",
+      "sha256": "f1fbd46aa899b467c116cddc93c7fa4c15898c8be2f76c161dbcc146f6e758a0"
+    },
+    {
+      "id": "tool:GrepTool/getDescription",
+      "layer": "tools",
+      "kind": "static",
+      "locale": "zh-CN",
+      "source": "app/src/tools/GrepTool/prompt.ts",
+      "file": "tools/GrepTool/getDescription.md",
+      "sha256": "fff68267df15763aecfc1d95853041213f33e32cf4b89fbe48877062bb8f3b53"
+    }
+  ]
+}

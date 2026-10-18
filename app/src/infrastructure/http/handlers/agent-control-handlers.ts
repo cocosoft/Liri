@@ -18,6 +18,7 @@ import type http from 'http';
 // （`getCoreAPI().getToolsPort()`，端口于 D-199 步骤 1 就绪）。
 // service 侧端口取用入口（同 D-93 先例）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { REQUEST_URL_PARSE_BASE } from '@modules/core';
 import type { HandlerCtx } from './handler-utils';
 
 /**
@@ -96,7 +97,7 @@ export async function handleListAgentRuns(
 ): Promise<void> {
   try {
     // 从 `req.url` 取参数（路由传入的 `url` 可能已去查询串，故不依赖它）
-    const parsed = new URL(req.url ?? '/', 'http://internal');
+    const parsed = new URL(req.url ?? '/', REQUEST_URL_PARSE_BASE);
     const rawLimit = Number(parsed.searchParams.get('limit') ?? '50');
     const limit = Number.isFinite(rawLimit)
       ? Math.min(Math.max(Math.trunc(rawLimit), 1), 200)

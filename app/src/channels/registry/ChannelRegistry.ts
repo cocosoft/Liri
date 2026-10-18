@@ -27,6 +27,9 @@ import { handleError } from '@modules/error';
 // `@modules/context`（app 层）取用属倒挂。改**相对直连 core 模块根**
 // （同 D-157 先例 `permission/intercept/PermissionInterceptor.ts:40`；`core` 根文件不触发 R03-002）。
 import { dependencyRegistry } from '../../core/DependencyRegistry.js';
+// B-4（2026-10-18）：凭据来源改为**显式注入**（默认实现见 `defaultSecretResolver`）。
+// 静态 import 合法：`ChannelSecretStore` 不反向 import 本文件（它经 `initRegistry()` 取注册表）。
+import { ChannelSecretStore } from '../secrets/ChannelSecretStore';
 
 const logger = getLogger('channels:registry');
 
@@ -45,8 +48,15 @@ export interface ChannelOutbound {
 }
 
 /**
- * 通道接口
- * @deprecated 过渡接口，新代码请使用 IChannelPlugin
+ * 通道接口 —— **统一视图**（B-2，2026-10-18）
+ *
+ * 治理层（`ChannelRegistry`）只向上返回本视图：`IChannelPlugin` 经
+ * {@link adaptPluginToInterface} **一次投影**得到，`capabilities` / `meta` 在投影时
+ * **一次性带出**（唯一事实源仍是 `IChannelPlugin`，本处不复制、不派生）。
+ *
+ * @deprecated 过渡接口（B-2 下线计划）：legacy 直注册路径保留至 **v0.5.0（不晚于
+ * 2026-12-31）**；到期后 `register()` 只接受 `IChannelPlugin`。见
+ * `dev_docs/20261018/待修复任务清单-20261018.md` B-2。
  */
 export interface ChannelInterface {
   name: string;
@@ -69,32 +79,59 @@ export interface ChannelInterface {
     text: string
   ): Promise<boolean>;
 
+  /**
+   * 通道**声明能力**（B-2：投影自 `IChannelPlugin.capabilities`，**只读**）。
+   *
+   * 消费方（如 `DeliveryRouter._formatSupport`）只读本字段 —— 不再穿透
+   * `plugin.capabilities`（那曾是第二处需同步维护的位置）。
+   */
+  capabilities?: ChannelCapabilities;
+  /**
+   * 通道**元信息**（B-2：投影自 `IChannelPlugin.meta`，**只读**）。
+   *
+   * 消费方只读本字段（如 `meta.markdownCapable`），不再穿透 `plugin.meta`。
+   */
+  meta?: ChannelMeta;
+
+  /** 出站适配（`DeliveryRouter` 统一发送入口） */
   plugin?: {
     outbound: ChannelOutbound;
-    /**
-     * 通道**声明能力**（阶段 1.2 降级支持判定的唯一事实源：`interactive`）。
-     *
-     * 2026-10-12（通道治理 阶段 1.2 收口）：原声明**只有** `outbound` ⇒ `DeliveryRouter._formatSupport`
-     * 读 `plugin.capabilities.interactive` 类型不成立（实测 3 处 typecheck 报错）。能力位本就存在于
-     * `IChannelPlugin.capabilities`，本处补**声明 + 运行时装配**（不新增字段、不改语义）。
-     */
-    capabilities?: ChannelCapabilities;
-    /**
-     * 通道**元信息**（阶段 1.2 降级支持判定的唯一事实源：`markdownCapable`）。
-     * 同上：值来自 `IChannelPlugin.meta`，本处仅为穿过 `ChannelInterface` 视图而显式透传。
-     */
-    meta?: ChannelMeta;
   };
 }
 
 /**
- * 将 IChannelPlugin 适配为 ChannelInterface
- * connect 时自动从 ChannelSecretStore 注入已存储的凭据
+ * 凭据解析器（B-4，2026-10-18）—— **显式注入**，替代适配器内的动态 import。
+ *
+ * 默认实现 = `ChannelSecretStore.getInstance().get()`（DB 优先、`.env` 兜底）；
+ * 测试 / 多租户场景可注入替身（`new ChannelRegistry({ secretResolver })`）。
+ */
+export type ChannelSecretResolver = (
+  channelId: string
+) => Record<string, unknown>;
+
+/** 默认凭据解析器（唯一事实源 = `ChannelSecretStore`） */
+const defaultSecretResolver: ChannelSecretResolver = (channelId) =>
+  ChannelSecretStore.getInstance().get(channelId);
+
+/** `ChannelRegistry` 构造选项（B-4：`dbPath` 与 `secretResolver` 均显式注入） */
+export interface ChannelRegistryOptions {
+  dbPath?: string;
+  secretResolver?: ChannelSecretResolver;
+}
+
+/**
+ * 将 `IChannelPlugin` **投影**为统一视图 `ChannelInterface`（B-2）。
+ *
+ * - `capabilities` / `meta` 一次性带出到**顶层**（消费方只读顶层，不再穿透 `plugin.*`）；
+ * - `connect` 的凭据来源由 `resolveCredentials` **注入**（B-4，缺省 = `ChannelSecretStore`）。
+ *
  * @param enabledOverride 持久化的 enabled 状态（P1-1：DB 配置为准，缺省视为启用）
+ * @param resolveCredentials 凭据解析器（缺省 = `defaultSecretResolver`）
  */
 export function adaptPluginToInterface(
   plugin: IChannelPlugin,
-  enabledOverride?: boolean
+  enabledOverride?: boolean,
+  resolveCredentials: ChannelSecretResolver = defaultSecretResolver
 ): ChannelInterface {
   return {
     name: plugin.id,
@@ -108,11 +145,8 @@ export function adaptPluginToInterface(
         .homeChannelId;
     },
     connect: async () => {
-      // 从统一凭据存储获取该通道的所有已保存配置（DB 优先，.env 兜底）
-      const { ChannelSecretStore } =
-        await import('../secrets/ChannelSecretStore');
-      const store = ChannelSecretStore.getInstance();
-      const credentials = store.get(plugin.id);
+      // B-4：凭据来源走注入的解析器（默认 = ChannelSecretStore；DB 优先、.env 兜底）
+      const credentials = resolveCredentials(plugin.id);
       await plugin.lifecycle.connect(credentials);
       return plugin.lifecycle.getStatus().connected;
     },
@@ -128,6 +162,9 @@ export function adaptPluginToInterface(
       type: plugin.id,
     }),
     healthCheck: async () => plugin.lifecycle.healthCheck(),
+    // B-2：能力位/元信息在**投影处一次性带出**（唯一事实源 = `IChannelPlugin`，本处不复制、不派生）
+    capabilities: plugin.capabilities,
+    meta: plugin.meta,
     plugin: {
       outbound: {
         sendText: async (target: string, content: string) => {
@@ -163,9 +200,6 @@ export function adaptPluginToInterface(
             }
           : {}),
       },
-      // 阶段 1.2 收口：能力位/元信息**原样透传**（唯一事实源 = `IChannelPlugin`，本处不复制、不派生）
-      capabilities: plugin.capabilities,
-      meta: plugin.meta,
     },
   };
 }
@@ -204,11 +238,22 @@ export class ChannelRegistry extends EventEmitter {
   // ─── 持久化 ────────────────────────────────────────────
   private db: Database | null = null;
   private readonly dbPath: string;
+  /** B-4：凭据解析器（构造注入；测试 / 多租户可替换） */
+  private readonly secretResolver: ChannelSecretResolver;
   private persistenceReady = false;
 
-  constructor(dbPath: string = resolveDbPath()) {
+  constructor(
+    dbPathOrOptions: string | ChannelRegistryOptions = resolveDbPath()
+  ) {
     super();
-    this.dbPath = dbPath;
+    if (typeof dbPathOrOptions === 'string') {
+      this.dbPath = dbPathOrOptions;
+      this.secretResolver = defaultSecretResolver;
+    } else {
+      this.dbPath = dbPathOrOptions.dbPath ?? resolveDbPath();
+      this.secretResolver =
+        dbPathOrOptions.secretResolver ?? defaultSecretResolver;
+    }
   }
 
   /**
@@ -413,7 +458,12 @@ export class ChannelRegistry extends EventEmitter {
     let adapted: ChannelInterface;
 
     if ('lifecycle' in channel && 'outbound' in channel) {
-      adapted = adaptPluginToInterface(channel as IChannelPlugin);
+      // B-4：把构造期注入的凭据解析器传给投影（不再由适配器内部动态 import）
+      adapted = adaptPluginToInterface(
+        channel as IChannelPlugin,
+        undefined,
+        this.secretResolver
+      );
     } else {
       adapted = channel as ChannelInterface;
     }

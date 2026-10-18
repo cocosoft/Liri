@@ -229,6 +229,13 @@ export function recordToolSchemaEntropy(
   // TG-5（2026-10-12 裁断）：长程「工具 Schema 混沌」阈值告警 —— **只告警、绝不阻断**
   // （Fail-Open for Observation）。判据/阈值见 `evaluateSchemaEntropyGate`；缺 `turn` 或
   // 上下文窗口 ⇒ 返回 `null`（不臆造）。累积实测后再评估是否触发 D4/T2。
+  //
+  // 告警**去向**裁定（H-6 / 原 U-32，2026-10-18）：**仅结构化日志 + 指标 + 裁决返回**，
+  // **不新增 SSE**。理由：① 该信号面向长程观测（第 20 轮后 >30%），无用户可执行动作；
+  // ② 指标 `tools.schema.context_entropy_percent` 已可供监控面读取；③ T3-12 已把裁决
+  // 返回给 stream 链（`FEATURE_GUARD_SUSPEND` 默认关时零行为变更），比 SSE 更靠前。
+  // 重开条件：需要在 UI 上**实时提示**用户「工具面占用过高」并附带可操作项时，再按事件契约
+  // （`knownEventTypes` + `eventPayloads` + client 镜像）三处同批新增。
   const verdict = evaluateSchemaEntropyGate(m);
   if (verdict?.warn) {
     logger.warn('tools:schema.entropy_high', {

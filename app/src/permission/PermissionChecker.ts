@@ -20,6 +20,7 @@ import {
 } from './types/RiskClass';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
+import { isShellToolName } from '@modules/utils/toolContract/toolRoles';
 const logger = getLogger('permission:checker');
 
 /**
@@ -261,10 +262,7 @@ export class PermissionChecker {
     // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）参与决策 —
     // 与 BashSecurityAnalyzer 消费同一配置（permission.customRules.commandRules），
     // 黑名单命中 deny、whitelist 模式命中 allow，使 UI 白名单能真正免审批。
-    if (
-      (toolName === 'bash' || toolName === 'shell' || toolName === 'command') &&
-      typeof input.command === 'string'
-    ) {
+    if (isShellToolName(toolName) && typeof input.command === 'string') {
       const cmdDecision = checkCommandCustomRules(input.command);
       if (cmdDecision) return cmdDecision;
     }
@@ -419,8 +417,7 @@ export class PermissionChecker {
       // P1-2: 命令类工具计算规范化 hash，供批准后写入 ApprovedCommandRegistry（放行缓存）
       // P0-2: 统一 hashCommandForExecution，与 BashTool 执行端 hash 一致
       const command = typeof input.command === 'string' ? input.command : '';
-      const isCommandTool =
-        toolName === 'bash' || toolName === 'shell' || toolName === 'command';
+      const isCommandTool = isShellToolName(toolName);
       const commandHash =
         isCommandTool && command ? hashCommandForExecution(command) : undefined;
 
@@ -607,7 +604,14 @@ export class PermissionChecker {
     // 实现安全检查逻辑
     // 例如检查危险命令、文件路径等
 
-    // 检查Bash工具的危险命令
+    // ⚠️ A-4（2026-10-18）存量保留：`'Bash'` / `'File'` 是**历史规则名/大小写别名**，
+    // 注册名域（`constants/toolNames.generated.ts`）中不存在 ⇒ 这两段**静态不可达**。
+    // 按 CD07（permission 属关键域，禁止以「无静态引用/不可达」为依据删除）**保留不删**；
+    // 也**不**改写为 `isShellToolName()` / `isFileWriteToolName()` —— 那会把死分支激活成
+    // 「真实 bash/powershell 的危险命令额外转 ask」「所有绝对路径写入转 ask」，属**行为变更**，
+    // 须独立评审（A-4 后续批次）。执行类工具的危险命令拦截现由
+    // `ToolExecutor.performSecurityCheck`（按 `sandboxLevel === 'execution'`）+ `utils/bash/registry`
+    // 承担，不在本函数。
     if (toolName === 'Bash' && input.command) {
       const command = input.command as string;
       const dangerousCommands = [
@@ -628,7 +632,7 @@ export class PermissionChecker {
       }
     }
 
-    // 检查File工具的危险路径
+    // ⚠️ A-4 存量保留：同上（`'File'` 非注册名，静态不可达；按 CD07 不删不激活）。
     if (toolName === 'File' && input.path) {
       const path = input.path as string;
 

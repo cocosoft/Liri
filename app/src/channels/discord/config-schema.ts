@@ -3,6 +3,8 @@
  * 对标 OpenClaw extensions/discord/src/config-schema.ts
  */
 
+import { DISCORD_API_BASE_URL } from '../constants';
+
 export interface DiscordConfig {
   botToken: string;
   clientId?: string;
@@ -16,7 +18,7 @@ export interface DiscordConfig {
 const DEFAULTS: Partial<DiscordConfig> = {
   gatewayIntents: 512, // GUILD_MESSAGES | DIRECT_MESSAGES
   gatewayUrl: 'wss://gateway.discord.gg/?v=10&encoding=json',
-  restBaseUrl: 'https://discord.com/api/v10',
+  restBaseUrl: DISCORD_API_BASE_URL,
   reconnectDelayMs: 5000,
   maxReconnectAttempts: 10,
 };

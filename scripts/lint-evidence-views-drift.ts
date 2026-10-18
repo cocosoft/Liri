@@ -22,7 +22,6 @@ import {
   LOG,
   PROJECT_ROOT,
   REGISTRY,
-  findAnchor,
   isFreshBullet,
 } from './lib/evidenceStore';
 

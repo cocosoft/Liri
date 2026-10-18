@@ -15,6 +15,7 @@
  */
 
 import { toWireToolName } from './toolNameCodec';
+import type { ToolNameConstant } from './toolNameConstants';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('tools:categories');
@@ -48,8 +49,8 @@ export type ToolCategory =
   | 'assist' // 通用协作助手（计划/剪贴板/画布 —— 任何对话都可用）
   | 'misc'; // 未分类；⚠️ **不在任何任务白名单** ⇒ 会被裁剪（新增工具必须显式登记类别，见 N-44）
 
-/** 工具名 → 类别映射（覆盖运行时内置 + 模块注册工具） */
-export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
+/** 工具名 → 类别映射（覆盖运行时内置 + 模块注册工具；字面量键用于编译期完整性校验） */
+const TOOL_CATEGORY_ENTRIES = {
   // ── file_read 文件只读（本地模型轻量集可用） ──
   file_read: 'file_read',
   glob: 'file_read',
@@ -190,9 +191,6 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   // （该类别在 chat/default/coding/agent 四个主任务白名单内 ⇒ 与"通用生成"语义一致）。
   // ⚠️ 接线同时收口了 `extract`/`info` 两个假成功分支（见 PDFTool.ts 内注释）。
   pdf: 'doc',
-  'office:workflow': 'doc',
-  // N-45（2026-10-05）：懒加载注册的编排工具此前**完全未登记** ⇒ misc ⇒ 被裁剪
-  'office:doc-pipeline': 'doc',
 
   // ── notify 消息/通知 ──
   send_message: 'notify',
@@ -204,24 +202,9 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   broadcast: 'channel',
   list_peers: 'channel',
 
-  // ── calendar 日历 ──
-  'calendar:add': 'calendar',
-  'calendar:list': 'calendar',
-  'calendar:update': 'calendar',
-  'calendar:delete': 'calendar',
-
-  // ── mail 邮件 ──
-  'mail:send': 'mail',
-
   // ── knowledge 知识库（保存/搜索/管理） ──
+  // 注：`knowledge_save` 在内置常量表；其余 `knowledge_*` 为运行期注册 ⇒ 见 RUNTIME_TOOL_CATEGORIES。
   knowledge_save: 'knowledge',
-  knowledge_search: 'knowledge',
-  knowledge_write: 'knowledge',
-  knowledge_delete: 'knowledge',
-  knowledge_import: 'knowledge',
-  knowledge_export: 'knowledge',
-  knowledge_restore: 'knowledge',
-  knowledge_snapshots: 'knowledge',
 
   // ── mcp 三方 MCP 工具 ──
   // N-44：静态名归入 'mcp'；**动态名**（`McpToolWrapper` 的 `${server}__${tool}`）由
@@ -235,17 +218,79 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   plan: 'assist',
   clipboard: 'assist',
   canvas: 'assist',
-  // P0-2 续（2026-10-08）：用户工作流模板工具（**运行期注册**，`tools` 域外）。
-  // 与 plan/clipboard/canvas 同口径（"任何对话都可能用到"）。
-  // ⚠️ N-44/N-45：**不登记 ⇒ 落 misc ⇒ 不在任何任务白名单 ⇒ 被静默裁剪 ⇒ 模型永远看不到**
-  // （冒号命名空间工具正是该缺陷的现场；wire 形态 `workflow_run-template` 由
-  // `WIRE_KEYED_CATEGORIES` 自动派生，无需另登记）。
-  'workflow:run-template': 'assist',
+
+  // ── 编译期完整性补齐（I-1，2026-10-18）──
+  // 这些名字在 `TOOL_NAME_CONSTANTS` 中但此前未登记类别（落 misc ⇒ 被裁剪）。
+  // 归类只影响「未来接线后的可见面」；当前它们均不在生成物 `TOOL_NAMES` ⇒
+  // `conditional` 仍会使其不可见（零行为变更）。
+  agents_list: 'agent',
+  kanban: 'task',
+  mcp_auth: 'mcp',
+  music_generate: 'media',
+  nodes: 'system',
+  session_status: 'session',
+  sessions_send: 'session',
+  sessions_spawn: 'session',
+  thinking: 'system',
+  tts: 'media',
+  update_plan: 'assist',
 
   // ── misc 其他（⚠️ 不会被任何任务白名单保留 —— 仅作"已知但不默认开放"的归档） ──
   browser: 'misc',
   computer_use: 'misc',
+} as const satisfies Record<string, ToolCategory>;
+
+/**
+ * **运行期注册工具**的类别表（I-2，2026-10-18）。
+ *
+ * 与内置表分离的原因：`TOOL_NAME_CONSTANTS` 只收标识符安全的内置名；
+ * 冒号命名空间 / 模块运行期注册的名字无法进入该常量表，故单独登记并由
+ * `scripts/../tests/tools/runtimeToolCategories.test.ts` 断言「已知运行期名字均已登记」。
+ *
+ * ⚠️ N-44/N-45：**不登记 ⇒ 落 misc ⇒ 不在任何任务白名单 ⇒ 被静默裁剪**。
+ * wire 形态（如 `workflow_run-template`）由 `WIRE_KEYED_CATEGORIES` 自动派生，无需另登记。
+ */
+const RUNTIME_TOOL_CATEGORIES = {
+  'office:workflow': 'doc',
+  // N-45（2026-10-05）：懒加载注册的编排工具此前**完全未登记** ⇒ misc ⇒ 被裁剪
+  'office:doc-pipeline': 'doc',
+  'calendar:add': 'calendar',
+  'calendar:list': 'calendar',
+  'calendar:update': 'calendar',
+  'calendar:delete': 'calendar',
+  'mail:send': 'mail',
+  knowledge_search: 'knowledge',
+  knowledge_write: 'knowledge',
+  knowledge_delete: 'knowledge',
+  knowledge_import: 'knowledge',
+  knowledge_export: 'knowledge',
+  knowledge_restore: 'knowledge',
+  knowledge_snapshots: 'knowledge',
+  // P0-2 续（2026-10-08）：用户工作流模板工具（运行期注册，tools 域外）。
+  'workflow:run-template': 'assist',
+} as const satisfies Record<string, ToolCategory>;
+
+/**
+ * 对外只读视图（保留 `Record<string, ...>` 索引签名，供按动态工具名查找）。
+ *
+ * I-1：真正的字面量键在 `TOOL_CATEGORY_ENTRIES`，下方 `ALL_BUILTIN_TOOLS_CATEGORIZED`
+ * 在**编译期**强制「`TOOL_NAME_CONSTANTS` 的每个内置工具都必须登记类别」——
+ * 漏登记会让该常量类型不再是 `true` ⇒ `tsc` 直接报错。
+ */
+export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
+  ...TOOL_CATEGORY_ENTRIES,
+  ...RUNTIME_TOOL_CATEGORIES,
 };
+
+type MissingBuiltinToolCategory = Exclude<
+  ToolNameConstant,
+  keyof typeof TOOL_CATEGORY_ENTRIES
+>;
+
+/** 编译期断言：漏登记内置工具类别 ⇒ 本行类型错误（不是运行时告警）。 */
+export const ALL_BUILTIN_TOOLS_CATEGORIZED: MissingBuiltinToolCategory extends never
+  ? true
+  : MissingBuiltinToolCategory = true;
 
 /**
  * **有意归档**的工具（归类 `'misc'` ⇒ 不在任何任务白名单 ⇒ 对模型永久不可见）。
@@ -367,6 +412,20 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'mail',
     'mcp',
     'assist',
+  ],
+  // G-2（2026-10-18）：**远程 IM / Webhook 通道的最小工具面**（PoLP）。
+  // 刻意**不含** `shell`（bash / powershell）与 `file`（file_write / file_edit / 写类）：
+  // 远程消息来源不可信，执行命令 / 写盘必须由用户在本机会话内发起。
+  // 保留只读与交互能力（读文件、搜索、网络、会话、知识库、系统、通道出站）。
+  messaging: [
+    'file_read',
+    'search',
+    'network',
+    'interaction',
+    'session',
+    'knowledge',
+    'system',
+    'channel',
   ],
   // 简单问答/摘要：最轻量
   quick: ['search', 'network', 'system'],

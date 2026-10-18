@@ -46,6 +46,10 @@ import {
 } from '@modules/core';
 import { initAppStateMachine } from './state/app/AppLifecycle.js';
 import {
+  parseMaintenanceCommand,
+  runMaintenanceCommand,
+} from './cli/maintenanceCommand';
+import {
   startKeychainPrefetch,
   ensureKeychainPrefetchCompleted,
 } from '@modules/infrastructure';
@@ -1861,6 +1865,12 @@ export async function main(): Promise<void> {
 
   // 首启种子数据同步（幂等）：把打包内种子模板落到用户数据目录
   syncSeedData();
+
+  // 维护类子命令（`liri prompt …`）：轻量分发，不进入 REPL / 不启动 HTTP 与通道
+  const maintenance = parseMaintenanceCommand(filteredArgv);
+  if (maintenance) {
+    process.exit(await runMaintenanceCommand(maintenance));
+  }
 
   let mode: LaunchMode;
   let args: string[];

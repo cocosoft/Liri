@@ -3,6 +3,8 @@
  * 对标 OpenClaw extensions/googlechat/src/config-schema.ts
  */
 
+import { GOOGLE_API_BASE_URL, GOOGLE_OAUTH2_BASE_URL } from '@modules/core';
+
 export interface GoogleChatConfig {
   clientEmail: string;
   privateKey: string;
@@ -14,8 +16,8 @@ export interface GoogleChatConfig {
 
 const DEFAULTS: Partial<GoogleChatConfig> = {
   webhookPort: 8088,
-  scope: 'https://www.googleapis.com/auth/chat.bot',
-  tokenUrl: 'https://oauth2.googleapis.com/token',
+  scope: `${GOOGLE_API_BASE_URL}/auth/chat.bot`,
+  tokenUrl: `${GOOGLE_OAUTH2_BASE_URL}/token`,
 };
 
 export function getDefaultGoogleChatConfig(): GoogleChatConfig {

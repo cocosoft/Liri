@@ -611,6 +611,43 @@ export async function handleOTelMetrics(
 }
 
 /**
+ * GET /v1/monitor/orchestration — 编排链路指标快照（P50/P95）
+ *
+ * U-13 / H-2（2026-10-18）：`OrchestrationMetrics` 是**进程内**指标（事件日志不持久化
+ * `COUNCIL_*` / `SWARM_*` / `PLAN_*`），此前**无任何查询面** ⇒ 口径文档里的 P50/P95
+ * 无法在真实编排流量下采样。本端点是只读观测面：样本仅覆盖**当前进程存活期**，
+ * 重启即清零 —— 响应中如实标注 `processLifetimeOnly`，不伪造历史数据。
+ */
+export async function handleOrchestrationMetrics(
+  _ctx: HandlerCtx,
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { getOrchestrationMetrics } =
+      await import('@modules/core/events/OrchestrationMetrics');
+    const snapshot = getOrchestrationMetrics().getStats();
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({
+        source: 'in-process',
+        processLifetimeOnly: true,
+        note: '样本仅覆盖当前进程存活期；进程重启后清零',
+        ...snapshot,
+      })
+    );
+  } catch (error) {
+    await handleError(error, {
+      module: 'infra:handler:monitoring',
+      action: 'orchestration_metrics',
+    });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: '获取编排指标失败' }));
+  }
+}
+
+/**
  * GET /v1/infrastructure/status — 基础设施聚合状态
  *
  * 聚合 SystemHealthChecker + infraHealthChecker(Provider/EventLoop) + 通道健康

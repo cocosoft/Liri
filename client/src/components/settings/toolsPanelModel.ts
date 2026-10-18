@@ -73,6 +73,31 @@ export const TOOL_VISIBILITY_REASON_TONES: Record<
   "user-on-bypass": "ok",
 };
 
+/** 徽标优先级（I-4：每行只显示**一个主因**；`conditional` 最根本 —— 没接线比类别不在白名单更前置） */
+const PRIMARY_REASON_PRIORITY: readonly SharedToolVisibilityReason[] = [
+  "conditional",
+  "archived",
+  "unregistered-category",
+  "not-in-task-whitelist",
+  "user-off",
+  "user-on-bypass",
+  "mandatory",
+];
+
+/**
+ * 取该行的**主因**（无原因 ⇒ `null`）。
+ *
+ * 后端 `reasons` 保持完整（供诊断/搜索），渲染层只显示主因，避免一行挂多个徽标互相稀释。
+ */
+export function primaryReasonOf(
+  entry: SharedToolVisibilityEntry,
+): SharedToolVisibilityReason | null {
+  for (const reason of PRIMARY_REASON_PRIORITY) {
+    if (entry.reasons.includes(reason)) return reason;
+  }
+  return null;
+}
+
 /** 状态分组（`on` = 用户强制开启且**确实生效**） */
 export type ToolVisibilityGroupId = "on" | "default" | "off" | "hidden";
 

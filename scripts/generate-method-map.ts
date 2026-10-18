@@ -10,7 +10,7 @@
 
 import * as ts from 'typescript';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve } from 'node:path';
 
 // ============ 配置 ============
 
@@ -202,13 +202,6 @@ function assessExtractability(
   if (isStatic) {
     return '纯搬（static）';
   }
-
-  const ownMethodCalls = Array.from(thisCalls).filter(
-    (c) => c.startsWith('_') || c === methodName
-  );
-  const domainProps = Array.from(thisProps).filter(
-    (p) => !['_chatSessions', 'sessionMachines', 'sessionGateway'].includes(p)
-  );
 
   if (thisProps.size === 0 && thisCalls.size === 0) {
     return '纯搬';

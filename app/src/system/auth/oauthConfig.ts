@@ -8,6 +8,10 @@ import type { OAuthConfig } from './oauth-types.js';
 import type { ValidationResult } from '@modules/common/types';
 import { configManager } from '@modules/config';
 import { DEFAULT_OAUTH_LOCAL_BASE_URL } from '@modules/core';
+import {
+  OAUTH_API_BASE_URL,
+  OAUTH_STAGING_API_BASE_URL,
+} from '@modules/constants';
 
 const Liri_INFERENCE_SCOPE = 'user:inference';
 const Liri_PROFILE_SCOPE = 'user:profile';
@@ -30,11 +34,11 @@ export const ALL_OAUTH_SCOPES = Array.from(
 export const SUCCESS_URL = 'https://openliri.com/auth/success';
 export const MANUAL_REDIRECT_URL = 'https://openliri.com/auth/manual';
 
-export const DEFAULT_API_BASE_URL = 'https://api.openliri.com';
+export const DEFAULT_API_BASE_URL = OAUTH_API_BASE_URL;
 
 export const ALLOWED_OAUTH_BASE_URLS: string[] = [
-  'https://api.openliri.com',
-  'https://api.staging.openliri.com',
+  OAUTH_API_BASE_URL,
+  OAUTH_STAGING_API_BASE_URL,
   DEFAULT_OAUTH_LOCAL_BASE_URL,
 ];
 

@@ -419,10 +419,10 @@ async function tryDynamicRegister(
       return false;
     }
 
-    // 1. 注册到 ChannelRegistry
-    const { channelRegistry, adaptPluginToInterface } =
-      await import('@modules/channels');
-    channelRegistry.register(adaptPluginToInterface(plugin));
+    // 1. 注册到 ChannelRegistry（B-2/B-4：交插件本体，由注册中心**一次投影**
+    //    —— 凭据解析器取注册中心构造期注入的实现，不再二次适配）
+    const { channelRegistry } = await import('@modules/channels');
+    channelRegistry.register(plugin);
 
     // 2. 注册到 ChannelBootstrapper
     const { channelBootstrapper } =

@@ -209,6 +209,10 @@ jobs:
           VER="${{ steps.version.outputs.version }}"
           mkdir -p ../dist/update-tmp
           cp ../dist/pkg/liri.js ../dist/update-tmp/
+          # C-3b：prompts 为运行时读盘资源，文案随版本变化 ⇒ 增量包必须携带
+          if [ -d "../dist/pkg/prompts" ]; then
+            cp -r ../dist/pkg/prompts ../dist/update-tmp/prompts
+          fi
           if [ -d "../dist/pkg/node_modules" ]; then
             mkdir -p ../dist/update-tmp/deps/node_modules
             for dep in sharp pdfjs-dist; do
@@ -556,6 +560,17 @@ jobs:
           }
           Write-Host "=== binaries/deps/node_modules contents ==="
           Get-ChildItem src-tauri/binaries/deps/node_modules -Directory | Select-Object Name
+
+          # C-3b/T2：提示词是**运行时读盘**资源 —— 与 `bundle.resources` 的 `prompts`
+          # 映射同源，复制到 sidecar 同级（本地/dev 侧车按 execPath 同级查找）。
+          if (Test-Path ../dist/prompts) {
+            Copy-Item -Path ../dist/prompts -Destination src-tauri/binaries/prompts -Recurse -Force
+            Write-Host "=== binaries/prompts locales ==="
+            Get-ChildItem src-tauri/binaries/prompts -Directory | Select-Object Name
+          } else {
+            Write-Error "ERROR: ../dist/prompts not found (build:win:coding 应产出 prompts/)"
+            exit 1
+          }
         shell: powershell
         if: matrix.config.os == 'windows-latest'
 
@@ -591,6 +606,18 @@ jobs:
           fi
           echo "=== binaries/deps/node_modules contents ==="
           ls -d src-tauri/binaries/deps/node_modules/*/ 2>/dev/null || true
+
+          # C-3b/T2：提示词是**运行时读盘**资源 —— 与 `bundle.resources` 的 `prompts`
+          # 映射同源，复制到 sidecar 同级（本地/dev 侧车按 execPath 同级查找）。
+          if [ -d ../dist/prompts ]; then
+            mkdir -p src-tauri/binaries
+            cp -a ../dist/prompts src-tauri/binaries/prompts
+            echo "=== binaries/prompts locales ==="
+            ls -d src-tauri/binaries/prompts/*/ 2>/dev/null || true
+          else
+            echo "ERROR: ../dist/prompts not found (build:mac/build:linux 应产出 prompts/)"
+            exit 1
+          fi
         shell: bash
         if: matrix.config.os != 'windows-latest'
 

@@ -8,7 +8,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve, join, dirname } from 'node:path';
+import { resolve, join } from 'node:path';
 
 interface AuditEntry {
   source: 'DIContainer' | 'AppCore' | 'ModuleRegistry';

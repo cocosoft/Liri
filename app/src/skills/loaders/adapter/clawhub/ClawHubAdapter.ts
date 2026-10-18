@@ -38,6 +38,7 @@ import { ClawHubConverter } from './ClawHubConverter';
 import { ClawHubAPIClient } from './ClawHubAPIClient';
 import { ClawHubInstaller } from './ClawHubInstaller';
 import { getLogger } from '@modules/monitoring';
+import { GITEE_SITE_URL, GITHUB_RAW_BASE } from '@modules/constants';
 import type { PluginRegistry } from '@modules/plugins';
 
 const logger = getLogger('skills:clawHubAdapter');
@@ -216,8 +217,8 @@ export class ClawHubAdapter extends BaseThirdPartyAdapter<InstalledClawHubSkill>
       for (const branch of ['main', 'master']) {
         const rawUrl =
           prefix === 'gitee'
-            ? `https://gitee.com/${repo}/raw/${branch}/SKILL.md`
-            : `https://raw.githubusercontent.com/${repo}/${branch}/SKILL.md`;
+            ? `${GITEE_SITE_URL}/${repo}/raw/${branch}/SKILL.md`
+            : `${GITHUB_RAW_BASE}/${repo}/${branch}/SKILL.md`;
         try {
           const content = await this.apiClient.getText(rawUrl);
           const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);

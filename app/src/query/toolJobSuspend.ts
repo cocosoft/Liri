@@ -109,6 +109,8 @@ export function releaseToolJobSuspend(sessionId: string): boolean {
     .list()
     .find((e) => e.sessionId === sessionId);
   if (!entry || !isToolJobEntry(entry)) return false;
+  // U-14 阶段 1.3：作业完成续跑前恢复该会话的编排内存态（无快照 ⇒ no-op）
+  getBudgetSuspendCoordinator().restoreSnapshot(sessionId);
   getBudgetSuspendCoordinator().release(sessionId);
   // 解冻续跑 ⇒ 只读投影 RUNNING（协调器 `release()` 本身不投影，故在此显式发布；
   // 投影受 `FEATURE_STATE_PROJECTION_BROADCAST` 门控，关 ⇒ no-op，但**登记释放照常**）

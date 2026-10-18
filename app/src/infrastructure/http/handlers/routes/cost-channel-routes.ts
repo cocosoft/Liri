@@ -76,6 +76,7 @@ import {
   handleUpdateChannel,
   handleWechatCliStatus,
 } from '../channel-handlers';
+import { handleGatewayOutboundStream } from '../gateway-outbound-stream';
 import {
   handleInstallChannelPlugin,
   handleListChannelPlugins,
@@ -327,6 +328,12 @@ export async function dispatchCostChannelRoutes(
       url.match(/^\/v1\/cron\/(.+)\/run$/)![1],
       (event, data) => broadcastEvent(event, data)
     );
+    return true;
+  }
+
+  // ---- Gateway outbound stream（U-15：四原语投影统一出站订阅面）----
+  if (method === 'GET' && url === '/v1/gateway/outbound/stream') {
+    await handleGatewayOutboundStream(req, res);
     return true;
   }
 

@@ -4,6 +4,7 @@
  */
 
 import type { ScopedLspServerConfig } from './types.js';
+import { NPM_SITE_URL } from '@modules/core';
 
 export interface LanguageServerRegistration {
   language: string;
@@ -21,7 +22,7 @@ const DEFAULT_SERVERS: LanguageServerRegistration[] = [
     extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
     config: { command: 'typescript-language-server', args: ['--stdio'] },
     detectionCommand: 'typescript-language-server --version',
-    site: 'https://www.npmjs.com/package/typescript-language-server',
+    site: `${NPM_SITE_URL}/package/typescript-language-server`,
   },
   {
     language: 'Python',
@@ -67,21 +68,21 @@ const DEFAULT_SERVERS: LanguageServerRegistration[] = [
     languageId: 'json',
     extensions: ['.json', '.jsonc'],
     config: { command: 'vscode-json-languageserver', args: ['--stdio'] },
-    site: 'https://www.npmjs.com/package/vscode-json-languageserver',
+    site: `${NPM_SITE_URL}/package/vscode-json-languageserver`,
   },
   {
     language: 'YAML',
     languageId: 'yaml',
     extensions: ['.yaml', '.yml'],
     config: { command: 'yaml-language-server', args: ['--stdio'] },
-    site: 'https://www.npmjs.com/package/yaml-language-server',
+    site: `${NPM_SITE_URL}/package/yaml-language-server`,
   },
   {
     language: 'Docker',
     languageId: 'dockerfile',
     extensions: ['Dockerfile', '.dockerfile'],
     config: { command: 'docker-langserver', args: ['--stdio'] },
-    site: 'https://www.npmjs.com/package/docker-langserver',
+    site: `${NPM_SITE_URL}/package/docker-langserver`,
   },
 ];
 

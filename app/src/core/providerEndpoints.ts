@@ -52,3 +52,14 @@ export const OPENAI_PLATFORM_URL = 'https://platform.openai.com';
 export const ANTHROPIC_CONSOLE_URL = 'https://console.anthropic.com';
 export const GOOGLE_AI_DEV_URL = 'https://ai.google.dev';
 export const GOOGLE_AI_STUDIO_URL = 'https://aistudio.google.com';
+
+/** Google 账号 / OAuth2 / API 基址（U-20/B5-2-103） */
+export const GOOGLE_ACCOUNTS_BASE_URL = 'https://accounts.google.com';
+export const GOOGLE_OAUTH2_BASE_URL = 'https://oauth2.googleapis.com';
+export const GOOGLE_API_BASE_URL = 'https://www.googleapis.com';
+
+/** npm 包站点（诊断 / 语言服务器提示链接，非 API 连接目标；U-20/B5-2-101） */
+export const NPM_SITE_URL = 'https://www.npmjs.com';
+
+/** npm Registry（安装源；U-20/B5-2-102） */
+export const NPM_REGISTRY_URL = 'https://registry.npmjs.org';

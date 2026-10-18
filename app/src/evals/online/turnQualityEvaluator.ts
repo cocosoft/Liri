@@ -313,6 +313,8 @@ async function evaluateSession(
       turnNumber: item.turn.turnNumber,
       score: item.score,
       evaluatorVersion: item.scoreResult.evaluatorVersion,
+      // E-2（2026-10-18）：来源路径（由派生器按工具调用事件判定，禁按文案推断）
+      source: item.turn.source,
       components: item.scoreResult.components,
       signals: {
         status: item.turn.signals.status,

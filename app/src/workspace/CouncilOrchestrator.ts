@@ -188,9 +188,6 @@ const CONSENSUS_SYSTEM_PROMPT = `你是一位技术决策主持人。根据以�
 // ============================================================
 
 export class CouncilOrchestrator {
-  /** 当前加载的 Agent 角色映射（agentId → 完整角色，含 systemPrompt） */
-  private _agentsMap: Map<string, CouncilAgentRole> = new Map();
-
   /**
    * @param engine CouncilEngine 实例，由调用方注入（确保 SSE 共享）
    */
@@ -215,10 +212,23 @@ export class CouncilOrchestrator {
   ): Promise<CouncilSession> {
     // 未传入 agents 时，从数据库加载（无数据则使用硬编码默认值）
     const resolvedAgents = agents ?? (await this.loadAgents());
-    // 更新 Agent 映射，供 statementCallback 查找 systemPrompt
-    this._updateAgentsMap(resolvedAgents);
+    /**
+     * G-7（2026-10-18）：Agent 映射改为**按 run 的局部上下文**（原为实例字段 `_agentsMap`）。
+     *
+     * 根因：`_agentsMap` 是编排器实例状态，而 `startCouncil` / `runDebate` 是 async 的 ——
+     * 两个会话并发时，后启动者会在前者的 `statementCallback` 之前 `clear()` 并覆盖该表 ⇒
+     * **A 的发言拿到 B 的 systemPrompt**（并发用例实测 2 会话 × 10 轮稳定复现）。
+     * 现按 run 建表并闭包传入，天然隔离（优先于全局锁，见清单 G-7）。
+     */
+    const agentsMap = new Map(resolvedAgents.map((a) => [a.agentId, a]));
 
-    const cacheKey = this.hashTopic(topic);
+    // G-7：缓存键必须含 workspace / ownerSession —— 原仅 topic ⇒ 不同 workspace 同 topic
+    // 会拿到**另一个 workspace 的会话对象**（含 sessionId / ownerSessionId 错配）。
+    const cacheKey = this.cacheKeyFor(
+      workspaceId,
+      topic,
+      config.ownerSessionId
+    );
     const cached = councilCache.get(cacheKey);
     if (cached) {
       logger.info('Council 缓存命中', { topic });
@@ -234,46 +244,18 @@ export class CouncilOrchestrator {
       config
     );
 
-    // 2. 发射 COUNCIL_START 事件（sessionId 有效）
-    try {
-      globalEventBus.publish(OrchestrationEventType.COUNCIL_START, {
-        sessionId: session.sessionId,
-        workspaceId,
-        topic,
-        agents: resolvedAgents.map((a) => ({
-          agentId: a.agentId,
-          name: a.name,
-        })),
-        timestamp: Date.now(),
-      });
-    } catch (_err) {
-      void handleError(
-        _err instanceof Error ? _err : new Error('EventBus publish failed'),
-        { module: 'workspace:council', action: 'publishCouncilStart' }
-      );
-    }
+    // 2. 发射 COUNCIL_START 事件（sessionId 有效；H-2-R5：与 runDebate 共用同一实现）
+    this.emitCouncilStart(session);
 
-    // 3. 执行辩论
+    // 3. 执行辩论（G-7：agentsMap 按 run 闭包传入，避免并发覆盖）
     const result = await this.engine.runDebate(
       session.sessionId,
-      this.statementCallback.bind(this),
+      this.statementCallback.bind(this, agentsMap),
       this.consensusCallback.bind(this)
     );
 
-    // 4. 发射 COUNCIL_END 事件
-    try {
-      globalEventBus.publish(OrchestrationEventType.COUNCIL_END, {
-        sessionId: session.sessionId,
-        result: result.result,
-        finalProposal: result.finalProposal,
-        timestamp: Date.now(),
-      });
-    } catch (_err) {
-      void handleError(
-        _err instanceof Error ? _err : new Error('EventBus publish failed'),
-        { module: 'workspace:council', action: 'publishCouncilEnd' }
-      );
-    }
+    // 4. 发射 COUNCIL_END 事件（H-2-R5：与 runDebate 共用同一实现）
+    this.emitCouncilEnd(session, result);
 
     // 5. 写入缓存（超出上限时删除最旧条目）
     if (councilCache.size >= COUNCIL_CACHE_MAX_SIZE) {
@@ -324,12 +306,67 @@ export class CouncilOrchestrator {
   }
 
   /**
-   * 更新 Agent 映射表（供 statementCallback 查找 systemPrompt）
+   * G-7（2026-10-18）：缓存键 = **workspace + ownerSession + topic**。
+   *
+   * 原实现只按 topic 做键，而 `councilCache` 是**模块级**的 ⇒ 不同 workspace / 不同聊天会话
+   * 以同一 topic 调用 `startCouncil` 时会拿到**另一上下文的会话对象**（sessionId、
+   * workspaceId、ownerSessionId 全部错配；并发用例已复现）。
+   *
+   * 残留（如实）：键仍不含 `context` / `agents` / `maxRounds` —— 未在本项取证范围内，
+   * 如出现"同 workspace 同 topic 不同专家集"的实际需求，再按同一 path 收紧。
    */
-  private _updateAgentsMap(agents: CouncilAgentRole[]): void {
-    this._agentsMap.clear();
-    for (const agent of agents) {
-      this._agentsMap.set(agent.agentId, agent);
+  private cacheKeyFor(
+    workspaceId: string,
+    topic: string,
+    ownerSessionId?: string
+  ): string {
+    return `${workspaceId}::${ownerSessionId ?? ''}::${this.hashTopic(topic)}`;
+  }
+
+  /**
+   * 发布 `COUNCIL_START`（H-2-R5，2026-10-18）
+   *
+   * 两条入口共用：`startCouncil`（脚本/直连）与 `runDebate`（生产 HTTP 两步走）。
+   * 此前 `runDebate` 不发布起止事件 ⇒ 生产入口的 Council 在 `OrchestrationMetrics`
+   * 里只有 round/speaking/delta，无法计算 P50/P95。
+   */
+  private emitCouncilStart(session: CouncilSession): void {
+    try {
+      globalEventBus.publish(OrchestrationEventType.COUNCIL_START, {
+        sessionId: session.sessionId,
+        workspaceId: session.workspaceId,
+        topic: session.topic,
+        agents: session.agents.map((a) => ({
+          agentId: a.agentId,
+          name: a.name,
+        })),
+        timestamp: Date.now(),
+      });
+    } catch (_err) {
+      void handleError(
+        _err instanceof Error ? _err : new Error('EventBus publish failed'),
+        { module: 'workspace:council', action: 'publishCouncilStart' }
+      );
+    }
+  }
+
+  /** 发布 `COUNCIL_END`（仅在辩论成功完成后；与 `startCouncil` 原语义一致） */
+  private emitCouncilEnd(
+    session: CouncilSession,
+    result: CouncilSession
+  ): void {
+    try {
+      globalEventBus.publish(OrchestrationEventType.COUNCIL_END, {
+        sessionId: session.sessionId,
+        result: result.result,
+        finalProposal: result.finalProposal,
+        timestamp: Date.now(),
+      });
+    } catch (_err) {
+      void handleError(
+        _err instanceof Error ? _err : new Error('EventBus publish failed'),
+        { module: 'workspace:council', action: 'publishCouncilEnd' }
+      );
     }
   }
 
@@ -341,20 +378,28 @@ export class CouncilOrchestrator {
    */
   async runDebate(sessionId: string): Promise<CouncilSession> {
     const session = this.engine.getSession(sessionId);
-    if (session) {
-      this._updateAgentsMap(session.agents);
-    }
-    return this.engine.runDebate(
+    // G-7：按 run 建 Agent 映射（原为实例字段 ⇒ 并发会话互相覆盖）
+    const agentsMap = new Map(
+      (session?.agents ?? []).map((a) => [a.agentId, a])
+    );
+    // H-2-R5：生产 HTTP 入口（createSession → runCouncilDebate）必须同样产生起止事件
+    if (session) this.emitCouncilStart(session);
+    const result = await this.engine.runDebate(
       sessionId,
-      this.statementCallback.bind(this),
+      this.statementCallback.bind(this, agentsMap),
       this.consensusCallback.bind(this)
     );
+    if (session) this.emitCouncilEnd(session, result);
+    return result;
   }
 
   /**
    * statementCallback：为每个 Agent 角色生成发言
+   *
+   * G-7：`agents` 由调用方按 run 传入（不再是实例字段），并发会话互不影响。
    */
   private async statementCallback(
+    agents: Map<string, CouncilAgentRole>,
     agentId: string,
     agentName: string,
     round: number,
@@ -364,7 +409,7 @@ export class CouncilOrchestrator {
     prevStatements: CouncilStatement[]
   ): Promise<{ content: string; keyPoints: string[] }> {
     // 优先使用 Agent 的自定义 systemPrompt，再回退到内置模板
-    const agent = this._agentsMap.get(agentId);
+    const agent = agents.get(agentId);
     const systemPrompt = agent?.systemPrompt
       ? agent.systemPrompt
       : this.buildRolePrompt(agentId, type);

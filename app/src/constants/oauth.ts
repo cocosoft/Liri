@@ -15,6 +15,16 @@ const logger = getLogger('constants\oauth');
  * Liri 自有 OAuth 端点，不包含任何第三方品牌引用
  */
 
+/** Liri 自有 OAuth 站点真源（U-20/B5-2-105） */
+/** @kind A */
+export const OAUTH_AUTH_BASE_URL = 'https://auth.openliri.com';
+/** @kind A */
+export const OAUTH_STAGING_AUTH_BASE_URL = 'https://staging.auth.openliri.com';
+/** @kind A */
+export const OAUTH_API_BASE_URL = 'https://api.openliri.com';
+/** @kind A */
+export const OAUTH_STAGING_API_BASE_URL = 'https://api.staging.openliri.com';
+
 type OauthConfigType = 'prod' | 'staging' | 'local';
 
 /**
@@ -49,8 +59,8 @@ export function fileSuffixForOauthConfig(): string {
 }
 
 const ALLOWED_OAUTH_BASE_URLS = [
-  'https://auth.openliri.com',
-  'https://staging.auth.openliri.com',
+  OAUTH_AUTH_BASE_URL,
+  OAUTH_STAGING_AUTH_BASE_URL,
   DEFAULT_OAUTH_LOCAL_BASE_URL,
 ];
 
@@ -69,11 +79,11 @@ interface OauthConfig {
 }
 
 const PROD_OAUTH_CONFIG: OauthConfig = {
-  BASE_API_URL: 'https://api.openliri.com',
-  AUTHORIZE_URL: 'https://auth.openliri.com/authorize',
-  TOKEN_URL: 'https://auth.openliri.com/token',
-  API_KEY_URL: 'https://api.openliri.com/api/oauth/create_api_key',
-  ROLES_URL: 'https://api.openliri.com/api/oauth/roles',
+  BASE_API_URL: OAUTH_API_BASE_URL,
+  AUTHORIZE_URL: `${OAUTH_AUTH_BASE_URL}/authorize`,
+  TOKEN_URL: `${OAUTH_AUTH_BASE_URL}/token`,
+  API_KEY_URL: `${OAUTH_API_BASE_URL}/api/oauth/create_api_key`,
+  ROLES_URL: `${OAUTH_API_BASE_URL}/api/oauth/roles`,
   SUCCESS_URL: 'https://openliri.com/auth/success',
   MANUAL_REDIRECT_URL: 'https://openliri.com/auth/callback',
   CLIENT_ID: 'py-app-client-id',
@@ -83,11 +93,11 @@ const PROD_OAUTH_CONFIG: OauthConfig = {
 };
 
 const STAGING_OAUTH_CONFIG: OauthConfig = {
-  BASE_API_URL: 'https://api.staging.openliri.com',
-  AUTHORIZE_URL: 'https://staging.auth.openliri.com/authorize',
-  TOKEN_URL: 'https://staging.auth.openliri.com/token',
-  API_KEY_URL: 'https://api.staging.openliri.com/api/oauth/create_api_key',
-  ROLES_URL: 'https://api.staging.openliri.com/api/oauth/roles',
+  BASE_API_URL: OAUTH_STAGING_API_BASE_URL,
+  AUTHORIZE_URL: `${OAUTH_STAGING_AUTH_BASE_URL}/authorize`,
+  TOKEN_URL: `${OAUTH_STAGING_AUTH_BASE_URL}/token`,
+  API_KEY_URL: `${OAUTH_STAGING_API_BASE_URL}/api/oauth/create_api_key`,
+  ROLES_URL: `${OAUTH_STAGING_API_BASE_URL}/api/oauth/roles`,
   SUCCESS_URL: 'https://staging.openliri.com/auth/success',
   MANUAL_REDIRECT_URL: 'https://staging.openliri.com/auth/callback',
   CLIENT_ID: 'py-app-staging-client-id',

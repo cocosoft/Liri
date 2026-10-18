@@ -8,6 +8,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { buildUserAgent } from '@modules/constants';
 
 import { getLogger } from '@modules/monitoring';
+import {
+  BING_SEARCH_BASE_URL,
+  GOOGLE_SEARCH_BASE_URL,
+} from '../searchSites.js';
 const logger = getLogger('tools\WebSearchTool\providers');
 
 export type SearchProvider =
@@ -55,7 +59,7 @@ const PROVIDER_CONFIGS: Record<SearchProvider, ProviderConfig> = {
   bing: {
     name: 'bing',
     displayName: 'Bing',
-    baseUrl: 'https://www.bing.com/search',
+    baseUrl: BING_SEARCH_BASE_URL,
     apiType: 'html',
     defaultParams: { count: '10', setlang: 'en-US' },
     requiresApiKey: false,
@@ -65,7 +69,7 @@ const PROVIDER_CONFIGS: Record<SearchProvider, ProviderConfig> = {
   google: {
     name: 'google',
     displayName: 'Google',
-    baseUrl: 'https://www.google.com/search',
+    baseUrl: GOOGLE_SEARCH_BASE_URL,
     apiType: 'html',
     defaultParams: { num: '10', hl: 'en' },
     requiresApiKey: false,
@@ -217,7 +221,7 @@ export class SearchProviderManager {
     options?: { maxResults?: number; language?: string; safeSearch?: boolean }
   ): Promise<SearchResult[]> {
     const encoded = encodeURIComponent(query);
-    const url = `https://www.bing.com/search?q=${encoded}&count=${options?.maxResults ?? 10}&setlang=${options?.language ?? 'en-US'}`;
+    const url = `${BING_SEARCH_BASE_URL}?q=${encoded}&count=${options?.maxResults ?? 10}&setlang=${options?.language ?? 'en-US'}`;
 
     const html = await this.fetchHtml(url);
     return this.parseBingResults(html);
@@ -228,7 +232,7 @@ export class SearchProviderManager {
     options?: { maxResults?: number; language?: string; safeSearch?: boolean }
   ): Promise<SearchResult[]> {
     const encoded = encodeURIComponent(query);
-    const url = `https://www.google.com/search?q=${encoded}&num=${options?.maxResults ?? 10}&hl=${options?.language ?? 'en'}`;
+    const url = `${GOOGLE_SEARCH_BASE_URL}?q=${encoded}&num=${options?.maxResults ?? 10}&hl=${options?.language ?? 'en'}`;
 
     const html = await this.fetchHtml(url);
     return this.parseGoogleResults(html);

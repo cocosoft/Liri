@@ -34,6 +34,7 @@ import {
   statSync,
 } from 'fs';
 import { getLogger } from '@modules/monitoring';
+import { GITEE_SITE_URL, GITHUB_RAW_BASE } from '@modules/constants';
 import type { LocalSkillStore } from '../LocalSkillStore';
 import type { ClawHubSkillMeta, InstalledClawHubSkill } from './ClawHubMeta';
 import { ClawHubAPIClient } from './ClawHubAPIClient';
@@ -164,7 +165,7 @@ export class ClawHubInstaller {
 
     if (prefix === 'github' || prefix === 'hermes') {
       for (const branch of ['main', 'master']) {
-        const rawUrl = `https://raw.githubusercontent.com/${repo}/${branch}/SKILL.md`;
+        const rawUrl = `${GITHUB_RAW_BASE}/${repo}/${branch}/SKILL.md`;
         try {
           skillContent = await this.apiClient.getText(rawUrl);
           break;
@@ -175,7 +176,7 @@ export class ClawHubInstaller {
       }
     } else if (prefix === 'gitee') {
       for (const branch of ['main', 'master']) {
-        const rawUrl = `https://gitee.com/${repo}/raw/${branch}/SKILL.md`;
+        const rawUrl = `${GITEE_SITE_URL}/${repo}/raw/${branch}/SKILL.md`;
         try {
           skillContent = await this.apiClient.getText(rawUrl);
           break;

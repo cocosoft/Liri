@@ -3,6 +3,11 @@
  * 对标 OpenClaw extensions/msteams/src/config-schema.ts
  */
 
+import {
+  MICROSOFT_LOGIN_BASE_URL,
+  MSTEAMS_BOT_FRAMEWORK_BASE_URL,
+} from '../constants';
+
 export interface MSTeamsConfig {
   tenantId: string;
   appId: string;
@@ -15,8 +20,8 @@ export interface MSTeamsConfig {
 
 const DEFAULTS: Partial<MSTeamsConfig> = {
   webhookPort: 8089,
-  microsoftLoginBase: 'https://login.microsoftonline.com',
-  botFrameworkBase: 'https://smba.trafficmanager.net/amer',
+  microsoftLoginBase: MICROSOFT_LOGIN_BASE_URL,
+  botFrameworkBase: MSTEAMS_BOT_FRAMEWORK_BASE_URL,
 };
 
 export function getDefaultMSTeamsConfig(): MSTeamsConfig {

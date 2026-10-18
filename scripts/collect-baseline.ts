@@ -7,13 +7,7 @@
  * 用法: bun run scripts/collect-baseline.ts
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 interface BaselineData {
@@ -79,26 +73,21 @@ async function main(): Promise<void> {
 
   // 模拟启动的关键阶段
   // 阶段 1: 配置加载
-  const configLoadStart = performance.now();
-
-  // 尝试加载配置模块（如果存在）
-  let configModule: any = null;
+  // 尝试加载配置模块（如果存在）；仅需其模块初始化副作用，不消费导出
   try {
-    configModule = await import('../app/src/config/index.ts');
+    await import('../app/src/config/index.ts');
   } catch {
     try {
-      configModule = await import('../app/src/config/ConfigManager.ts');
+      await import('../app/src/config/ConfigManager.ts');
     } catch {
       console.log('  [warn] 配置模块加载失败，跳过');
     }
   }
-  const configLoadTime = performance.now() - configLoadStart;
 
   // 阶段 2: DI 容器加载
   const diLoadStart = performance.now();
-  let diContainer: any = null;
   try {
-    diContainer = await import('../app/src/core/DIContainer.ts');
+    await import('../app/src/core/DIContainer.ts');
   } catch (e) {
     console.log('  [warn] DIContainer 加载失败:', String(e));
   }
@@ -106,9 +95,8 @@ async function main(): Promise<void> {
 
   // 阶段 3: 模块注册加载
   const moduleRegStart = performance.now();
-  let moduleRegistry: any = null;
   try {
-    moduleRegistry = await import('../app/src/modules/ModuleRegistry.ts');
+    await import('../app/src/modules/ModuleRegistry.ts');
   } catch {
     // ModuleRegistry 可能不存在或已合并
   }

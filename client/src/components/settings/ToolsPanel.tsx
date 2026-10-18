@@ -59,6 +59,7 @@ import {
   filterEntries,
   groupOf,
   overrideValueOf,
+  primaryReasonOf,
   requiresRiskConfirm,
   summarize,
   withOverride,
@@ -221,6 +222,8 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
   function renderRow(entry: SharedToolVisibilityEntry) {
     const current = overrideValueOf(overrides, entry.name);
     const visible = entry.effective === "visible";
+    // I-4：渲染层只显示**一个主因**（`conditional` 优先）；完整 `reasons` 仍由后端提供供诊断
+    const primaryReason = primaryReasonOf(entry);
     // ⚠️ 开启但无效（未进生效工具面）：如实标注，不谎报"已开启"
     const bypassIneffective = current === "on" && !visible;
     return (
@@ -258,17 +261,24 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
                 </span>
               )}
             </div>
+            {entry.description && (
+              <p
+                className={`text-[11px] mt-1 line-clamp-2 ${textMuted}`}
+                title={entry.description}
+              >
+                {entry.description}
+              </p>
+            )}
             <div className="flex items-center gap-1.5 flex-wrap mt-1">
-              {entry.reasons.map((reason) => (
+              {primaryReason && (
                 <span
-                  key={reason}
                   className={`text-[10px] px-1.5 py-0.5 rounded ${
-                    TONE_CLASS[TOOL_VISIBILITY_REASON_TONES[reason]]
+                    TONE_CLASS[TOOL_VISIBILITY_REASON_TONES[primaryReason]]
                   }`}
                 >
-                  {t(TOOL_VISIBILITY_REASON_KEYS[reason])}
+                  {t(TOOL_VISIBILITY_REASON_KEYS[primaryReason])}
                 </span>
-              ))}
+              )}
               {bypassIneffective && (
                 <span
                   className={`text-[10px] px-1.5 py-0.5 rounded ${TONE_CLASS.warn}`}

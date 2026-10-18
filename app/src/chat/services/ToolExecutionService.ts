@@ -25,6 +25,7 @@ import { eventNotificationService } from '../services/EventNotificationService.j
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir, resolveProjectRoot } from '@modules/core/paths';
 import { ToolExecutionStatus } from '@modules/utils/toolContract/ToolResult';
+import { isMediaOutputToolName } from '@modules/utils/toolContract/toolRoles';
 import type { ToolName } from '@modules/constants/toolNames.generated';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
@@ -1056,10 +1057,9 @@ export class ToolExecutionService {
           }
 
           if (
-            normalizedToolCall.name === 'image_generate' ||
-            normalizedToolCall.name === 'image_display' ||
-            normalizedToolCall.name === 'video_display' ||
-            normalizedToolCall.name === 'audio_play' ||
+            // A-4（2026-10-18）：媒体交付类工具改走角色集合；`create_project` 是该工具**自身契约**
+            // （导航建议 + 会话关联），不属角色判定，保留显式比较。
+            isMediaOutputToolName(normalizedToolCall.name) ||
             normalizedToolCall.name === 'create_project'
           ) {
             eventNotificationService.emitCustomEvent('tool:completed', {

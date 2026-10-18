@@ -25,6 +25,7 @@ import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
 import { getLogger } from '@modules/monitoring';
+import { DISCORD_API_BASE_URL, DISCORD_SITE_URL } from '../constants';
 const logger = getLogger('channels:discord:DiscordChannel');
 
 interface DirectoryEntry {
@@ -39,7 +40,7 @@ const DISCORD_META: ChannelMeta = {
   id: 'discord',
   displayName: 'Discord',
   vendor: 'Discord Inc.',
-  vendorSite: 'https://discord.com/developers',
+  vendorSite: `${DISCORD_SITE_URL}/developers`,
   icon: '🎮',
   markdownCapable: false,
   maxMessageLength: 2000,
@@ -77,7 +78,7 @@ const DISCORD_CAPABILITIES: ChannelCapabilities = {
   webhook: true,
 };
 
-const DISCORD_API_BASE = 'https://discord.com/api/v10';
+const DISCORD_API_BASE = DISCORD_API_BASE_URL;
 
 interface DiscordState {
   botToken: string;
@@ -269,7 +270,7 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
       clientId: '',
       gatewayIntents: 512,
       gatewayUrl: 'wss://gateway.discord.gg/?v=10&encoding=json',
-      restBaseUrl: 'https://discord.com/api/v10',
+      restBaseUrl: DISCORD_API_BASE_URL,
       reconnectDelayMs: 5000,
       maxReconnectAttempts: 10,
     };

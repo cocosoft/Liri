@@ -18,7 +18,7 @@ import type { LiriEvent } from "../types";
 
 // 测试环境 i18n：setup.ts 将 react-i18next 的 t() mock 为"返回裸 key"（其余用例依赖该行为），
 // 而本文件断言的是组件渲染出的中文文案 ⇒ 覆盖为委托真实 i18n 实例（默认 zh）。
-// 断言里的中文与 src/i18n/locales/zh.ts 的 trajectory.* 逐字一致。
+// 断言里的中文与 src/i18n/locales/zh（H-1 切片后为 zh/knowledge.ts 的 trajectory.*）逐字一致。
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, opts?: Record<string, unknown>) =>

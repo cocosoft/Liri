@@ -124,6 +124,18 @@ export interface ToolCapabilityDescriptor {
 export type SnapshotHandle = Readonly<Record<string, unknown>>;
 
 /**
+ * 冻结作用域（U-14 阶段 1.3，2026-10-18）。
+ *
+ * 挂起协调器**按会话**挂起，而编排引擎可能同时承载多个会话的状态 ⇒ 若总是做全量快照，
+ * 放行恢复时会把其它仍在运行的会话一起覆盖。携带 `sessionId` 时，实现方须只冻结/恢复
+ * 该会话的状态；缺省 ⇒ 保持旧的全量语义（向后兼容）。
+ */
+export interface SnapshotFreezeScope {
+  /** 仅冻结该会话相关状态；缺省 = 全量快照 */
+  sessionId?: string;
+}
+
+/**
  * **可挂起能力**（**可选**实现；T1-2② / TG-2+TG-6）。
  *
  * 契约来源（`工具治理方案-20261012.md` 阶段 1.2 步骤 ②）：「长耗时侧车工具**不得同步阻塞** ——
@@ -143,7 +155,9 @@ export interface ISnapshotCapable {
   /** 能力标记（**字面量 `true`** ⇒ typecheck 期可判别，避免"实现了但语义未声明"） */
   readonly snapshotCapable: true;
   /** 冻结快照（内核投影 `SUSPENDED` **之前**调用）：返回**可序列化**续跑句柄 */
-  freezeForSuspend(): SnapshotHandle | Promise<SnapshotHandle>;
+  freezeForSuspend(
+    scope?: SnapshotFreezeScope
+  ): SnapshotHandle | Promise<SnapshotHandle>;
   /** 解冻续跑（内核放行**之后**调用）：以句柄恢复执行 */
   resumeFromSnapshot(handle: SnapshotHandle): void | Promise<void>;
 }
@@ -249,6 +263,20 @@ export interface ToolUseContext {
   abortController: AbortController;
   /** 会话 ID，用于关联到具体的聊天会话 */
   sessionId?: string;
+  /**
+   * A2-a（2026-10-18）：可选的工具策略上下文。
+   *
+   * 形状与 `tools/policy/ToolPolicy#PolicyContext` 对齐（本层为 infra，不能反向 import app）。
+   * 未提供时执行收口按 `{ sessionId, userRole: 'owner' }` 兜底 ⇒ 零行为变更。
+   */
+  policyContext?: {
+    userId?: string;
+    userRole?: 'owner' | 'operator' | 'guest';
+    sessionId?: string;
+    profile?: 'coding' | 'messaging' | 'minimal';
+    permissionMode?: string;
+    attributes?: Record<string, unknown>;
+  };
   readFileState: unknown;
   /** B3：子代理嵌套深度（agent 工具递归上限检查，默认 ≤1） */
   subagentDepth?: number;
@@ -374,6 +402,15 @@ export interface Tool<
    * 工具标签列表
    */
   tags?: ToolTag[];
+
+  /**
+   * 沙箱级别（A-4，2026-10-18）：**能力声明位**。
+   *
+   * `execution` = 执行任意命令/代码（`bash` / `powershell` / `code_run`）；
+   * 调用方应据此判定"是否执行类"，**不要**再按 `tool.name === 'bash'` 等字符串分支。
+   * 非 `BaseTool` 实现可省略（缺省视为非执行类）。
+   */
+  sandboxLevel?: ToolSandboxLevel;
 
   /**
    * 严格模式标志

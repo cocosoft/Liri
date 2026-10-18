@@ -3,6 +3,8 @@
  * 对标 OpenClaw extensions/line/src/config-schema.ts
  */
 
+import { LINE_API_BASE_URL } from '../constants';
+
 export interface LineConfig {
   channelSecret: string;
   channelAccessToken: string;
@@ -12,7 +14,7 @@ export interface LineConfig {
 
 const DEFAULTS: Partial<LineConfig> = {
   webhookPort: 8086,
-  apiBase: 'https://api.line.me/v2/bot',
+  apiBase: LINE_API_BASE_URL,
 };
 
 export function getDefaultLineConfig(): LineConfig {

@@ -172,6 +172,7 @@ export {
   getOutputGuardRegistry,
   resetOutputGuardRegistryForTest,
   runOutputGuards,
+  runRegisteredOutputGuards,
 } from './outputGuard';
 export type {
   OutputGuard,

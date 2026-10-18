@@ -21,6 +21,7 @@ import { randomUUID } from 'crypto';
 
 import { OrchestrationEventType, deriveParallelEndData } from '@modules/agent';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
+import { feature } from '@modules/core';
 import {
   renderFragment,
   resolveContextWindowAsync,
@@ -408,7 +409,10 @@ export async function runSwarmPath(
   });
 
   // PARALLEL_START（原由 ParallelOrchestrator 发布，B-4 已迁移至此以保持前端 SSE 时间线不断供）
+  // H-2-R11（2026-10-18）：携带 `agentId`（批次唯一标识）⇒ 离线日志重放可按批次精确配对；
+  // 修复前载荷无稳定标识，同一会话多次批次（含未闭合的旧批次）会 FIFO 跨批次错配。
   globalEventBus.publish(OrchestrationEventType.PARALLEL_START, {
+    agentId,
     totalTasks: tasks.length,
     tasks: tasks.map((t) => ({
       description: t.description,
@@ -518,6 +522,8 @@ export async function runSwarmPath(
       // 不传 isolation：本路径 executor 为只读子代理调用（适配器不透传隔离资源），
       // 而 createAgentIsolation() 会同步落盘 `~/.pyapp/workspaces/<id>` 空目录且默认不清理。
       enableVerify: agentInput.verify === true,
+      // E-1（2026-10-18）：verifier 明确判不过 ⇒ 回灌 worker 重试一轮（开关默认关）
+      enableVerifyRetry: feature('SWARM_VERIFY_RETRY'),
       enableSynthesize: agentInput.synthesize === true,
       signal: swarmAbort.signal,
     });
@@ -591,7 +597,11 @@ export async function runSwarmPath(
 
   // P1-11（2026-09-25）：载荷直接复用同一次派生（含 `cancelledFact`）——
   // 修复前只发 `cancelledTasks`（投递缺口）⇒ 消费端读不到取消事实。
-  globalEventBus.publish(OrchestrationEventType.PARALLEL_END, pe);
+  // H-2-R11：与 PARALLEL_START 同带 `agentId`，供配对器按批次精确匹配。
+  globalEventBus.publish(OrchestrationEventType.PARALLEL_END, {
+    ...pe,
+    agentId,
+  });
 
   await deps.agentLedgerLifecycle.settleRun(
     agentId,

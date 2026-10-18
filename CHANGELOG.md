@@ -19,6 +19,13 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+（v0.5.00 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）
+<!-- EVIDENCE-VIEWS:END -->
+
+---
+
+#### v0.5.00 (2026-10-18)  多批次治理收口：提示词资源链 / 编排可观测 / 通道与硬编码治理 / 长程任务修复
+
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-74**：调度检查间隔收敛为 types 单一事实源 —— 验证 tc0|arch0；基线 改前 DreamScheduler 与 archivalCronTask 各定义 CHECK_INTERVAL_MS=60s（基线 173 键）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-74）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-72-73**：按域消歧 DEFAULT_MAX_ENTRIES / MAX_RECORDS —— 验证 tc0|arch0；基线 改前两对同名常量语义/取值不同（200 vs 500、50 vs 1000）；基线 175 键（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-72-73）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-70-71**：缓存容量 + SSL 错误码收敛到单一事实源 —— 验证 tc0|arch0；基线 改前 READ_FILE_STATE_CACHE_SIZE/SSL_ERROR_CODES 各定义 2 份（基线 177 键）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-70-71）
@@ -314,9 +321,6 @@
 - ✅ **硬编码治理 HD-P1-1（A7）：产品 User-Agent 单一真源（15 站点 → 1 处；版本号随 `APP_VERSION`）** - **问题（取证）**：全仓 `User-Agent` 头散落 **15 个站点**，版本号互不一致（`Liri/1.0.0` · `Liri/1.0` · `Liri/2.0` · `Liri-Updater/1.0.0` · `Liri-MCPMarketplace/1.0`×3），甚至残留**旧品牌名** `PY_APP-Knowledge/1.0`；而 `constants/common.ts` 里的 `USER_AGENT = 'Liri/1.0.0'` **零消费者**（又一个**假真源**，同 `Q-H2` 的 `DEFAULT_LOCALE`、`HD-P1-3` 的 `CONFIG_DIR_NAME`）。**做法（同值收敛 + 版本号单一来源）**：真源改为 `USER_AGENT = \`${APP_NAME}/${APP_VERSION}\``（`APP_VERSION` 原已是真源，读 `app/package.json`）+ 新增 `buildUserAgent(purpose)` ⇒ `Liri/<版本> (<用途>)`；**14 个消费点**全部改引用（含把 `tools/WebFetchTool/utils.ts` 的既有本地 `buildUserAgent()` 保留原名与签名、内部改用**别名导入**，避免同名冲突）；旧品牌名一并纠正。**有意"不治理"**（新增方案 §5 `N10`/`N11`）：抓 HTML 的 **Chrome 伪装 UA**、edge-tts 的 **Chromium 版本**（协议前置条件，并入即打不通第三方）；**新发现** MCP 服务器**协议标识**（`name: 'Liri/memory'`/`'Liri/mcp'` + `version: '1.0.0'`）属**不同事实源**（协议面行为变更需单独裁定）⇒ 反向钉住不动。**验证**：新增 `tests/constants/userAgentSingleSource.test.ts` **6 例**（真源 / 派生器 / `User-Agent` 头值不得是产品 UA 字面量 / 协议伪装 UA 按站点原样 / 14 消费点用法检查（排除 import 行）/ MCP 标识未被误并）⇒ **6 pass / 0 fail**；**红向已实证**（改回 `'Liri/1.0.0'` ⇒ ③ 精确报 `services/api/client.ts:41`）；**全量 app 6364 pass / 42 skip / 1 fail（预存，见下条）**；**client 565/565**；`typecheck` 0 错；`lint:arch` **0 error**；`eslint` 15 文件 0 问题。**如实边界**：**UA 取值有意改变**（统一为 `Liri/<真实版本> (<用途>)`）⇒ 属**线上可观测面变化**（第三方若按旧串做白名单需同步，已登记）；源码守卫性质 ⇒ `e2eVerified=false`。证据 `HARDCODE-HDP1-1-UA-SINGLE-SOURCE`。
 - ✅ **硬编码治理 HD-P2-2（优先项）：`formatRelativeTime` 文案入 i18n + 时间/日期格式随语言** - **问题**：`client/src/utils/format.ts` 的 `formatRelativeTime()` 把**文案**（`"昨天"` / `` `${n}天前` ``）与**区域格式**（`toLocaleTimeString("zh-CN")` / `toLocaleDateString("zh-CN")`）一并写死 ⇒ **英文界面下既显示中文、又用中文日期格式**（该函数渲染在会话列表/消息时间等用户可见位）。**做法**：新增 i18n 键 `common.timeYesterday` / `common.timeDaysAgo`（zh `昨天` / `{{days}}天前`；en `Yesterday` / `{{days}} days ago`，用 `{{days}}` 插值**避开 i18next 复数形态差异**）+ 局部纯函数 `currentLocale()`（`zh*`→`zh-CN`、`en*`→`en-US`）；工具函数不能用 hook ⇒ 直接引 i18n 实例。**验证**：新增 `client/src/utils/__tests__/format.test.ts` **4 例**（zh 三种形态 / **en 三次采样均不含中文** / 日期区域格式随语言 / **源码守卫**：函数体内不得有中文与 `zh-CN`）⇒ **4 pass / 0 fail**；**client 全量 565/565（67 文件）**（含 i18n key parity ⇒ zh/en 双侧齐备）。**口径更正（重要）**：方案写「前端内联文案 **16 处 / 7 文件**」，本片只读扫描 `client/src` 实测主清单 **≈120 处 / ≈40 文件**（另 ≈35 处"边界项"、约 10 组"数据表"）⇒ **剩余体量是原估的 ~7 倍**，已在方案 §7.2 更正计数，**是否全量推进待裁定**（本片只落方案明示的优先项）。**如实边界**：未在真机 UI 切 `en` 观察 ⇒ `e2eVerified=false`；其余 ≈120 处未动。证据 `HARDCODE-HDP2-2-FORMAT-I18N`。
 - ✅ **修复预存红：`lint:arch` 门禁自证夹具补齐 `R09-006` 前置（全量套件恢复绿）** - **现象**：`bun test` 全量唯一失败为 `gateSelfProof.test.ts:147`「【合法样例】同层自依赖 ⇒ 通过（退出 0）」（期望 0 实得 1）。**根因（取证）**：`R09-006`（**状态机定义必须登记**，由 `2b32941a6`【状态机规范管理 阶段 1-4】引入，2026-10-13）要求**项目内**存在定义目录 `app/src/state/engine/stateMachineCatalog.ts` 并经 `file://` **动态 import**；而门禁自证用的**极简夹具**只有 `app/src/core/probe.ts` 一行、**未随之更新** ⇒ 该夹具跑门禁必命中 `❌ R09-006`（ERROR ⇒ 退出 1）。**修法（最小且方向正确）**：在夹具 `beforeAll` 里补出该定义目录（**零依赖纯数据** `STATE_MACHINES = []` + `BOUNDARY_STATE_MACHINES = []`；夹具内无状态机候选 ⇒ 空登记即满足完整性）——**夹具必须满足门禁前置**，否则它验的不是"合法性"而是"缺文件"；**未改任何产品代码、未放宽门禁语义**（`scripts/lint-architecture.ts` 一字未动）。**验证**：该用例 **14 pass / 0 fail**（原本恒红那条现为 pass）；**全量 `bun test` = 6365 pass / 42 skip / 0 fail（726 文件）**；`lint:fix-evidence` **149 条绿**。证据 `GATE-SELFPROOF-R09006-FIXTURE`。
-
-<!-- EVIDENCE-VIEWS:END -->
----
 
 #### v0.4.99 (2026-10-13)
 MCP 安全：MCP 工具结果凭据脱敏一致性修复（G-1）+ Stdio 子进程显式 env 审计收紧（G-2）

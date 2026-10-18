@@ -1,7 +1,7 @@
 {
   "version": "2.0",
   "description": "Liri 分层例外清单（v2 — 适配 entry/ui/app/service/infra/core 六层模型）｜**2026-10-01 D-172 分桶探针实测（合计 151）**：service→app 70 · app→ui 64 · core→app 11 · app→entry 3 · service→ui 2 · service→entry 1；**已删除 4 个空的 infra 桶**（原 BULK-007/008/009/016，估值 206/51/8/10，实测**均为 0**，删后门禁 `违规 0` 且 `已豁免 151` 不变 ⇒ 自证为空）；⚠️ **BULK-011（core→service）实测亦为 0**，因 D-143 曾误删而复得，本次**暂留不动**，待复核后处置｜**2026-10-02 D-224**：**`core -> app` 5 条全清**（`core/tokenBudget/` 整模块改归 app + 删死码 `core/flows/`）⇒ 删除已归零的 BULK-012（`core -> app`，估算 11）。｜**2026-10-02 D-225**：**`app -> entry` 3 条全清**（`scripts` 模块改归 entry）⇒ 删除已归零的 BULK-015（`app -> entry`，估算 3）。｜**2026-10-02 D-226**：**`service -> ui` 2 条 + `service -> entry` 1 条全清**（`AttachmentManager` 归位 `services/file/` · 删死码 `StreamEventInk.tsx` · `agentMemory` 改指 `core/paths#resolveProjectRoot`）⇒ 删除已归零的 BULK-014 / BULK-018。｜**2026-10-02 D-227**：**`service -> app` 4 条全清**（`runtime/api/CoreAPIImpl.ts` **依赖反转**：新增 `setCoreApiAppDeps()` 注入缝 + 组合根 `BootPipelineIntegrator` 注册；静态值导入→同步门面走注入、异步点走动态）⇒ 删除已归零的 BULK-005 ⇒ **`已豁免` 首次归零（0）**。｜**2026-10-02 D-228**：**删除最后 2 条已核空气例外** —— `BULK-004`（`app -> ui`，估算 64）与 `PM-001`（`buddy -> ui`）经探针实测 **0 命中**，且 `app -> ui` 本身即**非法方向**（`allowedDependencies.app` 不含 `ui`）⇒ 删除 `bulkExceptions` / `perModuleExceptions` 全部条目 ⇒ **例外清单彻底归零**（今后任何跨层**值边**一律**直接报违规**，不再有沉默容忍；当前门禁 0 影响）。⚠️ 现门禁实测口径见 `lint:arch` 输出（分桶 `estimatedCount` 系历史估值，非实时值）",
-  "lastUpdated": "2026-10-05",
+  "lastUpdated": "2026-10-18",
   "decayRules": {
     "batchExpiryDays": 60,
     "newExpiryDays": 30,
@@ -24,30 +24,9 @@
       "id": "FSZ-005",
       "ruleId": "R04-001",
       "file": "app/src/chat/ChatManager.ts",
-      "lines": 4237,
       "targetLines": 2000,
-      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
-      "expiresAt": "2026-11-30",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "FSZ-109",
-      "ruleId": "R04-001",
-      "file": "client/src/i18n/locales/zh.ts",
-      "lines": 6489,
-      "targetLines": 2000,
-      "plan": "历史巨型文件批量登记（2026-08-15 例外机制落地），按模块拆分或重构",
-      "expiresAt": "2026-11-30",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "FSZ-110",
-      "ruleId": "R04-001",
-      "file": "client/src/i18n/locales/en.ts",
-      "lines": 6727,
-      "targetLines": 2000,
-      "plan": "历史巨型文件批量登记（2026-08-15 例外机制落地），按模块拆分或重构",
-      "expiresAt": "2026-11-30",
+      "plan": "H-1 阶段化拆分（2026-10-18 续期）：i18n 已按 namespace 切片（zh/en 各 5 片，均 ≤2000，FSZ-109/110 已删除）；ChatManager 4041 行 ⇒ 目标 ≤2000，分三步：① ≤2026-11-15 抽取无 this 依赖的纯函数与类型；② ≤2026-12-15 下沉 codeRunner 接线与构造初始化分组；③ ≤2027-01-31 收敛访问器与检查点面，达成 ≤2000；未达成则重新评估并按同口径续期",
+      "expiresAt": "2027-01-31",
       "owner": "@arch-lead"
     }
   ],

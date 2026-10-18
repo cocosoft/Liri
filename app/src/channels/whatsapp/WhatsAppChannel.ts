@@ -9,6 +9,7 @@ import type {
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { FACEBOOK_GRAPH_API_BASE_URL } from '../constants';
 const logger = getLogger('channels:whatsapp:WhatsAppChannel');
 
 export interface WhatsAppConfig {
@@ -103,7 +104,7 @@ export class WhatsAppChannel extends BaseChannelPlugin {
   ): Promise<SendResult> {
     try {
       const resp = await fetch(
-        `https://graph.facebook.com/v21.0/${this._phoneNumberId}/messages`,
+        `${FACEBOOK_GRAPH_API_BASE_URL}/v21.0/${this._phoneNumberId}/messages`,
         {
           method: 'POST',
           headers: {
@@ -140,7 +141,7 @@ export class WhatsAppChannel extends BaseChannelPlugin {
   ): Promise<SendResult> {
     try {
       const resp = await fetch(
-        `https://graph.facebook.com/v21.0/${this._phoneNumberId}/messages`,
+        `${FACEBOOK_GRAPH_API_BASE_URL}/v21.0/${this._phoneNumberId}/messages`,
         {
           method: 'POST',
           headers: {
@@ -177,7 +178,7 @@ export class WhatsAppChannel extends BaseChannelPlugin {
     try {
       const fileName = filePath.split('/').pop() || 'file';
       const resp = await fetch(
-        `https://graph.facebook.com/v21.0/${this._phoneNumberId}/messages`,
+        `${FACEBOOK_GRAPH_API_BASE_URL}/v21.0/${this._phoneNumberId}/messages`,
         {
           method: 'POST',
           headers: {
@@ -214,7 +215,7 @@ export class WhatsAppChannel extends BaseChannelPlugin {
   ): Promise<boolean> {
     try {
       const resp = await fetch(
-        `https://graph.facebook.com/v21.0/${this._phoneNumberId}/messages`,
+        `${FACEBOOK_GRAPH_API_BASE_URL}/v21.0/${this._phoneNumberId}/messages`,
         {
           method: 'POST',
           headers: {

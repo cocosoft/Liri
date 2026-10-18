@@ -13,13 +13,14 @@ import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
 import { getLogger } from '@modules/monitoring';
+import { MATRIX_SITE_URL } from '../constants';
 const logger = getLogger('channels:matrix:MatrixChannel');
 
 const MATRIX_META: ChannelMeta = {
   id: 'matrix',
   displayName: 'Matrix',
   vendor: 'Matrix.org',
-  vendorSite: 'https://matrix.org',
+  vendorSite: MATRIX_SITE_URL,
   icon: '🧩',
   markdownCapable: true,
   maxMessageLength: 65536,

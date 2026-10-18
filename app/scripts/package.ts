@@ -3,7 +3,7 @@
  *
  * 将 dist/pkg/ 目录打包为：
  *  - 完整包：liri-vX.Y.Z-win-x64-full.zip（含 Bun 运行时、种子数据、原生依赖）
- *  - 增量包：liri-vX.Y.Z-update.zip（仅 liri.js + 变更的 deps）
+ *  - 增量包：liri-vX.Y.Z-update.zip（liri.js + 变更的 deps + prompts 资源）
  *
  * 用法:
  *   bun run scripts/package.ts --platform=win-x64
@@ -44,6 +44,22 @@ function createZip(sourceDir: string, outputFile: string): void {
     } catch {
       console.error('[失败] 无法创建 zip 文件，请确保安装了 PowerShell 或 tar');
     }
+  }
+}
+
+/** 递归复制目录（保留子目录结构）；源不存在时静默跳过 */
+function copyDir(src: string, dest: string): void {
+  if (!fs.existsSync(src)) return;
+  const stat = fs.statSync(src);
+  if (stat.isDirectory()) {
+    if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+    for (const entry of fs.readdirSync(src)) {
+      copyDir(path.join(src, entry), path.join(dest, entry));
+    }
+  } else {
+    const destDir = path.dirname(dest);
+    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+    fs.copyFileSync(src, dest);
   }
 }
 
@@ -126,36 +142,25 @@ function main(): void {
   const depsSrc = path.join(pkgDir, 'node_modules');
   const depsDest = path.join(updateDir, 'deps', 'node_modules');
   if (fs.existsSync(depsSrc)) {
-    const copyRecursive = (src: string, dest: string) => {
-      if (!fs.existsSync(src)) return;
-      const stat = fs.statSync(src);
-      if (stat.isDirectory()) {
-        if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-        for (const entry of fs.readdirSync(src)) {
-          copyRecursive(path.join(src, entry), path.join(dest, entry));
-        }
-      } else {
-        const destDir2 = path.dirname(dest);
-        if (!fs.existsSync(destDir2))
-          fs.mkdirSync(destDir2, { recursive: true });
-        fs.copyFileSync(src, dest);
-      }
-    };
     // 只复制 sharp 和 pdfjs-dist（与 build:deps 保持一致）
     for (const dep of ['sharp', 'pdfjs-dist']) {
       const depSrc = path.join(depsSrc, dep);
       const depDst = path.join(depsDest, dep);
       if (fs.existsSync(depSrc)) {
-        copyRecursive(depSrc, depDst);
+        copyDir(depSrc, depDst);
       }
       // 同时复制 @img/* 原生依赖
       const atImgSrc = path.join(depsSrc, '@img');
       const atImgDest = path.join(depsDest, '@img');
       if (fs.existsSync(atImgSrc)) {
-        copyRecursive(atImgSrc, atImgDest);
+        copyDir(atImgSrc, atImgDest);
       }
     }
   }
+
+  // 复制 prompts/（C-3b 发布链路）：提示词是**运行时读盘**资源，文案随版本变化，
+  // 与 liri.js 同级；增量包若不携带，升级后仍读旧文案或整段缺失（回退内置兜底）。
+  copyDir(path.join(pkgDir, 'prompts'), path.join(updateDir, 'prompts'));
 
   const updateZipName = `liri-v${version}-update.zip`;
   const updateZipPath = path.join(distDir, updateZipName);

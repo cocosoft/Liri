@@ -558,6 +558,7 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | GET | `/v1/monitor/logs` | ✅ | `monitorService.getLogs` |
 | GET | `/v1/health/report` | ✅ | `monitorService.getSystemHealth` |
 | GET | `/v1/trace/stats` | ✅ | `traceService.getTraceStats` — Trace 统计快照（真实 API token 消耗） |
+| GET | `/v1/monitor/orchestration` | ✅ | 无前端调用方（运维/脚本采样：编排链路 P50/P95，进程内快照，重启清零） |
 
 ### §3.19 分析
 

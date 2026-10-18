@@ -31,6 +31,7 @@
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { getLogger } from '@modules/monitoring';
+import { killProcessTree } from '@modules/utils/killProcessTree';
 
 const logger = getLogger('tools:sidecar:lspConnection');
 
@@ -100,6 +101,12 @@ export interface LspConnectionOptions {
     args: string[],
     options: Record<string, unknown>
   ) => ChildProcess;
+  /**
+   * U-16 同类面（2026-10-18）：进程树强杀注入（缺省 `killProcessTree`）。
+   *
+   * 语言服务器常再派生工作进程 ⇒ 只 `child.kill()` 会留下孤儿。
+   */
+  killTree?: (child: ChildProcess) => void;
 }
 
 /** 侧车持有的 LSP 连接**端口**（供 `lspSidecar` 依赖注入 / 单测替身） */
@@ -227,9 +234,10 @@ export class LspSidecarConnection implements LspConnectionPort {
     this.rejectAllPending(new Error('LSP 侧车连接已关闭'));
     if (!child) return;
     try {
-      child.kill();
+      // U-16 同类面：语言服务器的派生进程也要一并回收（缺省 `killProcessTree`）
+      (this.opts.killTree ?? killProcessTree)(child);
     } catch {
-      // @ignore-catch — 进程可能已退出
+      // @ignore-catch — 进程树强杀是尽力而为，失败不得打断关停流程
     }
   }
 

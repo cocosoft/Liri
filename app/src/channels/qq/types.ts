@@ -9,12 +9,13 @@
  */
 
 import type { ChannelMeta, ChannelCapabilities } from '@modules/channels/types';
+import { QQ_SITE_URL } from '../constants';
 
 export const QQ_META: ChannelMeta = {
   id: 'qq',
   displayName: 'QQ Bot',
   vendor: '腾讯 (Tencent)',
-  vendorSite: 'https://q.qq.com/',
+  vendorSite: `${QQ_SITE_URL}/`,
   icon: '🐧',
   markdownCapable: true,
   maxMessageLength: 2048,

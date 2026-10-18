@@ -70,6 +70,7 @@ const REPORTS: SharedToolVisibilityEntry[] = [
     effective: "visible",
     reasons: [],
     risk: "low",
+    description: "读取文件内容（C-3b T3 展示）",
   },
   {
     name: "bash",
@@ -122,6 +123,10 @@ describe("ToolsPanel：报表渲染（解释「为什么不可见」）", () => 
     // 状态徽标（可见 / 不可见）
     expect(screen.getAllByText("可见").length).toBeGreaterThan(0);
     expect(screen.getAllByText("不可见").length).toBeGreaterThan(0);
+    // C-3b T3：工具描述随报表渲染（后端未提供描述的条目则无该行）
+    expect(
+      screen.getByText("读取文件内容（C-3b T3 展示）"),
+    ).toBeDefined();
   });
 
   it("conditional 行标注「未进本构建的生效工具面」，且仍可切三态（Q3 未禁用）", async () => {

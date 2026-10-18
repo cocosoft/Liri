@@ -7,7 +7,11 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveOutputDir, resolveInboundDir } from '@modules/core';
+import {
+  resolveOutputDir,
+  resolveInboundDir,
+  runRegisteredOutputGuards,
+} from '@modules/core';
 import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
 import type { FileOperationResult } from '../types/ToolResult';
 
@@ -93,15 +97,42 @@ export function writeFile(input: FileWriteInput): FileWriteResult {
     }
   }
 
-  fs.writeFileSync(resolved, input.content, 'utf-8');
+  // G-8（2026-10-18）：**文件写入**输出护栏接入点（评审门禁 §2-#1①）——
+  // 敏感内容落盘前过统一护栏（评审口径「工具把 .env 读出并写入文件」路径）。
+  // `OUTPUT_GUARD=false` 默认 ⇒ 空注册 ⇒ null ⇒ 零行为变更；
+  // redact ⇒ 落盘打码后内容（回执 size/lines 与实写一致）；block（OUTPUT_GUARD_BLOCK）⇒ 拒写。
+  let contentToWrite = input.content;
+  const gatedContent = runRegisteredOutputGuards(input.content);
+  if (
+    gatedContent &&
+    (gatedContent.blocked || gatedContent.redactedBy.length > 0)
+  ) {
+    logger.warn('writeFile:output_guard_applied', {
+      filePath: input.filePath,
+      blocked: gatedContent.blocked,
+      redactedBy: gatedContent.redactedBy,
+      contentLen: input.content.length,
+    });
+    if (gatedContent.blocked) {
+      throw new AppError(
+        '写入内容命中输出护栏（敏感内容），已按策略阻断写入',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'OUTPUT_GUARD_BLOCKED'
+      );
+    }
+    contentToWrite = gatedContent.text;
+  }
 
-  const lines = input.content.split('\n').length;
+  fs.writeFileSync(resolved, contentToWrite, 'utf-8');
+
+  const lines = contentToWrite.split('\n').length;
 
   return {
     type: existed ? 'update' : 'create',
     filePath: input.filePath,
     canonicalPath: resolved,
-    sizeBytes: Buffer.byteLength(input.content, 'utf-8'),
+    sizeBytes: Buffer.byteLength(contentToWrite, 'utf-8'),
     linesWritten: lines,
   };
 }

@@ -15,6 +15,9 @@
  * 运行：cd app && bun run lint:consts
  */
 
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+
 import {
   collectFiles,
   type GateCounts,
@@ -164,11 +167,160 @@ function duplicates(
   return out;
 }
 
+/**
+ * D-1（2026-10-18）`@kind` 四分类校验（清单 §5 D-1）。
+ *
+ * 规则：
+ * 1. `constants/*.ts` 的**每个 `export const`** 必须有 `@kind A|B|C|D`；
+ *    文件头 40 行内的 `@kind-default X` 可作为该文件全部常量的默认类（仅限单一类文件）。
+ * 2. **C 类禁止**出现在 `constants/` —— 模型 window / 价格 / 能力只允许 DB / 注册表。
+ * 3. 豁免：`index.ts`（barrel）与 `*.generated.ts`（自动生成，不可手改）。
+ *
+ * 标签取**紧邻注释块**（向上跳过空行；遇到注释块结尾才解析）——避免把上一个常量的
+ * `@kind` 误判给下一个（`export const` 之间常有多个常量而无独立注释）。
+ */
+const KIND_TAG_RE = /@kind\s+([ABCD])\b/;
+const KIND_DEFAULT_RE = /@kind-default\s+([ABCD])\b/;
+
+/** 常量所在目录（本脚本位于仓库根 `scripts/`） */
+const CONSTANTS_DIR = resolve(import.meta.dir, '../app/src/constants');
+
+/**
+ * D-2（2026-10-18）B 类裸字面量：`const X_(TIMEOUT|LIMIT|THRESHOLD|MS) = <数字>`
+ *
+ * 口径（清单 §5 D-2 第 1 条）：
+ * - 只匹配**数字开头**的赋值（`30_000` / `1000` / `30 * 1000`），
+ *   `= B.xxx`（defaults 转发）与 `= SOME_CONST`（已归一化）不算；
+ * - 允许位置：`app/src/constants/` 与任意 `defaults.ts`；
+ * - **推进阶段 = 上报 + 棘轮**：存量进基线（只减不增），新增文件/条数 ⇒ 阻断。
+ */
+const BARE_LITERAL_RE =
+  /^\s*(?:export\s+)?const\s+[A-Z][A-Z0-9_]*(?:_TIMEOUT|_LIMIT|_THRESHOLD|_MS)\s*(?::\s*(?:readonly\s+)?number\s*)?=\s*[\d_]+/;
+
+/** 扫描 B 类裸字面量：返回按文件聚合的计数 + 总数 */
+function scanBareNumberLiterals(files: string[]): {
+  counts: GateCounts;
+  total: number;
+} {
+  const counts: GateCounts = {};
+  let total = 0;
+  for (const abs of files) {
+    const rel = toRel(abs);
+    if (!rel.startsWith('app/src/')) continue;
+    if (rel.startsWith('app/src/constants/')) continue;
+    if (rel.endsWith('/defaults.ts')) continue;
+    let n = 0;
+    for (const line of readLines(abs)) {
+      if (isCommentLine(line)) continue;
+      if (BARE_LITERAL_RE.test(line)) n++;
+    }
+    if (n > 0) {
+      counts[`裸字面量:${rel}`] = n;
+      total += n;
+    }
+  }
+  return { counts, total };
+}
+
+/** 取紧邻注释块中的 `@kind`；没有紧邻注释块 ⇒ undefined */
+function kindOfNearestBlock(
+  lines: string[],
+  index: number
+): string | undefined {
+  let i = index - 1;
+  while (i >= 0 && lines[i].trim() === '') i--;
+  if (i < 0 || !lines[i].trim().endsWith('*/')) return undefined;
+
+  const block: string[] = [];
+  while (i >= 0) {
+    block.unshift(lines[i]);
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith('/**') || trimmed.startsWith('/*')) break;
+    i--;
+  }
+  return block.join('\n').match(KIND_TAG_RE)?.[1];
+}
+
+function checkKindTags(): string[] {
+  const findings: string[] = [];
+  for (const name of readdirSync(CONSTANTS_DIR)) {
+    if (!name.endsWith('.ts')) continue;
+    if (name === 'index.ts' || name.endsWith('.generated.ts')) continue;
+
+    const lines = readFileSync(join(CONSTANTS_DIR, name), 'utf-8').split('\n');
+    const head = lines.slice(0, 40).join('\n');
+    const defaultKind = head.match(KIND_DEFAULT_RE)?.[1];
+
+    if (defaultKind === 'C') {
+      findings.push(
+        `src/constants/${name}:1  @kind-default C —— C 类（模型 window/价格/能力）禁止出现在 constants/`
+      );
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      const def = lines[i].match(/^export\s+const\s+([A-Za-z_]\w*)/);
+      if (!def) continue;
+      const kind = kindOfNearestBlock(lines, i) ?? defaultKind;
+      if (!kind) {
+        findings.push(
+          `src/constants/${name}:${i + 1}  常量 ${def[1]} 缺少 @kind A|B|C|D 标签`
+        );
+      } else if (kind === 'C') {
+        findings.push(
+          `src/constants/${name}:${i + 1}  常量 ${def[1]} 为 C 类 —— 模型 window/价格/能力只允许 DB/注册表`
+        );
+      }
+    }
+  }
+  return findings;
+}
+
+/**
+ * D-2（2026-10-18）单位后缀检查：`*_MS` / `*_BYTES` / `*_TOKENS` 的值量级。
+ *
+ * 只校验**纯数字字面量**（`X_MS = 30` 这类"把秒写成毫秒"的典型错误）；
+ * `= B.xxx`（defaults 转发）与表达式由类型/默认值层保证，不在本规则内。
+ * 当前仓库 0 命中（4 个后缀常量均为转发），本规则为未来新增兜底。
+ */
+const UNIT_SUFFIX_RULES = [
+  { suffix: 'MS', min: 10, hint: '毫秒值应 ≥ 10（30 秒应写 30_000）' },
+  { suffix: 'BYTES', min: 1024, hint: '字节值应 ≥ 1024' },
+  { suffix: 'TOKENS', min: 1, hint: 'token 值应 ≥ 1' },
+] as const;
+
+function checkUnitSuffixes(): string[] {
+  const findings: string[] = [];
+  for (const name of readdirSync(CONSTANTS_DIR)) {
+    if (!name.endsWith('.ts')) continue;
+    if (name === 'index.ts' || name.endsWith('.generated.ts')) continue;
+    const lines = readFileSync(join(CONSTANTS_DIR, name), 'utf-8').split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(
+        /^export\s+const\s+([A-Z][A-Z0-9_]*_(MS|BYTES|TOKENS))\s*=\s*(\d[\d_]*)\s*;/
+      );
+      if (!m) continue;
+      const [, constName, suffix, raw] = m;
+      const rule = UNIT_SUFFIX_RULES.find((r) => r.suffix === suffix);
+      if (!rule) continue;
+      const value = Number(raw.replace(/_/g, ''));
+      if (value < rule.min) {
+        findings.push(
+          `src/constants/${name}:${i + 1}  ${constName} = ${value} 与单位后缀不符（${rule.hint}）`
+        );
+      }
+    }
+  }
+  return findings;
+}
+
 function main(): number {
   const files = collectFiles();
   const { consts, values } = collect(files);
   const constDups = duplicates(consts);
   const valueDups = duplicates(values);
+  const kindFindings = checkKindTags();
+  const unitFindings = checkUnitSuffixes();
+  const bare = scanBareNumberLiterals(files);
 
   const findings: string[] = [];
   for (const d of constDups) {
@@ -183,6 +335,8 @@ function main(): number {
         `${d.files.length} 文件（${d.files.join(', ')}）`
     );
   }
+  findings.push(...kindFindings);
+  findings.push(...unitFindings);
 
   // 棘轮稳定键：`同名常量:<NAME>` / `同值host:<LITERAL>`，计数 = 命中文件数
   const counts: GateCounts = {};
@@ -192,8 +346,18 @@ function main(): number {
   report('consts', findings, [
     `[lint:consts] 扫描 ${files.length} 个文件（白名单外），同名常量重复 ` +
       `${constDups.length} 组 / 同值字面量重复 ${valueDups.length} 组`,
+    `[lint:consts] @kind 分类检查：${kindFindings.length} 项（缺标签 / C 类混入）`,
+    `[lint:consts] 单位后缀检查：${unitFindings.length} 项（*_MS / *_BYTES / *_TOKENS 量级）`,
+    `[lint:consts] B 类裸字面量：${bare.total} 处 / ${Object.keys(bare.counts).length} 文件` +
+      `（棘轮：存量豁免，新增文件或条数扩大 ⇒ 阻断）`,
   ]);
-  return ratchet('consts', counts);
+  // D-1：@kind 缺失或 C 类混入 = 硬失败（不走棘轮，直接阻断）
+  // D-2：单位后缀量级不符 = 硬失败（语义错误，不进基线）
+  if (kindFindings.length > 0 || unitFindings.length > 0) return 1;
+  const dupExit = ratchet('consts', counts);
+  // D-2：B 类裸字面量棘轮（白名单 = 基线分节 `lint:consts-bare`；只减不增）
+  const bareExit = ratchet('consts-bare', bare.counts);
+  return Math.max(dupExit, bareExit);
 }
 
 // 退出码由 `ratchet()` 返回（见其头注）：出口落在**入口文件**里 ⇒ `lint:exit` 判据天然成立。

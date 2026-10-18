@@ -37,6 +37,11 @@
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 import { publishStateProjection } from '../state/engine/projectionBroker.js';
+import {
+  freezeSessionSnapshot,
+  restoreSessionSnapshot,
+  type SessionSnapshot,
+} from '../state/engine/sessionSnapshot.js';
 import type { ReliefKind } from './DailyBudgetManager.js';
 
 const logger = getLogger('query:budgetSuspend');
@@ -150,6 +155,14 @@ export class BudgetSuspendCoordinator {
   /** `sessionId → 挂起登记`（内存缓存；非持久化事实源） */
   private readonly entries = new Map<string, SuspendEntry>();
 
+  /**
+   * `sessionId → 编排引擎会话快照`（U-14 阶段 1.3）。
+   *
+   * 与挂起登记同生命周期：`suspend()` 冻结、`release()` 丢弃；恢复发生在**续跑通道启动前**。
+   * 仅内存（引擎侧也为内存态），进程重启后无快照 —— 与「挂起事实源在检查点」的口径一致。
+   */
+  private readonly snapshots = new Map<string, SessionSnapshot>();
+
   /** 唤醒处理器端口；由 Task 7 注入，本任务只保存不调用 */
   private resumeHandler: BudgetResumeHandler | null = null;
 
@@ -158,10 +171,13 @@ export class BudgetSuspendCoordinator {
    *
    * 主键 = `sessionId`（一会话至多一个挂起点）：**同 session 重复调用 ⇒ 保留最早一条**
    * （不覆盖），使 `list()` 的挂起时间序稳定（D5）。`suspendedAt` 由设备时钟生成。
+   *
+   * U-14 阶段 1.3：首次登记时按会话冻结编排引擎内存态（无提供者 ⇒ 跳过，不造空快照）。
    */
   suspend(e: Omit<SuspendEntry, 'suspendedAt'>): void {
     if (this.entries.has(e.sessionId)) return;
     this.entries.set(e.sessionId, { ...e, suspendedAt: Date.now() });
+    this.captureSnapshot(e.sessionId);
     // Task 8：只读四原语投影（SUSPENDED）+ 结构化日志。投影受
     // `FEATURE_STATE_PROJECTION_BROADCAST` 门控（关 ⇒ 零投影），但**登记照常**
     // ⇒ 可见性不以投影为准。
@@ -175,6 +191,29 @@ export class BudgetSuspendCoordinator {
       chain: e.chain,
       reason: e.reason,
     });
+  }
+
+  /**
+   * 恢复该会话的编排快照（U-14 阶段 1.3）。
+   *
+   * **必须在续跑通道启动前**调用（`onReliefApplied` / guard 继续入口 / 作业完成续跑）：
+   * 引擎按 `sessionId` 恢复自己的内存态。未登记/已恢复/无提供者 ⇒ no-op（幂等）。
+   * 不删除快照 —— 续跑失败回滚为挂起时，下一次放行仍可用。
+   */
+  restoreSnapshot(sessionId: string): void {
+    const snapshot = this.snapshots.get(sessionId);
+    if (!snapshot) return;
+    restoreSessionSnapshot(snapshot);
+  }
+
+  /** 按会话冻结编排引擎内存态（失败由注册表逐条留痕，绝不阻断挂起） */
+  private captureSnapshot(sessionId: string): void {
+    const snapshot = freezeSessionSnapshot(sessionId);
+    if (snapshot) {
+      this.snapshots.set(sessionId, snapshot);
+    } else {
+      this.snapshots.delete(sessionId);
+    }
   }
 
   /**
@@ -229,6 +268,8 @@ export class BudgetSuspendCoordinator {
       // 无链续跑通道的挂起（`'tool-job'`）**不进**链唤醒（relief 只收 budget 条目 ⇒ 实际恒不触发；
       // 此处是**类型层**与**语义层**的双保险：作业挂起由完成通知自动续跑）
       if (!isResumableChain(entry.chain)) continue;
+      // U-14 阶段 1.3：续跑通道启动**前**恢复该会话的编排内存态（失败只留痕）
+      this.restoreSnapshot(entry.sessionId);
       this.release(entry.sessionId);
       attempts += 1;
       let ok = false;
@@ -266,6 +307,8 @@ export class BudgetSuspendCoordinator {
           suspendedAt: entry.suspendedAt,
           kind: entry.kind,
         });
+        // U-14 阶段 1.3：续跑失败后按**当前**内存态重拍快照（下次放行才可恢复）
+        this.captureSnapshot(entry.sessionId);
         logger.warn('budgetSuspend:resume_failed — 唤醒失败，回滚为挂起', {
           sessionId: entry.sessionId,
           chain: entry.chain,
@@ -306,9 +349,10 @@ export class BudgetSuspendCoordinator {
       .map((e) => ({ ...e, expired: now - e.suspendedAt > SUSPEND_TTL_MS }));
   }
 
-  /** 解除挂起（**幂等**：不存在也不报错） */
+  /** 解除挂起（**幂等**：不存在也不报错）；同时丢弃该会话的编排快照 */
   release(sessionId: string): void {
     this.entries.delete(sessionId);
+    this.snapshots.delete(sessionId);
   }
 
   /** 装配唤醒处理器端口（传 `null` 解绑）。本任务只提供挂点，**不**调用。 */

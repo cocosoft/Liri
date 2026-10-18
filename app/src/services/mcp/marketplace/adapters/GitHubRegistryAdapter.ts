@@ -1,6 +1,6 @@
 import * as https from 'https';
 import { getLogger } from '@modules/monitoring';
-import { buildUserAgent } from '@modules/constants';
+import { buildUserAgent, GITHUB_API_BASE } from '@modules/constants';
 import type {
   RegistryAdapter,
   SearchParams,
@@ -42,7 +42,7 @@ export class GitHubRegistryAdapter implements RegistryAdapter {
 
     try {
       const searchQuery = this.buildSearchQuery(params);
-      const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(searchQuery)}&sort=stars&per_page=20`;
+      const url = `${GITHUB_API_BASE}/search/repositories?q=${encodeURIComponent(searchQuery)}&sort=stars&per_page=20`;
       const data = (await this.httpGet(url)) as GitHubSearchResponse | null;
 
       if (!data?.items) {
@@ -96,7 +96,7 @@ export class GitHubRegistryAdapter implements RegistryAdapter {
 
   async getServerDetail(serverId: string): Promise<ServerDetail | null> {
     try {
-      const url = `https://api.github.com/repos/${serverId.replace('github:', '')}`;
+      const url = `${GITHUB_API_BASE}/repos/${serverId.replace('github:', '')}`;
       const data = (await this.httpGet(url)) as GitHubRepo | null;
 
       if (!data) {

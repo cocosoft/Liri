@@ -20,6 +20,7 @@
 // SOFTWARE.
 export type {
   ChannelId,
+  KnownChannelId,
   DmPolicy,
   ChannelMeta,
   ChannelMessageToolHints,
@@ -39,3 +40,6 @@ export type {
   InboundProtocol,
   IChannelPlugin,
 } from './IChannel';
+
+// B-3（2026-10-18）：已知通道清单 + 边界校验（运行时值导出）
+export { KNOWN_CHANNEL_IDS, parseChannelId } from './IChannel';

@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * CLI主处理器
  * 统一协调所有子处理器，提供命令路由功能
@@ -17,6 +17,7 @@ import { UtilHandler, createUtilHandler } from './utilHandler';
 import { ConfigHandler, createConfigHandler } from './configHandler';
 import { SessionHandler, createSessionHandler } from './sessionHandler';
 import { DiagnoseHandler, createDiagnoseHandler } from './diagnoseHandler';
+import { PromptHandler, createPromptHandler } from './promptHandler';
 import { CommandAliasRegistry } from './CommandAliasRegistry';
 
 const logger = getLogger('cliHandler');
@@ -45,6 +46,7 @@ export class CLIHandler {
   private configHandler: ConfigHandler;
   private sessionHandler: SessionHandler;
   private diagnoseHandler: DiagnoseHandler;
+  private promptHandler: PromptHandler;
 
   private commands: Record<string, CommandInfo> = {
     auth: {
@@ -107,6 +109,12 @@ export class CLIHandler {
       handler: 'diagnose',
       subcommands: ['network', 'health', 'debug', 'slow-query'],
     },
+    prompt: {
+      name: 'prompt',
+      description: '提示词维护（清单/导出/差异/校验/重置）',
+      handler: 'prompt',
+      subcommands: ['list', 'export', 'diff', 'validate', 'reset'],
+    },
   };
 
   constructor(options?: CLIHandlerOptions) {
@@ -128,6 +136,7 @@ export class CLIHandler {
     this.diagnoseHandler = createDiagnoseHandler({
       verbose: this.options.verbose,
     });
+    this.promptHandler = createPromptHandler();
   }
 
   /**
@@ -224,6 +233,9 @@ export class CLIHandler {
         break;
       case 'diagnose':
         await this.handleDiagnoseCommand(command, args);
+        break;
+      case 'prompt':
+        await this.handlePromptCommand(args);
         break;
       default:
         throw new AppError(
@@ -506,6 +518,23 @@ export class CLIHandler {
         t('command.unknown', { cmd: `diagnose ${subcommand}` })
       );
       await this.showDiagnoseHelp();
+    }
+  }
+
+  /**
+   * 处理提示词维护命令（C-5）
+   */
+  private async handlePromptCommand(args: string[]): Promise<void> {
+    const subcommand = args[0];
+    const subargs = args.slice(1);
+
+    const handled = await this.promptHandler.handle(subcommand, subargs);
+    if (!handled) {
+      console.log(
+        chalk.yellow('⚠'),
+        t('command.unknown', { cmd: `prompt ${subcommand ?? ''}`.trim() })
+      );
+      this.promptHandler.showHelp();
     }
   }
 

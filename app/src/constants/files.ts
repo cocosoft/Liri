@@ -6,6 +6,8 @@
 /**
  * 二进制文件扩展名集合
  * 这些文件无法作为文本有意义地比较，且通常较大
+ *
+ * @kind A
  */
 export const BINARY_EXTENSIONS = new Set([
   '.png',

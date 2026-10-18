@@ -199,6 +199,7 @@ export {
 // 工具可见性报表 —— 只读解释"为什么不可见"，不改变任何行为
 export {
   resolveToolVisibilityReport,
+  attachToolDescriptions,
   isKnownToolCategory,
 } from './toolVisibilityReport';
 export type {
@@ -217,6 +218,12 @@ export type {
   ToolVisibilityOverrideValue,
   ToolVisibilityOverrides,
 } from './toolVisibilityOverrides';
+
+// D11-B：工具名唯一来源（E-2 起供 `evals` 判定「子 agent 路径」；经模块出口转出，R03-002）
+export {
+  TOOL_NAME_CONSTANTS,
+  type ToolNameConstant,
+} from './toolNameConstants';
 
 // 导出工具编排服务
 export {

@@ -919,9 +919,14 @@ export class ToolExecutor {
     const warnings: string[] = [];
     const errors: string[] = [];
 
-    // 对于Bash/PowerShell工具，执行额外的安全检查
-    if (tool.name === 'bash' || tool.name === 'powershell') {
-      const command = (input.command as string) || '';
+    // 对于执行类工具（bash / powershell / code_run），执行额外的安全检查。
+    // A-4（2026-10-18）：判定走**能力声明位** `sandboxLevel === 'execution'`，不再按工具名分支。
+    if (
+      tool.sandboxLevel === 'execution' &&
+      typeof input.command === 'string' &&
+      input.command
+    ) {
+      const command = input.command;
       const args = (input.args as string[]) || [];
 
       // 执行预执行安全检查

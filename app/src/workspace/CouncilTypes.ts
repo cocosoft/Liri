@@ -55,6 +55,13 @@ export interface CouncilStatement {
 export interface CouncilSession {
   /** 会话 ID */
   sessionId: string;
+  /**
+   * 发起该辩论的**聊天会话 ID**（U-14 阶段 1.3）。
+   *
+   * `sessionId` 是辩论自身的 UUID；挂起协调器按**聊天会话**挂起，二者必须显式关联，
+   * 否则无法做到"只冻结/恢复本会话的编排状态"。缺省（HTTP 直连等无聊天上下文的入口）⇒ 不参与会话级快照。
+   */
+  ownerSessionId?: string;
   /** 所属工作空间 ID */
   workspaceId: string;
   /** 当前阶段 */

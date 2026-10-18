@@ -4169,8 +4169,10 @@
       "code": [
         "client/src/components/usage/DailyBudgetPanel.tsx",
         "client/src/services/usageService.ts",
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts"
+        "client/src/i18n/locales/zh/base.ts",
+        "client/src/i18n/locales/zh/knowledge.ts",
+        "client/src/i18n/locales/en/base.ts",
+        "client/src/i18n/locales/en/knowledge.ts"
       ],
       "tests": [
         "client/src/components/usage/__tests__/DailyBudgetPanel.test.tsx"
@@ -4324,8 +4326,10 @@
       },
       "code": [
         "client/src/utils/format.ts",
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts"
+        "client/src/i18n/locales/zh/base.ts",
+        "client/src/i18n/locales/zh/settings.ts",
+        "client/src/i18n/locales/en/base.ts",
+        "client/src/i18n/locales/en/settings.ts"
       ],
       "tests": [
         "client/src/utils/__tests__/format.test.ts"
@@ -4401,8 +4405,16 @@
         "client/src/components/views/office/CreateDocModal.tsx",
         "client/src/hooks/useBuddyNotification.ts",
         "client/src/hooks/useVideoTaskPolling.ts",
-        "client/src/i18n/locales/en.ts",
-        "client/src/i18n/locales/zh.ts",
+        "client/src/i18n/locales/en/base.ts",
+        "client/src/i18n/locales/en/settings.ts",
+        "client/src/i18n/locales/en/knowledge.ts",
+        "client/src/i18n/locales/en/workspace.ts",
+        "client/src/i18n/locales/en/misc.ts",
+        "client/src/i18n/locales/zh/base.ts",
+        "client/src/i18n/locales/zh/settings.ts",
+        "client/src/i18n/locales/zh/knowledge.ts",
+        "client/src/i18n/locales/zh/workspace.ts",
+        "client/src/i18n/locales/zh/misc.ts",
         "client/src/services/chatService.ts",
         "client/src/stores/backendStore.ts",
         "client/src/stores/channelStore.ts",
@@ -4466,8 +4478,16 @@
         "client/src/stores/chat/chat-message-actions.ts",
         "client/src/components/views/SettingsPage.tsx",
         "client/src/components/views/image/canvas-editor/components/CanvasEditor.tsx",
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts",
+        "client/src/i18n/locales/zh/base.ts",
+        "client/src/i18n/locales/zh/settings.ts",
+        "client/src/i18n/locales/zh/knowledge.ts",
+        "client/src/i18n/locales/zh/workspace.ts",
+        "client/src/i18n/locales/zh/misc.ts",
+        "client/src/i18n/locales/en/base.ts",
+        "client/src/i18n/locales/en/settings.ts",
+        "client/src/i18n/locales/en/knowledge.ts",
+        "client/src/i18n/locales/en/workspace.ts",
+        "client/src/i18n/locales/en/misc.ts",
         "client/src/tests/fixtures/i18nLiteralBaseline.json"
       ],
       "tests": [
@@ -4555,8 +4575,16 @@
         "client/src/services/videoService.ts",
         "client/src/services/voiceService.ts",
         "client/src/components/views/MediaPage.tsx",
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts"
+        "client/src/i18n/locales/zh/base.ts",
+        "client/src/i18n/locales/zh/settings.ts",
+        "client/src/i18n/locales/zh/knowledge.ts",
+        "client/src/i18n/locales/zh/workspace.ts",
+        "client/src/i18n/locales/zh/misc.ts",
+        "client/src/i18n/locales/en/base.ts",
+        "client/src/i18n/locales/en/settings.ts",
+        "client/src/i18n/locales/en/knowledge.ts",
+        "client/src/i18n/locales/en/workspace.ts",
+        "client/src/i18n/locales/en/misc.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -7410,8 +7438,10 @@
       },
       "code": [
         "client/src/components/usage/DailyBudgetPanel.tsx",
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts"
+        "client/src/i18n/locales/zh/base.ts",
+        "client/src/i18n/locales/zh/knowledge.ts",
+        "client/src/i18n/locales/en/base.ts",
+        "client/src/i18n/locales/en/knowledge.ts"
       ],
       "tests": [
         "client/src/components/usage/__tests__/DailyBudgetPanel.test.tsx"
@@ -7467,8 +7497,10 @@
       },
       "code": [
         "client/src/components/usage/DailyBudgetPanel.tsx",
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts",
+        "client/src/i18n/locales/zh/base.ts",
+        "client/src/i18n/locales/zh/knowledge.ts",
+        "client/src/i18n/locales/en/base.ts",
+        "client/src/i18n/locales/en/knowledge.ts",
         "app/src/commands/builtin/budget/Budget.ts"
       ],
       "tests": [
@@ -7523,8 +7555,8 @@
         "e2eVerified": false
       },
       "code": [
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts",
+        "client/src/i18n/locales/zh/knowledge.ts",
+        "client/src/i18n/locales/en/knowledge.ts",
         "app/src/query/DailyBudgetManager.ts",
         "app/src/entrypoints/init.ts",
         "app/src/chat/orchestrator/preSendContextProtection.ts",
@@ -8468,8 +8500,12 @@
         "client/src/stores/settingsPanelStore.ts",
         "client/src/components/views/SettingsPage.tsx",
         "client/src/components/Sidebar/Sidebar.tsx",
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts",
+        "client/src/i18n/locales/zh/base.ts",
+        "client/src/i18n/locales/zh/settings.ts",
+        "client/src/i18n/locales/zh/workspace.ts",
+        "client/src/i18n/locales/en/base.ts",
+        "client/src/i18n/locales/en/settings.ts",
+        "client/src/i18n/locales/en/workspace.ts",
         ".trae/docs/api-spec.md",
         "dev_docs/20261016/工具可见性治理方案-20261016.md"
       ],
@@ -9236,8 +9272,10 @@
         "client/src/services/capabilityService.ts",
         "client/src/components/common/CapabilitySelector.tsx",
         "client/src/components/modelAdmin/ModelMetaEditor.tsx",
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts"
+        "client/src/i18n/locales/zh/base.ts",
+        "client/src/i18n/locales/zh/knowledge.ts",
+        "client/src/i18n/locales/en/base.ts",
+        "client/src/i18n/locales/en/knowledge.ts"
       ],
       "tests": [
         "app/tests/contracts/crossDeploymentContract.test.ts"
@@ -9263,8 +9301,8 @@
         "e2eVerified": false
       },
       "code": [
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts",
+        "client/src/i18n/locales/zh/knowledge.ts",
+        "client/src/i18n/locales/en/knowledge.ts",
         "app/src/ai/services/CapabilityService.ts",
         "app/tests/contracts/crossDeploymentContract.test.ts"
       ],
@@ -9320,8 +9358,10 @@
         "e2eVerified": false
       },
       "code": [
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts",
+        "client/src/i18n/locales/zh/base.ts",
+        "client/src/i18n/locales/zh/knowledge.ts",
+        "client/src/i18n/locales/en/base.ts",
+        "client/src/i18n/locales/en/knowledge.ts",
         "client/src/components/common/CapabilitySelector.tsx",
         "client/src/components/modelAdmin/ModelMetaEditor.tsx",
         "app/tests/contracts/crossDeploymentContract.test.ts"
@@ -9409,8 +9449,10 @@
         "client/src/components/ChatArea/DailyLimitNotice.tsx",
         "client/src/services/usageService.ts",
         "client/src/services/endpoints.ts",
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts"
+        "client/src/i18n/locales/zh/base.ts",
+        "client/src/i18n/locales/zh/knowledge.ts",
+        "client/src/i18n/locales/en/base.ts",
+        "client/src/i18n/locales/en/knowledge.ts"
       ],
       "tests": [
         "client/src/tests/dailyLimitNotice.test.tsx"
@@ -10470,8 +10512,8 @@
       "code": [
         "app/src/tools/ReadProjectFileTool/ReadProjectFileTool.ts",
         "client/src/components/settings/RouterConfigPanel.tsx",
-        "client/src/i18n/locales/zh.ts",
-        "client/src/i18n/locales/en.ts"
+        "client/src/i18n/locales/zh/settings.ts",
+        "client/src/i18n/locales/en/settings.ts"
       ],
       "tests": [
         "app/tests/tools/readProjectFile-outputFallback.test.ts"

@@ -48,6 +48,7 @@ import type {
   ChatStreamChunk,
 } from '@modules/runtime/api/CoreAPI';
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants';
+import { isMediaOutputToolName } from '@modules/utils/toolContract/toolRoles';
 // P0-2（2026-10-10）：客户端流式路径接入 Execution 生命周期（`service → service` 合法；
 // 见 `.trae/specs/client-stream-execution.md`）
 // 状态机方案 阶段 2.2（2026-10-12）：SSE 兜底状态改走常量（唯一事实源 = `execution/types.ts`），
@@ -620,10 +621,8 @@ async function handleStreamingChat(
     const rd = d.resultData as { pendingApproval?: boolean } | undefined;
     const isApprovalPending = rd?.pendingApproval === true;
     if (
-      d.toolName === 'image_generate' ||
-      d.toolName === 'image_display' ||
-      d.toolName === 'video_display' ||
-      d.toolName === 'audio_play' ||
+      // A-4：媒体产物工具名 → 角色集合单一来源（见 utils/toolContract/toolRoles.ts）
+      isMediaOutputToolName(d.toolName) ||
       // P2-2: 工具审批等待态信号（ask 决策）→ 前端渲染"⏳ 等待审批"
       isApprovalPending
     ) {

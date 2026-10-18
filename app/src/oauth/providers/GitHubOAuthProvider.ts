@@ -5,10 +5,11 @@
 
 import type { UserInfo } from '../types/OAuthProvider';
 import { BaseOAuthProvider } from './BaseOAuthProvider';
+import { GITHUB_API_BASE } from '@modules/constants';
 
 const GITHUB_AUTHORIZE = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN = 'https://github.com/login/oauth/access_token';
-const GITHUB_PROFILE = 'https://api.github.com/user';
+const GITHUB_PROFILE = `${GITHUB_API_BASE}/user`;
 
 export class GitHubOAuthProvider extends BaseOAuthProvider {
   readonly id = 'github';

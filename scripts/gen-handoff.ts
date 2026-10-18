@@ -6,7 +6,11 @@
  *
  * 输入：`.trae/architecture/hardcode-progress.json`（**机器可读续跑状态**，唯一事实源）
  * 输出：stdout ≤30 行；`--out <path>` 可落盘
- * 运行：`bun run scripts/gen-handoff.ts [--out .trae/architecture/handoff.md]`
+ * 运行：`bun run scripts/gen-handoff.ts [--out .trae/handoff.md]`
+ *
+ * ⚠️ **不要**把生成物写到 `.trae/architecture/`：该目录被 `lint:evidence-linewidth`（SB03）
+ * 当作台账观测面 ⇒ 新增文件会以「新增键」触发棘轮阻断（即使每行 ≤300）。默认输出到
+ * `.trae/handoff.md`（观测面之外）。
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -27,6 +31,47 @@ function load(): Progress {
   return JSON.parse(readFileSync(PROGRESS, 'utf-8')) as Progress;
 }
 
+/** 交接单单行上限（比 SB03 的 300 更保守：便于终端阅读与 diff） */
+const MAX_LINE = 120;
+
+/** 按分隔符把一段长文本切成 ≤MAX_LINE 的行（优先在「；」「 / 」「，」处断） */
+function wrapText(text: string, indent = ''): string[] {
+  const out: string[] = [];
+  let rest = text.trim();
+  while (rest.length > MAX_LINE) {
+    const window = rest.slice(0, MAX_LINE);
+    const candidates = [
+      window.lastIndexOf('；'),
+      window.lastIndexOf(' / '),
+      window.lastIndexOf('，'),
+      window.lastIndexOf(' '),
+    ];
+    const cut = Math.max(...candidates);
+    const at = cut > MAX_LINE * 0.4 ? cut + 1 : MAX_LINE;
+    out.push(`${indent}${rest.slice(0, at).trimEnd()}`);
+    rest = rest.slice(at).trimStart();
+  }
+  out.push(`${indent}${rest}`);
+  return out;
+}
+
+/** 把键列表按「一行 ≤MAX_LINE」分组（不截断任何键） */
+function chunkKeys(keys: readonly string[], indent: string): string[] {
+  const out: string[] = [];
+  let current = '';
+  for (const key of keys) {
+    const next = current ? `${current} / ${key}` : key;
+    if (current && next.length > MAX_LINE) {
+      out.push(`${indent}${current}`);
+      current = key;
+    } else {
+      current = next;
+    }
+  }
+  if (current) out.push(`${indent}${current}`);
+  return out;
+}
+
 export function renderHandoff(p: Progress): string[] {
   const lines: string[] = [];
   lines.push('## 续跑交接单（脚本生成 · SB07）');
@@ -34,9 +79,12 @@ export function renderHandoff(p: Progress): string[] {
   lines.push(`- 下一键：${p.nextKey ?? '（未设置）'}`);
   lines.push(`- 最近提交：${p.lastCommit ?? '（未设置）'}`);
   const done = p.doneKeys ?? [];
-  lines.push(
-    `- 最近完成键（${done.length}）：${done.length > 0 ? done.join(' / ') : '（无）'}`
-  );
+  lines.push(`- 最近完成键（${done.length}）：`);
+  if (done.length > 0) {
+    lines.push(...chunkKeys(done, '  - '));
+  } else {
+    lines.push('  - （无）');
+  }
   const baseline = p.baselineKeys ?? {};
   const keys = Object.keys(baseline);
   if (keys.length > 0) {
@@ -45,12 +93,21 @@ export function renderHandoff(p: Progress): string[] {
     );
   }
   lines.push('');
-  lines.push(`**下一步**：${p.nextAction ?? '（未设置 nextAction）'}`);
+  const nextAction = p.nextAction ?? '（未设置 nextAction）';
+  if (nextAction.length <= MAX_LINE) {
+    lines.push(`**下一步**：${nextAction}`);
+  } else {
+    lines.push('**下一步**：');
+    for (const part of nextAction.split('；')) {
+      if (part.trim()) lines.push(...wrapText(part.trim(), '- '));
+    }
+  }
   const decisions = p.decisions ?? [];
   if (decisions.length > 0) {
     lines.push('');
     lines.push('裁定/说明：');
-    for (const d of decisions.slice(-3)) lines.push(`- ${d}`);
+    // 只保留最近 3 条（SB07 行数上限），长条目按行宽折行
+    for (const d of decisions.slice(-3)) lines.push(...wrapText(d, '- '));
   }
   // SB07：≤30 行
   return lines.slice(0, 30);

@@ -15,9 +15,17 @@ import {
 import { ToolDefinitionAdapter } from './utils/ToolDefinitionAdapter';
 import type { ToolDefinition, ToolImplementation } from './types/ToolTypes';
 import { isWireSafeToolName, toWireToolName } from './toolNameCodec';
+import { getDefaultToolPolicyPipeline } from './policy/defaultPipeline';
 
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+// C-3b：模型侧参数描述走 T2 字段级资源链（用户 → 项目 → 包内 → 母语回退 → 源码兜底）
+import {
+  resolveToolParam,
+  resolveToolDescription,
+} from '@modules/services/prompt/PromptVersionManager';
+import { getSectionCacheLocale } from '@modules/constants';
+import { resolveConfiguredLanguage } from '@modules/system/i18n/languageProfiles';
 const logger = getLogger('tools:ToolRegistry');
 
 export interface ToolSchema {
@@ -277,12 +285,21 @@ export class ToolRegistry {
 
   getToolSchemas(): ToolSchema[] {
     const schemas: ToolSchema[] = [];
+    // C-3b / T2（2026-10-18）：locale 与参数面同源 —— **显式配置优先**，其次 assembly 写入的缓存。
+    // 根因：schema 生成早于 `assembleSystemPrompt()`，只读缓存会让 en-US 译文「晚一轮/不生效」。
+    // 循环外解析一次：同一批 schema 不得因逐工具重算而出现前后不一致。
+    const locale = resolveConfiguredLanguage() ?? getSectionCacheLocale();
 
     for (const tool of this.tools.values()) {
       const info = tool.getInfo();
       const schema: ToolSchema = {
         name: info.name,
-        description: info.description,
+        // 工具级描述按资源链取译文；`info.description` 是源码（或其自身 T2 链）兜底。
+        description: resolveToolDescription(
+          info.name,
+          info.description,
+          locale
+        ),
         input_schema: {
           type: 'object',
           properties: {},
@@ -307,10 +324,17 @@ export class ToolRegistry {
       };
 
       if (info.params) {
+        // C-3b：参数描述按当前 locale 走资源链；无资源时回退源码描述（行为零变化）
+        // locale 已在循环外按「显式配置优先」解析（与工具级描述同源）。
         for (const param of info.params) {
           const paramSchema: Record<string, unknown> = {
             type: param.type,
-            description: param.description,
+            description: resolveToolParam(
+              info.name,
+              param.name,
+              param.description,
+              locale
+            ),
             // 无默认值的参数（如各工具的 `cwd`）此前会留下 `default: undefined` ——
             // 正是实测被 D1 校验拒绝的具体路径（`schemas[0]…cwd.default`）
             ...(param.default !== undefined ? { default: param.default } : {}),
@@ -323,7 +347,12 @@ export class ToolRegistry {
                 type: param.items.type,
               };
               if (param.items.description) {
-                itemsSchema.description = param.items.description;
+                itemsSchema.description = resolveToolParam(
+                  info.name,
+                  `${param.name}.items`,
+                  param.items.description,
+                  locale
+                );
               }
               if (
                 param.items.properties &&
@@ -336,7 +365,12 @@ export class ToolRegistry {
                 )) {
                   properties[key] = {
                     type: subParam.type,
-                    description: subParam.description,
+                    description: resolveToolParam(
+                      info.name,
+                      `${param.name}.items.${key}`,
+                      subParam.description,
+                      locale
+                    ),
                   };
                   if (subParam.required) required.push(key);
                 }
@@ -391,6 +425,35 @@ export class ToolRegistry {
           {
             role: 'system',
             content: `Error: Tool not found: ${toolCall.toolName}`,
+          },
+        ],
+      });
+    }
+
+    // A2-a（2026-10-18）：策略收口 —— 主聊天路径不经过 `ToolManager.executeTool`，
+    // 因此必须在 Registry（共同执行入口）评估。默认 `userRole: 'owner'` ⇒ 零行为变更；
+    // 仅当调用方显式传入 `policyContext.userRole === 'guest'` 时才收紧为只读。
+    const policyContext = context.policyContext ?? {
+      sessionId: context.sessionId,
+      userRole: 'owner' as const,
+    };
+    const policyResult = getDefaultToolPolicyPipeline().evaluate(
+      tool,
+      policyContext
+    );
+    if (!policyResult.allowed) {
+      logger.warn('工具调用被策略拒绝', {
+        toolName: toolCall.toolName,
+        sessionId: policyContext.sessionId,
+        userRole: policyContext.userRole,
+        policyName: policyResult.policyName,
+        reason: policyResult.reason,
+      });
+      return createToolResult(null, {
+        newMessages: [
+          {
+            role: 'system',
+            content: `Error: Tool ${toolCall.toolName} is not allowed by policy: ${policyResult.reason ?? 'unknown'}`,
           },
         ],
       });

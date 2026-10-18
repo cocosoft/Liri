@@ -3,7 +3,7 @@
  * 对标 Hermes gateway/ 的 DeliveryTarget 数据结构
  * 格式: platform:chat_id:thread_id
  */
-import type { ChannelId } from './types/IChannel';
+import { parseChannelId, type ChannelId } from './types/IChannel';
 
 /**
  * 消息投递目标
@@ -41,7 +41,9 @@ export class DeliveryTarget {
       return null;
     }
 
-    const platform = parts[0] as ChannelId;
+    // B-3（2026-10-18）：外部字符串经 `parseChannelId` 边界校验（空串 / 含空白 ⇒ 拒绝），
+    // 不再裸 `as ChannelId`（开放标识放宽后，裸断言会把任何脏串带进投递格式）。
+    const platform = parseChannelId(parts[0]);
     const chatId = parts[1];
 
     if (!platform || !chatId) {

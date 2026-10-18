@@ -7,6 +7,7 @@
  */
 
 import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@modules/core';
+import { MATRIX_SITE_URL } from './constants';
 
 /** 平台配置字段定义 */
 export interface PlatformFieldDef {
@@ -300,7 +301,7 @@ export const PLATFORM_FIELDS: Record<string, PlatformFieldDef[]> = {
     {
       key: 'homeserverUrl',
       label: '服务器 URL',
-      placeholder: 'https://matrix.org',
+      placeholder: MATRIX_SITE_URL,
       type: 'text',
       required: true,
     },

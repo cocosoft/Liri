@@ -5,7 +5,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { resolvePluginsInstalledDir } from '@modules/core';
+import { NPM_REGISTRY_URL, resolvePluginsInstalledDir } from '@modules/core';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import {
@@ -58,7 +58,7 @@ export class NpmDistributor {
   constructor(pluginsDir?: string, registry?: string) {
     // 2026-08-06 路径收敛：插件安装统一落盘 ~/.pyapp/plugins/installed（原项目根 plugins/ 废弃）
     this.pluginsDir = pluginsDir || resolvePluginsInstalledDir();
-    this.registry = registry || 'https://registry.npmjs.org/';
+    this.registry = registry || `${NPM_REGISTRY_URL}/`;
     this.ensurePluginsDir();
   }
 

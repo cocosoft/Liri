@@ -36,6 +36,8 @@ function turnEvents(
   fromSeq: number,
   opts: {
     toolCalls?: number;
+    /** 各次工具调用的工具名（缺省 `grep`；E-2 用于构造子 agent 路径） */
+    toolNames?: string[];
     finishReason?: string;
     error?: string;
     duration?: number;
@@ -46,7 +48,10 @@ function turnEvents(
   const events: LiriEvent[] = [ev(seq++, 'turn/start', { turn })];
   for (let i = 0; i < (opts.toolCalls ?? 0); i++) {
     events.push(
-      ev(seq++, 'assistant/tool_call', { toolCallId: `c${i}`, name: 'grep' })
+      ev(seq++, 'assistant/tool_call', {
+        toolCallId: `c${i}`,
+        name: opts.toolNames?.[i] ?? 'grep',
+      })
     );
   }
   if (opts.duration !== undefined || opts.outputTokens !== undefined) {
@@ -188,6 +193,25 @@ describe('U4 deriveTurnSignals：从事件派生每轮信号', () => {
     expect(derived[0].signals.durationMs).toBeUndefined();
   });
 
+  it('E-2 source：无工具 ⇒ agent / 普通工具 ⇒ tool / 调 agent ⇒ subagent', () => {
+    const plain = deriveTurnSignals(turnEvents(1, 1, {}).events);
+    const tool = deriveTurnSignals(turnEvents(1, 1, { toolCalls: 2 }).events);
+    const sub = deriveTurnSignals(
+      turnEvents(1, 1, { toolCalls: 1, toolNames: ['agent'] }).events
+    );
+    expect(plain[0].source).toBe('agent');
+    expect(tool[0].source).toBe('tool');
+    expect(sub[0].source).toBe('subagent');
+  });
+
+  it('E-2 source：同一轮既有工具又有子 agent ⇒ 取最高层级 subagent', () => {
+    const derived = deriveTurnSignals(
+      turnEvents(1, 1, { toolCalls: 2, toolNames: ['grep', 'agent'] }).events
+    );
+    expect(derived[0].source).toBe('subagent');
+    expect(derived[0].signals.toolCalls).toBe(2);
+  });
+
   it('多轮分段：各自独立累计', () => {
     const t1 = turnEvents(1, 1, { toolCalls: 1, outputTokens: 10 });
     const t2 = turnEvents(2, t1.nextSeq, { toolCalls: 5, outputTokens: 20 });
@@ -215,6 +239,22 @@ describe('U4 runTurnQualityPass：落事件与水位', () => {
     expect(first.reviewed).toBe(false);
     expect(first.components).toBeDefined();
     expect(first.signals).toBeDefined();
+  });
+
+  it('E-2：三条路径各产一条**可区分来源**的事件（agent / tool / subagent）', async () => {
+    const t1 = turnEvents(1, 1, {}); // 纯对话
+    const t2 = turnEvents(2, t1.nextSeq, { toolCalls: 1 }); // 普通工具
+    const t3 = turnEvents(3, t2.nextSeq, {
+      toolCalls: 2,
+      toolNames: ['grep', 'agent'],
+    }); // 子 agent
+    const ports = makePorts([...t1.events, ...t2.events, ...t3.events]);
+
+    await runTurnQualityPass(ports, { sessionIds: [SID] });
+    const sources = ports.log
+      .filter((e) => e.type === 'turn/quality')
+      .map((e) => (e.data as Record<string, unknown>).source);
+    expect(sources).toEqual(['agent', 'tool', 'subagent']);
   });
 
   it('水位：第二次 pass 不重评（scored=0）', async () => {

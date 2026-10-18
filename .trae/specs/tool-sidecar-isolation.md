@@ -242,7 +242,7 @@
 
 - **就绪**：startup 握手（含实际 pid/端口/版本）。
 - **健康**：心跳（契约帧）；supervisor 有界重启（`maxRestarts` 默认 3）。
-- **停止**：`stop()` 有序关闭（先通知、后强杀；超限 fail-closed 报错）。
+- **停止**：`stop()` 有序关闭（先通知、后强杀；超限 fail-closed 报错）。**U-16 同类面（2026-10-18）**：强杀走 `killProcessTree`（进程树，避免语言服务器派生的孙进程孤儿），`killTree` 可注入以便离线测试；`lspConnection.stop()` 同口径（侧车 ↔ LS 的连接关闭）。
 - **可观测**：复用 `tools/monitoring/ToolMetrics.ts` 既有埋点（`tools.schema.*` / `tools.invocation.*`），**不新建指标名**（CS01）。
 
 ---

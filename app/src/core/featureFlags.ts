@@ -217,6 +217,17 @@ export const FEATURE_FLAGS = {
    * 默认关闭；开启后仅对声明 `capabilities.interactive` 的渠道生效。
    */
   CHANNEL_QUESTION_ANSWER: false,
+  /**
+   * G-2（2026-10-18）：**通道级工具面最小权限（PoLP）**（默认关 = 零行为变更）。
+   *
+   * 开 ⇒ 远程 IM / Webhook 通道的入站请求默认按 `messaging` 任务面裁剪工具
+   * （不含 `shell` / `file` 写类，见 `tools/toolCategories.ts` 的 `TASK_TOOL_CATEGORIES.messaging`）；
+   * 本地 REPL / 客户端会话无通道来源 ⇒ 不注入，行为不变。
+   * 关（默认）⇒ 不注入 `taskType` ⇒ 与现状逐字一致。
+   * `FEATURE_CHANNEL_TOOL_POLICY=true`。
+   * 触发条件见 `.trae/specs/default-off-switches-review-gates.md` §2 #14。
+   */
+  CHANNEL_TOOL_POLICY: false,
   /** 远程触发器工具 */
   REMOTE_TRIGGER: false,
   /** 发送用户文件工具 */
@@ -402,6 +413,17 @@ export const FEATURE_FLAGS = {
    * （可能增加重试）。**默认关**是刻意的（不静默改变既有编排行为）；命中 ≠ 启用。
    */
   SELF_VERIFY_PATTERN: false,
+  /**
+   * E-1（2026-10-18）：**swarm verifier 判不过时回灌 worker 重试一轮**（默认关 = 零行为变更）。
+   *
+   * 开 ⇒ `AgentSwarm` 仅在 verifier 给出**明确** `pass:false`（含 feedback）时，把 feedback 回灌
+   * 原 worker 重试 **1 次**并重新门禁（独立 token 上限 20k，超限即跳过；verifier 自身故障 /
+   * 输出不可解析 / worker 超时 / 批次取消 均不回灌）。
+   * 关（默认）⇒ 与现状逐字一致（判不过即 `verify:'failed'`，不重试）。
+   * `FEATURE_SWARM_VERIFY_RETRY=true`。
+   * 触发条件见 `.trae/specs/default-off-switches-review-gates.md` §2 #15。
+   */
+  SWARM_VERIFY_RETRY: false,
 
   // ───── 图像工具（Image Tools） ─────
   /** 多后端图像生成 Provider 模式 */

@@ -92,6 +92,11 @@ export interface LiriEventMap {
     turnNumber: number;
     score: number;
     evaluatorVersion: string;
+    /**
+     * 轮次来源路径（E-2，2026-10-18）：`agent` = 纯对话 / `tool` = 普通工具 /
+     * `subagent` = 该轮调用过子 agent。历史事件缺省 ⇒ 按 `undefined`（来源未知）处理。
+     */
+    source?: "agent" | "tool" | "subagent";
     components: {
       completion: number;
       verdict: number;

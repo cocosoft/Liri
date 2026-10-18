@@ -14,6 +14,12 @@ import { createGoogleOAuthProvider } from '@modules/oauth';
 import { AuthorizationCodeFlow } from '@modules/oauth';
 import type { OAuthConfig } from '@modules/oauth/types';
 import { configManager } from '@modules/config';
+import {
+  GOOGLE_ACCOUNTS_BASE_URL,
+  GOOGLE_API_BASE_URL,
+  GOOGLE_OAUTH2_BASE_URL,
+} from '@modules/core';
+import { GITHUB_API_BASE } from '@modules/constants';
 import { DEFAULT_OAUTH_REDIRECT_URI } from '@modules/core';
 
 const logger = getLogger('authHandler');
@@ -106,16 +112,14 @@ export class AuthHandler {
       if (provider === 'github') {
         oauthConfig.authorizeUrl = 'https://github.com/login/oauth/authorize';
         oauthConfig.tokenUrl = 'https://github.com/login/oauth/access_token';
-        oauthConfig.profileUrl = 'https://api.github.com/user';
+        oauthConfig.profileUrl = `${GITHUB_API_BASE}/user`;
         oauthConfig.clientId =
           configManager.env('OAUTH_GITHUB_CLIENT_ID') || '';
         oauthConfig.scopes = ['read:user', 'user:email'];
       } else if (provider === 'google') {
-        oauthConfig.authorizeUrl =
-          'https://accounts.google.com/o/oauth2/v2/auth';
-        oauthConfig.tokenUrl = 'https://oauth2.googleapis.com/token';
-        oauthConfig.profileUrl =
-          'https://www.googleapis.com/oauth2/v3/userinfo';
+        oauthConfig.authorizeUrl = `${GOOGLE_ACCOUNTS_BASE_URL}/o/oauth2/v2/auth`;
+        oauthConfig.tokenUrl = `${GOOGLE_OAUTH2_BASE_URL}/token`;
+        oauthConfig.profileUrl = `${GOOGLE_API_BASE_URL}/oauth2/v3/userinfo`;
         oauthConfig.clientId =
           configManager.env('OAUTH_GOOGLE_CLIENT_ID') || '';
         oauthConfig.scopes = ['openid', 'email', 'profile'];

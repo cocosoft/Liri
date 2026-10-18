@@ -28,7 +28,7 @@ import type {
   PolicyContext,
   PolicyResult,
 } from './policy/ToolPolicy';
-import { DefaultToolPolicy } from './policy/DefaultToolPolicy';
+import { getDefaultToolPolicyPipeline } from './policy/defaultPipeline';
 import { ToolPolicyPipeline } from './policy/ToolPolicyPipeline';
 import type {
   ToolDefinition,
@@ -70,7 +70,7 @@ export class ToolManager extends EventEmitter {
   private _toolsLoaded: boolean = false;
   private _toolLoaders: BuiltinToolLoader[] = [];
   private _policyPipeline: ToolPolicyPipeline;
-  private _defaultPolicyContext: PolicyContext = {};
+  private _defaultPolicyContext: PolicyContext = { userRole: 'owner' };
   private _disabledTools: Set<string> = new Set();
   private _initialized: boolean = false;
 
@@ -93,8 +93,9 @@ export class ToolManager extends EventEmitter {
     // 自动注入内置工具加载器（延迟获取，避免与 ToolFactory 的循环依赖）
     this._toolLoaders = getBuiltinToolLoaders();
 
-    // 初始化策略管道（默认使用 DefaultToolPolicy，允许所有工具）
-    this._policyPipeline = new ToolPolicyPipeline([new DefaultToolPolicy()]);
+    // A2-a（2026-10-18）：与 ToolRegistry 共享同一默认策略管道；
+    // 默认上下文 owner ⇒ GuestReadOnlyPolicy 放行，保持既有行为。
+    this._policyPipeline = getDefaultToolPolicyPipeline();
 
     profileCheckpoint('tool_manager_constructor_end');
   }
@@ -365,10 +366,12 @@ export class ToolManager extends EventEmitter {
       );
     }
 
-    const policyResult = this._policyPipeline.evaluate(
-      tool,
-      this._defaultPolicyContext
-    );
+    // A2-a：优先使用调用方显式传入的 `policyContext`（与 ToolRegistry 同口径），
+    // 未提供时回落 owner 默认上下文（零行为变更）。
+    const policyContext =
+      (context as { policyContext?: PolicyContext } | undefined)
+        ?.policyContext ?? this._defaultPolicyContext;
+    const policyResult = this._policyPipeline.evaluate(tool, policyContext);
     if (!policyResult.allowed) {
       throw new AppError(
         `Tool ${name} is not allowed by policy: ${policyResult.reason ?? 'unknown'}`,

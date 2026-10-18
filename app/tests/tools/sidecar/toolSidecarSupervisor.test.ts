@@ -71,19 +71,31 @@ describe('工具侧车监督器：就绪握手', () => {
 
   it('协议版本不兼容 ⇒ fail-closed 拒绝启动', async () => {
     const fake = new FakeChild();
-    const sup = new ToolSidecarSupervisor({ spawnFn: () => asChild(fake) });
+    const killed: ChildProcess[] = [];
+    const sup = new ToolSidecarSupervisor({
+      spawnFn: () => asChild(fake),
+      killTree: (child) => killed.push(child),
+    });
     const p = sup.start();
     fake.stdout.write(startupFrame(99));
     await expect(p).rejects.toThrow('版本不兼容');
+    // U-16 同类面：失败即强杀并解绑（不留半启动侧车）
+    expect(killed).toEqual([asChild(fake)]);
+    expect(sup.isRunning()).toBe(false);
   });
 
   it('无 startup 帧 ⇒ 就绪超时', async () => {
     const fake = new FakeChild();
+    const killed: ChildProcess[] = [];
     const sup = new ToolSidecarSupervisor({
       spawnFn: () => asChild(fake),
       startupTimeoutMs: 20,
+      killTree: (child) => killed.push(child),
     });
     await expect(sup.start()).rejects.toThrow('就绪超时');
+    // U-16 同类面：超时同样强杀进程树（区别于旧实现只靠 GC/退出）
+    expect(killed).toEqual([asChild(fake)]);
+    expect(sup.isRunning()).toBe(false);
   });
 });
 
@@ -224,5 +236,21 @@ describe('工具侧车监督器：崩溃隔离 / 重启 / 停止', () => {
     await tick(20);
     expect(calls).toBe(1);
     expect(sup.isRunning()).toBe(false);
+  });
+
+  it('U-16 同类面：stop() 走**进程树强杀**（注入替身，不直接 child.kill）', async () => {
+    const fake = new FakeChild();
+    const killed: ChildProcess[] = [];
+    const sup = new ToolSidecarSupervisor({
+      spawnFn: () => asChild(fake),
+      killTree: (child) => killed.push(child),
+    });
+    const p = sup.start();
+    fake.stdout.write(startupFrame());
+    await p;
+
+    sup.stop();
+    expect(killed).toEqual([asChild(fake)]);
+    expect(fake.killed).toBe(false);
   });
 });

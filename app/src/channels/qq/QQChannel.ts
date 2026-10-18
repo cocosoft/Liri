@@ -61,6 +61,7 @@ import { buildQQKeyboard } from './keyboard';
 import { handleBudgetReliefAction } from '../bridge/budgetReliefAction';
 
 import { getLogger } from '@modules/monitoring';
+import { QQ_API_BASE_URL, QQ_SITE_URL } from '../constants';
 const logger = getLogger('channels:qq:QQChannel');
 
 // 通道元数据 / 能力声明（`QQ_META` / `QQ_CAPABILITIES`）与协议常量、网关负载类型
@@ -893,7 +894,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
   private async resolveGatewayUrl(): Promise<void> {
     this.logger.info('QQ Bot 开始获取 WebSocket 网关地址');
     const token = await this.getAccessToken();
-    const resp = await fetch('https://api.sgroup.qq.com/gateway', {
+    const resp = await fetch(`${QQ_API_BASE_URL}/gateway`, {
       headers: { Authorization: `QQBot ${token}` },
     });
 
@@ -1489,7 +1490,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
           : `关闭码 ${closeCode} 落在服务端错误区间(4900-4913)且会话均<5s，高度疑似 intents 未审核通过`;
       const errorMessage =
         `QQ Bot 连续 ${this.consecutiveSessionFailures} 次会话失败（${diagnoseHint}）。` +
-        `已停止自动重连，请前往 QQ 开放平台 (https://q.qq.com/) 确认以下事项，修正后在本页手动点击「连接」：\n` +
+        `已停止自动重连，请前往 QQ 开放平台 (${QQ_SITE_URL}/) 确认以下事项，修正后在本页手动点击「连接」：\n` +
         '  1. 「消息事件权限」板块：PUBLIC_GUILD_MESSAGES / GROUP_AT_MESSAGE_CREATE / \n' +
         '     C2C_MESSAGE_CREATE / DIRECT_MESSAGE_CREATE 是否已通过审核（沙箱环境仅需沙箱权限）\n' +
         '  2. AppID / AppSecret 是否匹配当前环境（沙箱 vs 生产密钥不同）\n' +
@@ -1509,7 +1510,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
           this.consecutiveSessionFailures +
           ' 次鉴权/权限级错误（intents 未审核通过或密钥错误）。' +
           '请在 QQ 开放平台完成权限审核后手动点击「连接」。',
-        hint: '前往 https://q.qq.com → 开发设置 → 消息事件权限，确认 GUILD_MESSAGES/GROUP/C2C/DIRECT_MESSAGE 已通过审核',
+        hint: `前往 ${QQ_SITE_URL} → 开发设置 → 消息事件权限，确认 GUILD_MESSAGES/GROUP/C2C/DIRECT_MESSAGE 已通过审核`,
       });
       this.consecutiveSessionFailures = 0;
       this.sessionId = null;

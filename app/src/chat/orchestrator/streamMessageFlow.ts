@@ -109,7 +109,7 @@ import { buildBackgroundCompactionNotice } from './streamMessageBackgroundCompac
 import { guardFinalOutput } from '../finalOutputGuard.js';
 // B5-2㊸/㊹ 合一：THINKING_BATCH_SIZE / THINKING_BATCH_MS 唯一真源在 ../streamingLlm.js（chat 域 thinking 事件防抖参数），本处直接引用
 import { THINKING_BATCH_SIZE, THINKING_BATCH_MS } from '../streamingLlm.js';
-import { getOutputGuardRegistry } from '@modules/core';
+import { getOutputGuardRegistry, runOutputGuards } from '@modules/core';
 // PC-1（2026-10-07）：护栏命中 ⇒ 下发前端（消息级"已打码/已阻断"标注，不再静默改写）
 import {
   appendOutputGuardAudit,
@@ -1086,6 +1086,12 @@ export async function* runStreamMessage(
         }
       };
 
+      // G-8（2026-10-18）：流式 **chunk 级**输出护栏接入点（评审门禁 `default-off-switches-review-gates.md` §2-#1①）。
+      // 循环外快照一次（热路径不逐 chunk 排序）；`OUTPUT_GUARD=false` 默认 ⇒ 空数组 ⇒ 下方分支整体跳过（零变更零开销）。
+      // 边界（如实）：跨 chunk 边界的密钥形态单 chunk 可能漏检 —— 终稿护栏（guardFinalOutput）仍对完整正文兜底；
+      // 本接入点缩短「敏感内容已流出/已落盘」的暴露窗口。打码在 buffer/yield **之前** ⇒ 所见即所存（§1.6）。
+      const chunkOutputGuards = getOutputGuardRegistry().list();
+
       try {
         while (!result.done) {
           const chunk = result.value as string | ThinkingProviderChunk;
@@ -1094,10 +1100,23 @@ export async function* runStreamMessage(
             // Think 标签擦洗：擦除 <think>…</think>（含内容）、剥离 <response> 标签（保留内容）。
             // 擦洗后为空（整块是标签或思考内容）→ 跳过累积、落盘与 yield。
             // token 水位统计仍用原始 chunk（思考内容同样消耗输出 token）。
-            const scrubbedContent = thinkScrubber.scrub({
+            let scrubbedContent = thinkScrubber.scrub({
               content: chunk,
               isComplete: false,
             }).content;
+            if (scrubbedContent && chunkOutputGuards.length > 0) {
+              const gated = runOutputGuards(chunkOutputGuards, scrubbedContent);
+              if (gated.blocked || gated.redactedBy.length > 0) {
+                // 不落原文（与 P4 审计同口径：仅元数据）
+                logger.warn('streamMessage:chunk_output_guard_applied', {
+                  sessionId: session.id,
+                  blocked: gated.blocked,
+                  redactedBy: gated.redactedBy,
+                  chunkLen: scrubbedContent.length,
+                });
+                scrubbedContent = gated.text;
+              }
+            }
             if (scrubbedContent) {
               // TTFT 接线（2026-09-22）：首个**产出可见正文**的 chunk ⇒ 首个 token。
               // 擦洗后为空（整块是 think 标签/思考内容）**不算** —— 模型未产出可见内容，
@@ -1198,7 +1217,21 @@ export async function* runStreamMessage(
         await flushThinkingEvents();
         // Think 标签擦洗收尾：flush 跨 chunk 缓冲的标签残留（如流末尾未闭合的
         // "<response" 片段），残留内容作为最后一段正文补齐，避免尾部内容丢失。
-        const thinkResidual = thinkScrubber.flush();
+        let thinkResidual = thinkScrubber.flush();
+        // G-8：流尾残留同属外发 chunk，过同一护栏（默认空注册 ⇒ 跳过）
+        if (thinkResidual && chunkOutputGuards.length > 0) {
+          const gated = runOutputGuards(chunkOutputGuards, thinkResidual);
+          if (gated.blocked || gated.redactedBy.length > 0) {
+            logger.warn('streamMessage:chunk_output_guard_applied', {
+              sessionId: session.id,
+              blocked: gated.blocked,
+              redactedBy: gated.redactedBy,
+              chunkLen: thinkResidual.length,
+              tailResidual: true,
+            });
+            thinkResidual = gated.text;
+          }
+        }
         if (thinkResidual) {
           accumulatedContent += thinkResidual;
           // STAGE-A/A-2①：残留正文入存储层缓冲，与流内 chunk 同批落盘（F-2）

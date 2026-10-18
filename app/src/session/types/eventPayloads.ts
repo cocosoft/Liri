@@ -114,6 +114,17 @@ export interface LiriEventMap {
     score: number;
     /** 评分口径版本（`evals/online/weights.ts` 的 `EVALUATOR_VERSION`） */
     evaluatorVersion: string;
+    /**
+     * 轮次**来源路径**（E-2，2026-10-18）。
+     *
+     * 由已落事件派生（禁按文案推断，CS02）：`agent` = 无工具调用的纯对话/推理轮；
+     * `tool` = 普通工具路径；`subagent` = 该轮调用过子 agent（`agent` 工具）。
+     * 口径 = **单轮内最高层级**（既有工具调用又有子 agent ⇒ `subagent`）。
+     *
+     * ⚠️ 本字段引入前写入的历史事件**缺省** ⇒ 声明为可选，消费方按 `undefined`（= 来源未知）
+     * 处理，不得回填猜测值。
+     */
+    source?: 'agent' | 'tool' | 'subagent';
     /** 各分量（可解释"为何是这个分"） */
     components: {
       /** 完成度：completed=1 / aborted 部分 / error=0 */

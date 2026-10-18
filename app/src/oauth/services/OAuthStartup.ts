@@ -6,6 +6,7 @@
 
 import { createOAuthStorage } from '@modules/oauth';
 import { configManager } from '@modules/config';
+import { OAUTH_API_BASE_URL } from '@modules/constants';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('oauth:services:OAuthStartup');
@@ -126,7 +127,7 @@ export class OAuthStartupManager {
 
     try {
       const apiUrl =
-        configManager.env('Liri_API_BASE_URL') || 'https://api.openliri.com';
+        configManager.env('Liri_API_BASE_URL') || OAUTH_API_BASE_URL;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 

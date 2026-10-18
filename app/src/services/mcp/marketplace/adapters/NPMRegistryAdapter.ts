@@ -1,6 +1,7 @@
 import * as https from 'https';
 import { getLogger } from '@modules/monitoring';
 import { buildUserAgent } from '@modules/constants';
+import { NPM_REGISTRY_URL } from '@modules/core';
 import type {
   RegistryAdapter,
   SearchParams,
@@ -12,7 +13,7 @@ import type {
 
 const logger = getLogger('services:mcp:npmAdapter');
 
-const NPM_REGISTRY_API = 'https://registry.npmjs.org';
+const NPM_REGISTRY_API = NPM_REGISTRY_URL;
 
 interface NPMPackage {
   name: string;

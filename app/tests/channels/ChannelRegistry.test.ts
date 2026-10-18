@@ -25,6 +25,7 @@
  */
 
 import { describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
 import { ChannelRegistry } from '../../src/channels/registry/ChannelRegistry';
 import type {
   ChannelId,
@@ -135,5 +136,57 @@ describe('ChannelRegistry（4.11）', () => {
   it('未注册通道 get 返回 undefined', () => {
     const registry = new ChannelRegistry(':memory:');
     expect(registry.get('nonexistent')).toBeUndefined();
+  });
+
+  // ── B-2（2026-10-18）：能力位/元信息只在**投影**处穿过 ──
+  it('B-2 统一视图：capabilities / meta 在顶层，plugin 不再持有同名副本', () => {
+    const registry = new ChannelRegistry(':memory:');
+    registry.register(makePlugin('telegram'));
+    const ch = registry.get('telegram')!;
+    expect(ch.capabilities?.interactive).toBe(false);
+    expect(ch.meta?.markdownCapable).toBe(false);
+    const legacyPlugin = ch.plugin as unknown as Record<string, unknown>;
+    expect(legacyPlugin.capabilities).toBeUndefined();
+    expect(legacyPlugin.meta).toBeUndefined();
+  });
+
+  it('B-2 消费方只读顶层：DeliveryRouter 不再穿透 plugin.capabilities/meta', () => {
+    const src = readFileSync(
+      new URL('../../src/channels/DeliveryRouter.ts', import.meta.url),
+      'utf-8'
+    );
+    expect(src).not.toContain('plugin?.capabilities');
+    expect(src).not.toContain('plugin?.meta');
+    expect(src).toContain('channel.capabilities?.interactive');
+    expect(src).toContain('channel.meta?.markdownCapable');
+  });
+
+  // ── B-4（2026-10-18）：凭据来源显式注入（适配器内无动态 import）──
+  it('B-4 构造期注入的 secretResolver 在 connect 时生效', async () => {
+    let captured: Record<string, unknown> | undefined;
+    const plugin = makePlugin('telegram');
+    plugin.lifecycle.connect = async (config) => {
+      captured = config;
+    };
+    const registry = new ChannelRegistry({
+      dbPath: ':memory:',
+      secretResolver: () => ({ botToken: 'from-stub' }),
+    });
+    registry.register(plugin);
+    await registry.connect('telegram');
+    expect(captured).toEqual({ botToken: 'from-stub' });
+  });
+
+  it('B-4 适配器内无 ChannelSecretStore 动态 import', () => {
+    const src = readFileSync(
+      new URL(
+        '../../src/channels/registry/ChannelRegistry.ts',
+        import.meta.url
+      ),
+      'utf-8'
+    );
+    expect(src).not.toContain("await import('../secrets/ChannelSecretStore')");
+    // 静态 import 保留（默认解析器的装配处，唯一）
+    expect(src).toContain("from '../secrets/ChannelSecretStore'");
   });
 });

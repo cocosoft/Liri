@@ -20,7 +20,11 @@ const ROOT = resolve(import.meta.dir, '..');
 const LOG = join(ROOT, '.trae/architecture/fix-evidence-log.jsonl');
 
 /** 方案 §5 C 的验收阈值 */
-const BUDGET = { ledgerChars: 1200, toolCalls: 18, totalChars: 25_000 } as const;
+const BUDGET = {
+  ledgerChars: 1200,
+  toolCalls: 18,
+  totalChars: 25_000,
+} as const;
 
 interface LedgerEntry {
   id: string;
@@ -74,15 +78,16 @@ export function measure(rows: SessionRow[]): MeasuredRow[] {
       reasons.push(`调用 ${row.toolCalls} > ${BUDGET.toolCalls}`);
     }
     const parts = [row.ledgerChars, row.hookChars, row.reportChars];
-    const total =
-      parts.every((v) => typeof v === 'number')
-        ? (parts as number[]).reduce((a, b) => a + b, 0)
-        : undefined;
+    const total = parts.every((v) => typeof v === 'number')
+      ? (parts as number[]).reduce((a, b) => a + b, 0)
+      : undefined;
     if (total !== undefined && total > BUDGET.totalChars) {
       reasons.push(`总字符 ${total} > ${BUDGET.totalChars}`);
     }
     const complete =
-      row.ledgerChars !== undefined && row.toolCalls !== undefined && total !== undefined;
+      row.ledgerChars !== undefined &&
+      row.toolCalls !== undefined &&
+      total !== undefined;
     return {
       ...row,
       ...(total !== undefined ? { totalChars: total } : {}),

@@ -12,7 +12,8 @@ afterEach(() => {
  *
  * - **为何不 import 真实 i18n 实例**：会死锁（异步 `vi.mock` 工厂 + `i18n/index.ts` 对
  *   `react-i18next` 的 import 形成循环等待，已实测挂起 >105s）—— 见 TR-15 附注。
- * - **为何只读 `i18n/locales/zh.ts`**：它是**纯数据模块**（不 import react-i18next）⇒ 无环。
+ * - **为何只读 `i18n/locales/zh`（目录 index，H-1 已按 namespace 分片）**：它是**纯数据模块**
+ *   （不 import react-i18next）⇒ 无环。
  * - **为何经 `globalThis` 传递**：`vi.mock` 工厂会被提升到文件顶部，工厂内**不能**引用
  *   setup 顶层的变量（会得到 undefined）；经 `globalThis` 在**调用时**读取即可绕开该限制，
  *   且无需 async hoisted（避免重蹈 TR-15 的异步坑）。

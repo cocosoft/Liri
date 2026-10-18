@@ -20,7 +20,6 @@
 
 import {
   existsSync,
-  readdirSync,
   readFileSync,
   writeFileSync,
   mkdirSync,

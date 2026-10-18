@@ -33,5 +33,6 @@ export * from './cliHandler';
 export * from './configHandler';
 export * from './sessionHandler';
 export * from './diagnoseHandler';
+export * from './promptHandler';
 
 // 类与工厂由上方 export * 统一导出；勿再逐项重复（R06-010 上限 20 行）。

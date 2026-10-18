@@ -39,7 +39,8 @@
  */
 
 import type { LiriEvent } from '@modules/session/types/events';
-import type { TurnQualitySignals, TurnStatus } from './types.js';
+import { TOOL_NAME_CONSTANTS } from '@modules/tools';
+import type { TurnQualitySignals, TurnSource, TurnStatus } from './types.js';
 
 /**
  * D3（LLM 复核）用：喂给复核器的**该轮助手正文摘录上限**。
@@ -53,6 +54,8 @@ const MAX_TEXT_EXCERPT_CHARS = 4000;
 export interface DerivedTurn {
   turnNumber: number;
   signals: TurnQualitySignals;
+  /** 该轮来源路径（E-2：由工具调用事件派生，见 `TurnSource`） */
+  source: TurnSource;
   /** 该轮 `turn/end` 事件的 seq（无 `turn/end` 的未收轮不产出） */
   endSeq: number;
   /**
@@ -66,6 +69,8 @@ export interface DerivedTurn {
 interface OpenTurn {
   turnNumber: number;
   toolCalls: number;
+  /** E-2：该轮是否调用过子 agent（`TOOL_NAME_CONSTANTS.agent`） */
+  hasSubagentCall: boolean;
   durationMs: number;
   inputTokens: number;
   outputTokens: number;
@@ -102,6 +107,7 @@ export function deriveTurnSignals(events: LiriEvent[]): DerivedTurn[] {
         open = {
           turnNumber: typeof turn === 'number' ? turn : 0,
           toolCalls: 0,
+          hasSubagentCall: false,
           durationMs: 0,
           inputTokens: 0,
           outputTokens: 0,
@@ -111,7 +117,15 @@ export function deriveTurnSignals(events: LiriEvent[]): DerivedTurn[] {
         break;
       }
       case 'assistant/tool_call': {
-        if (open) open.toolCalls += 1;
+        if (open) {
+          open.toolCalls += 1;
+          // E-2：子 agent 路径的结构化判据（工具名，非文案）
+          if (
+            (ev.data as { name?: string }).name === TOOL_NAME_CONSTANTS.agent
+          ) {
+            open.hasSubagentCall = true;
+          }
+        }
         break;
       }
       case 'assistant/text':
@@ -158,6 +172,12 @@ export function deriveTurnSignals(events: LiriEvent[]): DerivedTurn[] {
         out.push({
           turnNumber: open.turnNumber,
           endSeq: ev.seq,
+          // E-2：单轮内最高层级归类（子 agent > 工具 > 纯对话）
+          source: open.hasSubagentCall
+            ? 'subagent'
+            : open.toolCalls > 0
+              ? 'tool'
+              : 'agent',
           signals: {
             status,
             toolCalls: open.toolCalls,

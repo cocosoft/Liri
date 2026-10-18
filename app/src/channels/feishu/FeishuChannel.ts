@@ -38,13 +38,14 @@ import {
 import { handleBudgetReliefAction } from '../bridge/budgetReliefAction';
 
 import { getLogger } from '@modules/monitoring';
+import { FEISHU_API_BASE_URL, FEISHU_SITE_URL } from '../constants';
 const logger = getLogger('channels:feishu:FeishuChannel');
 
 const FEISHU_META: ChannelMeta = {
   id: 'feishu',
   displayName: '飞书',
   vendor: '字节跳动 (ByteDance)',
-  vendorSite: 'https://open.feishu.cn/',
+  vendorSite: `${FEISHU_SITE_URL}/`,
   icon: '🐦',
   markdownCapable: false,
   maxMessageLength: 30000,
@@ -181,7 +182,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       wsReconnectDelayMs: 5000,
       wsMaxReconnectAttempts: 10,
       wsPingIntervalS: 30,
-      apiBase: 'https://open.feishu.cn/open-apis',
+      apiBase: FEISHU_API_BASE_URL,
     };
   }
 
@@ -223,7 +224,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
    */
   private async refreshAccessToken(): Promise<void> {
     const resp = await fetch(
-      'https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal',
+      `${FEISHU_API_BASE_URL}/auth/v3/tenant_access_token/internal`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -301,7 +302,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
 
     try {
       const resp = await fetch(
-        `https://open.feishu.cn/open-apis/im/v1/messages/${params.replyToMessageId}/reply`,
+        `${FEISHU_API_BASE_URL}/im/v1/messages/${params.replyToMessageId}/reply`,
         {
           method: 'POST',
           headers: {
@@ -366,7 +367,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
   ): Promise<SendResult> {
     try {
       const resp = await fetch(
-        `https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=${receiveIdType}`,
+        `${FEISHU_API_BASE_URL}/im/v1/messages?receive_id_type=${receiveIdType}`,
         {
           method: 'POST',
           headers: {
@@ -448,14 +449,11 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       formData.append('image_type', 'message');
       formData.append('image', blob, 'image.png');
 
-      const uploadResp = await fetch(
-        'https://open.feishu.cn/open-apis/im/v1/images',
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${this.tenantAccessToken}` },
-          body: formData,
-        }
-      );
+      const uploadResp = await fetch(`${FEISHU_API_BASE_URL}/im/v1/images`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.tenantAccessToken}` },
+        body: formData,
+      });
       const data = (await uploadResp.json()) as Record<string, unknown>;
       if ((data['code'] as number) !== 0) {
         return { error: (data['msg'] as string) || '上传图片失败' };
@@ -497,14 +495,11 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       formData.append('file_name', fileName);
       formData.append('file', blob, fileName);
 
-      const uploadResp = await fetch(
-        'https://open.feishu.cn/open-apis/im/v1/files',
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${this.tenantAccessToken}` },
-          body: formData,
-        }
-      );
+      const uploadResp = await fetch(`${FEISHU_API_BASE_URL}/im/v1/files`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.tenantAccessToken}` },
+        body: formData,
+      });
       const data = (await uploadResp.json()) as Record<string, unknown>;
       if ((data['code'] as number) !== 0) {
         return { error: (data['msg'] as string) || '上传文件失败' };
@@ -760,7 +755,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     if (!this.tenantAccessToken) return;
 
     const resp = await fetch(
-      `https://open.feishu.cn/open-apis/im/v1/images/${imageKey}`,
+      `${FEISHU_API_BASE_URL}/im/v1/images/${imageKey}`,
       {
         method: 'GET',
         headers: {
@@ -805,15 +800,12 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     await this.ensureToken();
     if (!this.tenantAccessToken) return;
 
-    const resp = await fetch(
-      `https://open.feishu.cn/open-apis/im/v1/files/${fileKey}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${this.tenantAccessToken}`,
-        },
-      }
-    );
+    const resp = await fetch(`${FEISHU_API_BASE_URL}/im/v1/files/${fileKey}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${this.tenantAccessToken}`,
+      },
+    });
 
     if (!resp.ok) {
       this.logger.error('飞书文件下载请求失败', {
@@ -930,7 +922,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       throw new Error('无法获取 WebSocket URL：未连接');
     }
 
-    const resp = await fetch('https://open.feishu.cn/open-apis/ws/v1/start', {
+    const resp = await fetch(`${FEISHU_API_BASE_URL}/ws/v1/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -16,7 +16,7 @@
  * 端口变更时它们会自然失效，属开发期工具，不纳入门禁以免制造噪音。
  */
 import { describe, it, expect } from 'bun:test';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 import { DEFAULT_HTTP_PORT } from '../../src/core/ports';
@@ -35,6 +35,26 @@ const CLIENT_SRC = join(ROOT, 'client', 'src');
  */
 function read(rel: string): string {
   return readFileSync(join(ROOT, rel), 'utf-8');
+}
+
+/**
+ * 读取前端 locale 文案源码。
+ *
+ * H-1（2026-10-18）把 `client/src/i18n/locales/<locale>.ts` 拆成
+ * `locales/<locale>/*.ts` 分片（base/settings/knowledge/workspace/misc）。
+ * 本契约测试用的是「原文正则解析」⇒ 这里按**同一逻辑视图**拼接分片：
+ * 单文件存在则读单文件（兼容旧形态），否则递归拼接目录下全部 `.ts`。
+ */
+function readLocaleSource(locale: 'zh' | 'en'): string {
+  const single = join(ROOT, 'client', 'src', 'i18n', 'locales', `${locale}.ts`);
+  if (existsSync(single)) return readFileSync(single, 'utf-8');
+  const dir = join(ROOT, 'client', 'src', 'i18n', 'locales', locale);
+  const files: string[] = [];
+  collectTsFiles(dir, files);
+  return files
+    .sort()
+    .map((file) => readFileSync(file, 'utf-8'))
+    .join('\n');
 }
 
 function relToRoot(abs: string): string {
@@ -324,10 +344,8 @@ describe('HD-P0-3 · B4 能力/分类标签（跨部署单元契约）', () => {
   });
 
   it('② 服务端每个分类在 zh / en 中都有标签键（漏 ⇒ UI 显示原始键）', () => {
-    for (const locale of ['zh', 'en']) {
-      const keys = capabilityLabelKeys(
-        read(`client/src/i18n/locales/${locale}.ts`)
-      );
+    for (const locale of ['zh', 'en'] as const) {
+      const keys = capabilityLabelKeys(readLocaleSource(locale));
       // 非空哨兵：解析器失效（缩进/块名变了）必须报红，不得静默"0 缺失"
       expect(
         keys.length,
@@ -341,10 +359,8 @@ describe('HD-P0-3 · B4 能力/分类标签（跨部署单元契约）', () => {
   it('③ 服务端每个能力标签（label + Desc）在 zh / en 中都存在（漏 ⇒ 退回英文 fallback）', () => {
     const caps = capabilityKeysFromYaml();
     expect(caps.length, '未从 YAML 解析到能力 labelKey').toBeGreaterThan(0);
-    for (const locale of ['zh', 'en']) {
-      const keys = capabilityLabelKeys(
-        read(`client/src/i18n/locales/${locale}.ts`)
-      );
+    for (const locale of ['zh', 'en'] as const) {
+      const keys = capabilityLabelKeys(readLocaleSource(locale));
       const missing = caps
         .flatMap((k) => [k, `${k}Desc`])
         .filter((k) => !keys.includes(k));
@@ -411,8 +427,8 @@ describe('HD-P0-3 · B4 能力/分类标签（跨部署单元契约）', () => {
         'common.capabilityLoadFailed'
       );
     }
-    for (const locale of ['zh', 'en']) {
-      const src = read(`client/src/i18n/locales/${locale}.ts`);
+    for (const locale of ['zh', 'en'] as const) {
+      const src = readLocaleSource(locale);
       expect(
         /^ {4}capabilityLoadFailed:/m.test(src),
         `${locale} 缺少 common.capabilityLoadFailed 键`

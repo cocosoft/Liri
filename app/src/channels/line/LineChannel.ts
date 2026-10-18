@@ -15,9 +15,10 @@ import { TTLCache } from '@modules/utils/cache';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
+import { LINE_API_BASE_URL } from '../constants';
 const logger = getLogger('channels:line:LineChannel');
 
-const LINE_API_BASE = 'https://api.line.me/v2/bot';
+const LINE_API_BASE = LINE_API_BASE_URL;
 
 const LINE_META: ChannelMeta = {
   id: 'line',
@@ -163,7 +164,7 @@ class LineChannelPlugin extends BaseChannelPlugin {
       channelAccessToken: '',
       channelSecret: '',
       webhookPort: 8086,
-      apiBase: 'https://api.line.me/v2/bot',
+      apiBase: LINE_API_BASE_URL,
     };
   }
 

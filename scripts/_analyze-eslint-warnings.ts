@@ -13,13 +13,21 @@ const result = execSync(
   }
 );
 
-const data = JSON.parse(result);
+interface EslintMessage {
+  ruleId: string | null;
+  message: string;
+}
+
+interface EslintFileResult {
+  filePath: string;
+  messages: EslintMessage[];
+}
+
+const data = JSON.parse(result) as EslintFileResult[];
 
 // 只统计 module-registry 规则
-const modRegistryWarnings = data.filter((f: any) =>
-  f.messages.some(
-    (m: any) => m.ruleId === 'module-registry/no-direct-module-import'
-  )
+const modRegistryWarnings = data.filter((f) =>
+  f.messages.some((m) => m.ruleId === 'module-registry/no-direct-module-import')
 );
 
 // 按模块统计
@@ -29,7 +37,7 @@ const fileModuleCounts: Record<string, Record<string, number>> = {};
 let warningCount = 0;
 for (const file of modRegistryWarnings) {
   const msgs = file.messages.filter(
-    (m: any) => m.ruleId === 'module-registry/no-direct-module-import'
+    (m) => m.ruleId === 'module-registry/no-direct-module-import'
   );
   warningCount += msgs.length;
   for (const m of msgs) {

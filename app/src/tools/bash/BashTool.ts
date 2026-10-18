@@ -197,6 +197,9 @@ export class BashTool extends BaseTool {
 
   override tags = [ToolTag.CODE];
 
+  /** A-4（2026-10-18）：能力声明位 —— 执行任意 shell 命令（调用方不再按工具名分支） */
+  override sandboxLevel = 'execution' as const;
+
   params: ToolParam[];
 
   override aliases = ['sh', 'shell'];

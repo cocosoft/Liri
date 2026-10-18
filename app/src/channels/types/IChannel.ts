@@ -4,33 +4,70 @@
  * 对齐 OpenClaw channels/plugins/types.plugin.ts
  */
 
-export type ChannelId =
-  | 'wecom'
-  | 'feishu'
-  | 'dingtalk'
-  | 'wechat'
-  | 'qq'
-  | 'telegram'
-  | 'discord'
-  | 'slack'
-  | 'line'
-  | 'irc'
-  | 'nostr'
-  | 'email'
-  | 'sms'
-  | 'webhook'
-  | 'googlechat'
-  | 'msteams'
-  | 'zalo'
-  | 'yuanbao'
-  | 'whatsapp'
-  | 'signal'
-  | 'matrix'
-  | 'facebook'
-  | 'twitter'
-  | 'claude'
-  | 'mattermost'
-  | 'bluebubbles';
+/**
+ * **已知（内置）通道标识** —— 26 项，作为便捷别名保留补全与穷尽性断言。
+ *
+ * B-3（2026-10-18）：本清单是**运行时数组 + 字面量类型同源**（`as const` ⇒ 联合类型
+ * 由数组派生，防止「类型有、清单漏」的双份维护）。
+ */
+export const KNOWN_CHANNEL_IDS = [
+  'wecom',
+  'feishu',
+  'dingtalk',
+  'wechat',
+  'qq',
+  'telegram',
+  'discord',
+  'slack',
+  'line',
+  'irc',
+  'nostr',
+  'email',
+  'sms',
+  'webhook',
+  'googlechat',
+  'msteams',
+  'zalo',
+  'yuanbao',
+  'whatsapp',
+  'signal',
+  'matrix',
+  'facebook',
+  'twitter',
+  'claude',
+  'mattermost',
+  'bluebubbles',
+] as const;
+
+/** 已知通道标识的字面量联合（由 {@link KNOWN_CHANNEL_IDS} 派生） */
+export type KnownChannelId = (typeof KNOWN_CHANNEL_IDS)[number];
+
+/**
+ * 通道标识（B-3，2026-10-18）—— **开放标识**：第三方通道可注册，**不改核心类型**。
+ *
+ * 写法说明：必须用 `(string & {})` 而不是 `string` ——
+ * - `KnownChannelId | string` 会**退化为 `string`**，丢失 IDE 字面量补全；
+ * - `(string & {})` 保留「任意字符串可赋值」，同时保留已知字面量的**联合补全**。
+ *
+ * ⚠️ 类型放宽**不代替**边界校验：外部输入（HTTP / 工具参数 / 通道回调）仍须经
+ * {@link parseChannelId} 归一，禁止裸 `as ChannelId`。
+ */
+export type ChannelId = KnownChannelId | (string & {});
+
+/**
+ * 边界校验 + 归一（B-3）：把**外部字符串**收敛为 `ChannelId`。
+ *
+ * 规则：必须是字符串、去首尾空白后非空、且**不含空白字符**（防止 `"a b"` / `":"` 之类
+ * 破坏 `platform:chat_id` 投递格式）；不改变大小写（既有目标串原样保留）。
+ *
+ * @returns 合法 ⇒ 归一后的 id；否则 ⇒ `undefined`（调用方按 fail-closed 处理）
+ */
+export function parseChannelId(value: unknown): ChannelId | undefined {
+  if (typeof value !== 'string') return undefined;
+  const id = value.trim();
+  if (!id || /\s/.test(id)) return undefined;
+  return id as ChannelId;
+}
 
 export type DmPolicy = 'pairing' | 'allowlist' | 'open';
 

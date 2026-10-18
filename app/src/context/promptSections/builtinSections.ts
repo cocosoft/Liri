@@ -12,6 +12,7 @@ import {
   buildMemoryContextBlock,
   hashString,
   sectionCache,
+  sectionCacheKey,
   getMemoryContentHash,
   setMemoryContentHash,
   type SystemPromptSection,
@@ -260,12 +261,13 @@ export const BUILTIN_SECTIONS = {
         .join('\n');
 
       // Phase 2: hash-based 缓存保护 — 内容未变时跳过重建
+      // C-2：key 经 sectionCacheKey 构造（带 locale 前缀），与 resolveSystemPromptSections 同构
       const currentHash = hashString(summaries);
       if (
         currentHash === getMemoryContentHash() &&
-        sectionCache.has('memoryContext')
+        sectionCache.has(sectionCacheKey('memoryContext'))
       ) {
-        return sectionCache.get('memoryContext') ?? null;
+        return sectionCache.get(sectionCacheKey('memoryContext')) ?? null;
       }
       setMemoryContentHash(currentHash);
 

@@ -1,6 +1,7 @@
 import {
   getRegisteredSections,
   resolveSystemPromptSections,
+  setSectionCacheLocale,
   CACHE_BOUNDARY,
   type SystemPromptSection,
   localToolUseSection,
@@ -21,10 +22,8 @@ import { getLogger } from '@modules/monitoring';
 import { setCurrentSessionContext } from './MemoryPromptProvider';
 import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
 import { generatePromptReport, formatPromptReport } from './SystemPromptReport';
-import {
-  applyPromptOverrides,
-  getPromptAppendices,
-} from './PromptVersionManager';
+import { resolveConfiguredLanguage } from '@modules/system/i18n/languageProfiles';
+import { resolvePrompt, getPromptAppendices } from './PromptVersionManager';
 import {
   generateDiagnosticsReport,
   type DiagnosticsReport,
@@ -62,6 +61,12 @@ export interface AssembleOptions {
    * 按层(L3→L2)结构性降级丢弃低价值段（extra 豁免、L0/L1 豁免），避免整串字节截断。
    * 缺省回退环境变量 PROMPT_DYNAMIC_BUDGET_TOKENS；两者都缺省 = 不裁剪（保持现状）。 */
   dynamicBudgetTokens?: number;
+  /** C-2/C-4（2026-10-18）：本次组装的 locale（如 'zh-CN' / 'en-US'）。
+   * 缺省（不传）⇒ 读用户显式配置 `config.language`（`resolveConfiguredLanguage`）；
+   * 再缺省 ⇒ 'zh-CN' 源语言。**不含**系统 locale / 内容检测 —— 提示词语言只由显式配置决定，
+   * 否则会随机器或消息内容抖动，破坏 provider 端 prompt cache。
+   * 驱动 sectionCache key 前缀与六级链的 locale 子目录。 */
+  locale?: string;
   /**
    * TR-12-B（2026-09-22）：逐段解析结果透出（可选）。
    *
@@ -147,11 +152,20 @@ export async function assembleSystemPrompt(
     sessionContext,
     extraDynamicSections,
     dynamicBudgetTokens: dynamicBudgetTokensOpt,
+    locale,
   } = options;
 
   if (sessionContext) {
     setCurrentSessionContext(sessionContext);
   }
+  // C-2：段落缓存 key 带 locale（缺省 zh-CN 与内置文本语言一致 ⇒ 行为零变化）
+  // C-4：未显式传入时读用户配置 `config.language`（仅显式配置；不含系统 locale / 内容检测，
+  // 避免提示词随机器或消息内容抖动而破坏 provider 端 prompt cache）
+  const resolvedLocale =
+    locale && locale.trim()
+      ? locale.trim()
+      : (resolveConfiguredLanguage() ?? 'zh-CN');
+  setSectionCacheLocale(resolvedLocale);
   const resolvedMode: PromptMode = mode ?? 'full';
   // D-214（方案 A）：端口**在异步入口取一次**，再显式下传给下方同步 helper/循环
   const ai = await getCoreAPI().getAiOpsPort();
@@ -270,8 +284,8 @@ export async function assembleSystemPrompt(
     let result = actualResults[i];
     if (!result) continue;
 
-    // P3-10: 应用外置 Prompt 覆盖（~/.pyapp/prompts/*.md）
-    result = applyPromptOverrides(section.name, result);
+    // C-2: 六级解析链（用户→项目→演化→包内→母语回退→内置兜底=fallback）
+    result = resolvePrompt(section.name, result, resolvedLocale);
 
     if (section.cacheBreak) {
       dynamicParts.push(result);

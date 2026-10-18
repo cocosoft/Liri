@@ -36,13 +36,6 @@ const CLI_SYSPROMPT_PREFIX_VALUES = [
 export type CLISyspromptPrefix = (typeof CLI_SYSPROMPT_PREFIX_VALUES)[number];
 
 /**
- * 所有可能的CLI系统提示词前缀集合
- */
-export const CLI_SYSPROMPT_PREFIXES: ReadonlySet<string> = new Set(
-  CLI_SYSPROMPT_PREFIX_VALUES
-);
-
-/**
  * 获取CLI系统提示词前缀
  * 根据运行模式选择合适的前缀
  */

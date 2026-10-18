@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 诊断处理器
  * 处理 diagnose 命令组，提供网络、健康、调试诊断功能
  */
@@ -9,6 +9,8 @@ import { getLogger } from '@modules/monitoring';
 import { createCliConfigManager } from '@modules/cli/config';
 import { createSessionGateway } from '@modules/session';
 import { SlowQueryDetector } from '@modules/query';
+import { GOOGLE_API_BASE_URL, NPM_REGISTRY_URL } from '@modules/core';
+import { GITHUB_API_BASE } from '@modules/constants';
 
 const logger = getLogger('diagnoseHandler');
 
@@ -63,9 +65,9 @@ export class DiagnoseHandler {
     console.log();
 
     const targets = [
-      { name: 'GitHub API', url: 'https://api.github.com' },
-      { name: 'Google API', url: 'https://www.googleapis.com' },
-      { name: 'NPM Registry', url: 'https://registry.npmjs.org' },
+      { name: 'GitHub API', url: GITHUB_API_BASE },
+      { name: 'Google API', url: GOOGLE_API_BASE_URL },
+      { name: 'NPM Registry', url: NPM_REGISTRY_URL },
     ];
 
     const results: CheckResult[] = [];

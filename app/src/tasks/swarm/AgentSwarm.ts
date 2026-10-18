@@ -59,6 +59,14 @@ export type SwarmVerifyState = 'passed' | 'failed' | 'skipped';
  */
 export const DEFAULT_SWARM_CONCURRENCY = 3;
 
+/**
+ * E-1（2026-10-18）：verifier 判不过时**回灌重试**的独立 token 上限（默认 20k）。
+ *
+ * 只统计 executor 回报的 `tokens`（未回报按 0，不估算）；累计达到上限 ⇒ 不再回灌
+ * （该 worker 保持 `verify:'failed'`）。与 `DEFAULT_SWARM_CONCURRENCY` 同属批次内默认值。
+ */
+export const DEFAULT_SWARM_VERIFY_RETRY_TOKEN_BUDGET = 20_000;
+
 /** 单个 worker 执行结果 */
 export interface SwarmWorkerResult {
   id: string;
@@ -81,6 +89,11 @@ export interface SwarmWorkerResult {
   /** verifier 反馈（`failed` 时必带原因） */
   feedback?: string;
   /**
+   * E-1（2026-10-18）：该 worker 是否执行过**回灌重试**（缺省 = 未重试）。
+   * 重试后仍判不过时 `verify` 仍为 `failed`，`feedback` 为**重试后**的门禁结论。
+   */
+  retried?: boolean;
+  /**
    * O4 正向合取：`success ∧ verify ≠ failed ∧ ¬timedOut`（在门禁阶段结束后统一计算）。
    * `allPassed` 以此为准 —— 原实现只看 `verified`，worker 执行失败时仍可能给出 `allPassed: true`。
    */
@@ -91,6 +104,16 @@ export interface SwarmWorkerResult {
 export interface SwarmVerifyResult {
   pass: boolean;
   feedback?: string;
+  /**
+   * 是否为 verifier 的**明确结论**（E-1，2026-10-18）。
+   *
+   * - `true`：解析到 `pass` 布尔字段（无论通过与否）；
+   * - `false`/缺省：输出不可解析 / 缺字段 ⇒ 按 fail-closed 判不过。
+   *
+   * 用途：**只有明确结论才值得回灌重试** —— fail-closed 的兜底文案不含可执行的修正信息，
+   * 拿它重试只会白烧一次 worker（CS03：不为不存在的信息开重试）。
+   */
+  explicit?: boolean;
 }
 
 /**
@@ -168,6 +191,21 @@ export interface AgentSwarmOptions {
    * 在途子任务的取消由 executor 适配器把该 signal 传给底层子代理执行器完成。
    */
   signal?: AbortSignal;
+  /**
+   * E-1（2026-10-18）：verifier **明确**判不过（`explicit:true` 且 `pass:false`）时，
+   * 把 feedback 回灌原 worker **重试 1 次**，重试后重新门禁一次（默认关 = 零行为变更）。
+   *
+   * - verifier 自身抛错 / 输出不可解析（fail-closed 兜底）⇒ **不回灌**（无可用修正信息）；
+   * - worker 执行未成功 / 超时 / 批次已取消 ⇒ 不回灌；
+   * - 灰度：`AgentTool` 侧由 `SWARM_VERIFY_RETRY`（默认 false）控制，
+   *   触发条件见 `.trae/specs/default-off-switches-review-gates.md` §2 #15。
+   */
+  enableVerifyRetry?: boolean;
+  /**
+   * E-1：回灌重试的**独立 token 上限**（缺省 `DEFAULT_SWARM_VERIFY_RETRY_TOKEN_BUDGET`）。
+   * 只统计 executor 回报的 `tokens`；累计达到上限 ⇒ 不再回灌。
+   */
+  verifyRetryTokenBudget?: number;
 }
 
 /** swarm 运行结果 */
@@ -196,6 +234,7 @@ export interface AgentSwarmResult {
    * **worker 真实 token 用量合计**（M-8 接线，2026-09-22）。
    *
    * 口径：只累计 worker 返回的 `tokens`（executor 未提供 ⇒ 记 0，**不估算**）；
+   * 含 E-1 回灌重试的用量（重试也是真实 worker 工作）；
    * 不含 verifier / synthesizer（它们是门禁与汇总，不计入"任务工作量"）。
    * 用途：喂给 `TaskGoalStore` 的任务级预算（触顶 ⇒ `budget_limited`）。
    */
@@ -214,6 +253,7 @@ function parseVerifyOutput(text: string): SwarmVerifyResult {
   if (!match) {
     return {
       pass: false,
+      explicit: false,
       feedback:
         'verifier 未返回可解析的门禁结论（输出中未找到 JSON）⇒ 按 fail-closed 判不过',
     };
@@ -226,16 +266,97 @@ function parseVerifyOutput(text: string): SwarmVerifyResult {
     if (typeof parsed.pass !== 'boolean') {
       return {
         pass: false,
+        explicit: false,
         feedback:
           'verifier 结论缺少布尔字段 pass ⇒ 按 fail-closed 判不过（原实现缺失即视为通过）',
       };
     }
-    return { pass: parsed.pass, feedback: parsed.feedback };
+    return { pass: parsed.pass, feedback: parsed.feedback, explicit: true };
   } catch {
     return {
       pass: false,
+      explicit: false,
       feedback: 'verifier 输出的 JSON 无法解析 ⇒ 按 fail-closed 判不过',
     };
+  }
+}
+
+/** worker / verifier 的系统提示（首轮与 E-1 回灌重试共用同一措辞，避免两处漂移） */
+const WORKER_SYSTEM_PROMPT =
+  '你是多代理 swarm 中的一个 worker。只负责完成分配的子任务。输出你的执行结果（可为文本/摘要/JSON）。只读操作，不修改任何文件。';
+const VERIFIER_SYSTEM_PROMPT =
+  '你是 swarm 的 verifier。审查 worker 输出是否完成其子任务。输出 JSON：{"pass":bool,"feedback":"说明"}。只读操作。';
+
+/** 对单个 worker 执行一次门禁（首次判定与 E-1 重试后复核共用） */
+async function runWorkerVerifier(params: {
+  worker: SwarmWorkerResult;
+  executor: SwarmExecutor;
+  isolation?: AgentIsolation;
+}): Promise<SwarmVerifyResult> {
+  const res = await params.executor({
+    systemPrompt: VERIFIER_SYSTEM_PROMPT,
+    userPrompt: `子任务: ${params.worker.description}\n\nworker 输出:\n${params.worker.output}`,
+    isolation: params.isolation,
+    agentType: 'verification',
+  });
+  return parseVerifyOutput(res.output);
+}
+
+/**
+ * E-1（2026-10-18）：把 verifier 的 feedback 回灌原 worker **重试一次**，并重新门禁。
+ *
+ * 契约：
+ * - 只改写该 worker 的 `output` / `verify` / `feedback` / `retried`；
+ * - 重试自身失败（抛错 / 引擎未完成）⇒ **保持判不过** + warn（不阻断主流程）；
+ * - 返回本次重试的 token 用量（未回报 ⇒ 0，不估算）。
+ */
+async function retryWorkerOnce(params: {
+  worker: SwarmWorkerResult;
+  task: SwarmWorkerTask | undefined;
+  blackboard: string;
+  executor: SwarmExecutor;
+  isolation?: AgentIsolation;
+}): Promise<number> {
+  const { worker, task } = params;
+  try {
+    const res = await params.executor({
+      systemPrompt: WORKER_SYSTEM_PROMPT,
+      userPrompt:
+        `${params.blackboard}\n\n你的子任务: ${worker.description}\n\n` +
+        `上一轮未通过门禁，反馈：\n${worker.feedback ?? '（无具体反馈）'}\n` +
+        '请据此修正并重新输出。',
+      tools: ['search', 'file_read'],
+      isolation: params.isolation,
+      agentType: task?.agentType,
+      taskKey: task?.id,
+    });
+    const tokens =
+      Number.isFinite(res.tokens ?? 0) && (res.tokens ?? 0) > 0
+        ? (res.tokens as number)
+        : 0;
+    worker.retried = true;
+    if (!res.ok || res.timedOut === true) {
+      worker.feedback = `${worker.feedback ?? ''}（回灌重试未成功：引擎未完成）`;
+      return tokens;
+    }
+    worker.output = res.output;
+    const v = await runWorkerVerifier({
+      worker,
+      executor: params.executor,
+      isolation: params.isolation,
+    });
+    worker.verify = v.pass ? 'passed' : 'failed';
+    worker.feedback = v.feedback;
+    return tokens;
+  } catch (err) {
+    // 回灌重试失败（worker 抛错 / 复核 verifier 抛错）⇒ 保持判不过，不阻断主流程
+    worker.retried = true;
+    worker.feedback = `${worker.feedback ?? ''}（回灌重试失败：${String(err)}）`;
+    logger.warn('swarm 回灌重试失败（保持判不过）', {
+      taskId: worker.id,
+      error: String(err),
+    });
+    return 0;
   }
 }
 
@@ -293,8 +414,7 @@ export class AgentSwarm {
       async ({ task, idx }) => {
         try {
           const res = await executor({
-            systemPrompt:
-              '你是多代理 swarm 中的一个 worker。只负责完成分配的子任务。输出你的执行结果（可为文本/摘要/JSON）。只读操作，不修改任何文件。',
+            systemPrompt: WORKER_SYSTEM_PROMPT,
             userPrompt: `${blackboard}\n\n你的子任务: ${task.description}`,
             // O12-2：只读检索类别（原 `'file'` 属**写入**类别，与上方提示词的"只读操作"矛盾）
             tools: ['search', 'file_read'],
@@ -347,21 +467,25 @@ export class AgentSwarm {
 
     // verifier 门禁：逐 worker 验证（仅对成功 worker）
     if (options.enableVerify !== false && !signal?.aborted) {
+      // E-1：回灌重试开关 + 独立 token 上限（默认关 ⇒ 与现状逐字一致）
+      const retryEnabled = options.enableVerifyRetry === true;
+      const retryBudget =
+        options.verifyRetryTokenBudget ??
+        DEFAULT_SWARM_VERIFY_RETRY_TOKEN_BUDGET;
+      const taskById = new Map(tasks.map((t) => [t.id, t]));
+      let retryTokens = 0;
+
       await runBatched(
         workerResults.filter((r) => r.success),
         concurrency,
         async (r) => {
+          let verdict: SwarmVerifyResult;
           try {
-            const verifyRes = await executor({
-              systemPrompt:
-                '你是 swarm 的 verifier。审查 worker 输出是否完成其子任务。输出 JSON：{"pass":bool,"feedback":"说明"}。只读操作。',
-              userPrompt: `子任务: ${r.description}\n\nworker 输出:\n${r.output}`,
+            verdict = await runWorkerVerifier({
+              worker: r,
+              executor,
               isolation,
-              agentType: 'verification',
             });
-            const v = parseVerifyOutput(verifyRes.output);
-            r.verify = v.pass ? 'passed' : 'failed';
-            r.feedback = v.feedback;
           } catch (err) {
             // O4 fail-closed：verifier 自身失败 ⇒ 该 worker **判不过**
             // （原实现保持 verified=true 并记一条 warn，"跳过门禁"等价于放行）
@@ -371,10 +495,35 @@ export class AgentSwarm {
               taskId: r.id,
               error: String(err),
             });
+            return;
           }
+          r.verify = verdict.pass ? 'passed' : 'failed';
+          r.feedback = verdict.feedback;
+
+          // E-1：仅「verifier 的明确拒绝」值得回灌；fail-closed 兜底文案不含可执行信息
+          if (verdict.pass || verdict.explicit !== true) return;
+          if (!retryEnabled || signal?.aborted) return;
+          if (retryTokens >= retryBudget) {
+            logger.warn('swarm 回灌重试跳过：已达 token 上限', {
+              taskId: r.id,
+              retryTokens,
+              retryBudget,
+            });
+            return;
+          }
+          retryTokens += await retryWorkerOnce({
+            worker: r,
+            task: taskById.get(r.id),
+            blackboard,
+            executor,
+            isolation,
+          });
         },
         signal
       );
+
+      // E-1：回灌重试的用量并入 worker 真实用量（重试也是真实 worker 工作）
+      workerTokens += retryTokens;
     }
 
     // synthesizer：汇总全部结果 → 合成最终输出

@@ -121,6 +121,11 @@ export interface CouncilAgentSpeakingData {
   agentId: string;
   /** Agent 名称 */
   agentName: string;
+  /**
+   * Agent 角色（H-2-R4，2026-10-18）：取 `agentId`（architect / security / …）。
+   * 供 `OrchestrationMetrics.byRole` 聚合；此前只带 `agentName` ⇒ 该维度恒空。
+   */
+  agentRole: string;
   /** 回合编号 */
   round: number;
   /** session ID */
@@ -133,6 +138,8 @@ export interface CouncilAgentDeltaData {
   agentId: string;
   /** Agent 名称 */
   agentName: string;
+  /** Agent 角色（H-2-R4）：取 `agentId`，供 `byRole` 聚合 */
+  agentRole: string;
   /** 内容块（完整发言或增量块） */
   content: string;
   /** 回合编号 */

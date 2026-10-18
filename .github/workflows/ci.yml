@@ -254,6 +254,27 @@ jobs:
         bun run scripts/lint-tool-schema.ts
 
     # ══════════════════════════════════════════════
+    # 提示词资源门禁（C-1 / C-3b / T2，2026-10-18）
+    #   · `prompts:check`       manifest ↔ 目录冻结导出对照（C-1/C-5）
+    #   · `params:check`        工具参数描述（359 条）↔ zh-CN 源，en-US 键集/空值
+    #   · `descriptions:check`  工具级描述（77 工具）↔ zh-CN 源，en-US 键集/空值
+    #   · `lint:prompt-parity|budget|t1`  校验器四门禁中的三项
+    #   · `lint:prompt-hardcoded`  源码侧中文硬编码（2026-10-18 起 `--strict` 阻断）
+    #   产物与平台无关（纯 fs + 工具实例化）；工具实例化在既有 `bun test tests/` 的
+    #   三平台矩阵里已被覆盖 ⇒ 本 job 本身即 ubuntu-only，无需再按 matrix 过滤。
+    # ══════════════════════════════════════════════
+    - name: Prompt resource gates (C-3b/T2 · manifest + params + descriptions)
+      working-directory: app
+      run: |
+        bun run prompts:check
+        bun run params:check
+        bun run descriptions:check
+        bun run lint:prompt-parity
+        bun run lint:prompt-budget
+        bun run lint:prompt-t1
+        bun run lint:prompt-hardcoded
+
+    # ══════════════════════════════════════════════
     # 能力声明静态一致性门禁（2026-10-16）
     #   兑现 `LINTMODELS-CAPABILITY-SCOPE` 的 reopenWhen ② —— 「另立一个按 tracked 事实源
     #   做静态一致性检查的门禁」（**不是**复活 `lint:models` 的能力覆盖子检查：那条输入是

@@ -61,131 +61,20 @@ export async function setupChannelsFromConfig(): Promise<{
   initRegistry(channelRegistry);
 
   // 第一步：筛选已启用的通道
-  // 此处只保留「启动策略」（type + 环境变量启用判据）；**路径与导出键统一取自
-  // `CHANNEL_CATALOG` 单一事实源**（2026-09-30 · 台账 D-134，原为逐字重复的第二份路径表）。
-  const channelCandidates: Array<{ type: string; enabled: boolean }> = [
-    { type: 'telegram', enabled: !!configManager.env('TELEGRAM_BOT_TOKEN') },
-    { type: 'discord', enabled: !!configManager.env('DISCORD_TOKEN') },
-    {
-      type: 'qq',
-      enabled:
-        !!configManager.env('QQ_APP_ID') &&
-        !!configManager.env('QQ_APP_SECRET'),
-    },
-    {
-      type: 'dingtalk',
-      enabled:
-        !!configManager.env('DINGTALK_APP_KEY') &&
-        !!configManager.env('DINGTALK_APP_SECRET'),
-    },
-    {
-      type: 'feishu',
-      enabled:
-        !!configManager.env('FEISHU_APP_ID') &&
-        !!configManager.env('FEISHU_APP_SECRET'),
-    },
-    { type: 'wechat', enabled: !!configManager.env('WECHAT_BOT_HTTP_URL') },
-    {
-      type: 'slack',
-      enabled:
-        !!configManager.env('SLACK_BOT_TOKEN') &&
-        !!configManager.env('SLACK_SIGNING_SECRET'),
-    },
-    {
-      type: 'line',
-      enabled:
-        !!configManager.env('LINE_CHANNEL_ACCESS_TOKEN') &&
-        !!configManager.env('LINE_CHANNEL_SECRET'),
-    },
-    {
-      type: 'irc',
-      enabled:
-        !!configManager.env('IRC_SERVER') && !!configManager.env('IRC_NICK'),
-    },
-    {
-      type: 'nostr',
-      enabled:
-        !!configManager.env('NOSTR_PRIVATE_KEY') ||
-        !!configManager.env('NOSTR_RELAYS'),
-    },
-    {
-      type: 'email',
-      enabled:
-        !!configManager.env('EMAIL_HOST') && !!configManager.env('EMAIL_USER'),
-    },
-    { type: 'sms', enabled: !!configManager.env('SMS_FROM_NUMBER') },
-    { type: 'webhook', enabled: !!configManager.env('WEBHOOK_LISTEN_PORT') },
-    {
-      type: 'wecom',
-      enabled:
-        !!configManager.env('WECOM_CORP_ID') &&
-        !!configManager.env('WECOM_CORP_SECRET') &&
-        !!configManager.env('WECOM_AGENT_ID'),
-    },
-    {
-      type: 'googlechat',
-      enabled: !!configManager.env('GOOGLECHAT_SERVICE_ACCOUNT'),
-    },
-    {
-      type: 'msteams',
-      enabled:
-        !!configManager.env('MSTEAMS_BOT_ID') &&
-        !!configManager.env('MSTEAMS_BOT_PASSWORD'),
-    },
-    {
-      type: 'zalo',
-      enabled:
-        !!configManager.env('ZALO_APP_ID') &&
-        !!configManager.env('ZALO_APP_SECRET'),
-    },
-    {
-      type: 'yuanbao',
-      enabled:
-        !!configManager.env('YUANBAO_APP_ID') &&
-        !!configManager.env('YUANBAO_APP_KEY'),
-    },
-    {
-      type: 'whatsapp',
-      enabled:
-        !!configManager.env('WHATSAPP_PHONE_NUMBER_ID') &&
-        !!configManager.env('WHATSAPP_ACCESS_TOKEN'),
-    },
-    { type: 'signal', enabled: !!configManager.env('SIGNAL_ACCOUNT') },
-    {
-      type: 'matrix',
-      enabled:
-        !!configManager.env('MATRIX_HOMESERVER_URL') &&
-        !!configManager.env('MATRIX_ACCESS_TOKEN'),
-    },
-    {
-      type: 'facebook',
-      enabled: !!configManager.env('FACEBOOK_PAGE_ACCESS_TOKEN'),
-    },
-    {
-      type: 'twitter',
-      enabled:
-        !!configManager.env('TWITTER_API_KEY') &&
-        !!configManager.env('TWITTER_API_SECRET_KEY'),
-    },
-    {
-      type: 'claude',
-      enabled:
-        !!configManager.env('CHANNEL_CLAUDE_ENABLED') &&
-        !!configManager.env('CHANNEL_CLAUDE_API_KEY'),
-    },
-    {
-      type: 'mattermost',
-      enabled:
-        !!configManager.env('MATTERMOST_URL') &&
-        !!configManager.env('MATTERMOST_TOKEN'),
-    },
-    {
-      type: 'bluebubbles',
-      enabled:
-        !!configManager.env('BLUEBUBBLES_URL') &&
-        !!configManager.env('BLUEBUBBLES_PASSWORD'),
-    },
-  ];
+  // 此处只保留「启动策略」（type + 环境变量启用判据）；**路径、导出键与启用判据
+  // 统一取自 `CHANNEL_CATALOG` 单一事实源**（2026-09-30 · 台账 D-134；B-1 2026-10-18
+  // 把启用判据也下沉，本文件不再持有任何平台凭据判断）。
+  const catalogEnabled = (type: string): boolean => {
+    const entry = getChannelCatalogEntry(type);
+    if (!entry) return false;
+    return entry.isEnabled((key) => configManager.env(key));
+  };
+
+  const channelCandidates: Array<{ type: string; enabled: boolean }> =
+    CHANNEL_CATALOG.map(({ type }) => ({
+      type,
+      enabled: catalogEnabled(type),
+    }));
 
   const enabledDefs = channelCandidates.filter((c) => c.enabled);
 

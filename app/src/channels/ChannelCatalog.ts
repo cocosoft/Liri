@@ -52,6 +52,16 @@ export interface ChannelCatalogEntry {
   exportKey: string;
   /** 惰性加载器（位置无关）：仅在启动注册或首次动态注册时执行 */
   load: () => Promise<Record<string, unknown>>;
+  /**
+   * B-1（2026-10-18）：该通道启用所需的凭据 env 键（**声明用**；不参与求值）。
+   */
+  credentials: readonly string[];
+  /**
+   * B-1：启用判据（env 访问器注入，便于测试）。
+   * `setupChannels` 用它替代原先散落在中心文件的硬编码 `*_APP_ID` 判断。
+   * **必填**：新增通道漏声明即编译失败（26 个通道均已迁移）。
+   */
+  isEnabled: (env: (key: string) => string | undefined) => boolean;
 }
 
 export const CHANNEL_CATALOG: ChannelCatalogEntry[] = [
@@ -60,156 +70,221 @@ export const CHANNEL_CATALOG: ChannelCatalogEntry[] = [
     name: 'Telegram',
     exportKey: 'telegramChannel',
     load: () => import('./telegram/TelegramChannel.js'),
+    credentials: ['TELEGRAM_BOT_TOKEN'],
+    isEnabled: (env) => !!env('TELEGRAM_BOT_TOKEN'),
   },
   {
     type: 'discord',
     name: 'Discord',
     exportKey: 'discordChannel',
     load: () => import('./discord/DiscordChannel.js'),
+    credentials: ['DISCORD_TOKEN'],
+    isEnabled: (env) => !!env('DISCORD_TOKEN'),
   },
   {
     type: 'qq',
     name: 'QQ',
     exportKey: 'qqChannel',
     load: () => import('./qq/QQChannel.js'),
+    credentials: ['QQ_APP_ID', 'QQ_APP_SECRET'],
+    isEnabled: (env) => !!env('QQ_APP_ID') && !!env('QQ_APP_SECRET'),
   },
   {
     type: 'dingtalk',
     name: '钉钉',
     exportKey: 'dingtalkChannel',
     load: () => import('./dingtalk/DingTalkChannel.js'),
+    credentials: ['DINGTALK_APP_KEY', 'DINGTALK_APP_SECRET'],
+    isEnabled: (env) =>
+      !!env('DINGTALK_APP_KEY') && !!env('DINGTALK_APP_SECRET'),
   },
   {
     type: 'feishu',
     name: '飞书',
     exportKey: 'feishuChannel',
     load: () => import('./feishu/FeishuChannel.js'),
+    credentials: ['FEISHU_APP_ID', 'FEISHU_APP_SECRET'],
+    isEnabled: (env) => !!env('FEISHU_APP_ID') && !!env('FEISHU_APP_SECRET'),
   },
   {
     type: 'wechat',
     name: '微信',
     exportKey: 'wechatChannel',
     load: () => import('./wechat/WechatChannel.js'),
+    credentials: ['WECHAT_BOT_HTTP_URL'],
+    isEnabled: (env) => !!env('WECHAT_BOT_HTTP_URL'),
   },
   {
     type: 'slack',
     name: 'Slack',
     exportKey: 'slackChannelPlugin',
     load: () => import('./slack/index.js'),
+    credentials: ['SLACK_BOT_TOKEN', 'SLACK_SIGNING_SECRET'],
+    isEnabled: (env) =>
+      !!env('SLACK_BOT_TOKEN') && !!env('SLACK_SIGNING_SECRET'),
   },
   {
     type: 'line',
     name: 'Line',
     exportKey: 'lineChannelPlugin',
     load: () => import('./line/index.js'),
+    credentials: ['LINE_CHANNEL_ACCESS_TOKEN', 'LINE_CHANNEL_SECRET'],
+    isEnabled: (env) =>
+      !!env('LINE_CHANNEL_ACCESS_TOKEN') && !!env('LINE_CHANNEL_SECRET'),
   },
   {
     type: 'irc',
     name: 'IRC',
     exportKey: 'ircChannelPlugin',
     load: () => import('./irc/index.js'),
+    credentials: ['IRC_SERVER', 'IRC_NICK'],
+    isEnabled: (env) => !!env('IRC_SERVER') && !!env('IRC_NICK'),
   },
   {
     type: 'nostr',
     name: 'Nostr',
     exportKey: 'nostrChannelPlugin',
     load: () => import('./nostr/index.js'),
+    // 判据为 **OR**（私钥或中继任一即可），与其余通道的 AND 语义不同。
+    credentials: ['NOSTR_PRIVATE_KEY', 'NOSTR_RELAYS'],
+    isEnabled: (env) => !!env('NOSTR_PRIVATE_KEY') || !!env('NOSTR_RELAYS'),
   },
   {
     type: 'email',
     name: '邮件',
     exportKey: 'emailChannelPlugin',
     load: () => import('./email/EmailChannel.js'),
+    credentials: ['EMAIL_HOST', 'EMAIL_USER'],
+    isEnabled: (env) => !!env('EMAIL_HOST') && !!env('EMAIL_USER'),
   },
   {
     type: 'sms',
     name: '短信',
     exportKey: 'smsChannelPlugin',
     load: () => import('./sms/SmsChannel.js'),
+    credentials: ['SMS_FROM_NUMBER'],
+    isEnabled: (env) => !!env('SMS_FROM_NUMBER'),
   },
   {
     type: 'webhook',
     name: 'Webhook',
     exportKey: 'webhookChannelPlugin',
     load: () => import('./webhook/WebhookChannel.js'),
+    credentials: ['WEBHOOK_LISTEN_PORT'],
+    isEnabled: (env) => !!env('WEBHOOK_LISTEN_PORT'),
   },
   {
     type: 'wecom',
     name: '企业微信',
     exportKey: 'wecomChannel',
     load: () => import('./wecom/WeComChannel.js'),
+    credentials: ['WECOM_CORP_ID', 'WECOM_CORP_SECRET', 'WECOM_AGENT_ID'],
+    isEnabled: (env) =>
+      !!env('WECOM_CORP_ID') &&
+      !!env('WECOM_CORP_SECRET') &&
+      !!env('WECOM_AGENT_ID'),
   },
   {
     type: 'googlechat',
     name: 'Google Chat',
     exportKey: 'googleChatChannelPlugin',
     load: () => import('./googlechat/index.js'),
+    credentials: ['GOOGLECHAT_SERVICE_ACCOUNT'],
+    isEnabled: (env) => !!env('GOOGLECHAT_SERVICE_ACCOUNT'),
   },
   {
     type: 'msteams',
     name: 'MS Teams',
     exportKey: 'msTeamsChannelPlugin',
     load: () => import('./msteams/index.js'),
+    credentials: ['MSTEAMS_BOT_ID', 'MSTEAMS_BOT_PASSWORD'],
+    isEnabled: (env) =>
+      !!env('MSTEAMS_BOT_ID') && !!env('MSTEAMS_BOT_PASSWORD'),
   },
   {
     type: 'zalo',
     name: 'Zalo',
     exportKey: 'zaloChannelPlugin',
     load: () => import('./zalo/index.js'),
+    credentials: ['ZALO_APP_ID', 'ZALO_APP_SECRET'],
+    isEnabled: (env) => !!env('ZALO_APP_ID') && !!env('ZALO_APP_SECRET'),
   },
   {
     type: 'yuanbao',
     name: '元宝',
     exportKey: 'yuanbaoChannelPlugin',
     load: () => import('./yuanbao/index.js'),
+    credentials: ['YUANBAO_APP_ID', 'YUANBAO_APP_KEY'],
+    isEnabled: (env) => !!env('YUANBAO_APP_ID') && !!env('YUANBAO_APP_KEY'),
   },
   {
     type: 'whatsapp',
     name: 'WhatsApp',
     exportKey: 'whatsAppChannelPlugin',
     load: () => import('./whatsapp/index.js'),
+    credentials: ['WHATSAPP_PHONE_NUMBER_ID', 'WHATSAPP_ACCESS_TOKEN'],
+    isEnabled: (env) =>
+      !!env('WHATSAPP_PHONE_NUMBER_ID') && !!env('WHATSAPP_ACCESS_TOKEN'),
   },
   {
     type: 'signal',
     name: 'Signal',
     exportKey: 'signalChannelPlugin',
     load: () => import('./signal/index.js'),
+    credentials: ['SIGNAL_ACCOUNT'],
+    isEnabled: (env) => !!env('SIGNAL_ACCOUNT'),
   },
   {
     type: 'matrix',
     name: 'Matrix',
     exportKey: 'matrixChannelPlugin',
     load: () => import('./matrix/index.js'),
+    credentials: ['MATRIX_HOMESERVER_URL', 'MATRIX_ACCESS_TOKEN'],
+    isEnabled: (env) =>
+      !!env('MATRIX_HOMESERVER_URL') && !!env('MATRIX_ACCESS_TOKEN'),
   },
   {
     type: 'facebook',
     name: 'Facebook Messenger',
     exportKey: 'facebookMessengerChannelPlugin',
     load: () => import('./facebookmessenger/index.js'),
+    credentials: ['FACEBOOK_PAGE_ACCESS_TOKEN'],
+    isEnabled: (env) => !!env('FACEBOOK_PAGE_ACCESS_TOKEN'),
   },
   {
     type: 'twitter',
     name: 'Twitter/X',
     exportKey: 'twitterChannelPlugin',
     load: () => import('./twitter/index.js'),
+    credentials: ['TWITTER_API_KEY', 'TWITTER_API_SECRET_KEY'],
+    isEnabled: (env) =>
+      !!env('TWITTER_API_KEY') && !!env('TWITTER_API_SECRET_KEY'),
   },
   {
     type: 'claude',
     name: 'Claude',
     exportKey: 'claudeChannelPlugin',
     load: () => import('./claude/index.js'),
+    credentials: ['CHANNEL_CLAUDE_ENABLED', 'CHANNEL_CLAUDE_API_KEY'],
+    isEnabled: (env) =>
+      !!env('CHANNEL_CLAUDE_ENABLED') && !!env('CHANNEL_CLAUDE_API_KEY'),
   },
   {
     type: 'mattermost',
     name: 'Mattermost',
     exportKey: 'mattermostChannel',
     load: () => import('./mattermost/MattermostChannel.js'),
+    credentials: ['MATTERMOST_URL', 'MATTERMOST_TOKEN'],
+    isEnabled: (env) => !!env('MATTERMOST_URL') && !!env('MATTERMOST_TOKEN'),
   },
   {
     type: 'bluebubbles',
     name: 'iMessage',
     exportKey: 'bluebubblesChannelPlugin',
     load: () => import('./bluebubbles/BlueBubblesChannel.js'),
+    credentials: ['BLUEBUBBLES_URL', 'BLUEBUBBLES_PASSWORD'],
+    isEnabled: (env) =>
+      !!env('BLUEBUBBLES_URL') && !!env('BLUEBUBBLES_PASSWORD'),
   },
 ];
 

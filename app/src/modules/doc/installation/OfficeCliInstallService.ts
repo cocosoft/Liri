@@ -6,6 +6,7 @@
  */
 
 import { spawn } from 'child_process';
+import { GITHUB_RAW_BASE } from '@modules/constants';
 import { getLogger } from '../../../core/loggerFacade.js';
 import { handleError } from '../../../core/errorHandler.js';
 import {
@@ -47,7 +48,7 @@ function buildInstallCommand(): { cmd: string; args: string[] } {
         '-ExecutionPolicy',
         'Bypass',
         '-Command',
-        'irm https://raw.githubusercontent.com/iOfficeAI/OfficeCLI/main/install.ps1 | iex',
+        `irm ${GITHUB_RAW_BASE}/iOfficeAI/OfficeCLI/main/install.ps1 | iex`,
       ],
     };
   }
@@ -56,7 +57,7 @@ function buildInstallCommand(): { cmd: string; args: string[] } {
     cmd: 'bash',
     args: [
       '-c',
-      'curl -fsSL https://raw.githubusercontent.com/iOfficeAI/OfficeCLI/main/install.sh | bash',
+      `curl -fsSL ${GITHUB_RAW_BASE}/iOfficeAI/OfficeCLI/main/install.sh | bash`,
     ],
   };
 }

@@ -22,6 +22,7 @@ import { buildUserAgent } from '@modules/constants';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type { SearchResult } from './providers';
+import { BING_SEARCH_BASE_URL } from '../searchSites.js';
 
 const logger = getLogger('tools:webSearch');
 
@@ -179,7 +180,7 @@ export class WebSearchTool extends BaseTool {
 
       const encodedQuery = encodeURIComponent(query);
       // 使用 Bing 搜索 API
-      const apiUrl = `https://www.bing.com/search?q=${encodedQuery}&count=${maxResults}&setlang=${language}`;
+      const apiUrl = `${BING_SEARCH_BASE_URL}?q=${encodedQuery}&count=${maxResults}&setlang=${language}`;
 
       logger.debug(`Searching with query: ${query}`);
       logger.debug(`API URL: ${apiUrl}`);

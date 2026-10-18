@@ -23,6 +23,7 @@ import type { ChatSession } from '@modules/session/types/session';
 import type { Message } from '@modules/session/types/message';
 
 import { getLogger } from '@modules/monitoring';
+import { isFileWriteToolName } from '@modules/utils/toolContract/toolRoles';
 const logger = getLogger('session:hydration:SessionStateHydrator');
 
 // ============================================================================
@@ -68,13 +69,8 @@ export class SessionStateHydrator {
         metadata?.tool_name ||
         '') as string;
 
-      // 文件写/编辑工具
-      if (
-        toolName === 'file_write' ||
-        toolName === 'file_edit' ||
-        toolName === 'write_to_file' ||
-        toolName === 'replace_in_file'
-      ) {
+      // 文件写/编辑工具（A-4：角色集合单一来源，见 utils/toolContract/toolRoles.ts）
+      if (isFileWriteToolName(toolName)) {
         const filePath = this.extractFilePath(msg.content);
         if (filePath) files.add(filePath);
       }

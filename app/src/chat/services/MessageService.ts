@@ -20,6 +20,10 @@ import {
   reorderMessages,
 } from '@modules/session/types/message';
 import type { ToolUse, ToolResult } from '@modules/session/types/tool';
+import { runRegisteredOutputGuards } from '@modules/core';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('chat:messageService');
 
 /**
  * 消息路由目标
@@ -471,7 +475,28 @@ export class MessageServiceImpl implements MessageService {
   ): Message {
     // 把 error 显式注入 content，确保 LLM 看到工具失败原因
     // （避免 LLM 把"空 result"误判为成功，默默切换方案）
-    const resultJson = JSON.stringify(toolResult.result);
+    let resultJson = JSON.stringify(toolResult.result);
+    // G-8（2026-10-18）：**工具回传**输出护栏接入点（评审门禁 §2-#1①）。
+    // 本函数是工具结果「落盘 + 回灌模型」的单一收口（ReAct 串行/并发路径、
+    // ChatManager 非循环路径均经此）⇒ 打码后文本同时进入 events.jsonl 与后续
+    // 模型上下文（所见即所存，§1.6）。`OUTPUT_GUARD=false` 默认 ⇒ 空注册 ⇒
+    // `runRegisteredOutputGuards` 返回 null ⇒ 零行为变更。
+    // 残留（如实）：toolResultRegistry / 循环检测仍持原始结果（回滚基线与重复
+    // 判定需要原口径），其不回灌模型；调用方日志 detail 走既有日志脱敏管线。
+    const gatedResult = runRegisteredOutputGuards(resultJson ?? '');
+    if (
+      gatedResult &&
+      (gatedResult.blocked || gatedResult.redactedBy.length > 0)
+    ) {
+      logger.warn('createToolResultMessage:output_guard_applied', {
+        sessionId: options?.sessionId ?? toolResult.sessionId,
+        toolCallId: toolResult.toolCallId,
+        blocked: gatedResult.blocked,
+        redactedBy: gatedResult.redactedBy,
+        resultLen: (resultJson ?? '').length,
+      });
+      resultJson = gatedResult.text;
+    }
     const hasError = !!toolResult.error;
     const errorPrefix = hasError
       ? `⚠️ 工具执行失败: ${toolResult.error}\n\n请基于此错误调整后续方案，不要默默切换为其他工具。\n\n---\n\n`

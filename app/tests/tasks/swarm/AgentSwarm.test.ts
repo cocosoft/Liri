@@ -427,6 +427,127 @@ describe('AgentSwarm：M-8 worker 用量汇总', () => {
   });
 });
 
+/**
+ * E-1（2026-10-18）：verifier **明确**判不过时回灌 worker 重试一轮。
+ *
+ * 验收锚点（清单 §6 E-1）：「判不过 → 回灌 → 通过」与「超限 → 跳过」；
+ * 默认关（未传 `enableVerifyRetry`）⇒ 行为与现状逐字一致。
+ */
+describe('AgentSwarm：E-1 verifier 回灌重试一轮', () => {
+  const tasks = [{ id: 'w1', description: 'A' }];
+
+  /** 首次门禁判不过（worker 输出 draft）；回灌后输出 fixed ⇒ 判通过 */
+  function retryThenPassExecutor() {
+    const calls: string[] = [];
+    const executor: AgentSwarmOptions['executor'] = async ({ userPrompt }) => {
+      calls.push(userPrompt);
+      if (userPrompt.includes('你的子任务')) {
+        return {
+          output: userPrompt.includes('上一轮未通过门禁') ? 'fixed' : 'draft',
+          ok: true,
+        };
+      }
+      if (userPrompt.includes('worker 输出')) {
+        const pass = userPrompt.includes('fixed');
+        return {
+          output: JSON.stringify({
+            pass,
+            feedback: pass ? '通过' : '缺少结论',
+          }),
+          ok: true,
+        };
+      }
+      return { output: 'synthesized', ok: true };
+    };
+    return { executor, calls };
+  }
+
+  test('判不过 → 回灌 → 通过（重试后重新门禁）', async () => {
+    const { executor, calls } = retryThenPassExecutor();
+    const r = await swarm.run({
+      tasks,
+      goal: 'g',
+      executor,
+      isolation,
+      enableVerifyRetry: true,
+    });
+
+    expect(r.workers[0].verify).toBe('passed');
+    expect(r.workers[0].retried).toBe(true);
+    expect(r.workers[0].output).toBe('fixed');
+    expect(r.allPassed).toBe(true);
+    // worker + verifier(不过) + 回灌 worker + verifier(通过) + synthesizer = 5
+    expect(calls.length).toBe(5);
+    // 回灌提示词携带上一轮的门禁反馈（不是空泛重试）
+    expect(calls[2]).toContain('缺少结论');
+  });
+
+  test('默认关（未传 enableVerifyRetry）⇒ 判不过即失败，不回灌', async () => {
+    const { executor, calls } = retryThenPassExecutor();
+    const r = await swarm.run({ tasks, goal: 'g', executor, isolation });
+
+    expect(r.workers[0].verify).toBe('failed');
+    expect(r.workers[0].retried).toBeUndefined();
+    expect(r.allPassed).toBe(false);
+    // worker + verifier + synthesizer = 3（零行为变更）
+    expect(calls.length).toBe(3);
+  });
+
+  test('独立 token 上限为 0 ⇒ 跳过回灌（保持 failed）', async () => {
+    const { executor, calls } = retryThenPassExecutor();
+    const r = await swarm.run({
+      tasks,
+      goal: 'g',
+      executor,
+      isolation,
+      enableVerifyRetry: true,
+      verifyRetryTokenBudget: 0,
+    });
+
+    expect(r.workers[0].verify).toBe('failed');
+    expect(r.workers[0].retried).toBeUndefined();
+    expect(calls.length).toBe(3);
+  });
+
+  test('verifier 输出不可解析（fail-closed）⇒ 不回灌（无可用修正信息）', async () => {
+    const executor: AgentSwarmOptions['executor'] = async ({ userPrompt }) => {
+      if (userPrompt.includes('你的子任务'))
+        return { output: 'draft', ok: true };
+      if (userPrompt.includes('worker 输出'))
+        return { output: '我无法给出结论。', ok: true };
+      return { output: 'synthesized', ok: true };
+    };
+    const r = await swarm.run({
+      tasks,
+      goal: 'g',
+      executor,
+      isolation,
+      enableVerifyRetry: true,
+    });
+
+    expect(r.workers[0].verify).toBe('failed');
+    expect(r.workers[0].retried).toBeUndefined();
+    expect(r.workers[0].feedback).toContain('fail-closed');
+  });
+
+  test('回灌后仍判不过 ⇒ failed + retried:true（反馈为复核结论）', async () => {
+    const { executor, calls } = routedExecutor({ verifyPass: false });
+    const r = await swarm.run({
+      tasks,
+      goal: 'g',
+      executor,
+      isolation,
+      enableVerifyRetry: true,
+    });
+
+    expect(r.workers[0].verify).toBe('failed');
+    expect(r.workers[0].retried).toBe(true);
+    expect(r.workers[0].feedback).toBe('不通过');
+    // worker + verifier + 回灌 + 复核 + synthesizer = 5（只重试一轮）
+    expect(calls.length).toBe(5);
+  });
+});
+
 /** 契约守卫：executor 返回值形状（防止回退为"只回文本"） */
 describe('SwarmExecutor 契约（O4）', () => {
   test('返回值必须是 { output, ok, timedOut? }', async () => {

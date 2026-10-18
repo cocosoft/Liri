@@ -11,6 +11,7 @@ import { existsSync } from 'fs';
 import { resolvePyappHome } from '@modules/core';
 import { randomUUID } from 'crypto';
 import { configManager } from '@modules/config';
+import { OAUTH_AUTH_BASE_URL } from '@modules/constants';
 
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
@@ -133,7 +134,7 @@ export function createSession(
 
 export async function refreshOAuthToken(
   refreshToken: string,
-  baseUrl: string = 'https://auth.openliri.com'
+  baseUrl: string = OAUTH_AUTH_BASE_URL
 ): Promise<AuthSession | null> {
   try {
     const response = await fetch(`${baseUrl}/oauth/token`, {

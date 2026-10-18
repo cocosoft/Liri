@@ -44,6 +44,7 @@ import { TOOL_NAME_CONSTANTS } from '../../src/tools/toolNameConstants';
 import { TOOL_EFFECTS, resolveToolEffect } from '../../src/tools/toolEffects';
 import { TOOL_NAMES } from '../../src/constants/toolNames.generated';
 import {
+  attachToolDescriptions,
   isKnownToolCategory,
   resolveToolVisibilityReport,
 } from '../../src/tools/toolVisibilityReport';
@@ -228,5 +229,39 @@ describe('P3 报表 risk：派生自 TOOL_EFFECTS（D5）', () => {
       expect(asShared.name).toBe(r.name);
       expect(asShared.reasons).toEqual(r.reasons);
     }
+  });
+});
+
+describe('C-3b T3：工具描述附加（设置页展示半边）', () => {
+  it('按名字附加描述；未命中项保持原样；空表返回原引用', () => {
+    const base = resolveToolVisibilityReport();
+    const descriptions = new Map<string, string>([
+      ['file_read', '读取文件内容'],
+    ]);
+    const enriched = attachToolDescriptions(base, descriptions);
+
+    expect(enriched.find((e) => e.name === 'file_read')?.description).toBe(
+      '读取文件内容'
+    );
+    expect(
+      enriched.find((e) => e.name === 'bash')?.description
+    ).toBeUndefined();
+    // 空表 ⇒ 原引用（零拷贝；调用方无需担心无谓 map）
+    expect(attachToolDescriptions(base, new Map())).toBe(base);
+  });
+
+  it('不改变任何判定字段（描述只做展示 ⇒ 零行为变更）', () => {
+    const base = resolveToolVisibilityReport({ taskType: 'coding' });
+    const enriched = attachToolDescriptions(
+      base,
+      new Map<string, string>([['file_read', '读取文件内容']])
+    );
+    const withoutDescription = (r: ToolVisibilityReport) => ({
+      ...r,
+      description: undefined,
+    });
+    expect(enriched.map(withoutDescription)).toEqual(
+      base.map(withoutDescription)
+    );
   });
 });

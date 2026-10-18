@@ -62,4 +62,10 @@ export interface SharedToolVisibilityEntry {
   reasons: SharedToolVisibilityReason[];
   /** 风险级别（前端 `high` ⇒ 红色 + 二次确认） */
   risk: SharedToolRiskLevel;
+  /**
+   * 工具描述（C-3b T3 展示半边，2026-10-18）：与模型侧**同一份描述源**
+   * （`ToolRegistry.getToolSchemas()` → `resolveToolParam`），仅供设置页展示；
+   * `conditional`（未进注册表）⇒ 缺省。
+   */
+  description?: string;
 }

@@ -196,6 +196,13 @@ describe('AgentTool.tasks[] 并行分支（B-4 护栏）', () => {
     expect(seen.map((s) => s.event)).toEqual(['start', 'end']);
     expect(seen[0].data).toMatchObject({ totalTasks: 2 });
     expect(seen[1].data).toMatchObject({ completedTasks: 2, failedTasks: 0 });
+    // H-2-R11：起止共享批次标识 ⇒ 离线重放可按批次精确配对（修复无键 FIFO 跨批次错配）
+    const startAgentId = (seen[0].data as Record<string, unknown>).agentId;
+    expect(typeof startAgentId).toBe('string');
+    expect(startAgentId).not.toBe('');
+    expect((seen[1].data as Record<string, unknown>).agentId).toBe(
+      startAgentId
+    );
   });
 
   test('verify=true：改走 gated 汇总（含门禁统计），不再用 legacy 行格式', async () => {

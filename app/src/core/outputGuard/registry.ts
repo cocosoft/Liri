@@ -92,6 +92,24 @@ export function getOutputGuardRegistry(): OutputGuardRegistry {
   return globalRegistry;
 }
 
+/**
+ * G-8（2026-10-18）：新接入点的**统一短路入口**。
+ *
+ * 未注册任何护栏（`OUTPUT_GUARD=false` 默认 ⇒ 组合根空注册）⇒ 返回 `null`，
+ * 调用方据此跳过一切后续处理（零行为变更、零管线开销）；有护栏 ⇒ 跑管线并返回结果。
+ *
+ * 供「终稿」以外的新接入点（流式 chunk / 工具回传 / 文件写入）复用同一短路语义；
+ * 热路径（如逐 chunk）应在循环外自行 `list()` 快照后再调 `runOutputGuards`，
+ * 避免每 chunk 重复排序快照。
+ */
+export function runRegisteredOutputGuards(
+  text: string
+): OutputGuardRunResult | null {
+  const guards = getOutputGuardRegistry().list();
+  if (guards.length === 0) return null;
+  return runOutputGuards(guards, text);
+}
+
 /** 测试用：重置全局注册表（对齐既有 `reset*ForTest` 约定） */
 export function resetOutputGuardRegistryForTest(): void {
   globalRegistry = null;

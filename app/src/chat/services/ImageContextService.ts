@@ -7,6 +7,12 @@
  */
 import path from 'path';
 import { SessionConfirmedPaths } from './SessionConfirmedPaths';
+import {
+  collectMediaArtifactPaths,
+  mediaArtifactDetail,
+  primaryMediaArtifact,
+  resolveMediaArtifacts,
+} from '@modules/utils/toolContract/mediaArtifacts';
 
 export interface ImageContext {
   lastGeneratedImage?: { filePath: string; prompt: string };
@@ -70,46 +76,23 @@ export class ImageContextService {
 
   /**
    * 从工具执行结果中提取图片文件路径
-   * 支持 image_generate (images[].filePath)、image (outputPath)、image_analysis (无输出)
+   *
+   * A-4（2026-10-18）：产物结构由 `TOOL_MEDIA_ARTIFACTS`（`tools/mediaArtifacts.ts`）声明，
+   * 本方法只做「按声明取值」，**不再按工具名分支** —— 新增媒体工具只改声明表。
    */
   extractImagePathsFromResult(
     toolName: string,
     result: Record<string, unknown>
   ): string[] {
-    const paths: string[] = [];
-
-    if (toolName === 'image_generate') {
-      const images = result.images as
-        | Array<{ filePath?: string; localUrl?: string }>
-        | undefined;
-      if (Array.isArray(images)) {
-        for (const img of images) {
-          if (img.filePath) paths.push(img.filePath);
-          if (img.localUrl) paths.push(img.localUrl);
-        }
-      }
-    }
-
-    if (toolName === 'image') {
-      const outputPath = result.outputPath as string | undefined;
-      if (outputPath) paths.push(outputPath);
-    }
-
-    if (toolName === 'image_svg_generate') {
-      const savePath = result.savePath as string | undefined;
-      if (savePath) paths.push(savePath);
-    }
-
-    if (toolName === 'canvas') {
-      const outputPath = result.outputPath as string | undefined;
-      if (outputPath) paths.push(outputPath);
-    }
-
-    return paths;
+    const spec = resolveMediaArtifacts(toolName);
+    return spec ? collectMediaArtifactPaths(result, spec) : [];
   }
 
   /**
    * 更新会话级图像上下文
+   *
+   * A-4（2026-10-18）：槽位（generated / edited / analyzed）与补充字段同样由声明表给出；
+   * 未登记的工具只创建空上下文（与原行为一致：调用方对**每个**成功工具调用都会调用本方法）。
    */
   updateImageContext(
     sessionId: string,
@@ -123,44 +106,24 @@ export class ImageContextService {
       this.sessionImageContext.set(sessionId, ctx);
     }
 
-    if (toolName === 'image_generate') {
-      const images = result.images as Array<{ filePath?: string }> | undefined;
-      if (Array.isArray(images) && images.length > 0 && images[0].filePath) {
-        ctx.lastGeneratedImage = {
-          filePath: images[0].filePath,
-          prompt: (args.prompt as string) || '',
-        };
-      }
-    }
+    const spec = resolveMediaArtifacts(toolName);
+    if (!spec?.contextSlot) return;
 
-    if (toolName === 'image') {
-      const outputPath = result.outputPath as string | undefined;
-      if (outputPath) {
-        ctx.lastEditedImage = {
-          filePath: outputPath,
-          action: (args.action as string) || '',
-        };
-      }
-    }
+    const inputPathKey = spec.inputPathKey;
+    const inputPath = inputPathKey ? args[inputPathKey] : undefined;
+    const filePath =
+      typeof inputPath === 'string' && inputPath
+        ? inputPath
+        : primaryMediaArtifact(result, spec);
+    if (!filePath) return;
 
-    if (toolName === 'image_analysis') {
-      const inputPath = args.inputPath as string | undefined;
-      if (inputPath) {
-        ctx.lastAnalyzedImage = {
-          filePath: inputPath,
-          action: (args.action as string) || '',
-        };
-      }
-    }
-
-    if (toolName === 'canvas') {
-      const outputPath = result.outputPath as string | undefined;
-      if (outputPath) {
-        ctx.lastEditedImage = {
-          filePath: outputPath,
-          action: (args.action as string) || 'export',
-        };
-      }
+    const detail = mediaArtifactDetail(args, spec);
+    if (spec.contextSlot === 'generated') {
+      ctx.lastGeneratedImage = { filePath, prompt: detail };
+    } else if (spec.contextSlot === 'analyzed') {
+      ctx.lastAnalyzedImage = { filePath, action: detail };
+    } else {
+      ctx.lastEditedImage = { filePath, action: detail };
     }
   }
 

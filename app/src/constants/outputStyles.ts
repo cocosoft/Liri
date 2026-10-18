@@ -22,12 +22,16 @@ export type OutputStyleConfig = {
 
 /**
  * 默认输出风格名称
+ *
+ * @kind A
  */
 export const DEFAULT_OUTPUT_STYLE_NAME = 'default';
 
 /**
  * 内置输出风格配置
  * default风格为null，表示不添加额外提示词
+ *
+ * @kind D（含提示词正文；最终应迁入工作流 C 的资源体系）
  */
 export const OUTPUT_STYLE_CONFIG: Record<string, OutputStyleConfig | null> = {
   [DEFAULT_OUTPUT_STYLE_NAME]: null,

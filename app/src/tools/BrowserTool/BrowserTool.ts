@@ -17,6 +17,7 @@ import { createToolResult } from '../types/ToolResult';
 
 import { getLogger } from '@modules/monitoring';
 import { BrowserToolOutputSchema } from './schemas';
+import { GOOGLE_HOME_URL } from '../searchSites.js';
 const logger = getLogger('tools:BrowserTool:BrowserTool');
 
 /**
@@ -336,7 +337,7 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
             tabs: [
               {
                 id: 'tab_1',
-                url: 'https://www.google.com',
+                url: GOOGLE_HOME_URL,
                 title: 'Google',
                 active: true,
               },

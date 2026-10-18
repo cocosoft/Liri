@@ -3,6 +3,8 @@
  * 对标 IRC config-schema.ts 模式
  */
 
+import { SIGNAL_SERVICE_URL } from '../constants';
+
 export interface SignalConfig {
   enabled?: boolean;
   account?: string;
@@ -13,7 +15,7 @@ export interface SignalConfig {
 }
 
 const DEFAULTS: Partial<SignalConfig> = {
-  signalServiceUrl: 'https://chat.signal.org',
+  signalServiceUrl: SIGNAL_SERVICE_URL,
 };
 
 export function getDefaultSignalConfig(): SignalConfig {

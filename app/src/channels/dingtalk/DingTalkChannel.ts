@@ -21,13 +21,14 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
+import { DINGTALK_SITE_URL } from '../constants';
 const logger = getLogger('channels:dingtalk:DingTalkChannel');
 
 const DINGTALK_META: ChannelMeta = {
   id: 'dingtalk',
   displayName: '钉钉',
   vendor: '阿里巴巴 (Alibaba)',
-  vendorSite: 'https://open.dingtalk.com/',
+  vendorSite: `${DINGTALK_SITE_URL}/`,
   icon: '📌',
   markdownCapable: true,
   maxMessageLength: 4096,

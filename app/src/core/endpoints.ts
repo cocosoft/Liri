@@ -49,6 +49,13 @@ export const DEFAULT_WECHAT_BOT_ENDPOINT = 'http://localhost:7600';
 /** 本地 OAuth 服务默认地址（A4；本地开发 / 自建部署用） */
 export const DEFAULT_OAUTH_LOCAL_BASE_URL = 'http://localhost:8080';
 
+/**
+ * `new URL(req.url, …)` 的**占位基址**（U-20/B5-2-101）。
+ *
+ * 仅用于把相对请求路径解析成 `URL` 以读查询参数，**不发起任何连接**；不对应真实主机。
+ */
+export const REQUEST_URL_PARSE_BASE = 'http://internal';
+
 /** 本地 SD WebUI 默认地址（默认绑定回环；U-20/B5-2-91） */
 export const DEFAULT_SD_WEBUI_ENDPOINT = `http://${LOCAL_HTTP_HOST}:7860`;
 

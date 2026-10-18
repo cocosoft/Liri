@@ -1110,9 +1110,13 @@ export async function launch(options: LaunchOptions): Promise<void> {
   validatePathConsistency({ warn: (msg) => logger.warning(msg) });
   setupWindowsSecurity();
 
-  // 确保 .env 文件存在（所有模式通用，不限于 REPL）
-  // 从 .env.example 自动创建，避免新环境部署时因缺少 .env 而启动失败
-  ensureEnvFileExists();
+  // 确保 .env 文件存在（除 healthcheck 外所有模式通用）
+  // 从 .env.example 自动创建，避免新环境部署时因缺少 .env 而启动失败。
+  // healthcheck = 发布流水线的**干净环境只读冒烟**（便携包不得向自身目录写入）
+  // ⇒ 跳过自举，避免在包内生成 app/.env 触发「包内无写入」断言（L-12.1）。
+  if (options.mode !== LaunchMode.HEALTHCHECK) {
+    ensureEnvFileExists();
+  }
 
   // 单实例锁检查（PID 文件锁），防止多实例启动导致通道双回复
   checkSingletonInstance();

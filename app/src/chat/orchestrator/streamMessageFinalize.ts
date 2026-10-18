@@ -119,16 +119,18 @@ export async function finalizeStreamFlow(
       time: Date.now(),
       sessionId: session.id,
       data: {
-        turn:
-          turnTrace.turnNo > 0 ? turnTrace.turnNo : host.toolRoundCount + 1,
+        turn: turnTrace.turnNo > 0 ? turnTrace.turnNo : host.toolRoundCount + 1,
         finishReason: 'canceled',
       },
     });
-    logger.warn('streamMessageFlow: turn 中止未闭合 ⇒ 补写 turn/end(canceled)', {
-      sessionId: session.id,
-      turn: turnTrace.turnNo,
-      aborted: streamAbortController.signal.aborted,
-    });
+    logger.warn(
+      'streamMessageFlow: turn 中止未闭合 ⇒ 补写 turn/end(canceled)',
+      {
+        sessionId: session.id,
+        turn: turnTrace.turnNo,
+        aborted: streamAbortController.signal.aborted,
+      }
+    );
   } catch (err) {
     logger.warn('streamMessageFlow: 补写 turn/end(canceled) 失败', {
       sessionId: session.id,

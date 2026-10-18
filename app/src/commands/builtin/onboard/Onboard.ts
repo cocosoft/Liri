@@ -26,6 +26,11 @@ import { setConfigValue, getConfig } from '@modules/config';
 import { writeSoulMd, readSoulMd } from '@modules/services/soul/SoulReader';
 import { writeUserMd, readUserMd } from '@modules/services/soul/UserReader';
 import { detectUnifiedProviders } from '@modules/ai';
+// B5-2-100+：引导页厂商链接与通道实现共用同一事实源
+import {
+  WECOM_VENDOR_SITE_URL,
+  YUANBAO_VENDOR_SITE_URL,
+} from '@modules/channels';
 
 /**
  * 引导推荐供应商（仅引导预设展示，非业务选择，禁止硬编码供应商名）。
@@ -109,7 +114,7 @@ const CHANNEL_INFO: Record<
   },
   wecom: {
     name: '企业微信',
-    signupUrl: 'https://work.weixin.qq.com/',
+    signupUrl: WECOM_VENDOR_SITE_URL,
     envVars: [
       { key: 'WECOM_CORP_ID', label: '企业 ID (corpId)' },
       { key: 'WECOM_CORP_SECRET', label: '企业密钥 (corpSecret)' },
@@ -209,7 +214,7 @@ const CHANNEL_INFO: Record<
   },
   yuanbao: {
     name: '元宝',
-    signupUrl: 'https://yuanbao.tencent.com/',
+    signupUrl: YUANBAO_VENDOR_SITE_URL,
     envVars: [
       { key: 'YUANBAO_APP_ID', label: 'App ID' },
       { key: 'YUANBAO_APP_KEY', label: 'App Key' },

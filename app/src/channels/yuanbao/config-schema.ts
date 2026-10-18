@@ -3,6 +3,9 @@
  * 对标 IRC config-schema.ts 模式
  */
 
+// B5-2-100+：默认 API 基址与通道实现共用同一事实源
+import { YUANBAO_API_BASE_URL } from '../constants.js';
+
 export interface YuanbaoConfig {
   enabled?: boolean;
   appId?: string;
@@ -21,7 +24,7 @@ export function getDefaultYuanbaoConfig(): YuanbaoConfig {
     appId: '',
     appKey: '',
     botId: '',
-    apiBaseUrl: 'https://api.yuanbao.tencent.com',
+    apiBaseUrl: YUANBAO_API_BASE_URL,
     webhookSecret: '',
     timeout: 10000,
   };

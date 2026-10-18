@@ -18,6 +18,12 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+// B5-2-100+（2026-10-18）：通道厂商站点 / 默认 API 基址单一事实源
+export {
+  WECOM_VENDOR_SITE_URL,
+  YUANBAO_API_BASE_URL,
+  YUANBAO_VENDOR_SITE_URL,
+} from './constants.js';
 export { createIrcChannel, ircChannelPlugin } from './irc/index.js';
 export { createSlackChannel, slackChannelPlugin } from './slack/index.js';
 export { createLineChannel, lineChannelPlugin } from './line/index.js';

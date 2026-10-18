@@ -20,13 +20,15 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
+// B5-2-100+：厂商站点与 Onboard 引导链接共用同一事实源
+import { WECOM_VENDOR_SITE_URL } from '../constants.js';
 const logger = getLogger('channels:wecom:WeComChannel');
 
 const WECOM_META: ChannelMeta = {
   id: 'wecom',
   displayName: '企业微信',
   vendor: '腾讯 (Tencent)',
-  vendorSite: 'https://work.weixin.qq.com/',
+  vendorSite: WECOM_VENDOR_SITE_URL,
   icon: '🏢',
   markdownCapable: true,
   maxMessageLength: 2048,

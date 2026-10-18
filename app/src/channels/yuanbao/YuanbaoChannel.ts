@@ -15,6 +15,8 @@ import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+// B5-2-100+：默认 API 基址 / 厂商站点与配置默认值、Onboard 引导共用同一事实源
+import { YUANBAO_API_BASE_URL, YUANBAO_VENDOR_SITE_URL } from '../constants.js';
 const logger = getLogger('channels:yuanbao:YuanbaoChannel');
 
 /**
@@ -58,7 +60,7 @@ export class YuanbaoChannel extends EventEmitter {
       appId: config?.appId || '',
       appKey: config?.appKey || '',
       botId: config?.botId,
-      apiBaseUrl: config?.apiBaseUrl || 'https://api.yuanbao.tencent.com',
+      apiBaseUrl: config?.apiBaseUrl || YUANBAO_API_BASE_URL,
       webhookSecret: config?.webhookSecret,
       timeout: config?.timeout || 10000,
     };
@@ -114,7 +116,7 @@ const YUANBAO_META: ChannelMeta = {
   id: 'yuanbao',
   displayName: '元宝',
   vendor: '腾讯 (Tencent)',
-  vendorSite: 'https://yuanbao.tencent.com',
+  vendorSite: YUANBAO_VENDOR_SITE_URL,
   icon: '💬',
   markdownCapable: true,
   maxMessageLength: 4096,
@@ -163,7 +165,7 @@ class YuanbaoChannelPlugin extends BaseChannelPlugin {
       appId: '',
       appKey: '',
       botId: '',
-      apiBaseUrl: 'https://api.yuanbao.tencent.com',
+      apiBaseUrl: YUANBAO_API_BASE_URL,
       webhookSecret: '',
       timeout: 10000,
     };

@@ -112,7 +112,11 @@ export function extractLocalFilePaths(content: string): string[] {
 export function expandTildePath(p: string): string {
   if (!p.startsWith('~')) return p;
   const rest = p.slice(1).replace(/^[\\/]+/, '');
-  return resolve(homedir(), rest);
+  // `~\a\b` 是 Windows 风格写法：POSIX 上反斜杠会被 resolve 当作普通文件名字符
+  // ⇒ 先归一为 `/`，否则同一输入在 Windows/Linux 得到不同路径（CI 实测）。
+  const normalized =
+    process.platform === 'win32' ? rest : rest.replace(/\\/g, '/');
+  return resolve(homedir(), normalized);
 }
 
 function pushUnique(paths: string[], seen: Set<string>, p: string): void {

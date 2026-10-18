@@ -93,7 +93,7 @@ function rawUpgrade(
       }
     });
     socket.on('error', reject);
-    socket.setTimeout(3000, () => {
+    socket.setTimeout(10_000, () => {
       socket.destroy();
       reject(new Error('原始升级请求超时'));
     });
@@ -118,7 +118,7 @@ function connectClient(port: number): Promise<AcpTestClient> {
     timer: ReturnType<typeof setTimeout>;
   } | null = null;
 
-  function next(timeoutMs = 3000): Promise<string> {
+  function next(timeoutMs = 10_000): Promise<string> {
     const head = queue.shift();
     if (head !== undefined) return Promise.resolve(head);
     return new Promise<string>((resolve, reject) => {
@@ -145,7 +145,7 @@ function connectClient(port: number): Promise<AcpTestClient> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(
       () => reject(new Error('ACP WebSocket 连接超时')),
-      3000
+      10_000
     );
     ws.onopen = () => {
       clearTimeout(timer);

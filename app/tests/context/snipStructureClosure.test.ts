@@ -27,8 +27,16 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { snipMessages } from '../../src/context/compaction/SnipEngine';
-import { bracketDelta } from '../../src/utils/structureCut';
+import { bracketDelta, closeStructure } from '../../src/utils/structureCut';
 import type { ChatMessage } from '@modules/ai';
+
+/**
+ * 头部补齐闭合后缀依赖原生 `closeStructure`（P1）。
+ * CI 的 release/ci lint-test 作业**不构建 native**（cargo-build 是独立作业）
+ * ⇒ 原生不可用时应**显式跳过**该断言，而不是把"降级 P0（不补后缀）"误判为回归。
+ */
+const nativeClosureAvailable = closeStructure('{', 'ts') !== null;
+const itIfNative = nativeClosureAvailable ? it : it.skip;
 
 /** 括号净深是否 0（结构闭合的**保守**判据） */
 function balanced(s: string): boolean {
@@ -55,7 +63,7 @@ function fencesBalanced(s: string): boolean {
 }
 
 describe('② P2 Tier2 单条截断：头部结构闭环', () => {
-  it('函数体中途截断 ⇒ 头部补齐闭括号（结构闭合）', () => {
+  itIfNative('函数体中途截断 ⇒ 头部补齐闭括号（结构闭合）', () => {
     // 无闭合 `}` 的函数体，且长度 > MAX_MESSAGE_CHARS(16000) ⇒ 头部 60% = 9600 处必然在结构内
     const big = 'function f() {\n' + '  const a = 1;\n'.repeat(1_500);
     expect(big.length).toBeGreaterThan(16_000);

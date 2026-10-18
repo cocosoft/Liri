@@ -19,12 +19,12 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
-（v0.5.00 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）
+（v0.5.0 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）
 <!-- EVIDENCE-VIEWS:END -->
 
 ---
 
-#### v0.5.00 (2026-10-18)  多批次治理收口：提示词资源链 / 编排可观测 / 通道与硬编码治理 / 长程任务修复
+#### v0.5.0 (2026-10-18)  多批次治理收口：提示词资源链 / 编排可观测 / 通道与硬编码治理 / 长程任务修复
 
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-74**：调度检查间隔收敛为 types 单一事实源 —— 验证 tc0|arch0；基线 改前 DreamScheduler 与 archivalCronTask 各定义 CHECK_INTERVAL_MS=60s（基线 173 键）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-74）
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-72-73**：按域消歧 DEFAULT_MAX_ENTRIES / MAX_RECORDS —— 验证 tc0|arch0；基线 改前两对同名常量语义/取值不同（200 vs 500、50 vs 1000）；基线 175 键（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-72-73）

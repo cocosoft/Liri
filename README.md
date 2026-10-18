@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.00-blue)
+![Version](https://img.shields.io/badge/version-0.5.0-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.00**
+当前版本：**v0.5.0**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,7 +436,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.00 (2026-10-18)
+#### v0.5.0 (2026-10-18)
 多批次治理收口：提示词资源链 + 编排可观测 + 通道与硬编码治理 + 长程任务修复
 
 - ✅ **提示词治理 C-1～C-5 / T2** - 六级解析链（用户 → 项目 → 包内 → 母语回退 → 源码兜底）；en-US 参数 **359 条** + 工具级描述 **77 条**；`PromptValidator` 覆盖工具级资源；CLI `prompt list/export/diff/validate/reset`；**7 项门禁**（含 `lint:prompt-hardcoded --strict`）同时进入本地 `ci` 与 GitHub CI；compile / bundle / update.zip / Tauri 均随包携带 `prompts/`

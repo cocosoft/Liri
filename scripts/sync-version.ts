@@ -80,8 +80,13 @@ function main(): void {
   const mainPkg = JSON.parse(readFileSync(MAIN_SOURCE, 'utf-8'));
   const version: string = mainPkg.version;
 
-  if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
-    console.error(`错误: app/package.json 中的 version 格式无效: "${version}"`);
+  if (!version || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) {
+    // 严格 semver：数字段**禁止前导零**（`0.5.00` 会让 Cargo 报
+    // `invalid leading zero in patch version number`、Tauri 报
+    // `version must be a semver string`、Docker/npm 同样拒绝）。
+    console.error(
+      `错误: app/package.json 中的 version 不是合法 semver（禁止前导零）: "${version}"`
+    );
     process.exit(1);
   }
 

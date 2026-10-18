@@ -196,7 +196,10 @@ jobs:
           ZIP_NAME="liri-v${VER}-${{ matrix.platform }}-full.zip"
 
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            powershell Compress-Archive -Path pkg\* -DestinationPath "${ZIP_NAME}" -Force
+            # 必须用单引号 'pkg/*'：经 bash 传递时 `pkg\*` 的反斜杠被吞 ⇒ PowerShell 收到 `pkg*`，
+            # 只匹配到目录本身 ⇒ zip 根层多一层 `pkg/`，解包后根目录没有 liri.js（冒烟 [2/4] 失败）。
+            # 本地实证：-Path pkg* → 条目 `pkg\liri.js`；-Path 'pkg/*' → 条目 `liri.js`。
+            powershell -NoProfile -Command "Compress-Archive -Path 'pkg/*' -DestinationPath '${ZIP_NAME}' -Force"
           else
             cd pkg && zip -r "../${ZIP_NAME}" . && cd ..
           fi
@@ -225,7 +228,8 @@ jobs:
           cd ../dist
           ZIP_NAME="liri-v${VER}-update.zip"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            powershell Compress-Archive -Path update-tmp\* -DestinationPath "${ZIP_NAME}" -Force
+            # 同「Package full zip」：必须单引号 'update-tmp/*'，否则 zip 根层多一层 update-tmp/。
+            powershell -NoProfile -Command "Compress-Archive -Path 'update-tmp/*' -DestinationPath '${ZIP_NAME}' -Force"
           else
             cd update-tmp && zip -r "../${ZIP_NAME}" . && cd ..
           fi
@@ -529,8 +533,9 @@ jobs:
       - name: Copy sidecar to Tauri binaries dir
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
-          # 匹配 sidecar 输出：liri_terminal*
-          # 注意：-Include 配合 -Path 目录时必须在路径末尾加 \*，否则不生效
+          # Match the sidecar output: liri_terminal*
+          # NOTE: with -Include, -Path must end with \* when pointing at a directory,
+          # otherwise -Include silently matches nothing.
           $side = Get-ChildItem -Path "../dist/*" -Include "liri_terminal*" -File -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $side) {
             Write-Error "ERROR: sidecar binary not found in ../dist"
@@ -541,9 +546,14 @@ jobs:
           Write-Host "Copying sidecar: $($side.Name) -> src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
           Copy-Item $side.FullName "src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}" -Force
 
-          # 只复制运行时必需的外部模块（sharp + pdfjs-dist）及其完整依赖树，不复制全部 480+ 包
-          # Bun --compile 的 external 解析从 exe 同级 node_modules 查找（pyapp.ts 已 chdir 到 exe 目录），
-          # tauri resources 将 binaries/deps → $RESOURCES/node_modules，与 exe 同级
+          # NOTE: this step is `shell: powershell` (Windows PowerShell 5.1), which reads the
+          # generated .ps1 with the ANSI code page. Non-ASCII characters (e.g. Chinese) get
+          # mojibaked and can swallow the closing quote => ParserError "Missing closing '}'".
+          # Keep this script strictly ASCII-only.
+          # Copy only the external modules required at runtime (sharp + pdfjs-dist) and their
+          # full dependency trees; do not copy all 480+ packages.
+          # Bun --compile resolves externals from the node_modules next to the exe (pyapp.ts
+          # already chdirs to the exe dir); tauri resources map binaries/deps => $RESOURCES/node_modules.
           New-Item -ItemType Directory -Force -Path src-tauri/binaries/deps/node_modules
           if (Test-Path ../dist/node_modules) {
             Get-ChildItem -Path ../dist/node_modules -Force | Copy-Item -Destination src-tauri/binaries/deps/node_modules -Recurse -Force
@@ -562,14 +572,14 @@ jobs:
           Write-Host "=== binaries/deps/node_modules contents ==="
           Get-ChildItem src-tauri/binaries/deps/node_modules -Directory | Select-Object Name
 
-          # C-3b/T2：提示词是**运行时读盘**资源 —— 与 `bundle.resources` 的 `prompts`
-          # 映射同源，复制到 sidecar 同级（本地/dev 侧车按 execPath 同级查找）。
+          # C-3b/T2: prompts are a runtime on-disk resource -- same source as the `prompts`
+          # entry in `bundle.resources`; copy next to the sidecar (execPath sibling lookup).
           if (Test-Path ../dist/prompts) {
             Copy-Item -Path ../dist/prompts -Destination src-tauri/binaries/prompts -Recurse -Force
             Write-Host "=== binaries/prompts locales ==="
             Get-ChildItem src-tauri/binaries/prompts -Directory | Select-Object Name
           } else {
-            Write-Error "ERROR: ../dist/prompts not found (build:win:coding 应产出 prompts/)"
+            Write-Error "ERROR: ../dist/prompts not found (build:win:coding should produce prompts/)"
             exit 1
           }
         shell: powershell

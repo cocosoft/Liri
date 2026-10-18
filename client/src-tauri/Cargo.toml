@@ -1,6 +1,6 @@
 [package]
 name = "liri_client"
-version = "0.5.00"
+version = "0.5.0"
 description = "Liri Desktop Client"
 authors = ["Pengyun"]
 license = "MIT"

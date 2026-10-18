@@ -85,6 +85,17 @@ function main() {
 
     const results = CHECKS.map(c => getVersion(c.file, c.type));
 
+    // 严格 semver（禁止前导零）：`0.5.00` 能通过「各处一致」，却会被
+    // Cargo（invalid leading zero）/ Tauri（must be a semver string）拒绝，
+    // 属于跨工具链的硬失败 ⇒ 在门禁层先拦住。
+    const SEMVER_STRICT = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+    for (const r of results) {
+        if (r.version && !SEMVER_STRICT.test(r.version)) {
+            console.log(`\n❌ 非法 semver（禁止前导零）: ${r.file} = v${r.version}`);
+            process.exit(1);
+        }
+    }
+
     // 列出所有版本
     console.log('文件版本对照:');
     console.log('-'.repeat(60));

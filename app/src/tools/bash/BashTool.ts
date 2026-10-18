@@ -178,21 +178,20 @@ export class BashTool extends BaseTool {
   /** 是否为 Windows 平台 */
   private isWindows = process.platform === 'win32';
 
-  /** 动态描述：根据平台告知 LLM 实际的执行环境（getter 避免抽象属性构造函数赋值限制） */
+  /**
+   * 描述：**平台无关**（2026-10-19 CI 修复）。
+   *
+   * `prompts/zh-CN/tool-descriptions.json` 是跨平台冻结物，且 `resolveToolDescription()`
+   * 中**包内资源优先于源码描述** ⇒ 若此处按平台二选一，Linux 会解析到 Windows 文案
+   * （模型被告知用 cmd.exe），反之亦然；CI 的 `descriptions:check`（ubuntu 生成）
+   * 也永远对不上 Windows 生成物。
+   * 现改为**同时说明两平台**：信息不丢，资源在任一平台生成都一致。
+   */
   override get description(): string {
-    if (this.isWindows) {
-      return [
-        '通过 Windows 命令提示符（cmd.exe）执行命令。',
-        '重要：这里运行的是 cmd.exe，不是 bash。只能使用 Windows 命令。',
-        '- 路径分隔符使用 \\（例如 C:\\Users\\...），而非 /',
-        '- 临时/用户目录使用 %TEMP% 或 %USERPROFILE%，而非 /tmp',
-        '- 用 dir 代替 ls，用 type 代替 cat，用 findstr 代替 grep',
-        '- 用 del 代替 rm，用 copy 代替 cp，用 move 代替 mv',
-        '- git、npm、node、python 等可直接使用（Windows 上可用）',
-        '- 复杂脚本请加前缀 powershell -Command "..."',
-      ].join('\n');
-    }
-    return '在安全检查下执行 shell 命令';
+    return [
+      '在安全检查下执行 shell 命令。',
+      '执行环境随平台而定：Windows 为 cmd.exe（不是 bash；路径用 \\，用 dir/type/findstr/del/copy/move 代替 ls/cat/grep/rm/cp/mv，临时目录用 %TEMP%，复杂脚本可前缀 powershell -Command "…"）；Unix 为 /bin/sh。',
+    ].join('\n');
   }
 
   override tags = [ToolTag.CODE];

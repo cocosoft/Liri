@@ -29,7 +29,7 @@
     "ask_user_question.questionType": "提问类型：choice（封闭式多选，默认）/ open（开放式确认）/ confirm（是/否确认）。",
     "audio_play.audios": "Array of audio file paths or URLs to play. e.g. [\"/path/to/music.mp3\", \"https://example.com/audio.wav\"]",
     "audio_play.audios.items": "音频文件路径或 URL",
-    "bash.command": "要执行的命令。必须是 Windows cmd.exe 命令（而非 Unix/bash）。路径使用 \\，环境变量使用 %VAR%。",
+    "bash.command": "要执行的命令（按当前平台默认 shell 执行：Windows 使用 cmd.exe —— 路径用 \\、环境变量用 %VAR%；Unix 使用 /bin/sh）",
     "bash.cwd": "工作目录",
     "bash.env": "环境变量",
     "bash.timeout": "超时时间（毫秒，最大 300000）",

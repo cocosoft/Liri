@@ -220,10 +220,11 @@ export class BashTool extends BaseTool {
     // 第九轮审查 §七 建议 5：一次性的"灰度开关"告警（进程内只打一次）
     warnGraySecuritySwitchesOnce();
 
-    // 动态参数描述
-    const commandParamDesc = this.isWindows
-      ? '要执行的命令。必须是 Windows cmd.exe 命令（而非 Unix/bash）。路径使用 \\，环境变量使用 %VAR%。'
-      : '要执行的命令';
+    // 动态参数描述（2026-10-19：改为**平台无关**文本 —— 资源 `prompts/zh-CN/tool-params.json`
+    // 是跨平台冻结物，原 Windows 专用文案会让 Linux 运行时解析到错误说明，且 CI 的
+    // `params:check`（在 ubuntu 生成）与 Windows 生成物必然漂移 ⇒ 改为同时覆盖两平台的说明。
+    const commandParamDesc =
+      '要执行的命令（按当前平台默认 shell 执行：Windows 使用 cmd.exe —— 路径用 \\、环境变量用 %VAR%；Unix 使用 /bin/sh）';
     const commandParamExample = this.isWindows ? 'dir C:\\Users' : 'ls -la';
 
     this.params = [

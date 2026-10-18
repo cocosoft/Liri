@@ -29,7 +29,7 @@
     "ask_user_question.questionType": "Question type: choice (closed multiple choice, default) / open (open-ended confirmation) / confirm (yes/no confirmation).",
     "audio_play.audios": "Array of audio file paths or URLs to play. e.g. [\"/path/to/music.mp3\", \"https://example.com/audio.wav\"]",
     "audio_play.audios.items": "Audio file path or URL",
-    "bash.command": "Command to execute. Must be a Windows cmd.exe command (not Unix/bash). Use \\ for paths and %VAR% for environment variables.",
+    "bash.command": "Command to execute (run by the platform default shell: cmd.exe on Windows — use \\ for paths and %VAR% for environment variables; /bin/sh on Unix).",
     "bash.cwd": "Working directory",
     "bash.env": "Environment variables",
     "bash.timeout": "Timeout in milliseconds (max 300000)",

@@ -47,6 +47,17 @@ function stubTool(
 
 const registry = getToolRegistry();
 
+/**
+ * 本文件注册进**全局**注册表的桩工具名。
+ *
+ * 2026-10-19（CI 修复）：这些 `stubTool` 只满足清单读取（name/description/params），
+ * **没有** `getInfo()`。若留在全局注册表里，后续测试的 `PathGuard` 经
+ * `resolveToolParamNames()` 解析同名工具时会命中桩 ⇒ `tool.getInfo is not a function`
+ * ⇒ 工具执行全失败（macOS 上测试文件顺序不同，chat 用例因此在旧实现下大面积假红）。
+ * 故在 `afterAll` 逐一撤销，恢复进入本文件前的注册表状态。
+ */
+const registeredByThisFile: string[] = [];
+
 function ensureTool(
   name: string,
   description: string,
@@ -54,6 +65,7 @@ function ensureTool(
 ): void {
   if (!registry.getTool(name)) {
     registry.registerTool(stubTool(name, description, params));
+    registeredByThisFile.push(name);
   }
 }
 
@@ -64,6 +76,7 @@ function resetWhitelist(): void {
 
 afterAll(() => {
   resetWhitelist();
+  for (const name of registeredByThisFile) registry.unregisterTool(name);
 });
 
 describe('code_run 工具清单注入（T-2 ①）', () => {

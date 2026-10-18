@@ -880,7 +880,12 @@ export function getToolRegistry(): ToolRegistry {
 export function resolveToolParamNames(toolName: string): string[] | null {
   const tool = getToolRegistry().getTool(toolName);
   if (!tool) return null;
-  return tool.getInfo().params.map((p) => p.name);
+  // 防御：注册表允许"最小工具桩"（清单/展示用，未实现完整 Tool 契约）。
+  // 缺 `getInfo` 时按"未注册"处理 ⇒ 调用方回退静态名单，绝不让 PathGuard 抛错中断工具执行。
+  // （与 `ToolExecutor.ts` 的 `tool.getInfo?.()?.params` 同口径。）
+  const info = tool.getInfo?.();
+  if (!info?.params) return null;
+  return info.params.map((p) => p.name);
 }
 
 /**

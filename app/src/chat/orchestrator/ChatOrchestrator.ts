@@ -162,7 +162,8 @@ export class ChatOrchestrator {
       activeWorkCount: () => {
         let count = 0;
         for (const mutex of this.host.sessionMutexes.values()) {
-          if (mutex.getHeldDurationMs() > 0) count++;
+          // 2026-10-19：按**持有位**判活跃（原 `getHeldDurationMs() > 0` 在同毫秒 acquire 时误判为空闲）
+          if (mutex.isLocked()) count++;
         }
         return count;
       },
@@ -355,7 +356,9 @@ export class ChatOrchestrator {
     // 实测：长任务（工具循环 375 秒，如信息收集+生成 HTML）持锁期间，同会话重复请求
     // （前端重发/用户再发送）会等满 30s 后抛 "SimpleMutex: acquire timeout after 30000ms"，
     // 前端看到的是原始错误且无反馈。改为立即返回可读提示（chatStream 转 error chunk 透传）。
-    if (mutex.getHeldDurationMs() > 0) {
+    // 2026-10-19（CI 修复）：判据由"持有时长 > 0"改为"锁被持有" —— 后者与时钟分辨率无关。
+    // 原判据在 acquire 与本次判定落在同一毫秒时恒为 0 ⇒ 放行后等满 30s（macOS 实测超时）。
+    if (mutex.isLocked()) {
       const heldSec = Math.round(mutex.getHeldDurationMs() / 1000);
       throw new Error(
         `上一条回复仍在生成中（已执行约 ${heldSec} 秒，可能是长任务或工具调用）。请等待其完成，或点击"停止"后再发送新消息。`

@@ -45,7 +45,9 @@ const CHECKS: Check[] = [
       'BUG-A：SSE handleEvents 必须在 writeHead 后调用 res.flushHeaders()（防止 onopen 延迟 15s）',
   },
   {
-    file: 'app/src/runtime/api/CoreAPIImpl.ts',
+    // 2026-10-19：`autoGenerateTitle` 随 R04 尺寸治理迁到 `sessionTitling.ts`
+    // （`CoreAPIImpl` 仅保留薄转发）—— 判据不变，仅更新落点。
+    file: 'app/src/runtime/api/sessionTitling.ts',
     funcName: 'autoGenerateTitle',
     requiredPattern: '??',
     description:
@@ -66,14 +68,18 @@ const CHECKS: Check[] = [
       'LOG-1：日志刷屏修复 — 清除旧轮次 tool_calls 必须为 debug 汇总（禁止 info 逐条刷屏）',
   },
   {
-    file: 'app/src/chat/ChatManager.ts',
+    // 2026-10-19：ChatManager 的 `buildApiMessages` 路径已迁到 `pipeline/streamMessageLifecycle.ts`
+    // —— 判据（debug 汇总、禁止 info 逐条）不变，仅更新落点。
+    file: 'app/src/chat/pipeline/streamMessageLifecycle.ts',
     requiredPattern: "logger.debug('清除旧轮次 assistant tool_calls",
     forbiddenPattern: "logger.info('清除旧轮次 assistant tool_calls",
     description:
-      'LOG-2：日志刷屏修复 — ChatManager 同款（buildApiMessages 路径）',
+      'LOG-2：日志刷屏修复 — 清除旧轮次 tool_calls 必须为 debug 汇总（禁止 info 逐条刷屏）',
   },
   {
-    file: 'app/src/chat/ReActToolLoop.ts',
+    // 2026-10-19：`_reportUsage` 随流式拆分迁到 `chat/streamingLlm.ts`
+    // —— 判据（空 usage 守卫）不变，仅更新落点。
+    file: 'app/src/chat/streamingLlm.ts',
     funcName: '_reportUsage',
     requiredPattern: 'prompt_tokens ?? 0',
     description:

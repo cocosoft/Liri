@@ -61,6 +61,18 @@ export class SimpleMutex {
     }
   }
 
+  /**
+   * 是否被持有。
+   *
+   * 2026-10-19（CI 修复）：调用方原用 `getHeldDurationMs() > 0` 判"是否在飞"，
+   * 但 acquire 与判定若落在**同一毫秒**，时长恒为 0 ⇒ 已持锁被误判为空闲
+   * （macOS 上 `budgetSuspendStream` 的在飞守卫因此放行，随后等满 30s 超时）。
+   * 持有状态应直接读布尔位，与时钟分辨率无关。
+   */
+  isLocked(): boolean {
+    return this.locked;
+  }
+
   /** 获取锁持有时间（诊断用） */
   getHeldDurationMs(): number {
     return this.locked ? Date.now() - this.createdAt : 0;

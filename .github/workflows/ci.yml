@@ -51,9 +51,15 @@ jobs:
       run: bun run typecheck
 
     - name: Run linter
+      # 静态检查与平台无关；macOS runner 内存较小，eslint 全量扫描会 OOM
+      # （2026-10-18 实测：`FATAL ERROR: Ineffective mark-compacts near heap limit` ⇒ exit 134）。
+      # 只在 ubuntu 上跑一次；其余平台仍跑 typecheck + 全量测试。
+      if: matrix.os == 'ubuntu-latest'
       run: bun run lint
 
     - name: "Run root scripts linter (待办 ⑨：scripts/** 原先不在 eslint 覆盖内)"
+      # 同上：静态检查，单平台执行即可。
+      if: matrix.os == 'ubuntu-latest'
       run: bun run lint:scripts
 
     # R05-003 双源收敛（2026-10-14）：原先此处为**内联 grep**（6 名 / 按行 / 阈值写死 2034），
@@ -186,17 +192,18 @@ jobs:
       run: bun run scripts/check-license-compliance.ts
       continue-on-error: true
 
-    - name: Check circular dependencies (baseline at most 7)
+    - name: Check circular dependencies (baseline at most 0)
+      # 2026-10-19：断环收口 24 → 0（类型/契约下沉，零运行时变化）⇒ 棘轮收紧到 0，只减不增。
       run: |
         OUTPUT=$(npx madge --circular --extensions ts,tsx src/ 2>&1) || true
         echo "$OUTPUT"
         COUNT=$(echo "$OUTPUT" | grep -oP 'Found \K\d+' || echo "0")
         echo "Found $COUNT circular dependencies"
-        if [ "$COUNT" -gt 7 ]; then
-          echo "FAIL: Circular dependency count ($COUNT) exceeds baseline (7)"
+        if [ "$COUNT" -gt 0 ]; then
+          echo "FAIL: Circular dependency count ($COUNT) exceeds baseline (0)"
           exit 1
         fi
-        echo "PASS: Within baseline limit (at most 7)"
+        echo "PASS: No circular dependencies"
 
     - name: Run architecture compliance check
       working-directory: .

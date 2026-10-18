@@ -11,6 +11,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
+import type { ClipboardOutput } from '../types/ToolOutputs';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\ClipboardTool\ClipboardTool');
@@ -25,14 +26,9 @@ export interface ClipboardInput {
 }
 
 /**
- * 剪贴板操作结果
+ * 剪贴板操作结果（类型已下沉到 `tools/types/ToolOutputs`，见该文件断环说明）
  */
-export interface ClipboardOutput {
-  action: 'read' | 'write';
-  content: string;
-  truncated: boolean;
-  length: number;
-}
+export type { ClipboardOutput } from '../types/ToolOutputs';
 
 const MAX_DEFAULT_CHARS = 1000;
 const PLATFORM = os.platform();

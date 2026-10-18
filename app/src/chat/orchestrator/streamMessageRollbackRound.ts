@@ -19,7 +19,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
+import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 
 // 复用与原编排函数**同名**的 logger ⇒ 日志 `module` 字段与拆分前逐字一致（`chat:streamFlow`）。
 const logger = getLogger('chat:streamFlow');

@@ -48,7 +48,7 @@ import {
   parseContextOverflowSignal,
   calibrateContextWindow,
 } from '@modules/context';
-import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
+import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 import type { StreamMessageOptions } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolDefinition } from '@modules/ai';

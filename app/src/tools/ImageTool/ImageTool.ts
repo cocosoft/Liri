@@ -12,6 +12,7 @@ import * as path from 'path';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
+import type { ImageEditOutput } from '../types/ToolOutputs';
 
 import {
   ImageProcessor,
@@ -78,21 +79,9 @@ export interface ImageEditInput {
 }
 
 /**
- * 图片编辑结果
+ * 图片编辑结果（类型已下沉到 `tools/types/ToolOutputs`，见该文件断环说明）
  */
-export interface ImageEditOutput {
-  action: string;
-  inputPath: string;
-  outputPath?: string;
-  originalSize?: number;
-  processedSize?: number;
-  width?: number;
-  height?: number;
-  aspectRatio?: number;
-  format?: string;
-  /** 批量操作结果 */
-  batchResults?: ImageEditOutput[];
-}
+export type { ImageEditOutput } from '../types/ToolOutputs';
 
 const processor = new ImageProcessor();
 

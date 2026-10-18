@@ -24,10 +24,8 @@ import { CHANNEL_CATALOG, getChannelCatalogEntry } from './ChannelCatalog';
 const logger = getLogger('channels:setup');
 
 // ─── Feature Flag: Inbox ↔ 渠道桥接开关 ───
-/** 渠道 ↔ Inbox 桥接总开关（默认开启，显式设为 'false' 时关闭） */
-export function isBridgeEnabled(): boolean {
-  return configManager.env('INBOX_CHANNEL_BRIDGE_ENABLED') !== 'false';
-}
+// `isBridgeEnabled` 已下沉到叶子模块 `./bridgeEnabled`（2026-10-19 断环：textApproval/messageRouter
+// 曾反向 import 本文件，与 `setupChannels → messageRouter` 构成静态环）。
 /** 渠道 ← Inbox 回复回传开关（默认开启，显式设为 'false' 时关闭） */
 export function isReplyEnabled(): boolean {
   return configManager.env('INBOX_CHANNEL_REPLY_ENABLED') !== 'false';

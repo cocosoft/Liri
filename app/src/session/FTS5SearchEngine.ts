@@ -22,6 +22,10 @@ import {
   FTSIndexStore,
   type FTSShardData,
 } from './persistence/FTSIndexStore.js';
+// 2026-10-19（断环）：`FTSDocument` 下沉为叶子模块，避免 `FTSIndexStore → FTS5SearchEngine` 反向类型依赖。
+import type { FTSDocument } from './persistence/ftsTypes.js';
+
+export type { FTSDocument } from './persistence/ftsTypes.js';
 
 const logger = getLogger('session:fts');
 
@@ -29,18 +33,6 @@ const logger = getLogger('session:fts');
 export const FTS_FANOUT_CONCURRENCY = 4;
 /** 全局扇出总超时（超时返回已收集的部分结果并告警，不无限等待） */
 export const FTS_FANOUT_TIMEOUT_MS = 3000;
-
-/**
- * 搜索文档
- */
-export interface FTSDocument {
-  id: string;
-  title: string;
-  content: string;
-  category: string;
-  timestamp: number;
-  metadata?: Record<string, unknown>;
-}
 
 /**
  * 搜索结果

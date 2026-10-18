@@ -33,7 +33,7 @@ import type {
 import type { ChatSession } from '@modules/session/types/session.js';
 
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
-import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
+import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 import { buildToolLoopContext } from './streamMessageToolLoopContext.js';
 import { maybeStartRollbackRound } from './streamMessageRollbackRound.js';
 import {

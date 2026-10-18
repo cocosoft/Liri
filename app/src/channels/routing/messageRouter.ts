@@ -58,7 +58,7 @@ import { sendBudgetReliefCard } from '../bridge/budgetReliefCard';
 // core 模块根**（`SessionSpanContext` 已随实现下沉 core；app 层原址转出）。
 import type { SessionSpanContext } from '../../core/SessionSpanTracer.js';
 import { channelSessionManager } from '../session/ChannelSessionManager';
-import { isBridgeEnabled } from '../setupChannels';
+import { isBridgeEnabled } from '../bridgeEnabled';
 // G-2（2026-10-18）：通道来源 → 默认任务面（远程通道最小权限；开关默认关 ⇒ 零变更）
 import { resolveChannelTaskTypeOverride } from '../toolPolicy';
 // 2026-08-06 接入（P0-2）：DM 策略授权引擎（pairing/allowlist/open）

@@ -5,7 +5,7 @@
 // 语义逐字不变：命中并处理待办 ⇒ 返回 `RouteResult`；未命中/不适用 ⇒ 返回 `null`（调用方继续主路由）。
 // 追踪收尾（`otel.endSpan`）留在调用方，保持原时序。
 
-import { isBridgeEnabled } from '../setupChannels';
+import { isBridgeEnabled } from '../bridgeEnabled';
 import { channelSessionManager } from '../session/ChannelSessionManager';
 import { finalizeMessage } from '../dedup/index';
 import { recordMessageRejected } from '../monitoring/ChannelMetrics.js';

@@ -39,8 +39,8 @@ import { handleError } from '@modules/error';
 import { isTerminalState, JsonRpcErrorCode } from '@modules/types/a2a';
 import type { A2AStreamResponse, A2ATask } from '@modules/types/a2a';
 
-import { extractTextParts, rpcError, toDeliverables } from './a2a-rpc';
-import type { A2APortSlice, A2ARpcDeps } from './a2a-rpc';
+import { extractTextParts, rpcError, toDeliverables } from './a2a-rpc-shared';
+import type { A2APortSlice, A2ARpcDeps } from './a2a-rpc-contract';
 
 /** 一条 SSE 流（写帧 + 终态自动关流） */
 interface SseStream {

@@ -26,7 +26,7 @@ import { emitPreparedSnapshot } from '@modules/execution';
 import { guardSuspendFromEntropy } from '../../query/guardSuspend.js';
 import { lastUserMessageText } from '../taskIntent.js';
 import { selectToolsForTurn } from './streamMessageToolSelection.js';
-import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
+import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 
 const logger = getLogger('chat:streamFlow:toolSelection');
 

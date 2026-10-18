@@ -81,7 +81,7 @@ import {
 } from '@modules/context';
 import { getSessionTracing } from '@modules/monitoring';
 import { agentTelemetry } from '@modules/agent';
-import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
+import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 // P2-1b（2026-10-10，`.trae/specs/stream-message-flow-split.md` §3-S1）：请求准备阶段外移为具名模块
 import { prepareStream } from './streamMessagePrepare.js';
 // P2-1c（2026-10-10，同上 §3-S4）：事件持久化收敛为单一 append 入口 + 单一失败留痕实现

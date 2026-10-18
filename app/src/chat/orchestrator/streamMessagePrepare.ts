@@ -43,7 +43,7 @@ import { randomIdSuffix } from '../../utils/common';
 import { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { StreamMessageOptions } from '@modules/session/types/message.js';
-import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
+import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 
 /** S1 阶段输出（阶段边界值） */
 export interface PreparedStream {

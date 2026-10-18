@@ -64,13 +64,10 @@ const DEFAULT_DEDUP_TTL_MS = 24 * 60 * 60 * 1000;
 /** 默认清理间隔：1 小时 */
 const DEFAULT_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
-/** 消息处理态（唯一事实源；PR4） */
-export const MESSAGE_PROCESSING_STATES = [
-  'RECEIVED',
-  'ADMITTED',
-  'REJECTED',
-] as const;
-export type MessageProcessingState = (typeof MESSAGE_PROCESSING_STATES)[number];
+/** 消息处理态（唯一事实源；PR4）—— 定义已下沉到叶子模块 `./types`（断环），此处原样重导出 */
+import type { MessageProcessingState } from './types';
+export { MESSAGE_PROCESSING_STATES } from './types';
+export type { MessageProcessingState } from './types';
 
 /** 处理态记录 */
 interface MessageStateRecord {

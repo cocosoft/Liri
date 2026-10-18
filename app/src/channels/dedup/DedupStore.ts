@@ -33,7 +33,7 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
-import type { MessageProcessingState } from './index';
+import type { MessageProcessingState } from './types';
 
 export const DEDUP_STATES_TABLE = 'channel_message_states';
 

@@ -28,7 +28,7 @@
  * 每个转换函数接受上一级格式的内容，返回下一级格式的纯文本。
  */
 
-import type { DeliveryInteractiveCard } from './DeliveryRouter';
+import type { DeliveryInteractiveCard } from './deliveryTypes';
 
 /** 降级链顺序（模块级常量，新增格式只需在此数组加一项） */
 export const DELIVERY_FORMAT_CHAIN = [

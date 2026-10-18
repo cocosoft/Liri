@@ -26,8 +26,6 @@
  * 对外 API 由 `session/types/message.ts`（barrel）原样重导出 ⇒ 既有 import 零改动。
  */
 
-import type { Message } from '../message';
-
 /**
  * 消息角色
  *
@@ -156,6 +154,5 @@ export type MessageCategory =
   | 'debug'
   | 'analytics';
 
-export type UserMessage = Message;
-export type AssistantMessage = Message;
-export type SystemMessage = Message;
+// 2026-10-19（断环）：`UserMessage` / `AssistantMessage` / `SystemMessage` 已随
+// `Message` 下沉到 `./core`（此处不再 import barrel `../message`）。

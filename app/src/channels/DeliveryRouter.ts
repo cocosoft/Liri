@@ -31,6 +31,7 @@ import {
   type DeliveryFormatName,
   type DeliveryFormatSupport,
 } from './deliveryFormatters';
+import type { DeliveryInteractiveCard } from './deliveryTypes';
 
 const logger = getLogger('channels:DeliveryRouter');
 
@@ -42,12 +43,8 @@ export type DeliveryMode = 'origin' | 'local' | 'targeted';
 /** 消息格式 */
 export type DeliveryFormat = 'text' | 'markdown' | 'interactive' | 'none';
 
-/** 交互卡片数据 */
-export interface DeliveryInteractiveCard {
-  title: string;
-  color?: string;
-  options?: Array<{ label: string; value: string }>;
-}
+/** 交互卡片数据（类型已下沉到叶子模块 `deliveryTypes`，见该文件断环说明） */
+export type { DeliveryInteractiveCard } from './deliveryTypes';
 
 /** 投递内容（可辨识联合） */
 export type DeliveryContent =

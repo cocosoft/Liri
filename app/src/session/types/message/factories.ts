@@ -46,11 +46,9 @@ import {
   MessageType,
 } from './enums';
 import type { MessageAttachment } from './enums';
-import type {
-  CreateMessageParams,
-  Message,
-  NormalizedMessage,
-} from '../message';
+import type { CreateMessageParams } from './options';
+// 2026-10-19（断环）：核心类型改从叶子模块 `./core` 取，不再反向 import barrel `../message`。
+import type { Message, NormalizedMessage } from './core';
 
 /**
  * 生成唯一ID

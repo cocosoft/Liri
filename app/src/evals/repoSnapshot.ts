@@ -156,11 +156,10 @@ export async function createRepoSapshot(args: {
   if (!archived.ok) {
     throw new Error(`git archive 失败（${parent}）：${archived.stderr}`);
   }
-  const extracted = await run(
-    'tar',
-    ['-xf', tarPath, '-C', args.destRoot],
-    args.destRoot
-  );
+  // ⚠️ 2026-10-19（Windows CI 实测）：不能把 tar 的**绝对路径**传给它 ——
+  // Windows 自带的 bsdtar 会把 `C:\...\x.tar` 的盘符当远端主机
+  // （`tar: Cannot connect to C: resolve failed`）。用**相对文件名 + cwd** 两平台通吃。
+  const extracted = await run('tar', ['-xf', '_tree.tar'], args.destRoot);
   rmSync(tarPath, { force: true });
   if (!extracted.ok) {
     throw new Error(`tar 解包失败：${extracted.stderr}`);
@@ -198,11 +197,8 @@ export async function overlayFromCommit(args: {
   if (!archived.ok) {
     throw new Error(`覆盖测试文件失败（${args.commit}）：${archived.stderr}`);
   }
-  const extracted = await run(
-    'tar',
-    ['-xf', tarPath, '-C', args.destRoot],
-    args.destRoot
-  );
+  // 同 `createRepoSnapshot`：Windows bsdtar 不接受带盘符的绝对 tar 路径 ⇒ 用相对文件名。
+  const extracted = await run('tar', ['-xf', '_overlay.tar'], args.destRoot);
   rmSync(tarPath, { force: true });
   if (!extracted.ok) {
     throw new Error(`覆盖解包失败：${extracted.stderr}`);

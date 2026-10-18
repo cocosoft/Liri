@@ -34,7 +34,7 @@ import type {
   MessageRole,
   MessageStatus,
 } from './enums';
-import type { Message, ToolCallEventDetail, UsageInfo } from '../message';
+import type { Message, ToolCallEventDetail, UsageInfo } from './core';
 
 /**
  * 发送消息选项

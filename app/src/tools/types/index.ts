@@ -31,5 +31,6 @@ export * from './PermissionResult';
 // 2026-10-01 子批 A：工具**输出类型**的规范化出口。UI 组件（ui 层）只需读输出字段，
 // 经本 `types` 子入口引用可同时满足：① 不产生 app -> ui 倒挂（ui -> app 合法）；
 // ② 走模块规范子入口（R03-002 对 `types` 段豁免），而不是直插工具实现文件所在子目录。
-export type { ClipboardOutput } from '../ClipboardTool/ClipboardTool';
-export type { ImageEditOutput } from '../ImageTool/ImageTool';
+// 2026-10-19（断环）：工具输出类型下沉到叶子模块 `ToolOutputs`，
+// 避免 `types/index` 反向依赖工具实现（`BaseTool → types/index → ClipboardTool → BaseTool`）。
+export type { ClipboardOutput, ImageEditOutput } from './ToolOutputs';

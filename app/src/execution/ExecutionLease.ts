@@ -5,14 +5,29 @@
  * - 在异步续跑点自检所有权（`assertCurrent()` ⇒ fencing）；
  * - 结束时 `release()`（配合 `complete()` / `fail()`）。
  */
-import type { ExecutionManager } from './ExecutionManager';
 import type { ExecutionGeneration, ExecutionId } from './types';
+
+/**
+ * 执行管理器的最小端口（2026-10-19 CI 断环）。
+ *
+ * 原实现直接 `import type { ExecutionManager }`，而 `ExecutionManager` 又 import
+ * `ExecutionLease`（值）⇒ 静态环 `ExecutionManager → ExecutionLease → ExecutionManager`。
+ * 改为**结构化依赖**后类型不变、行为不变（`ExecutionManager` 天然满足该端口）。
+ */
+export interface ExecutionLeaseOwner {
+  assertCurrent(
+    executionId: ExecutionId,
+    generation: ExecutionGeneration
+  ): void;
+  isCurrent(executionId: ExecutionId, generation: ExecutionGeneration): boolean;
+  release(lease: ExecutionLease): void;
+}
 
 export class ExecutionLease {
   constructor(
     readonly executionId: ExecutionId,
     readonly generation: ExecutionGeneration,
-    private readonly manager: ExecutionManager
+    private readonly manager: ExecutionLeaseOwner
   ) {}
 
   /**

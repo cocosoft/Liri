@@ -53,7 +53,7 @@ import {
   sanitizeFileName,
 } from '@modules/services/file/fileNaming';
 import { AtomicWriter } from './AtomicWriter.js';
-import type { FTSDocument } from '../FTS5SearchEngine.js';
+import type { FTSDocument } from './ftsTypes.js';
 
 const logger = getLogger('session:fts:store');
 

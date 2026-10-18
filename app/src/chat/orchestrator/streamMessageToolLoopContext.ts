@@ -28,7 +28,7 @@ import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolResult } from '@modules/session/types/tool.js';
 import { toUsageInfo } from '../services/ChatHelper.js';
 import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
-import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
+import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 import type { ToolLoopContext } from '../ToolLoopRunner.js';
 
 /** 装配 `ToolLoopContext` 所需的输入（本轮状态 + host 能力句柄） */

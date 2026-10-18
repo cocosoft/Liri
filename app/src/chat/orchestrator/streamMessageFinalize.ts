@@ -23,7 +23,7 @@
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
-import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
+import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 import type { PreparedStream } from './streamMessagePrepare.js';
 import { releaseStreamOwnership } from './streamMessageOwnership.js';
 import { savePlainTextCheckpoint } from './plainTextCheckpointSave.js';

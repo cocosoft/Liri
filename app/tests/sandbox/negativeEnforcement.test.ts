@@ -42,6 +42,16 @@ const cap = await LandlockDetector.detect({
   helperPath: process.env.LANDLOCK_RUN_HELPER || 'landlock-run',
 });
 
+/**
+ * 2026-10-19 CI 修复：helper 路径必须**同时**传给执行器。
+ *
+ * 原实现只把 `LANDLOCK_RUN_HELPER` 传给 `LandlockDetector.detect`，而 `runWithLandlock`
+ * 不带 `helperPath` ⇒ 回落到 PATH 上的 `landlock-run`。CI 的 helper 构建在 `$RUNNER_TEMP`
+ * （不在 PATH 上）⇒ spawn ENOENT ⇒ `exitCode: null`：
+ * 正向对照失败；三个负向用例却因 `not.toBe(0)` 而"假绿"（正是本文件要防的"恒拒假绿"）。
+ */
+const HELPER = process.env.LANDLOCK_RUN_HELPER || 'landlock-run';
+
 /** `null` = 可运行；否则为 skip 原因（如实，不静默通过） */
 const SKIP_REASON: string | null =
   process.platform !== 'linux'
@@ -87,7 +97,10 @@ describe.skipIf(SKIP_REASON !== null)(
     }
 
     it('正向对照：策略内文件可读（防"恒拒"假绿）', async () => {
-      const r = await runWithLandlock(policy(), 'cat ok.txt', { cwd: workdir });
+      const r = await runWithLandlock(policy(), 'cat ok.txt', {
+        cwd: workdir,
+        helperPath: HELPER,
+      });
       expect(r.exitCode).toBe(0);
       expect(r.stdout).toContain('INSIDE_OK');
     });
@@ -95,6 +108,7 @@ describe.skipIf(SKIP_REASON !== null)(
     it('【负向】越权读：策略外文件读取被阻止（内容不泄露）', async () => {
       const r = await runWithLandlock(policy(), `cat ${outside}/secret.txt`, {
         cwd: workdir,
+        helperPath: HELPER,
       });
       expect(r.exitCode).not.toBe(0);
       expect(r.stdout).not.toContain('OUTSIDE_SECRET');
@@ -104,6 +118,7 @@ describe.skipIf(SKIP_REASON !== null)(
       const target = join(outside, 'pwned.txt');
       const r = await runWithLandlock(policy(), `echo pwned > ${target}`, {
         cwd: workdir,
+        helperPath: HELPER,
       });
       expect(r.exitCode).not.toBe(0);
       expect(existsSync(target)).toBe(false);
@@ -114,7 +129,7 @@ describe.skipIf(SKIP_REASON !== null)(
       const r = await runWithLandlock(
         policy(),
         `/bin/sh -c 'echo pwned > ${target}'`,
-        { cwd: workdir }
+        { cwd: workdir, helperPath: HELPER }
       );
       expect(r.exitCode).not.toBe(0);
       expect(existsSync(target)).toBe(false);

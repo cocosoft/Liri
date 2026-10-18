@@ -41,7 +41,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
+import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 
 const logger = getLogger('chat:streamFlow');
 

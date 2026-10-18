@@ -85,7 +85,7 @@ import type {
   SendMessageOptions,
 } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
-import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
+import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 
 const logger = getLogger('chat:sendFlow');
 

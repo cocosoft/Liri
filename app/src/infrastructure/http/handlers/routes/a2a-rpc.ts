@@ -48,67 +48,27 @@ import {
   JsonRpcErrorCode,
 } from '@modules/types/a2a';
 import type {
-  A2AArtifact,
-  A2AMessage,
   A2AListTasksResponse,
   A2ATask,
   A2ATaskState,
 } from '@modules/types/a2a';
+// 2026-10-19（断环）：三个纯助手已下沉到叶子模块 `a2a-rpc-shared`；
+// 本文件保持**同名重导出** ⇒ `a2a-routes` 等既有导入零改动。
+import { extractTextParts, rpcError } from './a2a-rpc-shared';
 
-/**
- * A2A 端口类型（**从 `getCoreAPI()` 派生**）。
- *
- * 刻意**不** `import type { A2APort } from '@modules/runtime/api/a2aPorts'` ——
- * 那是 service 层模块的**子目录路径**，静态引用会撞 R03-002「模块出口单一」的白名单判定；
- * 用派生类型等价且零新跨模块边。
- */
-export type A2APortSlice = Awaited<
-  ReturnType<ReturnType<typeof getCoreAPI>['getA2APort']>
->;
+export { extractTextParts, rpcError, toDeliverables } from './a2a-rpc-shared';
 
-/**
- * 由 `a2a-routes.ts` 注入的依赖（**唯一**的跨文件契约）。
- *
- * 四个方法都与**委派**相关：状态（`hasDelegator`）与三个执行面（有界等待上限、共用委派核心、
- * 流式直连）。由宿主注入而非 import，既避免循环依赖，也保证 REST 与 RPC **共用同一实现**。
- */
-export interface A2ARpcDeps {
-  /** 委派后端是否已装配（未装配 ⇒ 两个写操作**如实**报错，**不伪造**成功） */
-  hasDelegator(): boolean;
-  /** 有界等待上限（ms；REST 与 RPC 同源） */
-  maxWaitMs(): number;
-  /** 委派核心（**与 REST 共用**）：创建任务 → 有界等待 → 完成或转 `working` */
-  runDelegation(
-    port: A2APortSlice,
-    message: string,
-    agentId: string | undefined,
-    waitMs: number
-  ): Promise<{ completed: boolean; task: A2ATask }>;
-  /** 直连委派（**流式**用：不做有界等待；调用方已确认 `hasDelegator()`） */
-  delegate(message: string, agentId: string | undefined): Promise<string>;
-}
+// `A2APortSlice` / `A2ARpcDeps` 已下沉到叶子模块 `a2a-rpc-contract`（断环），
+// 本文件原样重导出 ⇒ `a2a-routes` 等既有导入零改动。
+import type { A2APortSlice, A2ARpcDeps } from './a2a-rpc-contract';
+
+export type { A2APortSlice, A2ARpcDeps } from './a2a-rpc-contract';
 
 /** 本仓服务的 A2A 协议版本（`A2A-Version` 头，spec §3.6.1；**未发送按 0.3 处理** ⇒ 不支持） */
 const SUPPORTED_A2A_VERSION = '1.0';
 
 /** `A2A-Version` 头的**小写**键（HTTP 头名大小写不敏感，spec §9.2） */
 const A2A_HEADER_VERSION_LOWER = 'a2a-version';
-
-/**
- * 把委派文本包成 A2A 的 artifact + message（§2.2 / §2.4）。
- *
- * **导出**供 `a2a-routes.ts` 的 REST 委派共用（CS01）。
- */
-export function toDeliverables(text: string): {
-  artifacts: A2AArtifact[];
-  message: A2AMessage;
-} {
-  const parts = [{ text }];
-  return {
-    artifacts: [{ artifactId: 'reply', name: 'agent-reply', parts }],
-    message: { messageId: 'reply', role: 'agent', parts },
-  };
-}
 
 /** JSON-RPC 成功响应（HTTP 200 + `result`） */
 function rpcResult(
@@ -117,16 +77,6 @@ function rpcResult(
   result: unknown
 ): void {
   json(res, 200, { jsonrpc: '2.0', id: id ?? null, result });
-}
-
-/** JSON-RPC 失败响应（HTTP 200 + `error`；**不含 `data`** —— 本仓不产 ProtoJSON `Any`） */
-export function rpcError(
-  res: http.ServerResponse,
-  id: unknown,
-  code: number,
-  message: string
-): void {
-  json(res, 200, { jsonrpc: '2.0', id: id ?? null, error: { code, message } });
 }
 
 /** `POST /v1/a2a/rpc` —— 信封校验后交 {@link dispatchRpcMethod} 分派 */
@@ -471,28 +421,4 @@ function applyHistoryLength(task: A2ATask, raw: unknown): A2ATask {
   return { ...task, history: (task.history ?? []).slice(-limit) };
 }
 
-/**
- * 取 `params.message.parts[].text` 拼接（**REST/RPC 共用**，CS01）。
- *
- * 本项目当前只处理文本（`defaultInputModes = ['text/plain']`）⇒ 无有效文本返回 `null`
- * （调用方映射 `-32602`）。
- */
-export function extractTextParts(
-  params: Record<string, unknown>
-): string | null {
-  const message = params['message'];
-  if (typeof message !== 'object' || message === null) return null;
-  const parts = (message as Record<string, unknown>)['parts'];
-  if (!Array.isArray(parts)) return null;
-  const text = parts
-    .map((p) =>
-      typeof p === 'object' &&
-      p !== null &&
-      typeof (p as Record<string, unknown>)['text'] === 'string'
-        ? ((p as Record<string, unknown>)['text'] as string)
-        : ''
-    )
-    .join('')
-    .trim();
-  return text ? text : null;
-}
+// `extractTextParts` 已下沉到叶子模块 `./a2a-rpc-shared`（见文件顶部重导出）。

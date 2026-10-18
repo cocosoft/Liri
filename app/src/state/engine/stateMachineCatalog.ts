@@ -110,11 +110,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     id: 'dedupProcess',
     title: 'dedup 消息处理态（MessageProcessingState）',
     kind: 'persistent',
-    sourceFile: 'app/src/channels/dedup/index.ts',
+    sourceFile: 'app/src/channels/dedup/types.ts',
     states: ['RECEIVED', 'ADMITTED', 'REJECTED'],
     verification: 'source-read',
     hasTransitionFn: false,
-    note: '有导出数组 `MESSAGE_PROCESSING_STATES`（`:68`），但该模块同时构建 DedupStore（导入即触 DB）⇒ **不在测试中动态载入**，取值经源码阅读取证。',
+    note: '有导出数组 `MESSAGE_PROCESSING_STATES`（现定义于 `channels/dedup/types.ts`，由 `index.ts` 重导出），但该模块同时构建 DedupStore（导入即触 DB）⇒ **不在测试中动态载入**，取值经源码阅读取证。',
   },
   {
     id: 'goal',

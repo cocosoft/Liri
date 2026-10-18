@@ -1,6 +1,6 @@
 # Spec：`runStreamMessage` 分阶段拆分（StreamMessageFlow Split）
 
-> 版本 2.8 ｜ 创建 2026-10-10 ｜ 状态：✅ **切片计划已执行**（P2-1a…o；`runStreamMessage` **2532 → 2132 行**、文件 **2684 → 2315 行**、复杂度 **309 → 247**）；**不声称"拆分完成"**（见 §6 ③）
+> 版本 2.9 ｜ 创建 2026-10-10 ｜ 状态：✅ **切片计划已执行**（P2-1a…o + U-18/S1/S7；`runStreamMessage` **2532 → 1718 行**、文件 **2684 → 1898 行**、复杂度维持棘轮（未增））；**不声称"拆分完成"**（见 §6 ③）
 > **来源**：`dev_docs/20261010/升级优化方案-20261010.md` §3 **P2-1**（对应核验项 D-9 / 台账 **L-10**）
 > **关联规则**：GR15（Spec-Driven）· CS01（归一化）· CS03（不做死抽象）· R04-001（文件行数）· `architecture-compliance.md`
 > **关联基线**：`.trae/architecture/function-size-baseline.json` · 门禁 `scripts/lint-function-size-ratchet.ts`
@@ -81,6 +81,8 @@
 | **P2-1m** ✅ | 纯化 S4 **请求级延迟载荷**（`metric/timing` `stage:'request'`：`ttfb` / `ttft` / `requestId` 的「有值才写」） | ✅ **已完成（2026-10-10）**：`buildRequestTimingPayload({ttfbMs, ttftAt, requestStartAt, requestId})`（**纯函数**，外移 `streamMessageHelpers.ts`）—— 调用点由 12 行「先建对象再两处条件追加」压为 1 次调用。口径逐字保留：`ttfb` 必写；**`ttft` 仅在拿到首个内容 chunk 时刻时写**（纯 tool_call 响应无内容 chunk ⇒ **不写** —— **不拿 TTFB 冒充 TTFT**）；`requestId` 为 `undefined` ⇒ **不写**（读端如实视为「无可配对区间」）。类型取自既有契约（`LiriEventMap['metric/timing']`，**R02 不复制形状**）。`runStreamMessage` **2212 → 2203 行**、文件 **2386 → 2380 行**、**复杂度 266 → 262**；棘轮已**下调锁定**。用例 `requestTimingPayload.test.ts`（4 例：三字段齐备 ⇒ 全写且 `ttft = ttftAt - requestStartAt` · `ttftAt=null` ⇒ **不含 `ttft` 键** · `requestId=undefined` ⇒ **不含该键** · 仅 `ttfb` ⇒ 键集恰为 `{stage,ttfb}`）。 |
 | **P2-1n** ✅ | 抽 S4/S6 **后台压缩水位状态块**（阈值判定 + 文案；此前内联约 15 行） | ✅ **已完成（2026-10-10）**：新建 `streamMessageBackgroundCompaction.ts` —— `buildBackgroundCompactionNotice({messages, model, sessionId, estimateTokens?})` → `ChatStreamChunk \| null`；阈值复用 policy **真实阈值**（`getModelThresholds`，CS01 不重复定义）、`ratio = max > 0 ? tokens/max : 0`（防除零），**未达 warn ⇒ `null`**（不造无意义噪声块）；**`yield` 动作留在编排函数**（判据/载荷外移、动作留下）。**DI 缝（P0-8）**：`estimateTokens` 可注入（缺省真实估算器）。`runStreamMessage` **2212 → 2203 行**、文件 **2386 → 2380 行**（与该切片同批计入）、**复杂度 266 → 262**；棘轮已**下调锁定**。**避让**：迁出后清理仅该块使用的 `getModelThresholds` 导入。用例 `backgroundCompactionNotice.test.ts`（4 例：空消息 ⇒ `null` · 低水位 ⇒ `null` · **注入估算 > 阈值 ⇒ 出块且文案 `上下文较长（78%）…`** · **注入 0.7 线 ⇒ `null` / 恰在 0.75 线 ⇒ 出块（`>=`）**）。**⚠️ 同日修掉的自引入问题（留档）**：初版用 **600k 字符字符串**驱动"超水位"用例 ⇒ 全量套件中 tiktoken 编码器已被其它测试加载，该输入走 tiktoken 路径 **单测阻塞数分钟**（`bun test` 卡死、`test:guarded` 超时失败）；改用 **DI 缝注入确定性桩** 后用例 <1ms。**口径推广**：**不得用超大输入驱动单测**（估算器实现随"编码器是否已加载"而变）。 |
 | **P2-1o** ✅ | 抽 S1 **apiMessages 构建段**（构建期切窗 + 心跳保活 + 总超时守卫 + 发送前污染清洗；此前内联约 97 行复合语句块） | ✅ **已完成（2026-10-17，U-18）**：新建 `streamMessageApiMessagesBuild.ts` —— `buildStreamApiMessages(params)`（**内层 async generator**，`yield*` 逐帧转发 3 个 status chunk：心跳 `compacting` / 超时 `error` / 构建失败 `error`）；`buildApiMessages` / `maxContextTokens` / `maxTokens` 由调用方显式传入（切窗预算仍按本轮模型解析一次）。**判据与动作整体随迁**：`continue`/`break` 属块内循环、随循环迁走；`throw` 仍由外层 `finally` 收口。**日志 module 复用 `chat:streamFlow`** ⇒ 与拆分前逐字一致。`runStreamMessage` **2218 → 2132 行**、文件 **2398 → 2315 行**；棘轮已**下调锁定**。用例 `streamApiMessagesBuild.test.ts`（3 例：成功无中间 chunk · 污染清洗在返回前生效 · 失败**先**产 error chunk 再抛错）。 |
+| **U-18/S1** ✅ | 抽 S3 **工具轮主体**（回滚轮次 / 上下文装配 / 事件消费 / 心跳 / todo 落盘 / 终止副作用 + 跨轮预算持久化） | ✅ **已完成（2026-10-17）**：新建 `streamMessageToolLoop.ts` —— `runStreamToolLoop(...)`（**内层 async generator**，`yield*` 逐帧转发）；`runStreamMessage` **2132 → 1757 行**、文件 **2315 → 1936 行**（**文件 ≤2000 ⇒ 删除 FSZ-107 例外**）；棘轮已**下调锁定**。chunk 顺序/心跳语义由 `tests/chat` 全量用例钉住。 |
+| **U-18/S7** ✅ | 抽 S7 **终态提交片段**（`finally`：唯一释放点 + 结束 interaction span + 兜底检查点 + 结束 stream span + 中止补齐 `turn/end(canceled)`） | ✅ **已完成（2026-10-18，用户指令）**：新建 `streamMessageFinalize.ts` —— `finalizeStreamFlow(params)`；**逐字搬迁、顺序即契约**（资源释放最先、中止补齐最后；append 失败只 warn 不阻断）。`runStreamMessage` **1757 → 1718 行**、文件 **1936 → 1898 行**；棘轮已**下调锁定**。用例 `abortTurnEndBackfill.test.ts`（客户端 `.return()` ⇒ 恰好一条 `turn/end{canceled}`）继续覆盖该路径；`tests/chat` **570 pass / 0 fail**。 |
 
 > 每切片合并后**必须下调** `function-size-baseline.json`（否则棘轮会提示"已缩小请下调"，但**不阻断**）。
 
@@ -90,8 +92,8 @@
 
 - ① 棘轮门禁生效：**人为增长 ⇒ 变红**（自证用例覆盖）；
 - ② 门禁接入 `bun run ci` + `.github/workflows/doc-gate.yml`；
-- ③ **切片计划已执行**（`P2-1b…o` 见 §5 与修复证据表 `PLAN-P2-1*`）；**但不声称"拆分完成"** ——
-  `runStreamMessage` 仍有 **2132 行**（复杂度 247），且 §3 的 S2/S3/S5 大部分**动作**因
+- ③ **切片计划已执行**（`P2-1b…o` + `U-18/S1`/`U-18/S7` 见 §5 与修复证据表 `PLAN-P2-1*`）；**但不声称"拆分完成"** ——
+  `runStreamMessage` 仍有 **1718 行**，且 §3 的 S2/S3/S5 大部分**动作**因
   `continue`/`break`/`yield` 的**语法约束**必然留在编排函数内（详见各切片「如实边界」）。
   **收尾说明（2026-10-10，2026-10-17 补 P2-1o）**：可外移的**判据/载荷/装配**单元已基本抽净（S1/S3/S4/S6/S7）；
   再往下只剩 chunk `for await` + `yield` 主体与工具循环 `while` 主体 —— **在 TS 语法上不可外移**

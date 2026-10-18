@@ -79,7 +79,6 @@ import {
   createFragment,
   renderFragment,
 } from '@modules/context';
-import { getOTelTracing } from '@modules/monitoring';
 import { getSessionTracing } from '@modules/monitoring';
 import { agentTelemetry } from '@modules/agent';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
@@ -89,8 +88,8 @@ import { prepareStream } from './streamMessagePrepare.js';
 import { makeEventEmitter } from './streamMessageEvents.js';
 // P2-1d-3（2026-10-10，同上 §3-S6）：截断/降级的**纯决策**（动作留在本函数）
 import { decideTruncationStep } from './streamMessageTruncationStep.js';
-// P2-1e（2026-10-10，同上 §3-S2/S7）：所有权释放（唯一释放点，口径见其头注）
-import { releaseStreamOwnership } from './streamMessageOwnership.js';
+// P2-1e（2026-10-10，同上 §3-S2/S7）：所有权释放（唯一释放点）随终态提交片段外移
+// `./streamMessageFinalize`（U-18/S7，2026-10-18）⇒ 本文件不再直接引用。
 // P2-1h（2026-10-10，同上 §3-S4）：流式水位上报（节流决策 + 双载荷；动作留在本函数）
 import { createWatermarkReporter } from './streamMessageWatermark.js';
 // P2-1i（2026-10-10，同上 §3-S3）：本轮工具集选择（任务类型判定 + 裁剪；动作留在本函数）
@@ -100,6 +99,8 @@ import { selectAndObserveToolDefinitions } from './streamMessageToolSelectionFlo
 // （`buildToolLoopContext` 现由 `./streamMessageToolLoop` 消费）。
 // U-18/S1（2026-10-17）：工具轮主体外移为内层 async generator（`yield*` 逐帧转发）
 import { runStreamToolLoop } from './streamMessageToolLoop.js';
+// U-18/S7（2026-10-18）：终态提交片段（资源释放 → 兜底检查点 → span 结束 → 中止补齐）
+import { finalizeStreamFlow } from './streamMessageFinalize.js';
 // P2-1l（2026-10-10，同上 §3-S4）：turn/start 写入（恢复最大 turn + 仅首轮；失败留痕）
 import { startStreamTurn } from './streamMessageTurnStart.js';
 // P2-1n（2026-10-10，同上 §3-S4/S6）：后台压缩水位状态块构造（未达阈值 ⇒ null；yield 留下）
@@ -1877,60 +1878,21 @@ export async function* runStreamMessage(
     turnTrace.ended = true;
     return finalized;
   } finally {
-    // P2 修复（AB-2）+ BUG-1/2 收敛 + P2-1e：**唯一释放点**，释放恰好一次。
-    // 「只释放确实持有的」「内层不再 release」「时序为何不可外移」等口径沉淀在
-    // `releaseStreamOwnership` 头注（S2/S7 所有权）。
-    releaseStreamOwnership(mutex, session.id, mutexHeld, governorAdmitted);
-    // TR-20 续：结束 interaction span —— 与 mutex 同在**唯一释放点**，保证恰好一次
-    // （`endInteractionSpan` 自身有 `spanContext` 与 `ended` 双重守卫，重复调用无害）
-    interactionTracing.endInteractionSpan();
-    // P2（08-09）：兜底检查点
-    savePlainTextCheckpoint({
-      checkpoint: plainTextCheckpoint,
+    // U-18/S7（2026-10-18）：终态提交片段外移 `./streamMessageFinalize`（逐字搬迁）——
+    // 资源释放（唯一释放点）→ 结束 interaction span → 兜底检查点 → 结束 stream span →
+    // 中止补齐 `turn/end(canceled)`。顺序即契约，详见该模块头注。
+    await finalizeStreamFlow({
+      host,
       session,
-      trigger: 'fallback',
+      mutex,
+      mutexHeld,
+      governorAdmitted,
+      turnTrace,
+      emitEvent,
+      streamSpan,
+      streamAbortController,
+      plainTextCheckpoint,
+      interactionTracing,
     });
-
-    try {
-      getOTelTracing().endSpan(streamSpan);
-    } catch {
-      /* span 可能已结束 */
-    }
-
-    // 中止补齐（2026-10-16）：`turn/start` 已写、`turn/end` 未写 ⇒ 本轮**无终态**
-    //（客户端中止：切走会话 / 关页 / 断连，消费方 `.return()` 关闭本生成器；或异常穿透）。
-    // 补写 `canceled` 与 `EventLogRepair`（崩溃恢复期补闭合）**同口径** ⇒ 事件派生会带上
-    // `finishReason: 'canceled'`，前端 `ChatMessage` 据此显示"该回复已中断（任务被中止）"，
-    // 而不是切回会话后看到进度冻结的假空闲。
-    // ⚠ 顺序：必须放在既有清理之后 —— 上面几步是**资源释放**，不可因 append 失败而跳过；
-    // append 自身失败只 warn（与非阻断口径一致，CS03）。
-    if (turnTrace.started && !turnTrace.ended) {
-      try {
-        await emitEvent({
-          type: 'turn/end',
-          seq: 0,
-          time: Date.now(),
-          sessionId: session.id,
-          data: {
-            turn:
-              turnTrace.turnNo > 0 ? turnTrace.turnNo : host.toolRoundCount + 1,
-            finishReason: 'canceled',
-          },
-        });
-        logger.warn(
-          'streamMessageFlow: turn 中止未闭合 ⇒ 补写 turn/end(canceled)',
-          {
-            sessionId: session.id,
-            turn: turnTrace.turnNo,
-            aborted: streamAbortController.signal.aborted,
-          }
-        );
-      } catch (err) {
-        logger.warn('streamMessageFlow: 补写 turn/end(canceled) 失败', {
-          sessionId: session.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
   }
 }

@@ -50,7 +50,9 @@ jobs:
         run: bun run lint
 
       - name: Test
-        run: bun test tests/
+        # 门禁自证 / 集成类用例会 spawn `bun`/lint 脚本：实测 Linux 容器 8–28s，
+        # 超过 bun test 默认 5s ⇒ 发布流水线稳定超时假红。统一放宽到 30s（仍为有界）。
+        run: bun test tests/ --timeout 30000
         # 2026-08-30 修复：与 ci.yml 的 Test Suite 对齐（`bun test tests/`）。
         # 原 `bun test`（全量）会跑 src/ 下测试，其中 29 个预存断言失败（JsonRpcBridge
         # /MiniMaxVideoProvider/KB-IT 等，独立模块长期未修）→ Release 长期被阻塞。

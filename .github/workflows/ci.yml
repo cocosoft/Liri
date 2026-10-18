@@ -66,7 +66,9 @@ jobs:
       run: bun run scripts/check-console-baseline.ts
 
     - name: Run tests (without coverage)
-      run: bun test tests/
+      # 门禁自证 / 集成类用例会 spawn `bun`/lint 脚本：实测 Linux 容器 8–28s，
+      # 超过 bun test 默认 5s ⇒ CI 上稳定超时假红。统一放宽到 30s（仍为有界）。
+      run: bun test tests/ --timeout 30000
 
     - name: Generate coverage report (lcov)
       # 2026-08-15 回归修复：曾加 --coverage-reporter=text 用于日志摘要，

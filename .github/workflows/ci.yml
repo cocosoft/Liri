@@ -65,12 +65,33 @@ jobs:
       working-directory: .
       run: bun run scripts/check-console-baseline.ts
 
-    - name: Run tests (without coverage)
+    - name: Select tests (incremental)
+      id: select
+      shell: bash
+      env:
+        CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      run: bun run scripts/select-tests.ts --base "$CI_BASE_SHA" --out "$RUNNER_TEMP/selected-tests.txt"
+
+    - name: Run tests (incremental, full fallback)
+      shell: bash
       # 门禁自证 / 集成类用例会 spawn `bun`/lint 脚本：实测 Linux 容器 8–28s，
       # 超过 bun test 默认 5s ⇒ CI 上稳定超时假红。统一放宽到 30s（仍为有界）。
-      run: bun test tests/ --timeout 30000
+      run: |
+        SEL="$RUNNER_TEMP/selected-tests.txt"
+        if [ -f "$SEL" ] && grep -q '^__SKIP__$' "$SEL"; then
+          echo "文档-only 变更：跳过测试（其它门禁照常）"
+        elif [ -s "$SEL" ]; then
+          echo "增量测试：$(wc -l < "$SEL") 个文件"
+          bun test $(cat "$SEL") --timeout 30000
+        else
+          echo "全量测试"
+          bun test tests/ --timeout 30000
+        fi
 
     - name: Generate coverage report (lcov)
+      # 覆盖率需要**全量**样本；增量/文档-only 运行跳过（其它门禁照常）。
+      # 且 lcov 只在一台 runner 上生成即可（原三平台各跑一遍纯属浪费）。
+      if: matrix.os == 'ubuntu-latest' && steps.select.outputs.mode == 'full'
       # 2026-08-15 回归修复：曾加 --coverage-reporter=text 用于日志摘要，
       # 但在 ubuntu/macos 的 bun 1.3.14 上该组合失败（Test Suite #572）；
       # 2026-10-18 起 CI 统一 1.4.2（见 .github/actions/setup-bun），该回退保留待复核。
@@ -78,9 +99,11 @@ jobs:
       run: bun test --coverage --coverage-reporter=lcov tests/
 
     - name: Check coverage threshold (at least 18%)
+      if: matrix.os == 'ubuntu-latest' && steps.select.outputs.mode == 'full'
       run: bun run scripts/check-coverage-threshold.ts 18
 
     - name: Upload coverage report
+      if: matrix.os == 'ubuntu-latest' && steps.select.outputs.mode == 'full'
       uses: actions/upload-artifact@v4
       with:
         name: coverage-report-${{ matrix.os }}

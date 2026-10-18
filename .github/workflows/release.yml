@@ -1,12 +1,11 @@
 name: Release Cross-Platform
 
 on:
+  # 仅在**发版 tag** 运行：main/PR 的 lint+test 由 ci.yml 覆盖
+  # （原同时监听 main/PR ⇒ 每次推送重复一遍 4 分钟 lint/test，纯浪费）。
   push:
     tags:
       - 'v*'
-    branches: [main]
-  pull_request:
-    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 190615273@qq.com
 // ConfigLayersService 单测（步骤 4：env 层解析 + home patch）
 
-import { afterEach, describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
   parseEnvLayer,
   loadHomePatch,
@@ -14,11 +14,15 @@ function setEnv(key: string, value: string | undefined) {
   else process.env[key] = value;
 }
 
-afterEach(() => {
+/** 用例前清空全部 `PYAPP_*`：`parseEnvLayer()` 读真实 env，环境残留会污染断言 */
+function clearPyappEnv() {
   for (const k of Object.keys(process.env)) {
     if (k.startsWith('PYAPP_')) delete process.env[k];
   }
-});
+}
+
+beforeEach(clearPyappEnv);
+afterEach(clearPyappEnv);
 
 describe('parseEnvLayer（11.12 定案：__ 嵌套 + 敏感过滤）', () => {
   it('__ 嵌套分隔符：PYAPP_AI__DEFAULTMODEL → ai.defaultModel', () => {

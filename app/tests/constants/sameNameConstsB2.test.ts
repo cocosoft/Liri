@@ -1201,7 +1201,8 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         'OFFICE_CHAT_MAX_MESSAGES',
         '50',
       ],
-      ['src/tasks/LongRunningTaskOrchestrator.ts', 'LRO_MAX_MESSAGES', '12'],
+      // 2026-10-18：该常量随 LRO 步骤助手外移 `tasks/lro/stepHelpers.ts`（守卫同步跟址）
+      ['src/tasks/lro/stepHelpers.ts', 'LRO_MAX_MESSAGES', '12'],
       ['src/tasks/InProcessTeammateTask.ts', 'TEAMMATE_MAX_MESSAGES', '500'],
     ];
     for (const [rel, name, value] of items) {

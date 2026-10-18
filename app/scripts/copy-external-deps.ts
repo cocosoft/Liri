@@ -15,8 +15,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/** 需要复制的外部依赖列表 */
-const EXTERNAL_DEPS = ['pdfjs-dist', 'sharp'];
+/** 需要复制的外部依赖列表（须与 `build:bundle` / `build:win*` 的 `--external` 一致） */
+const EXTERNAL_DEPS = ['pdfjs-dist', 'sharp', 'yoga-layout'];
 
 /**
  * 递归复制目录或文件

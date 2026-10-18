@@ -51,11 +51,18 @@ function getPlatformCandidates(): string[] {
   const home = os.homedir();
 
   if (IS_WINDOWS) {
+    const appData = process.env.APPDATA;
+    const npmGlobalBun = appData
+      ? path.join(appData, 'npm', 'node_modules', 'bun', 'bin', 'bun.exe')
+      : '';
     return [
       path.join(home, '.bun', 'bin', 'bun.exe'),
       path.join(home, 'AppData', 'Local', 'bun', 'bun.exe'),
       'C:\\Program Files\\bun\\bun.exe',
       'C:\\bun\\bun.exe',
+      // npm 全局安装（`npm i -g bun`）：`%APPDATA%\npm\bun` 只是 shim，
+      // 真实二进制在 node_modules/bun/bin/bun.exe（实测 86MB vs 283B）
+      ...(npmGlobalBun ? [npmGlobalBun] : []),
       // CI: setup-bun action 安装位置
       path.join(home, '.bun', 'bin', 'bun'),
     ];
@@ -110,9 +117,14 @@ function findBunExe(): string | null {
   }
 
   for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
+    if (!fs.existsSync(candidate)) continue;
+    // 跳过 shim（npm 生成的 bun / bun.cmd 仅数百字节）——复制它会把「假运行时」打进包
+    try {
+      if (fs.statSync(candidate).size < 1_000_000) continue;
+    } catch {
+      continue;
     }
+    return candidate;
   }
 
   return null;

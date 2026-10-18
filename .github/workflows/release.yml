@@ -215,7 +215,7 @@ jobs:
           fi
           if [ -d "../dist/pkg/node_modules" ]; then
             mkdir -p ../dist/update-tmp/deps/node_modules
-            for dep in sharp pdfjs-dist; do
+            for dep in sharp pdfjs-dist yoga-layout; do
               if [ -d "../dist/pkg/node_modules/$dep" ]; then
                 cp -r "../dist/pkg/node_modules/$dep" ../dist/update-tmp/deps/node_modules/
               fi

@@ -81,7 +81,7 @@ jobs:
         if [ -f "$SEL" ] && grep -q '^__SKIP__$' "$SEL"; then
           echo "文档-only 变更：跳过测试（其它门禁照常）"
         elif [ -s "$SEL" ]; then
-          echo "增量测试：$(wc -l < "$SEL") 个文件"
+          echo "增量测试：$(grep -c '' "$SEL") 个文件"
           bun test $(cat "$SEL") --timeout 30000
         else
           echo "全量测试"

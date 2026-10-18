@@ -15,8 +15,11 @@ import {
 } from './toolPairIntegrity';
 import { getLogger } from '@modules/monitoring';
 // ② P2（2026-10-10）：单条截断的**结构闭环**（结构安全切点 + 原生闭合后缀；不可用 ⇒ 降级）
+// ② P2 收尾（2026-10-18）：尾部结构恢复点 + 头部未闭合围栏补齐
 import {
   findStructuralCut,
+  findStructuralResume,
+  isFenceOpen,
   closeStructure,
   inferFenceLang,
 } from '@modules/utils/structureCut';
@@ -83,7 +86,11 @@ function truncateUnicodeSafe(content: string): string {
   if (closure && !closure.balanced && closure.closureSuffix) {
     head += closure.closureSuffix;
   }
-  const tail = chars.slice(chars.length - keepTail).join('');
+  // 头部若停在未闭合代码围栏内 ⇒ 补关闭围栏（否则省略标记与尾部会被当成代码块内容）
+  if (isFenceOpen(head)) head += '\n```';
+  // ② P2 收尾：尾部求结构安全恢复点（无恢复点 ⇒ 原样切，零行为变更）
+  const tailStart = findStructuralResume(chars, chars.length - keepTail);
+  const tail = chars.slice(tailStart).join('');
   return (
     head +
     `\n\n[... 内容过长已截断（原 ${chars.length} 字符），保留头尾 ...]\n\n` +

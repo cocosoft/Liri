@@ -29,6 +29,8 @@ import { describe, expect, it } from 'bun:test';
 import {
   bracketDelta,
   findStructuralCut,
+  findStructuralResume,
+  isFenceOpen,
   inferFenceLang,
   closeStructure,
   getStructureNativeStats,
@@ -100,5 +102,63 @@ describe('P1 结构闭合（原生桥 + 降级契约）', () => {
     expect(stats.nativeLoaded || stats.nativeLoadFailed).toBe(true);
     if (r) expect(typeof r.closureSuffix).toBe('string');
     else expect(r).toBeNull();
+  });
+});
+
+describe('findStructuralResume（P2 收尾：尾部结构恢复点）', () => {
+  const chars = (s: string): string[] => Array.from(s);
+
+  it('从半行开始 ⇒ 跳到下一个行首', () => {
+    const text = 'line-one\nline-two\nline-three';
+    const from = text.indexOf('two') + 1; // 位于第二行中间
+    expect(findStructuralResume(chars(text), from)).toBe(
+      text.indexOf('line-three')
+    );
+  });
+
+  it('前缀结构已闭合 ⇒ 直接取下一个行首（不额外跳跃）', () => {
+    const text = 'const a = 1;\nconst b = 2;\nconst c = 3;';
+    const from = text.indexOf('b') + 2;
+    expect(findStructuralResume(chars(text), from)).toBe(
+      text.indexOf('const c')
+    );
+  });
+
+  it('尾部从函数体中间开始 ⇒ 跳到闭括号后的行首', () => {
+    const text =
+      'function f() {\n  const a = 1;\n  const b = 2;\n}\nconst c = 3;';
+    const from = text.indexOf('const b') + 4; // 位于函数体内
+    expect(findStructuralResume(chars(text), from)).toBe(
+      text.indexOf('const c')
+    );
+  });
+
+  it('尾部从代码围栏内开始 ⇒ 跳过围栏关闭行', () => {
+    const text = '```ts\nconst a = 1;\n```\nafter-fence';
+    const from = text.indexOf('const a') + 2;
+    expect(findStructuralResume(chars(text), from)).toBe(
+      text.indexOf('after-fence')
+    );
+  });
+
+  it('maxSkip 用尽 ⇒ 返回原 from（零行为变更）', () => {
+    const text = 'function f() {\n  const a = 1;\n}\n';
+    const from = text.indexOf('const a');
+    expect(findStructuralResume(chars(text), from, { maxSkip: 4 })).toBe(from);
+  });
+
+  it('边界：from <= 0 / from >= 长度 / maxSkip=0 ⇒ 原样返回', () => {
+    const text = 'a\nb\nc';
+    expect(findStructuralResume(chars(text), 0)).toBe(0);
+    expect(findStructuralResume(chars(text), text.length)).toBe(text.length);
+    expect(findStructuralResume(chars(text), 1, { maxSkip: 0 })).toBe(1);
+  });
+});
+
+describe('isFenceOpen（头尾截断的围栏闭合判据）', () => {
+  it('未闭合围栏 ⇒ true；成对围栏/无围栏 ⇒ false', () => {
+    expect(isFenceOpen('```ts\ncode')).toBe(true);
+    expect(isFenceOpen('```ts\ncode\n```')).toBe(false);
+    expect(isFenceOpen('plain text')).toBe(false);
   });
 });

@@ -16,17 +16,34 @@ import { join } from 'node:path';
 import {
   bracketDelta,
   findStructuralCut,
+  findStructuralResume,
   closeStructure,
   inferFenceLang,
 } from '../src/utils/structureCut';
 
 const LIMITS = [4_000, 8_000, 16_000];
 const BENCH_MAX_FILES = 400;
+/** 与 `SnipEngine.TRUNCATE_KEEP_HEAD_RATIO` 同口径（头部 60% / 尾部 40%） */
+const KEEP_HEAD_RATIO = 0.6;
 
 function balanced(s: string): boolean {
   let d = 0;
   for (const line of s.split('\n')) d = Math.max(0, d + bracketDelta(line));
   return d === 0;
+}
+
+/** 指定下标处的原始结构状态（不钳位负深度；`inFence` 取围栏奇偶） */
+function stateAt(
+  text: string,
+  index: number
+): { depth: number; inFence: boolean } {
+  let depth = 0;
+  let inFence = false;
+  for (const line of text.slice(0, index).split('\n')) {
+    if (/^\s*```/.test(line)) inFence = !inFence;
+    depth += bracketDelta(line);
+  }
+  return { depth, inFence };
 }
 
 /** 递归收集 `src` 下所有 `.ts` 路径（避开 `Bun.Glob` 的类型缺失） */
@@ -61,6 +78,15 @@ interface Acc {
   retainedOld: number;
   retainedNew: number;
   suffixChars: number;
+  /** 尾部指标（2026-10-18 新增） */
+  tailN: number;
+  tailLineOld: number;
+  tailLineNew: number;
+  tailClosedOld: number;
+  tailClosedNew: number;
+  tailRetainedOld: number;
+  tailRetainedNew: number;
+  tailSkipped: number;
 }
 
 async function main(): Promise<void> {
@@ -75,6 +101,14 @@ async function main(): Promise<void> {
       retainedOld: 0,
       retainedNew: 0,
       suffixChars: 0,
+      tailN: 0,
+      tailLineOld: 0,
+      tailLineNew: 0,
+      tailClosedOld: 0,
+      tailClosedNew: 0,
+      tailRetainedOld: 0,
+      tailRetainedNew: 0,
+      tailSkipped: 0,
     };
     for (const text of corpus) {
       if (text.length <= limit) continue;
@@ -90,6 +124,24 @@ async function main(): Promise<void> {
       acc.retainedOld += oldHead.length;
       acc.retainedNew += newHead.length;
       acc.suffixChars += suffix.length;
+
+      // ── 尾部指标：与 SnipEngine 同口径（尾 40%），old = 原样切，new = findStructuralResume ──
+      const chars = Array.from(text);
+      const keepTail = Math.floor(limit * (1 - KEEP_HEAD_RATIO));
+      const tailOldStart = chars.length - keepTail;
+      const tailNewStart = findStructuralResume(chars, tailOldStart);
+      const oldAtLine = text[tailOldStart - 1] === '\n';
+      const newAtLine = text[tailNewStart - 1] === '\n';
+      const oldState = stateAt(text, tailOldStart);
+      const newState = stateAt(text, tailNewStart);
+      acc.tailN += 1;
+      if (oldAtLine) acc.tailLineOld += 1;
+      if (newAtLine) acc.tailLineNew += 1;
+      if (oldState.depth === 0 && !oldState.inFence) acc.tailClosedOld += 1;
+      if (newState.depth === 0 && !newState.inFence) acc.tailClosedNew += 1;
+      acc.tailRetainedOld += tailOldStart === 0 ? chars.length : keepTail;
+      acc.tailRetainedNew += chars.length - tailNewStart;
+      acc.tailSkipped += tailNewStart - tailOldStart;
     }
     if (acc.n === 0) continue;
     const pct = (x: number): string => `${((x / acc.n) * 100).toFixed(1)}%`;
@@ -101,7 +153,18 @@ async function main(): Promise<void> {
       `  平均保留量   old=${(acc.retainedOld / acc.n).toFixed(0)}  new=${(acc.retainedNew / acc.n).toFixed(0)}  （new 少保留 ${((acc.retainedOld - acc.retainedNew) / acc.n) | 0} 字符）`
     );
     console.log(
-      `  平均闭合后缀 new=${(acc.suffixChars / acc.n).toFixed(2)} 字符\n`
+      `  平均闭合后缀 new=${(acc.suffixChars / acc.n).toFixed(2)} 字符`
+    );
+    const tpct = (x: number): string =>
+      `${((x / acc.tailN) * 100).toFixed(1)}%`;
+    console.log(
+      `  尾部行首对齐 old=${tpct(acc.tailLineOld)}  new=${tpct(acc.tailLineNew)}`
+    );
+    console.log(
+      `  尾部结构闭合 old=${tpct(acc.tailClosedOld)}  new=${tpct(acc.tailClosedNew)}`
+    );
+    console.log(
+      `  尾部平均保留 old=${(acc.tailRetainedOld / acc.tailN).toFixed(0)}  new=${(acc.tailRetainedNew / acc.tailN).toFixed(0)}  （平均跳过 ${(acc.tailSkipped / acc.tailN).toFixed(1)} 字符）\n`
     );
   }
 }

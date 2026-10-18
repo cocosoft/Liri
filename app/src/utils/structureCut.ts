@@ -107,6 +107,88 @@ export function findStructuralCut(
   return limit;
 }
 
+/**
+ * 文本结束时是否仍处于**未闭合**的代码围栏内（与 `findStructuralCut` 同一围栏口径）。
+ *
+ * 用途：头尾截断的头部若在围栏内被切，必须补一条关闭围栏，否则省略标记与尾部会被
+ * Markdown 当作代码块内容（`ToolResultPersister.buildSafePreview` 同口径）。
+ */
+export function isFenceOpen(text: string): boolean {
+  let inFence = false;
+  for (const line of text.split('\n')) {
+    if (STRUCTURE_CUT_FENCE_RE.test(line)) inFence = !inFence;
+  }
+  return inFence;
+}
+
+export interface StructuralResumeOptions {
+  /** 最多向前跳过多少字符（默认 512；用尽 ⇒ 原样返回 `from`，零行为变更） */
+  maxSkip?: number;
+}
+
+/**
+ * 求**尾部**的结构安全恢复点（P2 收尾，2026-10-18）。
+ *
+ * 背景：头尾截断的尾部此前直接按码点切（`chars.slice(len - keepTail)`），
+ * 可能从**半行 / 半个字符串 / 函数体中间 / 未闭合代码围栏内**开始 ⇒ 尾部首行是残片，
+ * 模型只能猜测它与被丢弃中段的关系（设计文档 §8.5 边界①）。
+ *
+ * 选择次序（**保守优先，宁可少保留也不注入假语法**）：
+ *   ① 先跳过被切半的行（取 `from` 之后第一个换行符之后的位置）；
+ *   ② 若该处结构已闭合（原始括号净深 0 且不在围栏内）⇒ 直接返回该行首；
+ *   ③ 否则逐行向后，返回首个「结构重新闭合」的行首（上限 `maxSkip`）；
+ *   ④ 找不到 ⇒ **返回原 `from`**（与修复前逐字节一致）。
+ *
+ * 与 `findStructuralCut` 的差异：此处**不钳位**负深度（负值代表"先遇到闭括号"，
+ * 必须保留以识别"尾部从已打开结构内部开始"）。
+ */
+export function findStructuralResume(
+  chars: readonly string[],
+  from: number,
+  opts: StructuralResumeOptions = {}
+): number {
+  if (!Number.isInteger(from) || from <= 0 || from >= chars.length) return from;
+  const maxSkip = Math.max(0, opts.maxSkip ?? 512);
+  if (maxSkip === 0) return from;
+
+  // ① 跳过被切半的行
+  let start = -1;
+  for (let i = from; i < chars.length && i <= from + maxSkip; i++) {
+    if (chars[i] === '\n') {
+      start = i + 1;
+      break;
+    }
+  }
+  if (start < 0 || start >= chars.length) return from;
+
+  // ② 计算 start 处的原始结构状态
+  const prefix = chars.slice(0, start).join('');
+  let depth = 0;
+  let inFence = false;
+  for (const line of prefix.split('\n')) {
+    if (STRUCTURE_CUT_FENCE_RE.test(line)) inFence = !inFence;
+    depth += bracketDelta(line);
+  }
+  if (depth === 0 && !inFence) return start;
+
+  // ③ 向后找"结构重新闭合"的行首
+  const stopAt = start + maxSkip;
+  const lines = chars.slice(start).join('').split('\n');
+  let offset = start;
+  for (let i = 0; i < lines.length; i++) {
+    const lineStart = offset;
+    if (lineStart > stopAt) break;
+    if (i > 0 && depth === 0 && !inFence) return lineStart;
+    const line = lines[i];
+    if (STRUCTURE_CUT_FENCE_RE.test(line)) inFence = !inFence;
+    depth += bracketDelta(line);
+    offset += line.length + 1;
+  }
+
+  // ④ 无安全恢复点 ⇒ 零行为变更
+  return from;
+}
+
 // ─────────────────────────────────────────────────────────────
 // P1（2026-10-10）：Rust 结构闭合（`py_close_structure`）—— 三态懒加载 + 降级
 // ─────────────────────────────────────────────────────────────

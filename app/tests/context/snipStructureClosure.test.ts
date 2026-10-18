@@ -43,6 +43,17 @@ function headOf(content: string): string {
   return i >= 0 ? content.slice(0, i) : content;
 }
 
+/** 取出截断标记之后的"尾部" */
+function tailOf(content: string): string {
+  const i = content.indexOf('保留头尾 ...]\n\n');
+  return i >= 0 ? content.slice(i + '保留头尾 ...]\n\n'.length) : '';
+}
+
+/** 围栏是否成对（偶数个围栏行） */
+function fencesBalanced(s: string): boolean {
+  return s.split('\n').filter((l) => /^\s*```/.test(l)).length % 2 === 0;
+}
+
 describe('② P2 Tier2 单条截断：头部结构闭环', () => {
   it('函数体中途截断 ⇒ 头部补齐闭括号（结构闭合）', () => {
     // 无闭合 `}` 的函数体，且长度 > MAX_MESSAGE_CHARS(16000) ⇒ 头部 60% = 9600 处必然在结构内
@@ -77,5 +88,55 @@ describe('② P2 Tier2 单条截断：头部结构闭环', () => {
     );
     expect(balanced(headOf(truncated))).toBe(true);
     expect(headOf(truncated).includes('}')).toBe(false);
+  });
+});
+
+describe('② P2 收尾：尾部结构恢复点 + 围栏补齐（2026-10-18）', () => {
+  it('尾部落在未闭合代码围栏内 ⇒ 头部补关闭围栏，尾部从围栏后的行首开始', () => {
+    // 布局：filler 5000 / 围栏 5006~10216 / post 6201（总 16411 > 16000）
+    // 头部 9600 落在围栏内；尾部起点 = len-6400 = 10011，也在围栏内。
+    const pre = '// filler\n'.repeat(500); // 5000
+    const code = 'const a = 1;\n'.repeat(400); // 5200
+    const post = 'const b = 2;\n'.repeat(477); // 6201
+    const big = `${pre}\`\`\`ts\n${code}\`\`\`\n${post}`;
+    expect(big.length).toBeGreaterThan(16_000);
+
+    const messages = [
+      { role: 'assistant', content: big },
+      { role: 'user', content: 'latest' },
+    ] as unknown as ChatMessage[];
+    const truncated = String(
+      snipMessages(messages, { enabled: true }).messages[0].content
+    );
+
+    const head = headOf(truncated);
+    const tail = tailOf(truncated);
+    // 头部停在围栏内 ⇒ 必须补一条关闭围栏（否则标记与尾部被当成代码块内容）
+    expect(head.trimEnd().endsWith('```')).toBe(true);
+    expect(fencesBalanced(head)).toBe(true);
+    // 尾部跳过围栏关闭行，从围栏后的第一行开始
+    expect(tail.startsWith('const b = 2;')).toBe(true);
+  });
+
+  it('尾部无结构恢复点（maxSkip 用尽）⇒ 与修复前的原样切逐字节一致', () => {
+    // 尾部起点在函数体内且 512 字符内无闭括号 ⇒ 回退原样切（零行为变更）
+    const big =
+      '// filler\n'.repeat(1_000) +
+      'function f() {\n' +
+      '  const a = 1;\n'.repeat(1_200);
+    expect(big.length).toBeGreaterThan(16_000);
+
+    const messages = [
+      { role: 'assistant', content: big },
+      { role: 'user', content: 'latest' },
+    ] as unknown as ChatMessage[];
+    const truncated = String(
+      snipMessages(messages, { enabled: true }).messages[0].content
+    );
+
+    const rawTail = Array.from(big)
+      .slice(big.length - 6_400)
+      .join('');
+    expect(tailOf(truncated)).toBe(rawTail);
   });
 });

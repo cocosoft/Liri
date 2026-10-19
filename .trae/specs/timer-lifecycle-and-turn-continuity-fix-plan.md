@@ -192,7 +192,7 @@
 | `app/src/memory/memdir/MemoryIntegrationService.ts` | 保留定时器句柄/幂等/`unref`/`stop()/dispose()`；新增 `initialized` 早退（initialize 幂等） |
 | `app/src/memory/memdir/index.ts` | 工厂 JSDoc 补生命周期契约（调用方必须 `dispose()`） |
 | `scripts/lint-unref.ts` | 扩展类作用域判据（句柄 / 清理入口 / unref）+ 文件级基线棘轮；新增 `--update-baseline`；修正 `.unref?.()` 与同名方法声明的误判 |
-| `.trae/architecture/timer-unref-baseline.json` | 基线：108 → **28** 处实例级存量违规 / 95 → **26** 个文件（六批 + channels/网络专项后棘轮下调） |
+| `.trae/architecture/timer-unref-baseline.json` | 基线：108 → **24** 处实例级存量违规 / 95 → **22** 个文件（九批 + 专项评审后棘轮下调） |
 | `app/tests/monitoring/timerLifecycle.test.ts` | 新增 4 条生命周期用例 |
 | `app/tests/chat/streamMessageLifecycleWriteHint.test.ts` | 新增 4 条交付提示行为用例（条件式文案 / 按轮去重 / 新轮重现 / 失败不提示） |
 
@@ -200,7 +200,7 @@
 
 - `cd app && bun run typecheck`：通过（含 `tsconfig.root-scripts.json`）
 - `cd app && bunx eslint <changed files>`：0 error
-- `cd app && bun run lint:unref`：通过（类作用域违规 28 均在基线内）
+- `cd app && bun run lint:unref`：通过（类作用域违规 24 均在基线内）
 - 基线移除反证：临时移除基线后门禁 `exit 1`，恢复后 `exit 0`（棘轮生效）
 - `bun test tests/monitoring --timeout 120000`：42 pass / 0 fail
 - `bun test tests/monitoring/timerLifecycle.test.ts`：6 pass / 0 fail（含构造函数零 I/O、outputDir 切换用例），测试进程自然退出
@@ -372,3 +372,14 @@ UI/终端组件与“活跃操作超时”类定时器。它们与进程保活/�
 结果：实例级违规 **37 → 28**（文件 33 → 26）；基线棘轮下调至 28 / 26。
 验证：`tsc` 通过、`eslint` 0 error、`tests/bridge` + `tests/mcp` + `tests/services/mcp` + `tests/acp`
 共 45 pass / 18 skip / 0 fail。
+
+### 8.14 活跃操作/UI 辅助定时器（2026-10-19）
+
+为 4 处非保活型定时器补 `unref?.()`：
+`buddy/notifications`（自动清理） · `security/permission/handler/InteractiveHandler`（请求轮询） ·
+`streaming/Stream`（指标上报） · `tools/VideoGenerateTool/VideoGenerateTool`（进度模拟）
+
+保留 `SubAgentEventPump`、`MonitorTask`、`MonitorMcpTask` 等**等待机制本体**定时器（不 unref，否则进程可能在等待结果时提前退出）。
+
+结果：实例级违规 **28 → 24**（文件 26 → 22）；基线棘轮下调至 24 / 22。
+验证：`tsc` 通过、`eslint` 0 error、`tests/security` + `tests/permission` 共 164 pass / 1 skip / 0 fail。

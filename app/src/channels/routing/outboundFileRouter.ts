@@ -86,8 +86,12 @@ export function extractLocalFilePaths(content: string): string[] {
   }
 
   // 2) 裸路径（不含空格/中文标点结尾）
-  // ⚠️ 在**剔除反引号片段**后的文本上匹配：否则 `~/a b.md` 里的 `~/a` 会被当成另一个候选
-  const bareText = content.replace(/`[^`]*`/g, ' ');
+  // ⚠️ 先**拍平围栏代码块**（```）：否则下方“剥离内联反引号”的正则会跨围栏配对，
+  //    把围栏内的整段（含路径）一起吞掉 ⇒ 零候选、静默不发（2026-10-19 真机：
+  //    模型把交付路径放在 ``` 块里，用户只看到文字、没有附件）。
+  const withoutFences = content.replace(/```+/g, ' ');
+  // ⚠️ 在**剔除内联反引号片段**后的文本上匹配：否则 `~/a b.md` 里的 `~/a` 会被当成另一个候选
+  const bareText = withoutFences.replace(/`[^`]*`/g, ' ');
   const bareRe = /[A-Za-z]:\\[^\s*"'<>|，。；！？）】`]+/g;
   for (const m of bareText.matchAll(bareRe)) {
     pushUnique(paths, seen, m[0].replace(/[.,;:!?)]+$/, ''));

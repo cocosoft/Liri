@@ -57,6 +57,34 @@ function makeFile(rel: string, mtime: Date, bytes = 16): string {
   return p;
 }
 
+describe('文件路径提取：围栏代码块（```）', () => {
+  it('围栏内的 Windows 绝对路径 ⇒ 可提取（真机：交付路径常被模型放进 ``` 块）', () => {
+    const content = [
+      '**交付文件**',
+      '```',
+      'C:\\Users\\csdnc\\.pyapp\\output\\Liri-README-发送测试.md',
+      '```',
+      '',
+      '内容说明略。',
+    ].join('\n');
+    expect(extractLocalFilePaths(content)).toContain(
+      'C:\\Users\\csdnc\\.pyapp\\output\\Liri-README-发送测试.md'
+    );
+  });
+
+  it('围栏内的 ~/ 路径 ⇒ 可展开提取', () => {
+    const content = ['```', '~/pyapp/output/x.md', '```'].join('\n');
+    expect(extractLocalFilePaths(content)).toEqual([
+      expandTildePath('~/pyapp/output/x.md'),
+    ]);
+  });
+
+  it('内联反引号路径 ⇒ 仍可提取（不回归）', () => {
+    const content = '文件在 `C:\\tmp\\a.md` 里';
+    expect(extractLocalFilePaths(content)).toContain('C:\\tmp\\a.md');
+  });
+});
+
 describe('交付面（~/.pyapp/{output,downloads,attachments}）内的旧文件 ⇒ 仍可外发', () => {
   it.each(['output/old.txt', 'downloads/old.txt', 'attachments/old.txt'])(
     '%s ⇒ sendable（保留「把已有附件/文档发给我」的能力）',

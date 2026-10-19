@@ -114,6 +114,8 @@ export class RemoteSettingsClient {
       // @ignore-catch — 定期拉取设置fire-and-forget，失败使用缓存
       this.fetchSettings().catch(() => {});
     }, this.config.pollInterval);
+    // 不阻塞进程退出（周期性远程设置拉取，可放弃）
+    this.pollTimer.unref?.();
   }
 
   private stopPolling(): void {

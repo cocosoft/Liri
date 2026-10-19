@@ -176,6 +176,8 @@ export class GrowthBookClient {
         }
       }
     }, this.config.refreshInterval);
+    // 不阻塞进程退出（周期性特性刷新，可放弃）
+    this.refreshTimer.unref?.();
   }
 
   private stopPeriodicRefresh(): void {

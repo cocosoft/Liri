@@ -766,6 +766,8 @@ export class NotificationPersistence {
       },
       2 * 60 * 1000
     ); // 每 2 分钟
+    // 不阻塞进程退出（周期性通知过期清理，可放弃）
+    this.expireTimer.unref?.();
   }
 
   private async _checkExpired(): Promise<void> {

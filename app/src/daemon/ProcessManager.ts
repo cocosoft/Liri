@@ -322,6 +322,8 @@ export class ProcessManager {
         }
       }
     }, this.config.healthCheckInterval);
+    // 不阻塞进程退出（周期性进程健康检查，可放弃）
+    state.healthCheckTimer.unref?.();
   }
 
   private stopHealthCheck(state: ProcessState): void {

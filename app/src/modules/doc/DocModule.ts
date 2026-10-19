@@ -633,6 +633,8 @@ export class DocModule {
       logger.debug('Doc 模块健康检查 tick', { status: this.status });
       // TODO: 检查 OfficeCLI MCP 连接状态
     }, 30000);
+    // 不阻塞进程退出（周期性健康检查，可放弃）
+    this.healthCheckTimer.unref?.();
   }
 
   /**

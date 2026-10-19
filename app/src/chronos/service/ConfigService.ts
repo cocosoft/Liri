@@ -352,6 +352,8 @@ export class ConfigService extends EventEmitter {
         this.emit('hotUpdateError', error);
       }
     }, intervalMs);
+    // 不阻塞进程退出（周期性配置热更新，可放弃）
+    this.hotUpdateInterval.unref?.();
 
     this.emit('hotUpdateStarted');
   }

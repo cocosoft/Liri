@@ -43,6 +43,8 @@ class FileSink implements AnalyticsSink {
     this.flushPath = flushPath || configManager.env('ANALYTICS_LOG_PATH') || '';
     if (this.flushPath) {
       this.flushInterval = setInterval(() => this.flush(), 30000);
+      // 不阻塞进程退出（周期性分析上报，可放弃）
+      this.flushInterval.unref?.();
     }
   }
 

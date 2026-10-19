@@ -433,6 +433,8 @@ export class MCPServerManager {
 
       await Promise.all(healthCheckPromises);
     }, 30000);
+    // 不阻塞进程退出（MCP 子进程/连接自身负责保活）
+    this.healthCheckInterval.unref?.();
   }
 
   /**
@@ -475,6 +477,8 @@ export class MCPServerManager {
 
       await Promise.all(reconnectPromises);
     }, 60000);
+    // 不阻塞进程退出（MCP 子进程/连接自身负责保活）
+    this.autoReconnectInterval.unref?.();
   }
 
   /**

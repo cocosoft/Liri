@@ -193,6 +193,8 @@ export class WebSocketTransport extends MCPTransport {
         });
       }
     }, this.heartbeatInterval);
+    // 不阻塞进程退出（WebSocket 连接自身负责保活）
+    this.heartbeatTimer.unref?.();
   }
 
   /**

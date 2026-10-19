@@ -286,6 +286,8 @@ export class WebSocketClient extends EventEmitter {
         this.sendPing();
       }
     }, this.config.heartbeatInterval);
+    // 不阻塞进程退出（WebSocket 连接自身负责保活）
+    this.heartbeatTimer.unref?.();
   }
 
   /**

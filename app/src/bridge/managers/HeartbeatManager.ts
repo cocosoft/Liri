@@ -238,6 +238,8 @@ export class HeartbeatManager {
     this.heartbeatTimer = setInterval(async () => {
       await this.sendHeartbeats();
     }, this.heartbeatIntervalMs);
+    // 不阻塞进程退出（连接对象自身负责保活）
+    this.heartbeatTimer.unref?.();
 
     if (this.signal) {
       this.signal.addEventListener(

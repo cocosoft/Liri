@@ -274,6 +274,8 @@ export class AcpTransportClient extends EventEmitter {
       // @ignore-catch — ACP心跳fire-and-forget，失败不阻塞定时器
       this.doSend(hbMsg).catch(() => {});
     }, interval);
+    // 不阻塞进程退出（ACP 连接自身负责保活）
+    this.heartbeatTimer.unref?.();
   }
 
   private stopHeartbeat(): void {

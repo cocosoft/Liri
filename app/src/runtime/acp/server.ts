@@ -299,6 +299,8 @@ export class AcpTransportServer extends EventEmitter {
         return;
       }
     }, interval);
+    // 不阻塞进程退出（ACP 服务端由监听连接保活）
+    timer.unref?.();
 
     this.heartbeatTimers.set(clientId, timer);
   }

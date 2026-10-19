@@ -266,6 +266,8 @@ export class SSHConnectionPool {
       },
       Math.min(this.config.idleTimeout / 2, 60000)
     );
+    // 不阻塞进程退出（连接池自身负责保活）
+    this.cleanupTimer.unref?.();
   }
 
   /**
@@ -283,6 +285,8 @@ export class SSHConnectionPool {
         }
       }
     }, this.config.keepAliveInterval);
+    // 不阻塞进程退出（SSH 连接自身负责保活）
+    this.keepAliveTimer.unref?.();
   }
 
   /**

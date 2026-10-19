@@ -14,8 +14,8 @@
 //           event:{ action:{ value,tag }, context:{ open_message_id, open_chat_id } } }`
 // - 旧版 `card.action.trigger_v1`：https://open.larkoffice.com/document/deprecated-guide/message-card/configuring-card-callbacks/card-callback-structure
 //   体 = **扁平**（**无** `type`/`event` 包裹）：`{ open_id, token, open_message_id, action:{ value,tag } }`
-//   ⚠️ 本仓飞书**出站**卡片用的是**旧版结构**（`FeishuChannel.sendInteractiveMessage`：`header/elements/action/actions`）
-//   ⇒ 两版回调体**都必须认**，不能只按新版写。
+//   ⚠️ 2026-10-19 起本仓**出站**卡片已迁到 Card JSON 2.0（`buildFeishuInteractiveCard`）；
+//   `v1-flat` 分支保留用于**兼容旧消息**的回调（历史卡片仍可能被点击）。
 // - 响应体：`{ toast:{ type, content }, card? }`（3 秒内 HTTP 200；**不得**用 3xx）。本模块只构造
 //   `toast`（**不带** `card` ⇒ 保持原卡片不变，避免把挂起卡改成未知结构）。
 //

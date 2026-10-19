@@ -561,26 +561,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     if (!this.tenantAccessToken) return { success: false, error: '未连接' };
 
     try {
-      const feishuCard: Record<string, unknown> = {
-        header: { title: { tag: 'plain_text', content: card.title } },
-        elements: [
-          {
-            tag: 'div',
-            text: { tag: 'plain_text', content: card.content },
-          },
-        ],
-      };
-      if (card.buttons) {
-        const actions = card.buttons.map(
-          (b: { text: string; value: string; style?: string }) => ({
-            tag: 'button',
-            text: { tag: 'plain_text', content: b.text },
-            value: { key: 'action', value: b.value },
-            type: b.style === 'danger' ? 'danger' : 'primary',
-          })
-        );
-        (feishuCard.elements as unknown[]).push({ tag: 'action', actions });
-      }
+      const feishuCard = buildFeishuInteractiveCard(card);
       return this.executeSendMessage(
         target,
         resolveFeishuReceiveIdType(target),
@@ -1187,6 +1168,39 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
 
 export function createFeishuChannel(): IChannelPlugin {
   return new FeishuChannelPlugin();
+}
+
+/**
+ * 构建飞书 **Card JSON 2.0**（2026-10-19）。
+ *
+ * 旧版 1.0 卡片回调**不支持长连接**（官方限制，只能走 webhook）⇒ 出站统一改为 2.0：
+ * - 正文：`body.elements` + `markdown`；
+ * - 按钮：`button` + `behaviors:[{type:'callback', value}]`（2.0 已移除 `tag:'action'` 模块）。
+ *
+ * 客户端 < 7.20 会显示升级提示（官方已知限制）。
+ */
+export function buildFeishuInteractiveCard(
+  card: InteractiveCard
+): Record<string, unknown> {
+  const elements: Array<Record<string, unknown>> = [
+    { tag: 'markdown', content: card.content },
+  ];
+  for (const button of card.buttons ?? []) {
+    elements.push({
+      tag: 'button',
+      text: { tag: 'plain_text', content: button.text },
+      type: button.style === 'danger' ? 'danger' : 'primary',
+      behaviors: [
+        { type: 'callback', value: { key: 'action', value: button.value } },
+      ],
+    });
+  }
+  return {
+    schema: '2.0',
+    config: { update_multi: true },
+    header: { title: { tag: 'plain_text', content: card.title } },
+    body: { elements },
+  };
 }
 
 /**

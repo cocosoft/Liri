@@ -244,7 +244,8 @@ export class DailyBudgetManager {
   private debtTokens = 0;
   /**
    * 债四 S5（2026-10-13）：USD 口径**已用**（与 `todayUsed` 并行的第二本账）。
-   * **不参与闸门判定**（USD 闸门未启用 ⇒ §12 Q-U3 待裁定）；仅记账 + 落盘 + 只读暴露。
+   * S3（2026-10-15）起：**配置 `limitUsd` 后 USD 即主口径**，本字段参与档位/闸门判定；
+   * 未配置时回落 Token 口径（USD 只记账，不参与拦截）。
    */
   private usedUsd = 0;
   /** 债四 S5：USD 口径透支欠账（次日由 `_rolloverIfNeeded()` 计入用量扣回；`reset()` 不抹除）。 */
@@ -795,7 +796,8 @@ export class DailyBudgetManager {
   /**
    * 债四 S5（2026-10-13）：USD 口径**只读状态**（记账 + 落盘后的对外读数）。
    *
-   * `limitUsd` **为 `undefined` 即未配置** ⇒ USD 闸门不启用（`§12 Q-U3` 未裁定，**无默认值**）。
+   * `limitUsd` **为 `undefined` 即未配置** ⇒ 回落 Token 口径（USD 闸门不启用，**无默认值**）。
+   * S3（2026-10-15）起：配置 `limitUsd` 后 USD 即主口径，档位/闸门由 `_computeState()` 判定。
    * 本方法**不参与**任何判定（纯读，无副作用）。
    */
   getUsdState(): {
@@ -956,8 +958,9 @@ export class DailyBudgetManager {
    * - 其它非法值 ⇒ 忽略并保留现值（与 `applyConfig` 同款宽容；外部边界另由
    *   `isValidDailyLimitUsd` 做 fail-loud 400）。
    *
-   * **何以不并入 `applyConfig`**：USD 上限**不参与** `getMode()` 的档位计算（USD 闸门在
-   * `checkDailyBudget` 内独立判定，见方案 §6.4）⇒ 此处**不**触发档位重观测，避免语义误导。
+   * **何以不并入 `applyConfig`**：S3（2026-10-15）起 `limitUsd` **参与** `getMode()` 的档位判定
+   * （配置后 USD 即主口径，见 `_computeState()`）；但本方法**不主动触发**档位观测 ——
+   * 避免"刚配置就告警"，由下一次记账/读路径自然观测。
    */
   setLimitUsd(limitUsd: number | null): void {
     if (limitUsd === null) {
@@ -1521,8 +1524,8 @@ export interface TurnCostUsageParts {
  *    "回落后静默取兜底价"）—— 只记一条 warn 如实标注（Q-U5 精神：不静默）；
  *  - 模型**已命名但未登记/零定价** ⇒ **仍入账**（按兜底价，降级可用）但打 warn 如实标注 `unknownModel`；
  *  - `usd <= 0` ⇒ `recordUsdUsage` 内部幂等 no-op（不落盘）；
- *  - **闸门判定不变**：本函数只增**金额台账**，`usedUsd` 当前**不参与**任何拦截/档位判定
- *    （USD 闸门 = S3，受 `§12 Q-U3` 未裁定挡住）⇒ 对"是否拦截"零影响。
+ *  - **闸门判定**：本函数只增**金额台账**；是否拦截由 `checkDailyBudget` 按主口径判定
+ *    （S3：配置 `limitUsd` 后 `usedUsd` 参与档位/拦截；未配置则回落 Token 口径）。
  *
  * @returns 实际计入的 USD（`0` = 未计入）
  */

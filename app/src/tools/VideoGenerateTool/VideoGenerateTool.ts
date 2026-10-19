@@ -306,6 +306,8 @@ export class VideoGenerateTool extends BaseTool {
       persistence.update(taskId, { progress });
       logger.debug('视频生成进度更新', { taskId, progress });
     }, 5000);
+    // 不阻塞进程退出（进度模拟定时器，任务结束即清理）
+    progressInterval.unref?.();
 
     // 确保 interval 不会无限运行（安全上限）
     const maxTimer = setTimeout(() => {

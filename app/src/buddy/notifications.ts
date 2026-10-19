@@ -82,6 +82,8 @@ class NotificationManager {
       },
       60 * 60 * 1000
     ); // 每小时清理一次
+    // 不阻塞进程退出（周期性清理，可放弃）
+    this.autoClearInterval.unref?.();
   }
 
   /**

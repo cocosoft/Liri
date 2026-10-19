@@ -483,6 +483,8 @@ export class Stream<T> implements AsyncIterableIterator<T> {
         this.emitMetrics();
       }
     }, this.metricsConfig.timeIntervalMs);
+    // 不阻塞进程退出（周期性指标上报，可放弃）
+    this.metricsTimer.unref?.();
   }
 
   /**

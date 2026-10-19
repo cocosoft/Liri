@@ -209,6 +209,8 @@ export class InteractiveHandler {
           clearInterval(checkInterval);
         }
       }, 100);
+      // 不阻塞进程退出（请求本身由 pending Promise + timeout 维持）
+      checkInterval.unref?.();
 
       globalAuditLogger.log('permission_ask', request.context, {
         allowed: false,

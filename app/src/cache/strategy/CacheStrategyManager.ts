@@ -304,6 +304,8 @@ export class CacheStrategyManager implements ICacheStrategyManager {
     this.monitorTimer = setInterval(() => {
       this.adaptStrategy();
     }, this.config.monitorInterval);
+    // 不阻塞进程退出（周期性策略观测，可放弃）
+    this.monitorTimer.unref?.();
   }
 
   private async adaptStrategy(): Promise<void> {

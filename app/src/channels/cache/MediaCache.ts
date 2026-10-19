@@ -197,6 +197,8 @@ export class MediaCache {
         });
       });
     }, this.config.cleanupInterval);
+    // 不阻塞进程退出（周期性缓存维护，可放弃）
+    this.cleanupTimer.unref?.();
 
     logger.info('MediaCache 已初始化', {
       cacheDir: this.config.cacheDir,

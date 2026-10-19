@@ -374,6 +374,8 @@ export class PerformanceProfiler {
         this.report();
       }
     }, this.reportInterval);
+    // 不阻塞进程退出（周期性报表，可放弃）
+    this.reportTimer.unref?.();
   }
 
   /**
@@ -488,6 +490,8 @@ export class PerformanceMemoryManager {
         );
       }
     }, this.memoryCheckInterval);
+    // 不阻塞进程退出（周期性内存观测，可放弃）
+    this.memoryCheckTimer.unref?.();
   }
 
   /**

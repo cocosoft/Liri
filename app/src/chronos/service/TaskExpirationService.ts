@@ -214,6 +214,8 @@ export class TaskExpirationService extends EventEmitter {
     this.checkInterval = setInterval(() => {
       this.removeExpiredTasks();
     }, intervalMs);
+    // 不阻塞进程退出（周期性过期检查，可放弃）
+    this.checkInterval.unref?.();
 
     this.emit('autoCheckStarted', { intervalMs });
   }

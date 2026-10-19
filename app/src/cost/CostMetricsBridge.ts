@@ -385,6 +385,8 @@ export class CostMetricsBridge {
         });
       }
     }, this.config.flushIntervalMs);
+    // 不阻塞进程退出（周期性指标刷新，可放弃）
+    this.flushTimer.unref?.();
   }
 
   /**

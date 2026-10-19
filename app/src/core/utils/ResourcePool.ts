@@ -255,6 +255,8 @@ export class ResourcePool<T> {
     this.checkTimer = setInterval(() => {
       this.checkResources();
     }, this.options.checkInterval!);
+    // 不阻塞进程退出（周期性资源检查，可放弃）
+    this.checkTimer.unref?.();
   }
 
   /**

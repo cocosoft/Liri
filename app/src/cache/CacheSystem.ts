@@ -77,6 +77,8 @@ export class MemoryStorage implements PersistentCacheStorage {
   constructor() {
     // 启动定期清理过期缓存的任务
     this.cleanupInterval = setInterval(() => this.cleanupExpired(), 60000);
+    // 不阻塞进程退出（周期性缓存维护，可放弃）
+    this.cleanupInterval.unref?.();
   }
 
   async get<T = unknown>(

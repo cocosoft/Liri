@@ -342,6 +342,8 @@ export class PersistedCacheService<T extends Record<string, unknown>> {
       this.saveTimer = setInterval(() => {
         this.save();
       }, this.config.saveInterval);
+      // 不阻塞进程退出（周期性持久化，可放弃）
+      this.saveTimer.unref?.();
     }
   }
 

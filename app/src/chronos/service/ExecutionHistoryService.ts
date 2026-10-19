@@ -448,6 +448,8 @@ export class ExecutionHistoryService extends EventEmitter {
     this.cleanupTimer = setInterval(() => {
       this.cleanup();
     }, this.cleanupConfig.cleanupIntervalMs);
+    // 不阻塞进程退出（周期性历史清理，可放弃）
+    this.cleanupTimer.unref?.();
 
     this.emit('autoCleanupStarted');
   }

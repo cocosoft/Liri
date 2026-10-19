@@ -29,7 +29,10 @@
  *     未归一化时原地打转（= 真机"点了没反应"的失败模式，作为**突变对照**）。
  */
 import { describe, expect, test } from 'bun:test';
-import { withPaginationSeq } from '../../src/runtime/api/paginationSeq';
+import {
+  alignPageStartToTurn,
+  withPaginationSeq,
+} from '../../src/runtime/api/paginationSeq';
 
 interface Row {
   id: string;
@@ -153,5 +156,43 @@ describe('withPaginationSeq（P1-6b / Spec §10 分页键归一化）', () => {
     const walked = walk(withPaginationSeq(buildRows()), LIMIT);
     expect(walked.seen).toBe(TOTAL);
     expect(walked.pages).toBeGreaterThanOrEqual(TOTAL / LIMIT);
+  });
+});
+
+describe('alignPageStartToTurn（2026-10-19 分页窗口一轮对齐）', () => {
+  const rows = (roles: string[]) =>
+    roles.map((role, i) => ({ id: `m${i}`, role }));
+
+  test('页首落在轮中 ⇒ 向前对齐到最近的 user', () => {
+    const list = rows([
+      'user',
+      'assistant',
+      'tool',
+      'assistant',
+      'user',
+      'assistant',
+      'tool',
+    ]);
+    // start=5（页从 assistant 开始）⇒ 对齐到 4（user）
+    expect(alignPageStartToTurn(list, 5, 3)).toBe(4);
+  });
+
+  test('回看窗口内没有 user ⇒ 保持原页首（超长单轮兜底）', () => {
+    const list = rows([
+      'user',
+      'assistant',
+      'tool',
+      'assistant',
+      'tool',
+      'assistant',
+    ]);
+    expect(alignPageStartToTurn(list, 5, 2)).toBe(5);
+  });
+
+  test('已在轮首 / start<=0 / lookback<=0 ⇒ 原样返回', () => {
+    const list = rows(['user', 'assistant']);
+    expect(alignPageStartToTurn(list, 1, 5)).toBe(0);
+    expect(alignPageStartToTurn(list, 0, 5)).toBe(0);
+    expect(alignPageStartToTurn(list, 1, 0)).toBe(1);
   });
 });

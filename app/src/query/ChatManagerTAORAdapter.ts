@@ -342,69 +342,95 @@ export function createChatManagerTAORDeps(
           });
 
           // 发送 question chunk（通过 onStreamChunk 透传给前端）
-          logger.info('taorAdapter:interaction_question_emitted', {
-            sessionId: ctx.sessionId,
-            toolCallId: tc.id,
-            toolName: tc.name,
-            questionId,
-          });
-          ctx.onStreamChunk?.({
-            type: 'question',
-            content: questionData.question,
-            sessionId: ctx.sessionId,
-            questionData,
-          });
-
-          // 等待用户答案（带超时兜底，默认 5 分钟）
-          const INTERACTION_TIMEOUT_MS = 5 * 60 * 1000;
-          const timeoutPromise = new Promise<'timeout'>((res) =>
-            setTimeout(res, INTERACTION_TIMEOUT_MS, 'timeout' as const)
-          );
-          const abortPromise = new Promise<'abort'>((res) => {
-            if (combinedSignal.aborted) {
-              res('abort');
-              return;
-            }
-            combinedSignal.addEventListener('abort', () => res('abort'), {
-              once: true,
-            });
-          });
-
-          const winner = await Promise.race([
-            answerPromise.then((a) => ({ kind: 'answer' as const, value: a })),
-            timeoutPromise.then((v) => ({ kind: v as 'timeout' })),
-            abortPromise.then((v) => ({ kind: v as 'abort' })),
-          ]);
-
-          ctx.pendingInteractions?.delete(ctx.sessionId);
-
-          if (winner.kind === 'answer') {
-            // 注入用户答案到工具参数
-            (tc.arguments as Record<string, unknown>)._userAnswers =
-              winner.value;
-            logger.info('taorAdapter:interaction_resolved', {
+          //
+          // 2026-10-19（源码排查 D4/D5）：`try` 必须**覆盖 question 下发**——
+          // 前端通道写入抛错时也要走到 `finally` 释放单槽（否则该会话交互能力永久死锁）。
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          let abortHandler: (() => void) | undefined;
+          try {
+            logger.info('taorAdapter:interaction_question_emitted', {
               sessionId: ctx.sessionId,
-              questionId,
-              answerCount: winner.value.length,
-            });
-          } else {
-            // 超时或中止：跳过工具执行
-            const reason = winner.kind === 'timeout' ? '超时' : '中止';
-            logger.warn('taorAdapter:interaction_failed', {
-              sessionId: ctx.sessionId,
-              questionId,
-              reason,
-            });
-            results.push({
               toolCallId: tc.id,
               toolName: tc.name,
-              error: `用户交互${reason}，工具未执行`,
+              questionId,
             });
-            ctx.onToolCall?.('end', tc.name, tc.id, {
-              ok: false,
-              message: `用户交互${reason}`,
+            ctx.onStreamChunk?.({
+              type: 'question',
+              content: questionData.question,
+              sessionId: ctx.sessionId,
+              questionData,
             });
-            continue;
+
+            // 等待用户答案（带超时兜底，默认 5 分钟）
+            //
+            // 2026-10-19（源码排查 D4/D5）：`Promise.race` 的**所有结局**都必须回收三样东西：
+            // ① 5 分钟超时定时器；② `combinedSignal` 上的 abort 监听器；③ `pendingInteractions`
+            // 单槽。原实现只在 race 正常返回后才 delete，且 timer/监听器完全未回收 ⇒
+            // 用户秒答后 timer 仍挂 5 分钟（长会话 timer 堆积）；且 `onStreamChunk` 抛错时
+            // 预留的单槽永不释放 ⇒ 该会话后续交互工具被永久拒绝（功能级死锁）。
+            const INTERACTION_TIMEOUT_MS = 5 * 60 * 1000;
+            const timeoutPromise = new Promise<'timeout'>((res) => {
+              timer = setTimeout(
+                res,
+                INTERACTION_TIMEOUT_MS,
+                'timeout' as const
+              );
+            });
+            const abortPromise = new Promise<'abort'>((res) => {
+              if (combinedSignal.aborted) {
+                res('abort');
+                return;
+              }
+              abortHandler = () => res('abort');
+              combinedSignal.addEventListener('abort', abortHandler, {
+                once: true,
+              });
+            });
+
+            const winner = await Promise.race([
+              answerPromise.then((a) => ({
+                kind: 'answer' as const,
+                value: a,
+              })),
+              timeoutPromise.then((v) => ({ kind: v as 'timeout' })),
+              abortPromise.then((v) => ({ kind: v as 'abort' })),
+            ]);
+
+            if (winner.kind === 'answer') {
+              // 注入用户答案到工具参数
+              (tc.arguments as Record<string, unknown>)._userAnswers =
+                winner.value;
+              logger.info('taorAdapter:interaction_resolved', {
+                sessionId: ctx.sessionId,
+                questionId,
+                answerCount: winner.value.length,
+              });
+            } else {
+              // 超时或中止：跳过工具执行
+              const reason = winner.kind === 'timeout' ? '超时' : '中止';
+              logger.warn('taorAdapter:interaction_failed', {
+                sessionId: ctx.sessionId,
+                questionId,
+                reason,
+              });
+              results.push({
+                toolCallId: tc.id,
+                toolName: tc.name,
+                error: `用户交互${reason}，工具未执行`,
+              });
+              ctx.onToolCall?.('end', tc.name, tc.id, {
+                ok: false,
+                message: `用户交互${reason}`,
+              });
+              continue;
+            }
+          } finally {
+            if (timer) clearTimeout(timer);
+            if (abortHandler) {
+              combinedSignal.removeEventListener('abort', abortHandler);
+            }
+            // 无论正常返回 / 提前 continue / 任一环节抛错，都释放单槽（防永久死锁）
+            ctx.pendingInteractions?.delete(ctx.sessionId);
           }
         }
 

@@ -60,3 +60,32 @@ export function withPaginationSeq<T extends { lastEventSeq?: number }>(
   });
   return changed ? out : list;
 }
+
+/**
+ * 2026-10-19（真机排查）：把分页窗口起点**向前对齐到最近一条 `user` 消息**。
+ *
+ * 背景（实证会话 `session_mve0gkth422d248037`，1341 条 / 946 次工具调用）：原实现按
+ * 条数硬切 `slice(len - limit)`，长会话末页 30 条**全是工具结果与助手续写、没有任何
+ * user 消息** ⇒ 首屏看不到提问；工具结果与其 assistant `tool_call` 被切在页边界两侧，
+ * 前端出现 6 条"孤儿工具结果"（N-48 可见性策略把它们当历史孤儿渲染）+ 顺序归一化告警。
+ *
+ * 对齐后每页都从一轮的起点开始（页长最多扩到 2×limit）；回看到上限仍未找到 user
+ * （单轮超长工具循环）⇒ 原样返回，由前端按"页内首条 user 之前一律视为边界残片"兜底。
+ *
+ * @param list 已按权威顺序排好的消息列表
+ * @param start 按条数切出的页首下标
+ * @param lookback 最多向前回看多少条（通常传 limit）
+ * @returns 对齐后的页首下标（无需/无法对齐时返回入参）
+ */
+export function alignPageStartToTurn<T extends { role?: string }>(
+  list: T[],
+  start: number,
+  lookback: number
+): number {
+  if (start <= 0 || lookback <= 0) return start;
+  const minStart = Math.max(0, start - lookback);
+  for (let i = start - 1; i >= minStart; i--) {
+    if (list[i]?.role === 'user') return i;
+  }
+  return start;
+}

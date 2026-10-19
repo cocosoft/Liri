@@ -346,6 +346,14 @@ export function shouldPersistRecalculatedTotal(
 }
 
 /**
+ * 扩容续跑的缓存键分隔符（`${sessionId}::turnsX${multiplier}`）。
+ *
+ * 2026-10-19（会话级对象生命周期修复）：键的生成与「按会话回收/去重」必须同源，
+ * 禁止各处再写字面量 `'::turnsX'`（否则回收逻辑会与键格式悄悄漂移）。
+ */
+const TAOR_MULTIPLIER_KEY_SEP = '::turnsX';
+
+/**
  * 聊天管理器实现
  */
 export class ChatManagerImpl implements ChatManager {
@@ -725,14 +733,18 @@ export class ChatManagerImpl implements ChatManager {
   private _verifierRoleResolved: Promise<void> | null = null;
 
   /**
-   * I1（最终整支评审）：已登记进进程级注册表（`checkpoint-handlers.activeLoops`）的 sessionId 集合。
+   * I1 / 生命周期修复（2026-10-19）：本实例登记进进程级注册表
+   * （`checkpoint-handlers.activeLoops`）的「会话 → 缓存键集合」。
    *
    * 为什么需要：`registerTAORLoop` 按 sessionId 注册，而注册表是**进程级**单例 —— 会话拆除
    * （`deleteSession` / `clearAllSessions`）与 `cleanup()` 必须**反向注销**，否则无界增长
-   * （内存泄漏 + 僵尸 TAORLoop），且该泄漏**不受功能开关门控**（默认路径即发生）。用本集合
-   * 记"本实例注册过谁"（缓存键可能带 `::turnsXn` 后缀，不能直接由 `_taorLoops` 反推）。
+   * （内存泄漏 + 僵尸 TAORLoop），且该泄漏**不受功能开关门控**（默认路径即发生）。
+   *
+   * 2026-10-19 修正（源码排查 D2/D3）：原为 `Set<sessionId>`，只能表达「一会话一登记」，
+   * 而缓存键在扩容续跑时带 `::turnsXn` 后缀 ⇒ 注销粒度不足、扩容实例永久留在
+   * `_taorLoops` 里（已删会话仍常驻）。现改为「会话 → 缓存键集合」，注销时按集合精确回收。
    */
-  private readonly _registeredTaorSessions = new Set<string>();
+  private readonly _registeredTaorSessions = new Map<string, Set<string>>();
 
   /**
    * G-T3-1（2026-10-12）：**一次性**续跑意图登记（`sessionId` 集合）。
@@ -1709,7 +1721,9 @@ export class ChatManagerImpl implements ChatManager {
     // S1（2026-09-05，PR9/B-任务）：扩容续跑时创建放大轮次预算的独立实例——
     // 与基础实例分键缓存（同 multiplier 复用，避免每次 re-roll 新建实例）。
     const cacheKey =
-      multiplier > 1 ? `${sessionId}::turnsX${multiplier}` : sessionId;
+      multiplier > 1
+        ? `${sessionId}${TAOR_MULTIPLIER_KEY_SEP}${multiplier}`
+        : sessionId;
     let taorLoop = this._taorLoops.get(cacheKey);
     if (!taorLoop) {
       const baseMaxTurns =
@@ -1731,45 +1745,65 @@ export class ChatManagerImpl implements ChatManager {
         },
       });
       this._taorLoops.set(cacheKey, taorLoop);
-      // F2（2026-10-12，预算挂起续跑 Task 3）：把实例登记进活跃注册表
-      // （`checkpoint-handlers` 的 `activeLoops`）。修复前 `registerTAORLoop` 全仓零调用
-      // ⇒ 注册表恒空 ⇒ `handleResumeCheckpoint` 恒 404（batch 手动恢复不可达）。
-      //
-      // 注册键用 **sessionId**（非 `cacheKey`）：端点的寻址键即路径段 sessionId
-      // （`parsePathParams` → `activeLoops.get(params.id)`），而 `cacheKey` 在
-      // `multiplier > 1` 时会带 `::turnsXn` 后缀 ⇒ 用它会令放大实例在端点上寻址失配。
-      //
-      // `TAORLoop` **已存在** `getCheckpointsForSession`（`:1662`）⇒ 直接按 `TaorLoopPort`
-      // 结构转发，**不**改 `TAORLoop.ts`（该文件已逼近 R04-001 行数上限）。
-      const activeLoop = taorLoop;
-      registerTAORLoop(sessionId, {
-        getCheckpointsForSession: () => activeLoop.getCheckpointsForSession(),
-        resumeFromCheckpoint: (id?: string) =>
-          activeLoop.resumeFromCheckpoint(id),
-      });
-      // I1：记录"本实例注册过谁"，供会话拆除/`cleanup()` 反向注销（防进程级注册表无界增长）。
-      this._registeredTaorSessions.add(sessionId);
     }
+    // F2（2026-10-12，预算挂起续跑 Task 3）：把实例登记进活跃注册表
+    // （`checkpoint-handlers` 的 `activeLoops`）。修复前 `registerTAORLoop` 全仓零调用
+    // ⇒ 注册表恒空 ⇒ `handleResumeCheckpoint` 恒 404（batch 手动恢复不可达）。
+    //
+    // 注册键用 **sessionId**（非 `cacheKey`）：端点的寻址键即路径段 sessionId
+    // （`parsePathParams` → `activeLoops.get(params.id)`），而 `cacheKey` 在
+    // `multiplier > 1` 时会带 `::turnsXn` 后缀 ⇒ 用它会令放大实例在端点上寻址失配。
+    //
+    // 2026-10-19（源码排查 D2/D3 修复）：登记从「仅首次创建」改为**每次取用**——
+    // ① 端点/steering 始终指向**最近一次使用**的实例（扩容实例也因此可达，原实现被基础实例
+    //    覆盖后扩容实例在端点上失联）；② 同时把 `cacheKey` 记进会话的键集合，供拆除时精确回收。
+    //
+    // `TAORLoop` **已存在** `getCheckpointsForSession`（`:1662`）⇒ 直接按 `TaorLoopPort`
+    // 结构转发，**不**改 `TAORLoop.ts`（该文件已逼近 R04-001 行数上限）。
+    const activeLoop = taorLoop;
+    registerTAORLoop(sessionId, {
+      getCheckpointsForSession: () => activeLoop.getCheckpointsForSession(),
+      resumeFromCheckpoint: (id?: string) =>
+        activeLoop.resumeFromCheckpoint(id),
+    });
+    // I1：记录"本实例注册过哪些缓存键"，供会话拆除/`cleanup()` 反向注销与本地缓存回收。
+    let loopsForSession = this._registeredTaorSessions.get(sessionId);
+    if (!loopsForSession) {
+      loopsForSession = new Set<string>();
+      this._registeredTaorSessions.set(sessionId, loopsForSession);
+    }
+    loopsForSession.add(cacheKey);
     return taorLoop;
   }
 
   /**
-   * I1（最终整支评审）：注销某会话在**进程级**注册表（`checkpoint-handlers.activeLoops`）中的登记。
+   * 注销某会话的**进程级**登记，并回收本实例的**会话级缓存**。
    *
-   * 幂等：仅当该 sessionId 确由本实例登记过才注销（避免误删他人登记）。会话拆除与 `cleanup()`
-   * 都经此收口 —— 修复前 `unregisterTAORLoop` 全仓零调用 ⇒ 注册表无界增长。
+   * 2026-10-19（源码排查 D1/D2/D3 修复）：原实现只注销注册表；`_taorLoops` 与
+   * `_planDrivenLoops` 全仓无 `.delete`/`.clear` ⇒ 已删会话永久占用两条循环实例
+   * （扩容键 `::turnsXn` 也永不回收）。现按「会话 → 缓存键集合」精确回收。
+   *
+   * 幂等：注册表只在本实例确登记过时才反向注销（避免误删他人登记）；本地缓存与
+   * 注册结果解耦 —— `_planDrivenLoops` 无条件删除（其创建必先建 TAORLoop）。
    */
   private _unregisterTaorLoop(sessionId: string): void {
-    if (!this._registeredTaorSessions.delete(sessionId)) return;
-    unregisterTAORLoop(sessionId);
+    const cacheKeys = this._registeredTaorSessions.get(sessionId);
+    if (cacheKeys) {
+      this._registeredTaorSessions.delete(sessionId);
+      for (const cacheKey of cacheKeys) this._taorLoops.delete(cacheKey);
+      unregisterTAORLoop(sessionId);
+    }
+    this._planDrivenLoops.delete(sessionId);
   }
 
-  /** I1：注销本实例登记过的**全部**会话（`cleanup()` / `clearAllSessions` 用）。 */
+  /** I1：注销本实例登记过的**全部**会话并清空会话级缓存（`cleanup()` / `clearAllSessions` 用）。 */
   private _unregisterAllTaorLoops(): void {
-    for (const sessionId of this._registeredTaorSessions) {
+    for (const sessionId of this._registeredTaorSessions.keys()) {
       unregisterTAORLoop(sessionId);
     }
     this._registeredTaorSessions.clear();
+    this._taorLoops.clear();
+    this._planDrivenLoops.clear();
   }
 
   /**
@@ -2037,8 +2071,15 @@ export class ChatManagerImpl implements ChatManager {
    * 逐条容错（幂等；无进行中 run 无操作）。
    */
   async flushAllCheckpoints(): Promise<void> {
+    // 2026-10-19（源码排查 D6）：`_taorLoops` 的键在扩容续跑时带 `::turnsXn` 后缀
+    // ⇒ 同一会话可能有多个实例。按 sessionId 去重后只 flush 一次，避免同键并发写。
+    const bySession = new Map<string, TAORLoop>();
+    for (const [cacheKey, loop] of this._taorLoops) {
+      const sessionId = cacheKey.split(TAOR_MULTIPLIER_KEY_SEP)[0];
+      if (!bySession.has(sessionId)) bySession.set(sessionId, loop);
+    }
     await Promise.all(
-      [...this._taorLoops.values()].map((loop) =>
+      [...bySession.values()].map((loop) =>
         loop.flushCheckpoint().catch(() => {
           // @ignore-catch — 单会话 checkpoint flush 失败不阻断退出链（CS03）
         })

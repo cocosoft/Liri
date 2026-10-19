@@ -40,7 +40,7 @@ import {
   type DerivedMessage,
 } from '@modules/session';
 import { dedupeMessagesToolCallBlocks } from '@modules/utils/chatBlocks';
-import { withPaginationSeq } from './paginationSeq';
+import { alignPageStartToTurn, withPaginationSeq } from './paginationSeq';
 import { LRUCache } from '../../utils/cache';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { SessionManager } from '@modules/session/types/session';
@@ -271,7 +271,7 @@ export class SessionMessagesRead {
    * 不传 limit 的全量响应**保持原样**（不改动其他消费者可见字段）。
    */
   private _paginateMessages<
-    T extends { lastEventSeq?: number; timestamp?: number },
+    T extends { lastEventSeq?: number; timestamp?: number; role?: string },
   >(
     messages: T[],
     query?: { limit?: number; before?: number }
@@ -290,13 +290,20 @@ export class SessionMessagesRead {
       // 边界条目会重复返回，由前端 `loadOlderMessagesImpl` 按 id 去重消除。
       filtered = filtered.filter((m) => key(m) <= (query.before as number));
     }
-    const hasMore = filtered.length > limit;
+    const hasMoreByCount = filtered.length > limit;
     // N-57（2026-09-20）：filtered.length <= limit 时必须返回全部 —— 原
     // `filtered.slice(filtered.length - limit)` 在"剩余条数不足一页"时退化为负索引，
     // 等价于 `slice(-|残余|)` 只取尾部若干条（实测 92 条只回 8 条）且 hasMore=false ⇒
     // 最后一页丢失、中间消息永久不可达。
-    const page = hasMore ? filtered.slice(filtered.length - limit) : filtered;
-    return { messages: page, hasMore };
+    let start = hasMoreByCount ? filtered.length - limit : 0;
+    // 2026-10-19（真机排查）：分页窗口不得从**一轮中间**开始 —— 原实现按条数硬切，
+    // 实测长会话末页 30 条全是工具结果/助手续写（页内**没有任何 user 消息**），
+    // 首屏既看不到提问、工具结果也与其 assistant tool_call 被切断（前端出现
+    // "孤儿工具结果" + 顺序归一化告警）。向前扩到最近的 user 消息（最多回看一页），
+    // 让每一页都从一轮的起点开始；扩到 0 ⇒ 没有更早历史。
+    start = alignPageStartToTurn(filtered, start, limit);
+    const page = filtered.slice(start);
+    return { messages: page, hasMore: start > 0 };
   }
 
   /**

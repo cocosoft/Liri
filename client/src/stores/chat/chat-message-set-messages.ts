@@ -329,13 +329,38 @@ export function setMessagesImpl(
       }
     }
     // 同一 toolCallId 可能重复出现（投影重复写入，见台账 N-51）⇒ 保留最后一条，与 Phase 1.5 同策略
+    //
+    // 2026-10-19（真机排查）：分页窗口可能从**一轮中间**开始 —— 位于"页内首条 user 消息"
+    // 之前的工具结果，其 assistant tool_call 在**上一页**，不是真正的孤儿（N-48 的语义是
+    // 历史数据确实无人消费）。页内没有任何 user 消息 ⇒ 整页都是一轮中间 ⇒ 一律视为边界残片；
+    // 缺 `lastEventSeq` 的旧数据保持 N-48 可见性（不做推断）。
+    const firstUser = enhancedMessages.find((m) => m.role === "user");
+    const isPageBoundaryArtifact = (m: (typeof pendingToolMessages)[number]) => {
+      if (!firstUser) return true;
+      const userSeq = firstUser.lastEventSeq;
+      const toolSeq = m.lastEventSeq;
+      if (typeof userSeq !== "number" || typeof toolSeq !== "number") {
+        return false;
+      }
+      return toolSeq < userSeq;
+    };
+    const orphanCandidates = pendingToolMessages.filter(
+      (m) => m.toolCallId && !consumedToolCallIds.has(m.toolCallId),
+    );
+    const boundaryArtifacts = orphanCandidates.filter(isPageBoundaryArtifact);
     const orphanToolMessages = [
       ...new Map(
-        pendingToolMessages
-          .filter((m) => m.toolCallId && !consumedToolCallIds.has(m.toolCallId))
+        orphanCandidates
+          .filter((m) => !isPageBoundaryArtifact(m))
           .map((m) => [m.toolCallId as string, m]),
       ).values(),
     ];
+    if (boundaryArtifacts.length > 0) {
+      logger.info("[setMessages:N-48] 丢弃分页边界的孤儿工具结果", {
+        count: boundaryArtifacts.length,
+        toolCallIds: boundaryArtifacts.map((m) => m.toolCallId),
+      });
+    }
     if (orphanToolMessages.length > 0) {
       logger.info("[setMessages:N-48] 保留未被消费的 tool 结果（孤儿）", {
         count: orphanToolMessages.length,

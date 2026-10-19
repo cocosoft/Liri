@@ -101,7 +101,15 @@ export async function handleSteerSession(
       const taorLoops = cm['_taorLoops'] as
         | Map<string, { injectSteering(msg: string, source?: string): void }>
         | undefined;
-      const taorLoop = taorLoops?.get(sessionId);
+      // 2026-10-19（源码排查 D2）：扩容续跑实例的缓存键带 `::turnsXn` 后缀 ⇒ 基础键
+      // 未命中时按前缀取该会话的变体实例（同会话 steering 语义一致），否则扩容会话恒 503。
+      const taorLoop =
+        taorLoops?.get(sessionId) ??
+        (taorLoops
+          ? [...taorLoops.entries()].find(([key]) =>
+              key.startsWith(`${sessionId}::turnsX`)
+            )?.[1]
+          : undefined);
       if (taorLoop?.injectSteering) {
         // 2026-10-08（§1.6）：标注来源 ⇒ 注入时落 `context/steering` 事件（模型可见输入可重建）
         taorLoop.injectSteering(rawMessage, 'user');

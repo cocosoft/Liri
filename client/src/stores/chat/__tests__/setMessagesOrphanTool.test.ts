@@ -146,4 +146,60 @@ describe("setMessagesImpl — 孤儿 tool 结果保留（N-48）", () => {
     expect(tools).toHaveLength(1);
     expect(tools[0].content).toBe("second");
   });
+
+  it("分页窗口从一轮中间开始（页内无 user）⇒ 边界工具结果不渲染", () => {
+    const h = harness();
+    h.run([
+      msg({
+        id: "t1",
+        role: "tool",
+        toolCallId: "call_boundary",
+        timestamp: 2000,
+        lastEventSeq: 11,
+        content: "boundary",
+      }),
+      msg({
+        id: "a1",
+        role: "assistant",
+        timestamp: 2100,
+        lastEventSeq: 12,
+        content: "继续",
+      }),
+    ]);
+
+    // 其 assistant tool_call 在上一页 ⇒ 不是 N-48 的"真孤儿"，不显示
+    expect(h.messages().some((m) => m.role === "tool")).toBe(false);
+  });
+
+  it("页内 user 消息之前的工具结果按边界残片丢弃（其后保留）", () => {
+    const h = harness();
+    h.run([
+      msg({
+        id: "t1",
+        role: "tool",
+        toolCallId: "call_old",
+        timestamp: 2000,
+        lastEventSeq: 5,
+        content: "old",
+      }),
+      msg({
+        id: "u1",
+        role: "user",
+        timestamp: 3000,
+        lastEventSeq: 6,
+        content: "hi",
+      }),
+      msg({
+        id: "t2",
+        role: "tool",
+        toolCallId: "call_real_orphan",
+        timestamp: 4000,
+        lastEventSeq: 7,
+        content: "real",
+      }),
+    ]);
+
+    const tools = h.messages().filter((m) => m.role === "tool");
+    expect(tools.map((m) => m.toolCallId)).toEqual(["call_real_orphan"]);
+  });
 });

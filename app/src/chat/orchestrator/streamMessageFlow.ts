@@ -1631,11 +1631,11 @@ export async function* runStreamMessage(
         options?.model || 'unknown'
       ),
       finalResponse,
-      apiMessages
+      apiMessages,
+      toolDefinitions
     );
     // R16：每日预算**记账**已收敛到 `ChatManager.recordChatResponseUsage`（每次模型响应即记，
     // 覆盖主/快速/流式路径）；此处不再记账（原 `recordDailyUsage(finalResponse)` 仅记**最后一次**调用）。
-
     // TB-11 修复（2026-09-23）：把本轮最终响应接进管线 ctx。
     // 该字段在 `ChatManager._createStreamPipeline` 里初始化为 `null` 后**全仓无赋值点**
     // （grep `ctx.finalResponse` 命中的全是读取），故流式路径下 `StreamPipeline` 的三个

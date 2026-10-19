@@ -319,14 +319,32 @@ export async function applyPreSendProtection(
 }
 
 /**
+ * 估算工具定义占用的 token（与发送前预算判定同口径）。
+ *
+ * 2026-10-19（X-06）：诊断日志此前只估算 `apiMessages`，漏掉 tools schema
+ * ⇒ 真实 input 含 tools 时出现 191% 的**假偏差**。此处收敛为单一口径。
+ */
+export function estimateToolsTokens(
+  toolDefinitions: readonly unknown[]
+): number {
+  if (!toolDefinitions || toolDefinitions.length === 0) return 0;
+  return estimateMessagesTokens([
+    { role: 'system' as const, content: JSON.stringify(toolDefinitions) },
+  ]);
+}
+
+/**
  * 推理完成诊断：发送前估算 vs 发送后 API 返回真实 usage（inputTokens/prompt_tokens 兼容）。
  * 闭环对比估算是否贴近真实，判断截断/压缩是否真正把输入压到窗口内。
+ *
+ * 估算口径 = messages + tools（`tools` 缺省 0，兼容旧调用方）。
  */
 export async function logInferenceUsage(
   sessionId: string,
   model: string,
   finalResponse: { usage?: Record<string, number> } | null,
-  apiMessages: Record<string, unknown>[]
+  apiMessages: Record<string, unknown>[],
+  toolDefinitions: readonly unknown[] = []
 ): Promise<void> {
   const usageRec = finalResponse?.usage as Record<string, number> | undefined;
   const actualInputTokens =
@@ -334,11 +352,16 @@ export async function logInferenceUsage(
   const actualOutputTokens =
     usageRec?.outputTokens ?? usageRec?.completion_tokens ?? 0;
   // 2026-08-19 根因①修复：post-stream 全量估算改为协作式，避免收尾仍卡事件循环
-  const estimatedTokens = await estimateMessagesTokensCooperative(apiMessages);
+  const estimatedMessagesTokens =
+    await estimateMessagesTokensCooperative(apiMessages);
+  const estimatedToolsTokens = estimateToolsTokens(toolDefinitions);
+  const estimatedTokens = estimatedMessagesTokens + estimatedToolsTokens;
   logger.info('streamMessage:token — 推理完成（估算 vs 真实）', {
     sessionId,
     model,
     estimatedTokens,
+    estimatedMessagesTokens,
+    estimatedToolsTokens,
     actualInputTokens,
     actualOutputTokens,
     diff: actualInputTokens - estimatedTokens,

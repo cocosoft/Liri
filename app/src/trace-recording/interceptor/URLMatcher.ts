@@ -29,6 +29,22 @@ const AI_API_DOMAIN_PATTERNS: RegExp[] = [
   /^https?:\/\/.+\/api\/(chat|generate|tags|embeddings)/i,
 ];
 
+/**
+ * 已知非 AI 的业务 API（2026-10-19，X-07）
+ *
+ * 原因：通用模式 `/v1/(messages|models|...)` 会把飞书 `open-apis/im/v1/messages`、
+ * 钉钉 `topapi/...` 等出站请求误判为 AI 调用 ⇒ 录制出 `trace:ai_call` 且
+ * `model="unknown"`（出站本无模型语义）。先按路径排除，再做 AI 匹配。
+ */
+const NON_AI_URL_PATTERNS: RegExp[] = [
+  /\/open-apis\//i, // 飞书 / Lark 开放平台（含 /open-apis/im/v1/messages）
+  /\/im\/v1\//i, // 飞书 IM
+  /\/robot\/send/i, // 钉钉自定义机器人
+  /\/topapi\//i, // 钉钉服务端 API
+  /\/cgi-bin\//i, // 企业微信
+  /\/api\/v\d+\/(channels|guilds|users)\//i, // Discord
+];
+
 /** 需要脱敏的请求头（整值替换，不留前缀） */
 const SENSITIVE_HEADERS = new Set([
   'x-api-key',
@@ -55,6 +71,7 @@ const SENSITIVE_QUERY_PARAMS = new Set([
  * @returns 是否匹配
  */
 export function isAIApiUrl(url: string): boolean {
+  if (NON_AI_URL_PATTERNS.some((pattern) => pattern.test(url))) return false;
   return AI_API_DOMAIN_PATTERNS.some((pattern) => pattern.test(url));
 }
 

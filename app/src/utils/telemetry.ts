@@ -116,6 +116,8 @@ export class TelemetryService {
 
     if (!this.flushTimer) {
       this.flushTimer = setInterval(() => this.flush(), FLUSH_INTERVAL_MS);
+      // 不阻塞进程退出（周期性上报，可放弃）
+      this.flushTimer.unref?.();
     }
   }
 

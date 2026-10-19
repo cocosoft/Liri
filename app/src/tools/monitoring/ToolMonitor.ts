@@ -94,6 +94,8 @@ export class ToolMonitor {
     this.monitoringInterval = setInterval(() => {
       this.collectMonitoringData();
     }, samplingInterval);
+    // 不阻塞进程退出（周期性工具观测，可放弃）
+    this.monitoringInterval.unref?.();
 
     logger.info('📊 工具监控已启动');
   }

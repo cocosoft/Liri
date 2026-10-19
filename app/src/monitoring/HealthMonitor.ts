@@ -154,6 +154,8 @@ export class HealthMonitor extends EventEmitter {
         });
       });
     }, this.config.checkIntervalMs);
+    // 不阻塞进程退出（周期性健康检查，可放弃）
+    this.checkTimer.unref?.();
 
     logger.info(
       `HealthMonitor: 已启动 (间隔 ${this.config.checkIntervalMs}ms)`
@@ -380,6 +382,8 @@ export class HealthMonitor extends EventEmitter {
         logger.warning('[HealthMonitor] 通道恢复检查失败:', err);
       }
     }, this.config.recoveryCheckIntervalMs);
+    // 不阻塞进程退出（恢复探测，可放弃）
+    timer.unref?.();
 
     this.recoveryTimers.set(name, timer);
   }

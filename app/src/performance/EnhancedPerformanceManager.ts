@@ -127,12 +127,14 @@ export class EnhancedPerformanceManager {
     const monitoringInterval = setInterval(() => {
       this.collectMetrics();
     }, this.config.monitoringInterval);
+    monitoringInterval.unref?.();
     this.monitoringIntervals.set('monitoring', monitoringInterval);
 
     if (this.config.enableBottleneckDetection) {
       const bottleneckInterval = setInterval(() => {
         this.detectBottlenecks();
       }, this.config.bottleneckCheckInterval);
+      bottleneckInterval.unref?.();
       this.monitoringIntervals.set('bottleneck', bottleneckInterval);
     }
 
@@ -140,6 +142,7 @@ export class EnhancedPerformanceManager {
       const trendInterval = setInterval(() => {
         this.analyzeTrends();
       }, this.config.trendAnalysisInterval);
+      trendInterval.unref?.();
       this.monitoringIntervals.set('trend', trendInterval);
     }
   }

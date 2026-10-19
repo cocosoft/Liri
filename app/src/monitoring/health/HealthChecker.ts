@@ -148,6 +148,8 @@ export class HealthChecker implements IHealthChecker {
     this.autoTimer = setInterval(() => {
       this.runAllChecks();
     }, intervalMs);
+    // 不阻塞进程退出（周期性健康检查，可放弃）
+    this.autoTimer.unref?.();
   }
 
   stopAutoCheck(): void {

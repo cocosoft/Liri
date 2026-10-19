@@ -72,6 +72,8 @@ export class HeapMemoryManager {
     this.checkInterval = setInterval(() => {
       this.checkMemory();
     }, config.memoryManagement.checkIntervalMs);
+    // 不阻塞进程退出（周期性内存观测，可放弃）
+    this.checkInterval.unref?.();
     logForDebugging('内存监控已启动', {
       interval: config.memoryManagement.checkIntervalMs,
     });

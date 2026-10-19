@@ -124,6 +124,8 @@ export class MemoryMonitor {
     this.intervalId = setInterval(() => {
       this.checkMemory();
     }, this.checkInterval);
+    // 不阻塞进程退出（周期性内存观测，可放弃）
+    this.intervalId.unref?.();
 
     logger.info('Memory monitor started', {
       threshold: this.memoryThreshold,

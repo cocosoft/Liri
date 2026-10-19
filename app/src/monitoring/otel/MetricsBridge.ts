@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 指标桥接器
  * 将自建 MetricsService 的指标同步映射到 OTel 标准指标的桥接层
  */
@@ -52,6 +52,8 @@ export class MetricsBridge {
       () => this.syncOnce(),
       this.config.syncIntervalMs
     );
+    // 不阻塞进程退出（周期性指标同步，可放弃）
+    this.syncTimer.unref?.();
   }
 
   stop(): void {

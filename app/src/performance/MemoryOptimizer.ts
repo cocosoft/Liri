@@ -57,6 +57,8 @@ export class MemoryOptimizer {
     this.optimizationInterval = setInterval(() => {
       this.optimize();
     }, config.memoryManagement.checkIntervalMs);
+    // 不阻塞进程退出（周期性内存优化，可放弃）
+    this.optimizationInterval.unref?.();
     logForDebugging('内存优化已启动', {
       interval: config.memoryManagement.checkIntervalMs,
     });

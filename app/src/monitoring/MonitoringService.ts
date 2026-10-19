@@ -260,6 +260,8 @@ export class MonitoringService {
       // ⇒ 给三个**周期性后台任务**加标签，直接检验"周期任务自身阻塞事件循环"的假设。
       withPhaseSync('monitoring:collectMetrics', () => this.collectMetrics());
     }, this.config.metricsInterval);
+    // 不阻塞进程退出（周期性指标采集，可放弃）
+    this.metricsTimer.unref?.();
   }
 
   /**
@@ -289,6 +291,8 @@ export class MonitoringService {
     this.logRotationTimer = setInterval(() => {
       withPhaseSync('monitoring:rotateLogs', () => this.rotateLogs());
     }, this.config.logRotationInterval);
+    // 不阻塞进程退出（周期性日志轮换，可放弃）
+    this.logRotationTimer.unref?.();
   }
 
   /**

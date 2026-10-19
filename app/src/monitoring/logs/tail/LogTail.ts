@@ -95,6 +95,8 @@ export class LogTail extends EventEmitter {
       this.intervalId = setInterval(() => {
         this.readNewLines(options);
       }, interval);
+      // 不阻塞进程退出（日志轮询，可放弃）
+      this.intervalId.unref?.();
     }
   }
 

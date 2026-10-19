@@ -1,4 +1,4 @@
-﻿//
+//
 /**
  * 系统监控集成
  * 提供系统级监控功能
@@ -113,6 +113,8 @@ export class SystemMonitor {
     this.intervalId = setInterval(() => {
       this.collect();
     }, this.config.interval);
+    // 不阻塞进程退出（周期性系统观测，可放弃）
+    this.intervalId.unref?.();
   }
 
   /**

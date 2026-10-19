@@ -55,6 +55,37 @@ export const REQUEST_TIMEOUT = B.requestTimeoutMs;
 export const MAX_CACHE_SIZE_BYTES = B.maxCacheSizeBytes;
 
 /**
+ * 交互等待单槽 TTL（毫秒）—— 与 ChatManagerTAORAdapter 的等待上限同口径。
+ *
+ * 用途：`pendingInteractions` 条目的 `expiresAt`（S4 自愈），到点未释放即视为无挂起。
+ *
+ * @kind A
+ */
+export const PENDING_INTERACTION_TTL_MS = 5 * 60 * 1000;
+
+/** 时间换算：1 分钟（毫秒） @kind A */
+export const MS_PER_MINUTE = 60 * 1000;
+/** 时间换算：1 小时（毫秒） @kind A */
+export const MS_PER_HOUR = 60 * MS_PER_MINUTE;
+/** 时间换算：1 天（分钟，用于免打扰窗口跨午夜计算） @kind A */
+export const MINUTES_PER_DAY = 24 * 60;
+
+/**
+ * G-10（2026-10-19）：主动消息**默认冷却**（毫秒）。
+ *
+ * 仅在用户未配置 `proactive.cooldownMs[kind]` 时生效（配置优先）；不写进判定逻辑的隐藏默认。
+ *
+ * @kind A
+ */
+export const PROACTIVE_TASK_RESULT_COOLDOWN_MS = MS_PER_MINUTE;
+/** @kind A */
+export const PROACTIVE_RISK_ALERT_COOLDOWN_MS = 5 * MS_PER_MINUTE;
+/** 提醒默认无冷却（0 毫秒；避免 `_MS` 后缀被单位量级规则误判） @kind A */
+export const PROACTIVE_REMINDER_NO_COOLDOWN = 0;
+/** @kind A */
+export const PROACTIVE_SUGGESTION_COOLDOWN_MS = 30 * MS_PER_MINUTE;
+
+/**
  * 产品默认语言 / 时区（**唯一真源**）。
  *
  * 口径（`dev_docs/20261013/硬编码统一治理方案-20261013.md` §11 `Q-H2`，2026-10-13 裁定）：

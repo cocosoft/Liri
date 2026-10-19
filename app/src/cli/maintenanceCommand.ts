@@ -12,7 +12,7 @@
  * 新增维护命令：在 `MAINTENANCE_COMMANDS` 登记 + `runMaintenanceCommand` 分支即可。
  */
 
-export type MaintenanceCommandName = 'prompt';
+export type MaintenanceCommandName = 'prompt' | 'pairing';
 
 export interface MaintenanceCommand {
   name: MaintenanceCommandName;
@@ -25,7 +25,10 @@ export interface MaintenanceCommand {
 /** 启动器内部旗标：不属于维护命令语义，识别时剔除 */
 const INTERNAL_FLAGS = new Set(['--legacy-repl', '--no-legacy-repl']);
 
-const MAINTENANCE_COMMANDS: readonly MaintenanceCommandName[] = ['prompt'];
+const MAINTENANCE_COMMANDS: readonly MaintenanceCommandName[] = [
+  'prompt',
+  'pairing',
+];
 
 /**
  * 从 argv（已剔除 `--project-dir`）识别维护命令；非维护命令返回 `null`。
@@ -46,12 +49,23 @@ export function parseMaintenanceCommand(
 }
 
 /**
- * 执行维护命令，返回**显式退出码**（0 成功 / 1 未识别子命令）。
- * 动态导入 handler：避免把提示词维护面拉进正常启动路径。
+ * 执行维护命令，返回**显式退出码**（0 成功 / 1 未识别子命令或业务失败）。
+ * 动态导入 handler：避免把维护面拉进正常启动路径。
  */
 export async function runMaintenanceCommand(
   command: MaintenanceCommand
 ): Promise<number> {
+  if (command.name === 'pairing') {
+    const { createPairingHandler } = await import('./handlers/pairingHandler');
+    const handler = createPairingHandler();
+    const handled = await handler.handle(command.subcommand, command.args);
+    if (!handled) {
+      handler.showHelp();
+      return 1;
+    }
+    return 0;
+  }
+
   const { createPromptHandler } = await import('./handlers/promptHandler');
   const handler = createPromptHandler();
   const handled = await handler.handle(command.subcommand, command.args);

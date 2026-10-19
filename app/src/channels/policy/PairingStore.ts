@@ -32,6 +32,8 @@ export class PairingStore {
   private users: Map<string, PairedUser[]> = new Map();
   private pending: Map<string, PendingPairing[]> = new Map();
   private loaded = false;
+  /** 首次加载的完成信号（供 CLI 等新进程显式等待，避免"点火即忘"竞态） */
+  private loadPromise: Promise<void> | null = null;
 
   constructor(storeDir?: string) {
     this.storeDir = storeDir || resolvePairingsDir();
@@ -40,7 +42,7 @@ export class PairingStore {
   }
 
   async isApproved(channelId: string, userId: string): Promise<boolean> {
-    this.ensureLoaded();
+    await this.ready();
     const users = this.users.get(channelId) || [];
     return users.some((u) => u.userId === userId);
   }
@@ -50,7 +52,7 @@ export class PairingStore {
     userId: string,
     timeoutMs: number
   ): Promise<string> {
-    this.ensureLoaded();
+    await this.ready();
     const code = randomBytes(4).toString('hex').slice(0, 8).toUpperCase();
     const pending: PendingPairing = {
       code,
@@ -71,7 +73,7 @@ export class PairingStore {
   }
 
   async approve(channelId: string, userId: string): Promise<boolean> {
-    this.ensureLoaded();
+    await this.ready();
     if (await this.isApproved(channelId, userId)) return true;
     const users = this.users.get(channelId) || [];
     users.push({ userId, approvedAt: Date.now() });
@@ -82,7 +84,7 @@ export class PairingStore {
   }
 
   async approveByCode(channelId: string, code: string): Promise<boolean> {
-    this.ensureLoaded();
+    await this.ready();
     const list = this.pending.get(channelId) || [];
     const idx = list.findIndex(
       (p) => p.code === code && Date.now() < p.expiresAt
@@ -100,7 +102,7 @@ export class PairingStore {
   }
 
   async revoke(channelId: string, userId: string): Promise<boolean> {
-    this.ensureLoaded();
+    await this.ready();
     const users = this.users.get(channelId) || [];
     const filtered = users.filter((u) => u.userId !== userId);
     if (filtered.length === users.length) return false;
@@ -110,10 +112,30 @@ export class PairingStore {
     return true;
   }
 
+  /**
+   * 等待首次加载完成（2026-10-19）。
+   *
+   * 旧实现 `ensureLoaded()` 为“点火即忘”，新进程（尤其 CLI）紧接着调用
+   * `approveByCode` 会读到空 Map ⇒ 误判“无效配对码”。异步方法已改为 `await ready()`；
+   * 同步枚举方法（`listApproved` / `listPending` / `listChannels`）的调用方需先自行等待。
+   */
+  async ready(): Promise<void> {
+    this.ensureLoaded();
+    if (this.loadPromise) await this.loadPromise;
+  }
+
   listApproved(channelId: string): string[] {
     this.ensureLoaded();
     const users = this.users.get(channelId) || [];
     return users.map((u) => u.userId);
+  }
+
+  /** 已出现过配对记录（approved 或 pending）的通道 id（供 CLI 枚举；先 await ready） */
+  listChannels(): string[] {
+    this.ensureLoaded();
+    return Array.from(
+      new Set([...this.users.keys(), ...this.pending.keys()])
+    ).sort();
   }
 
   listPending(
@@ -144,15 +166,17 @@ export class PairingStore {
 
   private ensureLoaded(): void {
     // DEEP-16：首次访问时异步加载，避免在消息处理路径上同步读盘阻塞事件循环
-    if (!this.loaded) {
-      this.loaded = true;
-      this.load().catch((error) =>
-        handleError(error instanceof Error ? error : new Error(String(error)), {
+    if (this.loaded) return;
+    this.loaded = true;
+    this.loadPromise = this.load().catch((error) => {
+      void handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        {
           module: 'channels:policy',
           action: '加载配对数据失败',
-        })
+        }
       );
-    }
+    });
   }
 
   private async load(): Promise<void> {

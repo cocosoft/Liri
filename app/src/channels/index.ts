@@ -59,6 +59,8 @@ export {
   webhookChannelPlugin,
 } from './webhook/index.js';
 export { StickerCache } from './cache/index.js';
+// 2026-10-19：配对存储经模块出口暴露（CLI `Liri pairing` 消费；守 R03-002）
+export { PairingStore, getPairingStore } from './policy/PairingStore.js';
 export {
   ZaloChannel,
   zaloChannel,

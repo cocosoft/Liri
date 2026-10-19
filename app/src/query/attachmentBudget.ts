@@ -15,9 +15,9 @@
  * `attachmentSizes`（仅 `size`）透传给 `CoreAPI.chatStream`（`channels/routing/messageRouter.ts:636-645`）；
  * 本模块的 `estimateAttachmentsTokens()` 在 `preSendContextProtection` 中并入 R16 预留
  * （`chat/orchestrator/preSendContextProtection.ts:209-211`）。
- * ⚠️ **实际是否计入取决于通道是否填 `size`**（G-06 取证）：已核实的 Telegram 语音只填
- * `fileId/fileName/mimeType`（无 `size`），QQ / 飞书下载后**不填 `attachments`**（仅把路径/size
- * 写进正文）⇒ 这三类当前折算为 **0**（缺 `size` 按 0 计，CS06 不臆造）。补齐属通道侧独立切片。
+ * ⚠️ **实际是否计入取决于通道是否填 `size`**（G-06 取证/落地）：
+ * Telegram（语音）、QQ（C2C 附件）、飞书（图片/文件，2026-10-19 起下载完成后再路由）均已回填
+ * `attachments[].size` ⇒ 可计入预留；**未填 `size` 的通道仍按 0 计**（CS06 不臆造）。
  * 两个 `MessageAttachment` 仍属**同名不同物**（通道协议层 vs 会话领域层，归属裁定：
  * 禁合并 / 禁断言互换）⇒ 接线处**只搬 `size`**，不携带 `url`/`data`。
  *

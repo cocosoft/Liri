@@ -38,6 +38,7 @@ import {
 import { handleBudgetReliefAction } from '../bridge/budgetReliefAction';
 
 import { getLogger } from '@modules/monitoring';
+import type { RegisterFileResult } from '@modules/services/file/types';
 import { FEISHU_API_BASE_URL, FEISHU_SITE_URL } from '../constants';
 const logger = getLogger('channels:feishu:FeishuChannel');
 
@@ -599,9 +600,9 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
    * - image: 下载图片注册到 FileRegistry，回退为文本消息
    * - file: 下载文件注册到 FileRegistry，回退为文本消息
    */
-  private buildMessageContext(
+  private async buildMessageContext(
     event: Record<string, unknown>
-  ): MessageContext | null {
+  ): Promise<MessageContext | null> {
     const message = event['message'] as Record<string, unknown> | undefined;
     if (!message) return null;
 
@@ -659,8 +660,10 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
    * buildFileMessageContext — 构建图片/文件消息上下文
    *
    * 下载飞书消息中的文件并注册到 FileRegistry，以文本消息回退形式返回。
+   * G-06（2026-10-19）：**下载完成后才返回上下文**，并把 `size` 填入 `attachments`，
+   * 使通道附件计入预算预留（与 Telegram 语义一致）；代价是首轮路由多等一次下载。
    */
-  private buildFileMessageContext(
+  private async buildFileMessageContext(
     msgType: string,
     rawContent: string,
     ctx: {
@@ -672,7 +675,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       timestamp: number;
       rawPayload: Record<string, unknown>;
     }
-  ): MessageContext | null {
+  ): Promise<MessageContext | null> {
     const baseMessage = {
       channelId: 'feishu' as const,
       senderId: ctx.senderId,
@@ -692,19 +695,33 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
         const imageKey = String(contentObj['image_key'] || '');
         if (!imageKey) return null;
 
-        // 异步下载图片（不阻塞消息处理）
-        this.downloadFeishuImage(imageKey, baseMessage).catch((err) => {
-          handleError(err, {
+        let regResult: RegisterFileResult | undefined;
+        try {
+          regResult = await this.downloadFeishuImage(imageKey, baseMessage);
+        } catch (err) {
+          // 下载失败不阻塞消息处理（保持原行为：仅记录，文本回退）
+          await handleError(err, {
             module: 'channels:feishu',
             action: '飞书图片下载失败',
             context: { imageKey },
           });
-        });
+        }
 
         return {
           ...baseMessage,
           messageType: 'text' as const,
           content: `[图片消息 image_key: ${imageKey}]`,
+          attachments: regResult
+            ? [
+                {
+                  fileId: regResult.fileId,
+                  fileName: regResult.savedName,
+                  ...(typeof regResult.size === 'number'
+                    ? { size: regResult.size }
+                    : {}),
+                },
+              ]
+            : undefined,
         };
       }
 
@@ -715,19 +732,37 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
         );
         if (!fileKey) return null;
 
-        // 异步下载文件（不阻塞消息处理）
-        this.downloadFeishuFile(fileKey, fileName, baseMessage).catch((err) => {
-          handleError(err, {
+        let regResult: RegisterFileResult | undefined;
+        try {
+          regResult = await this.downloadFeishuFile(
+            fileKey,
+            fileName,
+            baseMessage
+          );
+        } catch (err) {
+          // 下载失败不阻塞消息处理（保持原行为：仅记录，文本回退）
+          await handleError(err, {
             module: 'channels:feishu',
             action: '飞书文件下载失败',
             context: { fileKey },
           });
-        });
+        }
 
         return {
           ...baseMessage,
           messageType: 'text' as const,
           content: `[文件消息: ${fileName} (file_key: ${fileKey})]`,
+          attachments: regResult
+            ? [
+                {
+                  fileId: regResult.fileId,
+                  fileName: regResult.savedName,
+                  ...(typeof regResult.size === 'number'
+                    ? { size: regResult.size }
+                    : {}),
+                },
+              ]
+            : undefined,
         };
       }
 
@@ -739,6 +774,8 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
 
   /**
    * downloadFeishuImage — 下载飞书图片并注册到 FileRegistry
+   *
+   * @returns 注册结果；未取到 token / 请求失败 ⇒ `undefined`（由调用方回退为纯文本）
    */
   private async downloadFeishuImage(
     imageKey: string,
@@ -750,9 +787,9 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       conversationId?: string;
       isDirectMessage: boolean;
     }
-  ): Promise<void> {
+  ): Promise<RegisterFileResult | undefined> {
     await this.ensureToken();
-    if (!this.tenantAccessToken) return;
+    if (!this.tenantAccessToken) return undefined;
 
     const resp = await fetch(
       `${FEISHU_API_BASE_URL}/im/v1/images/${imageKey}`,
@@ -769,11 +806,11 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
         imageKey,
         status: resp.status,
       });
-      return;
+      return undefined;
     }
 
     const buffer = Buffer.from(await resp.arrayBuffer());
-    await this.handleInboundFile({
+    return this.handleInboundFile({
       originalName: `feishu_image_${imageKey}.png`,
       content: buffer,
       sourceId: baseMessage.messageId,
@@ -784,6 +821,8 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
 
   /**
    * downloadFeishuFile — 下载飞书文件并注册到 FileRegistry
+   *
+   * @returns 注册结果；未取到 token / 请求失败 ⇒ `undefined`（由调用方回退为纯文本）
    */
   private async downloadFeishuFile(
     fileKey: string,
@@ -796,9 +835,9 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       conversationId?: string;
       isDirectMessage: boolean;
     }
-  ): Promise<void> {
+  ): Promise<RegisterFileResult | undefined> {
     await this.ensureToken();
-    if (!this.tenantAccessToken) return;
+    if (!this.tenantAccessToken) return undefined;
 
     const resp = await fetch(`${FEISHU_API_BASE_URL}/im/v1/files/${fileKey}`, {
       method: 'GET',
@@ -812,11 +851,11 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
         fileKey,
         status: resp.status,
       });
-      return;
+      return undefined;
     }
 
     const buffer = Buffer.from(await resp.arrayBuffer());
-    await this.handleInboundFile({
+    return this.handleInboundFile({
       originalName: fileName,
       content: buffer,
       sourceId: baseMessage.messageId,
@@ -850,7 +889,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     }
 
     try {
-      const ctx = this.buildMessageContext(event);
+      const ctx = await this.buildMessageContext(event);
       if (!ctx) return;
 
       await this.handleIncomingMessage(ctx);

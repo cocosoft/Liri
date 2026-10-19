@@ -107,4 +107,38 @@ describe("NotificationPanel 收件箱化（§五 前端 UI）", () => {
     expect(screen.queryByText("批准")).not.toBeInTheDocument();
     expect(screen.queryByText("拒绝")).not.toBeInTheDocument();
   });
+
+  it("source=proactive ⇒ 使用主动消息卡片并保留其动作", () => {
+    useNotificationStore.setState({
+      panelOpen: true,
+      activeCategory: "all",
+      items: [
+        makeItem({
+          id: "p1",
+          source: "proactive",
+          title: "主动提醒",
+          content: "后台任务已完成",
+          priority: "urgent",
+          actions: [{ label: "查看", action: "view" }],
+        }),
+      ],
+      counts: {
+        total: 0,
+        approval: 0,
+        todo: 0,
+        system: 0,
+        notice: 0,
+        mention: 0,
+      },
+      isLoading: false,
+      hasMore: false,
+      readingAll: false,
+    });
+
+    render(<NotificationPanel />);
+    const card = screen.getByTestId("proactive-message-card");
+    expect(card.getAttribute("data-priority")).toBe("critical");
+    expect(screen.getByText("主动提醒")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看" })).toBeInTheDocument();
+  });
 });

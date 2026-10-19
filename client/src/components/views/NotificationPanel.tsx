@@ -8,6 +8,7 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useNotificationStore } from "../../stores/notificationStore";
+import ProactiveMessageCard from "../proactive/ProactiveMessageCard";
 import type {
   NotificationCategory,
   NotificationItem,
@@ -88,6 +89,33 @@ function NotificationCard({ item }: { item: NotificationItem }) {
   const { t } = useTranslation();
   const markRead = useNotificationStore((s) => s.markRead);
   const dismiss = useNotificationStore((s) => s.dismiss);
+
+  // G-10 P3：主动消息使用专用卡片（读 notifications 表，source='proactive'）
+  if (item.source === "proactive") {
+    const priority =
+      item.priority === "urgent"
+        ? "critical"
+        : item.priority === "low"
+          ? "low"
+          : "normal";
+    return (
+      <ProactiveMessageCard
+        title={item.title}
+        body={item.content}
+        priority={priority}
+        actions={item.actions.map((a, i) => ({
+          id: `${a.action}:${i}`,
+          label: a.label,
+        }))}
+        onAction={(id) => {
+          if (id.startsWith("dismiss:")) dismiss(item.id);
+          else markRead(item.id);
+        }}
+        onDismiss={() => dismiss(item.id)}
+      />
+    );
+  }
+
   const pStyles = priorityStyles(item.priority);
   const isExpired = item.status === "expired";
   const isResolved = item.status === "resolved";

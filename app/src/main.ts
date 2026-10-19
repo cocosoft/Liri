@@ -451,6 +451,8 @@ function checkSingletonInstance(): void {
       gracefulLlamaShutdown(),
       // ① P0（2026-10-10）：退出时回收 MCP stdio 子进程（清理链 + 孤儿兜底）
       gracefulMcpShutdown(),
+      // G-10（2026-10-19）：停止主动消息扫描器并关闭队列数据库
+      gracefulProactiveShutdown(),
       // 优雅退出（2026-09-02 排查"会话中断"补充）：先 flush 全会话事件缓冲
       // （text-batch 落盘），避免 watch 重启/Ctrl+C 中断在途会话留下 torn/open-turn
       import('./chat/ChatManager.js')
@@ -470,6 +472,8 @@ function checkSingletonInstance(): void {
       gracefulLlamaShutdown(),
       // ① P0（2026-10-10）：退出时回收 MCP stdio 子进程（清理链 + 孤儿兜底）
       gracefulMcpShutdown(),
+      // G-10（2026-10-19）：停止主动消息扫描器并关闭队列数据库
+      gracefulProactiveShutdown(),
       // 优雅退出（2026-09-02 排查"会话中断"补充）：先 flush 全会话事件缓冲
       // （text-batch 落盘），避免 watch 重启/Ctrl+C 中断在途会话留下 torn/open-turn
       import('./chat/ChatManager.js')
@@ -527,6 +531,22 @@ async function gracefulMcpShutdown(): Promise<void> {
     await mcpSystem.cleanup();
   } catch (err) {
     // @ignore-catch — MCP 清理失败不阻塞应用退出
+  }
+}
+
+/**
+ * G-10（2026-10-19）：退出时停止主动消息扫描器并关闭队列数据库。
+ *
+ * 扫描器定时器已 `unref`（不阻止退出），这里负责释放 DB 句柄；
+ * dynamic import 避免 main.ts 与 proactive 模块静态耦合；失败不阻塞退出。
+ */
+async function gracefulProactiveShutdown(): Promise<void> {
+  try {
+    const { stopProactiveRuntime } =
+      await import('./proactive/ProactiveRuntime.js');
+    await stopProactiveRuntime();
+  } catch (err) {
+    // @ignore-catch — 主动消息运行时停止失败不阻塞应用退出
   }
 }
 
@@ -1498,6 +1518,17 @@ export async function launch(options: LaunchOptions): Promise<void> {
       const { notificationPersistence } =
         await import('@modules/runtime/NotificationPersistence.js');
       await notificationPersistence().init();
+    });
+
+    // G-10 P4（2026-10-19）：主动消息运行时（队列扫描器 + 通道投递适配器）。
+    // 统一由 feature('PROACTIVE') 控制，**默认关闭**：关闭时不建表、不启动扫描器、
+    // 不投递，行为与接线前完全一致。
+    await wrapInit('ProactiveRuntime', async () => {
+      const { startProactiveRuntime } =
+        await import('./proactive/ProactiveRuntime.js');
+      if (await startProactiveRuntime()) {
+        logger.info('主动消息运行时已启动');
+      }
     });
 
     // T1.5: 等待关键预读取完成

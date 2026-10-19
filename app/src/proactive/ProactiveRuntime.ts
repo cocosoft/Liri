@@ -1,0 +1,78 @@
+// MIT License
+// Copyright (c) 2026 190615273@qq.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+/**
+ * G-10 P4（2026-10-19）：主动消息运行时接线（队列扫描器 + 通道投递适配器）。
+ *
+ * 设计真源：`dev_docs/20261019/proactive-draft.md` §8「配置与开关」。
+ * - 统一由 `feature('PROACTIVE')` 控制，**默认关闭**；
+ * - 关闭时：不建表、不启动扫描器、不投递 —— 行为与接线前**完全一致**；
+ * - 开启时：`ProactivePushQueue.init()` → 加载期扫描一次之后按周期扫描，
+ *   投递统一走 `createProactiveDeliveryAdapter()`（复用 `DeliveryRouter`）；
+ * - 退出时必须调用 `stopProactiveRuntime()`（`stopScanner()` + `close()`）。
+ */
+import { feature } from '@modules/core';
+import { getLogger } from '@modules/monitoring';
+import { ProactivePushQueue } from './ProactivePushQueue';
+import { createProactiveDeliveryAdapter } from './ProactiveDeliveryAdapter';
+
+const logger = getLogger('proactive:runtime');
+
+export interface ProactiveRuntimeOptions {
+  /** 显式开关（缺省读 `feature('PROACTIVE')`；测试可注入） */
+  enabled?: boolean;
+  /** 队列数据库路径（缺省 `resolveDbPath()`；测试可注入） */
+  dbPath?: string;
+}
+
+let activeQueue: ProactivePushQueue | null = null;
+
+/**
+ * 启动主动消息运行时。
+ *
+ * @returns true = 已启动（或已在运行）；false = 开关关闭，未做任何事
+ */
+export async function startProactiveRuntime(
+  options: ProactiveRuntimeOptions = {}
+): Promise<boolean> {
+  const enabled = options.enabled ?? feature('PROACTIVE');
+  if (!enabled) return false;
+  if (activeQueue) return true;
+
+  const queue = new ProactivePushQueue(
+    options.dbPath === undefined ? {} : { dbPath: options.dbPath }
+  );
+  await queue.init();
+  activeQueue = queue;
+  queue.startScanner(createProactiveDeliveryAdapter({ enabled: true }));
+  logger.info('proactive:runtime_started');
+  return true;
+}
+
+/** 停止扫描器并关闭队列数据库（未启动时为空操作） */
+export async function stopProactiveRuntime(): Promise<void> {
+  const queue = activeQueue;
+  if (!queue) return;
+  activeQueue = null;
+  queue.stopScanner();
+  await queue.close();
+  logger.info('proactive:runtime_stopped');
+}

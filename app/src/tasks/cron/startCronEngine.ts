@@ -7,6 +7,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { buildCronDeliveryMessage } from './cronDeliveryMessage';
 
 const logger = getLogger('cron:startEngine');
 
@@ -76,13 +77,19 @@ export async function startCronEngine(): Promise<StartCronEngineResult> {
         sessionKey?: string;
         id?: string;
       },
-      result: { output?: string; finalResponse?: string }
+      result: {
+        output?: string;
+        finalResponse?: string;
+        success?: boolean;
+        error?: string;
+        durationMs?: number;
+      }
     ): Promise<void> => {
-      const content =
-        result.output ||
-        result.finalResponse ||
-        `[定时任务: ${job.name}] 执行完成`;
-      const message = `📋 **${job.name}**\n${content}`;
+      // 2026-10-19 修复：失败结果 output/finalResponse 为空，不能回退成「执行完成」
+      const { title, content: message } = buildCronDeliveryMessage(
+        job.name,
+        result
+      );
 
       // 1) 直接 origin 投递（需同时有 platform 和 chatId）
       if (
@@ -141,7 +148,7 @@ export async function startCronEngine(): Promise<StartCronEngineResult> {
         await notificationPersistence().create({
           category: 'system',
           priority: 'normal',
-          title: `定时任务完成: ${job.name}`,
+          title,
           content: message,
           source: 'cron',
           source_ref: job.id,

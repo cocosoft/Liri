@@ -20,6 +20,8 @@ import type http from 'http';
 import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
 import { handleListCheckpoints } from '../../src/infrastructure/http/handlers/checkpoint-handlers';
 import type { TAORLoop } from '../../src/query/TAORLoop.js';
+import type { PendingInteractionEntry } from '../../src/utils/pendingInteractions.js';
+import { SessionScopedRegistry } from '../../src/utils/SessionScopedRegistry.js';
 
 /** 私有成员访问（同 `taorLoopResumeWiring.test.ts` 的 Testable 写法） */
 type ChatManagerInternals = {
@@ -27,9 +29,9 @@ type ChatManagerInternals = {
     sessionId: string,
     opts?: { maxTurnsMultiplier?: number }
   ): TAORLoop;
-  _taorLoops: Map<string, TAORLoop>;
-  _planDrivenLoops: Map<string, unknown>;
-  _registeredTaorSessions: Map<string, Set<string>>;
+  _taorLoops: SessionScopedRegistry<TAORLoop>;
+  _planDrivenLoops: SessionScopedRegistry<unknown>;
+  _pendingInteractions: SessionScopedRegistry<PendingInteractionEntry>;
   _unregisterAllTaorLoops(): void;
 };
 
@@ -103,16 +105,27 @@ describe('会话级循环对象生命周期（D1/D2/D6）', () => {
     internals(cm)._getOrCreateTAORLoop(sid, { maxTurnsMultiplier: 2 });
     // PDL 的完整构建依赖真实 TAOR 上下文，此处只验证「会话级 Map 被回收」这一契约
     internals(cm)._planDrivenLoops.set(sid, { stub: true });
+    // S1/S2：待处理交互也属会话级缓存 —— 拆除时必须一并回收
+    internals(cm)._pendingInteractions.set(sid, {
+      questionId: 'q_stale',
+      promise: Promise.resolve([]),
+      resolve: () => {},
+      expiresAt: Date.now() + 60_000,
+    });
 
     expect(internals(cm)._taorLoops.size).toBe(2);
-    expect(internals(cm)._registeredTaorSessions.size).toBe(1);
+    expect(internals(cm)._taorLoops.keysOf(sid)).toHaveLength(2);
 
     // 无落盘会话时拆除可能抛错 —— 注销必须是**第一步**（与拆除结果解耦）
     await cm.deleteSession(sid).catch(() => {});
 
+    // S2 不变式：拆除后该会话在三张会话级表中的残留均为 0
     expect(internals(cm)._taorLoops.size).toBe(0);
     expect(internals(cm)._planDrivenLoops.size).toBe(0);
-    expect(internals(cm)._registeredTaorSessions.size).toBe(0);
+    expect(internals(cm)._pendingInteractions.size).toBe(0);
+    expect(internals(cm)._taorLoops.keysOf(sid)).toHaveLength(0);
+    expect(internals(cm)._planDrivenLoops.keysOf(sid)).toHaveLength(0);
+    expect(internals(cm)._pendingInteractions.keysOf(sid)).toHaveLength(0);
     expect(await registryCheckpoints(sid)).toEqual({ checkpoints: [] });
   });
 

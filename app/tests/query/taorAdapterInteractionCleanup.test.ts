@@ -120,4 +120,30 @@ describe('TAOR 交互等待：资源回收（D4/D5）', () => {
     expect(timers.size).toBeGreaterThan(0);
     for (const handle of timers) expect(cleared.has(handle)).toBe(true);
   });
+
+  it('S4：过期的挂起条目不会阻塞新的交互（TTL 自愈）', async () => {
+    const ctx = makeCtx();
+    // 预置一条已过期条目（模拟某条未知路径漏了释放）
+    ctx.pendingInteractions!.set(SID, {
+      questionId: 'q_stale',
+      promise: Promise.resolve([]),
+      resolve: () => {},
+      expiresAt: Date.now() - 1,
+    });
+    const deps = createChatManagerTAORDeps(ctx);
+
+    const running = deps.executeTools(
+      [toolCall],
+      new AbortController().signal
+    ) as Promise<Array<{ error?: string }>>;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const pending = ctx.pendingInteractions?.get(SID);
+    expect(pending).toBeDefined();
+    expect(pending!.questionId).not.toBe('q_stale');
+
+    pending!.resolve(['yes']);
+    const results = await running;
+    expect(results[0]?.error).toBeUndefined();
+  });
 });

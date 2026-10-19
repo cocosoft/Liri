@@ -97,8 +97,11 @@ import {
   awaitAnswersWithHeartbeat,
   emitSuspensionSettled,
   registerInteraction,
+  registerPendingAnswer,
   type AgentInteractionDeps,
 } from './agentInteraction';
+// S4（2026-10-19）：待处理交互单槽的 TTL 自愈（判据处顺带清除过期条目）
+import { hasActivePendingInteraction } from '@modules/utils/pendingInteractions';
 // U-22/S1（2026-10-17）：终止输出/目标原因码外移（行为等价搬迁）
 import {
   mapTerminationToGoalReason,
@@ -894,7 +897,7 @@ export class ReActToolLoop extends ReActLoop<
               multiSelect: false,
               questionType: gateQuestion.type,
             };
-            if (this.ctx.pendingInteractions.has(this.ctx.session.id)) {
+            if (this._hasPendingInteraction()) {
               logger.warn('reactToolLoop:gate_already_pending', {
                 sessionId: this.ctx.session.id,
                 toolName: tc.name,
@@ -902,15 +905,10 @@ export class ReActToolLoop extends ReActLoop<
               recordSkippedTool('已有待处理交互，决策门控被跳过');
               continue;
             }
-            let gateResolve!: (answers: string[]) => void;
-            const gatePromise = new Promise<string[]>(
-              (res) => (gateResolve = res)
+            const gatePromise = registerPendingAnswer(
+              gateQuestion.id,
+              this.interactionDeps()
             );
-            this.ctx.pendingInteractions.set(this.ctx.session.id, {
-              questionId: gateQuestion.id,
-              promise: gatePromise,
-              resolve: gateResolve,
-            });
             logger.info('reactToolLoop:gate_question_emitted', {
               sessionId: this.ctx.session.id,
               toolCallId: tc.id,
@@ -980,7 +978,8 @@ export class ReActToolLoop extends ReActLoop<
               this.input.interactionContext!.userAnswers;
           } else {
             // 同轮多提问防护（v3）：Map 单槽不静默覆盖——构造 error result 保证 tool_end 闭环（避免 tool_start 卡片悬挂）
-            if (this.ctx.pendingInteractions.has(this.ctx.session.id)) {
+            // S4：判据处顺带清除过期条目（漏释放 ⇒ TTL 自愈，不永久死锁）
+            if (this._hasPendingInteraction()) {
               logger.warn('reactToolLoop:interaction_already_pending', {
                 sessionId: this.ctx.session.id,
                 toolName: tc.name,
@@ -1900,7 +1899,17 @@ export class ReActToolLoop extends ReActLoop<
    */
   protected override getCurrentMessageId(): string | undefined {
     return this.streamingLlm.currentMessageId();
-  } /**
+  }
+
+  /** S4：该会话是否仍有未过期的挂起交互（顺带清除过期条目） */
+  private _hasPendingInteraction(): boolean {
+    return hasActivePendingInteraction(
+      this.ctx.pendingInteractions,
+      this.ctx.session.id
+    );
+  }
+
+  /**
    * 注册 pendingInteraction（U-22/S1 外移；实现在 `./agentInteraction`）。
    */
   private _registerInteraction(tc: ToolCallEntry): {

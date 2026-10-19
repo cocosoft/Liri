@@ -226,7 +226,6 @@
     "裸字面量:app/src/plugins/index.ts": 1,
     "裸字面量:app/src/plugins/marketplace/PluginMarketplace.ts": 1,
     "裸字面量:app/src/query/budgetSuspend.ts": 1,
-    "裸字面量:app/src/query/ChatManagerTAORAdapter.ts": 1,
     "裸字面量:app/src/query/ContextFolder.ts": 5,
     "裸字面量:app/src/query/DailyBudgetManager.ts": 3,
     "裸字面量:app/src/query/queryHelpers.ts": 1,

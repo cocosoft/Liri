@@ -136,11 +136,12 @@ export class LiriConfigManager {
           autoBackup: true,
           maxParallelWorkItems: 3,
         },
-        // 2026-10-11（P7 / 阶段 5）：**不再播种** `costControl.*`。
-        // 该整块字段全仓无读者（见 `types.ts#LiriCostControl` 注释）⇒ 播种只会给出
-        // "看似可配、实则不生效"的假旋钮，并与进程全局日预算形成"两处默认 500000"。
-        // 日 Token 预算的生效来源：`costControl.dailyTokenBudget`（ConfigManager）＞
-        // env `LIRI_DAILY_BUDGET_TOKENS` ＞ 常量；运行期经 `PUT /v1/cost/daily-budget`。
+        // 2026-10-11（P7 / 阶段 5）：**不再播种** `costControl.*`（整块零读者 ⇒ 只会给出
+        // "看似可配、实则不生效"的假旋钮，并与进程全局日预算形成"两处默认 500000"）。
+        // 2026-10-19（债四 S7）：观察期结束，按 `§12 Q-U8` 裁定从 `LiriWorkspaceConfig`
+        // 删除该字段（定义见 `types.ts`）。日 Token 预算的生效来源：`costControl.dailyTokenBudget`
+        // （ConfigManager）＞ env `LIRI_DAILY_BUDGET_TOKENS` ＞ 常量；运行期经
+        // `PUT /v1/cost/daily-budget`。
       };
       this.writeJsonFile(configPath, defaultConfig);
     }

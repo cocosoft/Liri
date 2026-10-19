@@ -40,38 +40,13 @@ export interface LiriAIStrategy {
 }
 
 /**
- * 成本控制（工作空间级 `.liri/config.json` 字段）
+ * 工作空间配置（config.json）
  *
- * ⚠️ **整块为死配置（P7 / R16 / 台账 L-14 / Spec `daily-budget-unification.md` §8）**：
- * 全仓**无任何读者** —— `LiriWorkspaceConfigDto`（`runtime/api/workspaceOpsPorts.ts`）投影
- * 只取 `defaultAgents` / `agentModelBindings` / `defaultModel` / `availableModels`，
- * `LiriConfigManager.loadConfig()` 的消费方亦然 ⇒ **改这些字段不产生任何效果**。
- *
- * 生效口径（勿与本接口字段混淆）：
- * - **日 Token 预算**为**进程全局**：持久化配置 `costControl.dailyTokenBudget`（ConfigManager）
- *   ＞ env `LIRI_DAILY_BUDGET_TOKENS` ＞ 常量 `DEFAULT_DAILY_BUDGET_TOKENS`；
- *   运行期经 `PUT /v1/cost/daily-budget` 热更新（`query/DailyBudgetManager`）。
- *   故本接口的 `dailyBudgetTokens`（按**工作空间**）与之语义冲突 ⇒ 保持**不接线**。
- * - **USD 预算**（展示口径）来自 `cost/CostBudgetManager`，经
- *   `GET /v1/workspaces/:id/cost/budget` 对外（响应标注 `currency=USD`）——**与本接口字段无关**。
- *
- * 保留本接口仅为**向后兼容**既有 `.liri/config.json`（多余字段被忽略，属 CD05 的
- * "先标注不删"处置）。
+ * 债四 S7（2026-10-19）：原 `LiriCostControl`（工作空间级 `costControl.*`）整块**零读者**
+ * 且自 2026-10-11 起**已停止播种**，按 `unified-budget-and-accounting.md` §12 `Q-U8` 裁定
+ * 「删除」并走完 CD05 观察期 ⇒ 已删除。既有 `.liri/config.json` 里的多余键由 JSON 解析
+ * 自然忽略，无需类型兼容层。日预算口径（进程全局）见 `query/DailyBudgetManager`。
  */
-export interface LiriCostControl {
-  /** （**未接线**）每日 Token 预算上限 —— 实际来源见上方：进程全局 `costControl.dailyTokenBudget` */
-  dailyBudgetTokens?: number;
-  /** （**未接线**）每月费用预算上限（USD） */
-  monthlyBudgetUSD?: number;
-  /** （**未接线**）告警阈值（0.0-1.0） */
-  alertThreshold?: number;
-  /** （**未接线**）是否强制限制（true = 超过后拒绝执行） */
-  hardLimit?: boolean;
-  /** （**未接线**）高价模型仅在哪些场景使用 */
-  expensiveModelOnlyFor?: string[];
-}
-
-/** 工作空间配置（config.json） */
 export interface LiriWorkspaceConfig {
   /** 工作空间名称 */
   name?: string;
@@ -81,8 +56,6 @@ export interface LiriWorkspaceConfig {
   models?: LiriModelPreference;
   /** AI 策略 */
   aiStrategy?: LiriAIStrategy;
-  /** 成本控制 */
-  costControl?: LiriCostControl;
   /** 默认 Swarm Agent 列表 */
   defaultAgents?: Array<{
     id?: string;

@@ -21,6 +21,13 @@ import type {
   QuestionOption,
 } from '@modules/runtime/api/CoreAPI.js';
 import { extractTodoData } from '@modules/chat';
+import { withDeadline } from '@modules/utils/withDeadline';
+import { PENDING_INTERACTION_TTL_MS } from '@modules/constants';
+import {
+  createPendingInteractionEntry,
+  hasActivePendingInteraction,
+  type PendingInteractionEntry,
+} from '@modules/utils/pendingInteractions';
 
 const logger = getLogger('query:chatManagerTAORAdapter');
 
@@ -95,14 +102,7 @@ export interface ChatManagerTAORContext {
   };
 
   /** 待处理交互 Map（v0.5 新增：requiresUserInteraction 工具等待用户答案） */
-  pendingInteractions?: Map<
-    string,
-    {
-      questionId: string;
-      promise: Promise<string[]>;
-      resolve: (answers: string[]) => void;
-    }
-  >;
+  pendingInteractions?: Map<string, PendingInteractionEntry>;
 
   /** 进度通知回调 */
   onProgress?: (progress: {
@@ -303,8 +303,11 @@ export function createChatManagerTAORDeps(
         // 非流式路径：检测到交互工具时，发送 question chunk 并等待用户答案
         const toolObj = ctx.toolRegistry?.getTool(tc.name);
         if (toolObj?.requiresUserInteraction?.()) {
-          // 同轮多提问防护（对齐 ReActToolLoop）：Map 单槽不静默覆盖
-          if (ctx.pendingInteractions?.has(ctx.sessionId)) {
+          // 同轮多提问防护（对齐 ReActToolLoop）：Map 单槽不静默覆盖。
+          // S4（2026-10-19）：判据处顺带清除过期条目 ⇒ 漏释放时 TTL 自愈，不永久死锁。
+          if (
+            hasActivePendingInteraction(ctx.pendingInteractions, ctx.sessionId)
+          ) {
             logger.warn('taorAdapter:interaction_already_pending', {
               sessionId: ctx.sessionId,
               toolName: tc.name,
@@ -335,18 +338,19 @@ export function createChatManagerTAORDeps(
           const answerPromise = new Promise<string[]>((res) => {
             resolveAnswers = res;
           });
-          ctx.pendingInteractions?.set(ctx.sessionId, {
-            questionId,
-            promise: answerPromise,
-            resolve: resolveAnswers,
-          });
+          ctx.pendingInteractions?.set(
+            ctx.sessionId,
+            createPendingInteractionEntry({
+              questionId,
+              promise: answerPromise,
+              resolve: resolveAnswers,
+            })
+          );
 
           // 发送 question chunk（通过 onStreamChunk 透传给前端）
           //
           // 2026-10-19（源码排查 D4/D5）：`try` 必须**覆盖 question 下发**——
           // 前端通道写入抛错时也要走到 `finally` 释放单槽（否则该会话交互能力永久死锁）。
-          let timer: ReturnType<typeof setTimeout> | undefined;
-          let abortHandler: (() => void) | undefined;
           try {
             logger.info('taorAdapter:interaction_question_emitted', {
               sessionId: ctx.sessionId,
@@ -363,51 +367,26 @@ export function createChatManagerTAORDeps(
 
             // 等待用户答案（带超时兜底，默认 5 分钟）
             //
-            // 2026-10-19（源码排查 D4/D5）：`Promise.race` 的**所有结局**都必须回收三样东西：
-            // ① 5 分钟超时定时器；② `combinedSignal` 上的 abort 监听器；③ `pendingInteractions`
-            // 单槽。原实现只在 race 正常返回后才 delete，且 timer/监听器完全未回收 ⇒
-            // 用户秒答后 timer 仍挂 5 分钟（长会话 timer 堆积）；且 `onStreamChunk` 抛错时
-            // 预留的单槽永不释放 ⇒ 该会话后续交互工具被永久拒绝（功能级死锁）。
-            const INTERACTION_TIMEOUT_MS = 5 * 60 * 1000;
-            const timeoutPromise = new Promise<'timeout'>((res) => {
-              timer = setTimeout(
-                res,
-                INTERACTION_TIMEOUT_MS,
-                'timeout' as const
-              );
-            });
-            const abortPromise = new Promise<'abort'>((res) => {
-              if (combinedSignal.aborted) {
-                res('abort');
-                return;
-              }
-              abortHandler = () => res('abort');
-              combinedSignal.addEventListener('abort', abortHandler, {
-                once: true,
-              });
+            // 2026-10-19（源码排查 S3）：统一走 `withDeadline` —— 定时器与 abort 监听器
+            // 由单一实现回收（原先手写 race 的回收逻辑分散在此处，任何分支遗漏都会泄漏）。
+            // 单槽 `pendingInteractions` 仍由下方 `finally` 释放（含 question 下发抛错路径）。
+            const outcome = await withDeadline(answerPromise, {
+              timeoutMs: PENDING_INTERACTION_TTL_MS,
+              signal: combinedSignal,
             });
 
-            const winner = await Promise.race([
-              answerPromise.then((a) => ({
-                kind: 'answer' as const,
-                value: a,
-              })),
-              timeoutPromise.then((v) => ({ kind: v as 'timeout' })),
-              abortPromise.then((v) => ({ kind: v as 'abort' })),
-            ]);
-
-            if (winner.kind === 'answer') {
+            if (outcome.kind === 'settled') {
               // 注入用户答案到工具参数
               (tc.arguments as Record<string, unknown>)._userAnswers =
-                winner.value;
+                outcome.value;
               logger.info('taorAdapter:interaction_resolved', {
                 sessionId: ctx.sessionId,
                 questionId,
-                answerCount: winner.value.length,
+                answerCount: outcome.value.length,
               });
             } else {
               // 超时或中止：跳过工具执行
-              const reason = winner.kind === 'timeout' ? '超时' : '中止';
+              const reason = outcome.kind === 'timeout' ? '超时' : '中止';
               logger.warn('taorAdapter:interaction_failed', {
                 sessionId: ctx.sessionId,
                 questionId,
@@ -425,11 +404,8 @@ export function createChatManagerTAORDeps(
               continue;
             }
           } finally {
-            if (timer) clearTimeout(timer);
-            if (abortHandler) {
-              combinedSignal.removeEventListener('abort', abortHandler);
-            }
-            // 无论正常返回 / 提前 continue / 任一环节抛错，都释放单槽（防永久死锁）
+            // 定时器 / abort 监听器已由 `withDeadline` 回收；
+            // 这里只负责单槽：无论正常返回 / 提前 continue / 任一环节抛错都释放（防永久死锁）。
             ctx.pendingInteractions?.delete(ctx.sessionId);
           }
         }

@@ -24,22 +24,17 @@ import type {
   SendMessageOptions,
 } from '@modules/session/types/message.js';
 import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
+// S4（2026-10-19）：条目形状收敛到单一真源（含 `expiresAt`）
+import type { PendingInteractionEntry } from '@modules/utils/pendingInteractions';
 
 const logger = getLogger('chat:manager');
-
-/** 待处理交互条目（与 `ToolLoopContext.pendingInteractions` 同形） */
-export interface PendingInteraction {
-  questionId: string;
-  promise: Promise<string[]>;
-  resolve: (answers: string[]) => void;
-}
 
 export interface TaorContextDeps {
   /** 工具可见性（未知工具 ⇒ undefined） */
   getToolInteraction: (
     name: string
   ) => { requiresUserInteraction: () => boolean } | undefined;
-  pendingInteractions: Map<string, PendingInteraction>;
+  pendingInteractions: Map<string, PendingInteractionEntry>;
   getClientForModel: (model?: string) => {
     sendMessage: (
       messages: ChatMessage[],

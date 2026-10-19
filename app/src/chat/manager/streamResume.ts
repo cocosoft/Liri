@@ -37,7 +37,7 @@ import { stripThinkResponseTags } from '../services/MessageContextPipeline';
 import { repairImageUrls } from '../services/ChatHelper';
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import type { MessageService } from '../services/MessageService.js';
-import type { PendingInteractionEntry } from './rollback';
+import type { PendingInteractionEntry } from '@modules/utils/pendingInteractions';
 
 const logger = getLogger('chat:manager');
 

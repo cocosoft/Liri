@@ -25,19 +25,17 @@ import type {
 import type { LiriEvent } from '@modules/session/types/events';
 
 import { SUSPENSION_SETTLED_STATUS_TYPE } from './services/pendingSuspensions';
+import { withDeadline } from '@modules/utils/withDeadline';
+import {
+  createPendingInteractionEntry,
+  type PendingInteractionEntry,
+} from '@modules/utils/pendingInteractions';
 
 const logger = getLogger('chat:reactToolLoop');
 
 /** 本地 sleep（与原文件同实现；避免为 1 行工具函数引入跨模块耦合） */
 const sleep = (ms: number): Promise<void> =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-/** `pendingInteractions` 的条目形状（与 `ToolLoopContext` 声明一致） */
-export interface PendingInteractionEntry {
-  questionId: string;
-  promise: Promise<string[]>;
-  resolve: (answers: string[]) => void;
-}
 
 export interface AgentInteractionDeps {
   sessionId: string;
@@ -51,6 +49,27 @@ export interface AgentInteractionDeps {
   maxWaitMs: number;
   /** 事件写入入口（观测面缺失时如实不落，不伪造） */
   appendStreamEvent?: (sessionId: string, event: LiriEvent) => Promise<unknown>;
+}
+
+/**
+ * 仅登记「待处理交互」并返回答案 promise（自备 questionData 的路径复用，如决策门控）。
+ *
+ * S4（2026-10-19）：条目带 `expiresAt`（与等待上限同口径）⇒ 判据处可自愈。
+ */
+export function registerPendingAnswer(
+  questionId: string,
+  deps: AgentInteractionDeps
+): Promise<string[]> {
+  let resolve!: (answers: string[]) => void;
+  const promise = new Promise<string[]>((res) => (resolve = res));
+  deps.pendingInteractions.set(
+    deps.sessionId,
+    createPendingInteractionEntry(
+      { questionId, promise, resolve },
+      deps.maxWaitMs
+    )
+  );
+  return promise;
 }
 
 /**
@@ -73,13 +92,7 @@ export function registerInteraction(
     questionType:
       (args.questionType as QuestionData['questionType']) ?? 'choice',
   };
-  let resolve!: (answers: string[]) => void;
-  const promise = new Promise<string[]>((res) => (resolve = res));
-  deps.pendingInteractions.set(deps.sessionId, {
-    questionId,
-    promise,
-    resolve,
-  });
+  const promise = registerPendingAnswer(questionId, deps);
   logger.info('reactToolLoop:interaction_registered', {
     sessionId: deps.sessionId,
     questionId,
@@ -100,21 +113,12 @@ export async function* awaitAnswersWithHeartbeat(
   deps: AgentInteractionDeps
 ): AsyncGenerator<ReActEvent, string[] | undefined> {
   const sig = deps.abortSignal;
-  const onAbort = () => abortResolve('abort');
-  let abortResolve!: (v: 'abort') => void;
-  const abortPromise = new Promise<'abort'>((res) => {
-    abortResolve = res;
-    // v3：sig undefined 时禁用 abort 兜底（超时兜底仍生效），不再静默挂起
-    if (!sig) return;
-    if (sig.aborted) {
-      res('abort');
-      return;
-    }
-    sig.addEventListener('abort', onAbort, { once: true });
+  // S3（2026-10-19）：超时 + 中止统一走 `withDeadline` —— 定时器与 abort 监听器由
+  // 单一实现回收（原实现 `setTimeout` 句柄未保存，等待结束后定时器仍挂到 maxWaitMs）。
+  const deadline = withDeadline(promise, {
+    timeoutMs: deps.maxWaitMs,
+    signal: sig,
   });
-  const timeoutPromise = new Promise<'timeout'>((res) =>
-    setTimeout(res, deps.maxWaitMs, 'timeout' as const)
-  );
   try {
     const waitStart = Date.now();
     logger.info('reactToolLoop:interaction_wait_start', {
@@ -125,50 +129,51 @@ export async function* awaitAnswersWithHeartbeat(
     });
     while (true) {
       const winner = await Promise.race([
-        promise.then((a) => ({ kind: 'answer' as const, value: a })),
+        deadline.then((outcome) => ({ kind: 'deadline' as const, outcome })),
         sleep(deps.heartbeatMs).then(() => ({
           kind: 'hb' as const,
         })),
-        abortPromise.then((v) => ({ kind: v as 'abort' })),
-        timeoutPromise.then((v) => ({ kind: v as 'timeout' })),
       ]);
-      if (winner.kind === 'answer') {
+      if (winner.kind === 'hb') {
+        // 心跳事件（高频：仅 debug，避免刷屏；配合 wait_start/resolved 可还原完整等待曲线）
+        logger.debug('reactToolLoop:interaction_heartbeat', {
+          sessionId: deps.sessionId,
+          questionId,
+          waitMs: Date.now() - waitStart,
+        });
+        yield { type: 'question_waiting' }; // 心跳事件
+        continue;
+      }
+
+      const outcome = winner.outcome;
+      if (outcome.kind === 'settled') {
         logger.info('reactToolLoop:interaction_resolved', {
           sessionId: deps.sessionId,
           questionId,
-          answerCount: winner.value.length,
+          answerCount: outcome.value.length,
           waitMs: Date.now() - waitStart,
         });
-        return winner.value;
+        return outcome.value;
       }
-      if (winner.kind === 'abort' || winner.kind === 'timeout') {
-        logger.warn('reactToolLoop:interaction_stopped', {
-          sessionId: deps.sessionId,
-          questionId,
-          reason: winner.kind,
-          waitMs: Date.now() - waitStart,
-        });
-        const content =
-          winner.kind === 'timeout'
-            ? '本次提问等待已超时（未获回答），已按 fail-closed 结算。'
-            : '本次提问等待被中止，已按 fail-closed 结算。';
-        // A1 T4：落盘结算标记事件（持久化 + 幂等，重载后回放可见）
-        await emitSuspensionSettled(questionId, content, deps);
-        // A1 T5：同一结算**实时**下发 status chunk（前端即时可见，无需重载会话）
-        yield { type: 'suspension_settled', content };
-        return undefined;
-      }
-      // 心跳事件（高频：仅 debug，避免刷屏；配合 wait_start/resolved 可还原完整等待曲线）
-      logger.debug('reactToolLoop:interaction_heartbeat', {
+
+      logger.warn('reactToolLoop:interaction_stopped', {
         sessionId: deps.sessionId,
         questionId,
+        reason: outcome.kind,
         waitMs: Date.now() - waitStart,
       });
-      yield { type: 'question_waiting' }; // 心跳事件
+      const content =
+        outcome.kind === 'timeout'
+          ? '本次提问等待已超时（未获回答），已按 fail-closed 结算。'
+          : '本次提问等待被中止，已按 fail-closed 结算。';
+      // A1 T4：落盘结算标记事件（持久化 + 幂等，重载后回放可见）
+      await emitSuspensionSettled(questionId, content, deps);
+      // A1 T5：同一结算**实时**下发 status chunk（前端即时可见，无需重载会话）
+      yield { type: 'suspension_settled', content };
+      return undefined;
     }
   } finally {
-    // v3：显式移除 abort 监听器，避免跨轮多次提问累积
-    if (sig) sig.removeEventListener('abort', onAbort);
+    // abort 监听器已由 `withDeadline` 在竞速结算时移除（S3，2026-10-19）
     // A1 T4（2026-10-05）：等待结束即**结算** —— 移除 entry（超时/中止后晚到回答走
     // `answeredAfterExpiry` 兜底落盘，不复活已完成的任务）。
     // ⚠️ 原 `_interactionTimedOut` 判据**从未被置 true**（死分支），声称的"timeout 保留 entry

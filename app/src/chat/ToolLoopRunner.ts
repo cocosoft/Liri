@@ -40,6 +40,7 @@ import type { Message } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolCallEventDetail } from '@modules/session/types/message.js';
 import type { UnifiedTokenTracker } from '@modules/tokenBudget';
+import type { PendingInteractionEntry } from '@modules/utils/pendingInteractions';
 
 /* ===================================================================
  *  ToolLoopContext — 工具循环所需的全部外部依赖
@@ -81,15 +82,8 @@ export interface ToolLoopContext {
     detail?: ToolCallEventDetail
   ) => void;
 
-  // 交互
-  pendingInteractions: Map<
-    string,
-    {
-      questionId: string;
-      promise: Promise<string[]>;
-      resolve: (answers: string[]) => void;
-    }
-  >;
+  // 交互（S4：条目形状与 TTL 判据收敛到 `@modules/utils/pendingInteractions`）
+  pendingInteractions: Map<string, PendingInteractionEntry>;
 
   // 循环检测
   loopDetector: {

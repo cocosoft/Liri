@@ -1520,6 +1520,30 @@ export async function launch(options: LaunchOptions): Promise<void> {
       await notificationPersistence().init();
     });
 
+    // 2026-10-19：预算档位跨越（80% / 100%）→ 通知中心。
+    // 既有的 `alert:triggered` 最终发到 `channel:send`，但全仓无订阅者 ⇒ 用户侧只剩日志；
+    // 这里安装通知端口（未安装时预算侧不产生任何副作用）。
+    await wrapInit('BudgetAlertNotifications', async () => {
+      const { notificationPersistence } =
+        await import('@modules/runtime/NotificationPersistence.js');
+      const { setBudgetAlertNotifier } = await import('@modules/query');
+      setBudgetAlertNotifier(async (alert) => {
+        const existing = await notificationPersistence().findBySourceRef(
+          'budget',
+          alert.sourceRef
+        );
+        if (existing) return;
+        await notificationPersistence().create({
+          category: 'system',
+          priority: alert.mode === 'locked' ? 'urgent' : 'normal',
+          title: alert.title,
+          content: alert.content,
+          source: 'budget',
+          source_ref: alert.sourceRef,
+        });
+      });
+    });
+
     // G-10 P4（2026-10-19）：主动消息运行时（队列扫描器 + 通道投递适配器）。
     // 统一由 feature('PROACTIVE') 控制，**默认关闭**：关闭时不建表、不启动扫描器、
     // 不投递，行为与接线前完全一致。

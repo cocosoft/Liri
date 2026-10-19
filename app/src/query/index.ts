@@ -310,6 +310,7 @@ export {
   initDailyBudget,
   recordDailyBudgetFromUsage,
   resolveDailyBudgetConfig,
+  setBudgetAlertNotifier,
   DAILY_BUDGET_CONFIG_KEY,
   DAILY_BUDGET_USD_CONFIG_KEY,
   isValidDailyLimit,
@@ -320,6 +321,8 @@ export {
 export type {
   DailyBudgetConfig,
   DailyBudgetConfigValue,
+  BudgetAlertEvent,
+  BudgetAlertNotifier,
 } from './DailyBudgetManager.js';
 // I4（最终整支评审）：`pendingToolCalls` 的推导与**续跑提示**生成对外（经模块出口，守 R03-002）。
 export {

@@ -177,6 +177,32 @@ const DEFAULT_CONFIG: DailyBudgetConfig = {
   diminishingTurnsThreshold: LOOP_DIMINISH_TURNS_THRESHOLD,
 };
 
+/** 预算档位跨越 → 通知端口事件（2026-10-19） */
+export interface BudgetAlertEvent {
+  mode: 'report_only' | 'locked';
+  /** 幂等键：`budget:<date>:<mode>`（同日同档只通知一次） */
+  sourceRef: string;
+  title: string;
+  content: string;
+}
+
+export type BudgetAlertNotifier = (
+  event: BudgetAlertEvent
+) => void | Promise<void>;
+
+let budgetAlertNotifier: BudgetAlertNotifier | null = null;
+
+/**
+ * 安装预算告警通知端口（启动接线；默认未安装 ⇒ 不产生任何通知副作用）。
+ *
+ * `null` 用于卸载（测试隔离）。
+ */
+export function setBudgetAlertNotifier(
+  notifier: BudgetAlertNotifier | null
+): void {
+  budgetAlertNotifier = notifier;
+}
+
 export class DailyBudgetManager {
   private config: DailyBudgetConfig;
   private todayUsed: number = 0;
@@ -463,12 +489,64 @@ export class DailyBudgetManager {
             : `日 Token 预算已用尽（已用 ${state.todayUsed} / 上限 ${state.dailyLimit}），后续模型调用将被拒绝`,
         timestamp: Date.now(),
       });
+      this._emitBudgetAlert(state);
       return;
     }
     logger.warn(
       `dailyBudget:mode — 日${unitLabel}预算进入告警区（report_only）`,
       payload
     );
+    this._emitBudgetAlert(state);
+  }
+
+  /**
+   * 2026-10-19：档位跨越 → 外部通知端口。
+   *
+   * `locked` 的既有下游 `alert:triggered` 最终发到 `channel:send`（全仓无订阅者）⇒ 用户侧
+   * 只剩日志；这里补一条通知中心条目，使 80%/100% 档**可见**。
+   *
+   * 门禁：未安装端口 / 未接管持久化（`enablePersistence`）⇒ 无任何副作用
+   * （测试与临时实例不会向真实数据目录写通知）。
+   */
+  private _emitBudgetAlert(state: DailyBudgetState): void {
+    if (!budgetAlertNotifier || !this._persistenceActive) return;
+    if (state.mode !== 'locked' && state.mode !== 'report_only') return;
+
+    const unitLabel = state.unit === 'usd' ? '金额' : 'Token';
+    const percent = Math.round(state.percentUsed * 100);
+    const usedText =
+      state.unit === 'usd'
+        ? `${formatBudget(state.used, 'usd')} / ${formatBudget(
+            state.dailyLimit,
+            'usd'
+          )}`
+        : `${state.todayUsed} / ${state.dailyLimit}`;
+    const event: BudgetAlertEvent = {
+      mode: state.mode,
+      sourceRef: `budget:${this.todayDate}:${state.mode}`,
+      title:
+        state.mode === 'locked'
+          ? `日${unitLabel}预算已用尽`
+          : `日${unitLabel}预算进入告警区`,
+      content:
+        state.mode === 'locked'
+          ? `已用 ${usedText}（${percent}%），后续模型调用将被拒绝。`
+          : `已用 ${usedText}（${percent}%），接近上限。`,
+    };
+
+    try {
+      void Promise.resolve(budgetAlertNotifier(event)).catch((err) => {
+        logger.warn('dailyBudget:alert_notify_failed', {
+          mode: event.mode,
+          error: String(err),
+        });
+      });
+    } catch (err) {
+      logger.warn('dailyBudget:alert_notify_failed', {
+        mode: event.mode,
+        error: String(err),
+      });
+    }
   }
 
   /**

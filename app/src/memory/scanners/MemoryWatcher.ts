@@ -190,6 +190,8 @@ export class MemoryWatcher {
     this.pollTimer = setInterval(async () => {
       await this.pollForChanges();
     }, this.config.pollIntervalMs);
+    // 不阻塞进程退出（周期性记忆轮询，可放弃）
+    this.pollTimer.unref?.();
   }
 
   /**

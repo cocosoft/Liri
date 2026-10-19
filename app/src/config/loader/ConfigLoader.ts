@@ -311,6 +311,8 @@ export class ConfigLoader implements IConfigLoader {
           });
         }
       }, 2000);
+      // 不阻塞进程退出（配置文件轮询，可放弃）
+      interval.unref?.();
 
       this.watchers.set(key, { source, callback, interval });
     }

@@ -382,6 +382,8 @@ export class SecurityPatternUpdater extends EventEmitter {
         }
       }
     }, this.config.autoUpdateIntervalMs);
+    // 不阻塞进程退出（周期性规则更新，可放弃）
+    this.updateTimer.unref?.();
   }
 
   /**

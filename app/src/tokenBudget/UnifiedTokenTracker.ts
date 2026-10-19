@@ -519,6 +519,8 @@ export class UnifiedTokenTracker {
           });
         }
       }, 1500);
+      // 不阻塞进程退出（流式水位检查，可放弃）
+      state.checkInterval.unref?.();
     } catch (err) {
       handleError(err, {
         module: 'tokenBudget',

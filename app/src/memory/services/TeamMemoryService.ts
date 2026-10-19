@@ -271,6 +271,8 @@ export class TeamMemoryService {
     this.syncIntervalId = setInterval(async () => {
       await this.sync();
     }, this.config.syncInterval * 1000);
+    // 不阻塞进程退出（周期性团队记忆同步，可放弃）
+    this.syncIntervalId.unref?.();
   }
 
   /**

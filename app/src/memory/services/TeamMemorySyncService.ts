@@ -150,6 +150,8 @@ export class TeamMemorySyncService {
         void handleError(error, { module: 'memory:sync', action: 'auto_sync' });
       });
     }, this.config.syncInterval);
+    // 不阻塞进程退出（周期性团队记忆同步，可放弃）
+    this.syncTimer.unref?.();
 
     logger.info(
       `TeamMemorySyncService started with interval ${this.config.syncInterval}ms`

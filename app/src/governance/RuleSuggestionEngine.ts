@@ -144,6 +144,8 @@ export class RuleSuggestionEngine extends EventEmitter {
         remaining: this.eventBuffer.length,
       });
     }, 60000);
+    // 不阻塞进程退出（周期性缓冲清理，可放弃）
+    this.cleanupTimer.unref?.();
   }
 
   /**

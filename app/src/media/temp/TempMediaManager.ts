@@ -215,6 +215,8 @@ export class TempMediaManager {
       },
       Math.min(this.config.maxAge, 30 * 60 * 1000)
     );
+    // 不阻塞进程退出（周期性临时文件清理，可放弃）
+    this.timer.unref?.();
   }
 }
 

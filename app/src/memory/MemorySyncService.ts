@@ -183,6 +183,8 @@ export class MemorySyncService {
         // @ignore-catch — 后台定时同步失败不阻塞主流程
         .catch(() => {});
     }, this.config.prefetchIntervalMs);
+    // 不阻塞进程退出（周期性记忆同步，可放弃）
+    this.syncTimer.unref?.();
   }
 
   /**

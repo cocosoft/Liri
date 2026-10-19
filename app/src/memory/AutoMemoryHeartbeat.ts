@@ -64,6 +64,8 @@ export class AutoMemoryHeartbeat {
     if (!this.config.enabled) return;
     this.stop();
     this.timer = setInterval(() => this.beat(), this.config.intervalMs);
+    // 不阻塞进程退出（周期性记忆维护，可放弃）
+    this.timer.unref?.();
     logger.info('heartbeat:started', { intervalMs: this.config.intervalMs });
   }
 

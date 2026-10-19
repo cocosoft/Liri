@@ -101,6 +101,8 @@ export class MemoryPrefetchQueue {
       // @ignore-catch — 定时器内异步预取，fire-and-forget非关键路径
       this.processNext().catch(() => {});
     }, this.config.prefetchIntervalMs);
+    // 不阻塞进程退出（周期性预取，可放弃）
+    this.timer.unref?.();
     // @ignore-catch — 异步预取处理，fire-and-forget非关键路径
     this.processNext().catch(() => {});
   }

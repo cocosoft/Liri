@@ -1,4 +1,4 @@
-﻿import { handleError } from '@modules/error';
+import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('chronos\heartbeat\HeartbeatMonitor');
@@ -61,6 +61,8 @@ export class HeartbeatMonitor {
     this.checkInterval = setInterval(() => {
       this.checkHeartbeats();
     }, this.config.interval);
+    // 不阻塞进程退出（周期性心跳观测，可放弃）
+    this.checkInterval.unref?.();
   }
 
   /**

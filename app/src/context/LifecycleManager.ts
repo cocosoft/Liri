@@ -219,6 +219,8 @@ export class LifecycleManager {
     this.cleanupTimer = setInterval(() => {
       this.cleanup();
     }, intervalMs);
+    // 不阻塞进程退出（周期性清理，可放弃）
+    this.cleanupTimer.unref?.();
   }
 
   stopCleanupTimer(): void {

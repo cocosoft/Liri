@@ -192,7 +192,7 @@
 | `app/src/memory/memdir/MemoryIntegrationService.ts` | 保留定时器句柄/幂等/`unref`/`stop()/dispose()`；新增 `initialized` 早退（initialize 幂等） |
 | `app/src/memory/memdir/index.ts` | 工厂 JSDoc 补生命周期契约（调用方必须 `dispose()`） |
 | `scripts/lint-unref.ts` | 扩展类作用域判据（句柄 / 清理入口 / unref）+ 文件级基线棘轮；新增 `--update-baseline`；修正 `.unref?.()` 与同名方法声明的误判 |
-| `.trae/architecture/timer-unref-baseline.json` | 新增：108 处实例级存量违规 / 95 个文件（只拦新增） |
+| `.trae/architecture/timer-unref-baseline.json` | 基线：108 → **39** 处实例级存量违规 / 95 → **35** 个文件（六批收敛后棘轮下调） |
 | `app/tests/monitoring/timerLifecycle.test.ts` | 新增 4 条生命周期用例 |
 | `app/tests/chat/streamMessageLifecycleWriteHint.test.ts` | 新增 4 条交付提示行为用例（条件式文案 / 按轮去重 / 新轮重现 / 失败不提示） |
 
@@ -200,7 +200,7 @@
 
 - `cd app && bun run typecheck`：通过（含 `tsconfig.root-scripts.json`）
 - `cd app && bunx eslint <changed files>`：0 error
-- `cd app && bun run lint:unref`：通过（类作用域违规 108 均在基线内）
+- `cd app && bun run lint:unref`：通过（类作用域违规 39 均在基线内）
 - 基线移除反证：临时移除基线后门禁 `exit 1`，恢复后 `exit 0`（棘轮生效）
 - `bun test tests/monitoring --timeout 120000`：42 pass / 0 fail
 - `bun test tests/monitoring/timerLifecycle.test.ts`：6 pass / 0 fail（含构造函数零 I/O、outputDir 切换用例），测试进程自然退出
@@ -261,3 +261,89 @@
 | D. 后台执行 + 重新附着（detached execution） | 高 | 高（执行生命周期/结算/重复副作用，需新 spec） | **本期不立项** |
 
 **建议**：采用 A；开发期长任务需要改源码时用 B（现有 `bun run start`，无需新增脚本）。C 需要"短断开"的真实频次证据；D 属架构改造，另立 spec 评估。
+
+### 8.6 存量收敛第一批（结构型泄漏，2026-10-19）
+
+优先处理 `no-handle` / `no-cleanup` 的结构型违规（共 12 处 / 8 文件）：
+
+| 文件 | 处理 |
+|---|---|
+| `governance/EnhancedGovernanceManager.ts` | 2 个监控 interval 存入 `monitoringIntervals` + `unref`；`destroy()` 清空 Map |
+| `keybindings/EnhancedKeybindingsManager.ts` | 3 个监控 interval 同上 |
+| `sandbox/EnhancedSandboxManager.ts` | 2 个监控 interval 同上 |
+| `chat/services/PerformanceOptimizationService.ts` | `cacheCleanupTimer` 字段 + `unref` + `stopCacheCleanup()/dispose()` |
+| `config/enterprise/audit/EnterpriseAuditService.ts` | `retentionTimer` 字段 + `unref` + `stopRetentionSweeper()/dispose()` |
+| `memory/memdir/MemoryCommands.ts` | `autoDreamTimer` 字段 + `unref` + `stopAutoDream()/dispose()` |
+| `runtime/InboxManager.ts` | 补 `stopExpireScheduler()/dispose()` |
+| `trace-recording/live/LiveViewServer.ts` | keepalive 句柄命名 + `unref`（close 时仍 clearInterval） |
+
+结果：实例级违规 **108 → 97**（文件 95 → 88）；`lint:unref` 通过，基线已棘轮下调。
+
+### 8.7 存量收敛第二批（可放弃的周期性维护，2026-10-19）
+
+为以下 11 处定时器补 `unref?.()`（均已有句柄与清理入口，仅缺“不阻塞退出”）：
+
+`cache/CacheService` · `cache/CacheSystem` · `cache/PersistedCacheService` · `cache/strategy/CacheStrategyManager` ·
+`channels/cache/MediaCache` · `chronos/service/ExecutionHistoryService` · `chronos/service/TaskExpirationService` ·
+`core/utils/Performance`（2 处） · `core/utils/ResourcePool` · `cost/CostMetricsBridge`
+
+同时修正 `lint-unref` 的 `unref` 识别：在 `setInterval(...)` 调用结尾后最多 800 字符内（且不跨入下一个 `setInterval`）
+查找 `.unref`，消除“回调较长导致 unref 落在 12 行窗口外”的误报（ContextEngine / infrastructure-diagnostics 因此转为合规）。
+
+结果：实例级违规 **97 → 77**（文件 88 → 69）；基线已棘轮下调至 77 / 69。验证：`tsc` 通过、`eslint` 0 error、
+`tests/integration/cost-metrics` + `tests/cost` 64 pass / 1 skip / 0 fail。
+
+### 8.8 存量收敛第三批（监控/性能/观测，2026-10-19）
+
+为 16 处周期性观测/维护定时器补 `unref?.()`：
+
+- `monitoring/health/HealthChecker` · `monitoring/HealthMonitor`（2 处） · `monitoring/integration/SystemMonitor` ·
+  `monitoring/logs/tail/LogTail` · `monitoring/MonitoringService`（2 处） · `monitoring/otel/MetricsBridge`
+- `performance/EnhancedPerformanceManager`（3 处） · `performance/MemoryManager` · `performance/MemoryOptimizer`
+- `utils/memoryMonitor` · `utils/telemetry` · `tools/monitoring/ToolMonitor`
+
+结果：实例级违规 **77 → 61**（文件 69 → 57）；基线棘轮下调至 61 / 57。
+验证：`tsc` 通过、`eslint` 0 error、`tests/monitoring` + `tests/ci/performance` + `tests/integration/cost-metrics`
+共 73 pass / 0 fail。
+
+### 8.9 存量收敛第四批（记忆/配置/媒体/安全等维护类，2026-10-19）
+
+为 11 处周期性维护/刷新定时器补 `unref?.()`：
+
+`memory/AutoMemoryHeartbeat` · `memory/MemorySyncService` · `memory/scanners/MemoryWatcher` ·
+`memory/services/MemoryPrefetchQueue` · `memory/services/TeamMemoryService` · `memory/services/TeamMemorySyncService` ·
+`media/temp/TempMediaManager` · `config/loader/ConfigLoader` · `governance/RuleSuggestionEngine` ·
+`tokenBudget/UnifiedTokenTracker` · `security/patterns/SecurityPatternUpdater`
+
+结果：实例级违规 **61 → 50**（文件 57 → 46）；基线棘轮下调至 50 / 46。
+验证：`tsc` 通过、`eslint` 0 error、`tests/memory` + `tests/config` + `tests/security` + `tests/core/tokenBudget`
+共 360 pass / 1 skip / 0 fail。
+
+**剩余 50 处不再机械收敛**：集中在渠道心跳（QQ/Discord/WeChat/IRC）、网络连接池（MCP/SSH/WebSocket）、
+队列/调度器（Cron/Dream/Knowledge）、UI 与“活跃操作超时”类定时器 —— `unref` 可能影响进程保活或任务等待语义，
+必须逐处人工判定（留作后续专项）。
+
+### 8.10 存量收敛第五批（Agent/AI 健康检查，2026-10-19）
+
+为 4 处健康检查/轮询定时器补 `unref?.()`：
+`agent/managers/MultiSourceAgentManager` · `ai/health/ModelHealthCheck` ·
+`ai/local/llama/LlamaServerLogs` · `ai/local/llama/ModelDownloadService`
+
+（`ai/providers/TopologyWatcher` 与 `ai/python/WorkerGuard` 经门禁识别修正后确认原本已 unref。）
+
+结果：实例级违规 **50 → 46**（文件 46 → 42）；基线棘轮下调至 46 / 42。
+验证：`tsc` 通过、`eslint` 0 error、`tests/ai` + `tests/agent` 共 292 pass / 0 fail。
+
+### 8.11 存量收敛第六批（刷新/清理/健康检查，2026-10-19）
+
+为 7 处周期性刷新/清理定时器补 `unref?.()`：
+`services/analytics/sink` · `services/growthbook/GrowthBookClient` ·
+`services/remoteManagedSettings/RemoteSettingsClient` · `runtime/NotificationPersistence` ·
+`modules/doc/DocModule` · `chronos/service/ConfigService` · `daemon/ProcessManager`
+
+结果：实例级违规 **46 → 39**（文件 42 → 35）；基线棘轮下调至 39 / 35。
+验证：`tsc` 通过、`eslint` 0 error、`tests/runtime/NotificationPersistence` + `tests/modules/doc` + `tests/chronos`
+共 166 pass / 0 fail。
+
+**收敛到此为止（39 处保留在基线）**：剩余全部为渠道心跳、网络连接池/传输层、Cron/Dream/Knowledge 调度器、
+UI/终端组件与“活跃操作超时”类定时器。它们与进程保活/任务等待强耦合，必须逐处设计评审，不能以门禁数量为目标批量改。

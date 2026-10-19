@@ -758,6 +758,9 @@ export class DailyBudgetManager {
     }
     this.usedUsd += usd;
     this._schedulePersist();
+    // 2026-10-19 一致性修复：USD 记账同样要观测档位跨越（此前只有 token 记账/读路径观测
+    // ⇒ 跨过 80%/100% 要等下一次 getMode 才告警）。`_observeModeTransition` 自带跨越去重。
+    this._observeModeTransition(this._computeState());
   }
 
   /**

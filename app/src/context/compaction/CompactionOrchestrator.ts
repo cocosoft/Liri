@@ -54,6 +54,8 @@ import {
   type RetentionResult,
 } from './retentionProbe';
 import { compactionLockStore } from './CompactionLockStore';
+// G-05（2026-10-19）：剩余 USD 水位的**影子观察**（纯函数；不改压缩决策）
+import { evaluateUsdWaterlineShadow } from './usdWaterlineShadow';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { enterPhase, exitPhase, currentPhase } from '@modules/diagnostics';
@@ -577,6 +579,9 @@ export class CompactionOrchestrator {
   ): Promise<CompactionOutcome> {
     const beforeTokens = decision.snapshot.tokens;
 
+    // G-05：影子观察（只记录「若启用 20% 水位是否会触发」，不改决策/不额外调用 LLM）
+    await this.logUsdWaterlineShadow(ctx.sessionId, decision.decision);
+
     // Run before hooks
     await hookRegistry.runBeforeCompact({
       tier: decision.decision === 'trigger' ? 2 : 1,
@@ -735,6 +740,34 @@ export class CompactionOrchestrator {
     });
 
     return result;
+  }
+
+  /**
+   * G-05 影子观察：记录当前 USD 剩余水位与「20% 规则是否会触发」。
+   *
+   * **只读**：动态取 `query` 的日预算快照；失败/未配置 ⇒ 不记录（不臆造）。
+   * 不含任何压缩决策或额外模型调用（真实触发仍需复评后另行立项）。
+   */
+  private async logUsdWaterlineShadow(
+    sessionId: string | undefined,
+    decision: string
+  ): Promise<void> {
+    try {
+      const { getDailyBudget } = await import('@modules/query');
+      const usd = getDailyBudget().getUsdState();
+      const shadow = evaluateUsdWaterlineShadow(usd.usedUsd, usd.limitUsd);
+      if (!shadow) return;
+      logger.info('compaction:usd_waterline_shadow', {
+        sessionId,
+        decision,
+        remainingPct: shadow.remainingPct,
+        wouldTriggerAt20: shadow.wouldTriggerAt20,
+      });
+    } catch (err) {
+      logger.debug('compaction:usd_waterline_shadow_failed', {
+        error: String(err),
+      });
+    }
   }
 
   /**

@@ -168,7 +168,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       appSecret: '',
       verifyToken: '',
       webhookPort: 8083,
-      useWebSocket: false,
+      useWebSocket: true,
       wsReconnectDelayMs: 5000,
       wsMaxReconnectAttempts: 10,
       wsPingIntervalS: 30,
@@ -188,7 +188,9 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     this.appSecret = (config['appSecret'] as string) || '';
     this.verifyToken = (config['verifyToken'] as string) || '';
     this.webhookPort = (config['webhookPort'] as number) || 8083;
-    this.useWebSocket = (config['useWebSocket'] as boolean) || false;
+    // 2026-10-19：默认**长连接**（本地/内网无公网回调地址时 webhook 不可用）；
+    // 显式 `useWebSocket: false` 仍可启用 webhook 模式。
+    this.useWebSocket = resolveFeishuInboundMode(config) === 'websocket';
 
     if (!this.appId || !this.appSecret) {
       throw new AppError(
@@ -201,11 +203,20 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     }
 
     await this.refreshAccessToken();
+    // 2026-10-19 真机复查：此前 connect 只做资源连接，**没有任何调用方**触发
+    // `inbound.start()`（前端因此显示"已连接"但收不到消息）⇒ 在此启动入站；
+    // `startWebSocket/startWebhook` 均幂等，后续 `inbound.start()` 不会重复启动。
+    if (this.useWebSocket) {
+      await this.startWebSocket();
+    } else {
+      await this.startWebhook();
+    }
     this.logger.info('飞书通道已连接');
   }
 
   protected override async onDisconnect(): Promise<void> {
     this.stopWebSocket();
+    await this.stopWebhook();
     this.tenantAccessToken = null;
   }
 
@@ -974,7 +985,10 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
         appId: this.appId,
         appSecret: this.appSecret,
         autoReconnect: true,
-        onReady: () => this.logger.info('飞书 WebSocket 已连接'),
+        onReady: () => {
+          this.setInboundListening(true);
+          this.logger.info('飞书 WebSocket 已连接');
+        },
         onReconnecting: () => this.logger.warn('飞书 WebSocket 重连中'),
         onReconnected: () => this.logger.info('飞书 WebSocket 已重连'),
         onError: (err) => {
@@ -1000,6 +1014,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     if (!this.wsClient) return;
     this.wsClient.close();
     this.wsClient = null;
+    this.setInboundListening(false);
   }
 
   /**
@@ -1158,19 +1173,32 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
    * 停止 Webhook 服务器
    */
   private async stopWebhook(): Promise<void> {
-    if (this.webhookServer) {
+    const server = this.webhookServer;
+    if (server) {
       await new Promise<void>((resolve) => {
-        this.webhookServer!.close(() => resolve());
+        server.close(() => resolve());
       });
       this.webhookServer = null;
+      this.logger.info('飞书 Webhook 服务器已停止');
     }
     this.setInboundListening(false);
-    this.logger.info('飞书 Webhook 服务器已停止');
   }
 }
 
 export function createFeishuChannel(): IChannelPlugin {
   return new FeishuChannelPlugin();
+}
+
+/**
+ * 解析飞书入站模式（2026-10-19）。
+ *
+ * **默认长连接**：前端只提交 appId/appSecret（不含 `useWebSocket`），而本地桌面端没有
+ * 公网回调地址 ⇒ webhook 模式永远收不到事件。显式 `useWebSocket: false` 仍可切回 webhook。
+ */
+export function resolveFeishuInboundMode(
+  config: Record<string, unknown>
+): 'websocket' | 'webhook' {
+  return config['useWebSocket'] === false ? 'webhook' : 'websocket';
 }
 
 export const feishuChannel = createFeishuChannel();

@@ -26,7 +26,7 @@ export interface FeishuConfig {
 
 const DEFAULTS: Partial<FeishuConfig> = {
   webhookPort: 8083,
-  useWebSocket: false,
+  useWebSocket: true,
   wsReconnectDelayMs: 5000,
   wsMaxReconnectAttempts: 10,
   wsPingIntervalS: 30,

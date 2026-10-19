@@ -236,9 +236,12 @@ function scanFile(file: string, hits: Hit[]): void {
         const afterCall = stripped.slice(callEnd + 1, callEnd + 120);
         if (/^\s*:\s*[^{;]+?\{/.test(afterCall)) continue;
 
-        // 取到本语句结束（`;` 或换行）为止的片段
-        const rest = stripped.slice(callEnd + 1, callEnd + 400);
-        const stmtTail = rest.split('\n').slice(0, 2).join('\n');
+        // 取到本语句结束后的片段（最多 800 字符，且不跨入下一个 setInterval），
+        // 覆盖 `setInterval(...); ... timer.unref();` 与
+        // `if (typeof timer.unref === 'function') timer.unref();` 等形态
+        const rest = stripped.slice(callEnd + 1, callEnd + 800);
+        const nextTimer = rest.indexOf('setInterval(');
+        const stmtTail = nextTimer >= 0 ? rest.slice(0, nextTimer) : rest;
         chainedUnref = /\.unref\b/.test(stmtTail);
       }
       const windowText = strippedLines

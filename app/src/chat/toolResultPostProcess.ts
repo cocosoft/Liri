@@ -236,11 +236,14 @@ export class ToolResultPostProcess {
     }
 
     this.readReExploreSteered = true;
+    // 2026-10-19：文案去掉「直接向用户交付最终结论」这一"收尾"指向——长任务中该措辞
+    // 会被当作结束本轮的许可（实测会话 session_mve0gkth422d248037 多次据此停下，
+    // 用户被迫反复回「继续」）。保留"停止重复读取"的本意，但允许在末尾继续推进。
     this.deps.pushSteering(
       `你已反复读取/搜索同一资源（${name}: ${resource}，累计 ${count} 次）未获得新结论。` +
-        '请立即收敛：要么基于当前已掌握的信息直接向用户交付最终结论，' +
-        '要么在继续读取前先明确说明你仍在尝试解决的具体未决问题；' +
-        '不要重复读取/搜索相同的文件或模式。'
+        '请立即收敛：不要重复读取/搜索相同的文件或模式；' +
+        '优先基于已掌握的信息推进任务（信息已足够就直接产出交付物）；' +
+        '若仍有未完成的步骤，请先说明具体未决问题，再改用不同位置/参数的读取继续执行。'
     );
     logger.warn('reactToolLoop:read_reexplore_detected', {
       sessionId: this.deps.getCtx().session.id,

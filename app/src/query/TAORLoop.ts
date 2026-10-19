@@ -596,7 +596,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         this.messages.push({
           role: 'user',
           content:
-            '[系统提示] 上一轮工具调用返回了错误或空结果。如果你因工具失败无法继续任务，请明确告知用户遇到了什么问题、需要用户提供什么信息，不要直接结束对话。',
+            '[系统提示] 上一轮工具调用返回了错误或空结果。不要直接结束对话：先在本轮内自行改道（换工具/路径/参数/方案）继续；仅当改道仍无法继续或需用户授权/补充信息时，才向用户说明具体问题。',
         });
         this._lastRoundHadToolErrors = false;
         this._forceContinueRound = true;

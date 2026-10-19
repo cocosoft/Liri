@@ -51,7 +51,7 @@
       "locale": "zh-CN",
       "source": "app/src/context/promptSections/builtinSections.ts",
       "file": "sections/toolIntegrity.md",
-      "sha256": "e19933479c2eef46498af81837e1ad2af0d206e5b8229c57ff3c87be72ab11a2"
+      "sha256": "0e1cf967db79f169498c24dea550b72d6343a8de92ccb42ba4d9177d6734b66f"
     },
     {
       "id": "section:shellDeclaration",
@@ -69,7 +69,7 @@
       "locale": "zh-CN",
       "source": "app/src/context/promptSections/builtinSections.ts",
       "file": "sections/taskNegotiation.md",
-      "sha256": "61a02ea8a81928804324763e9936f39236b423c0f2d75bb16093cec54db052b2"
+      "sha256": "ce150c59697fe8789cb4bf483ea49ead42b8f544c29b6509cf0f6f4c6b48019e"
     },
     {
       "id": "section:pdcaThinking",

@@ -58,11 +58,18 @@ const _WRITE_PRODUCTIVE_TOOLS = new Set([
   'FileEditTool',
 ]);
 
-// R1：产出后的收敛引导（system 注入，防"写完继续埋头思考不总结"）
+// R1：产出后的交付提示（system 注入，防"写完继续埋头思考不总结"）
+//
+// 2026-10-19 根因修复（会话 session_mve0gkth422d248037 实证）：原文案断言
+// 「这是本次实际交付物……并结束本轮；不要继续」⇒ 任何一次 file_write/file_edit
+// 成功都会把长任务判成"已完成"，模型被迫提前收尾，用户必须反复回「继续」
+// （该会话模型思维链 12 次显式引用此指令并据此停下）。现改为**条件式提示**：
+// 只有写入即最终交付物时才要求交付说明；任务未完成时明确要求继续执行后续步骤。
+// 「是否完成」由模型依据上下文判断，但不再由注入文案强制结束本轮。
 const _WRITE_CONCLUDE_HINT =
-  '[交付收敛] 本轮已完成文件产出（见上方工具结果），这是本次实际交付物。' +
-  '请直接在回复中给出简短交付说明（文件位置、用途、如何运行/验证）并结束本轮；' +
-  '不要在没有新需求的情况下继续内部扩展或重写。如需进一步完善，请先说明下一步再继续。';
+  '[交付提示] 本轮已成功写出文件（见上方工具结果）。' +
+  '若该文件就是本次任务的最终交付物，请在回复中给出简短交付说明（文件位置、用途、如何运行/验证）；' +
+  '若任务仍有未完成的步骤，请简要说明当前进度并**继续执行后续步骤**，不要在任务未完成时提前收尾。';
 
 /** 本模块所需的注入依赖（跨簇共享状态仍归宿主 `ChatManager` 所有，经 getter/setter 访问） */
 export interface ChatStreamMessageLifecycleDeps {
@@ -82,6 +89,16 @@ export class ChatStreamMessageLifecycle {
     string,
     { hash: number; stubCount: number }
   >();
+
+  /**
+   * 本轮已注入"交付提示"的 assistant 消息 id（去重锚点）。
+   *
+   * 同一条 assistant 消息在工具循环各轮内 id 不变、下一个用户轮换新 id ⇒ 用它做
+   * **按轮**去重（本模块实例是 ChatManager 长生命周期字段，不能用实例级布尔量）。
+   * 为什么去重：长任务会连续写多个中间文件，逐轮重复注入会把回复切成一段段
+   * "本轮交付物……"，同样造成"做一点就要用户回一次"的观感。
+   */
+  private _writeHintMessageId: string | null = null;
 
   constructor(private readonly deps: ChatStreamMessageLifecycleDeps) {}
 
@@ -319,7 +336,14 @@ export class ChatStreamMessageLifecycle {
         _WRITE_PRODUCTIVE_TOOLS.has(pr.normalizedToolCall.name) &&
         !pr.result.error
     );
-    if (hasSuccessfulWrite) {
+    // 按轮去重：同一 assistant 消息（同一用户轮）只提示一次，避免每个中间产物都打断一次
+    // （id 缺失时退化为逐次提示，不丢原有能力）
+    const turnKey = currentAssistantMsg.id || null;
+    if (
+      hasSuccessfulWrite &&
+      (turnKey === null || turnKey !== this._writeHintMessageId)
+    ) {
+      this._writeHintMessageId = turnKey;
       logger.info('reactToolLoop:write_done_should_conclude', {
         tools: processedResults
           .filter((pr) =>

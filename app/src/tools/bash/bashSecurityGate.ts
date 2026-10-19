@@ -45,7 +45,10 @@ const logger = getLogger('tools:bash:securityGate');
 
 /** 安全分析器的最小结构（`BashSecurityAnalyzer.analyze`，由 `BashTool` 实例传入） */
 export interface CommandAnalyzer {
-  analyze: (command: string) => {
+  analyze: (
+    command: string,
+    trustLevel?: string
+  ) => {
     behavior: 'allow' | 'deny' | 'ask';
     message?: string;
   };
@@ -189,11 +192,25 @@ export function checkAstAndAnalyzer(params: {
   approvalScope: ApprovalScope;
   approvalSnapshot: ApprovalSnapshot;
   analyzer: CommandAnalyzer;
+  /**
+   * 工作区信任级别（`securityIntegrationService.getTrustLevelForPath(cwd)`）。
+   *
+   * ⚠️ 分析器的 `analyze(command, trustLevel)` 一直支持该参数，但本门此前只传 `command`
+   * ⇒ 工具路径上信任级别恒为 `undefined` ⇒ `applyAllowlistThenTrust` 对"不在已知安全
+   * 列表"的命令一律 `deny`（"信任工作区可降级"分支成为死代码）。此处显式透传。
+   */
+  trustLevel?: string;
 }): ToolResult<unknown> | null {
-  const { command, bypassAsk, approvalScope, approvalSnapshot, analyzer } =
-    params;
+  const {
+    command,
+    bypassAsk,
+    approvalScope,
+    approvalSnapshot,
+    analyzer,
+    trustLevel,
+  } = params;
 
-  const securityResult = analyzer.analyze(command);
+  const securityResult = analyzer.analyze(command, trustLevel);
 
   const astResult = parseForSecurity(command);
   if (astResult.kind === 'simple') {

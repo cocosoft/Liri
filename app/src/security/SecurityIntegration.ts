@@ -24,14 +24,27 @@ export type { SecurityDecision } from './types';
  * 安全集成服务
  */
 export class SecurityIntegrationService {
-  private securityAnalyzer: BashSecurityAnalyzer;
+  /**
+   * 惰性持有：本文件的模块级单例（文件末尾 `new SecurityIntegrationService()`）在模块加载期
+   * 即执行构造；而 `security/index` 的桶导出会把 `BashSecurityAnalyzer` 叶子模块拉入同一条
+   * 初始化链。若构造期直接 `new BashSecurityAnalyzer()`，当调用方**先**导入该叶子模块时，
+   * 类绑定尚在 TDZ（`Cannot access 'BashSecurityAnalyzer' before initialization`）。
+   * 首次使用时再建，此时所有模块绑定均已初始化。
+   */
+  private _securityAnalyzer?: BashSecurityAnalyzer;
   private permissionManager: SecurityPermissionView;
   private permissionMode: PermissionMode;
 
   constructor() {
-    this.securityAnalyzer = new BashSecurityAnalyzer();
     this.permissionManager = SecurityPermissionView.getInstance();
     this.permissionMode = 'default';
+  }
+
+  private get securityAnalyzer(): BashSecurityAnalyzer {
+    if (!this._securityAnalyzer) {
+      this._securityAnalyzer = new BashSecurityAnalyzer();
+    }
+    return this._securityAnalyzer;
   }
 
   /**

@@ -1,0 +1,126 @@
+/**
+ * 工具安全门接线回归（2026-10-19，会话导出排查）。
+ *
+ * 1. **信任级别透传**：`BashSecurityAnalyzer.analyze(command, trustLevel)` 的信任分级
+ *    （development/work 下非危险命令不硬拒）在 `BashTool` 路径上此前恒为 `undefined`
+ *    —— `checkAstAndAnalyzer` 只传了 `command` ⇒ 受信任工作区里的 `node --version`
+ *    仍被 allowlist 硬拒。本用例钉住"信任级别必须透传到分析器"。
+ * 2. **PowerShell allowlist 语句级判定**：原实现取整段脚本第一个 token 做前缀匹配
+ *    ⇒ `$f='x'; (Get-Item $f).Length` 与 `(Get-Item x).Length` 被判"不在允许列表"。
+ * 3. **`BashSecurityAnalyzer` 可独立导入**：`SecurityIntegration` 的模块级单例曾因
+ *    构造期 `new BashSecurityAnalyzer()` 与叶子模块的初始化顺序冲突而抛
+ *    `Cannot access 'BashSecurityAnalyzer' before initialization`（TDZ）。
+ */
+import { describe, expect, it } from 'bun:test';
+
+import { checkAstAndAnalyzer } from '../../src/tools/bash/bashSecurityGate.js';
+import {
+  evaluatePowerShellSecurity,
+  isPowerShellCommandAllowed,
+} from '../../src/tools/PowerShellTool/PowerShellTool.js';
+import { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer.js';
+import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
+
+const approvalScope: ApprovalScope = {
+  platform: process.platform,
+  cwd: process.cwd(),
+  envDigest: '',
+};
+
+const approvalSnapshot: ApprovalSnapshot = {
+  originalCommand: '',
+  normalizedCommand: '',
+  rewrites: [],
+};
+
+describe('checkAstAndAnalyzer：信任级别透传', () => {
+  it('把 trustLevel 原样传给分析器', () => {
+    const seen: Array<string | undefined> = [];
+
+    const block = checkAstAndAnalyzer({
+      command: 'node --version',
+      bypassAsk: false,
+      approvalScope,
+      approvalSnapshot,
+      trustLevel: 'development',
+      analyzer: {
+        analyze: (_command, trustLevel) => {
+          seen.push(trustLevel);
+          return { behavior: 'allow' };
+        },
+      },
+    });
+
+    expect(seen).toEqual(['development']);
+    expect(block).toBeNull();
+  });
+
+  it('development 信任下 node --version 不再被 allowlist 硬拒', () => {
+    const analyzer = new BashSecurityAnalyzer();
+
+    expect(analyzer.analyze('node --version').behavior).toBe('deny');
+    expect(analyzer.analyze('node --version', 'development').behavior).toBe(
+      'allow'
+    );
+  });
+});
+
+describe('PowerShell allowlist：按语句动词判定', () => {
+  it('允许带赋值前缀的只读脚本', () => {
+    expect(isPowerShellCommandAllowed("$f='a.md'; (Get-Item $f).Length")).toBe(
+      true
+    );
+  });
+
+  it('允许括号包裹的只读表达式', () => {
+    expect(isPowerShellCommandAllowed('(Get-Item a.md).Length')).toBe(true);
+  });
+
+  it('拒绝脚本中任意一条非白名单语句', () => {
+    expect(isPowerShellCommandAllowed("$f='a.md'; Remove-Item $f")).toBe(false);
+    expect(
+      isPowerShellCommandAllowed('Get-Content a.md; Set-Content b.md x')
+    ).toBe(false);
+  });
+
+  it('拒绝括号后的方法调用（fail-closed）', () => {
+    expect(isPowerShellCommandAllowed('(Get-Item a.md).Delete()')).toBe(false);
+  });
+
+  it('纯赋值语句不构成可执行命令', () => {
+    expect(isPowerShellCommandAllowed("$f='a.md'")).toBe(false);
+  });
+
+  // 2026-10-19 真机回归：`& node …` 的调用运算符此前使动词解析为 null ⇒
+  // 整条脚本被误判"不在允许列表" ⇒ 连续 3 轮全失败触发 circuit_breaker。
+  it('允许调用运算符 & + 白名单可执行（& node …）', () => {
+    expect(
+      isPowerShellCommandAllowed(
+        "$s='E:\\src'; $out='C:\\out.txt'; & node 'C:\\script.js'"
+      )
+    ).toBe(true);
+    expect(
+      isPowerShellCommandAllowed('& "C:\\Program Files\\nodejs\\node.exe" x.js')
+    ).toBe(true);
+  });
+
+  it('允许目录导航命令（每次调用新进程，无持久副作用）', () => {
+    expect(isPowerShellCommandAllowed('cd C:\\tmp; Get-ChildItem')).toBe(true);
+    expect(isPowerShellCommandAllowed('Set-Location C:\\tmp')).toBe(true);
+  });
+
+  it('拒绝 .ps1 脚本调用与静态方法调用（fail-closed）', () => {
+    expect(isPowerShellCommandAllowed("& 'C:\\evil\\node.ps1'")).toBe(false);
+    expect(
+      isPowerShellCommandAllowed("$x = [System.IO.File]::Delete('a')")
+    ).toBe(false);
+  });
+
+  it('真机失败脚本通过**完整**安全链（allowlist → analyzer → sandbox）', () => {
+    const command =
+      "$s='E:\\PY\\Documents\\CODES\\PY_APP\\app\\src'; " +
+      "$out='C:\\Users\\csdnc\\Documents\\LiriProjects\\proj_1792339340147_ca7ac3\\01_work\\_ctx_out.txt'; " +
+      "& node 'C:\\script.js'";
+    expect(evaluatePowerShellSecurity(command).allowed).toBe(true);
+  });
+});

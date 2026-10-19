@@ -1217,8 +1217,20 @@ export abstract class ReActLoop<
         // --- Circuit breaker ---
         if (this.checkCircuitBreaker(actResult)) {
           this.state.phase = 'circuit_breaker';
-          this.state.lastError =
-            'circuit_breaker: consecutive invalid turns exceeded';
+          // 2026-10-19：把**最近一次失败的工具与原因**带进用户可见错误，
+          // 否则只剩一句 "consecutive invalid turns exceeded"，无法定位根因
+          //（实测：PowerShell allowlist 误拒 `& node …` 时用户只能看到这句）。
+          const lastFailure = actResult.results.find(
+            (r) => r.status === 'error'
+          );
+          const failureDetail = lastFailure
+            ? `（最近失败：${lastFailure.name} — ${(
+                lastFailure.error ??
+                lastFailure.output ??
+                ''
+              ).slice(0, 160)}）`
+            : '';
+          this.state.lastError = `circuit_breaker: consecutive invalid turns exceeded${failureDetail}`;
           yield {
             type: 'error',
             message: this.state.lastError,

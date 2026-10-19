@@ -108,12 +108,23 @@ const ALLOWED_POWERSHELL_COMMANDS = new Set([
   'bun',
   'yarn',
   'pnpm',
+  // 包执行器（与已允许的 npm/bun 同能力面；2026-10-19 修复 `npx` 被误拒）
+  'npx',
+  'bunx',
+  'pnpx',
   'git',
   'python',
   'python3',
   'pip',
   'cargo',
   'rustc',
+  // 目录导航（每次 PowerShellTool 调用都是新进程 ⇒ 无持久副作用）
+  'cd',
+  'set-location',
+  'push-location',
+  'pop-location',
+  'get-location',
+  'pwd',
   // 基本命令
   'echo',
   'write-host',
@@ -126,20 +137,201 @@ const ALLOWED_POWERSHELL_COMMANDS = new Set([
 const psSandboxChecker = new SandboxSecurityChecker();
 
 /**
+ * 按 `;` / 换行把脚本拆成语句（引号内的分隔符不切）。
+ *
+ * 原实现只取整段脚本的**第一个 token** 做前缀匹配 ⇒ `$f='x'; Get-Item $f` 取到
+ * `$f='x';` 被判"不在允许列表"。白名单应按**每条被执行语句**的动词判定。
+ */
+function splitPowerShellStatements(command: string): string[] {
+  const statements: string[] = [];
+  let current = '';
+  let quote: '"' | "'" | null = null;
+
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (quote) {
+      current += ch;
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      current += ch;
+      continue;
+    }
+    if (ch === ';' || ch === '\n' || ch === '\r') {
+      statements.push(current);
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  statements.push(current);
+  return statements.map((s) => s.trim()).filter((s) => s.length > 0);
+}
+
+/**
+ * 提取一条语句实际执行的命令动词。
+ *
+ * - 纯注释 / 纯字面量赋值（`$f='x'`）⇒ `null`（不构成命令）；
+ * - `$x = Get-Item ...` ⇒ 右侧仍是命令，继续解析；
+ * - `(Get-Item x).Length` ⇒ 剥离前导 `(` 后取动词 `get-item`；
+ * - **调用运算符** `& node script.js` / `& "C:\...\node.exe"` ⇒ 取被调用程序名
+ *   （2026-10-19 修复：此前 `&` 导致动词为 `null` ⇒ 整条脚本被误判"不在允许列表"，
+ *   进而连续 3 轮全失败触发 circuit_breaker）；
+ * - 点源 `. script.ps1` 仍返回 `null`（`.ps1` 属任意代码，不在白名单 ⇒ 由零动词规则拒绝）。
+ */
+function extractPowerShellStatementVerb(statement: string): string | null {
+  let rest = statement.trim();
+  if (!rest || rest.startsWith('#')) return null;
+
+  const assignment = rest.match(/^\$[A-Za-z_][\w:]*\s*=\s*/);
+  if (assignment) {
+    rest = rest.slice(assignment[0].length).trim();
+    if (!rest || rest.startsWith("'") || rest.startsWith('"')) return null;
+  }
+
+  // 调用运算符：剥离 `&`（点源 `.` 不剥离 ⇒ 保守拒绝脚本）
+  rest = rest.replace(/^&\s*/, '');
+  if (!rest) return null;
+
+  // `& 'C:\Program Files\nodejs\node.exe'` ⇒ 取 basename（仅去 .exe/.cmd/.bat/.com；
+  // **不**去 .ps1 —— 避免把 `node.ps1` 误认成 `node`）
+  const quotedExe = /^(['"])([^'"]+)\1/.exec(rest);
+  if (quotedExe) {
+    return quotedExe[2]
+      .replace(/^.*[/\\]/, '')
+      .replace(/\.(exe|cmd|bat|com)$/i, '')
+      .toLowerCase();
+  }
+
+  rest = rest.replace(/^\(\s*/, '');
+  // 保留点号以识别 `node.ps1` 一类脚本名（旧正则 `[\w-]` 会在 `.` 处截断）
+  const verb = rest.match(/^[A-Za-z][\w.-]*/);
+  return verb
+    ? verb[0].toLowerCase().replace(/\.(exe|cmd|bat|com)$/i, '')
+    : null;
+}
+
+/**
  * 检查 PowerShell 命令是否在白名单中
  * @param command PowerShell 命令
  * @returns 是否允许
+ *
+ * 导出仅供单测断言（`PowerShellTool.execute` 会在真正 spawn 前调用它）。
  */
-function isPowerShellCommandAllowed(command: string): boolean {
-  const trimmed = command.trim().toLowerCase();
-  if (!trimmed) return false;
+export function isPowerShellCommandAllowed(command: string): boolean {
+  if (!command.trim()) return false;
 
-  // 直接匹配完整命令前缀
-  for (const allowed of ALLOWED_POWERSHELL_COMMANDS) {
-    if (trimmed.startsWith(allowed)) return true;
+  // 括号前缀被放开后，`(Get-Item x).Delete()` 这类"看似只读"的方法调用必须 fail-closed。
+  if (/\.[A-Za-z_]\w*\s*\(/.test(command)) return false;
+  // 静态方法调用（`[IO.File]::Delete(...)`）与 `.Delete()` 同属任意代码面 ⇒ fail-closed。
+  if (/::\s*[A-Za-z_]\w*\s*\(/.test(command)) return false;
+
+  const verbs = splitPowerShellStatements(command)
+    .map(extractPowerShellStatementVerb)
+    .filter((verb): verb is string => verb !== null);
+
+  // 纯赋值/注释脚本没有可执行动词 ⇒ 维持原策略（拒绝）。
+  if (verbs.length === 0) return false;
+
+  return verbs.every((verb) => {
+    for (const allowed of ALLOWED_POWERSHELL_COMMANDS) {
+      // `get-` 一类是**前缀族**（尾部带 `-`）；其余为**精确命令名**
+      //（收紧：避免 `node.ps1` 被 `startsWith('node')` 误放行）
+      if (allowed.endsWith('-') ? verb.startsWith(allowed) : verb === allowed) {
+        return true;
+      }
+    }
+    return false;
+  });
+}
+
+/**
+ * PowerShell 安全链判定结果（G-07，2026-10-19）。
+ *
+ * `PowerShellTool.execute` 与 `tools/bash/powerShellWrapper` **共用**本结构：
+ * 后者把 `powershell -Command "…"` 的内层脚本交给同一入口判定，避免两套口径。
+ */
+export interface PowerShellSecurityDecision {
+  allowed: boolean;
+  behavior: 'allow' | 'ask' | 'deny';
+  /** 拒绝码（与 `PowerShellTool.execute` 既有 metadata.errorCode 逐字一致） */
+  code?:
+    | 'SECURITY_DENIED'
+    | 'USER_CONFIRMATION_REQUIRED'
+    | 'COMMAND_NOT_ALLOWED'
+    | 'SANDBOX_SECURITY_DENIED';
+  /** 人读原因（不含 "安全检查失败:" 等前缀，由调用方按自身语义拼装） */
+  message?: string;
+}
+
+/**
+ * PowerShell 命令安全链的**唯一判定入口**（G-07）。
+ *
+ * 顺序与原 `PowerShellTool.execute` 内联块**逐字一致**：
+ * ① 项目沙箱临时文件安全删除（`_` / `~$` 前缀且 realpath 在工作目录内）⇒ 直接放行；
+ * ② `PowerShellSecurityAnalyzer`（deny / ask）；
+ * ③ 白名单 `isPowerShellCommandAllowed`；
+ * ④ `SandboxSecurityChecker` 二次校验。
+ *
+ * @param command 待判定的 PowerShell 脚本（**内层**脚本，不含 `powershell -Command` 包裹）
+ * @param options.workingDirectory 提供时启用 ① 的"沙箱内安全删除"例外（与 `PowerShellTool` 同口径）
+ * @param options.analyzer 复用调用方的分析器实例（缺省新建；BashTool 侧用惰性单例）
+ */
+export function evaluatePowerShellSecurity(
+  command: string,
+  options: {
+    workingDirectory?: string;
+    analyzer?: PowerShellSecurityAnalyzer;
+  } = {}
+): PowerShellSecurityDecision {
+  if (
+    options.workingDirectory &&
+    isSandboxSafeDelete(command, options.workingDirectory)
+  ) {
+    return { allowed: true, behavior: 'allow' };
   }
 
-  return false;
+  const analyzer = options.analyzer ?? new PowerShellSecurityAnalyzer();
+  const securityResult = analyzer.analyze(command);
+  if (securityResult.behavior === 'deny') {
+    return {
+      allowed: false,
+      behavior: 'deny',
+      code: 'SECURITY_DENIED',
+      message: securityResult.message || '命令被阻止执行',
+    };
+  }
+  if (securityResult.behavior === 'ask') {
+    return {
+      allowed: false,
+      behavior: 'ask',
+      code: 'USER_CONFIRMATION_REQUIRED',
+      message: securityResult.message || '此命令需要确认后执行',
+    };
+  }
+
+  if (!isPowerShellCommandAllowed(command)) {
+    return {
+      allowed: false,
+      behavior: 'deny',
+      code: 'COMMAND_NOT_ALLOWED',
+      message: `PowerShell 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
+    };
+  }
+
+  const sandboxCheckResult = psSandboxChecker.checkDangerousCommands(command);
+  if (!sandboxCheckResult.allowed) {
+    return {
+      allowed: false,
+      behavior: 'deny',
+      code: 'SANDBOX_SECURITY_DENIED',
+      message: sandboxCheckResult.reason,
+    };
+  }
+
+  return { allowed: true, behavior: 'allow' };
 }
 
 /**
@@ -416,79 +608,32 @@ export class PowerShellTool extends BaseTool {
         },
       });
 
-      // 方案三（P0-3）：项目沙箱内的临时文件安全删除直接放行，
-      // 其余命令继续走完整安全检查链（安全分析器 → 白名单 → 沙箱危险命令）
-      const isSandboxSafeDeleteCommand = isSandboxSafeDelete(
-        command,
-        workingDirectory
-      );
-      if (!isSandboxSafeDeleteCommand) {
-        // PowerShell 安全分析器检查
-        const securityResult = this.securityAnalyzer.analyze(command);
-
-        if (securityResult.behavior === 'deny') {
-          return createFailureResult(
-            `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
-            {
-              executionTime: Date.now() - startTime,
-              errorLevel: ErrorLevel.FATAL,
-              metadata: {
-                errorCategory: 'security',
-                errorCode: 'SECURITY_DENIED',
-                securityIntercepted: true,
-              },
-            }
-          );
-        }
-
-        if (securityResult.behavior === 'ask') {
-          return createFailureResult(
-            `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
-            {
-              executionTime: Date.now() - startTime,
-              errorLevel: ErrorLevel.RECOVERABLE,
-              metadata: {
-                errorCategory: 'permission',
-                errorCode: 'USER_CONFIRMATION_REQUIRED',
-                securityIntercepted: true,
-              },
-            }
-          );
-        }
-
-        // F3 修复：PowerShell 命令白名单检查
-        if (!isPowerShellCommandAllowed(command)) {
-          return createFailureResult(
-            `安全检查: PowerShell 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
-            {
-              executionTime: Date.now() - startTime,
-              errorLevel: ErrorLevel.FATAL,
-              metadata: {
-                errorCategory: 'security',
-                errorCode: 'COMMAND_NOT_ALLOWED',
-                securityIntercepted: true,
-              },
-            }
-          );
-        }
-
-        // F2 修复：沙箱安全检查器二次校验
-        const sandboxCheckResult =
-          psSandboxChecker.checkDangerousCommands(command);
-        if (!sandboxCheckResult.allowed) {
-          return createFailureResult(
-            `沙箱安全检查: ${sandboxCheckResult.reason}`,
-            {
-              executionTime: Date.now() - startTime,
-              errorLevel: ErrorLevel.FATAL,
-              metadata: {
-                errorCategory: 'security',
-                errorCode: 'SANDBOX_SECURITY_DENIED',
-                securityIntercepted: true,
-              },
-            }
-          );
-        }
+      // 方案三（P0-3）+ G-07（2026-10-19）：安全链**单点实现** ——
+      // 项目沙箱内的临时文件安全删除直接放行，其余命令走
+      // 安全分析器 → 白名单 → 沙箱危险命令；`BashTool` 的 `powershell -Command` 包裹
+      // 复用同一入口（`evaluatePowerShellSecurity`），避免两套判定口径。
+      const decision = evaluatePowerShellSecurity(command, {
+        workingDirectory,
+        analyzer: this.securityAnalyzer,
+      });
+      if (!decision.allowed) {
+        const isAsk = decision.behavior === 'ask';
+        const prefix = isAsk
+          ? '需要用户确认: '
+          : decision.code === 'SANDBOX_SECURITY_DENIED'
+            ? '沙箱安全检查: '
+            : decision.code === 'COMMAND_NOT_ALLOWED'
+              ? '安全检查: '
+              : '安全检查失败: ';
+        return createFailureResult(`${prefix}${decision.message ?? ''}`, {
+          executionTime: Date.now() - startTime,
+          errorLevel: isAsk ? ErrorLevel.RECOVERABLE : ErrorLevel.FATAL,
+          metadata: {
+            errorCategory: isAsk ? 'permission' : 'security',
+            errorCode: decision.code,
+            securityIntercepted: true,
+          },
+        });
       }
 
       // F5 修复：操作审计日志

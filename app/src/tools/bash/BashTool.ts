@@ -21,7 +21,10 @@ import { createBashProgress } from '../types/ToolProgress';
 import { ToolUtils } from '../utils/ToolUtils';
 import type { InterruptBehavior } from '../types/Tool';
 import { ToolTag } from '../types/Tool';
-import { BashSecurityAnalyzer } from '@modules/security';
+import {
+  BashSecurityAnalyzer,
+  securityIntegrationService,
+} from '@modules/security';
 import type { ExecOptions } from 'child_process';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 // S1-5（2026-10-11）：命令规范化"单一事实源" —— 审批哈希 / 安全拦截层 / 最终 spawn /
@@ -40,6 +43,9 @@ import {
   checkWhitelistAndSandbox,
   checkInterpreterGuard,
 } from './bashSecurityGate';
+// G-07（2026-10-19）：`powershell/pwsh -Command "…"` 包裹的内层脚本不得绕过安全链 ——
+// 复用 PowerShellTool 的同一判定入口（不新增第二套危险词表）。
+import { checkPowerShellWrapper } from './powerShellWrapper';
 // G18：大输出软截断抽至 `./bashOutputTruncate`
 import {
   applyBashOutputSoftTruncate,
@@ -312,6 +318,14 @@ export class BashTool extends BaseTool {
         cwd = this.translateWindowsPath(cwd);
       }
 
+      // W1（2026-10-19）：把工作区信任级别透传给分析器。
+      // `analyze(command, trustLevel)` 的信任分级（development/work 下非危险命令不硬拒）
+      // 此前在工具路径上恒为 `undefined`（本门只传 command）⇒ 该分支是死代码，
+      // 导致受信任工作区里的 `node --version` 等只读命令仍被 allowlist 硬拒。
+      const trustLevel = securityIntegrationService.getTrustLevelForPath(
+        cwd ?? context?.options?.cwd ?? process.cwd()
+      );
+
       // 报告开始执行
       onProgress?.({
         toolUseID: context.toolUseId || 'bash-tool',
@@ -379,12 +393,27 @@ export class BashTool extends BaseTool {
         return dangerBlock;
       }
 
+      // G-07（2026-10-19）：`powershell/pwsh -Command "…"` 的内层脚本复用 PowerShellTool
+      // 的安全链（分析器 → 白名单 → 沙箱）；`-EncodedCommand` 等不可检查形态 fail-closed。
+      const psWrapperBlock = checkPowerShellWrapper(
+        command,
+        cwd ?? context?.options?.cwd
+      );
+      if (psWrapperBlock) {
+        logger.warn('bash: powershell_wrapper_blocked', {
+          sessionId: context.sessionId,
+          commandPreview: command.slice(0, 200),
+        });
+        return psWrapperBlock;
+      }
+
       const analysisBlock = checkAstAndAnalyzer({
         command,
         bypassAsk,
         approvalScope,
         approvalSnapshot,
         analyzer: this.securityAnalyzer,
+        trustLevel,
       });
       if (analysisBlock) {
         return analysisBlock;

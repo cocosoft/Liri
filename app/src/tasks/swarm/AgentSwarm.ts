@@ -37,6 +37,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import type { AgentIsolation } from '@modules/agent';
+// G-02（2026-10-19）：批次级 in-flight 熔断（复用 chat 的单一预算收口）
+import { checkDailyBudget } from '../../query/dailyBudgetGate';
 
 const logger = getLogger('tasks:agentSwarm');
 
@@ -186,6 +188,11 @@ export interface AgentSwarmOptions {
   enableVerify?: boolean;
   /** 是否启用 synthesizer 合成（默认 true） */
   enableSynthesize?: boolean;
+  /**
+   * G-02（2026-10-19）：预算会话键（会话级归因；缺省 `'swarm'`）。
+   * 批次开始前读取该会话的预算档位，越界即不再投递剩余批次。
+   */
+  sessionId?: string;
   /**
    * 外部取消信号。批次间检查：已取消则不再启动新批次；
    * 在途子任务的取消由 executor 适配器把该 signal 传给底层子代理执行器完成。
@@ -371,18 +378,48 @@ async function runBatched<T>(
   items: T[],
   batchSize: number,
   fn: (item: T) => Promise<void>,
-  signal?: AbortSignal
-): Promise<void> {
+  signal?: AbortSignal,
+  budgetSessionId?: string
+): Promise<boolean> {
   for (let i = 0; i < items.length; i += batchSize) {
     if (signal?.aborted) {
       logger.warn('swarm 批次执行已取消，剩余批次不再启动', {
         processed: i,
         total: items.length,
       });
-      return;
+      return false;
+    }
+    // G-02：批次前预算复核（纯读）。越界 ⇒ 剩余批次不再投递（在途批次由 worker
+    // 自身每次模型调用前的 G-01 判定收敛）。
+    if (
+      budgetSessionId &&
+      !isBatchBudgetAllowed(budgetSessionId, i, items.length)
+    ) {
+      return false;
     }
     await Promise.allSettled(items.slice(i, i + batchSize).map(fn));
   }
+  return true;
+}
+
+/** G-02：批次前预算判定（单一收口；越界仅日志，不新增错误类） */
+function isBatchBudgetAllowed(
+  sessionId: string,
+  processed: number,
+  total: number
+): boolean {
+  const decision = checkDailyBudget({ sessionId, estimatedTokens: 0 });
+  if (decision.allowed) return true;
+  logger.warn('swarm:budget — 批次前检查拒绝，剩余批次不再启动', {
+    sessionId,
+    processed,
+    total,
+    unit: decision.snapshot.unit,
+    used: decision.snapshot.used,
+    limit: decision.snapshot.limit,
+    mode: decision.snapshot.mode,
+  });
+  return false;
 }
 
 /**
@@ -392,6 +429,8 @@ export class AgentSwarm {
   async run(options: AgentSwarmOptions): Promise<AgentSwarmResult> {
     const { tasks, goal, executor, isolation, signal } = options;
     const concurrency = options.maxConcurrency ?? DEFAULT_SWARM_CONCURRENCY;
+    // G-02：预算会话键（批次级熔断的归因键）
+    const budgetSessionId = options.sessionId ?? 'swarm';
 
     // 黑板：总目标 + 子任务清单（注入每个 worker）
     const blackboard = [
@@ -408,7 +447,8 @@ export class AgentSwarm {
     /** M-8：worker 真实用量汇总（缺省 0，不臆测） */
     let workerTokens = 0;
 
-    await runBatched(
+    // G-02：返回值 = 是否跑完全部批次（false = 外部取消或预算越界）
+    const workersDone = await runBatched(
       tasks.map((task, idx) => ({ task, idx })),
       concurrency,
       async ({ task, idx }) => {
@@ -457,16 +497,18 @@ export class AgentSwarm {
           };
         }
       },
-      signal
+      signal,
+      budgetSessionId
     );
 
-    // M-13：压实索引槽位 ⇒ `workerResults` 顺序 = **task 顺序**（未产出 worker 的任务缺席）
+    // M-13 压实索引槽位 ⇒ `workerResults` 顺序 = **task 顺序**（未产出 worker 的任务缺席）
     const workerResults: SwarmWorkerResult[] = slots.filter(
       (r): r is SwarmWorkerResult => r !== undefined
     );
 
     // verifier 门禁：逐 worker 验证（仅对成功 worker）
-    if (options.enableVerify !== false && !signal?.aborted) {
+    // G-02：预算越界（`workersDone=false`）⇒ 不再启动 verifier 批次（无后续模型调用）
+    if (options.enableVerify !== false && !signal?.aborted && workersDone) {
       // E-1：回灌重试开关 + 独立 token 上限（默认关 ⇒ 与现状逐字一致）
       const retryEnabled = options.enableVerifyRetry === true;
       const retryBudget =
@@ -519,7 +561,8 @@ export class AgentSwarm {
             isolation,
           });
         },
-        signal
+        signal,
+        budgetSessionId
       );
 
       // E-1：回灌重试的用量并入 worker 真实用量（重试也是真实 worker 工作）
@@ -531,7 +574,14 @@ export class AgentSwarm {
     if (
       options.enableSynthesize !== false &&
       workerResults.length > 0 &&
-      !signal?.aborted
+      !signal?.aborted &&
+      workersDone &&
+      // G-02：worker / verifier 阶段可能已把额度用尽 ⇒ 合成前再复核一次
+      isBatchBudgetAllowed(
+        budgetSessionId,
+        workerResults.length,
+        workerResults.length
+      )
     ) {
       try {
         const summary = workerResults

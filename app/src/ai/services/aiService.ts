@@ -459,3 +459,14 @@ export const aiService = new Proxy({} as AIService, {
     return typeof value === 'function' ? value.bind(_aiService) : value;
   },
 });
+
+/**
+ * **仅测试用**：注入 AI 服务替身（`undefined` ⇒ 恢复惰性真实实例）。
+ *
+ * 为什么需要：`aiService` 是惰性 `Proxy`，`spyOn(aiService, 'generate')` 只会写到空 target，
+ * 代理 `get` 仍转发到真实实例 ⇒ 无法桩住。该 setter 是唯一可测接缝（与
+ * `resetDailyBudgetForTest` 同类的 test-only 入口）。
+ */
+export function setAIServiceForTest(service: AIService | undefined): void {
+  _aiService = service;
+}

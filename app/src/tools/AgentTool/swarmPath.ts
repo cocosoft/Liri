@@ -526,6 +526,8 @@ export async function runSwarmPath(
       enableVerifyRetry: feature('SWARM_VERIFY_RETRY'),
       enableSynthesize: agentInput.synthesize === true,
       signal: swarmAbort.signal,
+      // G-02（2026-10-19）：批次级预算熔断的会话归因（缺省由 AgentSwarm 用 'swarm'）
+      sessionId: context?.sessionId,
     });
   } finally {
     // R1（2026-09-21）：注销批次控制器（`stopAgent` 的扇出按 batchId 查表，必须防泄漏）。

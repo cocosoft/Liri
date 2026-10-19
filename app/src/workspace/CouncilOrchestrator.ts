@@ -23,7 +23,14 @@ import { OrchestrationEventType } from '@modules/agent';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
-import aiService, { type AIMessage, AIMessageRole } from '@modules/ai';
+import aiService, {
+  estimateMessagesTokens,
+  type AIMessage,
+  AIMessageRole,
+} from '@modules/ai';
+// G-01（2026-10-19）：非 chat 管线的预算判定与记账（与 chat 同一收口，不新增第三口）
+import { assertEntryBudget } from '../query/dailyBudgetGate';
+import { recordDailyBudgetFromUsage } from '../query/DailyBudgetManager';
 import { getAgentRoleStore } from './AgentRoleStore.js';
 import { getAgentRegistry } from '@modules/agent';
 import type { AgentDefinition } from '@modules/agent';
@@ -250,7 +257,7 @@ export class CouncilOrchestrator {
     // 3. 执行辩论（G-7：agentsMap 按 run 闭包传入，避免并发覆盖）
     const result = await this.engine.runDebate(
       session.sessionId,
-      this.statementCallback.bind(this, agentsMap),
+      this.statementCallback.bind(this, agentsMap, config.ownerSessionId),
       this.consensusCallback.bind(this)
     );
 
@@ -386,7 +393,7 @@ export class CouncilOrchestrator {
     if (session) this.emitCouncilStart(session);
     const result = await this.engine.runDebate(
       sessionId,
-      this.statementCallback.bind(this, agentsMap),
+      this.statementCallback.bind(this, agentsMap, session?.ownerSessionId),
       this.consensusCallback.bind(this)
     );
     if (session) this.emitCouncilEnd(session, result);
@@ -400,6 +407,7 @@ export class CouncilOrchestrator {
    */
   private async statementCallback(
     agents: Map<string, CouncilAgentRole>,
+    ownerSessionId: string | undefined,
     agentId: string,
     agentName: string,
     round: number,
@@ -422,6 +430,7 @@ export class CouncilOrchestrator {
     );
     const response = await this.callAI(systemPrompt, userPrompt, {
       maxTokens: 512,
+      budgetSessionId: ownerSessionId,
     });
     return this.parseStatementResponse(response);
   }
@@ -437,6 +446,7 @@ export class CouncilOrchestrator {
     const prompt = this.buildConsensusPrompt(session);
     const response = await this.callAI(CONSENSUS_SYSTEM_PROMPT, prompt, {
       maxTokens: 1024,
+      budgetSessionId: session.ownerSessionId,
     });
     return this.parseConsensusResponse(response);
   }
@@ -451,7 +461,7 @@ export class CouncilOrchestrator {
   private async callAI(
     systemPrompt: string,
     userPrompt: string,
-    options?: { maxTokens?: number }
+    options?: { maxTokens?: number; budgetSessionId?: string }
   ): Promise<string> {
     const otel = getOTelTracing();
     const span = otel.startSpan('CouncilOrchestrator.callAI');
@@ -463,10 +473,26 @@ export class CouncilOrchestrator {
       }
       messages.push({ role: AIMessageRole.USER, content: userPrompt });
 
+      // G-01（2026-10-19）：**调用前**走与 chat 同一预算收口 —— 理事会此前全文件
+      // 无 `checkDailyBudget` ⇒ 辩论轮次可在额度耗尽后继续调用模型（费用逃逸）。
+      // 越界 ⇒ 既有 `AppError('DAILY_BUDGET_EXCEEDED')`（不新增错误类）。
+      assertEntryBudget({
+        entry: options?.budgetSessionId ?? 'council',
+        estimatedTokens: estimateMessagesTokens(messages),
+      });
+
       const response = await aiService.generate(messages, undefined, {
         max_tokens: options?.maxTokens ?? 512,
         temperature: 0.7,
       });
+
+      // G-01：**调用后**记账（token + 金额同源）；与 chat 共用唯一非 chat 计账助手。
+      // 模型名取 provider 回显（`AIResponse.model`）；缺失 ⇒ 只记 token、不臆造金额。
+      recordDailyBudgetFromUsage(
+        response.usage,
+        options?.budgetSessionId,
+        response.model
+      );
 
       span.setStatus({ code: SpanStatusCode.OK });
       return response.content ?? '';

@@ -30,6 +30,9 @@ import type {
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
+import { AppError } from '@modules/error';
+// G-02（2026-10-19）：轮次级 in-flight 熔断（复用 chat 的单一预算收口，不新增判定点）
+import { assertEntryBudget } from '../query/dailyBudgetGate';
 import type {
   ISnapshotCapable,
   SnapshotHandle,
@@ -37,6 +40,16 @@ import type {
 } from '../utils/toolContract/Tool.js';
 
 const logger = getLogger('CouncilEngine');
+
+/**
+ * G-02：预算越界错误必须**穿透**「逐 Agent try/catch」。
+ *
+ * 该 catch 的语义是"单个 Agent 发言失败就跳过"，但预算越界是**全会话**级的终止信号 ——
+ * 若被降级成占位发言，后续 Agent/轮次仍会继续调用模型（费用继续逃逸）。
+ */
+function isDailyBudgetExceeded(err: unknown): boolean {
+  return err instanceof AppError && err.code === 'DAILY_BUDGET_EXCEEDED';
+}
 
 /** Council 配置 */
 export interface CouncilConfig {
@@ -251,6 +264,12 @@ export class CouncilEngine implements ISnapshotCapable {
       session.phase = 'debating';
 
       for (let round = 1; round <= session.maxRounds; round++) {
+        // G-02（2026-10-19）：每轮开始前复核预算（纯读；未配置 `limitUsd` ⇒ 恒放行）。
+        // 依赖 G-01 的记账 —— 否则本轮之前 Council 的消耗根本不在账本里。
+        assertEntryBudget({
+          entry: session.ownerSessionId ?? sessionId,
+          estimatedTokens: 0,
+        });
         session.currentRound = round;
 
         this.emit({
@@ -343,6 +362,8 @@ export class CouncilEngine implements ISnapshotCapable {
               deltaData
             );
           } catch (err) {
+            // G-02：预算越界是全会话级终止信号，不得降级为"该 Agent 跳过"
+            if (isDailyBudgetExceeded(err)) throw err;
             void handleError(err, {
               module: 'workspace:engine',
               action: 'agentStatement',

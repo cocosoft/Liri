@@ -131,6 +131,37 @@ describe('T11：子代理计账与闸门（G-2/E）', () => {
     expect(String(result.error ?? '')).toContain('report_only');
   });
 
+  it('G-01：调用前预算越界 ⇒ 不发起 provider.chat（不再"先花后记"）', async () => {
+    const budget = getDailyBudget();
+    budget.setLimitUsd(1);
+    budget.recordUsdUsage(2);
+
+    const provider = makeFakeProvider();
+    let chatCalls = 0;
+    provider.chat = async () => {
+      chatCalls++;
+      return {
+        content: 'done',
+        usage: { prompt_tokens: 30, completion_tokens: 20, total_tokens: 50 },
+      } as unknown as ChatResponse;
+    };
+
+    const engine = new SubAgentEngine({ llmClientOverride: provider });
+    const result = await engine.execute({
+      agentId: 'g01-worker',
+      systemPrompt: '你是测试 worker',
+      messages: [{ role: 'user', content: 'hi' }],
+      tools: [],
+      toolInstances: new Map(),
+      maxTurns: 1,
+      model: 'fake-model',
+      toolContext: { sessionId: SID } as never,
+    });
+
+    expect(chatCalls).toBe(0);
+    expect(result.completed).toBe(false);
+  });
+
   it('接线守卫：直调路径（runDirectCall）用量亦计入日预算', () => {
     // 该路径的 provider 来自全局 registry（无法在本层单测）⇒ 以源码接线守卫兜底：
     // 若有人删掉这行，子代理的"简单任务"分支将重新绕过日预算。

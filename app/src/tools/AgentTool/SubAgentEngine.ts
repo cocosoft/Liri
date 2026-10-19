@@ -16,10 +16,12 @@ import type { Tool } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolExecutionStatus } from '../types/ToolResult';
 import type { AIProvider } from '@modules/ai';
-import { providerRegistry } from '@modules/ai';
+import { estimateMessagesTokens, providerRegistry } from '@modules/ai';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 // G-2/E（2026-10-11）：子代理用量计入每日预算（`recordDailyBudgetFromUsage` 是非 chat 管线的唯一计账助手）
 import { ReActLoop, recordDailyBudgetFromUsage } from '@modules/query';
+// G-01（2026-10-19）：调用**前**走与 chat 同一预算收口（此前仅"事后记账" ⇒ 批次内可透支）
+import { assertEntryBudget } from '../../query/dailyBudgetGate';
 import type {
   ReasonResult,
   ActResult,
@@ -776,12 +778,20 @@ export class SubAgentEngine {
     client: AIProvider,
     messages: ChatMessage[],
     tools: ToolDefinition[],
-    model?: string
+    model?: string,
+    sessionId?: string
   ): Promise<ChatResponse> {
     const resolvedModel =
       model ||
       this.config.defaultModel ||
       (await resolveModelRoute(RouteKey.AGENT));
+
+    // G-01（2026-10-19）：**每次模型调用前**复核预算（单一收口，纯读）。
+    // 原实现只在调用后 `recordDailyBudgetFromUsage` ⇒ 同一批次内可持续透支。
+    assertEntryBudget({
+      entry: sessionId ?? 'subagent',
+      estimatedTokens: estimateMessagesTokens(messages),
+    });
 
     const otel = getOTelTracing();
     const span = otel.startSpan('subAgent.callLLM', {
@@ -814,7 +824,8 @@ export class SubAgentEngine {
       // 执行器同款：`recordDailyBudgetFromUsage` 是唯一的非 chat 计账助手）。
       recordDailyBudgetFromUsage(
         (result as { usage?: unknown }).usage,
-        undefined,
+        // G-01：会话归因（原为 undefined ⇒ 无法消费该会话的 waive-once 通行证）
+        sessionId,
         // 债四「换算接线」（2026-10-13）：与 `trackUsage` **同一模型**（数出同源）⇒ 金额台账可取价
         resolvedModel
       );
@@ -1009,7 +1020,9 @@ class SubAgentLoop extends ReActLoop<
       this.opts.llmClient,
       this.opts.messages,
       this.opts.tools,
-      this.opts.model
+      this.opts.model,
+      // G-01：会话归因（预算判定 + 记账）；无上下文时由 callLLM 兜底为 'subagent'
+      this.opts.toolContext?.sessionId
     );
     this.opts.onUsage?.(response.usage);
     if (response.content) {

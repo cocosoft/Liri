@@ -25,6 +25,16 @@ afterAll(() => {
 });
 
 describe('PairingStore：新进程跨实例', () => {
+  test('新实例首次 isApproved 即读盘（旧实现的“点火即忘”会误拒首条消息）', async () => {
+    const dir = tempDir();
+    const writer = new PairingStore(dir);
+    await writer.approve('feishu', 'ou_first');
+
+    const reader = new PairingStore(dir);
+    // 不显式 ready()，直接问 —— 必须等待磁盘加载后再判定
+    expect(await reader.isApproved('feishu', 'ou_first')).toBe(true);
+  });
+
   test('另一实例 ready() 后可凭磁盘 pending 码批准', async () => {
     const dir = tempDir();
     const writer = new PairingStore(dir);

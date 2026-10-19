@@ -19,6 +19,7 @@ export function getDefaultDingTalkConfig(): DingTalkConfig {
   return {
     appKey: '',
     appSecret: '',
+    agentId: '',
     webhookUrl: '',
     webhookPort: DEFAULTS.webhookPort!,
   };

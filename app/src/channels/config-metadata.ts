@@ -120,6 +120,13 @@ export const PLATFORM_FIELDS: Record<string, PlatformFieldDef[]> = {
       type: 'password',
       required: true,
     },
+    {
+      key: 'agentId',
+      label: 'Agent ID',
+      placeholder: '如 5084385357（主动发送消息时必填）',
+      type: 'text',
+      required: false,
+    },
   ],
   wechat: [
     {

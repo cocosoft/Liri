@@ -50,6 +50,11 @@ export interface ProactiveRuntimeOptions {
 
 let activeQueue: ProactivePushQueue | null = null;
 
+/** 当前运行中的队列（未启动 / 开关关闭 ⇒ null）；供生产者入队使用 */
+export function getActiveProactiveQueue(): ProactivePushQueue | null {
+  return activeQueue;
+}
+
 /**
  * 组装投递路由：`channel` 目标走 `DeliveryRouter`，其余（`local`/`origin`/缺省）
  * 写 `notifications`（P3 卡片的数据源）。

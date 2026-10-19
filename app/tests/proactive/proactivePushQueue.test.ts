@@ -67,6 +67,24 @@ describe('ProactivePushQueue：入队与取件', () => {
     const due = await queue.claimDue(NOW, 10);
     expect(due.map((e) => e.id)).toEqual(['critical', 'high', 'normal', 'low']);
   });
+
+  test('nextAttemptAt 晚于 now（DND/冷却）⇒ 到期前不取件', async () => {
+    await queue.enqueue(payload('delayed'), NOW, NOW + 60_000);
+
+    expect(await queue.claimDue(NOW + 59_999, 10)).toHaveLength(0);
+    const due = await queue.claimDue(NOW + 60_000, 10);
+    expect(due.map((e) => e.id)).toEqual(['delayed']);
+  });
+
+  test('listRecentDelivered 返回已投递记录（门禁输入）', async () => {
+    await queue.enqueue(payload('recent'), NOW);
+    await queue.scanOnce(async () => {}, NOW);
+
+    const recent = await queue.listRecentDelivered(NOW - 1);
+    expect(recent).toEqual([
+      { dedupeKey: 'task:recent', kind: 'task_result', deliveredAt: NOW },
+    ]);
+  });
 });
 
 describe('ProactivePushQueue：投递与重试', () => {

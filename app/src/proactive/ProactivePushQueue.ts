@@ -198,11 +198,14 @@ export class ProactivePushQueue {
 
   /**
    * 入队（`dedupeKey` 在 pending 期间唯一）。
+   * @param now 当前时刻
+   * @param nextAttemptAt 最早可投递时刻（DND / 冷却排队时由门禁给出；缺省 = 立即）
    * @returns true = 新增；false = 已有同 dedupeKey 的 pending（或 id 重复）
    */
   async enqueue(
     payload: ProactiveMessagePayload,
-    now: number = Date.now()
+    now: number = Date.now(),
+    nextAttemptAt: number = now
   ): Promise<boolean> {
     const db = this.ensureDb();
     const sql = `INSERT OR IGNORE INTO ${TABLE}
@@ -220,7 +223,7 @@ export class ProactivePushQueue {
           JSON.stringify(payload),
           payload.createdAt,
           payload.expiresAt,
-          now,
+          nextAttemptAt,
           now,
         ],
         function (this: { changes?: number }, err: Error | null) {
@@ -230,6 +233,44 @@ export class ProactivePushQueue {
       );
     });
     return changes > 0;
+  }
+
+  /**
+   * 查询近期已投递记录（门禁的去重 / 冷却 / 限流输入）。
+   *
+   * 只返回 `delivered` 终态；调用方仍需按自己的 TTL 口径过滤。
+   */
+  async listRecentDelivered(
+    sinceMs: number,
+    limit = 200
+  ): Promise<
+    Array<{
+      dedupeKey: string;
+      kind: ProactiveMessagePayload['kind'];
+      deliveredAt: number;
+    }>
+  > {
+    const db = this.ensureDb();
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT dedupe_key, kind, delivered_at FROM ${TABLE}
+         WHERE status = 'delivered' AND delivered_at IS NOT NULL AND delivered_at >= ?
+         ORDER BY delivered_at DESC
+         LIMIT ?`,
+        [sinceMs, limit],
+        (err: Error | null, rows: Record<string, unknown>[]) => {
+          if (err) reject(err);
+          else
+            resolve(
+              rows.map((row) => ({
+                dedupeKey: row.dedupe_key as string,
+                kind: row.kind as ProactiveMessagePayload['kind'],
+                deliveredAt: row.delivered_at as number,
+              }))
+            );
+        }
+      );
+    });
   }
 
   /** 把已过期的 pending 标记为 expired */

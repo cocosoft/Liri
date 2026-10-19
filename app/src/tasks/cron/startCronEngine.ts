@@ -141,7 +141,31 @@ export async function startCronEngine(): Promise<StartCronEngineResult> {
         }
       }
 
-      // 3) 最终兜底：写入通知中心
+      // 3) 主动队列（G-10 生产者；`PROACTIVE` 关闭时返回 false ⇒ 走原兜底）
+      try {
+        const { enqueueCronResultProactive } =
+          await import('../../proactive/ProactiveCronProducer');
+        const queued = await enqueueCronResultProactive({
+          job: { id: job.id, name: job.name },
+          result,
+          title,
+          body: message,
+        });
+        if (queued) {
+          logger.info('Cron 投递（主动队列）', {
+            jobName: job.name,
+            jobId: job.id,
+          });
+          return;
+        }
+      } catch (err) {
+        await handleError(err, {
+          module: 'cron:startEngine',
+          action: 'proactiveEnqueue',
+        });
+      }
+
+      // 4) 最终兜底：写入通知中心
       try {
         const { notificationPersistence } =
           await import('@modules/runtime/NotificationPersistence.js');

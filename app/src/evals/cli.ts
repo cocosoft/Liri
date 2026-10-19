@@ -785,15 +785,26 @@ const summary = summarizeRun({
 const { jsonPath, mdPath } = writeReport(summary, outDir);
 
 out('\n================ 汇总 ================');
+// G-08（2026-10-19）：pass 指标分母只算**已作答**任务（噪声不算失败，单独列示）
+const answeredResults = results.filter((r) =>
+  r.attempts.some((a) => a.failureKind !== 'infra')
+);
 out(
-  `pass^k 全通过：${results.filter((r) => r.passK).length}/${results.length}` +
+  `pass^k 全通过：${answeredResults.filter((r) => r.passK).length}/${answeredResults.length}` +
     ` ｜ pass^1 均值：${(summary.pass1Mean * 100).toFixed(1)}%` +
     ` ｜ 判分器自检：${summary.judgeSanityOk ? '通过' : '未通过'}`
 );
+if (summary.environmentNoise) {
+  const noise = summary.environmentNoise;
+  out(
+    `环境噪声（超时/限流/网络中断）：${noise.attempts} 次 attempt / ${noise.tasks} 个任务 —— 不计入 pass 指标分子分母`
+  );
+}
 for (const r of results) {
   out(
     `  ${r.task.id}: 断言通过 ${r.assertPassCount}/${r.attempts.length}` +
-      ` ｜ pass^1 ${(r.pass1 * 100).toFixed(0)}% ｜ pass^k ${r.passK ? '✅' : '❌'}`
+      ` ｜ pass^1 ${(r.pass1 * 100).toFixed(0)}% ｜ pass^k ${r.passK ? '✅' : '❌'}` +
+      `${r.environmentNoiseAttempts ? ` ｜ 噪声 ${r.environmentNoiseAttempts} 次未计入` : ''}`
   );
 }
 // 论文 A1（2026-10-06）：可靠性曲线（**仅当 ≥2 个点**，避免 k=1 的单点噪声）

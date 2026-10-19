@@ -50,23 +50,40 @@ export function isAsExpected(task: EvalTask, assertion: AssertResult): boolean {
 }
 
 /**
+ * G-08（2026-10-19）：**环境噪声**判定（超时 / 限流 / 网络中断等执行异常）。
+ *
+ * 判据**只用结构化字段** `failureKind === 'infra'`（CS02：禁止对 `assertion.reason`
+ * 做字符串匹配）。口径见 `.trae/specs/eval-pass-hat-k-reliability.md` §10：
+ * 噪声**不计入** pass 指标的分子与分母，单独列示。
+ */
+export function isEnvironmentNoise(attempt: EvalAttempt): boolean {
+  return attempt.failureKind === 'infra';
+}
+
+/**
  * 汇总单任务。
- * - `pass1` = 符合期望次数 / 尝试次数（控制任务即"被判为失败"的比例）
- * - `passK` = k 次**全部**符合期望（k=0 视为未通过，避免"没跑就算过"）
+ * - `pass1` = 符合期望次数 / **已作答**尝试次数（控制任务即"被判为失败"的比例）；
+ * - `passK` = **已作答**尝试**全部**符合期望（k=0 视为未通过，避免"没跑就算过"）；
+ * - G-08：环境噪声（`failureKind === 'infra'`）**不进分子分母**，仅以
+ *   `environmentNoiseAttempts` 如实列示（为 0/缺省时**不出字段**，旧输出不变）。
  */
 export function summarizeTask(
   task: EvalTask,
   attempts: EvalAttempt[]
 ): EvalTaskResult {
   const assertPassCount = attempts.filter((a) => a.assertion.pass).length;
-  const asExpectedCount = attempts.filter((a) => a.asExpected).length;
+  const answered = attempts.filter((a) => !isEnvironmentNoise(a));
+  const asExpectedCount = answered.filter((a) => a.asExpected).length;
+  const noiseAttempts = attempts.length - answered.length;
   const f2pP2P = summarizeF2pP2P(task, attempts);
   return {
     task,
     attempts,
     assertPassCount,
-    pass1: attempts.length === 0 ? 0 : asExpectedCount / attempts.length,
-    passK: attempts.length > 0 && asExpectedCount === attempts.length,
+    pass1: answered.length === 0 ? 0 : asExpectedCount / answered.length,
+    passK: answered.length > 0 && asExpectedCount === answered.length,
+    // G-08：噪声只列示、不参与计算（无噪声 ⇒ 缺省，旧报告逐字不变）
+    ...(noiseAttempts > 0 ? { environmentNoiseAttempts: noiseAttempts } : {}),
     // 未声明 F2P/P2P 的任务**不带该字段** ⇒ 旧题输出逐字不变
     ...(f2pP2P ? { f2pP2P } : {}),
   };
@@ -223,27 +240,52 @@ export function summarizeRun(args: {
   expectControls?: boolean;
 }): EvalRunSummary {
   const { tasks, expectControls = true } = args;
-  // 论文 A1：pass^k 曲线（无任何任务有运行记录 ⇒ undefined ⇒ 字段不出）
-  const reliabilityCurve = computeReliabilityCurve(
-    tasks.map((t) => ({
-      successes: t.attempts.filter((a) => a.asExpected).length,
-      n: t.attempts.length,
-    }))
+  // G-08（2026-10-19）：pass 指标一律按**已作答** attempt（剔除 `failureKind === 'infra'`
+  // 的环境噪声）计算分子分母；噪声单独列示（见 `environmentNoise`）。
+  const answeredByTask = new Map(
+    tasks.map((t) => [t, t.attempts.filter((a) => !isEnvironmentNoise(a))])
   );
+  const answeredTasks = tasks.filter(
+    (t) => (answeredByTask.get(t)?.length ?? 0) > 0
+  );
+  // 论文 A1：pass^k 曲线（无任何任务有**已作答**记录 ⇒ undefined ⇒ 字段不出）
+  const reliabilityCurve = computeReliabilityCurve(
+    answeredTasks.map((t) => {
+      const answered = answeredByTask.get(t)!;
+      return {
+        successes: answered.filter((a) => a.asExpected).length,
+        n: answered.length,
+      };
+    })
+  );
+  const noiseAttempts = tasks.reduce(
+    (sum, t) =>
+      sum + (t.attempts.length - (answeredByTask.get(t)?.length ?? 0)),
+    0
+  );
+  const noiseTasks = tasks.filter(
+    (t) => t.attempts.length > (answeredByTask.get(t)?.length ?? 0)
+  ).length;
   return {
     startedAt: args.startedAt,
     finishedAt: args.finishedAt,
     model: args.model,
     k: args.k,
     tasks,
+    // 分母只算**已作答**任务（全部为噪声 ⇒ 视为未观测，不当作失败）
     passKRate:
-      tasks.length === 0
+      answeredTasks.length === 0
         ? 0
-        : tasks.filter((t) => t.passK).length / tasks.length,
+        : answeredTasks.filter((t) => t.passK).length / answeredTasks.length,
     pass1Mean:
-      tasks.length === 0
+      answeredTasks.length === 0
         ? 0
-        : tasks.reduce((sum, t) => sum + t.pass1, 0) / tasks.length,
+        : answeredTasks.reduce((sum, t) => sum + t.pass1, 0) /
+          answeredTasks.length,
+    // G-08：环境噪声单独列示（无噪声 ⇒ 缺省，旧输出逐字不变）
+    ...(noiseAttempts > 0
+      ? { environmentNoise: { attempts: noiseAttempts, tasks: noiseTasks } }
+      : {}),
     judgeSanityOk: judgeSanityOk(tasks, expectControls),
     resolvedRate: computeResolvedRate(tasks),
     ...(reliabilityCurve ? { reliabilityCurve } : {}),

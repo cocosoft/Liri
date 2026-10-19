@@ -52,6 +52,17 @@ function mkAttempt(index: number, ok: boolean): EvalAttempt {
   return { index, assertion: { pass: ok }, asExpected: ok, durationMs: 1 };
 }
 
+/** G-08：环境噪声样本（`failureKind === 'infra'`：超时/限流/网络中断） */
+function mkInfraAttempt(index: number): EvalAttempt {
+  return {
+    index,
+    assertion: { pass: false, reason: '执行异常：timeout' },
+    asExpected: false,
+    durationMs: 1,
+    failureKind: 'infra',
+  };
+}
+
 const attempts = (okCount: number, n: number): EvalAttempt[] =>
   Array.from({ length: n }, (_, i) => mkAttempt(i + 1, i < okCount));
 
@@ -189,5 +200,111 @@ describe('报告展示（论文 A1）', () => {
     expect(s.tasks[0].passK).toBe(false);
     expect(s.passKRate).toBe(0);
     expect(s.pass1Mean).toBeCloseTo(0.75, 10);
+  });
+});
+
+// ─── G-08（2026-10-19）：环境噪声不计入 pass 指标分子分母 ─────────────────────
+describe('G-08：环境噪声分类（answered 口径）', () => {
+  it('单任务：噪声不进分母 / 不影响 passK 与 pass1，且如实列示次数', () => {
+    const r = summarizeTask(mkTask('t'), [
+      mkAttempt(1, true),
+      mkAttempt(2, true),
+      mkInfraAttempt(3),
+    ]);
+
+    // 已作答 2 次全过 ⇒ pass1 = 1（噪声不算失败）
+    expect(r.pass1).toBe(1);
+    expect(r.passK).toBe(true);
+    expect(r.environmentNoiseAttempts).toBe(1);
+    // 原始次数仍保留（报告可复盘）
+    expect(r.attempts).toHaveLength(3);
+  });
+
+  it('全部为噪声的任务 ⇒ 视为未观测：pass1=0 / passK=false，且不进整轮分母', () => {
+    const noisy = summarizeTask(mkTask('noisy'), [mkInfraAttempt(1)]);
+    const clean = summarizeTask(mkTask('clean'), attempts(4, 4));
+
+    const run = summarizeRun({
+      startedAt: 't0',
+      finishedAt: 't1',
+      model: 'm',
+      k: 4,
+      tasks: [noisy, clean],
+    });
+
+    expect(noisy.pass1).toBe(0);
+    expect(noisy.passK).toBe(false);
+    // 分母只算已作答任务 ⇒ 1/1，而不是被噪声拉成 1/2
+    expect(run.passKRate).toBe(1);
+    expect(run.pass1Mean).toBe(1);
+    expect(run.environmentNoise).toEqual({ attempts: 1, tasks: 1 });
+  });
+
+  it('曲线：噪声样本不改变 pass^k 分子分母', () => {
+    const withNoise = summarizeRun({
+      startedAt: 't0',
+      finishedAt: 't1',
+      model: 'm',
+      k: 4,
+      tasks: [
+        summarizeTask(mkTask('t0'), [...attempts(3, 3), mkInfraAttempt(4)]),
+        summarizeTask(mkTask('t1'), attempts(4, 4)),
+      ],
+    });
+    const withoutNoise = summarizeRun({
+      startedAt: 't0',
+      finishedAt: 't1',
+      model: 'm',
+      k: 4,
+      tasks: [
+        summarizeTask(mkTask('t0'), attempts(3, 3)), // 已作答 3 次全过（k=4 不参与该点）
+        summarizeTask(mkTask('t1'), attempts(4, 4)),
+      ],
+    });
+
+    expect(withNoise.reliabilityCurve).toEqual(withoutNoise.reliabilityCurve);
+    // k=1..3 两个任务都参与；k=4 只有 n>=4 的 t1 参与
+    expect(withNoise.reliabilityCurve?.map((p) => p.tasks)).toEqual([
+      2, 2, 2, 1,
+    ]);
+  });
+
+  it('无噪声 ⇒ 字段缺省（旧输出与 JSON 逐字不变）', () => {
+    const s = summarizeRun({
+      startedAt: 't0',
+      finishedAt: 't1',
+      model: 'm',
+      k: 1,
+      tasks: [summarizeTask(mkTask('t0'), attempts(1, 1))],
+    });
+    expect(s.environmentNoise).toBeUndefined();
+    expect(s.tasks[0].environmentNoiseAttempts).toBeUndefined();
+  });
+
+  it('报告：噪声单独列示，且明示不计入分子分母', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'liri-g08-'));
+    try {
+      const s = summarizeRun({
+        startedAt: 't0',
+        finishedAt: 't1',
+        model: 'm',
+        k: 2,
+        tasks: [
+          summarizeTask(mkTask('t0'), [mkAttempt(1, true), mkInfraAttempt(2)]),
+        ],
+      });
+      const { mdPath, jsonPath } = writeReport(s, dir);
+      const md = readFileSync(mdPath, 'utf-8');
+      expect(md).toContain('环境噪声');
+      expect(md).toContain('不计入');
+      expect(md).toContain('噪声 1 次未计入');
+
+      const json = JSON.parse(readFileSync(jsonPath, 'utf-8')) as {
+        environmentNoise?: { attempts: number; tasks: number };
+      };
+      expect(json.environmentNoise).toEqual({ attempts: 1, tasks: 1 });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

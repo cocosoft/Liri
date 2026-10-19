@@ -38,13 +38,24 @@ function toMarkdown(summary: EvalRunSummary): string {
   lines.push(`> 模型：\`${summary.model}\` ｜ 每任务次数 k=${summary.k}`);
   lines.push(`> 起止：${summary.startedAt} → ${summary.finishedAt}`);
   lines.push('');
+  // G-08（2026-10-19）：pass 指标的分母只算**已作答**任务（全部为噪声 ⇒ 视为未观测）
+  const answeredTasks = summary.tasks.filter((t) =>
+    t.attempts.some((a) => a.failureKind !== 'infra')
+  );
   lines.push(
-    `**汇总**：pass^k 全通过任务占比 **${(summary.passKRate * 100).toFixed(0)}%**（${summary.tasks.filter((t) => t.passK).length}/${summary.tasks.length}）；pass^1 均值 **${(summary.pass1Mean * 100).toFixed(1)}%**；判分器自检 **${summary.judgeSanityOk ? '通过' : '未通过'}**` +
+    `**汇总**：pass^k 全通过任务占比 **${(summary.passKRate * 100).toFixed(0)}%**（${answeredTasks.filter((t) => t.passK).length}/${answeredTasks.length}）；pass^1 均值 **${(summary.pass1Mean * 100).toFixed(1)}%**；判分器自检 **${summary.judgeSanityOk ? '通过' : '未通过'}**` +
       // A2（2026-10-06）：resolved 率 —— **仅** F2P/P2P 任务参与分母；无该类任务则**不出该段**
       (summary.resolvedRate === undefined
         ? ''
         : `；**resolved 率 ${(summary.resolvedRate * 100).toFixed(0)}%**（k 次全 resolved 的 F2P/P2P 任务占比）`)
   );
+  // G-08：环境噪声（超时 / 限流 / 网络中断）单独列示，明示"未进分母"
+  if (summary.environmentNoise) {
+    const noise = summary.environmentNoise;
+    lines.push(
+      `> **环境噪声**：${noise.attempts} 次 attempt / ${noise.tasks} 个任务（超时·限流·网络中断；**不计入** pass 指标分子分母）`
+    );
+  }
   if (summary.security) {
     const sec = summary.security;
     // A4（2026-09-26）：分母为**已完成** attempt；为 0 时显式标注 n/a，不给"0% 的假安全感"
@@ -77,7 +88,9 @@ function toMarkdown(summary: EvalRunSummary): string {
     lines.push(
       `| ${t.task.id} | ${t.task.level} | ${t.task.expect ?? 'pass'} | ` +
         `${t.assertPassCount}/${t.attempts.length} | ${(t.pass1 * 100).toFixed(0)}% | ` +
-        `${t.passK ? '✅' : '❌'} | ${lastFail?.assertion.reason ?? ''} |`
+        `${t.passK ? '✅' : '❌'} | ${lastFail?.assertion.reason ?? ''}` +
+        // G-08：有噪声时在说明列如实标注（pass^1 的分母已剔除噪声）
+        `${t.environmentNoiseAttempts ? `（噪声 ${t.environmentNoiseAttempts} 次未计入）` : ''} |`
     );
   }
 

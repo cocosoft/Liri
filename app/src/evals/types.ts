@@ -304,6 +304,14 @@ export interface EvalTaskResult {
     noOp: number;
     attempts: number;
   };
+  /**
+   * G-08（2026-10-19，`.trae/specs/eval-pass-hat-k-reliability.md` §10）：
+   * 本任务**环境噪声**（`failureKind === 'infra'`：超时 / 限流 / 网络中断）的 attempt 数。
+   *
+   * 噪声**不计入** `pass1` / `passK` 的分子分母；仅列示。为 0 / 缺省 ⇒ 不出字段
+   * （旧报告逐字不变）。
+   */
+  environmentNoiseAttempts?: number;
 }
 
 /**
@@ -340,6 +348,19 @@ export interface EvalRunSummary {
    * 无任何任务有运行记录 ⇒ **不出该字段**（不编造）。
    */
   reliabilityCurve?: ReliabilityPoint[];
+  /**
+   * G-08（2026-10-19，`.trae/specs/eval-pass-hat-k-reliability.md` §10）：
+   * **环境噪声**汇总（`failureKind === 'infra'`：超时 / 限流 / 网络中断）。
+   *
+   * 噪声**不进** `passKRate` / `pass1Mean` / `reliabilityCurve` 的分子分母，只在报告单列。
+   * 无噪声 ⇒ 缺省（旧输出逐字不变）。
+   */
+  environmentNoise?: {
+    /** 噪声 attempt 总数 */
+    attempts: number;
+    /** 至少含 1 次噪声的任务数 */
+    tasks: number;
+  };
   /** 判分器自检：控制任务是否都被判为"符合预期失败" */
   judgeSanityOk: boolean;
   /** 安全鲁棒性汇总（D9；仅当题集中存在成对安全任务时给出） */

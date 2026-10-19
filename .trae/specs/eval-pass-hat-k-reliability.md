@@ -140,3 +140,40 @@ export function passHatK(successes: number, n: number, k: number): number;
 | 2026-10-06 | **立项 + 实施（同批）** | 用户「按推荐组合开始实施」⇒ 采纳 **D1=a · D2=a · D3=a**。**T1–T4 一次交付**：`passHatK()` + `computeReliabilityCurve()`（`scoring.ts`）· `ReliabilityPoint` + `EvalRunSummary.reliabilityCurve?`（`types.ts`）· `summarizeRun` 组曲线（**无数据 ⇒ 字段不出**）· `report.ts` + `cli.ts`（**同为 k≥2 点**才展示）。测试 `tests/evals/passHatK.test.ts` **10 例** |
 | 2026-10-06 | **实施中修正（如实）** | 首版用例把「不等 n」一点的期望值手算错（写成 `0.5`，实为 `C(2,2)/C(4,2) = 1/6`）⇒ **实现无误、期望值已按定义订正**（`toBeCloseTo` 精确断言），并保留该点为组合式的**区分性证据**（若退化为 `c/n`，该点会是 `0.5`） |
 | 2026-10-06 | **验证（四证）** | `typecheck` **0** · `eslint`（`src/evals` + `tests/evals`）**0** · `lint:arch` **错误 0 / 警告 4（基线）**、分层文件数 **3886 不变** · 定向 **10 pass / 0 fail** · 全量 **4639 pass / 21 skip / 0 fail**（4660 tests / 491 files；较 A2 基线 **+10 例 / +1 文件 = 本批新增**，逐数吻合） |
+
+---
+
+## 10. 环境噪声口径（G-08，2026-10-19）
+
+> 来源：`dev_docs/20261019/google ai 建议.md`；任务清单 `G-08`（P3）。
+> 目标：让**超时 / 限流 / 网络中断**等基建失败不再污染 `pass^k`（此前它们以 `asExpected=false`
+> 直接进分子分母，会被误读为"模型不可靠"）。
+
+### 10.1 裁定（D4）
+
+| ID | 决策项 | 选项 | 采纳 |
+|:--:|---|---|---|
+| **D4** | 环境噪声是否计入 pass 指标 | (a) **不计入分子分母 + 单独列示**／(b) 计入分母仅为失败并另列 | **(a)** |
+
+**判据（结构化，不做字符串匹配，CS02）**：`EvalAttempt.failureKind === 'infra'`
+（`runner.ts` 在 `catch` 分支显式置位；含超时、端点不可达、限流/网络中断、断言执行器抛错）。
+`assertion.reason` 的文本**不参与**分类。
+
+### 10.2 口径细则
+
+1. **单任务**：`pass1` / `passK` 只看**已作答** attempt（`failureKind !== 'infra'`）；
+   噪声次数以 `EvalTaskResult.environmentNoiseAttempts` 列示（为 0 ⇒ 字段缺省）。
+2. **整轮**：`passKRate` / `pass1Mean` / `reliabilityCurve` 的分母只含**至少 1 次已作答**的任务；
+   全部为噪声的任务视为**未观测**（不当作失败）。
+3. **全部噪声的轮次**：`passKRate = 0` / `pass1Mean = 0`（沿用"空集"约定），曲线字段**不出**。
+4. **单独列示**：`EvalRunSummary.environmentNoise = { attempts, tasks }`（无噪声 ⇒ 缺省）；
+   报告与 CLI 各加一行，并明示"不计入 pass 指标分子分母"。
+5. **判分器自检不变（fail-closed）**：控制任务无已作答 attempt ⇒ 自检**不通过**
+   （不能因噪声而"证明"判分器能判失败）。
+
+### 10.3 边界（如实）
+
+- `resolvedRate` / F2P-P2P 三态**不在本次口径内**：噪声 attempt 已因
+  `passedCases === undefined` 不参与三态归类，但 `f2pP2P.attempts` 仍记录原始次数
+  （「k 次全 resolved」的分母含噪声）——如需统一，另立切片。
+- `--retry-on-infra` 的既有语义不变：仍先重试，重试耗尽后留下的 `infra` attempt 才属噪声样本。

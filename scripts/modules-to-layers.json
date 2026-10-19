@@ -60,6 +60,7 @@
 
     "context-engine": { "layer": "app", "description": "上下文引擎（与 context 同域）" },
     "evals":    { "layer": "app", "description": "Agent 评测框架（runner/scoring/sandbox/反作弊）" },
+    "proactive": { "layer": "app", "description": "主动式智能体（G-10 P1）：ProactiveMessagePayload DTO + ProactiveNotificationGate 纯函数；无队列/通道接线，无副作用" },
     "project":  { "layer": "app", "description": "项目域（成果/历史/需求追踪/迁移）" },
     "promptSuggestion": { "layer": "app", "description": "提示建议（消费 ai/chat）" },
     "subagent": { "layer": "app", "description": "子代理管理（工厂/通信/Teammate）" },

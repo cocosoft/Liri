@@ -40,6 +40,7 @@ import type http from 'http';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { setConfigValue } from '@modules/config';
+import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 import { readBody, json } from './handler-utils';
 // 仅**类型位**（R00-001 口径：type-only 跨层引用不计违规）
 import type { DailyBudgetManager } from '@modules/query';
@@ -250,6 +251,87 @@ export async function handleClearDailyBudgetRelief(
     });
     if (!res.headersSent) {
       json(res, 500, { error: { message: '撤销日限额放行失败' } });
+    }
+  }
+}
+
+/**
+ * GET /v1/cost/estimate-turn — **成本折算估算器**（只读、同源，G-04）。
+ *
+ * 目的：前端需要把「用户输入的 USD 上限」换算为「约合多少输入/输出 Token」时，
+ * **不得**在前端自算（会形成第二套价表/公式）。本端点经 `query/modelPricingAdapter`
+ * 的同一取价链（`model_registry` → `calculateTotalCost`）给出估算。
+ *
+ * 两种模式（二选一，`usd` 优先）：
+ * - `?model=…&usd=2.5` ⇒ 返回 `{ costUsd, unknownModel, inputTokens, outputTokens }`
+ *   （按该模型**已登记单价**反推；未知模型用兜底价并 `unknownModel: true` 如实标注）；
+ * - `?model=…&inputTokens=1000&outputTokens=500` ⇒ 返回 `{ costUsd, unknownModel }`
+ *   （与计费链同参形状，供其它调用方复用）。
+ *
+ * 未登记模型**不 fail**（Q-U5：降级可用），但必须如实带 `unknownModel`。
+ */
+export async function handleEstimateTurnCost(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const url = new URL(req.url || '', LOCAL_REQUEST_BASE_URL);
+    const model = (url.searchParams.get('model') || '').trim();
+    if (!model) {
+      json(res, 400, { error: { message: 'model 必填' } });
+      return;
+    }
+    const { estimateTurnCostUsd, resolveModelPricing } =
+      await loadQueryModule();
+
+    const usdRaw = url.searchParams.get('usd');
+    if (usdRaw !== null) {
+      const usd = Number(usdRaw);
+      if (!Number.isFinite(usd) || usd < 0) {
+        json(res, 400, { error: { message: 'usd 必须为非负数' } });
+        return;
+      }
+      const { pricing, unknownModel } = resolveModelPricing(model);
+      // 反推：token = usd / (单价/百万) × 100 万。单价 <= 0 ⇒ 无法反推 ⇒ 0（不臆造）。
+      const toTokens = (pricePerMillion: number): number =>
+        pricePerMillion > 0
+          ? Math.round((usd / pricePerMillion) * 1_000_000)
+          : 0;
+      json(res, 200, {
+        costUsd: usd,
+        unknownModel,
+        inputTokens: toTokens(pricing.inputPricePerMillion),
+        outputTokens: toTokens(pricing.outputPricePerMillion),
+      });
+      return;
+    }
+
+    const inputRaw = url.searchParams.get('inputTokens');
+    const outputRaw = url.searchParams.get('outputTokens');
+    if (inputRaw === null && outputRaw === null) {
+      json(res, 400, {
+        error: { message: 'usd 或 inputTokens/outputTokens 必填其一' },
+      });
+      return;
+    }
+    const inputTokens = Number(inputRaw ?? '0');
+    const outputTokens = Number(outputRaw ?? '0');
+    if (
+      !Number.isFinite(inputTokens) ||
+      !Number.isFinite(outputTokens) ||
+      inputTokens < 0 ||
+      outputTokens < 0
+    ) {
+      json(res, 400, {
+        error: { message: 'inputTokens/outputTokens 必须为非负数' },
+      });
+      return;
+    }
+    json(res, 200, estimateTurnCostUsd(model, { inputTokens, outputTokens }));
+  } catch (err) {
+    await handleError(err, { module: 'http:dailyBudget', action: 'estimate' });
+    if (!res.headersSent) {
+      json(res, 500, { error: { message: '成本折算估算失败' } });
     }
   }
 }

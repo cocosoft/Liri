@@ -689,6 +689,10 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
                   .then(() => {
                     // 放行成功 ⇒ 清错（用户再点「继续」显式重发，不静默自动重发）
                     useChatStore.setState({ error: null, errorCode: null });
+                    // 挂起态：放行已释放挂起（后端会续跑）⇒ 立即收起卡片。
+                    // 原实现只清 error/errorCode，而挂起卡由 `suspendNotice` 驱动 ⇒
+                    // 点「今日解除」后卡片纹丝不动，看起来"按钮没反应"（本次用户反馈）。
+                    if (isSuspended) setSuspendNotice(null);
                   })
                   .catch(() => {
                     // 放行失败保留卡片，让用户可改用其它动作
@@ -717,7 +721,14 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
                 }
                 void handleContinueError();
               }}
-              onOpenSettings={() => void handleDismissError()}
+              onOpenSettings={() => {
+                // 原实现仅 `handleDismissError()`（等于"关闭卡片"）⇒ 点「限额设置」
+                // 什么也不发生（本次用户反馈）。现直达「用量中心 → 日限额」配置面，
+                // 并清掉当前提示（避免返回聊天页时残留旧卡片）。
+                void handleDismissError();
+                if (isSuspended) setSuspendNotice(null);
+                navigate("/usage?tab=dailyLimit");
+              }}
               onDismiss={() => {
                 // 挂起卡片的"关闭"只收起本次展示（挂起状态仍在服务端；切换会话/重启会再次提示）
                 if (isSuspended) setSuspendNotice(null);

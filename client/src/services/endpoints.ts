@@ -318,6 +318,8 @@ export const ENDPOINTS = {
     byId: (modelId: string) => `/v1/pricing/${encodeURIComponent(modelId)}`,
   },
   cost: {
+    /** G-04（2026-10-19）：只读成本折算估算器（同源取价链） */
+    estimateTurn: "/v1/cost/estimate-turn",
     dailyBudget: "/v1/cost/daily-budget",
     dailyBudgetReset: "/v1/cost/daily-budget/reset",
     dailyBudgetRelief: "/v1/cost/daily-budget/relief",

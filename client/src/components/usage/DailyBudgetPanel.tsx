@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
+import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import {
   usageService,
   type DailyBudgetReliefKind,
   type DailyBudgetStatus,
+  type TurnCostEstimateDto,
 } from "../../services/usageService";
 import { configService } from "../../services/configService";
 import { sseService } from "../../services/sseService";
@@ -114,6 +116,8 @@ export default function DailyBudgetPanel() {
   const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
+  /** G-04：当前聊天模型（估算器只把它作为 `model` 入参，**不在前端自算**） */
+  const currentModelName = useModelSwitchStore((s) => s.currentModelName);
 
   const [status, setStatus] = useState<DailyBudgetStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -126,6 +130,10 @@ export default function DailyBudgetPanel() {
   // 债四 USD-3（方案 §6.3）：金额上限输入 —— **以字符串持有**：留空是**合法状态**
   // （"不启用"），不可强转数字（`Number("")===0` 会被后端判为非法上限）。
   const [usdLimitInput, setUsdLimitInput] = useState("");
+  /** G-04：USD 上限 → Token 约数（服务端同源估算；留空/非法 ⇒ 不展示） */
+  const [usdEstimate, setUsdEstimate] = useState<TurnCostEstimateDto | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -168,6 +176,41 @@ export default function DailyBudgetPanel() {
     //（`0` 是"上限 0 ⇒ 全额拒发"的误读；`null` 才是"未启用"）。
     setUsdLimitInput(s.limitUsd === null ? "" : String(s.limitUsd));
   }, []);
+
+  /**
+   * G-04：把用户输入的 USD 上限交给**服务端**换算为 Token 约数（300ms 去抖）。
+   *
+   * 前端**不做任何价表/公式运算**：只消费 `GET /v1/cost/estimate-turn` 的 DTO
+   * （`model_registry → calculateTotalCost` 同源），避免第二套换算口径。
+   */
+  useEffect(() => {
+    const usd = Number(usdLimitInput);
+    if (
+      !currentModelName ||
+      !usdLimitInput.trim() ||
+      !Number.isFinite(usd) ||
+      usd <= 0
+    ) {
+      setUsdEstimate(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void usageService
+        .estimateTurnCost({ model: currentModelName, usd })
+        .then((dto) => {
+          if (!cancelled) setUsdEstimate(dto);
+        })
+        .catch(() => {
+          // 估算失败不阻断面板（仅少一行说明）
+          if (!cancelled) setUsdEstimate(null);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [usdLimitInput, currentModelName]);
 
   const load = useCallback(
     async (silent = false) => {
@@ -917,10 +960,42 @@ export default function DailyBudgetPanel() {
               onChange={(e) => setUsdLimitInput(e.target.value)}
               className={inputCls}
             />
+            {/* G-03（2026-10-19）：闸门状态徽章 —— 判据只用后端 DTO 的
+                `limitUsd === null`（CS02：不做字符串/本地推断）。 */}
+            {status && (
+              <span
+                data-testid="daily-budget-usd-gate-badge"
+                data-gate={status.limitUsd === null ? "off" : "on"}
+                className={`mt-1 inline-block text-xs ${
+                  status.limitUsd === null
+                    ? "text-gray-500 dark:text-gray-400"
+                    : "text-green-600 dark:text-green-400"
+                }`}
+              >
+                {status.limitUsd === null
+                  ? t("cost.dailyLimitUsdGateOff")
+                  : t("cost.dailyLimitUsdGateOn")}
+              </span>
+            )}
           </label>
           <p className="md:col-span-2 self-end text-xs text-gray-400">
             {t("cost.dailyLimitUsdHint")}
           </p>
+          {usdEstimate && (
+            <p
+              data-testid="daily-budget-usd-estimate"
+              className="md:col-span-3 text-xs text-gray-500 dark:text-gray-400"
+            >
+              {t("cost.dailyLimitUsdEstimate", {
+                model: currentModelName,
+                input: formatNumber(usdEstimate.inputTokens ?? 0),
+                output: formatNumber(usdEstimate.outputTokens ?? 0),
+              })}
+              {usdEstimate.unknownModel
+                ? t("cost.dailyLimitUsdEstimateUnknown")
+                : ""}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button

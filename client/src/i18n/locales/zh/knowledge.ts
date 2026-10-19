@@ -498,10 +498,16 @@ const zhKnowledge = {
     dailyLimitInvalidLimit: "Token 观测阈值必须为正整数",
     dailyLimitInvalidThreshold: "阈值需为 1 到 100 之间的百分比",
     dailyLimitUsd: "金额上限 (USD)",
-    dailyLimitUsdPlaceholder: "留空 = 不启用",
+    // G-03（2026-10-19）：动态建议文案（仅 UI 引导，不写入配置/代码默认值）
+    dailyLimitUsdPlaceholder: "建议值：1.00 ~ 5.00 USD/日（未保存不生效）",
+    dailyLimitUsdGateOff: "● 闸门未启用（回落 Token 预算）",
+    dailyLimitUsdGateOn: "● 金额闸门已激活",
     dailyLimitUsdHint:
       "按「各模型实际单价 × 用量」折算入账，与成本报表同源；留空即不启用金额闸门（此时无预算硬闸门，Token 数字仅作观测、不拦截调用）。",
     dailyLimitUsdInvalid: "金额上限必须为正数（可含小数）",
+    dailyLimitUsdEstimate:
+      "以当前模型 {{model}} 为例，约合 {{input}} 输入 Token 或 {{output}} 输出 Token",
+    dailyLimitUsdEstimateUnknown: "（该模型未登记，按兜底价估算，仅供参考）",
     dailyLimitUsdUsed: "今日已用金额",
     dailyLimitUsdDebt: "金额欠账",
     dailyLimitUsdCap: "金额上限",

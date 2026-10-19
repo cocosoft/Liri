@@ -392,3 +392,52 @@ describe('POST /v1/cost/daily-budget/relief：sessionId（唤醒收窄目标）'
     expect(getDailyBudget().getRelief()).toBeNull();
   });
 });
+
+// ─── G-04（2026-10-19）：成本折算估算器（只读、同源）──────────────────────────
+//
+// 前端需要「USD 上限 ⇒ 约合多少 Token」时**不得自算**（会形成第二套价表/公式）。
+// 本端点走 `query/modelPricingAdapter` 的同一取价链（model_registry → calculateTotalCost）。
+// 未登记模型不 fail，但必须如实带 `unknownModel`（Q-U5 降级可用，不静默）。
+describe('GET /v1/cost/estimate-turn（G-04）', () => {
+  /** 注册表中不存在的模型名 ⇒ 必定走兜底价分支（与开发机 DB 内容无关） */
+  const UNKNOWN_MODEL = '__g04_not_registered__';
+
+  test('usd 模式：按单价反推输入/输出 Token；未知模型如实标注', async () => {
+    const r = await call(
+      'GET',
+      `/v1/cost/estimate-turn?model=${UNKNOWN_MODEL}&usd=2.5`
+    );
+    expect(r.matched).toBe(true);
+    expect(r.status).toBe(200);
+    expect(r.body['costUsd']).toBe(2.5);
+    expect(r.body['unknownModel']).toBe(true);
+    // 兜底价 3 / 15 USD per 1M ⇒ 2.5 USD 约合 833,333 输入 / 166,667 输出
+    expect(r.body['inputTokens']).toBe(833_333);
+    expect(r.body['outputTokens']).toBe(166_667);
+  });
+
+  test('tokens 模式：与计费链同参形状直接换算成本', async () => {
+    const r = await call(
+      'GET',
+      `/v1/cost/estimate-turn?model=${UNKNOWN_MODEL}&inputTokens=1000000&outputTokens=100000`
+    );
+    expect(r.status).toBe(200);
+    // 兜底价：1M 输入 × 3 + 0.1M 输出 × 15 = 4.5 USD
+    expect(r.body['costUsd']).toBeCloseTo(4.5, 6);
+    expect(r.body['unknownModel']).toBe(true);
+  });
+
+  test('400：缺 model / usd 非法 / 两模式参数都缺 / Token 为负', async () => {
+    const cases = [
+      '/v1/cost/estimate-turn?usd=1', // 缺 model
+      `/v1/cost/estimate-turn?model=${UNKNOWN_MODEL}&usd=-1`, // 负数
+      `/v1/cost/estimate-turn?model=${UNKNOWN_MODEL}&usd=abc`, // 非有限数
+      `/v1/cost/estimate-turn?model=${UNKNOWN_MODEL}`, // 两模式参数都缺
+      `/v1/cost/estimate-turn?model=${UNKNOWN_MODEL}&inputTokens=-1`, // 负数 Token
+    ];
+    for (const url of cases) {
+      const r = await call('GET', url);
+      expect(r.status).toBe(400);
+    }
+  });
+});

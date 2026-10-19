@@ -83,6 +83,7 @@ import {
   handleUninstallChannelPlugin,
 } from '../channel-plugin-handlers';
 import {
+  handleEstimateTurnCost,
   handleGetDailyBudget,
   handleGetDailyBudgetSuspends,
   handleResetDailyBudget,
@@ -109,6 +110,16 @@ async function dispatchDailyBudgetRoutes(
   url: string,
   broadcastEvent: (event: string, data: unknown) => void
 ): Promise<boolean> {
+  // G-04（2026-10-19）：**只读**成本折算估算器（同源取价链；前端禁止自算）。
+  // 查询串（`?model=…&usd=…`）是正常调用形态 ⇒ 必须按前缀匹配，不能用 `===` 精确等值。
+  if (
+    method === 'GET' &&
+    (url === '/v1/cost/estimate-turn' ||
+      url.startsWith('/v1/cost/estimate-turn?'))
+  ) {
+    await handleEstimateTurnCost(req, res);
+    return true;
+  }
   if (method === 'GET' && url === '/v1/cost/daily-budget') {
     await handleGetDailyBudget(res);
     return true;

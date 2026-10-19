@@ -532,11 +532,17 @@ const enKnowledge = {
     dailyLimitInvalidThreshold:
       "Threshold must be a percentage between 1 and 100",
     dailyLimitUsd: "Amount Cap (USD)",
-    dailyLimitUsdPlaceholder: "Leave empty = disabled",
+    dailyLimitUsdPlaceholder: "Suggested: 1.00–5.00 USD/day (not saved yet)",
+    dailyLimitUsdGateOff: "● Gate off (token budget fallback)",
+    dailyLimitUsdGateOn: "● Amount gate active",
     dailyLimitUsdHint:
       "Charged as each model's actual unit price × usage — the same source as the cost report. Leave empty to keep the amount gate off (no budget gate is active; token figures are observation only and do not block calls).",
     dailyLimitUsdInvalid:
       "Amount cap must be a positive number (decimals allowed)",
+    dailyLimitUsdEstimate:
+      "Using the current model {{model}}, about {{input}} input tokens or {{output}} output tokens",
+    dailyLimitUsdEstimateUnknown:
+      " (model not registered; estimated with fallback pricing — reference only)",
     dailyLimitUsdUsed: "Used Today (USD)",
     dailyLimitUsdDebt: "Amount Debt",
     dailyLimitUsdCap: "Amount Cap",

@@ -172,6 +172,22 @@ export interface BudgetSuspendEntry {
   checkpointRef: string | null;
 }
 
+/**
+ * 成本折算估算（`GET /v1/cost/estimate-turn`，G-04）。
+ *
+ * - `usd` 模式：返回按该模型单价反推的输入/输出 Token 数；
+ * - token 模式：返回按该模型单价折算的金额；
+ * - 未登记模型 ⇒ `unknownModel: true`（按兜底价估算，**如实标注**，不静默）。
+ */
+export interface TurnCostEstimateDto {
+  costUsd: number;
+  unknownModel: boolean;
+  /** 仅 `usd` 模式返回 */
+  inputTokens?: number;
+  /** 仅 `usd` 模式返回 */
+  outputTokens?: number;
+}
+
 /** 日 Token 限额状态（GET /v1/cost/daily-budget，R16 / D3） */
 export interface DailyBudgetStatus {
   /** 统计所属**本地**自然日（YYYY-MM-DD） */
@@ -516,6 +532,37 @@ export const usageService = {
         return http.post<DailyBudgetStatus>(
           ENDPOINTS.cost.dailyBudgetReset,
           {},
+        );
+      },
+    );
+  },
+
+  /**
+   * 成本折算估算（GET /v1/cost/estimate-turn，G-04）。
+   *
+   * **只读、同源**：换算在服务端完成（`model_registry` → `calculateTotalCost`），
+   * 前端**不得**另写价表/公式（否则构成第二套换算口径）。
+   *
+   * @param params.usd 以「金额」为准反推 Token（优先）
+   * @param params.inputTokens/outputTokens 以「Token 用量」为准折算金额
+   */
+  async estimateTurnCost(params: {
+    model: string;
+    usd?: number;
+    inputTokens?: number;
+    outputTokens?: number;
+  }): Promise<TurnCostEstimateDto> {
+    const query = new URLSearchParams({ model: params.model });
+    if (params.usd !== undefined) query.set("usd", String(params.usd));
+    if (params.inputTokens !== undefined)
+      query.set("inputTokens", String(params.inputTokens));
+    if (params.outputTokens !== undefined)
+      query.set("outputTokens", String(params.outputTokens));
+    return getOTelTracing().asyncWrap(
+      "services:usage:estimateTurnCost",
+      async () => {
+        return http.get<TurnCostEstimateDto>(
+          `${ENDPOINTS.cost.estimateTurn}?${query.toString()}`,
         );
       },
     );

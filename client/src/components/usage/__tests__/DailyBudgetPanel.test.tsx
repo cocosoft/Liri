@@ -9,8 +9,15 @@
  * - 订阅 `cost:dailyBudgetUpdated` ⇒ 面板即时刷新（**不依赖 30s 轮询**）。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import DailyBudgetPanel from "../DailyBudgetPanel";
+import { useModelSwitchStore } from "../../../stores/modelSwitchStore";
 import { sseService } from "../../../services/sseService";
 
 const mocks = vi.hoisted(() => ({
@@ -18,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   setDailyBudgetRelief: vi.fn(),
   clearDailyBudgetRelief: vi.fn(),
   updateDailyBudget: vi.fn(),
+  estimateTurnCost: vi.fn(),
   configGet: vi.fn(),
   configSet: vi.fn(),
 }));
@@ -28,6 +36,7 @@ vi.mock("../../../services/usageService", () => ({
     setDailyBudgetRelief: mocks.setDailyBudgetRelief,
     clearDailyBudgetRelief: mocks.clearDailyBudgetRelief,
     updateDailyBudget: mocks.updateDailyBudget,
+    estimateTurnCost: mocks.estimateTurnCost,
     resetDailyBudget: vi.fn(),
     setDailyBudgetKillSwitch: vi.fn(),
   },
@@ -92,10 +101,21 @@ beforeEach(() => {
   vi.clearAllMocks();
   // 未保存过放行默认值 ⇒ 面板沿用 D-n / D-b 的默认（×2 / 1 小时 / 需二次确认）
   mocks.configGet.mockResolvedValue(null);
+  // G-04：估算器默认返回零值；用例需要时再覆盖。当前模型默认清空（不触发请求）。
+  mocks.estimateTurnCost.mockResolvedValue({
+    costUsd: 0,
+    unknownModel: false,
+    inputTokens: 0,
+    outputTokens: 0,
+  });
+  useModelSwitchStore.setState({ currentModelName: "" });
 });
 
 afterEach(() => {
+  // 先卸载（否则下方 store 复位会向仍挂载的组件派发更新，触发 act 告警）
+  cleanup();
   vi.unstubAllGlobals();
+  useModelSwitchStore.setState({ currentModelName: "" });
 });
 
 describe("DailyBudgetPanel：欠账与生效放行展示（D-d / D-b，只读）", () => {
@@ -276,6 +296,102 @@ describe("DailyBudgetPanel：金额口径（USD-3）", () => {
     // `$0.00` 只应出现在「已用金额 / 金额欠账」（二者确实为 0 —— 如实展示）；
     // **上限**格必须是「未启用」，**不得**显示 `$0.00`（那是"上限 0 ⇒ 全额拒发"的误读）。
     expect(screen.getAllByText("$0.00")).toHaveLength(2);
+  });
+
+  it("G-03：未配置上限 ⇒ 灰色「闸门未启用」徽章 + 动态建议 placeholder", async () => {
+    mocks.getDailyBudget.mockResolvedValue(
+      budgetStatus({ unit: "tokens", limitUsd: null }),
+    );
+    render(<DailyBudgetPanel />);
+    await screen.findByText("限额配置");
+
+    const badge = screen.getByTestId("daily-budget-usd-gate-badge");
+    expect(badge.getAttribute("data-gate")).toBe("off");
+    expect(badge.textContent).toContain("闸门未启用");
+    expect(badge.className).toContain("text-gray-500");
+
+    const input = screen.getByTestId(
+      "daily-budget-usd-input",
+    ) as HTMLInputElement;
+    expect(input.getAttribute("placeholder")).toContain("建议值");
+    expect(input.getAttribute("placeholder")).toContain("未保存不生效");
+  });
+
+  it("G-03：已配置上限 ⇒ 绿色「金额闸门已激活」徽章", async () => {
+    mocks.getDailyBudget.mockResolvedValue(
+      budgetStatus({ unit: "usd", dailyLimit: 10, limitUsd: 12.5, used: 1 }),
+    );
+    render(<DailyBudgetPanel />);
+    await screen.findByText("限额配置");
+
+    const badge = screen.getByTestId("daily-budget-usd-gate-badge");
+    expect(badge.getAttribute("data-gate")).toBe("on");
+    expect(badge.textContent).toContain("金额闸门已激活");
+    expect(badge.className).toContain("text-green-600");
+  });
+
+  it("G-04：输入金额且已选模型 ⇒ 以服务端 DTO 展示 Token 约数（前端不自算）", async () => {
+    useModelSwitchStore.setState({ currentModelName: "demo-model" });
+    mocks.getDailyBudget.mockResolvedValue(budgetStatus({ limitUsd: null }));
+    mocks.estimateTurnCost.mockResolvedValue({
+      costUsd: 2.5,
+      unknownModel: false,
+      inputTokens: 5_000_000,
+      outputTokens: 250_000,
+    });
+    render(<DailyBudgetPanel />);
+    await screen.findByText("限额配置");
+
+    // 300ms 去抖后才发起估算 ⇒ 由 waitFor 的 act 包裹推进定时器结果
+    fireEvent.change(screen.getByTestId("daily-budget-usd-input"), {
+      target: { value: "2.5" },
+    });
+    await waitFor(() =>
+      expect(mocks.estimateTurnCost).toHaveBeenCalledWith({
+        model: "demo-model",
+        usd: 2.5,
+      }),
+    );
+
+    const estimate = await screen.findByTestId("daily-budget-usd-estimate");
+    expect(estimate.textContent).toContain("demo-model");
+    expect(estimate.textContent).toContain("5,000,000");
+    expect(estimate.textContent).toContain("250,000");
+    expect(estimate.textContent).not.toContain("该模型未登记");
+  });
+
+  it("G-04：未登记模型 ⇒ 追加兜底价提示；未选模型 ⇒ 不发起估算请求", async () => {
+    useModelSwitchStore.setState({ currentModelName: "unknown-model" });
+    mocks.getDailyBudget.mockResolvedValue(budgetStatus({ limitUsd: null }));
+    mocks.estimateTurnCost.mockResolvedValue({
+      costUsd: 1,
+      unknownModel: true,
+      inputTokens: 1_000,
+      outputTokens: 100,
+    });
+    const { unmount } = render(<DailyBudgetPanel />);
+    await screen.findByText("限额配置");
+
+    fireEvent.change(screen.getByTestId("daily-budget-usd-input"), {
+      target: { value: "1" },
+    });
+    await waitFor(() => expect(mocks.estimateTurnCost).toHaveBeenCalled());
+    const estimate = await screen.findByTestId("daily-budget-usd-estimate");
+    expect(estimate.textContent).toContain("该模型未登记");
+
+    // 未选模型 ⇒ 估算器不出请求（模型单价不可知，前端不猜）
+    unmount();
+    mocks.estimateTurnCost.mockClear();
+    useModelSwitchStore.setState({ currentModelName: "" });
+    render(<DailyBudgetPanel />);
+    await screen.findByText("限额配置");
+
+    fireEvent.change(screen.getByTestId("daily-budget-usd-input"), {
+      target: { value: "2" },
+    });
+    await new Promise((r) => setTimeout(r, 400));
+    expect(mocks.estimateTurnCost).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("daily-budget-usd-estimate")).toBeNull();
   });
 
   it("金额主口径下 Token 观测阈值输入框取 `tokenLimit`（**非** `dailyLimit`）—— 真机 E2E 回归", async () => {

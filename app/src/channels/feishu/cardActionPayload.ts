@@ -141,6 +141,7 @@ export function buildFeishuCardActionResponse(
     result.code === 0
       ? (result.message ?? '已放行：本会话将从挂起点自动续跑')
       : `未放行：${result.message ?? '操作未生效（按钮可能已失效）'}`;
-  // 只用官方示例中的 `info`（枚举未获权威文档 ⇒ 不臆造其它取值）
-  return { toast: { type: 'info', content } };
+  // 官方长连接回调示例（NodeJS SDK「Handle callbacks」）用 `success` 表示成功；
+  // 失败态枚举未在文档中列出 ⇒ 沿用 `info`（不臆造其它取值）。
+  return { toast: { type: result.code === 0 ? 'success' : 'info', content } };
 }

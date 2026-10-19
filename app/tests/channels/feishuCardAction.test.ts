@@ -179,9 +179,9 @@ describe('验收 C：与 QQ **同源**（同一动作端口，不各平台各写
 });
 
 describe('验收 D：回调响应体（文档：`{toast}`；**不带** `card` ⇒ 保持原卡片）', () => {
-  it('成功 ⇒ info toast 含「已放行」', () => {
+  it('成功 ⇒ success toast 含「已放行」', () => {
     const body = buildFeishuCardActionResponse({ code: 0 });
-    expect(body.toast.type).toBe('info');
+    expect(body.toast.type).toBe('success');
     expect(body.toast.content).toContain('已放行');
     expect(Object.keys(body)).toEqual(['toast']); // 不带 card ⇒ 不改卡片
   });

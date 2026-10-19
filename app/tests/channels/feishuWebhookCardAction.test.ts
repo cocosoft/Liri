@@ -106,7 +106,7 @@ describe('飞书 Webhook 卡片回传（真实 HTTP）', () => {
     expect(status).toBe(200); // 文档：必须 200（禁 3xx）
     expect(calls).toEqual([{ sessionId: SID, kind: 'boost' }]); // ★ 真·就地放行的接线凭据
     const body = json as { toast?: { type: string; content: string } };
-    expect(body.toast?.type).toBe('info');
+    expect(body.toast?.type).toBe('success');
     expect(body.toast?.content).toContain('已放行');
     expect(Object.keys(body)).toEqual(['toast']); // 不回 card ⇒ 保持原卡片
   });

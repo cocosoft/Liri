@@ -7,7 +7,8 @@
 // 这句话是**传输层契约**——纯函数测不到分支顺序、状态码与响应体。故此处真起一个 HTTP 服务并**真发 POST**。
 //
 // 边界与纪律：
-// - 只对 `tenant_access_token` 调用做桩（`onConnect` 会取 token；不触网）；`afterAll` **还原**
+// - 2026-10-19 起 token 由 SDK 托管（`onConnect` 不再自取）；仍保留 `tenant_access_token` 兜底桩防误触网，
+//   `afterAll` **还原**
 //   `globalThis.fetch`（本仓台账 `L-23-test-global-pollution` 的教训：污染未还原 ⇒ 隔离绿 / 全量红）。
 // - `afterAll` 必须 `inbound.stop()`（关掉 HTTP 服务）否则测试进程不退出。
 
@@ -45,7 +46,7 @@ async function post(body: unknown): Promise<{ status: number; json: unknown }> {
 }
 
 beforeAll(async () => {
-  // 仅桩 token 接口（`onConnect` → `refreshAccessToken`），其余请求原样放行
+  // 兜底桩：token 接口不触网（SDK 托管后 connect 不再主动取 token），其余请求原样放行
   globalThis.fetch = (async (
     input: RequestInfo | URL,
     init?: RequestInit

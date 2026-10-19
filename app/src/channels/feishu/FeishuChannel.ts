@@ -39,7 +39,11 @@ import { handleBudgetReliefAction } from '../bridge/budgetReliefAction';
 
 import { getLogger } from '@modules/monitoring';
 import type { RegisterFileResult } from '@modules/services/file/types';
-import type { WSClient } from '@larksuiteoapi/node-sdk';
+import type {
+  Client as LarkClient,
+  DefaultCache as LarkTokenCache,
+  WSClient,
+} from '@larksuiteoapi/node-sdk';
 import { FEISHU_API_BASE_URL, FEISHU_SITE_URL } from '../constants';
 const logger = getLogger('channels:feishu:FeishuChannel');
 
@@ -70,7 +74,7 @@ const FEISHU_CAPABILITIES: ChannelCapabilities = {
 /** 撤回/不存在的回复目标错误码（对标 OpenClaw WITHDRAWN_REPLY_ERROR_CODES） */
 const WITHDRAWN_REPLY_ERROR_CODES = new Set([230011, 231003]);
 
-/** token 失效错误码（飞书 invalid access token；2026-10-19 token 加固） */
+/** token 失效错误码（飞书 invalid access token；2026-10-19 token 失效重试） */
 const FEISHU_TOKEN_INVALID_CODES = new Set([99991663, 99991661]);
 
 /**
@@ -113,6 +117,17 @@ function isWithdrawnReplyError(err: unknown): boolean {
   return false;
 }
 
+/** 把 SDK 下载接口返回的可读流聚合成 Buffer（供 FileRegistry 注册） */
+async function readStreamToBuffer(
+  stream: AsyncIterable<unknown>
+): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string));
+  }
+  return Buffer.concat(chunks);
+}
+
 class FeishuChannelPlugin extends BaseChannelPlugin {
   readonly id = 'feishu';
   readonly meta = FEISHU_META;
@@ -120,10 +135,11 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
 
   private appId = '';
   private appSecret = '';
-  private tenantAccessToken: string | null = null;
-  private tokenExpiresAt = 0;
-  /** 单飞刷新：并发 ensureToken/401 重试共用同一次刷新（2026-10-19 加固） */
-  private refreshInFlight: Promise<void> | null = null;
+  /** SDK Client（token 唯一持有者；出站/上传/下载均经它自动注入鉴权） */
+  private sdkClient: LarkClient | null = null;
+  private clientPromise: Promise<LarkClient> | null = null;
+  /** SDK 托管 token 的缓存（401 时整体清空 ⇒ 下次调用重新取 token） */
+  private tokenCache: LarkTokenCache | null = null;
   private verifyToken = '';
   private useWebSocket = false;
 
@@ -207,7 +223,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       );
     }
 
-    await this.refreshAccessToken();
+    await this.ensureClient();
     // 2026-10-19 真机复查：此前 connect 只做资源连接，**没有任何调用方**触发
     // `inbound.start()`（前端因此显示"已连接"但收不到消息）⇒ 在此启动入站；
     // `startWebSocket/startWebhook` 均幂等，后续 `inbound.start()` 不会重复启动。
@@ -222,110 +238,80 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
   protected override async onDisconnect(): Promise<void> {
     this.stopWebSocket();
     await this.stopWebhook();
-    this.tenantAccessToken = null;
+    this.resetClient();
   }
 
-  /**
-   * 刷新 tenant_access_token（单飞：并发调用共用同一个 in-flight Promise）。
-   *
-   * @param force 忽略本地过期判断，强制换新（用于 401 / token 失效重试）
-   */
-  private async refreshAccessToken(force = false): Promise<void> {
-    if (!force && this.tenantAccessToken && !this.isTokenExpired()) return;
-    if (this.refreshInFlight) return this.refreshInFlight;
-    this.refreshInFlight = this.performTokenRefresh().finally(() => {
-      this.refreshInFlight = null;
-    });
-    return this.refreshInFlight;
-  }
-
-  /** 实际执行 token 请求（仅由 `refreshAccessToken` 调用，保证单飞） */
-  private async performTokenRefresh(): Promise<void> {
-    const resp = await fetch(
-      `${FEISHU_API_BASE_URL}/auth/v3/tenant_access_token/internal`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          app_id: this.appId,
-          app_secret: this.appSecret,
-        }),
-      }
-    );
-    const data = (await resp.json()) as Record<string, unknown>;
-    if ((data['code'] as number) !== 0) {
-      throw new AppError(
-        `Feishu: ${data['msg'] || '获取 tenant_access_token 失败'}`,
-        ErrorCategory.API,
-        ErrorSeverity.HIGH,
-        'API_ERROR',
-        { channel: 'feishu', code: data['code'], msg: data['msg'] }
-      );
+  /** 构造 SDK Client（token 唯一持有者；出站/上传/下载均由它自动注入鉴权） */
+  private async ensureClient(): Promise<LarkClient> {
+    if (this.sdkClient) return this.sdkClient;
+    if (!this.clientPromise) {
+      this.clientPromise = (async () => {
+        const { Client, DefaultCache } =
+          await import('@larksuiteoapi/node-sdk');
+        this.tokenCache = new DefaultCache();
+        const client = new Client({
+          appId: this.appId,
+          appSecret: this.appSecret,
+          cache: this.tokenCache,
+        });
+        this.sdkClient = client;
+        return client;
+      })();
     }
-    this.tenantAccessToken = data['tenant_access_token'] as string;
-    this.tokenExpiresAt =
-      Date.now() + ((data['expire'] as number) || 7200) * 1000;
+    return this.clientPromise;
+  }
+
+  /** 断开时丢弃 Client 与其 token 缓存（重连时重新取 token） */
+  private resetClient(): void {
+    this.tokenCache?.values.clear();
+    this.tokenCache = null;
+    this.sdkClient = null;
+    this.clientPromise = null;
+  }
+
+  /** 清空 SDK token 缓存 ⇒ 下一次调用重新获取 token */
+  private invalidateTokenCache(): void {
+    this.tokenCache?.values.clear();
+  }
+
+  /** 响应体错误码是否为 token 失效 */
+  private static isTokenInvalidCode(code: unknown): boolean {
+    return typeof code === 'number' && FEISHU_TOKEN_INVALID_CODES.has(code);
+  }
+
+  /** SDK 抛错是否为 401 / token 失效 */
+  private static isTokenInvalidError(err: unknown): boolean {
+    if (typeof err !== 'object' || err === null) return false;
+    const response = (
+      err as { response?: { status?: number; data?: { code?: unknown } } }
+    ).response;
+    if (response?.status === 401) return true;
+    return FeishuChannelPlugin.isTokenInvalidCode(response?.data?.code);
   }
 
   /**
-   * 检查 token 是否需要刷新
-   * 在过期前 5 分钟刷新，留出缓冲
-   */
-  private isTokenExpired(): boolean {
-    return Date.now() >= this.tokenExpiresAt - 5 * 60 * 1000;
-  }
-
-  /**
-   * 确保 token 有效（按需刷新）
-   */
-  private async ensureToken(): Promise<void> {
-    if (!this.tenantAccessToken || this.isTokenExpired()) {
-      await this.refreshAccessToken();
-    }
-  }
-
-  /**
-   * 带鉴权的 fetch（2026-10-19 token 加固）。
+   * SDK 调用 + token 失效重试（一次）。
    *
-   * - 请求前 `ensureToken()`（单飞刷新）；
-   * - 命中 **401 / token 失效错误码** ⇒ 强制刷新并**重试一次**；
-   * - 调用方不再手写 `Authorization` 头，避免 6 处重复。
+   * - 抛错（401）或返回体命中失效码 ⇒ 清空 SDK token 缓存后重试一次；
+   * - 普通业务错误（如撤回目标 230011）不重试。
    */
-  private async authFetch(
-    url: string,
-    init: RequestInit = {}
-  ): Promise<Response> {
-    await this.ensureToken();
-    const send = (token: string | null): Promise<Response> => {
-      const headers = new Headers(init.headers);
-      if (token) headers.set('Authorization', `Bearer ${token}`);
-      return fetch(url, { ...init, headers });
-    };
-
-    let resp = await send(this.tenantAccessToken);
-    if (!(await this.isTokenInvalidResponse(resp))) return resp;
-
-    this.logger.warn('飞书 token 失效，强制刷新后重试一次', { url });
-    await this.refreshAccessToken(true);
-    resp = await send(this.tenantAccessToken);
-    return resp;
-  }
-
-  /** 判定响应是否为 token 失效（401，或 JSON 体内的 token 错误码） */
-  private async isTokenInvalidResponse(resp: Response): Promise<boolean> {
-    if (resp.status === 401) return true;
-    const contentType = resp.headers.get('content-type') ?? '';
-    if (!contentType.includes('application/json')) return false;
+  private async callWithTokenRetry<T>(call: () => Promise<T>): Promise<T> {
     try {
-      const data = (await resp.clone().json()) as { code?: unknown };
-      return (
-        typeof data.code === 'number' &&
-        FEISHU_TOKEN_INVALID_CODES.has(data.code)
-      );
-    } catch {
-      // 非 JSON / 读取失败 ⇒ 不按 token 失效处理
-      return false;
+      const result = await call();
+      if (
+        !FeishuChannelPlugin.isTokenInvalidCode(
+          (result as { code?: unknown } | null)?.code
+        )
+      ) {
+        return result;
+      }
+      this.logger.warn('飞书 token 失效，清缓存后重试一次');
+    } catch (err) {
+      if (!FeishuChannelPlugin.isTokenInvalidError(err)) throw err;
+      this.logger.warn('飞书 token 失效，清缓存后重试一次');
     }
+    this.invalidateTokenCache();
+    return call();
   }
 
   /**
@@ -340,10 +326,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     replyToMessageId?: string;
     replyInThread?: boolean;
   }): Promise<SendResult> {
-    await this.ensureToken();
-    if (!this.tenantAccessToken) {
-      return { success: false, error: '未连接' };
-    }
+    const client = await this.ensureClient();
 
     /* 如果没有 reply 目标，直接发送 */
     if (!params.replyToMessageId) {
@@ -354,6 +337,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
         params.content
       );
     }
+    const replyToMessageId = params.replyToMessageId;
 
     /* 线程内 reply 失败时不允许 fallback（对标 OpenClaw threadReplyFallbackError） */
     const threadReplyFallbackError = params.replyInThread
@@ -363,22 +347,12 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       : null;
 
     try {
-      const resp = await this.authFetch(
-        `${FEISHU_API_BASE_URL}/im/v1/messages/${params.replyToMessageId}/reply`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: params.content,
-            msg_type: params.msgType,
-          }),
-        }
+      const data = await this.callWithTokenRetry(() =>
+        client.im.message.reply({
+          path: { message_id: replyToMessageId },
+          data: { content: params.content, msg_type: params.msgType },
+        })
       );
-      const data = (await resp.json()) as {
-        code?: number;
-        msg?: string;
-        data?: { message_id?: string };
-      };
 
       if (shouldFallbackFromReplyTarget(data)) {
         if (threadReplyFallbackError) {
@@ -425,29 +399,25 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     content: string
   ): Promise<SendResult> {
     try {
-      const resp = await this.authFetch(
-        `${FEISHU_API_BASE_URL}/im/v1/messages?receive_id_type=${receiveIdType}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            receive_id: receiveId,
-            msg_type: msgType,
-            content,
-          }),
-        }
+      const client = await this.ensureClient();
+      const data = await this.callWithTokenRetry(() =>
+        client.im.message.create({
+          params: {
+            receive_id_type: receiveIdType as
+              | 'open_id'
+              | 'user_id'
+              | 'union_id'
+              | 'email'
+              | 'chat_id',
+          },
+          data: { receive_id: receiveId, msg_type: msgType, content },
+        })
       );
-      const data = (await resp.json()) as Record<string, unknown>;
-      const ok = (data['code'] as number) === 0;
+      const ok = data?.code === 0;
       return {
         success: ok,
-        error: ok ? undefined : (data['msg'] as string),
-        messageId:
-          ok && data['data']
-            ? ((data['data'] as Record<string, unknown>)[
-                'message_id'
-              ] as string)
-            : undefined,
+        error: ok ? undefined : data?.msg,
+        messageId: ok ? data?.data?.message_id : undefined,
       };
     } catch (err) {
       return { success: false, error: (err as Error).message };
@@ -459,19 +429,15 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     latencyMs: number;
   }> {
     const start = Date.now();
-    if (!this.tenantAccessToken) {
-      return { healthy: false, latencyMs: 0 };
+    try {
+      const client = await this.ensureClient();
+      // SDK 托管 token：命中缓存即返回；未命中才会取一次（等价旧的按需刷新）
+      const token = await client.tokenManager.getTenantAccessToken();
+      return { healthy: Boolean(token), latencyMs: Date.now() - start };
+    } catch (err) {
+      this.logger.warn('飞书健康检查失败', { error: String(err) });
+      return { healthy: false, latencyMs: Date.now() - start };
     }
-    /* 优化：仅检查 token 是否过期，而非重新调用 API */
-    if (this.isTokenExpired()) {
-      try {
-        await this.refreshAccessToken();
-        return { healthy: true, latencyMs: Date.now() - start };
-      } catch {
-        return { healthy: false, latencyMs: Date.now() - start };
-      }
-    }
-    return { healthy: true, latencyMs: Date.now() - start };
   }
 
   protected async sendTextMessage(
@@ -496,23 +462,21 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
   private async uploadFeishuImage(
     imageUrl: string
   ): Promise<{ imageKey?: string; error?: string }> {
-    if (!this.tenantAccessToken) return { error: '未连接' };
     try {
       const resp = await fetch(imageUrl);
       if (!resp.ok) return { error: `下载图片失败: ${resp.status}` };
-      const blob = await resp.blob();
-      const formData = new FormData();
-      formData.append('image_type', 'message');
-      formData.append('image', blob, 'image.png');
+      const buffer = Buffer.from(await resp.arrayBuffer());
+      const client = await this.ensureClient();
 
-      const uploadResp = await this.authFetch(
-        `${FEISHU_API_BASE_URL}/im/v1/images`,
-        {
+      // 走 SDK Client：Authorization 由 SDK 托管 token 自动注入
+      const data = await this.callWithTokenRetry(() =>
+        client.request<Record<string, unknown>>({
+          url: `${FEISHU_API_BASE_URL}/im/v1/images`,
           method: 'POST',
-          body: formData,
-        }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          data: { image_type: 'message', image: buffer },
+        })
       );
-      const data = (await uploadResp.json()) as Record<string, unknown>;
       if ((data['code'] as number) !== 0) {
         return { error: (data['msg'] as string) || '上传图片失败' };
       }
@@ -529,9 +493,8 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
   private async uploadFeishuFile(
     filePathOrUrl: string
   ): Promise<{ fileKey?: string; error?: string }> {
-    if (!this.tenantAccessToken) return { error: '未连接' };
     try {
-      let blob: Blob;
+      let buffer: Buffer;
       let fileName = 'file.bin';
       if (
         filePathOrUrl.startsWith('http://') ||
@@ -539,28 +502,29 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       ) {
         const resp = await fetch(filePathOrUrl);
         if (!resp.ok) return { error: `下载文件失败: ${resp.status}` };
-        blob = await resp.blob();
+        buffer = Buffer.from(await resp.arrayBuffer());
         fileName = filePathOrUrl.split('/').pop() || fileName;
       } else {
         const fs = await import('fs');
         const path = await import('path');
-        const buf = fs.readFileSync(filePathOrUrl);
-        blob = new Blob([buf]);
+        buffer = fs.readFileSync(filePathOrUrl);
         fileName = path.basename(filePathOrUrl);
       }
-      const formData = new FormData();
-      formData.append('file_type', 'stream');
-      formData.append('file_name', fileName);
-      formData.append('file', blob, fileName);
+      const client = await this.ensureClient();
 
-      const uploadResp = await this.authFetch(
-        `${FEISHU_API_BASE_URL}/im/v1/files`,
-        {
+      // 走 SDK Client：Authorization 由 SDK 托管 token 自动注入
+      const data = await this.callWithTokenRetry(() =>
+        client.request<Record<string, unknown>>({
+          url: `${FEISHU_API_BASE_URL}/im/v1/files`,
           method: 'POST',
-          body: formData,
-        }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          data: {
+            file_type: 'stream',
+            file_name: fileName,
+            file: buffer,
+          },
+        })
       );
-      const data = (await uploadResp.json()) as Record<string, unknown>;
       if ((data['code'] as number) !== 0) {
         return { error: (data['msg'] as string) || '上传文件失败' };
       }
@@ -578,9 +542,6 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     target: string,
     imageUrl: string
   ): Promise<SendResult> {
-    await this.ensureToken();
-    if (!this.tenantAccessToken) return { success: false, error: '未连接' };
-
     const upload = await this.uploadFeishuImage(imageUrl);
     if (!upload.imageKey) {
       return { success: false, error: upload.error || '上传图片失败' };
@@ -597,9 +558,6 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     target: string,
     filePath: string
   ): Promise<SendResult> {
-    await this.ensureToken();
-    if (!this.tenantAccessToken) return { success: false, error: '未连接' };
-
     const upload = await this.uploadFeishuFile(filePath);
     if (!upload.fileKey) {
       return { success: false, error: upload.error || '上传文件失败' };
@@ -616,9 +574,6 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     target: string,
     card: InteractiveCard
   ): Promise<SendResult> {
-    await this.ensureToken();
-    if (!this.tenantAccessToken) return { success: false, error: '未连接' };
-
     try {
       const feishuCard = buildFeishuInteractiveCard(card);
       return this.executeSendMessage(
@@ -828,27 +783,27 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       isDirectMessage: boolean;
     }
   ): Promise<RegisterFileResult | undefined> {
-    const resp = await this.authFetch(
-      `${FEISHU_API_BASE_URL}/im/v1/images/${imageKey}`,
-      { method: 'GET' }
-    );
+    try {
+      const client = await this.ensureClient();
+      const res = await this.callWithTokenRetry(() =>
+        client.im.image.get({ path: { image_key: imageKey } })
+      );
+      const buffer = await readStreamToBuffer(res.getReadableStream());
 
-    if (!resp.ok) {
+      return this.handleInboundFile({
+        originalName: `feishu_image_${imageKey}.png`,
+        content: buffer,
+        sourceId: baseMessage.messageId,
+        mimeType: res.headers?.['content-type'] || 'image/png',
+        description: '飞书通道入站图片',
+      });
+    } catch (err) {
       this.logger.error('飞书图片下载请求失败', {
         imageKey,
-        status: resp.status,
+        error: String(err),
       });
       return undefined;
     }
-
-    const buffer = Buffer.from(await resp.arrayBuffer());
-    return this.handleInboundFile({
-      originalName: `feishu_image_${imageKey}.png`,
-      content: buffer,
-      sourceId: baseMessage.messageId,
-      mimeType: resp.headers.get('content-type') || 'image/png',
-      description: '飞书通道入站图片',
-    });
   }
 
   /**
@@ -868,27 +823,27 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       isDirectMessage: boolean;
     }
   ): Promise<RegisterFileResult | undefined> {
-    const resp = await this.authFetch(
-      `${FEISHU_API_BASE_URL}/im/v1/files/${fileKey}`,
-      { method: 'GET' }
-    );
+    try {
+      const client = await this.ensureClient();
+      const res = await this.callWithTokenRetry(() =>
+        client.im.file.get({ path: { file_key: fileKey } })
+      );
+      const buffer = await readStreamToBuffer(res.getReadableStream());
 
-    if (!resp.ok) {
+      return this.handleInboundFile({
+        originalName: fileName,
+        content: buffer,
+        sourceId: baseMessage.messageId,
+        mimeType: res.headers?.['content-type'] || 'application/octet-stream',
+        description: '飞书通道入站文件',
+      });
+    } catch (err) {
       this.logger.error('飞书文件下载请求失败', {
         fileKey,
-        status: resp.status,
+        error: String(err),
       });
       return undefined;
     }
-
-    const buffer = Buffer.from(await resp.arrayBuffer());
-    return this.handleInboundFile({
-      originalName: fileName,
-      content: buffer,
-      sourceId: baseMessage.messageId,
-      mimeType: resp.headers.get('content-type') || 'application/octet-stream',
-      description: '飞书通道入站文件',
-    });
   }
 
   /**

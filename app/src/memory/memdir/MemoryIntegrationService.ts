@@ -116,6 +116,10 @@ export class MemoryIntegrationService {
   private memoryCommands: MemoryCommands;
   private config: MemoryIntegrationConfig;
   private databaseMemories: Map<string, Memory> = new Map();
+  /** 自动同步定时器句柄（BUG-1/BUG-3 修复：可停止、不阻塞退出） */
+  private syncTimer: ReturnType<typeof setInterval> | null = null;
+  /** 是否已完成初始化（BUG-3 修复：initialize 幂等，重复调用不重复扫描/启动） */
+  private initialized = false;
 
   constructor(
     memdirService: MemdirService,
@@ -142,6 +146,12 @@ export class MemoryIntegrationService {
    * 初始化集成服务
    */
   async initialize(): Promise<void> {
+    // BUG-3 修复：幂等早退——重复 initialize() 不再重复扫描文件/启动同步
+    // （定时器叠加已由 startAutoSync 的守卫兜底，此处消除重复扫描的副作用）
+    if (this.initialized) {
+      logger.debug('Memory integration service already initialized, skip');
+      return;
+    }
     try {
       // 初始化文件化记忆系统
       if (this.config.enableMemdir) {
@@ -153,6 +163,7 @@ export class MemoryIntegrationService {
         this.startAutoSync();
       }
 
+      this.initialized = true;
       logger.info('Memory integration service initialized successfully');
     } catch (error) {
       await handleError(error, {
@@ -451,16 +462,34 @@ export class MemoryIntegrationService {
    * 开始自动同步
    */
   private startAutoSync(): void {
-    setInterval(async () => {
-      try {
-        await this.syncMemories();
-      } catch (error) {
-        await handleError(error, {
+    // 幂等守卫：重复 initialize() 不再叠加定时器
+    if (this.syncTimer) return;
+    this.syncTimer = setInterval(() => {
+      void this.syncMemories().catch((error) =>
+        handleError(error, {
           module: 'memory:integration',
           action: 'auto_sync',
-        });
-      }
+        })
+      );
     }, this.config.syncInterval);
+    // 不阻塞进程退出（CLI 短任务 / bun test 收尾不再挂住）
+    this.syncTimer.unref?.();
+  }
+
+  /**
+   * 停止自动同步并释放定时器（幂等）。
+   */
+  stop(): void {
+    if (!this.syncTimer) return;
+    clearInterval(this.syncTimer);
+    this.syncTimer = null;
+  }
+
+  /**
+   * 资源释放入口（与 stop 同义，便于统一 dispose 契约）。
+   */
+  dispose(): void {
+    this.stop();
   }
 
   /**

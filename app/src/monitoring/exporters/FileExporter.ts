@@ -42,9 +42,16 @@ export class FileExporter {
   private currentFile: string;
   private currentSize: number;
   private fileIndex: number;
+  /** 定时轮换句柄（BUG-2 修复：可停止、不阻塞退出、实例可回收） */
+  private rotationTimer: ReturnType<typeof setInterval> | null = null;
+  /** 输出目录是否已就绪（构造函数零 I/O，延迟到 start/首次 export） */
+  private outputDirReady = false;
 
   /**
    * 构造函数
+   *
+   * 零副作用约定：只做字段赋值，不做目录探测/文件 stat/定时器注册。
+   * 上述动作由 `start()`（工厂函数会调用）或首次 `export()` 按需完成。
    * @param config 配置
    */
   constructor(config?: Partial<FileExporterConfig>) {
@@ -60,15 +67,29 @@ export class FileExporter {
     this.currentFile = this.getCurrentFilePath();
     this.currentSize = 0;
     this.fileIndex = 0;
+  }
 
-    // 确保输出目录存在
-    this.ensureOutputDir();
-
-    // 初始化当前文件大小
+  /**
+   * 启动定时轮换（显式生命周期入口）
+   *
+   * BUG-2 修复：构造函数不再注册定时器（零副作用），由工厂函数
+   * `getFileExporter()` / `createFileExporter()` 或上层容器显式调用。
+   * 幂等：已在运行时直接返回，不重置计时。
+   */
+  start(): void {
+    if (this.rotationTimer) return;
+    this.ensureOutputDirOnce();
     this.updateCurrentSize();
-
-    // 启动定时轮换
     this.startRotation();
+  }
+
+  /**
+   * 确保输出目录存在（只执行一次；构造函数零 I/O 的落地入口）
+   */
+  private ensureOutputDirOnce(): void {
+    if (this.outputDirReady) return;
+    this.ensureOutputDir();
+    this.outputDirReady = true;
   }
 
   /**
@@ -164,13 +185,50 @@ export class FileExporter {
 
   /**
    * 启动定时轮换
+   *
+   * BUG-2 修复要点：
+   * 1. 句柄存入实例字段，避免「创建有、回收无」；
+   * 2. `unref()` 让定时器不阻碍进程退出（Node/Bun 环境有效）；
+   * 3. 重复调用不会叠加多个定时器（先停旧的）。
    */
   private startRotation(): void {
-    if (this.config.rotationInterval > 0) {
-      setInterval(() => {
-        this.rotateFile();
-      }, this.config.rotationInterval);
+    this.stopRotation();
+    if (this.config.rotationInterval <= 0) return;
+
+    const timer = setInterval(() => {
+      this.rotateFile();
+    }, this.config.rotationInterval);
+
+    // Bun/Node 均支持 unref；其它运行时（如浏览器）无此方法
+    if (typeof timer === 'object' && timer !== null && 'unref' in timer) {
+      (timer as { unref: () => void }).unref();
     }
+
+    this.rotationTimer = timer;
+  }
+
+  /**
+   * 停止定时轮换（幂等）
+   */
+  stopRotation(): void {
+    if (this.rotationTimer !== null) {
+      clearInterval(this.rotationTimer);
+      this.rotationTimer = null;
+    }
+  }
+
+  /**
+   * 停止定时轮换（与 `stopRotation` 同义；生命周期入口统一用 start/stop 命名）
+   */
+  stop(): void {
+    this.stopRotation();
+  }
+
+  /**
+   * 释放资源：停止定时轮换（供上层容器统一 dispose 调用）
+   */
+  dispose(): void {
+    this.stopRotation();
   }
 
   /**
@@ -181,6 +239,9 @@ export class FileExporter {
     if (!this.config.enabled) {
       return;
     }
+
+    // 构造函数零 I/O：未调用 start() 时，首次导出按需创建目录
+    this.ensureOutputDirOnce();
 
     try {
       const line = JSON.stringify(data) + '\n';
@@ -286,10 +347,27 @@ export class FileExporter {
    * @param config 配置
    */
   setConfig(config: Partial<FileExporterConfig>): void {
+    const rotationIntervalChanged =
+      config.rotationInterval !== undefined &&
+      config.rotationInterval !== this.config.rotationInterval;
+    const outputDirChanged =
+      config.outputDir !== undefined &&
+      config.outputDir !== this.config.outputDir;
     this.config = {
       ...this.config,
       ...config,
     };
+    // 输出目录变化 ⇒ 下次 start/export 重新确保目录存在，并切换当前文件到新目录
+    if (outputDirChanged) {
+      this.outputDirReady = false;
+      this.currentFile = this.getCurrentFilePath();
+      this.currentSize = 0;
+    }
+    // 轮换间隔变化 ⇒ 先停旧句柄再按新配置启动，避免旧定时器继续按旧间隔触发
+    if (rotationIntervalChanged) {
+      this.stopRotation();
+      this.startRotation();
+    }
   }
 
   /**
@@ -313,6 +391,8 @@ let fileExporter: FileExporter | null = null;
 export function getFileExporter(): FileExporter {
   if (!fileExporter) {
     fileExporter = new FileExporter();
+    // BUG-2 修复：构造函数零定时器副作用，由工厂显式启动（对外语义保持不变）
+    fileExporter.start();
   }
   return fileExporter;
 }
@@ -325,5 +405,8 @@ export function getFileExporter(): FileExporter {
 export function createFileExporter(
   config?: Partial<FileExporterConfig>
 ): FileExporter {
-  return new FileExporter(config);
+  const exporter = new FileExporter(config);
+  // BUG-2 修复：构造函数零定时器副作用，由工厂显式启动（对外语义保持不变）
+  exporter.start();
+  return exporter;
 }

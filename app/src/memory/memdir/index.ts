@@ -72,6 +72,9 @@ export { MemoryIntegrationService, IntegratedMemory, MemoryIntegrationConfig };
 
 /**
  * 创建默认的记忆集成服务实例
+ *
+ * 生命周期契约：调用方在服务停止/进程退出时必须调用
+ * `integrationService.dispose()`，否则自动同步定时器会一直存活。
  */
 export function createDefaultMemoryIntegrationService(): {
   memdirService: MemdirService;

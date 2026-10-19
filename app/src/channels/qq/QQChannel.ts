@@ -283,6 +283,8 @@ class QQChannelPlugin extends BaseChannelPlugin {
         }
       }
     }, 60000);
+    // 不阻塞进程退出（WS 长连接负责保活；Token 刷新属可放弃的后台维护）
+    this.tokenRefreshTimer.unref?.();
   }
 
   /**

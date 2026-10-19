@@ -225,6 +225,8 @@ export class SessionResetPolicy extends EventEmitter {
         }
       }
     }, checkIntervalMs);
+    // 不阻塞进程退出（会话重置检查属可放弃的后台维护）
+    this.checkTimer.unref?.();
 
     this.emit('policy:auto_check_started', {
       intervalMs: checkIntervalMs,

@@ -7,14 +7,19 @@
  * （R16 `DAILY_BUDGET_EXCEEDED`）。本模块提供**纯函数**折算（字节 → 估算 token），
  * 供 `preSendContextProtection` 在 `checkDailyBudget()` / `reserveFor()` **之前**并入本轮预留。
  *
- * **接线口径（2026-10-12 收口订正，如实）**：生产调用点取 `StreamMessageOptions.images`
- * （前端 → `ChatRequest.images` → `CoreAPIImpl.chatStream` → `streamMessage`），这是**唯一**贯通到
- * 该处且携带 `size` 的入参。
- * ⚠️ **未接线的口子（不谎称已覆盖）**：**通道侧**入站附件（`channels/types/IChannel.ts` 的
- * `MessageContext.attachments`）**当前未**被 `routeChannelMessage` 透传给 `CoreAPI.chatStream`
- * （`channels/routing/messageRouter.ts` 的 `chatStream({...})` 无附件字段）⇒ 该路径**尚在闸门之外**；
- * 且通道侧 `MessageAttachment` 与 `session/types/message` 的 `MessageAttachment` 属**同名不同物**
- * （归属裁定：禁合并 / 禁断言互换）⇒ 须经 DTO 形状搬运（见通道治理方案 阶段 2.4）后再接线。
+ * **接线口径（2026-10-19 G-11 订正）**：生产调用点有两个 —— ① 交互路径取
+ * `StreamMessageOptions.images`（前端 → `ChatRequest.images` → `CoreAPIImpl.chatStream` →
+ * `streamMessage`）；② 通道路径取其专用入参 `attachmentSizes`（见下段）。
+ * **通道侧入站附件（2026-10-19 G-06/G-11 订正）**：`routeChannelMessage` 已把通道协议层的
+ * `MessageContext.attachments` 经 `applyAttachmentPolicy` 收窄后，以**专用预留入参**
+ * `attachmentSizes`（仅 `size`）透传给 `CoreAPI.chatStream`（`channels/routing/messageRouter.ts:636-645`）；
+ * 本模块的 `estimateAttachmentsTokens()` 在 `preSendContextProtection` 中并入 R16 预留
+ * （`chat/orchestrator/preSendContextProtection.ts:209-211`）。
+ * ⚠️ **实际是否计入取决于通道是否填 `size`**（G-06 取证）：已核实的 Telegram 语音只填
+ * `fileId/fileName/mimeType`（无 `size`），QQ / 飞书下载后**不填 `attachments`**（仅把路径/size
+ * 写进正文）⇒ 这三类当前折算为 **0**（缺 `size` 按 0 计，CS06 不臆造）。补齐属通道侧独立切片。
+ * 两个 `MessageAttachment` 仍属**同名不同物**（通道协议层 vs 会话领域层，归属裁定：
+ * 禁合并 / 禁断言互换）⇒ 接线处**只搬 `size`**，不携带 `url`/`data`。
  *
  * 折算口径（保守、可解释）：`ceil(bytes / BYTES_PER_TOKEN)`。缺省 `4`（与英文/代码 ~4 bytes/token
  * 同量级）；二进制媒体（图片/音视频）实际开销通常**更高** ⇒ 此处取 4 属**保守下限**（宁可低估

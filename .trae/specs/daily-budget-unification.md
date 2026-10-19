@@ -164,6 +164,11 @@
 - `cost-handlers.ts`：`GET /v1/workspaces/:id/cost/budget` 响应新增 `currency: 'USD'` 口径标识 + 文档注释，
   与 `GET /v1/cost/daily-budget`（Token）区分（P6 口径分层）。
 
+**后续（债四 S7，2026-10-19）**：观察期结束（自 2026-10-11 起零读取、零告警），按
+`unified-budget-and-accounting.md` §12 `Q-U8` (a) **删除** `LiriWorkspaceConfig.costControl`
+与 `LiriCostControl` 类型（CD05 顺序：先停播种 → 观察 → 再删实现；CD06：独立提交可 revert）。
+既有 `.liri/config.json` 多余键由 JSON 解析忽略，不再保留类型兼容层。
+
 **验证**：`typecheck` 0 error · `eslint` 0 error · `lint:arch` 0 error（警告 4）· `bun test tests/workspace tests/workspaces tests/integration/cost-metrics.test.ts tests/security/workspace-trust-integration.test.ts` = **108 pass / 0 fail**。
 
 **阶段 5 后半 · `CostBudgetManager.getPeriodCost` 失真修正（用户裁定「接入 CostRecordRepository」，2026-10-11）**：

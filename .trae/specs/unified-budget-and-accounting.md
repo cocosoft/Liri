@@ -84,9 +84,9 @@
 | USD 预算默认 | `CostBudgetManager.loadDefaultBudgets()` `app/src/cost/CostBudgetManager.ts:86-114`（daily $50 / weekly $200 / monthly $800） |
 | `hardLimit` 默认关 | `app/src/cost/CostBudgetManager.ts:93/102/111`（`hardLimit: false`） |
 | 硬拦无生产调用方 | `isOverHardLimit()` `app/src/cost/CostBudgetManager.ts:405-420`（自述"当前**无生产调用方**"） |
-| 死配置 | `workspace.costControl.*`（含 `monthlyBudgetUSD`/`hardLimit`）`app/src/workspace/types.ts:51-85`；**已停止播种** `app/src/workspace/LiriConfigManager.ts:138-142` |
+| 死配置 | `workspace.costControl.*`（含 `monthlyBudgetUSD`/`hardLimit`）`app/src/workspace/types.ts:51-85`；**已停止播种** `app/src/workspace/LiriConfigManager.ts:138-142`（**2026-10-19 已按 `Q-U8` 删除该类型**，见 D8） |
 | 前端页签（5 个） | `client/src/components/views/UsageCenterPage.tsx:28`（`TabId = usage\|cost\|balance\|dailyLimit\|pricing`）+ `:33-49` |
-| 前端 USD 配置面 | **未找到**（`cost` 页签只读；「日限额」页签 `daily-budget-handlers` 只暴露 Token 口径；已查 `client/src/components/usage/**`、`UsageCenterPage.tsx`） |
+| 前端 USD 配置面 | ~~**未找到**~~（取证时点 2026-10-13）⇒ **已由 USD-3 补齐**：`DailyBudgetPanel` 提供金额上限编辑 + 已用/欠账展示 + 换算说明（留空 = 不启用） |
 
 ### 1.5 告警面取证
 
@@ -231,11 +231,10 @@
 - **依据**：`daily-budget-over-limit-ux.md` §11.2（"闸门保持发送前单一收口"接缝）；R16 §6（单一收口）。
 - **取舍（如实）**：`checkDailyBudget` 现为**纯读、无副作用**（`:45-53` 自述）⇒ 换算取价（SPI 同步读）不得引入 fail 副作用；取不到价时**以兜底价**继续（见 §12 Q-U5）或按 token 兜底（D6②）。
 
-### D8【死配置处置】`workspace.costControl.*`：**核查已完成，处置待裁定**（接线 vs 删除） ⏳
+### D8【死配置处置】`workspace.costControl.*`：✅ **已裁定删除并落地**（`Q-U8` (a)；2026-10-19）
 
-- **已核查（CD01–CD04）**：整块**零读者**（仅 `workspace/types.ts:51-85` 定义 + `LiriConfigManager.ts:138-142` 停止播种）——取证见 `daily-budget-unification.md` §9。
-- **结论（可定案部分）**：若**删除**，必须走 **CD05（先摘入口→观察→再删实现）+ CD06（独立提交+回滚）**；若**接线**，须先裁定其语义（按工作空间？见 §12 Q-U1）。
-- **待裁定**：接线的语义与「删 vs 留」——**移入 §12 Q-U8**（不猜）。
+- **已核查（CD01–CD04）**：整块**零读者**（仅 `workspace/types.ts` 定义 + `LiriConfigManager.ts` 停止播种）——取证见 `daily-budget-unification.md` §9。
+- **结论**：按 **`Q-U8` (a) 删除**执行。CD05 顺序已满足：2026-10-11 先停播种/摘入口 → 观察期（零告警、零降级日志）→ **2026-10-19 删除实现**（`LiriWorkspaceConfig.costControl` 与 `LiriCostControl` 类型）；既有 `.liri/config.json` 多余键由 JSON 解析忽略，不保留兼容层。CD06：独立提交，回滚 = `git revert` 恢复类型定义。
 
 ### D9【明确不做】见 §8
 
@@ -387,8 +386,12 @@
   缺模型不入账 / 缓存纳入 / `recordDailyBudgetFromUsage` 两本账 / 0 tokens no-op）；接线点用**源码守卫**钉住
   （`tests/ai/usageModelAttribution.test.ts` 新增 3 例：第 4 参透传、记账点调用、签名保留 `model?`）；
   **先红后绿**（停掉入账 ⇒ 4 fail / 2 pass → 还原 6 pass / 0 fail）；回归 `tests/{query,budget,chat,ai,cost,tasks}` **1586 pass / 1 skip（预存）/ 0 fail**。
-- **未做（如实）**：**S3 闸门切金额**（待 `Q-U3`）、S4（`waive-once` 金额预检）、S6（前端 USD 展示）、S7（死配置处置）；
-  **自定义 `ExecutorFn` 路径**（LRO `guardExecutorWithDailyBudget`）的实际模型对编排器不可见 ⇒ 该路径**只记 token、不记金额**。
+- **状态复核（2026-10-19，取代原「未做」清单）**：
+  - **S3 闸门切金额** ⇒ ✅ 已落地（`USD-4`：`checkDailyBudget` 双轨从严；启用条件 = 开关开 **且** 用户已配置 `limitUsd`，代码内无默认值）——见 `dev_docs/20261013/硬编码统一治理方案-20261013.md` §6.3 落地状态。
+  - **S4 `waive-once` 金额预检** ⇒ ✅ 已落地（`T3-7`，2026-10-17）：`DailyBudgetManager.waiverPrecheckUsd` + `preSendContextProtection` 预占、结算时按实际值多退少补。
+  - **S6 前端 USD 展示** ⇒ ✅ 已落地（`USD-3`：`DailyBudgetPanel` 金额上限编辑/已用/欠账/换算说明）。
+  - **S7 死配置处置** ⇒ ✅ 已落地（2026-10-19）：按 `Q-U8` 删除 `LiriWorkspaceConfig.costControl` / `LiriCostControl`（零读者 + 自 2026-10-11 停止播种，CD05 观察期已满）。
+  - **仍未做（如实）**：**自定义 `ExecutorFn` 路径**（LRO `guardExecutorWithDailyBudget`）的实际模型对编排器不可见 ⇒ 该路径**只记 token、不记金额**。
 
 ---
 
@@ -451,6 +454,6 @@
 
 ## §14 下一步
 
-1. ~~本稿**待你裁定 §12 十项**（HARD-GATE：裁定前不写产品代码）。~~ **→ 2026-10-13 已裁定九项（采纳建议）；仅 `Q-U3`（USD 默认上限值）待裁定 —— 未定前不得实现任何 USD 默认值。**
-2. 裁定后：`superpowers:writing-plans` 出实施计划（§11 的 S0–S7 逐片 × 测试清单），再进入编码。
+1. ~~本稿**待你裁定 §12 十项**（HARD-GATE：裁定前不写产品代码）。~~ **→ 2026-10-13 十项全部裁定（`Q-U3` 于同日追加：不设默认值 / UI 自主配置 / 未配置不启用金额闸门）**。
+2. ~~裁定后：出实施计划（§11 的 S0–S7 逐片 × 测试清单），再进入编码。~~ **→ S0/S1/S2/S5/S8 与 S3（USD-4）/S4（T3-7）/S6（USD-3）/S7（2026-10-19）均已落地**；余项仅「自定义 `ExecutorFn` 路径不记金额」一条（见 §11.1 状态复核）。
 3. 联动：S3/S4 落地后回 `long-task-suspend-resume.md` §9 与 `状态机规范管理方案 §4 阶段 5` 同步"放行金额语义 = USD"口径。

@@ -1,13 +1,12 @@
 {
-  "nextKey": "B5-2-106",
-  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "B5-2-100", "U-22-S1", "U-22-S2", "U-22-S3", "U-22-S4", "U-18-S1", "U-22-AGENTTOOL", "U-22-REACTLOOP-P1", "U-22-REACTLOOP-P2", "U-22-LRTO-S0", "U-22-LRTO-S1", "U-22-LRTO-S2A", "U-22-LRTO-S3", "U-22-LRTO-S4", "U-22-CM-S5", "U-22-LRTO-S2B", "LRO-PDCA-ROOTFIX", "PATTERN-REACHABLE-PROBE", "U-13-P1", "T-13-a", "T-13-b", "B-1-CHANNEL-CATALOG", "A-2-GUEST-POLICY", "A-3-EMPTY-PIPELINE-FAIL-CLOSED", "I-1-TOOL-CATEGORY-COMPILE-LOCK", "I-2-RUNTIME-TOOL-CATEGORIES", "I-3-CONDITIONAL-TRIAGE", "U-14-SNAPSHOT-WIRING", "U-15-PROJECTION-OUTBOUND", "U-16-SIDECAR-TREES", "U-17-H3-PROXY-VERDICT", "U-18-S7-FINALIZE", "U-13-T13D-ORCH-METRICS-ENDPOINT", "B5-2-101", "B5-2-102", "B5-2-103", "B5-2-104", "B5-2-105", "H-4-CLOSED"],
+  "doneKeys": ["B5-2-91", "B5-2-92", "B5-2-93", "B5-2-94", "B5-2-95", "B5-2-96", "B5-2-97", "B5-2-98", "B5-2-99", "B5-2-100", "U-22-S1", "U-22-S2", "U-22-S3", "U-22-S4", "U-18-S1", "U-22-AGENTTOOL", "U-22-REACTLOOP-P1", "U-22-REACTLOOP-P2", "U-22-LRTO-S0", "U-22-LRTO-S1", "U-22-LRTO-S2A", "U-22-LRTO-S3", "U-22-LRTO-S4", "U-22-CM-S5", "U-22-LRTO-S2B", "LRO-PDCA-ROOTFIX", "PATTERN-REACHABLE-PROBE", "U-13-P1", "T-13-a", "T-13-b", "B-1-CHANNEL-CATALOG", "A-2-GUEST-POLICY", "A-3-EMPTY-PIPELINE-FAIL-CLOSED", "I-1-TOOL-CATEGORY-COMPILE-LOCK", "I-2-RUNTIME-TOOL-CATEGORIES", "I-3-CONDITIONAL-TRIAGE", "U-14-SNAPSHOT-WIRING", "U-15-PROJECTION-OUTBOUND", "U-16-SIDECAR-TREES", "U-17-H3-PROXY-VERDICT", "U-18-S7-FINALIZE", "U-13-T13D-ORCH-METRICS-ENDPOINT", "B5-2-101", "B5-2-102", "B5-2-103", "B5-2-104", "B5-2-105", "H-4-CLOSED", "DEBT4-S7-DEAD-CONFIG"],
   "lastCommit": "770e6ecfc",
   "baselineKeys": {
     "lint:consts": 54,
     "lint:endpoints": 30,
     "lint:locale": 6
   },
-  "nextAction": "H-4/U-20 已收口（82 → 55 → 54）：余 54 组按 A 跨包真源 41 / B 安全回环 2 / C 提示词示例 4 / D i18n 纯数据 2 / E CD07 bash 双份 5 书面保留；新增重复仍由棘轮阻断。S-P4 / D-2 已清理（31 个零消费者工具提示词 + 168 条零消费者常量）。H-2 受控窗口 n=5（10,204/14,183ms）+ 生产 Council n=1（11,967ms）+ 生产 PDCA（plan:start 15,446ms / step:start 7,879ms）；可量化族 = Council/Plan/Parallel（DAG/Chain/Swarm 容器/Rule/Context 无发布点，配对表 12 组已全量守卫）；orch:* 已持久化，可用 analyze:orchestration-events 离线复算。其余待办：真实用户流量直接按时间窗复算（无需新增埋点）",
+  "nextAction": "硬编码治理已全部收口（2026-10-19 状态回填）：HD-P0/P1/P2、HD-INFRA-1、USD-1~4、B5-2-101~106 全部完成；lint:consts 余 54 组按 A 跨包真源 41 / B 安全回环 2 / C 提示词示例 4 / D i18n 纯数据 2 / E CD07 bash 双份 5 书面保留，新增重复仍由棘轮阻断。债四 S7（workspace.costControl 死配置）已按 Q-U8 删除。仅剩需真实流量的观测项：① 编排指标按时间窗离线复算；② Parallel P95 分布（均无需新增埋点）",
   "decisions": [
     "2026-10-17：阶段 C 落地（SB06/SB07）；doneKeys 仅登记最近一批可指认键，历史批次见提交 54da40ec0",
     "基线键数为门禁实测口径（lint:consts 按组计：2026-10-18 为同名 17 + 同值 65 = 82；lint:endpoints / locale 按文件键计），非估算",
@@ -48,6 +47,7 @@
     "2026-10-18：B5-2-104 —— 13 组通道厂商站点/默认 API 基址收敛到 channels/constants.ts（matrix/dingtalk/discord/feishu/nostr/qq/signal 站点 + discord/feishu/line/facebook/msteams/qq/signal API 基址；Onboard 引导链接同源）；lint:consts 72 → 59（13 条基线键全部 0 命中）",
     "2026-10-18：B5-2-105 —— Liri OAuth 三域入 constants/oauth.ts（OAUTH_AUTH/STAGING_AUTH/API/STAGING_API_BASE_URL，@kind A），替换 oauthConfig/CoreOAuthProvider/OAuthStartup/utils.auth；api.github.com 全量收敛到 constants/product.GITHUB_API_BASE（含 WebFetch prompt 插值，输出字符串逐字不变）；lint:consts 59 → 55（9→0 / 3→0 / 3→0 / 2→0）",
     "2026-10-18：B5-2-106 H-4 收口 —— 余 55 组逐条核对后书面保留，分五类：A 跨包真源 41（app/client 独立构建）、B 安全/回环判定 2（localhost/127.0.0.1）、C 提示词/帮助示例 5、D i18n 纯数据 2、E CD07 关键域 bash 双份 5；每类写明复评触发条件，不再接受「为清零而改名/拆常量」",
-    "2026-10-18：S-P4 / D-2 清理 —— 删除 30 个零消费者 `*_TOOL_PROMPT` 文件 + FileEditTool 常量 1 处（零消费者证据覆盖 app/packages、app/plugins、app/scripts；动态入口仅提示词导出脚本的目录扫描），zh/en 资源各 31 份同批下线；删除 168 条零消费者常量（messages/figures/xml/betas/common/apiLimits/toolLimits/keys/product/system），零消费者基线 169 → 1（唯一保留 CYBER_RISK_INSTRUCTION，按 CD07 安全域规定）；lint:consts 55 → 54（slow-api 示例随 WebFetch prompt 下线）"
+    "2026-10-18：S-P4 / D-2 清理 —— 删除 30 个零消费者 `*_TOOL_PROMPT` 文件 + FileEditTool 常量 1 处（零消费者证据覆盖 app/packages、app/plugins、app/scripts；动态入口仅提示词导出脚本的目录扫描），zh/en 资源各 31 份同批下线；删除 168 条零消费者常量（messages/figures/xml/betas/common/apiLimits/toolLimits/keys/product/system），零消费者基线 169 → 1（唯一保留 CYBER_RISK_INSTRUCTION，按 CD07 安全域规定）；lint:consts 55 → 54（slow-api 示例随 WebFetch prompt 下线）",
+    "2026-10-19：债四 S7（DEBT4-S7-DEAD-CONFIG）—— 按 spec §12 Q-U8 (a) 删除 `LiriWorkspaceConfig.costControl` 与 `LiriCostControl`：整块零读者，2026-10-11 已停止播种，观察期无告警/降级日志；既有 `.liri/config.json` 多余键由 JSON 解析忽略，不保留类型兼容层；回滚 = git revert 恢复类型定义"
   ]
 }

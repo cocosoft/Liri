@@ -1,14 +1,12 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-19T12:05:33.743Z",
+  "updatedAt": "2026-10-19T12:11:48.778Z",
   "files": {
     "app/src/channels/discord/DiscordChannel.ts": 1,
     "app/src/channels/irc/IrcChannel.ts": 1,
     "app/src/channels/wechat/WechatChannel.ts": 1,
-    "app/src/chronos/heartbeat/HeartbeatMonitor.ts": 1,
     "app/src/chronos/service/CronTaskTimer.ts": 1,
     "app/src/cli/progress/index.ts": 1,
-    "app/src/context/LifecycleManager.ts": 1,
     "app/src/core/auto-reply/heartbeat.ts": 2,
     "app/src/dream/DreamScheduler.ts": 1,
     "app/src/knowledge/KnowledgeCompileScheduler.ts": 1,

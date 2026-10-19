@@ -350,23 +350,29 @@ export class EnhancedKeybindingsManager {
   private setupMonitoring(): void {
     // 定期收集使用统计
     if (this.config.enableUsageStatistics) {
-      setInterval(() => {
+      const interval = setInterval(() => {
         this.collectUsageStatistics();
       }, this.config.statisticsCollectionInterval);
+      interval.unref?.();
+      this.monitoringIntervals.set('usageStatistics', interval);
     }
 
     // 定期检测冲突
     if (this.config.enableConflictDetection) {
-      setInterval(() => {
+      const interval = setInterval(() => {
         this.detectConflicts();
       }, this.config.conflictDetectionInterval);
+      interval.unref?.();
+      this.monitoringIntervals.set('conflictDetection', interval);
     }
 
     // 定期分析模式
     if (this.config.enablePatternAnalysis) {
-      setInterval(() => {
+      const interval = setInterval(() => {
         this.analyzePatterns();
       }, this.config.patternAnalysisInterval);
+      interval.unref?.();
+      this.monitoringIntervals.set('patternAnalysis', interval);
     }
   }
 
@@ -856,9 +862,10 @@ export class EnhancedKeybindingsManager {
    */
   destroy(): void {
     // 停止所有监控
-    this.monitoringIntervals.forEach((interval, bindingId) => {
+    this.monitoringIntervals.forEach((interval) => {
       clearInterval(interval);
     });
+    this.monitoringIntervals.clear();
 
     // 清空缓存
     this.clearCache();

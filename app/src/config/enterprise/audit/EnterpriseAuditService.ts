@@ -128,6 +128,8 @@ export class EnterpriseAuditService {
   private config: Required<EnterpriseAuditConfig>;
   private events: AuditEvent[] = [];
   private maxMemoryEvents = 10000;
+  /** 保留期清理定时器句柄（可停止 / 不阻塞退出） */
+  private retentionTimer: ReturnType<typeof setInterval> | null = null;
 
   private constructor(config: EnterpriseAuditConfig = {}) {
     this.config = {
@@ -158,7 +160,26 @@ export class EnterpriseAuditService {
   }
 
   private startRetentionSweeper(): void {
-    setInterval(() => this.sweepOldEvents(), 3600000);
+    if (this.retentionTimer) return;
+    this.retentionTimer = setInterval(() => this.sweepOldEvents(), 3600000);
+    // 不阻塞进程退出（属可放弃的周期性维护）
+    this.retentionTimer.unref?.();
+  }
+
+  /**
+   * 停止保留期清理定时器（幂等）。
+   */
+  stopRetentionSweeper(): void {
+    if (!this.retentionTimer) return;
+    clearInterval(this.retentionTimer);
+    this.retentionTimer = null;
+  }
+
+  /**
+   * 资源释放入口。
+   */
+  dispose(): void {
+    this.stopRetentionSweeper();
   }
 
   private sweepOldEvents(): void {

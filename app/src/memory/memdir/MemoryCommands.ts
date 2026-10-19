@@ -144,6 +144,8 @@ export class MemoryCommands {
   private memdirService: MemdirService;
   private memoryScanner: MemdirMemoryScanner;
   private autoMemoryConfig: AutoMemoryConfig;
+  /** AutoDream 定时器句柄（可停止 / 不阻塞退出） */
+  private autoDreamTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     memdirService: MemdirService,
@@ -460,11 +462,30 @@ Add your memory content here...
     }
 
     // 简化实现：定期优化记忆文件
-    setInterval(async () => {
-      await this.autoUpdateMemories();
+    if (this.autoDreamTimer) return;
+    this.autoDreamTimer = setInterval(() => {
+      void this.autoUpdateMemories();
     }, this.autoMemoryConfig.autoDreamInterval);
+    // 不阻塞进程退出（属可放弃的周期性维护）
+    this.autoDreamTimer.unref?.();
 
     logger.info('AutoDream enabled');
+  }
+
+  /**
+   * 停止 AutoDream 定时器（幂等）。
+   */
+  stopAutoDream(): void {
+    if (!this.autoDreamTimer) return;
+    clearInterval(this.autoDreamTimer);
+    this.autoDreamTimer = null;
+  }
+
+  /**
+   * 资源释放入口。
+   */
+  dispose(): void {
+    this.stopAutoDream();
   }
 
   /**

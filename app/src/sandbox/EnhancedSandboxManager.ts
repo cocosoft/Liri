@@ -280,16 +280,20 @@ export class EnhancedSandboxManager {
   private setupMonitoring(): void {
     // 定期执行安全分析
     if (this.config.enableIntelligentSecurityAnalysis) {
-      setInterval(() => {
+      const interval = setInterval(() => {
         this.performSecurityAnalysis();
       }, this.config.securityAnalysisInterval);
+      interval.unref?.();
+      this.monitoringIntervals.set('securityAnalysis', interval);
     }
 
     // 定期执行威胁检测
     if (this.config.enableThreatDetection) {
-      setInterval(() => {
+      const interval = setInterval(() => {
         this.performThreatDetection();
       }, this.config.threatDetectionInterval);
+      interval.unref?.();
+      this.monitoringIntervals.set('threatDetection', interval);
     }
   }
 
@@ -865,9 +869,10 @@ export class EnhancedSandboxManager {
    */
   destroy(): void {
     // 停止所有监控
-    this.monitoringIntervals.forEach((interval, sandboxId) => {
+    this.monitoringIntervals.forEach((interval) => {
       clearInterval(interval);
     });
+    this.monitoringIntervals.clear();
 
     // 清空缓存
     this.clearCache();

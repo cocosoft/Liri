@@ -82,6 +82,22 @@ export class InboxManager {
     this.expireTimer.unref?.();
   }
 
+  /**
+   * 停止审批过期调度（幂等）。
+   */
+  stopExpireScheduler(): void {
+    if (!this.expireTimer) return;
+    clearInterval(this.expireTimer);
+    this.expireTimer = null;
+  }
+
+  /**
+   * 资源释放入口。
+   */
+  dispose(): void {
+    this.stopExpireScheduler();
+  }
+
   private async getDb(): Promise<Database> {
     if (this.db) return this.db;
     this.db = await new Promise<Database>((resolve, reject) => {

@@ -376,16 +376,20 @@ export class EnhancedGovernanceManager {
   private setupMonitoring(): void {
     // 定期执行风险分析
     if (this.config.enableIntelligentRiskAnalysis) {
-      setInterval(() => {
+      const interval = setInterval(() => {
         this.performRiskAnalysis();
       }, this.config.riskAnalysisInterval);
+      interval.unref?.();
+      this.monitoringIntervals.set('riskAnalysis', interval);
     }
 
     // 定期执行趋势分析
     if (this.config.enableTrendAnalysis) {
-      setInterval(() => {
+      const interval = setInterval(() => {
         this.performTrendAnalysis();
       }, this.config.trendAnalysisInterval);
+      interval.unref?.();
+      this.monitoringIntervals.set('trendAnalysis', interval);
     }
   }
 
@@ -865,9 +869,10 @@ export class EnhancedGovernanceManager {
    */
   destroy(): void {
     // 停止所有监控
-    this.monitoringIntervals.forEach((interval, domain) => {
+    this.monitoringIntervals.forEach((interval) => {
       clearInterval(interval);
     });
+    this.monitoringIntervals.clear();
 
     // 清空缓存
     this.clearCache();

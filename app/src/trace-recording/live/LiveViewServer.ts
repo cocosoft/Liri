@@ -185,7 +185,7 @@ export class LiveViewServer {
     res.write(`event: connected\ndata: {"clientId":${id}}\n\n`);
 
     // 发送 keepalive
-    const keepalive = setInterval(() => {
+    const keepaliveTimer = setInterval(() => {
       try {
         logger.debug('LiveView SSE keepalive tick', { clientId: id });
         res.write(':keepalive\n\n');
@@ -193,14 +193,16 @@ export class LiveViewServer {
         logger.warn('LiveView SSE keepalive 写入失败，移除客户端', {
           clientId: id,
         });
-        clearInterval(keepalive);
+        clearInterval(keepaliveTimer);
         this.clients.delete(id);
       }
     }, 15000);
+    // 不阻塞进程退出（连接关闭时会 clearInterval）
+    keepaliveTimer.unref?.();
 
     // 客户端断开时清理
     req.on('close', () => {
-      clearInterval(keepalive);
+      clearInterval(keepaliveTimer);
       this.clients.delete(id);
     });
   }

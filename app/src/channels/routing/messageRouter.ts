@@ -99,9 +99,12 @@ import type {
 } from './messageRouterContract';
 import {
   sanitizeSessionId,
-  runSerialized,
   resolveAdmissionWaitMs,
+  registerArrivalSlot,
+  waitForEarlierArrivals,
+  releaseArrivalSlot,
 } from './messageRouterSerialization';
+import type { ArrivalSlot } from './messageRouterSerialization';
 import { claimContentDedup } from './contentDedup';
 import { tryHandleTextApproval } from './textApproval';
 import { deliverChannelOutbound } from './channelOutbound';
@@ -137,6 +140,27 @@ const logger = getLogger('channels:routing');
 export async function routeChannelMessage(
   message: MessageContext,
   options: RouteMessageOptions
+): Promise<RouteResult> {
+  // DEEP-6 根因修复（2026-10-19）：到达序必须在**第一个 await 之前**同步登记。
+  // 渠道适配器对每个事件并发调用本函数；若等到前置步骤（DM 授权 / 共享会话落盘 /
+  // 审批预检）完成后再排队，排队顺序会变成"前置步骤完成顺序"，快速连发时回复乱序。
+  const channelName = options.channelName ?? 'unknown';
+  // 与内层 sessionKey 同一口径（群聊按 senderId 隔离；见下方 DEEP-12）
+  const sessionKey = message.isDirectMessage
+    ? (message.conversationId ?? message.senderId)
+    : `${message.conversationId ?? message.senderId}:${message.senderId}`;
+  const arrival = registerArrivalSlot(`${channelName}:${sessionKey}`);
+  try {
+    return await routeChannelMessageInner(message, options, arrival);
+  } finally {
+    releaseArrivalSlot(arrival);
+  }
+}
+
+async function routeChannelMessageInner(
+  message: MessageContext,
+  options: RouteMessageOptions,
+  arrival: ArrivalSlot
 ): Promise<RouteResult> {
   const {
     coreAPI,
@@ -525,7 +549,9 @@ export async function routeChannelMessage(
 
     // DEEP-6：per-session 串行化，保证同会话回复顺序不乱
     // DEEP-12：串行 key 与 CoreAPI 会话键一致（群聊按用户隔离）
-    const serializedKey = `${channelName}:${sessionKey}`;
+    // 2026-10-19：key 由入口（`routeChannelMessage`）在第一个 await 之前同步登记，
+    // 此处直接复用 —— 保证等待集合就是"更早到达的消息"，而非"更早完成前置步骤的消息"。
+    const serializedKey = arrival.key;
     // Windows 兼容（根因修复 2026-08-20）：sessionKey 含 ':'（如 QQ 的 "c2c:{openid}"），
     // 直接作为持久化目录名导致 mkdir ENOTDIR → createSession 失败 → chat 报错 → 渠道无回复。
     // 确定性映射保证同一会话每次生成相同 ID，会话复用不受影响。
@@ -538,7 +564,12 @@ export async function routeChannelMessage(
       serializedKey,
     });
     const llmStartMs = Date.now();
-    const response = await runSerialized(serializedKey, async () => {
+    // DEEP-6 根因修复（2026-10-19）：进入 LLM 前等待同会话中**所有更早到达**的消息
+    // 处理完毕（含其出站），保证"回复顺序 = 消息到达顺序"。
+    // 控制面消息（待答问题回答 / 文本审批）在本段之前已返回 ⇒ 不会等待本闸门，
+    // 因此不会被"正在等待它们的长回合"死锁。
+    await waitForEarlierArrivals(arrival);
+    const response = await (async () => {
       // PR1（2026-10-09）：把本次 Agent 运行登记进 Execution 生命周期
       // （ownership + generation fencing）。**纯记账、默认零行为变更**：
       // 完成/失败经 `ExecutionManager` 的 fencing 判定，被顶替（STALE）时静默忽略，
@@ -755,7 +786,7 @@ export async function routeChannelMessage(
           removePendingQuestion(questionKey);
         }
       }
-    });
+    })();
 
     logger.info(`[TRACE] ${traceId} 阶段完成: llm`, {
       messageId: message.messageId,

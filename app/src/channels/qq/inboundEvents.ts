@@ -178,6 +178,17 @@ export class QQInboundEvents {
       timestamp: Date.now(),
       isDirectMessage: true,
       rawPayload: data as unknown as Record<string, unknown>,
+      // G-06（2026-10-19）：透传入站附件 `size`，使通道路径真正计入 R16 预算预留
+      //（此前只把 size 写进正文文本，`attachmentSizes` 为空 ⇒ 折算 0）
+      attachments: media
+        ? [
+            {
+              fileName: media.filename || `qq_attachment_${data.id}`,
+              ...(media.url ? { url: media.url } : {}),
+              ...(typeof media.size === 'number' ? { size: media.size } : {}),
+            },
+          ]
+        : undefined,
     };
 
     // AC-5：记录被动回复上下文（5 分钟窗口内出站携带 msg_id/msg_seq）

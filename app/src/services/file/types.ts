@@ -107,6 +107,8 @@ export interface RegisterFileResult {
   originalName: string;
   /** 文件 MD5 */
   md5: string;
+  /** 文件字节数（G-06：供通道路径折算预算；缺省 = 未提供，不臆造） */
+  size?: number;
   /** 重复时返回已有记录 */
   existingRecord?: FileRecord;
 }

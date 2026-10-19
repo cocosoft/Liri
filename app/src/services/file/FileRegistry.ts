@@ -222,6 +222,7 @@ export class FileRegistry {
           savedName: existing.savedName,
           originalName: existing.originalName,
           md5,
+          size: existing.size,
           existingRecord: existing,
         };
       }
@@ -324,6 +325,7 @@ export class FileRegistry {
         savedName,
         originalName,
         md5,
+        size: fileSize,
       };
     } catch (err) {
       // DB 写入失败 → 回滚已写入的文件
@@ -751,6 +753,7 @@ export class FileRegistry {
         savedName,
         originalName,
         md5,
+        size: fileSize,
       };
     } catch (err) {
       throw new AppError(

@@ -803,6 +803,8 @@ class TelegramChannel extends BaseChannelPlugin {
                       fileId,
                       fileName: regResult.savedName,
                       mimeType,
+                      // G-06（2026-10-19）：补 `size`，使通道附件真正计入 R16 预算预留
+                      size: regResult.size,
                     },
                   ]
                 : undefined,

@@ -425,7 +425,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
   ): Promise<SendResult> {
     return this.sendMessageWithFallback({
       receiveId: target,
-      receiveIdType: 'open_id',
+      receiveIdType: resolveFeishuReceiveIdType(target),
       msgType: 'text',
       content: JSON.stringify({ text: content }),
     });
@@ -528,7 +528,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     }
     return this.executeSendMessage(
       target,
-      'open_id',
+      resolveFeishuReceiveIdType(target),
       'image',
       JSON.stringify({ image_key: upload.imageKey })
     );
@@ -547,7 +547,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     }
     return this.executeSendMessage(
       target,
-      'open_id',
+      resolveFeishuReceiveIdType(target),
       'file',
       JSON.stringify({ file_key: upload.fileKey })
     );
@@ -583,7 +583,7 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
       }
       return this.executeSendMessage(
         target,
-        'open_id',
+        resolveFeishuReceiveIdType(target),
         'interactive',
         JSON.stringify(feishuCard)
       );
@@ -1199,6 +1199,18 @@ export function resolveFeishuInboundMode(
   config: Record<string, unknown>
 ): 'websocket' | 'webhook' {
   return config['useWebSocket'] === false ? 'webhook' : 'websocket';
+}
+
+/**
+ * 解析飞书 `receive_id_type`（2026-10-19）。
+ *
+ * 通道路由把 `conversationId ?? senderId` 作为出站目标：会话 id 以 `oc_` 开头，
+ * 用户 open_id 以 `ou_` 开头。此前一律传 `open_id` ⇒ 对 `oc_…` 发送会失败。
+ */
+export function resolveFeishuReceiveIdType(
+  target: string
+): 'chat_id' | 'open_id' {
+  return target.startsWith('oc_') ? 'chat_id' : 'open_id';
 }
 
 export const feishuChannel = createFeishuChannel();

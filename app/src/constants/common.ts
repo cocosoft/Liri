@@ -69,6 +69,8 @@ export const MS_PER_MINUTE = 60 * 1000;
 export const MS_PER_HOUR = 60 * MS_PER_MINUTE;
 /** 时间换算：1 天（分钟，用于免打扰窗口跨午夜计算） @kind A */
 export const MINUTES_PER_DAY = 24 * 60;
+/** 时间换算：1 天（毫秒，用于队列保留期） @kind A */
+export const MS_PER_DAY = 24 * MS_PER_HOUR;
 
 /**
  * G-10（2026-10-19）：主动消息**默认冷却**（毫秒）。
@@ -84,6 +86,23 @@ export const PROACTIVE_RISK_ALERT_COOLDOWN_MS = 5 * MS_PER_MINUTE;
 export const PROACTIVE_REMINDER_NO_COOLDOWN = 0;
 /** @kind A */
 export const PROACTIVE_SUGGESTION_COOLDOWN_MS = 30 * MS_PER_MINUTE;
+
+/**
+ * G-10 P2（2026-10-19）：主动消息挂起队列的调度/重试参数。
+ *
+ * 扫描器复用现有后台调度节奏；重试采用指数退避（有上限），失败达上限即 dropped。
+ *
+ * @kind A
+ */
+export const PROACTIVE_QUEUE_SCAN_INTERVAL_MS = 30_000;
+/** @kind A */
+export const PROACTIVE_QUEUE_MAX_ATTEMPTS = 5;
+/** @kind A */
+export const PROACTIVE_QUEUE_BASE_RETRY_MS = 30_000;
+/** @kind A */
+export const PROACTIVE_QUEUE_MAX_RETRY_MS = 30 * MS_PER_MINUTE;
+/** 终态记录保留天数（`delivered/dropped/expired`） @kind A */
+export const PROACTIVE_QUEUE_RETENTION_DAYS = 7;
 
 /**
  * 产品默认语言 / 时区（**唯一真源**）。

@@ -34,12 +34,11 @@
 import { readdir, stat, rm, rmdir } from 'fs/promises';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
+import { MS_PER_DAY } from '@modules/constants';
 import { resolveDataSubDir, resolveSnapshotsDir } from '@modules/core/paths';
 import { enterPhase, exitPhase } from '@modules/diagnostics';
 
 const logger = getLogger('session:artifact-retention');
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * 保留策略。

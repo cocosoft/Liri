@@ -192,7 +192,7 @@
 | `app/src/memory/memdir/MemoryIntegrationService.ts` | 保留定时器句柄/幂等/`unref`/`stop()/dispose()`；新增 `initialized` 早退（initialize 幂等） |
 | `app/src/memory/memdir/index.ts` | 工厂 JSDoc 补生命周期契约（调用方必须 `dispose()`） |
 | `scripts/lint-unref.ts` | 扩展类作用域判据（句柄 / 清理入口 / unref）+ 文件级基线棘轮；新增 `--update-baseline`；修正 `.unref?.()` 与同名方法声明的误判 |
-| `.trae/architecture/timer-unref-baseline.json` | 基线：108 → **39** 处实例级存量违规 / 95 → **35** 个文件（六批收敛后棘轮下调） |
+| `.trae/architecture/timer-unref-baseline.json` | 基线：108 → **28** 处实例级存量违规 / 95 → **26** 个文件（六批 + channels/网络专项后棘轮下调） |
 | `app/tests/monitoring/timerLifecycle.test.ts` | 新增 4 条生命周期用例 |
 | `app/tests/chat/streamMessageLifecycleWriteHint.test.ts` | 新增 4 条交付提示行为用例（条件式文案 / 按轮去重 / 新轮重现 / 失败不提示） |
 
@@ -200,7 +200,7 @@
 
 - `cd app && bun run typecheck`：通过（含 `tsconfig.root-scripts.json`）
 - `cd app && bunx eslint <changed files>`：0 error
-- `cd app && bun run lint:unref`：通过（类作用域违规 39 均在基线内）
+- `cd app && bun run lint:unref`：通过（类作用域违规 28 均在基线内）
 - 基线移除反证：临时移除基线后门禁 `exit 1`，恢复后 `exit 0`（棘轮生效）
 - `bun test tests/monitoring --timeout 120000`：42 pass / 0 fail
 - `bun test tests/monitoring/timerLifecycle.test.ts`：6 pass / 0 fail（含构造函数零 I/O、outputDir 切换用例），测试进程自然退出
@@ -347,3 +347,28 @@
 
 **收敛到此为止（39 处保留在基线）**：剩余全部为渠道心跳、网络连接池/传输层、Cron/Dream/Knowledge 调度器、
 UI/终端组件与“活跃操作超时”类定时器。它们与进程保活/任务等待强耦合，必须逐处设计评审，不能以门禁数量为目标批量改。
+
+### 8.12 channels 专项评审（2026-10-19）
+
+| 定时器 | 作用 | 处置 |
+|---|---|---|
+| `channels/qq/QQChannel.ts:273` Token 后台刷新 | 后台维护，WS 长连接独立保活 | **补 `unref`** |
+| `channels/session/SessionResetPolicy.ts:217` 会话重置检查 | 后台维护 | **补 `unref`** |
+| `channels/discord/DiscordChannel.ts:571` WS 心跳 | 传输层保活 | 保留（不加 `unref`） |
+| `channels/irc/IrcChannel.ts:580` PING 保活 | 传输层保活 | 保留 |
+| `channels/wechat/WechatChannel.ts:293` 消息轮询 | 该渠道**唯一入站循环**，`unref` 会导致进程提前退出 | 保留 |
+
+结果：实例级违规 **39 → 37**（文件 35 → 33）；基线棘轮下调至 37 / 33。
+验证：`tsc` 通过、`eslint` 0 error、`tests/channels` 共 475 pass / 0 fail。
+
+### 8.13 网络保活专项（2026-10-19）
+
+为 9 处连接保活/清理定时器补 `unref?.()`（连接对象自身负责保活，定时器仅维持会话）：
+
+`bridge/managers/HeartbeatManager` · `bridge/websocket/WebSocketClient` ·
+`remote/SSHConnectionPool`（清理 + keepalive） · `runtime/acp/client` · `runtime/acp/server` ·
+`services/mcp/MCPServerManager`（健康检查 + 自动重连） · `services/mcp/transports/WebSocketTransport`
+
+结果：实例级违规 **37 → 28**（文件 33 → 26）；基线棘轮下调至 28 / 26。
+验证：`tsc` 通过、`eslint` 0 error、`tests/bridge` + `tests/mcp` + `tests/services/mcp` + `tests/acp`
+共 45 pass / 18 skip / 0 fail。

@@ -185,6 +185,8 @@ export class LlamaServerLogs {
         });
       }
     }, 300);
+    // 不阻塞进程退出（日志轮询，可放弃）
+    this.logPollingTimer.unref?.();
     logger.info('llama-server 日志轮询模式已启动（300ms 间隔）');
   }
 

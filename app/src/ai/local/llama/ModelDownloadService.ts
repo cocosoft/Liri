@@ -159,6 +159,8 @@ export class ModelDownloadService {
             });
           }
         }, 2000);
+        // 不阻塞进程退出（下载进度轮询，任务结束即清理）
+        pollTimer.unref?.();
       }
 
       const downloadResult = await this._downloadFromModelscope(

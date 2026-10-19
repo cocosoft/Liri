@@ -77,6 +77,8 @@ export class ModelHealthChecker {
         });
       });
     }, this.config.checkIntervalMs);
+    // 不阻塞进程退出（周期性健康检查，可放弃）
+    this.timer.unref?.();
 
     // 首次立即运行
     this.runChecks().catch(async (e) => {

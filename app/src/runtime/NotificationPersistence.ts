@@ -686,6 +686,33 @@ export class NotificationPersistence {
     });
   }
 
+  /**
+   * 按 `source + source_ref` 查已有通知（投递幂等：崩溃重放不产生重复）。
+   *
+   * G-10 P3（2026-10-19）：主动消息本地投递以 `payload.id` 作 `source_ref`，
+   * 队列重放前先查一次即可去重。
+   */
+  async findBySourceRef(
+    source: string,
+    sourceRef: string,
+    userId: string = 'default'
+  ): Promise<NotificationItem | null> {
+    const db = await this._getDb();
+    return new Promise<NotificationItem | null>((resolve, reject) => {
+      db.get(
+        `SELECT * FROM notifications
+         WHERE source = ? AND source_ref = ? AND user_id = ?
+         LIMIT 1`,
+        [source, sourceRef, userId],
+        (err: Error | null, row: Record<string, unknown>) => {
+          if (err) reject(err);
+          else if (!row) resolve(null);
+          else resolve(this._deserialize(row));
+        }
+      );
+    });
+  }
+
   // ─── 搜索 ────────────────────────────────────
 
   /** FTS5 全文搜索通知 */

@@ -63,8 +63,10 @@ export const MAX_CACHE_SIZE_BYTES = B.maxCacheSizeBytes;
  */
 export const PENDING_INTERACTION_TTL_MS = 5 * 60 * 1000;
 
+/** 时间换算：1 秒（毫秒） @kind A */
+export const MS_PER_SECOND = 1000;
 /** 时间换算：1 分钟（毫秒） @kind A */
-export const MS_PER_MINUTE = 60 * 1000;
+export const MS_PER_MINUTE = 60 * MS_PER_SECOND;
 /** 时间换算：1 小时（毫秒） @kind A */
 export const MS_PER_HOUR = 60 * MS_PER_MINUTE;
 /** 时间换算：1 天（分钟，用于免打扰窗口跨午夜计算） @kind A */

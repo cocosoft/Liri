@@ -25,14 +25,19 @@
  * 设计真源：`dev_docs/20261019/proactive-draft.md` §8「配置与开关」。
  * - 统一由 `feature('PROACTIVE')` 控制，**默认关闭**；
  * - 关闭时：不建表、不启动扫描器、不投递 —— 行为与接线前**完全一致**；
- * - 开启时：`ProactivePushQueue.init()` → 加载期扫描一次之后按周期扫描，
- *   投递统一走 `createProactiveDeliveryAdapter()`（复用 `DeliveryRouter`）；
+ * - 开启时：`ProactivePushQueue.init()` → 加载期扫描一次之后按周期扫描；
+ *   投递按 `target.mode` 分流：`channel` 走 `createProactiveDeliveryAdapter()`，
+ *   其余写 `notifications`（`createProactiveLocalDelivery`，P3 卡片数据源）；
  * - 退出时必须调用 `stopProactiveRuntime()`（`stopScanner()` + `close()`）。
  */
 import { feature } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
-import { ProactivePushQueue } from './ProactivePushQueue';
+import {
+  ProactivePushQueue,
+  type ProactiveDeliver,
+} from './ProactivePushQueue';
 import { createProactiveDeliveryAdapter } from './ProactiveDeliveryAdapter';
+import { createProactiveLocalDelivery } from './ProactiveLocalDelivery';
 
 const logger = getLogger('proactive:runtime');
 
@@ -44,6 +49,22 @@ export interface ProactiveRuntimeOptions {
 }
 
 let activeQueue: ProactivePushQueue | null = null;
+
+/**
+ * 组装投递路由：`channel` 目标走 `DeliveryRouter`，其余（`local`/`origin`/缺省）
+ * 写 `notifications`（P3 卡片的数据源）。
+ */
+function createDelivery(): ProactiveDeliver {
+  const channel = createProactiveDeliveryAdapter({ enabled: true });
+  const local = createProactiveLocalDelivery();
+  return async (payload) => {
+    if (payload.target?.mode === 'channel') {
+      await channel(payload);
+      return;
+    }
+    await local(payload);
+  };
+}
 
 /**
  * 启动主动消息运行时。
@@ -62,7 +83,7 @@ export async function startProactiveRuntime(
   );
   await queue.init();
   activeQueue = queue;
-  queue.startScanner(createProactiveDeliveryAdapter({ enabled: true }));
+  queue.startScanner(createDelivery());
   logger.info('proactive:runtime_started');
   return true;
 }

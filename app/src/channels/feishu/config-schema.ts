@@ -11,8 +11,15 @@ export interface FeishuConfig {
   verifyToken?: string;
   webhookPort?: number;
   useWebSocket?: boolean;
+  /**
+   * @deprecated 2026-10-19 起长连接改走官方 SDK `WSClient`：ping / 重连由服务端下发
+   * （`/callback/ws/endpoint` 的 ClientConfig）并 SDK 内部管理，本仓不再消费这三个键；
+   * 保留仅为兼容旧配置，后续可移除。
+   */
   wsReconnectDelayMs?: number;
+  /** @deprecated 同 `wsReconnectDelayMs`（SDK 管理） */
   wsMaxReconnectAttempts?: number;
+  /** @deprecated 同 `wsReconnectDelayMs`（SDK 管理） */
   wsPingIntervalS?: number;
   apiBase?: string;
 }

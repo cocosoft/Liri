@@ -19,9 +19,9 @@
 // - 响应体：`{ toast:{ type, content }, card? }`（3 秒内 HTTP 200；**不得**用 3xx）。本模块只构造
 //   `toast`（**不带** `card` ⇒ 保持原卡片不变，避免把挂起卡改成未知结构）。
 //
-// ⚠️ 如实边界（**不猜**）：
-// - 长连接（WebSocket）帧的**应答契约**（能否/如何回 toast）未获权威文档 ⇒ 本模块不涉及；
-//   调用方对帧路径只**应用动作**（见 `FeishuChannel.applyCardActionOverWebSocket`）。
+// ⚠️ 长连接（2026-10-19 起走官方 SDK `WSClient`）：SDK 会把 v2 体**拍平**（header + event）
+//    后交给 handler；handler 的返回值会由 SDK 作为响应体回传。调用方先把扁平体还原成 v2
+//    形状再交本模块识别，并把 `buildFeishuCardActionResponse()` 作为 handler 返回值（toast 生效）。
 // - `toast.type` 的完整枚举未获权威文档 ⇒ 只用官方示例中出现过的 `info`（不臆造 `success/error`）。
 
 import type { ChannelReliefActionResult } from '../bridge/budgetReliefAction';

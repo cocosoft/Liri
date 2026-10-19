@@ -755,8 +755,8 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(read('src/channels/qq/QQChannel.ts')).toContain(
       'QQ_MAX_RECONNECT_ATTEMPTS'
     );
-    // 同族**前缀名** `WS_MAX_RECONNECT_ATTEMPTS`（飞书渠道，另一标识符）非本键 ⇒ 未动
-    expect(read('src/channels/feishu/FeishuChannel.ts')).toContain(
+    // 2026-10-19：飞书长连接改走官方 SDK `WSClient`（ping/重连由 SDK 管理）⇒ 本仓不再定义该常量
+    expect(read('src/channels/feishu/FeishuChannel.ts')).not.toContain(
       'WS_MAX_RECONNECT_ATTEMPTS'
     );
   });

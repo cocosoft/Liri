@@ -39,6 +39,7 @@ import { handleBudgetReliefAction } from '../bridge/budgetReliefAction';
 
 import { getLogger } from '@modules/monitoring';
 import type { RegisterFileResult } from '@modules/services/file/types';
+import type { WSClient } from '@larksuiteoapi/node-sdk';
 import { FEISHU_API_BASE_URL, FEISHU_SITE_URL } from '../constants';
 const logger = getLogger('channels:feishu:FeishuChannel');
 
@@ -68,15 +69,6 @@ const FEISHU_CAPABILITIES: ChannelCapabilities = {
 
 /** 撤回/不存在的回复目标错误码（对标 OpenClaw WITHDRAWN_REPLY_ERROR_CODES） */
 const WITHDRAWN_REPLY_ERROR_CODES = new Set([230011, 231003]);
-
-/** WebSocket 重连间隔（毫秒） */
-const WS_RECONNECT_DELAY_MS = 5000;
-
-/** WebSocket 最大重连次数 */
-const WS_MAX_RECONNECT_ATTEMPTS = 10;
-
-/** WebSocket 心跳间隔（秒），对标 OpenClaw FEISHU_WS_CONFIG.PingInterval */
-const WS_PING_INTERVAL_S = 30;
 
 /**
  * 检测 API 响应是否为撤回/不存在的回复目标（对标 OpenClaw shouldFallbackFromReplyTarget）
@@ -134,11 +126,8 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
   private webhookServer: http.Server | null = null;
   private webhookPort = 8083;
 
-  /* WebSocket 模式 */
-  private ws: WebSocket | null = null;
-  private wsReconnectAttempts = 0;
-  private wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private wsPingTimer: ReturnType<typeof setInterval> | null = null;
+  /* WebSocket 模式（官方 SDK WSClient） */
+  private wsClient: WSClient | null = null;
 
   constructor() {
     super();
@@ -933,207 +922,84 @@ class FeishuChannelPlugin extends BaseChannelPlugin {
     }
   }
 
+  /* ───────── WebSocket 模式（官方 SDK WSClient） ───────── */
+
   /**
-   * 长连接路径：**只应用动作**，帧内不回 toast。
+   * 启动长连接（官方 SDK `WSClient`）。
    *
-   * ⚠️ 如实边界：原始 WS 帧的应答契约未获权威文档（官方推荐经 SDK 接入，ack 由 SDK 内部完成）
-   * ⇒ 本路径**不伪造** ack。代价：飞书客户端可能提示交互超时，但**放行本身已生效**（副作用已落）。
-   */
-  private async applyCardActionOverWebSocket(
-    hit: FeishuCardActionHit
-  ): Promise<void> {
-    const result = await handleBudgetReliefAction(hit.payload);
-    this.logger.info(
-      '飞书卡片回传（长连接）：动作已处理（帧内不回 toast，契约未文档化）',
-      { shape: hit.shape, openMessageId: hit.openMessageId, code: result.code }
-    );
-  }
-
-  /* ───────── WebSocket 模式 ───────── */
-
-  /**
-   * 获取飞书 WebSocket 连接地址
-   * POST https://open.feishu.cn/open-apis/ws/v1/start
-   */
-  private async getWebSocketUrl(): Promise<string> {
-    await this.ensureToken();
-    if (!this.tenantAccessToken) {
-      throw new Error('无法获取 WebSocket URL：未连接');
-    }
-
-    const resp = await fetch(`${FEISHU_API_BASE_URL}/ws/v1/start`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.tenantAccessToken}`,
-      },
-    });
-    const data = (await resp.json()) as Record<string, unknown>;
-    if ((data['code'] as number) !== 0) {
-      throw new Error(
-        `获取飞书 WebSocket URL 失败: ${data['msg'] || `错误码 ${data['code']}`}`
-      );
-    }
-    const url = (data['data'] as Record<string, unknown>)?.['url'] as string;
-    if (!url) {
-      throw new Error('飞书 WebSocket URL 为空');
-    }
-    return url;
-  }
-
-  /**
-   * 启动 WebSocket 连接
+   * 2026-10-19 真机修复：原实现调用 `POST /open-apis/ws/v1/start`（真机 404）并发裸 WS/JSON 帧，
+   * 与飞书长连接协议（`/callback/ws/endpoint` 协商 + 官方帧格式）不兼容。
+   * 现改用 `@larksuiteoapi/node-sdk`：
+   * - 消息：`im.message.receive_v1`（处理异步进行，立即返回以尽快 ack）；
+   * - 卡片回传：`card.action.trigger`（handler 返回值由 SDK 作为响应体回传 ⇒ toast 生效）。
    */
   private async startWebSocket(): Promise<void> {
+    if (this.wsClient) return;
     try {
-      const url = await this.getWebSocketUrl();
-
-      this.ws = new WebSocket(url);
-
-      this.ws.addEventListener('open', () => {
-        this.logger.info('飞书 WebSocket 已连接');
-        this.wsReconnectAttempts = 0;
-        this.startWsPing();
+      const { WSClient, EventDispatcher } =
+        await import('@larksuiteoapi/node-sdk');
+      const dispatcher = new EventDispatcher({});
+      dispatcher.register({
+        'im.message.receive_v1': (data: unknown) => {
+          // 不阻塞 ack：消息处理可能耗时（LLM 首轮），与旧实现一致走异步
+          void this.processFeishuEvent(data as Record<string, unknown>).catch(
+            (err) => {
+              void handleError(err, {
+                module: 'channels:feishu',
+                action: '飞书 WS 事件处理失败',
+              });
+            }
+          );
+          return undefined;
+        },
+        'card.action.trigger': async (data: unknown) => {
+          // SDK 已把 v2 体拍平（header + event）；还原 v2 形状交纯函数识别
+          const hit = extractFeishuCardAction({
+            schema: '2.0',
+            header: { event_type: 'card.action.trigger' },
+            event: data,
+          });
+          if (!hit) return undefined;
+          const result = await handleBudgetReliefAction(hit.payload);
+          this.logger.info('飞书卡片回传（长连接）：动作已处理', {
+            shape: hit.shape,
+            openMessageId: hit.openMessageId,
+            code: result.code,
+          });
+          return buildFeishuCardActionResponse(result);
+        },
       });
 
-      this.ws.addEventListener('message', (event: MessageEvent) => {
-        this.handleWsMessage(event);
+      const client = new WSClient({
+        appId: this.appId,
+        appSecret: this.appSecret,
+        autoReconnect: true,
+        onReady: () => this.logger.info('飞书 WebSocket 已连接'),
+        onReconnecting: () => this.logger.warn('飞书 WebSocket 重连中'),
+        onReconnected: () => this.logger.info('飞书 WebSocket 已重连'),
+        onError: (err) => {
+          void handleError(err, {
+            module: 'channels:feishu',
+            action: '飞书 WebSocket',
+          });
+        },
       });
-
-      this.ws.addEventListener('close', (event: CloseEvent) => {
-        this.logger.warn(`飞书 WebSocket 已断开 (code: ${event.code})`);
-        this.stopWsPing();
-        this.scheduleWsReconnect();
-      });
-
-      this.ws.addEventListener('error', (event: Event) => {
-        this.logger.error('飞书 WebSocket 错误', { error: String(event) });
-      });
+      this.wsClient = client;
+      await client.start({ eventDispatcher: dispatcher });
     } catch (err) {
+      this.wsClient = null;
       await handleError(err, {
         module: 'channels:feishu',
         action: 'startWebSocket',
       });
-      this.scheduleWsReconnect();
     }
   }
 
-  /**
-   * 处理 WebSocket 收到的消息
-   */
-  private handleWsMessage(event: MessageEvent): void {
-    try {
-      const data = JSON.parse(event.data as string) as Record<string, unknown>;
-      const type = data['type'] as string;
-
-      if (type === 'event') {
-        const eventData = data['data'] as Record<string, unknown> | undefined;
-        if (eventData) {
-          // ① 卡片回传交互（长连接帧）：**只应用动作**——帧的应答契约（能否回 toast）未获权威
-          //    文档 ⇒ 不猜（不伪造 ack）。副作用（放行）仍照常生效，留痕见 helper。
-          const cardHit = extractFeishuCardAction(data);
-          if (cardHit) {
-            this.applyCardActionOverWebSocket(cardHit).catch((err) => {
-              handleError(err, {
-                module: 'channels:feishu',
-                action: '飞书长连接卡片回传处理失败',
-              });
-            });
-            return;
-          }
-
-          const eventType = eventData['type'] as string;
-          if (eventType === 'im.message.receive_v1') {
-            const eventBody = eventData['event'] as
-              | Record<string, unknown>
-              | undefined;
-            if (eventBody) {
-              this.processFeishuEvent(eventBody).catch((err) => {
-                handleError(err, {
-                  module: 'channels:feishu',
-                  action: '飞书 WS 事件处理失败',
-                });
-              });
-            }
-          }
-        }
-      }
-    } catch {
-      this.logger.warn('飞书 WebSocket 消息解析失败');
-    }
-  }
-
-  /**
-   * 启动 WebSocket 心跳（对标 OpenClaw WSConfig.PingInterval）
-   */
-  private startWsPing(): void {
-    this.stopWsPing();
-    this.wsPingTimer = setInterval(() => {
-      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        try {
-          this.ws.send(JSON.stringify({ type: 'ping' }));
-        } catch {
-          this.logger.warn('飞书 WebSocket 心跳发送失败');
-        }
-      }
-    }, WS_PING_INTERVAL_S * 1000);
-  }
-
-  /**
-   * 停止 WebSocket 心跳
-   */
-  private stopWsPing(): void {
-    if (this.wsPingTimer !== null) {
-      clearInterval(this.wsPingTimer);
-      this.wsPingTimer = null;
-    }
-  }
-
-  /**
-   * 安排 WebSocket 自动重连
-   */
-  private scheduleWsReconnect(): void {
-    if (this.wsReconnectAttempts >= WS_MAX_RECONNECT_ATTEMPTS) {
-      this.logger.error(
-        `飞书 WebSocket 达到最大重连次数 (${WS_MAX_RECONNECT_ATTEMPTS})，停止重连`
-      );
-      return;
-    }
-
-    this.wsReconnectAttempts++;
-    const delay = WS_RECONNECT_DELAY_MS * Math.min(this.wsReconnectAttempts, 5);
-
-    this.logger.info(
-      `飞书 WebSocket 将在 ${delay}ms 后重连 (第 ${this.wsReconnectAttempts} 次)`
-    );
-
-    this.wsReconnectTimer = setTimeout(() => {
-      this.startWebSocket().catch((err) => {
-        handleError(err, {
-          module: 'channels:feishu',
-          action: '飞书 WebSocket 重连失败',
-        });
-      });
-    }, delay);
-  }
-
-  /**
-   * 停止 WebSocket 连接及相关定时器
-   */
+  /** 关闭长连接（SDK 负责停止重连/心跳） */
   private stopWebSocket(): void {
-    this.stopWsPing();
-
-    if (this.wsReconnectTimer !== null) {
-      clearTimeout(this.wsReconnectTimer);
-      this.wsReconnectTimer = null;
-    }
-
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-
-    this.wsReconnectAttempts = 0;
+    if (!this.wsClient) return;
+    this.wsClient.close();
+    this.wsClient = null;
   }
 
   /**

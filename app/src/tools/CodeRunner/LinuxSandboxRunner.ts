@@ -259,7 +259,8 @@ export async function runCodeRunnerWithLandlock(
         });
   child.on('close', (code) => {
     if (processEntryId === undefined) return;
-    processRegistry.updateStatus(
+    // N4（2026-10-19）：以终态收敛（complete = updateStatus 语义别名，不改历史保留口径）
+    processRegistry.complete(
       processEntryId,
       (child as { killed?: boolean }).killed ? 'timed_out' : 'completed',
       code ?? undefined

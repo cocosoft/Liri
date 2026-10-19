@@ -32,6 +32,7 @@ import {
   type DeliveryFormatSupport,
 } from './deliveryFormatters';
 import type { DeliveryInteractiveCard } from './deliveryTypes';
+import { classifyOutboundError } from './routing/channelErrorClass';
 
 const logger = getLogger('channels:DeliveryRouter');
 
@@ -508,11 +509,24 @@ export class DeliveryRouter {
             fallbackSteps: steps,
           };
         } catch (err) {
-          logger.warning('interactive 发送异常，降级到下一格式', {
+          // N10：不确定态（超时/重置）可能已送达 ⇒ 停止降级，避免换格式再发一遍
+          const cls = classifyOutboundError(err);
+          logger.warning('interactive 发送异常', {
             channel: channel.name,
             target,
+            errorKind: cls.kind,
+            errorCode: cls.code,
             error: String(err),
           });
+          if (cls.kind === 'ambiguous') {
+            return {
+              success: false,
+              actualFormat: 'interactive',
+              error: `消息可能已送达（${cls.code ?? cls.kind}），已停止降级以避免重复发送`,
+              durationMs: 0,
+              fallbackSteps: steps,
+            };
+          }
           return null;
         }
       }
@@ -532,11 +546,24 @@ export class DeliveryRouter {
             fallbackSteps: steps,
           };
         } catch (err) {
-          logger.warning('markdown 发送异常，降级到下一格式', {
+          // N10：同 interactive —— 不确定态停止降级
+          const cls = classifyOutboundError(err);
+          logger.warning('markdown 发送异常', {
             channel: channel.name,
             target,
+            errorKind: cls.kind,
+            errorCode: cls.code,
             error: String(err),
           });
+          if (cls.kind === 'ambiguous') {
+            return {
+              success: false,
+              actualFormat: 'markdown',
+              error: `消息可能已送达（${cls.code ?? cls.kind}），已停止降级以避免重复发送`,
+              durationMs: 0,
+              fallbackSteps: steps,
+            };
+          }
           return null;
         }
       }
@@ -557,12 +584,26 @@ export class DeliveryRouter {
                 fallbackSteps: steps,
               };
           } catch (err) {
-            logger.warning('text 发送异常，重试', {
+            // N10（2026-10-19）：不确定态（超时/连接重置）**不得自动重试** ——
+            // 请求可能已被服务端接收，重试会把同一条消息发两遍。
+            const cls = classifyOutboundError(err);
+            logger.warning('text 发送异常', {
               channel: channel.name,
               target,
               attempt,
+              errorKind: cls.kind,
+              errorCode: cls.code,
               error: String(err),
             });
+            if (!cls.retryable) {
+              return {
+                success: false,
+                actualFormat: 'text',
+                error: `消息可能已送达（${cls.code ?? cls.kind}），已停止重试以避免重复发送`,
+                durationMs: 0,
+                fallbackSteps: steps,
+              };
+            }
           }
           if (attempt === 0) await new Promise((r) => setTimeout(r, 100));
         }

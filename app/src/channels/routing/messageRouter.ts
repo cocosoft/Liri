@@ -105,6 +105,7 @@ import {
   releaseArrivalSlot,
 } from './messageRouterSerialization';
 import type { ArrivalSlot } from './messageRouterSerialization';
+import { classifyRouterError } from './channelErrorClass';
 import { claimContentDedup } from './contentDedup';
 import { tryHandleTextApproval } from './textApproval';
 import { deliverChannelOutbound } from './channelOutbound';
@@ -999,10 +1000,14 @@ async function routeChannelMessageInner(
       'fail',
       error instanceof Error ? error.message.slice(0, 300) : String(error)
     );
+    const errClass = classifyRouterError(error);
     logger.error(`[TRACE] ${traceId} 全链路异常终止`, {
       messageId: message.messageId,
       channelName,
       totalDurationMs: Date.now() - processingStartMs,
+      // N9：补稳定分类维度（仅观测，控制流仍由 abortReason / 既有分支决定）
+      errorKind: errClass.kind,
+      errorCode: errClass.code,
       error: error instanceof Error ? error.message : String(error),
     });
 

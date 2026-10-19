@@ -27,7 +27,7 @@
 | BUG-3 `initialize()` 可重入 | `initialize()`（`MemoryIntegrationService.ts:146-166`）仍无 `initialized` 早退；但 `startAutoSync()` 的新守卫已阻止定时器叠加 | 定时器叠加已消除；“initialize 幂等”未做 |
 | 影响：进程无法退出 | 两个类当前均无静态消费者（见 §0.2）；属潜在风险 | 保留修复，但验收要写清“可被 future wiring 触发” |
 | 建议 2：新增 ESLint 禁止裸 `setInterval` | 已有 `scripts/lint-unref.ts`，顶层阻断 / 实例级告警 | 扩展现有脚本 |
-| 建议 1：`SafeInterval` + `LifecycleRegistry` | 仓内无此类（Grep 0 命中） | 可选，建议本期不引入 |
+| 建议 1：`SafeInterval` + `LifecycleRegistry` | 仓内无此类（Grep 0 命中） | 原判“本期不引入”；**2026-10-19 追加决策：完整落地，见 §8.16** |
 
 补充事实：
 - `MemoryIntegrationService.startAutoSync()` 使用 `void this.syncMemories().catch(...)`，回调返回 `Promise` 的未处理拒绝已被收口，原报告的 async 回调风险已消除。
@@ -110,7 +110,8 @@
 - `FileExporter` 构造函数只做字段赋值；`ensureOutputDir()` / `updateCurrentSize()` 外移到 `start()`，
   `export()` 通过 `ensureOutputDirOnce()` 按需建目录（未调用 `start()` 也能正常导出）。
 - `setConfig({ outputDir })` 变化时重置 `outputDirReady`，下次 `start/export` 重新确保目录。
-- 统一 `SafeInterval` 封装：只在出现第 3 处同类泄漏时再引入（本期不做）。
+- 统一 `SafeInterval` 封装：原定“出现第 3 处同类泄漏时再引入（本期不做）”；
+  **2026-10-19 追加决策改为完整落地（§8.16）**。
 
 ---
 
@@ -401,4 +402,53 @@ UI/终端组件与“活跃操作超时”类定时器。它们与进程保活/�
 | 锁/心跳 | `tasks/CrossProcessLock`、`core/auto-reply/heartbeat`（2） | 锁续期与长期任务循环 |
 | UI/音频 | `cli/progress`、`ui/TerminalComponents`、`ui/UIEnhancer`、`services/voice`（3）、`voice/VoiceServiceBridge` | 活跃 UI/音频会话，进程应保持 |
 
-门禁口径：这些项留在基线内（**只拦新增**），不再以“降到 0”为目标。
+门禁口径：这些项留在基线内（**只拦新增**），不再以“降到 0”为目标。**（该口径已被 §8.16 取代：基线已归零。）**
+
+### 8.16 建议 1 完整落地：SafeInterval + 统一生命周期注册表（2026-10-19）
+
+> 决策变更：用户明确选择「完整版」⇒ 推翻 §8.15 的“保留 22 处、基线不为 0”。
+> 本条替代 §8.15 的终态裁定，但**保留其 unref 语义判断**作为逐处取舍依据。
+
+**新增基础设施（CS01：复用既有，不另造关闭流程）**
+
+| 文件 | 内容 |
+|---|---|
+| `app/src/utils/SafeInterval.ts` | `SafeInterval`（句柄字段 + `start` 幂等 + `stop/dispose/restart` + 默认 `unref` + 统一错误收口）与 `TimerLifecycleRegistry`（启动登记 / 停止注销 / `stopAll`） |
+| `app/src/utils/gracefulShutdown.ts` | `setupGracefulShutdown()` 幂等化，并登记 `timerLifecycleRegistry.stopAll()`；不新增信号监听 |
+| `app/tests/utils/safeInterval.test.ts` | 7 例：重复 start 不叠加、stop 后可重启、非法间隔拒绝、抛错不影响后续 tick、`unref:false` 路径、注册/注销、`stopAll` |
+
+**22 处迁移映射（20 文件；`core/auto-reply/heartbeat` 因分层约束保留原生句柄 + `unref`）**
+
+| 文件 | `unref` | 依据 |
+|---|---|---|
+| `channels/discord/DiscordChannel` | 默认 true | 传输层心跳；WS 本身保活，与 `ChannelSessionManager` 惯例一致 |
+| `channels/irc/IrcChannel` | 默认 true | 同上（socket 保活） |
+| `channels/wechat/WechatChannel` | 默认 true | 轮询属可放弃观测；weixin-cli 子进程保活 |
+| `chronos/service/CronTaskTimer` | **false** | 调度器是常驻职责 |
+| `dream/DreamScheduler` | **false** | 同上 |
+| `knowledge/KnowledgeCompileScheduler` | **false** | 同上 |
+| `tasks/cron/DeliveryQueue` | **false** | 重试队列是投递可靠性来源 |
+| `tasks/CrossProcessLock` | **false** | 持锁期间必须续租 |
+| `voice/VoiceServiceBridge`（唤醒词） | **false** | 用户可见监听能力 |
+| `core/auto-reply/heartbeat`（2） | 原生句柄 + `unref` | core 层不得依赖 utils（R00-001）；该类已有句柄 + `stop()`，仅补 `unref` |
+| `subagents/SubAgentEventPump`（2） | 默认 true | 观测型轮询；子代理任务保活 |
+| `tasks/MonitorTask` / `tasks/MonitorMcpTask` | 默认 true | 观测/探测型 |
+| `tasks/cron/CronScheduler`（作业心跳） | 默认 true | 作业 `await` 保活，定时器不应额外撑住进程 |
+| `services/voice/{piperTTSProvider,streamSTTProvider,sttRegistry}` | 默认 true | 维护/健康探测；WS/调用保活 |
+| `cli/progress` / `ui/TerminalComponents` / `ui/UIEnhancer` | 默认 true | 短生命周期 UI 渲染 |
+
+**顺带修掉的叠加风险**（原实现会覆盖句柄而不回收旧定时器）：
+`DiscordChannel` 重复 HELLO、`StreamSTTConnectionImpl` 重连 `onopen`、`CrossProcessLock` 重复获取。
+
+**门禁结果**
+
+- `bun run lint:unref`：setInterval 145 处（合规 131 / 顶层未 unref 0 / **类作用域违规 0** / 函数作用域 14）
+- 基线 `.trae/architecture/timer-unref-baseline.json`：**22 处 / 20 文件 → 0 处 / 0 文件**
+- `tsc --noEmit`（app + scripts + root-scripts）exit 0；`eslint` 0 error；`lint:arch` 0 错（R00-001 分层）；`lint:size` 0 错
+- 聚焦回归：`tests/utils/safeInterval` + `tests/subagents` + `tests/voice` + `tests/monitoring` +
+  `tests/chronos` + `tests/tasks/cron` + `tests/tasks/heartbeat` + `streamHeartbeat` +
+  `ChannelSessionManager` = **379 pass / 0 fail**
+
+**回归风险与护栏**：6 处 `unref:false` 站点保留原“保活”语义（无行为变化）；14 处迁移为“原写法 + 受管句柄 +
+可回收”，2 处（core 层心跳）保持原生句柄并补 `unref`；差异仅在进程退出时不再被挂住。
+基线归零后，任何新增裸 `setInterval` 都会直接阻断。

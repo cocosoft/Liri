@@ -42,6 +42,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getMetricsService } from '@modules/monitoring';
 import type { HistogramMetric } from '@modules/monitoring';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 
 const logger = getLogger('voice:sttRegistry');
 
@@ -493,7 +494,7 @@ export class STTRegistry {
   /** 事件监听器映射表 */
   private listeners: Map<string, Set<(providerId: string) => void>> = new Map();
   /** 健康探测定时器 */
-  private healthCheckTimer: ReturnType<typeof setInterval> | null = null;
+  private healthCheckTimer: SafeInterval | null = null;
   /** 健康探测间隔（毫秒），默认 30s */
   private healthCheckMs: number = 30000;
   /** 当前已降级的失败提供者 ID 集合 */
@@ -1340,19 +1341,19 @@ export class STTRegistry {
     if (this.healthCheckTimer !== null) return;
     if (this.degradedProviderIds.size === 0) return;
 
-    this.healthCheckTimer = setInterval(() => {
-      void this.performHealthCheck();
-    }, this.healthCheckMs);
+    this.healthCheckTimer = new SafeInterval({
+      name: 'voice:sttRegistry:healthCheck',
+      run: () => this.performHealthCheck(),
+    });
+    this.healthCheckTimer.start(this.healthCheckMs);
   }
 
   /**
    * 停止健康探测
    */
   stopHealthCheckInstance(): void {
-    if (this.healthCheckTimer !== null) {
-      clearInterval(this.healthCheckTimer);
-      this.healthCheckTimer = null;
-    }
+    this.healthCheckTimer?.stop();
+    this.healthCheckTimer = null;
   }
 
   /**

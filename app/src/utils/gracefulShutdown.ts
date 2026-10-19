@@ -5,11 +5,14 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+import { timerLifecycleRegistry } from './SafeInterval';
 
 const logger = getLogger('gracefulShutdown');
 
 let shutdownHandlers: any[] = [];
 let isShuttingDown = false;
+/** setupGracefulShutdown 幂等标志（重复调用不重复登记定时器回收钩子） */
+let setupDone = false;
 
 /**
  * 注册关闭处理函数
@@ -59,6 +62,14 @@ async function executeShutdownHandlers() {
  * 避免重复注册导致策略冲突（曾出现 gracefulShutdown 强制 exit 覆盖 main.ts "不退出"策略）。
  */
 export function setupGracefulShutdown() {
+  if (setupDone) return;
+  setupDone = true;
+
+  // 统一回收受管定时器（SafeInterval / TimerLifecycleRegistry）
+  registerShutdownHandler(() => {
+    timerLifecycleRegistry.stopAll();
+  });
+
   // 监听SIGINT信号（Ctrl+C）
   process.on('SIGINT', () => {
     logger.info('收到 SIGINT 信号，开始优雅关闭...');

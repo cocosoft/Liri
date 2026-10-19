@@ -5,6 +5,7 @@
  */
 
 import chalk from 'chalk';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 
 export interface TableColumn {
   header: string;
@@ -244,18 +245,22 @@ export class TerminalComponents {
     const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
     let currentFrame = 0;
 
-    const interval = setInterval(() => {
-      process.stdout.write(`\r${frames[currentFrame]} ${message}`);
-      currentFrame = (currentFrame + 1) % frames.length;
-    }, 80);
+    const interval = new SafeInterval({
+      name: 'ui:terminal:spinner',
+      run: () => {
+        process.stdout.write(`\r${frames[currentFrame]} ${message}`);
+        currentFrame = (currentFrame + 1) % frames.length;
+      },
+    });
+    interval.start(80);
 
     try {
       const result = await asyncTask();
-      clearInterval(interval);
+      interval.stop();
       process.stdout.write(`\r${chalk.green('✓')} ${message}\n`);
       return result;
     } catch (error) {
-      clearInterval(interval);
+      interval.stop();
       process.stdout.write(`\r${chalk.red('✗')} ${message}\n`);
       throw error;
     }

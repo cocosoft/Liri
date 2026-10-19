@@ -19,6 +19,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 import { globalEventBus } from '../core/events/EventBus.js';
 
 const logger = getLogger('subagents:eventPump');
@@ -50,8 +51,8 @@ export class SubAgentEventPump {
   private polling: Map<string, SubAgentHeartbeatState> = new Map();
   /** N-70：已就"当前这次超时"告警过的子代理（心跳恢复即清除 ⇒ 避免刷屏） */
   private staleWarned: Set<string> = new Set();
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
-  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private pollTimer: SafeInterval | null = null;
+  private heartbeatTimer: SafeInterval | null = null;
   private onStatusChange: ((event: SubAgentStatusEvent) => void) | null = null;
 
   constructor(
@@ -119,12 +120,17 @@ export class SubAgentEventPump {
   start(): void {
     this.stop();
     // 500ms 轮询：采集状态并推送
-    this.pollTimer = setInterval(() => this.poll(), this.pollIntervalMs);
+    this.pollTimer = new SafeInterval({
+      name: 'subagents:eventPump:poll',
+      run: () => this.poll(),
+    });
+    this.pollTimer.start(this.pollIntervalMs);
     // 2s 心跳检测：标记超时子代理
-    this.heartbeatTimer = setInterval(
-      () => this.detectStale(),
-      this.heartbeatTimeoutMs
-    );
+    this.heartbeatTimer = new SafeInterval({
+      name: 'subagents:eventPump:stale',
+      run: () => this.detectStale(),
+    });
+    this.heartbeatTimer.start(this.heartbeatTimeoutMs);
     logger.info('pump:started', {
       pollIntervalMs: this.pollIntervalMs,
       heartbeatTimeoutMs: this.heartbeatTimeoutMs,
@@ -133,14 +139,10 @@ export class SubAgentEventPump {
 
   /** 停止 */
   stop(): void {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
-    }
+    this.pollTimer?.stop();
+    this.pollTimer = null;
+    this.heartbeatTimer?.stop();
+    this.heartbeatTimer = null;
   }
 
   /** 500ms 轮询：推送活跃状态（N-70：状态不再被 stale 改写 ⇒ 推送不再中断） */

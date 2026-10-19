@@ -19,6 +19,7 @@ import type { MetricsService } from '@modules/monitoring';
 import { SessionManager } from '@modules/session';
 import { getAlertManager, AlertLevel } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 
 import {
   createVoiceService,
@@ -205,7 +206,7 @@ const DEFAULT_BRIDGE_CONFIG: VoiceBridgeConfig = {
 export class VoiceServiceBridge {
   private config: VoiceBridgeConfig;
   private _isWakeDetectionRunning = false;
-  private _wakeDetectionTimer: ReturnType<typeof setInterval> | null = null;
+  private _wakeDetectionTimer: SafeInterval | null = null;
   private metrics: MetricsService;
 
   /** 服务模式子系统 */
@@ -569,16 +570,22 @@ export class VoiceServiceBridge {
     logger.info('唤醒词监听已启动');
 
     // 使用轮询方式监听，每隔 1 秒从录音缓冲区检测一次
-    this._wakeDetectionTimer = setInterval(async () => {
-      logger.debug('唤醒词监听轮询 tick', {
-        running: this._isWakeDetectionRunning,
-      });
-      if (!this._isWakeDetectionRunning) {
-        this.stopWakeWordDetection();
-        return;
-      }
-      // 唤醒词检测由外部 feed 文本触发，此处仅维护生命周期
-    }, 1000);
+    this._wakeDetectionTimer = new SafeInterval({
+      name: 'voice:bridge:wakeDetection',
+      // 唤醒词监听是用户可见能力，需保持进程存活（不 unref）
+      unref: false,
+      run: () => {
+        logger.debug('唤醒词监听轮询 tick', {
+          running: this._isWakeDetectionRunning,
+        });
+        if (!this._isWakeDetectionRunning) {
+          this.stopWakeWordDetection();
+          return;
+        }
+        // 唤醒词检测由外部 feed 文本触发，此处仅维护生命周期
+      },
+    });
+    this._wakeDetectionTimer.start(1000);
   }
 
   /**
@@ -587,10 +594,8 @@ export class VoiceServiceBridge {
   stopWakeWordDetection(): void {
     this._isWakeDetectionRunning = false;
 
-    if (this._wakeDetectionTimer !== null) {
-      clearInterval(this._wakeDetectionTimer);
-      this._wakeDetectionTimer = null;
-    }
+    this._wakeDetectionTimer?.stop();
+    this._wakeDetectionTimer = null;
 
     logger.info('唤醒词监听已停止');
   }

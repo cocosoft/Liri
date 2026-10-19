@@ -1,26 +1,5 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-19T12:11:48.778Z",
-  "files": {
-    "app/src/channels/discord/DiscordChannel.ts": 1,
-    "app/src/channels/irc/IrcChannel.ts": 1,
-    "app/src/channels/wechat/WechatChannel.ts": 1,
-    "app/src/chronos/service/CronTaskTimer.ts": 1,
-    "app/src/cli/progress/index.ts": 1,
-    "app/src/core/auto-reply/heartbeat.ts": 2,
-    "app/src/dream/DreamScheduler.ts": 1,
-    "app/src/knowledge/KnowledgeCompileScheduler.ts": 1,
-    "app/src/services/voice/services/piperTTSProvider.ts": 1,
-    "app/src/services/voice/services/streamSTTProvider.ts": 1,
-    "app/src/services/voice/services/sttRegistry.ts": 1,
-    "app/src/subagents/SubAgentEventPump.ts": 2,
-    "app/src/tasks/cron/CronScheduler.ts": 1,
-    "app/src/tasks/cron/DeliveryQueue.ts": 1,
-    "app/src/tasks/CrossProcessLock.ts": 1,
-    "app/src/tasks/MonitorMcpTask.ts": 1,
-    "app/src/tasks/MonitorTask.ts": 1,
-    "app/src/ui/TerminalComponents.ts": 1,
-    "app/src/ui/UIEnhancer.ts": 1,
-    "app/src/voice/VoiceServiceBridge.ts": 1
-  }
+  "updatedAt": "2026-10-19T12:39:32.090Z",
+  "files": {}
 }

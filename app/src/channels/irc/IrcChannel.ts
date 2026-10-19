@@ -15,6 +15,7 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:irc:IrcChannel');
@@ -239,7 +240,7 @@ class IrcChannelPlugin extends BaseChannelPlugin {
   private buffer = '';
   private nickServRecovered = false;
   private fallbackUsed = false;
-  private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private pingTimer: SafeInterval | null = null;
   private dedup = new IrcDedup();
   private connectResolve: (() => void) | null = null;
   private connectReject: ((err: Error) => void) | null = null;
@@ -577,22 +578,24 @@ class IrcChannelPlugin extends BaseChannelPlugin {
 
   private startPing(): void {
     this.clearPing();
-    this.pingTimer = setInterval(() => {
-      try {
-        logger.debug('IRC 心跳保活 PING tick', { nick: this.currentNick });
-        this.sendRaw('PING :pyapp-keepalive');
-      } catch {
-        logger.warn('IRC 心跳保活 PING 发送失败，停止心跳');
-        this.clearPing();
-      }
-    }, 60000);
+    this.pingTimer = new SafeInterval({
+      name: 'channels:irc:ping',
+      run: () => {
+        try {
+          logger.debug('IRC 心跳保活 PING tick', { nick: this.currentNick });
+          this.sendRaw('PING :pyapp-keepalive');
+        } catch {
+          logger.warn('IRC 心跳保活 PING 发送失败，停止心跳');
+          this.clearPing();
+        }
+      },
+    });
+    this.pingTimer.start(60000);
   }
 
   private clearPing(): void {
-    if (this.pingTimer) {
-      clearInterval(this.pingTimer);
-      this.pingTimer = null;
-    }
+    this.pingTimer?.stop();
+    this.pingTimer = null;
   }
 
   protected async sendTextMessage(

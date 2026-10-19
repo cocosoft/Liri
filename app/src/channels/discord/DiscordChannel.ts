@@ -23,6 +23,7 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 
 import { getLogger } from '@modules/monitoring';
 import { DISCORD_API_BASE_URL, DISCORD_SITE_URL } from '../constants';
@@ -221,7 +222,7 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
   };
 
   private ws: WebSocket | null = null;
-  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private heartbeatTimer: SafeInterval | null = null;
   private hbInterval = 0;
   private seq: number | null = null;
   private dedup = new DiscordDedup();
@@ -538,10 +539,8 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
   }
 
   private clearHeartbeat(): void {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
-    }
+    this.heartbeatTimer?.stop();
+    this.heartbeatTimer = null;
   }
 
   private stopGateway(): void {
@@ -568,13 +567,19 @@ class DiscordChannelPlugin extends BaseChannelPlugin {
         const heartbeatInterval =
           (d?.['heartbeat_interval'] as number) || 41250;
         this.hbInterval = heartbeatInterval;
-        this.heartbeatTimer = setInterval(() => {
-          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(
-              JSON.stringify({ op: DiscordOp.HEARTBEAT, d: this.seq })
-            );
-          }
-        }, heartbeatInterval);
+        // 重复 HELLO（重连）先回收旧句柄，避免叠加定时器
+        this.clearHeartbeat();
+        this.heartbeatTimer = new SafeInterval({
+          name: 'channels:discord:heartbeat',
+          run: () => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+              this.ws.send(
+                JSON.stringify({ op: DiscordOp.HEARTBEAT, d: this.seq })
+              );
+            }
+          },
+        });
+        this.heartbeatTimer.start(heartbeatInterval);
         this.identify();
         break;
       }

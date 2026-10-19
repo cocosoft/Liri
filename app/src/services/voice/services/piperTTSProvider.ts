@@ -32,6 +32,7 @@ import {
 } from 'fs';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 import type {
   TTSProvider,
   TTSVoice,
@@ -482,12 +483,14 @@ export class PiperTTSProvider implements TTSProvider {
    * @returns 一个清除函数，调用后停止 keepAlive
    */
   keepAlive(intervalMs: number = 60000): () => void {
-    const timer = setInterval(async () => {
-      await this.preloadDefaultModel();
-    }, intervalMs);
+    const timer = new SafeInterval({
+      name: 'voice:piper:keepAlive',
+      run: () => this.preloadDefaultModel(),
+    });
+    timer.start(intervalMs);
 
     return () => {
-      clearInterval(timer);
+      timer.stop();
     };
   }
 

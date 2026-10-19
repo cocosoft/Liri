@@ -27,6 +27,7 @@ import {
 import { resolveDataSubDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 
 const logger = getLogger('tasks:crossProcessLock');
 
@@ -53,7 +54,7 @@ export class CrossProcessLock {
   private lockPath: string;
   private heartbeatMs: number;
   private ttlMs: number;
-  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private heartbeatTimer: SafeInterval | null = null;
   private acquired: boolean = false;
 
   constructor(options: CrossProcessLockOptions) {
@@ -224,30 +225,36 @@ export class CrossProcessLock {
    * 启动心跳（定期更新锁文件 mtime）
    */
   private startHeartbeat(): void {
-    this.heartbeatTimer = setInterval(() => {
-      try {
-        if (existsSync(this.lockPath)) {
-          // touch — 更新 mtime 用于 TTL 判断
-          const now = new Date();
-          utimesSync(this.lockPath, now, now);
+    // 重复获取（重入）时先回收旧句柄，避免叠加
+    this.stopHeartbeat();
+    this.heartbeatTimer = new SafeInterval({
+      name: `tasks:crossProcessLock:heartbeat:${this.name}`,
+      // 锁续租是持锁期间的存活契约，保留保活语义（不 unref）
+      unref: false,
+      run: () => {
+        try {
+          if (existsSync(this.lockPath)) {
+            // touch — 更新 mtime 用于 TTL 判断
+            const now = new Date();
+            utimesSync(this.lockPath, now, now);
+          }
+        } catch (err) {
+          handleError(err, {
+            module: 'tasks:crossProcessLock',
+            action: 'heartbeat',
+          });
         }
-      } catch (err) {
-        handleError(err, {
-          module: 'tasks:crossProcessLock',
-          action: 'heartbeat',
-        });
-      }
-    }, this.heartbeatMs);
+      },
+    });
+    this.heartbeatTimer.start(this.heartbeatMs);
   }
 
   /**
    * 停止心跳
    */
   private stopHeartbeat(): void {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
-    }
+    this.heartbeatTimer?.stop();
+    this.heartbeatTimer = null;
   }
 }
 

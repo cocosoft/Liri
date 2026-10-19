@@ -4,6 +4,7 @@
 
 import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tasks:MonitorMcpTask');
@@ -25,7 +26,7 @@ export interface McpStatus {
 export class MonitorMcpTask extends BaseTask {
   readonly type = TaskType.MONITOR_MCP;
   private config: McpMonitorConfig;
-  private checkIntervalId?: ReturnType<typeof setInterval>;
+  private checkIntervalId?: SafeInterval;
   private statusHistory: McpStatus[] = [];
 
   constructor(
@@ -43,13 +44,17 @@ export class MonitorMcpTask extends BaseTask {
 
     const checkInterval = this.config.checkInterval || 5000;
 
-    this.checkIntervalId = setInterval(async () => {
-      if (this.abortController.signal.aborted) {
-        return;
-      }
+    this.checkIntervalId = new SafeInterval({
+      name: `tasks:monitorMcp:${this.id}`,
+      run: async () => {
+        if (this.abortController.signal.aborted) {
+          return;
+        }
 
-      await this.checkServerStatus();
-    }, checkInterval);
+        await this.checkServerStatus();
+      },
+    });
+    this.checkIntervalId.start(checkInterval);
 
     await this.checkServerStatus();
   }
@@ -58,7 +63,8 @@ export class MonitorMcpTask extends BaseTask {
     this.abortController.abort();
 
     if (this.checkIntervalId) {
-      clearInterval(this.checkIntervalId);
+      this.checkIntervalId.stop();
+      this.checkIntervalId = undefined;
     }
 
     this.setStatus(TaskStatus.KILLED);

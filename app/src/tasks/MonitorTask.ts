@@ -14,6 +14,7 @@ import { BaseTask } from './BaseTask';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { DEFAULT_HTTP_PORT, LOCAL_SERVICE_HOST } from '@modules/core';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 const logger = getLogger('tasks:MonitorTask');
 
 export interface MonitorTarget {
@@ -40,7 +41,7 @@ export class MonitorTask extends BaseTask {
   readonly type = TaskType.MONITOR_MCP;
 
   private targets: MonitorTarget[];
-  private timer: ReturnType<typeof setInterval> | null = null;
+  private timer: SafeInterval | null = null;
   private lastStatus: Map<string, boolean> = new Map();
 
   constructor(
@@ -59,46 +60,50 @@ export class MonitorTask extends BaseTask {
       this.lastStatus.set(t.name, true);
     }
 
-    this.timer = setInterval(async () => {
-      for (const target of this.targets) {
-        try {
-          const ok = await this.checkTarget(target);
-          const prevOk = this.lastStatus.get(target.name) ?? true;
-          this.lastStatus.set(target.name, ok);
+    this.timer = new SafeInterval({
+      name: `tasks:monitor:${this.id}`,
+      run: async () => {
+        for (const target of this.targets) {
+          try {
+            const ok = await this.checkTarget(target);
+            const prevOk = this.lastStatus.get(target.name) ?? true;
+            this.lastStatus.set(target.name, ok);
 
-          if (ok && !prevOk) {
-            this.writeOutput(
-              `[${new Date().toISOString()}] ${target.name} 已恢复\n`
-            );
-            this.addActivity({
-              toolName: 'monitor:recovery',
-              input: { target: target.name },
-              activityDescription: `${target.name} 已恢复可用`,
+            if (ok && !prevOk) {
+              this.writeOutput(
+                `[${new Date().toISOString()}] ${target.name} 已恢复\n`
+              );
+              this.addActivity({
+                toolName: 'monitor:recovery',
+                input: { target: target.name },
+                activityDescription: `${target.name} 已恢复可用`,
+              });
+            } else if (!ok && prevOk) {
+              this.writeOutput(
+                `[${new Date().toISOString()}] ${target.name} 不可用: ${target.url}\n`
+              );
+              this.addActivity({
+                toolName: 'monitor:alert',
+                input: { target: target.name },
+                activityDescription: `${target.name} 不可用`,
+              });
+            } else if (!ok) {
+              this.writeOutput(
+                `[${new Date().toISOString()}] ${target.name} 持续不可用\n`
+              );
+            }
+          } catch (err) {
+            // 单目标探测失败不中断其他目标
+
+            handleError(err, {
+              module: 'tasks:monitor',
+              action: 'probe',
             });
-          } else if (!ok && prevOk) {
-            this.writeOutput(
-              `[${new Date().toISOString()}] ${target.name} 不可用: ${target.url}\n`
-            );
-            this.addActivity({
-              toolName: 'monitor:alert',
-              input: { target: target.name },
-              activityDescription: `${target.name} 不可用`,
-            });
-          } else if (!ok) {
-            this.writeOutput(
-              `[${new Date().toISOString()}] ${target.name} 持续不可用\n`
-            );
           }
-        } catch (err) {
-          // 单目标探测失败不中断其他目标
-
-          handleError(err, {
-            module: 'tasks:monitor',
-            action: 'probe',
-          });
         }
-      }
-    }, 10_000); // 每 10s 检查一轮
+      },
+    });
+    this.timer.start(10_000); // 每 10s 检查一轮
 
     this.writeOutput(
       `[${new Date().toISOString()}] 监控已启动，共 ${this.targets.length} 个目标\n`
@@ -106,10 +111,8 @@ export class MonitorTask extends BaseTask {
   }
 
   async kill(): Promise<void> {
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
-    }
+    this.timer?.stop();
+    this.timer = null;
     this.setStatus(TaskStatus.COMPLETED);
   }
 

@@ -33,6 +33,7 @@ import { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types';
 import { getLogger } from '@modules/monitoring';
 import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';
 import { SCHEDULER_CHECK_INTERVAL_MS } from '@modules/types/schedulerLifecycle';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 const logger = getLogger('dream:dreamScheduler');
 
 export type DreamTriggerCallback = (
@@ -44,7 +45,7 @@ const DREAM_CRON_EXPRESSION = '0 2 * * *';
 export class DreamScheduler implements SchedulerLifecycle {
   private idleDetector: DreamIdleDetector;
   private persistence: DreamPersistence;
-  private cronTimerId: ReturnType<typeof setInterval> | null = null;
+  private cronTimerId: SafeInterval | null = null;
   private nextCronRunMs: number | null = null;
   private config: DreamSchedulerConfig;
   private onTrigger: DreamTriggerCallback | null = null;
@@ -112,36 +113,41 @@ export class DreamScheduler implements SchedulerLifecycle {
     await this.tryTrigger('manual');
   }
 
-  /** 启动 cron 定时触发（使用 setInterval + cron 表达式校验替代旧的 InMemoryScheduler） */
+  /** 启动 cron 定时触发（使用 SafeInterval + cron 表达式校验替代旧的 InMemoryScheduler） */
   private startCronTrigger(): void {
     if (this.cronTimerId) return;
 
     const cronExp = this.config.cronTrigger || DREAM_CRON_EXPRESSION;
     this.nextCronRunMs = computeNextCronRunMs(cronExp, Date.now()) ?? null;
 
-    this.cronTimerId = setInterval(() => {
-      if (this.nextCronRunMs === null) {
-        this.nextCronRunMs = computeNextCronRunMs(cronExp, Date.now()) ?? null;
-        return;
-      }
+    this.cronTimerId = new SafeInterval({
+      name: 'dream:scheduler:cron',
+      // 调度器是守护进程的存活来源之一，保留保活语义（不 unref）
+      unref: false,
+      run: () => {
+        if (this.nextCronRunMs === null) {
+          this.nextCronRunMs =
+            computeNextCronRunMs(cronExp, Date.now()) ?? null;
+          return;
+        }
 
-      const now = Date.now();
-      if (now >= this.nextCronRunMs) {
-        logger.info('[DreamScheduler] cron 触发梦境');
-        this.tryTrigger('cron');
-        this.nextCronRunMs = computeNextCronRunMs(cronExp, now) ?? null;
-      }
-    }, SCHEDULER_CHECK_INTERVAL_MS);
+        const now = Date.now();
+        if (now >= this.nextCronRunMs) {
+          logger.info('[DreamScheduler] cron 触发梦境');
+          this.tryTrigger('cron');
+          this.nextCronRunMs = computeNextCronRunMs(cronExp, now) ?? null;
+        }
+      },
+    });
+    this.cronTimerId.start(SCHEDULER_CHECK_INTERVAL_MS);
 
     logger.info(`[DreamScheduler] cron 触发已注册: ${cronExp}`);
   }
 
   /** 停止 cron 定时触发 */
   private stopCronTrigger(): void {
-    if (this.cronTimerId !== null) {
-      clearInterval(this.cronTimerId);
-      this.cronTimerId = null;
-    }
+    this.cronTimerId?.stop();
+    this.cronTimerId = null;
     this.nextCronRunMs = null;
   }
 

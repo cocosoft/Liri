@@ -4,6 +4,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 
 const logger = getLogger('chronos:timer');
 
@@ -90,7 +91,7 @@ function parseCronExpression(cron: string): number[] {
  */
 export class CronTaskTimer {
   private timers: Map<string, TimerHandle> = new Map();
-  private intervals: Map<string, ReturnType<typeof setInterval>> = new Map();
+  private intervals: Map<string, SafeInterval> = new Map();
   private callback: TimerCallback;
 
   constructor(callback: TimerCallback) {
@@ -114,27 +115,33 @@ export class CronTaskTimer {
 
     this.timers.set(taskId, handle);
 
-    const intervalId = setInterval(() => {
-      if (!handle.active) {
-        this.stop(taskId);
-        return;
-      }
+    const interval = new SafeInterval({
+      name: `chronos:cronTimer:${taskId}`,
+      // 调度器是守护进程的存活来源之一，保留保活语义（不 unref）
+      unref: false,
+      run: () => {
+        if (!handle.active) {
+          this.stop(taskId);
+          return;
+        }
 
-      handle.nextRun = Date.now() + handle.interval;
-      // R08-002: 定时器 tick 记录（skip=未激活/已停止；start=触发回调）
-      logger.debug('Cron 定时器 tick', {
-        taskId,
-        nextRun: handle.nextRun,
-      });
-      this.callback(taskId).catch((e) => {
-        void handleError(e, {
-          module: 'chronos:timer',
-          action: 'timerCallback',
+        handle.nextRun = Date.now() + handle.interval;
+        // R08-002: 定时器 tick 记录（skip=未激活/已停止；start=触发回调）
+        logger.debug('Cron 定时器 tick', {
+          taskId,
+          nextRun: handle.nextRun,
         });
-      });
-    }, 60000);
+        this.callback(taskId).catch((e) => {
+          void handleError(e, {
+            module: 'chronos:timer',
+            action: 'timerCallback',
+          });
+        });
+      },
+    });
+    interval.start(60000);
 
-    this.intervals.set(taskId, intervalId);
+    this.intervals.set(taskId, interval);
 
     return handle;
   }
@@ -150,10 +157,10 @@ export class CronTaskTimer {
       this.timers.delete(taskId);
     }
 
-    const intervalId = this.intervals.get(taskId);
+    const interval = this.intervals.get(taskId);
 
-    if (intervalId) {
-      clearInterval(intervalId);
+    if (interval) {
+      interval.stop();
       this.intervals.delete(taskId);
     }
   }
@@ -176,8 +183,9 @@ export class CronTaskTimer {
    * 停止所有定时器
    */
   stopAll(): void {
-    for (const [taskId] of this.timers) {
+    for (const taskId of [...this.intervals.keys()]) {
       this.stop(taskId);
     }
+    this.timers.clear();
   }
 }

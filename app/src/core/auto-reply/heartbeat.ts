@@ -14,6 +14,7 @@ export class HeartbeatManager extends EventEmitter {
     beatCount: 0,
   };
 
+  // core 层不得依赖 utils(infra) 的 SafeInterval（R00-001）；此处保持原生句柄 + unref
   private timer: ReturnType<typeof setInterval> | null = null;
 
   /**
@@ -35,6 +36,7 @@ export class HeartbeatManager extends EventEmitter {
     this.timer = setInterval(() => {
       this.beat();
     }, intervalMs);
+    this.timer.unref?.();
 
     this.emit('heartbeat:started', { intervalMs });
   }
@@ -97,6 +99,7 @@ export class HeartbeatManager extends EventEmitter {
     this.timer = setInterval(() => {
       this.beat();
     }, intervalMs);
+    this.timer.unref?.();
   }
 
   /**

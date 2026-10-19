@@ -22,6 +22,7 @@ import type { CronRunLog } from './CronRunLog';
 import type { DeliveryQueue, DeliveryQueueEntry } from './DeliveryQueue';
 // 2026-10-01 D-161（`R00-001`）：cron 求值工具已整模块搬迁至 `utils/cron.ts`（infra）
 import { computeNextCronRun, isValidCronExpr } from '@modules/utils/cron';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 import { CronTimer } from './CronTimer';
 import { resolveCronStaggerMs, resolveStaggerOffsetMs } from './CronStagger';
 import { CronAlertService } from './CronAlertService';
@@ -494,17 +495,21 @@ export class CronScheduler implements SchedulerLifecycle {
 
       // P1-8（2026-08-31）：执行期心跳续租——定期更新 heartbeat_at，
       // 供中断恢复区分"刚启动"与"真正卡死"（对标 Hermes heartbeat_run_claim）
-      const heartbeatTimer = setInterval(() => {
-        void this.store.updateHeartbeat(job.id).catch(() => {
-          // 心跳写失败不阻塞执行（fire-and-forget）
-        });
-      }, JOB_HEARTBEAT_INTERVAL_MS);
+      const heartbeatTimer = new SafeInterval({
+        name: `tasks:cron:jobHeartbeat:${job.id}`,
+        run: () => {
+          void this.store.updateHeartbeat(job.id).catch(() => {
+            // 心跳写失败不阻塞执行（fire-and-forget）
+          });
+        },
+      });
+      heartbeatTimer.start(JOB_HEARTBEAT_INTERVAL_MS);
 
       // 调用外部执行器
       try {
         result = await this.executeWithTimeout(job);
       } finally {
-        clearInterval(heartbeatTimer);
+        heartbeatTimer.stop();
         cronLock.release();
       }
     } catch (error) {

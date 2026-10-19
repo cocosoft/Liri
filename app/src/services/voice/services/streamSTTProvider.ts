@@ -17,6 +17,7 @@
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { buildUserAgent } from '@modules/constants';
 import { handleError } from '@modules/error';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {
   STTProviderType,
@@ -552,7 +553,7 @@ export class StreamSTTProvider implements STTProvider {
  */
 class StreamSTTConnectionImpl implements STTStreamConnection {
   private ws: WebSocket | null = null;
-  private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
+  private keepaliveTimer: SafeInterval | null = null;
   private connected = false;
   private finalized = false;
   private finalizing = false;
@@ -594,12 +595,20 @@ class StreamSTTConnectionImpl implements STTStreamConnection {
 
       ws.send(JSON.stringify({ type: 'KeepAlive' }));
 
-      this.keepaliveTimer = setInterval(() => {
-        logger.debug('STT KeepAlive 心跳 tick', { readyState: ws.readyState });
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'KeepAlive' }));
-        }
-      }, KEEPALIVE_INTERVAL_MS);
+      // 连接重建时先回收旧句柄，避免叠加定时器
+      this.clearKeepalive();
+      this.keepaliveTimer = new SafeInterval({
+        name: 'voice:streamSTT:keepAlive',
+        run: () => {
+          logger.debug('STT KeepAlive 心跳 tick', {
+            readyState: ws.readyState,
+          });
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'KeepAlive' }));
+          }
+        },
+      });
+      this.keepaliveTimer.start(KEEPALIVE_INTERVAL_MS);
     };
 
     ws.onmessage = (event: MessageEvent) => {
@@ -838,9 +847,7 @@ class StreamSTTConnectionImpl implements STTStreamConnection {
    * 清理 KeepAlive 定时器
    */
   private clearKeepalive(): void {
-    if (this.keepaliveTimer) {
-      clearInterval(this.keepaliveTimer);
-      this.keepaliveTimer = null;
-    }
+    this.keepaliveTimer?.stop();
+    this.keepaliveTimer = null;
   }
 }

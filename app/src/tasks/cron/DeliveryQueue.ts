@@ -6,6 +6,7 @@
 import { Database } from '@modules/core/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 import type { CronJob, CronJobResult } from './types';
 
 const logger = getLogger('tasks:cron:deliveryQueue');
@@ -98,7 +99,7 @@ export class DeliveryQueue {
   private db: Database | null = null;
   private dbPath: string;
   private config: DeliveryQueueConfig;
-  private processingTimer: ReturnType<typeof setInterval> | null = null;
+  private processingTimer: SafeInterval | null = null;
 
   constructor(dbPath: string, config?: Partial<DeliveryQueueConfig>) {
     this.dbPath = dbPath;
@@ -422,27 +423,31 @@ export class DeliveryQueue {
   /** 启动自动重试处理 */
   startAutoRetry(intervalMs: number = 5000): void {
     if (this.processingTimer) return;
-    this.processingTimer = setInterval(() => {
-      // KB-CRON-DELIVERY-PN（2026-08-29）：processNext 的 getPending() 在 try 外，
-      // SQLite 查询失败会 reject → 每 5s tick 产生 unhandled rejection
-      void this.processNext().catch((e) => {
-        void handleError(e, {
-          module: 'tasks:cron:deliveryQueue',
-          action: 'processNext',
+    this.processingTimer = new SafeInterval({
+      name: 'tasks:cron:deliveryQueue:retry',
+      // 重试队列是投递可靠性的存活来源，保留保活语义（不 unref）
+      unref: false,
+      run: () => {
+        // KB-CRON-DELIVERY-PN（2026-08-29）：processNext 的 getPending() 在 try 外，
+        // SQLite 查询失败会 reject → 每 5s tick 产生 unhandled rejection
+        void this.processNext().catch((e) => {
+          void handleError(e, {
+            module: 'tasks:cron:deliveryQueue',
+            action: 'processNext',
+          });
+          logger.error('重试投递处理失败', {
+            error: e instanceof Error ? e.message : String(e),
+          });
         });
-        logger.error('重试投递处理失败', {
-          error: e instanceof Error ? e.message : String(e),
-        });
-      });
-    }, intervalMs);
+      },
+    });
+    this.processingTimer.start(intervalMs);
   }
 
   /** 停止自动重试 */
   stopAutoRetry(): void {
-    if (this.processingTimer) {
-      clearInterval(this.processingTimer);
-      this.processingTimer = null;
-    }
+    this.processingTimer?.stop();
+    this.processingTimer = null;
   }
 
   /** 处理下一批待重试投递 */

@@ -23,6 +23,7 @@
  * 对标OpenClaw cli/progress.ts
  * 进度显示系统，支持spinner/progress bar/百分比
  */
+import { SafeInterval } from '@modules/utils/SafeInterval';
 
 export type ProgressMode = 'spinner' | 'bar' | 'percentage' | 'indeterminate';
 
@@ -52,7 +53,7 @@ const BAR_CHARS = { filled: '█', empty: '░', head: '█' };
 export class ProgressDisplay {
   private options: Required<ProgressOptions>;
   private state: ProgressState;
-  private intervalId: ReturnType<typeof setInterval> | null = null;
+  private spinnerTimer: SafeInterval | null = null;
   private frameIndex: number = 0;
   private running: boolean = false;
 
@@ -93,7 +94,11 @@ export class ProgressDisplay {
       this.options.mode === 'spinner' ||
       this.options.mode === 'indeterminate'
     ) {
-      this.intervalId = setInterval(() => this.render(), 80);
+      this.spinnerTimer = new SafeInterval({
+        name: 'cli:progress:spinner',
+        run: () => this.render(),
+      });
+      this.spinnerTimer.start(80);
     }
 
     this.render();
@@ -148,10 +153,8 @@ export class ProgressDisplay {
 
   stop(): void {
     this.running = false;
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
+    this.spinnerTimer?.stop();
+    this.spinnerTimer = null;
   }
 
   private render(): void {

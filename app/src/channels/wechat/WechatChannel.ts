@@ -26,6 +26,7 @@ import { handleError } from '@modules/error';
 import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@modules/core';
 import { WeixinCliManager, type CliStatus } from './cli-manager';
 import { splitMessage } from '../messageSplitter';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:wechat:WechatChannel');
@@ -68,7 +69,7 @@ class WechatChannelPlugin extends BaseChannelPlugin {
   readonly capabilities = WECHAT_CAPABILITIES;
 
   private botHttpUrl = DEFAULT_WECHAT_BOT_ENDPOINT;
-  private pollingTimer: ReturnType<typeof setInterval> | null = null;
+  private pollingTimer: SafeInterval | null = null;
   private pollingIntervalMs = 2000;
 
   /** 已处理的消息 ID 集合（去重） */
@@ -252,7 +253,7 @@ class WechatChannelPlugin extends BaseChannelPlugin {
       protocol: 'polling' as InboundProtocol,
 
       get isListening(): boolean {
-        return self.inboundListening && self.pollingTimer !== null;
+        return self.inboundListening && self.pollingTimer?.isRunning === true;
       },
 
       start: async (): Promise<void> => {
@@ -290,14 +291,18 @@ class WechatChannelPlugin extends BaseChannelPlugin {
     if (this.pollingTimer) return;
     this.lastPollTime = Date.now();
 
-    this.pollingTimer = setInterval(async () => {
-      try {
-        await this.pollMessages();
-      } catch (error) {
-        // 静默吞错，下一轮重试
-        this.logger.debug('微信轮询失败', { error: String(error) });
-      }
-    }, this.pollingIntervalMs);
+    this.pollingTimer = new SafeInterval({
+      name: 'channels:wechat:polling',
+      run: async () => {
+        try {
+          await this.pollMessages();
+        } catch (error) {
+          // 静默吞错，下一轮重试
+          this.logger.debug('微信轮询失败', { error: String(error) });
+        }
+      },
+    });
+    this.pollingTimer.start(this.pollingIntervalMs);
 
     this.setInboundListening(true);
     this.logger.info(`微信消息轮询已启动 (${this.pollingIntervalMs}ms)`);
@@ -305,10 +310,8 @@ class WechatChannelPlugin extends BaseChannelPlugin {
 
   /** 停止消息轮询 */
   private stopPolling(): void {
-    if (this.pollingTimer) {
-      clearInterval(this.pollingTimer);
-      this.pollingTimer = null;
-    }
+    this.pollingTimer?.stop();
+    this.pollingTimer = null;
     this.setInboundListening(false);
   }
 

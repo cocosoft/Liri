@@ -15,6 +15,7 @@ import { sleepMonitor, SLEEP_EVENTS } from '@modules/core';
 import { globalEventBus } from '@modules/core/events/EventBus';
 import type { EventSubscription } from '@modules/core/events/EventBus';
 import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 
 const logger = getLogger('knowledge:knowledgeCompileScheduler');
 
@@ -43,7 +44,7 @@ export type SchedulerState = 'idle' | 'running' | 'waiting' | 'stopped';
  */
 export class KnowledgeCompileScheduler implements SchedulerLifecycle {
   private config: SchedulerConfig;
-  private intervalTimer: ReturnType<typeof setInterval> | null = null;
+  private intervalTimer: SafeInterval | null = null;
   private delayTimer: ReturnType<typeof setTimeout> | null = null;
   private state: SchedulerState = 'stopped';
   private compileFn: (force?: boolean) => Promise<CompileResult>;
@@ -93,17 +94,23 @@ export class KnowledgeCompileScheduler implements SchedulerLifecycle {
       this.scheduleCompile();
     }
 
-    this.intervalTimer = setInterval(() => {
-      // P2 休眠检测：暂停期间跳过编译检查（避免唤醒后资源尖峰）
-      const tick = sleepMonitor.detectTick(this.config.intervalMs);
-      if (tick !== 'normal') {
-        if (tick === 'detected') {
-          logger.warn('检测到系统休眠，跳过本次编译检查（等待用户决策）');
+    this.intervalTimer = new SafeInterval({
+      name: 'knowledge:compileScheduler:tick',
+      // 调度器是守护进程的存活来源之一，保留保活语义（不 unref）
+      unref: false,
+      run: () => {
+        // P2 休眠检测：暂停期间跳过编译检查（避免唤醒后资源尖峰）
+        const tick = sleepMonitor.detectTick(this.config.intervalMs);
+        if (tick !== 'normal') {
+          if (tick === 'detected') {
+            logger.warn('检测到系统休眠，跳过本次编译检查（等待用户决策）');
+          }
+          return;
         }
-        return;
-      }
-      this.scheduleCompile();
-    }, this.config.intervalMs);
+        this.scheduleCompile();
+      },
+    });
+    this.intervalTimer.start(this.config.intervalMs);
 
     // P2 休眠恢复：用户选择"继续"（resolve(true)）→ 补一次编译检查
     this.sleepSubs.push(
@@ -122,7 +129,7 @@ export class KnowledgeCompileScheduler implements SchedulerLifecycle {
    */
   stop(): void {
     if (this.intervalTimer) {
-      clearInterval(this.intervalTimer);
+      this.intervalTimer.stop();
       this.intervalTimer = null;
     }
     if (this.delayTimer) {

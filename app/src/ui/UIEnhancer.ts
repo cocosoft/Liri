@@ -6,6 +6,7 @@
 import chalk from 'chalk';
 import { getThemeManager } from '@modules/system/theme';
 import { createInterface, Interface } from 'readline';
+import { SafeInterval } from '@modules/utils/SafeInterval';
 
 /**
  * 进度条配置
@@ -75,16 +76,20 @@ export class UIEnhancer {
     let frameIndex = 0;
     let isRunning = true;
 
-    const interval = setInterval(() => {
-      if (!isRunning) return;
-      process.stdout.write(`\r${chalk.blue(frames[frameIndex])} ${message}`);
-      frameIndex = (frameIndex + 1) % frames.length;
-    }, 100);
+    const interval = new SafeInterval({
+      name: 'ui:enhancer:loading',
+      run: () => {
+        if (!isRunning) return;
+        process.stdout.write(`\r${chalk.blue(frames[frameIndex])} ${message}`);
+        frameIndex = (frameIndex + 1) % frames.length;
+      },
+    });
+    interval.start(100);
 
     return {
       stop: () => {
         isRunning = false;
-        clearInterval(interval);
+        interval.stop();
         process.stdout.write('\r' + ' '.repeat(80) + '\r');
       },
     };

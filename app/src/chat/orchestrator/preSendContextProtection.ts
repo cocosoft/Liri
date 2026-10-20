@@ -79,7 +79,7 @@ const WAIVER_PRECHECK_OUTPUT_TOKENS = 4096;
  * 金额轨档位按**已结算**判定（`_computeState` 在 USD 下 `projectedUsed === usedUsd`）⇒
  * 单轮可穿透上限。开启开关后，用「当前模型价 × 本轮估算（含附件字节折算的 token）」
  * 在发模型前判一次；越界即释放本轮预扣并抛 `DAILY_BUDGET_EXCEEDED`（与既有拒发同码，
- * 上层呈现口径一致）。**关（默认）⇒ 立即返回，不新增任何拒绝路径。**
+ * 上层呈现口径一致）。**默认开；`FEATURE_USD_TURN_PREFLIGHT=false` 即逐字回退现状。**
  */
 function enforceTurnUsdPreflight(input: {
   sessionId: string;
@@ -330,9 +330,9 @@ export async function applyPreSendProtection(
         }
       );
     }
-    // 2026-10-20（外部建议 ②，`FEATURE_USD_TURN_PREFLIGHT`，默认关）：**轮次 USD 前置判定**。
+    // 2026-10-20（外部建议 ②，`FEATURE_USD_TURN_PREFLIGHT` **默认开**）：**轮次 USD 前置判定**。
     // 金额轨档位按已结算判定 ⇒ 单轮可穿透上限；开启后用「当前模型价 × 本轮估算（含附件字节）」
-    // 提前拒发。关 ⇒ 不新增任何拒绝路径（逐字等价现状）。
+    // 提前拒发。回退：`FEATURE_USD_TURN_PREFLIGHT=false` ⇒ 不新增任何拒绝路径（逐字等价现状）。
     // 判定体外移成 `enforceTurnUsdPreflight()`（保持本函数复杂度不增长）。
     enforceTurnUsdPreflight({
       sessionId: session.id,

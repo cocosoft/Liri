@@ -440,7 +440,7 @@ bun run build:enterprise  # 企业版（全功能）
 AlwaysOn v2 worktree 隔离 + 预算防穿透 + 状态字面量 Register-or-Fail 门禁
 
 - ✅ **AlwaysOn v2（worktree 隔离闭环）** - 执行前 `GitWorktreeProvider` 隔离（脏仓/非 git 跳过本轮），会话 cwd 按轮指向隔离区 + 严格路径边界（越界拒绝）；`alwayson` 命名空间独立于 Bridge，启动期回收已注册残留；产物只留补丁（**不自动 apply**），未回灌即保留隔离区；报告显式标注 Patch / Worktree Kept / `Goal Achievement: unverified`
-- ✅ **预算防穿透（外部建议 ②）** - 新增**轮次 USD 前置判定**（纯函数 + `preSend` 接线），`FEATURE_USD_TURN_PREFLIGHT` 默认关 ⇒ 零行为变更；开启后"已结算 + 本轮估算 > 上限"即短路拒发
+- ✅ **预算防穿透（外部建议 ②）** - 新增**轮次 USD 前置判定**（纯函数 + `preSend` 接线），`FEATURE_USD_TURN_PREFLIGHT` 已按 2026-10-20 用户裁定**默认开启**（回退置 `false` 即逐字等价旧行为）；"已结算 + 本轮估算 > 上限"即短路拒发，消除单轮穿透
 - ✅ **状态字面量棘轮门禁（外部建议 ⑦ Register-or-Fail）** - 新增 `lint:state-ratchet` 接入 `ci`：词汇表单一事实源 = `stateMachineCatalog`，未报备状态字面量 ⇒ CI 阻断；现存 1795 对收编基线（只拦增量、零误报），端到端证伪通过
 - ✅ **蜂群批次落编排历史** - `PARALLEL_START/END` 补 `sessionId` 载荷并进历史白名单；**snapshot-copy 扫雷** - 未回灌即保留隔离区（`dispose(keep:true)`）
 - ✅ **测试与门禁** - 全链 `bun run ci` exit 0：**7488 pass / 45 skip / 0 fail**（7533 tests / 868 files），`lint:arch` 0 违规

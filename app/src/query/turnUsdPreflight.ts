@@ -33,7 +33,7 @@
  * - 判据：`usedUsd + estimatedCostUsd > limitUsd`（**严格大于**；恰好等于上限时
  *   `_computeState` 的 `>=` 已将其判为 locked，无需本函数重复拦截）。
  *
- * 是否启用由调用方门控（`FEATURE_USD_TURN_PREFLIGHT`，默认关）。
+ * 是否启用由调用方门控（`FEATURE_USD_TURN_PREFLIGHT`，**默认开**；回退置 false）。
  */
 
 /** 主口径单位（与 `DailyBudgetState.unit` 对齐） */

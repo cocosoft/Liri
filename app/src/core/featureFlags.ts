@@ -42,6 +42,16 @@ export const BUILD_VARIANT: BuildVariant =
   (process.env['LIRI_BUILD_VARIANT'] as BuildVariant) || 'coding';
 
 export const FEATURE_FLAGS = {
+  // ───── 变体标记（非用户可配能力） ─────
+  /**
+   * `core` 变体标记（2026-10-20，变体矩阵方案 §3.1）：
+   * 开 ⇒ 工具装配点（`tools/utils/ToolManagerUtils.ts`）把工具面收敛为 **7 项下限**
+   * （`bash` / `file_read` / `file_write` / `file_edit` / `grep` / `glob` / `ask_user_question`）。
+   *
+   * 由 `scripts/variant-matrix.ts` 的 `minimalToolSurface` 生成 —— **仅 `core` 为 true**；
+   * 其余变体恒 `false`（与静态默认一致 ⇒ 零行为变更）。
+   */
+  CORE_MINIMAL: false,
   // ───── AI/Agent 功能 ─────
   /** Agent 功能 */
   AGENT: true,

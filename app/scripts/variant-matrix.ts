@@ -36,6 +36,11 @@ export interface VariantSpec {
   excludeFeatures: readonly string[];
   /** 编译期裁剪（`bun build --feature=NAME`；必须 `DROP_` 前缀） */
   buildFeatures: readonly string[];
+  /**
+   * 工具面是否收敛为 **7 项下限**（生成 `CORE_MINIMAL`）。
+   * 仅 `core` 为 true；装配点在 `tools/utils/ToolManagerUtils.ts`（工具实现内部不自审）。
+   */
+  minimalToolSurface: boolean;
 }
 
 /**
@@ -46,7 +51,7 @@ export interface VariantSpec {
  */
 export const VARIANT_MATRIX: Record<BuildVariant, VariantSpec> = {
   core: {
-    description: '核心版 — 最小功能集，仅 CLI + 基础工具',
+    description: '核心版 — 最小功能集，仅 CLI + 7 个基础工具',
     features: [
       'BASH',
       'FILE_READ',
@@ -54,13 +59,13 @@ export const VARIANT_MATRIX: Record<BuildVariant, VariantSpec> = {
       'FILE_EDIT',
       'GREP',
       'GLOB',
+      'ASK',
+    ],
+    excludeFeatures: [
       'WEB_FETCH',
       'WEB_SEARCH',
       'TASK',
       'TODO',
-      'ASK',
-    ],
-    excludeFeatures: [
       'AGENT',
       'AGENT_TRIGGERS',
       'ENABLE_PLUGINS',
@@ -80,6 +85,7 @@ export const VARIANT_MATRIX: Record<BuildVariant, VariantSpec> = {
       'BRIEF',
     ],
     buildFeatures: [],
+    minimalToolSurface: true,
   },
   personal: {
     description: '个人版 — Core + Telegram/Web 通道 + 插件 + 文件转换',
@@ -104,6 +110,7 @@ export const VARIANT_MATRIX: Record<BuildVariant, VariantSpec> = {
       'TEAM_DELETE',
     ],
     buildFeatures: [],
+    minimalToolSurface: false,
   },
   coding: {
     description: '编码版 — Personal + LSP + Notebook + 代码分析',
@@ -117,6 +124,7 @@ export const VARIANT_MATRIX: Record<BuildVariant, VariantSpec> = {
     ],
     excludeFeatures: ['AGENT_TRIGGERS'],
     buildFeatures: [],
+    minimalToolSurface: false,
   },
   enterprise: {
     description:
@@ -132,5 +140,6 @@ export const VARIANT_MATRIX: Record<BuildVariant, VariantSpec> = {
     ],
     excludeFeatures: [],
     buildFeatures: [],
+    minimalToolSurface: false,
   },
 };

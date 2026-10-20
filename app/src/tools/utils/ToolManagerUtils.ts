@@ -81,6 +81,25 @@ const byKey = (key: BuiltinToolFactoryKey): ToolLoader =>
   });
 
 /**
+ * `core` 变体的**工具面下限**（7 项，变体矩阵方案 §3.1）。
+ *
+ * 口径：`core` 是"PC 上最小能干活的那份 Liri"——能看、能改、能执行、能搜、能问。
+ * 生效条件只有 `CORE_MINIMAL`（由 `scripts/variant-matrix.ts` 的 `minimalToolSurface` 生成，
+ * **仅 core 为 true**）；其余变体不受影响（零行为变更）。
+ *
+ * ⚠️ 这是**装配点**判定（§5 规则 2）：工具实现内部不得自审变体。
+ */
+const CORE_MINIMAL_TOOL_KEYS: readonly BuiltinToolFactoryKey[] = [
+  'createBashTool',
+  'createFileReadTool',
+  'createFileWriteTool',
+  'createFileEditTool',
+  'createGrepTool',
+  'createGlobTool',
+  'createAskUserQuestionTool',
+];
+
+/**
  * 工具侧车（P1 常驻 LSP）**双跑 loader 选择**（S2：真接线，spec §3-D4 / §6.1）。
  *
  * · `TOOL_SIDECAR_LSP` **关**（默认）⇒ **内置 loader**（`byKey('createLSPTool')`）——
@@ -123,6 +142,12 @@ function buildBuiltinToolLoaders(
   /** 条件包装：全量视图下直接返回加载器（丢弃条件） */
   const cond = (condition: boolean, loader: ToolLoader): ToolLoader =>
     includeConditionalDisabled ? loader : conditionalTool(condition, loader);
+
+  // `core` 变体：工具面收敛为 7 项下限（`CORE_MINIMAL` 由矩阵生成，仅 core 为 true）。
+  // 全量视图**不裁**（`gen-tool-names` 与门禁比对必须与 flag 无关，否则生成物会随变体漂移）。
+  if (!includeConditionalDisabled && coreFeature('CORE_MINIMAL')) {
+    return CORE_MINIMAL_TOOL_KEYS.map((key) => byKey(key));
+  }
 
   return [
     // 核心工具

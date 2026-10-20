@@ -79,6 +79,9 @@ function generateFeatureFlags(variant: BuildVariant): string {
     lines.push(`  ${feature}: false,`);
   }
 
+  // 变体标记（非能力开关）：core ⇒ 工具装配点收敛为 7 项（见 tools/utils/ToolManagerUtils.ts）
+  lines.push(`  CORE_MINIMAL: ${config.minimalToolSurface === true},`);
+
   lines.push('} as const;');
   lines.push('');
 

@@ -24,6 +24,16 @@
 
 ---
 
+#### v0.5.3 (2026-10-20)  AlwaysOn v2 worktree 隔离 + 预算防穿透 + 状态字面量 Register-or-Fail 门禁
+
+- ✅ **AlwaysOn v2（worktree 隔离闭环）** - 执行前 `GitWorktreeProvider` 隔离（`refuseDirty`，脏仓/非 git 跳过本轮），会话 `metadata.workspacePath` 按轮指向隔离区 + `workspaceStrict` 严格路径边界（越界拒绝，与 LRO 同一判据）；`alwayson` 命名空间独立于 Bridge，启动期回收已注册残留；产物只留补丁（`<data>/alwayson/reports/<runId>.patch`，**不自动 apply**），未回灌即保留隔离区（`keptIsolation`）；报告显式标注 Patch / Worktree Kept / `Goal Achievement: unverified`；v1.2 先行落了 `alwayson_discovery` 专用任务类
+- ✅ **预算防穿透（外部建议 ②）** - 新增**轮次 USD 前置判定** `turnUsdPreflight`（纯函数 + `preSend` 接线），受 `FEATURE_USD_TURN_PREFLIGHT`（**默认 false ⇒ 零行为变更**）门控；开启后 `已结算 + 本轮估算（含附件折 token）> 上限` 即短路拒发（同 `DAILY_BUDGET_EXCEEDED`，先释放预扣）
+- ✅ **状态字面量棘轮门禁（外部建议 ⑦ Register-or-Fail）** - 新增 `lint:state-ratchet` 并接入 `ci`：词汇表单一事实源 = `stateMachineCatalog`（34 值，含 `requires_approval`/`awaiting_approval` 瞬态），扫描 `app/src` 字符串字面量，未报备 (value,file) ⇒ CI 阻断；现存 1795 对收编基线（只拦增量、零误报），端到端证伪通过
+- ✅ **蜂群批次落编排历史** - `PARALLEL_START/END` 补 `sessionId` 载荷并进历史白名单（此前只上 SSE、不落盘，离线观测缺蜂群段）
+- ✅ **snapshot-copy 扫雷** - `runAutonomousTask` 修复"未回灌却删隔离区"：占位 diff / publish 抛错 ⇒ `dispose(keep:true)` 保留现场
+- ✅ **订正** - `executionProjection.ts`「SUSPENDED 尚未实现」失实注释（生产者 = `query/budgetSuspend.ts:186`）
+- ✅ **回归** - 全链 `bun run ci` exit 0：**7488 pass / 45 skip / 0 fail**（7533 tests / 868 files）；`lint:arch` 0 违规
+
 #### v0.5.2 (2026-10-20)  AlwaysOn v1.1：处理方案 §9 五项已知偏差
 
 - ✅ **主动通知**：报告写盘后入主动队列（`kind='task_result'`、去重键 `alwayson:<planId>`、成功 `low` / 失败 `normal`），复用同一门禁（DND/冷却/限流）。

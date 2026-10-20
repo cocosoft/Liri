@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.2-blue)
+![Version](https://img.shields.io/badge/version-0.5.3-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.2**
+当前版本：**v0.5.3**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,16 +436,14 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.0 (2026-10-18)
-多批次治理收口：提示词资源链 + 编排可观测 + 通道与硬编码治理 + 长程任务修复
+#### v0.5.3 (2026-10-20)
+AlwaysOn v2 worktree 隔离 + 预算防穿透 + 状态字面量 Register-or-Fail 门禁
 
-- ✅ **提示词治理 C-1～C-5 / T2** - 六级解析链（用户 → 项目 → 包内 → 母语回退 → 源码兜底）；en-US 参数 **359 条** + 工具级描述 **77 条**；`PromptValidator` 覆盖工具级资源；CLI `prompt list/export/diff/validate/reset`；**7 项门禁**（含 `lint:prompt-hardcoded --strict`）同时进入本地 `ci` 与 GitHub CI；compile / bundle / update.zip / Tauri 均随包携带 `prompts/`
-- ✅ **编排可观测 H-2 / T-13-c / R11** - `GET /v1/monitor/orchestration` + `orch:*` 持久化与离线复算；Council / Plan / Parallel 真实样本（Council n=5 · P50 10,204ms / P95 14,183ms；生产入口 11,967ms / 15,446ms）；回合墙钟拆分为**模型等待 / 工具执行 / 其它空闲**；Parallel 起止补 `agentId` 批次键，修复离线日志跨批次错配
-- ✅ **通道治理 B-1～B-4** - 出站长文本分片与降级链声明化、卡片回传（飞书 / QQ）、附件内容去重、入站 messageId 透传与 question 回答能力
-- ✅ **硬编码与常量治理** - 零消费者常量基线 **169 → 1**；同名常量 B5-2 批次 **82 → 54**；端点 / host / User-Agent 单一真源；CS08 引号规范 + JSON 修复器 + 门禁前置
-- ✅ **长程任务与状态机修复** - PDCA 步骤索引 / 失败终态 / 中止级联 / 恢复；LRTO 步骤主链外移、S7 终态提交拆分；预算挂起 / 放行 / 重启幂等收口
-- ✅ **测试与门禁** - 全链 `bun run ci` exit 0：**7080 pass / 0 fail**（7125 tests / 813 files），`lint:scripts` / `lint:arch` / 棘轮门禁全绿
-- ℹ️ **边界（如实）** - 多数新增面为源码 / 契约级验证，`e2eVerified=false` 的条目已在证据登记中标明；`postReleaseReviewed` 待本次 tag 后复核
+- ✅ **AlwaysOn v2（worktree 隔离闭环）** - 执行前 `GitWorktreeProvider` 隔离（脏仓/非 git 跳过本轮），会话 cwd 按轮指向隔离区 + 严格路径边界（越界拒绝）；`alwayson` 命名空间独立于 Bridge，启动期回收已注册残留；产物只留补丁（**不自动 apply**），未回灌即保留隔离区；报告显式标注 Patch / Worktree Kept / `Goal Achievement: unverified`
+- ✅ **预算防穿透（外部建议 ②）** - 新增**轮次 USD 前置判定**（纯函数 + `preSend` 接线），`FEATURE_USD_TURN_PREFLIGHT` 默认关 ⇒ 零行为变更；开启后"已结算 + 本轮估算 > 上限"即短路拒发
+- ✅ **状态字面量棘轮门禁（外部建议 ⑦ Register-or-Fail）** - 新增 `lint:state-ratchet` 接入 `ci`：词汇表单一事实源 = `stateMachineCatalog`，未报备状态字面量 ⇒ CI 阻断；现存 1795 对收编基线（只拦增量、零误报），端到端证伪通过
+- ✅ **蜂群批次落编排历史** - `PARALLEL_START/END` 补 `sessionId` 载荷并进历史白名单；**snapshot-copy 扫雷** - 未回灌即保留隔离区（`dispose(keep:true)`）
+- ✅ **测试与门禁** - 全链 `bun run ci` exit 0：**7488 pass / 45 skip / 0 fail**（7533 tests / 868 files），`lint:arch` 0 违规
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

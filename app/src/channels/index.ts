@@ -59,10 +59,11 @@ export { StickerCache } from './cache/index.js';
 export { PairingStore, getPairingStore } from './policy/PairingStore.js';
 
 // PlatformAdapter — 轻量平台适配器体系
+// 2026-10-20（P2）：`SlackAdapter` 已从桶里摘除（静态 import `channels/slack` 会穿透
+// `DROP_CHANNELS_ALL`，把 Slack 通道整体拉进 core 产物；且全仓零消费者）。
 export {
   BasePlatformAdapter,
   PlatformAdapterBridge,
-  SlackAdapter,
 } from './platform/index.js';
 export type {
   PlatformAdapter,

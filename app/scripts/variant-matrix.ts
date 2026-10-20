@@ -84,7 +84,9 @@ export const VARIANT_MATRIX: Record<BuildVariant, VariantSpec> = {
       'PLAN',
       'BRIEF',
     ],
-    buildFeatures: [],
+    // 2026-10-20 用户裁定：core **绝对不含通道** ⇒ 构建期物理剔除整组通道
+    // （实测 46.61 → 38.85 MB，−16.7%；`@larksuiteoapi` 与 4 个通道标记全消失）。
+    buildFeatures: ['DROP_CHANNELS_ALL'],
     minimalToolSurface: true,
   },
   personal: {

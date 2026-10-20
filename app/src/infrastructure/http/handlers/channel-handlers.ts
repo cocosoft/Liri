@@ -28,6 +28,7 @@ import { messageTraceBuffer } from '@modules/channels';
 import { getChannelCatalogEntry } from '@modules/channels/ChannelCatalog';
 import type { IChannelPlugin } from '@modules/channels/types/IChannel';
 import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
+import { feature as buildFeature } from 'bun:bundle';
 
 const logger = getLogger('infrastructure:http:handlers:channel-handlers');
 
@@ -609,9 +610,27 @@ export async function handleWechatCliStatus(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { WeixinCliManager } =
-      await import('@modules/channels/wechat/cli-manager');
-    const status = WeixinCliManager.getInstance().getStatus();
+    // 2026-10-20（P2）：`DROP_CHANNELS_ALL` 构建（core）不含任何通道 ⇒ 该端点不存在。
+    // ⚠️ 必须写成**三元**而非 `if (...) return;` —— `bun:bundle` 的 DCE 只清理
+    // **静态不可达分支**里的动态 import；写成前置 return 的话 import 仍会进产物
+    // （实测：core bundle 残留 `src/channels/wechat/cli-manager`）。
+    const wechat = buildFeature('DROP_CHANNELS_ALL')
+      ? null
+      : await import('@modules/channels/wechat/cli-manager');
+
+    if (!wechat) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'WeChat CLI channel is not included in this build',
+          },
+        })
+      );
+      return;
+    }
+
+    const status = wechat.WeixinCliManager.getInstance().getStatus();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, data: status }));

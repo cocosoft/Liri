@@ -88,6 +88,25 @@ function generateFeatureFlags(variant: BuildVariant): string {
   return lines.join('\n');
 }
 
+/**
+ * 输出该变体的**编译期裁剪**清单（P2，2026-10-20）。
+ *
+ * 本脚本**不编译**；这里只把该变体需要的 `bun build --feature=...` 参数打印出来，
+ * 供构建脚本 / 人工核对 —— 避免"矩阵里声明了裁剪、构建命令却忘了带"。
+ */
+function printBuildFeatures(variant: BuildVariant): void {
+  const features = VARIANT_CONFIGS[variant].buildFeatures;
+  if (features.length === 0) {
+    console.log('[编译期裁剪] 无（该变体不做物理剔除）');
+    return;
+  }
+  console.log(
+    `[编译期裁剪] 需在 bun build 追加: ${features
+      .map((name) => `--feature=${name}`)
+      .join(' ')}`
+  );
+}
+
 function main(): void {
   const { variant, dryRun } = parseArgs();
 
@@ -103,6 +122,7 @@ function main(): void {
     console.log('\n[DRY RUN] 只打印，不写文件');
     console.log('\n将生成以下 Feature Flags:');
     console.log(generateFeatureFlags(variant));
+    printBuildFeatures(variant);
     return;
   }
 
@@ -117,6 +137,7 @@ function main(): void {
 
   fs.writeFileSync(outputPath, flagsContent, 'utf-8');
   console.log(`\nFeature Flags 已写入: ${outputPath}`);
+  printBuildFeatures(variant);
 
   // G2 正名（2026-10-11）：原输出"执行 TypeScript 编译…/构建完成/输出目录 dist/"名不副实 ——
   // 本脚本**不编译**。此处的 `LIRI_BUILD_VARIANT` 仅设置于**本进程**，不会影响后续的构建命令。

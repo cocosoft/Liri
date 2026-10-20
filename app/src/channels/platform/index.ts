@@ -26,4 +26,7 @@ export {
   type PlatformMessageType,
 } from './PlatformAdapter.js';
 export { PlatformAdapterBridge } from './PlatformAdapterBridge.js';
-export { SlackAdapter } from './SlackAdapter.js';
+// 2026-10-20（P2）：**不再从桶里再导出 `SlackAdapter`** —— 它静态 import `channels/slack`，
+// 会绕过 `DROP_CHANNELS_ALL` 把整个 Slack 通道（含 `@slack/*` 依赖）拉进 core 产物。
+// 实测（core bundle）残留 `src/channels/slack/*` 5 个模块；本仓库内 `SlackAdapter` **零消费者**
+// （仅定义 + 桶导出）。需要时请直接从 `./SlackAdapter.js` 显式引入。

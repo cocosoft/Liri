@@ -228,17 +228,26 @@ export function buildReportMarkdown(
         `- **Workspace**: 未隔离（${workspace.skippedReason}）⇒ 本轮未执行写操作`
       );
     } else {
+      const isSnapshot = workspace.strategy === 'snapshot-copy';
       lines.push(
         `- **Workspace**: ${workspace.strategy ?? 'isolated'}（${workspace.cwd ?? ''}）`
       );
       lines.push(
         workspace.patchPath
-          ? `- **Patch**: ${workspace.patchPath}（${workspace.diffBytes ?? 0} bytes，**未自动应用**）`
-          : '- **Patch**: 无改动'
+          ? `- **${isSnapshot ? 'Diff' : 'Patch'}**: ${workspace.patchPath}（${
+              workspace.diffBytes ?? 0
+            } bytes，**未自动应用**）`
+          : `- **${isSnapshot ? 'Diff' : 'Patch'}**: 无改动`
       );
       if (workspace.kept) {
         lines.push(
-          `- **Worktree Kept**: ${workspace.cwd ?? ''}（补丁未导出，已保留待人工处理）`
+          `- **${isSnapshot ? 'Snapshot Kept' : 'Worktree Kept'}**: ${
+            workspace.cwd ?? ''
+          }（${
+            isSnapshot
+              ? 'snapshot 模式不自动回灌，请到该目录取改动'
+              : '补丁未导出，已保留待人工处理'
+          }）`
         );
       }
     }

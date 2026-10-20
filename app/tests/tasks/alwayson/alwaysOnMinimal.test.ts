@@ -98,6 +98,8 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
     patchPath?: string | null;
     /** 注入目标达成自评（缺省不注入 ⇒ 报告保持 `unverified（未做模型自评）`） */
     goal?: 'achieved' | 'not_achieved' | 'unknown' | 'throw';
+    /** 隔离策略（缺省 git-worktree；snapshot-copy ⇒ 报告用 Diff / Snapshot Kept） */
+    strategy?: 'git-worktree' | 'snapshot-copy';
   }) {
     const sessions: string[] = [];
     const reports: Array<{ planId: string; markdown: string }> = [];
@@ -130,7 +132,7 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
           : {
               workspace: {
                 cwd: '/tmp/wt',
-                strategy: 'git-worktree',
+                strategy: options?.strategy ?? 'git-worktree',
                 ref: { runId },
               },
             },
@@ -140,6 +142,8 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
             ? undefined
             : (options?.patchPath ?? '/reports/p1.patch'),
         diffBytes: options?.patchPath === null ? 0 : 12,
+        // snapshot-copy 无 git 语义、不自动回灌 ⇒ 隔离区一律保留
+        kept: options?.strategy === 'snapshot-copy',
       }),
       setSessionWorkspace: async (sid, cwd) => {
         cwdCalls.push({ sid, cwd });
@@ -372,6 +376,33 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
     const result = await bridge.execution(await bridge.workspace(plan));
     const markdown = await bridge.report(result);
     expect(markdown).toContain('- **Patch**: 无改动');
+  });
+
+  /** snapshot-copy 回退（2026-10-20）：报告口径必须区分 Diff / Snapshot Kept */
+  it('report：snapshot-copy ⇒ 写 Diff 与 Snapshot Kept（不写 Patch / Worktree Kept）', async () => {
+    const { bridge } = makeBridge({
+      strategy: 'snapshot-copy',
+      patchPath: '/reports/p1.diff',
+    });
+    await bridge.discovery();
+    const result = await bridge.execution(await bridge.workspace(plan));
+    const markdown = await bridge.report(result);
+    expect(markdown).toContain('- **Workspace**: snapshot-copy');
+    expect(markdown).toContain('- **Diff**: /reports/p1.diff');
+    expect(markdown).toContain('- **Snapshot Kept**: /tmp/wt');
+    expect(markdown).not.toContain('Worktree Kept');
+    expect(markdown).not.toContain('- **Patch**:');
+  });
+
+  it('report：snapshot-copy 无差异 ⇒ Diff 行写「无改动」', async () => {
+    const { bridge } = makeBridge({
+      strategy: 'snapshot-copy',
+      patchPath: null,
+    });
+    await bridge.discovery();
+    const result = await bridge.execution(await bridge.workspace(plan));
+    const markdown = await bridge.report(result);
+    expect(markdown).toContain('- **Diff**: 无改动');
   });
 
   /** 未注入 evaluateGoal（或 flag 关）⇒ 报告仍必须显式标注 unverified，不把"没报错"当"已达成" */

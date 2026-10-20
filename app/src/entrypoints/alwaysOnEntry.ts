@@ -23,9 +23,11 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { WorkItemStore, createProjectStore } from '@modules/workspace';
 import {
   GitWorktreeProvider,
+  SnapshotCopyProvider,
   generateWorkspaceDiff,
   pruneNamespaceWorktrees,
   type WorkspaceHandle,
+  type WorkspaceProvider,
 } from '@modules/workspaces';
 
 import {
@@ -130,20 +132,23 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   }
 
   const reportDir = join(dataDir, 'alwayson', 'reports');
+  /** snapshot-copy 回退的快照根目录（非 git / 脏仓项目的兜底隔离区） */
+  const snapshotDir = join(dataDir, 'alwayson', 'snapshots');
   const sessionFile = join(dataDir, 'alwayson', 'sessions.json');
   const manager = new AlwaysOnManager();
   /** 本轮隔离区句柄（runId → provider + handle）；worktree 的 Map 在 provider 内部，必须复用同一实例 */
   const activeRuns = new Map<
     string,
-    { provider: GitWorktreeProvider; handle: WorkspaceHandle }
+    { provider: WorkspaceProvider; handle: WorkspaceHandle }
   >();
 
   /**
-   * 准备本轮隔离区（v2 P2）。
+   * 准备本轮隔离区（v2 P2；2026-10-20 增 snapshot-copy 回退）。
    *
-   * 只走 `GitWorktreeProvider`（`refuseDirty` 默认 true）：
-   * 非 git / 工作区有未提交改动 ⇒ 返回 `skippedReason`，**不退回直连项目目录**
-   * （方案 §10.7 裁定 B：宁可跳过，不可悄悄改用户工作区）。
+   * 顺序：`GitWorktreeProvider`（`refuseDirty`，语义最强）→ 不可用（非 git / 有未提交改动）
+   * 且 `ALWAYSON_SNAPSHOT_FALLBACK` 开 ⇒ `SnapshotCopyProvider`（目录快照，排除 .git/node_modules 等）。
+   * 两者都不可用 ⇒ `skippedReason`，**不退回直连项目目录**（方案 §10.7 裁定 B：
+   * 宁可跳过，不可悄悄改用户工作区）。
    */
   const prepareWorkspace: AlwaysOnBridgeDeps['prepareWorkspace'] = async ({
     projectPath,
@@ -155,17 +160,49 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
       // P4：独立命名空间（目录 `alwayson-<id>` / 分支 `alwayson/<id>`）
       namePrefix: ALWAYSON_WORKTREE_PREFIX,
     });
-    if (!(await provider.isApplicable(projectPath))) {
+    if (await provider.isApplicable(projectPath)) {
+      try {
+        // `runId` 形如 `alwayson-<projectId>-<ts>`；前缀已由 provider 补 ⇒ 去掉重复段
+        const worktreeId = runId.replace(/^alwayson-/, '');
+        const handle = await provider.prepare({
+          projectRoot: projectPath,
+          runId: worktreeId,
+        });
+        activeRuns.set(runId, { provider, handle });
+        return {
+          workspace: {
+            cwd: handle.cwd,
+            strategy: handle.strategy,
+            ref: { runId },
+          },
+        };
+      } catch (error) {
+        return {
+          skippedReason: `prepare_failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        };
+      }
+    }
+
+    // 回退：非 git / 脏仓 ⇒ 目录快照（不碰主目录；产物默认保留待人工合并）
+    if (!feature('ALWAYSON_SNAPSHOT_FALLBACK')) {
+      return { skippedReason: 'not_git_repo_or_dirty' };
+    }
+    const snapshot = new SnapshotCopyProvider({ baseDir: snapshotDir });
+    if (!(await snapshot.isApplicable(projectPath))) {
       return { skippedReason: 'not_git_repo_or_dirty' };
     }
     try {
-      // `runId` 形如 `alwayson-<projectId>-<ts>`；前缀已由 provider 补 ⇒ 去掉重复段
-      const worktreeId = runId.replace(/^alwayson-/, '');
-      const handle = await provider.prepare({
+      const handle = await snapshot.prepare({
         projectRoot: projectPath,
-        runId: worktreeId,
+        runId: runId.replace(/^alwayson-/, ''),
       });
-      activeRuns.set(runId, { provider, handle });
+      activeRuns.set(runId, { provider: snapshot, handle });
+      logger.info('AlwaysOn 回退 snapshot-copy 隔离', {
+        runId,
+        cwd: handle.cwd,
+      });
       return {
         workspace: {
           cwd: handle.cwd,
@@ -175,7 +212,7 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
       };
     } catch (error) {
       return {
-        skippedReason: `prepare_failed: ${
+        skippedReason: `snapshot_failed: ${
           error instanceof Error ? error.message : String(error)
         }`,
       };
@@ -183,9 +220,12 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   };
 
   /**
-   * 收尾（v2 P2/P5）：把隔离区改动**导出为补丁**（不自动 apply），再清理 worktree。
+   * 收尾（v2 P2/P5）：把隔离区改动**导出**（不自动 apply），再清理隔离区。
    *
-   * 补丁落盘失败 / diff 超长被截断 ⇒ `keep: true` 保留 worktree，避免成果丢失。
+   * - `git-worktree`：`git diff HEAD` → `<reportDir>/<runId>.patch`（可 `git apply`）；
+   *   落盘失败 / 超长截断 ⇒ `keep: true` 保留 worktree。
+   * - `snapshot-copy`：`diff -ruN`（平台无 `diff` ⇒ 空）→ 有真实差异时写 `<runId>.diff`；
+   *   该策略**无 git 语义、不能自动回灌** ⇒ 一律 `keep: true`，由用户到快照目录取改动。
    */
   const finishWorkspace: AlwaysOnBridgeDeps['finishWorkspace'] = async (
     workspace
@@ -198,21 +238,37 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
     }
     activeRuns.delete(runId);
 
-    const diff = await generateWorkspaceDiff(active.handle.cwd);
+    const isSnapshot = active.handle.strategy === 'snapshot-copy';
+    let diffText = '';
+    let truncated = false;
+    if (isSnapshot) {
+      const published = await active.provider.publish(active.handle);
+      const raw = published.diff ?? '';
+      // provider 在平台无 `diff` 时返回 `snapshot at <cwd>` 占位 ⇒ 不是真实差异
+      diffText = raw.startsWith('snapshot at ') ? '' : raw;
+    } else {
+      const diff = await generateWorkspaceDiff(active.handle.cwd);
+      diffText = diff.diff;
+      truncated = diff.truncated;
+    }
+
     let patchPath: string | undefined;
-    let keep = false;
+    let keep = isSnapshot;
     let error: string | undefined;
 
-    if (diff.diff.trim().length > 0) {
-      if (diff.truncated) {
-        // 截断的补丁无法 `git apply` ⇒ 不导出，保留 worktree 交人工处理
+    if (diffText.trim().length > 0) {
+      if (truncated) {
+        // 截断的补丁无法 `git apply` ⇒ 不导出，保留隔离区交人工处理
         keep = true;
-        error = 'diff-truncated: 补丁超长已截断，未导出（worktree 已保留）';
+        error = 'diff-truncated: 补丁超长已截断，未导出（隔离区已保留）';
       } else {
         try {
           mkdirSync(reportDir, { recursive: true });
-          patchPath = join(reportDir, `${runId}.patch`);
-          writeFileSync(patchPath, diff.diff, 'utf8');
+          patchPath = join(
+            reportDir,
+            `${runId}${isSnapshot ? '.diff' : '.patch'}`
+          );
+          writeFileSync(patchPath, diffText, 'utf8');
         } catch (e) {
           keep = true;
           error = `patch-write-failed: ${
@@ -231,7 +287,7 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
     }
     return {
       patchPath,
-      diffBytes: diff.diff.length,
+      diffBytes: diffText.length,
       kept: keep,
       error,
     };

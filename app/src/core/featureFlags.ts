@@ -98,6 +98,17 @@ export const FEATURE_FLAGS = {
    * 回退：`FEATURE_ALWAYSON_GOAL_EVAL=false`。
    */
   ALWAYSON_GOAL_EVAL: true,
+  /**
+   * AlwaysOn **snapshot-copy 回退**（2026-10-20，默认开）。
+   *
+   * 开 ⇒ git-worktree 不可用（非 git 仓库 / 工作区脏）时，改为**目录快照**隔离
+   * （`<data>/alwayson/snapshots/<runId>`，排除 `.git`/`node_modules`/`dist` 等；
+   * 源目录 > 1 GiB 拒绝），让 AlwaysOn 在非 git 项目上也能跑；
+   * 该模式**无 git 语义、不自动回灌** ⇒ 隔离区一律保留（报告 `Snapshot Kept` 指路）。
+   * 关 ⇒ 回到 v2 口径：这类项目每轮跳过（`not_git_repo_or_dirty`）。
+   * 回退：`FEATURE_ALWAYSON_SNAPSHOT_FALLBACK=false`。
+   */
+  ALWAYSON_SNAPSHOT_FALLBACK: true,
 
   // ───── 系统模式 ─────
   /** 桥接模式 */

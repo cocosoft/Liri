@@ -24,6 +24,11 @@
 
 #### 未发布变更（2026-10-20）
 
+- ✅ **AlwaysOn 接入 snapshot-copy 回退** - git-worktree 不可用（非 git 仓库 / 工作区脏）时改用目录快照隔离
+  （`<data>/alwayson/snapshots/<runId>`，排除 `.git`/`node_modules`/`dist` 等，>1 GiB 拒绝），
+  解决这类项目"每轮跳过 ⇒ AlwaysOn 不可用"的盲区；该模式无 git 语义、不自动回灌 ⇒ 隔离区一律保留，
+  报告改为 `Diff` / `Snapshot Kept` 并指路取改动。开关 `ALWAYSON_SNAPSHOT_FALLBACK` 默认开。
+
 - ✅ **AlwaysOn 目标达成自评** - 每轮执行收尾后由宿主注入的 `evaluateGoal` 做一次**只读**模型调用，
   三值判定 `achieved / not_achieved / unverified` 写入报告与主动通知（`Goal Achievement` 行）。
   证据只取「计划 + 执行输出 + 错误 + 工具调用数 + 补丁字节」，prompt 明令禁止调工具/读文件

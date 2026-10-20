@@ -10,7 +10,6 @@
  * @kind-default A（段框架 / 缓存断点 / 段名清单 —— 协议与结构常量）
  */
 
-import { getFrozenSnapshotService } from '@modules/memory';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('constants:systemPromptSections');
@@ -287,5 +286,17 @@ export function clearSystemPromptSections(): void {
   sectionCache.clear();
   memoryContentHash = '';
   for (const clear of _sectionCacheClearers) clear();
-  getFrozenSnapshotService().unfreezeAll();
+  // 2026-10-20（静态导入图瘦身 P2 #2）：**不再静态 import `@modules/memory`**。
+  // 之前这里唯一的用途是 `getFrozenSnapshotService().unfreezeAll()`，而静态 import 会把
+  // `memory`（40 文件 / 342 KB）整个拉进启动图（它是 `constants → memory` 的**唯一**静态边）。
+  // ⇒ 改为动态 import：只在"清段落缓存"这一步才加载 memory；失败只记日志（缓存已清，属旁路动作）。
+  // 语义差异（如实）：unfreeze 由**同步**变为**随后异步**完成 —— 二者无先后依赖
+  // （下一次提示词组装本身是异步的），且该导出在全仓**当前无调用方**。
+  void import('@modules/memory')
+    .then((m) => m.getFrozenSnapshotService().unfreezeAll())
+    .catch((err: unknown) => {
+      logger.warning('清理冻结快照失败（段落缓存已清理，不影响提示词重建）', {
+        error: String(err),
+      });
+    });
 }

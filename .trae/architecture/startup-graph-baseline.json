@@ -1,16 +1,16 @@
 {
   "version": 1,
-  "recordedAt": "2026-10-20T22:21:55.626Z",
+  "recordedAt": "2026-10-20T22:34:24.630Z",
   "entry": "src/pyapp.ts",
   "eager": {
-    "total": 543,
+    "total": 419,
     "app": {
-      "files": 280,
-      "bytes": 1892806
+      "files": 235,
+      "bytes": 1515231
     },
     "nodeModules": {
-      "files": 263,
-      "bytes": 1054371
+      "files": 184,
+      "bytes": 854820
     }
   },
   "byTopDir": {
@@ -43,34 +43,19 @@
       "bytes": 76585
     },
     "utils": {
-      "files": 14,
-      "bytes": 56851
+      "files": 9,
+      "bytes": 28221
     },
     "constants": {
       "files": 17,
-      "bytes": 55388
+      "bytes": 56236
     },
     "types": {
       "files": 2,
       "bytes": 7485
-    },
-    "memory": {
-      "files": 40,
-      "bytes": 349793
     }
   },
-  "declaredOnDemandInEager": {
-    "memory": {
-      "files": 40,
-      "bytes": 349793,
-      "upstream": [
-        {
-          "fromDir": "constants",
-          "count": 1
-        }
-      ]
-    }
-  },
+  "declaredOnDemandInEager": {},
   "nodeModulesByPackage": [
     {
       "name": "@opentelemetry/semantic-conventions",
@@ -79,10 +64,6 @@
     {
       "name": "@opentelemetry/sdk-metrics",
       "bytes": 142541
-    },
-    {
-      "name": "gray-matter",
-      "bytes": 120854
     },
     {
       "name": "js-yaml",
@@ -101,10 +82,6 @@
       "bytes": 54912
     },
     {
-      "name": "fs-extra",
-      "bytes": 41635
-    },
-    {
       "name": "@opentelemetry/resources",
       "bytes": 31723
     },
@@ -113,12 +90,20 @@
       "bytes": 27551
     },
     {
-      "name": "graceful-fs",
-      "bytes": 25972
-    },
-    {
       "name": "debug",
       "bytes": 18060
+    },
+    {
+      "name": "chalk",
+      "bytes": 16120
+    },
+    {
+      "name": "https-proxy-agent",
+      "bytes": 11359
+    },
+    {
+      "name": "agent-base",
+      "bytes": 9638
     }
   ]
 }

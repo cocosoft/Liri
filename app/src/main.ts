@@ -59,7 +59,6 @@ import {
   writeFileSync,
   readFileSync,
   rmSync,
-  unlinkSync,
   statSync,
 } from 'fs';
 import { join } from 'path';
@@ -86,8 +85,17 @@ import { hydrateOnStartup, serializeOnShutdownSync } from '@modules/context';
 import { contextManager } from './context/ContextManager.js';
 // AC-7：type-only 导入，信号处理中同步强关 HTTP（零运行时依赖，无循环引用）
 import type { LocalHTTPService } from '@modules/infrastructure';
-// 端口单一事实来源（默认值），运行时由 LIRI_HTTP_PORT 覆盖
-import { DEFAULT_HTTP_PORT } from './core/ports.js';
+// 端口单一事实来源（默认值 + 生效端口解析），运行时由 LIRI_HTTP_PORT 覆盖
+import { resolveHttpPort } from './core/ports.js';
+// 单实例锁（PID + 实际监听端点）：解析 / 写入 / 端口发布 / 释放集中在此
+// 2026-10-20（分发前置）：第二实例据此拿到**运行中实例的实际端口**（动态端口可发现面）
+import {
+  getInstanceLockPath,
+  parseInstanceLock,
+  publishInstanceEndpoint,
+  releaseInstanceLock,
+  writeInstanceLock,
+} from './core/instanceLock.js';
 // 版本号（唯一事实来源 app/package.json）—— 供 healthcheck 模式打印（L-12.1）
 import { APP_VERSION } from '@modules/constants';
 
@@ -159,11 +167,6 @@ function setupWindowsSecurity(): void {
       // 非致命
     }
   }
-}
-
-/** 锁文件路径 */
-function getLockFilePath(): string {
-  return join(resolveDataDir(), '.liri.lock');
 }
 
 /**
@@ -280,7 +283,7 @@ function terminateZombieInstance(pid: number): boolean {
  * 进程正常退出时自动清理锁文件。
  */
 function checkSingletonInstance(): void {
-  const lockFile = getLockFilePath();
+  const lockFile = getInstanceLockPath();
 
   // 确保数据目录存在
   const dataDir = resolveDataDir();
@@ -291,8 +294,9 @@ function checkSingletonInstance(): void {
   // 检查锁文件
   if (existsSync(lockFile)) {
     try {
-      const pid = parseInt(readFileSync(lockFile, 'utf-8').trim(), 10);
-      if (!isNaN(pid)) {
+      const lock = parseInstanceLock(readFileSync(lockFile, 'utf-8'));
+      if (lock) {
+        const pid = lock.pid;
         // 检查对应进程是否存活（不发送信号，仅探测）
         try {
           process.kill(pid, 0);
@@ -301,8 +305,13 @@ function checkSingletonInstance(): void {
           // ② 退出中僵尸：bun --watch 重启时旧进程卡在优雅退出链（锁已删、HTTP 已关、
           //    进程未死）→ 清理僵尸后接管，避免双实例导致 QQ WS 归属错乱、消息静默丢失
           if (isProcessListeningOnAnyPort(pid)) {
+            // 动态端口可发现面：锁里带了实际端口就告诉用户该连哪里
+            const endpoint =
+              lock.port !== undefined
+                ? `，端点 http://${lock.host ?? LOCAL_HTTP_HOST}:${lock.port}`
+                : '';
             logger.warning(
-              `检测到已有健康实例在运行 (PID: ${pid}，端口监听中)，当前实例将退出`
+              `检测到已有健康实例在运行 (PID: ${pid}，端口监听中${endpoint})，当前实例将退出`
             );
             process.exit(1);
           }
@@ -407,21 +416,13 @@ function checkSingletonInstance(): void {
     }
   }
 
-  // 写入当前 PID
-  writeFileSync(lockFile, String(process.pid), 'utf-8');
+  // 写入当前 PID（v1 JSON；**实际端口**在 HTTP 绑定成功后由 publishInstanceEndpoint 补写）
+  writeInstanceLock({ pid: process.pid });
 
   // 注册进程退出清理
   const cleanup = () => {
-    try {
-      if (existsSync(lockFile)) {
-        const currentPid = parseInt(readFileSync(lockFile, 'utf-8').trim(), 10);
-        if (currentPid === process.pid) {
-          unlinkSync(lockFile);
-        }
-      }
-    } catch (err) {
-      // 清理失败不阻塞退出
-    }
+    // 释放锁（仅当确实由当前 PID 持有；解析/存在性判断统一在 core/instanceLock）
+    releaseInstanceLock();
     // BUG-12 fix: 销毁 ContextManager（清空缓存 + engine KV + 上下文）
     try {
       contextManager.destroy();
@@ -601,16 +602,15 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     }
   }
 
-  // HTTP 端口优先级：命令行 --http-port > 环境变量 LIRI_HTTP_PORT > 默认 18990
-  // （Docker 部署通过 LIRI_HTTP_PORT=3000 注入，避免硬编码默认值）
-  // 18990 避开 Clash/V2Ray 等代理软件默认端口 7890
-  const httpPort =
-    parseHttpPortFromArgs(options.args) ||
-    parseInt(process.env.LIRI_HTTP_PORT ?? '', 10) ||
-    DEFAULT_HTTP_PORT;
-  process.env.LIRI_HTTP_PORT = String(httpPort);
+  // HTTP 端口：CLI --http-port > env LIRI_HTTP_PORT > 默认 18990；**未显式指定**时
+  // 允许被占用则顺延（显式指定如 Tauri 桌面壳则不得漂移）。解析与顺延统一在
+  // `startLaunchHTTPServer` 里做（2026-10-20 分发前置）。
   // 监听地址：默认 127.0.0.1（本地/桌面场景），Docker 部署设置 LIRI_HTTP_HOST=0.0.0.0
   const httpHost = process.env.LIRI_HTTP_HOST?.trim() || LOCAL_HTTP_HOST;
+  // ⚠️ 这里**不得**预写 `LIRI_HTTP_PORT`：端口意图（能否顺延）要在
+  // `startLaunchHTTPServer` 里按"用户是否显式指定"判定，预写会把默认值伪装成
+  // 显式指定、导致端口被占时拒绝顺延（2026-10-20 实测踩中）。实际端口由该函数回写。
+  let httpPort = resolveHttpPort();
   const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
   // P3（2026-10-20）：`DROP_UI` 构建（headless）强制走 http-only 分支 —— 不进入 REPL，
   // 也就不会加载 ink；与 `--http-only` 共用同一条"起 HTTP + 等信号"的实现。
@@ -625,10 +625,20 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
 
   // 启动 HTTP 服务先于首次运行引导，使前端在终端阻塞时也能连接
   // 从独立 http-server 模块导入，避免与 repl.ts 的静态 import 链形成循环依赖
-  const { startHTTPServer } = await import('./entrypoints/http-server');
+  const { startHTTPServer, startLaunchHTTPServer } =
+    await import('./entrypoints/http-server');
   let httpService: Awaited<ReturnType<typeof startHTTPServer>> | null = null;
   try {
-    httpService = await startHTTPServer(httpPort, httpHost);
+    const started = await startLaunchHTTPServer(options.args, httpHost);
+    httpService = started.service;
+    httpPort = started.port;
+    // 实际端口写进实例锁 ⇒ 第二实例 / 客户端据此发现
+    publishInstanceEndpoint(httpPort, httpHost);
+    if (started.shifted) {
+      logger.warning(
+        `首选端口被占用，HTTP 已顺延到 ${httpPort}（已写入实例锁 http://${httpHost}:${httpPort}）`
+      );
+    }
     // AC-7：暴露给信号处理（同步强关端口，见 forceCloseSync 注释）
     activeHttpService = httpService;
     process.env.LIRI_HTTP_STARTED = '1';
@@ -745,30 +755,6 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
 }
 
 /**
- * 从命令行参数中解析 --http-port 值
- */
-function parseHttpPortFromArgs(args?: string[]): number | undefined {
-  if (!args) return undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--http-port' && i + 1 < args.length) {
-      const port = parseInt(args[i + 1], 10);
-      if (!isNaN(port) && port > 0 && port < 65536) {
-        return port;
-      }
-    }
-    if (args[i].startsWith('--http-port=')) {
-      const port = parseInt(args[i].split('=')[1], 10);
-      if (!isNaN(port) && port > 0 && port < 65536) {
-        return port;
-      }
-    }
-  }
-
-  return undefined;
-}
-
-/**
  * 从命令行参数中解析 --model 值
  */
 function parseModelFromArgs(args?: string[]): string | undefined {
@@ -880,17 +866,23 @@ async function launchDaemon(options: LaunchOptions): Promise<void> {
   //   CLI --http-port > env LIRI_HTTP_PORT > 默认 18990
   // 之前走 launchRepl(useLegacyRepl=true) 的问题：后台 no-tty 下 stdin EOF 立即触发
   //   REPL 退出 → launchDaemon return → HTTP 没 listen 进程就自杀 → 前端 127.0.0.1:18990 连不上
-  const httpPort =
-    parseHttpPortFromArgs(options.args) ||
-    parseInt(process.env.LIRI_HTTP_PORT ?? '', 10) ||
-    DEFAULT_HTTP_PORT;
-  process.env.LIRI_HTTP_PORT = String(httpPort);
+  // 端口解析 + 占用顺延 + 实际端口写回 env 统一在 `startLaunchHTTPServer`（同 launchREPL）
   const httpHost = process.env.LIRI_HTTP_HOST?.trim() || LOCAL_HTTP_HOST;
+  let httpPort = resolveHttpPort();
 
-  const { startHTTPServer } = await import('./entrypoints/http-server');
+  const { startHTTPServer, startLaunchHTTPServer } =
+    await import('./entrypoints/http-server');
   let httpService: Awaited<ReturnType<typeof startHTTPServer>> | null = null;
   try {
-    httpService = await startHTTPServer(httpPort, httpHost);
+    const started = await startLaunchHTTPServer(options.args, httpHost);
+    httpService = started.service;
+    httpPort = started.port;
+    publishInstanceEndpoint(httpPort, httpHost);
+    if (started.shifted) {
+      logger.warning(
+        `首选端口被占用，HTTP 已顺延到 ${httpPort}（已写入实例锁 http://${httpHost}:${httpPort}）`
+      );
+    }
     activeHttpService = httpService;
     process.env.LIRI_HTTP_STARTED = '1';
     logger.info(`HTTP 服务已启动: http://${httpHost}:${httpPort}`);

@@ -13,7 +13,7 @@ import { BaseTask } from './BaseTask';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { DEFAULT_HTTP_PORT, LOCAL_SERVICE_HOST } from '@modules/core';
+import { resolveHttpPort, LOCAL_SERVICE_HOST } from '@modules/core';
 import { SafeInterval } from '@modules/utils/SafeInterval';
 const logger = getLogger('tasks:MonitorTask');
 
@@ -24,13 +24,16 @@ export interface MonitorTarget {
   timeoutMs: number;
 }
 
-// 惰性求值：顶层构造会立即引用 @modules/core 的 DEFAULT_HTTP_PORT，
+// 惰性求值：顶层构造会立即引用 @modules/core 的端口解析，
 // 在本模块被 core 求值链提前加载时触发 TDZ（循环导入）。
+// 用 `resolveHttpPort()` 而非 DEFAULT_HTTP_PORT：动态端口下实际端口可能已顺延
+// （`main.ts` 启动后把**实际**端口写回 `LIRI_HTTP_PORT`）—— 健康检查不能再看默认值。
 export function getDefaultMonitorTargets(): MonitorTarget[] {
+  const port = resolveHttpPort();
   return [
     {
       name: 'mcp-server',
-      url: `http://${LOCAL_SERVICE_HOST}:${DEFAULT_HTTP_PORT}/health`,
+      url: `http://${LOCAL_SERVICE_HOST}:${port}/health`,
       checkIntervalMs: 30_000,
       timeoutMs: 5000,
     },

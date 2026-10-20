@@ -263,6 +263,14 @@ export class LocalHTTPService {
       this.server!.on('error', (err) => {
         logger.error('LocalHTTPService 启动失败', { error: err.message });
         this._isRunning = false;
+        // 2026-10-20（动态端口）：listen 失败必须释放 server 引用 ——
+        // 否则同一实例再次 `start()` 会被"已经启动"的早返回挡住，端口顺延重试
+        // 就只能永远拿到失败实例。未监听的 server 无句柄，close 回调里的
+        // ERR_SERVER_NOT_RUNNING 忽略即可。
+        this.server?.close(() => {
+          /* 未监听时回调带 ERR_SERVER_NOT_RUNNING，忽略 */
+        });
+        this.server = null;
         reject(err);
       });
     });

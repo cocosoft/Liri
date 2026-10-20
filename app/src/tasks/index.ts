@@ -234,6 +234,8 @@ export {
 export type { Cg3BootstrapResult } from './Cg3Bootstrap';
 // U-02（2026-10-20）：AlwaysOn 最小可用自主执行 —— 供 entry 层经模块出口引入（R03-002）
 export { AlwaysOnManager } from './alwayson/AlwaysOnManager';
+// 默认配置（含自评超时 / 预留 token —— entry 的自评实现读这里，避免魔法数字散落）
+export { DEFAULT_ALWAYSON_CONFIG } from './alwayson/types';
 export {
   bootstrapAlwaysOn,
   type AlwaysOnProject,
@@ -250,6 +252,17 @@ export {
   type AlwaysOnWorkspacePrepareResult,
   type AlwaysOnWorkspaceFinishResult,
 } from './alwayson/AlwaysOnBridge';
+// 目标达成自评（2026-10-20）：纯函数（提示词构造 / 结构化解析）独立成模块，
+// 模型调用仍由 entry 注入 ⇒ `tasks` 不依赖 `chat`（R00-001）。
+export {
+  buildGoalEvaluationPrompt,
+  parseGoalEvaluation,
+  unverifiedGoal,
+  formatGoalAchievementLine,
+  type AlwaysOnGoalVerdict,
+  type AlwaysOnGoalEvaluation,
+  type AlwaysOnGoalPromptInput,
+} from './alwayson/goalEvaluator';
 // 2026-10-08：删除 `CommandBridge` 再导出 —— 其**唯一**引用方 `AlwaysOnRuntime` 从未注入它
 // （取证见该类 `tryRun()` 注释），删除后 `tasks/commands/CommandBridge.ts` 零消费者 ⇒ 一并删除。
 // 2026-10-08：删除 `SteeringBridge` 再导出 —— 第二套 steering（`tasks/steering/SteeringBridge` +

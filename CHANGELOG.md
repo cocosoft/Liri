@@ -24,6 +24,14 @@
 
 #### 未发布变更（2026-10-20）
 
+- ✅ **AlwaysOn 目标达成自评** - 每轮执行收尾后由宿主注入的 `evaluateGoal` 做一次**只读**模型调用，
+  三值判定 `achieved / not_achieved / unverified` 写入报告与主动通知（`Goal Achievement` 行）。
+  证据只取「计划 + 执行输出 + 错误 + 工具调用数 + 补丁字节」，prompt 明令禁止调工具/读文件
+  （本轮改动只在隔离区且未 apply，读仓库会误判为"没改"）；解析失败/非法取值/异常/预算锁定
+  一律 `unverified`（`source` 标注原因），不臆造达成；未达成只如实报告，不自动重试。
+  开关 `ALWAYSON_GOAL_EVAL` 默认开（回退 `FEATURE_ALWAYSON_GOAL_EVAL=false`）。
+  顺带修复：执行收尾后会话 cwd 复位到项目根（原会悬空指向已删 worktree）。
+
 - ✅ **轮次 USD 前置判定默认开启** - `FEATURE_USD_TURN_PREFLIGHT` 由 `false` 改为 `true`（2026-10-20 用户裁定「开启」）：
   金额轨在发模型前按「当前模型价 × 本轮估算（含附件折 token）」预判，`已结算 + 本轮估算 > 上限` 即短路拒发
   （`DAILY_BUDGET_EXCEEDED`，先释放预扣）⇒ 覆盖 2026-10-15「金额轨无本轮预估」口径，消除单轮穿透上限；

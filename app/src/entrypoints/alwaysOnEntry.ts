@@ -30,11 +30,16 @@ import {
 
 import {
   AlwaysOnManager,
+  DEFAULT_ALWAYSON_CONFIG,
   bootstrapAlwaysOn,
+  buildGoalEvaluationPrompt,
   createAlwaysOnBridge,
+  parseGoalEvaluation,
+  unverifiedGoal,
   type AlwaysOnBridgeDeps,
   type AlwaysOnProject,
 } from '@modules/tasks';
+import { checkDailyBudget } from '../query/dailyBudgetGate';
 import { getActiveProactiveQueue } from '../proactive/ProactiveRuntime';
 import { resolveProactiveGatePrefs } from '../proactive/ProactiveCronProducer';
 import { evaluateProactiveNotification } from '../proactive/ProactiveNotificationGate';
@@ -289,6 +294,66 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
     return typeof content === 'string' ? content : '';
   };
 
+  /**
+   * 目标达成自评（2026-10-20 产品裁定启用）：多一次**只读**模型调用。
+   *
+   * - 预算：先过 `checkDailyBudget`（硬闸门单一收口）；locked ⇒ 不评估（`unverified`），
+   *   保证自评本身不会成为穿透预算的入口；
+   * - 工具面：`alwayson_discovery`（只读面）+ prompt 明令禁止调用工具 —— 本轮改动只在
+   *   隔离区且**未 apply**，去仓库里读只会得出"没改"的错误结论；
+   * - 超时：独立中止，不拖住报告；
+   * - 任何异常 ⇒ `unverified`（`source` 说明原因），**不**当成"未达成"。
+   */
+  const evaluateGoal: NonNullable<AlwaysOnBridgeDeps['evaluateGoal']> = async (
+    input
+  ) => {
+    const { sessionId, ...promptInput } = input;
+    const budget = checkDailyBudget({
+      sessionId,
+      estimatedTokens:
+        DEFAULT_ALWAYSON_CONFIG.execution.goalEvalEstimatedTokens,
+    });
+    if (!budget.allowed) {
+      logger.info('alwayson:goal-eval:skipped', {
+        sessionId,
+        reason: 'budget-locked',
+      });
+      return unverifiedGoal('skipped:budget', '日预算已锁定，未做自评');
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(),
+      DEFAULT_ALWAYSON_CONFIG.execution.goalEvalTimeoutMs
+    );
+    try {
+      const text = await sendPrompt(
+        sessionId,
+        buildGoalEvaluationPrompt(promptInput),
+        {},
+        { taskType: 'alwayson_discovery', abortSignal: controller.signal }
+      );
+      const evaluation = parseGoalEvaluation(text);
+      logger.info('alwayson:goal-eval', {
+        sessionId,
+        verdict: evaluation.verdict,
+        source: evaluation.source ?? '',
+      });
+      return evaluation;
+    } catch (error) {
+      logger.warn('alwayson:goal-eval:failed', {
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return unverifiedGoal(
+        'error:evaluate-failed',
+        error instanceof Error ? error.message : String(error)
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   const notifyReport: AlwaysOnBridgeDeps['notifyReport'] = async ({
     planId,
     title,
@@ -371,6 +436,8 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
           );
         },
         sendPrompt,
+        // 目标达成自评（默认开）：关掉即回到 `unverified（未做模型自评）` 的 v2 口径。
+        ...(feature('ALWAYSON_GOAL_EVAL') ? { evaluateGoal } : {}),
         writeReport: async (planId, markdown) => {
           mkdirSync(reportDir, { recursive: true });
           const file = join(reportDir, `${planId}.md`);

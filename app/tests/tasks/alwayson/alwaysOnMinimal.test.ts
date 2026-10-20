@@ -96,6 +96,8 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
     skipWorkspace?: string;
     /** 模拟收尾结果（`patchPath: null` ⇒ 无改动） */
     patchPath?: string | null;
+    /** 注入目标达成自评（缺省不注入 ⇒ 报告保持 `unverified（未做模型自评）`） */
+    goal?: 'achieved' | 'not_achieved' | 'unknown' | 'throw';
   }) {
     const sessions: string[] = [];
     const reports: Array<{ planId: string; markdown: string }> = [];
@@ -103,6 +105,7 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
       [];
     const taskTypes: string[] = [];
     const cwdCalls: Array<{ sid: string; cwd: string }> = [];
+    const goalEvalCalls: Array<{ sessionId: string; goalSummary: string }> = [];
     let savedSessionId: string | undefined;
 
     const bridge = createAlwaysOnBridge({
@@ -174,6 +177,36 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
         });
         return true;
       },
+      ...(options?.goal
+        ? {
+            evaluateGoal: async (input: {
+              sessionId: string;
+              goalSummary: string;
+            }) => {
+              goalEvalCalls.push({
+                sessionId: input.sessionId,
+                goalSummary: input.goalSummary,
+              });
+              if (options.goal === 'throw')
+                throw new Error('judge unavailable');
+              if (options.goal === 'unknown') {
+                return {
+                  verdict: 'unverified' as const,
+                  reason: '证据不足',
+                  source: 'model',
+                };
+              }
+              return {
+                verdict:
+                  options.goal === 'achieved'
+                    ? ('achieved' as const)
+                    : ('not_achieved' as const),
+                reason: options.goal === 'achieved' ? '已修好' : '只做了一半',
+                source: 'model',
+              };
+            },
+          }
+        : {}),
     });
     return {
       bridge,
@@ -182,6 +215,7 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
       notified,
       taskTypes,
       cwdCalls,
+      goalEvalCalls,
       getSaved: () => savedSessionId,
     };
   }
@@ -309,13 +343,15 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
   });
 
   /** v2 P1：执行前把会话 cwd 指向隔离区，discovery 阶段复位到项目根 */
-  it('setSessionWorkspace：discovery→项目根；execution→隔离区', async () => {
+  it('setSessionWorkspace：discovery→项目根；execution→隔离区；收尾复位项目根', async () => {
     const { bridge, cwdCalls } = makeBridge();
     await bridge.discovery();
     await bridge.execution(await bridge.workspace(plan));
+    // 第三条为 2026-10-20 新增：隔离区已清理，会话 cwd 不能悬空指向已删目录
     expect(cwdCalls).toEqual([
       { sid: 's1', cwd: '/tmp/demo' },
       { sid: 's1', cwd: '/tmp/wt' },
+      { sid: 's1', cwd: '/tmp/demo' },
     ]);
   });
 
@@ -338,13 +374,70 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
     expect(markdown).toContain('- **Patch**: 无改动');
   });
 
-  /** v2 遗留（2026-10-20 产品口径）：不做目标达成自评，但报告必须显式标注 unverified */
-  it('report：目标达成未自评 ⇒ 标注 unverified（不把"没报错"当成"已达成"）', async () => {
-    const { bridge } = makeBridge();
+  /** 未注入 evaluateGoal（或 flag 关）⇒ 报告仍必须显式标注 unverified，不把"没报错"当"已达成" */
+  it('report：未注入自评 ⇒ 标注 unverified（不把"没报错"当成"已达成"）', async () => {
+    const { bridge, goalEvalCalls } = makeBridge();
     await bridge.discovery();
     const result = await bridge.execution(await bridge.workspace(plan));
     const markdown = await bridge.report(result);
     expect(markdown).toContain('Goal Achievement**: unverified');
+    expect(goalEvalCalls).toHaveLength(0);
+  });
+
+  /** 目标达成自评（2026-10-20 产品裁定启用） */
+  it('自评：achieved ⇒ 报告写 achieved + 理由，通知含达成结论', async () => {
+    const { bridge, goalEvalCalls, notified } = makeBridge({
+      goal: 'achieved',
+    });
+    await bridge.discovery();
+    const result = await bridge.execution(await bridge.workspace(plan));
+    const markdown = await bridge.report(result);
+
+    expect(goalEvalCalls).toHaveLength(1);
+    expect(goalEvalCalls[0]!.sessionId).toBe('s1');
+    expect(goalEvalCalls[0]!.goalSummary).toBe(plan.summary);
+    expect(markdown).toContain('Goal Achievement**: achieved（已修好）');
+    expect(notified[0]!.body).toContain('目标达成：achieved');
+  });
+
+  it('自评：not_achieved ⇒ 报告如实写未达成（不掩盖）', async () => {
+    const { bridge } = makeBridge({ goal: 'not_achieved' });
+    await bridge.discovery();
+    const result = await bridge.execution(await bridge.workspace(plan));
+    const markdown = await bridge.report(result);
+    expect(markdown).toContain(
+      'Goal Achievement**: not_achieved（只做了一半）'
+    );
+  });
+
+  it('自评：未知/解析失败 ⇒ unverified（绝不臆造成 achieved）', async () => {
+    const { bridge } = makeBridge({ goal: 'unknown' });
+    await bridge.discovery();
+    const result = await bridge.execution(await bridge.workspace(plan));
+    const markdown = await bridge.report(result);
+    expect(markdown).toContain('Goal Achievement**: unverified（证据不足）');
+  });
+
+  it('自评：抛出异常 ⇒ unverified + 来源标注，且不阻断报告', async () => {
+    const { bridge, reports } = makeBridge({ goal: 'throw' });
+    await bridge.discovery();
+    const result = await bridge.execution(await bridge.workspace(plan));
+    const markdown = await bridge.report(result);
+    expect(markdown).toContain('Goal Achievement**: unverified');
+    expect(markdown).toContain('error:evaluate-failed');
+    expect(reports).toHaveLength(1);
+  });
+
+  it('自评：未隔离跳过轮 ⇒ 不调用自评（无证据可评）', async () => {
+    const { bridge, goalEvalCalls } = makeBridge({
+      skipWorkspace: 'not_git_repo_or_dirty',
+      goal: 'achieved',
+    });
+    await bridge.discovery();
+    const result = await bridge.execution(await bridge.workspace(plan));
+    expect(goalEvalCalls).toHaveLength(0);
+    const markdown = await bridge.report(result);
+    expect(markdown).toContain('skipped:workspace');
   });
 });
 

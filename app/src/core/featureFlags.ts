@@ -88,6 +88,16 @@ export const FEATURE_FLAGS = {
    * 回退：`FEATURE_ALWAYSON=false`。
    */
   ALWAYSON: true,
+  /**
+   * AlwaysOn **目标达成自评**（2026-10-20 产品裁定「启用」，默认开）。
+   *
+   * 开 ⇒ 每轮执行收尾后多一次**只读**模型调用，对「计划 + 执行输出 + 错误 + 工具调用数 +
+   * 补丁字节」做三值判定（`achieved` / `not_achieved` / `unverified`），结果进报告与通知；
+   * 自评前过 `checkDailyBudget`（预算锁定 ⇒ 不评估），异常/解析失败一律 `unverified`。
+   * 关 ⇒ 回到 v2 口径：报告固定 `unverified（未做模型自评）`，零额外模型调用。
+   * 回退：`FEATURE_ALWAYSON_GOAL_EVAL=false`。
+   */
+  ALWAYSON_GOAL_EVAL: true,
 
   // ───── 系统模式 ─────
   /** 桥接模式 */

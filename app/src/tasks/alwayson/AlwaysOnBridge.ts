@@ -10,11 +10,20 @@
  * - **只留补丁**：隔离区改动导出 `.patch`，**不自动 apply**，由用户决定；
  * - **会话 cwd 按轮绑定**：执行前把 `metadata.workspacePath` 指向隔离区（复用同一会话）。
  *
- * 仍不做：并行、目标达成自评；discovery 高风险或解析失败 ⇒ `null`（本次不执行）。
+ * 目标达成自评（2026-10-20 产品裁定启用）：执行收尾后由宿主注入的 `evaluateGoal`
+ * 做一次**文本证据自评**（不看仓库 —— 本轮改动只在隔离区且未 apply），结果进报告；
+ * 未注入 / 预算不足 / 解析失败 ⇒ `unverified`（不臆造达成）。
+ *
+ * 仍不做：并行；discovery 高风险或解析失败 ⇒ `null`（本次不执行）。
  */
 import { cg3Log } from '../cg3Env';
 import type { DiscoveryPlan, ExecutionResult } from './types';
 import { parseAlwaysOnPlan } from './planParser';
+import {
+  formatGoalAchievementLine,
+  unverifiedGoal,
+  type AlwaysOnGoalEvaluation,
+} from './goalEvaluator';
 
 /** 用量汇总（只取桥接器关心的字段） */
 export interface AlwaysOnUsage {
@@ -113,6 +122,22 @@ export interface AlwaysOnBridgeDeps {
   ) => Promise<string>;
   /** 写报告并返回落盘路径 */
   writeReport: (planId: string, markdown: string) => Promise<string>;
+  /**
+   * 目标达成自评（可选；宿主实现负责**调模型**与预算门控）。
+   *
+   * 未注入 ⇒ 报告保持 `unverified（未做模型自评）`；注入后抛错/超时 ⇒ 同样
+   * `unverified`（不阻断本轮报告，也**不**把异常当成"未达成"）。
+   */
+  evaluateGoal?: (input: {
+    sessionId: string;
+    goalSummary: string;
+    planJson: string;
+    success: boolean;
+    toolCalls: number;
+    errors: readonly string[];
+    output: string;
+    diffBytes?: number;
+  }) => Promise<AlwaysOnGoalEvaluation>;
   /** 报告投递（主动通知；队列未启用/被门禁丢弃 ⇒ false） */
   notifyReport: (input: {
     planId: string;
@@ -178,7 +203,8 @@ export function buildReportMarkdown(
   plan: DiscoveryPlan,
   result: ExecutionResult,
   usage: AlwaysOnUsage,
-  workspace?: AlwaysOnReportWorkspace
+  workspace?: AlwaysOnReportWorkspace,
+  goal?: AlwaysOnGoalEvaluation
 ): string {
   const lines = [
     `# AlwaysOn Execution Report · ${projectName}`,
@@ -193,9 +219,8 @@ export function buildReportMarkdown(
         ? `（≈$${usage.estimatedCostUsd.toFixed(4)}）`
         : ''
     }`,
-    // v2 遗留项（2026-10-20 产品口径）：**不做**目标达成自评（多一次模型调用 + 未达成处置未定）
-    // ⇒ 显式标注，避免把"本轮没报错"误读为"目标已达成"。
-    '- **Goal Achievement**: unverified（仅记录本轮执行结果，未做模型自评）',
+    // 达成判定与"流程成功"分离：未自评 / 证据不足一律 `unverified`，避免把"没报错"读成"已达成"。
+    formatGoalAchievementLine(goal),
   ];
   if (workspace) {
     if (workspace.skippedReason) {
@@ -243,6 +268,8 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
   let finishState: AlwaysOnWorkspaceFinishResult | undefined;
   /** 报告用的工作区快照（收尾后 `workspaceState` 已清空，故单独留存） */
   let reportWorkspace: AlwaysOnReportWorkspace | undefined;
+  /** 本轮目标达成自评（未评估 ⇒ undefined，报告按 `unverified` 陈述） */
+  let lastGoal: AlwaysOnGoalEvaluation | undefined;
 
   const ensureSession = async (): Promise<string> => {
     if (sessionId) return sessionId;
@@ -342,6 +369,7 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
     if (!workspacePath || !ws) {
       // 未隔离 ⇒ **不做任何写操作**（方案 §10.7 裁定 B），如实登记后进报告
       const reason = workspaceSkipReason ?? 'workspace_unavailable';
+      lastGoal = unverifiedGoal('skipped:workspace', `本轮未执行（${reason}）`);
       cg3Log('tasks:alwayson:bridge', 'info', 'execution:skipped', {
         projectId: deps.projectId,
         reason,
@@ -358,7 +386,9 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
     let toolCalls = 0;
     let success = true;
     let output = '';
+    let turnSessionId: string | undefined;
     lastUsage = {};
+    lastGoal = undefined;
     const errors: string[] = [];
 
     const hooks: AlwaysOnPromptHooks = {
@@ -383,6 +413,7 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
     }, timeoutMs);
     try {
       const sid = await ensureSession();
+      turnSessionId = sid;
       // v2 P1：本轮工具 cwd = 隔离区（工具执行侧读 `metadata.workspacePath`）。
       await deps.setSessionWorkspace(sid, ws.cwd);
       output = await deps.sendPrompt(
@@ -439,6 +470,47 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
       workspaceState = null;
     }
 
+    // 自评前置：会话 cwd 复位到**项目根**（隔离区已清理，原路径已不存在）。
+    if (turnSessionId) {
+      try {
+        await deps.setSessionWorkspace(turnSessionId, deps.projectPath);
+      } catch (error) {
+        cg3Log('tasks:alwayson:bridge', 'warn', 'workspace:reset-cwd-failed', {
+          projectId: deps.projectId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    // 目标达成自评（宿主未注入 ⇒ 不评估，报告按 `unverified` 陈述）。
+    // 失败/超时**不**阻断报告，也**不**把异常当成"未达成"。
+    if (turnSessionId && deps.evaluateGoal) {
+      try {
+        lastGoal = await deps.evaluateGoal({
+          sessionId: turnSessionId,
+          goalSummary: plan.summary,
+          planJson: JSON.stringify(plan),
+          success,
+          toolCalls,
+          errors,
+          output,
+          ...(finishState?.diffBytes !== undefined
+            ? { diffBytes: finishState.diffBytes }
+            : {}),
+        });
+      } catch (error) {
+        lastGoal = unverifiedGoal(
+          'error:evaluate-failed',
+          error instanceof Error ? error.message : String(error)
+        );
+      }
+      cg3Log('tasks:alwayson:bridge', 'info', 'goal:evaluated', {
+        projectId: deps.projectId,
+        verdict: lastGoal.verdict,
+        source: lastGoal.source ?? '',
+      });
+    }
+
     const result: ExecutionResult = {
       success,
       output,
@@ -463,7 +535,8 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
       plan,
       result,
       lastUsage,
-      reportWorkspace
+      reportWorkspace,
+      lastGoal
     );
     const path = await deps.writeReport(plan.id, markdown);
     cg3Log('tasks:alwayson:bridge', 'info', 'report:written', {
@@ -478,6 +551,9 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
         body: [
           `计划：${plan.summary}`,
           `结果：${result.success ? '成功' : '失败'}`,
+          `目标达成：${lastGoal ? lastGoal.verdict : 'unverified（未自评）'}${
+            lastGoal?.reason ? `（${lastGoal.reason}）` : ''
+          }`,
           `工具调用：${result.toolCalls}`,
           `耗时：${result.durationMs}ms`,
           ...(reportWorkspace?.skippedReason

@@ -16,6 +16,10 @@ export interface AlwaysOnConfig {
     maxTurns: number;
     maxToolCalls: number;
     timeoutMinutes: number;
+    /** 目标达成自评的单次超时（毫秒）—— 独立于执行超时，避免自评拖住报告 */
+    goalEvalTimeoutMs: number;
+    /** 自评前向日预算预留的 token（保守估计；预算锁定 ⇒ 不评估） */
+    goalEvalEstimatedTokens: number;
   };
 }
 
@@ -30,6 +34,8 @@ export const DEFAULT_ALWAYSON_CONFIG: AlwaysOnConfig = {
     maxTurns: 30,
     maxToolCalls: 200,
     timeoutMinutes: 20,
+    goalEvalTimeoutMs: 120_000,
+    goalEvalEstimatedTokens: 2_000,
   },
 };
 

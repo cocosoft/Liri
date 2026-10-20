@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "recordedAt": "2026-10-20T21:44:39.141Z",
+  "recordedAt": "2026-10-20T22:21:55.626Z",
   "entry": "src/pyapp.ts",
   "eager": {
-    "total": 673,
+    "total": 543,
     "app": {
-      "files": 409,
-      "bytes": 2858697
+      "files": 280,
+      "bytes": 1892806
     },
     "nodeModules": {
       "files": 263,
@@ -20,7 +20,7 @@
     },
     "monitoring": {
       "files": 56,
-      "bytes": 370623
+      "bytes": 371516
     },
     "error": {
       "files": 18,
@@ -43,16 +43,12 @@
       "bytes": 76585
     },
     "utils": {
-      "files": 16,
-      "bytes": 76830
+      "files": 14,
+      "bytes": 56851
     },
     "constants": {
       "files": 17,
       "bytes": 55388
-    },
-    "chronos": {
-      "files": 26,
-      "bytes": 160288
     },
     "types": {
       "files": 2,
@@ -61,51 +57,15 @@
     "memory": {
       "files": 40,
       "bytes": 349793
-    },
-    "security": {
-      "files": 65,
-      "bytes": 489759
-    },
-    "permission": {
-      "files": 36,
-      "bytes": 296758
     }
   },
   "declaredOnDemandInEager": {
-    "chronos": {
-      "files": 26,
-      "bytes": 160288,
-      "upstream": [
-        {
-          "fromDir": "monitoring",
-          "count": 1
-        }
-      ]
-    },
     "memory": {
       "files": 40,
       "bytes": 349793,
       "upstream": [
         {
           "fromDir": "constants",
-          "count": 1
-        },
-        {
-          "fromDir": "security",
-          "count": 1
-        }
-      ]
-    },
-    "security": {
-      "files": 65,
-      "bytes": 489759,
-      "upstream": [
-        {
-          "fromDir": "permission",
-          "count": 2
-        },
-        {
-          "fromDir": "chronos",
           "count": 1
         }
       ]

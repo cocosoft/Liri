@@ -123,11 +123,34 @@ export class SecurityPermissionView {
   private static instance: SecurityPermissionView;
   private rules: Map<string, PermissionRule> = new Map();
   private defaultAllow: boolean = true;
+  /** 主模块 deny 规则是否已同步成功 */
+  private rulesSynced = false;
+  /** 是否已尝试过同步（失败不重复重试，避免每次判定刷日志） */
+  private rulesSyncAttempted = false;
 
   constructor(defaultAllow: boolean = true) {
     this.defaultAllow = defaultAllow;
-    // P0-3：从主权限模块（permission_rules.json）同步 deny 规则，消除"空壳恒放行"
-    this.syncRulesFromMainModule();
+    // P0-3：从主权限模块（permission_rules.json）同步 deny 规则，消除"空壳恒放行"。
+    //
+    // ⚠️ 2026-10-20（静态导入图瘦身 P2）：**不再在构造期同步**。
+    // `security ↔ permission` 是**循环依赖**，构造期 `new RuleManager()` 的成败取决于
+    // import 求值顺序 —— 把 `chronos` 移出启动图后即实测到
+    // `ReferenceError: Cannot access 'RuleManager' before initialization` ⇒ 规则同步被
+    // catch 吞掉、静默退回默认放行（安全姿态被悄悄削弱，属 CD07 类问题）。
+    // ⇒ 改为**首次判定时惰性同步**（`ensureRulesSynced()`）：语义不变（判定前规则必已就绪）、
+    //    且与 import 顺序无关。见 `dev_docs/20261020/静态导入图瘦身-方案.md` §4.3。
+  }
+
+  /**
+   * 惰性同步主模块 deny 规则（幂等）
+   *
+   * 所有**读取规则**的入口都先调本方法 ⇒ 判定永远发生在同步之后；
+   * 失败时只尝试一次（与改造前的"构造期一次性尝试"同口径），不每次判定都刷 warn。
+   */
+  private ensureRulesSynced(): void {
+    if (this.rulesSynced || this.rulesSyncAttempted) return;
+    this.rulesSyncAttempted = true;
+    this.rulesSynced = this.syncRulesFromMainModule();
   }
 
   /**
@@ -135,7 +158,7 @@ export class SecurityPermissionView {
    * 主模块为异步决策链路（ChatManager 工具执行门禁），本管理器为 SecurityIntegration 的同步补充视图；
    * 两者共用同一规则存储，杜绝双实现规则不一致。
    */
-  private syncRulesFromMainModule(): void {
+  private syncRulesFromMainModule(): boolean {
     try {
       const mainRules = new RuleManager().loadRules();
       for (const rule of mainRules) {
@@ -155,10 +178,12 @@ export class SecurityPermissionView {
       if (this.rules.size > 0) {
         logger.info(`已从主权限模块同步 ${this.rules.size} 条 deny 规则`);
       }
+      return true;
     } catch (error) {
       logger.warn('从主权限模块同步规则失败（保持默认行为）', {
         error: String(error),
       });
+      return false;
     }
   }
 
@@ -244,6 +269,8 @@ export class SecurityPermissionView {
     name: string,
     context: PermissionContext = {}
   ): boolean {
+    // 判定前先确保主模块 deny 规则已同步（惰性、幂等；见 `ensureRulesSynced()`）
+    this.ensureRulesSynced();
     // 查找匹配的规�?
     const matchingRules = Array.from(this.rules.values()).filter((rule) => {
       if (rule.type !== type) return false;
@@ -340,6 +367,7 @@ export class SecurityPermissionView {
    * 获取所有规�?
    */
   getRules(): PermissionRule[] {
+    this.ensureRulesSynced();
     return Array.from(this.rules.values());
   }
 
@@ -347,6 +375,7 @@ export class SecurityPermissionView {
    * 获取规则数量
    */
   getRuleCount(): number {
+    this.ensureRulesSynced();
     return this.rules.size;
   }
 
@@ -355,6 +384,7 @@ export class SecurityPermissionView {
    * @param ruleId 规则ID
    */
   getRule(ruleId: string): PermissionRule | undefined {
+    this.ensureRulesSynced();
     return this.rules.get(ruleId);
   }
 
@@ -389,6 +419,7 @@ export class SecurityPermissionView {
    * 导出规则
    */
   exportRules(): PermissionRule[] {
+    this.ensureRulesSynced();
     return Array.from(this.rules.values());
   }
 

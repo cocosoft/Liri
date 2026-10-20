@@ -15,13 +15,28 @@ import type {
 // 2026-10-01 D-161（`R00-001` 倒挂收口）：改直连 `utils/cron`（infra）——
 // 原由 `@modules/tasks`（app）取 `computeNextCronRunMs` 构成 monitoring(infra) -> tasks(app) 倒挂
 import { computeNextCronRunMs } from '@modules/utils/cron';
-import { addCronTask, removeCronTasks, updateCronTask } from '@modules/chronos';
 import { getLogger } from '../logs/Logger.js';
 import { handleError } from '@modules/error';
 import { SCHEDULER_CHECK_INTERVAL_MS } from '@modules/types/schedulerLifecycle';
 import { IncidentManager } from '../incidents/IncidentManager.js';
 
 const logger = getLogger('monitoring:archival_cron');
+
+/**
+ * 惰性取 chronos（2026-10-20，静态导入图瘦身 P2）
+ *
+ * 之前这里是**静态** `import { addCronTask … } from '@modules/chronos'`，而入口文件
+ * `main.ts` → `monitoring` 是启动期静态链 ⇒ **整个 `chronos` 目录（26 文件 / 157 KB）
+ * 被拉进启动图**（实测 eager 图里 `chronos` 唯一的上游就是本文件）。
+ *
+ * 而 chronos 只在"文件级持久化调度"这两个入口（`registerArchivalCronTask` /
+ * `unregisterArchivalCronTask`）才需要；推荐的 `setupArchivalScheduler`（纯内存调度）
+ * 完全不用它 ⇒ 改成**动态 import**，让 chronos 回到"首次使用才加载"。
+ * 详见 `dev_docs/20261020/静态导入图瘦身-方案.md` P2 切点 #1。
+ */
+async function loadChronos(): Promise<typeof import('@modules/chronos')> {
+  return import('@modules/chronos');
+}
 
 /** 默认归档 cron 表达式：每日凌晨 3 点 */
 export const DEFAULT_ARCHIVAL_CRON = '0 3 * * *';
@@ -179,6 +194,7 @@ export async function registerArchivalCronTask(
   dir?: string
 ): Promise<string> {
   const expression = cron ?? DEFAULT_ARCHIVAL_CRON;
+  const { addCronTask, updateCronTask } = await loadChronos();
 
   const taskId = await addCronTask(
     expression,
@@ -211,6 +227,7 @@ export async function unregisterArchivalCronTask(
   dir?: string
 ): Promise<void> {
   const id = taskId || ARCHIVAL_TASK_ID;
+  const { removeCronTasks } = await loadChronos();
   await removeCronTasks([id], dir);
   logger.info('归档定时任务已注销', { taskId: id });
 }

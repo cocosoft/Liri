@@ -90,12 +90,14 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
     prompt?: () => string;
     maxToolCalls?: number;
     timeoutMinutes?: number;
+    savedSession?: string;
+    hangOnExecution?: boolean;
   }) {
     const sessions: string[] = [];
     const reports: Array<{ planId: string; markdown: string }> = [];
-    let toolCallHook:
-      | ((phase: 'start' | 'end', name: string) => void)
-      | undefined;
+    const notified: Array<{ planId: string; success: boolean }> = [];
+    const taskTypes: string[] = [];
+    let savedSessionId: string | undefined;
 
     const bridge = createAlwaysOnBridge({
       projectId: 'proj-1',
@@ -109,8 +111,20 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
         sessions.push('s1');
         return 's1';
       },
-      sendPrompt: async (_sid, prompt, hooks) => {
-        toolCallHook = hooks.onToolCall;
+      loadSession: async () => options?.savedSession,
+      saveSession: async (_projectId, sessionId) => {
+        savedSessionId = sessionId;
+      },
+      sendPrompt: async (_sid, prompt, hooks, opts) => {
+        if (opts?.taskType) taskTypes.push(opts.taskType);
+        // 超时用例：挂起直到被 abort（验证「真正中止」而非仅记失败）
+        if (options?.hangOnExecution && opts?.taskType === 'coding') {
+          return new Promise<string>((_resolve, reject) => {
+            opts.abortSignal?.addEventListener('abort', () =>
+              reject(new Error('aborted'))
+            );
+          });
+        }
         // 模拟两次工具调用 + 一次用量
         hooks.onToolCall?.('start', 'grep');
         hooks.onToolCall?.('end', 'grep');
@@ -126,8 +140,19 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
         reports.push({ planId, markdown });
         return `/reports/${planId}.md`;
       },
+      notifyReport: async (input) => {
+        notified.push({ planId: input.planId, success: input.success });
+        return true;
+      },
     });
-    return { bridge, sessions, reports, getHook: () => toolCallHook };
+    return {
+      bridge,
+      sessions,
+      reports,
+      notified,
+      taskTypes,
+      getSaved: () => savedSessionId,
+    };
   }
 
   it('discovery：解析出计划；会话只建一次', async () => {
@@ -185,6 +210,53 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
         timeoutMinutes: 3,
       })
     ).toContain('7 次工具调用');
+  });
+
+  /** v1.1（方案 §9 偏差处理）：会话跨重启复用 */
+  it('会话复用：loadSession 命中 ⇒ 不新建会话', async () => {
+    const { bridge, sessions, getSaved } = makeBridge({
+      savedSession: 'saved-session',
+    });
+    await bridge.discovery();
+    expect(sessions).toEqual([]);
+    expect(getSaved()).toBeUndefined(); // 命中复用不会回写
+  });
+
+  it('会话新建：无记录 ⇒ createSession 并回写映射', async () => {
+    const { bridge, sessions, getSaved } = makeBridge();
+    await bridge.discovery();
+    expect(sessions).toEqual(['s1']);
+    expect(getSaved()).toBe('s1');
+  });
+
+  /** v1.1：工具面收窄（discovery 只读面 / execution 可写面） */
+  it('taskType：discovery=messaging（只读面）、execution=coding（可写面）', async () => {
+    const { bridge, taskTypes } = makeBridge();
+    await bridge.discovery();
+    await bridge.execution('/tmp/demo');
+    expect(taskTypes).toEqual(['messaging', 'coding']);
+  });
+
+  /** v1.1：超时真正中止（底层收到 abortSignal 并被 reject，而不是仅记失败） */
+  it('execution：超时触发 abort ⇒ 失败且记 timeout', async () => {
+    const { bridge } = makeBridge({
+      timeoutMinutes: 0.001, // 60ms
+      hangOnExecution: true,
+    });
+    await bridge.discovery();
+    const result = await bridge.execution('/tmp/demo');
+    expect(result.success).toBe(false);
+    expect(result.errors.join()).toContain('timeout');
+  });
+
+  /** v1.1：报告投递主动通知 */
+  it('report：写盘后调用 notifyReport（携带成功标记）', async () => {
+    const { bridge, notified } = makeBridge();
+    await bridge.discovery();
+    const result = await bridge.execution('/tmp/demo');
+    await bridge.report(result);
+    expect(notified).toHaveLength(1);
+    expect(notified[0]!.success).toBe(true);
   });
 });
 

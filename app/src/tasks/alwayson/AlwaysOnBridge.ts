@@ -33,14 +33,32 @@ export interface AlwaysOnBridgeDeps {
   limits: { maxToolCalls: number; timeoutMinutes: number };
   /** 建一条专用会话（幂等由宿主保证） */
   createSession: (project: { id: string; name: string }) => Promise<string>;
-  /** 发一条内部消息并返回助手最终文本 */
+  /** 读取该项目上次使用的会话（跨重启复用；无记录 ⇒ undefined） */
+  loadSession: (projectId: string) => Promise<string | undefined>;
+  /** 记住该项目使用的会话（供下次启动复用） */
+  saveSession: (projectId: string, sessionId: string) => Promise<void>;
+  /**
+   * 发一条内部消息并返回助手最终文本。
+   *
+   * @param options.taskType 工具面收窄（经编排器 `metadata.taskType` 生效）：
+   *   discovery 用 `'messaging'`（只读面），execution 用 `'coding'`（可写面）
+   * @param options.abortSignal 超时中止（宿主应映射到 `streamMessage` 的 `signal`）
+   */
   sendPrompt: (
     sessionId: string,
     prompt: string,
-    hooks: AlwaysOnPromptHooks
+    hooks: AlwaysOnPromptHooks,
+    options?: { taskType?: string; abortSignal?: AbortSignal }
   ) => Promise<string>;
   /** 写报告并返回落盘路径 */
   writeReport: (planId: string, markdown: string) => Promise<string>;
+  /** 报告投递（主动通知；队列未启用/被门禁丢弃 ⇒ false） */
+  notifyReport: (input: {
+    planId: string;
+    title: string;
+    body: string;
+    success: boolean;
+  }) => Promise<boolean>;
 }
 
 /** 4 阶段实现（注入 `AlwaysOnRuntime`） */
@@ -120,12 +138,18 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
   let lastUsage: AlwaysOnUsage = {};
 
   const ensureSession = async (): Promise<string> => {
-    if (!sessionId) {
-      sessionId = await deps.createSession({
-        id: deps.projectId,
-        name: deps.projectName,
-      });
+    if (sessionId) return sessionId;
+    // v1.1：跨重启复用（映射由宿主持久化；无记录 ⇒ 新建并记住）
+    const saved = await deps.loadSession(deps.projectId);
+    if (saved) {
+      sessionId = saved;
+      return saved;
     }
+    sessionId = await deps.createSession({
+      id: deps.projectId,
+      name: deps.projectName,
+    });
+    await deps.saveSession(deps.projectId, sessionId);
     return sessionId;
   };
 
@@ -134,7 +158,9 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
     const text = await deps.sendPrompt(
       sid,
       buildDiscoveryPrompt(deps.projectName, deps.projectPath),
-      {}
+      {},
+      // 只读面：`messaging` 任务白名单不含写/执行类工具（file_read/search/network/…）
+      { taskType: 'messaging' }
     );
     const planId = `alwayson-${deps.projectId}-${Date.now()}`;
     const plan = parseAlwaysOnPlan(text, planId);
@@ -191,29 +217,33 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
     };
 
     const timeoutMs = deps.limits.timeoutMinutes * 60_000;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
     let output = '';
     let success = true;
     try {
-      output = await Promise.race([
-        deps.sendPrompt(
-          sid,
-          buildExecutionPrompt(workspacePath, plan, deps.limits),
-          hooks
-        ),
-        new Promise<string>((resolve) => {
-          timer = setTimeout(() => resolve(''), timeoutMs);
-        }),
-      ]);
-      if (output === '' && Date.now() - start >= timeoutMs) {
-        success = false;
-        errors.push(`timeout: ${deps.limits.timeoutMinutes}min`);
-      }
+      output = await deps.sendPrompt(
+        sid,
+        buildExecutionPrompt(workspacePath, plan, deps.limits),
+        hooks,
+        // 可写面：`coding` 任务白名单含 file/shell/code/search/network/…
+        { taskType: 'coding', abortSignal: controller.signal }
+      );
     } catch (error) {
       success = false;
-      errors.push(error instanceof Error ? error.message : String(error));
+      errors.push(
+        timedOut
+          ? `timeout: ${deps.limits.timeoutMinutes}min`
+          : error instanceof Error
+            ? error.message
+            : String(error)
+      );
     } finally {
-      if (timer) clearTimeout(timer);
+      clearTimeout(timer);
     }
 
     if (toolCalls > deps.limits.maxToolCalls) {
@@ -251,6 +281,25 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
       projectId: deps.projectId,
       path,
     });
+    // 主动通知（队列未启用 / 门禁 drop ⇒ false，不阻断本轮）
+    try {
+      await deps.notifyReport({
+        planId: plan.id,
+        title: `AlwaysOn · ${deps.projectName} 执行完成`,
+        body: [
+          `计划：${plan.summary}`,
+          `结果：${result.success ? '成功' : '失败'}`,
+          `工具调用：${result.toolCalls}`,
+          `耗时：${result.durationMs}ms`,
+        ].join('\n'),
+        success: result.success,
+      });
+    } catch (error) {
+      cg3Log('tasks:alwayson:bridge', 'warn', 'report:notify-failed', {
+        projectId: deps.projectId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
     return markdown;
   };
 

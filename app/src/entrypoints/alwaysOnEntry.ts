@@ -1,13 +1,22 @@
 /**
- * AlwaysOn 入口接线（U-02，2026-10-20 最小可用自主执行 v1）。
+ * AlwaysOn 入口接线（U-02，2026-10-20 最小可用自主执行 v1.1）。
  *
- * 职责：把**宿主能力**（ChatManager / ProjectStore / 报告目录）装配成桥接器依赖，
+ * 职责：把**宿主能力**（ChatManager / ProjectStore / 报告目录 / 主动通知）装配成桥接器依赖，
  * 再交给 `bootstrapAlwaysOn()`。放在 `entrypoints/` 是为了守住 R00-001：
- * `tasks` 层不直接依赖 `chat` / `workspace` 的实现细节。
+ * `tasks` 层不直接依赖 `chat` / `workspace` / `proactive` 的实现细节。
+ *
+ * v1.1（处理方案 §9 偏差）：
+ * - 会话**跨重启复用**（`alwayson/sessions.json` projectId → sessionId）；
+ * - 超时**真正中止**（`streamMessage` + `AbortSignal`，不再只记失败）；
+ * - 工具面收窄（discovery `taskType='messaging'` 只读面 / execution `taskType='coding'`）；
+ * - 报告**主动通知**（复用主动队列 + 同一门禁与去重口径）；
+ * - 项目来源覆盖**所有工作空间**（`listAll()` + `default`，按项目 id 去重）。
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
+import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@modules/constants';
 import { feature, resolveDataDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
@@ -17,8 +26,14 @@ import {
   AlwaysOnManager,
   bootstrapAlwaysOn,
   createAlwaysOnBridge,
+  type AlwaysOnBridgeDeps,
   type AlwaysOnProject,
 } from '@modules/tasks';
+import { getActiveProactiveQueue } from '../proactive/ProactiveRuntime';
+import { resolveProactiveGatePrefs } from '../proactive/ProactiveCronProducer';
+import { evaluateProactiveNotification } from '../proactive/ProactiveNotificationGate';
+import type { ProactiveMessagePayload } from '../proactive/types';
+import { listAll } from '../workspaces/WorkspaceRegistry';
 
 const logger = getLogger('entrypoints:alwayson');
 
@@ -26,6 +41,43 @@ export interface AlwaysOnStartResult {
   registered: string[];
   started: boolean;
   teardown: () => void;
+}
+
+/** 读取 `alwayson/sessions.json`（损坏/缺失 ⇒ 空表，不阻断启动） */
+function readSessionMap(file: string): Record<string, string> {
+  try {
+    const raw = JSON.parse(readFileSync(file, 'utf8')) as unknown;
+    return raw !== null && typeof raw === 'object'
+      ? (raw as Record<string, string>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+/** 汇总所有工作空间的项目（`default` + 注册表；按项目 id 去重，只取有 sandboxPath 者） */
+async function collectProjects(
+  projectStore: ReturnType<typeof createProjectStore>
+): Promise<AlwaysOnProject[]> {
+  const workspaceIds = new Set<string>(['default']);
+  try {
+    for (const name of Object.keys(await listAll())) workspaceIds.add(name);
+  } catch {
+    // 注册表不可读 ⇒ 仅 default（不阻断启动）
+  }
+
+  const byId = new Map<string, AlwaysOnProject>();
+  for (const workspaceId of workspaceIds) {
+    for (const project of projectStore.list(workspaceId)) {
+      if (!project.sandboxPath || byId.has(project.id)) continue;
+      byId.set(project.id, {
+        id: project.id,
+        name: project.name,
+        path: project.sandboxPath,
+      });
+    }
+  }
+  return [...byId.values()];
 }
 
 /**
@@ -43,17 +95,73 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   const chatManager = getCoreAPI().getChatManager();
   const dataDir = resolveDataDir();
   const projectStore = createProjectStore(dataDir, new WorkItemStore(dataDir));
-  const projects: AlwaysOnProject[] = projectStore
-    .list('default')
-    .filter((project) => Boolean(project.sandboxPath))
-    .map((project) => ({
-      id: project.id,
-      name: project.name,
-      path: project.sandboxPath as string,
-    }));
+  const projects = await collectProjects(projectStore);
 
   const reportDir = join(dataDir, 'alwayson', 'reports');
+  const sessionFile = join(dataDir, 'alwayson', 'sessions.json');
   const manager = new AlwaysOnManager();
+
+  const sendPrompt: AlwaysOnBridgeDeps['sendPrompt'] = async (
+    sessionId,
+    prompt,
+    hooks,
+    options
+  ) => {
+    // 用流式入口承载：只有它支持 AbortSignal（超时才能真正中止底层请求）
+    const stream = chatManager.streamMessage(prompt, {
+      sessionId,
+      priority: 'background',
+      _fromInternal: true,
+      _fromInternalSource: 'alwayson',
+      ...(options?.taskType
+        ? { metadata: { taskType: options.taskType } }
+        : {}),
+      ...(options?.abortSignal ? { signal: options.abortSignal } : {}),
+      onToolCall: (phase, toolName) => hooks.onToolCall?.(phase, toolName),
+      onUsage: (usage) => hooks.onUsage?.(usage),
+    });
+    let step = await stream.next();
+    while (!step.done) step = await stream.next();
+    const content = step.value?.content;
+    return typeof content === 'string' ? content : '';
+  };
+
+  const notifyReport: AlwaysOnBridgeDeps['notifyReport'] = async ({
+    planId,
+    title,
+    body,
+    success,
+  }) => {
+    const queue = getActiveProactiveQueue();
+    if (!queue) return false;
+
+    const now = Date.now();
+    const payload: ProactiveMessagePayload = {
+      id: `proactive-alwayson-${randomUUID()}`,
+      kind: 'task_result',
+      priority: success ? 'low' : 'normal',
+      dedupeKey: `alwayson:${planId}`,
+      title,
+      body,
+      target: { mode: 'local' },
+      createdAt: now,
+      expiresAt: now + MS_PER_DAY,
+      source: { type: 'alwayson', ref: planId },
+    };
+    const recent = await queue.listRecentDelivered(now - MS_PER_DAY);
+    const decision = evaluateProactiveNotification(payload, {
+      now,
+      timezone: DEFAULT_TIMEZONE,
+      prefs: resolveProactiveGatePrefs(),
+      recent,
+    });
+    if (decision.action === 'drop') return false;
+    return queue.enqueue(
+      payload,
+      now,
+      decision.action === 'queue' ? decision.retryAt : now
+    );
+  };
 
   const result = bootstrapAlwaysOn({
     enabled: true,
@@ -73,24 +181,28 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
           });
           return session.id;
         },
-        sendPrompt: async (sessionId, prompt, hooks) => {
-          const message = await chatManager.sendMessage(prompt, {
-            sessionId,
-            priority: 'background',
-            _fromInternal: true,
-            _fromInternalSource: 'alwayson',
-            onToolCall: (phase, toolName) =>
-              hooks.onToolCall?.(phase, toolName),
-            onUsage: (usage) => hooks.onUsage?.(usage),
-          });
-          return typeof message.content === 'string' ? message.content : '';
+        loadSession: async (projectId) =>
+          readSessionMap(sessionFile)[projectId],
+        saveSession: async (projectId, sessionId) => {
+          mkdirSync(dirname(sessionFile), { recursive: true });
+          writeFileSync(
+            sessionFile,
+            `${JSON.stringify(
+              { ...readSessionMap(sessionFile), [projectId]: sessionId },
+              null,
+              2
+            )}\n`,
+            'utf8'
+          );
         },
+        sendPrompt,
         writeReport: async (planId, markdown) => {
           mkdirSync(reportDir, { recursive: true });
           const file = join(reportDir, `${planId}.md`);
           writeFileSync(file, markdown, 'utf8');
           return file;
         },
+        notifyReport,
       }),
   });
 

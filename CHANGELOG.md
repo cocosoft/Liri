@@ -24,12 +24,12 @@
 
 #### 未发布变更（2026-10-20）
 
-- 🔧 **编译期裁剪机制（P1-0 / P1-pre，默认零行为变更）** - `ChannelCatalog` 飞书条目改为反向开关
-  `--feature=DROP_CHANNEL_FEISHU`（**未声明即保留**）；同时拆除 `channels/index.ts` 中 25 个通道实现的
-  再导出（11 个引用方均只用 registry / 类型 / 常量，零消费者，`tsc` 一次通过）。
-  **产物验收**：同一入口下 drop 比 keep **−6.72 MB（46.61→39.89 MB，−14.4%）**，
-  `@larksuiteoapi/node-sdk` 6.39 MB 归零、`FeishuChannel` 标记消失。
-  后续：其余 25 个通道与工具侧按同一模式推广（方案见 `dev_docs/20261020/主包瘦身-编译期裁剪-方案.md`）。
+- 🔧 **编译期裁剪机制（P1-0 / P1-pre / 通道侧收口，默认零行为变更）** - `ChannelCatalog` 支持三层反向开关：
+  `DROP_CHANNELS_ALL`（整组）/ `DROP_CHANNEL_FEISHU`（单通道）/ 均未声明（全量，**默认行为不变**）；
+  同时拆除 `channels/index.ts` 中 25 个通道实现的再导出（11 个引用方均只用 registry / 类型 / 常量，零消费者）。
+  **产物验收**：默认 46.61 MB → 单飞书 **39.89 MB（−14.4%）** → 整组 **38.85 MB（−16.7%）**；
+  通道目录 44→20，`@larksuiteoapi` 6.39 MB 归零。
+  **结论**：通道侧收益已收口（整组仅比单飞书多省 1.04 MB），剩余空间在工具侧。
 
 - ✅ **主动消息可投递到 IM 通道（U-01 方案 A）** - 新增 `proactive.target.channelId` + `proactive.target.conversationId`
   配置：**两者同时非空**才把 Cron / AlwaysOn 的完成通知经 `DeliveryRouter` 发到该通道，否则维持通知中心

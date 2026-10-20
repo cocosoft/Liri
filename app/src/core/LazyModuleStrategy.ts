@@ -487,10 +487,43 @@ export function getOnDemandModuleIds(allOrderedModules: string[]): string[] {
 
 /**
  * 获取模块的加载优先级
+ *
+ * 2026-10-21（内核瘦身 P2）：**未登记的模块默认 `DEFERRED`**（原为 `CRITICAL`）。
+ *
+ * 理由：`内核瘦身-方案.md` §3 B3 的验收口径是「新增模块默认 DEFERRED，要进 CRITICAL 必须注明理由」。
+ * 旧默认值恰好相反 —— 忘记登记的模块会被当成"启动必需"，启动面**静默回涨**且无人察觉。
+ * 改为 DEFERRED 后，"未登记"的语义与门禁一致：**不进启动面**。
+ *
+ * 注意：真正决定"启动时同步加载"的是 `getEssentialModuleIds()`，它要求 `config` 存在且为 CRITICAL
+ * ⇒ 未登记模块本来就不会进 T1；本函数只影响"是否可延迟"这一语义判断。
  */
 export function getModulePriority(moduleId: string): ModuleLoadPriority {
   const config = LAZY_MODULE_STRATEGY[moduleId];
-  return config ? config.priority : ModuleLoadPriority.CRITICAL;
+  return config ? config.priority : ModuleLoadPriority.DEFERRED;
+}
+
+/**
+ * 策略表**已登记**的模块 id（内核瘦身 P2 门禁消费）
+ *
+ * 与 `MODULE_INITIALIZATION_ORDER` 的差集就是"未登记模块" —— 它们不会被任何阶段初始化，
+ * 由 `lint:critical-modules` 阻断（见 `scripts/criticalModulesCore.ts` ⑤）。
+ */
+export function getDeclaredModuleIds(): string[] {
+  return Object.keys(LAZY_MODULE_STRATEGY);
+}
+
+/**
+ * 当前 CRITICAL 清单及其登记理由（内核瘦身 P2 门禁消费）
+ *
+ * `reason` 直接取策略表的 `trigger` —— **不维护第二份理由文案**，避免与实现漂移。
+ */
+export function getCriticalModuleRegistry(): Array<{
+  id: string;
+  reason: string;
+}> {
+  return Object.entries(LAZY_MODULE_STRATEGY)
+    .filter(([, config]) => config.priority === ModuleLoadPriority.CRITICAL)
+    .map(([id, config]) => ({ id, reason: config.trigger }));
 }
 
 /**

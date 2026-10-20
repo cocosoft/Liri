@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "recordedAt": "2026-10-20",
+  "note": "CRITICAL 清单棘轮基线：新增条目必须在此报备理由；由 `bun run lint:critical-modules --update` 生成。",
+  "modules": [
+    {
+      "id": "ai",
+      "reason": "核心 AI 功能"
+    },
+    {
+      "id": "bootstrap",
+      "reason": "启动引导"
+    },
+    {
+      "id": "cache",
+      "reason": "缓存系统"
+    },
+    {
+      "id": "channels",
+      "reason": "启动时自动注册通道"
+    },
+    {
+      "id": "commands",
+      "reason": "命令系统启动时初始化"
+    },
+    {
+      "id": "config",
+      "reason": "配置管理"
+    },
+    {
+      "id": "context",
+      "reason": "上下文管理"
+    },
+    {
+      "id": "core",
+      "reason": "启动必需"
+    },
+    {
+      "id": "doc",
+      "reason": "启动必需（注册 MCP 工具）"
+    },
+    {
+      "id": "ecosystem",
+      "reason": "生态基础设施"
+    },
+    {
+      "id": "error",
+      "reason": "错误处理基础设施"
+    },
+    {
+      "id": "gateway",
+      "reason": "Gateway 通道服务启动时初始化"
+    },
+    {
+      "id": "hooks",
+      "reason": "事件系统"
+    },
+    {
+      "id": "infrastructure",
+      "reason": "启动必需"
+    },
+    {
+      "id": "logger",
+      "reason": "日志基础设施"
+    },
+    {
+      "id": "mcp",
+      "reason": "启动必需（doc 模块依赖 mcp 注册 MCP 工具）"
+    },
+    {
+      "id": "modules",
+      "reason": "模块系统自身"
+    },
+    {
+      "id": "monitoring",
+      "reason": "监控服务启动时启动"
+    },
+    {
+      "id": "performance",
+      "reason": "性能追踪系统"
+    },
+    {
+      "id": "plugin-sdk",
+      "reason": "启动必需"
+    },
+    {
+      "id": "plugins",
+      "reason": "可扩展性服务启动时初始化"
+    },
+    {
+      "id": "sdk",
+      "reason": "SDK 基础设施"
+    },
+    {
+      "id": "tools",
+      "reason": "工具管理器启动时预创建"
+    }
+  ]
+}

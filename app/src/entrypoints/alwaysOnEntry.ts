@@ -17,6 +17,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@modules/constants';
+import { configManager } from '@modules/config';
 import { feature, resolveDataDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
@@ -43,6 +44,7 @@ import {
 } from '@modules/tasks';
 import { checkDailyBudget } from '../query/dailyBudgetGate';
 import { getActiveProactiveQueue } from '../proactive/ProactiveRuntime';
+import { resolveProactiveTarget } from '../proactive/ProactiveTargetResolver';
 import { resolveProactiveGatePrefs } from '../proactive/ProactiveCronProducer';
 import { evaluateProactiveNotification } from '../proactive/ProactiveNotificationGate';
 import type { ProactiveMessagePayload } from '../proactive/types';
@@ -427,7 +429,8 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
       dedupeKey: `alwayson:${planId}`,
       title,
       body,
-      target: { mode: 'local' },
+      // U-01 方案 A：显式配置了 `proactive.target.*` 才外发到通道，否则写通知中心。
+      target: resolveProactiveTarget(configManager),
       createdAt: now,
       expiresAt: now + MS_PER_DAY,
       source: { type: 'alwayson', ref: planId },

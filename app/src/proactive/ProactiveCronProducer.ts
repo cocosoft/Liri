@@ -17,6 +17,7 @@ import { getLogger } from '@modules/monitoring';
 import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@modules/constants';
 import { getActiveProactiveQueue } from './ProactiveRuntime';
 import { evaluateProactiveNotification } from './ProactiveNotificationGate';
+import { resolveProactiveTarget } from './ProactiveTargetResolver';
 import type {
   ProactiveDndWindow,
   ProactiveGatePrefs,
@@ -41,6 +42,8 @@ export interface CronProactiveDeps {
   prefs?: ProactiveGatePrefs;
   timezone?: string;
   now?: number;
+  /** 投递目标（缺省按 `proactive.target.*` 配置解析；测试可注入） */
+  target?: ProactiveMessagePayload['target'];
 }
 
 function asDndWindow(value: unknown): ProactiveDndWindow | undefined {
@@ -76,7 +79,8 @@ export function resolveProactiveGatePrefs(): ProactiveGatePrefs {
  */
 export function buildCronProactivePayload(
   input: CronProactiveInput,
-  now: number
+  now: number,
+  target: ProactiveMessagePayload['target'] = { mode: 'local' }
 ): ProactiveMessagePayload {
   const jobRef = input.job.id || input.job.name;
   const failed = input.result.success === false;
@@ -91,7 +95,7 @@ export function buildCronProactivePayload(
     dedupeKey: `cron:${jobRef}:${failed ? 'fail' : 'ok'}:${runBucket}`,
     title: input.title,
     body: input.body,
-    target: { mode: 'local' },
+    target,
     createdAt: now,
     expiresAt: now + MS_PER_DAY,
     source: { type: 'cron', ref: jobRef },
@@ -114,7 +118,9 @@ export async function enqueueCronResultProactive(
   const now = deps.now ?? Date.now();
   const prefs = deps.prefs ?? resolveProactiveGatePrefs();
   const timezone = deps.timezone ?? DEFAULT_TIMEZONE;
-  const payload = buildCronProactivePayload(input, now);
+  // U-01 方案 A（2026-10-20 用户裁定）：仅当显式配置了通道目标时才外发，否则维持通知中心。
+  const target = deps.target ?? resolveProactiveTarget(configManager);
+  const payload = buildCronProactivePayload(input, now, target);
 
   // 近期投递窗口覆盖最长冷却（默认风险告警 5min；这里取 1 天以覆盖限流窗口）
   const recent = await queue.listRecentDelivered(now - MS_PER_DAY);

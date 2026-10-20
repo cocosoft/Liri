@@ -24,6 +24,10 @@
 
 #### 未发布变更（2026-10-20）
 
+- ✅ **主动消息可投递到 IM 通道（U-01 方案 A）** - 新增 `proactive.target.channelId` + `proactive.target.conversationId`
+  配置：**两者同时非空**才把 Cron / AlwaysOn 的完成通知经 `DeliveryRouter` 发到该通道，否则维持通知中心
+  （零意外外发）。目标解析收敛为单一纯函数，两处生产者共用；空串/空白/非字符串一律按未配置处理。
+
 - ✅ **AlwaysOn 接入 snapshot-copy 回退** - git-worktree 不可用（非 git 仓库 / 工作区脏）时改用目录快照隔离
   （`<data>/alwayson/snapshots/<runId>`，排除 `.git`/`node_modules`/`dist` 等，>1 GiB 拒绝），
   解决这类项目"每轮跳过 ⇒ AlwaysOn 不可用"的盲区；该模式无 git 语义、不自动回灌 ⇒ 隔离区一律保留，

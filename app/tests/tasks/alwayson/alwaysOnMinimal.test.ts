@@ -230,11 +230,11 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
   });
 
   /** v1.1：工具面收窄（discovery 只读面 / execution 可写面） */
-  it('taskType：discovery=messaging（只读面）、execution=coding（可写面）', async () => {
+  it('taskType：discovery=alwayson_discovery（只读面）、execution=coding（可写面）', async () => {
     const { bridge, taskTypes } = makeBridge();
     await bridge.discovery();
     await bridge.execution('/tmp/demo');
-    expect(taskTypes).toEqual(['messaging', 'coding']);
+    expect(taskTypes).toEqual(['alwayson_discovery', 'coding']);
   });
 
   /** v1.1：超时真正中止（底层收到 abortSignal 并被 reject，而不是仅记失败） */

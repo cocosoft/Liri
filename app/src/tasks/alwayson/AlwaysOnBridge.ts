@@ -159,8 +159,9 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
       sid,
       buildDiscoveryPrompt(deps.projectName, deps.projectPath),
       {},
-      // 只读面：`messaging` 任务白名单不含写/执行类工具（file_read/search/network/…）
-      { taskType: 'messaging' }
+      // 只读面：专用任务类 `alwayson_discovery`（仅 file_read + search 两类；
+      // 不含 shell/file 写/session/channel/network）—— 见 `tools/toolCategories.ts`
+      { taskType: 'alwayson_discovery' }
     );
     const planId = `alwayson-${deps.projectId}-${Date.now()}`;
     const plan = parseAlwaysOnPlan(text, planId);

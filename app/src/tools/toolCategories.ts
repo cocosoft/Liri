@@ -427,6 +427,12 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'system',
     'channel',
   ],
+  // U-02（2026-10-20）：AlwaysOn **发现阶段**的最小工具面（只读 + 搜索）。
+  // 刻意**不含**：`shell`（命令执行）、`file`（写/改）、`session`（派生/删除会话）、
+  // `channel`（出站）、`network`（web_fetch / browser —— 可产生外部副作用）。
+  // ⚠️ `MANDATORY_TOOLS`（`todo_write` / `agent`）仍会被强制保留 —— 这是全仓统一约定，
+  //    本任务类型不单独例外；因此这里保证的是"**不含写盘/执行/会话/出站类**"，不是数学意义上的严格只读。
+  alwayson_discovery: ['file_read', 'search'],
   // 简单问答/摘要：最轻量
   quick: ['search', 'network', 'system'],
   // 翻译润色：文件读 + 轻量

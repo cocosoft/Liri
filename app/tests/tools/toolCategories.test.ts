@@ -76,6 +76,22 @@ describe('toolCategories — P0 工具可见性回归', () => {
     }
   });
 
+  test('U-02: alwayson_discovery 只保留只读/搜索类（裁掉写盘/执行/会话/出站）', () => {
+    const defs = [
+      { name: 'file_read' },
+      { name: 'grep' },
+      { name: 'file_write' },
+      { name: 'bash' },
+      { name: 'sessions' },
+      { name: 'channel' },
+      { name: 'web_fetch' },
+    ];
+    const kept = filterToolsByTask(defs, 'alwayson_discovery').map(
+      (t) => t.name
+    );
+    expect(kept).toEqual(['file_read', 'grep']);
+  });
+
   test('P3: todo_write 恒保留（mandatory），chat/default 裁剪后仍可见', () => {
     // todo_write 类别为 'task'，chat/default 白名单不含 'task'；
     // 修复后经 MANDATORY_TOOLS 恒保留 → 普通对话 TaskCard 可发起。

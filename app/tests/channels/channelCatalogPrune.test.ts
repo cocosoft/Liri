@@ -55,4 +55,22 @@ describe('ChannelCatalog · 编译期裁剪（DROP_CHANNEL_FEISHU / DROP_CHANNEL
     const types = CHANNEL_CATALOG.map((e) => e.type);
     expect(new Set(types).size).toBe(types.length);
   });
+
+  /**
+   * 拆桶后（2026-10-20）：通道实现**只**能经 `CHANNEL_CATALOG[].load()` 拿到。
+   * 本用例守住这条链：`exportKey` 必须真的存在于 `load()` 的结果上 —— 否则桶删了、
+   * 加载器又对不上，就是"通道静默消失"的隐性回归（此前被桶的再导出掩盖）。
+   */
+  it('load() 与 exportKey 一致（拆桶后加载链不空转）', async () => {
+    if (feature('DROP_CHANNELS_ALL')) return; // 整组裁剪下无可加载条目
+    const types = feature('DROP_CHANNEL_FEISHU')
+      ? ['telegram', 'email']
+      : ['telegram', 'feishu', 'email'];
+    for (const type of types) {
+      const entry = CHANNEL_CATALOG.find((e) => e.type === type);
+      expect(entry).toBeDefined();
+      const mod = await entry!.load();
+      expect(typeof mod[entry!.exportKey]).not.toBe('undefined');
+    }
+  });
 });

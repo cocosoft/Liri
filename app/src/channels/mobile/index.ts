@@ -10,12 +10,15 @@ export {
   createMobileChannel,
   mobileChannelPlugin,
   buildMobileMessageContext,
+  parseMobileInboundBody,
   setMobileOutboundSink,
   getMobileOutboundSink,
 } from './MobileChannel.js';
 export type {
   MobileOutboundPayload,
   MobileOutboundSink,
+  MobileInboundInput,
+  MobileInboundParse,
 } from './MobileChannel.js';
 export {
   getDefaultMobileConfig,

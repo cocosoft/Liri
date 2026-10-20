@@ -29,6 +29,9 @@ import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('channels:mobile:MobileChannel');
 
+/** 移动端单条文本上限（与 `meta.maxMessageLength` 同源） */
+export const MOBILE_MAX_TEXT_LENGTH = 8000;
+
 /** 出站载荷（SSE `event: mobile:message` 的 `data`） */
 export interface MobileOutboundPayload {
   event: 'mobile:message';
@@ -77,7 +80,7 @@ const MOBILE_META: ChannelMeta = {
   vendorSite: '',
   icon: 'smartphone',
   markdownCapable: true,
-  maxMessageLength: 8000,
+  maxMessageLength: MOBILE_MAX_TEXT_LENGTH,
   supportedMessageTypes: ['text', 'markdown'],
 };
 
@@ -223,6 +226,69 @@ export function buildMobileMessageContext(input: {
     rawPayload: {
       channel: 'mobile',
       deviceId: input.deviceId,
+    },
+  };
+}
+
+/** 入站请求体（`POST /v1/channels/mobile/messages`）的标准化结果 */
+export interface MobileInboundInput {
+  deviceId: string;
+  conversationId: string;
+  text: string;
+  messageId?: string;
+}
+
+export type MobileInboundParse =
+  | { ok: true; value: MobileInboundInput }
+  | { ok: false; error: string };
+
+/**
+ * 校验并归一移动端入站请求体（**纯函数**，边界校验的唯一入口）。
+ *
+ * 口径：
+ * - `deviceId` 必填（身份维度；后续批次接设备配对短 token）；
+ * - `text` 必填、去首尾空白后非空、长度 ≤ {@link MOBILE_MAX_TEXT_LENGTH}；
+ * - `conversationId` 缺省 ⇒ 回落到 `deviceId`（DM 语义，不臆造新 id）；
+ * - `messageId` 可选（缺省由 handler 生成 UUID，见 `handleMobileInboundMessage`）。
+ */
+export function parseMobileInboundBody(raw: unknown): MobileInboundParse {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return { ok: false, error: 'body must be a JSON object' };
+  }
+  const body = raw as Record<string, unknown>;
+
+  const deviceId =
+    typeof body['deviceId'] === 'string' ? body['deviceId'].trim() : '';
+  if (!deviceId) return { ok: false, error: 'deviceId is required' };
+
+  const text = typeof body['text'] === 'string' ? body['text'].trim() : '';
+  if (!text) return { ok: false, error: 'text is required' };
+  if (text.length > MOBILE_MAX_TEXT_LENGTH) {
+    return {
+      ok: false,
+      error: `text exceeds ${MOBILE_MAX_TEXT_LENGTH} characters`,
+    };
+  }
+
+  const conversationRaw = body['conversationId'];
+  const conversationId =
+    typeof conversationRaw === 'string' && conversationRaw.trim()
+      ? conversationRaw.trim()
+      : deviceId;
+
+  const messageRaw = body['messageId'];
+  const messageId =
+    typeof messageRaw === 'string' && messageRaw.trim()
+      ? messageRaw.trim()
+      : undefined;
+
+  return {
+    ok: true,
+    value: {
+      deviceId,
+      conversationId,
+      text,
+      ...(messageId ? { messageId } : {}),
     },
   };
 }

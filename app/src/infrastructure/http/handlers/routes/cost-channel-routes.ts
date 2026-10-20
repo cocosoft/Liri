@@ -72,6 +72,7 @@ import {
   handleDeleteChannel,
   handleGetChannel,
   handleListChannels,
+  handleMobileInboundMessage,
   handleToggleChannel,
   handleUpdateChannel,
   handleWechatCliStatus,
@@ -351,6 +352,12 @@ export async function dispatchCostChannelRoutes(
   // ---- Channels ----
   if (method === 'GET' && url === '/v1/channels') {
     await handleListChannels(req, res);
+    return true;
+  }
+  // 2026-10-20（P2.5）：移动端**入站**消息 —— 复用 LocalHTTPService 的鉴权与路由单管线。
+  // 放在 `/v1/channels/(.+)` 通配之前；`DROP_CHANNELS_ALL` 构建下 handler 返回 404。
+  if (method === 'POST' && url === '/v1/channels/mobile/messages') {
+    await handleMobileInboundMessage(req, res);
     return true;
   }
   // P0-1（4.1）：字段渲染元数据端点，先于 /v1/channels/(.+) 匹配

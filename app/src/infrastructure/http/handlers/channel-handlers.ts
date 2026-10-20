@@ -20,6 +20,7 @@
 // SOFTWARE.
 
 import type http from 'http';
+import { randomUUID } from 'crypto';
 import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
 import { getLogger, getMetricsService } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -639,8 +640,102 @@ export async function handleWechatCliStatus(
   }
 }
 
-// ========== Channel Health（4.12 / P2-6）==========
+/**
+ * 移动端入站消息（P2.5，2026-10-20）
+ * POST /v1/channels/mobile/messages
+ *
+ * 分工（方案 §2.6）：
+ * - **传输**：本端点挂在 `LocalHTTPService` 上 ⇒ 复用统一鉴权（Bearer / api-key / 登录 token）；
+ * - **语义**：`mobile` 通道只做身份与规矩（`channelId='mobile'` ⇒ `CHANNEL_TOOL_POLICY` 自动按
+ *   `messaging` 面裁剪，不含执行类）；
+ * - **路由**：与其它通道共用 `routeChannelMessage` 单管线（帧验证 / 去重 / DM 策略 / Inbox 桥接）。
+ *
+ * ⚠️ 设备级短期 token 与入站审计**尚未接入**（后续批次）；当前边界 = LocalHTTPService 鉴权。
+ */
+export async function handleMobileInboundMessage(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    // `DROP_CHANNELS_ALL`（core）不含任何通道 ⇒ 该端点不存在。
+    // ⚠️ 与 wechat 同口径：动态 import 必须写在 `feature()` 的三元分支**内部**，否则 DCE 不清理。
+    const mobile = buildFeature('DROP_CHANNELS_ALL')
+      ? null
+      : await import('@modules/channels/mobile');
 
+    if (!mobile) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'Mobile channel is not included in this build' },
+        })
+      );
+      return;
+    }
+
+    const raw = await readRequestBody(req);
+    let body: unknown;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'invalid JSON body' } }));
+      return;
+    }
+
+    const parsed = mobile.parseMobileInboundBody(body);
+    if (!parsed.ok) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: parsed.error } }));
+      return;
+    }
+
+    const message = mobile.buildMobileMessageContext({
+      deviceId: parsed.value.deviceId,
+      conversationId: parsed.value.conversationId,
+      text: parsed.value.text,
+      messageId: parsed.value.messageId ?? randomUUID(),
+    });
+
+    const [{ routeChannelMessage }, { mobileChannelPlugin }] =
+      await Promise.all([
+        import('@modules/channels/routing/messageRouter'),
+        import('@modules/channels/mobile'),
+      ]);
+
+    const result = await routeChannelMessage(message, {
+      coreAPI: getCoreAPI(),
+      channelName: 'mobile',
+      enableTracing: true,
+      // 移动端是「某人的 Liri」的接入端：设备信任由传输层 + 后续配对 token 承担
+      dmPolicy: { policy: 'open', allowFrom: [] },
+      onOutbound: async (content, target) => {
+        // 出站统一走通道的 SSE sink（`event: mobile:message`）
+        await mobileChannelPlugin.outbound.sendMarkdown(target, content);
+      },
+    });
+
+    if (!result.valid) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            code: result.errorCode,
+            message: result.errorMessage,
+          },
+        })
+      );
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, messageId: message.messageId }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+// ========== Channel Health（4.12 / P2-6）==========
 /**
  * 获取所有通道字段渲染元数据（4.1 / P0-1）
  * GET /v1/channels/schema — 前端表单渲染依据，替代前端硬编码 PLATFORM_FIELDS

@@ -14,7 +14,9 @@ import {
   buildMobileMessageContext,
   getMobileOutboundSink,
   mobileChannelPlugin,
+  parseMobileInboundBody,
   setMobileOutboundSink,
+  MOBILE_MAX_TEXT_LENGTH,
   type MobileOutboundPayload,
 } from '../../src/channels/mobile/MobileChannel';
 import {
@@ -125,5 +127,57 @@ describe('MobileChannel：入站上下文', () => {
     expect(ctx.timestamp).toBe(123);
     expect(ctx.isDirectMessage).toBe(true);
     expect(ctx.rawPayload['deviceId']).toBe('dev-1');
+  });
+});
+
+describe('MobileChannel：入站请求体校验（POST /v1/channels/mobile/messages）', () => {
+  it('最小合法体：deviceId + text ⇒ conversationId 回落到 deviceId', () => {
+    const parsed = parseMobileInboundBody({ deviceId: 'd1', text: '  hi  ' });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.deviceId).toBe('d1');
+    expect(parsed.value.conversationId).toBe('d1');
+    expect(parsed.value.text).toBe('hi');
+    expect(parsed.value.messageId).toBeUndefined();
+  });
+
+  it('显式 conversationId / messageId 原样保留', () => {
+    const parsed = parseMobileInboundBody({
+      deviceId: 'd1',
+      conversationId: 'c1',
+      messageId: 'm1',
+      text: 'ok',
+    });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.conversationId).toBe('c1');
+    expect(parsed.value.messageId).toBe('m1');
+  });
+
+  it('缺 deviceId / 空 text ⇒ 拒绝（fail-closed）', () => {
+    expect(parseMobileInboundBody({ text: 'x' })).toEqual({
+      ok: false,
+      error: 'deviceId is required',
+    });
+    expect(parseMobileInboundBody({ deviceId: 'd1', text: '   ' })).toEqual({
+      ok: false,
+      error: 'text is required',
+    });
+  });
+
+  it('超长文本 ⇒ 拒绝并给出上限', () => {
+    const parsed = parseMobileInboundBody({
+      deviceId: 'd1',
+      text: 'x'.repeat(MOBILE_MAX_TEXT_LENGTH + 1),
+    });
+    expect(parsed.ok).toBe(false);
+    if (parsed.ok) return;
+    expect(parsed.error).toContain(String(MOBILE_MAX_TEXT_LENGTH));
+  });
+
+  it('非对象 / 数组 ⇒ 拒绝', () => {
+    expect(parseMobileInboundBody('nope').ok).toBe(false);
+    expect(parseMobileInboundBody(null).ok).toBe(false);
+    expect(parseMobileInboundBody(['d1', 'hi']).ok).toBe(false);
   });
 });

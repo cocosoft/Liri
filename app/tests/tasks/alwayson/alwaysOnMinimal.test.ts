@@ -92,11 +92,17 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
     timeoutMinutes?: number;
     savedSession?: string;
     hangOnExecution?: boolean;
+    /** 模拟脏仓/非 git：prepareWorkspace 返回跳过原因 */
+    skipWorkspace?: string;
+    /** 模拟收尾结果（`patchPath: null` ⇒ 无改动） */
+    patchPath?: string | null;
   }) {
     const sessions: string[] = [];
     const reports: Array<{ planId: string; markdown: string }> = [];
-    const notified: Array<{ planId: string; success: boolean }> = [];
+    const notified: Array<{ planId: string; success: boolean; body?: string }> =
+      [];
     const taskTypes: string[] = [];
+    const cwdCalls: Array<{ sid: string; cwd: string }> = [];
     let savedSessionId: string | undefined;
 
     const bridge = createAlwaysOnBridge({
@@ -114,6 +120,26 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
       loadSession: async () => options?.savedSession,
       saveSession: async (_projectId, sessionId) => {
         savedSessionId = sessionId;
+      },
+      prepareWorkspace: async ({ runId }) =>
+        options?.skipWorkspace
+          ? { skippedReason: options.skipWorkspace }
+          : {
+              workspace: {
+                cwd: '/tmp/wt',
+                strategy: 'git-worktree',
+                ref: { runId },
+              },
+            },
+      finishWorkspace: async () => ({
+        patchPath:
+          options?.patchPath === null
+            ? undefined
+            : (options?.patchPath ?? '/reports/p1.patch'),
+        diffBytes: options?.patchPath === null ? 0 : 12,
+      }),
+      setSessionWorkspace: async (sid, cwd) => {
+        cwdCalls.push({ sid, cwd });
       },
       sendPrompt: async (_sid, prompt, hooks, opts) => {
         if (opts?.taskType) taskTypes.push(opts.taskType);
@@ -141,7 +167,11 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
         return `/reports/${planId}.md`;
       },
       notifyReport: async (input) => {
-        notified.push({ planId: input.planId, success: input.success });
+        notified.push({
+          planId: input.planId,
+          success: input.success,
+          body: input.body,
+        });
         return true;
       },
     });
@@ -151,6 +181,7 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
       reports,
       notified,
       taskTypes,
+      cwdCalls,
       getSaved: () => savedSessionId,
     };
   }
@@ -171,13 +202,11 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
 
   it('execution：统计工具调用次数 / token，并生成报告文本', async () => {
     const { bridge, reports } = makeBridge();
-    await bridge.discovery();
-    const workspace = await bridge.workspace(
-      (await bridge.discovery()) ?? plan
-    );
+    const discovered = (await bridge.discovery()) ?? plan;
+    const workspace = await bridge.workspace(discovered);
     const result = await bridge.execution(workspace);
 
-    expect(workspace).toBe('/tmp/demo');
+    expect(workspace).toBe('/tmp/wt');
     expect(result.toolCalls).toBe(2);
     expect(result.success).toBe(true);
 
@@ -190,7 +219,7 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
   it('execution：工具调用超预算 ⇒ 失败并记 `maxToolCalls exceeded`', async () => {
     const { bridge } = makeBridge({ maxToolCalls: 1 });
     await bridge.discovery();
-    const result = await bridge.execution('/tmp/demo');
+    const result = await bridge.execution(await bridge.workspace(plan));
     expect(result.success).toBe(false);
     expect(result.errors.join()).toContain('maxToolCalls');
   });
@@ -233,7 +262,7 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
   it('taskType：discovery=alwayson_discovery（只读面）、execution=coding（可写面）', async () => {
     const { bridge, taskTypes } = makeBridge();
     await bridge.discovery();
-    await bridge.execution('/tmp/demo');
+    await bridge.execution(await bridge.workspace(plan));
     expect(taskTypes).toEqual(['alwayson_discovery', 'coding']);
   });
 
@@ -244,7 +273,7 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
       hangOnExecution: true,
     });
     await bridge.discovery();
-    const result = await bridge.execution('/tmp/demo');
+    const result = await bridge.execution(await bridge.workspace(plan));
     expect(result.success).toBe(false);
     expect(result.errors.join()).toContain('timeout');
   });
@@ -253,10 +282,60 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
   it('report：写盘后调用 notifyReport（携带成功标记）', async () => {
     const { bridge, notified } = makeBridge();
     await bridge.discovery();
-    const result = await bridge.execution('/tmp/demo');
+    const result = await bridge.execution(await bridge.workspace(plan));
     await bridge.report(result);
     expect(notified).toHaveLength(1);
     expect(notified[0]!.success).toBe(true);
+  });
+
+  /** v2（方案 §10.7 裁定 B）：脏仓 / 非 git ⇒ 跳过本轮，不做任何写操作 */
+  it('workspace：无法隔离 ⇒ 返回空串、跳过执行（不调用模型）并如实报告', async () => {
+    const { bridge, taskTypes, reports } = makeBridge({
+      skipWorkspace: 'not_git_repo_or_dirty',
+    });
+    await bridge.discovery();
+    const workspace = await bridge.workspace(plan);
+    expect(workspace).toBe('');
+
+    const result = await bridge.execution(workspace);
+    expect(result.success).toBe(false);
+    expect(result.errors).toEqual(['workspace-skipped: not_git_repo_or_dirty']);
+    // 只有 discovery 调过模型；execution 被跳过
+    expect(taskTypes).toEqual(['alwayson_discovery']);
+
+    const markdown = await bridge.report(result);
+    expect(markdown).toContain('未隔离（not_git_repo_or_dirty）');
+    expect(reports).toHaveLength(1);
+  });
+
+  /** v2 P1：执行前把会话 cwd 指向隔离区，discovery 阶段复位到项目根 */
+  it('setSessionWorkspace：discovery→项目根；execution→隔离区', async () => {
+    const { bridge, cwdCalls } = makeBridge();
+    await bridge.discovery();
+    await bridge.execution(await bridge.workspace(plan));
+    expect(cwdCalls).toEqual([
+      { sid: 's1', cwd: '/tmp/demo' },
+      { sid: 's1', cwd: '/tmp/wt' },
+    ]);
+  });
+
+  /** v2 P5：报告写明隔离策略与补丁路径（**未自动应用**） */
+  it('report：写明隔离策略、补丁路径与「未自动应用」', async () => {
+    const { bridge } = makeBridge();
+    await bridge.discovery();
+    const result = await bridge.execution(await bridge.workspace(plan));
+    const markdown = await bridge.report(result);
+    expect(markdown).toContain('git-worktree');
+    expect(markdown).toContain('/reports/p1.patch');
+    expect(markdown).toContain('未自动应用');
+  });
+
+  it('report：无改动 ⇒ Patch 行写「无改动」', async () => {
+    const { bridge } = makeBridge({ patchPath: null });
+    await bridge.discovery();
+    const result = await bridge.execution(await bridge.workspace(plan));
+    const markdown = await bridge.report(result);
+    expect(markdown).toContain('- **Patch**: 无改动');
   });
 });
 

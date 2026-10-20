@@ -1,12 +1,16 @@
 /**
- * AlwaysOn 桥接器（U-02，2026-10-20 最小可用自主执行 v1）。
+ * AlwaysOn 桥接器（U-02，2026-10-20 最小可用自主执行 v1 → v2）。
  *
- * 把「发一条内部消息 / 建一条专用会话 / 写报告」这些**宿主能力**以函数形式注入
+ * 把「发一条内部消息 / 建一条专用会话 / 写报告 / 准备隔离区」这些**宿主能力**以函数形式注入
  * （由 entry 构造，遵守 R00-001：`tasks` 不直接依赖 `chat` / 文件系统入口），
  * 产出 `AlwaysOnRuntime` 需要的 4 阶段实现。
  *
- * v1 边界（方案 §2/§6）：不做 worktree 隔离、不并行、不自评目标达成；
- * discovery 高风险或解析失败 ⇒ `null`（本次不执行）。
+ * v2（方案 §10.7 裁定，2026-10-20）：
+ * - **执行前隔离**：git-worktree；脏仓/非 git ⇒ **跳过本轮并如实报告**（不直连项目目录）；
+ * - **只留补丁**：隔离区改动导出 `.patch`，**不自动 apply**，由用户决定；
+ * - **会话 cwd 按轮绑定**：执行前把 `metadata.workspacePath` 指向隔离区（复用同一会话）。
+ *
+ * 仍不做：并行、目标达成自评；discovery 高风险或解析失败 ⇒ `null`（本次不执行）。
  */
 import { cg3Log } from '../cg3Env';
 import type { DiscoveryPlan, ExecutionResult } from './types';
@@ -24,6 +28,40 @@ export interface AlwaysOnPromptHooks {
   onUsage?: (usage: AlwaysOnUsage) => void;
 }
 
+/**
+ * 隔离工作区句柄。
+ *
+ * 任务层**只透传、不解读** `ref`（worktree 路径/分支等宿主私有语义），
+ * 以保证 `tasks` 不反向依赖 `workspaces` 实现细节。
+ */
+export interface AlwaysOnWorkspaceRef {
+  /** 隔离区工作目录（本轮工具 cwd） */
+  cwd: string;
+  /** 策略标识（宿主给出，如 `git-worktree`） */
+  strategy: string;
+  /** 宿主私有句柄（至少含 `runId`），任务层原样回传 */
+  ref: Record<string, unknown>;
+}
+
+/** `prepareWorkspace` 结果：`workspace` 与 `skippedReason` 必有其一 */
+export interface AlwaysOnWorkspacePrepareResult {
+  workspace?: AlwaysOnWorkspaceRef;
+  /** 无法隔离的原因（如 `not_git_repo_or_dirty`）⇒ 本轮跳过，不做任何写操作 */
+  skippedReason?: string;
+}
+
+/** `finishWorkspace` 结果 */
+export interface AlwaysOnWorkspaceFinishResult {
+  /** 改动导出为补丁后的落盘路径（无改动 / 导出失败 ⇒ undefined） */
+  patchPath?: string;
+  /** 补丁字符数（报告用；无改动 ⇒ 0） */
+  diffBytes: number;
+  /** 隔离区是否被保留（补丁导出失败/超长时为 true，避免成果丢失） */
+  kept?: boolean;
+  /** 收尾错误（不阻断报告） */
+  error?: string;
+}
+
 /** 宿主注入依赖 */
 export interface AlwaysOnBridgeDeps {
   projectId: string;
@@ -38,10 +76,33 @@ export interface AlwaysOnBridgeDeps {
   /** 记住该项目使用的会话（供下次启动复用） */
   saveSession: (projectId: string, sessionId: string) => Promise<void>;
   /**
+   * 准备**本轮**隔离工作区（v2 P2）。
+   *
+   * 宿主实现：git-worktree 且工作区干净 ⇒ 返回 `workspace`；否则返回 `skippedReason`
+   * （**不臆造隔离**，也不退回直连项目目录 —— 方案 §10.7 裁定 B）。
+   */
+  prepareWorkspace: (input: {
+    projectPath: string;
+    runId: string;
+  }) => Promise<AlwaysOnWorkspacePrepareResult>;
+  /**
+   * 收尾：把隔离区改动**导出为补丁**（不自动 apply），再清理隔离区。
+   * 导出失败/超长 ⇒ 宿主应保留隔离区并在结果里 `kept: true`（避免成果丢失）。
+   */
+  finishWorkspace: (
+    workspace: AlwaysOnWorkspaceRef
+  ) => Promise<AlwaysOnWorkspaceFinishResult>;
+  /**
+   * 把会话的工具 cwd 指向指定目录（写 `metadata.workspacePath` 并持久化）。
+   *
+   * 工具执行侧读的就是该字段（`ToolExecutionService` → `getSessionWorkspacePath`）。
+   */
+  setSessionWorkspace: (sessionId: string, cwd: string) => Promise<void>;
+  /**
    * 发一条内部消息并返回助手最终文本。
    *
    * @param options.taskType 工具面收窄（经编排器 `metadata.taskType` 生效）：
-   *   discovery 用 `'messaging'`（只读面），execution 用 `'coding'`（可写面）
+   *   discovery 用 `'alwayson_discovery'`（只读面），execution 用 `'coding'`（可写面）
    * @param options.abortSignal 超时中止（宿主应映射到 `streamMessage` 的 `signal`）
    */
   sendPrompt: (
@@ -98,12 +159,26 @@ export function buildExecutionPrompt(
   ].join('\n');
 }
 
+/** 报告里的工作区口径（由桥接器从 prepare/finish 结果汇总） */
+export interface AlwaysOnReportWorkspace {
+  strategy?: string;
+  cwd?: string;
+  /** 本轮被跳过（未隔离）时的原因 */
+  skippedReason?: string;
+  /** 改动导出的补丁路径（**未自动应用**） */
+  patchPath?: string;
+  diffBytes?: number;
+  /** 隔离区被保留（补丁导出失败） */
+  kept?: boolean;
+}
+
 /** 生成报告 Markdown（与 `DiscoveryFire.report()` 的结构保持同族） */
 export function buildReportMarkdown(
   projectName: string,
   plan: DiscoveryPlan,
   result: ExecutionResult,
-  usage: AlwaysOnUsage
+  usage: AlwaysOnUsage,
+  workspace?: AlwaysOnReportWorkspace
 ): string {
   const lines = [
     `# AlwaysOn Execution Report · ${projectName}`,
@@ -119,6 +194,27 @@ export function buildReportMarkdown(
         : ''
     }`,
   ];
+  if (workspace) {
+    if (workspace.skippedReason) {
+      lines.push(
+        `- **Workspace**: 未隔离（${workspace.skippedReason}）⇒ 本轮未执行写操作`
+      );
+    } else {
+      lines.push(
+        `- **Workspace**: ${workspace.strategy ?? 'isolated'}（${workspace.cwd ?? ''}）`
+      );
+      lines.push(
+        workspace.patchPath
+          ? `- **Patch**: ${workspace.patchPath}（${workspace.diffBytes ?? 0} bytes，**未自动应用**）`
+          : '- **Patch**: 无改动'
+      );
+      if (workspace.kept) {
+        lines.push(
+          `- **Worktree Kept**: ${workspace.cwd ?? ''}（补丁未导出，已保留待人工处理）`
+        );
+      }
+    }
+  }
   if (result.errors.length > 0) {
     lines.push('', '## Errors');
     for (const error of result.errors) lines.push(`- ${error}`);
@@ -136,6 +232,14 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
   let sessionId: string | undefined;
   let lastPlan: DiscoveryPlan | null = null;
   let lastUsage: AlwaysOnUsage = {};
+  /** 本轮隔离区（workspace 阶段写入，execution 收尾后清空） */
+  let workspaceState: AlwaysOnWorkspaceRef | null = null;
+  /** 本轮未隔离的原因（跳过执行，仅报告） */
+  let workspaceSkipReason: string | undefined;
+  /** 本轮收尾结果（补丁导出 / 清理） */
+  let finishState: AlwaysOnWorkspaceFinishResult | undefined;
+  /** 报告用的工作区快照（收尾后 `workspaceState` 已清空，故单独留存） */
+  let reportWorkspace: AlwaysOnReportWorkspace | undefined;
 
   const ensureSession = async (): Promise<string> => {
     if (sessionId) return sessionId;
@@ -155,6 +259,9 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
 
   const discovery = async (): Promise<DiscoveryPlan | null> => {
     const sid = await ensureSession();
+    // v2 P1：discovery 的读基准必须指向目标项目 —— 上轮执行可能把会话 cwd
+    // 留在已被清理的 worktree 上，这里每轮复位到项目根（只读面，无副作用）。
+    await deps.setSessionWorkspace(sid, deps.projectPath);
     const text = await deps.sendPrompt(
       sid,
       buildDiscoveryPrompt(deps.projectName, deps.projectPath),
@@ -181,9 +288,38 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
   };
 
   const workspace = async (plan: DiscoveryPlan): Promise<string> => {
-    // v1：不做 worktree 隔离（方案 §6），工作区 = 项目目录
     lastPlan = plan;
-    return deps.projectPath;
+    workspaceState = null;
+    workspaceSkipReason = undefined;
+    finishState = undefined;
+    reportWorkspace = undefined;
+
+    // v2（方案 §10.7 裁定 B）：先隔离、后执行；脏仓/非 git ⇒ 跳过本轮，不直连项目目录。
+    const prepared = await deps.prepareWorkspace({
+      projectPath: deps.projectPath,
+      runId: plan.id,
+    });
+    if (!prepared.workspace) {
+      workspaceSkipReason = prepared.skippedReason ?? 'workspace_unavailable';
+      reportWorkspace = { skippedReason: workspaceSkipReason };
+      cg3Log('tasks:alwayson:bridge', 'info', 'workspace:skipped', {
+        projectId: deps.projectId,
+        reason: workspaceSkipReason,
+      });
+      return '';
+    }
+
+    workspaceState = prepared.workspace;
+    reportWorkspace = {
+      strategy: prepared.workspace.strategy,
+      cwd: prepared.workspace.cwd,
+    };
+    cg3Log('tasks:alwayson:bridge', 'info', 'workspace:ready', {
+      projectId: deps.projectId,
+      strategy: prepared.workspace.strategy,
+      cwd: prepared.workspace.cwd,
+    });
+    return prepared.workspace.cwd;
   };
 
   const execution = async (workspacePath: string): Promise<ExecutionResult> => {
@@ -199,8 +335,26 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
       };
     }
 
-    const sid = await ensureSession();
+    const ws = workspaceState;
+    if (!workspacePath || !ws) {
+      // 未隔离 ⇒ **不做任何写操作**（方案 §10.7 裁定 B），如实登记后进报告
+      const reason = workspaceSkipReason ?? 'workspace_unavailable';
+      cg3Log('tasks:alwayson:bridge', 'info', 'execution:skipped', {
+        projectId: deps.projectId,
+        reason,
+      });
+      return {
+        success: false,
+        output: '',
+        errors: [`workspace-skipped: ${reason}`],
+        toolCalls: 0,
+        durationMs: Date.now() - start,
+      };
+    }
+
     let toolCalls = 0;
+    let success = true;
+    let output = '';
     lastUsage = {};
     const errors: string[] = [];
 
@@ -224,12 +378,13 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
       timedOut = true;
       controller.abort();
     }, timeoutMs);
-    let output = '';
-    let success = true;
     try {
+      const sid = await ensureSession();
+      // v2 P1：本轮工具 cwd = 隔离区（工具执行侧读 `metadata.workspacePath`）。
+      await deps.setSessionWorkspace(sid, ws.cwd);
       output = await deps.sendPrompt(
         sid,
-        buildExecutionPrompt(workspacePath, plan, deps.limits),
+        buildExecutionPrompt(ws.cwd, plan, deps.limits),
         hooks,
         // 可写面：`coding` 任务白名单含 file/shell/code/search/network/…
         { taskType: 'coding', abortSignal: controller.signal }
@@ -250,6 +405,35 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
     if (toolCalls > deps.limits.maxToolCalls) {
       success = false;
       errors.push(`maxToolCalls exceeded: ${toolCalls}`);
+    }
+
+    // 收尾：导出补丁 + 清理隔离区（无论成败都导出，避免成果丢失）
+    try {
+      finishState = await deps.finishWorkspace(ws);
+      reportWorkspace = {
+        strategy: ws.strategy,
+        cwd: ws.cwd,
+        patchPath: finishState.patchPath,
+        diffBytes: finishState.diffBytes,
+        kept: finishState.kept,
+      };
+      if (finishState.error) {
+        success = false;
+        errors.push(`workspace-finish: ${finishState.error}`);
+      }
+      cg3Log('tasks:alwayson:bridge', 'info', 'workspace:finished', {
+        projectId: deps.projectId,
+        patchPath: finishState.patchPath,
+        diffBytes: finishState.diffBytes,
+        kept: finishState.kept === true,
+      });
+    } catch (error) {
+      success = false;
+      errors.push(
+        `workspace-finish: ${error instanceof Error ? error.message : String(error)}`
+      );
+    } finally {
+      workspaceState = null;
     }
 
     const result: ExecutionResult = {
@@ -275,7 +459,8 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
       deps.projectName,
       plan,
       result,
-      lastUsage
+      lastUsage,
+      reportWorkspace
     );
     const path = await deps.writeReport(plan.id, markdown);
     cg3Log('tasks:alwayson:bridge', 'info', 'report:written', {
@@ -292,6 +477,10 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
           `结果：${result.success ? '成功' : '失败'}`,
           `工具调用：${result.toolCalls}`,
           `耗时：${result.durationMs}ms`,
+          ...(reportWorkspace?.skippedReason
+            ? [`已跳过：${reportWorkspace.skippedReason}`]
+            : []),
+          ...(finishState?.patchPath ? [`补丁：${finishState.patchPath}`] : []),
         ].join('\n'),
         success: result.success,
       });

@@ -21,6 +21,11 @@ import { feature, resolveDataDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { WorkItemStore, createProjectStore } from '@modules/workspace';
+import {
+  GitWorktreeProvider,
+  generateWorkspaceDiff,
+  type WorkspaceHandle,
+} from '@modules/workspaces';
 
 import {
   AlwaysOnManager,
@@ -100,6 +105,134 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   const reportDir = join(dataDir, 'alwayson', 'reports');
   const sessionFile = join(dataDir, 'alwayson', 'sessions.json');
   const manager = new AlwaysOnManager();
+  /** 本轮隔离区句柄（runId → provider + handle）；worktree 的 Map 在 provider 内部，必须复用同一实例 */
+  const activeRuns = new Map<
+    string,
+    { provider: GitWorktreeProvider; handle: WorkspaceHandle }
+  >();
+
+  /**
+   * 准备本轮隔离区（v2 P2）。
+   *
+   * 只走 `GitWorktreeProvider`（`refuseDirty` 默认 true）：
+   * 非 git / 工作区有未提交改动 ⇒ 返回 `skippedReason`，**不退回直连项目目录**
+   * （方案 §10.7 裁定 B：宁可跳过，不可悄悄改用户工作区）。
+   */
+  const prepareWorkspace: AlwaysOnBridgeDeps['prepareWorkspace'] = async ({
+    projectPath,
+    runId,
+  }) => {
+    const provider = new GitWorktreeProvider({
+      projectRoot: projectPath,
+      refuseDirty: true,
+    });
+    if (!(await provider.isApplicable(projectPath))) {
+      return { skippedReason: 'not_git_repo_or_dirty' };
+    }
+    try {
+      const handle = await provider.prepare({
+        projectRoot: projectPath,
+        runId,
+      });
+      activeRuns.set(runId, { provider, handle });
+      return {
+        workspace: {
+          cwd: handle.cwd,
+          strategy: handle.strategy,
+          ref: { runId },
+        },
+      };
+    } catch (error) {
+      return {
+        skippedReason: `prepare_failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+  };
+
+  /**
+   * 收尾（v2 P2/P5）：把隔离区改动**导出为补丁**（不自动 apply），再清理 worktree。
+   *
+   * 补丁落盘失败 / diff 超长被截断 ⇒ `keep: true` 保留 worktree，避免成果丢失。
+   */
+  const finishWorkspace: AlwaysOnBridgeDeps['finishWorkspace'] = async (
+    workspace
+  ) => {
+    const runId =
+      typeof workspace.ref.runId === 'string' ? workspace.ref.runId : '';
+    const active = runId ? activeRuns.get(runId) : undefined;
+    if (!active) {
+      return { diffBytes: 0, error: 'workspace-handle-missing' };
+    }
+    activeRuns.delete(runId);
+
+    const diff = await generateWorkspaceDiff(active.handle.cwd);
+    let patchPath: string | undefined;
+    let keep = false;
+    let error: string | undefined;
+
+    if (diff.diff.trim().length > 0) {
+      if (diff.truncated) {
+        // 截断的补丁无法 `git apply` ⇒ 不导出，保留 worktree 交人工处理
+        keep = true;
+        error = 'diff-truncated: 补丁超长已截断，未导出（worktree 已保留）';
+      } else {
+        try {
+          mkdirSync(reportDir, { recursive: true });
+          patchPath = join(reportDir, `${runId}.patch`);
+          writeFileSync(patchPath, diff.diff, 'utf8');
+        } catch (e) {
+          keep = true;
+          error = `patch-write-failed: ${
+            e instanceof Error ? e.message : String(e)
+          }`;
+        }
+      }
+    }
+
+    try {
+      await active.provider.dispose(active.handle, { keep });
+    } catch (e) {
+      error =
+        error ??
+        `dispose-failed: ${e instanceof Error ? e.message : String(e)}`;
+    }
+    return {
+      patchPath,
+      diffBytes: diff.diff.length,
+      kept: keep,
+      error,
+    };
+  };
+
+  /**
+   * 把会话的工具 cwd 指向指定目录（v2 P1）。
+   *
+   * 工具执行侧读的是**内存会话**的 `metadata.workspacePath`
+   * （`ChatManager.getSessionWorkspacePath`），存储侧用于跨重启 ⇒ 两处都更新。
+   */
+  const setSessionWorkspace: AlwaysOnBridgeDeps['setSessionWorkspace'] = async (
+    sessionId,
+    cwd
+  ) => {
+    const cached = await chatManager.loadSession(sessionId);
+    if (cached) {
+      cached.metadata = { ...(cached.metadata ?? {}), workspacePath: cwd };
+      await chatManager.saveSession(cached);
+      await chatManager.persistSessionMetadata(cached);
+      return;
+    }
+    // 冷启动：会话尚未载入内存（`loadSession` 只读 Map）⇒ 改存储；
+    // 首次 `streamMessage` 的 `getOrLoadSession` 会带回新 metadata。
+    const gateway = chatManager.getSessionGateway();
+    const stored = await gateway.getSession(sessionId);
+    if (!stored) return;
+    // `Session.metadata` 是强类型结构，直接写字面量属性会触发多余属性检查 ⇒ 经 Record 合并
+    const patch: Record<string, unknown> = { workspacePath: cwd };
+    stored.metadata = { ...(stored.metadata ?? {}), ...patch };
+    await gateway.updateSession(stored);
+  };
 
   const sendPrompt: AlwaysOnBridgeDeps['sendPrompt'] = async (
     sessionId,
@@ -178,9 +311,19 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
             title: `AlwaysOn · ${name}`,
             description: `AlwaysOn 自主执行会话（项目 ${id}）`,
             tags: ['alwayson'],
+            // v2 P1：先把会话 cwd 固化到**目标项目**（discovery 读基准；
+            // 执行阶段再按轮改到隔离区）—— 此前缺失 ⇒ 工具 cwd 落到 Liri 自身仓库。
+            metadata: {
+              workspacePath: project.path,
+              workspaceId: id,
+              alwayson: true,
+            },
           });
           return session.id;
         },
+        prepareWorkspace,
+        finishWorkspace,
+        setSessionWorkspace,
         loadSession: async (projectId) =>
           readSessionMap(sessionFile)[projectId],
         saveSession: async (projectId, sessionId) => {

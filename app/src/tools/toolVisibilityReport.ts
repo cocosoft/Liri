@@ -33,7 +33,7 @@
  * ## 本模块的口径（**全部派生，不新增手写清单**；CS01）
  * - 名字域 = `TOOL_NAME_CONSTANTS`（**89**，D11-B 唯一来源）
  * - 注册面 = 生成物 `TOOL_NAMES`（**77**，口径「**全量 ∧ 可实例化**」）⇒ 差集 **12** 个 = `conditional`
- * - 类别 = `getToolCategory()`；任务白名单 = `getTaskToolCategories()`；恒保留 = `MANDATORY_TOOLS`；
+ * - 类别 = `getToolCategory()`；任务白名单 = `getTaskToolCategories()`；恒保留 = `getMandatoryTools()`（随变体收敛）；
  *   有意归档 = `ARCHIVED_MISC_TOOLS`
  * - 判定口径与 `filterToolsByTask()` **逐条一致**（本模块只**解释**它，绝不改变它；
  *   `app/tests/tools/toolVisibilityReport.test.ts` 用"与 `filterToolsByTask` 全量交叉断言"钉死）
@@ -52,11 +52,11 @@
 
 import {
   ARCHIVED_MISC_TOOLS,
-  MANDATORY_TOOLS,
   TASK_TOOL_CATEGORIES,
   filterToolsByTask,
   getTaskToolCategories,
   getToolCategory,
+  isMandatoryTool,
 } from './toolCategories';
 import type { ToolCategory } from './toolCategories';
 import { TOOL_NAME_CONSTANTS } from './toolNameConstants';
@@ -159,7 +159,7 @@ export function resolveToolVisibilityReport(
 
       // I-4（2026-10-18）：可见性**单一判定内核** = `filterToolsByTask`（真实裁剪同源）；
       // 下面的分支只负责**解释原因**，不再各写一套判定（防两套口径漂移）。
-      if (MANDATORY_TOOLS.has(name)) {
+      if (isMandatoryTool(name)) {
         // 恒保留：即使类别不在白名单（如 todo_write 属 'task'）也仍可见
         reasons.push('mandatory');
       } else if (ARCHIVED_MISC_TOOLS.has(name)) {

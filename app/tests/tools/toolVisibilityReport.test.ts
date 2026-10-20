@@ -37,7 +37,7 @@
 import { describe, expect, it } from 'bun:test';
 import {
   ARCHIVED_MISC_TOOLS,
-  MANDATORY_TOOLS,
+  getMandatoryTools,
   filterToolsByTask,
 } from '../../src/tools/toolCategories';
 import { TOOL_NAME_CONSTANTS } from '../../src/tools/toolNameConstants';
@@ -98,7 +98,7 @@ describe('P1 工具可见性报表', () => {
   });
 
   it('恒保留集 ⇒ 可见且原因为 mandatory（即便类别不在白名单）', () => {
-    for (const name of MANDATORY_TOOLS) {
+    for (const name of getMandatoryTools()) {
       const entry = byName.get(name);
       expect(entry).toBeDefined();
       expect(entry!.effective).toBe('visible');

@@ -37,7 +37,7 @@
  * ## 三条硬边界（勿扩写）
  * 1. **可见性 ≠ 授权**（`toolCategories.ts:308-311` 原话）：本层只让工具对模型**可见**，
  *    命令执行 / 文件写入仍走审批与 PathGuard，**永不触碰** `toolEffects` / PathGuard / 沙箱。
- * 2. **`MANDATORY_TOOLS` 不可 `off`**（方案 L1 默认裁定）：`todo_write` / `agent` 是智能体主循环
+ * 2. **生效恒集不可 `off`**（方案 L1 默认裁定，口径 = `getMandatoryTools()`，随变体能力收敛）：`todo_write` / `agent` 是智能体主循环
  *    的组成部分，被移除会直接损坏主循环 ⇒ `off` 被忽略并告警（硬保护在此一处）。
  * 3. **重放一致性**（`✅-4` / 方案 R6）：调用方在**重放路径**（`forcedVisibleTools` 已给出）**不得**
  *    调用 `applyToolVisibilityOverrides` —— 重放工具面必须恒等于**落盘快照**
@@ -46,7 +46,7 @@
 
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
-import { MANDATORY_TOOLS } from './toolCategories';
+import { isMandatoryTool } from './toolCategories';
 import { TOOL_NAME_CONSTANTS } from './toolNameConstants';
 
 const logger = getLogger('tools:visibilityOverrides');
@@ -88,7 +88,7 @@ function warnOnce(key: string, message: string, meta: Record<string, unknown>) {
  * - 非对象 / 缺 `overrides` ⇒ `{}`（视为未配置）；
  * - 取值非 `'on'` / `'off'` ⇒ **丢弃**（含 `auto`：等于"不登记"，避免空键）；
  * - 未知工具名 ⇒ **丢弃 + 一次性告警**（不阻断；`lint:unconsts` 面外的名字不进可见性判定）；
- * - `MANDATORY_TOOLS` 的 `'off'` ⇒ **丢弃 + 一次性告警**（L1 硬保护）。
+ * - 生效恒集（`isMandatoryTool`，随变体能力开关收敛）的 `'off'` ⇒ **丢弃 + 一次性告警**（L1 硬保护）。
  *
  * 为什么在**读取侧**校验而不是写入侧：写入走的是通用 `PUT /v1/settings/{ns}`
  * （`config-handlers.ts` 原样落盘，service 层不引 app 类型）；**单一真源在本函数** ⇒
@@ -119,7 +119,7 @@ export function normalizeToolVisibilityOverrides(
       });
       continue;
     }
-    if (MANDATORY_TOOLS.has(name) && value === 'off') {
+    if (isMandatoryTool(name) && value === 'off') {
       warnOnce(
         `mandatory:${name}`,
         '恒保留工具不可被 off（智能体主循环依赖）⇒ 已忽略该覆写',

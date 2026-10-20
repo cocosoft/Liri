@@ -17,6 +17,8 @@
 import { toWireToolName } from './toolNameCodec';
 import type { ToolNameConstant } from './toolNameConstants';
 import { getLogger } from '@modules/monitoring';
+import { feature } from '../core/featureFlags';
+import type { FeatureFlag } from '../core/featureFlags';
 
 const logger = getLogger('tools:categories');
 
@@ -430,8 +432,9 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
   // U-02（2026-10-20）：AlwaysOn **发现阶段**的最小工具面（只读 + 搜索）。
   // 刻意**不含**：`shell`（命令执行）、`file`（写/改）、`session`（派生/删除会话）、
   // `channel`（出站）、`network`（web_fetch / browser —— 可产生外部副作用）。
-  // ⚠️ `MANDATORY_TOOLS`（`todo_write` / `agent`）仍会被强制保留 —— 这是全仓统一约定，
-  //    本任务类型不单独例外；因此这里保证的是"**不含写盘/执行/会话/出站类**"，不是数学意义上的严格只读。
+  // ⚠️ 生效恒集（`getMandatoryTools()`：能力开启时为 `todo_write` / `agent`）仍会被强制保留 ——
+  //    这是全仓统一约定，本任务类型不单独例外；因此这里保证的是"**不含写盘/执行/会话/出站类**"，
+  //    不是数学意义上的严格只读。
   alwayson_discovery: ['file_read', 'search'],
   // 简单问答/摘要：最轻量
   quick: ['search', 'network', 'system'],
@@ -515,11 +518,48 @@ export const DEFAULT_TASK_KEY = 'default';
  * 注：`sessions_yield` **未**纳入（用户 2026-09-20 决策）—— 其唯一用途是"让出轮次
  * 等子代理结算"，属长流程；若模型登记了却无人结算，会话会停在 running 等待态。
  * 它仍留在全量注册表（`sessions_yield` 可被越清单调用，恢复通路已装配）。
+ *
+ * ⚠️ 本集是**名义集**（不区分变体）；实际过滤一律走 `getMandatoryTools()`（见下）。
  */
 export const MANDATORY_TOOLS: ReadonlySet<string> = new Set([
   'todo_write',
   'agent',
 ]);
+
+/**
+ * mandatory 工具的**能力前置**（变体收敛，2026-10-20）：
+ * 只有对应能力开关开启时，该工具才允许被"恒保留"。
+ *
+ * 背景：`core` 变体在 `excludeFeatures` 里排除了 `AGENT`，但恒集写死 `agent`
+ * ⇒ "变体裁掉了 agent，mandatory 又把它强制可见"的自相矛盾；P1 计划移除
+ * `todo_write` 时会再撞一次。故恒集改为**由能力开关过滤**，不再无条件生效。
+ */
+export const MANDATORY_TOOL_REQUIRES: Readonly<Record<string, FeatureFlag>> = {
+  todo_write: 'TODO',
+  agent: 'AGENT',
+};
+
+/**
+ * 当前**生效**的恒集：能力开关关闭的工具被剔除。
+ *
+ * - `coding` / `personal` / `enterprise`（AGENT + TODO 皆开）⇒ `{ todo_write, agent }`（与旧行为一致）；
+ * - `core`（AGENT 关）⇒ `{ todo_write }`；
+ * - `core` 若再移除 `TODO` ⇒ `{}`。
+ *
+ * ⚠️ 判定口径只此一处；**禁止**再用 `MANDATORY_TOOLS.has()` 做过滤（那会绕开变体收敛）。
+ */
+export function getMandatoryTools(): ReadonlySet<string> {
+  const enabled = Object.keys(MANDATORY_TOOL_REQUIRES).filter((name) =>
+    feature(MANDATORY_TOOL_REQUIRES[name]!)
+  );
+  if (enabled.length === MANDATORY_TOOLS.size) return MANDATORY_TOOLS;
+  return new Set(enabled);
+}
+
+/** 该工具在当前变体下是否为**生效**的恒保留工具 */
+export function isMandatoryTool(toolName: string): boolean {
+  return getMandatoryTools().has(toolName);
+}
 
 /**
  * 获取任务的工具类别白名单；未配置的任务回退 default 保底集。
@@ -548,11 +588,13 @@ export function filterToolsByTask<
 ): T[] {
   const allowed = new Set(getTaskToolCategories(taskType));
   for (const c of extraCategories) allowed.add(c);
+  // 变体收敛（2026-10-20）：恒保留集由能力开关过滤（如 core 不含 AGENT ⇒ agent 不再恒保留）
+  const mandatory = getMandatoryTools();
   /** 本次新发现（且非归档）的"未登记类别"工具 —— 用于首次告警（去重由 warnedUnregisteredTools 承担） */
   const newlyUnregistered: string[] = [];
   const kept = toolDefinitions.filter((t) => {
     const toolName = t.name ?? t.function?.name ?? '';
-    if (MANDATORY_TOOLS.has(toolName)) return true;
+    if (mandatory.has(toolName)) return true;
     const category = getToolCategory(toolName);
     if (category === 'misc' && !ARCHIVED_MISC_TOOLS.has(toolName)) {
       if (!warnedUnregisteredTools.has(toolName)) {
@@ -573,7 +615,7 @@ export function filterToolsByTask<
 }
 
 /**
- * 任务类型 → **真实工具名**列表（与 `filterToolsByTask` 同口径，含 `MANDATORY_TOOLS`）。
+ * 任务类型 → **真实工具名**列表（与 `filterToolsByTask` 同口径，含 `getMandatoryTools()`）。
  *
  * 用途：需要"名字清单"而非"定义过滤"的调用方 —— 目前为 **LRTO 角色工具范围**
  * （`tasks/lro/contracts.ts` 的 `RoleConfig.taskType`）。
@@ -591,5 +633,5 @@ export function getRealToolNamesForTask(
   const derived = Object.entries(TOOL_CATEGORIES)
     .filter(([, category]) => allowed.has(category))
     .map(([name]) => name);
-  return [...new Set([...derived, ...MANDATORY_TOOLS])];
+  return [...new Set([...derived, ...getMandatoryTools()])];
 }

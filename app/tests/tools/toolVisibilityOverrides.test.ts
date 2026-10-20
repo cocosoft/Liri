@@ -41,7 +41,7 @@ import {
 } from '../../src/tools/toolVisibilityOverrides';
 import {
   ARCHIVED_MISC_TOOLS,
-  MANDATORY_TOOLS,
+  getMandatoryTools,
   filterToolsByTask,
 } from '../../src/tools/toolCategories';
 import { resolveToolVisibilityReport } from '../../src/tools/toolVisibilityReport';
@@ -87,8 +87,8 @@ describe('P2 覆写层：归一化（读取侧单一真源）', () => {
     expect(out).toEqual({});
   });
 
-  it('MANDATORY_TOOLS 不可 off（L1 硬保护）；on 照常保留', () => {
-    for (const name of MANDATORY_TOOLS) {
+  it('生效恒集不可 off（L1 硬保护）；on 照常保留', () => {
+    for (const name of getMandatoryTools()) {
       expect(override([name, 'off'])).toEqual({});
       expect(override([name, 'on'])).toEqual({ [name]: 'on' });
     }
@@ -182,7 +182,7 @@ describe('P2 接入点：selectToolsForTurn（单出口）', () => {
   });
 
   it('off ⇒ 白名单内工具从最终工具集移除；恒保留工具不受 off 影响', () => {
-    const mandatory = [...MANDATORY_TOOLS][0]!;
+    const mandatory = [...getMandatoryTools()][0]!;
     const after = selectToolsForTurn({
       ...input(),
       overrides: override(['bash', 'off'], [mandatory, 'off']),

@@ -28,8 +28,11 @@ const logger = getLogger('modules:moduleInitializer');
 
 /**
  * 模块初始化状态
+ *
+ * 2026-10-20：导出给 `startupSurfaceProbe` 复用 —— 该探针不得再写一份同名联合类型
+ * （状态词汇重复 = 状态字面量棘轮要拦的形态；CS02 / Register-or-Fail）。
  */
-interface ModuleInitializationState {
+export interface ModuleInitializationState {
   // 模块初始化状态
   status: 'pending' | 'initializing' | 'initialized' | 'error';
 
@@ -42,6 +45,17 @@ interface ModuleInitializationState {
   // 错误信息
   error?: Error;
 }
+
+/**
+ * 模块初始化状态的**结构子集**（只读消费者复用）
+ *
+ * 2026-10-20：`startupSurfaceProbe` 需要读这四个字段；若它自己再写一份 `Pick<…, 'error'>`
+ * 就等于把状态词汇又抄一遍（状态字面量棘轮会拦）。故由**类型所有者**导出。
+ */
+export type ModuleStateLike = Pick<
+  ModuleInitializationState,
+  'status' | 'startTime' | 'endTime' | 'error'
+>;
 
 /**
  * 模块初始化器类
@@ -392,6 +406,12 @@ export class ModuleInitializer {
     if (onDemandIds.length > 0) {
       logger.info(`按需模块已就绪: ${onDemandIds.length} 个`);
     }
+
+    // P0（2026-10-20，`内核瘦身-方案.md` §P0）：启动面取证件（**默认关**，`LIRI_STARTUP_REPORT=1` 开启）。
+    // 动态 import：探针静态读 `moduleInitializer` 状态，静态互相引用会成环；此处调用点在本模块求值完成后。
+    void import('./startupSurfaceProbe.js').then((m) =>
+      m.scheduleStartupSurfaceReport()
+    );
   }
 
   /**

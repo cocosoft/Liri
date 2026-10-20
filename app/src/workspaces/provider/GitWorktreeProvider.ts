@@ -41,6 +41,11 @@ export interface GitWorktreeProviderOptions {
   /** 工作区脏时拒绝 prepare（默认 true，对齐 PilotDeck refuseDirty） */
   refuseDirty?: boolean;
   gitBin?: string;
+  /**
+   * worktree / 分支命名前缀（默认 `bridge`）。
+   * 2026-10-20（U-02 v2 / P4）：AlwaysOn 传 `alwayson`，与 Bridge 命名空间分离。
+   */
+  namePrefix?: string;
 }
 
 export class GitWorktreeProvider implements WorkspaceProvider {
@@ -51,7 +56,10 @@ export class GitWorktreeProvider implements WorkspaceProvider {
   private readonly git: WorkspaceGit;
 
   constructor(private readonly options: GitWorktreeProviderOptions) {
-    this.git = new WorkspaceGit({ baseDir: options.projectRoot });
+    this.git = new WorkspaceGit({
+      baseDir: options.projectRoot,
+      namePrefix: options.namePrefix,
+    });
   }
 
   private get gitBin(): string {

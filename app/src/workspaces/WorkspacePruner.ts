@@ -135,3 +135,123 @@ export async function pruneWorkspaceResidue(
   }
   return { pruned, checkedRepos };
 }
+
+/** 某个命名空间下**已注册**的 worktree（纯解析产物） */
+export interface NamespaceWorktree {
+  path: string;
+  /** 短分支名（`refs/heads/` 已剥离）；detached ⇒ 缺省 */
+  branch?: string;
+}
+
+/**
+ * 从 `git worktree list --porcelain` 输出中挑选**指定命名空间**的 worktree（纯函数）。
+ *
+ * 命名空间 = `{gitRoot}/../worktrees/` 下、**一级子目录**名以 `${prefix}-` 开头者。
+ * 只认一级子目录 ⇒ 不可能命中主工作树或 worktrees 目录之外的路径。
+ *
+ * 2026-10-20（U-02 v2 / P4）：AlwaysOn 崩溃/异常退出会留下**已注册**的
+ * `alwayson-*` worktree —— `pruneOrphanWorktrees()` 只删"未注册"目录，管不到这类
+ * ⇒ 需要按前缀单独回收。
+ */
+export function selectNamespaceWorktrees(
+  porcelain: string,
+  worktreesDir: string,
+  prefix: string
+): NamespaceWorktree[] {
+  const dir = normPath(worktreesDir).replace(/\/+$/, '');
+  const namePrefix = `${prefix}-`;
+  const selected: NamespaceWorktree[] = [];
+
+  for (const block of porcelain.split(/\r?\n\s*\r?\n/)) {
+    let path: string | undefined;
+    let branch: string | undefined;
+    for (const line of block.split(/\r?\n/)) {
+      if (line.startsWith('worktree ')) {
+        path = normPath(line.slice('worktree '.length).trim());
+      } else if (line.startsWith('branch ')) {
+        const ref = line.slice('branch '.length).trim();
+        branch = ref.startsWith('refs/heads/')
+          ? ref.slice('refs/heads/'.length)
+          : ref;
+      }
+    }
+    if (!path || !path.startsWith(`${dir}/`)) continue;
+    const base = path.slice(dir.length + 1);
+    if (base.includes('/')) continue;
+    if (!base.startsWith(namePrefix)) continue;
+    selected.push(branch ? { path, branch } : { path });
+  }
+  return selected;
+}
+
+/**
+ * 回收指定命名空间的**已注册** worktree（崩溃/异常退出残留），并删除其分支。
+ *
+ * @param projectRoot 项目根（内部解析 git root；非 git 仓库 ⇒ 空结果）
+ * @param prefix 命名前缀（与 `WorkspaceGit` 的 `namePrefix` 一致，如 `alwayson`）
+ * @returns 被移除的 worktree 路径
+ */
+export async function pruneNamespaceWorktrees(
+  projectRoot: string,
+  prefix: string
+): Promise<string[]> {
+  const removed: string[] = [];
+
+  let gitRoot: string;
+  try {
+    const { stdout } = await execAsync('git rev-parse --show-toplevel', {
+      cwd: projectRoot,
+    });
+    gitRoot = stdout.trim();
+    if (!gitRoot) return removed;
+  } catch {
+    // 非 git 仓库 ⇒ 不存在命名空间 worktree（调用方按"跳过本轮"处理）
+    return removed;
+  }
+
+  let porcelain: string;
+  try {
+    const { stdout } = await execAsync('git worktree list --porcelain', {
+      cwd: gitRoot,
+    });
+    porcelain = stdout;
+  } catch {
+    // @ignore-catch — list 失败则无法判定，保持原状（不误删）
+    return removed;
+  }
+
+  const targets = selectNamespaceWorktrees(
+    porcelain,
+    join(gitRoot, '..', 'worktrees'),
+    prefix
+  );
+  for (const target of targets) {
+    try {
+      await execAsync(`git worktree remove --force "${target.path}"`, {
+        cwd: gitRoot,
+      });
+      removed.push(target.path);
+    } catch (error) {
+      logger.warn('pruneNamespaceWorktrees: 移除残留 worktree 失败', {
+        prefix,
+        path: target.path,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      continue;
+    }
+    if (!target.branch) continue;
+    try {
+      await execAsync(`git branch -D "${target.branch}"`, { cwd: gitRoot });
+    } catch {
+      // @ignore-catch — 分支删除失败不阻断（worktree 已移除）
+    }
+  }
+
+  if (removed.length > 0) {
+    logger.warn('pruneNamespaceWorktrees: 已回收残留隔离区', {
+      prefix,
+      count: removed.length,
+    });
+  }
+  return removed;
+}

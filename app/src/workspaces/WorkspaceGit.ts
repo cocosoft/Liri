@@ -48,6 +48,14 @@ const execAsync = promisify(nodeExec);
  */
 interface WorkspaceGitOptions {
   baseDir: string;
+  /**
+   * worktree / 分支的命名前缀（默认 `bridge`，保持既有行为）。
+   *
+   * 2026-10-20（U-02 v2 / P4）：AlwaysOn 用 `alwayson` ⇒ 目录 `alwayson-<id>`、
+   * 分支 `alwayson/<id>`，与 Bridge 的 `bridge-*` 在 `git worktree list` 与
+   * `git branch` 里可区分；清理也只按前缀回收自己的命名空间。
+   */
+  namePrefix?: string;
 }
 
 /**
@@ -56,10 +64,13 @@ interface WorkspaceGitOptions {
  */
 export class WorkspaceGit {
   private readonly baseDir: string;
+  /** 命名前缀（目录 `prefix-<id>` / 分支 `prefix/<id>`；默认 `bridge`） */
+  private readonly namePrefix: string;
   private worktrees: Map<string, WorktreeInfo> = new Map();
 
   constructor(options: WorkspaceGitOptions) {
     this.baseDir = options.baseDir;
+    this.namePrefix = options.namePrefix ?? 'bridge';
   }
 
   /**
@@ -72,7 +83,8 @@ export class WorkspaceGit {
       return this.worktrees.get(sessionId)!;
     }
 
-    const worktreeName = `bridge-${this.safeFilenameId(sessionId)}`;
+    const safeId = this.safeFilenameId(sessionId);
+    const worktreeName = `${this.namePrefix}-${safeId}`;
 
     const gitRoot = await this.getGitRoot();
     if (!gitRoot) {
@@ -85,7 +97,8 @@ export class WorkspaceGit {
     }
 
     const worktreePath = join(gitRoot, '..', 'worktrees', worktreeName);
-    const worktreeBranch = `bridge/${worktreeName}`;
+    // 分支与目录同源命名（`prefix/<id>`）；此前为 `bridge/bridge-<id>`（重复前缀，已统一）
+    const worktreeBranch = `${this.namePrefix}/${safeId}`;
 
     try {
       // G2（2026-08-31）：改用 node mkdirSync（跨平台）——原 execSync('mkdir -p')

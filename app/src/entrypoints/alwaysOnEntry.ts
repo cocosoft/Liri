@@ -24,6 +24,7 @@ import { WorkItemStore, createProjectStore } from '@modules/workspace';
 import {
   GitWorktreeProvider,
   generateWorkspaceDiff,
+  pruneNamespaceWorktrees,
   type WorkspaceHandle,
 } from '@modules/workspaces';
 
@@ -41,6 +42,13 @@ import type { ProactiveMessagePayload } from '../proactive/types';
 import { listAll } from '../workspaces/WorkspaceRegistry';
 
 const logger = getLogger('entrypoints:alwayson');
+
+/**
+ * AlwaysOn 隔离区的 worktree / 分支命名前缀（P4，2026-10-20）。
+ * 与 Bridge 的 `bridge` 命名空间分离 ⇒ `git worktree list` / `git branch` 可辨识，
+ * 启动回收也只动本前缀。
+ */
+const ALWAYSON_WORKTREE_PREFIX = 'alwayson';
 
 export interface AlwaysOnStartResult {
   registered: string[];
@@ -102,6 +110,20 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   const projectStore = createProjectStore(dataDir, new WorkItemStore(dataDir));
   const projects = await collectProjects(projectStore);
 
+  // P4（2026-10-20）：回收上次进程崩溃/异常退出残留的 `alwayson-*` worktree。
+  // 这类是**已注册**的 worktree，`pruneOrphanWorktrees()` 不会清 ⇒ 按命名空间单独回收。
+  // 不阻塞启动：失败只记日志（清理失败不影响本轮可用性）。
+  for (const project of projects) {
+    void pruneNamespaceWorktrees(project.path, ALWAYSON_WORKTREE_PREFIX).catch(
+      (error) => {
+        logger.warn('AlwaysOn 残留隔离区清理失败', {
+          projectId: project.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    );
+  }
+
   const reportDir = join(dataDir, 'alwayson', 'reports');
   const sessionFile = join(dataDir, 'alwayson', 'sessions.json');
   const manager = new AlwaysOnManager();
@@ -125,14 +147,18 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
     const provider = new GitWorktreeProvider({
       projectRoot: projectPath,
       refuseDirty: true,
+      // P4：独立命名空间（目录 `alwayson-<id>` / 分支 `alwayson/<id>`）
+      namePrefix: ALWAYSON_WORKTREE_PREFIX,
     });
     if (!(await provider.isApplicable(projectPath))) {
       return { skippedReason: 'not_git_repo_or_dirty' };
     }
     try {
+      // `runId` 形如 `alwayson-<projectId>-<ts>`；前缀已由 provider 补 ⇒ 去掉重复段
+      const worktreeId = runId.replace(/^alwayson-/, '');
       const handle = await provider.prepare({
         projectRoot: projectPath,
-        runId,
+        runId: worktreeId,
       });
       activeRuns.set(runId, { provider, handle });
       return {

@@ -1,0 +1,119 @@
+/**
+ * lint-variant-matrix.ts — 变体矩阵门禁（P0，2026-10-20）
+ *
+ * 校验 `scripts/variant-matrix.ts`（**单一事实源**）自身是否自洽：
+ *   ① 变体清单无重复、矩阵覆盖清单里的每个变体；
+ *   ② 同一变体内 `features` 与 `excludeFeatures` **不相交**（同一开关不能既开又关）；
+ *   ③ 两张清单内部无重复项（生成文件里重复键会被后者静默覆盖）；
+ *   ④ 每个开关名都存在于 `src/core/featureFlags.ts` 的 `FEATURE_FLAGS`（防拼写漂移）；
+ *   ⑤ `buildFeatures` 必须是 `DROP_*`（编译期裁剪的保留前缀）。
+ *
+ * ⚠️ 本门禁**不**校验 `src/core/buildVariantFlags.ts` 与矩阵是否一致：
+ *    它是**构建产物**（切变体即改写），把"产物陈旧"判成红灯只会制造噪声。
+ *    "单一事实源"由结构保证 —— `build-variant.ts` 直接 import 本矩阵，不自带第二份定义。
+ */
+
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { BUILD_VARIANTS, VARIANT_MATRIX } from './variant-matrix';
+import type { BuildVariant } from './variant-matrix';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const violations: string[] = [];
+
+function fail(message: string): void {
+  violations.push(message);
+}
+
+/** 从 `featureFlags.ts` 文本中提取 `FEATURE_FLAGS` 的键（唯一真源，不手写名单） */
+function loadFeatureFlagNames(): Set<string> {
+  const file = path.resolve(__dirname, '..', 'src', 'core', 'featureFlags.ts');
+  const source = fs.readFileSync(file, 'utf-8');
+  const start = source.indexOf('export const FEATURE_FLAGS = {');
+  if (start < 0) {
+    throw new Error('未在 featureFlags.ts 中找到 `export const FEATURE_FLAGS = {`');
+  }
+  const end = source.indexOf('} as const;', start);
+  if (end < 0) {
+    throw new Error('未找到 `FEATURE_FLAGS` 对象的结束标记 `} as const;`');
+  }
+  const block = source.slice(start, end);
+  const names = new Set<string>();
+  for (const match of block.matchAll(/^\s{2}([A-Z][A-Z0-9_]*)\s*:/gm)) {
+    names.add(match[1]!);
+  }
+  return names;
+}
+
+function checkDuplicates(list: readonly string[], label: string): void {
+  const seen = new Set<string>();
+  for (const name of list) {
+    if (seen.has(name)) fail(`${label} 存在重复项: ${name}`);
+    seen.add(name);
+  }
+}
+
+function main(): void {
+  console.log('=== 变体矩阵门禁（单一事实源） ===');
+
+  // ① 清单与覆盖
+  checkDuplicates(BUILD_VARIANTS, 'BUILD_VARIANTS');
+  for (const variant of BUILD_VARIANTS) {
+    if (!VARIANT_MATRIX[variant]) fail(`矩阵缺少变体定义: ${variant}`);
+  }
+  const extra = (Object.keys(VARIANT_MATRIX) as BuildVariant[]).filter(
+    (variant) => !BUILD_VARIANTS.includes(variant)
+  );
+  if (extra.length > 0) fail(`矩阵存在未登记变体: ${extra.join(', ')}`);
+
+  const knownFlags = loadFeatureFlagNames();
+  if (knownFlags.size === 0) fail('FEATURE_FLAGS 键集合为空（解析失败）');
+
+  for (const variant of BUILD_VARIANTS) {
+    const spec = VARIANT_MATRIX[variant];
+    if (!spec) continue;
+
+    // ② 开/关不相交
+    const excluded = new Set(spec.excludeFeatures);
+    for (const name of spec.features) {
+      if (excluded.has(name)) {
+        fail(`[${variant}] 同一开关既在 features 又在 excludeFeatures: ${name}`);
+      }
+    }
+
+    // ③ 内部无重复
+    checkDuplicates(spec.features, `[${variant}] features`);
+    checkDuplicates(spec.excludeFeatures, `[${variant}] excludeFeatures`);
+
+    // ④ 开关名必须真实存在
+    for (const name of [...spec.features, ...spec.excludeFeatures]) {
+      if (!knownFlags.has(name)) {
+        fail(`[${variant}] 开关名不在 FEATURE_FLAGS 中（拼写漂移?）: ${name}`);
+      }
+    }
+
+    // ⑤ 编译期裁剪前缀
+    for (const name of spec.buildFeatures) {
+      if (!/^DROP_[A-Z0-9_]+$/.test(name)) {
+        fail(`[${variant}] buildFeatures 必须使用 DROP_ 前缀: ${name}`);
+      }
+    }
+
+    console.log(
+      `  ${variant}: +${spec.features.length} / -${spec.excludeFeatures.length} / build:${spec.buildFeatures.length}`
+    );
+  }
+
+  if (violations.length > 0) {
+    console.error(`\n❌ 变体矩阵存在 ${violations.length} 条违规:`);
+    for (const item of violations) console.error(`  - ${item}`);
+    process.exit(1);
+  }
+
+  console.log(`\n✅ 变体矩阵自洽（${BUILD_VARIANTS.length} 个变体，开关词汇表 ${knownFlags.size} 项）`);
+}
+
+main();

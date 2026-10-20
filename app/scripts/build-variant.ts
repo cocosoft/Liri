@@ -25,105 +25,16 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { BUILD_VARIANTS, VARIANT_MATRIX } from './variant-matrix';
+import type { BuildVariant } from './variant-matrix';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-type BuildVariant = 'core' | 'personal' | 'coding' | 'enterprise';
+// 变体矩阵**单一事实源**在 `./variant-matrix.ts`；本文件只做"读表 → 生成 flags"，
+// 不再自带第二份变体定义（防漂移，2026-10-20 P0）。
+const VARIANT_CONFIGS = VARIANT_MATRIX;
 
-const VARIANT_CONFIGS: Record<
-  BuildVariant,
-  {
-    description: string;
-    features: string[];
-    excludeFeatures: string[];
-  }
-> = {
-  core: {
-    description: '核心版 — 最小功能集，仅 CLI + 基础工具',
-    features: [
-      'BASH',
-      'FILE_READ',
-      'FILE_WRITE',
-      'FILE_EDIT',
-      'GREP',
-      'GLOB',
-      'WEB_FETCH',
-      'WEB_SEARCH',
-      'TASK',
-      'TODO',
-      'ASK',
-    ],
-    excludeFeatures: [
-      'AGENT',
-      'AGENT_TRIGGERS',
-      'ENABLE_PLUGINS',
-      'ENABLE_SKILLS',
-      'MCP_SYSTEM',
-      'LSP',
-      'NOTEBOOK',
-      'BROWSER',
-      'CODE_ANALYSIS',
-      'TEAM_CREATE',
-      'TEAM_DELETE',
-      'SEND_MESSAGE',
-      'FILE_CONVERTER',
-      'CHRONOS',
-      'TUNGSTEN',
-      'PLAN',
-      'BRIEF',
-    ],
-  },
-  personal: {
-    description: '个人版 — Core + Telegram/Web 通道 + 插件 + 文件转换',
-    features: [
-      'AGENT',
-      'ENABLE_PLUGINS',
-      'ENABLE_SKILLS',
-      'MCP_SYSTEM',
-      'FILE_CONVERTER',
-      'PLAN',
-      'BRIEF',
-      'CHRONOS',
-      'TUNGSTEN',
-    ],
-    excludeFeatures: [
-      'AGENT_TRIGGERS',
-      'LSP',
-      'NOTEBOOK',
-      'BROWSER',
-      'CODE_ANALYSIS',
-      'TEAM_CREATE',
-      'TEAM_DELETE',
-    ],
-  },
-  coding: {
-    description: '编码版 — Personal + LSP + Notebook + 代码分析',
-    features: [
-      'LSP',
-      'NOTEBOOK',
-      'CODE_ANALYSIS',
-      'BROWSER',
-      'TEAM_CREATE',
-      'TEAM_DELETE',
-    ],
-    excludeFeatures: ['AGENT_TRIGGERS'],
-  },
-  enterprise: {
-    description:
-      '企业版 — Coding + Slack/Discord + Auth + Audit + Sandbox + Office',
-    features: [
-      'AGENT_TRIGGERS',
-      'SEND_MESSAGE',
-      'COORDINATOR_MODE',
-      'DOC_MODULE',
-      'DOC_TEMPLATE',
-      'MAIL_MODULE',
-      'CALENDAR_MODULE',
-    ],
-    excludeFeatures: [],
-  },
-};
 
 function parseArgs(): { variant: BuildVariant; dryRun: boolean } {
   const args = process.argv.slice(2);
@@ -133,11 +44,11 @@ function parseArgs(): { variant: BuildVariant; dryRun: boolean } {
   for (const arg of args) {
     if (arg.startsWith('--variant=')) {
       const v = arg.split('=')[1];
-      if (['core', 'personal', 'coding', 'enterprise'].includes(v)) {
+      if (BUILD_VARIANTS.includes(v as BuildVariant)) {
         variant = v as BuildVariant;
       } else {
         console.error(
-          `无效的变体: ${v}，有效值: core, personal, coding, enterprise`
+          `无效的变体: ${v}，有效值: ${BUILD_VARIANTS.join(', ')}`
         );
         process.exit(1);
       }

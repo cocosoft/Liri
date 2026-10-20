@@ -24,6 +24,16 @@
 
 ---
 
+#### v0.5.2 (2026-10-20)  AlwaysOn v1.1：处理方案 §9 五项已知偏差
+
+- ✅ **主动通知**：报告写盘后入主动队列（`kind='task_result'`、去重键 `alwayson:<planId>`、成功 `low` / 失败 `normal`），复用同一门禁（DND/冷却/限流）。
+- ✅ **工具面收窄**：discovery 走 `metadata.taskType='messaging'`（只读面，不含 file/shell/code/mcp 等写与执行类），execution 走 `'coding'`。
+- ✅ **超时真正中止**：改用 `streamMessage` + `AbortSignal`，超时 `abort()` 底层请求并记 `timeout: Nmin`（原仅标记失败）。
+- ✅ **会话跨重启复用**：`~/.pyapp/data/alwayson/sessions.json`（projectId → sessionId），无记录才新建并回写。
+- ✅ **多工作空间**：项目来源改为 `WorkspaceRegistry.listAll()` + `default`，按项目 id 去重。
+- ✅ **回归**：`alwaysOnMinimal.test.ts` 12 → 17 例（会话复用/新建、taskType 收窄、超时 abort、通知投递）。
+- ⚠️ **v2 遗留**（方案 §9 末尾登记）：`messaging` 面非严格只读（含 session/channel 类）、worktree 隔离、目标达成自评。
+
 #### v0.5.1 (2026-10-20)  工具治理收口（出参结构全量声明 / send_message 接线）+ 主动汇报默认开启 + 无人值守自动通过 + AlwaysOn 最小可用自主执行
 
 - ✅ **U-03 出参结构（第 19~21 批）**：`outputJsonSchema` 契约扩展支持**数组**与**标量**（string/number/boolean）；media 其余 8 个工具补 `data` 并声明；`notebook` 分支归一后并集声明；`brief` / `nodes` / `file_convert` 收尾 —— 生效面 **54 个工具** + media 15 个 + `knowledge_snapshots` 已声明。

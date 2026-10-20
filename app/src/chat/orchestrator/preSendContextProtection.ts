@@ -56,6 +56,8 @@ import type { ToolDefinition } from '@modules/ai';
 import { getDailyBudget } from '../../query/DailyBudgetManager.js';
 import { estimateAttachmentsTokens } from '../../query/attachmentBudget.js';
 import { estimateTurnCostUsd } from '../../query/modelPricingAdapter.js';
+import { evaluateTurnUsdPreflight } from '../../query/turnUsdPreflight.js';
+import { feature } from '@modules/core';
 import {
   checkDailyBudget,
   formatBudgetExhausted,
@@ -70,6 +72,64 @@ const logger = getLogger('chat:streamFlow');
  * 仅用于预占欠账，实际金额在 `recordUsdUsage()` 落账时替换。
  */
 const WAIVER_PRECHECK_OUTPUT_TOKENS = 4096;
+
+/**
+ * 2026-10-20（外部建议 ②，`FEATURE_USD_TURN_PREFLIGHT`）：轮次 USD 前置判定。
+ *
+ * 金额轨档位按**已结算**判定（`_computeState` 在 USD 下 `projectedUsed === usedUsd`）⇒
+ * 单轮可穿透上限。开启开关后，用「当前模型价 × 本轮估算（含附件字节折算的 token）」
+ * 在发模型前判一次；越界即释放本轮预扣并抛 `DAILY_BUDGET_EXCEEDED`（与既有拒发同码，
+ * 上层呈现口径一致）。**关（默认）⇒ 立即返回，不新增任何拒绝路径。**
+ */
+function enforceTurnUsdPreflight(input: {
+  sessionId: string;
+  model: string | undefined;
+  maxTokens: number | undefined;
+  inputTokens: number;
+  unit: 'usd' | 'tokens';
+  usedUsd: number;
+  limitUsd: number;
+  dailyBudget: ReturnType<typeof getDailyBudget>;
+}): void {
+  if (!feature('USD_TURN_PREFLIGHT') || input.unit !== 'usd') return;
+
+  const costModel = input.model ?? 'unknown';
+  const estimate = estimateTurnCostUsd(costModel, {
+    inputTokens: input.inputTokens,
+    outputTokens: input.maxTokens ?? WAIVER_PRECHECK_OUTPUT_TOKENS,
+  });
+  const preflight = evaluateTurnUsdPreflight({
+    unit: 'usd',
+    usedUsd: input.usedUsd,
+    limitUsd: input.limitUsd,
+    estimatedCostUsd: estimate.costUsd,
+  });
+  logger.info('streamMessage:budget — 轮次 USD 前置判定', {
+    sessionId: input.sessionId,
+    model: costModel,
+    estimatedCostUsd: estimate.costUsd,
+    unknownModel: estimate.unknownModel,
+    usedUsd: input.usedUsd,
+    limitUsd: input.limitUsd,
+    projectedPercent: preflight.projectedPercent,
+    reject: preflight.reject,
+  });
+  if (!preflight.reject) return;
+
+  input.dailyBudget.settleFor(input.sessionId, 0);
+  throw new AppError(
+    `本轮预估金额将使每日额度超额（已用 $${input.usedUsd.toFixed(4)} + 本轮预估 $${estimate.costUsd.toFixed(4)} > 上限 $${input.limitUsd.toFixed(4)}），为避免超额，本次未调用模型。请明日再试，或调高每日预算上限。`,
+    ErrorCategory.RESOURCE,
+    ErrorSeverity.MEDIUM,
+    'DAILY_BUDGET_EXCEEDED',
+    {
+      sessionId: input.sessionId,
+      usedUsd: input.usedUsd,
+      limitUsd: input.limitUsd,
+      estimatedCostUsd: estimate.costUsd,
+    }
+  );
+}
 
 /** 压缩前/压缩后 token 诊断日志（仅 info 级，前端日志面板按 streamMessage:token 过滤） */
 export async function logTokenSnapshot(
@@ -270,6 +330,20 @@ export async function applyPreSendProtection(
         }
       );
     }
+    // 2026-10-20（外部建议 ②，`FEATURE_USD_TURN_PREFLIGHT`，默认关）：**轮次 USD 前置判定**。
+    // 金额轨档位按已结算判定 ⇒ 单轮可穿透上限；开启后用「当前模型价 × 本轮估算（含附件字节）」
+    // 提前拒发。关 ⇒ 不新增任何拒绝路径（逐字等价现状）。
+    // 判定体外移成 `enforceTurnUsdPreflight()`（保持本函数复杂度不增长）。
+    enforceTurnUsdPreflight({
+      sessionId: session.id,
+      model: turnModel,
+      maxTokens: options?.maxTokens,
+      inputTokens: reservedTokens,
+      unit: budgetMode.unit,
+      usedUsd: budgetMode.used,
+      limitUsd: budgetMode.dailyLimit,
+      dailyBudget,
+    });
     if (toolDefinitions.length > 0) {
       const toolsJson = JSON.stringify(toolDefinitions);
       let toolsTokens = estimateMessagesTokens([

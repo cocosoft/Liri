@@ -216,9 +216,14 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
     sessionId,
     cwd
   ) => {
+    // P3：存量会话（本次升级前创建）没有 `workspaceStrict` ⇒ 一并补上，避免严格边界失效
+    const patch: Record<string, unknown> = {
+      workspacePath: cwd,
+      workspaceStrict: true,
+    };
     const cached = await chatManager.loadSession(sessionId);
     if (cached) {
-      cached.metadata = { ...(cached.metadata ?? {}), workspacePath: cwd };
+      cached.metadata = { ...(cached.metadata ?? {}), ...patch };
       await chatManager.saveSession(cached);
       await chatManager.persistSessionMetadata(cached);
       return;
@@ -229,7 +234,6 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
     const stored = await gateway.getSession(sessionId);
     if (!stored) return;
     // `Session.metadata` 是强类型结构，直接写字面量属性会触发多余属性检查 ⇒ 经 Record 合并
-    const patch: Record<string, unknown> = { workspacePath: cwd };
     stored.metadata = { ...(stored.metadata ?? {}), ...patch };
     await gateway.updateSession(stored);
   };
@@ -316,6 +320,8 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
             metadata: {
               workspacePath: project.path,
               workspaceId: id,
+              // P3：工具路径入参必须落在会话工作区内（绝对路径 / `../` 直接拒绝）
+              workspaceStrict: true,
               alwayson: true,
             },
           });

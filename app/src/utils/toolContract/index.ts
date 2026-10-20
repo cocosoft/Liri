@@ -21,3 +21,7 @@ export * from './ToolProgress';
 export * from './ToolDef';
 export * from './PermissionContext';
 export * from './PermissionResult';
+// 2026-10-20（U-02 v2 / P3）：路径语义入参键 + 工作区边界判定（纯数据 / 纯函数，
+// 供 query / tasks / chat 三处共用，避免 chat↔tasks 的模块环）。
+export * from './pathArgs';
+export * from './pathBoundary';

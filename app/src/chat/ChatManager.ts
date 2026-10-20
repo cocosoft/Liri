@@ -1204,6 +1204,7 @@ export class ChatManagerImpl implements ChatManager {
       submitToolApproval: this._submitToolApproval.bind(this),
       getSessionWorkspacePath: this.getSessionWorkspacePath.bind(this),
       getSessionWorkspaceId: this.getSessionWorkspaceId.bind(this),
+      isSessionWorkspaceStrict: this.isSessionWorkspaceStrict.bind(this),
       isCommandApproved: this._isCommandApproved.bind(this),
       sessionLookup: (args) => this._sessionLookup(args),
       // R3（2026-09-21）：向工具执行注入**会话级中断控制器**。
@@ -3202,6 +3203,19 @@ export class ChatManagerImpl implements ChatManager {
     if (!workspaceId) return undefined;
     // 项目模块下 workspaceId === projectId（sessionSlice 约定），返回真实工作区 ID
     return workspaceId;
+  }
+
+  /**
+   * U-02 v2 / P3（2026-10-20）：会话是否声明**工作区严格边界**。
+   *
+   * 仅 AlwaysOn 的隔离轮把 `metadata.workspaceStrict` 置 true ⇒ 工具执行层拒绝
+   * 越界的路径入参（绝对路径 / `../`）。其余会话未声明 ⇒ **零行为变更**。
+   */
+  private isSessionWorkspaceStrict(sessionId?: string): boolean {
+    if (!sessionId) return false;
+    const session = this._chatSessions.get(sessionId);
+    const metadata = session?.metadata as Record<string, unknown> | undefined;
+    return metadata?.workspaceStrict === true;
   }
 
   /**

@@ -3,15 +3,23 @@
 
 /**
  * U-03b / U-09（2026-10-17）：LRO 工具路径的 workspace 收敛守卫。
+ *
+ * 2026-10-20（U-02 v2 / P3）：实现下沉到 `utils/toolContract/pathBoundary`
+ * （chat 的 `ToolExecutionService` 也要用），`tasks/lro/workspaceGuard.ts` 改为转发
+ * ⇒ 本文件继续断言**行为**，并额外锁定"转发与落点是同一函数"（防实现分叉）。
  */
 import { describe, it, expect } from 'bun:test';
 import { join, resolve } from 'path';
 import { tmpdir } from 'os';
 import { findWorkspaceEscape } from '../../src/tasks/lro/workspaceGuard.js';
+import { findWorkspaceEscape as fromUtils } from '../../src/utils/toolContract';
 
 const workspace = join(tmpdir(), 'lro-ws-guard');
 
 describe('findWorkspaceEscape', () => {
+  it('实现单一：tasks 转发 与 utils 落点是同一个函数', () => {
+    expect(findWorkspaceEscape).toBe(fromUtils);
+  });
   it('工作区内相对路径 ⇒ 放行', () => {
     expect(
       findWorkspaceEscape(workspace, { file_path: 'out/a.txt' })

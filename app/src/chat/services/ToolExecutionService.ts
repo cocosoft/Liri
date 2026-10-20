@@ -26,6 +26,8 @@ import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir, resolveProjectRoot } from '@modules/core/paths';
 import { ToolExecutionStatus } from '@modules/utils/toolContract/ToolResult';
 import { isMediaOutputToolName } from '@modules/utils/toolContract/toolRoles';
+// U-02 v2 / P3（2026-10-20）：工作区边界判定（与 LRO 共用同一纯函数，实现落 utils 避免 chat↔tasks 环）
+import { findWorkspaceEscape } from '@modules/utils/toolContract';
 import type { ToolName } from '@modules/constants/toolNames.generated';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
@@ -230,6 +232,14 @@ export interface ToolExecutionDeps {
   ): Promise<string | null>;
   getSessionWorkspacePath(sessionId?: string): string | null | undefined;
   getSessionWorkspaceId(sessionId?: string): string | undefined;
+  /**
+   * U-02 v2 / P3（2026-10-20）：会话是否声明**工作区严格边界**
+   * （`metadata.workspaceStrict === true`，目前仅 AlwaysOn 隔离轮设置）。
+   *
+   * 为 true 时，工具路径入参必须落在 `getSessionWorkspacePath()` 内（绝对路径 / `../`
+   * 越界直接拒绝）；未注入或为 false ⇒ **零行为变更**（普通会话的绝对路径语义不变）。
+   */
+  isSessionWorkspaceStrict?: (sessionId?: string) => boolean;
   isCommandApproved(
     toolName: string,
     args: Record<string, unknown>,
@@ -897,13 +907,14 @@ export class ToolExecutionService {
         const sessionAbortController = this.deps.getSessionAbortController?.(
           toolCall.sessionId
         );
+        const sessionWorkspacePath = this.deps.getSessionWorkspacePath(
+          toolCall.sessionId
+        );
         const context = {
           toolUseId: normalizedToolCall.id,
           sessionId: toolCall.sessionId,
           options: {
-            cwd:
-              this.deps.getSessionWorkspacePath(toolCall.sessionId) ??
-              resolveProjectRoot(),
+            cwd: sessionWorkspacePath ?? resolveProjectRoot(),
             workspaceId: this.deps.getSessionWorkspaceId(toolCall.sessionId),
             // R05-012：整份 env 经统一出入口取快照（浅拷贝；消费方为 `{...process.env, ...options.env}`
             // 合并用法，语义等价且不会被工具经该引用改写进程环境）
@@ -921,6 +932,38 @@ export class ToolExecutionService {
             ? { abortController: sessionAbortController }
             : {}),
         };
+
+        // U-02 v2 / P3（2026-10-20）：**仅当会话显式声明工作区严格边界**（AlwaysOn 隔离轮）
+        // 才做越界拒绝 —— 普通项目会话的绝对路径语义保持历史行为（零变更）。
+        if (
+          sessionWorkspacePath &&
+          this.deps.isSessionWorkspaceStrict?.(toolCall.sessionId) === true
+        ) {
+          const escape = findWorkspaceEscape(
+            sessionWorkspacePath,
+            normalizedToolCall.arguments
+          );
+          if (escape) {
+            logger.warn('工具路径越界，已拒绝执行（会话工作区严格边界）', {
+              toolCallId: toolCall.id,
+              toolName: normalizedToolCall.name,
+              sessionId: toolCall.sessionId,
+              argKey: escape.key,
+              argValue: escape.value,
+              resolved: escape.resolved,
+              via: escape.via,
+              workspace: sessionWorkspacePath,
+            });
+            return {
+              toolCallId: toolCall.id,
+              toolName: normalizedToolCall.name,
+              result: null,
+              error:
+                `路径越界：${escape.key}=${escape.value} 不在会话工作区内；` +
+                '请改用工作区内相对路径。',
+            };
+          }
+        }
 
         const registry = this.deps.getToolRegistry() as unknown as {
           executeTool: (

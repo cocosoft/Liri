@@ -86,21 +86,8 @@ export const WRITE_TOOLS = new Set<string>(WRITE_TOOL_NAMES);
 /**
  * 「路径语义」入参键集合（**单一事实源**）。
  *
- * 消费方：`PathGuard._extractPath()` —— 静态名单分支直接使用；**运行期注册表分支**用它对
- * "注册表声明的入参名"做**求交过滤**。
- *
- * 为什么必须有它（2026-09-29，spec `pathguard-registry-driven-args.md` §3.2）：
- * 注册表能给出某工具的**全部**入参名，但"某个入参是不是路径"无法从注册表得知；
- * 若把全部字符串入参都当路径，会误拦 URL / 提示词里形似 `.env` 通配模式的值 ⇒ **必须**收窄。
+ * 2026-10-20（U-02 v2 / P3）：实现已**下沉**到 `utils/toolContract/pathArgs`（infra），
+ * 因 chat / tasks 也需共用，且它们反向依赖 `query` 会成环。本处保留再导出，
+ * 使 `@modules/query` 的既有取用方（`PathGuard` 等）零改动。
  */
-export const PATH_ARG_KEYS: readonly string[] = [
-  'file_path',
-  'notebook_path',
-  'path',
-  'searchPath',
-  'directory',
-  'target_directory',
-  'filePath',
-  // P0-9（2026-10-04）：`write_project_file` 的路径入参键（相对项目文件夹）
-  'relativePath',
-];
+export { PATH_ARG_KEYS } from '@modules/utils/toolContract';

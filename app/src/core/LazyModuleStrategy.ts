@@ -16,6 +16,8 @@
 // 2026-09-30 改走 core 门面（A3 倒挂收口）：原 `../performance/StartupProfiler`（core → infra 倒挂）
 import { profilePhaseStart, profilePhaseEnd } from '../core/profilerFacade.js';
 import { getLogger } from '../core/loggerFacade.js';
+// P3（2026-10-20）：headless 构建用 `DROP_UI` 把 ink / ui 的惰性加载器整体剔除。
+import { feature as buildFeature } from 'bun:bundle';
 const logger = getLogger('modules:lazyModuleStrategy');
 
 /**
@@ -363,8 +365,14 @@ const DYNAMIC_IMPORT_LOADERS: Record<string, () => Promise<unknown>> = {
   chronos: () => import('../chronos/index.js'),
   lsp: () => import('../lsp/index.js'),
   mcp: () => import('../mcp/index.js'),
-  ink: () => import('../ink/index.js'),
-  ui: () => import('../ui/index.js'),
+  // P3（2026-10-20）：`DROP_UI`（headless）⇒ ink / ui 两条动态 import **及其整个目标模块图**
+  // 一并从产物剔除（`feature()` 作三元条件，`bun:bundle` 会把未选分支连同 import 目标删掉）。
+  ...(buildFeature('DROP_UI')
+    ? {}
+    : {
+        ink: () => import('../ink/index.js'),
+        ui: () => import('../ui/index.js'),
+      }),
   security: () => import('../security/index.js'),
   sandbox: () => import('../sandbox/index.js'),
   voice: () => import('../voice/index.js'),

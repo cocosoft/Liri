@@ -63,6 +63,9 @@ import {
   statSync,
 } from 'fs';
 import { join } from 'path';
+// P3（2026-10-20）：`DROP_UI` 编译期裁剪 —— headless 构建剔除 REPL/ink。
+// ⚠️ 必须用于**三元 / if 分支**（`bun:bundle` 的 DCE 只清理静态不可达分支里的动态 import）。
+import { feature as buildFeature } from 'bun:bundle';
 import { execSync } from 'child_process';
 import {
   resolveProjectRoot,
@@ -609,7 +612,13 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   // 监听地址：默认 127.0.0.1（本地/桌面场景），Docker 部署设置 LIRI_HTTP_HOST=0.0.0.0
   const httpHost = process.env.LIRI_HTTP_HOST?.trim() || LOCAL_HTTP_HOST;
   const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
-  const httpOnly = options.args?.includes('--http-only') || false;
+  // P3（2026-10-20）：`DROP_UI` 构建（headless）强制走 http-only 分支 —— 不进入 REPL，
+  // 也就不会加载 ink；与 `--http-only` 共用同一条"起 HTTP + 等信号"的实现。
+  // ⚠️ `bun:bundle` 的 `feature()` **只能**直接作 if/三元条件（不可作 `||` 操作数）。
+  let httpOnly = options.args?.includes('--http-only') || false;
+  if (buildFeature('DROP_UI')) {
+    httpOnly = true;
+  }
 
   // 解析 --trust-level 参数（场景选择联动）
   const trustLevelArg = parseTrustLevelFromArgs(options.args);
@@ -637,31 +646,13 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     console.error('  3. app/.env 文件是否存在且配置正确\n');
   }
 
-  // --http-only 模式：仅启动 HTTP 服务，不进入 REPL
+  // --http-only 模式：仅启动 HTTP 服务，不进入 REPL（`DROP_UI` 构建也走这里）
   if (httpOnly) {
     logger.info('HTTP-only 模式，HTTP 服务已在运行，等待信号退出');
-    // http-only 模式在此等待信号，launchREPL 无法返回，launch() 末尾的
-    // `LocalHTTPService._appReady = true`（main.ts 1408）不会执行，
-    // 导致所有业务请求持续返回 503 "Service starting"。此处手动标记就绪。
-    if (httpService) {
-      try {
-        const { LocalHTTPService } =
-          await import('./infrastructure/http/LocalHTTPService.js');
-        LocalHTTPService._appReady = true;
-      } catch {
-        // @ignore-catch — 就绪标记失败不影响进程存活
-      }
-    }
-    // 保持进程存活，直到收到 SIGINT/SIGTERM
-    await new Promise<void>((resolve) => {
-      const onSignal = () => {
-        process.removeListener('SIGINT', onSignal);
-        process.removeListener('SIGTERM', onSignal);
-        resolve();
-      };
-      process.on('SIGINT', onSignal);
-      process.on('SIGTERM', onSignal);
-    });
+    const { markHttpReady, holdUntilShutdownSignal } =
+      await import('./entrypoints/httpOnlyHold');
+    if (httpService) await markHttpReady();
+    await holdUntilShutdownSignal();
     return;
   }
 
@@ -733,7 +724,16 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     logger.error('Media 模块初始化失败', { error: String(err) });
   }
 
-  const { launchRepl } = await import('./entrypoints/repl');
+  // P3（2026-10-20）：`DROP_UI` 时该 import 被编译期整体剔除（headless 产物不含 REPL/ink）。
+  // 上面的 httpOnly 分支已 `return`，此处置 `null` 仅为类型完备 + 防御（构建折叠后不可达）。
+  const replModule = buildFeature('DROP_UI')
+    ? null
+    : await import('./entrypoints/repl');
+  if (!replModule) {
+    logger.info('headless 构建：REPL/ink 已在编译期剔除，HTTP 服务继续运行');
+    return;
+  }
+  const { launchRepl } = replModule;
   await launchRepl({
     httpPort,
     useLegacyRepl,

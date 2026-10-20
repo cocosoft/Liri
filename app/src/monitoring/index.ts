@@ -258,14 +258,16 @@ export type {
   AlertIncidentBridgeStats,
 } from './incidents/index.js';
 
-// 仪器化
-export {
-  bootstrapTelemetry,
-  parseExporterTypes,
-  isTelemetryEnabled,
-  initializeTelemetry,
-  flushTelemetry,
-} from './instrumentation.js';
+// 仪器化（2026-10-21 P3：**不再从 barrel 静态 re-export**）
+//
+// `./instrumentation.js` 静态 import 了 6 个 `@opentelemetry/*` SDK 包
+// （sdk-metrics / sdk-trace-base / resources / core / semantic-conventions / api），
+// 而 barrel 被全仓 `getLogger` 消费者静态引用 ⇒ 这些包被无条件拉进启动面（≈657 KB）。
+//
+// 实际初始化**本来就是延后的**：`bootstrap/AppCoreOTelHelper.ts` 用
+// `await import('@modules/monitoring/instrumentation.js')` 按需加载并 fail-open
+// （try/catch + handleError，失败不阻塞其余初始化）。
+// ⇒ 直接从 `@modules/monitoring/instrumentation.js` 取值即可，barrel 不必再转发。
 
 // 监控心跳
 export { HeartbeatMonitor } from './HeartbeatMonitor.js';

@@ -4,6 +4,7 @@
 import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
 import { ToolExecutionStatus } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
+import { IMAGE_PROCESS_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
@@ -43,6 +44,8 @@ export function createImageRotateTool(): Tool {
     isReadOnly: () => false,
     isDestructive: () => false,
     isConcurrencySafe: () => true,
+    /** U-03（2026-10-19）：模型可见出参结构（`ImageProcessor.ProcessResult`） */
+    outputJsonSchema: IMAGE_PROCESS_OUTPUT_JSON_SCHEMA,
 
     async execute(
       input: Record<string, unknown>,
@@ -178,6 +181,7 @@ export function createImageRotateTool(): Tool {
         deferred: false,
         alwaysLoad: false,
         interruptBehavior: 'block',
+        outputJsonSchema: IMAGE_PROCESS_OUTPUT_JSON_SCHEMA,
       };
     },
   };

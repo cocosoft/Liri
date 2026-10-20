@@ -7,6 +7,7 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
+import { MEDIA_QR_DECODE_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { qrCodeManager } from '../../media/qr/QRCodeManager';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -32,6 +33,8 @@ export function createQRDecodeTool(): Tool {
     isReadOnly: () => true,
     isDestructive: () => false,
     isConcurrencySafe: () => true,
+    /** U-03（2026-10-20）：模型可见出参结构（解码文本） */
+    outputJsonSchema: MEDIA_QR_DECODE_OUTPUT_JSON_SCHEMA,
 
     async execute(
       input: Record<string, unknown>,
@@ -91,6 +94,8 @@ export function createQRDecodeTool(): Tool {
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
+          // U-03（2026-10-20）：结构化出参（与 MEDIA_QR_DECODE_OUTPUT_JSON_SCHEMA 键集一致）
+          data: { success: true, text: decoded },
           output: decoded,
           errorOutput: '',
           metadata: { inputPath: safeInput.path },
@@ -141,6 +146,7 @@ export function createQRDecodeTool(): Tool {
         deferred: false,
         alwaysLoad: false,
         interruptBehavior: 'block',
+        outputJsonSchema: MEDIA_QR_DECODE_OUTPUT_JSON_SCHEMA,
       };
     },
   };

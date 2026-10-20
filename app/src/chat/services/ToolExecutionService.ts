@@ -227,7 +227,7 @@ export interface ToolExecutionDeps {
     approvalScope?: ApprovalScope,
     /** S1-1：审批快照（原始命令 / 规范化命令 / 改写项），供审批卡与执行字符串对账 */
     approvalSnapshot?: ApprovalSnapshot
-  ): Promise<boolean>;
+  ): Promise<string | null>;
   getSessionWorkspacePath(sessionId?: string): string | null | undefined;
   getSessionWorkspaceId(sessionId?: string): string | undefined;
   isCommandApproved(
@@ -620,6 +620,8 @@ export class ToolExecutionService {
           reason?: string;
           decision?: { behavior: string; reason?: string };
           submittedToInbox?: boolean;
+          /** U-06-5：已提交的 Inbox 项 id（前端就地审批） */
+          inboxItemId?: string;
         }>;
       };
       // R07-3（2026-10-07）：非幂等工具的「重试」⇒ 执行前**主动分流**为审批
@@ -650,6 +652,8 @@ export class ToolExecutionService {
                 status: TRANSIENT_AWAITING_APPROVAL,
                 message: `工具 '${normalizedToolCall.name}' 需要审批，已提交审批卡片等待用户批准。用户批准后可继续执行，请勿编造替代方案。`,
                 pendingApproval: true,
+                // U-06-5：Inbox 项 id —— 前端工具卡片就地审批（无则退回卡片/收件箱入口）
+                inboxId: permissionResult.inboxItemId,
               } as const;
               eventNotificationService.emitCustomEvent('tool:completed', {
                 toolName: normalizedToolCall.name,
@@ -985,6 +989,8 @@ export class ToolExecutionService {
                   approvalReason || '高风险操作'
                 }），已提交审批卡片等待用户批准。用户批准后可继续执行，请勿编造替代方案。`,
                 pendingApproval: true,
+                // U-06-5：Inbox 项 id —— 前端工具卡片就地审批
+                inboxId: submitted,
               },
               error: undefined,
             };

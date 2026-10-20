@@ -73,6 +73,9 @@ export class WebFetchTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.web_fetch;
   description = '从 URL 获取内容。用于检索网页内容、API 响应或其他 HTTP 资源。';
 
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = WEB_FETCH_OUTPUT_JSON_SCHEMA;
+
   override tags = [ToolTag.NETWORK, ToolTag.READ];
 
   params: ToolParam[] = [
@@ -556,6 +559,36 @@ export interface WebFetchResult {
   contentLength: number;
   contentType: string;
 }
+
+/**
+ * U-03（2026-10-19）：模型可见出参结构（下发为 `output_schema`），与 `WebFetchResult` 对齐。
+ * 注意：失败分支返回**字符串**（错误文本），本结构只描述成功载荷。
+ */
+const WEB_FETCH_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    url: { type: 'string', description: '实际请求的 URL' },
+    status: { type: 'number', description: 'HTTP 状态码' },
+    statusText: { type: 'string', description: 'HTTP 状态文本' },
+    headers: {
+      type: 'object',
+      additionalProperties: { type: 'string' },
+      description: '响应头（键值均为字符串）',
+    },
+    content: { type: 'string', description: '响应正文（已按格式转换）' },
+    contentLength: { type: 'number', description: '正文长度（字符数）' },
+    contentType: { type: 'string', description: '响应 Content-Type' },
+  },
+  required: [
+    'url',
+    'status',
+    'statusText',
+    'headers',
+    'content',
+    'contentLength',
+    'contentType',
+  ],
+};
 
 /**
  * 创建WebFetch工具实例

@@ -18,6 +18,106 @@ import { notebookManager } from '../notebook/NotebookManager.js';
 import { handleError } from '@modules/error/handleError';
 
 /**
+ * U-03（2026-10-20）：`notebook` 的**模型可见出参结构**。
+ *
+ * ⚠️ 本工具是**多 action 分支**工具，`data` 随 action 变化（`create`/`open`/`addCodeCell`/
+ * `addMarkdownCell`/`executeCell`/`executeAllCells`/`export`/`list`/`save`/`delete`）⇒
+ * 按既有约定（`channel` / `image_analysis` 等）声明**各分支字段的并集**，根级不设 `required`；
+ * 分支内共同的 `notebookId` / `name` 等只作为可选属性出现。
+ *
+ * 为让顶层类型恒为 `object`（`output_schema` 只表达一种顶层类型），`list` 分支的
+ * `data` 已从「裸数组」归一为 `{ notebooks, total }`。
+ */
+const NOTEBOOK_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  description:
+    'notebook 的 data 按 action 分支变化，各分支只保证自己产出的字段',
+  properties: {
+    notebookId: { type: 'string', description: 'Notebook ID' },
+    name: { type: 'string', description: 'Notebook 名称' },
+    path: { type: 'string', description: 'Notebook 文件路径' },
+    cellId: { type: 'string', description: '单元格 ID' },
+    cellIndex: { type: 'number', description: '单元格索引（入参回显）' },
+    type: {
+      type: 'string',
+      enum: ['code', 'markdown'],
+      description: '新增单元格类型',
+    },
+    content: { type: 'string', description: '导出内容（export 分支）' },
+    format: { type: 'string', description: '导出格式（export 分支）' },
+    success: {
+      type: 'boolean',
+      description: '单元格执行是否成功（executeCell 分支）',
+    },
+    error: { type: 'string', description: '执行失败原因（executeCell 分支）' },
+    executionTime: {
+      type: 'number',
+      description: '执行耗时（毫秒；executeCell 分支）',
+    },
+    output: {
+      type: 'array',
+      description: '单元格输出（executeCell 分支）',
+      items: {
+        type: 'object',
+        properties: {
+          type: {
+            type: 'string',
+            enum: ['text', 'html', 'image', 'error'],
+            description: '输出类型',
+          },
+          content: {
+            type: ['string', 'object'],
+            description: '输出内容（文本，或图片等二进制载荷）',
+          },
+          metadata: { type: 'object', description: '输出元数据' },
+        },
+        required: ['type', 'content'],
+      },
+    },
+    results: {
+      type: 'array',
+      description: '逐单元格执行结果（executeAllCells 分支）',
+      items: {
+        type: 'object',
+        properties: {
+          cellId: { type: 'string' },
+          success: { type: 'boolean' },
+          error: { type: 'string' },
+          executionTime: { type: 'number' },
+        },
+        required: ['cellId', 'success'],
+      },
+    },
+    total: {
+      type: 'number',
+      description: '单元格总数（executeAllCells）或 Notebook 总数（list）',
+    },
+    succeeded: {
+      type: 'number',
+      description: '执行成功的单元格数（executeAllCells 分支）',
+    },
+    failed: {
+      type: 'number',
+      description: '执行失败的单元格数（executeAllCells 分支）',
+    },
+    notebooks: {
+      type: 'array',
+      description: 'Notebook 列表（list 分支）',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Notebook ID' },
+          name: { type: 'string', description: '名称' },
+          path: { type: 'string', description: '文件路径' },
+          cells: { type: 'number', description: '单元格数量' },
+        },
+        required: ['id', 'name', 'cells'],
+      },
+    },
+  },
+};
+
+/**
  * Notebook工具适配器
  */
 export class NotebookToolAdapter implements Tool {
@@ -213,6 +313,11 @@ export class NotebookToolAdapter implements Tool {
   maxResultSizeChars = 10000;
 
   /**
+   * U-03（2026-10-20）：模型可见出参结构（多 action 分支并集，见文件头常量）
+   */
+  outputJsonSchema = NOTEBOOK_OUTPUT_JSON_SCHEMA;
+
+  /**
    * Notebook工具实例
    */
   private notebookTool: NotebookToolImpl;
@@ -352,7 +457,11 @@ export class NotebookToolAdapter implements Tool {
           } else {
             notebookManager.saveNotebook(notebook);
           }
-          return { success: true, output: `Notebook saved: ${notebook.name}` };
+          return {
+            success: true,
+            data: { notebookId: notebook.id, name: notebook.name },
+            output: `Notebook saved: ${notebook.name}`,
+          };
         }
 
         case 'addCodeCell': {
@@ -506,12 +615,16 @@ export class NotebookToolAdapter implements Tool {
           const notebooks = notebookManager.getNotebooks();
           return {
             success: true,
-            data: notebooks.map((n) => ({
-              id: n.id,
-              name: n.name,
-              path: n.path,
-              cells: n.cells.length,
-            })),
+            // U-03（2026-10-20）：顶层类型统一为 object（原为裸数组），声明见 NOTEBOOK_OUTPUT_JSON_SCHEMA
+            data: {
+              notebooks: notebooks.map((n) => ({
+                id: n.id,
+                name: n.name,
+                path: n.path,
+                cells: n.cells.length,
+              })),
+              total: notebooks.length,
+            },
             output: `Found ${notebooks.length} notebook(s)`,
           };
         }
@@ -529,6 +642,7 @@ export class NotebookToolAdapter implements Tool {
           this.notebookMap.delete(notebook.id);
           return {
             success: true,
+            data: { notebookId: notebook.id, name: notebook.name },
             output: `Notebook deleted: ${notebook.name}`,
           };
         }
@@ -564,11 +678,16 @@ export class NotebookToolAdapter implements Tool {
       readOnly: this.readOnly,
       destructive: this.destructive,
       concurrencySafe: this.concurrencySafe,
+      // U-03（2026-10-19）：显式效果声明 —— 编辑/执行本地 Notebook ⇒ 非幂等、副作用限本机
+      idempotent: false,
+      sideEffect: 'local',
       deferred: this.deferred,
       alwaysLoad: this.alwaysLoad,
       interruptBehavior: this.interruptBehavior(),
       maxResultSizeChars: this.maxResultSizeChars,
       tags: [ToolTag.CODE],
+      // U-03（2026-10-20）：出参结构进快照（懒加载未解包时模型也能看到）
+      outputJsonSchema: this.outputJsonSchema,
     };
   }
 

@@ -13,7 +13,10 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { checkAstAndAnalyzer } from '../../src/tools/bash/bashSecurityGate.js';
+import {
+  checkAstAndAnalyzer,
+  checkBashDangerousCommand,
+} from '../../src/tools/bash/bashSecurityGate.js';
 import {
   evaluatePowerShellSecurity,
   isPowerShellCommandAllowed,
@@ -62,6 +65,16 @@ describe('checkAstAndAnalyzer：信任级别透传', () => {
     expect(analyzer.analyze('node --version', 'development').behavior).toBe(
       'allow'
     );
+  });
+});
+
+describe('硬拦截结果必须带 error（BUG-8，2026-10-19）', () => {
+  it('危险命令拦截 ⇒ error / success=false（不再被误记为成功）', () => {
+    const block = checkBashDangerousCommand('rm -rf /tmp/x');
+    expect(block).not.toBeNull();
+    expect(block?.error).toBeTruthy();
+    expect(block?.success).toBe(false);
+    expect(block?.metadata?.['securityIntercepted']).toBe(true);
   });
 });
 

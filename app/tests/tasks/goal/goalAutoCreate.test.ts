@@ -19,7 +19,10 @@ import {
   TaskGoalStore,
   setTaskGoalStoreForTest,
 } from '../../../src/tasks/goal/TaskGoalStore';
-import { ensureGoalForBatch } from '../../../src/tasks/goal/goalRunBinding';
+import {
+  ensureGoalForBatch,
+  settleGoalById,
+} from '../../../src/tasks/goal/goalRunBinding';
 import { setGoalEventSink } from '../../../src/tasks/goal/GoalEvents';
 
 const createdPaths: string[] = [];
@@ -176,5 +179,86 @@ describe('ensureGoalForBatch：swarm 批次启动的目标自动创建', () => {
     expect(goal).not.toBeNull();
     expect(await store.listBySession('s-2')).toHaveLength(1);
     expect(createdPayloads(events)).toHaveLength(1);
+  });
+});
+
+describe('settleGoalById：PDCA 终态按目标 id 精确落定（U-02）', () => {
+  test('active ⇒ completed，落库 + goal/status_changed 事件', async () => {
+    const store = makeStore();
+    const events = makeSink();
+    const goal = await store.create({ objective: '实现 Y', sessionId: 's-1' });
+
+    const changed = await settleGoalById({
+      goalId: goal.id,
+      status: 'completed',
+      reason: 'batch_completed',
+      store,
+    });
+
+    expect(changed).toBe(true);
+    expect((await store.get(goal.id))!.status).toBe('completed');
+    const statusEvents = events.filter((e) => e.type === 'goal/status_changed');
+    expect(statusEvents).toHaveLength(1);
+    const payload = statusEvents[0].data as {
+      goalId: string;
+      to: string;
+      reason: string;
+    };
+    expect(payload.goalId).toBe(goal.id);
+    expect(payload.to).toBe('completed');
+    expect(payload.reason).toBe('batch_completed');
+  });
+
+  test('escalate ⇒ blocked（非终态，允许后续 replan 续跑）', async () => {
+    const store = makeStore();
+    makeSink();
+    const goal = await store.create({ objective: '实现 Z', sessionId: 's-1' });
+
+    const changed = await settleGoalById({
+      goalId: goal.id,
+      status: 'blocked',
+      reason: 'batch_blocked',
+      store,
+    });
+
+    expect(changed).toBe(true);
+    const after = await store.get(goal.id);
+    expect(after!.status).toBe('blocked');
+    expect(after!.updatedReason).toBe('batch_blocked');
+  });
+
+  test('已终态 / 目标不存在 / 无 goalId ⇒ false 且不改写、不发事件', async () => {
+    const store = makeStore();
+    const events = makeSink();
+    const done = await store.create({ objective: '已完成', sessionId: 's-1' });
+    await store.markStatusChanged(done.id, 'completed', 'batch_completed');
+    const before = events.length;
+
+    expect(
+      await settleGoalById({
+        goalId: done.id,
+        status: 'failed',
+        reason: 'batch_failed',
+        store,
+      })
+    ).toBe(false);
+    expect(
+      await settleGoalById({
+        goalId: 'missing-goal',
+        status: 'failed',
+        reason: 'batch_failed',
+        store,
+      })
+    ).toBe(false);
+    expect(
+      await settleGoalById({
+        status: 'failed',
+        reason: 'batch_failed',
+        store,
+      })
+    ).toBe(false);
+
+    expect((await store.get(done.id))!.status).toBe('completed');
+    expect(events.length).toBe(before);
   });
 });

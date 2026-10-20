@@ -54,6 +54,9 @@ export class SkillListTool implements Tool {
       readOnly: true,
       destructive: false,
       concurrencySafe: true,
+      // U-03（2026-10-19）：显式效果声明 —— 只读列举技能 ⇒ 幂等、无副作用
+      idempotent: true,
+      sideEffect: 'none',
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',

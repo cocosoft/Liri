@@ -72,13 +72,13 @@ export default function DiffBlock({
   const { file, diff, stats } = data;
   const [isExpanded, setIsExpanded] = useState(!collapsible);
   const [applying, setApplying] = useState(false);
-  const [rejected, setRejected] = useState(false);
+  const [hidden, setHidden] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const lines = diff.split("\n");
 
-  /** 接受 diff：复制 diff 内容到剪贴板 */
-  const handleApply = async () => {
+  /** 复制 diff 内容到剪贴板（该 diff 是执行后的快照，已生效，前端不提供"应用"） */
+  const handleCopy = async () => {
     setApplying(true);
     try {
       const rawDiffText = formatRawDiff(lines);
@@ -97,13 +97,13 @@ export default function DiffBlock({
     }
   };
 
-  /** 拒绝 diff：折叠当前 diff 块 */
-  const handleReject = () => {
-    setRejected(true);
+  /** 隐藏 diff：折叠为一行占位（不改变已生效的文件内容） */
+  const handleHide = () => {
+    setHidden(true);
   };
 
-  // 已拒绝：显示占位提示
-  if (rejected) {
+  // 已隐藏：显示占位提示
+  if (hidden) {
     return (
       <div className="my-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm opacity-60">
         <div className="px-3 py-2 flex items-center justify-between">
@@ -181,10 +181,10 @@ export default function DiffBlock({
         </div>
       )}
 
-      {/* 操作栏：接受 / 拒绝 */}
+      {/* 操作栏：复制 / 隐藏 */}
       <div className="px-3 py-1.5 border-t border-gray-100 dark:border-gray-700 flex items-center gap-2">
         <button
-          onClick={handleApply}
+          onClick={handleCopy}
           disabled={applying || copied}
           className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
             copied
@@ -199,8 +199,8 @@ export default function DiffBlock({
               : t("chat.copyDiff")}
         </button>
         <button
-          onClick={handleReject}
-          className="px-3 py-1 text-xs font-medium rounded-md bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+          onClick={handleHide}
+          className="px-3 py-1 text-xs font-medium rounded-md bg-gray-50 dark:bg-gray-900/40 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
         >
           {`\u2717 ${t("chat.ignoreChange")}`}
         </button>

@@ -207,6 +207,29 @@ export class FileEditTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.file_edit;
   description = '通过替换文本编辑文件';
 
+  /**
+   * U-03（2026-10-19）：模型可见出参结构。
+   * 两条成功分支：（全量替换）`{filePath, replaced}`；（单次替换）额外带
+   * `linesChanged / oldStringFound / replaceAll` ⇒ 后者标可选。
+   */
+  override outputJsonSchema = {
+    type: 'object',
+    properties: {
+      filePath: { type: 'string', description: '被编辑文件的绝对路径' },
+      replaced: { type: 'boolean', description: '是否已写回文件' },
+      linesChanged: { type: 'number', description: '变更行数（单次替换分支）' },
+      oldStringFound: {
+        type: 'boolean',
+        description: '是否命中 old_string（单次替换分支）',
+      },
+      replaceAll: {
+        type: 'boolean',
+        description: '是否替换全部匹配（单次替换分支恒为 false）',
+      },
+    },
+    required: ['filePath', 'replaced'],
+  };
+
   override tags = [ToolTag.FILE, ToolTag.WRITE];
 
   params: ToolParam[] = [

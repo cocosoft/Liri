@@ -263,6 +263,14 @@ export function useInitApp() {
   // 2. **解耦副作用**：不再被上面 effect 的门控/依赖抖动（`loadSessions`/`checkBackendStatus` 身份变化）牵连。
   useEffect(() => {
     connectionMonitor.start();
+    // U-04（2026-10-19）：后端恢复（CONNECTED）时重建事件通道 ——
+    // 原实现只唤醒挂起的对话流，`/v1/events` 若已半开/断开则不会自愈。
+    const unsubscribeBackendUp = connectionMonitor.onBackendUp(() => {
+      if (!sseService.isConnected()) {
+        logger.info("[conn] 后端恢复，重建 SSE 事件通道");
+        sseService.reconnectNow();
+      }
+    });
     // 可观测性（dev-only，TB-3）：把**本页应用自己用的那份**实例挂到 window。
     // 必要性：E2E 里 `page.evaluate(() => import("...connectionMonitor.ts"))`（**无 query**）与
     // 页面 bundle 使用的 `?t=<HMR 时间戳>` 是**两个 URL** ⇒ 可能读到**另一份实例**，据此得出
@@ -274,6 +282,7 @@ export function useInitApp() {
       ] = connectionMonitor;
     }
     return () => {
+      unsubscribeBackendUp();
       connectionMonitor.stop();
     };
   }, []);

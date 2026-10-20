@@ -237,7 +237,6 @@ export class FetchInterceptor {
 
     // v5 方案 3.2：流式请求两阶段写入——请求发起时先落 pending 记录
     // （不经过 shouldRecord，保证"发起过"可复盘；非流式保持现状单写）
-    let streamError: string | undefined;
     if (isStreaming && this.engine && this.callback) {
       this.emitRecord(
         this.buildRecord(
@@ -279,67 +278,67 @@ export class FetchInterceptor {
       const isSSE = contentType.includes('text/event-stream') || isStreaming;
 
       let respBody: unknown = undefined;
-      let sseEvents: SSERawEvent[] | undefined;
 
       if (isSSE && response.body) {
-        // 流式响应：克隆 response，读取克隆体进行 SSE 解析
+        // 流式响应：克隆 response，**后台**读取克隆体做 SSE 解析。
+        //
+        // R-01（2026-10-19，内存取证）：原实现 `await` 克隆体读完才 return response ⇒
+        // 整个流在 tee 两侧被完整缓冲（长流峰值≈2×），且业务 TTFB 被录制时长拖住。
+        // 改为后台消费、主响应立即返回：业务侧与录制侧并发消费 ⇒ tee 缓冲受背压约束。
         const clonedResponse = response.clone();
-        const reassembler = new SSEReassembler();
-
-        try {
-          const clonedBody = clonedResponse.body;
-          if (!clonedBody) {
-            return response;
-          }
-          const reader = clonedBody.getReader();
-          const decoder = new TextDecoder();
-          let done = false;
-
-          while (!done) {
-            const result = await reader.read();
-            done = result.done;
-            if (result.value) {
-              const text = decoder.decode(result.value, { stream: !done });
-              reassembler.feedBytes(new TextEncoder().encode(text));
+        void (async (): Promise<void> => {
+          const reassembler = new SSEReassembler();
+          let backgroundError: string | undefined;
+          try {
+            const clonedBody = clonedResponse.body;
+            if (!clonedBody) return;
+            const reader = clonedBody.getReader();
+            const decoder = new TextDecoder();
+            let done = false;
+            while (!done) {
+              const result = await reader.read();
+              done = result.done;
+              if (result.value) {
+                const text = decoder.decode(result.value, {
+                  stream: !done,
+                });
+                reassembler.feedBytes(new TextEncoder().encode(text));
+              }
             }
+          } catch (err) {
+            // 流读取异常时使用已有数据，不中断主响应（原语义保持不变）
+            backgroundError = err instanceof Error ? err.message : String(err);
+            logger.warn('trace:fetchInterceptor SSE reader error', {
+              error: backgroundError,
+              url,
+            });
           }
-        } catch (err) {
-          // 流读取异常时使用已有数据，不中断主响应
-          // v5 方案 3.2：保存错误到 streamError，completed 记录带 error 字段
-          streamError = err instanceof Error ? err.message : String(err);
-          logger.warn('trace:fetchInterceptor SSE reader error', {
-            error: streamError,
-            url,
-          });
-        }
 
-        sseEvents = reassembler.getEvents();
-        respBody = reassembler.reconstruct();
-
-        // 检查当前录制模式是否应该录制
-        if (!this.shouldRecord(durationMs, sseEvents)) {
-          return response;
-        }
-
-        // 异步写入录制记录（不阻塞响应）
-        const record = this.buildRecord(
-          reqId,
-          startedAtMs,
-          method,
-          url,
-          reqHeaders,
-          reqBody,
-          reqBodyText,
-          response.status,
-          respHeaders,
-          respBody,
-          durationMs,
-          sseEvents,
-          extractModelName(reqBody || {}),
-          streamError
-        );
-
-        this.emitRecord(record);
+          const sseEvents = reassembler.getEvents();
+          const respBody = reassembler.reconstruct();
+          // 录制时长 = 流真正结束时刻（后台完成时重算，不再用响应头时刻）
+          const totalMs = Math.round(performance.now() - t0);
+          if (!this.shouldRecord(totalMs, sseEvents)) return;
+          this.emitRecord(
+            this.buildRecord(
+              reqId,
+              startedAtMs,
+              method,
+              url,
+              reqHeaders,
+              reqBody,
+              reqBodyText,
+              response.status,
+              respHeaders,
+              respBody,
+              totalMs,
+              sseEvents,
+              extractModelName(reqBody || {}),
+              backgroundError
+            )
+          );
+        })();
+        return response;
       } else {
         // 非流式响应：先克隆再读body
         if (response.body) {

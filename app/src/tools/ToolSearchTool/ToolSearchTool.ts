@@ -11,7 +11,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import type { ToolCallProgress } from '../types/Tool';
 import { isDeferredTool, TOOL_SEARCH_TOOL_NAME } from '../utils/toolSearch';
-import { ToolSearchOutputSchema } from './schemas';
+import { ToolSearchOutputSchema, ToolSearchOutputJsonSchema } from './schemas';
 // 2026-10-01：`ToolSearchInput` / `ToolSearchOutput` 的**唯一事实源**为 `./schemas.ts`（zod 推导；
 // 字段与本文件原手写 interface/type 一致，`ToolSearchInput` 的 zod 版另含 min/max 约束）
 // ⇒ 此处**仅非导出引用**，不再重复定义（依 §9.2「一个名字一个规范落点」）。
@@ -232,6 +232,8 @@ export class ToolSearchTool extends BaseTool<
    * （`matches: z.array(z.string())`），**消除内联重复**（CS01 归一化）。
    */
   outputSchema = ToolSearchOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = ToolSearchOutputJsonSchema;
 
   /**
    * 工具描述

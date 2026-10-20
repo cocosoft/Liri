@@ -54,6 +54,89 @@ export const CronDeleteOutputSchema = z.object({
 });
 
 /**
+ * U-03（2026-10-19）：四个 cron 工具的**模型可见出参结构**（JSON Schema）。
+ *
+ * ⚠️ 与 zod 的差异**照实记录**（CS06）：
+ * - `cron_create` / `cron_list` 的 zod 出口 schema 已于 2026-09-29 删除（与实现漂移）⇒ 这里按**实际出口**写；
+ * - `cron_delete` 的 `CronDeleteOutputSchema` 只声明 `id`，而实际出口是 `{id, name}`
+ *   （多出键被 zod 默认 strip，无害）⇒ 这里按**实际出口**写 `id` + `name`。
+ */
+export const CronCreateOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: '新建任务 ID' },
+    name: { type: 'string', description: '任务名称' },
+    humanSchedule: { type: 'string', description: '人类可读的调度表达式' },
+    nextRunAt: { type: 'string', description: '下次运行时间（ISO，可缺省）' },
+  },
+  required: ['id', 'name', 'humanSchedule'],
+};
+
+export const CronDeleteOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: '已删除的 cron 任务 ID' },
+    name: { type: 'string', description: '已删除的任务名称' },
+  },
+  required: ['id', 'name'],
+};
+
+export const CronListOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    jobs: {
+      type: 'array',
+      description: '定时任务列表',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: '任务 ID' },
+          name: { type: 'string', description: '任务名称' },
+          schedule: { type: 'string', description: '调度表达式（可读形式）' },
+          prompt: { type: 'string', description: '触发时执行的提示词' },
+          enabled: { type: 'boolean', description: '是否启用' },
+          state: {
+            type: 'string',
+            description: '任务状态（scheduled/paused/running 等）',
+          },
+          nextRunAt: { type: 'string', description: '下次运行时间（ISO）' },
+          lastRunAt: { type: 'string', description: '上次运行时间（ISO）' },
+          silent: { type: 'boolean', description: '是否静默执行' },
+        },
+        required: [
+          'id',
+          'name',
+          'schedule',
+          'prompt',
+          'enabled',
+          'state',
+          'silent',
+        ],
+      },
+    },
+    count: { type: 'number', description: '任务条数' },
+  },
+  required: ['jobs', 'count'],
+};
+
+export const CronStopOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: '任务 ID' },
+    name: { type: 'string', description: '任务名称' },
+    state: {
+      type: 'string',
+      description: '操作后的状态（paused / scheduled 等）',
+    },
+    nextRunAt: {
+      type: 'string',
+      description: '恢复后的下次运行时间（ISO，仅 resume 分支）',
+    },
+  },
+  required: ['id', 'name', 'state'],
+};
+
+/**
  * CronListTool 输入模式
  */
 export const CronListInputSchema = z.strictObject({});

@@ -24,6 +24,20 @@ export type ExitWorktreeInput = z.infer<typeof ExitWorktreeInputSchema>;
 export type ExitWorktreeOutput = z.infer<typeof ExitWorktreeOutputSchema>;
 
 /**
+ * U-03（2026-10-19）：`exit_worktree` 的**模型可见出参结构**（JSON Schema），
+ * 与 `ExitWorktreeOutputSchema` 逐字段对齐（`previous_branch` 仅成功时出现）。
+ */
+export const ExitWorktreeOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean', description: '操作是否成功' },
+    message: { type: 'string', description: '操作结果消息' },
+    previous_branch: { type: 'string', description: '退出前所在的分支名称' },
+  },
+  required: ['success', 'message'],
+};
+
+/**
  * 验证 ExitWorktreeTool 输入
  */
 export function validateExitWorktreeInput(input: unknown) {

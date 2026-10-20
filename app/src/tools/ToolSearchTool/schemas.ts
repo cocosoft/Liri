@@ -37,6 +37,30 @@ export type ToolSearchInput = z.infer<typeof ToolSearchInputSchema>;
 export type ToolSearchOutput = z.infer<typeof ToolSearchOutputSchema>;
 
 /**
+ * U-03（2026-10-19）：`tool_search` 的**模型可见出参结构**（JSON Schema），
+ * 与 `ToolSearchOutputSchema` 逐字段对齐（改 zod 须同步，用例做键集断言）。
+ */
+export const ToolSearchOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    matches: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '匹配的工具名称列表',
+    },
+    query: { type: 'string', description: '原始查询字符串' },
+    total_deferred_tools: { type: 'number', description: '延迟加载工具的总数' },
+    deferredToolNames: {
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        '延迟加载工具的完整名称列表（用于区分关键词未命中 vs 工具不存在）',
+    },
+  },
+  required: ['matches', 'query', 'total_deferred_tools', 'deferredToolNames'],
+};
+
+/**
  * 验证 ToolSearchTool 输入
  */
 export function validateToolSearchInput(input: unknown) {

@@ -170,30 +170,45 @@ const parallelCommand = {
 
       // 使用 Promise 等待所有任务完成
       const waitForCompletion = new Promise<void>((resolve) => {
-        if (completedTasks >= totalTasks) {
+        let settled = false;
+        let checkInterval: ReturnType<typeof setInterval> | null = null;
+        let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+
+        // 单一出口：调度器回调 / 轮询 / 超时三条路径共用，避免句柄逃逸
+        // （BUG-5：此前调度器回调先到时 checkInterval 永不清除，100ms 永久空转）
+        const finish = (): void => {
+          if (settled) return;
+          settled = true;
+          if (checkInterval) {
+            clearInterval(checkInterval);
+            checkInterval = null;
+          }
+          if (timeoutTimer) {
+            clearTimeout(timeoutTimer);
+            timeoutTimer = null;
+          }
           resolve();
+        };
+
+        if (completedTasks >= totalTasks) {
+          finish();
           return;
         }
 
-        scheduler.setOnSchedulerComplete(() => {
-          resolve();
-        });
+        scheduler.setOnSchedulerComplete(finish);
 
         // 备选: 如果调度器已经完成但回调没触发
-        const checkInterval = setInterval(() => {
+        checkInterval = setInterval(() => {
           logger.debug('并行任务完成轮询检查', { completedTasks, totalTasks });
-          if (completedTasks >= totalTasks) {
-            clearInterval(checkInterval);
-            resolve();
-          }
+          if (completedTasks >= totalTasks) finish();
         }, 100);
+        checkInterval.unref?.();
 
         // 超时保护
         if (options.timeout > 0) {
-          setTimeout(() => {
-            clearInterval(checkInterval);
+          timeoutTimer = setTimeout(() => {
             abortController.abort();
-            resolve();
+            finish();
           }, options.timeout);
         }
       });

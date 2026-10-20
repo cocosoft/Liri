@@ -24,6 +24,15 @@
 
 ---
 
+#### v0.5.1 (2026-10-20)  工具治理收口（出参结构全量声明 / send_message 接线）+ 主动汇报默认开启 + 无人值守自动通过 + AlwaysOn 最小可用自主执行
+
+- ✅ **U-03 出参结构（第 19~21 批）**：`outputJsonSchema` 契约扩展支持**数组**与**标量**（string/number/boolean）；media 其余 8 个工具补 `data` 并声明；`notebook` 分支归一后并集声明；`brief` / `nodes` / `file_convert` 收尾 —— 生效面 **54 个工具** + media 15 个 + `knowledge_snapshots` 已声明。
+- ✅ **U-03 D5 能力棘轮**：`extends BaseTool` 有 `TOOL_EFFECTS` 条目即视为已声明（用户裁定）；判据补识别字段初始化器写法；基线 **61 → 11**。
+- ✅ **U-03 `send_message` 接线**：`SEND_MESSAGE` 默认 `false → true`（生效面 **77 → 78**），补 `TOOL_EFFECTS` 与标量出参声明；参数/描述资源与 en-US 译文同步。
+- ✅ **U-01 主动汇报默认开启**：`PROACTIVE: false → true`（回退 `FEATURE_PROACTIVE=false`）。
+- ✅ **U-02 无人值守阶段审批自动通过**：`UNATTENDED_MODE` 下两条编排链共用自动答复 + `interaction_auto_answered` 审计；开关默认关 ⇒ 普通交互零变化。
+- ✅ **U-02 AlwaysOn 最小可用自主执行 v1**：计划解析（高风险放弃）+ 四阶段桥接（依赖注入）+ 启动接线（项目注册 / 门禁开启 / `manager.start()`）；新 flag `ALWAYSON` 默认开。v1 偏差（worktree 隔离 / 主动通知 / 只读收窄 / 超时中止）见 `dev_docs/20261020/AlwaysOn-最小可用自主执行-方案.md` §9。
+
 #### v0.5.0 (2026-10-18)  多批次治理收口：提示词资源链 / 编排可观测 / 通道与硬编码治理 / 长程任务修复
 
 - ✅ **HARDCODE-SAME-NAME-CONSTS-B5-2-74**：调度检查间隔收敛为 types 单一事实源 —— 验证 tc0|arch0；基线 改前 DreamScheduler 与 archivalCronTask 各定义 CHECK_INTERVAL_MS=60s（基线 173 键）（详情见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-74）

@@ -29,6 +29,19 @@ export class KnowledgeSnapshotsTool implements Tool {
   public isDestructive: () => boolean = () => false;
   public isConcurrencySafe: () => boolean = () => true;
 
+  /**
+   * U-03（2026-10-19）：模型可见出参结构 —— 成功分支 `data` 直接是**快照名数组**
+   * （无快照分支不带 `data`），故使用 `type: 'array'`。
+   */
+  public outputJsonSchema: Record<string, unknown> = {
+    type: 'array',
+    items: {
+      type: 'string',
+      description: '快照版本名（可传给 knowledge_restore）',
+    },
+    description: '该文档的历史快照列表（无快照时为空数组）',
+  };
+
   private writer: KnowledgeBaseWriter;
 
   constructor() {
@@ -113,9 +126,13 @@ export class KnowledgeSnapshotsTool implements Tool {
       readOnly: this.isReadOnly(),
       destructive: this.isDestructive(),
       concurrencySafe: this.isConcurrencySafe(),
+      // U-03（2026-10-19）：显式效果声明 —— 只读列举快照 ⇒ 幂等、无副作用
+      idempotent: true,
+      sideEffect: 'none',
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',
+      outputJsonSchema: this.outputJsonSchema,
     };
   }
 }

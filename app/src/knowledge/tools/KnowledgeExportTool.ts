@@ -185,6 +185,9 @@ export class KnowledgeExportTool implements Tool {
       readOnly: this.isReadOnly(),
       destructive: this.isDestructive(),
       concurrencySafe: this.isConcurrencySafe(),
+      // U-03（2026-10-19）：显式效果声明 —— 导出会写本地文件 ⇒ 非幂等、副作用限本机
+      idempotent: false,
+      sideEffect: 'local',
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',

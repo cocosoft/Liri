@@ -8,7 +8,10 @@ import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_OUTPUT_TOOL_NAME } from './constants';
-import { VoiceOutputOutputSchema } from './schemas';
+import {
+  VoiceOutputOutputJsonSchema,
+  VoiceOutputOutputSchema,
+} from './schemas';
 import voiceService from '@modules/services/voice';
 
 const logger = getLogger('tools:voiceOutput');
@@ -59,6 +62,8 @@ export class VoiceOutputTool implements Tool {
    * 上文的历史说明保留作沿革。
    */
   outputSchema = VoiceOutputOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构（6 个按分支出现的可选字段） */
+  outputJsonSchema = VoiceOutputOutputJsonSchema;
   description: string = '语音输出工具，用于将文本转换为语音';
   params = VOICE_OUTPUT_PARAMS;
   private isSpeaking: boolean = false;
@@ -259,6 +264,7 @@ export class VoiceOutputTool implements Tool {
       alwaysLoad: false,
       interruptBehavior: 'block',
       tags: [ToolTag.AI],
+      outputJsonSchema: this.outputJsonSchema,
     };
   }
 

@@ -136,3 +136,42 @@ describe('工具 schema 无 undefined 值（D1 载荷合法性，2026-09-25）',
     expect(checked).toBeGreaterThan(0);
   });
 });
+
+describe('参数约束透传（U-03，2026-10-19）', () => {
+  it('真实工具集：声明了 enum / minimum / maximum 的参数在 schema 中原样出现', () => {
+    const { tools, schemas } = buildRealSchemas();
+    const byName = new Map(schemas.map((s) => [s.name, s]));
+    let checkedEnum = 0;
+    let checkedRange = 0;
+
+    for (const tool of tools) {
+      const info = tool.getInfo();
+      const schema = byName.get(info.name);
+      if (!schema) continue;
+      const props = schema.input_schema.properties as Record<
+        string,
+        Record<string, unknown>
+      >;
+      for (const param of info.params ?? []) {
+        const prop = props[param.name];
+        if (!prop) continue;
+        if (Array.isArray(param.enum) && param.enum.length > 0) {
+          checkedEnum++;
+          expect(prop.enum).toEqual(param.enum);
+        }
+        if (typeof param.minimum === 'number') {
+          checkedRange++;
+          expect(prop.minimum).toBe(param.minimum);
+        }
+        if (typeof param.maximum === 'number') {
+          checkedRange++;
+          expect(prop.maximum).toBe(param.maximum);
+        }
+      }
+    }
+
+    // 防空跑：真实工具集中确有声明枚举 / 边界的参数（修复前这些键全部缺失）
+    expect(checkedEnum).toBeGreaterThan(0);
+    expect(checkedRange).toBeGreaterThan(0);
+  });
+});

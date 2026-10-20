@@ -3,8 +3,8 @@
   "locale": "en-US",
   "generatedBy": "manual translation (C-3b, 2026-10-18)",
   "counts": {
-    "tools": 75,
-    "params": 359
+    "tools": 76,
+    "params": 362
   },
   "params": {
     "agent.allowedTools": "Comma-separated tool names that the subagent is allowed to use. If empty, all tools are available.",
@@ -266,6 +266,9 @@
     "save_conversation.maxLength": "Maximum summary length",
     "save_conversation.sessionId": "Session ID",
     "save_conversation.summaryType": "Summary type: concise, detailed, actionable",
+    "send_message.message": "Message content",
+    "send_message.priority": "Message priority (normal, high, low)",
+    "send_message.to": "Recipient agent",
     "sessions.action": "Session action to perform",
     "sessions.includeMetadata": "Include message metadata in history",
     "sessions.includeResourceUsage": "Include CPU/memory usage in status",

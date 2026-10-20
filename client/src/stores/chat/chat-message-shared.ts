@@ -55,6 +55,33 @@ export function getToolResultFull(toolCallId: string): string | undefined {
   return toolResultFullCache.get(toolCallId);
 }
 
+/**
+ * U-06-5（2026-10-19）：从工具结果 JSON 文本提取审批等待信号。
+ *
+ * `awaiting_approval` 结果由后端返回为结构化 JSON
+ * （`{ status: 'awaiting_approval', pendingApproval: true, inboxId }`），
+ * 这里只认**结构化字段**（CS02：状态判断不用字符串匹配），非 JSON / 非审批结果返回 null。
+ */
+export function parseApprovalSignal(
+  raw: unknown,
+): { pendingApproval: true; inboxId?: string } | null {
+  if (typeof raw !== "string") return null;
+  try {
+    const parsed = JSON.parse(raw) as {
+      pendingApproval?: unknown;
+      inboxId?: unknown;
+    } | null;
+    if (parsed?.pendingApproval !== true) return null;
+    return {
+      pendingApproval: true,
+      inboxId: typeof parsed.inboxId === "string" ? parsed.inboxId : undefined,
+    };
+  } catch {
+    // 非 JSON（普通文本工具结果）⇒ 无审批信号，非错误路径
+    return null;
+  }
+}
+
 /** 清理全量工具结果缓存（setMessages 加载新会话前调用，防止内存泄漏） */
 export function clearToolResultCache(): void {
   toolResultFullCache.clear();

@@ -53,10 +53,31 @@ function toToolParams(def: SelfWakeToolSchema): ToolParam[] {
   }));
 }
 
+/**
+ * U-03（2026-10-19）：`sleep_for` / `sleep_until` 的**模型可见出参结构**（JSON Schema），
+ * 与 `createSelfWakeToolExecutors()` 两个 timer 执行器的返回逐字段对齐。
+ */
+const SELFWAKE_TIMER_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    wakeId: { type: 'string', description: '唤醒记录 ID' },
+    triggerAt: { type: 'number', description: '计划唤醒时间（毫秒时间戳）' },
+    status: {
+      type: 'string',
+      enum: ['pending', 'due', 'fired'],
+      description: '唤醒状态（刚登记应为 pending）',
+    },
+  },
+  required: ['wakeId', 'status'],
+};
+
 class SelfWakeTimerTool extends BaseTool {
   name: string;
   description: string;
   params: ToolParam[];
+
+  /** U-03（2026-10-19）：模型可见出参结构（wakeId/triggerAt/status） */
+  override outputJsonSchema = SELFWAKE_TIMER_OUTPUT_JSON_SCHEMA;
 
   private readonly action: SelfWakeTimerToolName;
 

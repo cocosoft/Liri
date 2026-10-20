@@ -565,6 +565,12 @@ export interface ChatManager {
   isSessionStreaming(sessionId: string): boolean;
 
   /**
+   * BUG-9（2026-10-19）：是否存在任意活跃流式会话。
+   * 供系统级空闲判定（梦境）等消费者使用。
+   */
+  hasActiveStreams(): boolean;
+
+  /**
    * S1: 中止指定会话的流式请求
    * 用于 req.on('close') 时通知后端停止工具执行
    */

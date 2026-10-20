@@ -7,6 +7,7 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
+import { MEDIA_FILE_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { qrCodeManager } from '../../media/qr/QRCodeManager';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -50,6 +51,8 @@ export function createQRGenerateTool(): Tool {
     isReadOnly: () => false,
     isDestructive: () => false,
     isConcurrencySafe: () => true,
+    /** U-03（2026-10-20）：模型可见出参结构（单文件产出族；无 originalSize） */
+    outputJsonSchema: MEDIA_FILE_OUTPUT_JSON_SCHEMA,
 
     async execute(
       input: Record<string, unknown>,
@@ -121,6 +124,12 @@ export function createQRGenerateTool(): Tool {
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
+          // U-03（2026-10-20）：结构化出参（与 MEDIA_FILE_OUTPUT_JSON_SCHEMA 键集一致）
+          data: {
+            success: true,
+            filePath: safeOutput.path!,
+            processedSize: outputSize,
+          },
           output: JSON.stringify({ outputPath: safeOutput.path, outputSize }),
           errorOutput: '',
           metadata: { outputPath: safeOutput.path },
@@ -191,6 +200,7 @@ export function createQRGenerateTool(): Tool {
         deferred: false,
         alwaysLoad: false,
         interruptBehavior: 'block',
+        outputJsonSchema: MEDIA_FILE_OUTPUT_JSON_SCHEMA,
       };
     },
   };

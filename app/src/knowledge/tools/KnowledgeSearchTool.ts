@@ -496,6 +496,9 @@ export class KnowledgeSearchTool implements Tool {
       readOnly: this.isReadOnly(),
       destructive: this.isDestructive(),
       concurrencySafe: this.isConcurrencySafe(),
+      // U-03（2026-10-19）：显式效果声明 —— 只读检索 ⇒ 幂等、无副作用
+      idempotent: true,
+      sideEffect: 'none',
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',

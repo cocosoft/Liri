@@ -41,6 +41,16 @@ export class GlobTool extends BaseTool {
    */
   outputSchema = z.array(z.string());
 
+  /**
+   * U-03（2026-10-19）：模型可见出参结构 —— `data` 为**字符串数组**，
+   * 故使用 `type: 'array'`（`ToolSchema.output_schema` 已放宽支持数组出参）。
+   */
+  override outputJsonSchema = {
+    type: 'array',
+    items: { type: 'string', description: '匹配到的文件路径' },
+    description: '匹配到的文件路径列表（无匹配时为空数组）',
+  };
+
   params: ToolParam[] = [
     {
       name: 'pattern',

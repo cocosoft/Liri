@@ -102,6 +102,7 @@ import {
 } from './agentInteraction';
 // S4（2026-10-19）：待处理交互单槽的 TTL 自愈（判据处顺带清除过期条目）
 import { hasActivePendingInteraction } from '@modules/utils/pendingInteractions';
+import { autoAnswerUnattended } from './interactionAutoApprove';
 // U-22/S1（2026-10-17）：终止输出/目标原因码外移（行为等价搬迁）
 import {
   mapTerminationToGoalReason,
@@ -960,16 +961,17 @@ export class ReActToolLoop extends ReActLoop<
           }
         }
 
-        // 2. 交互恢复：requiresUserInteraction 工具等待用户答案（v3：yield question 事件穿透 generator 挂起链路）
+        // 2. 交互恢复：等待用户答案（v3：yield question 穿透挂起链路）；U-02 无人值守下由 helper 注入答复并记审计
         const toolObj = this.ctx.toolRegistry.getTool(tc.name);
-        if (toolObj?.requiresUserInteraction?.()) {
+        if (
+          !autoAnswerUnattended(toolObj, tc, this.ctx.session.id) &&
+          toolObj?.requiresUserInteraction?.()
+        ) {
           const isRecovery =
             this.input.interactionContext &&
             calls.indexOf(tc) === this.input.interactionContext.interactionIdx;
           if (isRecovery) {
-            // 2026-08-30 修复：input 可能为深冻结对象（响应/状态冻结）——注入 _userAnswers
-            // 前确保可扩展，避免 "Attempting to define property on object that is not extensible"
-            // 导致整轮工具执行失败（reactLoop:[acting] 冻结错误 → all-tools-failed）。
+            // 2026-08-30 修复：入参可能是深冻结对象 ⇒ 注入 `_userAnswers` 前先确保可扩展（否则整轮工具失败）
             const inputObj = tc.input as Record<string, unknown>;
             if (!Object.isExtensible(inputObj)) {
               tc.input = { ...inputObj };

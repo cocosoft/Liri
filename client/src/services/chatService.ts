@@ -1218,6 +1218,15 @@ export const chatService = {
             content: i18n.t("chat.error.streamTimeout"),
             errorCode: "TIMEOUT",
           };
+          // U-04（2026-10-19）：idle 超时同属“可恢复断线”——此前直接 return，
+          // 外层按正常结束处理（不查检查点、不 paused、不自动恢复）。现与
+          // CONNECTION_RESET 同路径抛出，交由 streamMessageWithReconnect 重试/续传。
+          if (options?.throwOnRecoverable) {
+            throw new StreamConnectionError(
+              "TIMEOUT",
+              i18n.t("chat.error.streamTimeout"),
+            );
+          }
           return;
         }
         if (

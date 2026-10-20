@@ -3,7 +3,7 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-descriptions.ts",
   "counts": {
-    "tools": 77
+    "tools": 78
   },
   "descriptions": {
     "agent": "创建一个专用子代理来执行特定任务",
@@ -57,6 +57,7 @@
     "read_vfs": "读取 AI-VFS 挂载点中的文件内容。路径形如 <scheme>://<authority>/<path>，例如 dev_docs://配置与安全/sandbox.md。未注册的 scheme 会明确失败，不会回退到本地文件系统。",
     "repl": "交互式编程环境，支持多种编程语言",
     "save_conversation": "将对话摘要保存到文件。当用户希望保存或记录当前对话时使用。",
+    "send_message": "向另一个代理发送消息",
     "sessions": "统一的会话管理工具。可列出会话、查询状态、查看历史、派生会话、发送消息以及删除会话。",
     "sessions_yield": "在委派的子代理完成期间，将当前轮次交还给会话，以便等待它们的结果；之后该轮次会带着这些结果继续。这是唯一能交还轮次的工具 —— `sessions` 工具负责管理会话，不能交还轮次。",
     "skill": "执行已注册的技能",

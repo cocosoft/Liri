@@ -45,11 +45,77 @@ export interface ChannelToolOperation {
   logLimit?: number;
 }
 
+/**
+ * U-03（2026-10-19）：`channel` 的**模型可见出参结构**（JSON Schema）。
+ *
+ * 出口按 action 分五类：
+ * - `list`：`{ channels[{name,type,enabled,connected,homeChannelId|null}], count }`；
+ * - `status`：`{ name, type, ...该通道 getStatus() 的其余字段 }`（随通道类型变化）；
+ * - `connect` / `disconnect`：`{ channel, connected|disconnected }`；
+ * - `health`：`{ channels[{name,type,connected,status}], healthy, total }`；
+ * - `logs`：`{ logs[], count, level, channel }`。
+ * ⇒ 不设根级 required；`channels` 元素取 list/health 两分支的并集。
+ */
+const CHANNEL_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    channels: {
+      type: 'array',
+      description: '通道列表（list 分支为通道配置；health 分支含 status）',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: '通道名' },
+          type: { type: 'string', description: '通道类型' },
+          enabled: { type: 'boolean', description: '是否启用（list 分支）' },
+          connected: { type: 'boolean', description: '是否已连接' },
+          homeChannelId: {
+            type: ['string', 'null'],
+            description: '主页通道 ID（list 分支，未配置为 null）',
+          },
+          status: {
+            type: 'string',
+            description: '通道自报状态（health 分支，未知为 unknown）',
+          },
+        },
+        required: ['name', 'type', 'connected'],
+      },
+    },
+    count: { type: 'number', description: '通道/日志条数（list/logs 分支）' },
+    name: { type: 'string', description: '通道名（status 分支）' },
+    type: { type: 'string', description: '通道类型（status 分支）' },
+    channel: {
+      type: 'string',
+      description: '目标通道名（connect/disconnect）或日志筛选通道（logs）',
+    },
+    connected: { type: 'boolean', description: '连接结果（connect 分支）' },
+    disconnected: {
+      type: 'boolean',
+      description: '断开结果（disconnect 分支）',
+    },
+    healthy: { type: 'number', description: '已连接通道数（health 分支）' },
+    total: { type: 'number', description: '参与检查的通道总数（health 分支）' },
+    logs: {
+      type: 'array',
+      description: '日志条目（logs 分支）',
+      items: { type: 'object', description: '单条通道日志' },
+    },
+    level: {
+      type: 'string',
+      enum: ['info', 'warn', 'error'],
+      description: '实际筛选的日志级别（logs 分支）',
+    },
+  },
+};
+
 export class ChannelTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.channel;
 
   description =
     'Unified channel management tool. List, connect, disconnect channels, check status, health, and view logs.';
+
+  /** U-03（2026-10-19）：模型可见出参结构（按 action 分支） */
+  override outputJsonSchema = CHANNEL_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

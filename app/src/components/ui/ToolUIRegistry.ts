@@ -108,353 +108,116 @@ export function getRegisteredToolNames(): string[] {
 }
 
 /**
- * 初始化默认工具 UI 注册表。
- * 逐个尝试加载各工具的 UI 模块（require），
- * 若某工具无 UI 模块则静默跳过——这是可选的优化加载模式，不影响核心功能。
+ * 默认工具 UI 模块台账（模块路径 → 应注册的工具名）。
+ *
+ * 2026-10-19（U-03）：原实现是 46 段 `require('./toolUIs/…')` 的 `try/catch`，实测
+ * **`require()` 无法加载 async UI 模块**（Bun 报 `require() async module is unsupported`）⇒
+ * 全部落入 catch、注册表永远为空。现改为**数据驱动的 `await import()`**：
+ * - 每个模块只写一次路径，避免 46 段重复样板；
+ * - 注册键必须是**真实工具名**（见 `toolNameConstants.ts` / `TOOL_NAMES`）；
+ * - 初始化幂等（同一 Promise 复用），失败只记日志、不阻断调用方。
  */
-export function initDefaultToolUIRegistry(): void {
-  try {
-    const agentUI = require('./toolUIs/AgentTool/UI');
-    registerToolUI('agent', agentUI);
-    registerToolUI('agenttool', agentUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'loadAgentUI' });
-  } // @ignore-catch: optional UI module
+interface ToolUIModuleEntry {
+  /** 相对本文件的模块说明符（动态导入，运行时解析） */
+  module: string;
+  /** 该模块负责渲染的工具名（必须是真实工具名） */
+  names: readonly string[];
+}
 
-  try {
-    const fileReadUI = require('./toolUIs/FileReadTool/UI');
-    registerToolUI('file_read', fileReadUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-  try {
-    const fileWriteUI = require('./toolUIs/FileWriteTool/UI');
-    registerToolUI('file_write', fileWriteUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-  try {
-    const fileEditUI = require('./toolUIs/FileEditTool/UI');
-    registerToolUI('file_edit', fileEditUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
+const DEFAULT_TOOL_UI_MODULES: readonly ToolUIModuleEntry[] = [
+  // `agenttool` 从不是工具名 ⇒ 只注册 `agent`
+  { module: './toolUIs/AgentTool/UI', names: ['agent'] },
+  { module: './toolUIs/FileReadTool/UI', names: ['file_read'] },
+  { module: './toolUIs/FileWriteTool/UI', names: ['file_write'] },
+  { module: './toolUIs/FileEditTool/UI', names: ['file_edit'] },
+  { module: './toolUIs/bash/UI', names: ['bash'] },
+  { module: './toolUIs/GrepTool/UI', names: ['grep'] },
+  { module: './toolUIs/GlobTool/UI', names: ['glob'] },
+  { module: './toolUIs/WebFetchTool/UI', names: ['web_fetch'] },
+  { module: './toolUIs/WebSearchTool/UI', names: ['web_search'] },
+  { module: './toolUIs/SkillTool/UI', names: ['skill'] },
+  // 2026-10-19（U-03）：`enter_plan_mode` / `exit_plan_mode`（`PlanTool/UI`）均非真实工具名 ⇒ 不注册
+  { module: './toolUIs/BriefTool/UI', names: ['brief'] },
+  { module: './toolUIs/LSPTool/UI', names: ['lsp'] },
+  { module: './toolUIs/ConfigTool/UI', names: ['config'] },
+  {
+    module: './toolUIs/ChronosTool/UI',
+    names: ['cron_create', 'cron_delete', 'cron_list'],
+  },
+  { module: './toolUIs/PowerShellTool/UI', names: ['powershell'] },
+  { module: './toolUIs/TeamCreateTool/UI', names: ['team_create'] },
+  { module: './toolUIs/TeamDeleteTool/UI', names: ['team_delete'] },
+  { module: './toolUIs/SendMessageTool/UI', names: ['send_message'] },
+  // 真实工具名是 `mcp_resource`（`mcp` 从不是工具名）
+  { module: './toolUIs/MCPResourceTool/UI', names: ['mcp_resource'] },
+  { module: './toolUIs/EnterWorktreeTool/UI', names: ['enter_worktree'] },
+  { module: './toolUIs/ExitWorktreeTool/UI', names: ['exit_worktree'] },
+  { module: './toolUIs/ListPeersTool/UI', names: ['list_peers'] },
+  { module: './toolUIs/ClipboardTool/UI', names: ['clipboard'] },
+  { module: './toolUIs/ImageTool/UI', names: ['image'] },
+  // `thinking` 为条件工具；`think` 从不是工具名 ⇒ 只注册 `thinking`
+  { module: './toolUIs/ThinkingTool/UI', names: ['thinking'] },
+  { module: './toolUIs/AskUserQuestionTool/UI', names: ['ask_user_question'] },
+  { module: './toolUIs/BrowserTool/UI', names: ['browser'] },
+  { module: './toolUIs/CodeAnalysisTool/UI', names: ['code_analysis'] },
+  { module: './toolUIs/MonitorTool/UI', names: ['monitor'] },
+  { module: './toolUIs/PushNotificationTool/UI', names: ['push_notification'] },
+  { module: './toolUIs/SleepTool/UI', names: ['sleep'] },
+  { module: './toolUIs/SubscribePRTool/UI', names: ['subscribe_pr'] },
+  { module: './toolUIs/TaskOutputTool/UI', names: ['task_output'] },
+  { module: './toolUIs/TaskStopTool/UI', names: ['task_stop'] },
+  // 2026-10-19（U-03）：`time`（`TimeTool/UI`）对应的 `TimeTool` 未接线 ⇒ 不注册
+  { module: './toolUIs/TodoWriteTool/UI', names: ['todo_write'] },
+  { module: './toolUIs/ToolSearchTool/UI', names: ['tool_search'] },
+  { module: './toolUIs/TungstenTool/UI', names: ['tungsten'] },
+  { module: './toolUIs/VoiceInputTool/UI', names: ['voice_input'] },
+  { module: './toolUIs/VoiceOutputTool/UI', names: ['voice_output'] },
+  { module: './toolUIs/KnowledgeSearchTool/UI', names: ['knowledge_search'] },
+  { module: './toolUIs/KnowledgeWriteTool/UI', names: ['knowledge_write'] },
+  { module: './toolUIs/KnowledgeDeleteTool/UI', names: ['knowledge_delete'] },
+  { module: './toolUIs/KnowledgeImportTool/UI', names: ['knowledge_import'] },
+  { module: './toolUIs/KnowledgeExportTool/UI', names: ['knowledge_export'] },
+  {
+    module: './toolUIs/KnowledgeSnapshotsTool/UI',
+    names: ['knowledge_snapshots'],
+  },
+  {
+    module: './toolUIs/KnowledgeRestoreTool/UI',
+    names: ['knowledge_restore'],
+  },
+];
 
-  try {
-    // G1（2026-09-26）：原指向**无静态引用的大写副本** `tools/BashTool/UI`；因该副本的导出
-    // 反而更全（5 个，见 `tools/bash/UI.tsx` 头注释），已把其内容**合并**进活跃目录并删副本。
-    const bashUI = require('./toolUIs/bash/UI');
-    registerToolUI('bash', bashUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
+let defaultRegistryInit: Promise<void> | null = null;
 
-  try {
-    const grepUI = require('./toolUIs/GrepTool/UI');
-    registerToolUI('grep', grepUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+/**
+ * 初始化默认工具 UI 注册表（幂等）。
+ *
+ * 逐个 `await import()` 各工具的 UI 模块；某模块缺失/加载失败只记日志并跳过
+ * —— 这是可选的渲染优化，不影响核心功能。
+ */
+export function initDefaultToolUIRegistry(): Promise<void> {
+  if (!defaultRegistryInit) {
+    defaultRegistryInit = loadDefaultToolUIRegistry();
   }
+  return defaultRegistryInit;
+}
 
-  try {
-    const globUI = require('./toolUIs/GlobTool/UI');
-    registerToolUI('glob', globUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
+async function loadDefaultToolUIRegistry(): Promise<void> {
+  for (const entry of DEFAULT_TOOL_UI_MODULES) {
+    try {
+      const renderer = (await import(entry.module)) as ToolUIRenderer;
+      for (const name of entry.names) registerToolUI(name, renderer);
+    } catch (err) {
+      await handleError(err, {
+        module: 'components:ui',
+        action: `loadToolUI(${entry.module})`,
+      });
+    }
   }
+}
 
-  try {
-    const webFetchUI = require('./toolUIs/WebFetchTool/UI');
-    registerToolUI('web_fetch', webFetchUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const webSearchUI = require('./toolUIs/WebSearchTool/UI');
-    registerToolUI('web_search', webSearchUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const skillUI = require('./toolUIs/SkillTool/UI');
-    registerToolUI('skill', skillUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const planUI = require('./toolUIs/PlanTool/UI');
-    registerToolUI('enter_plan_mode', planUI);
-    registerToolUI('exit_plan_mode', planUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  // ⚠️ 沿革（2026-09-29，另案 ②）：原此处注册 `task` / `task_update` / `task_get` / `task_list`
-  // 四条 UI（原取自 `tools/TaskTool/UI`）—— 这 4 个名字**均非真实工具名**：
-  // 活的任务工具是 `create_task_list` / `update_task_status` / `get_task_list` / `task_stop`
-  // （见 `GET /v1/tools`），其中 `task_update` / `task_get` / `task_list` 的实现类已随 D-15 删除，
-  // `task` 从不是工具名 ⇒ 属"注册了、工具永不产生"的错配，故整块删除。
-  // 连带：`tools/TaskTool/UI.tsx` 因此失去唯一引用（同批删除）。
-
-  try {
-    const briefUI = require('./toolUIs/BriefTool/UI');
-    registerToolUI('brief', briefUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const lspUI = require('./toolUIs/LSPTool/UI');
-    registerToolUI('lsp', lspUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const configUI = require('./toolUIs/ConfigTool/UI');
-    registerToolUI('config', configUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const chronosUI = require('./toolUIs/ChronosTool/UI');
-    registerToolUI('cron_create', chronosUI);
-    registerToolUI('cron_delete', chronosUI);
-    registerToolUI('cron_list', chronosUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const pwshUI = require('./toolUIs/PowerShellTool/UI');
-    registerToolUI('powershell', pwshUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const teamCreateUI = require('./toolUIs/TeamCreateTool/UI');
-    registerToolUI('team_create', teamCreateUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const teamDeleteUI = require('./toolUIs/TeamDeleteTool/UI');
-    registerToolUI('team_delete', teamDeleteUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const sendMsgUI = require('./toolUIs/SendMessageTool/UI');
-    registerToolUI('send_message', sendMsgUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const mcpUI = require('./toolUIs/MCPResourceTool/UI');
-    registerToolUI('mcp', mcpUI);
-    // 2026-10-08：`list_mcp_resources` / `read_mcp_resource` 两个 UI 注册随工具删除
-    // （二者为占位/伪造实现，功能由 `mcp_resource` 覆盖）
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const worktreeEnterUI = require('./toolUIs/EnterWorktreeTool/UI');
-    registerToolUI('enter_worktree', worktreeEnterUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const worktreeExitUI = require('./toolUIs/ExitWorktreeTool/UI');
-    registerToolUI('exit_worktree', worktreeExitUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const peersUI = require('./toolUIs/ListPeersTool/UI');
-    registerToolUI('list_peers', peersUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const clipboardUI = require('./toolUIs/ClipboardTool/UI');
-    registerToolUI('clipboard', clipboardUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const imageUI = require('./toolUIs/ImageTool/UI');
-    registerToolUI('image', imageUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const thinkingUI = require('./toolUIs/ThinkingTool/UI');
-    registerToolUI('thinking', thinkingUI);
-    registerToolUI('think', thinkingUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const askUserUI = require('./toolUIs/AskUserQuestionTool/UI');
-    registerToolUI('ask_user_question', askUserUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const browserUI = require('./toolUIs/BrowserTool/UI');
-    registerToolUI('browser', browserUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const codeAnalysisUI = require('./toolUIs/CodeAnalysisTool/UI');
-    registerToolUI('code_analysis', codeAnalysisUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const monitorUI = require('./toolUIs/MonitorTool/UI');
-    registerToolUI('monitor', monitorUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const pushNotifUI = require('./toolUIs/PushNotificationTool/UI');
-    registerToolUI('push_notification', pushNotifUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const sleepUI = require('./toolUIs/SleepTool/UI');
-    registerToolUI('sleep', sleepUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const subscribePRUI = require('./toolUIs/SubscribePRTool/UI');
-    registerToolUI('subscribe_pr', subscribePRUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const taskOutputUI = require('./toolUIs/TaskOutputTool/UI');
-    registerToolUI('task_output', taskOutputUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const taskStopUI = require('./toolUIs/TaskStopTool/UI');
-    registerToolUI('task_stop', taskStopUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const timeUI = require('./toolUIs/TimeTool/UI');
-    registerToolUI('time', timeUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const todoWriteUI = require('./toolUIs/TodoWriteTool/UI');
-    registerToolUI('todo_write', todoWriteUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const toolSearchUI = require('./toolUIs/ToolSearchTool/UI');
-    registerToolUI('tool_search', toolSearchUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const tungstenUI = require('./toolUIs/TungstenTool/UI');
-    registerToolUI('tungsten', tungstenUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const voiceInputUI = require('./toolUIs/VoiceInputTool/UI');
-    registerToolUI('voice_input', voiceInputUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  try {
-    const voiceOutputUI = require('./toolUIs/VoiceOutputTool/UI');
-    registerToolUI('voice_output', voiceOutputUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-
-  // Knowledge tools
-  try {
-    const knowledgeSearchUI = require('./toolUIs/KnowledgeSearchTool/UI');
-    registerToolUI('knowledge_search', knowledgeSearchUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-  try {
-    const knowledgeWriteUI = require('./toolUIs/KnowledgeWriteTool/UI');
-    registerToolUI('knowledge_write', knowledgeWriteUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-  try {
-    const knowledgeDeleteUI = require('./toolUIs/KnowledgeDeleteTool/UI');
-    registerToolUI('knowledge_delete', knowledgeDeleteUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-  try {
-    const knowledgeImportUI = require('./toolUIs/KnowledgeImportTool/UI');
-    registerToolUI('knowledge_import', knowledgeImportUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-  try {
-    const knowledgeExportUI = require('./toolUIs/KnowledgeExportTool/UI');
-    registerToolUI('knowledge_export', knowledgeExportUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-  try {
-    const knowledgeSnapshotsUI = require('./toolUIs/KnowledgeSnapshotsTool/UI');
-    registerToolUI('knowledge_snapshots', knowledgeSnapshotsUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
-  try {
-    const knowledgeRestoreUI = require('./toolUIs/KnowledgeRestoreTool/UI');
-    registerToolUI('knowledge_restore', knowledgeRestoreUI);
-  } catch (err) {
-    void handleError(err, { module: 'components:ui', action: 'catch_error' });
-  }
+/** 仅供测试重置（避免幂等 Promise 在用例间串味） */
+export function resetDefaultToolUIRegistryForTests(): void {
+  registry.clear();
+  defaultRegistryInit = null;
 }

@@ -129,6 +129,23 @@ function resolveOutputPath(canvasId: string, format: string): string {
   return path.join(imagesDir, `${canvasId}_${Date.now()}.${ext}`);
 }
 
+/**
+ * U-03（2026-10-19）：`canvas` 的**模型可见出参结构**（JSON Schema），
+ * 与 `CanvasResult` 逐字段对齐（`outputPath` 仅 export 分支出现）。
+ */
+const CANVAS_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    canvasId: { type: 'string', description: '画布实例 ID' },
+    width: { type: 'number', description: '画布宽度（像素）' },
+    height: { type: 'number', description: '画布高度（像素）' },
+    elementCount: { type: 'number', description: '当前元素数量' },
+    outputPath: { type: 'string', description: '导出文件路径（export 分支）' },
+    format: { type: 'string', description: '导出格式（如 png/jpeg）' },
+  },
+  required: ['canvasId', 'width', 'height', 'elementCount', 'format'],
+};
+
 export class CanvasTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.canvas;
 
@@ -149,6 +166,9 @@ export class CanvasTool extends BaseTool {
     '  - opacity: 0.0-1.0 (optional)\n' +
     '  - points: array of {x,y} for line/path elements (optional)\n' +
     'Example: { type: "rect", x: 10, y: 20, width: 100, height: 50, fillColor: "#4A90D9" }';
+
+  /** U-03（2026-10-19）：模型可见出参结构（canvasId/尺寸/元素数/导出路径） */
+  override outputJsonSchema = CANVAS_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

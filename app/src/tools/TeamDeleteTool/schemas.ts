@@ -28,6 +28,25 @@ export type TeamDeleteInput = z.infer<typeof TeamDeleteInputSchema>;
 export type TeamDeleteOutput = z.infer<typeof TeamDeleteOutputSchema>;
 
 /**
+ * U-03（2026-10-19）：`team_delete` 的**模型可见出参结构**（JSON Schema），
+ * 与 `TeamDeleteOutputSchema` 逐字段对齐（`terminated_teammates` 可缺省）。
+ */
+export const TeamDeleteOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean', description: '操作是否成功' },
+    message: { type: 'string', description: '操作结果消息' },
+    team_name: { type: 'string', description: '已删除的团队名称' },
+    terminated_teammates: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '已终止的 teammate 名称列表',
+    },
+  },
+  required: ['success', 'message', 'team_name'],
+};
+
+/**
  * 验证 TeamDeleteTool 输入
  */
 export function validateTeamDeleteInput(input: unknown) {

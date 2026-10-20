@@ -43,6 +43,30 @@ export type CodeAnalysisInput = z.infer<typeof CodeAnalysisInputSchema>;
 export type CodeAnalysisOutput = z.infer<typeof CodeAnalysisOutputSchema>;
 
 /**
+ * U-03（2026-10-19）：**模型可见出参结构**（JSON Schema），与 `CodeAnalysisOutputSchema`
+ * 逐字段对齐；模型侧不引入 zod ⇒ 手写等价结构。改 zod 时须同步本对象
+ * （`toolOutputJsonSchema.test.ts` 做键集一致性断言）。
+ */
+export const CodeAnalysisOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    analysis: {
+      type: 'object',
+      description: '分析结果',
+      properties: {
+        type: { type: 'string', description: '分析类型' },
+        stats: { type: 'object', description: '分析统计数据' },
+        details: { description: '分析详细信息（结构随分析类型变化）' },
+      },
+      required: ['type', 'stats'],
+    },
+    filesAnalyzed: { type: 'number', description: '已分析的文件数' },
+    analysisTime: { type: 'number', description: '分析耗时（毫秒）' },
+  },
+  required: ['analysis', 'filesAnalyzed', 'analysisTime'],
+};
+
+/**
  * 验证 CodeAnalysisTool 输入
  */
 export function validateCodeAnalysisInput(input: unknown) {

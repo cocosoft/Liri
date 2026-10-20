@@ -33,6 +33,29 @@ export type VoiceOutputInput = z.infer<typeof VoiceOutputInputSchema>;
 export type VoiceOutputOutput = z.infer<typeof VoiceOutputOutputSchema>;
 
 /**
+ * U-03（2026-10-19）：`voice_output` 的**模型可见出参结构**（JSON Schema），
+ * 与 `VoiceOutputOutputSchema` 键集一致（speak/stop/check 三分支各占一部分，故全可选）。
+ */
+export const VoiceOutputOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    spoken: { type: 'boolean', description: '是否已朗读（speak 分支）' },
+    textLength: { type: 'number', description: '朗读文本长度（speak 分支）' },
+    stopped: { type: 'boolean', description: '是否已停止（stop 分支）' },
+    speaking: { type: 'boolean', description: '是否正在朗读（check 分支）' },
+    available: {
+      type: 'boolean',
+      description: '语音输出是否可用（check 分支）',
+    },
+    languages: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '支持的语言列表（check 分支）',
+    },
+  },
+};
+
+/**
  * 验证 VoiceOutputTool 输入
  */
 export function validateVoiceOutputInput(input: unknown) {

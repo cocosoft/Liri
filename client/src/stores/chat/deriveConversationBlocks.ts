@@ -61,6 +61,7 @@ import type { StreamChunk } from "../../services/chatService";
 import {
   cacheToolResult,
   truncateResult,
+  parseApprovalSignal,
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
 import { createLogger } from "@/utils/logger";
@@ -81,7 +82,9 @@ const logger = createLogger("stores:chat:derive");
  *  ⇒ **诊断信号被正常流量淹没**。
  *  派生后不可能再漂移（与后端 `app/src/session/types/knownEventTypes.ts` 同口径）。
  */
-const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set<string>(LIRI_EVENT_NAMES);
+const KNOWN_EVENT_TYPES: ReadonlySet<string> = new Set<string>(
+  LIRI_EVENT_NAMES,
+);
 
 /**
  * 工作流 run 聚合卡片辅助（P1-3 §12 D14，2026-10-05）。
@@ -499,6 +502,13 @@ function handleEvent(
         block.toolCall._hasFullResult =
           data.result.length > MAX_INLINE_RESULT_LENGTH || undefined;
         block.toolCall.status = data.isError ? "failed" : "completed";
+        // U-06-5：审批等待结果（awaiting_approval）携带 pendingApproval + inboxId，
+        // 据此在工具卡片上渲染就地审批按钮（与 ChronologicalBlockBuilder 语义对齐）
+        const approval = parseApprovalSignal(data.result);
+        if (approval) {
+          block.toolCall.pendingApproval = true;
+          if (approval.inboxId) block.toolCall.inboxId = approval.inboxId;
+        }
       }
       break;
     }

@@ -222,6 +222,14 @@ export function isOwnerOnlyTool(toolName: string): boolean {
 /**
  * ToolPolicyManager
  * 管理工具的访问控制策略，包括黑白名单、Owner-only 限制、Profile 策略
+ *
+ * ⚠️ **2026-10-19 实测（U-03 P2 收口）**：本类**全仓零实例化**（仅经 `agent/index.ts` barrel
+ * 转发，无 `new ToolPolicyManager()`）；且 `TOOL_GROUPS` / `TOOL_NAME_ALIASES` 用的是 OpenClaw
+ * 风格工具名（`read` / `write` / `exec`），与本仓真实注册名（`file_read` / `file_write` /
+ * `code_run`…）**不同源** ⇒ 即便接线也会全部落到 `default` 分支。真实门控只有两条：
+ * `tools/toolCategories.ts#filterToolsByTask()`（可见性）与 `@modules/permission`（权限判定）。
+ * 按 CD07（权限属关键域，禁止仅凭静态零引用删除）：**暂不删除**，仅标注"未接线的第二套策略轨"；
+ * 若要启用，必须先做工具名同源映射，不得直接拿本类判定。
  */
 export class ToolPolicyManager {
   private globalAllowList: Set<string> = new Set();

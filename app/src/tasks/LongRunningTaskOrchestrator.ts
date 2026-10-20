@@ -111,7 +111,13 @@ import {
   type StepExecutionDeps,
 } from './lro/stepExecution.js';
 import { resumeFromCheckpoint } from './lro/resumeFromCheckpoint.js';
-import { resolveAuditStore, replanMaxRetries } from './lro/portResolvers.js';
+// U-02（2026-10-19）：`/goal start` 目标 ↔ PDCA 终态绑定
+import { settleGoalById } from './goal/goalRunBinding.js';
+import {
+  resolveAuditStore,
+  replanMaxRetries,
+  isAutoReplanEnabled,
+} from './lro/portResolvers.js';
 import {
   recordGoalStageMetric,
   runAdaptationEvolutionHook,
@@ -158,6 +164,7 @@ import type { PdcaReportView } from './lro/reporting.js';
 import {
   planTurnsExtensionDecision,
   shouldReRollMaxTurnsStep,
+  shouldAutoApprovePlan,
 } from './lro/pureDecisions.js';
 // 纯函数判定原为公开导出 ⇒ re-export 保持公开面（spec §46）
 export {
@@ -290,6 +297,11 @@ export class LongRunningTaskOrchestrator {
   };
   /** 方向4（2026-09-03）：评估样例落库防重（同任务仅写一次） */
   private _sampleWriteDone = false;
+  /**
+   * U-02（2026-10-19）：`/goal start` 显式创建的目标 id（可选）。
+   * 终态时按 id 精确落定目标状态（同会话可能存在其他批次目标，不得按会话猜）。
+   */
+  private _goalId?: string;
   // 1-1d（2026-09-03）：stepDurations[].tokens = 该步累计 token（跨 retry 累计），
   // 供 per-step 独立核算/审计聚合；总口径仍以 _totalTokensTracked 为准。
   private stepDurations: Map<
@@ -906,10 +918,13 @@ export class LongRunningTaskOrchestrator {
       requirePlanApproval?: boolean;
       /** §5 P1: 任务消息回写回调（ChatManager._launchImplicitPdca 注入） */
       onTaskMessage?: (sessionId: string, msgs: TaskMessage[]) => void;
+      /** U-02：`/goal start` 创建的目标 id（终态按 id 落定目标状态） */
+      goalId?: string;
     }
   ): Promise<PdcaStatus> {
     // §5 P1: 记录回写目标会话与回调，供 executeSingleStep 使用
     this._sessionId = sessionId;
+    this._goalId = opts?.goalId;
     this._onTaskMessage = opts?.onTaskMessage;
     this._startedAt = Date.now();
     const requireApproval = opts?.requirePlanApproval ?? false;
@@ -939,38 +954,59 @@ export class LongRunningTaskOrchestrator {
 
     // 计划前置审批：在 EXECUTE 前插入审批断点
     if (requireApproval) {
-      await this.setPhase('plan_pending');
+      // U-02（2026-10-19）：无人值守模式 ⇒ 计划自动通过。
+      // `UnattendedModeManager` 文档早已承诺该语义，但主路径此前未接线 ⇒ 全自动流程
+      // 仍会停在审批点。动态导入避免 tasks ↔ runtime 的静态环。
+      const { unattendedMode } =
+        await import('@modules/runtime/UnattendedModeManager.js');
+      if (
+        shouldAutoApprovePlan(
+          requireApproval,
+          unattendedMode.shouldAutoApprove()
+        )
+      ) {
+        logger.info(
+          '[orchestrator] 无人值守模式：计划自动通过（跳过审批断点）',
+          {
+            taskId: this.taskId,
+            planId: this.planId,
+            stepCount: plan.steps.length,
+          }
+        );
+      } else {
+        await this.setPhase('plan_pending');
 
-      // 提交到 Inbox
-      const planSummary = plan.steps
-        .map((s, i) => `  ${i + 1}. ${s.description}`)
-        .join('\n');
-      const inboxItem = await inboxManager.submit({
-        sessionId,
-        type: 'approval',
-        title: `PDCA 计划审批: ${description.substring(0, 50)}`,
-        message: `目标: ${description}\n\n步骤:\n${planSummary}\n\n共 ${plan.steps.length} 步`,
-        options: ['approve', 'reject', 'modify'],
-        offlineCapable: true,
-        source: 'pdca',
-        metadata: { planId: this.planId, taskId: this.taskId, description },
-      });
+        // 提交到 Inbox
+        const planSummary = plan.steps
+          .map((s, i) => `  ${i + 1}. ${s.description}`)
+          .join('\n');
+        const inboxItem = await inboxManager.submit({
+          sessionId,
+          type: 'approval',
+          title: `PDCA 计划审批: ${description.substring(0, 50)}`,
+          message: `目标: ${description}\n\n步骤:\n${planSummary}\n\n共 ${plan.steps.length} 步`,
+          options: ['approve', 'reject', 'modify'],
+          offlineCapable: true,
+          source: 'pdca',
+          metadata: { planId: this.planId, taskId: this.taskId, description },
+        });
 
-      logger.info('Plan submitted for approval', {
-        taskId: this.taskId,
-        planId: this.planId,
-        inboxId: inboxItem.id,
-      });
+        logger.info('Plan submitted for approval', {
+          taskId: this.taskId,
+          planId: this.planId,
+          inboxId: inboxItem.id,
+        });
 
-      return {
-        taskId: this.taskId,
-        planId: this.planId!,
-        phase: 'plan_pending',
-        plan,
-        awaitUserDecision: true,
-        decisionPrompt: `计划已生成，等待审批。\n\n用 /goal approve ${this.taskId} 批准，或 /goal reject ${this.taskId} 拒绝。\nInbox ID: ${inboxItem.id}`,
-        lifecycle: this.lifecycle.getHistory(),
-      };
+        return {
+          taskId: this.taskId,
+          planId: this.planId!,
+          phase: 'plan_pending',
+          plan,
+          awaitUserDecision: true,
+          decisionPrompt: `计划已生成，等待审批。\n\n用 /goal approve ${this.taskId} 批准，或 /goal reject ${this.taskId} 拒绝。\nInbox ID: ${inboxItem.id}`,
+          lifecycle: this.lifecycle.getHistory(),
+        };
+      }
     }
 
     return this._runExecuteDecideLoop();
@@ -1299,8 +1335,53 @@ export class LongRunningTaskOrchestrator {
             ),
             { module: 'tasks:longRunning', action: 'runFullPdca' }
           );
-          allDone = false;
           failureReason = 'PDCA_GOAL_NOT_CONVERGED';
+
+          // U-02（2026-10-19）：**目标控制器**（默认关闭，`PDCA_AUTO_REPLAN=true` 开启）。
+          // 未收敛不再直接收场：写 replanPending 检查点后复用「缺陷驱动增量 replan」闭环
+          // 立即重规划续跑；次数与 escalate 共用计数（PDCA_REPLAN_MAX_RETRIES）。
+          if (isAutoReplanEnabled()) {
+            const prevCk = (await readPdcaCheckpoint(this.taskId)) ?? {};
+            const next = (Number(prevCk.replanFailCount) || 0) + 1;
+            if (next < replanMaxRetries()) {
+              const autoReplanCk = {
+                ...prevCk,
+                taskId: this.taskId,
+                sessionId: this._sessionId ?? undefined,
+                phase: 'execute',
+                status: 'failed',
+                replanPending: true,
+                replanFailCount: next,
+                description: latestPlan.description,
+                totalTokens: this._totalTokensTracked,
+                turnsExtensions: this._turnsExtensions,
+                startedAt: this._startedAt || undefined,
+                lastEscalations: [
+                  {
+                    stepId: '',
+                    stepDescription: latestPlan.description,
+                    defects: [goalConv.reason],
+                  },
+                ],
+              };
+              await writePdcaCheckpoint(this.taskId, autoReplanCk);
+              logger.info('[orchestrator] 目标未收敛 ⇒ 自动 replan', {
+                taskId: this.taskId,
+                replanFailCount: next,
+                maxReplan: replanMaxRetries(),
+              });
+              return this.resumeFromCheckpoint(
+                autoReplanCk as Record<string, unknown>
+              );
+            }
+            logger.warn('[orchestrator] 目标未收敛且 replan 预算耗尽，转人工', {
+              taskId: this.taskId,
+              replanFailCount: next,
+              maxReplan: replanMaxRetries(),
+            });
+          }
+
+          allDone = false;
           break;
         }
       }
@@ -1361,6 +1442,12 @@ export class LongRunningTaskOrchestrator {
       abortedPlan.status = 'aborted';
       abortedPlan.completedAt = new Date().toISOString();
       taskOrchestrator['savePlan']?.(abortedPlan);
+      // U-02：用户中止 ⇒ 目标落 cancelled（避免目标长期 active 却被续接误唤醒）
+      await settleGoalById({
+        goalId: this._goalId,
+        status: 'cancelled',
+        reason: 'user_aborted',
+      });
       return this.getStatus();
     }
 
@@ -1373,6 +1460,18 @@ export class LongRunningTaskOrchestrator {
     finalPlan.status = succeeded ? 'completed' : 'failed';
     finalPlan.completedAt = new Date().toISOString();
     taskOrchestrator['savePlan']?.(finalPlan);
+
+    // U-02（2026-10-19）：PDCA 终态 ↔ 目标状态（按 goalId 精确落定，无 goalId ⇒ no-op）。
+    // escalate 属"未达成但可续跑"⇒ blocked（非终态，replan 后可继续）。
+    await settleGoalById({
+      goalId: this._goalId,
+      status: hasEscalated ? 'blocked' : succeeded ? 'completed' : 'failed',
+      reason: hasEscalated
+        ? 'batch_blocked'
+        : succeeded
+          ? 'batch_completed'
+          : 'batch_failed',
+    });
 
     if (hasEscalated) {
       // PR5（#6，2026-09-05）：escalate 收尾 → checkpoint 写 replanPending /

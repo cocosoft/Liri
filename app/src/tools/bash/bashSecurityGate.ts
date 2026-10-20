@@ -43,6 +43,30 @@ import {
 
 const logger = getLogger('tools:bash:securityGate');
 
+/**
+ * 硬拦截结果（BUG-8，2026-10-19）。
+ *
+ * **必须带 `error` / `success:false`**：消费方（`ReActToolLoop`）用
+ * `toolResult.error ? 'failed' : 'success'` 判定工具状态 —— 若只把错误写进
+ * `newMessages`，安全拦截会被日志/UI/统计误记为「成功」。
+ *
+ * @param message 人类可读摘要（同时作为 `error`）
+ * @param metadata 附加元数据（会与 `securityIntercepted: true` 合并）
+ * @param modelMessage 回给模型的消息（默认 `Error: <message>`；个别门保持原文）
+ */
+function blockedResult(
+  message: string,
+  metadata: Record<string, unknown>,
+  modelMessage: string = `Error: ${message}`
+): ToolResult<unknown> {
+  return createToolResult(message, {
+    success: false,
+    error: message,
+    newMessages: [{ role: 'system', content: modelMessage }],
+    metadata: { securityIntercepted: true, ...metadata },
+  });
+}
+
 /** 安全分析器的最小结构（`BashSecurityAnalyzer.analyze`，由 `BashTool` 实例传入） */
 export interface CommandAnalyzer {
   analyze: (
@@ -111,18 +135,9 @@ export function checkPathSafety(
 ): ToolResult<unknown> | null {
   const unsafePath = std.paths.find((candidate) => !isPathSafe(candidate));
   if (!unsafePath) return null;
-  return createToolResult('路径安全检查失败: 禁止访问系统敏感目录', {
-    newMessages: [
-      {
-        role: 'system',
-        content: 'Error: 路径安全检查失败: 禁止访问系统敏感目录',
-      },
-    ],
-    metadata: {
-      securityIntercepted: true,
-      reason: 'path_safety',
-      unsafePath,
-    },
+  return blockedResult('路径安全检查失败: 禁止访问系统敏感目录', {
+    reason: 'path_safety',
+    unsafePath,
   });
 }
 
@@ -144,32 +159,14 @@ export function checkBashDangerousCommand(
       lowerCommand.includes(dangerousCommand.toLowerCase())
     )
   ) {
-    return createToolResult('安全检查: 检测到危险命令', {
-      newMessages: [
-        {
-          role: 'system',
-          content: 'Error: 安全检查: 检测到危险命令',
-        },
-      ],
-      metadata: {
-        securityIntercepted: true,
-        reason: 'dangerous_command',
-      },
+    return blockedResult('安全检查: 检测到危险命令', {
+      reason: 'dangerous_command',
     });
   }
 
   if (DANGEROUS_PATTERNS.some((pattern) => pattern.test(command))) {
-    return createToolResult('安全检查: 检测到危险命令模式', {
-      newMessages: [
-        {
-          role: 'system',
-          content: 'Error: 安全检查: 检测到危险命令模式',
-        },
-      ],
-      metadata: {
-        securityIntercepted: true,
-        reason: 'dangerous_pattern',
-      },
+    return blockedResult('安全检查: 检测到危险命令模式', {
+      reason: 'dangerous_pattern',
     });
   }
 
@@ -215,15 +212,11 @@ export function checkAstAndAnalyzer(params: {
   const astResult = parseForSecurity(command);
   if (astResult.kind === 'simple') {
     if (astResult.commands.some((c) => isDangerousCommand(c.argv))) {
-      return createToolResult('AST安全分析: 检测到危险命令', {
-        newMessages: [
-          {
-            role: 'system',
-            content: 'Error: AST安全分析阻止了危险命令执行',
-          },
-        ],
-        metadata: { securityIntercepted: true, reason: 'ast_analysis' },
-      });
+      return blockedResult(
+        'AST安全分析: 检测到危险命令',
+        { reason: 'ast_analysis' },
+        'Error: AST安全分析阻止了危险命令执行'
+      );
     }
   } else if (!bypassAsk) {
     // 第九轮审查 §十-4（2026-10-09，缺陷 #4）：**AST 不确定 ⇒ 失败关闭（fail-closed）**。
@@ -251,20 +244,9 @@ export function checkAstAndAnalyzer(params: {
   }
 
   if (securityResult.behavior === 'deny') {
-    return createToolResult(
+    return blockedResult(
       `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
-      {
-        newMessages: [
-          {
-            role: 'system',
-            content: `Error: 安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
-          },
-        ],
-        metadata: {
-          securityIntercepted: true,
-          reason: 'security_analyzer_deny',
-        },
-      }
+      { reason: 'security_analyzer_deny' }
     );
   }
 
@@ -306,37 +288,17 @@ export function checkWhitelistAndSandbox(
   std: StandardizedCommand
 ): ToolResult<unknown> | null {
   if (!isBaseCommandAllowed(std.baseCommand)) {
-    return createToolResult(
+    return blockedResult(
       `安全检查: 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
-      {
-        newMessages: [
-          {
-            role: 'system',
-            content: `Error: 安全检查: 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
-          },
-        ],
-        metadata: {
-          securityIntercepted: true,
-          reason: 'command_whitelist',
-        },
-      }
+      { reason: 'command_whitelist' }
     );
   }
 
   const sandboxCheckResult =
     sandboxSecurityChecker.checkDangerousCommands(command);
   if (!sandboxCheckResult.allowed) {
-    return createToolResult(`沙箱安全检查: ${sandboxCheckResult.reason}`, {
-      newMessages: [
-        {
-          role: 'system',
-          content: `Error: 沙箱安全检查: ${sandboxCheckResult.reason}`,
-        },
-      ],
-      metadata: {
-        securityIntercepted: true,
-        reason: 'sandbox_checker',
-      },
+    return blockedResult(`沙箱安全检查: ${sandboxCheckResult.reason}`, {
+      reason: 'sandbox_checker',
     });
   }
 

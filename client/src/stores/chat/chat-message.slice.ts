@@ -28,6 +28,7 @@ import type {
 import { sendMessageImpl } from "./chat-message-send";
 import { streamMessageImpl } from "./chat-message-stream";
 import { setMessagesImpl } from "./chat-message-set-messages";
+import { clearToolResultCache } from "./chat-message-shared";
 import {
   regenerateMessageImpl,
   retryFromErrorImpl,
@@ -300,7 +301,22 @@ export const createMessageSlice: StateCreator<
     },
 
     setMessages: (messages: Message[]) => {
+      // BUG F2：整表加载（切换会话/全量刷新）才清空旧缓存；增量拼接（加载更早）不得清，
+      // 否则已加载消息的完整工具结果会失效（U-05）。
+      clearToolResultCache();
       setMessagesImpl(messageSet, messageGet, messages);
+    },
+
+    mergeRefreshedMessages: (messages: Message[]) => {
+      // U-05 残余（2026-10-19）：事件驱动刷新是**增量**更新，不得整表替换 ——
+      // 否则已加载的更早历史被丢弃、`oldestSeq` 与新列表错位（点"加载更早"会出现空档）。
+      // 去重/合并/排序由 `setMessagesImpl` 统一保证（不在此重复实现）。
+      const current = get().messages;
+      if (current.length === 0) {
+        setMessagesImpl(messageSet, messageGet, messages);
+        return;
+      }
+      setMessagesImpl(messageSet, messageGet, [...current, ...messages]);
     },
 
     setHasOlder: (hasOlder: boolean) => {

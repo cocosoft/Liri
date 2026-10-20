@@ -130,6 +130,13 @@ export class AlwaysOnRuntime {
     this.fireRunner.execution = fn;
   }
 
+  /** 阶段 4 报告（U-02 2026-10-20：由桥接器注入真实落盘实现） */
+  setReportFn(
+    fn: (result: import('./types').ExecutionResult) => Promise<string>
+  ): void {
+    this.fireRunner.report = fn;
+  }
+
   /** 更新外部状态 */
   notifyUserActivity(): void {
     this.gates.setLastUserMsg(Date.now());

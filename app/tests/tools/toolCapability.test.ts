@@ -128,10 +128,10 @@ describe('D5 BaseTool 集成', () => {
 describe('D5 lint:tool-schema 判据（负向夹具自证）', () => {
   it('缺显式声明的工具类被判出；已覆盖 getCapability() 者与"非工具类"不判出', () => {
     const fixture = [
-      // 工具类，缺显式声明 ⇒ 应判出
+      // 工具类，缺显式声明（且不在 TOOL_EFFECTS）⇒ 应判出
       {
         file: 'a.ts',
-        text: `class A extends BaseTool { name = 'bash'; }`,
+        text: `class A extends BaseTool { name = 'fixture_unregistered'; }`,
       },
       // 工具类，已覆盖 getCapability() ⇒ 不判出
       {
@@ -143,16 +143,81 @@ describe('D5 lint:tool-schema 判据（负向夹具自证）', () => {
     ];
     const { missing, total } = findToolsMissingCapability(fixture);
     expect(total).toBe(2);
-    expect(missing.map((m) => m.name)).toEqual(['bash']);
+    expect(missing.map((m) => m.name)).toEqual(['fixture_unregistered']);
   });
 
   it('常量为键名（TOOL_NAME_CONSTANTS.x）⇒ 解析为真实工具名', () => {
-    const { missing } = findToolsMissingCapability([
+    // 注入空的效果表：确保这里测的是"名字解析"，而非 TOOL_EFFECTS 豁免
+    const { missing } = findToolsMissingCapability(
+      [
+        {
+          file: 'd.ts',
+          text: `class D extends BaseTool { name = TOOL_NAME_CONSTANTS.web_search; }`,
+        },
+      ],
+      new Set()
+    );
+    expect(missing.map((m) => m.name)).toEqual(['web_search']);
+  });
+
+  /**
+   * U-03（2026-10-20 用户裁定）：`extends BaseTool` 的 `idempotent` / `sideEffect` 由
+   * `TOOL_EFFECTS`（编译期穷举）唯一声明 ⇒ 有条目即视为已声明；`implements Tool` 无基类
+   * 派生，不享受该豁免。
+   */
+  it('extends BaseTool 且有 TOOL_EFFECTS 条目 ⇒ 视为已声明；implements Tool 不豁免', () => {
+    const { missing, total } = findToolsMissingCapability([
       {
-        file: 'd.ts',
-        text: `class D extends BaseTool { name = TOOL_NAME_CONSTANTS.web_search; }`,
+        file: 'j.ts',
+        text: `class J extends BaseTool { name = 'clipboard'; }`,
+      },
+      {
+        file: 'k.ts',
+        text: `class K implements Tool { name = 'clipboard'; }`,
       },
     ]);
-    expect(missing.map((m) => m.name)).toEqual(['web_search']);
+    expect(total).toBe(2);
+    expect(missing.map((m) => m.name)).toEqual(['clipboard']);
+  });
+
+  /**
+   * U-03（2026-10-19）：`implements Tool` 类（knowledge/voice/memory/适配器）此前**完全不在**
+   * 门禁视野内；现纳入统计，并识别 `name: string = '…'` 这种带类型标注的写法。
+   */
+  it('implements Tool 也纳入统计；显式 sideEffect 视为已声明', () => {
+    const { missing, total } = findToolsMissingCapability([
+      {
+        file: 'e.ts',
+        text: `class E implements Tool { public name: string = 'knowledge_search'; }`,
+      },
+      {
+        file: 'f.ts',
+        text: `class F implements Tool { name = 'knowledge_write'; getInfo() { return { sideEffect: 'local' }; } }`,
+      },
+      // 非工具类（无 extends/implements）⇒ 不参与统计
+      { file: 'g.ts', text: `class G { name = 'not_a_tool'; }` },
+    ]);
+    expect(total).toBe(2);
+    expect(missing.map((m) => m.name)).toEqual(['knowledge_search']);
+  });
+
+  /**
+   * U-03（2026-10-20）：`extends BaseTool` 的显式声明是**字段初始化器**写法
+   * （`override sandboxLevel = 'execution' as const`），原判据只认 `:` ⇒ `bash` /
+   * `powershell` / `code_run` 被误判为缺声明。此处钉死 `=` 写法同样算显式声明。
+   */
+  it('字段初始化器（`sandboxLevel = …`）视为已声明', () => {
+    const { missing, total } = findToolsMissingCapability([
+      {
+        file: 'h.ts',
+        text: `class H extends BaseTool { name = 'fixture_exec'; override sandboxLevel = 'execution' as const; }`,
+      },
+      {
+        file: 'i.ts',
+        text: `class I extends BaseTool { name = 'fixture_shell'; override sandboxLevel: 'execution' = 'execution'; }`,
+      },
+    ]);
+    expect(total).toBe(2);
+    expect(missing).toEqual([]);
   });
 });

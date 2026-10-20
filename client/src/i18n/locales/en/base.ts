@@ -399,7 +399,7 @@ const enBase = {
     newSessionTitle: "New Session {{n}}",
     temporaryToggle: "Temporary chat",
     temporaryHint:
-      "Temporary chats stay out of history, memory and search. Toggle off to start a regular chat",
+      "Toggling either way starts a new session. Temporary chats stay out of history, memory and search",
     // UI 期 UI-3（2026-09-23）：开启态行内只显示精简徽标，全文走 title
     temporaryBadge: "Temporary · not saved",
     // UI 期 UI-2（2026-09-23）：PDCA 编排入口徽标
@@ -555,6 +555,7 @@ const enBase = {
     archive: "Archive",
     searchResults: "Search Results",
     noResults: "No results",
+    searchingOlder: "Searching older messages…",
     sessionDetail: "Session Detail",
     sessionId: "Session ID",
     messageCount: "Messages",
@@ -694,6 +695,8 @@ const enBase = {
     saveAsDeliverableHint: "Save this reply to project deliverables",
     saveAsDeliverableShort: "Save",
     toastDeliverableSaved: "Saved to deliverables",
+    toastDeliverableFailed: "Failed to save deliverable, please retry",
+    compactFailed: "Context compaction failed",
     // ---- P2-1 i18n migration (2026-09-27): QuestionBlock / SessionContextMenu / TaskCard / ProgressCard ----
     // QuestionBlock
     questionDefaultHeader: "Please select an option",
@@ -901,10 +904,10 @@ const enBase = {
     expand: "Expand",
     copying: "Copying...",
     copyDiff: "Copy diff",
-    ignoreChange: "Ignore this change",
-    ignoredChange: "Ignored",
+    ignoreChange: "Hide this diff",
+    ignoredChange: "Hidden",
     diffCopyHint:
-      "Copy the diff and paste it into your editor to apply (files are not modified here)",
+      "This diff is a post-execution snapshot (already applied); copy it to inspect or save in your editor",
     diffFileHeader: "File: {{file}}",
     // MarkdownRenderer (truncation notice + copy full text)
     truncatedChars: "{{count}} characters not shown",

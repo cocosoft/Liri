@@ -139,8 +139,12 @@ export class MemoryTool implements Tool {
     return true;
   }
 
+  /**
+   * U-03（2026-10-19）：本工具只调用 `searchTool.advancedSearch`（纯查询，无写入）
+   * ⇒ 归正为只读（原误报 false，导致只读检索被迫走完整流水线而非快速通道）。
+   */
   isReadOnly(_input?: Record<string, unknown>): boolean {
-    return false;
+    return true;
   }
 
   isConcurrencySafe(_input?: Record<string, unknown>): boolean {
@@ -158,6 +162,9 @@ export class MemoryTool implements Tool {
       readOnly: this.isReadOnly(),
       destructive: false,
       concurrencySafe: this.isConcurrencySafe(),
+      // U-03（2026-10-19）：显式效果声明 —— 只读检索 ⇒ 幂等、无副作用
+      idempotent: true,
+      sideEffect: 'none' as const,
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'cancel' as const,

@@ -11,6 +11,7 @@ import { handleClientError } from "@/utils/handleError";
 import { createLogger } from "@/utils/logger";
 import i18n from "@/i18n";
 import { removeStreamController } from "./chat-message-shared";
+import { setMessagesImpl } from "./chat-message-set-messages";
 import { getHasPendingSave, flushSaveBlocks } from "./chat-history.slice";
 import type { MessageSet, MessageGet } from "./chat-message.types";
 
@@ -630,6 +631,13 @@ export async function loadOlderMessagesImpl(
   const state = get();
   if (state.loadingOlder || !state.hasOlder) return;
   const sessionId = state.messages[0]?.session_id;
+  // U-05/U-06-10：流式进行中不前插历史 —— 与流式写入/滚动争用会产生顺序抖动
+  if (state.isStreaming) {
+    logger.warn("[loadOlderMessages] 流式进行中，跳过加载更早消息", {
+      sessionId: sessionId ?? null,
+    });
+    return;
+  }
   // 游标必须取**后端分页边界**（oldestSeq），不能用 `store.messages[0].lastEventSeq` ——
   // store 列表经过 tool 结果吸收（进 assistant 的 blocks）与连续 assistant 合并后，
   // 首条已不是后端第一页的首条（实测游标偏后 ⇒ 请求回来的"更早一页"与当前页重叠
@@ -655,13 +663,12 @@ export async function loadOlderMessagesImpl(
       { limit: MESSAGE_PAGE_LIMIT, before },
     );
     if (older.length > 0) {
-      // 更早历史在前，与当前消息拼接（后端已按 lastEventSeq 升序返回）
-      // N-57：后端 `before` 改 `<=` 以保证"排序键重复时不丢条" ⇒ 边界条目会重复返回，
-      // 此处按 id 去重（保留当前列表侧的那份）后再前插。
-      const existingIds = new Set(get().messages.map((m) => m.id));
-      const deduped = older.filter((m) => !existingIds.has(m.id));
+      // U-05（2026-10-19）：复用 `setMessagesImpl` 的整表归一化（tool 结果回填 /
+      // 连续 assistant 合并 / 块归一化 / 稳定排序 / id 去重），再把分页状态写回。
+      // 原实现只按 id 去重后前插 ⇒ 旧页保持“多条 assistant 气泡 + 裸 tool 消息”形态，
+      // 与最新页（已合并）不一致，表现为“加载更早后回复割裂”。
+      setMessagesImpl(set, get, [...older, ...get().messages]);
       set({
-        messages: [...deduped, ...get().messages],
         hasOlder: hasMore,
         // 新游标 = 更早那一页的首条（后端分页边界），而非拼接后列表的首条
         oldestSeq: older[0]?.lastEventSeq ?? state.oldestSeq,

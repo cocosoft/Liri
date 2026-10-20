@@ -75,11 +75,73 @@ export interface VideoGenerateParams {
   async?: boolean;
 }
 
+/**
+ * U-03（2026-10-19）：`video_generate` 的**模型可见出参结构**（JSON Schema）。
+ *
+ * 两条出口：
+ * - 异步提交：`{ taskId, status: 'pending' }`；
+ * - 同步完成：`{ video|null, videos[], model, durationMs, cost{...} }`。
+ * ⇒ 无两分支共有的根级字段，故不设 required。
+ */
+const VIDEO_GENERATE_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    taskId: { type: 'string', description: '异步任务 ID（async 模式）' },
+    status: {
+      type: 'string',
+      enum: ['pending'],
+      description: '任务状态（异步提交分支）',
+    },
+    video: {
+      type: ['object', 'null'],
+      description: '首个视频（完成分支；无产物时为 null）',
+      properties: {
+        url: { type: 'string', description: '可访问的视频地址' },
+        prompt: { type: 'string', description: '视频描述' },
+        duration: { type: 'number', description: '时长（秒）' },
+        format: { type: 'string', description: '视频格式' },
+      },
+      required: ['url', 'prompt', 'duration', 'format'],
+    },
+    videos: {
+      type: 'array',
+      description: '生成的视频列表（完成分支）',
+      items: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: '可访问的视频地址' },
+          width: { type: 'number', description: '宽度（像素）' },
+          height: { type: 'number', description: '高度（像素）' },
+          duration: { type: 'number', description: '时长（秒）' },
+          format: { type: 'string', description: '视频格式' },
+        },
+        required: ['url', 'duration', 'format'],
+      },
+    },
+    model: { type: 'string', description: '实际使用的模型名' },
+    durationMs: { type: 'number', description: '生成耗时（毫秒）' },
+    cost: {
+      type: 'object',
+      description: '费用明细（完成分支）',
+      properties: {
+        durationSeconds: { type: 'number', description: '计费时长（秒）' },
+        estimatedCostUsd: { type: 'number', description: '估算成本（美元）' },
+        billedBy: { type: 'string', description: '计费方式（按 duration）' },
+        model: { type: 'string', description: '计费模型名' },
+      },
+      required: ['durationSeconds', 'estimatedCostUsd', 'billedBy', 'model'],
+    },
+  },
+};
+
 export class VideoGenerateTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.video_generate;
 
   description =
     'Generate videos using AI. Supports text-to-video and image-to-video via FAL.ai (Kling, Runway, MiniMax, etc.).';
+
+  /** U-03（2026-10-19）：模型可见出参结构（异步提交 / 同步完成两分支） */
+  override outputJsonSchema = VIDEO_GENERATE_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

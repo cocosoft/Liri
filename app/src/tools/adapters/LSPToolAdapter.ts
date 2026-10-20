@@ -481,6 +481,10 @@ export class LSPToolAdapter implements Tool {
       readOnly: this.readOnly,
       destructive: this.destructive,
       concurrencySafe: this.concurrencySafe,
+      // U-03（2026-10-19）：显式效果声明 —— hover/definition 只读，但 rename/format 会改本地文件
+      // ⇒ 非幂等、副作用限本机（与 `readOnly = false` 一致）
+      idempotent: false,
+      sideEffect: 'local',
       deferred: this.deferred,
       alwaysLoad: this.alwaysLoad,
       interruptBehavior: this.interruptBehavior(),

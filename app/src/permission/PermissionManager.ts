@@ -1182,6 +1182,8 @@ export class PermissionManager {
     submittedToInbox?: boolean;
     /** P1-2: 命令类工具的规范化 hash（批准后写入放行缓存） */
     commandHash?: string;
+    /** U-06-5: 已提交的 Inbox 项 id（前端工具卡片就地审批用） */
+    inboxItemId?: string;
   }> {
     // P1-2: 构造完整 PermissionContext（补 toolName/input），透传 sessionId 供统一提交
     const permissionContext = createPermissionContext({
@@ -1237,12 +1239,17 @@ export class PermissionManager {
     reason?: string;
     submittedToInbox?: boolean;
     commandHash?: string;
+    inboxItemId?: string;
   } {
     const allowed = decision.type === 'allow';
     const submittedToInbox = decision.context?.submittedToInbox === true;
     const commandHash =
       typeof decision.context?.commandHash === 'string'
         ? (decision.context.commandHash as string)
+        : undefined;
+    const inboxItemId =
+      typeof decision.context?.inboxItemId === 'string'
+        ? (decision.context.inboxItemId as string)
         : undefined;
     return {
       allowed,
@@ -1254,6 +1261,7 @@ export class PermissionManager {
       reason: decision.reason,
       submittedToInbox,
       commandHash,
+      inboxItemId,
     };
   }
 }

@@ -36,6 +36,7 @@ import { TaskStatus } from '../types';
 import { EXECUTOR_ROLE, normalizeExecutorResult } from './contracts.js';
 import type { ExecutorFn, TaskMessage } from './contracts.js';
 import { roleToolNames } from './plannerSupport.js';
+import { isNonConvergedTermination } from './pureDecisions.js';
 import {
   MAX_SECURITY_STEERS_PER_STEP,
   buildSecuritySteeringMessage,
@@ -426,26 +427,44 @@ export async function executeSingleStep(
         readPaths
       );
 
-      taskOrchestrator.markStepCompleted(
-        step.id,
-        // 执行证据（助手文本 + 工具结果）—— Reviewer 的唯一"实际输出"输入，
-        // 只写循环统计会让审查必然判"无证据"（见 buildTaorStepResult 注释）
+      // 执行证据（助手文本 + 工具结果）—— Reviewer 的唯一"实际输出"输入，
+      // 只写循环统计会让审查必然判"无证据"（见 buildTaorStepResult 注释）
+      const stepEvidence =
         buildTaorStepResult(lastMessagesSnapshot, {
           turns: result.turnCount,
           tokens: result.totalTokens,
           elapsedMs: taorElapsed,
-        }) + readBackEvidence,
-        // E1①（2026-09-05，方案甲）：终止原因透传落 PlanStep
-        { terminationReason: result.terminationReason }
-      );
+        }) + readBackEvidence;
+      const terminationReason = result.terminationReason;
+      if (isNonConvergedTermination(terminationReason)) {
+        // U-02（2026-10-19）：预算耗尽但未收敛 ⇒ **不得**记为 completed。
+        // 原实现无条件 markStepCompleted ⇒ review 只审 completed 步骤、目标门也可能
+        // 看到"步骤全过"而形成假完成。改落 failed 并保留终止原因（resume 扩容续跑据此选候选）。
+        taskOrchestrator.markStepFailed(
+          step.id,
+          `[NON_CONVERGED:${terminationReason}] 步骤未在预算内收敛（turns=${result.turnCount}）`,
+          { partialOutput: stepEvidence, terminationReason }
+        );
+      } else {
+        taskOrchestrator.markStepCompleted(
+          step.id,
+          stepEvidence,
+          // E1①（2026-09-05，方案甲）：终止原因透传落 PlanStep
+          { terminationReason }
+        );
+      }
       await deps.persistCheckpoint(); // P0(M2)
       const log = (loop as any).getLastRunLog?.();
       const dur = deps.stepDurations.get(step.id);
       if (dur) dur.endMs = Date.now();
       const stepElapsed = dur && dur.endMs ? dur.endMs - dur.startMs : -1;
-      logger.info('[orchestrator] TAORLoop 步骤完成', {
+      logger.info('[orchestrator] TAORLoop 步骤收尾', {
         taskId: deps.taskId,
         stepId: step.id,
+        status: isNonConvergedTermination(terminationReason)
+          ? 'failed(non_converged)'
+          : 'completed',
+        terminationReason,
         turns: result.turnCount,
         totalTokens: result.totalTokens,
         taorElapsedMs: taorElapsed,
@@ -463,7 +482,10 @@ export async function executeSingleStep(
         },
         {
           stage: 'execute',
-          status: 'completed',
+          // U-02：非收敛步骤如实上报 failed（不再冒充满分完成）
+          status: isNonConvergedTermination(terminationReason)
+            ? 'failed'
+            : 'completed',
           stepId: step.id,
           // 2026-10-17：进度口径改为"真正 completed 的步骤数"（原用 stepDurations.size，
           // 该 Map 在步骤**开始**时写入 ⇒ 进度虚高）

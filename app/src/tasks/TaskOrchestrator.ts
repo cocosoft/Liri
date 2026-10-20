@@ -659,7 +659,11 @@ export class TaskOrchestrator implements ISnapshotCapable {
   markStepFailed(
     stepId: string,
     error?: string,
-    meta?: { partialOutput?: string }
+    meta?: {
+      partialOutput?: string;
+      /** E1① 同源：终止原因（max_turns/timeout/budget_exhausted 等，供 resume 扩容判定） */
+      terminationReason?: string;
+    }
   ): PlanStep | undefined {
     const plan = this.getPlanByStepId(stepId);
     if (!plan) return undefined;
@@ -681,6 +685,8 @@ export class TaskOrchestrator implements ISnapshotCapable {
     step.error = error;
     // P1-3（2026-09-06）：失败路线保留——终败前产出片段随失败落 plan step，不丢失
     if (meta?.partialOutput) step.partialOutput = meta.partialOutput;
+    // U-02（2026-10-19）：非收敛失败同样保留终止原因（resume 扩容续跑据此选候选步骤）
+    step.terminationReason = meta?.terminationReason;
 
     const task = taskRegistry.getTask(step.taskId);
     if (task && task instanceof NoteTask) {

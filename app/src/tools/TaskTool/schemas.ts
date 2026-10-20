@@ -25,6 +25,28 @@ export const TaskStopOutputSchema = z.object({
 });
 
 /**
+ * U-03（2026-10-19）：`task_stop` 的**模型可见出参结构**（JSON Schema），
+ * 与 `TaskStopOutputSchema` 逐字段对齐（改 zod 须同步，用例做键集断言）。
+ */
+export const TaskStopOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    task_id: { type: 'string', description: '任务 ID' },
+    previous_status: { type: 'string', description: '停止前的状态' },
+    current_status: { type: 'string', description: '当前状态' },
+    success: { type: 'boolean', description: '是否成功' },
+    message: { type: 'string', description: '操作结果消息' },
+  },
+  required: [
+    'task_id',
+    'previous_status',
+    'current_status',
+    'success',
+    'message',
+  ],
+};
+
+/**
  * 验证 TaskStop 输入
  *
  * ⚠️ 消费方为零（`TaskStopTool` 自带 `validateInput`）—— 与台账 **D-7**「符号级残留」同族；

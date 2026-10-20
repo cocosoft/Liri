@@ -31,6 +31,7 @@ import { getLogger } from '@modules/monitoring';
 import { mergeCompactionRanges } from '@modules/session';
 import {
   handleError,
+  isAbortReason,
   AppError,
   ErrorCategory,
   ErrorSeverity,
@@ -1280,9 +1281,7 @@ export async function* runStreamMessage(
         } catch {
           // @ignore-catch — flush 失败不阻断错误处理主流程
         }
-        // STAGE-A/A-2①（2026-09-02）：流中断 flush text 缓冲——已 yield 给前端的
-        // 正文 chunk 必须落盘（M1-INV① 所见即所存），否则刷新后内容丢失。
-        // 存储层 flushTextBuffer 内含 A-1 回退与告警；此处仅兜底同步异常。
+        // STAGE-A/A-2①：流中断 flush text 缓冲（已 yield 的正文必须落盘，M1-INV①）
         try {
           await host.flushStreamEventBuffer(session.id);
           logger.warn('streamMessage:流中断，text 缓冲已落盘', {
@@ -1291,43 +1290,45 @@ export async function* runStreamMessage(
         } catch {
           // @ignore-catch — flush 失败不阻断错误处理主流程
         }
-        // 错误校准（估算 vs 真实对比 + 400 自动回写 DB）
-        await applyErrorCalibration(
-          genErr,
-          apiMessages,
-          session.id,
-          options?.model
-        );
-        // P1-7: 上下文溢出降级
-        const degradationResult = tryDegradeContext(ctxDegradation, genErr);
-        if (degradationResult.shouldRetry) {
-          logger.warn('chat:context_degraded — 降低上下文窗口重试', {
-            sessionId: session.id,
-            from: initialCtxLimit,
-            to: degradationResult.limit,
-            degradationCount: ctxDegradation.degradationCount,
-          });
-          const warning = getDegradationWarning(ctxDegradation);
-          if (warning) {
-            yield {
-              type: 'context_state',
-              content: warning,
-              sessionId: session.id,
-              // P2-1d-4（S6）：水位载荷构造外移为纯函数（见 `streamMessageHelpers`）
-              watermarkState: buildDegradationWatermark(
-                degradationResult.limit,
-                ctxDegradation.originalLimit
-              ),
-            } as ChatStreamChunk;
-          }
-          await host.truncateApiMessages(
+        // 2026-10-19：预期中断不是「流失败」⇒ 不降级/不重试，也不落 system/error、不发 error chunk
+        const expectedAbort = isAbortReason(genErr);
+        if (!expectedAbort) {
+          await applyErrorCalibration(
+            genErr,
             apiMessages,
-            degradationResult.limit,
             session.id,
-            options?.maxTokens
+            options?.model
           );
-          endLlmRequestSpan(); // TR-20：降级重试前结束本轮 span（下一轮会新建）
-          continue;
+          const degradationResult = tryDegradeContext(ctxDegradation, genErr);
+          if (degradationResult.shouldRetry) {
+            logger.warn('chat:context_degraded — 降低上下文窗口重试', {
+              sessionId: session.id,
+              from: initialCtxLimit,
+              to: degradationResult.limit,
+              degradationCount: ctxDegradation.degradationCount,
+            });
+            const warning = getDegradationWarning(ctxDegradation);
+            if (warning) {
+              yield {
+                type: 'context_state',
+                content: warning,
+                sessionId: session.id,
+                // P2-1d-4（S6）：水位载荷构造外移为纯函数（见 `streamMessageHelpers`）
+                watermarkState: buildDegradationWatermark(
+                  degradationResult.limit,
+                  ctxDegradation.originalLimit
+                ),
+              } as ChatStreamChunk;
+            }
+            await host.truncateApiMessages(
+              apiMessages,
+              degradationResult.limit,
+              session.id,
+              options?.maxTokens
+            );
+            endLlmRequestSpan(); // TR-20：降级重试前结束本轮 span（下一轮会新建）
+            continue;
+          }
         }
 
         streamHadError = true;
@@ -1336,31 +1337,29 @@ export async function* runStreamMessage(
           action: 'streamMessage_genIteration',
           context: { sessionId: session.id },
         });
-        const errorMsg =
-          genErr instanceof Error
-            ? genErr.message.slice(0, 200)
-            : String(genErr).slice(0, 200);
-        // P0 落盘缺口（2026-08-25）：流式错误写 system/error 事件，保证刷新后回放可见。
-        // P2-1c：走单一 append 入口（失败不阻断主流程 · CS03，见 streamMessageEvents.ts）
-        await emitEvent({
-          // P3-7a: seq 由 append 原子分配（seq: 0）
-          type: 'system/error',
-          schemaVersion: 1,
-          seq: 0,
-          time: Date.now(),
-          sessionId: session.id,
-          data: { module: 'chat:ChatManager', message: errorMsg },
-        });
-        yield {
-          type: 'error',
-          content: `流式响应中断: ${errorMsg}`,
-          sessionId: session.id,
-          // P1-1（2026-08-26）：结构化错误码——前端据此识别"可恢复的流中断"并触发
-          // 自动恢复（reconnect/resume/续写），避免字符串匹配（CS02）
-          errorCode: 'STREAM_INTERRUPTED',
-        } as ChatStreamChunk;
-        // TR-20：本轮以失败告终 ⇒ 结束 span（`success: false` + `error` 一并写入，
-        // 与 session 事件"仅记成功"的策略**刻意不同** —— span 是观测，失败同样有诊断价值）
+        if (!expectedAbort) {
+          const errorMsg =
+            genErr instanceof Error
+              ? genErr.message.slice(0, 200)
+              : String(genErr).slice(0, 200);
+          // P0/P2-1c：错误落 system/error（单一 append 入口，见 streamMessageEvents.ts）
+          await emitEvent({
+            type: 'system/error',
+            schemaVersion: 1,
+            seq: 0, // P3-7a：seq 由 append 原子分配
+            time: Date.now(),
+            sessionId: session.id,
+            data: { module: 'chat:ChatManager', message: errorMsg },
+          });
+          yield {
+            type: 'error',
+            content: `流式响应中断: ${errorMsg}`,
+            sessionId: session.id,
+            // P1-1：结构化错误码——前端据此识别可恢复中断（避免字符串匹配，CS02）
+            errorCode: 'STREAM_INTERRUPTED',
+          } as ChatStreamChunk;
+        }
+        // TR-20：本轮失败 ⇒ 结束 span（success:false + error 一并写入，失败同样有诊断价值）
         endLlmRequestSpan();
       }
 

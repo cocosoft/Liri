@@ -137,6 +137,30 @@ const KNOWLEDGE_SAVE_PARAMS: Tool['params'] = [
 ];
 
 /**
+ * U-03（2026-10-19）：`knowledge_save` 的**模型可见出参结构**（JSON Schema），
+ * 与成功分支 `data` 逐字段对齐（失败分支无 `data` 载荷）。
+ */
+const KNOWLEDGE_SAVE_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean', description: '是否保存成功' },
+    title: { type: 'string', description: '已保存文档的标题' },
+    action: {
+      type: 'string',
+      enum: ['created', 'updated', 'skipped'],
+      description:
+        '写入结果：created 新建 / updated 覆盖 / skipped 内容一致跳过',
+    },
+    filePath: { type: 'string', description: '知识库中的文件路径' },
+    message: {
+      type: 'string',
+      description: '完成性提示（勿对同一标题重复调用）',
+    },
+  },
+  required: ['success', 'title', 'action', 'filePath', 'message'],
+};
+
+/**
  * KnowledgeSaveTool实现
  */
 export class KnowledgeSaveTool implements Tool {
@@ -157,6 +181,9 @@ export class KnowledgeSaveTool implements Tool {
   /** 工具参数 */
   readonly params = KNOWLEDGE_SAVE_PARAMS;
 
+  /** U-03（2026-10-19）：模型可见出参结构（success/title/action/filePath/message） */
+  readonly outputJsonSchema = KNOWLEDGE_SAVE_OUTPUT_JSON_SCHEMA;
+
   /** 搜索提示 */
   readonly searchHint?: string = 'save content to knowledge base';
 
@@ -174,10 +201,14 @@ export class KnowledgeSaveTool implements Tool {
       readOnly: false,
       destructive: false,
       concurrencySafe: true,
+      // U-03（2026-10-19）：显式效果声明 —— 写入本地知识库 ⇒ 非幂等、副作用限本机
+      idempotent: false,
+      sideEffect: 'local',
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',
       tags: [ToolTag.AGENT],
+      outputJsonSchema: this.outputJsonSchema,
     };
   }
 

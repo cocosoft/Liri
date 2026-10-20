@@ -29,6 +29,35 @@ export interface VideoDisplayOutput {
   count: number;
 }
 
+/**
+ * U-03（2026-10-19）：`video_display` 的**模型可见出参结构**（JSON Schema），
+ * 与 `VideoDisplayOutput` 逐字段对齐（失败分支无 `data` 载荷）。
+ */
+const VIDEO_DISPLAY_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    videos: {
+      type: 'array',
+      description: '可播放的视频列表',
+      items: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: '可访问的播放地址' },
+          name: { type: 'string', description: '视频名称' },
+          size: { type: 'number', description: '文件大小（字节）' },
+          originalPath: {
+            type: 'string',
+            description: '原始路径或 URL（入参回显）',
+          },
+        },
+        required: ['url', 'name', 'originalPath'],
+      },
+    },
+    count: { type: 'number', description: '有效视频数量' },
+  },
+  required: ['videos', 'count'],
+};
+
 export class VideoDisplayTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.video_display;
 
@@ -38,6 +67,9 @@ export class VideoDisplayTool extends BaseTool {
     'Display/preview videos directly in the chat conversation. MUST call this after generating videos with video_generate to show results to the user. ' +
     'Users cannot open file paths themselves — videos are only visible when you use this tool. ' +
     'Accepts local file paths or URLs. Supports video playback with controls.';
+
+  /** U-03（2026-10-19）：模型可见出参结构（videos/count） */
+  override outputJsonSchema = VIDEO_DISPLAY_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

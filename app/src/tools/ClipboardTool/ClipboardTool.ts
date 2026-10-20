@@ -137,6 +137,27 @@ async function writeClipboard(content: string): Promise<void> {
 export class ClipboardTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.clipboard;
 
+  /**
+   * U-03（2026-10-19）：模型可见出参结构（读/写两分支同型：`action` 区分）。
+   */
+  override outputJsonSchema = {
+    type: 'object',
+    properties: {
+      action: {
+        type: 'string',
+        enum: ['read', 'write'],
+        description: '本次操作类型',
+      },
+      content: { type: 'string', description: '剪贴板内容（读：已截断展示）' },
+      truncated: {
+        type: 'boolean',
+        description: '读操作是否因长度上限被截断',
+      },
+      length: { type: 'number', description: '内容原始字符数' },
+    },
+    required: ['action', 'content', 'truncated', 'length'],
+  };
+
   description =
     'Read or write system clipboard content. Supports text operations across Windows, macOS, and Linux.';
 

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具过滤器管理器
  *
  * 实现三层过滤机制：
@@ -67,6 +67,14 @@ export interface MCPToolSource {
 
 /**
  * 工具过滤器管理器类
+ *
+ * ⚠️ **2026-10-20 实测（U-03 P2 收口）**：本类由 `GovernanceManager` 构造持有，但其
+ * `getFilteredTools()` 的两个调用方 `getGovernedTools()` / `executeGovernanceCheck()` **全仓零调用点**
+ * ⇒ 本类当前**不在执行链上**；即便接线，喂规则的方法（`addFeatureFlag` / `addDenyRule` /
+ * `addMCPToolSource` 等）**也全仓零调用** ⇒ `featureFlags` / `denyRules` / `mcpToolSources` 恒空，
+ * 不会裁掉任何工具（仅 `alwaysLoad` / `deferred` 归类生效）。真实可见性裁剪在
+ * `tools/toolCategories.ts#filterToolsByTask()`。按 CD05/CD07：**不删实现**，仅此标注；
+ * 接线前必须同时补"规则写入方"，否则只是多一层空过滤。
  */
 export class ToolFilterManager {
   /** 工具注册表 */

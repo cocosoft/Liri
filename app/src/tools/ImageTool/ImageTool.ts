@@ -85,6 +85,34 @@ export type { ImageEditOutput } from '../types/ToolOutputs';
 
 const processor = new ImageProcessor();
 
+/**
+ * U-03（2026-10-19）：`image` 的**模型可见出参结构**（JSON Schema），
+ * 与 `ImageEditOutput` 逐字段对齐（`batch` 分支仅 action/inputPath/batchResults）。
+ */
+const IMAGE_EDIT_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    action: { type: 'string', description: '执行的操作（batch 表示批量）' },
+    inputPath: { type: 'string', description: '输入图片路径' },
+    outputPath: { type: 'string', description: '输出图片路径（写文件操作）' },
+    originalSize: { type: 'number', description: '原始文件大小（字节）' },
+    processedSize: { type: 'number', description: '处理后文件大小（字节）' },
+    width: { type: 'number', description: '输出宽度（像素）' },
+    height: { type: 'number', description: '输出高度（像素）' },
+    aspectRatio: { type: 'number', description: '宽高比' },
+    format: { type: 'string', description: '输出格式' },
+    batchResults: {
+      type: 'array',
+      items: {
+        type: 'object',
+        description: '单条编辑结果（字段同顶层，不含 batchResults）',
+      },
+      description: '批量操作结果（batch 分支）',
+    },
+  },
+  required: ['action', 'inputPath'],
+};
+
 export class ImageTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.image;
 
@@ -92,6 +120,9 @@ export class ImageTool extends BaseTool {
     'Edit images with operations: resize, crop, rotate, flip, add watermark, ' +
     'adjust brightness/contrast/saturation, convert format, or grayscale. ' +
     'Use when the user asks to modify or transform an existing image.';
+
+  /** U-03（2026-10-19）：模型可见出参结构（编辑结果元数据 + batch 分支） */
+  override outputJsonSchema = IMAGE_EDIT_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

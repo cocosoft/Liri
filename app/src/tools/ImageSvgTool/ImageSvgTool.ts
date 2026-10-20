@@ -99,6 +99,42 @@ const SVG_TEMPLATES: Record<string, string> = {
 </svg>`,
 };
 
+/**
+ * U-03（2026-10-19）：`image_svg_generate` 的**模型可见出参结构**（JSON Schema），
+ * 与 `ImageSvgOutput` 逐字段对齐（`filePath` 仅在指定 savePath 时出现）。
+ */
+const IMAGE_SVG_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    svg: { type: 'string', description: '生成的 SVG 代码' },
+    filePath: {
+      type: 'string',
+      description: '保存的完整路径（仅指定 savePath 时返回）',
+    },
+    model: { type: 'string', description: '实际使用的模型名' },
+    size: { type: 'string', description: 'SVG 尺寸描述' },
+    validation: {
+      type: 'object',
+      description: 'SVG 语法校验结果（validate=false 时不返回）',
+      properties: {
+        valid: { type: 'boolean', description: '是否通过校验' },
+        errors: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '错误列表',
+        },
+        warnings: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '告警列表',
+        },
+      },
+      required: ['valid', 'errors', 'warnings'],
+    },
+  },
+  required: ['svg', 'model', 'size'],
+};
+
 export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
   name = TOOL_NAME_CONSTANTS.image_svg_generate;
 
@@ -108,6 +144,9 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
     'multiple visual styles (flat, line, solid, colorful), custom colors, and ' +
     'background colors. Includes SVG syntax validation. Much cheaper than image ' +
     'generation APIs (text tokens only).';
+
+  /** U-03（2026-10-19）：模型可见出参结构（svg/filePath/model/size/validation） */
+  override outputJsonSchema = IMAGE_SVG_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

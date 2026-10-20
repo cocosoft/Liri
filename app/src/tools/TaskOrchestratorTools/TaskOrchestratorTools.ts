@@ -15,8 +15,11 @@ import { getTaskConcurrencyLimits } from '../../tasks/limits';
 import { pickTaskText } from '../utils/ToolUtils';
 import {
   CreateTaskListOutputSchema,
+  CreateTaskListOutputJsonSchema,
   GetTaskListOutputSchema,
+  GetTaskListOutputJsonSchema,
   UpdateTaskStatusOutputSchema,
+  UpdateTaskStatusOutputJsonSchema,
 } from './schemas';
 
 const TASK_TOOL_PARAMS: ToolParam[] = [
@@ -85,6 +88,8 @@ export class TaskCreateListTool implements Tool {
    * 出口见 `execute()` 成功分支的 `data`（对象）；失败分支 `createToolResult(null, …)` ⇒ 无载荷不校验。
    */
   outputSchema = CreateTaskListOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  outputJsonSchema = CreateTaskListOutputJsonSchema;
   params = TASK_TOOL_PARAMS;
 
   isEnabled(): boolean {
@@ -108,6 +113,11 @@ export class TaskCreateListTool implements Tool {
       readOnly: false,
       destructive: false,
       concurrencySafe: true,
+      // U-03（2026-10-19）：显式效果声明 —— 改本地任务清单 ⇒ 非幂等、副作用限本机
+      idempotent: false,
+      sideEffect: 'local' as const,
+      // U-03（2026-10-19）：模型可见出参结构随快照透出（懒加载工具也能下发）
+      outputJsonSchema: this.outputJsonSchema,
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'cancel' as const,
@@ -216,6 +226,8 @@ export class TaskUpdateStatusTool implements Tool {
    * 出口见 `execute()` 成功分支的 `data`（对象）；失败分支 `createToolResult(null, …)` ⇒ 无载荷不校验。
    */
   outputSchema = UpdateTaskStatusOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  outputJsonSchema = UpdateTaskStatusOutputJsonSchema;
   params = TASK_TOOL_PARAMS;
 
   isEnabled(): boolean {
@@ -239,6 +251,11 @@ export class TaskUpdateStatusTool implements Tool {
       readOnly: false,
       destructive: false,
       concurrencySafe: true,
+      // U-03（2026-10-19）：显式效果声明 —— 改本地任务清单 ⇒ 非幂等、副作用限本机
+      idempotent: false,
+      sideEffect: 'local' as const,
+      // U-03（2026-10-19）：模型可见出参结构随快照透出（懒加载工具也能下发）
+      outputJsonSchema: this.outputJsonSchema,
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'cancel' as const,
@@ -324,6 +341,8 @@ export class TaskGetListTool implements Tool {
    * 出口见 `execute()` 的 `data`（对象，含空列表分支）；无失败分支载荷。
    */
   outputSchema = GetTaskListOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  outputJsonSchema = GetTaskListOutputJsonSchema;
   params = TASK_TOOL_PARAMS;
 
   isEnabled(): boolean {
@@ -347,6 +366,11 @@ export class TaskGetListTool implements Tool {
       readOnly: true,
       destructive: false,
       concurrencySafe: true,
+      // U-03（2026-10-19）：显式效果声明 —— 只读查询任务清单 ⇒ 幂等、无副作用
+      idempotent: true,
+      sideEffect: 'none' as const,
+      // U-03（2026-10-19）：模型可见出参结构随快照透出（懒加载工具也能下发）
+      outputJsonSchema: this.outputJsonSchema,
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'cancel' as const,

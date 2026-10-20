@@ -25,6 +25,20 @@ export type TeamCreateInput = z.infer<typeof TeamCreateInputSchema>;
 export type TeamCreateOutput = z.infer<typeof TeamCreateOutputSchema>;
 
 /**
+ * U-03（2026-10-19）：`team_create` 的**模型可见出参结构**（JSON Schema），
+ * 与 `TeamCreateOutputSchema` 逐字段对齐。
+ */
+export const TeamCreateOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    team_name: { type: 'string', description: '创建的团队名称' },
+    team_file_path: { type: 'string', description: '团队文件路径' },
+    lead_agent_id: { type: 'string', description: '团队负责人 Agent ID' },
+  },
+  required: ['team_name', 'team_file_path', 'lead_agent_id'],
+};
+
+/**
  * 验证 TeamCreateTool 输入
  */
 export function validateTeamCreateInput(input: unknown) {

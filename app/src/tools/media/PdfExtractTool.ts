@@ -7,6 +7,7 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
+import { MEDIA_PDF_EXTRACT_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { extractPdfPages } from '../../media/pdf/PdfPageExtractor';
 import type { PdfExtractOptions } from '../../media/pdf/PdfPageExtractor';
 import { getLogger } from '@modules/monitoring';
@@ -57,6 +58,8 @@ export function createPdfExtractTool(): Tool {
     isReadOnly: () => true,
     isDestructive: () => false,
     isConcurrencySafe: () => true,
+    /** U-03（2026-10-20）：模型可见出参结构（逐页图片） */
+    outputJsonSchema: MEDIA_PDF_EXTRACT_OUTPUT_JSON_SCHEMA,
 
     async execute(
       input: Record<string, unknown>,
@@ -122,6 +125,13 @@ export function createPdfExtractTool(): Tool {
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
+          // U-03（2026-10-20）：结构化出参（与 MEDIA_PDF_EXTRACT_OUTPUT_JSON_SCHEMA 键集一致）
+          data: {
+            success: true,
+            pageCount: pages.length,
+            totalSize,
+            pages,
+          },
           output: JSON.stringify(pages),
           errorOutput: '',
           metadata: {
@@ -209,6 +219,7 @@ export function createPdfExtractTool(): Tool {
         deferred: false,
         alwaysLoad: false,
         interruptBehavior: 'block',
+        outputJsonSchema: MEDIA_PDF_EXTRACT_OUTPUT_JSON_SCHEMA,
       };
     },
   };

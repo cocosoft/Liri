@@ -73,6 +73,33 @@ interface FrameInfo {
   size: number;
 }
 
+/**
+ * U-03（2026-10-19）：`video_analysis` 的**模型可见出参结构**（JSON Schema），
+ * 与成功分支 `data` 逐字段对齐（失败分支 `data` 为 null）。
+ */
+const VIDEO_ANALYSIS_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string', description: '视频分析汇总（多行文本）' },
+    frameCount: { type: 'number', description: '成功分析的关键帧数' },
+    frames: {
+      type: 'array',
+      description: '逐帧分析结果',
+      items: {
+        type: 'object',
+        properties: {
+          index: { type: 'number', description: '帧序号' },
+          timestamp: { type: 'number', description: '帧时间戳（秒）' },
+          analysis: { type: 'string', description: '该帧的视觉分析文本' },
+        },
+        required: ['index', 'timestamp', 'analysis'],
+      },
+    },
+    durationMs: { type: 'number', description: '分析总耗时（毫秒）' },
+  },
+  required: ['summary', 'frameCount', 'frames', 'durationMs'],
+};
+
 export class VideoAnalysisTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.video_analysis;
 
@@ -80,6 +107,9 @@ export class VideoAnalysisTool extends BaseTool {
     'Analyze video content by extracting key frames and performing multi-level analysis ' +
     '(metadata → object detection → AI vision description). ' +
     'Supports mp4, webm, mov, avi, mkv, mpeg up to 50MB.';
+
+  /** U-03（2026-10-19）：模型可见出参结构（summary/frameCount/frames/durationMs） */
+  override outputJsonSchema = VIDEO_ANALYSIS_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

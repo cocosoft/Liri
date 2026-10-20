@@ -187,6 +187,9 @@ export class TungstenTool implements Tool {
       readOnly: false,
       destructive: false,
       concurrencySafe: true,
+      // U-03（2026-10-19）：显式效果声明 —— 管理本地终端会话（建/切/删）⇒ 非幂等、副作用限本机
+      idempotent: false,
+      sideEffect: 'local' as const,
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block' as const,

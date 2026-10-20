@@ -54,13 +54,14 @@ function asDndWindow(value: unknown): ProactiveDndWindow | undefined {
 
 /** 从配置读取门禁偏好（`proactive.*` 键；缺省值见设计稿 §8） */
 export function resolveProactiveGatePrefs(): ProactiveGatePrefs {
+  const enabled = configManager.getValue<boolean>('proactive.enabled', true);
   const maxPerHour = configManager.getValue<number>('proactive.maxPerHour', 3);
   const cooldownMs = configManager.getValue<
     Partial<Record<'task_result', number>>
   >('proactive.cooldownMs', {});
   return {
-    // 能走到生产者说明运行时已启动；门禁仍保留总开关以便将来热更新
-    enabled: true,
+    // U-01（2026-10-19）：读取 `proactive.enabled`（原硬编码 true，用户关不掉）
+    enabled: enabled !== false,
     dnd: asDndWindow(configManager.getValue('proactive.dnd')),
     maxPerHour: typeof maxPerHour === 'number' ? maxPerHour : 3,
     cooldownMs:
@@ -79,11 +80,15 @@ export function buildCronProactivePayload(
 ): ProactiveMessagePayload {
   const jobRef = input.job.id || input.job.name;
   const failed = input.result.success === false;
+  // U-01（2026-10-19）：去重键加入**时间窗**（分钟桶）——原键不含 runId/时间，
+  // 同 job 当日第二次运行会被 24h 投递回看判为 duplicate 而静默丢弃。
+  // 同一次运行的重试落在同一分钟桶内仍可去重；不同运行不再互相吞掉。
+  const runBucket = Math.floor(now / 60_000);
   return {
     id: `proactive-cron-${randomUUID()}`,
     kind: 'task_result',
     priority: failed ? 'normal' : 'low',
-    dedupeKey: `cron:${jobRef}:${failed ? 'fail' : 'ok'}`,
+    dedupeKey: `cron:${jobRef}:${failed ? 'fail' : 'ok'}:${runBucket}`,
     title: input.title,
     body: input.body,
     target: { mode: 'local' },

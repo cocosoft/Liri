@@ -32,7 +32,11 @@ function refreshSessionIfActive(sessionId?: string): void {
   sessionService
     .getMessages(sessionId)
     .then((messages) => {
-      chatCoordinator.loadMessages(messages);
+      // U-05 残余（2026-10-19）：事件刷新是**增量**更新 —— 用 merge 保留已加载的更早
+      // 历史与分页游标（原 `loadMessages` 整表替换会丢历史并让 oldestSeq 错位）。
+      // 竞态防护：请求期间用户可能已切走 ⇒ 落地前复核当前会话。
+      if (useRootStore.getState().currentSessionId !== sessionId) return;
+      return chatCoordinator.mergeRefreshedMessages(messages);
     })
     .catch(() => {
       /* 会话消息刷新失败静默，用户可在下次打开会话时看到 */

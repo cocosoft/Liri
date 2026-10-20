@@ -59,10 +59,46 @@ const WebSearchInputSchema = z.strictObject({
     .describe('超时时间（毫秒）'),
 });
 
+/**
+ * U-03（2026-10-19）：模型可见出参结构（下发为 `output_schema`）。
+ * 与 `WebSearchResult` 对齐；无结果分支额外带 `message`、且无 `searchUrl/safeSearch`
+ * ⇒ 后两者标为可选（不虚构必填）。
+ */
+const WEB_SEARCH_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    query: { type: 'string', description: '检索词' },
+    results: {
+      type: 'array',
+      description: '检索结果（已按 maxResults 截断）',
+      items: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: '标题' },
+          url: { type: 'string', description: '链接' },
+          snippet: { type: 'string', description: '摘要' },
+          source: { type: 'string', description: '来源站点' },
+          publishedDate: { type: 'string', description: '发布时间' },
+          rank: { type: 'number', description: '排序位次' },
+        },
+        required: ['title', 'url', 'snippet'],
+      },
+    },
+    totalResults: { type: 'number', description: '命中总数（未截断）' },
+    searchUrl: { type: 'string', description: '实际请求的搜索地址' },
+    safeSearch: { type: 'boolean', description: '是否启用安全搜索' },
+    message: { type: 'string', description: '无结果时的说明（仅该分支出现）' },
+  },
+  required: ['query', 'results', 'totalResults'],
+};
+
 export class WebSearchTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.web_search;
   description =
     '搜索网络信息。用于查找时事、事实、文档或任何需要最新互联网资源的主题。';
+
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = WEB_SEARCH_OUTPUT_JSON_SCHEMA;
 
   override tags = [ToolTag.NETWORK, ToolTag.READ];
 

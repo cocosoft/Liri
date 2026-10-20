@@ -232,6 +232,21 @@ export {
   getCg3,
 } from './Cg3Bootstrap';
 export type { Cg3BootstrapResult } from './Cg3Bootstrap';
+// U-02（2026-10-20）：AlwaysOn 最小可用自主执行 —— 供 entry 层经模块出口引入（R03-002）
+export { AlwaysOnManager } from './alwayson/AlwaysOnManager';
+export {
+  bootstrapAlwaysOn,
+  type AlwaysOnProject,
+  type AlwaysOnBootstrapDeps,
+  type AlwaysOnBootstrapResult,
+} from './alwayson/AlwaysOnBootstrap';
+export {
+  createAlwaysOnBridge,
+  type AlwaysOnBridge,
+  type AlwaysOnBridgeDeps,
+  type AlwaysOnPromptHooks,
+  type AlwaysOnUsage,
+} from './alwayson/AlwaysOnBridge';
 // 2026-10-08：删除 `CommandBridge` 再导出 —— 其**唯一**引用方 `AlwaysOnRuntime` 从未注入它
 // （取证见该类 `tryRun()` 注释），删除后 `tasks/commands/CommandBridge.ts` 零消费者 ⇒ 一并删除。
 // 2026-10-08：删除 `SteeringBridge` 再导出 —— 第二套 steering（`tasks/steering/SteeringBridge` +
@@ -311,6 +326,7 @@ export type {
 export {
   settleGoalForRun,
   settleGoalForTurn,
+  settleGoalById,
   ensureGoalForBatch,
 } from './goal/goalRunBinding';
 export type { GoalTurnReason } from './goal/goalRunBinding';

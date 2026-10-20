@@ -16,7 +16,7 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { taskRegistry } from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types';
-import { TaskStopOutputSchema } from './schemas';
+import { TaskStopOutputSchema, TaskStopOutputJsonSchema } from './schemas';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:TaskTool:TaskStopTool');
@@ -64,6 +64,8 @@ export class TaskStopTool extends BaseTool<
    * `{task_id, previous_status, current_status, success, message}`）⇒ **与 schema 完全相符** ⇒ 接线。
    */
   outputSchema = TaskStopOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = TaskStopOutputJsonSchema;
   description = '按其 ID 停止运行中的任务';
 
   params: ToolParam[] = [

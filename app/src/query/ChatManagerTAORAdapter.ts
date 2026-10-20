@@ -20,7 +20,7 @@ import type {
   QuestionData,
   QuestionOption,
 } from '@modules/runtime/api/CoreAPI.js';
-import { extractTodoData } from '@modules/chat';
+import { extractTodoData, autoAnswerUnattended } from '@modules/chat';
 import { withDeadline } from '@modules/utils/withDeadline';
 import { PENDING_INTERACTION_TTL_MS } from '@modules/constants';
 import {
@@ -302,7 +302,11 @@ export function createChatManagerTAORDeps(
         // v0.5: requiresUserInteraction 检测（对齐 ReActToolLoop act 遗漏 2）
         // 非流式路径：检测到交互工具时，发送 question chunk 并等待用户答案
         const toolObj = ctx.toolRegistry?.getTool(tc.name);
-        if (toolObj?.requiresUserInteraction?.()) {
+        // U-02（2026-10-20）：无人值守下由 helper 注入答复并记审计 ⇒ 跳过挂起；普通路径不变
+        if (
+          !autoAnswerUnattended(toolObj, tc, ctx.sessionId) &&
+          toolObj?.requiresUserInteraction?.()
+        ) {
           // 同轮多提问防护（对齐 ReActToolLoop）：Map 单槽不静默覆盖。
           // S4（2026-10-19）：判据处顺带清除过期条目 ⇒ 漏释放时 TTL 自愈，不永久死锁。
           if (

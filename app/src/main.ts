@@ -1545,8 +1545,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
     });
 
     // G-10 P4（2026-10-19）：主动消息运行时（队列扫描器 + 通道投递适配器）。
-    // 统一由 feature('PROACTIVE') 控制，**默认关闭**：关闭时不建表、不启动扫描器、
-    // 不投递，行为与接线前完全一致。
+    // 统一由 feature('PROACTIVE') 控制，**2026-10-20 起默认开启**（U-01 用户裁定）；
+    // 关闭（`FEATURE_PROACTIVE=false`）时不建表、不启动扫描器、不投递。
     await wrapInit('ProactiveRuntime', async () => {
       const { startProactiveRuntime } =
         await import('./proactive/ProactiveRuntime.js');
@@ -1680,24 +1680,19 @@ export async function launch(options: LaunchOptions): Promise<void> {
       connectionRegistry.verifyAll();
     });
 
-    // CG3 自主执行闭环接线（N-43，2026-09-20）：`startCg3()` 此前**全仓零调用** ⇒
-    // `SelfWakeService` / `AlwaysOnManager` 从未实例化，导致：
-    //   ① `sleep_for` / `sleep_until`（N-37 已注册进模型工具清单）执行时必然失败
-    //      （实测返回"SelfWake 服务未初始化（CG3 未启动）"）；
-    //   ② N-26 修好的「SelfWake.fire() → 会话续跑」没有任何触发场景
-    //      （`CronScheduler.extraTick → getDueWakes()` 这条线也不存在）。
-    // 注：①`CronScheduler` 尚未启动时 `wireSelfWakeToCron` 会告警并返回 false ——
-    // 短时唤醒（`seconds×1000 < tickInterval`）走 setTimeout，不受影响；
-    //  ②AlwaysOn 侧仅完成连线：其 runtimes 由 `registerProject()` 创建、当前无任何注册
-    //    ⇒ `notifyUserActivity()` 遍历空集合，**不会产生自主行为**。
-    //  2026-10-08（架构治理 P1 续）：AlwaysOn 侧原**未注入**的 `cmdBridge` / `watchdog` 已删除
-    //  （取证：`AlwaysOnManager.registerProject()` 唯一构造点只传 2 参；且 P1-9 队列
-    //  `MessageCommandQueue` 的消费端从未移植 ⇒ 无 drainer）。**P1-9 入队链连同该队列一并移除**
-    //  （队列为全仓零引用的孤立件），重启条件见 `AlwaysOnRuntime.tryRun()` 注释。
+    // CG3 自主执行闭环（N-43）：`startCg3()` 曾零调用 ⇒ SelfWake 未实例化（`sleep_*` 必然失败），
+    // 且「SelfWake.fire() → 会话续跑」无触发场景。AlwaysOn 侧 2026-10-08 已删除从未注入的
+    // `cmdBridge` / `watchdog` 与零消费者队列（重启条件见 `AlwaysOnRuntime.tryRun()` 注释）。
     await wrapInit('Cg3', async () => {
       const { startCg3 } = await import('@modules/tasks/Cg3Bootstrap');
       const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
       await startCg3(getCoreAPI().getChatManager());
+    });
+
+    // U-02（2026-10-20）：AlwaysOn 自主执行接线（`FEATURE_ALWAYSON` 默认开；关 ⇒ 零注册/零定时器）
+    await wrapInit('AlwaysOn', async () => {
+      const { startAlwaysOn } = await import('./entrypoints/alwaysOnEntry.js');
+      await startAlwaysOn();
     });
 
     // B1-3 / B1-4（2026-09-22 / 方案 §11 第 1 步）：**启动期 yield 恢复装配**。
@@ -1806,7 +1801,41 @@ export async function launch(options: LaunchOptions): Promise<void> {
           await import('./infrastructure/http/handlers/pdca-handlers.js');
         // C1（2026-09-30 D-103）：该扫描已改 `async`（端口 API 异步化）⇒ **必须 await**，
         // 以保持下方"留存清理在其之后"的既有次序约束（见紧邻注释）。
-        await scanAndAbortStalePdcaTasks();
+        const scanResult = await scanAndAbortStalePdcaTasks();
+        // 2b) U-02（2026-10-19）：重启自动续跑（**默认关**，`PDCA_AUTO_RESUME=true` 开启）。
+        // 仅恢复扫描刚标记 abort 的崩溃遗留任务（phase 非终态），数量受
+        // `PDCA_AUTO_RESUME_LIMIT`（默认 3）约束；失败保留 `/goal resume` 人工入口。
+        // 跨层调用放在 entry（R00-001）：infrastructure 扫描层只回传快照。
+        if (
+          configManager.env('PDCA_AUTO_RESUME') === 'true' &&
+          scanResult.abortedCheckpoints.length > 0
+        ) {
+          const limitRaw = Number(configManager.env('PDCA_AUTO_RESUME_LIMIT'));
+          const limit =
+            Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : 3;
+          const { getOrCreateOrchestrator } = await import('@modules/tasks');
+          const candidates = scanResult.abortedCheckpoints.slice(0, limit);
+          logger.info('启动自动续跑：发现崩溃遗留任务', {
+            total: scanResult.abortedCheckpoints.length,
+            resuming: candidates.length,
+            limit,
+          });
+          void (async () => {
+            for (const ck of candidates) {
+              const taskId = String(ck.taskId ?? '');
+              if (!taskId) continue;
+              try {
+                await getOrCreateOrchestrator(taskId).resumeFromCheckpoint(ck);
+                logger.info('启动自动续跑完成', { taskId });
+              } catch (err) {
+                logger.warn('启动自动续跑失败（保留 /goal resume 入口）', {
+                  taskId,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              }
+            }
+          })();
+        }
         // 3) 留存清理（仅"终态 + 超期 30 天"，非终态一律保留）
         //    ⚠️ **必须在启动扫描之后**：扫描刚给遗留任务刷新 `updatedAt` ⇒ 它们会因"新鲜"被保留，
         //    不会被"刚标完就删掉"。

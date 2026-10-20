@@ -47,6 +47,26 @@ export type BrowserToolInput = z.infer<typeof BrowserToolInputSchema>;
 export type BrowserToolOutput = z.infer<typeof BrowserToolOutputSchema>;
 
 /**
+ * U-03（2026-10-19）：`browser` 的**模型可见出参结构**（JSON Schema），
+ * 与 `BrowserToolOutputSchema` 逐字段对齐（`data` 为按 action 变化的任意结构）。
+ */
+export const BrowserToolOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean', description: '操作是否成功' },
+    message: { type: 'string', description: '操作结果消息' },
+    data: { description: '操作数据（结构随 action 变化）' },
+    tabs: {
+      type: 'array',
+      items: { type: 'object' },
+      description: '标签页信息列表',
+    },
+    screenshot: { type: 'string', description: '截图数据（Base64 编码）' },
+  },
+  required: ['success', 'message'],
+};
+
+/**
  * 验证 BrowserTool 输入
  */
 export function validateBrowserToolInput(input: unknown) {

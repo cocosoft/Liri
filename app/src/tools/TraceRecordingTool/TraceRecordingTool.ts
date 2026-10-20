@@ -34,6 +34,103 @@ function getTraceEngine(): any {
 }
 
 /**
+ * U-03（2026-10-19）：`trace_recording` 的**模型可见出参结构**（JSON Schema）。
+ *
+ * 出口按 action 分四类（`get_status` / `get_stats` / `get_records` / `export_records`），
+ * 另含「引擎未启动 / 暂无数据」提示分支（`active` 或 `message`）⇒ 不设根级 required。
+ */
+const TRACE_RECORDING_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    active: { type: 'boolean', description: '录制模块/引擎是否已启动' },
+    message: { type: 'string', description: '不可用或空数据提示' },
+    config: { type: 'object', description: '录制配置（get_status 分支）' },
+    monitoringDeps: {
+      type: 'object',
+      description: '监控依赖可用性（get_status 分支）',
+      properties: {
+        dashboard: { type: 'boolean', description: 'Dashboard 是否就绪' },
+        tracing: { type: 'boolean', description: 'Tracing 是否就绪' },
+        alertManager: { type: 'boolean', description: '告警管理器是否就绪' },
+      },
+      required: ['dashboard', 'tracing', 'alertManager'],
+    },
+    totalCalls: { type: 'number', description: '录制到的调用总数' },
+    totalErrors: { type: 'number', description: '错误调用数' },
+    errorRate: { type: 'number', description: '错误率（百分比，保留两位）' },
+    latencyMs: {
+      type: 'object',
+      description: '延迟分位（毫秒）',
+      properties: {
+        p50: { type: 'number', description: 'P50 延迟' },
+        p99: { type: 'number', description: 'P99 延迟' },
+      },
+      required: ['p50', 'p99'],
+    },
+    tokens: {
+      type: 'object',
+      description: '用量汇总（stats）或单条记录用量（records，可能为 null）',
+      properties: {
+        input: { type: 'number', description: '输入 token' },
+        output: { type: 'number', description: '输出 token' },
+        cacheRead: { type: 'number', description: '缓存读取 token（stats）' },
+        cacheCreate: { type: 'number', description: '缓存写入 token（stats）' },
+      },
+      required: ['input', 'output'],
+    },
+    byModel: {
+      type: 'object',
+      description: '按模型分组的调用计数',
+      additionalProperties: { type: 'number' },
+    },
+    total: { type: 'number', description: '本次返回的记录数（get_records）' },
+    records: {
+      type: 'array',
+      description: '录制记录（get_records / export_records 分支）',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: '记录 ID' },
+          timestamp: { description: '记录时间戳（随引擎来源为毫秒或 ISO）' },
+          model: { type: 'string', description: '模型名（缺失时为 unknown）' },
+          durationMs: { type: 'number', description: '请求耗时（毫秒）' },
+          statusCode: { type: 'number', description: 'HTTP 状态码' },
+          phase: { type: 'string', description: '调用阶段' },
+          error: {
+            type: ['string', 'null'],
+            description: '错误信息（无错误为 null）',
+          },
+          tokens: {
+            type: ['object', 'null'],
+            description: '单条记录用量（无用量为 null）',
+            properties: {
+              input: { type: 'number', description: '输入 token' },
+              output: { type: 'number', description: '输出 token' },
+            },
+            required: ['input', 'output'],
+          },
+          traceId: {
+            type: ['string', 'null'],
+            description: '链路 ID（无则 null）',
+          },
+        },
+        required: ['id', 'model'],
+      },
+    },
+    format: {
+      type: 'string',
+      enum: ['json', 'md', 'html'],
+      description: '导出格式（export_records 分支）',
+    },
+    recordCount: { type: 'number', description: '导出的记录数' },
+    content: {
+      type: 'string',
+      description: '导出内容（md/html 分支，最长 50000 字符）',
+    },
+  },
+};
+
+/**
  * TraceRecordingTool 工具类
  */
 export class TraceRecordingTool extends BaseTool {
@@ -47,6 +144,9 @@ export class TraceRecordingTool extends BaseTool {
    */
   description =
     '查询 AI API 调用追踪记录和统计信息。可获取录制状态、统计数据、最近调用记录，以及导出追踪数据。';
+
+  /** U-03（2026-10-19）：模型可见出参结构（按 action 分支） */
+  override outputJsonSchema = TRACE_RECORDING_OUTPUT_JSON_SCHEMA;
 
   /**
    * 工具参数

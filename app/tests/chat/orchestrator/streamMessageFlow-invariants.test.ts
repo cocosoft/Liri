@@ -33,6 +33,7 @@
 import { describe, it, expect } from 'bun:test';
 import { createTestHost } from './helpers';
 import { runStreamMessage } from '../../../src/chat/orchestrator/streamMessageFlow.js';
+import { createSystemAbortReason } from '../../../src/query/index.js';
 import type { ChatOrchestratorHost } from '../../../src/chat/orchestrator/ChatOrchestrator.js';
 
 /** 收集 text chunk 内容（string 裸文本 或 {type:'text'} 对象） */
@@ -230,5 +231,40 @@ describe('不变量① 所见即所存', () => {
     expect(joined).toBe('ABC');
     const textEvents = events.filter((e) => e.type === 'assistant/text');
     expect(textEvents.length).toBe(0);
+  });
+});
+
+describe('预期中断（system-abort）不得按「流失败」处理（2026-10-19）', () => {
+  it('abort ⇒ 不降级上下文、不落 system/error、不向前端发 error chunk', async () => {
+    const host = createTestHost({
+      llmChunks: [{ content: 'x' }, { content: 'y' }],
+      llmOptions: { failAfter: 1, failWith: createSystemAbortReason() },
+    });
+    const events = collectEvents(host);
+
+    const received: Array<{ type?: string }> = [];
+    for await (const chunk of runStreamMessage(host, '测试', {})) {
+      received.push(chunk as { type?: string });
+    }
+
+    expect(events.some((e) => e.type === 'system/error')).toBe(false);
+    expect(received.some((c) => c.type === 'error')).toBe(false);
+    expect(received.some((c) => c.type === 'context_state')).toBe(false);
+  });
+
+  it('普通流错误 ⇒ 仍落 system/error 并向前端发 error chunk（不误伤）', async () => {
+    const host = createTestHost({
+      llmChunks: [{ content: 'x' }, { content: 'y' }],
+      llmOptions: { failAfter: 1, failWith: new Error('boom') },
+    });
+    const events = collectEvents(host);
+
+    const received: Array<{ type?: string }> = [];
+    for await (const chunk of runStreamMessage(host, '测试', {})) {
+      received.push(chunk as { type?: string });
+    }
+
+    expect(events.some((e) => e.type === 'system/error')).toBe(true);
+    expect(received.some((c) => c.type === 'error')).toBe(true);
   });
 });

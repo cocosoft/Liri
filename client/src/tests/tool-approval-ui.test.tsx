@@ -8,7 +8,8 @@
  * - ToolCallGroup 识别 pendingApproval → 渲染"⏳ 等待审批"徽标（P2-2）
  * - ToolCallGroup 无 pendingApproval → 不渲染徽标
  * - InboxBlock 批准按钮 → POST /v1/inbox/{id}/reply；续跑责任收敛后端（M2-T2.1），
- *   前端不再降级 sendMessage 续跑，仅延迟刷新一次消息展示结果
+ *   前端不再降级 sendMessage 续跑；U-06-4（2026-10-19）起也不再 sleep 3s 全量重拉，
+ *   改由后端 `session:continued` 广播 + `useNotificationSSE` 统一刷新。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
@@ -85,6 +86,47 @@ describe("ToolExecutionGroup 分组等待审批态（J-2.2）", () => {
   });
 });
 
+describe("ToolCallGroup 就地审批（U-06-5）", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("pendingApproval + inboxId ⇒ 渲染批准/拒绝，点击批准 POST /v1/inbox/{id}/reply", async () => {
+    const postSpy = vi
+      .spyOn(http, "post")
+      .mockResolvedValue({ ok: true, data: {}, error: undefined });
+    const toolCall: ToolCall = {
+      id: "t5",
+      name: "bash",
+      arguments: { command: "sudo whoami" },
+      status: "completed",
+      pendingApproval: true,
+      inboxId: "ib-9",
+    };
+    render(<ToolCallGroup toolCall={toolCall} variant="card" />);
+
+    fireEvent.click(screen.getByText("批准"));
+    await waitFor(() =>
+      expect(postSpy).toHaveBeenCalledWith("/v1/inbox/ib-9/reply", {
+        reply: "approve",
+      }),
+    );
+  });
+
+  it("pendingApproval 但无 inboxId ⇒ 只有徽标，不渲染就地审批按钮", () => {
+    const toolCall: ToolCall = {
+      id: "t6",
+      name: "bash",
+      arguments: { command: "sudo whoami" },
+      status: "completed",
+      pendingApproval: true,
+    };
+    render(<ToolCallGroup toolCall={toolCall} variant="card" />);
+    expect(screen.getByText(/等待审批/)).toBeTruthy();
+    expect(screen.queryByText("批准")).toBeNull();
+  });
+});
+
 describe("InboxBlock 批准续跑（P0-5 → M2-T2.1）", () => {
   let postSpy: ReturnType<typeof vi.fn>;
   let sendSpy: ReturnType<typeof vi.fn>;
@@ -111,8 +153,7 @@ describe("InboxBlock 批准续跑（P0-5 → M2-T2.1）", () => {
     vi.useRealTimers();
   });
 
-  it("点击批准 → POST /v1/inbox/{id}/reply；不再 sendMessage 降级续跑", async () => {
-    vi.useFakeTimers();
+  it("点击批准 → POST /v1/inbox/{id}/reply；不再 sendMessage；不再 sleep 3s 全量重拉", async () => {
     const data: InboxBlockData = {
       inboxId: "ib-1",
       type: "approval",
@@ -127,16 +168,15 @@ describe("InboxBlock 批准续跑（P0-5 → M2-T2.1）", () => {
     };
     render(<InboxBlock data={data} sessionId="session-1" />);
     fireEvent.click(screen.getByText("批准"));
-    // 推进全部 timers：http.post（microtask）+ 3s 延迟刷新
-    await vi.runAllTimersAsync();
+    await waitFor(() => expect(postSpy).toHaveBeenCalled());
 
     expect(postSpy).toHaveBeenCalledWith("/v1/inbox/ib-1/reply", {
       reply: "approve",
     });
     // M2-T2.1：前端不再向会话发"我已批准"续跑消息（后端负责续跑）
     expect(sendSpy).not.toHaveBeenCalled();
-    // 后端续跑落盘后前端延迟刷新一次消息展示结果
-    expect(getMessagesSpy).toHaveBeenCalledWith("session-1");
+    // U-06-4：刷新由后端 `session:continued` 驱动，前端不再自行全量重拉
+    expect(getMessagesSpy).not.toHaveBeenCalled();
   });
 
   it("点击拒绝 → 不触发续跑消息", async () => {

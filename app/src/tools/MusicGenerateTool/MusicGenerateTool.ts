@@ -35,11 +35,80 @@ export interface GeneratedMusic {
   provider: string;
 }
 
+/**
+ * U-03（2026-10-19）：`music_generate` 的**模型可见出参结构**（JSON Schema），
+ * 与 `GeneratedMusic` + 入参回显 `params` 对齐。
+ */
+const MUSIC_GENERATE_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    music: {
+      type: 'object',
+      description: '生成结果',
+      properties: {
+        url: { type: 'string', description: '音频地址（未持久化时为空串）' },
+        title: { type: 'string', description: '曲目标题' },
+        prompt: { type: 'string', description: '提示词（截断 200 字）' },
+        genre: { type: 'string', description: '曲风' },
+        duration: { type: 'number', description: '时长（秒）' },
+        tempo: { type: 'string', description: '节奏（slow/medium/fast）' },
+        format: { type: 'string', description: '音频格式（mp3/wav/midi）' },
+        provider: { type: 'string', description: 'Provider 名称' },
+      },
+      required: [
+        'url',
+        'title',
+        'prompt',
+        'genre',
+        'duration',
+        'tempo',
+        'format',
+        'provider',
+      ],
+    },
+    params: {
+      type: 'object',
+      description: '入参回显（实际生效的生成参数）',
+      properties: {
+        prompt: { type: 'string', description: '提示词' },
+        genre: { type: 'string', description: '曲风' },
+        duration: { type: 'number', description: '时长（秒）' },
+        tempo: {
+          type: 'string',
+          enum: ['slow', 'medium', 'fast'],
+          description: '节奏',
+        },
+        instruments: {
+          type: 'array',
+          items: { type: 'string' },
+          description: '乐器列表',
+        },
+        mood: { type: 'string', description: '情绪' },
+        format: {
+          type: 'string',
+          enum: ['mp3', 'wav', 'midi'],
+          description: '音频格式',
+        },
+        provider: {
+          type: 'string',
+          enum: ['openai', 'suno', 'udio'],
+          description: '指定 Provider',
+        },
+      },
+      required: ['prompt'],
+    },
+  },
+  required: ['music'],
+};
+
 export class MusicGenerateTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.music_generate;
 
   description =
     'Generate music using AI. Supports multiple providers (OpenAI, Suno, Udio) and music genres.';
+
+  /** U-03（2026-10-19）：模型可见出参结构（music 对象 + 入参回显） */
+  override outputJsonSchema = MUSIC_GENERATE_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

@@ -387,7 +387,8 @@ const zhBase = {
     newSession: "新建会话",
     newSessionTitle: "新会话 {{n}}",
     temporaryToggle: "临时对话",
-    temporaryHint: "临时对话不入历史、不建记忆、不可搜索，关闭后新建普通对话",
+    temporaryHint:
+      "开启或关闭都会新建一个会话；临时对话不入历史、不建记忆、不可搜索",
     // UI 期 UI-3（2026-09-23）：开启态行内只显示精简徽标，全文走 title（避免与同行工具按钮挤压）
     temporaryBadge: "临时 · 不入历史",
     // UI 期 UI-2（2026-09-23）：PDCA 编排入口徽标（原为独占一行的"📊 PDCA 编排详情"）
@@ -535,6 +536,7 @@ const zhBase = {
     archive: "归档",
     searchResults: "搜索结果",
     noResults: "无结果",
+    searchingOlder: "正在搜索更早消息…",
     sessionDetail: "会话详情",
     sessionId: "会话 ID",
     messageCount: "消息数",
@@ -669,6 +671,8 @@ const zhBase = {
     saveAsDeliverableHint: "将当前回复保存到项目成果区",
     saveAsDeliverableShort: "沉淀",
     toastDeliverableSaved: "已沉淀到成果区",
+    toastDeliverableFailed: "沉淀失败，请重试",
+    compactFailed: "上下文压缩失败",
     // ---- P2-1 i18n 全量迁移（2026-09-27）：QuestionBlock / SessionContextMenu / TaskCard / ProgressCard ----
     // QuestionBlock（交互问答块）
     questionDefaultHeader: "请选择一个选项",
@@ -871,9 +875,10 @@ const zhBase = {
     expand: "展开",
     copying: "复制中...",
     copyDiff: "复制 diff",
-    ignoreChange: "忽略此改动",
-    ignoredChange: "已忽略",
-    diffCopyHint: "复制 diff 后可粘贴到编辑器中应用（此处不会自动改动文件）",
+    ignoreChange: "隐藏此条 diff",
+    ignoredChange: "已隐藏",
+    diffCopyHint:
+      "该 diff 是工具执行后的变更快照（已生效）；复制后可粘贴到编辑器中查看或另存",
     diffFileHeader: "文件：{{file}}",
     // MarkdownRenderer（超长截断提示 + 复制全文）
     truncatedChars: "剩余 {{count}} 字符未显示",

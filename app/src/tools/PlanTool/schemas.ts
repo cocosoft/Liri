@@ -85,6 +85,84 @@ export const PlanToolOutputSchema = z.object({
 export type PlanToolInput = z.infer<typeof PlanToolInputSchema>;
 export type PlanToolOutput = z.infer<typeof PlanToolOutputSchema>;
 
+/** U-03（2026-10-19）：`plan` 的步骤结构（模型可见 JSON Schema，与 `PlanStepSchema` 对齐） */
+const PlanStepJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  description: '计划步骤',
+  properties: {
+    id: { type: 'string', description: '步骤唯一标识' },
+    name: { type: 'string', description: '步骤名称' },
+    description: { type: 'string', description: '步骤描述' },
+    type: {
+      type: 'string',
+      enum: ['tool', 'command', 'condition', 'loop'],
+      description:
+        '步骤类型：tool 工具调用 / command 命令执行 / condition 条件判断 / loop 循环',
+    },
+    params: { type: 'object', description: '步骤参数' },
+    dependencies: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '依赖的其他步骤 ID 列表',
+    },
+  },
+  required: ['id', 'name', 'description', 'type', 'params'],
+};
+
+/** U-03（2026-10-19）：`plan` 的计划结构（与 `PlanDataSchema` 对齐） */
+const PlanDataJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  description: '计划数据',
+  properties: {
+    id: { type: 'string', description: '计划 ID' },
+    name: { type: 'string', description: '计划名称' },
+    description: { type: 'string', description: '计划描述' },
+    steps: {
+      type: 'array',
+      items: PlanStepJsonSchema,
+      description: '计划步骤',
+    },
+    status: {
+      type: 'string',
+      enum: ['draft', 'active', 'completed', 'cancelled'],
+      description: '计划状态',
+    },
+    created_at: { type: 'string', description: '创建时间' },
+    updated_at: { type: 'string', description: '更新时间' },
+  },
+  required: [
+    'id',
+    'name',
+    'description',
+    'steps',
+    'status',
+    'created_at',
+    'updated_at',
+  ],
+};
+
+/**
+ * U-03（2026-10-19）：`plan` 的**模型可见出参结构**（JSON Schema），
+ * 与 `PlanToolOutputSchema` 逐字段对齐（`plan`/`plans`/`execution_result` 均按 action 出现）。
+ */
+export const PlanToolOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean', description: '操作是否成功' },
+    message: { type: 'string', description: '操作结果消息' },
+    plan: PlanDataJsonSchema,
+    plans: {
+      type: 'array',
+      items: PlanDataJsonSchema,
+      description: '计划列表（list 操作返回）',
+    },
+    execution_result: {
+      description: '执行结果（execute 操作返回，结构随计划步骤变化）',
+    },
+  },
+  required: ['success', 'message'],
+};
+
 /**
  * 验证 PlanTool 输入
  */

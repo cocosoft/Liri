@@ -60,8 +60,14 @@ export const FEATURE_FLAGS = {
   VERIFIER_FAIL_CLOSED: true,
   /** 代理协调模式 */
   COORDINATOR_MODE: false,
-  /** 主动模式 */
-  PROACTIVE: false,
+  /**
+   * 主动模式（Cron 完成/失败后的主动汇报、风险告警等）。
+   *
+   * 2026-10-20（U-01，用户裁定「默认开启」）：`false → true`。
+   * 关闭时：不建主动队列表、不启动扫描器、Cron 完成走原通知中心链路；
+   * 回退方式：`FEATURE_PROACTIVE=false`（`feature()` 的 env 覆盖约定）。
+   */
+  PROACTIVE: true,
 
   // ───── Loop 系统（Phase 1-6）─────
   /** Goal-based Loop (/goal 命令) */
@@ -74,6 +80,14 @@ export const FEATURE_FLAGS = {
   LOOP_MODEL_ROUTING: true,
   /** Proactive Loop (Webhook) */
   LOOP_PROACTIVE: false,
+  /**
+   * AlwaysOn 自主执行（U-02，2026-10-20 用户裁定「接线并默认开」）。
+   *
+   * 开启时：启动期从 `ProjectStore` 读取项目并注册运行时（5 分钟 tick，受既有 9 门控 +
+   * 日预算 + 工具调用上限约束）；关闭时不注册、不启动，行为与接线前一致。
+   * 回退：`FEATURE_ALWAYSON=false`。
+   */
+  ALWAYSON: true,
 
   // ───── 系统模式 ─────
   /** 桥接模式 */
@@ -178,8 +192,14 @@ export const FEATURE_FLAGS = {
   MONITOR_TOOL: false,
 
   // ───── 协作/消息工具 ─────
-  /** 发送消息工具 */
-  SEND_MESSAGE: false,
+  /**
+   * 发送消息工具。
+   *
+   * 2026-10-20（U-03 收口，用户裁定「开 flag 接线」）：由 `false` 改为 `true`。
+   * 依据：loader / 分类别（`notify`）/ 真实现（`TeammateManager.sendMessageToTeammate`）齐备，
+   * 只差本默认值；它与 `broadcast`（人类通道）与 `channel`（多通道）职责正交。
+   */
+  SEND_MESSAGE: true,
   /** 团队创建工具 */
   TEAM_CREATE: false,
   /** 团队删除工具 */

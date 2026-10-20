@@ -84,7 +84,7 @@ if (isToolEnabled('ENABLE_SEND_MESSAGE')) {
 
 | 标志名                     | 默认值  | 描述             |
 | -------------------------- | ------- | ---------------- |
-| `ENABLE_SEND_MESSAGE`      | `false` | 消息发送工具     |
+| `ENABLE_SEND_MESSAGE`      | `true`  | 消息发送工具（2026-10-20 起默认开启） |
 | `ENABLE_TEAM_CREATE`       | `false` | 团队创建工具     |
 | `ENABLE_TEAM_DELETE`       | `false` | 团队删除工具     |
 | `ENABLE_SLEEP`             | `false` | 延迟工具         |

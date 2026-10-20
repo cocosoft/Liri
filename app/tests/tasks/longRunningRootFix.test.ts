@@ -19,6 +19,14 @@ import {
   resumeFromCheckpoint,
   type ResumeDeps,
 } from '../../src/tasks/lro/resumeFromCheckpoint';
+import {
+  isNonConvergedTermination,
+  shouldAutoApprovePlan,
+} from '../../src/tasks/lro/pureDecisions';
+import {
+  isAutoReplanEnabled,
+  replanMaxRetries,
+} from '../../src/tasks/lro/portResolvers';
 
 taskOrchestrator.setPlansDir(mkdtempSync(join(tmpdir(), 'plans-rootfix-')));
 
@@ -57,6 +65,64 @@ function makeOrchestrator(
     executor
   ) as unknown as OrchestratorUnderTest;
 }
+
+describe('非收敛步骤不得记为完成（U-02）', () => {
+  it('预算耗尽三类终止原因判为非收敛；completed/undefined 为收敛', () => {
+    expect(isNonConvergedTermination('max_turns')).toBe(true);
+    expect(isNonConvergedTermination('timeout')).toBe(true);
+    expect(isNonConvergedTermination('budget_exhausted')).toBe(true);
+    expect(isNonConvergedTermination('completed')).toBe(false);
+    expect(isNonConvergedTermination(undefined)).toBe(false);
+  });
+
+  it('markStepFailed 保留 terminationReason + 片段证据（resume 扩容判定输入）', () => {
+    const plan = taskOrchestrator.createPlan(
+      '非收敛步骤',
+      ['步骤A'],
+      'session-nonconverged'
+    );
+    const step = plan.steps[0];
+    taskOrchestrator.markStepRunning(step.id);
+
+    const failed = taskOrchestrator.markStepFailed(step.id, '未在预算内收敛', {
+      terminationReason: 'max_turns',
+      partialOutput: '部分产出',
+    });
+
+    expect(failed?.status).toBe('failed');
+    expect(failed?.terminationReason).toBe('max_turns');
+    expect(failed?.partialOutput).toBe('部分产出');
+  });
+});
+
+describe('目标未收敛自动 replan 开关（U-02）', () => {
+  it('默认关闭：仅 PDCA_AUTO_REPLAN=true 启用', () => {
+    delete process.env.PDCA_AUTO_REPLAN;
+    expect(isAutoReplanEnabled()).toBe(false);
+    process.env.PDCA_AUTO_REPLAN = '1';
+    expect(isAutoReplanEnabled()).toBe(false);
+    process.env.PDCA_AUTO_REPLAN = 'true';
+    expect(isAutoReplanEnabled()).toBe(true);
+    delete process.env.PDCA_AUTO_REPLAN;
+  });
+
+  it('replan 次数上限：缺失/非法回退 3，正数生效', () => {
+    delete process.env.PDCA_REPLAN_MAX_RETRIES;
+    expect(replanMaxRetries()).toBe(3);
+    process.env.PDCA_REPLAN_MAX_RETRIES = 'abc';
+    expect(replanMaxRetries()).toBe(3);
+    process.env.PDCA_REPLAN_MAX_RETRIES = '5';
+    expect(replanMaxRetries()).toBe(5);
+    delete process.env.PDCA_REPLAN_MAX_RETRIES;
+  });
+
+  it('计划审批：仅"要求审批 + 无人值守"时自动通过，其余保持人工', () => {
+    expect(shouldAutoApprovePlan(true, true)).toBe(true);
+    expect(shouldAutoApprovePlan(true, false)).toBe(false);
+    expect(shouldAutoApprovePlan(false, true)).toBe(false);
+    expect(shouldAutoApprovePlan(false, false)).toBe(false);
+  });
+});
 
 describe('createPlan 步骤索引（P0 根因）', () => {
   it('新建计划即可被 markStepRunning / markStepCompleted / markStepCancelled 命中', () => {

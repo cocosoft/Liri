@@ -17,7 +17,7 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { taskRegistry } from '@modules/tasks';
 import { TaskStatus, isTerminalTaskStatus } from '@modules/tasks/types';
-import { TaskOutputOutputSchema } from './schemas';
+import { TaskOutputOutputSchema, TaskOutputOutputJsonSchema } from './schemas';
 import type { BaseTask } from '@modules/tasks';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
@@ -176,6 +176,8 @@ export class TaskOutputTool extends BaseTool<
    * `schemas.ts` 的 `TaskOutputDataSchema`（`:28-38`）**逐字段一致** ⇒ 接线。
    */
   outputSchema = TaskOutputOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = TaskOutputOutputJsonSchema;
   description = '按其 ID 获取运行中或已完成任务的输出';
 
   params: ToolParam[] = [

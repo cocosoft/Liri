@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import type { ToolCall } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
 import ImageToolResult from "./ImageToolResult/ImageToolResult";
+import InlineApprovalActions from "./InlineApprovalActions";
 import { useChatStore } from "../../stores/chat";
 import { getToolResultFull } from "../../stores/chat/chat-message.slice";
 import {
@@ -174,6 +175,14 @@ function ToolCallGroup({
   const humanSummary = getToolHumanSummary(toolCall);
   const displayName = getToolDisplayName(toolCall.name);
 
+  /** U-06-5: 审批等待且带 Inbox 项 id ⇒ 工具卡片就地审批（无需另找 Inbox 卡片） */
+  const approvalBar =
+    toolCall.pendingApproval && toolCall.inboxId ? (
+      <div className="px-2 py-1 border-t border-amber-400/20 bg-amber-400/[0.04]">
+        <InlineApprovalActions inboxId={toolCall.inboxId} />
+      </div>
+    ) : null;
+
   const handleToggle = () => {
     setExpanded(!expanded);
     if (onExpand && !expanded) {
@@ -279,6 +288,7 @@ function ToolCallGroup({
             {expanded ? "\u25BC" : "\u25B6"}
           </span>
         </button>
+        {approvalBar}
         {expanded && (
           <div
             className="border-t border-gray-400/[0.1] px-2.5 py-1"
@@ -313,6 +323,7 @@ function ToolCallGroup({
           {expanded ? "\u25BC" : "\u25B6"}
         </span>
       </button>
+      {approvalBar}
       {expanded && (
         <div className="px-2 py-1 border-t border-gray-400/10">
           {detailContent}

@@ -207,6 +207,22 @@ export interface ToolInfo {
   idempotent?: boolean;
   /** 13-P1-2：副作用范围（未提供 ⇒ 消费方按 `'external'` 保守） */
   sideEffect?: 'none' | 'local' | 'external';
+  /**
+   * U-03（2026-10-19）：沙箱级别（能力声明位）。
+   *
+   * 由 `BaseTool.getInfo()` 透出，供**懒加载包装器**在未解包时也能判定"是否执行类"
+   * （此前 `ToolLazyWrapper` 不转发该字段 ⇒ 延迟加载工具的能力判定失真）。
+   */
+  sandboxLevel?: ToolSandboxLevel;
+  /**
+   * U-03（2026-10-19）：**模型可见出参结构**（JSON Schema）。
+   *
+   * 与 `outputSchema`（运行期 `safeParse` 校验器）职责不同：本字段由
+   * `ToolRegistry.getToolSchemas()` 直接作为 `output_schema` 下发给模型。
+   * 放在 `ToolInfo` 而非仅 `Tool` 上，是为了让**懒加载包装器**在未解包时
+   * 也能从注册快照读到它（否则 schema 生成时工具还没加载 ⇒ 声明形同虚设）。
+   */
+  outputJsonSchema?: Record<string, unknown>;
   deferred: boolean;
   alwaysLoad: boolean;
   interruptBehavior: InterruptBehavior;
@@ -535,6 +551,20 @@ export interface Tool<
   outputSchema?: {
     safeParse(data: unknown): { success: boolean; error?: unknown };
   };
+
+  /**
+   * 出参**模型可见结构**（JSON Schema，U-03 2026-10-19）。
+   *
+   * 与 `outputSchema`（运行期 `safeParse` 校验器）**职责不同**：本字段由
+   * `ToolRegistry.getToolSchemas()` 直接作为 `output_schema` 下发给模型，
+   * 让模型知道结果长什么样；未声明时保持历史占位 `{ content: string }`（零破坏）。
+   *
+   * 约定（U-03 2026-10-19 扩展）：
+   * - `type: 'object'` 且带 `properties`；或
+   * - `type: 'array'`（`items` 可选）—— 供 `data` 本身即数组的工具（如 `glob`）声明。
+   * 形状不符按"未声明"处理（不阻断 schema 生成）。
+   */
+  outputJsonSchema?: Record<string, unknown>;
 
   /**
    * 判断两个输入是否等价

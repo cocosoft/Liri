@@ -23,6 +23,8 @@ export class ToolLazyWrapper implements Tool {
   readonly shouldDefer?: boolean;
   readonly alwaysLoad?: boolean;
   readonly maxResultSizeChars?: number;
+  /** U-03（2026-10-19）：沙箱级别（来自注册时快照，未加载也能判定执行类） */
+  readonly sandboxLevel?: Tool['sandboxLevel'];
 
   private loader: LazyModuleLoader<Tool>;
   private metadata: ToolInfo;
@@ -46,6 +48,7 @@ export class ToolLazyWrapper implements Tool {
     this.shouldDefer = metadata.deferred;
     this.alwaysLoad = metadata.alwaysLoad;
     this.maxResultSizeChars = metadata.maxResultSizeChars;
+    this.sandboxLevel = metadata.sandboxLevel;
   }
 
   requiresUserInteraction?(): boolean {
@@ -152,6 +155,34 @@ export class ToolLazyWrapper implements Tool {
 
   isLoaded(): boolean {
     return this.loader.isLoaded();
+  }
+
+  /**
+   * U-03（2026-10-19）：出参 schema 透传（`validateToolOutputShape` 的输入）。
+   *
+   * 未加载 ⇒ `undefined`（**不解包**，保持懒加载语义 ⇒ 按"未声明"跳过校验）；
+   * 已加载 ⇒ 委托真实实例（与 `getInfo()` 同一委托策略）。此前包装器无该字段，
+   * 延迟加载工具的出参校验被静默跳过。
+   */
+  get outputSchema(): Tool['outputSchema'] {
+    if (!this.loader.isLoaded()) return undefined;
+    try {
+      return this.loader.getSync().outputSchema;
+    } catch {
+      // @ignore-catch — 加载异常按"未声明"处理（不阻断执行）
+      return undefined;
+    }
+  }
+
+  /** U-03（2026-10-19）：模型可见出参结构同样转发（未加载 ⇒ 视为未声明） */
+  get outputJsonSchema(): Tool['outputJsonSchema'] {
+    if (!this.loader.isLoaded()) return undefined;
+    try {
+      return this.loader.getSync().outputJsonSchema;
+    } catch {
+      // @ignore-catch — 加载异常按"未声明"处理（不阻断 schema 生成）
+      return undefined;
+    }
   }
 
   /**

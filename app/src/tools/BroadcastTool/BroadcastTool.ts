@@ -17,11 +17,55 @@ export interface BroadcastOperation {
   threadId?: string;
 }
 
+/**
+ * U-03（2026-10-19）：`broadcast` 的**模型可见出参结构**（JSON Schema）。
+ *
+ * 出口随 action 分两类：
+ * - `send` / `home`：`{ channel, sent }`；
+ * - `thread`：`{ channel, threadId, sent }`；
+ * - `broadcast`：`{ results[], successCount, total }`。
+ * ⇒ 不设根级 required，仅按分支给出字段。
+ */
+const BROADCAST_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    channel: {
+      type: 'string',
+      description: '目标通道名（send/home/thread 分支）',
+    },
+    threadId: { type: 'string', description: '话题 ID（thread 分支）' },
+    sent: { type: 'boolean', description: '是否发送成功（单通道分支）' },
+    results: {
+      type: 'array',
+      description: '逐通道发送结果（broadcast 分支）',
+      items: {
+        type: 'object',
+        properties: {
+          channel: { type: 'string', description: '通道名' },
+          success: { type: 'boolean', description: '该通道是否发送成功' },
+        },
+        required: ['channel', 'success'],
+      },
+    },
+    successCount: {
+      type: 'number',
+      description: '广播成功的通道数（broadcast 分支）',
+    },
+    total: {
+      type: 'number',
+      description: '参与广播的通道总数（broadcast 分支）',
+    },
+  },
+};
+
 export class BroadcastTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.broadcast;
 
   description =
     '向一个或全部通道发送消息。支持单通道发送、向所有已启用通道广播、主页通道消息，以及话题回复。';
+
+  /** U-03（2026-10-19）：模型可见出参结构（按 action 分支） */
+  override outputJsonSchema = BROADCAST_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

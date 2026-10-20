@@ -52,11 +52,35 @@ export interface VideoEditOutput {
 const videoProcessor = new VideoProcessor();
 const ffmpeg = new FFmpegWrapper();
 
+/**
+ * U-03（2026-10-19）：`video` 的**模型可见出参结构**（JSON Schema），
+ * 与 `VideoEditOutput` 逐字段对齐。
+ */
+const VIDEO_EDIT_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    action: { type: 'string', description: '执行的操作' },
+    inputPath: { type: 'string', description: '输入视频路径' },
+    outputPath: { type: 'string', description: '输出视频路径（写文件操作）' },
+    originalSize: { type: 'number', description: '原始文件大小（字节）' },
+    processedSize: { type: 'number', description: '处理后文件大小（字节）' },
+    duration: { type: 'number', description: '时长（秒）' },
+    width: { type: 'number', description: '宽度（像素）' },
+    height: { type: 'number', description: '高度（像素）' },
+    format: { type: 'string', description: '容器/文件格式' },
+    codec: { type: 'string', description: '视频编码' },
+  },
+  required: ['action', 'inputPath'],
+};
+
 export class VideoTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.video;
 
   description =
     'Edit and manipulate videos. Supports trim, compress, extract audio, format conversion, and metadata info.';
+
+  /** U-03（2026-10-19）：模型可见出参结构（编辑结果元数据） */
+  override outputJsonSchema = VIDEO_EDIT_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

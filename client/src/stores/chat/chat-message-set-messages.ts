@@ -20,9 +20,9 @@ import { restorePlanTasks } from "@/utils/planRestore";
 import { handleClientError } from "@/utils/handleError";
 import {
   switchState,
-  clearToolResultCache,
   cacheToolResult,
   truncateResult,
+  parseApprovalSignal,
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
 import type { MessageSet, MessageGet } from "./chat-message.types";
@@ -74,9 +74,6 @@ export function setMessagesImpl(
   get: MessageGet,
   messages: Message[],
 ): void {
-  // BUG F2 修复: 每次加载新消息时清理旧缓存，防止内存无限增长
-  clearToolResultCache();
-
   // 会话切换锁：挂起流式写入，防止 loadSessions 覆盖流式数据
   switchState.lock = true;
 
@@ -251,12 +248,19 @@ export function setMessagesImpl(
           ) {
             const fullResult = toolResultsByCallId.get(block.toolCall.id)!;
             hasMergedResult = true;
+            // U-06-5：审批等待结果带 pendingApproval + inboxId ⇒ 工具卡片就地审批
+            const approval = parseApprovalSignal(fullResult);
             // 只注入截断摘要到 block，全量结果通过 getToolResultFull() 按需获取
             block.toolCall = {
               ...block.toolCall,
               result: truncateResult(fullResult),
               _hasFullResult:
                 fullResult.length > MAX_INLINE_RESULT_LENGTH || undefined,
+              pendingApproval:
+                approval?.pendingApproval === true
+                  ? true
+                  : block.toolCall.pendingApproval,
+              inboxId: approval?.inboxId ?? block.toolCall.inboxId,
             };
           }
           return block;
@@ -335,7 +339,9 @@ export function setMessagesImpl(
     // 历史数据确实无人消费）。页内没有任何 user 消息 ⇒ 整页都是一轮中间 ⇒ 一律视为边界残片；
     // 缺 `lastEventSeq` 的旧数据保持 N-48 可见性（不做推断）。
     const firstUser = enhancedMessages.find((m) => m.role === "user");
-    const isPageBoundaryArtifact = (m: (typeof pendingToolMessages)[number]) => {
+    const isPageBoundaryArtifact = (
+      m: (typeof pendingToolMessages)[number],
+    ) => {
       if (!firstUser) return true;
       const userSeq = firstUser.lastEventSeq;
       const toolSeq = m.lastEventSeq;

@@ -168,7 +168,11 @@ function getAnalyzer(): PowerShellSecurityAnalyzer {
 }
 
 function deny(message: string, reason: string): ToolResult<unknown> {
+  // BUG-8（2026-10-19）：硬拦截必须带 `error`/`success:false`，
+  // 否则消费方按 `toolResult.error` 判定时会把拦截误记为成功。
   return createToolResult(message, {
+    success: false,
+    error: message,
     newMessages: [{ role: 'system', content: `Error: ${message}` }],
     metadata: { securityIntercepted: true, reason },
   });

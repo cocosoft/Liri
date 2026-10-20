@@ -5,7 +5,7 @@
 import { Tool } from '../types/Tool';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
-import { CronDeleteOutputSchema } from './schemas';
+import { CronDeleteOutputSchema, CronDeleteOutputJsonSchema } from './schemas';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -26,6 +26,8 @@ export class CronDeleteTool {
        * `{data: undefined, success: false}` ⇒ **双重豁免**，不会误报。
        */
       outputSchema: CronDeleteOutputSchema,
+      /** U-03（2026-10-19）：模型可见出参结构（按实际出口 `{id, name}`；zod 只声明了 `id`） */
+      outputJsonSchema: CronDeleteOutputJsonSchema,
       params: [
         {
           name: 'id',
@@ -114,6 +116,8 @@ export class CronDeleteTool {
           readOnly: false,
           destructive: true,
           concurrencySafe: true,
+          // U-03（2026-10-19）：模型可见出参结构进注册快照（懒加载未解包也能下发）
+          outputJsonSchema: this.outputJsonSchema,
           deferred: false,
           alwaysLoad: false,
           interruptBehavior: 'block' as const,

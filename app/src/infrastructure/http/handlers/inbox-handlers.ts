@@ -470,23 +470,41 @@ export async function handleUndoApproval(
  * @param sessionId 会话 ID
  */
 async function triggerResumeAfterApproval(sessionId: string): Promise<void> {
-  const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
-  const chatManager = getCoreAPI().chatManager;
-  if (!chatManager || typeof chatManager.resumeStream !== 'function') {
-    logger.warn('审批后自动续跑跳过：ChatManager 不可用', { sessionId });
-    return;
-  }
-
-  // checkpointId 由 resumeStream 内部取最新自动检查点（参数仅兼容保留）
-  const gen = chatManager.resumeStream(sessionId, '');
   let resumed = false;
-  for await (const _chunk of gen) {
-    if (!resumed) {
-      resumed = true;
-      logger.info('审批后自动续跑已启动', { sessionId });
+  try {
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+    const chatManager = getCoreAPI().chatManager;
+    if (!chatManager || typeof chatManager.resumeStream !== 'function') {
+      logger.warn('审批后自动续跑跳过：ChatManager 不可用', { sessionId });
+      return;
+    }
+
+    // checkpointId 由 resumeStream 内部取最新自动检查点（参数仅兼容保留）
+    const gen = chatManager.resumeStream(sessionId, '');
+    for await (const _chunk of gen) {
+      if (!resumed) {
+        resumed = true;
+        logger.info('审批后自动续跑已启动', { sessionId });
+      }
+    }
+    logger.info('审批后自动续跑完成', { sessionId, resumed });
+  } finally {
+    // U-06-4（2026-10-19）：续跑结束（成功/异常）广播 `session:continued`，
+    // 前端据此刷新当前会话 —— 取代原先「固定 sleep 3s + 全量 getMessages」的时序猜测。
+    // 与 `ChatManager._resumeSessionInternally` 的广播同构（单一刷新入口）。
+    try {
+      const { broadcastEvent } = await import('@modules/infrastructure');
+      await broadcastEvent('session:continued', {
+        id: sessionId,
+        ok: resumed,
+      });
+    } catch (e) {
+      logger.warn('审批后续跑 SSE 广播失败', {
+        sessionId,
+        error: (e as Error)?.message ?? String(e),
+      });
     }
   }
-  logger.info('审批后自动续跑完成', { sessionId, resumed });
 }
 
 /**

@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { InboxBlockData } from "../../types";
 import { http } from "../../services/httpClient";
+import { sseService } from "../../services/sseService";
 import { useToastStore } from "../../stores/toastStore";
 
 interface Props {
@@ -86,22 +87,10 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
           reply === "approve" ||
           reply === "allowlist_tool" ||
           reply === "allowlist_command";
-        if (isApproveLike && sessionId) {
-          setResuming(true);
-          try {
-            // 后端续跑落盘需要时间：延迟刷新一次消息展示结果（SSE 无消息级事件）
-            const { sessionService } =
-              await import("../../services/sessionService");
-            const { useChatStore } = await import("../../stores/chat");
-            await new Promise((r) => setTimeout(r, 3000));
-            const messages = await sessionService.getMessages(sessionId);
-            useChatStore.getState().setMessages(messages);
-          } catch {
-            // 刷新失败不阻塞审批状态（用户可手动切换会话查看续跑结果）
-          } finally {
-            setResuming(false);
-          }
-        }
+        // U-06-4（2026-10-19）：续跑完成由后端广播 `session:continued`，
+        // 刷新由 useNotificationSSE 统一处理；此处只维护"续跑中"提示，
+        // 不再固定 sleep 3s 后全量重拉（绕过游标且与真实完成时间无关）。
+        if (isApproveLike && sessionId) setResuming(true);
       } else {
         addToast("error", String(res.error || t("common.failed")));
       }
@@ -111,6 +100,23 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
       setReplying(false);
     }
   };
+
+  // U-06-4（2026-10-19）：以 `session:continued` 作为"续跑结束"的事实来源。
+  // 60s 看门狗只清提示（后端未广播/无检查点时不留永久转圈）。
+  useEffect(() => {
+    if (!resuming || !sessionId) return;
+    const onContinued = (payload: unknown): void => {
+      const d = payload as { id?: string } | null;
+      if (d?.id && d.id !== sessionId) return;
+      setResuming(false);
+    };
+    sseService.on("session:continued", onContinued);
+    const timer = setTimeout(() => setResuming(false), 60_000);
+    return () => {
+      sseService.off("session:continued", onContinued);
+      clearTimeout(timer);
+    };
+  }, [resuming, sessionId]);
 
   const isPending = status === "pending";
   const isExpired = status === "expired";

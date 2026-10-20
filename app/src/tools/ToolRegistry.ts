@@ -36,12 +36,72 @@ export interface ToolSchema {
     properties: Record<string, unknown>;
     required: string[];
   };
+  /**
+   * 出参结构。
+   * - U-03（2026-10-19）：允许 `type: 'array'` —— `glob` 等工具的 `data` 本身就是数组，
+   *   此前受 `type:'object'` 限制无法声明真实结构；
+   * - U-03（2026-10-20）：允许**标量** `string | number | boolean` —— `file_convert` 的
+   *   `data` 契约就是「一段 Markdown 文本」（`outputSchema = z.string()`），只能用标量表达。
+   *
+   * 不变量（由 `resolveToolOutputSchema` 运行时保证）：
+   * - `type: 'object'` ⇒ 必有 `properties`；
+   * - `type: 'array'` ⇒ `items` 可选；
+   * - 标量 ⇒ 不带 `properties` / `items`。
+   */
   output_schema: {
-    type: 'object';
-    properties: Record<string, unknown>;
+    type: 'object' | 'array' | 'string' | 'number' | 'boolean';
+    properties?: Record<string, unknown>;
+    items?: Record<string, unknown>;
+    description?: string;
   };
   aliases?: string[];
   searchTips?: string[];
+}
+
+/**
+ * 历史占位出参结构（未声明 `outputJsonSchema` 的工具沿用；U-03 2026-10-19 前所有工具都走这里）。
+ * 每次返回新对象，避免调用方误改共享引用。
+ */
+function genericOutputSchema(): ToolSchema['output_schema'] {
+  return {
+    type: 'object',
+    properties: {
+      content: {
+        type: 'string',
+        description: 'Tool execution result content',
+      },
+    },
+  };
+}
+
+/**
+ * 取工具**声明的**模型可见出参结构。
+ *
+ * 合法形状：
+ * - `type: 'object'` 且带 `properties`；
+ * - `type: 'array'`（`items` 可选）—— 供 `glob` 这类「`data` 即数组」的工具声明（U-03 2026-10-19）；
+ * - 标量 `string` / `number` / `boolean` —— 供 `file_convert` 这类「`data` 即文本」的工具声明（U-03 2026-10-20）。
+ * 其余形状按"未声明"回退占位，**不阻断** schema 生成（与 `outputSchema` 的保守约定一致）。
+ */
+function resolveToolOutputSchema(
+  tool: Tool,
+  info: { outputJsonSchema?: Record<string, unknown> }
+): ToolSchema['output_schema'] {
+  // 优先取 `getInfo()` 快照（懒加载工具未解包也能读到），其次取实例字段
+  const declared = info.outputJsonSchema ?? tool.outputJsonSchema;
+  const isObjectSchema =
+    declared?.type === 'object' &&
+    typeof declared.properties === 'object' &&
+    declared.properties !== null;
+  const isArraySchema = declared?.type === 'array';
+  const isScalarSchema =
+    declared?.type === 'string' ||
+    declared?.type === 'number' ||
+    declared?.type === 'boolean';
+  if (declared && (isObjectSchema || isArraySchema || isScalarSchema)) {
+    return declared as ToolSchema['output_schema'];
+  }
+  return genericOutputSchema();
 }
 
 /**
@@ -305,15 +365,9 @@ export class ToolRegistry {
           properties: {},
           required: [],
         },
-        output_schema: {
-          type: 'object',
-          properties: {
-            content: {
-              type: 'string',
-              description: 'Tool execution result content',
-            },
-          },
-        },
+        // U-03（2026-10-19）：工具声明了 `outputJsonSchema` 就下发给模型真实出参结构；
+        // 未声明仍沿用历史占位 `{ content: string }`（零破坏）。
+        output_schema: resolveToolOutputSchema(tool, info),
         // D1（2026-08-24）无损 JSON 校验会**整条拒绝**含 `undefined` 值的载荷，而本函数产物
         // 正是 `context/model-input` 事件的 `tools.schemas`（修复前该事件每轮被拒 ⇒
         // 「模型可见 ⇔ 已落盘」实际不成立，见 `.trae/specs/event-payload-undefined-rootfix.md`）。
@@ -338,6 +392,17 @@ export class ToolRegistry {
             // 无默认值的参数（如各工具的 `cwd`）此前会留下 `default: undefined` ——
             // 正是实测被 D1 校验拒绝的具体路径（`schemas[0]…cwd.default`）
             ...(param.default !== undefined ? { default: param.default } : {}),
+            // U-03（2026-10-19）：透传参数约束 —— 原实现丢弃 `enum/minimum/maximum`，
+            // 模型只能靠描述猜取值与边界（与 `ToolParam` 契约不一致）。
+            ...(Array.isArray(param.enum) && param.enum.length > 0
+              ? { enum: param.enum }
+              : {}),
+            ...(typeof param.minimum === 'number'
+              ? { minimum: param.minimum }
+              : {}),
+            ...(typeof param.maximum === 'number'
+              ? { maximum: param.maximum }
+              : {}),
           };
 
           // 数组类型：透传 items 内部结构和长度约束
@@ -371,6 +436,16 @@ export class ToolRegistry {
                       subParam.description,
                       locale
                     ),
+                    // U-03：数组元素同样透传枚举/边界（此前一并丢弃）
+                    ...(Array.isArray(subParam.enum) && subParam.enum.length > 0
+                      ? { enum: subParam.enum }
+                      : {}),
+                    ...(typeof subParam.minimum === 'number'
+                      ? { minimum: subParam.minimum }
+                      : {}),
+                    ...(typeof subParam.maximum === 'number'
+                      ? { maximum: subParam.maximum }
+                      : {}),
                   };
                   if (subParam.required) required.push(key);
                 }

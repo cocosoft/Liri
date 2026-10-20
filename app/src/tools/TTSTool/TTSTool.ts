@@ -108,10 +108,58 @@ const AVAILABLE_VOICES = [
   },
 ];
 
+/**
+ * U-03（2026-10-19）：`tts` 的**模型可见出参结构**（JSON Schema）。
+ *
+ * 出口随 action 分三类：
+ * - `voices`：`{ voices[], count }`；
+ * - `save`：`{ filename, voice, language, textLength, audioDurationSec }`；
+ * - `speak`：`{ voice, language, textLength, speed }`。
+ * ⇒ 不设根级 required。
+ */
+const TTS_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    voices: {
+      type: 'array',
+      description: '可用音色列表（voices 分支）',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: '音色 ID' },
+          name: { type: 'string', description: '音色名称' },
+          language: { type: 'string', description: '语言代码' },
+          gender: { type: 'string', description: '性别' },
+        },
+        required: ['id', 'name', 'language', 'gender'],
+      },
+    },
+    count: { type: 'number', description: '音色数量（voices 分支）' },
+    filename: { type: 'string', description: '保存的音频文件名（save 分支）' },
+    voice: { type: 'string', description: '实际使用的音色（save/speak 分支）' },
+    language: {
+      type: 'string',
+      description: '实际使用的语言（save/speak 分支）',
+    },
+    textLength: {
+      type: 'number',
+      description: '合成文本长度（save/speak 分支）',
+    },
+    audioDurationSec: {
+      type: 'number',
+      description: '估算音频时长（秒，save 分支）',
+    },
+    speed: { type: 'number', description: '语速倍数（speak 分支）' },
+  },
+};
+
 export class TTSTool extends BaseTool<Record<string, unknown>> {
   name = TOOL_NAME_CONSTANTS.tts;
   description =
     'Convert text to speech using neural voices. Supports multiple languages and voices for generating spoken audio output.';
+
+  /** U-03（2026-10-19）：模型可见出参结构（按 action 分支） */
+  override outputJsonSchema = TTS_OUTPUT_JSON_SCHEMA;
   /** TTS 调用限流器（默认每秒 10 次，桶容量 20） */
   private tokenBucket = new TokenBucket(20, 10);
 

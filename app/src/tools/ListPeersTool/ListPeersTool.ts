@@ -15,7 +15,7 @@ import { resolveDataSubDir } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { ListPeersOutputSchema } from './schemas';
+import { ListPeersOutputSchema, ListPeersOutputJsonSchema } from './schemas';
 const logger = getLogger('tools:ListPeersTool:ListPeersTool');
 
 /**
@@ -65,6 +65,8 @@ export class ListPeersTool extends BaseTool<ListPeersInput, ListPeersOutput> {
    * 与 `PeerInfoSchema` **逐字段同构**（含两处枚举取值）⇒ 与 schema **完全相符** ⇒ 接线。
    */
   outputSchema = ListPeersOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = ListPeersOutputJsonSchema;
 
   /**
    * 工具描述

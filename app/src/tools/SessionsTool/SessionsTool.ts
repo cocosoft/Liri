@@ -155,6 +155,81 @@ function mapType(type: SessionType): SessionInfo['type'] {
   }
 }
 
+/**
+ * U-03（2026-10-19）：`sessions` 的**模型可见出参结构**（JSON Schema），
+ * 与 `SessionsOutput` 逐字段对齐（`sessions`/`history`/`total`/`filtered` 按 action 出现）。
+ */
+const SESSIONS_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    action: {
+      type: 'string',
+      enum: ['list', 'status', 'history', 'spawn', 'send', 'delete'],
+      description: '执行的操作',
+    },
+    sessionId: {
+      type: 'string',
+      description: '目标会话 ID（status/spawn/send/delete 分支）',
+    },
+    sessions: {
+      type: 'array',
+      description: '会话列表（list 分支）',
+      items: {
+        type: 'object',
+        properties: {
+          sessionId: { type: 'string', description: '会话 ID' },
+          status: {
+            type: 'string',
+            enum: ['running', 'paused', 'completed', 'failed', 'killed'],
+            description: '会话状态',
+          },
+          name: { type: 'string', description: '会话名（无标题为 Unnamed）' },
+          type: {
+            type: 'string',
+            enum: ['agent', 'task', 'shell', 'monitor'],
+            description: '会话类型',
+          },
+          startedAt: { type: 'number', description: '创建时间（毫秒时间戳）' },
+          activeTime: { type: 'number', description: '活跃时长（毫秒）' },
+          parentSessionId: {
+            type: 'string',
+            description: '父会话 ID（派生会话）',
+          },
+          messageCount: { type: 'number', description: '消息数' },
+          errorCount: { type: 'number', description: '错误数' },
+        },
+        required: [
+          'sessionId',
+          'status',
+          'name',
+          'type',
+          'startedAt',
+          'activeTime',
+        ],
+      },
+    },
+    history: {
+      type: 'array',
+      description: '历史消息（history 分支）',
+      items: {
+        type: 'object',
+        properties: {
+          messageId: { type: 'string', description: '消息 ID' },
+          sessionId: { type: 'string', description: '所属会话 ID' },
+          type: { type: 'string', description: '消息类型' },
+          content: { type: 'string', description: '消息内容' },
+          timestamp: { type: 'number', description: '时间戳（毫秒）' },
+          metadata: { type: 'object', description: '消息元数据' },
+        },
+        required: ['messageId', 'sessionId', 'type', 'content', 'timestamp'],
+      },
+    },
+    total: { type: 'number', description: '会话/消息总数' },
+    filtered: { type: 'number', description: '按条件过滤后的条数' },
+  },
+  required: ['action'],
+};
+
 export class SessionsTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.sessions;
 
@@ -183,6 +258,9 @@ export class SessionsTool extends BaseTool {
 
   description =
     '统一的会话管理工具。可列出会话、查询状态、查看历史、派生会话、发送消息以及删除会话。';
+
+  /** U-03（2026-10-19）：模型可见出参结构（action 恒在，其余按分支） */
+  override outputJsonSchema = SESSIONS_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

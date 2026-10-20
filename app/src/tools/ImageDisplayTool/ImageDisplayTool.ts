@@ -45,6 +45,38 @@ export interface ImageDisplayOutput {
   count: number;
 }
 
+/**
+ * U-03（2026-10-19）：`image_display` 的**模型可见出参结构**（JSON Schema），
+ * 与 `ImageDisplayOutput` 逐字段对齐（失败分支无 `data` 载荷）。
+ */
+const IMAGE_DISPLAY_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    images: {
+      type: 'array',
+      description: '可展示的图片列表',
+      items: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: '前端展示用的 URL' },
+          name: { type: 'string', description: '图片名称（文件名）' },
+          size: {
+            type: 'number',
+            description: '文件大小（字节，本地文件可用）',
+          },
+          originalPath: {
+            type: 'string',
+            description: '原始路径或 URL（入参回显）',
+          },
+        },
+        required: ['url', 'name', 'originalPath'],
+      },
+    },
+    count: { type: 'number', description: '有效图片数量' },
+  },
+  required: ['images', 'count'],
+};
+
 export class ImageDisplayTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.image_display;
 
@@ -54,6 +86,9 @@ export class ImageDisplayTool extends BaseTool {
     'Display/preview images directly in the chat conversation. MUST call this after generating images with image_generate to show results to the user. ' +
     'Users cannot open file paths themselves — images are only visible when you use this tool. ' +
     'Accepts local file paths or URLs. Supports thumbnail grid, click-to-enlarge, and citation.';
+
+  /** U-03（2026-10-19）：模型可见出参结构（images/count） */
+  override outputJsonSchema = IMAGE_DISPLAY_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

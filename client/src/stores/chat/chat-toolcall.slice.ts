@@ -229,6 +229,13 @@ export class ChronologicalBlockBuilder {
             existing.toolCall?.pendingApproval ||
             toolCall.pendingApproval ||
             pendingResult?.pendingApproval === true,
+          // U-06-5: Inbox 项 id（就地审批入口）随审批信号透传
+          inboxId:
+            existing.toolCall?.inboxId ||
+            toolCall.inboxId ||
+            (typeof pendingResult?.inboxId === "string"
+              ? pendingResult.inboxId
+              : undefined),
         },
         isStreaming: toolCall.status === "running",
       };
@@ -251,6 +258,11 @@ export class ChronologicalBlockBuilder {
             ...toolCall,
             result: { success: true, data: pendingResult },
             pendingApproval: pendingResult.pendingApproval === true,
+            // U-06-5: 审批信号先到（tool_completed → pendingResults）时同样透传 Inbox 项 id
+            inboxId:
+              typeof pendingResult.inboxId === "string"
+                ? pendingResult.inboxId
+                : toolCall.inboxId,
           }
         : toolCall;
       this.blocks.push({
@@ -320,6 +332,11 @@ export class ChronologicalBlockBuilder {
             resultData.pendingApproval === true
               ? true
               : toolCall.pendingApproval,
+          // U-06-5: Inbox 项 id（就地审批入口）
+          inboxId:
+            typeof resultData.inboxId === "string"
+              ? resultData.inboxId
+              : toolCall.inboxId,
         },
         isStreaming: false,
       };

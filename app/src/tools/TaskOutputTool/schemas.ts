@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -48,6 +48,42 @@ export const TaskOutputOutputSchema = z.object({
 });
 
 export type TaskOutputOutputType = z.infer<typeof TaskOutputOutputSchema>;
+
+/**
+ * U-03（2026-10-19）：`task_output` 的**模型可见出参结构**（JSON Schema），
+ * 与 `TaskOutputOutputSchema` 逐字段对齐（改 zod 须同步，用例做键集断言）。
+ * `task` 可为 `null`（未就绪/超时分支）。
+ */
+export const TaskOutputOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    retrieval_status: {
+      type: 'string',
+      enum: ['success', 'timeout', 'not_ready'],
+      description: '获取状态',
+    },
+    task: {
+      type: ['object', 'null'],
+      description: '任务输出数据（未就绪/超时分支为 null）',
+      properties: {
+        task_id: { type: 'string', description: '任务 ID' },
+        task_type: { type: 'string', description: '任务类型' },
+        status: { type: 'string', description: '任务状态' },
+        description: { type: 'string', description: '任务描述' },
+        output: { type: 'string', description: '任务输出内容' },
+        exitCode: {
+          type: ['integer', 'null'],
+          description: '退出码（仅命令类任务）',
+        },
+        error: { type: 'string', description: '错误信息' },
+        prompt: { type: 'string', description: '触发提示（仅代理类任务）' },
+        result: { type: 'string', description: '任务结果（仅代理类任务）' },
+      },
+      required: ['task_id', 'task_type', 'status', 'description', 'output'],
+    },
+  },
+  required: ['retrieval_status', 'task'],
+};
 
 /**
  * 验证 TaskOutputTool 输入

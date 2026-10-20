@@ -421,7 +421,7 @@ export class PermissionChecker {
       const commandHash =
         isCommandTool && command ? hashCommandForExecution(command) : undefined;
 
-      await inboxManager.submit({
+      const submitted = await inboxManager.submit({
         sessionId,
         type: 'approval',
         title: `工具审批: ${toolName}`,
@@ -450,17 +450,22 @@ export class PermissionChecker {
         },
       });
 
+      // U-06-5（2026-10-19）：把 Inbox 项 id 回传给工具结果，前端工具卡片可**就地审批**
+      // （此前只有"等待审批"徽标，用户必须另找 Inbox 卡片）。
+      const inboxItemId = (submitted as { id?: string } | null | undefined)?.id;
+
       logger.info('Tool approval submitted to Inbox', {
         toolName,
         risk,
         sessionId,
+        inboxItemId,
         hasCommandHash: !!commandHash,
       });
 
       return createAskDecision(
         `'${toolName}' queued in Inbox (risk: ${risk}). Awaiting approval.`,
         undefined,
-        { submittedToInbox: true, commandHash }
+        { submittedToInbox: true, commandHash, inboxItemId }
       );
     } catch (err) {
       logger.warn('Failed to submit to Inbox, falling back to ask', {

@@ -242,6 +242,199 @@ function getL2WorkerGuard(): L2WorkerPort | null {
   return l2WorkerGuard;
 }
 
+/**
+ * U-03（2026-10-19）：`image_analysis` 的**模型可见出参结构**（JSON Schema）。
+ *
+ * `data` 随 `action` 并入不同子结构（metadata / colors / content / compare / vision /
+ * ocr / objects / similarity / segment / depth），另含 `l2Unavailable` 降级标记
+ * ⇒ 所有字段可选、不设根级 required。
+ */
+const IMAGE_ANALYSIS_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    metadata: {
+      type: 'object',
+      description: '图片元数据（metadata/colors/content/full/compare 分支）',
+      properties: {
+        filePath: { type: 'string', description: '文件路径' },
+        fileSize: { type: 'number', description: '文件大小（字节）' },
+        format: { type: 'string', description: '图片格式' },
+        width: { type: 'number', description: '宽度（像素）' },
+        height: { type: 'number', description: '高度（像素）' },
+        aspectRatio: { type: 'number', description: '宽高比' },
+        bytesPerPixel: { type: 'number', description: '每像素字节数' },
+        mimeType: { type: 'string', description: 'MIME 类型' },
+      },
+      required: ['filePath', 'fileSize', 'format'],
+    },
+    colors: {
+      type: 'object',
+      description: '色彩分析（colors/full 分支）',
+      properties: {
+        dominantColors: {
+          type: 'array',
+          description: '主色列表（最多 6 个）',
+          items: {
+            type: 'object',
+            properties: {
+              hex: { type: 'string', description: '十六进制色值' },
+              rgb: {
+                type: 'array',
+                items: { type: 'number' },
+                description: 'RGB 三元组',
+              },
+              percentage: { type: 'number', description: '占比（0-1）' },
+            },
+            required: ['hex', 'rgb', 'percentage'],
+          },
+        },
+        palette: { type: 'string', description: '色系命名' },
+        isWarm: { type: 'boolean', description: '是否偏暖' },
+        isCool: { type: 'boolean', description: '是否偏冷' },
+        brightness: { type: 'number', description: '亮度（0-1）' },
+        colorfulness: { type: 'number', description: '色彩丰富度（0-1）' },
+      },
+      required: [
+        'dominantColors',
+        'palette',
+        'isWarm',
+        'isCool',
+        'brightness',
+        'colorfulness',
+      ],
+    },
+    content: {
+      type: 'object',
+      description: '构图分析（content/full 分支）',
+      properties: {
+        sizeCategory: {
+          type: 'string',
+          enum: ['icon', 'small', 'medium', 'large', 'wallpaper'],
+          description: '尺寸分类',
+        },
+        isSquare: { type: 'boolean', description: '是否正方形' },
+        isLandscape: { type: 'boolean', description: '是否横向' },
+        isPortrait: { type: 'boolean', description: '是否纵向' },
+        contentDensity: {
+          type: 'string',
+          enum: ['sparse', 'moderate', 'dense'],
+          description: '内容密度',
+        },
+        sharpness: { type: 'number', description: '清晰度估计（0-1）' },
+      },
+      required: ['sizeCategory', 'contentDensity', 'sharpness'],
+    },
+    imageA: {
+      type: 'object',
+      description: '对比图 A 的元数据（compare 分支）',
+    },
+    imageB: {
+      type: 'object',
+      description: '对比图 B 的元数据（compare 分支）',
+    },
+    comparison: {
+      type: 'object',
+      description: '两图差异（compare 分支）',
+      properties: {
+        sameDimensions: { type: 'boolean', description: '尺寸是否相同' },
+        dimensionDiff: { type: 'string', description: '尺寸差异描述' },
+        sizeRatio: { type: 'number', description: '体积比（B/A）' },
+        aspectRatioDiff: {
+          type: 'number',
+          description: '宽高比差异（比例值）',
+        },
+        sameFormat: { type: 'boolean', description: '格式是否相同' },
+      },
+      required: ['sameDimensions', 'dimensionDiff', 'sizeRatio', 'sameFormat'],
+    },
+    description: {
+      type: 'string',
+      description: '视觉模型描述（vision 分支）',
+    },
+    durationMs: { type: 'number', description: '视觉分析耗时（毫秒）' },
+    text: { type: 'string', description: 'OCR 识别文本（ocr 分支）' },
+    confidence: { type: 'number', description: 'OCR 置信度（ocr 分支）' },
+    blocks: {
+      type: 'array',
+      description: 'OCR 文本块（ocr 分支）',
+      items: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: '文本内容' },
+          confidence: { type: 'number', description: '置信度' },
+          bbox: {
+            type: 'array',
+            description: '四点多边形坐标',
+            items: { type: 'array', items: { type: 'number' } },
+          },
+        },
+        required: ['text', 'confidence', 'bbox'],
+      },
+    },
+    language: { type: 'string', description: 'OCR 识别语言（ocr 分支）' },
+    objects: {
+      type: 'array',
+      description: '检测到的目标（objects 分支）',
+      items: {
+        type: 'object',
+        properties: {
+          label: { type: 'string', description: '类别标签' },
+          confidence: { type: 'number', description: '置信度（0-1）' },
+          bbox: {
+            type: 'object',
+            description: '边界框',
+            properties: {
+              x: { type: 'number' },
+              y: { type: 'number' },
+              width: { type: 'number' },
+              height: { type: 'number' },
+            },
+            required: ['x', 'y', 'width', 'height'],
+          },
+        },
+        required: ['label', 'confidence', 'bbox'],
+      },
+    },
+    count: { type: 'number', description: '目标数量（objects 分支）' },
+    model: { type: 'string', description: '检测模型名（objects 分支）' },
+    similarity: {
+      type: 'number',
+      description: '相似度（0-1，similarity 分支）',
+    },
+    label: { type: 'string', description: '最佳匹配标签（similarity 分支）' },
+    mode: {
+      type: 'string',
+      enum: ['image_vs_text', 'image_vs_image'],
+      description: '相似度比较模式（similarity 分支）',
+    },
+    allScores: {
+      type: 'object',
+      description: '各候选标签得分（similarity 分支）',
+      additionalProperties: { type: 'number' },
+    },
+    masks: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '分割掩码（segment 分支）',
+    },
+    scores: {
+      type: 'array',
+      items: { type: 'number' },
+      description: '分割得分（segment 分支）',
+    },
+    depth_image: {
+      type: 'string',
+      description: '深度图地址/base64（depth 分支）',
+    },
+    min_depth: { type: 'number', description: '最小深度（depth 分支）' },
+    max_depth: { type: 'number', description: '最大深度（depth 分支）' },
+    l2Unavailable: {
+      type: 'boolean',
+      description: 'L2 分析不可用（OCR/目标检测/相似度降级时置 true）',
+    },
+  },
+};
+
 export class ImageAnalysisTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.image_analysis;
 
@@ -250,6 +443,9 @@ export class ImageAnalysisTool extends BaseTool {
     'object detection, visual description (vision), and image similarity. ' +
     'Use when the user asks what is in an image, requests analysis, or needs ' +
     'to compare images. inputPath can be obtained from attachedImages or previous tool results.';
+
+  /** U-03（2026-10-19）：模型可见出参结构（按 action 并入 metadata/colors/ocr/objects…） */
+  override outputJsonSchema = IMAGE_ANALYSIS_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

@@ -21,11 +21,38 @@ export interface BriefToolInput {
   summaryType?: 'concise' | 'detailed' | 'actionable';
 }
 
+/**
+ * U-03（2026-10-20）：`brief` 的模型可见出参结构。
+ *
+ * 此前该工具只返回 `output`（Markdown 摘要文本），模型拿不到「摘要覆盖了多少条消息」
+ * 这类可判定信息 ⇒ 补 `data` 为结构化摘要（**只增字段**，`output` 原样保留）。
+ */
+const BRIEF_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean', description: '摘要是否生成成功' },
+    summary: { type: 'string', description: 'Markdown 格式的会话摘要正文' },
+    messageCount: {
+      type: 'number',
+      description: '该会话当前的消息总数（摘要基于最近 messageCount 条生成）',
+    },
+    summaryType: {
+      type: 'string',
+      enum: ['concise', 'detailed', 'actionable'],
+      description: '摘要类型（入参回显，缺省 concise）',
+    },
+  },
+  required: ['summary', 'messageCount', 'summaryType'],
+};
+
 export class BriefTool extends BaseTool<BriefToolInput> {
   name = TOOL_NAME_CONSTANTS.brief;
   description = '生成当前会话的摘要';
 
   override tags = [ToolTag.READ];
+
+  /** U-03（2026-10-20）：模型可见出参结构（`getInfo()` 快照会带上） */
+  override outputJsonSchema = BRIEF_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {
@@ -76,6 +103,12 @@ export class BriefTool extends BaseTool<BriefToolInput> {
 
       return {
         success: true,
+        // U-03（2026-10-20）：结构化摘要（与 BRIEF_OUTPUT_JSON_SCHEMA 键集一致）
+        data: {
+          summary,
+          messageCount: messages.length,
+          summaryType: input.summaryType || 'concise',
+        },
         output: summary,
       };
     } catch (error) {

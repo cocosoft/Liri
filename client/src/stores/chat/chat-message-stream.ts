@@ -97,7 +97,25 @@ export async function streamMessageImpl(
     return;
   }
   const prevController = get().streamControllers[sid];
+  // U-06-2（2026-10-19）：排队开关开启且是普通新消息 ⇒ 入队等待当前流结束，
+  // 不再 abort 旧流（原实现让输入框路径绕过了排队）。编辑/重生成/带图消息不排队：
+  // 它们与当前流的上下文强相关（或队列结构不承载图片）。
+  const messageQueueEnabled =
+    useFeatureFlagStore.getState().flags.message_queue;
   if (prevController) {
+    const canQueue =
+      messageQueueEnabled &&
+      !get().editTarget &&
+      !existingUserMessageId &&
+      !(attachedImages && attachedImages.length > 0);
+    if (canQueue) {
+      get().enqueueMessage(content, sessionId);
+      logger.info("streamMessage: 会话流式中，已入队（不打断当前流）", {
+        sessionId: sid,
+        queueLength: get().messageQueue.length,
+      });
+      return;
+    }
     prevController.abort();
   }
 
@@ -107,9 +125,6 @@ export async function streamMessageImpl(
   staleSessionCache(sid);
 
   const controller = new AbortController();
-
-  const messageQueueEnabled =
-    useFeatureFlagStore.getState().flags.message_queue;
 
   set({
     isSending: true,

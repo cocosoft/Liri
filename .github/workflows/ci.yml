@@ -71,6 +71,19 @@ jobs:
       working-directory: .
       run: bun run scripts/check-console-baseline.ts
 
+    # U-03（2026-10-19）：工具名分支棘轮门禁进 CI（此前只在 package.json 定义、
+    # 从未被 `ci` 脚本或本工作流调用 ⇒ 存量 11 处无人看守）。
+    - name: "Tool-name branches ratchet (U-03)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:toolname-branches
+
+    # U-03（2026-10-19）：能力/风险声明棘轮（扫描面已扩到 `implements Tool` +
+    # `src/knowledge/tools/**`，工具类 62 → 81）。此前只在 package.json#ci 定义，
+    # 本工作流未单独调用 ⇒ 新增 `implements Tool` 类缺声明时 CI 不会红。
+    - name: "Tool capability ratchet (U-03)"
+      if: matrix.os == 'ubuntu-latest'
+      run: bun run lint:tool-schema
+
     - name: Select tests (incremental)
       id: select
       shell: bash

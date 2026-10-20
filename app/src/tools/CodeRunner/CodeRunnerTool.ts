@@ -169,8 +169,95 @@ export function configureCodeRunner(deps: CodeRunnerRuntimeDeps): void {
   });
 }
 
+/**
+ * U-03（2026-10-19）：`code_run` 的**模型可见出参结构**（JSON Schema）。
+ *
+ * 出口按分支合并：`completed` 带 `output/toolCalls/durationMs/scanStatus`；
+ * 失败/超时带 `error/structuredError/logs/toolCalls`；
+ * 静态拒绝（`security-rejected` / `compiled-error`）带 `issues` 或 `reason`。
+ * ⇒ `status` 恒存在，其余按分支可选。
+ */
+const CODE_RUN_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    status: {
+      type: 'string',
+      enum: [
+        'completed',
+        'failed',
+        'compiled-error',
+        'security-rejected',
+        'timeout',
+        'canceled',
+      ],
+      description: '执行状态',
+    },
+    round: { type: 'number', description: '本轮迭代序号（同一会话内递增）' },
+    output: {
+      description: 'done(result) 携带的结构化结果（completed 分支，可为 null）',
+    },
+    toolCalls: {
+      type: 'array',
+      description: '沙箱内工具调用摘要',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: '被调用工具名' },
+          argsHash: { type: 'string', description: '入参摘要哈希' },
+          truncatedResult: { type: 'string', description: '截断后的结果预览' },
+          ok: { type: 'boolean', description: '该次调用是否成功' },
+        },
+        required: ['name', 'argsHash', 'ok'],
+      },
+    },
+    durationMs: { type: 'number', description: '执行耗时（毫秒）' },
+    scanStatus: {
+      type: 'string',
+      enum: ['ran', 'skipped', 'failed'],
+      description: '深静态扫描状态（skipped/failed ≠ 扫描通过）',
+    },
+    error: { type: 'string', description: '错误信息（失败分支）' },
+    structuredError: {
+      type: 'object',
+      description: '结构化错误（顶层异常帧）',
+      properties: {
+        type: { type: 'string', description: '错误类型' },
+        message: { type: 'string', description: '错误消息' },
+        stack: { type: 'string', description: '堆栈（可选）' },
+      },
+      required: ['type', 'message'],
+    },
+    logs: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '用户脚本日志（失败分支，保留最近 50 条）',
+    },
+    issues: {
+      type: 'array',
+      description: '静态校验问题（security-rejected / compiled-error 分支）',
+      items: {
+        type: 'object',
+        properties: {
+          kind: { type: 'string', description: '问题类别' },
+          message: { type: 'string', description: '问题描述' },
+          line: { type: 'number', description: '行号（可定位时）' },
+        },
+        required: ['kind', 'message'],
+      },
+    },
+    reason: {
+      type: 'string',
+      description: '拒绝原因（security-rejected 分支）',
+    },
+  },
+  required: ['status'],
+};
+
 export class CodeRunnerTool extends BaseTool<Record<string, unknown>> {
   name = TOOL_NAME_CONSTANTS.code_run;
+
+  /** U-03（2026-10-19）：模型可见出参结构（status 恒在，其余按分支） */
+  override outputJsonSchema = CODE_RUN_OUTPUT_JSON_SCHEMA;
 
   /** 基础契约（2026-10-07 起随 schema 口径改中文，与既有工具描述同风格）；工具清单段由 getter 动态拼接 */
   private static readonly BASE_DESCRIPTION =

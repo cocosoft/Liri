@@ -97,6 +97,9 @@ describe('checkPowerShellWrapper：内层串与直接执行判定一致（G-07�
     expect(blocked).not.toBeNull();
     expect(blocked?.requireApproval).not.toBe(true);
     expect(blocked?.metadata?.['securityIntercepted']).toBe(true);
+    // BUG-8：硬拦截必须带 error/success=false，否则会被消费方记为 success
+    expect(blocked?.error).toBeTruthy();
+    expect(blocked?.success).toBe(false);
   });
 
   test('白名单外动词（无 analyzer 命中）：直判 deny ⇒ 包裹同样拒绝', () => {
@@ -114,6 +117,8 @@ describe('checkPowerShellWrapper：内层串与直接执行判定一致（G-07�
     const blocked = checkPowerShellWrapper('powershell -EncodedCommand AAAA');
     expect(blocked).not.toBeNull();
     expect(blocked?.metadata?.['reason']).toBe('powershell_wrapper_opaque');
+    expect(blocked?.error).toBeTruthy();
+    expect(blocked?.success).toBe(false);
   });
 
   test('未包裹 ⇒ 本门不介入（null）', () => {

@@ -16,7 +16,10 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 
 import { getLogger } from '@modules/monitoring';
-import { BrowserToolOutputSchema } from './schemas';
+import {
+  BrowserToolOutputSchema,
+  BrowserToolOutputJsonSchema,
+} from './schemas';
 import { GOOGLE_HOME_URL } from '../searchSites.js';
 const logger = getLogger('tools:BrowserTool:BrowserTool');
 
@@ -74,6 +77,8 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
    * 2 个失败分支在 **ToolResult 层自带 `success: false`** ⇒ 命中豁免、不参与校验。
    */
   outputSchema = BrowserToolOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = BrowserToolOutputJsonSchema;
   description = '自动化 Chrome 浏览器与网页交互';
 
   override tags = [ToolTag.NETWORK];

@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat";
+import { useFeatureFlagStore } from "../../stores/featureFlags";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useBackendStore } from "../../stores/backendStore";
 import { useVoiceStore } from "../../stores/voiceStore";
@@ -374,9 +375,15 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     if (!sessionId) return;
     // F9 修复（2026-08-24）：对齐 handleSubmit 守卫——挂起流拦截、流式中入队，
     // 避免绕过守卫直接 streamMessage 触发 F2（同会话双流 controller 竞态）
+    // U-06-2（2026-10-19）：入队必须同时满足 ①本会话正在流式 ②排队开关开启；
+    // 原实现只要全局 isStreaming 就入队（其他会话流式也会误入队），且开关关闭时
+    // 队列永不被消费 ⇒ 消息静默卡死。
     const chatStore = useChatStore.getState();
     if (chatStore.pausedStreams[sessionId]) return;
-    if (chatStore.isStreaming) {
+    const messageQueueEnabled =
+      useFeatureFlagStore.getState().flags.message_queue;
+    const isSessionStreaming = !!chatStore.streamControllers[sessionId];
+    if (isSessionStreaming && messageQueueEnabled) {
       chatStore.enqueueMessage(text, sessionId);
       return;
     }

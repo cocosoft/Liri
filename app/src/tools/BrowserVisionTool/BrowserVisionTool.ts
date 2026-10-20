@@ -49,12 +49,33 @@ interface BrowserVisionInput {
   returnScreenshot?: boolean;
 }
 
+/**
+ * U-03（2026-10-19）：`browser_vision` 的**模型可见出参结构**（JSON Schema），
+ * 与成功分支 `data` 逐字段对齐（失败分支 `data` 为 null）。
+ */
+const BROWSER_VISION_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    analysis: { type: 'string', description: '视觉模型对截图的文字分析' },
+    screenshotPath: {
+      type: 'string',
+      description: '截图文件路径（returnScreenshot=false 时不返回）',
+    },
+    durationMs: { type: 'number', description: '截图+分析总耗时（毫秒）' },
+    prompt: { type: 'string', description: '实际使用的分析提示词' },
+  },
+  required: ['analysis', 'durationMs', 'prompt'],
+};
+
 export class BrowserVisionTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.browser_vision;
 
   description =
     '对当前浏览器页面截图，并使用视觉 AI 分析。' +
     '返回 AI 分析结果和可选的截图路径。';
+
+  /** U-03（2026-10-19）：模型可见出参结构（analysis/screenshotPath/durationMs/prompt） */
+  override outputJsonSchema = BROWSER_VISION_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

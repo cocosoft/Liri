@@ -250,6 +250,8 @@ export interface ToolCall {
   status?: "running" | "completed" | "failed";
   /** P2-2: 工具审批等待态标记（ask 决策），区别于失败（结构化信号，非字符串匹配） */
   pendingApproval?: boolean;
+  /** U-06-5: 已提交的 Inbox 项 id —— 工具卡片就地审批（批准/拒绝） */
+  inboxId?: string;
   /** 标记 result 为截断摘要，全量结果通过 getToolResultFull(id) 获取 */
   _hasFullResult?: boolean;
   /** 工具执行失败原因（status='failed' 时存在，日志面板据此展示失败详情） */

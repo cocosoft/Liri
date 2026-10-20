@@ -8,6 +8,7 @@ import { Tool } from '../types/Tool';
 import { randomIdSuffix } from '../../utils/common';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
+import { CronCreateOutputJsonSchema } from './schemas';
 import {
   AppError,
   ErrorCategory,
@@ -26,6 +27,8 @@ export class CronCreateTool {
       name: 'cron_create',
       description:
         'Create a recurring or one-shot scheduled cron task. The task will execute at the specified schedule using the AI engine.',
+      /** U-03（2026-10-19）：模型可见出参结构（zod 出口契约已于 2026-09-29 删除，按实际出口写） */
+      outputJsonSchema: CronCreateOutputJsonSchema,
       params: [
         {
           name: 'name',
@@ -298,6 +301,8 @@ export class CronCreateTool {
           readOnly: false,
           destructive: false,
           concurrencySafe: true,
+          // U-03（2026-10-19）：模型可见出参结构进注册快照（懒加载未解包也能下发）
+          outputJsonSchema: this.outputJsonSchema,
           deferred: false,
           alwaysLoad: false,
           interruptBehavior: 'block' as const,

@@ -90,6 +90,53 @@ export const GrepOutputSchema = z.object({
 
 export type GrepOutputType = z.infer<typeof GrepOutputSchema>;
 
+/**
+ * U-03（2026-10-19）：**模型可见出参结构**（JSON Schema）。
+ *
+ * 与 `GrepOutputSchema`（zod 运行期校验）逐字段对齐；模型侧只需要"结果长什么样"，
+ * 不引入 zod 依赖 ⇒ 手写等价 JSON Schema。改 zod 结构时**必须同步本对象**
+ * （`toolOutputJsonSchema.test.ts` 对两者做键集一致性断言）。
+ */
+export const GrepOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    matches: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '匹配结果列表（每项为一行可读文本）',
+    },
+    matchCount: { type: 'integer', minimum: 0, description: '匹配总数' },
+    fileCount: { type: 'integer', minimum: 0, description: '匹配文件数' },
+    truncated: { type: 'boolean', description: '是否被截断' },
+    durationMs: {
+      type: 'integer',
+      minimum: 0,
+      description: '执行耗时（毫秒）',
+    },
+    invalidRegex: {
+      type: 'string',
+      description: '正则非法时的降级原因（此时按字面量搜索）',
+    },
+    stats: {
+      type: 'object',
+      properties: {
+        entries: { type: 'integer', minimum: 0, description: '遍历目录条目数' },
+        files: {
+          type: 'integer',
+          minimum: 0,
+          description: '进入内容匹配的文件数',
+        },
+      },
+      description: '遍历规模统计（仅异步搜索路径产出）',
+    },
+    skipped: {
+      type: 'boolean',
+      description: '是否因重复搜索被短路跳过（true 表示未执行真实搜索）',
+    },
+  },
+  required: ['matches', 'matchCount', 'fileCount', 'truncated', 'durationMs'],
+};
+
 /** 允许参数清单（校验失败时回给模型的引导文本） */
 const GREP_ALLOWED_PARAM_KEYS =
   'pattern, searchPath(兼容别名 path), include, outputMode, contextBefore, contextAfter, contextAround, showLineNumbers, caseInsensitive, type, headLimit, offset, multiline';

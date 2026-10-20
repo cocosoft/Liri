@@ -48,11 +48,34 @@ export interface MusicEditOutput {
 
 const ffmpeg = new FFmpegWrapper();
 
+/**
+ * U-03（2026-10-19）：`music` 的**模型可见出参结构**（JSON Schema），
+ * 与 `MusicEditOutput` 逐字段对齐。
+ */
+const MUSIC_EDIT_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    action: { type: 'string', description: '执行的操作' },
+    inputPath: { type: 'string', description: '输入音频路径' },
+    outputPath: { type: 'string', description: '输出音频路径（写文件操作）' },
+    originalSize: { type: 'number', description: '原始文件大小（字节）' },
+    processedSize: { type: 'number', description: '处理后文件大小（字节）' },
+    duration: { type: 'number', description: '时长（秒）' },
+    format: { type: 'string', description: '音频格式' },
+    codec: { type: 'string', description: '音频编码' },
+    bitrate: { type: 'string', description: '码率（如 128k）' },
+  },
+  required: ['action', 'inputPath'],
+};
+
 export class MusicTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.music;
 
   description =
     'Edit and manipulate audio/music files. Supports format conversion, metadata info, trimming, and volume adjustment.';
+
+  /** U-03（2026-10-19）：模型可见出参结构（编辑结果元数据） */
+  override outputJsonSchema = MUSIC_EDIT_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

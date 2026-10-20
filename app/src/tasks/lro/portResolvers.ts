@@ -94,3 +94,14 @@ export function replanMaxRetries(): number {
   const v = Number(configManager.env('PDCA_REPLAN_MAX_RETRIES'));
   return Number.isFinite(v) && v > 0 ? v : 3;
 }
+
+/**
+ * U-02（2026-10-19）：目标未收敛时是否**自动**触发增量 replan。
+ *
+ * 默认关闭（需显式 `PDCA_AUTO_REPLAN=true`）：自动重规划会额外消耗模型调用与预算，
+ * 且属"无人值守"策略 ⇒ 按项目「默认关闭开关」约定先灰度；次数仍受
+ * `PDCA_REPLAN_MAX_RETRIES` 约束（与 escalate 半自动闭环共用计数）。
+ */
+export function isAutoReplanEnabled(): boolean {
+  return configManager.env('PDCA_AUTO_REPLAN') === 'true';
+}

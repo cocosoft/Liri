@@ -61,3 +61,80 @@ export const GetTaskListOutputSchema = z.object({
     )
     .describe('任务清单'),
 });
+
+/**
+ * U-03（2026-10-19）：三个任务工具的**模型可见出参结构**（JSON Schema）。
+ *
+ * 与上面的 zod 出口契约逐字段对齐；改 zod 时须同步本组对象
+ * （`toolOutputJsonSchema.test.ts` 做键集一致性断言）。失败分支
+ * `createToolResult(null, …)` ⇒ 无载荷，不属本结构描述范围。
+ */
+export const CreateTaskListOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    created: {
+      type: 'array',
+      description: '本次成功创建的任务',
+      items: {
+        type: 'object',
+        properties: {
+          task_id: { type: 'string', description: '新建任务 ID' },
+          description: { type: 'string', description: '任务描述（已 trim）' },
+        },
+        required: ['task_id', 'description'],
+      },
+    },
+    total: { type: 'number', description: '创建后注册表内任务总数' },
+    pending: { type: 'number', description: '创建后 pending 任务数' },
+    skipped: { type: 'number', description: '因 description 为空被跳过的条数' },
+  },
+  required: ['created', 'total', 'pending', 'skipped'],
+};
+
+export const UpdateTaskStatusOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    task_id: { type: 'string', description: '被更新的任务 ID' },
+    status: {
+      type: 'string',
+      description:
+        '更新后的状态（pending/in_progress/completed/failed/cancelled）',
+    },
+    success: { type: 'boolean', description: '是否成功' },
+    message: { type: 'string', description: '操作结果消息' },
+  },
+  required: ['task_id', 'status', 'success', 'message'],
+};
+
+export const GetTaskListOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    count: { type: 'number', description: '任务条数（含空列表时的 0）' },
+    stats: {
+      type: 'object',
+      description: '按显示状态聚合的计数',
+      properties: {
+        pending: { type: 'number' },
+        in_progress: { type: 'number' },
+        completed: { type: 'number' },
+        failed: { type: 'number' },
+        cancelled: { type: 'number' },
+      },
+      required: ['pending', 'in_progress', 'completed', 'failed', 'cancelled'],
+    },
+    tasks: {
+      type: 'array',
+      description: '任务清单',
+      items: {
+        type: 'object',
+        properties: {
+          task_id: { type: 'string' },
+          description: { type: 'string' },
+          status: { type: 'string', description: '任务的 displayStatus' },
+        },
+        required: ['task_id', 'description', 'status'],
+      },
+    },
+  },
+  required: ['count', 'stats', 'tasks'],
+};

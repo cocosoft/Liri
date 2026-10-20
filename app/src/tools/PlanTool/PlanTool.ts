@@ -17,7 +17,7 @@ import type {
 import type { Tool } from '../types/Tool';
 import { ToolTag } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
-import { PlanToolOutputSchema } from './schemas';
+import { PlanToolOutputSchema, PlanToolOutputJsonSchema } from './schemas';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -120,6 +120,8 @@ export class PlanTool extends BaseTool<
    * 彻底归一应改成 `z.infer<typeof PlanToolOutputSchema>` 派生 —— 属独立重构，不在本批。
    */
   outputSchema = PlanToolOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构（含 plan/plans 嵌套结构） */
+  override outputJsonSchema = PlanToolOutputJsonSchema;
   description = '创建、管理和执行计划';
 
   override tags = [ToolTag.SYSTEM];

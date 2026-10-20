@@ -77,6 +77,11 @@ export interface MessageSlice {
   >;
 
   addMessage: (message: Message) => void;
+  /**
+   * U-05 残余（2026-10-19）：**增量刷新**消息（事件驱动：审批续跑 / 通知更新）。
+   * 与 `setMessages` 的区别：保留已加载的更早历史与分页游标，不整表替换。
+   */
+  mergeRefreshedMessages: (messages: Message[]) => void;
   sendMessage: (
     content: string,
     sessionId?: string,

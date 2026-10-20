@@ -32,6 +32,8 @@ import { useShallow } from "zustand/shallow";
 import { dedupeToolCallBlocks } from "../../stores/chat/chat-message-shared";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useRootStore } from "../../stores/root-store";
+import { sessionService } from "../../services/sessionService";
+import { toastError } from "../../stores/toastStore";
 import { saveArtifact } from "../../services/projectArtifactService";
 import { exportMessageAsFormat } from "../../utils/exportMessage";
 import { currentLocale } from "../../utils/format";
@@ -272,6 +274,8 @@ const ChatMessageMemo = memo(
       2000,
     );
     const [captureToast, showCaptureToast] = useTimedToast<boolean>(null, 2000);
+    // U-06-6（2026-10-19）：沉淀失败不再静默 —— 失败态独立 toast
+    const [captureError, showCaptureError] = useTimedToast<boolean>(null, 2500);
     const [showUndo, showUndoToast, hideUndoToast] = useTimedToast<boolean>(
       null,
       3000,
@@ -420,8 +424,17 @@ const ChatMessageMemo = memo(
           sessionId: message.session_id,
         });
         showCaptureToast(true);
-      } catch {
-        /* 沉淀失败静默处理 */
+      } catch (err) {
+        // U-06-6（2026-10-19）：原为静默 catch ⇒ 用户不知道没保存成功
+        handleClientError(
+          err,
+          {
+            module: "components:chat:ChatMessage",
+            action: "captureAsDeliverable",
+          },
+          "warn",
+        );
+        showCaptureError(true);
       }
     };
 
@@ -433,13 +446,27 @@ const ChatMessageMemo = memo(
         const branchTitle = currentSession
           ? `${t("chat.branchPrefix")}${currentSession.title}`
           : t("chat.newBranchSession");
-        const session = await createSession(branchTitle);
-        await switchSession(session.id);
+        if (currentSession) {
+          // U-06-1（2026-10-19）：原实现只新建**空会话**，历史全丢。
+          // 改为事件级 fork（复制该消息**之前**的历史），与「编辑并另存为分支」同源。
+          const forked = await sessionService.forkSession(currentSession.id, {
+            childTitle: branchTitle,
+            truncateBeforeMessageId: message.id,
+          });
+          // fork 后端已建会话，但侧栏未收录 ⇒ 先 upsert 再切（否则 G5 守卫会丢弃切换）
+          useRootStore.getState().upsertChatSession(forked.session);
+          await switchSession(forked.session.id);
+        } else {
+          // 极端兜底（无当前会话上下文）：沿用空会话
+          const session = await createSession(branchTitle);
+          await switchSession(session.id);
+        }
       } catch (err) {
         handleClientError(err, {
           module: "components:chat:ChatMessage",
           action: "handleBranch",
         });
+        toastError(new Error(t("chat.branchCreateFailed")));
         logger.error("创建分支失败", err);
       } finally {
         setBranching(false);
@@ -850,6 +877,11 @@ const ChatMessageMemo = memo(
               {captureToast && (
                 <span className="text-emerald-500 animate-pulse text-xs">
                   {t("chat.toastDeliverableSaved")}
+                </span>
+              )}
+              {captureError && (
+                <span className="text-red-500 text-xs">
+                  {t("chat.toastDeliverableFailed")}
                 </span>
               )}
             </div>

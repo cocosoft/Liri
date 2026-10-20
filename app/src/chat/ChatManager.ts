@@ -410,6 +410,16 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * BUG-9（2026-10-19）：是否存在**任意**活跃流式会话。
+   *
+   * 供系统级消费者（如 `DreamIdleDetector`）判定“系统是否真的空闲” ——
+   * 仅靠 `USER_INTERACTION` 会把“长任务正在跑”误判为空闲。
+   */
+  public hasActiveStreams(): boolean {
+    return this._sessionAbortControllers.size > 0;
+  }
+
+  /**
    * S1: 中止指定会话的流式请求
    * 用于 req.on('close') → 通知后端停止工具执行
    */
@@ -3583,7 +3593,7 @@ export class ChatManagerImpl implements ChatManager {
    * - inbox-handlers 将 metadata.commandHash 写入 ApprovedCommandRegistry（放行缓存）
    * - 前端 InboxBlock 向会话发送批准消息，触发 LLM 重新发起
    *
-   * @returns 是否提交成功（Inbox 不可用时降级为 false，上层返回普通 ask 文本）
+   * @returns 已提交的 Inbox 项 id（提交失败/Inbox 不可用时返回 null，上层降级为 ask 文本）
    */
   private async _submitToolApproval(
     toolName: string,
@@ -3595,7 +3605,7 @@ export class ChatManagerImpl implements ChatManager {
     approvalScope?: ApprovalScope,
     /** S1-1：审批快照（原始 / 规范化 / 改写项）——随卡片记录，供审批与执行对账 */
     approvalSnapshot?: ApprovalSnapshot
-  ): Promise<boolean> {
+  ): Promise<string | null> {
     try {
       const { inboxManager } = await import('@modules/runtime/InboxManager.js');
       // P0-2: 统一 hashCommandForExecution，与执行端 BashTool hash 一致
@@ -3608,7 +3618,7 @@ export class ChatManagerImpl implements ChatManager {
       const approvalKey = toolCallApprovalKey(toolName, input);
       const commandHash = hashCommandForExecution(approvalKey);
       const sid = sessionId || 'default';
-      await inboxManager.submit(
+      const submitted = await inboxManager.submit(
         {
           sessionId: sid,
           type: 'approval',
@@ -3639,14 +3649,15 @@ export class ChatManagerImpl implements ChatManager {
         },
         sid
       );
-      return true;
+      // U-06-5：把 Inbox 项 id 回传，供工具卡片就地审批
+      return (submitted as { id?: string } | null | undefined)?.id ?? null;
     } catch (err) {
       // P1-3：Inbox 提交失败降级为普通 ask 文本，不静默
       logger.warn('工具审批提交失败，降级为 ask 文本', {
         toolName,
         error: String(err),
       });
-      return false;
+      return null;
     }
   }
 

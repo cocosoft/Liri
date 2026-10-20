@@ -50,9 +50,12 @@ export class DreamScheduler implements SchedulerLifecycle {
   private config: DreamSchedulerConfig;
   private onTrigger: DreamTriggerCallback | null = null;
   private started = false;
+  /** BUG-9：系统忙碌探针（活跃流式会话）—— 忙碌时不得判空闲 */
+  private readonly isBusy?: () => boolean;
 
-  constructor(config?: Partial<DreamSchedulerConfig>) {
+  constructor(config?: Partial<DreamSchedulerConfig>, isBusy?: () => boolean) {
     this.config = { ...DEFAULT_DREAM_SCHEDULER_CONFIG, ...config };
+    this.isBusy = isBusy;
     this.idleDetector = new DreamIdleDetector(
       this.config.idleThresholdMs,
       this.config.idleCheckIntervalMs
@@ -82,10 +85,10 @@ export class DreamScheduler implements SchedulerLifecycle {
 
     await this.persistence.load();
 
-    // 1. 启动空闲检测
+    // 1. 启动空闲检测（BUG-9：活跃流式会话 ⇒ 视为忙碌，不计空闲）
     this.idleDetector.start(() => {
       this.tryTrigger('idle');
-    });
+    }, this.isBusy);
 
     // 2. 启动定时触发
     if (this.config.cronTrigger) {

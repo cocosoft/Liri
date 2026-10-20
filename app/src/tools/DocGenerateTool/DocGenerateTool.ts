@@ -66,6 +66,25 @@ interface DocGenerateOutput {
   size: number;
 }
 
+/**
+ * U-03（2026-10-19）：`doc_generate` 的**模型可见出参结构**（JSON Schema），
+ * 与 `DocGenerateOutput` 逐字段对齐（失败分支无 `data` 载荷）。
+ */
+const DOC_GENERATE_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    fileName: { type: 'string', description: '生成的文件名（含扩展名）' },
+    filePath: { type: 'string', description: '文件的完整路径' },
+    type: {
+      type: 'string',
+      enum: [...VALID_TYPES],
+      description: '文档格式：docx / xlsx / pptx / html',
+    },
+    size: { type: 'number', description: '文件大小（字节）' },
+  },
+  required: ['fileName', 'filePath', 'type', 'size'],
+};
+
 /** 单个 officecli batch 命令 */
 interface BatchCommand {
   command: string;
@@ -1276,6 +1295,9 @@ export class DocGenerateTool extends BaseTool {
     'type 参数默认 docx；template 可选：weekly-report / meeting-minutes / tech-design / prd。' +
     '注意：产物落在**全局输出目录**（~/.pyapp/output/），不属于任何项目、不会登记到「成果」面板；' +
     '若该文档须归入某项目的交付物，请改用 write_project_file 写入该项目 output/。';
+
+  /** U-03（2026-10-19）：模型可见出参结构（fileName/filePath/type/size） */
+  override outputJsonSchema = DOC_GENERATE_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

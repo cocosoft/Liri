@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useSessionStore } from "../../stores/sessionStore";
+import { useChatStore } from "../../stores/chat";
+import { toastError } from "../../stores/toastStore";
 import { useRootStore } from "../../stores/root-store";
 import { sessionService } from "../../services/sessionService";
 import { getOTelTracing } from "../../monitoring/otel/OTelTracing";
@@ -105,6 +107,10 @@ function SessionHistorySidebar({
     togglePin,
     error,
   } = useSessionStore();
+
+  // U-04（2026-10-19）：会话级实时状态（非当前会话也要可见）
+  const streamControllers = useChatStore((s) => s.streamControllers);
+  const pausedStreams = useChatStore((s) => s.pausedStreams);
 
   // 从 rootStore 获取模块上下文 + Hub 记录
   const rootSessions = useRootStore((s) => s.sessions);
@@ -269,8 +275,14 @@ function SessionHistorySidebar({
     setContextMenu(null);
     try {
       await sessionService.compact(sessionId);
-    } catch {
-      // 静默降级，compact 失败不影响用户操作
+    } catch (e) {
+      // U-06-6（2026-10-19）：原为静默 catch ⇒ 用户不知道压缩没生效
+      handleClientError(
+        e,
+        { module: "ui:session-sidebar", action: "compactSession" },
+        "warn",
+      );
+      toastError(new Error(t("chat.compactFailed")));
     }
   };
 
@@ -990,6 +1002,13 @@ function SessionHistorySidebar({
                       isDreamProcessed={dreamProcessedIds.has(row.session.id)}
                       contentHit={contentHitSessionIds.has(row.session.id)}
                       contentSnippet={contentHitSnippets.get(row.session.id)}
+                      streamState={
+                        pausedStreams[row.session.id]
+                          ? "paused"
+                          : streamControllers[row.session.id]
+                            ? "streaming"
+                            : null
+                      }
                       getSourceLabel={getSourceLabel}
                       onSwitch={handleSwitchSession}
                       onDoubleClick={handleDoubleClick}

@@ -31,6 +31,21 @@ export type EnterWorktreeInput = z.infer<typeof EnterWorktreeInputSchema>;
 export type EnterWorktreeOutput = z.infer<typeof EnterWorktreeOutputSchema>;
 
 /**
+ * U-03（2026-10-19）：`enter_worktree` 的**模型可见出参结构**（JSON Schema），
+ * 与 `EnterWorktreeOutputSchema` 逐字段对齐（`worktree_path` / `branch` 仅在成功时出现）。
+ */
+export const EnterWorktreeOutputJsonSchema: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    success: { type: 'boolean', description: '操作是否成功' },
+    message: { type: 'string', description: '操作结果消息' },
+    worktree_path: { type: 'string', description: '创建的 worktree 路径' },
+    branch: { type: 'string', description: '使用的分支名称' },
+  },
+  required: ['success', 'message'],
+};
+
+/**
  * 验证 EnterWorktreeTool 输入
  */
 export function validateEnterWorktreeInput(input: unknown) {

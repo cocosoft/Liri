@@ -34,11 +34,15 @@ describe('buildCronProactivePayload', () => {
     expect(buildCronProactivePayload(input(true), NOW).priority).toBe('low');
   });
 
-  it('去重键按 job + 结果区分；目标为本地通知；24h 过期', () => {
+  it('去重键按 job + 结果 + 运行时间窗区分；目标为本地通知；24h 过期', () => {
+    const bucket = Math.floor(NOW / 60_000);
     const fail = buildCronProactivePayload(input(false), NOW);
     const ok = buildCronProactivePayload(input(true), NOW);
-    expect(fail.dedupeKey).toBe('cron:job-1:fail');
-    expect(ok.dedupeKey).toBe('cron:job-1:ok');
+    expect(fail.dedupeKey).toBe(`cron:job-1:fail:${bucket}`);
+    expect(ok.dedupeKey).toBe(`cron:job-1:ok:${bucket}`);
+    // U-01 回归：同 job 的**不同运行**不得共用去重键（原实现 24h 内第二次运行被吞）
+    const later = buildCronProactivePayload(input(true), NOW + 60_000);
+    expect(later.dedupeKey).not.toBe(ok.dedupeKey);
     expect(fail.target).toEqual({ mode: 'local' });
     expect(fail.expiresAt).toBe(NOW + 24 * 60 * 60 * 1000);
     expect(fail.source).toEqual({ type: 'cron', ref: 'job-1' });
@@ -110,13 +114,15 @@ describe('enqueueCronResultProactive', () => {
 
   it('同 dedupeKey 已投递过（有效期内）⇒ 门禁 drop，不再入队', async () => {
     let enqueued = 0;
+    // U-01：同一次运行的重试落在同一分钟桶 ⇒ 键一致（由构造器派生，避免测试手写漂移）
+    const sameRunKey = buildCronProactivePayload(input(true), NOW).dedupeKey;
     const queue = {
       enqueue: async (): Promise<boolean> => {
         enqueued++;
         return true;
       },
       listRecentDelivered: async () => [
-        { dedupeKey: 'cron:job-1:ok', kind: 'task_result', deliveredAt: NOW },
+        { dedupeKey: sameRunKey, kind: 'task_result', deliveredAt: NOW },
       ],
     };
 

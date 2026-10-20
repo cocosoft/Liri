@@ -35,6 +35,11 @@ interface SessionListItemProps {
   contentHit?: boolean;
   /** §4.3-8 增强②：正文命中的首个片段（用于列表内上下文预览） */
   contentSnippet?: string;
+  /**
+   * U-04（2026-10-19）：该会话的实时状态。
+   * 非当前会话也要可见 —— 挂起/流式时侧栏若显示“空闲”，恢复后就变成“假空闲”。
+   */
+  streamState?: "streaming" | "paused" | null;
   getSourceLabel: (source?: string) => string;
   onSwitch: (id: string) => void;
   onDoubleClick: (id: string, title: string) => void;
@@ -54,6 +59,7 @@ function SessionListItem({
   isDreamProcessed,
   contentHit = false,
   contentSnippet,
+  streamState = null,
   getSourceLabel,
   onSwitch,
   onDoubleClick,
@@ -168,6 +174,26 @@ function SessionListItem({
                   {workspaceName}
                   <span className="mx-0.5 opacity-50">/</span>
                 </span>
+              )}
+              {streamState && (
+                <span
+                  role="status"
+                  className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+                    streamState === "paused"
+                      ? "bg-amber-400 dark:bg-amber-500"
+                      : "bg-green-500 dark:bg-green-400 animate-pulse"
+                  }`}
+                  title={t(
+                    streamState === "paused"
+                      ? "chat.pausedStatus"
+                      : "chat.streamingLabel",
+                  )}
+                  aria-label={t(
+                    streamState === "paused"
+                      ? "chat.pausedStatus"
+                      : "chat.streamingLabel",
+                  )}
+                />
               )}
               <SessionTitle
                 text={session.title}

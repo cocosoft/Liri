@@ -10,7 +10,10 @@ import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolCallProgress } from '../types/Tool';
 import { enterWorktree, isInsideGitRepo } from '@modules/workspaces';
-import { EnterWorktreeOutputSchema } from './schemas';
+import {
+  EnterWorktreeOutputSchema,
+  EnterWorktreeOutputJsonSchema,
+} from './schemas';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:EnterWorktreeTool:EnterWorktreeTool');
@@ -60,6 +63,8 @@ export class EnterWorktreeTool extends BaseTool<
    * 4 个失败分支为 `{success:false, message}`（两个可选字段缺省，符合 schema）⇒ 接线。
    */
   outputSchema = EnterWorktreeOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = EnterWorktreeOutputJsonSchema;
 
   /**
    * 工具描述

@@ -5,6 +5,7 @@
 import { Tool } from '../types/Tool';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
+import { CronListOutputJsonSchema } from './schemas';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:ChronosTool:CronListTool');
@@ -14,6 +15,8 @@ export class CronListTool {
     return {
       name: 'cron_list',
       description: 'List all active cron/scheduled tasks',
+      /** U-03（2026-10-19）：模型可见出参结构（按实际出口写，zod 契约已删） */
+      outputJsonSchema: CronListOutputJsonSchema,
       params: [],
       aliases: ['cron_jobs', 'list_cron', 'scheduled', 'tasks'],
       searchTips: ['cron', 'list', 'jobs', 'scheduled', 'tasks'],
@@ -100,6 +103,8 @@ export class CronListTool {
           readOnly: true,
           destructive: false,
           concurrencySafe: true,
+          // U-03（2026-10-19）：模型可见出参结构进注册快照（懒加载未解包也能下发）
+          outputJsonSchema: this.outputJsonSchema,
           deferred: false,
           alwaysLoad: false,
           interruptBehavior: 'block' as const,

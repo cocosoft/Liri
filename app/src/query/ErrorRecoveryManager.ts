@@ -29,6 +29,8 @@
 import { getLogger } from '@modules/monitoring';
 // CC-06（Spec §5.2 #10）：`[SYSTEM] ` 前缀由片段类型给出，渲染唯一走 `renderFragment()`。
 import { createFragment, renderFragment } from '@modules/context';
+// 2026-10-19：预期中断判据（单一事实源）——中止不是可恢复错误。
+import { isAbortReason } from '../error/abortReason.js';
 const logger = getLogger('query:errorRecovery');
 
 /** 恢复类型 */
@@ -116,7 +118,15 @@ function classifyError(error: Error): RecoveryType {
     return 'prompt_too_long';
 
   if (/empty.?response|no.?content/i.test(msg)) return 'empty_response';
-  if (/context.?length|400|413|too.?large/i.test(msg))
+  // 2026-10-19：状态码必须独立成词 —— provider 错误消息尾部带 `db:<uuid>`，
+  // 裸 `/400|413/`、`/5\d\d/`、`/429/` 会命中 UUID 的十六进制片段
+  // （实测 `0523c163…` 命中 `/5\d\d/` ⇒ 普通失败被误判 server_error 并重试）。
+  // 用「前后不得为十六进制字符/连字符」的边界，保留 `HTTP 500` / `exceeded 400` 的识别。
+  if (
+    /(?<![0-9a-f-])(?:400|413)(?![0-9a-f-])|context.?length|too.?large/i.test(
+      msg
+    )
+  )
     return 'context_overflow';
   if (/timeout|timed.?out|ETIMEDOUT/i.test(msg)) return 'timeout';
   if (/max.?output|token.?limit|finish_reason.*length/i.test(msg))
@@ -124,14 +134,15 @@ function classifyError(error: Error): RecoveryType {
 
   // 新增：服务端错误 → 重试
   if (
-    /5\d\d|server.error|internal.server|bad.gateway|service.unavailable/i.test(
+    /(?<![0-9a-f-])5\d{2}(?![0-9a-f-])|server.error|internal.server|bad.gateway|service.unavailable/i.test(
       msg
     )
   )
     return 'server_error';
 
   // 新增：速率限制 → 重试
-  if (/429|rate.limit|too.many.requests/i.test(msg)) return 'rate_limit';
+  if (/(?<![0-9a-f-])429(?![0-9a-f-])|rate.limit|too.many.requests/i.test(msg))
+    return 'rate_limit';
 
   // 新增：网络连接错误 → 重试
   if (
@@ -251,6 +262,21 @@ export class ErrorRecoveryManager {
    * 评估错误并返回恢复策略
    */
   assess(error: Error, context: RecoveryContext): RecoveryResult {
+    // 2026-10-19：预期中断（用户停止 / SSE 连接断开 / 会话关闭）**不是可恢复错误**。
+    // 实测缺口：`req.on(close)` 中止后，provider 的包装错误仍被分类为 server_error，
+    // 触发 `llm_interrupt_retry` 走非流式重试 —— 在已断开的会话上白发一次 LLM 请求。
+    // 在此统一收口为 abort（不消耗重试额度）；判据来自 `isAbortReason()` 单一事实源。
+    if (isAbortReason(error)) {
+      logger.info('Recovery skipped: expected abort', {
+        turnCount: context.turnCount,
+      });
+      return {
+        recovered: false,
+        action: 'abort',
+        message: '预期中断（客户端断开 / 系统侧中止），不重试',
+      };
+    }
+
     const type = classifyError(error);
 
     // 2026-08-31（对标 hermes TurnRetryState）：本地确定性 bug 不重试——

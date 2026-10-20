@@ -10,7 +10,10 @@ import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolCallProgress } from '../types/Tool';
 import { exitWorktree, isInsideGitRepo } from '@modules/workspaces';
-import { ExitWorktreeOutputSchema } from './schemas';
+import {
+  ExitWorktreeOutputSchema,
+  ExitWorktreeOutputJsonSchema,
+} from './schemas';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:ExitWorktreeTool:ExitWorktreeTool');
@@ -59,6 +62,8 @@ export class ExitWorktreeTool extends BaseTool<
    * 3 个失败分支为 `{success:false, message}`（可选字段缺省，符合 schema）⇒ 接线。
    */
   outputSchema = ExitWorktreeOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = ExitWorktreeOutputJsonSchema;
 
   /**
    * 工具描述

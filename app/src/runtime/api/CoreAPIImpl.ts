@@ -97,7 +97,7 @@ import type { LiriEvent } from '@modules/session/types/events';
 import type { SessionManager } from '@modules/session/types/session';
 import type { Message } from '@modules/session/types/message';
 import type { ToolManager } from '@modules/tools';
-// D-227（2026-10-02，B12）：`globalToolManager` 值改经 `CoreApiAppDeps.toolManager` 注入 ⇒ 删除静态值导入。
+import { TOOL_NAME_CONSTANTS } from '@modules/constants';
 import type { Coordinator } from '@modules/core';
 import { coordinator as defaultCoordinator } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
@@ -751,18 +751,18 @@ export class CoreAPIImpl implements CoreAPI {
               statusType: STATUS_TYPE.TOOL_RUNNING,
             } as ChatStreamChunk);
 
-            // 图像工具：流式返回进度状态，前端展示友好提示
-            if (toolName === 'image_generate') {
+            // 图像工具：流式返回进度状态（A-4：改用名称常量表；原 `image_analyze` 非注册名已订正）
+            const imageStatus =
+              toolName === TOOL_NAME_CONSTANTS.image_generate
+                ? '🎨 AI is generating an image...'
+                : toolName === TOOL_NAME_CONSTANTS.image_analysis ||
+                    toolName === TOOL_NAME_CONSTANTS.image
+                  ? '🔍 AI is analyzing the image...'
+                  : null;
+            if (imageStatus) {
               pendingEvents.push({
                 type: 'status',
-                content: '🎨 AI is generating an image...',
-                sessionId: finalSessionId,
-                statusType: STATUS_TYPE.TOOL_RUNNING,
-              } as ChatStreamChunk);
-            } else if (toolName === 'image_analyze' || toolName === 'image') {
-              pendingEvents.push({
-                type: 'status',
-                content: '🔍 AI is analyzing the image...',
+                content: imageStatus,
                 sessionId: finalSessionId,
                 statusType: STATUS_TYPE.TOOL_RUNNING,
               } as ChatStreamChunk);
@@ -924,7 +924,7 @@ export class CoreAPIImpl implements CoreAPI {
               },
               // create_project 工具完成后注入导航建议元数据 + 关联 session
               _meta:
-                toolName === 'create_project' && cachedResult
+                toolName === TOOL_NAME_CONSTANTS.create_project && cachedResult
                   ? (() => {
                       // cachedResult 是 toolResult.data — 对于 create_project 是 JSON 字符串
                       const rawData =
@@ -942,7 +942,7 @@ export class CoreAPIImpl implements CoreAPI {
 
             // create_project 工具完成后关联 session 到新项目
             if (
-              toolName === 'create_project' &&
+              toolName === TOOL_NAME_CONSTANTS.create_project &&
               cachedResult &&
               finalSessionId
             ) {

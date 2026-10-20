@@ -41,6 +41,19 @@ export class SendMessageTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.send_message;
   description = '向另一个代理发送消息';
 
+  /**
+   * U-03（2026-10-20，接线同批）：模型可见出参结构。
+   *
+   * 实际 `data` 是 `createToolResult(JSON.stringify({messageId,to,delivered,timestamp}))`
+   * ⇒ **字符串**（内含 JSON），不是对象 ⇒ 用标量声明（与 `file_convert` 同口径）。
+   * 失败分支 `data` 为 `null`、错误在 `error` 字段（工具层既有约定）。
+   */
+  override outputJsonSchema = {
+    type: 'string',
+    description:
+      'JSON 文本：{"messageId","to","delivered","timestamp"}；投递失败时 data 为 null，原因见 error',
+  };
+
   params: ToolParam[] = [
     {
       name: 'to',

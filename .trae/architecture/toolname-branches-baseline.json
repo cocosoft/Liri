@@ -1,12 +1,11 @@
 {
   "note": "A-4 工具名字符串分支基线（棘轮：只减不增）。由 scripts/count-toolname-branches.ts 生成。",
-  "generatedAt": "2026-10-18",
-  "total": 11,
+  "generatedAt": "2026-10-19",
+  "total": 7,
   "files": {
     "app/src/permission/PermissionCache.ts": 2,
     "app/src/permission/PermissionChecker.ts": 2,
     "app/src/permission/permissions.ts": 1,
-    "app/src/runtime/api/CoreAPIImpl.ts": 4,
     "client/src/components/views/image/useImageToolExecution.ts": 1,
     "client/src/services/chatService.ts": 1
   }

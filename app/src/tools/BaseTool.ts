@@ -79,6 +79,14 @@ export abstract class BaseTool<
   sandboxLevel?: 'none' | 'readonly' | 'file-io' | 'execution';
 
   /**
+   * U-03（2026-10-19）：**模型可见出参结构**（JSON Schema）。
+   *
+   * 子类按需声明；`getInfo()` 会把它放进注册快照 ⇒ 懒加载工具未解包也能下发。
+   * 与 `outputSchema`（运行期 `safeParse` 校验器）职责不同，勿混用。
+   */
+  outputJsonSchema?: Record<string, unknown>;
+
+  /**
    * 检查是否应使用沙箱执行
    * 子类可重写此方法实现自定义沙箱决策逻辑
    *
@@ -228,6 +236,14 @@ export abstract class BaseTool<
       interruptBehavior: this.interruptBehavior?.() || 'block',
       maxResultSizeChars: this.maxResultSizeChars,
       tags: this.tags,
+      // U-03（2026-10-19）：能力声明位透出，供懒加载包装器在未解包时判定执行类
+      ...(this.sandboxLevel !== undefined
+        ? { sandboxLevel: this.sandboxLevel }
+        : {}),
+      // U-03（2026-10-19）：模型可见出参结构同样进快照（懒加载工具也能下发给模型）
+      ...(this.outputJsonSchema !== undefined
+        ? { outputJsonSchema: this.outputJsonSchema }
+        : {}),
     };
   }
 

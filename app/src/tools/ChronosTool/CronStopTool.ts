@@ -7,6 +7,7 @@
 import { Tool } from '../types/Tool';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
+import { CronStopOutputJsonSchema } from './schemas';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -18,6 +19,8 @@ export class CronStopTool {
       name: 'cron_stop',
       description:
         'Pause or resume a scheduled cron task by ID. Paused tasks will not fire until resumed.',
+      /** U-03（2026-10-19）：模型可见出参结构 */
+      outputJsonSchema: CronStopOutputJsonSchema,
       params: [
         {
           name: 'id',
@@ -194,6 +197,8 @@ export class CronStopTool {
           readOnly: false,
           destructive: false,
           concurrencySafe: true,
+          // U-03（2026-10-19）：模型可见出参结构进注册快照（懒加载未解包也能下发）
+          outputJsonSchema: this.outputJsonSchema,
           deferred: false,
           alwaysLoad: false,
           interruptBehavior: 'block' as const,

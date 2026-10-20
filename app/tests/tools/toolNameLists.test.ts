@@ -525,10 +525,12 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
    * ⚠️ **口径订正（2026-10-16，P4a 评估实证）**：本集合原注释称"flag-gated 且默认关"，实测
    * 它**混装两类**（见 `dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md` §0.1）：
    * - **E 类（未接线）**：在 `buildBuiltinToolLoaders()` 与 `BUILTIN_TOOL_FACTORIES` 里**零命中**
-   *   —— 连"与 flag 无关的全量视图"都不在；本集合中除 `send_message` 外皆属此类；
-   * - **D 类（flag 门控）**：`send_message` —— 有 loader（`ToolManagerUtils.ts:201`），
-   *   仅因 `isToolEnabled('ENABLE_SEND_MESSAGE')` 默认 false 而不实例化
-   *   （`builtinToolRegistry.ts:183-189`）。
+   *   —— 连"与 flag 无关的全量视图"都不在；
+   * - **D 类（flag 门控）**：有 loader、仅因默认关而不实例化。
+   *
+   * ✅ 2026-10-20（U-03 收口，用户裁定「开 flag 接线」）：原 D 类唯一成员 `send_message` 已把
+   * `SEND_MESSAGE` 默认值改为 `true` 并补 `TOOL_EFFECTS` 声明 ⇒ **移出本集合**（77 → 78）；
+   * 现集合内 **11 个全部为 E 类**（未接线），无 D 类。
    *
    * ⚠️ 移出本集合的**唯一正规途径**是"真接线"（登记类别 + loader + 重算生成物 + 声明 effects），
    * 见 P4b；`task_output` 即首个（2026-10-16 接线，75 → 76）。
@@ -539,7 +541,6 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
     'mcp_auth',
     'music_generate',
     'nodes',
-    'send_message',
     'sessions_send',
     'sessions_spawn',
     'session_status',
@@ -567,8 +568,11 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
    * **P4b 接线回归锁（2026-10-16）**：影子工具"接线"的**可证伪判据** = 它同时满足
    * ① 进生成物（⇒ 会被真实实例化）② 不在差额集（⇒ 不再是 conditional 影子工具）。
    * 若日后有人把已接线工具的 loader/登记回退，本用例即红。
+   *
+   * `send_message`（2026-10-20）：原属 **D 类**（loader / 类别 / 真实现齐备，仅 flag 默认关）⇒
+   * 用户裁定「开 flag 接线」后 `SEND_MESSAGE` 默认 `true` 并补 `TOOL_EFFECTS` ⇒ 同属已接线。
    */
-  const P4B_WIRED_TOOL_NAMES = ['task_output', 'pdf'];
+  const P4B_WIRED_TOOL_NAMES = ['task_output', 'pdf', 'send_message'];
 
   /**
    * **P4b 期"下线"（非接线）的工具**：`propose_plan` —— 2026-10-16 用户裁定「审批入口合并到

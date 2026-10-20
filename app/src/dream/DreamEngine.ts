@@ -60,8 +60,8 @@ export class DreamEngine {
   private cycle: UnifiedDreamCycle;
   private started = false;
 
-  constructor(config?: Partial<DreamSchedulerConfig>) {
-    this.scheduler = new DreamScheduler(config);
+  constructor(config?: Partial<DreamSchedulerConfig>, isBusy?: () => boolean) {
+    this.scheduler = new DreamScheduler(config, isBusy);
     this.phaseManager = new DreamPhaseManager();
     this.persistence = this.scheduler.getPersistence();
     this.cycle = new UnifiedDreamCycle(this.persistence);

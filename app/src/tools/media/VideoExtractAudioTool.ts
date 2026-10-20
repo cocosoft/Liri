@@ -7,6 +7,7 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
+import { MEDIA_FILE_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { videoProcessor } from '../../media/video/VideoProcessor';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -38,6 +39,8 @@ export function createVideoExtractAudioTool(): Tool {
     isReadOnly: () => false,
     isDestructive: () => false,
     isConcurrencySafe: () => true,
+    /** U-03（2026-10-20）：模型可见出参结构（单文件产出族） */
+    outputJsonSchema: MEDIA_FILE_OUTPUT_JSON_SCHEMA,
 
     async execute(
       input: Record<string, unknown>,
@@ -113,12 +116,20 @@ export function createVideoExtractAudioTool(): Tool {
         const outputSize = fs.existsSync(safeOutput.path!)
           ? fs.statSync(safeOutput.path!).size
           : 0;
+        const originalSize = fs.statSync(safeInput.path!).size;
         logger.info('Audio extracted', {
           input: safeInput.path,
           output: safeOutput.path,
         });
         return {
           status: ToolExecutionStatus.SUCCESS,
+          // U-03（2026-10-20）：结构化出参（与 MEDIA_FILE_OUTPUT_JSON_SCHEMA 键集一致）
+          data: {
+            success: true,
+            filePath: safeOutput.path!,
+            originalSize,
+            processedSize: outputSize,
+          },
           output: JSON.stringify({ outputPath: safeOutput.path, outputSize }),
           errorOutput: '',
           metadata: { inputPath: safeInput.path, outputPath: safeOutput.path },
@@ -177,6 +188,7 @@ export function createVideoExtractAudioTool(): Tool {
         deferred: false,
         alwaysLoad: false,
         interruptBehavior: 'block',
+        outputJsonSchema: MEDIA_FILE_OUTPUT_JSON_SCHEMA,
       };
     },
   };

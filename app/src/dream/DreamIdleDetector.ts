@@ -56,8 +56,11 @@ export class DreamIdleDetector {
   /**
    * 开始空闲检测
    * @param onIdle 当空闲时长超过阈值时回调
+   * @param isBusy 可选：系统是否正在忙碌（如活跃流式会话）。
+   *   BUG-9（2026-10-19）：此前只监听 `USER_INTERACTION` ⇒ 长任务运行中仍被判空闲，
+   *   可能在预算可用时触发梦境并与长任务争资源。忙碌时持续重置空闲计时。
    */
-  start(onIdle: (duration: number) => void): void {
+  start(onIdle: (duration: number) => void, isBusy?: () => boolean): void {
     // 订阅用户交互事件
     globalEventBus.subscribe(SystemEvents.USER_INTERACTION, () => {
       this.lastActivity = Date.now();
@@ -65,6 +68,11 @@ export class DreamIdleDetector {
 
     // 独立的检测循环，低频轮询
     this.checkTimer = setInterval(() => {
+      // 系统忙碌 ≠ 空闲：先把计时重置，再跳过本次触发
+      if (isBusy?.()) {
+        this.lastActivity = Date.now();
+        return;
+      }
       const idleDuration = this.getIdleDuration();
       if (idleDuration >= this.idleThresholdMs) {
         logger.info(

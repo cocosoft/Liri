@@ -10,6 +10,45 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:MonitorTool:MonitorTool');
 
 /**
+ * U-03（2026-10-19）：`monitor` 的**模型可见出参结构**（JSON Schema）。
+ *
+ * `metric` 恒存在；其余字段随指标类型分三类：
+ * - `memory`：heap/RSS 字节与 MB 值；
+ * - `cpu`：`usage.user` / `usage.system`；
+ * - `disk` / `network`：仅 `message`（本实现未完整实现）。
+ */
+const MONITOR_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    metric: {
+      type: 'string',
+      enum: ['memory', 'cpu', 'disk', 'network'],
+      description: '实际监控的指标类型',
+    },
+    heapTotal: { type: 'number', description: 'V8 堆总量（字节）' },
+    heapUsed: { type: 'number', description: 'V8 已用堆（字节）' },
+    external: { type: 'number', description: '外部内存（字节）' },
+    rss: { type: 'number', description: '常驻内存集（字节）' },
+    heapTotalMB: { type: 'number', description: 'V8 堆总量（MB）' },
+    heapUsedMB: { type: 'number', description: 'V8 已用堆（MB）' },
+    usage: {
+      type: 'object',
+      description: 'CPU 占用（cpu 分支）',
+      properties: {
+        user: { type: 'number', description: '用户态微秒数' },
+        system: { type: 'number', description: '内核态微秒数' },
+      },
+      required: ['user', 'system'],
+    },
+    message: {
+      type: 'string',
+      description: '未实现指标（disk/network 分支）的提示',
+    },
+  },
+  required: ['metric'],
+};
+
+/**
  * Monitor工具类
  */
 export class MonitorTool extends BaseTool {
@@ -22,6 +61,9 @@ export class MonitorTool extends BaseTool {
    * 工具描述
    */
   description = '监控系统状态和性能';
+
+  /** U-03（2026-10-19）：模型可见出参结构（按 metric 分支） */
+  override outputJsonSchema = MONITOR_OUTPUT_JSON_SCHEMA;
 
   /**
    * 工具参数

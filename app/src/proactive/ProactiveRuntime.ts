@@ -23,8 +23,8 @@
  * G-10 P4（2026-10-19）：主动消息运行时接线（队列扫描器 + 通道投递适配器）。
  *
  * 设计真源：`dev_docs/20261019/proactive-draft.md` §8「配置与开关」。
- * - 统一由 `feature('PROACTIVE')` 控制，**默认关闭**；
- * - 关闭时：不建表、不启动扫描器、不投递 —— 行为与接线前**完全一致**；
+ * - 统一由 `feature('PROACTIVE')` 控制，**2026-10-20 起默认开启**（U-01 用户裁定）；
+ * - 关闭（`FEATURE_PROACTIVE=false`）时：不建表、不启动扫描器、不投递 —— 行为与接线前**完全一致**；
  * - 开启时：`ProactivePushQueue.init()` → 加载期扫描一次之后按周期扫描；
  *   投递按 `target.mode` 分流：`channel` 走 `createProactiveDeliveryAdapter()`，
  *   其余写 `notifications`（`createProactiveLocalDelivery`，P3 卡片数据源）；

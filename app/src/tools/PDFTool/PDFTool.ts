@@ -365,6 +365,30 @@ function ensurePdfExt(name: string): string {
 
 export class PDFTool extends BaseTool<Record<string, unknown>> {
   name = TOOL_NAME_CONSTANTS.pdf;
+
+  /**
+   * U-03（2026-10-19）：模型可见出参结构。
+   * 仅 `generate` 有载荷；`extract` / `info` 本构建 **fail-closed**（无 `data`）。
+   */
+  override outputJsonSchema = {
+    type: 'object',
+    properties: {
+      filename: { type: 'string', description: '产物文件名' },
+      filePath: { type: 'string', description: '产物绝对路径' },
+      sizeBytes: { type: 'number', description: '文件大小（字节）' },
+      title: { type: 'string', description: 'PDF 标题' },
+      language: { type: 'string', description: '文档语言' },
+      pages: { type: 'number', description: '页数' },
+    },
+    required: [
+      'filename',
+      'filePath',
+      'sizeBytes',
+      'title',
+      'language',
+      'pages',
+    ],
+  };
   description =
     'Generate simple PDF documents from text content, or convert a local file directly to PDF. ' +
     'When the source content already exists on disk (e.g. a markdown/html/text file), ' +

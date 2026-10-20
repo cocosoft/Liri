@@ -29,6 +29,35 @@ export interface AudioPlayOutput {
   count: number;
 }
 
+/**
+ * U-03（2026-10-19）：`audio_play` 的**模型可见出参结构**（JSON Schema），
+ * 与 `AudioPlayOutput` 逐字段对齐（失败分支无 `data` 载荷）。
+ */
+const AUDIO_PLAY_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    audios: {
+      type: 'array',
+      description: '可播放的音频列表',
+      items: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: '可访问的播放地址' },
+          name: { type: 'string', description: '音频名称' },
+          size: { type: 'number', description: '文件大小（字节）' },
+          originalPath: {
+            type: 'string',
+            description: '原始路径或 URL（入参回显）',
+          },
+        },
+        required: ['url', 'name', 'originalPath'],
+      },
+    },
+    count: { type: 'number', description: '有效音频数量' },
+  },
+  required: ['audios', 'count'],
+};
+
 export class AudioPlayTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.audio_play;
 
@@ -38,6 +67,9 @@ export class AudioPlayTool extends BaseTool {
     'Play audio files directly in the chat conversation. MUST call this after generating music/audio with music_generate to let users listen. ' +
     'Users cannot open file paths themselves — audio is only playable when you use this tool. ' +
     'Accepts local file paths or URLs. Supports audio playback with controls.';
+
+  /** U-03（2026-10-19）：模型可见出参结构（audios/count） */
+  override outputJsonSchema = AUDIO_PLAY_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

@@ -11,6 +11,7 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
+import { MEDIA_DELETE_BATCH_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { mediaStore } from '../../media/store/MediaStore';
 import { isToolCallApproved } from '@modules/permission';
 import { getLogger } from '@modules/monitoring';
@@ -36,6 +37,8 @@ export function createMediaDeleteBatchTool(): Tool {
     isReadOnly: () => false,
     isDestructive: () => true,
     isConcurrencySafe: () => true,
+    /** U-03（2026-10-20）：模型可见出参结构 */
+    outputJsonSchema: MEDIA_DELETE_BATCH_OUTPUT_JSON_SCHEMA,
 
     async execute(
       input: Record<string, unknown>,
@@ -111,6 +114,13 @@ export function createMediaDeleteBatchTool(): Tool {
           });
           return {
             status: ToolExecutionStatus.SUCCESS,
+            // U-03（2026-10-20）：结构化出参（与 MEDIA_DELETE_BATCH_OUTPUT_JSON_SCHEMA 键集一致）
+            data: {
+              success: true,
+              deletedCount,
+              total: safePaths.length,
+              filePaths: safePaths,
+            },
             executionTime: Date.now() - startTime,
             output: `已删除 ${deletedCount}/${safePaths.length} 个文件`,
             errorOutput: '',
@@ -186,6 +196,7 @@ export function createMediaDeleteBatchTool(): Tool {
         deferred: false,
         alwaysLoad: false,
         interruptBehavior: 'block',
+        outputJsonSchema: MEDIA_DELETE_BATCH_OUTPUT_JSON_SCHEMA,
       };
     },
   };

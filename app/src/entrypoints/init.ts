@@ -502,13 +502,24 @@ async function startDeferredPrefetches(): Promise<void> {
           const { startBackgroundHousekeeping, stopBackgroundHousekeeping } =
             await import('../chronos/maintenance/ChronosBackgroundHousekeeping.js');
           const { DreamEngine } = await import('../dream/DreamEngine.js');
+          // BUG-9（2026-10-19）：把“是否存在活跃流式会话”注入空闲检测 ——
+          // 长任务运行中不再被误判为空闲（此前只看 USER_INTERACTION）。
+          const { getCoreAPI } = await import('../runtime/api/CoreAPIImpl.js');
           const {
             initBuddyDreamIntegration,
             initBuddyTaskGrowthIntegration,
             initBuddyCronFeedbackIntegration,
           } = await import('../buddy/dreamIntegration.js');
           startBackgroundHousekeeping({
-            createDreamEngine: () => new DreamEngine(),
+            createDreamEngine: () =>
+              new DreamEngine(undefined, () => {
+                try {
+                  return getCoreAPI().getChatManager().hasActiveStreams();
+                } catch {
+                  // 早期 CoreAPI 未就绪 ⇒ 视为不忙（此时也尚无会话）
+                  return false;
+                }
+              }),
             initBuddyDomainIntegrations: () => {
               initBuddyDreamIntegration();
               initBuddyTaskGrowthIntegration();

@@ -25,7 +25,11 @@ import {
 } from '../utils/ToolUtils';
 import { grep, grepAsync } from './grep';
 import type { GrepInputType, GrepOutputType } from './schemas';
-import { validateGrepInput, GrepOutputSchema } from './schemas';
+import {
+  validateGrepInput,
+  GrepOutputSchema,
+  GrepOutputJsonSchema,
+} from './schemas';
 import { getDescription } from './prompt';
 import { resolveToolPrompt } from '@modules/services/prompt/PromptVersionManager';
 
@@ -105,6 +109,8 @@ export function buildEmptyResultDiagnostic(params: {
  */
 export class GrepTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.grep;
+  /** U-03（2026-10-19）：模型可见出参结构（下发为 `output_schema`） */
+  override outputJsonSchema = GrepOutputJsonSchema;
   /**
    * C-3：模型侧工具描述走 T2 解析链（用户 → 项目 → 包内 → 母语回退 → 内置兜底）。
    *

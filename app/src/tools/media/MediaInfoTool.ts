@@ -10,6 +10,7 @@
 import type { Tool, ToolParam, ToolInfo } from '../types/Tool';
 import { ToolExecutionStatus } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
+import { MEDIA_INFO_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
@@ -39,6 +40,8 @@ export function createMediaInfoTool(): Tool {
     isReadOnly: () => true,
     isDestructive: () => false,
     isConcurrencySafe: () => true,
+    /** U-03（2026-10-19）：模型可见出参结构（MediaFileInfo 投影） */
+    outputJsonSchema: MEDIA_INFO_OUTPUT_JSON_SCHEMA,
 
     async execute(
       input: Record<string, unknown>,
@@ -158,6 +161,7 @@ export function createMediaInfoTool(): Tool {
         deferred: false,
         alwaysLoad: false,
         interruptBehavior: 'block',
+        outputJsonSchema: MEDIA_INFO_OUTPUT_JSON_SCHEMA,
       };
     },
   };

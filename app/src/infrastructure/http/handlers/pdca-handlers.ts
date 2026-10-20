@@ -125,11 +125,22 @@ async function findExistingTask(sessionId: string): Promise<string | null> {
  *
  * ⚠️ C1（D-103）：原为**同步**函数，因端口 API 异步化 ⇒ 改为 `async`；
  * 唯一调用方 `main.ts` 已同步改为 `await`（**保持**"扫描先于留存清理"的既有次序约束）。
+ *
+ * U-02（2026-10-19）：返回**被 abort 的检查点快照**与**可续跑清单**，供入口层
+ * （`PDCA_AUTO_RESUME`，默认关）自动恢复。本层（infrastructure）**不**直接触发续跑
+ * ——跨层调用交由 entry（`main.ts`）完成（R00-001）。
  */
-export async function scanAndAbortStalePdcaTasks(): Promise<void> {
+export async function scanAndAbortStalePdcaTasks(): Promise<{
+  aborted: number;
+  /** 被标记 abort 的检查点快照（含非终态 phase，可用于 resume） */
+  abortedCheckpoints: Array<Record<string, unknown>>;
+  /** 等待审批阶段的任务（未被 abort，供入口提示/恢复） */
+  resumable: Array<{ taskId: string; phase?: string }>;
+}> {
   // 2026-09-29（台账「另案 ⑥」）：同批改用带记忆索引 —— 本函数虽只在启动时跑一次，
   // 但目录达 3394 文件时原实现同样要 ≈1s 全量 read+parse。
   let aborted = 0;
+  const abortedCheckpoints: Array<Record<string, unknown>> = [];
   // M2（2026-10-09）：**可续跑**（等待审批阶段）任务清单 —— 启动扫描**不** abort 它们，
   // 但此前**静默跳过**（仅 continue）⇒ 用户不知道"重启后有任务可恢复"。本清单使其**可发现**
   // （恢复入口：`/goal` 审批 或 `POST …/checkpoint/resume`，见 `checkpoint-handlers.ts`）。
@@ -155,11 +166,14 @@ export async function scanAndAbortStalePdcaTasks(): Promise<void> {
     }
 
     const taskId = ck.taskId as string;
-    await taskOps.writePdcaCheckpoint(taskId, {
+    const abortedCk: Record<string, unknown> = {
       ...ck,
       status: 'abort',
       abortedAt: new Date().toISOString(),
-    });
+    };
+    await taskOps.writePdcaCheckpoint(taskId, abortedCk);
+    // U-02：保留快照供入口层按需自动恢复（`PDCA_AUTO_RESUME`，默认关）
+    abortedCheckpoints.push(abortedCk);
 
     if (ck.workItemId) {
       await taskOps.syncPdcaWorkItemStatus(taskId, 'abort');
@@ -180,6 +194,7 @@ export async function scanAndAbortStalePdcaTasks(): Promise<void> {
         '/goal 审批 或 POST /v1/pdca/checkpoint/resume（见 checkpoint-handlers.ts）',
     });
   }
+  return { aborted, abortedCheckpoints, resumable };
 }
 
 // ========== PDCA Handlers ==========

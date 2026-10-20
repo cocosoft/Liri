@@ -51,6 +51,38 @@ const SKILL_VIEW_PARAMS: Tool['params'] = [
 ];
 
 /**
+ * U-03（2026-10-19）：`skill_view` 的**模型可见出参结构**（JSON Schema）。
+ *
+ * 三个成功分支：`SKILL.md` 原文 / `prompt` 生成的提示词 / `unchanged` 去重提示
+ * （`source` 即分支标识，`status`/`message` 仅去重分支出现）。
+ */
+const SKILL_VIEW_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    name: { type: 'string', description: '技能名称' },
+    source: {
+      type: 'string',
+      enum: ['SKILL.md', 'prompt', 'unchanged'],
+      description: '内容来源：技能文件原文 / 生成的提示词 / 去重占位',
+    },
+    content: {
+      type: 'string',
+      description: '技能内容（unchanged 分支为空串）',
+    },
+    status: {
+      type: 'string',
+      enum: ['unchanged'],
+      description: '去重标记（仅 unchanged 分支）',
+    },
+    message: {
+      type: 'string',
+      description: '去重提示：请直接按技能指引执行（仅 unchanged 分支）',
+    },
+  },
+  required: ['name', 'source', 'content'],
+};
+
+/**
  * SkillViewTool实现
  */
 export class SkillViewTool implements Tool {
@@ -63,6 +95,9 @@ export class SkillViewTool implements Tool {
 
   /** 工具参数 */
   readonly params = SKILL_VIEW_PARAMS;
+
+  /** U-03（2026-10-19）：模型可见出参结构（三分支 + unchanged 去重字段） */
+  readonly outputJsonSchema = SKILL_VIEW_OUTPUT_JSON_SCHEMA;
 
   /** 搜索提示 */
   readonly searchHint?: string = 'view skill content';
@@ -81,10 +116,14 @@ export class SkillViewTool implements Tool {
       readOnly: true,
       destructive: false,
       concurrencySafe: true,
+      // U-03（2026-10-19）：显式效果声明 —— 只读查看技能内容 ⇒ 幂等、无副作用
+      idempotent: true,
+      sideEffect: 'none',
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',
       tags: [ToolTag.AGENT],
+      outputJsonSchema: this.outputJsonSchema,
     };
   }
 

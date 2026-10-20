@@ -17,7 +17,7 @@ import { configManager } from '@modules/config';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 import { getLogger } from '@modules/monitoring';
-import { TeamCreateOutputSchema } from './schemas';
+import { TeamCreateOutputSchema, TeamCreateOutputJsonSchema } from './schemas';
 const logger = getLogger('tools:TeamCreateTool:TeamCreateTool');
 
 /**
@@ -92,6 +92,8 @@ export class TeamCreateTool extends BaseTool<
    * `success: false`** ⇒ 会被校验）⇒ 与 schema 的 3 个必填字段**完全相符** ⇒ 接线。
    */
   outputSchema = TeamCreateOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = TeamCreateOutputJsonSchema;
 
   /**
    * 工具描述

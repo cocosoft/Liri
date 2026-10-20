@@ -29,6 +29,17 @@ const MAX_RECONNECT_DELAY = 30000;
 const SSE_FALLBACK_POLL_INTERVAL_MS = 15000;
 
 /**
+ * U-04（2026-10-19）：链路健康判定阈值。
+ *
+ * 后端口每 15s 广播一次 `event: heartbeat` ⇒ 45s 未收到任何数据 = 连续错过 3 个心跳，
+ * 判定为半开/假连接并强制重连（原实现只看 `streamController !== null`，恒为 true）。
+ */
+const CONNECTION_STALE_MS = 45000;
+
+/** 心跳 HEAD 连续失败阈值（每 30s 一次 ⇒ 60s 内判定） */
+const HEARTBEAT_FAILURE_THRESHOLD = 2;
+
+/**
  * SSE 长连接服务
  *
  * 提供 Server-Sent Events 的连接、重连、心跳保活和轮询兜底能力。
@@ -74,6 +85,23 @@ class SSEService {
   /** visibilitychange 处理器引用（保留以便移除） */
   private _onVisibilityChange: (() => void) | null = null;
 
+  /** U-04：最近一次收到 SSE 数据（任意 chunk/事件）的时间 */
+  private lastEventAt = 0;
+
+  /** U-04：心跳 HEAD 连续失败次数 */
+  private heartbeatFailures = 0;
+
+  /**
+   * U-04 残余（2026-10-19）：最近一次收到的事件 id（SSE `id:` 字段）。
+   * 重连时通过 `Last-Event-ID` 头请求后端补发缺失事件（跨会话展示用）。
+   */
+  private lastEventId = 0;
+
+  /** U-04：是否已绑定浏览器 online 监听 */
+  private onlineBound = false;
+  /** online 处理器引用（保留以便移除） */
+  private _onOnline: (() => void) | null = null;
+
   // ── 公共 API ──────────────────────────────────────────────────
 
   /**
@@ -91,6 +119,9 @@ class SSEService {
     }
 
     logger.info("[connect] 开始建立 SSE 连接");
+    // U-04：新连接起始时刻作为“尚未收到首块”的宽限基准
+    this.lastEventAt = 0;
+    this.heartbeatFailures = 0;
     // 停止轮询（如果正在运行）
     this.stopPolling();
 
@@ -101,9 +132,14 @@ class SSEService {
       const controller = new AbortController();
       this.streamController = controller;
       const headers = buildAuthHeaders();
+      // U-04 残余：重连时用 Last-Event-ID 请求补发断线期间的事件
+      if (this.lastEventId > 0) {
+        headers["Last-Event-ID"] = String(this.lastEventId);
+      }
       logger.debug("[connect] 发起 SSE fetch", {
         url: sseUrl,
         hasAuth: !!headers["X-API-Key"],
+        lastEventId: this.lastEventId,
       });
 
       fetch(sseUrl, { headers, signal: controller.signal })
@@ -143,6 +179,9 @@ class SSEService {
     logger.info(`[onopen] SSE 连接成功 wasReconnecting=${wasReconnecting}`);
     this.reconnectDelay = INITIAL_RECONNECT_DELAY;
     this.reconnectFailCount = 0;
+    // U-04：连接建立即视为“链路新鲜”，并清零心跳失败计数
+    this.lastEventAt = Date.now();
+    this.heartbeatFailures = 0;
     this.startHeartbeat();
     this.stopPolling();
 
@@ -218,12 +257,16 @@ class SSEService {
     const decoder = new TextDecoder();
     let buffer = "";
     let currentEvent = "message";
+    /** U-04 残余：当前事件的 `id:` 字段（无则沿用上一条，SSE 语义） */
+    let currentId = this.lastEventId;
     const pendingData: string[] = [];
 
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        // U-04：任意数据到达都刷新“链路新鲜度”（含服务端 heartbeat 事件）
+        this.lastEventAt = Date.now();
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() || "";
@@ -241,6 +284,8 @@ class SSEService {
             const evt = currentEvent;
             currentEvent = "message";
             if (payload === "[DONE]") continue;
+            // U-04 残余：记录事件 id（重连补发游标），在 dispatch 前更新
+            if (currentId > 0) this.lastEventId = currentId;
             const data = this.parse(payload);
             this.logEventReceived(evt, payload, data);
             this.dispatch(evt, data);
@@ -251,8 +296,11 @@ class SSEService {
             currentEvent = trimmed.slice(6).trim() || "message";
           } else if (trimmed.startsWith("data:")) {
             pendingData.push(trimmed.slice(5).trimStart());
+          } else if (trimmed.startsWith("id:")) {
+            const parsed = Number.parseInt(trimmed.slice(3).trim(), 10);
+            if (Number.isFinite(parsed) && parsed >= 0) currentId = parsed;
           }
-          // 其他 SSE 字段（id:/retry:）忽略
+          // 其他 SSE 字段（retry:）忽略
         }
       }
       // 流正常结束（后端关闭连接）→ 视为断开，走重连
@@ -350,6 +398,10 @@ class SSEService {
       this.streamController = null;
     }
 
+    // U-04：重置链路健康计时（下次 connect 从“握手宽限”重新开始）
+    this.lastEventAt = 0;
+    this.heartbeatFailures = 0;
+
     this.stopHeartbeat();
     this.stopPolling();
 
@@ -367,6 +419,13 @@ class SSEService {
       this._onVisibilityChange = null;
       this.visibilityBound = false;
     }
+
+    // U-04：移除 online 监听器
+    if (this.onlineBound && this._onOnline) {
+      window.removeEventListener("online", this._onOnline);
+      this._onOnline = null;
+      this.onlineBound = false;
+    }
   }
 
   /**
@@ -381,9 +440,33 @@ class SSEService {
 
   /**
    * 检查当前连接状态
+   *
+   * U-04（2026-10-19）：不再只看“句柄是否存在”——半开连接/TCP 假活时句柄仍在，
+   * 原实现会让 `visibilitychange` 早退、永不重连。现以“最近一次收到数据的时间”判定：
+   * 超过 {@link CONNECTION_STALE_MS} 视为假连接。
    */
   isConnected(): boolean {
-    return this.streamController !== null;
+    if (this.streamController === null) return false;
+    // 刚发起、尚未收到首块：给握手宽限期（避免 connect 后立即被判假连接）
+    if (this.lastEventAt === 0) return true;
+    return Date.now() - this.lastEventAt < CONNECTION_STALE_MS;
+  }
+
+  /**
+   * U-04：强制重建连接（网络恢复 / 切回前台 / 后端重启）。
+   * 先断开旧流（abort 不会触发错误重连），再立即重连并重置退避。
+   */
+  reconnectNow(): void {
+    if (this.streamController) {
+      logger.info("[reconnectNow] 丢弃旧连接并立即重建");
+      this.disconnect();
+    }
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectDelay = INITIAL_RECONNECT_DELAY;
+    this.connect();
   }
 
   // ── 心跳保活 ──────────────────────────────────────────────────
@@ -397,8 +480,22 @@ class SSEService {
     this.stopHeartbeat();
 
     this.pingTimer = setInterval(() => {
-      // 仅当 SSE 连接正常时才发送心跳
-      if (!this.isConnected()) return;
+      // 无连接句柄 ⇒ 无事可做（重连由 scheduleReconnect 负责）
+      if (!this.streamController) return;
+
+      // U-04：先判“链路静默”再看健康状态 —— 假连接时 isConnected() 已返回 false，
+      // 若先 return 就永远不会触发重连。
+      if (
+        this.lastEventAt > 0 &&
+        Date.now() - this.lastEventAt >= CONNECTION_STALE_MS
+      ) {
+        logger.warn("[heartbeat] 链路静默超过阈值，判定假连接并重连", {
+          silentMs: Date.now() - this.lastEventAt,
+          thresholdMs: CONNECTION_STALE_MS,
+        });
+        this.handleConnectionError();
+        return;
+      }
 
       const startedAt = Date.now();
       // 构建一次鉴权头：同时供请求与日志 hasAuth 判断复用（不打印 secret 明文）
@@ -416,6 +513,8 @@ class SSEService {
         headers,
       })
         .then((res) => {
+          // U-04：HEAD 成功 ⇒ 网络/后端可达，清零失败计数
+          this.heartbeatFailures = 0;
           logger.debug("[heartbeat] 心跳完成", {
             url,
             status: res.status,
@@ -425,11 +524,20 @@ class SSEService {
         })
         .catch((err: unknown) => {
           // 排查保活失效的关键日志：代理断连 / 鉴权失败 / 网络中断
+          this.heartbeatFailures++;
           logger.warn("[heartbeat] 心跳失败", {
             url,
             error: err instanceof Error ? err.message : String(err),
             durationMs: Date.now() - startedAt,
+            consecutiveFailures: this.heartbeatFailures,
           });
+          // U-04：连续失败达阈值 ⇒ 判定假连接并重连（原实现只 warn，永不恢复）
+          if (this.heartbeatFailures >= HEARTBEAT_FAILURE_THRESHOLD) {
+            logger.warn("[heartbeat] 心跳连续失败，强制重建 SSE 连接", {
+              consecutiveFailures: this.heartbeatFailures,
+            });
+            this.handleConnectionError();
+          }
         });
     }, 30000);
   }
@@ -508,22 +616,29 @@ class SSEService {
    * 标签页从后台切回前台时，若 SSE 连接断开则立即尝试重连。
    */
   private bindVisibilityListener(): void {
-    if (this.visibilityBound) return;
-    this.visibilityBound = true;
+    if (!this.visibilityBound) {
+      this.visibilityBound = true;
 
-    this._onVisibilityChange = () => {
-      if (document.visibilityState !== "visible") return;
-      if (this.isConnected()) return;
+      this._onVisibilityChange = () => {
+        if (document.visibilityState !== "visible") return;
+        // U-04：isConnected 已改为健康判定（含 45s 静默）⇒ 假连接也会走到这里重连
+        if (this.isConnected()) return;
+        logger.info("[visibilitychange] 切回前台且链路不健康，立即重建 SSE");
+        this.reconnectNow();
+      };
+      document.addEventListener("visibilitychange", this._onVisibilityChange);
+    }
 
-      // 清除已调度的重连，立即重连
-      if (this.reconnectTimer) {
-        clearTimeout(this.reconnectTimer);
-        this.reconnectTimer = null;
-      }
-      this.reconnectDelay = INITIAL_RECONNECT_DELAY;
-      this.connect();
-    };
-    document.addEventListener("visibilitychange", this._onVisibilityChange);
+    // U-04：浏览器网络恢复（online）⇒ 立即重建事件通道；
+    // 原实现只由 connectionMonitor 唤醒挂起的对话流，不重建 /v1/events。
+    if (!this.onlineBound) {
+      this.onlineBound = true;
+      this._onOnline = () => {
+        logger.info("[online] 网络恢复，立即重建 SSE 连接");
+        this.reconnectNow();
+      };
+      window.addEventListener("online", this._onOnline);
+    }
   }
 
   // ── 内部工具 ──────────────────────────────────────────────────

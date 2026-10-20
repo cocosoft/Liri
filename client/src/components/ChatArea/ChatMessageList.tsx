@@ -81,6 +81,7 @@ function SearchBar({
   onPrev,
   onNext,
   onClose,
+  searchingOlder = false,
 }: {
   query: string;
   onQueryChange: (q: string) => void;
@@ -89,6 +90,8 @@ function SearchBar({
   onPrev: () => void;
   onNext: () => void;
   onClose: () => void;
+  /** U-06-7：当前页无命中且仍在向前补页搜索历史 */
+  searchingOlder?: boolean;
 }) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -132,7 +135,9 @@ function SearchBar({
         <span className="text-xs text-gray-500 shrink-0 whitespace-nowrap">
           {matchCount > 0
             ? `${currentIndex + 1}/${matchCount} ${t("chat.searchResults")}`
-            : t("chat.noResults")}
+            : searchingOlder
+              ? t("chat.searchingOlder")
+              : t("chat.noResults")}
         </span>
       )}
       {matchCount > 1 && (
@@ -471,6 +476,52 @@ export default function ChatMessageList({
       .map((msg) => msg.id);
   }, [messages, searchQuery]);
 
+  /**
+   * U-06-7（2026-10-19）：页内搜索只覆盖已加载消息 —— 当前页无命中时自动向前补页，
+   * 直到命中 / 历史取尽 / 补页无进展（失败保护），不再出现"历史里明明有却搜不到"。
+   */
+  const [searchExhausted, setSearchExhausted] = useState(false);
+  const searchLoadCountRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setSearchExhausted(false);
+    searchLoadCountRef.current = null;
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!searchQuery.trim() || matchedIds.length > 0) return;
+    if (!hasOlder || loadingOlder || searchExhausted) return;
+    if (oldestSeq == null) {
+      setSearchExhausted(true);
+      return;
+    }
+    // 上一轮补页没有带来任何新消息 ⇒ 停止（避免失败时无限重试）
+    if (
+      searchLoadCountRef.current !== null &&
+      messages.length <= searchLoadCountRef.current
+    ) {
+      setSearchExhausted(true);
+      return;
+    }
+    searchLoadCountRef.current = messages.length;
+    void loadOlderMessages();
+  }, [
+    searchQuery,
+    matchedIds.length,
+    hasOlder,
+    loadingOlder,
+    oldestSeq,
+    searchExhausted,
+    messages.length,
+    loadOlderMessages,
+  ]);
+
+  const searchingOlder =
+    searchQuery.trim() !== "" &&
+    matchedIds.length === 0 &&
+    hasOlder &&
+    !searchExhausted;
+
   /** 处理搜索导航：滚动到指定匹配消息 */
   const scrollToMatch = useCallback(
     (index: number) => {
@@ -748,6 +799,7 @@ export default function ChatMessageList({
             onPrev={goToPrevMatch}
             onNext={goToNextMatch}
             onClose={closeSearch}
+            searchingOlder={searchingOlder}
           />
         )}
 

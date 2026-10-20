@@ -4,6 +4,7 @@ import {
   listPdcaCheckpoints,
   writePdcaCheckpoint,
   PDCA_TERMINAL_PHASES,
+  ensureGoalForBatch,
 } from '@modules/tasks';
 import { getOrCreateOrchestrator, getOrchestrator } from '@modules/tasks';
 import { handleError } from '@modules/error';
@@ -130,15 +131,25 @@ export default {
         sessionId,
       });
 
+      // U-02（2026-10-19）：目标实体接入主路径 —— `/goal start` 为该会话建目标
+      // （已有未终结目标 ⇒ 复用，不覆盖），PDCA 终态时按 goalId 精确落定。
+      // 失败不阻断启动（ensureGoalForBatch 内部已记录错误并返回 null）。
+      const goal = await ensureGoalForBatch({
+        sessionId,
+        objective: description,
+      });
+
       // 异步执行 PDCA（Plan→Execute→Check→总结），不阻塞命令返回（同 handler）
       const orchestrator = getOrCreateOrchestrator(taskId);
-      void orchestrator.runFullPdca(description, sessionId).catch(async (e) => {
-        await handleError(e, {
-          module: 'commands:goal',
-          action: 'start',
-          context: { taskId },
+      void orchestrator
+        .runFullPdca(description, sessionId, { goalId: goal?.id })
+        .catch(async (e) => {
+          await handleError(e, {
+            module: 'commands:goal',
+            action: 'start',
+            context: { taskId },
+          });
         });
-      });
 
       context.onDone?.(`PDCA 任务 ${taskId} 已启动`, { display: 'system' });
       return {

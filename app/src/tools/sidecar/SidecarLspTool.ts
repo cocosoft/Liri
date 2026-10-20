@@ -304,6 +304,10 @@ export class SidecarLspTool implements Tool {
       readOnly: this.readOnly,
       destructive: this.destructive,
       concurrencySafe: this.concurrencySafe,
+      // U-03（2026-10-19）：显式效果声明 —— 与内置 `lsp` 同源语义（rename/format 改本地文件）
+      // ⇒ 非幂等、副作用限本机
+      idempotent: false,
+      sideEffect: 'local',
       deferred: this.deferred,
       alwaysLoad: this.alwaysLoad,
       interruptBehavior: this.interruptBehavior(),

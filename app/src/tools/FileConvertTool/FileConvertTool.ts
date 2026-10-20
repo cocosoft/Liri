@@ -102,6 +102,17 @@ export class FileConvertTool extends BaseTool {
    * **刻意不断言非空**：空产物（如空文件的转换结果）合法。
    */
   outputSchema = z.string();
+
+  /**
+   * U-03（2026-10-20）：模型可见出参结构 —— 本工具 `data` **恒为字符串**（见上方 `outputSchema`
+   * 与各处 `createToolResult(<string>, …)`），故用标量 `{ type: 'string' }` 表达
+   * （`ToolSchema.output_schema` 已支持标量）。
+   */
+  override outputJsonSchema = {
+    type: 'string',
+    description:
+      'md 模式：Markdown 正文（超长时已截断，可用 offset/limit 续取）；docx 模式：转换回执；失败：错误说明',
+  };
   override readonly description =
     'Convert file to Markdown format, or convert locally to .docx (no LLM involved). ' +
     'For local file conversion requests (e.g. html/md → Word), prefer this over doc_generate ' +

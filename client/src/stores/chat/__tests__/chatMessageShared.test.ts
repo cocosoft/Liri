@@ -21,7 +21,10 @@
 
 // T1.1（2026-08-23）：dedupeToolCallBlocks 合并去重测试
 import { describe, it, expect } from "vitest";
-import { dedupeToolCallBlocks } from "../chat-message-shared";
+import {
+  dedupeToolCallBlocks,
+  parseApprovalSignal,
+} from "../chat-message-shared";
 import type { MessageBlock } from "@/types";
 
 function toolBlock(
@@ -90,5 +93,35 @@ describe("dedupeToolCallBlocks — 同 toolCallId 合并去重（T1.1）", () =>
     expect(result).toHaveLength(2);
     expect(result[0].type).toBe("text");
     expect(result[1].toolCall?.status).toBe("completed");
+  });
+});
+
+describe("parseApprovalSignal — 审批等待信号（U-06-5）", () => {
+  it("awaiting_approval 结果（含 inboxId）⇒ pendingApproval + inboxId", () => {
+    const raw = JSON.stringify({
+      status: "awaiting_approval",
+      message: "需要审批",
+      pendingApproval: true,
+      inboxId: "ib-1",
+    });
+    expect(parseApprovalSignal(raw)).toEqual({
+      pendingApproval: true,
+      inboxId: "ib-1",
+    });
+  });
+
+  it("pendingApproval=true 但无 inboxId ⇒ 仍返回信号（按钮不渲染，退回收件箱）", () => {
+    const raw = JSON.stringify({ pendingApproval: true });
+    expect(parseApprovalSignal(raw)).toEqual({
+      pendingApproval: true,
+      inboxId: undefined,
+    });
+  });
+
+  it("普通 JSON 结果 / 非 JSON 文本 / 非字符串 ⇒ null（不误判为审批态）", () => {
+    expect(parseApprovalSignal(JSON.stringify({ output: "done" }))).toBeNull();
+    expect(parseApprovalSignal("plain text result")).toBeNull();
+    expect(parseApprovalSignal(undefined)).toBeNull();
+    expect(parseApprovalSignal({ pendingApproval: true })).toBeNull();
   });
 });

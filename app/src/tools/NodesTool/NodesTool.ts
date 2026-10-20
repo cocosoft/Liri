@@ -35,6 +35,76 @@ export interface NodesToolParams {
   capabilities?: string[];
 }
 
+/**
+ * U-03（2026-10-20）：`nodes` 的模型可见出参结构（多 action 分支并集，根级仅 `action` 恒存在）。
+ *
+ * ⚠️ 当前实现是**未接线的占位**（`list` 恒空、`status` 恒 `unknown`、`ping` 恒 `alive:false`、
+ * `add` 不落库）—— 本声明只描述**出口形状**，不承诺节点可用性；接通真实节点注册表后
+ * 形状不变，故无需改声明。
+ */
+const NODES_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  description: '按 action 分支变化：根级只有 action 恒存在',
+  properties: {
+    action: {
+      type: 'string',
+      enum: ['list', 'status', 'add', 'remove', 'ping'],
+      description: '本次执行的操作',
+    },
+    nodes: {
+      type: 'array',
+      description: '节点列表（list 分支）',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: '节点 ID' },
+          name: { type: 'string', description: '节点名称' },
+          status: {
+            type: 'string',
+            enum: ['online', 'offline', 'busy', 'error'],
+            description: '节点状态',
+          },
+          host: { type: 'string', description: '主机地址' },
+          port: { type: 'number', description: '端口' },
+          version: { type: 'string', description: '节点版本' },
+          uptime: { type: 'number', description: '在线时长（秒）' },
+          capabilities: {
+            type: 'array',
+            items: { type: 'string' },
+            description: '节点能力列表',
+          },
+          lastHeartbeat: { type: 'string', description: '最近心跳时间' },
+          loadAvg: { type: 'number', description: '平均负载' },
+          memoryUsage: { type: 'number', description: '内存占用（字节）' },
+        },
+        required: ['id', 'name', 'status'],
+      },
+    },
+    node: {
+      type: 'object',
+      description: '注册的节点（add 分支）',
+      properties: {
+        id: { type: 'string', description: '节点 ID' },
+        name: { type: 'string', description: '节点名称' },
+        host: { type: 'string', description: '主机地址' },
+        port: { type: 'number', description: '端口' },
+      },
+      required: ['id', 'name', 'host', 'port'],
+    },
+    nodeId: {
+      type: 'string',
+      description: '目标节点 ID（status/remove/ping 分支）',
+    },
+    status: {
+      type: 'string',
+      enum: ['online', 'offline', 'busy', 'error', 'unknown'],
+      description: '节点状态（status 分支；未接线时恒 unknown）',
+    },
+    alive: { type: 'boolean', description: '连通性探测结果（ping 分支）' },
+  },
+  required: ['action'],
+};
+
 export class NodesTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.nodes;
 
@@ -42,6 +112,9 @@ export class NodesTool extends BaseTool {
     '管理分布式节点与工作进程。支持列出、状态检查、添加、移除和 ping 节点。';
 
   override tags = [ToolTag.SYSTEM];
+
+  /** U-03（2026-10-20）：模型可见出参结构（多 action 分支并集） */
+  override outputJsonSchema = NODES_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

@@ -241,6 +241,9 @@ export class KnowledgeWriteTool implements Tool {
       readOnly: this.isReadOnly(),
       destructive: this.isDestructive(),
       concurrencySafe: this.isConcurrencySafe(),
+      // U-03（2026-10-19）：显式效果声明 —— 写本地知识库 ⇒ 非幂等、副作用限本机
+      idempotent: false,
+      sideEffect: 'local',
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',

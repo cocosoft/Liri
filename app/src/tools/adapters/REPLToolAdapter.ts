@@ -297,6 +297,9 @@ export class REPLToolAdapter implements Tool {
       readOnly: this.readOnly,
       destructive: this.destructive,
       concurrencySafe: this.concurrencySafe,
+      // U-03（2026-10-19）：显式效果声明 —— 执行任意代码（可触达网络/外部系统）⇒ 非幂等、对外可见
+      idempotent: false,
+      sideEffect: 'external',
       deferred: this.deferred,
       alwaysLoad: this.alwaysLoad,
       interruptBehavior: this.interruptBehavior(),

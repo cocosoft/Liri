@@ -14,7 +14,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { getLogger } from '@modules/monitoring';
-import { CodeAnalysisOutputSchema } from './schemas';
+import {
+  CodeAnalysisOutputSchema,
+  CodeAnalysisOutputJsonSchema,
+} from './schemas';
 const logger = getLogger('tools:CodeAnalysisTool:CodeAnalysisTool');
 
 /**
@@ -70,6 +73,8 @@ export class CodeAnalysisTool implements Tool {
    * 上文的历史说明保留作沿革。
    */
   outputSchema = CodeAnalysisOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构（下发为 `output_schema`） */
+  outputJsonSchema = CodeAnalysisOutputJsonSchema;
   description: string = '分析代码结构、质量和依赖关系';
   params: any[] = [];
 
@@ -81,6 +86,9 @@ export class CodeAnalysisTool implements Tool {
       readOnly: true,
       destructive: false,
       concurrencySafe: true,
+      // U-03（2026-10-19）：显式效果声明 —— 只读代码分析 ⇒ 幂等、无副作用
+      idempotent: true,
+      sideEffect: 'none',
       deferred: false,
       alwaysLoad: false,
       interruptBehavior: 'block',
@@ -127,7 +135,9 @@ export class CodeAnalysisTool implements Tool {
    * 获取工具信息
    */
   getInfo(): ToolInfo {
-    return this.info;
+    // U-03（2026-10-19）：`info` 是构造期快照 ⇒ 把模型可见出参结构补进去
+    // （否则懒加载包装器从快照读不到，声明形同虚设）。
+    return { ...this.info, outputJsonSchema: this.outputJsonSchema };
   }
 
   /**

@@ -16,6 +16,17 @@ interface SleepInput {
 
 export class SleepTool extends BaseTool<Record<string, unknown>> {
   name = TOOL_NAME_CONSTANTS.sleep;
+
+  /** U-03（2026-10-19）：模型可见出参结构（`reason` 为入参回显，可缺省） */
+  override outputJsonSchema = {
+    type: 'object',
+    properties: {
+      durationMs: { type: 'number', description: '请求的休眠时长（毫秒）' },
+      elapsed: { type: 'number', description: '实际耗时（毫秒）' },
+      reason: { type: 'string', description: '休眠原因（入参回显，可缺省）' },
+    },
+    required: ['durationMs', 'elapsed'],
+  };
   description =
     '暂停执行指定时长。当需要在继续之前等待时使用（例如等待资源、限流或计时）。';
   params: ToolParam[] = [

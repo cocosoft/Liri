@@ -66,6 +66,131 @@ export interface GeneratedImage {
   filePath?: string;
 }
 
+/**
+ * U-03（2026-10-19）：`image_generate` 的**模型可见出参结构**（JSON Schema）。
+ *
+ * 成功分支：images / params / model / durationMs / usedProvider / costBreakdown /
+ * totalCostUsd / costEstimates；全部 Provider 失败分支只有
+ * costBreakdown / totalCostUsd / providerErrors ⇒ 仅这两项为必填。
+ */
+const IMAGE_GENERATE_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    images: {
+      type: 'array',
+      description: '生成的图片列表（成功分支）',
+      items: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'Provider 返回的原始图片地址' },
+          alt: { type: 'string', description: '图片描述（prompt 截断）' },
+          size: { type: 'string', description: '图片尺寸，如 1024x1024' },
+          format: { type: 'string', description: '图片格式（png/jpeg/webp）' },
+          provider: { type: 'string', description: '实际生成该图的 Provider' },
+          seed: {
+            type: 'number',
+            description: '随机种子（Provider 支持时返回）',
+          },
+          fileId: {
+            type: 'string',
+            description: '本地媒体库文件 ID（注册成功时返回）',
+          },
+          localUrl: {
+            type: 'string',
+            description: '本地持久化地址，供前端展示',
+          },
+          filePath: {
+            type: 'string',
+            description: '本地完整路径，供后续工具（如 image_analysis）读取',
+          },
+        },
+        required: ['url', 'alt', 'size', 'format', 'provider'],
+      },
+    },
+    params: {
+      type: 'object',
+      description: '入参回显（实际生效的生成参数）',
+      properties: {
+        prompt: { type: 'string', description: '生成提示词' },
+        model: { type: 'string', description: '生图模型名' },
+        negativePrompt: { type: 'string', description: '反向提示词' },
+        size: { type: 'string', description: '图片尺寸' },
+        quality: {
+          type: 'string',
+          enum: ['standard', 'hd'],
+          description: '图片质量（DALL-E 专用）',
+        },
+        style: {
+          type: 'string',
+          enum: ['vivid', 'natural'],
+          description: '图片风格（DALL-E 专用）',
+        },
+        n: { type: 'number', description: '生成张数' },
+        format: {
+          type: 'string',
+          enum: ['png', 'jpeg', 'webp'],
+          description: '输出格式',
+        },
+        provider: {
+          type: 'string',
+          description: '指定的 Provider（跳过 fallback 链时回显）',
+        },
+      },
+      required: ['prompt'],
+    },
+    model: { type: 'string', description: '实际使用的模型名' },
+    durationMs: { type: 'number', description: '生成耗时（毫秒）' },
+    usedProvider: { type: 'string', description: '最终成功的 Provider' },
+    costBreakdown: {
+      type: 'array',
+      description: '各 Provider 的尝试成本记录',
+      items: {
+        type: 'object',
+        properties: {
+          provider: { type: 'string', description: 'Provider 名称' },
+          status: {
+            type: 'string',
+            enum: ['success', 'failed'],
+            description: '该次尝试结果',
+          },
+          estimatedCostUsd: {
+            type: 'number',
+            description: '估算成本（美元）',
+          },
+          latencyMs: { type: 'number', description: '该次尝试耗时（毫秒）' },
+        },
+        required: ['provider', 'status', 'estimatedCostUsd', 'latencyMs'],
+      },
+    },
+    totalCostUsd: { type: 'number', description: '本次总成本（美元）' },
+    costEstimates: {
+      type: 'array',
+      description: '生成前的费用估算（按 Provider）',
+      items: {
+        type: 'object',
+        properties: {
+          provider: { type: 'string', description: 'Provider 名称' },
+          estimatedUsd: { type: 'number', description: '估算费用（美元）' },
+          currency: { type: 'string', enum: ['USD'], description: '币种' },
+          confidence: {
+            type: 'string',
+            enum: ['exact', 'approximate'],
+            description: '估算置信度',
+          },
+          breakdown: { type: 'string', description: '费用拆分说明（可选）' },
+        },
+        required: ['provider', 'estimatedUsd', 'currency', 'confidence'],
+      },
+    },
+    providerErrors: {
+      type: 'array',
+      items: { type: 'string' },
+      description: '失败分支：本次尝试过的 Provider 名称列表',
+    },
+  },
+  required: ['costBreakdown', 'totalCostUsd'],
+};
+
 export class ImageGenerateTool extends BaseTool {
   name = TOOL_NAME_CONSTANTS.image_generate;
 
@@ -73,6 +198,9 @@ export class ImageGenerateTool extends BaseTool {
     'Generate AI images from text descriptions (prompts). Use this when the user ' +
     'asks to create, draw, or generate an image. Supports multiple aspect ratios, ' +
     'quality levels, and output formats. Returns file paths of generated images.';
+
+  /** U-03（2026-10-19）：模型可见出参结构（含 images/params/cost 明细） */
+  override outputJsonSchema = IMAGE_GENERATE_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

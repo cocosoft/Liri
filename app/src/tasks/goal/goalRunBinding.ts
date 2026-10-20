@@ -20,6 +20,7 @@
 
 import {
   getTaskGoalStore,
+  isTerminalGoalStatus,
   type TaskGoal,
   type TaskGoalStatus,
   type TaskGoalStore,
@@ -431,5 +432,57 @@ export async function ensureGoalForBatch(params: {
       action: 'ensureGoalForBatch',
     });
     return null;
+  }
+}
+
+/**
+ * U-02（2026-10-19）：按 **goalId** 落定目标状态（PDCA 主路径专用）。
+ *
+ * 与 `settleGoalForRun` 的差别：后者按 `sessionId` 取"第一个未终结目标"，适合批次收口；
+ * PDCA 由 `/goal start` 显式创建目标 ⇒ 必须按 id 精确落定（同会话可能存在其他批次目标），
+ * 不得"猜"。
+ *
+ * 守卫：目标不存在 / 已是终态 ⇒ `false`（不谎报、不覆盖终态）；状态变更与原因码
+ * 同一语句落盘，变更成功后成对发 `goal/status_changed` 事件。
+ */
+export async function settleGoalById(params: {
+  goalId?: string;
+  status: 'completed' | 'blocked' | 'failed' | 'cancelled';
+  reason: TaskGoalUpdateReason;
+  /** 可注入 store（测试用）；缺省取全局单例 */
+  store?: TaskGoalStore;
+}): Promise<boolean> {
+  const goalId = params.goalId;
+  if (!goalId) return false;
+  const store = params.store ?? getTaskGoalStore();
+  try {
+    const goal = await store.get(goalId);
+    if (!goal || isTerminalGoalStatus(goal.status)) return false;
+    const changed = await markGoalStatusWithPhase(
+      store,
+      goalId,
+      params.status,
+      params.reason
+    );
+    if (!changed) return false;
+    const after = await store.get(goalId);
+    await emitGoalStatusChanged({
+      sessionId: goal.sessionId,
+      goalId,
+      from: goal.status,
+      to: params.status,
+      reason: params.reason,
+      tokensUsed: after?.tokensUsed ?? goal.tokensUsed,
+      tokenBudget: after?.tokenBudget,
+      noProgressStreak: after?.noProgressStreak,
+    });
+    return true;
+  } catch (err) {
+    // @ignore-catch — 目标落定属观测面，失败不得影响 PDCA 终态
+    await handleError(err, {
+      module: 'tasks:goal:binding',
+      action: 'settleGoalById',
+    });
+    return false;
   }
 }

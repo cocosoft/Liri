@@ -260,11 +260,19 @@ export function setTimeoutWithLogging(
   description: string,
   ...args: unknown[]
 ): NodeJS.Timeout {
-  using _ = slowLoggingWithType(
-    'timeout',
-    `setTimeout(${description}, ${delay}ms)`
+  // BUG-7 同源修复（2026-10-19）：`using` 若留在函数体内会在 return 时立即 dispose，
+  // 实际只记录“创建定时器”的 ~0ms ⇒ 改到回调内计量真实执行耗时。
+  return setTimeout(
+    (...cbArgs: unknown[]) => {
+      using _ = slowLoggingWithType(
+        'timeout-callback',
+        `timeout(${description}, ${delay}ms)`
+      );
+      callback(...cbArgs);
+    },
+    delay,
+    ...args
   );
-  return setTimeout(callback, delay, ...args);
 }
 
 /**
@@ -283,11 +291,21 @@ export function setIntervalWithLogging(
   description: string,
   ...args: unknown[]
 ): NodeJS.Timeout {
-  using _ = slowLoggingWithType(
-    'interval',
-    `setInterval(${description}, ${delay}ms)`
+  // BUG-7（2026-10-19）：`using` 的作用域必须是**每次 tick**，否则在函数 return 时
+  // 立即 dispose，只记录“创建 interval”的 ~0ms（实测为噪声）⇒ 改到回调内计量。
+  const handle = setInterval(
+    (...cbArgs: unknown[]) => {
+      using _ = slowLoggingWithType(
+        'interval-tick',
+        `interval(${description}, ${delay}ms)`
+      );
+      callback(...cbArgs);
+    },
+    delay,
+    ...args
   );
-  return setInterval(callback, delay, ...args);
+  handle.unref?.();
+  return handle;
 }
 
 /**

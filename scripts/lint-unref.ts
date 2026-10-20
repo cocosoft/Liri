@@ -31,7 +31,13 @@
  * 实现约束：Windows 无系统 grep，全部用 Bun/Node 内置 API。
  */
 
-import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 
 /** 项目根目录（scripts/ 的父目录） */
@@ -178,7 +184,9 @@ function detectHandleAssignment(
   if (sameLine && /timer|interval|handle/i.test(sameLine[1])) return true;
 
   const window = stripped.slice(absOffset, absOffset + 1200);
-  return /this\.[A-Za-z_$][\w$]*(?:timer|interval|handle)[\w$]*\s*=/i.test(window);
+  return /this\.[A-Za-z_$][\w$]*(?:timer|interval|handle)[\w$]*\s*=/i.test(
+    window
+  );
 }
 
 /** 递归收集 .ts/.tsx（跳过测试/类型声明与 UI 豁免目录） */
@@ -365,7 +373,11 @@ function main(): void {
       ),
     };
     mkdirSync(dirname(BASELINE_PATH), { recursive: true });
-    writeFileSync(BASELINE_PATH, `${JSON.stringify(baseline, null, 2)}\n`, 'utf-8');
+    writeFileSync(
+      BASELINE_PATH,
+      `${JSON.stringify(baseline, null, 2)}\n`,
+      'utf-8'
+    );
     console.log(
       `[unref] 已更新基线：${relative(PROJECT_ROOT, BASELINE_PATH)}` +
         `（${instanceViolations.length} 处实例级存量违规，${currentCounts.size} 个文件）`
@@ -382,7 +394,8 @@ function main(): void {
   const newInstanceViolations = instanceViolations.filter((v) =>
     offendingFiles.has(v.file)
   );
-  const baselineCovered = instanceViolations.length - newInstanceViolations.length;
+  const baselineCovered =
+    instanceViolations.length - newInstanceViolations.length;
 
   const byDir = new Map<string, number>();
   for (const w of warnings) {
@@ -461,7 +474,8 @@ function main(): void {
     }
   }
 
-  if (topBlocking.length > 0 || newInstanceViolations.length > 0) process.exit(1);
+  if (topBlocking.length > 0 || newInstanceViolations.length > 0)
+    process.exit(1);
   console.log(
     '\n✅ unref / 定时器生命周期门禁通过（无顶层未 unref、无新增实例级违规）'
   );

@@ -3,8 +3,8 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-params.ts",
   "counts": {
-    "tools": 75,
-    "params": 359
+    "tools": 76,
+    "params": 362
   },
   "params": {
     "agent.allowedTools": "逗号分隔的工具名，表示子代理允许使用哪些工具。若为空，则所有工具均可用。",
@@ -266,6 +266,9 @@
     "save_conversation.maxLength": "摘要最大长度",
     "save_conversation.sessionId": "会话ID",
     "save_conversation.summaryType": "摘要类型: concise, detailed, actionable",
+    "send_message.message": "消息内容",
+    "send_message.priority": "消息优先级（normal、high、low）",
+    "send_message.to": "接收方代理",
     "sessions.action": "要执行的会话操作",
     "sessions.includeMetadata": "在 history 中包含消息元数据",
     "sessions.includeResourceUsage": "在 status 中包含 CPU/内存使用情况",

@@ -16,7 +16,7 @@ import { resolveDataSubDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
-import { TeamDeleteOutputSchema } from './schemas';
+import { TeamDeleteOutputSchema, TeamDeleteOutputJsonSchema } from './schemas';
 
 const logger = getLogger('tools:teamDelete');
 
@@ -66,6 +66,8 @@ export class TeamDeleteTool extends BaseTool<
    * （`terminated_teammates` 为**可选**）**完全相符** ⇒ 接线。
    */
   outputSchema = TeamDeleteOutputSchema;
+  /** U-03（2026-10-19）：模型可见出参结构 */
+  override outputJsonSchema = TeamDeleteOutputJsonSchema;
 
   /**
    * 工具描述

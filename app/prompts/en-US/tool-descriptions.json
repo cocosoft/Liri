@@ -3,7 +3,7 @@
   "locale": "en-US",
   "generatedBy": "manual translation (T2 tool descriptions)",
   "counts": {
-    "tools": 77
+    "tools": 78
   },
   "descriptions": {
     "agent": "Create a dedicated sub-agent to perform a specific task.",
@@ -57,6 +57,7 @@
     "read_vfs": "Read file content from an AI-VFS mount. Paths look like <scheme>://<authority>/<path>, e.g. dev_docs://配置与安全/sandbox.md. Unregistered schemes fail explicitly and never fall back to the local filesystem.",
     "repl": "Interactive programming environment supporting multiple languages.",
     "save_conversation": "Save a conversation summary to a file. Use when the user wants to save or record the current conversation.",
+    "send_message": "Send a message to another agent",
     "sessions": "Unified session management tool. List sessions, query status, view history, fork sessions, send messages, and delete sessions.",
     "sessions_yield": "While delegated sub-agents are running, yield the current turn back to the session so their results can be awaited; the turn then continues with those results. This is the only tool that yields a turn — the `sessions` tool manages sessions and cannot yield.",
     "skill": "Execute a registered skill.",

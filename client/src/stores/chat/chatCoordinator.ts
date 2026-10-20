@@ -60,6 +60,15 @@ export const chatCoordinator = {
     getChat().setMessages(messages);
   },
 
+  /**
+   * U-05 残余（2026-10-19）：增量刷新当前会话消息（事件驱动：审批续跑 / 通知更新）。
+   * 与 `loadMessages` 的区别：保留已加载的更早历史与分页游标。
+   */
+  async mergeRefreshedMessages(messages: Message[]): Promise<void> {
+    const getChat = await _ensureChatStore();
+    getChat().mergeRefreshedMessages(messages);
+  },
+
   /** 清空当前消息 */
   async clearMessages(): Promise<void> {
     const getChat = await _ensureChatStore();

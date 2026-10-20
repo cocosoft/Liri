@@ -53,11 +53,34 @@ export function buildYieldResult(params: {
   };
 }
 
+/**
+ * U-03（2026-10-19）：`sessions_yield` 的**模型可见出参结构**（JSON Schema），
+ * 与 `YieldResult` 逐字段对齐（`status` 为契约常量 `yielded`）。
+ */
+const SESSIONS_YIELD_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    status: {
+      type: 'string',
+      enum: [YIELD_RESULT_STATUS],
+      description: 'yield 契约状态（成功交还轮次的唯一标识）',
+    },
+    sessionId: { type: 'string', description: '发起 yield 的会话 ID' },
+    reason: { type: 'string', description: '交还轮次的原因' },
+    message: { type: 'string', description: '传递给接收会话的消息（可选）' },
+    timestamp: { type: 'number', description: '登记时间（毫秒时间戳）' },
+  },
+  required: ['status', 'sessionId', 'reason', 'timestamp'],
+};
+
 export class SessionsYieldTool extends BaseTool {
   name = YIELD_TOOL_NAME;
 
   description =
     '在委派的子代理完成期间，将当前轮次交还给会话，以便等待它们的结果；之后该轮次会带着这些结果继续。这是唯一能交还轮次的工具 —— `sessions` 工具负责管理会话，不能交还轮次。';
+
+  /** U-03（2026-10-19）：模型可见出参结构（YieldResult 五字段） */
+  override outputJsonSchema = SESSIONS_YIELD_OUTPUT_JSON_SCHEMA;
 
   params: ToolParam[] = [
     {

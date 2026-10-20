@@ -39,8 +39,65 @@ interface CpuProfile {
 interface Attribution {
   /** 全部采样时长（微秒） */
   totalUs: number;
-  /** 按 URL 聚合的 self time */
+  /** 按 URL 聚合的 self time（已剔除单样本超长间隔） */
   byUrl: Map<string, number>;
+  /** 从中剔除的单样本超长间隔总量（微秒） */
+  cappedUs: number;
+  /** 被剔除的帧（按其原始单样本 delta 降序），用于解释"原本会被误报成热点" */
+  cappedFrames: Array<{ url: string; us: number }>;
+  /** 单样本上限（微秒） */
+  capUs: number;
+}
+
+/** 超长间隔的判据：单样本 delta 超过中位 tick 的 10 倍 */
+const CAP_FACTOR = 10;
+/** 上限下限：避免极小 / 空 profile 把上限压到 0 倍 */
+const MIN_CAP_US = 1000;
+
+function medianOf(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
+}
+
+function attribute(profile: CpuProfile): Attribution {
+  const nodeById = new Map<number, ProfileNode>();
+  for (const node of profile.nodes) nodeById.set(node.id, node);
+
+  // 单样本上限：Bun 的采样器在**原生代码**（模块加载 / 转译）里无法打断，
+  // 整段阻塞会作为一个超长 delta 记到"阻塞结束后栈顶的最后一个 JS 帧"上。
+  // 实测两次误判（2026-10-21）：同一测法下"热点"先是 `core/spi/LoggerService.ts`、
+  // 后来变成 `core/paths.ts`，而两者都只有 **1 个样本** 却各占 200+ms；
+  // 换采样间隔（50/200/1000µs）该数字分别变成 0.1ms / 202ms / 未命中 ⇒ 不是 CPU 时间。
+  // ⇒ 把超过 10× 中位 tick 的部分视为"原生阻塞"，不计入任何函数（否则每次都会报出假热点）。
+  const deltas = profile.timeDeltas.filter((d) => d > 0);
+  const capUs = Math.max(medianOf(deltas) * CAP_FACTOR, MIN_CAP_US);
+
+  const byUrl = new Map<string, number>();
+  const cappedFrames: Array<{ url: string; us: number }> = [];
+  let totalUs = 0;
+  let cappedUs = 0;
+
+  for (let i = 0; i < profile.samples.length; i++) {
+    const deltaUs = profile.timeDeltas[i] ?? 0;
+    if (deltaUs <= 0) continue;
+    totalUs += deltaUs;
+
+    const node = nodeById.get(profile.samples[i]);
+    const url = node?.callFrame.url;
+    // 无 url = 原生帧（加载 / 转译）⇒ 原样计入"未归属"，不做截断
+    if (!url) continue;
+
+    const chargeable = Math.min(deltaUs, capUs);
+    if (deltaUs > capUs) {
+      cappedUs += deltaUs - chargeable;
+      cappedFrames.push({ url, us: deltaUs });
+    }
+    byUrl.set(url, (byUrl.get(url) ?? 0) + chargeable);
+  }
+
+  cappedFrames.sort((a, b) => b.us - a.us);
+  return { totalUs, byUrl, cappedUs, cappedFrames, capUs };
 }
 
 function parseArgs(argv: string[]): { profilePath: string; top: number } {
@@ -57,34 +114,19 @@ function parseArgs(argv: string[]): { profilePath: string; top: number } {
   return { profilePath, top: Number.isFinite(top) && top > 0 ? top : 20 };
 }
 
-function attribute(profile: CpuProfile): Attribution {
-  const nodeById = new Map<number, ProfileNode>();
-  for (const node of profile.nodes) nodeById.set(node.id, node);
-
-  const byUrl = new Map<string, number>();
-  let totalUs = 0;
-
-  for (let i = 0; i < profile.samples.length; i++) {
-    const deltaUs = profile.timeDeltas[i] ?? 0;
-    if (deltaUs <= 0) continue;
-    totalUs += deltaUs;
-
-    const node = nodeById.get(profile.samples[i]);
-    const url = node?.callFrame.url;
-    if (!url) continue; // 原生帧（加载/转译）⇒ 记入"未归属"
-    byUrl.set(url, (byUrl.get(url) ?? 0) + deltaUs);
-  }
-  return { totalUs, byUrl };
-}
-
 /** URL → 归属桶（app/src 顶层目录 / node_modules / runtime） */
 function bucketOf(url: string): string {
-  const norm = url.replace(/^file:\/\//, '').split('\\').join('/');
+  const norm = url
+    .replace(/^file:\/\//, '')
+    .split('\\')
+    .join('/');
   const marker = '/app/src/';
   const idx = norm.indexOf(marker);
   if (idx >= 0) {
     const rel = norm.slice(idx + marker.length);
-    return rel.includes('/') ? `app/src/${rel.split('/')[0]}` : 'app/src/(root)';
+    return rel.includes('/')
+      ? `app/src/${rel.split('/')[0]}`
+      : 'app/src/(root)';
   }
   if (norm.includes('/node_modules/')) return 'node_modules';
   if (!norm.includes('/')) return 'runtime';
@@ -93,7 +135,10 @@ function bucketOf(url: string): string {
 
 /** 相对 app/src 的路径（便于阅读） */
 function shortUrl(url: string): string {
-  const norm = url.replace(/^file:\/\//, '').split('\\').join('/');
+  const norm = url
+    .replace(/^file:\/\//, '')
+    .split('\\')
+    .join('/');
   const idx = norm.indexOf('/app/src/');
   return idx >= 0 ? norm.slice(idx + '/app/src/'.length) : norm;
 }
@@ -107,7 +152,7 @@ function main(): void {
   }
 
   const profile = JSON.parse(readFileSync(path, 'utf-8')) as CpuProfile;
-  const { totalUs, byUrl } = attribute(profile);
+  const { totalUs, byUrl, cappedUs, cappedFrames, capUs } = attribute(profile);
 
   let attributedUs = 0;
   const buckets = new Map<string, number>();
@@ -119,14 +164,29 @@ function main(): void {
 
   const ms = (us: number): string => `${(us / 1000).toFixed(0)}ms`;
   const pct = (us: number): string => `${((us / totalUs) * 100).toFixed(1)}%`;
+  const nativeOnlyUs = totalUs - attributedUs - cappedUs;
 
-  console.log(`采样总时长 ${ms(totalUs)}（samples=${profile.samples.length}）`);
   console.log(
-    `未归属（无 JS 帧 = 模块加载/转译）${ms(totalUs - attributedUs)} · ${pct(totalUs - attributedUs)}`
+    `采样总时长 ${ms(totalUs)}（samples=${profile.samples.length}，单样本上限 ${(capUs / 1000).toFixed(1)}ms）`
   );
+  console.log(
+    `未归属（无 JS 帧 = 模块加载/转译）${ms(nativeOnlyUs)} · ${pct(nativeOnlyUs)}`
+  );
+  if (cappedUs > 0) {
+    console.log(
+      `已剔除（单样本超长间隔 = 原生阻塞，原会记到栈顶 JS 帧）${ms(cappedUs)} · ${pct(cappedUs)}`
+    );
+    for (const frame of cappedFrames.slice(0, 3)) {
+      console.log(
+        `  - ${(frame.us / 1000).toFixed(1).padStart(7)}ms  ${shortUrl(frame.url)}（原本会被误报为热点）`
+      );
+    }
+  }
 
   console.log('\n=== 按归属（self time）===');
-  for (const [bucket, us] of [...buckets.entries()].sort((a, b) => b[1] - a[1])) {
+  for (const [bucket, us] of [...buckets.entries()].sort(
+    (a, b) => b[1] - a[1]
+  )) {
     console.log(`${ms(us).padStart(8)}  ${pct(us).padStart(6)}  ${bucket}`);
   }
 
@@ -136,7 +196,9 @@ function main(): void {
     .slice(0, args.top);
   console.log(`\n=== app/src 单文件 Top ${args.top} ===`);
   for (const [url, us] of appFiles) {
-    console.log(`${ms(us).padStart(8)}  ${pct(us).padStart(6)}  ${shortUrl(url)}`);
+    console.log(
+      `${ms(us).padStart(8)}  ${pct(us).padStart(6)}  ${shortUrl(url)}`
+    );
   }
 
   const nmFiles = [...byUrl.entries()]
@@ -145,7 +207,10 @@ function main(): void {
     .slice(0, args.top);
   console.log(`\n=== node_modules 单文件 Top ${args.top} ===`);
   for (const [url, us] of nmFiles) {
-    const norm = url.replace(/^file:\/\//, '').split('\\').join('/');
+    const norm = url
+      .replace(/^file:\/\//, '')
+      .split('\\')
+      .join('/');
     const idx = norm.indexOf('/node_modules/');
     console.log(
       `${ms(us).padStart(8)}  ${pct(us).padStart(6)}  ${idx >= 0 ? norm.slice(idx + '/node_modules/'.length) : norm}`

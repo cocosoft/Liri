@@ -11,6 +11,9 @@
  *
  * 重型模块（featureflags、memory 等）使用 ON_DEMAND 模式，
  * 避免其重型依赖（GrowthBook SDK、cheerio、jsonwebtoken 等）在启动时被解析。
+ *
+ * P1b（2026-10-20，用户裁定「方案 A」）：**纯记账**批次模块也改为 ON_DEMAND ——
+ * 见 `PURE_ACCOUNTING_ON_DEMAND_MODULES`（依据 `内核瘦身-P1a-分级报告.md`）。
  */
 
 // 2026-09-30 改走 core 门面（A3 倒挂收口）：原 `../performance/StartupProfiler`（core → infra 倒挂）
@@ -333,6 +336,54 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
     trigger: '日历功能首次触发时加载',
   },
 };
+
+/**
+ * P1b（2026-10-20，用户裁定「方案 A」）：**纯记账**批次模块 → `ON_DEMAND`
+ *
+ * 依据 `dev_docs/20261020/内核瘦身-P1a-分级报告.md`：下列模块在
+ * `ModuleDefinitions.ts` 里**没有 `initialize()`**（更不含任何 `import`），且**无启动面静态引用**
+ * ⇒ 它们的 T3 批次加载只是 `ModuleInitializer` 的状态记账，降级后唯一变化是"状态表里不再出现"。
+ *
+ * **为什么用一张覆盖表而不是逐条改 `loadMode`**：17 条散落在 300+ 行的表里，
+ * "为什么降级"的理由只能各写一遍 ⇒ 迟早漂移；这里一处列表 + 一处理由。
+ *
+ * **例外（有意保留 BATCH）**：`cli` —— 它是 CRITICAL 模块 `commands` 的**必需依赖**，
+ * `ModuleRegistry.initialize()` 会递归初始化依赖 ⇒ 即使标成 ON_DEMAND 也会被初始化（降级无效果）。
+ *
+ * ⚠️ 这些模块**没有** `DYNAMIC_IMPORT_LOADERS` 条目（它们没有需要加载的实现）：
+ * 若将来有人对它们调用 `requestOnDemandModule()`，会 **fail-loud**（"未配置动态导入加载器"）——
+ * 这是有意的：宁可报错，也不假装加载。
+ *
+ * 回归保护：`app/tests/modules/moduleTiering.test.ts` 钉住"名单内模块确实没有 `initialize`"
+ * ⇒ 谁给它们加了初始化动作，测试会红并要求重新分级。
+ */
+export const PURE_ACCOUNTING_ON_DEMAND_MODULES: readonly string[] = [
+  'acp',
+  'terminal',
+  'daemon',
+  'credentials',
+  'enterprise',
+  'flows',
+  'vim',
+  'buddy',
+  'remote',
+  'keybindings',
+  'delivery',
+  'auto-reply',
+  'extensions',
+  'insights',
+  'wizard',
+  'mail',
+  'calendar',
+];
+
+for (const moduleId of PURE_ACCOUNTING_ON_DEMAND_MODULES) {
+  const config = LAZY_MODULE_STRATEGY[moduleId];
+  // 只在"已登记且仍是 DEFERRED"时覆盖：若将来被提升为 CRITICAL，本表不得静默改写优先级
+  if (config && config.priority === ModuleLoadPriority.DEFERRED) {
+    config.loadMode = DynamicLoadMode.ON_DEMAND;
+  }
+}
 
 /**
  * 重型模块按需加载器映射

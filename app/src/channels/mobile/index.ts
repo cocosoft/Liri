@@ -24,3 +24,19 @@ export {
   getDefaultMobileConfig,
   type MobileChannelConfig,
 } from './config-schema.js';
+export {
+  mobileDeviceTokenStore,
+  MOBILE_DEVICE_TOKEN_TTL_MS,
+  MobileDeviceTokenStore,
+  startMobilePairing,
+  completeMobilePairing,
+  listPairedMobileDevices,
+  unpairMobileDevice,
+  authorizeMobileRequest,
+  resetMobilePairingForTest,
+} from './MobilePairingService.js';
+export type {
+  MobileDeviceToken,
+  CompleteMobilePairingResult,
+  MobileAuthResult,
+} from './MobilePairingService.js';

@@ -73,6 +73,8 @@ import {
   handleGetChannel,
   handleListChannels,
   handleMobileInboundMessage,
+  handleMobilePairingStart,
+  handleMobilePairingVerify,
   handleToggleChannel,
   handleUpdateChannel,
   handleWechatCliStatus,
@@ -352,6 +354,16 @@ export async function dispatchCostChannelRoutes(
   // ---- Channels ----
   if (method === 'GET' && url === '/v1/channels') {
     await handleListChannels(req, res);
+    return true;
+  }
+  // 2026-10-20（P2.5）：移动端**配对**（桌面端出码 / 手机端换短期 token）——
+  // 均挂在 LocalHTTPService 上，复用统一鉴权；`DROP_CHANNELS_ALL` 构建下返回 404。
+  if (method === 'POST' && url === '/v1/channels/mobile/pairing/code') {
+    await handleMobilePairingStart(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/channels/mobile/pairing/verify') {
+    await handleMobilePairingVerify(req, res);
     return true;
   }
   // 2026-10-20（P2.5）：移动端**入站**消息 —— 复用 LocalHTTPService 的鉴权与路由单管线。

@@ -673,6 +673,22 @@ export async function handleMobileInboundMessage(
       return;
     }
 
+    // 设备凭据（短期 token）：缺省直接 401，不把请求体解析当作鉴权前置
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            code: 'MOBILE_DEVICE_TOKEN_REQUIRED',
+            message:
+              'device token required (pair first: POST /v1/channels/mobile/pairing/verify)',
+          },
+        })
+      );
+      return;
+    }
+
     const raw = await readRequestBody(req);
     let body: unknown;
     try {
@@ -690,8 +706,23 @@ export async function handleMobileInboundMessage(
       return;
     }
 
+    const auth = mobile.authorizeMobileRequest(
+      authHeader,
+      parsed.value.deviceId
+    );
+    if (!auth.ok) {
+      res.writeHead(auth.status, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { code: 'MOBILE_DEVICE_TOKEN_INVALID', message: auth.message },
+        })
+      );
+      return;
+    }
+
     const message = mobile.buildMobileMessageContext({
-      deviceId: parsed.value.deviceId,
+      // 身份以 **token** 为准（请求体 deviceId 仅用于一致性校验，防止串号）
+      deviceId: auth.deviceId,
       conversationId: parsed.value.conversationId,
       text: parsed.value.text,
       messageId: parsed.value.messageId ?? randomUUID(),
@@ -730,6 +761,130 @@ export async function handleMobileInboundMessage(
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, messageId: message.messageId }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 移动端配对：生成配对码（**桌面端**调用）
+ * POST /v1/channels/mobile/pairing/code
+ *
+ * 配对码是"出示即授权"的短期凭据（6 位 / 5 分钟 / 最多 5 次尝试）；
+ * 手机端首次配对可用现有 api-key 引导，换取短期设备 token 后**不再长期持有 api-key**。
+ */
+export async function handleMobilePairingStart(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const mobile = buildFeature('DROP_CHANNELS_ALL')
+      ? null
+      : await import('@modules/channels/mobile');
+
+    if (!mobile) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'Mobile channel is not included in this build' },
+        })
+      );
+      return;
+    }
+
+    const raw = await readRequestBody(req);
+    let userId = 'desktop';
+    if (raw.trim()) {
+      try {
+        const body = JSON.parse(raw) as { userId?: unknown };
+        if (typeof body.userId === 'string' && body.userId.trim()) {
+          userId = body.userId.trim();
+        }
+      } catch {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'invalid JSON body' } }));
+        return;
+      }
+    }
+
+    const { code } = mobile.startMobilePairing(userId);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, code }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 移动端配对：校验配对码并签发**短期设备 token**（**手机端**调用）
+ * POST /v1/channels/mobile/pairing/verify
+ */
+export async function handleMobilePairingVerify(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const mobile = buildFeature('DROP_CHANNELS_ALL')
+      ? null
+      : await import('@modules/channels/mobile');
+
+    if (!mobile) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'Mobile channel is not included in this build' },
+        })
+      );
+      return;
+    }
+
+    const raw = await readRequestBody(req);
+    let body: { code?: unknown; deviceId?: unknown; deviceName?: unknown };
+    try {
+      body = JSON.parse(raw) as typeof body;
+    } catch {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'invalid JSON body' } }));
+      return;
+    }
+
+    const code = typeof body.code === 'string' ? body.code.trim() : '';
+    const deviceId =
+      typeof body.deviceId === 'string' ? body.deviceId.trim() : '';
+    const deviceName =
+      typeof body.deviceName === 'string' ? body.deviceName.trim() : deviceId;
+
+    if (!code || !deviceId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'code and deviceId are required' },
+        })
+      );
+      return;
+    }
+
+    const result = mobile.completeMobilePairing({
+      code,
+      deviceId,
+      deviceName,
+    });
+
+    if (!result.ok) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: result.message } }));
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        success: true,
+        deviceId: result.deviceId,
+        token: result.token,
+        expiresAt: result.expiresAt,
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }

@@ -676,6 +676,11 @@ export async function handleMobileInboundMessage(
     // 设备凭据（短期 token）：缺省直接 401，不把请求体解析当作鉴权前置
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      await mobile.recordMobileAudit({
+        kind: 'auth_denied',
+        deviceId: 'unauthenticated',
+        reason: 'missing device token',
+      });
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
@@ -711,6 +716,11 @@ export async function handleMobileInboundMessage(
       parsed.value.deviceId
     );
     if (!auth.ok) {
+      await mobile.recordMobileAudit({
+        kind: 'auth_denied',
+        deviceId: parsed.value.deviceId,
+        reason: auth.message,
+      });
       res.writeHead(auth.status, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
@@ -744,6 +754,17 @@ export async function handleMobileInboundMessage(
         // 出站统一走通道的 SSE sink（`event: mobile:message`）
         await mobileChannelPlugin.outbound.sendMarkdown(target, content);
       },
+    });
+
+    // 审计（旁路）：入站消息按 `data_access` 落盘，带 channel + deviceId
+    await mobile.recordMobileAudit({
+      kind: 'message_received',
+      deviceId: auth.deviceId,
+      conversationId: parsed.value.conversationId,
+      messageId: message.messageId,
+      textLength: parsed.value.text.length,
+      success: result.valid,
+      ...(result.errorCode ? { reason: result.errorCode } : {}),
     });
 
     if (!result.valid) {
@@ -871,10 +892,22 @@ export async function handleMobilePairingVerify(
     });
 
     if (!result.ok) {
+      await mobile.recordMobileAudit({
+        kind: 'pairing',
+        deviceId,
+        success: false,
+        reason: result.message,
+      });
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: result.message } }));
       return;
     }
+
+    await mobile.recordMobileAudit({
+      kind: 'pairing',
+      deviceId,
+      success: true,
+    });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(

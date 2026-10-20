@@ -40,3 +40,5 @@ export type {
   CompleteMobilePairingResult,
   MobileAuthResult,
 } from './MobilePairingService.js';
+export { recordMobileAudit, buildMobileAuditPayload } from './MobileAudit.js';
+export type { MobileAuditEvent, MobileAuditPayload } from './MobileAudit.js';

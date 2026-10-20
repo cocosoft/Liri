@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 /**
- * 通道目录（单一事实源）—— 26 个通道的「type / 显示名 / 导出键 / 惰性加载器」
+ * 通道目录（单一事实源）—— 27 个通道的「type / 显示名 / 导出键 / 惰性加载器」
  *
  * 为什么需要（2026-09-30 · 台账 D-134 · CS01 归一化）：
  * 同一份通道表此前在 **4 处重复维护**，且**已经漂移**：
@@ -83,6 +83,17 @@ export const CHANNEL_CATALOG: ChannelCatalogEntry[] = [
   ...(buildFeature('DROP_CHANNELS_ALL')
     ? []
     : [
+        // 2026-10-20（P2.5）：移动端**接入**通道 —— 语义适配器，不新起监听端口
+        // （入站复用 LocalHTTPService，出站复用 /v1/events SSE）。
+        // 默认**不自动启用**：需 `LIRI_MOBILE_CHANNEL=true` 显式开启，避免挤占 CHANNEL_MAX_COUNT。
+        {
+          type: 'mobile',
+          name: '移动端（接入）',
+          exportKey: 'mobileChannelPlugin',
+          load: () => import('./mobile/MobileChannel.js'),
+          credentials: ['LIRI_MOBILE_CHANNEL'],
+          isEnabled: (env: ChannelEnvReader) => !!env('LIRI_MOBILE_CHANNEL'),
+        },
         {
           type: 'telegram',
           name: 'Telegram',

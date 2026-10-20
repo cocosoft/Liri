@@ -31,13 +31,20 @@ describe('ChannelCatalog · 编译期裁剪（DROP_CHANNEL_FEISHU / DROP_CHANNEL
     }
   });
 
-  it('条目总数与开关一致（26 / 25 / 0）', () => {
+  /**
+   * 目录基线（**棘轮**）：新增/删除通道时必须同步更新此处 +1/−1 ——
+   * 目的不是"禁止变更"，而是让目录变更**必须显式确认**。
+   * 2026-10-20：26 → 27（新增 `mobile` 接入通道）。
+   */
+  const CATALOG_BASELINE = 27;
+
+  it(`条目总数与开关一致（${CATALOG_BASELINE} / ${CATALOG_BASELINE - 1} / 0）`, () => {
     if (feature('DROP_CHANNELS_ALL')) {
       expect(CHANNEL_CATALOG).toHaveLength(0);
     } else if (feature('DROP_CHANNEL_FEISHU')) {
-      expect(CHANNEL_CATALOG).toHaveLength(25);
+      expect(CHANNEL_CATALOG).toHaveLength(CATALOG_BASELINE - 1);
     } else {
-      expect(CHANNEL_CATALOG).toHaveLength(26);
+      expect(CHANNEL_CATALOG).toHaveLength(CATALOG_BASELINE);
     }
   });
 

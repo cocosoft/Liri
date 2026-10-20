@@ -37,6 +37,8 @@ const EXPECTED: Record<string, { credentials: string[]; mode: 'all' | 'any' }> =
       mode: 'all',
     },
     irc: { credentials: ['IRC_SERVER', 'IRC_NICK'], mode: 'all' },
+    // 2026-10-20（P2.5）：移动端**接入**通道 —— 无平台凭据，启用键即 `LIRI_MOBILE_CHANNEL`
+    mobile: { credentials: ['LIRI_MOBILE_CHANNEL'], mode: 'all' },
     nostr: {
       credentials: ['NOSTR_PRIVATE_KEY', 'NOSTR_RELAYS'],
       mode: 'any',
@@ -95,9 +97,9 @@ const envOf =
     keys.includes(key) ? `value-of-${key}` : undefined;
 
 describe('B-1 ChannelCatalog 启用判据（全量迁移）', () => {
-  it('目录 26 项与期望表 type 集合完全一致', () => {
-    expect(TYPES).toHaveLength(26);
-    expect(new Set(TYPES).size).toBe(26);
+  it('目录 27 项与期望表 type 集合完全一致', () => {
+    expect(TYPES).toHaveLength(27);
+    expect(new Set(TYPES).size).toBe(27);
     expect([...TYPES].sort()).toEqual(Object.keys(EXPECTED).sort());
   });
 

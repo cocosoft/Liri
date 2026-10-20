@@ -18,6 +18,29 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+
+/**
+ * 通道模块出口（**能力面**，不含通道实现）。
+ *
+ * ## 为什么这里不再 `export` 26 个通道实现（2026-10-20，P1-pre 拆桶）
+ *
+ * 此前本桶逐条 `export { … } from './<channel>/index.js'`，导致**任何**引用本桶的模块
+ * 都会把全部通道实现（及其 SDK 依赖）静态拉进产物 —— 实测 `@larksuiteoapi/node-sdk`
+ * 6.39 MB、`channels/*` 44 个子目录全量进入 bundle，使 `ChannelCatalog` 的编译期裁剪
+ * （`bun build --feature=DROP_CHANNEL_*`）**完全失效**（keep/drop 产物 metafile 完全相同）。
+ *
+ * 该约束此前只写在 `ChannelCatalog.ts` 的注释里（"本文件不得加入桶"），但**桶本身**仍在
+ * 主链上 ⇒ 由桶把通道实现重新拉回。现按"先摘入口"的顺序拆除再导出：
+ * 需要通道实例的调用方一律走 `CHANNEL_CATALOG[].load()`（位置无关惰性加载器）。
+ *
+ * 仓内取证：11 个引用方全部只用 `channelRegistry` / `channelBootstrapper` /
+ * `getPairingStore` / `getDeliveryRouter` / 类型 / URL 常量，**无一处**使用通道实现类。
+ *
+ * ⚠️ 若确需在同步上下文拿到某个通道的工厂，请改用具体子入口
+ * （`@modules/channels/<name>/index`）并在 `lint-architecture` 的 `canonicalEntryKeys` 登记，
+ * **不要**把实现再导回本桶。
+ */
+
 // B5-2-100+（2026-10-18）：通道厂商站点 / 默认 API 基址单一事实源
 export {
   WECOM_VENDOR_SITE_URL,
@@ -31,124 +54,10 @@ export {
   QQ_SITE_URL,
   SIGNAL_SITE_URL,
 } from './constants.js';
-export { createIrcChannel, ircChannelPlugin } from './irc/index.js';
-export { createSlackChannel, slackChannelPlugin } from './slack/index.js';
-export { createLineChannel, lineChannelPlugin } from './line/index.js';
-export {
-  NostrChannel,
-  nostrChannel,
-  createNostrChannel,
-  nostrChannelPlugin,
-} from './nostr/index.js';
-export {
-  SmsChannel,
-  smsChannel,
-  createSmsChannel,
-  smsChannelPlugin,
-} from './sms/index.js';
-export {
-  EmailChannel,
-  emailChannel,
-  createEmailChannel,
-  emailChannelPlugin,
-} from './email/index.js';
-export {
-  WebhookChannel,
-  webhookChannel,
-  createWebhookChannel,
-  webhookChannelPlugin,
-} from './webhook/index.js';
 export { StickerCache } from './cache/index.js';
 // 2026-10-19：配对存储经模块出口暴露（CLI `Liri pairing` 消费；守 R03-002）
 export { PairingStore, getPairingStore } from './policy/PairingStore.js';
-export {
-  ZaloChannel,
-  zaloChannel,
-  createZaloChannel,
-  zaloChannelPlugin,
-} from './zalo/index.js';
-export {
-  YuanbaoChannel,
-  yuanbaoChannel,
-  createYuanbaoChannel,
-  yuanbaoChannelPlugin,
-} from './yuanbao/index.js';
-export {
-  createGoogleChatChannel,
-  googleChatChannelPlugin,
-} from './googlechat/index.js';
-export {
-  WhatsAppChannel,
-  whatsAppChannel,
-  createWhatsAppChannel,
-  whatsAppChannelPlugin,
-} from './whatsapp/index.js';
-export {
-  SignalChannel,
-  signalChannel,
-  createSignalChannel,
-  signalChannelPlugin,
-} from './signal/index.js';
-export { createMatrixChannel, matrixChannelPlugin } from './matrix/index.js';
-export {
-  FacebookMessengerChannel,
-  facebookMessengerChannel,
-  createFacebookMessengerChannel,
-  facebookMessengerChannelPlugin,
-} from './facebookmessenger/index.js';
-export {
-  TwitterChannel,
-  twitterChannel,
-  createTwitterChannel,
-  twitterChannelPlugin,
-} from './twitter/index.js';
-export {
-  ClaudeChannel,
-  claudeChannel,
-  createClaudeChannel,
-  claudeChannelPlugin,
-} from './claude/index.js';
-export {
-  wecomChannel,
-  createWecomChannel,
-  wecomChannelPlugin,
-} from './wecom/index.js';
-export { qqChannel, createQQChannel, qqChannelPlugin } from './qq/index.js';
-export {
-  telegramChannel,
-  createTelegramChannel,
-  telegramChannelPlugin,
-} from './telegram/index.js';
-export {
-  wechatChannel,
-  createWechatChannel,
-  wechatChannelPlugin,
-} from './wechat/index.js';
-export {
-  discordChannel,
-  createDiscordChannel,
-  discordChannelPlugin,
-} from './discord/index.js';
-export {
-  feishuChannel,
-  createFeishuChannel,
-  feishuChannelPlugin,
-} from './feishu/index.js';
-export {
-  dingtalkChannel,
-  createDingtalkChannel,
-  dingtalkChannelPlugin,
-} from './dingtalk/index.js';
-export {
-  mattermostChannel,
-  createMattermostChannel,
-  mattermostChannelPlugin,
-} from './mattermost/index.js';
-export {
-  bluebubblesChannel,
-  createBlueBubblesChannel,
-  bluebubblesChannelPlugin,
-} from './bluebubbles/index.js';
+
 // PlatformAdapter — 轻量平台适配器体系
 export {
   BasePlatformAdapter,

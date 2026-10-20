@@ -24,11 +24,12 @@
 
 #### 未发布变更（2026-10-20）
 
-- 🔧 **编译期裁剪机制试点（P1-0，默认零行为变更）** - `ChannelCatalog` 的飞书条目改为反向开关
-  `--feature=DROP_CHANNEL_FEISHU`（**未声明即保留**，声明则该条目与其 `@larksuiteoapi/node-sdk`
-  在构建期整体删除）；补 `bun:bundle` 类型声明、回归 4 例双模式全绿。
-  ⚠️ 实测**产物层尚未生效**：`channels/index.ts` 桶仍静态再导出全部通道（11 个引用方）⇒
-  44 个通道目录仍在产物中；拆桶列为后续裁剪的前置条件（详见 `dev_docs/20261020/主包瘦身-编译期裁剪-方案.md`）。
+- 🔧 **编译期裁剪机制（P1-0 / P1-pre，默认零行为变更）** - `ChannelCatalog` 飞书条目改为反向开关
+  `--feature=DROP_CHANNEL_FEISHU`（**未声明即保留**）；同时拆除 `channels/index.ts` 中 25 个通道实现的
+  再导出（11 个引用方均只用 registry / 类型 / 常量，零消费者，`tsc` 一次通过）。
+  **产物验收**：同一入口下 drop 比 keep **−6.72 MB（46.61→39.89 MB，−14.4%）**，
+  `@larksuiteoapi/node-sdk` 6.39 MB 归零、`FeishuChannel` 标记消失。
+  后续：其余 25 个通道与工具侧按同一模式推广（方案见 `dev_docs/20261020/主包瘦身-编译期裁剪-方案.md`）。
 
 - ✅ **主动消息可投递到 IM 通道（U-01 方案 A）** - 新增 `proactive.target.channelId` + `proactive.target.conversationId`
   配置：**两者同时非空**才把 Cron / AlwaysOn 的完成通知经 `DeliveryRouter` 发到该通道，否则维持通知中心

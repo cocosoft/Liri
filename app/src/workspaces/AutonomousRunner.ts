@@ -29,7 +29,9 @@
  * 职责边界：
  * - 本编排器负责"隔离环境 + 回灌 + 清理"，不执行 LLM/工具循环（由调用方传入 execute）。
  * - 执行回调内应使用 DreamDenyRules 校验命令/工具（自主运行 deny 远程/危险操作）。
- * - snapshot-copy 模式（非 git 项目）publish 返回占位 diff → applied=false（需人工合并）。
+ * - **未回灌即保留隔离区**（2026-10-20）：snapshot-copy 的 publish 只返回占位串
+ *   （`applied=false`）时，成果只在隔离目录里 ⇒ 不再删除，结果中给出 `keptIsolation` /
+ *   `isolationPath` 供人工合并。只有 `applied=true`（git-worktree 回灌成功）才清理。
  */
 import { resolveDataSubDir } from '@modules/core/paths';
 import { WorkspaceProviderRegistry } from './provider/WorkspaceProviderRegistry';
@@ -58,6 +60,12 @@ export interface AutonomousTaskInput {
   runId: string;
   /** 隔离区内执行逻辑（调用方：agent 循环 / dream 处理 / 自定义任务） */
   execute: (ctx: AutonomousExecContext) => Promise<void>;
+  /**
+   * 可选：注入 provider（测试 / 定制用）。
+   *
+   * 缺省按 `git-worktree > snapshot-copy` 构造 —— 生产调用方**不需要**传。
+   */
+  providers?: readonly WorkspaceProvider[];
 }
 
 /** 自主任务结果 */
@@ -70,6 +78,15 @@ export interface AutonomousTaskResult {
   error?: string;
   /** P1-4（2026-08-31）：execute 前自动快照 hash（apply-back 失败时保留隔离区，可 restoreWorkspaceSnapshot 回滚） */
   snapshotHash?: string;
+  /**
+   * 隔离区是否被**保留**（2026-10-20 修复）。
+   *
+   * 修复前：snapshot-copy 的 `publish` 只返回占位串（`applied=false`），但成功路径仍
+   * `dispose(keep:false)` ⇒ **把含成果的隔离区删掉**。现口径：未回灌即保留。
+   */
+  keptIsolation?: boolean;
+  /** 保留时的隔离区绝对路径（供人工合并 / 排查；未保留 ⇒ 缺省） */
+  isolationPath?: string;
 }
 
 /**
@@ -79,11 +96,15 @@ export async function runAutonomousTask(
   input: AutonomousTaskInput
 ): Promise<AutonomousTaskResult> {
   const registry = new WorkspaceProviderRegistry();
-  // 优先级：git-worktree(1) > snapshot-copy(2)，纯自动选择
-  registry.add(
-    new SnapshotCopyProvider({ baseDir: resolveDataSubDir('workspaces') })
-  );
-  registry.add(new GitWorktreeProvider({ projectRoot: input.projectRoot }));
+  if (input.providers && input.providers.length > 0) {
+    for (const provider of input.providers) registry.add(provider);
+  } else {
+    // 优先级：git-worktree(1) > snapshot-copy(2)，纯自动选择
+    registry.add(
+      new SnapshotCopyProvider({ baseDir: resolveDataSubDir('workspaces') })
+    );
+    registry.add(new GitWorktreeProvider({ projectRoot: input.projectRoot }));
+  }
 
   let handle: WorkspaceHandle | undefined;
   let provider: WorkspaceProvider | undefined;
@@ -142,12 +163,20 @@ export async function runAutonomousTask(
         applied: false,
         error: `apply-back failed: ${msg}`,
         snapshotHash,
+        keptIsolation: true,
+        isolationPath: handle.cwd,
       };
     }
     const applied = !!(out.diff && !out.diff.startsWith('snapshot at '));
+    // 2026-10-20 修复：**未回灌**（snapshot-copy 无 diff / 返回占位串）⇒ 成果只在隔离区里，
+    // 必须保留；修复前此处仍走 `dispose(keep:false)` ⇒ 含成果的目录被直接删掉。
+    // 说明：execute 抛错的路径**不**保留（未产生可回灌差异，避免失败即堆积；
+    // 崩溃残留由调用方按 `runId` 自行清理策略处理）。
+    if (!applied) keepIsolation = true;
     logger.info('AutonomousRunner: 执行完成，回灌结果', {
       runId: input.runId,
       applied,
+      keptIsolation: keepIsolation,
       diffBytes: out.diff?.length ?? 0,
     });
     return {
@@ -156,6 +185,9 @@ export async function runAutonomousTask(
       applied,
       diff: out.diff,
       snapshotHash,
+      ...(keepIsolation
+        ? { keptIsolation: true, isolationPath: handle.cwd }
+        : {}),
     };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

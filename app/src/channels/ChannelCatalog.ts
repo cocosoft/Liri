@@ -45,6 +45,8 @@
  * 消费方按**子入口直连**，已在 `scripts/lint-architecture.ts` 的 `canonicalEntryKeys`
  * 登记 `channels/ChannelCatalog`。
  */
+import { feature as buildFeature } from 'bun:bundle';
+
 export interface ChannelCatalogEntry {
   type: string;
   name: string;
@@ -98,14 +100,32 @@ export const CHANNEL_CATALOG: ChannelCatalogEntry[] = [
     isEnabled: (env) =>
       !!env('DINGTALK_APP_KEY') && !!env('DINGTALK_APP_SECRET'),
   },
-  {
-    type: 'feishu',
-    name: '飞书',
-    exportKey: 'feishuChannel',
-    load: () => import('./feishu/FeishuChannel.js'),
-    credentials: ['FEISHU_APP_ID', 'FEISHU_APP_SECRET'],
-    isEnabled: (env) => !!env('FEISHU_APP_ID') && !!env('FEISHU_APP_SECRET'),
-  },
+  // ───── 编译期裁剪试点（2026-10-20，P1-0）─────
+  // 反向开关：**未声明** `DROP_CHANNEL_FEISHU` ⇒ 条目保留（默认行为与改造前逐字一致）；
+  // 构建时传 `--feature=DROP_CHANNEL_FEISHU` ⇒ 三元折叠为 `[]`，下方 `import()` 连同
+  // `@larksuiteoapi/node-sdk`（实测 5.94 MB）一起从产物中消失（bun 已验证）。
+  //
+  // ⚠️ 为什么用「反向 DROP」而不是正向 `CHANNEL_FEISHU`：正向需要**所有**运行入口
+  // （IDE、裸 `bun src/main.ts`、脚本、`bun test`）都显式声明全量 feature，漏一处就静默
+  // 丢通道；反向默认保留 ⇒ 零行为变更，裁剪是显式 opt-in。
+  // ⚠️ 条目**必须内联**在三元分支里：提取成 `const ENTRY = {...}` 后会在模块顶层求值，
+  // DCE 不再生效（`import()` 仍会被打包）。
+  // ⚠️ `bun:bundle` 的 `feature()` 只能用于 `if` / 三元条件（当值用会直接报错）。
+  ...(buildFeature('DROP_CHANNEL_FEISHU')
+    ? []
+    : [
+        {
+          type: 'feishu',
+          name: '飞书',
+          exportKey: 'feishuChannel',
+          load: () => import('./feishu/FeishuChannel.js'),
+          credentials: ['FEISHU_APP_ID', 'FEISHU_APP_SECRET'],
+          // `env` 需显式标注：三元分支里的数组字面量**不继承**外层元素的上下文类型，
+          // 靠推断会触发 noImplicitAny（与其它条目写法不同，属编译期裁剪的语法代价）
+          isEnabled: (env: (key: string) => string | undefined) =>
+            !!env('FEISHU_APP_ID') && !!env('FEISHU_APP_SECRET'),
+        },
+      ]),
   {
     type: 'wechat',
     name: '微信',

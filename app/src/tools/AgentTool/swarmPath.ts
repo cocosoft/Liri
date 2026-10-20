@@ -413,6 +413,8 @@ export async function runSwarmPath(
   // 修复前载荷无稳定标识，同一会话多次批次（含未闭合的旧批次）会 FIFO 跨批次错配。
   globalEventBus.publish(OrchestrationEventType.PARALLEL_START, {
     agentId,
+    // 2026-10-20：带归属会话 ⇒ 编排历史适配器可落盘（此前缺 itemId/sessionId ⇒ 整条被丢）
+    ...(context?.sessionId ? { sessionId: context.sessionId } : {}),
     totalTasks: tasks.length,
     tasks: tasks.map((t) => ({
       description: t.description,
@@ -603,6 +605,8 @@ export async function runSwarmPath(
   globalEventBus.publish(OrchestrationEventType.PARALLEL_END, {
     ...pe,
     agentId,
+    // 2026-10-20：与 PARALLEL_START 同带归属会话 ⇒ 历史配对完整（起止落同一文件）
+    ...(context?.sessionId ? { sessionId: context.sessionId } : {}),
   });
 
   await deps.agentLedgerLifecycle.settleRun(

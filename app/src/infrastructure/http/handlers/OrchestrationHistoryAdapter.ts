@@ -81,6 +81,16 @@ function getRecordedEventTypes(): ReadonlySet<string> {
       OrchestrationEventType.SWARM_AGENT_STATUS,
       OrchestrationEventType.SWARM_COMPLETE,
 
+      // 并行/蜂群批次（方案 7）——2026-10-20 补齐。
+      // 现状：蜂群批次由 `tools/AgentTool/swarmPath.ts` 以 **PARALLEL_START/END** 发布
+      // （`SWARM_*` 三兄弟目前**无任何发布方**，仅被本白名单与 SSE 白名单引用）。
+      // 修复前本白名单只收 `SWARM_*` ⇒ 蜂群批次在**历史**里完全不可见（SSE 时间线有、落盘没有）。
+      // 事件载荷已带 `sessionId`（`extractItemId` 依赖它）⇒ 可按会话落到
+      // `workitems/<sessionId>_orchestration_history.jsonl`；`agentId` 供配对器精确配对。
+      // 注：`PARALLEL_TASK_START/COMPLETE` 目前**没有发布方**，故不在此列（不假装已覆盖）。
+      OrchestrationEventType.PARALLEL_START,
+      OrchestrationEventType.PARALLEL_END,
+
       AgentEventType.THINKING_START,
       AgentEventType.THINKING_DELTA,
       AgentEventType.THINKING_END,

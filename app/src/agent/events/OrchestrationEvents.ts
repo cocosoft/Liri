@@ -212,6 +212,20 @@ export interface SwarmDispatchData {
 
 /** 并行执行开始事件数据 */
 export interface ParallelStartData {
+  /**
+   * 批次唯一标识（H-2-R11）。
+   *
+   * 2026-10-20：此前只在发布处裸传（类型里缺字段）⇒ 配对器"按批次配对"的依据没有契约约束；
+   * 现显式登记，供 `OrchestrationEventPairer`（`PAIR_KEY_FIELDS`）与离线重放共用。
+   */
+  agentId?: string;
+  /**
+   * 归属会话（2026-10-20）。
+   *
+   * `OrchestrationHistoryAdapter` 以此落盘到 `workitems/<sessionId>_orchestration_history.jsonl`
+   * —— 缺它时该事件**整条被丢弃**（`extractItemId` 返回 null）⇒ 蜂群批次在历史里不可见。
+   */
+  sessionId?: string;
   /** 总任务数 */
   totalTasks: number;
   /** 任务描述列表 */
@@ -250,6 +264,10 @@ export interface ParallelTaskCompleteData {
 
 /** 并行执行完成事件数据 */
 export interface ParallelEndData {
+  /** 批次唯一标识（与 `ParallelStartData.agentId` 同源 ⇒ 配对器按批次精确匹配） */
+  agentId?: string;
+  /** 归属会话（与 `ParallelStartData.sessionId` 同源 ⇒ 历史落盘用） */
+  sessionId?: string;
   /** 总任务数 */
   totalTasks: number;
   /** 成功任务数 */

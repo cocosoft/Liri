@@ -127,7 +127,7 @@ describe('DeliveryRouter 文本重试安全', () => {
       }
     )._sendWithFallback(channel, 'target', {
       format: 'interactive',
-      card: { title: 't', options: [] },
+      card: { title: 't', content: '', buttons: [] },
       fallbackText: 'c',
     })) as { success: boolean; actualFormat: string };
 
@@ -166,7 +166,7 @@ describe('DeliveryRouter 文本重试安全', () => {
       }
     )._sendWithFallback(channel, 'target', {
       format: 'interactive',
-      card: { title: 't', options: [] },
+      card: { title: 't', content: '', buttons: [] },
       fallbackText: 'c',
     })) as { success: boolean; actualFormat: string };
 

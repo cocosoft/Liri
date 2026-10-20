@@ -31,7 +31,7 @@ import {
   type DeliveryFormatName,
   type DeliveryFormatSupport,
 } from './deliveryFormatters';
-import type { DeliveryInteractiveCard } from './deliveryTypes';
+import type { InteractiveCard } from './types/IChannel';
 import { classifyOutboundError } from './routing/channelErrorClass';
 
 const logger = getLogger('channels:DeliveryRouter');
@@ -44,8 +44,14 @@ export type DeliveryMode = 'origin' | 'local' | 'targeted';
 /** 消息格式 */
 export type DeliveryFormat = 'text' | 'markdown' | 'interactive' | 'none';
 
-/** 交互卡片数据（类型已下沉到叶子模块 `deliveryTypes`，见该文件断环说明） */
-export type { DeliveryInteractiveCard } from './deliveryTypes';
+/**
+ * 交互卡片数据 —— 全仓**唯一**形状 `InteractiveCard`（`channels/types/IChannel.ts`）。
+ *
+ * 2026-10-20（W-1）：原 `DeliveryInteractiveCard`（`title/color/options`）与
+ * `InteractiveCard`（`title/content/buttons/color`）两种形状已收敛为后者；
+ * `options[{label,value}]` 语义等价于 `buttons[{text,value}]`。
+ */
+export type { InteractiveCard } from './types/IChannel';
 
 /** 投递内容（可辨识联合） */
 export type DeliveryContent =
@@ -53,7 +59,7 @@ export type DeliveryContent =
   | { format: 'markdown'; content: string }
   | {
       format: 'interactive';
-      card: DeliveryInteractiveCard;
+      card: InteractiveCard;
       fallbackText: string;
     };
 

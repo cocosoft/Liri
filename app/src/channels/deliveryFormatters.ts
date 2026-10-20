@@ -28,7 +28,7 @@
  * 每个转换函数接受上一级格式的内容，返回下一级格式的纯文本。
  */
 
-import type { DeliveryInteractiveCard } from './deliveryTypes';
+import type { InteractiveCard } from './types/IChannel';
 
 /** 降级链顺序（模块级常量，新增格式只需在此数组加一项） */
 export const DELIVERY_FORMAT_CHAIN = [
@@ -73,10 +73,13 @@ export function resolveDeliveryFallbacks(
 
 /**
  * Interactive → Markdown 转换
- * 将交互卡片的 title + options 转为 Markdown 文本
+ *
+ * 2026-10-20（W-1）：卡片类型**收敛为唯一一种** `InteractiveCard`（`channels/types/IChannel.ts`），
+ * 本函数按 `title → color → content → buttons → fallbackText` 渲染。
+ * 原 `DeliveryInteractiveCard.options[{label,value}]` 已并入 `buttons[{text,value,style?}]`。
  */
 export function interactiveToMarkdown(
-  card: DeliveryInteractiveCard,
+  card: InteractiveCard,
   fallbackText: string
 ): string {
   const lines: string[] = [];
@@ -87,10 +90,14 @@ export function interactiveToMarkdown(
   if (card.color) {
     lines.push(`_(${card.color})_`);
   }
-  if (card.options && card.options.length > 0) {
+  if (card.content) {
     lines.push('');
-    for (const opt of card.options) {
-      lines.push(`- ${opt.label}`);
+    lines.push(card.content);
+  }
+  if (card.buttons && card.buttons.length > 0) {
+    lines.push('');
+    for (const btn of card.buttons) {
+      lines.push(`- ${btn.text}`);
     }
   }
   if (fallbackText) {

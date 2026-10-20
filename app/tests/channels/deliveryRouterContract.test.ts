@@ -87,7 +87,7 @@ const mdContent: DeliveryContent = {
 };
 const cardContent: DeliveryContent = {
   format: 'interactive',
-  card: { title: 'T', options: [{ label: 'A', value: 'a' }] },
+  card: { title: 'T', content: 'C', buttons: [{ text: 'A', value: 'a' }] },
   fallbackText: 'fb',
 };
 

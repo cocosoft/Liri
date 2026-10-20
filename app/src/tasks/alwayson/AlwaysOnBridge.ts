@@ -193,6 +193,9 @@ export function buildReportMarkdown(
         ? `（≈$${usage.estimatedCostUsd.toFixed(4)}）`
         : ''
     }`,
+    // v2 遗留项（2026-10-20 产品口径）：**不做**目标达成自评（多一次模型调用 + 未达成处置未定）
+    // ⇒ 显式标注，避免把"本轮没报错"误读为"目标已达成"。
+    '- **Goal Achievement**: unverified（仅记录本轮执行结果，未做模型自评）',
   ];
   if (workspace) {
     if (workspace.skippedReason) {

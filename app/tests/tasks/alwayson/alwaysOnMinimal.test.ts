@@ -337,6 +337,15 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
     const markdown = await bridge.report(result);
     expect(markdown).toContain('- **Patch**: 无改动');
   });
+
+  /** v2 遗留（2026-10-20 产品口径）：不做目标达成自评，但报告必须显式标注 unverified */
+  it('report：目标达成未自评 ⇒ 标注 unverified（不把"没报错"当成"已达成"）', async () => {
+    const { bridge } = makeBridge();
+    await bridge.discovery();
+    const result = await bridge.execution(await bridge.workspace(plan));
+    const markdown = await bridge.report(result);
+    expect(markdown).toContain('Goal Achievement**: unverified');
+  });
 });
 
 describe('U-02 bootstrapAlwaysOn（开关语义）', () => {

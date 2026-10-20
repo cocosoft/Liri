@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "recordedAt": "2026-10-20T21:44:39.141Z",
+  "entry": "src/pyapp.ts",
+  "eager": {
+    "total": 673,
+    "app": {
+      "files": 409,
+      "bytes": 2858697
+    },
+    "nodeModules": {
+      "files": 263,
+      "bytes": 1054371
+    }
+  },
+  "byTopDir": {
+    "(root)": {
+      "files": 1,
+      "bytes": 20175
+    },
+    "monitoring": {
+      "files": 56,
+      "bytes": 370623
+    },
+    "error": {
+      "files": 18,
+      "bytes": 109649
+    },
+    "core": {
+      "files": 84,
+      "bytes": 531583
+    },
+    "config": {
+      "files": 39,
+      "bytes": 292732
+    },
+    "performance": {
+      "files": 2,
+      "bytes": 21049
+    },
+    "diagnostics": {
+      "files": 7,
+      "bytes": 76585
+    },
+    "utils": {
+      "files": 16,
+      "bytes": 76830
+    },
+    "constants": {
+      "files": 17,
+      "bytes": 55388
+    },
+    "chronos": {
+      "files": 26,
+      "bytes": 160288
+    },
+    "types": {
+      "files": 2,
+      "bytes": 7485
+    },
+    "memory": {
+      "files": 40,
+      "bytes": 349793
+    },
+    "security": {
+      "files": 65,
+      "bytes": 489759
+    },
+    "permission": {
+      "files": 36,
+      "bytes": 296758
+    }
+  },
+  "declaredOnDemandInEager": {
+    "chronos": {
+      "files": 26,
+      "bytes": 160288,
+      "upstream": [
+        {
+          "fromDir": "monitoring",
+          "count": 1
+        }
+      ]
+    },
+    "memory": {
+      "files": 40,
+      "bytes": 349793,
+      "upstream": [
+        {
+          "fromDir": "constants",
+          "count": 1
+        },
+        {
+          "fromDir": "security",
+          "count": 1
+        }
+      ]
+    },
+    "security": {
+      "files": 65,
+      "bytes": 489759,
+      "upstream": [
+        {
+          "fromDir": "permission",
+          "count": 2
+        },
+        {
+          "fromDir": "chronos",
+          "count": 1
+        }
+      ]
+    }
+  },
+  "nodeModulesByPackage": [
+    {
+      "name": "@opentelemetry/semantic-conventions",
+      "bytes": 304216
+    },
+    {
+      "name": "@opentelemetry/sdk-metrics",
+      "bytes": 142541
+    },
+    {
+      "name": "gray-matter",
+      "bytes": 120854
+    },
+    {
+      "name": "js-yaml",
+      "bytes": 92323
+    },
+    {
+      "name": "@opentelemetry/api",
+      "bytes": 73118
+    },
+    {
+      "name": "@opentelemetry/core",
+      "bytes": 66170
+    },
+    {
+      "name": "@opentelemetry/sdk-trace-base",
+      "bytes": 54912
+    },
+    {
+      "name": "fs-extra",
+      "bytes": 41635
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "bytes": 31723
+    },
+    {
+      "name": "croner",
+      "bytes": 27551
+    },
+    {
+      "name": "graceful-fs",
+      "bytes": 25972
+    },
+    {
+      "name": "debug",
+      "bytes": 18060
+    }
+  ]
+}

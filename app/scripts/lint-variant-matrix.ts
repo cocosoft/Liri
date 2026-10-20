@@ -56,6 +56,13 @@ function checkDuplicates(list: readonly string[], label: string): void {
   }
 }
 
+/** 两个清单集合相等（顺序无关） */
+function sameSet(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const setA = new Set(a);
+  return b.every((x) => setA.has(x));
+}
+
 function main(): void {
   console.log('=== 变体矩阵门禁（单一事实源） ===');
 
@@ -105,6 +112,29 @@ function main(): void {
     console.log(
       `  ${variant}: +${spec.features.length} / -${spec.excludeFeatures.length} / build:${spec.buildFeatures.length}`
     );
+  }
+
+  // ⑥ headless 策略（2026-10-20 用户裁定：能力面继承 personal；仅裁 UI；通道默认保留）
+  const headless = VARIANT_MATRIX.headless;
+  const personal = VARIANT_MATRIX.personal;
+  if (headless && personal) {
+    if (!headless.buildFeatures.includes('DROP_UI')) {
+      fail('[headless] buildFeatures 必须含 DROP_UI');
+    }
+    if (headless.buildFeatures.includes('DROP_CHANNELS_ALL')) {
+      fail(
+        '[headless] 默认不得裁通道（裁定：通道默认打包，需要时由 CLI 追加 DROP_CHANNELS_ALL）'
+      );
+    }
+    if (!sameSet(headless.features, personal.features)) {
+      fail('[headless] features 必须与 personal 一致（裁定：继承 personal）');
+    }
+    if (!sameSet(headless.excludeFeatures, personal.excludeFeatures)) {
+      fail('[headless] excludeFeatures 必须与 personal 一致（裁定：继承 personal）');
+    }
+    if (headless.minimalToolSurface) {
+      fail('[headless] 不得启用 minimalToolSurface（那是 core 的 7 工具下限）');
+    }
   }
 
   if (violations.length > 0) {

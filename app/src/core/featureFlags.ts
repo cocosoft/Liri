@@ -17,7 +17,12 @@
 import { BUILD_VARIANT_FLAGS } from './buildVariantFlags';
 
 /** 构建变体（分版标识） */
-export type BuildVariant = 'core' | 'personal' | 'coding' | 'enterprise';
+export type BuildVariant =
+  | 'core'
+  | 'personal'
+  | 'coding'
+  | 'enterprise'
+  | 'headless';
 
 /** 所有构建变体列表 */
 export const BUILD_VARIANTS: readonly BuildVariant[] = [
@@ -25,6 +30,7 @@ export const BUILD_VARIANTS: readonly BuildVariant[] = [
   'personal',
   'coding',
   'enterprise',
+  'headless',
 ] as const;
 
 /**
@@ -35,6 +41,7 @@ export const BUILD_VARIANTS: readonly BuildVariant[] = [
  * - 'personal': 个人版（Core + Telegram/Web 通道 + 插件）
  * - 'coding': 编码版（Personal + LSP + Notebook + 代码分析）
  * - 'enterprise': 企业版（Coding + Slack/Discord + Auth + Audit）
+ * - 'headless': 无界面服务端版（**与 personal 同能力面**，构建期剔除 UI；通道默认保留）
  *
  * 可通过环境变量 LIRI_BUILD_VARIANT 覆盖。
  */
@@ -698,6 +705,9 @@ export function isAtLeastVariant(variant: BuildVariant): boolean {
     personal: 1,
     coding: 2,
     enterprise: 3,
+    // `headless` 不计入"能力递增链"：它的能力面 = personal（2026-10-20 裁定），
+    // 只是构建期剔除 UI ⇒ 与 personal 同档，避免被 `isAtLeastVariant('coding')` 误判。
+    headless: 1,
   };
 
   return order[BUILD_VARIANT] >= order[variant];

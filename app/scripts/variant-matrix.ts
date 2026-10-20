@@ -16,8 +16,13 @@
  * （变体矩阵方案 §9-1），裁定前不得在此预填。
  */
 
-/** 变体名（顺序即"能力从少到多"） */
-export type BuildVariant = 'core' | 'personal' | 'coding' | 'enterprise';
+/** 变体名（顺序即"能力从少到多"；`headless` 是有意追加的服务端形态） */
+export type BuildVariant =
+  | 'core'
+  | 'personal'
+  | 'coding'
+  | 'enterprise'
+  | 'headless';
 
 /** 合法变体清单（唯一真源；CLI 校验与文档均取自此） */
 export const BUILD_VARIANTS: readonly BuildVariant[] = [
@@ -25,6 +30,7 @@ export const BUILD_VARIANTS: readonly BuildVariant[] = [
   'personal',
   'coding',
   'enterprise',
+  'headless',
 ];
 
 export interface VariantSpec {
@@ -42,6 +48,36 @@ export interface VariantSpec {
    */
   minimalToolSurface: boolean;
 }
+
+/**
+ * personal 的能力面 —— **headless 复用同一份**（2026-10-20 用户裁定：
+ * headless 继承 personal），避免"两份数组"日后漂移。
+ */
+const PERSONAL_SPEC: VariantSpec = {
+  description: '个人版 — Core + Telegram/Web 通道 + 插件 + 文件转换',
+  features: [
+    'AGENT',
+    'ENABLE_PLUGINS',
+    'ENABLE_SKILLS',
+    'MCP_SYSTEM',
+    'FILE_CONVERTER',
+    'PLAN',
+    'BRIEF',
+    'CHRONOS',
+    'TUNGSTEN',
+  ],
+  excludeFeatures: [
+    'AGENT_TRIGGERS',
+    'LSP',
+    'NOTEBOOK',
+    'BROWSER',
+    'CODE_ANALYSIS',
+    'TEAM_CREATE',
+    'TEAM_DELETE',
+  ],
+  buildFeatures: [],
+  minimalToolSurface: false,
+};
 
 /**
  * 变体矩阵。
@@ -89,31 +125,7 @@ export const VARIANT_MATRIX: Record<BuildVariant, VariantSpec> = {
     buildFeatures: ['DROP_CHANNELS_ALL'],
     minimalToolSurface: true,
   },
-  personal: {
-    description: '个人版 — Core + Telegram/Web 通道 + 插件 + 文件转换',
-    features: [
-      'AGENT',
-      'ENABLE_PLUGINS',
-      'ENABLE_SKILLS',
-      'MCP_SYSTEM',
-      'FILE_CONVERTER',
-      'PLAN',
-      'BRIEF',
-      'CHRONOS',
-      'TUNGSTEN',
-    ],
-    excludeFeatures: [
-      'AGENT_TRIGGERS',
-      'LSP',
-      'NOTEBOOK',
-      'BROWSER',
-      'CODE_ANALYSIS',
-      'TEAM_CREATE',
-      'TEAM_DELETE',
-    ],
-    buildFeatures: [],
-    minimalToolSurface: false,
-  },
+  personal: PERSONAL_SPEC,
   coding: {
     description: '编码版 — Personal + LSP + Notebook + 代码分析',
     features: [
@@ -143,5 +155,13 @@ export const VARIANT_MATRIX: Record<BuildVariant, VariantSpec> = {
     excludeFeatures: [],
     buildFeatures: [],
     minimalToolSurface: false,
+  },
+  // 2026-10-20 用户裁定：headless **继承 personal** 的能力面；
+  // 仅构建期剔除 UI（`DROP_UI`），**不裁通道**（默认打包，可用 CLI 追加 DROP_CHANNELS_ALL）。
+  headless: {
+    ...PERSONAL_SPEC,
+    description:
+      '无界面服务端版 — 与 personal 同能力面，构建期剔除 UI（DROP_UI），通道默认保留',
+    buildFeatures: ['DROP_UI'],
   },
 };

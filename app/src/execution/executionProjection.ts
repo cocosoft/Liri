@@ -19,7 +19,9 @@
  * | `RUNNING` / `WAITING_USER` / `CANCEL_REQUESTED` | `RUNNING` | 与 `isActiveStatus()` **同界**（持有 session 所有权的在飞态） |
  * | `CANCELLED` / `COMPLETED` / `FAILED` / `STALE` | `SETTLED` | 与 `isTerminalStatus()` **同界**（落定，**不再区分**成败 —— 原生细节不外露） |
  *
- * ⚠️ `WAITING_USER` **不**投成 `SUSPENDED`：`SUSPENDED` 语义是**预算挂起**（方案 §3 ②，尚未实现），
+ * ⚠️ `WAITING_USER` **不**投成 `SUSPENDED`：`SUSPENDED` 语义是**预算挂起**
+ * （2026-10-20 订正：该能力**已实现**，生产者是 `query/budgetSuspend.ts:186`
+ *  `publishStateProjection({primitive:'SUSPENDED'})`；原注释「尚未实现」为存量失实），
  * 而 `WAITING_USER` 是**在飞**执行（轮次继续、所有权未释放）⇒ 投 `RUNNING`（与 `isActiveStatus` 一致）。
  */
 

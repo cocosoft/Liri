@@ -654,6 +654,7 @@ async function routeChannelMessageInner(
       }
       // G-2（2026-10-18）：远程通道默认最小工具面 —— 仅**注入缺省 taskType**，
       // 由 `filterToolsByTask` 同一条过滤链裁剪（开关默认关 ⇒ undefined ⇒ 与现状逐字一致）。
+      // 2026-10-20：`mobile` 属**硬约束**通道（`ALWAYS_RESTRICTED_CHANNELS`）⇒ 不受开关门控。
       const channelTaskType = resolveChannelTaskTypeOverride(
         message.channelId || channelName
       );

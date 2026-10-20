@@ -282,6 +282,9 @@ export const FEATURE_FLAGS = {
    * （不含 `shell` / `file` 写类，见 `tools/toolCategories.ts` 的 `TASK_TOOL_CATEGORIES.messaging`）；
    * 本地 REPL / 客户端会话无通道来源 ⇒ 不注入，行为不变。
    * 关（默认）⇒ 不注入 `taskType` ⇒ 与现状逐字一致。
+   * ⚠️ **例外（2026-10-20）**：`mobile` 属 `channels/toolPolicy.ts` 的
+   * `ALWAYS_RESTRICTED_CHANNELS` —— 远程不可信来源，安全约束**不随本开关**开关，
+   * 无论取值如何都按 `messaging` 面裁剪（方案 §2.6 硬约束）。
    * `FEATURE_CHANNEL_TOOL_POLICY=true`。
    * 触发条件见 `.trae/specs/default-off-switches-review-gates.md` §2 #14。
    */

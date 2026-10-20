@@ -13,7 +13,9 @@
  * - **无可用 sink 时不伪成功**（CS04）：返回 `success:false`，由投递层记录失败。
  *
  * 能力声明：`interactive=false`（首版走文本审批，见 `channels/bridge/TextApprovalParser.ts`）；
- * 权限档位：远程入站默认按 `CHANNEL_TOOL_POLICY` 的 `messaging` 面裁剪（不含执行类）。
+ * 权限档位：入站**强制**按 `messaging` 任务面裁剪（不含执行类）—— 本通道属
+ * `toolPolicy.ts` 的 `ALWAYS_RESTRICTED_CHANNELS`，**不受** `CHANNEL_TOOL_POLICY` 灰度开关门控
+ * （2026-10-20：远程不可信来源，安全约束不能挂在默认关闭的开关上）。
  */
 
 import type {

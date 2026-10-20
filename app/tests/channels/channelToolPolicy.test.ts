@@ -9,6 +9,7 @@ import { describe, it, expect } from 'bun:test';
 import { CHANNEL_CATALOG } from '../../src/channels/ChannelCatalog.js';
 import {
   CHANNEL_MESSAGING_TASK_TYPE,
+  isAlwaysRestrictedChannel,
   resolveChannelTaskTypeOverride,
   resolveChannelToolPolicy,
 } from '../../src/channels/toolPolicy.js';
@@ -38,6 +39,22 @@ describe('G-2 通道级工具面最小权限', () => {
     expect(resolveChannelTaskTypeOverride('repl', true)).toBeUndefined();
     // 默认取 `CHANNEL_TOOL_POLICY`（当前默认 false ⇒ 零行为变更）
     expect(resolveChannelTaskTypeOverride('telegram')).toBeUndefined();
+  });
+
+  it('移动端是硬约束：开关关闭时**仍然**注入 messaging（不依赖灰度开关）', () => {
+    // 方案 §2.6 硬约束"移动端无法触发任何工具执行"——若挂在默认关闭的开关上，
+    // 线上默认配置下该约束就是空的（安全姿态静默削弱）。
+    expect(resolveChannelTaskTypeOverride('mobile', false)).toBe(
+      CHANNEL_MESSAGING_TASK_TYPE
+    );
+    expect(resolveChannelTaskTypeOverride('MOBILE', false)).toBe(
+      CHANNEL_MESSAGING_TASK_TYPE
+    );
+    // 无来源 / 非硬名单通道仍按开关口径 ⇒ 零变更
+    expect(resolveChannelTaskTypeOverride(undefined, false)).toBeUndefined();
+    expect(isAlwaysRestrictedChannel('mobile')).toBe(true);
+    expect(isAlwaysRestrictedChannel('telegram')).toBe(false);
+    expect(isAlwaysRestrictedChannel(undefined)).toBe(false);
   });
 
   it('messaging 工具面：无执行 / 写盘，保留只读与交互', () => {

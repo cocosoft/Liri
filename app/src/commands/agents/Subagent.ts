@@ -431,8 +431,9 @@ async function createAgentFile(
   description: string,
   tools?: string
 ): Promise<string> {
-  const cwd = process.cwd();
-  const agentsDir = join(resolveProjectRoot(), '.pyapp', 'agents');
+  // 分发前置「写路径不落安装目录」：新建 Agent 一律落用户级目录
+  // （与 getAgentsDirs() 的 userSettings 来源一致；项目级 `.pyapp/agents` 仅只读兼容）
+  const agentsDir = join(resolvePyappHome(), 'agents');
 
   if (!existsSync(agentsDir)) {
     await mkdir(agentsDir, { recursive: true });

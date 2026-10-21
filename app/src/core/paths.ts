@@ -592,6 +592,37 @@ export function resolveUserSettingsPath(
   return join(resolvePyappHome(env), 'settings.json');
 }
 
+/**
+ * 用户级环境变量文件（`~/.pyapp/.env`）—— `.env` 的**唯一写入目标**
+ *
+ * 安装到 `Program Files` 等只读目录时，安装目录内不可写 ⇒ 运行期生成的密钥
+ * 必须落用户目录（分发前置「写路径不落安装目录」）。
+ */
+export function resolveUserEnvPath(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolvePyappHome(env), '.env');
+}
+
+/**
+ * 安装目录内的 `.env`（随包分发 / 开发检出）—— **只读兼容**
+ *
+ * 加载顺序：先本文件（旧位置，保证开发态行为不变）→ 再用用户级 `.env` 的
+ * **非空值**覆盖。任何新写入**不得**落此路径。
+ */
+export function resolveBundledEnvPath(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveProjectRoot(env), 'app', '.env');
+}
+
+/** 安装目录内的 `.env.example` 模板（随包分发，只读） */
+export function resolveEnvExamplePath(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveProjectRoot(env), 'app', '.env.example');
+}
+
 /** AI 人格定义（~/.pyapp/SOUL.md） */
 export function resolveSoulPath(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolvePyappHome(env), 'SOUL.md');

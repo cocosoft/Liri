@@ -329,27 +329,47 @@ const PROJECT_DIRS = ['app'];
 // 确保各模块的路径解析函数 fallback 到正确的项目根
 process.env.LIRI_PROJECT_DIR = projectRoot;
 
-// ── 策略 6: 加载 .env 文件 ──
+// ── 策略 6: 加载 .env 文件（分层：安装目录只读兼容 → 用户级非空覆盖）──
 // Bun 自动加载 .env 仅在 CWD 中查找，而 .env 位于 app/ 子目录，
 // 因此需要手动加载，确保 DEEPSEEK_API_KEY 等环境变量可用。
+// 分发前置「写路径不落安装目录」：安装目录内的 app/.env **只读**（开发/便携沿用），
+// 新写入一律落用户级 ~/.pyapp/.env（见 core/paths.ts 的 resolveUserEnvPath）。
+// 此处直接读 LIRI_HOME（上方已设置）而不 require('@modules/core/paths')：
+// 该模块有模块级常量，必须等 LIRI_HOME 确定后才能求值（见文件头 lazyHandleError 注释）。
+// 也未抽独立模块：`.env` 必须在任何 app 模块加载前同步并入 env ⇒ 只能留在入口，
+// 抽出去会让启动面静态图 +1 文件（`lint:startup-graph` 棘轮只允许减少）。
 {
+  // 进程启动时已存在的变量（shell / 父进程 / Bun 自动加载）→ 永远最高优先，不被文件覆盖
+  const shellKeys = new Set(Object.keys(process.env));
+
+  /**
+   * 把单个 .env 文件并入 process.env
+   *
+   * - 空值不参与：模板里的空占位（`DEEPSEEK_API_KEY=`）不得遮蔽另一层的真值；
+   * - `overrideExisting=false`（安装目录层）：不覆盖已存在的键；
+   * - `overrideExisting=true`（用户级层）：非空值覆盖安装目录层。
+   */
+  const applyEnvFile = (envPath: string, overrideExisting: boolean): void => {
+    if (!existsSync(envPath)) return;
+    for (const line of readFileSync(envPath, 'utf-8').split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx === -1) continue;
+      const key = trimmed.slice(0, eqIdx).trim();
+      const value = trimmed.slice(eqIdx + 1).trim();
+      if (!key || !value) continue;
+      if (shellKeys.has(key)) continue;
+      if (!overrideExisting && key in process.env) continue;
+      process.env[key] = value;
+    }
+  };
+
   try {
-    const envPath = join(projectRoot, 'app', '.env');
-    if (existsSync(envPath)) {
-      const envContent = readFileSync(envPath, 'utf-8');
-      for (const line of envContent.split('\n')) {
-        const trimmed = line.trim();
-        // 跳过空行和注释
-        if (!trimmed || trimmed.startsWith('#')) continue;
-        const eqIdx = trimmed.indexOf('=');
-        if (eqIdx === -1) continue;
-        const key = trimmed.slice(0, eqIdx).trim();
-        const value = trimmed.slice(eqIdx + 1).trim();
-        // 不覆盖已存在的环境变量（例如由 shell 注入的）
-        if (key && !(key in process.env)) {
-          process.env[key] = value;
-        }
-      }
+    applyEnvFile(join(projectRoot, 'app', '.env'), false);
+    const liriHome = process.env.LIRI_HOME?.trim();
+    if (liriHome) {
+      applyEnvFile(join(liriHome, '.env'), true);
     }
   } catch (err) {
     // 非致命：.env 加载失败不影响启动

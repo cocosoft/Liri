@@ -12,9 +12,9 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import {
-  resolveProjectRoot,
+  resolveUserEnvPath,
   OPENAI_API_V1_BASE_URL,
   ANTHROPIC_API_V1_BASE_URL,
   DEEPSEEK_API_V1_BASE_URL,
@@ -314,9 +314,9 @@ const PROVIDER_INFO: Record<
   },
 };
 
-/** .env 文件路径 */
+/** .env 文件路径 —— 用户级 `~/.pyapp/.env`（安装目录可能只读，不落盘到包内） */
 function getEnvPath(): string {
-  return join(resolveProjectRoot(), '.env');
+  return resolveUserEnvPath();
 }
 
 /**
@@ -347,6 +347,7 @@ function writeKeyToEnv(envKey: string, apiKey: string): boolean {
       newLines.push(`${envKey}=${apiKey}`);
     }
 
+    mkdirSync(dirname(envPath), { recursive: true });
     writeFileSync(envPath, newLines.join('\n'), 'utf-8');
     process.env[envKey] = apiKey;
     return true;

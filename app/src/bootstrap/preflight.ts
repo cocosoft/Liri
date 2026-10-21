@@ -30,11 +30,13 @@
  */
 
 import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import {
-  resolveProjectRoot,
   resolveDataDir,
   resolveOnboardedFlagPath,
+  resolveUserEnvPath,
+  resolveBundledEnvPath,
+  resolveEnvExamplePath,
 } from '@modules/core';
 import { configManager } from '../config/index.js';
 import { setOfflineMode } from '../entrypoints/shared-state.js';
@@ -65,19 +67,26 @@ function getOnboardedFlagPath(): string {
 }
 
 /**
- * 获取 .env 文件路径
- * 与 pyapp.ts 启动加载路径保持一致：app/.env
+ * 获取 .env 文件路径 —— **写入目标**为用户级 `~/.pyapp/.env`
+ *
+ * 分发前置「写路径不落安装目录」：安装目录可能只读（`Program Files`），
+ * 自举生成的密钥一律落用户目录；安装目录内的 `app/.env` 仅作只读兼容读取。
  */
 function getEnvFilePath(): string {
-  return join(resolveProjectRoot(), 'app', '.env');
+  return resolveUserEnvPath();
+}
+
+/** 安装目录内的 `.env`（只读兼容：开发检出 / 便携包沿用旧位置） */
+function getBundledEnvPath(): string {
+  return resolveBundledEnvPath();
 }
 
 /**
- * 获取 .env.example 文件路径
- * 位于 app/.env.example
+ * 获取 .env.example 模板文件路径
+ * 位于安装目录 app/.env.example（随包分发，只读）
  */
 function getEnvExamplePath(): string {
-  return join(resolveProjectRoot(), 'app', '.env.example');
+  return resolveEnvExamplePath();
 }
 
 /**
@@ -125,7 +134,9 @@ async function isAIConfigured(): Promise<boolean> {
  * 确保 .env 文件存在
  *
  * 在 HTTP 服务启动前调用，避免服务因缺少环境变量而失败。
- * 从 .env.example 模板自动创建，如果模板也不存在则静默跳过。
+ * 从 .env.example 模板自动创建到**用户级** `~/.pyapp/.env`（安装目录可能只读）。
+ * 安装目录内已有 `app/.env`（开发检出 / 便携包）时无需再生成模板。
+ * 模板也不存在时静默跳过。
  */
 export function ensureEnvFileExists(): void {
   const envFile = getEnvFilePath();
@@ -133,6 +144,10 @@ export function ensureEnvFileExists(): void {
 
   if (existsSync(envFile)) {
     return; // 已存在，无需创建
+  }
+
+  if (existsSync(getBundledEnvPath())) {
+    return; // 安装目录已有 .env（只读兼容读取即可，不重复生成模板）
   }
 
   if (!existsSync(envExample)) {
@@ -149,6 +164,8 @@ export function ensureEnvFileExists(): void {
       /DEEPSEEK_API_KEY=.*/,
       '# 请将下方密钥替换为你的真实 DeepSeek API 密钥\n# 获取地址: https://platform.deepseek.com/api_keys\nDEEPSEEK_API_KEY='
     );
+    // 父目录（~/.pyapp）可能尚未创建（ensureDataDirectories 晚于 preflight）
+    mkdirSync(dirname(envFile), { recursive: true });
     writeFileSync(envFile, envContent, 'utf-8');
     logger.info('.env 文件已自动创建（来自 .env.example）', {
       envFile,
@@ -171,7 +188,7 @@ export function ensureEnvFileExists(): void {
 
 /**
  * 从指定 .env 文件重新加载环境变量
- * 仅设置尚未存在的变量（与 pyapp.ts 行为一致，不覆盖已有值）
+ * 仅设置尚未存在的变量（与 pyapp.ts 同语义，空值不参与）
  * @returns 成功加载的变量数量
  */
 function reloadEnvFromFile(envPath: string): number {
@@ -184,7 +201,7 @@ function reloadEnvFromFile(envPath: string): number {
     if (eqIdx === -1) continue;
     const key = trimmed.slice(0, eqIdx).trim();
     const value = trimmed.slice(eqIdx + 1).trim();
-    if (key && !(key in process.env)) {
+    if (key && value && !(key in process.env)) {
       process.env[key] = value;
       count++;
     }
@@ -206,12 +223,12 @@ export async function checkCriticalDependencies(): Promise<{
 }> {
   const issues: string[] = [];
 
-  // 1. 检查 .env 配置文件
+  // 1. 检查 .env 配置文件（用户级写入目标，或安装目录内的只读兼容文件）
   const envFile = getEnvFilePath();
-  if (!existsSync(envFile)) {
+  if (!existsSync(envFile) && !existsSync(getBundledEnvPath())) {
     issues.push(
       `缺少 .env 配置文件: ${envFile}\n` +
-        '  修复: 复制 app/.env.example 为 app/.env，并填写必填的 API 密钥。'
+        `  修复: 复制 app/.env.example 为 ${envFile}，并填写必填的 API 密钥。`
     );
   }
 

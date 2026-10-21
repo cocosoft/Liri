@@ -2541,7 +2541,7 @@ export class ChatManagerImpl implements ChatManager {
     // ② 无实质进展 ⇒ 重发一轮（既有执行入口，不新增执行路径）
     // T1-13 / `✅-4` R-A（2026-10-13）：开关开 ⇒ 在**重算工具面之前**注入「重放强制集」
     // （该会话最近一条 `execution/prepared` 快照的 `visibleTools`）⇒ 重放工具面 = 落盘快照，
-    // 不受运行期 profile / 注册表变更影响；开关关（默认）/ 无快照 ⇒ 不注入 ⇒ 逐字等价现状。
+    // 不受运行期 profile / 注册表变更影响；开关关（逃生）/ 无快照 ⇒ 不注入 ⇒ 等价改造前。
     const forcedVisibleTools = await this._resolveReplayForcedTools(sessionId);
     try {
       await this.chatOrchestrator.sendMessage(

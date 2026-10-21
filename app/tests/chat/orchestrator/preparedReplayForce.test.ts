@@ -19,6 +19,7 @@ import {
   resolveReplayVisibleTools,
 } from '../../../src/execution/index.js';
 import type { LiriEvent } from '../../../src/session/types/events.js';
+import { ChatManagerImpl } from '../../../src/chat/ChatManager.js';
 
 type ToolLike = { function?: { name?: string } };
 
@@ -134,5 +135,80 @@ describe('T1-13 R-A 重放强制套用落盘快照', () => {
       },
     ] as unknown as LiriEvent[];
     expect(resolveReplayVisibleTools(events)).toEqual(['a', 'b']);
+  });
+});
+
+/**
+ * W3 **接线级**回归（2026-10-21，默认改为开后）。
+ *
+ * 与 `featureFlagContract` 的默认值断言分工：那里只证"开关状态"，这里证"开关开时接线存在"——
+ * 若 `_resolveReplayForcedTools` 被摘掉、或结果没传进 `sendMessage`，本条即变红。
+ */
+describe('W3 接线：开关开 ⇒ 续跑注入落盘快照工具面', () => {
+  type ResumeInternals = {
+    getLatestCheckpoint: (sid: string) => Promise<unknown>;
+    resumeStream: (sid: string, s: string) => AsyncGenerator<unknown>;
+    _markBudgetResumed: (sid: string) => Promise<void>;
+    readSessionEvents: (sid: string, opts: unknown) => Promise<unknown[]>;
+    _resumeSuspendedStream: (sid: string) => Promise<boolean>;
+    chatOrchestrator: {
+      sendMessage: (content: string, options: unknown) => Promise<unknown>;
+    };
+  };
+
+  function preparedEvent(visibleTools: string[]): unknown {
+    return {
+      type: 'execution/prepared',
+      seq: 1,
+      time: 0,
+      sessionId: 's-w3',
+      data: { executionId: 'e1', generation: 1, visibleTools },
+    };
+  }
+
+  async function runResume(events: unknown[]): Promise<{
+    resumed: boolean;
+    options: { forcedVisibleTools?: string[] } | undefined;
+  }> {
+    const cm = new ChatManagerImpl() as unknown as ResumeInternals;
+    cm.getLatestCheckpoint = async () => undefined;
+    // 空生成器 ⇒ 无实质进展 ⇒ 走「重发一轮」分支
+    cm.resumeStream = async function* () {};
+    cm._markBudgetResumed = async () => {};
+    cm.readSessionEvents = async () => events;
+
+    let captured: { forcedVisibleTools?: string[] } | undefined;
+    cm.chatOrchestrator.sendMessage = async (_content, options) => {
+      captured = options as { forcedVisibleTools?: string[] };
+      return {};
+    };
+
+    const resumed = await cm._resumeSuspendedStream('s-w3');
+    return { resumed, options: captured };
+  }
+
+  afterAll(() => {
+    delete process.env['FEATURE_PREPARED_SNAPSHOT_REPLAY'];
+  });
+
+  it('默认（开关开）⇒ sendMessage 携带快照 visibleTools', async () => {
+    delete process.env['FEATURE_PREPARED_SNAPSHOT_REPLAY'];
+    const { resumed, options } = await runResume([
+      preparedEvent(['lsp', 'todo_write']),
+    ]);
+    expect(resumed).toBe(true);
+    expect(options?.forcedVisibleTools).toEqual(['lsp', 'todo_write']);
+  });
+
+  it('开关显式关闭 ⇒ 不注入（逃生开关有效）', async () => {
+    process.env['FEATURE_PREPARED_SNAPSHOT_REPLAY'] = 'false';
+    const { options } = await runResume([preparedEvent(['lsp'])]);
+    expect(options?.forcedVisibleTools).toBeUndefined();
+  });
+
+  it('无快照 ⇒ 不注入（不臆造）', async () => {
+    delete process.env['FEATURE_PREPARED_SNAPSHOT_REPLAY'];
+    const { options } = await runResume([]);
+    expect(options?.forcedVisibleTools).toBeUndefined();
   });
 });

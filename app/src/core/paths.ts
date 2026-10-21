@@ -29,6 +29,10 @@ import * as os from 'os';
 // 代理（注册前缓冲、注册后回放），**无静态 monitoring 依赖** ⇒ 原「barrel 拉入
 // MonitoringService/BackupManager 触发 paths TDZ」的隐患随之消除。
 import { getLogger } from './loggerFacade.js';
+// 多租户 P1：身份化存储根（纯计算在 storageScope，本文件只接 env / 请求身份）
+import { getRequestPrincipal } from './identity/requestScope.js';
+import { scopedDataRoot } from './identity/storageScope.js';
+import type { Principal } from './identity/principal.js';
 
 const pathsLogger = getLogger('core:paths');
 
@@ -245,6 +249,42 @@ export function resolveSessionsDir(
 ): string {
   const worktreeHash = resolveWorktreeHash(env);
   return join(resolveDataDir(env), 'sessions', worktreeHash);
+}
+
+// ==========================================
+// 多租户 P1（2026-10-21）：按请求身份解析存储根
+//
+// 本地身份（桌面 / CLI / 后台 / 无请求作用域）⇒ 与上面各函数**完全相同**（零变更）；
+// 已认证身份 ⇒ `<data>/tenants/<tenantId>/users/<userId>/…`。
+// 纯计算在 `core/identity/storageScope.ts`（含路径段注入防护），此处只负责接 env 与身份。
+// ==========================================
+
+/** 该身份的数据根（本地 ⇒ `resolveDataDir()`） */
+export function resolveScopedDataDir(
+  principal: Principal = getRequestPrincipal(),
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return scopedDataRoot(resolveDataDir(env), principal);
+}
+
+/** 该身份的会话分区根（本地 ⇒ `resolveSessionsDir()`） */
+export function resolveScopedSessionsDir(
+  principal: Principal = getRequestPrincipal(),
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(
+    resolveScopedDataDir(principal, env),
+    'sessions',
+    resolveWorktreeHash(env)
+  );
+}
+
+/** 该身份的数据库文件（本地 ⇒ `resolveDbPath()`，即共享 `app.db`） */
+export function resolveScopedDbPath(
+  principal: Principal = getRequestPrincipal(),
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveScopedDataDir(principal, env), 'app.db');
 }
 
 /**

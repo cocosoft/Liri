@@ -44,8 +44,16 @@ import type { BudgetSnapshot, BudgetUnit } from './dailyBudgetSnapshot.js';
 // P1：日预算**用量状态**持久化（`{date, used}` 落盘 `~/.pyapp/data/daily-budget-state.json`）。
 import {
   loadDailyBudgetState,
+  loadDailyBudgetStateSync,
   saveDailyBudgetState,
 } from './dailyBudgetPersistence.js';
+import type { DailyBudgetPersistedState } from './dailyBudgetPersistence.js';
+// 多租户 P1：预算账本按身份分桶（本地身份仍走单例，零变更）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 // 预算档位：**单一事实源** = `dailyBudgetSnapshot.ts`（状态机方案 阶段 1.3 取证去重，消除双事实源）
 import type { BudgetMode } from './dailyBudgetSnapshot.js';
 // 债四「换算接线」（2026-10-13）：单轮用量 + 本轮模型 ⇒ 金额（USD）。
@@ -1387,6 +1395,8 @@ export function resolveDailyBudgetConfig(): {
  * （其状态按循环/轮次计，**不能**跨会话共享）——故"去双实例"仅指**闸门**收敛到本单例。
  */
 let dailyBudgetSingleton: DailyBudgetManager | null = null;
+/** 多租户 P1：非本地身份的预算账本（键 = `<tenantId>:<userId>`） */
+const scopedBudgets = new Map<string, DailyBudgetManager>();
 /** 测试专用：下一次创建单例时是否清除「配置面」的 USD 上限（见 `resetDailyBudgetForTest`）。 */
 let pendingTestReset = false;
 
@@ -1401,6 +1411,7 @@ let pendingTestReset = false;
  */
 export function resetDailyBudgetForTest(): void {
   dailyBudgetSingleton = null;
+  scopedBudgets.clear();
   pendingTestReset = true;
 }
 
@@ -1422,6 +1433,20 @@ export function lockDailyBudgetForTest(
 }
 
 export function getDailyBudget(): DailyBudgetManager {
+  // 多租户 P1（2026-10-21）：已认证身份各用**自己的账本**（状态文件随身份分区）。
+  // 本地身份（桌面 / CLI / 后台 / 无作用域）仍走下面的单例 ⇒ 行为与改造前一致。
+  const principal = getRequestPrincipal();
+  if (!isLocalPrincipal(principal)) {
+    const key = principalKeyOf(principal);
+    const existing = scopedBudgets.get(key);
+    if (existing) return existing;
+    const scoped = createDailyBudgetManager(resolveDailyBudgetConfig());
+    scoped.enablePersistence();
+    // 必须**同步**恢复当日用量：本函数是同步热路径，若先返回空账 ⇒ 该身份从 0 起算 ⇒ 闸门被绕过。
+    restorePersistedState(scoped, loadDailyBudgetStateSync());
+    scopedBudgets.set(key, scoped);
+    return scoped;
+  }
   if (!dailyBudgetSingleton) {
     dailyBudgetSingleton = createDailyBudgetManager(resolveDailyBudgetConfig());
     if (pendingTestReset) {
@@ -1436,6 +1461,31 @@ export function getDailyBudget(): DailyBudgetManager {
 }
 
 /**
+ * 把持久化快照恢复进指定账本（**唯一**恢复实现，启动期与按身份懒建共用）。
+ *
+ * 2026-10-15（USD 日限额启用前置修复）：**必须透传 USD 两字段**。
+ * 漏传 ⇒ `restore()` 内 `state.usedUsd === undefined` ⇒ 沿用内存现值 0
+ * ⇒ **USD 台账重启即清零**（真机实证：状态文件 `usedUsd=0.863076`，API 返回 `usedUsd:0`；
+ * 同一次响应里 token 侧 `todayUsed` 恢复正确 ⇒ 仅 USD 轨丢失）。
+ * 与 `dailyBudgetPersistence.ts` 注释所载 D-b/D-d 历史缺陷**同型**：读取侧已补字段，
+ * 调用侧未同步透传。USD 闸门启用后，清零即"重启绕过限额"。
+ */
+function restorePersistedState(
+  budget: DailyBudgetManager,
+  persisted: DailyBudgetPersistedState | null
+): void {
+  if (!persisted) return;
+  budget.restore({
+    todayUsed: persisted.used,
+    date: persisted.date,
+    debt: persisted.debt,
+    relief: persisted.relief,
+    usedUsd: persisted.usedUsd,
+    debtUsd: persisted.debtUsd,
+  });
+}
+
+/**
  * P1：启动时从持久化**恢复**当日用量（由 `entrypoints/init` 接线）。
  *
  * 恢复后若持久化日期 ≠ 今日（跨本地日界）⇒ `restore` 内部归零。
@@ -1444,23 +1494,7 @@ export function getDailyBudget(): DailyBudgetManager {
 export async function initDailyBudget(): Promise<void> {
   const budget = getDailyBudget();
   budget.enablePersistence(); // 启动后才"接管"状态文件（未启用时持久化整体不生效）
-  const persisted = await loadDailyBudgetState();
-  if (persisted) {
-    budget.restore({
-      todayUsed: persisted.used,
-      date: persisted.date,
-      debt: persisted.debt,
-      relief: persisted.relief,
-      // 2026-10-15（USD 日限额启用前置修复）：**必须透传 USD 两字段**。
-      // 漏传 ⇒ `restore()` 内 `state.usedUsd === undefined` ⇒ 沿用内存现值 0
-      // ⇒ **USD 台账重启即清零**（真机实证：状态文件 `usedUsd=0.863076`，API 返回 `usedUsd:0`；
-      // 同一次响应里 token 侧 `todayUsed` 恢复正确 ⇒ 仅 USD 轨丢失）。
-      // 与 `dailyBudgetPersistence.ts` 注释所载 D-b/D-d 历史缺陷**同型**：读取侧已补字段，
-      // 调用侧未同步透传。USD 闸门启用后，清零即"重启绕过限额"。
-      usedUsd: persisted.usedUsd,
-      debtUsd: persisted.debtUsd,
-    });
-  }
+  restorePersistedState(budget, await loadDailyBudgetState());
 }
 
 /**

@@ -6,7 +6,13 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core/paths';
+import { resolveDbPath, resolveScopedDbPath } from '@modules/core/paths';
+// 多租户 P1：任务库按身份分实例（本地身份零变更）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import {
   AppError,
@@ -92,6 +98,8 @@ function rowToNode(row: TaskRow): TaskNode {
 
 export class TaskStore {
   private static instance: TaskStore | null = null;
+  /** 多租户 P1：非本地身份的任务库实例（各自独立 app.db） */
+  private static scopedInstances = new Map<string, TaskStore>();
 
   private db: Database | null = null;
   private dbPath: string;
@@ -101,7 +109,22 @@ export class TaskStore {
     this.dbPath = dbPath;
   }
 
+  /**
+   * 取任务库实例。
+   *
+   * 多租户 P1（2026-10-21）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该身份自己的实例
+   * （`<scoped>/app.db`）。**不做"共享实例换连接"**——单字段连接在 `await` 交错点会串库。
+   */
   static getInstance(dbPath?: string): TaskStore {
+    const principal = getRequestPrincipal();
+    if (!isLocalPrincipal(principal) && dbPath === undefined) {
+      const key = principalKeyOf(principal);
+      const existing = TaskStore.scopedInstances.get(key);
+      if (existing) return existing;
+      const scoped = new TaskStore(resolveScopedDbPath(principal));
+      TaskStore.scopedInstances.set(key, scoped);
+      return scoped;
+    }
     if (!TaskStore.instance) {
       TaskStore.instance = new TaskStore(dbPath);
     }

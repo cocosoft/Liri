@@ -8,8 +8,14 @@ import { randomUUID } from 'crypto';
 import { Database } from '@modules/core/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath, resolveScopedDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
+// 多租户 P1（2026-10-21）：已认证身份用独立库实例（不做"共享实例换连接"，避免并发串库）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 
 const logger = getLogger('cost:recordRepository');
 
@@ -980,8 +986,26 @@ export class CostRecordRepository {
 }
 
 let defaultRepository: CostRecordRepository | null = null;
+/** 多租户 P1：非本地身份的成本库实例（各自独立 app.db） */
+const scopedRepositories = new Map<string, CostRecordRepository>();
 
+/**
+ * 取成本记录仓库。
+ *
+ * 多租户 P1：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该身份自己的实例
+ * （`<scoped>/app.db`）。**不做"共享实例换连接"**——`this.db` 是单字段，
+ * 并发请求会在 `await` 交错点串到别人的库。
+ */
 export function getCostRecordRepository(): CostRecordRepository {
+  const principal = getRequestPrincipal();
+  if (!isLocalPrincipal(principal)) {
+    const key = principalKeyOf(principal);
+    const existing = scopedRepositories.get(key);
+    if (existing) return existing;
+    const scoped = new CostRecordRepository(resolveScopedDbPath(principal));
+    scopedRepositories.set(key, scoped);
+    return scoped;
+  }
   if (!defaultRepository) {
     defaultRepository = new CostRecordRepository();
   }

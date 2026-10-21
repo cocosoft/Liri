@@ -150,6 +150,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   private deletedSessionIds: Set<string> = new Set();
   /** P0'（2026-09-18）：历史会话分区目录清单（多分区聚合扫描根，不含 basePath 自身） */
   private legacyRoots: string[] = [];
+  /** 多租户 P1：是否自动探测历史分区（租户分区实例为 `false`） */
+  private discoverLegacyRoots = true;
 
   constructor(config: StorageConfig) {
     this.config = config;
@@ -164,12 +166,14 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     });
     this.writer = new AtomicWriter();
     this.legacyRoots = config.legacyRoots ?? [];
+    this.discoverLegacyRoots = config.discoverLegacyRoots !== false;
   }
 
   async initialize(): Promise<void> {
     await fs.mkdir(this.basePath, { recursive: true });
     // P0'：兼容读多分区聚合——未显式指定时自动探测历史分区（LIRI_SESSION_LEGACY_ROOTS 可覆盖）
-    if (this.legacyRoots.length === 0) {
+    // 多租户 P1：租户分区实例传 `discoverLegacyRoots: false` ⇒ 不探测本机共享分区（防跨身份串数据）
+    if (this.legacyRoots.length === 0 && this.discoverLegacyRoots) {
       this.legacyRoots = resolveLegacySessionPartitionRoots();
       if (this.legacyRoots.length > 0) {
         logger.info("P0' 多分区聚合：探测到历史会话分区", {

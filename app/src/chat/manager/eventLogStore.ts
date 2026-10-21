@@ -28,7 +28,14 @@ import {
   type SessionSummaryRecord,
 } from '@modules/session';
 import type { LiriEvent } from '@modules/session/types/events';
-import { resolveWorktreeHash } from '@modules/core/paths';
+import { resolveWorktreeHash, resolveScopedDataDir } from '@modules/core/paths';
+// 多租户 P1：事件日志根随身份分区（本地身份零变更）
+import {
+  getRequestPrincipal,
+  getRequestPrincipalKey,
+  isLocalPrincipal,
+} from '@modules/core/identity/requestScope.js';
+import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
@@ -85,7 +92,19 @@ export class ChatEventLogStore {
    */
   getOrCreateEventLog(sessionId: string): EventLogStorage {
     const hash = resolveWorktreeHash();
-    const key = `${hash}:${sessionId}`;
+    // 多租户 P1（2026-10-21）：事件日志根**随身份分区** —— 本地身份保持旧的共享路径
+    // （`~/.pyapp/data/sessions/<hash>/<id>`，零变更）；已认证身份落在
+    // `<data>/tenants/<t>/users/<u>/sessions/<hash>/<id>`，且缓存键带上身份，
+    // 避免不同身份的同名会话共用同一实例。
+    const principalKey = getRequestPrincipalKey();
+    const partitioned = !isLocalPrincipal(getRequestPrincipal());
+    const scopedSessionsRoot = partitioned
+      ? join(resolveScopedDataDir(), 'sessions')
+      : undefined;
+    // 本地身份沿用原缓存键格式（既有 LRU 语义/测试零变更）；仅租户分区加身份前缀
+    const key = partitioned
+      ? `${principalKey}|${hash}:${sessionId}`
+      : `${hash}:${sessionId}`;
     const cached = this._eventLogCache.get(key);
     if (cached) {
       // LRU：Map 保序 ⇒ 删后再插即"移到最近使用端"
@@ -93,7 +112,9 @@ export class ChatEventLogStore {
       this._eventLogCache.set(key, cached);
       return cached;
     }
-    const log = new EventLogStorage(sessionId, hash);
+    const log = scopedSessionsRoot
+      ? new EventLogStorage(sessionId, hash, scopedSessionsRoot)
+      : new EventLogStorage(sessionId, hash);
     this._eventLogCache.set(key, log);
     this._evictOverflowEventLogs(key);
     return log;

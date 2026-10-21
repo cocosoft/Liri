@@ -30,6 +30,12 @@
  */
 
 import * as fs from 'fs';
+// 多租户 P1：会话归属判定（本地身份恒放行 ⇒ 桌面零行为变更）
+import { getRequestPrincipal } from '@modules/core/identity/requestScope.js';
+import {
+  canAccessSession,
+  type SessionOwner,
+} from '@modules/core/identity/sessionOwnership.js';
 import type { Coordinator } from '@modules/core';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
@@ -506,6 +512,15 @@ export class SessionAgentOps {
       )
     );
     const sessions = all.filter((_, i) => presence[i] !== null);
+    // 多租户 P1：`getSessions()` 是**进程级内存 Map**（含其他身份的会话）⇒
+    // 非本地身份再按归属过滤一次（本地身份不过滤，零行为变更）。
+    const principal = getRequestPrincipal();
+    const visible = sessions.filter((s) =>
+      canAccessSession(
+        (s.metadata as { owner?: SessionOwner } | undefined)?.owner,
+        principal
+      )
+    );
     const ghostCount = all.length - sessions.length;
     if (ghostCount > 0) {
       logger.info('listSessions:已过滤磁盘不存在的幽灵会话', {
@@ -515,7 +530,7 @@ export class SessionAgentOps {
     }
 
     let filteredCount = 0;
-    const result = sessions
+    const result = visible
       // 过滤空壳会话：崩溃残留，有 session.json 但无消息
       .filter((session) => {
         const msgCount = countConversationMessages(session.messages);
@@ -541,7 +556,7 @@ export class SessionAgentOps {
     // P2-2：记录空壳会话被过滤条数，便于排查"会话缺失"类问题（总数 vs 返回数对不上）
     if (filteredCount > 0) {
       logger.info('listSessions:过滤空壳会话', {
-        total: sessions.length,
+        total: visible.length,
         filteredCount,
         returned: result.length,
       });
@@ -629,6 +644,19 @@ export class SessionAgentOps {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
+    // 多租户 P1：跨身份删除**直接拒绝**（不落任何删除动作）——
+    // `chatSessions` 是进程级共享 Map，若不拦，B 的请求会把 A 的内存会话删掉。
+    const target = this.deps.getSessionManager().getSession(sessionId);
+    if (
+      target &&
+      !canAccessSession(
+        (target.metadata as { owner?: SessionOwner } | undefined)?.owner,
+        getRequestPrincipal()
+      )
+    ) {
+      logger.warn('deleteSession:拒绝跨身份删除', { sessionId });
+      return;
+    }
     // 走 ChatManager 完整删除路径（持久化删除会话 + 联动清理检查点）；
     // 原实现走 sessionManager(轻量 adapter) 仅删内存，导致磁盘会话与检查点残留
     await this.deps.getChatManager().deleteSession(sessionId);

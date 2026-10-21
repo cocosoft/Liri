@@ -57,6 +57,12 @@ export interface SessionMetadata {
   lastActivityAt?: Date;
 
   /**
+   * 多租户 P1（2026-10-21）：**会话归属**（创建时的请求身份）。
+   * 本地身份创建的会话不写该字段；判定见 `core/identity/sessionOwnership.ts`。
+   */
+  owner?: { tenantId: string; userId: string };
+
+  /**
    * 总消息数
    */
   totalMessages?: number;
@@ -240,6 +246,11 @@ export interface CreateSessionParams {
    * 创建者
    */
   creator?: string;
+
+  /**
+   * 多租户 P1：显式指定会话归属（缺省 ⇒ 由 `SessionLifecycleManager` 取当前请求身份）
+   */
+  owner?: { tenantId: string; userId: string };
 
   /**
    * 初始消息

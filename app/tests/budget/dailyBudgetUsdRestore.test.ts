@@ -42,15 +42,22 @@ describe('USD 台账：restore 往返（重启不丢）', () => {
     expect(usd.debtUsd).toBe(0); // 新的一天重新计欠
   });
 
-  it('③ 源码守卫：`initDailyBudget` 的 restore 必须透传 usedUsd / debtUsd', () => {
+  it('③ 源码守卫：恢复实现必须透传 usedUsd / debtUsd（且启动路径确实走它）', () => {
     const src = readFileSync(
       join(__dirname, '..', '..', 'src', 'query', 'DailyBudgetManager.ts'),
       'utf-8'
     );
-    const idx = src.indexOf('export async function initDailyBudget');
+    // 2026-10-21（多租户 P1）：恢复逻辑抽为**唯一实现** `restorePersistedState`
+    // （启动期与按身份懒建共用）⇒ 守卫改盯该函数，并确认 `initDailyBudget` 真的调用它。
+    const idx = src.indexOf('function restorePersistedState');
     expect(idx).toBeGreaterThan(-1);
     const block = src.slice(idx, idx + 900);
     expect(block).toContain('usedUsd: persisted.usedUsd');
     expect(block).toContain('debtUsd: persisted.debtUsd');
+
+    const initIdx = src.indexOf('export async function initDailyBudget');
+    expect(initIdx).toBeGreaterThan(-1);
+    const initBlock = src.slice(initIdx, initIdx + 400);
+    expect(initBlock).toContain('restorePersistedState(budget');
   });
 });

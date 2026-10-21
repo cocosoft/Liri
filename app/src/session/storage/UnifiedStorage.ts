@@ -43,6 +43,12 @@ export interface StorageConfig {
   /** P0'（2026-09-18）：历史会话分区目录清单（兼容读多分区聚合）。
    *  缺省时由 FileSystemUnifiedStorage 自动探测（resolveLegacySessionPartitionRoots）。 */
   legacyRoots?: string[];
+  /**
+   * 多租户 P1（2026-10-21）：是否自动探测历史分区。
+   * **租户分区实例必须传 `false`** —— 否则会去扫本机共享的 `sessions/*`，
+   * 把别的身份的会话加载进本租户的内存索引。缺省 `true`（本地行为不变）。
+   */
+  discoverLegacyRoots?: boolean;
 }
 
 /**

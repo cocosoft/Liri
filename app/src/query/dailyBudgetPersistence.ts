@@ -32,8 +32,9 @@
  */
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFileSync } from 'fs';
 import { dirname } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveScopedDataDir } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('query:dailyBudgetPersistence');
@@ -68,8 +69,62 @@ export interface DailyBudgetPersistedState {
   debtUsd?: number;
 }
 
+/**
+ * 日预算状态文件路径。
+ *
+ * 多租户 P1（2026-10-21）：**随身份分区** —— 本地身份仍是
+ * `<data>/daily-budget-state.json`（零变更）；已认证身份为
+ * `<data>/tenants/<tenantId>/users/<userId>/daily-budget-state.json`。
+ */
 export function dailyBudgetStatePath(): string {
-  return `${resolveDataDir()}/daily-budget-state.json`;
+  return `${resolveScopedDataDir()}/daily-budget-state.json`;
+}
+
+/**
+ * 解析状态文件内容（同步/异步读取共用的**唯一**校验逻辑）。
+ * 形状非法 ⇒ `null`（不臆造、不半读）。
+ */
+function parseDailyBudgetState(raw: string): DailyBudgetPersistedState | null {
+  const parsed = JSON.parse(raw) as Partial<DailyBudgetPersistedState>;
+  const used = Number(parsed.used);
+  if (typeof parsed.date !== 'string' || !Number.isFinite(used)) {
+    logger.warn('日预算状态文件格式非法，忽略', {
+      date: parsed.date,
+      used: parsed.used,
+    });
+    return null;
+  }
+  const debt = Number(parsed.debt);
+  // 债四 S5：USD 两字段**各自独立**校验；缺失/非法 ⇒ 0（**不**由 token 反推，见接口注释）
+  const usedUsd = Number(parsed.usedUsd);
+  const debtUsd = Number(parsed.debtUsd);
+  return {
+    date: parsed.date,
+    used: Math.max(0, Math.floor(used)),
+    // 旧文件无 `debt` ⇒ 按 0 读取（见接口注释）
+    debt: Number.isFinite(debt) ? Math.max(0, Math.floor(debt)) : 0,
+    relief: normalizeRelief(parsed.relief),
+    usedUsd: Number.isFinite(usedUsd) ? Math.max(0, usedUsd) : 0,
+    debtUsd: Number.isFinite(debtUsd) ? Math.max(0, debtUsd) : 0,
+  };
+}
+
+/**
+ * 同步读取（多租户 P1：首次进入某身份作用域时**同步**恢复用量）。
+ *
+ * 为什么需要同步版：预算管理器按身份懒建，创建发生在**同步**的 `getDailyBudget()` 里
+ * （热路径，不能改成 async）；若先返回未恢复的空账，会让该身份的当日用量从 0 起算
+ * ⇒ 预算闸门被绕过。单文件很小，同步读一次可接受。
+ */
+export function loadDailyBudgetStateSync(): DailyBudgetPersistedState | null {
+  try {
+    return parseDailyBudgetState(readFileSync(dailyBudgetStatePath(), 'utf-8'));
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+      logger.warn('同步读取日预算状态失败，忽略', { error: String(e) });
+    }
+    return null;
+  }
 }
 
 /**
@@ -104,29 +159,9 @@ function normalizeRelief(input: unknown): DailyBudgetPersistedState['relief'] {
  */
 export async function loadDailyBudgetState(): Promise<DailyBudgetPersistedState | null> {
   try {
-    const raw = await readFile(dailyBudgetStatePath(), 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<DailyBudgetPersistedState>;
-    const used = Number(parsed.used);
-    if (typeof parsed.date !== 'string' || !Number.isFinite(used)) {
-      logger.warn('日预算状态文件格式非法，忽略', {
-        date: parsed.date,
-        used: parsed.used,
-      });
-      return null;
-    }
-    const debt = Number(parsed.debt);
-    // 债四 S5：USD 两字段**各自独立**校验；缺失/非法 ⇒ 0（**不**由 token 反推，见接口注释）
-    const usedUsd = Number(parsed.usedUsd);
-    const debtUsd = Number(parsed.debtUsd);
-    return {
-      date: parsed.date,
-      used: Math.max(0, Math.floor(used)),
-      // 旧文件无 `debt` ⇒ 按 0 读取（见接口注释）
-      debt: Number.isFinite(debt) ? Math.max(0, Math.floor(debt)) : 0,
-      relief: normalizeRelief(parsed.relief),
-      usedUsd: Number.isFinite(usedUsd) ? Math.max(0, usedUsd) : 0,
-      debtUsd: Number.isFinite(debtUsd) ? Math.max(0, debtUsd) : 0,
-    };
+    return parseDailyBudgetState(
+      await readFile(dailyBudgetStatePath(), 'utf-8')
+    );
   } catch (e) {
     // 文件不存在 ⇒ 首次运行，属正常路径，不告警
     if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {

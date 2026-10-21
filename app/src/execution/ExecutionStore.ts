@@ -35,6 +35,14 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
+import { resolveScopedDbPath } from '@modules/core/paths';
+// 多租户 P1（2026-10-21）：已认证身份用**自己的 store 实例**（独立 app.db），
+// 不做"共享实例换连接"——那会让并发请求交错到别人的库。
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import {
   TOOL_CALL_INITIAL_STATUS,
@@ -686,9 +694,25 @@ export class ExecutionStore {
 }
 
 let _instance: ExecutionStore | null = null;
+/** 多租户 P1：非本地身份的 store 实例（键 = `<tenantId>:<userId>`，各自独立 app.db） */
+const _scopedInstances = new Map<string, ExecutionStore>();
 
-/** 全局单例（惰性建表） */
+/**
+ * 全局单例（惰性建表）。
+ *
+ * 多租户 P1：本地身份（桌面 / CLI / 后台 / 无请求作用域）⇒ 原单例（零变更）；
+ * 已认证身份 ⇒ 该身份自己的实例（`<scoped>/app.db`）。
+ */
 export function getExecutionStore(): ExecutionStore {
+  const principal = getRequestPrincipal();
+  if (!isLocalPrincipal(principal)) {
+    const key = principalKeyOf(principal);
+    const existing = _scopedInstances.get(key);
+    if (existing) return existing;
+    const scoped = new ExecutionStore(resolveScopedDbPath(principal));
+    _scopedInstances.set(key, scoped);
+    return scoped;
+  }
   if (!_instance) _instance = new ExecutionStore();
   return _instance;
 }
@@ -697,4 +721,6 @@ export function getExecutionStore(): ExecutionStore {
 export function resetExecutionStore(): void {
   _instance?.close();
   _instance = null;
+  for (const scoped of _scopedInstances.values()) scoped.close();
+  _scopedInstances.clear();
 }

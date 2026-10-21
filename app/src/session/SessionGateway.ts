@@ -14,6 +14,14 @@ import {
   resolveDataDir,
   resolveWorktreeHash,
 } from '@modules/core';
+// 多租户 P1：按请求身份选择存储实例（本地身份 ⇒ 原实例，零变更）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+} from '../core/identity/requestScope.js';
+import { canAccessSession } from '../core/identity/sessionOwnership.js';
+import { ownerOf } from '../core/identity/sessionOwnership.js';
+import { ScopedStorageRegistry } from './gateway/ScopedStorageRegistry.js';
 // 2026-10-01 B14 C′ 步：原经 `@modules/context` 桶取用 ⇒ 改指 infra（`utils/`），
 // 解除 `session -> context`(app) 倒挂的一半（另一半 resolveContextWindow 见 D 步）。
 // 依赖 A′/B′：Context 家族已下沉类型中心、AsyncContextStorage 已迁 utils/。
@@ -180,6 +188,12 @@ function errText(err: unknown): string {
  */
 export class SessionGateway {
   private storage: UnifiedSessionStorage;
+  /**
+   * 多租户 P1（2026-10-21）：按身份懒建的**租户分区**存储实例。
+   * 本地身份（桌面 / CLI / 后台 / 无请求作用域）永远走 `this.storage`，行为与改造前完全一致。
+   * 实现见 `gateway/ScopedStorageRegistry.ts`（本文件已触达 2000 行上限）。
+   */
+  private scopedStores: ScopedStorageRegistry;
   private transcriptManager: TranscriptManager;
   private remoteSessions: Map<string, RemoteSessionManager> = new Map();
   private webSockets: Map<string, SessionsWebSocket> = new Map();
@@ -236,6 +250,8 @@ export class SessionGateway {
     );
     // FTS 簇门面（依赖已就绪的 storage；构造期无 IO —— 与拆分前一致）
     this.fts = new SessionGatewayFtsIndex({ storage: this.storage });
+    // 多租户 P1：身份分区存储注册表（本地身份恒返回上面这个共享实例）
+    this.scopedStores = new ScopedStorageRegistry(this.storage);
     // P0-0-2：打印 SessionGateway 构造处 basePath 冻结点实例值（评审#3 增量一）
     // P2-3：basePath 空串不生效（?? 不拦截空串），统一回退默认目录。
     const gatewayBasePath = this.storage.getStorageInfo()?.basePath;
@@ -501,6 +517,14 @@ export class SessionGateway {
   }
 
   /**
+   * 当前请求作用域的存储实例（多租户 P1，2026-10-21）—— 委托 `ScopedStorageRegistry`。
+   * 本地身份 ⇒ 构造时的 `this.storage`（行为与改造前一致）；已认证身份 ⇒ 独立分区实例。
+   */
+  private async store(): Promise<UnifiedSessionStorage> {
+    return this.scopedStores.forCurrentPrincipal();
+  }
+
+  /**
    * 初始化网关
    */
   async initialize(): Promise<void> {
@@ -595,6 +619,9 @@ export class SessionGateway {
         logger.debug('createSession:fallback randomUUID 生成', { sessionId });
       }
       const now = Date.now();
+      // 多租户 P1：请求身份 → 会话归属（本地身份不写；调用方已显式给出则不覆盖）
+      const sessionOwner =
+        params.metadata?.owner ?? ownerOf(getRequestPrincipal());
 
       const session: UnifiedSession = {
         id: sessionId,
@@ -607,11 +634,14 @@ export class SessionGateway {
         metadata: {
           ...params.metadata,
           sessionType: params.type ?? SessionType.LOCAL,
+          ...(sessionOwner ? { owner: sessionOwner } : {}),
         },
       };
 
+      // 多租户 P1：按当前身份选存储实例（本地 ⇒ this.storage）
+      const store = await this.store();
       // 落盘前：检查是否重复创建（同 id 已存在）
-      const preExists = await this.storage.sessionIdExists(sessionId);
+      const preExists = await store.sessionIdExists(sessionId);
       // R1-3 修复：preExists 时升级 warn——存储层 createSession 对同 id 静默覆盖
       // （sessions.set + persistSession，且清空消息缓存）。若调用方重复提交同一 id
       // 会覆盖既有会话，warn 便于排查（不做行为变更，避免破坏既有幂等语义）。
@@ -625,7 +655,7 @@ export class SessionGateway {
           preExists,
         });
       }
-      await this.storage.createSession(session);
+      await store.createSession(session);
       logger.debug('createSession:storage.createSession 完成', {
         sessionId,
         costMs: Date.now() - startedAt,
@@ -981,7 +1011,7 @@ export class SessionGateway {
    * 获取会话
    */
   async getSession(sessionId: string): Promise<UnifiedSession | null> {
-    return this.storage.getSession(sessionId);
+    return (await this.store()).getSession(sessionId);
   }
 
   /**
@@ -1020,7 +1050,7 @@ export class SessionGateway {
     }
     session.updatedAt = Date.now();
     session.lastActivityAt = Date.now();
-    await this.storage.updateSession(session);
+    await (await this.store()).updateSession(session);
     // M2：直写 storage 后失效 SessionStore 缓存对应 key（底层共用同一存储实例）
     this.sessionStore?.invalidate(session.id);
   }
@@ -1039,7 +1069,8 @@ export class SessionGateway {
     const startedAt = Date.now();
     logger.debug('deleteSession:入口，新链存储', { sessionId });
 
-    const messages = await this.storage.getMessages(sessionId);
+    const store = await this.store();
+    const messages = await store.getMessages(sessionId);
     // BUG-3 修复：删除前记录 messageIds，供 FTS5 索引清理使用——
     // 原实现监听器在删除后重新 getMessages 得到空数组，导致索引残留（幽灵数据）。
     const messageIds = messages.map((m) => m.id);
@@ -1049,7 +1080,7 @@ export class SessionGateway {
       messageIds,
     });
 
-    await this.storage.deleteSession(sessionId);
+    await store.deleteSession(sessionId);
     logger.debug('deleteSession:storage.deleteSession 完成', {
       sessionId,
       costMs: Date.now() - startedAt,
@@ -1111,7 +1142,7 @@ export class SessionGateway {
    * 列出会话（全量加载）
    */
   async listSessions(filter?: SessionFilter): Promise<UnifiedSession[]> {
-    const sessions = await this.storage.listSessions(filter);
+    const sessions = await (await this.store()).listSessions(filter);
     // A1 临时对话：temporary 会话不入历史列表（仍可按 id 加载/恢复）
     // P3-1（2026-09-26）：显式 `includeTemporary: true` 时**不过滤** —— 启动期血缘重建需要全量会话。
     // （`includeTemporary` 是本层语义，存储层不消费未知键 ⇒ 直接透传即可，存储实现只读它认识的字段。）
@@ -1127,21 +1158,27 @@ export class SessionGateway {
    * 本方法保留为**对外契约入口**（薄委托）。
    */
   async listLiteSessions(): Promise<LiteSessionSummary[]> {
-    return listLiteSessions(this.storage);
+    return listLiteSessions(await this.store());
   }
 
   /**
    * 搜索会话
    */
   async searchSessions(query: string): Promise<UnifiedSession[]> {
-    return this.storage.searchSessions(query);
+    const store = await this.store();
+    const hits = await store.searchSessions(query);
+    // 多租户 P1：FTS 索引是**进程级单实例**（不按身份分桶）⇒ 非本地身份必须按归属过滤，
+    // 否则会搜到本机其他身份的会话标题。本地身份 ⇒ 原样返回（零行为变更）。
+    const principal = getRequestPrincipal();
+    if (isLocalPrincipal(principal)) return hits;
+    return hits.filter((s) => canAccessSession(s.metadata?.owner, principal));
   }
 
   /**
    * 发送消息
    */
   async sendMessage(sessionId: string, message: UnifiedMessage): Promise<void> {
-    await this.storage.addMessage(sessionId, message);
+    await (await this.store()).addMessage(sessionId, message);
     await this.transcriptManager.recordMessage(sessionId, message);
 
     // A1 临时对话：temporary 会话不进入 FTS 全文索引（完整隐身）
@@ -1171,7 +1208,7 @@ export class SessionGateway {
     );
 
     // L5：touchSession 节流合并——命中内存 Map 时免 getSession+updateSession 双 IO
-    const touched = await this.storage.touchSession(sessionId);
+    const touched = await (await this.store()).touchSession(sessionId);
     if (!touched) {
       const session = await this.getSession(sessionId);
       if (session) {
@@ -1249,7 +1286,7 @@ export class SessionGateway {
 
     if (!opts?.sessionId) {
       // 全量：复用既有两个幂等实现
-      const sessions = await this.storage.listSessions();
+      const sessions = await (await this.store()).listSessions();
       let ftsIndexed = 0;
       try {
         ftsIndexed = await this.fts.rebuildIndex();
@@ -1271,7 +1308,7 @@ export class SessionGateway {
     let ftsDocs = 0;
     let roundCountFixed = 0;
     try {
-      const messages = await this.storage.getMessages(sessionId);
+      const messages = await (await this.store()).getMessages(sessionId);
       for (const msg of messages) await this.fts.indexMessage(sessionId, msg);
       ftsDocs = messages.length;
 
@@ -1284,7 +1321,7 @@ export class SessionGateway {
           ...session.metadata,
           roundCount: userMsgCount,
         } as SessionMetadata;
-        await this.storage.updateSession(session);
+        await (await this.store()).updateSession(session);
         roundCountFixed = 1;
       }
     } catch (err) {
@@ -1300,7 +1337,7 @@ export class SessionGateway {
     sessionId: string,
     options?: { limit?: number; offset?: number }
   ): Promise<UnifiedMessage[]> {
-    return this.storage.getMessages(sessionId, options);
+    return (await this.store()).getMessages(sessionId, options);
   }
 
   /**
@@ -1311,14 +1348,14 @@ export class SessionGateway {
     messageId: string,
     message: UnifiedMessage
   ): Promise<void> {
-    await this.storage.updateMessage(sessionId, messageId, message);
+    await (await this.store()).updateMessage(sessionId, messageId, message);
   }
 
   /**
    * 软删除单条消息 + 发布事件
    */
   async deleteMessage(sessionId: string, messageId: string): Promise<void> {
-    await this.storage.deleteMessage(sessionId, messageId);
+    await (await this.store()).deleteMessage(sessionId, messageId);
     // M2：直写 storage 删除消息后失效 SessionStore 消息缓存
     this.sessionStore?.invalidate(sessionId);
     this.eventBus?.emit(
@@ -1332,7 +1369,7 @@ export class SessionGateway {
    * 批量软删除消息 + 发布事件
    */
   async deleteMessages(sessionId: string, messageIds: string[]): Promise<void> {
-    await this.storage.deleteMessages(sessionId, messageIds);
+    await (await this.store()).deleteMessages(sessionId, messageIds);
     // M2：直写 storage 批量删除消息后失效 SessionStore 消息缓存
     this.sessionStore?.invalidate(sessionId);
     if (messageIds.length > 0) {
@@ -1402,7 +1439,7 @@ export class SessionGateway {
    */
   async getSessionStats(sessionId?: string): Promise<SessionStats> {
     if (sessionId) {
-      return this.storage.getSessionStats(sessionId);
+      return (await this.store()).getSessionStats(sessionId);
     }
 
     const sessions = await this.listSessions();
@@ -1419,7 +1456,9 @@ export class SessionGateway {
 
     let totalDuration = 0;
     for (const session of sessions) {
-      const sessionStats = await this.storage.getSessionStats(session.id);
+      const sessionStats = await (
+        await this.store()
+      ).getSessionStats(session.id);
       totalDuration += sessionStats.averageSessionDuration;
       stats.totalMessages += sessionStats.totalMessages;
     }

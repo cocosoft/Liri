@@ -93,6 +93,11 @@ export interface SessionMetadata {
   cleanShutdown?: boolean;
   /** A1 临时对话：temporary 会话不入历史列表/记忆/FTS（持久化标记，CS02） */
   temporary?: boolean;
+  /**
+   * 多租户 P1（2026-10-21）：**会话归属**。创建时由请求身份写入；
+   * 本地身份创建的会话不写（`undefined`），判定规则见 `core/identity/sessionOwnership.ts`。
+   */
+  owner?: { tenantId: string; userId: string };
 }
 
 /**

@@ -8,7 +8,7 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core';
+import { resolveScopedDbPath } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { isCheckpointLogEnabled } from '@modules/config';
 import {
@@ -27,7 +27,13 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
   private db: Database | null = null;
   private dbPath: string;
 
-  constructor(dbPath: string = resolveDbPath()) {
+  /**
+   * 多租户 P1（2026-10-21）：缺省路径**按当前身份解析**。
+   *
+   * 本类的实例是**每会话/每循环**创建（`TAORLoop` / `ResumeManager` 各 new 一个），
+   * 而非进程单例 ⇒ 在创建它的请求作用域内解析路径即可，不存在"共享实例换连接"的竞态。
+   */
+  constructor(dbPath: string = resolveScopedDbPath()) {
     this.dbPath = dbPath;
   }
 

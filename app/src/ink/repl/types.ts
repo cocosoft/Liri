@@ -19,7 +19,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 import type { Message } from '@modules/session/types/message';
-import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI';
+import type {
+  ChatStreamChunk,
+  ToolCallSpec,
+} from '@modules/runtime/api/CoreAPI';
 
 export interface DisplayMessage {
   id: string;
@@ -51,6 +54,20 @@ export interface ToolCallInfo {
   id: string;
   name: string;
   arguments: Record<string, unknown>;
+  /**
+   * 执行状态（由流内 `tool_call` 完成块带回；缺省 ⇒ 未知，按"已完成"展示）
+   *
+   * 取值**引用门面的 `ToolCallSpec['status']`**（唯一事实源 `execution/types.ts`，G14）——
+   * 不自定义联合，避免"UI 一套取值、执行侧一套取值"的口径漂移。
+   */
+  status?: ToolCallSpec['status'];
+  /** 失败原因（仅 `status='failed'`） */
+  error?: string;
+  /**
+   * 工具执行结果（原样载荷，形如 `{ success, data }`；渲染侧用
+   * `summarizeToolResult` 折叠为单行预览）
+   */
+  result?: unknown;
 }
 
 export interface ActiveToolCall {

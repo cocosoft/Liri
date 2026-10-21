@@ -23,6 +23,7 @@ import type { ChatManager } from '@modules/chat';
 import type {
   ChatStreamChunk,
   QuestionData,
+  ToolCallSpec,
 } from '@modules/runtime/api/CoreAPI';
 
 const logger = getLogger('ink:repl');
@@ -51,6 +52,14 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
   const pauseResolveRef = useRef<(() => void) | null>(null);
   const isPausedRef = useRef(false);
   const currentQuestionRef = useRef<QuestionData | null>(null);
+  /**
+   * 本轮流内收到的工具调用（按 id 累积：`tool_start` 建条目、`tool_end` 补 status/result/error）。
+   *
+   * 为什么需要：`finalMessage.tool_calls` 只有 name/arguments（模型侧载荷），
+   * 而**执行结果**只经 `tool_call` 完成块下发 —— 此前这类非文本 chunk 被整体跳过，
+   * REPL 卡片因此只有"🔧 名称 已完成"，看不到结果。
+   */
+  const toolCallsRef = useRef<Map<string, ToolCallSpec>>(new Map());
 
   const { exit } = useApp();
 
@@ -452,6 +461,8 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
 
       const controller = new AbortController();
       abortRef.current = controller;
+      // 每轮清空：工具卡片的 status/result 只属于本轮
+      toolCallsRef.current.clear();
 
       let tokenCount = 0;
       let accumulated = '';
@@ -484,7 +495,26 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
               continue;
             }
 
-            // 其他非文本分块（如 tool_call, status 等）跳过
+            // 工具调用块：`tool_start` 建条目、`tool_end` 覆盖补 status / result / error。
+            // 必须在这里接住 —— 结果只经这类非文本块下发，跳过就只剩"已完成"。
+            if (chunk.type === 'tool_call' && chunk.toolCall?.id) {
+              const incoming = chunk.toolCall;
+              const prev = toolCallsRef.current.get(incoming.id);
+              toolCallsRef.current.set(incoming.id, {
+                ...prev,
+                ...incoming,
+                // 参数可能先到（start）后到为空（end）⇒ 不拿空对象覆盖已有参数
+                arguments:
+                  incoming.arguments &&
+                  Object.keys(incoming.arguments).length > 0
+                    ? incoming.arguments
+                    : (prev?.arguments ?? {}),
+              });
+              result = await stream.next();
+              continue;
+            }
+
+            // 其他非文本分块（如 status 等）跳过
             result = await stream.next();
             continue;
           }
@@ -557,14 +587,30 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
         const completedToolCalls: ToolCallInfo[] =
           finalMessage?.tool_calls?.map((tc: Record<string, unknown>) => {
             const fn = (tc.function || {}) as Record<string, unknown>;
-            return {
-              id: (tc.id as string) || '',
-              name: (fn.name as string) || (tc.name as string) || 'unknown',
-              arguments: (fn.arguments
+            const id = (tc.id as string) || '';
+            const name =
+              (fn.name as string) || (tc.name as string) || 'unknown';
+            const args = (
+              fn.arguments
                 ? typeof fn.arguments === 'string'
                   ? JSON.parse(fn.arguments as string)
                   : fn.arguments
-                : tc.arguments || {}) as Record<string, unknown>,
+                : tc.arguments || {}
+            ) as Record<string, unknown>;
+            // 合并流内累积的执行状态/结果（`tool_end` 块）
+            const executed = id ? toolCallsRef.current.get(id) : undefined;
+            return {
+              id,
+              name,
+              arguments:
+                args && Object.keys(args).length > 0
+                  ? args
+                  : (executed?.arguments ?? {}),
+              ...(executed?.status ? { status: executed.status } : {}),
+              ...(executed?.error ? { error: executed.error } : {}),
+              ...(executed?.result !== undefined
+                ? { result: executed.result }
+                : {}),
             };
           }) || [];
 

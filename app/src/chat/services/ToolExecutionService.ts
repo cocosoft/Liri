@@ -296,6 +296,27 @@ export class ToolExecutionService {
   }
 
   /**
+   * 语义护栏「便宜版」（2026-10-21）：取该会话**最近一条用户消息**作为意图文本。
+   *
+   * 只读、零副作用；找不到（无会话 / 无用户消息 / 内容为空）⇒ `undefined`
+   * ⇒ 权限侧的偏离检查**不判**（宁漏勿误，见 `utils/toolContract/intentActionDeviation.ts`）。
+   */
+  private _resolveIntentText(sessionId?: string): string | undefined {
+    const sid = sessionId ?? this.deps.currentSessionId;
+    const session = this.deps.chatSessions.get(sid);
+    if (!session) return undefined;
+    for (let i = session.messages.length - 1; i >= 0; i--) {
+      const message = session.messages[i];
+      if (!message) continue;
+      if (String(message.role).toLowerCase() !== 'user') continue;
+      const content =
+        typeof message.content === 'string' ? message.content.trim() : '';
+      if (content) return content;
+    }
+    return undefined;
+  }
+
+  /**
    * R07-3（2026-10-07）：非幂等工具「重试」⇒ 返回把该次调用**升级为审批**的理由；无需升级 ⇒ `undefined`。
    *
    * - 判据唯一实现 = `tools/toolEffects.ts#isNonIdempotentRetry`（同工具名 + **同参数** + 上次失败）；
@@ -624,7 +645,12 @@ export class ToolExecutionService {
         checkPermissionForTool: (
           name: string,
           args: Record<string, unknown>,
-          context?: { sessionId?: string; forceAskReason?: string }
+          context?: {
+            sessionId?: string;
+            forceAskReason?: string;
+            /** 语义护栏「便宜版」（2026-10-21）：意图文本（最近一条用户消息） */
+            metadata?: { goalText?: string };
+          }
         ) => Promise<{
           allowed: boolean;
           reason?: string;
@@ -646,6 +672,10 @@ export class ToolExecutionService {
             normalizedToolCall.arguments,
             toolCall.sessionId
           ),
+          // 语义护栏「便宜版」：把本轮意图文本带进权限判定（缺失 ⇒ 护栏不判）
+          metadata: {
+            goalText: this._resolveIntentText(toolCall.sessionId),
+          },
         }
       );
 

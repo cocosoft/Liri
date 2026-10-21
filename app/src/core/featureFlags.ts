@@ -589,6 +589,19 @@ export const FEATURE_FLAGS = {
    */
   PREPARED_SNAPSHOT_REPLAY: true,
 
+  // ───── 语义护栏「便宜版」（2026-10-21；规则化意图-动作偏离检查）─────
+  /**
+   * 意图-动作偏离检查（**默认开**）。
+   *
+   * 开 ⇒ 当「最近一条用户消息」明确是只读意图（查看/分析/总结…）且不含变更词，
+   * 而本次工具会**变更状态**（写文件类 / shell 含 rm·mv·git commit·重定向）时，
+   * 把本该放行的决策**升级为 `ask`**（不直接拒绝，用户仍可批准）。
+   *
+   * 关 ⇒ 完全等价改造前（零行为变更）。逃生开关：`FEATURE_INTENT_ACTION_DEVIATION_GUARD=false`。
+   * 口径见 `utils/toolContract/intentActionDeviation.ts`（宁漏勿误：混合意图、只读 shell 命令、短文本都不判）。
+   */
+  INTENT_ACTION_DEVIATION_GUARD: true,
+
   /**
    * 轮次级 **USD 前置判定**（**默认开**；外部建议 ②，2026-10-20 用户裁定「开启」）。
    *

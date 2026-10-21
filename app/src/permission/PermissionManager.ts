@@ -33,6 +33,9 @@ import {
 import { logSecurityAuditEvent, truncateCommand } from '@modules/security';
 // 多租户 P0 阶段 1：请求级角色优先、缺失回退进程级（纯函数，零依赖）
 import { resolveEffectiveRole } from '@modules/core/identity/principal.js';
+// 语义护栏「便宜版」（2026-10-21）：规则化意图-动作偏离检查（纯函数）
+import { feature } from '@modules/core';
+import { detectIntentActionDeviation } from '@modules/utils/toolContract/intentActionDeviation';
 import { isShellToolName } from '@modules/utils/toolContract/toolRoles';
 import type { SecurityAuditEvent } from '@modules/security';
 import {
@@ -691,6 +694,23 @@ export class PermissionManager {
       return createAllowDecision(
         `Allowed by rule from ${matchingAllowRule.source}`
       );
+    }
+
+    // 语义护栏「便宜版」（2026-10-21）：意图-动作偏离 ⇒ 升级为 ask（**不直接拒绝**）。
+    // 位置在所有显式规则之后、默认行为之前 —— 用户显式 allow/deny/ask 规则始终优先。
+    if (feature('INTENT_ACTION_DEVIATION_GUARD')) {
+      const goalText =
+        typeof context.metadata?.['goalText'] === 'string'
+          ? (context.metadata['goalText'] as string)
+          : undefined;
+      const deviation = detectIntentActionDeviation({
+        ...(goalText !== undefined ? { goalText } : {}),
+        toolName,
+        input,
+      });
+      if (deviation.deviated && deviation.reason) {
+        return createAskDecision(deviation.reason);
+      }
     }
 
     // 没有规则匹配，按默认行为决定（P0-2：PERMISSION_DEFAULT_BEHAVIOR=deny 时 fail-closed）

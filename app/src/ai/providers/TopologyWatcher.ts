@@ -71,6 +71,29 @@ export class ProviderTopologyWatcher {
     }
   }
 
+  /**
+   * 关闭**全部**连接（本地 + 各身份分区），幂等。
+   *
+   * 多租户 P5：删租户前由 `core/identity/scopedResources` 的登记器调用释放分区句柄。
+   * 与 `stop()` 分离：只关连接、不停轮询（避免把两件事绑死）。
+   */
+  close(): void {
+    for (const [key, db] of [...this.scopedDbs]) {
+      try {
+        db.close();
+      } catch {
+        // 已关闭 / 关闭中：忽略（幂等）
+      }
+      this.scopedDbs.delete(key);
+    }
+    try {
+      this.db?.close();
+    } catch {
+      // 已关闭 / 关闭中：忽略（幂等）
+    }
+    this.db = null;
+  }
+
   /** 采样 ai_providers / model_registry 的变更指纹（count + max updated_at） */
   private async readFingerprint(): Promise<string> {
     const db = await this.getDb();

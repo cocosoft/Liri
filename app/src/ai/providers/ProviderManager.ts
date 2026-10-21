@@ -209,6 +209,24 @@ export class ProviderManager {
     return ProviderManager.instance;
   }
 
+  /**
+   * 关闭库连接（幂等）。
+   *
+   * 多租户 P5：删租户前由 `core/identity/scopedResources` 的登记器调用，释放分区
+   * `app.db` 的文件句柄（否则 Windows 上 `data/tenants/<t>/…` 删不掉）。**不**清理
+   * `scopedInstances` —— 那是调用方 closer 的职责（关完必须把自己从缓存里摘掉）。
+   */
+  close(): void {
+    try {
+      this.db?.close();
+    } catch {
+      // 已关闭 / 关闭中：忽略（幂等）
+    }
+    this.db = null;
+    this.initialized = false;
+    this.initPromise = null;
+  }
+
   /** 初始化数据库连接和表 */
   async initialize(): Promise<void> {
     if (this.initialized) {

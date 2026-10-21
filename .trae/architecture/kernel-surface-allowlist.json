@@ -56,7 +56,7 @@
     { "id": "exit", "kind": "dir", "domain": "state-events", "note": "退出记录" },
     { "id": "external", "kind": "dir", "domain": "state-events", "note": "sqlite3 驱动封装" },
     { "id": "health", "kind": "dir", "domain": "state-events", "note": "依赖健康检查与模块健康注册表" },
-    { "id": "identity", "kind": "dir", "domain": "security-permission", "note": "请求级身份（Principal + 请求作用域 ALS）：阶段 1 纯类型/纯函数；阶段 2 增加 AsyncLocalStorage 作用域（不读请求、不碰存储，解析在 HTTP 层）" },
+    { "id": "identity", "kind": "dir", "domain": "security-permission", "note": "请求级身份（Principal + 请求作用域 ALS）+ 按身份登记的可关闭资源表（只记账 closer、无 IO）：阶段 1 纯类型/纯函数；阶段 2 增加 AsyncLocalStorage 作用域（不读请求、不碰存储，解析在 HTTP 层）；阶段 3 增 scopedResources（不解析路径、不开连接）" },
     { "id": "idle", "kind": "dir", "domain": "ports-assembly", "note": "空闲缩容监控（进程级）" },
     { "id": "lazy", "kind": "dir", "domain": "ports-assembly", "note": "懒加载服务" },
     { "id": "lifecycle", "kind": "dir", "domain": "ports-assembly", "note": "优雅重启服务" },

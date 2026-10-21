@@ -91,6 +91,23 @@ export class BalanceStore {
     return BalanceStore.instance;
   }
 
+  /**
+   * 关闭库连接（幂等）。
+   *
+   * 多租户 P5：删租户前由 `core/identity/scopedResources` 的登记器调用释放文件句柄；
+   * **不**清理 `scopedInstances`（由调用方 closer 负责摘除缓存）。
+   */
+  close(): void {
+    try {
+      this.db?.close();
+    } catch {
+      // 已关闭 / 关闭中：忽略（幂等）
+    }
+    this.db = null;
+    this.initialized = false;
+    this.initPromise = null;
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) return;
     if (this.initPromise) return this.initPromise;

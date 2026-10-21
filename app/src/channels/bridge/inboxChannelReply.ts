@@ -32,11 +32,16 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { withRetry, RetryableError } from '@modules/utils/withRetry';
 import type { InboxItem } from '@modules/runtime/InboxManager.js';
+// 仅类型：sqlite 连接在 `_writeDeadLetter` 里**动态** import（不进启动面），类型用擦除式导入
+import type { Database } from '@modules/core/external/sqlite3';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import { channelBootstrapper } from '../bootstrap/ChannelBootstrapper';
 import { isReplyEnabled } from '../setupChannels';
 
 const logger = getLogger('channels:inboxReply');
+
+/** 死信写入用的连接类型别名（`Database` 运行时是按需加载的） */
+type DatabaseConnection = Database;
 
 /**
  * 将 Inbox 回复结果回传给渠道
@@ -311,13 +316,17 @@ async function _retryWithBackoff(
 }
 
 async function _writeDeadLetter(inboxItem: InboxItem): Promise<void> {
+  // 每次写死信都新开连接 ⇒ 用 finally 保证关掉：原来只在成功路径 `db.close()`，
+  // DDL/INSERT 抛错时连接与分区 `app.db` 句柄会残留（Windows 上让删租户目录 `blocked`）。
+  // 运行时仍是动态 import；`import type` 只在编译期取类型（擦除后无静态依赖）。
+  let db: DatabaseConnection | null = null;
   try {
     const { resolveScopedDbPath } = await import('@modules/core/paths');
     const { Database } = await import('@modules/core/external/sqlite3');
     // 多租户 P1：死信表随请求身份落库（通道后台路径 ⇒ 本地共享库，零变更）
-    const db = new Database(resolveScopedDbPath());
+    db = new Database(resolveScopedDbPath());
     await new Promise<void>((resolve, reject) => {
-      db.run(
+      db!.run(
         `CREATE TABLE IF NOT EXISTS inbox_reply_deadletter (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           inbox_id TEXT NOT NULL,
@@ -334,7 +343,7 @@ async function _writeDeadLetter(inboxItem: InboxItem): Promise<void> {
       );
     });
     await new Promise<void>((resolve, reject) => {
-      db.run(
+      db!.run(
         `INSERT INTO inbox_reply_deadletter (inbox_id, channel_name, target, content, failed_at) VALUES (?, ?, ?, ?, ?)`,
         [
           inboxItem.id,
@@ -349,11 +358,16 @@ async function _writeDeadLetter(inboxItem: InboxItem): Promise<void> {
         }
       );
     });
-    db.close();
   } catch (err) {
     logger.warn('Failed to write dead letter', {
       inboxId: inboxItem.id,
       error: String(err),
     });
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      // 已关闭 / 关闭中：忽略
+    }
   }
 }

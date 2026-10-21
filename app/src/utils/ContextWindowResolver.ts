@@ -63,13 +63,14 @@ export interface ContextWindowInfo {
  * 如果 DB 有 model_registry 表且指定模型的 context_window 字段有值，则优先使用
  */
 async function resolveFromDB(model: string): Promise<number | null> {
+  // 多租户 P1：随请求身份解析（本地身份 ⇒ 共享 app.db，零变更）；
+  // 该函数在**每次**调用时新开连接并立即读取，不缓存连接 ⇒ 无共享字段换连接的竞态。
+  let db: Database | null = null;
   try {
-    // 多租户 P1：随请求身份解析（本地身份 ⇒ 共享 app.db，零变更）；
-    // 该函数在**每次**调用时新开连接并立即读取，不缓存连接 ⇒ 无共享字段换连接的竞态。
-    const db = new Database(resolveScopedDbPath());
+    db = new Database(resolveScopedDbPath());
     const row = await new Promise<{ context_window?: number } | undefined>(
       (resolve) => {
-        db.get(
+        db!.get(
           'SELECT context_window FROM model_registry WHERE model_id = ? AND context_window IS NOT NULL AND context_window > 0 LIMIT 1',
           [model],
           (err: Error | null, row: { context_window?: number } | undefined) =>
@@ -80,6 +81,14 @@ async function resolveFromDB(model: string): Promise<number | null> {
     if (row?.context_window) return row.context_window;
   } catch {
     // @ignore-catch: DB unavailable, fallback
+  } finally {
+    // 每次调用都新开连接 ⇒ **必须**在这里关掉：否则每解析一次上下文窗口就泄漏一个
+    // 分区 `app.db` 句柄（Windows 上还会让删租户目录 `blocked`）。
+    try {
+      db?.close();
+    } catch {
+      // 已关闭 / 关闭中：忽略
+    }
   }
   return null;
 }

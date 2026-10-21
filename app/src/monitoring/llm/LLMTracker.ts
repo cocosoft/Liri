@@ -281,6 +281,22 @@ export class LLMTracker {
     }
   }
 
+  /**
+   * 关闭 DB 连接（幂等）。
+   *
+   * 多租户 P5：删租户前由 `core/identity/scopedResources` 的登记器调用释放分区句柄；
+   * **不**清理 `scopedTrackers`（由调用方 closer 负责摘除缓存）。
+   */
+  close(): void {
+    try {
+      this.db?.close();
+    } catch {
+      // 已关闭 / 关闭中：忽略（幂等）
+    }
+    this.db = null;
+    this.initialized = false;
+  }
+
   /** 建表/索引 DDL（`init` 与按身份同步开库共用，避免两份 DDL 漂移） */
   private createSchema(): void {
     if (!this.db) return;

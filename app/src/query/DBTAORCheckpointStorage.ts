@@ -37,6 +37,22 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
     this.dbPath = dbPath;
   }
 
+  /**
+   * 关闭连接（幂等）。
+   *
+   * 本类实例是**每会话/每循环**创建，用完不关会残留分区 `app.db` 句柄（Windows 上
+   * 删租户目录会 `blocked`）。多租户 P5：由 `core/identity/scopedResources` 的登记器调用。
+   * 关闭后再次 `save()` 会重新开库（`initDatabase()` 以 `this.db` 为空为判据）。
+   */
+  close(): void {
+    try {
+      this.db?.close();
+    } catch {
+      // 已关闭 / 关闭中：忽略（幂等）
+    }
+    this.db = null;
+  }
+
   private async initDatabase(): Promise<void> {
     if (this.db) return;
 

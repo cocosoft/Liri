@@ -37,6 +37,9 @@
 
 import { getLogger } from '@modules/monitoring';
 import type { AgentIsolation } from '@modules/agent';
+import { randomIdSuffix } from '@modules/core';
+import { getOrchestrationMetrics } from '@modules/core/events/OrchestrationMetrics';
+import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 // G-02（2026-10-19）：批次级 in-flight 熔断（复用 chat 的单一预算收口）
 import { checkDailyBudget } from '../../query/dailyBudgetGate';
 
@@ -213,10 +216,21 @@ export interface AgentSwarmOptions {
    * 只统计 executor 回报的 `tokens`；累计达到上限 ⇒ 不再回灌。
    */
   verifyRetryTokenBudget?: number;
+  /**
+   * 会话级并发批次键（**批次隔离**，2026-10-21）。
+   *
+   * 不传 ⇒ 每次 `run()` 自动生成唯一值。同一次 run 派生的所有 worker 共享该键，
+   * 并随 `SWARM_DISPATCH` / `SWARM_COMPLETE` 事件落盘 ⇒ 事件总线按批次筛分，
+   * 根治"同会话并发两个 swarm 时事件/耗时配对串线"（见 `core/events/orchestrationPairing.ts`）。
+   * 外部传入（如恢复/重放）⇒ 原样使用，不再生成。
+   */
+  swarmSessionId?: string;
 }
 
 /** swarm 运行结果 */
 export interface AgentSwarmResult {
+  /** 本次批次的隔离键（与事件载荷、worker 调用同源；供日志/落盘归属） */
+  swarmSessionId: string;
   workers: SwarmWorkerResult[];
   /** synthesizer 合成输出（未启用/降级时为空串） */
   synthesized: string;
@@ -432,6 +446,20 @@ export class AgentSwarm {
     // G-02：预算会话键（批次级熔断的归因键）
     const budgetSessionId = options.sessionId ?? 'swarm';
 
+    // 批次隔离键（2026-10-21，建议「ACP 会话级并发批次键」）：同一次 run 的所有事件共享该键，
+    // 事件总线/耗时配对据此筛分 ⇒ 同会话并发两个 swarm 时不会互相串线。
+    // 如实说明：本仓 SWARM_* 事件走 OrchestrationEventType（非 ACP 帧），故键落在事件载荷上。
+    const swarmSessionId =
+      options.swarmSessionId ??
+      `swarm_${Date.now().toString(36)}_${randomIdSuffix(6)}`;
+    const metrics = getOrchestrationMetrics();
+    metrics.recordEvent(OrchestrationEventType.SWARM_DISPATCH, undefined, {
+      swarmSessionId,
+      taskCount: tasks.length,
+      concurrency,
+      ...(options.sessionId ? { sessionId: options.sessionId } : {}),
+    });
+
     // 黑板：总目标 + 子任务清单（注入每个 worker）
     const blackboard = [
       `总目标: ${goal}`,
@@ -626,14 +654,27 @@ export class AgentSwarm {
       r.ok = r.success && gateOk && !r.timedOut;
     }
 
+    // O4：`allPassed` 语义收紧为"每个 worker 都 `ok`"；
+    // 基数守卫：空批次不得判为全通过（`[].every(...) === true`）
+    const allPassed =
+      workerResults.length > 0 && workerResults.every((r) => r.ok);
+
+    // 批次收尾事件：与 SWARM_DISPATCH 用同一 `swarmSessionId` 配对（见 orchestrationPairing.ts）。
+    // 结果用**布尔字段**而非状态字面量（`completed`/`failed` 属状态机词汇，会被
+    // `lint:state-ratchet` 判为未报备；且 `status` 是既有错误统计的维度键 ⇒ 不污染口径）。
+    metrics.recordEvent(OrchestrationEventType.SWARM_COMPLETE, undefined, {
+      swarmSessionId,
+      passedAll: allPassed,
+      aborted: signal?.aborted === true,
+      workerCount: workerResults.length,
+      ...(options.sessionId ? { sessionId: options.sessionId } : {}),
+    });
+
     return {
+      swarmSessionId,
       workers: workerResults,
       synthesized,
-      // O4：`allPassed` 语义收紧为"每个 worker 都 `ok`" ——
-      // 原实现只看 `verified`，而失败 worker 的 `verified` 初值即为 true
-      // ⇒ 存在"worker 全失败却 allPassed: true"的假阳性
-      // 基数守卫：空批次不得判为全通过（`[].every(...) === true`）
-      allPassed: workerResults.length > 0 && workerResults.every((r) => r.ok),
+      allPassed,
       // 出口⑥：批次中止时剩余任务从未投递，调用方需能与"全部执行失败"区分
       cancelled: signal?.aborted === true,
       // 门禁未完成的事实（调用方据此归因，不与"未请求门禁"混淆）

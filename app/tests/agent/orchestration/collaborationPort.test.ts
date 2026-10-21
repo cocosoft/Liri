@@ -71,6 +71,8 @@ describe('协作编排端口（预留端口 / 薄端口）', () => {
         run: async (options) => {
           received.push(options);
           return {
+            // 批次键（2026-10-21）：`run()` 恒返回该字段，mock 需如实补齐
+            swarmSessionId: 'swarm-test',
             workers: options.tasks.map((t, idx) => ({
               id: t.id,
               description: t.description,

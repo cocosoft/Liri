@@ -53,7 +53,9 @@ const START_EVENTS = new Set<string>(Object.values(END_TO_START_EVENT));
 /**
  * 起始事件的关联键字段（按顺序取值拼接）
  *
- * 未列出的起始事件（`SWARM_DISPATCH`）载荷无稳定标识 ⇒ 单桶 FIFO。
+ * `SWARM_DISPATCH`（2026-10-21）：载荷带 `swarmSessionId`（批次唯一键）⇒ **按批次配对**。
+ * 修复前无键 ⇒ 单桶 FIFO：同会话并发/未闭合的多个 swarm 批次会跨批次错配
+ * （与 `PARALLEL_START` 的 H-2-R11 同源问题）。旧事件缺该字段 ⇒ 键为 `''`，仍走退化单桶（向后兼容）。
  *
  * `PARALLEL_START`（H-2-R11，2026-10-18）：载荷带 `agentId`（批次唯一标识）⇒ 按批次配对。
  * 修复前无键 ⇒ 离线日志重放时，同一会话的多次批次（尤其**未闭合**的旧批次）会按 FIFO
@@ -68,6 +70,7 @@ const PAIR_KEY_FIELDS: Record<string, readonly string[]> = {
   [OrchestrationEventType.PLAN_STEP_START]: ['planId', 'stepIndex'],
   [OrchestrationEventType.CHAIN_START]: ['chainId'],
   [OrchestrationEventType.COUNCIL_START]: ['sessionId'],
+  [OrchestrationEventType.SWARM_DISPATCH]: ['swarmSessionId'],
   [OrchestrationEventType.PARALLEL_START]: ['agentId'],
   [OrchestrationEventType.RULE_CHECK_START]: ['ruleId', 'filePath'],
 };

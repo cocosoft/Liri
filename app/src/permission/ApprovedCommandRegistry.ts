@@ -36,6 +36,11 @@
 import { createHash } from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { feature } from '@modules/core';
+// 多租户 P3：放行记录带归属键，判定时 fail-closed（远端身份不得复用本机/他人记录）
+import {
+  canAccessOwnerKey,
+  currentOwnerKey,
+} from '@modules/core/identity/requestScope';
 const logger = getLogger('permission:approvedCommands');
 
 /** 批准记录默认 TTL（毫秒）— P0-1: 60s → 5min，匹配"批准→LLM 续跑"真实耗时（实测 75–131s） */
@@ -191,6 +196,13 @@ export function hashCommandForExecution(command: string): string {
 export interface ApprovalEntry {
   hash: string;
   expiresAt: number;
+  /**
+   * 归属键（多租户 P3：`<tenantId>:<userId>`）。
+   *
+   * 缺省 ⇒ 本地 / 后台（桌面、CLI、通道）—— 与改造前一致。
+   * 判定时按它做 fail-closed 校验：远端身份不得复用本机/他人的放行记录。
+   */
+  ownerKey?: string;
   /** P0-3: 批准命令的命令名（首个 token），供命令名级放行 */
   baseCommand?: string;
   /** S1-1: 绑定的执行作用域摘要（批准时记录；执行时若给 scope 必须与之一致） */
@@ -289,9 +301,12 @@ export class ApprovedCommandRegistry {
       this.store.set(sessionId, sessionMap);
     }
     const scopeDigest = computeScopeDigest(extras?.scope);
+    const ownerKey = currentOwnerKey();
     sessionMap.set(hash, {
       hash,
       expiresAt: Date.now() + this.ttlMs,
+      // 多租户 P3：记录批准时的身份（本地身份 ⇒ 不写字段，零变更）
+      ...(ownerKey ? { ownerKey } : {}),
       baseCommand: command ? getBaseCommand(command) : undefined,
       scopeDigest,
       capabilityDigest: extras?.capabilityDigest,
@@ -319,6 +334,8 @@ export class ApprovedCommandRegistry {
     if (!sessionMap) return false;
     const entry = sessionMap.get(hash);
     if (!entry) return false;
+    // 多租户 P3：他人 / 本机（无归属）的放行记录对远端身份一律不可复用（fail-closed）
+    if (!canAccessOwnerKey(entry.ownerKey)) return false;
     if (Date.now() > entry.expiresAt) {
       sessionMap.delete(hash);
       return false;
@@ -337,6 +354,8 @@ export class ApprovedCommandRegistry {
   ): Readonly<ApprovalEntry> | undefined {
     const entry = this.store.get(sessionId)?.get(hash);
     if (!entry) return undefined;
+    // 多租户 P3：越权读与"不存在"同一结果
+    if (!canAccessOwnerKey(entry.ownerKey)) return undefined;
     return {
       ...entry,
       snapshot: entry.snapshot
@@ -363,6 +382,8 @@ export class ApprovedCommandRegistry {
     if (!sessionMap) return false;
     const now = Date.now();
     for (const entry of sessionMap.values()) {
+      // 多租户 P3：命令名级放行同样按归属过滤
+      if (!canAccessOwnerKey(entry.ownerKey)) continue;
       if (entry.baseCommand === base && now <= entry.expiresAt) {
         // O1-B3（2026-10-09，触发条件补全方案 §三-O1）：**命令名级放行命中**观测（仅日志，
         // 零行为变更）。用途：使 `BASH_APPROVAL_STRICT` 的触发条件「同名不同参被命令名级
@@ -374,9 +395,14 @@ export class ApprovedCommandRegistry {
     return false;
   }
 
-  /** 清除某会话的全部批准（会话切换/结束时可调用） */
+  /** 清除某会话的批准记录（只清**当前身份可见**的条目；本地身份 ⇒ 与改造前一致全清） */
   clearSession(sessionId: string): void {
-    this.store.delete(sessionId);
+    const sessionMap = this.store.get(sessionId);
+    if (!sessionMap) return;
+    for (const [hash, entry] of sessionMap) {
+      if (canAccessOwnerKey(entry.ownerKey)) sessionMap.delete(hash);
+    }
+    if (sessionMap.size === 0) this.store.delete(sessionId);
   }
 
   /** 清理过期条目 */

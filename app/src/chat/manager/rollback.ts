@@ -27,6 +27,8 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveProjectRoot } from '@modules/core/paths';
+// 多租户 P3：交互条目按归属校验（与 `canAccessOwnerKey` 同口径）
+import { canAccessOwnerKey } from '@modules/core/identity/requestScope';
 import {
   RollbackIntegration,
   FileOperationTracker,
@@ -92,19 +94,29 @@ export class ChatRollback {
     }
 
     const pending = this.deps.getPendingInteractions();
-    const entry = sessionId
-      ? pending.get(sessionId)?.questionId === questionId
-        ? pending.get(sessionId)
-        : undefined
-      : Array.from(pending.entries()).find(
-          ([, e]) => e.questionId === questionId
-        )?.[1];
+    // 多租户 P3：先定位「该会话的挂起条目」（不传 sessionId 的旧调用方按 questionId 找，
+    // 且只认当前身份可见的条目），再做归属校验。
+    let paired: [PendingInteractionEntry | undefined, string] | undefined;
+    if (sessionId) {
+      paired = [pending.get(sessionId), sessionId];
+    } else {
+      const found = Array.from(pending.entries()).find(
+        ([, e]) => e.questionId === questionId && canAccessOwnerKey(e.ownerKey)
+      );
+      paired = found ? [found[1], found[0]] : undefined;
+    }
+    const candidate = paired?.[0];
+    // 归属不符 ⇒ 直接拒绝：既不落盘、也不唤醒（不能退到"已过期兜底"分支去写回答）
+    if (candidate && !canAccessOwnerKey(candidate.ownerKey)) {
+      logger.warn('拒绝解析他人会话的交互（归属不符）', {
+        sessionId,
+        questionId,
+      });
+      return false;
+    }
+    const entry = candidate?.questionId === questionId ? candidate : undefined;
     if (entry) {
-      const sid =
-        sessionId ??
-        Array.from(pending.entries()).find(
-          ([, e]) => e.questionId === questionId
-        )?.[0];
+      const sid = sessionId ?? paired?.[1];
       logger.info('解析用户交互', { sessionId: sid, questionId, answers });
       // R5 + 问题二-1：先落盘（throwOnError 强一致），成功后才注入循环；
       // 回答 metadata 记录 questionId，供前端回放时恢复已提交态

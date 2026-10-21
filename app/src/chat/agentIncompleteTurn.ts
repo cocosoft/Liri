@@ -24,7 +24,7 @@ import {
 } from '@modules/context';
 
 import type { ToolLoopContext } from './ToolLoopRunner';
-import { CONTINUATION_TEMPLATES } from '../tasks/goal/goalTemplates';
+import { CONTINUATION_TEMPLATES } from '../constants/goalTemplates';
 
 const logger = getLogger('chat:reactToolLoop');
 

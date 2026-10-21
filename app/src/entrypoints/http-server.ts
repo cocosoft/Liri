@@ -109,5 +109,16 @@ export async function startLaunchHTTPServer(
   });
   // 实际端口是后续所有进程内消费者（健康检查 / 日志 / SSE 地址）的事实来源
   process.env['LIRI_HTTP_PORT'] = String(started.port);
+
+  // 主包瘦身 R4：被编译期裁掉的能力必须**显式告知**（否则用户会以为开关还能开）。
+  // 用动态 import：本文件刻意不静态依赖项目模块（见文件头注），且完整构建下这段几乎零成本。
+  try {
+    const { logBuildVariantBanner } =
+      await import('../bootstrap/buildVariantBanner.js');
+    logBuildVariantBanner();
+  } catch {
+    // @ignore-catch — 横幅失败不影响服务启动
+  }
+
   return started;
 }

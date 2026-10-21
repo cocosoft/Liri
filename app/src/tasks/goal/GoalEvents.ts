@@ -34,7 +34,10 @@ import {
   renderFragment,
   type ContextualFragment,
 } from '@modules/context';
-import { renderGoalTemplate, type GoalTemplateKind } from './goalTemplates';
+import {
+  renderGoalTemplate,
+  type GoalTemplateKind,
+} from '../../constants/goalTemplates';
 import type { GoalRunSettlement } from './goalSettlementTypes';
 import type { TaskGoalStatus, TaskGoalUpdateReason } from './TaskGoalStore';
 import type { GoalDeviationSeverity } from '@modules/types/goal';

@@ -65,7 +65,7 @@ import { registerYieldFromResults } from '../session/yield';
 // 保留子路径直连（不走 `@modules/tasks` 桶）：桶求值期 tasks 桶可能仍在循环中未初始化
 // ⇒ 走桶会触发 `ReferenceError: Cannot access 'CONTINUATION_TEMPLATES' before initialization`
 // （2026-09-24 R03-002 收敛时实测复现）。goalTemplates 是无依赖叶子模块，子路径直连为循环安全入口。
-import { renderGoalTemplate } from '../tasks/goal/goalTemplates';
+import { renderGoalTemplate } from '../constants/goalTemplates';
 // P1-1②（2026-09-28）：终稿 mermaid **结构预检**（零依赖启发式，边界见该模块头注释）。
 // 该模块无任何 import ⇒ 叶子，无循环风险。
 import {

@@ -18,6 +18,11 @@
  *
  * 占位符：`{{key}}`；渲染时用 `params` 替换，**未提供的占位符保持字面量**
  *（不抛错、不静默清空 —— 便于在日志里看出"哪个参数漏传"）。
+ *
+ * **刻意不进 `constants/index.ts` 桶**（2026-10-21）：本文件约 9KB 提示词正文**只在对话/查询
+ * 路径**使用，经桶再导出会被启动面（`src/pyapp.ts` 的 eager 图）静态拉入，触发
+ * `lint:startup-graph` 棘轮增长。消费方按子路径直连：`@modules/constants/goalTemplates`
+ *（已在 `scripts/lint-architecture.ts` 的 `canonicalEntryKeys` 登记为规范子入口）。
  */
 
 // 2026-10-01 B11 前置 P1（D-223）：`GoalTemplateKind` 键集已下沉**类型中心**
@@ -59,6 +64,8 @@ export type ContinuationVariant =
  *   （前端渲染必然失败/降级）。`{{issues}}` 由校验器给出的问题清单渲染；
  * - `resume_agent`（B2-3 收尾迁移，2026-09-23）：**恢复被暂停的子代理**时拼进系统提示的
  *   续跑指示（原为 `AgentTool/ResumeAgent.reconstructSystemPrompt` 内的硬编码，Spec §5.3.1 #3）。
+ *
+ * @kind D（提示词/文案模板）
  */
 export const CONTINUATION_TEMPLATES: Record<ContinuationVariant, string> = {
   empty:
@@ -90,6 +97,8 @@ export const CONTINUATION_TEMPLATES: Record<ContinuationVariant, string> = {
  *   注入的收尾指示（原为 `TAORLoop` 内的硬编码模板串，Spec §5.3.1 #2）。带 `{{count}}`
  *   占位（异常的工具调用条数），**不含** `[SYSTEM] ` 前缀 —— 该前缀是注入通道标记，
  *   由注入点拼装（与 `ReActToolLoop.onIncompleteTurn` 同口径，Spec §5.3.1 #4）。
+ *
+ * @kind D（提示词/文案模板）
  */
 export const GOAL_TEMPLATES: Record<GoalTemplateKind, string> = {
   budget_limit:

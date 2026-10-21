@@ -33,7 +33,7 @@ import {
 } from './GoalEvents';
 import { handleError } from '@modules/error';
 import { chargeGoalUsage } from './goalBudget';
-import { renderGoalTemplate } from './goalTemplates';
+import { renderGoalTemplate } from '../../constants/goalTemplates';
 import { enqueueIdleContinuation } from './goalIdleContinuation';
 // B2-4 / X7（2026-09-23）：阻塞归因 —— 把目标落定包成 `goal:settle:<status>` 相位，
 // 使事件循环阻塞转储（`loopProbe` → `summary.md` 的"最近完成阶段"）可归因到目标状态。

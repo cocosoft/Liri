@@ -15,9 +15,9 @@ import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
-// B2-3（2026-09-23）：续接/重试指令的**唯一文案来源**（模板模块位于 `tasks/`，
-// 非 `chat/` ⇒ 不构成 query→chat 反向依赖；原"模块自持副本"已删除，见 `§5.3.1`）。
-import { CONTINUATION_TEMPLATES, renderGoalTemplate } from '@modules/tasks';
+// B2-3（2026-09-23）：文案**唯一来源**；2026-10-21 模板下沉 `constants/goalTemplates`
+//（零依赖叶子）⇒ query 直连子路径，不再需要任何跨层例外（Spec §5.3.1）。
+import { renderGoalTemplate } from '@modules/constants/goalTemplates';
 // 阶段 A（N-28 修复）：yield 轮次登记（与 stream 路径 ReActToolLoop 共用同一实现）
 import { registerYieldFromResults } from '../session/yield';
 import { RoundProgressTracker } from './taor/roundProgress.js';

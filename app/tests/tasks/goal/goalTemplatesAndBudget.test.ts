@@ -16,7 +16,7 @@ import {
   GOAL_TEMPLATES,
   getGoalTemplate,
   renderGoalTemplate,
-} from '../../../src/tasks/goal/goalTemplates';
+} from '../../../src/constants/goalTemplates';
 import { chargeGoalUsage } from '../../../src/tasks/goal/goalBudget';
 import { TaskGoalStore } from '../../../src/tasks/goal/TaskGoalStore';
 

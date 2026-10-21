@@ -2082,11 +2082,10 @@ class ArchitectureLinter {
       'ai/providers',
       'ai/models',
       'query/TAORLoop',
-      // 循环安全子入口（2026-09-24）：`tasks/goal/goalTemplates` 是**零跨模块 import 的叶子**，
-      // 而 `chat/ReActToolLoop` 在**模块顶层**读取 `CONTINUATION_TEMPLATES.*`；若改走
-      // `@modules/tasks` 桶，会形成 chat → tasks 桶 → tools 桶 → AgentTool → tasks 的求值闭环，
-      // 实测运行期 `ReferenceError: Cannot access 'CONTINUATION_TEMPLATES' before initialization`（TDZ）。
-      // 与既有 `ai/router`、`error/types` 同属"桶精确化打破 ESM 循环依赖"的规范子路径。
+      // 循环安全子入口（2026-09-24）：`tasks/goal` 下的 `TaskGoalStore` / `GoalEvents` 由
+      // `runtime/api/domainSnapshotOps` 按需动态 import（走 `@modules/tasks` 桶会连带拉入
+      // tools/AgentTool 等重面）⇒ 与 `ai/router`、`error/types` 同属"桶精确化"的规范子路径。
+      // 注：`goalTemplates` 已于 2026-10-21 下沉 `constants/goalTemplates`，本项不再服务于它。
       'tasks/goal',
       // 循环安全子入口（2026-09-24）：`core/systemgraph` 只依赖 `@modules/error`（叶子级），
       // 而 `@modules/core` 桶会拉入 `core/loop/PlanDrivenLoop`（其依赖 `@modules/tasks`）；
@@ -2098,6 +2097,11 @@ class ArchitectureLinter {
       // `resolveEffectiveRole` 一个纯函数，若改走 `@modules/core` 桶会一并拉入
       // paths / featureFlags / DI 等启动面 ⇒ 与 `core/systemgraph`、`tasks/goal` 同属"桶精确化"的规范子路径。
       'core/identity',
+      // 桶精确化（2026-10-21，W2 根治）：`constants/goalTemplates` 是**零依赖叶子**（纯文案 + 纯函数），
+      // 但其 ~9KB 提示词正文**只在对话/查询路径**使用，若从 `@modules/constants` 桶再导出，
+      // 会被启动面（`src/pyapp.ts` 的 eager 图）静态拉入 ⇒ `lint:startup-graph` 棘轮 +1 文件 / +9KB。
+      // 故刻意**不进常量桶**，由 `query/TAORLoop`、`tools/AgentTool/ResumeAgent` 按子路径直连。
+      'constants/goalTemplates',
       // 循环安全子入口（2026-09-26）：`query/tool-constants` 是**零跨模块 import 的叶子**
       // （只导出工具名 `Set` 字面量），而 `promptSuggestion/types.ts` 与
       // `tools/orchestration/types.ts` 需要其"文件读写工具真实名"取值（裁定①：共享取值 + 各自命名）。

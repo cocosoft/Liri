@@ -9,7 +9,7 @@
  * （门禁上限 2000），本次修复的新增逻辑一并外迁至本文件，避免超限。
  */
 
-import { CONTINUATION_TEMPLATES } from '@modules/tasks';
+import { CONTINUATION_TEMPLATES } from '@modules/constants/goalTemplates';
 import type { ChatMessage } from '@modules/ai/models/types.js';
 import {
   createFragment,
@@ -19,9 +19,10 @@ import {
 import type { SteeringEntry, TerminationReason } from '../ReActLoop.js';
 
 /** L3（2026-09-06）：回合质量重试指令 —— **B2-3 收尾迁移（2026-09-23）**：
- *  文案唯一来源改为 `tasks/goal/goalTemplates`（原为"模块自持副本"，理由曾是避免
- *  query→chat 反向依赖；但模板模块位于 `tasks/`（非 chat）⇒ 该理由已不成立，
- *  且两份文案逐字重复属 CS01 违规 —— 见 `.trae/specs/goal-entity.md §5.3.1 #1`）。
+ *  文案唯一来源改为 `constants/goalTemplates`（2026-10-21 由 `tasks/goal/` 下沉常量层，
+ *  故 `query` 侧经 `@modules/constants` 引用即可，无需跨层例外；原为"模块自持副本"，
+ *  理由曾是避免 query→chat 反向依赖 —— 两份文案逐字重复属 CS01 违规，
+ *  见 `.trae/specs/goal-entity.md §5.3.1 #1`）。
  *  batch 无 thinking/finishReason 可靠信号，仅 empty/planning 两类。 */
 export const TAOR_EMPTY_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.empty;
 export const TAOR_PLANNING_ONLY_RETRY_INSTRUCTION =

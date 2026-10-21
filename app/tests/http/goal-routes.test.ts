@@ -22,7 +22,7 @@ import {
 } from '../../src/tasks/goal/TaskGoalStore';
 import { setGoalEventSink } from '../../src/tasks/goal/GoalEvents';
 import { takeIdleContinuationInstruction } from '../../src/tasks/goal/GoalEvents';
-import { renderGoalTemplate } from '../../src/tasks/goal/goalTemplates';
+import { renderGoalTemplate } from '../../src/constants/goalTemplates';
 import { resolveIdleContinuation } from '../../src/tasks/goal/goalIdleContinuation';
 import { parseIdleContinueTaskId } from '../../src/tasks/goal/goalIdleContinuation';
 import type { HandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils';

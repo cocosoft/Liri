@@ -331,15 +331,6 @@ export {
   IDLE_CONTINUE_TASK_PREFIX,
 } from './goal/goalIdleContinuation';
 export {
-  CONTINUATION_TEMPLATES,
-  GOAL_TEMPLATES,
-  renderGoalTemplate,
-} from './goal/goalTemplates';
-export type {
-  GoalTemplateKind,
-  ContinuationVariant,
-} from './goal/goalTemplates';
-export {
   settleGoalForRun,
   settleGoalForTurn,
   settleGoalById,

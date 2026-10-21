@@ -23,7 +23,7 @@ import {
   injectMainSessionBudgetWrapUp,
 } from '../../../src/tasks/goal/goalBudget';
 import { setGoalEventSink } from '../../../src/tasks/goal/GoalEvents';
-import { renderGoalTemplate } from '../../../src/tasks/goal/goalTemplates';
+import { renderGoalTemplate } from '../../../src/constants/goalTemplates';
 
 const createdPaths: string[] = [];
 const opened: TaskGoalStore[] = [];

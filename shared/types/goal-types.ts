@@ -77,7 +77,7 @@ export type TaskGoalUpdateReason =
 export type GoalDeviationSeverity = "warning" | "critical";
 
 /**
- * 长程任务专用模板的键集（模板文案仍在 `tasks/goal/goalTemplates.ts` 的 `GOAL_TEMPLATES`）。
+ * 长程任务专用模板的键集（模板文案在 `app/src/constants/goalTemplates.ts` 的 `GOAL_TEMPLATES`）。
  */
 export type GoalTemplateKind =
   | "budget_limit"

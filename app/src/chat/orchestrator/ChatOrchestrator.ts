@@ -34,7 +34,7 @@ import {
   lintMermaidBlocks,
   formatMermaidIssues,
 } from '@modules/utils/mermaidLint';
-import { renderGoalTemplate } from '../../tasks/goal/goalTemplates';
+import { renderGoalTemplate } from '../../constants/goalTemplates';
 import { createFragment, renderFragment } from '@modules/context';
 import { AppError, handleError } from '@modules/error';
 import { SimpleMutex, getOutputGuardRegistry } from '@modules/core';

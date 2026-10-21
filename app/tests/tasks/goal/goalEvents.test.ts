@@ -28,7 +28,7 @@ import {
   NO_PROGRESS_STOP_THRESHOLD,
 } from '../../../src/tasks/goal/goalRunBinding';
 import { chargeGoalUsage } from '../../../src/tasks/goal/goalBudget';
-import { renderGoalTemplate } from '../../../src/tasks/goal/goalTemplates';
+import { renderGoalTemplate } from '../../../src/constants/goalTemplates';
 import {
   emitGoalCreated,
   setGoalEventSink,

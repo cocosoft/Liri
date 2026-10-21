@@ -23,7 +23,7 @@ import {
   emitGoalStatusChanged,
   takeMainSessionBudgetWrapUp,
 } from './GoalEvents';
-import { renderGoalTemplate } from './goalTemplates';
+import { renderGoalTemplate } from '../../constants/goalTemplates';
 // P2-10（2026-09-25）：任务级触顶判定收敛到**统一预算策略层**（纯计算、无 IO）
 import { evaluateGoalBudget, TokenBudgetStatus } from '@modules/tokenBudget';
 

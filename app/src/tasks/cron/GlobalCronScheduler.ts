@@ -7,6 +7,7 @@ import { CronScheduler } from './CronScheduler';
 import { CronJobStore } from './CronJobStore';
 import { CronRunLog } from './CronRunLog';
 import { CronAlertService } from './CronAlertService';
+import { runInCronOwnerScope } from './cronOwnership';
 import type { CronJob, CronJobResult } from './types';
 import type { SchedulerCallbacks } from './CronScheduler';
 import { getLogger } from '@modules/monitoring';
@@ -64,10 +65,15 @@ export async function ensureGlobalCronSchedulerStarted(
     });
   });
 
+  const baseExecutor = callbacks?.executeJob ?? defaultExecutor;
+
   instance = new CronScheduler(
     s,
     {
-      executeJob: callbacks?.executeJob ?? defaultExecutor,
+      // 多租户 P3：租户作业在**归属者身份作用域**内执行 —— 工具 cwd（P3）、存储（P1）、
+      // 事件投递（P2）才都落到作业归属者名下；无归属（本地作业 / 历史数据）⇒ 原样执行。
+      executeJob: (job: CronJob) =>
+        runInCronOwnerScope(job, () => baseExecutor(job)),
       dispatchDelivery: callbacks?.dispatchDelivery,
     },
     {

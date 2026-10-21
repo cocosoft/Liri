@@ -17,7 +17,9 @@ import { resolveDbPath, resolveScopedDbPath } from '@modules/core/paths';
 import {
   getRequestPrincipal,
   isLocalPrincipal,
+  principalFromKey,
   principalKeyOf,
+  runWithPrincipal,
 } from '@modules/core/identity/requestScope.js';
 import { randomUUID } from 'crypto';
 import { broadcastEvent } from '@modules/infrastructure';
@@ -90,7 +92,9 @@ export class InboxManager {
   ): void {
     if (this.expireTimer) return;
     this.expireTimer = setInterval(() => {
-      this.expireOlderThan(ttlMs).catch((err) => {
+      // 多租户 P3：定时器无请求作用域 ⇒ 必须显式遍历**所有已打开的分区库**
+      // （原实现走 `expireOlderThan` → `getDb()` ⇒ 本地身份 ⇒ 租户库的 pending 永不过期）
+      this.expireAllScopes(ttlMs).catch((err) => {
         logger.warn('审批过期清理失败', { error: String(err) });
       });
     }, intervalMs);
@@ -638,9 +642,37 @@ export class InboxManager {
     return row.cnt;
   }
 
-  /** 清除过期项 */
+  /** 清除过期项（当前身份库） */
   async expireOlderThan(maxAgeMs: number): Promise<number> {
-    const db = await this.getDb();
+    return this._expireOnDb(await this.getDb(), maxAgeMs);
+  }
+
+  /**
+   * 多租户 P3：清理**所有已打开的分区库**（本地 + 本进程内建过的身份库）。
+   *
+   * 为什么只清"已打开"的：本仓还没有租户注册表可枚举（L3 的代价项之一），
+   * 凭空为每个身份建库文件反而是扩散而非收敛 ⇒ 只清理已被访问过的库；
+   * 某身份重启后首次访问时，其 pending 仍会由下一次 tick 清掉。
+   *
+   * 每个分区库都在**其归属者身份作用域**内清理：过期事件（`inbox:update`）才会
+   * 按 P2 的规则只推给该用户，而不是推到本地连接上（那等于把别人的审批状态广播出去）。
+   */
+  async expireAllScopes(maxAgeMs: number): Promise<number> {
+    let total = 0;
+    if (this.db) total += await this._expireOnDb(this.db, maxAgeMs);
+    for (const [scope, db] of this.scopedDbs) {
+      const principal = principalFromKey(scope);
+      total += principal
+        ? await runWithPrincipal(principal, () =>
+            this._expireOnDb(db, maxAgeMs)
+          )
+        : await this._expireOnDb(db, maxAgeMs);
+    }
+    return total;
+  }
+
+  /** 过期清理的单一实现（连接由调用方给，避免再走 `getDb()` 的当前身份语义） */
+  private async _expireOnDb(db: Database, maxAgeMs: number): Promise<number> {
     const cutoff = Date.now() - maxAgeMs;
 
     // 先查询将要过期的项（获取 channelSessionId 用于通知）

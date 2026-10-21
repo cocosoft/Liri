@@ -32,6 +32,26 @@ export function principalKeyOf(principal: Principal): string {
   return `${principal.tenantId}:${principal.userId}`;
 }
 
+/**
+ * `principalKeyOf` 的**逆运算**：从身份键还原 `Principal`。
+ *
+ * 用途：身份作用域只在请求存活期内有效，**持久化的归属**（如 `cron_jobs.owner_key`）
+ * 只能存键；调度器/后台任务据键重建作用域，才能让工具 cwd、存储、事件都落到归属者名下。
+ *
+ * 只按**第一个**冒号切分（userId 可以含冒号；租户标识在认证链中不带冒号）。
+ * 缺任一侧 / 键为空 ⇒ `null`（**不编造身份**，调用方按"无归属"处理）。
+ * 角色留空：这类后台执行不属于任何登录会话，权限判定回退进程级角色（与改造前一致）。
+ */
+export function principalFromKey(key?: string | null): Principal | null {
+  if (!key) return null;
+  const idx = key.indexOf(':');
+  if (idx <= 0 || idx === key.length - 1) return null;
+  const tenantId = key.slice(0, idx).trim();
+  const userId = key.slice(idx + 1).trim();
+  if (!tenantId || !userId) return null;
+  return { tenantId, userId, roles: [] };
+}
+
 /** 在指定身份下执行（HTTP 入口每个请求一次）；同步/异步回调均继承该身份 */
 export function runWithPrincipal<T>(principal: Principal, fn: () => T): T {
   return storage.run(principal, fn);

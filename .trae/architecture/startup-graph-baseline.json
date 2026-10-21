@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "recordedAt": "2026-10-21T09:03:15.019Z",
+  "recordedAt": "2026-10-21T11:27:44.613Z",
   "entry": "src/pyapp.ts",
   "eager": {
     "total": 283,
     "app": {
       "files": 233,
-      "bytes": 1501308
+      "bytes": 1503123
     },
     "nodeModules": {
       "files": 50,
@@ -28,7 +28,7 @@
     },
     "core": {
       "files": 87,
-      "bytes": 544177
+      "bytes": 545992
     },
     "config": {
       "files": 39,

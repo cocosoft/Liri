@@ -204,10 +204,15 @@ export class CronCreateTool {
             parsed.expr = undefined;
           }
 
-          // 检查任务数限制
+          // 检查任务数限制（多租户 P3：按**归属**计数 —— 本地身份仍看全量，零变更）
           const store = new CronJobStore(resolveDbPath());
           await store.init();
-          const allJobs = await store.loadJobs();
+          const { canAccessCronJob, currentCronOwnerKey } =
+            await import('@modules/tasks/cron/cronOwnership');
+          const ownerKey = currentCronOwnerKey();
+          const allJobs = (await store.loadJobs()).filter((j) =>
+            canAccessCronJob(j)
+          );
           if (allJobs.length >= MAX_JOBS) {
             await store.close();
             throw new AppError(
@@ -236,6 +241,8 @@ export class CronCreateTool {
             origin: context.options?.querySource
               ? { platform: context.options.querySource }
               : undefined,
+            // 多租户 P3：归属落在发起这次工具调用的请求身份（本地身份 ⇒ undefined）
+            ownerKey,
           };
 
           // 计算首次运行时间

@@ -23,7 +23,8 @@ import { ErrorHandler } from '@modules/core';
 import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
-import { resolveDataDir, resolveProjectRoot } from '@modules/core/paths';
+import { resolveDataDir } from '@modules/core/paths';
+import { resolveToolCwd } from './toolCwdScope';
 // 多租户 P0 阶段 2：请求级权限角色（桌面/后台无请求作用域 ⇒ null ⇒ 保持既有回退语义）
 import { getRequestPermissionRole } from '@modules/core/identity/requestScope.js';
 import { ToolExecutionStatus } from '@modules/utils/toolContract/ToolResult';
@@ -949,11 +950,14 @@ export class ToolExecutionService {
         const sessionWorkspacePath = this.deps.getSessionWorkspacePath(
           toolCall.sessionId
         );
+        // 多租户 P3：cwd 按请求身份分治（本地身份与改造前逐字相同；已认证身份只落在
+        // 自己的 `<scoped>/workspace` 内，越界的会话工作区被忽略）
+        const cwdDecision = resolveToolCwd(sessionWorkspacePath);
         const context = {
           toolUseId: normalizedToolCall.id,
           sessionId: toolCall.sessionId,
           options: {
-            cwd: sessionWorkspacePath ?? resolveProjectRoot(),
+            cwd: cwdDecision.cwd,
             workspaceId: this.deps.getSessionWorkspaceId(toolCall.sessionId),
             // R05-012：整份 env 经统一出入口取快照（浅拷贝；消费方为 `{...process.env, ...options.env}`
             // 合并用法，语义等价且不会被工具经该引用改写进程环境）

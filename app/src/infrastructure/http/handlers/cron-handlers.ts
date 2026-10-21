@@ -30,6 +30,16 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { CronJobRecord } from '@modules/runtime/api/taskOpsPorts';
 import { LOCAL_SERVICE_HOST } from '@modules/core';
 
+/**
+ * 定时任务归属助手（多租户 P3）。
+ *
+ * 走**动态导入**取用：`handlers` 不得静态依赖 `tasks` 模块
+ * （`module-registry/no-direct-module-import`）；模块加载后由 Node 缓存，无重复开销。
+ */
+async function loadCronOwnership() {
+  return import('@modules/tasks/cron/cronOwnership');
+}
+
 /** 前端 CronTask 响应格式（`jobToCronTask` 的产物） */
 interface CronTaskResponse {
   id: string | undefined;
@@ -100,7 +110,24 @@ function jobToCronTask(job: CronJobRecord): CronTaskResponse {
 // ========== Cron Handlers ==========
 
 /**
- * 列出所有定时任务
+ * 统一 404 出口（多租户 P3）：越权与不存在**同一响应**，不泄露任务存在性。
+ */
+function respondCronNotFound(res: http.ServerResponse): void {
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: { message: 'Cron task not found' } }));
+}
+
+/**
+ * 运行日志分页视图（端口 `queryPage` 返回 `unknown`；本 handler 只读写 `entries[].jobId`，
+ * 其余字段原样透传给前端）。
+ */
+interface CronRunLogPageView {
+  entries: Array<{ jobId: string }>;
+  [key: string]: unknown;
+}
+
+/**
+ * 列出定时任务（已认证身份只列自己的；本地身份仍列全部）
  */
 export async function handleListCron(
   _req: http.IncomingMessage,
@@ -110,7 +137,10 @@ export async function handleListCron(
     const taskOps = await getCoreAPI().getTaskOpsPort();
     const store = await taskOps.createCronJobStore();
     await store.init();
-    const jobs = await store.loadJobs();
+    // 多租户 P3：已认证身份只列自己的；本地身份 `canAccessCronJob` 恒真 ⇒ 仍返回全部（零变更）。
+    // 在内存里过滤而非加 SQL 谓词：端口 `loadJobs()` 无过滤参数，且任务量级很小。
+    const { canAccessCronJob } = await loadCronOwnership();
+    const jobs = (await store.loadJobs()).filter((j) => canAccessCronJob(j));
     const result = jobs.map((j) => jobToCronTask(j));
     await store.close();
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -151,6 +181,7 @@ export async function handleCreateCron(
     }
 
     const { parseSchedule } = await import('@modules/chronos');
+    const { currentCronOwnerKey } = await loadCronOwnership();
     const taskOps = await getCoreAPI().getTaskOpsPort();
 
     const parsed: CronScheduleInput = parseSchedule(cronExpr) ?? {
@@ -185,6 +216,8 @@ export async function handleCreateCron(
       model: model ?? undefined,
       provider: provider ?? undefined,
       scheduleDisplay: parsed.display || cronExpr,
+      // 多租户 P3：归属落在创建时的请求身份（本地身份 ⇒ undefined，列保持 NULL）
+      ownerKey: currentCronOwnerKey(),
     };
 
     // 计算首次运行时间
@@ -237,9 +270,10 @@ export async function handleGetCron(
     await store.init();
     const job = await store.getJob(cronId);
     await store.close();
-    if (!job) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Cron task not found' } }));
+    // 多租户 P3：越权与不存在同一 404（不泄露存在性）
+    const { canAccessCronJob } = await loadCronOwnership();
+    if (!job || !canAccessCronJob(job)) {
+      respondCronNotFound(res);
       return;
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -266,10 +300,11 @@ export async function handleUpdateCron(
     await store.init();
 
     const existing = await store.getJob(cronId);
-    if (!existing) {
+    // 多租户 P3：非归属者的更新按 404 处理（与"任务不存在"同响应）
+    const { canAccessCronJob } = await loadCronOwnership();
+    if (!existing || !canAccessCronJob(existing)) {
       await store.close();
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Cron task not found' } }));
+      respondCronNotFound(res);
       return;
     }
 
@@ -310,6 +345,14 @@ export async function handleDeleteCron(
     const taskOps = await getCoreAPI().getTaskOpsPort();
     const store = await taskOps.createCronJobStore();
     await store.init();
+    // 多租户 P3：先校验归属再删（越权按 404，且**不会**误删他人任务）
+    const { canAccessCronJob } = await loadCronOwnership();
+    const job = await store.getJob(cronId);
+    if (!job || !canAccessCronJob(job)) {
+      await store.close();
+      respondCronNotFound(res);
+      return;
+    }
     await store.deleteJob(cronId);
     await store.close();
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -336,10 +379,11 @@ export async function handleRunCron(
     await store.init();
 
     const job = await store.getJob(cronId);
-    if (!job) {
+    // 多租户 P3：非归属者的"立即执行"按 404 处理（否则可借他人作业触发执行）
+    const { canAccessCronJob } = await loadCronOwnership();
+    if (!job || !canAccessCronJob(job)) {
       await store.close();
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Cron task not found' } }));
+      respondCronNotFound(res);
       return;
     }
 
@@ -426,7 +470,27 @@ export async function handleCronRuns(
     const runLog = await taskOps.createCronRunLog();
     await runLog.init();
 
-    const page = await runLog.queryPage({ jobId, limit, offset, status });
+    const page = (await runLog.queryPage({
+      jobId,
+      limit,
+      offset,
+      status,
+    })) as CronRunLogPageView;
+
+    // 多租户 P3：运行日志正文可能含作业输出 ⇒ 已认证身份只保留自己的作业条目。
+    // 已知边界：`total/offset/hasMore` 仍是全量口径（分页元数据不随条目过滤重算）。
+    const { canAccessCronJob, currentCronOwnerKey } = await loadCronOwnership();
+    if (currentCronOwnerKey() !== undefined) {
+      const jobStore = await taskOps.createCronJobStore();
+      await jobStore.init();
+      const ownedIds = new Set(
+        (await jobStore.loadJobs())
+          .filter((j) => canAccessCronJob(j))
+          .map((j) => j.id)
+      );
+      await jobStore.close();
+      page.entries = page.entries.filter((e) => ownedIds.has(e.jobId));
+    }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(page));

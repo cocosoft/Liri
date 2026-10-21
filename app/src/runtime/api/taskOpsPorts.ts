@@ -73,6 +73,8 @@ export interface CronJobRecord {
   state?: string | undefined;
   lastRunAt?: string | undefined;
   nextRunAt?: string | undefined;
+  /** 归属键（多租户 P3：创建时写当前请求身份；本地身份留空） */
+  ownerKey?: string | undefined;
   /** 调度描述（原码**读/写** `schedule.expr`） */
   schedule?: Record<string, unknown> | undefined;
   /** 其余字段（`model` / `provider` / `scheduleDisplay` / `lastStatus` / …）由响应映射按需读取 ⇒ 透传 */

@@ -30,7 +30,10 @@ import * as os from 'os';
 // MonitoringService/BackupManager 触发 paths TDZ」的隐患随之消除。
 import { getLogger } from './loggerFacade.js';
 // 多租户 P1：身份化存储根（纯计算在 storageScope，本文件只接 env / 请求身份）
-import { getRequestPrincipal } from './identity/requestScope.js';
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+} from './identity/requestScope.js';
 import { scopedDataRoot } from './identity/storageScope.js';
 import type { Principal } from './identity/principal.js';
 
@@ -285,6 +288,24 @@ export function resolveScopedDbPath(
   env: NodeJS.ProcessEnv = process.env
 ): string {
   return join(resolveScopedDataDir(principal, env), 'app.db');
+}
+
+/**
+ * 该身份的**工具工作区根**（多租户 P3 资源隔离）。
+ *
+ * - 本地身份（桌面 / CLI / 后台 / 无请求作用域）⇒ `resolveProjectRoot()`，与改造前**逐字相同**；
+ * - 已认证身份 ⇒ `<scoped>/workspace` —— 绝不再回落到进程级项目根（那属于宿主机）。
+ *
+ * 只做路径计算、不建目录：是否创建由调用方决定（工具执行侧按需 `mkdir`，
+ * 避免"解析路径"这种纯函数带副作用）。
+ */
+export function resolveScopedWorkspaceRoot(
+  principal: Principal = getRequestPrincipal(),
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return isLocalPrincipal(principal)
+    ? resolveProjectRoot(env)
+    : join(resolveScopedDataDir(principal, env), 'workspace');
 }
 
 /**

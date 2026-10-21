@@ -124,6 +124,25 @@ export class CredentialStore {
     return CredentialStore.instance;
   }
 
+  /**
+   * 删除租户后丢弃该租户的凭据实例（内存态凭据 + 指向已删目录的路径）。
+   *
+   * 为什么要丢：实例缓存着凭据内容与 `credentials.json` 路径；不丢则下次 `set()` 会把
+   * 文件**写回已删租户的目录**（看起来像"删了又回来"）。
+   *
+   * @returns 丢弃的实例数
+   */
+  static forgetScopedForTenant(tenantId: string): number {
+    const prefix = `${tenantId}:`;
+    let dropped = 0;
+    for (const key of [...CredentialStore.scopedInstances.keys()]) {
+      if (!key.startsWith(prefix)) continue;
+      CredentialStore.scopedInstances.delete(key);
+      dropped += 1;
+    }
+    return dropped;
+  }
+
   /** 初始化：加载凭据文件（幂等，首次调用时执行） */
   initialize(): void {
     if (this.loaded) return;

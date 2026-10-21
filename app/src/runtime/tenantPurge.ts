@@ -62,6 +62,8 @@ export interface TenantPurgeReport {
     scopedConnections: number;
     /** 丢弃的日预算账本数 */
     dailyBudgets: number;
+    /** 丢弃的**非 DB** 按身份内存缓存数（凭据实例 / 会话存储实例 / 成本累计桶） */
+    scopedCaches: number;
     /** 清除的危险命令放行记录数 */
     approvedCommands: number;
   };
@@ -136,6 +138,7 @@ export async function purgeTenant(
       tenantChannels: 0,
       scopedConnections: 0,
       dailyBudgets: 0,
+      scopedCaches: 0,
       approvedCommands: 0,
     },
     blocked: [],
@@ -183,6 +186,20 @@ export async function purgeTenant(
     report.removed.approvedCommands = registry
       .getApprovedCommandRegistry()
       .forgetOwnerPrefix(ownerPrefix);
+  });
+
+  // 丢**非 DB** 的按身份内存缓存（凭据实例 / 会话存储实例 / 成本累计桶）：
+  // 留着会把文件写回已删目录，或让同名新租户继承旧用量。
+  await runStep(report, 'scopedCaches', async () => {
+    const { CredentialStore } =
+      await import('../ai/credentials/CredentialStore.js');
+    const { forgetScopedStoragesForTenant } =
+      await import('../session/gateway/ScopedStorageRegistry.js');
+    const { costTracker } = await import('../cost/CostTracker.js');
+    let dropped = CredentialStore.forgetScopedForTenant(normalized);
+    dropped += await forgetScopedStoragesForTenant(normalized);
+    dropped += costTracker.forgetBucketsForTenant(normalized);
+    report.removed.scopedCaches = dropped;
   });
 
   // ── 3. 清共享单库里的归属行（配置/凭据、定时任务、任务流）──

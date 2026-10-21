@@ -94,6 +94,7 @@ function makeReport(tenantId: string): TenantPurgeReport {
       tenantChannels: 0,
       scopedConnections: 0,
       dailyBudgets: 1,
+      scopedCaches: 2,
       approvedCommands: 0,
     },
     blocked: [],

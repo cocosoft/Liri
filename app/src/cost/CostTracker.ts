@@ -323,6 +323,25 @@ export class CostTracker {
   }
 
   /**
+   * 删除租户后丢弃该租户的**内存累计桶**（不触碰其他租户与本地桶）。
+   *
+   * 为什么要丢：桶里是进程内累计，租户删了还留着既占内存、也会让"同 id 新租户"
+   * 一上来就带上旧用量。
+   *
+   * @returns 丢弃的桶数
+   */
+  forgetBucketsForTenant(tenantId: string): number {
+    const prefix = `${tenantId}:`;
+    let dropped = 0;
+    for (const key of [...this.buckets.keys()]) {
+      if (!key.startsWith(prefix)) continue;
+      this.buckets.delete(key);
+      dropped += 1;
+    }
+    return dropped;
+  }
+
+  /**
    * 重置成本跟踪（清空**所有身份**的累计桶 —— 语义是"从头计量"，不是"只清自己"）
    */
   reset(): void {

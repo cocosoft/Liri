@@ -76,6 +76,7 @@ function makeReport(
       tenantChannels: 0,
       scopedConnections: 0,
       dailyBudgets: 0,
+      scopedCaches: 0,
       approvedCommands: 0,
     },
     blocked,

@@ -8,8 +8,14 @@ import { Database } from '@modules/core/external/sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath, resolveScopedDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
+// 多租户 P1（2026-10-21）：查询日志库按身份分实例（本地身份零变更）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 import type {
   QueryLogEntry,
   QueryLogFilter,
@@ -599,11 +605,25 @@ export class QueryLogStore {
  * 全局单例
  */
 let globalQueryLogStore: QueryLogStore | null = null;
+/** 多租户 P1：非本地身份的查询日志库实例（各自独立 app.db） */
+const scopedQueryLogStores = new Map<string, QueryLogStore>();
 
 /**
- * 获取全局查询日志存储实例
+ * 获取查询日志存储实例。
+ *
+ * 多租户 P1：本地身份 ⇒ 原全局实例（零变更）；已认证身份 ⇒ 该身份自己的实例。
+ * 本类所有公开方法都先 `await this.init()` ⇒ 新实例首次读写会自动建表，无需额外预热。
  */
 export function getQueryLogStore(): QueryLogStore {
+  const principal = getRequestPrincipal();
+  if (!isLocalPrincipal(principal)) {
+    const key = principalKeyOf(principal);
+    const existing = scopedQueryLogStores.get(key);
+    if (existing) return existing;
+    const scoped = new QueryLogStore(resolveScopedDbPath(principal));
+    scopedQueryLogStores.set(key, scoped);
+    return scoped;
+  }
   if (!globalQueryLogStore) {
     globalQueryLogStore = new QueryLogStore();
   }
@@ -615,4 +635,5 @@ export function getQueryLogStore(): QueryLogStore {
  */
 export function resetQueryLogStore(): void {
   globalQueryLogStore = null;
+  scopedQueryLogStores.clear();
 }

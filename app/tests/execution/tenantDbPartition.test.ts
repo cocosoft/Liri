@@ -22,6 +22,12 @@ import {
 } from '../../src/execution/ExecutionStore';
 import { getCostRecordRepository } from '../../src/cost/CostRecordRepository';
 import { getCheckpointDatabase } from '../../src/chat/services/CheckpointDatabase';
+import { InboxManager } from '../../src/runtime/InboxManager';
+import {
+  getQueryLogStore,
+  resetQueryLogStore,
+} from '../../src/query/QueryLogStore';
+import { getLLMTracker } from '../../src/monitoring/llm/getLLMTracker';
 
 const ALICE: Principal = {
   tenantId: 'acme',
@@ -40,12 +46,19 @@ beforeEach(() => {
   dataDir = mkdtempSync(join(tmpdir(), 'tenant-db-'));
   process.env.LIRI_DATA_DIR = dataDir;
   resetExecutionStore();
+  resetQueryLogStore();
 });
 
 afterEach(() => {
   resetExecutionStore();
+  resetQueryLogStore();
   delete process.env.LIRI_DATA_DIR;
-  rmSync(dataDir, { recursive: true, force: true });
+  try {
+    rmSync(dataDir, { recursive: true, force: true });
+  } catch {
+    // Windows：未关闭的 SQLite 连接持有目录锁（EBUSY）⇒ 保留临时目录，由系统清理。
+    // 该行为只影响测试隔离目录，不影响断言（断言均在删除前完成）。
+  }
 });
 
 describe('ExecutionStore：按身份分实例', () => {
@@ -95,5 +108,58 @@ describe('CheckpointDatabase：按身份分实例（经身份感知代理）', (
     const bob = runWithPrincipal(BOB, () => getCheckpointDatabase());
     expect(alice).not.toBe(local);
     expect(alice).not.toBe(bob);
+  });
+});
+
+describe('InboxManager：审批库按身份分区', () => {
+  it('已认证身份取连接 ⇒ 落在自己的 tenants 目录，本地共享库未被创建', async () => {
+    const mgr = new InboxManager();
+    // 白盒：getDb 是连接唯一入口（所有公开方法都保存为局部变量后使用）
+    await runWithPrincipal(ALICE, () =>
+      (mgr as unknown as { getDb: () => Promise<unknown> }).getDb()
+    );
+
+    expect(
+      existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
+    ).toBe(true);
+    expect(existsSync(join(dataDir, 'app.db'))).toBe(false);
+  });
+});
+
+describe('QueryLogStore：按身份分实例', () => {
+  it('两个身份拿到不同实例，且写入落到自己的库', async () => {
+    const local = getQueryLogStore();
+    const alice = runWithPrincipal(ALICE, () => getQueryLogStore());
+    expect(alice).not.toBe(local);
+
+    await runWithPrincipal(ALICE, () =>
+      getQueryLogStore().log({
+        sessionId: 's-alice',
+        type: 'api_call',
+        model: 'm',
+        promptTokens: 1,
+        outputTokens: 1,
+        totalTokens: 2,
+        durationMs: 1,
+        success: true,
+        timestamp: Date.now(),
+      })
+    );
+
+    expect(
+      existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
+    ).toBe(true);
+  });
+});
+
+describe('LLMTracker：按身份分实例', () => {
+  it('两个身份拿到不同实例；分区实例**同步**开库（首条记录即可落库）', () => {
+    const local = getLLMTracker();
+    const alice = runWithPrincipal(ALICE, () => getLLMTracker());
+    expect(alice).not.toBe(local);
+
+    expect(
+      existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
+    ).toBe(true);
   });
 });

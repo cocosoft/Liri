@@ -243,7 +243,48 @@ export class LLMTracker {
     if (this.initialized) return;
     try {
       this.db = new Database(resolveDbPath());
-      this.db.run(`
+      this.createSchema();
+      // 从 DB 恢复会话统计
+      await this.restoreFromDB();
+      this.initialized = true;
+      this.logger.info('LLMTracker DB 初始化完成', {
+        sessions: this.sessionStats.size,
+        calls: this.countTotalCalls(),
+      });
+    } catch (err) {
+      this.logger.warn('LLMTracker DB 初始化失败，使用纯内存模式', {
+        error: String(err),
+      });
+      this.db = null;
+    }
+  }
+
+  /**
+   * 多租户 P1（2026-10-21）：为**非本地身份**同步开库并建表。
+   *
+   * 为什么同步：`recordLLMCall` 是同步方法（热路径），异步 `init()` 未完成期间的记录
+   * 会因 `db === null` 被跳过 ⇒ 该身份的调用记录静默丢失。同步建表保证首条即落库。
+   * **不做** `restoreFromDB()`（异步）：内存统计从空开始，仅影响该用户首屏的历史聚合，
+   * 不影响写入与本次运行统计。
+   */
+  openScopedSync(path: string): void {
+    if (this.initialized) return;
+    try {
+      this.db = new Database(path);
+      this.createSchema();
+      this.initialized = true;
+    } catch (err) {
+      this.logger.warn('LLMTracker 分区库初始化失败，使用纯内存模式', {
+        error: String(err),
+      });
+      this.db = null;
+    }
+  }
+
+  /** 建表/索引 DDL（`init` 与按身份同步开库共用，避免两份 DDL 漂移） */
+  private createSchema(): void {
+    if (!this.db) return;
+    this.db.run(`
         CREATE TABLE IF NOT EXISTS llm_call_records (
           request_id TEXT PRIMARY KEY,
           session_id TEXT NOT NULL,
@@ -260,24 +301,10 @@ export class LLMTracker {
           duration_ms INTEGER DEFAULT 0
         )
       `);
-      this.db.run(`
+    this.db.run(`
         CREATE INDEX IF NOT EXISTS idx_llm_calls_session
         ON llm_call_records(session_id, timestamp)
       `);
-
-      // 从 DB 恢复会话统计
-      await this.restoreFromDB();
-      this.initialized = true;
-      this.logger.info('LLMTracker DB 初始化完成', {
-        sessions: this.sessionStats.size,
-        calls: this.countTotalCalls(),
-      });
-    } catch (err) {
-      this.logger.warn('LLMTracker DB 初始化失败，使用纯内存模式', {
-        error: String(err),
-      });
-      this.db = null;
-    }
   }
 
   private countTotalCalls(): number {

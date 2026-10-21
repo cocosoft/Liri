@@ -12,7 +12,13 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core/paths';
+import { resolveDbPath, resolveScopedDbPath } from '@modules/core/paths';
+// 多租户 P1（2026-10-21）：审批库按身份分区（本地身份零变更）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 import { randomUUID } from 'crypto';
 import { broadcastEvent } from '@modules/infrastructure';
 import type { FrontendMessageBlock } from '@modules/session/types/UnifiedMessage.js';
@@ -60,8 +66,17 @@ export class InboxManager {
   private db: Database | null = null;
   private dbPath: string;
   private expireTimer: ReturnType<typeof setInterval> | null = null;
+  /**
+   * 多租户 P1（2026-10-21）：非本地身份的审批库连接（各自独立 app.db）。
+   * `getDb()` 每次返回**当次身份**的连接，调用方都保存为局部变量
+   * （`const db = await this.getDb()`）⇒ 不存在"共享字段换连接"的并发串库。
+   */
+  private scopedDbs = new Map<string, Database>();
+  /** 调用方显式传路径（测试隔离）⇒ 不做身份分区 */
+  private readonly explicitPath: boolean;
 
   constructor(dbPath?: string) {
+    this.explicitPath = dbPath !== undefined;
     this.dbPath = dbPath ?? resolveDbPath();
   }
 
@@ -99,22 +114,43 @@ export class InboxManager {
   }
 
   private async getDb(): Promise<Database> {
-    if (this.db) return this.db;
-    this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err: Error | null) => {
+    // 多租户 P1：本地身份 ⇒ 原共享连接（零变更）；已认证身份 ⇒ 该身份自己的库
+    const principal = getRequestPrincipal();
+    const scope =
+      this.explicitPath || isLocalPrincipal(principal)
+        ? ''
+        : principalKeyOf(principal);
+
+    if (scope === '') {
+      if (this.db) return this.db;
+      this.db = await this.open(this.dbPath);
+      await this._createTable(this.db);
+      return this.db;
+    }
+
+    const cached = this.scopedDbs.get(scope);
+    if (cached) return cached;
+    const opened = await this.open(resolveScopedDbPath(principal));
+    await this._createTable(opened);
+    this.scopedDbs.set(scope, opened);
+    return opened;
+  }
+
+  /** 打开连接（不建表） */
+  private open(path: string): Promise<Database> {
+    return new Promise<Database>((resolve, reject) => {
+      const db = new Database(path, (err: Error | null) => {
         if (err) reject(err);
         else resolve(db);
       });
     });
-    await this._createTable();
-    return this.db;
   }
 
-  private async _createTable(): Promise<void> {
+  private async _createTable(db: Database): Promise<void> {
     // 修复: 原实现提前 return 导致 Phase 3/4/5（审计表、列迁移、session_inbox_map）成为死代码，
     // 旧库 inbox_items 缺 channel_id 等列使 submit() 必抛 SQLiteError，审批链路整体降级。
     await new Promise<void>((resolve, reject) => {
-      this.db!.exec(
+      db.exec(
         `
         CREATE TABLE IF NOT EXISTS inbox_items (
           id TEXT PRIMARY KEY,
@@ -152,7 +188,7 @@ export class InboxManager {
 
     // Phase 3: 创建审批审计日志表
     await new Promise<void>((resolve, reject) => {
-      this.db!.exec(
+      db.exec(
         `CREATE TABLE IF NOT EXISTS approval_audit_log (
           id TEXT PRIMARY KEY,
           item_id TEXT NOT NULL,
@@ -173,11 +209,11 @@ export class InboxManager {
     });
 
     // Phase 4: 幂等列迁移（channel_id, channel_session_id, channel_conversation_id）
-    await this._migrateSchema();
+    await this._migrateSchema(db);
 
     // Phase 5: 创建 session_inbox_map 关联表
     await new Promise<void>((resolve, reject) => {
-      this.db!.exec(
+      db.exec(
         `CREATE TABLE IF NOT EXISTS session_inbox_map (
           session_id TEXT NOT NULL,
           inbox_item_id TEXT NOT NULL,
@@ -195,8 +231,7 @@ export class InboxManager {
   }
 
   /** 幂等列迁移：通过 PRAGMA table_info 检测列是否存在，仅新增缺失列 */
-  private async _migrateSchema(): Promise<void> {
-    const db = this.db!;
+  private async _migrateSchema(db: Database): Promise<void> {
     const columns: { name: string }[] = await new Promise((resolve, reject) => {
       db.all(
         'PRAGMA table_info(inbox_items)',

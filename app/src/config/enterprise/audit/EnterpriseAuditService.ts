@@ -3,14 +3,32 @@
  *
  * 提供全量审计日志的记录、查询、导出和自动清理。
  * 审计事件包括：认证、授权、工具执行、配置变更等所有安全敏感操作。
+ *
+ * **多租户 P5（按身份）**：
+ * - 落盘目录**按写入时身份**解析（本地 ⇒ `data/logs/enterprise-audit`，与改造前逐字相同；
+ *   已认证 ⇒ `tenants/<tenant>/users/<user>/logs/enterprise-audit`）；
+ * - 每条事件自动带 `ownerKey`（`<tenantId>:<userId>`）与 `tenant`（本地不写）；
+ * - `query` / `getStats` / `export` 只覆盖**当前身份可见**的记录（判定统一走 `canAccessOwnerKey`）。
  */
 
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs';
+import {
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  existsSync,
+  readdirSync,
+  unlinkSync,
+} from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { getLogger } from '../../../monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
-import { resolveLogsDir } from '@modules/core';
+import { resolveDataDir, resolveScopedLogsDir } from '@modules/core';
+import {
+  canAccessOwnerKey,
+  currentOwnerKey,
+  getRequestPrincipal,
+} from '@modules/core/identity/requestScope.js';
 
 const logger = getLogger('config:enterprise:audit:enterpriseAuditService');
 
@@ -63,6 +81,12 @@ export interface AuditEvent {
   success: boolean;
   /** 失败原因 */
   failureReason?: string;
+  /**
+   * 归属键（多租户 P5）：`<tenantId>:<userId>`；本地/后台 ⇒ **缺省**（不写字段）
+   *
+   * 只参与访问判定与导出过滤（`canAccessOwnerKey`），不改变存储形状。
+   */
+  ownerKey?: string;
 }
 
 /**
@@ -119,6 +143,18 @@ const DEFAULT_CONFIG: Required<EnterpriseAuditConfig> = {
 };
 
 /**
+ * 从审计日档文件名（`2026-10-21_audit.json`）解析出当天 UTC 零点的时间戳
+ *
+ * 明确返回 `null`（而不是拿 `parseInt` 猜）——调用方据此**跳过**，不误删。
+ */
+export function parseAuditFileDate(fileName: string): number | null {
+  const datePart = fileName.replace(/\.json$/i, '').split('_')[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return null;
+  const timestamp = Date.parse(`${datePart}T00:00:00Z`);
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+/**
  * 企业审计服务
  * 单例模式，提供全局审计日志能力。
  */
@@ -132,13 +168,9 @@ export class EnterpriseAuditService {
   private retentionTimer: ReturnType<typeof setInterval> | null = null;
 
   private constructor(config: EnterpriseAuditConfig = {}) {
-    this.config = {
-      ...DEFAULT_CONFIG,
-      ...config,
-      auditDir: config.auditDir || this.resolveDefaultAuditDir(),
-    };
-
-    this.ensureAuditDir();
+    // `auditDir` 为空 ⇒ 每次操作**按调用时身份**解析（见 resolveAuditDir）；
+    // 不在构造期固化，否则同一实例会把所有身份写进同一目录。
+    this.config = { ...DEFAULT_CONFIG, ...config };
     this.startRetentionSweeper();
   }
 
@@ -149,13 +181,23 @@ export class EnterpriseAuditService {
     return EnterpriseAuditService.instance;
   }
 
-  private resolveDefaultAuditDir(): string {
-    return join(resolveLogsDir(), 'enterprise-audit');
+  /**
+   * 审计目录 —— **按调用时身份**解析（多租户 P5）
+   *
+   * - 显式 `config.auditDir` ⇒ 原样使用（宿主自定义 / 测试注入）；
+   * - 否则 ⇒ `<scoped logs>/enterprise-audit`：
+   *   本地/后台 `data/logs/enterprise-audit`（与改造前**逐字相同**），
+   *   已认证 `<data>/tenants/<tenant>/users/<user>/logs/enterprise-audit`
+   *   ⇒ "按租户导出"与"删除租户即整目录删除"物理成立。
+   */
+  private resolveAuditDir(): string {
+    const override = this.config.auditDir.trim();
+    return override || join(resolveScopedLogsDir(), 'enterprise-audit');
   }
 
-  private ensureAuditDir(): void {
-    if (!existsSync(this.config.auditDir)) {
-      mkdirSync(this.config.auditDir, { recursive: true });
+  private ensureDir(dir: string): void {
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
     }
   }
 
@@ -182,27 +224,46 @@ export class EnterpriseAuditService {
     this.stopRetentionSweeper();
   }
 
+  /**
+   * 需要清理的审计目录全集
+   *
+   * 显式 `config.auditDir` ⇒ 只有它；否则 = 本地默认目录 + 所有**已存在**的租户分区目录
+   * （`tenants/<tenant>/users/<user>/logs/enterprise-audit`）。
+   */
+  private listAuditDirs(): string[] {
+    const override = this.config.auditDir.trim();
+    if (override) return [override];
+
+    const dirs = [join(resolveScopedLogsDir(), 'enterprise-audit')];
+    const tenantsRoot = join(resolveDataDir(), 'tenants');
+    try {
+      for (const tenant of readdirSync(tenantsRoot)) {
+        const usersRoot = join(tenantsRoot, tenant, 'users');
+        for (const user of readdirSync(usersRoot)) {
+          dirs.push(join(usersRoot, user, 'logs', 'enterprise-audit'));
+        }
+      }
+    } catch {
+      // 无租户分区（本地部署 / 目录尚未创建）⇒ 只清本地
+    }
+    return dirs;
+  }
+
   private sweepOldEvents(): void {
     const cutoff = Date.now() - this.config.retentionDays * 86400000;
     try {
-      if (existsSync(this.config.auditDir)) {
-        const { readdirSync, unlinkSync } =
-          require('fs') as typeof import('fs');
-        const files = readdirSync(this.config.auditDir);
-        for (const file of files) {
+      for (const auditDir of this.listAuditDirs()) {
+        if (!existsSync(auditDir)) continue;
+        for (const file of readdirSync(auditDir)) {
           if (!file.endsWith('.json')) continue;
-          const filePath = join(this.config.auditDir, file);
-          const stat = existsSync(filePath)
-            ? readFileSync(filePath, 'utf-8')
-            : '';
-          if (!stat) continue;
-          const timestamp = parseInt(
-            file.replace('.json', '').split('_')[0],
-            10
-          );
-          if (!isNaN(timestamp) && timestamp < cutoff) {
+          const filePath = join(auditDir, file);
+          // 文件名形如 `2026-10-21_audit.json` —— 取日期段按 UTC 零点解析。
+          // （原实现把日期串喂给 parseInt 当毫秒时间戳 ⇒ 恒小于 cutoff ⇒ 每小时误删全部日档）
+          const timestamp = parseAuditFileDate(file);
+          if (timestamp === null) continue;
+          if (timestamp < cutoff) {
             unlinkSync(filePath);
-            logger.info(`清理过期审计日志: ${file}`);
+            logger.info(`清理过期审计日志: ${filePath}`);
           }
         }
       }
@@ -228,10 +289,21 @@ export class EnterpriseAuditService {
       } as AuditEvent;
     }
 
+    const ownerKey = currentOwnerKey();
     const auditEvent: AuditEvent = {
       ...event,
       id: randomUUID(),
       timestamp: Date.now(),
+      // 多租户 P5：归属键与租户**自动**取自调用时身份（本地 ⇒ 都不写，与改造前逐字一致）；
+      // 调用方显式传 `tenant` 时以调用方为准（如跨租户系统事件）。
+      ...(ownerKey
+        ? {
+            ownerKey,
+            ...(event.tenant === undefined
+              ? { tenant: getRequestPrincipal().tenantId }
+              : {}),
+          }
+        : {}),
     };
 
     this.events.push(auditEvent);
@@ -283,7 +355,10 @@ export class EnterpriseAuditService {
 
   private async persistEvent(event: AuditEvent): Promise<void> {
     const dateStr = new Date(event.timestamp).toISOString().slice(0, 10);
-    const filePath = join(this.config.auditDir, `${dateStr}_audit.json`);
+    // 目录按**写这条事件时的身份**解析（本地 ⇒ data/logs/enterprise-audit，逐字不变）
+    const auditDir = this.resolveAuditDir();
+    this.ensureDir(auditDir);
+    const filePath = join(auditDir, `${dateStr}_audit.json`);
 
     let existing: AuditEvent[] = [];
     try {
@@ -316,6 +391,9 @@ export class EnterpriseAuditService {
     } = filter;
 
     let filtered = this.events.filter((e) => {
+      // 多租户 P5：内存事件表是进程级共享 ⇒ 先按归属过滤（本地恒放行；
+      // 已认证身份只看得到自己的记录，无归属的记录 fail-closed）
+      if (!canAccessOwnerKey(e.ownerKey)) return false;
       if (e.timestamp < startTime || e.timestamp > endTime) return false;
       if (types && types.length > 0 && !types.includes(e.type)) return false;
       if (
@@ -347,8 +425,12 @@ export class EnterpriseAuditService {
     const from = timeRange?.from || 0;
     const to = timeRange?.to || Date.now();
 
+    // 多租户 P5：统计同样只覆盖当前身份可见的记录（与 query 同口径）
     const inRange = this.events.filter(
-      (e) => e.timestamp >= from && e.timestamp <= to
+      (e) =>
+        e.timestamp >= from &&
+        e.timestamp <= to &&
+        canAccessOwnerKey(e.ownerKey)
     );
 
     const byType: Record<string, number> = {};
@@ -375,13 +457,16 @@ export class EnterpriseAuditService {
 
   /**
    * 导出审计日志
+   *
+   * 导出文件落在**当前身份自己的**审计目录（`<auditDir>/export`）⇒ 按租户导出天然成立，
+   * 且内容已由 `query()` 按归属过滤（跨身份不可见）。
    */
   async export(
     format: 'json' | 'csv' = 'json',
     filter?: AuditQuery
   ): Promise<string> {
     const result = await this.query(filter);
-    const exportDir = join(this.config.auditDir, 'export');
+    const exportDir = join(this.resolveAuditDir(), 'export');
     if (!existsSync(exportDir)) {
       mkdirSync(exportDir, { recursive: true });
     }

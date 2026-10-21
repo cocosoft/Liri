@@ -291,6 +291,19 @@ export function resolveScopedDbPath(
 }
 
 /**
+ * 该身份的日志根（本地 ⇒ `resolveLogsDir()`，即 `data/logs`）
+ *
+ * 审计等"可按租户导出"的日志按身份分区：租户 ⇒
+ * `<data>/tenants/<tenant>/users/<user>/logs`，删除租户时整目录可删。
+ */
+export function resolveScopedLogsDir(
+  principal: Principal = getRequestPrincipal(),
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveScopedDataDir(principal, env), 'logs');
+}
+
+/**
  * 该身份的**工具工作区根**（多租户 P3 资源隔离）。
  *
  * - 本地身份（桌面 / CLI / 后台 / 无请求作用域）⇒ `resolveProjectRoot()`，与改造前**逐字相同**；

@@ -7,6 +7,7 @@
 
 import { create } from "zustand";
 import { authService, type User, type ApiKey } from "../services/authService";
+import { sseService } from "../services/sseService";
 import { handleClientError } from "@/utils/handleError";
 
 // ============================================================
@@ -48,6 +49,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: true,
         isLoading: false,
       });
+      // 多租户 P2：SSE 连接在**建立时**固化身份（服务端按身份过滤事件），
+      // 登录后必须重建连接，才能带上新 token 收到属于自己的事件。
+      sseService.reconnectNow();
     } catch (e) {
       handleClientError(
         e,
@@ -76,6 +80,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: true,
         isLoading: false,
       });
+      // 同 login：注册即登录，SSE 需带新 token 重建
+      sseService.reconnectNow();
     } catch (e) {
       handleClientError(
         e,
@@ -101,6 +107,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: false,
         isLoading: false,
       });
+      // 登出后 token 已移除 ⇒ 重建为本地身份连接（否则仍按旧身份接收事件）
+      sseService.reconnectNow();
     }
   },
 

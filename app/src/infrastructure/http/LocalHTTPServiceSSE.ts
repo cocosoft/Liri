@@ -4,10 +4,27 @@
 
 import http from 'http';
 import { getLogger } from '@modules/monitoring';
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope';
 const logger = getLogger('infrastructure:http:sse');
 
-/** SSE 客户端集合 */
-const clients = new Set<http.ServerResponse>();
+/**
+ * SSE 客户端 → 该连接**建立时**的身份键（`''` = 本地身份）。
+ *
+ * 多租户 P2（2026-10-21）：`handleEvents` 在 `withRequestIdentity` 作用域内执行，
+ * 因此连接期能拿到真实 `Principal`；而后续广播发生在**各自的**请求/后台作用域里
+ * （长连接不共享 ALS 上下文）⇒ 必须在连接时把身份键**存下来**，广播时用它过滤。
+ */
+const clients = new Map<http.ServerResponse, string>();
+
+/** 当前作用域的身份键（无作用域 / 本地身份 ⇒ `''`） */
+function currentPrincipalKey(): string {
+  const principal = getRequestPrincipal();
+  return isLocalPrincipal(principal) ? '' : principalKeyOf(principal);
+}
 
 /** 心跳定时器 */
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -20,12 +37,18 @@ let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
  */
 const REPLAY_BUFFER_SIZE = 1000;
 let nextEventId = 1;
-const replayBuffer: Array<{ id: number; event: string; data: string }> = [];
+/** 身份键随事件落缓冲 —— 补发同样要按身份过滤，否则重连即跨用户泄露 */
+const replayBuffer: Array<{
+  id: number;
+  event: string;
+  data: string;
+  key: string;
+}> = [];
 
 /** 记录一条可回放事件并返回其 id */
-function appendReplayEvent(event: string, data: string): number {
+function appendReplayEvent(event: string, data: string, key: string): number {
   const id = nextEventId++;
-  replayBuffer.push({ id, event, data });
+  replayBuffer.push({ id, event, data, key });
   if (replayBuffer.length > REPLAY_BUFFER_SIZE) replayBuffer.shift();
   return id;
 }
@@ -75,6 +98,10 @@ export async function handleEvents(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
+  // 身份键在**连接建立时**解析（本函数运行于 `withRequestIdentity` 作用域内）；
+  // 之后的广播各自带自己的作用域身份，长连接本身不继承任何请求上下文。
+  const principalKey = currentPrincipalKey();
+
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache',
@@ -92,6 +119,8 @@ export async function handleEvents(
     let replayed = 0;
     for (const item of replayBuffer) {
       if (item.id <= lastEventId) continue;
+      // 补发同样按身份过滤：否则重连即可拿到别人的事件（与实时广播同口径）
+      if (item.key !== principalKey) continue;
       try {
         res.write(
           `id: ${item.id}\nevent: ${item.event}\ndata: ${item.data}\n\n`
@@ -104,7 +133,7 @@ export async function handleEvents(
     logger.info('SSE 断线补发', { lastEventId, replayed });
   }
 
-  clients.add(res);
+  clients.set(res, principalKey);
   logger.info('SSE 客户端已连接', { total: clients.size });
 
   if (!heartbeatTimer) {
@@ -112,8 +141,9 @@ export async function handleEvents(
     heartbeatTimer = setInterval(() => {
       logger.debug('SSE 心跳广播 tick', { clients: clients.size });
       const payload = JSON.stringify({ type: 'heartbeat', ts: Date.now() });
-      // 快照遍历：边删边迭代对 Set 安全，但快照可避免将来换容器时踩坑
-      for (const client of [...clients]) {
+      // 快照遍历：边删边迭代对 Map 安全，但快照可避免将来换容器时踩坑
+      // 心跳不含用户数据 ⇒ 对所有身份都发送（否则租户连接会被静默掐断）
+      for (const client of [...clients.keys()]) {
         try {
           client.write(`event: heartbeat\ndata: ${payload}\n\n`);
         } catch {
@@ -141,20 +171,31 @@ export async function handleEvents(
 }
 
 /**
- * 广播事件到所有 SSE 客户端
+ * 广播事件到 SSE 客户端 —— **按身份过滤**（多租户 P2）
+ *
+ * 口径（fail-closed）：
+ *   - 广播发生在某个请求作用域内 ⇒ 只投递给**同一身份**的客户端
+ *     （A 的流式输出 / 审批卡不再推到 B）；
+ *   - 广播发生在无作用域 / 本地身份（CLI、cron、后台任务、通道轮询、桌面端）
+ *     ⇒ 只投递给**本地身份**客户端 —— 不向远端身份广播机器级事件。
+ *
+ * 为什么不用"解析 sessionId → 查归属"：广播是同步热路径，且 105 处调用点里
+ * 事件载荷并非都带 sessionId；作用域身份是调用方本来就知道的事实，更可靠。
  */
 export function broadcastEvent(
   event: string,
   data: Record<string, unknown>
 ): void {
   const payload = JSON.stringify({ ...data, ts: Date.now() });
-  // U-04 残余：带 id 的广播才可被 Last-Event-ID 回放
-  const eventId = appendReplayEvent(event, payload);
-  for (const client of [...clients]) {
+  const principalKey = currentPrincipalKey();
+  // U-04 残余：带 id 的广播才可被 Last-Event-ID 回放（身份键一并入缓冲）
+  const eventId = appendReplayEvent(event, payload, principalKey);
+  for (const [client, clientKey] of [...clients]) {
+    if (clientKey !== principalKey) continue;
     try {
       client.write(`id: ${eventId}\nevent: ${event}\ndata: ${payload}\n\n`);
     } catch {
-      // 客户端已断开但尚未从 Set 中清理，静默移除
+      // 客户端已断开但尚未从 Map 中清理，静默移除
       clients.delete(client);
       try {
         client.end();

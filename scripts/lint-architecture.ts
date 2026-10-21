@@ -2102,6 +2102,11 @@ class ArchitectureLinter {
       // 会被启动面（`src/pyapp.ts` 的 eager 图）静态拉入 ⇒ `lint:startup-graph` 棘轮 +1 文件 / +9KB。
       // 故刻意**不进常量桶**，由 `query/TAORLoop`、`tools/AgentTool/ResumeAgent` 按子路径直连。
       'constants/goalTemplates',
+      // 桶精确化（2026-10-21，多租户 P3）：`sandbox/scopedDefaultWorkspace` 只在
+      // **已认证请求**的权限判定/状态查询里用到；经沙箱桶再导出会让它进启动面
+      //（`entrypoints/spiWiring` 是 eager 图里的装配点）⇒ 组合根按子路径动态 import。
+      // 该文件是"按身份解析默认工作区"的**唯一实现**，与 `core/identity` 同属零依赖叶子。
+      'sandbox/scopedDefaultWorkspace',
       // 循环安全子入口（2026-09-26）：`query/tool-constants` 是**零跨模块 import 的叶子**
       // （只导出工具名 `Set` 字面量），而 `promptSuggestion/types.ts` 与
       // `tools/orchestration/types.ts` 需要其"文件读写工具真实名"取值（裁定①：共享取值 + 各自命名）。

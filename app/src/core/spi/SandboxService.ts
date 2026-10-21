@@ -88,7 +88,9 @@ export interface ISandboxPort {
   /**
    * 默认工作区是否拥有指定权限（未注册 / 默认工作区不存在时返回 `false`）
    *
-   * 实现侧对应 `globalWorkspaceManager.get('default')?.hasPermission(permission) ?? false`。
+   * 实现侧对应「按**请求身份**取默认工作区」：
+   * `getScopedDefaultWorkspace()?.hasPermission(permission) ?? false`
+   *（多租户 P3，2026-10-21 —— 本地身份取宿主 `'default'`，已认证取自己的分区实例）。
    */
   hasWorkspacePermission(permission: SandboxPermission): boolean;
   /**
@@ -105,7 +107,8 @@ export interface ISandboxPort {
    * 前者供 `PermissionService.canAccessFile`（安全判定，缺省拒绝）；
    * 本方法供 `handler-utils.checkFilePathPermission`（保持其**既有放行**行为）⇒ **不可互相替代**。
    *
-   * 实现侧对应 `const ws = globalWorkspaceManager.get('default'); return ws ? !ws.hasPermission(p) : false;`
+   * 实现侧对应 `const ws = getScopedDefaultWorkspace(); return ws ? !ws.hasPermission(p) : false;`
+   *（同上：按请求身份解析默认工作区）
    * （未注册时返回 `false` = 放行，与实现侧「无默认工作区」分支同向）。
    */
   isWorkspacePermissionDenied(permission: SandboxPermission): boolean;

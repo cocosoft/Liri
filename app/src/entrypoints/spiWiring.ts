@@ -453,6 +453,11 @@ export async function registerAllSpis(
       processRegistry,
       resourceLimitManager,
     } = await import('@modules/sandbox');
+    // 多租户 P3（2026-10-21）：默认工作区按**请求身份**解析。
+    // 走**子路径**而非沙箱桶：本文件是启动面，桶再导出会让这段只在"已认证请求"路径
+    // 用到的代码进 eager 图（`lint:startup-graph` 棘轮增长）。子入口已登记为规范入口。
+    const { getScopedDefaultWorkspace, scopedActiveWorkspaceCount } =
+      await import('@modules/sandbox/scopedDefaultWorkspace');
     const { registerSandboxSpi } = await import('@modules/core/spi');
     const sandboxManager = SandboxManager.getInstance();
 
@@ -468,6 +473,9 @@ export async function registerAllSpis(
         workingDirectory: process.cwd(),
       });
     }
+    // 多租户 P3（2026-10-21）：上面只建**宿主**那一个；已认证身份各自的默认工作区
+    //（`default@<tenant>:<user>`，工作目录 = 该身份 `<scoped>/workspace`）由
+    // `getScopedDefaultWorkspace()` 惰性建立 —— 下方三个读取面全部改走该入口。
 
     await registerSandboxSpi(container, {
       // 端口输入为 `Record<string, unknown>`，SandboxManager 期望具名字段
@@ -478,14 +486,14 @@ export async function registerAllSpis(
       // 同上：端口为 `Record<string, unknown>`，实现侧为 `Partial<SandboxSettings>`
       updateSettings: (settings) =>
         sandboxManager.updateSettings(settings as never),
-      // 默认工作区缺失 ⇒ false（fail-closed）
+      // 按**请求身份**取默认工作区（本地 ⇒ 宿主 'default'；已认证 ⇒ 自己的分区实例）；
+      // 缺失 ⇒ false（fail-closed）
       hasWorkspacePermission: (permission) =>
-        globalWorkspaceManager.get('default')?.hasPermission(permission) ??
-        false,
+        getScopedDefaultWorkspace()?.hasPermission(permission) ?? false,
       // D-200：默认工作区缺失 ⇒ false（**放行**，保持 `handler-utils` 既有行为，
       // 与上一行的 fail-closed 方向**相反**，见端口文档）
       isWorkspacePermissionDenied: (permission) => {
-        const workspace = globalWorkspaceManager.get('default');
+        const workspace = getScopedDefaultWorkspace();
         return workspace ? !workspace.hasPermission(permission) : false;
       },
       // D-200：`GET /v1/sandbox/status` 的读取面（最小投影，子字段原样进 JSON）
@@ -496,7 +504,8 @@ export async function registerAllSpis(
         violationCount: sandboxManager.getViolations().length,
         processStats: processRegistry.getStats(),
         resourceSummary: resourceLimitManager.getSummary(),
-        activeWorkspaceCount: globalWorkspaceManager.list().size,
+        // 全进程 `list().size` 会把"宿主 + 其他租户共有几个工作区"暴露给单个用户 ⇒ 按身份计数
+        activeWorkspaceCount: scopedActiveWorkspaceCount(),
       }),
     });
   }

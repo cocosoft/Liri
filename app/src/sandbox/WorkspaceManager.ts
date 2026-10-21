@@ -73,6 +73,32 @@ export class WorkspaceManager {
   }
 
   /**
+   * **同步**创建工作空间（不调用 `initialize()`）
+   *
+   * 仅用于「按身份惰性建默认工作区」这类**同步读取路径**（权限判定 / 状态查询）：
+   * 该路径拿不到 `await` 的机会，而 `WorkspaceBase.initialize()` 是基类空实现、
+   * 三个适配器（Local / Docker / SSH）**均未覆写** ⇒ 创建过程本身无 IO，同步完成安全。
+   *
+   * 其他场景仍走 `create()` —— 保留 `initialize()` 的语义位置，避免"以后有人给适配器
+   * 加了 IO 初始化"时被本方法静默跳过。
+   */
+  createSync(id: string, options: WorkspaceCreateOptions = {}): WorkspaceBase {
+    if (this.workspaces.has(id)) {
+      throw new AppError(
+        `工作空间已存在: ${id}`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        undefined,
+        { module: WORKSPACE_MODULE, context: { workspaceId: id } }
+      );
+    }
+    const config = this.buildConfig(options);
+    const workspace = this.createAdapter(config, options);
+    this.workspaces.set(id, workspace);
+    return workspace;
+  }
+
+  /**
    * 获取已创建的工作空间
    */
   get(id: string): WorkspaceBase | undefined {

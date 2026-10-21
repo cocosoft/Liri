@@ -163,6 +163,33 @@ export class AuthUserStore {
     return true;
   }
 
+  /** 该租户下的所有用户名（只读） */
+  listUsersByTenant(tenantId: string): string[] {
+    const names: string[] = [];
+    for (const user of this.users.values()) {
+      if (user.tenantId === tenantId) names.push(user.username);
+    }
+    return names;
+  }
+
+  /**
+   * 把该租户下的**所有账号**解绑回本地租户（只改归属，不删账号、不改密码）
+   *
+   * 用途：删除租户后清理"指向已删租户"的悬空绑定。写盘**一次**（不逐个 `save`）。
+   *
+   * @returns 被解绑的用户名（空数组 ⇒ 未写盘）
+   */
+  unbindAllFromTenant(tenantId: string): string[] {
+    const unbound: string[] = [];
+    for (const user of this.users.values()) {
+      if (user.tenantId !== tenantId) continue;
+      delete user.tenantId;
+      unbound.push(user.username);
+    }
+    if (unbound.length > 0) this.save();
+    return unbound;
+  }
+
   /** 校验用户密码（不存在返回 false） */
   verify(username: string, password: string): boolean {
     const user = this.users.get(username);

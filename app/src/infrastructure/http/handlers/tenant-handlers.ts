@@ -33,7 +33,13 @@ export type TenantPurger = (tenantId: string) => Promise<TenantPurgeReport>;
  * - `tenantId` 为空 / `local` ⇒ **400**（请求不合法，未触碰任何数据）；
  * - 清除过程失败 ⇒ **500**（`purgeTenant` 内部已把可重跑的失败记入 `report.blocked`，
  *   只有"连报告都出不来"的异常才会到这里）；
- * - 成功 ⇒ **200** + 清除报告（`removed` / `blocked` / `notPurged` 如实返回）。
+ * - 成功 ⇒ **200** + 清除报告（`removed` / `blocked` / `notPurged` 如实返回），
+ *   并附带 `unboundUsers` / `revokedTokens`（见下方"账号解绑"）。
+ *
+ * **账号解绑（多租户 P3）**：租户被删后，仍钉在该租户上的账号会拿到"指向已删租户"
+ * 的身份并**重建空分区** ⇒ 删除成功后把它们的归属解绑回本地租户、撤销其活动 token
+ *（只改归属，**不删账号、不改密码**）。解绑失败**不推翻**已完成的数据清除，但会在
+ * 响应里如实给出 `unboundError`（不谎报 0）。
  */
 export async function handleDeleteTenant(
   _req: http.IncomingMessage,
@@ -49,10 +55,41 @@ export async function handleDeleteTenant(
 
   try {
     const report = await purger(check.tenantId);
-    await recordPurgeAudit(report);
-    json(res, 200, report);
+    const unbound = await unbindAccountsSafely(check.tenantId);
+    await recordPurgeAudit(report, unbound);
+    json(res, 200, {
+      ...report,
+      unboundUsers: unbound.unboundUsers,
+      revokedTokens: unbound.revokedTokens,
+      ...(unbound.unboundError ? { unboundError: unbound.unboundError } : {}),
+    });
   } catch (error) {
     sendError(res, error);
+  }
+}
+
+/** 账号解绑结果（失败时给出 `unboundError`，不静默吞掉） */
+interface UnbindAccountsResult {
+  unboundUsers: string[];
+  revokedTokens: number;
+  unboundError?: string;
+}
+
+/**
+ * 解绑该租户下的账号（失败只留痕：数据清除已完成，不能因为解绑失败而谎报 500）
+ *
+ * 动态 import：与审计同口径，避免 handler 组合根在启动期静态依赖 auth 模块。
+ */
+async function unbindAccountsSafely(
+  tenantId: string
+): Promise<UnbindAccountsResult> {
+  try {
+    const { unbindTenantAccounts } = await import('./auth-handlers');
+    return unbindTenantAccounts(tenantId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warning('删除租户后解绑账号失败', { tenantId, error: message });
+    return { unboundUsers: [], revokedTokens: 0, unboundError: message };
   }
 }
 
@@ -71,7 +108,10 @@ function decodeTenantId(raw: string): string {
  * 归属取**调用时身份**（`record` 内部按 `currentOwnerKey()` 写入）—— 本地/无鉴权
  * 回环调用 ⇒ 落 `data/logs/enterprise-audit`，与既有审计同口径。
  */
-async function recordPurgeAudit(report: TenantPurgeReport): Promise<void> {
+async function recordPurgeAudit(
+  report: TenantPurgeReport,
+  unbound: UnbindAccountsResult
+): Promise<void> {
   try {
     const { EnterpriseAuditService, AuditEventType } =
       await import('../../../config/enterprise/audit/EnterpriseAuditService.js');
@@ -86,8 +126,12 @@ async function recordPurgeAudit(report: TenantPurgeReport): Promise<void> {
         removed: report.removed,
         blocked: report.blocked,
         notPurged: report.notPurged,
+        // 账号归属变更属同一次管理动作的一部分，必须同一条留痕
+        unboundUsers: unbound.unboundUsers,
+        revokedTokens: unbound.revokedTokens,
+        ...(unbound.unboundError ? { unboundError: unbound.unboundError } : {}),
       },
-      success: report.blocked.length === 0,
+      success: report.blocked.length === 0 && !unbound.unboundError,
       ...(report.blocked.length > 0
         ? { failureReason: `存在 ${report.blocked.length} 项未完成（可重跑）` }
         : {}),

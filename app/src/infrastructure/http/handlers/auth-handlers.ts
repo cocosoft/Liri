@@ -468,6 +468,34 @@ async function recordTenantUserAudit(input: {
 }
 
 /**
+ * 删除租户后清理**悬空账号绑定**（供 `tenant-handlers` 的删除入口调用）
+ *
+ * 为什么需要：`DELETE /v1/tenants/:tenantId` 只清数据分区，账号仍钉在该租户上 ⇒
+ * 这些用户下次登录会拿到一个"租户已被删除却仍然生效"的身份，并**重新创建**空分区。
+ * 这里只**改归属**（回到本地租户）并撤销其活动 token，**不删账号、不改密码**。
+ *
+ * @returns `unboundUsers` 被解绑的用户名；`revokedTokens` 失效的会话数
+ */
+export function unbindTenantAccounts(tenantId: string): {
+  unboundUsers: string[];
+  revokedTokens: number;
+} {
+  const unboundUsers = authUserStore.unbindAllFromTenant(tenantId);
+  let revokedTokens = 0;
+  for (const username of unboundUsers) {
+    revokedTokens += revokeUserTokens(username);
+  }
+  if (unboundUsers.length > 0) {
+    logger.info('删除租户后解绑其账号', {
+      tenantId,
+      unboundUsers,
+      revokedTokens,
+    });
+  }
+  return { unboundUsers, revokedTokens };
+}
+
+/**
  * 建号并绑定租户 `POST /v1/tenants/:tenantId/users`
  *
  * body: `{ username, password, role?: 'user' | 'admin' }`

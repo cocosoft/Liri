@@ -25,6 +25,8 @@ import {
 import { handleDeleteTenant } from '../../src/infrastructure/http/handlers/tenant-handlers';
 import { dispatchTenantRoutes } from '../../src/infrastructure/http/handlers/routes/tenant-routes';
 import type { HandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils';
+import { AuthUserStore } from '../../src/infrastructure/http/auth/AuthUserStore';
+import { __setAuthUserStoreForTest } from '../../src/infrastructure/http/handlers/auth-handlers';
 
 const noopBroadcast = (): void => {};
 const ctx = {} as HandlerCtx;
@@ -35,6 +37,8 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'liri-tenant-route-'));
   // 审计落盘走临时数据根（不污染真实 `~/.pyapp`）
   setUserDataDirOverride(root);
+  // 删除成功后会解绑该租户的账号 ⇒ 用户存储也换成临时文件（不碰真实 users.json）
+  __setAuthUserStoreForTest(new AuthUserStore(join(root, 'users.json')));
 });
 
 afterEach(() => {

@@ -39,7 +39,7 @@
  * v2 不复用 v1 的值（缺省回到展开）。旧键不删除（避免破坏式清理）。
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 /** 持久化键（v2：见文件头注——v1 的值不可信，不复用） */
 export const SIDEBAR_EXPANDED_KEY = "liri-sidebar-expanded-v2";
@@ -75,7 +75,11 @@ export function applyNarrow(
 ): SidebarCollapseState {
   if (narrow) {
     // 仅首次进入窄屏时记录偏好；已在窄屏则保持（避免反复覆盖为"折叠后的状态"）
-    return { expanded: false, prefBeforeAuto: prev.prefBeforeAuto ?? pref };
+    const prefBeforeAuto = prev.prefBeforeAuto ?? pref;
+    // 幂等：状态未变时**返回同一引用** —— 否则每次窄屏事件都生成新对象，
+    // 加上 effect 依赖不稳定会演变成无限重渲染（`Maximum update depth exceeded`）
+    if (!prev.expanded && prev.prefBeforeAuto === prefBeforeAuto) return prev;
+    return { expanded: false, prefBeforeAuto };
   }
   if (prev.prefBeforeAuto === null) return prev; // 非自动折叠态 ⇒ 不动（尊重手动选择）
   return { expanded: prev.prefBeforeAuto, prefBeforeAuto: null };
@@ -101,8 +105,20 @@ export function useSidebarCollapse(opts: UseSidebarCollapseOptions = {}): {
   isExpanded: boolean;
   toggleSidebar: () => void;
 } {
-  const storage = opts.storage ?? window.localStorage;
-  const matchMedia = opts.matchMedia ?? ((q: string) => window.matchMedia(q));
+  // 身份稳定：`opts` 是每次渲染新建的对象字面量 ⇒ 默认值若在渲染体里现建箭头函数，
+  // `useEffect` 的依赖每次渲染都变，effect 内 `setState` 又会触发下一次渲染
+  // ⇒ `Maximum update depth exceeded`（2026-10-21 浏览器实测）。
+  // 先解构，依赖只取**注入值**（未注入时恒为 undefined ⇒ 稳定）。
+  const { storage: injectedStorage, matchMedia: injectedMatchMedia } = opts;
+  const storage = useMemo(
+    () => injectedStorage ?? window.localStorage,
+    [injectedStorage],
+  );
+  const matchMedia = useCallback(
+    (q: string) =>
+      injectedMatchMedia ? injectedMatchMedia(q) : window.matchMedia(q),
+    [injectedMatchMedia],
+  );
 
   const [state, setState] = useState<SidebarCollapseState>(() => ({
     expanded: readSidebarPreference(storage),

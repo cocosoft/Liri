@@ -145,8 +145,10 @@ function SessionHistorySidebar({
    * 右键菜单/确认框会在点击瞬间被卸载。故用 `relatedTarget` 做后代判定。
    */
   const handlePanelMouseLeave = useCallback((e: React.MouseEvent) => {
-    const next = e.relatedTarget as Node | null;
-    if (next && panelRef.current?.contains(next)) return;
+    // `relatedTarget` 不保证是 Node（指针移出文档 / 移到浏览器 UI 时可能是 `window` 等）
+    // ⇒ 直接喂给 `contains` 会抛 `TypeError: parameter 1 is not of type 'Node'`（2026-10-21 实测）
+    const next = e.relatedTarget;
+    if (next instanceof Node && panelRef.current?.contains(next)) return;
     setHoverExpanded(false);
   }, []);
   const [editingId, setEditingId] = useState<string | null>(null);

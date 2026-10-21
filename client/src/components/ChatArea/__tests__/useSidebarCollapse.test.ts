@@ -60,9 +60,7 @@ function makeMatchMedia(initialMatches: boolean) {
     matchMedia: () => mql as unknown as MediaQueryList,
     set(narrow: boolean) {
       mql.matches = narrow;
-      listeners.forEach((cb) =>
-        cb({ matches: narrow } as MediaQueryListEvent),
-      );
+      listeners.forEach((cb) => cb({ matches: narrow } as MediaQueryListEvent));
     },
   };
 }
@@ -119,15 +117,26 @@ describe("纯策略：窄屏只改内存、回宽屏恢复偏好、手动优先"
     expect(applyNarrow(manual, false, true)).toBe(manual);
   });
 
+  it("窄屏幂等：状态未变时返回**同一引用**（防无限重渲染）", () => {
+    const folded = { expanded: false, prefBeforeAuto: true };
+    expect(applyNarrow(folded, true, true)).toBe(folded);
+    // 记忆的偏好来源改变也不改写：prefBeforeAuto 已非空 ⇒ 保持原引用
+    expect(applyNarrow(folded, true, false)).toBe(folded);
+  });
+
   it("手动切换优先：清掉自动折叠标记并给出待持久化偏好", () => {
-    expect(applyManualToggle({ expanded: false, prefBeforeAuto: true })).toEqual({
+    expect(
+      applyManualToggle({ expanded: false, prefBeforeAuto: true }),
+    ).toEqual({
       next: { expanded: true, prefBeforeAuto: null },
       persisted: true,
     });
-    expect(applyManualToggle({ expanded: true, prefBeforeAuto: null })).toEqual({
-      next: { expanded: false, prefBeforeAuto: null },
-      persisted: false,
-    });
+    expect(applyManualToggle({ expanded: true, prefBeforeAuto: null })).toEqual(
+      {
+        next: { expanded: false, prefBeforeAuto: null },
+        persisted: false,
+      },
+    );
   });
 });
 
@@ -195,5 +204,32 @@ describe("useSidebarCollapse：真实时序（窄屏 → 宽屏）", () => {
     expect(result.current.isExpanded).toBe(true);
     // 全程未写过偏好
     expect(storage.raw()).toBeNull();
+  });
+});
+
+describe("生产形态（不注入依赖）：不得陷入无限重渲染", () => {
+  it("未传 storage/matchMedia 时渲染次数有界（回归 `Maximum update depth exceeded`）", () => {
+    // 2026-10-21 浏览器实测：默认 matchMedia 每次渲染现建箭头函数 ⇒ effect 依赖恒变
+    // ⇒ effect 内 setState 触发下一次渲染 ⇒ 无限循环。
+    window.localStorage.clear();
+    const mql = {
+      media: SIDEBAR_NARROW_QUERY,
+      matches: false,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+    vi.stubGlobal("matchMedia", () => mql);
+
+    let renders = 0;
+    const { result } = renderHook(() => {
+      renders += 1;
+      return useSidebarCollapse();
+    });
+
+    expect(result.current.isExpanded).toBe(true);
+    expect(renders).toBeLessThanOrEqual(3);
+
+    vi.unstubAllGlobals();
+    window.localStorage.clear();
   });
 });

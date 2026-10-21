@@ -760,6 +760,16 @@ export class ChannelRegistry extends EventEmitter {
   }
 
   /**
+   * 列出**全部身份**的配置（含租户与部署级）。
+   *
+   * 仅供**后台装配**使用（如租户通道运行时托管按归属逐个托管）——
+   * 业务读路径一律用 `getAllConfigs()`（按当前身份过滤），避免跨身份泄露。
+   */
+  listAllConfigs(): ChannelConfig[] {
+    return Array.from(this.configs.values());
+  }
+
+  /**
    * 广播消息到所有通道
    */
   async broadcast(

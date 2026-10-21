@@ -7,7 +7,14 @@ import { getLogger } from '@modules/monitoring';
 import { channelBootstrapper } from './bootstrap/ChannelBootstrapper';
 import type { ChannelBootstrapConfig } from './bootstrap/ChannelBootstrapper';
 import { channelRegistry } from './registry/ChannelRegistry';
-import { initRegistry } from './secrets/ChannelSecretStore';
+import type { ChannelInterface } from './registry/ChannelRegistry';
+import { ChannelSecretStore, initRegistry } from './secrets/ChannelSecretStore';
+// 多租户 P3：租户通道实例在归属者身份作用域内连接与处理消息
+import {
+  principalFromKey,
+  runWithPrincipal,
+} from '@modules/core/identity/requestScope';
+import type { Principal } from '@modules/core/identity/principal';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
 import type {
   IChannelPlugin,
@@ -235,216 +242,402 @@ export async function setupChannelsFromConfig(): Promise<{
 let _channelsConnected = false;
 
 /**
- * 延迟连接所有已注册的通道
+ * 一个待连接的通道实例。
+ *
+ * - **部署级**（`ownerKey` 缺省）：来自 `channelRegistry.getEnabled()`，行为与改造前逐字一致；
+ * - **租户级**（多租户 P3）：每个 `(ownerKey, type)` 一个新实例，实例键 `<ownerKey>::<type>`
+ *   —— 消息路由与渠道会话映射据此天然隔离。
+ */
+interface ChannelConnectEntry {
+  /** 实例键（同时作为 `routeChannelMessage` 的 channelName） */
+  name: string;
+  plugin: IChannelPlugin;
+  /** 部署级通道接口视图（connect 走它：凭据解析/启用语义与改造前一致） */
+  channel?: ChannelInterface;
+  /** 归属键（多租户 P3）；部署级为空 */
+  ownerKey?: string;
+}
+
+/**
+ * 汇总待连接实例：部署级（既有）+ 租户级（按归属逐个新建插件实例）。
+ *
+ * 租户实例**不注册进 `channelRegistry`**：注册会污染 `broadcast()`（系统广播）与通道列表，
+ * 且租户实例的出站目标由各自 `plugin` 闭包持有 —— 也**不走 `DeliveryRouter`**
+ * （它按 name 反查注册表，查不到租户实例）。
+ */
+async function collectConnectEntries(
+  errors: string[]
+): Promise<ChannelConnectEntry[]> {
+  const entries: ChannelConnectEntry[] = [];
+
+  // ① 部署级通道：与改造前完全一致（Gateway 管理的通道仍然跳过）
+  for (const deployed of channelRegistry.getEnabled()) {
+    const plugin = channelBootstrapper.getPluginInstance(deployed.name);
+    if (!plugin) {
+      logger.info(
+        `lazyConnectChannels: 跳过 Gateway 管理的通道 — ${deployed.name}`
+      );
+      continue;
+    }
+    entries.push({ name: deployed.name, plugin, channel: deployed });
+  }
+
+  // ② 租户级通道：每个 (ownerKey, type) 一个独立实例
+  entries.push(
+    ...(await buildTenantEntries(
+      channelRegistry.listAllConfigs(),
+      async (type) => {
+        const catalogEntry = getChannelCatalogEntry(type);
+        if (!catalogEntry) {
+          throw new Error(`未在 CHANNEL_CATALOG 中登记: ${type}`);
+        }
+        const mod = await catalogEntry.load();
+        const factory = (mod as Record<string, unknown>)[
+          catalogEntry.exportKey
+        ] as (() => IChannelPlugin | undefined) | undefined;
+        return factory?.();
+      },
+      errors
+    ))
+  );
+
+  return entries;
+}
+
+/**
+ * 依据配置汇总**租户通道实例**（多租户 P3）。
+ *
+ * 规则：
+ *   - 只取 `ownerKey` 非空、`enabled`、且**有凭据**（options 非空）的配置；
+ *   - 实例键 = `<ownerKey>::<type>`（同一类型不同租户互不干扰）；
+ *   - 单个配置失败只记错误、不影响其余通道。
+ */
+export async function buildTenantEntries(
+  configs: ReadonlyArray<{
+    type: string;
+    enabled: boolean;
+    options?: Record<string, unknown>;
+    ownerKey?: string;
+  }>,
+  loadPlugin: (type: string) => Promise<IChannelPlugin | undefined>,
+  errors: string[]
+): Promise<ChannelConnectEntry[]> {
+  const entries: ChannelConnectEntry[] = [];
+
+  for (const config of configs) {
+    if (!config.ownerKey || !config.enabled) continue;
+    if (!config.options || Object.keys(config.options).length === 0) continue;
+
+    const ownerKey = config.ownerKey;
+    try {
+      const plugin = await loadPlugin(config.type);
+      if (!plugin) {
+        errors.push(`租户通道 ${ownerKey}::${config.type} 工厂返回空`);
+        continue;
+      }
+      entries.push({
+        name: `${ownerKey}::${config.type}`,
+        plugin,
+        ownerKey,
+      });
+    } catch (error) {
+      await handleError(error, {
+        module: 'channels:setup',
+        action: 'buildTenantEntries',
+        context: { ownerKey, type: config.type },
+      });
+      errors.push(
+        `租户通道 ${ownerKey}::${config.type} 实例化失败: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  }
+
+  return entries;
+}
+
+/**
+ * 多租户 P3：租户实例的消息处理包装 —— **每次收到消息时**重入归属者作用域。
+ *
+ * 为什么不能在注册时包一层：`AsyncLocalStorage` 绑定的是**调用时刻**的上下文，
+ * `setMessageHandler` 只是保存函数引用；真实调用发生在渠道连接的异步链里（无请求作用域）。
+ */
+export function wrapHandlerWithOwnerScope(
+  handler: (message: MessageContext) => Promise<void>,
+  principal: Principal | null
+): (message: MessageContext) => Promise<void> {
+  if (!principal) return handler;
+  return (message) => runWithPrincipal(principal, () => handler(message));
+}
+
+/** 已连接的租户实例（部署级实例仍由 `ChannelBootstrapper` 管理；此处只管租户侧） */
+const _tenantInstances: IChannelPlugin[] = [];
+
+/** 断开所有租户通道实例（幂等；优雅退出时调用） */
+export async function stopTenantChannels(): Promise<void> {
+  const instances = _tenantInstances.splice(0);
+  for (const plugin of instances) {
+    try {
+      await plugin.lifecycle.disconnect();
+    } catch (error) {
+      await handleError(error, {
+        module: 'channels:setup',
+        action: 'stopTenantChannels',
+        context: { channelId: plugin.id },
+      });
+    }
+  }
+}
+
+/**
+ * 延迟连接所有已注册的通道（部署级 + 租户级）
  * 在应用完全启动后在后台执行，不阻塞主流程
  * 每个通道带 5 秒超时保护
  * 内置防重复执行守卫（_channelsConnected），确保只连接一次
  */
-export async function lazyConnectChannels(): Promise<void> {
+export async function lazyConnectChannels(options?: {
+  /**
+   * 只托管**租户通道**（headless / 服务端部署用）。
+   *
+   * 此时部署级通道保持既有行为（headless 下本就不连接）—— 只把各租户的通道
+   * 在各自身份作用域内连起来，不让服务端因为"顺便"而连上部署级通道。
+   */
+  tenantOnly?: boolean;
+}): Promise<void> {
   if (_channelsConnected) {
     return;
   }
   _channelsConnected = true;
 
   const t0 = Date.now();
-  const channels = channelRegistry.getEnabled();
-  if (channels.length === 0) {
+  // 幂等：headless 路径不经 `setupChannelsFromConfig`，这里补上凭据存储的 registry 引用
+  initRegistry(channelRegistry);
+
+  const errors: string[] = [];
+  const collected = await collectConnectEntries(errors);
+  const entries = options?.tenantOnly
+    ? collected.filter((entry) => !!entry.ownerKey)
+    : collected;
+  if (entries.length === 0) {
+    if (errors.length > 0) logger.warning('延迟通道连接存在错误', { errors });
     return;
   }
 
-  logger.info(`lazyConnectChannels: 开始后台连接 ${channels.length} 个通道...`);
+  logger.info(`lazyConnectChannels: 开始后台连接 ${entries.length} 个通道...`);
   let connectedCount = 0;
-  const errors: string[] = [];
 
-  for (const channel of channels) {
-    // 查找对应的 IChannelPlugin 实例
-    const plugin = channelBootstrapper.getPluginInstance(channel.name);
+  for (const entry of entries) {
+    const plugin = entry.plugin;
+    const channelName = entry.name;
+    // 多租户 P3：租户实例的连接与消息处理都在**归属者身份作用域**内
+    //（凭据解析、会话创建、工具 cwd、事件投递都随身份落位）
+    const principal = entry.ownerKey ? principalFromKey(entry.ownerKey) : null;
 
-    // 跳过已被 Gateway 系统（ChannelManager）管理的通道
-    // 这些通道已在 setupGatewayFromConfig 中注册并连接，由 ChannelManager 负责消息路由
-    if (!plugin) {
-      logger.info(
-        `lazyConnectChannels: 跳过 Gateway 管理的通道 — ${channel.name}`
-      );
-      continue;
-    }
+    const connectOnce = async (): Promise<void> => {
+      try {
+        // 必须在 connect() 之前注册 messageHandler，否则连接建立后立即到达的消息会因
+        // handler 未注册而被丢弃（'hasHandler: false' → 消息丢弃日志）
+        if (plugin.inbound) {
+          const handleMessage = async (message: MessageContext) => {
+            logger.info('[TRACE] setupChannels messageHandler 被调用', {
+              channelName: channelName,
+              messageId: message.messageId,
+              senderId: message.senderId,
+              hasCoreAPI: !!getCoreAPI(),
+            });
+            // 终端回显：显示来源通道、发送者、消息内容
+            const senderDisplay =
+              message.senderName || message.senderId || 'unknown';
+            logger.info(
+              `── [${channelName.toUpperCase()}] ${senderDisplay} ──\n${message.content}`,
+              { module: 'channels:setup' }
+            );
 
-    try {
-      // 必须在 connect() 之前注册 messageHandler，否则连接建立后立即到达的消息会因
-      // handler 未注册而被丢弃（'hasHandler: false' → 消息丢弃日志）
-      if (plugin.inbound) {
-        plugin.inbound.setMessageHandler(async (message: MessageContext) => {
-          logger.info('[TRACE] setupChannels messageHandler 被调用', {
-            channelName: channel.name,
-            messageId: message.messageId,
-            senderId: message.senderId,
-            hasCoreAPI: !!getCoreAPI(),
-          });
-          // 终端回显：显示来源通道、发送者、消息内容
-          const senderDisplay =
-            message.senderName || message.senderId || 'unknown';
-          logger.info(
-            `── [${channel.name.toUpperCase()}] ${senderDisplay} ──\n${message.content}`,
-            { module: 'channels:setup' }
-          );
+            const coreAPI = getCoreAPI();
+            const result = await routeChannelMessage(message, {
+              coreAPI,
+              channelName: channelName,
+              enableTracing: true,
+              // AC-5③（2026-08-20 渠道对齐）：仅被动回复窗口渠道（QQ 等）启用长任务占位提示
+              enableLongTaskPlaceholder:
+                plugin.capabilities?.passiveReplyWindow === true,
+              // U-05b（2026-10-17）：交互问答灰度 —— 开关 + 渠道 interactive 能力双门控
+              supportsQuestionAnswer:
+                feature('CHANNEL_QUESTION_ANSWER') &&
+                plugin.capabilities?.interactive === true,
+              // 2026-08-06（P0-2）：传入渠道 DM 策略配置，启用授权检查（未提供时默认不拦截）
+              dmPolicy: {
+                policy: plugin.security?.dmPolicy ?? 'open',
+                allowFrom: plugin.security?.allowFrom ?? [],
+              },
+              // 2026-08-20 spec qq-file-transfer：渠道声明 fileUpload 能力时绑定
+              // （sendFile 返回 SendResult 不抛错，此处转 throw 供编排层统一捕获）
+              ...(plugin.capabilities?.fileUpload === true && plugin.outbound
+                ? {
+                    onOutboundFile: async (
+                      filePath: string,
+                      fileTarget: string
+                    ): Promise<void> => {
+                      const result = await plugin.outbound!.sendFile(
+                        fileTarget,
+                        filePath
+                      );
+                      if (!result.success) {
+                        throw new Error(result.error || '文件发送失败');
+                      }
+                    },
+                  }
+                : {}),
+              onOutbound: async (content, target) => {
+                logger.info('[TRACE] setupChannels onOutbound 回调被调用', {
+                  channelName: channelName,
+                  target,
+                  contentLength: content.length,
+                  hasOutbound: !!plugin.outbound,
+                });
 
-          const coreAPI = getCoreAPI();
-          const result = await routeChannelMessage(message, {
-            coreAPI,
-            channelName: channel.name,
-            enableTracing: true,
-            // AC-5③（2026-08-20 渠道对齐）：仅被动回复窗口渠道（QQ 等）启用长任务占位提示
-            enableLongTaskPlaceholder:
-              plugin.capabilities?.passiveReplyWindow === true,
-            // U-05b（2026-10-17）：交互问答灰度 —— 开关 + 渠道 interactive 能力双门控
-            supportsQuestionAnswer:
-              feature('CHANNEL_QUESTION_ANSWER') &&
-              plugin.capabilities?.interactive === true,
-            // 2026-08-06（P0-2）：传入渠道 DM 策略配置，启用授权检查（未提供时默认不拦截）
-            dmPolicy: {
-              policy: plugin.security?.dmPolicy ?? 'open',
-              allowFrom: plugin.security?.allowFrom ?? [],
-            },
-            // 2026-08-20 spec qq-file-transfer：渠道声明 fileUpload 能力时绑定
-            // （sendFile 返回 SendResult 不抛错，此处转 throw 供编排层统一捕获）
-            ...(plugin.capabilities?.fileUpload === true && plugin.outbound
-              ? {
-                  onOutboundFile: async (
-                    filePath: string,
-                    fileTarget: string
-                  ): Promise<void> => {
-                    const result = await plugin.outbound!.sendFile(
-                      fileTarget,
-                      filePath
+                // AI 回复回显
+                logger.info(
+                  `── [${channelName.toUpperCase()}] Liri ──\n${content}`,
+                  { module: 'channels:setup' }
+                );
+
+                // 多租户 P3：租户实例不走 DeliveryRouter（它按 name 反查注册表，
+                // 租户实例刻意不注册）⇒ 直接用本实例的 plugin.outbound 回目标渠道
+                if (!entry.ownerKey && useDeliveryRouterOutbound()) {
+                  // Phase 2: 走 DeliveryRouter 统一出站路径（降级、并发控制、OTel 追踪）
+                  try {
+                    const router = getDeliveryRouter();
+                    const result = await router.deliverToOrigin(
+                      channelName as ChannelId,
+                      target,
+                      { format: 'text', content }
                     );
+                    logger.info('[TRACE] setupChannels DeliveryRouter 返回', {
+                      channelName: channelName,
+                      success: result.success,
+                      actualFormat: result.actualFormat,
+                      fallbackSteps: result.fallbackSteps,
+                      durationMs: result.durationMs,
+                    });
                     if (!result.success) {
-                      throw new Error(result.error || '文件发送失败');
+                      logger.warning(
+                        `通道 ${channelName} 消息发送失败 (DeliveryRouter)`,
+                        {
+                          target,
+                          error: result.error,
+                          fallbackSteps: result.fallbackSteps,
+                        }
+                      );
                     }
-                  },
-                }
-              : {}),
-            onOutbound: async (content, target) => {
-              logger.info('[TRACE] setupChannels onOutbound 回调被调用', {
-                channelName: channel.name,
-                target,
-                contentLength: content.length,
-                hasOutbound: !!plugin.outbound,
-              });
-
-              // AI 回复回显
-              logger.info(
-                `── [${channel.name.toUpperCase()}] Liri ──\n${content}`,
-                { module: 'channels:setup' }
-              );
-
-              if (useDeliveryRouterOutbound()) {
-                // Phase 2: 走 DeliveryRouter 统一出站路径（降级、并发控制、OTel 追踪）
-                try {
-                  const router = getDeliveryRouter();
-                  const result = await router.deliverToOrigin(
-                    channel.name as ChannelId,
-                    target,
-                    { format: 'text', content }
-                  );
-                  logger.info('[TRACE] setupChannels DeliveryRouter 返回', {
-                    channelName: channel.name,
-                    success: result.success,
-                    actualFormat: result.actualFormat,
-                    fallbackSteps: result.fallbackSteps,
-                    durationMs: result.durationMs,
-                  });
-                  if (!result.success) {
-                    logger.warning(
-                      `通道 ${channel.name} 消息发送失败 (DeliveryRouter)`,
+                  } catch (sendError) {
+                    handleError(sendError, {
+                      module: 'channels:setup',
+                      action: 'inbound:deliveryRouter',
+                      context: { target, channelName: channelName },
+                    });
+                  }
+                } else if (plugin.outbound) {
+                  try {
+                    logger.info(
+                      '[TRACE] setupChannels 调用 plugin.outbound.sendText',
                       {
+                        channelName: channelName,
                         target,
-                        error: result.error,
-                        fallbackSteps: result.fallbackSteps,
                       }
                     );
-                  }
-                } catch (sendError) {
-                  handleError(sendError, {
-                    module: 'channels:setup',
-                    action: 'inbound:deliveryRouter',
-                    context: { target, channelName: channel.name },
-                  });
-                }
-              } else if (plugin.outbound) {
-                try {
-                  logger.info(
-                    '[TRACE] setupChannels 调用 plugin.outbound.sendText',
-                    {
-                      channelName: channel.name,
+                    const sendResult = await plugin.outbound.sendText(
                       target,
-                    }
-                  );
-                  const sendResult = await plugin.outbound.sendText(
-                    target,
-                    content
-                  );
-                  logger.info('[TRACE] setupChannels sendText 返回', {
-                    channelName: channel.name,
-                    success: sendResult.success,
-                    error: sendResult.error,
-                    messageId: sendResult.messageId,
-                  });
-                  if (!sendResult.success) {
-                    logger.warning(`通道 ${channel.name} 消息发送失败`, {
-                      target,
+                      content
+                    );
+                    logger.info('[TRACE] setupChannels sendText 返回', {
+                      channelName: channelName,
+                      success: sendResult.success,
                       error: sendResult.error,
                       messageId: sendResult.messageId,
                     });
+                    if (!sendResult.success) {
+                      logger.warning(`通道 ${channelName} 消息发送失败`, {
+                        target,
+                        error: sendResult.error,
+                        messageId: sendResult.messageId,
+                      });
+                    }
+                  } catch (sendError) {
+                    handleError(sendError, {
+                      module: 'channels:setup',
+                      action: 'inbound:sendMessage',
+                      context: { target, channelName: channelName },
+                    });
                   }
-                } catch (sendError) {
-                  handleError(sendError, {
-                    module: 'channels:setup',
-                    action: 'inbound:sendMessage',
-                    context: { target, channelName: channel.name },
-                  });
+                } else {
+                  logger.warning(
+                    `通道 ${channelName} 缺少 outbound 适配器，AI 回复无法发送到渠道`,
+                    { target, channelName: channelName }
+                  );
                 }
-              } else {
-                logger.warning(
-                  `通道 ${channel.name} 缺少 outbound 适配器，AI 回复无法发送到渠道`,
-                  { target, channelName: channel.name }
-                );
-              }
-            },
-          });
-
-          if (!result.valid) {
-            logger.warning('消息路由返回无效结果', {
-              channel: channel.name,
-              messageId: message.messageId,
-              errorCode: result.errorCode,
-              errorMessage: result.errorMessage,
+              },
             });
-          }
-        });
-        logger.info(`通道入站消息处理器已注册: ${channel.name}`);
-      }
 
-      // handler 已注册，现在建立连接。连接后到达的 WS 消息将能正确路由到 messageHandler
-      await Promise.race([
-        channel.connect(),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`通道 ${channel.name} 连接超时 (5s)`)),
-            5000
-          )
-        ),
-      ]);
-      connectedCount++;
-      logger.info(`通道已连接: ${channel.name}`);
-    } catch (error) {
-      handleError(error, {
-        module: 'channels:setup',
-        action: 'lazyConnectChannels',
-        context: { channelName: channel.name },
-      });
-      errors.push(
-        `连接通道失败: ${channel.name} — ${error instanceof Error ? error.message : String(error)}`
-      );
+            if (!result.valid) {
+              logger.warning('消息路由返回无效结果', {
+                channel: channelName,
+                messageId: message.messageId,
+                errorCode: result.errorCode,
+                errorMessage: result.errorMessage,
+              });
+            }
+          };
+          // 租户实例：handler 在**每次收到消息时**重入归属者作用域
+          //（ALS 绑定的是调用时刻，注册时包一层没有用）
+          plugin.inbound.setMessageHandler(
+            wrapHandlerWithOwnerScope(handleMessage, principal)
+          );
+          logger.info(`通道入站消息处理器已注册: ${channelName}`);
+        }
+
+        // handler 已注册，现在建立连接。连接后到达的 WS 消息将能正确路由到 messageHandler
+        // 部署级：走接口视图（凭据解析/启用语义与改造前一致）；
+        // 租户级：在本作用域内解析**该租户**凭据后直接 connect 插件实例
+        const connectPromise = entry.channel
+          ? entry.channel.connect()
+          : (async () => {
+              const credentials = ChannelSecretStore.getInstance().get(
+                entry.plugin.id
+              );
+              await entry.plugin.lifecycle.connect(credentials);
+              return entry.plugin.lifecycle.getStatus().connected;
+            })();
+        await Promise.race([
+          connectPromise,
+          new Promise<never>((_, reject) =>
+            setTimeout(
+              () => reject(new Error(`通道 ${channelName} 连接超时 (5s)`)),
+              5000
+            )
+          ),
+        ]);
+        connectedCount++;
+        // 多租户 P3：登记租户实例，优雅退出时统一断开（部署级由 ChannelBootstrapper 负责）
+        if (entry.ownerKey) _tenantInstances.push(entry.plugin);
+        logger.info(`通道已连接: ${channelName}`);
+      } catch (error) {
+        handleError(error, {
+          module: 'channels:setup',
+          action: 'lazyConnectChannels',
+          context: { channelName: channelName },
+        });
+        errors.push(
+          `连接通道失败: ${channelName} — ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    };
+
+    if (principal) {
+      await runWithPrincipal(principal, connectOnce);
+    } else {
+      await connectOnce();
     }
   }
 

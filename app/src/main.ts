@@ -503,6 +503,13 @@ async function gracefulChannelShutdown(): Promise<void> {
   const { channelBootstrapper } =
     await import('./channels/bootstrap/ChannelBootstrapper');
   await channelBootstrapper.disposeAll();
+  // 多租户 P3：租户通道实例不在 bootstrapper 里 ⇒ 单独断开（失败不影响退出）
+  try {
+    const { stopTenantChannels } = await import('./channels/setupChannels');
+    await stopTenantChannels();
+  } catch {
+    // @ignore-catch — 租户通道断开失败不阻塞退出
+  }
 }
 
 /**
@@ -662,6 +669,11 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     const { markHttpReady, holdUntilShutdownSignal } =
       await import('./entrypoints/httpOnlyHold');
     if (httpService) await markHttpReady();
+    // 多租户 P3：服务端 / headless 托管**各租户自己的**通道实例
+    //（部署级通道保持既有行为：headless 不连接）
+    const { startTenantChannelsForHeadless } =
+      await import('./entrypoints/tenantChannels');
+    await startTenantChannelsForHeadless();
     await holdUntilShutdownSignal();
     return;
   }

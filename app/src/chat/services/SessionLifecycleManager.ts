@@ -32,7 +32,13 @@ import { randomIdSuffix } from '../../utils/common';
 import { join } from 'path';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError, AppError, ErrorCodes } from '@modules/error';
+import {
+  handleError,
+  AppError,
+  ErrorCodes,
+  ErrorSeverity,
+  SecurityError,
+} from '@modules/error';
 import { SimpleMutex } from '@modules/core';
 import { resolveDataDir } from '@modules/core/paths';
 import { SessionGateway } from '@modules/session';
@@ -51,7 +57,11 @@ import type {
 import { DataSessionStatus } from '@modules/core';
 // 多租户 P1：会话归属（创建时写入请求身份；本地身份不写）
 import { getRequestPrincipal } from '@modules/core/identity/requestScope.js';
-import { ownerOf } from '@modules/core/identity/sessionOwnership.js';
+import {
+  ownerOf,
+  canAccessSession,
+} from '@modules/core/identity/sessionOwnership.js';
+import type { SessionOwner } from '@modules/core/identity/sessionOwnership.js';
 import type { Message } from '@modules/session/types/message.js';
 
 const logger = getLogger('chat:sessionLifecycle');
@@ -353,6 +363,21 @@ export class SessionLifecycleManager {
   ): Promise<ChatSession> {
     const cached = this.chatSessions.get(sessionId);
     if (cached) {
+      // 多租户 P3：内存缓存是**进程级**（键只有 sessionId）⇒ 命中时必须校验归属，
+      // 否则并发请求会拿到别人的会话对象（含消息 / 工作区 / 待交互状态）。
+      // 不可访问 ⇒ **直接拒绝**（fail-closed）：既不返回、也不以同 id 新建，
+      // 避免覆盖他人缓存条目或产生"影子会话"。
+      const owner = (cached.metadata as { owner?: SessionOwner } | undefined)
+        ?.owner;
+      if (!canAccessSession(owner, getRequestPrincipal())) {
+        logger.warn('拒绝复用他人会话的内存缓存', { sessionId });
+        throw new SecurityError(
+          'Session does not belong to the current identity',
+          ErrorSeverity.HIGH,
+          'SESSION_FORBIDDEN',
+          { sessionId }
+        );
+      }
       await this._applyChannelSourceOnce(cached, metadata);
       return cached;
     }

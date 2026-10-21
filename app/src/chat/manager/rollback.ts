@@ -80,6 +80,17 @@ export class ChatRollback {
     answers: string[],
     sessionId?: string
   ): Promise<boolean> {
+    // 多租户 P3：解析交互会**写入回答消息**并唤醒等待中的工具（等同于一次审批动作）
+    // ⇒ 必须先确认该会话在当前身份可访问。会话网关按身份分区：
+    // 看不到这个会话，就说明它不是本人对象（fail-closed，且不泄露存在性）。
+    if (sessionId) {
+      const stored = await this.deps.getSessionGateway().getSession(sessionId);
+      if (!stored) {
+        logger.warn('拒绝解析不可访问会话的交互', { sessionId, questionId });
+        return false;
+      }
+    }
+
     const pending = this.deps.getPendingInteractions();
     const entry = sessionId
       ? pending.get(sessionId)?.questionId === questionId

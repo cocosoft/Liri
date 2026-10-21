@@ -70,6 +70,21 @@ export function currentOwnerKey(
 }
 
 /**
+ * 归属判定（多租户 P3，fail-closed）：**本地身份恒放行**；已认证身份必须 `ownerKey`
+ * 与本身份键**全等**；无归属（`undefined` / 空串）⇒ `false`（远端身份不得操作本机对象）。
+ *
+ * 与 `sessionOwnership.canAccessSession` 同一口径，只是入参形态不同：
+ * 会话的归属存成 `{tenantId,userId}` 对象（历史格式），其余可持久化对象统一存键。
+ */
+export function canAccessOwnerKey(
+  ownerKey?: string | null,
+  principal: Principal = getRequestPrincipal()
+): boolean {
+  if (isLocalPrincipal(principal)) return true;
+  return ownerKey === principalKeyOf(principal);
+}
+
+/**
  * 当前请求身份。不在任何请求作用域内 ⇒ `LOCAL_PRINCIPAL`
  * （CLI / REPL / cron / 后台任务 / 单测默认路径）。
  */

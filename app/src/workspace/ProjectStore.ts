@@ -29,8 +29,11 @@ import type {
 } from './types';
 import { WorkItemStore } from './WorkItemStore';
 import { resolveDataDir, resolveDataSubDir } from '@modules/core/paths';
-// 多租户 P3：项目归属（创建请求的身份；本地身份不写字段）
-import { currentOwnerKey } from '@modules/core/identity/requestScope';
+// 多租户 P3：项目归属（创建请求的身份；本地身份不写字段、也不做过滤）
+import {
+  canAccessOwnerKey,
+  currentOwnerKey,
+} from '@modules/core/identity/requestScope';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
@@ -221,7 +224,11 @@ export class ProjectStore {
             try {
               const content = readFileSync(projectPath, 'utf-8');
               const project = JSON.parse(content) as Project;
-              if (project.workspaceId === workspaceId) {
+              // 多租户 P3：已认证身份看不到他人项目（本地身份 `canAccessOwnerKey` 恒真）
+              if (
+                project.workspaceId === workspaceId &&
+                canAccessOwnerKey(project.ownerKey)
+              ) {
                 projects.push(project);
                 seen.add(project.id);
               }
@@ -239,7 +246,10 @@ export class ProjectStore {
           try {
             const content = readFileSync(legacyPath, 'utf-8');
             const project = JSON.parse(content) as Project;
-            if (project.workspaceId === workspaceId) {
+            if (
+              project.workspaceId === workspaceId &&
+              canAccessOwnerKey(project.ownerKey)
+            ) {
               // 补足缺失字段并迁移
               if (!project.phase) {
                 project.phase =
@@ -273,9 +283,12 @@ export class ProjectStore {
 
   /**
    * 获取单个项目
+   *
+   * 多租户 P3：越权读与"不存在"返回同一结果（`null`），不泄露项目存在性。
    */
   get(id: string): Project | null {
-    return this._readProject(id);
+    const project = this._readProject(id);
+    return project && canAccessOwnerKey(project.ownerKey) ? project : null;
   }
 
   /**
@@ -422,6 +435,15 @@ export class ProjectStore {
     const span = otel.startSpan('ProjectStore.delete');
     span.setAttribute('projectId', id);
     try {
+      // 多租户 P3：先校验归属再删 —— 越权与"删除失败"同一结果（false），
+      // 且**不会**动他人的项目目录 / 历史记录。
+      const existing = this._readProject(id);
+      if (existing && !canAccessOwnerKey(existing.ownerKey)) {
+        logger.warn('拒绝删除他人项目', { projectId: id });
+        span.setStatus({ code: SpanStatusCode.OK });
+        return false;
+      }
+
       const dirPath = join(this.storeDir, id);
       let deleted = false;
 

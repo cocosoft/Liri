@@ -13,11 +13,10 @@
  * 与改造前完全一致。
  */
 import {
+  canAccessOwnerKey,
   currentOwnerKey,
   getRequestPrincipal,
-  isLocalPrincipal,
   principalFromKey,
-  principalKeyOf,
   runWithPrincipal,
 } from '@modules/core/identity/requestScope';
 import type { Principal } from '@modules/core/identity/principal';
@@ -40,8 +39,7 @@ export function canAccessCronJob(
   principal: Principal = getRequestPrincipal()
 ): boolean {
   if (!job) return false;
-  if (isLocalPrincipal(principal)) return true;
-  return job.ownerKey === principalKeyOf(principal);
+  return canAccessOwnerKey(job.ownerKey, principal);
 }
 
 /**

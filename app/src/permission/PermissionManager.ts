@@ -31,6 +31,8 @@ import {
   createPermissionRule,
 } from './types/PermissionRule';
 import { logSecurityAuditEvent, truncateCommand } from '@modules/security';
+// 多租户 P0 阶段 1：请求级角色优先、缺失回退进程级（纯函数，零依赖）
+import { resolveEffectiveRole } from '@modules/core/identity/principal.js';
 import { isShellToolName } from '@modules/utils/toolContract/toolRoles';
 import type { SecurityAuditEvent } from '@modules/security';
 import {
@@ -620,8 +622,18 @@ export class PermissionManager {
     }
 
     // E↔A 打通（演进项）：当前认证角色存在时，D 体系角色 deny 规则优先（角色 deny 优先）
-    if (this.currentUserRole) {
-      const roleDeny = await this.checkFineGrainedRoleDeny(toolName, input);
+    // 多租户 P0 阶段 1：**请求级角色优先**（context.userRole），缺失才回退进程级 currentUserRole
+    // ⇒ 未传请求级角色的调用方行为与改造前完全一致（桌面端零变更）
+    const effectiveRole = resolveEffectiveRole(
+      context.userRole,
+      this.currentUserRole
+    );
+    if (effectiveRole) {
+      const roleDeny = await this.checkFineGrainedRoleDeny(
+        toolName,
+        input,
+        effectiveRole
+      );
       if (roleDeny) return roleDeny;
     }
 
@@ -873,21 +885,23 @@ export class PermissionManager {
   }
 
   /**
-   * E↔A 打通：查询 D 体系（FineGrained）中当前角色的 deny 规则
+   * E↔A 打通：查询 D 体系（FineGrained）中**本次请求生效角色**的 deny 规则
    * 工具以 Tool 类型资源参与决策（resourceId = toolName, operation = execute）。
    * 直接按角色查询 storage（D 的 checkPermission 依赖 userId→roles，无 userId 时恒按 guest，
-   * 故此处按 currentUserRole 精确匹配角色规则）。
+   * 故此处按 effectiveRole 精确匹配角色规则）。
    * 返回 deny 决策或 null（未配置/未命中 → 继续走 A 规则）。
+   *
+   * 多租户 P0 阶段 1：角色由**调用方显式传入**（`context.userRole ?? currentUserRole`），
+   * 方法内不再读进程级字段 ⇒ 并发请求各自判定、互不覆盖。
    */
   private async checkFineGrainedRoleDeny(
     toolName: string,
-    input: Record<string, unknown>
+    input: Record<string, unknown>,
+    effectiveRole: string
   ): Promise<PermissionDecision | null> {
     try {
       const storage = createFineGrainedPermissionManager().getStorage();
-      const roleObj = await storage.getRoleByName(
-        this.currentUserRole as RoleType
-      );
+      const roleObj = await storage.getRoleByName(effectiveRole as RoleType);
       if (!roleObj) return null;
 
       const roleRules = [

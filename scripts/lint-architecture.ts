@@ -2093,6 +2093,11 @@ class ArchitectureLinter {
       // `modules/workflow/WorkflowEngine` 已依赖 `@modules/tasks`，若改走 core 桶将把整条
       // core 链路引入工作流路径、增加求值闭环风险。图内核是独立纯模块 ⇒ 子入口直连更精确。
       'core/systemgraph',
+      // 桶精确化（2026-10-21，多租户 P0 阶段 1）：`core/identity/principal` 是**零依赖叶子**
+      // （纯类型 + 纯函数，不 import 任何模块）；`permission/PermissionManager` 只消费其中
+      // `resolveEffectiveRole` 一个纯函数，若改走 `@modules/core` 桶会一并拉入
+      // paths / featureFlags / DI 等启动面 ⇒ 与 `core/systemgraph`、`tasks/goal` 同属"桶精确化"的规范子路径。
+      'core/identity',
       // 循环安全子入口（2026-09-26）：`query/tool-constants` 是**零跨模块 import 的叶子**
       // （只导出工具名 `Set` 字面量），而 `promptSuggestion/types.ts` 与
       // `tools/orchestration/types.ts` 需要其"文件读写工具真实名"取值（裁定①：共享取值 + 各自命名）。

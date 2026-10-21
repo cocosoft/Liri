@@ -55,8 +55,11 @@ const CAP_FACTOR = 10;
 const MIN_CAP_US = 1000;
 
 function medianOf(values: number[]): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
+  // 非有限值（NaN/Infinity）不参与中位数：否则 median 变成 NaN/Infinity，
+  // 再经 Math.max(NaN, MIN_CAP_US) = NaN 把单样本上限打成 NaN，全表皆 NaN
+  const finite = values.filter(Number.isFinite);
+  if (finite.length === 0) return 0;
+  const sorted = finite.sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)] ?? 0;
 }
 
@@ -70,7 +73,7 @@ function attribute(profile: CpuProfile): Attribution {
   // 后来变成 `core/paths.ts`，而两者都只有 **1 个样本** 却各占 200+ms；
   // 换采样间隔（50/200/1000µs）该数字分别变成 0.1ms / 202ms / 未命中 ⇒ 不是 CPU 时间。
   // ⇒ 把超过 10× 中位 tick 的部分视为"原生阻塞"，不计入任何函数（否则每次都会报出假热点）。
-  const deltas = profile.timeDeltas.filter((d) => d > 0);
+  const deltas = profile.timeDeltas.filter((d) => Number.isFinite(d) && d > 0);
   const capUs = Math.max(medianOf(deltas) * CAP_FACTOR, MIN_CAP_US);
 
   const byUrl = new Map<string, number>();
@@ -80,7 +83,8 @@ function attribute(profile: CpuProfile): Attribution {
 
   for (let i = 0; i < profile.samples.length; i++) {
     const deltaUs = profile.timeDeltas[i] ?? 0;
-    if (deltaUs <= 0) continue;
+    // 正数过滤必须显式排除非有限值：NaN <= 0 为 false，朴素写法会把 NaN/Infinity 放进 totalUs
+    if (!Number.isFinite(deltaUs) || deltaUs <= 0) continue;
     totalUs += deltaUs;
 
     const node = nodeById.get(profile.samples[i]);
@@ -163,7 +167,9 @@ function main(): void {
   }
 
   const ms = (us: number): string => `${(us / 1000).toFixed(0)}ms`;
-  const pct = (us: number): string => `${((us / totalUs) * 100).toFixed(1)}%`;
+  // totalUs 为 0（空 profile / 无有效正样本）时避免 0/0 = NaN%
+  const pct = (us: number): string =>
+    totalUs > 0 ? `${((us / totalUs) * 100).toFixed(1)}%` : '0.0%';
   const nativeOnlyUs = totalUs - attributedUs - cappedUs;
 
   console.log(

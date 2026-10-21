@@ -25,7 +25,13 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath, resolveScopedDbPath } from '@modules/core';
+// 多租户 P1（2026-10-21）：余额库按身份分实例（本地身份零变更）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -51,6 +57,8 @@ export interface BalanceRecord {
  */
 export class BalanceStore {
   private static instance: BalanceStore;
+  /** 多租户 P1：非本地身份的余额库实例（各自独立 app.db） */
+  private static scopedInstances = new Map<string, BalanceStore>();
 
   private db: Database | null = null;
   private dbPath: string;
@@ -61,7 +69,22 @@ export class BalanceStore {
     this.dbPath = dbPath;
   }
 
+  /**
+   * 取余额存储实例。
+   *
+   * 多租户 P1（2026-10-21）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该身份自己的实例
+   * （`<scoped>/app.db`）。**不做"共享实例换连接"**——单字段连接在 `await` 交错点会串库。
+   */
   static getInstance(dbPath?: string): BalanceStore {
+    const principal = getRequestPrincipal();
+    if (!isLocalPrincipal(principal) && dbPath === undefined) {
+      const key = principalKeyOf(principal);
+      const existing = BalanceStore.scopedInstances.get(key);
+      if (existing) return existing;
+      const scoped = new BalanceStore(resolveScopedDbPath(principal));
+      BalanceStore.scopedInstances.set(key, scoped);
+      return scoped;
+    }
     if (!BalanceStore.instance) {
       BalanceStore.instance = new BalanceStore(dbPath);
     }

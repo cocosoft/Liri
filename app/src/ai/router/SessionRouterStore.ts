@@ -46,7 +46,13 @@ interface SessionRouteRow {
   updated_at: number;
   hit_count: number;
 }
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath, resolveScopedDbPath } from '@modules/core';
+// 多租户 P1（2026-10-21）：黏性路由库按身份分实例（本地身份零变更）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import type { RouterTier, SessionRouteRecord } from './types.js';
 
@@ -258,8 +264,56 @@ export class SessionRouterStore {
 let _sessionRouterStore: SessionRouterStore | null = null;
 let _sessionRouterStoreInitPromise: Promise<SessionRouterStore | null> | null =
   null;
+/** 多租户 P1：非本地身份的黏性路由库实例（各自独立 app.db） */
+const _scopedStores = new Map<string, SessionRouterStore>();
+const _scopedInitPromises = new Map<
+  string,
+  Promise<SessionRouterStore | null>
+>();
 
+/**
+ * 取会话黏性路由存储。
+ *
+ * 多租户 P1（2026-10-21）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该身份自己的实例
+ * （`<scoped>/app.db`）。并发初始化共用同一次 DDL（按身份分别去重）。
+ */
 export function getSessionRouterStore(): Promise<SessionRouterStore | null> {
+  const principal = getRequestPrincipal();
+  if (!isLocalPrincipal(principal)) {
+    const key = principalKeyOf(principal);
+    const cached = _scopedStores.get(key);
+    if (cached) return Promise.resolve(cached);
+    const existing = _scopedInitPromises.get(key);
+    if (existing) return existing;
+    const pending = (async () => {
+      try {
+        const store = new SessionRouterStore(resolveScopedDbPath(principal));
+        await store.init();
+        const cleaned = await store.cleanExpired();
+        if (cleaned > 0) {
+          logger.info('会话黏性存储启动清理（分区）', {
+            principalKey: key,
+            expiredRemoved: cleaned,
+          });
+        }
+        _scopedStores.set(key, store);
+        return store;
+      } catch (error) {
+        await handleError(error, {
+          module: 'ai:session-store',
+          action: 'getSessionRouterStore',
+        });
+        logger.warning('分区会话黏性存储初始化失败，退回每轮 Judge', {
+          principalKey: key,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+      }
+    })();
+    _scopedInitPromises.set(key, pending);
+    return pending;
+  }
+
   if (_sessionRouterStore) return Promise.resolve(_sessionRouterStore);
   // 并发调用共用同一次初始化（避免重复建连 / 重复 DDL）
   _sessionRouterStoreInitPromise ??= (async () => {
@@ -289,6 +343,9 @@ export function getSessionRouterStore(): Promise<SessionRouterStore | null> {
 /** 测试缝：重置单例（**仅供测试**；生产不调用） */
 export function resetSessionRouterStoreForTest(): void {
   _sessionRouterStore?.close();
+  for (const store of _scopedStores.values()) store.close();
+  _scopedStores.clear();
+  _scopedInitPromises.clear();
   _sessionRouterStore = null;
   _sessionRouterStoreInitPromise = null;
 }

@@ -30,6 +30,13 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
+import { resolveScopedDbPath } from '@modules/core/paths';
+// 多租户 P1（2026-10-21）：结算台账按身份分实例（本地身份零变更）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 // B4-2（2026-09-23）：恢复通路的相位标签（`yield:*`）—— 台账认领/状态写是恢复期的
 // 两个真实阻塞点（SQLite 同步写），包相位后可由 `loopProbe` 逐条归因。
@@ -501,9 +508,31 @@ export class SettlementOutbox {
 }
 
 let instance: SettlementOutbox | null = null;
+/** 多租户 P1：非本地身份的结算台账实例（各自独立 app.db） */
+const scopedInstances = new Map<string, SettlementOutbox>();
 
-/** 全局单例（惰性：首次使用才解析 DB 路径并建表） */
+/**
+ * 取结算台账（惰性：首次使用才解析 DB 路径并建表）。
+ *
+ * 多租户 P1（2026-10-21）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该身份自己的实例
+ * （`<scoped>/app.db`），创建时即触发初始化（失败只记错误，与本地行为一致）。
+ */
 export function getSettlementOutbox(): SettlementOutbox {
+  const principal = getRequestPrincipal();
+  if (!isLocalPrincipal(principal)) {
+    const key = principalKeyOf(principal);
+    const existing = scopedInstances.get(key);
+    if (existing) return existing;
+    const scoped = new SettlementOutbox(resolveScopedDbPath(principal));
+    scoped.init().catch((err) => {
+      logger.error('SettlementOutbox 分区初始化失败', {
+        principalKey: key,
+        error: String(err),
+      });
+    });
+    scopedInstances.set(key, scoped);
+    return scoped;
+  }
   if (!instance) {
     instance = new SettlementOutbox();
     instance.init().catch((err) => {
@@ -511,4 +540,10 @@ export function getSettlementOutbox(): SettlementOutbox {
     });
   }
   return instance;
+}
+
+/** 仅测试：重置共享与分区实例 */
+export function resetSettlementOutboxForTest(): void {
+  instance = null;
+  scopedInstances.clear();
 }

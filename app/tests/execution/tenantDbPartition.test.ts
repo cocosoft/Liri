@@ -28,6 +28,16 @@ import {
   resetQueryLogStore,
 } from '../../src/query/QueryLogStore';
 import { getLLMTracker } from '../../src/monitoring/llm/getLLMTracker';
+import { BalanceStore } from '../../src/ai/providers/BalanceStore';
+import {
+  getSettlementOutbox,
+  resetSettlementOutboxForTest,
+} from '../../src/chat/yield/SettlementOutbox';
+import {
+  getSessionRouterStore,
+  resetSessionRouterStoreForTest,
+} from '../../src/ai/router/SessionRouterStore';
+import { KnowledgeGraph } from '../../src/knowledge/graph/KnowledgeGraph';
 
 const ALICE: Principal = {
   tenantId: 'acme',
@@ -47,11 +57,15 @@ beforeEach(() => {
   process.env.LIRI_DATA_DIR = dataDir;
   resetExecutionStore();
   resetQueryLogStore();
+  resetSettlementOutboxForTest();
+  resetSessionRouterStoreForTest();
 });
 
 afterEach(() => {
   resetExecutionStore();
   resetQueryLogStore();
+  resetSettlementOutboxForTest();
+  resetSessionRouterStoreForTest();
   delete process.env.LIRI_DATA_DIR;
   try {
     rmSync(dataDir, { recursive: true, force: true });
@@ -158,6 +172,61 @@ describe('LLMTracker：按身份分实例', () => {
     const alice = runWithPrincipal(ALICE, () => getLLMTracker());
     expect(alice).not.toBe(local);
 
+    expect(
+      existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
+    ).toBe(true);
+  });
+});
+
+describe('BalanceStore：按身份分实例', () => {
+  it('已认证身份 ⇒ 独立实例', () => {
+    const local = BalanceStore.getInstance();
+    const alice = runWithPrincipal(ALICE, () => BalanceStore.getInstance());
+    expect(alice).not.toBe(local);
+  });
+});
+
+describe('SettlementOutbox：按身份分实例', () => {
+  it('已认证身份 ⇒ 独立实例 + 独立库文件', async () => {
+    const local = getSettlementOutbox();
+    const alice = await runWithPrincipal(ALICE, async () => {
+      const outbox = getSettlementOutbox();
+      await outbox.init();
+      return outbox;
+    });
+    expect(alice).not.toBe(local);
+    expect(
+      existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
+    ).toBe(true);
+  });
+});
+
+describe('SessionRouterStore：按身份分实例', () => {
+  it('已认证身份 ⇒ 独立实例 + 独立库文件', async () => {
+    const local = await getSessionRouterStore();
+    const alice = await runWithPrincipal(ALICE, () => getSessionRouterStore());
+    expect(alice).not.toBeNull();
+    expect(local).not.toBeNull();
+    expect(alice).not.toBe(local);
+    expect(
+      existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
+    ).toBe(true);
+  });
+});
+
+describe('KnowledgeGraph：构造期按身份解析库路径', () => {
+  it('已认证作用域内 new ⇒ 落到自己的库；默认构造本地仍共享', async () => {
+    const scoped = new KnowledgeGraph();
+    // 本地（无作用域）⇒ 共享路径：init 后共享 app.db 出现
+    await scoped.init();
+    expect(existsSync(join(dataDir, 'app.db'))).toBe(true);
+
+    const aliceGraph = await runWithPrincipal(ALICE, async () => {
+      const graph = new KnowledgeGraph();
+      await graph.init();
+      return graph;
+    });
+    expect(aliceGraph).not.toBe(scoped);
     expect(
       existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
     ).toBe(true);

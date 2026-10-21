@@ -36,7 +36,7 @@ import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath } from '@modules/core';
+import { resolveScopedDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
 import type { EdgeSchema } from '@modules/knowledge/schema/SchemaLoader';
 
@@ -148,7 +148,12 @@ export class KnowledgeGraph {
   /** 可选的关系类型 schema 映射，用于 addEdge 校验 */
   private edgeSchemas?: Map<string, EdgeSchema>;
 
-  constructor(dbPath: string = resolveDbPath()) {
+  /**
+   * @param dbPath 显式库路径（测试/特定装配用）；缺省**按当前身份**解析
+   *   —— 多租户 P1：本地身份 ⇒ 共享 `app.db`（零变更）；已认证身份 ⇒ `<scoped>/app.db`。
+   *   本类实例由调用方按需 `new`（非进程单例）⇒ 在创建它的作用域内解析路径即安全。
+   */
+  constructor(dbPath: string = resolveScopedDbPath()) {
     this.dbPath = dbPath;
   }
 

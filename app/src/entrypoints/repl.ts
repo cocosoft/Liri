@@ -229,8 +229,9 @@ export async function launchRepl(
   try {
     profileCheckpoint('repl_startup_checks_start');
     // 数出同源：DB 是 API Key 的唯一事实来源
-    const { providerManager } =
+    const { getProviderManager } =
       await import('../ai/providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     const dbProviders = await providerManager.listProviders({ isActive: true });
     const hasApiKey = dbProviders.some((p) => !!p.apiKey);
     if (isOfflineMode || !hasApiKey) {

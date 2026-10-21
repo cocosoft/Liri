@@ -26,7 +26,7 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { checkBalance, formatBalanceResult } from '@modules/ai';
-import { providerManager } from '@modules/ai';
+import { getProviderManager } from '@modules/ai';
 
 import { getLogger } from '@modules/monitoring';
 import { DEEPSEEK_API_BASE_URL } from '@modules/core';
@@ -76,8 +76,8 @@ const balanceCommand = {
         }
 
         // 尝试从已保存的供应商中查找
-        await providerManager.initialize();
-        const provider = await providerManager.getProvider(maybeId);
+        await getProviderManager().initialize();
+        const provider = await getProviderManager().getProvider(maybeId);
 
         if (!provider) {
           return {

@@ -34,7 +34,7 @@ import type { AIProvider, ProviderConfig } from './AIProvider';
 import type { ProviderRecord } from './ProviderManager';
 import { ModelRegistry } from '../models/ModelRegistry';
 import {
-  credentialStore,
+  getCredentialStore,
   CRED_STORED_MARKER,
 } from '../credentials/CredentialStore';
 import { getLogger } from '@modules/monitoring';
@@ -51,7 +51,7 @@ export function recordToConfig(record: ProviderRecord): ProviderConfig {
   const config: ProviderConfig = {
     apiKey:
       record.apiKey === CRED_STORED_MARKER
-        ? credentialStore.get(record.id) || ''
+        ? getCredentialStore().get(record.id) || ''
         : record.apiKey || '',
     baseUrl: record.baseUrl,
   };
@@ -147,7 +147,8 @@ const dbToRegistry: Map<string, string> = new Map();
  */
 export async function syncDBProvidersToRegistry(): Promise<number> {
   try {
-    const { providerManager } = await import('./ProviderManager.js');
+    const { getProviderManager } = await import('./ProviderManager.js');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
 
     const providers = await providerManager.listProviders({ isActive: true });
@@ -231,7 +232,8 @@ export async function registerProviderFromDB(
   providerId: string
 ): Promise<boolean> {
   try {
-    const { providerManager } = await import('./ProviderManager.js');
+    const { getProviderManager } = await import('./ProviderManager.js');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
 
     const record = await providerManager.getProvider(providerId);

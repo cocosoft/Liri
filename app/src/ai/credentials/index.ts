@@ -31,5 +31,5 @@ export type {
   CredentialHealthResult,
   HealthCheckConfig,
 } from './CredentialHealth';
-export { CredentialStore, credentialStore } from './CredentialStore';
+export { CredentialStore, getCredentialStore } from './CredentialStore';
 export { CRED_STORED_MARKER } from './CredentialStore';

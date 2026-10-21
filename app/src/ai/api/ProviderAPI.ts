@@ -31,7 +31,7 @@ import { handleError, AppError } from '@modules/error';
 import { parseBody, sendJson, sendError } from './utils.js';
 import type { ProviderRecord } from '../providers/ProviderManager.js';
 import {
-  credentialStore,
+  getCredentialStore,
   CRED_STORED_MARKER,
 } from '../credentials/CredentialStore.js';
 import { broadcastEvent } from '@modules/infrastructure';
@@ -51,7 +51,7 @@ function notifyProvidersChanged(action: string, providerId: string): void {
 /** 解析 Provider 的真实 API Key（P0 凭据迁移：DB 占位 → CredentialStore） */
 function resolveRealApiKey(p: ProviderRecord): string {
   return p.apiKey === CRED_STORED_MARKER
-    ? credentialStore.get(p.id) || ''
+    ? getCredentialStore().get(p.id) || ''
     : p.apiKey || '';
 }
 
@@ -72,7 +72,9 @@ export async function handleListProviders(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { providerManager } = await import('../providers/ProviderManager.js');
+    const { getProviderManager } =
+      await import('../providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
     const providers = await providerManager.listProviders();
     sendJson(res, { data: providers.map(sanitizeProvider) });
@@ -92,7 +94,9 @@ export async function handleGetProvider(
 ): Promise<void> {
   const id = decodeURIComponent(match![1]);
   try {
-    const { providerManager } = await import('../providers/ProviderManager.js');
+    const { getProviderManager } =
+      await import('../providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
     const p = await providerManager.getProvider(id);
     if (!p) {
@@ -115,7 +119,9 @@ export async function handleAddProvider(
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
-    const { providerManager } = await import('../providers/ProviderManager.js');
+    const { getProviderManager } =
+      await import('../providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
     const created = await providerManager.createProvider({
       name: body.name as string,
@@ -153,7 +159,9 @@ export async function handleUpdateProvider(
   const id = decodeURIComponent(match![1]);
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
-    const { providerManager } = await import('../providers/ProviderManager.js');
+    const { getProviderManager } =
+      await import('../providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
     const { expectedRevision, ...rest } = body;
     const updated = await providerManager.updateProvider(id, {
@@ -199,7 +207,9 @@ export async function handleDeleteProvider(
       await import('../providers/ProviderSyncService.js');
     unregisterProviderFromRegistry(id);
 
-    const { providerManager } = await import('../providers/ProviderManager.js');
+    const { getProviderManager } =
+      await import('../providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
 
     // N-59（2026-09-20）：删除前取**强绑定**该供应商的模型清单（删除时会被级联停用），
@@ -234,7 +244,9 @@ export async function handleToggleProvider(
 ): Promise<void> {
   const id = decodeURIComponent(match![1]);
   try {
-    const { providerManager } = await import('../providers/ProviderManager.js');
+    const { getProviderManager } =
+      await import('../providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
     const p = await providerManager.getProvider(id);
     if (!p) {
@@ -269,7 +281,9 @@ export async function handleProviderStats(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { providerManager } = await import('../providers/ProviderManager.js');
+    const { getProviderManager } =
+      await import('../providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
     const stats = await providerManager.getProviderStats();
     const providers = await providerManager.listProviders();
@@ -296,7 +310,9 @@ export async function handleProviderTest(
 ): Promise<void> {
   const id = decodeURIComponent(match![1]);
   try {
-    const { providerManager } = await import('../providers/ProviderManager.js');
+    const { getProviderManager } =
+      await import('../providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     const { testEndpoints } = await import('../providers/SpeedTestService.js');
     await providerManager.initialize();
     const p = await providerManager.getProvider(id);
@@ -334,7 +350,9 @@ export async function handleProviderModels(
   const search = url.searchParams.get('search') || undefined;
 
   try {
-    const { providerManager } = await import('../providers/ProviderManager.js');
+    const { getProviderManager } =
+      await import('../providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     const { fetchModels, isLocalProvider } =
       await import('../providers/ModelFetcher.js');
     await providerManager.initialize();

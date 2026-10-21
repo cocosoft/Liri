@@ -40,7 +40,13 @@ import {
   chmodSync,
 } from 'fs';
 import { dirname, join } from 'path';
-import { resolvePyappHome } from '@modules/core/paths';
+import { resolvePyappHome, resolveScopedDataDir } from '@modules/core/paths';
+// 多租户 P1（2026-10-21）：凭据按身份分实例（与 ProviderManager 同源分区）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
@@ -80,16 +86,38 @@ export function normalizeApiKey(raw: string): ApiKeyCheck {
  */
 export class CredentialStore {
   private static instance: CredentialStore;
+  /** 多租户 P1：非本地身份的凭据实例（各自独立 credentials.json） */
+  private static scopedInstances = new Map<string, CredentialStore>();
 
   private cache = new Map<string, string>();
   private filePath: string;
   private loaded = false;
 
-  private constructor() {
-    this.filePath = join(resolvePyappHome(), 'credentials.json');
+  /** @param filePath 显式路径；缺省 ⇒ 本地身份用 `~/.pyapp/credentials.json`（零变更） */
+  private constructor(filePath?: string) {
+    this.filePath = filePath ?? join(resolvePyappHome(), 'credentials.json');
   }
 
+  /**
+   * 获取凭据存储。
+   *
+   * 多租户 P1（2026-10-21）：本地身份 ⇒ 原单例（`~/.pyapp/credentials.json`，零变更）；
+   * 已认证身份 ⇒ `<data>/tenants/<t>/users/<u>/credentials.json`。
+   * 必须与 `getProviderManager()` **同源分区**：凭据以 provider 记录 id 为键，
+   * 只分一边会形成"记录分区、值共享"的半隔离态。
+   */
   static getInstance(): CredentialStore {
+    const principal = getRequestPrincipal();
+    if (!isLocalPrincipal(principal)) {
+      const key = principalKeyOf(principal);
+      const existing = CredentialStore.scopedInstances.get(key);
+      if (existing) return existing;
+      const scoped = new CredentialStore(
+        join(resolveScopedDataDir(principal), 'credentials.json')
+      );
+      CredentialStore.scopedInstances.set(key, scoped);
+      return scoped;
+    }
     if (!CredentialStore.instance) {
       CredentialStore.instance = new CredentialStore();
     }
@@ -184,5 +212,12 @@ export class CredentialStore {
   }
 }
 
-/** 导出单例 */
-export const credentialStore = CredentialStore.getInstance();
+/**
+ * 取凭据存储（多租户 P1 的唯一入口）。
+ *
+ * 用**访问器**而非常量：常量会在模块求值时冻结成本地实例（`~/.pyapp/credentials.json`），
+ * 已认证身份永远读不到自己的凭据。
+ */
+export function getCredentialStore(): CredentialStore {
+  return CredentialStore.getInstance();
+}

@@ -1376,7 +1376,8 @@ export async function syncLlamaModelsToRegistry(): Promise<number> {
     const status = await llamaCppServerManager.getStatus();
     if (!status.running) return 0;
 
-    const { providerManager } = await import('@modules/ai');
+    const { getProviderManager } = await import('@modules/ai');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
     const provider = (await providerManager.listProviders()).find(
       (p) => p.providerType === LLAMACPP_PROVIDER_TYPE

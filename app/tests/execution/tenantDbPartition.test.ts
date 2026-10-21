@@ -38,6 +38,8 @@ import {
   resetSessionRouterStoreForTest,
 } from '../../src/ai/router/SessionRouterStore';
 import { KnowledgeGraph } from '../../src/knowledge/graph/KnowledgeGraph';
+import { getProviderManager } from '../../src/ai/providers/ProviderManager';
+import { getCredentialStore } from '../../src/ai/credentials/CredentialStore';
 
 const ALICE: Principal = {
   tenantId: 'acme',
@@ -211,6 +213,36 @@ describe('SessionRouterStore：按身份分实例', () => {
     expect(
       existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
     ).toBe(true);
+  });
+});
+
+describe('ProviderManager：按身份分实例', () => {
+  it('已认证身份 ⇒ 独立实例（内存注册表与 DB 都不共享）', () => {
+    const local = getProviderManager();
+    const alice = runWithPrincipal(ALICE, () => getProviderManager());
+    const bob = runWithPrincipal(BOB, () => getProviderManager());
+    expect(alice).not.toBe(local);
+    expect(alice).not.toBe(bob);
+  });
+});
+
+describe('CredentialStore：按身份分实例（与 ProviderManager 同源分区）', () => {
+  it('已认证身份 ⇒ 独立实例；写入落到 <scoped>/credentials.json', () => {
+    const local = getCredentialStore();
+    const alice = runWithPrincipal(ALICE, () => getCredentialStore());
+    expect(alice).not.toBe(local);
+
+    runWithPrincipal(ALICE, () => getCredentialStore().set('pid-1', 'sk-test'));
+    expect(
+      existsSync(
+        join(dataDir, 'tenants', 'acme', 'users', 'alice', 'credentials.json')
+      )
+    ).toBe(true);
+    // 本地凭据文件不应被写入（`~/.pyapp/credentials.json` 不在 dataDir 下，这里只验证分区侧）
+    expect(
+      runWithPrincipal(ALICE, () => getCredentialStore().get('pid-1'))
+    ).toBe('sk-test');
+    expect(getCredentialStore().get('pid-1')).toBeUndefined();
   });
 });
 

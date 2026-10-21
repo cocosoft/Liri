@@ -180,7 +180,8 @@ const REFERENCED_PROVIDER_PRESETS: Array<{
  */
 async function seedEnvProvidersToDB(dedupNames: Set<string>): Promise<number> {
   try {
-    const { providerManager } = await import('@modules/ai');
+    const { getProviderManager } = await import('@modules/ai');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
 
     let seeded = 0;
@@ -236,7 +237,8 @@ async function ensureReferencedProviders(
   try {
     const { modelPricingService } = await import('@modules/ai');
     await modelPricingService.initialize();
-    const { providerManager } = await import('@modules/ai');
+    const { getProviderManager } = await import('@modules/ai');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
 
     // 1. 收集 model_registry 引用的所有 provider_id（去重）
@@ -346,7 +348,8 @@ export async function initializeModelManagementServices(): Promise<void> {
   const services: Array<{ name: string; init: () => Promise<void> }> = [];
 
   try {
-    const { providerManager } = await import('@modules/ai');
+    const { getProviderManager } = await import('@modules/ai');
+    const providerManager = getProviderManager();
     services.push({
       name: 'ProviderManager',
       init: () => providerManager.initialize(),
@@ -429,7 +432,8 @@ export async function initializeModelManagementServices(): Promise<void> {
   let seeded = 0;
   let referenced = 0;
   try {
-    const { providerManager } = await import('@modules/ai');
+    const { getProviderManager } = await import('@modules/ai');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
     const existing = await providerManager.listProviders();
     const dedupNames = new Set(

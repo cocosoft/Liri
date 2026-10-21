@@ -147,15 +147,17 @@ export async function registerAllSpis(
       trackUsage,
       globalEmbeddingManager,
       ToolAwareClient,
-      credentialStore,
+      // 多租户 P1：凭据改为**访问器**（按请求身份取实例，避免冻结成本地实例）
+      getCredentialStore,
       // 2026-10-01 D-155（`cost -> ai` 倒挂收口）：cost 所需模型定价投影的数据源
       ModelRegistry,
       getModelConfigById,
     } = await import('@modules/ai');
     const { BalanceStore } =
       await import('@modules/ai/providers/BalanceStore.js');
-    const { providerManager } =
+    const { getProviderManager } =
       await import('@modules/ai/providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     const { checkBalance } =
       await import('@modules/ai/providers/BalanceChecker.js');
     const { registerAiAccessSpi } = await import('@modules/core/spi');
@@ -240,7 +242,8 @@ export async function registerAllSpis(
       getProviderRegistry: () => providerRegistry,
       createToolAwareClient: (provider) =>
         new ToolAwareClient(provider as never, null, null),
-      getCredentialStore: () => credentialStore,
+      // 多租户 P1：直接暴露访问器 ⇒ 每次调用按当前请求身份取凭据实例
+      getCredentialStore,
       // ── 2026-10-01 D-155（`cost -> ai` 倒挂收口）：模型定价 + 规范名投影 ──
       // 三个数据源同属 `ai` 层（`ModelRegistry` 定价缓存 / 模型定义 / `ModelConfigs` 规范名），
       // 在此**边界处**合成 cost 所需的最小结构；注册表查无此模型时返回 `null`。

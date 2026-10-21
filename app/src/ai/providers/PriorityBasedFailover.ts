@@ -150,7 +150,8 @@ export class PriorityBasedFailover {
    */
   private async getActiveProviderIds(): Promise<string[]> {
     try {
-      const { providerManager } = await import('./ProviderManager.js');
+      const { getProviderManager } = await import('./ProviderManager.js');
+      const providerManager = getProviderManager();
       await providerManager.initialize();
       const providers = await providerManager.listProviders({ isActive: true });
       // 按 sortIndex 排序

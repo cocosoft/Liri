@@ -370,8 +370,9 @@ export class AIServiceImpl implements AIService {
   /** 解析默认 Provider 的 providerType（DB 优先，兜底注册到首个活跃 Provider） */
   private async resolveDefaultProviderType(): Promise<string | undefined> {
     try {
-      const { providerManager } =
+      const { getProviderManager } =
         await import('../providers/ProviderManager.js');
+      const providerManager = getProviderManager();
       await providerManager.initialize();
       const providers = await providerManager.listProviders({ isActive: true });
       if (providers.length === 0) return undefined;

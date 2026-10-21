@@ -102,7 +102,8 @@ async function probeOllamaContextLength(
  */
 export async function syncOllamaModelsToRegistry(): Promise<number> {
   try {
-    const { providerManager } = await import('@modules/ai');
+    const { getProviderManager } = await import('@modules/ai');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
     const provider = (await providerManager.listProviders()).find(
       (p) => p.providerType === OLLAMA_PROVIDER_TYPE
@@ -211,7 +212,8 @@ export async function syncOllamaModelsToRegistry(): Promise<number> {
  */
 export async function ensureOllamaProviderRegistered(): Promise<boolean> {
   try {
-    const { providerManager } = await import('@modules/ai');
+    const { getProviderManager } = await import('@modules/ai');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
 
     const existing = await providerManager.listProviders();

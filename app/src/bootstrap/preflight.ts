@@ -111,8 +111,9 @@ export function isValidApiKey(key: string | undefined | null): boolean {
 async function isAIConfigured(): Promise<boolean> {
   try {
     // 数出同源：DB 是 API Key 的唯一事实来源，无数据时前端引导用户配置
-    const { providerManager } =
+    const { getProviderManager } =
       await import('../ai/providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     const dbProviders = await providerManager.listProviders({ isActive: true });
     return dbProviders.some((p) => isValidApiKey(p.apiKey));
   } catch {

@@ -1194,10 +1194,10 @@ export class DomainSnapshotOps {
       getAllModelPricing: async () =>
         (await aiModule()).modelPricingService.getAllPricing(),
       initProviders: async () => {
-        await (await aiModule()).providerManager.initialize();
+        await (await aiModule()).getProviderManager().initialize();
       },
       listProviders: async () =>
-        (await aiModule()).providerManager.listProviders(),
+        (await aiModule()).getProviderManager().listProviders(),
 
       // ---- 模型类型推导 / 路由接管 / 翻译（P3）----
       listActiveModels: async () =>

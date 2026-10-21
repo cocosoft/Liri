@@ -51,7 +51,8 @@ export async function ensureLlamaCppProviderRegistered(): Promise<boolean> {
     const host = status.host || LOCAL_HTTP_HOST;
     const baseUrl = `http://${host}:${status.port}/v1`;
 
-    const { providerManager } = await import('@modules/ai');
+    const { getProviderManager } = await import('@modules/ai');
+    const providerManager = getProviderManager();
     await providerManager.initialize();
 
     const existing = await providerManager.listProviders();

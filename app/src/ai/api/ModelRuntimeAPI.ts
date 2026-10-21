@@ -52,7 +52,9 @@ export async function handleListModels(
   const span = otel.startSpan('model.list', {});
 
   try {
-    const { providerManager } = await import('../providers/ProviderManager.js');
+    const { getProviderManager } =
+      await import('../providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     // modelPricingService 已通过顶部静态 import 引入
     await providerManager.initialize();
     await modelPricingService.initialize();
@@ -619,9 +621,9 @@ export async function validateTaskRoutingTargets(
     getPricingById: (id) => modelPricingService.getPricingById(id),
     getPricing: (modelId) => modelPricingService.getPricing(modelId),
     listProviders: async () => {
-      const { providerManager } =
+      const { getProviderManager } =
         await import('../providers/ProviderManager.js');
-      return providerManager.listProviders();
+      return getProviderManager().listProviders();
     },
   };
 

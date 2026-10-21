@@ -30,7 +30,7 @@ import { resolvePyappHome, DEEPSEEK_API_BASE_URL } from '@modules/core';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { providerManager, type ProviderType } from '@modules/ai';
+import { getProviderManager, type ProviderType } from '@modules/ai';
 import { testEndpoints, formatSpeedResults } from '@modules/ai';
 import { fetchModels } from '@modules/ai';
 import {
@@ -97,13 +97,13 @@ async function handleList(
   args: string,
   showJson: boolean
 ): Promise<CommandResult> {
-  await providerManager.initialize();
+  await getProviderManager().initialize();
 
   const filterType = VALID_PROVIDER_TYPES.includes(args as ProviderType)
     ? (args as ProviderType)
     : undefined;
 
-  const providers = await providerManager.listProviders({
+  const providers = await getProviderManager().listProviders({
     providerType: filterType,
   });
 
@@ -144,9 +144,9 @@ async function handleList(
 // ─── 详情 ──────────────────────────────────────────────
 
 async function handleInfo(id: string): Promise<CommandResult> {
-  await providerManager.initialize();
+  await getProviderManager().initialize();
 
-  const p = await providerManager.getProvider(id);
+  const p = await getProviderManager().getProvider(id);
   if (!p) {
     return { success: false, message: `未找到供应商: ${id}` };
   }
@@ -205,12 +205,12 @@ async function handleAdd(rawArgs: string): Promise<CommandResult> {
   const baseUrl = parts[2];
   const apiKey = parts.slice(3).join(' ') || undefined;
 
-  await providerManager.initialize();
+  await getProviderManager().initialize();
 
   let createdId = '';
 
   try {
-    const created = await providerManager.createProvider({
+    const created = await getProviderManager().createProvider({
       name,
       providerType,
       baseUrl,
@@ -277,7 +277,7 @@ async function handleEdit(args: string): Promise<CommandResult> {
     };
   }
 
-  await providerManager.initialize();
+  await getProviderManager().initialize();
 
   const params: Record<string, string | boolean | undefined> = {};
 
@@ -300,7 +300,7 @@ async function handleEdit(args: string): Promise<CommandResult> {
   }
 
   try {
-    const updated = await providerManager.updateProvider(id, params);
+    const updated = await getProviderManager().updateProvider(id, params);
     if (!updated) {
       return { success: false, message: `未找到供应商: ${id}` };
     }
@@ -330,14 +330,14 @@ async function handleEdit(args: string): Promise<CommandResult> {
 // ─── 删除 ──────────────────────────────────────────────
 
 async function handleDelete(id: string): Promise<CommandResult> {
-  await providerManager.initialize();
+  await getProviderManager().initialize();
 
-  const provider = await providerManager.getProvider(id);
+  const provider = await getProviderManager().getProvider(id);
   if (!provider) {
     return { success: false, message: `未找到供应商: ${id}` };
   }
 
-  await providerManager.deleteProvider(id);
+  await getProviderManager().deleteProvider(id);
 
   // 从 ProviderRegistry 移除
   try {
@@ -355,15 +355,15 @@ async function handleDelete(id: string): Promise<CommandResult> {
 // ─── 切换 ──────────────────────────────────────────────
 
 async function handleToggle(id: string): Promise<CommandResult> {
-  await providerManager.initialize();
+  await getProviderManager().initialize();
 
-  const provider = await providerManager.getProvider(id);
+  const provider = await getProviderManager().getProvider(id);
   if (!provider) {
     return { success: false, message: `未找到供应商: ${id}` };
   }
 
   const newState = !provider.isActive;
-  await providerManager.toggleProvider(id, newState);
+  await getProviderManager().toggleProvider(id, newState);
 
   // 根据新状态注册/注销 ProviderRegistry
   try {
@@ -389,10 +389,10 @@ async function handleToggle(id: string): Promise<CommandResult> {
 // ─── 统计 ──────────────────────────────────────────────
 
 async function handleStats(): Promise<CommandResult> {
-  await providerManager.initialize();
+  await getProviderManager().initialize();
 
-  const stats = await providerManager.getProviderStats();
-  const providers = await providerManager.listProviders();
+  const stats = await getProviderManager().getProviderStats();
+  const providers = await getProviderManager().listProviders();
 
   if (stats.length === 0) {
     return {
@@ -416,9 +416,9 @@ async function handleStats(): Promise<CommandResult> {
 // ─── 端点测速 ──────────────────────────────────────────
 
 async function handleTest(id: string): Promise<CommandResult> {
-  await providerManager.initialize();
+  await getProviderManager().initialize();
 
-  const provider = await providerManager.getProvider(id);
+  const provider = await getProviderManager().getProvider(id);
   if (!provider) {
     return { success: false, message: `未找到供应商: ${id}` };
   }
@@ -444,9 +444,9 @@ async function handleTest(id: string): Promise<CommandResult> {
 // ─── 模型列表获取 ──────────────────────────────────────
 
 async function handleModels(id: string): Promise<CommandResult> {
-  await providerManager.initialize();
+  await getProviderManager().initialize();
 
-  const provider = await providerManager.getProvider(id);
+  const provider = await getProviderManager().getProvider(id);
   if (!provider) {
     return { success: false, message: `未找到供应商: ${id}` };
   }
@@ -485,9 +485,9 @@ async function handleModels(id: string): Promise<CommandResult> {
 
 /** 导出所有供应商到 JSON 文件 */
 async function handleExport(outputPath?: string): Promise<CommandResult> {
-  await providerManager.initialize();
+  await getProviderManager().initialize();
 
-  const providers = await providerManager.listProviders();
+  const providers = await getProviderManager().listProviders();
 
   if (providers.length === 0) {
     return { success: true, message: '暂无供应商可导出。' };
@@ -553,8 +553,8 @@ async function handleImport(filePath: string): Promise<CommandResult> {
     };
   }
 
-  await providerManager.initialize();
-  const existing = await providerManager.listProviders();
+  await getProviderManager().initialize();
+  const existing = await getProviderManager().listProviders();
   const existingBaseUrls = new Set(
     existing.map((p) => `${p.name}:${p.baseUrl}`)
   );
@@ -571,7 +571,7 @@ async function handleImport(filePath: string): Promise<CommandResult> {
 
     try {
       // 导入时 apiKey 是脱敏的，需要提示用户重新设置
-      const created = await providerManager.createProvider({
+      const created = await getProviderManager().createProvider({
         name: (item.name as string) || 'Imported',
         providerType: (item.providerType as ProviderType) || 'custom',
         baseUrl: (item.baseUrl as string) || 'https://api.example.com',
@@ -603,7 +603,7 @@ async function handleSync(): Promise<CommandResult> {
     const count = await ProviderSyncService.syncDBProvidersToRegistry();
 
     if (count === 0) {
-      const providers = await providerManager.listProviders();
+      const providers = await getProviderManager().listProviders();
       return {
         success: true,
         message: `同步完成: 0 个供应商（数据库中 ${providers.length} 个，可能已全部停用或同步失败）`,
@@ -656,10 +656,10 @@ async function handleSeed(): Promise<CommandResult> {
     apiKey: p.apiKey,
   }));
 
-  await providerManager.initialize();
+  await getProviderManager().initialize();
 
   // 跳过已存在的供应商（按 name + type 去重）
-  const existing = await providerManager.listProviders();
+  const existing = await getProviderManager().listProviders();
   const existingKeys = new Set(
     existing.map((p) => `${p.name}:${p.providerType}`)
   );
@@ -679,7 +679,7 @@ async function handleSeed(): Promise<CommandResult> {
 
   for (const preset of newPresets) {
     try {
-      const created = await providerManager.createProvider(preset);
+      const created = await getProviderManager().createProvider(preset);
       added.push(created.name);
 
       // 注册到 ProviderRegistry

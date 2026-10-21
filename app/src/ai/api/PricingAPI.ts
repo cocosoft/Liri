@@ -32,7 +32,7 @@ import { getLogger } from '@modules/monitoring';
 import { modelPricingService } from '../models/ModelPricingService.js';
 import { parseBody, sendJson, sendError, parseSecondsParam } from './utils.js';
 import {
-  credentialStore,
+  getCredentialStore,
   CRED_STORED_MARKER,
 } from '../credentials/CredentialStore.js';
 
@@ -181,7 +181,9 @@ export async function handleBatchBalances(
 ): Promise<void> {
   try {
     const { BalanceStore } = await import('../providers/BalanceStore.js');
-    const { providerManager } = await import('../providers/ProviderManager.js');
+    const { getProviderManager } =
+      await import('../providers/ProviderManager.js');
+    const providerManager = getProviderManager();
     const { checkBalance } = await import('../providers/BalanceChecker.js');
 
     const store = BalanceStore.getInstance();
@@ -253,7 +255,7 @@ export async function handleBatchBalances(
             const result = await checkBalance(
               p.baseUrl,
               p.apiKey === CRED_STORED_MARKER
-                ? credentialStore.get(p.id) || ''
+                ? getCredentialStore().get(p.id) || ''
                 : p.apiKey || ''
             );
             if (result.success && result.data.length > 0) {
@@ -320,8 +322,9 @@ export async function handleBalanceQuery(
     let apiKey: string;
 
     if (body.providerId) {
-      const { providerManager } =
+      const { getProviderManager } =
         await import('../providers/ProviderManager.js');
+      const providerManager = getProviderManager();
       await providerManager.initialize();
       const p = await providerManager.getProvider(body.providerId);
       if (!p) {
@@ -331,7 +334,7 @@ export async function handleBalanceQuery(
       baseUrl = p.baseUrl;
       apiKey =
         p.apiKey === CRED_STORED_MARKER
-          ? credentialStore.get(p.id) || ''
+          ? getCredentialStore().get(p.id) || ''
           : p.apiKey || '';
     } else if (body.baseUrl && body.apiKey) {
       baseUrl = body.baseUrl;

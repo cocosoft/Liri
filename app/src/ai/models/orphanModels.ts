@@ -65,7 +65,9 @@ export function isOrphanProviderId(
 
 /** 收集当前所有孤儿模型（供自检与 API 共用） */
 export async function collectOrphanModels(): Promise<OrphanModel[]> {
-  const { modelPricingService, providerManager } = await import('@modules/ai');
+  const { modelPricingService, getProviderManager } =
+    await import('@modules/ai');
+  const providerManager = getProviderManager();
   await modelPricingService.initialize();
   await providerManager.initialize();
 

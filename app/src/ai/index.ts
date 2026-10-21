@@ -265,7 +265,12 @@ export * from './credentials';
 export * from './cost';
 
 // models/ — 模型管理增强（对标 CC 供应商管理）
-export { ProviderManager, providerManager } from './providers/ProviderManager';
+// 多租户 P1（2026-10-21）：`providerManager` 常量改为 `getProviderManager()` 访问器
+// （常量会在模块求值时冻结成本地实例，请求级身份取不到自己的供应商与凭据）
+export {
+  ProviderManager,
+  getProviderManager,
+} from './providers/ProviderManager';
 export type {
   ProviderRecord,
   ProviderType,

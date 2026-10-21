@@ -26,12 +26,18 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'crypto';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath, resolveScopedDbPath } from '@modules/core';
+// 多租户 P1（2026-10-21）：供应商/凭据按身份分实例（本地身份零变更）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
-  credentialStore,
+  getCredentialStore,
   CRED_STORED_MARKER,
   normalizeApiKey,
 } from '../credentials/CredentialStore.js';
@@ -168,6 +174,8 @@ const PROVIDERS_TABLE = 'ai_providers';
  */
 export class ProviderManager {
   private static instance: ProviderManager;
+  /** 多租户 P1：非本地身份的供应商库实例（各自独立 app.db） */
+  private static scopedInstances = new Map<string, ProviderManager>();
 
   private db: Database | null = null;
   private dbPath: string;
@@ -178,8 +186,23 @@ export class ProviderManager {
     this.dbPath = dbPath;
   }
 
-  /** 获取单例 */
+  /**
+   * 获取单例。
+   *
+   * 多租户 P1（2026-10-21）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该身份自己的实例
+   * （`<scoped>/app.db`）。**不做"共享实例换连接"**——实例同时持有内存 provider 注册表与
+   * 单字段 `db`，换连接会让并发请求读到别人的供应商/凭据。
+   */
   static getInstance(dbPath?: string): ProviderManager {
+    const principal = getRequestPrincipal();
+    if (!isLocalPrincipal(principal) && dbPath === undefined) {
+      const key = principalKeyOf(principal);
+      const existing = ProviderManager.scopedInstances.get(key);
+      if (existing) return existing;
+      const scoped = new ProviderManager(resolveScopedDbPath(principal));
+      ProviderManager.scopedInstances.set(key, scoped);
+      return scoped;
+    }
     if (!ProviderManager.instance) {
       ProviderManager.instance = new ProviderManager(dbPath);
     }
@@ -420,7 +443,7 @@ export class ProviderManager {
           'INVALID_API_KEY'
         );
       }
-      credentialStore.set(id, check.value);
+      getCredentialStore().set(id, check.value);
     }
 
     await this.runAsync(
@@ -480,7 +503,7 @@ export class ProviderManager {
     if (params.apiKey !== undefined) {
       // P0 凭据迁移：undefined=不改；''=保留；null=清除；非空=校验后设置（存 CredentialStore）
       if (params.apiKey === null) {
-        credentialStore.unset(id);
+        getCredentialStore().unset(id);
         fields.push('api_key = ?');
         values.push(null);
       } else if (params.apiKey !== '') {
@@ -495,7 +518,7 @@ export class ProviderManager {
             'INVALID_API_KEY'
           );
         }
-        credentialStore.set(id, check.value);
+        getCredentialStore().set(id, check.value);
         fields.push('api_key = ?');
         values.push(CRED_STORED_MARKER);
       }
@@ -662,7 +685,7 @@ export class ProviderManager {
     const record = await this.getProvider(id);
     if (!record) return false;
     if (this.isStoredMarker(record.apiKey)) {
-      return credentialStore.has(id);
+      return getCredentialStore().has(id);
     }
     return !!record.apiKey;
   }
@@ -685,7 +708,7 @@ export class ProviderManager {
         const id = row.id as string;
         const key = row.api_key as string;
         if (!key) continue;
-        credentialStore.set(id, key);
+        getCredentialStore().set(id, key);
         await this.runAsync(
           `UPDATE ${PROVIDERS_TABLE} SET api_key = ?, updated_at = ? WHERE id = ?`,
           [CRED_STORED_MARKER, Math.floor(Date.now() / 1000), id]
@@ -702,5 +725,13 @@ export class ProviderManager {
   }
 }
 
-/** 导出单例 */
-export const providerManager = ProviderManager.getInstance();
+/**
+ * 取 ProviderManager（多租户 P1 的唯一入口）。
+ *
+ * 本地身份（桌面 / CLI / 后台 / 无请求作用域）⇒ 原单例；已认证身份 ⇒ 该身份自己的实例。
+ * 之所以用**访问器**而非常量：常量会在模块求值时冻结成"本地实例"，请求级身份永远取不到
+ * 自己的供应商与凭据。
+ */
+export function getProviderManager(): ProviderManager {
+  return ProviderManager.getInstance();
+}

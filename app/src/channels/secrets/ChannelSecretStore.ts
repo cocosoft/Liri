@@ -18,6 +18,8 @@
 
 // 2026-08-06（P0-4）：凭据加密（敏感字段落库前加密，读取时解密）
 import { encryptOptions, decryptOptions } from './encryption';
+// 多租户 P3：身份感知（env 回退只允许本地身份，租户不得继承宿主机凭据）
+import { currentOwnerKey } from '@modules/core/identity/requestScope';
 
 /**
  * ChannelRegistry 最小接口（避免 import type 被 madge 视作循环依赖）
@@ -178,6 +180,9 @@ export class ChannelSecretStore {
     if (config?.options && Object.keys(config.options).length > 0) {
       return decryptOptions({ ...config.options });
     }
+    // 多租户 P3：env 是**宿主机**凭据 ⇒ 只有本地身份可回退；
+    // 租户身份读不到自己的配置就是"没有凭据"，绝不继承宿主机 token。
+    if (currentOwnerKey() !== undefined) return {};
     // P1-2：DB 无凭据 → env 回退
     return getEnvCredentials(channelId);
   }

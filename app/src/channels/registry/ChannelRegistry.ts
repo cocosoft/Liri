@@ -14,6 +14,8 @@
 import { EventEmitter } from 'events';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
+// 多租户 P3：通道配置/凭据按归属（租户）映射（本地身份 ⇒ 空键，零变更）
+import { currentOwnerKey } from '@modules/core/identity/requestScope';
 import type {
   ChannelCapabilities,
   ChannelMeta,
@@ -212,6 +214,13 @@ export interface ChannelConfig {
   type: string;
   enabled: boolean;
   options: Record<string, unknown>;
+  /**
+   * 归属键（多租户 P3：`<tenantId>:<userId>`）。
+   *
+   * 缺省 ⇒ 本地/部署级配置（桌面、CLI、纯 .env 部署与改造前完全一致）。
+   * 同一进程内 `(ownerKey, type)` 唯一 —— 不同租户可以各配一套同类型通道凭据。
+   */
+  ownerKey?: string;
 }
 
 /**
@@ -271,6 +280,8 @@ export class ChannelRegistry extends EventEmitter {
     });
 
     await this.createTable();
+    // 多租户 P3：存量库补 owner_key 列（幂等；NULL ⇒ 本地/部署级配置）
+    await this.migrateOwnerKeyColumn();
     await this.loadSavedConfigs();
 
     // 迁移：归一化通道名称为小写（消除大小写不一致导致的重复行）
@@ -291,6 +302,7 @@ export class ChannelRegistry extends EventEmitter {
           type TEXT NOT NULL,
           enabled INTEGER NOT NULL DEFAULT 0,
           options TEXT NOT NULL DEFAULT '{}',
+          owner_key TEXT,
           updated_at INTEGER NOT NULL DEFAULT 0
         )`,
         (err: Error | null) => (err ? reject(err) : resolve())
@@ -298,11 +310,58 @@ export class ChannelRegistry extends EventEmitter {
     });
   }
 
+  /**
+   * 多租户 P3：为存量库补 `owner_key` 列（幂等）。
+   *
+   * 存量行的 `owner_key` 为 `NULL` ⇒ 视为本地/部署级配置（与改造前逐字一致）。
+   */
+  private migrateOwnerKeyColumn(): Promise<void> {
+    return new Promise((resolve) => {
+      this.db!.all(
+        'PRAGMA table_info(channel_configs)',
+        (err: Error | null, rows: Array<{ name: string }>) => {
+          if (err || !rows?.some((r) => r.name === 'owner_key')) {
+            // 列已存在（旧库升级后）或探测失败 ⇒ 尝试 ALTER；已存在时报错也无害
+            this.db!.run(
+              'ALTER TABLE channel_configs ADD COLUMN owner_key TEXT',
+              (alterErr: Error | null) => {
+                if (alterErr && !/duplicate column/i.test(alterErr.message)) {
+                  handleError(alterErr, {
+                    module: 'channels:registry',
+                    action: 'migrateOwnerKeyColumn',
+                  });
+                }
+                resolve();
+              }
+            );
+            return;
+          }
+          resolve();
+        }
+      );
+    });
+  }
+
+  /** 配置在内存 map 中的键：`<ownerKey>::<type>`（本地 ⇒ `::<type>`） */
+  private configMapKey(ownerKey: string, type: string): string {
+    return `${ownerKey}::${type}`;
+  }
+
+  /** 配置行的主键：本地沿用 `type`（兼容存量行）；租户 ⇒ `<ownerKey>::<type>` */
+  private configStorageId(ownerKey: string, type: string): string {
+    return ownerKey ? `${ownerKey}::${type}` : type;
+  }
+
+  /** 当前请求身份的归属键（本地 / 无作用域 ⇒ `''`） */
+  private currentOwner(): string {
+    return currentOwnerKey() ?? '';
+  }
+
   /** 从 DB 加载已保存的配置到内存 */
   private loadSavedConfigs(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.db!.all(
-        'SELECT id, name, type, enabled, options FROM channel_configs',
+        'SELECT id, name, type, enabled, options, owner_key FROM channel_configs',
         (
           err: Error | null,
           rows: Array<{
@@ -311,6 +370,7 @@ export class ChannelRegistry extends EventEmitter {
             type: string;
             enabled: number;
             options: string;
+            owner_key?: string | null;
           }>
         ) => {
           if (err) {
@@ -330,8 +390,9 @@ export class ChannelRegistry extends EventEmitter {
               });
             }
 
-            // 统一用 type（通道标识，如 "qq"）作为 configs map key，与 register/updateConfig/getConfig 保持一致
-            const key = row.type || row.name;
+            const ownerKey = row.owner_key ?? '';
+            // 多租户 P3：内存键带上归属 ⇒ 同类型的租户配置与本地配置可并存
+            const key = this.configMapKey(ownerKey, row.type || row.name);
 
             // 若因历史数据重复（同一 key 多行），保留含凭据的配置
             const existing = this.configs.get(key);
@@ -348,6 +409,7 @@ export class ChannelRegistry extends EventEmitter {
               type: row.type || row.id,
               enabled: row.enabled === 1,
               options,
+              ...(ownerKey ? { ownerKey } : {}),
             });
           }
           resolve();
@@ -364,18 +426,29 @@ export class ChannelRegistry extends EventEmitter {
         return;
       }
       const { type, name, enabled, options } = config;
+      const ownerKey = config.ownerKey ?? '';
       const optionsJson = JSON.stringify(options || {});
+      const id = this.configStorageId(ownerKey, type);
 
       this.db!.run(
-        `INSERT INTO channel_configs (id, name, type, enabled, options, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO channel_configs (id, name, type, enabled, options, owner_key, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name,
            type = excluded.type,
            enabled = excluded.enabled,
            options = excluded.options,
+           owner_key = excluded.owner_key,
            updated_at = excluded.updated_at`,
-        [type, name, type, enabled ? 1 : 0, optionsJson, Date.now()],
+        [
+          id,
+          name,
+          type,
+          enabled ? 1 : 0,
+          optionsJson,
+          ownerKey || null,
+          Date.now(),
+        ],
         (err: Error | null) => {
           if (err) {
             handleError(err, {
@@ -434,17 +507,19 @@ export class ChannelRegistry extends EventEmitter {
   }
 
   /**
-   * 统一 key 解析（DEEP-10 修复）
+   * 统一 key 解析（DEEP-10 修复 + 多租户 P3 身份感知）
    *
-   * configs map 以 type（通道标识）为主键；但历史数据/前端可能按 name 查询。
-   * 此函数同时支持 type 和 name 两种查询方式，返回找到的 config。
+   * **只在当前身份的配置里查找**：先按 `<ownerKey>::<type>` 直取，再回退按 name / type 匹配
+   * （前端可能传显示名）。本地身份（`ownerKey=''`）⇒ 与改造前等价，只是内存键多了 `::` 前缀。
    */
-  private getConfigResolved(key: string): ChannelConfig | undefined {
-    // 优先按 key 直接命中（type 或 name 恰好等于 key）
-    const direct = this.configs.get(key);
+  private getConfigResolved(
+    key: string,
+    ownerKey = this.currentOwner()
+  ): ChannelConfig | undefined {
+    const direct = this.configs.get(this.configMapKey(ownerKey, key));
     if (direct) return direct;
-    // 回退：按 name 或 type 匹配（前端可能传显示名）
     for (const config of this.configs.values()) {
+      if ((config.ownerKey ?? '') !== ownerKey) continue;
       if (config.name === key || config.type === key) return config;
     }
     return undefined;
@@ -483,14 +558,16 @@ export class ChannelRegistry extends EventEmitter {
     // 检查是否已有持久化的配置（从 DB 加载），有则保留，避免覆盖用户已保存的凭据
     const existingConfig = this.getConfigResolved(adapted.name);
     if (!existingConfig) {
+      const owner = this.currentOwner();
       const config: ChannelConfig = {
         name: adapted.name,
         type: adapted.type,
         enabled: adapted.enabled,
         options: {},
+        ...(owner ? { ownerKey: owner } : {}),
       };
-      // DEEP-10：统一以 type 作为 configs map 的 key
-      this.configs.set(adapted.type, config);
+      // 多租户 P3：内存键 `<ownerKey>::<type>`（本地身份 ⇒ `::<type>`）
+      this.configs.set(this.configMapKey(owner, adapted.type), config);
 
       // 异步持久化（不阻塞调用者，失败时自动记录错误日志）
       this.persistConfig(config)
@@ -537,11 +614,14 @@ export class ChannelRegistry extends EventEmitter {
     if (channel) {
       channel.disconnect();
       this.channels.delete(name);
-      // DEEP-10：configs 以 type 为 key，删除时用 channel.type
-      this.configs.delete(channel.type);
+      // 多租户 P3：删除**当前身份**的配置（本地身份 ⇒ 原 `type` 行，零变更）
+      const config = this.getConfigResolved(name);
+      const owner = config?.ownerKey ?? '';
+      const type = config?.type ?? channel.type;
+      this.configs.delete(this.configMapKey(owner, type));
 
       // 异步删除持久化配置（不阻塞调用者，失败时自动记录错误日志）
-      this.deletePersistedConfig(channel.type)
+      this.deletePersistedConfig(this.configStorageId(owner, type))
         .then((deleted) => {
           if (!deleted) {
             logger.warning(`注销通道 ${name}: 内存已更新但 DB 删除失败`);
@@ -609,17 +689,34 @@ export class ChannelRegistry extends EventEmitter {
       clearOptions?: boolean;
     }
   ): boolean {
-    const config = this.getConfigResolved(name);
-    if (!config) return false;
+    let config = this.getConfigResolved(name);
+    if (!config) {
+      const owner = this.currentOwner();
+      // 本地身份保持既有语义：未知通道 ⇒ false（桌面行为零变更）
+      if (!owner) return false;
+      // 多租户 P3：租户首次保存某通道时**创建自己的配置行**
+      //（租户通道不需要运行时实例，配置/凭据仍需落库）。
+      config = {
+        name: changes.name ?? name,
+        type: name,
+        enabled: changes.enabled ?? true,
+        options: {},
+        ownerKey: owner,
+      };
+      this.configs.set(this.configMapKey(owner, name), config);
+    }
 
     if (changes.name !== undefined) {
       config.name = changes.name;
     }
     if (changes.enabled !== undefined) {
       config.enabled = changes.enabled;
-      // P1-1：同步内存 ChannelInterface.enabled，使 getEnabled()/lazyConnectChannels 立即生效
-      const ch = this.channels.get(name) ?? this.channels.get(config.type);
-      if (ch) ch.enabled = changes.enabled;
+      // P1-1：同步内存 ChannelInterface.enabled，使 getEnabled()/lazyConnectChannels 立即生效。
+      // 多租户 P3：运行时实例是**部署级（本地）**的 —— 租户只改自己的配置行，不碰共享实例。
+      if ((config.ownerKey ?? '') === '') {
+        const ch = this.channels.get(name) ?? this.channels.get(config.type);
+        if (ch) ch.enabled = changes.enabled;
+      }
     }
     if (changes.options !== undefined) {
       if (changes.clearOptions) {
@@ -653,10 +750,13 @@ export class ChannelRegistry extends EventEmitter {
   }
 
   /**
-   * 获取所有配置
+   * 获取所有配置（**当前身份**的；本地身份 ⇒ 部署级配置，与改造前等价）
    */
   getAllConfigs(): ChannelConfig[] {
-    return Array.from(this.configs.values());
+    const owner = this.currentOwner();
+    return Array.from(this.configs.values()).filter(
+      (c) => (c.ownerKey ?? '') === owner
+    );
   }
 
   /**

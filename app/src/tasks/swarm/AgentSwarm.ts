@@ -441,10 +441,8 @@ function isBatchBudgetAllowed(
  */
 export class AgentSwarm {
   async run(options: AgentSwarmOptions): Promise<AgentSwarmResult> {
-    const { tasks, goal, executor, isolation, signal } = options;
+    const { tasks, signal } = options;
     const concurrency = options.maxConcurrency ?? DEFAULT_SWARM_CONCURRENCY;
-    // G-02：预算会话键（批次级熔断的归因键）
-    const budgetSessionId = options.sessionId ?? 'swarm';
 
     // 批次隔离键（2026-10-21，建议「ACP 会话级并发批次键」）：同一次 run 的所有事件共享该键，
     // 事件总线/耗时配对据此筛分 ⇒ 同会话并发两个 swarm 时不会互相串线。
@@ -459,6 +457,42 @@ export class AgentSwarm {
       concurrency,
       ...(options.sessionId ? { sessionId: options.sessionId } : {}),
     });
+
+    // 严格闭合（2026-10-21）：dispatch 之后的**任何**异常路径也必须发射 COMPLETE，
+    // 否则编排配对（orchestrationPairing.ts）留下孤儿 dispatch。当前主体各阶段已自捕获
+    //（`Promise.allSettled` + per-worker try/catch），本闭合是对未来改动的保险；
+    // 异常路径的 COMPLETE 带 `errored` 布尔标记，正常路径载荷与此前逐字一致（零行为变更）。
+    let outcome: AgentSwarmResult | null = null;
+    let errored = false;
+    try {
+      outcome = await this.runInner(options, swarmSessionId);
+      return outcome;
+    } catch (err) {
+      errored = true;
+      throw err;
+    } finally {
+      // 批次收尾事件：与 SWARM_DISPATCH 用同一 `swarmSessionId` 配对（见 orchestrationPairing.ts）。
+      // 结果用**布尔字段**而非状态字面量（`completed`/`failed` 属状态机词汇，会被
+      // `lint:state-ratchet` 判为未报备；且 `status` 是既有错误统计的维度键 ⇒ 不污染口径）。
+      metrics.recordEvent(OrchestrationEventType.SWARM_COMPLETE, undefined, {
+        swarmSessionId,
+        passedAll: outcome?.allPassed ?? false,
+        aborted: signal?.aborted === true,
+        workerCount: outcome?.workers.length ?? 0,
+        ...(errored ? { errored: true } : {}),
+        ...(options.sessionId ? { sessionId: options.sessionId } : {}),
+      });
+    }
+  }
+
+  private async runInner(
+    options: AgentSwarmOptions,
+    swarmSessionId: string
+  ): Promise<AgentSwarmResult> {
+    const { tasks, goal, executor, isolation, signal } = options;
+    const concurrency = options.maxConcurrency ?? DEFAULT_SWARM_CONCURRENCY;
+    // G-02：预算会话键（批次级熔断的归因键）
+    const budgetSessionId = options.sessionId ?? 'swarm';
 
     // 黑板：总目标 + 子任务清单（注入每个 worker）
     const blackboard = [
@@ -659,16 +693,7 @@ export class AgentSwarm {
     const allPassed =
       workerResults.length > 0 && workerResults.every((r) => r.ok);
 
-    // 批次收尾事件：与 SWARM_DISPATCH 用同一 `swarmSessionId` 配对（见 orchestrationPairing.ts）。
-    // 结果用**布尔字段**而非状态字面量（`completed`/`failed` 属状态机词汇，会被
-    // `lint:state-ratchet` 判为未报备；且 `status` 是既有错误统计的维度键 ⇒ 不污染口径）。
-    metrics.recordEvent(OrchestrationEventType.SWARM_COMPLETE, undefined, {
-      swarmSessionId,
-      passedAll: allPassed,
-      aborted: signal?.aborted === true,
-      workerCount: workerResults.length,
-      ...(options.sessionId ? { sessionId: options.sessionId } : {}),
-    });
+    // 批次收尾事件（SWARM_COMPLETE）已上移至 `run()` 的 finally —— 严格闭合，见上。
 
     return {
       swarmSessionId,

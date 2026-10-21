@@ -33,6 +33,26 @@ export interface Principal {
 export const LOCAL_TENANT_ID = 'local';
 export const LOCAL_USER_ID = 'local';
 
+/**
+ * 租户标识的格式约束：**首字符字母/数字**、长度 1–64、仅 `[A-Za-z0-9._-]`。
+ *
+ * 禁止冒号是硬约束：归属键 `<tenantId>:<userId>` 由 `principalFromKey` 按**第一个**
+ * 冒号切分 —— 含冒号的租户键会被还原错（`acme:x` ⇒ 租户 `acme`、用户 `x`）。
+ */
+const TENANT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
+/**
+ * 校验**外部声明的**租户标识（注册 / 配置 / 迁移入参）：合法 ⇒ 返回 trim 后的值；
+ * 缺失 / 空白 / 格式非法 ⇒ `null`（调用方据此拒绝或回落，**不猜**）。
+ *
+ * 只做格式校验，**不判断租户是否存在**（存在性由存储层负责）。
+ */
+export function parseTenantId(raw?: string | null): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) return null;
+  return TENANT_ID_PATTERN.test(trimmed) ? trimmed : null;
+}
+
 /** 桌面端默认身份。只读语义：调用方不应原地修改，需要变体时走 `normalizePrincipal` */
 export const LOCAL_PRINCIPAL: Principal = {
   tenantId: LOCAL_TENANT_ID,

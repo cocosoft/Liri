@@ -46,6 +46,13 @@ export interface StoredAuthUser {
   salt: string;
   role: AuthUserRole;
   createdAt: number;
+  /**
+   * 所属租户（多租户 P3：**账号属性**，非请求声明）。
+   *
+   * 缺省（= 老用户的 users.json 无此字段）⇒ 空，登录后按 `'local'` 解析 —— 桌面端
+   * 与改造前逐字等价；请求头/登录 body 都**不能**切换租户。
+   */
+  tenantId?: string;
 }
 
 function hashPassword(password: string, salt: string): string {
@@ -115,11 +122,12 @@ export class AuthUserStore {
     return this.users.has(username);
   }
 
-  /** 注册用户（密码哈希落盘，默认 user 角色） */
+  /** 注册用户（密码哈希落盘，默认 user 角色；`tenantId` 缺省 ⇒ 本地租户） */
   addUser(
     username: string,
     password: string,
-    role: AuthUserRole = 'user'
+    role: AuthUserRole = 'user',
+    tenantId?: string
   ): void {
     const salt = randomBytes(8).toString('hex');
     this.users.set(username, {
@@ -128,6 +136,7 @@ export class AuthUserStore {
       salt,
       role,
       createdAt: Date.now(),
+      ...(tenantId ? { tenantId } : {}),
     });
     this.save();
   }

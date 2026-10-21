@@ -25,15 +25,40 @@ import { sendError, readRequestBody } from './handler-utils';
 import { randomIdSuffix } from '../../../utils/common';
 import { AuthUserStore } from '../auth/AuthUserStore';
 import { PermissionManager, RoleType } from '@modules/permission';
+// 多租户 P3：租户是**账号属性**，注册时按开关绑定，登录后随 token 传递
+import {
+  LOCAL_TENANT_ID,
+  parseTenantId,
+} from '@modules/core/identity/principal';
 
 // 演进项（真实用户体系基础）：用户持久化到 {data}/auth/users.json（密码哈希），
 // tokens 保持内存（重启后需重新登录）
-const authUserStore = new AuthUserStore();
-/** 会话令牌（内存态，重启失效）。导出供测试注入与诊断。 */
+let authUserStore = new AuthUserStore();
+/**
+ * 会话令牌（内存态，重启失效）。导出供测试注入与诊断。
+ *
+ * `tenantId` 来自**账号属性**（`users.json`），不是请求自报；缺省 ⇒ `'local'`。
+ */
 export const authTokens = new Map<
   string,
-  { username: string; permissions: string[] }
+  { username: string; permissions: string[]; tenantId?: string }
 >();
+
+/** 测试注入：替换用户存储（避免写真实 `{data}/auth/users.json`）；生产路径不调用 */
+export function __setAuthUserStoreForTest(store: AuthUserStore): void {
+  authUserStore = store;
+}
+
+/**
+ * 是否允许**注册时自报租户**（默认关）。
+ *
+ * 默认关 = 注册一律落 `'local'`（桌面 / 单租户部署零变更）；服务端多租户部署若要
+ * 支持"自助入租户"，由部署方显式开 `LIRI_TENANT_SELF_REGISTER=1`。
+ * **登录 / 请求头都不允许切换租户** —— 租户是账号属性，授权面在注册或未来的管理员接口。
+ */
+export function isTenantSelfRegistrationEnabled(): boolean {
+  return process.env['LIRI_TENANT_SELF_REGISTER'] === '1';
+}
 
 /**
  * 权限 → 角色映射（**唯一实现**）。登录写进程级角色与请求级身份解析共用，
@@ -122,6 +147,8 @@ export async function handleAuthLogin(
     authTokens.set(token, {
       username,
       permissions,
+      // 租户取自**账号属性**（老用户无该字段 ⇒ 空 ⇒ 解析时回落 `'local'`）
+      tenantId: storedUser.tenantId,
     });
     // E↔A 打通：登录成功注入认证角色到工具权限决策
     applyAuthRoleToPermissionManager(permissions);
@@ -148,6 +175,43 @@ export async function handleAuthLogin(
 }
 
 /**
+ * 注册时的租户判定（与 `isTenantSelfRegistrationEnabled` 同源）
+ *
+ * - 未声明 ⇒ `LOCAL_TENANT_ID`（桌面 / 单租户部署零变更）；
+ * - 声明但格式非法（空白 / 含冒号 / 超长 / 非法字符）⇒ 拒绝（**不静默降级**，
+ *   否则"以为进了 acme、实际落在 local"这种错归属最难排查）；
+ * - 声明合法但自助入租户开关未开 ⇒ 拒绝（明确 400，而不是悄悄落 local）；
+ * - 声明 `'local'` 恒允许（等价于未声明）。
+ */
+export function decideRegistrationTenant(
+  declared: unknown
+): { ok: true; tenantId: string } | { ok: false; reason: string } {
+  if (declared === undefined || declared === null) {
+    return { ok: true, tenantId: LOCAL_TENANT_ID };
+  }
+  if (typeof declared !== 'string') {
+    return { ok: false, reason: 'tenantId must be a string' };
+  }
+  const parsed = parseTenantId(declared);
+  if (!parsed) {
+    return {
+      ok: false,
+      reason:
+        'Invalid tenantId: 1-64 chars of [A-Za-z0-9._-], starting with alphanumeric, no colon',
+    };
+  }
+  if (parsed === LOCAL_TENANT_ID) return { ok: true, tenantId: parsed };
+  if (!isTenantSelfRegistrationEnabled()) {
+    return {
+      ok: false,
+      reason:
+        'Tenant self-registration is disabled (set LIRI_TENANT_SELF_REGISTER=1 to enable)',
+    };
+  }
+  return { ok: true, tenantId: parsed };
+}
+
+/**
  * 用户注册 POST /v1/auth/register
  */
 export async function handleAuthRegister(
@@ -156,7 +220,12 @@ export async function handleAuthRegister(
 ): Promise<void> {
   try {
     const body = await readRequestBody(req);
-    const { username, password } = JSON.parse(body);
+    const payload = JSON.parse(body) as {
+      username?: string;
+      password?: string;
+      tenantId?: unknown;
+    };
+    const { username, password } = payload;
 
     if (!username || !password) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -168,6 +237,14 @@ export async function handleAuthRegister(
       return;
     }
 
+    const tenantDecision = decideRegistrationTenant(payload.tenantId);
+    if (!tenantDecision.ok) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: tenantDecision.reason } }));
+      return;
+    }
+    const tenantId = tenantDecision.tenantId;
+
     if (authUserStore.hasUser(username)) {
       res.writeHead(409, { 'Content-Type': 'application/json' });
       res.end(
@@ -178,11 +255,12 @@ export async function handleAuthRegister(
       return;
     }
 
-    authUserStore.addUser(username, password);
+    authUserStore.addUser(username, password, 'user', tenantId);
     const token = `token_${Date.now()}_${randomIdSuffix(32)}`;
     authTokens.set(token, {
       username,
       permissions: ['read', 'write'],
+      tenantId,
     });
     // E↔A 打通：注册成功注入认证角色到工具权限决策
     applyAuthRoleToPermissionManager(['read', 'write']);
@@ -261,6 +339,8 @@ export async function handleAuthMe(
         trustLevel: 2,
         created_at: now,
         permissions: session.permissions,
+        // 多租户 P3：当前会话生效的租户（缺省 / 老 token ⇒ local）
+        tenantId: session.tenantId ?? LOCAL_TENANT_ID,
       })
     );
   } catch (err) {

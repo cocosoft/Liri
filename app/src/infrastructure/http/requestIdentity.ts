@@ -5,12 +5,16 @@
  *   - 无 `Authorization: Bearer` ⇒ `LOCAL_PRINCIPAL`（本地回环信任基线，桌面端行为不变）；
  *   - 非 Bearer 形式（如 `x-api-key`、`Token ...`）⇒ `LOCAL_PRINCIPAL`
  *     —— 共享密钥代表**机器级信任**，不携带用户身份；
- *   - Bearer 且在 `authTokens` 里 ⇒ `{ tenantId: 'local', userId: username, roles: [角色] }`
+ *   - Bearer 且在 `authTokens` 里 ⇒ `{ tenantId: <账号绑定租户>, userId: username, roles: [角色] }`
  *     —— 角色由 `resolveRoleFromPermissions` 映射（与登录写进程级角色**同一实现**），
- *     故请求级判定与改造前结果一致；租户维度待 P1 存储分区引入租户目录后填充，
- *     阶段 2 不臆造租户；
+ *     故请求级判定与改造前结果一致；
  *   - Bearer 但无效 ⇒ `LOCAL_PRINCIPAL`（该请求已在 `LocalHTTPService.handleRequest`
  *     的鉴权分支被 401 掉，这里不重复抛错，也不编造身份）。
+ *
+ * **租户从哪来（多租户 P3）**：`tenantId` 是**账号属性**（`{data}/auth/users.json`），
+ * 注册时按 `LIRI_TENANT_SELF_REGISTER` 开关绑定、登录时写进 token session；
+ * 老用户 / 老 token 无该字段 ⇒ 回落 `LOCAL_TENANT_ID`（桌面端逐字不变）。
+ * 请求头与登录 body 都**不能**切换租户 —— 否则等于让调用方自报身份。
  *
  * 为什么动态 `import('auth-handlers')`：与该文件既有做法一致
  * （`LocalHTTPService.ts` 的 401 分支即如此）—— 避免 http 根模块静态依赖 handlers
@@ -29,6 +33,8 @@ import { runWithPrincipal } from '../../core/identity/requestScope.js';
 interface AuthTokenSession {
   username: string;
   permissions: string[];
+  /** 账号绑定租户（缺省 ⇒ 本地身份；见 `auth-handlers#decideRegistrationTenant`） */
+  tenantId?: string;
 }
 
 export async function resolveRequestPrincipal(
@@ -46,6 +52,8 @@ export async function resolveRequestPrincipal(
   if (!session) return LOCAL_PRINCIPAL;
 
   return normalizePrincipal({
+    // 租户取自账号绑定；缺失 / 空白 ⇒ normalizePrincipal 回落 `'local'`（不编造租户）
+    tenantId: session.tenantId,
     userId: session.username,
     // 角色口径与登录写进程级角色**同源**（`resolveRoleFromPermissions`）
     // ⇒ 请求级判定与改造前的进程级判定结果一致，只是不再互相覆盖。

@@ -155,6 +155,15 @@ export class ChannelRealtimeMonitor {
    * 否则租户通道的健康状态与断连在监控面/事件流里完全不可见。
    */
   private readonly tenantChannels = new Map<string, IChannelPlugin>();
+  /**
+   * 租户通道的**自愈重连执行器**（由 `setupChannels` 注入，多租户 P3）。
+   *
+   * 监控器只有 `<ownerKey>::<type>` 这个键、**不持有凭据**：重连必须在归属者身份
+   * 作用域内重新解析该租户的凭据再 `connect`，属 `setupChannels` 的职责。
+   * 未注入 ⇒ 保持改造前语义（只探测、不自愈）。
+   */
+  private tenantReconnector: ((channelId: string) => Promise<boolean>) | null =
+    null;
   private readonly eventEmitter = new EventEmitter();
 
   private probeTimer: ReturnType<typeof setInterval> | null = null;
@@ -216,8 +225,23 @@ export class ChannelRealtimeMonitor {
    */
   registerTenantChannel(channelId: string, plugin: IChannelPlugin): void {
     this.tenantChannels.set(channelId, plugin);
-    this.ensureEntry(channelId);
+    const entry = this.ensureEntry(channelId);
+    // 登记发生在"连接成功之后" ⇒ 连接过即置 everConnected（自愈边界：只拉起连过的实例）
+    if (plugin.lifecycle.getStatus().connected) {
+      entry.everConnected = true;
+    }
     logger.info(`监控器跟踪租户通道: ${channelId}`);
+  }
+
+  /**
+   * 注入/清空租户通道自愈重连执行器（`setupChannels` 注入，**幂等**）
+   *
+   * @param fn `<ownerKey>::<type>` ⇒ 是否已重新连通；`null` ⇒ 关闭租户自愈
+   */
+  setTenantReconnector(
+    fn: ((channelId: string) => Promise<boolean>) | null
+  ): void {
+    this.tenantReconnector = fn;
   }
 
   /** 注销租户通道实例（断开/删除租户时调用，**幂等**）*/
@@ -388,9 +412,9 @@ export class ChannelRealtimeMonitor {
       }
     }
 
-    // 租户通道（多租户 P3）：只做健康探测 + 状态/事件投影，**不做自愈重连** ——
-    // 重连必须在归属者身份作用域内解析凭据并 connect，属 setupChannels 的职责
-    //（见 `stopTenantChannels` 同源约束），在此自行重连会跨身份复用凭据。
+    // 租户通道（多租户 P3）：健康探测 + 状态/事件投影；不健康达阈值时，若
+    // `setupChannels` 注入了 `tenantReconnector` 则退避自愈重连 —— 监控器**不解析凭据**，
+    // 重连在归属者身份作用域内由 setupChannels 执行（见 `attemptTenantReconnect`）。
     for (const channelId of this.tenantChannels.keys()) {
       try {
         await this.probeTenantOnce(channelId);
@@ -404,7 +428,7 @@ export class ChannelRealtimeMonitor {
     }
   }
 
-  /** 租户通道的单轮健康探测（只读：更新内存状态 + 发事件，不触发重连） */
+  /** 租户通道的单轮健康探测（更新内存状态 + 发事件；达阈值时才调度自愈） */
   private async probeTenantOnce(channelId: string): Promise<void> {
     const plugin = this.tenantChannels.get(channelId);
     if (!plugin) return;
@@ -435,6 +459,7 @@ export class ChannelRealtimeMonitor {
     entry.lastProbeAt = Date.now();
 
     if (entry.healthy === true) {
+      entry.everConnected = true;
       if (entry.status !== 'connected') {
         this.setStatus(channelId, 'connected', { reason: 'tenant-probe' });
       }
@@ -456,7 +481,123 @@ export class ChannelRealtimeMonitor {
           data: { latencyMs: entry.latencyMs, scope: 'tenant' },
         });
         this.setStatus(channelId, 'error', { reason: 'tenant-probe-failed' });
+        // 自愈重连（仅在 setupChannels 注入执行器时；否则保持"只探测"语义）
+        this.scheduleTenantReconnect(channelId);
       }
+    }
+  }
+
+  /**
+   * 调度租户通道的退避重连（与部署级 `scheduleReconnect` 同口径）
+   *
+   * 自愈边界同部署级：只拉起 `everConnected` 的实例；未注入执行器 ⇒ 直接跳过
+   *（保持"只探测不自愈"）。
+   */
+  private scheduleTenantReconnect(channelId: string): void {
+    const reconnect = this.tenantReconnector;
+    if (!reconnect || !this.tenantChannels.has(channelId)) return;
+    const entry = this.ensureEntry(channelId);
+    if (entry.reconnectTimer || entry.reconnecting) {
+      logger.debug(`租户通道重连调度跳过（已有定时器/执行中）: ${channelId}`);
+      return;
+    }
+    if (!entry.everConnected) {
+      logger.info(`租户通道重连调度跳过（从未连通过）: ${channelId}`);
+      return;
+    }
+
+    entry.reconnectCount += 1;
+    const delay = Math.min(
+      this.config.reconnectBaseMs * 2 ** (entry.reconnectCount - 1),
+      this.config.reconnectMaxMs
+    );
+    logger.info(`租户通道退避重连已调度: ${channelId}`, {
+      attempt: entry.reconnectCount,
+      delayMs: delay,
+    });
+
+    this.clearReconnectTimer(channelId);
+    this.setStatus(channelId, 'reconnecting', {
+      attempt: entry.reconnectCount,
+      delayMs: delay,
+      scope: 'tenant',
+    });
+    this.emitEvent({
+      type: 'reconnecting',
+      channelId,
+      timestamp: Date.now(),
+      data: { attempt: entry.reconnectCount, delayMs: delay, scope: 'tenant' },
+    });
+
+    entry.reconnectTimer = setTimeout(() => {
+      entry.reconnectTimer = null;
+      void this.attemptTenantReconnect(channelId);
+    }, delay);
+    entry.reconnectTimer.unref();
+  }
+
+  /** 执行一次租户通道重连（凭据解析在 owner 作用域内完成，由注入的执行器负责） */
+  private async attemptTenantReconnect(channelId: string): Promise<void> {
+    const reconnect = this.tenantReconnector;
+    const plugin = this.tenantChannels.get(channelId);
+    const entry = this.ensureEntry(channelId);
+    if (!reconnect || !plugin) {
+      this.clearReconnectTimer(channelId);
+      this.setStatus(channelId, 'disconnected', { reason: 'tenant-gone' });
+      return;
+    }
+
+    entry.reconnecting = true;
+    logger.info(`租户通道自动重连开始: ${channelId}`, {
+      attempt: entry.reconnectCount,
+    });
+    this.setStatus(channelId, 'connecting', { attempt: entry.reconnectCount });
+
+    let recovered = false;
+    try {
+      recovered = await reconnect(channelId);
+      if (recovered && plugin.lifecycle.getStatus().connected) {
+        entry.reconnectCount = 0;
+        entry.consecutiveProbeFailures = 0;
+        entry.lastError = null;
+        logger.info(`租户通道自动重连成功: ${channelId}`);
+        this.setStatus(channelId, 'connected', {
+          reason: 'tenant-auto-reconnect',
+        });
+        this.emitEvent({
+          type: 'recovered',
+          channelId,
+          timestamp: Date.now(),
+          data: { via: 'tenant-auto-reconnect', scope: 'tenant' },
+        });
+        return;
+      }
+      recovered = false;
+      entry.lastError = '租户通道重连后仍未连通';
+      this.appendErrorSnapshot(channelId, '租户通道重连后仍未连通');
+      logger.warning(`租户通道重连后仍未连通: ${channelId}`, {
+        attempt: entry.reconnectCount,
+      });
+      this.setStatus(channelId, 'error', { attempt: entry.reconnectCount });
+    } catch (error) {
+      recovered = false;
+      const message = error instanceof Error ? error.message : String(error);
+      entry.lastError = `租户通道重连异常: ${message}`;
+      this.appendErrorSnapshot(channelId, `租户通道重连异常: ${message}`);
+      await handleError(error, {
+        module: 'channels:monitor',
+        action: 'attemptTenantReconnect',
+        context: { channelId, attempt: entry.reconnectCount },
+      });
+      this.setStatus(channelId, 'error', { attempt: entry.reconnectCount });
+    } finally {
+      entry.reconnecting = false;
+    }
+
+    // 失败 ⇒ 下一轮退避（在 `reconnecting` 复位之后调度，否则会被上面的守卫挡掉；
+    // 已注销的实例由 `scheduleTenantReconnect` 的 `tenantChannels.has` 守卫拦下）
+    if (!recovered) {
+      this.scheduleTenantReconnect(channelId);
     }
   }
 

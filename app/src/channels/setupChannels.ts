@@ -425,7 +425,11 @@ async function registerTenantChannelWithMonitor(
   try {
     const { getChannelRealtimeMonitor } =
       await import('./monitoring/ChannelRealtimeMonitor');
-    getChannelRealtimeMonitor().registerTenantChannel(name, plugin);
+    const monitor = getChannelRealtimeMonitor();
+    // 自愈执行器（幂等注入）：监控器只有 `<ownerKey>::<type>` 这个键、不持有凭据，
+    // 重连必须回到归属者身份作用域内重新解析凭据 ⇒ 由本模块提供执行器。
+    monitor.setTenantReconnector(reconnectTenantChannel);
+    monitor.registerTenantChannel(name, plugin);
   } catch (error) {
     await handleError(error, {
       module: 'channels:setup',
@@ -433,6 +437,64 @@ async function registerTenantChannelWithMonitor(
       context: { channelName: name },
     });
   }
+}
+
+/**
+ * `reconnectTenantChannelInScope` 的可替换依赖（缺省走真实实现；测试注入用）
+ */
+export interface TenantReconnectDeps {
+  /** 解析该身份下该通道的凭据（缺省 `ChannelSecretStore#get`，会随当前身份返回不同值） */
+  resolveCredentials?: (channelId: string) => Record<string, unknown>;
+}
+
+/**
+ * 在**归属者身份作用域**内重连一个租户通道
+ *
+ * 为什么不能由监控器自己做：它只有 `<ownerKey>::<type>` 这个键、**不持有凭据**；
+ * 租户凭据由 `ChannelSecretStore` 按身份解析 —— 在宿主作用域里取会拿到宿主的凭据
+ *（= 跨身份复用）。故这里先 `principalFromKey` 还原身份，再在 `runWithPrincipal`
+ * 内重新取凭据并 `disconnect → connect`。
+ *
+ * @param ownerKey 归属键 `<tenantId>:<userId>`（非法 ⇒ `false`，**不编造身份**）
+ * @returns 是否已重新连通（以 `lifecycle.getStatus().connected` 为准）
+ */
+export async function reconnectTenantChannelInScope(
+  ownerKey: string,
+  plugin: IChannelPlugin,
+  deps: TenantReconnectDeps = {}
+): Promise<boolean> {
+  const principal = principalFromKey(ownerKey);
+  if (!principal) {
+    logger.warning(`租户通道重连跳过（归属键非法，不编造身份）: ${ownerKey}`);
+    return false;
+  }
+
+  const resolveCredentials =
+    deps.resolveCredentials ??
+    ((channelId: string) => ChannelSecretStore.getInstance().get(channelId));
+
+  return runWithPrincipal(principal, async () => {
+    try {
+      await plugin.lifecycle.disconnect();
+    } catch (error) {
+      // 断连失败不阻断重连尝试（可能已处于半断开态），但要留痕（CS03-002）
+      await handleError(error, {
+        module: 'channels:setup',
+        action: 'reconnectTenantChannel.disconnect',
+        context: { channelId: plugin.id, ownerKey },
+      });
+    }
+    const credentials = resolveCredentials(plugin.id);
+    await plugin.lifecycle.connect(credentials);
+    return plugin.lifecycle.getStatus().connected;
+  });
+}
+
+/** 监控器自愈入口：按实例名重连；实例已停止/删除 ⇒ `false`（不复活） */
+async function reconnectTenantChannel(name: string): Promise<boolean> {
+  const entry = _tenantInstances.find((item) => item.name === name);
+  if (!entry) return false;
+  return reconnectTenantChannelInScope(entry.ownerKey, entry.plugin);
 }
 
 async function unregisterTenantChannelFromMonitor(name: string): Promise<void> {

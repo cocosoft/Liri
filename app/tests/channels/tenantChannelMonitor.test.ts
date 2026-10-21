@@ -7,7 +7,8 @@
  *
  * 覆盖：
  * ① 登记后出现在 `getStatusAll()` / `getChannelStatus()`，类型取插件 id；
- * ② 健康探测生效：不健康达阈值 ⇒ 状态转 `error` 并写快照（**不自愈重连**）；
+ * ② 健康探测生效：不健康达阈值 ⇒ 状态转 `error` 并写快照（**未注入重连执行器 ⇒ 不自愈**，
+ *    自愈路径见 `tenantChannelReconnect.test.ts`）；
  * ③ 注销后从状态面消失。
  */
 import { describe, it, expect } from 'bun:test';
@@ -59,7 +60,7 @@ describe('ChannelRealtimeMonitor：租户实例', () => {
     expect(monitor.getChannelStatus('not-registered')).toBeNull();
   });
 
-  it('探测不健康达阈值 ⇒ error + 快照（且**不触发自愈重连**）', async () => {
+  it('探测不健康达阈值 ⇒ error + 快照（未注入执行器 ⇒ 不自愈）', async () => {
     const monitor = new ChannelRealtimeMonitor({
       probeIntervalMs: 10,
       maxConsecutiveProbeFailures: 2,

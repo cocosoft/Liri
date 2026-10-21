@@ -28,6 +28,8 @@ import { dispatchGoalRoutes } from './routes/goal-routes';
 import { dispatchA2ARoutes } from './routes/a2a-routes';
 // 2026-10-08：AI-VFS 用户可配置挂载面（`ai-vfs-user-mountable.md §8.2`）
 import { dispatchVfsMountRoutes } from './routes/vfs-mounts-routes';
+// 多租户 P5（2026-10-21）：删除租户（破坏性管理操作，仅 DELETE）
+import { dispatchTenantRoutes } from './routes/tenant-routes';
 
 /**
  * 路由调度函数
@@ -55,7 +57,9 @@ export async function dispatchRoute(
     (url.startsWith('/v1/permissions/') ||
       url.startsWith('/v1/apikeys') ||
       url.startsWith('/v1/oauth/providers') ||
-      url.startsWith('/v1/skills'))
+      url.startsWith('/v1/skills') ||
+      // 多租户 P5：删除租户会清空整租户数据 ⇒ 与 skills/apikeys 同属 admin 写操作
+      url.startsWith('/v1/tenants'))
   ) {
     const result = checkAdminRequest(req);
     if (result !== 'ok') {
@@ -137,6 +141,9 @@ export async function dispatchRoute(
     return true;
   // 2026-10-08：AI-VFS 用户可配置挂载面（`/v1/vfs/mounts`，GET/PUT）
   if (await dispatchVfsMountRoutes(req, res, url, broadcastEvent, handlerCtx))
+    return true;
+  // 多租户 P5（2026-10-21）：`DELETE /v1/tenants/:tenantId`（admin 已在上面统一拦截）
+  if (await dispatchTenantRoutes(req, res, url, broadcastEvent, handlerCtx))
     return true;
 
   return false;

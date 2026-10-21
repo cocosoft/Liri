@@ -11,7 +11,6 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { ServerResponse } from 'http';
 import { costTracker } from '@modules/cost';
-import { getCostRecordRepository } from '@modules/cost';
 import {
   analyticsService,
   PerformanceMonitorService,
@@ -74,10 +73,11 @@ export class LocalHTTPService {
 
   constructor(config: LocalHTTPConfig) {
     this.config = config;
+    // 多租户 P5（2026-10-21）：不再注入成本库实例（构造期求值只会拿到宿主那份），
+    // 分析面板改为每请求按身份现取（`analytics-handlers#getCostRepository`）。
     setAnalyticsDependencies(
       analyticsService,
       costTracker,
-      getCostRecordRepository(),
       PerformanceMonitorService
     );
     setupInfrastructureDiagnostics();

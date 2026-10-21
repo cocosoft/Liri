@@ -431,6 +431,13 @@ export interface CostRecordedEvent {
   sessionId?: string;
   /** [v1.2] 请求唯一标识，用于与 model_usage_logs 表对账 */
   requestId?: string;
+  /**
+   * 归属键（多租户 P5）：`<tenantId>:<userId>`；本地 / 后台 ⇒ **缺省**（不写字段）。
+   *
+   * 事件穿过异步边界后 `AsyncLocalStorage` 作用域可能已失效 ⇒ 订阅者必须靠本字段
+   * 重建作用域，才能把行落到**归属者**的库（而不是发布者/宿主库）。
+   */
+  ownerKey?: string;
 }
 
 /**

@@ -92,7 +92,14 @@ let costTracker: {
   >;
 } | null = null;
 
-let costRepository: {
+/**
+ * 成本库的最小读取面（结构类型）。
+ *
+ * 多租户 P5（2026-10-21）：**不再在构造期注入实例** —— `getCostRecordRepository()`
+ * 按请求身份返回不同库，构造期求值只会拿到宿主那一份（租户请求会读到全身份数据）。
+ * 现改为每次请求经 `getCostRepository()` 现取。
+ */
+type CostRepositoryLike = {
   initDatabase(): Promise<void>;
   getAggregatedCosts(opts: { startTime?: number }): Promise<{
     totalCostUSD: number;
@@ -117,7 +124,7 @@ let costRepository: {
       cacheCreationTokens: number;
     }>
   >;
-} | null = null;
+};
 
 let performanceMonitorService: {
   getInstance(): { getAllMetrics(): Array<{ duration: number }> };
@@ -126,12 +133,10 @@ let performanceMonitorService: {
 export function setAnalyticsDependencies(
   analytics: typeof analyticsService,
   cost: typeof costTracker,
-  costRepo: typeof costRepository,
   perfSvc: typeof performanceMonitorService
 ): void {
   analyticsService = analytics;
   costTracker = cost;
-  costRepository = costRepo;
   performanceMonitorService = perfSvc;
 }
 
@@ -144,9 +149,30 @@ function getStartOfToday(): number {
 
 // ── 辅助函数 ──────────────────────────────────────────────────────
 
-async function ensureCostRepository(): Promise<void> {
+/**
+ * 取**当前请求身份**的成本库（多租户 P5）。
+ *
+ * 每次调用现取：`getCostRecordRepository()` 内部按身份返回各自的 `app.db`
+ * （本地身份 ⇒ 宿主单例，与改造前一致）。失败 ⇒ `null`（调用方走"无 DB 回退"分支）。
+ */
+async function getCostRepository(): Promise<CostRepositoryLike | null> {
   try {
-    await costRepository?.initDatabase();
+    const { getCostRecordRepository } = await import('@modules/cost');
+    return getCostRecordRepository() as unknown as CostRepositoryLike;
+  } catch (err) {
+    void handleError(err, {
+      module: 'infrastructure:http:analytics',
+      action: 'resolveCostRepository',
+    });
+    return null;
+  }
+}
+
+async function ensureCostRepository(
+  repo: CostRepositoryLike | null
+): Promise<void> {
+  try {
+    await repo?.initDatabase();
   } catch (err) {
     void handleError(err, {
       module: 'infrastructure:http:analytics',
@@ -316,29 +342,32 @@ export async function handleAnalyticsDashboard(
       totalRequests += usage.requestCount || 0;
     }
 
-    // 当 costTracker 无数据时，从 costRepository DB 查询回退
-    if (totalRequests === 0 && costRepository) {
-      try {
-        await ensureCostRepository();
-        const todayStart = getStartOfToday();
-        const dbResult = await costRepository.getAggregatedCosts({
-          startTime: todayStart,
-        });
-        if (dbResult.totalRequests > 0) {
-          totalInputTokens = dbResult.totalInputTokens;
-          totalOutputTokens = dbResult.totalOutputTokens;
-          totalCostUSD = dbResult.totalCostUSD;
-          totalRequests = dbResult.totalRequests;
-          logger.info('分析面板 Token/成本数据从 costRepository DB 回退', {
-            totalRequests,
-            totalCostUSD,
+    // 当 costTracker 无数据时，从**本请求身份**的成本库回退
+    if (totalRequests === 0) {
+      const costRepo = await getCostRepository();
+      if (costRepo) {
+        try {
+          await ensureCostRepository(costRepo);
+          const todayStart = getStartOfToday();
+          const dbResult = await costRepo.getAggregatedCosts({
+            startTime: todayStart,
+          });
+          if (dbResult.totalRequests > 0) {
+            totalInputTokens = dbResult.totalInputTokens;
+            totalOutputTokens = dbResult.totalOutputTokens;
+            totalCostUSD = dbResult.totalCostUSD;
+            totalRequests = dbResult.totalRequests;
+            logger.info('分析面板 Token/成本数据从 costRepository DB 回退', {
+              totalRequests,
+              totalCostUSD,
+            });
+          }
+        } catch (err) {
+          void handleError(err, {
+            module: 'infrastructure:http:analytics',
+            action: 'fallbackCostDB',
           });
         }
-      } catch (err) {
-        void handleError(err, {
-          module: 'infrastructure:http:analytics',
-          action: 'fallbackCostDB',
-        });
       }
     }
 

@@ -16,6 +16,14 @@ import { calculateTotalCost } from './calculateCost.js';
 import type { CostRecordRepository } from './CostRecordRepository.js';
 import { globalEventBus, SystemEvents } from '../core/events/EventBus.js';
 import type { CostRecordedEvent } from '../core/events/EventBus.js';
+// 多租户 P5（2026-10-21）：累计值按**请求身份**分桶 —— 否则 `/v1/analytics/dashboard`、
+// `/v1/workspaces/:id/cost/report` 这类"读 costTracker 内存累计"的端点会把全进程的
+// 用量回给单个用户。本地身份恒 `local:local` 一个桶 ⇒ 桌面 / CLI 行为与改造前逐字一致。
+import {
+  currentOwnerKey,
+  getRequestPrincipal,
+  principalKeyOf,
+} from '../core/identity/requestScope.js';
 
 import { getLogger } from '../monitoring/logs/Logger.js';
 const logger = getLogger('cost:CostTracker');
@@ -45,21 +53,58 @@ export interface ModelUsage {
 }
 
 /**
+ * 单个身份的累计桶（多租户 P5）
+ *
+ * 分桶键是 `principalKeyOf(principal)`（`<tenantId>:<userId>`）；本地身份恒 `local:local`，
+ * 故桌面 / CLI / cron（无请求作用域）始终落在同一个桶 —— 与改造前的"进程级单值"等价。
+ */
+interface CostBucket {
+  totalCostUSD: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCacheReadInputTokens: number;
+  totalCacheCreationInputTokens: number;
+  totalWebSearchRequests: number;
+  totalReasoningTokens: number;
+  modelUsage: Map<string, ModelUsage>;
+  startTime: number;
+  currentSessionId: string;
+}
+
+/**
  * 成本跟踪器
  */
 export class CostTracker {
-  private totalCostUSD: number = 0;
-  private totalInputTokens: number = 0;
-  private totalOutputTokens: number = 0;
-  private totalCacheReadInputTokens: number = 0;
-  private totalCacheCreationInputTokens: number = 0;
-  private totalWebSearchRequests: number = 0;
-  private totalReasoningTokens: number = 0;
-  private modelUsage: Map<string, ModelUsage> = new Map();
-  private startTime: number = Date.now();
+  /** 身份键 → 累计桶（惰性创建） */
+  private buckets: Map<string, CostBucket> = new Map();
   private recordRepository: CostRecordRepository | null = null;
-  private currentSessionId: string = '';
   private otelLogger = new OTelAwareLogger({ module: 'cost:tracker' });
+
+  /**
+   * 当前请求身份对应的累计桶（惰性创建）。
+   *
+   * 所有读写都经此入口 ⇒ 读侧自动按身份裁剪，不需要每个调用方各自过滤。
+   */
+  private bucket(): CostBucket {
+    const key = principalKeyOf(getRequestPrincipal());
+    let bucket = this.buckets.get(key);
+    if (!bucket) {
+      bucket = {
+        totalCostUSD: 0,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        totalCacheReadInputTokens: 0,
+        totalCacheCreationInputTokens: 0,
+        totalWebSearchRequests: 0,
+        totalReasoningTokens: 0,
+        modelUsage: new Map<string, ModelUsage>(),
+        startTime: Date.now(),
+        currentSessionId: '',
+      };
+      this.buckets.set(key, bucket);
+    }
+    return bucket;
+  }
 
   /**
    * 设置成本记录存储库
@@ -70,7 +115,7 @@ export class CostTracker {
   ): void {
     this.recordRepository = repository;
     if (sessionId) {
-      this.currentSessionId = sessionId;
+      this.bucket().currentSessionId = sessionId;
     }
   }
 
@@ -78,7 +123,7 @@ export class CostTracker {
    * 设置当前会话ID
    */
   setSessionId(sessionId: string): void {
-    this.currentSessionId = sessionId;
+    this.bucket().currentSessionId = sessionId;
   }
 
   /**
@@ -111,16 +156,17 @@ export class CostTracker {
       1
     );
 
-    this.totalCostUSD += cost;
-    this.totalInputTokens += inputTokens;
-    this.totalOutputTokens += outputTokens;
-    this.totalCacheReadInputTokens += cacheReadTokens;
-    this.totalCacheCreationInputTokens += cacheCreationTokens;
-    this.totalWebSearchRequests += webSearchRequests;
-    this.totalReasoningTokens += reasoningTokens;
+    const bucket = this.bucket();
+    bucket.totalCostUSD += cost;
+    bucket.totalInputTokens += inputTokens;
+    bucket.totalOutputTokens += outputTokens;
+    bucket.totalCacheReadInputTokens += cacheReadTokens;
+    bucket.totalCacheCreationInputTokens += cacheCreationTokens;
+    bucket.totalWebSearchRequests += webSearchRequests;
+    bucket.totalReasoningTokens += reasoningTokens;
 
     // 更新模型使用信息
-    const existingUsage = this.modelUsage.get(canonicalModelName);
+    const existingUsage = bucket.modelUsage.get(canonicalModelName);
     if (existingUsage) {
       existingUsage.inputTokens += inputTokens;
       existingUsage.outputTokens += outputTokens;
@@ -132,7 +178,7 @@ export class CostTracker {
       existingUsage.isFastMode = isFastMode || existingUsage.isFastMode;
       existingUsage.requestCount += 1;
     } else {
-      this.modelUsage.set(canonicalModelName, {
+      bucket.modelUsage.set(canonicalModelName, {
         inputTokens,
         outputTokens,
         cacheReadInputTokens: cacheReadTokens,
@@ -154,8 +200,11 @@ export class CostTracker {
       cacheCreationInputTokens: cacheCreationTokens,
       costUSD: cost,
       timestamp: Date.now(),
-      sessionId: this.currentSessionId || undefined,
+      sessionId: bucket.currentSessionId || undefined,
       requestId,
+      // 多租户 P5：归属随事件走 —— 订阅者可能已在别的异步上下文里，
+      // 只能靠本字段把行落回归属者的库（本地身份 ⇒ 缺省，事件形状与改造前一致）。
+      ownerKey: currentOwnerKey(),
     };
     globalEventBus.publish(SystemEvents.COST_RECORDED, eventData);
 
@@ -164,7 +213,7 @@ export class CostTracker {
     this.otelLogger[level]('成本累加', {
       modelName: canonicalModelName,
       costUSD: cost,
-      totalCostUSD: this.totalCostUSD,
+      totalCostUSD: bucket.totalCostUSD,
       inputTokens,
       outputTokens,
       cacheReadTokens,
@@ -199,63 +248,63 @@ export class CostTracker {
    * 获取总成本
    */
   getTotalCostUSD(): number {
-    return this.totalCostUSD;
+    return this.bucket().totalCostUSD;
   }
 
   /**
    * 获取总输入令牌数
    */
   getTotalInputTokens(): number {
-    return this.totalInputTokens;
+    return this.bucket().totalInputTokens;
   }
 
   /**
    * 获取总输出令牌数
    */
   getTotalOutputTokens(): number {
-    return this.totalOutputTokens;
+    return this.bucket().totalOutputTokens;
   }
 
   /**
    * 获取总缓存读取令牌数
    */
   getTotalCacheReadInputTokens(): number {
-    return this.totalCacheReadInputTokens;
+    return this.bucket().totalCacheReadInputTokens;
   }
 
   /**
    * 获取总缓存创建令牌数
    */
   getTotalCacheCreationInputTokens(): number {
-    return this.totalCacheCreationInputTokens;
+    return this.bucket().totalCacheCreationInputTokens;
   }
 
   /**
    * 获取总网络搜索请求数
    */
   getTotalWebSearchRequests(): number {
-    return this.totalWebSearchRequests;
+    return this.bucket().totalWebSearchRequests;
   }
 
   /**
    * 获取总推理令牌数
    */
   getTotalReasoningTokens(): number {
-    return this.totalReasoningTokens;
+    return this.bucket().totalReasoningTokens;
   }
 
   /**
    * 获取会话持续时间（毫秒）
    */
   getSessionDuration(): number {
-    return Date.now() - this.startTime;
+    return Date.now() - this.bucket().startTime;
   }
 
   /**
    * 获取模型使用信息
    */
   getModelUsage(): Record<string, ModelUsage> {
-    return Object.fromEntries(this.modelUsage.entries());
+    return Object.fromEntries(this.bucket().modelUsage.entries());
   }
 
   /**
@@ -263,7 +312,7 @@ export class CostTracker {
    */
   getUsageForModel(modelName: string): ModelUsage | undefined {
     const canonicalName = getCanonicalModelName(modelName);
-    return this.modelUsage.get(canonicalName);
+    return this.bucket().modelUsage.get(canonicalName);
   }
 
   /**
@@ -274,18 +323,10 @@ export class CostTracker {
   }
 
   /**
-   * 重置成本跟踪
+   * 重置成本跟踪（清空**所有身份**的累计桶 —— 语义是"从头计量"，不是"只清自己"）
    */
   reset(): void {
-    this.totalCostUSD = 0;
-    this.totalInputTokens = 0;
-    this.totalOutputTokens = 0;
-    this.totalCacheReadInputTokens = 0;
-    this.totalCacheCreationInputTokens = 0;
-    this.totalWebSearchRequests = 0;
-    this.totalReasoningTokens = 0;
-    this.modelUsage.clear();
-    this.startTime = Date.now();
+    this.buckets.clear();
     resetUnknownModelFlag();
     this.otelLogger.info('成本跟踪已重置');
   }
@@ -313,16 +354,17 @@ export class CostTracker {
    * 格式化成本报告
    */
   formatCostReport(detailed: boolean = false): string {
+    const bucket = this.bucket();
     let report = '\n========================================\n';
     report += '            成本报告\n';
     report += '========================================\n';
-    report += `总成本: ${formatCost(this.totalCostUSD)}\n`;
-    report += `总输入令牌: ${this.totalInputTokens.toLocaleString()}\n`;
-    report += `总输出令牌: ${this.totalOutputTokens.toLocaleString()}\n`;
-    report += `总缓存读取令牌: ${this.totalCacheReadInputTokens.toLocaleString()}\n`;
-    report += `总缓存创建令牌: ${this.totalCacheCreationInputTokens.toLocaleString()}\n`;
-    if (this.totalWebSearchRequests > 0) {
-      report += `总网络搜索请求: ${this.totalWebSearchRequests.toLocaleString()}\n`;
+    report += `总成本: ${formatCost(bucket.totalCostUSD)}\n`;
+    report += `总输入令牌: ${bucket.totalInputTokens.toLocaleString()}\n`;
+    report += `总输出令牌: ${bucket.totalOutputTokens.toLocaleString()}\n`;
+    report += `总缓存读取令牌: ${bucket.totalCacheReadInputTokens.toLocaleString()}\n`;
+    report += `总缓存创建令牌: ${bucket.totalCacheCreationInputTokens.toLocaleString()}\n`;
+    if (bucket.totalWebSearchRequests > 0) {
+      report += `总网络搜索请求: ${bucket.totalWebSearchRequests.toLocaleString()}\n`;
     }
     report += `会话持续时间: ${(this.getSessionDuration() / 1000).toFixed(1)}秒\n`;
 
@@ -330,16 +372,16 @@ export class CostTracker {
       report += '\n⚠️  警告: 包含未知模型的成本，使用了默认定价\n';
     }
 
-    if (this.modelUsage.size > 0) {
+    if (bucket.modelUsage.size > 0) {
       report += '\n模型使用详情:\n';
-      for (const [modelName, usage] of this.modelUsage.entries()) {
+      for (const [modelName, usage] of bucket.modelUsage.entries()) {
         report += `\n${this.formatModelUsage(modelName, usage)}`;
       }
     }
 
     if (detailed) {
       report += '\n详细定价信息:\n';
-      for (const [modelName, usage] of this.modelUsage.entries()) {
+      for (const [modelName, usage] of bucket.modelUsage.entries()) {
         const pricing = getModelPricing(modelName, usage.isFastMode);
         report += `\n${modelName}:\n`;
         report += `  定价: ${formatCost(pricing.inputPricePerMillion)}/${formatCost(pricing.outputPricePerMillion)} 每百万令牌\n`;

@@ -45,12 +45,16 @@ const logger = new OTelAwareLogger({
 
 // ============================================================
 // [v1.2] 懒加载单例缓存（避免每次 LLM 调用都动态 import + initialize）
+//
+// 多租户 P5（2026-10-21）：**身份相关**的实例不得缓存 ——
+// `getLLMTracker()` / `getCostRecordRepository()` 都是"按当前请求身份返回不同实例"
+// （各自独立 `app.db`）。若在模块级缓存首个身份解析出的实例，之后所有身份的
+// LLM 调用记录都会写进那一个库 ⇒ 该身份读监控面板时会看到别人的会话。
+// 这两个工厂内部已按身份缓存实例，重复调用只是 Map 查找 ⇒ 每次现取。
 // ============================================================
 
 let _usageStatsService: any = null;
 let _costTracker: any = null;
-let _costRecordRepo: any = null;
-let _llmTracker: any = null;
 
 async function getUsageStatsService() {
   if (!_usageStatsService) {
@@ -66,21 +70,18 @@ async function getOrInitCostTracker(sessionId?: string) {
     const mod = await import('@modules/cost');
     _costTracker = mod.costTracker;
   }
-  if (!_costRecordRepo) {
-    const mod = await import('@modules/cost');
-    _costRecordRepo = mod.getCostRecordRepository();
-  }
-  await _costRecordRepo.initDatabase();
-  _costTracker.setRecordRepository(_costRecordRepo, sessionId);
+  // 仓库按**调用时身份**解析（不缓存：见文件内说明）
+  const { getCostRecordRepository } = await import('@modules/cost');
+  const repo = getCostRecordRepository();
+  await repo.initDatabase();
+  _costTracker.setRecordRepository(repo, sessionId);
   return _costTracker;
 }
 
 async function getOrInitLLMTracker() {
-  if (!_llmTracker) {
-    const mod = await import('@modules/monitoring/llm/getLLMTracker');
-    _llmTracker = mod.getLLMTracker();
-  }
-  return _llmTracker;
+  // 按**调用时身份**解析（不缓存：见文件内说明）
+  const mod = await import('@modules/monitoring/llm/getLLMTracker');
+  return mod.getLLMTracker();
 }
 
 // [v1.2] 写入失败计数器（成本数据丢失感知）

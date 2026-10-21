@@ -120,6 +120,12 @@ import { getLogger } from '../monitoring/logs/Logger.js';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import type { CostRecordedEvent } from '@modules/core';
 import { handleError } from '@modules/error';
+// 多租户 P5：成本事件按归属身份落库（订阅者不能依赖发布者的 ALS 作用域）
+import {
+  principalFromKey,
+  runWithPrincipal,
+} from '@modules/core/identity/requestScope.js';
+import type { CostRecordRepository } from './CostRecordRepository.js';
 import {
   AnalyticsCategory,
   AnalyticsSeverity,
@@ -159,8 +165,11 @@ export async function initializeCostTrackingSystem(): Promise<void> {
       SystemEvents.COST_RECORDED,
       async (event: CostRecordedEvent) => {
         try {
-          // SQLite 持久化（已有）
-          await repository.recordCost({
+          // SQLite 持久化：**按事件的归属身份**取库（多租户 P5）
+          // 订阅回调可能已脱离发布者的 ALS 作用域 ⇒ 只认事件自带的 ownerKey，
+          // 否则所有租户的成本行都会落进启动时那一个（宿主）库。
+          const eventRepo = await resolveCostRepositoryForEvent(event);
+          await eventRepo.recordCost({
             model: event.model,
             inputTokens: event.inputTokens,
             outputTokens: event.outputTokens,
@@ -258,6 +267,26 @@ export async function initializeCostTrackingSystem(): Promise<void> {
   } catch (error) {
     await handleError(error, { module: 'cost:index', action: 'init' });
   }
+}
+
+/**
+ * 按**事件的归属身份**解析成本库（多租户 P5）
+ *
+ * 为什么不能直接用启动期捕获的那个仓库：`CostRecordedEvent` 穿过异步边界后
+ * `AsyncLocalStorage` 作用域可能已失效，且订阅者只在启动时注册一次 ⇒ 拿到的永远是
+ * 宿主库。这里只用事件自带的 `ownerKey` 重建作用域，再由
+ * `getCostRecordRepository()`（内部按身份缓存实例）给出正确的库。
+ *
+ * - 无 `ownerKey`（本地 / 后台）⇒ 宿主单例，与改造前逐字一致；
+ * - `ownerKey` 解析不出身份（非法键）⇒ 同样回落宿主单例 —— **不编造身份**。
+ */
+export async function resolveCostRepositoryForEvent(
+  event: Pick<CostRecordedEvent, 'ownerKey'>
+): Promise<CostRecordRepository> {
+  const { getCostRecordRepository } = await import('./CostRecordRepository.js');
+  const principal = event.ownerKey ? principalFromKey(event.ownerKey) : null;
+  if (!principal) return getCostRecordRepository();
+  return runWithPrincipal(principal, () => getCostRecordRepository());
 }
 
 /**

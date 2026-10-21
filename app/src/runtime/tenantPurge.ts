@@ -80,6 +80,29 @@ const KNOWN_UNPURGEABLE = [
 ] as const;
 
 /**
+ * 判定"这个租户标识是否可被清除"（**唯一实现**：`purgeTenant` 与 HTTP 入口共用）。
+ *
+ * 单独抽出的原因：HTTP 侧要据此区隔 **400（请求不合法）** 与 **500（清除过程失败）**，
+ * 而"读错误文案做判断"属 CS02 禁止的字符串匹配 ⇒ 判定必须是返回结构化结果的纯函数。
+ */
+export type PurgeTenantIdCheck =
+  | { ok: true; tenantId: string }
+  | { ok: false; message: string };
+
+export function validatePurgeableTenantId(
+  tenantId: string
+): PurgeTenantIdCheck {
+  const normalized = tenantId.trim();
+  if (!normalized) {
+    return { ok: false, message: '删除租户失败：tenantId 不能为空' };
+  }
+  if (normalized === LOCAL_TENANT_ID) {
+    return { ok: false, message: '删除租户失败：local 是宿主身份，不允许清除' };
+  }
+  return { ok: true, tenantId: normalized };
+}
+
+/**
  * 删除一个租户的全部可定位数据（幂等、可重跑）
  *
  * @param tenantId 租户标识（组织标识）；空串 / `local` ⇒ 拒绝
@@ -87,13 +110,11 @@ const KNOWN_UNPURGEABLE = [
 export async function purgeTenant(
   tenantId: string
 ): Promise<TenantPurgeReport> {
-  const normalized = tenantId.trim();
-  if (!normalized) {
-    throw new Error('删除租户失败：tenantId 不能为空');
+  const check = validatePurgeableTenantId(tenantId);
+  if (!check.ok) {
+    throw new Error(check.message);
   }
-  if (normalized === LOCAL_TENANT_ID) {
-    throw new Error('删除租户失败：local 是宿主身份，不允许清除');
-  }
+  const normalized = check.tenantId;
 
   const ownerPrefix = `${normalized}:`;
   const report: TenantPurgeReport = {

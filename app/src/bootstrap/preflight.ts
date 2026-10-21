@@ -354,6 +354,20 @@ export async function checkFirstRunAndOnboard(): Promise<void> {
     return;
   }
 
+  // 阻塞式引导只应发生在**纯 CLI 交互**场景：
+  // ① 无 TTY（后台 / headless / 管道）—— 读 stdin 会永久挂起；
+  // ② HTTP 服务已启动（桌面/前端接入）—— 此时前端设置页即可完成初始化，
+  //    再在终端里等用户输入会让 `launch()` 尾部（含 `_appReady = true`）永不执行
+  //    ⇒ 除 `/v1/health/report` 外的业务请求永久 503（前端表现为"连不上后端"）。
+  // 两条都只记录提示并跳过；用户可稍后用 `/onboard` 或前端设置页完成。
+  if (!process.stdin.isTTY || process.env['LIRI_HTTP_STARTED'] === '1') {
+    logger.warning(
+      '首次运行但当前不适合阻塞式引导（无 TTY 或 HTTP 已启动），已跳过；' +
+        '请用 `/onboard` 命令或前端设置页完成配置'
+    );
+    return;
+  }
+
   // 首次运行：.env 文件已在 ensureEnvFileExists() 中提前创建
   // 此处仅执行用户引导流程
 

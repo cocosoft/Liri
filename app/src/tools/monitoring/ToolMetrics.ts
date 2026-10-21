@@ -129,6 +129,21 @@ const _inputTokensHistograms = new Map<string, HistogramMetric>();
 
 let _schemaTokensHistogram: HistogramMetric | undefined;
 let _entropyGauge: GaugeMetric | undefined;
+/**
+ * 最近一次观测到的 Schema 熵（%）。Gauge 只写不读 ⇒ 无 getter；压缩升级等**只读判定**
+ * 需要当前值，故单独留一份内存记录（零副作用，观测时更新）。
+ */
+let _lastSchemaEntropyPercent: number | null = null;
+
+/** 最近一次观测的 Schema 熵（%）；从未观测 / 复位后 ⇒ `null`（不臆造） */
+export function getLastSchemaEntropyPercent(): number | null {
+  return _lastSchemaEntropyPercent;
+}
+
+/** 仅测试：复位最近一次观测值 */
+export function resetLastSchemaEntropyPercentForTest(): void {
+  _lastSchemaEntropyPercent = null;
+}
 
 function invocationCounter(toolName: string, success: boolean): CounterMetric {
   const result = success ? 'ok' : 'error';
@@ -224,6 +239,8 @@ export function recordToolSchemaEntropy(
       labels: { module: 'tools' },
     });
     _entropyGauge.set((m.schemaTokens / m.contextWindowTokens) * 100);
+    // 只读判定用（压缩升级：预算低水位 × 熵超标）；与 gauge 同源、同一次更新
+    _lastSchemaEntropyPercent = (m.schemaTokens / m.contextWindowTokens) * 100;
   }
 
   // TG-5（2026-10-12 裁断）：长程「工具 Schema 混沌」阈值告警 —— **只告警、绝不阻断**

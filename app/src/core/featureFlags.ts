@@ -602,6 +602,19 @@ export const FEATURE_FLAGS = {
    */
   INTENT_ACTION_DEVIATION_GUARD: true,
 
+  // ───── 压缩升级：预算低水位 × 工具 Schema 熵（2026-10-21；**默认关**）─────
+  /**
+   * 压缩升级（**默认关**，与 G-05 取证一致）。
+   *
+   * 开 ⇒ 当「剩余金额 ≤ 20%」**且**「最近一轮工具 Schema 熵 > 30%」时，
+   * 把本该被跳过的压缩决策**升级为 trigger**（走既有 Tier 2 → Tier 3 管线）。
+   * 两个信号任一缺失/非有限 ⇒ 不升级（不臆造）。
+   *
+   * **为什么默认关**：`G-05`（2026-10-19）取证结论是"低水位成功样本不足 ⇒ 不启用真实触发"；
+   * 本开关把能力就位、由部署方在样本充分后自行开启。逃生/开关：`FEATURE_CONTEXT_COMPACTION_ESCALATION`。
+   */
+  CONTEXT_COMPACTION_ESCALATION: false,
+
   /**
    * 轮次级 **USD 前置判定**（**默认开**；外部建议 ②，2026-10-20 用户裁定「开启」）。
    *

@@ -265,6 +265,8 @@ export {
   recordToolInvocation,
   recordToolSchemaEntropy,
   evaluateSchemaEntropyGate,
+  getLastSchemaEntropyPercent,
+  resetLastSchemaEntropyPercentForTest,
   SCHEMA_ENTROPY_TURN_THRESHOLD,
   SCHEMA_ENTROPY_PERCENT_THRESHOLD,
 } from './monitoring/ToolMetrics';

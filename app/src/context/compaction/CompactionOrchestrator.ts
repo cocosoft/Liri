@@ -56,6 +56,13 @@ import {
 import { compactionLockStore } from './CompactionLockStore';
 // G-05（2026-10-19）：剩余 USD 水位的**影子观察**（纯函数；不改压缩决策）
 import { evaluateUsdWaterlineShadow } from './usdWaterlineShadow';
+// 2026-10-21（外部建议 §三）：预算低水位 × Schema 熵 ⇒ 压缩升级（纯判定；默认关）
+import { shouldEscalateCompaction } from './compactionEscalation';
+import { feature } from '@modules/core';
+import {
+  getLastSchemaEntropyPercent,
+  SCHEMA_ENTROPY_PERCENT_THRESHOLD,
+} from '@modules/tools';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { enterPhase, exitPhase, currentPhase } from '@modules/diagnostics';
@@ -404,7 +411,8 @@ export class CompactionOrchestrator {
         });
         // 决策汇总（skip/warn/trigger 三态 + 阈值快照）：
         // 传入 preEvaluated（调用方协作式异步评估）时直接复用，跳过内部二次同步评估
-        const decision =
+        // 2026-10-21：`skip` 可能被「预算低水位 × Schema 熵」升级为 `trigger`（默认关）
+        let decision =
           options?.preEvaluated ??
           (await this.evaluateCompaction(messages, ctx, options?.tracker));
         // 排查日志：决策汇总（skip/warn/trigger 三态 + 阈值快照）
@@ -417,13 +425,17 @@ export class CompactionOrchestrator {
           sessionId: ctx.sessionId,
         });
 
-        // Skip：无需压缩
+        // Skip：无需压缩（可被「预算低水位 × Schema 熵」升级，默认关）
         if (decision.decision === 'skip') {
-          logger.debug('compaction:skip', {
-            ratio: Number(decision.snapshot.ratio.toFixed(3)),
-            reason: decision.reason ?? 'below warning threshold',
-          });
-          return { messages, applied: false };
+          const escalated = await this.escalateSkipIfNeeded(decision, ctx);
+          if (!escalated) {
+            logger.debug('compaction:skip', {
+              ratio: Number(decision.snapshot.ratio.toFixed(3)),
+              reason: decision.reason ?? 'below warning threshold',
+            });
+            return { messages, applied: false };
+          }
+          decision = escalated;
         }
 
         // 超时治理（2026-08-13 根治）：超时保护仅约束 Tier3（LLM 调用），Tier1/2
@@ -740,6 +752,45 @@ export class CompactionOrchestrator {
     });
 
     return result;
+  }
+
+  /**
+   * 压缩升级（2026-10-21，外部建议 §三）：`skip` 决策在「预算低水位 × Schema 熵超标」时
+   * 提升为 `trigger`（继续走既有 Tier 2 → Tier 3 管线）。
+   *
+   * **默认关**（`CONTEXT_COMPACTION_ESCALATION`；与 G-05 取证"低水位成功样本不足"一致）。
+   * 关 / 任一信号不可用（未配置金额上限、尚无熵观测、读取失败）⇒ 返回 `null`（零行为变更、不臆造）。
+   */
+  private async escalateSkipIfNeeded(
+    decision: CompactionDecision,
+    ctx: CompactionContext
+  ): Promise<CompactionDecision | null> {
+    if (!feature('CONTEXT_COMPACTION_ESCALATION')) return null;
+    try {
+      const { getDailyBudget } = await import('@modules/query');
+      const usd = getDailyBudget().getUsdState();
+      const shadow = evaluateUsdWaterlineShadow(usd.usedUsd, usd.limitUsd);
+      if (!shadow) return null;
+      const verdict = shouldEscalateCompaction({
+        remainingPct: shadow.remainingPct,
+        entropyPercent: getLastSchemaEntropyPercent(),
+        entropyThresholdPct: SCHEMA_ENTROPY_PERCENT_THRESHOLD,
+      });
+      if (!verdict.escalate) return null;
+      logger.info('compaction:escalated', {
+        sessionId: ctx.sessionId,
+        remainingPct: shadow.remainingPct,
+        reason: verdict.reason ?? null,
+      });
+      return { ...decision, decision: 'trigger', reason: verdict.reason };
+    } catch (err) {
+      // @ignore-catch — 升级判定失败不得影响原 skip 决策（CS03）
+      logger.debug('compaction:escalation_failed', {
+        sessionId: ctx.sessionId,
+        error: String(err),
+      });
+      return null;
+    }
   }
 
   /**

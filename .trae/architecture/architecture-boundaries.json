@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "recordedAt": "2026-10-21",
+  "note": "架构边界门禁白名单：W2 分层循环边界的存量例外 + W4 工具自审的豁免目录。新增条目必须写明理由；理由缺失本身即违规。",
+  "loopBoundary": {
+    "targets": ["chat", "tasks", "workspace"],
+    "exceptions": [
+      {
+        "path": "query/TAORLoop.ts",
+        "specifier": "@modules/tasks",
+        "reason": "仅取 goalTemplates 的续接/重试文案（纯字符串常量与纯函数），不是任务编排调用。文案唯一来源已收敛到 tasks/goal/goalTemplates，在循环层另立副本会重新制造双轨。源文件注释已记录该裁定。"
+      },
+      {
+        "path": "query/taor/helpers.ts",
+        "specifier": "@modules/tasks",
+        "reason": "同上：从 TAORLoop 外迁时一并带走的 CONTINUATION_TEMPLATES 引用，仍是纯文案常量，无编排行为。"
+      }
+    ]
+  },
+  "toolSelfCheck": {
+    "exemptDirs": [
+      {
+        "dir": "tools/sidecar",
+        "reason": "sidecar 生命周期开关（LSP / 媒体旁路进程要不要启动）属于基础设施装配，判的不是「某个工具是否可见」，不构成工具实现内自审。"
+      }
+    ]
+  }
+}

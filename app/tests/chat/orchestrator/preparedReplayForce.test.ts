@@ -7,7 +7,7 @@
  * ② 强制集**优先于**会话 profile（即使 profile 声明 `media`，仍只留快照集）；
  * ③ 端到端（`selectAndObserveToolDefinitions`）：`options.forcedVisibleTools` ⇒ 最终工具面 = 强制集，
  *    且**新落盘的 PREPARED 快照记录的是强制后**的可见集（重放幂等：越重放越稳）；
- * ④ 未提供 ⇒ 逐字等价现状（零行为变更，开关 `PREPARED_SNAPSHOT_REPLAY` 默认关）。
+ * ④ 未提供 ⇒ 逐字等价现状（零行为变更；开关 `PREPARED_SNAPSHOT_REPLAY` 默认开，本测试直接注入强制集、不依赖开关取值）。
  */
 import { describe, it, expect, beforeEach, afterAll } from 'bun:test';
 import { selectToolsForTurn } from '../../../src/chat/orchestrator/streamMessageToolSelection.js';

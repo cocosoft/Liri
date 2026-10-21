@@ -2593,9 +2593,9 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * T1-13 / `✅-4`（R-A，2026-10-13）：解析「**重放强制可见集**」——受 `PREPARED_SNAPSHOT_REPLAY`（**默认关**）。
+   * T1-13 / `✅-4`（R-A，2026-10-13）：解析「**重放强制可见集**」——受 `PREPARED_SNAPSHOT_REPLAY`（**默认开**）。
    *
-   * 开关关 ⇒ **不读事件日志**、返回 `undefined`（零开销、零行为变更）；开 ⇒ 读该会话最近一条
+   * 开关关（逃生）⇒ **不读事件日志**、返回 `undefined`（零开销、等价改造前）；开（默认）⇒ 读该会话最近一条
    * `execution/prepared` 快照的 `visibleTools`（无快照 ⇒ `undefined`，**不臆造**）。
    * 读取失败只留痕（CS03：不把观测面失败升级为续跑失败）。
    * 见 `.trae/specs/execution-prepared-snapshot-persistence.md` §11 R-A。

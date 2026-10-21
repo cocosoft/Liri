@@ -46,7 +46,7 @@ export interface ToolSelectionInput {
   profile?: readonly string[];
   /**
    * T1-13 / `✅-4` R-A（2026-10-13）：**重放强制可见集**（宿主在会重算工具面的续跑分支注入；
-   * 受 `PREPARED_SNAPSHOT_REPLAY`，**默认关**）。提供时**跳过**任务 / profile 裁剪，
+   * 受 `PREPARED_SNAPSHOT_REPLAY`，**默认开**）。提供时**跳过**任务 / profile 裁剪，
    * 取名字命中该集合的工具 ⇒ 重放工具面 = **落盘快照**。未提供 ⇒ 逐字等价现状。
    */
   forcedVisibleTools?: readonly string[];

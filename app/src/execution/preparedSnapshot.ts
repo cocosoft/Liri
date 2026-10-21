@@ -95,7 +95,7 @@ export function pickPreparedSnapshot(
  * 返回快照的 `visibleTools`（无快照 ⇒ `null`，调用方**如实不强制**、不臆造）。
  *
  * 唯一生产消费者 = `ChatManager._resumeSuspendedStream` 的「重发一轮」分支
- * （受 `PREPARED_SNAPSHOT_REPLAY`，**默认关**）。
+ * （受 `PREPARED_SNAPSHOT_REPLAY`，**默认开**；`FEATURE_PREPARED_SNAPSHOT_REPLAY=false` 可关闭）。
  */
 export function resolveReplayVisibleTools(
   events: readonly LiriEvent[]

@@ -88,12 +88,18 @@ describe('P1-8 配置契约 · ① 代码默认值 ⇔ 文档登记值', () => {
   });
 });
 
-describe('W3 可复现性裁定（演进方案 §3 · 2026-10-21 用户「保持关闭」）', () => {
-  it('PREPARED_SNAPSHOT_REPLAY 默认关闭，且无环境覆盖时读值同为 false', () => {
-    // 裁定口径：关 ⇒ 重放**不保证**工具面与当时一致（按当前 profile / 注册表重算）。
-    // 这是显式的取舍，不是遗漏；若改为默认开启，本用例会立即变红，强制同步文档与回归。
-    expect(FEATURE_FLAGS.PREPARED_SNAPSHOT_REPLAY).toBe(false);
+describe('W3 可复现性裁定（演进方案 §3 · 2026-10-21 用户「开启严格重放」）', () => {
+  it('PREPARED_SNAPSHOT_REPLAY 默认开启，且无环境覆盖时读值同为 true', () => {
+    // 裁定口径：开 ⇒ 续跑「重发一轮」分支强制套用落盘快照的 visibleTools（可复现性硬约束）；
+    // 无快照回落当前计算、不硬失败。若改回默认关，本用例立即变红，强制同步文档。
+    expect(FEATURE_FLAGS.PREPARED_SNAPSHOT_REPLAY).toBe(true);
     delete process.env['FEATURE_PREPARED_SNAPSHOT_REPLAY'];
+    expect(feature('PREPARED_SNAPSHOT_REPLAY')).toBe(true);
+  });
+
+  it('显式 FEATURE_PREPARED_SNAPSHOT_REPLAY=false 可关闭（逃生开关）', () => {
+    touched.push('PREPARED_SNAPSHOT_REPLAY');
+    process.env['FEATURE_PREPARED_SNAPSHOT_REPLAY'] = 'false';
     expect(feature('PREPARED_SNAPSHOT_REPLAY')).toBe(false);
   });
 });

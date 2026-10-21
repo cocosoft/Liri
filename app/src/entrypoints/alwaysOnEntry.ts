@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path';
 
 import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@modules/constants';
 import { configManager } from '@modules/config';
-import { feature, resolveDataDir } from '@modules/core';
+import { feature, resolveDataDir, resolveScopedDataDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { WorkItemStore, createProjectStore } from '@modules/workspace';
@@ -96,6 +96,9 @@ async function collectProjects(
         id: project.id,
         name: project.name,
         path: project.sandboxPath,
+        // 多租户 P3：项目归属（创建时由请求身份写入；本地项目无此字段 ⇒ 不查配额）
+        ownerKey:
+          typeof project.ownerKey === 'string' ? project.ownerKey : undefined,
       });
     }
   }
@@ -133,10 +136,18 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
     );
   }
 
-  const reportDir = join(dataDir, 'alwayson', 'reports');
+  /**
+   * 多租户 P3：AlwaysOn 的运行产物（报告 / 补丁 / 快照 / 会话索引）**按调用时的身份**落盘。
+   *
+   * 上述三处都在 `AlwaysOnRuntime.tryRun()` 的身份作用域内被调用（workspace / report /
+   * session），所以租户项目自动落到 `<scoped>/alwayson/…`；本地项目解析结果仍是原
+   * `dataDir`（零变更）。**不要**在启动期把路径算成常量 —— 那会把所有租户钉在同一目录。
+   */
+  const alwaysOnRoot = (): string => join(resolveScopedDataDir(), 'alwayson');
+  const reportDir = (): string => join(alwaysOnRoot(), 'reports');
   /** snapshot-copy 回退的快照根目录（非 git / 脏仓项目的兜底隔离区） */
-  const snapshotDir = join(dataDir, 'alwayson', 'snapshots');
-  const sessionFile = join(dataDir, 'alwayson', 'sessions.json');
+  const snapshotDir = (): string => join(alwaysOnRoot(), 'snapshots');
+  const sessionFile = (): string => join(alwaysOnRoot(), 'sessions.json');
   const manager = new AlwaysOnManager();
   /** 本轮隔离区句柄（runId → provider + handle）；worktree 的 Map 在 provider 内部，必须复用同一实例 */
   const activeRuns = new Map<
@@ -191,7 +202,7 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
     if (!feature('ALWAYSON_SNAPSHOT_FALLBACK')) {
       return { skippedReason: 'not_git_repo_or_dirty' };
     }
-    const snapshot = new SnapshotCopyProvider({ baseDir: snapshotDir });
+    const snapshot = new SnapshotCopyProvider({ baseDir: snapshotDir() });
     if (!(await snapshot.isApplicable(projectPath))) {
       return { skippedReason: 'not_git_repo_or_dirty' };
     }
@@ -265,9 +276,9 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
         error = 'diff-truncated: 补丁超长已截断，未导出（隔离区已保留）';
       } else {
         try {
-          mkdirSync(reportDir, { recursive: true });
+          mkdirSync(reportDir(), { recursive: true });
           patchPath = join(
-            reportDir,
+            reportDir(),
             `${runId}${isSnapshot ? '.diff' : '.patch'}`
           );
           writeFileSync(patchPath, diffText, 'utf8');
@@ -481,13 +492,13 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
         finishWorkspace,
         setSessionWorkspace,
         loadSession: async (projectId) =>
-          readSessionMap(sessionFile)[projectId],
+          readSessionMap(sessionFile())[projectId],
         saveSession: async (projectId, sessionId) => {
-          mkdirSync(dirname(sessionFile), { recursive: true });
+          mkdirSync(dirname(sessionFile()), { recursive: true });
           writeFileSync(
-            sessionFile,
+            sessionFile(),
             `${JSON.stringify(
-              { ...readSessionMap(sessionFile), [projectId]: sessionId },
+              { ...readSessionMap(sessionFile()), [projectId]: sessionId },
               null,
               2
             )}\n`,
@@ -498,8 +509,8 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
         // 目标达成自评（默认开）：关掉即回到 `unverified（未做模型自评）` 的 v2 口径。
         ...(feature('ALWAYSON_GOAL_EVAL') ? { evaluateGoal } : {}),
         writeReport: async (planId, markdown) => {
-          mkdirSync(reportDir, { recursive: true });
-          const file = join(reportDir, `${planId}.md`);
+          mkdirSync(reportDir(), { recursive: true });
+          const file = join(reportDir(), `${planId}.md`);
           writeFileSync(file, markdown, 'utf8');
           return file;
         },

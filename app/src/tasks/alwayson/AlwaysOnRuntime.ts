@@ -15,6 +15,11 @@ import { DiscoveryFire } from './DiscoveryFire';
 import { cg3Log } from '../cg3Env';
 import { drainManager } from '../drain/DrainManager';
 import { handleError } from '@modules/error';
+import {
+  principalFromKey,
+  runWithPrincipal,
+} from '@modules/core/identity/requestScope';
+import type { AlwaysOnQuota } from './AlwaysOnQuota';
 // 2026-10-08（架构治理 P1 续，用户裁定「一并处理 watchdog 和 cmdBridge」）：
 // 删除 `cmdBridge` / `watchdog` 两个**从未注入**的可选依赖（取证见下方 tryRun 注释）。
 
@@ -25,9 +30,26 @@ export class AlwaysOnRuntime {
   readonly resourceArbiter: ResourceArbiter;
   readonly fireRunner: DiscoveryFire;
   readonly scheduler: DiscoveryScheduler;
+  /**
+   * 归属键（多租户 P3）：`<tenantId>:<userId>`。
+   *
+   * 为空 ⇒ 本地项目：**不查配额、不加身份作用域**（与改造前逐字相同）。
+   * 非空 ⇒ 本轮运行在归属者身份作用域内执行，并受 `AlwaysOnQuota` 的归属配额约束。
+   */
+  readonly ownerKey?: string;
+  private readonly quota?: AlwaysOnQuota;
+  /** 当前持有归属配额的数量（并发安全：用计数而非布尔） */
+  private ownerQuotaHeld = 0;
 
-  constructor(config: Partial<AlwaysOnConfig> = {}, projectPath: string = '') {
+  constructor(
+    config: Partial<AlwaysOnConfig> = {},
+    projectPath: string = '',
+    ownerKey?: string,
+    quota?: AlwaysOnQuota
+  ) {
     this.config = { ...DEFAULT_ALWAYSON_CONFIG, ...config };
+    this.ownerKey = ownerKey;
+    this.quota = quota;
     this.signalWatcher = new SignalWatcher(this.config.dormantDebounceMs);
     this.gates = new DiscoveryGates(
       this.config,
@@ -44,6 +66,15 @@ export class AlwaysOnRuntime {
 
   /** P0-2: 核心入口 */
   async tryRun(): Promise<void> {
+    // 多租户 P3：有归属 ⇒ 整轮（4 阶段 + 桥接器里的 ChatManager 调用）都在归属者身份作用域内，
+    // 工具 cwd（P3）／存储（P1）／事件（P2）才落到该租户名下；无归属 ⇒ 原样执行（零变更）。
+    const principal = principalFromKey(this.ownerKey);
+    if (!principal) return this.runGuarded();
+    return runWithPrincipal(principal, () => this.runGuarded());
+  }
+
+  /** 门控 + 配额 + 4 阶段（`tryRun` 的身份作用域包装在它外面） */
+  private async runGuarded(): Promise<void> {
     if (!this.resourceArbiter.acquire('alwayson')) return;
 
     try {
@@ -56,7 +87,9 @@ export class AlwaysOnRuntime {
         return;
       }
 
-      cg3Log('tasks:alwayson:runtime', 'info', 'gatePassed');
+      cg3Log('tasks:alwayson:runtime', 'info', 'gatePassed', {
+        ownerKey: this.ownerKey,
+      });
 
       // P3-3（2026-08-31）：统一排空协议——排空中不启动新自主运行循环
       if (drainManager.isDraining()) {
@@ -65,6 +98,10 @@ export class AlwaysOnRuntime {
         });
         return;
       }
+
+      // 多租户 P3：归属配额（跨该归属的所有项目共享）。放在门控/排空之后 ⇒
+      // 被拦下的 tick 不消耗租户配额；无归属 ⇒ 直接放行。
+      if (!this.acquireOwnerQuota()) return;
 
       // 阶段 1: Discovery
       const plan = await this.fireRunner.discovery();
@@ -111,8 +148,31 @@ export class AlwaysOnRuntime {
         context: { projectPath: this.config.dormantDebounceMs },
       });
     } finally {
+      this.releaseOwnerQuota();
       this.resourceArbiter.release('alwayson');
     }
+  }
+
+  /** 尝试占用归属配额（无归属 / 无配额实例 ⇒ 直接放行） */
+  private acquireOwnerQuota(): boolean {
+    if (!this.ownerKey || !this.quota) return true;
+    const decision = this.quota.tryAcquire(this.ownerKey);
+    if (!decision.allowed) {
+      cg3Log('tasks:alwayson:runtime', 'info', 'ownerQuotaBlocked', {
+        ownerKey: this.ownerKey,
+        reason: decision.reason,
+      });
+      return false;
+    }
+    this.ownerQuotaHeld += 1;
+    return true;
+  }
+
+  /** 释放归属配额（未持有时为 no-op） */
+  private releaseOwnerQuota(): void {
+    if (this.ownerQuotaHeld === 0 || !this.ownerKey || !this.quota) return;
+    this.ownerQuotaHeld -= 1;
+    this.quota.release(this.ownerKey);
   }
 
   /** 设置执行函数（由外部注入具体的 ChatManager 调用） */

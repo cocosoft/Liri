@@ -15,6 +15,11 @@ export interface AlwaysOnProject {
   id: string;
   name: string;
   path: string;
+  /**
+   * 归属键（多租户 P3）：`<tenantId>:<userId>`。
+   * 缺失 ⇒ 本地项目（不查归属配额、不加身份作用域），与改造前一致。
+   */
+  ownerKey?: string;
 }
 
 export interface AlwaysOnBootstrapDeps {
@@ -64,7 +69,12 @@ export function bootstrapAlwaysOn(
       continue;
     }
 
-    const runtime = deps.manager.registerProject(project.id, project.path);
+    // 多租户 P3：归属随项目带进运行时（缺失 ⇒ 本地项目，行为与改造前一致）
+    const runtime = deps.manager.registerProject(
+      project.id,
+      project.path,
+      project.ownerKey
+    );
     runtime.gates.setEnabled(true);
 
     const bridge = deps.createBridge(project, limits);

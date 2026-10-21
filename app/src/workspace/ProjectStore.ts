@@ -29,6 +29,8 @@ import type {
 } from './types';
 import { WorkItemStore } from './WorkItemStore';
 import { resolveDataDir, resolveDataSubDir } from '@modules/core/paths';
+// 多租户 P3：项目归属（创建请求的身份；本地身份不写字段）
+import { currentOwnerKey } from '@modules/core/identity/requestScope';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
@@ -362,6 +364,8 @@ export class ProjectStore {
         template: params.template,
         tags: params.tags || [],
         sandboxPath,
+        // 多租户 P3：归属取创建请求的身份（本地身份 ⇒ undefined ⇒ 字段不落盘，零变更）
+        ownerKey: currentOwnerKey(),
         createdAt: now,
         updatedAt: now,
       };

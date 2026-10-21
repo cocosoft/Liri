@@ -13,6 +13,7 @@
  * 与改造前完全一致。
  */
 import {
+  currentOwnerKey,
   getRequestPrincipal,
   isLocalPrincipal,
   principalFromKey,
@@ -25,7 +26,7 @@ import type { Principal } from '@modules/core/identity/principal';
 export function currentCronOwnerKey(
   principal: Principal = getRequestPrincipal()
 ): string | undefined {
-  return isLocalPrincipal(principal) ? undefined : principalKeyOf(principal);
+  return currentOwnerKey(principal);
 }
 
 /**

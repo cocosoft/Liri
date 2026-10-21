@@ -58,6 +58,18 @@ export function runWithPrincipal<T>(principal: Principal, fn: () => T): T {
 }
 
 /**
+ * 当前身份的**归属键**（多租户 P3）：本地身份 / 无作用域 ⇒ `undefined`。
+ *
+ * 用途：给"可持久化的业务对象"打归属（如 `cron_jobs.owner_key`、`Project.ownerKey`）。
+ * 本地身份返回 `undefined` —— 桌面端既不写列、也不写字段 ⇒ 存量文件逐字不变。
+ */
+export function currentOwnerKey(
+  principal: Principal = getRequestPrincipal()
+): string | undefined {
+  return isLocalPrincipal(principal) ? undefined : principalKeyOf(principal);
+}
+
+/**
  * 当前请求身份。不在任何请求作用域内 ⇒ `LOCAL_PRINCIPAL`
  * （CLI / REPL / cron / 后台任务 / 单测默认路径）。
  */

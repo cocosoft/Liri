@@ -5,24 +5,49 @@
  */
 import type { AlwaysOnConfig } from './types';
 import { AlwaysOnRuntime } from './AlwaysOnRuntime';
+import { AlwaysOnQuota, type AlwaysOnQuotaConfig } from './AlwaysOnQuota';
 import { cg3Log } from '../cg3Env';
 
 export class AlwaysOnManager {
   private runtimes = new Map<string, AlwaysOnRuntime>();
   private config: AlwaysOnConfig;
   private enabled = false;
+  /**
+   * 多租户 P3：**归属配额账本**由 Manager 持有 ⇒ 同一租户的多个项目共享
+   * 「每天 N 次 / 同时 M 个」的配额（放在 Runtime 里就变成"每项目一份"，等于没有租户级限流）。
+   */
+  private readonly quota: AlwaysOnQuota;
 
-  constructor(config: Partial<AlwaysOnConfig> = {}) {
+  constructor(
+    config: Partial<AlwaysOnConfig> = {},
+    quotaConfig: Partial<AlwaysOnQuotaConfig> = {}
+  ) {
     this.config = { ...config } as AlwaysOnConfig;
+    this.quota = new AlwaysOnQuota(quotaConfig);
   }
 
-  /** 注册项目 */
-  registerProject(projectId: string, projectPath: string): AlwaysOnRuntime {
-    const runtime = new AlwaysOnRuntime(this.config, projectPath);
+  /**
+   * 注册项目。
+   *
+   * @param ownerKey 归属键（`<tenantId>:<userId>`）；本地项目（桌面 / CLI）不传 ⇒
+   *   运行时既不查配额也不加身份作用域，与改造前一致。
+   */
+  registerProject(
+    projectId: string,
+    projectPath: string,
+    ownerKey?: string
+  ): AlwaysOnRuntime {
+    const runtime = new AlwaysOnRuntime(
+      this.config,
+      projectPath,
+      ownerKey,
+      this.quota
+    );
     this.runtimes.set(projectId, runtime);
     cg3Log('tasks:alwayson:manager', 'info', 'projectRegistered', {
       projectId,
       projectPath,
+      ownerKey,
     });
     return runtime;
   }

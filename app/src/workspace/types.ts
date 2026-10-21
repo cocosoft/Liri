@@ -303,6 +303,13 @@ export interface Project {
   tags?: string[];
   /** 项目专属文件夹路径（用户可访问的真实目录） */
   sandboxPath?: string;
+  /**
+   * 归属键（多租户 P3：`<tenantId>:<userId>`）。
+   *
+   * 创建时由请求作用域写入；本地身份（桌面 / CLI / 后台）**不写** ⇒ 存量项目文件逐字不变。
+   * 用途：① AlwaysOn 的运行配额按归属共享与限流；② 后续的项目级访问控制。
+   */
+  ownerKey?: string;
 }
 
 /** 工作项模板 */

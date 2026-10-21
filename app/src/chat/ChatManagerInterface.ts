@@ -193,6 +193,15 @@ export interface ChatManager {
   getSessions(): ChatSession[];
 
   /**
+   * 多租户 P3：该会话在当前身份下是否**可用**。
+   *
+   * HTTP 入口 404 语义的唯一判据（本地身份恒 `true`；已认证按归属；
+   * 跨身份与"不存在"同结果 ⇒ 不泄露存在性）。
+   * 可选：未实现的替身不会被强制，调用方按"无法判定 ⇒ 放行"处理。
+   */
+  canUseSession?(sessionId: string): Promise<boolean>;
+
+  /**
    * 删除会话（BUG-3：async——持久化删除失败会 reject，由 handler 返回 500，
    * 避免前端误判成功、磁盘残留会话"复活"）
    * @param sessionId 会话ID

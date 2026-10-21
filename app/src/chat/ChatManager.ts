@@ -3212,6 +3212,16 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * 多租户 P3：该会话在当前身份下是否**可用**（HTTP 入口 404 语义的唯一判据）。
+   *
+   * 本地身份恒 `true`（桌面零变更）；已认证身份按归属判定，
+   * 跨身份与"不存在"返回同一 `false`（调用方统一按 404 响应，不泄露存在性）。
+   */
+  async canUseSession(sessionId: string): Promise<boolean> {
+    return this.sessionLifecycle.canUseSession(sessionId);
+  }
+
+  /**
    * P0-D 配套: 获取会话绑定的真实工作区 ID（项目模块会话 = projectId）
    * 供 create_project 工具使用，避免 AI 建的项目挂到 sessionId 名下（前端 projects 列表不可见）
    */

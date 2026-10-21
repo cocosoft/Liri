@@ -258,6 +258,33 @@ export function mapChatErrorResponse(input: {
 }
 
 /**
+ * 多租户 P3：会话不可用（跨身份 / 不存在）⇒ **404**，与"不存在"同一响应（不泄露存在性）。
+ *
+ * - `session_id` 缺失 ⇒ 放行（保持既有"由下游创建新会话"的语义）；
+ * - 本地身份 ⇒ `chatManager.canUseSession()` 恒 `true` ⇒ 桌面端零变更；
+ * - 聊天管理器未提供该能力（测试替身 / 早期启动）⇒ 放行，不把守卫变成硬依赖。
+ *
+ * ⚠️ 必须在写 SSE 头**之前**调用 —— 头一旦写出就无法再改成 404。
+ */
+async function respond404IfSessionUnavailable(
+  sessionId: string | undefined,
+  res: http.ServerResponse
+): Promise<boolean> {
+  if (!sessionId) return false;
+  const canUse = await getCoreAPI().chatManager?.canUseSession?.(sessionId);
+  if (canUse !== false) return false;
+
+  logger.info('会话不可用（跨身份或不存在），返回 404', { sessionId });
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(
+    JSON.stringify({
+      error: { message: 'Session not found', type: 'not_found_error' },
+    })
+  );
+  return true;
+}
+
+/**
  * POST /v1/chat/completions — 聊天完成请求（流式/非流式分发）
  */
 export async function handleChatCompletions(
@@ -345,6 +372,9 @@ export async function handleChatCompletions(
     request.system_prompt,
     workMode
   );
+
+  // 多租户 P3：跨身份 / 不存在的会话统一 404 —— 必须在分流到流式处理（写 SSE 头）之前判定
+  if (await respond404IfSessionUnavailable(request.session_id, res)) return;
 
   if (request.stream) {
     return handleStreamingChat(res, request);
@@ -1371,6 +1401,9 @@ export async function handleResumeChat(
     );
     return;
   }
+
+  // 多租户 P3：恢复流同样先判会话可用性（SSE 头一旦写出就无法再改 404）
+  if (await respond404IfSessionUnavailable(sessionId, res)) return;
 
   // SSE 头（与 handleStreamingChat 一致）
   res.writeHead(200, {

@@ -35,11 +35,22 @@ const __dirname = path.dirname(__filename);
 // 不再自带第二份变体定义（防漂移，2026-10-20 P0）。
 const VARIANT_CONFIGS = VARIANT_MATRIX;
 
-
-function parseArgs(): { variant: BuildVariant; dryRun: boolean } {
+function parseArgs(): {
+  variant: BuildVariant;
+  dryRun: boolean;
+  distTarget: string;
+} {
   const args = process.argv.slice(2);
   let variant: BuildVariant = 'coding';
   let dryRun = false;
+  /**
+   * 发布产物根（企业版模板的落点）。
+   *
+   * 缺省 `app/dist` —— 即 `bun run build`（bundle 口径）的输出目录；
+   * 编译口径由调用方显式给：`--dist-target=../dist`（与 `copy-prompts --target` 同口径，
+   * 相对 **CWD**，因为构建脚本都从 `app/` 执行）。不显式给 ⇒ 行为与改造前一致。
+   */
+  let distTarget = path.resolve(__dirname, '..', 'dist');
 
   for (const arg of args) {
     if (arg.startsWith('--variant=')) {
@@ -47,17 +58,22 @@ function parseArgs(): { variant: BuildVariant; dryRun: boolean } {
       if (BUILD_VARIANTS.includes(v as BuildVariant)) {
         variant = v as BuildVariant;
       } else {
-        console.error(
-          `无效的变体: ${v}，有效值: ${BUILD_VARIANTS.join(', ')}`
-        );
+        console.error(`无效的变体: ${v}，有效值: ${BUILD_VARIANTS.join(', ')}`);
         process.exit(1);
       }
     } else if (arg === '--dry-run') {
       dryRun = true;
+    } else if (arg.startsWith('--dist-target=')) {
+      const target = arg.slice('--dist-target='.length).trim();
+      if (!target) {
+        console.error('--dist-target 需要非空目录');
+        process.exit(1);
+      }
+      distTarget = path.resolve(target);
     }
   }
 
-  return { variant, dryRun };
+  return { variant, dryRun, distTarget };
 }
 
 function generateFeatureFlags(variant: BuildVariant): string {
@@ -108,7 +124,7 @@ function printBuildFeatures(variant: BuildVariant): void {
 }
 
 function main(): void {
-  const { variant, dryRun } = parseArgs();
+  const { variant, dryRun, distTarget } = parseArgs();
 
   console.log(`\n=== Liri 变体 flags 生成（不做编译）===`);
   console.log(`变体: ${variant}`);
@@ -150,20 +166,24 @@ function main(): void {
     `[正名] 已设置本进程 LIRI_BUILD_VARIANT=${variant}（仅本进程有效；实际构建请另行执行 bun run build）`
   );
 
-  // 企业版：复制模板文件到 dist/
+  // 企业版：复制模板文件到发布产物根（`--dist-target`，缺省 `app/dist`）
   if (variant === 'enterprise') {
-    copyTemplateFiles();
-    console.log('企业版模板已复制到 dist/（仅此一步会写 dist/）');
+    copyTemplateFiles(distTarget);
+    console.log(`企业版模板已复制到 ${distTarget}（仅此一步会写产物目录）`);
   }
 
   console.log('\n变体 flags 生成完成（未执行编译）。');
 }
 
 /**
- * 复制 .hbs 模板文件到 dist/ 目录
- * 确保 TemplateEngine 在运行时能读取模板
+ * 复制 .hbs 模板文件到发布产物根下的 `modules/doc/template/builtin`
+ *
+ * 确保 `TemplateEngine` 在运行时能读到模板（它在 bundle / compile 两种产物里都按
+ * `<产物根>/modules/doc/template` 找 —— 见 `resolveDocTemplateDir`）。
+ *
+ * @param distRoot 产物根（bundle：`app/dist`；compile：`../dist`）
  */
-function copyTemplateFiles(): void {
+function copyTemplateFiles(distRoot: string): void {
   const srcDir = path.resolve(
     __dirname,
     '..',
@@ -174,9 +194,7 @@ function copyTemplateFiles(): void {
     'builtin'
   );
   const distDir = path.resolve(
-    __dirname,
-    '..',
-    'dist',
+    distRoot,
     'modules',
     'doc',
     'template',

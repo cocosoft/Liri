@@ -79,6 +79,20 @@ export const BUILTIN_TEMPLATES: TemplateMeta[] = [
 ];
 
 /**
+ * 从候选目录里挑**第一个真正含有 `builtin/` 的**作为模板根。
+ *
+ * 纯函数（只做存在性判断，无副作用），供 `TemplateEngine` 与回归测试共用 ——
+ * 与 `PromptVersionManager#resolvePromptResourceRoot` 同一口径：**选第一个真实存在的**，
+ * 都不存在时退回第一个候选（把「找不到」留给 `render()/renderFallback` 负责任地降级，
+ * 不在这里硬失败）。
+ */
+export function resolveDocTemplateDir(candidates: string[]): string {
+  return (
+    candidates.find((dir) => existsSync(join(dir, 'builtin'))) ?? candidates[0]
+  );
+}
+
+/**
  * 模板引擎
  * 基于 Handlebars 渲染 .hbs 模板文件
  * 内置模板从 builtin/ 目录加载，支持部分模板（partials）
@@ -191,15 +205,27 @@ export class TemplateEngine {
 
   /**
    * 解析模板文件所在目录的绝对路径
-   * 优先 import.meta.dir（Bun ESM），回退到项目源码目录（resolveProjectRoot，CS/check:paths 合规）
+   *
+   * 三种运行形态的候选顺序（与 `PromptVersionManager` 的「包内资源根」同构）：
+   *   ① 源码：`import.meta.dir` = `app/src/modules/doc/template`
+   *   ② bundle：`<import.meta.dir>/modules/doc/template` —— `bun run build` 产
+   *      `app/dist/main.js`，模板由 `build-variant.ts` 复制到 `app/dist/modules/...`
+   *   ③ compile：`<可执行文件目录>/modules/doc/template` —— 模板由
+   *      `build-variant.ts --dist-target=../dist` 复制到 `dist/modules/...`（exe 同级）
+   *
+   * 判据是 `builtin/` 是否真实存在（模板按 `./builtin/*.hbs` 引用）；都不存在时
+   * 退回源码候选，由 `render()` 的「文件不存在 ⇒ renderFallback」负责降级（CS03）。
    */
   private resolveTemplateDir(): string {
-    // Bun ESM 环境
-    if (typeof (import.meta as any).dir === 'string') {
-      return (import.meta as any).dir as string;
-    }
-    // 非 Bun 环境：模板位于项目源码目录（打包后模板随资源发布，落点由打包机制另行处理）
-    return join(resolveProjectRoot(), 'app/src/modules/doc/template');
+    const selfDir =
+      typeof (import.meta as any).dir === 'string'
+        ? ((import.meta as any).dir as string)
+        : join(resolveProjectRoot(), 'app/src/modules/doc/template');
+    return resolveDocTemplateDir([
+      selfDir,
+      join(selfDir, 'modules/doc/template'),
+      join(dirname(process.execPath), 'modules/doc/template'),
+    ]);
   }
 
   /**

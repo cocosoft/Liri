@@ -22,6 +22,7 @@ import {
   isLocalPrincipal,
   principalKeyOf,
 } from '@modules/core/identity/requestScope.js';
+import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
@@ -131,6 +132,15 @@ export class ProviderTopologyWatcher {
       if (cached) return cached;
       const opened = await this.open(resolveScopedDbPath(principal));
       this.scopedDbs.set(key, opened);
+      // 多租户 P5：登记 closer（关该身份连接 + 摘除本实例缓存），删租户时统一释放句柄
+      registerScopedResource(key, () => {
+        try {
+          opened.close();
+        } catch {
+          // 已关闭：忽略（幂等）
+        }
+        this.scopedDbs.delete(key);
+      });
       return opened;
     }
     if (this.db) return this.db;

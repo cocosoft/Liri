@@ -43,6 +43,7 @@ import {
   isLocalPrincipal,
   principalKeyOf,
 } from '@modules/core/identity/requestScope.js';
+import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 import {
   TOOL_CALL_INITIAL_STATUS,
@@ -711,6 +712,11 @@ export function getExecutionStore(): ExecutionStore {
     if (existing) return existing;
     const scoped = new ExecutionStore(resolveScopedDbPath(principal));
     _scopedInstances.set(key, scoped);
+    // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
+    registerScopedResource(key, () => {
+      scoped.close();
+      _scopedInstances.delete(key);
+    });
     return scoped;
   }
   if (!_instance) _instance = new ExecutionStore();

@@ -32,6 +32,7 @@ import {
   isLocalPrincipal,
   principalKeyOf,
 } from '@modules/core/identity/requestScope.js';
+import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -83,6 +84,11 @@ export class BalanceStore {
       if (existing) return existing;
       const scoped = new BalanceStore(resolveScopedDbPath(principal));
       BalanceStore.scopedInstances.set(key, scoped);
+      // 多租户 P5：登记 closer（关连接 + 摘除本类缓存），删租户时统一释放文件句柄
+      registerScopedResource(key, () => {
+        scoped.close();
+        BalanceStore.scopedInstances.delete(key);
+      });
       return scoped;
     }
     if (!BalanceStore.instance) {

@@ -15,6 +15,7 @@ import {
   isLocalPrincipal,
   principalKeyOf,
 } from '@modules/core/identity/requestScope.js';
+import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
 
 const logger = getLogger('chat:checkpoint');
 
@@ -413,6 +414,11 @@ export function getCheckpointDatabase(): CheckpointDatabase {
   if (existing) return existing;
   const scoped = new CheckpointDatabase(resolveScopedDbPath(principal));
   scopedCheckpointDbs.set(key, scoped);
+  // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
+  registerScopedResource(key, async () => {
+    await scoped.close();
+    scopedCheckpointDbs.delete(key);
+  });
   return scoped;
 }
 

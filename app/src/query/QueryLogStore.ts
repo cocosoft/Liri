@@ -16,6 +16,7 @@ import {
   isLocalPrincipal,
   principalKeyOf,
 } from '@modules/core/identity/requestScope.js';
+import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
 import type {
   QueryLogEntry,
   QueryLogFilter,
@@ -622,6 +623,11 @@ export function getQueryLogStore(): QueryLogStore {
     if (existing) return existing;
     const scoped = new QueryLogStore(resolveScopedDbPath(principal));
     scopedQueryLogStores.set(key, scoped);
+    // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
+    registerScopedResource(key, async () => {
+      await scoped.close();
+      scopedQueryLogStores.delete(key);
+    });
     return scoped;
   }
   if (!globalQueryLogStore) {

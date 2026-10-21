@@ -53,6 +53,7 @@ import {
   isLocalPrincipal,
   principalKeyOf,
 } from '@modules/core/identity/requestScope.js';
+import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 import type { RouterTier, SessionRouteRecord } from './types.js';
 
@@ -297,6 +298,11 @@ export function getSessionRouterStore(): Promise<SessionRouterStore | null> {
           });
         }
         _scopedStores.set(key, store);
+        // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
+        registerScopedResource(key, () => {
+          store.close();
+          _scopedStores.delete(key);
+        });
         return store;
       } catch (error) {
         await handleError(error, {

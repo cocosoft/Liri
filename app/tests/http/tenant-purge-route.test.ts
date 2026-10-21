@@ -92,7 +92,7 @@ function makeReport(tenantId: string): TenantPurgeReport {
       projects: 1,
       sseConnections: 0,
       tenantChannels: 0,
-      inboxConnections: 0,
+      scopedConnections: 0,
       dailyBudgets: 1,
       approvedCommands: 0,
     },

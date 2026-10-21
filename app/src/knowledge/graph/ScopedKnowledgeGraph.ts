@@ -19,6 +19,7 @@ import {
   isLocalPrincipal,
   principalKeyOf,
 } from '../../core/identity/requestScope.js';
+import { registerScopedResource } from '../../core/identity/scopedResources.js';
 
 const logger = getLogger('knowledge:graph:scoped');
 
@@ -50,7 +51,14 @@ export class ScopedKnowledgeGraph {
       if (this.edgeSchemas) graph.setEdgeSchemas(this.edgeSchemas);
       await graph.init();
       if (key === '') this.local = graph;
-      else this.scoped.set(key, graph);
+      else {
+        this.scoped.set(key, graph);
+        // 多租户 P5：登记 closer（关连接 + 摘除本实例缓存），删租户时统一释放文件句柄
+        registerScopedResource(key, async () => {
+          await graph.close();
+          this.scoped.delete(key);
+        });
+      }
       this.pending.delete(key);
       return graph;
     })();

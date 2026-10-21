@@ -16,6 +16,7 @@ import {
   isLocalPrincipal,
   principalKeyOf,
 } from '@modules/core/identity/requestScope.js';
+import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
 
 const logger = getLogger('cost:recordRepository');
 
@@ -1004,6 +1005,11 @@ export function getCostRecordRepository(): CostRecordRepository {
     if (existing) return existing;
     const scoped = new CostRecordRepository(resolveScopedDbPath(principal));
     scopedRepositories.set(key, scoped);
+    // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
+    registerScopedResource(key, async () => {
+      await scoped.close();
+      scopedRepositories.delete(key);
+    });
     return scoped;
   }
   if (!defaultRepository) {

@@ -11,6 +11,7 @@ import {
   isLocalPrincipal,
   principalKeyOf,
 } from '../../core/identity/requestScope.js';
+import { registerScopedResource } from '../../core/identity/scopedResources.js';
 
 /**
  * 全局 LLM 跟踪器实例（**本地身份 / 无请求作用域**使用）
@@ -35,6 +36,11 @@ export function getLLMTracker(): LLMTracker {
     const scoped = new LLMTracker();
     scoped.openScopedSync(resolveScopedDbPath(principal));
     scopedTrackers.set(key, scoped);
+    // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
+    registerScopedResource(key, () => {
+      scoped.close();
+      scopedTrackers.delete(key);
+    });
     return scoped;
   }
   return llmTracker;

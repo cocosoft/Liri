@@ -74,7 +74,7 @@ function makeReport(
       projects: 0,
       sseConnections: 0,
       tenantChannels: 0,
-      inboxConnections: 0,
+      scopedConnections: 0,
       dailyBudgets: 0,
       approvedCommands: 0,
     },

@@ -37,6 +37,7 @@ import {
   isLocalPrincipal,
   principalKeyOf,
 } from '@modules/core/identity/requestScope.js';
+import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 // B4-2（2026-09-23）：恢复通路的相位标签（`yield:*`）—— 台账认领/状态写是恢复期的
 // 两个真实阻塞点（SQLite 同步写），包相位后可由 `loopProbe` 逐条归因。
@@ -531,6 +532,11 @@ export function getSettlementOutbox(): SettlementOutbox {
       });
     });
     scopedInstances.set(key, scoped);
+    // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
+    registerScopedResource(key, () => {
+      scoped.close();
+      scopedInstances.delete(key);
+    });
     return scoped;
   }
   if (!instance) {

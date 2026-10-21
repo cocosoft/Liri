@@ -55,8 +55,11 @@ export interface TenantPurgeReport {
     sseConnections: number;
     /** 断开的租户通道实例数 */
     tenantChannels: number;
-    /** 关闭的审批库连接数 */
-    inboxConnections: number;
+    /**
+     * 关闭的**按身份缓存的数据库连接**数（审批库 / 成本 / 执行 / 查询日志 / 供应商 /
+     * LLM 跟踪 / 检查点 …；由 `core/identity/scopedResources` 登记器统一关闭）
+     */
+    scopedConnections: number;
     /** 丢弃的日预算账本数 */
     dailyBudgets: number;
     /** 清除的危险命令放行记录数 */
@@ -131,7 +134,7 @@ export async function purgeTenant(
       projects: 0,
       sseConnections: 0,
       tenantChannels: 0,
-      inboxConnections: 0,
+      scopedConnections: 0,
       dailyBudgets: 0,
       approvedCommands: 0,
     },
@@ -153,10 +156,20 @@ export async function purgeTenant(
       await channels.stopTenantChannels(ownerPrefix);
   });
 
-  await runStep(report, 'inbox', async () => {
-    const inbox = await import('./InboxManager.js');
-    report.removed.inboxConnections =
-      inbox.closeInboxScopesForTenant(normalized);
+  // 关闭该租户**全部**按身份缓存的数据库连接（审批库 / 成本 / 执行 / 查询日志 / 供应商 /
+  // LLM 跟踪 / 检查点 / 会话黏性 / 任务 / 知识图谱 …）。
+  // 不关 ⇒ Windows 上分区目录 `rmSync` 失败（记入 blocked）。关闭失败同样记 blocked（可重跑）。
+  await runStep(report, 'scopedResources', async () => {
+    const { closeScopedResourcesForTenant } =
+      await import('../core/identity/scopedResources.js');
+    const closed = await closeScopedResourcesForTenant(normalized);
+    report.removed.scopedConnections = closed.closed;
+    for (const failure of closed.failed) {
+      report.blocked.push({
+        path: `scopedResource:${failure.ownerKey}`,
+        error: failure.error,
+      });
+    }
   });
 
   // ── 2. 清进程内账本（日预算 / 危险命令放行缓存）──

@@ -413,6 +413,26 @@ export class UsageStatsService {
 
   // ─── 统计查询 ────────────────────────────────────────
 
+  /**
+   * 多租户 P5：读取侧的归属过滤条件
+   *
+   * - 本地/后台（无归属）⇒ `null`（不过滤：宿主/运维可看全库，与改造前一致）；
+   * - 已认证 ⇒ 只读**自己的**行（`owner_key = '<tenantId>:<userId>'`）；
+   *   历史/本地行 `owner_key IS NULL` 对已认证身份**不可见**（fail-closed）。
+   */
+  private ownerCondition(): { sql: string; value: string } | null {
+    const owner = currentOwnerKey();
+    return owner ? { sql: 'owner_key = ?', value: owner } : null;
+  }
+
+  /** 把归属条件并入 `conditions/values`（各读方法的统一收口） */
+  private applyOwnerCondition(conditions: string[], values: unknown[]): void {
+    const ownerCond = this.ownerCondition();
+    if (!ownerCond) return;
+    conditions.push(ownerCond.sql);
+    values.push(ownerCond.value);
+  }
+
   /** 获取使用量汇总 */
   async getUsageSummary(
     startDate?: number,
@@ -441,6 +461,9 @@ export class UsageStatsService {
       conditions.push('provider_id = ?');
       values.push(providerId);
     }
+
+    // 多租户 P5：已认证身份只看自己的行（本地 ⇒ 不过滤）
+    this.applyOwnerCondition(conditions, values);
 
     const where =
       conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -516,6 +539,9 @@ export class UsageStatsService {
       values.push(model);
     }
 
+    // 多租户 P5：已认证身份只看自己的行（本地 ⇒ 不过滤）
+    this.applyOwnerCondition(conditions, values);
+
     const where =
       conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -569,6 +595,9 @@ export class UsageStatsService {
       values.push(endDate);
     }
 
+    // 多租户 P5：已认证身份只看自己的行（本地 ⇒ 不过滤）
+    this.applyOwnerCondition(conditions, values);
+
     const where =
       conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -618,6 +647,9 @@ export class UsageStatsService {
       conditions.push('timestamp <= ?');
       values.push(endDate);
     }
+
+    // 多租户 P5：已认证身份只看自己的行（本地 ⇒ 不过滤）
+    this.applyOwnerCondition(conditions, values);
 
     const where =
       conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -686,6 +718,9 @@ export class UsageStatsService {
       values.push(filter.statusCode);
     }
 
+    // 多租户 P5：已认证身份只看自己的行（本地 ⇒ 不过滤）
+    this.applyOwnerCondition(conditions, values);
+
     const where =
       conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -746,8 +781,11 @@ export class UsageStatsService {
   async getTotalLogCount(): Promise<number> {
     this.ensureInitialized();
 
+    // 多租户 P5：已认证身份只统计自己的行（本地 ⇒ 全库）
+    const ownerCond = this.ownerCondition();
     const row = await this.getAsync<{ total: number }>(
-      `SELECT COUNT(*) as total FROM ${USAGE_LOGS_TABLE}`
+      `SELECT COUNT(*) as total FROM ${USAGE_LOGS_TABLE}${ownerCond ? ' WHERE owner_key = ?' : ''}`,
+      ownerCond ? [ownerCond.value] : []
     );
     return row?.total || 0;
   }
@@ -764,9 +802,15 @@ export class UsageStatsService {
   }> {
     this.ensureInitialized();
 
+    // 多租户 P5：已认证身份只看自己的样本（本地 ⇒ 全库）
+    const ownerCond = this.ownerCondition();
+    const ownerSql = ownerCond ? ' AND owner_key = ?' : '';
+    const ownerValues = ownerCond ? [ownerCond.value] : [];
+
     const row = await this.getAsync<{ n: number; avg: number }>(
       `SELECT COUNT(*) as n, COALESCE(AVG(latency_ms), 0) as avg
-       FROM ${USAGE_LOGS_TABLE} WHERE latency_ms > 0`
+       FROM ${USAGE_LOGS_TABLE} WHERE latency_ms > 0${ownerSql}`,
+      ownerValues
     );
     const n = row?.n || 0;
 
@@ -775,8 +819,8 @@ export class UsageStatsService {
       const offset = Math.max(0, Math.ceil(n * p) - 1);
       const r = await this.getAsync<{ v: number }>(
         `SELECT latency_ms as v FROM ${USAGE_LOGS_TABLE}
-         WHERE latency_ms > 0 ORDER BY latency_ms LIMIT 1 OFFSET ?`,
-        [offset]
+         WHERE latency_ms > 0${ownerSql} ORDER BY latency_ms LIMIT 1 OFFSET ?`,
+        [...ownerValues, offset]
       );
       return r?.v || 0;
     };

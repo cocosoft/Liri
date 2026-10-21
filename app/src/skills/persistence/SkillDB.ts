@@ -261,6 +261,13 @@ export class SkillDB {
     let sql = `SELECT * FROM ${USAGE_TABLE} WHERE skill_name = ?`;
     const params: unknown[] = [skillName];
 
+    // 多租户 P5：已认证身份只看自己的记录（本地 ⇒ 不过滤，与改造前一致）
+    const owner = currentOwnerKey();
+    if (owner) {
+      sql += ' AND owner_key = ?';
+      params.push(owner);
+    }
+
     if (since) {
       sql += ' AND timestamp >= ?';
       params.push(since);
@@ -287,9 +294,14 @@ export class SkillDB {
     limit: number = 10000
   ): Promise<SkillUsageRecord[]> {
     await this.init();
-    const sql = `SELECT * FROM ${USAGE_TABLE} WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT ?`;
+    // 多租户 P5：已认证身份只看自己的记录（本地 ⇒ 不过滤）
+    const owner = currentOwnerKey();
+    const sql = owner
+      ? `SELECT * FROM ${USAGE_TABLE} WHERE timestamp >= ? AND owner_key = ? ORDER BY timestamp DESC LIMIT ?`
+      : `SELECT * FROM ${USAGE_TABLE} WHERE timestamp >= ? ORDER BY timestamp DESC LIMIT ?`;
+    const params: unknown[] = owner ? [since, owner, limit] : [since, limit];
     const rows = await new Promise<UsageRow[]>((resolve, reject) => {
-      this.db!.all(sql, [since, limit], (err, rows: UsageRow[]) => {
+      this.db!.all(sql, params, (err, rows: UsageRow[]) => {
         if (err) reject(err);
         else resolve(rows);
       });

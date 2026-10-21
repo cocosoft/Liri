@@ -36,8 +36,23 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
+import type { IChannelPlugin } from '../types/IChannel';
 
 const logger = getLogger('channels:monitor');
+
+/**
+ * 监控可观测的最小渠道视图
+ *
+ * 部署级渠道来自 `channelRegistry`（`ChannelInterface`），租户级通道是
+ * `IChannelPlugin`（**不注册进 registry**，见 `setupChannels`）—— 两者形状不同，
+ * 但监控只需要"类型 / 启用 / 已连接 / 状态快照"四项，故在此投影成同一视图。
+ */
+interface MonitoredChannelView {
+  type: string;
+  enabled: boolean;
+  connected: boolean;
+  getStatus(): unknown;
+}
 
 /** 渠道运行时五态（对齐 llama.cpp 五态机 + reconnecting） */
 export type ChannelRuntimeStatus =
@@ -132,6 +147,14 @@ const DEFAULT_CONFIG: ChannelRealtimeMonitorConfig = {
 export class ChannelRealtimeMonitor {
   private readonly config: ChannelRealtimeMonitorConfig;
   private readonly states = new Map<string, ChannelStateEntry>();
+  /**
+   * 租户通道实例（多租户 P3）：`<ownerKey>::<type>` → 插件
+   *
+   * 这些实例由 `setupChannels` 在**归属者身份作用域**内连接，且**不注册进
+   * `channelRegistry`**（避免按 name 反查时串到部署级实例）⇒ 监控器必须单独持有引用，
+   * 否则租户通道的健康状态与断连在监控面/事件流里完全不可见。
+   */
+  private readonly tenantChannels = new Map<string, IChannelPlugin>();
   private readonly eventEmitter = new EventEmitter();
 
   private probeTimer: ReturnType<typeof setInterval> | null = null;
@@ -184,18 +207,70 @@ export class ChannelRealtimeMonitor {
     return this.started;
   }
 
-  // ─── 状态查询 ──────────────────────────────────────────
+  // ─── 租户实例登记（多租户 P3）─────────────────────────
 
-  /** 全部渠道实时状态快照 */
-  getStatusAll(): ChannelRuntimeStatusInfo[] {
-    return channelRegistry.getAll().map((ch) => this.buildStatusInfo(ch.name));
+  /**
+   * 登记一个租户通道实例（由 `setupChannels` 在连接成功后调用，**幂等**）
+   *
+   * @param channelId `<ownerKey>::<type>`（与 setupChannels 的实例命名同构）
+   */
+  registerTenantChannel(channelId: string, plugin: IChannelPlugin): void {
+    this.tenantChannels.set(channelId, plugin);
+    this.ensureEntry(channelId);
+    logger.info(`监控器跟踪租户通道: ${channelId}`);
   }
 
-  /** 单渠道实时状态快照 */
+  /** 注销租户通道实例（断开/删除租户时调用，**幂等**）*/
+  unregisterTenantChannel(channelId: string): void {
+    if (!this.tenantChannels.delete(channelId)) return;
+    this.clearReconnectTimer(channelId);
+    this.states.delete(channelId);
+    logger.info(`监控器移除租户通道: ${channelId}`);
+  }
+
+  // ─── 状态查询 ──────────────────────────────────────────
+
+  /** 全部渠道实时状态快照（部署级 + 租户级） */
+  getStatusAll(): ChannelRuntimeStatusInfo[] {
+    const deployLevel = channelRegistry
+      .getAll()
+      .map((ch) => this.buildStatusInfo(ch.name));
+    const tenantLevel = [...this.tenantChannels.keys()].map((id) =>
+      this.buildStatusInfo(id)
+    );
+    return [...deployLevel, ...tenantLevel];
+  }
+
+  /** 单渠道实时状态快照（先查部署级，再查租户级） */
   getChannelStatus(channelId: string): ChannelRuntimeStatusInfo | null {
-    const channel = channelRegistry.get(channelId);
-    if (!channel) return null;
+    if (!this.resolveView(channelId)) return null;
     return this.buildStatusInfo(channelId);
+  }
+
+  /**
+   * 把"部署级渠道 / 租户插件"统一投影为监控视图
+   *
+   * 找不到（既不在 registry 也不在租户表）⇒ `undefined`（调用方按"不存在"处理）。
+   */
+  private resolveView(channelId: string): MonitoredChannelView | undefined {
+    const plugin = this.tenantChannels.get(channelId);
+    if (plugin) {
+      return {
+        type: plugin.id,
+        // 租户实例的生命周期由 `setupChannels` 管：登记进监控即代表"该租户已启用该通道"
+        enabled: true,
+        connected: plugin.lifecycle.getStatus().connected,
+        getStatus: () => plugin.lifecycle.getStatus(),
+      };
+    }
+    const channel = channelRegistry.get(channelId);
+    if (!channel) return undefined;
+    return {
+      type: channel.type ?? channelId,
+      enabled: channel.enabled,
+      connected: channel.connected,
+      getStatus: () => channel.getStatus(),
+    };
   }
 
   // ─── 事件订阅 ──────────────────────────────────────────
@@ -310,6 +385,77 @@ export class ChannelRealtimeMonitor {
           action: 'probeAll',
           context: { channelId: ch.name },
         });
+      }
+    }
+
+    // 租户通道（多租户 P3）：只做健康探测 + 状态/事件投影，**不做自愈重连** ——
+    // 重连必须在归属者身份作用域内解析凭据并 connect，属 setupChannels 的职责
+    //（见 `stopTenantChannels` 同源约束），在此自行重连会跨身份复用凭据。
+    for (const channelId of this.tenantChannels.keys()) {
+      try {
+        await this.probeTenantOnce(channelId);
+      } catch (error) {
+        await handleError(error, {
+          module: 'channels:monitor',
+          action: 'probeTenantChannel',
+          context: { channelId },
+        });
+      }
+    }
+  }
+
+  /** 租户通道的单轮健康探测（只读：更新内存状态 + 发事件，不触发重连） */
+  private async probeTenantOnce(channelId: string): Promise<void> {
+    const plugin = this.tenantChannels.get(channelId);
+    if (!plugin) return;
+
+    const entry = this.ensureEntry(channelId);
+    const status = plugin.lifecycle.getStatus();
+    const start = Date.now();
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<null>((resolve) => {
+      timeoutId = setTimeout(
+        () => resolve(null),
+        this.config.healthCheckTimeoutMs
+      );
+    });
+    const raced = await Promise.race([
+      plugin.lifecycle.healthCheck(),
+      timeoutPromise,
+    ]);
+    if (timeoutId) clearTimeout(timeoutId);
+
+    // 超时 ⇒ 不确定态（不参与判定；与部署级同口径）
+    entry.healthy = raced === null ? null : raced.healthy;
+    entry.latencyMs =
+      raced?.latencyMs && raced.latencyMs > 0
+        ? raced.latencyMs
+        : Date.now() - start;
+    entry.lastProbeAt = Date.now();
+
+    if (entry.healthy === true) {
+      if (entry.status !== 'connected') {
+        this.setStatus(channelId, 'connected', { reason: 'tenant-probe' });
+      }
+      entry.consecutiveProbeFailures = 0;
+      return;
+    }
+    if (entry.healthy === false && status.connected) {
+      entry.consecutiveProbeFailures += 1;
+      if (
+        entry.consecutiveProbeFailures >=
+        this.config.maxConsecutiveProbeFailures
+      ) {
+        entry.lastError = '租户通道健康探测不可达';
+        this.appendErrorSnapshot(channelId, '租户通道探测失败');
+        this.emitEvent({
+          type: 'probe_failed',
+          channelId,
+          timestamp: Date.now(),
+          data: { latencyMs: entry.latencyMs, scope: 'tenant' },
+        });
+        this.setStatus(channelId, 'error', { reason: 'tenant-probe-failed' });
       }
     }
   }
@@ -724,11 +870,11 @@ export class ChannelRealtimeMonitor {
     return entry;
   }
 
-  /** 合并内存状态与渠道实时 getStatus()，输出快照 */
+  /** 合并内存状态与渠道实时 getStatus()，输出快照（部署级 / 租户级同口径） */
   private buildStatusInfo(channelId: string): ChannelRuntimeStatusInfo {
-    const channel = channelRegistry.get(channelId);
+    const view = this.resolveView(channelId);
     const entry = this.ensureEntry(channelId);
-    const raw = channel?.getStatus() as
+    const raw = view?.getStatus() as
       | (Partial<ChannelStatusLike> & Record<string, unknown>)
       | undefined;
 
@@ -737,7 +883,7 @@ export class ChannelRealtimeMonitor {
     if (
       status !== 'connecting' &&
       status !== 'reconnecting' &&
-      channel?.connected &&
+      view?.connected &&
       status === 'disconnected'
     ) {
       status = 'connected';
@@ -745,8 +891,8 @@ export class ChannelRealtimeMonitor {
 
     return {
       channelId,
-      type: channel?.type ?? channelId,
-      enabled: channel?.enabled ?? entry.enabled,
+      type: view?.type ?? channelId,
+      enabled: view?.enabled ?? entry.enabled,
       status,
       healthy: entry.healthy,
       latencyMs:

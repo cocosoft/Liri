@@ -372,8 +372,12 @@ export function wrapHandlerWithOwnerScope(
 }
 
 /** 已连接的租户实例（部署级实例仍由 `ChannelBootstrapper` 管理；此处只管租户侧） */
-const _tenantInstances: Array<{ ownerKey: string; plugin: IChannelPlugin }> =
-  [];
+const _tenantInstances: Array<{
+  ownerKey: string;
+  /** 实例名（`<ownerKey>::<type>`）—— 与监控器登记键同构，注销时需要 */
+  name: string;
+  plugin: IChannelPlugin;
+}> = [];
 
 /**
  * 断开租户通道实例（幂等）
@@ -385,7 +389,11 @@ const _tenantInstances: Array<{ ownerKey: string; plugin: IChannelPlugin }> =
 export async function stopTenantChannels(
   ownerPrefix?: string
 ): Promise<number> {
-  const matched: Array<{ ownerKey: string; plugin: IChannelPlugin }> = [];
+  const matched: Array<{
+    ownerKey: string;
+    name: string;
+    plugin: IChannelPlugin;
+  }> = [];
   for (let i = _tenantInstances.length - 1; i >= 0; i--) {
     const entry = _tenantInstances[i];
     if (ownerPrefix && !entry.ownerKey.startsWith(ownerPrefix)) continue;
@@ -393,7 +401,7 @@ export async function stopTenantChannels(
     _tenantInstances.splice(i, 1);
   }
 
-  for (const { plugin } of matched) {
+  for (const { name, plugin } of matched) {
     try {
       await plugin.lifecycle.disconnect();
     } catch (error) {
@@ -403,8 +411,42 @@ export async function stopTenantChannels(
         context: { channelId: plugin.id },
       });
     }
+    // 同步撤销监控登记（否则监控面会继续展示已断开实例、并对它做无效探测）
+    await unregisterTenantChannelFromMonitor(name);
   }
   return matched.length;
+}
+
+/** 把租户实例登记进实时监控（失败只告警：监控是旁路，不影响连接结果） */
+async function registerTenantChannelWithMonitor(
+  name: string,
+  plugin: IChannelPlugin
+): Promise<void> {
+  try {
+    const { getChannelRealtimeMonitor } =
+      await import('./monitoring/ChannelRealtimeMonitor');
+    getChannelRealtimeMonitor().registerTenantChannel(name, plugin);
+  } catch (error) {
+    await handleError(error, {
+      module: 'channels:setup',
+      action: 'registerTenantChannelMonitor',
+      context: { channelName: name },
+    });
+  }
+}
+
+async function unregisterTenantChannelFromMonitor(name: string): Promise<void> {
+  try {
+    const { getChannelRealtimeMonitor } =
+      await import('./monitoring/ChannelRealtimeMonitor');
+    getChannelRealtimeMonitor().unregisterTenantChannel(name);
+  } catch (error) {
+    await handleError(error, {
+      module: 'channels:setup',
+      action: 'unregisterTenantChannelMonitor',
+      context: { channelName: name },
+    });
+  }
 }
 
 /**
@@ -641,8 +683,12 @@ export async function lazyConnectChannels(options?: {
         if (entry.ownerKey) {
           _tenantInstances.push({
             ownerKey: entry.ownerKey,
+            name: channelName,
             plugin: entry.plugin,
           });
+          // 多租户 P3：租户实例不在 `channelRegistry` 里 ⇒ 单独登记进实时监控，
+          // 否则它们的健康状态/断连在监控面与事件流里完全不可见。
+          await registerTenantChannelWithMonitor(channelName, entry.plugin);
         }
         logger.info(`通道已连接: ${channelName}`);
       } catch (error) {

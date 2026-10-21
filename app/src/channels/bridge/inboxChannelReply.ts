@@ -312,9 +312,10 @@ async function _retryWithBackoff(
 
 async function _writeDeadLetter(inboxItem: InboxItem): Promise<void> {
   try {
-    const { resolveDbPath } = await import('@modules/core/paths');
+    const { resolveScopedDbPath } = await import('@modules/core/paths');
     const { Database } = await import('@modules/core/external/sqlite3');
-    const db = new Database(resolveDbPath());
+    // 多租户 P1：死信表随请求身份落库（通道后台路径 ⇒ 本地共享库，零变更）
+    const db = new Database(resolveScopedDbPath());
     await new Promise<void>((resolve, reject) => {
       db.run(
         `CREATE TABLE IF NOT EXISTS inbox_reply_deadletter (

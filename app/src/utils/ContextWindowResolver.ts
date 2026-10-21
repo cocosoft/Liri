@@ -11,7 +11,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core';
+import { resolveScopedDbPath } from '@modules/core';
 // 2026-10-01 B14b（甲′）：原静态导入 app 层 `@modules/ai` 的 ModelRegistry（同步路径读取）
 // ⇒ 改为本文件自持的 **infra 级缓存**，由 `ModelRegistry` 在装载/刷新模型时**同步推入**
 // （DB 仍为唯一事实来源）。本站是该文件唯一的 app 层耦合点，解除后本文件 app-free，可落 infra。
@@ -64,7 +64,9 @@ export interface ContextWindowInfo {
  */
 async function resolveFromDB(model: string): Promise<number | null> {
   try {
-    const db = new Database(resolveDbPath());
+    // 多租户 P1：随请求身份解析（本地身份 ⇒ 共享 app.db，零变更）；
+    // 该函数在**每次**调用时新开连接并立即读取，不缓存连接 ⇒ 无共享字段换连接的竞态。
+    const db = new Database(resolveScopedDbPath());
     const row = await new Promise<{ context_window?: number } | undefined>(
       (resolve) => {
         db.get(

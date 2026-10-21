@@ -15,7 +15,13 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath, resolveScopedDbPath } from '@modules/core';
+// 多租户 P1（2026-10-21）：拓扑指纹按身份分连接（后台轮询 ⇒ 本地共享库）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
@@ -27,6 +33,8 @@ const TOPOLOGY_WATCH_INTERVAL_MS = 5000;
 export class ProviderTopologyWatcher {
   private timer: ReturnType<typeof setInterval> | null = null;
   private db: Database | null = null;
+  /** 多租户 P1：非本地身份的连接（键 = `<tenantId>:<userId>`；后台定时轮询 ⇒ 恒为本地库） */
+  private scopedDbs = new Map<string, Database>();
   private lastFingerprint = '';
   private checking = false;
 
@@ -85,15 +93,35 @@ export class ProviderTopologyWatcher {
     return `p:${providers?.c ?? 0}:${providers?.m ?? 0}|m:${models?.c ?? 0}:${models?.m ?? 0}`;
   }
 
+  /**
+   * 取连接。
+   *
+   * 多租户 P1（2026-10-21）：本地身份 / 后台定时轮询 ⇒ 共享库（零变更）；
+   * 请求内被调用 ⇒ 该身份自己的库。**按身份分别缓存**，避免"首个调用者决定连接"
+   * 导致跨身份串库（单字段换连接在异步交错下不安全）。
+   */
   private async getDb(): Promise<Database> {
+    const principal = getRequestPrincipal();
+    if (!isLocalPrincipal(principal)) {
+      const key = principalKeyOf(principal);
+      const cached = this.scopedDbs.get(key);
+      if (cached) return cached;
+      const opened = await this.open(resolveScopedDbPath(principal));
+      this.scopedDbs.set(key, opened);
+      return opened;
+    }
     if (this.db) return this.db;
-    this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(resolveDbPath(), (err: Error | null) => {
+    this.db = await this.open(resolveDbPath());
+    return this.db;
+  }
+
+  private open(path: string): Promise<Database> {
+    return new Promise<Database>((resolve, reject) => {
+      const db = new Database(path, (err: Error | null) => {
         if (err) reject(err);
         else resolve(db);
       });
     });
-    return this.db;
   }
 
   /** 周期检查：指纹变化 → 自动同步运行时 */

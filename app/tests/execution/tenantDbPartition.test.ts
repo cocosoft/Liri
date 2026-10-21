@@ -10,7 +10,7 @@
  * `await init()` 与后续 SQL 之间存在异步交错点 ⇒ 换连接会让并发请求串到别人的库。
  */
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
-import { existsSync, mkdtempSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -40,6 +40,8 @@ import {
 import { KnowledgeGraph } from '../../src/knowledge/graph/KnowledgeGraph';
 import { getProviderManager } from '../../src/ai/providers/ProviderManager';
 import { getCredentialStore } from '../../src/ai/credentials/CredentialStore';
+import { Database } from '../../src/core/external/sqlite3';
+import { resolveContextWindowAsync } from '../../src/utils/ContextWindowResolver';
 
 const ALICE: Principal = {
   tenantId: 'acme',
@@ -243,6 +245,28 @@ describe('CredentialStore：按身份分实例（与 ProviderManager 同源分�
       runWithPrincipal(ALICE, () => getCredentialStore().get('pid-1'))
     ).toBe('sk-test');
     expect(getCredentialStore().get('pid-1')).toBeUndefined();
+  });
+});
+
+describe('ContextWindowResolver：DB 读取路径随身份', () => {
+  it('租户请求读自己的 model_registry（本地读不到）', async () => {
+    const dir = join(dataDir, 'tenants', 'acme', 'users', 'alice');
+    mkdirSync(dir, { recursive: true });
+    const db = new Database(join(dir, 'app.db'));
+    db.run(
+      'CREATE TABLE IF NOT EXISTS model_registry (model_id TEXT, context_window INTEGER)'
+    );
+    db.run(
+      "INSERT INTO model_registry (model_id, context_window) VALUES ('tenant-only-model', 123456)"
+    );
+
+    const scoped = await runWithPrincipal(ALICE, () =>
+      resolveContextWindowAsync('tenant-only-model')
+    );
+    expect(scoped.tokens).toBe(123456);
+
+    const local = await resolveContextWindowAsync('tenant-only-model');
+    expect(local.tokens).not.toBe(123456);
   });
 });
 

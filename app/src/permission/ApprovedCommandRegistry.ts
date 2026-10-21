@@ -405,6 +405,28 @@ export class ApprovedCommandRegistry {
     if (sessionMap.size === 0) this.store.delete(sessionId);
   }
 
+  /**
+   * 多租户 P5：按**归属键前缀**清除放行记录（删除租户 / 移除成员时调用）
+   *
+   * 只删 `ownerKey` 匹配前缀的条目，其他身份与本机记录不受影响。
+   *
+   * @returns 清除的记录数
+   */
+  forgetOwnerPrefix(prefix: string): number {
+    if (!prefix) return 0;
+    let removed = 0;
+    for (const [sessionId, sessionMap] of this.store) {
+      for (const [hash, entry] of sessionMap) {
+        if (entry.ownerKey?.startsWith(prefix)) {
+          sessionMap.delete(hash);
+          removed++;
+        }
+      }
+      if (sessionMap.size === 0) this.store.delete(sessionId);
+    }
+    return removed;
+  }
+
   /** 清理过期条目 */
   cleanup(): void {
     const now = Date.now();

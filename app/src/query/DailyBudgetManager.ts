@@ -1416,6 +1416,25 @@ export function resetDailyBudgetForTest(): void {
 }
 
 /**
+ * 多租户 P5：按租户丢弃**内存中的**预算账本（删除租户时调用）
+ *
+ * 只移出 `scopedBudgets` 的映射；账本状态文件（`<scoped>/daily-budget-state.json`）
+ * 随身份分区目录一起删除。本地单例不受影响。
+ *
+ * @returns 丢弃的账本数
+ */
+export function forgetDailyBudgetForTenant(tenantId: string): number {
+  const prefix = `${tenantId}:`;
+  let removed = 0;
+  for (const key of [...scopedBudgets.keys()]) {
+    if (!key.startsWith(prefix)) continue;
+    scopedBudgets.delete(key);
+    removed++;
+  }
+  return removed;
+}
+
+/**
  * 仅供测试：把预算**直接置为越界**（⇒ `getMode().mode === 'locked'`）。
  *
  * **为什么需要**：主口径已切 USD，且 Token 轨**只观测、不拦**（用户 2026-10-15 裁定）

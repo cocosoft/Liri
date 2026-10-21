@@ -64,6 +64,25 @@ export interface InboxItem {
 
 // ─── InboxManager ──────────────────────────────────────
 
+/**
+ * 进程内已创建的实例集合（多租户 P5：删除租户时需关闭其分区库连接，
+ * 否则 Windows 上文件句柄会让租户目录删不掉）。
+ */
+const liveInstances = new Set<InboxManager>();
+
+/**
+ * 多租户 P5：关闭**所有实例**中属于该租户的分区库连接
+ *
+ * @returns 关闭的连接数
+ */
+export function closeInboxScopesForTenant(tenantId: string): number {
+  let closed = 0;
+  for (const manager of liveInstances) {
+    closed += manager.closeScopesForTenant(tenantId);
+  }
+  return closed;
+}
+
 export class InboxManager {
   private db: Database | null = null;
   private dbPath: string;
@@ -80,6 +99,31 @@ export class InboxManager {
   constructor(dbPath?: string) {
     this.explicitPath = dbPath !== undefined;
     this.dbPath = dbPath ?? resolveDbPath();
+    liveInstances.add(this);
+  }
+
+  /**
+   * 多租户 P5：关闭该租户的分区库连接（删除租户前调用，释放文件句柄）
+   *
+   * 只关 `<tenantId>:*` 的连接；本地共享连接与其他租户不受影响。
+   * 关闭后该身份下次访问会重新开库（表结构幂等重建）。
+   *
+   * @returns 关闭的连接数
+   */
+  closeScopesForTenant(tenantId: string): number {
+    const prefix = `${tenantId}:`;
+    let closed = 0;
+    for (const [scope, db] of [...this.scopedDbs]) {
+      if (!scope.startsWith(prefix)) continue;
+      try {
+        db.close();
+      } catch {
+        // 已关闭 / 关闭中：忽略
+      }
+      this.scopedDbs.delete(scope);
+      closed++;
+    }
+    return closed;
   }
 
   /**
@@ -115,6 +159,7 @@ export class InboxManager {
    */
   dispose(): void {
     this.stopExpireScheduler();
+    liveInstances.delete(this);
   }
 
   private async getDb(): Promise<Database> {

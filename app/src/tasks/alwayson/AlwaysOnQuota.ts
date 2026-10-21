@@ -103,6 +103,25 @@ export class AlwaysOnQuota {
     this.usage.clear();
   }
 
+  /**
+   * 多租户 P5：按 **归属键前缀** 清除配额账本（删除租户 / 移除成员时调用）
+   *
+   * `ownerKey` 形如 `<tenantId>:<userId>` ⇒ 删租户传 `<tenantId>:`；
+   * 只删匹配前缀的条目，其他租户与本地项目不受影响。
+   *
+   * @returns 清除的归属条目数
+   */
+  forgetOwnerPrefix(prefix: string): number {
+    if (!prefix) return 0;
+    let removed = 0;
+    for (const key of [...this.usage.keys()]) {
+      if (!key.startsWith(prefix)) continue;
+      this.usage.delete(key);
+      removed++;
+    }
+    return removed;
+  }
+
   /** 取该归属的计数条目，跨天则清零（惰性，无定时器） */
   private entryOf(ownerKey: string): OwnerUsage {
     const day = new Date(this.now()).toDateString();

@@ -651,6 +651,36 @@ export class CronJobStore {
     });
   }
 
+  /**
+   * 多租户 P5：删除某归属前缀下的全部作业（删除租户时调用）
+   *
+   * `owner_key` 形如 `<tenantId>:<userId>` ⇒ 删租户传 `<tenantId>:`；
+   * 只匹配以该前缀开头的行，本地作业（`owner_key IS NULL`）与其他租户不受影响。
+   *
+   * @returns 删除的作业数
+   */
+  async deleteByOwnerPrefix(prefix: string): Promise<number> {
+    if (!prefix) return 0;
+    const db = this.ensureDb();
+    return new Promise((resolve, reject) => {
+      db.run(
+        `DELETE FROM ${TABLE_CRON_JOBS} WHERE owner_key LIKE ?`,
+        [`${prefix}%`],
+        function (this: { changes?: number }, err: Error | null) {
+          if (err) {
+            handleError(err, {
+              module: 'tasks:cron:store',
+              action: '按归属前缀删除作业失败',
+            });
+            reject(err);
+            return;
+          }
+          resolve(this.changes ?? 0);
+        }
+      );
+    });
+  }
+
   /** 禁用作业（连续错误超阈值时调用） */
   async disableJob(jobId: string, reason?: string): Promise<void> {
     const db = this.ensureDb();

@@ -520,6 +520,27 @@ export class SqliteTaskStore implements ITaskStore {
     });
   }
 
+  /**
+   * 多租户 P5：删除某归属前缀下的全部任务流（删除租户时调用）
+   *
+   * @returns 删除的行数
+   */
+  async deleteTaskFlowsByOwnerPrefix(prefix: string): Promise<number> {
+    if (!prefix) return 0;
+    return this.withDb(async () => {
+      return new Promise<number>((resolve, reject) => {
+        this.db!.run(
+          `DELETE FROM ${TABLE_NAMES.TASK_FLOW} WHERE owner_key LIKE ?`,
+          [`${prefix}%`],
+          function (this: { changes?: number }, err: Error | null) {
+            if (err) reject(err);
+            else resolve(this.changes ?? 0);
+          }
+        );
+      });
+    });
+  }
+
   /** 保存投递记录 */
   async saveDeliveryRecord(record: DeliveryRecord): Promise<void> {
     return this.withDb(async () => {

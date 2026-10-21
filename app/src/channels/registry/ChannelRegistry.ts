@@ -292,6 +292,22 @@ export class ChannelRegistry extends EventEmitter {
     this.persistenceReady = true;
   }
 
+  /**
+   * 关闭持久化连接（一次性运维场景用，如删除租户；幂等）
+   *
+   * 内存配置一并清空 —— 调用方若还要继续用，需要重新 `initPersistence()`。
+   */
+  async close(): Promise<void> {
+    if (!this.db) return;
+    const db = this.db;
+    this.db = null;
+    this.persistenceReady = false;
+    this.configs.clear();
+    await new Promise<void>((resolve) => {
+      db.close(() => resolve());
+    });
+  }
+
   /** 创建 channel_configs 表 */
   private createTable(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -646,8 +662,40 @@ export class ChannelRegistry extends EventEmitter {
   }
 
   /**
-   * 获取通道
+   * 多租户 P5：删除某**归属前缀**下的全部通道配置（删除租户时调用）
+   *
+   * 主键约定：租户行 `<ownerKey>::<type>`（`owner_key` 列非空），部署级行
+   * `owner_key IS NULL`（主键沿用 `type`）**不受影响**。内存 map 同步移除。
+   *
+   * @returns 删除的持久化行数（未启用持久化 ⇒ 0，内存仍已清理）
    */
+  async purgeOwnerPrefix(prefix: string): Promise<number> {
+    if (!prefix) return 0;
+
+    for (const key of [...this.configs.keys()]) {
+      if (key.startsWith(prefix)) this.configs.delete(key);
+    }
+
+    if (!this.db || !this.persistenceReady) return 0;
+    return new Promise<number>((resolve) => {
+      this.db!.run(
+        'DELETE FROM channel_configs WHERE owner_key LIKE ?',
+        [`${prefix}%`],
+        function (this: { changes?: number }, err: Error | null) {
+          if (err) {
+            handleError(err, {
+              module: 'channels:registry',
+              action: '按归属前缀删除通道配置失败',
+            });
+            resolve(0);
+            return;
+          }
+          resolve(this.changes ?? 0);
+        }
+      );
+    });
+  }
+
   get(name: string): ChannelInterface | undefined {
     return this.channels.get(name);
   }

@@ -233,3 +233,38 @@ export function stopSSE(): void {
 export function getSSEClientCount(): number {
   return clients.size;
 }
+
+/**
+ * 多租户 P5：关闭某个租户的 **SSE 长连接**，并丢弃其可回放事件
+ *
+ * 删除租户时调用：连接不断开的话，旧页面仍会继续收到该租户的广播；
+ * 本地身份连接（身份键为 `''`）**不受影响**。
+ *
+ * @returns 实际关闭的连接数
+ */
+export function closeSSEConnectionsForTenant(tenantId: string): number {
+  const prefix = `${tenantId}:`;
+  let closed = 0;
+  for (const [client, clientKey] of [...clients]) {
+    if (!clientKey.startsWith(prefix)) continue;
+    clients.delete(client);
+    try {
+      client.end();
+    } catch {
+      // 连接已断开，忽略
+    }
+    closed++;
+  }
+  if (closed > 0) {
+    for (let i = replayBuffer.length - 1; i >= 0; i--) {
+      if (replayBuffer[i].key.startsWith(prefix)) replayBuffer.splice(i, 1);
+    }
+    stopHeartbeatIfIdle();
+  }
+  logger.info('租户 SSE 连接已关闭', {
+    tenantId,
+    closed,
+    remaining: clients.size,
+  });
+  return closed;
+}

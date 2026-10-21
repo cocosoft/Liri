@@ -372,12 +372,28 @@ export function wrapHandlerWithOwnerScope(
 }
 
 /** 已连接的租户实例（部署级实例仍由 `ChannelBootstrapper` 管理；此处只管租户侧） */
-const _tenantInstances: IChannelPlugin[] = [];
+const _tenantInstances: Array<{ ownerKey: string; plugin: IChannelPlugin }> =
+  [];
 
-/** 断开所有租户通道实例（幂等；优雅退出时调用） */
-export async function stopTenantChannels(): Promise<void> {
-  const instances = _tenantInstances.splice(0);
-  for (const plugin of instances) {
+/**
+ * 断开租户通道实例（幂等）
+ *
+ * @param ownerPrefix 只断开**归属键**以该前缀开头的实例（删除租户时传 `<tenantId>:`）；
+ *                    缺省 ⇒ 断开全部（优雅退出时调用，与改造前一致）
+ * @returns 断开的实例数
+ */
+export async function stopTenantChannels(
+  ownerPrefix?: string
+): Promise<number> {
+  const matched: Array<{ ownerKey: string; plugin: IChannelPlugin }> = [];
+  for (let i = _tenantInstances.length - 1; i >= 0; i--) {
+    const entry = _tenantInstances[i];
+    if (ownerPrefix && !entry.ownerKey.startsWith(ownerPrefix)) continue;
+    matched.push(entry);
+    _tenantInstances.splice(i, 1);
+  }
+
+  for (const { plugin } of matched) {
     try {
       await plugin.lifecycle.disconnect();
     } catch (error) {
@@ -388,6 +404,7 @@ export async function stopTenantChannels(): Promise<void> {
       });
     }
   }
+  return matched.length;
 }
 
 /**
@@ -619,8 +636,14 @@ export async function lazyConnectChannels(options?: {
           ),
         ]);
         connectedCount++;
-        // 多租户 P3：登记租户实例，优雅退出时统一断开（部署级由 ChannelBootstrapper 负责）
-        if (entry.ownerKey) _tenantInstances.push(entry.plugin);
+        // 多租户 P3：登记租户实例，优雅退出时统一断开（部署级由 ChannelBootstrapper 负责）；
+        // P5：连同归属键登记 ⇒ 删除租户时可只断开该租户的实例
+        if (entry.ownerKey) {
+          _tenantInstances.push({
+            ownerKey: entry.ownerKey,
+            plugin: entry.plugin,
+          });
+        }
         logger.info(`通道已连接: ${channelName}`);
       } catch (error) {
         handleError(error, {

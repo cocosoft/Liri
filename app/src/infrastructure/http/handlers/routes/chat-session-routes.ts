@@ -49,6 +49,7 @@ import {
   handleGetSession,
   handleGetSessionMemory,
   handleGetSessionMessages,
+  handleGetSessionTimeline,
   handleGetSessionEvents,
   handleGetSessionStats,
   handleExportSessionEvents,
@@ -142,6 +143,12 @@ export async function dispatchChatSessionRoutes(
   // 全文搜索历史消息（须在通用 /v1/sessions/:id/messages 之前匹配）
   if (method === 'GET' && url === '/v1/sessions/messages/search') {
     await handleSearchMessagesFTS(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/timeline$/)) {
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/timeline$/, res);
+    if (sid === null) return true;
+    await handleGetSessionTimeline(req, res, sid);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/messages$/)) {

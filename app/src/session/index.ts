@@ -139,6 +139,15 @@ export type {
   DerivationDiff,
   DerivedMessage,
 } from './storage/EventMessageDeriver.js';
+/**
+ * 只读时间旅行（演进方案 W5）：「截至某 seq 的会话长什么样」——纯函数，不写事件、不改状态。
+ */
+export {
+  computeIsHistoricalSlice,
+  replayTimelineUntil,
+  sliceEventsUntil,
+} from './timeline/timelineSlice.js';
+export type { TimelineSlice } from './timeline/timelineSlice.js';
 export {
   parseSessionSummaries,
   findSummaryForSeq,

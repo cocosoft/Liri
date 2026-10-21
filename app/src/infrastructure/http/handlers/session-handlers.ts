@@ -31,7 +31,11 @@ import { MessageRole } from '@modules/session/types/message';
 // 改指 infra ⇒ `service -> infra` **合法**（该边消失）。其类型阻断（`Message` / `LiriEventType`）已由 B11 迁 `session/types/` 解除。
 import { dedupeMessagesToolCallBlocks } from '@modules/utils/chatBlocks';
 import type { LiriEventType } from '@modules/session/types/events';
-import { deriveSessionStats, getYieldRegistry } from '@modules/session';
+import {
+  deriveSessionStats,
+  getYieldRegistry,
+  replayTimelineUntil,
+} from '@modules/session';
 import {
   tryParseJson,
   sendBadRequest,
@@ -421,6 +425,73 @@ export async function handleGetSessionMessages(
       bytes: body.length,
     });
     res.end(body);
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch (err) {
+        handleError(err, {
+          module: 'infrastructure:http:handlers:session-handlers',
+          action: 'responseAlreadyEnded',
+        });
+      } /* res可能已结束, 忽略 */
+    }
+  }
+}
+
+/**
+ * 只读时间旅行（演进方案 W5）：`GET /v1/sessions/:id/timeline?untilSeq=N`
+ *
+ * 语义：返回「截至 `untilSeq` 的会话长什么样」——由事件日志派生，**只读**。
+ * - 不传 `untilSeq` ⇒ 全量视图（等价现状）；
+ * - **不克隆执行、不写事件、不动 execution store**（方案明确"先只读验证价值"）；
+ * - `isHistoricalSlice=true` ⇒ 事件日志里确实存在晚于该点的事件（这份视图是历史切片）。
+ */
+export async function handleGetSessionTimeline(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const url = new URL(req.url ?? '', LOCAL_REQUEST_BASE_URL);
+    const untilRaw = url.searchParams.get('untilSeq');
+    let untilSeq: number | undefined;
+    if (untilRaw !== null) {
+      untilSeq = Number.parseInt(untilRaw, 10);
+      if (!Number.isFinite(untilSeq) || untilSeq < 0) {
+        sendBadRequest(res, 'untilSeq must be a non-negative integer');
+        return;
+      }
+    }
+
+    const coreAPI = getCoreAPI();
+    await coreAPI.ensureSessionsLoaded();
+    if (!(await coreAPI.getSession(sessionId))) {
+      sendNotFound(res, 'Session not found');
+      return;
+    }
+
+    // 只读：`toSeq` 已由既有 getSessionEvents 支持，这里不新增读取实现
+    const { events, tailSeq } = await coreAPI.getSessionEvents(sessionId, {
+      ...(untilSeq !== undefined ? { toSeq: untilSeq } : {}),
+    });
+    const slice = replayTimelineUntil(events, untilSeq, tailSeq);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        sessionId,
+        untilSeq: slice.untilSeq ?? null,
+        tailSeq,
+        eventCount: slice.eventCount,
+        isHistoricalSlice: slice.isHistoricalSlice,
+        messages: slice.messages,
+      })
+    );
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {

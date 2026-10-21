@@ -582,6 +582,11 @@ export const FEATURE_FLAGS = {
    * ⇒ 运行期改动 profile / 工具注册表**不影响**历史执行的重放工具面（可复现性硬约束）。
    * 关（默认）⇒ **完全等价现状**（不读快照、不覆盖）。`FEATURE_PREPARED_SNAPSHOT_REPLAY=true`。
    *
+   * **W3 裁定（2026-10-21 用户「保持关闭」）**：关 ⇒ 重放**不保证**工具面与当时一致 ——
+   * 会按**当前** profile / 工具注册表重新计算。这是**有意的取舍**（零行为变更优先，且避免
+   * 快照缺失时把重放变成硬失败），不是缺陷；需要历史执行严格可复现时再开启本开关。
+   * 回归锁见 `tests/config/featureFlagContract.test.ts` 的「W3 可复现性裁定」用例。
+   *
    * ⚠️ 只覆盖**会重算工具面**的续跑分支 —— 检查点重放（`resumeStream` 逐条重放剩余工具调用）
    * **不重选**工具 ⇒ 无需强制（见 `.trae/specs/execution-prepared-snapshot-persistence.md` §11 R-A）。
    * ⚠️ 本键为**功能灰度开关**（不在 17 项 `SAFETY_SWITCHES` 内），不受 `lint:doc-code` 安全开关断言约束。

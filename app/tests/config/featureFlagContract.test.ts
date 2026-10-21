@@ -88,6 +88,16 @@ describe('P1-8 配置契约 · ① 代码默认值 ⇔ 文档登记值', () => {
   });
 });
 
+describe('W3 可复现性裁定（演进方案 §3 · 2026-10-21 用户「保持关闭」）', () => {
+  it('PREPARED_SNAPSHOT_REPLAY 默认关闭，且无环境覆盖时读值同为 false', () => {
+    // 裁定口径：关 ⇒ 重放**不保证**工具面与当时一致（按当前 profile / 注册表重算）。
+    // 这是显式的取舍，不是遗漏；若改为默认开启，本用例会立即变红，强制同步文档与回归。
+    expect(FEATURE_FLAGS.PREPARED_SNAPSHOT_REPLAY).toBe(false);
+    delete process.env['FEATURE_PREPARED_SNAPSHOT_REPLAY'];
+    expect(feature('PREPARED_SNAPSHOT_REPLAY')).toBe(false);
+  });
+});
+
 describe('P1-8 配置契约 · ② 无覆盖时读值 == 声明默认值', () => {
   it('每项在无 `FEATURE_*` 环境变量时，`feature()` == `FEATURE_FLAGS[]`', () => {
     for (const name of SAFETY_SWITCHES) {

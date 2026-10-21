@@ -23,6 +23,7 @@ import type {
   ChannelId,
   ChannelMeta,
   IChannelPlugin,
+  InteractiveCard,
   MessageContext,
   SendResult,
 } from '../types';
@@ -39,8 +40,17 @@ export interface MobileOutboundPayload {
   event: 'mobile:message';
   /** 会话 ID（= 投递 target，便于前端按会话路由） */
   conversationId: string;
-  kind: 'text' | 'markdown' | 'image' | 'file';
+  kind: 'text' | 'markdown' | 'image' | 'file' | 'card';
+  /** 渲染/兜底文本；`kind='card'` 时是卡片的纯文本降级（旧前端仍可读） */
   content: string;
+  /**
+   * `kind='card'` 时**原样**携带卡片 JSON（`InteractiveCard` 唯一形状）。
+   *
+   * 前端按 `buttons[].value` 决定动作：移动端不新增端点族 ——
+   * 预算放行等动作直接打**统一端点**（如 `POST /v1/cost/daily-budget/relief`），
+   * 不经过通道入站回调（`变体矩阵方案.md` §2.6 ③）。
+   */
+  card?: InteractiveCard;
   /** 目标设备（可选；多设备时前端按此过滤） */
   deviceId?: string;
   createdAt: number;
@@ -92,8 +102,9 @@ const MOBILE_CAPABILITIES: ChannelCapabilities = {
   groupMention: false,
   threading: false,
   reactions: false,
-  // 首版：文本审批（`TextApprovalParser`），二期再升卡片
-  interactive: false,
+  // 2026-10-21：支持**卡片出站**（SSE 原样携带 `InteractiveCard`）。
+  // 入站按钮不走通道回调，而是前端直打统一端点（§2.6 ③）⇒ 无需 `TextApprovalParser` 承接按钮。
+  interactive: true,
   voiceCall: false,
   fileUpload: false,
   imageMessage: false,
@@ -162,6 +173,17 @@ export class MobileChannel extends BaseChannelPlugin {
     return this.emit(target, 'file', filePath);
   }
 
+  /**
+   * 卡片出站：**原样**把 `InteractiveCard` 放进 SSE `data.card`（§2.6 ②）。
+   * `content` 同时给出纯文本降级，未升级的前端也不会空白。
+   */
+  protected override async sendInteractiveMessage(
+    target: string,
+    card: InteractiveCard
+  ): Promise<SendResult> {
+    return this.emit(target, 'card', `${card.title}\n${card.content}`, card);
+  }
+
   /** 由入站层标注当前设备后，出站事件可携带 `deviceId`（多设备定向） */
   setCurrentDeviceId(deviceId: string | undefined): void {
     this._currentDeviceId = deviceId;
@@ -172,13 +194,15 @@ export class MobileChannel extends BaseChannelPlugin {
   private async emit(
     target: string,
     kind: MobileOutboundPayload['kind'],
-    content: string
+    content: string,
+    card?: InteractiveCard
   ): Promise<SendResult> {
     const payload: MobileOutboundPayload = {
       event: 'mobile:message',
       conversationId: target,
       kind,
       content,
+      ...(card ? { card } : {}),
       createdAt: Date.now(),
       ...(this._currentDeviceId ? { deviceId: this._currentDeviceId } : {}),
     };

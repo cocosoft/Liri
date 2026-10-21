@@ -3,7 +3,7 @@
  *
  * 定位：移动端 = PC 的**辅助接入入口**（thin client），不执行工具。
  * 本测试锁住：
- *   ① 能力声明：`interactive=false`（首版文本审批）、非 webhook 通道；
+ *   ① 能力声明：`interactive=true`（卡片出站；入站按钮走统一端点）、非 webhook 通道；
  *   ② 目录登记：`CHANNEL_CATALOG` 有条目、`exportKey` 与真实导出一致、默认不启用；
  *   ③ 出站：结构化载荷（不拼裸字符串）且**失败不伪成功**；
  *   ④ 入站上下文：只做字段搬运（channelId/senderId/conversationId）。
@@ -30,10 +30,10 @@ afterEach(() => {
 });
 
 describe('MobileChannel：能力与目录登记', () => {
-  it('能力声明：文本审批（interactive=false），非 webhook 通道', () => {
+  it('能力声明：卡片出站（interactive=true），非 webhook 通道', () => {
     expect(mobileChannelPlugin.id).toBe('mobile');
     expect(mobileChannelPlugin.meta.markdownCapable).toBe(true);
-    expect(mobileChannelPlugin.capabilities.interactive).toBe(false);
+    expect(mobileChannelPlugin.capabilities.interactive).toBe(true);
     expect(mobileChannelPlugin.capabilities.webhook).toBe(false);
     expect(mobileChannelPlugin.capabilities.directMessage).toBe(true);
   });
@@ -101,6 +101,46 @@ describe('MobileChannel：出站载荷', () => {
     const result = await mobileChannelPlugin.outbound.sendText('conv-3', 'x');
     expect(result.success).toBe(false);
     expect(result.error).toContain('sse down');
+  });
+
+  it('sendInteractive ⇒ kind=card 且卡片 JSON **原样**进 SSE data（§2.6 ②）', async () => {
+    const captured: MobileOutboundPayload[] = [];
+    setMobileOutboundSink((payload) => {
+      captured.push(payload);
+    });
+    const card = {
+      title: '今日预算已用完',
+      content: '请选择处理方式',
+      color: 'yellow' as const,
+      buttons: [
+        {
+          text: '临时提额',
+          value: '{"a":"budget-relief","k":"boost"}',
+          style: 'primary' as const,
+        },
+      ],
+    };
+
+    const result = await mobileChannelPlugin.outbound.sendInteractive(
+      'conv-4',
+      card
+    );
+
+    expect(result.success).toBe(true);
+    expect(captured[0]!.kind).toBe('card');
+    // 原样携带：字段与按钮 value 一字不改（前端据此决定打哪个统一端点）
+    expect(captured[0]!.card).toEqual(card);
+    // 纯文本降级：未升级的前端仍可读
+    expect(captured[0]!.content).toBe('今日预算已用完\n请选择处理方式');
+  });
+
+  it('非卡片消息不带 card 字段（不凭空造字段）', async () => {
+    const captured: MobileOutboundPayload[] = [];
+    setMobileOutboundSink((payload) => {
+      captured.push(payload);
+    });
+    await mobileChannelPlugin.outbound.sendText('conv-5', 'plain');
+    expect('card' in captured[0]!).toBe(false);
   });
 
   it('默认 sink 已接线（未注入时仍有可用函数）', () => {

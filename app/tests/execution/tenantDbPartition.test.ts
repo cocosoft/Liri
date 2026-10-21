@@ -21,6 +21,7 @@ import {
   resetExecutionStore,
 } from '../../src/execution/ExecutionStore';
 import { getCostRecordRepository } from '../../src/cost/CostRecordRepository';
+import { getCheckpointDatabase } from '../../src/chat/services/CheckpointDatabase';
 
 const ALICE: Principal = {
   tenantId: 'acme',
@@ -84,5 +85,15 @@ describe('CostRecordRepository：按身份分实例', () => {
     const local = getCostRecordRepository();
     const alice = runWithPrincipal(ALICE, () => getCostRecordRepository());
     expect(alice).not.toBe(local);
+  });
+});
+
+describe('CheckpointDatabase：按身份分实例（经身份感知代理）', () => {
+  it('代理每次调用按当前身份取库 ⇒ 两个身份拿到不同实例', () => {
+    const local = getCheckpointDatabase();
+    const alice = runWithPrincipal(ALICE, () => getCheckpointDatabase());
+    const bob = runWithPrincipal(BOB, () => getCheckpointDatabase());
+    expect(alice).not.toBe(local);
+    expect(alice).not.toBe(bob);
   });
 });

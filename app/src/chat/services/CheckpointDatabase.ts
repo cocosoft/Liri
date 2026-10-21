@@ -8,7 +8,13 @@ import {
 } from '@modules/session/types/checkpoint';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath, resolveScopedDbPath } from '@modules/core';
+// 多租户 P1（2026-10-21）：检查点库按身份分实例（本地身份仍用共享 app.db）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
 
 const logger = getLogger('chat:checkpoint');
 
@@ -383,4 +389,66 @@ export class CheckpointDatabase implements CheckpointStorage {
 
 export function createCheckpointDatabase(dbPath?: string): CheckpointDatabase {
   return new CheckpointDatabase(dbPath);
+}
+
+let sharedCheckpointDb: CheckpointDatabase | null = null;
+/** 多租户 P1：非本地身份的检查点库实例（各自独立 app.db） */
+const scopedCheckpointDbs = new Map<string, CheckpointDatabase>();
+
+/**
+ * 取检查点库（多租户 P1）。
+ *
+ * 本地身份 ⇒ 原共享实例（零变更）；已认证身份 ⇒ 该身份自己的实例
+ * （`<scoped>/app.db`）。**不做"共享实例换连接"**：`this.db` 是单字段，
+ * 并发请求会在 `await` 交错点串到别人的库。
+ */
+export function getCheckpointDatabase(): CheckpointDatabase {
+  const principal = getRequestPrincipal();
+  if (isLocalPrincipal(principal)) {
+    if (!sharedCheckpointDb) sharedCheckpointDb = new CheckpointDatabase();
+    return sharedCheckpointDb;
+  }
+  const key = principalKeyOf(principal);
+  const existing = scopedCheckpointDbs.get(key);
+  if (existing) return existing;
+  const scoped = new CheckpointDatabase(resolveScopedDbPath(principal));
+  scopedCheckpointDbs.set(key, scoped);
+  return scoped;
+}
+
+/** 仅测试：重置共享与分区实例 */
+export function resetCheckpointDatabaseForTest(): void {
+  sharedCheckpointDb = null;
+  scopedCheckpointDbs.clear();
+}
+
+/**
+ * `CheckpointStorage` 的**身份感知代理**（多租户 P1）。
+ *
+ * 为什么需要代理：`SessionCheckpointService` 在构造期就持有一个 storage 引用，
+ * 若继续持有单个 `CheckpointDatabase`，服务端多用户下会把检查点写进同一库。
+ * 代理**每次调用**按当前请求身份取实例 ⇒ 无需改动服务的字段与所有调用点。
+ */
+export class ScopedCheckpointStorage implements CheckpointStorage {
+  saveCheckpoint(checkpoint: SessionCheckpoint): Promise<void> {
+    return getCheckpointDatabase().saveCheckpoint(checkpoint);
+  }
+  loadCheckpoint(checkpointId: string): Promise<SessionCheckpoint | null> {
+    return getCheckpointDatabase().loadCheckpoint(checkpointId);
+  }
+  loadCheckpoints(sessionId: string): Promise<SessionCheckpoint[]> {
+    return getCheckpointDatabase().loadCheckpoints(sessionId);
+  }
+  deleteCheckpoint(checkpointId: string): Promise<void> {
+    return getCheckpointDatabase().deleteCheckpoint(checkpointId);
+  }
+  deleteSessionCheckpoints(sessionId: string): Promise<void> {
+    return getCheckpointDatabase().deleteSessionCheckpoints(sessionId);
+  }
+  getCheckpointCount(sessionId: string): Promise<number> {
+    return getCheckpointDatabase().getCheckpointCount(sessionId);
+  }
+  getLatestCheckpoint(sessionId: string): Promise<SessionCheckpoint | null> {
+    return getCheckpointDatabase().getLatestCheckpoint(sessionId);
+  }
 }

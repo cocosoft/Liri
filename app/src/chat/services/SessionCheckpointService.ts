@@ -30,9 +30,11 @@ export class SessionCheckpointService implements CheckpointService {
   }
 
   private createDefaultStorage(): CheckpointStorage {
-    const { createCheckpointDatabase } =
+    // 多租户 P1（2026-10-21）：默认存储改为**身份感知代理** —— 本服务在构造期只持有一个
+    // 引用，若直接持有单个 CheckpointDatabase，服务端多用户会把检查点写进同一库。
+    const { ScopedCheckpointStorage } =
       require('./CheckpointDatabase') as typeof import('./CheckpointDatabase');
-    return createCheckpointDatabase();
+    return new ScopedCheckpointStorage();
   }
 
   private generateCheckpointId(): string {

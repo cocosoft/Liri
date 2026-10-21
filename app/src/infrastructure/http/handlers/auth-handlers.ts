@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 import type http from 'http';
-import { sendError, readRequestBody } from './handler-utils';
+import { sendError, readRequestBody, json } from './handler-utils';
 // C1（2026-10-09）：认证令牌属安全凭据 ⇒ 熵源改用 crypto（并提升到 32 位十六进制 ≈128bit）
 import { randomIdSuffix } from '../../../utils/common';
 import { AuthUserStore } from '../auth/AuthUserStore';
@@ -30,6 +30,10 @@ import {
   LOCAL_TENANT_ID,
   parseTenantId,
 } from '@modules/core/identity/principal';
+import { getRequestPrincipal } from '@modules/core/identity/requestScope.js';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('http:auth');
 
 // 演进项（真实用户体系基础）：用户持久化到 {data}/auth/users.json（密码哈希），
 // tokens 保持内存（重启后需重新登录）
@@ -375,6 +379,247 @@ export async function handleAuthPermissions(
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(permissionList));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+// ========== 租户用户管理（admin 写操作，多租户 P3 收尾） ==========
+
+/** URL 片段解码（非法百分号编码 ⇒ 原样返回，交给后续校验拒绝） */
+function decodeSegment(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+/**
+ * 可**绑定**的租户标识校验：格式非法 / `local` ⇒ 拒绝。
+ *
+ * `local` 不是"可绑定租户"——它就是本地身份，解绑走 `DELETE`（`setUserTenant` 不传
+ * tenantId），避免"把用户迁到 local 租户"与"解绑"变成两条不同语义的等价路径。
+ */
+function validateBindingTenantId(
+  raw: string
+): { ok: true; tenantId: string } | { ok: false; message: string } {
+  const parsed = parseTenantId(decodeSegment(raw));
+  if (!parsed) {
+    return {
+      ok: false,
+      message:
+        '无效的租户标识：1-64 字符，仅 [A-Za-z0-9._-]，首字符为字母或数字，不含冒号',
+    };
+  }
+  if (parsed === LOCAL_TENANT_ID) {
+    return {
+      ok: false,
+      message: 'local 不是可绑定租户；解绑请用 DELETE',
+    };
+  }
+  return { ok: true, tenantId: parsed };
+}
+
+/**
+ * 撤销某用户的**全部活动 token**（`@returns` 撤销数）
+ *
+ * 为什么必须撤销：token 里带着登录时刻的租户。迁移/解绑后若不失效，该用户会继续
+ * 以**旧租户**身份读写（数据落到旧分区）——这是"改了归属但没生效"的经典坑。
+ * 代价：该用户需重新登录（管理员自身若改自己也会被登出，属预期）。
+ */
+function revokeUserTokens(username: string): number {
+  let revoked = 0;
+  for (const [token, session] of [...authTokens]) {
+    if (session.username !== username) continue;
+    authTokens.delete(token);
+    revoked += 1;
+  }
+  return revoked;
+}
+
+/** 账号/归属变更审计（失败只告警，不推翻已完成的操作） */
+async function recordTenantUserAudit(input: {
+  action: string;
+  tenantId: string;
+  username: string;
+  success: boolean;
+  details?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const { EnterpriseAuditService, AuditEventType } =
+      await import('../../../config/enterprise/audit/EnterpriseAuditService.js');
+    await EnterpriseAuditService.getInstance().record({
+      type: AuditEventType.USER_MANAGEMENT,
+      severity: 'warning',
+      actor: getRequestPrincipal().userId,
+      action: input.action,
+      resource: `${input.tenantId}/${input.username}`,
+      details: input.details ?? {},
+      success: input.success,
+    });
+  } catch (error) {
+    logger.warning('租户用户管理审计落盘失败', {
+      action: input.action,
+      tenantId: input.tenantId,
+      error: String(error),
+    });
+  }
+}
+
+/**
+ * 建号并绑定租户 `POST /v1/tenants/:tenantId/users`
+ *
+ * body: `{ username, password, role?: 'user' | 'admin' }`
+ * - 租户非法 / `local` ⇒ **400**；缺 username/password 或 role 非法 ⇒ **400**；
+ * - 用户名已存在 ⇒ **409**（不偷偷改密码，避免"建号"变成"重置口令"）；
+ * - 成功 ⇒ **201**。
+ *
+ * 鉴权：`/v1/tenants` 前缀的 POST 由 `route-table.ts` 统一按 admin 写操作拦截。
+ */
+export async function handleCreateTenantUser(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  rawTenantId: string
+): Promise<void> {
+  const tenant = validateBindingTenantId(rawTenantId);
+  if (!tenant.ok) {
+    json(res, 400, { error: { message: tenant.message } });
+    return;
+  }
+
+  try {
+    const payload = JSON.parse(await readRequestBody(req)) as {
+      username?: unknown;
+      password?: unknown;
+      role?: unknown;
+    };
+    const username =
+      typeof payload.username === 'string' ? payload.username.trim() : '';
+    const password =
+      typeof payload.password === 'string' ? payload.password : '';
+    if (!username || !password) {
+      json(res, 400, {
+        error: { message: 'username and password are required' },
+      });
+      return;
+    }
+    const role = payload.role ?? 'user';
+    if (role !== 'user' && role !== 'admin') {
+      json(res, 400, { error: { message: "role must be 'user' or 'admin'" } });
+      return;
+    }
+
+    if (authUserStore.hasUser(username)) {
+      json(res, 409, {
+        error: { message: 'Username already exists' },
+      });
+      return;
+    }
+
+    authUserStore.addUser(username, password, role, tenant.tenantId);
+    await recordTenantUserAudit({
+      action: 'tenant.user.create',
+      tenantId: tenant.tenantId,
+      username,
+      success: true,
+      details: { role },
+    });
+    json(res, 201, { username, tenantId: tenant.tenantId, role });
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 把**已有用户**迁到该租户 `PUT /v1/tenants/:tenantId/users/:username`
+ *
+ * - 租户非法 / `local` ⇒ **400**；用户不存在 ⇒ **404**；
+ * - 已在该租户 ⇒ **200** 且 `unchanged: true`（幂等，不撤销 token）；
+ * - 成功 ⇒ **200** + `revokedTokens`（该用户的活动 token 已全部失效，需重新登录）。
+ */
+export async function handleBindTenantUser(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  rawTenantId: string,
+  rawUsername: string
+): Promise<void> {
+  const tenant = validateBindingTenantId(rawTenantId);
+  if (!tenant.ok) {
+    json(res, 400, { error: { message: tenant.message } });
+    return;
+  }
+  const username = decodeSegment(rawUsername);
+
+  try {
+    const user = authUserStore.getUser(username);
+    if (!user) {
+      json(res, 404, { error: { message: `用户不存在: ${username}` } });
+      return;
+    }
+    if (user.tenantId === tenant.tenantId) {
+      json(res, 200, {
+        username,
+        tenantId: tenant.tenantId,
+        revokedTokens: 0,
+        unchanged: true,
+      });
+      return;
+    }
+
+    authUserStore.setUserTenant(username, tenant.tenantId);
+    const revokedTokens = revokeUserTokens(username);
+    await recordTenantUserAudit({
+      action: 'tenant.user.bind',
+      tenantId: tenant.tenantId,
+      username,
+      success: true,
+      details: { previousTenantId: user.tenantId ?? null, revokedTokens },
+    });
+    json(res, 200, { username, tenantId: tenant.tenantId, revokedTokens });
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 解绑用户（回到本地租户）`DELETE /v1/tenants/:tenantId/users/:username`
+ *
+ * - 用户不存在 **或不属于该租户** ⇒ **404**（fail-closed：避免误清别的租户的绑定）；
+ * - 成功 ⇒ **200** + `revokedTokens`。
+ */
+export async function handleUnbindTenantUser(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  rawTenantId: string,
+  rawUsername: string
+): Promise<void> {
+  const tenant = validateBindingTenantId(rawTenantId);
+  if (!tenant.ok) {
+    json(res, 400, { error: { message: tenant.message } });
+    return;
+  }
+  const username = decodeSegment(rawUsername);
+
+  try {
+    const user = authUserStore.getUser(username);
+    if (!user || user.tenantId !== tenant.tenantId) {
+      json(res, 404, {
+        error: { message: `用户 ${username} 不属于租户 ${tenant.tenantId}` },
+      });
+      return;
+    }
+
+    authUserStore.setUserTenant(username);
+    const revokedTokens = revokeUserTokens(username);
+    await recordTenantUserAudit({
+      action: 'tenant.user.unbind',
+      tenantId: tenant.tenantId,
+      username,
+      success: true,
+      details: { revokedTokens },
+    });
+    json(res, 200, { username, tenantId: LOCAL_TENANT_ID, revokedTokens });
   } catch (err) {
     sendError(res, err);
   }

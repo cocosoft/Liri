@@ -146,6 +146,23 @@ export class AuthUserStore {
     return this.users.get(username);
   }
 
+  /**
+   * 绑定 / 迁移用户的租户（`tenantId` 省略 ⇒ **解绑**，回到本地租户）
+   *
+   * @returns 用户不存在 ⇒ `false`（不写盘、不改任何数据）
+   */
+  setUserTenant(username: string, tenantId?: string): boolean {
+    const user = this.users.get(username);
+    if (!user) return false;
+    if (tenantId) {
+      user.tenantId = tenantId;
+    } else {
+      delete user.tenantId;
+    }
+    this.save();
+    return true;
+  }
+
   /** 校验用户密码（不存在返回 false） */
   verify(username: string, password: string): boolean {
     const user = this.users.get(username);

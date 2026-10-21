@@ -106,26 +106,31 @@ export const FEATURE_FLAGS = {
    */
   ALWAYSON: true,
   /**
-   * AlwaysOn **目标达成自评**（2026-10-20 产品裁定「启用」，默认开）。
+   * AlwaysOn **目标达成自评**（2026-10-21 用户裁定「维持不启用」，**默认关**）。
    *
    * 开 ⇒ 每轮执行收尾后多一次**只读**模型调用，对「计划 + 执行输出 + 错误 + 工具调用数 +
    * 补丁字节」做三值判定（`achieved` / `not_achieved` / `unverified`），结果进报告与通知；
    * 自评前过 `checkDailyBudget`（预算锁定 ⇒ 不评估），异常/解析失败一律 `unverified`。
-   * 关 ⇒ 回到 v2 口径：报告固定 `unverified（未做模型自评）`，零额外模型调用。
-   * 回退：`FEATURE_ALWAYSON_GOAL_EVAL=false`。
+   * 关（默认）⇒ v2 口径：报告固定 `unverified（未做模型自评）`，零额外模型调用。
+   *
+   * 为什么默认关：每轮多一次 LLM 调用，且判定本身不可靠；重新开启的前置条件是
+   * 「自评口径的误判成本评估」（见 `dev_docs/20261019/待处理问题-20261019.md` 2026-10-21 裁定）。
+   * 显式开启：`FEATURE_ALWAYSON_GOAL_EVAL=true`。
    */
-  ALWAYSON_GOAL_EVAL: true,
+  ALWAYSON_GOAL_EVAL: false,
   /**
-   * AlwaysOn **snapshot-copy 回退**（2026-10-20，默认开）。
+   * AlwaysOn **snapshot-copy 回退**（2026-10-21 用户裁定「维持不启用」，**默认关**）。
    *
    * 开 ⇒ git-worktree 不可用（非 git 仓库 / 工作区脏）时，改为**目录快照**隔离
    * （`<data>/alwayson/snapshots/<runId>`，排除 `.git`/`node_modules`/`dist` 等；
    * 源目录 > 1 GiB 拒绝），让 AlwaysOn 在非 git 项目上也能跑；
    * 该模式**无 git 语义、不自动回灌** ⇒ 隔离区一律保留（报告 `Snapshot Kept` 指路）。
-   * 关 ⇒ 回到 v2 口径：这类项目每轮跳过（`not_git_repo_or_dirty`）。
-   * 回退：`FEATURE_ALWAYSON_SNAPSHOT_FALLBACK=false`。
+   * 关（默认）⇒ v2 口径：这类项目每轮跳过（`not_git_repo_or_dirty`），不退回直连项目目录。
+   *
+   * 为什么默认关：避免磁盘无限增长（保留目录缺少清理策略）；重新开启的前置条件是
+   * 「保留目录的清理策略」。显式开启：`FEATURE_ALWAYSON_SNAPSHOT_FALLBACK=true`。
    */
-  ALWAYSON_SNAPSHOT_FALLBACK: true,
+  ALWAYSON_SNAPSHOT_FALLBACK: false,
 
   // ───── 系统模式 ─────
   /** 桥接模式 */

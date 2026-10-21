@@ -15,6 +15,7 @@ import { inferModuleTypeFromWorkspaceId } from "@/stores/root-store/moduleContex
 const logger = createLogger("SessionHistorySidebar");
 import ConfirmDialog from "../common/ConfirmDialog";
 import SessionContextMenu from "./SessionContextMenu";
+import { isInsidePanel } from "./sidebarPanelHitTest";
 import SessionListItem from "./SessionListItem";
 import SessionTitle from "./SessionTitle";
 import { useDreamSessionIds } from "./useDreamSessionIds";
@@ -146,9 +147,8 @@ function SessionHistorySidebar({
    */
   const handlePanelMouseLeave = useCallback((e: React.MouseEvent) => {
     // `relatedTarget` 不保证是 Node（指针移出文档 / 移到浏览器 UI 时可能是 `window` 等）
-    // ⇒ 直接喂给 `contains` 会抛 `TypeError: parameter 1 is not of type 'Node'`（2026-10-21 实测）
-    const next = e.relatedTarget;
-    if (next instanceof Node && panelRef.current?.contains(next)) return;
+    // ⇒ 判定收敛到 `isInsidePanel`（内含 `instanceof Node` 守卫 + 单测）
+    if (isInsidePanel(panelRef.current, e.relatedTarget)) return;
     setHoverExpanded(false);
   }, []);
   const [editingId, setEditingId] = useState<string | null>(null);

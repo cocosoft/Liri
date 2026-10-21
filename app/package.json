@@ -13,6 +13,8 @@
   },
   "scripts": {
     "dev": "bun run --watch src/main.ts",
+    "dev:full": "bun run --watch src/main.ts",
+    "dev:core": "bun --watch --feature=DROP_CHANNELS_ALL src/main.ts",
     "start": "bun run src/main.ts",
     "eval": "bun run src/evals/cli.ts",
     "build": "bun build src/main.ts --outdir=dist --target=bun --external imapflow --external yoga-layout",

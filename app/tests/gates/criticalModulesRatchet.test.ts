@@ -8,7 +8,8 @@
  *  ③ 收窄 ⇒ 通过并提示下调基线；
  *  ④ 登记为 CRITICAL 但无理由 ⇒ 必报；
  *  ⑤ 初始化顺序里的模块未登记策略 ⇒ 必报（否则任何阶段都不会初始化）；
- *  ⑥ 基线自身重复 ⇒ 必报（不得静默取第一条）。
+ *  ⑥ 基线自身重复 ⇒ 必报（不得静默取第一条）；
+ *  ⑦ **反向差集**：已登记策略但不在初始化顺序 ⇒ 必报（与 ⑤ 对称）。
  */
 import { describe, expect, it } from 'bun:test';
 
@@ -110,6 +111,21 @@ describe('CRITICAL 清单棘轮 · 负向自证', () => {
     expect(
       comparison.violations.some(
         (v) => v.includes('基线里') && v.includes('重复')
+      )
+    ).toBe(true);
+  });
+
+  it('已登记策略但不在初始化顺序 ⇒ 必报（反向差集，与"未登记策略"对称）', () => {
+    const comparison = compareCriticalModules(
+      CURRENT,
+      baselineOf(CURRENT),
+      [...DECLARED, 'orphan'],
+      ORDER
+    );
+    expect(
+      comparison.violations.some(
+        (v) =>
+          v.includes('orphan') && v.includes('不在 MODULE_INITIALIZATION_ORDER')
       )
     ).toBe(true);
   });

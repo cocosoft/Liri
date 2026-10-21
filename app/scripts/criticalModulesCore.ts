@@ -130,6 +130,15 @@ export function compareCriticalModules(
     );
   }
 
+  // ⑥ 反向差集（与 ⑤ 对称）：已登记策略但不在初始化顺序 ⇒ 同样永不被初始化
+  const orderedSet = new Set(orderedIds);
+  for (const id of declaredIds.filter((m) => !orderedSet.has(m)).sort()) {
+    violations.push(
+      `\`${id}\` 已登记策略但不在 MODULE_INITIALIZATION_ORDER ——` +
+        `它不会被任何阶段初始化（与"未登记策略"同属静默漏初始化）`
+    );
+  }
+
   return { violations, hints, added, removed };
 }
 

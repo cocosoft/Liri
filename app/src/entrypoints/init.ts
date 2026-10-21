@@ -768,12 +768,15 @@ async function startDeferredPrefetches(): Promise<void> {
 
           // 注入 KnowledgeGraph 用于 GraphRAG 增强
           try {
-            const { KnowledgeGraph } =
-              await import('@modules/knowledge/graph/KnowledgeGraph.js');
-            const { resolveDbPath } = await import('@modules/core/paths.js');
-            const graph = new KnowledgeGraph(resolveDbPath());
+            // 多租户 P1（2026-10-21）：注入**身份感知代理** —— 每次调用按当前请求身份取
+            // 图谱实例（本地身份 ⇒ 共享 app.db，零变更；已认证 ⇒ `<scoped>/app.db`）。
+            // 原先在此显式传 `resolveDbPath()` 会把路由器的图谱永久钉在共享库上。
+            const { ScopedKnowledgeGraph } =
+              await import('@modules/knowledge/graph/ScopedKnowledgeGraph.js');
+            const graph = new ScopedKnowledgeGraph();
             await graph.init();
-            knowledgeRouter['knowledgeGraph'] = graph;
+            knowledgeRouter['knowledgeGraph'] =
+              graph as unknown as import('@modules/knowledge/graph/KnowledgeGraph.js').KnowledgeGraph;
             logger.info('KnowledgeGraph 已注入 KnowledgeRouter');
           } catch (graphErr) {
             // GraphRAG 初始化失败不阻塞搜索

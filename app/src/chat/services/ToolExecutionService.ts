@@ -26,7 +26,10 @@ import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir } from '@modules/core/paths';
 import { resolveToolCwd } from './toolCwdScope';
 // 多租户 P0 阶段 2：请求级权限角色（桌面/后台无请求作用域 ⇒ null ⇒ 保持既有回退语义）
-import { getRequestPermissionRole } from '@modules/core/identity/requestScope.js';
+import {
+  getRequestPermissionRole,
+  getRequestPrincipal,
+} from '@modules/core/identity/requestScope.js';
 import { ToolExecutionStatus } from '@modules/utils/toolContract/ToolResult';
 import { isMediaOutputToolName } from '@modules/utils/toolContract/toolRoles';
 // U-02 v2 / P3（2026-10-20）：工作区边界判定（与 LRO 共用同一纯函数，实现落 utils 避免 chat↔tasks 环）
@@ -698,6 +701,28 @@ export class ToolExecutionService {
           );
           if (!approvedHit) {
             if (permissionResult.submittedToInbox === true) {
+              // 企业审批镜像（**默认关**）：把同一条审批投给企业审批流，
+              // 由企业侧批准/拒绝后再回灌 Inbox（单一赢家由 CAS 保证）。
+              // 动态 import：该路径**只在实际出现 ASK 时**走到，且镜像模块会连带加载
+              // 企业审批管理器 —— 静态引入会让它进启动面（棘轮 +1.3KB）。
+              void import('@modules/runtime/execApprovalBridge.js')
+                .then(({ mirrorAskToEnterpriseApproval }) => {
+                  mirrorAskToEnterpriseApproval({
+                    inboxItemId: permissionResult.inboxItemId,
+                    toolName: normalizedToolCall.name,
+                    toolInput: normalizedToolCall.arguments,
+                    requester: getRequestPrincipal().userId,
+                    description: permissionResult.reason ?? '工具执行需要审批',
+                    sessionId: toolCall.sessionId,
+                  });
+                })
+                .catch((error: unknown) => {
+                  // @ignore-catch — 镜像失败不影响原审批流程（Inbox 卡片仍然有效）
+                  logger.debug('企业审批镜像加载失败（忽略）', {
+                    toolName: normalizedToolCall.name,
+                    error: String(error),
+                  });
+                });
               const approvalResult = {
                 status: TRANSIENT_AWAITING_APPROVAL,
                 message: `工具 '${normalizedToolCall.name}' 需要审批，已提交审批卡片等待用户批准。用户批准后可继续执行，请勿编造替代方案。`,

@@ -110,11 +110,13 @@ export function detectApprovalIntent(content: string): ApprovalIntent {
 /**
  * 执行文本审批
  *
- * 当检测到审批意图时，调用 inboxManager.reply() 处理审批。
+ * **走审批解析的单一实现** `runtime/inboxApproval#resolveInboxApproval`：
+ * 此前这里直接 `inboxManager.reply()`，跳过了"写已批准命令放行缓存 + 白名单持久化 +
+ * 触发续跑" ⇒ 用户明明回了"同意"，AI 重发同一命令仍被拦（批准了但没放行）。
  *
  * @param inboxItemId 待审批的 Inbox 项 ID
  * @param intent 审批意图
- * @returns 是否成功处理
+ * @returns 是否成功处理（`false` = 已处理过 / 过期 / 并发冲突）
  */
 export async function processTextApproval(
   inboxItemId: string,
@@ -127,26 +129,29 @@ export async function processTextApproval(
   });
 
   try {
-    const { inboxManager } = await import('@modules/runtime/InboxManager.js');
+    const { resolveInboxApproval } =
+      await import('@modules/runtime/inboxApproval.js');
 
     const reply = intent === 'approve' ? 'approve' : 'reject';
-    const result = await inboxManager.reply(inboxItemId, reply);
+    const outcome = await resolveInboxApproval(inboxItemId, reply);
 
-    if (result) {
+    if (outcome.kind === 'ok') {
       logger.info('Text approval processed', {
         inboxItemId,
         intent,
-        status: result.status,
+        status: outcome.item.status,
       });
-      span.setAttribute('inbox.status', result.status);
+      span.setAttribute('inbox.status', outcome.item.status);
       otel.endSpan(span, SpanStatusCode.OK);
       return true;
     }
 
-    logger.info('Text approval skipped (item already processed)', {
+    logger.info('Text approval skipped', {
       inboxItemId,
       intent,
+      outcome: outcome.kind,
     });
+    span.setAttribute('inbox.outcome', outcome.kind);
     otel.endSpan(span, SpanStatusCode.OK, 'already_processed');
     return false;
   } catch (err) {

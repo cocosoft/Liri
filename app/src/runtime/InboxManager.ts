@@ -37,6 +37,13 @@ export type InboxItemStatus =
   | 'expired'
   | 'dismissed';
 
+/**
+ * 状态字面量的**唯一事实源**（审批解析在 `runtime/inboxApproval` 里做 CAS 比较，
+ * 不得再裸写 `'pending'` / `'processing'` —— 状态字面量棘轮要求登记或引用常量）
+ */
+export const INBOX_STATUS_PENDING: InboxItemStatus = 'pending';
+export const INBOX_STATUS_PROCESSING: InboxItemStatus = 'processing';
+
 export interface InboxItem {
   id: string;
   sessionId: string;

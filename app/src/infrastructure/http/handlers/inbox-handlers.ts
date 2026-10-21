@@ -23,11 +23,8 @@ import {
   type InboxItemStatus,
   type InboxItemType,
 } from '@modules/runtime/InboxManager.js';
-import {
-  getApprovedCommandRegistry,
-  type ApprovalScope,
-  type ApprovalSnapshot,
-} from '@modules/permission';
+// 审批解析的**唯一实现**（HTTP / IM 文本审批 / 企业审批流共用）
+import { resolveInboxApproval } from '@modules/runtime/inboxApproval.js';
 import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 
 const logger = getLogger('http:inbox');
@@ -177,35 +174,6 @@ export async function handleReplyInbox(
       return;
     }
 
-    // ── 幂等保护 #1: 状态检查 ──
-    const current = await inboxManager.get(id);
-    if (!current) {
-      otel.endSpan(span, SpanStatusCode.ERROR, 'not_found');
-      sendError(res, 'Inbox item not found', 404);
-      return;
-    }
-    if (current.status !== 'pending') {
-      span.setAttribute('inbox.id', id);
-      span.setAttribute('inbox.status', current.status);
-      otel.endSpan(span, SpanStatusCode.OK);
-
-      // 区分过期和其他已处理状态
-      if (current.status === 'expired') {
-        sendJSON(res, 200, {
-          id,
-          status: 'expired',
-          message: '该审批已超时，无法处理',
-        });
-      } else {
-        sendJSON(res, 200, {
-          id,
-          status: 'already_processed',
-          previousReply: current.reply,
-        });
-      }
-      return;
-    }
-
     const bodyStr = await readRequestBody(req);
     const body = bodyStr ? JSON.parse(bodyStr) : {};
     const reply = body.reply as string | undefined;
@@ -217,137 +185,45 @@ export async function handleReplyInbox(
       return;
     }
 
-    // ── 幂等保护 #2: CAS 原子操作 ──
-    const locked = await inboxManager.tryUpdateStatus(
-      id,
-      'pending',
-      'processing'
-    );
-    if (!locked) {
-      span.setAttribute('inbox.id', id);
+    // ── 执行回复（审批解析的唯一实现在 `runtime/inboxApproval`，HTTP 只管传输层）──
+    const outcome = await resolveInboxApproval(id, reply, selectedOption);
+    if (outcome.kind === 'not_found') {
+      otel.endSpan(span, SpanStatusCode.ERROR, 'not_found');
+      sendError(res, 'Inbox item not found', 404);
+      return;
+    }
+    if (outcome.kind === 'expired') {
+      otel.endSpan(span, SpanStatusCode.OK);
+      sendJSON(res, 200, {
+        id,
+        status: 'expired',
+        message: '该审批已超时，无法处理',
+      });
+      return;
+    }
+    if (outcome.kind === 'already_processed') {
+      otel.endSpan(span, SpanStatusCode.OK);
+      sendJSON(res, 200, {
+        id,
+        status: 'already_processed',
+        previousReply: outcome.previousReply,
+      });
+      return;
+    }
+    if (outcome.kind === 'concurrent_conflict') {
       otel.endSpan(span, SpanStatusCode.OK);
       sendJSON(res, 200, { id, status: 'concurrent_conflict' });
       return;
     }
-
-    // ── 执行回复 ──
-    const updated = await inboxManager.reply(id, reply, selectedOption);
-    if (!updated) {
+    if (outcome.kind === 'update_failed') {
       otel.endSpan(span, SpanStatusCode.ERROR, 'update_failed');
       sendError(res, 'Failed to update inbox item', 500);
       return;
     }
 
+    const updated = outcome.item;
     span.setAttribute('inbox.id', id);
     span.setAttribute('inbox.reply', reply);
-
-    // ── PDCA 审批恢复：检测 source === 'pdca' 的审批回复 ──
-    if (current.source === 'pdca' && current.metadata) {
-      const taskId = current.metadata.taskId as string | undefined;
-      const sessionId = current.sessionId;
-      if (taskId && sessionId) {
-        try {
-          const orchestrator = await (
-            await getCoreAPI().getTaskOpsPort()
-          ).getOrCreatePdcaOrchestrator(taskId);
-          if (orchestrator) {
-            if (reply === 'approve' || selectedOption === 'approve') {
-              const result = await orchestrator.resumeAfterApproval(sessionId);
-              logger.info('PDCA resumed after Inbox approval', {
-                inboxId: id,
-                taskId,
-                phase: result.phase,
-              });
-              span.setAttribute('pdca.resumed', true);
-              span.setAttribute('pdca.phase', result.phase);
-            } else {
-              logger.info('PDCA plan rejected via Inbox', {
-                inboxId: id,
-                taskId,
-              });
-              span.setAttribute('pdca.rejected', true);
-            }
-          }
-        } catch (pdcaErr) {
-          // PDCA 恢复失败不阻塞 Inbox 回复
-          logger.warn('PDCA resume after Inbox approval failed', {
-            inboxId: id,
-            taskId,
-            error: String(pdcaErr),
-          });
-        }
-      }
-    }
-
-    // ── 工具审批放行：permission source + 批准类 reply → 写入已批准命令放行缓存（P0-3）──
-    // 批准类 reply：approve（本次执行）/ allowlist_tool / allowlist_command（P2-4 白名单持久化）。
-    // ChatManager 提交审批时在 metadata 记录 commandHash；批准后 BashTool 执行前
-    // 命中缓存（session 隔离 + TTL）跳过安全拦截层，AI 重发同一命令即可放行。
-    const isApprovalReply =
-      reply === 'approve' ||
-      selectedOption === 'approve' ||
-      reply === 'allowlist_tool' ||
-      selectedOption === 'allowlist_tool' ||
-      reply === 'allowlist_command' ||
-      selectedOption === 'allowlist_command';
-    if (
-      current.type === 'approval' &&
-      current.source === 'permission' &&
-      isApprovalReply
-    ) {
-      const commandHash = current.metadata?.commandHash as string | undefined;
-      // P0-3: 携带批准命令原文（提取命令名供命令名级放行）
-      const command = current.metadata?.command as string | undefined;
-      // S1-1: 携带执行作用域 / 审批快照（由工具在其 ask 结果 metadata 中声明）
-      const approvalScope = current.metadata?.approvalScope as
-        | ApprovalScope
-        | undefined;
-      const approvalSnapshot = current.metadata?.approvalSnapshot as
-        | ApprovalSnapshot
-        | undefined;
-      if (commandHash && current.sessionId) {
-        getApprovedCommandRegistry().approve(
-          current.sessionId,
-          commandHash,
-          command,
-          approvalScope || approvalSnapshot
-            ? { scope: approvalScope, snapshot: approvalSnapshot }
-            : undefined
-        );
-        logger.info('工具审批已批准，写入命令放行缓存', {
-          sessionId: current.sessionId,
-          commandHash,
-          hasCommand: !!command,
-          scopeBound: !!approvalScope,
-          hasSnapshot: !!approvalSnapshot,
-        });
-        // P2-4: 白名单持久化——allowlist_tool 写工具级 allow 规则，
-        // allowlist_command 写命令前缀级 allow 规则（contentPattern）
-        const isAllowlistReply =
-          reply === 'allowlist_tool' ||
-          selectedOption === 'allowlist_tool' ||
-          reply === 'allowlist_command' ||
-          selectedOption === 'allowlist_command';
-        if (isAllowlistReply) {
-          const commandLevel =
-            reply === 'allowlist_command' ||
-            selectedOption === 'allowlist_command';
-          await persistAllowlistRule(current, commandLevel);
-        }
-        // P2-1: 批准后后端直接触发会话续跑（复用 checkpoint/resume 机制），
-        // 不依赖前端发消息触发 LLM 自发重发。pendingApproval 工具重放时
-        // 命中放行缓存直接执行，结果落盘，前端轮询刷新可见。
-        // fire-and-forget：无可恢复检查点或失败时由前端兜底（sendMessage）。
-        void triggerResumeAfterApproval(current.sessionId).catch(
-          (resumeErr: unknown) => {
-            logger.warn('审批后自动续跑失败（前端可兜底续跑）', {
-              sessionId: current.sessionId,
-              error: String(resumeErr),
-            });
-          }
-        );
-      }
-    }
 
     // ── 渠道回传：异步执行，不阻塞 API 响应 ──
     if (updated.channelSessionId) {
@@ -461,109 +337,6 @@ export async function handleUndoApproval(
 }
 
 /**
- * P2-1: 批准后自动续跑 — 从最新自动检查点恢复工具循环。
- *
- * resumeStream 会重放 pendingApproval 工具（此时放行缓存已写入，直接执行），
- * 并继续 LLM 循环直至完成，结果经 _addAndPersistMessage 落盘。
- * fire-and-forget：无可恢复检查点或恢复失败时静默返回，由前端 sendMessage 兜底。
- *
- * @param sessionId 会话 ID
+ * 审批落定后的副作用（放行缓存 / 白名单持久化 / 自动续跑）已移至
+ * `runtime/inboxApproval.ts` —— 与 IM 文本审批、企业审批流共用**同一实现**。
  */
-async function triggerResumeAfterApproval(sessionId: string): Promise<void> {
-  let resumed = false;
-  try {
-    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
-    const chatManager = getCoreAPI().chatManager;
-    if (!chatManager || typeof chatManager.resumeStream !== 'function') {
-      logger.warn('审批后自动续跑跳过：ChatManager 不可用', { sessionId });
-      return;
-    }
-
-    // checkpointId 由 resumeStream 内部取最新自动检查点（参数仅兼容保留）
-    const gen = chatManager.resumeStream(sessionId, '');
-    for await (const _chunk of gen) {
-      if (!resumed) {
-        resumed = true;
-        logger.info('审批后自动续跑已启动', { sessionId });
-      }
-    }
-    logger.info('审批后自动续跑完成', { sessionId, resumed });
-  } finally {
-    // U-06-4（2026-10-19）：续跑结束（成功/异常）广播 `session:continued`，
-    // 前端据此刷新当前会话 —— 取代原先「固定 sleep 3s + 全量 getMessages」的时序猜测。
-    // 与 `ChatManager._resumeSessionInternally` 的广播同构（单一刷新入口）。
-    try {
-      const { broadcastEvent } = await import('@modules/infrastructure');
-      await broadcastEvent('session:continued', {
-        id: sessionId,
-        ok: resumed,
-      });
-    } catch (e) {
-      logger.warn('审批后续跑 SSE 广播失败', {
-        sessionId,
-        error: (e as Error)?.message ?? String(e),
-      });
-    }
-  }
-}
-
-/**
- * P2-4: 持久化白名单规则到 tool_rules.json（behavior: allow）。
- * - 工具级（commandLevel=false）：`{behavior: allow, toolName}` → 该工具整体免审批
- * - 命令前缀级（commandLevel=true）：`{behavior: allow, toolName, contentPattern}` → 仅匹配命令免审批
- * 通过 PermissionManager 单例拿到共享 RuleManager，addRule 幂等去重 + 落盘。
- */
-async function persistAllowlistRule(
-  current: { metadata?: Record<string, unknown>; sessionId?: string },
-  commandLevel: boolean
-): Promise<void> {
-  const toolName = current.metadata?.toolName as string | undefined;
-  if (!toolName) {
-    logger.warn('白名单持久化跳过：缺少 toolName', {
-      sessionId: current.sessionId,
-    });
-    return;
-  }
-  const command =
-    typeof current.metadata?.command === 'string'
-      ? (current.metadata.command as string)
-      : '';
-  const contentPattern =
-    commandLevel && command ? buildCommandContentPattern(command) : undefined;
-
-  const { PermissionManager } =
-    await import('@modules/permission/PermissionManager.js');
-  const { createPermissionRule, PermissionBehavior } =
-    await import('@modules/permission/types/PermissionRule.js');
-
-  const ruleManager = PermissionManager.getInstance().getRuleManager();
-  ruleManager.addRule(
-    createPermissionRule({
-      behavior: PermissionBehavior.ALLOW,
-      toolName,
-      contentPattern,
-    })
-  );
-  logger.info('白名单规则已持久化', {
-    toolName,
-    commandLevel,
-    contentPattern,
-    sessionId: current.sessionId,
-  });
-}
-
-/**
- * P2-4: 生成命令前缀正则 —— 取命令前 2 个 token 拼接、转义正则特殊字符、尾部 `.*`。
- * 例：`net user %username%` → `^net user.*`；单 token 命令 `dir` → `^dir.*`。
- */
-function buildCommandContentPattern(command: string): string {
-  const tokens = command.trim().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return '';
-  const prefix = tokens.slice(0, 2).join(' ');
-  return `^${escapeRegExp(prefix)}.*`;
-}
-
-/** 转义正则特殊字符，保证命令文本按字面匹配 */
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}

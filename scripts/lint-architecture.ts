@@ -2107,6 +2107,10 @@ class ArchitectureLinter {
       //（`entrypoints/spiWiring` 是 eager 图里的装配点）⇒ 组合根按子路径动态 import。
       // 该文件是"按身份解析默认工作区"的**唯一实现**，与 `core/identity` 同属零依赖叶子。
       'sandbox/scopedDefaultWorkspace',
+      // 桶精确化（2026-10-21，企业审批接线）：`config/index.ts` 未聚合 `enterprise/**`（企业面
+      // 按需启用，不该进入配置桶的常驻面）；`runtime/execApprovalBridge` 只需其中的
+      // `ExecApprovalManager`（纯内存审批队列，无 IO）⇒ 按子目录入口直连。
+      'config/enterprise',
       // 循环安全子入口（2026-09-26）：`query/tool-constants` 是**零跨模块 import 的叶子**
       // （只导出工具名 `Set` 字面量），而 `promptSuggestion/types.ts` 与
       // `tools/orchestration/types.ts` 需要其"文件读写工具真实名"取值（裁定①：共享取值 + 各自命名）。

@@ -61,11 +61,15 @@ export default [
         // 2026-10-21（多租户 P5）：`runtime` 模块**无 index.ts**（无统一出口），删除租户的
         // 清除入口只能按子路径取用；它是"管理维护入口"、不在任何模块的公开 API 面
         // ⇒ 与 goalTemplates 同属"按文件名精确豁免"。
+        // 2026-10-21（审批单一实现）：`runtime/inboxApproval` 是三条审批入口（HTTP / IM /
+        // 企业审批流）共用的解析实现，同样按子路径直连（runtime 无桶）。
         // 2026-10-21（多租户 P3）：`sandbox/scopedDefaultWorkspace` 由组合根按子路径
         // 动态 import（经沙箱桶再导出会把它拉进启动面）⇒ 与上面两项同属"按文件名精确豁免"。
         allowedPaths: [
           '\\/goalTemplates$',
           '\\/tenantPurge$',
+          '\\/inboxApproval$',
+          '\\/execApprovalBridge$',
           '\\/scopedDefaultWorkspace$',
         ],
       }],

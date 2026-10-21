@@ -127,6 +127,30 @@ export class ExecApprovalManager {
     description: string,
     toolUseId?: string
   ): Promise<ExecApprovalRequest> {
+    const request = this.createRequest(
+      toolName,
+      input,
+      requester,
+      description,
+      toolUseId
+    );
+    return this.waitForDecision(request.id);
+  }
+
+  /**
+   * **同步**创建审批请求（不等待结果）
+   *
+   * 与 `requestApproval` 的区别只在于"是否等结果"：镜像/旁路场景需要一个**立即可得**
+   * 的 `request.id`（调用方要登记映射关系），却又不能 `await` 结果（会卡住发起方）。
+   * 两个方法共用同一份创建逻辑（单一实现）。
+   */
+  createRequest(
+    toolName: string,
+    input: Record<string, unknown>,
+    requester: string,
+    description: string,
+    toolUseId?: string
+  ): ExecApprovalRequest {
     const id = randomUUID();
     const now = Date.now();
 
@@ -164,15 +188,34 @@ export class ExecApprovalManager {
       );
     }
 
-    const promise = new Promise<ExecApprovalRequest>((resolve) => {
+    return request;
+  }
+
+  /**
+   * 等待某条审批请求决出（已终结 ⇒ 立即 resolve）
+   *
+   * 超时由本方法注册的定时器驱动（到点落 `timed_out` 并 resolve）。
+   */
+  async waitForDecision(requestId: string): Promise<ExecApprovalRequest> {
+    const existing = this.requests.get(requestId);
+    if (!existing) {
+      throw new AppError(
+        `ExecApprovalManager: 审批请求不存在 (requestId=${requestId})`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'ENTITY_NOT_FOUND',
+        { requestId }
+      );
+    }
+    if (existing.status !== 'pending') return existing;
+
+    return new Promise<ExecApprovalRequest>((resolve) => {
       const timeout = setTimeout(() => {
-        this.handleTimeout(id);
+        this.handleTimeout(requestId);
       }, this.config.defaultTimeoutMs);
 
-      this.resolvers.set(id, { resolve, timeout });
+      this.resolvers.set(requestId, { resolve, timeout });
     });
-
-    return promise;
   }
 
   /**

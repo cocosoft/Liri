@@ -17,6 +17,8 @@ import crypto from 'crypto';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+// 多租户 P3（2026-10-21）：录制时打归属，统计引擎据此分桶
+import { currentOwnerKey } from '@modules/core/identity/requestScope.js';
 const logger = getLogger('trace-recording:interceptor:FetchInterceptor');
 
 /** 拦截器回调 - 当有流量被录制时触发 */
@@ -512,6 +514,12 @@ export class FetchInterceptor {
 
     if (error) {
       record.error = error;
+    }
+
+    // 多租户 P3：远端身份才打归属（本地身份 ⇒ 不写字段，落盘内容与改造前一致）
+    const ownerKey = currentOwnerKey();
+    if (ownerKey) {
+      record.ownerKey = ownerKey;
     }
 
     // v5 方案 3.1：completed 记录带完成时刻

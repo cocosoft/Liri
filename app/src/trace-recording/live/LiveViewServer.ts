@@ -247,7 +247,8 @@ export class LiveViewServer {
       return;
     }
 
-    const stats = this.engine.getStatsSnapshot();
+    // 宿主侧诊断视图：展示进程内**全部**流量（与下方 getAllRecords 同口径）
+    const stats = this.engine.getAggregateStatsSnapshot();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(stats));
   }
@@ -264,7 +265,7 @@ export class LiveViewServer {
 
     const records = this.engine.getAllRecords();
     const dateList = this.engine.getAvailableDates();
-    const stats = this.engine.getStatsSnapshot();
+    const stats = this.engine.getAggregateStatsSnapshot();
 
     const html = this.buildLiveHtml(records, dateList, stats);
 

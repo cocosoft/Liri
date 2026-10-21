@@ -67,9 +67,19 @@ export class TraceEngine {
 
   /**
    * 获取引擎统计快照
+   * @param ownerKey 归属身份键（本地身份 / 无归属 ⇒ 省略，只读 `''` 桶）
    */
-  getStatsSnapshot() {
-    return this.stats.getSnapshot();
+  getStatsSnapshot(ownerKey?: string) {
+    return this.stats.getSnapshot(ownerKey);
+  }
+
+  /**
+   * 获取**跨身份**聚合统计快照（宿主侧诊断专用，`LiveViewServer` 使用）。
+   *
+   * 任何按身份返回的 HTTP 面都**不得**用它 —— 那会泄漏其他身份的 token 消耗。
+   */
+  getAggregateStatsSnapshot() {
+    return this.stats.getAggregateSnapshot();
   }
 
   /**

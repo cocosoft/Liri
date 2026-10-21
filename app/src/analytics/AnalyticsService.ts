@@ -1,6 +1,8 @@
 import { randomUUID } from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+// 多租户 P3（2026-10-21）：内存累计按身份分桶，读侧只回当前身份
+import { getRequestPrincipalKey } from '@modules/core/identity/requestScope.js';
 
 const logger = getLogger('analytics');
 
@@ -15,6 +17,12 @@ interface AnalyticsSession {
   endTime?: number;
 }
 
+/** 单个身份的工具调用累计（本地身份恒 `local:local` 一桶） */
+interface ToolCallBucket {
+  toolCallCounts: Map<string, number>;
+  totalToolCalls: number;
+}
+
 /**
  * 分析服务 - 负责事件追踪、会话管理等
  */
@@ -25,8 +33,11 @@ export class AnalyticsService {
   private maxEvents: number = 50000;
   private maxSessions: number = 1000;
   private sessionTimeout: number = 1800000; // 30分钟
-  private toolCallCounts: Map<string, number> = new Map();
-  private totalToolCalls: number = 0;
+  /**
+   * 工具调用计数**按身份分桶**（多租户 P3）：此前是进程级单值 ⇒ 任一身份读到的
+   * 都是所有人合计。本地身份恒 `local:local` 一个桶 ⇒ 桌面/CLI 数值逐字不变。
+   */
+  private toolCallBuckets: Map<string, ToolCallBucket> = new Map();
   private listeners: Map<string, Array<(...args: unknown[]) => void>> =
     new Map();
   static instance: AnalyticsService;
@@ -45,6 +56,7 @@ export class AnalyticsService {
   ) {
     const eventId = randomUUID();
     const timestamp = Date.now();
+    const ownerKey = getRequestPrincipalKey();
     const event = {
       id: eventId,
       type,
@@ -55,6 +67,8 @@ export class AnalyticsService {
       },
       timestamp,
       sequence: this.eventSequence++,
+      /** 归属身份键（读侧按它过滤；本地身份恒 `local:local`） */
+      ownerKey,
     };
 
     this.events.push(event);
@@ -67,17 +81,28 @@ export class AnalyticsService {
       this.events.shift();
     }
 
-    // 独立累计工具调用计数（不受队列清空影响）
+    // 独立累计工具调用计数（不受队列清空影响），按身份分桶
     if (['tool_call', 'tool_execute', 'tool_result'].includes(type)) {
       const toolName = String(metadata?.tool_name || name || 'unknown');
-      this.toolCallCounts.set(
+      const bucket = this.bucketOf(ownerKey);
+      bucket.toolCallCounts.set(
         toolName,
-        (this.toolCallCounts.get(toolName) || 0) + 1
+        (bucket.toolCallCounts.get(toolName) || 0) + 1
       );
-      this.totalToolCalls++;
+      bucket.totalToolCalls++;
     }
 
     return eventId;
+  }
+
+  /** 取（必要时创建）指定身份的工具调用桶 */
+  private bucketOf(ownerKey: string): ToolCallBucket {
+    let bucket = this.toolCallBuckets.get(ownerKey);
+    if (!bucket) {
+      bucket = { toolCallCounts: new Map(), totalToolCalls: 0 };
+      this.toolCallBuckets.set(ownerKey, bucket);
+    }
+    return bucket;
   }
 
   /**
@@ -134,7 +159,9 @@ export class AnalyticsService {
    * @returns 事件列表
    */
   getEvents(options: Record<string, unknown> = {}) {
-    let result = [...this.events];
+    // 只回当前身份的埋点（本地身份 ⇒ 读 `local:local` 桶，桌面/CLI 与改造前一致）
+    const ownerKey = getRequestPrincipalKey();
+    let result = this.events.filter((event) => event.ownerKey === ownerKey);
 
     if (options.type) {
       result = result.filter((event) => event.type === options.type);
@@ -248,18 +275,21 @@ export class AnalyticsService {
    * @returns 统计信息
    */
   getStats() {
+    const ownerKey = getRequestPrincipalKey();
+    const events = this.events.filter((event) => event.ownerKey === ownerKey);
     const eventCounts: Record<string, unknown> = {};
-    for (const event of this.events) {
+    for (const event of events) {
       eventCounts[event.type as string] =
         ((eventCounts[event.type as string] as number) || 0) + 1;
     }
+    const bucket = this.toolCallBuckets.get(ownerKey);
 
     return {
-      totalEvents: this.events.length,
+      totalEvents: events.length,
       totalSessions: this.sessions.size,
       activeSessions: this.getActiveSessions().length,
-      totalToolCalls: this.totalToolCalls,
-      toolCallCounts: Object.fromEntries(this.toolCallCounts),
+      totalToolCalls: bucket?.totalToolCalls ?? 0,
+      toolCallCounts: Object.fromEntries(bucket?.toolCallCounts ?? []),
       eventCounts,
     };
   }
@@ -273,13 +303,16 @@ export class AnalyticsService {
     uniqueTools: number;
     topTools: Array<{ name: string; count: number }>;
   } {
-    const sorted = [...this.toolCallCounts.entries()]
+    // 只统计当前身份（多租户 P3；此前是进程级合计）
+    const bucket = this.toolCallBuckets.get(getRequestPrincipalKey());
+    const toolCallCounts = bucket?.toolCallCounts ?? new Map<string, number>();
+    const sorted = [...toolCallCounts.entries()]
       .sort((a: [string, number], b: [string, number]) => b[1] - a[1])
       .slice(0, 10);
 
     return {
-      totalCalls: this.totalToolCalls,
-      uniqueTools: this.toolCallCounts.size,
+      totalCalls: bucket?.totalToolCalls ?? 0,
+      uniqueTools: toolCallCounts.size,
       topTools: sorted.map(([tool, count]) => ({ name: tool, count })),
     };
   }
@@ -340,8 +373,10 @@ export class AnalyticsService {
    * 事件计数
    */
   get eventCounts(): Record<string, unknown> {
+    const ownerKey = getRequestPrincipalKey();
     const counts: Record<string, unknown> = {};
     for (const event of this.events) {
+      if (event.ownerKey !== ownerKey) continue;
       counts[event.type as string] =
         ((counts[event.type as string] as number) || 0) + 1;
     }

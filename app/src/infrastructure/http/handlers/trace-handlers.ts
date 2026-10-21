@@ -9,6 +9,7 @@
  */
 import type http from 'http';
 import { handleError } from '@modules/error';
+import { currentOwnerKey } from '@modules/core/identity/requestScope.js';
 
 export async function handleTraceStats(
   _req: http.IncomingMessage,
@@ -30,7 +31,9 @@ export async function handleTraceStats(
     }
 
     const engine = plugin.getEngine();
-    const stats = engine ? engine.getStatsSnapshot() : null;
+    // 多租户 P3：只回**当前身份**的统计桶（本地身份 ⇒ undefined ⇒ `''` 桶，
+    // 桌面端与改造前一致；远端身份看不到别人的 token 消耗）
+    const stats = engine ? engine.getStatsSnapshot(currentOwnerKey()) : null;
     const pluginStatus = plugin.getStatus();
     const writerStats = engine ? engine.getWriterStats() : null;
 

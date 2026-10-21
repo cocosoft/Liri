@@ -7,7 +7,7 @@
  * 参考：claude-tap 的 TraceWriter 统计 (Python 实现)
  */
 
-import type { TraceRecord } from '../types';
+import type { TraceRecord, StatsSnapshot } from '../types';
 
 /** 按模型统计 */
 interface ModelStats {
@@ -21,14 +21,38 @@ interface ModelStats {
   cacheCreateTokens: number;
 }
 
+/** 单个身份的统计桶（本地身份 / 无归属记录统一落在 `''` 桶） */
+interface StatsBucket {
+  modelStats: Map<string, ModelStats>;
+  allDurations: number[];
+  totalCalls: number;
+  totalErrors: number;
+}
+
 /**
  * 统计引擎
+ *
+ * **按身份分桶**（多租户 P3）：`/v1/trace/stats` 此前是进程级合计，任一身份都能看到
+ * 所有人的 token 消耗。桶键取记录的 `ownerKey`（本地身份 / 无归属 ⇒ `''`），
+ * 读侧只回**当前身份**的桶 ⇒ 桌面/CLI 仍只读 `''` 桶，数值与改造前逐字一致。
  */
 export class StatsEngine {
-  private modelStats: Map<string, ModelStats> = new Map();
-  private allDurations: number[] = [];
-  private totalCalls = 0;
-  private totalErrors = 0;
+  private buckets: Map<string, StatsBucket> = new Map();
+
+  /** 取（必要时创建）指定归属的统计桶 */
+  private bucketOf(ownerKey: string): StatsBucket {
+    let bucket = this.buckets.get(ownerKey);
+    if (!bucket) {
+      bucket = {
+        modelStats: new Map(),
+        allDurations: [],
+        totalCalls: 0,
+        totalErrors: 0,
+      };
+      this.buckets.set(ownerKey, bucket);
+    }
+    return bucket;
+  }
 
   /**
    * 记录一次调用统计
@@ -40,11 +64,12 @@ export class StatsEngine {
     if (record.phase === 'pending') {
       return;
     }
-    this.totalCalls++;
-    this.allDurations.push(record.durationMs);
+    const bucket = this.bucketOf(record.ownerKey ?? '');
+    bucket.totalCalls++;
+    bucket.allDurations.push(record.durationMs);
 
     const model = this.extractModel(record);
-    let stats = this.modelStats.get(model);
+    let stats = bucket.modelStats.get(model);
     if (!stats) {
       stats = {
         callCount: 0,
@@ -56,7 +81,7 @@ export class StatsEngine {
         cacheReadTokens: 0,
         cacheCreateTokens: 0,
       };
-      this.modelStats.set(model, stats);
+      bucket.modelStats.set(model, stats);
     }
 
     stats.callCount++;
@@ -65,7 +90,7 @@ export class StatsEngine {
 
     if (record.error || record.response.status >= 400) {
       stats.errorCount++;
-      this.totalErrors++;
+      bucket.totalErrors++;
     }
 
     // 尝试从记录中提取 token 用量
@@ -156,49 +181,63 @@ export class StatsEngine {
 
   /**
    * 获取当前统计快照
+   * @param ownerKey 归属身份键（本地身份 / 无归属 ⇒ 省略即 `''` 桶）
    */
-  getSnapshot(): {
-    totalCalls: number;
-    totalErrors: number;
-    callsByModel: Record<string, number>;
-    errorsByModel: Record<string, number>;
-    avgLatencyByModel: Record<string, number>;
-    totalInputTokens: number;
-    totalOutputTokens: number;
-    totalCacheReadTokens: number;
-    totalCacheCreateTokens: number;
-    latencyP50: number;
-    latencyP99: number;
-  } {
-    const sorted = [...this.allDurations].sort((a, b) => a - b);
+  getSnapshot(ownerKey = ''): StatsSnapshot {
+    const bucket = this.buckets.get(ownerKey);
+    return this.computeSnapshot(bucket ? [bucket] : []);
+  }
+
+  /**
+   * 获取**全量**聚合快照（跨身份合计）。
+   *
+   * 只给宿主侧诊断用（`LiveViewServer` 的 `/stats` 展示的是进程内全部流量），
+   * **不要**用于任何按身份返回的 HTTP 面 —— 那里必须走 `getSnapshot(ownerKey)`。
+   */
+  getAggregateSnapshot(): StatsSnapshot {
+    return this.computeSnapshot([...this.buckets.values()]);
+  }
+
+  /** 把若干桶合并成一份快照（`getSnapshot` / `getAggregateSnapshot` 的共用实现） */
+  private computeSnapshot(buckets: StatsBucket[]): StatsSnapshot {
     const callsByModel: Record<string, number> = {};
     const errorsByModel: Record<string, number> = {};
-    const avgLatencyByModel: Record<string, number> = {};
+    const totalDurationByModel: Record<string, number> = {};
+    const durations: number[] = [];
 
+    let totalCalls = 0;
+    let totalErrors = 0;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     let totalCacheReadTokens = 0;
     let totalCacheCreateTokens = 0;
 
-    for (const [model, stats] of this.modelStats) {
-      callsByModel[model] = stats.callCount;
-      errorsByModel[model] = stats.errorCount;
-      avgLatencyByModel[model] =
-        stats.callCount > 0
-          ? Math.round(stats.totalDurationMs / stats.callCount)
-          : 0;
+    for (const bucket of buckets) {
+      totalCalls += bucket.totalCalls;
+      totalErrors += bucket.totalErrors;
+      durations.push(...bucket.allDurations);
+      for (const [model, stats] of bucket.modelStats) {
+        callsByModel[model] = (callsByModel[model] ?? 0) + stats.callCount;
+        errorsByModel[model] = (errorsByModel[model] ?? 0) + stats.errorCount;
+        totalDurationByModel[model] =
+          (totalDurationByModel[model] ?? 0) + stats.totalDurationMs;
+        totalInputTokens += stats.inputTokens;
+        totalOutputTokens += stats.outputTokens;
+        totalCacheReadTokens += stats.cacheReadTokens;
+        totalCacheCreateTokens += stats.cacheCreateTokens;
+      }
     }
 
-    for (const [, stats] of this.modelStats) {
-      totalInputTokens += stats.inputTokens;
-      totalOutputTokens += stats.outputTokens;
-      totalCacheReadTokens += stats.cacheReadTokens;
-      totalCacheCreateTokens += stats.cacheCreateTokens;
+    const avgLatencyByModel: Record<string, number> = {};
+    for (const [model, total] of Object.entries(totalDurationByModel)) {
+      const calls = callsByModel[model] ?? 0;
+      avgLatencyByModel[model] = calls > 0 ? Math.round(total / calls) : 0;
     }
 
+    const sorted = durations.sort((a, b) => a - b);
     return {
-      totalCalls: this.totalCalls,
-      totalErrors: this.totalErrors,
+      totalCalls,
+      totalErrors,
       callsByModel,
       errorsByModel,
       avgLatencyByModel,
@@ -212,12 +251,9 @@ export class StatsEngine {
   }
 
   /**
-   * 重置统计
+   * 重置统计（清空**所有身份**的桶）
    */
   reset(): void {
-    this.modelStats.clear();
-    this.allDurations = [];
-    this.totalCalls = 0;
-    this.totalErrors = 0;
+    this.buckets.clear();
   }
 }

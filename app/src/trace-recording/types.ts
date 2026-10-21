@@ -59,6 +59,13 @@ export interface TraceRecord {
   phase?: 'pending' | 'completed';
   /** 完成/中断时刻（ISO-8601，可选）——pending 无，completed 有 */
   completedAt?: string;
+  /**
+   * 归属身份键 `<tenantId>:<userId>`（多租户 P3）。
+   *
+   * 本地身份 ⇒ 不写该字段（落盘 JSON 与改造前逐字一致）；远端身份 ⇒ 由拦截器在
+   * 录制时打标，统计引擎据此分桶，`/v1/trace/stats` 只回当前身份的桶。
+   */
+  ownerKey?: string;
 }
 
 /** SSE原始事件 */

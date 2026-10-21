@@ -128,6 +128,8 @@ import { SimpleMutex, feature } from '@modules/core';
 // T2-8 / `✅-17`（2026-10-13）：编排域只读投影（形态 A）
 import { publishOrchestrationProjection } from '../state/engine/orchestrationProjection.js';
 import { resolveWorktreeHash } from '@modules/core/paths';
+// 多租户 P0 阶段 2：当前会话 id 按请求身份分桶（无请求作用域 ⇒ 本地身份单桶）
+import { getRequestPrincipalKey } from '@modules/core/identity/requestScope.js';
 import { join } from 'path';
 import { getModelPricing } from '@modules/cost';
 
@@ -371,9 +373,27 @@ export class ChatManagerImpl implements ChatManager {
   private streamService: StreamService;
 
   /**
-   * 当前会话ID（本地缓存）
+   * 当前会话ID（本地缓存）—— **按请求身份分桶**（多租户 P0 阶段 2，2026-10-21）。
+   *
+   * 改造前是**进程级单字段**：服务端并发用户共用一格，A 打开会话会改掉 B 的"当前会话"。
+   * 现改为 `Map<principalKey, sessionId>`：桌面端恒为 `local:local` 单桶 ⇒ 行为与改造前一致；
+   * 已认证请求各写各的桶。键由 `getRequestPrincipalKey()` 提供（无请求作用域 ⇒ 本地身份）。
+   *
+   * 惰性建 Map：白盒测试用 `Object.create(prototype)` 构造实例（字段初始化器不执行），
+   * 直接在 setter 里补建可避免测试被迫感知内部结构。
    */
-  private _currentSessionId: string | null = null;
+  private _currentSessionIds?: Map<string, string>;
+
+  private get _currentSessionId(): string | null {
+    return this._currentSessionIds?.get(getRequestPrincipalKey()) ?? null;
+  }
+
+  private set _currentSessionId(id: string | null) {
+    const map = (this._currentSessionIds ??= new Map<string, string>());
+    const key = getRequestPrincipalKey();
+    if (id === null) map.delete(key);
+    else map.set(key, id);
+  }
   /** 记录每个会话的离开时间戳，用于回切召回检测 */
   private _sessionLeaveTimes = new Map<string, number>();
 

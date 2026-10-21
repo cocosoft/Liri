@@ -48,12 +48,15 @@ export function createPermissionContext(params: {
   input: Record<string, unknown>;
   sessionId?: string;
   userId?: string;
+  /** 请求级角色（多租户 P0 阶段 2）：缺省 ⇒ `PermissionManager` 回退进程级角色 */
+  userRole?: string;
   metadata?: Record<string, unknown>;
 }): PermissionContext {
   return {
     sessionId: params.sessionId,
     userId: params.userId,
     toolName: params.toolName,
+    userRole: params.userRole,
     input: params.input,
     metadata: params.metadata,
   };

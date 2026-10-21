@@ -44,6 +44,8 @@ import {
   startCompileScheduler,
 } from './LocalHTTPServiceHelpers';
 import { broadcastEvent, stopSSE } from './LocalHTTPServiceSSE';
+// 多租户 P0 阶段 2：每请求解析身份 + 建立请求作用域（详见两个模块头注释）
+import { withRequestIdentity } from './requestIdentity';
 
 const logger = getLogger('http:local');
 
@@ -416,14 +418,19 @@ export class LocalHTTPService {
     });
 
     // ---- 所有路由逻辑已提取至 route-table.ts 的 dispatchRoute ----
-    // ---- 路由调度（匹配 method + URL 到对应 handler）----
-    const matched = await dispatchRoute(
-      req,
-      res,
-      url,
-      (event: string, data: unknown) =>
-        this.broadcastEvent(event, data as Record<string, unknown>),
-      this._handlerCtx
+    // 多租户 P0 阶段 2（2026-10-21）：按**本次请求**解析身份并建立请求作用域。
+    // 无登录态（或共享密钥/回环信任）⇒ `LOCAL_PRINCIPAL` ⇒ 与改造前的进程级语义等价；
+    // 带有效 Bearer 登录 token ⇒ 该用户身份，下游（会话当前 id / 工具权限角色）按请求取值，
+    // 不再写进程级单例 ⇒ 并发用户不互相覆盖。
+    const matched = await withRequestIdentity(req, () =>
+      dispatchRoute(
+        req,
+        res,
+        url,
+        (event: string, data: unknown) =>
+          this.broadcastEvent(event, data as Record<string, unknown>),
+        this._handlerCtx
+      )
     );
     if (matched) return;
 

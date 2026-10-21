@@ -35,14 +35,25 @@ export const authTokens = new Map<
   { username: string; permissions: string[] }
 >();
 
-/** E↔A 打通：将认证权限映射为角色并注入工具权限决策（登录时调用） */
-function applyAuthRoleToPermissionManager(permissions: string[]): void {
-  const role = permissions.includes('admin')
+/**
+ * 权限 → 角色映射（**唯一实现**）。登录写进程级角色与请求级身份解析共用，
+ * 避免"进程级用一套映射、请求级用另一套"的口径漂移。
+ */
+export function resolveRoleFromPermissions(
+  permissions: readonly string[]
+): RoleType {
+  return permissions.includes('admin')
     ? RoleType.ADMIN
     : permissions.includes('write')
       ? RoleType.USER
       : RoleType.GUEST;
-  PermissionManager.getInstance().setCurrentUserRole(role);
+}
+
+/** E↔A 打通：将认证权限映射为角色并注入工具权限决策（登录时调用） */
+function applyAuthRoleToPermissionManager(permissions: string[]): void {
+  PermissionManager.getInstance().setCurrentUserRole(
+    resolveRoleFromPermissions(permissions)
+  );
 }
 
 /** 清除认证角色（登出时调用） */

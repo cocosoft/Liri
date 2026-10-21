@@ -1197,7 +1197,10 @@ export class PermissionManager {
   async checkPermissionForTool(
     toolName: string,
     input: Record<string, unknown> = {},
-    context?: Pick<PermissionContext, 'sessionId' | 'userId' | 'metadata'> & {
+    context?: Pick<
+      PermissionContext,
+      'sessionId' | 'userId' | 'userRole' | 'metadata'
+    > & {
       /**
        * R07-3（2026-10-07）：非幂等工具「重试」理由（由调用方判定后传入）。
        * 提供 ⇒ 本该放行的决策升级为 `ask` ⇒ 走下方既有 Inbox 提交通路（见 `checkPermissionInner`）。
@@ -1225,6 +1228,8 @@ export class PermissionManager {
       input,
       sessionId: context?.sessionId,
       userId: context?.userId,
+      // 多租户 P0 阶段 2：请求级角色透传（缺失 ⇒ handleDefault 回退进程级 currentUserRole）
+      userRole: context?.userRole,
       metadata: context?.metadata,
     });
     const decision = await this.checkPermission(

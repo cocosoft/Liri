@@ -24,6 +24,8 @@ import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir, resolveProjectRoot } from '@modules/core/paths';
+// 多租户 P0 阶段 2：请求级权限角色（桌面/后台无请求作用域 ⇒ null ⇒ 保持既有回退语义）
+import { getRequestPermissionRole } from '@modules/core/identity/requestScope.js';
 import { ToolExecutionStatus } from '@modules/utils/toolContract/ToolResult';
 import { isMediaOutputToolName } from '@modules/utils/toolContract/toolRoles';
 // U-02 v2 / P3（2026-10-20）：工作区边界判定（与 LRO 共用同一纯函数，实现落 utils 避免 chat↔tasks 环）
@@ -647,6 +649,8 @@ export class ToolExecutionService {
           args: Record<string, unknown>,
           context?: {
             sessionId?: string;
+            /** 多租户 P0 阶段 2：请求级角色（缺省 ⇒ 权限层回退进程级角色） */
+            userRole?: string;
             forceAskReason?: string;
             /** 语义护栏「便宜版」（2026-10-21）：意图文本（最近一条用户消息） */
             metadata?: { goalText?: string };
@@ -662,11 +666,16 @@ export class ToolExecutionService {
       };
       // R07-3（2026-10-07）：非幂等工具的「重试」⇒ 执行前**主动分流**为审批
       // （原实现仅把 `[重试注意]` 写进 tool 结果回传模型，属**被动**提示）。
+      // 多租户 P0 阶段 2：把**请求作用域**里的角色带进权限判定 ——
+      // 已认证请求各带各的角色（并发登录不再互相覆盖）；本地/后台 ⇒ null ⇒ 不传，
+      // 权限层回退进程级角色，桌面端行为与改造前一致。
+      const requestRole = getRequestPermissionRole();
       const permissionResult = await pm.checkPermissionForTool(
         normalizedToolCall.name,
         normalizedToolCall.arguments,
         {
           sessionId: toolCall.sessionId,
+          ...(requestRole ? { userRole: requestRole } : {}),
           forceAskReason: this._resolveNonIdempotentRetryReason(
             normalizedToolCall.name,
             normalizedToolCall.arguments,

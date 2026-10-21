@@ -13,7 +13,9 @@
  *   - 权限判定侧只增加「请求级角色优先、缺失则回退进程级」这一条规则
  *     （`resolveEffectiveRole`）—— 既有调用方**不传**请求级角色 ⇒ 行为与改造前一致。
  *
- * 阶段 2 才做：HTTP 鉴权结果 → `Principal` → 会话/工具执行链路（含 `_currentSessionId` 拆分）。
+ * 阶段 2（已完成，2026-10-21）：HTTP 鉴权结果 → `Principal` → 会话/工具执行链路。
+ * 请求作用域实现见 `./requestScope.ts`（`AsyncLocalStorage`），HTTP 解析见
+ * `infrastructure/http/requestIdentity.ts`；`_currentSessionId` 已按身份分桶。
  */
 
 /** 请求级身份：租户（= 组织）+ 用户 + 角色 */

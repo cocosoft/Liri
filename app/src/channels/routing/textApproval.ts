@@ -28,6 +28,96 @@ export interface TextApprovalInput {
 }
 
 /**
+ * 文本审批的审计载荷（纯函数输出 ⇒ 可直接单测，不触发文件 IO）
+ *
+ * 为什么需要它：IM 渠道的"文本审批"是**绕过前端审批卡**的放行路径
+ * （用户在飞书/钉钉里回一句"同意"就批准了工具执行），此前**没有任何审计留痕**——
+ * 移动端 HTTP 路径有 `recordMobileAudit`，这条路径却是盲区。
+ */
+export interface TextApprovalAuditPayload {
+  type: 'approval_action';
+  severity: 'info' | 'warning';
+  actor: string;
+  action: string;
+  resource: string;
+  success: boolean;
+  failureReason?: string;
+  details: Record<string, unknown>;
+}
+
+export interface TextApprovalAuditInput {
+  channelName: string;
+  /** 审批发起人（渠道发送者 id —— 即"谁按下了同意/拒绝"） */
+  senderId: string;
+  conversationId?: string;
+  itemId: string;
+  itemTitle?: string;
+  intent: 'approve' | 'reject';
+  traceId: string;
+  success: boolean;
+  failureReason?: string;
+}
+
+export function buildTextApprovalAuditPayload(
+  input: TextApprovalAuditInput
+): TextApprovalAuditPayload {
+  return {
+    type: 'approval_action',
+    severity: input.success ? 'info' : 'warning',
+    actor: input.senderId,
+    action: `channel.approval.${input.intent}`,
+    resource: `inbox:${input.itemId}`,
+    success: input.success,
+    ...(input.failureReason ? { failureReason: input.failureReason } : {}),
+    details: {
+      channel: input.channelName,
+      conversationId: input.conversationId,
+      itemId: input.itemId,
+      itemTitle: input.itemTitle,
+      intent: input.intent,
+      traceId: input.traceId,
+    },
+  };
+}
+
+/**
+ * 写审计（best-effort）：失败只告警，不阻断审批结果。
+ *
+ * 动态 import 企业审计服务：与 `channels/mobile/MobileAudit` 同法 ——
+ * 避免把审计服务的初始化（建目录 + 保留期定时器）拉进启动面。
+ */
+export async function recordTextApprovalAudit(
+  input: TextApprovalAuditInput
+): Promise<void> {
+  const payload = buildTextApprovalAuditPayload(input);
+  try {
+    const { EnterpriseAuditService, AuditEventType } =
+      await import('../../config/enterprise/audit/EnterpriseAuditService');
+    await EnterpriseAuditService.getInstance().log(
+      AuditEventType.APPROVAL_ACTION,
+      payload.severity,
+      payload.actor,
+      payload.action,
+      {
+        details: payload.details,
+        resource: payload.resource,
+        success: payload.success,
+        ...(payload.failureReason
+          ? { failureReason: payload.failureReason }
+          : {}),
+      }
+    );
+  } catch (error) {
+    // @ignore-catch: 审计是旁路，写入失败不改变审批结果
+    await handleError(error, {
+      module: 'channels:routing',
+      action: 'textApproval:audit',
+      context: { itemId: input.itemId, intent: input.intent },
+    });
+  }
+}
+
+/**
  * 纯文本审批前置检查：若会话有 pending Inbox 项且消息命中审批关键词，
  * 则处理审批并返回结果；否则返回 `null`（主路由继续）。
  */
@@ -65,6 +155,17 @@ export async function tryHandleTextApproval(
             message.conversationId ?? message.senderId
           );
         }
+        // 审计留痕（旁路）：文本审批是"绕过前端审批卡"的执行放行路径，必须可追溯
+        await recordTextApprovalAudit({
+          channelName,
+          senderId: message.senderId,
+          conversationId: message.conversationId,
+          itemId,
+          itemTitle: item.title,
+          intent,
+          traceId,
+          success: true,
+        });
         // DEEP-9：释放 claimMessage 锁，防止 messageId 永久 inflight
         finalizeMessage(dedupKey, true);
         return { valid: true, response: 'text_approval_processed' };
@@ -73,6 +174,17 @@ export async function tryHandleTextApproval(
           module: 'channels:routing',
           action: 'textApproval:inboxWrite',
           context: { itemId, intent, traceId },
+        });
+        // 失败同样留痕：审批没落库，但"谁在什么时候试图批准/拒绝过"是可审计事实
+        await recordTextApprovalAudit({
+          channelName,
+          senderId: message.senderId,
+          conversationId: message.conversationId,
+          itemId,
+          intent,
+          traceId,
+          success: false,
+          failureReason: String(inboxErr),
         });
         if (onOutbound) {
           await onOutbound(

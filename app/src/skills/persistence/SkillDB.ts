@@ -33,6 +33,8 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
+// 多租户 P5：技能使用记录带归属（删除租户时可按前缀清除）
+import { currentOwnerKey } from '@modules/core/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import type {
   SkillUsageRecord,
@@ -135,7 +137,8 @@ export class SkillDB {
         error TEXT,
         source TEXT NOT NULL DEFAULT '',
         triggered_by TEXT NOT NULL DEFAULT 'user',
-        args_summary TEXT
+        args_summary TEXT,
+        owner_key TEXT
       )`,
       `CREATE INDEX IF NOT EXISTS idx_usage_skill_name ON ${USAGE_TABLE}(skill_name)`,
       `CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON ${USAGE_TABLE}(timestamp)`,
@@ -177,6 +180,19 @@ export class SkillDB {
         });
       });
     }
+
+    // 多租户 P5：存量库补 owner_key（幂等；NULL ⇒ 本地/历史行）+ 索引
+    await new Promise<void>((resolve) => {
+      this.db!.run(`ALTER TABLE ${USAGE_TABLE} ADD COLUMN owner_key TEXT`, () =>
+        resolve()
+      );
+    });
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `CREATE INDEX IF NOT EXISTS idx_usage_owner ON ${USAGE_TABLE}(owner_key)`,
+        () => resolve()
+      );
+    });
   }
 
   // ==================== 使用记录 (Usage) ====================
@@ -186,8 +202,8 @@ export class SkillDB {
    */
   async insertUsage(record: SkillUsageRecord): Promise<void> {
     await this.init();
-    const sql = `INSERT INTO ${USAGE_TABLE} (skill_name, timestamp, duration_ms, success, error, source, triggered_by, args_summary)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+    const sql = `INSERT INTO ${USAGE_TABLE} (skill_name, timestamp, duration_ms, success, error, source, triggered_by, args_summary, owner_key)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
         sql,
@@ -200,10 +216,34 @@ export class SkillDB {
           record.source,
           record.triggeredBy,
           record.argsSummary ?? null,
+          // 多租户 P5：本地身份 ⇒ NULL（与改造前一致）
+          currentOwnerKey() ?? null,
         ],
         (err: Error | null) => {
           if (err) reject(err);
           else resolve();
+        }
+      );
+    });
+  }
+
+  /**
+   * 多租户 P5：删除某归属前缀下的技能使用记录（删除租户时调用）
+   *
+   * 只删 `owner_key LIKE '<prefix>%'` 的行；本地/历史行（`owner_key IS NULL`）保留。
+   *
+   * @returns 删除的行数
+   */
+  async deleteUsageByOwnerPrefix(prefix: string): Promise<number> {
+    if (!prefix) return 0;
+    await this.init();
+    return new Promise<number>((resolve, reject) => {
+      this.db!.run(
+        `DELETE FROM ${USAGE_TABLE} WHERE owner_key LIKE ?`,
+        [`${prefix}%`],
+        function (this: { changes?: number }, err: Error | null) {
+          if (err) reject(err);
+          else resolve(this.changes ?? 0);
         }
       );
     });

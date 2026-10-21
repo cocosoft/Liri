@@ -109,11 +109,14 @@ CREATE TABLE IF NOT EXISTS usage_records (
   sub_agents_json TEXT,
   cost_estimated REAL NOT NULL DEFAULT 0,
   duration_ms INTEGER NOT NULL DEFAULT 0,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  owner_key TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_usage_session ON usage_records(session_id);
 CREATE INDEX IF NOT EXISTS idx_usage_date ON usage_records(date);
+-- 注：owner_key 的索引在 SqliteTaskStore.migrateSchema() 里建（存量库要先 ALTER 补列，
+-- 若写在这里，旧库会在 CREATE INDEX 时就因缺列而让整个 schema exec 失败）。
 
 -- goal_metrics: PDCA 循环关键指标（Loop Phase 6: 基准度量；S2 2026-08-13 行粒度扩展）
 -- 两类行类型（不互踩字段）：

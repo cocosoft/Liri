@@ -15,6 +15,8 @@
 import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'crypto';
 import { resolveDbPath } from '@modules/core';
+// 多租户 P5：用量行带归属（删除租户时可按前缀清除）
+import { currentOwnerKey } from '@modules/core/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { TASKS_SCHEMA, TABLE_NAMES } from './schema';
@@ -242,8 +244,8 @@ export class GoalMetricsService {
     await run(
       db,
       `INSERT INTO ${TABLE_NAMES.USAGE_RECORDS}
-        (id, session_id, date, total_tokens, cost_estimated, duration_ms, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (id, session_id, date, total_tokens, cost_estimated, duration_ms, created_at, owner_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         randomUUID(),
         input.sessionId,
@@ -252,6 +254,8 @@ export class GoalMetricsService {
         input.costEstimated ?? 0,
         input.durationMs ?? 0,
         Date.now(),
+        // 多租户 P5：本地身份 ⇒ NULL（与改造前一致）
+        currentOwnerKey() ?? null,
       ]
     );
   }

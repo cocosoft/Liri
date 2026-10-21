@@ -32,6 +32,8 @@
 import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'crypto';
 import { resolveDbPath } from '@modules/core';
+// 多租户 P5：使用日志带归属（删除租户时可按前缀清除）
+import { currentOwnerKey } from '@modules/core/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -171,6 +173,28 @@ export class UsageStatsService {
     return UsageStatsService.instance;
   }
 
+  /**
+   * 一次性实例（**不触碰单例**）：用于删除租户等运维场景
+   *
+   * 与 `getInstance()` 分开的原因：单例可能在任何模块导入期就以默认路径建好，
+   * 运维操作必须显式指向"当前数据目录"，并在结束后 `close()`。
+   */
+  static async openAt(dbPath: string): Promise<UsageStatsService> {
+    const service = new UsageStatsService(dbPath);
+    await service.initialize();
+    return service;
+  }
+
+  /** 关闭连接（一次性实例用完即关；单例不使用） */
+  async close(): Promise<void> {
+    const db = this.db;
+    this.db = null;
+    this.initialized = false;
+    this.initPromise = null;
+    if (!db) return;
+    await new Promise<void>((resolve) => db.close(() => resolve()));
+  }
+
   async initialize(): Promise<void> {
     if (this.initialized) return;
     if (this.initPromise) return this.initPromise;
@@ -229,7 +253,8 @@ export class UsageStatsService {
         is_streaming INTEGER NOT NULL DEFAULT 0,
         timestamp INTEGER NOT NULL,
         error_message TEXT,
-        request_id TEXT
+        request_id TEXT,
+        owner_key TEXT
       )
     `);
 
@@ -241,6 +266,20 @@ export class UsageStatsService {
     } catch {
       // 列已存在时忽略（SQLite 不支持 IF NOT EXISTS for ALTER TABLE）
     }
+
+    // 多租户 P5：为已有数据库新增 owner_key 列（幂等；NULL ⇒ 本地/历史行）
+    try {
+      await run(`
+        ALTER TABLE ${USAGE_LOGS_TABLE} ADD COLUMN owner_key TEXT
+      `);
+    } catch {
+      // 列已存在时忽略
+    }
+
+    await run(`
+      CREATE INDEX IF NOT EXISTS idx_usage_logs_owner
+      ON ${USAGE_LOGS_TABLE}(owner_key)
+    `);
 
     await run(`
       CREATE INDEX IF NOT EXISTS idx_usage_logs_model
@@ -311,8 +350,8 @@ export class UsageStatsService {
       `INSERT INTO ${USAGE_LOGS_TABLE}
        (id, model, provider_id, input_tokens, output_tokens, cache_read_tokens,
         cache_creation_tokens, cost_usd, latency_ms, status_code, is_streaming,
-        timestamp, error_message, request_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        timestamp, error_message, request_id, owner_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         params.model,
@@ -328,6 +367,8 @@ export class UsageStatsService {
         timestamp,
         params.errorMessage || null,
         params.requestId || null,
+        // 多租户 P5：本地身份 ⇒ NULL（与改造前一致）
+        currentOwnerKey() ?? null,
       ]
     );
 
@@ -346,6 +387,28 @@ export class UsageStatsService {
       timestamp,
       errorMessage: params.errorMessage,
     };
+  }
+
+  /**
+   * 多租户 P5：删除某**归属前缀**下的使用日志（删除租户时调用）
+   *
+   * 只删 `owner_key LIKE '<prefix>%'` 的行；本地/历史行（`owner_key IS NULL`）保留。
+   *
+   * @returns 删除的行数
+   */
+  async deleteByOwnerPrefix(prefix: string): Promise<number> {
+    if (!prefix) return 0;
+    await this.initialize();
+    return new Promise<number>((resolve, reject) => {
+      this.db!.run(
+        `DELETE FROM ${USAGE_LOGS_TABLE} WHERE owner_key LIKE ?`,
+        [`${prefix}%`],
+        function (this: { changes?: number }, err: Error | null) {
+          if (err) reject(err);
+          else resolve(this.changes ?? 0);
+        }
+      );
+    });
   }
 
   // ─── 统计查询 ────────────────────────────────────────

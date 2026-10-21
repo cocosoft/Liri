@@ -43,6 +43,12 @@ export interface TenantPurgeReport {
     cronJobs: number;
     /** `task_flow` 删除的行数 */
     taskFlows: number;
+    /** `usage_records` 删除的行数 */
+    usageRecords: number;
+    /** `model_usage_logs` 删除的行数 */
+    modelUsageLogs: number;
+    /** `skill_usage_records` 删除的行数 */
+    skillUsageRecords: number;
     /** `data/projects/<id>` 删除的目录数 */
     projects: number;
     /** 关闭的 SSE 连接数 */
@@ -66,7 +72,6 @@ export interface TenantPurgeReport {
 
 /** 明确不在本模块能力内、需要另行治理的数据面（常量，便于文档与告警对齐） */
 const KNOWN_UNPURGEABLE = [
-  '共享库统计表 usage_records / model_usage_logs / skill_usage_records（无 owner 列）',
   '全局文件面 data/pairings、data/transcripts、data/attachments、data/fts-index（无归属索引）',
   '用户级全局目录 ~/.pyapp/{oauth,knowledge,skills,plugins}',
   '进程内 ChatManager 会话对象与待交互条目（重启即清）',
@@ -99,6 +104,9 @@ export async function purgeTenant(
       channelConfigs: 0,
       cronJobs: 0,
       taskFlows: 0,
+      usageRecords: 0,
+      modelUsageLogs: 0,
+      skillUsageRecords: 0,
       projects: 0,
       sseConnections: 0,
       tenantChannels: 0,
@@ -168,15 +176,42 @@ export async function purgeTenant(
     }
   });
 
-  await runStep(report, 'taskFlows', async () => {
+  await runStep(report, 'taskStore', async () => {
     const { SqliteTaskStore } = await import('../tasks/db/SqliteTaskStore.js');
     const store = new SqliteTaskStore(resolveDbPath());
     try {
       await store.init();
       report.removed.taskFlows =
         await store.deleteTaskFlowsByOwnerPrefix(ownerPrefix);
+      report.removed.usageRecords =
+        await store.deleteUsageRecordsByOwnerPrefix(ownerPrefix);
     } finally {
       await store.close();
+    }
+  });
+
+  // 用量/技能使用统计：写入侧已带 owner（P5），删除时按同一前缀清
+  await runStep(report, 'modelUsageLogs', async () => {
+    const { UsageStatsService } =
+      await import('../ai/models/UsageStatsService.js');
+    // 用**一次性实例**（不碰进程单例）：单例可能已按别的路径建好
+    const usage = await UsageStatsService.openAt(resolveDbPath());
+    try {
+      report.removed.modelUsageLogs =
+        await usage.deleteByOwnerPrefix(ownerPrefix);
+    } finally {
+      await usage.close();
+    }
+  });
+
+  await runStep(report, 'skillUsageRecords', async () => {
+    const { SkillDB } = await import('../skills/persistence/SkillDB.js');
+    const db = new SkillDB();
+    try {
+      report.removed.skillUsageRecords =
+        await db.deleteUsageByOwnerPrefix(ownerPrefix);
+    } finally {
+      await db.close();
     }
   });
 

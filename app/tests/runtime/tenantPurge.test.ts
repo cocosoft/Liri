@@ -24,6 +24,9 @@ import {
 import { purgeTenant } from '../../src/runtime/tenantPurge.js';
 import { CronJobStore } from '../../src/tasks/cron/CronJobStore.js';
 import { SqliteTaskStore } from '../../src/tasks/db/SqliteTaskStore.js';
+import { GoalMetricsService } from '../../src/tasks/db/GoalMetricsService.js';
+import { UsageStatsService } from '../../src/ai/models/UsageStatsService.js';
+import { SkillDB } from '../../src/skills/persistence/SkillDB.js';
 import { ChannelRegistry } from '../../src/channels/registry/ChannelRegistry.js';
 import { runWithPrincipal } from '../../src/core/identity/requestScope.js';
 import type { Principal } from '../../src/core/identity/principal.js';
@@ -155,6 +158,46 @@ async function seedSharedDb(): Promise<void> {
   }
 }
 
+/**
+ * 写入三类用量记录（走**真实写入路径** ⇒ 同时验证写入侧自动带归属）
+ */
+async function seedUsageTables(): Promise<void> {
+  const metrics = new GoalMetricsService(resolveDbPath());
+  await metrics.init();
+  await runWithPrincipal(ALICE, () =>
+    metrics.recordMessageUsage({ sessionId: 's-acme', totalTokens: 10 })
+  );
+  await runWithPrincipal(BOB, () =>
+    metrics.recordMessageUsage({ sessionId: 's-other', totalTokens: 20 })
+  );
+  metrics.close();
+
+  const usage = await UsageStatsService.openAt(resolveDbPath());
+  const logParams = {
+    model: 'probe-model',
+    inputTokens: 1,
+    outputTokens: 1,
+    costUSD: 0,
+    latencyMs: 1,
+  };
+  await runWithPrincipal(ALICE, () => usage.logUsage(logParams));
+  await runWithPrincipal(BOB, () => usage.logUsage(logParams));
+  await usage.close();
+
+  const skills = new SkillDB(resolveDbPath());
+  const skillRecord = {
+    skillName: 'probe-skill',
+    timestamp: Date.now(),
+    durationMs: 1,
+    success: true,
+    source: 'test',
+    triggeredBy: 'user' as const,
+  };
+  await runWithPrincipal(ALICE, () => skills.insertUsage(skillRecord));
+  await runWithPrincipal(BOB, () => skills.insertUsage(skillRecord));
+  await skills.close();
+}
+
 function seedTenantDir(tenantId: string, userId: string): void {
   const dir = join(
     resolveDataDir(),
@@ -210,6 +253,7 @@ afterEach(() => {
 describe('删除租户（P5）', () => {
   it('清分区目录 / 共享库归属行 / 归属项目 / 放行缓存，其他租户与本机不受影响', async () => {
     await seedSharedDb();
+    await seedUsageTables();
     const registry = getApprovedCommandRegistry();
     seedApprovals(registry);
 
@@ -221,10 +265,13 @@ describe('删除租户（P5）', () => {
     expect(existsSync(join(tenantsRoot, 'other', 'users', 'bob'))).toBe(true);
     expect(report.removed.tenantDataDir).toBe(true);
 
-    // ② 共享库归属行
+    // ② 共享库归属行（含三类用量统计表）
     expect(report.removed.channelConfigs).toBe(1);
     expect(report.removed.cronJobs).toBe(1);
     expect(report.removed.taskFlows).toBe(1);
+    expect(report.removed.usageRecords).toBe(1);
+    expect(report.removed.modelUsageLogs).toBe(1);
+    expect(report.removed.skillUsageRecords).toBe(1);
 
     const db = await openDb(resolveDbPath());
     try {
@@ -270,6 +317,28 @@ describe('删除租户（P5）', () => {
           ['other:%']
         )
       ).toBe(1);
+
+      // 三类用量统计表：acme 行清除、other 行保留（写入侧已自动带归属）
+      for (const table of [
+        'usage_records',
+        'model_usage_logs',
+        'skill_usage_records',
+      ]) {
+        expect(
+          await queryCount(
+            db,
+            `SELECT COUNT(*) AS n FROM ${table} WHERE owner_key LIKE ?`,
+            ['acme:%']
+          )
+        ).toBe(0);
+        expect(
+          await queryCount(
+            db,
+            `SELECT COUNT(*) AS n FROM ${table} WHERE owner_key LIKE ?`,
+            ['other:%']
+          )
+        ).toBe(1);
+      }
     } finally {
       await closeDb(db);
     }

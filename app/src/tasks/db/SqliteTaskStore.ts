@@ -180,6 +180,40 @@ export class SqliteTaskStore implements ITaskStore {
         });
       }
     }
+
+    // 多租户 P5：usage_records 补 owner_key（存量库幂等；NULL ⇒ 本地/历史行）。
+    // 索引也在这里建：schema 里的 `CREATE INDEX` 会在旧库上因缺列而让整个 exec 失败。
+    const usageColumns = await new Promise<string[]>((resolve, reject) => {
+      this.db!.all(
+        'PRAGMA table_info(usage_records)',
+        (err, rows: Array<{ name: string }>) => {
+          if (err) reject(err);
+          else resolve(rows.map((r) => r.name));
+        }
+      );
+    });
+    if (!usageColumns.includes('owner_key')) {
+      try {
+        await new Promise<void>((resolve, reject) => {
+          this.db!.run(
+            'ALTER TABLE usage_records ADD COLUMN owner_key TEXT',
+            (err) => (err ? reject(err) : resolve())
+          );
+        });
+        logger.info('usage_records 列迁移完成', { column: 'owner_key' });
+      } catch (err) {
+        await handleError(err, {
+          module: 'tasks:sqliteStore',
+          action: 'migrateUsageOwnerKey',
+        });
+      }
+    }
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        'CREATE INDEX IF NOT EXISTS idx_usage_owner ON usage_records(owner_key)',
+        () => resolve()
+      );
+    });
   }
 
   private async createTables(): Promise<void> {
@@ -531,6 +565,27 @@ export class SqliteTaskStore implements ITaskStore {
       return new Promise<number>((resolve, reject) => {
         this.db!.run(
           `DELETE FROM ${TABLE_NAMES.TASK_FLOW} WHERE owner_key LIKE ?`,
+          [`${prefix}%`],
+          function (this: { changes?: number }, err: Error | null) {
+            if (err) reject(err);
+            else resolve(this.changes ?? 0);
+          }
+        );
+      });
+    });
+  }
+
+  /**
+   * 多租户 P5：删除某归属前缀下的用量记录（`usage_records`，删除租户时调用）
+   *
+   * @returns 删除的行数
+   */
+  async deleteUsageRecordsByOwnerPrefix(prefix: string): Promise<number> {
+    if (!prefix) return 0;
+    return this.withDb(async () => {
+      return new Promise<number>((resolve, reject) => {
+        this.db!.run(
+          `DELETE FROM ${TABLE_NAMES.USAGE_RECORDS} WHERE owner_key LIKE ?`,
           [`${prefix}%`],
           function (this: { changes?: number }, err: Error | null) {
             if (err) reject(err);

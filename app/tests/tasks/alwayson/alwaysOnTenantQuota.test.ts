@@ -1,12 +1,13 @@
 /**
  * 多租户 P3：AlwaysOn 归属配额与执行作用域
  *
- * 锁五件事：
+ * 锁六件事：
  *  ① 配额按**归属**计数：同一租户的多个项目共享「每天 N 次 / 同时 M 个」；
  *  ② 不同归属互不影响（一个租户用满，另一个仍可运行）；
- *  ③ 跨天惰性重置；
- *  ④ 有归属的项目在**归属者身份作用域内**执行（工具 cwd / 存储 / 事件随身份落位）；
- *  ⑤ 无归属（本地项目）⇒ 不查配额、不加作用域，行为与改造前一致。
+ *  ③ 每日次数**只在整轮跑完时**计入（无计划 / 中途失败不消耗）；并发位**整轮持有**；
+ *  ④ 跨天惰性重置；
+ *  ⑤ 有归属的项目在**归属者身份作用域内**执行（工具 cwd / 存储 / 事件随身份落位）；
+ *  ⑥ 无归属（本地项目）⇒ 不查配额、不加作用域，行为与改造前一致。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdtempSync, rmSync } from 'fs';
@@ -63,22 +64,27 @@ function primeRuntime(runtime: AlwaysOnRuntime, onDiscovery: () => void): void {
 }
 
 describe('AlwaysOnQuota（按归属的配额账本）', () => {
-  it('同一归属：并发上限 + 每日上限；不同归属互不影响', () => {
+  it('并发位整轮持有；每日次数只在成功完成后计入；异归属互不影响', () => {
     const quota = new AlwaysOnQuota({
       dailyRunsPerOwner: 2,
       maxConcurrentPerOwner: 1,
     });
 
     expect(quota.tryAcquire('acme:alice').allowed).toBe(true);
-    // 并发位已被占（running=1）
+    // 并发位已被占（整轮持有）
     expect(quota.tryAcquire('acme:alice')).toEqual({
       allowed: false,
       reason: 'concurrent_quota',
     });
+    // 只开始不完成 ⇒ 不消耗每日次数
+    expect(quota.usageOf('acme:alice')).toEqual({ runsToday: 0, running: 1 });
 
+    quota.recordRun('acme:alice'); // runsToday=1
     quota.release('acme:alice');
-    expect(quota.tryAcquire('acme:alice').allowed).toBe(true); // runsToday=2
+    expect(quota.tryAcquire('acme:alice').allowed).toBe(true);
+    quota.recordRun('acme:alice'); // runsToday=2
     quota.release('acme:alice');
+
     expect(quota.tryAcquire('acme:alice')).toEqual({
       allowed: false,
       reason: 'daily_quota',
@@ -108,12 +114,17 @@ describe('AlwaysOnQuota（按归属的配额账本）', () => {
     );
 
     expect(quota.tryAcquire('acme:alice').allowed).toBe(true);
+    quota.recordRun('acme:alice');
     quota.release('acme:alice');
-    expect(quota.tryAcquire('acme:alice').allowed).toBe(false);
+    expect(quota.tryAcquire('acme:alice')).toEqual({
+      allowed: false,
+      reason: 'daily_quota',
+    });
 
     now += 24 * 60 * 60 * 1000;
     expect(quota.tryAcquire('acme:alice').allowed).toBe(true);
-    expect(quota.usageOf('acme:alice').runsToday).toBe(1);
+    quota.release('acme:alice');
+    expect(quota.usageOf('acme:alice')).toEqual({ runsToday: 0, running: 0 });
   });
 });
 
@@ -172,6 +183,26 @@ describe('AlwaysOnRuntime：归属配额与身份作用域', () => {
       runsToday: 0,
       running: 0,
     });
+  });
+  it('无计划的轮次不消耗归属次数（成功完成才计数）', async () => {
+    const manager = new AlwaysOnManager(
+      {},
+      { dailyRunsPerOwner: 1, maxConcurrentPerOwner: 1 }
+    );
+    const runtime = manager.registerProject('p1', projectDir, 'acme:alice');
+
+    let discoveries = 0;
+    runtime.setDiscoveryFn(async () => {
+      discoveries += 1;
+      return null; // 本轮无计划 ⇒ 不应计入归属次数
+    });
+
+    await runtime.tryRun();
+    // 跳过项目自身冷却（与本用例无关的既有门控），验证配额**没有**被消耗
+    runtime.gates.setLastRun(0);
+    await runtime.tryRun();
+
+    expect(discoveries).toBe(2);
   });
 });
 

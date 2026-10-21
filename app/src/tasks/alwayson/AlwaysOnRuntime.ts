@@ -140,7 +140,10 @@ export class AlwaysOnRuntime {
         success: result.success,
         durationMs: result.durationMs,
       });
+      // 多租户 P3：整轮跑完才计入归属每日次数（与 gates.recordRun 同一点）——
+      // 无计划 / 中途失败 / 被中止的轮次不消耗租户配额。
       this.gates.recordRun();
+      this.recordOwnerQuotaRun();
     } catch (err) {
       handleError(err, {
         module: 'tasks:alwayson',
@@ -166,6 +169,12 @@ export class AlwaysOnRuntime {
     }
     this.ownerQuotaHeld += 1;
     return true;
+  }
+
+  /** 记录一次成功完成的运行（无归属 / 无配额 ⇒ no-op） */
+  private recordOwnerQuotaRun(): void {
+    if (!this.ownerKey || !this.quota) return;
+    this.quota.recordRun(this.ownerKey);
   }
 
   /** 释放归属配额（未持有时为 no-op） */

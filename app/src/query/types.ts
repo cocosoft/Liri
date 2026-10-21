@@ -92,4 +92,9 @@ export interface TAORCheckpointStorage {
   getPendingSessions(): Promise<string[]>;
   /** 删除某 session 的所有检查点 */
   deleteSession(sessionId: string): Promise<number>;
+  /**
+   * 释放底层资源（可选）：DB 实现需要（释放分区 `app.db` 文件句柄），
+   * 文件 / 内存实现可缺省。幂等。
+   */
+  close?(): void | Promise<void>;
 }

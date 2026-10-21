@@ -9,6 +9,13 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveScopedDbPath } from '@modules/core';
+// 多租户 P5：非本地身份的分区句柄登记（删租户时统一释放）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
+import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 import { isCheckpointLogEnabled } from '@modules/config';
 import {
@@ -37,14 +44,21 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
     this.dbPath = dbPath;
   }
 
+  /** 登记器返回的摘除句柄（非本地身份才有；`close()` 时一并撤销） */
+  private unregisterScopedResource: (() => void) | null = null;
+
   /**
    * 关闭连接（幂等）。
    *
    * 本类实例是**每会话/每循环**创建，用完不关会残留分区 `app.db` 句柄（Windows 上
-   * 删租户目录会 `blocked`）。多租户 P5：由 `core/identity/scopedResources` 的登记器调用。
+   * 删租户目录会 `blocked`）。`close()` 由两处调用：
+   *   - `TAORLoop` 在 `runCollect` / `flushCheckpoint` 收尾（自建存储时）；
+   *   - 删租户时 `core/identity/scopedResources` 的登记器（覆盖"循环还在跑"的情况）。
    * 关闭后再次 `save()` 会重新开库（`initDatabase()` 以 `this.db` 为空为判据）。
    */
   close(): void {
+    this.unregisterScopedResource?.();
+    this.unregisterScopedResource = null;
     try {
       this.db?.close();
     } catch {
@@ -64,6 +78,18 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
     });
 
     await this.createTables();
+
+    // 多租户 P5：非本地身份才登记（本地身份无租户归属，删租户与它无关）。
+    // 登记后即使循环还在跑，删租户也能把句柄关掉；正常收尾由 TAORLoop 调 `close()` 撤销登记。
+    if (!this.unregisterScopedResource) {
+      const principal = getRequestPrincipal();
+      if (!isLocalPrincipal(principal)) {
+        this.unregisterScopedResource = registerScopedResource(
+          principalKeyOf(principal),
+          () => this.close()
+        );
+      }
+    }
   }
 
   private async createTables(): Promise<void> {

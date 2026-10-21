@@ -68,7 +68,7 @@ import {
 import { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
 import type { VerifierAgentConfig } from './VerifierAgent.js';
 import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
-import { DBTAORCheckpointStorage } from './DBTAORCheckpointStorage.js';
+import * as ckptLifecycle from './checkpointStorageLifecycle.js';
 import type { ChatMessage } from '@modules/ai/models/types.js';
 import { ReActLoop } from './ReActLoop.js';
 import type {
@@ -168,7 +168,6 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private toolCallStats: Map<string, number> = new Map();
   /** U-10（2026-10-17）：单轮工具结果/产物统计（收益递减的“实际进展”维度） */
   private roundProgress = new RoundProgressTracker();
-  // 检查点相关
   private checkpointStorage: TAORCheckpointStorage;
   private lastCheckpointId: string | null = null;
   private currentPhase: TAORPhase = TAORPhase.THINK;
@@ -241,7 +240,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       enableCheckpoint: config.enableCheckpoint !== false,
       checkpointInterval: config.checkpointInterval || 5,
       checkpointStorage:
-        config.checkpointStorage || new DBTAORCheckpointStorage(),
+        config.checkpointStorage || ckptLifecycle.createOwned(),
       enableVerifier: config.enableVerifier !== false,
       verifierConfig: config.verifierConfig ?? {},
       verifyStrategy: config.verifyStrategy ?? 'AND',
@@ -1722,9 +1721,11 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.emitPhase(TAORPhase.THINK, 0, 'Initial message received');
   }
 
-  /** E1①（2026-09-05，方案甲）：runCollect 返回结构补 terminationReason（A2 判别器） */
+  /** E1①（方案甲）：补 terminationReason；P5：自建检查点库在收尾即关（注入的不动） */
   override async runCollect(input: TAORInput): Promise<TAORLoopResult> {
-    const result = await super.runCollect(input);
+    const result = await super
+      .runCollect(input)
+      .finally(() => ckptLifecycle.closeOwned(this.checkpointStorage));
     return {
       ...result,
       terminationReason: this.getTerminationReason(),

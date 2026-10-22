@@ -840,7 +840,10 @@ export class ChatOrchestrator {
         //（→ 429 + 放行入口的结构化响应；同 T8 契约）。
         if (
           sendErr instanceof AppError &&
-          sendErr.code === 'DAILY_BUDGET_EXCEEDED'
+          (sendErr.code === 'DAILY_BUDGET_EXCEEDED' ||
+            // BUG-08（2026-10-22）：供应商未就绪（凭据缺失/停用）同属"本机配置状态"。
+            // 折进正文会变成 HTTP 200 的"正常回复"，前端无法展示可操作错误。
+            sendErr.code === 'AI_CRED_1001')
         ) {
           throw sendErr;
         }

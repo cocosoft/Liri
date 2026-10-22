@@ -84,6 +84,7 @@ export function buildChatErrorResponse(input: {
     messageId: '',
     finishReason: 'error',
     ...(appError?.code ? { errorCode: appError.code } : {}),
+    ...(appError?.message ? { errorMessage: appError.message } : {}),
     ...(context && Object.keys(context).length > 0
       ? { errorContext: context }
       : {}),

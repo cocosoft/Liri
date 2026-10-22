@@ -225,6 +225,7 @@ const DAILY_BUDGET_RELIEF_PATH = '/v1/cost/daily-budget/relief';
 export function mapChatErrorResponse(input: {
   errorCode?: string;
   errorContext?: Record<string, unknown>;
+  errorMessage?: string;
 }): { status: number; body: ChatErrorBody } {
   if (input.errorCode === 'DAILY_BUDGET_EXCEEDED') {
     return {
@@ -245,11 +246,17 @@ export function mapChatErrorResponse(input: {
       },
     };
   }
+  // BUG-08：供应商未就绪（凭据缺失/停用）必须回显**可操作文案**，
+  // 否则用户只看到「AI 服务返回错误」而不知道去重填 API Key。
+  const message =
+    input.errorCode === 'AI_CRED_1001' && input.errorMessage?.trim()
+      ? input.errorMessage
+      : 'AI 服务返回错误，请检查 API 密钥和模型配置';
   return {
     status: 500,
     body: {
       error: {
-        message: 'AI 服务返回错误，请检查 API 密钥和模型配置',
+        message,
         type: 'server_error',
         ...(input.errorCode ? { code: input.errorCode } : {}),
       },

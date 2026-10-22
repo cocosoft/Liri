@@ -184,6 +184,8 @@ import { HookChainManager } from '@modules/hooks';
 import { toolResultRegistry } from '../tool/ToolResultRegistry.js';
 import { ToolAwareClient } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
+// BUG-08：模型有归属供应商但供应商未就绪时，禁止静默回落到默认客户端
+import { resolveModelRoutingFailure } from '../ai/providers/modelRoutingGuard';
 import { trackUsage } from '@modules/ai';
 import {
   createMaxOutputRetryState,
@@ -3885,6 +3887,27 @@ export class ChatManagerImpl implements ChatManager {
         resolvedProvider,
         this.toolRegistry as unknown as import('@modules/ai').ToolRegistry,
         this.toolExecutor
+      );
+    }
+
+    // BUG-08（2026-10-22）：模型有归属供应商、但该供应商**未注册**（凭据缺失被同步跳过 /
+    // 供应商停用）时，绝不静默回落到当前客户端 —— 否则会把该模型名发给默认供应商，
+    // 得到上游 400 并被折成"正常回复"（HTTP 200 假成功）。
+    const providerType = providerRegistry.resolveModelToProviderId(model);
+    const failure = resolveModelRoutingFailure({
+      model,
+      providerType,
+      providerLabel: providerRegistry.getModelProviderLabel(model),
+      providerRegistered:
+        !!resolvedProvider ||
+        (!!providerType && !!providerRegistry.getByType(providerType)),
+    });
+    if (failure) {
+      throw new AppError(
+        failure.message,
+        ErrorCategory.CONFIGURATION,
+        ErrorSeverity.MEDIUM,
+        failure.code
       );
     }
 

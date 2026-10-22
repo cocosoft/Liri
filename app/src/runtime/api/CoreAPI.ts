@@ -151,6 +151,13 @@ export interface ChatResponse {
   errorCode?: string;
   /** 业务错误上下文（如预算超限的 `todayUsed` / `dailyLimit`），供上层构造可操作响应 */
   errorContext?: Record<string, unknown>;
+  /**
+   * 业务错误的**可读文案**（仅 `finishReason === 'error'` 且携带 `AppError` 时非空）
+   *
+   * 用于让 HTTP 面直接回显可操作提示（如"供应商「智谱AI」的 API Key 未配置…"），
+   * 而不是统一收口成「AI 服务返回错误」。
+   */
+  errorMessage?: string;
 }
 
 /** 流式聊天数据块 */

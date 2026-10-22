@@ -257,21 +257,29 @@ async function syncModelToProviderMappings(
     // 构建 providerId → providerType 的快速查找
     // 同时兼容 model_registry.provider_id 存 provider_type 类型名（如 'deepseek'）的场景
     const providerTypeById = new Map<string, string>();
+    /** 同上口径，但取供应商**显示名**（供"供应商未就绪"类报错给出可读名，非硬编码） */
+    const providerNameById = new Map<string, string>();
     for (const p of providerRecords) {
       providerTypeById.set(p.id, p.providerType);
       providerTypeById.set(p.providerType, p.providerType);
+      providerNameById.set(p.id, p.name);
+      providerNameById.set(p.providerType, p.name);
     }
 
     const mappings = new Map<string, string>();
+    const labels = new Map<string, string>();
     for (const m of allModels) {
       if (!m.modelId || !m.providerId) continue;
       const providerType = providerTypeById.get(m.providerId);
       if (providerType) {
         mappings.set(m.modelId.toLowerCase(), providerType);
+        const name = providerNameById.get(m.providerId);
+        if (name) labels.set(m.modelId.toLowerCase(), name);
       }
     }
 
     providerRegistry.setModelMappings(mappings);
+    providerRegistry.setModelProviderLabels(labels);
     logger.debug(`模型→Provider 映射已同步: ${mappings.size} 条`);
   } catch (err) {
     void handleError(err, {

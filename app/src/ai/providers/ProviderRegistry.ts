@@ -21,6 +21,8 @@ export class ProviderRegistry {
    * 精确匹配，不做前缀推断。
    */
   private modelToProviderType: Map<string, string> = new Map();
+  /** 模型 → 供应商显示名（providers 表 name；仅用于报错文案） */
+  private modelToProviderLabel: Map<string, string> = new Map();
 
   register(provider: AIProvider): void {
     if (this.providers.has(provider.id)) {
@@ -218,6 +220,7 @@ export class ProviderRegistry {
     this.defaultProviderId = null;
     this.providerTypeToId.clear();
     this.modelToProviderType.clear();
+    this.modelToProviderLabel.clear();
     logger.info('All providers cleared');
   }
 
@@ -228,6 +231,21 @@ export class ProviderRegistry {
   setModelMappings(mappings: Map<string, string>): void {
     this.modelToProviderType = mappings;
     logger.debug(`模型→Provider 映射已更新: ${mappings.size} 条`);
+  }
+
+  /**
+   * 设置模型→供应商**显示名**映射（数据来源：providers 表 name，非硬编码）
+   *
+   * 用途：当模型所属供应商**未注册**（常见于凭据缺失被同步跳过）时，报错文案可给出
+   * 可读的供应商名（如「智谱AI」）而不是内部类型名（`zhipu`）。
+   */
+  setModelProviderLabels(labels: Map<string, string>): void {
+    this.modelToProviderLabel = labels;
+  }
+
+  /** 该模型所属供应商的显示名（无映射 ⇒ `undefined`） */
+  getModelProviderLabel(model: string): string | undefined {
+    return this.modelToProviderLabel.get(model.toLowerCase());
   }
 
   get size(): number {

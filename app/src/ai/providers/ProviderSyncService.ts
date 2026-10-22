@@ -38,16 +38,58 @@ import {
   CRED_STORED_MARKER,
 } from '../credentials/CredentialStore';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 
 const logger = getLogger('ai:provider-sync');
+
+/**
+ * 「占位符但凭据缺失」判据：DB 里存的是 `__stored__`（说明**曾经**把真实密钥放进凭据文件），
+ * 但凭据文件里已经没有该条目（换机只带走 DB / 凭据文件被清 / provider 重建后未重填）。
+ *
+ * 抽成纯函数是为了让调用侧（`aiService` 的兜底路径）与同步侧共用**同一判据**，
+ * 避免两处各写一份 `=== '__stored__'` 而漂移。
+ */
+export function needsCredentialRepair(
+  record: Pick<ProviderRecord, 'apiKey'>,
+  hasCredential: boolean
+): boolean {
+  return record.apiKey === CRED_STORED_MARKER && !hasCredential;
+}
+
+/** 凭据缺失时给用户看的**可操作**文案（不含密钥、含修复路径） */
+export function missingCredentialMessage(providerName: string): string {
+  return (
+    `供应商「${providerName}」的 API Key 未配置（凭据文件里缺少该条目），` +
+    '请到「模型管理 → 供应商」重新填写 API Key 后重试'
+  );
+}
 
 /**
  * 将 DB ProviderRecord 转换为 ProviderConfig
  * P0 凭据迁移（2026-08-28）：DB api_key 为占位标记时，
  * 真实密钥从独立 CredentialStore 读取。
+ *
+ * 2026-10-22 修复（实测 401「auth header format should be Bearer sk-...」）：
+ * 占位符解析不到真实密钥时**不再静默回落空串** —— 那会让 `OpenAIProvider` 拼出
+ * `Authorization: Bearer `（空值）发到上游，用户只看到供应商的英文 401。
+ * 现改为 fail-fast 抛可读错误（含供应商名与修复路径）。
  */
 export function recordToConfig(record: ProviderRecord): ProviderConfig {
+  const credentialStore = getCredentialStore();
+  if (needsCredentialRepair(record, credentialStore.has(record.id))) {
+    throw new AppError(
+      missingCredentialMessage(record.name),
+      ErrorCategory.CONFIGURATION,
+      ErrorSeverity.MEDIUM,
+      'AI_CRED_1001'
+    );
+  }
+
   const config: ProviderConfig = {
     apiKey:
       record.apiKey === CRED_STORED_MARKER
@@ -67,11 +109,24 @@ export function recordToConfig(record: ProviderRecord): ProviderConfig {
 
 /**
  * 同步单个 DB 供应商到 ProviderRegistry
+ *
+ * @returns 是否真的注册成功（凭据缺失 ⇒ `false`，**不注册空凭据实例**）
  */
-function syncOneProvider(record: ProviderRecord): void {
+function syncOneProvider(record: ProviderRecord): boolean {
   // 用 DB 的 UUID 作为 registry 中的 ID
   const registryId = `db:${record.id}`;
-  const config = recordToConfig(record);
+  let config: ProviderConfig;
+  try {
+    config = recordToConfig(record);
+  } catch (err) {
+    // 凭据缺失属**配置问题**、不是同步故障：warn 级如实记录并跳过该供应商。
+    // 调用侧（`aiService`）另有兜底（`findMissingCredentialProvider`）把可读错误抛给用户。
+    logger.warning(
+      '供应商凭据缺失，已跳过注册（请到 模型管理 → 供应商 重新填写 API Key）',
+      { provider: record.name, providerId: record.id, error: String(err) }
+    );
+    return false;
+  }
   // KB-PROV-FIX（2026-08-28）：在 createProviderByType 之前把 DB 凭据写入
   // ModelRegistry.providerConfigs——OpenAIProvider 构造时 resolveApiKey()/
   // resolveBaseUrl() 从 providerConfigs 读（YAML 无 DB provider 配置），
@@ -84,7 +139,7 @@ function syncOneProvider(record: ProviderRecord): void {
 
   if (!provider) {
     logger.warning(`无法创建供应商: type=${record.providerType}`);
-    return;
+    return false;
   }
 
   // 覆盖 provider 的 id 和 displayName 为 DB 中的值
@@ -128,6 +183,7 @@ function syncOneProvider(record: ProviderRecord): void {
   providerRegistry.setProviderTypeAlias(record.providerType, registryId);
 
   logger.debug(`DB供应商已同步: ${record.name} (${registryId})`);
+  return true;
 }
 
 /** DB provider ID → Registry ID 的双向映射，用于 provide/setModel 回写 */
@@ -157,7 +213,7 @@ export async function syncDBProvidersToRegistry(): Promise<number> {
 
     for (const record of providers) {
       try {
-        syncOneProvider(record);
+        if (!syncOneProvider(record)) continue;
         dbToRegistry.set(record.id, `db:${record.id}`);
         count++;
       } catch (err) {
@@ -226,6 +282,41 @@ async function syncModelToProviderMappings(
 }
 
 /**
+ * 找出该 providerType 下「占位符但凭据缺失」的 DB 供应商（供调用侧 fail-fast）
+ *
+ * 为什么需要：凭据缺失的供应商会被同步环节**跳过注册**（不造空凭据实例），但
+ * `model_registry` 里"模型 → providerType"的映射仍在 ⇒ `aiService` 会走
+ * `providerRegistry.getOrCreate(providerType, { apiKey: env ?? '' })` 临时造一个**空键**实例
+ * 并把请求发出去（旧行为 = 上游 401）。这里给出"该类型确实缺凭据"的事实，让调用侧改成可读报错。
+ *
+ * @returns 命中的供应商（无则 `null`；查库失败同样返回 `null`，保持调用侧原行为）
+ */
+export async function findMissingCredentialProvider(
+  providerType: string
+): Promise<{ id: string; name: string; providerType: string } | null> {
+  try {
+    const { getProviderManager } = await import('./ProviderManager.js');
+    const providerManager = getProviderManager();
+    await providerManager.initialize();
+    const providers = await providerManager.listProviders({ isActive: true });
+    const credentialStore = getCredentialStore();
+    for (const record of providers) {
+      if (record.providerType !== providerType) continue;
+      if (needsCredentialRepair(record, credentialStore.has(record.id))) {
+        return {
+          id: record.id,
+          name: record.name,
+          providerType: record.providerType,
+        };
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 注册单个供应商到 Registry（供 /provider add 实时生效）
  */
 export async function registerProviderFromDB(
@@ -239,7 +330,7 @@ export async function registerProviderFromDB(
     const record = await providerManager.getProvider(providerId);
     if (!record) return false;
 
-    syncOneProvider(record);
+    if (!syncOneProvider(record)) return false;
     dbToRegistry.set(record.id, `db:${record.id}`);
     return true;
   } catch (err) {

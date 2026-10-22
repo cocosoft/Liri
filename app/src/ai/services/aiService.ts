@@ -21,6 +21,7 @@ import type {
 } from '../providers/AIProvider';
 import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
+import { ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 // A8（退避默认值合一）：重试次数默认值取自唯一真源 `utils/withRetry.ts`
@@ -262,6 +263,33 @@ export class AIServiceImpl implements AIService {
     return { ...this.config };
   }
 
+  /**
+   * 兜底：DB 里该 providerType 的凭据缺失（`__stored__` 占位但凭据文件无条目）⇒ fail-fast。
+   *
+   * 为什么需要：这类供应商会被同步环节跳过注册，但"模型 → providerType"映射仍在 ⇒ 下面
+   * `getOrCreate` 会临时造一个**空键**实例，把 `Authorization: Bearer ` 发到上游（实测
+   * 用户只看到 401「auth header format should be Bearer sk-...」）。这里改成可读、可操作的错误。
+   *
+   * 边界：① 只认"占位符但缺失"，`api_key` 本来为空的自建/本地供应商**不受影响**；
+   *      ② 查库失败 ⇒ 保持原行为（不因兜底检查阻断调用）。
+   */
+  private async assertCredentialReady(providerType: string): Promise<void> {
+    const mod = await import('../providers/ProviderSyncService.js').catch(
+      () => null
+    );
+    if (!mod) return;
+    const missing = await mod
+      .findMissingCredentialProvider(providerType)
+      .catch(() => null);
+    if (!missing) return;
+    throw new AppError(
+      mod.missingCredentialMessage(missing.name),
+      ErrorCategory.CONFIGURATION,
+      ErrorSeverity.MEDIUM,
+      'AI_CRED_1001'
+    );
+  }
+
   private async getClientForModel(model: string): Promise<AIProvider> {
     // 模型名为空时，回退到 ProviderRegistry 的默认 Provider
     // 这是"数出同源"设计：DB 是 Provider 的唯一来源，运行时通过 ProviderRegistry 获取
@@ -285,6 +313,7 @@ export class AIServiceImpl implements AIService {
     // 映射表由 model_registry 驱动，ProviderRegistry.modelToProviderType 统一维护
     const providerId = providerRegistry.resolveModelToProviderId(model);
     if (providerId) {
+      await this.assertCredentialReady(providerId);
       return providerRegistry.getOrCreate(providerId, {
         apiKey: this.config.apiKey,
         baseUrl: this.config.baseUrl,
@@ -305,6 +334,7 @@ export class AIServiceImpl implements AIService {
         const retryProviderId =
           providerRegistry.resolveModelToProviderId(model);
         if (retryProviderId) {
+          await this.assertCredentialReady(retryProviderId);
           return providerRegistry.getOrCreate(retryProviderId, {
             apiKey: this.config.apiKey,
             baseUrl: this.config.baseUrl,

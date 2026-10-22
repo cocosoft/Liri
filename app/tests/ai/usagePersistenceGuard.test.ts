@@ -10,7 +10,10 @@
  * 数据目录时才跳过 —— 显式隔离的用例（如 `usageTrackerIdentity.test.ts`）行为不变。
  */
 import { describe, it, expect } from 'bun:test';
-import { shouldSkipUsagePersistence } from '../../src/ai/UsageTracker.js';
+import {
+  shouldSkipUsagePersistence,
+  shouldSkipUsageStatsWrite,
+} from '../../src/ai/UsageTracker.js';
 
 describe('UsageTracker：测试期落盘护栏', () => {
   it('测试环境 + 未隔离数据目录 ⇒ 跳过落盘', () => {
@@ -46,5 +49,41 @@ describe('UsageTracker：测试期落盘护栏', () => {
       false
     );
     expect(shouldSkipUsagePersistence({}, null)).toBe(false);
+  });
+});
+
+/**
+ * 第二道护栏（实测残留 4 行/轮）：`UsageStatsService` 单例在首次 import 时把库路径
+ * 固化为实例字段 —— 测试期"先绑真实库、后换临时根"时第一道护栏会放行，写入仍落真实库。
+ */
+describe('UsageTracker：用量库路径漂移护栏', () => {
+  it('测试环境 + 实例路径 ≠ 当前解析路径 ⇒ 跳过', () => {
+    expect(
+      shouldSkipUsageStatsWrite(
+        '/home/u/.pyapp/data/app.db',
+        { NODE_ENV: 'test' },
+        '/tmp/liri-test/data/app.db'
+      )
+    ).toBe(true);
+  });
+
+  it('测试环境 + 实例路径 = 当前解析路径 ⇒ 放行（正常隔离写入）', () => {
+    expect(
+      shouldSkipUsageStatsWrite(
+        '/tmp/liri-test/data/app.db',
+        { NODE_ENV: 'test' },
+        '/tmp/liri-test/data/app.db'
+      )
+    ).toBe(false);
+  });
+
+  it('非测试环境 ⇒ 永不跳过（即便路径不一致，生产也不静默丢账）', () => {
+    expect(
+      shouldSkipUsageStatsWrite(
+        '/a/app.db',
+        { NODE_ENV: 'production' },
+        '/b/app.db'
+      )
+    ).toBe(false);
   });
 });

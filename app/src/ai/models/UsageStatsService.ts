@@ -185,6 +185,17 @@ export class UsageStatsService {
     return service;
   }
 
+  /**
+   * 当前实例绑定的库路径
+   *
+   * 单例在**首次 import 时**即以当时的 `resolveDbPath()` 固定路径；测试期若之后才
+   * `setUserDataDirOverride()`，单例仍指向旧根（真实库）⇒ 调用方需用本方法核对
+   * "实例路径 vs 当前解析路径" 是否一致（见 `UsageTracker.shouldSkipUsageStatsWrite`）。
+   */
+  getDatabasePath(): string {
+    return this.dbPath;
+  }
+
   /** 关闭连接（一次性实例用完即关；单例不使用） */
   async close(): Promise<void> {
     const db = this.db;

@@ -37,7 +37,7 @@ import { randomIdSuffix } from '../utils/common';
 import { LogLevel } from '@modules/monitoring/logs/Logger.js';
 import { extractUsage } from './tokenizer/UsageExtractor.js';
 import { getCanonicalModelName } from '../cost/ModelPricing.js';
-import { getUserDataDirOverride } from '../core/paths.js';
+import { getUserDataDirOverride, resolveDbPath } from '../core/paths.js';
 
 const logger = new OTelAwareLogger({
   module: 'ai:usageTracker',
@@ -153,6 +153,27 @@ export function shouldSkipUsagePersistence(
 }
 
 /**
+ * 第二道护栏：`UsageStatsService` 单例的**库路径**与当前解析路径不一致时跳过写入
+ *
+ * **为什么需要**（实测残留，2026-10-22）：`usageStatsService` 在首次 import 时就把
+ * `resolveDbPath()` 固化为实例字段。`bun test` 单进程内，若前面的用例/模块已把它绑定到
+ * **真实库**，后面的用例再 `setUserDataDirOverride(临时根)` —— 第一道护栏会放行
+ * （"调用方已隔离"），但写入实际落到了真实库。实测每次全量测试仍残留约 4 行
+ * `model / fake-model`。本判据把这种"实例绑错根"的情况也拦下。
+ *
+ * @param targetPath 实例实际绑定的库路径（`UsageStatsService.getDatabasePath()`）
+ * @param resolvedPath 当前身份解析出的库路径（默认 `resolveDbPath()`）
+ */
+export function shouldSkipUsageStatsWrite(
+  targetPath: string,
+  env: NodeJS.ProcessEnv = process.env,
+  resolvedPath: string = resolveDbPath()
+): boolean {
+  if (env.NODE_ENV !== 'test') return false;
+  return targetPath !== resolvedPath;
+}
+
+/**
  * 追踪一次 AI 请求的使用量
  *
  * 从 ChatResponse 中提取 tokens 和成本信息，异步写入 UsageStatsService。
@@ -252,24 +273,39 @@ export async function trackUsage(
       }
     }
 
-    await usageStatsService.logUsage({
-      model: canonicalModel,
-      providerId: params.providerId,
-      inputTokens,
-      outputTokens,
-      cacheReadTokens,
-      cacheCreationTokens,
-      costUSD,
-      latencyMs: params.latencyMs ?? 0,
-      statusCode,
-      isStreaming: params.isStreaming ?? false,
-      errorMessage: isError
-        ? typeof response.error === 'string'
-          ? response.error
-          : (response.error as Error)?.message
-        : undefined,
-      requestId,
-    });
+    // 第二道护栏：单例可能已绑定到上一次解析的库路径（测试期换根后仍指旧库）
+    const targetDbPath =
+      typeof usageStatsService.getDatabasePath === 'function'
+        ? usageStatsService.getDatabasePath()
+        : resolveDbPath();
+    if (shouldSkipUsageStatsWrite(targetDbPath)) {
+      logger.debug(
+        'UsageTracker: 用量库路径与当前解析不一致，跳过 usage 落盘',
+        {
+          targetDbPath,
+          resolvedPath: resolveDbPath(),
+        }
+      );
+    } else {
+      await usageStatsService.logUsage({
+        model: canonicalModel,
+        providerId: params.providerId,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens,
+        costUSD,
+        latencyMs: params.latencyMs ?? 0,
+        statusCode,
+        isStreaming: params.isStreaming ?? false,
+        errorMessage: isError
+          ? typeof response.error === 'string'
+            ? response.error
+            : (response.error as Error)?.message
+          : undefined,
+        requestId,
+      });
+    }
 
     // 同步到 LLMTracker（非错误请求，成本已由 addCost 记录）
     if (!isError) {

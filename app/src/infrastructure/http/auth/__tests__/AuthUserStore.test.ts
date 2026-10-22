@@ -91,4 +91,26 @@ describe('AuthUserStore（admin 播种，M0d）', () => {
     expect(carol!.role).toBe('user');
     expect(carol!.passwordHash).not.toContain('secret-pass');
   });
+
+  it('listTenantUsers：只回已绑定租户的身份，按租户→用户排序（启动期按身份恢复用）', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'auth-test-'));
+    tmpDirs.push(tmpDir);
+    const store = new AuthUserStore(join(tmpDir, 'users.json'));
+    store.addUser('bob', 'pw', 'user', 'tenant-b');
+    store.addUser('alice', 'pw', 'user', 'tenant-a');
+    store.addUser('zoe', 'pw', 'user', 'tenant-a');
+    store.addUser('localguy', 'pw'); // 未绑定租户 ⇒ 本地身份，不在此列
+
+    expect(store.listTenantUsers()).toEqual([
+      { tenantId: 'tenant-a', userId: 'alice' },
+      { tenantId: 'tenant-a', userId: 'zoe' },
+      { tenantId: 'tenant-b', userId: 'bob' },
+    ]);
+    // 解绑后即从清单消失（不会去扫已解绑用户的分区）
+    store.setUserTenant('alice');
+    expect(store.listTenantUsers()).toEqual([
+      { tenantId: 'tenant-a', userId: 'zoe' },
+      { tenantId: 'tenant-b', userId: 'bob' },
+    ]);
+  });
 });

@@ -54,6 +54,19 @@ export function __setAuthUserStoreForTest(store: AuthUserStore): void {
 }
 
 /**
+ * 全部**已绑定租户**的身份（只读）。
+ *
+ * 用途：启动期按身份扫描待恢复检查点 —— 启动时没有请求作用域，而存储按
+ * `tenants/<t>/users/<u>/` 分区，只能由调用方逐个身份重建作用域。
+ */
+export function listTenantUserIdentities(): Array<{
+  tenantId: string;
+  userId: string;
+}> {
+  return authUserStore.listTenantUsers();
+}
+
+/**
  * 是否允许**注册时自报租户**（默认关）。
  *
  * 默认关 = 注册一律落 `'local'`（桌面 / 单租户部署零变更）；服务端多租户部署若要

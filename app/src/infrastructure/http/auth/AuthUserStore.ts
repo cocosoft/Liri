@@ -173,6 +173,25 @@ export class AuthUserStore {
   }
 
   /**
+   * 全部**已绑定租户**的身份（只读，按 `tenantId` → `userId` 排序）。
+   *
+   * 用途：启动期按身份扫描待恢复检查点。存储是 `<data>/tenants/<t>/users/<u>/`（L3
+   * DB-per-tenant）分区 ⇒ 只按租户扫**扫不到任何人的库**，必须到"人"这一级。
+   * 未绑定租户的用户（本地身份）不在此列 —— 由宿主的本地扫描覆盖。
+   */
+  listTenantUsers(): Array<{ tenantId: string; userId: string }> {
+    const identities: Array<{ tenantId: string; userId: string }> = [];
+    for (const user of this.users.values()) {
+      if (!user.tenantId) continue;
+      identities.push({ tenantId: user.tenantId, userId: user.username });
+    }
+    return identities.sort(
+      (a, b) =>
+        a.tenantId.localeCompare(b.tenantId) || a.userId.localeCompare(b.userId)
+    );
+  }
+
+  /**
    * 把该租户下的**所有账号**解绑回本地租户（只改归属，不删账号、不改密码）
    *
    * 用途：删除租户后清理"指向已删租户"的悬空绑定。写盘**一次**（不逐个 `save`）。

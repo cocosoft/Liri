@@ -38,6 +38,7 @@ import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { TAORLoop } from '@modules/query';
 import type { TAORCheckpoint } from '../../query/types.js';
+import type { ResumeManager } from '../../query/ResumeManager.js';
 import { getBudgetSuspendCoordinator } from '../../query/budgetSuspend.js';
 import { installOrchestrationSnapshotProviders } from '../../query/orchestrationSnapshotProviders.js';
 import { feature } from '@modules/core';
@@ -418,98 +419,153 @@ export class ChatBootstrap {
 
   /**
    * Durable Resume: 扫描 DB 中的 TAOR 检查点，恢复中断的会话。
+   *
+   * 多租户 P5：**两段** —— ① 本地身份（宿主 `app.db`），与改造前逐字一致；
+   * ② 已绑定租户的**每个身份**（存储按 `tenants/<t>/users/<u>/` 分区，只按租户扫
+   * 扫不到任何人的库）。启动期没有请求作用域 ⇒ ② 必须逐个重建作用域。
    */
   private async resumePendingSessions(): Promise<void> {
     try {
       const { resumeManager } = await import('../../query/ResumeManager.js');
-      const candidates = await resumeManager.scanPending();
-      if (candidates.length === 0) {
-        logger.info('Durable Resume: 无待恢复会话');
-        return;
-      }
-
-      logger.info('Durable Resume: 发现待恢复会话', {
-        count: candidates.length,
-        sessions: candidates.map((c) => c.sessionId),
-      });
-
-      for (const candidate of candidates) {
-        try {
-          const cp = candidate.checkpoint;
-          // P0 修复（2026-08-14 排查）：空 sessionId 检查点直接跳过——脏数据
-          // 若进入 _getOrCreateTAORLoop 会抛错中断整个恢复循环，此处防御性拦截
-          if (!cp.sessionId) {
-            logger.warn('Durable Resume: 跳过空 sessionId 检查点', {
-              checkpointId: cp.id,
-            });
-            continue;
-          }
-          logger.info('Durable Resume: 恢复会话', {
-            sessionId: cp.sessionId,
-            checkpointId: cp.id,
-            turnCount: cp.turnCount,
-            phase: cp.phase,
-            age: candidate.age,
-          });
-
-          // Phase 3: 进度事件
-          resumeManager.emitProgress({
-            phase: 'validating',
-            sessionId: cp.sessionId,
-            detail: `校验检查点 ${cp.id}...`,
-          });
-          const msgs = await this.deps
-            .getSessionGateway()
-            .getMessages(cp.sessionId);
-          const integrity = resumeManager.validateCheckpointIntegrity(
-            cp,
-            msgs.length,
-            this.deps.getTokenBudget().getCurrentBudgetState().totalTokensUsed
-          );
-          const strategy = resumeManager.getRestoreStrategy(integrity);
-
-          logger.info('Durable Resume: 完整性校验完成', {
-            sessionId: cp.sessionId,
-            ...strategy,
-          });
-
-          // 创建 TAORLoop 并从检查点恢复
-          const taorLoop = this.deps.getOrCreateTAORLoop(cp.sessionId);
-          taorLoop.resumeFromCheckpoint(cp.id);
-
-          // 注入恢复摘要 steering 消息
-          const summary = [
-            '[系统] 会话已从断点恢复。',
-            `- 恢复时间点: ${new Date(cp.createdAt).toISOString()}`,
-            `- 恢复阶段: ${cp.phase}（消息历史第 ${cp.turnCount} 轮）`,
-            `- 恢复策略: ${strategy.reason}`,
-            cp.inboxState
-              ? `- Inbox 关联: ${cp.inboxState.pendingInboxItems.length} 项审批待处理`
-              : '',
-          ]
-            .filter(Boolean)
-            .join('\n');
-          // 2026-10-08（§1.6）：标注来源 ⇒ 注入时落 `context/steering` 事件
-          taorLoop.injectSteering(summary, 'durable-resume');
-
-          logger.info('Durable Resume: 会话恢复完成', {
-            sessionId: cp.sessionId,
-            phase: cp.phase,
-          });
-        } catch (sessionErr) {
-          logger.warn('Durable Resume: 单个会话恢复失败', {
-            sessionId: candidate.sessionId,
-            error: String(sessionErr),
-          });
-          // 不阻塞其他会话的恢复
-        }
-      }
+      await this.resumePendingSessionsWith(resumeManager, 'local');
+      await this.resumeTenantPendingSessions();
     } catch (e) {
       handleError(e, {
         module: 'chat:manager',
         action: 'Durable Resume扫描待处理失败',
       });
       throw e;
+    }
+  }
+
+  /**
+   * 对**已绑定租户**的身份逐个扫一遍（单个身份失败不影响其他身份）。
+   *
+   * 每次用临时存储（`withScopedResumeManager` 收尾即关）⇒ 启动期不会为每个用户常驻
+   * 一个 sqlite 句柄。进度事件（`emitProgress`）只对宿主会话订阅者有意义 ⇒ 租户扫描
+   * 不广播（临时管理器没有订阅者）。
+   */
+  private async resumeTenantPendingSessions(): Promise<void> {
+    const { listTenantUserIdentities } =
+      await import('../../infrastructure/http/handlers/auth-handlers.js');
+    const identities = listTenantUserIdentities();
+    if (identities.length === 0) return;
+
+    const { withScopedResumeManager } =
+      await import('../../query/scopedResumeScan.js');
+    for (const identity of identities) {
+      try {
+        await withScopedResumeManager(identity, (manager) =>
+          this.resumePendingSessionsWith(
+            manager,
+            `${identity.tenantId}:${identity.userId}`
+          )
+        );
+      } catch (err) {
+        logger.warn('Durable Resume: 单个身份扫描失败，跳过', {
+          tenantId: identity.tenantId,
+          userId: identity.userId,
+          error: String(err),
+        });
+      }
+    }
+  }
+
+  /**
+   * 用给定的恢复管理器扫一遍并恢复（本地身份传全局 `resumeManager`）。
+   *
+   * @param scopeLabel 仅用于日志区分身份（`local` / `<tenantId>:<userId>`）
+   */
+  private async resumePendingSessionsWith(
+    manager: ResumeManager,
+    scopeLabel: string
+  ): Promise<void> {
+    const candidates = await manager.scanPending();
+    if (candidates.length === 0) {
+      logger.info('Durable Resume: 无待恢复会话', { scope: scopeLabel });
+      return;
+    }
+
+    logger.info('Durable Resume: 发现待恢复会话', {
+      scope: scopeLabel,
+      count: candidates.length,
+      sessions: candidates.map((c) => c.sessionId),
+    });
+
+    for (const candidate of candidates) {
+      try {
+        const cp = candidate.checkpoint;
+        // P0 修复（2026-08-14 排查）：空 sessionId 检查点直接跳过——脏数据
+        // 若进入 _getOrCreateTAORLoop 会抛错中断整个恢复循环，此处防御性拦截
+        if (!cp.sessionId) {
+          logger.warn('Durable Resume: 跳过空 sessionId 检查点', {
+            checkpointId: cp.id,
+          });
+          continue;
+        }
+        logger.info('Durable Resume: 恢复会话', {
+          scope: scopeLabel,
+          sessionId: cp.sessionId,
+          checkpointId: cp.id,
+          turnCount: cp.turnCount,
+          phase: cp.phase,
+          age: candidate.age,
+        });
+
+        // Phase 3: 进度事件
+        manager.emitProgress({
+          phase: 'validating',
+          sessionId: cp.sessionId,
+          detail: `校验检查点 ${cp.id}...`,
+        });
+        const msgs = await this.deps
+          .getSessionGateway()
+          .getMessages(cp.sessionId);
+        const integrity = manager.validateCheckpointIntegrity(
+          cp,
+          msgs.length,
+          this.deps.getTokenBudget().getCurrentBudgetState().totalTokensUsed
+        );
+        const strategy = manager.getRestoreStrategy(integrity);
+
+        logger.info('Durable Resume: 完整性校验完成', {
+          scope: scopeLabel,
+          sessionId: cp.sessionId,
+          ...strategy,
+        });
+
+        // 创建 TAORLoop 并从检查点恢复
+        const taorLoop = this.deps.getOrCreateTAORLoop(cp.sessionId);
+        taorLoop.resumeFromCheckpoint(cp.id);
+
+        // 注入恢复摘要 steering 消息
+        const summary = [
+          '[系统] 会话已从断点恢复。',
+          `- 恢复时间点: ${new Date(cp.createdAt).toISOString()}`,
+          `- 恢复阶段: ${cp.phase}（消息历史第 ${cp.turnCount} 轮）`,
+          `- 恢复策略: ${strategy.reason}`,
+          cp.inboxState
+            ? `- Inbox 关联: ${cp.inboxState.pendingInboxItems.length} 项审批待处理`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+        // 2026-10-08（§1.6）：标注来源 ⇒ 注入时落 `context/steering` 事件
+        taorLoop.injectSteering(summary, 'durable-resume');
+
+        logger.info('Durable Resume: 会话恢复完成', {
+          scope: scopeLabel,
+          sessionId: cp.sessionId,
+          phase: cp.phase,
+        });
+      } catch (sessionErr) {
+        logger.warn('Durable Resume: 单个会话恢复失败', {
+          scope: scopeLabel,
+          sessionId: candidate.sessionId,
+          error: String(sessionErr),
+        });
+        // 不阻塞其他会话的恢复
+      }
     }
   }
 

@@ -7,6 +7,11 @@ import { AppError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
 // 2026-09-30 G2 倒挂收口：错误码纯数据表已下沉 core 模块根，直连 core 消除 core → infra 边
 import { ErrorCodes } from '../core/errorCodes.js';
 import { type ModuleDefinition, getRegistry } from './moduleTypes';
+/**
+ * 模块初始化状态与结构子集的**类型归属**已下沉到 `moduleStateTypes`
+ * （避免与 `startupSurfaceProbe` 互相 import ⇒ `madge --circular` 基线=0 被打破）。
+ */
+import type { ModuleInitializationState } from './moduleStateTypes';
 import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,
@@ -25,37 +30,6 @@ import {
 import { profilePhaseStart, profilePhaseEnd } from '../core/profilerFacade.js';
 import { getLogger } from '../core/loggerFacade.js';
 const logger = getLogger('modules:moduleInitializer');
-
-/**
- * 模块初始化状态
- *
- * 2026-10-20：导出给 `startupSurfaceProbe` 复用 —— 该探针不得再写一份同名联合类型
- * （状态词汇重复 = 状态字面量棘轮要拦的形态；CS02 / Register-or-Fail）。
- */
-export interface ModuleInitializationState {
-  // 模块初始化状态
-  status: 'pending' | 'initializing' | 'initialized' | 'error';
-
-  // 初始化开始时间
-  startTime?: number;
-
-  // 初始化结束时间
-  endTime?: number;
-
-  // 错误信息
-  error?: Error;
-}
-
-/**
- * 模块初始化状态的**结构子集**（只读消费者复用）
- *
- * 2026-10-20：`startupSurfaceProbe` 需要读这四个字段；若它自己再写一份 `Pick<…, 'error'>`
- * 就等于把状态词汇又抄一遍（状态字面量棘轮会拦）。故由**类型所有者**导出。
- */
-export type ModuleStateLike = Pick<
-  ModuleInitializationState,
-  'status' | 'startTime' | 'endTime' | 'error'
->;
 
 /**
  * 模块初始化器类
@@ -408,9 +382,9 @@ export class ModuleInitializer {
     }
 
     // P0（2026-10-20，`内核瘦身-方案.md` §P0）：启动面取证件（**默认关**，`LIRI_STARTUP_REPORT=1` 开启）。
-    // 动态 import：探针静态读 `moduleInitializer` 状态，静态互相引用会成环；此处调用点在本模块求值完成后。
+    // 动态 import：探针不在启动热路径上；状态由**闭包注入**（探针不反向 import 本模块 ⇒ 无环）。
     void import('./startupSurfaceProbe.js').then((m) =>
-      m.scheduleStartupSurfaceReport()
+      m.scheduleStartupSurfaceReport(() => this.getAllModuleStates())
     );
   }
 

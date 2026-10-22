@@ -30,6 +30,16 @@ const REGISTRY = process.env.FIX_EVIDENCE_REGISTRY
   : resolve(repoRoot, '.trae/architecture/fix-evidence-registry.json');
 const DOC = resolve(repoRoot, '.trae/architecture/修复证据登记.md');
 
+/**
+ * **本机文档面**（不入库）：`dev_docs/**` 在 `.gitignore` 里 ⇒ 干净克隆 / CI 上**不存在**。
+ *
+ * 这类路径作为"设计与裁定证据"仍有意义，但**不能**要求它在 CI 里存在 —— 否则每次发版
+ * 都会以「证据路径不存在」假红（实测：Doc Gate 连续多轮因此失败，15 条 `dev_docs/**`
+ * 证据；本地因 `dev_docs` 存在而恒绿）。故只对这些前缀**跳过存在性校验并如实计数**；
+ * 其余路径（`app/src` / `app/tests` / `scripts` 等**入库**域）仍严格失败。
+ */
+const LOCAL_ONLY_DOC_ROOT = 'dev_docs/';
+
 interface Stages {
   discovered: boolean;
   fixed: boolean;
@@ -156,6 +166,8 @@ if (!existsSync(DOC)) problems.push(`人读文档不存在: ${DOC}`);
 
 const seen = new Set<string>();
 let verifiedCount = 0;
+/** 跳过存在性校验的 `dev_docs/**` 证据条数（如实计数，不谎报为"已校验"） */
+let localOnlyDocEvidence = 0;
 
 for (const it of reg.items) {
   const w = it.id || '<missing-id>';
@@ -184,6 +196,10 @@ for (const it of reg.items) {
   const changelog = it.changelog ?? [];
 
   for (const p of [...code, ...tests]) {
+    if (p.startsWith(LOCAL_ONLY_DOC_ROOT)) {
+      localOnlyDocEvidence++;
+      continue;
+    }
     if (!existsSync(resolve(repoRoot, p))) {
       problems.push(`${w}: 证据路径不存在 → ${p}`);
     }
@@ -237,6 +253,11 @@ console.log('=== 修复证据登记门禁（P1-4） ===');
 console.log(
   `条目 ${reg.items.length} · 全证据链（含端到端）${verifiedCount} · 单元级 ${reg.items.filter((i) => i.flags.unitTested).length}`
 );
+if (localOnlyDocEvidence > 0) {
+  console.log(
+    `（其中 ${localOnlyDocEvidence} 条证据路径位于 ${LOCAL_ONLY_DOC_ROOT}（本机文档面、不入库）⇒ 不做存在性校验）`
+  );
+}
 console.log('----------------------------------------');
 
 if (problems.length > 0) {

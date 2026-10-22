@@ -48,6 +48,11 @@ jobs:
         project: app
 
     - name: Run type check
+      # macOS runner（arm64，3 vCPU / 7GB）上 `tsc --noEmit` 实测 OOM：
+      # `FATAL ERROR: Ineffective mark-compacts near heap limit ... exit 134`（连续多轮复现）。
+      # V8 默认 old-space 上限按系统内存估算，本项目 ~4100 源文件 + 950 测试文件不够用 ⇒ 显式抬高。
+      env:
+        NODE_OPTIONS: '--max-old-space-size=6144'
       run: bun run typecheck
 
     - name: Run linter

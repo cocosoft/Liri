@@ -32,12 +32,11 @@ import {
 } from '@modules/core/LazyModuleStrategy';
 import { getLogger } from '../core/loggerFacade.js';
 import { MODULE_INITIALIZATION_ORDER } from './ModuleDefinitions';
-// 复用 `ModuleInitializer` 的**状态联合类型**（不在此重写一份词汇表；状态字面量棘轮口）
-
+// 状态联合类型与结构子集都来自 `moduleStateTypes`（类型单一真源）
 import type {
   ModuleInitializationState,
   ModuleStateLike,
-} from './ModuleInitializer.js';
+} from './moduleStateTypes.js';
 
 /** 复用类型所有者导出的结构子集（不在此重写状态词汇） */
 export type { ModuleStateLike };
@@ -389,11 +388,25 @@ export function buildStartupSurfaceReport(input: {
 }
 
 /**
+ * 模块状态读取口 —— **由调用方注入**（`ModuleInitializer` 在批次调度后传入闭包）。
+ *
+ * 为什么不在本文件里 `import { moduleInitializer }`：那会与 `ModuleInitializer` 形成
+ * 双向 import（本文件读它的状态、它在批次落定后懒加载本文件）⇒ `madge --circular`
+ * 基线（=0）必红。注入后依赖方向是单向的：初始化器 → 探针。
+ */
+export type ModuleStateSource = () => Readonly<Record<string, ModuleStateLike>>;
+
+let moduleStateSource: ModuleStateSource | null = null;
+
+/**
  * 调度一次启动面取件（在 T3 批次调度之后调用）
  *
  * 默认关闭；开启后等"批次落定 + HTTP 就绪"（上限 15s）再落盘，**不阻塞启动**。
+ *
+ * @param source 读取模块初始化状态的闭包（由 `ModuleInitializer` 注入）
  */
-export function scheduleStartupSurfaceReport(): void {
+export function scheduleStartupSurfaceReport(source: ModuleStateSource): void {
+  moduleStateSource = source;
   if (!isStartupSurfaceReportEnabled()) return;
   void collectAndWrite().catch((err: unknown) => {
     logger.warning('启动面基线采集失败（不影响启动）', { error: String(err) });
@@ -416,12 +429,14 @@ async function collectAndWrite(): Promise<void> {
     await sleep(PROBE_POLL_INTERVAL);
   }
 
-  const { moduleInitializer } = await import('./ModuleInitializer.js');
+  // 无读取口 ⇒ 不落盘（不造假报告：0 模块的报告比"没有报告"更容易误导）
+  if (moduleStateSource === null) {
+    logger.warning('启动面基线采集跳过：未注入模块状态读取口');
+    return;
+  }
+
   const report = buildStartupSurfaceReport({
-    states: moduleInitializer.getAllModuleStates() as unknown as Record<
-      string,
-      ModuleStateLike
-    >,
+    states: moduleStateSource(),
     marks: readMarks(),
     originWall,
     readyAtOffsetMs,

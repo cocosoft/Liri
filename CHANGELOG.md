@@ -19,10 +19,37 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
-（v0.5.0 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）
+（v0.5.4 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）
 <!-- EVIDENCE-VIEWS:END -->
 
-#### 未发布变更（2026-10-20）
+#### v0.5.4 (2026-10-22)  服务端多租户闭环 + 内核瘦身/启动面门禁 + 变体矩阵落地
+
+- ✅ **服务端多租户 P0–P5 闭环** - 请求级 `Principal{tenantId,userId,roles}` 贯穿会话 / 工具 / 事件；
+  存储按 `tenants/<tenantId>/users/<userId>/` 分区（会话、核心库、检查点、审批 Inbox、黏性路由、
+  余额、结算台账、知识图谱、查询日志、LLM 记录）；SSE 按请求身份投递、登录态变更重建连接；
+  工具 cwd / 沙箱默认工作区 / AlwaysOn 配额 / 放行缓存 / 待交互条目均按归属判定。
+  租户从"恒为 local"变成**账号属性**（认证链 + `LIRI_TENANT_SELF_REGISTER` 开关，请求不自报），
+  并补管理员端点：建号 / 迁移 / 解绑 / 删租户时解绑其账号（不留悬空身份）。
+- ✅ **删租户（purge）全量清除闭环** - 顺序固定为「断流 → 关连接 → 清共享库归属行 → 删分区目录」；
+  按身份缓存的 SQLite 实例统一登记进 `scopedResources`（13 处接线，closer 一律"关连接 + 摘除自身缓存"），
+  真机 `blocked=1 → 0`；非 DB 缓存逐类失效（凭据实例 / 会话存储实例 / 成本桶 / 自主运行配额 /
+  分析埋点与工具桶 / trace 统计桶）；每循环的 TAOR 检查点库收尾即关；`ResumeManager` 的存储按请求身份
+  解析；**启动期按身份**扫待恢复检查点（不再只扫宿主库）；`notPurged` 里可清的项已收回，剩下的是无归属
+  索引的全局文件面与用户级目录（需数据模型改动）。
+- ✅ **内核瘦身与启动面门禁** - chronos / memory 惰性加载（eager 673 → 543 → 419 → 280，P3 后 monitoring
+  barrel 不再静态转发 OTel），17 个纯记账模块降级 `ON_DEMAND`；新增 `lint:startup-graph`（启动面字节棘轮）、
+  `lint:critical-modules`（CRITICAL 清单棘轮）、`lint:kernel-surface`（内核面白名单）三道门禁，另加架构边界
+  双规则门禁（W2 分层循环 / W4 工具面自审）。
+- ✅ **变体矩阵与编译期裁剪** - 变体矩阵收敛为单一事实源；`DROP_CHANNELS_ALL`（整组）/ 单通道开关
+  （**均未声明即全量，默认零行为变更**），实测整组产物 −16.7%；core 变体收敛为 7 个工具、headless 变体
+  （物理剔除 ink/REPL）、`build:win:enterprise` 编译入口；企业版 `.hbs` 模板随产物分发（模板根按
+  源码 / bundle / compile 三形态解析）；分发前置落地动态端口顺延 + 实例锁 + `.env` 只写用户级。
+- ✅ **移动端通道（P2.5）** - 入站 `POST /v1/channels/mobile/messages` 走单管线（帧验证 / 去重 / DM 策略 /
+  Inbox 桥接）、设备配对 + 短期 token、入站与配对审计留痕、卡片出站；工具面硬约束为 `messaging`。
+- ✅ **治理与观测** - 语义护栏便宜版（只读意图 + 变更动作升级审批）、严格重放默认开
+  （`PREPARED_SNAPSHOT_REPLAY=true`）、只读时间旅行端点 `timeline?untilSeq`、上下文压缩升级判据（默认关）、
+  SWARM 会话级并发批次键（事件按批次配对不再串线）、Trace/Analytics 内存累计按身份分桶。
+- …（本版区间 `git log v0.5.3..v0.5.4` 共 **93** 条实质提交，以上为精炼摘要）
 
 - 🔧 **编译期裁剪机制（P1-0 / P1-pre / 通道侧收口，默认零行为变更）** - `ChannelCatalog` 支持三层反向开关：
   `DROP_CHANNELS_ALL`（整组）/ `DROP_CHANNEL_FEISHU`（单通道）/ 均未声明（全量，**默认行为不变**）；

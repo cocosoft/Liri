@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.3-blue)
+![Version](https://img.shields.io/badge/version-0.5.4-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.3**
+当前版本：**v0.5.4**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,14 +436,17 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.3 (2026-10-20)
-AlwaysOn v2 worktree 隔离 + 预算防穿透 + 状态字面量 Register-or-Fail 门禁
+#### v0.5.4 (2026-10-22)
+服务端多租户 P0–P5 闭环 + 内核瘦身/启动面门禁 + 变体矩阵落地
 
-- ✅ **AlwaysOn v2（worktree 隔离闭环）** - 执行前 `GitWorktreeProvider` 隔离（脏仓/非 git 跳过本轮），会话 cwd 按轮指向隔离区 + 严格路径边界（越界拒绝）；`alwayson` 命名空间独立于 Bridge，启动期回收已注册残留；产物只留补丁（**不自动 apply**），未回灌即保留隔离区；报告显式标注 Patch / Worktree Kept / `Goal Achievement: unverified`
-- ✅ **预算防穿透（外部建议 ②）** - 新增**轮次 USD 前置判定**（纯函数 + `preSend` 接线），`FEATURE_USD_TURN_PREFLIGHT` 已按 2026-10-20 用户裁定**默认开启**（回退置 `false` 即逐字等价旧行为）；"已结算 + 本轮估算 > 上限"即短路拒发，消除单轮穿透
-- ✅ **状态字面量棘轮门禁（外部建议 ⑦ Register-or-Fail）** - 新增 `lint:state-ratchet` 接入 `ci`：词汇表单一事实源 = `stateMachineCatalog`，未报备状态字面量 ⇒ CI 阻断；现存 1795 对收编基线（只拦增量、零误报），端到端证伪通过
-- ✅ **蜂群批次落编排历史** - `PARALLEL_START/END` 补 `sessionId` 载荷并进历史白名单；**snapshot-copy 扫雷** - 未回灌即保留隔离区（`dispose(keep:true)`）
-- ✅ **测试与门禁** - 全链 `bun run ci` exit 0：**7488 pass / 45 skip / 0 fail**（7533 tests / 868 files），`lint:arch` 0 违规
+- ✅ **服务端多租户 P0–P5** - 请求级 `Principal{tenantId,userId,roles}` 贯穿会话/工具/事件；存储按 `tenants/<t>/users/<u>/` 分区（会话、核心库、检查点、审批 Inbox、黏性路由、余额、结算、知识图谱、查询/LLM 日志）；SSE 按身份投递；工具 cwd / 沙箱工作区 / AlwaysOn 配额按归属；租户成为**账号属性**并补建号/迁移/解绑端点
+- ✅ **删租户全量清除闭环** - 「断流 → 关连接 → 清归属行 → 删分区目录」；按身份缓存的 SQLite 实例统一登记关闭（真机 `blocked=1 → 0`），非 DB 缓存逐类失效（凭据/会话存储/成本桶/自主运行配额/分析埋点/trace 统计），启动期按身份恢复检查点
+- ✅ **内核瘦身与启动面门禁** - chronos / memory 惰性加载（eager 673 → 280）+ 17 个纯记账模块 `ON_DEMAND`；新增 `lint:startup-graph` / `lint:critical-modules` / `lint:kernel-surface` 三道棘轮 + 架构边界双规则门禁
+- ✅ **变体矩阵与编译期裁剪** - 变体矩阵单一事实源；通道整组/单通道裁剪（默认零行为变更，整组产物 −16.7%）；core 7 工具、headless（剔除 ink/REPL）、`build:win:enterprise`；企业版 `.hbs` 随产物分发
+- ✅ **移动端通道 P2.5** - 入站单管线 + 设备配对/短期 token + 审计留痕 + 卡片出站（工具面硬约束 `messaging`）
+- ✅ **治理与观测** - 语义护栏便宜版、严格重放默认开、只读时间旅行 `timeline?untilSeq`、压缩升级判据（默认关）、SWARM 批次配对
+
+> 本版区间共 **93** 条实质提交（`git log v0.5.3..v0.5.4`），此处仅列主线。
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

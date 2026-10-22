@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import KeyboardShortcutsHelp from "../common/KeyboardShortcutsHelp";
+import { ShortcutList } from "../common/KeyboardShortcutsHelp";
 import { httpLegacy as http } from "../../services/httpClient";
 import { useAutoUpdate } from "../../hooks/useAutoUpdate";
 
@@ -556,7 +556,7 @@ function HelpPage() {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
           {t("help.shortcuts")}
         </h3>
-        <KeyboardShortcutsHelp />
+        <ShortcutList />
       </div>
     );
   }

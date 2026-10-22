@@ -7,6 +7,7 @@ const enBase = {
   common: {
     loading: "Loading...",
     preview: "Preview",
+    download: "Download",
     save: "Save",
     cancel: "Cancel",
     delete: "Delete",
@@ -497,6 +498,8 @@ const enBase = {
     deleteSession: "Delete Session",
     renameSession: "Rename",
     exportSession: "Export Session",
+    exportEmptyHint: "No messages to export in this session",
+    orphanToolResult: "Orphan tool result (no matching call)",
     thoughtProcess: "Thought Process",
     executing: "Executing",
     running: "Running",

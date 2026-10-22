@@ -1105,6 +1105,7 @@ const zhSettings = {
     edit: "编辑",
     svg: "SVG",
     canvas: "画布",
+    canvasEditorOpened: "已打开画布编辑器",
     refresh: "刷新",
     loading: "加载中...",
     executing: "执行中...",

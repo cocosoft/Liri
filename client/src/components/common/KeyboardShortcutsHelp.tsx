@@ -19,6 +19,38 @@ const shortcuts: ShortcutEntry[] = [
   { keys: ["Ctrl", "Shift", "S"], labelKey: "common.shortcutStopGenerating" },
 ];
 
+/**
+ * 快捷键清单（纯展示，无开关状态）
+ *
+ * BUG-09（2026-10-22 复查）：`/help` → 「快捷键」分区此前直接复用本文件里的**模态**组件，
+ * 而模态默认 `open=false` 时 `return null` ⇒ 该分区只剩标题、列表恒为空。
+ * 抽出清单后两处共用同一份数据，避免各写一份（CS01）。
+ */
+export function ShortcutList() {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-2">
+      {shortcuts.map((s, i) => (
+        <div key={i} className="flex items-center justify-between py-1.5">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            {t(s.labelKey)}
+          </span>
+          <div className="flex gap-1">
+            {s.keys.map((key, j) => (
+              <span
+                key={j}
+                className="px-2 py-0.5 text-xs font-mono bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded border border-gray-200 dark:border-gray-600"
+              >
+                {key}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function KeyboardShortcutsHelp() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -64,25 +96,7 @@ function KeyboardShortcutsHelp() {
           </button>
         </div>
 
-        <div className="space-y-2">
-          {shortcuts.map((s, i) => (
-            <div key={i} className="flex items-center justify-between py-1.5">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {t(s.labelKey)}
-              </span>
-              <div className="flex gap-1">
-                {s.keys.map((key, j) => (
-                  <span
-                    key={j}
-                    className="px-2 py-0.5 text-xs font-mono bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded border border-gray-200 dark:border-gray-600"
-                  >
-                    {key}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <ShortcutList />
 
         <p className="mt-4 text-xs text-gray-400 dark:text-gray-500 text-center">
           {t("common.pressEscToClose")}

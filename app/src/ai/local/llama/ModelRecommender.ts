@@ -37,6 +37,12 @@ interface ModelSpec {
   }>;
 }
 
+/** GB 展示格式化：至多 1 位小数，整数不带 `.0`（见 `_generateReason`） */
+function formatGb(value: number): string {
+  if (!Number.isFinite(value)) return '0';
+  return String(Math.round(value * 10) / 10);
+}
+
 /**
  * 模型推荐器
  */
@@ -345,7 +351,11 @@ export class ModelRecommender {
       parts.push('内存紧张');
     }
 
-    parts.push(`预计占用 ${estimatedRamGB}GB / 可用 ${availableRamGB}GB`);
+    // BUG-11（2026-10-22 复查）：体积按 `字节 / 1024³` 算出的是浮点数，
+    // 直接插值会在界面上渲染成 `预计占用 4.470348358154298GB` 这种全精度噪声。
+    parts.push(
+      `预计占用 ${formatGb(estimatedRamGB)}GB / 可用 ${formatGb(availableRamGB)}GB`
+    );
 
     if (gpuVramGB > 0 && backend !== 'cpu') {
       parts.push(`支持 ${backend.toUpperCase()} GPU 加速`);

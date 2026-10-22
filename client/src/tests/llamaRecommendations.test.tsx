@@ -125,6 +125,7 @@ vi.mock("../services/llamaService", () => ({
 }));
 
 import LlamaConfigPanel, {
+  formatGB,
   isBestRecommendation,
   recommendationKey,
 } from "../components/settings/LlamaConfigPanel";
@@ -174,5 +175,29 @@ describe("BUG-04：推荐卡标识（modelId + quantVersion）", () => {
       );
       expect(dupKeyCalls).toHaveLength(0);
     });
+  });
+});
+
+describe("BUG-11：体积/预估占用展示不再输出浮点全精度", () => {
+  it("formatGB 至多保留 1 位小数（真机曾渲染成 4.470348358154298GB）", () => {
+    expect(formatGB(4.470348358154298)).toBe("4.5");
+    expect(formatGB(0.5587935447692872)).toBe("0.6");
+    expect(formatGB(7.82310962677002)).toBe("7.8");
+    // 整数不带多余的 .0（与后端「可用 61GB」口径一致）
+    expect(formatGB(61)).toBe("61");
+  });
+
+  it("非法数值回退 0（不渲染 NaN）", () => {
+    expect(formatGB(Number.NaN)).toBe("0");
+    expect(formatGB(Number.POSITIVE_INFINITY)).toBe("0");
+  });
+
+  it("推荐卡元信息渲染的是格式化后的数值（无长小数）", async () => {
+    const { container } = render(<LlamaConfigPanel isDark={false} />);
+    await waitFor(() => {
+      expect(screen.getAllByText("Qwen2.5-7B").length).toBeGreaterThan(0);
+    });
+    // 任意 3 位以上小数都不应出现在推荐卡文本里
+    expect(container.textContent ?? "").not.toMatch(/\d\.\d{3,}\s*GB/);
   });
 });

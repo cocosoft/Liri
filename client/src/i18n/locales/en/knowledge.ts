@@ -1198,6 +1198,8 @@ const enKnowledge = {
     running: "Running",
     idle: "Idle",
     error: "Error",
+    completed: "Completed",
+    legend: "Legend",
     lost: "Lost",
     agentName: "Agent Name",
     agentType: "Agent Type",

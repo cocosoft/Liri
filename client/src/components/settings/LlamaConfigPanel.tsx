@@ -97,6 +97,17 @@ export function recommendationKey(
   return `${rec.modelId}:${rec.quantVersion}`;
 }
 
+/**
+ * GB 数值展示格式化（最多保留 1 位小数，整数不带 `.0`）
+ *
+ * BUG-11（2026-10-22 复查）：后端按 `字节 / 1024³` 计算的体积是浮点数，
+ * 直接插值会渲染成 `4.470348358154298GB` 这种全精度噪声。
+ */
+export function formatGB(value: number): string {
+  if (!Number.isFinite(value)) return "0";
+  return String(Math.round(value * 10) / 10);
+}
+
 function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
   const { t } = useTranslation();
   const [config, setConfig] = useState<LlamaConfig | null>(null);
@@ -949,8 +960,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
                         {t("settings.llamaRecMeta", {
-                          size: rec.fileSizeGB,
-                          ram: rec.estimatedRamGB,
+                          size: formatGB(rec.fileSizeGB),
+                          ram: formatGB(rec.estimatedRamGB),
                           quality: rec.qualityScore,
                         })}
                       </div>

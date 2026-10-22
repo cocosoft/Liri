@@ -1157,6 +1157,7 @@ const enSettings = {
     edit: "Edit",
     svg: "SVG",
     canvas: "Canvas",
+    canvasEditorOpened: "Canvas editor opened",
     refresh: "Refresh",
     loading: "Loading...",
     executing: "Executing...",

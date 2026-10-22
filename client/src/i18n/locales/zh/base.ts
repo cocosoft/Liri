@@ -7,6 +7,7 @@ const zhBase = {
   common: {
     loading: "加载中...",
     preview: "预览",
+    download: "下载",
     save: "保存",
     cancel: "取消",
     delete: "删除",
@@ -479,6 +480,8 @@ const zhBase = {
     deleteSession: "删除会话",
     renameSession: "重命名",
     exportSession: "导出会话",
+    exportEmptyHint: "当前会话暂无消息可导出",
+    orphanToolResult: "孤立工具结果（未配对调用）",
     thoughtProcess: "思考过程",
     executing: "执行中",
     running: "运行中",

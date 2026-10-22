@@ -120,4 +120,22 @@ describe('ModelRecommender', () => {
     // 至少有一个估算值明显大于 0
     expect(list.some((r) => r.estimatedRamGB > 1)).toBe(true);
   });
+
+  it('推荐理由里的 GB 数值至多 1 位小数（BUG-11：曾输出 4.470348358154298GB）', async () => {
+    // 真机档位（63GB 系统内存）会算出带浮点尾数的估算值
+    const hw = makeHw({
+      systemMemoryGB: 63,
+      gpu: { name: 'Intel Arc 140T', memoryGB: 32, backend: 'vulkan' },
+      llamaCppBackend: 'vulkan',
+    });
+    const list = await recommender.recommend(hw, {} as never);
+    expect(list.length).toBeGreaterThan(0);
+    for (const r of list) {
+      // 全精度噪声形如 `4.470348358154298GB`；任何 2 位以上小数都不允许出现在理由里
+      expect(r.recommendationReason).not.toMatch(/\d\.\d{2,}GB/);
+      expect(r.recommendationReason).toMatch(
+        /预计占用 [\d.]+GB \/ 可用 [\d.]+GB/
+      );
+    }
+  });
 });

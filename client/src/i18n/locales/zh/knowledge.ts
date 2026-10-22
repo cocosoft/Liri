@@ -1142,6 +1142,8 @@ const zhKnowledge = {
     running: "运行中",
     idle: "空闲",
     error: "错误",
+    completed: "已完成",
+    legend: "图例",
     lost: "失联",
     agentName: "Agent 名称",
     agentType: "Agent 类型",

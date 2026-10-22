@@ -4,9 +4,39 @@
  */
 import type { CommandContext } from '@modules/commands';
 import type { SessionMessage } from '@modules/session';
+import { insightsEngine } from '@modules/analytics';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:brief:Brief');
+
+/**
+ * 把会话消息映射为引擎输入。
+ *
+ * `SessionMessage` 声明的是 `type`，但 `chatManager.getSessionMessages()` 运行期
+ * 返回的是 `role`（见 `generateConciseSummary` 的同款注释）⇒ 两者都认。
+ */
+function toConversationMessages(messages: SessionMessage[]) {
+  return messages.map((message) => {
+    const rawRole =
+      (message as SessionMessage & { role?: string }).role ??
+      message.type ??
+      'system';
+    const role: 'user' | 'assistant' | 'system' | 'tool' =
+      rawRole === 'user' || rawRole === 'assistant' || rawRole === 'tool'
+        ? rawRole
+        : 'system';
+    const createdAt = message.createdAt as Date | string | undefined;
+    const date =
+      createdAt instanceof Date
+        ? createdAt
+        : createdAt
+          ? new Date(createdAt)
+          : undefined;
+    const timestamp =
+      date && !Number.isNaN(date.getTime()) ? date.getTime() : undefined;
+    return { role, content: message.content, timestamp };
+  });
+}
 
 interface AnalysisResult {
   type: 'text';
@@ -104,9 +134,14 @@ export class BriefCommand {
       return '会话摘要\n\n当前会话暂无消息。';
     }
 
-    const keyPoints = this.extractKeyPoints(recentMessages);
-    const decisions = this.extractDecisions(recentMessages);
-    const actionItems = this.extractActionItems(recentMessages);
+    // 2026-10-23：提取实现统一收敛到 `InsightsEngine`（原 Brief 的私有正则已上收），
+    // 本命令只负责排版与长度控制。
+    const extracted = insightsEngine.extract(
+      toConversationMessages(recentMessages)
+    );
+    const keyPoints = extracted.keyFacts;
+    const decisions = extracted.decisions;
+    const actionItems = extracted.actionItems;
 
     let summary = '';
     const header = `会话摘要\n\n`;
@@ -141,78 +176,6 @@ export class BriefCommand {
     }
 
     return header + summary;
-  }
-
-  private extractKeyPoints(messages: SessionMessage[]): string[] {
-    const points: string[] = [];
-    const patterns = [
-      /(?:讨论|讨论了|讨论关于)\s+(.+?)(?:[。.!?\n]|$)/gi,
-      /(?:问题|问题是|存在问题)\s*[:：]?\s*([^。.!?\n]+)/gi,
-      /(?:需求|需求是|需要)\s*[:：]?\s*([^。.!?\n]+)/gi,
-      /(?:目标|目标是)\s*[:：]?\s*([^。.!?\n]+)/gi,
-    ];
-
-    for (const msg of messages) {
-      for (const pattern of patterns) {
-        let match;
-        while ((match = pattern.exec(msg.content)) !== null) {
-          const point = match[1].trim();
-          if (point && !points.includes(point)) {
-            points.push(point);
-          }
-        }
-      }
-    }
-
-    return points;
-  }
-
-  private extractDecisions(messages: SessionMessage[]): string[] {
-    const decisions: string[] = [];
-    const patterns = [
-      /(?:决定|决定是|确定)\s*[:：]?\s*([^。.!?\n]+)/gi,
-      /(?:同意|同意了)\s*([^。.!?\n]+)/gi,
-      /(?:选择|选择了)\s*[:：]?\s*([^。.!?\n]+)/gi,
-      /(?:采用|采用了)\s*[:：]?\s*([^。.!?\n]+)/gi,
-    ];
-
-    for (const msg of messages) {
-      for (const pattern of patterns) {
-        let match;
-        while ((match = pattern.exec(msg.content)) !== null) {
-          const decision = match[1].trim();
-          if (decision && !decisions.includes(decision)) {
-            decisions.push(decision);
-          }
-        }
-      }
-    }
-
-    return decisions;
-  }
-
-  private extractActionItems(messages: SessionMessage[]): string[] {
-    const items: string[] = [];
-    const patterns = [
-      /(?:需要|要|应该)\s*(?:做|完成|实现|处理|修改|添加)\s*([^。.!?\n]+)/gi,
-      /(?:下一步|下一步是)\s*[:：]?\s*([^。.!?\n]+)/gi,
-      /(?:待办|todo|TODO)\s*[:：]?\s*([^。.!?\n]+)/gi,
-      /(?:任务|任务是)\s*[:：]?\s*([^。.!?\n]+)/gi,
-    ];
-
-    for (const msg of messages) {
-      for (const pattern of patterns) {
-        let match;
-        while ((match = pattern.exec(msg.content)) !== null) {
-          const item = match[1].trim();
-          if (item && !items.includes(item)) {
-            items.push(item);
-          }
-        }
-      }
-    }
-
-    return items;
   }
 
   private generateConciseSummary(

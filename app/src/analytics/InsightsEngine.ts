@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 洞察引擎
  * 对标 Hermes agent/insights.py（InsightsEngine）
  *
@@ -27,6 +27,11 @@ export interface InsightsResult {
   keyFacts: string[];
   /** 做出的决策列表 */
   decisions: string[];
+  /**
+   * 后续行动项列表（2026-10-23：由 `Brief` / `BriefTool` 的私有正则上收，
+   * 使「摘要提取」只有一套实现）
+   */
+  actionItems: string[];
   /** 待处理问题列表 */
   pendingQuestions: string[];
   /** 涉及的文件变更列表 */
@@ -45,6 +50,8 @@ export interface InsightsEngineConfig {
   factPatterns?: RegExp[];
   /** 提取决策的正则模式 */
   decisionPatterns?: RegExp[];
+  /** 提取行动项的正则模式（2026-10-23 从 Brief 上收） */
+  actionPatterns?: RegExp[];
   /** 文件变更模式 */
   fileChangePatterns?: RegExp[];
   /** 摘要最大长度 */
@@ -58,6 +65,11 @@ const DEFAULT_FACT_PATTERNS: RegExp[] = [
   /错误原因[：:]\s*(.+)/g,
   /根本原因[：:]\s*(.+)/g,
   /结论[：:]\s*(.+)/g,
+  // 2026-10-23：从 `Brief` 命令上收（原先只在 Brief 内部生效）
+  /(?:讨论|讨论了|讨论关于)\s+(.+?)(?:[。.!?\n]|$)/gi,
+  /(?:问题|问题是|存在问题)\s*[:：]?\s*([^。.!?\n]+)/gi,
+  /(?:需求|需求是|需要)\s*[:：]?\s*([^。.!?\n]+)/gi,
+  /(?:目标|目标是)\s*[:：]?\s*([^。.!?\n]+)/gi,
 ];
 
 const DEFAULT_DECISION_PATTERNS: RegExp[] = [
@@ -67,6 +79,19 @@ const DEFAULT_DECISION_PATTERNS: RegExp[] = [
   /使用\s*(\S+)\s*(?:方案|方法|方式|模式)/g,
   /迁移[：:到]\s*(.+)/g,
   /替换[：:为]\s*(.+)/g,
+  // 2026-10-23：从 `Brief` 命令上收
+  /(?:决定是|确定)\s*[:：]?\s*([^。.!?\n]+)/gi,
+  /(?:同意|同意了)\s*([^。.!?\n]+)/gi,
+];
+
+/**
+ * 行动项模式（2026-10-23：从 `Brief` / `BriefTool` 上收，二者此后共用本实现）
+ */
+const DEFAULT_ACTION_PATTERNS: RegExp[] = [
+  /(?:需要|要|应该)\s*(?:做|完成|实现|处理|修改|添加)\s*([^。.!?\n]+)/gi,
+  /(?:下一步|下一步是)\s*[:：]?\s*([^。.!?\n]+)/gi,
+  /(?:待办|todo|TODO)\s*[:：]?\s*([^。.!?\n]+)/gi,
+  /(?:任务|任务是)\s*[:：]?\s*([^。.!?\n]+)/gi,
 ];
 
 const DEFAULT_FILE_CHANGE_PATTERNS: RegExp[] = [
@@ -100,12 +125,15 @@ export class InsightsEngine {
     const factPatterns = this.config.factPatterns ?? DEFAULT_FACT_PATTERNS;
     const decisionPatterns =
       this.config.decisionPatterns ?? DEFAULT_DECISION_PATTERNS;
+    const actionPatterns =
+      this.config.actionPatterns ?? DEFAULT_ACTION_PATTERNS;
     const fileChangePatterns =
       this.config.fileChangePatterns ?? DEFAULT_FILE_CHANGE_PATTERNS;
 
     return {
       keyFacts: this.extractWithPatterns(allText, factPatterns),
       decisions: this.extractWithPatterns(assistantOnly, decisionPatterns),
+      actionItems: this.extractWithPatterns(allText, actionPatterns),
       pendingQuestions: this.extractPendingQuestions(allText),
       fileChanges: this.extractWithPatterns(allText, fileChangePatterns),
       summary: this.generateSummary(allText),

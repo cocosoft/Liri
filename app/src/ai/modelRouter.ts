@@ -579,51 +579,56 @@ export class ModelRouter {
   }
 
   /**
-   * 清理指定模型的任务分工引用（模型删除时级联清理）
+   * 清理指定模型的任务分工引用（模型被删除 / 所属供应商被删除后调用）
+   *
+   * 清理范围：`ALL_TASK_TYPES`（含 `default`）+ `current` + `phase_*` 直配。
+   * 实现下沉到 [`purgeModelRefs`](./models/modelConfigRefs.ts)（单一实现，两条删除路径共用）。
+   *
+   * @returns **实际被清理**的 app_type（既有调用方忽略返回值 ⇒ 兼容）
    */
-  async cleanupTaskRef(modelId: string): Promise<void> {
+  async cleanupTaskRef(modelId: string): Promise<string[]> {
     try {
       const { appModelConfigService } =
         await import('./models/AppModelConfigService.js');
       await appModelConfigService.initialize();
+      const { purgeModelRefs } = await import('./models/modelConfigRefs.js');
 
-      for (const taskType of ALL_TASK_TYPES) {
-        const config = await appModelConfigService.getConfig(taskType);
-        if (config && config.model === modelId) {
-          await appModelConfigService.deleteConfig(taskType);
-          this._taskCache.delete(taskType);
-          // T2.2: 模型删除 → 该任务依赖被 withdraw（订阅方按预停用处理）
-          dependencyRegistry.withdraw(`model:${taskType}`);
-          logger.info('ModelRouter: 级联清理任务引用', {
-            taskType,
-            modelId,
-          });
+      const purged = await purgeModelRefs(modelId, appModelConfigService, [
+        ...ALL_TASK_TYPES,
+        'current',
+        ...PHASE_KEYS.map((phase) => `phase_${phase}`),
+      ]);
+
+      for (const appType of purged) {
+        if (appType === 'current') {
+          this._currentModel = '';
+          // T2.2: current 模型删除 → default 依赖 withdraw（若 default 也引用该模型）
+          dependencyRegistry.withdraw(`model:default`);
+          logger.info('ModelRouter: 级联清理当前模型引用', { modelId });
+          continue;
         }
-      }
-
-      // S3: 级联清理阶段直配映射引用
-      for (const phase of PHASE_KEYS) {
-        const config = await appModelConfigService.getConfig(`phase_${phase}`);
-        if (config && config.model === modelId) {
-          await appModelConfigService.deleteConfig(`phase_${phase}`);
-          delete this._phaseMapping[phase];
+        if (appType.startsWith('phase_')) {
+          const phase = appType.slice('phase_'.length);
+          delete (this._phaseMapping as Record<string, string>)[phase];
           logger.info('ModelRouter: 级联清理阶段引用', { phase, modelId });
+          continue;
         }
+        this._taskCache.delete(appType as TaskType);
+        // T2.2: 模型删除 → 该任务依赖被 withdraw（订阅方按预停用处理）
+        dependencyRegistry.withdraw(`model:${appType}`);
+        logger.info('ModelRouter: 级联清理任务引用', {
+          taskType: appType,
+          modelId,
+        });
       }
-
-      const currentConfig = await appModelConfigService.getConfig('current');
-      if (currentConfig && currentConfig.model === modelId) {
-        await appModelConfigService.deleteConfig('current');
-        this._currentModel = '';
-        // T2.2: current 模型删除 → default 依赖 withdraw（若 default 也引用该模型）
-        dependencyRegistry.withdraw(`model:default`);
-      }
+      return purged;
     } catch (err) {
       void handleError(err, {
         module: 'ai:model-router',
         action: 'cleanupTaskRef',
         context: { modelId },
       });
+      return [];
     }
   }
 

@@ -647,9 +647,33 @@ export class ProviderManager {
       disabledModelIds.push(m.modelId);
     }
 
+    // N-59 后续（2026-10-22）：**同时清理任务分工 / 当前模型对它们的引用** ——
+    // 只停用模型仍会让 `ai_app_model_configs`（`chat`/`current`/`phase_*` …）指着
+    // "孤儿模型"，切到这些任务时报「供应商未找到或未启用」。清理实现与"删除模型"
+    // 路径共用 `ModelRouter.cleanupTaskRef`（单一实现）。
+    const purgedRefs: string[] = [];
+    try {
+      const { modelRouter } = await import('../modelRouter.js');
+      for (const m of boundModels) {
+        const purged = await modelRouter.cleanupTaskRef(m.id);
+        for (const appType of purged)
+          purgedRefs.push(`${appType}←${m.modelId}`);
+      }
+    } catch (err) {
+      // 清理失败不阻断供应商删除（配置悬空是既有数据的次要问题，可下次启动收敛）
+      logger.warning('供应商删除后清理任务分工引用失败（下次启动会收敛）', {
+        providerId: id,
+        error: String(err),
+      });
+    }
+
     logger.info(
       disabledModelIds.length > 0
-        ? `供应商已删除: ${existing.name} (${id})；同时停用 ${disabledModelIds.length} 个强绑定模型: [${disabledModelIds.join(', ')}]`
+        ? `供应商已删除: ${existing.name} (${id})；同时停用 ${disabledModelIds.length} 个强绑定模型: [${disabledModelIds.join(', ')}]${
+            purgedRefs.length > 0
+              ? `；并清理 ${purgedRefs.length} 条任务分工/当前模型配置: [${purgedRefs.join(', ')}]`
+              : ''
+          }`
         : `供应商已删除: ${existing.name} (${id})`
     );
     return true;

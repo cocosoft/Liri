@@ -324,6 +324,27 @@ async function disableModelsWithMissingProvider(): Promise<number> {
         `检测到 ${disabledNames.length} 个模型强绑定的供应商已不存在，已自动停用: [${disabledNames.join(', ')}]（可逆：在模型管理重新绑定供应商后重新启用）`
       );
     }
+
+    // N-59 后续（2026-10-22）：**存量引用收敛** —— 旧版本停用孤儿模型时没有清理
+    // `ai_app_model_configs`，`current` / 任务分工仍可能指着它们（切过去即「供应商未找到或未启用」）。
+    // 这里对**全部**孤儿模型清一次引用（含"早已停用"的），幂等：无匹配则不写盘。
+    let purgedRefs = 0;
+    try {
+      const { modelRouter } = await import('./modelRouter.js');
+      for (const m of orphans) {
+        purgedRefs += (await modelRouter.cleanupTaskRef(m.id)).length;
+      }
+    } catch (err) {
+      void handleError(err, {
+        module: 'ai:modelManagementBootstrap',
+        action: 'purgeOrphanModelRefs',
+      });
+    }
+    if (purgedRefs > 0) {
+      logger.warn(
+        `已清理 ${purgedRefs} 条指向"供应商已不存在"的模型配置（任务分工 / 当前模型；运行时回落到默认）`
+      );
+    }
     return disabledNames.length;
   } catch (err) {
     void handleError(err, {

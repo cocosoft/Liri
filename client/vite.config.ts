@@ -58,6 +58,16 @@ export default defineConfig({
       "@xterm/xterm",
       "@xterm/addon-fit",
       "@xterm/addon-web-links",
+      // 2026-10-22 补全：`@base-ui/react` 的**子路径**（`components/ui/*` 逐个用到）。
+      // 缺任一条时，首次打开用到该子路径的页面（如 /tts → ui/input）会触发运行时重新预构建
+      // ⇒ 旧 hash 请求 ERR_ABORTED / 504 (Outdated Optimize Dep) ⇒ 动态 import 整体 reject、
+      // 整页落到错误边界（实测：/tts 报 "Failed to fetch dynamically imported module"）。
+      "@base-ui/react/button",
+      "@base-ui/react/input",
+      "@base-ui/react/tooltip",
+      "@base-ui/react/dialog",
+      "@base-ui/react/tabs",
+      "@base-ui/react/select",
     ],
   },
   server: {

@@ -20,7 +20,7 @@ import {
   workbenchGroups,
 } from "../navRegistry";
 
-/** 全模块可见（取 NAV_ENTRIES 里声明的全部 moduleId），确保拿到完整 30 项 */
+/** 全模块可见（取 NAV_ENTRIES 里声明的全部 moduleId），确保拿到完整 32 项 */
 const allModules = NAV_ENTRIES.filter((entry) => entry.moduleId).map(
   (entry) => ({
     id: entry.moduleId as string,
@@ -43,9 +43,9 @@ describe("工作台分组结构（6 组 × ≤6 项）", () => {
     }
   });
 
-  it("条目总数 30 且 id 唯一（拆分不漏项、不重复登记）", () => {
+  it("条目总数 32 且 id 唯一（拆分不漏项、不重复登记）", () => {
     const items = groups.flatMap((group) => group.items);
-    expect(items).toHaveLength(30);
+    expect(items).toHaveLength(32);
     expect(new Set(items.map((item) => item.id)).size).toBe(items.length);
     // 工作台条目必须是页面型（无 path 的动作型入口不该出现在目录页）
     expect(items.filter((item) => !item.path)).toEqual([]);

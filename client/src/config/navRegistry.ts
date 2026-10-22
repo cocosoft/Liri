@@ -387,6 +387,29 @@ export const NAV_ENTRIES: NavEntry[] = [
     workbenchGroup: "content",
     order: { workbench: 440 },
   },
+  {
+    // 2026-10-22 补孤岛：/tts 此前**零入口**（路由存在、全仓无任何链接）⇒ 前端未暴露该能力
+    // 名称取页面自身的 h2（`tts.pageTitle` = 「TTS 语音管理」），不另造一个叫法
+    id: "wb-tts",
+    labelKey: "tts.pageTitle",
+    icon: WaveformIcon,
+    path: "/tts",
+    moduleId: "media",
+    surfaces: ["workbench"],
+    workbenchGroup: "content",
+    order: { workbench: 450 },
+  },
+  {
+    // 2026-10-22 补孤岛：/image 此前只能从聊天里"图像生成结果卡"进入（无导航入口）
+    id: "wb-image",
+    labelKey: "image.title",
+    icon: ImageIcon,
+    path: "/image",
+    moduleId: "media",
+    surfaces: ["workbench"],
+    workbenchGroup: "content",
+    order: { workbench: 460 },
+  },
 
   // ── 工作台「可观测与安全」 + 首页 ────────────────────────
   {

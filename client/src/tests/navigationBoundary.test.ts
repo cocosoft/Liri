@@ -19,6 +19,12 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import {
+  NAV_ENTRIES,
+  toEnabledModuleIds,
+  workbenchGroups,
+} from "../config/navRegistry";
+
 const read = (rel: string): string =>
   readFileSync(resolve(__dirname, rel), "utf-8");
 
@@ -26,6 +32,15 @@ const routesSrc = read("../routes/index.tsx");
 const workStoreSrc = read("../stores/workStore.ts");
 const settingsSrc = read("../components/views/SettingsPage.tsx");
 const workItemsSrc = read("../components/Workspace/WorkItemsPage.tsx");
+const headerSrc = read("../components/common/Header.tsx");
+
+/** 全模块可见下的工作台条目（用于断言"孤岛页已补入口"） */
+const allModules = NAV_ENTRIES.filter((entry) => entry.moduleId).map(
+  (entry) => ({ id: entry.moduleId as string }),
+);
+const allPaths = workbenchGroups(toEnabledModuleIds(allModules))
+  .flatMap((group) => group.items)
+  .map((item) => item.path);
 
 describe("/work 不再是第二个工作台", () => {
   it("路由指向工作项页，且不再引用 WorkbenchPage", () => {
@@ -68,5 +83,17 @@ describe("设置侧「相关入口」交叉链接", () => {
     expect(settingsSrc).toContain("closePanel()");
     expect(settingsSrc).toContain("navigate(link.path)");
     expect(settingsSrc).toContain('t("settings.relatedEntry")');
+  });
+});
+
+describe("孤岛页面必须可达（前端充分暴露后端能力）", () => {
+  it("/tts 与 /image 已纳入工作台目录（此前零入口 / 仅聊天结果卡）", () => {
+    expect(allPaths).toContain("/tts");
+    expect(allPaths).toContain("/image");
+  });
+
+  it("帮助中心在顶栏常驻（不再只藏在默认收起的「个人」组里）", () => {
+    expect(headerSrc).toContain('navigate("/help")');
+    expect(headerSrc).toContain("header.helpCenter");
   });
 });

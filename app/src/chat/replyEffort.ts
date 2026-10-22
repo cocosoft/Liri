@@ -78,8 +78,10 @@ export function buildReplyEffortPrompt(level: unknown): string {
 }
 
 /**
- * 档位 → 思考预算（token）。**预留**：当前仅随 `metadata.thinkingBudget` 落库，
- * 无 provider 读取；`auto` ⇒ `undefined`（不设定预算）。
+ * 档位 → 思考预算（token）。`auto` ⇒ `undefined`（不设定预算）。
+ *
+ * 2026-10-23（`/effort` 第二步）：预算已由 `resolveThinkingForSession()` 接入本轮
+ * `thinking` 配置，并经 Provider 下发（Messages API / Chat Completions / Gemini）。
  */
 export function resolveEffortThinkingBudget(
   level: unknown
@@ -87,4 +89,37 @@ export function resolveEffortThinkingBudget(
   const normalized = normalizeReplyEffort(level);
   if (normalized === 'auto') return undefined;
   return EFFORT_TO_BUDGET[normalized];
+}
+
+/** 思考配置（与 `ChatOptions.thinking` / `SendMessageOptions.thinking` 同构） */
+export type ReplyThinkingConfig =
+  | { type: 'adaptive' }
+  | { type: 'enabled'; budgetTokens: number }
+  | { type: 'disabled' };
+
+/**
+ * 会话元数据 → 本轮思考配置（2026-10-23，`/effort` 第二步）。
+ *
+ * 规则：
+ * - `supportsThinking === false`（模型 `capabilities` 无 `thinking`）⇒ **不注入**；
+ * - 优先用显式 `metadata.thinkingBudget`（`/effort` 落库值），否则由 `effortLevel` 推导；
+ * - `auto` / 非法 / 预算 ≤ 0 ⇒ **不注入**（与接线前逐字一致）。
+ *
+ * @param metadata 会话元数据（`{ effortLevel?, thinkingBudget? }`）
+ * @param supportsThinking 该模型是否支持思考（DB capabilities 判定结果）
+ */
+export function resolveThinkingForSession(
+  metadata: Record<string, unknown> | undefined,
+  supportsThinking: boolean
+): ReplyThinkingConfig | undefined {
+  if (!supportsThinking) return undefined;
+
+  const explicit = metadata?.['thinkingBudget'];
+  const budget =
+    typeof explicit === 'number' && explicit > 0
+      ? explicit
+      : resolveEffortThinkingBudget(metadata?.['effortLevel']);
+
+  if (budget === undefined || budget <= 0) return undefined;
+  return { type: 'enabled', budgetTokens: budget };
 }

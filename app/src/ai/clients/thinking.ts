@@ -97,6 +97,22 @@ export function getThinkingBudgetForModel(
   return EFFORT_TO_BUDGET[eff] ?? DEFAULT_THINKING_BUDGET_TOKENS;
 }
 
+/**
+ * 思考预算 → OpenAI 兼容协议的 `reasoning_effort` 档位（2026-10-23，`/effort` 第二步）。
+ *
+ * 预算语义与 `EFFORT_TO_BUDGET` 对齐：≤4000 ⇒ low / ≤16000 ⇒ medium / 其余 ⇒ high。
+ * 非 `enabled`（缺省 / disabled / adaptive）⇒ `undefined`（不下发，走端点默认）。
+ */
+export function toReasoningEffort(
+  config?: ThinkingConfig
+): ThinkingEffort | undefined {
+  if (!config || config.type !== 'enabled') return undefined;
+  const budget = config.budgetTokens;
+  if (budget <= EFFORT_TO_BUDGET.low) return 'low';
+  if (budget <= EFFORT_TO_BUDGET.medium) return 'medium';
+  return 'high';
+}
+
 export function shouldEnableThinkingByDefault(): boolean {
   if (configManager.env('MAX_THINKING_TOKENS')) {
     return parseInt(configManager.env('MAX_THINKING_TOKENS')!, 10) > 0;

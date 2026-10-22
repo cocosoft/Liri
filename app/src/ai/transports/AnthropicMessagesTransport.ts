@@ -259,11 +259,28 @@ export class MessagesApiTransport extends BaseTransport {
         return blocks;
       });
 
+    // 2026-10-23（`/effort` 第二步）：`thinking.enabled` ⇒ 下发 budget_tokens。
+    // Messages API 要求 `max_tokens > budget_tokens` ⇒ 必要时自动抬高输出上限。
+    const thinking =
+      params.thinking?.type === 'enabled'
+        ? {
+            type: 'enabled' as const,
+            budget_tokens: params.thinking.budgetTokens,
+          }
+        : undefined;
+    const requestedMaxTokens = params.maxTokens ?? 4096;
+
     const body: Record<string, unknown> = {
       model: params.model,
-      max_tokens: params.maxTokens ?? 4096,
+      max_tokens: thinking
+        ? Math.max(requestedMaxTokens, thinking.budget_tokens + 1024)
+        : requestedMaxTokens,
       messages,
     };
+
+    if (thinking) {
+      body.thinking = thinking;
+    }
 
     if (systemMsg.length > 0) {
       body.system = systemMsg;

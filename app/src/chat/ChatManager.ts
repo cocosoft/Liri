@@ -1894,6 +1894,8 @@ export class ChatManagerImpl implements ChatManager {
     options?: SendMessageOptions
   ): ChatManagerTAORContext {
     return buildTAORContext(sessionId, toolDefinitions, options, {
+      // 2026-10-23（`/effort` 第二步）：会话元数据 → 本轮 thinking（同步只读，含归属校验）
+      getSessionMetadata: (id) => this.sessionLifecycle.getSessionMetadata(id),
       getToolInteraction: (name) => {
         const tool = this.toolRegistry?.getTool(name);
         if (!tool) return undefined;

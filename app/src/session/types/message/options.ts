@@ -135,6 +135,21 @@ export interface SendMessageOptions {
   maxTokens?: number;
 
   /**
+   * 思考配置（2026-10-23，`/effort` 第二步）
+   *
+   * 由 chat 层按会话 `metadata.effortLevel` / `thinkingBudget` 解析，并经模型
+   * `capabilities`（DB `thinking`）门控后注入；各 Provider 按自身协议序列化：
+   * `thinking.budget_tokens`（Messages API）/ `reasoning_effort`（Chat Completions）/
+   * `thinkingConfig.thinkingBudget`（Gemini）。
+   *
+   * **缺省 ⇒ 不下发**（行为零变更）。此处用结构类型，避免 session → ai 的类型级依赖。
+   */
+  thinking?:
+    | { type: 'adaptive' }
+    | { type: 'enabled'; budgetTokens: number }
+    | { type: 'disabled' };
+
+  /**
    * 自定义系统提示词（覆盖默认）
    */
   systemPrompt?: string;

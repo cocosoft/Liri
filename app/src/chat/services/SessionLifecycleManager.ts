@@ -766,6 +766,21 @@ export class SessionLifecycleManager {
   }
 
   /**
+   * 读取会话元数据（同步只读投影；无会话 / 无权限 ⇒ `undefined`）。
+   *
+   * 2026-10-23（`/effort` 第二步）：chat 层据此解析本轮 `thinking` 配置
+   * （`metadata.effortLevel` / `metadata.thinkingBudget`），与消息读取同口径做归属校验。
+   */
+  getSessionMetadata(sessionId: string): Record<string, unknown> | undefined {
+    const session = this._getLocalSession(sessionId);
+    if (!session) return undefined;
+    if (!canAccessSession(this._ownerOf(session), getRequestPrincipal())) {
+      return undefined;
+    }
+    return session.metadata as Record<string, unknown> | undefined;
+  }
+
+  /**
    * 搜索消息
    *
    * 多租户 P3（2026-10-23）：与 `getSessionMessages` 同口径 —— 指定 `sessionId` 时复核归属，

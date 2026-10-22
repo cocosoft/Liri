@@ -88,6 +88,19 @@ export interface NormalizedResponse {
 }
 
 /**
+ * 思考配置（与 `ai/providers/AIProvider.ChatOptions.thinking` 同构）
+ *
+ * 2026-10-23（`/effort` 第二步）：传输层按各协议把它序列化成
+ * `thinking.budget_tokens`（Messages API）/ `reasoning_effort`（Chat Completions）/
+ * `generationConfig.thinkingConfig.thinkingBudget`（Gemini）。
+ * 是否允许启用由**上层**按模型 `capabilities` 判定，传输层只负责序列化。
+ */
+export type TransportThinkingConfig =
+  | { type: 'adaptive' }
+  | { type: 'enabled'; budgetTokens: number }
+  | { type: 'disabled' };
+
+/**
  * 传输层请求参数
  * 统一的请求构建参数，各 Transport 按需转换
  */
@@ -119,6 +132,8 @@ export interface TransportRequestParams {
   stopSequences?: string[];
   /** 是否启用流式 */
   stream?: boolean;
+  /** 思考配置（`enabled` 时各协议按需序列化；缺省 ⇒ 不下发，行为零变更） */
+  thinking?: TransportThinkingConfig;
   /** 提供商特有扩展参数 */
   extra?: Record<string, unknown>;
 }

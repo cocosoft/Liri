@@ -59,6 +59,15 @@ export class GeminiTransport extends BaseTransport {
       generationConfig: {
         maxOutputTokens: params.maxTokens ?? 4096,
         temperature: params.temperature ?? 1.0,
+        // 2026-10-23（`/effort` 第二步）：思考预算 → thinkingConfig.thinkingBudget。
+        // 非 `enabled` ⇒ 不下发（走端点默认，行为零变更）。
+        ...(params.thinking?.type === 'enabled'
+          ? {
+              thinkingConfig: {
+                thinkingBudget: params.thinking.budgetTokens,
+              },
+            }
+          : {}),
       },
     };
 

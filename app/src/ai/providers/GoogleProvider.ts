@@ -33,6 +33,7 @@ import type {
   ToolDefinition,
 } from '../models/types';
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
+import type { ThinkingConfig } from '../clients/thinking';
 import {
   AppError,
   ErrorCategory,
@@ -88,6 +89,8 @@ export class GoogleProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      /** 2026-10-23（`/effort` 第二步）：思考配置（`enabled` ⇒ thinkingConfig） */
+      thinking?: ThinkingConfig;
       /** 外部取消信号（用户停止/会话切换），任一触发即中断请求 */
       signal?: AbortSignal;
     }
@@ -105,6 +108,7 @@ export class GoogleProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      thinking?: ThinkingConfig;
       signal?: AbortSignal;
     }
   ): Promise<ChatResponse> {
@@ -118,6 +122,7 @@ export class GoogleProvider extends BaseAIProvider {
       systemPrompt,
       maxTokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
+      thinking: options?.thinking,
     });
 
     const url = `${this.baseUrl}/models/${model}:generateContent?key=${this.apiKey}`;
@@ -187,6 +192,7 @@ export class GoogleProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      thinking?: ThinkingConfig;
       signal?: AbortSignal;
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
@@ -200,6 +206,7 @@ export class GoogleProvider extends BaseAIProvider {
       systemPrompt,
       maxTokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
+      thinking: options?.thinking,
       stream: true,
     });
 

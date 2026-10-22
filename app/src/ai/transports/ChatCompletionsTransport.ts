@@ -13,6 +13,7 @@ import type {
   TransportRequestParams,
 } from './types';
 import { isThinkingModeModel } from '../../query/ThinkingMode.js';
+import { toReasoningEffort } from '../clients/thinking.js';
 
 export class ChatCompletionsTransport extends BaseTransport {
   readonly provider = 'chat_completions';
@@ -204,6 +205,14 @@ export class ChatCompletionsTransport extends BaseTransport {
     // 传递 top_p（若指定）
     if (params.top_p !== undefined) {
       request.top_p = params.top_p;
+    }
+
+    // 2026-10-23（`/effort` 第二步）：思考预算 → `reasoning_effort`。
+    // 仅当上层判定该模型支持 thinking（DB capabilities）时才会传入 `enabled`；
+    // 其余情况（缺省 / disabled / adaptive）**不下发**，走端点默认。
+    const reasoningEffort = toReasoningEffort(params.thinking);
+    if (reasoningEffort) {
+      request.reasoning_effort = reasoningEffort;
     }
 
     // 仅在存在有效工具时添加工具字段

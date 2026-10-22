@@ -20,6 +20,7 @@ import type {
   NormalizedResponse,
   NormalizedToolCall,
   TransportRequestParams,
+  TransportThinkingConfig,
 } from './types';
 import type {
   ChatMessage,
@@ -97,6 +98,8 @@ export class TransportProviderAdapter {
     temperature?: number;
     maxTokens?: number;
     stream?: boolean;
+    /** 2026-10-23（`/effort` 第二步）：思考配置，原样交给 transport 序列化 */
+    thinking?: TransportThinkingConfig;
     extra?: Record<string, unknown>;
   }): Record<string, unknown> {
     return this.transport.buildRequest({
@@ -107,6 +110,7 @@ export class TransportProviderAdapter {
       temperature: params.temperature,
       maxTokens: params.maxTokens,
       stream: params.stream,
+      thinking: params.thinking,
       extra: params.extra,
     });
   }

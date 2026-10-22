@@ -26,8 +26,33 @@ import type {
 import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 // S4（2026-10-19）：条目形状收敛到单一真源（含 `expiresAt`）
 import type { PendingInteractionEntry } from '@modules/utils/pendingInteractions';
+// 2026-10-23（`/effort` 第二步）：会话元数据 → 本轮思考配置
+import { resolveThinkingForSession } from '../replyEffort';
 
 const logger = getLogger('chat:manager');
+
+/**
+ * 该模型是否支持思考（DB `capabilities` 含 `thinking`）。
+ *
+ * 2026-10-23（`/effort` 第二步）：按 `model-usage.md` 的口径，思考能力**只认 DB 能力位**，
+ * 不按模型名硬编码。动态导入以免 chat → ai 的静态耦合与启动面增长。
+ */
+async function modelSupportsThinking(
+  model: string | undefined
+): Promise<boolean> {
+  if (!model) return false;
+  try {
+    const [{ modelSupportsCapability }, { ModelCapability }] =
+      await Promise.all([
+        import('../../ai/models/ModelConfigs'),
+        import('../../ai/models/types'),
+      ]);
+    return modelSupportsCapability(model, ModelCapability.THINKING);
+  } catch {
+    // 能力表不可用（早期启动 / DB 未就绪）⇒ 不注入，保持既有行为
+    return false;
+  }
+}
 
 export interface TaorContextDeps {
   /** 工具可见性（未知工具 ⇒ undefined） */
@@ -79,6 +104,15 @@ export interface TaorContextDeps {
   ) => Promise<{ ok: boolean }>;
   getStreamTailSeq: (sessionId: string) => Promise<number>;
   flushPendingPersists: () => Promise<void>;
+  /**
+   * 读取会话元数据（2026-10-23，`/effort` 第二步）。
+   *
+   * 用于把 `effortLevel` / `thinkingBudget` 解析成本轮 `thinking` 配置；
+   * **未提供 ⇒ 不注入**（行为与接线前逐字一致）。
+   */
+  getSessionMetadata?: (
+    sessionId: string
+  ) => Record<string, unknown> | undefined;
 }
 
 /** 构建 TAORLoopDeps 上下文（批次4：sendMessage 路径）。 */
@@ -121,8 +155,15 @@ export function buildTAORContext(
         });
       }
       const client = deps.getClientForModel(options?.model);
+      // 2026-10-23（`/effort` 第二步）：会话 effort/thinkingBudget → 本轮 thinking 配置。
+      // 模型不具备 `thinking` 能力 ⇒ 不注入；元数据缺失 / auto ⇒ 不注入（零行为变更）。
+      const thinking = resolveThinkingForSession(
+        deps.getSessionMetadata?.(sessionId),
+        await modelSupportsThinking(options?.model)
+      );
       const response = await client.sendMessage(projected.messages, {
         ...options,
+        ...(thinking ? { thinking } : {}),
         tools: (opts?.tools as Array<Record<string, unknown>>)?.length
           ? (opts?.tools as unknown as ToolDefinition[])
           : undefined,

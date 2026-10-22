@@ -164,6 +164,8 @@ export class AnthropicProvider extends BaseAIProvider {
       systemPrompt,
       maxTokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
+      // 2026-10-23（`/effort` 第二步）：思考配置 → messages API 的 thinking.budget_tokens
+      thinking: options?.thinking,
       stream: true,
     });
 
@@ -514,6 +516,8 @@ export class AnthropicProvider extends BaseAIProvider {
       systemPrompt,
       maxTokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
+      // 2026-10-23（`/effort` 第二步）：思考配置 → messages API 的 thinking.budget_tokens
+      thinking: options?.thinking,
     });
 
     const response = await fetch(`${baseUrl}/v1/messages`, {

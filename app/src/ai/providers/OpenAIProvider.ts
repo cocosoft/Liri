@@ -41,6 +41,7 @@ import type {
   VideoGenerationParams,
   VideoGenerationResult,
 } from './AIProvider';
+import type { ThinkingConfig } from '../clients/thinking';
 import {
   AppError,
   ErrorCategory,
@@ -270,6 +271,8 @@ export class OpenAIProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      /** 2026-10-23（`/effort` 第二步）：思考配置（`enabled` ⇒ reasoning_effort） */
+      thinking?: ThinkingConfig;
       /** P0 压缩超时治理：外部取消信号（压缩超时真正中断请求，消灭僵尸压缩） */
       signal?: AbortSignal;
     }
@@ -287,6 +290,7 @@ export class OpenAIProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      thinking?: ThinkingConfig;
       /** P0 压缩超时治理：外部取消信号（压缩超时真正中断请求，消灭僵尸压缩） */
       signal?: AbortSignal;
     }
@@ -298,6 +302,7 @@ export class OpenAIProvider extends BaseAIProvider {
       tools: options?.tools,
       maxTokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
+      thinking: options?.thinking,
     });
 
     try {
@@ -370,6 +375,8 @@ export class OpenAIProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      /** 2026-10-23（`/effort` 第二步）：思考配置（`enabled` ⇒ reasoning_effort） */
+      thinking?: ThinkingConfig;
       signal?: AbortSignal;
     }
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
@@ -380,6 +387,7 @@ export class OpenAIProvider extends BaseAIProvider {
       tools: options?.tools,
       maxTokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
+      thinking: options?.thinking,
       stream: true,
       // TB-11 修复（2026-09-23）：OpenAI 兼容端点在流式模式下**默认不回传 usage**
       // （实测 deepseek-v4-flash：流式 SSE 无任何 usage 字段），需按 Chat Completions

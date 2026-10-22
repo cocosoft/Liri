@@ -8,6 +8,13 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { isCheckpointLogEnabled } from '@modules/config';
+// 多租户 P1（2026-10-21）：检查点存储按请求身份解析（模块级单例不得在 import 期定路径）
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@modules/core/identity/requestScope.js';
+import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
 import { EventEmitter } from 'events';
 import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
 import { DBTAORCheckpointStorage } from './DBTAORCheckpointStorage.js';
@@ -64,12 +71,45 @@ export interface ResumeProgressEvent {
 }
 
 export class ResumeManager {
-  private storage: TAORCheckpointStorage;
+  /** 调用方注入的存储：恒用它，不按身份解析、也不托管其生命周期 */
+  private readonly injectedStorage: TAORCheckpointStorage | null;
+  /** 缺省存储按归属键缓存（本地身份 = `local:local`，与其他按身份缓存同键口径） */
+  private readonly scopedStorages = new Map<string, TAORCheckpointStorage>();
   private emitter: EventEmitter;
 
   constructor(storage?: TAORCheckpointStorage) {
-    this.storage = storage ?? new DBTAORCheckpointStorage();
+    this.injectedStorage = storage ?? null;
     this.emitter = new EventEmitter();
+  }
+
+  /**
+   * 当前请求身份对应的检查点存储（多租户 P1）。
+   *
+   * 为什么不能在构造期建一个：`resumeManager` 是**模块级单例**（import 期构造），那时没有
+   * 请求作用域 ⇒ 缺省路径恒为宿主 `app.db`；租户请求（会话删除 `clearSession` / 预算挂起
+   * 扫描 `scanBudgetSuspends`）会读写宿主库，而该租户分区里的检查点无人清理。
+   * 改为按 `principalKeyOf` 惰性建实例后，每个身份拿到自己分区上的库（本地身份零变更）。
+   *
+   * 非本地身份的实例登记进 `scopedResources`：删租户时**关连接 + 摘除本表条目**。
+   * 只关不摘会让下次访问拿到"路径指向已删目录"的旧实例。
+   */
+  private get storage(): TAORCheckpointStorage {
+    if (this.injectedStorage) return this.injectedStorage;
+
+    const principal = getRequestPrincipal();
+    const key = principalKeyOf(principal);
+    const cached = this.scopedStorages.get(key);
+    if (cached) return cached;
+
+    const storage = new DBTAORCheckpointStorage();
+    this.scopedStorages.set(key, storage);
+    if (!isLocalPrincipal(principal)) {
+      registerScopedResource(key, () => {
+        this.scopedStorages.delete(key);
+        void storage.close?.();
+      });
+    }
+    return storage;
   }
 
   /**

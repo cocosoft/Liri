@@ -28,6 +28,9 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// 2026-10-22：`type:'prompt'` 的斜杠命令（security-review / plan / review …）展开为
+// 本轮运行时补充提示词，而不是回一段用法文案（见 promptCommand.ts 头注）。
+import { expandPromptCommand, mergeRuntimeNote } from './promptCommand.js';
 // P0-1② 覆盖面补齐（2026-10-04，final-output-guard-no-tool-turns.md）：非流式无工具回合终稿校验
 import { guardFinalOutput } from '../finalOutputGuard.js';
 import {
@@ -318,7 +321,19 @@ export class ChatOrchestrator {
 
     // 检查是否是命令
     if (safeContent.startsWith('/')) {
-      return this._handleCommand(safeContent, options);
+      const expanded = await this._expandPromptCommand(safeContent);
+      if (expanded === null) {
+        return this._handleCommand(safeContent, options);
+      }
+      // prompt 型命令：本轮**不短路**，展开后的提示词作为运行时补充随请求注入；
+      // 用户消息仍是用户敲的那条 `/security-review`（落库/回显不变）。
+      options = {
+        ...options,
+        runtimeSystemNote: mergeRuntimeNote(
+          options?.runtimeSystemNote,
+          expanded
+        ),
+      };
     }
 
     // 获取或创建会话
@@ -907,6 +922,27 @@ export class ChatOrchestrator {
     });
   }
 
+  /**
+   * 斜杠命令 → **prompt 型**展开后的提示词；其余情况返回 `null`（调用方沿用命令短路）。
+   *
+   * 判定与展开全在 `promptCommand.ts`（纯函数，可单测）；此处只做依赖注入与失败日志：
+   * 展开失败 ⇒ 记 warning 并按普通命令处理（不阻断本轮对话）。
+   */
+  private async _expandPromptCommand(content: string): Promise<string | null> {
+    const { getCommandManager } = await import('../../commands/index.js');
+    const result = await expandPromptCommand(content, {
+      getCommand: (name) => getCommandManager().getCommand(name),
+    });
+    if (result.ok) return result.prompt;
+    if (result.error) {
+      logger.warning('prompt 型命令展开失败，按普通命令处理', {
+        command: result.name,
+        error: result.error,
+      });
+    }
+    return null;
+  }
+
   /** 命令处理（/ 前缀） */
   private async _handleCommand(
     content: string,
@@ -976,16 +1012,28 @@ export class ChatOrchestrator {
     // 我这里」）。命令不耗 token、不入模型请求 ⇒ 在会话互斥/预算准入**之前**短路，
     // 与非流式命令分支位置一致（`sendMessage` 亦在 estop / 互斥之前判命令）。
     if (content.startsWith('/')) {
-      const message = await this._handleCommand(content, options);
-      const text = typeof message.content === 'string' ? message.content : '';
-      if (text !== '') {
-        yield {
-          type: 'text',
-          content: text,
-          sessionId: message.sessionId ?? options?.sessionId ?? '',
-        } as ChatStreamChunk;
+      // 2026-10-22：prompt 型命令不短路 —— 展开后的提示词作为本轮运行时补充
+      // （同 app/src/chat/orchestrator/promptCommand.ts 头注）。
+      const expanded = await this._expandPromptCommand(content);
+      if (expanded === null) {
+        const message = await this._handleCommand(content, options);
+        const text = typeof message.content === 'string' ? message.content : '';
+        if (text !== '') {
+          yield {
+            type: 'text',
+            content: text,
+            sessionId: message.sessionId ?? options?.sessionId ?? '',
+          } as ChatStreamChunk;
+        }
+        return message;
       }
-      return message;
+      options = {
+        ...options,
+        runtimeSystemNote: mergeRuntimeNote(
+          options?.runtimeSystemNote,
+          expanded
+        ),
+      };
     }
 
     const { runStreamMessage } = await import('./streamMessageFlow.js');

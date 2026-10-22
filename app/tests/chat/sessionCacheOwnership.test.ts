@@ -41,7 +41,10 @@ function makeSession(owner?: {
 }
 
 /** 只走缓存分支 ⇒ 其余依赖可用空替身（缓存未命中才会被调用） */
-function makeLifecycle(session: ChatSession): SessionLifecycleManager {
+function makeLifecycle(
+  session: ChatSession,
+  messageService: unknown = {}
+): SessionLifecycleManager {
   return new SessionLifecycleManager({
     chatSessions: new Map([[session.id, session]]),
     currentSessionIdRef: { get: () => null, set: () => {} },
@@ -51,7 +54,7 @@ function makeLifecycle(session: ChatSession): SessionLifecycleManager {
     sessionGateway: {} as unknown as SessionGateway,
     sessionAccess: {} as unknown as SessionAccessFacade,
     hookChainManager: {} as unknown as HookChainManager,
-    messageService: {} as unknown as MessageService,
+    messageService: messageService as MessageService,
   });
 }
 
@@ -92,5 +95,85 @@ describe('会话内存缓存归属校验（P3）', () => {
     expect((error as Error).message).toContain(
       'does not belong to the current identity'
     );
+  });
+});
+
+/**
+ * 2026-10-23：`getSessionMessages` / `searchMessages` 此前只做 map 查表、不校验归属，
+ * `brief` / `insights` 等按 `session_id` 读消息的命令可跨身份读取他人会话。
+ * 现在与 `getOrLoadSession` 同口径（本地恒放行；已认证必须归属一致；无归属 ⇒ 拒绝）。
+ */
+describe('会话消息读取归属校验（P3，2026-10-23）', () => {
+  const PRIVATE_MESSAGE = {
+    id: 'm-private-1',
+    role: 'user',
+    content: 'alice 的私密内容',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as unknown as ChatSession['messages'][number];
+
+  function makeSessionWithMessages(): ChatSession {
+    const session = makeSession({ tenantId: 'acme', userId: 'alice' });
+    session.messages = [PRIVATE_MESSAGE];
+    return session;
+  }
+
+  it('getSessionMessages：归属者可读，他人 ⇒ 空数组', async () => {
+    const lifecycle = makeLifecycle(makeSessionWithMessages());
+
+    const own = await runWithPrincipal(ALICE, async () =>
+      lifecycle.getSessionMessages('s-cache-1')
+    );
+    expect(own).toHaveLength(1);
+    expect(own[0].id).toBe('m-private-1');
+
+    const other = await runWithPrincipal(BOB, async () =>
+      lifecycle.getSessionMessages('s-cache-1')
+    );
+    expect(other).toEqual([]);
+  });
+
+  it('getSessionMessages：本地身份恒可读（含无归属的历史会话）', () => {
+    const owned = makeLifecycle(makeSessionWithMessages());
+    expect(owned.getSessionMessages('s-cache-1')).toHaveLength(1);
+
+    const legacy = makeSession();
+    legacy.messages = [PRIVATE_MESSAGE];
+    const legacyLifecycle = makeLifecycle(legacy);
+    expect(legacyLifecycle.getSessionMessages('s-cache-1')).toHaveLength(1);
+  });
+
+  it('searchMessages：指定 sessionId 时他人 ⇒ 空数组', async () => {
+    const search = (messages: unknown[]) => messages;
+    const lifecycle = makeLifecycle(makeSessionWithMessages(), {
+      searchMessages: search,
+    });
+
+    const own = await runWithPrincipal(ALICE, async () =>
+      lifecycle.searchMessages('私密', 's-cache-1')
+    );
+    expect(own).toHaveLength(1);
+
+    const other = await runWithPrincipal(BOB, async () =>
+      lifecycle.searchMessages('私密', 's-cache-1')
+    );
+    expect(other).toEqual([]);
+  });
+
+  it('searchMessages：不指定 sessionId 时只聚合可访问会话', async () => {
+    const search = (messages: unknown[]) => messages;
+    const lifecycle = makeLifecycle(makeSessionWithMessages(), {
+      searchMessages: search,
+    });
+
+    const own = await runWithPrincipal(ALICE, async () =>
+      lifecycle.searchMessages('私密')
+    );
+    expect(own).toHaveLength(1);
+
+    const other = await runWithPrincipal(BOB, async () =>
+      lifecycle.searchMessages('私密')
+    );
+    expect(other).toEqual([]);
   });
 });

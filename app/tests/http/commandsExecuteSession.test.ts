@@ -24,8 +24,17 @@ let nextResult: Record<string, unknown> = {
   value: 'ok',
   type: 'text',
 };
+/** 会话可用性：`undefined` ⇒ 守卫放行（测试替身）；`false` ⇒ 404 */
+let canUseSession: boolean | undefined = true;
+/** 聊天管理器是否提供（早期启动 / 测试替身可能没有） */
+let hasChatManager = true;
 
 const coreAPIStub = {
+  get chatManager() {
+    return hasChatManager
+      ? { canUseSession: async () => canUseSession }
+      : undefined;
+  },
   getCommandsOpsPort: async () => ({
     listCommands: async () => [],
     executeCommand: async (command: string, sessionId?: string) => {
@@ -46,6 +55,8 @@ afterAll(() => {
 beforeEach(() => {
   calls = [];
   nextResult = { success: true, value: 'ok', type: 'text' };
+  canUseSession = true;
+  hasChatManager = true;
 });
 
 const { handleExecuteCommand } =
@@ -196,5 +207,60 @@ describe('POST /v1/commands/execute：命令级 error 透出', () => {
     const payload = JSON.parse(body());
     expect(payload.success).toBe(true);
     expect(payload.error).toBe('');
+  });
+});
+
+/**
+ * 多租户 P3（2026-10-23）：会话级命令的越权读守卫。
+ *
+ * 现场：`SessionLifecycleManager.getSessionMessages` 原先只做 map 查表、不校验归属，
+ * `brief` / `insights` 这类按 `session_id` 读消息的命令因此可跨身份读取他人会话。
+ * handler 现在与 `chat-handlers.respond404IfSessionUnavailable` 同口径前置 404
+ * （不泄露存在性）；聊天管理器未提供该能力（测试替身 / 早期启动）⇒ 放行。
+ */
+describe('POST /v1/commands/execute：会话可用性守卫（多租户 P3）', () => {
+  test('canUseSession=false（跨身份 / 不存在）⇒ 404 且不触达执行器', async () => {
+    canUseSession = false;
+    const { res, status, body } = makeRes();
+
+    await handleExecuteCommand(
+      ctx,
+      makeReq(
+        JSON.stringify({ command: 'insights summary', session_id: 's-other' })
+      ),
+      res
+    );
+
+    expect(status()).toBe(404);
+    expect(JSON.parse(body()).error.type).toBe('not_found_error');
+    expect(calls).toEqual([]);
+  });
+
+  test('chatManager 缺 canUseSession ⇒ 放行（守卫不是硬依赖）', async () => {
+    hasChatManager = false;
+    const { res, status } = makeRes();
+
+    await handleExecuteCommand(
+      ctx,
+      makeReq(JSON.stringify({ command: 'brief', session_id: 's-1' })),
+      res
+    );
+
+    expect(status()).toBe(200);
+    expect(calls).toEqual([{ command: 'brief', sessionId: 's-1' }]);
+  });
+
+  test('不带 session_id ⇒ 不做会话守卫（无会话命令不受影响）', async () => {
+    canUseSession = false;
+    const { res, status } = makeRes();
+
+    await handleExecuteCommand(
+      ctx,
+      makeReq(JSON.stringify({ command: 'version' })),
+      res
+    );
+
+    expect(status()).toBe(200);
+    expect(calls).toEqual([{ command: 'version', sessionId: undefined }]);
   });
 });

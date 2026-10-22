@@ -30,6 +30,9 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 // C1（2026-09-30 D-111，零散单点收尾）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('http:commands');
 
 /**
  * 处理列出所有命令请求 GET /v1/commands
@@ -100,6 +103,26 @@ export async function handleExecuteCommand(
       typeof session_id === 'string' && session_id.trim()
         ? session_id.trim()
         : undefined;
+
+    // 多租户 P3（2026-10-23）：会话级命令（brief / insights 等）会按 session_id 读取本会话消息。
+    // 跨身份 / 不存在的会话 ⇒ 404，与 `chat-handlers.respond404IfSessionUnavailable` 同口径
+    // （不泄露存在性）。聊天管理器未提供该能力（测试替身 / 早期启动）⇒ 放行，不把守卫变成硬依赖。
+    if (sessionId) {
+      const canUse = await getCoreAPI().chatManager?.canUseSession?.(sessionId);
+      if (canUse === false) {
+        logger.info('会话不可用（跨身份或不存在），命令执行前返回 404', {
+          sessionId,
+          command,
+        });
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            error: { message: 'Session not found', type: 'not_found_error' },
+          })
+        );
+        return;
+      }
+    }
 
     const result = await (
       await getCoreAPI().getCommandsOpsPort()

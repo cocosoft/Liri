@@ -734,33 +734,62 @@ export class SessionLifecycleManager {
 
   /**
    * 获取会话消息
+   *
+   * 多租户 P3（2026-10-23）：内存缓存是**进程级**（键只有 sessionId）⇒ 命中后必须复核归属，
+   * 与 `getOrLoadSession` 同口径（fail-closed）。此前这里只做 map 查表，
+   * `brief` / `insights` 等按 `session_id` 读消息的命令因此可跨身份读取他人会话。
+   *
+   * 本方法是**同步只读投影**（调用方按"没有消息"处理），故拒绝时返回空数组而非抛错；
+   * 拒绝事实由 warning 留痕，HTTP 侧另由 `POST /v1/commands/execute` 前置 404 兜住。
+   *
    * @param sessionId 会话ID
-   * @returns 消息列表
+   * @returns 消息列表（无会话 / 无权限 ⇒ 空数组）
    */
   getSessionMessages(sessionId: string): Message[] {
     const session = this._getLocalSession(sessionId);
-    return session?.messages || [];
+    if (!session) return [];
+
+    if (!canAccessSession(this._ownerOf(session), getRequestPrincipal())) {
+      logger.warn('拒绝读取他人会话消息', { sessionId });
+      return [];
+    }
+
+    return session.messages || [];
   }
 
   /**
    * 搜索消息
+   *
+   * 多租户 P3（2026-10-23）：与 `getSessionMessages` 同口径 —— 指定 `sessionId` 时复核归属，
+   * 不指定时**只聚合当前身份可访问的会话**（本地身份恒放行，行为零变更）。
+   *
    * @param query 搜索查询
    * @param sessionId 会话ID（可选）
    * @returns 消息列表
    */
   searchMessages(query: string, sessionId?: string): Message[] {
+    const principal = getRequestPrincipal();
+
     if (sessionId) {
       const session = this._getLocalSession(sessionId);
-      if (session) {
-        return this.messageService.searchMessages(session.messages, query);
+      if (!session) return [];
+      if (!canAccessSession(this._ownerOf(session), principal)) {
+        logger.warn('拒绝搜索他人会话消息', { sessionId });
+        return [];
       }
-      return [];
-    } else {
-      const allMessages: Message[] = [];
-      for (const session of this.chatSessions.values()) {
-        allMessages.push(...session.messages);
-      }
-      return this.messageService.searchMessages(allMessages, query);
+      return this.messageService.searchMessages(session.messages, query);
     }
+
+    const allMessages: Message[] = [];
+    for (const session of this.chatSessions.values()) {
+      if (!canAccessSession(this._ownerOf(session), principal)) continue;
+      allMessages.push(...session.messages);
+    }
+    return this.messageService.searchMessages(allMessages, query);
+  }
+
+  /** 读取会话归属（`metadata.owner`；本地身份创建的会话与历史会话没有该字段） */
+  private _ownerOf(session: ChatSession): SessionOwner | undefined {
+    return (session.metadata as { owner?: SessionOwner } | undefined)?.owner;
   }
 }

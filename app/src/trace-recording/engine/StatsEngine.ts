@@ -198,6 +198,27 @@ export class StatsEngine {
     return this.computeSnapshot([...this.buckets.values()]);
   }
 
+  /**
+   * 删除租户后丢弃该归属的统计桶（多租户 P5）。
+   *
+   * 不丢的后果：同名新租户的 `/v1/trace/stats` 一上来就带上"上一世"的调用数、错误数与
+   * token 消耗。本地桶键恒 `''`、其他租户前缀不同 ⇒ 零影响。
+   *
+   * 只管**进程内累计**：落盘的 trace 文件与 `TraceStore` 索引不在本方法内。
+   *
+   * @returns 丢弃的桶数
+   */
+  forgetForTenant(tenantId: string): number {
+    const prefix = `${tenantId}:`;
+    let dropped = 0;
+    for (const key of [...this.buckets.keys()]) {
+      if (!key.startsWith(prefix)) continue;
+      this.buckets.delete(key);
+      dropped += 1;
+    }
+    return dropped;
+  }
+
   /** 把若干桶合并成一份快照（`getSnapshot` / `getAggregateSnapshot` 的共用实现） */
   private computeSnapshot(buckets: StatsBucket[]): StatsSnapshot {
     const callsByModel: Record<string, number> = {};

@@ -271,6 +271,33 @@ export class AnalyticsService {
   }
 
   /**
+   * 删除租户后丢弃该租户的**内存累计**（多租户 P5）。
+   *
+   * 丢两处：① 工具调用桶（`<tenantId>:` 前缀）—— 否则同名新租户一上来就带上旧读数；
+   * ② 事件队列里归属该租户的条目 —— 读侧虽按 `ownerKey` 过滤（不跨身份可见），但留下
+   * 只会让"删了又建"的同一标识读到上一世的事件。
+   *
+   * 本地桶键恒 `local:local`、其他租户前缀不同 ⇒ 零影响。会话表（`sessions`）按会话 id
+   * 记账、**未带归属键**，不在本方法内（随 `clearExpiredSessions` / 重启收敛）。
+   *
+   * @returns 丢弃的**工具调用桶**数（事件条目另行过滤，不计入返回数）
+   */
+  forgetForTenant(tenantId: string): number {
+    const prefix = `${tenantId}:`;
+    let dropped = 0;
+    for (const key of [...this.toolCallBuckets.keys()]) {
+      if (!key.startsWith(prefix)) continue;
+      this.toolCallBuckets.delete(key);
+      dropped += 1;
+    }
+    this.events = this.events.filter(
+      (event) =>
+        typeof event.ownerKey !== 'string' || !event.ownerKey.startsWith(prefix)
+    );
+    return dropped;
+  }
+
+  /**
    * 获取统计信息
    * @returns 统计信息
    */

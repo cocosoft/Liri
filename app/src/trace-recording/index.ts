@@ -118,6 +118,19 @@ export function getAITracePlugin(): AITracePlugin | null {
 }
 
 /**
+ * 删除租户后丢弃该租户的**进程内 trace 统计桶**（多租户 P5）。
+ *
+ * 统计桶按 `ownerKey` 分（`getSnapshot(ownerKey)`），但它是进程内累计 ⇒ 删租户后
+ * 同名新租户的 `/v1/trace/stats` 会带上"上一世"的调用数 / 错误数 / token。
+ * 插件未启动（CLI 冷启动、测试）⇒ 返回 0，不建造假动作。
+ *
+ * 只清**内存累计**：落盘 trace 文件与 `TraceStore` 索引不在此列。
+ */
+export function forgetTraceStatsForTenant(tenantId: string): number {
+  return globalPlugin?.getEngine()?.forgetStatsForTenant(tenantId) ?? 0;
+}
+
+/**
  * 创建并启动 AITracePlugin（始终启用，不可配置关闭）
  *
  * 从环境变量读取配置（options 参数优先级更高）：

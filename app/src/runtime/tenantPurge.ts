@@ -9,8 +9,9 @@
  *   ② **共享单库里的归属行** —— `channel_configs.owner_key`（凭据与配置）、
  *      `cron_jobs.owner_key` / `task_flow.owner_key`（定时任务与任务流）；
  *   ③ **进程内内存态** —— 该租户的 SSE 长连接、通道实例、审批库连接、日预算账本、
- *      危险命令放行缓存、按身份缓存（凭据 / 会话存储 / 成本桶 / 自主运行配额）；
- *      其余内存态（`ChatManager` 会话对象等）随进程重启清空，见 `notPurged`。
+ *      危险命令放行缓存、按身份缓存（凭据 / 会话存储 / 成本桶 / 自主运行配额 /
+ *      分析埋点与工具调用桶 / trace 统计桶）；其余内存态（`ChatManager` 会话对象等）
+ *      随进程重启清空，见 `notPurged`。
  *
  * **可安全重跑**：删除以"前缀匹配 + 不存在即跳过"实现，幂等；目录删除失败
  * （Windows 上仍有句柄）会记入 `blocked`，重启后重跑即可收敛。
@@ -62,7 +63,10 @@ export interface TenantPurgeReport {
     scopedConnections: number;
     /** 丢弃的日预算账本数 */
     dailyBudgets: number;
-    /** 丢弃的**非 DB** 按身份内存缓存数（凭据实例 / 会话存储实例 / 成本累计桶 / 自主运行配额） */
+    /**
+     * 丢弃的**非 DB** 按身份内存缓存数（凭据实例 / 会话存储实例 / 成本累计桶 /
+     * 自主运行配额 / 分析工具调用桶 / trace 统计桶）
+     */
     scopedCaches: number;
     /** 清除的危险命令放行记录数 */
     approvedCommands: number;
@@ -187,8 +191,9 @@ export async function purgeTenant(
       .forgetOwnerPrefix(ownerPrefix);
   });
 
-  // 丢**非 DB** 的按身份内存缓存（凭据实例 / 会话存储实例 / 成本累计桶 / 自主运行配额）：
-  // 留着会把文件写回已删目录，或让同名新租户继承旧用量（含被旧账本占满的并发位）。
+  // 丢**非 DB** 的按身份内存缓存（凭据实例 / 会话存储实例 / 成本累计桶 / 自主运行配额 /
+  // 分析埋点与工具调用桶 / trace 统计桶）：
+  // 留着会把文件写回已删目录，或让同名新租户继承旧用量与旧读数。
   await runStep(report, 'scopedCaches', async () => {
     const { CredentialStore } =
       await import('../ai/credentials/CredentialStore.js');
@@ -197,10 +202,16 @@ export async function purgeTenant(
     const { costTracker } = await import('../cost/CostTracker.js');
     const { forgetAlwaysOnQuotaForTenant } =
       await import('../tasks/alwayson/AlwaysOnQuota.js');
+    const { analyticsService } =
+      await import('../analytics/AnalyticsService.js');
+    const { forgetTraceStatsForTenant } =
+      await import('../trace-recording/index.js');
     let dropped = CredentialStore.forgetScopedForTenant(normalized);
     dropped += await forgetScopedStoragesForTenant(normalized);
     dropped += costTracker.forgetBucketsForTenant(normalized);
     dropped += forgetAlwaysOnQuotaForTenant(normalized);
+    dropped += analyticsService.forgetForTenant(normalized);
+    dropped += forgetTraceStatsForTenant(normalized);
     report.removed.scopedCaches = dropped;
   });
 

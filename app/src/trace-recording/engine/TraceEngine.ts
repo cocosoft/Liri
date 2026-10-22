@@ -52,6 +52,13 @@ export class TraceEngine {
   }
 
   /**
+   * 删除租户后丢弃该归属的统计桶（多租户 P5；落盘 trace 文件与索引不在其内）
+   */
+  forgetStatsForTenant(tenantId: string): number {
+    return this.stats.forgetForTenant(tenantId);
+  }
+
+  /**
    * 获取慢查询阈值
    */
   getSlowThreshold(): number {

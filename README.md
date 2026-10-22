@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.6-blue)
+![Version](https://img.shields.io/badge/version-0.5.7-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.6**
+当前版本：**v0.5.7**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,16 +436,17 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.6 (2026-10-22)
-供应商未就绪 fail-fast + 用量口径归一 + 帮助中心/关于页修正
+#### v0.5.7 (2026-10-22)
+工作台导航重排（搜索 / 最近 / 6 组）+ 收掉第二个工作台外壳 + 两条后端契约缺陷
 
-- ✅ **供应商未就绪不再假成功** - 模型所属供应商凭据缺失/停用时，此前会把模型名发给默认供应商（上游 400 被折成 HTTP 200）；现调用前直接 fail-fast（`AI_CRED_1001` + 可操作文案，零上游调用）
-- ✅ **用量记录按数据源归一** - wire 别名（`deepseek-flash`）与缺失模型名不再另立一档；由 `model_registry.provider_mappings` 反查规范 modelId，模型名缺失时回退响应体真实模型名
-- ✅ **帮助中心快捷键分区修复** - 此前把「默认收起的模态」当内联内容渲染，分区只有标题；抽出 `ShortcutList` 共用，真机复显 9 条
-- ✅ **i18n 缺键清理 / llama 体积格式化** - 扫描 4274 个 `t()` 键补齐 zh/en 双双缺失的 16 处（含字典覆盖棘轮用例）；GB 数值统一「至多 1 位小数」
-- ✅ **关于 Liri 使用应用图标** - 与顶栏 / favicon 同源，替换手绘渐变 "L" 占位块
+- ✅ **工作台目录可搜、可记、可收** - 30 个入口不再同权重平铺：顶部搜索（标题 + 同义词）、「最近使用」（本地 6 条）、分组默认只展开第一组；侧栏与移动底栏不再展开 30 项抽屉，统一直达 `/workbench`
+- ✅ **分组 4 → 6、每组 ≤6 项** - Agent 与自动化 / 模型与能力 / 接入与凭据 / 可观测与安全 / 内容与媒体 / 个人；6 个借用 `settings.*` 命名的入口收回工作台命名；新增结构不变量用例防"组被撑回 9 项"
+- ✅ **收掉第二个工作台外壳（`/work`）** - 它原用 9 个标签复用工作台目录同一批页面组件且无导航入口；现只保留工作项（新建 / 列表 / 删除 / 进入规划），标签状态 store 与三个遗留文件一并删除
+- ✅ **设置 ↔ 工作台 同域互链** - 设置面板标题下新增「相关入口：X →」（模型管理 / 语音测试 / 权限管理 / 用户中心 / 办公），点击先收起抽屉再跳转；判定规则落盘 `.trae/rules/frontend.md §4.4`
+- ✅ **知识库删除后不再「复活」** - 删除时把目录移入 `.trash-bases/<name>-<ts>`（扫描跳过点开头目录，文档可恢复），先移目录后改注册表
+- ✅ **不存在的 `session_id` 返回 404** - 不再被下游静默建造成新会话；任何身份都要求会话确实存在（`session_id` 缺失时仍按既有语义新建）
 
-> 本版为补丁版：修复供应商路由假成功、用量口径与展示面问题，并补齐 i18n 缺键（详见 [CHANGELOG.md](./CHANGELOG.md)）。
+> 本版为补丁版：工作台/设置导航重排并收掉重复工作面，另修 2 条后端契约缺陷（详见 [CHANGELOG.md](./CHANGELOG.md)）。
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

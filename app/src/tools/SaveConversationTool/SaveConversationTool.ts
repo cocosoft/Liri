@@ -13,7 +13,7 @@ import type { ToolUseContext, ToolResult } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import type { SessionMessage } from '@modules/session';
 import { loadSessionMessages } from '../sessionMessageSource';
-import { resolveDataDir } from '@modules/core';
+import { resolveScopedDataDir } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
 import { DEFAULT_LOCALE } from '@modules/constants';
@@ -75,7 +75,9 @@ export class SaveConversationTool extends BaseTool<SaveConversationInput> {
         input.maxLength || 2000
       );
 
-      const saveDir = path.join(resolveDataDir(), 'transcripts');
+      // 2026-10-23：产物目录按身份分区（本地身份与原 resolveDataDir 逐字相同；
+      // 已认证身份 ⇒ `tenants/<t>/users/<u>/transcripts`）
+      const saveDir = path.join(resolveScopedDataDir(), 'transcripts');
       if (!fs.existsSync(saveDir)) {
         fs.mkdirSync(saveDir, { recursive: true });
       }

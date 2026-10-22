@@ -75,4 +75,17 @@ describe('工具侧会话消息读取源', () => {
       expect(source).not.toContain("from '@modules/chat'");
     }
   });
+
+  it('SaveConversationTool 的产物目录按身份分区（resolveScopedDataDir）', () => {
+    const source = readFileSync(
+      resolve(
+        __dirname,
+        '../../src/tools/SaveConversationTool/SaveConversationTool.ts'
+      ),
+      'utf-8'
+    );
+
+    expect(source).toContain('resolveScopedDataDir()');
+    expect(source).not.toContain('resolveDataDir()');
+  });
 });

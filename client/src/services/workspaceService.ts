@@ -22,12 +22,6 @@ export interface WorkspaceSession {
   updatedAt: string;
 }
 
-/** 创建工作空间请求 */
-export interface CreateWorkspaceRequest {
-  path: string;
-  title?: string;
-}
-
 /** 创建工作项请求 */
 export interface CreateWorkItemRequest {
   title: string;
@@ -145,11 +139,6 @@ export const workspaceService = {
       ENDPOINTS.project.byId(projectId),
     );
     return project?.workspaceId ?? null;
-  },
-
-  /** 创建新工作空间 */
-  async createWorkspace(data: CreateWorkspaceRequest): Promise<WorkspaceInfo> {
-    return await http.post<WorkspaceInfo>(ENDPOINTS.workspace.base, data);
   },
 
   /** 删除工作空间 */

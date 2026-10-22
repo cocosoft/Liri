@@ -418,6 +418,57 @@ export async function handleUpdateWorkItem(
 // ========== .liri/ 配置 Handlers ==========
 
 /**
+ * 删除工作项
+ * DELETE /v1/workspaces/:id/items/:itemId
+ *
+ * 2026-10-23：前端 `workspaceService.deleteWorkItem` 一直打这个端点，但后端此前
+ * **没有对应 handler / route** ⇒ UI 删除工作项必然 404。本方法补齐契约。
+ */
+export async function handleDeleteWorkItem(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  workspaceId: string,
+  itemId: string
+): Promise<void> {
+  try {
+    const wsPath = await resolveWorkspacePath(workspaceId);
+
+    if (!wsPath) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Workspace not found' } }));
+      return;
+    }
+
+    const wsCtx = await getWorkspaceContext(wsPath);
+    const store = wsCtx.getWorkItemStore();
+    const deleted = store.delete(itemId);
+
+    if (!deleted) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Work item not found' } }));
+      return;
+    }
+
+    logger.info(`工作项已删除: ${itemId}`, { workspaceId });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ deleted: true }));
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'work_item_delete',
+    });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: 'Failed to delete work item' } })
+      );
+    }
+  }
+}
+
+/**
  * 根据 workspaceId 解析工作空间的文件系统路径
  */
 export async function resolveWorkspacePath(

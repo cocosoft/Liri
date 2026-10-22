@@ -35,6 +35,7 @@ import {
   handleCreateWorkItem,
   handleCreateWorkspaceSession,
   handleDeleteTask,
+  handleDeleteWorkItem,
   handleDeleteWorkspace,
   handleDetectLiriDir,
   handleGetChangeSet,
@@ -72,6 +73,21 @@ export async function dispatchWorkspaceRoutes(
   if (method === 'GET' && url === '/v1/workspaces') {
     await handleListWorkspaces(handlerCtx, req, res);
     return true;
+  }
+  // 2026-10-23：工作项删除必须**先于**通用 `DELETE /v1/workspaces/:id`
+  // （后者的 `(.+)` 会吞掉多段路径 ⇒ 把 item 删除误当成工作空间删除）。
+  if (method === 'DELETE') {
+    const itemDelete = url.match(/^\/v1\/workspaces\/([^/]+)\/items\/([^/]+)$/);
+    if (itemDelete) {
+      await handleDeleteWorkItem(
+        handlerCtx,
+        req,
+        res,
+        itemDelete[1],
+        itemDelete[2]
+      );
+      return true;
+    }
   }
   if (method === 'DELETE' && url.match(/^\/v1\/workspaces\/(.+)$/)) {
     const workspaceId = url.match(/^\/v1\/workspaces\/(.+)$/)![1];

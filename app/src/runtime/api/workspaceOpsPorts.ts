@@ -269,6 +269,11 @@ export interface WorkItemStorePort {
   list(workspaceId: string): WorkItemBriefDto[];
   create(data: Record<string, unknown>): WorkItemBriefDto;
   update(id: string, data: Record<string, unknown>): WorkItemBriefDto | null;
+  /**
+   * 删除工作项（2026-10-23：补口子 —— 前端 `workspaceService.deleteWorkItem`
+   * 一直打 `DELETE /v1/workspaces/:id/items/:itemId`，但后端此前没有该端点）。
+   */
+  delete(id: string): boolean;
 }
 
 /** 历史工作项搜索查询（逐字镜像 `WorkItemSearchQuery`） */

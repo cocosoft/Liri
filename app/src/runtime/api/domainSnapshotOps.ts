@@ -1645,6 +1645,8 @@ export class DomainSnapshotOps {
               workItemStore.create(data as never) as never,
             update: (id: string, data: Record<string, unknown>) =>
               workItemStore.update(id, data as never) as never,
+            // 2026-10-23：`DELETE /v1/workspaces/:id/items/:itemId` 所需（此前端口未暴露）
+            delete: (id: string) => workItemStore.delete(id),
           }),
           getChangeSetStore: () => ({
             listByWorkItem: (workItemId: string) =>

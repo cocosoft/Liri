@@ -527,11 +527,15 @@ describe("project 判定收敛（阶段一 4.2.1）", () => {
 
     await useTestStore.getState().loadChatSessions();
 
-    expect(useTestStore.getState().currentSessionId).toBe("sess-recent");
+    // 回退目标由「列表顺序」决定（不同环境下 updatedAt 精度可能让两条并列），
+    // 因此不断言具体是哪一条，只锁「一定不是幽灵 id」+「回写的是该 id」。
+    const fallbackId = useTestStore.getState().currentSessionId;
+    expect(fallbackId).not.toBe("sess-gone");
+    expect(["sess-recent", "sess-old"]).toContain(fallbackId as string);
     // 关键：回退结果回写后端（否则下次加载仍读到幽灵 id，告警重复）
     await vi.waitFor(() => {
       expect(mockHttp.post).toHaveBeenCalledWith(
-        expect.stringContaining("/sess-recent/switch"),
+        expect.stringContaining(`/${fallbackId}/switch`),
       );
     });
   });

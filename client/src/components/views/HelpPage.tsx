@@ -572,9 +572,12 @@ function HelpPage() {
 
           {/* 应用信息 */}
           <div className="flex items-center gap-4 mb-6 p-5 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
-              L
-            </div>
+            {/* 与顶栏 / favicon 同源的应用图标（此前是手绘渐变 "L" 占位块） */}
+            <img
+              src="/liri_logo.png"
+              alt="Liri Logo"
+              className="w-14 h-14 rounded-lg object-contain flex-shrink-0"
+            />
             <div>
               <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
                 Liri

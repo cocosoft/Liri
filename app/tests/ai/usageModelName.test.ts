@@ -7,14 +7,14 @@
  *
  * 本文件两层：
  *  ① 纯函数 `resolveUsageModelName`：声明优先 / 占位值回退响应体 / 双双缺失才 unknown；
- *  ② 接线级：在独立数据根下真跑 `trackUsage()`，断言落库的是**真实模型名**而非 unknown。
+ *  ② 接线级：真跑 `trackUsage()`，断言交给持久化层的是**真实模型名**而非 unknown。
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { setUserDataDirOverride } from '../../src/core/paths.js';
+import { setUserDataDirOverride, resolveDbPath } from '../../src/core/paths.js';
 import {
   resolveUsageModelName,
   trackUsage,
@@ -46,7 +46,7 @@ describe('resolveUsageModelName：模型名解析', () => {
   });
 });
 
-describe('trackUsage：落库模型名接线', () => {
+describe('trackUsage：写入模型名接线', () => {
   let root: string;
 
   beforeEach(() => {
@@ -63,19 +63,34 @@ describe('trackUsage：落库模型名接线', () => {
     }
   });
 
-  it("声明 'unknown' + 响应体带真实模型名 ⇒ 库里写真实模型名", async () => {
-    await trackUsage(
-      {
-        content: 'ok',
-        model: 'deepseek-v4-flash',
-        usage: { prompt_tokens: 11, completion_tokens: 7 },
-      },
-      { model: 'unknown', sessionId: 's-usage-model' }
+  it("声明 'unknown' + 响应体带真实模型名 ⇒ 交给持久化层的是真实模型名", async () => {
+    // 断言点放在**持久化边界**，不读库：
+    //  `UsageStatsService` 是单例，dbPath 在首次 import 时固化 —— 全套件跑时可能已被别的用例
+    //  绑到其它数据根，BUG-06 的第二道护栏会按设计跳过写入（本机单跑却会写）。
+    //  这里把路径判据对齐到当前解析路径、并把 logUsage 换成探针，既验证接线又与环境无关。
+    const pathSpy = spyOn(usageStatsService, 'getDatabasePath').mockReturnValue(
+      resolveDbPath()
+    );
+    const logSpy = spyOn(usageStatsService, 'logUsage').mockResolvedValue(
+      {} as never
     );
 
-    // 走服务自身的读取端口（不直连 sqlite 驱动，避免绕过表结构约束）
-    const page = await usageStatsService.getRequestLogs({}, 1, 5);
-    expect(page.data.length).toBeGreaterThan(0);
-    expect(page.data[0].model).toBe('deepseek-v4-flash');
+    try {
+      await trackUsage(
+        {
+          content: 'ok',
+          model: 'deepseek-v4-flash',
+          usage: { prompt_tokens: 11, completion_tokens: 7 },
+        },
+        { model: 'unknown', sessionId: 's-usage-model' }
+      );
+
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      const params = logSpy.mock.calls[0][0] as { model?: string };
+      expect(params.model).toBe('deepseek-v4-flash');
+    } finally {
+      logSpy.mockRestore();
+      pathSpy.mockRestore();
+    }
   });
 });

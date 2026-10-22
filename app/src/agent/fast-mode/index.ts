@@ -22,7 +22,7 @@
  * Fast Mode
  * 对标 OpenClaw agents/fast-mode.ts
  * 快速模式状态解析系统
- * 优先级链: session → agent → config → default
+ * 优先级链: session → agent → config（全局 → 模型级）→ default
  */
 
 /**
@@ -43,6 +43,11 @@ export interface FastModeConfig {
   sessionOverride?: boolean | string | null;
   /** 代理级默认值 */
   agentDefault?: boolean;
+  /**
+   * 全局配置（`ConfigManager.getGlobalConfig().fastMode`，由 `/fast` 命令写入）。
+   * 2026-10-22 接入：优先级置于 agent 之后、模型级配置之前。
+   */
+  globalConfig?: boolean | string | null;
   /** 模型级配置 */
   modelConfig?: {
     provider: string;
@@ -76,7 +81,7 @@ export function normalizeFastMode(
 
 /**
  * 解析快速模式状态
- * 优先级链: session → agent → config → default
+ * 优先级链: session → agent → config（全局 → 模型级）→ default
  */
 export function resolveFastModeState(config?: FastModeConfig): FastModeState {
   const sessionOverride = normalizeFastMode(config?.sessionOverride);
@@ -86,6 +91,11 @@ export function resolveFastModeState(config?: FastModeConfig): FastModeState {
 
   if (typeof config?.agentDefault === 'boolean') {
     return { enabled: config.agentDefault, source: 'agent' };
+  }
+
+  const globalFastMode = normalizeFastMode(config?.globalConfig);
+  if (globalFastMode !== undefined) {
+    return { enabled: globalFastMode, source: 'config' };
   }
 
   const modelFastMode = normalizeFastMode(config?.modelConfig?.fastMode);

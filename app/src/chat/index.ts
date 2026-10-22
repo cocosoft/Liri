@@ -146,3 +146,13 @@ export {
   PLAN_MODE_PROMPT,
 } from './workMode';
 export type { WorkMode } from './workMode';
+// 回复详略档契约（`/effort` 后端接线，2026-10-22）：同 workMode 口径经模块出口暴露
+export {
+  DEFAULT_REPLY_EFFORT,
+  REPLY_EFFORT_LEVELS,
+  buildReplyEffortPrompt,
+  isReplyEffortLevel,
+  normalizeReplyEffort,
+  resolveEffortThinkingBudget,
+} from './replyEffort';
+export type { ReplyEffortLevel } from './replyEffort';

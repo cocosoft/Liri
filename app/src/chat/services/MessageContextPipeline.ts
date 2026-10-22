@@ -22,6 +22,7 @@ import {
   yieldToEventLoop,
 } from '@modules/ai';
 import { isLocalLlmEndpoint, sanitizePass } from './ChatHelper';
+import { buildReplyEffortPrompt } from '../replyEffort';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
 import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
@@ -1001,6 +1002,19 @@ export async function assembleContextualSystemPrompt(
       '上下文保持/行为约束（本地与远程两版差异）'
     )
   );
+  // 2026-10-22（`/effort` 后端接线）：会话 metadata.effortLevel → 回复详略指令。
+  // `auto` / 未设置 ⇒ 空串 ⇒ 不注入（零行为变更）。放在行为约束之后，
+  // 避免被上面"输出行为约束"的强格式要求覆盖。
+  const effortText = buildReplyEffortPrompt(session.metadata?.effortLevel);
+  if (effortText) {
+    extraDynamicSections.push(
+      DANGEROUS_uncachedSystemPromptSection(
+        'replyEffort',
+        () => effortText,
+        '回复详略档（/effort 设置，随会话变化）'
+      )
+    );
+  }
   if (imageContextText) {
     extraDynamicSections.push(
       DANGEROUS_uncachedSystemPromptSection(

@@ -42,6 +42,19 @@ export interface SessionMetadata {
   toolProfile?: string[];
 
   /**
+   * 回复详略档（`/effort` 写入，2026-10-22）：`low` / `medium` / `high` / `auto`。
+   * 读取点：`chat/services/MessageContextPipeline.assembleContextualSystemPrompt`
+   * 注入 system 提示段；`auto` 或未设置 ⇒ 不注入（行为与接线前一致）。
+   */
+  effortLevel?: 'low' | 'medium' | 'high' | 'auto';
+
+  /**
+   * **预留**（2026-10-22）：由 `effortLevel` 推导的思考预算（token）。
+   * 当前无 provider 消费，仅随会话元数据落库，供后续 thinking 接线使用。
+   */
+  thinkingBudget?: number;
+
+  /**
    * 模型名称
    */
   model?: string;

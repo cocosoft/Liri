@@ -232,6 +232,30 @@ export class LlmChatOps {
       return { model: preferredModel, tier: 'user-selected' };
     }
 
+    // 2026-10-22（`/fast` 后端接线）：此前 `/fast` 只往全局 config 写 `fastMode`，
+    // 全仓**零读取点**（`resolveFastModeState` 无调用方）⇒ 命令"看起来生效"但路由不变。
+    // 现在：快速模式开启且用户未显式选模型 ⇒ 分流到「任务分工 → quick」的低成本档；
+    // quick 未配置 ⇒ 记一条 warning 后回落原有路由链（不吞掉用户的开关，也不强行失败）。
+    //
+    // 注：`fastMode` 在 `GlobalConfig` 里走**索引签名兜底**（与 `Fast.ts` 的读写同一口径）；
+    // 不补类型声明是为守住启动面棘轮（`config/types.ts` 属 eager 图，任何字节增长都要重下基线）。
+    const { resolveFastModeState } =
+      await import('@modules/agent/fast-mode/index.js');
+    const globalConfig = configManager.getGlobalConfig() as {
+      fastMode?: boolean | string | null;
+    };
+    const fastState = resolveFastModeState({
+      globalConfig: globalConfig.fastMode,
+    });
+    if (fastState.enabled) {
+      const { ModelRouter } = await import('@modules/ai/modelRouter.js');
+      const quickModel = ModelRouter.getInstance().resolve('quick');
+      if (quickModel) return { model: quickModel, tier: 'fast-mode' };
+      logger.warning(
+        'fastMode 已开启，但「任务分工 → quick」未配置模型，回落常规路由'
+      );
+    }
+
     // D-227（2026-10-02）：app 层符号改为**方法内动态导入**（仅 R00-003 上报）。
     // 置于「用户显式选择」早返回之后 ⇒ 不改变既有懒加载时机。
     const { detectPhase, RouteKey } = await import('@modules/ai');

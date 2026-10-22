@@ -9,8 +9,8 @@
  *   ② **共享单库里的归属行** —— `channel_configs.owner_key`（凭据与配置）、
  *      `cron_jobs.owner_key` / `task_flow.owner_key`（定时任务与任务流）；
  *   ③ **进程内内存态** —— 该租户的 SSE 长连接、通道实例、审批库连接、日预算账本、
- *      危险命令放行缓存；其余内存态（`ChatManager` 会话对象、`AlwaysOnQuota` 实例账本等）
- *      随进程重启清空，见 `notPurged`。
+ *      危险命令放行缓存、按身份缓存（凭据 / 会话存储 / 成本桶 / 自主运行配额）；
+ *      其余内存态（`ChatManager` 会话对象等）随进程重启清空，见 `notPurged`。
  *
  * **可安全重跑**：删除以"前缀匹配 + 不存在即跳过"实现，幂等；目录删除失败
  * （Windows 上仍有句柄）会记入 `blocked`，重启后重跑即可收敛。
@@ -62,7 +62,7 @@ export interface TenantPurgeReport {
     scopedConnections: number;
     /** 丢弃的日预算账本数 */
     dailyBudgets: number;
-    /** 丢弃的**非 DB** 按身份内存缓存数（凭据实例 / 会话存储实例 / 成本累计桶） */
+    /** 丢弃的**非 DB** 按身份内存缓存数（凭据实例 / 会话存储实例 / 成本累计桶 / 自主运行配额） */
     scopedCaches: number;
     /** 清除的危险命令放行记录数 */
     approvedCommands: number;
@@ -80,7 +80,6 @@ const KNOWN_UNPURGEABLE = [
   '全局文件面 data/pairings、data/transcripts、data/attachments、data/fts-index（无归属索引）',
   '用户级全局目录 ~/.pyapp/{oauth,knowledge,skills,plugins}',
   '进程内 ChatManager 会话对象与待交互条目（重启即清）',
-  '进程内 AlwaysOnQuota 实例账本（重启即清）',
   '企业审批流 ApprovalWorkflow / ExecApprovalManager（当前无运行时接线）',
 ] as const;
 
@@ -188,17 +187,20 @@ export async function purgeTenant(
       .forgetOwnerPrefix(ownerPrefix);
   });
 
-  // 丢**非 DB** 的按身份内存缓存（凭据实例 / 会话存储实例 / 成本累计桶）：
-  // 留着会把文件写回已删目录，或让同名新租户继承旧用量。
+  // 丢**非 DB** 的按身份内存缓存（凭据实例 / 会话存储实例 / 成本累计桶 / 自主运行配额）：
+  // 留着会把文件写回已删目录，或让同名新租户继承旧用量（含被旧账本占满的并发位）。
   await runStep(report, 'scopedCaches', async () => {
     const { CredentialStore } =
       await import('../ai/credentials/CredentialStore.js');
     const { forgetScopedStoragesForTenant } =
       await import('../session/gateway/ScopedStorageRegistry.js');
     const { costTracker } = await import('../cost/CostTracker.js');
+    const { forgetAlwaysOnQuotaForTenant } =
+      await import('../tasks/alwayson/AlwaysOnQuota.js');
     let dropped = CredentialStore.forgetScopedForTenant(normalized);
     dropped += await forgetScopedStoragesForTenant(normalized);
     dropped += costTracker.forgetBucketsForTenant(normalized);
+    dropped += forgetAlwaysOnQuotaForTenant(normalized);
     report.removed.scopedCaches = dropped;
   });
 

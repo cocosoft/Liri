@@ -50,6 +50,29 @@ interface OwnerUsage {
   running: number;
 }
 
+/**
+ * 进程内已创建的配额账本。
+ *
+ * 为什么要登记：账本挂在**管理器实例**上（`Cg3Bootstrap` / `alwaysOnEntry` 各建一个），
+ * 删租户时入口（`runtime/tenantPurge`）拿不到这些实例 ⇒ 只能靠模块级集合遍历。
+ */
+const liveQuotas = new Set<AlwaysOnQuota>();
+
+/**
+ * 删除租户后清除**全部**进程内账本中该租户的配额（`<tenantId>:` 前缀）。
+ *
+ * 不清理的后果与成本累计桶同型：同名新租户一上来就继承旧用量（`runsToday` / `running`），
+ * 甚至被"上一世"占满并发位而无法开始。
+ *
+ * @returns 清除的归属条目数（跨实例求和）
+ */
+export function forgetAlwaysOnQuotaForTenant(tenantId: string): number {
+  const prefix = `${tenantId}:`;
+  let removed = 0;
+  for (const quota of liveQuotas) removed += quota.forgetOwnerPrefix(prefix);
+  return removed;
+}
+
 export class AlwaysOnQuota {
   private readonly config: AlwaysOnQuotaConfig;
   private readonly usage = new Map<string, OwnerUsage>();
@@ -61,6 +84,7 @@ export class AlwaysOnQuota {
   ) {
     this.config = { ...DEFAULT_ALWAYSON_QUOTA, ...config };
     this.now = now;
+    liveQuotas.add(this);
   }
 
   /**
@@ -104,7 +128,8 @@ export class AlwaysOnQuota {
   }
 
   /**
-   * 多租户 P5：按 **归属键前缀** 清除配额账本（删除租户 / 移除成员时调用）
+   * 多租户 P5：按 **归属键前缀** 清除配额账本（删除租户时由
+   * `forgetAlwaysOnQuotaForTenant()` 遍历各实例调用；移除成员可直接调本方法）
    *
    * `ownerKey` 形如 `<tenantId>:<userId>` ⇒ 删租户传 `<tenantId>:`；
    * 只删匹配前缀的条目，其他租户与本地项目不受影响。

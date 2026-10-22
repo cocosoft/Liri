@@ -17,7 +17,11 @@
  */
 
 // 2026-08-06（P0-4）：凭据加密（敏感字段落库前加密，读取时解密）
-import { encryptOptions, decryptOptions } from './encryption';
+import {
+  encryptOptions,
+  decryptOptions,
+  decryptOptionsTolerant,
+} from './encryption';
 // 多租户 P3：身份感知（env 回退只允许本地身份，租户不得继承宿主机凭据）
 import { currentOwnerKey } from '@modules/core/identity/requestScope';
 
@@ -188,6 +192,33 @@ export class ChannelSecretStore {
   }
 
   /**
+   * 回显用凭据读取（**容错**）：坏密文字段被跳过并回报字段名
+   *
+   * 与 `get()` 的分工（2026-10-22，前端巡检 BUG-01）：
+   * - `get()` 供**实际建立连接**使用，解密失败必须 fail-closed（绝不把坏凭据当空串发请求）；
+   * - 本方法供**列表 / 回显**使用，单条密文损坏不得拖垮整页（`GET /v1/channels` 曾整表 500）。
+   *
+   * @returns credentials 可读字段（坏字段不出现）；unreadableFields 需用户重填的字段名
+   */
+  getForDisplay(channelId: string): {
+    credentials: Record<string, unknown>;
+    unreadableFields: string[];
+  } {
+    const config = getRegistry().getConfig(channelId);
+    if (config?.options && Object.keys(config.options).length > 0) {
+      const { values, failedFields } = decryptOptionsTolerant({
+        ...config.options,
+      });
+      return { credentials: values, unreadableFields: failedFields };
+    }
+    // 多租户 P3：env 是**宿主机**凭据 ⇒ 只有本地身份可回退
+    if (currentOwnerKey() !== undefined) {
+      return { credentials: {}, unreadableFields: [] };
+    }
+    return { credentials: getEnvCredentials(channelId), unreadableFields: [] };
+  }
+
+  /**
    * 保存指定渠道的凭据（敏感字段加密后持久化到 DB）
    * BUG-2/BUG-7：使用替换语义（clearOptions=true），确保前端清空字段后旧值不再保留
    *
@@ -217,6 +248,9 @@ export class ChannelSecretStore {
   /**
    * 获取所有渠道的凭据概览（脱敏处理）
    * 用于仪表盘展示或调试
+   *
+   * 2026-10-22（前端巡检 BUG-01）：逐渠道 / 逐字段容错 —— 坏密文只丢该字段，
+   * 不再让整批调用抛错（原实现一条坏密文 ⇒ 所有渠道概览不可用）。
    */
   getAllSanitized(): Record<string, Record<string, unknown>> {
     const configs = getRegistry().getAllConfigs();
@@ -225,7 +259,9 @@ export class ChannelSecretStore {
     for (const config of configs) {
       if (config.options && Object.keys(config.options).length > 0) {
         // 2026-08-06（P0-4）：先解密（密文脱敏会误伤），再对明文脱敏
-        const decrypted = decryptOptions({ ...config.options });
+        const { values: decrypted } = decryptOptionsTolerant({
+          ...config.options,
+        });
         const sanitized: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(decrypted)) {
           if (typeof value === 'string' && value.length > 4) {

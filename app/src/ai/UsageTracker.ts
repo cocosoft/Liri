@@ -37,6 +37,7 @@ import { randomIdSuffix } from '../utils/common';
 import { LogLevel } from '@modules/monitoring/logs/Logger.js';
 import { extractUsage } from './tokenizer/UsageExtractor.js';
 import { getCanonicalModelName } from '../cost/ModelPricing.js';
+import { getUserDataDirOverride } from '../core/paths.js';
 
 const logger = new OTelAwareLogger({
   module: 'ai:usageTracker',
@@ -128,6 +129,30 @@ export interface TrackUsageParams {
 }
 
 /**
+ * 测试期落盘护栏（2026-10-22，前端巡检 BUG-06）
+ *
+ * **问题**：`model_usage_logs` / `cost_records` 的真实库（`~/.pyapp/data/app.db`）里
+ * 出现了 `fake-model` / `test-provider` / `mock` 记录 —— 因为走 `trackUsage()` 的
+ * 单测（sendMessageFlow / StreamPipeline / aiService / AgentTool …）只 fake 了
+ * provider，**落盘这一段没有 fake**，而它们又没隔离数据目录。
+ *
+ * **判据**：仅当 ① 运行在测试环境（`NODE_ENV==='test'`，preload 已归一）
+ * **且** ② 调用方**没有**显式隔离数据目录（无 `setUserDataDirOverride` /
+ * `LIRI_DATA_DIR` / `LIRI_HOME`）时跳过落盘。
+ * ⇒ 显式隔离的用例（如 `usageTrackerIdentity.test.ts`）行为完全不变，仍会写临时库并断言。
+ *
+ * @returns true = 应跳过持久化
+ */
+export function shouldSkipUsagePersistence(
+  env: NodeJS.ProcessEnv = process.env,
+  dataDirOverride: string | null = getUserDataDirOverride()
+): boolean {
+  if (env.NODE_ENV !== 'test') return false;
+  if (dataDirOverride) return false;
+  return !env.LIRI_DATA_DIR?.trim() && !env.LIRI_HOME?.trim();
+}
+
+/**
  * 追踪一次 AI 请求的使用量
  *
  * 从 ChatResponse 中提取 tokens 和成本信息，异步写入 UsageStatsService。
@@ -153,6 +178,13 @@ export async function trackUsage(
   },
   params: TrackUsageParams
 ): Promise<void> {
+  if (shouldSkipUsagePersistence()) {
+    logger.debug('UsageTracker: 测试环境未隔离数据目录，跳过落盘', {
+      model: params.model,
+      providerId: params.providerId,
+    });
+    return;
+  }
   try {
     // [v1.2] 使用懒加载单例（首次动态 import + initialize，后续命中缓存）
     const usageStatsService = await getUsageStatsService();

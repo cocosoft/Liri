@@ -44,6 +44,23 @@ async function getDecryptedOptions(
   return ChannelSecretStore.getInstance().get(channelId);
 }
 
+/**
+ * 获取渠道配置的**回显视图**（容错）：坏密文字段被跳过并回报
+ *
+ * 与 `getDecryptedOptions()` 的分工（2026-10-22，前端巡检 BUG-01）：
+ * 列表回显不得因单条密文损坏而整表 500；写入/连接路径仍走 fail-closed 的 `get()`。
+ */
+async function getDisplayOptions(channelId: string): Promise<{
+  config: Record<string, unknown>;
+  unreadableFields: string[];
+}> {
+  const { ChannelSecretStore } =
+    await import('@modules/channels/secrets/ChannelSecretStore');
+  const { credentials, unreadableFields } =
+    ChannelSecretStore.getInstance().getForDisplay(channelId);
+  return { config: credentials, unreadableFields };
+}
+
 // 通道动态注册元信息统一取自 `channels/channelCatalog.ts`（单一事实源）
 // 2026-09-30 · 台账 D-134：此处曾维护**独立的副本**（26 条，与 `setupChannels` 逐字重复），已收敛。
 
@@ -65,6 +82,10 @@ export async function handleListChannels(
     const registeredMap = new Map<string, Record<string, unknown>>();
     for (const ch of channelRegistry.getAll()) {
       const cfg = channelRegistry.getConfig(ch.name);
+      // BUG-01：回显走容错读取，单条密文损坏只标记该渠道，不阻断整个列表
+      const display = cfg?.options
+        ? await getDisplayOptions(ch.name)
+        : { config: {}, unreadableFields: [] };
       registeredMap.set(ch.name, {
         id: ch.name,
         name: ch.name,
@@ -73,7 +94,9 @@ export async function handleListChannels(
         enabled: cfg?.enabled ?? ch.enabled,
         connected: ch.connected,
         // P0-4：敏感字段密文落库，回显前解密
-        config: cfg?.options ? await getDecryptedOptions(ch.name) : {},
+        config: display.config,
+        // 需用户重填凭据的字段（空数组 ⇒ 全部可读）
+        unreadableCredentialFields: display.unreadableFields,
       });
     }
 

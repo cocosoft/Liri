@@ -1,13 +1,17 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
-import { useWorkspaceStore } from "../../stores/workspaceStore";
+import { useRootStore } from "../../stores/root-store";
+import { selectCurrentWorkspace } from "../../stores/selectors";
 import { workspaceService } from "../../services/workspaceService";
 import { configService } from "../../services/configService";
 import AgentStrategySelector from "../Agent/AgentStrategySelector";
 import AgentSwarmView from "../Agent/AgentSwarmView";
 import AgentIdentityConfig from "../Agent/AgentIdentityConfig";
 import AgentModelBindingConfig from "../Workspace/AgentModelBindingConfig";
+import { createLogger } from "../../utils/logger";
+
+const logger = createLogger("components:agent:advanced");
 
 type AgentTab = "strategy" | "swarm" | "identity" | "bindings";
 
@@ -15,7 +19,15 @@ function AgentAdvancedPage() {
   const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
-  const activeWorkspaceId = useWorkspaceStore((s) => s.currentWorkspace?.id);
+  // BUG-02（2026-10-22 前端巡检）：只有**真实**工作空间（项目）才有后端 workspace 记录。
+  // 系统工作空间（chat/media/office/calendar/translation/knowledge，见 workspaceSlice
+  // 的 SYSTEM_WORKSPACES）也带 id，直接拿去查 /v1/workspaces/<id>/swarm 会 404
+  //（如停留在知识库页后进入本页 ⇒ GET /v1/workspaces/knowledge/swarm ⇒ Workspace not found）。
+  const currentWorkspace = useRootStore(selectCurrentWorkspace);
+  const activeWorkspaceId =
+    currentWorkspace && currentWorkspace.workspaceSource !== "system"
+      ? currentWorkspace.id
+      : undefined;
 
   const [activeTab, setActiveTab] = useState<AgentTab>("strategy");
   const [currentStrategy, setCurrentStrategy] = useState<string>("general");
@@ -82,7 +94,12 @@ function AgentAdvancedPage() {
             );
           }
         })
-        .catch(() => {
+        .catch((error) => {
+          // 工作空间可能已被删除（后端 404）⇒ 空态 + 可排查日志，不再静默吞错
+          logger.warn("Swarm 状态加载失败", {
+            workspaceId: activeWorkspaceId,
+            error: String(error),
+          });
           setSwarmAgents([]);
         });
     }
@@ -135,11 +152,18 @@ function AgentAdvancedPage() {
           )}
 
           {activeTab === "swarm" && (
-            <AgentSwarmView
-              isDark={isDark}
-              agents={swarmAgents}
-              onAgentClick={(agent) => void agent}
-            />
+            <>
+              {!activeWorkspaceId && (
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  {t("agent.needProjectWorkspace")}
+                </div>
+              )}
+              <AgentSwarmView
+                isDark={isDark}
+                agents={swarmAgents}
+                onAgentClick={(agent) => void agent}
+              />
+            </>
           )}
 
           {activeTab === "identity" && (
@@ -150,12 +174,17 @@ function AgentAdvancedPage() {
             />
           )}
 
-          {activeTab === "bindings" && activeWorkspaceId && (
-            <AgentModelBindingConfig
-              workspaceId={activeWorkspaceId}
-              isDark={isDark}
-            />
-          )}
+          {activeTab === "bindings" &&
+            (activeWorkspaceId ? (
+              <AgentModelBindingConfig
+                workspaceId={activeWorkspaceId}
+                isDark={isDark}
+              />
+            ) : (
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {t("agent.needProjectWorkspace")}
+              </div>
+            ))}
         </div>
       </div>
     </div>

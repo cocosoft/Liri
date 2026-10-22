@@ -410,6 +410,7 @@ const enKnowledge = {
     errorsLabel: "Errors: {{count}}",
     lastActiveAt: "Last active:",
     unregistered: "Unregistered",
+    credentialsUnreadable: "Credentials unreadable — re-enter",
     confirmDeleteTitle: "Confirm Delete",
     confirmDeleteMsg:
       'Delete channel "{{name}}"? This action cannot be undone.',
@@ -1237,6 +1238,8 @@ const enKnowledge = {
     advancedDesc:
       "Configure agent strategy, Swarm orchestration, execution trajectory, and identity parameters",
     swarmOrchestration: "Swarm Orchestration",
+    needProjectWorkspace:
+      "Swarm orchestration and model binding only apply to project workspaces. Select or create a project first.",
     // —— AgentRuntimePanel (runtime panel) ——
     runtime: {
       title: "Runtime",

@@ -508,6 +508,51 @@ describe("project 判定收敛（阶段一 4.2.1）", () => {
     expect(hub?.projectId).toBe("proj_1786517089415_ksbi6c");
     expect(hub?.workspaceId).toBe("proj_1786517089415_ksbi6c");
   });
+
+  it("BUG-05：current 指向已不存在会话 → 回退最近会话并回写后端（自愈，不再每次告警）", async () => {
+    // 后端 current 是幽灵 id（已删除），列表里只剩两条
+    mockHttp.get.mockImplementation((url: string) => {
+      if (url.includes("/sessions/current"))
+        return Promise.resolve({ ok: true, data: makeSession("sess-gone") });
+      return Promise.resolve({
+        ok: true,
+        data: [makeSession("sess-recent"), makeSession("sess-old")],
+      });
+    });
+    mockHttp.post.mockImplementation((url: string) => {
+      if (url.includes("/sess-recent/switch"))
+        return Promise.resolve({ ok: true, data: makeSession("sess-recent") });
+      return Promise.resolve({ ok: true, data: makeSession("default") });
+    });
+
+    await useTestStore.getState().loadChatSessions();
+
+    expect(useTestStore.getState().currentSessionId).toBe("sess-recent");
+    // 关键：回退结果回写后端（否则下次加载仍读到幽灵 id，告警重复）
+    await vi.waitFor(() => {
+      expect(mockHttp.post).toHaveBeenCalledWith(
+        expect.stringContaining("/sess-recent/switch"),
+      );
+    });
+  });
+
+  it("BUG-05 负向：current 在列表内 ⇒ 不回写（不产生多余切换请求）", async () => {
+    mockHttp.get.mockImplementation((url: string) => {
+      if (url.includes("/sessions/current"))
+        return Promise.resolve({ ok: true, data: makeSession("sess-a") });
+      return Promise.resolve({
+        ok: true,
+        data: [makeSession("sess-a"), makeSession("sess-b")],
+      });
+    });
+
+    await useTestStore.getState().loadChatSessions();
+    // 留一个宏任务窗口：若误加回写，此处会捕获到 POST
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(useTestStore.getState().currentSessionId).toBe("sess-a");
+    expect(mockHttp.post).not.toHaveBeenCalled();
+  });
 });
 
 /** Hub 记录（SessionRecord）最小构造 —— 用于断言"清 chat 记录、保留其它模块" */

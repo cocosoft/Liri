@@ -661,6 +661,18 @@ export const createSessionSlice: StateCreator<
           fallbackId: sessions[0]?.id ?? null,
         });
         resolvedCurrentId = sessions[0]?.id ?? null;
+        // BUG-05（2026-10-22 前端巡检）：仅在前端回退不够 —— 后端的「当前会话」
+        // 指针仍是那个已不存在的 id，每次加载都会再判一次幽灵、再告警一次。
+        // 回退后把结果回写后端（幂等：下次读取即命中列表，不再触发本分支）。
+        if (resolvedCurrentId) {
+          const fallbackId = resolvedCurrentId;
+          sessionService.switch(fallbackId).catch((e) => {
+            logger.warn("loadChatSessions:回退后回写当前会话失败", {
+              fallbackId,
+              error: String(e),
+            });
+          });
+        }
       } else if (!switching && !resolvedCurrentId) {
         // 排查日志：后端无当前会话（current 为 null 或列表为空），
         // 与幽灵回退区分——确认"无当前会话"是正常空列表而非识别失败

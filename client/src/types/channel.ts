@@ -36,6 +36,13 @@ export interface Channel {
   messageCount?: number;
   errorCount?: number;
   config?: Record<string, unknown>;
+  /**
+   * 需用户重填的凭据字段名（GET /v1/channels 回显）
+   *
+   * 密文损坏（如渠道加密密钥曾重建）时后端跳过坏字段并在此回报；
+   * 非空 ⇒ 该渠道凭据不可读，必须重填后才能连接。
+   */
+  unreadableCredentialFields?: string[];
   lastActive?: number;
 }
 

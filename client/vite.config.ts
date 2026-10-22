@@ -73,10 +73,15 @@ export default defineConfig({
       ignored: ["**/src-tauri/**"],
     },
     proxy: {
-      "/api": {
+      // ⚠️ key 必须做**路径边界**匹配（2026-10-22，前端巡检 BUG-03）：
+      // `http-proxy-middleware` 对字符串 key 走**前缀**匹配，原写法 `"/api"` 会把
+      // 前端路由 `/apikeys`（以及任何 `/api*` 开头的路由）一并转发到后端，
+      // 导致 dev 下直接访问/刷新 `/apikeys` 得到后端 404 JSON 而非 index.html。
+      // 正则 `^/api(/|$)` 只匹配 `/api` 本身与其子路径。
+      "^/api(/|$)": {
         target: BACKEND_TARGET,
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ""),
+        rewrite: (path) => path.replace(/^\/api/, ''),
         configure: (proxy) => {
           proxy.on("error", (err, _req, res) => {
             if ((err as NodeJS.ErrnoException).code === "ECONNREFUSED") {

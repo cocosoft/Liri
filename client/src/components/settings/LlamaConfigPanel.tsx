@@ -64,7 +64,7 @@ function toNum(v: string, fallback: number): number {
 }
 
 /** 判断推荐是否为最佳（与排序规则一致：适配度 → 质量分） */
-function isBestRecommendation(
+export function isBestRecommendation(
   target: LlamaModelRecommendation,
   list: LlamaModelRecommendation[],
 ): boolean {
@@ -79,7 +79,22 @@ function isBestRecommendation(
     }
     return b.qualityScore - a.qualityScore;
   });
-  return sorted[0]?.quantVersion === target.quantVersion;
+  // BUG-04：同一 quantVersion 会出现在多个模型下 ⇒ 不能按量化版本比较，
+  // 按元素身份判断（list 与 target 来自同一数组，引用比较精确且无副作用）。
+  return sorted[0] === target;
+}
+
+/**
+ * 推荐项唯一标识（React key / 下载中状态共用）
+ *
+ * BUG-04（2026-10-22 前端巡检）：推荐列表是「多模型 × 多量化」的笛卡尔集合，
+ * 同一 `quantVersion` 会出现在多条记录里 ⇒ 只用量化版本做标识会导致
+ * 重复 key 警告、以及"不同模型同时显示下载中"。
+ */
+export function recommendationKey(
+  rec: Pick<LlamaModelRecommendation, "modelId" | "quantVersion">,
+): string {
+  return `${rec.modelId}:${rec.quantVersion}`;
 }
 
 function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
@@ -110,9 +125,10 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
   const [migrateOverwrite, setMigrateOverwrite] = useState(false);
 
   // ─── 下载 ────────────────────────────────────────────────────
-  const [downloadingVersion, setDownloadingVersion] = useState<string | null>(
-    null,
-  );
+  // BUG-04（2026-10-22 前端巡检）：推荐卡是「多模型 × 多量化」的笛卡尔列表，
+  // 同一 quantVersion 会出现在多条记录里 ⇒ 仅用量化版本做标识会让不同模型互相串扰
+  //（下载中按钮同时被禁用/同时显示进度）。统一用 modelId:quantVersion 复合键。
+  const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<{
     percent?: number;
     status?: string;
@@ -283,7 +299,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
 
   // ─── 下载 ────────────────────────────────────────────────────
   const handleDownloadModel = async (rec: LlamaModelRecommendation) => {
-    setDownloadingVersion(rec.quantVersion);
+    setDownloadingKey(recommendationKey(rec));
     setDownloadProgress({ percent: 0, status: t("settings.llamaDownloading") });
     setDownloadComplete(null);
     setDownloadError(null);
@@ -314,7 +330,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
         e instanceof Error ? e.message : t("settings.llamaDownloadFailed"),
       );
     } finally {
-      setDownloadingVersion(null);
+      setDownloadingKey(null);
       void load();
     }
   };
@@ -905,7 +921,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                     : "border-gray-300 opacity-70";
               return (
                 <div
-                  key={rec.quantVersion}
+                  key={recommendationKey(rec)}
                   className={`p-3 rounded-lg border-2 ${suitClass}`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -946,16 +962,16 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                     </div>
                     <button
                       onClick={() => void handleDownloadModel(rec)}
-                      disabled={downloadingVersion === rec.quantVersion}
+                      disabled={downloadingKey === recommendationKey(rec)}
                       className="shrink-0 px-3 py-1.5 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
                     >
-                      {downloadingVersion === rec.quantVersion
+                      {downloadingKey === recommendationKey(rec)
                         ? t("settings.llamaStatusDownloading")
                         : t("settings.llamaDownloadThis")}
                     </button>
                   </div>
 
-                  {downloadingVersion === rec.quantVersion &&
+                  {downloadingKey === recommendationKey(rec) &&
                     downloadProgress && (
                       <div className="mt-2">
                         <div className="flex justify-between text-xs text-gray-500 mb-1">

@@ -188,3 +188,36 @@ export function decryptOptions(
   }
   return out;
 }
+
+/**
+ * 对象级解密的**容错变体**（只用于「回显 / 列表」面，不用于建立连接）
+ *
+ * 背景（2026-10-22，前端巡检 BUG-01）：`decryptOptions()` 遇到一条坏密文就抛错，
+ * 而 `GET /v1/channels` 要遍历**全部**渠道 ⇒ 单条密文损坏（如 `secret.key` 曾重建、
+ * 密钥漂移）就把整个渠道列表打成 500，渠道页/仪表盘指标同时归零。
+ *
+ * 语义边界（刻意保留 fail-closed）：
+ * - **本函数**：坏字段被丢弃并回报字段名，其余字段与其余渠道照常回显；
+ * - `decryptOptions()`：仍整体抛错 —— 供**建立连接 / 实际使用凭据**的路径使用，
+ *   确保"凭据不可读"不会被静默当成空串去发请求。
+ */
+export function decryptOptionsTolerant(raw: Record<string, unknown>): {
+  values: Record<string, unknown>;
+  failedFields: string[];
+} {
+  const values: Record<string, unknown> = {};
+  const failedFields: string[] = [];
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v !== 'string') {
+      values[k] = v;
+      continue;
+    }
+    try {
+      values[k] = decryptSecret(v);
+    } catch {
+      // 坏字段不进入 values（避免把密文/空串当成有效凭据回显）
+      failedFields.push(k);
+    }
+  }
+  return { values, failedFields };
+}

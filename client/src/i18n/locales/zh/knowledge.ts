@@ -381,6 +381,7 @@ const zhKnowledge = {
     errorsLabel: "错误: {{count}}",
     lastActiveAt: "最后活动:",
     unregistered: "未注册",
+    credentialsUnreadable: "凭据不可读 — 请重填",
     confirmDeleteTitle: "确认删除",
     confirmDeleteMsg: "确定要删除渠道「{{name}}」吗？此操作不可撤销。",
     searchPlaceholder: "搜索渠道名称或类型...",
@@ -1180,6 +1181,8 @@ const zhKnowledge = {
     advancedTitle: "Agent 高级管理",
     advancedDesc: "配置 Agent 策略、Swarm 编排、执行轨迹和身份参数",
     swarmOrchestration: "Swarm编排",
+    needProjectWorkspace:
+      "Swarm 编排与模型绑定仅对项目工作空间生效，请先在「项目」中选择或创建一个项目。",
     // —— AgentRuntimePanel（运行态面板）——
     runtime: {
       title: "运行态",

@@ -232,6 +232,18 @@ function ChannelsPage() {
                           </span>
                         )}
 
+                      {channel.unreadableCredentialFields &&
+                        channel.unreadableCredentialFields.length > 0 && (
+                          <span
+                            className="text-xs text-amber-600 dark:text-amber-400"
+                            title={channel.unreadableCredentialFields.join(
+                              ", ",
+                            )}
+                          >
+                            {t("channels.credentialsUnreadable")}
+                          </span>
+                        )}
+
                       {channel.lastActive && (
                         <span className="text-xs text-gray-400">
                           {t("channels.lastActiveAt")}{" "}

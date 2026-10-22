@@ -23,6 +23,7 @@ import {
 } from '../../src/ai/providers/ProviderSyncService.js';
 import { CRED_STORED_MARKER } from '../../src/ai/credentials/CredentialStore.js';
 import type { ProviderRecord } from '../../src/ai/providers/ProviderManager.js';
+import { ErrorCategory, ErrorSeverity } from '../../src/core/errors.js';
 
 /**
  * 构造一条 provider 记录。
@@ -68,6 +69,24 @@ describe('recordToConfig：占位符 + 凭据缺失 ⇒ 抛可读错误', () => 
     expect(message).toContain('SiliconFlow');
     expect(message).toContain('API Key');
     expect(message).toContain('模型管理');
+  });
+
+  it('错误契约：分类 CONFIGURATION / 严重度 MEDIUM / 代码 AI_CRED_1001（前端可据此区分）', () => {
+    let err: unknown;
+    try {
+      recordToConfig(makeRecord());
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(Error);
+    const appErr = err as {
+      category?: ErrorCategory;
+      severity?: ErrorSeverity;
+      code?: string;
+    };
+    expect(appErr.category).toBe(ErrorCategory.CONFIGURATION);
+    expect(appErr.severity).toBe(ErrorSeverity.MEDIUM);
+    expect(appErr.code).toBe('AI_CRED_1001');
   });
 
   it('不误伤：`api_key` 本来为空的自建供应商照常返回', () => {

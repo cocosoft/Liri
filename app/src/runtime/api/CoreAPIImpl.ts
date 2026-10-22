@@ -1580,7 +1580,7 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async getCommandsOpsPort(): Promise<CommandsOpsPort> {
-    return this.domainSnapshotOps.getCommandsOpsPort();
+    return this.domainSnapshotOps.getCommandsOpsPort(this.chatManager);
   }
 
   async getWorkspaceOpsPort(): Promise<WorkspaceOpsPort> {

@@ -377,6 +377,13 @@ const zhBase = {
   },
   chat: {
     emptyChoices: "AI 服务返回了空的 choices 列表",
+    // 2026-10-22：会话摘要（后端 `brief` 命令的前端入口；此前只有 CLI 能用）
+    summary: "生成摘要",
+    summaryTitle: "会话摘要",
+    summaryLoading: "正在生成摘要…",
+    summaryEmpty: "本会话暂无可摘要的内容",
+    summaryFailed: "生成摘要失败",
+    summaryHint: "由后端 brief 命令生成：关键信息与决策点",
     sessionListFailed: "获取会话列表失败：HTTP 与 Tauri 均不可用",
     searchMessagesFailed: "搜索消息失败",
     createSessionUnavailable: "无法创建会话：后端服务不可用",

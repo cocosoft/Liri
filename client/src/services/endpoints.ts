@@ -528,6 +528,11 @@ export const ENDPOINTS = {
     completions: "/v1/chat/completions",
     questionAnswer: "/v1/chat/question-answer",
   },
+  // 后端命令（2026-10-22：会话级命令如 brief 需要 session_id，见 commands-handlers）
+  commands: {
+    list: "/v1/commands",
+    execute: "/v1/commands/execute",
+  },
   config: {
     base: "/v1/config",
     reload: "/v1/config/reload",

@@ -14,6 +14,8 @@ import { ErrorBoundary } from "../common/ErrorBoundary";
 import { shouldShowDateSeparator, formatDateLabel } from "./dateUtils";
 import { VirtualScrollProvider } from "./VirtualScrollContext";
 import { getMessageSearchText } from "../../utils/messageText";
+// 2026-10-22：会话摘要入口（后端 `brief` 命令；此前仅 CLI 可用）
+import { runCommand } from "../../services/commandService";
 
 /** 入门提示卡片数据 */
 interface StarterPrompt {
@@ -281,6 +283,36 @@ export default function ChatMessageList({
   const loadOlderMessages = useChatStore((s) => s.loadOlderMessages);
   /** P1-6b：分页游标——为 null 时"加载更早"不可用（动作会静默失败），UI 需给出原因 */
   const oldestSeq = useChatStore((s) => s.oldestSeq);
+
+  // ── 会话摘要（2026-10-22）────────────────────────────────────────────
+  // 后端早有 `brief` 命令（关键信息与决策点），但只有 CLI / 斜杠能用；这里接上唯一入口。
+  // 走 `POST /v1/commands/execute`（不复制摘要逻辑，实现仍在后端命令里）。
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryText, setSummaryText] = useState("");
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
+  const handleSummary = useCallback(async (): Promise<void> => {
+    if (!currentSessionId) return;
+    setSummaryOpen(true);
+    setSummaryLoading(true);
+    setSummaryError(null);
+    setSummaryText("");
+    try {
+      const result = await runCommand("brief", currentSessionId);
+      if (!result.success) {
+        setSummaryError(result.error || t("chat.summaryFailed"));
+        return;
+      }
+      setSummaryText(result.output.trim() || t("chat.summaryEmpty"));
+    } catch (err) {
+      setSummaryError(
+        `${t("chat.summaryFailed")}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [currentSessionId, t]);
 
   // W3：虚拟滚动——仅渲染视口 ± overscan 内的消息，长会话不再全量挂载
   // （每条消息含 KaTeX/mermaid/代码高亮，几千条时全量渲染导致首屏/切换卡顿）
@@ -806,6 +838,30 @@ export default function ChatMessageList({
         {/* 搜索按钮（固定在右上角，搜索栏打开时隐藏） */}
         {!searchOpen && (
           <div className="sticky top-0 z-10 flex items-center justify-end gap-1 px-4 py-1.5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+            {/* 会话摘要（2026-10-22）：后端 `brief` 命令的 GUI 入口 */}
+            <button
+              onClick={() => {
+                void handleSummary();
+              }}
+              disabled={!hasSession || !currentSessionId || summaryLoading}
+              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed"
+              title={t("chat.summary")}
+              aria-label={t("chat.summary")}
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 6h16M4 12h10M4 18h7"
+                />
+              </svg>
+            </button>
             <button
               onClick={toggleSearch}
               className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -929,6 +985,54 @@ export default function ChatMessageList({
           })}
         </div>
       </div>
+
+      {/* 会话摘要结果（只读弹层）：内容来自后端 `brief` 命令，前端不做二次加工 */}
+      {summaryOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setSummaryOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("chat.summaryTitle")}
+            className="max-h-[70vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-4 shadow-xl dark:bg-gray-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                {t("chat.summaryTitle")}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setSummaryOpen(false)}
+                aria-label={t("common.close")}
+                className="rounded px-1.5 py-0.5 text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-100"
+              >
+                ✕
+              </button>
+            </div>
+            {summaryLoading ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {t("chat.summaryLoading")}
+              </p>
+            ) : summaryError ? (
+              <p className="text-sm text-red-500" role="alert">
+                {summaryError}
+              </p>
+            ) : (
+              <>
+                <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-700 dark:text-gray-200">
+                  {summaryText}
+                </pre>
+                <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
+                  {t("chat.summaryHint")}
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </VirtualScrollProvider>
   );
 }

@@ -1370,16 +1370,28 @@ export class DomainSnapshotOps {
     };
   }
 
-  async getCommandsOpsPort(): Promise<CommandsOpsPort> {
+  /**
+   * 命令端口。
+   *
+   * @param chatManager 会话管理器（由 `CoreAPIImpl` 注入）。`brief` 等会话级命令依赖
+   *   `context.chatManager` 取本会话消息；不注入时这些命令只会回「聊天管理器不可用」。
+   *   类型用 `unknown` 以免 `runtime → chat` 的类型级倒挂（R00-001 连类型导入也计）。
+   */
+  async getCommandsOpsPort(chatManager?: unknown): Promise<CommandsOpsPort> {
     return {
       listCommands: async () => {
         const { getCommandManager } = await import('@modules/commands');
         return getCommandManager().getAllCommands();
       },
-      executeCommand: async (command: string) => {
+      executeCommand: async (command: string, sessionId?: string) => {
         const { commandExecutor } =
           await import('@modules/commands/executor/CommandExecutor.js');
-        return commandExecutor.execute(command);
+        // 2026-10-22：会话级命令需要 `context.sessionId` + `context.chatManager`
+        // （如 brief 取本会话消息）；未传时保持旧的"空 context"调用形态。
+        const context: Parameters<typeof commandExecutor.execute>[1] = {};
+        if (sessionId) context.sessionId = sessionId;
+        if (chatManager) context.chatManager = chatManager as never;
+        return commandExecutor.execute(command, context);
       },
     };
   }

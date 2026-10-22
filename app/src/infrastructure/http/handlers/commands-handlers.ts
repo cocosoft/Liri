@@ -86,7 +86,7 @@ export async function handleExecuteCommand(
       return;
     }
 
-    const { command } = parsedBody;
+    const { command, session_id } = parsedBody;
 
     if (!command) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -94,12 +94,33 @@ export async function handleExecuteCommand(
       return;
     }
 
+    // 2026-10-22：会话级命令（如 `brief`）需要本会话 id，否则 `getSessionMessages(undefined)`
+    // 必然失败。字段名沿用 HTTP 契约的 snake_case（与 `POST /v1/chat/completions` 一致）。
+    const sessionId =
+      typeof session_id === 'string' && session_id.trim()
+        ? session_id.trim()
+        : undefined;
+
     const result = await (
       await getCoreAPI().getCommandsOpsPort()
-    ).executeCommand(command);
+    ).executeCommand(command, sessionId);
 
-    const output = result.value?.toString() || result.message?.toString() || '';
-    const error = result.type === 'error' ? output : '';
+    // 2026-10-22：`call` 形态的命令（brief / help 等）结果被 `CommandManager` 包成
+    // `{ success, data: { type, value } }` ⇒ 只读顶层 `value` 会得到空串（HTTP 200 + 空输出）。
+    // 依次回退：顶层 → data 内层 → message。`data` 在端口上是 `unknown`，此处边界收窄。
+    const data = (result.data ?? {}) as {
+      value?: string;
+      message?: string;
+      type?: string;
+    };
+    const payloadType = result.type ?? data.type;
+    const output =
+      result.value?.toString() ||
+      data.value?.toString() ||
+      result.message?.toString() ||
+      data.message?.toString() ||
+      '';
+    const error = payloadType === 'error' ? output : '';
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(

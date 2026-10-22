@@ -237,12 +237,17 @@ export class BriefCommand {
     for (const msg of lastMessages) {
       const preview =
         msg.content.substring(0, 50) + (msg.content.length > 50 ? '...' : '');
+      // 2026-10-22：`SessionMessage` 声明的是 `type`，但 `chatManager.getSessionMessages()`
+      // 运行期返回的是 `role`（与 ChatMessage 同形）⇒ 只读 `type` 会输出 "undefined: …"。
+      // 两者都认，并按实际值渲染。
+      const rawRole =
+        (msg as SessionMessage & { role?: string }).role ?? msg.type ?? '消息';
       const roleName =
-        msg.type === 'user'
+        rawRole === 'user'
           ? '用户'
-          : msg.type === 'assistant'
+          : rawRole === 'assistant'
             ? '助手'
-            : msg.type;
+            : rawRole;
       summary += `${roleName}: ${preview}\n`;
     }
 

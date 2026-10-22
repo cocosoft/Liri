@@ -17,6 +17,7 @@ import {
   highFrequencyNavEntries,
   mobileNavEntries,
   toEnabledModuleIds,
+  WORKBENCH_PATH,
   workbenchGroups,
 } from "../../config/navRegistry";
 
@@ -154,7 +155,6 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
   const activeRoute = location.pathname.replace("/", "") || "home";
-  const [showManagement, setShowManagement] = useState(false);
   // A5：项目浮动子面板 + 新建项目弹窗
   const [showProjectsFlyout, setShowProjectsFlyout] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -242,11 +242,12 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   /**
    * N-22：工作台开关按钮的 active（与 `aria-current` **共用同一判定**，此前二者不一致：
-   * 高亮存在但无 `aria-current`）。其"目标范围" = 目录页本身（`/workbench`）
-   * 或其展开态，或其任一子项页。
+   * 高亮存在但无 `aria-current`）。其"目标范围" = 目录页本身（`/workbench`）或其任一子项页。
+   *
+   * 2026-10-22：侧栏不再内联展开 30 个条目（窄栏 + 55vh 滚动 + 4 组平铺，找功能全靠逐个读字），
+   * 按钮改为直达 `/workbench` 目录页 —— 搜索 / 最近使用 / 分组收起都在那里做。
    */
   const isWorkbenchActive =
-    showManagement ||
     activeRoute === "workbench" ||
     wbGroups.some((g) => g.items.some((m) => isActive(m)));
 
@@ -327,10 +328,10 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         />
       )}
 
-      {/* 工作台折叠按钮 */}
+      {/* 工作台入口（2026-10-22：由"内联展开 30 项抽屉"改为整页目录 /workbench） */}
       <div className="p-1 border-t border-gray-300 dark:border-gray-700">
         <button
-          onClick={() => setShowManagement(!showManagement)}
+          onClick={() => navigate(WORKBENCH_PATH)}
           aria-current={isWorkbenchActive ? "page" : undefined}
           className={`flex flex-col items-center justify-center py-2 px-2 rounded transition-colors h-14 w-full flex-shrink-0 ${
             isWorkbenchActive
@@ -344,29 +345,6 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             {t("sidebar.workbench")}
           </span>
         </button>
-
-        {/* 展开的工作台：四组（自主任务/平台治理/可观测/个人） */}
-        {showManagement && (
-          <div className="mt-0.5 max-h-[55vh] overflow-y-auto">
-            {wbGroups.map((group) => (
-              <div key={group.id} className="mt-1.5">
-                <div className="px-1 py-0.5 text-[10px] text-gray-400 dark:text-gray-500 text-center truncate">
-                  {t(group.labelKey)}
-                </div>
-                <div className="space-y-0.5">
-                  {group.items.map((item) => (
-                    <MenuButton
-                      key={item.id}
-                      item={item}
-                      isActive={isActive(item)}
-                      onNavigate={onNavigate}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* 系统导航 */}
@@ -455,19 +433,11 @@ function MobileBottomNav() {
   const activeRoute = location.pathname.replace("/", "") || "home";
   const openPanel = useNotificationStore((s) => s.openPanel);
   const unreadTotal = useNotificationStore((s) => s.counts.total);
-  // H5 修复：移动端侧栏被 hidden lg:block 隐藏，工作台四组原无任何入口
-  // （D-h 把 /dashboard /user /help 从 Header 移入工作台后，这三项在移动端彻底不可达）
-  const [workbenchOpen, setWorkbenchOpen] = useState(false);
-  // §4.3-6：与 aside 折叠区共用同一份 navRegistry 数据与门控集合
+  // §4.3-6：与 aside 共用同一份 navRegistry 数据与门控集合
   const enabledModules = useRootStore(useShallow(selectEnabledModules));
   const enabledModuleIds = useMemo(
     () => toEnabledModuleIds(enabledModules),
     [enabledModules],
-  );
-  /** 工作台四组（唯一来源 navRegistry，与 aside 折叠区共用同一数据） */
-  const wbGroups = useMemo(
-    () => workbenchGroups(enabledModuleIds),
-    [enabledModuleIds],
   );
 
   type MItem = {
@@ -490,7 +460,8 @@ function MobileBottomNav() {
     onClick: entry.action
       ? {
           openNotifications: openPanel,
-          openWorkbench: () => setWorkbenchOpen(true),
+          // 2026-10-22：移动端不再弹 30 项抽屉，直接进 /workbench 目录页（有搜索/最近/分组收起）
+          openWorkbench: () => navigate(WORKBENCH_PATH),
           openSettings: () => useSettingsPanelStore.getState().openPanel(),
         }[entry.action]
       : undefined,
@@ -536,63 +507,6 @@ function MobileBottomNav() {
           );
         })}
       </nav>
-
-      {/* H5 修复：移动端工作台抽屉（遮罩 + 底部面板，复用 navRegistry 工作台四组） */}
-      {workbenchOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-[60] bg-black/40"
-          onClick={() => setWorkbenchOpen(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("sidebar.workbench")}
-            className="absolute bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto rounded-t-2xl bg-white p-3 pb-6 dark:bg-gray-900"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {t("sidebar.workbench")}
-              </span>
-              <button
-                onClick={() => setWorkbenchOpen(false)}
-                aria-label={t("common.close")}
-                className="px-2 py-1 text-xs text-gray-500 dark:text-gray-400"
-              >
-                ✕
-              </button>
-            </div>
-            {wbGroups.map((group) => (
-              <div key={group.id} className="mb-3">
-                <div className="mb-1 text-xs text-gray-400 dark:text-gray-500">
-                  {t(group.labelKey)}
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {group.items.map((item) => {
-                    const IconComponent = item.icon;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          if (item.path) navigate(item.path);
-                          setWorkbenchOpen(false);
-                        }}
-                        className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 px-1 py-2 text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                      >
-                        <IconComponent size={18} />
-                        <span className="w-full truncate text-center text-xs flex items-center justify-center gap-1">
-                          {t(item.labelKey)}
-                          {item.preview && <PreviewBadge />}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </>
   );
 }

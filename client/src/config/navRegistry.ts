@@ -59,7 +59,7 @@ export type NavSurface = "high" | "workbench" | "home" | "mobile";
 
 /** 工作台分组 id（组顺序见 WORKBENCH_GROUPS_META） */
 export type WorkbenchGroupId =
-  "autonomy" | "governance" | "observability" | "personal";
+  "agent" | "capability" | "connect" | "observability" | "content" | "personal";
 
 /** 首页分区 id（区顺序见 HOME_SECTIONS_META） */
 export type HomeSectionId = "module" | "tool";
@@ -99,14 +99,21 @@ export interface NavEntry {
   preview?: boolean;
 }
 
-/** 工作台四组（顺序即渲染顺序） */
+/**
+ * 工作台六组（顺序即渲染顺序）。
+ *
+ * 2026-10-22（用户反馈"30 个功能铺开，眼睛看花也找不到"）：由 4 组（9/9/7/5）拆成 6 组，
+ * 每组 ≤6 项 —— 组内条目控制在一次扫视范围内，组名即"场景"，不必逐张读卡片。
+ */
 export const WORKBENCH_GROUPS_META: Array<{
   id: WorkbenchGroupId;
   labelKey: string;
 }> = [
-  { id: "autonomy", labelKey: "workbench.groupAutonomy" },
-  { id: "governance", labelKey: "workbench.groupGovernance" },
+  { id: "agent", labelKey: "workbench.groupAgent" },
+  { id: "capability", labelKey: "workbench.groupCapability" },
+  { id: "connect", labelKey: "workbench.groupConnect" },
   { id: "observability", labelKey: "workbench.groupObservability" },
+  { id: "content", labelKey: "workbench.groupContent" },
   { id: "personal", labelKey: "workbench.groupPersonal" },
 ];
 
@@ -182,14 +189,14 @@ export const NAV_ENTRIES: NavEntry[] = [
     order: { high: 70, home: 50 },
   },
 
-  // ── 工作台「自主任务」 + 首页 ────────────────────────────
+  // ── 工作台「Agent 与自动化」 ────────────────────────────
   {
     id: "wb-agent",
     labelKey: "nav.agent",
     icon: UsersIcon,
     path: "/agent",
     surfaces: ["workbench"],
-    workbenchGroup: "autonomy",
+    workbenchGroup: "agent",
     order: { workbench: 10 },
   },
   {
@@ -199,7 +206,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     icon: CouncilIcon,
     path: "/agent/roles",
     surfaces: ["workbench"],
-    workbenchGroup: "autonomy",
+    workbenchGroup: "agent",
     order: { workbench: 20 },
   },
   {
@@ -208,19 +215,8 @@ export const NAV_ENTRIES: NavEntry[] = [
     icon: SlidersIcon,
     path: "/agent/advanced",
     surfaces: ["workbench"],
-    workbenchGroup: "autonomy",
+    workbenchGroup: "agent",
     order: { workbench: 30 },
-  },
-  {
-    id: "wb-cron",
-    labelKey: "nav.cron",
-    icon: CronIcon,
-    path: "/cron",
-    surfaces: ["workbench", "home"],
-    workbenchGroup: "autonomy",
-    homeSection: "tool",
-    descKey: "home.card.cronDesc",
-    order: { workbench: 40, home: 20 },
   },
   {
     id: "wb-loops",
@@ -228,17 +224,19 @@ export const NAV_ENTRIES: NavEntry[] = [
     icon: ZapIcon,
     path: "/loops",
     surfaces: ["workbench"],
-    workbenchGroup: "autonomy",
-    order: { workbench: 50 },
+    workbenchGroup: "agent",
+    order: { workbench: 40 },
   },
   {
-    id: "wb-bg",
-    labelKey: "nav.backgroundStatus",
-    icon: CloudIcon,
-    path: "/background-status",
-    surfaces: ["workbench"],
-    workbenchGroup: "autonomy",
-    order: { workbench: 60 },
+    id: "wb-cron",
+    labelKey: "nav.cron",
+    icon: CronIcon,
+    path: "/cron",
+    surfaces: ["workbench", "home"],
+    workbenchGroup: "agent",
+    homeSection: "tool",
+    descKey: "home.card.cronDesc",
+    order: { workbench: 50, home: 20 },
   },
   {
     id: "wb-autoreply",
@@ -246,9 +244,100 @@ export const NAV_ENTRIES: NavEntry[] = [
     icon: ChatIcon,
     path: "/autoreply",
     surfaces: ["workbench"],
-    workbenchGroup: "autonomy",
-    order: { workbench: 70 },
+    workbenchGroup: "agent",
+    order: { workbench: 60 },
   },
+
+  // ── 工作台「模型与能力」 ────────────────────────────────
+  {
+    id: "wb-models",
+    labelKey: "model.title",
+    icon: ModelIcon,
+    path: "/models",
+    surfaces: ["workbench"],
+    workbenchGroup: "capability",
+    order: { workbench: 110 },
+  },
+  {
+    id: "wb-skills",
+    labelKey: "skill.title",
+    icon: SkillIcon,
+    path: "/skills",
+    surfaces: ["workbench"],
+    workbenchGroup: "capability",
+    order: { workbench: 120 },
+  },
+  {
+    id: "wb-mcp",
+    labelKey: "mcp.title",
+    icon: McpIcon,
+    path: "/market/mcp",
+    surfaces: ["workbench"],
+    workbenchGroup: "capability",
+    order: { workbench: 130 },
+  },
+  {
+    id: "wb-plugins",
+    labelKey: "pluginMarket.title",
+    icon: PluginIcon,
+    path: "/market/plugins",
+    surfaces: ["workbench"],
+    workbenchGroup: "capability",
+    order: { workbench: 140 },
+  },
+  {
+    // 2026-10-22：终端从「可观测」移入本组 —— 它是"我能调用的执行面"，不是观测面
+    id: "wb-terminal",
+    labelKey: "workbench.terminal",
+    icon: DevIcon,
+    path: "/terminal",
+    surfaces: ["workbench", "home"],
+    workbenchGroup: "capability",
+    homeSection: "tool",
+    descKey: "home.card.terminalDesc",
+    order: { workbench: 150, home: 60 },
+  },
+
+  // ── 工作台「接入与凭据」 ────────────────────────────────
+  {
+    id: "wb-channels",
+    labelKey: "channels.title",
+    icon: ChannelIcon,
+    path: "/channels",
+    surfaces: ["workbench"],
+    workbenchGroup: "connect",
+    order: { workbench: 210 },
+  },
+  {
+    // 2026-10-22：从 `settings.*` 迁出 —— 该页只存在于工作台，名字应由工作台自己拥有
+    id: "wb-permissions",
+    labelKey: "workbench.permissions",
+    icon: ShieldIcon,
+    path: "/permissions",
+    surfaces: ["workbench"],
+    workbenchGroup: "connect",
+    order: { workbench: 220 },
+  },
+  {
+    id: "wb-apikeys",
+    labelKey: "workbench.apiKeys",
+    icon: KeyIcon,
+    path: "/apikeys",
+    surfaces: ["workbench"],
+    workbenchGroup: "connect",
+    order: { workbench: 230 },
+  },
+  {
+    id: "wb-oauth",
+    labelKey: "workbench.oauth",
+    icon: LinkIcon,
+    path: "/oauth",
+    surfaces: ["workbench"],
+    workbenchGroup: "connect",
+    order: { workbench: 240 },
+  },
+
+  // ── 工作台「内容与媒体」 + 首页 ──────────────────────────
   {
     // 4.1-1：办公/媒体自高区下沉到工作台（高区 7→5 项，对齐 Copilot）
     // §4.3-6：补 moduleId，使"模块禁用/tier 不可见"在首页与工作台两面一致
@@ -259,10 +348,10 @@ export const NAV_ENTRIES: NavEntry[] = [
     path: "/office",
     moduleId: "office",
     surfaces: ["workbench", "home"],
-    workbenchGroup: "autonomy",
+    workbenchGroup: "content",
     homeSection: "module",
     descKey: "home.card.officeDesc",
-    order: { workbench: 80, home: 30 },
+    order: { workbench: 410, home: 30 },
   },
   {
     id: "wb-media",
@@ -271,30 +360,10 @@ export const NAV_ENTRIES: NavEntry[] = [
     path: "/media",
     moduleId: "media",
     surfaces: ["workbench", "home"],
-    workbenchGroup: "autonomy",
+    workbenchGroup: "content",
     homeSection: "module",
     descKey: "home.card.mediaDesc",
-    order: { workbench: 90, home: 40 },
-  },
-
-  // ── 工作台「平台治理」 ──────────────────────────────────
-  {
-    id: "wb-models",
-    labelKey: "model.title",
-    icon: ModelIcon,
-    path: "/models",
-    surfaces: ["workbench"],
-    workbenchGroup: "governance",
-    order: { workbench: 110 },
-  },
-  {
-    id: "wb-skills",
-    labelKey: "skill.title",
-    icon: SkillIcon,
-    path: "/skills",
-    surfaces: ["workbench"],
-    workbenchGroup: "governance",
-    order: { workbench: 120 },
+    order: { workbench: 420, home: 40 },
   },
   {
     id: "wb-files",
@@ -302,67 +371,24 @@ export const NAV_ENTRIES: NavEntry[] = [
     icon: FileIcon,
     path: "/files",
     surfaces: ["workbench", "home"],
-    workbenchGroup: "governance",
+    workbenchGroup: "content",
     homeSection: "tool",
     descKey: "home.card.filesDesc",
-    order: { workbench: 130, home: 50 },
+    order: { workbench: 430, home: 50 },
   },
   {
-    id: "wb-mcp",
-    labelKey: "mcp.title",
-    icon: McpIcon,
-    path: "/market/mcp",
+    // 全路由审计（G.2-14）：/voice-stt 原为孤岛，按用户决策补入口
+    // 2026-10-22：归「内容与媒体」（语音属媒体能力，且使每组 ≤6）
+    id: "wb-voice-test",
+    labelKey: "workbench.voiceTest",
+    icon: MicIcon,
+    path: "/voice-stt",
     surfaces: ["workbench"],
-    workbenchGroup: "governance",
-    order: { workbench: 140 },
-  },
-  {
-    id: "wb-plugins",
-    labelKey: "pluginMarket.title",
-    icon: PluginIcon,
-    path: "/market/plugins",
-    surfaces: ["workbench"],
-    workbenchGroup: "governance",
-    order: { workbench: 150 },
-  },
-  {
-    id: "wb-channels",
-    labelKey: "channels.title",
-    icon: ChannelIcon,
-    path: "/channels",
-    surfaces: ["workbench"],
-    workbenchGroup: "governance",
-    order: { workbench: 160 },
-  },
-  {
-    id: "wb-permissions",
-    labelKey: "settings.permissions",
-    icon: ShieldIcon,
-    path: "/permissions",
-    surfaces: ["workbench"],
-    workbenchGroup: "governance",
-    order: { workbench: 170 },
-  },
-  {
-    id: "wb-apikeys",
-    labelKey: "settings.apiKeys",
-    icon: KeyIcon,
-    path: "/apikeys",
-    surfaces: ["workbench"],
-    workbenchGroup: "governance",
-    order: { workbench: 180 },
-  },
-  {
-    id: "wb-oauth",
-    labelKey: "settings.oauth",
-    icon: LinkIcon,
-    path: "/oauth",
-    surfaces: ["workbench"],
-    workbenchGroup: "governance",
-    order: { workbench: 190 },
+    workbenchGroup: "content",
+    order: { workbench: 440 },
   },
 
-  // ── 工作台「可观测」 + 首页 ──────────────────────────────
+  // ── 工作台「可观测与安全」 + 首页 ────────────────────────
   {
     id: "wb-dashboard",
     labelKey: "nav.dashboard",
@@ -372,7 +398,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     workbenchGroup: "observability",
     homeSection: "tool",
     descKey: "home.card.dashboardDesc",
-    order: { workbench: 210, home: 30 },
+    order: { workbench: 310, home: 30 },
   },
   {
     id: "wb-usage",
@@ -383,55 +409,44 @@ export const NAV_ENTRIES: NavEntry[] = [
     workbenchGroup: "observability",
     homeSection: "tool",
     descKey: "home.card.costDesc",
-    order: { workbench: 220, home: 40 },
+    order: { workbench: 320, home: 40 },
   },
   {
     id: "wb-logs",
-    labelKey: "settings.logs",
+    labelKey: "workbench.logs",
     icon: DocIcon,
     path: "/logs",
     surfaces: ["workbench"],
     workbenchGroup: "observability",
-    order: { workbench: 230 },
+    order: { workbench: 330 },
   },
   {
     id: "wb-sandbox",
-    labelKey: "settings.sandbox",
+    labelKey: "workbench.sandbox",
     icon: DatabaseIcon,
     path: "/sandbox",
     surfaces: ["workbench"],
     workbenchGroup: "observability",
-    order: { workbench: 240 },
+    order: { workbench: 340 },
   },
   {
     id: "wb-security",
-    labelKey: "settings.securityOverview",
+    labelKey: "workbench.security",
     icon: ShieldIcon,
     path: "/security",
     surfaces: ["workbench"],
     workbenchGroup: "observability",
-    order: { workbench: 250 },
+    order: { workbench: 350 },
   },
   {
-    id: "wb-terminal",
-    labelKey: "workbench.terminal",
-    icon: DevIcon,
-    path: "/terminal",
-    surfaces: ["workbench", "home"],
-    workbenchGroup: "observability",
-    homeSection: "tool",
-    descKey: "home.card.terminalDesc",
-    order: { workbench: 260, home: 60 },
-  },
-  {
-    // 全路由审计（G.2-14）：/voice-stt 原为孤岛，按用户决策补入口
-    id: "wb-voice-test",
-    labelKey: "workbench.voiceTest",
-    icon: MicIcon,
-    path: "/voice-stt",
+    // 2026-10-22：后台任务状态从「自主任务」移入本组 —— 它是"看后台在跑什么"，属观测
+    id: "wb-bg",
+    labelKey: "nav.backgroundStatus",
+    icon: CloudIcon,
+    path: "/background-status",
     surfaces: ["workbench"],
     workbenchGroup: "observability",
-    order: { workbench: 270 },
+    order: { workbench: 360 },
   },
 
   // ── 工作台「个人」 ──────────────────────────────────────
@@ -442,7 +457,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     path: "/user",
     surfaces: ["workbench"],
     workbenchGroup: "personal",
-    order: { workbench: 310 },
+    order: { workbench: 510 },
   },
   {
     id: "wb-help",
@@ -451,7 +466,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     path: "/help",
     surfaces: ["workbench"],
     workbenchGroup: "personal",
-    order: { workbench: 320 },
+    order: { workbench: 520 },
   },
   {
     id: "wb-liri",
@@ -460,7 +475,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     path: "/liri",
     surfaces: ["workbench"],
     workbenchGroup: "personal",
-    order: { workbench: 330 },
+    order: { workbench: 530 },
   },
   {
     id: "wb-dream",
@@ -469,7 +484,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     path: "/dream",
     surfaces: ["workbench"],
     workbenchGroup: "personal",
-    order: { workbench: 340 },
+    order: { workbench: 540 },
   },
   {
     id: "wb-buddy",
@@ -478,7 +493,7 @@ export const NAV_ENTRIES: NavEntry[] = [
     path: "/buddy",
     surfaces: ["workbench"],
     workbenchGroup: "personal",
-    order: { workbench: 350 },
+    order: { workbench: 550 },
   },
 
   // ── 首页「快捷工具」 + 移动端底栏 ────────────────────────
@@ -509,6 +524,9 @@ export const NAV_ENTRIES: NavEntry[] = [
     id: "workbench",
     labelKey: "sidebar.workbench",
     icon: DashboardIcon,
+    // 2026-10-22：底栏「工作台」改为直达目录页（原为弹 30 项抽屉）；
+    // 与 `settings` 同款——`action` 优先，`path` 仅供底栏高亮
+    path: WORKBENCH_PATH,
     action: "openWorkbench",
     surfaces: ["mobile"],
     order: { mobile: 40 },

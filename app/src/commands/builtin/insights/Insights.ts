@@ -17,6 +17,9 @@ type Role = 'user' | 'assistant' | 'system' | 'tool';
 /** 慢操作阈值（毫秒），仅用于"慢操作条数"的统计口径 */
 const SLOW_OPERATION_THRESHOLD_MS = 1000;
 
+/** 需要读取会话消息的子命令（`performance` / `help` 不需要） */
+const SESSION_SUBCOMMANDS = ['show', 'summary', 'suggestions', 'report'];
+
 /** 会话消息的最小子集：`type` / `role` 两种形态都可能出现（见 Brief.ts 的同款注释） */
 interface RawMessage {
   id?: string;
@@ -325,9 +328,116 @@ function formatPerformance(snapshot: PerformanceSnapshot): string {
   return lines.join('\n');
 }
 
+/**
+ * 结构化洞察载荷（2026-10-23，GUI 面板直接消费；`data` 由 HTTP 层透出）
+ *
+ * 与 `SessionInsightData` 的差别：把 `insights` 摊平到顶层并带上派生建议，
+ * 前端不需要理解内部结构，也无需二次调用 `/insights suggestions`。
+ */
+export interface InsightReport {
+  sessionId: string;
+  stats: {
+    totalMessages: number;
+    byRole: Record<Role, number>;
+    firstAt?: string;
+    lastAt?: string;
+    spanMinutes?: number;
+  };
+  summary: string;
+  keyFacts: string[];
+  decisions: string[];
+  pendingQuestions: string[];
+  fileChanges: string[];
+  suggestions: Suggestion[];
+  extractedAt: number;
+}
+
+function buildReport(data: SessionInsightData): InsightReport {
+  return {
+    sessionId: data.sessionId,
+    stats: {
+      totalMessages: data.totalMessages,
+      byRole: data.byRole,
+      firstAt: data.firstAt,
+      lastAt: data.lastAt,
+      spanMinutes: data.spanMinutes,
+    },
+    summary: data.insights.summary,
+    keyFacts: data.insights.keyFacts,
+    decisions: data.insights.decisions,
+    pendingQuestions: data.insights.pendingQuestions,
+    fileChanges: data.insights.fileChanges,
+    suggestions: deriveSuggestions(data),
+    extractedAt: data.insights.extractedAt,
+  };
+}
+
+/** 空会话的结构化载荷（GUI 据此显示"暂无消息"，而不是空白面板） */
+function buildEmptyReport(sessionId: string): InsightReport {
+  return {
+    sessionId,
+    stats: {
+      totalMessages: 0,
+      byRole: { user: 0, assistant: 0, system: 0, tool: 0 },
+    },
+    summary: '',
+    keyFacts: [],
+    decisions: [],
+    pendingQuestions: [],
+    fileChanges: [],
+    suggestions: [],
+    extractedAt: Date.now(),
+  };
+}
+
+function formatReport(report: InsightReport): string {
+  const { stats } = report;
+  const lines = [
+    `会话洞察（会话 ${report.sessionId}）`,
+    `- 消息总数: ${stats.totalMessages}`,
+    `- 用户 / 助手 / 工具 / 系统: ${stats.byRole.user} / ${stats.byRole.assistant} / ${stats.byRole.tool} / ${stats.byRole.system}`,
+  ];
+
+  if (stats.firstAt && stats.lastAt) {
+    lines.push(
+      `- 时间跨度: ${new Date(stats.firstAt).toLocaleString()} ~ ${new Date(stats.lastAt).toLocaleString()}（${stats.spanMinutes ?? 0} 分钟）`
+    );
+  }
+
+  if (stats.totalMessages === 0) {
+    lines.push('', '当前会话暂无消息。');
+    return lines.join('\n');
+  }
+
+  if (report.summary) {
+    lines.push('', `摘要:\n${report.summary}`);
+  }
+
+  const pushSection = (title: string, items: string[]): void => {
+    if (items.length === 0) return;
+    lines.push('', `${title}（${items.length}）:`);
+    for (const item of items) lines.push(`- ${item}`);
+  };
+
+  pushSection('关键事实', report.keyFacts);
+  pushSection('决策', report.decisions);
+  pushSection('待决问题', report.pendingQuestions);
+  pushSection('涉及文件', report.fileChanges);
+
+  if (report.suggestions.length > 0) {
+    lines.push('', `建议（${report.suggestions.length}）:`);
+    for (const item of report.suggestions) {
+      lines.push(`- [${item.priority.toUpperCase()}] ${item.message}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
 function helpText(): string {
   return `洞察分析命令用法:
 
+/insights report       - 一次性输出结构化洞察（统计 / 摘要 / 决策 / 待决问题 / 涉及文件 / 建议）
 /insights show         - 显示当前会话的统计概览
 /insights summary      - 提取当前会话的摘要 / 决策 / 待处理问题 / 文件变更
 /insights suggestions  - 基于当前会话提取结果给出建议
@@ -366,8 +476,17 @@ export default {
     }
 
     if (loaded.messages.length === 0) {
-      if (!['show', 'summary', 'suggestions'].includes(subcommand)) {
+      if (!SESSION_SUBCOMMANDS.includes(subcommand)) {
         return { success: false, type: 'text', message: helpText() };
+      }
+      if (subcommand === 'report') {
+        const report = buildEmptyReport(loaded.sessionId);
+        return {
+          success: true,
+          type: 'text',
+          message: formatReport(report),
+          data: report,
+        };
       }
       return {
         success: true,
@@ -379,6 +498,15 @@ export default {
     const data = buildInsightData(loaded.sessionId, loaded.messages);
 
     switch (subcommand) {
+      case 'report': {
+        const report = buildReport(data);
+        return {
+          success: true,
+          type: 'text',
+          message: formatReport(report),
+          data: report,
+        };
+      }
       case 'show':
         return {
           success: true,

@@ -173,7 +173,7 @@ export const insightsCommand: Command = {
   name: 'insights',
   description: '洞察分析',
   aliases: ['analyze'],
-  argumentHint: '[show|summary|suggestions|performance|help]',
+  argumentHint: '[report|show|summary|suggestions|performance|help]',
   whenToUse: '当你需要获取会话分析和建议时',
   load: loadExecute('./insights/Insights.js'),
 };

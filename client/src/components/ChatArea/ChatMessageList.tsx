@@ -14,8 +14,10 @@ import { ErrorBoundary } from "../common/ErrorBoundary";
 import { shouldShowDateSeparator, formatDateLabel } from "./dateUtils";
 import { VirtualScrollProvider } from "./VirtualScrollContext";
 import { getMessageSearchText } from "../../utils/messageText";
-// 2026-10-22：会话摘要入口（后端 `brief` 命令；此前仅 CLI 可用）
+// 2026-10-22：后端命令入口（`brief` → 2026-10-23 起合并为 `insights report`）
 import { runCommand } from "../../services/commandService";
+import SessionInsightsModal from "./SessionInsightsModal";
+import type { SessionInsightsReport } from "./SessionInsightsModal";
 
 /** 入门提示卡片数据 */
 interface StarterPrompt {
@@ -284,33 +286,40 @@ export default function ChatMessageList({
   /** P1-6b：分页游标——为 null 时"加载更早"不可用（动作会静默失败），UI 需给出原因 */
   const oldestSeq = useChatStore((s) => s.oldestSeq);
 
-  // ── 会话摘要（2026-10-22）────────────────────────────────────────────
-  // 后端早有 `brief` 命令（关键信息与决策点），但只有 CLI / 斜杠能用；这里接上唯一入口。
-  // 走 `POST /v1/commands/execute`（不复制摘要逻辑，实现仍在后端命令里）。
-  const [summaryOpen, setSummaryOpen] = useState(false);
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryText, setSummaryText] = useState("");
-  const [summaryError, setSummaryError] = useState<string | null>(null);
+  // ── 会话洞察（2026-10-23，方案 B）────────────────────────────────────
+  // 把原「会话摘要（brief）」入口与 `insights` 合并为一个入口：后端 `insights report`
+  // 一次性返回统计 / 摘要 / 决策 / 待决问题 / 涉及文件 / 建议；前端只触发与展示，
+  // 不复制提取逻辑（实现唯一性）。结构化载荷缺失时回退为文本 `output`。
+  const [insightsOpen, setInsightsOpen] = useState(false);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsText, setInsightsText] = useState("");
+  const [insightsReport, setInsightsReport] =
+    useState<SessionInsightsReport | null>(null);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
 
-  const handleSummary = useCallback(async (): Promise<void> => {
+  const handleInsights = useCallback(async (): Promise<void> => {
     if (!currentSessionId) return;
-    setSummaryOpen(true);
-    setSummaryLoading(true);
-    setSummaryError(null);
-    setSummaryText("");
+    setInsightsOpen(true);
+    setInsightsLoading(true);
+    setInsightsError(null);
+    setInsightsText("");
+    setInsightsReport(null);
     try {
-      const result = await runCommand("brief", currentSessionId);
+      const result = await runCommand("insights report", currentSessionId);
       if (!result.success) {
-        setSummaryError(result.error || t("chat.summaryFailed"));
+        setInsightsError(result.error || t("chat.insightsFailed"));
         return;
       }
-      setSummaryText(result.output.trim() || t("chat.summaryEmpty"));
+      setInsightsReport(
+        (result.data as SessionInsightsReport | undefined) ?? null,
+      );
+      setInsightsText(result.output.trim() || t("chat.insightsEmpty"));
     } catch (err) {
-      setSummaryError(
-        `${t("chat.summaryFailed")}: ${err instanceof Error ? err.message : String(err)}`,
+      setInsightsError(
+        `${t("chat.insightsFailed")}: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
-      setSummaryLoading(false);
+      setInsightsLoading(false);
     }
   }, [currentSessionId, t]);
 
@@ -838,15 +847,15 @@ export default function ChatMessageList({
         {/* 搜索按钮（固定在右上角，搜索栏打开时隐藏） */}
         {!searchOpen && (
           <div className="sticky top-0 z-10 flex items-center justify-end gap-1 px-4 py-1.5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
-            {/* 会话摘要（2026-10-22）：后端 `brief` 命令的 GUI 入口 */}
+            {/* 会话洞察（2026-10-23，方案 B）：后端 `insights report` 的 GUI 入口 */}
             <button
               onClick={() => {
-                void handleSummary();
+                void handleInsights();
               }}
-              disabled={!hasSession || !currentSessionId || summaryLoading}
+              disabled={!hasSession || !currentSessionId || insightsLoading}
               className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed"
-              title={t("chat.summary")}
-              aria-label={t("chat.summary")}
+              title={t("chat.insights")}
+              aria-label={t("chat.insights")}
             >
               <svg
                 className="w-4 h-4"
@@ -986,53 +995,15 @@ export default function ChatMessageList({
         </div>
       </div>
 
-      {/* 会话摘要结果（只读弹层）：内容来自后端 `brief` 命令，前端不做二次加工 */}
-      {summaryOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setSummaryOpen(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("chat.summaryTitle")}
-            className="max-h-[70vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-4 shadow-xl dark:bg-gray-800"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">
-                {t("chat.summaryTitle")}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setSummaryOpen(false)}
-                aria-label={t("common.close")}
-                className="rounded px-1.5 py-0.5 text-xs text-gray-400 hover:text-gray-700 dark:hover:text-gray-100"
-              >
-                ✕
-              </button>
-            </div>
-            {summaryLoading ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {t("chat.summaryLoading")}
-              </p>
-            ) : summaryError ? (
-              <p className="text-sm text-red-500" role="alert">
-                {summaryError}
-              </p>
-            ) : (
-              <>
-                <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-700 dark:text-gray-200">
-                  {summaryText}
-                </pre>
-                <p className="mt-2 text-[11px] text-gray-400 dark:text-gray-500">
-                  {t("chat.summaryHint")}
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      {/* 会话洞察（只读面板）：内容来自后端 `insights report` 命令，前端不做二次加工 */}
+      <SessionInsightsModal
+        open={insightsOpen}
+        loading={insightsLoading}
+        error={insightsError}
+        report={insightsReport}
+        text={insightsText}
+        onClose={() => setInsightsOpen(false)}
+      />
     </VirtualScrollProvider>
   );
 }

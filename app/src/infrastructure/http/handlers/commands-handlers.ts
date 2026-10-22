@@ -159,6 +159,10 @@ export async function handleExecuteCommand(
         success: result.success !== false,
         output,
         error,
+        // 2026-10-23（方案 B）：`execute` 形态命令（如 `insights report`）把结构化载荷放在
+        // 顶层 `result.data`；`call` 形态的 `data` 是 `{type, value}` 文本包装。
+        // 这里原样透出，由前端决定用结构化渲染还是纯文本。缺省不带该字段（保持旧响应形状）。
+        ...(result.data === undefined ? {} : { data: result.data }),
       })
     );
   } catch (err) {

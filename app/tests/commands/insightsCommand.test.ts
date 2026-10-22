@@ -123,4 +123,38 @@ describe('/insights 真实数据源', () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain('/insights help');
   });
+
+  it('report ⇒ 一次性返回结构化载荷（统计 / 提取 / 建议）', async () => {
+    const result = await insightsCommand.execute(
+      'report',
+      makeContext([
+        { role: 'user', content: '是否需要继续？' },
+        { role: 'assistant', content: '决定：采用方案 B' },
+      ])
+    );
+
+    const report = result.data as {
+      stats: { totalMessages: number; byRole: Record<string, number> };
+      decisions: string[];
+      pendingQuestions: string[];
+      suggestions: unknown[];
+    };
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('会话洞察');
+    expect(report.stats.totalMessages).toBe(2);
+    expect(report.stats.byRole.user).toBe(1);
+    expect(report.decisions[0]).toContain('采用方案 B');
+    expect(report.pendingQuestions.length).toBeGreaterThan(0);
+    expect(report.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it('report：空会话 ⇒ totalMessages=0 且如实提示', async () => {
+    const result = await insightsCommand.execute('report', makeContext([]));
+    const report = result.data as { stats: { totalMessages: number } };
+
+    expect(result.success).toBe(true);
+    expect(report.stats.totalMessages).toBe(0);
+    expect(result.message).toContain('暂无消息');
+  });
 });

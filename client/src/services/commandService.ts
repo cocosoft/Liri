@@ -19,6 +19,13 @@ export interface CommandRunResult {
   output: string;
   /** 命令级错误（`result.type === 'error'` 时与 output 相同） */
   error: string;
+  /**
+   * 结构化载荷（2026-10-23，方案 B）。
+   *
+   * 仅 `execute` 形态命令提供（如 `insights report`）；`call` 形态命令的 `data`
+   * 是 `{ type, value }` 文本包装。调用方按需收窄，不保证存在。
+   */
+  data?: unknown;
 }
 
 /**

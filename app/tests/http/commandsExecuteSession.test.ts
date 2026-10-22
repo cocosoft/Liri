@@ -264,3 +264,51 @@ describe('POST /v1/commands/execute：会话可用性守卫（多租户 P3）', 
     expect(calls).toEqual([{ command: 'version', sessionId: undefined }]);
   });
 });
+
+/**
+ * 方案 B（2026-10-23）：结构化载荷透出。
+ *
+ * `execute` 形态命令（如 `insights report`）把结构化结果放在顶层 `result.data`；
+ * 前端面板要按块渲染就必须拿到它。无 `data` 的响应保持旧形状（不带该字段）。
+ */
+describe('POST /v1/commands/execute：结构化 data 透出', () => {
+  test('execute 形态的 data ⇒ 原样出现在响应里', async () => {
+    nextResult = {
+      success: true,
+      type: 'text',
+      message: '会话洞察',
+      data: {
+        stats: { totalMessages: 2, byRole: { user: 1, assistant: 1 } },
+        decisions: ['采用方案 B'],
+      },
+    };
+    const { res, status, body } = makeRes();
+
+    await handleExecuteCommand(
+      ctx,
+      makeReq(
+        JSON.stringify({ command: 'insights report', session_id: 's-1' })
+      ),
+      res
+    );
+
+    const payload = JSON.parse(body());
+    expect(status()).toBe(200);
+    expect(payload.data.stats.totalMessages).toBe(2);
+    expect(payload.data.decisions).toEqual(['采用方案 B']);
+    expect(payload.output).toBe('会话洞察');
+  });
+
+  test('无 data ⇒ 响应不含 data 字段（保持旧形状）', async () => {
+    nextResult = { success: true, value: 'ok', type: 'text' };
+    const { res, body } = makeRes();
+
+    await handleExecuteCommand(
+      ctx,
+      makeReq(JSON.stringify({ command: 'version' })),
+      res
+    );
+
+    expect('data' in JSON.parse(body())).toBe(false);
+  });
+});

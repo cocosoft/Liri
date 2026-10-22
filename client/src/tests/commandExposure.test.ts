@@ -1,10 +1,11 @@
 /**
- * 后端命令的前端暴露面（2026-10-22，第一片：会话摘要 `brief`）
+ * 后端命令的前端暴露面（2026-10-22 首片 brief → 2026-10-23 方案 B 合并为 `insights report`）
  *
  * 背景：后端有 `POST /v1/commands/execute`，但前端一直**零调用方** ⇒ 命令类能力只能 CLI/斜杠用。
- * 本片把 `brief` 接成 GUI 入口，并锁住"会话级命令必须带 session_id"这条契约：
- * 后端 `handleExecuteCommand` 原先把 `context` 整个省略，`brief` 拿不到 sessionId
- * ⇒ `getSessionMessages(undefined)` 必然失败。
+ * 现在聊天页的「会话洞察」入口调用 `insights report`，并锁住三条契约：
+ *  ① 会话级命令必须带 `session_id`；
+ *  ② 后端 handler 必须把 `data` 透出（否则面板拿不到结构化载荷）；
+ *  ③ 前端服务层必须声明 `data` 字段。
  *
  * 手法：源码扫描（与 `navigationBoundary.test.ts` 同款，渲染成本高、接线更值得锁）。
  */
@@ -19,14 +20,12 @@ const readApp = (rel: string): string =>
 
 const endpointsSrc = readClient("../services/endpoints.ts");
 const commandServiceSrc = readClient("../services/commandService.ts");
-const messageListSrc = readClient(
-  "../components/ChatArea/ChatMessageList.tsx",
-);
+const messageListSrc = readClient("../components/ChatArea/ChatMessageList.tsx");
 const commandsHandlerSrc = readApp(
   "app/src/infrastructure/http/handlers/commands-handlers.ts",
 );
 
-describe("会话摘要（后端 brief 命令）的前端接线", () => {
+describe("会话洞察（后端 insights 命令）的前端接线", () => {
   it("端点常量存在且指向 /v1/commands/execute", () => {
     expect(endpointsSrc).toContain('execute: "/v1/commands/execute"');
   });
@@ -36,14 +35,25 @@ describe("会话摘要（后端 brief 命令）的前端接线", () => {
     expect(commandServiceSrc).toContain("ENDPOINTS.commands.execute");
   });
 
-  it("聊天列表工具栏有摘要入口，且把当前会话 id 传下去", () => {
-    expect(messageListSrc).toContain('runCommand("brief", currentSessionId)');
-    expect(messageListSrc).toContain('t("chat.summary")');
-    expect(messageListSrc).toContain('t("chat.summaryTitle")');
+  it("服务层声明结构化 data（方案 B）", () => {
+    expect(commandServiceSrc).toContain("data?: unknown");
+  });
+
+  it("聊天列表工具栏有洞察入口，且把当前会话 id 传下去", () => {
+    expect(messageListSrc).toContain(
+      'runCommand("insights report", currentSessionId)',
+    );
+    expect(messageListSrc).toContain('t("chat.insights")');
+    expect(messageListSrc).toContain("SessionInsightsModal");
   });
 
   it("后端 handler 把 session_id 透传给命令执行器", () => {
     expect(commandsHandlerSrc).toContain("session_id");
     expect(commandsHandlerSrc).toContain("executeCommand(command, sessionId)");
+  });
+
+  it("后端 handler 透出结构化 data（缺省不带该字段）", () => {
+    expect(commandsHandlerSrc).toContain("data: result.data");
+    expect(commandsHandlerSrc).toContain("result.data === undefined");
   });
 });

@@ -19,8 +19,27 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
-（v0.5.4 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）
+（v0.5.5 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）
 <!-- EVIDENCE-VIEWS:END -->
+
+#### v0.5.5 (2026-10-22)  前端巡检缺陷修复（渠道凭据容错 / 工作空间作用域 / dev 代理边界 / 推荐卡标识 / 会话指针自愈 / 用量落盘护栏）
+
+- ✅ **渠道凭据回显逐条容错** - 单条密文损坏不再把 `GET /v1/channels` 打成 500（此前渠道页统计全 0、仪表盘
+  「消息渠道」指标失真）；坏字段经 `unreadableCredentialFields` 回报，前端提示「凭据不可读 — 请重填」；
+  建立连接用的 `get()` 仍 fail-closed（绝不把坏凭据当空串发请求）。
+- ✅ **Agent 高级管理只对项目工作空间查 Swarm** - 系统工作空间 id（如 `knowledge`）曾被当作后端 workspace 查询
+  （`404 Workspace not found`，错误被 `.catch()` 吞掉、面板静默空白）；现按 `workspaceSource !== 'system'` 过滤，
+  并为 Swarm / 模型绑定给出引导文案。
+- ✅ **dev 代理边界修正** - Vite 的 `"/api"` 前缀匹配吞掉前端路由 `/apikeys`（直链/刷新返回后端 404 JSON 而非页面）；
+  改为边界正则 `^/api(/|$)`，`/apikeys` 恢复 `200 + text/html` 与 SPA 渲染。
+- ✅ **llama 推荐卡标识复合化** - 卡片 `key` 与下载中状态改用 `modelId:quantVersion`，消除「同量化多模型」
+  重复 key 警告与"多卡同时显示下载中"；`isBestRecommendation` 改按元素身份，只标一个「最佳推荐」。
+- ✅ **幽灵会话指针自愈** - 当前会话指针指向已删除会话时，回退最近会话后回写后端（`switch`），
+  告警不再每轮重复出现。
+- ✅ **测试期用量落盘护栏** - `NODE_ENV=test` 且调用方未显式隔离数据目录时 `trackUsage()` 不落盘
+  （此前单测向真实库写入 `fake-model` / `test-provider` / `mock` 共 45.9 万行，已备份后清理）。
+- ✅ **回归用例** - 新增/扩展 6 组：渠道凭据容错、用量护栏判据、工作空间作用域接线、代理边界配置棘轮、
+  推荐卡渲染（重复 key 断言）、会话指针回写（含负向）。
 
 #### v0.5.4 (2026-10-22)  服务端多租户闭环 + 内核瘦身/启动面门禁 + 变体矩阵落地
 

@@ -6303,4 +6303,4 @@
 {"id":"U13-METRICS-RESAMPLE","k":"title","i":0,"c":"U-13：T-13-a 修复后新数据窗口重采（2026-10-18）"}
 {"id":"U13-METRICS-RESAMPLE","k":"source","i":0,"c":"dev_docs/20261017/U-13-编排可观测量化口径与实测-20261017.md §3b"}
 {"id":"U13-METRICS-RESAMPLE","k":"notes","i":0,"c":"命令 measure-orchestration-metrics.ts --split 2026-10-17：247 日志 / 684,177 事件。改进后窗口首次出现非零工具错误（20 条，误调用率 2.04%，powershell 8.33% 为主）；改进前仍为 0（历史不可回填，不作显著性对比）。编排链路事件仍仅 goal/created×1，OrchestrationMetrics 为进程内指标 ⇒ P50/P95 需真实流量，不臆造。"}
-{"id":"@changelog-unreleased","k":"block#0","i":0,"c":"（v0.5.4 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）"}
+{"id":"@changelog-unreleased","k":"block#0","i":0,"c":"（v0.5.5 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）"}

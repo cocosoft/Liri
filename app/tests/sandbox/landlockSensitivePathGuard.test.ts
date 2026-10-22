@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Landlock 白名单「敏感路径」守卫（P0-3-b，2026-09-28）
  *
  * **为什么需要**：P0-3 取证时发现 bash 的 Landlock 白名单把 `~/.pyapp`（含
@@ -18,13 +18,15 @@
  *
  * ⚠️ 平台无关：全部为**纯策略形状断言**（不 spawn、不需要 Linux 内核）。
  */
-import { describe, expect, it } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { homedir } from 'os';
 import {
+  getUserDataDirOverride,
   resolveDownloadsDir,
   resolveOutputDir,
   resolvePyappHome,
   resolveTempDir,
+  setUserDataDirOverride,
 } from '@modules/core/paths';
 import { buildBashLandlockPolicy } from '../../src/tools/bash/bashLandlockExec';
 import { buildBunLandlockPolicy } from '../../src/tools/CodeRunner/LinuxSandboxRunner';
@@ -32,12 +34,28 @@ import type { LandlockFsRule } from '../../src/sandbox/landlock/types';
 
 const CWD = '/w';
 const HOME = homedir();
-const PYAPP_HOME = resolvePyappHome();
+
+/**
+ * **环境隔离（必读）**：`resolvePyappHome()` 的第一优先级是运行时的
+ * `setUserDataDirOverride()`（`core/paths.ts`），其次是 `LIRI_HOME`。
+ *
+ * 全量套跑时同进程的其他用例会把二者指向**临时目录**（`/tmp/…` / `%TEMP%…`），而
+ * bash / code_run 的策略本就允许写 temp 目录 ⇒ 本文件会在 Linux 上把
+ * "`~/.pyapp` 被 temp 规则覆盖"误判为"敏感路径被放行"（实测 CI 全量套跑假红，两次）。
+ *
+ * ⇒ 本文件在 `beforeAll` 里**钉死**一个与任何策略根都无关的 home，并在同一环境快照下
+ * 构建策略；`afterAll` 还原，避免影响后续用例文件。
+ */
+const STABLE_LIRI_HOME =
+  process.platform === 'win32' ? 'C:\\liri-verify' : '/opt/liri-verify';
+
+let PYAPP_HOME = '';
 /** 承载凭据与全部运行数据的两个敏感路径（Landlock 若放行它们即视为边界被放宽） */
-const SENSITIVE_PATHS = [
-  `${PYAPP_HOME}/config.json`,
-  `${PYAPP_HOME}/data`,
-] as const;
+let SENSITIVE_PATHS: readonly string[] = [];
+let CODE_RUN_POLICY: LandlockFsRule[] = [];
+let bashPolicy: ReturnType<typeof buildBashLandlockPolicy>;
+let prevUserDataDirOverride: string | null = null;
+let prevLiriHome: string | undefined;
 
 /** 写类权限：任一出现即视为"可写" */
 const WRITE_ACCESS = ['write', 'make_dir', 'make_reg', 'remove'];
@@ -76,7 +94,23 @@ function covers(rulePath: string, target: string): boolean {
  * 现直接断言**真实策略**。（`SandboxConfigBuilder` 于 2026-10-09 沙箱回滚后重新存在，
  * 但仍为零生产消费者，故本守卫不以其为输入。）
  */
-const CODE_RUN_POLICY: LandlockFsRule[] = buildBunLandlockPolicy(CWD, 5).fs;
+beforeAll(() => {
+  prevUserDataDirOverride = getUserDataDirOverride();
+  prevLiriHome = process.env['LIRI_HOME'];
+  // 同一环境快照下"取敏感路径 + 构建两份策略" ⇒ 断言与被测对象必然同源
+  setUserDataDirOverride(null);
+  process.env['LIRI_HOME'] = STABLE_LIRI_HOME;
+  PYAPP_HOME = resolvePyappHome();
+  SENSITIVE_PATHS = [`${PYAPP_HOME}/config.json`, `${PYAPP_HOME}/data`];
+  CODE_RUN_POLICY = buildBunLandlockPolicy(CWD, 5).fs;
+  bashPolicy = buildBashLandlockPolicy({ cwd: CWD, abi: 5 });
+});
+
+afterAll(() => {
+  setUserDataDirOverride(prevUserDataDirOverride);
+  if (prevLiriHome === undefined) delete process.env['LIRI_HOME'];
+  else process.env['LIRI_HOME'] = prevLiriHome;
+});
 
 describe('Landlock 白名单：敏感路径守卫（P0-3-b）', () => {
   describe('code_run 侧：buildBunLandlockPolicy（真实策略）', () => {
@@ -106,12 +140,11 @@ describe('Landlock 白名单：敏感路径守卫（P0-3-b）', () => {
   });
 
   describe('bash 侧：buildBashLandlockPolicy', () => {
-    // 不注入 homeDir ⇒ 用**真实**路径，使"受管目录 vs ~/.pyapp"自洽
-    const policy = buildBashLandlockPolicy({ cwd: CWD, abi: 5 });
+    // 不注入 homeDir ⇒ 用**真实**路径，使"受管目录 vs ~/.pyapp"自洽（策略在 beforeAll 里按同一环境快照构建）
 
     it('**不得**出现"家目录整体"规则', () => {
       expect(
-        policy.fs.some(
+        bashPolicy.fs.some(
           (rule) => normalizePath(rule.path) === normalizePath(HOME)
         )
       ).toBe(false);
@@ -123,14 +156,14 @@ describe('Landlock 白名单：敏感路径守卫（P0-3-b）', () => {
       // 但任何"放行整个 `~/.pyapp`"的写法都会让 `config.json` / `credentials.json` /
       // `data/app.db` / `sessions/` 一并暴露 ⇒ 必须变红。
       expect(
-        policy.fs.some(
+        bashPolicy.fs.some(
           (rule) => normalizePath(rule.path) === normalizePath(PYAPP_HOME)
         )
       ).toBe(false);
     });
 
     it('`config.json` 与 `data/` **不得可写**（P0-3-a 后：整棵树已不放行）', () => {
-      for (const rule of policy.fs) {
+      for (const rule of bashPolicy.fs) {
         if (!isWritable(rule)) continue;
         for (const sensitive of SENSITIVE_PATHS) {
           expect(
@@ -149,7 +182,7 @@ describe('Landlock 白名单：敏感路径守卫（P0-3-b）', () => {
         resolveDownloadsDir(),
         resolveTempDir(),
       ]);
-      const writableUnderPyapp = policy.fs.filter(
+      const writableUnderPyapp = bashPolicy.fs.filter(
         (rule) =>
           isWritable(rule) &&
           covers(PYAPP_HOME, rule.path) &&
@@ -167,7 +200,7 @@ describe('Landlock 白名单：敏感路径守卫（P0-3-b）', () => {
       // 本断言存在的理由有实证：该过滤的第一版用 `/` 拼路径判定，而 `resolvePyappHome()`
       // 在 Windows 返回 `C:\…` ⇒ 命中数恒为 0、用例静默变绿（已修为 `covers` 内归一化）。
       // 故此处显式要求"至少命中 1 条"，并单独验证"受管目录确实可写"这一契约仍在。
-      const writableUnderPyapp = policy.fs.filter(
+      const writableUnderPyapp = bashPolicy.fs.filter(
         (rule) =>
           isWritable(rule) &&
           covers(PYAPP_HOME, rule.path) &&
@@ -175,7 +208,7 @@ describe('Landlock 白名单：敏感路径守卫（P0-3-b）', () => {
       );
       expect(writableUnderPyapp.length).toBeGreaterThan(0);
 
-      const outputRule = policy.fs.find(
+      const outputRule = bashPolicy.fs.find(
         (rule) => normalizePath(rule.path) === normalizePath(resolveOutputDir())
       );
       expect(outputRule).toBeDefined();

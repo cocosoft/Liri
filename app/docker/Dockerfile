@@ -6,7 +6,12 @@
 # =============================================================================
 #  构建阶段 1：Rust 原生插件编译
 # =============================================================================
-FROM rust:1.84-slim-bookworm AS native-builder
+# ── 2026-10-22：基础镜像由 `rust:1.84` 提到 `rust:1`（= 当前 stable）──
+# 根因（实测 Deploy Docker 连续失败）：`app/native/Cargo.lock` 已锁到
+# `icu_properties_data 2.3.0`，其 manifest 需要比 cargo 1.84 更新的解析器 ⇒
+# `failed to parse manifest ... / icu_properties_data-2.3.0 / Cargo.toml`（exit 101）。
+# 依赖确定性由下方 `cargo build --locked`（对齐已入库 Cargo.lock）保证，不靠旧工具链钉版本。
+FROM rust:1-slim-bookworm AS native-builder
 
 WORKDIR /native
 
@@ -16,9 +21,9 @@ RUN mkdir src && echo 'fn main() {}' > src/lib.rs && \
     cargo build --release 2>/dev/null || true && \
     rm -rf src
 
-# 复制真实源码并编译
+# 复制真实源码并编译（`--locked`：必须与入库 Cargo.lock 完全一致，禁重新解析）
 COPY app/native/ .
-RUN cargo build --release && \
+RUN cargo build --release --locked && \
     cp target/release/libliri_native.so /libliri_native.so
 
 # =============================================================================

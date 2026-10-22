@@ -140,3 +140,61 @@ describe('POST /v1/commands/execute：session_id 透传', () => {
     expect(JSON.parse(body()).output).toBe('会话摘要：两条决策');
   });
 });
+
+/**
+ * BUG-17（2026-10-22）：命令级失败原因必须透出。
+ *
+ * 现场：handler 原先把 `error` 只按 `type === 'error'` 判定，而多数命令的失败形态是
+ * `{ success:false, error:'…' }`（不带 type）⇒ error 被丢成空串，前端只能退化成通用文案。
+ */
+describe('POST /v1/commands/execute：命令级 error 透出', () => {
+  test('success=false 且带 error（无 type）⇒ error 原样透出', async () => {
+    nextResult = { success: false, error: '模型未配置，请先到模型管理添加' };
+    const { res, status, body } = makeRes();
+
+    await handleExecuteCommand(
+      ctx,
+      makeReq(JSON.stringify({ command: 'insights' })),
+      res
+    );
+
+    const payload = JSON.parse(body());
+    expect(status()).toBe(200);
+    expect(payload.success).toBe(false);
+    expect(payload.error).toBe('模型未配置，请先到模型管理添加');
+  });
+
+  test('type=error 且无 error 字段 ⇒ 沿用旧口径（output 即错误正文）', async () => {
+    nextResult = {
+      success: true,
+      type: 'error',
+      message: '无效的effort级别: x',
+    };
+    const { res, body } = makeRes();
+
+    await handleExecuteCommand(
+      ctx,
+      makeReq(JSON.stringify({ command: 'effort x' })),
+      res
+    );
+
+    const payload = JSON.parse(body());
+    expect(payload.output).toBe('无效的effort级别: x');
+    expect(payload.error).toBe('无效的effort级别: x');
+  });
+
+  test('成功且无 error ⇒ error 必须是空串（不误报）', async () => {
+    nextResult = { success: true, value: 'ok', type: 'text' };
+    const { res, body } = makeRes();
+
+    await handleExecuteCommand(
+      ctx,
+      makeReq(JSON.stringify({ command: 'version' })),
+      res
+    );
+
+    const payload = JSON.parse(body());
+    expect(payload.success).toBe(true);
+    expect(payload.error).toBe('');
+  });
+});

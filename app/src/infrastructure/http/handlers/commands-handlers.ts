@@ -112,6 +112,7 @@ export async function handleExecuteCommand(
       value?: string;
       message?: string;
       type?: string;
+      error?: string;
     };
     const payloadType = result.type ?? data.type;
     const output =
@@ -120,7 +121,14 @@ export async function handleExecuteCommand(
       result.message?.toString() ||
       data.message?.toString() ||
       '';
-    const error = payloadType === 'error' ? output : '';
+    // 2026-10-22（BUG-17）：失败时把**命令级 error** 也透出。
+    // 原实现只认 `type === 'error'`，而多数命令的失败形态是 `{ success:false, error }`
+    // （不带 type）⇒ error 被丢成空串，前端只能退化成通用失败文案（真实原因丢失）。
+    // 现在：显式 error 字段优先；无该字段时仍按旧口径用 output（与既有行为兼容）。
+    const payloadError =
+      result.error?.toString() || data.error?.toString() || '';
+    const failed = result.success === false || payloadType === 'error';
+    const error = failed ? payloadError || output : '';
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(

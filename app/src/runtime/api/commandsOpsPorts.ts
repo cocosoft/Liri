@@ -36,7 +36,7 @@ export interface CommandBriefDto {
   userInvocable?: boolean | undefined;
 }
 
-/** 命令执行结果投影（调用方读 `value` / `message` / `type` / `success` / `data`） */
+/** 命令执行结果投影（调用方读 `value` / `message` / `type` / `success` / `error` / `data`） */
 export interface CommandResultDto {
   /** app 侧为 `string`（原码 `value?.toString()`） */
   value?: string | undefined;
@@ -44,6 +44,12 @@ export interface CommandResultDto {
   /** app 侧为字面量联合（原码与 `'error'` 比较） */
   type?: string | undefined;
   success?: boolean | undefined;
+  /**
+   * 命令级失败原因（`CommandResult.error`）。
+   * 2026-10-22（BUG-17）：多数命令的失败形态是 `{ success:false, error }`（不带 `type`）——
+   * handler 原先只认 `type === 'error'`，该字段被丢弃 ⇒ 前端只能显示通用失败文案。
+   */
+  error?: string | undefined;
   /**
    * `call` / `execute` 两种实现形态的返回位置不同（2026-10-22 实测）：
    * `CommandManager` 对 `call` 形态包成 `{ success:true, data: result }`，

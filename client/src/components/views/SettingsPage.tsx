@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useConfigStore } from "../../stores/configStore";
 import { useRootStore } from "../../stores/root-store";
 import { getCurrentTier } from "../../stores/root-store/featureSlice";
@@ -33,6 +33,7 @@ import EstopPanel from "../settings/EstopPanel";
 import RouterConfigPanel from "../settings/RouterConfigPanel";
 import VfsMountsPanel from "../settings/VfsMountsPanel";
 import ToolsPanel from "../settings/ToolsPanel";
+import { useSettingsPanelStore } from "@/stores/settingsPanelStore";
 import type { BackendStatus } from "../../types";
 import {
   SettingsIcon,
@@ -194,6 +195,34 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+/**
+ * 跨面板「相关入口」（2026-10-22 收边界）
+ *
+ * 设置管**偏好**（拨开关、即时生效），工作台管**实体**（模型/渠道/密钥/沙箱…有列表与增删改查）。
+ * 两者不该合并（18 + 30 = 48 项会重新变成"看花"），但同一域里"改配置"与"管理资源"常被放进
+ * 两个地方 ⇒ 在**设置侧**给出直达链接，用户不必靠猜"另一半在哪"。
+ *
+ * 判定规则见 `.trae/rules/frontend.md`「导航归属：偏好 vs 实体」。
+ */
+const CROSS_LINK_ENTRIES: Record<string, { labelKey: string; path: string }> = {
+  // 模型：本地推理参数在设置，云端模型的增删改查在工作台
+  llama: { labelKey: "model.title", path: "/models" },
+  ollama: { labelKey: "model.title", path: "/models" },
+  // 语音：参数在设置，"测试一下"在工作台
+  voice: { labelKey: "workbench.voiceTest", path: "/voice-stt" },
+  // 安全：三条偏好（信任工作区/自定义规则/急停）→ 完整权限管理页
+  "trusted-workspaces": {
+    labelKey: "workbench.permissions",
+    path: "/permissions",
+  },
+  "custom-rules": { labelKey: "workbench.permissions", path: "/permissions" },
+  estop: { labelKey: "workbench.permissions", path: "/permissions" },
+  // 身份：资料编辑在设置，个人中心页在工作台
+  user: { labelKey: "header.userCenter", path: "/user" },
+  // 办公：集成开关在设置，办公产品页在工作台
+  office: { labelKey: "nav.office", path: "/office" },
+};
+
 /** 页面描述映射（nav ID → i18n key；K3：16 项全覆盖含 estop） */
 const PAGE_DESCRIPTION_KEYS: Record<string, string> = {
   config: "settings.desc.config",
@@ -266,6 +295,7 @@ function getPersistedNav(fallback: string): string {
 
 function SettingsPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { config, setConfig } = useConfigStore();
   const enterModule = useRootStore((s) => s.enterModule);
@@ -565,6 +595,23 @@ function SettingsPage() {
                           {desc}
                         </p>
                       ) : null;
+                    })()}
+                    {(() => {
+                      const link = CROSS_LINK_ENTRIES[effectiveNav];
+                      if (!link) return null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // 设置常以抽屉形式打开：先收起再跳转，避免抽屉盖住目标页
+                            useSettingsPanelStore.getState().closePanel();
+                            navigate(link.path);
+                          }}
+                          className="mt-2 inline-flex items-center gap-1 rounded border border-gray-200 px-2 py-1 text-xs text-gray-600 transition-colors hover:border-blue-400 hover:text-blue-600 dark:border-gray-600 dark:text-gray-300"
+                        >
+                          {t("settings.relatedEntry")}：{t(link.labelKey)} →
+                        </button>
+                      );
                     })()}
                   </div>
                 );

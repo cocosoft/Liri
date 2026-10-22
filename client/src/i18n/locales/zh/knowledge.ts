@@ -1387,6 +1387,10 @@ const zhKnowledge = {
     title: "工作区",
     defaultName: "默认工作空间",
     openView: "打开视图",
+    // 工作项页（2026-10-22：/work 不再是工作台标签壳，只保留工作项能力）
+    workItemsTitle: "工作项",
+    workItemsHint:
+      "工作项隶属于当前项目；「进入规划」会用该标题开一个只规划的会话",
     newWorkItem: "新建工作项",
     enterPlanning: "进入规划",
     enterPlanningHint:

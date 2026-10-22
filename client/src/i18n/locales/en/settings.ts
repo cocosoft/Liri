@@ -43,6 +43,9 @@ const enSettings = {
     apiKeyNamePlaceholder: "e.g. My app key",
     apiKeyNameRequired: "Please enter a key name",
     apiKeys: "API Keys",
+    // 2026-10-22: "Office" in Settings is the **integration switch**; the product page lives in Workbench
+    office: "Office Integration",
+    relatedEntry: "Related",
     apiSecret: "API Secret",
     appearance: "Appearance",
     appearanceDesc: "Configure theme, language, and timezone",
@@ -406,7 +409,6 @@ const enSettings = {
     voiceLoadingVoices: "Loading voices...",
     voicePlaceholder: "e.g. zh-CN-XiaoxiaoNeural",
     ollama: "Ollama Local Inference",
-    office: "Office Settings",
     language: "Language",
     languageEnUS: "English (US)",
     languageZhCN: "简体中文",

@@ -42,6 +42,9 @@ const zhSettings = {
     apiKeyNamePlaceholder: "例如：我的应用密钥",
     apiKeyNameRequired: "请输入密钥名称",
     apiKeys: "API 密钥",
+    // 2026-10-22：设置里的"办公"是**集成开关**，工作台里的"办公"是产品页 —— 文案区分开
+    office: "办公集成",
+    relatedEntry: "相关入口",
     apiSecret: "API 密钥（保密）",
     appearance: "外观",
     appearanceDesc: "配置界面主题、语言和时区",
@@ -390,7 +393,6 @@ const zhSettings = {
     voiceLoadingVoices: "加载音色中...",
     voicePlaceholder: "如 zh-CN-XiaoxiaoNeural",
     ollama: "Ollama 本地推理",
-    office: "办公设置",
     language: "语言",
     languageEnUS: "English (US)",
     languageZhCN: "简体中文",

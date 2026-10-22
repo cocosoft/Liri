@@ -109,8 +109,8 @@ const OfficeMailPage = lazy(
 const ApiKeyPage = lazy(() => import("../components/settings/ApiKeyContent"));
 const OAuthPage = lazy(() => import("../components/views/OAuthPage"));
 const LoginPage = lazy(() => import("../components/views/LoginPage"));
-const WorkbenchPage = lazy(
-  () => import("../components/workbench/WorkbenchPage"),
+const WorkItemsPage = lazy(
+  () => import("../components/Workspace/WorkItemsPage"),
 );
 const WorkbenchDirectoryPage = lazy(
   () => import("../components/workbench/WorkbenchDirectoryPage"),
@@ -159,12 +159,12 @@ export const routes: RouteObject[] = [
   // 聊天（无 AuthGuard，含内联布局）
   { path: "/chat", element: <ChatPageLayout /> },
 
-  // 工作台（单会话工作区）
+  // 工作项（项目工作空间内的工作项；2026-10-22 起不再是"工作台标签壳"）
   {
     path: "/work",
     element: (
       <AuthGuard>
-        <WorkbenchPage />
+        <WorkItemsPage />
       </AuthGuard>
     ),
   },

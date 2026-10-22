@@ -1450,6 +1450,10 @@ const enKnowledge = {
     title: "Workspace",
     defaultName: "Default Workspace",
     openView: "Open view",
+    // Work items page (2026-10-22: /work is no longer the workbench tab shell)
+    workItemsTitle: "Work Items",
+    workItemsHint:
+      "Work items belong to the current project; “Enter planning” opens a plan-only session with this title",
     newWorkItem: "New work item",
     enterPlanning: "Enter planning",
     enterPlanningHint:

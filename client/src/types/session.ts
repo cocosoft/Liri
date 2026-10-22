@@ -1,10 +1,18 @@
 /** 工作模式：plan（计划）/ do（执行） */
 export type WorkMode = "plan" | "do";
 
+/**
+ * 回复详略档（`/effort` 与输入区「回复设置」共用；源：会话 metadata.effortLevel）
+ * `auto` = 不注入任何指令（与未设置等价）。
+ */
+export type ReplyEffortLevel = "low" | "medium" | "high" | "auto";
+
 export interface Session {
   id: string;
   /** 会话的 Plan/Do 工作模式（源：metadata.workMode 展平） */
   workMode?: WorkMode;
+  /** 会话的回复详略档（源：metadata.effortLevel 展平；未设置 ⇒ auto） */
+  effortLevel?: ReplyEffortLevel;
   title: string;
   createdAt: string;
   updatedAt: string;

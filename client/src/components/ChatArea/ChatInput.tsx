@@ -34,6 +34,8 @@ import { useChatDraft } from "./useChatDraft";
 import TemporarySessionToggle from "./TemporarySessionToggle";
 // 计划/执行开关（emoji 之后，单击切换；写入会话 metadata.workMode）
 import WorkModeToggle from "./WorkModeToggle";
+// 回复设置（详略 + 快速模式）：复用 `/effort`、`/fast` 两条命令的同一实现
+import ReplyPrefsMenu from "./ReplyPrefsMenu";
 import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
 import { toastError, toastWarning } from "../../stores/toastStore";
@@ -1500,6 +1502,25 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                     }));
                   }}
                   disabled={isStreaming}
+                />
+                {/* 回复设置（详略 / 快速模式）—— 与 `/effort`、`/fast` 命令同一实现；
+                    详略写会话 metadata.effortLevel，快速模式写全局配置 fastMode */}
+                <ReplyPrefsMenu
+                  sessionId={currentSession?.id}
+                  effortLevel={currentSession?.effortLevel}
+                  onEffortChanged={(level) => {
+                    // 就地更新本地会话缓存：事实来源仍是后端，随后
+                    // session:meta_updated 广播回填以服务端为准
+                    const changedId = currentSession?.id;
+                    if (!changedId) return;
+                    useRootStore.setState((s) => ({
+                      chatSessions: s.chatSessions.map((item) =>
+                        item.id === changedId
+                          ? { ...item, effortLevel: level }
+                          : item,
+                      ),
+                    }));
+                  }}
                 />
               </div>
               {/* UI 期 UI-3：临时对话开关并入本行（组件内 `ml-auto` 右对齐） */}

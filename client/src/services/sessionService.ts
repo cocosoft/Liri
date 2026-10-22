@@ -319,6 +319,8 @@ function flattenSession<S extends Session | null>(session: S): S {
       tasksOverride?: Record<string, string>;
       pinned?: boolean;
       workMode?: "plan" | "do";
+      /** 回复详略档（`/effort` 或输入区「回复设置」写入；后端 system prompt 侧消费） */
+      effortLevel?: "low" | "medium" | "high" | "auto";
     };
   };
   return {
@@ -328,6 +330,10 @@ function flattenSession<S extends Session | null>(session: S): S {
     workMode:
       raw.metadata?.workMode ||
       (session as { workMode?: "plan" | "do" }).workMode,
+    effortLevel:
+      raw.metadata?.effortLevel ||
+      (session as { effortLevel?: "low" | "medium" | "high" | "auto" })
+        .effortLevel,
     modelId: raw.metadata?.model || session.modelId,
     providerId: raw.metadata?.providerId || session.providerId,
     workspaceId: raw.metadata?.workspaceId || session.workspaceId,

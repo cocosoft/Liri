@@ -6,11 +6,11 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  */
 
 import { BaseTool } from '../BaseTool';
-import chatService from '@modules/chat';
 import type { ToolUseContext, ToolResult } from '../types';
 import { ToolParam, ToolTag } from '../types/Tool';
 import type { SessionMessage } from '@modules/session';
 import { insightsEngine } from '@modules/analytics';
+import { loadSessionMessages } from '../sessionMessageSource';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:BriefTool:BriefTool');
@@ -119,9 +119,9 @@ export class BriefTool extends BaseTool<BriefToolInput> {
   ): Promise<ToolResult> {
     try {
       const sessionId = input.sessionId || (context as any).sessionId;
-      const messages = (await chatService.getSessionMessages(
-        sessionId
-      )) as SessionMessage[];
+      // 2026-10-23：改走 CoreAPI（身份作用域 + 真实消息源）；旧 `chatService` 无写入方，
+      // 读的永远是历史目录里的空集合。
+      const messages = sessionId ? await loadSessionMessages(sessionId) : [];
 
       const summary = this.generateSummary(
         messages,

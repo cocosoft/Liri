@@ -569,10 +569,18 @@ export class SessionLifecycleManager {
 
   /**
    * 获取所有会话
-   * @returns 会话列表
+   *
+   * 多租户 P3（2026-10-23）：内存缓存是进程级 ⇒ 返回前按归属过滤
+   * （本地身份恒全部可见；已认证身份只见自己的会话）。
+   * runtime 的 `listSessions` 另有过滤，这里补上是为了兜住**其他直接调用方**。
+   *
+   * @returns 当前身份可访问的会话列表
    */
   getSessions(): ChatSession[] {
-    return Array.from(this.chatSessions.values());
+    const principal = getRequestPrincipal();
+    return Array.from(this.chatSessions.values()).filter((session) =>
+      canAccessSession(this._ownerOf(session), principal)
+    );
   }
 
   /**

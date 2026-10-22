@@ -11,8 +11,8 @@ import { BaseTool } from '../BaseTool';
 import { ToolParam, ToolTag } from '../types/Tool';
 import type { ToolUseContext, ToolResult } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import chatService from '@modules/chat';
 import type { SessionMessage } from '@modules/session';
+import { loadSessionMessages } from '../sessionMessageSource';
 import { resolveDataDir } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
@@ -60,9 +60,8 @@ export class SaveConversationTool extends BaseTool<SaveConversationInput> {
   ): Promise<ToolResult> {
     try {
       const sessionId = input.sessionId || (context as any).sessionId;
-      const messages = (await chatService.getSessionMessages(
-        sessionId
-      )) as SessionMessage[];
+      // 2026-10-23：改走 CoreAPI（身份作用域 + 真实消息源），不再读旧 chatService
+      const messages = sessionId ? await loadSessionMessages(sessionId) : [];
 
       if (messages.length === 0) {
         return createToolResult('当前会话暂无消息，无法保存记录。', {

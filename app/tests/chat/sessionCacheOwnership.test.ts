@@ -42,11 +42,12 @@ function makeSession(owner?: {
 
 /** 只走缓存分支 ⇒ 其余依赖可用空替身（缓存未命中才会被调用） */
 function makeLifecycle(
-  session: ChatSession,
+  session: ChatSession | ChatSession[],
   messageService: unknown = {}
 ): SessionLifecycleManager {
+  const sessions = Array.isArray(session) ? session : [session];
   return new SessionLifecycleManager({
-    chatSessions: new Map([[session.id, session]]),
+    chatSessions: new Map(sessions.map((item) => [item.id, item])),
     currentSessionIdRef: { get: () => null, set: () => {} },
     sessionLeaveTimes: new Map(),
     sessionMutexes: new Map(),
@@ -175,5 +176,32 @@ describe('会话消息读取归属校验（P3，2026-10-23）', () => {
       lifecycle.searchMessages('私密')
     );
     expect(other).toEqual([]);
+  });
+
+  it('getSessions：本地恒见全部；已认证身份只见自己的会话', async () => {
+    const aliceSession = makeSession({ tenantId: 'acme', userId: 'alice' });
+    const bobSession = {
+      ...makeSession({ tenantId: 'acme', userId: 'bob' }),
+      id: 's-bob-1',
+    } as ChatSession;
+    const lifecycle = makeLifecycle([aliceSession, bobSession]);
+
+    // 本地身份（桌面 / 后台）：零行为变更
+    expect(
+      lifecycle
+        .getSessions()
+        .map((s) => s.id)
+        .sort()
+    ).toEqual(['s-bob-1', 's-cache-1']);
+
+    const aliceView = await runWithPrincipal(ALICE, async () =>
+      lifecycle.getSessions()
+    );
+    expect(aliceView.map((s) => s.id)).toEqual(['s-cache-1']);
+
+    const bobView = await runWithPrincipal(BOB, async () =>
+      lifecycle.getSessions()
+    );
+    expect(bobView.map((s) => s.id)).toEqual(['s-bob-1']);
   });
 });

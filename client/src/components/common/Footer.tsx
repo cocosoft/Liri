@@ -129,7 +129,7 @@ function Footer() {
   };
 
   return (
-    <footer className="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center px-4 text-xs text-gray-600 dark:text-gray-400 select-none relative">
+    <footer className="h-8 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex items-center px-4 text-xs text-gray-600 dark:text-gray-400 select-none relative overflow-hidden">
       <div className="flex items-center gap-3 flex-1">
         {/* 后端状态 */}
         <div
@@ -164,37 +164,38 @@ function Footer() {
           )}
         </div>
 
-        {/* 端口 */}
+        {/* 端口（窄屏隐藏：见下方 CPU/MEM 同口径说明） */}
         {status.running && status.port && (
-          <span className="text-gray-400">:{status.port}</span>
+          <span className="hidden lg:inline text-gray-400">:{status.port}</span>
         )}
 
-        {/* CPU / 内存 */}
+        {/* CPU / 内存 —— 窄屏（<lg）隐藏：768 实测整条状态栏内容宽 823px、
+            超出视口 55px 被裁切；底栏已让位后仍放不下，故只保留「后端状态」 */}
         {status.running && summary && (
           <>
-            <span className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
+            <span className="hidden lg:block w-px h-3 bg-gray-300 dark:bg-gray-600" />
             <span
-              className={`flex items-center gap-1 ${getPercentColor(summary.cpuPercent)}`}
+              className={`hidden lg:flex items-center gap-1 ${getPercentColor(summary.cpuPercent)}`}
             >
               CPU:{summary.cpuPercent.toFixed(0)}%
             </span>
-            <span className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
+            <span className="hidden lg:block w-px h-3 bg-gray-300 dark:bg-gray-600" />
             <span
-              className={`flex items-center gap-1 ${getPercentColor(summary.memoryPercent)}`}
+              className={`hidden lg:flex items-center gap-1 ${getPercentColor(summary.memoryPercent)}`}
             >
               MEM:{summary.memoryPercent.toFixed(0)}%
             </span>
           </>
         )}
 
-        {/* 当前模型 */}
+        {/* 当前模型（窄屏隐藏） */}
         {status.running && (
           <>
-            <span className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
+            <span className="hidden lg:block w-px h-3 bg-gray-300 dark:bg-gray-600" />
             {currentModelName ? (
               <button
                 onClick={() => setShowModelSwitcher(true)}
-                className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+                className="hidden lg:flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
                 title={t("footer.switchModel")}
               >
                 <span className="text-purple-500">Model:</span>
@@ -218,7 +219,7 @@ function Footer() {
             ) : (
               <button
                 onClick={() => navigate("/models")}
-                className="flex items-center gap-1 text-amber-500 hover:text-amber-600 transition-colors"
+                className="hidden lg:flex items-center gap-1 text-amber-500 hover:text-amber-600 transition-colors"
                 title={t("footer.configureModel")}
               >
                 <svg
@@ -242,13 +243,13 @@ function Footer() {
           </>
         )}
 
-        {/* Token / 成本 */}
+        {/* Token / 成本（窄屏隐藏） */}
         {costSummary && (
           <>
-            <span className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
+            <span className="hidden lg:block w-px h-3 bg-gray-300 dark:bg-gray-600" />
             <button
               onClick={() => setShowCostDetail(!showCostDetail)}
-              className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
+              className="hidden lg:flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
               title={t("footer.toggleTokenDetail")}
             >
               <span className="text-blue-500">
@@ -264,7 +265,7 @@ function Footer() {
 
             {/* 今日消费 */}
             {costSummary.todayCost > 0 && (
-              <span className="text-orange-500">
+              <span className="hidden lg:inline text-orange-500">
                 {t("footer.today")}:{" "}
                 {formatCost(costSummary.todayCost, currency)}
               </span>

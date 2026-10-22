@@ -242,6 +242,10 @@ function App() {
           </div>
         </div>
         <Footer />
+        {/* 移动端底栏是 fixed（脱离文档流）⇒ 必须显式让出等高的占位，
+            否则最底部的状态栏会被底栏压住（768 视口实测：Footer y=992..1024、
+            底栏 y=975..1024，状态栏完全不可见）。高度取底栏实测高度 50px。 */}
+        <div className="lg:hidden h-[50px] shrink-0" aria-hidden="true" />
         <MobileBottomNav />
         <ConfigPanel />
         <KeyboardShortcutsHelp />

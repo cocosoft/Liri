@@ -56,10 +56,7 @@ import type {
 } from '@modules/session/types/session.js';
 import { DataSessionStatus } from '@modules/core';
 // 多租户 P1：会话归属（创建时写入请求身份；本地身份不写）
-import {
-  getRequestPrincipal,
-  isLocalPrincipal,
-} from '@modules/core/identity/requestScope.js';
+import { getRequestPrincipal } from '@modules/core/identity/requestScope.js';
 import {
   ownerOf,
   canAccessSession,
@@ -360,15 +357,16 @@ export class SessionLifecycleManager {
   /**
    * 该会话在当前身份下是否**可用**（多租户 P3：HTTP 入口 404 语义的唯一判据）。
    *
-   * - 本地身份 ⇒ `true`（桌面 / CLI / 后台零变更）；
-   * - 已认证身份 ⇒ **确实存在**（内存缓存或按身份分区的存储）且归属匹配才 `true`；
-   *   跨身份与"不存在"返回同一 `false` ⇒ HTTP 侧统一 404，不泄露存在性。
+   * - 任何身份都**必须确实存在**（内存缓存或按身份分区的存储）；
+   * - 已认证身份还要求归属匹配；跨身份与"不存在"返回同一 `false` ⇒ HTTP 侧统一 404，不泄露存在性；
+   * - 本地身份的归属判定始终放行（`canAccessSession` 对本地身份短路），
+   *   但**不再豁免存在性** —— BUG-14（2026-10-22）：此前本地身份直接 `return true`，
+   *   使不存在的 `session_id` 被下游 `getOrLoadSession()` 静默建造成新会话并返回 200。
    *
    * 存储读取失败 ⇒ `false`（fail-closed：宁可拒绝，不误放行）。
    */
   async canUseSession(sessionId: string): Promise<boolean> {
     const principal = getRequestPrincipal();
-    if (isLocalPrincipal(principal)) return true;
 
     const cached = this.chatSessions.get(sessionId);
     if (cached) {

@@ -3216,7 +3216,8 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * 多租户 P3：该会话在当前身份下是否**可用**（HTTP 入口 404 语义的唯一判据）。
    *
-   * 本地身份恒 `true`（桌面零变更）；已认证身份按归属判定，
+   * 任何身份都要求会话**确实存在**（BUG-14：本地身份不再豁免存在性）；
+   * 本地身份的**归属**判定恒放行，已认证身份按归属判定，
    * 跨身份与"不存在"返回同一 `false`（调用方统一按 404 响应，不泄露存在性）。
    */
   async canUseSession(sessionId: string): Promise<boolean> {

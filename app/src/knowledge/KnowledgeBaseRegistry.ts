@@ -38,6 +38,11 @@ interface RegistryData {
 
 const REGISTRY_VERSION = 1;
 const REGISTRY_FILENAME = '.pyapp-knowledge.json';
+/**
+ * 删除知识库时的目录去向（`.trash-bases/<name>-<ts>`）。
+ * 以 `.` 开头 ⇒ `scanAndRegister()` 天然跳过，不会把已删除的知识库重新登记。
+ */
+const TRASH_DIRNAME = '.trash-bases';
 
 const logger = getLogger('knowledge:knowledgeBaseRegistry');
 
@@ -251,12 +256,28 @@ export class KnowledgeBaseRegistry {
 
   /**
    * 删除知识库
+   *
+   * BUG-13（2026-10-22）：目录必须与注册表条目一起处置。`listBases()` 每次都会
+   * `scanAndRegister()` 自动登记 `knowledgeRoot` 下的未注册目录 ⇒ 只删注册表条目时
+   * 目录仍在，下次列表面板就把它"复活"（label 退化成目录名、createdAt 重置）。
+   *
+   * 处置方式：移入 `.trash-bases/<name>-<ts>`，而不是 `rm -rf` ——
+   * ① 目录已离开扫描范围（`.` 开头被跳过）⇒ 不再复活；
+   * ② 文档仍可人工恢复。
+   * 顺序：先移目录再删注册表条目。移动失败 ⇒ 抛错且注册表不变（不留"删了一半"的状态）。
    */
   async deleteBase(name: string): Promise<void> {
     const data = await this.load();
 
     if (!data.bases[name]) {
       throw new Error(`知识库 "${name}" 不存在`);
+    }
+
+    const baseDir = join(this.knowledgeRoot, name);
+    if (existsSync(baseDir)) {
+      const trashDir = join(this.knowledgeRoot, TRASH_DIRNAME);
+      await mkdir(trashDir, { recursive: true });
+      await rename(baseDir, join(trashDir, `${name}-${Date.now()}`));
     }
 
     delete data.bases[name];

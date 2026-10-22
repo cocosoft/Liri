@@ -2,7 +2,7 @@
  * 多租户 P3：`canUseSession` —— HTTP 入口 404 语义的唯一判据
  *
  * 锁四件事：
- *  ① 本地身份恒可用（桌面 / CLI / 后台零变更，含不存在的 id）；
+ *  ① 本地身份也**要求确实存在**（BUG-14：不再豁免存在性；归属判定恒放行）；
  *  ② 已认证身份：内存缓存里是**自己的** ⇒ 可用；是**别人的** ⇒ 不可用；
  *  ③ 缓存未命中时看按身份分区的存储：存储里没有 ⇒ 不可用；有但归属不符 ⇒ 不可用；
  *  ④ 存储读取抛错 ⇒ 不可用（fail-closed）。
@@ -63,9 +63,18 @@ function makeLifecycle(
 }
 
 describe('canUseSession（P3）', () => {
-  it('本地身份恒可用（含不存在的 id）', async () => {
-    const lifecycle = makeLifecycle([], {});
-    expect(await lifecycle.canUseSession('any-id')).toBe(true);
+  it('本地身份：存在才可用（BUG-14：不再豁免存在性）', async () => {
+    // 缓存命中 ⇒ 可用（本地身份的归属判定恒放行）
+    const cached = makeLifecycle([makeSession('s-local')]);
+    expect(await cached.canUseSession('s-local')).toBe(true);
+
+    // 缓存未命中但存储在 ⇒ 可用
+    const inStore = makeLifecycle([], { 's-stored': makeSession('s-stored') });
+    expect(await inStore.canUseSession('s-stored')).toBe(true);
+
+    // 缓存与存储都没有 ⇒ 不可用（此前恒 true ⇒ 不存在的 id 被静默建造成新会话）
+    const missing = makeLifecycle([], {});
+    expect(await missing.canUseSession('any-id')).toBe(false);
   });
 
   it('内存缓存：自己的可用，别人的不可用', async () => {

@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.5-blue)
+![Version](https://img.shields.io/badge/version-0.5.6-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.5**
+当前版本：**v0.5.6**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,16 +436,16 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.5 (2026-10-22)
-前端巡检缺陷修复 + 回归用例补齐
+#### v0.5.6 (2026-10-22)
+供应商未就绪 fail-fast + 用量口径归一 + 帮助中心/关于页修正
 
-- ✅ **渠道凭据逐条容错** - 单条密文损坏不再让 `GET /v1/channels` 整表 500（渠道页/仪表盘指标恢复）；坏字段回报并提示「凭据不可读 — 请重填」，连接路径仍 fail-closed
-- ✅ **Agent 高级管理作用域** - 不再拿系统工作空间 id 查 Swarm（消除 `404 Workspace not found` 与静默空白），无项目空间时给引导
-- ✅ **dev 代理边界** - Vite `/api` 改边界匹配，修复 `/apikeys` 直链/刷新被后端 404 JSON 顶掉
-- ✅ **llama 推荐卡标识** - `modelId:quantVersion` 复合 key，消除重复 key 与多卡同时「下载中」；最佳推荐只标一个
-- ✅ **会话指针自愈 / 用量护栏** - 幽灵会话回退后回写后端；测试期未隔离数据目录不再写真实用量库（历史 45.9 万 mock 行已备份清理）
+- ✅ **供应商未就绪不再假成功** - 模型所属供应商凭据缺失/停用时，此前会把模型名发给默认供应商（上游 400 被折成 HTTP 200）；现调用前直接 fail-fast（`AI_CRED_1001` + 可操作文案，零上游调用）
+- ✅ **用量记录按数据源归一** - wire 别名（`deepseek-flash`）与缺失模型名不再另立一档；由 `model_registry.provider_mappings` 反查规范 modelId，模型名缺失时回退响应体真实模型名
+- ✅ **帮助中心快捷键分区修复** - 此前把「默认收起的模态」当内联内容渲染，分区只有标题；抽出 `ShortcutList` 共用，真机复显 9 条
+- ✅ **i18n 缺键清理 / llama 体积格式化** - 扫描 4274 个 `t()` 键补齐 zh/en 双双缺失的 16 处（含字典覆盖棘轮用例）；GB 数值统一「至多 1 位小数」
+- ✅ **关于 Liri 使用应用图标** - 与顶栏 / favicon 同源，替换手绘渐变 "L" 占位块
 
-> 本版为补丁版：修复 7 项前端巡检缺陷并补齐 6 组回归用例（详见 [CHANGELOG.md](./CHANGELOG.md)）。
+> 本版为补丁版：修复供应商路由假成功、用量口径与展示面问题，并补齐 i18n 缺键（详见 [CHANGELOG.md](./CHANGELOG.md)）。
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

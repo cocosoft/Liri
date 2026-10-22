@@ -249,9 +249,17 @@ export async function registerAllSpis(
       // 在此**边界处**合成 cost 所需的最小结构；注册表查无此模型时返回 `null`。
       getModelPricing: (modelName) => {
         const registry = ModelRegistry.getInstance();
-        const pricing = registry.getModelPricing(modelName);
-        const model = registry.getModel(modelName);
-        const config = getModelConfigById(modelName);
+        // 2026-10-22（用量历史归一化）：先解析 wire 别名 —— 供应商实际接收的是
+        // `provider_mappings` 里的 wire 名（如 `deepseek-flash`），而规范 modelId 才是
+        // 注册表/定价/用量的唯一口径。不解析 ⇒ 别名被原样写进用量库，汇总里拆成两档。
+        const canonicalId = registry.resolveModelAlias(modelName);
+        const pricing =
+          registry.getModelPricing(canonicalId) ??
+          registry.getModelPricing(modelName);
+        const model =
+          registry.getModel(canonicalId) ?? registry.getModel(modelName);
+        const config =
+          getModelConfigById(canonicalId) ?? getModelConfigById(modelName);
         if (!pricing && !model && !config) return null;
         return {
           inputPer1M: pricing?.inputPer1M ?? 0,
@@ -261,7 +269,7 @@ export async function registerAllSpis(
           timeBasedPricing: pricing?.timeBasedPricing ?? [],
           cacheReadPer1M: model?.pricing?.cacheReadPer1M ?? 0,
           cacheWritePer1M: model?.pricing?.cacheWritePer1M ?? 0,
-          canonicalName: config?.firstParty ?? modelName,
+          canonicalName: config?.firstParty ?? canonicalId,
         };
       },
     });

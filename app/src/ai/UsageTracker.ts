@@ -234,7 +234,15 @@ export async function trackUsage(
     }
 
     // 统一模型名规范化（确保两表一致）
-    const canonicalModel = getCanonicalModelName(params.model);
+    // 2026-10-22（用量历史归一化）：上游可能没给出模型名 —— `ai/middleware/Pipeline`
+    // 在 `options.model` 缺失时传字面量 'unknown'（历史 2288 行即由此而来，且事后无法还原）。
+    // 响应体里通常带着供应商回传的真实模型名 ⇒ 用它兜底，再做规范名解析（含 wire 别名）。
+    const canonicalModel = getCanonicalModelName(
+      resolveUsageModelName(
+        params.model,
+        (response as { model?: string }).model
+      )
+    );
 
     const isError = !!response.error;
     const statusCode = params.statusCode ?? (isError ? 500 : 200);
@@ -321,7 +329,7 @@ export async function trackUsage(
 
       // 实时日志输出（用户可见，自动注入 traceId/spanId）
       logger.info('API 调用', {
-        model: params.model,
+        model: canonicalModel,
         providerId: params.providerId || 'unknown',
         inputTokens,
         outputTokens,
@@ -387,6 +395,25 @@ async function syncToTrackers(
       error: (err as Error).message,
     });
   }
+}
+
+/**
+ * 解析用量记录使用的模型名
+ *
+ * 2026-10-22（用量历史归一化）：`ai/middleware/Pipeline` 等调用方在拿不到模型名时会传
+ * 字面量 `'unknown'`，而响应体里通常有供应商回传的真实模型名。历史 2288 行
+ * `model='unknown'` 正是"照抄调用方占位值"造成的，且事后无法从任何字段还原。
+ *
+ * 规则：**调用方声明优先**；声明缺失或为占位 `'unknown'` 时用响应体模型名兜底；
+ * 两者都没有才落到 `'unknown'`（不猜任何具体模型）。
+ */
+export function resolveUsageModelName(
+  declared: string | undefined,
+  responseModel: string | undefined
+): string {
+  if (declared && declared !== 'unknown') return declared;
+  if (responseModel && responseModel !== 'unknown') return responseModel;
+  return 'unknown';
 }
 
 /**

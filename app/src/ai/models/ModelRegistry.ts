@@ -68,6 +68,35 @@ function yamlEntryToModelConfig(
 }
 
 /**
+ * 由 `model_registry` 记录构建「wire 别名（小写）→ 规范 modelId」索引
+ *
+ * 2026-10-22（用量历史归一化）：供应商实际接收的是 `provider_mappings` 里的 wire 名，
+ * 而规范 modelId 才是注册表/定价/用量的唯一口径。此处把它反查成表，供
+ * `resolveModelAlias()` 使用（纯函数，便于单测）。
+ *
+ * 规则：跳过空值与非字符串；与规范名相同的值不算别名；同一 wire 名被多个模型占用时**先入者胜**
+ * （不猜、不覆盖，冲突留给注册表唯一性约束去暴露）。
+ */
+export function buildModelAliasIndex(
+  records: ReadonlyArray<{
+    modelId: string;
+    providerMappings?: Record<string, string> | null;
+  }>
+): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const rec of records) {
+    for (const wire of Object.values(rec.providerMappings ?? {})) {
+      const alias = typeof wire === 'string' ? wire.trim() : '';
+      if (!alias) continue;
+      const key = alias.toLowerCase();
+      if (key === rec.modelId.toLowerCase()) continue;
+      if (!index.has(key)) index.set(key, rec.modelId);
+    }
+  }
+  return index;
+}
+
+/**
  * 运行时模型注册表
  *
  * 模型定义 + 定价双源设计：
@@ -94,6 +123,17 @@ export class ModelRegistry {
       timeBasedPricing: TimeBasedPrice[];
     }
   > = new Map();
+
+  /**
+   * 别名索引：wire 名（小写）→ 规范 modelId
+   *
+   * 数据源 = DB `model_registry.provider_mappings` 的**值**（各供应商实际接收的 wire 名）。
+   * 例：`deepseek-v4-flash` 的 `{"deepseek":"deepseek-flash"}` ⇒ `deepseek-flash → deepseek-v4-flash`。
+   *
+   * 2026-10-22（用量历史归一化）：之前别名无法还原 ⇒ 用量库/成本库会原样落下 wire 名
+   * （历史 `deepseek-flash` 3183 行即由此而来），且规范名与别名在汇总里被拆成两档。
+   */
+  private modelAliasIndex: Map<string, string> = new Map();
 
   /**
    * refreshDbPricing 互斥锁。
@@ -201,6 +241,7 @@ export class ModelRegistry {
     }
 
     this.builtinModels = dbModels;
+    this.modelAliasIndex = buildModelAliasIndex(all);
     this._pushWindowsToCache();
     logger.info(`从 DB 加载了 ${dbModels.size} 个模型定义`);
     // 上下文窗口排查锚点：列出本地/小窗口模型，便于确认 DB 值已正确入内存缓存。
@@ -396,6 +437,17 @@ export class ModelRegistry {
       if (!result[key]) result[key] = config;
     }
     return result;
+  }
+
+  /**
+   * 解析 wire 别名 → 规范 modelId（`model_registry.provider_mappings` 反查）
+   *
+   * 非别名（含未加载到注册表的模型）**原样返回**，不做任何猜测。
+   * 用途：用量/成本落盘前的模型名归一（否则供应商 wire 名会被当成独立模型记一档）。
+   */
+  resolveModelAlias(modelName: string): string {
+    if (!modelName) return modelName;
+    return this.modelAliasIndex.get(modelName.toLowerCase()) ?? modelName;
   }
 
   /** 获取模型在指定提供商的字段值 */

@@ -39,6 +39,10 @@ import {
   resetLazyLoaders,
 } from '@modules/core';
 import { AppError } from '@modules/error';
+import {
+  registerKernelLazyLoaders,
+  resetKernelLazyLoadersRegistration,
+} from '../../src/bootstrap/registerKernelLazyLoaders';
 
 afterEach(() => {
   resetLazyLoaders();
@@ -60,6 +64,35 @@ describe('按需加载器注册表：注册与查询', () => {
     });
 
     expect(listLazyLoaderIds()).toEqual(['alpha', 'beta']);
+  });
+});
+
+describe('按需加载器注册表：宿主生成物接线', () => {
+  it('registerKernelLazyLoaders 用真实生成物注册，且幂等', () => {
+    resetLazyLoaders();
+    resetKernelLazyLoadersRegistration();
+
+    registerKernelLazyLoaders();
+    const ids = listLazyLoaderIds();
+
+    // 开发默认（default 全量）⇒ 8 个基础 + ink/ui
+    for (const id of [
+      'featureflags',
+      'memory',
+      'chronos',
+      'lsp',
+      'mcp',
+      'security',
+      'sandbox',
+      'voice',
+      'ink',
+      'ui',
+    ]) {
+      expect(ids).toContain(id);
+    }
+
+    // 幂等：重复调用不得触发「重复注册」的 fail-closed
+    expect(() => registerKernelLazyLoaders()).not.toThrow();
   });
 });
 

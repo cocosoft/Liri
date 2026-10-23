@@ -38,6 +38,7 @@ import {
   screenFixCandidates,
   selectFixCandidates,
 } from '../../src/evals/fixTaskScreening';
+import { resolveGitExecutable } from '../../src/evals/externalExecutables';
 
 const execFileAsync = promisify(execFile);
 const scratchRoots: string[] = [];
@@ -54,7 +55,7 @@ afterAll(() => {
 
 async function git(cwd: string, ...args: string[]): Promise<string> {
   const { stdout } = await execFileAsync(
-    'git',
+    resolveGitExecutable(),
     ['-c', 'user.email=eval@local', '-c', 'user.name=eval', ...args],
     { cwd, windowsHide: true, encoding: 'utf-8' }
   );

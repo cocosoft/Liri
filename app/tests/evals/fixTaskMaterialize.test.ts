@@ -38,6 +38,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { buildFixTask } from '../../src/evals/fixTaskMaterialize';
+import { resolveGitExecutable } from '../../src/evals/externalExecutables';
 import {
   discoverFixCommits,
   selectFixCandidates,
@@ -59,7 +60,7 @@ afterAll(() => {
 
 async function git(cwd: string, ...args: string[]): Promise<void> {
   await execFileAsync(
-    'git',
+    resolveGitExecutable(),
     ['-c', 'user.email=eval@local', '-c', 'user.name=eval', ...args],
     { cwd, windowsHide: true, encoding: 'utf-8' }
   );

@@ -49,6 +49,11 @@ import {
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
+import {
+  resolveGitExecutable,
+  resolveTarExecutable,
+} from './externalExecutables';
+
 const execFileAsync = promisify(execFile);
 
 /**
@@ -101,7 +106,7 @@ export async function existingTreePaths(
   candidates: readonly string[] = SNAPSHOT_PATHSPECS
 ): Promise<string[]> {
   const { stdout } = await execFileAsync(
-    'git',
+    resolveGitExecutable(),
     ['ls-tree', '--name-only', commit, '--', ...candidates],
     {
       cwd: repoRoot,
@@ -149,7 +154,7 @@ export async function createRepoSapshot(args: {
   const tarPath = join(args.destRoot, '_tree.tar');
 
   const archived = await run(
-    'git',
+    resolveGitExecutable(),
     ['archive', '-o', tarPath, parent, ...paths],
     args.repoRoot
   );
@@ -159,7 +164,11 @@ export async function createRepoSapshot(args: {
   // ⚠️ 2026-10-19（Windows CI 实测）：不能把 tar 的**绝对路径**传给它 ——
   // Windows 自带的 bsdtar 会把 `C:\...\x.tar` 的盘符当远端主机
   // （`tar: Cannot connect to C: resolve failed`）。用**相对文件名 + cwd** 两平台通吃。
-  const extracted = await run('tar', ['-xf', '_tree.tar'], args.destRoot);
+  const extracted = await run(
+    resolveTarExecutable(),
+    ['-xf', '_tree.tar'],
+    args.destRoot
+  );
   rmSync(tarPath, { force: true });
   if (!extracted.ok) {
     throw new Error(`tar 解包失败：${extracted.stderr}`);
@@ -190,7 +199,7 @@ export async function overlayFromCommit(args: {
   if (args.paths.length === 0) return;
   const tarPath = join(args.destRoot, '_overlay.tar');
   const archived = await run(
-    'git',
+    resolveGitExecutable(),
     ['archive', '-o', tarPath, args.commit, ...args.paths],
     args.repoRoot
   );
@@ -198,7 +207,11 @@ export async function overlayFromCommit(args: {
     throw new Error(`覆盖测试文件失败（${args.commit}）：${archived.stderr}`);
   }
   // 同 `createRepoSnapshot`：Windows bsdtar 不接受带盘符的绝对 tar 路径 ⇒ 用相对文件名。
-  const extracted = await run('tar', ['-xf', '_overlay.tar'], args.destRoot);
+  const extracted = await run(
+    resolveTarExecutable(),
+    ['-xf', '_overlay.tar'],
+    args.destRoot
+  );
   rmSync(tarPath, { force: true });
   if (!extracted.ok) {
     throw new Error(`覆盖解包失败：${extracted.stderr}`);

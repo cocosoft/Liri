@@ -39,6 +39,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
+import { resolveGitExecutable } from './externalExecutables';
 import {
   createRepoSapshot,
   overlayFromCommit,
@@ -155,7 +156,7 @@ export async function discoverFixCommits(
   scanLimit = 400
 ): Promise<FixCommit[]> {
   const { stdout } = await execFileAsync(
-    'git',
+    resolveGitExecutable(),
     [
       '-c',
       'core.quotepath=false',

@@ -48,6 +48,7 @@ import {
   removeRepoSapshot,
   supplyDeps,
 } from '../../src/evals/repoSnapshot';
+import { resolveGitExecutable } from '../../src/evals/externalExecutables';
 import {
   classifyRepoTestRun,
   judgeS1Eligibility,
@@ -71,7 +72,7 @@ afterAll(() => {
 /** 合成仓库里的 git 调用（显式注入身份，避免依赖全局 git config） */
 async function git(cwd: string, ...args: string[]): Promise<string> {
   const { stdout } = await execFileAsync(
-    'git',
+    resolveGitExecutable(),
     ['-c', 'user.email=eval@local', '-c', 'user.name=eval', ...args],
     { cwd, windowsHide: true, encoding: 'utf-8' }
   );

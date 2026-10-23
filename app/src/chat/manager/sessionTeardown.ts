@@ -96,6 +96,30 @@ export class ChatSessionTeardown {
     // M2-T2.2（2026-08-31）：级联关闭孤儿审批项——删除含 pending 审批的会话后
     // /v1/inbox 不再残留可答复项（对齐 openworker 五步级联的审批项关闭）
     void this.dismissSessionInboxItems(sessionId);
+    // 2026-10-23（会话级悬空资源取证）：释放**会话级工具作用域**。
+    // MCP 连接等长生命周期副作用由 `MCPTool` 登记进 `toolScopeManager.getSessionScope()`
+    // 的 `onDispose`，而 `disposeSession` 此前**全仓零调用** ⇒ 每删一个用过 mcp 的会话就多
+    // 一条 `sessionScopes` 条目（无 TTL / 无上限），且连接不会被断开。
+    void this.disposeToolSessionScope(sessionId);
+  }
+
+  /**
+   * 释放**会话级工具作用域**（MCP 长连接等长生命周期副作用的唯一回收入口）。
+   *
+   * 动态 import：沿用本文件既有惯例，避免新增 chat → tool 的静态边；
+   * 幂等（scope 不存在即 no-op）；失败仅告警、不阻塞删除主流程。
+   */
+  private async disposeToolSessionScope(sessionId: string): Promise<void> {
+    try {
+      const { toolScopeManager } =
+        await import('../../tool/ToolScopeManager.js');
+      await toolScopeManager.disposeSession(sessionId);
+    } catch (e) {
+      logger.warn('deleteSession:释放会话级工具作用域失败', {
+        sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   /**
@@ -339,6 +363,8 @@ export class ChatSessionTeardown {
     this.releaseBudgetSuspends(targets.map((s) => s.id));
     // PR-2：批量清空同样释放审批放行缓存（含不过期的「本会话都允许」档）
     for (const s of targets) this.clearApprovedCommands(s.id);
+    // 2026-10-23：批量清空同样释放会话级工具作用域（与 `deleteSession` 同根因，成批回收）
+    for (const s of targets) void this.disposeToolSessionScope(s.id);
     await this.deps.getSessionLifecycle().clearAllSessions(moduleType);
     logger.info('clearAllSessions:批量清空完成', {
       sessions: stored.length,

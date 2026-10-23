@@ -124,6 +124,10 @@ export class SessionPruner {
         try {
           await this.storage.deleteSession(id);
           deletedIds.push(id);
+          // 2026-10-23：本路径只删**存储**、不经 `ChatSessionTeardown` ⇒ 会话级工具作用域
+          // （MCP 长连接等长生命周期副作用）须在此单独回收，否则被剪枝会话的 scope
+          // 与连接会永久驻留（无 TTL / 无上限）。幂等：无 scope 即 no-op。
+          void this.disposeToolSessionScope(id);
           // 联动清理该会话检查点（不阻塞剪枝主流程，失败仅记录，避免孤儿检查点）
           if (this.cleanupSessionCheckpoints) {
             void this.cleanupSessionCheckpoints(id).catch((err) => {
@@ -164,6 +168,23 @@ export class SessionPruner {
       otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
       otel.endSpan(span, SpanStatusCode.ERROR);
       throw e;
+    }
+  }
+
+  /**
+   * 释放被剪枝会话的**会话级工具作用域**（MCP 长连接等长生命周期副作用）。
+   *
+   * 动态 import：避免给 `session` 层新增到 `tool` 的静态边；失败仅告警，不影响剪枝结果。
+   */
+  private async disposeToolSessionScope(sessionId: string): Promise<void> {
+    try {
+      const { toolScopeManager } = await import('../tool/ToolScopeManager.js');
+      await toolScopeManager.disposeSession(sessionId);
+    } catch (e) {
+      logger.warn('剪枝：释放会话级工具作用域失败', {
+        sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 

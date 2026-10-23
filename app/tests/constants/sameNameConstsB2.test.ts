@@ -1675,7 +1675,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(cron).toContain(
       'CREATE TABLE IF NOT EXISTS ${SCHEDULED_TASKS_TABLE} ('
     );
-    const persona = read('src/core/persona/PersonaService.ts');
+    const persona = read('src/agent/persona/PersonaService.ts');
     expect(persona).not.toMatch(/(^|[^_A-Za-z])const TABLE\s*=/);
     expect(persona).toContain(
       "const PERSONA_BINDINGS_TABLE = 'persona_bindings';"

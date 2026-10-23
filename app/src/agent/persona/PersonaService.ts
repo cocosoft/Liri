@@ -14,12 +14,11 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core';
-import { SimpleMutex } from '@modules/core';
-import { getLogger } from '../loggerFacade.js';
+import { resolveDbPath, SimpleMutex } from '@modules/core';
+import { getLogger } from '@modules/monitoring';
 import type { PersonaBinding, CreatePersonaBindingInput } from './types';
 
-const logger = getLogger('core:persona');
+const logger = getLogger('agent:persona');
 
 /** 数据库表名 */
 const PERSONA_BINDINGS_TABLE = 'persona_bindings';

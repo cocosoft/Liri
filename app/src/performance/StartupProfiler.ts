@@ -14,7 +14,6 @@ import { dirname, join } from 'path';
 import { logForDebugging } from '../utils/debug.js';
 import { getConfigHomeDir, isEnvTruthy } from '../utils/envUtils.js';
 import fs from 'fs';
-import { getPerformanceConfig } from './PerformanceConfig.js';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

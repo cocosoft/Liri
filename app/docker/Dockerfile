@@ -54,6 +54,11 @@ COPY app/ .
 # 复制 shared/ 目录（供 @shared/* 路径别名解析）
 COPY shared/ /shared/
 
+# 复制内核包（P4 起内核物理独立于 app/src）：tsconfig 别名
+# `@modules/core/*` → `../../packages/kernel/src/core/*`（相对 /app/src ⇒ /packages/kernel/src/core）。
+# 漏掉这一步会让 `bun build` 直接报模块缺失。
+COPY packages/ /packages/
+
 # 复制编译好的原生插件
 COPY --from=native-builder /libliri_native.so native/target/release/libliri_native.so
 

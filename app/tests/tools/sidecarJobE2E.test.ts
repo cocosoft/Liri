@@ -200,8 +200,12 @@ describe('T1-2② C₁：侧车作业跨进程端到端', () => {
 
   it('并发多作业：各自独立兑现（互不串线）', async () => {
     await withSidecar(3_000, async (sup) => {
-      const a = await sup.submitJob('slow', { delayMs: 40 });
-      const b = await sup.submitJob('slow', { delayMs: 5 });
+      // 两作业的延迟都必须**远大于**「submit 一次 IPC 往返」：原 b 用 5ms，
+      // 慢 runner（macOS 3 vCPU）上往返可能已超过 5ms ⇒ b 在断言前就完成，
+      // `pendingJobCount` 采样到 1（CI 实证 `Expected: 2`）。延迟仍是**不同值**，
+      // 断言「各自兑现」的语义不变（先 a 后 b，互不串线）。
+      const a = await sup.submitJob('slow', { delayMs: 400 });
+      const b = await sup.submitJob('slow', { delayMs: 600 });
       expect(sup.pendingJobCount).toBe(2);
       const [ra, rb] = await Promise.all([a.completion, b.completion]);
       expect(ra).toEqual({ echo: 'slow', n: expect.any(Number) });

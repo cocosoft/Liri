@@ -19,8 +19,9 @@
 // 2026-09-30 改走 core 门面（A3 倒挂收口）：原 `../performance/StartupProfiler`（core → infra 倒挂）
 import { profilePhaseStart, profilePhaseEnd } from '../core/profilerFacade.js';
 import { getLogger } from '../core/loggerFacade.js';
-// P3（2026-10-20）：headless 构建用 `DROP_UI` 把 ink / ui 的惰性加载器整体剔除。
-import { feature as buildFeature } from 'bun:bundle';
+// P2（2026-10-23，core 独立包）：加载清单改由宿主推送注入 ⇒ 内核不再 import 上层模块，
+// `bun:bundle` 也随之离开内核（清单的变体裁剪移到宿主侧生成时决定）。
+import { hasLazyLoader, requireLazyLoader } from './lazy/loaderRegistry.js';
 const logger = getLogger('modules:lazyModuleStrategy');
 
 /**
@@ -409,25 +410,14 @@ for (const moduleId of PURE_ACCOUNTING_ON_DEMAND_MODULES) {
  *   这也是**不删**的理由（CD07：`security`/`sandbox` 属关键域）。
  * · **reopen 条件**：若将来真要收回懒加载收益 ⇒ 须①接管 `requestOnDemandModule` 的调用方（首次安全检查/
  *   沙箱执行时请求）**且**②解除 Bash 链的静态导入，并补"未就绪窗口"的 fail-closed 兜底与实测。
+ * ---
+ * **P2（2026-10-23，core 独立包）**：本表已**迁出内核** —— 清单改由宿主在入口早期
+ * 通过 `registerLazyLoaders()` 推送（见 `core/lazy/loaderRegistry.ts` 头注）。
+ * 变体裁剪仍在构建期完成，但落点变为宿主侧生成物
+ * （`app/src/bootstrap/generatedLazyLoaders.ts`，由 `build-variant.ts` 按变体写出）：
+ * 未选中的模块**连 `import()` 字面量都不存在**，因此不依赖 minifier 的副作用分析。
+ * 内核侧只保留「按 id 取加载器」的机制与双 API 语义（能力查询 / 执行 fail-closed）。
  */
-const DYNAMIC_IMPORT_LOADERS: Record<string, () => Promise<unknown>> = {
-  featureflags: () => import('../featureflags/index.js'),
-  memory: () => import('../memory/index.js'),
-  chronos: () => import('../chronos/index.js'),
-  lsp: () => import('../lsp/index.js'),
-  mcp: () => import('../mcp/index.js'),
-  // P3（2026-10-20）：`DROP_UI`（headless）⇒ ink / ui 两条动态 import **及其整个目标模块图**
-  // 一并从产物剔除（`feature()` 作三元条件，`bun:bundle` 会把未选分支连同 import 目标删掉）。
-  ...(buildFeature('DROP_UI')
-    ? {}
-    : {
-        ink: () => import('../ink/index.js'),
-        ui: () => import('../ui/index.js'),
-      }),
-  security: () => import('../security/index.js'),
-  sandbox: () => import('../sandbox/index.js'),
-  voice: () => import('../voice/index.js'),
-};
 
 /**
  * 获取模块的动态加载模式
@@ -554,10 +544,8 @@ export async function requestModule(moduleId: string): Promise<any> {
   const inFlight = dynamicModuleLoading.get(moduleId);
   if (inFlight) return inFlight;
 
-  const loader = DYNAMIC_IMPORT_LOADERS[moduleId];
-  if (!loader) {
-    throw new Error(`模块 ${moduleId} 未配置动态导入加载器`);
-  }
+  // 执行路径：缺失 ⇒ AppError（CORE_LAZY_LOADER_NOT_REGISTERED），不静默返回 undefined
+  const loader = requireLazyLoader(moduleId);
 
   const loadPromise = (async () => {
     const tracePhase = `on_demand:${moduleId}`;
@@ -580,10 +568,10 @@ export async function requestModule(moduleId: string): Promise<any> {
 }
 
 /**
- * 检查模块是否有动态导入加载器配置
+ * 检查模块是否有动态导入加载器配置（**能力查询**：变体缺席 ⇒ false，不抛错）
  */
 export function hasDynamicImport(moduleId: string): boolean {
-  return moduleId in DYNAMIC_IMPORT_LOADERS;
+  return hasLazyLoader(moduleId);
 }
 
 /**

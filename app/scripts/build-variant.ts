@@ -104,6 +104,58 @@ function generateFeatureFlags(variant: BuildVariant): string {
   return lines.join('\n');
 }
 
+/** 始终注册的按需加载器（模块 id → 说明符） */
+const BASE_LAZY_LOADERS: ReadonlyArray<readonly [string, string]> = [
+  ['featureflags', '@modules/featureflags'],
+  ['memory', '@modules/memory'],
+  ['chronos', '@modules/chronos'],
+  ['lsp', '@modules/lsp'],
+  ['mcp', '@modules/mcp'],
+  ['security', '@modules/security'],
+  ['sandbox', '@modules/sandbox'],
+  ['voice', '@modules/voice'],
+];
+
+/** 仅在「未做 UI 裁剪」的变体里注册（`DROP_UI` ⇒ 连 import() 字面量都不生成） */
+const UI_LAZY_LOADERS: ReadonlyArray<readonly [string, string]> = [
+  ['ink', '@modules/ink'],
+  ['ui', '@modules/ui'],
+];
+
+/**
+ * 生成宿主侧**按需加载清单**（core 独立包 P2，2026-10-23）。
+ *
+ * 为什么由脚本生成而不是手写 + `if (feature('DROP_UI'))` 包裹：
+ * `registerLazyLoader(...)` 是有副作用的调用，minifier 未必敢删整个 `if` body ⇒
+ * `import('@modules/ink')` 可能仍留在产物图里。生成物则让未选中的条目**根本不存在**。
+ */
+function generateLazyLoaders(variant: BuildVariant): string {
+  const config = VARIANT_CONFIGS[variant];
+  const dropUi = config.buildFeatures.includes('DROP_UI');
+  const entries = dropUi
+    ? BASE_LAZY_LOADERS
+    : [...BASE_LAZY_LOADERS, ...UI_LAZY_LOADERS];
+
+  const lines: string[] = [];
+  lines.push('// 自动生成的按需加载清单（core 独立包 P2）');
+  lines.push(`// 变体: ${variant} — ${config.description}`);
+  lines.push(`// 生成时间: ${new Date().toISOString()}`);
+  lines.push('// 勿手改：由 app/scripts/build-variant.ts 按变体重写');
+  lines.push('//');
+  lines.push(
+    '// 未选中的模块连 import() 字面量都不生成 ⇒ 变体裁剪不依赖 minifier 的副作用分析。'
+  );
+  lines.push(
+    'export const LAZY_LOADERS: Record<string, () => Promise<unknown>> = {'
+  );
+  for (const [id, spec] of entries) {
+    lines.push(`  ${id}: () => import('${spec}'),`);
+  }
+  lines.push('};');
+  lines.push('');
+  return lines.join('\n');
+}
+
 /**
  * 输出该变体的**编译期裁剪**清单（P2，2026-10-20）。
  *
@@ -138,6 +190,8 @@ function main(): void {
     console.log('\n[DRY RUN] 只打印，不写文件');
     console.log('\n将生成以下 Feature Flags:');
     console.log(generateFeatureFlags(variant));
+    console.log('\n将生成以下按需加载清单:');
+    console.log(generateLazyLoaders(variant));
     printBuildFeatures(variant);
     return;
   }
@@ -153,6 +207,16 @@ function main(): void {
 
   fs.writeFileSync(outputPath, flagsContent, 'utf-8');
   console.log(`\nFeature Flags 已写入: ${outputPath}`);
+
+  const loadersPath = path.resolve(
+    __dirname,
+    '..',
+    'src',
+    'bootstrap',
+    'generatedLazyLoaders.ts'
+  );
+  fs.writeFileSync(loadersPath, generateLazyLoaders(variant), 'utf-8');
+  console.log(`按需加载清单已写入: ${loadersPath}`);
   printBuildFeatures(variant);
 
   // G2 正名（2026-10-11）：原输出"执行 TypeScript 编译…/构建完成/输出目录 dist/"名不副实 ——

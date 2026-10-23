@@ -44,6 +44,8 @@ import {
   recordAbnormalExit,
   LOCAL_HTTP_HOST,
 } from '@modules/core';
+// P2（core 独立包）：内核按需加载清单由宿主推送（清单本体是构建期生成物）
+import { registerKernelLazyLoaders } from './bootstrap/registerKernelLazyLoaders';
 import { initAppStateMachine } from './state/app/AppLifecycle.js';
 import {
   parseMaintenanceCommand,
@@ -1272,6 +1274,9 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
   try {
     logger.info(`应用启动 - 模式: ${options.mode}`);
+
+    // P2（core 独立包）：先推送内核「按需加载清单」，再进入任何模块初始化
+    registerKernelLazyLoaders();
 
     // T0: 启动并行预读取（不阻塞模块初始化）
     profileCheckpoint('T0_preroll_start');

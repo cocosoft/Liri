@@ -11,12 +11,19 @@
  *   K02  动态 `import('…')` / `require('…')` 同上（R00-003 的动态盲区在此**硬拦**）
  *   K03  说明符不得解析到 `app/src/` 之外（工作区外，如 `../client/**`）
  *   K04  `core/spi/**` 不得 `export class`（端口目录只放契约，实现交给上层注入）
+ *   K06  裸包说明符必须在白名单内（`scripts/kernel-allowed-deps.json`；目标：0 个 npm 依赖）
+ *
+ * **未登记层归属 ⇒ Error（fail-closed）**：`modules-to-layers.json` 里没有的模块，
+ * 内核一旦引用就判红（此前只进 warning ⇒ 新增一个上层模块即可绕过门禁）。
  *
  * 为什么 K01 允许 `import type` 也算违规：物理拆分后内核必须能被独立安装，
  * **类型**跨层同样会拖入上层声明（建议稿 §一「Zero-Leakage」原话）。
+ * 为什么需要 K06：内核对**第三方依赖**此前完全放行（`if (!spec.startsWith('.')) return null`）——
+ * 而"内核可独立安装"最大的障碍正是 npm 依赖，不是层内 import（复审 A2）。
  *
  * 基线（棘轮，**只减不增**）：`.trae/architecture/kernel-purity-baseline.json`
  *   - 现存违规已登记 ⇒ 门禁为绿；新增违规 ⇒ 退出 1；
+ *   - `maxEntries`：条目数硬上限。`--write-baseline` 只能**下调**该值 ⇒ 想加条目必须改 json，diff 一眼可见；
  *   - 已修复项未从基线删除 ⇒ 仅提示"可下调基线"（不判红，与 function-size 棘轮同口径）。
  *
  * 与 `scripts/lint-architecture.ts` 的关系：那里已有同源的 import 解析与层映射，但它是
@@ -36,6 +43,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
+import { builtinModules } from 'node:module';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
 // ─────────────────────────── 纯函数（可离线断言） ───────────────────────────
@@ -86,7 +94,9 @@ export function extractSpecifiers(rawText: string): SpecHit[] {
   };
 
   // 静态：`… from 'x'`（import / export … from）
-  const fromRe = /\bfrom\s*['"]([^'"]+)['"]/g;
+  // `\s+` 而非 `\s*`：避免把数组/对象里的字符串 `'from',` 误当成模块说明符
+  //（2026-10-23 实测：`core/memory-host-sdk/query.ts` 的停用词数组即被误报为 `,\n  `）
+  const fromRe = /\bfrom\s+['"]([^'"\n]+)['"]/g;
   let m: RegExpExecArray | null;
   while ((m = fromRe.exec(text)) !== null) {
     const stmtStart = text.lastIndexOf('\n', m.index) + 1;
@@ -113,24 +123,74 @@ export function extractSpecifiers(rawText: string): SpecHit[] {
   return hits;
 }
 
+/** 内核内部相对引用的哨兵模块名（恒视为 core 层，不需进层表） */
+export const KERNEL_SELF = '__kernel_self__';
+
 /** 说明符 → 模块名（仅处理 `@modules/*` 与同源相对路径；裸包返回 null） */
 export function resolveTargetModule(
   spec: string,
   filePath: string,
-  srcRoot: string
+  srcRoot: string,
+  kernelRoot?: string
 ): { module: string } | { outside: string } | null {
   const alias = /^@modules\/([^'"/]+)/.exec(spec);
   if (alias) return { module: alias[1]! };
   if (!spec.startsWith('.')) return null; // 裸包 / node: / bun:
 
   const resolved = resolve(dirname(filePath), spec);
+  // 内核根优先（复审 B5）：内核搬到 `packages/kernel` 后，包内相对路径相对 `app/src`
+  // 会是 `../..` ⇒ 若只以 srcRoot 判定，会被整片误判成 K03「工作区外」。
+  if (kernelRoot && !relative(kernelRoot, resolved).startsWith('..')) {
+    return { module: KERNEL_SELF };
+  }
   const rel = relative(srcRoot, resolved);
   if (rel.startsWith('..') || rel.split(sep)[0] === '..')
     return { outside: spec };
   return { module: rel.split(sep)[0]! };
 }
 
-export type PurityRule = 'K01' | 'K02' | 'K03' | 'K04';
+export type PurityRule = 'K01' | 'K02' | 'K03' | 'K04' | 'K06';
+
+/** K06 白名单（`scripts/kernel-allowed-deps.json` 的形状） */
+export interface AllowedDeps {
+  /** 允许的运行时前缀（如 `node:` / `bun:`） */
+  allowedPrefixes: string[];
+  /** 是否允许裸写 Node 内建名（`fs` / `path` / `fs/promises`） */
+  allowBareBuiltins: boolean;
+  /** 显式允许的 npm 包（含作用域；`pkg/sub` 视为 `pkg` 允许） */
+  allowedPackages: string[];
+}
+
+/** 默认白名单：零 npm 依赖 + 允许 Node/Bun 内建（内核当前的实测姿态） */
+export const DEFAULT_ALLOWED_DEPS: AllowedDeps = {
+  allowedPrefixes: ['node:', 'bun:'],
+  allowBareBuiltins: true,
+  allowedPackages: [],
+};
+
+const BARE_BUILTINS = new Set(
+  builtinModules.map((m) => (m.startsWith('node:') ? m.slice(5) : m))
+);
+
+/**
+ * 判定裸包说明符是否被白名单放行。
+ *
+ * - `node:*` / `bun:*`：命中 `allowedPrefixes` ⇒ 放行；
+ * - 裸内建（`fs` / `path` / `fs/promises`）：`allowBareBuiltins` 且根名在内建集合 ⇒ 放行；
+ * - 其余：命中 `allowedPackages` 才放行（`@scope/pkg/sub` 按 `@scope/pkg` 取根名）。
+ */
+export function isAllowedBareSpecifier(
+  spec: string,
+  allowed: AllowedDeps = DEFAULT_ALLOWED_DEPS
+): boolean {
+  if (allowed.allowedPrefixes.some((p) => spec.startsWith(p))) return true;
+
+  const root = spec.startsWith('@')
+    ? spec.split('/').slice(0, 2).join('/')
+    : spec.split('/')[0]!;
+  if (allowed.allowedPackages.includes(root)) return true;
+  return allowed.allowBareBuiltins && BARE_BUILTINS.has(root);
+}
 
 export interface PurityViolation {
   rule: PurityRule;
@@ -153,11 +213,13 @@ export interface AnalyzeInput {
   kernelRoot: string;
   /** 仓库根（用于输出相对路径） */
   repoRoot: string;
+  /** K06 白名单（缺省 = 零 npm 依赖 + 允许 Node/Bun 内建） */
+  allowedDeps?: AllowedDeps;
 }
 
 export interface AnalyzeResult {
   violations: PurityViolation[];
-  /** 目标模块未在层表中登记（warning，不判红） */
+  /** 目标模块未在层表中登记 ⇒ **fail-closed**（main 里判红；不进基线） */
   unmapped: string[];
 }
 
@@ -173,7 +235,12 @@ export function analyzeKernelPurity(input: AnalyzeInput): AnalyzeResult {
     const inSpi = file.path.startsWith(spiRoot);
 
     for (const hit of extractSpecifiers(file.text)) {
-      const target = resolveTargetModule(hit.spec, file.path, input.srcRoot);
+      const target = resolveTargetModule(
+        hit.spec,
+        file.path,
+        input.srcRoot,
+        input.kernelRoot
+      );
 
       // K03：解析到 app/src 之外
       if (target && 'outside' in target) {
@@ -186,7 +253,29 @@ export function analyzeKernelPurity(input: AnalyzeInput): AnalyzeResult {
         });
         continue;
       }
-      if (!target) continue; // 裸包 / 未知形态
+      if (!target) {
+        // 裸包：K06 白名单（`node:` / `bun:` / 内建 / 显式允许的 npm 包）
+        const isAlias = hit.spec.startsWith('@modules/');
+        const isRelative = hit.spec.startsWith('.');
+        if (!isAlias && !isRelative) {
+          const allowed = input.allowedDeps ?? DEFAULT_ALLOWED_DEPS;
+          if (!isAllowedBareSpecifier(hit.spec, allowed)) {
+            violations.push({
+              rule: 'K06',
+              file: relFile,
+              line: hit.line,
+              target: hit.spec,
+              message:
+                `内核引入第三方依赖「${hit.spec}」（白名单见 scripts/kernel-allowed-deps.json）` +
+                ' —— 内核目标为 0 个 npm 依赖；确需引入须先评审并登记',
+            });
+          }
+        }
+        continue;
+      }
+
+      // 内核内部相对引用（拆分后 `packages/kernel` 内互相 import）⇒ 恒合法
+      if (target.module === KERNEL_SELF) continue;
 
       const layer = input.layers.get(target.module);
       if (!layer) {
@@ -242,6 +331,8 @@ interface BaselineEntry {
 }
 interface Baseline {
   version: number;
+  /** 条目数硬上限（棘轮）：entries.length 不得超过它；`--write-baseline` 只能下调 */
+  maxEntries?: number;
   entries: BaselineEntry[];
 }
 
@@ -254,6 +345,9 @@ const BASELINE = process.env.KP_BASELINE
 const LAYERS_FILE = process.env.KP_LAYERS
   ? resolve(process.env.KP_LAYERS)
   : resolve(repoRoot, 'scripts/modules-to-layers.json');
+const ALLOWED_DEPS_FILE = process.env.KP_ALLOWED_DEPS
+  ? resolve(process.env.KP_ALLOWED_DEPS)
+  : resolve(repoRoot, 'scripts/kernel-allowed-deps.json');
 const srcRoot = resolve(repoRoot, 'app/src');
 const kernelRoot = process.env.KP_KERNEL_ROOT
   ? resolve(process.env.KP_KERNEL_ROOT)
@@ -301,6 +395,32 @@ function loadBaseline(): Baseline {
   }
 }
 
+/** K06 白名单（缺失 ⇒ fail-closed 到默认值，并提示） */
+function loadAllowedDeps(): AllowedDeps {
+  if (!existsSync(ALLOWED_DEPS_FILE)) {
+    console.log(
+      `ℹ️ 未找到 K06 白名单 ${relative(repoRoot, ALLOWED_DEPS_FILE)} ⇒ 使用默认（零 npm 依赖 + Node/Bun 内建）`
+    );
+    return DEFAULT_ALLOWED_DEPS;
+  }
+  try {
+    const raw = JSON.parse(
+      readFileSync(ALLOWED_DEPS_FILE, 'utf8')
+    ) as Partial<AllowedDeps>;
+    return {
+      allowedPrefixes:
+        raw.allowedPrefixes ?? DEFAULT_ALLOWED_DEPS.allowedPrefixes,
+      allowBareBuiltins:
+        raw.allowBareBuiltins ?? DEFAULT_ALLOWED_DEPS.allowBareBuiltins,
+      allowedPackages:
+        raw.allowedPackages ?? DEFAULT_ALLOWED_DEPS.allowedPackages,
+    };
+  } catch (err) {
+    console.error(`K06 白名单 JSON 解析失败（fail-closed）: ${String(err)}`);
+    process.exit(1);
+  }
+}
+
 function main(): void {
   if (!existsSync(kernelRoot)) {
     console.error(`内核根目录不存在: ${kernelRoot}`);
@@ -308,6 +428,7 @@ function main(): void {
   }
 
   const layers = loadLayers();
+  const allowedDeps = loadAllowedDeps();
   const files = walk(kernelRoot).map((path) => ({
     path,
     text: readFileSync(path, 'utf8'),
@@ -318,6 +439,7 @@ function main(): void {
     srcRoot,
     kernelRoot,
     repoRoot,
+    allowedDeps,
   });
 
   const key = (v: { file: string; rule: string; target: string }): string =>
@@ -325,7 +447,8 @@ function main(): void {
 
   // `--write-baseline`：把**当前**违规写成基线（棘轮重新冻结；保留既有 note 便于人读）
   if (process.argv.includes('--write-baseline')) {
-    const previous = new Map(loadBaseline().entries.map((e) => [key(e), e]));
+    const previousBaseline = loadBaseline();
+    const previous = new Map(previousBaseline.entries.map((e) => [key(e), e]));
     const entries = violations
       .map((v) => ({
         file: v.file,
@@ -336,9 +459,16 @@ function main(): void {
           : {}),
       }))
       .sort((a, b) => key(a).localeCompare(key(b)));
-    const payload: Baseline = { version: 1, entries };
+    // 棘轮：maxEntries 只能下调（想放宽必须手改 json，diff 里一眼可见）
+    const maxEntries =
+      previousBaseline.maxEntries === undefined
+        ? entries.length
+        : Math.min(previousBaseline.maxEntries, entries.length);
+    const payload: Baseline = { version: 1, maxEntries, entries };
     writeFileSync(BASELINE, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
-    console.log(`已写入基线 ${entries.length} 条: ${BASELINE}`);
+    console.log(
+      `已写入基线 ${entries.length} 条（maxEntries=${maxEntries}）: ${BASELINE}`
+    );
     return;
   }
 
@@ -348,22 +478,37 @@ function main(): void {
 
   const added = violations.filter((v) => !baselined.has(key(v)));
   const shrinkable = baseline.entries.filter((e) => !current.has(key(e)));
+  const overCap =
+    baseline.maxEntries !== undefined &&
+    baseline.entries.length > baseline.maxEntries;
 
-  console.log('=== 内核纯净度门禁（P0 · K01–K04）===');
+  console.log('=== 内核纯净度门禁（P0 · K01–K04/K06）===');
   console.log(
-    `内核根 ${relative(repoRoot, kernelRoot).split(sep).join('/')} · 扫描 ${files.length} 文件 · 基线 ${baseline.entries.length} 条`
+    `内核根 ${relative(repoRoot, kernelRoot).split(sep).join('/')} · 扫描 ${files.length} 文件 · 基线 ${baseline.entries.length} 条` +
+      (baseline.maxEntries !== undefined
+        ? `（上限 ${baseline.maxEntries}）`
+        : '')
   );
   console.log('----------------------------------------');
 
-  if (unmapped.length > 0) {
-    console.log(
-      `⚠ 未登记层归属的目标模块 ${unmapped.length} 个（不判红；请在 scripts/modules-to-layers.json 补齐）：${unmapped.join(', ')}`
-    );
-  }
   if (shrinkable.length > 0) {
     console.log('ℹ️ 基线项已无违规（请下调基线锁定成果）:');
     for (const e of shrinkable)
       console.log(`  - ${e.file} :: ${e.rule} → ${e.target}`);
+  }
+
+  if (unmapped.length > 0) {
+    console.error(
+      `❌ 未登记层归属的目标模块 ${unmapped.length} 个（fail-closed；请在 scripts/modules-to-layers.json 补齐）：${unmapped.join(', ')}`
+    );
+    process.exit(1);
+  }
+
+  if (overCap) {
+    console.error(
+      `❌ 基线条目数超上限：${baseline.entries.length} > maxEntries=${baseline.maxEntries}（棘轮只允许下调）`
+    );
+    process.exit(1);
   }
 
   if (added.length > 0) {
@@ -376,7 +521,7 @@ function main(): void {
   }
 
   console.log(
-    `✅ 无新增内核泄漏（违规合计 ${violations.length} 处，均已登记）`
+    `✅ 未登记模块 0 · 三方依赖白名单内 · 无新增内核泄漏（违规合计 ${violations.length} 处，均已登记）`
   );
 }
 

@@ -2,6 +2,7 @@
   "$comment": "内核纯净度门禁（scripts/lint-kernel-purity.ts）的**棘轮基线**：只允许减少，不允许增长。新增泄漏＝门禁红；已修复项请跑 `--write-baseline` 下调锁定。方案见 dev_docs/20261023/微内核-core-拆分方案.md §5。",
   "version": 1,
   "recordedAt": "2026-10-23",
+  "maxEntries": 11,
   "entries": [
     {
       "file": "app/src/core/__tests__/DIContainerIntegration.test.ts",

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "comment": "内核第三方依赖白名单（K06）。目标：0 个 npm 依赖；只允许 Node/Bun 内建。新增 npm 包必须先在此评审登记（「内核可独立安装」的最大障碍就是 npm 依赖）。",
+  "allowedPrefixes": ["node:", "bun:"],
+  "allowBareBuiltins": true,
+  "allowedPackages": ["@opentelemetry/api"],
+  "packageNotes": {
+    "@opentelemetry/api": "仅接口/类型包（无实现）。3 处使用：core/events/EventBusOTelBridge.ts、core/spi/OTelService.ts、core/tracingFacade.ts。官方 Span.addEvent 是函数属性，自造最小接口会在 strictFunctionTypes 下不可赋值（见 tracingFacade 头注）⇒ 作为内核唯一运行依赖保留。阶段二（独立发版）必须二选一：① 在 package.json 显式声明该依赖；② 改为上层注入最小 Span 接口并删除此依赖。"
+  }
+}

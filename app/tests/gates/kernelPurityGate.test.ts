@@ -33,7 +33,7 @@
  * 夹具通过 `KP_REPO_ROOT` 指到临时目录（脚本其余默认路径都相对 repoRoot 推导）。
  */
 import { afterAll, describe, expect, it } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -124,6 +124,118 @@ describe('内核纯净度门禁：违规样例必红', () => {
     const { code, out } = run(root);
 
     expect(code).toBe(0);
+    expect(out).toContain('无新增内核泄漏');
+  });
+});
+
+describe('内核纯净度门禁：K06 第三方依赖白名单', () => {
+  it('npm 依赖 ⇒ 红（K06）；Node/Bun 内建与显式允许的包 ⇒ 绿', () => {
+    const leaking = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      'app/src/core/leak-dep.ts':
+        "import axios from 'axios';\nexport const a = axios;\n",
+    });
+    const leakRun = run(leaking);
+    expect(leakRun.code).toBe(1);
+    expect(leakRun.out).toContain('K06');
+    expect(leakRun.out).toContain('axios');
+
+    const clean = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      'app/src/core/ok-dep.ts':
+        "import { join } from 'node:path';\nimport fs from 'fs';\nimport { describe } from 'bun:test';\nexport const p = join('a', 'b');\nexport const f = fs;\nexport const d = describe;\n",
+      'scripts/kernel-allowed-deps.json': JSON.stringify({
+        version: 1,
+        allowedPrefixes: ['node:', 'bun:'],
+        allowBareBuiltins: true,
+        allowedPackages: ['@opentelemetry/api'],
+      }),
+    });
+    const cleanRun = run(clean);
+    expect(cleanRun.code).toBe(0);
+    expect(cleanRun.out).toContain('三方依赖白名单内');
+  });
+});
+
+describe('内核纯净度门禁：未登记模块 fail-closed', () => {
+  it('引用层表里没有的模块 ⇒ 红（此前只进 warning，可被绕过）', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      'app/src/core/leak-unmapped.ts':
+        "import { x } from '@modules/brand-new-module';\nexport const y = x;\n",
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(1);
+    expect(out).toContain('未登记层归属');
+    expect(out).toContain('brand-new-module');
+  });
+});
+
+describe('内核纯净度门禁：基线 maxEntries 棘轮', () => {
+  it('条目数超过 maxEntries ⇒ 红（想加条目必须手改 json）', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      'app/src/core/leak.ts':
+        "import { thing } from '@modules/appx';\nexport const x = thing;\n",
+      '.trae/architecture/kernel-purity-baseline.json': JSON.stringify({
+        version: 1,
+        maxEntries: 0,
+        entries: [
+          { file: 'app/src/core/leak.ts', rule: 'K01', target: 'appx' },
+        ],
+      }),
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(1);
+    expect(out).toContain('maxEntries');
+  });
+
+  it('--write-baseline 只能下调 maxEntries', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      'app/src/core/clean.ts': 'export const ok = 1;\n',
+      '.trae/architecture/kernel-purity-baseline.json': JSON.stringify({
+        version: 1,
+        maxEntries: 5,
+        entries: [],
+      }),
+    });
+
+    const result = spawnSync(process.execPath, [GATE, '--write-baseline'], {
+      cwd: root,
+      env: { ...process.env, KP_REPO_ROOT: root },
+      encoding: 'utf-8',
+    });
+    expect(result.status).toBe(0);
+
+    const written = JSON.parse(
+      readFileSync(
+        join(root, '.trae/architecture/kernel-purity-baseline.json'),
+        'utf-8'
+      )
+    ) as { maxEntries?: number; entries: unknown[] };
+    expect(written.entries.length).toBe(0);
+    expect(written.maxEntries).toBe(0); // 5 → 0（下调），绝不上调
+  });
+});
+
+describe('内核纯净度门禁：字符串字面量不误报', () => {
+  it("数组里的 'from' 不被当成模块说明符", () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      'app/src/core/words.ts':
+        "export const WORDS = [\n  'by',\n  'from',\n  'about',\n];\n",
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(0);
+    // 违规行形如 `- K0x <file>:<line> → <target>`；banner 里也有 "K01"，故按文件行断言
+    expect(out).not.toMatch(/- K0[0-9] .*words\.ts:/);
     expect(out).toContain('无新增内核泄漏');
   });
 });

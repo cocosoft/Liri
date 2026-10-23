@@ -150,22 +150,6 @@ const SKIP_REGISTRY: SkipEntry[] = [
     severity: 'perf',
   },
   {
-    file: 'app/tests/security/workspace-trust-integration.test.ts',
-    match: '在 cwd 内时返回 true',
-    reason:
-      '相对路径分支（`src/file.ts` vs 绝对 cwd）未修复 ⇒ 永久跳过（同域绝对路径分支仍有覆盖）',
-    module: 'security',
-    severity: 'security',
-    acknowledged: true,
-    ledger: 'dev_docs/error_repairs/预存错误与待处理问题.md §L-8',
-    platformImpact: '全平台（"相对路径 vs 绝对 cwd"子分支）',
-    releaseBlocking: false,
-    blockingJustification:
-      '同域**绝对路径**分支仍有覆盖；本组仅相对路径子分支（台账 L-8 已登记）',
-    reopenWhen: '修复"相对路径 vs 绝对 cwd"分支后',
-    owner: 'security 模块',
-  },
-  {
     file: 'app/tests/sandbox/negativeEnforcement.test.ts',
     match: 'SKIP_REASON',
     reason:

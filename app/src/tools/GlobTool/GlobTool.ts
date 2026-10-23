@@ -69,20 +69,18 @@ export function glob(
 
   // G2：模式无法解析为有效 glob 时，跳过遍历并返回可标识的 invalidPattern 字段，
   // 使调用方把「无匹配文件」与「模式无效」明确区分（原始实现二者同为 `[]`）。
-  const invalidPattern =
-    compileGlobPattern(normalizedPattern) === null
-      ? normalizedPattern
-      : undefined;
+  // 2026-10-23（预存台账）：模式**只编译一次**并传入遍历（原实现每个文件编译 2 次）。
+  const matcher = compileGlobMatcher(normalizedPattern);
+  const invalidPattern = matcher === null ? normalizedPattern : undefined;
 
   // 执行目录遍历并收集匹配文件，若发生错误（如权限拒绝）则静默处理
-  if (!invalidPattern) {
+  if (matcher) {
     try {
       walkDir(
         normalizedSearchPath,
-        normalizedPattern,
+        matcher,
         results,
         GLOB_TOOL_MAX_FILES,
-        normalizedSearchPath,
         resolveSkipDirs(normalizedPattern, normalizedSearchPath)
       );
     } catch (err) {
@@ -126,19 +124,16 @@ export async function globAsync(
   const normalizedPattern = pattern.replace(/\\/g, '/');
   const normalizedSearchPath = searchPath.replace(/\\/g, '/');
 
-  const invalidPattern =
-    compileGlobPattern(normalizedPattern) === null
-      ? normalizedPattern
-      : undefined;
+  const matcher = compileGlobMatcher(normalizedPattern);
+  const invalidPattern = matcher === null ? normalizedPattern : undefined;
 
-  if (!invalidPattern) {
+  if (matcher) {
     try {
       await walkDirAsync(
         normalizedSearchPath,
-        normalizedPattern,
+        matcher,
         results,
         GLOB_TOOL_MAX_FILES,
-        normalizedSearchPath,
         resolveSkipDirs(normalizedPattern, normalizedSearchPath)
       );
     } catch (err) {
@@ -167,11 +162,12 @@ export async function globAsync(
  */
 async function walkDirAsync(
   dir: string,
-  pattern: string,
+  matcher: CompiledGlobMatcher,
   results: string[],
   limit: number,
-  rootDir?: string,
-  skipDirs: ReadonlySet<string> = new Set()
+  skipDirs: ReadonlySet<string> = new Set(),
+  /** 相对搜索根的目录前缀（`''` = 根层；用 `/` 连接，避免逐文件 `path.relative`） */
+  relDir: string = ''
 ): Promise<void> {
   if (results.length >= limit) return;
 
@@ -195,16 +191,19 @@ async function walkDirAsync(
       // 修复前从项目根 `**/X.ts` 会递归 `node_modules`（本仓 6.5 万+ 文件），
       // 实测单次 7960ms；模式显式点名该目录时不跳过（见 resolveSkipDirs）。
       if (skipDirs.has(entry.name)) continue;
-      await walkDirAsync(fullPath, pattern, results, limit, rootDir, skipDirs);
+      const childRelDir = relDir ? `${relDir}/${entry.name}` : entry.name;
+      await walkDirAsync(
+        fullPath,
+        matcher,
+        results,
+        limit,
+        skipDirs,
+        childRelDir
+      );
     } else if (entry.isFile()) {
-      const relativePath = rootDir
-        ? path.relative(rootDir, fullPath).replace(/\\/g, '/')
-        : '';
+      const relativePath = relDir ? `${relDir}/${entry.name}` : entry.name;
       // G2：仅按完整/相对路径（含分隔符）匹配，不再退化为 basename，使 `*` 不跨目录边界
-      if (
-        matchGlob(fullPath, pattern) ||
-        (relativePath && matchGlob(relativePath, pattern))
-      ) {
+      if (matcher.test(fullPath) || matcher.test(relativePath)) {
         results.push(fullPath);
       }
     }
@@ -218,19 +217,21 @@ async function walkDirAsync(
 
 /**
  * 递归遍历指定目录，查找匹配给定模式的文件路径，并将结果存入数组中。
- * * @param dir - 需要遍历的根目录路径
- * @param pattern - 用于匹配文件名或完整路径的通配符模式
+ * * @param dir - 需要遍历的根目录
+ * @param matcher - 预编译的模式匹配器（遍历期间复用，避免逐文件编译正则）
  * @param results - 用于存储匹配到的文件路径的数组（会直接修改此数组）
  * @param limit - 限制收集的最大文件数量，达到该数量后停止遍历
- * @param rootDir - 搜索根目录，用于计算相对路径（可选）
+ * @param skipDirs - 跳过的"重目录"集合
+ * @param relDir - 相对搜索根的目录前缀（由递归逐层拼接，替代逐文件 `path.relative`）
  */
 function walkDir(
   dir: string,
-  pattern: string,
+  matcher: CompiledGlobMatcher,
   results: string[],
   limit: number,
-  rootDir?: string,
-  skipDirs: ReadonlySet<string> = new Set()
+  skipDirs: ReadonlySet<string> = new Set(),
+  /** 相对搜索根的目录前缀（`''` = 根层；见 `walkDirAsync`） */
+  relDir: string = ''
 ): void {
   // 如果已收集的结果数量达到上限，则提前返回
   if (results.length >= limit) return;
@@ -254,16 +255,12 @@ function walkDir(
     if (entry.isDirectory()) {
       // 如果是目录，则递归遍历（"重目录"跳过语义与 walkDirAsync 一致）
       if (skipDirs.has(entry.name)) continue;
-      walkDir(fullPath, pattern, results, limit, rootDir, skipDirs);
+      const childRelDir = relDir ? `${relDir}/${entry.name}` : entry.name;
+      walkDir(fullPath, matcher, results, limit, skipDirs, childRelDir);
     } else if (entry.isFile()) {
       // G2：仅按完整/相对路径（含分隔符）匹配，不再退化为 basename，使 `*` 不跨目录边界
-      const relativePath = rootDir
-        ? path.relative(rootDir, fullPath).replace(/\\/g, '/')
-        : '';
-      if (
-        matchGlob(fullPath, pattern) ||
-        (relativePath && matchGlob(relativePath, pattern))
-      ) {
+      const relativePath = relDir ? `${relDir}/${entry.name}` : entry.name;
+      if (matcher.test(fullPath) || matcher.test(relativePath)) {
         results.push(fullPath);
       }
     }
@@ -272,7 +269,7 @@ function walkDir(
 
 /**
  * G2：将 glob 模式编译为正则；模式无法解析（如未闭合的 `[`、孤立 `\`）时返回 null。
- * 供 matchGlob 判定匹配，也供 glob()/globAsync() 前置校验以区分「空结果」与「模式无效」。
+ * 供 `compileGlobMatcher` 判定匹配，也供 glob()/globAsync() 前置校验以区分「空结果」与「模式无效」。
  *
  * 2026-09-22 性能取证（**结论：此处不是瓶颈，故未做缓存**）：曾假设"逐文件重复编译正则"
  * 是主因并加过按模式缓存，实测无差异（4368ms vs 4415ms，噪声范围内）⇒ 已回退。
@@ -311,40 +308,35 @@ function compileGlobPattern(pattern: string): RegExp | null {
 }
 
 /**
- * 检查文件名或路径是否匹配给定的 glob 模式。
- * * 支持以下通配符：
- * - `*`: 匹配任意非路径分隔符字符（不包括 `/` 和 `\`）
- * - `**`: 匹配任意字符（包括路径分隔符）
- * - `?`: 匹配单个任意字符
+ * **预编译的 glob 匹配器**（2026-10-23 主循环优化）。
  *
- * G2 语义修正（2026-09-17）：匹配针对**传入的完整名称字符串**（含路径分隔符），
- * 不再退化到 basename。据此 `*` 不跨目录边界：`*.ts` 仅命中搜索目录根层，
- * 递归子目录需用「双星」前缀模式（`**` 引导）。为保持该前缀模式也能命中根层文件，
- * `**` 开头时额外用剥离「双星斜杠」前缀（`**` + 分隔符）后的模式匹配一次（兼容全局递归的既有预期）。
+ * 支持的通配符与语义与旧 `matchGlob` 完全一致：
+ * - `*` 匹配任意非路径分隔符字符；`**` 跨目录；`?` 单字符；
+ * - G2（2026-09-17）：匹配针对完整路径（含分隔符），`*.ts` 不跨目录；
+ *   `**` 前缀额外用剥离「双星斜杠」后的模式再匹配一次（兼容根层命中）。
  *
- * 路径中的反斜杠会被自动转换为斜杠，确保 Windows 路径也能正确匹配。
- * @param name - 要检查的文件名或路径字符串
- * @param pattern - glob 模式字符串
- * @returns 如果名称匹配模式则返回 true，否则返回 false
+ * 性能：正则**只编译一次**（旧实现每个文件最多编译 4 次），遍历期间复用。
  */
-function matchGlob(name: string, pattern: string): boolean {
-  const normalizedName = name.replace(/\\/g, '/');
+interface CompiledGlobMatcher {
+  test(value: string): boolean;
+}
 
+function compileGlobMatcher(pattern: string): CompiledGlobMatcher | null {
   const regex = compileGlobPattern(pattern);
-  if (regex && regex.test(normalizedName)) {
-    return true;
-  }
+  if (!regex) return null;
 
-  // `**` 前缀允许命中根层（0 层路径分隔），兼容「双星」前缀模式的全局递归既有预期
-  if (pattern.startsWith('**')) {
-    const stripped = pattern.replace(/^\*\*\/?/, '');
-    if (stripped && stripped !== pattern) {
-      const regex2 = compileGlobPattern(stripped);
-      if (regex2 && regex2.test(normalizedName)) {
-        return true;
-      }
-    }
-  }
+  const stripped = pattern.startsWith('**')
+    ? pattern.replace(/^\*\*\/?/, '')
+    : '';
+  const regex2 =
+    stripped && stripped !== pattern ? compileGlobPattern(stripped) : null;
 
-  return false;
+  return {
+    test(value: string): boolean {
+      // 路径中的反斜杠统一为斜杠，确保 Windows 路径也能正确匹配
+      const normalized = value.replace(/\\/g, '/');
+      if (regex.test(normalized)) return true;
+      return regex2 ? regex2.test(normalized) : false;
+    },
+  };
 }

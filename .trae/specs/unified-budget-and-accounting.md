@@ -446,9 +446,17 @@
 
 ## §13 无法确认项（如实登记）
 
-1. **`CostBudgetManager` 是否有前端调用方**：本稿仅取证到 `cost-handlers.ts` 为唯一外部调用方（引自 `daily-budget-unification.md` §9），**未独立复核** `client/**` 是否调用 `getBudgetStatus`（立项稿称"前端无调用方"）。**未独立验证**（已查方向：`client/src/components/usage/**`、`client/src/services/usageService.ts`；未逐字 grep）。
-2. **`cost_multiplier` 在换算链是否被读**：立项稿称"未被读取"，本稿在 `core/pricing.ts` 与 `cost/ModelPricing.ts` 内**未见**读取 `costMultiplier`（仅 `ModelPricingService` 存/取）；作为 §12 Q-U4 的事实基础，**标注为待复核**。
-3. **`debtTokens` 之外是否另有欠账账本**：本稿按 `grep debtTokens` 判定"无自增点"（§1.6）；**未排除**未来其他命名（如 `debtUsd` 等）——当前全仓**无**同名/近名实现（已查 `grep 欠账|pendingDebt`）。
+> **2026-10-23 复查：三项已全部取证完毕**（逐字 grep，结论如下）。
+
+1. **`CostBudgetManager` 是否有前端调用方** —— **无前端调用方**（服务层也仅定义未消费）。
+   证据：`client/src/services/workspaceService.ts:486` 定义了 `costBudget(workspaceId)`（GET `ENDPOINTS.workspace.costBudget`），
+   但全 `client/src` grep `\.costBudget\(` **仅命中该定义行**；后端唯一外部调用方仍是 `infrastructure/http/handlers/cost-handlers.ts`。
+2. **`cost_multiplier` 在换算链是否被读** —— **未被读取**（确认立项稿口径，Q-U4 事实基础成立）。
+   证据：`context/analytics/CostMultiplierSystem.ts` 的 `costMultiplierManager` **零消费**（全仓仅定义/导出）；
+   `ai/models/ModelPricingService.ts` 只做 `cost_multiplier` 的存/取；`query/modelPricingAdapter.ts:77` 明确"不含 `cost_multiplier`"。
+3. **`debtTokens` 之外是否另有欠账账本** —— **有，且为设计内的第二条：`debtUsd`**（USD 口径透支欠账）。
+   证据：`query/DailyBudgetManager.ts:251/259-260`（`debtTokens` 与 `debtUsd` 并列）；`query/dailyBudgetPersistence.ts:68-69`（`debtUsd` 持久化）；
+   `infrastructure/http/handlers/daily-budget-handlers.ts:105`（对外返回 `debtUsd`）。**未发现**第三个隐藏账本（`debtUsd` 之外无同名/近名实现）。
 
 ---
 

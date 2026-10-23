@@ -17,7 +17,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { getToolManager } from '../ToolManager';
+import { getToolRegistry } from '../ToolRegistry';
+import { resolveToolInstanceByName } from '../toolInstanceResolver';
 import type { AgentTool } from '../AgentTool/AgentTool';
 
 const logger = getLogger('tools:resolveAgentTool');
@@ -37,14 +38,29 @@ function isAgentToolLike(candidate: unknown): candidate is AgentTool {
 }
 
 /**
+ * 默认解析：优先走 `ToolManager` 登记的解析器（含 `ensureToolsLoaded()` + `unwrap()`）；
+ * 未登记（管理器尚未构造）⇒ 回退到全局注册表并解包。
+ *
+ * 2026-10-23：改为**反向登记**（见 `toolInstanceResolver`），避免
+ * `utils → ToolManager` 的静态环（madge 基线 0）。
+ */
+function defaultResolve(name: string): unknown {
+  const managed = resolveToolInstanceByName(name);
+  if (managed !== undefined) return managed;
+
+  const tool = getToolRegistry().getTool(name);
+  if (!tool) return undefined;
+  const unwrapped = (tool as unknown as { unwrap?: () => unknown }).unwrap?.();
+  return unwrapped ?? tool;
+}
+
+/**
  * 取 AgentTool 真身；拿不到（未注册 / 未加载 / 仍是包装器）⇒ `null`（fail-closed）。
  *
- * @param resolve 解析入口（默认 `getToolManager().getToolInstance()`；
- *   测试可注入，避免依赖全局单例）
+ * @param resolve 解析入口（默认见 {@link defaultResolve}；测试可注入，避免依赖全局单例）
  */
 export function resolveAgentToolInstance(
-  resolve: (name: string) => unknown = (name: string) =>
-    getToolManager().getToolInstance(name)
+  resolve: (name: string) => unknown = defaultResolve
 ): AgentTool | null {
   try {
     const tool = resolve('agent');

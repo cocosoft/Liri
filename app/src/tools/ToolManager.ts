@@ -39,7 +39,14 @@ import type {
 } from './types/ToolTypes';
 
 import { getLogger } from '@modules/monitoring';
+import { setToolInstanceResolver } from './toolInstanceResolver';
 const logger = getLogger('tools:ToolManager');
+
+// 2026-10-23（madge 断环）：反向登记"按名取真身"的解析器。
+// 下游 `resolveAgentToolInstance` 不再静态 import 本模块（原静态环：
+// ToolManager → ToolFactory → builtinToolRegistry → AgentsListTool → resolveAgentToolInstance）。
+// 闭包延迟执行 ⇒ 不改变单例的惰性构造时机。
+setToolInstanceResolver((name) => getToolManager().getToolInstance(name));
 /**
  * 工具管理器选项
  */

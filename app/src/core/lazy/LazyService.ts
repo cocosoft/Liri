@@ -7,7 +7,15 @@
 import { handleError } from '../errorHandler.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 import { getLogger } from '../loggerFacade.js';
+import { warnDeprecatedCoreModule } from '../deprecationNotice.js';
 const logger = getLogger('LazyService');
+
+// C 档观察期（2026-10-23）：本目录（`core/lazy/`）三重零引用；
+// 注意与仍在使用的 `core/LazyModuleStrategy.ts` 无关 —— 见 dev_docs/20261023/core-减重盘点清单.md §3
+warnDeprecatedCoreModule(
+  'lazy/LazyService',
+  '三重零引用（与 core/LazyModuleStrategy.ts 无关）'
+);
 
 /**
  * 延迟加载状态
@@ -58,6 +66,9 @@ export interface LazyConfig {
 
 /**
  * 延迟加载服务
+ *
+ * @deprecated（2026-10-23，C 档观察期）三重零引用待取证。
+ * 注意与仍在使用的 `core/LazyModuleStrategy.ts` 无关 —— 见 `dev_docs/20261023/core-减重盘点清单.md` §3。
  */
 export class LazyService {
   private static instance: LazyService;

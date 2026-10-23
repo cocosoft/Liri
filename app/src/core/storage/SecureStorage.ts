@@ -14,7 +14,14 @@ import { handleError } from '../errorHandler.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('SecureStorage');
+import { warnDeprecatedCoreModule } from '../deprecationNotice.js';
 import { resolvePyappHome } from '@modules/core';
+
+// C 档观察期（2026-10-23）：三重零引用 ⇒ 见 dev_docs/20261023/core-减重盘点清单.md §3
+warnDeprecatedCoreModule(
+  'storage/SecureStorage',
+  '三重零引用（深路径/符号/路径串均为 0）'
+);
 
 /**
  * 安全存储数据接口
@@ -70,6 +77,10 @@ const DEFAULT_ENCRYPTION_CONFIG: EncryptionConfig = {
  * - 降级策略（密钥链不可用时使用加密文件）
  * - AES-256-GCM加密
  * - 文件权限控制（0o600）
+ *
+ * @deprecated（2026-10-23，C 档观察期）三重零引用待取证。
+ * 见 `dev_docs/20261023/core-减重盘点清单.md` §3；属 CD07 关键域（加密/凭据），
+ * 不得凭静态零引用删除 —— 如确为在役依赖请移除本标记并补测试。
  */
 export class SecureStorage extends EventEmitter {
   private static instance: SecureStorage;

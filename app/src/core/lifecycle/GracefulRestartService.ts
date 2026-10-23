@@ -8,6 +8,13 @@ import { EventEmitter } from 'events';
 
 import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core\lifecycle\GracefulRestartService');
+import { warnDeprecatedCoreModule } from '../deprecationNotice.js';
+
+// C 档观察期（2026-10-23）：三重零引用 ⇒ 见 dev_docs/20261023/core-减重盘点清单.md §3
+warnDeprecatedCoreModule(
+  'lifecycle/GracefulRestartService',
+  '三重零引用（深路径/符号/路径串均为 0）'
+);
 
 /**
  * 重启阶段
@@ -75,6 +82,9 @@ export interface HookFailure {
 
 /**
  * 优雅重启服务
+ *
+ * @deprecated（2026-10-23，C 档观察期）三重零引用待取证。
+ * 见 `dev_docs/20261023/core-减重盘点清单.md` §3；如确为在役依赖请移除本标记并补测试。
  */
 export class GracefulRestartService extends EventEmitter {
   private config: GracefulRestartConfig;

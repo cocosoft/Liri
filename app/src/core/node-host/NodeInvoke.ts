@@ -9,6 +9,10 @@ export interface NodeInvokeHandler {
   invoke(request: InvokeRequest): Promise<unknown>;
 }
 
+/**
+ * @deprecated（2026-10-23，C 档观察期）三重零引用待取证。
+ * 见 `dev_docs/20261023/core-减重盘点清单.md` §3。
+ */
 export class NodeInvoke extends EventEmitter {
   private nodes: Map<string, NodeDefinition> = new Map();
   private handlers: Map<string, NodeInvokeHandler> = new Map();

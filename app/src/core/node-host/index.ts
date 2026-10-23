@@ -18,6 +18,20 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+import { warnDeprecatedCoreModule } from '../deprecationNotice.js';
+
+/**
+ * 节点执行宿主（NodeInvoke / NodeRunner / ExecPolicy）。
+ *
+ * @deprecated（2026-10-23，C 档观察期）本目录三重零引用（深路径/符号/路径串均为 0）。
+ * 其中 `ExecPolicy` 属 CD07 关键域（执行策略），**不得**凭零引用删除。
+ * 见 `dev_docs/20261023/core-减重盘点清单.md` §3。
+ */
+warnDeprecatedCoreModule(
+  'node-host',
+  '三重零引用；ExecPolicy 属 CD07 关键域，须运行时取证'
+);
+
 export { NodeInvoke, nodeInvoke } from './NodeInvoke.js';
 export { NodeRunner } from './NodeRunner.js';
 export { ExecPolicy, execPolicy } from './ExecPolicy.js';

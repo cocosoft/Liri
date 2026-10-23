@@ -20,6 +20,10 @@ interface CircuitBreakerState {
   openedAt: number;
 }
 
+/**
+ * @deprecated（2026-10-23，C 档观察期）三重零引用待取证；属 CD07 关键域（执行策略）。
+ * 见 `dev_docs/20261023/core-减重盘点清单.md` §3。
+ */
 export class ExecPolicy {
   private config: ExecPolicyConfig;
   private circuitBreakers: Map<string, CircuitBreakerState> = new Map();

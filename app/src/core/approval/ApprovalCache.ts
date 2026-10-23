@@ -20,6 +20,15 @@
  * ```
  */
 
+import { warnDeprecatedCoreModule } from '../deprecationNotice.js';
+
+// C 档观察期（2026-10-23）：三重零引用，且现役审批走 `ApprovedCommandRegistry`
+// ⇒ 疑似被替代，见 dev_docs/20261023/core-减重盘点清单.md §3
+warnDeprecatedCoreModule(
+  'approval/ApprovalCache',
+  '三重零引用；疑似被 ApprovedCommandRegistry 取代'
+);
+
 /**
  * 审批缓存的每条记录
  */
@@ -41,6 +50,11 @@ export interface ApprovalCacheOptions {
 const APPROVAL_CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟
 const APPROVAL_CACHE_MAX_ENTRIES = 200;
 
+/**
+ * @deprecated（2026-10-23，C 档观察期）三重零引用，且现役审批为 `ApprovedCommandRegistry`。
+ * 见 `dev_docs/20261023/core-减重盘点清单.md` §3；属 CD07 关键域（权限），
+ * 不得凭静态零引用删除 —— 如确为在役依赖请移除本标记并补测试。
+ */
 export class ApprovalCache {
   private entries: Map<string, ApprovalEntry> = new Map();
 

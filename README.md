@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.7-blue)
+![Version](https://img.shields.io/badge/version-0.5.8-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.7**
+当前版本：**v0.5.8**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,6 +435,18 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.5.8 (2026-10-23)
+工具审批四档与自动执行 + 影子工具接线 + 归属/断环收口
+
+- ✅ **工具审批四档 + 自动执行** - 审批卡支持「本次 / 本会话 / 始终允许 / 拒绝」；「始终允许」按工具 + 参数指纹落盘；会话级 `auto-local` 只自动放行只读与工作区内本地写（默认关）；Inbox 审批加部分唯一索引兜底
+- ✅ **声明式风险 + 沙箱豁免 + 文件工具隔离** - 风险不再按工具名猜，改由工具声明 `riskClass`；沙箱信号单点解析并接入 chat / LRO / MCP；文件类工具在容器/SSH 工作区有挂载映射时经适配器读写
+- ✅ **命令规则与审计** - 白/黑名单支持前缀与正则匹配（存量默认前缀）；自动放行审计落 `security-audit.log`，安全页支持明细与 CSV 导出
+- ✅ **影子工具接线（Q-18）** - `agents_list` / `kanban` / `mcp_auth` / `tts` 接入生效面；`music_generate` 移除假成功；6 个下线类影子工具摘声明并删除实现
+- ✅ **思考预算与命令入口** - `/effort` 按 DB 能力位下发思考预算、`/fast` 分流 quick；prompt 型斜杠命令在聊天入口生效；`brief` / `insights` 接入 GUI
+- ✅ **归属与断环** - 事件派生读取补显式归属校验、HTTP/CoreAPI 入口补必填参数校验；权限位下沉与 AgentTool 反向登记使循环依赖回到 0，启动面棘轮恢复 282 文件
+
+> 本版为功能 + 修复混合版：工具审批/沙箱隔离是主线，另含影子工具接线与多处归属/契约收口（详见 [CHANGELOG.md](./CHANGELOG.md)）。
 
 #### v0.5.7 (2026-10-22)
 工作台导航重排（搜索 / 最近 / 6 组）+ 收掉第二个工作台外壳 + 两条后端契约缺陷

@@ -54,6 +54,8 @@ const OBSERVED_ENTRY_FILES = [
   'media-understanding/index.ts',
   'markdown/render.ts',
   'markdown/chunk.ts',
+  // B 档取证后转 C′（零消费者，与 app/src/auto-reply 同名不同物）
+  'auto-reply/index.ts',
 ] as const;
 
 describe('观察期：@deprecated + 加载期告警接线', () => {

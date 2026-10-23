@@ -33,7 +33,13 @@
  * 夹具通过 `KP_REPO_ROOT` 指到临时目录（脚本其余默认路径都相对 repoRoot 推导）。
  */
 import { afterAll, describe, expect, it } from 'bun:test';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';

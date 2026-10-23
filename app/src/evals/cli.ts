@@ -269,7 +269,7 @@ if (process.argv.includes('--audit-assertions')) {
       dataDir: join(auditRoot, 'data'),
     });
     out(
-      `\n[断言自检 A6] 参与 ${report.audited.length} 题 ｜ 未登记参考解 ${report.skipped.length} 题 ｜ 检查 ${report.checks} 次`
+      `\n[断言自检 A6] 参与 ${report.audited.length} 题 ｜ 未登记参考解 ${report.skipped.length} 题 ｜ 检查 ${report.checks} 次（no-op 变形 ${report.noOpChecks} 次未计入）`
     );
     if (report.skipped.length > 0) {
       out(

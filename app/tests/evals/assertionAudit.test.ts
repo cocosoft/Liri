@@ -57,8 +57,9 @@ describe('A6: 宽容断言 ⇒ 全部等价变形通过', () => {
 
     expect(report.audited).toEqual(['t-tolerant']);
     expect(report.findings).toEqual([]);
-    // 6 种内置变形 − 1 种不适用（json-key-order 对非 JSON 返回 null）
-    expect(report.checks).toBe(5);
+    // 6 种内置变形 − 1 种不适用（json-key-order）− 1 种 no-op（trailing-newline：已以一个换行结尾）
+    expect(report.checks).toBe(4);
+    expect(report.noOpChecks).toBe(1);
     expect(report.inapplicable).toEqual([
       { taskId: 't-tolerant', variant: 'json-key-order', artifact: 'out.txt' },
     ]);
@@ -120,7 +121,9 @@ describe('A6: json-key-order 只对 JSON 对象适用', () => {
     const report = await auditAssertions([task], ctx);
 
     expect(report.findings).toEqual([]);
-    expect(report.checks).toBe(6);
+    // 单行 JSON：crlf 无换行可换 ⇒ no-op，不计入有效检查数
+    expect(report.checks).toBe(5);
+    expect(report.noOpChecks).toBe(1);
     expect(report.inapplicable).toEqual([]);
   });
 });
@@ -180,7 +183,8 @@ describe('A6: 变形之间不互相污染', () => {
     });
     await auditAssertions([task], ctx);
 
-    // 顺序 = EQUIVALENT_VARIANTS；`json-key-order` 对非 JSON 不适用 ⇒ 不执行（故 5 条）
-    expect(seen).toEqual(['ab\n', 'ab\n', 'ab\r\n', 'ab \n', '\nab\n']);
+    // 顺序 = EQUIVALENT_VARIANTS；`trailing-newline` 对已规范结尾是 no-op（不执行），
+    // `json-key-order` 对非 JSON 不适用 ⇒ 实际执行 4 条
+    expect(seen).toEqual(['ab\n', 'ab\r\n', 'ab \n', '\nab\n']);
   });
 });

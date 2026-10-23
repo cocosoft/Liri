@@ -102,8 +102,15 @@ export interface AssertionAuditReport {
   }>;
   /** 变形后断言失败 ⇒ **过度约束**（`variant==='identical'` 则优先怀疑基准解） */
   findings: OverConstraintFinding[];
-  /** 实际执行的检查次数（题 × 变形） */
+  /** 实际执行的检查次数（题 × 变形；**不含** no-op 变形，见 `noOpChecks`） */
   checks: number;
+  /**
+   * 对全部产物都**不改变内容**的变形次数（2026-10-23）。
+   *
+   * 典型：单行产物遇到 `crlf`（没有换行可换）—— 跑一遍断言也不构成"等价变形验证"，
+   * 若计入 `checks` 会**高估**有效检查数。`identical` 是对照组，恒计入。
+   */
+  noOpChecks: number;
 }
 
 /**
@@ -136,6 +143,7 @@ export async function auditAssertions(
     inapplicable: [],
     findings: [],
     checks: 0,
+    noOpChecks: 0,
   };
 
   for (const task of tasks) {
@@ -157,6 +165,7 @@ export async function auditAssertions(
 
     for (const variant of wanted) {
       let applicable = true;
+      let anyChanged = false;
 
       for (const artifact of spec.artifacts) {
         const transformed = variant.transform(artifact.content);
@@ -169,12 +178,21 @@ export async function auditAssertions(
           applicable = false;
           continue;
         }
+        if (transformed !== artifact.content) anyChanged = true;
         const abs = join(sandbox.workspace, artifact.path);
         mkdirSync(dirname(abs), { recursive: true });
         writeFileSync(abs, transformed, 'utf-8');
       }
 
       if (!applicable) continue;
+
+      // 2026-10-23（预存台账）：对全部产物都不改变内容的变形（如单行产物的 crlf）
+      // 不构成"等价变形验证" ⇒ 单独计入 noOpChecks，不虚增 checks。
+      // `identical` 是对照组，恒执行并计入 checks。
+      if (variant.kind !== 'identical' && !anyChanged) {
+        report.noOpChecks += 1;
+        continue;
+      }
 
       report.checks += 1;
       const result = await task.assert(ctx);

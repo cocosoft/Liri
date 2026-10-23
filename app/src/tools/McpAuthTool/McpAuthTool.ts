@@ -1,8 +1,14 @@
 import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
- * McpAuthTool
- * 对标OpenClaw mcp-auth 工具
- * MCP认证管理工具
+ * McpAuthTool — MCP 认证管理（**未接线**；Q-18 处置仍为 `rewrite`）
+ *
+ * ⚠️ 2026-10-23（Q-18 复核）：修复前 `login` / `logout` / `refresh` 直接返回
+ * `success:true` + `authenticated:true`，**没有调用任何认证实现** ⇒ 假成功（CS04）。
+ * 真实 OAuth 能力在 `services/mcp/auth/MCPAuth.ts`（`mcpAuthManager`）：`initiateAuth` 需要
+ * **已注册服务器**的 `oauth` 配置（authorizationEndpoint / tokenEndpoint / clientId / redirectUri），
+ * 授权完成后由 HTTP 回调 `handleCallback` 落 token —— 工具面要承载它，须先定"oauth 配置来源"与
+ * "浏览器授权如何与用户交互"。故本轮**只做如实收口**：不再伪造成功；接线（含 `MCP_OAUTH` 门控）
+ * 待设计确定后单独变更。该工具当前不在生效面（`lint:shadow-tools` 登记 `rewrite`），不影响用户。
  */
 
 import { BaseTool } from '../BaseTool';
@@ -10,6 +16,11 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:McpAuthTool:McpAuthTool');
+
+/** 未接线时的统一失败文案（**不再伪造成功**） */
+const NOT_WIRED_ERROR =
+  'mcp_auth 尚未接线：真实实现须经 MCPAuthManager（initiateAuth → 浏览器授权 → handleCallback），' +
+  '并受 FEATURE_MCP_OAUTH 门控。当前不执行任何认证动作，请改用 MCP 配置面完成授权。';
 
 export interface McpAuthParams {
   action: 'login' | 'logout' | 'status' | 'refresh' | 'list';
@@ -107,87 +118,9 @@ export class McpAuthTool extends BaseTool {
         };
       }
 
-      switch (params.action) {
-        case 'login': {
-          if (!params.serverUrl) {
-            return {
-              success: false,
-              error: 'serverUrl is required for login action',
-            };
-          }
-          return {
-            success: true,
-            data: {
-              action: 'login',
-              serverUrl: params.serverUrl,
-              provider: params.provider ?? 'custom',
-              authenticated: true,
-              scopes: params.scopes ?? [],
-            },
-            output: `Successfully authenticated with MCP server: ${params.serverUrl}`,
-          };
-        }
-
-        case 'logout': {
-          if (!params.serverUrl) {
-            return {
-              success: false,
-              error: 'serverUrl is required for logout action',
-            };
-          }
-          return {
-            success: true,
-            data: { action: 'logout', serverUrl: params.serverUrl },
-            output: `Logged out from MCP server: ${params.serverUrl}`,
-          };
-        }
-
-        case 'status': {
-          if (!params.serverUrl) {
-            return {
-              success: false,
-              error: 'serverUrl is required for status action',
-            };
-          }
-          return {
-            success: true,
-            data: {
-              action: 'status',
-              serverUrl: params.serverUrl,
-              authenticated: false,
-            },
-            output: `MCP server "${params.serverUrl}" status: not authenticated.`,
-          };
-        }
-
-        case 'refresh': {
-          if (!params.serverUrl) {
-            return {
-              success: false,
-              error: 'serverUrl is required for refresh action',
-            };
-          }
-          return {
-            success: true,
-            data: { action: 'refresh', serverUrl: params.serverUrl },
-            output: `Token refreshed for MCP server: ${params.serverUrl}`,
-          };
-        }
-
-        case 'list': {
-          return {
-            success: true,
-            data: { action: 'list', servers: [] },
-            output: 'No authenticated MCP servers.',
-          };
-        }
-
-        default:
-          return {
-            success: false,
-            error: `Unhandled action: ${params.action}`,
-          };
-      }
+      // 未接线：不再伪造"登录成功/已登出/已刷新"（CS04）。
+      logger.warn('mcp_auth 被调用但尚未接线', { action: params.action });
+      return { success: false, error: NOT_WIRED_ERROR };
     } catch (error) {
       return {
         success: false,

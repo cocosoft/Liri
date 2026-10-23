@@ -50,7 +50,8 @@ export const SHADOW_TOOL_DISPOSITIONS: Readonly<
   mcp_auth: {
     reason: 'needs-rewrite',
     disposition: 'rewrite',
-    reevaluateWhen: '改为调用 mcpAuthManager + 受 MCP_OAUTH 门控（安全相邻域）',
+    reevaluateWhen:
+      '先定 OAuth 交互形态（oauth 配置来源 + 浏览器授权如何回到用户），再经 mcpAuthManager 接线并受 MCP_OAUTH 门控；2026-10-23 已先移除原"假成功"（login/logout/refresh 不再返回 authenticated:true）',
   },
 
   // ── 等待外部前提 ────────────────────────────────────────────────────────

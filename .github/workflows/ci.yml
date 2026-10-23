@@ -115,16 +115,28 @@ jobs:
       # 门禁自证 / 集成类用例会 spawn `bun`/lint 脚本：实测 Linux 容器 8–28s，
       # 超过 bun test 默认 5s ⇒ CI 上稳定超时假红。统一放宽到 30s（仍为有界）。
       run: |
+        set +e
         SEL="$RUNNER_TEMP/selected-tests.txt"
         if [ -f "$SEL" ] && grep -q '^__SKIP__$' "$SEL"; then
           echo "文档-only 变更：跳过测试（其它门禁照常）"
+          exit 0
         elif [ -s "$SEL" ]; then
           echo "增量测试：$(grep -c '' "$SEL") 个文件"
-          bun test $(cat "$SEL") --timeout 30000
+          out=$(bun test $(cat "$SEL") --timeout 30000 2>&1); code=$?
         else
           echo "全量测试"
-          bun test tests/ --timeout 30000
+          out=$(bun test tests/ --timeout 30000 2>&1); code=$?
         fi
+        printf '%s\n' "$out"
+        if [ "$code" -ne 0 ]; then
+          # 失败摘要**提升为 annotation**：Actions job 日志接口对未授权读取返回 403，
+          # 只有 annotation 能被匿名取到 ⇒ 否则只剩「红了但不知道哪条用例」
+          # （2026-10-24 实证：macOS 两次红都无法定位具体用例）。
+          printf '%s\n' "$out" | grep -E '\(fail\)' | head -n 20 | while IFS= read -r line; do
+            printf '::error::%s\n' "$line"
+          done
+        fi
+        exit "$code"
 
     - name: Generate coverage report (lcov)
       # 覆盖率需要**全量**样本；增量/文档-only 运行跳过（其它门禁照常）。

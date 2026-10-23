@@ -1,0 +1,2057 @@
+{
+  "version": 1,
+  "kernelRoot": "app/src/core",
+  "fileCount": 146,
+  "symbolCount": 1349,
+  "entries": [
+    {
+      "file": "abortReason.ts",
+      "symbols": [
+        "SYSTEM_ABORT_BRAND",
+        "SYSTEM_ABORT_REASON",
+        "isAbortReason",
+        "markAsExpectedAbort"
+      ]
+    },
+    {
+      "file": "AppCoreConfig.ts",
+      "symbols": [
+        "AppCoreConfig",
+        "AppCoreStartupOptions",
+        "SessionStartupOptions",
+        "WorktreeOptions"
+      ]
+    },
+    {
+      "file": "approval/ApprovalCache.ts",
+      "symbols": [
+        "ApprovalCache",
+        "ApprovalCacheOptions"
+      ]
+    },
+    {
+      "file": "auto-reply/chunk.ts",
+      "symbols": [
+        "chunkText",
+        "resolveChunkLimit"
+      ]
+    },
+    {
+      "file": "auto-reply/dispatch.ts",
+      "symbols": [
+        "DispatchHandler",
+        "ReplyDispatcher"
+      ]
+    },
+    {
+      "file": "auto-reply/envelope.ts",
+      "symbols": [
+        "createEnvelope",
+        "hasContent",
+        "mergeEnvelopes"
+      ]
+    },
+    {
+      "file": "auto-reply/heartbeat.ts",
+      "symbols": [
+        "HeartbeatManager"
+      ]
+    },
+    {
+      "file": "auto-reply/index.ts",
+      "symbols": [
+        "HeartbeatManager",
+        "ReplyDispatcher",
+        "chunkText",
+        "createEnvelope",
+        "hasContent",
+        "mergeEnvelopes",
+        "resolveChunkLimit"
+      ]
+    },
+    {
+      "file": "auto-reply/types.ts",
+      "symbols": [
+        "ChunkMode",
+        "ChunkResult",
+        "DispatchResult",
+        "DispatchTarget",
+        "EnvelopeMetadata",
+        "HeartbeatState",
+        "ReplyContext",
+        "ReplyEnvelope",
+        "ReplyPayload",
+        "ReplyResult"
+      ]
+    },
+    {
+      "file": "buildVariantFlags.ts",
+      "symbols": [
+        "BUILD_VARIANT_FLAGS"
+      ]
+    },
+    {
+      "file": "cache/SessionCache.ts",
+      "symbols": [
+        "SessionCache",
+        "SessionCacheOptions"
+      ]
+    },
+    {
+      "file": "connections/ConnectionRegistry.ts",
+      "symbols": [
+        "ConnectionDef",
+        "connectionRegistry"
+      ]
+    },
+    {
+      "file": "Coordinator.ts",
+      "symbols": [
+        "Coordinator",
+        "CoordinatorConfig",
+        "CoordinatorTask",
+        "coordinator",
+        "createCoordinator"
+      ]
+    },
+    {
+      "file": "data-models.ts",
+      "symbols": [
+        "DataAttachment",
+        "DataAuditEvent",
+        "DataAuditEventType",
+        "DataAuditQuery",
+        "DataAuditQueryResult",
+        "DataAuditSeverity",
+        "DataContentBlock",
+        "DataContentPart",
+        "DataCreateSessionParams",
+        "DataImageBlock",
+        "DataMessage",
+        "DataMessageMetadata",
+        "DataMessageRole",
+        "DataMessageType",
+        "DataMessageUsage",
+        "DataParsedToolCall",
+        "DataSession",
+        "DataSessionFilter",
+        "DataSessionInfo",
+        "DataSessionMetadata",
+        "DataSessionStats",
+        "DataSessionStatus",
+        "DataSessionType",
+        "DataTextBlock",
+        "DataToolCall",
+        "DataToolResultBlock",
+        "DataToolUseBlock",
+        "TodoExpansionState",
+        "ToolTurnBudget"
+      ]
+    },
+    {
+      "file": "delivery/adapter/DeliveryAdapter.ts",
+      "symbols": [
+        "AdapterRegistry",
+        "ConsoleAdapter",
+        "DeliveryAdapter",
+        "DeliveryMessage",
+        "DeliveryResult",
+        "FileAdapter",
+        "WebhookAdapter",
+        "adapterRegistry"
+      ]
+    },
+    {
+      "file": "delivery/archiver/TranscriptArchiver.ts",
+      "symbols": [
+        "ArchiveResult",
+        "TranscriptArchiver",
+        "transcriptArchiver"
+      ]
+    },
+    {
+      "file": "delivery/index.ts",
+      "symbols": [
+        "AdapterRegistry",
+        "ArchiveResult",
+        "ConsoleAdapter",
+        "DeliveryAdapter",
+        "DeliveryMessage",
+        "DeliveryResult",
+        "DiskAlert",
+        "DiskInfo",
+        "DiskSpaceMonitor",
+        "FailureContext",
+        "FailureNotifier",
+        "FileAdapter",
+        "NotifyChannel",
+        "TranscriptArchiver",
+        "WebhookAdapter",
+        "adapterRegistry",
+        "diskSpaceMonitor",
+        "failureNotifier",
+        "transcriptArchiver"
+      ]
+    },
+    {
+      "file": "delivery/monitor/DiskSpaceMonitor.ts",
+      "symbols": [
+        "DiskAlert",
+        "DiskInfo",
+        "DiskSpaceMonitor",
+        "diskSpaceMonitor"
+      ]
+    },
+    {
+      "file": "delivery/notifier/FailureNotifier.ts",
+      "symbols": [
+        "FailureContext",
+        "FailureNotifier",
+        "NotifyChannel",
+        "failureNotifier"
+      ]
+    },
+    {
+      "file": "DependencyRegistry.ts",
+      "symbols": [
+        "DepChange",
+        "DepChangeType",
+        "DepRegistry",
+        "DependencyRegistry",
+        "DependencyRegistryOptions",
+        "dependencyRegistry"
+      ]
+    },
+    {
+      "file": "deprecationNotice.ts",
+      "symbols": [
+        "warnDeprecatedCoreModule"
+      ]
+    },
+    {
+      "file": "di/AutoWiringEngine.ts",
+      "symbols": [
+        "AutoWiringEngine"
+      ]
+    },
+    {
+      "file": "di/ContainerScope.ts",
+      "symbols": [
+        "ContainerScope"
+      ]
+    },
+    {
+      "file": "di/CycleDetector.ts",
+      "symbols": [
+        "CycleDetector"
+      ]
+    },
+    {
+      "file": "di/DIContainer.ts",
+      "symbols": [
+        "DIContainer",
+        "getDIContainer",
+        "resetDIContainer"
+      ]
+    },
+    {
+      "file": "di/DisposeManager.ts",
+      "symbols": [
+        "DisposeManager"
+      ]
+    },
+    {
+      "file": "di/index.ts",
+      "symbols": [
+        "AutoWiringEngine",
+        "ContainerScope",
+        "CycleDetector",
+        "DIContainer",
+        "DisposeManager",
+        "getDIContainer",
+        "resetDIContainer"
+      ]
+    },
+    {
+      "file": "di/types.ts",
+      "symbols": [
+        "BootstrapOptions",
+        "ContainerConfig",
+        "CycleDetectionResult",
+        "DEFAULT_CONTAINER_CONFIG",
+        "ServiceDescriptor",
+        "ServiceScope"
+      ]
+    },
+    {
+      "file": "endpoints.ts",
+      "symbols": [
+        "DEFAULT_BLUEBUBBLES_SERVER_URL",
+        "DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL",
+        "DEFAULT_CDP_ENDPOINT",
+        "DEFAULT_COMFYUI_ENDPOINT",
+        "DEFAULT_LOCAL_OAUTH_API_BASE",
+        "DEFAULT_LOCAL_OAUTH_APPS_BASE",
+        "DEFAULT_MCP_OAUTH_CALLBACK_PORT",
+        "DEFAULT_MCP_PROXY_URL",
+        "DEFAULT_OAUTH_LOCAL_BASE_URL",
+        "DEFAULT_OAUTH_REDIRECT_URI",
+        "DEFAULT_OLLAMA_ENDPOINT",
+        "DEFAULT_OLLAMA_OPENAI_ENDPOINT",
+        "DEFAULT_SD_WEBUI_ENDPOINT",
+        "DEFAULT_WECHAT_BOT_ENDPOINT",
+        "LOCAL_HTTP_HOST",
+        "LOCAL_INFERENCE_ENDPOINTS",
+        "LOCAL_REQUEST_BASE_URL",
+        "LOCAL_SERVICE_HOST",
+        "REQUEST_URL_PARSE_BASE",
+        "WILDCARD_BIND_HOST"
+      ]
+    },
+    {
+      "file": "errorCodes.ts",
+      "symbols": [
+        "ErrorCodeDef",
+        "ErrorCodeKey",
+        "ErrorCodeValue",
+        "ErrorCodes"
+      ]
+    },
+    {
+      "file": "errorHandler.ts",
+      "symbols": [
+        "HandleErrorOptions",
+        "getErrorStats",
+        "handleError",
+        "resolveErrorLogLevel"
+      ]
+    },
+    {
+      "file": "errors.ts",
+      "symbols": [
+        "AppError",
+        "ErrorCategory",
+        "ErrorSeverity",
+        "errorMessage",
+        "isAbortError",
+        "toError"
+      ]
+    },
+    {
+      "file": "estop/estop.ts",
+      "symbols": [
+        "EstopState",
+        "checkEstop",
+        "disengageEstop",
+        "engageEstop",
+        "estopSentinelPath",
+        "getEstopState",
+        "isEstopEngaged"
+      ]
+    },
+    {
+      "file": "events/EventBus.ts",
+      "symbols": [
+        "CostRecordedEvent",
+        "EventBus",
+        "EventBusImpl",
+        "EventListener",
+        "EventSubscription",
+        "HistoryEntry",
+        "PublishResult",
+        "SystemEvents",
+        "TypedEventBus",
+        "createEventBus",
+        "globalEventBus"
+      ]
+    },
+    {
+      "file": "events/EventBusOTelBridge.ts",
+      "symbols": [
+        "getOTelBridgeStats",
+        "initEventBusOTelBridge",
+        "resetOTelBridge"
+      ]
+    },
+    {
+      "file": "events/OrchestrationMetrics.ts",
+      "symbols": [
+        "EventStatSnapshot",
+        "IOTelMetricsPort",
+        "MetricsSnapshot",
+        "OrchestrationMetrics",
+        "createOrchestrationMetrics",
+        "getOrchestrationMetrics"
+      ]
+    },
+    {
+      "file": "events/orchestrationPairing.ts",
+      "symbols": [
+        "OrchestrationEventPairer",
+        "OrchestrationPairResult",
+        "extractOrchestrationPairKey"
+      ]
+    },
+    {
+      "file": "events/TokenTracker.ts",
+      "symbols": [
+        "TokenTracker",
+        "TokenUsagePayload",
+        "createTokenTracker",
+        "getTokenTracker"
+      ]
+    },
+    {
+      "file": "events/UiEventBus.ts",
+      "symbols": [
+        "UiEventBus",
+        "uiEventBus"
+      ]
+    },
+    {
+      "file": "events/UiEvents.ts",
+      "symbols": [
+        "UiCommandOutputEvent",
+        "UiCompanionEvent",
+        "UiEventListener",
+        "UiEventMap",
+        "UiEventSubscription",
+        "UiEvents",
+        "UiNotificationEvent",
+        "UiStatusMessageEvent",
+        "UiToolOutputEvent",
+        "UiToolStatusEvent"
+      ]
+    },
+    {
+      "file": "exit/ExitRecorder.ts",
+      "symbols": [
+        "AbnormalExitRecord",
+        "ExitReason",
+        "ExitRecord",
+        "installExitRecorder",
+        "isAbnormalExit",
+        "logStartupContext",
+        "readLastExit",
+        "recordAbnormalExit",
+        "recordExit"
+      ]
+    },
+    {
+      "file": "external/sqlite3.ts",
+      "symbols": [
+        "BunDatabase",
+        "Database",
+        "openBunDatabase"
+      ]
+    },
+    {
+      "file": "featureFlags.ts",
+      "symbols": [
+        "BUILD_VARIANT",
+        "BUILD_VARIANTS",
+        "BuildVariant",
+        "FEATURE_FLAGS",
+        "FeatureFlag",
+        "TOOL_FLAG_KEYS",
+        "feature",
+        "getBuildVariant",
+        "getToolFlag",
+        "isAtLeastVariant",
+        "isBuildVariant",
+        "isFeatureEnabled"
+      ]
+    },
+    {
+      "file": "health/DependencyHealthChecker.ts",
+      "symbols": [
+        "DependencyHealthChecker",
+        "DependencyHealthConfig",
+        "DependencyHealthResult",
+        "DependencyType",
+        "HealthStatus",
+        "getDependencyHealthChecker"
+      ]
+    },
+    {
+      "file": "health/index.ts",
+      "symbols": [
+        "DependencyHealthChecker",
+        "DependencyHealthConfig",
+        "DependencyHealthResult",
+        "DependencyType",
+        "HEALTH_SEVERITY",
+        "HealthStatus",
+        "ModuleHealth",
+        "ModuleHealthCheck",
+        "ModuleHealthRegistry",
+        "getDependencyHealthChecker",
+        "isAcceptable",
+        "mergeHealthStatuses",
+        "moduleHealthRegistry"
+      ]
+    },
+    {
+      "file": "health/ModuleHealthRegistry.ts",
+      "symbols": [
+        "ModuleHealth",
+        "ModuleHealthCheck",
+        "ModuleHealthRegistry",
+        "moduleHealthRegistry"
+      ]
+    },
+    {
+      "file": "health/types.ts",
+      "symbols": [
+        "HEALTH_SEVERITY",
+        "HealthStatus",
+        "isAcceptable",
+        "mergeHealthStatuses"
+      ]
+    },
+    {
+      "file": "httpPortFallback.ts",
+      "symbols": [
+        "PortFallbackOptions",
+        "PortFallbackResult",
+        "isAddressInUseError",
+        "startWithPortFallback"
+      ]
+    },
+    {
+      "file": "identity/principal.ts",
+      "symbols": [
+        "LOCAL_PRINCIPAL",
+        "LOCAL_TENANT_ID",
+        "LOCAL_USER_ID",
+        "Principal",
+        "normalizePrincipal",
+        "parseTenantId",
+        "principalToPermissionContext",
+        "resolveEffectiveRole"
+      ]
+    },
+    {
+      "file": "identity/requestScope.ts",
+      "symbols": [
+        "canAccessOwnerKey",
+        "currentOwnerKey",
+        "getRequestPermissionRole",
+        "getRequestPrincipal",
+        "getRequestPrincipalKey",
+        "isLocalPrincipal",
+        "principalFromKey",
+        "principalKeyOf",
+        "runWithPrincipal"
+      ]
+    },
+    {
+      "file": "identity/scopedResources.ts",
+      "symbols": [
+        "ScopedCloseFailure",
+        "ScopedCloseResult",
+        "ScopedResourceCloser",
+        "closeAllScopedResources",
+        "closeScopedResourcesForTenant",
+        "registerScopedResource",
+        "resetScopedResourcesForTest",
+        "scopedResourceCount"
+      ]
+    },
+    {
+      "file": "identity/sessionOwnership.ts",
+      "symbols": [
+        "SessionOwner",
+        "canAccessSession",
+        "ownerOf"
+      ]
+    },
+    {
+      "file": "identity/storageScope.ts",
+      "symbols": [
+        "isPartitionedScope",
+        "safePathSegment",
+        "scopedDataRoot"
+      ]
+    },
+    {
+      "file": "idle/IdleScaleMonitor.ts",
+      "symbols": [
+        "DEFAULT_POLL_MS",
+        "DEFAULT_TEMP_MAX_AGE_MS",
+        "IDLE_SCALE_TIMEOUT_MS",
+        "IdleScaleDeps",
+        "IdleScaleMonitor",
+        "cleanupStaleTempFiles"
+      ]
+    },
+    {
+      "file": "ids.ts",
+      "symbols": [
+        "UUID_RE",
+        "randomIdSuffix"
+      ]
+    },
+    {
+      "file": "index.ts",
+      "symbols": [
+        "AbnormalExitRecord",
+        "AppError",
+        "AutoWiringEngine",
+        "BootstrapPhase",
+        "BootstrapPriority",
+        "BootstrapProgress",
+        "BootstrapperModule",
+        "ContainerConfig",
+        "ContainerScope",
+        "Coordinator",
+        "CoordinatorConfig",
+        "CoordinatorTask",
+        "CycleDetectionResult",
+        "CycleDetector",
+        "DEFAULT_CONTAINER_CONFIG",
+        "DIContainer",
+        "DisposeManager",
+        "ErrorCategory",
+        "ErrorHandler",
+        "ErrorSeverity",
+        "EstopState",
+        "ExitReason",
+        "ExitRecord",
+        "FEATURE_FLAGS",
+        "FeatureFlag",
+        "HEALTH_SEVERITY",
+        "HealthStatus",
+        "ILogger",
+        "ILoggerService",
+        "IOTelService",
+        "IOTelTracing",
+        "ImplicitIntent",
+        "LOGGER_SERVICE_ID",
+        "LazyModuleLoader",
+        "MemoryCache",
+        "ModuleBootstrapper",
+        "ModuleLifecycle",
+        "OTEL_SERVICE_ID",
+        "OutputGuard",
+        "OutputGuardAction",
+        "OutputGuardIssue",
+        "OutputGuardRegistry",
+        "OutputGuardRunResult",
+        "OutputGuardVerdict",
+        "PATTERN_DESCRIPTORS",
+        "PATTERN_PROVIDERS",
+        "PATTERN_SELECTION_RULES",
+        "PDCA_TERMINAL_PHASES",
+        "PDCA_TO_WORKITEM",
+        "PatternAssemblerId",
+        "PatternAssembly",
+        "PatternDescriptor",
+        "PatternProvider",
+        "PatternRecipe",
+        "PatternSelection",
+        "PatternSelectionRule",
+        "PdcaIntent",
+        "PdcaPhase",
+        "PerformanceProfiler",
+        "ProtocolMessage",
+        "SLEEP_EVENTS",
+        "ServiceDescriptor",
+        "ServiceScope",
+        "SimpleMutex",
+        "SleepInfo",
+        "SpiLogLevel",
+        "TOOL_FLAG_KEYS",
+        "TickResult",
+        "ToolCall",
+        "ToolContext",
+        "ToolResult",
+        "TtlCache",
+        "UiEventBus",
+        "WorkItemStatus",
+        "checkEstop",
+        "coordinator",
+        "createMemoryCache",
+        "createPerformanceProfiler",
+        "disengageEstop",
+        "engageEstop",
+        "estopSentinelPath",
+        "feature",
+        "getBuildVariant",
+        "getDIContainer",
+        "getEstopState",
+        "getOutputGuardRegistry",
+        "getPerformanceProfiler",
+        "getToolFlag",
+        "installExitRecorder",
+        "isAbnormalExit",
+        "isAcceptable",
+        "isEstopEngaged",
+        "isFeatureEnabled",
+        "isPatternReachable",
+        "listPatterns",
+        "logStartupContext",
+        "mergeHealthStatuses",
+        "patternFeatureFlag",
+        "patternUnreachableReason",
+        "pdcaCheckpointStatus",
+        "performanceUtils",
+        "readLastExit",
+        "recordAbnormalExit",
+        "recordExit",
+        "registerLoggerSpi",
+        "registerOTelSpi",
+        "resetDIContainer",
+        "resetOutputGuardRegistryForTest",
+        "resolveBroadcast",
+        "resolveLogger",
+        "resolveOTelTracing",
+        "resolvePattern",
+        "runOutputGuards",
+        "runRegisteredOutputGuards",
+        "selectPattern",
+        "sleepMonitor",
+        "toPdcaPhase",
+        "uiEventBus",
+        "validatePatterns"
+      ]
+    },
+    {
+      "file": "instanceLock.ts",
+      "symbols": [
+        "INSTANCE_LOCK_FILE_NAME",
+        "InstanceLockInfo",
+        "getInstanceLockPath",
+        "parseInstanceLock",
+        "publishInstanceEndpoint",
+        "readInstanceLock",
+        "releaseInstanceLock",
+        "writeInstanceLock"
+      ]
+    },
+    {
+      "file": "knowledge-types.ts",
+      "symbols": [
+        "IKnowledgeSearch",
+        "KnowledgeRoute",
+        "KnowledgeRouterOptions"
+      ]
+    },
+    {
+      "file": "lazy/LazyService.ts",
+      "symbols": [
+        "LazyConfig",
+        "LazyLoadStatus",
+        "LazyResult",
+        "LazyService",
+        "getLazy",
+        "preloadLazy",
+        "registerLazy"
+      ]
+    },
+    {
+      "file": "LazyModuleStrategy.ts",
+      "symbols": [
+        "DeferredLoadState",
+        "DeferredLoader",
+        "DynamicLoadMode",
+        "ModuleLoadPriority",
+        "PURE_ACCOUNTING_ON_DEMAND_MODULES",
+        "deferredLoader",
+        "getCriticalModuleRegistry",
+        "getDeclaredModuleIds",
+        "getDeferredModuleIds",
+        "getEssentialModuleIds",
+        "getModuleLoadMode",
+        "getModulePriority",
+        "getOnDemandModuleIds",
+        "hasDynamicImport",
+        "isModuleDeferred",
+        "isModuleOnDemand",
+        "requestModule"
+      ]
+    },
+    {
+      "file": "lazySingleton.ts",
+      "symbols": [
+        "lazySingleton"
+      ]
+    },
+    {
+      "file": "lifecycle/GracefulRestartService.ts",
+      "symbols": [
+        "GracefulRestartConfig",
+        "GracefulRestartService",
+        "HookFailure",
+        "RestartEvent",
+        "RestartPhase",
+        "ShutdownHook",
+        "getGracefulRestartService"
+      ]
+    },
+    {
+      "file": "loggerFacade.ts",
+      "symbols": [
+        "ILogger",
+        "getLogger",
+        "resolveLogger"
+      ]
+    },
+    {
+      "file": "markdown/chunk.ts",
+      "symbols": [
+        "RenderMarkdownIRChunksWithinLimitOptions",
+        "RenderedMarkdownChunk",
+        "renderMarkdownIRChunksWithinLimit"
+      ]
+    },
+    {
+      "file": "markdown/render.ts",
+      "symbols": [
+        "RenderLink",
+        "RenderOptions",
+        "RenderStyleMap",
+        "RenderStyleMarker",
+        "renderMarkdownWithMarkers"
+      ]
+    },
+    {
+      "file": "markdown/types.ts",
+      "symbols": [
+        "MarkdownIR",
+        "MarkdownLinkSpan",
+        "MarkdownStyle",
+        "MarkdownStyleSpan",
+        "MarkdownTableData",
+        "MarkdownTableMeta"
+      ]
+    },
+    {
+      "file": "media-understanding/format.ts",
+      "symbols": [
+        "extractMediaUserText",
+        "formatAudioTranscripts",
+        "formatMediaUnderstandingBody"
+      ]
+    },
+    {
+      "file": "media-understanding/image.ts",
+      "symbols": [
+        "estimateBase64Size",
+        "resolveVideoMaxBase64Bytes"
+      ]
+    },
+    {
+      "file": "media-understanding/index.ts",
+      "symbols": [
+        "AudioTranscriptionRequest",
+        "AudioTranscriptionResult",
+        "ImageDescriptionRequest",
+        "ImageDescriptionResult",
+        "ImagesDescriptionInput",
+        "ImagesDescriptionRequest",
+        "ImagesDescriptionResult",
+        "MediaAttachment",
+        "MediaUnderstandingAttachmentDecision",
+        "MediaUnderstandingCapability",
+        "MediaUnderstandingDecision",
+        "MediaUnderstandingDecisionOutcome",
+        "MediaUnderstandingKind",
+        "MediaUnderstandingModelDecision",
+        "MediaUnderstandingOutput",
+        "MediaUnderstandingProvider",
+        "VideoDescriptionRequest",
+        "VideoDescriptionResult",
+        "estimateBase64Size",
+        "extractMediaUserText",
+        "formatAudioTranscripts",
+        "formatMediaUnderstandingBody",
+        "resolveConcurrency",
+        "resolveEntriesWithActiveFallback",
+        "resolveMaxBytes",
+        "resolveMaxChars",
+        "resolveModelEntries",
+        "resolvePrompt",
+        "resolveScopeDecision",
+        "resolveTimeoutMs",
+        "resolveVideoMaxBase64Bytes"
+      ]
+    },
+    {
+      "file": "media-understanding/resolve.ts",
+      "symbols": [
+        "resolveConcurrency",
+        "resolveEntriesWithActiveFallback",
+        "resolveMaxBytes",
+        "resolveMaxChars",
+        "resolveModelEntries",
+        "resolvePrompt",
+        "resolveScopeDecision",
+        "resolveTimeoutMs"
+      ]
+    },
+    {
+      "file": "media-understanding/types.ts",
+      "symbols": [
+        "AudioTranscriptionRequest",
+        "AudioTranscriptionResult",
+        "ImageDescriptionRequest",
+        "ImageDescriptionResult",
+        "ImagesDescriptionInput",
+        "ImagesDescriptionRequest",
+        "ImagesDescriptionResult",
+        "MediaAttachment",
+        "MediaUnderstandingAttachmentDecision",
+        "MediaUnderstandingCapability",
+        "MediaUnderstandingDecision",
+        "MediaUnderstandingDecisionOutcome",
+        "MediaUnderstandingKind",
+        "MediaUnderstandingModelDecision",
+        "MediaUnderstandingOutput",
+        "MediaUnderstandingProvider",
+        "VideoDescriptionRequest",
+        "VideoDescriptionResult"
+      ]
+    },
+    {
+      "file": "mediaRoots.ts",
+      "symbols": [
+        "ATTACHMENTS_ROOT",
+        "IMAGES_ROOT",
+        "IMAGE_ROOTS",
+        "MEDIA_IMAGES_ROOT"
+      ]
+    },
+    {
+      "file": "memory-host-sdk/dreaming.ts",
+      "symbols": [
+        "DEFAULT_MEMORY_DEEP_DREAMING_CRON_EXPR",
+        "DEFAULT_MEMORY_DEEP_DREAMING_LIMIT",
+        "DEFAULT_MEMORY_DEEP_DREAMING_MAX_AGE_DAYS",
+        "DEFAULT_MEMORY_DEEP_DREAMING_MIN_RECALL_COUNT",
+        "DEFAULT_MEMORY_DEEP_DREAMING_MIN_SCORE",
+        "DEFAULT_MEMORY_DEEP_DREAMING_MIN_UNIQUE_QUERIES",
+        "DEFAULT_MEMORY_DEEP_DREAMING_RECENCY_HALF_LIFE_DAYS",
+        "DEFAULT_MEMORY_DEEP_DREAMING_RECOVERY_AUTO_WRITE_MIN_CONFIDENCE",
+        "DEFAULT_MEMORY_DEEP_DREAMING_RECOVERY_ENABLED",
+        "DEFAULT_MEMORY_DEEP_DREAMING_RECOVERY_LOOKBACK_DAYS",
+        "DEFAULT_MEMORY_DEEP_DREAMING_RECOVERY_MAX_CANDIDATES",
+        "DEFAULT_MEMORY_DEEP_DREAMING_RECOVERY_MIN_CONFIDENCE",
+        "DEFAULT_MEMORY_DEEP_DREAMING_RECOVERY_TRIGGER_BELOW_HEALTH",
+        "DEFAULT_MEMORY_DREAMING_BUDGET",
+        "DEFAULT_MEMORY_DREAMING_ENABLED",
+        "DEFAULT_MEMORY_DREAMING_FREQUENCY",
+        "DEFAULT_MEMORY_DREAMING_PLUGIN_ID",
+        "DEFAULT_MEMORY_DREAMING_SEPARATE_REPORTS",
+        "DEFAULT_MEMORY_DREAMING_SPEED",
+        "DEFAULT_MEMORY_DREAMING_STORAGE_MODE",
+        "DEFAULT_MEMORY_DREAMING_THINKING",
+        "DEFAULT_MEMORY_DREAMING_TIMEZONE",
+        "DEFAULT_MEMORY_DREAMING_VERBOSE_LOGGING",
+        "DEFAULT_MEMORY_LIGHT_DREAMING_CRON_EXPR",
+        "DEFAULT_MEMORY_LIGHT_DREAMING_DEDUPE_SIMILARITY",
+        "DEFAULT_MEMORY_LIGHT_DREAMING_LIMIT",
+        "DEFAULT_MEMORY_LIGHT_DREAMING_LOOKBACK_DAYS",
+        "DEFAULT_MEMORY_REM_DREAMING_CRON_EXPR",
+        "DEFAULT_MEMORY_REM_DREAMING_LIMIT",
+        "DEFAULT_MEMORY_REM_DREAMING_LOOKBACK_DAYS",
+        "DEFAULT_MEMORY_REM_DREAMING_MIN_PATTERN_STRENGTH",
+        "LEGACY_MEMORY_LIGHT_DREAMING_CRON_NAME",
+        "LEGACY_MEMORY_LIGHT_DREAMING_CRON_TAG",
+        "LEGACY_MEMORY_LIGHT_DREAMING_EVENT_TEXT",
+        "LEGACY_MEMORY_REM_DREAMING_CRON_NAME",
+        "LEGACY_MEMORY_REM_DREAMING_CRON_TAG",
+        "LEGACY_MEMORY_REM_DREAMING_EVENT_TEXT",
+        "MANAGED_MEMORY_DREAMING_CRON_NAME",
+        "MANAGED_MEMORY_DREAMING_CRON_TAG",
+        "MEMORY_DREAMING_SYSTEM_EVENT_TEXT",
+        "MemoryDeepDreamingConfig",
+        "MemoryDeepDreamingRecoveryConfig",
+        "MemoryDeepDreamingSource",
+        "MemoryDreamingBudget",
+        "MemoryDreamingConfig",
+        "MemoryDreamingExecutionConfig",
+        "MemoryDreamingPhaseName",
+        "MemoryDreamingSpeed",
+        "MemoryDreamingStorageConfig",
+        "MemoryDreamingStorageMode",
+        "MemoryDreamingThinking",
+        "MemoryLightDreamingConfig",
+        "MemoryLightDreamingSource",
+        "MemoryRemDreamingConfig",
+        "MemoryRemDreamingSource",
+        "resolveMemoryDreamingConfig",
+        "resolveMemoryDreamingPluginConfig",
+        "resolveMemoryDreamingPluginId"
+      ]
+    },
+    {
+      "file": "memory-host-sdk/engine.ts",
+      "symbols": [
+        "MemoryDeepDreamingConfig",
+        "MemoryDeepDreamingRecoveryConfig",
+        "MemoryDeepDreamingSource",
+        "MemoryDreamingBudget",
+        "MemoryDreamingConfig",
+        "MemoryDreamingExecutionConfig",
+        "MemoryDreamingPhaseName",
+        "MemoryDreamingSpeed",
+        "MemoryDreamingStorageConfig",
+        "MemoryDreamingStorageMode",
+        "MemoryDreamingThinking",
+        "MemoryEmbeddingProbeResult",
+        "MemoryLightDreamingConfig",
+        "MemoryLightDreamingSource",
+        "MemoryProviderStatus",
+        "MemoryReadResult",
+        "MemoryRemDreamingConfig",
+        "MemoryRemDreamingSource",
+        "MemorySearchManager",
+        "MemorySearchResult",
+        "MemorySearchRuntimeDebug",
+        "MemorySource",
+        "MemorySyncProgressUpdate",
+        "resolveMemoryDreamingConfig",
+        "resolveMemoryDreamingPluginConfig",
+        "resolveMemoryDreamingPluginId"
+      ]
+    },
+    {
+      "file": "memory-host-sdk/events.ts",
+      "symbols": [
+        "MEMORY_HOST_EVENT_LOG_RELATIVE_PATH",
+        "MemoryHostDreamCompletedEvent",
+        "MemoryHostEvent",
+        "MemoryHostPromotionAppliedEvent",
+        "MemoryHostRecallRecordedEvent",
+        "appendMemoryHostEvent",
+        "readMemoryHostEvents",
+        "resolveMemoryHostEventLogPath"
+      ]
+    },
+    {
+      "file": "memory-host-sdk/index.ts",
+      "symbols": [
+        "DEFAULT_MEMORY_DEEP_DREAMING_LIMIT",
+        "DEFAULT_MEMORY_DEEP_DREAMING_MAX_AGE_DAYS",
+        "DEFAULT_MEMORY_DEEP_DREAMING_MIN_RECALL_COUNT",
+        "DEFAULT_MEMORY_DEEP_DREAMING_MIN_SCORE",
+        "DEFAULT_MEMORY_DEEP_DREAMING_MIN_UNIQUE_QUERIES",
+        "DEFAULT_MEMORY_DEEP_DREAMING_RECENCY_HALF_LIFE_DAYS",
+        "DEFAULT_MEMORY_DREAMING_ENABLED",
+        "DEFAULT_MEMORY_DREAMING_FREQUENCY",
+        "DEFAULT_MEMORY_DREAMING_PLUGIN_ID",
+        "DEFAULT_MEMORY_DREAMING_SEPARATE_REPORTS",
+        "DEFAULT_MEMORY_DREAMING_STORAGE_MODE",
+        "DEFAULT_MEMORY_DREAMING_TIMEZONE",
+        "DEFAULT_MEMORY_DREAMING_VERBOSE_LOGGING",
+        "DEFAULT_MEMORY_LIGHT_DREAMING_DEDUPE_SIMILARITY",
+        "DEFAULT_MEMORY_LIGHT_DREAMING_LIMIT",
+        "DEFAULT_MEMORY_LIGHT_DREAMING_LOOKBACK_DAYS",
+        "DEFAULT_MEMORY_REM_DREAMING_LIMIT",
+        "DEFAULT_MEMORY_REM_DREAMING_LOOKBACK_DAYS",
+        "DEFAULT_MEMORY_REM_DREAMING_MIN_PATTERN_STRENGTH",
+        "MEMORY_HOST_EVENT_LOG_RELATIVE_PATH",
+        "MemoryDeepDreamingConfig",
+        "MemoryDeepDreamingRecoveryConfig",
+        "MemoryDeepDreamingSource",
+        "MemoryDreamingBudget",
+        "MemoryDreamingConfig",
+        "MemoryDreamingExecutionConfig",
+        "MemoryDreamingPhaseName",
+        "MemoryDreamingSpeed",
+        "MemoryDreamingStorageConfig",
+        "MemoryDreamingStorageMode",
+        "MemoryDreamingThinking",
+        "MemoryEmbeddingProbeResult",
+        "MemoryHostDreamCompletedEvent",
+        "MemoryHostEvent",
+        "MemoryHostPromotionAppliedEvent",
+        "MemoryHostRecallRecordedEvent",
+        "MemoryLightDreamingConfig",
+        "MemoryLightDreamingSource",
+        "MemoryProviderStatus",
+        "MemoryReadResult",
+        "MemoryRemDreamingConfig",
+        "MemoryRemDreamingSource",
+        "MemorySearchManager",
+        "MemorySearchResult",
+        "MemorySearchRuntimeDebug",
+        "MemorySource",
+        "MemorySyncProgressUpdate",
+        "Tone",
+        "appendMemoryHostEvent",
+        "extractKeywords",
+        "hasConfiguredMemorySecretInput",
+        "isQueryStopWordToken",
+        "readMemoryHostEvents",
+        "resolveMemoryCacheState",
+        "resolveMemoryCacheSummary",
+        "resolveMemoryDreamingConfig",
+        "resolveMemoryDreamingPluginConfig",
+        "resolveMemoryDreamingPluginId",
+        "resolveMemoryFtsState",
+        "resolveMemoryHostEventLogPath",
+        "resolveMemorySecretInputString",
+        "resolveMemoryVectorState"
+      ]
+    },
+    {
+      "file": "memory-host-sdk/query.ts",
+      "symbols": [
+        "extractKeywords",
+        "isQueryStopWordToken"
+      ]
+    },
+    {
+      "file": "memory-host-sdk/runtime.ts",
+      "symbols": [
+        "MemoryProviderStatus",
+        "MemoryReadResult",
+        "MemorySearchManager",
+        "MemorySearchResult",
+        "MemorySearchRuntimeDebug",
+        "MemorySource",
+        "MemorySyncProgressUpdate",
+        "Tone",
+        "extractKeywords",
+        "hasConfiguredMemorySecretInput",
+        "isQueryStopWordToken",
+        "resolveMemoryCacheState",
+        "resolveMemoryCacheSummary",
+        "resolveMemoryFtsState",
+        "resolveMemorySecretInputString",
+        "resolveMemoryVectorState"
+      ]
+    },
+    {
+      "file": "memory-host-sdk/secret.ts",
+      "symbols": [
+        "hasConfiguredMemorySecretInput",
+        "resolveMemorySecretInputString"
+      ]
+    },
+    {
+      "file": "memory-host-sdk/status.ts",
+      "symbols": [
+        "Tone",
+        "resolveMemoryCacheState",
+        "resolveMemoryCacheSummary",
+        "resolveMemoryFtsState",
+        "resolveMemoryVectorState"
+      ]
+    },
+    {
+      "file": "memory-host-sdk/types.ts",
+      "symbols": [
+        "MemoryEmbeddingProbeResult",
+        "MemoryProviderStatus",
+        "MemoryReadResult",
+        "MemorySearchManager",
+        "MemorySearchResult",
+        "MemorySearchRuntimeDebug",
+        "MemorySource",
+        "MemorySyncProgressUpdate"
+      ]
+    },
+    {
+      "file": "ModuleBootstrapper.ts",
+      "symbols": [
+        "BootstrapPhase",
+        "BootstrapPriority",
+        "BootstrapProgress",
+        "BootstrapperModule",
+        "ModuleBootstrapper",
+        "ModuleLifecycle"
+      ]
+    },
+    {
+      "file": "node-host/ExecPolicy.ts",
+      "symbols": [
+        "ExecPolicy",
+        "execPolicy"
+      ]
+    },
+    {
+      "file": "node-host/index.ts",
+      "symbols": [
+        "ExecPolicy",
+        "ExecPolicyConfig",
+        "InvokeRequest",
+        "InvokeResponse",
+        "NodeDefinition",
+        "NodeInvoke",
+        "NodeInvokeHandler",
+        "NodeMetrics",
+        "NodeRunner",
+        "NodeSession",
+        "NodeStatus",
+        "NodeType",
+        "execPolicy",
+        "nodeInvoke"
+      ]
+    },
+    {
+      "file": "node-host/NodeInvoke.ts",
+      "symbols": [
+        "NodeInvoke",
+        "NodeInvokeHandler",
+        "nodeInvoke"
+      ]
+    },
+    {
+      "file": "node-host/NodeRunner.ts",
+      "symbols": [
+        "NodeRunner"
+      ]
+    },
+    {
+      "file": "node-host/types.ts",
+      "symbols": [
+        "ExecPolicyConfig",
+        "InvokeRequest",
+        "InvokeResponse",
+        "NodeDefinition",
+        "NodeMetrics",
+        "NodeSession",
+        "NodeStatus",
+        "NodeType"
+      ]
+    },
+    {
+      "file": "outputGuard/registry.ts",
+      "symbols": [
+        "OutputGuardRegistry",
+        "getOutputGuardRegistry",
+        "resetOutputGuardRegistryForTest",
+        "runOutputGuards",
+        "runRegisteredOutputGuards"
+      ]
+    },
+    {
+      "file": "outputGuard/types.ts",
+      "symbols": [
+        "OutputGuard",
+        "OutputGuardAction",
+        "OutputGuardIssue",
+        "OutputGuardRunResult",
+        "OutputGuardVerdict"
+      ]
+    },
+    {
+      "file": "paths.ts",
+      "symbols": [
+        "ARTIFACTS_DIR",
+        "ATTACHMENTS_DIR",
+        "CACHE_DIR",
+        "CHRONOS_DIR",
+        "DATA_DIR",
+        "DB_PATH",
+        "DOCS_DIR",
+        "DOWNLOADS_DIR",
+        "GOVERNANCE_DIR",
+        "INBOUND_DIR",
+        "KNOWLEDGE_BASE_DIR",
+        "KNOWLEDGE_DIR",
+        "KNOWLEDGE_RAW_DIR",
+        "LIRI_HOME",
+        "LOGS_DIR",
+        "MEDIA_DIR",
+        "MEMORY_DIR",
+        "MODELS_DIR",
+        "OAUTH_DIR",
+        "OUTPUT_DIR",
+        "PAIRINGS_DIR",
+        "PERMISSIONS_DIR",
+        "PLUGINS_CACHE_DIR",
+        "PLUGINS_CONFIG_DIR",
+        "PLUGINS_DIR",
+        "PLUGINS_INSTALLED_DIR",
+        "PROJECT_CONFIG_PATH",
+        "PROJECT_ROOT",
+        "PROJECT_SETTINGS_PATH",
+        "SECURITY_DIR",
+        "SNAPSHOTS_DIR",
+        "SOUL_PATH",
+        "TEAM_MEMORY_DIR",
+        "TEMP_DIR",
+        "TRANSCRIPTS_DIR",
+        "USER_ATTACHMENTS_DIR",
+        "USER_CONFIG_PATH",
+        "USER_MEMORY_DIR",
+        "USER_PERMISSIONS_DIR",
+        "USER_PROFILE_PATH",
+        "USER_SETTINGS_PATH",
+        "USER_SKILLS_DIR",
+        "VENDOR_SKILLS_DIR",
+        "WORKSPACE_CONFIG_DIR_NAME",
+        "arePathsEqual",
+        "containsNullByte",
+        "containsPathTraversal",
+        "ensureDataDirectories",
+        "ensureDir",
+        "expandTilde",
+        "getDisplayPath",
+        "getUserDataDirOverride",
+        "isPathWithin",
+        "normalizePathForComparison",
+        "resetPaths",
+        "resolveArtifactsDir",
+        "resolveAttachmentsDateDir",
+        "resolveAttachmentsDir",
+        "resolveBundledEnvPath",
+        "resolveCacheDir",
+        "resolveChronosDir",
+        "resolveConfigDir",
+        "resolveDataDir",
+        "resolveDataSubDir",
+        "resolveDbPath",
+        "resolveDocsDir",
+        "resolveDomainDir",
+        "resolveDomainSchemaDir",
+        "resolveDomainsRoot",
+        "resolveDownloadsDir",
+        "resolveEnvExamplePath",
+        "resolveGovernanceDir",
+        "resolveInboundBaseDir",
+        "resolveInboundDir",
+        "resolveKnowledgeBaseDir",
+        "resolveKnowledgeDir",
+        "resolveKnowledgeRawDir",
+        "resolveLegacySessionPartitionRoots",
+        "resolveLegacySessionsDir",
+        "resolveLlamaBinaryPath",
+        "resolveLlamaDir",
+        "resolveLlamaModelsDir",
+        "resolveLogsDir",
+        "resolveMediaDir",
+        "resolveMemoryDir",
+        "resolveModelsDir",
+        "resolveOAuthDir",
+        "resolveOnboardedFlagPath",
+        "resolveOutputDir",
+        "resolvePairingsDir",
+        "resolvePermissionsDir",
+        "resolvePluginsCacheDir",
+        "resolvePluginsConfigDir",
+        "resolvePluginsDir",
+        "resolvePluginsInstalledDir",
+        "resolveProjectConfigPath",
+        "resolveProjectRoot",
+        "resolveProjectSettingsPath",
+        "resolvePromptEvolutionDir",
+        "resolvePyappHome",
+        "resolveScopedDataDir",
+        "resolveScopedDbPath",
+        "resolveScopedLogsDir",
+        "resolveScopedSessionsDir",
+        "resolveScopedWorkspaceRoot",
+        "resolveSecurityDir",
+        "resolveSessionsDir",
+        "resolveSnapshotsDir",
+        "resolveSoulDir",
+        "resolveSoulPath",
+        "resolveTeamMemoryDir",
+        "resolveTempDir",
+        "resolveTranscriptFilePath",
+        "resolveTranscriptsDir",
+        "resolveUserConfigPath",
+        "resolveUserEnvPath",
+        "resolveUserMemoryDir",
+        "resolveUserPermissionsDir",
+        "resolveUserProfilePath",
+        "resolveUserSettingsPath",
+        "resolveUserSkillsDir",
+        "resolveVendorSkillsDir",
+        "resolveWorktreeHash",
+        "sanitizePath",
+        "setUserDataDirOverride",
+        "toPosixPath",
+        "validatePathConsistency",
+        "validatePathSafe"
+      ]
+    },
+    {
+      "file": "patterns/PatternRegistry.ts",
+      "symbols": [
+        "PATTERN_DESCRIPTORS",
+        "getPatternDescriptor",
+        "listPatterns"
+      ]
+    },
+    {
+      "file": "patterns/PatternSelector.ts",
+      "symbols": [
+        "PATTERN_SELECTION_RULES",
+        "PatternSelection",
+        "isPatternReachable",
+        "patternFeatureFlag",
+        "patternUnreachableReason",
+        "resolvePattern",
+        "selectPattern",
+        "validatePatterns"
+      ]
+    },
+    {
+      "file": "patterns/types.ts",
+      "symbols": [
+        "PATTERN_PROVIDERS",
+        "PatternAssemblerId",
+        "PatternAssembly",
+        "PatternDescriptor",
+        "PatternMatchSpec",
+        "PatternName",
+        "PatternProvider",
+        "PatternRecipe",
+        "PatternRoleBinding",
+        "PatternSelectionRule"
+      ]
+    },
+    {
+      "file": "performance/index.ts",
+      "symbols": [
+        "DEFAULT_REDLINES",
+        "PerformanceCheckResult",
+        "PerformancePhase",
+        "PerformanceRedline",
+        "SLORreport",
+        "SprintPerformanceChecker",
+        "withPerformanceCheck"
+      ]
+    },
+    {
+      "file": "performance/SprintPerformanceChecker.ts",
+      "symbols": [
+        "DEFAULT_REDLINES",
+        "PerformanceCheckResult",
+        "PerformancePhase",
+        "PerformanceRedline",
+        "SLORreport",
+        "SprintPerformanceChecker",
+        "withPerformanceCheck"
+      ]
+    },
+    {
+      "file": "phases/PhaseVocabulary.ts",
+      "symbols": [
+        "ImplicitIntent",
+        "PDCA_TERMINAL_PHASES",
+        "PDCA_TO_WORKITEM",
+        "PdcaIntent",
+        "PdcaPhase",
+        "WorkItemStatus",
+        "pdcaCheckpointStatus",
+        "toPdcaPhase"
+      ]
+    },
+    {
+      "file": "ports.ts",
+      "symbols": [
+        "DEFAULT_HTTP_PORT",
+        "HTTP_PORT_SHIFT_ATTEMPTS",
+        "HttpPortIntent",
+        "parseHttpPortFromArgs",
+        "resolveExplicitHttpPort",
+        "resolveHttpPort",
+        "resolveHttpPortIntent"
+      ]
+    },
+    {
+      "file": "pricing.ts",
+      "symbols": [
+        "BillingMode",
+        "CostBreakdown",
+        "DEFAULT_MODEL_PRICING",
+        "ModelPricing",
+        "RegistryPricingSource",
+        "TimeBasedPrice",
+        "calculateCost",
+        "calculateTotalCost",
+        "projectRegistryPricing",
+        "resolveTimeBasedPricing",
+        "roundCost",
+        "safePerTokenRate",
+        "safeTokens"
+      ]
+    },
+    {
+      "file": "profilerFacade.ts",
+      "symbols": [
+        "profileCheckpoint",
+        "profilePhaseEnd",
+        "profilePhaseStart"
+      ]
+    },
+    {
+      "file": "protocol/websocket.ts",
+      "symbols": [
+        "SEC_WEBSOCKET_ACCEPT_HEADER",
+        "SEC_WEBSOCKET_KEY_HEADER",
+        "SEC_WEBSOCKET_PROTOCOL_HEADER",
+        "SEC_WEBSOCKET_VERSION",
+        "WEBSOCKET_MAGIC_GUID"
+      ]
+    },
+    {
+      "file": "providerEndpoints.ts",
+      "symbols": [
+        "ANTHROPIC_API_BASE_URL",
+        "ANTHROPIC_API_V1_BASE_URL",
+        "ANTHROPIC_CONSOLE_URL",
+        "BIGMODEL_API_BASE_URL",
+        "BIGMODEL_API_V4_BASE_URL",
+        "DASHSCOPE_API_BASE_URL",
+        "DASHSCOPE_COMPATIBLE_V1_BASE_URL",
+        "DEEPSEEK_API_BASE_URL",
+        "DEEPSEEK_API_V1_BASE_URL",
+        "GEMINI_API_BASE_URL",
+        "GEMINI_API_V1BETA_BASE_URL",
+        "GOOGLE_ACCOUNTS_BASE_URL",
+        "GOOGLE_AI_DEV_URL",
+        "GOOGLE_AI_STUDIO_URL",
+        "GOOGLE_API_BASE_URL",
+        "GOOGLE_OAUTH2_BASE_URL",
+        "KLING_API_BASE_URL",
+        "MINIMAX_API_BASE_URL",
+        "MINIMAX_API_V1_BASE_URL",
+        "MOONSHOT_API_BASE_URL",
+        "MOONSHOT_API_V1_BASE_URL",
+        "NPM_REGISTRY_URL",
+        "NPM_SITE_URL",
+        "OPENAI_API_BASE_URL",
+        "OPENAI_API_V1_BASE_URL",
+        "OPENAI_PLATFORM_URL",
+        "OPENROUTER_API_BASE_URL",
+        "OPENROUTER_API_V1_BASE_URL",
+        "SILICONFLOW_API_BASE_URL",
+        "SILICONFLOW_API_V1_BASE_URL",
+        "VIDU_API_BASE_URL",
+        "VOLCENGINE_ARK_API_BASE_URL",
+        "VOLCENGINE_ARK_V3_BASE_URL",
+        "XAI_API_BASE_URL",
+        "XAI_API_V1_BASE_URL"
+      ]
+    },
+    {
+      "file": "sandboxPermission.ts",
+      "symbols": [
+        "SandboxPermission"
+      ]
+    },
+    {
+      "file": "seedSync.ts",
+      "symbols": [
+        "syncSeedData"
+      ]
+    },
+    {
+      "file": "SessionSpanTracer.ts",
+      "symbols": [
+        "SPAN_ATTRIBUTE_KEYS",
+        "SessionSpanAttributes",
+        "SessionSpanContext",
+        "SessionSpanTracer",
+        "SpanEvent",
+        "SpanRecord",
+        "getSessionSpanTracer"
+      ]
+    },
+    {
+      "file": "SimpleMutex.ts",
+      "symbols": [
+        "SimpleMutex"
+      ]
+    },
+    {
+      "file": "sleep/SleepMonitor.ts",
+      "symbols": [
+        "SLEEP_EVENTS",
+        "SLEEP_LAG_THRESHOLD_MS",
+        "SleepInfo",
+        "SleepMonitor",
+        "TickResult",
+        "sleepMonitor"
+      ]
+    },
+    {
+      "file": "spi/AgentToolService.ts",
+      "symbols": [
+        "AGENT_TOOL_SERVICE_ID",
+        "IAgentToolPort",
+        "registerAgentToolSpi",
+        "resolveAgentTool"
+      ]
+    },
+    {
+      "file": "spi/AiAccessService.ts",
+      "symbols": [
+        "AI_ACCESS_SERVICE_ID",
+        "AiModelPricingDto",
+        "AiProviderBriefDto",
+        "AiRoleChatResultDto",
+        "BalanceProbeResultDto",
+        "IAiAccessService",
+        "registerAiAccessSpi",
+        "resolveAiAccess"
+      ]
+    },
+    {
+      "file": "spi/BroadcastService.ts",
+      "symbols": [
+        "BROADCAST_SERVICE_ID",
+        "IBroadcastService",
+        "registerBroadcastSpi",
+        "resolveBroadcast"
+      ]
+    },
+    {
+      "file": "spi/CacheService.ts",
+      "symbols": [
+        "TtlCache"
+      ]
+    },
+    {
+      "file": "spi/CollaborationService.ts",
+      "symbols": [
+        "COLLABORATION_SERVICE_ID",
+        "CollaborationDispatchRequestDto",
+        "CollaborationDispatchResultDto",
+        "ICollaborationPort",
+        "registerCollaborationSpi",
+        "resolveCollaboration"
+      ]
+    },
+    {
+      "file": "spi/DiagnosticsProbeService.ts",
+      "symbols": [
+        "DIAGNOSTICS_PROBE_SERVICE_ID",
+        "DiagnosticsMcpSnapshotDto",
+        "DiagnosticsProvidersSnapshotDto",
+        "IDiagnosticsProbeService",
+        "registerDiagnosticsProbeSpi",
+        "resolveDiagnosticsProbe"
+      ]
+    },
+    {
+      "file": "spi/ErrorTypes.ts",
+      "symbols": [
+        "AppError",
+        "ErrorCategory",
+        "ErrorSeverity"
+      ]
+    },
+    {
+      "file": "spi/GatewayService.ts",
+      "symbols": [
+        "GatewayBroadcastResultDto",
+        "GatewayContentDto",
+        "GatewayDeliveryResultDto",
+        "GatewayFormat",
+        "IOutboundGatewayPort",
+        "OUTBOUND_GATEWAY_SERVICE_ID",
+        "registerOutboundGatewaySpi",
+        "resolveOutboundGateway"
+      ]
+    },
+    {
+      "file": "spi/HookChainService.ts",
+      "symbols": [
+        "HOOK_CHAIN_SERVICE_ID",
+        "HookExecutePayload",
+        "HookExecuteResult",
+        "IHookChainPort",
+        "registerHookChainSpi",
+        "resolveHookChain"
+      ]
+    },
+    {
+      "file": "spi/InboundGatewayService.ts",
+      "symbols": [
+        "IInboundGatewayPort",
+        "INBOUND_GATEWAY_SERVICE_ID",
+        "InboundAttachmentDtoShape",
+        "InboundEnvelopeDto",
+        "InboundPayloadKind",
+        "InboundVerdictDto",
+        "registerInboundGatewaySpi",
+        "resolveInboundGateway"
+      ]
+    },
+    {
+      "file": "spi/index.ts",
+      "symbols": [
+        "AGENT_TOOL_SERVICE_ID",
+        "AI_ACCESS_SERVICE_ID",
+        "AiModelPricingDto",
+        "AiProviderBriefDto",
+        "AiRoleChatResultDto",
+        "AppError",
+        "BROADCAST_SERVICE_ID",
+        "BalanceProbeResultDto",
+        "COLLABORATION_SERVICE_ID",
+        "CollaborationDispatchRequestDto",
+        "CollaborationDispatchResultDto",
+        "DIAGNOSTICS_PROBE_SERVICE_ID",
+        "DiagnosticsMcpSnapshotDto",
+        "DiagnosticsProvidersSnapshotDto",
+        "ErrorCategory",
+        "ErrorSeverity",
+        "GatewayBroadcastResultDto",
+        "GatewayContentDto",
+        "GatewayDeliveryResultDto",
+        "GatewayFormat",
+        "HOOK_CHAIN_SERVICE_ID",
+        "HookExecutePayload",
+        "HookExecuteResult",
+        "IAgentToolPort",
+        "IAiAccessService",
+        "IBroadcastService",
+        "ICollaborationPort",
+        "IDiagnosticsProbeService",
+        "IHookChainPort",
+        "IInboundGatewayPort",
+        "IKnowledgeGraphPort",
+        "IKnowledgeService",
+        "ILogger",
+        "ILoggerService",
+        "INBOUND_GATEWAY_SERVICE_ID",
+        "IOTelService",
+        "IOTelTracing",
+        "IOutboundGatewayPort",
+        "IPluginSystemService",
+        "ISandboxPort",
+        "ISessionQualityPort",
+        "IStartupProfilerPort",
+        "ITaskRegistryPort",
+        "IToolJobSuspendPort",
+        "InboundAttachmentDtoShape",
+        "InboundEnvelopeDto",
+        "InboundPayloadKind",
+        "InboundVerdictDto",
+        "KNOWLEDGE_GRAPH_SERVICE_ID",
+        "KNOWLEDGE_SERVICE_ID",
+        "KnowledgeCompileOptionsDto",
+        "KnowledgeCompileResultDto",
+        "KnowledgeDomainDto",
+        "KnowledgeLintIssueDto",
+        "KnowledgeLintResultDto",
+        "LOGGER_SERVICE_ID",
+        "LightweightTaskKind",
+        "LoadedPluginBriefDto",
+        "OTEL_SERVICE_ID",
+        "OUTBOUND_GATEWAY_SERVICE_ID",
+        "PLUGIN_SYSTEM_SERVICE_ID",
+        "SANDBOX_SERVICE_ID",
+        "SESSION_QUALITY_SERVICE_ID",
+        "SPI_WIRING_REQUIRES",
+        "STARTUP_PROFILER_SERVICE_ID",
+        "SpiLogLevel",
+        "TASK_REGISTRY_SERVICE_ID",
+        "TOOL_JOB_SUSPEND_SERVICE_ID",
+        "TaskRegistryStatus",
+        "ToolJobSuspendRegisterInput",
+        "ToolJobSuspendRegisterResult",
+        "TtlCache",
+        "TurnQualitySummaryDto",
+        "isSpiRegistered",
+        "markSpiRegistered",
+        "registerAgentToolSpi",
+        "registerAiAccessSpi",
+        "registerBroadcastSpi",
+        "registerCollaborationSpi",
+        "registerDiagnosticsProbeSpi",
+        "registerHookChainSpi",
+        "registerInboundGatewaySpi",
+        "registerKnowledgeGraphSpi",
+        "registerKnowledgeSpi",
+        "registerLoggerSpi",
+        "registerOTelSpi",
+        "registerOutboundGatewaySpi",
+        "registerPluginSystemSpi",
+        "registerSandboxSpi",
+        "registerSessionQualitySpi",
+        "registerStartupProfilerSpi",
+        "registerTaskRegistrySpi",
+        "registerToolJobSuspendSpi",
+        "requireSpiDependencies",
+        "resetSpiRegistryForTest",
+        "resetToolJobSuspendForTest",
+        "resolveAgentTool",
+        "resolveAiAccess",
+        "resolveBroadcast",
+        "resolveCollaboration",
+        "resolveDiagnosticsProbe",
+        "resolveHookChain",
+        "resolveInboundGateway",
+        "resolveKnowledge",
+        "resolveKnowledgeGraph",
+        "resolveLogger",
+        "resolveOTelTracing",
+        "resolveOutboundGateway",
+        "resolvePluginSystem",
+        "resolveSandbox",
+        "resolveSessionQuality",
+        "resolveStartupProfiler",
+        "resolveTaskRegistry",
+        "resolveToolJobSuspend"
+      ]
+    },
+    {
+      "file": "spi/KnowledgeGraphService.ts",
+      "symbols": [
+        "IKnowledgeGraphPort",
+        "KNOWLEDGE_GRAPH_SERVICE_ID",
+        "KnowledgeDomainDto",
+        "registerKnowledgeGraphSpi",
+        "resolveKnowledgeGraph"
+      ]
+    },
+    {
+      "file": "spi/KnowledgeService.ts",
+      "symbols": [
+        "IKnowledgeService",
+        "KNOWLEDGE_SERVICE_ID",
+        "KnowledgeCompileOptionsDto",
+        "KnowledgeCompileResultDto",
+        "KnowledgeLintIssueDto",
+        "KnowledgeLintResultDto",
+        "registerKnowledgeSpi",
+        "resolveKnowledge"
+      ]
+    },
+    {
+      "file": "spi/LoggerService.ts",
+      "symbols": [
+        "ILogger",
+        "ILoggerService",
+        "LOGGER_SERVICE_ID",
+        "LogLevel",
+        "registerLoggerSpi",
+        "resolveLogger"
+      ]
+    },
+    {
+      "file": "spi/OTelService.ts",
+      "symbols": [
+        "IOTelService",
+        "IOTelTracing",
+        "OTEL_SERVICE_ID",
+        "registerOTelSpi",
+        "resolveOTelTracing"
+      ]
+    },
+    {
+      "file": "spi/PluginSystemService.ts",
+      "symbols": [
+        "IPluginSystemService",
+        "LoadedPluginBriefDto",
+        "PLUGIN_SYSTEM_SERVICE_ID",
+        "registerPluginSystemSpi",
+        "resolvePluginSystem"
+      ]
+    },
+    {
+      "file": "spi/ProfilerService.ts",
+      "symbols": [
+        "IStartupProfilerPort",
+        "STARTUP_PROFILER_SERVICE_ID",
+        "registerStartupProfilerSpi",
+        "resolveStartupProfiler"
+      ]
+    },
+    {
+      "file": "spi/SandboxService.ts",
+      "symbols": [
+        "ISandboxPort",
+        "SANDBOX_SERVICE_ID",
+        "SandboxRuntimeStatus",
+        "registerSandboxSpi",
+        "resolveSandbox"
+      ]
+    },
+    {
+      "file": "spi/SessionQualityService.ts",
+      "symbols": [
+        "ISessionQualityPort",
+        "SESSION_QUALITY_SERVICE_ID",
+        "TurnQualitySummaryDto",
+        "registerSessionQualitySpi",
+        "resolveSessionQuality"
+      ]
+    },
+    {
+      "file": "spi/TaskRegistryService.ts",
+      "symbols": [
+        "ITaskRegistryPort",
+        "LightweightTaskKind",
+        "TASK_REGISTRY_SERVICE_ID",
+        "TaskRegistryStatus",
+        "registerTaskRegistrySpi",
+        "resolveTaskRegistry"
+      ]
+    },
+    {
+      "file": "spi/ToolJobSuspendService.ts",
+      "symbols": [
+        "IToolJobSuspendPort",
+        "TOOL_JOB_SUSPEND_SERVICE_ID",
+        "ToolJobSuspendRegisterInput",
+        "ToolJobSuspendRegisterResult",
+        "registerToolJobSuspendSpi",
+        "resetToolJobSuspendForTest",
+        "resolveToolJobSuspend"
+      ]
+    },
+    {
+      "file": "spi/wiringGuard.ts",
+      "symbols": [
+        "SPI_WIRING_REQUIRES",
+        "isSpiRegistered",
+        "markSpiRegistered",
+        "requireSpiDependencies",
+        "resetSpiRegistryForTest"
+      ]
+    },
+    {
+      "file": "storage/SecureStorage.ts",
+      "symbols": [
+        "EncryptionConfig",
+        "ISecureStorage",
+        "SecureStorage",
+        "SecureStorageData",
+        "SecureStorageResult"
+      ]
+    },
+    {
+      "file": "successCriteria.ts",
+      "symbols": [
+        "CriteriaCheck",
+        "FORM_ONLY_CRITERIA_PATTERNS",
+        "SuccessCriteria",
+        "SuccessCriterion",
+        "UNPROVABLE_CRITERIA_PATTERNS",
+        "alignChecksToCriteria",
+        "findFormOnlyCriteria",
+        "findUnprovableCriteria",
+        "parseSuccessCriteria",
+        "renderCriteriaSkeleton"
+      ]
+    },
+    {
+      "file": "systemgraph/index.ts",
+      "symbols": [
+        "AgentLike",
+        "DEFAULT_ROOT_CAUSE_LIMIT",
+        "DEFAULT_ROOT_CAUSE_MAX_DEPTH",
+        "EDGE_CAUSAL_WEIGHT",
+        "RootCauseCandidate",
+        "SystemEdge",
+        "SystemEdgeKind",
+        "SystemGraph",
+        "SystemGraphSnapshot",
+        "SystemNode",
+        "SystemNodeKind",
+        "TaskStepLike",
+        "projectAgentGraph",
+        "projectTaskGraph"
+      ]
+    },
+    {
+      "file": "systemgraph/SystemGraph.ts",
+      "symbols": [
+        "DEFAULT_ROOT_CAUSE_LIMIT",
+        "DEFAULT_ROOT_CAUSE_MAX_DEPTH",
+        "EDGE_CAUSAL_WEIGHT",
+        "SystemGraph",
+        "projectAgentGraph",
+        "projectTaskGraph"
+      ]
+    },
+    {
+      "file": "systemgraph/types.ts",
+      "symbols": [
+        "AgentLike",
+        "RootCauseCandidate",
+        "SystemEdge",
+        "SystemEdgeKind",
+        "SystemGraphSnapshot",
+        "SystemNode",
+        "SystemNodeKind",
+        "TaskStepLike"
+      ]
+    },
+    {
+      "file": "taskStatus.ts",
+      "symbols": [
+        "TaskStatus",
+        "isTerminalTaskStatus"
+      ]
+    },
+    {
+      "file": "tracingFacade.ts",
+      "symbols": [
+        "getOTelTracing",
+        "isSpanCovered",
+        "markSpanCovered"
+      ]
+    },
+    {
+      "file": "types.ts",
+      "symbols": [
+        "ProtocolMessage",
+        "ToolCall",
+        "ToolContext",
+        "ToolResult"
+      ]
+    },
+    {
+      "file": "utils/ErrorHandler.ts",
+      "symbols": [
+        "ErrorHandler",
+        "handleError",
+        "handleErrorAsync",
+        "safeAsync",
+        "safeSync"
+      ]
+    },
+    {
+      "file": "utils/LazyModuleLoader.ts",
+      "symbols": [
+        "LazyModuleLoader"
+      ]
+    },
+    {
+      "file": "utils/Performance.ts",
+      "symbols": [
+        "CacheItem",
+        "CacheOptions",
+        "MemoryCache",
+        "PerformanceEvent",
+        "PerformanceMemoryManager",
+        "PerformanceMetric",
+        "PerformanceProfiler",
+        "PerformanceProfilerOptions",
+        "createMemoryCache",
+        "createPerformanceMemoryManager",
+        "createPerformanceProfiler",
+        "getPerformanceMemoryManager",
+        "getPerformanceProfiler",
+        "performanceUtils"
+      ]
+    },
+    {
+      "file": "utils/ResourcePool.ts",
+      "symbols": [
+        "ConnectionPool",
+        "ConnectionPoolOptions",
+        "ObjectPool",
+        "ObjectPoolOptions",
+        "ResourceItem",
+        "ResourcePool",
+        "ResourcePoolOptions",
+        "createConnectionPool",
+        "createObjectPool"
+      ]
+    }
+  ]
+}

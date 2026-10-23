@@ -1,8 +1,8 @@
 {
   "version": 1,
   "kernelRoot": "app/src/core",
-  "fileCount": 147,
-  "symbolCount": 1357,
+  "fileCount": 146,
+  "symbolCount": 1364,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -82,12 +82,6 @@
         "ReplyEnvelope",
         "ReplyPayload",
         "ReplyResult"
-      ]
-    },
-    {
-      "file": "buildVariantFlags.ts",
-      "symbols": [
-        "BUILD_VARIANT_FLAGS"
       ]
     },
     {
@@ -456,10 +450,14 @@
         "TOOL_FLAG_KEYS",
         "feature",
         "getBuildVariant",
+        "getBuildVariantFlags",
         "getToolFlag",
         "isAtLeastVariant",
         "isBuildVariant",
-        "isFeatureEnabled"
+        "isBuildVariantFlagsInitialized",
+        "isFeatureEnabled",
+        "resetBuildVariantFlags",
+        "setBuildVariantFlags"
       ]
     },
     {
@@ -678,6 +676,7 @@
         "estopSentinelPath",
         "feature",
         "getBuildVariant",
+        "getBuildVariantFlags",
         "getDIContainer",
         "getEstopState",
         "getOutputGuardRegistry",
@@ -686,6 +685,7 @@
         "installExitRecorder",
         "isAbnormalExit",
         "isAcceptable",
+        "isBuildVariantFlagsInitialized",
         "isEstopEngaged",
         "isFeatureEnabled",
         "isPatternReachable",
@@ -701,6 +701,7 @@
         "recordExit",
         "registerLoggerSpi",
         "registerOTelSpi",
+        "resetBuildVariantFlags",
         "resetDIContainer",
         "resetOutputGuardRegistryForTest",
         "resolveBroadcast",
@@ -710,6 +711,7 @@
         "runOutputGuards",
         "runRegisteredOutputGuards",
         "selectPattern",
+        "setBuildVariantFlags",
         "sleepMonitor",
         "toPdcaPhase",
         "uiEventBus",

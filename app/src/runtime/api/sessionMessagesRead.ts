@@ -50,6 +50,11 @@ import type {
 } from '@modules/session/types/UnifiedMessage';
 import type { ChatManager } from '@modules/chat';
 import { resolveWorktreeHash } from '@modules/core/paths';
+import {
+  canAccessSession,
+  type SessionOwner,
+} from '../../core/identity/sessionOwnership';
+import { getRequestPrincipal } from '../../core/identity/requestScope';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
@@ -107,6 +112,43 @@ export interface SessionMessagesReadDeps {
 export class SessionMessagesRead {
   constructor(private readonly deps: SessionMessagesReadDeps) {}
 
+  /**
+   * 多租户 P3 续（2026-10-23）：**事件派生读取的显式归属校验**。
+   *
+   * 此前 `getSessionMessages` / `getSessionEvents` / `verifySessionDerivation` 直接按
+   * `sessionId` 读事件日志，归属只靠**存储分区**兜底（HTTP 前置 404 也只覆盖部分入口）。
+   * 这里补一层 fail-closed：本地身份恒放行（桌面/CLI/后台零行为变更）；已认证身份
+   * 必须归属匹配（`canAccessSession` 同一口径）。
+   *
+   * - 会话不存在 ⇒ 放行（保持既有"空结果"语义，不把不存在伪装成越权）；
+   * - 无网关 / 网关无 `getSession`（测试替身、早期启动）⇒ 放行，不把守卫变成硬依赖；
+   * - 读取归属失败 ⇒ **拒绝**（fail-closed）。
+   */
+  private async _canReadSession(sessionId: string): Promise<boolean> {
+    const cached = this.deps.getSessionManager().getSession(sessionId);
+    if (cached) {
+      const owner = (cached.metadata as { owner?: SessionOwner } | undefined)
+        ?.owner;
+      return canAccessSession(owner, getRequestPrincipal());
+    }
+
+    try {
+      const gateway = this.deps.getChatManager().getSessionGateway?.();
+      if (!gateway || typeof gateway.getSession !== 'function') return true;
+      const stored = await gateway.getSession(sessionId);
+      if (!stored) return true;
+      const owner = (stored.metadata as { owner?: SessionOwner } | undefined)
+        ?.owner;
+      return canAccessSession(owner, getRequestPrincipal());
+    } catch (err) {
+      logger.warn('会话读取归属判定失败（按不可读处理）', {
+        sessionId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    }
+  }
+
   async getSessionMessages(
     sessionId: string,
     query?: { limit?: number; before?: number }
@@ -121,6 +163,10 @@ export class SessionMessagesRead {
     }>;
     hasMore: boolean;
   }> {
+    if (!(await this._canReadSession(sessionId))) {
+      logger.warn('拒绝读取他人会话消息（事件派生读取）', { sessionId });
+      return { messages: [], hasMore: false };
+    }
     // P2-1（2026-08-23）：优先 events 统一派生（评审 G7）——事件聚合为基线 +
     // 投影做版本覆盖。事件派生返回 user/assistant 聚合消息（tool 信息嵌入 blocks），
     // 与前端渲染契约一致；投影（messages.jsonl）含独立 tool 消息（1601/1634）且
@@ -529,6 +575,10 @@ export class SessionMessagesRead {
     diff?: DerivationDiff;
     reason?: string;
   }> {
+    if (!(await this._canReadSession(sessionId))) {
+      logger.warn('拒绝校验他人会话派生结果', { sessionId });
+      return { available: false, reason: '会话归属校验未通过' };
+    }
     const head = await this._loadDerivationHead(sessionId);
     if (!head) {
       return { available: false, reason: '无事件日志（未落盘或已删除）' };
@@ -649,6 +699,10 @@ export class SessionMessagesRead {
     hasEarlier: boolean;
     hasMore: boolean;
   }> {
+    if (!(await this._canReadSession(sessionId))) {
+      logger.warn('拒绝读取他人会话事件', { sessionId });
+      return { events: [], tailSeq: 0, hasEarlier: false, hasMore: false };
+    }
     // 复用 ChatManager 的事件日志能力（ChatManager 持有 EventLogStorage 实例缓存）
     const chatManager = this.deps.getChatManager() as unknown as {
       _getOrCreateEventLog?(sessionId: string): EventLogStorage;

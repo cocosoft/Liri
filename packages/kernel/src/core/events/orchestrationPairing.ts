@@ -12,7 +12,7 @@
  * - 时钟回拨（`at < startedAt`）⇒ 丢弃该样本（不记负数）。
  */
 
-import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
+import { OrchestrationEventType } from '../orchestrationEvents.js';
 
 /** 单个关联键最多保留的待配对起始时刻（超出丢弃最旧，防无终态事件导致无界增长） */
 const MAX_PENDING_PER_KEY = 32;

@@ -16,9 +16,9 @@
     "paths": {
       "@openliri/kernel": ["./src/index.ts"],
       "@openliri/kernel/*": ["./src/core/*"],
-      "@modules/types/*": ["../../app/src/types/*"],
       "@opentelemetry/api": ["../../app/node_modules/@opentelemetry/api"]
     }
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["dist", "**/*.test.ts", "**/*.test.tsx"]
 }

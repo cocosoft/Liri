@@ -1,0 +1,88 @@
+name: Kernel CI
+
+# 内核独立包（`packages/kernel`）的**快速回路**：
+#   只在内核自身或其门禁/基线变动时触发，跑「包内 typecheck / test / build + 内核门禁」，
+#   不重复 ci.yml 的全量 lint/test（那是 app 全面回归）。
+#
+# 为什么仍需 `bun install`（app 目录）：Phase 1 里内核的第三方依赖
+# `@opentelemetry/api` 解析自 `app/node_modules`（单副本，见方案 §4-P4 偏差②），
+# 且 `test:kernel` 跑的是 app 侧的集成用例。Phase 2 独立发布后本 workflow 应改为
+# 在 `packages/kernel` 内 `bun install`。
+
+on:
+  push:
+    paths:
+      - 'packages/kernel/**'
+      - 'scripts/lint-kernel-purity.ts'
+      - 'scripts/kernel-api-surface.ts'
+      - 'scripts/kernel-allowed-deps.json'
+      - 'scripts/codemod-core-imports.ts'
+      - '.github/workflows/kernel-ci.yml'
+  pull_request:
+    paths:
+      - 'packages/kernel/**'
+      - 'scripts/lint-kernel-purity.ts'
+      - 'scripts/kernel-api-surface.ts'
+      - 'scripts/kernel-allowed-deps.json'
+      - 'scripts/codemod-core-imports.ts'
+      - '.github/workflows/kernel-ci.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  kernel:
+    name: Kernel (typecheck / test / build / gates)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Cache app node_modules
+        uses: actions/cache@v4
+        with:
+          path: app/node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('app/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        working-directory: app
+        run: bun install --frozen-lockfile
+
+      - name: Package typecheck
+        working-directory: packages/kernel
+        run: bun run typecheck
+
+      - name: Package tests
+        working-directory: packages/kernel
+        run: bun run test
+
+      - name: Package build (standalone bundle)
+        working-directory: packages/kernel
+        run: bun run build
+
+      # 内核纯净度：K01–K04 跨层 / K06 依赖白名单 / K07 深路径棘轮（均可独立于 app 全量执行）
+      - name: Kernel purity gate (K01-K07)
+        run: bun run scripts/lint-kernel-purity.ts
+
+      # 导出面快照：未评审的破坏性 API 变更直接失败
+      - name: Kernel API surface snapshot
+        run: bun run scripts/kernel-api-surface.ts --check
+
+      # 旧别名回流检查（`@modules/core` 已统一为 `@openliri/kernel`）
+      - name: Forbidden legacy alias
+        run: bun run scripts/codemod-core-imports.ts --check
+
+      # app 侧的内核集成回路（tests/core + tests/execution + 事件日志一族）
+      - name: Kernel loop (app-side integration)
+        working-directory: app
+        run: bun run test:kernel

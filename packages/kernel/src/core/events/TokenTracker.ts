@@ -11,7 +11,7 @@
  *   4. 调用 isOverBudget(sessionId) 检查是否超预算
  */
 
-import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
+import { OrchestrationEventType } from '../orchestrationEvents.js';
 import {
   globalEventBus,
   type EventSubscription,

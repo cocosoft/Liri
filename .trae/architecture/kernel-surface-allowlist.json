@@ -62,6 +62,7 @@
     { "id": "lazy", "kind": "dir", "domain": "ports-assembly", "note": "懒加载服务" },
     { "id": "lifecycle", "kind": "dir", "domain": "ports-assembly", "note": "优雅重启服务" },
     { "id": "migration", "kind": "dir", "domain": "state-events", "note": "应用迁移存储与迁移注册表" },
+    { "id": "orchestrationEvents.ts", "kind": "file", "domain": "state-events", "note": "编排事件词汇表（纯字面量、零 import）；P6 由 app/src/types 内迁，供事件总线与指标共用" },
     { "id": "outputGuard", "kind": "dir", "domain": "security-permission", "note": "输出侧护栏契约与注册表" },
     { "id": "phases", "kind": "dir", "domain": "execution-loop", "note": "阶段词汇表唯一真源（PDCA / 意图族）" },
     { "id": "protocol", "kind": "dir", "domain": "base-utils", "note": "WebSocket 握手协议常量真源（零 import）" },

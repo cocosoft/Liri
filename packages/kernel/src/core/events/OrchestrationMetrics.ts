@@ -20,7 +20,7 @@
  * 避免跨会话错配（CS06：宁可少样本，不伪造）。
  */
 
-import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
+import { OrchestrationEventType } from '../orchestrationEvents.js';
 import { globalEventBus, type EventSubscription } from './EventBus';
 import { OrchestrationEventPairer } from './orchestrationPairing';
 import { getLogger } from '../loggerFacade.js';

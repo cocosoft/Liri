@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "maxEntries": 150,
+  "maxEntries": 151,
   "entries": [
     {
       "file": "app/src/acp/AcpWebSocketServer.ts",
@@ -593,6 +593,10 @@
     {
       "file": "app/src/tools/toolCategories.ts",
       "subpath": "featureFlags"
+    },
+    {
+      "file": "app/src/types/orchestrationEvents.ts",
+      "subpath": "orchestrationEvents.js"
     },
     {
       "file": "app/src/utils/common.ts",

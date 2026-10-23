@@ -590,6 +590,19 @@ function checkK07DeepPaths(): void {
     // 改走桶会把它拉进整条内核求值链，与该注释的约束直接冲突 ⇒ 合法公开子路径。
     'ports',
     'httpPortFallback',
+    // `core/ids` 只依赖 `node:crypto`。两个消费方**都有明确的"不与内核求值链耦合"契约**：
+    // `session/storage/SessionStoragePortable.ts` 要求"零 Liri 内部依赖"（可移植存储），
+    // `utils/common.ts` 是极热底层工具（引桶＝把整条内核求值提前到它首次被 import 的时刻）。
+    'ids',
+    // K07 批次 5：以下模块**不进桶**，而是声明为公开子路径。
+    // 理由（实测，2026-10-24）：把它们加进桶后 `lint:startup-graph` 从 281 涨到 **285（+4 eager 文件）**
+    // —— 桶被启动期静态加载，进桶即提前求值。子路径则只在真正用到时才求值 ⇒ 同样收敛 K07、零启动成本。
+    // 五者自身依赖都只到 core 内部（paths / spi / loggerFacade）或零 import，无 app 层倒挂。
+    'taskStatus',
+    'knowledge-types',
+    'mediaRoots',
+    'lazySingleton',
+    'LazyModuleStrategy',
   ]);
   /** 消费方源码根（生产面；不含 npm 包外壳与历史归档） */
   const consumerRoots = [

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "maxEntries": 29,
+  "maxEntries": 14,
   "entries": [
     {
       "file": "app/src/acp/AcpWebSocketServer.ts",
@@ -31,16 +31,8 @@
       "subpath": "DependencyRegistry.js"
     },
     {
-      "file": "app/src/docs/knowledge-types.ts",
-      "subpath": "knowledge-types"
-    },
-    {
       "file": "app/src/error/abortReason.ts",
       "subpath": "abortReason.js"
-    },
-    {
-      "file": "app/src/infrastructure/http/handlers/image-handlers.ts",
-      "subpath": "mediaRoots"
     },
     {
       "file": "app/src/main.ts",
@@ -51,32 +43,8 @@
       "subpath": "instanceLock.js"
     },
     {
-      "file": "app/src/memory/services/UnifiedSearchService.ts",
-      "subpath": "knowledge-types"
-    },
-    {
-      "file": "app/src/modules/index.ts",
-      "subpath": "LazyModuleStrategy"
-    },
-    {
-      "file": "app/src/modules/ModuleInitializer.ts",
-      "subpath": "LazyModuleStrategy"
-    },
-    {
       "file": "app/src/modules/ModuleInitializer.ts",
       "subpath": "profilerFacade.js"
-    },
-    {
-      "file": "app/src/modules/startupSurfaceProbe.ts",
-      "subpath": "LazyModuleStrategy"
-    },
-    {
-      "file": "app/src/performance/PerformanceMonitor.ts",
-      "subpath": "LazyModuleStrategy"
-    },
-    {
-      "file": "app/src/performance/PerformanceReportParser.ts",
-      "subpath": "LazyModuleStrategy"
     },
     {
       "file": "app/src/permission/intercept/PermissionInterceptor.ts",
@@ -87,36 +55,8 @@
       "subpath": "DependencyRegistry.js"
     },
     {
-      "file": "app/src/session/storage/SessionStoragePortable.ts",
-      "subpath": "ids"
-    },
-    {
-      "file": "app/src/state/task/TaskStateMachine.ts",
-      "subpath": "taskStatus"
-    },
-    {
-      "file": "app/src/tasks/types.ts",
-      "subpath": "taskStatus"
-    },
-    {
-      "file": "app/src/tools/DependencyValidator.ts",
-      "subpath": "LazyModuleStrategy"
-    },
-    {
-      "file": "app/src/tools/ImageDisplayTool/ImageDisplayTool.ts",
-      "subpath": "mediaRoots"
-    },
-    {
       "file": "app/src/types/orchestrationEvents.ts",
       "subpath": "orchestrationEvents.js"
-    },
-    {
-      "file": "app/src/utils/common.ts",
-      "subpath": "ids"
-    },
-    {
-      "file": "app/src/utils/common.ts",
-      "subpath": "lazySingleton.js"
     }
   ]
 }

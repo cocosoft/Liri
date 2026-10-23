@@ -3,7 +3,7 @@
   "locale": "en-US",
   "generatedBy": "manual translation (T2 tool descriptions)",
   "counts": {
-    "tools": 81
+    "tools": 82
   },
   "descriptions": {
     "agent": "Create a dedicated sub-agent to perform a specific task.",
@@ -77,6 +77,7 @@
     "todo_write": "Manage a to-do list to track tasks. Create, update, and complete to-do items.",
     "tool_search": "Search for tools. When the tool you need is not in the current tool list (lazy-loaded, or hidden by this turn's task filtering), use this tool to search by keyword or \"select:<tool_name>\".",
     "trace_recording": "Query AI API call traces and statistics. Retrieve recording status, stats, recent calls, and export trace data.",
+    "tts": "Convert text to speech using neural voices. Supports multiple languages and voices for generating spoken audio output.",
     "tungsten": "Manage terminal sessions (Tungsten). Create, list, switch, and manage interactive terminal sessions.",
     "update_task_status": "Update a task's status by ID. Supported: pending, in_progress, completed, failed, cancelled.",
     "video": "Edit and manipulate videos. Supports trim, compress, extract audio, format conversion, and metadata info.",

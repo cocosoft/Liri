@@ -53,12 +53,8 @@ export const SHADOW_TOOL_DISPOSITIONS: Readonly<
   music_generate: {
     reason: 'awaiting-provider',
     disposition: 'awaiting-provider',
-    reevaluateWhen: '接入真实音乐生成 provider',
-  },
-  tts: {
-    reason: 'duplicate',
-    disposition: 'awaiting-provider',
-    reevaluateWhen: '与 VoiceOutputTool 确定唯一归属后，其中一个下线',
+    reevaluateWhen:
+      '接入真实音乐生成 provider（OpenAI/Suno/Udio）；2026-10-23 已先移除原"假成功"（不再返回 url:"" 的 queued）',
   },
 };
 

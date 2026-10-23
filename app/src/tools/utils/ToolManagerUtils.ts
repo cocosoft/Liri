@@ -220,6 +220,9 @@ function buildBuiltinToolLoaders(
     byKey('createVideoTool'),
     byKey('createVideoGenerateTool'),
     byKey('createMusicTool'),
+    // P4b（2026-10-23，Q-18 `rewrite` 处置）：`tts` 接线 —— 真实 `voiceService`
+    // （speak / list-voices / save）；与 `VoiceOutputTool` 的**唯一归属**定为 tts（功能为超集）。
+    byKey('createTTSTool'),
 
     // P0-2: 删除无条件注册 createNotebookEditTool（与下方 conditionalTool(NOTEBOOK) 重复，
     // 且无条件注册导致 NOTEBOOK=false 时 notebook 仍默认可用）；notebook 只保留一条条件注册

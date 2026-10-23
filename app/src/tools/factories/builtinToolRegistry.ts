@@ -112,6 +112,8 @@ import { VideoGenerateTool } from '../VideoGenerateTool/VideoGenerateTool';
 import { VideoDisplayTool } from '../VideoDisplayTool/VideoDisplayTool';
 import { AudioPlayTool } from '../AudioPlayTool/AudioPlayTool';
 import { MusicTool } from '../MusicTool/MusicTool';
+// Q-18（2026-10-23）：`tts` 由影子工具接线（真实 voiceService；与 VoiceOutputTool 的唯一归属）
+import { createTTSTool } from '../TTSTool/TTSTool';
 import { CanvasTool } from '../CanvasTool/CanvasTool';
 // ── MCP（三方工具面） ──
 import { MCPTool } from '../../mcp/MCPTool';
@@ -245,6 +247,7 @@ export const BUILTIN_TOOL_FACTORIES = {
   createVideoDisplayTool: () => new VideoDisplayTool(),
   createAudioPlayTool: () => new AudioPlayTool(),
   createMusicTool: () => new MusicTool(),
+  createTTSTool: () => createTTSTool(),
   createCanvasTool: () => new CanvasTool(),
   // ── MCP ──
   /** 原实现直返模块绑定（**无 `new`**）—— 逐字保留 */

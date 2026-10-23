@@ -1165,7 +1165,6 @@
       "app/src/infrastructure/startup/KeychainPrefetch.ts",
       "app/src/sandbox/ProcessRegistry.ts",
       "app/src/tasks/LocalBashTask.ts",
-      "app/src/tools/AgentsListTool/AgentsListTool.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts"
     ],
     "locked": [
@@ -1274,7 +1273,6 @@
       "app/src/subagent/types/SubAgent.ts",
       "app/src/tasks/cron/CronJobStore.ts",
       "app/src/tasks/cron/types.ts",
-      "app/src/tools/AgentsListTool/AgentsListTool.ts",
       "app/src/tools/ChronosTool/CronStopTool.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts",
       "app/src/workspace/ProjectStore.ts",

@@ -130,6 +130,8 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   todo_write: LOCAL,
   tool_search: NONE,
   trace_recording: NONE,
+  // Q-18（2026-10-23）：`tts` 接线 —— 朗读/落盘音频（本地、非幂等）
+  tts: LOCAL,
   tungsten: LOCAL,
   update_task_status: LOCAL,
   video: LOCAL,

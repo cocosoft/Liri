@@ -14,8 +14,8 @@
 //
 // ⚠️ 表内**同时包含**"未进生效面"的工具名（它们不在生成物 `TOOL_NAMES` 内）
 // ⇒ 本表即台账 D-40/D-41 所需的"被排除名清单"的事实来源。
-// 差额集（2026-10-23 起 **2**，全部为 E 类未接线：`music_generate`/`tts`；
-// `agents_list` / `kanban` / `mcp_auth` 已于同日 `rewrite` 后接线）。原先另有 6 个"下线类"影子工具
+// 差额集（2026-10-23 起 **1**，E 类未接线：`music_generate`；
+// `agents_list` / `kanban` / `mcp_auth` / `tts` 已于同日 `rewrite` 后接线）。原先另有 6 个"下线类"影子工具
 // （`nodes`/`session_status`/`sessions_send`/`sessions_spawn`/`update_plan`/`thinking`）
 // 已按 Q-18 拍板摘除声明，并在 CD05 观察期后删除实现文件（两步均已完成）。
 // 逐项保留理由与再评估触发条件见 P4a §2.3。

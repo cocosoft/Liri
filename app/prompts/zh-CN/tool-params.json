@@ -3,8 +3,8 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-params.ts",
   "counts": {
-    "tools": 79,
-    "params": 376
+    "tools": 80,
+    "params": 382
   },
   "params": {
     "agent.allowedTools": "逗号分隔的工具名，表示子代理允许使用哪些工具。若为空，则所有工具均可用。",
@@ -330,6 +330,12 @@
     "trace_recording.format": "导出格式（仅 export_records 有效）",
     "trace_recording.limit": "返回记录数量上限（仅 get_records 有效）",
     "trace_recording.model": "按模型名称过滤（仅 get_records 有效）",
+    "tts.action": "Action: speak (generate speech), list-voices (available voices), save (save to file)",
+    "tts.filename": "Output audio filename (required for save action)",
+    "tts.language": "Language code (e.g., zh-CN, en-US, ja-JP)",
+    "tts.speed": "Speech speed (0.5 to 2.0, default: 1.0)",
+    "tts.text": "Text to convert to speech (required for speak/save)",
+    "tts.voice": "Voice ID to use (default: zh-CN-XiaoxiaoNeural)",
     "tungsten.action": "Action to perform: create, list, switch, delete, info, history",
     "tungsten.session_id": "ID of session to switch or delete",
     "tungsten.session_name": "Name for new session",

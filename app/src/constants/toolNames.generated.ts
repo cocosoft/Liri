@@ -78,6 +78,7 @@ export const TOOL_NAMES = [
   'todo_write',
   'tool_search',
   'trace_recording',
+  'tts',
   'tungsten',
   'update_task_status',
   'video',
@@ -94,4 +95,4 @@ export const TOOL_NAMES = [
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 /** 生成时的工具名总数（门禁守卫用：与真实清单不符 ⇒ 需重新生成） */
-export const TOOL_NAMES_COUNT = 81;
+export const TOOL_NAMES_COUNT = 82;

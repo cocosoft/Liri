@@ -7,8 +7,6 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import { resolveOutputDir } from '@modules/core';
-import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:MusicGenerateTool:MusicGenerateTool');
@@ -200,36 +198,17 @@ export class MusicGenerateTool extends BaseTool {
         };
       }
 
-      // 异步注册生成的音乐到 FileRegistry（当 provider 返回真实 URL 时生效）
-      const musicUrl = '';
-      if (musicUrl) {
-        Promise.resolve().then(async () => {
-          const format = params.format || 'mp3';
-          await registerGeneratedMedia(
-            musicUrl,
-            params.prompt,
-            'audio',
-            format
-          );
-        });
-      }
-
+      // Q-18（2026-10-23）：**不再伪造成功**。修复前此处直接 `success:true` +
+      // `url:''` + "queued"，但没有任何 provider 实现（OpenAI/Suno/Udio 均未接入）⇒ CS04。
+      logger.warn('music_generate 被调用但未接入 provider', {
+        promptLength: params.prompt.length,
+        requestedProvider: params.provider ?? null,
+      });
       return {
-        success: true,
-        data: {
-          music: {
-            url: '',
-            title: `Generated Music - ${params.prompt.slice(0, 40)}`,
-            prompt: params.prompt.slice(0, 200),
-            genre: params.genre ?? 'ambient',
-            duration,
-            tempo: params.tempo ?? 'medium',
-            format: params.format ?? 'mp3',
-            provider: params.provider ?? '',
-          },
-          params,
-        },
-        output: `Music generation queued: "${params.prompt.slice(0, 80)}..." (${duration}s, ${params.genre ?? 'ambient'}, ${params.tempo ?? 'medium'}) using ${params.provider ?? 'openai'}`,
+        success: false,
+        error:
+          'music_generate 尚未接入音乐生成 provider（OpenAI / Suno / Udio 均无实现）。' +
+          '若只是要编辑/转换已有音频，请用 `music` 工具。',
       };
     } catch (error) {
       return {

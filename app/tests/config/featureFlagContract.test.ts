@@ -16,10 +16,13 @@ import { join } from 'node:path';
 import {
   FEATURE_FLAGS,
   feature,
+  resetBuildVariantFlags,
+  setBuildVariantFlags,
   type FeatureFlag,
 } from '../../src/core/featureFlags.js';
-// D1 接线（2026-10-11）：构建变体层 —— `feature()` 在静态默认之上叠加 `BUILD_VARIANT_FLAGS`
-import { BUILD_VARIANT_FLAGS } from '../../src/core/buildVariantFlags.js';
+// P3（2026-10-23）：构建变体层改为**宿主注入**；生成物落在 `bootstrap/`（内核不再持有）
+import { BUILD_VARIANT_FLAGS } from '../../src/bootstrap/generatedVariantFlags.js';
+import { AppError } from '../../src/core/errors.js';
 
 /** 与 `scripts/check-doc-code-consistency.js` 的 `SAFETY_SWITCHES` 同集的 **17 项**安全/灰度开关 */
 const SAFETY_SWITCHES: readonly FeatureFlag[] = [
@@ -146,6 +149,9 @@ describe('P1-8 配置契约 · ③ `FEATURE_*` 环境覆盖生效且语义一致
  * 三层优先（高 → 低）：`FEATURE_*` env → `BUILD_VARIANT_FLAGS` → `FEATURE_FLAGS`。
  */
 describe('D1 构建变体层：feature() 三层优先', () => {
+  // P3：与生产入口一致 —— 先注入变体层，再断言三层优先
+  setBuildVariantFlags(BUILD_VARIANT_FLAGS);
+
   /** 纯判据（抽函数以便负向夹具自证）：变体键必须是合法 FeatureFlag */
   function findUnknownVariantFlags(
     flags: Readonly<Record<string, unknown>>,
@@ -195,5 +201,52 @@ describe('D1 构建变体层：feature() 三层优先', () => {
     ).toBe(false);
     delete process.env['FEATURE_SANDBOX'];
     expect(feature('SANDBOX')).toBe(FEATURE_FLAGS.SANDBOX);
+  });
+});
+
+/**
+ * P3（2026-10-23，Google 复审 G4）：**注入时序守卫**。
+ *
+ * 未注入变体层就求值 ⇒ 静默回落到静态默认会让「变体裁剪」无声失真。
+ * 非测试环境必须硬失败；测试环境豁免（单测不应被迫装配变体层）。
+ */
+describe('P3 变体层时序守卫', () => {
+  const ORIGINAL_ENV = process.env['NODE_ENV'];
+
+  afterEach(() => {
+    process.env['NODE_ENV'] = ORIGINAL_ENV;
+    setBuildVariantFlags(BUILD_VARIANT_FLAGS); // 复原，避免污染后续用例
+  });
+
+  it('未注入 + 非测试环境 ⇒ 抛 CORE_VARIANT_FLAGS_NOT_INITIALIZED', () => {
+    resetBuildVariantFlags();
+    process.env['NODE_ENV'] = 'production';
+    delete process.env['FEATURE_LSP'];
+
+    expect(() => feature('LSP')).toThrow(AppError);
+    try {
+      feature('LSP');
+    } catch (err) {
+      expect((err as AppError).code).toBe('CORE_VARIANT_FLAGS_NOT_INITIALIZED');
+      expect((err as AppError).context).toEqual({ name: 'LSP' });
+    }
+  });
+
+  it('未注入 + 测试环境 ⇒ 豁免（回落静态默认，不抛错）', () => {
+    resetBuildVariantFlags();
+    process.env['NODE_ENV'] = 'test';
+    delete process.env['FEATURE_SANDBOX'];
+
+    expect(() => feature('SANDBOX')).not.toThrow();
+    expect(feature('SANDBOX')).toBe(FEATURE_FLAGS.SANDBOX);
+  });
+
+  it('注入后同环境求值 ⇒ 走变体层（守卫不误伤）', () => {
+    resetBuildVariantFlags();
+    process.env['NODE_ENV'] = 'production';
+    setBuildVariantFlags(BUILD_VARIANT_FLAGS);
+    delete process.env['FEATURE_LSP'];
+
+    expect(feature('LSP')).toBe(BUILD_VARIANT_FLAGS.LSP);
   });
 });

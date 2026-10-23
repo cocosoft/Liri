@@ -1,11 +1,11 @@
 /**
  * build-variant.ts — 变体 **flags 生成**脚本（**不做编译**）
  *
- * ⚠️ 正名（G2，2026-10-11）：本脚本**只**做两件事 ——
- *   ① 按变体定义写出 `src/core/buildVariantFlags.ts`（`BUILD_VARIANT_FLAGS`）；
- *   ② `enterprise` 变体额外把 `.hbs` 模板复制到 `dist/`。
- * 它**不执行 TypeScript 编译 / 打包**（原输出"执行 TypeScript 编译…/构建完成/输出目录 dist/"
- * 名不副实）。实际构建请用项目常规构建命令（如 `bun run build`）。
+ * ⚠️ 正名（G2，2026-10-11）：本脚本只做生成与复制，**不执行 TypeScript 编译 / 打包**。
+ * 生成物 **全部落在宿主侧**（P2/P3 起不再写内核内的源文件）：
+ *   ① `src/bootstrap/generatedVariantFlags.ts`（`BUILD_VARIANT_FLAGS`，变体默认层）；
+ *   ② `src/bootstrap/generatedLazyLoaders.ts`（按需加载清单，未选中的模块连 `import()` 都不生成）；
+ *   ③ `enterprise` 变体额外把 `.hbs` 模板复制到 `dist/`。
  *
  * 用法:
  *   bun run scripts/build-variant.ts --variant=core
@@ -16,10 +16,10 @@
  * 环境变量:
  *   LIRI_BUILD_VARIANT=core|personal|coding|enterprise
  *
- * ⚠️ 已接线（D1，2026-10-11 用户裁定「接线」）：`BUILD_VARIANT_FLAGS` 现由 `core/featureFlags.ts`
- * 的 `feature()` 作为**中间层**消费（三层优先：`FEATURE_*` env → `BUILD_VARIANT_FLAGS` → `FEATURE_FLAGS`）
- * ⇒ 本脚本生成的变体开关**真正生效**。注意：变体层是**构建期**产物；`LIRI_BUILD_VARIANT` 的**运行期**
- * 覆盖只影响 `getBuildVariant()`（分版标识），**不**重新生成本文件。
+ * ⚠️ 接线：生成物由宿主入口（`bootstrap/initVariantFlags.ts` / `registerKernelLazyLoaders.ts`）
+ * 在**最早期**推送进内核（三层优先：`FEATURE_*` env → 注入的变体层 → `FEATURE_FLAGS`）。
+ * 注意：变体层是**构建期**产物；`LIRI_BUILD_VARIANT` 的**运行期**覆盖只影响 `getBuildVariant()`
+ * （分版标识），**不**重新生成这些文件。
  */
 
 import * as fs from 'fs';
@@ -201,8 +201,8 @@ function main(): void {
     __dirname,
     '..',
     'src',
-    'core',
-    'buildVariantFlags.ts'
+    'bootstrap',
+    'generatedVariantFlags.ts'
   );
 
   fs.writeFileSync(outputPath, flagsContent, 'utf-8');

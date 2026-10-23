@@ -20,6 +20,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+// P3（core 独立包）：**必须是第一条 import** —— 靠模块求值的副作用把变体层注入内核，
+// 否则后续模块在顶层调用 `feature()` 会触发 CORE_VARIANT_FLAGS_NOT_INITIALIZED 时序守卫。
+import './bootstrap/initVariantFlags';
+
 import {
   profileCheckpoint,
   profileReport,

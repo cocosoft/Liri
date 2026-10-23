@@ -1,6 +1,6 @@
 // 自动生成的分版 Feature Flags
 // 变体: coding — 编码版 — Personal + LSP + Notebook + 代码分析
-// 生成时间: 2026-10-11T06:56:38.778Z
+// 生成时间: 2026-10-23T15:04:04.700Z
 
 export const BUILD_VARIANT_FLAGS = {
   LSP: true,
@@ -10,4 +10,5 @@ export const BUILD_VARIANT_FLAGS = {
   TEAM_CREATE: true,
   TEAM_DELETE: true,
   AGENT_TRIGGERS: false,
+  CORE_MINIMAL: false,
 } as const;

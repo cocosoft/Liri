@@ -8,7 +8,7 @@
  *   ④ 每个开关名都存在于 `src/core/featureFlags.ts` 的 `FEATURE_FLAGS`（防拼写漂移）；
  *   ⑤ `buildFeatures` 必须是 `DROP_*`（编译期裁剪的保留前缀）。
  *
- * ⚠️ 本门禁**不**校验 `src/core/buildVariantFlags.ts` 与矩阵是否一致：
+ * ⚠️ 本门禁**不**校验宿主侧生成物 `src/bootstrap/generatedVariantFlags.ts` 与矩阵是否一致（P3 起生成物不再落在内核内）：
  *    它是**构建产物**（切变体即改写），把"产物陈旧"判成红灯只会制造噪声。
  *    "单一事实源"由结构保证 —— `build-variant.ts` 直接 import 本矩阵，不自带第二份定义。
  */

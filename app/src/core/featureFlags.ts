@@ -10,11 +10,17 @@
  *   - 集中定义，统一管理（唯一数据源）
  *   - feature() 签名与 bun:bundle 兼容，支持未来编译期 DCE 升级
  *   - 命名约定参考 CC 源码
+ *
+ * P3（2026-10-23，core 独立包）：**变体层改为宿主注入**。
+ * 原先是内核 `import { BUILD_VARIANT_FLAGS } from './buildVariantFlags'` —— 那是构建期生成物，
+ * 留在包内等于「包内出现由消费者构建脚本重写的源文件」。现在改为：
+ * 宿主在入口最早期调用 `setBuildVariantFlags(...)` 推送（生成物落在 `app/src/bootstrap/`）。
+ * 时序守卫：未注入且非测试环境时 `feature()` 抛 `CORE_VARIANT_FLAGS_NOT_INITIALIZED`（见 G4）。
  */
+import { AppError, ErrorCategory, ErrorSeverity } from './errors.js';
 
-// D1（2026-10-11 用户裁定「接线」）：构建变体层 —— `build-variant.ts` 生成的
-// `BUILD_VARIANT_FLAGS` 是**构建期**产物，作为 `feature()` 的变体默认层（见 `feature()`）。
-import { BUILD_VARIANT_FLAGS } from './buildVariantFlags';
+/** 宿主注入的变体层（`null` = 尚未注入） */
+let variantFlags: Readonly<Record<string, boolean>> | null = null;
 
 /** 构建变体（分版标识） */
 export type BuildVariant =
@@ -710,29 +716,65 @@ export const FEATURE_FLAGS = {
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;
 
 /**
- * 解析功能开关（**三级优先**，D1 接线，2026-10-11）：
+ * 解析功能开关（**三级优先**，D1 接线，2026-10-11；P3 改为注入）：
  *
  * 1. **env 覆盖**（最高）：`FEATURE_<name>=true|false` —— 运维/灰度显式控制；
- * 2. **构建变体层**：`BUILD_VARIANT_FLAGS[name]`（由 `scripts/build-variant.ts` **构建期**生成；
- *    仅含该变体显式声明的键）—— 未声明的键**回落**下一层；
+ * 2. **构建变体层**：宿主注入的 `variantFlags[name]`（由 `scripts/build-variant.ts` **构建期**生成、
+ *    `app/src/bootstrap/initVariantFlags.ts` 在入口最早期推送；仅含该变体显式声明的键）——
+ *    未声明的键**回落**下一层；
  * 3. **静态默认**：`FEATURE_FLAGS[name]`（仅作变体未覆盖时的兜底）。
  *
  * ⚠️ 变体层是**构建期**产物：`LIRI_BUILD_VARIANT` 的**运行期**覆盖只影响 `getBuildVariant()`
  * （分版标识），**不**重新生成 flags。二者语义不同，勿混用。
+ *
+ * **时序守卫（G4）**：非测试环境下，若宿主尚未注入变体层就求值 ⇒ 抛
+ * `CORE_VARIANT_FLAGS_NOT_INITIALIZED`。因为此时静默回落静态默认会让「变体裁剪」无声失真
+ * （变体默认层污染）。测试环境（`NODE_ENV=test`）豁免：单测不应被迫装配变体层。
  */
 export function feature(name: FeatureFlag): boolean {
   const envValue = process.env[`FEATURE_${name}`];
   if (envValue !== undefined) {
     return envValue === 'true';
   }
-  // 变体层：仅当生成物显式声明了该键时才接管（`undefined` ⇒ 回落静态默认）
-  const variantValue = (
-    BUILD_VARIANT_FLAGS as Readonly<Record<string, boolean | undefined>>
-  )[name];
+  if (variantFlags === null && process.env['NODE_ENV'] !== 'test') {
+    throw new AppError(
+      `变体矩阵标志位尚未注入即对 ${name} 求值（必须在入口最早期注入变体层）`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      'CORE_VARIANT_FLAGS_NOT_INITIALIZED',
+      { name }
+    );
+  }
+  // 变体层：仅当宿主显式声明了该键时才接管（`undefined` ⇒ 回落静态默认）
+  const variantValue = variantFlags?.[name];
   if (variantValue !== undefined) {
     return variantValue;
   }
   return FEATURE_FLAGS[name] ?? false;
+}
+
+/** 宿主注入变体层（入口最早期调用一次；可重复调用，后写覆盖） */
+export function setBuildVariantFlags(
+  flags: Readonly<Record<string, boolean>>
+): void {
+  variantFlags = flags;
+}
+
+/** 变体层是否已注入（诊断 / 自证用） */
+export function isBuildVariantFlagsInitialized(): boolean {
+  return variantFlags !== null;
+}
+
+/** 当前变体层快照（未注入 ⇒ `null`；诊断 / 自证用） */
+export function getBuildVariantFlags(): Readonly<
+  Record<string, boolean>
+> | null {
+  return variantFlags;
+}
+
+/** 仅测试用：清空注入状态（生产不应调用） */
+export function resetBuildVariantFlags(): void {
+  variantFlags = null;
 }
 
 export function isFeatureEnabled(name: FeatureFlag): boolean {

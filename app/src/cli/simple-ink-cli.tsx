@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 //
 
+// P3（core 独立包）：入口首条 import —— 先把变体层注入内核，再让其它模块求值
+import '../bootstrap/initVariantFlags';
+
 import React, { useState, useEffect } from 'react';
 import { Box, Text, Newline, Spacer, render } from '../ink';
 import { getLogger } from '@modules/monitoring';

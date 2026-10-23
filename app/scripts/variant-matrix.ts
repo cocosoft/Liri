@@ -7,7 +7,7 @@
  * "读表 → 生成 flags"，不再自带第二份定义。
  *
  * 与既有机制的关系：
- * - `features` / `excludeFeatures` 生成为 `src/core/buildVariantFlags.ts`
+ * - `features` / `excludeFeatures` 生成为 `src/bootstrap/generatedVariantFlags.ts`
  *   （`BUILD_VARIANT_FLAGS`），被 `core/featureFlags.ts` 的 `feature()` 作为**中间层**消费；
  * - `buildFeatures` 是**编译期**裁剪（`bun build --feature=...`，物理删除分支）。
  *

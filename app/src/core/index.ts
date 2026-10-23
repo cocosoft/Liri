@@ -103,6 +103,11 @@ export {
   getToolFlag,
   TOOL_FLAG_KEYS,
   type FeatureFlag,
+  // P3（2026-10-23）：变体层由宿主注入（内核不再 import 构建期生成物）
+  setBuildVariantFlags,
+  isBuildVariantFlagsInitialized,
+  getBuildVariantFlags,
+  resetBuildVariantFlags,
 } from './featureFlags';
 
 // 2026-08-29 R03-002 收敛：子模块统一出口

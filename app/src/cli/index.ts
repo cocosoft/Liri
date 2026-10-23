@@ -23,6 +23,9 @@
  * Liri CLI
  */
 
+// P3（core 独立包）：入口首条 import —— 先把变体层注入内核，再让其它模块求值
+import '../bootstrap/initVariantFlags';
+
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { configManager } from '@modules/config';

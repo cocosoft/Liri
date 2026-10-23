@@ -239,6 +239,93 @@ describe('内核纯净度门禁：基线 maxEntries 棘轮', () => {
   });
 });
 
+describe('内核纯净度门禁：K07 深路径（消费方）自证', () => {
+  const DEEP_BASELINE = '.trae/architecture/kernel-deep-path-baseline.json';
+  /** 门禁要求内核根目录存在（否则直接 exit 1 "内核根目录不存在"），夹具补一个干净文件 */
+  const CLEAN_KERNEL = 'app/src/core/clean.ts';
+  const EMPTY_DEEP = JSON.stringify({ version: 1, maxEntries: 0, entries: [] });
+
+  it('非白名单首段 ⇒ 红，并点名文件与说明符', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      [CLEAN_KERNEL]: 'export const ok = 1;\n',
+      'app/src/consumer.ts':
+        "import { x } from '@openliri/kernel/secretSubpath';\nexport const y = x;\n",
+      [DEEP_BASELINE]: EMPTY_DEEP,
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(1);
+    expect(out).toContain('K07 新增内核深路径');
+    expect(out).toContain('app/src/consumer.ts');
+    expect(out).toContain('@openliri/kernel/secretSubpath');
+  });
+
+  it('白名单首段（含 `.js` 后缀与子目录）⇒ 绿，且 0 处', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      [CLEAN_KERNEL]: 'export const ok = 1;\n',
+      'app/src/consumer.ts':
+        "import { a } from '@openliri/kernel/paths.js';\nimport { b } from '@openliri/kernel/events/EventBus.js';\nimport { c } from '@openliri/kernel/idle/IdleScaleMonitor';\nexport const y = [a, b, c];\n",
+      [DEEP_BASELINE]: EMPTY_DEEP,
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(0);
+    expect(out).toContain('K07 深路径：0 处');
+  });
+
+  it('匹配粒度 = 首段：`foo.js` 与 `foo/bar` 同归 `foo`（`.js` 不参与比较）', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      [CLEAN_KERNEL]: 'export const ok = 1;\n',
+      'app/src/consumer.ts':
+        "import { a } from '@openliri/kernel/foo.js';\nimport { b } from '@openliri/kernel/foo/bar';\nexport const y = [a, b];\n",
+      [DEEP_BASELINE]: EMPTY_DEEP,
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(1);
+    // 两处说明符不同 ⇒ 两条记录，但同属 `foo` 首段
+    expect(out).toContain('@openliri/kernel/foo.js');
+    expect(out).toContain('@openliri/kernel/foo/bar');
+  });
+
+  it('基线已登记 ⇒ 绿；条目数 > maxEntries ⇒ 红（硬上限）', () => {
+    const entry = { file: 'app/src/consumer.ts', subpath: 'secretSubpath' };
+    const registered = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      [CLEAN_KERNEL]: 'export const ok = 1;\n',
+      'app/src/consumer.ts':
+        "import { x } from '@openliri/kernel/secretSubpath';\nexport const y = x;\n",
+      [DEEP_BASELINE]: JSON.stringify({
+        version: 1,
+        maxEntries: 1,
+        entries: [entry],
+      }),
+    });
+    expect(run(registered).code).toBe(0);
+
+    const overCap = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      [CLEAN_KERNEL]: 'export const ok = 1;\n',
+      'app/src/consumer.ts':
+        "import { x } from '@openliri/kernel/secretSubpath';\nexport const y = x;\n",
+      [DEEP_BASELINE]: JSON.stringify({
+        version: 1,
+        maxEntries: 0,
+        entries: [entry],
+      }),
+    });
+    const overRun = run(overCap);
+    expect(overRun.code).toBe(1);
+    expect(overRun.out).toContain('K07 基线条目数超上限');
+  });
+});
+
 describe('内核纯净度门禁：字符串字面量不误报', () => {
   it("数组里的 'from' 不被当成模块说明符", () => {
     const root = fixture({

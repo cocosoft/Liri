@@ -1,4 +1,13 @@
+import { warnDeprecatedCoreModule } from '../deprecationNotice.js';
 import type { MarkdownIR } from './types.js';
+
+/**
+ * Markdown IR 分片（按长度上限切块）。
+ *
+ * @deprecated（2026-10-23，B 档复评 → 观察期）本目录**无任何代码消费者**。
+ * 见 `dev_docs/20261023/core-减重盘点清单.md` §4；如确为在役依赖请移除标记并补测试。
+ */
+warnDeprecatedCoreModule('markdown/chunk', '无代码消费者（仅文档示例引用）');
 
 export type RenderedMarkdownChunk<TRendered> = {
   rendered: TRendered;

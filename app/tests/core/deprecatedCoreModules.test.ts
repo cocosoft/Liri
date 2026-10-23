@@ -20,13 +20,15 @@
 // SOFTWARE.
 
 /**
- * C 档「待观察模块」的 **@deprecated + 加载期告警** 接线守卫（2026-10-23）。
+ * 观察期「@deprecated + 加载期告警」接线守卫（2026-10-23）。
  *
- * 背景：`dev_docs/20261023/core-减重盘点清单.md` §3 的 5 个目录是三重零引用，但按
- * `code-deletion.md` CD07 不能直接删 ⇒ 走「@deprecated 标记 + 被加载时告警」的观察期。
+ * 背景：`dev_docs/20261023/core-减重盘点清单.md` 里两类目录都走同一观察协议：
+ *  · **C 档**（§3）：三重零引用，共 5 个；
+ *  · **B 档复评**（§4）：原以为"业务域"，实测同样**无代码消费者**（仅文档示例），共 3 个。
+ * 按 `code-deletion.md` CD07 均不能直接删 ⇒ 用「@deprecated + 被加载时告警」先观察。
  *
  * 本文件锁两件事：
- *  ① **接线不丢**：5 个入口必须同时具备 `@deprecated` 标记与 `warnDeprecatedCoreModule(...)` 调用
+ *  ① **接线不丢**：每个入口必须同时具备 `@deprecated` 标记与 `warnDeprecatedCoreModule(...)` 调用
  *     —— 少了告警，观察期就变成"盲删前置"，与沙箱误删事故同型；
  *  ② **告警内容可用**：消息里必须带 moduleId 与「观察期」字样，否则日志里无法定位。
  */
@@ -39,17 +41,23 @@ import { getLogger } from '../../src/core/loggerFacade.js';
 
 const CORE_ROOT = join(import.meta.dir, '../../src/core');
 
-/** C 档 5 个目录的**入口文件**（消费者会 import 的那个） */
-const C_ENTRY_FILES = [
+/** 观察期入口文件（消费者会 import 的那个） */
+const OBSERVED_ENTRY_FILES = [
+  // C 档（§3）：三重零引用
   'storage/SecureStorage.ts',
   'lifecycle/GracefulRestartService.ts',
   'approval/ApprovalCache.ts',
   'lazy/LazyService.ts',
   'node-host/index.ts',
+  // B 档复评（§4）：无代码消费者，仅文档示例
+  'memory-host-sdk/index.ts',
+  'media-understanding/index.ts',
+  'markdown/render.ts',
+  'markdown/chunk.ts',
 ] as const;
 
-describe('C 档观察期：@deprecated + 加载期告警接线', () => {
-  for (const rel of C_ENTRY_FILES) {
+describe('观察期：@deprecated + 加载期告警接线', () => {
+  for (const rel of OBSERVED_ENTRY_FILES) {
     it(`${rel}：有 @deprecated 标记且有 warnDeprecatedCoreModule 调用`, () => {
       const source = readFileSync(join(CORE_ROOT, rel), 'utf-8');
       expect(source).toContain('@deprecated');

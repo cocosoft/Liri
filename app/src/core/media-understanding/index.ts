@@ -18,6 +18,20 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+import { warnDeprecatedCoreModule } from '../deprecationNotice.js';
+
+/**
+ * 多模态理解（图片/音频/视频 → 文本）。
+ *
+ * @deprecated（2026-10-23，B 档复评 → 观察期）本目录**无任何代码消费者**
+ * （深路径 0 / 符号仅文档示例引用）。见 `dev_docs/20261023/core-减重盘点清单.md` §4；
+ * 如确为在役依赖请移除标记并补测试。
+ */
+warnDeprecatedCoreModule(
+  'media-understanding',
+  '无代码消费者（仅文档示例引用）'
+);
+
 export type {
   MediaUnderstandingKind,
   MediaUnderstandingCapability,

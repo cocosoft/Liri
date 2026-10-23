@@ -42,7 +42,7 @@ import type {
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { randomUUID } from 'crypto';
-import { normalizeByCaps } from '../../core/media-generation/index.js';
+import { normalizeByCaps } from '../media-generation/index.js';
 
 const logger = getLogger('ai:fal-provider');
 

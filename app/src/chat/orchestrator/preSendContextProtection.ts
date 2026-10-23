@@ -213,7 +213,7 @@ export async function applyPreSendProtection(
     ).getBaseUrl?.();
     logger.info('streamMessage:precise_truncate_check', {
       sessionId: session.id,
-      model: options?.model ?? 'unknown',
+      model: turnModel ?? 'unknown',
       providerId: activeClient.getProviderId(),
       baseUrl: baseUrl ?? '',
     });
@@ -239,7 +239,7 @@ export async function applyPreSendProtection(
       if (ratio >= 0.85) {
         logger.warn('streamMessage:token — 发送前上下文占用接近窗口（预警）', {
           sessionId: session.id,
-          model: options?.model ?? 'unknown',
+          model: turnModel ?? 'unknown',
           estimateTokens: msgTokens,
           ctxLimit: sendCtxLimit,
           ratioPct: Math.round(ratio * 100),
@@ -303,7 +303,7 @@ export async function applyPreSendProtection(
     if (budgetMode.mode !== 'normal') {
       logger.warn('streamMessage:budget — 每日预算前置检查', {
         sessionId: session.id,
-        model: options?.model ?? 'unknown',
+        model: turnModel ?? 'unknown',
         todayUsed: budgetMode.todayUsed,
         projectedUsed: budgetMode.projectedUsed,
         dailyLimit: budgetMode.dailyLimit,
@@ -374,7 +374,7 @@ export async function applyPreSendProtection(
           'streamMessage:tools — 工具定义超出上下文预算，发送时移除',
           {
             sessionId: session.id,
-            model: options?.model ?? 'unknown',
+            model: turnModel ?? 'unknown',
             msgTokens,
             toolsTokens,
             budget,

@@ -230,9 +230,15 @@ export async function* runStreamMessage(
   const turnTrace = { started: false, turnNo: 0, ended: false };
 
   try {
+    // 本轮有效模型（2026-10-23 前移到入口）：诊断日志统一复用，避免 `model:'unknown'`。
+    const turnModel = await resolveEffectiveTurnModel({
+      explicitModel: options?.model,
+      client: host.getClientForModel(options?.model),
+      sessionId: session.id,
+    });
     streamSpan.addEvent('streamMessage.start', {
       'session.id': session.id,
-      model: options?.model ?? 'unknown',
+      model: turnModel ?? 'unknown',
       'content.length': ctx.content.length,
     });
 
@@ -253,12 +259,12 @@ export async function* runStreamMessage(
     const preEvalStart = Date.now();
     logger.info('compaction:pre_eval_start', {
       sessionId: session.id,
-      model: options?.model ?? 'unknown',
+      model: turnModel ?? 'unknown',
       messageCount: session.messages.length,
     });
     const preCompactEval = await host.unifiedTracker.checkBeforeRequest(
       session.messages as unknown as ChatMessage[],
-      options?.model || ''
+      turnModel ?? options?.model ?? ''
     );
     logger.info('compaction:pre_eval_done', {
       sessionId: session.id,
@@ -289,7 +295,10 @@ export async function* runStreamMessage(
       });
       const preCompactResult = await compactionOrchestrator.compact(
         session.messages as unknown as ChatMessage[],
-        { model: options?.model || '', sessionId: session.id },
+        {
+          model: turnModel ?? options?.model ?? '',
+          sessionId: session.id,
+        },
         { skipTier3Sync: true, preEvaluated: preCompactEval }
       );
       logger.info('compaction:pre_compact_done', {
@@ -537,15 +546,6 @@ export async function* runStreamMessage(
     // 数据都会重置前端空闲超时计时器
     // 耗时日志（2026-08-19 超时排查）：构建开始/结束 + 心跳次数——若构建阻塞
     // 事件循环，心跳会被拖慢，heartbeatCount 能反映"阻塞了几轮 10s"辅助定位
-    // 窗口/估价类归属（2026-09-27）：自发轮次（服务端续跑/自唤醒/PDCA）不带
-    // options.model ⇒ 空模型使 resolveMaxContextTokens 回落硬编码 128k，按错误窗口
-    // 做切窗与渐进降级。按请求侧同源链解析一次（只读，零额外模型调用），供下方
-    // 构建期切窗（本块）与 P1-7 渐进降级（本轮循环）复用。
-    const turnModel = await resolveEffectiveTurnModel({
-      explicitModel: options?.model,
-      client: host.getClientForModel(options?.model),
-      sessionId: session.id,
-    });
     let apiMessages: Array<Record<string, unknown>>;
     // P2-1o（U-18 收尾切片，2026-10-17）：构建段（构建期切窗 + 心跳保活 + 总超时 +
     // 发送前污染清洗）外移为**内层 async generator**，`yield*` **逐帧转发**其中的 status
@@ -562,7 +562,7 @@ export async function* runStreamMessage(
     await logTokenSnapshot(
       'API 消息构建后（压缩前）',
       session.id,
-      options?.model ?? 'unknown',
+      turnModel ?? 'unknown',
       apiMessages
     );
 
@@ -697,7 +697,7 @@ export async function* runStreamMessage(
     await logTokenSnapshot(
       '上下文压缩后',
       session.id,
-      options?.model ?? 'unknown',
+      turnModel ?? 'unknown',
       apiMessages
     );
     streamSpan.addEvent('streamMessage.pipeline.contextCompacted', {
@@ -717,7 +717,7 @@ export async function* runStreamMessage(
     await logTokenSnapshot(
       '发送前兜底截断后',
       session.id,
-      options?.model ?? 'unknown',
+      turnModel ?? 'unknown',
       apiMessages
     );
 
@@ -727,7 +727,7 @@ export async function* runStreamMessage(
       try {
         agentTelemetry.startTurn(
           session.id,
-          options?.model ?? '',
+          turnModel ?? '',
           host.toolRoundCount + 1
         );
       } catch (err) {
@@ -812,7 +812,7 @@ export async function* runStreamMessage(
       );
       logger.info('streamMessage:token — 实际发送前', {
         sessionId: session.id,
-        model: options?.model ?? 'unknown',
+        model: turnModel ?? 'unknown',
         retryCount: retryState.retryCount,
         messageCount: apiMessages.length,
         estimateTokens: preSendEstimate,
@@ -857,10 +857,9 @@ export async function* runStreamMessage(
       // 说明：`SessionTracing` 内部复用 `getOTelTracing()` 单例（`SessionTracing.ts:96-98`）
       // ⇒ 与既有 `ctx.streamSpan` **同一棵 trace 树**，不会产生第二套 trace。
       const llmTracing = getSessionTracing();
-      const llmSpan = llmTracing.startLLMRequestSpan(
-        options?.model ?? 'unknown',
-        { querySource: 'chat:streamMessageFlow' }
-      );
+      const llmSpan = llmTracing.startLLMRequestSpan(turnModel ?? 'unknown', {
+        querySource: 'chat:streamMessageFlow',
+      });
       /** 本轮请求是否失败（catch 内置 true 供 span 的 `success` 判定 —— `streamHadError` 在降级重试路径不置位） */
       let llmRequestFailed = false;
       let llmErrorMessage: string | undefined;
@@ -910,7 +909,7 @@ export async function* runStreamMessage(
           session.id,
           {
             turn: currentTurnNo > 0 ? currentTurnNo : undefined,
-            model: options?.model,
+            model: turnModel ?? options?.model,
             reason: 'chat',
           }
         );
@@ -920,7 +919,7 @@ export async function* runStreamMessage(
             'streamMessageFlow: request/start 追加失败（完成侧不带 requestId）',
             {
               sessionId: session.id,
-              model: options?.model ?? 'unknown',
+              model: turnModel ?? 'unknown',
               retryCount: retryState.retryCount,
             }
           );
@@ -935,7 +934,7 @@ export async function* runStreamMessage(
               sessionId: session.id,
               elapsedMs,
               heartbeatCount: ttfbHeartbeatCount,
-              model: options?.model ?? 'unknown',
+              model: turnModel ?? 'unknown',
               maxWaitMs: TTFB_MAX_WAIT_MS,
               apiMessageCount: apiMessages.length,
             });
@@ -971,7 +970,7 @@ export async function* runStreamMessage(
           sessionId: session.id,
           elapsedMs: Date.now() - requestStartAt,
           heartbeatCount: ttfbHeartbeatCount,
-          model: options?.model ?? 'unknown',
+          model: turnModel ?? 'unknown',
           apiMessageCount: apiMessages.length,
         });
 
@@ -1297,7 +1296,7 @@ export async function* runStreamMessage(
             genErr,
             apiMessages,
             session.id,
-            options?.model
+            turnModel ?? options?.model
           );
           const degradationResult = tryDegradeContext(ctxDegradation, genErr);
           if (degradationResult.shouldRetry) {
@@ -1449,7 +1448,7 @@ export async function* runStreamMessage(
           retryCount: retryState.retryCount,
           truncatedMaxTokens,
           degradeMaxTokens: step.maxTokens,
-          model: options?.model,
+          model: turnModel ?? options?.model,
         });
         // P0 落盘缺口（2026-08-25）：重试类提示写 assistant/status，刷新后回放可见。
         // P2-1c：单一 append 入口（失败不阻断主流程 · CS03）
@@ -1483,7 +1482,7 @@ export async function* runStreamMessage(
             sessionId: session.id,
             retryCount: retryState.retryCount,
             currentMaxTokens: retryState.currentMaxTokens,
-            model: options?.model,
+            model: turnModel ?? options?.model,
           }
         );
         // P0 落盘缺口（2026-08-25）：终态 status 提示写 assistant/status（非 compaction/心跳类）。
@@ -1614,7 +1613,7 @@ export async function* runStreamMessage(
       finalResponse?.finishReason ?? 'unknown',
       finalResponse?.tool_calls?.length ?? 0,
       {
-        model: options?.model ?? 'unknown',
+        model: turnModel ?? 'unknown',
         retryCount: retryState.retryCount,
         accumulatedContentLength: accumulatedContent.length,
       }
@@ -1624,10 +1623,10 @@ export async function* runStreamMessage(
     await logInferenceUsage(
       session.id,
       // 2026-09-27（模型归属）：原为 `options?.model ?? 'unknown'` —— 自发轮次恒为 unknown。
-      // 诊断日志同样应记**实际使用的模型**（provider 回显优先）。
+      // 诊断日志同样应记**实际使用的模型**（provider 回显优先，回落本轮有效模型）。
       extractModelFromResponse(
         finalResponse ?? {},
-        options?.model || 'unknown'
+        turnModel ?? options?.model ?? 'unknown'
       ),
       finalResponse,
       apiMessages,

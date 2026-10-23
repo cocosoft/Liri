@@ -603,6 +603,19 @@ function checkK07DeepPaths(): void {
     'mediaRoots',
     'lazySingleton',
     'LazyModuleStrategy',
+    // K07 批次 6（终局）：下面 9 个前缀是「归零」需要放行的最后一批。
+    // 它们**不能走桶**（进桶即提前求值 ⇒ 启动面增长，批次 5 已实测 +4），
+    // 而消费方是 app 层的门面/接线点，无法再下沉 ⇒ 明确追认为内核公开子路径。
+    // 匹配粒度为**首段**（`idle/…` / `connections/…` 整目录随之公开），这是 K07 既有口径。
+    'DependencyRegistry', // 依赖注册表单例：channels / permission / mcp 三处接线 + app 门面
+    'SessionSpanTracer', // 会话级 span 追踪：通道链路 + app 门面
+    'tracingFacade', // OTel 追踪门面（`resolveOTelTracing` 的薄封装）
+    'idle', // 空转伸缩监视器（仅 ChatOrchestrator 动态导入）
+    'connections', // 连接注册表（main 启动期动态导入）
+    'instanceLock', // 单实例锁：main 解析/写入/发布端点
+    'profilerFacade', // 启动剖析门面（`resolveStartupProfiler` 的薄封装）
+    'abortReason', // 中断原因契约（app `error/abortReason` 门面的转出源）
+    'orchestrationEvents', // 编排事件契约（app `types/orchestrationEvents` 门面的转出源）
   ]);
   /** 消费方源码根（生产面；不含 npm 包外壳与历史归档） */
   const consumerRoots = [

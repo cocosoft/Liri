@@ -43,6 +43,8 @@ describe('ToolUIRegistry 可用性与键名（U-03）', () => {
       'agenttool',
       'enter_plan_mode',
       'exit_plan_mode',
+      // 2026-10-23（Q-18 尾项）：`voice_output` 判定为 `tts` 的子集死代码 ⇒ 已摘登记
+      'voice_output',
     ]) {
       expect(hasToolUI(deadName)).toBe(false);
     }
@@ -66,7 +68,6 @@ describe('ToolUIRegistry 可用性与键名（U-03）', () => {
     'push_notification',
     'subscribe_pr',
     'voice_input',
-    'voice_output',
   ];
 
   it('注册表键 = 工具名声明面 + 已知未登记实现（新增未登记名字即红）', async () => {

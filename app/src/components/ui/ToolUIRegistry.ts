@@ -171,7 +171,8 @@ const DEFAULT_TOOL_UI_MODULES: readonly ToolUIModuleEntry[] = [
   { module: './toolUIs/ToolSearchTool/UI', names: ['tool_search'] },
   { module: './toolUIs/TungstenTool/UI', names: ['tungsten'] },
   { module: './toolUIs/VoiceInputTool/UI', names: ['voice_input'] },
-  { module: './toolUIs/VoiceOutputTool/UI', names: ['voice_output'] },
+  // 2026-10-23（Q-18 尾项，CD05 第 1 步）：`voice_output` 已被判定为 `tts` 的**子集死代码**
+  // （能力已由 `tts` 接线覆盖）⇒ 先摘登记、实现文件保留观察，观察期后再删实现。
   { module: './toolUIs/KnowledgeSearchTool/UI', names: ['knowledge_search'] },
   { module: './toolUIs/KnowledgeWriteTool/UI', names: ['knowledge_write'] },
   { module: './toolUIs/KnowledgeDeleteTool/UI', names: ['knowledge_delete'] },

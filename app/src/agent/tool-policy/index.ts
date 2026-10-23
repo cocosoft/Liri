@@ -109,7 +109,8 @@ export const TOOL_GROUPS: Record<string, string[]> = {
     // `tools/utils/ToolManagerUtils.ts#getBuiltinToolLoaders()` 决定（无 profile 门控）。
     'sessions_yield',
   ],
-  'group:ui': ['browser', 'canvas', 'voice_input', 'voice_output'],
+  // 2026-10-23（Q-18 尾项）：`voice_output` 判定为 `tts` 的子集死代码 ⇒ 组内摘除（CD05 第 1 步）。
+  'group:ui': ['browser', 'canvas', 'voice_input'],
   'group:messaging': ['message', 'send_message', 'push_notification'],
   'group:automation': ['cron', 'gateway'],
   'group:agents': ['agents_list', 'task'],

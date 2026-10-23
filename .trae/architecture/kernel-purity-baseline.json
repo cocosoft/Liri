@@ -1,0 +1,73 @@
+{
+  "$comment": "内核纯净度门禁（scripts/lint-kernel-purity.ts）的**棘轮基线**：只允许减少，不允许增长。新增泄漏＝门禁红；已修复项请跑 `--write-baseline` 下调锁定。方案见 dev_docs/20261023/微内核-core-拆分方案.md §5。",
+  "version": 1,
+  "recordedAt": "2026-10-23",
+  "entries": [
+    {
+      "file": "app/src/core/__tests__/DIContainerIntegration.test.ts",
+      "rule": "K02",
+      "target": "modules",
+      "note": "DI 装配集成测试：动态 import 上层 modules 以断言注入结果。测试文件在扫描面内（与 lint:arch 的 R00-001/R00-003 同口径：不跳测试）。"
+    },
+    {
+      "file": "app/src/core/LazyModuleStrategy.ts",
+      "rule": "K02",
+      "target": "chronos",
+      "note": "延迟加载清单（设计内：core 只持模块名 → thunk 映射）。P2 物理拆分前须改为「上层注入 manifest」，见方案 §4-P2 / §10-Q4。"
+    },
+    {
+      "file": "app/src/core/LazyModuleStrategy.ts",
+      "rule": "K02",
+      "target": "featureflags",
+      "note": "同上：延迟加载清单。"
+    },
+    {
+      "file": "app/src/core/LazyModuleStrategy.ts",
+      "rule": "K02",
+      "target": "ink",
+      "note": "同上：延迟加载清单（UI 侧懒加载）。"
+    },
+    {
+      "file": "app/src/core/LazyModuleStrategy.ts",
+      "rule": "K02",
+      "target": "lsp",
+      "note": "同上：延迟加载清单。"
+    },
+    {
+      "file": "app/src/core/LazyModuleStrategy.ts",
+      "rule": "K02",
+      "target": "mcp",
+      "note": "同上：延迟加载清单。"
+    },
+    {
+      "file": "app/src/core/LazyModuleStrategy.ts",
+      "rule": "K02",
+      "target": "memory",
+      "note": "同上：延迟加载清单。"
+    },
+    {
+      "file": "app/src/core/LazyModuleStrategy.ts",
+      "rule": "K02",
+      "target": "sandbox",
+      "note": "同上：延迟加载清单。"
+    },
+    {
+      "file": "app/src/core/LazyModuleStrategy.ts",
+      "rule": "K02",
+      "target": "security",
+      "note": "同上：延迟加载清单。"
+    },
+    {
+      "file": "app/src/core/LazyModuleStrategy.ts",
+      "rule": "K02",
+      "target": "ui",
+      "note": "同上：延迟加载清单（UI 侧懒加载）。"
+    },
+    {
+      "file": "app/src/core/LazyModuleStrategy.ts",
+      "rule": "K02",
+      "target": "voice",
+      "note": "同上：延迟加载清单。"
+    }
+  ]
+}

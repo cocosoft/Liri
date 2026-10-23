@@ -34,7 +34,9 @@ function loadFeatureFlagNames(): Set<string> {
   const source = fs.readFileSync(file, 'utf-8');
   const start = source.indexOf('export const FEATURE_FLAGS = {');
   if (start < 0) {
-    throw new Error('未在 featureFlags.ts 中找到 `export const FEATURE_FLAGS = {`');
+    throw new Error(
+      '未在 featureFlags.ts 中找到 `export const FEATURE_FLAGS = {`'
+    );
   }
   const end = source.indexOf('} as const;', start);
   if (end < 0) {
@@ -46,6 +48,54 @@ function loadFeatureFlagNames(): Set<string> {
     names.add(match[1]!);
   }
   return names;
+}
+
+/**
+ * 读取 `tools/toolCategories.ts` 的「恒保留工具 → 能力前置」覆盖关系（K05）。
+ *
+ * 解析源码文本而非运行时 import：本门禁刻意不加载 `src/`（避免把工具面依赖拉进门禁），
+ * 与 `loadFeatureFlagNames` 同手法。解析不到即为结构漂移 ⇒ 由调用方 fail（不静默）。
+ */
+function loadMandatoryCoverage(): {
+  tools: string[];
+  requires: Map<string, string>;
+} {
+  const file = path.resolve(
+    __dirname,
+    '..',
+    'src',
+    'tools',
+    'toolCategories.ts'
+  );
+  const source = fs.readFileSync(file, 'utf-8');
+
+  const setStart = source.indexOf('export const MANDATORY_TOOLS');
+  const setEnd = setStart < 0 ? -1 : source.indexOf('])', setStart);
+  if (setStart < 0 || setEnd < 0) {
+    throw new Error(
+      '未在 toolCategories.ts 中找到 `MANDATORY_TOOLS = new Set([…])`'
+    );
+  }
+  const tools = [
+    ...source.slice(setStart, setEnd).matchAll(/'([a-z0-9_]+)'/g),
+  ].map((m) => m[1]!);
+
+  const requiresStart = source.indexOf('export const MANDATORY_TOOL_REQUIRES');
+  const requiresEnd =
+    requiresStart < 0 ? -1 : source.indexOf('};', requiresStart);
+  if (requiresStart < 0 || requiresEnd < 0) {
+    throw new Error(
+      '未在 toolCategories.ts 中找到 `MANDATORY_TOOL_REQUIRES = { … }`'
+    );
+  }
+  const requires = new Map<string, string>();
+  for (const m of source
+    .slice(requiresStart, requiresEnd)
+    .matchAll(/^\s*([a-z0-9_]+)\s*:\s*'([A-Z][A-Z0-9_]*)'/gm)) {
+    requires.set(m[1]!, m[2]!);
+  }
+
+  return { tools, requires };
 }
 
 function checkDuplicates(list: readonly string[], label: string): void {
@@ -87,7 +137,9 @@ function main(): void {
     const excluded = new Set(spec.excludeFeatures);
     for (const name of spec.features) {
       if (excluded.has(name)) {
-        fail(`[${variant}] 同一开关既在 features 又在 excludeFeatures: ${name}`);
+        fail(
+          `[${variant}] 同一开关既在 features 又在 excludeFeatures: ${name}`
+        );
       }
     }
 
@@ -130,10 +182,34 @@ function main(): void {
       fail('[headless] features 必须与 personal 一致（裁定：继承 personal）');
     }
     if (!sameSet(headless.excludeFeatures, personal.excludeFeatures)) {
-      fail('[headless] excludeFeatures 必须与 personal 一致（裁定：继承 personal）');
+      fail(
+        '[headless] excludeFeatures 必须与 personal 一致（裁定：继承 personal）'
+      );
     }
     if (headless.minimalToolSurface) {
       fail('[headless] 不得启用 minimalToolSurface（那是 core 的 7 工具下限）');
+    }
+  }
+
+  // ⑦ 恒保留工具必须声明**能力前置**（K05 修正版，2026-10-23）
+  //
+  // 建议稿的原口径是「MANDATORY_TOOLS ⊆ 当前变体 features」——**与实现相反**：
+  // `core` 变体按设计排除 `AGENT` / `TODO`，而 `getMandatoryTools()` 正是按能力开关把
+  // 对应工具从恒集里剔除（见 `toolCategories.ts` 该函数注释）。真正会复发的是另一件事：
+  // 往 `MANDATORY_TOOLS` 加了工具却没在 `MANDATORY_TOOL_REQUIRES` 加前置 ⇒ 该工具
+  // **恒可见且不受变体约束**（正是"变体裁掉、mandatory 又强制可见"的旧缺陷）。
+  const coverage = loadMandatoryCoverage();
+  if (coverage.tools.length === 0) {
+    fail('[K05] 无法解析 MANDATORY_TOOLS（源文件结构漂移?）');
+  }
+  for (const tool of coverage.tools) {
+    if (!coverage.requires.has(tool)) {
+      fail(`[K05] 恒保留工具缺少能力前置（会绕开变体收敛）: ${tool}`);
+    }
+  }
+  for (const [tool, flag] of coverage.requires) {
+    if (!knownFlags.has(flag)) {
+      fail(`[K05] 能力前置开关不在 FEATURE_FLAGS 中: ${tool} → ${flag}`);
     }
   }
 
@@ -143,7 +219,9 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log(`\n✅ 变体矩阵自洽（${BUILD_VARIANTS.length} 个变体，开关词汇表 ${knownFlags.size} 项）`);
+  console.log(
+    `\n✅ 变体矩阵自洽（${BUILD_VARIANTS.length} 个变体，开关词汇表 ${knownFlags.size} 项）`
+  );
 }
 
 main();

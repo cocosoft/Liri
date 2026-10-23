@@ -228,6 +228,21 @@ jobs:
       run: |
         bun run scripts/lint-architecture.ts
 
+    # 内核纯净度（P0，`dev_docs/20261023/微内核-core-拆分方案.md` §5）
+    #   口径：棘轮 + **error 级** —— 基线 `.trae/architecture/kernel-purity-baseline.json`
+    #   只减不增；新增 core→上层 的静态/动态泄漏、或 core 出工作区的引用 ⇒ exit 1。
+    #   基线缺失视为空基线（现存 11 条已登记，故正常情况必红）⇒ 事实上的 fail-closed。
+    - name: Kernel purity gate (K01-K04)
+      working-directory: .
+      run: |
+        bun run scripts/lint-kernel-purity.ts
+
+    # 变体矩阵自洽 + **恒保留工具的能力前置覆盖**（K05 修正版）
+    #   原口径「MANDATORY_TOOLS ⊆ 变体 features」与实现相反（core 按设计排除 AGENT/TODO），
+    #   真正的复发点是「加了恒集成员却没加 MANDATORY_TOOL_REQUIRES 前置」⇒ 恒可见且不受变体约束。
+    - name: Variant matrix gate (single source + mandatory coverage)
+      run: bun run lint:variant-matrix
+
     - name: Run file size check
       working-directory: .
       run: |

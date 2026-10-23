@@ -2143,7 +2143,7 @@
       },
       "code": [
         "app/src/core/featureFlags.ts",
-        "app/src/core/buildVariantFlags.ts",
+        "app/src/bootstrap/generatedVariantFlags.ts",
         "app/scripts/build-variant.ts",
         "app/src/constants/toolNames.generated.ts",
         "app/src/tools/toolEffects.ts",

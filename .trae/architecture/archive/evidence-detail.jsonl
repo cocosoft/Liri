@@ -727,12 +727,12 @@
 {"id":"TOOLGOV-D1","k":"source","i":0,"c":"工具治理方案-20261011 §4 阶段 4 D1（用户裁定「接线」，2026-10-11）"}
 {"id":"TOOLGOV-D1","k":"reopenWhen","i":0,"c":"改 feature() 的解析优先级、换默认构建变体、或增删 VARIANT_CONFIGS 的键（须同步门禁与 G5 已知条件集）时"}
 {"id":"TOOLGOV-D1","k":"notes","i":0,"c":"① `core/featureFlags.ts` 的 `feature()` 由「env → 静态表」改为**三层优先**：`FEATURE_*` env → `BUILD_VARIANT_FLAGS`（`scripts/build-variant.ts` **构建期**生成）→ `FEATURE_FLAGS`（静态兜底）；② `"}
-{"id":"TOOLGOV-D1","k":"notes","i":1,"c":"buildVariantFlags.ts` 由 `--variant=coding`（**声明默认变体**）重生成 ⇒ 变体开关**真正生效**；③ `build-variant.ts` 头注由「G1 已知债务（无消费者）」订正为「已接线」，并注明变体层是构建期产物、`LIRI_BUILD_VARIANT` 运行期覆盖只影响 `getBuildVariant"}
+{"id":"TOOLGOV-D1","k":"notes","i":1,"c":"generatedVariantFlags.ts`（P3 前位于 core/）由 `--variant=coding`（**声明默认变体**）重生成 ⇒ 变体开关**真正生效**；③ `build-variant.ts` 头注由「G1 已知债务（无消费者）」订正为「已接线」，并注明变体层是构建期产物、`LIRI_BUILD_VARIANT` 运行期覆盖只影响 `getBuildVariant"}
 {"id":"TOOLGOV-D1","k":"notes","i":2,"c":"()`；④ 新增门禁（变体键 ⊆ `FeatureFlag`，防拼错/死键）+ **负向夹具自证** + 三层优先/回落/env 覆盖用例（`featureFlagContract.test.ts`）；⑤ **连带行为变更（如实）**：coding 变体默认生效 ⇒ `TEAM_CREATE`/`TEAM_DELETE` 转生效（生成物 `"}
 {"id":"TOOLGOV-D1","k":"notes","i":3,"c":"TOOL_NAMES` 73 → 75；`TOOL_EFFECTS` 补 `team_create`/`team_delete` = EXTERNAL；`TOOL_CATEGORIES` 的 `TeamCreate`/`TeamDelete` **死键订正**为 `team_create`/`team_delete`；G5 已知条件集 17 → 15）；`"}
 {"id":"TOOLGOV-D1","k":"notes","i":4,"c":"LSP`/`NOTEBOOK`/`BROWSER`/`CODE_ANALYSIS` 默认开；`AGENT_TRIGGERS` 默认关（cron 四工具默认不注册）；`notebook.test.ts` 改**显式 env 覆盖**以继续覆盖禁用分支。e2eVerified=false。"}
 {"id":"TOOLGOV-D1","k":"code#0","i":0,"c":"app/src/core/featureFlags.ts"}
-{"id":"TOOLGOV-D1","k":"code#1","i":0,"c":"app/src/core/buildVariantFlags.ts"}
+{"id":"TOOLGOV-D1","k":"code#1","i":0,"c":"app/src/bootstrap/generatedVariantFlags.ts"}
 {"id":"TOOLGOV-D1","k":"code#2","i":0,"c":"app/scripts/build-variant.ts"}
 {"id":"TOOLGOV-D1","k":"code#3","i":0,"c":"app/src/constants/toolNames.generated.ts"}
 {"id":"TOOLGOV-D1","k":"code#4","i":0,"c":"app/src/tools/toolEffects.ts"}

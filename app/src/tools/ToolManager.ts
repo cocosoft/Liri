@@ -6,6 +6,8 @@
 import { EventEmitter } from 'events';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Tool, type ToolResult } from './types/Tool';
+import { createToolResult } from './types/ToolResult';
+import { findMissingRequiredParams } from './utils/ToolUtils';
 import { guardShieldedToolCall } from './shieldGuard';
 import { ToolFactory } from './ToolFactory';
 import { setAgentToolManager } from './AgentTool/AgentTool';
@@ -379,6 +381,34 @@ export class ToolManager extends EventEmitter {
         ErrorSeverity.HIGH,
         '1006'
       );
+    }
+
+    // 2026-10-23（§41.4 续）：HTTP/CoreAPI 路径的**必填参数前置校验**。
+    // 主聊天链（`ToolRegistry.executeTool`）与 PDCA（`stepExecution`）已收口，但
+    // `CoreAPIImpl.executeTool` 走本方法 ⇒ 此前缺参仍会进工具内部裸抛
+    // （实测 `file_write`：`path.dirname(undefined)`）。此处 fail-closed，返回与
+    // Registry 同口径的失败结果（缺哪个参数 + 本次收到的键），不再执行工具。
+    const missingParams = findMissingRequiredParams(tool.params, input);
+    if (missingParams.length > 0) {
+      logger.warn('工具调用缺少必填参数，拒绝执行（HTTP/CoreAPI 路径）', {
+        toolName: name,
+        missingParams,
+        receivedKeys: Object.keys(input ?? {}),
+      });
+      return createToolResult(null, {
+        success: false,
+        error: `Missing required parameter: ${missingParams.join(', ')}`,
+        newMessages: [
+          {
+            role: 'system',
+            content:
+              `Error: Missing required parameter: ${missingParams.join(', ')}. ` +
+              `请按工具定义的参数名重新调用（本次收到的参数键: ${
+                Object.keys(input ?? {}).join(', ') || '（空）'
+              }）。`,
+          },
+        ],
+      });
     }
 
     try {

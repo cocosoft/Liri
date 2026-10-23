@@ -12,6 +12,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
+    "typeRoots": ["../../app/node_modules/@types"],
+    "types": ["node"],
     "baseUrl": ".",
     "paths": {
       "@openliri/kernel": ["./src/index.ts"],

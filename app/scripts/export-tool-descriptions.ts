@@ -18,6 +18,9 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+// 变体层必须最先注入（同 export-tool-params.ts：顶层 `feature()` 会被 P3 时序守卫拦下）
+import '../src/bootstrap/initVariantFlags';
+
 import { ToolFactory } from '../src/tools/ToolFactory';
 import {
   getAllBuiltinToolLoaders,

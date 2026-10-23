@@ -8,6 +8,17 @@ import {
   TOOL_NAMES,
   TOOL_NAMES_COUNT,
 } from '../../src/constants/toolNames.generated';
+import { BUILD_VARIANT_FLAGS } from '../../src/bootstrap/generatedVariantFlags';
+import { setBuildVariantFlags } from '@openliri/kernel';
+
+/**
+ * 与生成器（`scripts/gen-tool-names.ts`）**同口径**：先注入变体层再装配工具。
+ *
+ * 为什么必须显式注入（P6 实测）：守卫上线后，未注入时 `feature()` 回落**静态默认**，
+ * 而生成物是按**变体矩阵**产出的 —— 两者工具集会差出变体专属项（实证：`team_create`
+ * / `team_delete`）。不注入就会出现「生成物与运行时不一致」的永久红。
+ */
+setBuildVariantFlags(BUILD_VARIANT_FLAGS);
 
 /**
  * P2-3 门禁②：**新注册的工具必须进入生成物**（`src/constants/toolNames.generated.ts`）

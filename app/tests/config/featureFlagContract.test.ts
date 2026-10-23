@@ -244,9 +244,14 @@ describe('P3 变体层时序守卫', () => {
   it('注入后同环境求值 ⇒ 走变体层（守卫不误伤）', () => {
     resetBuildVariantFlags();
     process.env['NODE_ENV'] = 'production';
-    setBuildVariantFlags(BUILD_VARIANT_FLAGS);
-    delete process.env['FEATURE_LSP'];
+    const flags = BUILD_VARIANT_FLAGS as Readonly<Record<string, boolean>>;
+    setBuildVariantFlags(flags);
+    // **变体无关**：取当前矩阵里实际存在的首个键。
+    // 原写法写死 `'LSP'` —— 而 CI 的变体矩阵会先 `build-variant.ts --variant=enterprise`
+    // 再 typecheck，enterprise 矩阵里没有 LSP ⇒ `TS2339` 直接红（P6 复现）。
+    const [name, expected] = Object.entries(flags)[0]!;
+    delete process.env[`FEATURE_${name}`];
 
-    expect(feature('LSP')).toBe(BUILD_VARIANT_FLAGS.LSP);
+    expect(feature(name as Parameters<typeof feature>[0])).toBe(expected);
   });
 });

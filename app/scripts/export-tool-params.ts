@@ -20,6 +20,11 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+// 变体层必须最先注入：`ToolManagerUtils.buildBuiltinToolLoaders()` 在**模块顶层**调
+// `feature()`，而 P3 的时序守卫在未注入且非 test 环境下会抛
+// `CORE_VARIANT_FLAGS_NOT_INITIALIZED`（CI「Prompt resource gates」即因缺这一行而红）。
+import '../src/bootstrap/initVariantFlags';
+
 import { ToolFactory } from '../src/tools/ToolFactory';
 import {
   getAllBuiltinToolLoaders,

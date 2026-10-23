@@ -82,13 +82,17 @@ describe('subagent_type 描述动态生成（O18）', () => {
   });
 
   test('AgentTool.params 读当前快照 ⇒ 角色变更后无需重建实例', () => {
+    // 2026-10-23（预存台账）：原断言用 'architect' 字面量判断"初始不含"，
+    // 而该名可能被**并行测试**先把全局快照刷新进来（顺序敏感地雷）。
+    // 改用本用例独占的探针角色名 ⇒ 只依赖本用例的 setEnabledRoleNames。
+    const probeRole = 'o18-probe-role';
     const tool = new AgentTool();
-    expect(subagentTypeDescription(tool)).not.toContain('architect');
+    expect(subagentTypeDescription(tool)).not.toContain(probeRole);
 
-    setEnabledRoleNames(['architect']);
+    setEnabledRoleNames([probeRole]);
 
     const text = subagentTypeDescription(tool);
-    expect(text).toContain('architect');
+    expect(text).toContain(probeRole);
     for (const name of BUILTIN_NAMES) {
       expect(text).toContain(name);
     }

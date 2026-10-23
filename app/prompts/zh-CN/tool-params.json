@@ -3,8 +3,8 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-params.ts",
   "counts": {
-    "tools": 77,
-    "params": 366
+    "tools": 78,
+    "params": 374
   },
   "params": {
     "agent.allowedTools": "逗号分隔的工具名，表示子代理允许使用哪些工具。若为空，则所有工具均可用。",
@@ -195,6 +195,14 @@
     "image_svg_generate.size": "SVG viewBox size, e.g. \"64x64\", \"24x24\". Default: \"64x64\"",
     "image_svg_generate.style": "Visual style: flat, line, solid, or colorful",
     "image_svg_generate.validate": "Enable SVG syntax validation (default true)",
+    "kanban.action": "Action to perform: list (optional columnId filter), create (title required), update (cardId + fields), move (cardId + columnId), delete (cardId)",
+    "kanban.assignee": "Card assignee",
+    "kanban.cardId": "Card ID (required for update / move / delete)",
+    "kanban.columnId": "Column: backlog / todo / in_progress / done (default todo; required for move)",
+    "kanban.description": "Card description",
+    "kanban.priority": "Card priority: low / medium / high (default medium)",
+    "kanban.tags": "Card tags",
+    "kanban.title": "Card title (required for create)",
     "knowledge_save.category": "文档分类（可选）",
     "knowledge_save.content": "文档内容（Markdown 格式，整理后的正文）",
     "knowledge_save.tags": "文档标签（可选）",

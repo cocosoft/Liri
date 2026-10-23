@@ -45,13 +45,8 @@ export const SHADOW_TOOL_DISPOSITIONS: Readonly<
   // ⇒ 它们既不在"声明面 − 生效面"差额中，也无实现残留。
 
   // ── 重写后接线：有真实能力，但当前实现不可用 ────────────────────────────
-  // `agents_list` 已于 2026-10-23 完成 `rewrite` 并接线（读 `AgentTool.getActiveAgents()`
-  // 与 `getSpawnPauseState()`，与 `GET /v1/agents/control` 同源）⇒ 已移出本表。
-  kanban: {
-    reason: 'needs-rewrite',
-    disposition: 'rewrite',
-    reevaluateWhen: '改为读写 SQLite kanban_cards 真源，消除内存 Map 双轨',
-  },
+  // `agents_list`（2026-10-23）与 `kanban`（2026-10-23）已完成 `rewrite` 并接线
+  // ⇒ 均已移出本表（前者读 `AgentTool.getActiveAgents()`；后者读写 SQLite `kanban_cards`）。
   mcp_auth: {
     reason: 'needs-rewrite',
     disposition: 'rewrite',

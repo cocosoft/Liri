@@ -535,12 +535,7 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
    * ⚠️ 移出本集合的**唯一正规途径**是"真接线"（登记类别 + loader + 重算生成物 + 声明 effects），
    * 见 P4b；`task_output` 即首个（2026-10-16 接线，75 → 76）。
    */
-  const KNOWN_CONDITIONAL_TOOL_NAMES = [
-    'kanban',
-    'mcp_auth',
-    'music_generate',
-    'tts',
-  ];
+  const KNOWN_CONDITIONAL_TOOL_NAMES = ['mcp_auth', 'music_generate', 'tts'];
   // D1 接线（2026-10-11）：`TEAM_CREATE`/`TEAM_DELETE` 成为**变体默认生效**（coding）
   // ⇒ `team_create`/`team_delete` 移出本差额集（进入生成物 `TOOL_NAMES`，75 名）。
 
@@ -568,12 +563,17 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
    * `agents_list`（2026-10-23，Q-18）：`rewrite` 处置 —— 实现由"硬编码空结果"改为读
    * `AgentTool.getActiveAgents()` + `getSpawnPauseState()`（与 `/v1/agents/control` 同源），
    * 补 loader / 工厂 / `TOOL_EFFECTS` 并重算生成物 ⇒ 同属已接线。
+   *
+   * `kanban`（2026-10-23，Q-18）：`rewrite` 处置 —— 实现由**进程内 Map** 改为读写 SQLite
+   * `kanban_cards`（经 `getTaskOpsPort()`，与 `/v1/kanban` 及客户端 `KanbanBoard` 同源），
+   * 动作面收敛为卡片 CRUD ⇒ 同属已接线。
    */
   const P4B_WIRED_TOOL_NAMES = [
     'task_output',
     'pdf',
     'send_message',
     'agents_list',
+    'kanban',
   ];
 
   /**

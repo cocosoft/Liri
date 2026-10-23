@@ -3,7 +3,7 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-descriptions.ts",
   "counts": {
-    "tools": 79
+    "tools": 80
   },
   "descriptions": {
     "agent": "创建一个专用子代理来执行特定任务",
@@ -42,6 +42,7 @@
     "image_display": "Display/preview images directly in the chat conversation. MUST call this after generating images with image_generate to show results to the user. Users cannot open file paths themselves — images are only visible when you use this tool. Accepts local file paths or URLs. Supports thumbnail grid, click-to-enlarge, and citation.",
     "image_generate": "Generate AI images from text descriptions (prompts). Use this when the user asks to create, draw, or generate an image. Supports multiple aspect ratios, quality levels, and output formats. Returns file paths of generated images.",
     "image_svg_generate": "Generate SVG vector graphics using LLM. Use when the user asks for icons, diagrams, logos, charts, UI elements, or simple illustrations. Supports multiple visual styles (flat, line, solid, colorful), custom colors, and background colors. Includes SVG syntax validation. Much cheaper than image generation APIs (text tokens only).",
+    "kanban": "Manage Kanban cards (persisted in the local SQLite kanban_cards table, shared with the Kanban UI). Actions: list / create / update / move / delete. Columns: backlog, todo, in_progress, done.",
     "knowledge_save": "将内容保存到用户知识库。用户要求保存文章/网页资料/知识/归档内容/记住某资料时使用。参数：title（标题）+ content（内容）。保存成功或内容已存在时任务即完成，直接向用户确认结果，不要重复调用本工具。",
     "list_peers": "发现本地peer（UDS socket）或远程会话（bridge）。用于查找可连接的Agent进程。",
     "list_vfs": "列举 AI-VFS 挂载点目录下的条目。路径形如 <scheme>://<authority>/<path>，例如 dev_docs://配置与安全；以 <scheme>:// 形式（scheme-only，如 mcp://）调用时列举该 scheme 下的挂载点。未注册的 scheme 会明确失败，不会回退到本地文件系统。",

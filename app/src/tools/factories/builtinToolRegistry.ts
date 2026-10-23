@@ -48,6 +48,8 @@ import { CronCreateTool } from '../ChronosTool/CronCreateTool';
 import { CronDeleteTool } from '../ChronosTool/CronDeleteTool';
 import { CronListTool } from '../ChronosTool/CronListTool';
 import { CronStopTool } from '../ChronosTool/CronStopTool';
+// Q-18（2026-10-23）：`kanban` 由影子工具接线（读写 SQLite `kanban_cards`，与 UI/HTTP 同源）
+import { KanbanTool } from '../KanbanTool/KanbanTool';
 // ── Agent / Skill / 知识 ──
 import { AgentTool } from '../AgentTool/AgentTool';
 // Q-18（2026-10-23）：`agents_list` 由影子工具接线（只读活跃代理投影，与 /v1/agents/control 同源）
@@ -158,6 +160,7 @@ export const BUILTIN_TOOL_FACTORIES = {
   createCronDeleteTool: () => CronDeleteTool.create(),
   createCronListTool: () => CronListTool.create(),
   createCronStopTool: () => CronStopTool.create(),
+  createKanbanTool: () => new KanbanTool(),
   // ── Agent / Skill / 知识 ──
   createAgentTool: () => new AgentTool(),
   createAgentsListTool: () => new AgentsListTool(),

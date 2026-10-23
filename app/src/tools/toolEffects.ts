@@ -85,6 +85,8 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   image_display: NONE,
   image_generate: LOCAL,
   image_svg_generate: LOCAL,
+  // Q-18（2026-10-23）：`kanban` 接线 —— 读写本地 `kanban_cards`（非幂等）
+  kanban: LOCAL,
   knowledge_save: LOCAL,
   list_peers: NONE,
   list_vfs: NONE,

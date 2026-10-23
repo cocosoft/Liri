@@ -166,6 +166,10 @@ function buildBuiltinToolLoaders(
     // P4b（2026-10-16）：`task_output` 从「影子工具」接线进注册面（见 P4a 评估 §2.2(1)）——
     // 它读 `taskRegistry` 的真任务输出，且 `AgentTool/prompt.ts` 与 `ToolUIRegistry` 早已引用其名。
     byKey('createTaskOutputTool'),
+    // P4b（2026-10-23，Q-18 `rewrite` 处置）：`kanban` 由影子工具接线 ——
+    // 数据源 = SQLite `kanban_cards`（与 `/v1/kanban`、客户端 `KanbanBoard` 同源），
+    // 消除原进程内 Map 双轨（模型建的卡界面看不见、重启即丢）。
+    byKey('createKanbanTool'),
     byKey('createSkillTool'),
     // T9'（2026-08-30）：skills_list / skill_view 注册进 ToolManager loaders——
     // 此前仅存在于 getAllBaseTools() 工具池路径，未进入 ToolRegistry，导致

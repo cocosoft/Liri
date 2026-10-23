@@ -17,7 +17,7 @@
 // 差额集（2026-10-23 起 **5**，全部为 E 类未接线：`agents_list`/`kanban`/`mcp_auth`/
 // `music_generate`/`tts`）。原先另有 6 个"下线类"影子工具
 // （`nodes`/`session_status`/`sessions_send`/`sessions_spawn`/`update_plan`/`thinking`）
-// 已按 Q-18 拍板**摘除声明**（CD05 第 1 步：只摘登记，实现文件保留观察一版再删）。
+// 已按 Q-18 拍板摘除声明，并在 CD05 观察期后删除实现文件（两步均已完成）。
 // 逐项保留理由与再评估触发条件见 P4a §2.3。
 //
 // ⚠️ 命名空间名（含 `:`，如 `office:workflow`）由运行期模块注册、键名非标识符 ⇒ 暂不入本表。

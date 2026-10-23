@@ -100,7 +100,6 @@ import { createMediaDeleteTool } from '../../src/tools/media/MediaDeleteTool';
 import { createMediaDeleteBatchTool } from '../../src/tools/media/MediaDeleteBatchTool';
 import { NotebookToolAdapter } from '../../src/tools/adapters/NotebookToolAdapter';
 import { BriefTool } from '../../src/tools/BriefTool/BriefTool';
-import { createNodesTool } from '../../src/tools/NodesTool/NodesTool';
 import { FileConvertTool } from '../../src/tools/FileConvertTool/FileConvertTool';
 import { SendMessageTool } from '../../src/tools/SendMessageTool/SendMessageTool';
 import { GlobTool as SearchGlobTool } from '../../src/tools/search/GlobTool';
@@ -1566,29 +1565,6 @@ describe('第二十一批工具出参结构（U-03）', () => {
       'summary',
       'summaryType',
     ]);
-    expect(
-      Object.keys(
-        schemaOf(tool).output_schema.properties as Record<string, unknown>
-      ).sort()
-    ).toEqual(jsonKeysOf(declared));
-  });
-
-  it('nodes：多 action 分支并集，根级仅 action 必填，status 五值枚举', () => {
-    const tool = createNodesTool();
-    const declared = tool.getInfo().outputJsonSchema!;
-
-    expect(jsonKeysOf(declared)).toEqual([
-      'action',
-      'alive',
-      'node',
-      'nodeId',
-      'nodes',
-      'status',
-    ]);
-    expect(declared.required).toEqual(['action']);
-    expect(
-      (declared.properties as Record<string, { enum?: string[] }>).status.enum
-    ).toEqual(['online', 'offline', 'busy', 'error', 'unknown']);
     expect(
       Object.keys(
         schemaOf(tool).output_schema.properties as Record<string, unknown>

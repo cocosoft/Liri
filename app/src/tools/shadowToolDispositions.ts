@@ -38,11 +38,11 @@ export interface ShadowToolDispositionEntry {
 export const SHADOW_TOOL_DISPOSITIONS: Readonly<
   Record<string, ShadowToolDispositionEntry>
 > = {
-  // ── 下线类（2026-10-23 已执行第 1 步，条目移除）─────────────────────────
+  // ── 下线类（2026-10-23 两步均已执行，条目与实现一并移除）───────────────
   // `nodes` / `session_status` / `sessions_send` / `sessions_spawn` / `update_plan` /
-  // `thinking` 的声明已按 Q-18 拍板摘除（`TOOL_NAME_CONSTANTS` 与类别/策略/UI 登记同步清理）
-  // ⇒ 它们不再出现在"声明面 − 生效面"差额中，无需再登记处置。
-  // 实现文件按 CD05 保留一个版本观察；第 2 步（删实现）为独立变更。
+  // `thinking`：第 1 步摘除声明（`TOOL_NAME_CONSTANTS` 与类别/策略/UI 登记同步清理），
+  // 第 2 步（CD05 观察期后、独立变更）删除实现文件与专用 UI
+  // ⇒ 它们既不在"声明面 − 生效面"差额中，也无实现残留。
 
   // ── 重写后接线：有真实能力，但当前实现不可用 ────────────────────────────
   agents_list: {

@@ -5,12 +5,6 @@
     "kanban",
     "mcp_auth",
     "music_generate",
-    "nodes",
-    "session_status",
-    "sessions_send",
-    "sessions_spawn",
-    "thinking",
-    "tts",
-    "update_plan"
+    "tts"
   ]
 }

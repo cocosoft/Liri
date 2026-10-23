@@ -155,8 +155,8 @@ const DEFAULT_TOOL_UI_MODULES: readonly ToolUIModuleEntry[] = [
   { module: './toolUIs/ListPeersTool/UI', names: ['list_peers'] },
   { module: './toolUIs/ClipboardTool/UI', names: ['clipboard'] },
   { module: './toolUIs/ImageTool/UI', names: ['image'] },
-  // 2026-10-23（Q-18）：`thinking` 影子工具已摘除声明 ⇒ 其专用 UI 映射移除
-  // （`toolUIs/ThinkingTool/UI` 文件随第 2 步实现删除一并清理）。
+  // 2026-10-23（Q-18）：`thinking` 影子工具已摘除声明，其专用 UI 映射与
+  // `toolUIs/ThinkingTool/UI` 文件已随第 2 步一并删除。
   { module: './toolUIs/AskUserQuestionTool/UI', names: ['ask_user_question'] },
   { module: './toolUIs/BrowserTool/UI', names: ['browser'] },
   { module: './toolUIs/CodeAnalysisTool/UI', names: ['code_analysis'] },

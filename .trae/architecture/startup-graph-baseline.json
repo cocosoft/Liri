@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "recordedAt": "2026-10-21T22:42:43.608Z",
+  "recordedAt": "2026-10-23T04:57:23.161Z",
   "entry": "src/pyapp.ts",
   "eager": {
-    "total": 283,
+    "total": 282,
     "app": {
-      "files": 233,
-      "bytes": 1514936
+      "files": 232,
+      "bytes": 1509177
     },
     "nodeModules": {
       "files": 50,
@@ -28,15 +28,15 @@
     },
     "core": {
       "files": 87,
-      "bytes": 550638
+      "bytes": 553378
     },
     "config": {
       "files": 39,
-      "bytes": 298129
+      "bytes": 298431
     },
     "performance": {
-      "files": 2,
-      "bytes": 21049
+      "files": 1,
+      "bytes": 11859
     },
     "diagnostics": {
       "files": 7,
@@ -48,7 +48,7 @@
     },
     "constants": {
       "files": 17,
-      "bytes": 56236
+      "bytes": 56625
     },
     "types": {
       "files": 2,

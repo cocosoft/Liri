@@ -127,8 +127,7 @@
     "busy": [
       "app/src/agent/models/types.ts",
       "app/src/channels/routing/messageRouter.ts",
-      "app/src/ink/ink/hooks/use-tab-status.ts",
-      "app/src/tools/NodesTool/NodesTool.ts"
+      "app/src/ink/ink/hooks/use-tab-status.ts"
     ],
     "CANCEL_REQUESTED": [
       "app/src/execution/ExecutionManager.ts",
@@ -360,8 +359,6 @@
       "app/src/tools/FewShotRegistry.ts",
       "app/src/tools/PlanTool/PlanTool.ts",
       "app/src/tools/PlanTool/schemas.ts",
-      "app/src/tools/SessionsSpawnTool/SessionsSpawnTool.ts",
-      "app/src/tools/SessionStatusTool/SessionStatusTool.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts",
       "app/src/tools/SkillTool/SkillTool.ts",
       "app/src/tools/TaskOrchestratorTools/schemas.ts",
@@ -812,12 +809,10 @@
       "app/src/tools/lsp/types/LSPTypes.ts",
       "app/src/tools/monitoring/ToolMetrics.ts",
       "app/src/tools/monitoring/ToolMonitor.ts",
-      "app/src/tools/NodesTool/NodesTool.ts",
       "app/src/tools/notebook/NotebookToolImpl.ts",
       "app/src/tools/notebook/types/index.ts",
       "app/src/tools/notebook/types/NotebookTool.ts",
       "app/src/tools/repl/types/REPLTool.ts",
-      "app/src/tools/SessionsSendTool/SessionsSendTool.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts",
       "app/src/tools/sidecar/ToolSidecarSupervisor.ts",
       "app/src/tools/SkillTool/types.ts",
@@ -1039,8 +1034,6 @@
       "app/src/tools/notebook/types/index.ts",
       "app/src/tools/notebook/types/NotebookTool.ts",
       "app/src/tools/PlanTool/PlanTool.ts",
-      "app/src/tools/SessionsSpawnTool/SessionsSpawnTool.ts",
-      "app/src/tools/SessionStatusTool/SessionStatusTool.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts",
       "app/src/tools/SkillTool/SkillTool.ts",
       "app/src/tools/TaskOrchestratorTools/schemas.ts",
@@ -1173,8 +1166,6 @@
       "app/src/sandbox/ProcessRegistry.ts",
       "app/src/tasks/LocalBashTask.ts",
       "app/src/tools/AgentsListTool/AgentsListTool.ts",
-      "app/src/tools/SessionsSpawnTool/SessionsSpawnTool.ts",
-      "app/src/tools/SessionStatusTool/SessionStatusTool.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts"
     ],
     "locked": [
@@ -1285,8 +1276,6 @@
       "app/src/tasks/cron/types.ts",
       "app/src/tools/AgentsListTool/AgentsListTool.ts",
       "app/src/tools/ChronosTool/CronStopTool.ts",
-      "app/src/tools/SessionsSpawnTool/SessionsSpawnTool.ts",
-      "app/src/tools/SessionStatusTool/SessionStatusTool.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts",
       "app/src/workspace/ProjectStore.ts",
       "app/src/workspace/types.ts"
@@ -1556,8 +1545,6 @@
       "app/src/tools/notebook/types/NotebookTool.ts",
       "app/src/tools/repl/types/REPLTool.ts",
       "app/src/tools/scheduler/ToolScheduler.ts",
-      "app/src/tools/SessionsSpawnTool/SessionsSpawnTool.ts",
-      "app/src/tools/SessionStatusTool/SessionStatusTool.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts",
       "app/src/tools/SkillTool/SkillTool.ts",
       "app/src/tools/VideoGenerateTool/VideoTaskPersistence.ts",
@@ -1811,7 +1798,6 @@
       "app/src/tools/lsp/CallHierarchy.ts",
       "app/src/tools/MCPToolClassifier.ts",
       "app/src/tools/MusicTool/MusicTool.ts",
-      "app/src/tools/NodesTool/NodesTool.ts",
       "app/src/tools/TaskTool/TaskStopTool.ts",
       "app/src/tools/ToolExecutor.ts",
       "app/src/tools/ToolInputSelfCorrector.ts",

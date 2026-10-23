@@ -1,4 +1,4 @@
-import { handleError } from '../../core/errorHandler.js';
+import { handleError } from '@modules/core/errorHandler.js';
 
 type Task<T = void> = () => Promise<T>;
 

@@ -13,9 +13,9 @@
 import { describe, expect, it } from 'bun:test';
 
 import type { ChatSession } from '../../src/session/types/session';
-import { DataSessionStatus } from '../../src/core';
-import type { Principal } from '../../src/core/identity/principal';
-import { runWithPrincipal } from '../../src/core/identity/requestScope';
+import { DataSessionStatus } from '@modules/core';
+import type { Principal } from '@modules/core/identity/principal';
+import { runWithPrincipal } from '@modules/core/identity/requestScope';
 import { SessionLifecycleManager } from '../../src/chat/services/SessionLifecycleManager';
 import type { SessionGateway } from '../../src/session/SessionGateway';
 import type { SessionAccessFacade } from '../../src/chat/services/SessionAccessFacade';

@@ -16,7 +16,7 @@ import {
   getModuleLoadMode,
   getOnDemandModuleIds,
   PURE_ACCOUNTING_ON_DEMAND_MODULES,
-} from '../../src/core/LazyModuleStrategy';
+} from '@modules/core/LazyModuleStrategy';
 import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,

@@ -17,7 +17,7 @@ import {
 } from '../../src/skills/types';
 import { SkillTool } from '../../src/tools/SkillTool/SkillTool';
 import { ToolLazyWrapper } from '../../src/tools/utils/ToolLazyWrapper';
-import { LazyModuleLoader } from '../../src/core/utils/LazyModuleLoader';
+import { LazyModuleLoader } from '@modules/core/utils/LazyModuleLoader';
 import { truncateApiMessages } from '../../src/chat/services/MessageContextPipeline';
 import type {
   Tool,

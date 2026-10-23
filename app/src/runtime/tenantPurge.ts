@@ -167,7 +167,7 @@ export async function purgeTenant(
   // 不关 ⇒ Windows 上分区目录 `rmSync` 失败（记入 blocked）。关闭失败同样记 blocked（可重跑）。
   await runStep(report, 'scopedResources', async () => {
     const { closeScopedResourcesForTenant } =
-      await import('../core/identity/scopedResources.js');
+      await import('@modules/core/identity/scopedResources.js');
     const closed = await closeScopedResourcesForTenant(normalized);
     report.removed.scopedConnections = closed.closed;
     for (const failure of closed.failed) {

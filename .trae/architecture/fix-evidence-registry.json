@@ -464,8 +464,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/spi/wiringGuard.ts",
-        "app/src/core/spi/KnowledgeService.ts"
+        "packages/kernel/src/core/spi/wiringGuard.ts",
+        "packages/kernel/src/core/spi/KnowledgeService.ts"
       ],
       "tests": [
         "app/tests/core/spiWiringOrder.test.ts"
@@ -1444,7 +1444,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/spi/SessionQualityService.ts"
+        "packages/kernel/src/core/spi/SessionQualityService.ts"
       ],
       "tests": [],
       "changelog": [
@@ -1566,7 +1566,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/spi/SessionQualityService.ts"
+        "packages/kernel/src/core/spi/SessionQualityService.ts"
       ],
       "tests": [],
       "changelog": [
@@ -1648,7 +1648,7 @@
       "code": [
         "app/src/utils/rrf.ts",
         "app/src/knowledge/KnowledgeRouter.ts",
-        "app/src/core/knowledge-types.ts",
+        "packages/kernel/src/core/knowledge-types.ts",
         "client/src/types/knowledge.ts",
         "client/src/components/Knowledge/SearchHitCard.tsx"
       ],
@@ -1881,8 +1881,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/featureFlags.ts",
-        "app/src/core/index.ts",
+        "packages/kernel/src/core/featureFlags.ts",
+        "packages/kernel/src/core/index.ts",
         "app/src/tools/utils/ToolFeatureFlags.ts",
         "app/scripts/gen-tool-names.ts",
         "app/src/constants/toolNames.generated.ts"
@@ -1999,7 +1999,7 @@
       "code": [
         "app/src/tools/utils/ToolManagerUtils.ts",
         "app/src/tools/ToolFactory.ts",
-        "app/src/core/featureFlags.ts",
+        "packages/kernel/src/core/featureFlags.ts",
         "app/docs/CORE_MODULES.md",
         ".trae/specs/workflow-definition-externalization.md",
         ".trae/specs/workflow-template-persistence.md"
@@ -2117,7 +2117,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/LazyModuleStrategy.ts",
+        "packages/kernel/src/core/LazyModuleStrategy.ts",
         "app/src/modules/ModuleInitializer.ts"
       ],
       "tests": [],
@@ -2142,7 +2142,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/featureFlags.ts",
+        "packages/kernel/src/core/featureFlags.ts",
         "app/src/bootstrap/generatedVariantFlags.ts",
         "app/scripts/build-variant.ts",
         "app/src/constants/toolNames.generated.ts",
@@ -2206,7 +2206,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/featureFlags.ts",
+        "packages/kernel/src/core/featureFlags.ts",
         "app/src/tools/utils/ToolManagerUtils.ts"
       ],
       "tests": [
@@ -2825,8 +2825,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/spi/GatewayService.ts",
-        "app/src/core/spi/index.ts",
+        "packages/kernel/src/core/spi/GatewayService.ts",
+        "packages/kernel/src/core/spi/index.ts",
         "app/src/channels/gateway/OutboundGatewayPortAdapter.ts",
         "app/src/entrypoints/spiWiring.ts"
       ],
@@ -2855,8 +2855,8 @@
       },
       "code": [
         "app/src/channels/routing/messageRouterContract.ts",
-        "app/src/core/spi/InboundGatewayService.ts",
-        "app/src/core/spi/index.ts",
+        "packages/kernel/src/core/spi/InboundGatewayService.ts",
+        "packages/kernel/src/core/spi/index.ts",
         "app/src/channels/gateway/InboundGatewayPortAdapter.ts"
       ],
       "tests": [
@@ -3066,8 +3066,8 @@
         "app/src/execution/executionProjection.ts",
         "app/src/execution/index.ts",
         "app/src/execution/ExecutionManager.ts",
-        "app/src/core/events/EventBus.ts",
-        "app/src/core/featureFlags.ts"
+        "packages/kernel/src/core/events/EventBus.ts",
+        "packages/kernel/src/core/featureFlags.ts"
       ],
       "tests": [
         "app/tests/execution/executionProjection.test.ts",
@@ -3181,7 +3181,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/featureFlags.ts",
+        "packages/kernel/src/core/featureFlags.ts",
         "app/src/tools/sidecar/ToolSidecarSupervisor.ts",
         "app/src/tools/sidecar/lspSidecar.ts",
         "app/src/tools/sidecar/toolSidecarLifecycle.ts",
@@ -3370,7 +3370,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/pricing.ts",
+        "packages/kernel/src/core/pricing.ts",
         "app/src/cost/ModelPricing.ts",
         "app/src/query/modelPricingAdapter.ts",
         "app/src/query/index.ts"
@@ -3496,7 +3496,7 @@
       "code": [
         "app/src/tokenBudget/PriceManager.ts",
         "app/src/ai/prompts/PromptCacheManager.ts",
-        "app/src/core/pricing.ts"
+        "packages/kernel/src/core/pricing.ts"
       ],
       "tests": [
         "app/tests/cost/fallbackPricingSingleSource.test.ts"
@@ -3533,7 +3533,7 @@
         "app/src/infrastructure/http/handlers/session-continue-handler.ts",
         "app/src/infrastructure/http/handlers/routes/chat-session-routes.ts",
         "app/src/infrastructure/http/handlers/daily-budget-handlers.ts",
-        "app/src/core/featureFlags.ts",
+        "packages/kernel/src/core/featureFlags.ts",
         "app/src/query/index.ts"
       ],
       "tests": [
@@ -3611,7 +3611,7 @@
         "app/src/chat/manager/sessionTeardown.ts",
         "app/src/chat/orchestrator/ChatOrchestrator.ts",
         "app/src/chat/orchestrator/streamMessageToolLoopContext.ts",
-        "app/src/core/featureFlags.ts",
+        "packages/kernel/src/core/featureFlags.ts",
         "app/src/infrastructure/http/index.ts",
         "app/src/infrastructure/http/handlers/checkpoint-handlers.ts",
         "app/src/infrastructure/http/handlers/chat-handlers.ts",
@@ -3727,7 +3727,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/featureFlags.ts",
+        "packages/kernel/src/core/featureFlags.ts",
         "app/src/execution/preparedSnapshot.ts",
         "app/src/execution/index.ts",
         "app/src/session/types/message/options.ts",
@@ -3882,7 +3882,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/spi/InboundGatewayService.ts"
+        "packages/kernel/src/core/spi/InboundGatewayService.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -3992,7 +3992,7 @@
       },
       "code": [
         "app/src/query/toolJobSuspend.ts",
-        "app/src/core/spi/ToolJobSuspendService.ts",
+        "packages/kernel/src/core/spi/ToolJobSuspendService.ts",
         "app/src/tools/sidecar/mediaSidecar.ts",
         "app/src/tools/sidecar/SidecarMediaAnalyzer.ts",
         "app/src/tools/ImageAnalysisTool/ImageAnalysisTool.ts",
@@ -4108,8 +4108,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/endpoints.ts",
-        "app/src/core/index.ts",
+        "packages/kernel/src/core/endpoints.ts",
+        "packages/kernel/src/core/index.ts",
         "app/src/ai/providers/OllamaProvider.ts",
         "app/src/channels/wechat/WechatChannel.ts",
         "app/src/constants/oauth.ts",
@@ -4120,7 +4120,7 @@
       ],
       "changelog": [],
       "reopenWhen": "① 任一常量被移出 `core/endpoints.ts` 或取值被改（守卫 ①/② 会红）；② `app/src` 下新增含 `http://localhost:11434` / `.../11434/v1` / `http://localhost:7600` 字面量的文件（守卫 ② 会红）；③ 13 个 A6 文…（全文见 archive/evidence-detail.jsonl#HARDCODE-HDP0-2-ENDPOINTS）",
-      "notes": "**目标**：把「同一事实源的端点 / host 字面量散落多处」收敛为 `core/endpoints.ts` 单一定义（方案 §4.1 A1·A3·A4·A6）；**同值搬运、零语义变更**（§7.1 总原则 1）。**新增文件** `app/src/core/endpoints.ts`：`LOCAL_HTTP_…（全文见 archive/evidence-detail.jsonl#HARDCODE-HDP0-2-ENDPOINTS）"
+      "notes": "**目标**：把「同一事实源的端点 / host 字面量散落多处」收敛为 `core/endpoints.ts` 单一定义（方案 §4.1 A1·A3·A4·A6）；**同值搬运、零语义变更**（§7.1 总原则 1）。**新增文件** `packages/kernel/src/core/endpoints.ts`：…（全文见 archive/evidence-detail.jsonl#HARDCODE-HDP0-2-ENDPOINTS）"
     },
     {
       "id": "DEBT4-USD-ENDPOINT-IO",
@@ -4200,7 +4200,7 @@
       "code": [
         "app/src/query/dailyBudgetGate.ts",
         "app/src/query/dailyBudgetSnapshot.ts",
-        "app/src/core/featureFlags.ts",
+        "packages/kernel/src/core/featureFlags.ts",
         "app/src/chat/orchestrator/preSendContextProtection.ts",
         "app/src/chat/orchestrator/sendMessageFlow.ts",
         "app/src/tasks/LongRunningTaskOrchestrator.ts"
@@ -4255,7 +4255,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/paths.ts",
+        "packages/kernel/src/core/paths.ts",
         "app/src/constants/common.ts",
         "app/src/workspace/LiriConfigManager.ts",
         "app/src/workspace/RuleEngine.ts",
@@ -5630,8 +5630,8 @@
       "code": [
         "app/src/cost/DailyCostCache.ts",
         "app/src/tasks/CrossProcessLock.ts",
-        "app/src/core/cache/SessionCache.ts",
-        "app/src/core/approval/ApprovalCache.ts",
+        "packages/kernel/src/core/cache/SessionCache.ts",
+        "packages/kernel/src/core/approval/ApprovalCache.ts",
         "app/src/memory/FrozenSnapshotService.ts",
         "app/src/media/image/TempFileManager.ts",
         "app/src/permission/ApprovedCommandRegistry.ts",
@@ -5986,7 +5986,7 @@
       },
       "code": [
         "app/src/acp/session.ts",
-        "app/src/core/idle/IdleScaleMonitor.ts",
+        "packages/kernel/src/core/idle/IdleScaleMonitor.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -6463,8 +6463,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/protocol/websocket.ts",
-        "app/src/core/index.ts",
+        "packages/kernel/src/core/protocol/websocket.ts",
+        "packages/kernel/src/core/index.ts",
         "app/src/acp/websocket.ts",
         "app/src/voice/upgrade.ts",
         "app/src/voice/WakeWebSocketServer.ts",
@@ -6584,8 +6584,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/ids.ts",
-        "app/src/core/index.ts",
+        "packages/kernel/src/core/ids.ts",
+        "packages/kernel/src/core/index.ts",
         "app/src/ai/modelRouter.ts",
         "app/src/ai/models/orphanModels.ts",
         "app/src/infrastructure/http/handlers/chat-handlers.ts",
@@ -7315,7 +7315,7 @@
       },
       "code": [
         "app/src/query/DailyBudgetManager.ts",
-        "app/src/core/featureFlags.ts"
+        "packages/kernel/src/core/featureFlags.ts"
       ],
       "tests": [
         "app/tests/budget/dailyBudgetUsdRestore.test.ts"
@@ -10297,7 +10297,7 @@
         "app/src/channels/routing/messageRouterContract.ts",
         "app/src/channels/routing/streamConsumption.ts",
         "app/src/channels/setupChannels.ts",
-        "app/src/core/featureFlags.ts"
+        "packages/kernel/src/core/featureFlags.ts"
       ],
       "tests": [
         "app/tests/channels/pendingQuestions.test.ts"
@@ -10741,7 +10741,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/mediaRoots.ts",
+        "packages/kernel/src/core/mediaRoots.ts",
         ".trae/architecture/hardcode-gate-baseline.json",
         ".trae/architecture/hardcode-progress.json"
       ],
@@ -10793,8 +10793,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/approval/ApprovalCache.ts",
-        "app/src/core/cache/SessionCache.ts",
+        "packages/kernel/src/core/approval/ApprovalCache.ts",
+        "packages/kernel/src/core/cache/SessionCache.ts",
         "app/src/dream/DreamPersistence.ts",
         "app/src/execution/ExecutionManager.ts"
       ],
@@ -11308,7 +11308,7 @@
       },
       "code": [
         "client/src/services/endpoints.ts",
-        "app/src/core/endpoints.ts",
+        "packages/kernel/src/core/endpoints.ts",
         "client/src/config/providerPresets.ts",
         "client/src/components/settings/OllamaConfigPanel.tsx",
         "client/src/services/backendUrl.ts",
@@ -11337,7 +11337,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/endpoints.ts",
+        "packages/kernel/src/core/endpoints.ts",
         "app/src/ai/providers/providerPresetsData.ts",
         "app/src/ai/providers/LlamaCppProvider.ts",
         "app/src/ai/providers/ComfyUIProvider.ts",
@@ -11366,7 +11366,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/endpoints.ts",
+        "packages/kernel/src/core/endpoints.ts",
         "app/src/ai/api/PricingAPI.ts",
         "app/src/ai/api/CapabilitiesAPI.ts",
         "app/src/ai/api/ProviderAPI.ts",
@@ -11395,7 +11395,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/endpoints.ts",
+        "packages/kernel/src/core/endpoints.ts",
         "app/src/bridge/ModuleBridgeSetup.ts",
         "app/src/channels/webhook/WebhookChannel.ts",
         "app/src/channels/webhook/config-schema.ts",
@@ -11427,7 +11427,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/endpoints.ts",
+        "packages/kernel/src/core/endpoints.ts",
         "app/src/cli/handlers/authHandler.ts",
         "app/src/constants/product.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -11482,7 +11482,7 @@
       },
       "code": [
         "app/src/infrastructure/http/handlers/",
-        "app/src/core/endpoints.ts",
+        "packages/kernel/src/core/endpoints.ts",
         "app/src/system/auth/auth-code-listener.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -11508,7 +11508,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/providerEndpoints.ts",
+        "packages/kernel/src/core/providerEndpoints.ts",
         "app/src/ai/providers/providerPresetsData.ts",
         "app/src/plugins/provider/ProviderDiscovery.ts",
         "scripts/lint-consts.ts"
@@ -11535,7 +11535,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/providerEndpoints.ts",
+        "packages/kernel/src/core/providerEndpoints.ts",
         "app/src/ai/providers/providerPresetsData.ts",
         "client/src/services/endpoints.ts",
         "client/src/config/providerPresets.ts",
@@ -11690,7 +11690,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/core/events/OrchestrationMetrics.ts"
+        "packages/kernel/src/core/events/OrchestrationMetrics.ts"
       ],
       "tests": [
         "app/tests/core/OrchestrationMetrics.test.ts"

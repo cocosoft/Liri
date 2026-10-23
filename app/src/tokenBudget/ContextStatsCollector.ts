@@ -6,7 +6,7 @@
 import { priceManager } from './PriceManager';
 import type { ContextCategory, ContextStats, APIProviderType } from './types';
 
-import { handleError } from '../core/errorHandler.js';
+import { handleError } from '@modules/core/errorHandler.js';
 
 const CONTEXT_COLORS = {
   systemPrompt: '#4A90D9',

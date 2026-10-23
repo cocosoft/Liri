@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "kernelRoot": "app/src/core",
-  "fileCount": 146,
+  "kernelRoot": "packages/kernel/src/core",
+  "fileCount": 145,
   "symbolCount": 1364,
   "entries": [
     {

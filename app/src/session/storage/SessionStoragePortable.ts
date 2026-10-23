@@ -10,7 +10,7 @@
 
 // C1（2026-10-09）：临时文件后缀熵源改用 crypto；
 // 直连 `core/ids`（仅依赖 node:crypto）—— 保持本文件"零 Liri 内部依赖"的可移植契约
-import { randomIdSuffix } from '../../core/ids';
+import { randomIdSuffix } from '@modules/core/ids';
 import {
   mkdirSync,
   existsSync,

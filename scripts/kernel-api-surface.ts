@@ -36,7 +36,7 @@ const repoRoot = process.env['KAS_REPO_ROOT']
   : resolve(import.meta.dir, '..');
 const kernelRoot = process.env['KAS_KERNEL_ROOT']
   ? resolve(process.env['KAS_KERNEL_ROOT'])
-  : resolve(repoRoot, 'app/src/core');
+  : resolve(repoRoot, 'packages/kernel/src/core');
 const SNAPSHOT = process.env['KAS_SNAPSHOT']
   ? resolve(process.env['KAS_SNAPSHOT'])
   : resolve(repoRoot, '.trae/architecture/kernel-api-surface.json');

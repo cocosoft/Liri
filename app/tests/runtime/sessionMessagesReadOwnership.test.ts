@@ -14,8 +14,8 @@ import { SessionMessagesRead } from '../../src/runtime/api/sessionMessagesRead.j
 import type { EventLogStorage } from '@modules/session';
 import type { ChatManager } from '@modules/chat';
 import type { SessionManager } from '../../src/session/types/session.js';
-import type { Principal } from '../../src/core/identity/principal';
-import { runWithPrincipal } from '../../src/core/identity/requestScope';
+import type { Principal } from '@modules/core/identity/principal';
+import { runWithPrincipal } from '@modules/core/identity/requestScope';
 
 const SID = 'session_owner_read_test';
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };

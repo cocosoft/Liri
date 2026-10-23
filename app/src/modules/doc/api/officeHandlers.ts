@@ -5,9 +5,9 @@
 
 import type http from 'http';
 import type { EmailAccount } from '../../mail/types';
-import { getLogger } from '../../../core/loggerFacade.js';
-import { handleError } from '../../../core/errorHandler.js';
-import { LOCAL_SERVICE_HOST } from '../../../core/endpoints.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
+import { handleError } from '@modules/core/errorHandler.js';
+import { LOCAL_SERVICE_HOST } from '@modules/core/endpoints.js';
 
 const logger = getLogger('doc:api');
 

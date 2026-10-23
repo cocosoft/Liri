@@ -14,7 +14,7 @@ import {
   getOutputGuardRegistry,
   resetOutputGuardRegistryForTest,
   runRegisteredOutputGuards,
-} from '../../src/core/outputGuard';
+} from '@modules/core/outputGuard';
 import { createSensitiveContentGuard } from '../../src/chat/outputGuards/sensitiveContentGuard';
 
 /** 命中 `redactSecretsFully` 规则表的假密钥形态（sk- 前缀 + 长值；固定假值，非真实凭据） */

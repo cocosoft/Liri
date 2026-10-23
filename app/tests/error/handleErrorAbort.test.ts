@@ -39,7 +39,7 @@ import {
   isAbortReason,
   markAsExpectedAbort,
 } from '../../src/error/abortReason';
-import { globalEventBus } from '../../src/core/events/EventBus';
+import { globalEventBus } from '@modules/core/events/EventBus';
 
 /** 订阅 error:occurred，按 message 过滤（隔离安全） */
 function trackPublishedMessage(tag: string): {

@@ -19,7 +19,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { setUserDataDirOverride } from '../../src/core/paths.js';
+import { setUserDataDirOverride } from '@modules/core/paths.js';
 import { AuthUserStore } from '../../src/infrastructure/http/auth/AuthUserStore.js';
 import {
   __setAuthUserStoreForTest,

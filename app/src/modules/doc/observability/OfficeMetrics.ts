@@ -4,7 +4,7 @@
  * 接入现有 MonitorTool 接口
  */
 
-import { getLogger } from '../../../core/loggerFacade.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 const logger = getLogger('doc:observability');
 
 /** 轻量级 Counter（不依赖外部 metrics 库） */

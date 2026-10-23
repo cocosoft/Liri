@@ -20,7 +20,7 @@ import {
 import type {
   IToolJobSuspendPort,
   ToolJobSuspendRegisterResult,
-} from '../../../src/core/spi';
+} from '@modules/core/spi';
 
 const MEDIA_FLAG = 'FEATURE_TOOL_SIDECAR_MEDIA';
 const JOB_FLAG = 'FEATURE_TOOL_JOB_SUSPEND';

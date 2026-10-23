@@ -35,7 +35,7 @@ import {
 } from './loop-config.js';
 // LRO-17：进入 `locked` 时发一次 ALERT，经既有 AlertBridge（订阅 `alert:triggered`）路由，
 // 避免长程任务被日限额**静默**腰斩。
-import { globalEventBus } from '../core/events/EventBus.js';
+import { globalEventBus } from '@modules/core/events/EventBus.js';
 // 债四 D1/S3（2026-10-15）：USD 轨是否启用决定**主口径**（金额 vs Token）⇒ 需读功能开关。
 import { feature } from '@modules/core';
 // D-k（2026-10-11）：快照形状/格式化取自**叶子模块**（零依赖 ⇒ 不构成与闸门的循环导入）。

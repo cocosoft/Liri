@@ -14,8 +14,8 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import type { Principal } from '../../src/core/identity/principal';
-import { runWithPrincipal } from '../../src/core/identity/requestScope';
+import type { Principal } from '@modules/core/identity/principal';
+import { runWithPrincipal } from '@modules/core/identity/requestScope';
 import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
 
 const ALICE: Principal = {

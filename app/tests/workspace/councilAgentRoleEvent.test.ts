@@ -15,7 +15,7 @@ import { OrchestrationEventType as E } from '@modules/types/orchestrationEvents'
 import {
   globalEventBus,
   type EventSubscription,
-} from '../../src/core/events/EventBus';
+} from '@modules/core/events/EventBus';
 import { CouncilEngine } from '../../src/workspace/CouncilEngine';
 import type { CouncilAgentRole } from '../../src/workspace/CouncilTypes';
 

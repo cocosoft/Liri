@@ -25,8 +25,10 @@
     "jsx": "react-jsx",
     "paths": {
       "src/*": ["*"],
-      "@modules/core": ["core"],
-      "@modules/core/*": ["core/*"],
+      "@openliri/kernel": ["../../packages/kernel/src"],
+      "@openliri/kernel/*": ["../../packages/kernel/src/core/*"],
+      "@modules/core": ["../../packages/kernel/src/core"],
+      "@modules/core/*": ["../../packages/kernel/src/core/*"],
       "@modules/constants": ["constants"],
       "@modules/constants/*": ["constants/*"],
       "@modules/plugin-sdk": ["plugin-sdk"],
@@ -169,6 +171,6 @@
       "@shared/*": ["../../shared/*"]
     }
   },
-  "include": ["src/**/*", "tests/**/*"],
+  "include": ["src/**/*", "tests/**/*", "../packages/kernel/src/**/*"],
   "exclude": ["node_modules", "dist", "packages", "src/**/__tests__", "src/**/tests", "src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*ModuleTest.ts"]
 }

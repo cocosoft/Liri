@@ -14,9 +14,9 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import {
   createOrchestrationMetrics,
   type OrchestrationMetrics,
-} from '../../src/core/events/OrchestrationMetrics.js';
-import { globalEventBus } from '../../src/core/events/EventBus.js';
-import { OrchestrationEventPairer } from '../../src/core/events/orchestrationPairing.js';
+} from '@modules/core/events/OrchestrationMetrics.js';
+import { globalEventBus } from '@modules/core/events/EventBus.js';
+import { OrchestrationEventPairer } from '@modules/core/events/orchestrationPairing.js';
 import { OrchestrationEventType as E } from '@modules/types/orchestrationEvents';
 
 interface LatencySample {

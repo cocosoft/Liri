@@ -72,7 +72,7 @@ const ASSERTIONS = [
         id: 'pattern-registry-no-stale-debt',
         why: '`PatternRegistry` 必须保持 D4 订正版（描述层与选择层已一致）；旧措辞「已登记为预存语义债」若复现即为漂移回归',
         code: {
-            file: 'app/src/core/patterns/PatternRegistry.ts',
+            file: 'packages/kernel/src/core/patterns/PatternRegistry.ts',
             // 正向：订正后的表述在位（引用原文时含「仍返回本 pattern」字样，故不能只做负向匹配）
             contains: /矛盾\*\*已解除\*\*/,
             // 负向：旧陈述的**结论句**（订正版写作「原"预存语义债"消除」，故该短语仅存在于旧版）
@@ -199,7 +199,7 @@ const SAFETY_ASSERTIONS = SAFETY_SWITCHES.map((s) => ({
     id: `safety-switch-default-${s.name}`,
     why: `安全相关开关默认值须与 project_rules.md §1.4 清单一致（R07-2）—— ${s.why}`,
     code: {
-        file: 'app/src/core/featureFlags.ts',
+        file: 'packages/kernel/src/core/featureFlags.ts',
         contains: new RegExp(`^\\s*${s.name}:\\s*${s.def},`, 'm'),
     },
     docs: [
@@ -241,7 +241,7 @@ const REGISTRATION_ASSERTIONS = [
         id: `default-off-registered-${name}`,
         why: `默认关项必须在触发条件登记表有条目（防"永久搁置"）—— ${name}`,
         code: {
-            file: 'app/src/core/featureFlags.ts',
+            file: 'packages/kernel/src/core/featureFlags.ts',
             contains: new RegExp(`^\\s*${name}:\\s*false,`, 'm'),
         },
         docs: [

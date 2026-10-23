@@ -87,7 +87,7 @@ describe('状态机定义目录（阶段 1 / 1.3）', () => {
       true
     );
     expect(findStateMachine('task')?.sourceFile).toBe(
-      'app/src/core/taskStatus.ts'
+      'packages/kernel/src/core/taskStatus.ts'
     );
   });
 

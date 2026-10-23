@@ -36,7 +36,7 @@ import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // 改用进程内共享的 ChatManager ⇒ 文件内容发往**当前活跃会话**
 // （与「将文件内容作为消息发送给AI」的语义一致）。
 // 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
-import { SandboxPermission } from '../../../core/sandboxPermission.js';
+import { SandboxPermission } from '@modules/core/sandboxPermission.js';
 
 // ========== File Upload Handlers ==========
 

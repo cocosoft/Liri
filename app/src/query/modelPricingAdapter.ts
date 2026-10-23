@@ -24,7 +24,7 @@ import {
   DEFAULT_MODEL_PRICING,
   projectRegistryPricing,
   type ModelPricing,
-} from '../core/pricing.js';
+} from '@modules/core/pricing.js';
 
 /** 模型名 → 注册表定价 DTO 的取价端口（默认经 core SPI；测试可注入假价） */
 export type ModelPricingLookup = (

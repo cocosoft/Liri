@@ -19,7 +19,7 @@ import {
   setUserDataDirOverride,
   resolveDataDir,
   resolveOnboardedFlagPath,
-} from '../../src/core/paths.js';
+} from '@modules/core/paths.js';
 import { checkFirstRunAndOnboard } from '../../src/bootstrap/preflight.js';
 
 let root: string;

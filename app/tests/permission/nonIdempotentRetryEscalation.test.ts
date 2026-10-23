@@ -19,7 +19,7 @@ import { PermissionMode } from '../../src/permission/PermissionMode.js';
 import { PermissionBehavior } from '../../src/permission/types/PermissionRule.js';
 import { inboxManager } from '../../src/runtime/InboxManager.js';
 import { unattendedMode } from '../../src/runtime/UnattendedModeManager.js';
-import { resolvePermissionsDir } from '../../src/core/paths.js';
+import { resolvePermissionsDir } from '@modules/core/paths.js';
 // D-126 起 `permission/*` 的 runtime 依赖为**入口注入**；测试绕过入口 ⇒ 显式注入
 // （`app/tests/**` 不在门禁扫描根 `app/src` 内，此处跨层导入不触发架构规则）
 import { setPermissionRuntimeDeps } from '../../src/permission/PermissionChecker.js';

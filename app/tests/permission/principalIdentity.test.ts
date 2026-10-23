@@ -16,7 +16,7 @@ import {
   normalizePrincipal,
   principalToPermissionContext,
   resolveEffectiveRole,
-} from '../../src/core/identity/principal';
+} from '@modules/core/identity/principal';
 
 describe('Principal：规范化', () => {
   it('缺失 / null ⇒ 本地身份（不编造租户）', () => {

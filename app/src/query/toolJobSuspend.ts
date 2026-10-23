@@ -48,7 +48,7 @@ import { getLogger } from '@modules/monitoring';
 import type {
   IToolJobSuspendPort,
   ToolJobSuspendRegisterResult,
-} from '../core/spi/ToolJobSuspendService.js';
+} from '@modules/core/spi/ToolJobSuspendService.js';
 import { publishStateProjection } from '../state/engine/projectionBroker.js';
 import {
   getBudgetSuspendCoordinator,

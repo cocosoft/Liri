@@ -19,7 +19,7 @@ import {
   getMandatoryTools,
   isMandatoryTool,
 } from '../../src/tools/toolCategories';
-import { feature } from '../../src/core/featureFlags';
+import { feature } from '@modules/core/featureFlags';
 
 const ENV_KEYS = ['FEATURE_AGENT', 'FEATURE_TODO'] as const;
 

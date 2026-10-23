@@ -28,9 +28,17 @@
  * 本文件保留同名转出 ⇒ `@modules/error` 与 `@modules/error/types` 对外符号逐字不变。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/core/errors.js';
 
-export { AppError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
+export {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/core/errors.js';
 
 /**
  * 网络错误类

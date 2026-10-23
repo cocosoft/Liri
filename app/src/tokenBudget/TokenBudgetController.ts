@@ -42,7 +42,7 @@ import { UNIFIED_THRESHOLDS } from './thresholds';
 import type { APIProviderType, ContextStats, TokenUsage } from './types';
 // 2026-10-01 D-144：原直接 import `@modules/ai/tokenizer/TokenEstimator`（core → app 倒挂）
 // ⇒ 改为 **DI**：估算器由调用方注入（见下方 `TokenEstimatorFn`），core 不再依赖上层。
-import { getLogger } from '../core/loggerFacade.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 /** 注入式 token 估算器（DI，2026-10-01 D-144）：core 不依赖上层 `ai/tokenizer` ⇒ 由调用方注入精确实现 */
 export type TokenEstimatorFn = (text: string) => number;
 

@@ -16,8 +16,8 @@ import {
   markSpiRegistered,
   requireSpiDependencies,
   resetSpiRegistryForTest,
-} from '../../src/core/spi/wiringGuard.js';
-import { registerKnowledgeSpi } from '../../src/core/spi/KnowledgeService.js';
+} from '@modules/core/spi/wiringGuard.js';
+import { registerKnowledgeSpi } from '@modules/core/spi/KnowledgeService.js';
 
 /** DI 容器最小替身（仅需 `registerDescriptor`） */
 const container = { registerDescriptor: () => {} } as never;

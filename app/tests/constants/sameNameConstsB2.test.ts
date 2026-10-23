@@ -25,6 +25,9 @@ import {
 
 const APP = resolve(import.meta.dir, '../..');
 const read = (rel: string) => readFileSync(join(APP, rel), 'utf8');
+/** 内核已物理迁出 `app/src/core` ⇒ 仓库根 `packages/kernel/src/core`（方案 §4-P4） */
+const KERNEL = resolve(APP, '..', 'packages', 'kernel', 'src', 'core');
+const readKernel = (rel: string) => readFileSync(join(KERNEL, rel), 'utf8');
 
 describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('ANSI_RESET 真源存在、取值钉住、并声明为唯一真源', () => {
@@ -418,12 +421,12 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       ['src/cost/DailyCostCache.ts', 'DAILY_COST_CACHE_TTL_MS', '60_000'],
       ['src/tasks/CrossProcessLock.ts', 'CROSS_PROCESS_LOCK_TTL_MS', '60_000'],
       [
-        'src/core/cache/SessionCache.ts',
+        '../packages/kernel/src/core/cache/SessionCache.ts',
         'SESSION_CACHE_TTL_MS',
         '5 * 60 * 1000',
       ],
       [
-        'src/core/approval/ApprovalCache.ts',
+        '../packages/kernel/src/core/approval/ApprovalCache.ts',
         'APPROVAL_CACHE_TTL_MS',
         '5 * 60 * 1000',
       ],
@@ -804,7 +807,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const items: Array<[string, string, string]> = [
       ['src/acp/session.ts', 'ACP_SESSION_IDLE_TIMEOUT_MS', '30 * 60 * 1000'],
       [
-        'src/core/idle/IdleScaleMonitor.ts',
+        '../packages/kernel/src/core/idle/IdleScaleMonitor.ts',
         'IDLE_SCALE_TIMEOUT_MS',
         '30 * 60_000',
       ],
@@ -964,7 +967,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${name} = ${value};`);
     }
     // 同族**非本键**名仍在（不得误伤）：`DEFAULT_ROOT_CAUSE_MAX_DEPTH`（systemgraph 导出真源）
-    expect(read('src/core/systemgraph/SystemGraph.ts')).toContain(
+    expect(readKernel('systemgraph/SystemGraph.ts')).toContain(
       'export const DEFAULT_ROOT_CAUSE_MAX_DEPTH = 5;'
     );
     // tests 侧同名局部别名一并消歧（非门禁扫描面，但全仓不再有同名定义）
@@ -1232,14 +1235,14 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
 
   test('B5-2㉘：`MAGIC_GUID` 已合一到 core 层真源（RFC 6455；取值一字未改）', () => {
     // 真源：core 层（纯常量、零 import ⇒ 满足 core 只依赖 core）
-    const src = read('src/core/protocol/websocket.ts');
+    const src = readKernel('protocol/websocket.ts');
     expect(src).toContain(
       "export const WEBSOCKET_MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';"
     );
     expect(src).toContain("export const SEC_WEBSOCKET_VERSION = '13';");
     expect(src).not.toMatch(/^import /m); // 零 import（不读 config / 不引上层）
     // 规范出口（R03-002）：经 core barrel 导出
-    expect(read('src/core/index.ts')).toContain(
+    expect(readKernel('index.ts')).toContain(
       "export * from './protocol/websocket';"
     );
     // 4 处副本全部改为引用真源（含曾 `export` 的 acp，其**零消费者** ⇒ 一并收掉导出）
@@ -1337,13 +1340,13 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('B5-2㉛：`UUID_RE` 已合一到 core 层真源（8 份同值副本 → 1；取值一字未改）', () => {
     // 真源：core 层 `core/ids.ts`（归属 core ⇒ 各层可引用；`core → infra` 倒挂禁止）
     // 实测原为 8 份副本（2 `const` + 6 内联，内联对 `lint:consts` 不可见）且取值逐字相同 ⇒ 合一
-    const truth = read('src/core/ids.ts');
+    const truth = readKernel('ids.ts');
     expect(truth).toContain('export const UUID_RE =');
     expect(truth).toContain(
       '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;'
     );
     // 规范出口（R03-002）：经 core barrel 导出
-    expect(read('src/core/index.ts')).toContain("export * from './ids';");
+    expect(readKernel('index.ts')).toContain("export * from './ids';");
     // 7 个消费文件：不再有本地 `const UUID_RE` / 内联正则，一律引用真源
     const consumers = [
       'src/ai/models/orphanModels.ts',

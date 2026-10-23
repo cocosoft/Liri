@@ -13,9 +13,9 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { setUserDataDirOverride } from '../../src/core/paths.js';
-import { runWithPrincipal } from '../../src/core/identity/requestScope.js';
-import type { Principal } from '../../src/core/identity/principal.js';
+import { setUserDataDirOverride } from '@modules/core/paths.js';
+import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
+import type { Principal } from '@modules/core/identity/principal.js';
 import { trackUsage } from '../../src/ai/UsageTracker.js';
 import { getLLMTracker } from '../../src/monitoring/llm/getLLMTracker.js';
 

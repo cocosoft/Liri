@@ -33,4 +33,4 @@ export {
   SYSTEM_ABORT_BRAND,
   markAsExpectedAbort,
   isAbortReason,
-} from '../core/abortReason.js';
+} from '@modules/core/abortReason.js';

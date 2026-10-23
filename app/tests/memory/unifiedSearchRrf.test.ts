@@ -31,7 +31,7 @@ import type { MemorySearchProvider } from '../../src/memory/services/UnifiedSear
 import type {
   IKnowledgeSearch,
   KnowledgeRoute,
-} from '../../src/core/knowledge-types';
+} from '@modules/core/knowledge-types';
 import { createMemory } from '../../src/memory/types/Memory';
 import type { Memory } from '../../src/memory/types/Memory';
 import { createMemoryMetadata } from '../../src/memory/types/MemoryMetadata';

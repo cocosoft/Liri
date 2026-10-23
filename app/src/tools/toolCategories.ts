@@ -17,8 +17,8 @@
 import { toWireToolName } from './toolNameCodec';
 import type { ToolNameConstant } from './toolNameConstants';
 import { getLogger } from '@modules/monitoring';
-import { feature } from '../core/featureFlags';
-import type { FeatureFlag } from '../core/featureFlags';
+import { feature } from '@modules/core/featureFlags';
+import type { FeatureFlag } from '@modules/core/featureFlags';
 
 const logger = getLogger('tools:categories');
 

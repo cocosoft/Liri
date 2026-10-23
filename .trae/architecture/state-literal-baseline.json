@@ -46,8 +46,6 @@
       "app/src/components/ui/Steps.tsx",
       "app/src/components/ui/Wizard.tsx",
       "app/src/context/LifecycleManager.ts",
-      "app/src/core/connections/ConnectionRegistry.ts",
-      "app/src/core/data-models.ts",
       "app/src/daemon/service/DaemonService.ts",
       "app/src/docs/DocumentVersionService.ts",
       "app/src/infrastructure/http/handlers/routes/goal-routes.ts",
@@ -85,7 +83,9 @@
       "app/src/voice/VoiceSession.ts",
       "app/src/workspace/ProjectStore.ts",
       "app/src/workspace/TaskStore.ts",
-      "app/src/workspace/types.ts"
+      "app/src/workspace/types.ts",
+      "packages/kernel/src/core/connections/ConnectionRegistry.ts",
+      "packages/kernel/src/core/data-models.ts"
     ],
     "ADMITTED": [
       "app/src/channels/dedup/index.ts"
@@ -146,8 +146,6 @@
       "app/src/commands/tools/task/task.ts",
       "app/src/config/enterprise/audit/ApprovalWorkflow.ts",
       "app/src/config/enterprise/audit/ExecApprovalManager.ts",
-      "app/src/core/events/UiEvents.ts",
-      "app/src/core/node-host/types.ts",
       "app/src/governance/types/GovernanceTypes.ts",
       "app/src/hooks/managers/ToolHookManager.ts",
       "app/src/hooks/types/ToolHooks.ts",
@@ -186,7 +184,9 @@
       "app/src/workspace/TaskStore.ts",
       "app/src/workspace/types.ts",
       "app/src/workspace/WorkflowTemplateProvider.ts",
-      "app/src/workspace/workflowTemplateRunner.ts"
+      "app/src/workspace/workflowTemplateRunner.ts",
+      "packages/kernel/src/core/events/UiEvents.ts",
+      "packages/kernel/src/core/node-host/types.ts"
     ],
     "CANCELLED": [
       "app/src/execution/ExecutionManager.ts",
@@ -244,13 +244,6 @@
       "app/src/components/ui/toolUIs/TodoWriteTool/UI.tsx",
       "app/src/components/ui/Wizard.tsx",
       "app/src/context/promptSections/builtinSections.ts",
-      "app/src/core/Coordinator.ts",
-      "app/src/core/data-models.ts",
-      "app/src/core/events/UiEvents.ts",
-      "app/src/core/node-host/NodeRunner.ts",
-      "app/src/core/node-host/types.ts",
-      "app/src/core/phases/PhaseVocabulary.ts",
-      "app/src/core/spi/TaskRegistryService.ts",
       "app/src/daemon/ProcessManager.ts",
       "app/src/dream/DreamMetrics.ts",
       "app/src/dream/types.ts",
@@ -383,7 +376,14 @@
       "app/src/workspace/types.ts",
       "app/src/workspace/WorkflowTemplateProvider.ts",
       "app/src/workspace/workflowTemplateRunner.ts",
-      "app/src/workspace/workflowTemplateTool.ts"
+      "app/src/workspace/workflowTemplateTool.ts",
+      "packages/kernel/src/core/Coordinator.ts",
+      "packages/kernel/src/core/data-models.ts",
+      "packages/kernel/src/core/events/UiEvents.ts",
+      "packages/kernel/src/core/node-host/NodeRunner.ts",
+      "packages/kernel/src/core/node-host/types.ts",
+      "packages/kernel/src/core/phases/PhaseVocabulary.ts",
+      "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "COMPLETED": [
       "app/src/ai/providers/FALProvider.ts",
@@ -596,15 +596,6 @@
       "app/src/config/securityConfig.ts",
       "app/src/context/MailboxContext.tsx",
       "app/src/context/VoiceContext.tsx",
-      "app/src/core/data-models.ts",
-      "app/src/core/events/EventBusOTelBridge.ts",
-      "app/src/core/events/OrchestrationMetrics.ts",
-      "app/src/core/events/UiEvents.ts",
-      "app/src/core/LazyModuleStrategy.ts",
-      "app/src/core/SessionSpanTracer.ts",
-      "app/src/core/spi/LoggerService.ts",
-      "app/src/core/utils/ErrorHandler.ts",
-      "app/src/core/utils/Performance.ts",
       "app/src/cost/PricingManager.ts",
       "app/src/daemon/IPCService.ts",
       "app/src/daemon/ProcessWatchdog.ts",
@@ -857,7 +848,16 @@
       "app/src/workspaces/commands/lifecycle.ts",
       "app/src/workspaces/commands/query.ts",
       "app/src/workspaces/commands/session.ts",
-      "app/src/workspaces/provider/GitWorktreeProvider.ts"
+      "app/src/workspaces/provider/GitWorktreeProvider.ts",
+      "packages/kernel/src/core/data-models.ts",
+      "packages/kernel/src/core/events/EventBusOTelBridge.ts",
+      "packages/kernel/src/core/events/OrchestrationMetrics.ts",
+      "packages/kernel/src/core/events/UiEvents.ts",
+      "packages/kernel/src/core/LazyModuleStrategy.ts",
+      "packages/kernel/src/core/SessionSpanTracer.ts",
+      "packages/kernel/src/core/spi/LoggerService.ts",
+      "packages/kernel/src/core/utils/ErrorHandler.ts",
+      "packages/kernel/src/core/utils/Performance.ts"
     ],
     "failed": [
       "app/src/agent/events/OrchestrationEvents.ts",
@@ -917,15 +917,6 @@
       "app/src/commands/tools/task/task.ts",
       "app/src/common/types.ts",
       "app/src/components/ui/toolUIs/TaskOutputTool/UI.tsx",
-      "app/src/core/Coordinator.ts",
-      "app/src/core/events/OrchestrationMetrics.ts",
-      "app/src/core/events/UiEvents.ts",
-      "app/src/core/lazy/LazyService.ts",
-      "app/src/core/media-understanding/types.ts",
-      "app/src/core/node-host/NodeRunner.ts",
-      "app/src/core/node-host/types.ts",
-      "app/src/core/phases/PhaseVocabulary.ts",
-      "app/src/core/spi/TaskRegistryService.ts",
       "app/src/daemon/ProcessManager.ts",
       "app/src/dream/DreamCheckpoint.ts",
       "app/src/dream/DreamEngine.ts",
@@ -1047,7 +1038,16 @@
       "app/src/workspace/types.ts",
       "app/src/workspace/WorkflowTemplateProvider.ts",
       "app/src/workspace/workflowTemplateRunner.ts",
-      "app/src/workspace/WorkItemStore.ts"
+      "app/src/workspace/WorkItemStore.ts",
+      "packages/kernel/src/core/Coordinator.ts",
+      "packages/kernel/src/core/events/OrchestrationMetrics.ts",
+      "packages/kernel/src/core/events/UiEvents.ts",
+      "packages/kernel/src/core/lazy/LazyService.ts",
+      "packages/kernel/src/core/media-understanding/types.ts",
+      "packages/kernel/src/core/node-host/NodeRunner.ts",
+      "packages/kernel/src/core/node-host/types.ts",
+      "packages/kernel/src/core/phases/PhaseVocabulary.ts",
+      "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "FAILED": [
       "app/src/ai/providers/FALProvider.ts",
@@ -1101,10 +1101,6 @@
       "app/src/commands/builtin/mobile/Mobile.ts",
       "app/src/commands/tools/ai/agents.ts",
       "app/src/context/VoiceContext.tsx",
-      "app/src/core/data-models.ts",
-      "app/src/core/events/UiEvents.ts",
-      "app/src/core/ModuleBootstrapper.ts",
-      "app/src/core/node-host/types.ts",
       "app/src/diagnostics/loopProbe/loopProbeCore.ts",
       "app/src/dream/DreamScheduler.ts",
       "app/src/dream/types.ts",
@@ -1146,13 +1142,17 @@
       "app/src/voice/types.ts",
       "app/src/voice/VoiceEventBus.ts",
       "app/src/voice/VoiceSession.ts",
-      "app/src/voice/WakeWordEngine.ts"
+      "app/src/voice/WakeWordEngine.ts",
+      "packages/kernel/src/core/data-models.ts",
+      "packages/kernel/src/core/events/UiEvents.ts",
+      "packages/kernel/src/core/ModuleBootstrapper.ts",
+      "packages/kernel/src/core/node-host/types.ts"
     ],
     "installed": [
       "app/src/channels/wechat/cli-manager.ts",
       "app/src/config/ConfigMigration.ts",
-      "app/src/core/paths.ts",
-      "app/src/skills/loaders/adapter/AggregatedSkillSearch.ts"
+      "app/src/skills/loaders/adapter/AggregatedSkillSearch.ts",
+      "packages/kernel/src/core/paths.ts"
     ],
     "installing": [
       "app/src/channels/wechat/cli-manager.ts"
@@ -1192,9 +1192,6 @@
       "app/src/config/types.ts",
       "app/src/context/analytics/EstimationDeviationMonitor.ts",
       "app/src/context/notifications.tsx",
-      "app/src/core/auto-reply/types.ts",
-      "app/src/core/exit/ExitRecorder.ts",
-      "app/src/core/sleep/SleepMonitor.ts",
       "app/src/entrypoints/alwaysOnEntry.ts",
       "app/src/hooks/core/CoreHooks.ts",
       "app/src/hooks/core/HookDependencyManager.ts",
@@ -1240,7 +1237,10 @@
       "app/src/tokenBudget/UnifiedTokenTracker.ts",
       "app/src/tools/SendMessageTool/SendMessageTool.ts",
       "app/src/workspace/LiriConfigManager.ts",
-      "app/src/workspace/types.ts"
+      "app/src/workspace/types.ts",
+      "packages/kernel/src/core/auto-reply/types.ts",
+      "packages/kernel/src/core/exit/ExitRecorder.ts",
+      "packages/kernel/src/core/sleep/SleepMonitor.ts"
     ],
     "paused": [
       "app/src/agent/AgentCronToolkit.ts",
@@ -1253,9 +1253,6 @@
       "app/src/chat/streaming/AdvancedStreamingProcessor.ts",
       "app/src/commands/cron/Cron.ts",
       "app/src/config/enterprise/sandbox/EnterpriseSandboxManager.ts",
-      "app/src/core/data-models.ts",
-      "app/src/core/phases/PhaseVocabulary.ts",
-      "app/src/core/sleep/SleepMonitor.ts",
       "app/src/infrastructure/http/handlers/workspaces-handlers.ts",
       "app/src/ink/repl/CompanionSprite.tsx",
       "app/src/ink/repl/ReplApp.tsx",
@@ -1276,7 +1273,10 @@
       "app/src/tools/ChronosTool/CronStopTool.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts",
       "app/src/workspace/ProjectStore.ts",
-      "app/src/workspace/types.ts"
+      "app/src/workspace/types.ts",
+      "packages/kernel/src/core/data-models.ts",
+      "packages/kernel/src/core/phases/PhaseVocabulary.ts",
+      "packages/kernel/src/core/sleep/SleepMonitor.ts"
     ],
     "pending": [
       "app/src/ai/local/llama/LlamaCppServerManager.ts",
@@ -1314,11 +1314,6 @@
       "app/src/config/enterprise/audit/ApprovalWorkflow.ts",
       "app/src/config/enterprise/audit/ExecApprovalManager.ts",
       "app/src/context/LifecycleManager.ts",
-      "app/src/core/Coordinator.ts",
-      "app/src/core/lazy/LazyService.ts",
-      "app/src/core/LazyModuleStrategy.ts",
-      "app/src/core/phases/PhaseVocabulary.ts",
-      "app/src/core/spi/TaskRegistryService.ts",
       "app/src/governance/RuleSuggestionEngine.ts",
       "app/src/governance/types/GovernanceTypes.ts",
       "app/src/hooks/usePrStatus.ts",
@@ -1404,7 +1399,12 @@
       "app/src/workspace/ChangeSetStore.ts",
       "app/src/workspace/ProjectStore.ts",
       "app/src/workspace/types.ts",
-      "app/src/workspace/WorkItemStore.ts"
+      "app/src/workspace/WorkItemStore.ts",
+      "packages/kernel/src/core/Coordinator.ts",
+      "packages/kernel/src/core/lazy/LazyService.ts",
+      "packages/kernel/src/core/LazyModuleStrategy.ts",
+      "packages/kernel/src/core/phases/PhaseVocabulary.ts",
+      "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "QUEUED": [
       "app/src/execution/ExecutionManager.ts"
@@ -1419,9 +1419,9 @@
       "app/src/query/DailyBudgetManager.ts"
     ],
     "requires_action": [
-      "app/src/core/data-models.ts",
       "app/src/session/types/UnifiedSession.ts",
-      "app/src/state/session/SessionStateMachine.ts"
+      "app/src/state/session/SessionStateMachine.ts",
+      "packages/kernel/src/core/data-models.ts"
     ],
     "requires_approval": [
       "app/src/acp/approval-classifier.ts",
@@ -1463,13 +1463,6 @@
       "app/src/components/CronList.tsx",
       "app/src/components/TaskDetail.tsx",
       "app/src/config/enterprise/sandbox/EnterpriseSandboxManager.ts",
-      "app/src/core/Coordinator.ts",
-      "app/src/core/data-models.ts",
-      "app/src/core/events/UiEvents.ts",
-      "app/src/core/node-host/NodeRunner.ts",
-      "app/src/core/node-host/types.ts",
-      "app/src/core/phases/PhaseVocabulary.ts",
-      "app/src/core/spi/TaskRegistryService.ts",
       "app/src/daemon/ProcessManager.ts",
       "app/src/evals/online/turnQuality.ts",
       "app/src/evals/online/types.ts",
@@ -1549,7 +1542,14 @@
       "app/src/types/orchestrationSnapshot.ts",
       "app/src/utils/toolContract/ToolProgress.ts",
       "app/src/workspace/ProjectStore.ts",
-      "app/src/workspace/types.ts"
+      "app/src/workspace/types.ts",
+      "packages/kernel/src/core/Coordinator.ts",
+      "packages/kernel/src/core/data-models.ts",
+      "packages/kernel/src/core/events/UiEvents.ts",
+      "packages/kernel/src/core/node-host/NodeRunner.ts",
+      "packages/kernel/src/core/node-host/types.ts",
+      "packages/kernel/src/core/phases/PhaseVocabulary.ts",
+      "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "RUNNING": [
       "app/src/execution/ExecutionManager.ts",
@@ -1664,13 +1664,6 @@
       "app/src/context/types/GitContext.ts",
       "app/src/context/types/ShellContext.ts",
       "app/src/context/types/SystemContext.ts",
-      "app/src/core/errorHandler.ts",
-      "app/src/core/errors.ts",
-      "app/src/core/events/OrchestrationMetrics.ts",
-      "app/src/core/exit/ExitRecorder.ts",
-      "app/src/core/health/DependencyHealthChecker.ts",
-      "app/src/core/health/types.ts",
-      "app/src/core/memory-host-sdk/status.ts",
       "app/src/diagnostics/DiagnosticService.ts",
       "app/src/diagnostics/DiagnosticsService.ts",
       "app/src/diagnostics/InstallationTypeDetector.ts",
@@ -1815,7 +1808,14 @@
       "app/src/utils/toolContract/ToolProgress.ts",
       "app/src/utils/withRetry.ts",
       "app/src/voice/VoiceSession.ts",
-      "app/src/workspace/ProjectItemStore.ts"
+      "app/src/workspace/ProjectItemStore.ts",
+      "packages/kernel/src/core/errorHandler.ts",
+      "packages/kernel/src/core/errors.ts",
+      "packages/kernel/src/core/events/OrchestrationMetrics.ts",
+      "packages/kernel/src/core/exit/ExitRecorder.ts",
+      "packages/kernel/src/core/health/DependencyHealthChecker.ts",
+      "packages/kernel/src/core/health/types.ts",
+      "packages/kernel/src/core/memory-host-sdk/status.ts"
     ],
     "WAITING_USER": [
       "app/src/execution/ExecutionStore.ts"

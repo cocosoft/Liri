@@ -14,7 +14,7 @@ import {
   renderCriteriaSkeleton,
   alignChecksToCriteria,
   findUnprovableCriteria,
-} from '../../src/core/successCriteria.js';
+} from '@modules/core/successCriteria.js';
 import { VerifierAgent } from '../../src/query/VerifierAgent.js';
 import type { VerificationInput } from '../../src/query/VerifierAgent.js';
 

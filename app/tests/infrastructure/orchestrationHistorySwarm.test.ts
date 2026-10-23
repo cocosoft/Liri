@@ -33,7 +33,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { globalEventBus } from '../../src/core/events/EventBus';
+import { globalEventBus } from '@modules/core/events/EventBus';
 import { OrchestrationHistoryAdapter } from '../../src/infrastructure/http/handlers/OrchestrationHistoryAdapter';
 import { OrchestrationEventType } from '../../src/types/orchestrationEvents';
 

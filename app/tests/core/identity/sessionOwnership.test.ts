@@ -12,12 +12,12 @@ import { describe, expect, it } from 'bun:test';
 import {
   LOCAL_PRINCIPAL,
   type Principal,
-} from '../../../src/core/identity/principal';
+} from '@modules/core/identity/principal';
 import {
   canAccessSession,
   ownerOf,
   type SessionOwner,
-} from '../../../src/core/identity/sessionOwnership';
+} from '@modules/core/identity/sessionOwnership';
 
 const ALICE: Principal = {
   tenantId: 'acme',

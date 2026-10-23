@@ -39,7 +39,7 @@ import { resolveDbPath } from '@modules/core';
 // 2026-09-30 下沉 core（A1 分层倒挂收口）：`BillingMode` 被 `ModelPricing`（详见
 // `core/pricing.ts`）引用，定义若留在 app 层会让 core 侧新造 core → app 倒挂 ⇒ 定义移至 core，
 // 本文件原样转出（`@modules/ai` 对外导出名不变）。
-import type { BillingMode, TimeBasedPrice } from '../../core/pricing.js';
+import type { BillingMode, TimeBasedPrice } from '@modules/core/pricing.js';
 
 /** sqlite3 db.run() 回调中的 this 上下文 */
 interface SqliteRunContext {

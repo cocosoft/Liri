@@ -94,7 +94,7 @@ import { contextManager } from './context/ContextManager.js';
 // AC-7：type-only 导入，信号处理中同步强关 HTTP（零运行时依赖，无循环引用）
 import type { LocalHTTPService } from '@modules/infrastructure';
 // 端口单一事实来源（默认值 + 生效端口解析），运行时由 LIRI_HTTP_PORT 覆盖
-import { resolveHttpPort } from './core/ports.js';
+import { resolveHttpPort } from '@modules/core/ports.js';
 // 单实例锁（PID + 实际监听端点）：解析 / 写入 / 端口发布 / 释放集中在此
 // 2026-10-20（分发前置）：第二实例据此拿到**运行中实例的实际端口**（动态端口可发现面）
 import {
@@ -103,7 +103,7 @@ import {
   publishInstanceEndpoint,
   releaseInstanceLock,
   writeInstanceLock,
-} from './core/instanceLock.js';
+} from '@modules/core/instanceLock.js';
 // 版本号（唯一事实来源 app/package.json）—— 供 healthcheck 模式打印（L-12.1）
 import { APP_VERSION } from '@modules/constants';
 
@@ -1330,7 +1330,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // 显示加载提示（在 T1 执行期间给用户进度反馈）
     process.stdout.write('⏳ Liri 正在加载模块...\r');
 
-    const { getDIContainer } = await import('./core/DIContainer');
+    const { getDIContainer } = await import('@modules/core/DIContainer');
     const { moduleRegistry } = await import('./modules/ModuleRegistry');
     await getDIContainer().bootstrap(moduleRegistry, {
       mode: options.mode,
@@ -1624,7 +1624,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
         // 从 ConfigManager 或 settings.json 恢复用户自定义数据目录
         const { loadUserSettings } =
           await import('./config/settings/userSettings.js');
-        const { setUserDataDirOverride } = await import('./core/paths.js');
+        const { setUserDataDirOverride } =
+          await import('@modules/core/paths.js');
 
         // 优先读取 ConfigManager（新），fallback settings.json（旧，自动迁移）
         let dataDirectory = configManager.getConfigValue(
@@ -1666,7 +1667,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // Phase 3: Connection Registry — 验证关键组件连接
     await wrapInit('ConnectionRegistry', async () => {
       const { connectionRegistry } =
-        await import('./core/connections/ConnectionRegistry.js');
+        await import('@modules/core/connections/ConnectionRegistry.js');
       connectionRegistry.verifyAll();
     });
 
@@ -1890,7 +1891,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     try {
       const { writeFileSync } = await import('fs');
       const { join } = await import('path');
-      const { resolveLogsDir } = await import('./core/paths.js');
+      const { resolveLogsDir } = await import('@modules/core/paths.js');
       const logPath = join(resolveLogsDir(), 'startup-error.log');
       writeFileSync(
         logPath,

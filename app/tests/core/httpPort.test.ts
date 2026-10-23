@@ -15,11 +15,11 @@ import {
   resolveExplicitHttpPort,
   resolveHttpPort,
   resolveHttpPortIntent,
-} from '../../src/core/ports';
+} from '@modules/core/ports';
 import {
   isAddressInUseError,
   startWithPortFallback,
-} from '../../src/core/httpPortFallback';
+} from '@modules/core/httpPortFallback';
 
 function addrInUse(port: number): NodeJS.ErrnoException {
   const err = new Error(`listen EADDRINUSE: ${port}`) as NodeJS.ErrnoException;

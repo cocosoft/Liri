@@ -25,12 +25,12 @@ import { getToolRegistry } from '@modules/tools';
 import type { Tool, ToolUseContext } from '@modules/tools/types/Tool';
 import { ToolExecutionStatus } from '@modules/tools/types/ToolResult';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { handleError } from '../../../core/errorHandler.js';
+import { handleError } from '@modules/core/errorHandler.js';
 import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '../../../core/errors.js';
+} from '@modules/core/errors.js';
 import { getWorkflowEngine, createRunRecordCollector } from '@modules/workflow';
 import {
   DOC_PIPELINE_WORKFLOW,

@@ -13,8 +13,8 @@
 import { describe, it, expect } from 'bun:test';
 
 import { AnalyticsService } from '../../src/analytics/AnalyticsService.js';
-import { runWithPrincipal } from '../../src/core/identity/requestScope.js';
-import type { Principal } from '../../src/core/identity/principal.js';
+import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
+import type { Principal } from '@modules/core/identity/principal.js';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'other', userId: 'bob', roles: ['user'] };

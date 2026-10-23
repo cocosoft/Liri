@@ -1,6 +1,6 @@
 import { getLogger } from '../monitoring/logs/Logger';
 // C1（2026-10-09）：统一 ID 熵源定义在 **core**（全层可用，含 core 自身）；此处**再导出**
-import { randomIdSuffix } from '../core/ids';
+import { randomIdSuffix } from '@modules/core/ids';
 
 export { randomIdSuffix };
 
@@ -145,4 +145,4 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
 // ─── 独立便捷函数（2026-09-30 下沉 core 侧，此处同名转出 ⇒ 对外 API 不变）─────
 // 下沉原因：core 侧 `core/Coordinator` 直接引用构成 core → infra 倒挂（A 类台账）。
 
-export { lazySingleton } from '../core/lazySingleton.js';
+export { lazySingleton } from '@modules/core/lazySingleton.js';

@@ -11,7 +11,7 @@ import {
   COLLABORATION_SERVICE_ID,
   registerCollaborationSpi,
   resolveCollaboration,
-} from '../../../src/core/spi/CollaborationService.js';
+} from '@modules/core/spi/CollaborationService.js';
 import { SwarmChannelAdapter } from '../../../src/agent/orchestration/SwarmChannelAdapter.js';
 import { SchedulerChannelAdapter } from '../../../src/agent/orchestration/SchedulerChannelAdapter.js';
 import { RemoteChannelAdapter } from '../../../src/agent/orchestration/RemoteChannelAdapter.js';

@@ -23,8 +23,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
   sleepMonitor as monitor,
   SLEEP_EVENTS,
-} from '../../src/core/sleep/SleepMonitor';
-import { globalEventBus } from '../../src/core/events/EventBus';
+} from '@modules/core/sleep/SleepMonitor';
+import { globalEventBus } from '@modules/core/events/EventBus';
 
 /** 模拟可控时钟 */
 let fakeNow = 0;

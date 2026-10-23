@@ -30,7 +30,7 @@ import {
   getEssentialModuleIds,
   getOnDemandModuleIds,
 } from '@modules/core/LazyModuleStrategy';
-import { getLogger } from '../core/loggerFacade.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 import { MODULE_INITIALIZATION_ORDER } from './ModuleDefinitions';
 // 状态联合类型与结构子集都来自 `moduleStateTypes`（类型单一真源）
 import type {

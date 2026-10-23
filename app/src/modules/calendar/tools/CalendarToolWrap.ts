@@ -6,7 +6,7 @@ import type { Tool, ToolParam } from '../../../tools/types/Tool';
 import type { ToolResult } from '../../../tools/types/ToolResult';
 import { ToolExecutionStatus } from '../../../tools/types/ToolResult';
 import type { ToolUseContext } from '../../../tools/types/ToolUseContext';
-import { getLogger } from '../../../core/loggerFacade.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 const logger = getLogger('calendar:tool');
 
 /** 公共参数 */

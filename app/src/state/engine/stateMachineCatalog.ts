@@ -188,7 +188,7 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     id: 'task',
     title: '任务状态机（TaskStatus 7 态）',
     kind: 'persistent',
-    sourceFile: 'app/src/core/taskStatus.ts',
+    sourceFile: 'packages/kernel/src/core/taskStatus.ts',
     states: [
       'pending',
       'running',
@@ -200,7 +200,7 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     ],
     verification: 'runtime-import',
     verifyRef: {
-      module: 'app/src/core/taskStatus.ts',
+      module: 'packages/kernel/src/core/taskStatus.ts',
       exportName: 'TaskStatus',
       anchor: 'enum',
     },

@@ -13,7 +13,7 @@ import {
   DEFAULT_MODEL_PRICING,
   projectRegistryPricing,
   type ModelPricing,
-} from '../core/pricing.js';
+} from '@modules/core/pricing.js';
 import { resolveAiAccess } from '@modules/core/spi';
 
 import { handleError } from '../error/handleError.js';
@@ -25,7 +25,7 @@ const logger = getLogger('cost:ModelPricing');
 // ⇒ `@modules/cost` 的 `ModelPricing` 导出名与结构逐字不变。
 export type { ModelPricing };
 // 2026-10-13（债四 S1）：分时价解析下沉 core，此处**原样转出**（导出名与签名逐字不变）。
-export { resolveTimeBasedPricing } from '../core/pricing.js';
+export { resolveTimeBasedPricing } from '@modules/core/pricing.js';
 
 let hasUnknownModelCost = false;
 

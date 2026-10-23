@@ -23,7 +23,7 @@ import {
 } from '../../../src/services/mcp/MCPToolBridge';
 import { mcpConnectionManager } from '../../../src/services/mcp/MCPConnectionManager';
 import { mcpToolRegistry } from '../../../src/services/mcp/MCPToolRegistry';
-import { dependencyRegistry } from '../../../src/core/DependencyRegistry';
+import { dependencyRegistry } from '@modules/core/DependencyRegistry';
 import type {
   MCPServerConnection,
   SerializedTool,

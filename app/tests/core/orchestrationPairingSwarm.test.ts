@@ -11,7 +11,7 @@
  */
 import { describe, it, expect } from 'bun:test';
 
-import { OrchestrationEventPairer } from '../../src/core/events/orchestrationPairing';
+import { OrchestrationEventPairer } from '@modules/core/events/orchestrationPairing';
 import { OrchestrationEventType } from '../../src/types/orchestrationEvents';
 
 const DISPATCH = OrchestrationEventType.SWARM_DISPATCH;

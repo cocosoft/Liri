@@ -16,8 +16,8 @@ import type http from 'http';
 import {
   LOCAL_PRINCIPAL,
   LOCAL_TENANT_ID,
-} from '../../../src/core/identity/principal';
-import { getRequestPrincipal } from '../../../src/core/identity/requestScope';
+} from '@modules/core/identity/principal';
+import { getRequestPrincipal } from '@modules/core/identity/requestScope';
 import {
   resolveRequestPrincipal,
   withRequestIdentity,

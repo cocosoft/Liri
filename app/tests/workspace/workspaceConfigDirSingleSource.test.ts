@@ -15,11 +15,13 @@ import { describe, it, expect } from 'bun:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { WORKSPACE_CONFIG_DIR_NAME } from '../../src/core/paths';
+import { WORKSPACE_CONFIG_DIR_NAME } from '@modules/core/paths';
 
 /** `app/`（`app/tests/workspace/` → 上两级） */
 const APP = join(import.meta.dir, '..', '..');
 const APP_SRC = join(APP, 'src');
+/** 内核已物理迁出 `app/src/core` ⇒ 仓库根 `packages/kernel/src/core`（方案 §4-P4） */
+const KERNEL_SRC = join(APP, '..', 'packages', 'kernel', 'src', 'core');
 
 function collectProductionTs(dir: string, out: string[]): void {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -55,17 +57,18 @@ const BARE_CONFIG_DIR_NAME = /(?<!_)CONFIG_DIR_NAME/;
 describe('HD-P1-3 · 工作区级 `.liri` 名单一真源', () => {
   it('① 真源取值 + 层级口径：工作区级 `.liri`；用户级根仍是 `~/.pyapp`（未被本次改动影响）', () => {
     expect(WORKSPACE_CONFIG_DIR_NAME).toBe('.liri');
-    const pathsSrc = readFileSync(join(APP_SRC, 'core', 'paths.ts'), 'utf-8');
+    const pathsSrc = readFileSync(join(KERNEL_SRC, 'paths.ts'), 'utf-8');
     expect(pathsSrc).toMatch(/join\(os\.homedir\(\), '\.pyapp'\)/);
   });
 
   it('② 生产代码内 `.liri` 字面量**只允许**出现在真源（消费方一律引用常量）', () => {
     const files: string[] = [];
     collectProductionTs(APP_SRC, files);
+    collectProductionTs(KERNEL_SRC, files);
     const hits: string[] = [];
     for (const abs of files) {
       const r = rel(abs);
-      if (r === 'src/core/paths.ts') continue; // 真源本身
+      if (r === '../packages/kernel/src/core/paths.ts') continue; // 真源本身
       readFileSync(abs, 'utf-8')
         .split('\n')
         .forEach((line, i) => {
@@ -81,6 +84,7 @@ describe('HD-P1-3 · 工作区级 `.liri` 名单一真源', () => {
   it('③ 零消费者假真源 `CONFIG_DIR_NAME` 已移除且未回流', () => {
     const files: string[] = [];
     collectProductionTs(APP_SRC, files);
+    collectProductionTs(KERNEL_SRC, files);
     const hits = files.filter((abs) =>
       BARE_CONFIG_DIR_NAME.test(readFileSync(abs, 'utf-8'))
     );

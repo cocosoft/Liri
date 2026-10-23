@@ -56,7 +56,7 @@ import type { MessageContext } from '../types/IChannel';
 import { sendBudgetReliefCard } from '../bridge/budgetReliefCard';
 // 2026-10-01 D-206（子批 D，`channels -> ai` 倒挂收口，2 条边之一）：类型位改**相对直连
 // core 模块根**（`SessionSpanContext` 已随实现下沉 core；app 层原址转出）。
-import type { SessionSpanContext } from '../../core/SessionSpanTracer.js';
+import type { SessionSpanContext } from '@modules/core/SessionSpanTracer.js';
 import { channelSessionManager } from '../session/ChannelSessionManager';
 import { isBridgeEnabled } from '../bridgeEnabled';
 // G-2（2026-10-18）：通道来源 → 默认任务面（远程通道最小权限；开关默认关 ⇒ 零变更）
@@ -450,7 +450,7 @@ async function routeChannelMessageInner(
   try {
     // ③ 共享会话写入
     try {
-      const { getDIContainer } = await import('../../core/DIContainer');
+      const { getDIContainer } = await import('@modules/core/DIContainer');
       const { MessageType, MessageRole } =
         await import('../../session/types/UnifiedMessage');
       const container = getDIContainer();

@@ -3,8 +3,8 @@
  * 将 OfficeCLI stdout/stderr + exitCode 映射到结构化错误码
  */
 
-import { AppError } from '../../../core/errors.js';
-import { getLogger } from '../../../core/loggerFacade.js';
+import { AppError } from '@modules/core/errors.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 const logger = getLogger('doc:detection');
 
 /** 错误解析规则 */

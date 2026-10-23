@@ -26,7 +26,7 @@ import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { VideoGenerationRouter } from './VideoGenerationRouter';
 import { RegistryVideoProvider } from './providers/RegistryVideoProvider';
 import { randomUUID } from 'crypto';
-import { globalEventBus, SystemEvents } from '../../core/events/EventBus';
+import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
 import { getVideoTaskPersistence } from './VideoTaskPersistence';
 import { getImageSafetyFilter } from '../ImageGenerateTool/ImageSafetyFilter';
 import { writeFileSync, mkdirSync } from 'node:fs';

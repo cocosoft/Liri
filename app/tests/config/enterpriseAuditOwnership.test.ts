@@ -17,9 +17,9 @@ import {
   AuditEventType,
   parseAuditFileDate,
 } from '../../src/config/enterprise/audit/EnterpriseAuditService.js';
-import { setUserDataDirOverride } from '../../src/core/paths.js';
-import { runWithPrincipal } from '../../src/core/identity/requestScope.js';
-import type { Principal } from '../../src/core/identity/principal.js';
+import { setUserDataDirOverride } from '@modules/core/paths.js';
+import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
+import type { Principal } from '@modules/core/identity/principal.js';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };

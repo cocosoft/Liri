@@ -1,7 +1,7 @@
 import type { AcpRuntime } from './types.js';
 import type { AcpRuntimeHandle } from './types.js';
 import { AcpRuntimeError } from './errors.js';
-import { handleError } from '../../core/errorHandler.js';
+import { handleError } from '@modules/core/errorHandler.js';
 
 export interface RuntimeAvailabilityResult {
   available: boolean;

@@ -29,7 +29,7 @@ import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 import {
   globalEventBus,
   type EventSubscription,
-} from '../core/events/EventBus';
+} from '@modules/core/events/EventBus';
 
 const logger = getLogger('monitoring:orchestration-event-log');
 

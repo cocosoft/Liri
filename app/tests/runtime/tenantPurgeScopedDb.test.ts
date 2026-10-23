@@ -13,17 +13,14 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { Database } from '../../src/core/external/sqlite3.js';
-import {
-  resolveDataDir,
-  setUserDataDirOverride,
-} from '../../src/core/paths.js';
+import { Database } from '@modules/core/external/sqlite3.js';
+import { resolveDataDir, setUserDataDirOverride } from '@modules/core/paths.js';
 import { purgeTenant } from '../../src/runtime/tenantPurge.js';
 import {
   registerScopedResource,
   resetScopedResourcesForTest,
   scopedResourceCount,
-} from '../../src/core/identity/scopedResources.js';
+} from '@modules/core/identity/scopedResources.js';
 
 let root: string;
 

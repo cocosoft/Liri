@@ -18,7 +18,7 @@ import {
   globalEventBus,
   SystemEvents,
   type EventSubscription,
-} from '../../src/core/events/EventBus.js';
+} from '@modules/core/events/EventBus.js';
 import type { StateProjectionBroadcast } from '../../src/state/engine/projectionBroker.js';
 import {
   getBudgetSuspendCoordinator,
@@ -35,7 +35,7 @@ import {
   registerToolJobSuspendSpi,
   resetToolJobSuspendForTest,
   resolveToolJobSuspend,
-} from '../../src/core/spi';
+} from '@modules/core/spi';
 
 const FLAG = 'FEATURE_TOOL_JOB_SUSPEND';
 const PROJECTION_FLAG = 'FEATURE_STATE_PROJECTION_BROADCAST';

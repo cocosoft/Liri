@@ -2,7 +2,7 @@
   "name": "@openliri/kernel",
   "version": "0.1.0",
   "private": true,
-  "description": "Liri 微内核 —— P1 骨架（源码仍在 app/src/core，P4 执行物理搬迁）",
+  "description": "Liri 微内核 —— 六层架构的最底层（core），零上层依赖",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

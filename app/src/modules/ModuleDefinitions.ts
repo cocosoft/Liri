@@ -3,12 +3,16 @@
  * 统一定义所有模块的基本信息、依赖关系和生命周期
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/core/errors.js';
 // 2026-09-30 G2 倒挂收口：错误码纯数据表已下沉 core 模块根，直连 core 消除 core → infra 边
-import { ErrorCodes } from '../core/errorCodes.js';
+import { ErrorCodes } from '@modules/core/errorCodes.js';
 import { ModuleCategory, type ModuleDefinition } from './moduleTypes';
 
-import { getLogger } from '../core/loggerFacade.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 const logger = getLogger('modules\ModuleDefinitions');
 
 /**

@@ -5,7 +5,7 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
-import { getLogger } from '../../core/loggerFacade.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 const logger = getLogger('calendar:aiScheduleIndex');
 
 const AI_SCHEDULE_SCHEMA = `

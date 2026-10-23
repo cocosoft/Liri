@@ -18,9 +18,9 @@ import {
   selectPattern,
   listPatterns,
   getPatternDescriptor,
-} from '../../src/core/patterns/index';
-import { PATTERN_PROVIDERS } from '../../src/core/patterns/types';
-import { PATTERN_DESCRIPTORS } from '../../src/core/patterns/PatternRegistry';
+} from '@modules/core/patterns/index';
+import { PATTERN_PROVIDERS } from '@modules/core/patterns/types';
+import { PATTERN_DESCRIPTORS } from '@modules/core/patterns/PatternRegistry';
 
 describe('pattern 承担方解析层（A）：闭集无悬空', () => {
   it('闭集 ↔ 绑定表双向一致（无漏配、无闭集外键）', () => {

@@ -39,7 +39,7 @@ import {
 import {
   resolveLlamaBinaryPath,
   resolveLlamaDir,
-} from '../../../src/core/paths.js';
+} from '@modules/core/paths.js';
 
 // ── 假 child_process.spawn（经 DI 端口注入）────────────────────
 

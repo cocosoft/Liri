@@ -28,9 +28,11 @@ import { join, resolve, sep } from 'node:path';
 /** 项目根目录：本文件位于 `scripts/lib/`，故上溯两级 */
 export const PROJECT_ROOT = join(import.meta.dir, '..', '..');
 
-/** 扫描目录（与 lint-models.ts 一致：后端 app/src + 前端 client/src） */
+/** 扫描目录（与 lint-models.ts 一致：后端 app/src + 内核 packages/kernel/src + 前端 client/src） */
 export const SCAN_DIRS = [
   join(PROJECT_ROOT, 'app', 'src'),
+  // 内核自 P4 起物理独立于 `app/src`（方案 §4-P4），但仍是运行时生产代码 ⇒ 必须纳入扫描面
+  join(PROJECT_ROOT, 'packages', 'kernel', 'src'),
   join(PROJECT_ROOT, 'client', 'src'),
 ];
 

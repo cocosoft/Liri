@@ -35,7 +35,7 @@ import {
   type EventBus,
   type EventListener,
   type EventSubscription,
-} from '../../core/events/EventBus';
+} from '@modules/core/events/EventBus';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:events');
 

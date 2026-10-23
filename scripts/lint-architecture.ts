@@ -3820,8 +3820,12 @@ class ArchitectureLinter {
       relative(repoRoot, p).replace(/\\/g, '/');
 
     // ① 载入**定义目录**（登记唯一事实源；零依赖纯数据 ⇒ 可安全动态载入，无需源码正则解析）
+    // 登记目录是**全仓唯一**的（不属于某一个扫描根）：内核自 P4 起作为第二扫描根运行时，
+    // 仍须比对同一份登记表，否则内核里的状态机会因"找不到目录"而假红（AR-3 口径）。
     const catalogPath = resolve(
-      appSrc,
+      repoRoot,
+      'app',
+      'src',
       'state',
       'engine',
       'stateMachineCatalog.ts'
@@ -4472,6 +4476,14 @@ async function main(): Promise<void> {
 
   const linter = new ArchitectureLinter(srcPath, projectDir);
   const violations = await linter.runAll();
+  // 内核自 P4 起物理独立于 `app/src`（方案 §4-P4）。这里**以第二扫描根**再跑一遍，
+  // 而不是任其脱离扫描面：内核目录保留 `core/` 这一层，故模块归属仍解析为 `core`，
+  // 各规则口径与迁移前逐字一致（AR-3：门禁不得因搬目录而静默失焦）。
+  const kernelSrcPath = resolve(projectDir, 'packages', 'kernel', 'src');
+  if (existsSync(kernelSrcPath)) {
+    const kernelLinter = new ArchitectureLinter(kernelSrcPath, projectDir);
+    violations.push(...(await kernelLinter.runAll()));
+  }
   // P0-5: 前端高频路径 store 订阅检查（独立扫描 client/src，不并入 app/src 扫描集）
   violations.push(...checkFrontendStoreSubscription(projectDir));
 

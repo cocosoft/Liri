@@ -28,7 +28,11 @@
  *   `WorkflowRunResult.stopReason = 'error'`，不作为异常抛出。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '../../core/errors.js';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/core/errors.js';
 
 /** 构造选项 */
 export interface WorkflowErrorOptions {

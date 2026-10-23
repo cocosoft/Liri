@@ -20,7 +20,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { SafeInterval } from '@modules/utils/SafeInterval';
-import { globalEventBus } from '../core/events/EventBus.js';
+import { globalEventBus } from '@modules/core/events/EventBus.js';
 
 const logger = getLogger('subagents:eventPump');
 

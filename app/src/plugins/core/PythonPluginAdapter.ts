@@ -30,7 +30,7 @@ import {
 import { resolveDataSubDir, resolveProjectRoot } from '@modules/core/paths';
 import { join, delimiter } from 'path';
 import { trackProcess } from '../../services/mcp/transports/ChildProcessTracker';
-import { globalEventBus } from '../../core/events/EventBus';
+import { globalEventBus } from '@modules/core/events/EventBus';
 
 const logger = getLogger('plugins:core:pythonPluginAdapter');
 

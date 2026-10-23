@@ -26,7 +26,7 @@ import {
   ensureDataDirectories,
   LIRI_HOME,
   PROJECT_ROOT,
-} from '../../src/core/paths.js';
+} from '@modules/core/paths.js';
 
 describe('setUserDataDirOverride / getUserDataDirOverride', () => {
   afterEach(() => {

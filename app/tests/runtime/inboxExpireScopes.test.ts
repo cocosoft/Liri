@@ -13,8 +13,8 @@ import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import type { Principal } from '../../src/core/identity/principal';
-import { runWithPrincipal } from '../../src/core/identity/requestScope';
+import type { Principal } from '@modules/core/identity/principal';
+import { runWithPrincipal } from '@modules/core/identity/requestScope';
 import { InboxManager } from '../../src/runtime/InboxManager';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };

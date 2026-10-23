@@ -27,7 +27,7 @@ import {
   normalizePrincipal,
   type Principal,
 } from '@modules/core/identity/principal.js';
-import { runWithPrincipal } from '../../core/identity/requestScope.js';
+import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
 
 /** `authTokens` 的 value 形状（只读消费，避免把 handlers 的类型拖成静态依赖） */
 interface AuthTokenSession {

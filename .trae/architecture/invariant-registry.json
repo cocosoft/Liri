@@ -226,7 +226,7 @@
       "statement": "端口装配顺序（如 `AiAccess` 必须先于 `Knowledge`）必须被机器校验，不能仅靠注释声明；乱序须在**注册期**即失败并给出可读原因。",
       "sources": [
         "app/src/entrypoints/spiWiring.ts",
-        "app/src/core/spi/wiringGuard.ts"
+        "packages/kernel/src/core/spi/wiringGuard.ts"
       ],
       "tests": ["app/tests/core/spiWiringOrder.test.ts"],
       "level": "unit",

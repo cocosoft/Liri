@@ -35,8 +35,8 @@ const repoRoot = process.env.NOMM_REPO_ROOT
   ? resolve(process.env.NOMM_REPO_ROOT)
   : resolve(import.meta.dir, '..');
 
-/** 扫描根：`app/tests` 整棵（含 helper）；`app/src` 仅测试文件 */
-const SCAN_ROOTS = ['app/tests', 'app/src'];
+/** 扫描根：`app/tests` 整棵（含 helper）；`app/src` 仅测试文件；内核源码（P4 起物理独立） */
+const SCAN_ROOTS = ['app/tests', 'app/src', 'packages/kernel/src'];
 
 /** 命中「真实用法」：`mock.module(` 且前面不是标识符/点（排除 `xxx.mock.module(` 这类伪命中） */
 const USAGE_RE = /(^|[^\w.$])mock\.module\s*\(/;

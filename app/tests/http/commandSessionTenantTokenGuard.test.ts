@@ -33,7 +33,7 @@ import { withRequestIdentity } from '../../src/infrastructure/http/requestIdenti
 import { PermissionManager } from '@modules/permission';
 
 import type { ChatSession } from '../../src/session/types/session';
-import { DataSessionStatus } from '../../src/core';
+import { DataSessionStatus } from '@modules/core';
 import { SessionLifecycleManager } from '../../src/chat/services/SessionLifecycleManager';
 import type { SessionGateway } from '../../src/session/SessionGateway';
 import type { SessionAccessFacade } from '../../src/chat/services/SessionAccessFacade';

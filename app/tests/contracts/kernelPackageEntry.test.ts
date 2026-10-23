@@ -20,29 +20,27 @@
 // SOFTWARE.
 
 /**
- * P1 骨架自证：`@openliri/kernel` 能被**包名**解析（不是靠 tsconfig 别名）。
+ * P4 契约：`@openliri/kernel` 与遗留别名 `@modules/core` **解析到同一份实现**。
  *
- * 这条断言的意义：P4 之后 app 的所有 core 导入都要改走包名。
- * 如果现在包名解析不通，P4 的 `git mv` 一落地就会整片红 —— 先在这里把它钉住。
- *
- * 注意：本包当前是**骨架**（`KERNEL_SKELETON_ONLY === true`），不含内核实现；
- * P4 迁移完成后该常量应被删除，届时本用例需同步改为断言真实导出（如 `feature`）。
+ * 为什么需要这条断言（复审 R7）：`tsc` 与 `bun` 是两套解析器，别名一旦只改了一边，
+ * 就会出现「typecheck 绿、运行时找不到模块」或反之。P5 会把 `@modules/core` 整体切到
+ * `@openliri/kernel`（codemod），切换期间两个别名并存 —— 这里用**导出引用同一性**
+ * 直接钉住「并存期它们确实是同一个模块实例」，而不是两条互不相干的路径各自能加载。
  */
 import { describe, expect, it } from 'bun:test';
 
-import {
-  KERNEL_PACKAGE_NAME,
-  KERNEL_PACKAGE_VERSION,
-  KERNEL_SKELETON_ONLY,
-} from '@openliri/kernel';
+import { KERNEL_PACKAGE_NAME, KERNEL_PACKAGE_VERSION } from '@openliri/kernel';
+import * as viaKernel from '@openliri/kernel/paths';
+import * as viaLegacyAlias from '@modules/core/paths';
 
-describe('P1 骨架：@openliri/kernel 可被包名解析', () => {
+describe('P4 契约：内核包名与遗留别名同源', () => {
   it('包名与版本符合约定', () => {
     expect(KERNEL_PACKAGE_NAME).toBe('@openliri/kernel');
     expect(KERNEL_PACKAGE_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
-  it('骨架阶段标记为 true（P4 迁移完成后应删除该常量）', () => {
-    expect(KERNEL_SKELETON_ONLY).toBe(true);
+  it('`@openliri/kernel/paths` 与 `@modules/core/paths` 是同一个模块实例', () => {
+    expect(viaKernel.resolveDbPath).toBe(viaLegacyAlias.resolveDbPath);
+    expect(viaKernel.resolvePyappHome).toBe(viaLegacyAlias.resolvePyappHome);
   });
 });

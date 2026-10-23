@@ -7,7 +7,7 @@ import { createErrorRecoveryManager } from '../../src/query/ErrorRecoveryManager
 import {
   SYSTEM_ABORT_REASON,
   markAsExpectedAbort,
-} from '../../src/core/abortReason';
+} from '@modules/core/abortReason';
 
 const ctx = { turnCount: 1, tokenUsage: 0 };
 

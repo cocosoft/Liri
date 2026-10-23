@@ -26,7 +26,7 @@ import {
 import {
   calculateTotalCost,
   DEFAULT_MODEL_PRICING,
-} from '../../src/core/pricing.js';
+} from '@modules/core/pricing.js';
 
 const MODEL = 'test-model-not-registered'; // 未登记 ⇒ 走兜底价（如实标注 unknownModel）
 

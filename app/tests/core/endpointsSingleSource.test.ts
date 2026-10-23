@@ -24,7 +24,9 @@ import {
 
 const APP = process.cwd(); // `bun test` 于 app 目录运行
 const SRC = join(APP, 'src');
-const ENDPOINTS = join(SRC, 'core', 'endpoints.ts');
+/** 内核已物理迁出 `app/src/core` ⇒ 仓库根 `packages/kernel/src/core`（方案 §4-P4） */
+const KERNEL = join(APP, '..', 'packages', 'kernel', 'src', 'core');
+const ENDPOINTS = join(KERNEL, 'endpoints.ts');
 const ENDPOINTS_REL = relative(APP, ENDPOINTS).split('\\').join('/');
 
 function walk(dir: string, out: string[]): void {
@@ -42,6 +44,7 @@ function walk(dir: string, out: string[]): void {
 function hitsOutsideEndpoints(re: RegExp): string[] {
   const files: string[] = [];
   walk(SRC, files);
+  walk(KERNEL, files);
   const found: string[] = [];
   for (const f of files) {
     const rel = relative(APP, f).split('\\').join('/');
@@ -110,7 +113,7 @@ describe('HD-P0-2 端点 / 本机 host 单一真源', () => {
   it('③b A6 棘轮：各文件 `127.0.0.1` 出现次数只减不增，且均已引用 LOCAL_HTTP_HOST', () => {
     // 期望上限（只减不增）：LocalHTTPService.ts 保留 1 处「本机判定谓词」（非绑定默认值）
     const expectedMax: Record<string, number> = {
-      'src/core/health/DependencyHealthChecker.ts': 0,
+      '../packages/kernel/src/core/health/DependencyHealthChecker.ts': 0,
       'src/acp/AcpWebSocketServer.ts': 0,
       'src/cli/ports/index.ts': 0,
       'src/bridge/ModuleBridgeSetup.ts': 0,

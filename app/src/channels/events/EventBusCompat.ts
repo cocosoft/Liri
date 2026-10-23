@@ -40,7 +40,7 @@ import type {
   EventBus,
   EventListener,
   EventSubscription,
-} from '../../core/events/EventBus';
+} from '@modules/core/events/EventBus';
 import { createLogger, LogLevel } from '@modules/monitoring';
 
 const logger = createLogger({

@@ -27,8 +27,8 @@ import { resolveWorkspacePath } from './workspaces-handlers';
 import type { OrchestrationSnapshot } from '@modules/types/orchestrationSnapshot';
 import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 import { AgentEventType } from '@modules/types/agentEvents';
-import { globalEventBus } from '../../../core/events/EventBus.js';
-import type { EventSubscription } from '../../../core/events/EventBus.js';
+import { globalEventBus } from '@modules/core/events/EventBus.js';
+import type { EventSubscription } from '@modules/core/events/EventBus.js';
 import { getOrchestrationHistoryAdapter } from './OrchestrationHistoryAdapter.js';
 import { LOCAL_SERVICE_HOST } from '@modules/core';
 

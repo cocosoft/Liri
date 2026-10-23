@@ -32,7 +32,7 @@ import { join } from 'node:path';
 import {
   setUserDataDirOverride,
   getUserDataDirOverride,
-} from '../../src/core/paths';
+} from '@modules/core/paths';
 import {
   engageEstop,
   disengageEstop,
@@ -40,7 +40,7 @@ import {
   getEstopState,
   checkEstop,
   estopSentinelPath,
-} from '../../src/core/estop/estop';
+} from '@modules/core/estop/estop';
 
 describe('estop 全局急停', () => {
   let baseDir: string;

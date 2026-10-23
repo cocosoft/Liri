@@ -37,7 +37,7 @@
 import type { ChatOrchestratorHost } from '../../../src/chat/orchestrator/ChatOrchestrator.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { Message } from '@modules/session/types/message.js';
-import type { SimpleMutex } from '../../../src/core/SimpleMutex.js';
+import type { SimpleMutex } from '@modules/core/SimpleMutex.js';
 import type {
   ChatResponse,
   ThinkingProviderChunk,

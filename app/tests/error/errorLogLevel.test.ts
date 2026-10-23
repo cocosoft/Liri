@@ -131,7 +131,10 @@ describe('错误级别口径（附带发现 12）', () => {
     // （`src/core/errorHandler.ts`），`src/error/handleError.ts` 改为纯转出 ⇒ 本守卫
     // 改读新位置，守卫意图不变。
     const source = readFileSync(
-      new URL('../../src/core/errorHandler.ts', import.meta.url),
+      new URL(
+        '../../../packages/kernel/src/core/errorHandler.ts',
+        import.meta.url
+      ),
       'utf8'
     );
     expect(source).toContain('resolveErrorLogLevel(');

@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@openliri/kernel": ["./src/index.ts"],
+      "@openliri/kernel/*": ["./src/core/*"],
+      "@modules/core": ["./src/core"],
+      "@modules/core/*": ["./src/core/*"],
+      "@modules/types/*": ["../../app/src/types/*"],
+      "@opentelemetry/api": ["../../app/node_modules/@opentelemetry/api"]
+    }
+  },
+  "include": ["src/**/*"]
+}

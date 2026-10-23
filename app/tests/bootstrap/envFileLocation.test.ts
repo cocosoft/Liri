@@ -22,7 +22,7 @@ import {
   resolveUserEnvPath,
   resolveBundledEnvPath,
   resolveEnvExamplePath,
-} from '../../src/core/paths.js';
+} from '@modules/core/paths.js';
 import { ensureEnvFileExists } from '../../src/bootstrap/preflight.js';
 
 let root: string;

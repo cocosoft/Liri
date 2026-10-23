@@ -36,7 +36,7 @@ import { dirname, join } from 'node:path';
 import {
   setUserDataDirOverride,
   getUserDataDirOverride,
-} from '../../src/core/paths';
+} from '@modules/core/paths';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,

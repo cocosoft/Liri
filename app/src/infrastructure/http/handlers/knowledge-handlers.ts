@@ -11,7 +11,7 @@ import {
   notifyFileChanged,
 } from './handler-utils';
 // 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
-import { SandboxPermission } from '../../../core/sandboxPermission.js';
+import { SandboxPermission } from '@modules/core/sandboxPermission.js';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 import { handleError } from '@modules/error';

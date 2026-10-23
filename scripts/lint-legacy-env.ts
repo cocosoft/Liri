@@ -18,8 +18,11 @@ import { join, sep } from 'node:path';
 
 /** 项目根目录（scripts/ 的父目录） */
 const PROJECT_ROOT = join(import.meta.dir, '..');
-/** 扫描目录：仅运行时域 app/src */
-const SCAN_DIR = join(PROJECT_ROOT, 'app', 'src');
+/** 扫描目录：运行时域 app/src + 内核 packages/kernel/src（P4 起内核物理独立） */
+const SCAN_DIRS = [
+  join(PROJECT_ROOT, 'app', 'src'),
+  join(PROJECT_ROOT, 'packages', 'kernel', 'src'),
+];
 /** 检查的文件扩展名 */
 const CHECK_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
 /** 旧名匹配 */
@@ -53,7 +56,7 @@ function collectFiles(dir: string): string[] {
 function main(): void {
   const violations: Violation[] = [];
 
-  for (const file of collectFiles(SCAN_DIR)) {
+  for (const file of SCAN_DIRS.flatMap((dir) => collectFiles(dir))) {
     const rel = file
       .slice(PROJECT_ROOT.length + 1)
       .split(sep)

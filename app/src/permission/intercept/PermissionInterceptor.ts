@@ -37,7 +37,7 @@
 import {
   dependencyRegistry,
   DepRegistry,
-} from '../../core/DependencyRegistry.js';
+} from '@modules/core/DependencyRegistry.js';
 import { createDenyDecision } from '../PermissionResult.js';
 import { getLogger } from '@modules/monitoring';
 

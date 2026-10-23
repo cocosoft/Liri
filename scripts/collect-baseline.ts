@@ -87,7 +87,7 @@ async function main(): Promise<void> {
   // 阶段 2: DI 容器加载
   const diLoadStart = performance.now();
   try {
-    await import('../app/src/core/DIContainer.ts');
+    await import('../packages/kernel/src/core/DIContainer.ts');
   } catch (e) {
     console.log('  [warn] DIContainer 加载失败:', String(e));
   }
@@ -102,7 +102,7 @@ async function main(): Promise<void> {
   }
   // 加载 AppCore
   try {
-    await import('../app/src/core/AppCore.ts');
+    await import('../packages/kernel/src/core/AppCore.ts');
   } catch {
     // AppCore 可能不存在
   }

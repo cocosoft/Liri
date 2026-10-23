@@ -20,26 +20,19 @@
 // SOFTWARE.
 
 /**
- * `@openliri/kernel` —— **P1 骨架占位**（见 core-独立包-落地方案 §4-P1）。
+ * `@openliri/kernel` 包入口。
  *
- * 这里**刻意不转发** `app/src/core` 的任何实现，原因（实测 2026-10-23）：
- * bun 的 `file:` 依赖在 Windows 上会把包**复制**进 `node_modules`，
- * 相对路径 `../../../app/src/core/...` 因此会解析到 `app/app/src/core`（不存在）。
- * 更重要的是：即便能解析，那也会制造一条 **kernel → app 的反向依赖** ——
- * 与「内核独立成包」完全相反，属于用临时手段换来的假绿。
+ * 内核实现在 `./core/`（P4 由 `app/src/core` 物理迁入，内容零改动）。
+ * 包入口只做**自身内聚的桶导出** —— 不转发任何上层（entry/ui/app/service/infra）实现：
+ * 内核的依赖方向必须单向（`core ← 其余各层`），由 `bun run lint:kernel` 强制。
  *
- * 因此 P1 只验证「包名可解析 / 依赖可安装 / 构建不受影响」；
- * 真正的实现在 **P4** 由 `git mv app/src/core/* packages/kernel/src/` 迁入。
+ * 目录保留 `core/` 这一层是**刻意**的（方案 §4-P4 记录）：
+ * 架构门禁 `lint:arch` 的模块识别取路径首段（`core/...`），保留该层可使
+ * 内核文件的模块归属与迁移前**逐字一致**，避免门禁静默失焦（AR-3）。
  */
-
-/** 包标识（供宿主自证与后续 api-surface 使用） */
 export const KERNEL_PACKAGE_NAME = '@openliri/kernel';
 
 /** 包版本（P6 起由发版流程维护） */
 export const KERNEL_PACKAGE_VERSION = '0.1.0';
 
-/**
- * P1 骨架标记：`app/src/core` 的源码**尚未**迁入本包。
- * P4 完成后本常量删除（届时本条即为「迁移完成」的机械判据）。
- */
-export const KERNEL_SKELETON_ONLY = true;
+export * from './core/index.js';

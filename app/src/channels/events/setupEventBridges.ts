@@ -35,7 +35,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { channelEventBus, ChannelEvents } from './ChannelEventBus';
-import type { EventBus } from '../../core/events/EventBus';
+import type { EventBus } from '@modules/core/events/EventBus';
 
 const logger = getLogger('channels:events:bridge');
 

@@ -79,7 +79,13 @@ function baseline(entries: Array<Record<string, string>>): string {
 function run(root: string): { code: number; out: string } {
   const result = spawnSync(process.execPath, [GATE], {
     cwd: root,
-    env: { ...process.env, KP_REPO_ROOT: root },
+    // 夹具沿用 `app/src/core` 布局（与真实仓库的 `packages/kernel/src/core` 不同），
+    // 故显式指定内核根 —— 该 env 就是为此类夹具预留的。
+    env: {
+      ...process.env,
+      KP_REPO_ROOT: root,
+      KP_KERNEL_ROOT: join(root, 'app', 'src', 'core'),
+    },
     encoding: 'utf-8',
   });
   return {
@@ -213,7 +219,11 @@ describe('内核纯净度门禁：基线 maxEntries 棘轮', () => {
 
     const result = spawnSync(process.execPath, [GATE, '--write-baseline'], {
       cwd: root,
-      env: { ...process.env, KP_REPO_ROOT: root },
+      env: {
+        ...process.env,
+        KP_REPO_ROOT: root,
+        KP_KERNEL_ROOT: join(root, 'app', 'src', 'core'),
+      },
       encoding: 'utf-8',
     });
     expect(result.status).toBe(0);

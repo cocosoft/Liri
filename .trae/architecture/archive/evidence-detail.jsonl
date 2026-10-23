@@ -112,8 +112,8 @@
 {"id":"PLAN-P1-7","k":"title","i":0,"c":"方案 P1-7：SPI 装配顺序等隐式约束机器化"}
 {"id":"PLAN-P1-7","k":"source","i":0,"c":"dev_docs/20261010/升级优化方案-20261010.md §3"}
 {"id":"PLAN-P1-7","k":"reopenWhen","i":0,"c":"新增端口顺序依赖时（须在 SPI_WIRING_REQUIRES 登记）"}
-{"id":"PLAN-P1-7","k":"code#0","i":0,"c":"app/src/core/spi/wiringGuard.ts"}
-{"id":"PLAN-P1-7","k":"code#1","i":0,"c":"app/src/core/spi/KnowledgeService.ts"}
+{"id":"PLAN-P1-7","k":"code#0","i":0,"c":"packages/kernel/src/core/spi/wiringGuard.ts"}
+{"id":"PLAN-P1-7","k":"code#1","i":0,"c":"packages/kernel/src/core/spi/KnowledgeService.ts"}
 {"id":"PLAN-P1-7","k":"tests#0","i":0,"c":"app/tests/core/spiWiringOrder.test.ts"}
 {"id":"PLAN-P1-7","k":"changelog#0","i":0,"c":"v0.4.76"}
 {"id":"PLAN-P1-8","k":"title","i":0,"c":"方案 P1-8：配置契约测试（默认值/覆盖/读值一致）"}
@@ -477,7 +477,7 @@
 {"id":"MODE-A6","k":"source","i":0,"c":"21 模式对标复查报告 11 §2.2"}
 {"id":"MODE-A6","k":"reopenWhen","i":0,"c":"出现『单 agent / 工具路径需查同源质量』的真实需求时（见方案 P2-9）"}
 {"id":"MODE-A6","k":"notes","i":0,"c":"跨**域**端口已落地；跨**路径**仍缺（报告判定 ⚠️ 部分）。"}
-{"id":"MODE-A6","k":"code#0","i":0,"c":"app/src/core/spi/SessionQualityService.ts"}
+{"id":"MODE-A6","k":"code#0","i":0,"c":"packages/kernel/src/core/spi/SessionQualityService.ts"}
 {"id":"MODE-A6","k":"changelog#0","i":0,"c":"v0.4.66"}
 {"id":"MODE-A7","k":"title","i":0,"c":"21 模式 A7：Routing 分散（14 Router 无统一契约）"}
 {"id":"MODE-A7","k":"source","i":0,"c":"21 模式对标复查报告 11 §2.6"}
@@ -504,7 +504,7 @@
 {"id":"MODE-A11","k":"source","i":0,"c":"21 模式对标复查报告 11 §2.2"}
 {"id":"MODE-A11","k":"reopenWhen","i":0,"c":"同 MODE-A6"}
 {"id":"MODE-A11","k":"notes","i":0,"c":"报告判定 🟢 消除（以 SPI 端口形态落地，非新建总线）。"}
-{"id":"MODE-A11","k":"code#0","i":0,"c":"app/src/core/spi/SessionQualityService.ts"}
+{"id":"MODE-A11","k":"code#0","i":0,"c":"packages/kernel/src/core/spi/SessionQualityService.ts"}
 {"id":"MODE-A11","k":"changelog#0","i":0,"c":"v0.4.66"}
 {"id":"MODE-A12","k":"title","i":0,"c":"21 模式 A12：A2A 未接线 501 语义"}
 {"id":"MODE-A12","k":"source","i":0,"c":"21 模式对标复查报告 11 §2.5"}
@@ -525,7 +525,7 @@
 {"id":"RRF-CONV","k":"notes","i":0,"c":"值域由 Σw/(k+rank+1)（≈1/61 量级）收敛为除以 rrfMaxScore 上界的 (0,1]；重叠文档 matchType 由 keyword/semantic 收敛为 'hybrid'。"}
 {"id":"RRF-CONV","k":"code#0","i":0,"c":"app/src/utils/rrf.ts"}
 {"id":"RRF-CONV","k":"code#1","i":0,"c":"app/src/knowledge/KnowledgeRouter.ts"}
-{"id":"RRF-CONV","k":"code#2","i":0,"c":"app/src/core/knowledge-types.ts"}
+{"id":"RRF-CONV","k":"code#2","i":0,"c":"packages/kernel/src/core/knowledge-types.ts"}
 {"id":"RRF-CONV","k":"code#3","i":0,"c":"client/src/types/knowledge.ts"}
 {"id":"RRF-CONV","k":"code#4","i":0,"c":"client/src/components/Knowledge/SearchHitCard.tsx"}
 {"id":"RRF-CONV","k":"tests#0","i":0,"c":"app/tests/utils/rrf.test.ts"}
@@ -616,8 +616,8 @@
 {"id":"TOOLGOV-S2-3","k":"notes","i":1,"c":"flagKey）；② G4：`scripts/gen-tool-names.ts` 头注由「全量」订正为「全量 ∧ 可实例化」并注明被排除名无法列出（台账 D-40/D-41），重生成后名字列表不变（73）；③ G8：新增 `tests/tools/toolTypesShimGuard.test.ts` 守卫 `tools/types/*` 只允许 "}
 {"id":"TOOLGOV-S2-3","k":"notes","i":2,"c":"re-export（防就地声明造成双轨）；④ G6：`toolNameLists.test.ts` 新增「运行期注册族快照」（`TOOL_CATEGORIES` 命名空间族前缀集合恒定：calendar/knowledge/mail/office/workflow，新增族即失败）；⑤ **G5 未落地（如实）**：`TOOL_NAMES ⊄ "}
 {"id":"TOOLGOV-S2-3","k":"notes","i":3,"c":"REGISTERED`（现有扫描行首锚定，13 个名字以内联对象字面量/常量赋值声明匹配不到）⇒ 需独立设计「仅识别真实工具类」的扫描口径，本轮不硬上以免假阳性门禁。e2eVerified=false。"}
-{"id":"TOOLGOV-S2-3","k":"code#0","i":0,"c":"app/src/core/featureFlags.ts"}
-{"id":"TOOLGOV-S2-3","k":"code#1","i":0,"c":"app/src/core/index.ts"}
+{"id":"TOOLGOV-S2-3","k":"code#0","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
+{"id":"TOOLGOV-S2-3","k":"code#1","i":0,"c":"packages/kernel/src/core/index.ts"}
 {"id":"TOOLGOV-S2-3","k":"code#2","i":0,"c":"app/src/tools/utils/ToolFeatureFlags.ts"}
 {"id":"TOOLGOV-S2-3","k":"code#3","i":0,"c":"app/scripts/gen-tool-names.ts"}
 {"id":"TOOLGOV-S2-3","k":"code#4","i":0,"c":"app/src/constants/toolNames.generated.ts"}
@@ -667,7 +667,7 @@
 {"id":"TOOLGOV-S3-2","k":"notes","i":3,"c":"六步核查：CD01 全仓 grep 4 名仅剩定义与注释（测试已随步骤②改写）；CD02/CD03 无构建/插件/DI/协议入口；CD04 测试 `toolFactoryDeadStubs.test.ts` 改断言「方法已移除 + 死特性位已删」（含负向夹具自证）；CD06 删除可 `git revert`。e2eVerified=false。"}
 {"id":"TOOLGOV-S3-2","k":"code#0","i":0,"c":"app/src/tools/utils/ToolManagerUtils.ts"}
 {"id":"TOOLGOV-S3-2","k":"code#1","i":0,"c":"app/src/tools/ToolFactory.ts"}
-{"id":"TOOLGOV-S3-2","k":"code#2","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"TOOLGOV-S3-2","k":"code#2","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"TOOLGOV-S3-2","k":"code#3","i":0,"c":"app/docs/CORE_MODULES.md"}
 {"id":"TOOLGOV-S3-2","k":"code#4","i":0,"c":".trae/specs/workflow-definition-externalization.md"}
 {"id":"TOOLGOV-S3-2","k":"code#5","i":0,"c":".trae/specs/workflow-template-persistence.md"}
@@ -721,7 +721,7 @@
 {"id":"TOOLGOV-G-C5","k":"notes","i":2,"c":"modules/index.ts` 转出）⇒ ON_DEMAND **从未被触发**，实际等价静态/CRITICAL 加载；③ 且 `security`/`sandbox` 被 Bash 链**静态导入**（`tools/bash/BashTool.ts` 等）⇒ 『省启动开销』的意图当前不可能生效。处置（**登记不删**）：在 `"}
 {"id":"TOOLGOV-G-C5","k":"notes","i":3,"c":"core/LazyModuleStrategy.ts` 的 `DYNAMIC_IMPORT_LOADERS` 头注 + `modules/ModuleInitializer.requestOnDemandModule` JSDoc 登记上述事实，含 **替代保护**（安全/沙箱链路可用性由静态导入兜底，不存在『未就绪窗口』）与 **reopen 条件**。零"}
 {"id":"TOOLGOV-G-C5","k":"notes","i":4,"c":"行为变更（无自动化测试 —— 登记/说明类）。e2eVerified=false。"}
-{"id":"TOOLGOV-G-C5","k":"code#0","i":0,"c":"app/src/core/LazyModuleStrategy.ts"}
+{"id":"TOOLGOV-G-C5","k":"code#0","i":0,"c":"packages/kernel/src/core/LazyModuleStrategy.ts"}
 {"id":"TOOLGOV-G-C5","k":"code#1","i":0,"c":"app/src/modules/ModuleInitializer.ts"}
 {"id":"TOOLGOV-D1","k":"title","i":0,"c":"工具治理 D1（裁定「接线」）：feature() 三层优先 —— env → BUILD_VARIANT_FLAGS → FEATURE_FLAGS"}
 {"id":"TOOLGOV-D1","k":"source","i":0,"c":"工具治理方案-20261011 §4 阶段 4 D1（用户裁定「接线」，2026-10-11）"}
@@ -731,7 +731,7 @@
 {"id":"TOOLGOV-D1","k":"notes","i":2,"c":"()`；④ 新增门禁（变体键 ⊆ `FeatureFlag`，防拼错/死键）+ **负向夹具自证** + 三层优先/回落/env 覆盖用例（`featureFlagContract.test.ts`）；⑤ **连带行为变更（如实）**：coding 变体默认生效 ⇒ `TEAM_CREATE`/`TEAM_DELETE` 转生效（生成物 `"}
 {"id":"TOOLGOV-D1","k":"notes","i":3,"c":"TOOL_NAMES` 73 → 75；`TOOL_EFFECTS` 补 `team_create`/`team_delete` = EXTERNAL；`TOOL_CATEGORIES` 的 `TeamCreate`/`TeamDelete` **死键订正**为 `team_create`/`team_delete`；G5 已知条件集 17 → 15）；`"}
 {"id":"TOOLGOV-D1","k":"notes","i":4,"c":"LSP`/`NOTEBOOK`/`BROWSER`/`CODE_ANALYSIS` 默认开；`AGENT_TRIGGERS` 默认关（cron 四工具默认不注册）；`notebook.test.ts` 改**显式 env 覆盖**以继续覆盖禁用分支。e2eVerified=false。"}
-{"id":"TOOLGOV-D1","k":"code#0","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"TOOLGOV-D1","k":"code#0","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"TOOLGOV-D1","k":"code#1","i":0,"c":"app/src/bootstrap/generatedVariantFlags.ts"}
 {"id":"TOOLGOV-D1","k":"code#2","i":0,"c":"app/scripts/build-variant.ts"}
 {"id":"TOOLGOV-D1","k":"code#3","i":0,"c":"app/src/constants/toolNames.generated.ts"}
@@ -764,7 +764,7 @@
 {"id":"TOOLGOV-D7","k":"notes","i":2,"c":" G5 门禁**不受影响**；③ **④ 门禁**：`toolNameLists.test.ts` 新增「S2-4 双轨制排他性断言」—— 静态登记 100% 重叠对（`read_vfs↔file_read`、`write_vfs↔file_write`），以 `getBuiltinToolLoaders()`（**生效视图**）断言「不得同时激活」，判据抽"}
 {"id":"TOOLGOV-D7","k":"notes","i":3,"c":"纯函数 `findActiveOverlapViolations()` + **负向夹具自证**（防恒真）+ 防空转守卫（默认面确含 file_read/file_write）；④ **本轮不改** `entrypoints/vfsWiring.ts` 的默认挂载（VFS 工具未注册时挂载惰性；改默认挂载会波及既有消费者，另案）。"}
 {"id":"TOOLGOV-D7","k":"notes","i":4,"c":"e2eVerified=false。"}
-{"id":"TOOLGOV-D7","k":"code#0","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"TOOLGOV-D7","k":"code#0","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"TOOLGOV-D7","k":"code#1","i":0,"c":"app/src/tools/utils/ToolManagerUtils.ts"}
 {"id":"TOOLGOV-D7","k":"tests#0","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"TOOLGOV-D2","k":"title","i":0,"c":"工具治理 D2（裁定「启动 fail-fast 断言」）：权限管理器未注入 ⇒ 生产 fail-fast（G9）"}
@@ -1012,8 +1012,8 @@
 {"id":"CHANGOV-GATEWAY-PORT","k":"notes","i":3,"c":" + `error:'outbound gateway not registered'`），**不伪造成功**。③ **UW（预留端口 / 生产中无消费者）**：为后续「四原语只读出站广播」与「进程外通道插件」留接缝（先例 `ICollaborationPort`）。④ **入站端口未做（如实，有意分期）**：`routeChannelMessage("}
 {"id":"CHANGOV-GATEWAY-PORT","k":"notes","i":4,"c":"RouteMessageOptions)` 携带 `coreAPI` + 多回调，无法在不复制大契约的前提下表达为 core 侧窄端口 ⇒ 归属 **阶段 2.4（入站 DTO 标准化）**。⑤ **测试** `tests/channels/outboundGatewayPort.test.ts` **2 例**（未注册失败语义 / 适配器形状搬运）；`"}
 {"id":"CHANGOV-GATEWAY-PORT","k":"notes","i":5,"c":"bun test tests/channels/` **312 pass / 0 fail**；`lint:arch` **0 违规**（新增 `channels→core` 为**合法下行**）。e2eVerified=false。"}
-{"id":"CHANGOV-GATEWAY-PORT","k":"code#0","i":0,"c":"app/src/core/spi/GatewayService.ts"}
-{"id":"CHANGOV-GATEWAY-PORT","k":"code#1","i":0,"c":"app/src/core/spi/index.ts"}
+{"id":"CHANGOV-GATEWAY-PORT","k":"code#0","i":0,"c":"packages/kernel/src/core/spi/GatewayService.ts"}
+{"id":"CHANGOV-GATEWAY-PORT","k":"code#1","i":0,"c":"packages/kernel/src/core/spi/index.ts"}
 {"id":"CHANGOV-GATEWAY-PORT","k":"code#2","i":0,"c":"app/src/channels/gateway/OutboundGatewayPortAdapter.ts"}
 {"id":"CHANGOV-GATEWAY-PORT","k":"code#3","i":0,"c":"app/src/entrypoints/spiWiring.ts"}
 {"id":"CHANGOV-GATEWAY-PORT","k":"tests#0","i":0,"c":"app/tests/channels/outboundGatewayPort.test.ts"}
@@ -1028,8 +1028,8 @@
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"notes","i":5,"c":"coreAPI` 的路由 = 伪造能力（CS04/CS05）。④ **测试** `tests/channels/inboundGateway.test.ts` **5 例**（文本映射 / 非文本归 file / 附件映射与键省略 / 未注册裁决 / 适配器形状搬运）；`bun test tests/channels/` **317 pass / 0 "}
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"notes","i":6,"c":"fail**；`lint:arch` **0 违规**（新增 `channels→core` 为合法下行）。⑤ **未接线（如实）**：端口本期**无生产消费者**；入站 `PREPARED` 接缝（状态转移可观测）**未做** —— 依赖状态机方案的 PREPARED 落盘能力。e2eVerified=false。"}
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#0","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
-{"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#1","i":0,"c":"app/src/core/spi/InboundGatewayService.ts"}
-{"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#2","i":0,"c":"app/src/core/spi/index.ts"}
+{"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#1","i":0,"c":"packages/kernel/src/core/spi/InboundGatewayService.ts"}
+{"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#2","i":0,"c":"packages/kernel/src/core/spi/index.ts"}
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"code#3","i":0,"c":"app/src/channels/gateway/InboundGatewayPortAdapter.ts"}
 {"id":"CHANGOV-INBOUND-DTO-PORT","k":"tests#0","i":0,"c":"app/tests/channels/inboundGateway.test.ts"}
 {"id":"FSM-CATALOG-P1","k":"title","i":0,"c":"状态机规范管理 阶段 1：状态机**定义目录**（`StateMachineCatalog`）+ 目录↔源码**防漂移**断言"}
@@ -1167,8 +1167,8 @@
 {"id":"FSM-PROJECTION-P4","k":"code#2","i":0,"c":"app/src/execution/executionProjection.ts"}
 {"id":"FSM-PROJECTION-P4","k":"code#3","i":0,"c":"app/src/execution/index.ts"}
 {"id":"FSM-PROJECTION-P4","k":"code#4","i":0,"c":"app/src/execution/ExecutionManager.ts"}
-{"id":"FSM-PROJECTION-P4","k":"code#5","i":0,"c":"app/src/core/events/EventBus.ts"}
-{"id":"FSM-PROJECTION-P4","k":"code#6","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"FSM-PROJECTION-P4","k":"code#5","i":0,"c":"packages/kernel/src/core/events/EventBus.ts"}
+{"id":"FSM-PROJECTION-P4","k":"code#6","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"FSM-PROJECTION-P4","k":"tests#0","i":0,"c":"app/tests/execution/executionProjection.test.ts"}
 {"id":"FSM-PROJECTION-P4","k":"tests#1","i":0,"c":"app/tests/execution/projectionBroadcast.test.ts"}
 {"id":"FSM-SUSPENDED-P5","k":"title","i":0,"c":"状态机规范管理 阶段 5（SUSPENDED 投影 / Freeze-and-Resume 联动）—— **前置已由债二专项落地（2026-10-12），本阶段实质达成**"}
@@ -1232,7 +1232,7 @@
 {"id":"TOOLGOV-SIDECAR-S1","k":"notes","i":7,"c":"fail-closed/就绪超时/request-response/notify/**崩溃 ⇒ pending 全拒**/有界重启/stop 不重启）+ `lint:arch` 0 违规；`typecheck` 0 错；`lint:size`/`fn-size`/`complexity` 未增长；`lint:doc-code`/`fix-evidence`/"}
 {"id":"TOOLGOV-SIDECAR-S1","k":"notes","i":8,"c":"`version:check` 全绿。**⚠️ 与定案稿 §4 阶段 1 验收的差异（如实）**：定案稿写「开关开 ⇒ `lsp` 工具**经侧车返回结果**」，而 **S1 仅骨架** ⇒ 开关开时侧车分支 **fail-closed 返回 `null`**（**不**回落内置「每次 spawn」，规避**静默双轨**）；工具面真接线属 **S2（"}
 {"id":"TOOLGOV-SIDECAR-S1","k":"notes","i":9,"c":"T2.2/T2.3）** 尚未做 ⇒ 本条目 `e2eVerified=false`（仅有骨架的进程级探测：真实 spawn → 握手 → 诚实回 `NOT_IMPLEMENTED` → stop，**不**等价于「工具面端到端」）。**另注**：`app/src/lsp/**`、`tools/lsp/**` 本次**未删未改**（CD07 保护），仅取证。"}
-{"id":"TOOLGOV-SIDECAR-S1","k":"code#0","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"TOOLGOV-SIDECAR-S1","k":"code#0","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"TOOLGOV-SIDECAR-S1","k":"code#1","i":0,"c":"app/src/tools/sidecar/ToolSidecarSupervisor.ts"}
 {"id":"TOOLGOV-SIDECAR-S1","k":"code#2","i":0,"c":"app/src/tools/sidecar/lspSidecar.ts"}
 {"id":"TOOLGOV-SIDECAR-S1","k":"code#3","i":0,"c":"app/src/tools/sidecar/toolSidecarLifecycle.ts"}
@@ -1364,7 +1364,7 @@
 {"id":"DEBT4-S1S2","k":"notes","i":6,"c":" fail**。**⚠️ 如实边界（重要）**：本批**未接线闸门** —— `DailyBudgetManager`/`checkDailyBudget`/开关/状态文件/配置键**均未改**，适配器**仅有单测消费方**（经 `@modules/query` 桶导出——**2026-10-13 补记：现已有生产消费者**，见 `"}
 {"id":"DEBT4-S1S2","k":"notes","i":7,"c":"DEBT4-USD-WIRING` 的 `recordTurnCostUsd` 复用 `estimateTurnCostUsd`；「仅有单测消费方」为**本条落地时**的状态，如实保留）⇒ **生产闸门仍走现行 Token 口径，零行为变更**（闸门改动 = S3，未做）；**未实现 U3**（`DEFAULT_MODEL_PRICING` 是既有「未知模型"}
 {"id":"DEBT4-S1S2","k":"notes","i":8,"c":"兜底单价」，**不是** USD 预算默认上限；未新增任何 USD 预算默认值）。**另注**：`RegistryPricingSource` 是为规避 core 内类型环而定义的最小结构类型，与 SPI DTO 存在字段级重复（如后续要彻底消重需评估 DTO 归位，本切片未触碰 `core/spi`）。"}
-{"id":"DEBT4-S1S2","k":"code#0","i":0,"c":"app/src/core/pricing.ts"}
+{"id":"DEBT4-S1S2","k":"code#0","i":0,"c":"packages/kernel/src/core/pricing.ts"}
 {"id":"DEBT4-S1S2","k":"code#1","i":0,"c":"app/src/cost/ModelPricing.ts"}
 {"id":"DEBT4-S1S2","k":"code#2","i":0,"c":"app/src/query/modelPricingAdapter.ts"}
 {"id":"DEBT4-S1S2","k":"code#3","i":0,"c":"app/src/query/index.ts"}
@@ -1449,7 +1449,7 @@
 {"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"notes","i":7,"c":"0` 与兜底不一致（**既有**行为，本片未改，已列 `reopenWhen` ③）；③ `contextWindow: 200000` 的同处硬编码**未动**（属模型属性红线域 ⇒ 归 HD-P2）；④ `e2eVerified=false`（常量收敛 + 单测/守卫即可判定）。"}
 {"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"code#0","i":0,"c":"app/src/tokenBudget/PriceManager.ts"}
 {"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"code#1","i":0,"c":"app/src/ai/prompts/PromptCacheManager.ts"}
-{"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"code#2","i":0,"c":"app/src/core/pricing.ts"}
+{"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"code#2","i":0,"c":"packages/kernel/src/core/pricing.ts"}
 {"id":"HARDCODE-HDP0-1-FALLBACK-PRICE","k":"tests#0","i":0,"c":"app/tests/cost/fallbackPricingSingleSource.test.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"title","i":0,"c":"T3-12：熵门禁 / 轮上限「接通挂起」+ 独立继续入口（用户裁定推翻 `TOOLGOV-TG5` 的「绝不阻断」）"}
 {"id":"T3-12-GUARD-SUSPEND","k":"source","i":0,"c":"dev_docs/20261012/长程任务编排链路优化方案-20261012.md §4 阶段 2.2 与五方案总览 `T3-12` / 决策 `✅-18`（2026-10-13 用户裁定「两者都接通挂起」+「新增独立继续入口，不复用 relief」）"}
@@ -1476,7 +1476,7 @@
 {"id":"T3-12-GUARD-SUSPEND","k":"code#8","i":0,"c":"app/src/infrastructure/http/handlers/session-continue-handler.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"code#9","i":0,"c":"app/src/infrastructure/http/handlers/routes/chat-session-routes.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"code#10","i":0,"c":"app/src/infrastructure/http/handlers/daily-budget-handlers.ts"}
-{"id":"T3-12-GUARD-SUSPEND","k":"code#11","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"T3-12-GUARD-SUSPEND","k":"code#11","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"code#12","i":0,"c":"app/src/query/index.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"tests#0","i":0,"c":"app/tests/query/guardSuspend.test.ts"}
 {"id":"T3-12-GUARD-SUSPEND","k":"tests#1","i":0,"c":"app/tests/query/guardSuspendHook.test.ts"}
@@ -1560,7 +1560,7 @@
 {"id":"BUDGET-SUSPEND-RESUME","k":"notes","i":56,"c":"` / `lint:size` / `lint:fn-size` / `lint:complexity` / `lint:doc-code` / `lint:invariants` / `lint:unref` / `lint:fix-evidence`（**110 条自洽**）/ `version:check`（v0.4.77）**全绿**；聚焦测试 "}
 {"id":"BUDGET-SUSPEND-RESUME","k":"notes","i":57,"c":"**25 pass / 0 fail**。**环境已恢复**（`dailyLimit` 500000、relief 已撤销、测试会话与挂起检查点全部清零、`--http-only` 实例已停）。**残余（如实）**：`resetDiminishingReturns` 只复位**连续性**；真递减时 `_observeRound` 的早退仍**先于** `"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"notes","i":58,"c":"persistMessages`（**既有行为，本批明确出界**，未做）；`streamMessageToolLoopContext` 的 `as unknown` 类型盲区仍 parked；E2E-2 仍待定；`FEATURE_BUDGET_SUSPEND_RESUME` 由用户裁定「补齐后再启用」。⑫ **启用开关（v1.7，2026-10-12）**："}
-{"id":"BUDGET-SUSPEND-RESUME","k":"notes","i":59,"c":"两项前置（查询面可见性 v1.5 · taor 链真实 E2E v1.6）补齐后，按用户裁定（AskUserQuestion「翻转静态默认」）把 `app/src/core/featureFlags.ts` 的 `BUDGET_SUSPEND_RESUME` **由 `false` 翻为 `true`（默认开）**；**同批**同步 6 处源码注释的「默认关"}
+{"id":"BUDGET-SUSPEND-RESUME","k":"notes","i":59,"c":"两项前置（查询面可见性 v1.5 · taor 链真实 E2E v1.6）补齐后，按用户裁定（AskUserQuestion「翻转静态默认」）把 `packages/kernel/src/core/featureFlags.ts` 的 `BUDGET_SUSPEND_RESUME` **由 `false` 翻为 `true`（默认开）**；**同批**同步 6 处源码注释的「默认关"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"notes","i":60,"c":"」措辞（`featureFlags.ts` 自身 · `query/budgetSuspend.ts` · `query/taor/budgetSuspendHook.ts` · `chat/ReActToolLoop.ts` · `chat/ChatManager.ts` · `chat/manager/bootstrap.ts`）与 3 处测试头注，并把"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"notes","i":61,"c":" 3 处「开关关」负向用例改为**显式 `process.env[FLAG]='false'`** —— 因 `feature()` 三层解析 = **env > 变体层 > 静态默认** ⇒ 默认翻转后「删 env」不再等于「关」，不改则负向用例会静默失效（先红后绿的「红」会消失）。**验证**：`tests/{query,chat,execution,"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"notes","i":62,"c":"http,session}` **1397 pass / 1 fail**（该 1 fail 为**既存环境型**：`dailyBudgetSingleton` 的 env 覆盖断言被持久化配置 `costControl.dailyTokenBudget` 遮蔽，与本次改动无关）；`typecheck` 0 错；门禁全绿。**回退** = 改回 `false"}
@@ -1600,7 +1600,7 @@
 {"id":"BUDGET-SUSPEND-RESUME","k":"code#16","i":0,"c":"app/src/chat/manager/sessionTeardown.ts"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"code#17","i":0,"c":"app/src/chat/orchestrator/ChatOrchestrator.ts"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"code#18","i":0,"c":"app/src/chat/orchestrator/streamMessageToolLoopContext.ts"}
-{"id":"BUDGET-SUSPEND-RESUME","k":"code#19","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"BUDGET-SUSPEND-RESUME","k":"code#19","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"code#20","i":0,"c":"app/src/infrastructure/http/index.ts"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"code#21","i":0,"c":"app/src/infrastructure/http/handlers/checkpoint-handlers.ts"}
 {"id":"BUDGET-SUSPEND-RESUME","k":"code#22","i":0,"c":"app/src/infrastructure/http/handlers/chat-handlers.ts"}
@@ -1696,7 +1696,7 @@
 {"id":"PREPARED-REPLAY-FORCE","k":"notes","i":10,"c":"fail**。**门禁**：`typecheck` 3 工程 **0 错**；`lint:arch` **0 error**（5 条**既有** warning 未增；R09-006 候选 53 不变）；`lint:fn-size` / `lint:complexity` **未增长**；`lint:doc-code` / `"}
 {"id":"PREPARED-REPLAY-FORCE","k":"notes","i":11,"c":"lint:fix-evidence` / `version:check` **全绿**。**如实边界**：① **只覆盖会重算工具面的分支**（R-B「每轮覆盖」**未采纳** —— 会波及正常对话每一轮，代价更大）；② `e2eVerified=false`（未做真实崩溃 → 续跑端到端）；③ 开关**默认关** ⇒ 生产行为不变；④ 强制集与当前注册表的"}
 {"id":"PREPARED-REPLAY-FORCE","k":"notes","i":12,"c":"交集语义（点名但已下线者**静默缺席**，不报错）为**有意设计**（重放应还原当时可见面，而非复活已删工具）。"}
-{"id":"PREPARED-REPLAY-FORCE","k":"code#0","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"PREPARED-REPLAY-FORCE","k":"code#0","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"PREPARED-REPLAY-FORCE","k":"code#1","i":0,"c":"app/src/execution/preparedSnapshot.ts"}
 {"id":"PREPARED-REPLAY-FORCE","k":"code#2","i":0,"c":"app/src/execution/index.ts"}
 {"id":"PREPARED-REPLAY-FORCE","k":"code#3","i":0,"c":"app/src/session/types/message/options.ts"}
@@ -1798,7 +1798,7 @@
 {"id":"CHANGOV-T18-UW-GATEWAY-PORTS","k":"notes","i":3,"c":"` 的依赖是**逐消息闭包**（`channels/setupChannels.ts:388-440`：`getCoreAPI()` + `onOutbound → plugin.outbound.sendMessage` + `onOutboundFile`（仅 `capabilities.fileUpload` 才绑）+ `dmPolicy → "}
 {"id":"CHANGOV-T18-UW-GATEWAY-PORTS","k":"notes","i":4,"c":"plugin.security.*` + `enableLongTaskPlaceholder → capabilities.passiveReplyWindow`）⇒ 注册**全局**端口必须**从 envelope 反推 `channel → plugin` 并重建全部回调**，等于在**没有消费者**的情况下新建**第二套入站入口** —— 同时违反该"}
 {"id":"CHANGOV-T18-UW-GATEWAY-PORTS","k":"notes","i":5,"c":"端口自身的「随消费者落地」设计声明与 **CS03**（不为不存在/未证实的场景加机制）。**故维持现状**：诚实 fail-closed（不伪造接受），待消费者出现时按 `reopenWhen` 实施。**登记类条目**（`fixed=false`，沿用 `TOOLGOV-SIDECAR-TARGETS` 形式），无代码改动、无 CHANGELOG。"}
-{"id":"CHANGOV-T18-UW-GATEWAY-PORTS","k":"code#0","i":0,"c":"app/src/core/spi/InboundGatewayService.ts"}
+{"id":"CHANGOV-T18-UW-GATEWAY-PORTS","k":"code#0","i":0,"c":"packages/kernel/src/core/spi/InboundGatewayService.ts"}
 {"id":"TOOLGOV-TG2-A-SNAPSHOT-CAP","k":"title","i":0,"c":"T1-2② / TG-2+TG-6（**A 片**）：`ISnapshotCapable` **契约 + 探测**（可选实现；声明式、零行为、不改编排类树）"}
 {"id":"TOOLGOV-TG2-A-SNAPSHOT-CAP","k":"source","i":0,"c":"dev_docs/20261012/工具治理方案-20261012.md 阶段 1.2（`:149`）+ 五方案总览 `T1-2②` + 用户 2026-10-13 裁定「按方案 1 先出 A 片设计稿并落地」+ `.trae/specs/sidecar-async-suspend.md` v1.0"}
 {"id":"TOOLGOV-TG2-A-SNAPSHOT-CAP","k":"reopenWhen","i":0,"c":"① **B 片裁定并实施后**（侧车作业化：`job.submit` / `job.completed`，复用唯一 IPC 基座）⇒ C 片端到端；② **首个实现者出现**时核对契约可用性（当前无实现者的定为**有意**，见 spec §4 Q4）；③ 契约形状变更（`SnapshotHandle` / 三要件）时；④ 挂起点改判（新增 `kind='"}
@@ -1876,7 +1876,7 @@
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"notes","i":18,"c":" = **登记 + 投影 + 调用方不推进轮次**（**未**释放侧车连接）；③ 端到端用**夹具 worker**，真实 `mediaSidecar` 的作业模式由**注入端口单测**覆盖（避免 e2e 引入 python/sharp 重依赖）⇒ 「真实 media 侧车子进程 e2e」**未做**；④ 首批实现者**仅**媒体侧车 L2 分析；⑤ 开关为"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"notes","i":19,"c":"**功能灰度**，不在 17 项 `SAFETY_SWITCHES` 内。"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#0","i":0,"c":"app/src/query/toolJobSuspend.ts"}
-{"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#1","i":0,"c":"app/src/core/spi/ToolJobSuspendService.ts"}
+{"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#1","i":0,"c":"packages/kernel/src/core/spi/ToolJobSuspendService.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#2","i":0,"c":"app/src/tools/sidecar/mediaSidecar.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#3","i":0,"c":"app/src/tools/sidecar/SidecarMediaAnalyzer.ts"}
 {"id":"TOOLGOV-TG2-C2-JOB-SUSPEND","k":"code#4","i":0,"c":"app/src/tools/ImageAnalysisTool/ImageAnalysisTool.ts"}
@@ -1949,7 +1949,7 @@
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"reopenWhen","i":0,"c":"① 任一常量被移出 `core/endpoints.ts` 或取值被改（守卫 ①/② 会红）；② `app/src` 下新增含 `http://localhost:11434` / `.../11434/v1` / `http://localhost:7600` 字面量的文件（守卫 ② 会红）；③ 13 个 A6 文件的 `'127.0.0.1'` 出现次数"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"reopenWhen","i":1,"c":"回升（守卫 ③b 棘轮会红）；④ `core/endpoints.ts` 引入任何 import 或读配置（守卫 ③a 会红 ⇒ 违 R00-001）；⑤ `entrypoints/http-server.ts` 的「零项目模块静态依赖」不变量口径若改变（或 core 提供无静态依赖的取值方式）⇒ 该处可一并收编；⑥ 若引入「对外绑定策略」（如 `"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"reopenWhen","i":2,"c":"0.0.0.0`）⇒ **必须另立常量**，不得复用 `LOCAL_HTTP_HOST`（否则把「对外暴露」与「本机自连」绑死）；⑦ **真机冒烟未做**（本地模型连通 / 微信渠道回调 / OAuth 回调）"}
-{"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"notes","i":0,"c":"**目标**：把「同一事实源的端点 / host 字面量散落多处」收敛为 `core/endpoints.ts` 单一定义（方案 §4.1 A1·A3·A4·A6）；**同值搬运、零语义变更**（§7.1 总原则 1）。**新增文件** `app/src/core/endpoints.ts`：`LOCAL_HTTP_HOST` / `"}
+{"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"notes","i":0,"c":"**目标**：把「同一事实源的端点 / host 字面量散落多处」收敛为 `core/endpoints.ts` 单一定义（方案 §4.1 A1·A3·A4·A6）；**同值搬运、零语义变更**（§7.1 总原则 1）。**新增文件** `packages/kernel/src/core/endpoints.ts`：`LOCAL_HTTP_HOST` / `"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"notes","i":1,"c":"DEFAULT_OLLAMA_ENDPOINT` / `DEFAULT_OLLAMA_OPENAI_ENDPOINT`（由前者派生 `${base}/v1` ⇒ 改端口只需 1 处）/ `DEFAULT_WECHAT_BOT_ENDPOINT` / `DEFAULT_OAUTH_LOCAL_BASE_URL`；并在 `core/index.ts` "}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"notes","i":2,"c":"barrel 追加 `export * from './endpoints'`（纯常量、零副作用 ⇒ 置于 `paths` 之后安全）。**分层（§7.3.1）**：该文件**零 import、不读 config**（`core` 只允许依赖 `core`，R00-001）⇒ 配置值注入仍在 app/service 层，T0/T1 早期不传配置即回落静态常量"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"notes","i":3,"c":" ⇒ 满足「启动期安全」且**未引入就绪判据 API**。**收编实测计数（回仓更正方案原数）**：A1 **7 处代码点**（原文 5；新增发现 `ai/ModelManagementBootstrap.ts:159`；注释 1 处与 CLI 帮助示例 1 处不计）→ 6 文件；A3 **5 处**（原文 4）→ 3 文件；A4 **2 处**（原文 3）"}
@@ -1961,8 +1961,8 @@
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"notes","i":9,"c":"~3.3s）；② `bun run typecheck` 3 工程 **0 错**；③ `bun run lint:arch` **0 error**（警告 5 条为存量，未增）；④ 受影响面回归 `bun test tests/ai tests/channels tests/core tests/config` = **890 pass / 0 "}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"notes","i":10,"c":"fail**；⑤ `eslint` 对全部改动与新增文件 0 error（新增文件初版为 CRLF，已按仓库 LF 口径修正）。**如实边界**：① **端到端未做** —— 未做真机冒烟（本地模型连通 / 微信渠道回调 / OAuth 回调地址），`e2eVerified=false`（已入 `修复证据登记.md` §2）；② 本轮**不改变任何默认值**"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"notes","i":11,"c":"，故运行时行为应与改动前逐字一致（守卫 ① 即此断言的代码化）；③ `providerPresetsData.ts` 的 `127.0.0.1:11434/v1` 候选与 LocalAI `8080/v1` **保持字面量**（候选列表 / 第三方产品默认，非本仓服务事实源）；④ 未新增任何 feature flag 或配置项（CS03）。"}
-{"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#0","i":0,"c":"app/src/core/endpoints.ts"}
-{"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#1","i":0,"c":"app/src/core/index.ts"}
+{"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#0","i":0,"c":"packages/kernel/src/core/endpoints.ts"}
+{"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#1","i":0,"c":"packages/kernel/src/core/index.ts"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#2","i":0,"c":"app/src/ai/providers/OllamaProvider.ts"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#3","i":0,"c":"app/src/channels/wechat/WechatChannel.ts"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#4","i":0,"c":"app/src/constants/oauth.ts"}
@@ -2033,7 +2033,7 @@
 {"id":"DEBT4-USD4-GATE","k":"notes","i":16,"c":"**未**做金额侧预扣（如需要，须先有「发送前可得金额」的同源口径，见 `reopenWhen` ②）；③ **开关默认关** ⇒ 本次交付对默认用户**零行为变更**；④ 未改 `DailyBudgetManager` 的记账/日切/放行逻辑（金额轨纯读）。"}
 {"id":"DEBT4-USD4-GATE","k":"code#0","i":0,"c":"app/src/query/dailyBudgetGate.ts"}
 {"id":"DEBT4-USD4-GATE","k":"code#1","i":0,"c":"app/src/query/dailyBudgetSnapshot.ts"}
-{"id":"DEBT4-USD4-GATE","k":"code#2","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"DEBT4-USD4-GATE","k":"code#2","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"DEBT4-USD4-GATE","k":"code#3","i":0,"c":"app/src/chat/orchestrator/preSendContextProtection.ts"}
 {"id":"DEBT4-USD4-GATE","k":"code#4","i":0,"c":"app/src/chat/orchestrator/sendMessageFlow.ts"}
 {"id":"DEBT4-USD4-GATE","k":"code#5","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
@@ -2081,7 +2081,7 @@
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"notes","i":16,"c":".md` §2）；② **未改名任何目录/文件**（`.liri` 名、`com.liri.client`、`.liri.lock` 全部保持原值）⇒ 对既有用户项目**零影响**（这正是「改名会污染用户仓库」的规避）；③ 仅处理**工作区级 `.liri` 名**这一事实源；`LiriConfigManager` 内的 `CONFIG_FILE='"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"notes","i":17,"c":"config.json'` 等**文件名**常量不在本片（同文件也已有一份与 `constants/common.ts` 的 `CONFIG_FILE_NAME` 重复，属另一事实源，未纳入）；④ 「一次性数据迁移已完成」这一结论**依据仓内注释 + 全仓零活动引用**得出，**未**在真实用户机器上核对 `~/.liri` 是否仍有历史残留目录（若要彻底，"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"notes","i":18,"c":"需在真机确认后由用户决定是否手工清理）。"}
-{"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#0","i":0,"c":"app/src/core/paths.ts"}
+{"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#0","i":0,"c":"packages/kernel/src/core/paths.ts"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#1","i":0,"c":"app/src/constants/common.ts"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#2","i":0,"c":"app/src/workspace/LiriConfigManager.ts"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#3","i":0,"c":"app/src/workspace/RuleEngine.ts"}
@@ -2148,7 +2148,7 @@
 {"id":"GATE-SELFPROOF-R09006-FIXTURE","k":"reopenWhen","i":0,"c":"① 若**将来再新增** `error` 级的全仓前置（如新的「定义目录必须存在」类规则）⇒ 该极简夹具会**再次**被打破 ⇒ 修复口径是「夹具须满足门禁前置」，**不是**放宽规则；② 若改为「从真实仓库复制最小必要前置」的夹具策略 ⇒ 需同步调整 `beforeAll`；③ 若 `R09-006` 的「缺目录即 error」语义要放宽（例如仅当项目内"}
 {"id":"GATE-SELFPROOF-R09006-FIXTURE","k":"reopenWhen","i":1,"c":"**存在** state 域时才校验）⇒ 属门禁语义变更，须单独裁定；④ 若夹具里新增了**状态机候选**（`enum *Status/*State` 或 `export const *_STATUSES/_STATES`）⇒ 必须在夹具的 `stateMachineCatalog.ts` 里登记，否则该用例会因「未登记」变红（这正是本门禁的预期行为）。"}
 {"id":"GATE-SELFPROOF-R09006-FIXTURE","k":"notes","i":0,"c":"**现象**：`bun test` 全量 6407 例中唯一失败 —— `tests/gates/gateSelfProof.test.ts:147`「R5 门禁自证：lint:arch > 【合法样例】同层自依赖 ⇒ 通过（退出 0）」（期望 0，实得 1）。**取证（四步）**：① 该用例把**极简夹具**（初版仅 `"}
-{"id":"GATE-SELFPROOF-R09006-FIXTURE","k":"notes","i":1,"c":"legalDir/app/src/core/probe.ts` 一行）作为项目根，用 `PYAPP_PROJECT_DIR='.'` + `cwd=夹具根` 跑真实 `scripts/lint-architecture.ts`（该文件头注：夹具只含 `app/src/...`；分层映射取脚本自带 json）；② **手工复现**同一夹具 ⇒ 门禁输出 `⚠️"}
+{"id":"GATE-SELFPROOF-R09006-FIXTURE","k":"notes","i":1,"c":"legalDir/packages/kernel/src/core/probe.ts` 一行）作为项目根，用 `PYAPP_PROJECT_DIR='.'` + `cwd=夹具根` 跑真实 `scripts/lint-architecture.ts`（该文件头注：夹具只含 `app/src/...`；分层映射取脚本自带 json）；② **手工复现**同一夹具 ⇒ 门禁输出 `⚠️"}
 {"id":"GATE-SELFPROOF-R09006-FIXTURE","k":"notes","i":2,"c":" R07-001`（**警告**：夹具 1 行文件）与 **`❌ R09-006`（**错误**：`app/src/state/engine/stateMachineCatalog.ts` 状态机定义目录缺失）** ⇒ **ERROR 级**导致退出 1；③ `R09-006` 由 **`2b32941a6 refactor(state): 状态机规范管理 "}
 {"id":"GATE-SELFPROOF-R09006-FIXTURE","k":"notes","i":3,"c":"阶段 1-4`**（2026-10-13，本轮之前）引入（`scripts/lint-architecture.ts:3777-3913`），而**门禁自证的夹具未随之更新**；④ **读透规则**（修复前提，不靠猜）：该规则在 `resolve(appSrc,'state','engine','stateMachineCatalog.ts')` **不存在"}
 {"id":"GATE-SELFPROOF-R09006-FIXTURE","k":"notes","i":4,"c":"时直接报 error 并 return**，随后**动态 `import()`（file:// URL）** 载入它、再按 `STATE_MACHINES[].verifyRef/sourceFile` 与 `BOUNDARY_STATE_MACHINES[].sourceFile` 判定「已登记」；**豁免清单路径是 `resolve(__dirname,"}
@@ -3149,8 +3149,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"notes","i":10,"c":" + 域测试）；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`；④ 本片是 B5-2 **首项**（余项见 `reopenWhen` ①）。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#0","i":0,"c":"app/src/cost/DailyCostCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#1","i":0,"c":"app/src/tasks/CrossProcessLock.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#2","i":0,"c":"app/src/core/cache/SessionCache.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#3","i":0,"c":"app/src/core/approval/ApprovalCache.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#2","i":0,"c":"packages/kernel/src/core/cache/SessionCache.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#3","i":0,"c":"packages/kernel/src/core/approval/ApprovalCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#4","i":0,"c":"app/src/memory/FrozenSnapshotService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#5","i":0,"c":"app/src/media/image/TempFileManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#6","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
@@ -3403,7 +3403,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"notes","i":0,"c":"**代为收尾**：原切片会话在「代码+守卫完成 → 未收紧基线/未写台账/未提交」处终止（60s 零写入 + HEAD 未前进 ⇒ 判已静止）。取证：2 处同值 30min **异事实** ⇒ 按域消歧、**数值一字未改**。效果：244 → 243 键（消陈键）。验证：守卫 28 pass / 0 fail · 5 门禁 exit 0 · "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"notes","i":1,"c":"hardcodeGateBlocking 8 pass。边界：e2eVerified=false、未跑全量。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#0","i":0,"c":"app/src/acp/session.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#1","i":0,"c":"app/src/core/idle/IdleScaleMonitor.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#1","i":0,"c":"packages/kernel/src/core/idle/IdleScaleMonitor.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3581,8 +3581,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"notes","i":2,"c":"core/protocol/websocket.ts`（**零 import、纯常量**，含 RFC 6455 握手常量族）⇒ 经 core barrel 导出；4 处副本改从 `@modules/core` 引用、本地定义删除（含收掉 acp 那处零消费者的 export）；测试侧同名字面量改名 `RFC6455_MAGIC_GUID`。**取值一字未改"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"notes","i":3,"c":"** ⇒ 零行为变化。效果：228 → **227 键**（`同名常量:MAGIC_GUID` 3→0）。验证：typecheck 0 · 守卫 44 pass · `tests/voice`+`tests/acp` 202 pass · `lint:arch` exit 0（**警告未增**：R07-001 微小文件 0）· 5 门禁 exit 0。**如"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"notes","i":4,"c":"实边界**：R06-009-1（小文件下限）属 SHOULD，纯常量模块按既有豁免口径处理，实测未新增告警；`e2eVerified=false`（未做真机 WS 握手）。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#0","i":0,"c":"app/src/core/protocol/websocket.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#1","i":0,"c":"app/src/core/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#0","i":0,"c":"packages/kernel/src/core/protocol/websocket.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#1","i":0,"c":"packages/kernel/src/core/index.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#2","i":0,"c":"app/src/acp/websocket.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#3","i":0,"c":"app/src/voice/upgrade.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#4","i":0,"c":"app/src/voice/WakeWebSocketServer.ts"}
@@ -3639,8 +3639,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"notes","i":2,"c":"ai/models/orphanModels.tsinfrastructure/http/handlers/chat-handlers.tslint:consts****+**6**ai/modelRouter.tsisUUIDsession/key/LegacyKeyAdapter.tstools/VideoGenerateTool"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"notes","i":3,"c":"tools/ImageGenerateTool/ImageGenerateToolImageGenerationRouter3lint:consts****2**********core/ids.ts**UUIDrandomIdSuffixIDcore****coreinfracore/index.tsexport*from./idsR03-0027"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"notes","i":4,"c":"importUUID_REfrom@modules/core****i****apptypecheck047+core+7//47passlint:consts:UUID_RE**20**2242236exit0drift****lint:consts****6lint:constsconst"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#0","i":0,"c":"app/src/core/ids.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#1","i":0,"c":"app/src/core/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#0","i":0,"c":"packages/kernel/src/core/ids.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#1","i":0,"c":"packages/kernel/src/core/index.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#2","i":0,"c":"app/src/ai/modelRouter.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#3","i":0,"c":"app/src/ai/models/orphanModels.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-31-UUID-RE","k":"code#4","i":0,"c":"app/src/infrastructure/http/handlers/chat-handlers.ts"}
@@ -3946,7 +3946,7 @@
 {"id":"BUDGET-USD-RESTORE","k":"notes","i":4,"c":"typecheck 0 错；lint:arch 0 错；6 门禁 exit 0。⑤ **如实缺口（e2eVerified=false）**：USD 闸门生效需重启应用，本期未做「重启 → 限额拦截」端到端复核；且运行中进程仍执行旧代码（GET /v1/cost/daily-budget 显示 usedUsd=0.863076 为旧代码内存态）。⑥ **观察项"}
 {"id":"BUDGET-USD-RESTORE","k":"notes","i":5,"c":"**：token 轨上限 50 万/天 vs 当日实耗 1318 万（约 26 倍）⇒ 恒 locked，仅靠 relief: unlock-today 放行；该口径是否调整待用户裁定，不在本条目范围内。"}
 {"id":"BUDGET-USD-RESTORE","k":"code#0","i":0,"c":"app/src/query/DailyBudgetManager.ts"}
-{"id":"BUDGET-USD-RESTORE","k":"code#1","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"BUDGET-USD-RESTORE","k":"code#1","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"BUDGET-USD-RESTORE","k":"tests#0","i":0,"c":"app/tests/budget/dailyBudgetUsdRestore.test.ts"}
 {"id":"BUDGET-USD-PRIMARY","k":"title","i":0,"c":"日预算闸门主口径切金额（债四 S3）：Token 轨降级为观测告警，USD 为唯一硬闸门；未配 limitUsd 回落 Token 口径"}
 {"id":"BUDGET-USD-PRIMARY","k":"source","i":0,"c":"用户 2026-10-15 裁定「把 token 轨降级为观测告警，硬闸门交 USD 轨」+ 既有已批准设计：.trae/specs/unified-budget-and-accounting.md D1/S3（唯一口径 = 金额，`_computeState` 与 `checkDailyBudget` 主口径改 USD，Token 计数保留但降为辅助系数）"}
@@ -4796,7 +4796,7 @@
 {"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":2,"c":"app/tests/tools/toolNameCodec.test.ts:8`；② `11_复查_代码更新后架构差异与优化建议.md` —— `dev_docs/任务计划-20261004.md:1816` 明写「**仓库根**」，另 `:32` 与 `dev_docs/20261007/任务计划.md:296,548`；③ `12_复查_代码更新后收敛进"}
 {"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":3,"c":"度与优化建议.md` —— 台账 §25 来源 + 被 11 篇自身引用；④ `Liri_契约层详细设计文档.md` —— `.trae/specs/contract-layer-6-proposals.md:4,75` + 台账 §24.2/§24.4 四条；⑤ `04_终版复核报告_按当前代码实测.md` 与 ⑥ `第四次架构复查报告.md` —— `"}
 {"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":4,"c":".trae/specs/orchestration-family-convergence.md:4` 的「原始出处」；⑦ `06_最新复核_架构不足按当前代码实测.md` —— `dev_docs/任务计划-20261004.md:1343` 登记表按名入表）。脚本侧：`probe_sessions.ps1` **保留** —— `"}
-{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":5,"c":"dev_docs/trajectory-dual-source-evidence-report.md:94,104` 把它当**可用工具**（含可执行命令 `powershell -ExecutionPolicy Bypass -File .\\probe_sessions.ps1`），`app/src/core/paths.ts:229` 亦以它说明 `"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":5,"c":"dev_docs/trajectory-dual-source-evidence-report.md:94,104` 把它当**可用工具**（含可执行命令 `powershell -ExecutionPolicy Bypass -File .\\probe_sessions.ps1`），`packages/kernel/src/core/paths.ts:229` 亦以它说明 `"}
 {"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":6,"c":"~/.liri` 残留位置，且 `dev_docs/20261013/硬编码统一治理方案-20261013.md:370` 对其有「**登记不改**」的既有处置。【实际处置】① **移出仓外备份**（不是硬删 —— 这 7 篇是**未跟踪**文件，被 `/*.md` 忽略 ⇒ 无 git 回滚点，违 CD06「保留可回滚路径」，故改为移到 `"}
 {"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":7,"c":"E:\\PY\\Documents\\CODES\\_pyapp_root_reports_backup_20261016\\`）：`向量数据库选型调研报告.md`(15464B)、`中止测试说明.md`(3849B)、`AI-Agent技术简报_2026-10.md`(11917B)、`LIRI_技术报告.md`(13671B)、`Liri架构对照分析报告.md`("}
 {"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":8,"c":"6978B)、`Liri架构分析报告-AgenticDesignPatterns-21模式-20261015.md`(23913B)、`ThinkPad_T14p_本地大模型推理优化报告.md`(7518B) —— 全仓 `--no-ignore` 检索（含 `dev_docs`/`.trae`）**零引用**；② **删除** `"}
@@ -5511,7 +5511,7 @@
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"reopenWhen","i":3,"c":"2s` 判定：若出现「工具产出但 mtime 偏旧」（如复制保留 mtime）或跨机时钟偏差 ⇒ 该文件只剩「交付面内」一条路。⑤ 本片**未**动入站方向与 QQ 上传/发送口径（那属 `QQ-FILE-UPLOAD-MEDIA-PAYLOAD`）。"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":0,"c":"【问题（真机实证的频繁误触发）】旧资格 = 「路径存在 + 非禁区」⇒ 只要**最终回复正文**里出现一个已存在的绝对路径，就被当成「用户在索要这个文件」而投递。真机连续两条消息**各误触发一次**：两条都是「让机器人 `file_read` 某文件、它顺势把路径回显在回复里」——用户在只想知道字段值，系统却在试着发文件（其中一次还因上传口径错误把「⚠️ 以"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":1,"c":"下文件未能发送」推给了用户）。\n【取证（三处）】① **spec 原意**：`qq-file-transfer.md` §3.2-③ 从 v1 起就写着「**限定 output/downloads/attachments 目录**（安全：防止发送任意系统文件）」——是实现**做宽了**（只留了「禁 pyapp 根 + 禁系统目录」的**黑名单**），故本片是"}
-{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":2,"c":"**回到 spec 原意**再收紧一步。② 三个目录**都有真源函数**（`app/src/core/paths.ts:687/710/720` 的 `resolveAttachmentsDir`/`resolveOutputDir`/`resolveDownloadsDir`）⇒ 交付面不是臆造的约定。③ 真机日志：`outbound_files 阶段开始"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":2,"c":"**回到 spec 原意**再收紧一步。② 三个目录**都有真源函数**（`packages/kernel/src/core/paths.ts:687/710/720` 的 `resolveAttachmentsDir`/`resolveOutputDir`/`resolveDownloadsDir`）⇒ 交付面不是臆造的约定。③ 真机日志：`outbound_files 阶段开始"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":3,"c":" {candidates:1,sendable:1}`（08:07 与 08:33 各一次），两次都是回显场景。\n【做法（`outboundFileRouter.filterSendableFiles`）】资格改为**双信号**（满足其一）：① **在交付面内**（`~/.pyapp/{output,downloads,attachments}`；判定走 "}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":4,"c":"**realpath** + 补尾分隔符 ⇒ 面内符号链接指向面外**不**放行、`outputs/` 之类前缀不会误命中）；② **本轮新产出**（`mtime ≥ runStartedAtMs − 2s`；`runStartedAtMs` 取 `messageRouter` 的 `llmStartMs`，经 `channelOutbound` 透传）。"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":5,"c":"**两者都不满足 ⇒ 静默忽略**（按叙述性路径处理：既不投递、也**不**产生用户可见噪音）。同时**删掉**已不可达的 `isForbidden` 黑名单（白名单收紧后它成死代码；且白名单 = fail-closed，安全性更高）。仍**如实告知**（`skipped` ⇒ 「⚠️ 以下文件未能发送」）的只剩两类：**超 30MB** 与 **单条超 2"}
@@ -5815,7 +5815,7 @@
 {"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#2","i":0,"c":"app/src/channels/routing/messageRouterContract.ts"}
 {"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#3","i":0,"c":"app/src/channels/routing/streamConsumption.ts"}
 {"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#4","i":0,"c":"app/src/channels/setupChannels.ts"}
-{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#5","i":0,"c":"app/src/core/featureFlags.ts"}
+{"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"code#5","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"CHANNEL-QUESTION-ANSWER-STAGE2","k":"tests#0","i":0,"c":"app/tests/channels/pendingQuestions.test.ts"}
 {"id":"SECRET-SCANNER-NEW-PREFIXES","k":"title","i":0,"c":"U-27：识别 sk-proj-/sk-svcacct-/sk-ant- 密钥"}
 {"id":"SECRET-SCANNER-NEW-PREFIXES","k":"source","i":0,"c":"dev_docs/20261009/Liri-21模式完成度对照与未达标清单-20261009.md SR-1"}
@@ -5913,7 +5913,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"title","i":0,"c":"U-20/B5-2-69：媒体根目录 3 组同名常量收敛到 core/mediaRoots"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；.trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"notes","i":0,"c":"lint:consts 180→177 键；解析时机与拼接逐字保留（零行为变化）。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#0","i":0,"c":"app/src/core/mediaRoots.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#0","i":0,"c":"packages/kernel/src/core/mediaRoots.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#1","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#2","i":0,"c":".trae/architecture/hardcode-progress.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"title","i":0,"c":"U-20/B5-2-70..71：readFile 缓存容量与 SSL 错误码收敛"}
@@ -5925,8 +5925,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"title","i":0,"c":"U-20/B5-2-72..73：按域消歧 DEFAULT_MAX_ENTRIES 与 MAX_RECORDS"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"notes","i":0,"c":"语义/取值不同 ⇒ 不改值、按域改名（APPROVAL/SESSION_CACHE_MAX_ENTRIES、DREAM/EXECUTION_MAX_RECORDS）；基线 175→173。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#0","i":0,"c":"app/src/core/approval/ApprovalCache.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#1","i":0,"c":"app/src/core/cache/SessionCache.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#0","i":0,"c":"packages/kernel/src/core/approval/ApprovalCache.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#1","i":0,"c":"packages/kernel/src/core/cache/SessionCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#2","i":0,"c":"app/src/dream/DreamPersistence.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#3","i":0,"c":"app/src/execution/ExecutionManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"title","i":0,"c":"U-20/B5-2-74：SCHEDULER_CHECK_INTERVAL_MS 收敛到 types/schedulerLifecycle"}
@@ -6080,7 +6080,7 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"notes","i":0,"c":"client 端点真源新增 LOCAL_HOST 与 LOCAL_PROVIDER_ENDPOINTS（值逐字不变，属性名避开 localhost 字样以免被字面量检测误伤）；后端 core/endpoints 新增 LOCAL_SERVICE_HOST、SD WebUI、CDP 端点；8 个文件改引用；lint:endpoints 96→88。"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#0","i":0,"c":"client/src/services/endpoints.ts"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#1","i":0,"c":"app/src/core/endpoints.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#1","i":0,"c":"packages/kernel/src/core/endpoints.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#2","i":0,"c":"client/src/config/providerPresets.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#3","i":0,"c":"client/src/components/settings/OllamaConfigPanel.tsx"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-91","k":"code#4","i":0,"c":"client/src/services/backendUrl.ts"}
@@ -6089,7 +6089,7 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"title","i":0,"c":"U-20/B5-2-92：本地推理候选 / ComfyUI / REPL 提示统一走真源"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"notes","i":0,"c":"core/endpoints 新增 LOCAL_INFERENCE_ENDPOINTS（hostname/loopback 双候选，与 client 同值）与 DEFAULT_COMFYUI_ENDPOINT；服务端预设、LlamaCppProvider、ComfyUIProvider、repl 启动提示改引用；lint:endpoints 88→84。"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"code#0","i":0,"c":"app/src/core/endpoints.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"code#0","i":0,"c":"packages/kernel/src/core/endpoints.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"code#1","i":0,"c":"app/src/ai/providers/providerPresetsData.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"code#2","i":0,"c":"app/src/ai/providers/LlamaCppProvider.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-92","k":"code#3","i":0,"c":"app/src/ai/providers/ComfyUIProvider.ts"}
@@ -6098,7 +6098,7 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"title","i":0,"c":"U-20/B5-2-93：请求占位基址与 OAuth 本机地址收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"notes","i":0,"c":"core/endpoints 新增 LOCAL_REQUEST_BASE_URL（仅解析 req.url 的占位 origin）、MCP 代理与本地 OAuth 三常量；4 个 AI API 与 constants/oauth 改引用；lint:endpoints 84→79。"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#0","i":0,"c":"app/src/core/endpoints.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#0","i":0,"c":"packages/kernel/src/core/endpoints.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#1","i":0,"c":"app/src/ai/api/PricingAPI.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#2","i":0,"c":"app/src/ai/api/CapabilitiesAPI.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#3","i":0,"c":"app/src/ai/api/ProviderAPI.ts"}
@@ -6107,7 +6107,7 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"title","i":0,"c":"U-20/B5-2-94：回环 / 通配绑定 / 本地服务默认地址收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"notes","i":0,"c":"core/endpoints 新增 WILDCARD_BIND_HOST（仅绑定语义）、DEFAULT_BLUEBUBBLES_SERVER_URL、DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL；bridge/回环判定、webhook、BlueBubbles、LiveView、MCP OAuth、引导记录 7 文件改引用；lint:endpoints 79→72。"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#0","i":0,"c":"app/src/core/endpoints.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#0","i":0,"c":"packages/kernel/src/core/endpoints.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#1","i":0,"c":"app/src/bridge/ModuleBridgeSetup.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#2","i":0,"c":"app/src/channels/webhook/WebhookChannel.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#3","i":0,"c":"app/src/channels/webhook/config-schema.ts"}
@@ -6119,7 +6119,7 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"title","i":0,"c":"U-20/B5-2-95：CLI OAuth 回调与本地应用基址收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"notes","i":0,"c":"core/endpoints 新增 DEFAULT_OAUTH_REDIRECT_URI；product 的本地应用基址复用本地 OAuth apps 面常量、ingress 判定改用 LOCAL_SERVICE_HOST；lint:endpoints 72→70。"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#0","i":0,"c":"app/src/core/endpoints.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#0","i":0,"c":"packages/kernel/src/core/endpoints.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#1","i":0,"c":"app/src/cli/handlers/authHandler.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#2","i":0,"c":"app/src/constants/product.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
@@ -6134,20 +6134,20 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；棘轮存量收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"notes","i":0,"c":"infrastructure/http/handlers/** 占位 origin 改用 LOCAL_REQUEST_BASE_URL / LOCAL_SERVICE_HOST / LOCAL_HTTP_HOST；新增 DEFAULT_MCP_OAUTH_CALLBACK_PORT 与 DEFAULT_MCP_PROXY_URL 共用；另收敛 a2a sidecar、auth 回调、officeHandlers、evals/sandbox、bridgeConfig、mcp-oauth；lint:endpoints 67→30。"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"code#0","i":0,"c":"app/src/infrastructure/http/handlers/"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"code#1","i":1,"c":"app/src/core/endpoints.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"code#1","i":1,"c":"packages/kernel/src/core/endpoints.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"code#2","i":2,"c":"app/src/system/auth/auth-code-listener.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"code#3","i":3,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-CONSTS-B5-2-98","k":"title","i":0,"c":"U-20/2-98：官方供应商 API 基址收敛到 core 真源"}
 {"id":"HARDCODE-CONSTS-B5-2-98","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；棘轮存量收敛"}
 {"id":"HARDCODE-CONSTS-B5-2-98","k":"notes","i":0,"c":"新增 core/providerEndpoints.ts（OPENAI/ANTHROPIC 的 BASE/V1 常量）并在 core/index 再导出；19 个消费方改用常量；lint-consts 真源白名单登记该文件；放在 core 而非 ai，避免 service→app 分层倒挂（R00-001）。"}
-{"id":"HARDCODE-CONSTS-B5-2-98","k":"code#0","i":0,"c":"app/src/core/providerEndpoints.ts"}
+{"id":"HARDCODE-CONSTS-B5-2-98","k":"code#0","i":0,"c":"packages/kernel/src/core/providerEndpoints.ts"}
 {"id":"HARDCODE-CONSTS-B5-2-98","k":"code#1","i":1,"c":"app/src/ai/providers/providerPresetsData.ts"}
 {"id":"HARDCODE-CONSTS-B5-2-98","k":"code#2","i":2,"c":"app/src/plugins/provider/ProviderDiscovery.ts"}
 {"id":"HARDCODE-CONSTS-B5-2-98","k":"code#3","i":3,"c":"scripts/lint-consts.ts"}
 {"id":"HARDCODE-CONSTS-B5-2-99","k":"title","i":0,"c":"U-20/B5-2-99：供应商 API/站点地址收敛到双端真源"}
 {"id":"HARDCODE-CONSTS-B5-2-99","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；棘轮存量收敛"}
 {"id":"HARDCODE-CONSTS-B5-2-99","k":"notes","i":0,"c":"app 侧扩展 core/providerEndpoints.ts（DeepSeek/Gemini/SiliconFlow/Moonshot/xAI/OpenRouter/BigModel/DashScope/Kling/MiniMax/Volcengine/Vidu + 厂商站点）；client 侧在 services/endpoints.ts 新增 PROVIDER_API_BASE_URLS / PROVIDER_SITE_URLS，providerPresets 与 ProviderFormSchema 改用；lint:consts 同值组 84→68。"}
-{"id":"HARDCODE-CONSTS-B5-2-99","k":"code#0","i":0,"c":"app/src/core/providerEndpoints.ts"}
+{"id":"HARDCODE-CONSTS-B5-2-99","k":"code#0","i":0,"c":"packages/kernel/src/core/providerEndpoints.ts"}
 {"id":"HARDCODE-CONSTS-B5-2-99","k":"code#1","i":1,"c":"app/src/ai/providers/providerPresetsData.ts"}
 {"id":"HARDCODE-CONSTS-B5-2-99","k":"code#2","i":2,"c":"client/src/services/endpoints.ts"}
 {"id":"HARDCODE-CONSTS-B5-2-99","k":"code#3","i":3,"c":"client/src/config/providerPresets.ts"}
@@ -6182,7 +6182,7 @@
 {"id":"U13-T13B-ORCH-LATENCY","k":"title","i":0,"c":"T-13-b：编排事件按起止配对派生链路耗时（P50/P95 不再恒 0）"}
 {"id":"U13-T13B-ORCH-LATENCY","k":"source","i":0,"c":"dev_docs/20261017/U-13-编排可观测量化口径与实测-20261017.md §5（T-13-b）"}
 {"id":"U13-T13B-ORCH-LATENCY","k":"notes","i":0,"c":"修复前：startTracking 只传 recordEvent(eventType, undefined, payload)，全仓无调用方注入 latencyMs ⇒ latencies 恒空。修复：订阅端按「起始事件 → 终止事件」配对派生（关联键 planId/chainId/taskId+stepName/stepIndex/sessionId/ruleId；同键 FIFO 支持嵌套；缺键仅在唯一待配对桶时退化配对，避免跨会话错配）；耗时记在起始事件类型上（与 OTel span 同语义）；窗口与待配对均设上限防无界增长。样本为进程内，需真实编排流量重采。"}
-{"id":"U13-T13B-ORCH-LATENCY","k":"code#0","i":0,"c":"app/src/core/events/OrchestrationMetrics.ts"}
+{"id":"U13-T13B-ORCH-LATENCY","k":"code#0","i":0,"c":"packages/kernel/src/core/events/OrchestrationMetrics.ts"}
 {"id":"U13-T13B-ORCH-LATENCY","k":"tests#0","i":0,"c":"app/tests/core/OrchestrationMetrics.test.ts"}
 {"id":"U22-CHATMANAGER-S4-STREAMFINALIZE","k":"title","i":0,"c":"U-22/S4：ChatManager 外移流式收尾（_finalizeStreamMessage）与断点续跑（resumeStream）"}
 {"id":"U22-CHATMANAGER-S4-STREAMFINALIZE","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md §2（ChatManager S4）/§4"}

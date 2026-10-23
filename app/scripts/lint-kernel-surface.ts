@@ -27,7 +27,8 @@ import {
 } from './kernelSurfaceCore';
 
 const APP_DIR = resolve(import.meta.dir, '..');
-const CORE_DIR = join(APP_DIR, 'src', 'core');
+/** 内核已物理迁出 `app/src/core` ⇒ 仓库根 `packages/kernel/src/core`（方案 §4-P4） */
+const CORE_DIR = resolve(APP_DIR, '..', 'packages', 'kernel', 'src', 'core');
 const DEFAULT_ALLOWLIST = resolve(
   APP_DIR,
   '../.trae/architecture/kernel-surface-allowlist.json'

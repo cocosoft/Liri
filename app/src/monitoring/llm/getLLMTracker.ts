@@ -10,8 +10,8 @@ import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '../../core/identity/requestScope.js';
-import { registerScopedResource } from '../../core/identity/scopedResources.js';
+} from '@modules/core/identity/requestScope.js';
+import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
 
 /**
  * 全局 LLM 跟踪器实例（**本地身份 / 无请求作用域**使用）

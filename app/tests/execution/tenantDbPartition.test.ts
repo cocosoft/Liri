@@ -14,8 +14,8 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import type { Principal } from '../../src/core/identity/principal';
-import { runWithPrincipal } from '../../src/core/identity/requestScope';
+import type { Principal } from '@modules/core/identity/principal';
+import { runWithPrincipal } from '@modules/core/identity/requestScope';
 import {
   getExecutionStore,
   resetExecutionStore,
@@ -40,7 +40,7 @@ import {
 import { KnowledgeGraph } from '../../src/knowledge/graph/KnowledgeGraph';
 import { getProviderManager } from '../../src/ai/providers/ProviderManager';
 import { getCredentialStore } from '../../src/ai/credentials/CredentialStore';
-import { Database } from '../../src/core/external/sqlite3';
+import { Database } from '@modules/core/external/sqlite3';
 import { resolveContextWindowAsync } from '../../src/utils/ContextWindowResolver';
 
 const ALICE: Principal = {

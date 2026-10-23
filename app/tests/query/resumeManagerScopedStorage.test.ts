@@ -16,13 +16,10 @@ import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import {
-  resolveDataDir,
-  setUserDataDirOverride,
-} from '../../src/core/paths.js';
-import { runWithPrincipal } from '../../src/core/identity/requestScope.js';
-import type { Principal } from '../../src/core/identity/principal.js';
-import { resetScopedResourcesForTest } from '../../src/core/identity/scopedResources.js';
+import { resolveDataDir, setUserDataDirOverride } from '@modules/core/paths.js';
+import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
+import type { Principal } from '@modules/core/identity/principal.js';
+import { resetScopedResourcesForTest } from '@modules/core/identity/scopedResources.js';
 import { resumeManager } from '../../src/query/ResumeManager.js';
 import { DBTAORCheckpointStorage } from '../../src/query/DBTAORCheckpointStorage.js';
 import { TAORPhase } from '../../src/query/types.js';

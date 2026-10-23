@@ -18,7 +18,7 @@ import {
   estimateTurnCostUsd,
 } from '../../src/query/modelPricingAdapter';
 import type { ModelPricingLookup } from '../../src/query/modelPricingAdapter';
-import { DEFAULT_MODEL_PRICING } from '../../src/core/pricing';
+import { DEFAULT_MODEL_PRICING } from '@modules/core/pricing';
 
 /** 已知模型 DTO（结构满足 AI SPI 的 `AiModelPricingDto`） */
 const KNOWN_DTO = {

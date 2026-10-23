@@ -18,8 +18,8 @@ import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '../../core/identity/requestScope.js';
-import { registerScopedResource } from '../../core/identity/scopedResources.js';
+} from '@modules/core/identity/requestScope.js';
+import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
 
 const logger = getLogger('knowledge:graph:scoped');
 

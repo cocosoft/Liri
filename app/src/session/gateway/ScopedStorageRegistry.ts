@@ -18,7 +18,7 @@ import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '../../core/identity/requestScope.js';
+} from '@modules/core/identity/requestScope.js';
 
 const logger = getLogger('session:gateway');
 

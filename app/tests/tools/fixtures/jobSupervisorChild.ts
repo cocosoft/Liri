@@ -25,17 +25,14 @@ import { ToolSidecarSupervisor } from '../../../src/tools/sidecar/ToolSidecarSup
 import {
   registerToolJobSuspendSpi,
   resolveToolJobSuspend,
-} from '../../../src/core/spi/ToolJobSuspendService.js';
+} from '@modules/core/spi/ToolJobSuspendService.js';
 import { createToolJobSuspendPort } from '../../../src/query/toolJobSuspend.js';
 import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
   type SuspendKind,
 } from '../../../src/query/budgetSuspend.js';
-import {
-  globalEventBus,
-  SystemEvents,
-} from '../../../src/core/events/EventBus.js';
+import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus.js';
 
 const SIDE_CAR = resolve(import.meta.dir, 'fakeJobSidecar.js');
 const PREFIX = 'ORACLE_RESULT ';

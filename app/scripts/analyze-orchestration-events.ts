@@ -17,7 +17,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 
-import { OrchestrationEventPairer } from '../src/core/events/orchestrationPairing';
+import { OrchestrationEventPairer } from '../../packages/kernel/src/core/events/orchestrationPairing';
 import { orchestrationEventLogPath } from '../src/monitoring/orchestrationEventLog';
 
 interface PersistedEvent {

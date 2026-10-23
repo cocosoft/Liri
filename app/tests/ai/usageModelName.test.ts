@@ -14,7 +14,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { setUserDataDirOverride, resolveDbPath } from '../../src/core/paths.js';
+import { setUserDataDirOverride, resolveDbPath } from '@modules/core/paths.js';
 import {
   resolveUsageModelName,
   trackUsage,

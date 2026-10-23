@@ -5,8 +5,8 @@
  */
 
 import * as fs from 'fs';
-import { AppError } from '../../../core/errors.js';
-import { getLogger } from '../../../core/loggerFacade.js';
+import { AppError } from '@modules/core/errors.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 const logger = getLogger('doc:execution');
 
 /**

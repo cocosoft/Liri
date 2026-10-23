@@ -13,7 +13,7 @@ import {
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
-import { SandboxPermission } from '../../../core/sandboxPermission.js';
+import { SandboxPermission } from '@modules/core/sandboxPermission.js';
 import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 /** v1.3: 后端 MemoryType → 前端类型名映射 */

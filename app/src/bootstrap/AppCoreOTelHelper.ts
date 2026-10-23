@@ -16,8 +16,8 @@
 // 2026-09-30 归属搬迁（A/B 组收口，台账 D-82）：本文件由 `core/` 迁至 **entry 层**的 `bootstrap/`
 // —— 文件自述"从 AppCore.ts 提取、集中管理遥测初始化"，属「启动装配」职责；留在 core 层会构成
 // 2 对 core→infra 倒挂。core 模块根按 2 段路径引用（R03-002 安全区），`core/events/**` 在白名单内。
-import { getLogger } from '../core/loggerFacade.js';
-import { handleError } from '../core/errorHandler.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
+import { handleError } from '@modules/core/errorHandler.js';
 
 const logger = getLogger('AppCore');
 
@@ -65,18 +65,19 @@ export async function initializeOTelSystem(): Promise<void> {
 
     // 初始化 EventBus ↔ OTel Span 桥接
     const { initEventBusOTelBridge } =
-      await import('../core/events/EventBusOTelBridge.js');
+      await import('@modules/core/events/EventBusOTelBridge.js');
     initEventBusOTelBridge();
     logger.info('EventBus ↔ OTel Span 桥接初始化完成');
 
     // 初始化 TokenTracker（Token 成本追踪和预算控制）
-    const { getTokenTracker } = await import('../core/events/TokenTracker.js');
+    const { getTokenTracker } =
+      await import('@modules/core/events/TokenTracker.js');
     getTokenTracker();
     logger.info('TokenTracker 初始化完成');
 
     // 初始化 OrchestrationMetrics（后端编排指标统计）
     const { getOrchestrationMetrics } =
-      await import('../core/events/OrchestrationMetrics.js');
+      await import('@modules/core/events/OrchestrationMetrics.js');
     const orchMetrics = getOrchestrationMetrics();
     // 对接 OTel Metrics，使编排指标通过 OTel 导出
     orchMetrics.setOTelMetrics(otelMetrics);

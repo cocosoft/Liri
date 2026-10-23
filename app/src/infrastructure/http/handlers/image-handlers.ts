@@ -29,7 +29,7 @@ import {
   IMAGES_ROOT,
   IMAGE_ROOTS,
   MEDIA_IMAGES_ROOT,
-} from '../../../core/mediaRoots';
+} from '@modules/core/mediaRoots';
 import { LOCAL_SERVICE_HOST } from '@modules/core';
 
 /** MIME 类型映射 */

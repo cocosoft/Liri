@@ -83,8 +83,10 @@ async function auditAppCore(): Promise<void> {
   console.log('\n=== AppCore 审计 ===');
 
   const appSrc = resolve(import.meta.dirname, '..', 'app', 'src');
-  const appCorePath = join(appSrc, 'core', 'AppCore.ts');
-  const mdMgrPath = join(appSrc, 'core', 'ModuleDependencyManager.ts');
+  // 内核已物理迁出 `app/src/core` ⇒ 仓库根 `packages/kernel/src/core`（方案 §4-P4）
+  const kernelCore = resolve(import.meta.dirname, '..', 'packages', 'kernel', 'src', 'core');
+  const appCorePath = join(kernelCore, 'AppCore.ts');
+  const mdMgrPath = join(kernelCore, 'ModuleDependencyManager.ts');
 
   // 从 AppCore.initializeCoreModules() 读取硬编码模块
   const appCoreContent = readFileSync(appCorePath, 'utf-8');

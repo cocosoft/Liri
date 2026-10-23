@@ -10,11 +10,11 @@
  * - 系统启动时调用 applyDiscoveredContextWindows() 预填充
  */
 
-import { TtlCache } from '../core/spi/CacheService.js';
+import { TtlCache } from '@modules/core/spi/CacheService.js';
 import { ALL_MODEL_CONFIGS } from '@modules/ai';
 import { priceManager } from './PriceManager';
 
-import { handleError } from '../core/errorHandler.js';
+import { handleError } from '@modules/core/errorHandler.js';
 
 /** TTL 默认值: 5 分钟 */
 const MODEL_CONTEXT_CACHE_TTL_MS = 5 * 60 * 1000;

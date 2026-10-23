@@ -3,9 +3,13 @@
  * 统一管理模块的注册、初始化和生命周期
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '../core/errors.js';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/core/errors.js';
 // 2026-09-30 G2 倒挂收口：错误码纯数据表已下沉 core 模块根，直连 core 消除 core → infra 边
-import { ErrorCodes } from '../core/errorCodes.js';
+import { ErrorCodes } from '@modules/core/errorCodes.js';
 import { type ModuleDefinition, getRegistry } from './moduleTypes';
 /**
  * 模块初始化状态与结构子集的**类型归属**已下沉到 `moduleStateTypes`
@@ -27,8 +31,11 @@ import {
   DeferredLoadState,
 } from '@modules/core/LazyModuleStrategy';
 // 2026-09-30 改走 core 门面（A3 倒挂收口）：原 `../performance/StartupProfiler`（core → infra 倒挂）
-import { profilePhaseStart, profilePhaseEnd } from '../core/profilerFacade.js';
-import { getLogger } from '../core/loggerFacade.js';
+import {
+  profilePhaseStart,
+  profilePhaseEnd,
+} from '@modules/core/profilerFacade.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 const logger = getLogger('modules:moduleInitializer');
 
 /**
@@ -437,7 +444,7 @@ export class ModuleInitializer {
     try {
       const { createCombinedGateway } =
         await import('../session/gateway/index.js');
-      const { getDIContainer } = await import('../core/DIContainer.js');
+      const { getDIContainer } = await import('@modules/core/DIContainer.js');
       const container = getDIContainer();
 
       if (!container.has('combinedSessionGateway')) {

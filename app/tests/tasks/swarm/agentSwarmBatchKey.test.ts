@@ -15,7 +15,7 @@ import { describe, it, expect, spyOn, afterEach } from 'bun:test';
 
 import { AgentSwarm } from '../../../src/tasks/swarm/AgentSwarm';
 import type { AgentSwarmOptions } from '../../../src/tasks/swarm/AgentSwarm';
-import { getOrchestrationMetrics } from '../../../src/core/events/OrchestrationMetrics';
+import { getOrchestrationMetrics } from '@modules/core/events/OrchestrationMetrics';
 import { OrchestrationEventType } from '../../../src/types/orchestrationEvents';
 
 const swarm = new AgentSwarm();

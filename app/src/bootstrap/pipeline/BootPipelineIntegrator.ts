@@ -10,12 +10,12 @@
  * 3. 保持与现有代码的向后兼容
  */
 
-import { getLogger } from '../../core/loggerFacade.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 import { BootPhase } from './BootPhase';
 import { bootPipeline } from './BootPipeline';
 import type { BootContext } from './BootPipeline';
 import type { RouterTier } from '@modules/types/router';
-import { handleError } from '../../core/errorHandler.js';
+import { handleError } from '@modules/core/errorHandler.js';
 
 const logger = getLogger('BootPipelineIntegrator');
 
@@ -246,7 +246,7 @@ export function registerStandardHandlers(): void {
     phase: BootPhase.DI_STARTUP,
     handler: async (ctx: BootContext) => {
       logger.info('[Phase 4] DIContainer 启动');
-      const { getDIContainer } = await import('../../core/DIContainer');
+      const { getDIContainer } = await import('@modules/core/DIContainer');
       const { moduleRegistry } = await import('../../modules/ModuleRegistry');
       await getDIContainer().bootstrap(moduleRegistry, {
         mode: ctx.mode,

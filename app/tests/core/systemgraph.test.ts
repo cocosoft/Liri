@@ -13,7 +13,7 @@ import {
   EDGE_CAUSAL_WEIGHT,
   projectTaskGraph,
   projectAgentGraph,
-} from '../../src/core/systemgraph/index.js';
+} from '@modules/core/systemgraph/index.js';
 
 /** 断言 AppError 的错误码（`AppError.code`；避免按文案判别 —— CS02） */
 function codeOf(fn: () => unknown): string {

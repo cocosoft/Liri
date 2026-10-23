@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { toInboundEnvelope } from '../../src/channels/routing/messageRouterContract.js';
-import { resolveInboundGateway } from '../../src/core/spi/InboundGatewayService.js';
+import { resolveInboundGateway } from '@modules/core/spi/InboundGatewayService.js';
 import { InboundGatewayPortAdapter } from '../../src/channels/gateway/InboundGatewayPortAdapter.js';
 
 describe('入站 DTO 标准化（阶段 2.4）', () => {

@@ -13,8 +13,8 @@ import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 
-import type { Principal } from '../../src/core/identity/principal';
-import { resolveProjectRoot } from '../../src/core/paths';
+import type { Principal } from '@modules/core/identity/principal';
+import { resolveProjectRoot } from '@modules/core/paths';
 import { resolveToolCwd } from '../../src/chat/services/toolCwdScope';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };

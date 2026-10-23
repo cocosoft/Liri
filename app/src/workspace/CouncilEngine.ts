@@ -20,7 +20,7 @@ import type {
   CouncilStreamEvent,
   ConsensusResult,
 } from './CouncilTypes.js';
-import { globalEventBus } from '../core/events/EventBus.js';
+import { globalEventBus } from '@modules/core/events/EventBus.js';
 import { OrchestrationEventType } from '@modules/agent';
 import type {
   CouncilRoundStartData,

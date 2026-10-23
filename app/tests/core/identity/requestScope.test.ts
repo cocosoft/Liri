@@ -13,7 +13,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   LOCAL_PRINCIPAL,
   type Principal,
-} from '../../../src/core/identity/principal';
+} from '@modules/core/identity/principal';
 import {
   getRequestPermissionRole,
   getRequestPrincipal,
@@ -21,7 +21,7 @@ import {
   isLocalPrincipal,
   principalKeyOf,
   runWithPrincipal,
-} from '../../../src/core/identity/requestScope';
+} from '@modules/core/identity/requestScope';
 
 const ALICE: Principal = {
   tenantId: 'acme',

@@ -19,7 +19,7 @@ import { describe, it, expect } from 'bun:test';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { DEFAULT_HTTP_PORT } from '../../src/core/ports';
+import { DEFAULT_HTTP_PORT } from '@modules/core/ports';
 import { DAILY_BUDGET_SSE_EVENT } from '../../src/infrastructure/http/handlers/daily-budget-handlers';
 // B4：分类键集真源（服务端 taxonomy；客户端不得再枚举一份）
 import { CATEGORY_ORDER } from '../../src/ai/services/CapabilityService';

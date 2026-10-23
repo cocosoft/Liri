@@ -351,7 +351,7 @@ const ALLOWED_DEPS_FILE = process.env.KP_ALLOWED_DEPS
 const srcRoot = resolve(repoRoot, 'app/src');
 const kernelRoot = process.env.KP_KERNEL_ROOT
   ? resolve(process.env.KP_KERNEL_ROOT)
-  : resolve(repoRoot, 'app/src/core');
+  : resolve(repoRoot, 'packages/kernel/src/core');
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {

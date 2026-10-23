@@ -36,10 +36,10 @@ import { describe, expect, it, spyOn } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { warnDeprecatedCoreModule } from '../../src/core/deprecationNotice.js';
-import { getLogger } from '../../src/core/loggerFacade.js';
+import { warnDeprecatedCoreModule } from '@modules/core/deprecationNotice.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 
-const CORE_ROOT = join(import.meta.dir, '../../src/core');
+const CORE_ROOT = join(import.meta.dir, '../../../packages/kernel/src/core');
 
 /** 观察期入口文件（消费者会 import 的那个） */
 const OBSERVED_ENTRY_FILES = [

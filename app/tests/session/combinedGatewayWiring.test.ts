@@ -16,7 +16,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { ModuleInitializer } from '../../src/modules/ModuleInitializer';
-import { getDIContainer } from '../../src/core/DIContainer';
+import { getDIContainer } from '@modules/core/DIContainer';
 import {
   CombinedSessionGateway,
   DEFAULT_AGENT_ID,

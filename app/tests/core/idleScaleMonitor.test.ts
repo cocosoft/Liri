@@ -39,11 +39,11 @@ import {
   setUserDataDirOverride,
   getUserDataDirOverride,
   resolveTempDir,
-} from '../../src/core/paths';
+} from '@modules/core/paths';
 import {
   IdleScaleMonitor,
   cleanupStaleTempFiles,
-} from '../../src/core/idle/IdleScaleMonitor';
+} from '@modules/core/idle/IdleScaleMonitor';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

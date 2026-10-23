@@ -45,7 +45,7 @@ import { PermissionRuleSource } from '../../src/permission/types/PermissionRule'
 import {
   setUserDataDirOverride,
   getUserDataDirOverride,
-} from '../../src/core/paths';
+} from '@modules/core/paths';
 
 const USER = PermissionRuleSource.USER_SETTINGS;
 

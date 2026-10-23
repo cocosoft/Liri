@@ -30,7 +30,17 @@ function fail(message: string): void {
 
 /** 从 `featureFlags.ts` 文本中提取 `FEATURE_FLAGS` 的键（唯一真源，不手写名单） */
 function loadFeatureFlagNames(): Set<string> {
-  const file = path.resolve(__dirname, '..', 'src', 'core', 'featureFlags.ts');
+  // 内核已物理迁出 `app/src/core` ⇒ 仓库根 `packages/kernel/src/core`（方案 §4-P4）
+  const file = path.resolve(
+    __dirname,
+    '..',
+    '..',
+    'packages',
+    'kernel',
+    'src',
+    'core',
+    'featureFlags.ts'
+  );
   const source = fs.readFileSync(file, 'utf-8');
   const start = source.indexOf('export const FEATURE_FLAGS = {');
   if (start < 0) {

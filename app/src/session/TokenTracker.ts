@@ -17,8 +17,8 @@ import {
   accumulateTokenUsage,
 } from './models/SessionTokenUsage';
 import { getLogger } from '@modules/monitoring';
-import { globalEventBus, SystemEvents } from '../core/events/EventBus';
-import type { CostRecordedEvent } from '../core/events/EventBus';
+import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
+import type { CostRecordedEvent } from '@modules/core/events/EventBus';
 
 import { calculateTotalCost } from '@modules/cost';
 import type { ModelPricing } from '@modules/cost';

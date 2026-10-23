@@ -53,8 +53,8 @@ import { resolveWorktreeHash } from '@modules/core/paths';
 import {
   canAccessSession,
   type SessionOwner,
-} from '../../core/identity/sessionOwnership';
-import { getRequestPrincipal } from '../../core/identity/requestScope';
+} from '@modules/core/identity/sessionOwnership';
+import { getRequestPrincipal } from '@modules/core/identity/requestScope';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

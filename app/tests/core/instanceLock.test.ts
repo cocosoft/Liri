@@ -28,7 +28,7 @@ import {
   releaseInstanceLock,
   writeInstanceLock,
   INSTANCE_LOCK_FILE_NAME,
-} from '../../src/core/instanceLock';
+} from '@modules/core/instanceLock';
 
 let tempDataDir = '';
 let originalDataDir: string | undefined;

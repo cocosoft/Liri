@@ -12,7 +12,7 @@ import {
   instantiatePattern,
   verifierConfigForRecipe,
 } from '../../src/query/patternAssembler.js';
-import type { PatternAssemblerId } from '../../src/core/patterns/types.js';
+import type { PatternAssemblerId } from '@modules/core/patterns/types.js';
 import { VerifierAgent } from '../../src/query/VerifierAgent.js';
 
 function selection(assembler: PatternAssemblerId, name?: string): never {

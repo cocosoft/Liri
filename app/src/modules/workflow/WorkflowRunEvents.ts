@@ -32,7 +32,7 @@
  * 事件载荷与批末投影**逐字段同形**（`workflowRunProjection.ts`），保证两端派生一致。
  */
 
-import { getLogger } from '../../core/loggerFacade.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { LiriEventMap } from '@modules/session/types/eventPayloads';
 

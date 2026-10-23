@@ -7,7 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePyappHome } from '@modules/core';
-import { getLogger } from '../../../core/loggerFacade.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 import type { AuditEntry } from '../types';
 
 const logger = getLogger('doc:audit');

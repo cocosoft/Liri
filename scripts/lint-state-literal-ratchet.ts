@@ -40,6 +40,8 @@ const BASELINE = process.env.STATE_LITERAL_BASELINE
   ? resolve(process.env.STATE_LITERAL_BASELINE)
   : resolve(repoRoot, '.trae/architecture/state-literal-baseline.json');
 const APP_SRC = resolve(repoRoot, 'app/src');
+/** 内核自 P4 起物理独立于 `app/src`（方案 §4-P4）⇒ 同样纳入扫描面 */
+const KERNEL_SRC = resolve(repoRoot, 'packages/kernel/src');
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '__tests__', 'tests']);
 const EXTS = new Set(['.ts', '.tsx']);
@@ -47,7 +49,7 @@ const EXTS = new Set(['.ts', '.tsx']);
 /** 递归收集 app/src 下的源码文件（repo 相对 POSIX 路径） */
 function collectFiles(): ScannedFile[] {
   const files: ScannedFile[] = [];
-  const stack = [APP_SRC];
+  const stack = [APP_SRC, KERNEL_SRC];
   while (stack.length > 0) {
     const dir = stack.pop() as string;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {

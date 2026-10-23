@@ -43,8 +43,11 @@ import { dirname, join, relative } from 'node:path';
 /** 项目根目录（scripts/ 的父目录） */
 const PROJECT_ROOT = join(import.meta.dir, '..');
 
-/** 扫描根（运行时源码） */
-const SRC_DIR = join(PROJECT_ROOT, 'app', 'src');
+/** 扫描根（运行时源码：app/src + 内核 packages/kernel/src —— P4 起内核物理独立） */
+const SRC_DIRS = [
+  join(PROJECT_ROOT, 'app', 'src'),
+  join(PROJECT_ROOT, 'packages', 'kernel', 'src'),
+];
 
 /** 匹配 `setInterval(`（排除字符串字面量中的提及，见 isInsideStringLiteral） */
 const SET_INTERVAL = /setInterval\s*\(/g;
@@ -332,7 +335,7 @@ function main(): void {
   /** `--update-baseline`：把当前实例级违规写成基线（存量收敛期使用） */
   const updateBaseline = process.argv.includes('--update-baseline');
 
-  const files = collectFiles(SRC_DIR).filter(
+  const files = SRC_DIRS.flatMap((dir) => collectFiles(dir)).filter(
     (f) => !f.endsWith('.tsx') // UI 组件豁免
   );
 

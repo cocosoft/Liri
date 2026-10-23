@@ -14,9 +14,9 @@ import {
   setUserDataDirOverride,
   resolveDataDir,
   resolveDbPath,
-} from '../../src/core/paths.js';
-import { runWithPrincipal } from '../../src/core/identity/requestScope.js';
-import type { Principal } from '../../src/core/identity/principal.js';
+} from '@modules/core/paths.js';
+import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
+import type { Principal } from '@modules/core/identity/principal.js';
 import { UsageStatsService } from '../../src/ai/models/UsageStatsService.js';
 import { SkillDB } from '../../src/skills/persistence/SkillDB.js';
 

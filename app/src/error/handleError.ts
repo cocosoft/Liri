@@ -36,4 +36,4 @@ export {
   resolveErrorLogLevel,
   getErrorStats,
   type HandleErrorOptions,
-} from '../core/errorHandler.js';
+} from '@modules/core/errorHandler.js';

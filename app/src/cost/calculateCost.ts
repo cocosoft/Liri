@@ -15,5 +15,5 @@ export {
   calculateCost,
   calculateTotalCost,
   roundCost,
-} from '../core/pricing.js';
-export type { CostBreakdown } from '../core/pricing.js';
+} from '@modules/core/pricing.js';
+export type { CostBreakdown } from '@modules/core/pricing.js';

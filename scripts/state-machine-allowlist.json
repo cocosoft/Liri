@@ -29,7 +29,7 @@
       "reason": "上下文对象的生命周期枚举，属资源管理而非任务/会话编排状态"
     },
     {
-      "file": "app/src/core/data-models.ts",
+      "file": "packages/kernel/src/core/data-models.ts",
       "exportName": "DataSessionStatus",
       "reason": "数据模型层的会话记录态（DB 契约枚举），与 state/session 的运行时会话状态机非同一物"
     },

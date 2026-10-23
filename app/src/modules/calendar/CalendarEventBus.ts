@@ -4,7 +4,7 @@
  */
 
 import { EventBusImpl } from '@modules/core/events/EventBus';
-import { getLogger } from '../../core/loggerFacade.js';
+import { getLogger } from '@modules/core/loggerFacade.js';
 const logger = getLogger('calendar:eventBus');
 
 /** 日历事件类型 */

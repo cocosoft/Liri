@@ -11,4 +11,4 @@
  *
  * @see ../../core/SessionSpanTracer.ts 规范定义
  */
-export * from '../../core/SessionSpanTracer.js';
+export * from '@modules/core/SessionSpanTracer.js';

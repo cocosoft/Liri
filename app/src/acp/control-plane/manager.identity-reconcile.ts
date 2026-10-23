@@ -6,7 +6,7 @@ import {
   formatSessionIdentity,
   type AcpSessionIdentity,
 } from '../runtime/session-identity.js';
-import { handleError } from '../../core/errorHandler.js';
+import { handleError } from '@modules/core/errorHandler.js';
 
 export interface PendingSessionIdentity {
   sessionKey: string;

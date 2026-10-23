@@ -1,6 +1,6 @@
 import { readFile } from 'fs/promises';
 import { access } from 'fs/promises';
-import { handleError } from '../core/errorHandler.js';
+import { handleError } from '@modules/core/errorHandler.js';
 
 export async function readSecretFromFile(filePath: string): Promise<string> {
   try {

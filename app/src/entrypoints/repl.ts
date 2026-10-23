@@ -637,7 +637,8 @@ export async function launchRepl(
 
           // 将 REPL 输入写入共享会话存储，使所有通道消息在统一上下文中可见
           try {
-            const { getDIContainer } = await import('../core/DIContainer.js');
+            const { getDIContainer } =
+              await import('@modules/core/DIContainer.js');
             const { randomUUID } = await import('crypto');
             const { MessageType, MessageRole } =
               await import('../session/types/UnifiedMessage.js');

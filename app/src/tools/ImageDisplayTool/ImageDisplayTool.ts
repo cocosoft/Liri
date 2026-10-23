@@ -16,7 +16,7 @@ import {
   ATTACHMENTS_ROOT,
   IMAGES_ROOT,
   MEDIA_IMAGES_ROOT,
-} from '../../core/mediaRoots';
+} from '@modules/core/mediaRoots';
 import { resolveAccessibleMediaUrl, MediaRoot } from '../MediaUrlResolver';
 
 const logger = getLogger('tools:imageDisplay');

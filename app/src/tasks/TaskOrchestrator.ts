@@ -43,7 +43,7 @@ import { TaskStatus } from './types';
 import type { PlanReview } from './PlanReview';
 import type { ReviewDecision } from './PlanReview';
 
-import { globalEventBus } from '../core/events/EventBus.js';
+import { globalEventBus } from '@modules/core/events/EventBus.js';
 import { OrchestrationEventType as OrchEvent } from '@modules/agent';
 import type { PlanProgressData } from '@modules/agent';
 

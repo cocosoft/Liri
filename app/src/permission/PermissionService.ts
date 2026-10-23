@@ -33,7 +33,7 @@ import { PermissionManager } from './PermissionManager';
 // 2026-10-01 D-157（`permission -> sandbox` 倒挂收口，2 处）：
 // ① 类型 `SandboxPermission` 为纯叶子 ⇒ 已下沉 core，按相对路径直连 core 模块根；
 // ② 运行时判定（默认工作区是否授权）为真实依赖 ⇒ 改经 core SPI 端口 `ISandboxPort`。
-import type { SandboxPermission } from '../core/sandboxPermission.js';
+import type { SandboxPermission } from '@modules/core/sandboxPermission.js';
 import { resolveSandbox } from '@modules/core/spi';
 import { handleError } from '@modules/error';
 

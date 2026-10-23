@@ -14,7 +14,7 @@ import { join } from 'node:path';
 
 import { OrchestrationEventType as E } from '@modules/types/orchestrationEvents';
 
-import { globalEventBus } from '../../src/core/events/EventBus';
+import { globalEventBus } from '@modules/core/events/EventBus';
 import {
   flushOrchestrationEventLog,
   orchestrationEventLogPath,

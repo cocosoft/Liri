@@ -36,7 +36,7 @@ import { fileURLToPath } from 'node:url';
 import {
   FORM_ONLY_CRITERIA_PATTERNS,
   findFormOnlyCriteria,
-} from '../app/src/core/successCriteria';
+} from '../packages/kernel/src/core/successCriteria';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = resolve(HERE, '..', '.trae', 'specs');

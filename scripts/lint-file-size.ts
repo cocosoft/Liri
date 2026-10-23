@@ -109,6 +109,8 @@ async function main(): Promise<void> {
   const fileSizeExceptions = loadFileSizeExceptions();
   const srcDirs = [
     join(rootDir, 'app', 'src'),
+    // 内核自 P4 起物理独立于 `app/src`（方案 §4-P4）⇒ 巨型文件规则同样适用
+    join(rootDir, 'packages', 'kernel', 'src'),
     join(rootDir, 'client', 'src'),
     join(rootDir, 'app', 'native'),
   ];

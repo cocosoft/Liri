@@ -10,8 +10,8 @@ import { describe, expect, it } from 'bun:test';
 import { ChatRollback } from '../../src/chat/manager/rollback';
 import type { SessionGateway } from '../../src/session/SessionGateway';
 import type { MessageService } from '../../src/chat/services/MessageService';
-import type { Principal } from '../../src/core/identity/principal';
-import { runWithPrincipal } from '../../src/core/identity/requestScope';
+import type { Principal } from '@modules/core/identity/principal';
+import { runWithPrincipal } from '@modules/core/identity/requestScope';
 import {
   createPendingInteractionEntry,
   hasActivePendingInteraction,

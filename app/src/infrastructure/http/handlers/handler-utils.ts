@@ -42,7 +42,7 @@ import { resolveSandbox } from '@modules/core/spi';
 // （值 `globalWorkspaceManager` + 枚举 `SandboxPermission`）⇒ `infrastructure -> app` 倒挂。
 // 枚举改**相对直连 core 叶子**（同 D-186 四例）；值改经 **core SPI 端口**（`ISandboxPort`，
 // 服务层 → core 为下行，合法）。
-import type { SandboxPermission } from '../../../core/sandboxPermission.js';
+import type { SandboxPermission } from '@modules/core/sandboxPermission.js';
 
 const logger = getLogger('http:handlerUtils');
 

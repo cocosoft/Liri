@@ -1,12 +1,5 @@
 {
   "version": 1,
-  "maxEntries": 1,
-  "entries": [
-    {
-      "file": "app/src/core/__tests__/DIContainerIntegration.test.ts",
-      "rule": "K02",
-      "target": "modules",
-      "note": "DI 装配集成测试：动态 import 上层 modules 以断言注入结果。测试文件在扫描面内（与 lint:arch 的 R00-001/R00-003 同口径：不跳测试）。"
-    }
-  ]
+  "maxEntries": 0,
+  "entries": []
 }

@@ -9,12 +9,12 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import type { Principal } from '../../src/core/identity/principal';
+import type { Principal } from '@modules/core/identity/principal';
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   runWithPrincipal,
-} from '../../src/core/identity/requestScope';
+} from '@modules/core/identity/requestScope';
 import {
   canAccessCronJob,
   currentCronOwnerKey,

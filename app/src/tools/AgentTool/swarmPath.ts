@@ -39,7 +39,7 @@ import {
 } from '@modules/tasks';
 import { getUnifiedTokenTracker } from '@modules/tokenBudget';
 
-import { globalEventBus } from '../../core/events/EventBus.js';
+import { globalEventBus } from '@modules/core/events/EventBus.js';
 import { getToolCategory } from '../toolCategories';
 import type { Tool, ToolCallProgress } from '../types/Tool';
 import { ToolExecutionStatus, type ToolResult } from '../types/ToolResult';

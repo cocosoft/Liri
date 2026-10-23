@@ -26,10 +26,10 @@ import type {
   TAORCheckpoint,
   TAORCheckpointStorage,
 } from '../../src/query/types.js';
-import { setUserDataDirOverride } from '../../src/core/paths.js';
-import { runWithPrincipal } from '../../src/core/identity/requestScope.js';
-import type { Principal } from '../../src/core/identity/principal.js';
-import { resetScopedResourcesForTest } from '../../src/core/identity/scopedResources.js';
+import { setUserDataDirOverride } from '@modules/core/paths.js';
+import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
+import type { Principal } from '@modules/core/identity/principal.js';
+import { resetScopedResourcesForTest } from '@modules/core/identity/scopedResources.js';
 
 const ALICE: Principal = { tenantId: 'taor-life', userId: 'alice', roles: [] };
 const roots: string[] = [];

@@ -21,8 +21,8 @@ import {
   DEFAULT_MODEL_PRICING,
   projectRegistryPricing,
   resolveTimeBasedPricing,
-} from '../../src/core/pricing';
-import type { ModelPricing } from '../../src/core/pricing';
+} from '@modules/core/pricing';
+import type { ModelPricing } from '@modules/core/pricing';
 
 const PRICING: ModelPricing = {
   inputPricePerMillion: 3,

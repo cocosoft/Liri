@@ -22,11 +22,15 @@ import type {
   SandboxExecutionMode,
   SandboxExecutionSignal,
   SandboxPermissionLevel,
+  ToolSandboxLevel,
 } from '@modules/utils/toolContract/Tool';
 
 import { readLandlockConfig } from './landlock/config';
 import { LandlockDetector } from './landlock/LandlockDetector';
-import { hasIsolatedFileIo } from './workspaceIsolation';
+import {
+  hasIsolatedFileIo,
+  resolveFileIoExecutionMode,
+} from './workspaceIsolation';
 
 /**
  * 沙箱默认权限位（2026-10-23 用户拍板：`standard`）。
@@ -144,6 +148,23 @@ export function resolveSandboxExecutionSignal(
   const mode: SandboxExecutionMode =
     landlockEnabled && platform === 'linux' && available ? 'landlock' : 'none';
   return { mode, permissionLevel, fileIoIsolated };
+}
+
+/**
+ * 文件类工具（`sandboxLevel === 'file-io'`）的 **modeHint**（2026-10-23）。
+ *
+ * 为什么需要它：`mode` 的缺省推导只看 Landlock（只包命令子进程）；文件工具在隔离
+ * 工作区里时，真正的执行环境是**容器 / 远端**，否则 Landlock 未开时 `mode='none'`
+ * 会把"文件 IO 确实隔离"的调用也挡在豁免之外。
+ *
+ * @returns 仅当该工具声明 `file-io` **且**工作区有可用挂载映射时给出 `container`/`ssh`；
+ *          其余（只读/执行类工具、本地工作区、无映射）⇒ `undefined`（不表态）
+ */
+export function resolveFileIoToolModeHint(
+  sandboxLevel?: ToolSandboxLevel
+): SandboxExecutionMode | undefined {
+  if (sandboxLevel !== 'file-io') return undefined;
+  return resolveFileIoExecutionMode();
 }
 
 /**

@@ -93,6 +93,15 @@ export class REPLToolAdapter implements Tool {
   readOnly = false;
 
   /**
+   * 沙箱能力声明（2026-10-23）：REPL 的 `execute` 动作会**执行任意代码**
+   * ⇒ 与 `bash` / `code_run` 同口径声明 `execution`。
+   *
+   * 影响（有意为之，更严格）：风险由 `write` 升为 `shell` —— 会话级「自动执行」
+   * 与沙箱豁免都不覆盖它；命令类审批按 shell 档走。
+   */
+  sandboxLevel = 'execution' as const;
+
+  /**
    * 是否破坏性
    */
   destructive = false;

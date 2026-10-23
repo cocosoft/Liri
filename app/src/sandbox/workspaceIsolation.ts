@@ -62,6 +62,28 @@ export function hasIsolatedFileIo(): boolean {
   return resolveWorkspacePathMap() !== null;
 }
 
+/**
+ * **文件类工具**（`sandboxLevel === 'file-io'`）本次的执行环境模式（2026-10-23）。
+ *
+ * 与 `resolveWorkspaceIsolationMode()` 的差别：这里要求**挂载映射可用**
+ * （无映射 ⇒ 文件不会真的落在环境内 ⇒ 不表态）。用途：执行入口把它作为
+ * `modeHint` 传给 `resolveSandboxExecutionSignal()` —— 文件工具的"沙箱内放行"
+ * 才不必依赖 Landlock（Landlock 只包命令子进程）。
+ *
+ * @returns `container` / `ssh`；`local` / 无工作区 / 无挂载 ⇒ `undefined`（不表态）
+ */
+export function resolveFileIoExecutionMode(): 'container' | 'ssh' | undefined {
+  try {
+    const ws = getScopedDefaultWorkspace();
+    if (!ws) return undefined;
+    const mode = ws.isolationMode();
+    if (mode === 'local') return undefined;
+    return ws.fileIoMount() ? mode : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** 工作区文件 IO 端口（`readFile`/`writeFile` 的路径语义 = **环境内绝对路径**） */
 export interface WorkspaceFileIo {
   mode: 'container' | 'ssh';

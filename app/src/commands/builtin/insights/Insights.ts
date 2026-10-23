@@ -11,11 +11,11 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { insightsEngine, PerformanceMonitorService } from '@modules/analytics';
 import type { InsightsResult } from '@modules/analytics';
+// 「慢操作」阈值走常量单一事实源（B 类，`LIRI_INSIGHTS_SLOW_MS` 可覆盖）——
+// 原先定义在本文件（`const ... = 1000`）会被 `lint:consts` 判为裸字面量重复事实源。
+import { INSIGHTS_SLOW_OPERATION_THRESHOLD_MS } from '@modules/constants';
 
 type Role = 'user' | 'assistant' | 'system' | 'tool';
-
-/** 慢操作阈值（毫秒），仅用于"慢操作条数"的统计口径 */
-const SLOW_OPERATION_THRESHOLD_MS = 1000;
 
 /** 需要读取会话消息的子命令（`performance` / `help` 不需要） */
 const SESSION_SUBCOMMANDS = ['show', 'summary', 'suggestions', 'report'];
@@ -280,7 +280,7 @@ function readPerformanceSnapshot(): PerformanceSnapshot {
   const monitor = PerformanceMonitorService.getInstance();
   const stats = monitor.getAllStats();
   const slowCalls = monitor.getSlowOperations(
-    SLOW_OPERATION_THRESHOLD_MS
+    INSIGHTS_SLOW_OPERATION_THRESHOLD_MS
   ).length;
 
   const top = [...stats]
@@ -313,7 +313,7 @@ function formatPerformance(snapshot: PerformanceSnapshot): string {
     `- 已计时操作类型: ${snapshot.operationTypes}`,
     `- 采样总次数: ${snapshot.totalCalls}`,
     `- 失败次数: ${snapshot.failedCalls}`,
-    `- 慢操作（> ${SLOW_OPERATION_THRESHOLD_MS}ms）: ${snapshot.slowCalls}`,
+    `- 慢操作（> ${INSIGHTS_SLOW_OPERATION_THRESHOLD_MS}ms）: ${snapshot.slowCalls}`,
   ];
 
   if (snapshot.top.length > 0) {

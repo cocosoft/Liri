@@ -40,7 +40,10 @@ import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 // S2-6（2026-10-11）：工具调用统一指标（工具名/结果/耗时/入参字节/估算 tokens）—— 唯一实现 = tools/monitoring
 import { isNonIdempotentRetry, recordToolInvocation } from '@modules/tools';
 // PR-3a（2026-10-23）：本次执行的沙箱信号（唯一解析点 = sandbox/sandboxExecutionSignal）
-import { resolveSandboxExecutionSignal } from '@modules/sandbox';
+import {
+  resolveFileIoToolModeHint,
+  resolveSandboxExecutionSignal,
+} from '@modules/sandbox';
 import type { Tool, SandboxExecutionSignal } from '../../tools/types/Tool';
 import { estimateTokens } from '@modules/ai';
 import { configManager } from '@modules/config';
@@ -361,6 +364,24 @@ export class ToolExecutionService {
       `非幂等工具 '${name}' 的「重试」需要用户审批：本会话中**同参数**的上一次调用已失败，` +
       '原样重放可能造成副作用重复（重复写入 / 发送 / 扣费）。请确认后再执行。'
     );
+  }
+
+  /**
+   * 取已注册的工具对象（未注册 / 懒加载未解包 ⇒ `undefined`）。
+   *
+   * 两处消费同口径（2026-10-23）：① 权限判定按工具**声明**派生风险（PR-0）；
+   * ② 文件类工具的 `modeHint`（方案 A：只有 `sandboxLevel === 'file-io'` 才可能
+   * 在容器/远端工作区里执行）。取不到 ⇒ 调用方各自回退（不猜）。
+   */
+  private _resolveRegisteredTool(name: string): Tool | undefined {
+    try {
+      const registry = this.deps.getToolRegistry() as {
+        getTool?: (name: string) => Tool | undefined;
+      } | null;
+      return registry?.getTool?.(name);
+    } catch {
+      return undefined;
+    }
   }
 
   /* ===============================================================
@@ -698,16 +719,9 @@ export class ToolExecutionService {
       // PR-0（2026-10-23）：把**工具对象**带进权限判定 —— 风险类别按工具声明派生
       // （`riskClass`/`riskClassFor`/`TOOL_EFFECTS`/`sandboxLevel`），不再按工具名猜。
       // 取不到（未注册/懒加载未解包）⇒ 传 undefined，权限层回退旧启发式（行为零变更）。
-      const permissionTool = (() => {
-        try {
-          const registry = this.deps.getToolRegistry() as {
-            getTool?: (name: string) => Tool | undefined;
-          } | null;
-          return registry?.getTool?.(normalizedToolCall.name);
-        } catch {
-          return undefined;
-        }
-      })();
+      const permissionTool = this._resolveRegisteredTool(
+        normalizedToolCall.name
+      );
       const permissionResult = await pm.checkPermissionForTool(
         normalizedToolCall.name,
         normalizedToolCall.arguments,
@@ -720,8 +734,13 @@ export class ToolExecutionService {
             this.deps.getSessionApprovalMode?.(toolCall.sessionId) ?? 'ask',
           workspacePath:
             this.deps.getSessionWorkspacePath(toolCall.sessionId) ?? undefined,
-          // PR-3a（2026-10-23）：沙箱信号 —— 仅供审批卡留证（不改判定）
-          sandbox: resolveSandboxExecutionSignal(),
+          // PR-3a（2026-10-23）：沙箱信号 —— 审批卡留证 + PR-3b 豁免判定。
+          // 方案 A（同批）：文件类工具（`file-io`）若真在容器/远端工作区执行，则由
+          // `modeHint` 如实上报（Landlock 只包命令子进程，不代表文件 IO 被隔离）；
+          // 无映射/本地工作区 ⇒ 不给提示（保持 `none`，fail-closed）。
+          sandbox: resolveSandboxExecutionSignal({
+            modeHint: resolveFileIoToolModeHint(permissionTool?.sandboxLevel),
+          }),
           forceAskReason: this._resolveNonIdempotentRetryReason(
             normalizedToolCall.name,
             normalizedToolCall.arguments,
@@ -1028,8 +1047,13 @@ export class ToolExecutionService {
           toolUseId: normalizedToolCall.id,
           sessionId: toolCall.sessionId,
           // PR-3a（2026-10-23）：注入本次执行的沙箱信号（审批卡证据；PR-3b 的豁免判定读它）。
-          // 无隔离证据 ⇒ `mode: 'none'`（fail-closed，不当成"沙箱内已放行"）。
-          sandbox: resolveSandboxExecutionSignal(),
+          // 无隔离证据 ⇒ `mode: 'none'`（fail-closed，不当成"沙箱内已放行"）；
+          // 文件类工具在隔离工作区执行时按 `modeHint` 如实上报（与权限判定同口径）。
+          sandbox: resolveSandboxExecutionSignal({
+            modeHint: resolveFileIoToolModeHint(
+              this._resolveRegisteredTool(normalizedToolCall.name)?.sandboxLevel
+            ),
+          }),
           options: {
             cwd: cwdDecision.cwd,
             workspaceId: this.deps.getSessionWorkspaceId(toolCall.sessionId),

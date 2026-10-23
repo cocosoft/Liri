@@ -39,6 +39,8 @@ import { findWorkspaceEscape } from '@modules/utils/toolContract/pathBoundary';
 import { PATH_ARG_KEYS } from '@modules/utils/toolContract/pathArgs';
 // PR-3b（2026-10-23）：沙箱豁免判定（纯函数，§3.9.4 S1–S4）
 import { resolveSandboxExemption } from './sandboxExemption';
+// Q-16（2026-10-23）：命令规则匹配语义（prefix / regex，单点实现，见 utils）
+import { matchesAnyCommandRule } from '@modules/utils/commandRuleMatch';
 import { feature } from '@modules/core';
 const logger = getLogger('permission:checker');
 
@@ -103,6 +105,10 @@ export function setPermissionRuntimeDeps(deps: PermissionRuntimeDeps): void {
  * - blacklist 模式且未命中黑名单 → null（不阻断，交回工具级决策）
  * 配置缺失/异常 → null（不阻断决策，安全底线不变）。
  *
+ * **匹配语义（Q-16，2026-10-23 拍板）**：`prefix`（默认）/ `regex` 二选一，
+ * 缺省按**前缀**匹配；不再用 `includes`（`echo dir` 不会命中白名单 `dir`）。
+ * 语义单点在 `./commandRuleMatch`，与 `BashSecurityAnalyzer` 共用。
+ *
  * 由 PermissionChecker.checkPermission 与 PermissionManager.handleDefault/handleAuto 共用，
  * 保证「设置→自定义规则」的命令黑白名单在主决策链路生效。
  */
@@ -113,8 +119,8 @@ export function checkCommandCustomRules(
     const permission = configManager.getConfigValue<{
       customRules?: {
         commandRules?: {
-          blacklist: Array<{ pattern: string }>;
-          whitelist: Array<{ pattern: string }>;
+          blacklist: Array<{ pattern: string; matchType?: 'prefix' | 'regex' }>;
+          whitelist: Array<{ pattern: string; matchType?: 'prefix' | 'regex' }>;
           mode: 'whitelist' | 'blacklist';
         };
       };
@@ -122,19 +128,14 @@ export function checkCommandCustomRules(
     const rules = permission?.customRules?.commandRules;
     if (!rules) return null;
 
-    const lower = command.toLowerCase();
     const blacklist = rules.blacklist || [];
-    if (
-      blacklist.some((r) => lower.includes((r.pattern || '').toLowerCase()))
-    ) {
+    if (matchesAnyCommandRule(command, blacklist)) {
       return createDenyDecision('命令命中自定义黑名单');
     }
 
     if (rules.mode === 'whitelist') {
       const whitelist = rules.whitelist || [];
-      if (
-        whitelist.some((r) => lower.includes((r.pattern || '').toLowerCase()))
-      ) {
+      if (matchesAnyCommandRule(command, whitelist)) {
         return createAllowDecision('命令命中自定义白名单');
       }
       return createDenyDecision('命令未命中自定义白名单（whitelist 模式）');
@@ -707,6 +708,8 @@ export class PermissionChecker {
         // - 命令类：「始终允许」= 命令前缀白名单（`allowlist_command`），另保留工具级；
         // - 外部类：只给本次 / 本会话 / 拒绝（外部副作用不提供永久放行）；
         // - 其余：「始终允许」= 工具+参数指纹（`allowlist_call`）。
+        // Q-17（2026-10-23）：外部类原先还带一个 `standing_rule` 选项 —— 全仓**零消费**
+        // （客户端无文案映射、审批回复也无处理）⇒ 点击等于"点了没反应"，已摘除。
         options: isCommandTool
           ? [
               'approve',
@@ -716,7 +719,7 @@ export class PermissionChecker {
               'deny',
             ]
           : risk === RiskClass.EXTERNAL
-            ? ['approve', 'approve_session', 'deny', 'standing_rule']
+            ? ['approve', 'approve_session', 'deny']
             : ['approve', 'approve_session', 'allowlist_call', 'deny'],
         offlineCapable: true,
         source: 'permission',

@@ -20,8 +20,15 @@ import { toIsolatedPath } from '../../src/sandbox/isolationPathMap.js';
 import { DockerWorkspace } from '../../src/sandbox/adapters/DockerWorkspace.js';
 import {
   hasIsolatedFileIo,
+  resolveFileIoExecutionMode,
   resolveWorkspaceFileIo,
 } from '../../src/sandbox/workspaceIsolation.js';
+import {
+  resolveFileIoToolModeHint,
+  resolveSandboxExecutionSignal,
+} from '../../src/sandbox/sandboxExecutionSignal.js';
+import { resolveSandboxExemption } from '../../src/permission/sandboxExemption.js';
+import { RiskClass } from '../../src/permission/types/RiskClass.js';
 import {
   SandboxPlatform,
   SandboxPermission,
@@ -152,6 +159,21 @@ describe('方案 A：默认工作区 → 文件 IO 端口', () => {
 
     expect(resolveWorkspaceFileIo()).toBeNull();
     expect(hasIsolatedFileIo()).toBe(false);
+    // 本地工作区 ⇒ 文件类工具不给 modeHint（保持 fail-closed）
+    expect(resolveFileIoExecutionMode()).toBeUndefined();
+    expect(resolveFileIoToolModeHint('file-io')).toBeUndefined();
+  });
+
+  it('容器但**无挂载映射** ⇒ 不声称隔离，也不给 modeHint', () => {
+    hostDir = mkdtempSync(join(tmpdir(), 'liri-a-nomount-'));
+    globalWorkspaceManager.createSync('default', {
+      platform: SandboxPlatform.LINUX,
+      workingDirectory: hostDir,
+    });
+
+    expect(hasIsolatedFileIo()).toBe(false);
+    expect(resolveFileIoExecutionMode()).toBeUndefined();
+    expect(resolveFileIoToolModeHint('file-io')).toBeUndefined();
   });
 
   it('容器工作区 + rw 挂载 ⇒ 端口可用，且能把宿主路径翻译到容器内', () => {
@@ -172,6 +194,12 @@ describe('方案 A：默认工作区 → 文件 IO 端口', () => {
     expect(io?.toIsolatedPath(join(hostDir, 'note.md'))).toBe(
       '/workspace/note.md'
     );
+
+    // 文件类工具的 modeHint 如实上报容器；非文件类工具不给（执行仍在宿主/Landlock）
+    expect(resolveFileIoExecutionMode()).toBe('container');
+    expect(resolveFileIoToolModeHint('file-io')).toBe('container');
+    expect(resolveFileIoToolModeHint('execution')).toBeUndefined();
+    expect(resolveFileIoToolModeHint(undefined)).toBeUndefined();
   });
 
   it('接线：容器工作区下 file_write 的写盘落在适配器，宿主 fs 不参与', async () => {
@@ -205,5 +233,70 @@ describe('方案 A：默认工作区 → 文件 IO 端口', () => {
     expect(existsSync(join(hostDir, 'note.md'))).toBe(false);
     // 回执仍是**宿主路径**（模型据此复述位置，前端出站路由也认它）
     expect(String(res.data)).toContain(join(hostDir, 'note.md'));
+  });
+
+  it('端到端：容器工作区 ⇒ 信号自带 container + fileIoIsolated ⇒ 写工具获沙箱豁免', () => {
+    hostDir = mkdtempSync(join(tmpdir(), 'liri-a-e2e-'));
+    globalWorkspaceManager.createSync('default', {
+      platform: SandboxPlatform.LINUX,
+      workingDirectory: hostDir,
+      customConfig: {
+        [DOCKER_CONFIG_KEYS.VOLUMES]: [
+          { hostPath: hostDir, containerPath: '/workspace', mode: 'rw' },
+        ],
+      },
+    });
+
+    // 与 chat 入口同口径：信号 = 缺省推导 + 文件类工具的 modeHint
+    const signal = resolveSandboxExecutionSignal({
+      enabled: true,
+      landlockEnabled: false,
+      platform: 'win32',
+      permissionLevel: 'standard',
+      modeHint: resolveFileIoToolModeHint('file-io'),
+    });
+    expect(signal).toEqual({
+      mode: 'container',
+      permissionLevel: 'standard',
+      fileIoIsolated: true,
+    });
+
+    expect(
+      resolveSandboxExemption({
+        signal,
+        risk: RiskClass.WRITE_LOCAL,
+        sandboxLevel: 'file-io',
+        input: { file_path: join(hostDir, 'a.md') },
+        workspacePath: hostDir,
+      })
+    ).toEqual({ exempt: true, reason: 'sandbox-isolated' });
+  });
+
+  it('端到端对照：本地工作区 ⇒ 信号仍 none，声明 file-io 也不豁免', () => {
+    hostDir = mkdtempSync(join(tmpdir(), 'liri-a-e2e-local-'));
+    globalWorkspaceManager.createSync('default', {
+      platform: SandboxPlatform.WINDOWS,
+      workingDirectory: hostDir,
+    });
+
+    const signal = resolveSandboxExecutionSignal({
+      enabled: true,
+      landlockEnabled: false,
+      platform: 'win32',
+      permissionLevel: 'standard',
+      modeHint: resolveFileIoToolModeHint('file-io'),
+    });
+    expect(signal.mode).toBe('none');
+    expect(signal.fileIoIsolated).toBe(false);
+
+    expect(
+      resolveSandboxExemption({
+        signal,
+        risk: RiskClass.WRITE_LOCAL,
+        sandboxLevel: 'file-io',
+        input: { file_path: join(hostDir, 'a.md') },
+        workspacePath: hostDir,
+      })
+    ).toEqual({ exempt: false, reason: 'no-isolation' });
   });
 });

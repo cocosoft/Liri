@@ -50,6 +50,9 @@ export function createToolContext(params: {
     sessionId: params.sessionId ?? undefined,
     // PR-3a（2026-10-23）：注入本次执行的沙箱信号（PR-3b 的豁免判定与审批卡证据共用）。
     // 无隔离证据时 `mode: 'none'` ⇒ fail-closed，不会被当成"沙箱内已放行"。
+    // 注：本上下文由**步骤**创建（执行前还不知道是哪个工具）⇒ 不能像 chat 那样按工具
+    // 能力给 `modeHint`；文件类工具在隔离工作区下的自动放行因此在 LRO 内**不生效**
+    // （保守方向：只是继续要审批，不会误放行）。
     sandbox: resolveSandboxExecutionSignal(),
     options: {
       commands: [],

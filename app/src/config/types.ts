@@ -375,6 +375,12 @@ export interface WorkspaceConfig {
 export interface CommandRule {
   /** 规则字符串（支持 glob/regex） */
   pattern: string;
+  /**
+   * 匹配方式（Q-16，2026-10-23）：`prefix`（默认，命令**前缀**匹配）/ `regex`。
+   * 缺省 ⇒ **按前缀解释**（存量规则也走这一口径，不再用 `includes`）。
+   * 语义单点见 `permission/commandRuleMatch.ts`。
+   */
+  matchType?: 'prefix' | 'regex';
   /** 类型 */
   type: 'blacklist' | 'whitelist';
   /** 备注 */

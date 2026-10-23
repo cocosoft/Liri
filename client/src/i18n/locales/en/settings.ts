@@ -758,8 +758,15 @@ const enSettings = {
       'When enabled, tool/command execution is constrained by kernel-level isolation. Default permission "Standard" = read/write but no execute (choose "Full" when execution is required).',
     isolationAuditTitle: "Auto-allow Audit",
     isolationAuditDetail: "View details",
+    isolationAuditCsv: "Export CSV",
     isolationAuditHint:
       "Breakdown of the last 200 auto-allowed events. Session auto and Global trust are relaxations worth periodic review.",
+    auditCsvTime: "Time",
+    auditCsvRule: "Source",
+    auditCsvTool: "Tool",
+    auditCsvRisk: "Risk",
+    auditCsvSession: "Session",
+    auditCsvDetail: "Detail",
     uptime: "Uptime",
     user: "User Identity",
     userProfile: "User Profile",
@@ -998,6 +1005,9 @@ const enSettings = {
     rulesLoadFailed: "Failed to load custom rules",
     rulesSaveFailed: "Save failed",
     rulesCmdPlaceholder: "Enter a command pattern (e.g. rm -rf, chmod)",
+    rulesMatchPrefix: "Prefix",
+    rulesMatchRegex: "Regex",
+    rulesInvalidRegex: "Invalid regular expression, please check the syntax",
     rulesDirPlaceholder: "Enter a directory path (e.g. /etc, C:\\Windows)",
     rulesBannerQuestion: "Which dangerous commands/directories must be blocked",
     rulesBannerRelation:
@@ -1012,7 +1022,7 @@ const enSettings = {
     rulesHintCmdBlacklistPrefix: "After adding a command pattern (e.g. ",
     rulesHintCmdBlacklistSuffix: "), matching commands will be blocked.",
     rulesHintCmdWhitelist:
-      "Strict allowlist: only commands matching an entry may run; everything else is denied (entries use substring matching, e.g. rm also matches npm rm).",
+      "Strict allowlist: only commands matching an entry may run; everything else is denied (entries use prefix matching; pick Regex for finer control).",
     rulesHintDirBlacklistPrefix: "After adding a directory path (e.g. ",
     rulesHintDirBlacklistSuffix: "), access to that directory is prohibited.",
     rulesHintDirWhitelist:

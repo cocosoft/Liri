@@ -120,6 +120,7 @@ export { SandboxConfigBuilder } from './SandboxConfigBuilder';
 // 方案 A（2026-10-23）：文件类工具「经沙箱执行」的判定、路径映射与 IO 端口
 export {
   hasIsolatedFileIo,
+  resolveFileIoExecutionMode,
   resolveWorkspaceFileIo,
   resolveWorkspaceIsolationMode,
   resolveWorkspacePathMap,
@@ -137,6 +138,7 @@ export {
   SANDBOX_PERMISSION_LEVELS,
   readSandboxEnabled,
   readSandboxPermissionLevel,
+  resolveFileIoToolModeHint,
   resolveSandboxExecutionSignal,
   resolveSandboxPermissionLevel,
   isSandboxSignalUsable,

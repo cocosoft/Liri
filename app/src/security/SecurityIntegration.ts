@@ -220,10 +220,17 @@ export class SecurityIntegrationService {
         configManager.getConfigValue<PermissionConfig>('permission');
       const workspaces = permission?.trustedWorkspaces;
       if (workspaces && workspaces.length > 0) {
-        const normalizedPath = targetPath.replace(/\\/g, '/');
+        // Q-32（2026-10-23）：Windows 大小写归一 —— 大小写不同视为**同一目录**。
+        // 此前只换分隔符 ⇒ `C:/Work` 配的信任对 `c:/work` 不生效（fail-closed，行为不一致）。
+        // POSIX 路径大小写敏感 ⇒ 仅 win32 折叠，避免把两个不同目录并成一个。
+        const fold = (p: string): string =>
+          process.platform === 'win32'
+            ? p.replace(/\\/g, '/').toLowerCase()
+            : p.replace(/\\/g, '/');
+        const normalizedPath = fold(targetPath);
         for (const ws of workspaces) {
           if (!ws.enabled) continue;
-          const wsPath = ws.path.replace(/\\/g, '/');
+          const wsPath = fold(ws.path);
           if (
             normalizedPath === wsPath ||
             normalizedPath.startsWith(wsPath + '/')

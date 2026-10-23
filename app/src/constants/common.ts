@@ -53,6 +53,9 @@ export const CONNECTION_TIMEOUT = B.connectionTimeoutMs;
 export const REQUEST_TIMEOUT = B.requestTimeoutMs;
 /** @kind B */
 export const MAX_CACHE_SIZE_BYTES = B.maxCacheSizeBytes;
+/** @kind B —— 洞察报告「慢操作」展示阈值（毫秒；超此值的调用计入 slowCalls） */
+export const INSIGHTS_SLOW_OPERATION_THRESHOLD_MS =
+  B.insightsSlowOperationThresholdMs;
 
 /**
  * 交互等待单槽 TTL（毫秒）—— 与 ChatManagerTAORAdapter 的等待上限同口径。

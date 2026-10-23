@@ -136,6 +136,7 @@ import {
 import { configManager } from '@modules/config';
 import type { PermissionConfig } from '@modules/config/types';
 import { loadRules } from '@modules/config/types';
+import { matchesAnyCommandRule } from '@modules/utils/commandRuleMatch';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('security:bashAnalyzer');
 
@@ -208,9 +209,9 @@ export class BashSecurityAnalyzer {
       if (!rules || rules.mode !== 'whitelist') return null;
 
       const whitelistPatterns = rules.whitelist || [];
-      const matched = whitelistPatterns.some((r) =>
-        command.toLowerCase().includes(r.pattern.toLowerCase())
-      );
+      // Q-16（2026-10-23）：匹配语义单点在 `permission/commandRuleMatch`（prefix 默认 / regex），
+      // 不再用 `includes`（`echo dir` 不会命中白名单 `dir`）。
+      const matched = matchesAnyCommandRule(command, whitelistPatterns);
 
       if (matched) {
         return {

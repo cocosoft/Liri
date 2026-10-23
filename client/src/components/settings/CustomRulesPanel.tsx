@@ -15,6 +15,11 @@ import ToolRulesSection from "./ToolRulesSection";
 interface CommandRule {
   pattern: string;
   label?: string;
+  /**
+   * 匹配方式（Q-16，2026-10-23）：缺省 `prefix`（命令前缀匹配）。
+   * 存量规则无该字段 ⇒ 同样按前缀解释（不再用 `includes`）。
+   */
+  matchType?: "prefix" | "regex";
 }
 
 /** 目录规则 */
@@ -70,6 +75,10 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<RuleTab>("command-blacklist");
   const [newItem, setNewItem] = useState("");
+  /** 新增命令规则的匹配方式（Q-16）：默认前缀 */
+  const [newMatchType, setNewMatchType] = useState<"prefix" | "regex">(
+    "prefix",
+  );
 
   /** 加载配置 */
   const loadConfig = async () => {
@@ -122,21 +131,44 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
   const addItem = () => {
     const trimmed = newItem.trim();
     if (!trimmed) return;
+    // Q-16：正则规则在**写入时**校验语法（读侧对非法正则一律按"不匹配"处理）
+    if (activeTab.startsWith("command") && newMatchType === "regex") {
+      try {
+        new RegExp(trimmed);
+      } catch {
+        setError(t("settings.rulesInvalidRegex"));
+        return;
+      }
+    }
     setConfig((prev) => {
       const next = { ...prev };
       if (activeTab === "command-blacklist") {
         const list = next.commandRules?.blacklist || [];
-        if (list.some((r) => r.pattern === trimmed)) return prev;
+        if (
+          list.some(
+            (r) =>
+              r.pattern === trimmed && (r.matchType ?? "prefix") === newMatchType,
+          )
+        ) {
+          return prev;
+        }
         next.commandRules = {
           ...next.commandRules,
-          blacklist: [...list, { pattern: trimmed }],
+          blacklist: [...list, { pattern: trimmed, matchType: newMatchType }],
         };
       } else if (activeTab === "command-whitelist") {
         const list = next.commandRules?.whitelist || [];
-        if (list.some((r) => r.pattern === trimmed)) return prev;
+        if (
+          list.some(
+            (r) =>
+              r.pattern === trimmed && (r.matchType ?? "prefix") === newMatchType,
+          )
+        ) {
+          return prev;
+        }
         next.commandRules = {
           ...next.commandRules,
-          whitelist: [...list, { pattern: trimmed }],
+          whitelist: [...list, { pattern: trimmed, matchType: newMatchType }],
         };
       } else if (activeTab === "dir-blacklist") {
         const list = next.directoryRules?.blacklist || [];
@@ -179,16 +211,27 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
     });
   };
 
-  /** 获取当前列表 */
-  const getCurrentList = (): string[] => {
+  /** 获取当前列表（命令规则带 `matchType`，缺省即前缀） */
+  const getCurrentList = (): {
+    text: string;
+    matchType?: "prefix" | "regex";
+  }[] => {
     if (activeTab === "command-blacklist") {
-      return (config.commandRules?.blacklist || []).map((r) => r.pattern);
+      return (config.commandRules?.blacklist || []).map((r) => ({
+        text: r.pattern,
+        matchType: r.matchType ?? "prefix",
+      }));
     }
     if (activeTab === "command-whitelist") {
-      return (config.commandRules?.whitelist || []).map((r) => r.pattern);
+      return (config.commandRules?.whitelist || []).map((r) => ({
+        text: r.pattern,
+        matchType: r.matchType ?? "prefix",
+      }));
     }
     if (activeTab === "dir-blacklist") {
-      return (config.directoryRules?.blacklist || []).map((r) => r.path);
+      return (config.directoryRules?.blacklist || []).map((r) => ({
+        text: r.path,
+      }));
     }
     return [];
   };
@@ -273,6 +316,25 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
                 placeholder={getInputPlaceholder()}
               />
             </div>
+            {/* Q-16：匹配方式（仅命令规则；默认前缀，替代原先的 includes） */}
+            {activeTab.startsWith("command") && (
+              <div className="w-24 shrink-0">
+                <SelectConfig
+                  isDark={isDark}
+                  value={newMatchType}
+                  onChange={(value) =>
+                    setNewMatchType(value as "prefix" | "regex")
+                  }
+                  options={[
+                    {
+                      value: "prefix",
+                      label: t("settings.rulesMatchPrefix"),
+                    },
+                    { value: "regex", label: t("settings.rulesMatchRegex") },
+                  ]}
+                />
+              </div>
+            )}
             <button
               onClick={addItem}
               disabled={!newItem.trim()}
@@ -327,7 +389,22 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
                     isDark ? "bg-gray-700" : "bg-gray-50"
                   }`}
                 >
-                  <code className="text-xs break-all flex-1">{item}</code>
+                  <code className="text-xs break-all flex-1">{item.text}</code>
+                  {activeTab.startsWith("command") && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded ml-2 shrink-0 ${
+                        isDark
+                          ? "bg-gray-600 text-gray-200"
+                          : "bg-gray-200 text-gray-600"
+                      }`}
+                    >
+                      {t(
+                        item.matchType === "regex"
+                          ? "settings.rulesMatchRegex"
+                          : "settings.rulesMatchPrefix",
+                      )}
+                    </span>
+                  )}
                   <button
                     onClick={() => removeItem(i)}
                     className="text-red-400 hover:text-red-600 text-xs ml-2 shrink-0"

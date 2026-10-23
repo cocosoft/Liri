@@ -190,17 +190,25 @@ describe('P1-2 命令内容级黑白名单（设置→自定义规则 commandRul
 
   /** 打桩 configManager.getConfigValue：仅拦截 permission 键返回 commandRules 配置 */
   function stubCommandRules(cfg: {
-    blacklist?: string[];
-    whitelist?: string[];
+    /** Q-16：字符串 = 缺省前缀规则；对象可带 `matchType` */
+    blacklist?: Array<
+      string | { pattern: string; matchType?: 'prefix' | 'regex' }
+    >;
+    whitelist?: Array<
+      string | { pattern: string; matchType?: 'prefix' | 'regex' }
+    >;
     mode?: 'whitelist' | 'blacklist';
   }): void {
+    const toRule = (
+      r: string | { pattern: string; matchType?: 'prefix' | 'regex' }
+    ) => (typeof r === 'string' ? { pattern: r } : r);
     configManager.getConfigValue = ((key: string) => {
       if (key === 'permission') {
         return {
           customRules: {
             commandRules: {
-              blacklist: (cfg.blacklist || []).map((p) => ({ pattern: p })),
-              whitelist: (cfg.whitelist || []).map((p) => ({ pattern: p })),
+              blacklist: (cfg.blacklist || []).map(toRule),
+              whitelist: (cfg.whitelist || []).map(toRule),
               mode: cfg.mode || 'blacklist',
             },
           },
@@ -263,6 +271,39 @@ describe('P1-2 命令内容级黑白名单（设置→自定义规则 commandRul
     );
     expect(result.allowed).toBe(true);
     expect(submittedItems.length).toBe(0);
+  });
+
+  it('Q-16：白名单按前缀匹配 —— `echo dir` 不再命中 `dir`（旧 includes 会放行）', async () => {
+    stubCommandRules({ whitelist: ['dir'], mode: 'whitelist' });
+    const pm = createPermissionManager();
+    const result = await pm.checkPermissionForTool(
+      'bash',
+      { command: 'echo dir' },
+      { sessionId: 'session-1' }
+    );
+    expect(result.allowed).toBe(false);
+    expect(result.decision?.behavior).toBe('deny');
+  });
+
+  it('Q-16：matchType=regex 的规则按正则命中（可表达词边界）', async () => {
+    stubCommandRules({
+      whitelist: [{ pattern: '^dir\\s', matchType: 'regex' }],
+      mode: 'whitelist',
+    });
+    const pm = createPermissionManager();
+    const allowed = await pm.checkPermissionForTool(
+      'bash',
+      { command: 'dir /b x' },
+      { sessionId: 'session-1' }
+    );
+    expect(allowed.allowed).toBe(true);
+
+    const denied = await pm.checkPermissionForTool(
+      'bash',
+      { command: 'echo dir' },
+      { sessionId: 'session-1' }
+    );
+    expect(denied.allowed).toBe(false);
   });
 });
 

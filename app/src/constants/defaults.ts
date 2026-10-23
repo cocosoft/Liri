@@ -66,6 +66,9 @@ export interface RuntimeDefaults {
   defaultToolTimeoutMs: number;
   maxConcurrentTools: number;
   maxToolRetries: number;
+  // ── insights（命令展示阈值） ────────────────────────────────────────────
+  /** 「慢操作」展示阈值（毫秒）：洞察报告把超过该值的调用计入 `slowCalls` */
+  insightsSlowOperationThresholdMs: number;
 }
 
 /** 每 token 估算字节数（A 类换算常数；派生字段的唯一来源） */
@@ -87,7 +90,7 @@ const TOKEN_BYTES_ESTIMATE = 4;
  * `LIRI_API_MAX_MEDIA_PER_REQUEST` · `LIRI_TOOL_MAX_RESULT_CHARS` ·
  * `LIRI_TOOL_RESULT_MAX_TOKENS` · `LIRI_TOOL_SUMMARY_MAX_LENGTH` ·
  * `LIRI_TOOL_RESULT_PREVIEW_MAX_LENGTH` · `LIRI_TOOL_TIMEOUT_MS` ·
- * `LIRI_MAX_CONCURRENT_TOOLS` · `LIRI_MAX_TOOL_RETRIES`
+ * `LIRI_MAX_CONCURRENT_TOOLS` · `LIRI_MAX_TOOL_RETRIES` · `LIRI_INSIGHTS_SLOW_MS`
  */
 export function getRuntimeDefaults(): RuntimeDefaults {
   const apiImageMaxBase64Size = envInt(
@@ -146,5 +149,8 @@ export function getRuntimeDefaults(): RuntimeDefaults {
     defaultToolTimeoutMs: envInt('LIRI_TOOL_TIMEOUT_MS', 30_000),
     maxConcurrentTools: envInt('LIRI_MAX_CONCURRENT_TOOLS', 10),
     maxToolRetries: envInt('LIRI_MAX_TOOL_RETRIES', 3),
+
+    // insights
+    insightsSlowOperationThresholdMs: envInt('LIRI_INSIGHTS_SLOW_MS', 1000),
   };
 }

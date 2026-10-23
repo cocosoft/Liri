@@ -79,15 +79,19 @@ export function isWithinWorkingDirectory(
   filePath: string,
   cwd: string
 ): boolean {
-  if (isPathWithin(cwd, filePath)) return true;
+  // 2026-10-23（预存台账 L-8）：**相对路径先按 cwd 解析**再做包含判定。
+  // 原实现直接 `isPathWithin(cwd, filePath)` ⇒ `isPathWithin` 内部各自 `resolve()`，
+  // 相对路径被解析到**进程 cwd**（而非传入的 `cwd`）⇒ `src/file.ts` 恒被判"不在工作区内"，
+  // 只能靠调用方传绝对路径规避（对应被 `it.skip` 的用例）。
+  const resolvedPath = path.resolve(cwd, filePath);
+  if (isPathWithin(cwd, resolvedPath)) return true;
 
   // 检查是否在任何信任工作区内（多工作区支持）
   try {
     const permission = configManager.getConfigValue<any>('permission');
     const workspaces = permission?.trustedWorkspaces;
     if (workspaces && workspaces.length > 0) {
-      const resolved = path.resolve(cwd, filePath);
-      const normalizedPath = resolved.replace(/\\/g, '/');
+      const normalizedPath = resolvedPath.replace(/\\/g, '/');
       for (const ws of workspaces) {
         if (!ws.enabled) continue;
         const wsResolved = path.resolve(ws.path).replace(/\\/g, '/');

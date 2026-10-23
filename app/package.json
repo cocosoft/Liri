@@ -42,6 +42,7 @@
     "typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
     "typecheck:root-scripts": "tsc -p tsconfig.root-scripts.json --noEmit",
     "test": "bun test",
+    "test:kernel": "bun run scripts/test-kernel.ts",
     "test:guarded": "bun run scripts/test-with-watchdog.ts",
     "test:watch": "bun test --watch",
     "test:serial": "bun test --concurrency=1",

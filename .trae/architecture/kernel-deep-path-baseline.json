@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "maxEntries": 139,
+  "maxEntries": 123,
   "entries": [
     {
       "file": "app/src/acp/AcpWebSocketServer.ts",
@@ -248,15 +248,7 @@
     },
     {
       "file": "app/src/modules/doc/channel/DocChannelHandler.ts",
-      "subpath": "errors.js"
-    },
-    {
-      "file": "app/src/modules/doc/channel/DocChannelHandler.ts",
       "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/concurrency/MCPRequestQueue.ts",
-      "subpath": "errors.js"
     },
     {
       "file": "app/src/modules/doc/concurrency/MCPRequestQueue.ts",
@@ -272,10 +264,6 @@
     },
     {
       "file": "app/src/modules/doc/detection/OfficeCLIErrorParser.ts",
-      "subpath": "errors.js"
-    },
-    {
-      "file": "app/src/modules/doc/detection/OfficeCLIErrorParser.ts",
       "subpath": "loggerFacade.js"
     },
     {
@@ -285,10 +273,6 @@
     {
       "file": "app/src/modules/doc/document/DocumentGraph.ts",
       "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/execution/ExecutionGuardian.ts",
-      "subpath": "errors.js"
     },
     {
       "file": "app/src/modules/doc/execution/ExecutionGuardian.ts",
@@ -311,10 +295,6 @@
       "subpath": "loggerFacade.js"
     },
     {
-      "file": "app/src/modules/doc/pipeline/DocPipelineTool.ts",
-      "subpath": "errors.js"
-    },
-    {
       "file": "app/src/modules/doc/placeholder/PlaceholderResolver.ts",
       "subpath": "loggerFacade.js"
     },
@@ -332,23 +312,11 @@
     },
     {
       "file": "app/src/modules/doc/workflow/DocWorkflowProvider.ts",
-      "subpath": "errors.js"
-    },
-    {
-      "file": "app/src/modules/doc/workflow/DocWorkflowProvider.ts",
       "subpath": "loggerFacade.js"
     },
     {
       "file": "app/src/modules/doc/workflow/PptRefiner.ts",
       "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/ImportManager.ts",
-      "subpath": "errorCodes.js"
-    },
-    {
-      "file": "app/src/modules/ImportManager.ts",
-      "subpath": "errors.js"
     },
     {
       "file": "app/src/modules/ImportManager.ts",
@@ -372,27 +340,11 @@
     },
     {
       "file": "app/src/modules/ModuleDefinitions.ts",
-      "subpath": "errorCodes.js"
-    },
-    {
-      "file": "app/src/modules/ModuleDefinitions.ts",
-      "subpath": "errors.js"
-    },
-    {
-      "file": "app/src/modules/ModuleDefinitions.ts",
       "subpath": "loggerFacade.js"
     },
     {
       "file": "app/src/modules/ModuleInitializer.ts",
       "subpath": "DIContainer.js"
-    },
-    {
-      "file": "app/src/modules/ModuleInitializer.ts",
-      "subpath": "errorCodes.js"
-    },
-    {
-      "file": "app/src/modules/ModuleInitializer.ts",
-      "subpath": "errors.js"
     },
     {
       "file": "app/src/modules/ModuleInitializer.ts",
@@ -409,14 +361,6 @@
     {
       "file": "app/src/modules/ModuleRegistry.ts",
       "subpath": "di/types.js"
-    },
-    {
-      "file": "app/src/modules/ModuleRegistry.ts",
-      "subpath": "errorCodes.js"
-    },
-    {
-      "file": "app/src/modules/ModuleRegistry.ts",
-      "subpath": "errors.js"
     },
     {
       "file": "app/src/modules/ModuleRegistry.ts",
@@ -445,10 +389,6 @@
     {
       "file": "app/src/modules/workflow/WorkflowEngine.ts",
       "subpath": "systemgraph"
-    },
-    {
-      "file": "app/src/modules/workflow/WorkflowError.ts",
-      "subpath": "errors.js"
     },
     {
       "file": "app/src/modules/workflow/WorkflowRunEvents.ts",
@@ -501,10 +441,6 @@
     {
       "file": "app/src/tasks/types.ts",
       "subpath": "taskStatus"
-    },
-    {
-      "file": "app/src/tokenBudget/BudgetPolicy.ts",
-      "subpath": "errors.js"
     },
     {
       "file": "app/src/tokenBudget/BudgetPolicy.ts",

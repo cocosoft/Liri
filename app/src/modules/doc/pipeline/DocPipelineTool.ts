@@ -30,7 +30,7 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@openliri/kernel/errors.js';
+} from '@modules/error/types';
 import { getWorkflowEngine, createRunRecordCollector } from '@modules/workflow';
 import {
   DOC_PIPELINE_WORKFLOW,

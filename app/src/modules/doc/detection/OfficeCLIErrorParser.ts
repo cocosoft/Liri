@@ -3,7 +3,7 @@
  * 将 OfficeCLI stdout/stderr + exitCode 映射到结构化错误码
  */
 
-import { AppError } from '@openliri/kernel/errors.js';
+import { AppError } from '@modules/error/types';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 const logger = getLogger('doc:detection');
 

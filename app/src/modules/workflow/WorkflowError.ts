@@ -32,7 +32,7 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@openliri/kernel/errors.js';
+} from '@modules/error/types';
 
 /** 构造选项 */
 export interface WorkflowErrorOptions {

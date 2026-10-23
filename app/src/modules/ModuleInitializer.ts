@@ -7,9 +7,9 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@openliri/kernel/errors.js';
-// 2026-09-30 G2 倒挂收口：错误码纯数据表已下沉 core 模块根，直连 core 消除 core → infra 边
-import { ErrorCodes } from '@openliri/kernel/errorCodes.js';
+} from '@modules/error/types';
+// 错误码表本体在内核（core 层）；这里经 `error` 模块桶转出 —— 单点出口，R03-002 口径
+import { ErrorCodes } from '@modules/error';
 import { type ModuleDefinition, getRegistry } from './moduleTypes';
 /**
  * 模块初始化状态与结构子集的**类型归属**已下沉到 `moduleStateTypes`

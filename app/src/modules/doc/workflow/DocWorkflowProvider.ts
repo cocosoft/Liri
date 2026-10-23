@@ -38,7 +38,7 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@openliri/kernel/errors.js';
+} from '@modules/error/types';
 import type {
   WorkflowDefinition,
   WorkflowProvider,

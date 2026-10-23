@@ -3,7 +3,7 @@
  * 读请求优先 + 超时控制 + 满队拒绝（>10 待处理）
  */
 
-import { AppError } from '@openliri/kernel/errors.js';
+import { AppError } from '@modules/error/types';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import type { MCPRequest, MCPRequestType, MCPResponse } from '../types';
 

@@ -3,6 +3,11 @@
  *
  * 当不指定 subagent_type 时触发隐式 fork：
  * 子代理继承父代理的完整对话上下文和系统提示词。
+ *
+ * Q-24（2026-10-23）：原先导出的 `formatForkAgentDefinition()` 声明了
+ * `permissionMode: 'bubble'`，但**全仓零消费者**、且"审批冒泡"从未实现；fork 子代理与父代理
+ * 共用同一会话上下文（`parentToolContext`）⇒ 权限天然按父会话判定，无需独立模式。已删除该描述符
+ * （见台账 Q-24；如需子代理独立审批策略，应作为独立设计项重新引入，而非保留一个不生效的字段）。
  */
 
 import { randomUUID } from 'crypto';
@@ -260,21 +265,4 @@ export async function executeForkSubagent(
       durationMs: Date.now() - startTime,
     };
   }
-}
-
-export function formatForkAgentDefinition(): {
-  agentType: string;
-  whenToUse: string;
-  maxTurns: number;
-  model: string;
-  permissionMode: string;
-} {
-  return {
-    agentType: FORK_SUBAGENT_TYPE,
-    whenToUse:
-      'Implicit fork — inherits full conversation context. Not selectable via subagent_type; triggered by omitting subagent_type when fork is enabled.',
-    maxTurns: 200,
-    model: 'inherit',
-    permissionMode: 'bubble',
-  };
 }

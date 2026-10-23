@@ -43,7 +43,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 | 开关 | 默认 | 生效语义 | 回退方式 | 触发条件（何时重开） |
 |------|:----:|---------|---------|:----:|
 | `VERIFIER_FAIL_CLOSED` | `true` | 验证器失败即判失败（**不静默通过**） | `FEATURE_VERIFIER_FAIL_CLOSED=false`（灰度回退旧行为） | — |
-| `PERMISSION_CHECKS` | `true` | 工具执行前权限校验 | `FEATURE_PERMISSION_CHECKS=false` | — |
+| `PERMISSION_CHECKS` | `true` | **legacy 别名：全仓无读取点**（2026-10-23 如实订正，见台账 Q-23）。权限校验自 PR-0 起由 `PermissionManager`/`PermissionChecker` 常态执行，**不存在**"关掉它"的受支持模式（fail-closed）；本项仅保留以兼容既有 `FEATURE_PERMISSION_CHECKS` 配置写法 | `FEATURE_PERMISSION_CHECKS=false` | — |
 | `SECURITY_SCAN` | `true` | 输入安全扫描 | `FEATURE_SECURITY_SCAN=false` | — |
 | `SECURITY_AUDIT` | `true` | 安全审计留痕 | `FEATURE_SECURITY_AUDIT=false` | — |
 | `SANDBOX` | `true` | **legacy 别名：全仓无读取点**（2026-10-09 如实订正，见台账 L-19）；bash / code_run 的实际沙箱开关为 `sandbox.landlock.{enabled,bashEnabled}`（默认 `true` / **`false`**，见 `.trae/specs/ast-family-phased-plan.md` §8 · R25） | `FEATURE_SANDBOX=false` | — |

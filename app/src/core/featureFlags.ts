@@ -318,7 +318,13 @@ export const FEATURE_FLAGS = {
   OVERFLOW_TEST_TOOL: false,
 
   // ───── 安全 ─────
-  /** 权限检查 */
+  /**
+   * **legacy 别名：全仓无读取点**（2026-10-23 如实订正，台账 Q-23）。
+   *
+   * 权限校验常态执行（`PermissionManager` / `PermissionChecker`），**没有**"关掉全部
+   * 校验"的受支持模式 ⇒ 本项不参与任何判定，仅保留以兼容既有 `FEATURE_PERMISSION_CHECKS`
+   * 配置写法（与 `SANDBOX` 同类，见 `project_rules.md §1.4`）。
+   */
   PERMISSION_CHECKS: true,
   /** 安全扫描 */
   SECURITY_SCAN: true,

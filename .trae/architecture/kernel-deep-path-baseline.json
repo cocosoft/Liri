@@ -1,82 +1,22 @@
 {
   "version": 1,
-  "maxEntries": 123,
+  "maxEntries": 49,
   "entries": [
     {
       "file": "app/src/acp/AcpWebSocketServer.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/acp/AcpWebSocketServer.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/acp/AcpWebSocketServer.ts",
       "subpath": "tracingFacade.js"
-    },
-    {
-      "file": "app/src/acp/AcpWsClient.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/acp/control-plane/manager.core.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/acp/control-plane/manager.identity-reconcile.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/acp/control-plane/manager.runtime-controls.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/acp/control-plane/manager.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/acp/control-plane/session-actor-queue.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/acp/runtime/availability.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/acp/secret-file.ts",
-      "subpath": "errorHandler.js"
     },
     {
       "file": "app/src/agent/registry/AgentRegistry.ts",
       "subpath": "systemgraph"
     },
     {
-      "file": "app/src/ai/models/ModelPricingService.ts",
-      "subpath": "pricing.js"
-    },
-    {
-      "file": "app/src/ai/prompts/PromptCacheManager.ts",
-      "subpath": "pricing.js"
-    },
-    {
       "file": "app/src/ai/telemetry/SessionSpanTracer.ts",
       "subpath": "SessionSpanTracer.js"
     },
     {
-      "file": "app/src/bootstrap/AppCoreOTelHelper.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/bootstrap/pipeline/BootPipeline.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
       "file": "app/src/bootstrap/pipeline/BootPipelineIntegrator.ts",
       "subpath": "DIContainer"
-    },
-    {
-      "file": "app/src/bootstrap/pipeline/BootPipelineIntegrator.ts",
-      "subpath": "loggerFacade.js"
     },
     {
       "file": "app/src/channels/GatewaySessionTracer.ts",
@@ -107,18 +47,6 @@
       "subpath": "DependencyRegistry.js"
     },
     {
-      "file": "app/src/cost/calculateCost.ts",
-      "subpath": "pricing.js"
-    },
-    {
-      "file": "app/src/cost/ModelPricing.ts",
-      "subpath": "pricing.js"
-    },
-    {
-      "file": "app/src/cost/pricingSafety.ts",
-      "subpath": "pricing.js"
-    },
-    {
       "file": "app/src/docs/knowledge-types.ts",
       "subpath": "knowledge-types"
     },
@@ -139,56 +67,16 @@
       "subpath": "abortReason.js"
     },
     {
-      "file": "app/src/error/ErrorCodes.ts",
-      "subpath": "errorCodes.js"
-    },
-    {
-      "file": "app/src/error/handleError.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/error/index.ts",
-      "subpath": "errorCodes.js"
-    },
-    {
-      "file": "app/src/error/types.ts",
-      "subpath": "errors.js"
-    },
-    {
-      "file": "app/src/error/utils.ts",
-      "subpath": "errors.js"
-    },
-    {
       "file": "app/src/infrastructure/http/handlers/agent2-handlers.ts",
       "subpath": "Coordinator"
-    },
-    {
-      "file": "app/src/infrastructure/http/handlers/file-upload-handlers.ts",
-      "subpath": "sandboxPermission.js"
     },
     {
       "file": "app/src/infrastructure/http/handlers/files-handlers.ts",
       "subpath": "delivery/monitor/DiskSpaceMonitor"
     },
     {
-      "file": "app/src/infrastructure/http/handlers/handler-utils.ts",
-      "subpath": "sandboxPermission.js"
-    },
-    {
       "file": "app/src/infrastructure/http/handlers/image-handlers.ts",
       "subpath": "mediaRoots"
-    },
-    {
-      "file": "app/src/infrastructure/http/handlers/knowledge-handlers.ts",
-      "subpath": "sandboxPermission.js"
-    },
-    {
-      "file": "app/src/infrastructure/http/handlers/memory-handlers.ts",
-      "subpath": "sandboxPermission.js"
-    },
-    {
-      "file": "app/src/infrastructure/http/LocalHTTPService.ts",
-      "subpath": "sandboxPermission.js"
     },
     {
       "file": "app/src/main.ts",
@@ -211,136 +99,12 @@
       "subpath": "knowledge-types"
     },
     {
-      "file": "app/src/modules/calendar/AIScheduleIndex.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/calendar/CalendarEventBus.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/calendar/CalendarMerger.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/calendar/CalendarModule.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/calendar/ScheduleHook.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/calendar/tools/CalendarToolWrap.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
       "file": "app/src/modules/doc/api/officeHandlers.ts",
       "subpath": "endpoints.js"
     },
     {
-      "file": "app/src/modules/doc/api/officeHandlers.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/audit/OfficeAuditLogger.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/channel/DocChannelHandler.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/concurrency/MCPRequestQueue.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/detection/elicitationPrompts.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/detection/OfficeCLIDetector.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/detection/OfficeCLIErrorParser.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/DocModule.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/document/DocumentGraph.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/execution/ExecutionGuardian.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/installation/OfficeCliInstallService.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/observability/OfficeMetrics.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/orchestration/DocOrchestrator.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/orchestration/DocOrchestratorProvider.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/placeholder/PlaceholderResolver.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/template/TemplateEngine.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/template/TemplateMarketplace.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/workflow/DocWorkflow.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/workflow/DocWorkflowProvider.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/workflow/PptRefiner.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/ImportManager.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
       "file": "app/src/modules/index.ts",
       "subpath": "LazyModuleStrategy"
-    },
-    {
-      "file": "app/src/modules/mail/channel/MailChannelHandler.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/mail/MailModule.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/mail/tools/MailSendTool.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/ModuleDefinitions.ts",
-      "subpath": "loggerFacade.js"
     },
     {
       "file": "app/src/modules/ModuleInitializer.ts",
@@ -352,10 +116,6 @@
     },
     {
       "file": "app/src/modules/ModuleInitializer.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/ModuleInitializer.ts",
       "subpath": "profilerFacade.js"
     },
     {
@@ -363,16 +123,8 @@
       "subpath": "di/types.js"
     },
     {
-      "file": "app/src/modules/ModuleRegistry.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
       "file": "app/src/modules/startupSurfaceProbe.ts",
       "subpath": "LazyModuleStrategy"
-    },
-    {
-      "file": "app/src/modules/startupSurfaceProbe.ts",
-      "subpath": "loggerFacade.js"
     },
     {
       "file": "app/src/modules/workflow/failureAttribution.ts",
@@ -384,19 +136,7 @@
     },
     {
       "file": "app/src/modules/workflow/WorkflowEngine.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/workflow/WorkflowEngine.ts",
       "subpath": "systemgraph"
-    },
-    {
-      "file": "app/src/modules/workflow/WorkflowRunEvents.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/workflow/WorkflowStepLedger.ts",
-      "subpath": "loggerFacade.js"
     },
     {
       "file": "app/src/performance/PerformanceMonitor.ts",
@@ -409,18 +149,6 @@
     {
       "file": "app/src/permission/intercept/PermissionInterceptor.ts",
       "subpath": "DependencyRegistry.js"
-    },
-    {
-      "file": "app/src/permission/PermissionService.ts",
-      "subpath": "sandboxPermission.js"
-    },
-    {
-      "file": "app/src/query/modelPricingAdapter.ts",
-      "subpath": "pricing.js"
-    },
-    {
-      "file": "app/src/sandbox/SandboxTypes.ts",
-      "subpath": "sandboxPermission.js"
     },
     {
       "file": "app/src/services/mcp/MCPToolBridge.ts",
@@ -441,30 +169,6 @@
     {
       "file": "app/src/tasks/types.ts",
       "subpath": "taskStatus"
-    },
-    {
-      "file": "app/src/tokenBudget/BudgetPolicy.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/tokenBudget/CacheAwareBudget.ts",
-      "subpath": "pricing.js"
-    },
-    {
-      "file": "app/src/tokenBudget/PriceManager.ts",
-      "subpath": "pricing.js"
-    },
-    {
-      "file": "app/src/tokenBudget/TokenBudgetController.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/tokenBudget/tokenCalibration.ts",
-      "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/tokenBudget/UnifiedTokenTracker.ts",
-      "subpath": "loggerFacade.js"
     },
     {
       "file": "app/src/tools/AgentTool/runAttribution.ts",

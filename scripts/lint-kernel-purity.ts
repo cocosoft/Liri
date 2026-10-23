@@ -550,7 +550,42 @@ function checkK07DeepPaths(): void {
     repoRoot,
     '.trae/architecture/kernel-deep-path-baseline.json'
   );
-  const ALLOWED = new Set(['paths', 'identity', 'external', 'spi', 'events']);
+  /**
+   * **K07 公开子路径白名单**（方案 §4-P5 补，2026-10-23 逐组实测后裁定）。
+   *
+   * 入列标准：**实测「改走 app 门面」的代价大于收益**，而不是「用得多」。
+   * 每个条目的理由都必须可复现，否则就是静默放宽门禁（AR-3）：
+   *
+   *   - `paths` / `identity` / `external` / `spi` / `events` —— Q2 原始 5 项（用量 94%）；
+   *   - `loggerFacade` —— 45 处消费方；改走 `@modules/monitoring` barrel 会把 ≈657KB
+   *     依赖无条件拉进启动面（该文件注释的既有实测），改 `monitoring/logs/Logger` 是
+   *     另一套实现 ⇒ 行为变更。它是**零依赖叶子门面**，本就该是公开入口。
+   *   - `errors` / `errorHandler` / `errorCodes` —— app 侧 `error/*` 门面文件的**转出源**；
+   *     门面本身必须保留深路径，否则「唯一入口」无处可转出。
+   *   - `pricing` —— `@modules/cost` 桶含 React hooks + 20 余个成本类，且不导出
+   *     `DEFAULT_MODEL_PRICING` / `projectRegistryPricing` / `BillingMode` / `TimeBasedPrice`；
+   *     退到 `cost/ModelPricing` 会被 R03-002 判违规。
+   *   - `sandboxPermission` —— `@modules/sandbox` 属 **app 层**，5 个 infra/service 消费方
+   *     改走它会构成 `infra → app` 倒挂。
+   *
+   * 未入列的（`DIContainer` / `LazyModuleStrategy` / `systemgraph` / `SessionSpanTracer` …）
+   * 仍留在基线里，逐项评估后再决定，**不在本轮批量放行**。
+   */
+  const ALLOWED = new Set([
+    // Q2 原始五项
+    'paths',
+    'identity',
+    'external',
+    'spi',
+    'events',
+    // P5 补（实测无更优替代）
+    'loggerFacade',
+    'errors',
+    'errorHandler',
+    'errorCodes',
+    'pricing',
+    'sandboxPermission',
+  ]);
   /** 消费方源码根（生产面；不含 npm 包外壳与历史归档） */
   const consumerRoots = [
     resolve(repoRoot, 'app/src'),

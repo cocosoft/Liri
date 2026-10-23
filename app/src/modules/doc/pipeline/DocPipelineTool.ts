@@ -25,7 +25,7 @@ import { getToolRegistry } from '@modules/tools';
 import type { Tool, ToolUseContext } from '@modules/tools/types/Tool';
 import { ToolExecutionStatus } from '@modules/tools/types/ToolResult';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { handleError } from '@openliri/kernel/errorHandler.js';
+import { handleError } from '@modules/error/handleError';
 import {
   AppError,
   ErrorCategory,

@@ -10,7 +10,7 @@
  */
 
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
-import { handleError } from '@openliri/kernel/errorHandler.js';
+import { handleError } from '@modules/error/handleError';
 import { resolveOutputDir } from '@openliri/kernel/paths';
 import type {
   DocFormat,

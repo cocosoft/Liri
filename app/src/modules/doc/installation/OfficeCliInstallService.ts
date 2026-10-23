@@ -8,7 +8,7 @@
 import { spawn } from 'child_process';
 import { GITHUB_RAW_BASE } from '@modules/constants';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
-import { handleError } from '@openliri/kernel/errorHandler.js';
+import { handleError } from '@modules/error/handleError';
 import {
   detectOfficeCLI,
   getVersionConstraint,

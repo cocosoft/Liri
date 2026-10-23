@@ -3,7 +3,7 @@
  * 统一管理多个价格提供者，使用 ModelRegistry 作为默认回退
  */
 
-import { handleError } from '@openliri/kernel/errorHandler.js';
+import { handleError } from '@modules/error/handleError';
 import type { IPriceProvider, PricingResult } from './providers/IPriceProvider';
 import type { ModelPriceTable } from './types';
 import { ModelRegistry } from '@modules/ai';

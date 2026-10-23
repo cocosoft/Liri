@@ -6,7 +6,7 @@
 import { priceManager } from './PriceManager';
 import type { ContextCategory, ContextStats, APIProviderType } from './types';
 
-import { handleError } from '@openliri/kernel/errorHandler.js';
+import { handleError } from '@modules/error/handleError';
 
 const CONTEXT_COLORS = {
   systemPrompt: '#4A90D9',

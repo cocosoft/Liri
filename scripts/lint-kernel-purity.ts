@@ -627,6 +627,17 @@ function checkK07DeepPaths(): void {
       `ℹ️ K07 基线项已不存在（请下调锁定成果）: ${shrinkable.length} 条`
     );
   }
+  // 与 K01–K06 同口径的硬上限：entries 不得多于 maxEntries（想放宽必须手改 json）。
+  // 少了这一条，`--write-baseline` 之后仍可能停在「条目 > 上限」的矛盾态而静默放行。
+  if (
+    baseline.maxEntries !== undefined &&
+    baseline.entries.length > baseline.maxEntries
+  ) {
+    console.error(
+      `❌ K07 基线条目数超上限：${baseline.entries.length} > maxEntries=${baseline.maxEntries}（棘轮只允许下调）`
+    );
+    process.exit(1);
+  }
   if (added.length > 0) {
     console.error(
       `❌ K07 新增内核深路径 ${added.length} 处（应改走桶或白名单子路径）:`

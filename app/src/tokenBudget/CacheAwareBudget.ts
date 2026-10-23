@@ -10,7 +10,7 @@ import type { ModelPriceTable, TokenUsageDetail } from './types';
 import { calculateTotalCost } from '@openliri/kernel/pricing.js';
 import type { ModelPricing } from '@openliri/kernel/pricing.js';
 
-import { handleError } from '@openliri/kernel/errorHandler.js';
+import { handleError } from '@modules/error/handleError';
 
 export interface CacheEfficiencyResult {
   efficiency: number;

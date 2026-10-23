@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "maxEntries": 151,
+  "maxEntries": 139,
   "entries": [
     {
       "file": "app/src/acp/AcpWebSocketServer.ts",
@@ -64,15 +64,7 @@
     },
     {
       "file": "app/src/bootstrap/AppCoreOTelHelper.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/bootstrap/AppCoreOTelHelper.ts",
       "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/bootstrap/pipeline/BootPipeline.ts",
-      "subpath": "errorHandler.js"
     },
     {
       "file": "app/src/bootstrap/pipeline/BootPipeline.ts",
@@ -81,10 +73,6 @@
     {
       "file": "app/src/bootstrap/pipeline/BootPipelineIntegrator.ts",
       "subpath": "DIContainer"
-    },
-    {
-      "file": "app/src/bootstrap/pipeline/BootPipelineIntegrator.ts",
-      "subpath": "errorHandler.js"
     },
     {
       "file": "app/src/bootstrap/pipeline/BootPipelineIntegrator.ts",
@@ -252,10 +240,6 @@
     },
     {
       "file": "app/src/modules/doc/api/officeHandlers.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/modules/doc/api/officeHandlers.ts",
       "subpath": "loggerFacade.js"
     },
     {
@@ -312,10 +296,6 @@
     },
     {
       "file": "app/src/modules/doc/installation/OfficeCliInstallService.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/modules/doc/installation/OfficeCliInstallService.ts",
       "subpath": "loggerFacade.js"
     },
     {
@@ -332,10 +312,6 @@
     },
     {
       "file": "app/src/modules/doc/pipeline/DocPipelineTool.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/modules/doc/pipeline/DocPipelineTool.ts",
       "subpath": "errors.js"
     },
     {
@@ -349,10 +325,6 @@
     {
       "file": "app/src/modules/doc/template/TemplateMarketplace.ts",
       "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/modules/doc/workflow/DocWorkflow.ts",
-      "subpath": "errorHandler.js"
     },
     {
       "file": "app/src/modules/doc/workflow/DocWorkflow.ts",
@@ -540,23 +512,7 @@
     },
     {
       "file": "app/src/tokenBudget/CacheAwareBudget.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/tokenBudget/CacheAwareBudget.ts",
       "subpath": "pricing.js"
-    },
-    {
-      "file": "app/src/tokenBudget/ContextStatsCollector.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/tokenBudget/ModelContextCache.ts",
-      "subpath": "errorHandler.js"
-    },
-    {
-      "file": "app/src/tokenBudget/PriceManager.ts",
-      "subpath": "errorHandler.js"
     },
     {
       "file": "app/src/tokenBudget/PriceManager.ts",
@@ -569,10 +525,6 @@
     {
       "file": "app/src/tokenBudget/tokenCalibration.ts",
       "subpath": "loggerFacade.js"
-    },
-    {
-      "file": "app/src/tokenBudget/UnifiedTokenTracker.ts",
-      "subpath": "errorHandler.js"
     },
     {
       "file": "app/src/tokenBudget/UnifiedTokenTracker.ts",

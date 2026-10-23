@@ -14,7 +14,7 @@ import { TtlCache } from '@openliri/kernel/spi/CacheService.js';
 import { ALL_MODEL_CONFIGS } from '@modules/ai';
 import { priceManager } from './PriceManager';
 
-import { handleError } from '@openliri/kernel/errorHandler.js';
+import { handleError } from '@modules/error/handleError';
 
 /** TTL 默认值: 5 分钟 */
 const MODEL_CONTEXT_CACHE_TTL_MS = 5 * 60 * 1000;

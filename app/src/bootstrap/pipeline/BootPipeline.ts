@@ -19,7 +19,7 @@
 // `bootstrap/pipeline/` —— 该管道是「启动装配 / 进程入口」职责，留在 core 层会构成 11 对
 // core→上层倒挂。core 模块根文件按 2 段相对路径引用（R03-002 安全区），`core/events/**` 亦在白名单内。
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
-import { handleError } from '@openliri/kernel/errorHandler.js';
+import { handleError } from '@modules/error/handleError';
 import { BootPhase, BOOT_PHASES } from './BootPhase';
 
 const logger = getLogger('BootPipeline');

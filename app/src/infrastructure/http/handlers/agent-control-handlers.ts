@@ -5,10 +5,11 @@
  * - `GET  /v1/agents/runs`           查询最近运行台账（磁盘，含 `descriptor_source`；T8）
  * - `POST /v1/agents/pause`          暂停 spawn（**阻断新增、在途不受影响**）
  * - `POST /v1/agents/resume`         恢复 spawn
- * - `POST /v1/agents/:id/stop`       停止指定代理（body 可带 `sessionId` ⇒ 启用 Tier2 归属校验）
+ * - `POST /v1/agents/:id/stop`       停止指定代理（body 带 `sessionId` ⇒ Tier2 归属校验；
+ *                                    无会话上下文的运维调用须**显式** `privileged: true`）
  *
  * O10a① 语义：**带** `sessionId` 时做"请求方会话 == 代理归属"校验（不一致 ⇒ 拒绝）；
- * **不带**时按进程内特权调用处理（与 CLI/Coordinator 的既有行为一致）。
+ * **不带**时必须显式声明 `privileged: true`（2026-10-23 起不再"不传即特权"）。
  */
 
 import type http from 'http';
@@ -146,9 +147,58 @@ export async function handleResumeAgentSpawn(
 }
 
 /**
+ * `/stop` 的授权意图解析结果（**纯函数**，2026-10-23）。
+ *
+ * 背景（O14 显式化）：原实现 `privileged: sessionId === undefined` —— "不传会话"**自动**
+ * 变成特权调用，无法区分"运维确有意"与"调用方漏传/拼错字段"。现要求二选一：
+ * - 带 `sessionId` ⇒ 走 Tier2 归属校验（`privileged: false`）；
+ * - 不带 `sessionId` ⇒ **必须显式** `privileged: true`，否则 400。
+ *
+ * 两者同时出现 ⇒ 拒绝（避免"带会话却偷偷提权"的歧义）。
+ */
+export type StopAgentAuthIntent =
+  | { ok: true; requesterSessionId?: string; privileged: boolean }
+  | { ok: false; reason: string; hint: string };
+
+export function resolveStopAgentAuthIntent(body: unknown): StopAgentAuthIntent {
+  const input =
+    body && typeof body === 'object' && !Array.isArray(body)
+      ? (body as Record<string, unknown>)
+      : {};
+  const rawSessionId = input['sessionId'];
+  const hasSessionId =
+    typeof rawSessionId === 'string' && rawSessionId.trim() !== '';
+  const privileged = input['privileged'] === true;
+
+  if (hasSessionId && privileged) {
+    return {
+      ok: false,
+      reason: '不可同时提供 sessionId 与 privileged',
+      hint: '带会话时走归属校验；无会话的运维调用才使用 {"privileged": true}',
+    };
+  }
+  if (hasSessionId) {
+    return {
+      ok: true,
+      requesterSessionId: (rawSessionId as string).trim(),
+      privileged: false,
+    };
+  }
+  if (privileged) {
+    return { ok: true, privileged: true };
+  }
+  return {
+    ok: false,
+    reason: '缺少 sessionId，且未显式声明 privileged',
+    hint: '会话内停止请传 {"sessionId":"<id>"}；无会话的运维调用请传 {"privileged": true}',
+  };
+}
+
+/**
  * POST /v1/agents/:id/stop —— 停止指定代理。
  *
- * `sessionId` 可选：带上即启用 O10a① 的 Tier2 归属校验（不一致 ⇒ 拒绝停止）。
+ * 授权意图见 {@link resolveStopAgentAuthIntent}：`sessionId` ⇒ Tier2 归属校验；
+ * 显式 `privileged: true` ⇒ 运维级停止；二者皆无 ⇒ 400（不再隐式授予特权）。
  */
 export async function handleStopAgent(
   ctx: HandlerCtx,
@@ -163,15 +213,26 @@ export async function handleStopAgent(
       return;
     }
 
-    const body = await ctx.readRequestBody(req);
-    const data = body ? (JSON.parse(body) as { sessionId?: string }) : {};
-    const sessionId =
-      typeof data.sessionId === 'string' ? data.sessionId : undefined;
+    const rawBody = await ctx.readRequestBody(req);
+    let parsedBody: unknown = {};
+    if (rawBody) {
+      try {
+        parsedBody = JSON.parse(rawBody);
+      } catch {
+        sendJson(res, 400, { error: '请求体不是合法 JSON' });
+        return;
+      }
+    }
+
+    const intent = resolveStopAgentAuthIntent(parsedBody);
+    if (!intent.ok) {
+      sendJson(res, 400, { error: intent.reason, hint: intent.hint });
+      return;
+    }
+
     const stopped = tools.stopAgent(agentId, {
-      requesterSessionId: sessionId,
-      // O14：未带会话标识的调用 ⇒ **显式**声明特权（该端点已在鉴权路由内，属运维级控制面），
-      // 而不是依赖"不传即特权"的隐式默认；带上 sessionId 则走 fail-closed 归属校验。
-      privileged: sessionId === undefined,
+      requesterSessionId: intent.requesterSessionId,
+      privileged: intent.privileged,
     });
 
     if (!stopped) {

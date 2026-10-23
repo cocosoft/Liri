@@ -921,7 +921,7 @@ data: {"type":"done","result":{...}}
 | | `getRuns` | `GET /v1/agents/runs?limit=N` | — | ✅ (HTTP only；**2026-09-21 新增 T8**：最近运行台账只读查询（读 `agent_runs`，磁盘面）——返回 `status`/`agentType`/`descriptorSource`（O19 来源）/**不含 `sessionId`、`owner_pid`**；`limit` 1..200 默认 50，按 `started_at` 倒序) |
 | | `pauseSpawn` | `POST /v1/agents/pause` | — | ✅ (HTTP only；**新增**：E2 暂停开关——`{reason?}` ⇒ **阻断新 spawn、在途继续跑**) |
 | | `resumeSpawn` | `POST /v1/agents/resume` | — | ✅ (HTTP only；**新增**：恢复 spawn；进程内状态，重启即恢复未暂停) |
-| | `stop` | `POST /v1/agents/{id}/stop` | — | ✅ (HTTP only；**新增**：body 可带 `sessionId` ⇒ **O10a① Tier2 归属校验**，不一致则拒绝并返回 409) |
+| | `stop` | `POST /v1/agents/{id}/stop` | — | ✅ (HTTP only；body 带 `sessionId` ⇒ **O10a① Tier2 归属校验**，不一致则 409；**无 sessionId 必须显式 `{"privileged": true}`**，否则 400 —— 2026-10-23 起不再"不传即特权") |
 | **toolService** | `list` | `GET /v1/tools` | `list_tools` | ✅ |
 | | `execute` | `POST /v1/tools/{name}/execute` | `execute_tool` | ✅ |
 | | `getToolVisibilityReport` | `GET /v1/tools/visibility?taskType=&extraCategories=` | — | ✅ (HTTP only；**2026-10-16 P1 新增**：工具**可见性报表**（`reasons` 解释"为什么不可见"），**只读**、不参与注册/裁剪/执行 —— 详见 §3.7) |

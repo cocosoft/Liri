@@ -1,8 +1,8 @@
 {
   "version": 1,
   "kernelRoot": "app/src/core",
-  "fileCount": 146,
-  "symbolCount": 1349,
+  "fileCount": 147,
+  "symbolCount": 1357,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -747,6 +747,19 @@
         "getLazy",
         "preloadLazy",
         "registerLazy"
+      ]
+    },
+    {
+      "file": "lazy/loaderRegistry.ts",
+      "symbols": [
+        "LazyLoader",
+        "getLazyLoader",
+        "hasLazyLoader",
+        "listLazyLoaderIds",
+        "registerLazyLoader",
+        "registerLazyLoaders",
+        "requireLazyLoader",
+        "resetLazyLoaders"
       ]
     },
     {

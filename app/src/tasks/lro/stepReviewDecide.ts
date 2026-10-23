@@ -216,6 +216,27 @@ export async function decideStep(
         // D5（M6）：捕获缺陷清单 → 增量 replan 输入（基线 + 缺陷 → 局部修订）
         await deps.recordEscalation(step);
         break;
+
+      /**
+       * PR-5（2026-10-23）：本步有工具调用在等人工审批 ⇒ **挂起**。
+       *
+       * 不改步骤状态（保持 completed + 证据）、不判失败、不计重试：
+       * 编排循环见 `decision==='suspend'` 时置阶段 `stage_awaiting_approval` 并停止，
+       * 获批后由 `resumeAfterApproval` 把该步置回 pending 重跑。
+       */
+      case 'suspend':
+        deps.recordLifecycle(
+          'progress',
+          TaskStatus.RUNNING,
+          `Suspend awaiting approval: ${step.description}`
+        );
+        logger.info('[orchestrator] 步骤挂起：等待人工审批', {
+          taskId: deps.taskId,
+          planId: deps.planId,
+          stepId: step.id,
+          pendingApproval: step.toolOutcomes?.pendingApproval ?? 0,
+        });
+        break;
     }
 
     otel.endSpan(span, SpanStatusCode.OK);

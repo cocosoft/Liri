@@ -60,6 +60,16 @@ export class LandlockDetector {
   static clearCache(): void {
     cached = null;
   }
+
+  /**
+   * PR-3c（2026-10-23）：**同步**读取已缓存的探测结果（**不触发**探测）。
+   *
+   * 供权限层（沙箱豁免 S1「隔离可证」）做同步判定：`null` = 尚未探测 ⇒ 调用方必须按
+   * **未证实**处理（fail-closed），**不得**把"配置里写了 landlock"当成隔离证据。
+   */
+  static getCached(): LandlockCapability | null {
+    return cached;
+  }
 }
 
 async function detectInternal(options: {

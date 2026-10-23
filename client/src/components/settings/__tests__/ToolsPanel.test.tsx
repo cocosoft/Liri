@@ -114,9 +114,16 @@ describe("ToolsPanel：报表渲染（解释「为什么不可见」）", () => 
     await waitFor(() => {
       expect(screen.getByText("file_read")).toBeDefined();
     });
-    for (const name of ["bash", "computer_use", "pdf"]) {
+    for (const name of ["bash", "computer_use"]) {
       expect(screen.getByText(name)).toBeDefined();
     }
+    // PR-4：未接线工具默认折叠（只显标题 + 提示），展开后才渲染行
+    expect(screen.queryByText("pdf")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: /未接线（本构建不可用）/ }),
+    );
+    expect(screen.getByText("pdf")).toBeDefined();
+
     // 结构化原因 → 中文徽标（缺键 ⇒ 本断言失败 ⇒ 键存在性守卫）
     expect(screen.getAllByText("有意归档（需显式开启）").length).toBe(1);
     expect(screen.getAllByText("未进生效工具面").length).toBe(1);
@@ -124,13 +131,15 @@ describe("ToolsPanel：报表渲染（解释「为什么不可见」）", () => 
     expect(screen.getAllByText("可见").length).toBeGreaterThan(0);
     expect(screen.getAllByText("不可见").length).toBeGreaterThan(0);
     // C-3b T3：工具描述随报表渲染（后端未提供描述的条目则无该行）
-    expect(
-      screen.getByText("读取文件内容（C-3b T3 展示）"),
-    ).toBeDefined();
+    expect(screen.getByText("读取文件内容（C-3b T3 展示）")).toBeDefined();
   });
 
-  it("conditional 行标注「未进本构建的生效工具面」，且仍可切三态（Q3 未禁用）", async () => {
+  it("conditional 行标注未接线说明，且**不渲染三态开关**（不给假开关）", async () => {
     render(<ToolsPanel isDark={false} />);
+    await waitFor(() => expect(screen.getByText("file_read")).toBeDefined());
+    fireEvent.click(
+      screen.getByRole("button", { name: /未接线（本构建不可用）/ }),
+    );
     await waitFor(() => expect(screen.getByText("pdf")).toBeDefined());
 
     expect(
@@ -138,11 +147,8 @@ describe("ToolsPanel：报表渲染（解释「为什么不可见」）", () => 
         "未进本构建的生效工具面（可能未接线，或工厂内的功能开关默认关闭）⇒ 覆写不会生效。",
       ),
     ).toBeDefined();
-    // 「强制可见」按钮在 pdf 行内**未禁用**（Q3：评估期不禁用，避免挡住用户主动启用）
-    const buttons = screen.getAllByRole("button", { name: "强制可见" });
-    expect(buttons.length).toBe(REPORTS.length);
-    for (const b of buttons)
-      expect((b as HTMLButtonElement).disabled).toBe(false);
+    // 未接线行没有三态按钮；其余 3 行（file_read / bash / computer_use）仍有
+    expect(screen.getAllByRole("button", { name: "强制可见" }).length).toBe(3);
   });
 
   it("后端不可用（报表空）⇒ 如实报错，不渲染假行", async () => {
@@ -202,15 +208,19 @@ describe("ToolsPanel：三态覆写（写 settings.tools）", () => {
     expect(setVisibilityOverrides).not.toHaveBeenCalled();
   });
 
-  it("`on` 对 conditional 无效 ⇒ 显示「已开启但无效」，不谎报已开启", async () => {
+  it("未接线行即使残留 `on` 也不谎报「已开启但无效」（PR-4：不再渲染假开关）", async () => {
     getVisibilityOverrides.mockResolvedValue({ pdf: "on" });
     render(<ToolsPanel isDark={false} />);
-    await waitFor(() => {
-      expect(screen.getByText("已开启但无效")).toBeDefined();
-    });
-    // 该行仍显示「不可见」（如实反映 effective）
+    await waitFor(() => expect(screen.getByText("file_read")).toBeDefined());
+    fireEvent.click(
+      screen.getByRole("button", { name: /未接线（本构建不可用）/ }),
+    );
+    await waitFor(() => expect(screen.getByText("pdf")).toBeDefined());
+    // 该行如实显示「不可见」，且无「已开启但无效」/ 无三态开关
     const pdfRow = screen.getByText("pdf").closest("div.px-3")!;
     expect(pdfRow.textContent).toContain("不可见");
+    expect(screen.queryByText("已开启但无效")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "强制可见" }).length).toBe(3);
   });
 
   it("强制不可见 ⇒ 写 off", async () => {

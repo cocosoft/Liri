@@ -13,6 +13,7 @@ import {
   runRegisteredOutputGuards,
 } from '@modules/core';
 import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
+import { resolveIsolatedFileTarget } from '../utils/isolatedFileIo';
 import type { FileOperationResult } from '../types/ToolResult';
 
 // 懒初始化 Rust 原生模块，用于自动检测文件编码
@@ -76,6 +77,40 @@ export interface FileWriteResult extends FileOperationResult {
 
 const FILE_WRITE_MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1 GiB
 
+/**
+ * G-8（2026-10-18）：**文件写入**输出护栏（评审门禁 §2-#1①）——
+ * 敏感内容落盘前过统一护栏（评审口径「工具把 .env 读出并写入文件」路径）。
+ * `OUTPUT_GUARD=false` 默认 ⇒ 空注册 ⇒ 零行为变更；redact ⇒ 落盘打码后内容；
+ * block（`OUTPUT_GUARD_BLOCK`）⇒ 拒写。
+ *
+ * 2026-10-23（方案 A）：宿主直写与"经隔离工作区写"**共用本实现**，
+ * 避免隔离路径绕过护栏。
+ */
+function applyWriteGuards(content: string, filePath: string): string {
+  const gatedContent = runRegisteredOutputGuards(content);
+  if (
+    !gatedContent ||
+    (!gatedContent.blocked && gatedContent.redactedBy.length === 0)
+  ) {
+    return content;
+  }
+  logger.warn('writeFile:output_guard_applied', {
+    filePath,
+    blocked: gatedContent.blocked,
+    redactedBy: gatedContent.redactedBy,
+    contentLen: content.length,
+  });
+  if (gatedContent.blocked) {
+    throw new AppError(
+      '写入内容命中输出护栏（敏感内容），已按策略阻断写入',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      'OUTPUT_GUARD_BLOCKED'
+    );
+  }
+  return gatedContent.text;
+}
+
 export function writeFile(input: FileWriteInput): FileWriteResult {
   const resolved = resolveFilePath(input.filePath);
 
@@ -101,28 +136,7 @@ export function writeFile(input: FileWriteInput): FileWriteResult {
   // 敏感内容落盘前过统一护栏（评审口径「工具把 .env 读出并写入文件」路径）。
   // `OUTPUT_GUARD=false` 默认 ⇒ 空注册 ⇒ null ⇒ 零行为变更；
   // redact ⇒ 落盘打码后内容（回执 size/lines 与实写一致）；block（OUTPUT_GUARD_BLOCK）⇒ 拒写。
-  let contentToWrite = input.content;
-  const gatedContent = runRegisteredOutputGuards(input.content);
-  if (
-    gatedContent &&
-    (gatedContent.blocked || gatedContent.redactedBy.length > 0)
-  ) {
-    logger.warn('writeFile:output_guard_applied', {
-      filePath: input.filePath,
-      blocked: gatedContent.blocked,
-      redactedBy: gatedContent.redactedBy,
-      contentLen: input.content.length,
-    });
-    if (gatedContent.blocked) {
-      throw new AppError(
-        '写入内容命中输出护栏（敏感内容），已按策略阻断写入',
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        'OUTPUT_GUARD_BLOCKED'
-      );
-    }
-    contentToWrite = gatedContent.text;
-  }
+  const contentToWrite = applyWriteGuards(input.content, input.filePath);
 
   fs.writeFileSync(resolved, contentToWrite, 'utf-8');
 
@@ -155,6 +169,7 @@ import {
 import { checkPathAccessibility } from '../utils/ToolUtils';
 
 import { getLogger } from '@modules/monitoring';
+import { normalizeApprovalPath } from '@modules/permission';
 const logger = getLogger('tools:FileWriteTool:FileWriteTool');
 
 export class FileWriteTool extends BaseTool {
@@ -169,6 +184,15 @@ export class FileWriteTool extends BaseTool {
     '若该文件须归入某项目的交付物，请改用 write_project_file 写入该项目 output/。';
 
   override tags = [ToolTag.FILE, ToolTag.WRITE];
+
+  /**
+   * 方案 A（2026-10-23）：文件 IO 能力声明。
+   *
+   * 声明只说明"本工具**会**写文件"；能否因沙箱而免审批仍取决于
+   * `fileIoIsolated`（隔离适配器 + 挂载映射）。两者缺一，`sandboxExemption` 的
+   * S1b / S2 都会拒绝豁免 —— 声明本身**不**构成放行。
+   */
+  override sandboxLevel = 'file-io' as const;
 
   params: ToolParam[] = [
     {
@@ -212,18 +236,44 @@ export class FileWriteTool extends BaseTool {
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     try {
-      const filePathCheck = checkPathAccessibility(
-        path.dirname(input.file_path as string),
-        '写入目录'
-      );
-      if (!filePathCheck.accessible) {
-        const msg = filePathCheck.reason || '';
-        const hint = filePathCheck.suggestions?.length
-          ? `\n建议: ${filePathCheck.suggestions.join('; ')}`
-          : '';
-        return createToolResult(msg + hint, {
-          newMessages: [{ role: 'system', content: `路径不可访问: ${msg}` }],
+      if (
+        typeof input.file_path !== 'string' ||
+        input.file_path.trim() === ''
+      ) {
+        const msg = '参数 file_path 必须是非空字符串（目标文件的路径）';
+        return createToolResult(msg, {
+          success: false,
+          error: msg,
+          newMessages: [{ role: 'system', content: msg }],
         });
+      }
+
+      // G3：相对路径优先解析到会话工作目录（cwd），缺省回退 outputDir
+      const baseDir = getToolBaseDir(context);
+      // 2026-10-17：**只解析一次**，写盘与回执用同一个绝对路径 ——
+      // 此前回执原样回显 `input.file_path`（相对路径）⇒ 模型误以为落在 `~/.pyapp/output`，
+      // 在正文里写出该路径（文件实际在工作区根）⇒ 出站文件路由取不到，用户什么也收不到。
+      const resolvedPath = resolveFilePath(input.file_path, baseDir);
+      // 方案 A（2026-10-23）：隔离工作区可用时，宿主 `node:fs` **不参与**写盘。
+      const isolated = resolveIsolatedFileTarget(resolvedPath);
+
+      // 宿主直写时才做宿主侧可访问性检查（隔离环境下宿主目录未必存在，检查会误杀）。
+      if (!isolated) {
+        const filePathCheck = checkPathAccessibility(
+          path.dirname(input.file_path),
+          '写入目录'
+        );
+        if (!filePathCheck.accessible) {
+          const msg = filePathCheck.reason || '';
+          const hint = filePathCheck.suggestions?.length
+            ? `\n建议: ${filePathCheck.suggestions.join('; ')}`
+            : '';
+          return createToolResult(msg + hint, {
+            success: false,
+            error: msg,
+            newMessages: [{ role: 'system', content: `路径不可访问: ${msg}` }],
+          });
+        }
       }
 
       if (onProgress) {
@@ -231,7 +281,7 @@ export class FileWriteTool extends BaseTool {
           toolUseID: 'file-write-tool',
           data: {
             type: 'file_write',
-            filePath: input.file_path as string,
+            filePath: input.file_path,
             isRunning: true,
             isComplete: false,
           },
@@ -239,12 +289,6 @@ export class FileWriteTool extends BaseTool {
       }
 
       const append = (input.append as boolean) || false;
-      // G3：相对路径优先解析到会话工作目录（cwd），缺省回退 outputDir
-      const baseDir = getToolBaseDir(context);
-      // 2026-10-17：**只解析一次**，写盘与回执用同一个绝对路径 ——
-      // 此前回执原样回显 `input.file_path`（相对路径）⇒ 模型误以为落在 `~/.pyapp/output`，
-      // 在正文里写出该路径（文件实际在工作区根）⇒ 出站文件路由取不到，用户什么也收不到。
-      const resolvedPath = resolveFilePath(input.file_path as string, baseDir);
 
       // content 与 source_file 至少提供一个：内容在磁盘时必须优先走 source_file（0 输出 token）
       const hasContent =
@@ -254,53 +298,97 @@ export class FileWriteTool extends BaseTool {
         typeof input.source_file === 'string' &&
         (input.source_file as string).trim().length > 0;
       if (!hasContent && !hasSourceFile) {
-        return createToolResult(
-          '参数 content 或 source_file 必须提供一个（content 为要写入的正文，source_file 为本地已有文件路径，用于避免复述长内容导致 token 爆炸）',
-          {
-            newMessages: [
-              { role: 'system', content: '缺少参数 content 或 source_file' },
-            ],
-          }
-        );
+        const missingMsg =
+          '参数 content 或 source_file 必须提供一个（content 为要写入的正文，source_file 为本地已有文件路径，用于避免复述长内容导致 token 爆炸）';
+        return createToolResult(missingMsg, {
+          success: false,
+          error: missingMsg,
+          newMessages: [
+            { role: 'system', content: '缺少参数 content 或 source_file' },
+          ],
+        });
       }
 
       // source_file 优先：从磁盘读取，0 输出 token、不截断、不走模型的嘴
       let effectiveContent: string;
       if (hasSourceFile && !hasContent) {
         const src = path.resolve(input.source_file as string);
-        if (!fs.existsSync(src)) {
-          return createToolResult(`source_file 指定的文件不存在: ${src}`, {
-            newMessages: [
-              { role: 'system', content: `source_file 不存在: ${src}` },
-            ],
-          });
-        }
-        try {
-          effectiveContent = readFileWithEncoding(src);
-          logger.info('FileWriteTool: source_file 读取成功，写入目标', {
-            sourcePath: src,
-            destPath: input.file_path as string,
-            bytes: Buffer.byteLength(effectiveContent),
-            append,
-          });
-        } catch (e) {
-          return createToolResult(
-            `source_file 读取失败: ${src}（${e instanceof Error ? e.message : String(e)}）`,
-            {
+        const srcIsolated = resolveIsolatedFileTarget(src);
+        if (srcIsolated) {
+          // 源文件同样在工作区内 ⇒ 必须经隔离环境读（宿主看不到隔离环境里的文件）
+          try {
+            effectiveContent = await srcIsolated.io.readFile(
+              srcIsolated.isolatedPath
+            );
+          } catch (e) {
+            const readFailedMsg = `source_file 读取失败: ${src}（${e instanceof Error ? e.message : String(e)}）`;
+            return createToolResult(readFailedMsg, {
+              success: false,
+              error: readFailedMsg,
+              newMessages: [
+                { role: 'system', content: `source_file 读取失败: ${src}` },
+              ],
+            });
+          }
+        } else {
+          if (!fs.existsSync(src)) {
+            const notFoundMsg = `source_file 指定的文件不存在: ${src}`;
+            return createToolResult(notFoundMsg, {
+              success: false,
+              error: notFoundMsg,
+              newMessages: [
+                { role: 'system', content: `source_file 不存在: ${src}` },
+              ],
+            });
+          }
+          try {
+            effectiveContent = readFileWithEncoding(src);
+            logger.info('FileWriteTool: source_file 读取成功，写入目标', {
+              sourcePath: src,
+              destPath: input.file_path,
+              bytes: Buffer.byteLength(effectiveContent),
+              append,
+            });
+          } catch (e) {
+            const readFailedMsg = `source_file 读取失败: ${src}（${e instanceof Error ? e.message : String(e)}）`;
+            return createToolResult(readFailedMsg, {
+              success: false,
+              error: readFailedMsg,
               newMessages: [
                 {
                   role: 'system',
                   content: `source_file 读取失败: ${src}`,
                 },
               ],
-            }
-          );
+            });
+          }
         }
       } else {
         effectiveContent = input.content as string;
       }
 
-      if (append) {
+      if (isolated) {
+        // 方案 A：写盘经隔离工作区；追加时先经环境读取既有内容（读不到 ⇒ 拒绝追加，避免覆盖）
+        let existingContent = '';
+        if (append) {
+          try {
+            existingContent = await isolated.io.readFile(isolated.isolatedPath);
+          } catch (e) {
+            const msg =
+              `无法读取隔离工作区内的目标文件，已拒绝追加（避免覆盖既有内容）: ${isolated.isolatedPath}` +
+              `（${e instanceof Error ? e.message : String(e)}）`;
+            return createToolResult(msg, {
+              success: false,
+              error: msg,
+              newMessages: [{ role: 'system', content: msg }],
+            });
+          }
+        }
+        await isolated.io.writeFile(
+          isolated.isolatedPath,
+          applyWriteGuards(existingContent + effectiveContent, input.file_path)
+        );
+      } else if (append) {
         // 使用编码感知的文件读取（自动检测 UTF-8 / GBK / GB18030）
         const existingContent = readFileWithEncoding(resolvedPath);
         writeFile({
@@ -357,6 +445,10 @@ export class FileWriteTool extends BaseTool {
         });
       }
       return createToolResult(msg, {
+        // 契约（对齐 powerShellWrapper 的 BUG-8）：失败必须带 `error`/`success:false`，
+        // 否则消费方（长程任务编排器等）会把本次调用误记为「工具执行成功」。
+        success: false,
+        error: msg,
         newMessages: [{ role: 'system', content: `Error: ${msg}` }],
       });
     }
@@ -364,6 +456,16 @@ export class FileWriteTool extends BaseTool {
 
   override isReadOnly(): boolean {
     return false;
+  }
+
+  /**
+   * PR-2（2026-10-23）：授权维度 = 目标文件路径（归一化）。
+   *
+   * 让「始终允许」= "总是允许写这个文件"：内容每次不同也不影响命中，
+   * 换文件仍会重新审批（方案 §3.2）。
+   */
+  approvalFingerprint(input: Record<string, unknown>): string {
+    return `${this.name}:${normalizeApprovalPath(input.file_path)}`;
   }
 
   override isConcurrencySafe(): boolean {

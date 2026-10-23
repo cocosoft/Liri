@@ -941,7 +941,30 @@ async function startDeferredPrefetches(): Promise<void> {
           const { inboxManager } = await import('../runtime/InboxManager.js');
           const { setPermissionRuntimeDeps } =
             await import('../permission/PermissionChecker.js');
-          setPermissionRuntimeDeps({ unattendedMode, inboxManager });
+          // PR-3c（2026-10-23）：自动放行（沙箱豁免 / 会话 auto-local）的审计落盘。
+          // 由**入口**注入 ⇒ `permission`(infra) 不静态导入 `security`（避免运行时环）。
+          const { logSecurityAuditEvent } = await import('@modules/security');
+          setPermissionRuntimeDeps({
+            unattendedMode,
+            inboxManager,
+            auditAutoAllow: (e) =>
+              logSecurityAuditEvent({
+                timestamp: new Date(),
+                command: e.toolName,
+                originalCommand: e.toolName,
+                truncatedResult: e.detail,
+                sessionContext: {
+                  sessionId: e.sessionId ?? '',
+                  taskDescription: 'tool approval',
+                  // 语言无关取值（`normal` 属已登记状态词汇，避免在新文件新增出现点）
+                  currentMode: 'auto',
+                },
+                matchedRules: [e.rule],
+                behavior: 'allow',
+                decision: 'auto_allowed',
+                riskLevel: e.risk,
+              }),
+          });
         } catch (error) {
           logger.warning('权限运行时依赖注入失败（非关键）', { error });
         }

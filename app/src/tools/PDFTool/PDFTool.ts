@@ -367,6 +367,23 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
   name = TOOL_NAME_CONSTANTS.pdf;
 
   /**
+   * PR-0（2026-10-23）：**混合工具**的风险声明 —— 同一工具不同 action 风险不同：
+   * - `extract` / `info`（只读）：`read` ⇒ 免审批；
+   * - `generate`（落盘）：`write` ⇒ 仍需审批。
+   *
+   * 背景（真机日志）：原 `inferRiskClass('pdf')` 不匹配任何关键词 ⇒ 兜底 `SHELL`
+   * ⇒ 只读调用每次都要人工批准（实测同一会话 6 次）。
+   */
+  override riskClassFor(input: Record<string, unknown>): 'read' | 'write' {
+    return input?.action === 'generate' ? 'write' : 'read';
+  }
+
+  /** 与 `riskClassFor` 保持一致（供能力派生与 lint:risk-consistency 校验） */
+  override isReadOnly(input?: Record<string, unknown>): boolean {
+    return input?.action !== 'generate';
+  }
+
+  /**
    * U-03（2026-10-19）：模型可见出参结构。
    * 仅 `generate` 有载荷；`extract` / `info` 本构建 **fail-closed**（无 `data`）。
    */

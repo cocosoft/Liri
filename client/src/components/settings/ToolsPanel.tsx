@@ -54,6 +54,8 @@ import {
 } from "../../services/toolService";
 import { ConfigSection } from "./ConfigComponents";
 import {
+  SHADOW_DISPOSITION_KEYS,
+  SHADOW_REASON_KEYS,
   TOOL_VISIBILITY_REASON_KEYS,
   TOOL_VISIBILITY_REASON_TONES,
   filterEntries,
@@ -71,14 +73,21 @@ export interface ToolsPanelProps {
   isDark: boolean;
 }
 
-/** 分组顺序（用户显式选择在前，问题项紧随） */
-const GROUP_ORDER: ToolVisibilityGroupId[] = ["on", "default", "hidden", "off"];
+/** 分组顺序（用户显式选择在前；未接线组置底且默认折叠，PR-4） */
+const GROUP_ORDER: ToolVisibilityGroupId[] = [
+  "on",
+  "default",
+  "hidden",
+  "off",
+  "unwired",
+];
 
 const GROUP_TITLE_KEYS: Record<ToolVisibilityGroupId, string> = {
   on: "settings.toolsGroupOn",
   default: "settings.toolsGroupDefault",
   hidden: "settings.toolsGroupHidden",
   off: "settings.toolsGroupOff",
+  unwired: "settings.toolsGroupUnwired",
 };
 
 const TONE_CLASS: Record<ToolReasonTone, string> = {
@@ -100,6 +109,8 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
   const [query, setQuery] = useState("");
   /** 待二次确认的高风险开启请求（方案 §3.5 第 3 件） */
   const [pendingConfirm, setPendingConfirm] = useState<string | null>(null);
+  /** PR-4：未接线组默认折叠（不给假开关，也不占屏） */
+  const [unwiredOpen, setUnwiredOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -172,6 +183,7 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
         default: [],
         hidden: [],
         off: [],
+        unwired: [],
       };
     for (const e of visibleEntries) buckets[groupOf(e, overrides)].push(e);
     return buckets;
@@ -222,10 +234,11 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
   function renderRow(entry: SharedToolVisibilityEntry) {
     const current = overrideValueOf(overrides, entry.name);
     const visible = entry.effective === "visible";
+    const isUnwired = entry.registration === "conditional";
     // I-4：渲染层只显示**一个主因**（`conditional` 优先）；完整 `reasons` 仍由后端提供供诊断
     const primaryReason = primaryReasonOf(entry);
     // ⚠️ 开启但无效（未进生效工具面）：如实标注，不谎报"已开启"
-    const bypassIneffective = current === "on" && !visible;
+    const bypassIneffective = !isUnwired && current === "on" && !visible;
     return (
       <div
         key={entry.name}
@@ -252,12 +265,18 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
               {entry.risk !== "low" && (
                 <span
                   className={`text-[10px] px-1.5 py-0.5 rounded ${
-                    entry.risk === "high" ? TONE_CLASS.danger : TONE_CLASS.warn
+                    entry.risk === "high"
+                      ? TONE_CLASS.danger
+                      : entry.risk === "unknown"
+                        ? TONE_CLASS.neutral
+                        : TONE_CLASS.warn
                   }`}
                 >
                   {entry.risk === "high"
                     ? t("settings.toolsRiskHigh")
-                    : t("settings.toolsRiskMedium")}
+                    : entry.risk === "unknown"
+                      ? t("settings.toolsRiskUnknown")
+                      : t("settings.toolsRiskMedium")}
                 </span>
               )}
             </div>
@@ -279,6 +298,21 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
                   {t(TOOL_VISIBILITY_REASON_KEYS[primaryReason])}
                 </span>
               )}
+              {/* PR-4：影子工具的原因与处置方向（后端下发，前端只渲染） */}
+              {isUnwired && entry.conditionalReason && (
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded ${TONE_CLASS.warn}`}
+                >
+                  {t(SHADOW_REASON_KEYS[entry.conditionalReason])}
+                </span>
+              )}
+              {isUnwired && entry.disposition && (
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded ${TONE_CLASS.neutral}`}
+                >
+                  {t(SHADOW_DISPOSITION_KEYS[entry.disposition])}
+                </span>
+              )}
               {bypassIneffective && (
                 <span
                   className={`text-[10px] px-1.5 py-0.5 rounded ${TONE_CLASS.warn}`}
@@ -287,13 +321,14 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
                 </span>
               )}
             </div>
-            {entry.registration === "conditional" && (
+            {isUnwired && (
               <p className={`text-[11px] mt-1 ${textMuted}`}>
                 {t("settings.toolsConditionalNote")}
               </p>
             )}
           </div>
-          {renderStateButtons(entry)}
+          {/* PR-4：未接线组**不渲染三态开关**（无论怎么点都不会生效 ⇒ 假开关） */}
+          {!isUnwired && renderStateButtons(entry)}
         </div>
 
         {pendingConfirm === entry.name && (
@@ -384,14 +419,36 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
         GROUP_ORDER.map((group) => {
           const rows = grouped[group];
           if (rows.length === 0) return null;
+          const isUnwiredGroup = group === "unwired";
+          const collapsed = isUnwiredGroup && !unwiredOpen;
           return (
             <div key={group} className="mb-4">
               <h4 className={`text-xs font-semibold mb-1 ${textMuted}`}>
-                {t(GROUP_TITLE_KEYS[group])} · {rows.length}
+                {isUnwiredGroup ? (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 hover:underline"
+                    aria-expanded={unwiredOpen}
+                    onClick={() => setUnwiredOpen((v) => !v)}
+                  >
+                    <span>{unwiredOpen ? "▾" : "▸"}</span>
+                    {t(GROUP_TITLE_KEYS[group])} · {rows.length}
+                  </button>
+                ) : (
+                  <>
+                    {t(GROUP_TITLE_KEYS[group])} · {rows.length}
+                  </>
+                )}
               </h4>
-              <div className={`rounded border ${rowBorder}`}>
-                {rows.map(renderRow)}
-              </div>
+              {collapsed ? (
+                <p className={`text-[11px] ${textMuted}`}>
+                  {t("settings.toolsUnwiredCollapsedHint")}
+                </p>
+              ) : (
+                <div className={`rounded border ${rowBorder}`}>
+                  {rows.map(renderRow)}
+                </div>
+              )}
             </div>
           );
         })}

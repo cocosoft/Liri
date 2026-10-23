@@ -504,6 +504,9 @@ const enBase = {
     waitingYield: "⏳ Waiting for subtask settlement ({{seconds}}s elapsed)",
     yieldUnresolved:
       "This turn yielded but could not auto-resume (app restart or lost settlement). Just send a message to continue.",
+    // PR-3c (2026-10-23): persistent global trust level notice (Q-31 / §9-17)
+    globalTrustNotice:
+      'Global trust level is "{{level}}": in every directory not matched by a trusted workspace, bash commands are no longer asked one by one (deny and dangerous commands are still blocked). This is enabled by the --trust-level launch flag; use --confirm-global-trust to control it.',
     // PC-2 (cross-session resource governance, 2026-10-07): preemption / queue notices
     preemptedNotice:
       "This session was preempted by a higher-priority task and its reply was interrupted. Send a message again to continue.",
@@ -886,7 +889,20 @@ const enBase = {
     inboxReplyReject: "Reject",
     inboxReplyAllowTool: "Allowlist tool",
     inboxReplyAllowCommand: "Allowlist command",
+    // PR-2 (2026-10-23): four approval tiers — allow for this session / always (tool + args fingerprint)
+    inboxReplyApproveSession: "Allow for session",
+    inboxReplyAllowAlways: "Always allow",
+    inboxReplyAllowAlwaysHint: "Always allow (this call's arguments only)",
     inboxRepliedToast: "Done: {{label}}",
+    // PR-3 (2026-10-23): session-level "auto-run" toggle (read-only + local writes only)
+    approvalAutoOff: "Auto-run: off",
+    approvalAutoOn: "Auto-run: read + local write",
+    approvalAutoToggleHint:
+      "When on: read-only tools and writes inside the session workspace run without asking; shell, external side effects and out-of-workspace writes still require approval (requires FEATURE_SESSION_AUTO_LOCAL on the backend).",
+    approvalAutoConfirmBody:
+      "When on, the model can read/write files inside the session workspace without asking each time; shell and external operations still require approval.",
+    approvalAutoConfirm: "Turn on",
+    approvalAutoSwitchFailed: "Failed to switch auto-run mode",
     inboxResuming: "Approved — resuming…",
     inboxHandled: "Handled",
     inboxExpired: "Expired",

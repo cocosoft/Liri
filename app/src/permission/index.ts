@@ -137,6 +137,7 @@ export {
   getBaseCommand,
   toolCallApprovalKey,
   isToolCallApproved,
+  hashApprovalFingerprint,
 } from './ApprovedCommandRegistry';
 export type {
   ApprovalEntry,
@@ -144,10 +145,23 @@ export type {
   ApprovalSnapshot,
 } from './ApprovedCommandRegistry';
 
+// PR-2（2026-10-23）：授权维度（工具+参数指纹）与「始终允许」规则
+export {
+  resolveApprovalFingerprint,
+  normalizeApprovalPath,
+  previewApprovalFingerprint,
+} from './approvalFingerprint';
+export type { ApprovalFingerprintDeclaringTool } from './approvalFingerprint';
+
+// PR-1（2026-10-23）：审批卡提交前去重（同指纹复用，防僵尸卡）
+export { findPendingApprovalId } from './inboxApprovalDedupe';
+export type { PendingApprovalLookup } from './inboxApprovalDedupe';
+
 // Risk classification (Phase 3: OpenWorker-style)
 export {
   RiskClass,
   inferRiskClass,
+  resolveRiskClass,
   detectChainedCommand,
 } from './types/RiskClass';
 export type { RiskOverrides } from './types/RiskClass';

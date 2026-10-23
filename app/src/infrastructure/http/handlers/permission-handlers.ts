@@ -55,6 +55,9 @@ function serializeRule(rule: PermissionRule): Record<string, unknown> {
     behavior: rule.behavior,
     toolName: rule.toolName,
     contentPattern: rule.contentPattern,
+    // PR-2（2026-10-23）：「始终允许」规则（工具 + 参数指纹）—— 前端据此展示/撤销，
+    // 只暴露摘要（32 hex），原始参数从未落库
+    inputFingerprint: rule.inputFingerprint,
     source: rule.source,
     priority: rule.priority,
     createdAt:
@@ -81,10 +84,23 @@ export async function handleListPermissionRules(
     const rules = manager.getRules() as PermissionRule[];
     const summary = manager.getRulesSummary();
     const shadowDetection = shadowedRuleDetector.detect(rules);
+    // PR-2（2026-10-23）合并视图（方案 §3.7.2）：并上 settings 来源的规则（只读，带 source），
+    // 否则用户在 settings 写了 allow、面板却显示"默认" ⇒ UI 与真实决策不一致。
+    const settingsRules = manager.getSettingsRuleEntries().map((r, i) => ({
+      id: `settings:${r.source}:${r.behavior}:${i}`,
+      behavior: r.behavior,
+      toolName: r.toolName,
+      contentPattern: r.contentPattern,
+      source: r.source,
+      priority: 0,
+      createdAt: null,
+      updatedAt: null,
+      readOnly: true,
+    }));
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
-        rules: rules.map(serializeRule),
+        rules: [...rules.map(serializeRule), ...settingsRules],
         summary,
         shadowDetection: {
           shadowedCount: shadowDetection.shadowedCount,
@@ -158,6 +174,19 @@ export async function handleDeletePermissionRule(
   ruleId: string
 ): Promise<void> {
   try {
+    // PR-2：settings 来源规则是**只读合并视图**（id 前缀 `settings:`），不可经此接口删除 ——
+    // 否则会给人"删掉了"的错觉（真实来源在 settings 文件里）。
+    if (ruleId.startsWith('settings:')) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: 'settings 来源的规则为只读（请在 settings 文件中修改）',
+          },
+        })
+      );
+      return;
+    }
     const manager = PermissionManager.getInstance();
     manager.removeRule(ruleId);
     res.writeHead(200, { 'Content-Type': 'application/json' });

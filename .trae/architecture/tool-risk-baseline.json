@@ -1,0 +1,4 @@
+{
+  "note": "PR-0 工具风险声明棘轮基线（派生为 undeclared 的工具）。新工具缺风险声明 ⇒ lint:tool-risk ERROR；随声明/下线逐项收敛。由 --update-baseline 生成，勿手改。",
+  "undeclared": []
+}

@@ -8,6 +8,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveFilePath } from '../utils/ToolUtils';
+import { resolveIsolatedFileTarget } from '../utils/isolatedFileIo';
 import { runRegisteredOutputGuards } from '@modules/core';
 import type { FileOperationResult } from '../types/ToolResult';
 
@@ -73,6 +74,40 @@ export interface FileEditResult extends FileOperationResult {
 
 const FILE_EDIT_MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1 GiB
 
+/**
+ * 单次替换的**纯计算**（宿主直写与"经隔离工作区写"共用 —— 2026-10-23 方案 A）。
+ *
+ * @returns `null` = 未命中 `old_string`（调用方按"未替换"回执）
+ */
+function computeSingleEdit(
+  content: string,
+  oldString: string,
+  newString: string,
+  filePath: string
+): { newContent: string; linesChanged: number } | null {
+  const count = countOccurrences(content, oldString);
+  if (count === 0) return null;
+
+  if (count > 1) {
+    throw new AppError(
+      `old_string is not unique in file (found ${count} occurrences). ` +
+        `Provide a larger string with more surrounding context to make it unique.`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
+  }
+
+  const guardedNewString = guardEditDelta(newString, filePath);
+  const newContent = content.replace(oldString, guardedNewString);
+  return {
+    newContent,
+    linesChanged: Math.abs(
+      guardedNewString.split('\n').length - oldString.split('\n').length
+    ),
+  };
+}
+
 export function editFile(input: FileEditInput): FileEditResult {
   const resolved = resolveFilePath(input.filePath);
 
@@ -98,8 +133,13 @@ export function editFile(input: FileEditInput): FileEditResult {
   // 使用编码感知的文件读取（自动检测 UTF-8 / GBK / GB18030）
   const content = readFileWithEncoding(resolved);
 
-  const count = countOccurrences(content, input.oldString);
-  if (count === 0) {
+  const computed = computeSingleEdit(
+    content,
+    input.oldString,
+    input.newString,
+    input.filePath
+  );
+  if (!computed) {
     return {
       filePath: input.filePath,
       canonicalPath: resolved,
@@ -109,28 +149,12 @@ export function editFile(input: FileEditInput): FileEditResult {
     };
   }
 
-  if (count > 1) {
-    throw new AppError(
-      `old_string is not unique in file (found ${count} occurrences). ` +
-        `Provide a larger string with more surrounding context to make it unique.`,
-      ErrorCategory.EXECUTION,
-      ErrorSeverity.HIGH,
-      '1000'
-    );
-  }
-
-  const guardedNewString = guardEditDelta(input.newString, input.filePath);
-  const newContent = content.replace(input.oldString, guardedNewString);
-  fs.writeFileSync(resolved, newContent, 'utf-8');
-
-  const oldLines = input.oldString.split('\n').length;
-  const newLines = guardedNewString.split('\n').length;
-  const linesChanged = Math.abs(newLines - oldLines);
+  fs.writeFileSync(resolved, computed.newContent, 'utf-8');
 
   return {
     filePath: input.filePath,
     canonicalPath: resolved,
-    linesChanged,
+    linesChanged: computed.linesChanged,
     replaced: true,
     oldStringFound: true,
   };
@@ -197,6 +221,7 @@ import {
   type FileStateCache,
 } from '../../utils/fileStateCache';
 import { getToolBaseDir } from '../utils/ToolUtils';
+import { normalizeApprovalPath } from '@modules/permission';
 const logger = getLogger('tools:FileEditTool:FileEditTool');
 
 function normalizeQuotes(str: string): string {
@@ -231,6 +256,20 @@ export class FileEditTool extends BaseTool {
   };
 
   override tags = [ToolTag.FILE, ToolTag.WRITE];
+
+  /**
+   * 方案 A（2026-10-23）：文件 IO 能力声明 —— 与 `file_write` 同口径。
+   * 免审批仍需 `fileIoIsolated`（隔离适配器 + 挂载映射），声明本身不构成放行。
+   */
+  override sandboxLevel = 'file-io' as const;
+
+  /**
+   * PR-2（2026-10-23）：授权维度 = 目标文件路径（归一化），与 `file_write` 同口径 ——
+   * "总是允许改这个文件"不因替换文本变化而重新弹卡。
+   */
+  approvalFingerprint(input: Record<string, unknown>): string {
+    return `${this.name}:${normalizeApprovalPath(input.file_path)}`;
+  }
 
   params: ToolParam[] = [
     {
@@ -316,17 +355,14 @@ export class FileEditTool extends BaseTool {
     try {
       // G3：相对路径优先解析到会话工作目录（cwd），缺省回退 outputDir
       const baseDir = getToolBaseDir(context);
-      // B1：写前快照新鲜度校验（read-before-edit）——仅当上下文提供文件状态缓存时生效
+      const resolvedPath = resolveFilePath(input.file_path as string, baseDir);
+      // 方案 A（2026-10-23）：隔离工作区可用时，读写都经适配器（宿主 node:fs 不参与）
+      const isolated = resolveIsolatedFileTarget(resolvedPath);
+      // B1：写前快照新鲜度校验（read-before-edit）——仅当上下文提供文件状态缓存时生效。
+      // 隔离环境下宿主快照与实盘（环境内）不是同一份内容 ⇒ 不校验（否则恒报"未读取/已修改"）。
       const cache = resolveReadFileState(context.readFileState);
-      if (cache) {
-        const resolvedForCheck = resolveFilePath(
-          input.file_path as string,
-          baseDir
-        );
-        const freshnessError = this.checkWriteFreshness(
-          cache,
-          resolvedForCheck
-        );
+      if (cache && !isolated) {
+        const freshnessError = this.checkWriteFreshness(cache, resolvedPath);
         if (freshnessError) {
           return createToolResult(freshnessError, {
             newMessages: [
@@ -360,9 +396,11 @@ export class FileEditTool extends BaseTool {
       }
 
       if (replaceAll) {
-        const resolved = resolveFilePath(input.file_path as string, baseDir);
-        // 使用编码感知的文件读取（自动检测 UTF-8 / GBK / GB18030）
-        const content = readFileWithEncoding(resolved);
+        // 使用编码感知的文件读取（自动检测 UTF-8 / GBK / GB18030）；
+        // 隔离环境内统一按 UTF-8 读取（`cat` 原样输出）
+        const content = isolated
+          ? await isolated.io.readFile(isolated.isolatedPath)
+          : readFileWithEncoding(resolvedPath);
         const normalizedOld = normalizeQuotes(content).includes(
           normalizeQuotes(oldString)
         )
@@ -373,11 +411,15 @@ export class FileEditTool extends BaseTool {
           normalizedOld,
           guardEditDelta(newString, input.file_path as string)
         );
-        fs.writeFileSync(resolved, newContent, 'utf-8');
-        // B1：编辑成功后更新快照
-        if (cache) this.recordSnapshot(cache, resolved);
+        if (isolated) {
+          await isolated.io.writeFile(isolated.isolatedPath, newContent);
+        } else {
+          fs.writeFileSync(resolvedPath, newContent, 'utf-8');
+          // B1：编辑成功后更新快照
+          if (cache) this.recordSnapshot(cache, resolvedPath);
+        }
         return createToolResult(
-          { filePath: resolved, replaced: true },
+          { filePath: resolvedPath, replaced: true },
           {
             newMessages: [
               {
@@ -389,31 +431,61 @@ export class FileEditTool extends BaseTool {
         );
       }
 
-      const result = editFile({
-        filePath: resolveFilePath(input.file_path as string, baseDir),
-        oldString,
-        newString,
-      });
-
-      // B1：编辑成功后更新快照
-      if (cache) this.recordSnapshot(cache, result.canonicalPath);
-
-      return createToolResult(
-        {
-          filePath: result.canonicalPath,
+      let outcome: {
+        linesChanged: number;
+        replaced: boolean;
+        oldStringFound: boolean;
+      };
+      if (isolated) {
+        const content = await isolated.io.readFile(isolated.isolatedPath);
+        const computed = computeSingleEdit(
+          content,
+          oldString,
+          newString,
+          input.file_path as string
+        );
+        if (computed) {
+          await isolated.io.writeFile(
+            isolated.isolatedPath,
+            computed.newContent
+          );
+        }
+        outcome = computed
+          ? {
+              linesChanged: computed.linesChanged,
+              replaced: true,
+              oldStringFound: true,
+            }
+          : { linesChanged: 0, replaced: false, oldStringFound: false };
+      } else {
+        const result = editFile({
+          filePath: resolvedPath,
+          oldString,
+          newString,
+        });
+        // B1：编辑成功后更新快照
+        if (cache) this.recordSnapshot(cache, result.canonicalPath);
+        outcome = {
           linesChanged: result.linesChanged,
           replaced: result.replaced,
           oldStringFound: result.oldStringFound,
+        };
+      }
+
+      return createToolResult(
+        {
+          filePath: resolvedPath,
+          ...outcome,
           replaceAll: false,
         },
         {
           newMessages: [
             {
               role: 'system',
-              content: `Successfully edited file: ${result.canonicalPath}`,
+              content: `Successfully edited file: ${resolvedPath}`,
             },
           ],
-          output: `File edited successfully: ${result.canonicalPath}`,
+          output: `File edited successfully: ${resolvedPath}`,
         }
       );
     } catch (error) {

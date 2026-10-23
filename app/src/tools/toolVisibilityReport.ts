@@ -65,7 +65,12 @@ import { deriveFromLegacyEffects } from './toolCapability';
 import { resolveToolEffect } from './toolEffects';
 import { TOOL_NAMES } from '@modules/constants/toolNames.generated';
 import type { ToolRiskLevel } from '../utils/toolContract/Tool';
-import type { SharedToolVisibilityReason } from '@shared/types';
+import type {
+  SharedToolVisibilityReason,
+  SharedShadowToolDisposition,
+  SharedShadowToolReason,
+} from '@shared/types';
+import { getShadowToolDisposition } from './shadowToolDispositions';
 
 /**
  * 可见/不可见的**结构化原因**。
@@ -101,10 +106,20 @@ export interface ToolVisibilityReport {
    * **派生口径（零新表）**：`TOOL_EFFECTS[name]`（`toolEffects.ts`，唯一事实源，`Record<ToolName,…>`
    * 受 typecheck 强制）经 `deriveFromLegacyEffects()`（`toolCapability.ts`，既有 D5 纯函数）派生：
    * `local`⇒`medium`、`external`⇒`high`、`none`⇒`low`。
-   * ⚠️ 未声明效果的工具（12 个未接入的 `conditional`）按 D5 原口径**保守判 `high`**
-   * （"无法证明只读即视为对外写"）—— 如实保守，不臆造低风险。
+   *
+   * PR-4（2026-10-23）：**无 `TOOL_EFFECTS` 条目**（即 11 个未接线的 `conditional`）
+   * ⇒ 判 **`unknown`（未评估）**，不再兜底 `high`。
+   * 原口径"无法证明只读即视为对外写"会把 `agents_list`/`nodes` 等只读工具标成红色
+   * "高风险"（实测 7/11 假阳性），与运行时"未声明风险"（PR-0 的 `UNDECLARED`）也不一致。
    */
-  risk: ToolRiskLevel;
+  risk: ToolRiskLevel | 'unknown';
+  /**
+   * PR-4：`conditional` 工具的**未接线原因**（来自 `shadowToolDispositions` 登记表）。
+   * 非 `conditional` 条目缺省。
+   */
+  conditionalReason?: SharedShadowToolReason;
+  /** PR-4：`conditional` 工具的**处置方向**（`retire` / `rewrite` / `awaiting-provider`） */
+  disposition?: SharedShadowToolDisposition;
   /**
    * 工具描述（C-3b T3，2026-10-18）：由调用方从 `Tool.getInfo().description` 注入
    * （与模型侧 `getToolSchemas()` 同一描述源）；`conditional` 未注册 ⇒ 缺省。
@@ -114,13 +129,15 @@ export interface ToolVisibilityReport {
 }
 
 /** 由既有声明派生风险级别（**纯函数**；输入为 `TOOL_EFFECTS`，无实例化） */
-function deriveRiskOf(name: string): ToolRiskLevel {
+function deriveRiskOf(name: string): ToolRiskLevel | 'unknown' {
   const effect = resolveToolEffect(name);
+  // PR-4：未声明效果（= 未接线的 conditional）⇒ 未评估，不再兜底 high
+  if (!effect) return 'unknown';
   return deriveFromLegacyEffects({
     effect,
     // ⚠️ 该入参只在 `effect` **未声明**时被使用（见 toolCapability.ts 注释）⇒ 此处按保守口径取
     // "已声明为只读"（`sideEffect === 'none'`），未声明一律 `false`（⇒ 保守 high）。
-    isReadOnly: effect?.sideEffect === 'none',
+    isReadOnly: effect.sideEffect === 'none',
   }).risk;
 }
 
@@ -191,6 +208,9 @@ export function resolveToolVisibilityReport(
         if (!visible) reasons.push('user-on-bypass');
       }
 
+      // PR-4：影子工具带出"未接线原因 + 处置方向"（来自登记表；未登记则留空由门禁报错）
+      const shadow = conditional ? getShadowToolDisposition(name) : undefined;
+
       return {
         name,
         category,
@@ -199,6 +219,12 @@ export function resolveToolVisibilityReport(
         effective: effective ? 'visible' : 'hidden',
         reasons,
         risk: deriveRiskOf(name),
+        ...(shadow
+          ? {
+              conditionalReason: shadow.reason,
+              disposition: shadow.disposition,
+            }
+          : {}),
       };
     })
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));

@@ -13,6 +13,7 @@ import {
   calculateDeferredToolDescriptionChars,
 } from './utils/toolSearch';
 import { ToolDefinitionAdapter } from './utils/ToolDefinitionAdapter';
+import { findMissingRequiredParams } from './utils/ToolUtils';
 import type { ToolDefinition, ToolImplementation } from './types/ToolTypes';
 import { isWireSafeToolName, toWireToolName } from './toolNameCodec';
 import { getDefaultToolPolicyPipeline } from './policy/defaultPipeline';
@@ -536,6 +537,38 @@ export class ToolRegistry {
 
     const startTime = Date.now();
     let result: ToolResult;
+
+    // 2026-10-22：必填参数前置校验（共同执行入口）。此前主聊天路径（ChatManager →
+    // ToolExecutionService → 本 Registry）**与**长程任务编排器都直接 `tool.execute()`，
+    // 缺参时由工具内部裸抛运行时错误（实测 `file_write`：`path.dirname(undefined)` →
+    // `The "path" property must be of type string, got undefined`），模型拿不到"缺哪个参数"
+    // 也无从自纠。此处 fail-closed，返回与 `ToolExecutor.validateInput` 同口径的提示。
+    const missingParams = findMissingRequiredParams(
+      tool.params,
+      toolCall.input
+    );
+    if (missingParams.length > 0) {
+      logger.warn('工具调用缺少必填参数，拒绝执行', {
+        toolName: toolCall.toolName,
+        sessionId: policyContext.sessionId,
+        missingParams,
+        receivedKeys: Object.keys(toolCall.input ?? {}),
+      });
+      return createToolResult(null, {
+        success: false,
+        error: `Missing required parameter: ${missingParams.join(', ')}`,
+        newMessages: [
+          {
+            role: 'system',
+            content:
+              `Error: Missing required parameter: ${missingParams.join(', ')}. ` +
+              `请按工具定义的参数名重新调用（本次收到的参数键: ${
+                Object.keys(toolCall.input ?? {}).join(', ') || '（空）'
+              }）。`,
+          },
+        ],
+      });
+    }
 
     try {
       result = await tool.execute(

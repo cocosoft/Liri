@@ -34,6 +34,7 @@ import { useChatDraft } from "./useChatDraft";
 import TemporarySessionToggle from "./TemporarySessionToggle";
 // 计划/执行开关（emoji 之后，单击切换；写入会话 metadata.workMode）
 import WorkModeToggle from "./WorkModeToggle";
+import ApprovalModeToggle from "./ApprovalModeToggle";
 // 回复设置（详略 + 快速模式）：复用 `/effort`、`/fast` 两条命令的同一实现
 import ReplyPrefsMenu from "./ReplyPrefsMenu";
 import { readFileAsBase64 } from "../../utils/format";
@@ -1497,6 +1498,24 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                       chatSessions: s.chatSessions.map((item) =>
                         item.id === changedId
                           ? { ...item, workMode: mode }
+                          : item,
+                      ),
+                    }));
+                  }}
+                  disabled={isStreaming}
+                />
+                {/* PR-3（2026-10-23）：会话级「自动执行」开关（仅只读 + 本地写）。
+                    事实来源 = 会话 metadata.approvalMode；后端受 FEATURE_SESSION_AUTO_LOCAL 约束 */}
+                <ApprovalModeToggle
+                  sessionId={currentSession?.id}
+                  approvalMode={currentSession?.approvalMode}
+                  onChanged={(mode) => {
+                    const changedId = currentSession?.id;
+                    if (!changedId) return;
+                    useRootStore.setState((s) => ({
+                      chatSessions: s.chatSessions.map((item) =>
+                        item.id === changedId
+                          ? { ...item, approvalMode: mode }
                           : item,
                       ),
                     }));

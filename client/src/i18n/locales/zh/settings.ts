@@ -609,6 +609,7 @@ const zhSettings = {
       user: "设置用户画像（USER.md），用于个性化对话",
       memory: "管理持久化记忆和上下文信息",
       trustedWorkspaces: "管理可信任的工作区目录",
+      trustIsolation: "信任工作区、沙箱隔离与自动放行审计（同一页）",
       customRules: "配置自定义安全规则和约束",
       estop: "紧急停止开关：一键中止后台自主任务与执行循环",
       voice: "配置语音唤醒、识别和合成功能",
@@ -682,6 +683,7 @@ const zhSettings = {
     toolsStatusHidden: "不可见",
     toolsRiskHigh: "高风险",
     toolsRiskMedium: "写操作",
+    toolsRiskUnknown: "未评估",
     toolsRiskConfirmTitle: "确认把高风险工具 {{name}} 设为对模型可见？",
     toolsRiskConfirmBody:
       "可见不代表放行：开启后模型能看到并申请调用该工具，但实际执行仍需你逐次审批，且受文件路径与沙箱限制。",
@@ -690,6 +692,17 @@ const zhSettings = {
     toolsGroupDefault: "默认可见",
     toolsGroupHidden: "不可见",
     toolsGroupOff: "已强制关闭",
+    toolsGroupUnwired: "未接线（本构建不可用）",
+    toolsUnwiredCollapsedHint:
+      "这些工具在当前构建里没有注册（实现为桩/与现有工具重复等）⇒ 展开只读查看原因与处置，不提供开关。",
+    toolsShadowReasonStub: "实现为桩",
+    toolsShadowReasonDuplicate: "与现有工具重复",
+    toolsShadowReasonAwaitingProvider: "等待外部能力",
+    toolsShadowReasonNeedsRewrite: "需先重写",
+    toolsShadowDispositionRetire: "计划下线",
+    toolsShadowDispositionRewrite: "重写后接线",
+    toolsShadowDispositionAwaitingProvider: "等待前置",
+    toolsShadowDispositionWired: "已接线",
     toolsConditionalNote:
       "未进本构建的生效工具面（可能未接线，或工厂内的功能开关默认关闭）⇒ 覆写不会生效。",
     toolsOverrideIneffective: "已开启但无效",
@@ -703,6 +716,15 @@ const zhSettings = {
     topP: "Top P",
     trustedWorkspaces: "信任工作区",
     trustedWorkspacesDesc: "管理允许访问本地文件的工作区",
+    // PR-3c（2026-10-23）：「信任与隔离」合并页
+    trustIsolation: "信任与隔离",
+    isolationSandboxTitle: "沙箱隔离",
+    isolationSandboxHint:
+      "开启后工具/命令可受内核级隔离约束；默认权限位「标准」= 可读写、不可执行（需要执行时请自行选择「完整」）。",
+    isolationAuditTitle: "自动放行审计",
+    isolationAuditDetail: "查看明细",
+    isolationAuditHint:
+      "统计最近 200 条自动放行事件的来源；「会话自动」与「全局信任」属于放宽项，建议定期复核。",
     uptime: "运行时间",
     user: "用户身份",
     userProfile: "用户信息",
@@ -802,6 +824,16 @@ const zhSettings = {
       "执行前运行 verifyProject（编译/测试）作为 Reviewer 输入上下文",
     pdcaVerifier: "VerifierAgent 双指标验证",
     pdcaVerifierDesc: "REJECT / ESCALATE 判定融合进审查结果",
+    // PR-5（2026-10-23）：关闭需二次确认 + 审查模型只读说明
+    pdcaDisableConfirmTitle: "确认关闭 PDCA 审查门？",
+    pdcaDisableConfirmBody:
+      "关闭后所有步骤都会跳过审查直接批准，「步骤全过但目标没达成」的假完成将不再被拦住。建议仅在基准测试/快速通道临时使用。",
+    pdcaDisableConfirm: "确认关闭",
+    pdcaDisabledWarn: "⚠️ 审查门已关闭：当前不校验步骤质量，也不会拦截假完成。",
+    pdcaReviewModel: "审查模型",
+    pdcaReviewModelDesc:
+      "审查员/验证器当前复用执行模型（同一 executor，tools=[]）。独立 review 任务模型需在任务分工中配置后生效。",
+    pdcaReviewModelShared: "与执行共用（未分离）",
     savedAt: "已保存（{{time}}）",
     wsLoadFailed: "加载权限配置失败",
     wsSaveFailed: "保存失败",
@@ -812,7 +844,7 @@ const zhSettings = {
     wsBannerTitle: "信任工作区",
     wsBannerQuestion: "允许 AI 碰哪些本地路径",
     wsBannerRelation:
-      "此处白名单决定文件读写门禁，与工具权限规则互补；应用内强制兜底，任何一级无法覆盖",
+      "只影响 bash 命令的「是否需要询问」（deny 与危险命令永不绕过）；工具审批仍按工具/命令名单与风险默认判定，二者互补",
     wsDefaultMode: "默认权限模式",
     wsModeDefault: "默认",
     wsModeStrict: "严格",
@@ -895,6 +927,26 @@ const zhSettings = {
     rulesTabCommandWhitelist: "命令白名单",
     rulesTabDirBlacklist: "目录黑名单",
     rulesTabDirWhitelist: "目录白名单",
+    // PR-2（2026-10-23）：工具级名单 + 「始终允许」撤销
+    rulesTabTools: "工具",
+    toolsRulesHint:
+      "工具级名单：允许＝免审批直接执行；询问＝每次弹审批；拒绝＝直接拦截（拒绝恒优先，白名单不能覆盖）。落点与决策主链路为同一份 tool_rules.json，改完即时生效。",
+    toolsRulesSearch: "搜索工具名…",
+    toolsRulesLoading: "正在读取工具与规则…",
+    toolsRulesLoadFailed: "读取工具名单失败",
+    toolsRulesSaveFailed: "保存失败",
+    toolsRulesBehaviorLabel: "{{name}} 的权限行为",
+    toolsRulesBehaviorDefault: "默认",
+    toolsRulesBehaviorAllow: "允许",
+    toolsRulesBehaviorAsk: "询问",
+    toolsRulesBehaviorDeny: "拒绝",
+    toolsRulesRemembered: "已记住的审批（始终允许）· {{count}}",
+    toolsRulesRememberedHint:
+      "「始终允许」按工具 + 参数指纹生效（如 file_write 只按文件路径）；这里可逐条撤销。",
+    toolsRulesRememberedEmpty: "暂无「始终允许」记录",
+    toolsRulesFromSettings: "来自 settings",
+    toolsRulesFromSettingsHint:
+      "该规则写在 settings 文件的 permissions.{allow,ask,deny} 里（启动时并入决策）—— 本面板只读展示，请在 settings 文件中修改。",
     rulesLoadFailed: "加载自定义规则失败",
     rulesSaveFailed: "保存失败",
     rulesCmdPlaceholder: "输入命令模式（如 rm -rf, chmod）",
@@ -911,7 +963,7 @@ const zhSettings = {
     rulesHintCmdBlacklistPrefix: "添加命令模式（如 ",
     rulesHintCmdBlacklistSuffix: "）后，匹配的命令将被拦截。",
     rulesHintCmdWhitelist:
-      "添加命令模式后，仅允许匹配的命令执行，其余全部拦截。",
+      "严格白名单：仅允许命中白名单的命令执行，未命中的命令直接拒绝（白名单按“包含匹配”，如 rm 会命中 npm rm）。",
     rulesHintDirBlacklistPrefix: "添加目录路径（如 ",
     rulesHintDirBlacklistSuffix: "）后，禁止访问该目录。",
     rulesHintDirWhitelist: "添加目录路径后，仅允许访问这些目录，其余全部拦截。",

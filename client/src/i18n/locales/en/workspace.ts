@@ -169,7 +169,7 @@ const enWorkspace = {
     permissionStandard: "Standard (read/write)",
     permissionReadonly: "Read-only (read only)",
     permissionHint:
-      "Determines the authorization scope for new sandbox workspaces: Full = read/write + execute, Standard = read/write, Read-only = read only. Existing workspaces are unaffected.",
+      "Determines the authorization scope for new sandbox workspaces: Full = read/write + execute, Standard = read/write (default), Read-only = read only. Existing workspaces are unaffected.",
     runtimeStatus: "Runtime Status",
     enabledStatus: "Enabled Status",
     notEnabled: "Not enabled",

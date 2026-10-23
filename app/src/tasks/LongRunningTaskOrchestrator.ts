@@ -49,10 +49,7 @@ import { formatReviewSummary } from './PlanReview';
 import type { PlanReview, ReviewDecision } from './PlanReview';
 import { createReviewGate } from './review/ReviewGate.js';
 import type { ReviewGate, ReviewGateContext } from './review/ReviewGate.js';
-import {
-  GoalEvaluateGate,
-  isGoalEvaluateEnabled,
-} from './review/GoalEvaluateGate.js';
+import { GoalEvaluateGate } from './review/GoalEvaluateGate.js';
 // T-②02（2026-10-03）：目标偏差判定（纯函数，判定与接线分离）+ 事件落盘
 import { evaluateGoalDeviation } from './review/GoalDeviation.js';
 import { emitGoalDeviation } from './goal/GoalEvents';
@@ -111,13 +108,16 @@ import {
   type StepExecutionDeps,
 } from './lro/stepExecution.js';
 import { resumeFromCheckpoint } from './lro/resumeFromCheckpoint.js';
+// PR-5（2026-10-23）：步骤级审批挂起的落点与恢复（外移以守住 R04-001 行数上限）
+import {
+  resumeSuspendedSteps,
+  suspendPlanForApproval,
+} from './lro/stepSuspension.js';
+// PR-5（2026-10-23）：目标级收敛判定与「未收敛」收尾（同上，外移守行数上限）
+import { runGoalConvergenceGate } from './lro/goalConvergence.js';
 // U-02（2026-10-19）：`/goal start` 目标 ↔ PDCA 终态绑定
 import { settleGoalById } from './goal/goalRunBinding.js';
-import {
-  resolveAuditStore,
-  replanMaxRetries,
-  isAutoReplanEnabled,
-} from './lro/portResolvers.js';
+import { resolveAuditStore, replanMaxRetries } from './lro/portResolvers.js';
 import {
   recordGoalStageMetric,
   runAdaptationEvolutionHook,
@@ -1067,6 +1067,29 @@ export class LongRunningTaskOrchestrator {
    * 否则抛 PDCA_NOT_PENDING（原实现跨重启后审批恢复必然失败）。
    */
   async resumeAfterApproval(sessionId: string): Promise<PdcaStatus> {
+    // PR-5（2026-10-23）：**步骤级审批挂起**（stage_awaiting_approval）——
+    // 把挂起步骤置回 pending（清 decision，保留证据），再复用统一执行循环续跑。
+    if (this.phase === 'stage_awaiting_approval') {
+      const resumed = resumeSuspendedSteps(this.requirePlan());
+      if (resumed.length === 0) {
+        throw new AppError(
+          'Orchestrator is not awaiting step approval',
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          'PDCA_NOT_PENDING'
+        );
+      }
+      await this.setPhase('execute');
+      await this._persistCheckpoint();
+      logger.info('Step approval granted, resuming PDCA execution', {
+        taskId: this.taskId,
+        planId: this.planId,
+        sessionId,
+        resumedSteps: resumed,
+      });
+      return this._runExecuteDecideLoop();
+    }
+
     if (this.phase !== 'plan_pending') {
       const ck = await readPdcaCheckpoint(this.taskId);
       if (ck && ck.phase === 'plan_pending') {
@@ -1286,101 +1309,28 @@ export class LongRunningTaskOrchestrator {
 
       // P1-3（2026-08-31）：目标级收敛判定（对标 Hermes evaluate_after_turn）
       // 步骤全部终态后，用副模型确认"整体目标是否真正达成"；未收敛则阻止
-      // "步骤全过但目标未实现"的假完成（转 failed，缺陷清单驱动增量 replan）
-      if (allDone && isGoalEvaluateEnabled()) {
-        const goalConv = await this.goalEvaluateGate.evaluate(
-          {
-            goal: latestPlan.description,
-            steps: latestPlan.steps.map((s) => ({
-              description: s.description,
-              status: s.status,
-              result: s.result,
-              review: s.reviewResult?.summary,
-            })),
+      // "步骤全过但目标未实现"的假完成（转 failed，缺陷清单驱动增量 replan）。
+      // PR-5（2026-10-23）：整段外移 `./lro/goalConvergence`（守住 R04-001 行数上限），
+      // 语义逐字未变；宿主只按 `kind` 分派控制流。
+      if (allDone) {
+        const convergence = await runGoalConvergenceGate({
+          taskId: this.taskId,
+          planId: this.planId,
+          sessionId: this._sessionId,
+          plan: latestPlan,
+          gate: this.goalEvaluateGate,
+          ctx: { isolation: this.isolation, executor: this.executor },
+          totalTokens: this._totalTokensTracked,
+          turnsExtensions: this._turnsExtensions,
+          startedAt: this._startedAt,
+          setGoalEvaluation: (value) => {
+            this._goalEvaluation = value;
           },
-          { isolation: this.isolation, executor: this.executor }
-        );
-        // 方向4（2026-09-03）：收敛判定捕获 → review_samples 落库（评估关闭时不捕获）。
-        // L7（2026-09-06）三态：未决 undefined 也如实记录（converged 存 null），
-        // 避免审计/记忆把"跳过结论"误报成"已确认达成"。
-        this._goalEvaluation = {
-          converged: goalConv.converged,
-          confidence: goalConv.confidence,
-          reason: goalConv.reason,
-        };
-        // L7（2026-09-06）：仅模型明确 false 才阻止假完成——undefined（评估失败/超时/
-        // 未给明确 bool）按"跳过结论"处理，不阻塞主流程也不误判未达成。
-        if (goalConv.converged === false) {
-          logger.warn('目标级评估未收敛，阻止假完成', {
-            taskId: this.taskId,
-            planId: this.planId,
-            reason: goalConv.reason,
-            confidence: goalConv.confidence,
-          });
-          latestPlan.status = 'failed';
-          latestPlan.completedAt = new Date().toISOString();
-          taskOrchestrator['savePlan']?.(latestPlan);
-          void handleError(
-            new AppError(
-              `目标未收敛：${goalConv.reason}`,
-              ErrorCategory.OPERATION,
-              ErrorSeverity.HIGH,
-              'PDCA_GOAL_NOT_CONVERGED',
-              {
-                taskId: this.taskId,
-                planId: this.planId,
-                reason: goalConv.reason,
-                confidence: goalConv.confidence,
-              }
-            ),
-            { module: 'tasks:longRunning', action: 'runFullPdca' }
-          );
-          failureReason = 'PDCA_GOAL_NOT_CONVERGED';
-
-          // U-02（2026-10-19）：**目标控制器**（默认关闭，`PDCA_AUTO_REPLAN=true` 开启）。
-          // 未收敛不再直接收场：写 replanPending 检查点后复用「缺陷驱动增量 replan」闭环
-          // 立即重规划续跑；次数与 escalate 共用计数（PDCA_REPLAN_MAX_RETRIES）。
-          if (isAutoReplanEnabled()) {
-            const prevCk = (await readPdcaCheckpoint(this.taskId)) ?? {};
-            const next = (Number(prevCk.replanFailCount) || 0) + 1;
-            if (next < replanMaxRetries()) {
-              const autoReplanCk = {
-                ...prevCk,
-                taskId: this.taskId,
-                sessionId: this._sessionId ?? undefined,
-                phase: 'execute',
-                status: 'failed',
-                replanPending: true,
-                replanFailCount: next,
-                description: latestPlan.description,
-                totalTokens: this._totalTokensTracked,
-                turnsExtensions: this._turnsExtensions,
-                startedAt: this._startedAt || undefined,
-                lastEscalations: [
-                  {
-                    stepId: '',
-                    stepDescription: latestPlan.description,
-                    defects: [goalConv.reason],
-                  },
-                ],
-              };
-              await writePdcaCheckpoint(this.taskId, autoReplanCk);
-              logger.info('[orchestrator] 目标未收敛 ⇒ 自动 replan', {
-                taskId: this.taskId,
-                replanFailCount: next,
-                maxReplan: replanMaxRetries(),
-              });
-              return this.resumeFromCheckpoint(
-                autoReplanCk as Record<string, unknown>
-              );
-            }
-            logger.warn('[orchestrator] 目标未收敛且 replan 预算耗尽，转人工', {
-              taskId: this.taskId,
-              replanFailCount: next,
-              maxReplan: replanMaxRetries(),
-            });
-          }
-
+          resumeFromCheckpoint: (ck) => this.resumeFromCheckpoint(ck),
+        });
+        if (convergence.kind === 'replanned') return convergence.status;
+        if (convergence.kind === 'unconverged') {
+          failureReason = convergence.failureReason;
           allDone = false;
           break;
         }
@@ -1421,6 +1371,18 @@ export class LongRunningTaskOrchestrator {
         }
       }
     }
+
+    // PR-5（2026-10-23）：**步骤级审批挂起** ⇒ 早退，不落 completed/failed。
+    // 判定放在终态裁决（含轮次上限、目标评估）之前：等审批既不是"完成"也不是"失败"。
+    const suspendedStatus = await suspendPlanForApproval({
+      taskId: this.taskId,
+      planId: this.planId,
+      plan: this.requirePlan(),
+      setPhase: (phase) => this.setPhase(phase),
+      persistCheckpoint: () => this._persistCheckpoint(),
+      getStatus: () => this.getStatus(),
+    });
+    if (suspendedStatus) return suspendedStatus;
 
     // 循环因轮次上限自然退出（仍有待重试步骤）同样属失败退出
     if (!allDone && !failureReason) {

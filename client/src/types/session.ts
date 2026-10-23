@@ -2,6 +2,13 @@
 export type WorkMode = "plan" | "do";
 
 /**
+ * PR-3（2026-10-23）：会话级审批模式。
+ * - `ask`（默认）：所有需要审批的工具都人工确认；
+ * - `auto-local`：只读 + **会话工作区内**的本地写自动执行（shell / 外部 / 越界写仍需审批）。
+ */
+export type ApprovalMode = "ask" | "auto-local";
+
+/**
  * 回复详略档（`/effort` 与输入区「回复设置」共用；源：会话 metadata.effortLevel）
  * `auto` = 不注入任何指令（与未设置等价）。
  */
@@ -11,6 +18,8 @@ export interface Session {
   id: string;
   /** 会话的 Plan/Do 工作模式（源：metadata.workMode 展平） */
   workMode?: WorkMode;
+  /** PR-3：会话级审批模式（源：metadata.approvalMode 展平；缺省 ask） */
+  approvalMode?: ApprovalMode;
   /** 会话的回复详略档（源：metadata.effortLevel 展平；未设置 ⇒ auto） */
   effortLevel?: ReplyEffortLevel;
   title: string;
@@ -60,6 +69,8 @@ export interface Session {
   /** 会话元数据（后端 DataSessionMetadata 投影） */
   metadata?: {
     workMode?: WorkMode;
+    /** PR-3：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
+    approvalMode?: ApprovalMode;
     roundCount?: number;
     rollbackCount?: number;
     isStreaming?: boolean;

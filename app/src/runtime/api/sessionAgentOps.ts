@@ -744,6 +744,8 @@ export class SessionAgentOps {
       workMode?: 'plan' | 'do';
       /** P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）⇒ 追加对应工具类别 */
       toolProfile?: string[];
+      /** PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
+      approvalMode?: 'ask' | 'auto-local';
     }
   ): Promise<void> {
     return this.deps.getSessionTitling().updateSessionMeta(sessionId, meta);

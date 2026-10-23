@@ -2,6 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { currentLocale } from "../../utils/format";
+// PR-3c（2026-10-23）：自动放行来源徽标（沙箱豁免 / 会话自动 / 全局信任）
+import {
+  APPROVAL_RULES,
+  APPROVAL_RULE_LABELS,
+  approvalRuleOf,
+  countApprovalRules,
+} from "../../utils/approvalRuleLabel";
 
 /**
  * 安全仪表盘
@@ -15,7 +22,16 @@ interface AuditEventSummary {
   riskLevel: string;
   truncatedResult: string;
   behavior: string;
+  /** PR-3c（2026-10-23）：事件来源（工具名 / CLI 参数） */
+  command?: string;
+  /** PR-3c：命中的规则（`approval:sandbox` / `approval:auto` / `approval:trust`） */
+  matchedRules?: string[];
 }
+
+/**
+ * PR-3c（2026-10-23）：自动放行来源徽标 —— 映射与判定在 `utils/approvalRuleLabel`
+ * （单独成模块以便 vitest 单测；数据来自后端 `matchedRules`）。
+ */
 
 interface SecurityStatus {
   /** 权限规则总数（A 体系 tool_rules.json） */
@@ -64,6 +80,32 @@ function SecurityDashboard() {
   const isDark = config.theme === "dark";
   const [status, setStatus] = useState<SecurityStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  /** PR-3c：近 N 条「自动放行」事件的来源分布 */
+  const [approvalBreakdown, setApprovalBreakdown] = useState<{
+    total: number;
+    byRule: Record<string, number>;
+  } | null>(null);
+  /** PR-3c：最近事件按「自动放行来源」筛选（`all` = 不筛选） */
+  const [ruleFilter, setRuleFilter] = useState<string>("all");
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          "/v1/security/audit-logs?decision=auto_allowed&limit=200",
+        );
+        if (!res.ok) return;
+        const events = (await res.json()) as Array<{ matchedRules?: string[] }>;
+        if (!cancelled) setApprovalBreakdown(countApprovalRules(events));
+      } catch {
+        // 审计不可用不影响仪表盘主视图
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
@@ -134,6 +176,13 @@ function SecurityDashboard() {
     Object.values(d.counts).reduce((a, b) => a + b, 0),
   );
   const maxTrendTotal = Math.max(0, ...trendTotals);
+
+  /** PR-3c：最近事件按「自动放行来源」筛选（`all` = 不筛选；无来源的事件只在 all 下出现） */
+  const filteredEvents = (status?.recentEvents ?? []).filter((event) =>
+    ruleFilter === "all"
+      ? true
+      : approvalRuleOf(event.matchedRules)?.rule === ruleFilter,
+  );
 
   return (
     <div
@@ -355,15 +404,67 @@ function SecurityDashboard() {
         </div>
       ) : null}
 
+      {/* PR-3c：自动放行来源分布（近端审计，最多 200 条） */}
+      {approvalBreakdown && approvalBreakdown.total > 0 && (
+        <div className={`${bgCard} border rounded-lg p-4`}>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className={`text-sm font-semibold ${textPrimary}`}>
+              {t("security.approvalBreakdown")}
+            </h2>
+            <span className={`text-xs ${textSecondary}`}>
+              {t("security.approvalBreakdownTotal", {
+                count: approvalBreakdown.total,
+              })}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {APPROVAL_RULES.map((rule) => (
+              <span
+                key={rule}
+                className={`text-xs px-2 py-0.5 rounded ${isDark ? "bg-emerald-900/40 text-emerald-300" : "bg-emerald-50 text-emerald-700"}`}
+              >
+                {t(APPROVAL_RULE_LABELS[rule])}：
+                {approvalBreakdown.byRule[rule] ?? 0}
+              </span>
+            ))}
+          </div>
+          <p className={`text-xs mt-2 ${textSecondary}`}>
+            {t("security.approvalBreakdownHint")}
+          </p>
+        </div>
+      )}
+
       {/* 最近审计事件 */}
       {status && status.recentEvents.length > 0 && (
         <div className={`${bgCard} border rounded-lg overflow-hidden`}>
           <div
-            className={`px-4 py-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
+            className={`px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2 ${isDark ? "border-gray-700" : "border-gray-200"}`}
           >
             <h2 className={`text-sm font-semibold ${textPrimary}`}>
               {t("security.recentEvents")}
             </h2>
+            {/* PR-3c：按「自动放行来源」筛选最近事件 */}
+            <div className="flex flex-wrap gap-1">
+              {["all", ...APPROVAL_RULES].map((rule) => (
+                <button
+                  key={rule}
+                  onClick={() => setRuleFilter(rule)}
+                  className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                    ruleFilter === rule
+                      ? isDark
+                        ? "bg-emerald-900/40 border-emerald-600 text-emerald-300"
+                        : "bg-emerald-50 border-emerald-500 text-emerald-700"
+                      : isDark
+                        ? "border-gray-600 text-gray-300 hover:border-gray-500"
+                        : "border-gray-300 text-gray-700 hover:border-gray-400"
+                  }`}
+                >
+                  {rule === "all"
+                    ? t("security.ruleFilterAll")
+                    : t(APPROVAL_RULE_LABELS[rule])}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className={`w-full text-sm ${textPrimary}`}>
@@ -384,7 +485,17 @@ function SecurityDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {status.recentEvents.map((event) => (
+                {filteredEvents.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      className={`px-4 py-3 text-xs ${textSecondary}`}
+                    >
+                      {t("security.ruleFilterEmpty")}
+                    </td>
+                  </tr>
+                )}
+                {filteredEvents.map((event) => (
                   <tr
                     key={event.id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -394,8 +505,25 @@ function SecurityDashboard() {
                         currentLocale(),
                       )}
                     </td>
-                    <td className="px-4 py-2 max-w-md truncate font-mono text-xs">
-                      {event.truncatedResult}
+                    <td className="px-4 py-2 max-w-md text-xs">
+                      <div className="flex items-center gap-2">
+                        {/* PR-3c：自动放行来源徽标（沙箱豁免 / 会话自动 / 全局信任） */}
+                        {(() => {
+                          const rule = approvalRuleOf(event.matchedRules);
+                          if (!rule) return null;
+                          return (
+                            <span
+                              className={`shrink-0 px-1.5 py-0.5 rounded ${isDark ? "bg-emerald-900/40 text-emerald-300" : "bg-emerald-50 text-emerald-700"}`}
+                              title={rule.rule}
+                            >
+                              {t(rule.labelKey)}
+                            </span>
+                          );
+                        })()}
+                        <span className="truncate font-mono">
+                          {event.truncatedResult}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap">
                       <span

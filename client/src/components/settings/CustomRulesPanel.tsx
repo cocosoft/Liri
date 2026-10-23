@@ -9,6 +9,7 @@ import {
 import { httpLegacy as http } from "../../services/httpClient";
 import { handleClientError } from "../../utils/handleError";
 import SafetyPositionBanner from "./SafetyPositionBanner";
+import ToolRulesSection from "./ToolRulesSection";
 
 /** 命令规则 */
 interface CommandRule {
@@ -47,13 +48,17 @@ interface CustomRulesPanelProps {
 }
 
 type RuleTab =
-  "command-blacklist" | "command-whitelist" | "dir-blacklist" | "dir-whitelist";
+  "command-blacklist" | "command-whitelist" | "dir-blacklist" | "tools";
 
 const RULE_TABS: { id: RuleTab; labelKey: string }[] = [
   { id: "command-blacklist", labelKey: "settings.rulesTabCommandBlacklist" },
   { id: "command-whitelist", labelKey: "settings.rulesTabCommandWhitelist" },
   { id: "dir-blacklist", labelKey: "settings.rulesTabDirBlacklist" },
-  { id: "dir-whitelist", labelKey: "settings.rulesTabDirWhitelist" },
+  // PR-2（2026-10-23）：**目录白名单入口已摘除**（方案 §3.7.2 二选一）。
+  // 现状 `directoryRules.whitelist` 全仓无读取点（只写不读）⇒ 留着就是"假开关"；
+  // 接线属安全语义变更（需产品拍板），本轮不给入口，存量数据原样保留、不参与判定。
+  // PR-2（2026-10-23）：工具级 allow / ask / deny 名单 + 「始终允许」撤销
+  { id: "tools", labelKey: "settings.rulesTabTools" },
 ];
 
 function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
@@ -140,13 +145,6 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
           ...next.directoryRules,
           blacklist: [...list, { path: trimmed }],
         };
-      } else if (activeTab === "dir-whitelist") {
-        const list = next.directoryRules?.whitelist || [];
-        if (list.some((r) => r.path === trimmed)) return prev;
-        next.directoryRules = {
-          ...next.directoryRules,
-          whitelist: [...list, { path: trimmed }],
-        };
       }
       return next;
     });
@@ -176,12 +174,6 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
           ...next.directoryRules,
           blacklist: list.filter((_, i) => i !== index),
         };
-      } else if (activeTab === "dir-whitelist") {
-        const list = next.directoryRules?.whitelist || [];
-        next.directoryRules = {
-          ...next.directoryRules,
-          whitelist: list.filter((_, i) => i !== index),
-        };
       }
       return next;
     });
@@ -197,9 +189,6 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
     }
     if (activeTab === "dir-blacklist") {
       return (config.directoryRules?.blacklist || []).map((r) => r.path);
-    }
-    if (activeTab === "dir-whitelist") {
-      return (config.directoryRules?.whitelist || []).map((r) => r.path);
     }
     return [];
   };
@@ -227,26 +216,28 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
         relation={t("settings.rulesBannerRelation")}
         isDark={isDark}
       />
-      {/* 命令模式选择 */}
-      <ConfigItem label={t("settings.rulesCommandMode")} isDark={isDark}>
-        <SelectConfig
-          isDark={isDark}
-          value={config.commandRules?.mode || "blacklist"}
-          onChange={(value) =>
-            setConfig({
-              ...config,
-              commandRules: {
-                ...config.commandRules,
-                mode: value as "whitelist" | "blacklist",
-              },
-            })
-          }
-          options={[
-            { value: "blacklist", label: t("settings.rulesModeBlacklist") },
-            { value: "whitelist", label: t("settings.rulesModeWhitelist") },
-          ]}
-        />
-      </ConfigItem>
+      {/* 命令模式选择（仅命令 tab 有意义；「工具」tab 自带 allow/ask/deny 语义） */}
+      {activeTab !== "tools" && (
+        <ConfigItem label={t("settings.rulesCommandMode")} isDark={isDark}>
+          <SelectConfig
+            isDark={isDark}
+            value={config.commandRules?.mode || "blacklist"}
+            onChange={(value) =>
+              setConfig({
+                ...config,
+                commandRules: {
+                  ...config.commandRules,
+                  mode: value as "whitelist" | "blacklist",
+                },
+              })
+            }
+            options={[
+              { value: "blacklist", label: t("settings.rulesModeBlacklist") },
+              { value: "whitelist", label: t("settings.rulesModeWhitelist") },
+            ]}
+          />
+        </ConfigItem>
+      )}
 
       {/* Tab 导航 */}
       <div className="flex gap-1 py-2">
@@ -267,100 +258,106 @@ function CustomRulesPanel({ isDark }: CustomRulesPanelProps) {
         ))}
       </div>
 
-      {/* 添加输入 */}
-      <div className="flex items-center gap-2 py-2">
-        <div className="flex-1">
-          <TextConfig
-            isDark={isDark}
-            value={newItem}
-            onChange={setNewItem}
-            placeholder={getInputPlaceholder()}
-          />
-        </div>
-        <button
-          onClick={addItem}
-          disabled={!newItem.trim()}
-          className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {t("settings.rulesAdd")}
-        </button>
-      </div>
-
-      {/* 规则列表 */}
-      {getCurrentList().length === 0 ? (
-        <div
-          className={`py-3 px-3 rounded-lg text-xs space-y-1.5 ${isDark ? "bg-gray-800/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}
-        >
-          <p className="font-medium">
-            {t("settings.rulesEmpty", {
-              type: t(
-                activeTab.includes("command")
-                  ? "settings.rulesEmptyCommand"
-                  : "settings.rulesEmptyDir",
-              ),
-            })}
-          </p>
-          {activeTab === "command-blacklist" && (
-            <p>
-              {t("settings.rulesHintCmdBlacklistPrefix")}
-              <code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">
-                rm -rf
-              </code>
-              {t("settings.rulesHintCmdBlacklistSuffix")}
-            </p>
-          )}
-          {activeTab === "command-whitelist" && (
-            <p>{t("settings.rulesHintCmdWhitelist")}</p>
-          )}
-          {activeTab === "dir-blacklist" && (
-            <p>
-              {t("settings.rulesHintDirBlacklistPrefix")}
-              <code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">
-                /etc
-              </code>
-              {t("settings.rulesHintDirBlacklistSuffix")}
-            </p>
-          )}
-          {activeTab === "dir-whitelist" && (
-            <p>{t("settings.rulesHintDirWhitelist")}</p>
-          )}
-        </div>
+      {/* PR-2：「工具」tab 走即时落盘（tool_rules.json），不使用下方的整块保存 */}
+      {activeTab === "tools" ? (
+        <ToolRulesSection isDark={isDark} />
       ) : (
-        <div className="max-h-48 overflow-y-auto space-y-1">
-          {getCurrentList().map((item, i) => (
-            <div
-              key={i}
-              className={`flex items-center justify-between px-3 py-1.5 rounded text-sm ${
-                isDark ? "bg-gray-700" : "bg-gray-50"
-              }`}
-            >
-              <code className="text-xs break-all flex-1">{item}</code>
-              <button
-                onClick={() => removeItem(i)}
-                className="text-red-400 hover:text-red-600 text-xs ml-2 shrink-0"
-                aria-label={t("common.delete")}
-              >
-                {t("common.delete")}
-              </button>
+        <>
+          {/* 添加输入 */}
+          <div className="flex items-center gap-2 py-2">
+            <div className="flex-1">
+              <TextConfig
+                isDark={isDark}
+                value={newItem}
+                onChange={setNewItem}
+                placeholder={getInputPlaceholder()}
+              />
             </div>
-          ))}
-        </div>
-      )}
+            <button
+              onClick={addItem}
+              disabled={!newItem.trim()}
+              className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {t("settings.rulesAdd")}
+            </button>
+          </div>
 
-      {/* 保存按钮 */}
-      <div className="pt-3 flex items-center gap-3">
-        <button
-          onClick={saveConfig}
-          disabled={loading}
-          className="px-4 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-        >
-          {loading ? t("settings.saving") : t("settings.wsSaveConfig")}
-        </button>
-        {saved && (
-          <span className="text-xs text-green-500">{t("settings.saved")}</span>
-        )}
-        {error && <span className="text-xs text-red-500">{error}</span>}
-      </div>
+          {/* 规则列表 */}
+          {getCurrentList().length === 0 ? (
+            <div
+              className={`py-3 px-3 rounded-lg text-xs space-y-1.5 ${isDark ? "bg-gray-800/50 text-gray-400" : "bg-gray-50 text-gray-500"}`}
+            >
+              <p className="font-medium">
+                {t("settings.rulesEmpty", {
+                  type: t(
+                    activeTab.includes("command")
+                      ? "settings.rulesEmptyCommand"
+                      : "settings.rulesEmptyDir",
+                  ),
+                })}
+              </p>
+              {activeTab === "command-blacklist" && (
+                <p>
+                  {t("settings.rulesHintCmdBlacklistPrefix")}
+                  <code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">
+                    rm -rf
+                  </code>
+                  {t("settings.rulesHintCmdBlacklistSuffix")}
+                </p>
+              )}
+              {activeTab === "command-whitelist" && (
+                <p>{t("settings.rulesHintCmdWhitelist")}</p>
+              )}
+              {activeTab === "dir-blacklist" && (
+                <p>
+                  {t("settings.rulesHintDirBlacklistPrefix")}
+                  <code className="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700">
+                    /etc
+                  </code>
+                  {t("settings.rulesHintDirBlacklistSuffix")}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="max-h-48 overflow-y-auto space-y-1">
+              {getCurrentList().map((item, i) => (
+                <div
+                  key={i}
+                  className={`flex items-center justify-between px-3 py-1.5 rounded text-sm ${
+                    isDark ? "bg-gray-700" : "bg-gray-50"
+                  }`}
+                >
+                  <code className="text-xs break-all flex-1">{item}</code>
+                  <button
+                    onClick={() => removeItem(i)}
+                    className="text-red-400 hover:text-red-600 text-xs ml-2 shrink-0"
+                    aria-label={t("common.delete")}
+                  >
+                    {t("common.delete")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 保存按钮 */}
+          <div className="pt-3 flex items-center gap-3">
+            <button
+              onClick={saveConfig}
+              disabled={loading}
+              className="px-4 py-1.5 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+            >
+              {loading ? t("settings.saving") : t("settings.wsSaveConfig")}
+            </button>
+            {saved && (
+              <span className="text-xs text-green-500">
+                {t("settings.saved")}
+              </span>
+            )}
+            {error && <span className="text-xs text-red-500">{error}</span>}
+          </div>
+        </>
+      )}
     </ConfigSection>
   );
 }

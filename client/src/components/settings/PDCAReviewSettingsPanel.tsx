@@ -43,6 +43,8 @@ function PDCAReviewSettingsPanel() {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  /** PR-5：关闭审查门需**二次确认**（无质量门会让"假完成"直接通过） */
+  const [pendingDisable, setPendingDisable] = useState(false);
 
   useEffect(() => {
     configService
@@ -99,14 +101,64 @@ function PDCAReviewSettingsPanel() {
               <SelectConfig
                 isDark={isDark}
                 value={cfg.mode}
-                onChange={(mode) =>
-                  setCfg({ ...cfg, mode: mode as PDCAReviewConfig["mode"] })
-                }
+                onChange={(mode) => {
+                  // PR-5：切到「关闭」不立即生效 —— 先确认（其余模式即时切换）
+                  if (mode === "disabled" && cfg.mode !== "disabled") {
+                    setPendingDisable(true);
+                    return;
+                  }
+                  setCfg({ ...cfg, mode: mode as PDCAReviewConfig["mode"] });
+                }}
                 options={MODE_OPTIONS.map((o) => ({
                   value: o.value,
                   label: t(o.labelKey),
                 }))}
               />
+            </ConfigItem>
+
+            {pendingDisable && (
+              <div className="mx-3 my-2 rounded border border-amber-400/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                <p className="font-medium">
+                  {t("settings.pdcaDisableConfirmTitle")}
+                </p>
+                <p className="mt-1">{t("settings.pdcaDisableConfirmBody")}</p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCfg({ ...cfg, mode: "disabled" });
+                      setPendingDisable(false);
+                    }}
+                    className="rounded bg-amber-500 px-2 py-0.5 font-medium text-white hover:bg-amber-600"
+                  >
+                    {t("settings.pdcaDisableConfirm")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingDisable(false)}
+                    className="rounded px-2 py-0.5 text-gray-600 hover:text-gray-800 dark:text-gray-300"
+                  >
+                    {t("common.cancel")}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {disabled && !pendingDisable && (
+              <p className="mx-3 my-2 rounded bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                {t("settings.pdcaDisabledWarn")}
+              </p>
+            )}
+
+            {/* PR-5：审查模型（当前与执行共用；独立 review 任务模型属待配置项） */}
+            <ConfigItem
+              label={t("settings.pdcaReviewModel")}
+              description={t("settings.pdcaReviewModelDesc")}
+              isDark={isDark}
+            >
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {t("settings.pdcaReviewModelShared")}
+              </span>
             </ConfigItem>
 
             <ConfigItem

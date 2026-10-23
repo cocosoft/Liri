@@ -18,7 +18,8 @@ import LlamaConfigPanel from "../settings/LlamaConfigPanel";
 import OllamaConfigPanel from "../settings/OllamaConfigPanel";
 import OfficeProjectSettingsPanel from "../settings/OfficeProjectSettingsPanel";
 import NotificationsPanel from "../settings/NotificationsPanel";
-import TrustedWorkspacesPanel from "../settings/TrustedWorkspacesPanel";
+// PR-3c（2026-10-23）：「信任与隔离」合并页（信任工作区 + 沙箱 + 自动放行审计）
+import TrustIsolationPanel from "../settings/TrustIsolationPanel";
 import CustomRulesPanel from "../settings/CustomRulesPanel";
 import VoiceSettings from "../settings/VoiceSettings";
 import KnowledgeIngestPanel from "../settings/KnowledgeIngestPanel";
@@ -127,7 +128,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       {
         id: "trusted-workspaces",
-        labelKey: "settings.trustedWorkspaces",
+        labelKey: "settings.trustIsolation",
         icon: FolderOpenIcon,
       },
       {
@@ -829,7 +830,7 @@ function SettingsPage() {
       case "user":
         return <UserPanel isDark={isDark} />;
       case "trusted-workspaces":
-        return <TrustedWorkspacesPanel isDark={isDark} />;
+        return <TrustIsolationPanel isDark={isDark} />;
       case "custom-rules":
         return <CustomRulesPanel isDark={isDark} />;
       case "estop":

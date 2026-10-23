@@ -35,6 +35,8 @@
  */
 
 import type {
+  SharedShadowToolDisposition,
+  SharedShadowToolReason,
   SharedToolVisibilityEntry,
   SharedToolVisibilityReason,
 } from "@shared/types";
@@ -98,24 +100,49 @@ export function primaryReasonOf(
   return null;
 }
 
-/** 状态分组（`on` = 用户强制开启且**确实生效**） */
-export type ToolVisibilityGroupId = "on" | "default" | "off" | "hidden";
+/** 状态分组（`on` = 用户强制开启且**确实生效**；`unwired` = 未进生效工具面，PR-4） */
+export type ToolVisibilityGroupId =
+  | "on"
+  | "default"
+  | "off"
+  | "hidden"
+  | "unwired";
 
 /**
  * 分组判据（**派生**；顺序即优先级）。
  *
- * ⚠️ `overrides[name] === 'on'` 但 `effective === 'hidden'`（未进生效工具面）⇒ 归 `hidden`：
- * 面板必须如实显示"开了但本构建不支持"，不得显示为已开启（方案 §8 边界 ②）。
+ * ⚠️ `conditional`（未进生效工具面）**优先归 `unwired`**（PR-4）：该组不渲染三态开关、
+ * 只展示"未接线原因 + 处置方向"，避免用户对着一个永远无效的开关点来点去（假开关）。
  */
 export function groupOf(
   entry: SharedToolVisibilityEntry,
   overrides: ToolVisibilityOverrides,
 ): ToolVisibilityGroupId {
+  if (entry.registration === "conditional") return "unwired";
   const value = overrideValueOf(overrides, entry.name);
   if (value === "on") return entry.effective === "visible" ? "on" : "hidden";
   if (value === "off") return "off";
   return entry.effective === "visible" ? "default" : "hidden";
 }
+
+/** PR-4：影子工具"未接线原因" → i18n key（`Record` 穷尽，新增取值即编译失败） */
+export const SHADOW_REASON_KEYS: Record<SharedShadowToolReason, string> = {
+  stub: "settings.toolsShadowReasonStub",
+  duplicate: "settings.toolsShadowReasonDuplicate",
+  "awaiting-provider": "settings.toolsShadowReasonAwaitingProvider",
+  "needs-rewrite": "settings.toolsShadowReasonNeedsRewrite",
+};
+
+/** PR-4：影子工具"处置方向" → i18n key */
+export const SHADOW_DISPOSITION_KEYS: Record<
+  SharedShadowToolDisposition,
+  string
+> = {
+  retire: "settings.toolsShadowDispositionRetire",
+  rewrite: "settings.toolsShadowDispositionRewrite",
+  "awaiting-provider": "settings.toolsShadowDispositionAwaitingProvider",
+  wired: "settings.toolsShadowDispositionWired",
+};
 
 /** 取某工具的覆写值（缺省 = `auto`） */
 export function overrideValueOf(

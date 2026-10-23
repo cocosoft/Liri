@@ -117,6 +117,9 @@ export async function handleSecurityDashboard(
       riskLevel: event.riskLevel,
       truncatedResult: event.truncatedResult,
       behavior: event.behavior,
+      // PR-3c（2026-10-23）：暴露来源/命中规则 ⇒ 前端可标出「沙箱豁免 / 会话自动 / 全局信任」
+      command: event.command,
+      matchedRules: event.matchedRules,
     }));
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });

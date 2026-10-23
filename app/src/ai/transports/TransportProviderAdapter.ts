@@ -16,6 +16,8 @@
  *   }
  */
 import type { BaseTransport } from './BaseTransport';
+import { getLogger } from '@modules/monitoring';
+import { parseModelJsonObject } from '../../utils/json';
 import type {
   NormalizedResponse,
   NormalizedToolCall,
@@ -28,6 +30,8 @@ import type {
   ToolDefinition,
   ParsedToolCall,
 } from '../models/types';
+
+const logger = getLogger('ai:transports:adapter');
 
 /**
  * 将 Provider 的 ToolDefinition[] 转换为 Transport 的 tool 格式
@@ -64,13 +68,20 @@ function extractMessages(messages: ChatMessage[]): Array<{
  * 将 NormalizedToolCall 转换为 Provider 的 ParsedToolCall
  */
 function toParsedToolCall(tc: NormalizedToolCall): ParsedToolCall {
-  let args: Record<string, unknown>;
-  try {
-    args = JSON.parse(tc.arguments);
-  } catch {
-    args = {};
+  // 2026-10-22：解析失败**不再静默兜底** —— 原先 `catch { args = {} }` 把"参数 JSON 非法/
+  // 被截断"变成"参数为空"，下游只看到缺参（实测：`file_write` 连报
+  // `The "path" property must be of type string, got undefined`，日志里毫无线索）。
+  // 先走共享修复链（Windows 单反斜杠等非法转义可救回）；确实救不回才 warn + 空参数。
+  const args = parseModelJsonObject(tc.arguments);
+  if (!args) {
+    logger.warn('工具调用参数 JSON 无法解析，按空参数继续', {
+      toolName: tc.name,
+      toolCallId: tc.id,
+      rawLength: tc.arguments?.length ?? 0,
+      rawPreview: (tc.arguments ?? '').slice(0, 200),
+    });
   }
-  return { id: tc.id, name: tc.name, arguments: args };
+  return { id: tc.id, name: tc.name, arguments: args ?? {} };
 }
 
 /**

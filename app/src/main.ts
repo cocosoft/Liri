@@ -49,6 +49,8 @@ import {
   parseMaintenanceCommand,
   runMaintenanceCommand,
 } from './cli/maintenanceCommand';
+// Q-31 / §9-17（2026-10-23）：`--trust-level` 解析 + 二次确认（外移守 R04-001 行数上限）
+import { parseTrustLevelFromArgs } from './cli/trustLevelArgs';
 import {
   startKeychainPrefetch,
   ensureKeychainPrefetchCompleted,
@@ -778,31 +780,6 @@ function parseModelFromArgs(args?: string[]): string | undefined {
     }
     if (args[i].startsWith('--model=')) {
       return args[i].split('=')[1];
-    }
-  }
-
-  return undefined;
-}
-
-/**
- * 从命令行参数中解析 --trust-level 值
- * 用于场景选择联动：聊天(chat)/工作(work)/开发(development)
- */
-function parseTrustLevelFromArgs(args?: string[]): string | undefined {
-  if (!args) return undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--trust-level' && i + 1 < args.length) {
-      const level = args[i + 1].toLowerCase();
-      if (['chat', 'work', 'development'].includes(level)) {
-        return level;
-      }
-    }
-    if (args[i].startsWith('--trust-level=')) {
-      const level = args[i].split('=')[1].toLowerCase();
-      if (['chat', 'work', 'development'].includes(level)) {
-        return level;
-      }
     }
   }
 

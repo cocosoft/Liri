@@ -138,6 +138,59 @@ export const UNPROVABLE_CRITERIA_PATTERNS: ReadonlyArray<{
 ];
 
 /**
+ * 验收标准的**"仅形式命中"黑名单**（PR-5，2026-10-23）。
+ *
+ * 与"不可证"不同：这些条件**可证**，但**浅到骨架稿也能满足**（方案 §3.10.5 R5）——
+ * 真机实证：step_8 写出「grep 命中 ≥1 行」，全篇【待补充】的骨架 PRD 也能通过（score 72 仍
+ * escalate，靠目标级评估兜底）。要求至少一条**内容判据**（具体值 / 字段 / 结构）。
+ *
+ * 保守口径：只在**整条**都只是形式命中、且不含任何"具体内容"标记（引号/等于/包含具体值）时命中。
+ */
+export const FORM_ONLY_CRITERIA_PATTERNS: ReadonlyArray<{
+  re: RegExp;
+  why: string;
+}> = [
+  {
+    re: /(grep|rg)[^，。;；]{0,30}(命中|匹配)[^，。;；]{0,10}(≥|>=|大于等于)?\s*\d+\s*(行|条)?/i,
+    why: '只要求"检索命中条数"：空壳/骨架内容也能命中，未判内容',
+  },
+  {
+    re: /(输出|结果|内容)?\s*(非空|不为空|不是空的)/,
+    why: '只要求"非空"：任意占位内容都满足',
+  },
+  {
+    re: /(退出码|exit\s*code|返回码)\s*(为|=|等于)?\s*0/i,
+    why: '只要求"命令成功"：不校验产物内容',
+  },
+  {
+    re: /^[^，。;；]{0,20}(文件|目录|产物)\s*(已)?(存在|创建成功|生成成功)[^，。;；]{0,6}$/,
+    why: '只要求"文件存在"：不校验内容是否有效',
+  },
+];
+
+/** 是否包含"具体内容判据"标记（引号包裹的字面量、等于/包含某具体值） */
+function hasConcreteContent(text: string): boolean {
+  return (
+    /["'「『][^"'」』]{1,}["'」』]/.test(text) ||
+    /(等于|等于字符串|内容为|包含|字段|结构|JSON|如下|格式为)/.test(text)
+  );
+}
+
+/**
+ * 找出**仅形式命中**的验收标准条目（需向 planner 发起一次内容化纠正）。
+ *
+ * 返回命中的原文条目；空数组 = 未发现"形式化"条目。
+ */
+export function findFormOnlyCriteria(items: readonly string[]): string[] {
+  return items.filter((raw) => {
+    const text = String(raw ?? '').trim();
+    if (!text) return false;
+    if (hasConcreteContent(text)) return false;
+    return FORM_ONLY_CRITERIA_PATTERNS.some(({ re }) => re.test(text));
+  });
+}
+
+/**
  * 找出**超出"工具输出可直接证明"范围**的验收标准条目（保守匹配，见上方黑名单）。
  *
  * 语义：返回命中的原文条目（便于提示词反馈与日志定位）；**空数组 = 全部可证**。

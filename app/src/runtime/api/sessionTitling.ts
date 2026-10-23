@@ -380,6 +380,8 @@ export class SessionTitling {
       workMode?: 'plan' | 'do';
       /** P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）⇒ 追加对应工具类别 */
       toolProfile?: string[];
+      /** PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
+      approvalMode?: 'ask' | 'auto-local';
     }
   ): Promise<void> {
     // M1-T1.3（2026-08-31）：pinned 仅改列表分组标记，**不 touch updatedAt**——
@@ -394,7 +396,9 @@ export class SessionTitling {
       meta.providerId !== undefined ||
       meta.tasksOverride !== undefined ||
       meta.workMode !== undefined ||
-      meta.toolProfile !== undefined;
+      meta.toolProfile !== undefined ||
+      // PR-3：审批模式属"配置类"字段（改变后续轮次的授权行为）
+      meta.approvalMode !== undefined;
     const shouldTouchUpdatedAt = hasMetaField;
 
     // 1. 更新内存中的会话 metadata
@@ -415,6 +419,8 @@ export class SessionTitling {
         session.metadata.workMode = meta.workMode;
       if (meta.toolProfile !== undefined)
         session.metadata.toolProfile = meta.toolProfile;
+      if (meta.approvalMode !== undefined)
+        session.metadata.approvalMode = meta.approvalMode;
       if (shouldTouchUpdatedAt) session.updatedAt = new Date();
     }
 
@@ -438,6 +444,8 @@ export class SessionTitling {
             storedSession.metadata.workMode = meta.workMode;
           if (meta.toolProfile !== undefined)
             storedSession.metadata.toolProfile = meta.toolProfile;
+          if (meta.approvalMode !== undefined)
+            storedSession.metadata.approvalMode = meta.approvalMode;
           await gateway.updateSession(storedSession);
         }
       }

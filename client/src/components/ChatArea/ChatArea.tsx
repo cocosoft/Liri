@@ -23,6 +23,8 @@ import RoundNavigator from "./RoundNavigator";
 import StatusFloatBar from "./StatusFloatBar";
 // N-45：会话级"已让出 / 等待结算"提示条（读会话运行态，不经消息管道）
 import YieldNoticeBar from "./YieldNoticeBar";
+// PR-3c（2026-10-23）：全局信任级别常驻提示（配置了 defaultTrustLevel 时才出现）
+import GlobalTrustNoticeBar from "./GlobalTrustNoticeBar";
 // PC-2（2026-10-07）：会话级"被抢占 / 排队中"提示条（后端 SSE `system:resource_governor`）
 import ResourceGovernanceNoticeBar from "./ResourceGovernanceNoticeBar";
 // X11（2026-10-05）：会话级「目标条」（`task_goals`；与 PDCA `/goal` 分治，见 goal-entity.md §D6）
@@ -810,6 +812,8 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
 
       {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
       <div className="shrink-0 flex flex-col bg-gray-50 dark:bg-gray-900">
+        {/* PR-3c：全局信任级别常驻提示（仅当配置了 defaultTrustLevel 时显示） */}
+        <GlobalTrustNoticeBar fluid={fluid} />
         {/* N-45：会话级"已让出但未能自动恢复"告警（`waiting` 已迁入浮动栏，见 useWaitState） */}
         <YieldNoticeBar fluid={fluid} unresolved={wait.unresolved} />
         {/* PC-2：会话级"被更高优先级任务抢占 / 排队等待中"提示（后端 SSE 下发） */}

@@ -28,6 +28,8 @@ import type { VerifierAgent } from '@modules/query';
 import type { PlanStep } from '../TaskOrchestrator.js';
 import type { ExecutorFn } from '../lro/contracts.js';
 import { normalizeExecutorResult } from '../lro/contracts.js';
+// PR-5（2026-10-23）：把步骤的结构化工具结局投给 Reviewer/Verifier
+import { formatToolOutcomeSummary } from '../lro/stepHelpers.js';
 
 const logger = getLogger('tasks:reviewGate');
 
@@ -230,7 +232,16 @@ export class DefaultReviewGate implements ReviewGate {
     const verifyText = this.config.enableMechanicalVerify
       ? await this._mechanicalVerifyOnce()
       : '';
-    const reviewPrompt = await buildReviewPrompt(step, verifyText);
+    // PR-5：结构化工具结局（失败/拦截/待审批）—— 只写事实，供审查员区分"没做"与"不让做"
+    const outcomeText = step.toolOutcomes
+      ? formatToolOutcomeSummary(step.toolOutcomes)
+      : '';
+    const reviewPrompt = [
+      await buildReviewPrompt(step, verifyText),
+      outcomeText,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
 
     const reviewText = normalizeExecutorResult(
       await executor({
@@ -246,6 +257,24 @@ export class DefaultReviewGate implements ReviewGate {
     ).content;
 
     const review = parseReviewFromText(reviewText, step.id);
+
+    // PR-5：`success=false` 的工具调用**直接**构成阻塞 issue（不依赖 LLM 是否看出来）；
+    // 待审批（未执行）不加阻塞项 —— 它由 `decide` 转 `suspend`。
+    const failedOutcomes = (step.toolOutcomes?.outcomes ?? []).filter(
+      (o) => !o.success && !o.pendingApproval && !!o.error
+    );
+    if (failedOutcomes.length > 0) {
+      review.pass = false;
+      review.issues.push({
+        severity: 'major',
+        description: `工具调用失败：${failedOutcomes
+          .map(
+            (o) =>
+              `${o.toolName}${o.error ? `（${o.error.slice(0, 120)}）` : ''}`
+          )
+          .join('；')}`,
+      });
+    }
 
     // VerifierAgent 双指标验证（REJECT / ESCALATE 覆盖 Reviewer 判定）
     if (this.config.enableVerifier) {
@@ -326,6 +355,10 @@ export class DefaultReviewGate implements ReviewGate {
    */
   async decide(ctx: ReviewGateContext): Promise<ReviewDecision> {
     const { step } = ctx;
+    // PR-5（2026-10-23）：有工具调用**正在等人工审批** ⇒ 挂起等待（不算失败、不重试）。
+    // 必须放在"未通过 ⇒ retry"之前，否则"等审批"会被当成"未达成"反复重试。
+    if ((step.toolOutcomes?.pendingApproval ?? 0) > 0) return 'suspend';
+
     const review = step.reviewResult;
     // 优先步骤自身 maxRetries（与 Orchestrator 原逻辑一致），否则用门配置
     const maxRetries = step.maxRetries ?? this.config.maxRetries;

@@ -5,7 +5,12 @@ export type { ApiError, ApiResponse } from "./system";
 export { isApiResponse, unwrapApiResponse } from "./system";
 
 // ─── 核心业务类型 ───
-export type { Session, WorkMode, ReplyEffortLevel } from "./session";
+export type {
+  Session,
+  WorkMode,
+  ApprovalMode,
+  ReplyEffortLevel,
+} from "./session";
 
 // ─── 事件溯源（M1） ───
 export type {

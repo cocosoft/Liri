@@ -6,10 +6,17 @@ export interface PermissionRule {
   behavior: "allow" | "deny" | "ask";
   toolName: string;
   contentPattern?: string;
+  /** PR-2：「始终允许」档的参数指纹摘要（存在 ⇒ 该规则只对同一指纹生效） */
+  inputFingerprint?: string;
   source: string;
   priority: number;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  /**
+   * PR-2：settings 文件来源的规则（只读合并视图）。
+   * 真实来源在 settings 文件里，面板只展示、不可经 `tool_rules.json` 接口删除。
+   */
+  readOnly?: boolean;
 }
 
 export interface PermissionRulesSummary {

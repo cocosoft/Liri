@@ -8,6 +8,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { resolveSandboxExecutionSignal } from '@modules/sandbox';
 import { globalToolManager } from '../../tools/index.js';
 import type { ToolUseContext } from '../../tools/types/Tool.js';
 import type { TaskMessage } from './contracts.js';
@@ -47,6 +48,9 @@ export function createToolContext(params: {
   return {
     abortController: params.abortController,
     sessionId: params.sessionId ?? undefined,
+    // PR-3a（2026-10-23）：注入本次执行的沙箱信号（PR-3b 的豁免判定与审批卡证据共用）。
+    // 无隔离证据时 `mode: 'none'` ⇒ fail-closed，不会被当成"沙箱内已放行"。
+    sandbox: resolveSandboxExecutionSignal(),
     options: {
       commands: [],
       debug: false,

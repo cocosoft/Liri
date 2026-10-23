@@ -95,6 +95,63 @@ export type ToolRiskLevel = SharedToolRiskLevel;
 export type ToolSandboxLevel = 'none' | 'readonly' | 'file-io' | 'execution';
 
 /**
+ * 本次执行的**沙箱模式**（PR-3a，2026-10-23）。
+ *
+ * - `landlock`：Linux Landlock 域内执行（`sandbox/landlock`，FS/网络白名单受限）；
+ * - `container`：容器内执行（Docker 适配器）；
+ * - `ssh` / `pty`：远端或伪终端沙箱；
+ * - `none`：**无隔离证据**（含"开关关闭"与"能力不可用"）。
+ *
+ * ⚠️ 本层（infra）不 import `sandbox/`（app）⇒ 取值在此声明，由 `sandbox/` 侧做同值映射。
+ */
+export type SandboxExecutionMode =
+  | 'landlock'
+  | 'container'
+  | 'ssh'
+  | 'pty'
+  | 'none';
+
+/** 沙箱权限位（与 `sandbox.permissionLevel` 取值一致：`readonly` < `standard` < `full`） */
+export type SandboxPermissionLevel = 'readonly' | 'standard' | 'full';
+
+/**
+ * 本次执行的沙箱上下文信号（PR-3a）。
+ *
+ * 值来自**执行入口**（配置 + 平台 + 适配器事实），不来自工具名猜测（CS02）。
+ */
+export interface SandboxExecutionSignal {
+  mode: SandboxExecutionMode;
+  permissionLevel: SandboxPermissionLevel;
+  /**
+   * 方案 A（2026-10-23）：**文件 IO 是否可证落在隔离环境内**。
+   *
+   * `mode` 只说明"环境具备隔离能力"（Landlock 仅包住命令子进程）；文件类工具走宿主
+   * `node:fs` ⇒ 必须有独立证据。当前唯一来源 = 默认工作区适配器为 `container`/`ssh`
+   * （`WorkspaceBase.isolationMode()`）。缺省/`false` ⇒ 文件类能力**不豁免**。
+   */
+  fileIoIsolated?: boolean;
+}
+
+/**
+ * 工具**风险类别声明**（PR-0，2026-10-23）。
+ *
+ * 取值与 `permission/types/RiskClass.ts` 的 `RiskClass` 枚举**逐字一致**（字符串联合在此声明，
+ * 避免 `utils → app/permission` 的分层倒挂；permission 侧做同值映射）。
+ *
+ * 优先级（由 `tools/toolRiskClass.ts` 统一解析）：
+ *   `riskClassFor(input)` > `riskClass` > 结构化派生（`TOOL_EFFECTS` + `sandboxLevel`）> 未声明
+ *
+ * ⚠️ 不允许再用**工具名关键词**猜风险（CS02）；`inferRiskClass` 仅作过渡兜底。
+ */
+export type ToolRiskClass =
+  | 'read'
+  | 'write'
+  | 'shell'
+  | 'external'
+  | 'discuss'
+  | 'undeclared';
+
+/**
  * 工具**能力/风险描述符**（D5 复用既有元数据的**单一形态**）。
  *
  * 派生实现见 `tools/toolCapability.ts` 的纯函数 `deriveFromLegacyEffects()`
@@ -215,6 +272,11 @@ export interface ToolInfo {
    */
   sandboxLevel?: ToolSandboxLevel;
   /**
+   * PR-0（2026-10-23）：风险类别（声明值；未声明时由结构化派生，见 `tools/toolRiskClass.ts`）。
+   * 供设置页「工具与命令」分组与 `GET /v1/tools` 展示。
+   */
+  riskClass?: ToolRiskClass;
+  /**
    * U-03（2026-10-19）：**模型可见出参结构**（JSON Schema）。
    *
    * 与 `outputSchema`（运行期 `safeParse` 校验器）职责不同：本字段由
@@ -293,6 +355,19 @@ export interface ToolUseContext {
     permissionMode?: string;
     attributes?: Record<string, unknown>;
   };
+  /**
+   * PR-3a（2026-10-23）：**本次执行的沙箱上下文**（由执行入口注入，见
+   * `sandbox/sandboxExecutionSignal.ts`）。
+   *
+   * 用途：
+   * - PR-3b 起 —— 统一判定链的「沙箱豁免」硬前提（S1 隔离可证 / S2 能力匹配 /
+   *   S3 权限位覆盖 / S4 范围匹配）读本字段；
+   * - PR-3a（本批）—— 仅作**证据面**：审批卡 metadata 记录 `sandboxMode` /
+   *   `sandboxPermissionLevel`，**不改变**任何 allow / ask / deny 判定。
+   *
+   * ⚠️ **缺省 ⇒ 视为"未沙箱" ⇒ 一律不豁免**（fail-closed：不许把字段缺失当成"可以放行"）。
+   */
+  sandbox?: SandboxExecutionSignal;
   readFileState: unknown;
   /** B3：子代理嵌套深度（agent 工具递归上限检查，默认 ≤1） */
   subagentDepth?: number;
@@ -427,6 +502,33 @@ export interface Tool<
    * 非 `BaseTool` 实现可省略（缺省视为非执行类）。
    */
   sandboxLevel?: ToolSandboxLevel;
+
+  /**
+   * PR-0（2026-10-23）：风险类别**静态声明**。缺省时由 `TOOL_EFFECTS` + `sandboxLevel`
+   * 结构化派生（见 `tools/toolRiskClass.ts`），**不得**再按工具名猜测。
+   */
+  riskClass?: ToolRiskClass;
+
+  /**
+   * PR-0（2026-10-23）：风险类别**动态声明**（混合工具用；如 `pdf` 的
+   * `extract/info` = read、`generate` = write）。优先于 `riskClass`。
+   */
+  riskClassFor?(input: Record<string, unknown>): ToolRiskClass;
+
+  /**
+   * PR-0（2026-10-23）：**派生**本次调用的风险类别（实现方内部可结合 `TOOL_EFFECTS` /
+   * `sandboxLevel` 等结构化元数据）。权限层（infra）只调用本方法，**不反向依赖** `tools/`。
+   */
+  getRiskClass?(input?: Record<string, unknown>): ToolRiskClass;
+
+  /**
+   * PR-2（2026-10-23）：审批**授权维度**（可选）。
+   *
+   * 「始终允许 / 本会话都允许」按本方法返回的指纹生效，缺省由权限层回退为全参数
+   * 稳定 JSON（`toolCallApprovalKey`）。声明示例：`file_write` 只按归一化路径，
+   * 使"总是允许写这个文件"在内容变化时仍命中。
+   */
+  approvalFingerprint?(input: Record<string, unknown>): string;
 
   /**
    * 严格模式标志

@@ -634,6 +634,8 @@ const enSettings = {
       user: "Set up your user profile (USER.md) for personalized chats",
       memory: "Manage persistent memories and context",
       trustedWorkspaces: "Manage trusted workspace directories",
+      trustIsolation:
+        "Trusted workspaces, sandbox isolation and auto-allow audit (one page)",
       customRules: "Configure custom security rules and constraints",
       estop: "Emergency stop: halt all background autonomous tasks and loops",
       voice: "Configure voice wake-up, speech recognition and synthesis",
@@ -712,6 +714,7 @@ const enSettings = {
     toolsStatusHidden: "Hidden",
     toolsRiskHigh: "High risk",
     toolsRiskMedium: "Writes",
+    toolsRiskUnknown: "Not assessed",
     toolsRiskConfirmTitle:
       "Make the high-risk tool {{name}} visible to the model?",
     toolsRiskConfirmBody:
@@ -721,6 +724,17 @@ const enSettings = {
     toolsGroupDefault: "Visible by default",
     toolsGroupHidden: "Hidden",
     toolsGroupOff: "Forced off",
+    toolsGroupUnwired: "Not wired (unavailable in this build)",
+    toolsUnwiredCollapsedHint:
+      "These tools are not registered in this build (stub implementation, duplicate of an existing tool, etc.). Expand to read-only reasons and disposition; no toggles are offered.",
+    toolsShadowReasonStub: "Stub implementation",
+    toolsShadowReasonDuplicate: "Duplicates an existing tool",
+    toolsShadowReasonAwaitingProvider: "Awaiting external provider",
+    toolsShadowReasonNeedsRewrite: "Needs rewrite first",
+    toolsShadowDispositionRetire: "Planned retirement",
+    toolsShadowDispositionRewrite: "Rewrite then wire",
+    toolsShadowDispositionAwaitingProvider: "Awaiting prerequisite",
+    toolsShadowDispositionWired: "Wired",
     toolsConditionalNote:
       "Not part of this build's effective tool set (either not wired, or a factory feature flag is off) — overrides have no effect.",
     toolsOverrideIneffective: "Enabled but ineffective",
@@ -737,6 +751,15 @@ const enSettings = {
     topP: "Top P",
     trustedWorkspaces: "Trusted Workspaces",
     trustedWorkspacesDesc: "Manage workspaces allowed to access local files",
+    // PR-3c (2026-10-23): merged "Trust & Isolation" page
+    trustIsolation: "Trust & Isolation",
+    isolationSandboxTitle: "Sandbox Isolation",
+    isolationSandboxHint:
+      'When enabled, tool/command execution is constrained by kernel-level isolation. Default permission "Standard" = read/write but no execute (choose "Full" when execution is required).',
+    isolationAuditTitle: "Auto-allow Audit",
+    isolationAuditDetail: "View details",
+    isolationAuditHint:
+      "Breakdown of the last 200 auto-allowed events. Session auto and Global trust are relaxations worth periodic review.",
     uptime: "Uptime",
     user: "User Identity",
     userProfile: "User Profile",
@@ -845,6 +868,17 @@ const enSettings = {
     pdcaVerifier: "VerifierAgent Dual-Metric Verification",
     pdcaVerifierDesc:
       "REJECT / ESCALATE decisions are merged into the review result",
+    // PR-5 (2026-10-23): confirm before disabling + read-only review model note
+    pdcaDisableConfirmTitle: "Turn off the PDCA review gate?",
+    pdcaDisableConfirmBody:
+      "With the gate off, every step is approved without review — false completion (“all steps passed but the goal was not met”) will no longer be caught. Use only for benchmarks or fast paths.",
+    pdcaDisableConfirm: "Turn off",
+    pdcaDisabledWarn:
+      "⚠️ Review gate is off: step quality is not checked and false completion is not blocked.",
+    pdcaReviewModel: "Review model",
+    pdcaReviewModelDesc:
+      "Reviewer/Verifier currently reuse the executor model (same executor, tools=[]). A dedicated review task model takes effect once configured in Task Routing.",
+    pdcaReviewModelShared: "Shared with execution (not separated)",
     savedAt: "Saved ({{time}})",
     wsLoadFailed: "Failed to load permission config",
     wsSaveFailed: "Save failed",
@@ -855,7 +889,7 @@ const enSettings = {
     wsBannerTitle: "Trusted Workspaces",
     wsBannerQuestion: "Which local paths may the AI touch",
     wsBannerRelation:
-      "This allowlist governs the file read/write gate and complements tool permission rules; enforced in-app as a fallback that no level can override",
+      "Only affects whether bash commands need confirmation (deny and dangerous commands are never bypassed); tool approvals still follow tool/command allow-deny rules and risk defaults. The two are complementary",
     wsDefaultMode: "Default Permission Mode",
     wsModeDefault: "Default",
     wsModeStrict: "Strict",
@@ -941,6 +975,26 @@ const enSettings = {
     rulesTabCommandWhitelist: "Command Whitelist",
     rulesTabDirBlacklist: "Directory Blacklist",
     rulesTabDirWhitelist: "Directory Whitelist",
+    // PR-2 (2026-10-23): tool-level list + revoke "always allow"
+    rulesTabTools: "Tools",
+    toolsRulesHint:
+      "Tool-level list: Allow = run without asking; Ask = prompt every time; Deny = block outright (deny always wins, allowlists cannot override). Stored in the same tool_rules.json the decision path reads — effective immediately.",
+    toolsRulesSearch: "Search tool name…",
+    toolsRulesLoading: "Loading tools and rules…",
+    toolsRulesLoadFailed: "Failed to load tool rules",
+    toolsRulesSaveFailed: "Save failed",
+    toolsRulesBehaviorLabel: "Permission behavior for {{name}}",
+    toolsRulesBehaviorDefault: "Default",
+    toolsRulesBehaviorAllow: "Allow",
+    toolsRulesBehaviorAsk: "Ask",
+    toolsRulesBehaviorDeny: "Deny",
+    toolsRulesRemembered: "Remembered approvals (always allow) · {{count}}",
+    toolsRulesRememberedHint:
+      "“Always allow” applies to a tool + argument fingerprint (e.g. file_write keys on the file path only); revoke entries here.",
+    toolsRulesRememberedEmpty: "No “always allow” entries",
+    toolsRulesFromSettings: "From settings",
+    toolsRulesFromSettingsHint:
+      "This rule lives in the settings file under permissions.{allow,ask,deny} (merged at startup) — shown read-only here; edit the settings file to change it.",
     rulesLoadFailed: "Failed to load custom rules",
     rulesSaveFailed: "Save failed",
     rulesCmdPlaceholder: "Enter a command pattern (e.g. rm -rf, chmod)",
@@ -958,7 +1012,7 @@ const enSettings = {
     rulesHintCmdBlacklistPrefix: "After adding a command pattern (e.g. ",
     rulesHintCmdBlacklistSuffix: "), matching commands will be blocked.",
     rulesHintCmdWhitelist:
-      "After adding command patterns, only matching commands are allowed; all others are blocked.",
+      "Strict allowlist: only commands matching an entry may run; everything else is denied (entries use substring matching, e.g. rm also matches npm rm).",
     rulesHintDirBlacklistPrefix: "After adding a directory path (e.g. ",
     rulesHintDirBlacklistSuffix: "), access to that directory is prohibited.",
     rulesHintDirWhitelist:

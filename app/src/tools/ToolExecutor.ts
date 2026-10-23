@@ -17,6 +17,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { tryCoerceToolArgs } from './ToolArgCoercer.js';
 import type { ToolSchema } from './ToolArgCoercer.js';
+import { findMissingRequiredParams } from './utils/ToolUtils';
 
 const logger = getLogger('tools:executor');
 import {
@@ -646,13 +647,12 @@ export class ToolExecutor {
       }
     }
 
-    for (const param of tool.params) {
-      if (param.required && !(param.name in input)) {
-        return {
-          valid: false,
-          error: `Missing required parameter: ${param.name}`,
-        };
-      }
+    const missingParams = findMissingRequiredParams(tool.params, input);
+    if (missingParams.length > 0) {
+      return {
+        valid: false,
+        error: `Missing required parameter: ${missingParams[0]}`,
+      };
     }
 
     return {

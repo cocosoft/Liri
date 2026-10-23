@@ -25,10 +25,12 @@ import {
   PermissionContext,
   createPermissionContext,
 } from './types/PermissionContext';
+import { resolveRiskClass } from './types/RiskClass';
 import {
   PermissionBehavior,
   PermissionRuleSource,
   createPermissionRule,
+  permissionRuleValueFromString,
 } from './types/PermissionRule';
 import { logSecurityAuditEvent, truncateCommand } from '@modules/security';
 // 多租户 P0 阶段 1：请求级角色优先、缺失回退进程级（纯函数，零依赖）
@@ -36,6 +38,8 @@ import { resolveEffectiveRole } from '@modules/core/identity/principal.js';
 // 语义护栏「便宜版」（2026-10-21）：规则化意图-动作偏离检查（纯函数）
 import { feature } from '@modules/core';
 import { detectIntentActionDeviation } from '@modules/utils/toolContract/intentActionDeviation';
+// PR-3a（2026-10-23）：沙箱上下文信号（执行入口注入，审批卡留证用）
+import type { SandboxExecutionSignal } from '@modules/utils/toolContract/Tool';
 import { isShellToolName } from '@modules/utils/toolContract/toolRoles';
 import type { SecurityAuditEvent } from '@modules/security';
 import {
@@ -57,10 +61,10 @@ import {
   ClassifierManager,
   classifierManager,
 } from './classifiers/auto-mode-classifier-manager';
-import {
-  SandboxIntegrationService,
-  sandboxIntegrationService,
-} from './SandboxIntegration';
+// 2026-10-23（PR-3b，CD05/CD07）：原此处导入 `SandboxIntegration` 的
+// `SandboxIntegrationService` / `sandboxIntegrationService` —— 该「沙箱自动放行」为**死接线**
+// （`autoAllowIfSandboxed` 硬编码 false 且无配置读取 ⇒ 分支恒不命中），且其"是否需要沙箱"
+// 按**工具名 includes** 猜测（CS02 违规）。已由 `sandboxExemption`（S1–S4，信号驱动）取代并删除。
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
@@ -122,11 +126,6 @@ export class PermissionManager {
   private classifierManager: ClassifierManager;
 
   /**
-   * 沙箱集成服务
-   */
-  private sandboxIntegrationService: SandboxIntegrationService;
-
-  /**
    * 对话历史
    */
   private messages: Array<{ role: string; content: string }> = [];
@@ -150,7 +149,6 @@ export class PermissionManager {
     this.denialTracker = new DenialTracker();
     this.permissionHookService = PermissionHookService.getInstance();
     this.classifierManager = classifierManager;
-    this.sandboxIntegrationService = sandboxIntegrationService;
 
     // P0-2：读取默认行为配置（fail-closed 路径：PERMISSION_DEFAULT_BEHAVIOR=deny）
     const configuredDefault = configManager
@@ -303,14 +301,9 @@ export class PermissionManager {
       return decision;
     }
 
-    // 2. 检查沙箱自动允许
-    if (this.sandboxIntegrationService.canAutoAllowInSandbox(toolName, input)) {
-      const decision = createAllowDecision('Auto-allowed in sandbox');
-      this.auditDecision(decision, toolName, input);
-      return decision;
-    }
-
-    // 3. 根据权限模式执行不同的检查逻辑
+    // 2. 根据权限模式执行不同的检查逻辑
+    // （2026-10-23 PR-3b：原「沙箱自动允许」分支已删除 —— 死接线 + 按工具名猜；）
+    // （其职责由 `PermissionChecker` 风险默认档前的沙箱豁免 S1–S4 承担。）
     let decision: PermissionDecision;
     switch (this.mode) {
       case PermissionMode.BYPASS:
@@ -882,6 +875,48 @@ export class PermissionManager {
   }
 
   /**
+   * PR-2（2026-10-23）：settings 文件来源的权限规则（**只读视图**，供合并展示）。
+   *
+   * 背景（方案 §3.7.2）：工具规则有两条来源 —— 运行期 `tool_rules.json`（可写）与
+   * settings `permissions.{allow,ask,deny}`（手工维护，启动时并入决策上下文）。
+   * `GET /v1/permissions/rules` 必须同时返回两者并标注 `source`，否则 UI 与用户认知不一致
+   * （用户在 settings 里写了 allow，面板却显示"默认"）。
+   *
+   * 本方法只读；写入口仍是 `tool_rules.json`（单一写路径）。
+   */
+  getSettingsRuleEntries(): Array<{
+    behavior: PermissionBehavior;
+    toolName: string;
+    contentPattern?: string;
+    source: PermissionRuleSource;
+  }> {
+    const ctx = this.toolPermissionContext as unknown as {
+      alwaysAllowRules: Record<PermissionRuleSource, string[]>;
+      alwaysDenyRules: Record<PermissionRuleSource, string[]>;
+      alwaysAskRules: Record<PermissionRuleSource, string[]>;
+    };
+    return [
+      ...[
+        [PermissionBehavior.ALLOW, ctx.alwaysAllowRules] as const,
+        [PermissionBehavior.DENY, ctx.alwaysDenyRules] as const,
+        [PermissionBehavior.ASK, ctx.alwaysAskRules] as const,
+      ].flatMap(([behavior, record]) =>
+        Object.entries(record ?? {}).flatMap(([source, list]) =>
+          (list ?? []).map((raw) => {
+            const value = permissionRuleValueFromString(raw);
+            return {
+              behavior,
+              toolName: value.toolName,
+              contentPattern: value.ruleContent,
+              source: source as PermissionRuleSource,
+            };
+          })
+        )
+      ),
+    ];
+  }
+
+  /**
    * 重置拒绝跟踪
    */
   resetDenialTracker(): void {
@@ -1002,14 +1037,6 @@ export class PermissionManager {
    */
   getClassifierManager(): ClassifierManager {
     return this.classifierManager;
-  }
-
-  /**
-   * 获取沙箱集成服务
-   * @returns 沙箱集成服务
-   */
-  getSandboxIntegrationService(): SandboxIntegrationService {
-    return this.sandboxIntegrationService;
   }
 
   /**
@@ -1199,13 +1226,29 @@ export class PermissionManager {
     input: Record<string, unknown> = {},
     context?: Pick<
       PermissionContext,
-      'sessionId' | 'userId' | 'userRole' | 'metadata'
+      | 'sessionId'
+      | 'userId'
+      | 'userRole'
+      | 'metadata'
+      | 'approvalMode'
+      | 'workspacePath'
     > & {
+      /**
+       * PR-3a（2026-10-23）：本次执行的沙箱上下文（由执行入口注入）。
+       * 仅供审批卡留证；**不参与** allow/ask/deny 判定（豁免判定在 PR-3b）。
+       */
+      sandbox?: SandboxExecutionSignal;
       /**
        * R07-3（2026-10-07）：非幂等工具「重试」理由（由调用方判定后传入）。
        * 提供 ⇒ 本该放行的决策升级为 `ask` ⇒ 走下方既有 Inbox 提交通路（见 `checkPermissionInner`）。
        */
       forceAskReason?: string;
+      /**
+       * PR-0（2026-10-23）：工具对象。提供 ⇒ 风险按**声明式**派生
+       * （`riskClass`/`riskClassFor`/`TOOL_EFFECTS`/`sandboxLevel`）；
+       * 缺省 ⇒ 回退已弃用的名字启发式（仅过渡，行为零变更）。
+       */
+      tool?: Tool;
     }
   ): Promise<{
     allowed: boolean;
@@ -1231,9 +1274,14 @@ export class PermissionManager {
       // 多租户 P0 阶段 2：请求级角色透传（缺失 ⇒ handleDefault 回退进程级 currentUserRole）
       userRole: context?.userRole,
       metadata: context?.metadata,
+      // PR-3：会话级审批模式与工作区边界（缺失 ⇒ 与改造前一致：ask + 无自动放行）
+      approvalMode: context?.approvalMode,
+      workspacePath: context?.workspacePath,
+      // PR-3a：沙箱信号（缺失 ⇒ undefined，审批卡不写该字段 ⇒ 视为"未沙箱"）
+      sandbox: context?.sandbox,
     });
     const decision = await this.checkPermission(
-      toolName,
+      context?.tool ?? toolName,
       input,
       permissionContext,
       context?.forceAskReason
@@ -1251,7 +1299,9 @@ export class PermissionManager {
         const submittedDecision = await this.permissionChecker.submitAskToInbox(
           toolName,
           input,
-          permissionContext
+          permissionContext,
+          resolveRiskClass(context?.tool ?? toolName, input),
+          context?.tool
         );
         return this._checkPermissionForToolResult(submittedDecision, toolName);
       } catch (err) {

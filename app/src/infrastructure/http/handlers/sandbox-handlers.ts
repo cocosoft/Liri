@@ -50,15 +50,21 @@ const VALID_PERMISSION_LEVELS: SandboxPermissionLevel[] = [
   'readonly',
 ];
 
-/** 读取当前生效的权限级别：配置优先，环境变量回退，默认 full */
+/**
+ * 读取当前生效的权限级别：配置优先，环境变量回退，默认 `standard`。
+ *
+ * ⚠️ 默认值与解析口径的**单一事实源**在 `app/src/sandbox/sandboxExecutionSignal.ts`
+ * （`DEFAULT_SANDBOX_PERMISSION_LEVEL` / `resolveSandboxPermissionLevel`）。本层
+ * （infrastructure）不 import app 模块，故此处保留同值副本 —— 改默认值必须同步两处。
+ */
 function readPermissionLevel(): SandboxPermissionLevel {
   const configured = configManager.getValue<string>('sandbox.permissionLevel');
   const policy = (
-    configured ?? configManager.env('PERMISSION_SANDBOX_DEFAULT', 'full')
+    configured ?? configManager.env('PERMISSION_SANDBOX_DEFAULT', 'standard')
   )?.toLowerCase();
   return (VALID_PERMISSION_LEVELS as string[]).includes(policy ?? '')
     ? (policy as SandboxPermissionLevel)
-    : 'full';
+    : 'standard';
 }
 
 /** 读取当前沙箱启用配置（默认启用，与 SANDBOX feature 默认一致） */

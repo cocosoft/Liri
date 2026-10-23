@@ -487,6 +487,9 @@ const zhBase = {
     waitingYield: "⏳ 等待子任务结算中（已 {{seconds}} 秒）",
     yieldUnresolved:
       "本轮已让出，但未能自动恢复（可能因应用重启或子任务结算丢失）。直接发送消息即可继续。",
+    // PR-3c（2026-10-23）：全局信任级别常驻提示（Q-31 / §9-17）
+    globalTrustNotice:
+      "全局信任级别为「{{level}}」：所有未匹配信任工作区的目录里，bash 不再逐条询问（deny 与危险命令仍会拦截）。该设置由启动参数 --trust-level 开启，可用 --confirm-global-trust 控制。",
     // PC-2（跨会话资源治理，2026-10-07）：抢占/排队提示（去技术化文案，见 PC-5）
     preemptedNotice:
       "本会话被更高优先级的任务抢占，回复已中断。如需继续，请重新发送消息。",
@@ -856,7 +859,20 @@ const zhBase = {
     inboxReplyReject: "拒绝",
     inboxReplyAllowTool: "加入工具白名单",
     inboxReplyAllowCommand: "加入命令白名单",
+    // PR-2（2026-10-23）：四档审批 —— 本会话都允许 / 始终允许（工具+参数指纹）
+    inboxReplyApproveSession: "本会话都允许",
+    inboxReplyAllowAlways: "始终允许",
+    inboxReplyAllowAlwaysHint: "始终允许（仅此调用参数）",
     inboxRepliedToast: "已{{label}}",
+    // PR-3（2026-10-23）：会话级「自动执行」开关（仅只读 + 本地写）
+    approvalAutoOff: "自动执行：关",
+    approvalAutoOn: "自动执行：只读+本地写",
+    approvalAutoToggleHint:
+      "开启后：只读工具与「会话工作区内」的本地写自动执行；命令、外部副作用、工作区外写仍需你审批（需后端启用 FEATURE_SESSION_AUTO_LOCAL）。",
+    approvalAutoConfirmBody:
+      "开启后，模型可直接在会话工作区内读写文件、不再逐次询问；命令与外部操作仍需审批。",
+    approvalAutoConfirm: "确认开启",
+    approvalAutoSwitchFailed: "切换自动执行失败",
     inboxResuming: "已批准，正在执行…",
     inboxHandled: "已处理",
     inboxExpired: "已超时过期",

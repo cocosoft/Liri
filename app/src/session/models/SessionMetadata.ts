@@ -27,6 +27,8 @@ export interface SessionMetadata {
   /** P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）——
    * 经 `resolveToolProfileCategories()` 并入工具可见性类别；与 `types/session.ts` 同名副本保持一致 */
   toolProfile?: string[];
+  /** PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
+  approvalMode?: 'ask' | 'auto-local';
   /** M4-T4.1（2026-08-31）：会话来源渠道（set_once，通道会话首次请求时补写）——
    * 供 CoreAPIImpl._resolveSessionSource 读取；非通道会话为 undefined */
   channel?: string;
@@ -92,6 +94,8 @@ export class SessionMetadata implements SessionMetadata {
 
   /** P4b（2026-10-16）：会话级工具 profile 能力标签（见 `@modules/tools` 的 `TOOL_PROFILE_CATEGORIES`） */
   toolProfile?: string[];
+  /** PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
+  approvalMode?: 'ask' | 'auto-local';
 
   addTag(tag: string): void {
     if (!this.tags.includes(tag)) {

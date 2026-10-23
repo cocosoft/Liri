@@ -26,7 +26,11 @@ import {
 import { createTAORLoopDeps } from '@modules/query';
 import type { TAORLoop } from '@modules/query';
 
-import { getToolRegistry, globalToolManager } from '../../tools/index.js';
+import {
+  getToolRegistry,
+  globalToolManager,
+  findMissingRequiredParams,
+} from '../../tools/index.js';
 import type { ToolUseContext } from '../../tools/types/Tool.js';
 import { emitPdcaLiveEvent } from '../PdcaLiveEvents';
 import type { LifecyclePhase } from '../LifecycleTracker';
@@ -39,10 +43,13 @@ import { roleToolNames } from './plannerSupport.js';
 import { isNonConvergedTermination } from './pureDecisions.js';
 import {
   MAX_SECURITY_STEERS_PER_STEP,
+  buildCriticalOutcomeEvidence,
   buildSecuritySteeringMessage,
   buildTaorStepResult,
   classifyArtifactAccess,
+  describeToolResultFailure,
   isSecurityIntercepted,
+  summarizeToolOutcomes,
 } from './stepHelpers.js';
 import { findWorkspaceEscape } from './workspaceGuard.js';
 
@@ -167,6 +174,14 @@ export async function executeSingleStep(
       toolNames: roleToolNames(EXECUTOR_ROLE),
     });
     let taorStart = 0;
+    /** PR-5：跨轮累计的工具结果（含入参），供结构化总结与审批卡提交 */
+    const executedToolResults: Array<{
+      toolCallId?: string;
+      toolName?: string;
+      arguments?: Record<string, unknown>;
+      result?: unknown;
+      error?: unknown;
+    }> = [];
     try {
       const isolation = deps.isolation;
       const executor = deps.executor;
@@ -298,6 +313,34 @@ export async function executeSingleStep(
                 });
                 continue;
               }
+              // 2026-10-22：必填参数前置校验（与主聊天链 `ToolExecutor.validateInput` 共用同一实现）。
+              // 此前本链**直接** `tool.execute()` 绕过校验 ⇒ 参数缺失时工具内部裸抛运行时错误
+              // （实测：`file_write` → `The "path" property must be of type string, got undefined`），
+              // 模型既不知道缺哪个参数，错误还被下面记成「工具执行成功」。
+              const missingParams = findMissingRequiredParams(
+                tool.params,
+                tc.arguments
+              );
+              if (missingParams.length > 0) {
+                const receivedKeys = Object.keys(tc.arguments ?? {});
+                logger.warn('[orchestrator] 工具缺少必填参数，已拒绝执行', {
+                  taskId: deps.taskId,
+                  stepId: step.id,
+                  toolName: tc.name,
+                  toolCallId: tc.id,
+                  missingParams,
+                  receivedKeys,
+                });
+                results.push({
+                  toolCallId: tc.id,
+                  toolName: tc.name,
+                  error:
+                    `缺少必填参数 ${missingParams.join('、')}；` +
+                    `本次收到的参数键: ${receivedKeys.length > 0 ? receivedKeys.join('、') : '（空）'}。` +
+                    '请按工具定义的参数名重新调用（若参数为空，多为参数 JSON 非法或被输出上限截断）。',
+                });
+                continue;
+              }
               const toolResult = await tool.execute(tc.arguments, toolContext);
               // 2026-10-08（steering）：被安全策略拦截的工具名先记账，本轮结束后统一注入改道指令
               if (isSecurityIntercepted(toolResult)) {
@@ -326,19 +369,35 @@ export async function executeSingleStep(
                   : typeof toolResult === 'object' && toolResult !== null
                     ? JSON.stringify(toolResult).slice(0, 100)
                     : String(toolResult).slice(0, 100);
-              logger.info('[orchestrator] 工具执行成功', {
-                taskId: deps.taskId,
-                stepId: step.id,
-                toolName: tc.name,
-                toolCallId: tc.id,
-                elapsedMs: elapsed,
-                resultType: typeof toolResult,
-                resultPreview,
-              });
+              // 2026-10-22：结果级失败（未抛错但自述失败）不得记为「成功」/计入 success——
+              // 实测 file_write 的错误文案就以 `data` 返回，日志却写「工具执行成功」且 failed:0。
+              const resultFailure = describeToolResultFailure(toolResult);
+              if (resultFailure) {
+                logger.warn('[orchestrator] 工具执行失败（结果级）', {
+                  taskId: deps.taskId,
+                  stepId: step.id,
+                  toolName: tc.name,
+                  toolCallId: tc.id,
+                  elapsedMs: elapsed,
+                  errorPreview: resultFailure.slice(0, 200),
+                  resultPreview,
+                });
+              } else {
+                logger.info('[orchestrator] 工具执行成功', {
+                  taskId: deps.taskId,
+                  stepId: step.id,
+                  toolName: tc.name,
+                  toolCallId: tc.id,
+                  elapsedMs: elapsed,
+                  resultType: typeof toolResult,
+                  resultPreview,
+                });
+              }
               results.push({
                 toolCallId: tc.id,
                 toolName: tc.name,
                 result: toolResult,
+                ...(resultFailure ? { error: resultFailure } : {}),
               });
             } catch (e) {
               const elapsed = Date.now() - toolStart;
@@ -392,6 +451,14 @@ export async function executeSingleStep(
               }
             );
           }
+          // PR-5：把本轮结果并入**跨轮**累计（带原始入参，供结构化总结与审批卡指纹）
+          for (const r of results) {
+            const call = toolCalls.find((tc) => tc.id === r.toolCallId);
+            executedToolResults.push({
+              ...r,
+              ...(call ? { arguments: call.arguments } : {}),
+            });
+          }
           return results;
         },
         persistMessages: async (msgs: any[], _signal?: AbortSignal) => {
@@ -427,14 +494,32 @@ export async function executeSingleStep(
         readPaths
       );
 
+      // PR-5（2026-10-23）：把本步工具调用汇总为**结构化清单**（成功/失败/拦截/待审批），
+      // 并把关键失败行前置进证据（不参与 12×800 窗口截断）。
+      const toolOutcomes = summarizeToolOutcomes(executedToolResults);
+      const criticalEvidence = buildCriticalOutcomeEvidence(toolOutcomes);
+      // PR-5：LRO 直调绕过了权限层 ⇒ 工具自述"需要审批"时**没有任何卡片**可批。
+      // 此处补提交 Inbox 卡片（元数据带 pdcaTaskId，批准后回到 `resumeAfterApproval`）。
+      await submitStepApprovalCards({
+        taskId: deps.taskId,
+        sessionId: deps.getSessionId() ?? deps.taskId,
+        stepId: step.id,
+        executed: executedToolResults,
+        summary: toolOutcomes,
+      });
+
       // 执行证据（助手文本 + 工具结果）—— Reviewer 的唯一"实际输出"输入，
       // 只写循环统计会让审查必然判"无证据"（见 buildTaorStepResult 注释）
       const stepEvidence =
-        buildTaorStepResult(lastMessagesSnapshot, {
-          turns: result.turnCount,
-          tokens: result.totalTokens,
-          elapsedMs: taorElapsed,
-        }) + readBackEvidence;
+        buildTaorStepResult(
+          lastMessagesSnapshot,
+          {
+            turns: result.turnCount,
+            tokens: result.totalTokens,
+            elapsedMs: taorElapsed,
+          },
+          criticalEvidence
+        ) + readBackEvidence;
       const terminationReason = result.terminationReason;
       if (isNonConvergedTermination(terminationReason)) {
         // U-02（2026-10-19）：预算耗尽但未收敛 ⇒ **不得**记为 completed。
@@ -443,15 +528,18 @@ export async function executeSingleStep(
         taskOrchestrator.markStepFailed(
           step.id,
           `[NON_CONVERGED:${terminationReason}] 步骤未在预算内收敛（turns=${result.turnCount}）`,
-          { partialOutput: stepEvidence, terminationReason }
+          {
+            partialOutput: stepEvidence,
+            terminationReason,
+            toolOutcomes,
+          }
         );
       } else {
-        taskOrchestrator.markStepCompleted(
-          step.id,
-          stepEvidence,
+        taskOrchestrator.markStepCompleted(step.id, stepEvidence, {
           // E1①（2026-09-05，方案甲）：终止原因透传落 PlanStep
-          { terminationReason }
-        );
+          terminationReason,
+          toolOutcomes,
+        });
       }
       await deps.persistCheckpoint(); // P0(M2)
       const log = (loop as any).getLastRunLog?.();
@@ -672,5 +760,112 @@ export async function executeSingleStep(
       TaskStatus.RUNNING,
       `Step failed (escalated): ${step.description} — ${step.error}`
     );
+  }
+}
+
+/**
+ * PR-5（2026-10-23）：为"工具要求人工审批"的调用补提交 Inbox 卡片。
+ *
+ * 为什么需要：LRO 步骤内的工具直调**绕过权限层**（任务启动即视为用户授权），
+ * 但工具自身仍可能返回 `requireApproval`（bash AST 不确定 / media 删除等）。
+ * 此前这样的调用没有任何卡片可批 ⇒ 审查门只能判"未产出" ⇒ retry/escalate。
+ *
+ * 元数据与 `PermissionChecker._submitToInbox` 同形（同指纹 hash ⇒ 批准后工具重发命中
+ * 放行缓存），并额外带 `pdcaTaskId`：批准后由 `inboxApproval` 回到
+ * `LongRunningTaskOrchestrator.resumeAfterApproval` 续跑挂起步骤。
+ *
+ * 失败仅告警（审批卡缺失不应让步骤执行本身崩掉）。
+ */
+async function submitStepApprovalCards(args: {
+  taskId: string;
+  sessionId: string;
+  stepId: string;
+  executed: ReadonlyArray<{
+    toolCallId?: string;
+    toolName?: string;
+    arguments?: Record<string, unknown>;
+    result?: unknown;
+  }>;
+  summary: ReturnType<typeof summarizeToolOutcomes>;
+}): Promise<void> {
+  const pending = args.summary.outcomes.filter((o) => o.pendingApproval);
+  if (pending.length === 0) return;
+  try {
+    const { inboxManager } = await import('@modules/runtime/InboxManager.js');
+    const {
+      hashCommandForExecution,
+      hashApprovalFingerprint,
+      resolveApprovalFingerprint,
+      previewApprovalFingerprint,
+      findPendingApprovalId,
+    } = await import('@modules/permission');
+
+    for (const outcome of pending) {
+      const call = args.executed.find(
+        (r) =>
+          r.toolName === outcome.toolName &&
+          (!outcome.toolCallId || r.toolCallId === outcome.toolCallId)
+      );
+      const input = call?.arguments ?? {};
+      const fingerprint = resolveApprovalFingerprint(outcome.toolName, input);
+      const commandHash = hashCommandForExecution(fingerprint);
+      const command = typeof input.command === 'string' ? input.command : '';
+
+      const existingId = await findPendingApprovalId(inboxManager, {
+        sessionId: args.sessionId,
+        toolName: outcome.toolName,
+        approvalHash: commandHash,
+      });
+      if (existingId) {
+        logger.info('[orchestrator] 步骤审批卡已存在，复用', {
+          taskId: args.taskId,
+          stepId: args.stepId,
+          toolName: outcome.toolName,
+          inboxItemId: existingId,
+        });
+        continue;
+      }
+
+      await inboxManager.submit({
+        sessionId: args.sessionId,
+        type: 'approval',
+        title: `工具审批: ${outcome.toolName}`,
+        message: `工具 '${outcome.toolName}' 请求执行（PDCA 步骤）\n${
+          command
+            ? `命令: ${command}`
+            : `参数: ${JSON.stringify(input).slice(0, 300)}`
+        }`,
+        options: ['approve', 'approve_session', 'deny'],
+        offlineCapable: true,
+        source: 'permission',
+        metadata: {
+          toolName: outcome.toolName,
+          taskId: args.taskId,
+          stepId: args.stepId,
+          commandHash,
+          approvalFingerprintHash: hashApprovalFingerprint(fingerprint),
+          approvalFingerprintPreview: previewApprovalFingerprint(fingerprint),
+          approvalScopeKind: 'once',
+          command: command || undefined,
+          inputPreview: JSON.stringify(input).slice(0, 200),
+          /** PR-5：批准后由 inboxApproval 回到 PDCA（步骤级挂起恢复） */
+          pdcaTaskId: args.taskId,
+          ...(outcome.approvalReason
+            ? { approvalReason: outcome.approvalReason }
+            : {}),
+        },
+      });
+      logger.info('[orchestrator] 已提交步骤审批卡', {
+        taskId: args.taskId,
+        stepId: args.stepId,
+        toolName: outcome.toolName,
+      });
+    }
+  } catch (e) {
+    logger.warn('[orchestrator] 步骤审批卡提交失败（不阻塞步骤收尾）', {
+      taskId: args.taskId,
+      stepId: args.stepId,
+      error: e instanceof Error ? e.message : String(e),
+    });
   }
 }

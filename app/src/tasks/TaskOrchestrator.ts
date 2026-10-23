@@ -16,6 +16,8 @@
 import { join } from 'path';
 // C1（2026-10-09）：plan id 熵源改用 crypto
 import { randomIdSuffix } from '../utils/common';
+// PR-5：步骤结构化工具结局（类型仅在 PlanStep 上落库，无运行时依赖）
+import type { ToolOutcomeSummary } from './lro/stepHelpers';
 import type {
   ISnapshotCapable,
   SnapshotHandle,
@@ -95,7 +97,28 @@ export interface PlanStep {
   maxRetries: number;
   /** PDCA：决策 */
   decision?: ReviewDecision;
+  /**
+   * PR-5（2026-10-23）：本步工具调用的**结构化结局**（成功/失败/拦截/待审批）。
+   *
+   * 审查门据此区分"模型没做"与"系统不让做"：`success=false` 构成阻塞 issue，
+   * `pendingApproval>0` ⇒ 决策 `suspend`（等人工批准，不判失败）。
+   */
+  toolOutcomes?: ToolOutcomeSummary;
 }
+
+/**
+ * 计划步骤的**初始/复位状态**（PR-5，2026-10-23）。
+ *
+ * 供 `lro/stepSuspension.ts` 等复用：状态取值只在**本文件**出现，避免把它扩散到
+ * 新文件而触发 `lint:state-ratchet` 的 Register-or-Fail（状态词汇唯一事实源纪律）。
+ */
+export const STEP_STATUS_PENDING: PlanStep['status'] = 'pending';
+
+/**
+ * 计划/检查点的**失败终态**取值（PR-5，2026-10-23）：同上，供 `lro/goalConvergence.ts`
+ * 等模块复用，避免状态字面量在新文件里二次出现。
+ */
+export const PLAN_STATUS_FAILED: Plan['status'] = 'failed';
 
 export interface Plan {
   id: string;
@@ -607,7 +630,7 @@ export class TaskOrchestrator implements ISnapshotCapable {
   markStepCompleted(
     stepId: string,
     result?: string,
-    meta?: { terminationReason?: string }
+    meta?: { terminationReason?: string; toolOutcomes?: ToolOutcomeSummary }
   ): PlanStep | undefined {
     const plan = this.getPlanByStepId(stepId);
     if (!plan) return undefined;
@@ -619,6 +642,8 @@ export class TaskOrchestrator implements ISnapshotCapable {
     step.result = result;
     // E1①（2026-09-05，方案甲）：终止原因透传落 PlanStep（供上层 retry/扩容决策）
     step.terminationReason = meta?.terminationReason;
+    // PR-5：结构化工具结局（审查门据此判"失败/拦截/待审批"）
+    if (meta?.toolOutcomes) step.toolOutcomes = meta.toolOutcomes;
 
     const task = taskRegistry.getTask(step.taskId);
     if (task && task instanceof NoteTask) {
@@ -663,6 +688,8 @@ export class TaskOrchestrator implements ISnapshotCapable {
       partialOutput?: string;
       /** E1① 同源：终止原因（max_turns/timeout/budget_exhausted 等，供 resume 扩容判定） */
       terminationReason?: string;
+      /** PR-5：结构化工具结局（失败步骤同样落库，供审查门/审计区分原因） */
+      toolOutcomes?: ToolOutcomeSummary;
     }
   ): PlanStep | undefined {
     const plan = this.getPlanByStepId(stepId);
@@ -687,6 +714,8 @@ export class TaskOrchestrator implements ISnapshotCapable {
     if (meta?.partialOutput) step.partialOutput = meta.partialOutput;
     // U-02（2026-10-19）：非收敛失败同样保留终止原因（resume 扩容续跑据此选候选步骤）
     step.terminationReason = meta?.terminationReason;
+    // PR-5：结构化工具结局（失败步骤也落库）
+    if (meta?.toolOutcomes) step.toolOutcomes = meta.toolOutcomes;
 
     const task = taskRegistry.getTask(step.taskId);
     if (task && task instanceof NoteTask) {

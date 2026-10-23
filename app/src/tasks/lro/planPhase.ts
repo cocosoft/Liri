@@ -17,7 +17,7 @@
 
 import { SpanStatusCode } from '@opentelemetry/api';
 
-import { findUnprovableCriteria } from '@modules/core';
+import { findFormOnlyCriteria, findUnprovableCriteria } from '@modules/core';
 import {
   AppError,
   ErrorCategory,
@@ -205,6 +205,31 @@ ${replanSection}
           taskId: deps.taskId,
           count: acceptance.length,
         });
+      }
+    }
+
+    // PR-5（2026-10-23）：验收标准**仅形式命中**（如只写「grep 命中 ≥1 行」）⇒ 同样纠正一次。
+    // 方案 §3.10.5 R5：骨架稿也能满足形式条件 ⇒ 单步"假通过"。仍**不静默丢弃**（纠正失败原样保留）。
+    const formOnly = findFormOnlyCriteria(acceptance);
+    if (formOnly.length > 0) {
+      logger.warn('[orchestrator] 验收标准仅形式命中，发起一次内容化纠正', {
+        taskId: deps.taskId,
+        offending: formOnly.slice(0, 5),
+      });
+      const repaired = await repairAcceptanceCriteria(
+        repairDeps,
+        description,
+        steps,
+        formOnly,
+        'form-only'
+      );
+      if (repaired) acceptance = repaired;
+      const stillFormOnly = findFormOnlyCriteria(acceptance);
+      if (stillFormOnly.length > 0) {
+        logger.warn(
+          '[orchestrator] 验收标准经一次纠正后仍过于形式化（原样保留，不丢弃）',
+          { taskId: deps.taskId, offending: stillFormOnly.slice(0, 5) }
+        );
       }
     }
 

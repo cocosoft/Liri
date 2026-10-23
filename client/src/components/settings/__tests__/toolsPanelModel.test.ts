@@ -78,7 +78,7 @@ describe("P3 分组判据（派生，不按类别手写）", () => {
     expect(groupOf(e, {})).toBe("hidden");
   });
 
-  it("**开启但无效**（conditional：未进生效工具面）⇒ 仍归 hidden，不谎报已开启", () => {
+  it("**未进生效工具面**（conditional）⇒ 归 unwired 组（PR-4：不再给假开关）", () => {
     const e = entry({
       name: "pdf",
       category: "misc",
@@ -86,9 +86,11 @@ describe("P3 分组判据（派生，不按类别手写）", () => {
       visibleByDefault: false,
       effective: "hidden",
       reasons: ["unregistered-category", "conditional"],
-      risk: "high",
+      risk: "unknown",
     });
-    expect(groupOf(e, { pdf: "on" })).toBe("hidden");
+    expect(groupOf(e, {})).toBe("unwired");
+    // 即便历史覆写里残留 on，也仍归未接线组（该组不渲染三态开关）
+    expect(groupOf(e, { pdf: "on" })).toBe("unwired");
   });
 });
 
@@ -106,6 +108,12 @@ describe("P3 二次确认判据（高风险 × 新开为可见）", () => {
     ).toBe(false);
     expect(
       requiresRiskConfirm(entry({ name: "glob", risk: "low" }), "on"),
+    ).toBe(false);
+  });
+
+  it("未评估（unknown，PR-4）+ on ⇒ 不确认（灰标而非红色高危）", () => {
+    expect(
+      requiresRiskConfirm(entry({ name: "kanban", risk: "unknown" }), "on"),
     ).toBe(false);
   });
 });
@@ -225,7 +233,10 @@ describe("I-4：单行只显示一个主因（conditional 优先）", () => {
     expect(primaryReasonOf(entry({ name: "file_read" }))).toBeNull();
     expect(
       primaryReasonOf(
-        entry({ name: "pdf", reasons: ["not-in-task-whitelist", "user-on-bypass"] }),
+        entry({
+          name: "pdf",
+          reasons: ["not-in-task-whitelist", "user-on-bypass"],
+        }),
       ),
     ).toBe("not-in-task-whitelist");
   });

@@ -321,6 +321,8 @@ function flattenSession<S extends Session | null>(session: S): S {
       workMode?: "plan" | "do";
       /** 回复详略档（`/effort` 或输入区「回复设置」写入；后端 system prompt 侧消费） */
       effortLevel?: "low" | "medium" | "high" | "auto";
+      /** PR-3：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
+      approvalMode?: "ask" | "auto-local";
     };
   };
   return {
@@ -330,6 +332,14 @@ function flattenSession<S extends Session | null>(session: S): S {
     workMode:
       raw.metadata?.workMode ||
       (session as { workMode?: "plan" | "do" }).workMode,
+    // PR-3：审批模式（缺省 ask；只认白名单值）
+    approvalMode:
+      raw.metadata?.approvalMode === "auto-local"
+        ? "auto-local"
+        : (session as { approvalMode?: "ask" | "auto-local" }).approvalMode ===
+            "auto-local"
+          ? "auto-local"
+          : "ask",
     effortLevel:
       raw.metadata?.effortLevel ||
       (session as { effortLevel?: "low" | "medium" | "high" | "auto" })
@@ -994,6 +1004,12 @@ export const sessionService = {
        * 用户级可见性控制走设置页（`PUT /v1/settings/tools`）。未传 ⇒ 零行为变更。
        */
       toolProfile?: string[];
+      /**
+       * PR-3（2026-10-23）：会话级**审批模式**。
+       * `auto-local` = 只读 + 会话工作区内的本地写自动执行（后端受 `FEATURE_SESSION_AUTO_LOCAL`
+       * 开关约束，默认关）；缺省 `ask`。
+       */
+      approvalMode?: "ask" | "auto-local";
     },
   ): Promise<boolean> => {
     try {
@@ -1005,6 +1021,8 @@ export const sessionService = {
         body.tasks_override = meta.tasksOverride;
       if (meta.workMode !== undefined) body.work_mode = meta.workMode;
       if (meta.toolProfile !== undefined) body.tool_profile = meta.toolProfile;
+      if (meta.approvalMode !== undefined)
+        body.approval_mode = meta.approvalMode;
       const res = await apiHttp.patch(ENDPOINTS.session.meta(sessionId), body);
       if (res.ok) {
         _isUsingFallback = false;

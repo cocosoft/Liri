@@ -103,7 +103,12 @@ export interface SharedStreamStats {
 }
 
 /** Stream 状态枚举 */
-export type SharedStreamState = "idle" | "streaming" | "paused" | "question" | "done";
+export type SharedStreamState =
+  | "idle"
+  | "streaming"
+  | "paused"
+  | "question"
+  | "done";
 
 // ============================================================
 // 模型 (Model) 相关类型
@@ -126,7 +131,7 @@ export type {
   STTResult,
   ProviderInfo,
   VoiceSession,
-} from './voice-types';
+} from "./voice-types";
 
 // ============================================================
 // 状态块 statusType 契约（前后端唯一事实来源）
@@ -136,8 +141,8 @@ export {
   STATUS_TYPE,
   TRANSIENT_STATUS_TYPES,
   isTransientStatusType,
-} from './status-types';
-export type { SharedStatusType } from './status-types';
+} from "./status-types";
+export type { SharedStatusType } from "./status-types";
 
 // ============================================================
 // 目标域词表（goal）契约（前后端唯一事实来源）
@@ -148,7 +153,7 @@ export type {
   TaskGoalUpdateReason,
   GoalDeviationSeverity,
   GoalTemplateKind,
-} from './goal-types';
+} from "./goal-types";
 
 // ============================================================
 // 工具可见性契约（tool-visibility）—— P1/P2/P3 工具治理（前后端唯一事实来源）
@@ -157,5 +162,10 @@ export type {
 export type {
   SharedToolVisibilityReason,
   SharedToolRiskLevel,
+  /** PR-4（2026-10-23）：风险增加 `unknown`（未评估），用于 conditional 影子工具 */
+  SharedToolVisibilityRisk,
+  /** PR-4：影子工具的未接线原因 / 处置方向 */
+  SharedShadowToolReason,
+  SharedShadowToolDisposition,
   SharedToolVisibilityEntry,
-} from './tool-visibility';
+} from "./tool-visibility";

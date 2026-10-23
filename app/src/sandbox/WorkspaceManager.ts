@@ -15,7 +15,9 @@ import {
 } from './SandboxTypes';
 import type { SSHSandboxConfig } from './SSHSandbox';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { configManager } from '@modules/config';
+
+// PR-3a（2026-10-23）：权限位解析与默认值收敛到 `./sandboxExecutionSignal`（单一事实源）
+import { readSandboxPermissionLevel } from './sandboxExecutionSignal';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('sandbox\WorkspaceManager');
@@ -36,6 +38,11 @@ export interface WorkspaceCreateOptions {
   sshConfig?: SSHSandboxConfig;
   /** 权限列表 */
   permissions?: SandboxPermission[];
+  /**
+   * 适配器专有配置（2026-10-23，方案 A）：例如 Docker 的
+   * `DOCKER_CONFIG_KEYS.VOLUMES`（宿主工作区 → 容器路径的挂载，`fileIoMount()` 的取证来源）。
+   */
+  customConfig?: Record<string, unknown>;
 }
 
 /**
@@ -153,28 +160,26 @@ export class WorkspaceManager {
       maxExecutionTime: options.maxExecutionTime || 30000,
       maxMemory: 256,
       workingDirectory: options.workingDirectory || process.cwd(),
+      ...(options.customConfig ? { customConfig: options.customConfig } : {}),
     };
   }
 
   /**
-   * P2-8：沙箱默认权限策略（配置化 + 灰度，默认 full 保持现状兼容）
+   * 沙箱默认权限策略（配置化；**默认 `standard`**，2026-10-23 拍板）
    *
    * 优先级：config.json sandbox.permissionLevel（S1 管理页可配置）
    *       → 环境变量 PERMISSION_SANDBOX_DEFAULT（启动时注入）
-   * - full     = READ_FILE + WRITE_FILE + EXECUTE（现状，默认）
-   * - standard = READ_FILE + WRITE_FILE（去掉 EXECUTE）
-   * - readonly = READ_FILE（仅可读，最严格）
+   *       → 默认 `standard`
+   * - `full`     = READ_FILE + WRITE_FILE + EXECUTE
+   * - `standard` = READ_FILE + WRITE_FILE（去掉 EXECUTE；**现默认**，见 Q-30）
+   * - `readonly` = READ_FILE（仅可读，最严格）
    *
-   * 收窄建议：Docker 平台可配 full，本机 Local 可配 standard/readonly。
+   * 为什么收窄：默认 `full` 时"沙箱内放行"等于允许任意执行 ⇒ 隔离形同虚设（§3.9.4 S3）。
+   * 取值解析与默认值**单一事实源**在 `./sandboxExecutionSignal`（本文件只做权限位映射）；
    * 单工作区仍可通过 options.permissions 覆盖。
    */
   private getDefaultPermissions(): SandboxPermission[] {
-    const configured = configManager.getValue<string>(
-      'sandbox.permissionLevel'
-    );
-    const policy = (
-      configured ?? configManager.env('PERMISSION_SANDBOX_DEFAULT', 'full')
-    )?.toLowerCase();
+    const policy = readSandboxPermissionLevel();
     switch (policy) {
       case 'readonly':
         return [SandboxPermission.READ_FILE];

@@ -385,6 +385,16 @@ export const FEATURE_FLAGS = {
    * 关（默认）⇒ 保留既有命令名级放行。`FEATURE_BASH_APPROVAL_STRICT=true`。
    */
   BASH_APPROVAL_STRICT: false,
+  /**
+   * PR-3（2026-10-23）：**会话级自动执行（仅只读 + 本地写）**（默认关）。
+   *
+   * 开 ⇒ 会话元数据 `approvalMode='auto-local'` 时，**风险默认档**里的 READ 之外，
+   * 「WRITE_LOCAL 且全部路径入参都在会话工作区内」也自动放行（审计 `approval:auto`）；
+   * SHELL / EXTERNAL / UNDECLARED / 工作区外写仍走人工审批。
+   * 关（默认）⇒ 与改造前完全一致（零行为变更）。
+   * `FEATURE_SESSION_AUTO_LOCAL=true`。
+   */
+  SESSION_AUTO_LOCAL: false,
 
   // ───── Execution 生命周期（PR2，2026-10-09；默认关 = 零行为变更的灰度开关）─────
   /**

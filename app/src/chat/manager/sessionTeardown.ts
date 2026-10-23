@@ -90,9 +90,32 @@ export class ChatSessionTeardown {
     this.deps.dropEventLogSession(sessionId);
     // 设计三（2026-08-26）：清理 per-session 轮次计数
     this.deps.clearToolRound(sessionId);
+    // PR-2（2026-10-23）：清理该会话的审批放行缓存 ——「本会话都允许」档**没有 TTL**，
+    // 不随会话删除清理就会常驻（内存滞留；会话 id 复用时还会错误放行）。
+    this.clearApprovedCommands(sessionId);
     // M2-T2.2（2026-08-31）：级联关闭孤儿审批项——删除含 pending 审批的会话后
     // /v1/inbox 不再残留可答复项（对齐 openworker 五步级联的审批项关闭）
     void this.dismissSessionInboxItems(sessionId);
+  }
+
+  /**
+   * PR-2（2026-10-23）：清理某会话的审批放行缓存（含不过期的「本会话都允许」档）。
+   *
+   * 失败仅告警（缓存清理不影响删除主流程；进程退出一并失效）。
+   */
+  private clearApprovedCommands(sessionId: string): void {
+    void (async () => {
+      try {
+        const { getApprovedCommandRegistry } =
+          await import('@modules/permission');
+        getApprovedCommandRegistry().clearSession(sessionId);
+      } catch (e) {
+        logger.warn('deleteSession:清理审批放行缓存失败', {
+          sessionId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    })();
   }
 
   /** M2-T2.2：关闭会话所有待处理审批项（失败不阻塞删除主流程）*/
@@ -314,6 +337,8 @@ export class ChatSessionTeardown {
     // 2026-10-17（台账 `BUDGET-SUSPEND-DELETE-RELEASE`）：被清空的会话若处于挂起态，
     // 其协调器登记须一并释放 —— 否则"清空历史"会留下**成批**幽灵条目（与 `deleteSession` 同根因）。
     this.releaseBudgetSuspends(targets.map((s) => s.id));
+    // PR-2：批量清空同样释放审批放行缓存（含不过期的「本会话都允许」档）
+    for (const s of targets) this.clearApprovedCommands(s.id);
     await this.deps.getSessionLifecycle().clearAllSessions(moduleType);
     logger.info('clearAllSessions:批量清空完成', {
       sessions: stored.length,

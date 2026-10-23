@@ -36,6 +36,11 @@ export class SSHWorkspace extends WorkspaceBase {
     this.sshConfig = sshConfig;
   }
 
+  /** 方案 A 取证：文件读写经 SSH 落在远端 ⇒ 真隔离（与宿主不同机） */
+  override isolationMode(): 'ssh' {
+    return 'ssh';
+  }
+
   /**
    * 构建 SSH 连接字符串
    */

@@ -210,12 +210,18 @@ describe('P3 报表 risk：派生自 TOOL_EFFECTS（D5）', () => {
     expect(checked).toBeGreaterThan(50); // 防空转
   });
 
-  it('未声明效果者（15 个 conditional）⇒ 保守判 high，不臆造低风险', () => {
+  it('未声明效果者（conditional 影子工具）⇒ 判 unknown（未评估），不再兜底 high（PR-4）', () => {
     const undeclared = report.filter(
       (r) => resolveToolEffect(r.name) === undefined
     );
     expect(undeclared.length).toBeGreaterThan(0);
-    for (const r of undeclared) expect(r.risk).toBe('high');
+    for (const r of undeclared) {
+      expect(r.risk).toBe('unknown');
+      // 且必须带出"未接线原因 + 处置方向"（来自 shadowToolDispositions 登记表）
+      expect(r.registration).toBe('conditional');
+      expect(r.conditionalReason).toBeDefined();
+      expect(r.disposition).toBeDefined();
+    }
   });
 
   /**

@@ -1082,6 +1082,16 @@ export async function handleUpdateSessionMeta(
       }
     }
 
+    // PR-3（2026-10-23）：会话级审批模式 —— 只接受白名单值（非法值 400，不静默忽略）
+    if (
+      data.approval_mode !== undefined &&
+      data.approval_mode !== 'ask' &&
+      data.approval_mode !== 'auto-local'
+    ) {
+      sendBadRequest(res, 'approval_mode must be "ask" | "auto-local"');
+      return;
+    }
+
     await coreAPI.updateSessionMeta(sessionId, {
       model: data.model as string | undefined,
       workspaceId: data.workspace_id as string | undefined,
@@ -1090,6 +1100,7 @@ export async function handleUpdateSessionMeta(
       pinned: data.pinned as boolean | undefined,
       workMode: data.work_mode as 'plan' | 'do' | undefined,
       toolProfile: data.tool_profile as string[] | undefined,
+      approvalMode: data.approval_mode as 'ask' | 'auto-local' | undefined,
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

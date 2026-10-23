@@ -1830,17 +1830,9 @@ export class CoreAPIImpl implements CoreAPI {
    */
   async updateSessionMeta(
     sessionId: string,
-    meta: {
-      model?: string;
-      workspaceId?: string;
-      providerId?: string;
-      tasksOverride?: Record<string, string>;
-      pinned?: boolean;
-      /** plan/do 工作模式（见 `.trae/specs/plan-do-mode.md`；输入区开关写入） */
-      workMode?: 'plan' | 'do';
-      /** P4b（2026-10-16）：会话级工具 profile 能力标签（`media` / `coding` 等）⇒ 追加对应工具类别 */
-      toolProfile?: string[];
-    }
+    // 参数类型**直接取接口**（唯一事实源）——避免此处与 `CoreAPI` 漂移，
+    // 也避免为本文件再抄一份字段清单（R04-001 行数上限亦受影响）。
+    meta: Parameters<CoreAPI['updateSessionMeta']>[1]
   ): Promise<void> {
     return this.sessionAgentOps.updateSessionMeta(sessionId, meta);
   }

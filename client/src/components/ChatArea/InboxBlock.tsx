@@ -24,6 +24,17 @@ const TYPE_LABEL_KEYS: Record<string, string> = {
   authorization: "chat.inboxTypeAuthorization",
 };
 
+/** 按钮文案 i18n 键（未登记的 reply 回退后端 label，CS06） */
+const REPLY_LABEL_KEYS: Record<string, string> = {
+  approve: "chat.inboxReplyApprove",
+  approve_session: "chat.inboxReplyApproveSession",
+  allowlist_call: "chat.inboxReplyAllowAlways",
+  allowlist_tool: "chat.inboxReplyAllowTool",
+  allowlist_command: "chat.inboxReplyAllowCommand",
+  reject: "chat.inboxReplyReject",
+  deny: "chat.inboxReplyReject",
+};
+
 /** 按钮样式映射 */
 const ACTION_STYLE: Record<
   string,
@@ -66,16 +77,9 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
       });
       if (res.ok) {
         setStatus("replied");
-        const label =
-          reply === "approve"
-            ? t("chat.inboxReplyApprove")
-            : reply === "reject"
-              ? t("chat.inboxReplyReject")
-              : reply === "allowlist_tool"
-                ? t("chat.inboxReplyAllowTool")
-                : reply === "allowlist_command"
-                  ? t("chat.inboxReplyAllowCommand")
-                  : t("chat.reply");
+        const label = REPLY_LABEL_KEYS[reply]
+          ? t(REPLY_LABEL_KEYS[reply])
+          : t("chat.reply");
         addToast("success", t("chat.inboxRepliedToast", { label }));
         onResolved?.();
 
@@ -85,6 +89,8 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         // 不再查询检查点、不再轮询、不再降级 sendMessage 重发。
         const isApproveLike =
           reply === "approve" ||
+          reply === "approve_session" ||
+          reply === "allowlist_call" ||
           reply === "allowlist_tool" ||
           reply === "allowlist_command";
         // U-06-4（2026-10-19）：续跑完成由后端广播 `session:continued`，
@@ -180,14 +186,22 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         {isPending &&
           data.actions.map((action) => {
             const s = ACTION_STYLE[action.style] || ACTION_STYLE.secondary;
+            const label = REPLY_LABEL_KEYS[action.reply]
+              ? t(REPLY_LABEL_KEYS[action.reply])
+              : action.label;
             return (
               <button
                 key={action.reply}
                 onClick={() => handleAction(action.reply)}
                 disabled={replying}
+                title={
+                  action.reply === "allowlist_call"
+                    ? t("chat.inboxReplyAllowAlwaysHint")
+                    : undefined
+                }
                 className={`rounded-lg px-3 py-1 text-xs font-medium text-white transition-colors disabled:opacity-50 ${s.bg} ${s.hover} ${s.darkBg} ${s.darkHover}`}
               >
-                {replying ? "..." : action.label}
+                {replying ? "..." : label}
               </button>
             );
           })}

@@ -20,7 +20,12 @@ import { createAllowResult } from './types/PermissionResult';
 import { resolveToolEffect } from './toolEffects';
 // D5（2026-10-11）：能力/风险描述符（由既有元数据派生，纯函数）
 import { deriveFromLegacyEffects } from './toolCapability';
-import type { ToolCapabilityDescriptor } from '../utils/toolContract/Tool';
+// PR-0（2026-10-23）：风险类别结构化派生（声明式；禁止按工具名猜）
+import { deriveToolRiskClass } from './toolRiskClass';
+import type {
+  ToolCapabilityDescriptor,
+  ToolRiskClass,
+} from '../utils/toolContract/Tool';
 
 export type { ToolDef } from './types/Tool';
 export { buildTool } from './types/Tool';
@@ -60,6 +65,18 @@ export abstract class BaseTool<
 
   /** 工具标签列表（可选） */
   tags?: ToolTag[];
+
+  /**
+   * PR-0（2026-10-23）：风险类别**静态声明**（缺省由 `TOOL_EFFECTS` + `sandboxLevel` 派生）。
+   * 与 `ToolRiskClass` 同域；子类按需覆盖，**禁止**在权限层再按工具名猜。
+   */
+  riskClass?: ToolRiskClass;
+
+  /**
+   * PR-0（2026-10-23）：风险类别**动态声明**（混合工具；如 `pdf` 的 `extract`/`generate`）。
+   * 优先于 `riskClass`。
+   */
+  riskClassFor?(input: Record<string, unknown>): ToolRiskClass;
 
   /** 严格模式标志（可选） */
   strict?: boolean = false;
@@ -108,11 +125,17 @@ export abstract class BaseTool<
 
   /**
    * 检查工具是否只读
-   * 默认返回false（假设写操作）
+   *
+   * PR-0（2026-10-23）：默认值改为**跟随副作用声明**（`TOOL_EFFECTS`，编译期穷举）——
+   * `sideEffect === 'none'` ⇒ 只读。原实现恒 `false`，导致「声明无副作用却自称非只读」，
+   * 进而被风险派生判为 `undeclared`（如 `sleep` / `image_display` 等）。子类仍可覆盖。
+   *
    * @param input 工具输入（可选）
    * @returns 是否只读
    */
   isReadOnly(input?: Record<string, unknown>): boolean {
+    const effect = resolveToolEffect(this.name);
+    if (effect) return effect.sideEffect === 'none';
     return false;
   }
 
@@ -211,6 +234,16 @@ export abstract class BaseTool<
   }
 
   /**
+   * PR-0（2026-10-23）：派生本次调用的风险类别。
+   *
+   * 权限层（infra）经 `Tool.getRiskClass?()` 调用 —— 使其**无需**反向依赖 `tools/`。
+   * 口径见 `tools/toolRiskClass.ts`（声明 > 结构化派生 > 未声明）。
+   */
+  getRiskClass(input?: Record<string, unknown>): ToolRiskClass {
+    return deriveToolRiskClass(this, input ?? {});
+  }
+
+  /**
    * 获取工具信息
    * @returns 工具信息
    */
@@ -236,6 +269,8 @@ export abstract class BaseTool<
       interruptBehavior: this.interruptBehavior?.() || 'block',
       maxResultSizeChars: this.maxResultSizeChars,
       tags: this.tags,
+      // PR-0（2026-10-23）：风险类别（声明式派生；供设置页分组与 /v1/tools）
+      riskClass: deriveToolRiskClass(this, {}),
       // U-03（2026-10-19）：能力声明位透出，供懒加载包装器在未解包时判定执行类
       ...(this.sandboxLevel !== undefined
         ? { sandboxLevel: this.sandboxLevel }

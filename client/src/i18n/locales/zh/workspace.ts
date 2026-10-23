@@ -163,7 +163,7 @@ const zhWorkspace = {
     permissionStandard: "标准（读写）",
     permissionReadonly: "只读（仅可读）",
     permissionHint:
-      "决定新沙箱工作空间的授权范围：完整 = 读写 + 执行，标准 = 读写， 只读 = 仅可读。现有工作空间不受影响。",
+      "决定新沙箱工作空间的授权范围：完整 = 读写 + 执行，标准 = 读写（默认）， 只读 = 仅可读。现有工作空间不受影响。",
     runtimeStatus: "运行时状态",
     enabledStatus: "启用状态",
     notEnabled: "未启用",

@@ -37,6 +37,8 @@ import { findToolByName } from '../tools/types/Tool';
 import { getEmptyToolPermissionContext } from '../tools/types/PermissionContext';
 import { ToolUseContext } from '../tools/types/ToolUseContext';
 import { createToolManager } from '@modules/tools';
+// PR-3a（2026-10-23）：本次执行的沙箱信号（唯一解析点 = sandbox/sandboxExecutionSignal）
+import { resolveSandboxExecutionSignal } from '@modules/sandbox';
 import { createAbortController } from '../utils/abortController';
 // U-20（B5-2-70，2026-10-17）：缓存容量改引 utils 单一事实源
 import {
@@ -209,6 +211,8 @@ export async function startMCPServer(
       // 假设MCP服务器不会从工具调用参数中单独读取消信号
       const toolUseContext: ToolUseContext = {
         abortController: createAbortController(),
+        // PR-3a（2026-10-23）：注入本次执行的沙箱信号（无隔离证据 ⇒ 'none'，fail-closed）
+        sandbox: resolveSandboxExecutionSignal(),
         options: {
           commands: MCP_COMMANDS,
           tools,

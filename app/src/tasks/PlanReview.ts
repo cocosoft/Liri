@@ -42,8 +42,19 @@ export interface PlanReview {
   reviewerAgentId?: string;
 }
 
-/** 审查决策 */
-export type ReviewDecision = 'approved' | 'retry' | 'skip' | 'escalate';
+/**
+ * 审查决策
+ *
+ * PR-5（2026-10-23）新增 `suspend`：本步有工具调用**正在等人工审批**
+ * （`toolOutcomes.pendingApproval > 0`）⇒ 挂起等待，**不得**判 retry/escalate
+ * （把"等审批"当"未达成"会让本可批准的事被当成模型失败）。
+ */
+export type ReviewDecision =
+  | 'approved'
+  | 'retry'
+  | 'skip'
+  | 'escalate'
+  | 'suspend';
 
 /** 带审查的 PlanStep 扩展 */
 export interface ReviewableStep {

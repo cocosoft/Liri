@@ -1227,6 +1227,8 @@ export class ChatManagerImpl implements ChatManager {
       getSessionWorkspacePath: this.getSessionWorkspacePath.bind(this),
       getSessionWorkspaceId: this.getSessionWorkspaceId.bind(this),
       isSessionWorkspaceStrict: this.isSessionWorkspaceStrict.bind(this),
+      // PR-3（2026-10-23）：会话级审批模式（缺省 ask）
+      getSessionApprovalMode: this.getSessionApprovalMode.bind(this),
       isCommandApproved: this._isCommandApproved.bind(this),
       sessionLookup: (args) => this._sessionLookup(args),
       // R3（2026-09-21）：向工具执行注入**会话级中断控制器**。
@@ -3254,6 +3256,19 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * PR-3（2026-10-23）：会话级审批模式（会话元数据 `approvalMode`）。
+   *
+   * 只认白名单值：`auto-local` ⇒ 自动执行（仅只读 + 本地写，受 `FEATURE_SESSION_AUTO_LOCAL` 约束）；
+   * 其余（含缺失 / 脏值）一律 `ask` —— 不因未知取值放宽。
+   */
+  private getSessionApprovalMode(sessionId?: string): 'ask' | 'auto-local' {
+    if (!sessionId) return 'ask';
+    const session = this._chatSessions.get(sessionId);
+    const metadata = session?.metadata as Record<string, unknown> | undefined;
+    return metadata?.approvalMode === 'auto-local' ? 'auto-local' : 'ask';
+  }
+
+  /**
    * 最近 N 条 user 消息文本（换行拼接）—— 裸会话升级判定**共用**的取数口径。
    *
    * P0-1（2026-09-06）：任务轮内模型可能 `ask_user_question` 澄清，澄清答复会占住"最后一条
@@ -3611,12 +3626,21 @@ export class ChatManagerImpl implements ChatManager {
   private async _isCommandApproved(
     toolName: string,
     input: Record<string, unknown>,
-    sessionId: string | undefined
+    sessionId: string | undefined,
+    /** PR-2：工具声明的授权维度（缺省 = 全参数稳定 JSON，零行为变更） */
+    approvalFingerprint?: string
   ): Promise<boolean> {
     try {
       // A-4（2026-10-18）：命令类工具名判定收敛到角色集合（含历史别名）
+      // PR-1（2026-10-23）：非 shell 工具改用**工具调用键**查放行缓存 —— 原实现
+      // `if (!isShellToolName(toolName)) return false;` 使非命令工具的批准**永远查不到**，
+      // 于是「点了批准、下一轮同一调用照样弹」。
       if (!isShellToolName(toolName)) {
-        return false;
+        const { isToolCallApproved } = await import('@modules/permission');
+        return (
+          !!sessionId &&
+          isToolCallApproved(sessionId, toolName, input, approvalFingerprint)
+        );
       }
       const command = typeof input.command === 'string' ? input.command : '';
       if (!command || !sessionId) return false;
@@ -3658,15 +3682,41 @@ export class ChatManagerImpl implements ChatManager {
     try {
       const { inboxManager } = await import('@modules/runtime/InboxManager.js');
       // P0-2: 统一 hashCommandForExecution，与执行端 BashTool hash 一致
-      const { hashCommandForExecution, toolCallApprovalKey } =
-        await import('@modules/permission');
+      const {
+        hashCommandForExecution,
+        hashApprovalFingerprint,
+        resolveApprovalFingerprint,
+        previewApprovalFingerprint,
+        findPendingApprovalId,
+      } = await import('@modules/permission');
       const command = typeof input.command === 'string' ? input.command : '';
       // N1：非命令类工具（media:delete 等）改用工具调用键（toolName:稳定JSON）作为放行
       // 哈希——审批后 LLM 重发时工具内 isToolCallApproved 命中才真正执行；bash 类工具
       // toolCallApprovalKey 返回 command 原值，哈希与既有命令级审批完全一致（零行为变化）。
-      const approvalKey = toolCallApprovalKey(toolName, input);
-      const commandHash = hashCommandForExecution(approvalKey);
+      // PR-2：改为工具可声明的授权维度（如 `file_write` 只按路径），未声明 ⇒ 全参数 JSON。
+      const tool = this.toolRegistry?.getTool(toolName);
+      const approvalFingerprint = resolveApprovalFingerprint(
+        tool ?? toolName,
+        input
+      );
+      const approvalHash = hashCommandForExecution(approvalFingerprint);
       const sid = sessionId || 'default';
+
+      // PR-1（2026-10-23）：同指纹的待审批项已存在 ⇒ 复用，不重复建卡。
+      const existingId = await findPendingApprovalId(inboxManager, {
+        sessionId: sid,
+        toolName,
+        approvalHash,
+      });
+      if (existingId) {
+        logger.info('同指纹审批卡已存在，复用而非新建（工具级审批）', {
+          toolName,
+          sessionId: sid,
+          inboxItemId: existingId,
+        });
+        return existingId;
+      }
+
       const submitted = await inboxManager.submit(
         {
           sessionId: sid,
@@ -3679,14 +3729,25 @@ export class ChatManagerImpl implements ChatManager {
                 ? `命令: ${command}`
                 : `参数: ${JSON.stringify(input).slice(0, 300)}`
             }`,
-          options: ['approve', 'deny'],
+          // PR-2（2026-10-23）四档：允许本次 / 本会话都允许 / 始终允许（工具+指纹）/ 拒绝
+          options: command
+            ? ['approve', 'approve_session', 'allowlist_command', 'deny']
+            : ['approve', 'approve_session', 'allowlist_call', 'deny'],
           offlineCapable: true,
           source: 'permission',
           metadata: {
             toolName,
             sessionId: sid,
             toolCallId,
-            commandHash: command ? hashCommandForExecution(command) : undefined,
+            // PR-1（2026-10-23）：**一律**写入审批指纹（非 shell 也要有），否则
+            // `applyApprovalSideEffects` 因缺 hash 直接 return ⇒ 批准从不落盘。
+            commandHash: approvalHash,
+            // PR-2：「始终允许」持久化用（只落摘要 + 截断预览，不落明文参数）
+            approvalFingerprintHash:
+              hashApprovalFingerprint(approvalFingerprint),
+            approvalFingerprintPreview:
+              previewApprovalFingerprint(approvalFingerprint),
+            approvalScopeKind: 'once',
             // P0-3: 携带原始命令，批准后写入放行缓存时提取命令名供命令名级放行
             command: command || undefined,
             // S1-1: 携带执行作用域 —— inbox 批准时写入放行缓存，执行端作用域不一致即不命中

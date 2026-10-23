@@ -83,6 +83,11 @@ export interface SessionMetadata {
    * 本会话可见白名单；未声明 ⇒ 零行为变更。与 `models/SessionMetadata.ts` 对齐。
    */
   toolProfile?: string[];
+  /**
+   * PR-3（2026-10-23）：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行）。
+   * 与 `models/SessionMetadata.ts` 对齐；缺省 `ask`。
+   */
+  approvalMode?: 'ask' | 'auto-local';
   /** 方案 A（2026-09-16）：会话标题单向锁——终态(manual/final)置位后永不回退 */
   titleLocked?: boolean;
   /** 方案 B（2026-09-16，P1-1）：标题原始值备份（首次改写前的 metadata.title） */

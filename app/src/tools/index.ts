@@ -251,6 +251,10 @@ export {
 export * from './web';
 export * from './version';
 
+// 2026-10-23（R03-002 收敛）：必填参数校验由长程任务链复用 —— 统一经模块出口导出，
+// 避免 `tasks/lro` 直接 import `tools/utils` 子目录（模块出口单一）。
+export { findMissingRequiredParams } from './utils/ToolUtils';
+
 // P2-1: 智能审批 — 低风险命令自动批准
 export { SmartApprovalObserver } from './SmartApprovalObserver';
 export type { ApprovalResult, ApprovalDecision } from './SmartApprovalObserver';

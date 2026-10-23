@@ -106,6 +106,14 @@ export interface PermissionRule {
   contentPattern?: string;
 
   /**
+   * PR-2（2026-10-23）：参数指纹摘要（`hashApprovalFingerprint(resolveApprovalFingerprint(...))`）。
+   *
+   * 存在时表示该规则是「始终允许」档：仅当本次调用的指纹摘要与之**完全相等**才命中，
+   * `contentPattern` 不参与（两者的匹配对象不同，见 `isRuleMatch`）。
+   */
+  inputFingerprint?: string;
+
+  /**
    * 规则来源
    */
   source: PermissionRuleSource;
@@ -135,6 +143,8 @@ export function createPermissionRule(params: {
   behavior: PermissionBehavior;
   toolName: string;
   contentPattern?: string;
+  /** PR-2：「始终允许」档的参数指纹摘要 */
+  inputFingerprint?: string;
   source?: PermissionRuleSource;
   priority?: number;
 }): PermissionRule {
@@ -144,6 +154,7 @@ export function createPermissionRule(params: {
     behavior: params.behavior,
     toolName: params.toolName,
     contentPattern: params.contentPattern,
+    inputFingerprint: params.inputFingerprint,
     source: params.source || PermissionRuleSource.USER_SETTINGS,
     priority: params.priority || 1,
     createdAt: now,
@@ -175,6 +186,13 @@ export interface RuleMatchOptions {
    * @default true
    */
   enableGlob?: boolean;
+  /**
+   * PR-2（2026-10-23）：本次调用的**参数指纹摘要**（`hashApprovalFingerprint`）。
+   *
+   * 规则带 `inputFingerprint` 时只做摘要等值比较（不再正则匹配原始 JSON ——
+   * 键序/空白/转义都脆弱）。调用方拿不到指纹时，指纹规则**不匹配**（fail-closed）。
+   */
+  fingerprint?: string;
 }
 
 /**
@@ -276,6 +294,11 @@ export function isRuleMatch(
     if (rule.toolName !== toolName) {
       return false;
     }
+  }
+
+  // PR-2：「始终允许」档 —— 只比指纹摘要（调用方未提供指纹 ⇒ 不匹配，fail-closed）
+  if (rule.inputFingerprint) {
+    return options.fingerprint === rule.inputFingerprint;
   }
 
   // 如果没有内容模式，则匹配所有输入

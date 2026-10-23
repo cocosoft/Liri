@@ -993,12 +993,24 @@ function _buildDefaultActions(item: {
       label: string;
       reply: string;
       style: 'primary' | 'danger' | 'secondary';
-    }> = [
-      { label: '批准', reply: 'approve', style: 'primary' },
-      { label: '拒绝', reply: 'reject', style: 'danger' },
-    ];
-    // P2-4: 命令类工具的白名单按钮（粒度由用户每次点击自主选择）
+    }> = [{ label: '批准', reply: 'approve', style: 'primary' }];
+    // PR-2（2026-10-23）四档：本会话都允许 / 始终允许（粒度为「工具 + 参数指纹」）
     const opts = item.options || [];
+    if (opts.includes('approve_session')) {
+      actions.push({
+        label: '本会话都允许',
+        reply: 'approve_session',
+        style: 'secondary',
+      });
+    }
+    if (opts.includes('allowlist_call')) {
+      actions.push({
+        label: '始终允许',
+        reply: 'allowlist_call',
+        style: 'secondary',
+      });
+    }
+    // P2-4: 命令类工具的白名单按钮（粒度由用户每次点击自主选择）
     if (opts.includes('allowlist_tool')) {
       actions.push({
         label: '白名单·工具级',
@@ -1013,6 +1025,7 @@ function _buildDefaultActions(item: {
         style: 'secondary',
       });
     }
+    actions.push({ label: '拒绝', reply: 'reject', style: 'danger' });
     return actions;
   }
   if (item.type === 'question') {

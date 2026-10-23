@@ -117,6 +117,32 @@ export { SSHWorkspace } from './adapters/SSHWorkspace';
 
 export { SandboxConfigBuilder } from './SandboxConfigBuilder';
 
+// 方案 A（2026-10-23）：文件类工具「经沙箱执行」的判定、路径映射与 IO 端口
+export {
+  hasIsolatedFileIo,
+  resolveWorkspaceFileIo,
+  resolveWorkspaceIsolationMode,
+  resolveWorkspacePathMap,
+} from './workspaceIsolation';
+export type {
+  WorkspaceFileIo,
+  WorkspaceIsolationMode,
+} from './workspaceIsolation';
+export { isSameWorkspacePath, toIsolatedPath } from './isolationPathMap';
+export type { WorkspacePathMap } from './isolationPathMap';
+
+// PR-3a（2026-10-23）：本次执行的沙箱上下文信号（ToolUseContext.sandbox 的唯一解析点）
+export {
+  DEFAULT_SANDBOX_PERMISSION_LEVEL,
+  SANDBOX_PERMISSION_LEVELS,
+  readSandboxEnabled,
+  readSandboxPermissionLevel,
+  resolveSandboxExecutionSignal,
+  resolveSandboxPermissionLevel,
+  isSandboxSignalUsable,
+} from './sandboxExecutionSignal';
+export type { ResolveSandboxSignalParams } from './sandboxExecutionSignal';
+
 // 2026-08-30 R03-002 收敛：SandboxImpl / landlock 统一出口
 // 2026-09-29：`SandboxImpl`（`SandboxManagerImpl` / `createSandboxManager` / 各平台沙箱类）
 // 已随「沙箱实例层」下线（唯一构造方 `ToolSandboxRouter` 亦零消费者，台账 D-25）；

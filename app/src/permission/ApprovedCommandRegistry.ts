@@ -217,6 +217,12 @@ export interface ApprovalEntry {
   capabilityDigest?: string;
   /** S1-1: 审批快照（原始命令 / 规范化命令 / 改写项） */
   snapshot?: ApprovalSnapshot;
+  /**
+   * PR-2（2026-10-23）：审批**作用域档位**。
+   * - `once`（缺省）：短 TTL（现状 5 分钟）；
+   * - `session`：**本会话都允许** —— 有效期到会话结束（`clearSession()` 或进程退出）。
+   */
+  scopeKind?: 'once' | 'session';
 }
 
 /**
@@ -292,6 +298,8 @@ export class ApprovedCommandRegistry {
       scope?: ApprovalScope;
       snapshot?: ApprovalSnapshot;
       capabilityDigest?: string;
+      /** PR-2：`session` ⇒ 本会话都允许（不过期，直到 `clearSession`） */
+      scopeKind?: 'once' | 'session';
     }
   ): void {
     if (!sessionId || !hash) return;
@@ -302,9 +310,15 @@ export class ApprovedCommandRegistry {
     }
     const scopeDigest = computeScopeDigest(extras?.scope);
     const ownerKey = currentOwnerKey();
+    const scopeKind = extras?.scopeKind === 'session' ? 'session' : 'once';
     sessionMap.set(hash, {
       hash,
-      expiresAt: Date.now() + this.ttlMs,
+      // PR-2：会话档不设过期（由 clearSession/进程退出失效）
+      expiresAt:
+        scopeKind === 'session'
+          ? Number.POSITIVE_INFINITY
+          : Date.now() + this.ttlMs,
+      scopeKind,
       // 多租户 P3：记录批准时的身份（本地身份 ⇒ 不写字段，零变更）
       ...(ownerKey ? { ownerKey } : {}),
       baseCommand: command ? getBaseCommand(command) : undefined,
@@ -315,6 +329,7 @@ export class ApprovedCommandRegistry {
     logger.info('危险命令已批准（放行缓存写入）', {
       sessionId,
       hash,
+      scopeKind,
       scopeBound: scopeDigest !== undefined,
       hasSnapshot: !!extras?.snapshot,
     });
@@ -497,11 +512,23 @@ export function toolCallApprovalKey(
 export function isToolCallApproved(
   sessionId: string,
   toolName: string,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  /** PR-2：工具声明的参数指纹（缺省 = `toolCallApprovalKey`，零行为变更） */
+  fingerprint?: string
 ): boolean {
-  const key = toolCallApprovalKey(toolName, input);
+  const key = fingerprint ?? toolCallApprovalKey(toolName, input);
   return getApprovedCommandRegistry().isApproved(
     sessionId,
     hashCommandForExecution(key)
   );
+}
+
+/**
+ * PR-2（2026-10-23）：参数指纹 → 授权标识（SHA-256 前 32 hex）。
+ *
+ * 「始终允许」规则只持久化本摘要（`PermissionRule.inputFingerprint`），**不落明文参数**
+ * （`file_write` 的 `content` 等不进规则文件），撤销列表展示改用截断预览。
+ */
+export function hashApprovalFingerprint(fingerprint: string): string {
+  return sha256Hex(fingerprint).slice(0, 32);
 }

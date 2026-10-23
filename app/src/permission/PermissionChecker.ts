@@ -11,16 +11,35 @@ import {
   createAskDecision,
 } from './types/PermissionDecision';
 import { PermissionContext } from './types/PermissionContext';
-import { hashCommandForExecution } from './ApprovedCommandRegistry';
+import {
+  hashApprovalFingerprint,
+  hashCommandForExecution,
+} from './ApprovedCommandRegistry';
+import {
+  previewApprovalFingerprint,
+  resolveApprovalFingerprint,
+} from './approvalFingerprint';
+import {
+  findPendingApprovalId,
+  type PendingApprovalLookup,
+} from './inboxApprovalDedupe';
 import { PermissionBehavior, isRuleMatch } from './types/PermissionRule';
+import type { RuleMatchOptions } from './types/PermissionRule';
 import {
   RiskClass,
   inferRiskClass,
+  resolveRiskClass,
   detectChainedCommand,
 } from './types/RiskClass';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 import { isShellToolName } from '@modules/utils/toolContract/toolRoles';
+import type { ToolSandboxLevel } from '@modules/utils/toolContract/Tool';
+import { findWorkspaceEscape } from '@modules/utils/toolContract/pathBoundary';
+import { PATH_ARG_KEYS } from '@modules/utils/toolContract/pathArgs';
+// PR-3b（2026-10-23）：沙箱豁免判定（纯函数，§3.9.4 S1–S4）
+import { resolveSandboxExemption } from './sandboxExemption';
+import { feature } from '@modules/core';
 const logger = getLogger('permission:checker');
 
 /**
@@ -39,7 +58,33 @@ export interface PermissionRuntimeDeps {
   };
   inboxManager: {
     submit(item: Record<string, unknown>): Promise<unknown>;
+    /**
+     * PR-1（2026-10-23）：待审批项查询（**提交前去重**用）。缺省 ⇒ 跳过去重（照常建卡）。
+     * 真实 `InboxManager` 已实现该方法；测试桩可不提供。
+     */
+    list?(params?: Record<string, unknown>): Promise<{
+      items: Array<{
+        id: string;
+        status?: string;
+        metadata?: Record<string, unknown>;
+      }>;
+    }>;
   };
+  /**
+   * PR-3c（2026-10-23）：**自动放行**类决策的审计落盘（可选）。
+   *
+   * 由**入口**注入（包装 `security/SecurityAuditLogger.logSecurityAuditEvent`）——
+   * `permission`（infra）**不**静态导入 `security`：后者又导入 `@modules/permission`，
+   * 会形成 `permission → security → permission` 循环（R00-001 视角同层，但运行时是环）。
+   * 未注入 ⇒ 仅保留结构化日志（不阻断，CS03）。
+   */
+  auditAutoAllow?(event: {
+    rule: 'approval:sandbox' | 'approval:auto';
+    toolName: string;
+    risk: string;
+    sessionId?: string;
+    detail: string;
+  }): void;
 }
 
 let _runtimeDeps: PermissionRuntimeDeps | null = null;
@@ -147,6 +192,12 @@ export interface Tool {
    * 工具名称
    */
   name: string;
+
+  /**
+   * PR-3b（2026-10-23）：沙箱能力声明位（与工具契约同域）。
+   * 沙箱豁免（S2）要求工具**显式声明**；缺省/`none` ⇒ 不豁免。
+   */
+  sandboxLevel?: ToolSandboxLevel;
 
   /**
    * 检查权限
@@ -318,19 +369,28 @@ export class PermissionChecker {
     }
 
     // 默认返回询问
-    return this._handleDefaultAsk(toolName, input, context);
+    return this._handleDefaultAsk(toolOrName, input, context);
   }
 
   /**
    * 提交审批项到 Inbox（风险感知）
    * 根据 RiskClass 决定是自动放行、弹窗确认还是进 Inbox 排队
+   *
+   * PR-0（2026-10-23）：风险改为**工具声明式**（`resolveRiskClass`）——
+   * 传工具对象时按 `riskClass`/`riskClassFor`/`TOOL_EFFECTS`/`sandboxLevel` 派生；
+   * 仅传名字的过渡调用方仍走已弃用的 `inferRiskClass`（行为零变更）。
    */
   private async _handleDefaultAsk(
-    toolName: string,
+    toolOrName: Tool | string,
     input: Record<string, unknown>,
     context: PermissionContext
   ): Promise<PermissionDecision> {
-    const risk = inferRiskClass(toolName);
+    const toolName =
+      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
+    const risk = resolveRiskClass(toolOrName, input);
+    // 过渡护栏：无人值守的"写/外部自动批准"仍以旧口径排除 shell 类，
+    // 防止声明式改造把原本按 shell 对待的工具**放宽**为自动批准。
+    const legacyRisk = inferRiskClass(toolName);
 
     // Shell 链式操作检测：提升风险等级
     if (
@@ -355,21 +415,52 @@ export class PermissionChecker {
           );
         case RiskClass.WRITE_LOCAL:
         case RiskClass.EXTERNAL:
-          if (unattendedMode.shouldAutoApprove()) {
+          if (
+            legacyRisk !== RiskClass.SHELL &&
+            unattendedMode.shouldAutoApprove()
+          ) {
             return createAllowDecision('Unattended: auto-approve write');
           }
-          return this._submitToInbox(toolName, input, context, risk);
+          return this._submitToInbox(toolOrName, input, context, risk);
         case RiskClass.SHELL:
-          // Shell 在无人值守下不自动放行，进 Inbox
-          return this._submitToInbox(toolName, input, context, risk);
+        case RiskClass.UNDECLARED:
+        default:
+          // Shell / 未声明：无人值守下不自动放行，进 Inbox
+          return this._submitToInbox(toolOrName, input, context, risk);
       }
     }
+
+    // PR-3（2026-10-23）：会话级自动执行（仅只读 + 本地写）。
+    // 只作用于**风险默认档**——前面的 deny / 显式 ask / 用户白名单已各自返回，
+    // 因此不会越过任何人工拦截。
+    const autoLocal = this._resolveSessionAutoLocal(
+      toolName,
+      risk,
+      input,
+      context
+    );
+    if (autoLocal) return autoLocal;
+
+    // PR-3b（2026-10-23）：沙箱豁免（§3.9.3 第 4 步）—— 只把"风险默认 ask"变 allow。
+    // 前面的 deny / 显式 ask / 用户 allow 规则已各自返回 ⇒ 不会越过任何人工拦截。
+    const sandboxExempt = this._resolveSandboxExemption(
+      toolName,
+      toolOrName,
+      risk,
+      input,
+      context
+    );
+    if (sandboxExempt) return sandboxExempt;
 
     // 非无人值守：按风险等级处理
     switch (risk) {
       case RiskClass.READ:
       case RiskClass.DISCUSS:
         return createAllowDecision('Low risk: auto-allow');
+      case RiskClass.UNDECLARED:
+        return createAskDecision(
+          `'${toolName}' requires approval (risk: undeclared)`
+        );
       case RiskClass.WRITE_LOCAL:
       case RiskClass.EXTERNAL:
       case RiskClass.SHELL:
@@ -383,14 +474,170 @@ export class PermissionChecker {
   }
 
   /**
+   * PR-3（2026-10-23）：会话级 `auto-local` 的**唯一**自动放行点（审计不可关闭）。
+   *
+   * 放行条件（全部满足才返回 allow，否则 `null` 交回既有风险默认档）：
+   * 1. `FEATURE_SESSION_AUTO_LOCAL` 开启（默认关 ⇒ 零行为变更）；
+   * 2. 会话声明 `approvalMode='auto-local'`；
+   * 3. 风险级为 `WRITE_LOCAL`（SHELL / EXTERNAL / UNDECLARED 永远人工）；
+   * 4. 会话有工作区边界，且入参**至少包含一个路径参数**（无路径语义的写操作不自动放行，
+   *    如 `media_delete`）；
+   * 5. 全部路径参数都在工作区内（含符号链接展开，复用 `findWorkspaceEscape`）。
+   *
+   * 审计：`approval:auto`（sessionId / toolName / 风险级 / 依据），不做开关。
+   */
+  private _resolveSessionAutoLocal(
+    toolName: string,
+    risk: RiskClass,
+    input: Record<string, unknown>,
+    context: PermissionContext
+  ): PermissionDecision | null {
+    if (!feature('SESSION_AUTO_LOCAL')) return null;
+    if (context.approvalMode !== 'auto-local') return null;
+    if (risk !== RiskClass.WRITE_LOCAL) return null;
+
+    const auditSkip = (reason: string, extra: Record<string, unknown> = {}) => {
+      logger.info('approval:auto 跳过', {
+        sessionId: context.sessionId,
+        toolName,
+        risk,
+        reason,
+        ...extra,
+      });
+    };
+
+    const workspace = context.workspacePath;
+    if (!workspace) {
+      auditSkip('no-workspace');
+      return null;
+    }
+    const hasPathArg = PATH_ARG_KEYS.some(
+      (key) => typeof input[key] === 'string' && (input[key] as string).trim()
+    );
+    if (!hasPathArg) {
+      auditSkip('no-path-arg');
+      return null;
+    }
+    const escape = findWorkspaceEscape(workspace, input);
+    if (escape) {
+      auditSkip('outside-workspace', {
+        argKey: escape.key,
+        resolved: escape.resolved,
+        via: escape.via,
+      });
+      return null;
+    }
+
+    logger.info('approval:auto', {
+      sessionId: context.sessionId,
+      toolName,
+      risk,
+      basis: 'auto-local + workspace-bounded write',
+      workspace,
+    });
+    // PR-3c（2026-10-23）：同一决策落安全审计通道（可查 / 可统计）
+    this._auditAutoAllow(
+      'approval:auto',
+      toolName,
+      risk,
+      context,
+      'session auto-local: workspace-bounded write'
+    );
+    return createAllowDecision('Session auto-local: write inside workspace');
+  }
+
+  /**
+   * PR-3c（2026-10-23）：把**自动放行**类决策交给注入的审计出口。
+   *
+   * 落点（由入口注入）= `security-audit.log`（`GET /v1/security/audit-logs` 可查；
+   * `matchedRules` 标记来源 `approval:sandbox` / `approval:auto`）。
+   * 未注入或写入失败 ⇒ 只丢审计、**不影响**放行决策本身（CS03）。
+   */
+  private _auditAutoAllow(
+    rule: 'approval:sandbox' | 'approval:auto',
+    toolName: string,
+    risk: RiskClass,
+    context: PermissionContext,
+    detail: string
+  ): void {
+    try {
+      _runtimeDeps?.auditAutoAllow?.({
+        rule,
+        toolName,
+        risk,
+        sessionId: context.sessionId,
+        detail,
+      });
+    } catch (err) {
+      // 审计失败不得影响放行决策本身（与 logSecurityAuditEvent 的内部降级同口径）
+      logger.warn('approval 审计写入失败（已忽略）', {
+        rule,
+        toolName,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * PR-3b（2026-10-23）：沙箱豁免的**唯一调用点**（判定在 `./sandboxExemption` 的纯函数）。
+   *
+   * 位置语义：位于「deny / 显式 ask / 用户 allow 规则」之后、「风险默认档」之前 ——
+   * 即 §3.9.3 的第 4 步，只能把"本来要问"变成"不问"，**永不**越过 deny 或用户显式 ask。
+   *
+   * 审计：`approval:sandbox`（记录模式 / 权限位 / 工作区），不可关闭。
+   */
+  private _resolveSandboxExemption(
+    toolName: string,
+    toolOrName: Tool | string,
+    risk: RiskClass,
+    input: Record<string, unknown>,
+    context: PermissionContext
+  ): PermissionDecision | null {
+    const result = resolveSandboxExemption({
+      signal: context.sandbox,
+      risk,
+      sandboxLevel:
+        typeof toolOrName === 'string' ? undefined : toolOrName.sandboxLevel,
+      input,
+      workspacePath: context.workspacePath,
+    });
+    if (!result.exempt) return null;
+
+    logger.info('approval:sandbox', {
+      sessionId: context.sessionId,
+      toolName,
+      risk,
+      mode: context.sandbox?.mode,
+      permissionLevel: context.sandbox?.permissionLevel,
+      workspace: context.workspacePath,
+      basis:
+        'S1-S4 satisfied（isolation + capability + permission + workspace）',
+    });
+    this._auditAutoAllow(
+      'approval:sandbox',
+      toolName,
+      risk,
+      context,
+      `sandbox exemption: mode=${context.sandbox?.mode} permission=${context.sandbox?.permissionLevel}`
+    );
+    return createAllowDecision(
+      'Sandbox: isolated execution, workspace-bounded'
+    );
+  }
+
+  /**
    * 提交审批项到 Inbox
    */
   private async _submitToInbox(
-    toolName: string,
+    toolOrName: Tool | string,
     input: Record<string, unknown>,
     context: PermissionContext,
-    risk: RiskClass
+    risk: RiskClass = inferRiskClass(
+      typeof toolOrName === 'string' ? toolOrName : toolOrName.name
+    )
   ): Promise<PermissionDecision> {
+    const toolName =
+      typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
     const inboxManager = _runtimeDeps?.inboxManager;
     if (!inboxManager) {
       // 依赖未注入（启动早期 / 非标准入口）⇒ 降级为 ask（与既有 catch 分支同语义）
@@ -418,8 +665,34 @@ export class PermissionChecker {
       // P0-2: 统一 hashCommandForExecution，与 BashTool 执行端 hash 一致
       const command = typeof input.command === 'string' ? input.command : '';
       const isCommandTool = isShellToolName(toolName);
-      const commandHash =
-        isCommandTool && command ? hashCommandForExecution(command) : undefined;
+      // PR-1（2026-10-23）：**所有工具**都计算审批指纹 —— 原实现仅 shell 计算，
+      // 非命令工具批准后 `applyApprovalSideEffects` 因缺 `commandHash` 直接 return
+      // ⇒ 批准从未落盘（实测：`file_write` 每次重问）。shell 沿用 command，其余用
+      // `toolName:稳定JSON`（键排序），与执行端 `isToolCallApproved` 同键。
+      // PR-2（2026-10-23）：改为工具可声明的**授权维度**（如 `file_write` 只按路径），
+      // 使「始终允许 / 本会话都允许」真正可命中；未声明工具仍为全参数稳定 JSON。
+      const approvalFingerprint = resolveApprovalFingerprint(toolOrName, input);
+      const commandHash = hashCommandForExecution(approvalFingerprint);
+
+      // PR-1：提交前**先查是否已有同一指纹的待审批项**，有则复用（避免僵尸卡）。
+      const existingId = inboxManager.list
+        ? await findPendingApprovalId(
+            inboxManager as unknown as PendingApprovalLookup,
+            { sessionId, toolName, approvalHash: commandHash }
+          )
+        : undefined;
+      if (existingId) {
+        logger.info('同指纹审批卡已存在，复用而非新建', {
+          toolName,
+          sessionId,
+          inboxItemId: existingId,
+        });
+        return createAskDecision(
+          `'${toolName}' queued in Inbox (risk: ${risk}). Awaiting approval.`,
+          undefined,
+          { submittedToInbox: true, commandHash, inboxItemId: existingId }
+        );
+      }
 
       const submitted = await inboxManager.submit({
         sessionId,
@@ -430,13 +703,21 @@ export class PermissionChecker {
             ? `命令: ${command}`
             : `参数: ${JSON.stringify(input).slice(0, 300)}`
         }`,
-        // P2-4: 命令类工具提供「白名单·工具级/仅此命令」按钮（用户自主选择粒度），
-        // 批准分支在 inbox-handlers 持久化 allow 规则
+        // PR-2（2026-10-23）四档：允许本次 / 本会话都允许 / 始终允许 / 拒绝。
+        // - 命令类：「始终允许」= 命令前缀白名单（`allowlist_command`），另保留工具级；
+        // - 外部类：只给本次 / 本会话 / 拒绝（外部副作用不提供永久放行）；
+        // - 其余：「始终允许」= 工具+参数指纹（`allowlist_call`）。
         options: isCommandTool
-          ? ['approve', 'deny', 'allowlist_tool', 'allowlist_command']
+          ? [
+              'approve',
+              'approve_session',
+              'allowlist_command',
+              'allowlist_tool',
+              'deny',
+            ]
           : risk === RiskClass.EXTERNAL
-            ? ['approve', 'deny', 'standing_rule']
-            : ['approve', 'deny'],
+            ? ['approve', 'approve_session', 'deny', 'standing_rule']
+            : ['approve', 'approve_session', 'allowlist_call', 'deny'],
         offlineCapable: true,
         source: 'permission',
         metadata: {
@@ -444,6 +725,15 @@ export class PermissionChecker {
           risk,
           taskId,
           commandHash,
+          // PR-2：「始终允许」按参数指纹持久化（只落摘要 + 截断预览，不落明文参数）
+          approvalFingerprintHash: hashApprovalFingerprint(approvalFingerprint),
+          approvalFingerprintPreview:
+            previewApprovalFingerprint(approvalFingerprint),
+          approvalScopeKind: 'once',
+          // PR-3a（2026-10-23）：沙箱上下文留证 —— 让用户看到"这次是在哪执行的"。
+          // 仅证据面：不参与任何放行判定（豁免判定在 PR-3b）。
+          sandboxMode: context.sandbox?.mode,
+          sandboxPermissionLevel: context.sandbox?.permissionLevel,
           // P0-3: 携带原始命令，批准后写入放行缓存时提取命令名供命令名级放行
           command: command || undefined,
           inputPreview: JSON.stringify(input).slice(0, 200),
@@ -490,10 +780,14 @@ export class PermissionChecker {
   async submitAskToInbox(
     toolName: string,
     input: Record<string, unknown>,
-    context: PermissionContext
+    context: PermissionContext,
+    /** PR-0：调用方已解析的风险类别（传工具对象时应有值；缺省回退名字启发式） */
+    resolvedRisk?: RiskClass,
+    /** PR-2：工具对象（提供 ⇒ 指纹按工具声明的授权维度计算） */
+    tool?: Tool
   ): Promise<PermissionDecision> {
-    const risk = inferRiskClass(toolName);
-    return this._submitToInbox(toolName, input, context, risk);
+    const risk = resolvedRisk ?? inferRiskClass(toolName);
+    return this._submitToInbox(tool ?? toolName, input, context, risk);
   }
 
   /**
@@ -509,7 +803,27 @@ export class PermissionChecker {
       undefined,
       PermissionBehavior.DENY
     );
-    return denyRules.some((rule) => isRuleMatch(rule, toolName, context.input));
+    const options = this._ruleMatchOptions(toolOrName, context.input ?? {});
+    return denyRules.some((rule) =>
+      isRuleMatch(rule, toolName, context.input, options)
+    );
+  }
+
+  /**
+   * PR-2（2026-10-23）：「始终允许」规则（`inputFingerprint`）的匹配选项。
+   *
+   * 指纹由工具声明（`approvalFingerprint`）决定，缺省为全参数稳定 JSON —— 与提交审批、
+   * 放行缓存同源；调用方不提供指纹时指纹规则不匹配（fail-closed）。
+   */
+  private _ruleMatchOptions(
+    toolOrName: Tool | string,
+    input: Record<string, unknown>
+  ): RuleMatchOptions {
+    return {
+      fingerprint: hashApprovalFingerprint(
+        resolveApprovalFingerprint(toolOrName, input)
+      ),
+    };
   }
 
   /**
@@ -528,7 +842,10 @@ export class PermissionChecker {
       undefined,
       PermissionBehavior.ASK
     );
-    return askRules.some((rule) => isRuleMatch(rule, toolName, context.input));
+    const options = this._ruleMatchOptions(toolOrName, context.input ?? {});
+    return askRules.some((rule) =>
+      isRuleMatch(rule, toolName, context.input, options)
+    );
   }
 
   /**
@@ -547,8 +864,9 @@ export class PermissionChecker {
       undefined,
       PermissionBehavior.ALLOW
     );
+    const options = this._ruleMatchOptions(toolOrName, context.input ?? {});
     return allowRules.some((rule) =>
-      isRuleMatch(rule, toolName, context.input)
+      isRuleMatch(rule, toolName, context.input, options)
     );
   }
 
@@ -567,8 +885,9 @@ export class PermissionChecker {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;
     const rules = this.ruleManager.getRules();
+    const options = this._ruleMatchOptions(toolOrName, input ?? {});
     for (const rule of rules) {
-      if (isRuleMatch(rule, toolName, input)) {
+      if (isRuleMatch(rule, toolName, input, options)) {
         switch (rule.behavior) {
           case PermissionBehavior.ALLOW:
             return createAllowDecision(

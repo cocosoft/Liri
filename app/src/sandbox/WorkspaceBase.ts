@@ -137,4 +137,31 @@ export abstract class WorkspaceBase {
   hasPermission(permission: SandboxPermission): boolean {
     return this.config.allowedPermissions.includes(permission);
   }
+
+  /**
+   * 本工作区的**隔离形态**（2026-10-23，方案 A 取证用）。
+   *
+   * - `local`：宿主进程直接操作文件系统（**不是隔离**，仅路径/权限位约束）；
+   * - `container` / `ssh`：文件读写经容器或远端执行 ⇒ 外部可证"操作确实落在隔离环境内"。
+   *
+   * 消费点：`sandbox/workspaceIsolation` → `PermissionChecker` 的沙箱豁免（S1）。
+   * 默认 `local`（fail-closed：未覆写者一律视为未隔离）。
+   */
+  isolationMode(): 'local' | 'container' | 'ssh' {
+    return 'local';
+  }
+
+  /**
+   * **宿主工作区根 ↔ 隔离环境内根**的挂载映射（2026-10-23，方案 A 路由用）。
+   *
+   * `isolationMode()` 只回答"是不是隔离环境"；本方法回答"宿主路径能落到环境内哪"。
+   * 两者缺一，文件类工具都**不得**声称隔离：
+   * - 无映射 ⇒ 无法把工具解析出的宿主绝对路径翻译成环境内路径 ⇒ 不路由（保持宿主直写）；
+   * - `LocalWorkspace` / 未声明者一律 `null`（fail-closed）。
+   *
+   * 消费点：`sandbox/workspaceIsolation`（路由 + `fileIoIsolated` 取证）。
+   */
+  fileIoMount(): { hostRoot: string; isolatedRoot: string } | null {
+    return null;
+  }
 }

@@ -62,6 +62,37 @@ export function getToolBaseDir(context?: {
 }
 
 /**
+ * 必填参数校验（单一实现：`ToolExecutor.validateInput` 与长程任务编排器共用）。
+ *
+ * **背景（2026-10-22 真机日志）**：PDCA 步骤内的 `file_write` 连续三次报
+ * `The "path" property must be of type string, got undefined` —— 模型以为传了 `file_path`，
+ * 实际到达工具时该键**缺失**（参数 JSON 被截断/非法时上游按 `{}` 兜底）。
+ * 根因是两条执行链**不共用校验**：主聊天链走 `ToolExecutor.validateInput`（缺参返回
+ * `Missing required parameter: X`），而长程任务编排器**直接** `tool.execute()` ⇒ 裸抛运行时错误，
+ * 模型既不知道缺哪个参数，也无从自纠。
+ *
+ * @param params 工具的 `ToolParam[]` 声明
+ * @param input 工具实际收到的入参
+ * @returns 缺失（未出现或为 null/undefined）的必填参数名；全部就绪返回空数组
+ */
+export function findMissingRequiredParams(
+  params: readonly ToolParam[] | undefined,
+  input: Record<string, unknown> | undefined
+): string[] {
+  if (!params || params.length === 0) return [];
+  const received = input ?? {};
+  const missing: string[] = [];
+  for (const param of params) {
+    if (!param.required) continue;
+    const value = received[param.name];
+    if (!(param.name in received) || value === undefined || value === null) {
+      missing.push(param.name);
+    }
+  }
+  return missing;
+}
+
+/**
  * 任务类工具入参的**文本字段兜底链**（单一实现，2026-09-29 归一化）。
  *
  * **背景（台账另案 ④ 实测）**：模型描述任务时字段名不固定（`description` / `title` / `name` /

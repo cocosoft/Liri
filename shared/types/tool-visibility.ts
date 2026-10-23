@@ -43,6 +43,32 @@ export type SharedToolVisibilityReason =
 export type SharedToolRiskLevel = "low" | "medium" | "high";
 
 /**
+ * 可见性报表里的风险取值（PR-4，2026-10-23）：在既有三档上增加 **`unknown`（未评估）**。
+ *
+ * 由来：`conditional`（未进生效工具面）的工具在 `TOOL_EFFECTS` 里**结构上没有条目**
+ * ⇒ 原派生逻辑把它们一律兜底为 `high`（"无法证明只读即视为对外写"）⇒ 设置页显示
+ * "高风险"属**假阳性**（实测 11 个里 7 个其实是只读/本地写）。
+ *
+ * 语义：`unknown` = **未评估**（灰标），不参与"高风险二次确认"；只有真正声明为
+ * external / destructive 的工具才仍是 `high`。
+ */
+export type SharedToolVisibilityRisk = SharedToolRiskLevel | "unknown";
+
+/** 影子工具（`conditional`）的**未接线原因**（PR-4，后端下发，前端只渲染） */
+export type SharedShadowToolReason =
+  | "stub"
+  | "duplicate"
+  | "awaiting-provider"
+  | "needs-rewrite";
+
+/** 影子工具的**处置方向**（PR-4；`lint:shadow-tools` 强制逐项登记） */
+export type SharedShadowToolDisposition =
+  | "retire"
+  | "rewrite"
+  | "awaiting-provider"
+  | "wired";
+
+/**
  * 单个工具的可见性报表条目（`GET /v1/tools/visibility` 的元素）。
  *
  * ⚠️ `category` 为**字符串**：类别枚举属后端内部事实源（`tools/toolCategories.ts`），
@@ -60,8 +86,15 @@ export interface SharedToolVisibilityEntry {
   effective: "visible" | "hidden";
   /** 结构化原因（`effective === "hidden"` ⇒ 必非空） */
   reasons: SharedToolVisibilityReason[];
-  /** 风险级别（前端 `high` ⇒ 红色 + 二次确认） */
-  risk: SharedToolRiskLevel;
+  /** 风险级别（前端 `high` ⇒ 红色 + 二次确认；`unknown` ⇒ 灰标"未评估"） */
+  risk: SharedToolVisibilityRisk;
+  /**
+   * PR-4（2026-10-23）：`conditional` 工具的**未接线原因**（仅该类条目有值）。
+   * 由后端处置表下发，前端只渲染文案（不在前端复算判定）。
+   */
+  conditionalReason?: SharedShadowToolReason;
+  /** PR-4：`conditional` 工具的**处置方向**（`lint:shadow-tools` 强制登记） */
+  disposition?: SharedShadowToolDisposition;
   /**
    * 工具描述（C-3b T3 展示半边，2026-10-18）：与模型侧**同一份描述源**
    * （`ToolRegistry.getToolSchemas()` → `resolveToolParam`），仅供设置页展示；

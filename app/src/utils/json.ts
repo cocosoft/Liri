@@ -81,3 +81,29 @@ export function repairModelJson(raw: string): string {
     return raw;
   }
 }
+
+/**
+ * 解析模型输出的 JSON **对象**（工具调用参数）：先 `repairModelJson` 再做 `JSON.parse`。
+ *
+ * **背景（2026-10-22 真机日志）**：模型写 `"file_path": "C:\Users\..."`（单反斜杠，`\U` 非法转义）
+ * 时，各传输/格式化层的裸 `JSON.parse` 直接失败；其中 `TransportProviderAdapter` 与
+ * Anthropic/Gemini formatter 都把失败**静默**兜底成 `{}` ⇒ 参数在到达工具前就已是空对象，
+ * 工具侧只报「缺 file_path」，模型反复重试同一调用（PDCA 步骤内实测连败 3 次）。
+ * 复用以 `repairModelJson` 为中心的既有修复链，使"能修好的"不再降级。
+ *
+ * @returns 解析成功且为普通对象时返回对象；无法解析时返回 `undefined`（由调用方决定兜底与告警）
+ */
+export function parseModelJsonObject(
+  raw: string
+): Record<string, unknown> | undefined {
+  if (typeof raw !== 'string' || raw.length === 0) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(repairModelJson(raw));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return undefined;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}

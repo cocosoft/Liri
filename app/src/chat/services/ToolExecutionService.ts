@@ -39,6 +39,9 @@ import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
 // S2-6（2026-10-11）：工具调用统一指标（工具名/结果/耗时/入参字节/估算 tokens）—— 唯一实现 = tools/monitoring
 import { isNonIdempotentRetry, recordToolInvocation } from '@modules/tools';
+// PR-3a（2026-10-23）：本次执行的沙箱信号（唯一解析点 = sandbox/sandboxExecutionSignal）
+import { resolveSandboxExecutionSignal } from '@modules/sandbox';
+import type { Tool, SandboxExecutionSignal } from '../../tools/types/Tool';
 import { estimateTokens } from '@modules/ai';
 import { configManager } from '@modules/config';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
@@ -57,7 +60,10 @@ import type { RollbackIntegration, FileOperation } from '@modules/security';
 // S1-1（2026-10-11）：审批作用域 / 快照类型（**仅类型导入**，运行时判定在 permission 层）
 import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
 // D2（2026-10-11）：权限管理器注入断言（生产 fail-fast，G9）
-import { assertPermissionManagerInjected } from '@modules/permission';
+import {
+  assertPermissionManagerInjected,
+  resolveApprovalFingerprint,
+} from '@modules/permission';
 
 /**
  * **工具执行瞬态**状态（状态机方案 阶段 1.3 取证抽出；消除裸字面量，CS02）。
@@ -246,10 +252,19 @@ export interface ToolExecutionDeps {
    * 越界直接拒绝）；未注入或为 false ⇒ **零行为变更**（普通会话的绝对路径语义不变）。
    */
   isSessionWorkspaceStrict?: (sessionId?: string) => boolean;
+  /**
+   * PR-3（2026-10-23）：会话级审批模式（会话元数据 `approvalMode`，缺省 `ask`）。
+   *
+   * `auto-local` ⇒ 在**风险默认档**额外放行「本地写 + 路径全在会话工作区内」
+   * （由 `PermissionChecker` 判定；受 `FEATURE_SESSION_AUTO_LOCAL` 开关约束）。
+   */
+  getSessionApprovalMode?: (sessionId?: string) => 'ask' | 'auto-local';
   isCommandApproved(
     toolName: string,
     args: Record<string, unknown>,
-    sessionId?: string
+    sessionId?: string,
+    /** PR-2：工具声明的授权维度（缺省 = 全参数稳定 JSON，零行为变更） */
+    approvalFingerprint?: string
   ): Promise<boolean>;
   /**
    * R3（2026-09-21）：会话级流式中断控制器（ChatManager 拥有，本服务仅读取）。
@@ -658,6 +673,12 @@ export class ToolExecutionService {
             forceAskReason?: string;
             /** 语义护栏「便宜版」（2026-10-21）：意图文本（最近一条用户消息） */
             metadata?: { goalText?: string };
+            /** PR-3：会话级审批模式（`auto-local` = 只读 + 工作区内本地写自动执行） */
+            approvalMode?: 'ask' | 'auto-local';
+            /** PR-3：会话工作区路径（自动执行的写边界） */
+            workspacePath?: string;
+            /** PR-3a：本次执行的沙箱上下文（审批卡留证；不改判定） */
+            sandbox?: SandboxExecutionSignal;
           }
         ) => Promise<{
           allowed: boolean;
@@ -674,12 +695,33 @@ export class ToolExecutionService {
       // 已认证请求各带各的角色（并发登录不再互相覆盖）；本地/后台 ⇒ null ⇒ 不传，
       // 权限层回退进程级角色，桌面端行为与改造前一致。
       const requestRole = getRequestPermissionRole();
+      // PR-0（2026-10-23）：把**工具对象**带进权限判定 —— 风险类别按工具声明派生
+      // （`riskClass`/`riskClassFor`/`TOOL_EFFECTS`/`sandboxLevel`），不再按工具名猜。
+      // 取不到（未注册/懒加载未解包）⇒ 传 undefined，权限层回退旧启发式（行为零变更）。
+      const permissionTool = (() => {
+        try {
+          const registry = this.deps.getToolRegistry() as {
+            getTool?: (name: string) => Tool | undefined;
+          } | null;
+          return registry?.getTool?.(normalizedToolCall.name);
+        } catch {
+          return undefined;
+        }
+      })();
       const permissionResult = await pm.checkPermissionForTool(
         normalizedToolCall.name,
         normalizedToolCall.arguments,
         {
           sessionId: toolCall.sessionId,
           ...(requestRole ? { userRole: requestRole } : {}),
+          ...(permissionTool ? { tool: permissionTool } : {}),
+          // PR-3：会话级审批模式 + 工作区边界（自动执行只放行工作区内的本地写）
+          approvalMode:
+            this.deps.getSessionApprovalMode?.(toolCall.sessionId) ?? 'ask',
+          workspacePath:
+            this.deps.getSessionWorkspacePath(toolCall.sessionId) ?? undefined,
+          // PR-3a（2026-10-23）：沙箱信号 —— 仅供审批卡留证（不改判定）
+          sandbox: resolveSandboxExecutionSignal(),
           forceAskReason: this._resolveNonIdempotentRetryReason(
             normalizedToolCall.name,
             normalizedToolCall.arguments,
@@ -697,7 +739,11 @@ export class ToolExecutionService {
           const approvedHit = await this.deps.isCommandApproved(
             normalizedToolCall.name,
             normalizedToolCall.arguments,
-            toolCall.sessionId
+            toolCall.sessionId,
+            resolveApprovalFingerprint(
+              permissionTool ?? normalizedToolCall.name,
+              normalizedToolCall.arguments
+            )
           );
           if (!approvedHit) {
             if (permissionResult.submittedToInbox === true) {
@@ -981,6 +1027,9 @@ export class ToolExecutionService {
         const context = {
           toolUseId: normalizedToolCall.id,
           sessionId: toolCall.sessionId,
+          // PR-3a（2026-10-23）：注入本次执行的沙箱信号（审批卡证据；PR-3b 的豁免判定读它）。
+          // 无隔离证据 ⇒ `mode: 'none'`（fail-closed，不当成"沙箱内已放行"）。
+          sandbox: resolveSandboxExecutionSignal(),
           options: {
             cwd: cwdDecision.cwd,
             workspaceId: this.deps.getSessionWorkspaceId(toolCall.sessionId),
@@ -1081,6 +1130,50 @@ export class ToolExecutionService {
           const approvalSnapshot = (
             toolResult as { metadata?: { approvalSnapshot?: ApprovalSnapshot } }
           ).metadata?.approvalSnapshot;
+          // PR-1（2026-10-23）：已批准过**同一指纹** ⇒ 不再建卡，直接复跑一次
+          // （工具内部会命中 `isToolCallApproved` 并真正执行；仅重试一次，避免递归）。
+          if (
+            await this.deps.isCommandApproved(
+              normalizedToolCall.name,
+              normalizedToolCall.arguments,
+              toolCall.sessionId,
+              resolveApprovalFingerprint(
+                (() => {
+                  try {
+                    const lookup = (
+                      this.deps.getToolRegistry() as {
+                        getTool?: (n: string) => Tool | undefined;
+                      } | null
+                    )?.getTool?.(normalizedToolCall.name);
+                    return lookup ?? normalizedToolCall.name;
+                  } catch {
+                    return normalizedToolCall.name;
+                  }
+                })(),
+                normalizedToolCall.arguments
+              )
+            )
+          ) {
+            logger.info('工具级审批已命中放行缓存，直接复跑（不再建卡）', {
+              toolName: normalizedToolCall.name,
+              toolCallId: toolCall.id,
+            });
+            const retried = await registry.executeTool(
+              {
+                toolName: normalizedToolCall.name,
+                input: normalizedToolCall.arguments,
+              },
+              context,
+              onProgress
+            );
+            return {
+              toolCallId: toolCall.id,
+              toolName: normalizedToolCall.name,
+              result: retried.data ?? retried.output,
+              error:
+                typeof retried.error === 'string' ? retried.error : undefined,
+            };
+          }
           const submitted = await this.deps.submitToolApproval(
             normalizedToolCall.name,
             normalizedToolCall.arguments,

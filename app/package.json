@@ -79,6 +79,8 @@
     "lint:state-ratchet": "bun run ../scripts/lint-state-literal-ratchet.ts",
     "lint:complexity": "bun run scripts/lint-complexity-ratchet.ts",
     "lint:tool-schema": "bun run scripts/lint-tool-schema.ts",
+    "lint:tool-risk": "bun run scripts/lint-tool-risk.ts",
+    "lint:shadow-tools": "bun run scripts/lint-shadow-tools.ts",
     "lint:prompt-parity": "bun run scripts/lint-prompt-parity.ts",
     "lint:prompt-budget": "bun run scripts/lint-prompt-budget.ts",
     "lint:prompt-t1": "bun run scripts/lint-prompt-t1.ts",

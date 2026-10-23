@@ -233,6 +233,9 @@ export class InboxManager {
     // Phase 4: 幂等列迁移（channel_id, channel_session_id, channel_conversation_id）
     await this._migrateSchema(db);
 
+    // Phase 4.1（2026-10-23）：审批卡去重的 **DB 级兜底**（部分唯一索引）
+    await this._ensureApprovalDedupeIndex(db);
+
     // Phase 5: 创建 session_inbox_map 关联表
     await new Promise<void>((resolve, reject) => {
       db.exec(
@@ -295,6 +298,112 @@ export class InboxManager {
         logger.info(`Schema migrated: added column ${col}`);
       }
     }
+  }
+
+  /**
+   * 审批卡去重的 **DB 级约束**（2026-10-23，多租户/审批收口续做）。
+   *
+   * 提交前的 `findPendingApprovalId()` 只能覆盖"查询 → INSERT"之间没有并发插入的情况；
+   * 多通道重试 / 多进程仍可能各插一张。这里补一条**部分唯一索引**（仅 `pending` 的
+   * `approval`，且仅当 metadata 同时带 `toolName` + `commandHash`）作为最终兜底。
+   *
+   * 存量库可能已有重复项（历史缺陷所致）⇒ 建索引会失败。此时**不删用户数据**：
+   * 记录告警并跳过索引（提交前去重仍生效），待重复项被处理后再随启动补建。
+   */
+  private async _ensureApprovalDedupeIndex(db: Database): Promise<void> {
+    const duplicates = await new Promise<number>((resolve) => {
+      db.get(
+        `SELECT COUNT(*) AS cnt FROM (
+           SELECT 1 FROM inbox_items
+            WHERE type = 'approval' AND status = 'pending'
+              AND json_extract(metadata, '$.toolName') IS NOT NULL
+              AND json_extract(metadata, '$.commandHash') IS NOT NULL
+            GROUP BY session_id,
+                     json_extract(metadata, '$.toolName'),
+                     json_extract(metadata, '$.commandHash')
+           HAVING COUNT(*) > 1
+         )`,
+        (err: Error | null, row: { cnt?: number } | undefined) => {
+          resolve(err ? -1 : Number(row?.cnt ?? 0));
+        }
+      );
+    });
+
+    if (duplicates < 0) {
+      logger.warn('审批去重索引：存量重复项检查失败，跳过建索引');
+      return;
+    }
+    if (duplicates > 0) {
+      logger.warn('审批去重索引：存量存在重复的 pending 审批项，跳过建索引', {
+        duplicateGroups: duplicates,
+      });
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      db.exec(
+        `CREATE UNIQUE INDEX IF NOT EXISTS ux_inbox_pending_approval
+           ON inbox_items (
+             session_id,
+             json_extract(metadata, '$.toolName'),
+             json_extract(metadata, '$.commandHash')
+           )
+           WHERE type = 'approval' AND status = 'pending'
+             AND json_extract(metadata, '$.toolName') IS NOT NULL
+             AND json_extract(metadata, '$.commandHash') IS NOT NULL`,
+        (err: Error | null) => {
+          if (err) {
+            logger.warn('审批去重索引创建失败（已跳过，不影响主流程）', {
+              error: err.message,
+            });
+          } else {
+            logger.info('审批去重唯一索引已就绪');
+          }
+          resolve();
+        }
+      );
+    });
+  }
+
+  /** 唯一约束冲突是否来自审批去重索引 */
+  private _isApprovalUniqueConflict(e: unknown): boolean {
+    const msg = e instanceof Error ? e.message : String(e);
+    return /UNIQUE constraint failed/i.test(msg);
+  }
+
+  /**
+   * 唯一约束冲突后的**兜底查询**：返回同一 `(sessionId, toolName, commandHash)`
+   * 下最早的 pending 审批项，使并发竞态的调用方仍拿到可用卡片（而不是提交失败）。
+   */
+  private async _findPendingApprovalByFingerprint(
+    db: Database,
+    item: Omit<InboxItem, 'id' | 'status' | 'createdAt' | 'updatedAt'>
+  ): Promise<InboxItem | null> {
+    const toolName = item.metadata?.toolName;
+    const commandHash = item.metadata?.commandHash;
+    if (
+      item.type !== 'approval' ||
+      typeof toolName !== 'string' ||
+      typeof commandHash !== 'string'
+    ) {
+      return null;
+    }
+    const row = await new Promise<Record<string, unknown> | undefined>(
+      (resolve) => {
+        db.get(
+          `SELECT * FROM inbox_items
+            WHERE session_id = ? AND type = 'approval' AND status = 'pending'
+              AND json_extract(metadata, '$.toolName') = ?
+              AND json_extract(metadata, '$.commandHash') = ?
+            ORDER BY created_at ASC LIMIT 1`,
+          [item.sessionId, toolName, commandHash],
+          (err: Error | null, row: Record<string, unknown> | undefined) => {
+            resolve(err ? undefined : row);
+          }
+        );
+      }
+    );
+    return row ? this._mapRow(row) : null;
   }
 
   /** 提交 Inbox 项 */
@@ -452,6 +561,19 @@ export class InboxManager {
 
       return full;
     } catch (e) {
+      // 2026-10-23：唯一索引兜底 —— 并发竞态下已有同一指纹的 pending 卡，
+      // 返回既有项而不是让审批提交失败（卡片仍然可用）。
+      if (this._isApprovalUniqueConflict(e)) {
+        const existing = await this._findPendingApprovalByFingerprint(db, item);
+        if (existing) {
+          logger.info('审批项已存在（DB 唯一约束兜底），返回既有 pending 项', {
+            id: existing.id,
+            sessionId: existing.sessionId,
+          });
+          otel.endSpan(span, SpanStatusCode.OK);
+          return existing;
+        }
+      }
       void handleError(e, {
         module: 'runtime:inbox',
         action: 'submit',

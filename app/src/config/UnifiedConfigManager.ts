@@ -12,7 +12,10 @@
 import { getLogger } from '../monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
 const logger = getLogger('config:UnifiedConfigManager');
-import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus.js';
+import {
+  globalEventBus,
+  SystemEvents,
+} from '@openliri/kernel/events/EventBus.js';
 import {
   ConfigLoader,
   type ConfigSource,

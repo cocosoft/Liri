@@ -9,10 +9,10 @@
  *   calendar:cron:state_changed → 通过事件总线通知前端
  */
 
-import { getLogger } from '@modules/core/loggerFacade.js';
-import type { EventSubscription } from '@modules/core/events/EventBus';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
+import type { EventSubscription } from '@openliri/kernel/events/EventBus';
 import { CronJobStore } from '@modules/tasks';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath } from '@openliri/kernel';
 import {
   getCalendarEventBus,
   CalendarEvents,

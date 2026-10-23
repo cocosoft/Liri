@@ -13,7 +13,7 @@ import type {
   IInboundGatewayPort,
   InboundEnvelopeDto,
   InboundVerdictDto,
-} from '@modules/core/spi';
+} from '@openliri/kernel/spi';
 
 /** 入站路由委托面（由 `setupChannels` 侧提供：持有 `coreAPI` + 回调） */
 export interface InboundGatewayDelegates {

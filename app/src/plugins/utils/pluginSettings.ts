@@ -6,7 +6,7 @@
 
 import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { resolveUserSettingsPath } from '@modules/core';
+import { resolveUserSettingsPath } from '@openliri/kernel';
 import { PluginConfig, PluginRepository } from '../types';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('plugins:utils:pluginSettings');

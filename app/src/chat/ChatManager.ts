@@ -84,7 +84,7 @@ import {
   startRequest,
   type RequestEventAppender,
 } from './services/requestBoundary';
-import { feature as coreFeature } from '@modules/core';
+import { feature as coreFeature } from '@openliri/kernel';
 import { configureCodeRunner } from '@modules/tools';
 import {
   persistTurnSummary,
@@ -124,12 +124,12 @@ import { getBudgetSuspendCoordinator } from '../query/budgetSuspend';
 
 const logger = getLogger('chat:manager');
 
-import { SimpleMutex, feature } from '@modules/core';
+import { SimpleMutex, feature } from '@openliri/kernel';
 // T2-8 / `✅-17`（2026-10-13）：编排域只读投影（形态 A）
 import { publishOrchestrationProjection } from '../state/engine/orchestrationProjection.js';
-import { resolveWorktreeHash } from '@modules/core/paths';
+import { resolveWorktreeHash } from '@openliri/kernel/paths';
 // 多租户 P0 阶段 2：当前会话 id 按请求身份分桶（无请求作用域 ⇒ 本地身份单桶）
-import { getRequestPrincipalKey } from '@modules/core/identity/requestScope.js';
+import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
 import { join } from 'path';
 import { getModelPricing } from '@modules/cost';
 
@@ -154,7 +154,7 @@ import type {
   ChatSession,
   CreateSessionParams,
 } from '@modules/session/types/session.js';
-import { DataSessionStatus } from '@modules/core';
+import { DataSessionStatus } from '@openliri/kernel';
 import type {
   ToolCall,
   ToolResult,
@@ -308,7 +308,7 @@ import { LoopDetector } from '@modules/query';
 import { createChatManagerTAORDeps } from '@modules/query';
 import type { ChatManagerTAORContext } from '@modules/query';
 import { agentTelemetry } from '@modules/agent';
-import { ErrorHandler } from '@modules/core';
+import { ErrorHandler } from '@openliri/kernel';
 import { convergenceDetector } from './services/ConvergenceDetector.js';
 import {
   CompactServiceImpl,
@@ -317,7 +317,7 @@ import {
 } from '@modules/compaction';
 import type { SessionMessage } from '@modules/session';
 import { SessionGateway, createSessionGateway } from '@modules/session';
-import { resolveProjectRoot, resolveOutputDir } from '@modules/core/paths';
+import { resolveProjectRoot, resolveOutputDir } from '@openliri/kernel/paths';
 import {
   AppError,
   ErrorCategory,

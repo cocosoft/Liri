@@ -9,7 +9,7 @@ import type {
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { ANTHROPIC_API_V1_BASE_URL } from '@modules/core';
+import { ANTHROPIC_API_V1_BASE_URL } from '@openliri/kernel';
 const logger = getLogger('channels:claude:ClaudeChannel');
 
 export interface ClaudeConfig {

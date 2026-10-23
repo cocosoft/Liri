@@ -35,10 +35,10 @@ import type {
 } from './runtime/types.js';
 import { getDefaultSessionStore } from './session.js';
 import type { AcpSessionStore } from './session.js';
-import { getLogger } from '@modules/core/loggerFacade.js';
-import { getOTelTracing } from '@modules/core/tracingFacade.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
+import { getOTelTracing } from '@openliri/kernel/tracingFacade.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/core/errorHandler.js';
+import { handleError } from '@openliri/kernel/errorHandler.js';
 import * as http from 'http';
 import * as net from 'net';
 import type { Duplex } from 'stream';
@@ -47,7 +47,7 @@ import { computeAcceptHash } from './websocket.js';
 import { AcpWsClient } from './AcpWsClient.js';
 import type { AcpClientMessage } from './AcpWsClient.js';
 import { AcpGateway } from './AcpGateway.js';
-import { LOCAL_HTTP_HOST } from '@modules/core';
+import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 
 const logger = getLogger('acp:ws');
 

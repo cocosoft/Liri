@@ -39,7 +39,7 @@ import {
   DEEPSEEK_API_BASE_URL,
   OPENROUTER_API_V1_BASE_URL,
   BIGMODEL_API_BASE_URL,
-} from '@modules/core';
+} from '@openliri/kernel';
 const logger = getLogger('ai:providers:balanceChecker');
 
 /**

@@ -12,13 +12,13 @@
 import type { UnifiedSessionStorage } from '../storage/UnifiedStorage.js';
 import { StorageType } from '../storage/UnifiedStorage.js';
 import { StorageFactory } from '../storage/StorageFactory.js';
-import { resolveScopedSessionsDir } from '@modules/core/paths';
+import { resolveScopedSessionsDir } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
+} from '@openliri/kernel/identity/requestScope.js';
 
 const logger = getLogger('session:gateway');
 

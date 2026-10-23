@@ -25,4 +25,4 @@
  * （传递闭包仅 core ⇒ 纯叶子），本文件保留**同名转出**，全仓导出名与签名逐字不变
  * （`@modules/context/DependencyRegistry` 子入口继续可用，见 `canonicalEntryKeys`）。
  */
-export * from '@modules/core/DependencyRegistry.js';
+export * from '@openliri/kernel/DependencyRegistry.js';

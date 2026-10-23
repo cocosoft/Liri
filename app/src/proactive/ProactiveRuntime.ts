@@ -30,7 +30,7 @@
  *   其余写 `notifications`（`createProactiveLocalDelivery`，P3 卡片数据源）；
  * - 退出时必须调用 `stopProactiveRuntime()`（`stopScanner()` + `close()`）。
  */
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import {
   ProactivePushQueue,

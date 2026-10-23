@@ -42,7 +42,7 @@ import {
   sendNotFound,
   normalizeTimestamp,
 } from './session-handlers-utils';
-import { LOCAL_REQUEST_BASE_URL, LOCAL_SERVICE_HOST } from '@modules/core';
+import { LOCAL_REQUEST_BASE_URL, LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 const logger = getLogger('infra:http:session-handlers');
 

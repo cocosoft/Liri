@@ -32,11 +32,11 @@ import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 import { knowledgeDocsProvider } from '../../docs/FileDocsProvider';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { globalEventBus } from '@modules/core';
+import { globalEventBus } from '@openliri/kernel';
 import { writeAuditLog } from '../KnowledgeAuditLogger';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 const logger = getLogger('knowledge:tools:knowledgeWriteTool');

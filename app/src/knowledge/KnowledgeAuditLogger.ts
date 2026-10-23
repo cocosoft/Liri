@@ -28,7 +28,7 @@
 import { appendFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
-import { resolveDataSubDir } from '@modules/core';
+import { resolveDataSubDir } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('knowledge:auditLogger');
 

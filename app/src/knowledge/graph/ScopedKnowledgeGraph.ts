@@ -12,14 +12,14 @@
  * 为什么不用"共享实例换连接"：`KnowledgeGraph` 持有单字段 `db`，`await` 交错会串库。
  */
 import { KnowledgeGraph } from './KnowledgeGraph.js';
-import { resolveScopedDbPath } from '@modules/core/paths';
+import { resolveScopedDbPath } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 
 const logger = getLogger('knowledge:graph:scoped');
 

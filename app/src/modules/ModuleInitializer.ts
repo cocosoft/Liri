@@ -7,9 +7,9 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/core/errors.js';
+} from '@openliri/kernel/errors.js';
 // 2026-09-30 G2 倒挂收口：错误码纯数据表已下沉 core 模块根，直连 core 消除 core → infra 边
-import { ErrorCodes } from '@modules/core/errorCodes.js';
+import { ErrorCodes } from '@openliri/kernel/errorCodes.js';
 import { type ModuleDefinition, getRegistry } from './moduleTypes';
 /**
  * 模块初始化状态与结构子集的**类型归属**已下沉到 `moduleStateTypes`
@@ -29,13 +29,13 @@ import {
   requestModule,
   isModuleOnDemand,
   DeferredLoadState,
-} from '@modules/core/LazyModuleStrategy';
+} from '@openliri/kernel/LazyModuleStrategy';
 // 2026-09-30 改走 core 门面（A3 倒挂收口）：原 `../performance/StartupProfiler`（core → infra 倒挂）
 import {
   profilePhaseStart,
   profilePhaseEnd,
-} from '@modules/core/profilerFacade.js';
-import { getLogger } from '@modules/core/loggerFacade.js';
+} from '@openliri/kernel/profilerFacade.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 const logger = getLogger('modules:moduleInitializer');
 
 /**
@@ -444,7 +444,8 @@ export class ModuleInitializer {
     try {
       const { createCombinedGateway } =
         await import('../session/gateway/index.js');
-      const { getDIContainer } = await import('@modules/core/DIContainer.js');
+      const { getDIContainer } =
+        await import('@openliri/kernel/DIContainer.js');
       const container = getDIContainer();
 
       if (!container.has('combinedSessionGateway')) {

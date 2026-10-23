@@ -25,7 +25,7 @@ import { getLogger } from '@modules/monitoring';
 import { getToolRegistry } from '../ToolRegistry';
 import { PermissionManager } from '@modules/permission';
 import { configManager } from '@modules/config';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { verdictFromScanStatus, type DeepScanStatus } from '@modules/security';
 
 import { validateCodeRunnerCode } from './staticValidation';

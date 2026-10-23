@@ -27,7 +27,7 @@ import {
   resolvePyappHome,
   resolveTempDir,
   setUserDataDirOverride,
-} from '@modules/core/paths';
+} from '@openliri/kernel/paths';
 import { buildBashLandlockPolicy } from '../../src/tools/bash/bashLandlockExec';
 import { buildBunLandlockPolicy } from '../../src/tools/CodeRunner/LinuxSandboxRunner';
 import type { LandlockFsRule } from '../../src/sandbox/landlock/types';

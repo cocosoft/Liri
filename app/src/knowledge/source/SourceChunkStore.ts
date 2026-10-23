@@ -30,10 +30,10 @@
  */
 
 import { readFile } from 'fs/promises';
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath } from '@modules/core';
-import { SimpleMutex } from '@modules/core';
+import { resolveDbPath } from '@openliri/kernel';
+import { SimpleMutex } from '@openliri/kernel';
 import type { EvidenceSidecar } from '../evidence/EvidenceLocator';
 import { loadSidecar } from '../evidence/EvidenceLocator';
 import type { ExtractedDocument } from '../ingestion/extractors/types';

@@ -3,8 +3,8 @@
 import type { Context } from '../types/Context';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath } from '@openliri/kernel';
 
 const logger = getLogger('context:persistence');
 

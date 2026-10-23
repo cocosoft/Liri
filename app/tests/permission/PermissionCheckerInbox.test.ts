@@ -49,7 +49,7 @@ import { inboxManager } from '../../src/runtime/InboxManager.js';
 import { unattendedMode } from '../../src/runtime/UnattendedModeManager.js';
 import { hashCommandForExecution } from '../../src/permission/ApprovedCommandRegistry.js';
 import { configManager } from '../../src/config/index.js';
-import { resolvePermissionsDir } from '@modules/core/paths.js';
+import { resolvePermissionsDir } from '@openliri/kernel/paths.js';
 // 2026-09-30（台账 D-132，修复 D-126 引入的 4 处回归）：`PermissionChecker` 的 runtime 依赖
 // 自 D-126 起改为**入口注入**（消除 permission→runtime 跨层）；本测试不经 DIContainer/入口
 // ⇒ 需在测试内**显式注入**（`app/tests/**` 不在门禁扫描根 `app/src` 内，此跨层导入不触发架构规则）

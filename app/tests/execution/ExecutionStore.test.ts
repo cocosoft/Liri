@@ -30,7 +30,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { unlinkSync, existsSync } from 'fs';
 import { ExecutionStore } from '../../src/execution/index.js';
-import { Database } from '@modules/core/external/sqlite3.js';
+import { Database } from '@openliri/kernel/external/sqlite3.js';
 import {
   TOOL_CALL_STATUSES,
   TOOL_CALL_TERMINAL_STATUSES,

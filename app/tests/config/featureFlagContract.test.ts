@@ -19,10 +19,10 @@ import {
   resetBuildVariantFlags,
   setBuildVariantFlags,
   type FeatureFlag,
-} from '@modules/core/featureFlags.js';
+} from '@openliri/kernel/featureFlags.js';
 // P3（2026-10-23）：构建变体层改为**宿主注入**；生成物落在 `bootstrap/`（内核不再持有）
 import { BUILD_VARIANT_FLAGS } from '../../src/bootstrap/generatedVariantFlags.js';
-import { AppError } from '@modules/core/errors.js';
+import { AppError } from '@openliri/kernel/errors.js';
 
 /** 与 `scripts/check-doc-code-consistency.js` 的 `SAFETY_SWITCHES` 同集的 **17 项**安全/灰度开关 */
 const SAFETY_SWITCHES: readonly FeatureFlag[] = [

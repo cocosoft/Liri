@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { getLogger } from '../monitoring/logs/Logger';
 import { getMonitoringService } from '../monitoring/MonitoringService';
-import { resolveDataDir, LOCAL_HTTP_HOST } from '@modules/core';
+import { resolveDataDir, LOCAL_HTTP_HOST } from '@openliri/kernel';
 
 const logger = getLogger('daemon:ipcService');
 

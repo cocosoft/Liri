@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
+import { resolvePyappHome, resolveProjectRoot } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 

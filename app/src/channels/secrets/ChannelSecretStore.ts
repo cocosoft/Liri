@@ -23,7 +23,7 @@ import {
   decryptOptionsTolerant,
 } from './encryption';
 // 多租户 P3：身份感知（env 回退只允许本地身份，租户不得继承宿主机凭据）
-import { currentOwnerKey } from '@modules/core/identity/requestScope';
+import { currentOwnerKey } from '@openliri/kernel/identity/requestScope';
 
 /**
  * ChannelRegistry 最小接口（避免 import type 被 madge 视作循环依赖）

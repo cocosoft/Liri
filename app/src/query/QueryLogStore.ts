@@ -4,19 +4,19 @@
  */
 
 import { join } from 'path';
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath, resolveScopedDbPath } from '@modules/core';
-import { SimpleMutex } from '@modules/core';
+import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel';
+import { SimpleMutex } from '@openliri/kernel';
 // 多租户 P1（2026-10-21）：查询日志库按身份分实例（本地身份零变更）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import type {
   QueryLogEntry,
   QueryLogFilter,

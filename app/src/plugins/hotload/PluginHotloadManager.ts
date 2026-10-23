@@ -14,7 +14,7 @@
  *   未声明者默认保守拒绝热替换（保留旧版本，与全局保守策略一致）。
  */
 
-import { resolvePluginsInstalledDir } from '@modules/core';
+import { resolvePluginsInstalledDir } from '@openliri/kernel';
 import { configManager } from '@modules/config';
 import {
   watch,

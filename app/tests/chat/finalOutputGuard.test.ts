@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'bun:test';
 import { guardFinalOutput } from '../../src/chat/finalOutputGuard';
 import type { MermaidLintIssue } from '@modules/types/mermaid';
-import type { OutputGuard } from '@modules/core';
+import type { OutputGuard } from '@openliri/kernel';
 
 const ISSUE: MermaidLintIssue = {
   blockIndex: 0,

@@ -3,7 +3,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 
 export interface SessionManifest {
   id: string;

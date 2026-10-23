@@ -625,7 +625,7 @@ export async function handleOrchestrationMetrics(
 ): Promise<void> {
   try {
     const { getOrchestrationMetrics } =
-      await import('@modules/core/events/OrchestrationMetrics');
+      await import('@openliri/kernel/events/OrchestrationMetrics');
     const snapshot = getOrchestrationMetrics().getStats();
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -833,7 +833,7 @@ export async function handleStartupError(
   try {
     const { readFileSync, existsSync } = await import('fs');
     const { join } = await import('path');
-    const { resolveLogsDir } = await import('@modules/core/paths');
+    const { resolveLogsDir } = await import('@openliri/kernel/paths');
     const logPath = join(resolveLogsDir(), 'startup-error.log');
 
     if (!existsSync(logPath)) {

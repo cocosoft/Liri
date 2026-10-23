@@ -3,7 +3,7 @@
  * 通过 weixin-cli HTTP Bridge 通信
  */
 
-import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@modules/core';
+import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@openliri/kernel';
 
 export interface WechatConfig {
   botHttpUrl: string;

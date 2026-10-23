@@ -16,7 +16,7 @@
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { createHash } from 'crypto';
-import { resolveDataSubDir } from '@modules/core';
+import { resolveDataSubDir } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

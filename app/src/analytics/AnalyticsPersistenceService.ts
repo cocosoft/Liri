@@ -1,7 +1,7 @@
 import { appendFile, mkdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { configManager } from '@modules/config';
-import { resolveDataSubDir } from '@modules/core';
+import { resolveDataSubDir } from '@openliri/kernel';
 import type { AnalyticsEvent } from './types';
 import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
 import {

@@ -10,8 +10,8 @@ import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir, rename, cp } from 'fs/promises';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { resolvePyappHome } from '@modules/core';
-import { SimpleMutex } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
+import { SimpleMutex } from '@openliri/kernel';
 
 export interface KnowledgeBaseMeta {
   label: string;

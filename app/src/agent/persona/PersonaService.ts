@@ -13,8 +13,8 @@
  *   - 应用启动时可通过 loadBindings() 从 DB 恢复绑定到内存
  */
 
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath, SimpleMutex } from '@modules/core';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath, SimpleMutex } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import type { PersonaBinding, CreatePersonaBindingInput } from './types';
 

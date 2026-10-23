@@ -3,8 +3,8 @@
  * 负责邮件模块生命周期管理、Feature Flag 路由、EmailTool 初始化与 ToolManager 注册
  */
 
-import { getLogger } from '@modules/core/loggerFacade.js';
-import { feature } from '@modules/core';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
+import { feature } from '@openliri/kernel';
 import { globalToolManager } from '@modules/tools';
 
 import { MailModuleStatus as Status } from './types';

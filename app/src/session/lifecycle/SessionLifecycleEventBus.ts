@@ -13,7 +13,7 @@ import {
   EventBusImpl,
   type EventSubscription,
   type EventListener as CoreEventListener,
-} from '@modules/core/events/EventBus';
+} from '@openliri/kernel/events/EventBus';
 import { handleError } from '@modules/error';
 import type {
   SessionLifecycleEvent,
@@ -129,7 +129,7 @@ export class SessionLifecycleEventBus extends EventBusImpl {
   override getHistory(filter?: {
     event?: string;
     limit?: number;
-  }): import('@modules/core/events/EventBus').HistoryEntry[] {
+  }): import('@openliri/kernel/events/EventBus').HistoryEntry[] {
     let result = [...this.history];
 
     if (filter?.event) {

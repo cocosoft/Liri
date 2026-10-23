@@ -11,7 +11,7 @@ import { Tool, ToolParam, ToolInfo } from '../../tools/types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
 import { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
-import { globalEventBus } from '@modules/core';
+import { globalEventBus } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('knowledge:tools:knowledgeRestoreTool');
 

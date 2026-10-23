@@ -18,7 +18,7 @@ import {
   globalEventBus,
   SystemEvents,
   type EventSubscription,
-} from '@modules/core/events/EventBus.js';
+} from '@openliri/kernel/events/EventBus.js';
 import type { StateProjectionBroadcast } from '../../src/state/engine/projectionBroker.js';
 import {
   getBudgetSuspendCoordinator,
@@ -35,7 +35,7 @@ import {
   registerToolJobSuspendSpi,
   resetToolJobSuspendForTest,
   resolveToolJobSuspend,
-} from '@modules/core/spi';
+} from '@openliri/kernel/spi';
 
 const FLAG = 'FEATURE_TOOL_JOB_SUSPEND';
 const PROJECTION_FLAG = 'FEATURE_STATE_PROJECTION_BROADCAST';

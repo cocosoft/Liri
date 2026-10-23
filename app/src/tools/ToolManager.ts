@@ -20,7 +20,7 @@ import {
   getNonDeferredTools,
   shouldEnableToolSearch,
 } from './utils/toolSearch.js';
-import { LazyModuleLoader } from '@modules/core';
+import { LazyModuleLoader } from '@openliri/kernel';
 import { ToolLazyWrapper } from './utils/ToolLazyWrapper';
 import { getBuiltinToolLoaders } from './utils/ToolManagerUtils.js';
 import { ToolDefinitionAdapter } from './utils/ToolDefinitionAdapter';

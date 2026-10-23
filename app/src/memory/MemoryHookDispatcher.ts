@@ -9,7 +9,7 @@ import type { Memory } from './types/Memory';
 // 2026-10-01 D-168（`memory -> hooks` 倒挂收口）：Hook 分发改经 core SPI 取得，
 // 端口返回最小投影 `{ blocked }`（原先直连 `@modules/hooks` 的 `HookChainManager`，
 // 属 infra -> app 倒挂）。
-import { resolveHookChain } from '@modules/core/spi';
+import { resolveHookChain } from '@openliri/kernel/spi';
 import { getLogger } from '../monitoring/logs/Logger';
 import { handleError } from '../error/handleError';
 

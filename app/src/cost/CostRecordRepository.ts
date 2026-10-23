@@ -5,18 +5,18 @@
  */
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath, resolveScopedDbPath } from '@modules/core';
-import { SimpleMutex } from '@modules/core';
+import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel';
+import { SimpleMutex } from '@openliri/kernel';
 // 多租户 P1（2026-10-21）：已认证身份用独立库实例（不做"共享实例换连接"，避免并发串库）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 
 const logger = getLogger('cost:recordRepository');
 

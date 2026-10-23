@@ -9,7 +9,7 @@ import { dirname, join } from 'path';
 import { load, dump } from 'js-yaml';
 
 import { handleError } from '@modules/error/handleError.js';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@openliri/kernel/paths';
 
 export interface ModelYamlConfig {
   displayName: string;

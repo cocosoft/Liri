@@ -33,7 +33,7 @@ import { homedir } from 'os';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { LOCAL_SERVICE_HOST } from '@modules/core';
+import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 /**
  * 文件访问统一白名单（Access denied 根治，2026-08-12）：
@@ -50,7 +50,7 @@ export async function getAllowedBaseDirs(): Promise<string[]> {
     resolveDownloadsDir,
     resolveDataDir,
     resolveDocsDir,
-  } = await import('@modules/core/paths');
+  } = await import('@openliri/kernel/paths');
   const projectRoot = resolveProjectRoot();
   return [
     // 2026-08-24：用户主目录——file_write/FileLink 引用 AI 生成到主目录根下的
@@ -71,7 +71,7 @@ export async function getAllowedBaseDirs(): Promise<string[]> {
 
 /** 判断文件路径是否在文件访问白名单（任一 baseDir）内 */
 export async function isPathAllowed(filePath: string): Promise<boolean> {
-  const { isPathWithin } = await import('@modules/core/paths');
+  const { isPathWithin } = await import('@openliri/kernel/paths');
   const baseDirs = await getAllowedBaseDirs();
   return baseDirs.some((dir) => isPathWithin(dir, filePath));
 }
@@ -379,7 +379,7 @@ export async function handleFilePaths(
     resolveDownloadsDir,
     resolveDataDir,
     resolveDocsDir,
-  } = await import('@modules/core/paths');
+  } = await import('@openliri/kernel/paths');
   const projectRoot = resolveProjectRoot();
   const basePaths = {
     projectRoot,
@@ -420,7 +420,7 @@ export async function handleFileResolvePath(
     }
 
     const { resolveProjectRoot, resolvePyappHome, containsPathTraversal } =
-      await import('@modules/core/paths');
+      await import('@openliri/kernel/paths');
 
     // BUG-C 修复：绝对路径必须验证在文件访问白名单（统一 baseDirs）
     if (path.isAbsolute(rawPath)) {

@@ -57,7 +57,7 @@ import { TransportProviderAdapter } from '../transports/TransportProviderAdapter
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 import { randomUUID } from 'crypto';
-import { OPENAI_API_V1_BASE_URL } from '@modules/core';
+import { OPENAI_API_V1_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('ai:openai');
 

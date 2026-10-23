@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { resolveDataDir } from '@modules/core';
+import { resolveDataDir } from '@openliri/kernel';
 import { Command } from 'commander';
 import { MemoryManagerImpl } from '../MemoryManager';
 import { MemoryType } from '../types/MemoryType';

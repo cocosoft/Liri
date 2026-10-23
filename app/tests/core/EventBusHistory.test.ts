@@ -26,7 +26,7 @@
  * 发布方或消费方改写不再污染历史存储。
  */
 import { describe, it, expect } from 'bun:test';
-import { EventBusImpl } from '@modules/core/events/EventBus.js';
+import { EventBusImpl } from '@openliri/kernel/events/EventBus.js';
 
 describe('C2/O4 EventBus 历史快照', () => {
   it('发布方随后改 payload 不污染历史', () => {

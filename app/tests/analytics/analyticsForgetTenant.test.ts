@@ -17,9 +17,9 @@ import {
   AnalyticsService,
   analyticsService,
 } from '../../src/analytics/AnalyticsService.js';
-import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
-import type { Principal } from '@modules/core/identity/principal.js';
-import { setUserDataDirOverride } from '@modules/core/paths.js';
+import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
+import type { Principal } from '@openliri/kernel/identity/principal.js';
+import { setUserDataDirOverride } from '@openliri/kernel/paths.js';
 import { purgeTenant } from '../../src/runtime/tenantPurge.js';
 
 const A: Principal = {

@@ -7,12 +7,12 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/core/errors.js';
+} from '@openliri/kernel/errors.js';
 // 2026-09-30 G2 倒挂收口：错误码纯数据表已下沉 core 模块根，直连 core 消除 core → infra 边
-import { ErrorCodes } from '@modules/core/errorCodes.js';
+import { ErrorCodes } from '@openliri/kernel/errorCodes.js';
 import type { ModuleDefinition } from './moduleTypes';
 import { getRegistry } from './moduleTypes';
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 const logger = getLogger('modules:importManager');
 
 /**
@@ -72,7 +72,7 @@ export class ImportManager {
       aliasMap: {
         // 核心模块别名
         '@modules/plugin-sdk': './plugin-sdk',
-        '@modules/core': './core',
+        '@openliri/kernel': './core',
         '@modules/infrastructure': './infrastructure',
 
         // 功能模块别名

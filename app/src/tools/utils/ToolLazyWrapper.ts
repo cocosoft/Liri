@@ -5,7 +5,7 @@
  * getInfo() 直接返回元信息，不触发加载。
  */
 
-import { LazyModuleLoader } from '@modules/core';
+import { LazyModuleLoader } from '@openliri/kernel';
 import type { Tool, ToolInfo, ToolParam, ToolRiskClass } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolResult } from '../types/ToolResult';

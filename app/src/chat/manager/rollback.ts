@@ -26,9 +26,9 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@openliri/kernel/paths';
 // 多租户 P3：交互条目按归属校验（与 `canAccessOwnerKey` 同口径）
-import { canAccessOwnerKey } from '@modules/core/identity/requestScope';
+import { canAccessOwnerKey } from '@openliri/kernel/identity/requestScope';
 import {
   RollbackIntegration,
   FileOperationTracker,

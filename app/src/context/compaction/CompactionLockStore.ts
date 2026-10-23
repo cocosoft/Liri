@@ -41,7 +41,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('context:compaction:lock');

@@ -28,7 +28,7 @@ import {
   feature as coreFeature,
   patternFeatureFlag,
   selectPattern,
-} from '@modules/core';
+} from '@openliri/kernel';
 import { instantiatePattern, verifierConfigForRecipe } from '@modules/query';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
@@ -37,7 +37,7 @@ import { hasResearchIntent, hasVerifyIntent } from '../taskIntent';
 import { shouldEscalateLongTask } from '../longTaskEscalation';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@openliri/kernel/paths';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import type { PdcaLauncher } from '../launchers/PdcaLauncher';
 

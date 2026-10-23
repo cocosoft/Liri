@@ -22,10 +22,10 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { load as yamlLoad } from 'js-yaml';
-import { resolvePyappHome } from '@modules/core';
-import { getBuildVariant } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
+import { getBuildVariant } from '@openliri/kernel';
 import { configManager } from '@modules/config';
-import { resolveAiAccess } from '@modules/core/spi';
+import { resolveAiAccess } from '@openliri/kernel/spi';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 

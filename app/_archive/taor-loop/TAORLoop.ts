@@ -7,7 +7,7 @@
  * TAOR (Think-Act-Observe-Repeat) 循环核心（旧版）
  */
 
-import type { ToolCall, ToolResult } from '@modules/core';
+import type { ToolCall, ToolResult } from '@openliri/kernel';
 import type { AIProvider } from '@modules/ai';
 import type { ChatOptions } from '@modules/ai';
 import type { ChatMessage, ToolDefinition, ParsedToolCall } from '@modules/ai';

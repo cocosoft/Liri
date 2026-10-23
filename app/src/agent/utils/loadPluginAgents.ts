@@ -17,7 +17,7 @@ import {
 } from '@modules/services/agent/parseAgent';
 import type { LoadedPlugin } from '@modules/plugins/types/PluginTypes.js';
 // C1（2026-09-30 D-122，`R00-003` P3/G5）：插件读取改经 core SPI 端口（infra → core 合法）
-import { resolvePluginSystem } from '@modules/core/spi';
+import { resolvePluginSystem } from '@openliri/kernel/spi';
 
 /**
  * 从插件加载Agent定义（实时读取，无缓存）

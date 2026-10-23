@@ -11,7 +11,7 @@ import {
   resolveOutputDir,
   resolveInboundDir,
   runRegisteredOutputGuards,
-} from '@modules/core';
+} from '@openliri/kernel';
 import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
 import { resolveIsolatedFileTarget } from '../utils/isolatedFileIo';
 import type { FileOperationResult } from '../types/ToolResult';

@@ -26,7 +26,7 @@
 import type { ToolResult } from '../types/ToolResult';
 import { createToolResult } from '../types/ToolResult';
 import { getLogger } from '@modules/monitoring';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { SandboxSecurityChecker } from '@modules/sandbox';
 import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
 import { parseForSecurity, isDangerousCommand } from '@modules/security';

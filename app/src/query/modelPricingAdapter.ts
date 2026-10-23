@@ -18,13 +18,13 @@
  * ⚠️ 本文件**不含闸门判定/开关**（那是 S3；依赖 U3/U5/U6）—— 仅提供可注入的取价+换算能力。
  */
 
-import { resolveAiAccess, type AiModelPricingDto } from '@modules/core/spi';
+import { resolveAiAccess, type AiModelPricingDto } from '@openliri/kernel/spi';
 import {
   calculateTotalCost,
   DEFAULT_MODEL_PRICING,
   projectRegistryPricing,
   type ModelPricing,
-} from '@modules/core/pricing.js';
+} from '@openliri/kernel/pricing.js';
 
 /** 模型名 → 注册表定价 DTO 的取价端口（默认经 core SPI；测试可注入假价） */
 export type ModelPricingLookup = (

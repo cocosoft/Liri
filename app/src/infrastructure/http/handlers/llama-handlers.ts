@@ -33,9 +33,9 @@ import {
   handleError,
 } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import { resolveLlamaModelsDir } from '@modules/core/paths';
+import { resolveLlamaModelsDir } from '@openliri/kernel/paths';
 import { sendError, readRequestBody } from './handler-utils';
-import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
+import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('http:llama');
 

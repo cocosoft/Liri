@@ -6,7 +6,7 @@
  * 原位于 client/src/components/views/platformFields.ts，2026-08-06 收敛至后端。
  */
 
-import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@modules/core';
+import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@openliri/kernel';
 import { MATRIX_SITE_URL } from './constants';
 
 /** 平台配置字段定义 */

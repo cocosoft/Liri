@@ -5,10 +5,10 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { extname, resolve } from 'path';
-import { resolveProjectRoot } from '@modules/core';
+import { resolveProjectRoot } from '@openliri/kernel';
 import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:dev:lsp');

@@ -1,4 +1,4 @@
-import type { HealthStatus } from '@modules/core';
+import type { HealthStatus } from '@openliri/kernel';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('monitoring:health:HealthChecker');

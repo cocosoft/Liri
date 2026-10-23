@@ -7,7 +7,7 @@
 import {
   DEFAULT_LOCAL_OAUTH_APPS_BASE,
   LOCAL_SERVICE_HOST,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 /**
  * 远程会话基础URL

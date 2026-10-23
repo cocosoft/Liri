@@ -17,7 +17,7 @@ import {
   DEFAULT_HTTP_PORT,
   LOCAL_HTTP_HOST,
   LOCAL_SERVICE_HOST,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 /**
  * 通过 OAuth Discovery 将 McpOAuthConfig 解析为 MCPOAuthConfig

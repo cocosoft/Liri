@@ -1,10 +1,10 @@
 import { getLogger } from '@modules/monitoring';
 import { getMonitoringService } from '@modules/monitoring';
-import type { HealthStatus as HealthStatusValue } from '@modules/core';
+import type { HealthStatus as HealthStatusValue } from '@openliri/kernel';
 import type { IPCService } from './IPCService';
 // D-147（2026-10-01）：任务登记改经 core SPI（`infra -> app` 倒挂收口）
-import { resolveTaskRegistry } from '@modules/core/spi';
-import { globalEventBus, SystemEvents } from '@modules/core';
+import { resolveTaskRegistry } from '@openliri/kernel/spi';
+import { globalEventBus, SystemEvents } from '@openliri/kernel';
 
 const logger = getLogger('daemon:processManager');
 

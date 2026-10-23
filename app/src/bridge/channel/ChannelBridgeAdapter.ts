@@ -24,7 +24,7 @@ import type {
   Coordinator,
   CoordinatorTask,
   CoordinatorConfig,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 const logger = getLogger('channels:bridge');
 

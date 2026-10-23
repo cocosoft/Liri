@@ -13,7 +13,7 @@
 import {
   DEFAULT_MCP_OAUTH_CALLBACK_PORT,
   LOCAL_SERVICE_HOST,
-} from '@modules/core';
+} from '@openliri/kernel';
 import type { MCPServerConfig } from '../types/index.js';
 import type { MCPOAuthConfig } from './types.js';
 

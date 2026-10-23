@@ -9,9 +9,9 @@
  * 流程级确认（大纲确认/图片确认）由本模块内部管理，不经过 DecisionGate（设计方案 §4.5 v0.4 修订）
  */
 
-import { getLogger } from '@modules/core/loggerFacade.js';
-import { handleError } from '@modules/core/errorHandler.js';
-import { resolveOutputDir } from '@modules/core/paths';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
+import { handleError } from '@openliri/kernel/errorHandler.js';
+import { resolveOutputDir } from '@openliri/kernel/paths';
 import type {
   DocFormat,
   DocOutline,

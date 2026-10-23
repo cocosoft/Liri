@@ -18,7 +18,7 @@ import {
 } from 'fs';
 import { join, basename, dirname, resolve, extname } from 'path';
 
-import { resolveDataDir, resolveDbPath } from '@modules/core';
+import { resolveDataDir, resolveDbPath } from '@openliri/kernel';
 
 const logger = getLogger('monitoring:backup');
 

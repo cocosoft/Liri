@@ -59,7 +59,7 @@ import {
   stripSensitiveEnv,
   sanitizeCallerEnv,
 } from '@modules/security';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 
 // G18（2026-10-11）：K-5 输出截断常量/函数已抽至 `./bashOutputTruncate`（**纯搬迁**，语义不变）。
 // 工具执行审批链路（P0-4 / S1-1）：已批准命令放行缓存

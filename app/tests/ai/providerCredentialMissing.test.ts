@@ -23,7 +23,7 @@ import {
 } from '../../src/ai/providers/ProviderSyncService.js';
 import { CRED_STORED_MARKER } from '../../src/ai/credentials/CredentialStore.js';
 import type { ProviderRecord } from '../../src/ai/providers/ProviderManager.js';
-import { ErrorCategory, ErrorSeverity } from '@modules/core/errors.js';
+import { ErrorCategory, ErrorSeverity } from '@openliri/kernel/errors.js';
 
 /**
  * 构造一条 provider 记录。

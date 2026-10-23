@@ -4,7 +4,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { resolveMediaDir } from '@modules/core';
+import { resolveMediaDir } from '@openliri/kernel';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

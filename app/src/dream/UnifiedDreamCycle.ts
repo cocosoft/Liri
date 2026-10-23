@@ -40,8 +40,8 @@ import {
   resolveSoulPath,
   resolveUserProfilePath,
   resolvePyappHome,
-} from '@modules/core';
-import { globalEventBus, SystemEvents } from '@modules/core';
+} from '@openliri/kernel';
+import { globalEventBus, SystemEvents } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

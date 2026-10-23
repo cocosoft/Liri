@@ -7,15 +7,15 @@
 import type http from 'http';
 import type { HandlerCtx } from '../handler-utils';
 import { readBody, json } from '../handler-utils';
-import { sleepMonitor } from '@modules/core';
+import { sleepMonitor } from '@openliri/kernel';
 import { APP_VERSION } from '@modules/constants';
-import { resolveDataDir, resolvePyappHome } from '@modules/core/paths';
+import { resolveDataDir, resolvePyappHome } from '@openliri/kernel/paths';
 import {
   engageEstop,
   disengageEstop,
   isEstopEngaged,
   getEstopState,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 /**
  * dispatchSystemRoutes — 系统领域路由分发

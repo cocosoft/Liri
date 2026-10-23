@@ -99,7 +99,7 @@ describe('内核纯净度门禁：违规样例必红', () => {
     const root = fixture({
       'scripts/modules-to-layers.json': LAYERS,
       'app/src/core/clean.ts':
-        "import { helper } from '@modules/core/helper';\nimport type { T } from '@modules/types';\nexport const ok: T = helper();\n",
+        "import { helper } from '@openliri/kernel/helper';\nimport type { T } from '@modules/types';\nexport const ok: T = helper();\n",
       'app/src/core/leak-static.ts':
         "import { thing } from '@modules/appx';\nexport const x = thing;\n",
       'app/src/core/leak-dynamic.ts':

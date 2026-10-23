@@ -23,7 +23,7 @@ import type {
 import { BaseChannelPlugin } from '@modules/channels/base';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
-import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@modules/core';
+import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@openliri/kernel';
 import { WeixinCliManager, type CliStatus } from './cli-manager';
 import { splitMessage } from '../messageSplitter';
 import { SafeInterval } from '@modules/utils/SafeInterval';

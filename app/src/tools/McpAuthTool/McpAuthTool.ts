@@ -17,7 +17,7 @@
 import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 import { mcpAuthManager } from '@modules/services/mcp/auth/MCPAuth.js';
 import { deriveOAuthConfig } from '@modules/services/mcp/auth/deriveOAuthConfig.js';

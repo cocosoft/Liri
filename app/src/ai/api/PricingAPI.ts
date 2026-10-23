@@ -26,7 +26,7 @@
  */
 
 import type http from 'http';
-import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
+import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { modelPricingService } from '../models/ModelPricingService.js';

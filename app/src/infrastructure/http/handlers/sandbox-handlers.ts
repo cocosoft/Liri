@@ -38,7 +38,7 @@ import { configManager } from '@modules/config';
 // （`SandboxManager` · `processRegistry` · `resourceLimitManager` · `globalWorkspaceManager`）
 // ⇒ `infrastructure -> app` 倒挂。改经 **core SPI 端口** `ISandboxPort.getRuntimeStatus()`
 // （服务层 → core 为下行，合法）；端口按 CS01 复用既有端口，不另立。
-import { resolveSandbox } from '@modules/core/spi';
+import { resolveSandbox } from '@openliri/kernel/spi';
 import { securityIntegrationService } from '@modules/security';
 
 /** 沙箱权限级别（与 PERMISSION_SANDBOX_DEFAULT 取值一致） */

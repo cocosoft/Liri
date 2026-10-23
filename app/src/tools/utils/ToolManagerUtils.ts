@@ -8,7 +8,7 @@ import {
   BUILTIN_TOOL_FACTORIES,
   type BuiltinToolFactoryKey,
 } from '../factories/builtinToolRegistry';
-import { feature as coreFeature } from '@modules/core';
+import { feature as coreFeature } from '@openliri/kernel';
 import { isAntUser } from '@modules/utils/features.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

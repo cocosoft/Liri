@@ -10,7 +10,7 @@
  * 背景（2026-08-31）：历史 822KB 工具结果直接全量进上下文引发 OOM；
  * 原实现（ChatManager._buildToolRoundMessages）对工具结果 JSON.stringify 无截断。
  */
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 import {
   findStructuralCut,

@@ -2702,6 +2702,14 @@ class ArchitectureLinter {
       imports.add(match[1]);
     }
 
+    // P5（2026-10-23）：内核物理独立为包后，`@openliri/kernel[/*]` 恒归模块 `core`
+    // （内核根 `packages/kernel/src` 的路径首段即 `core`）。缺这一段会让内核依赖从
+    // 分层检查里**静默消失**（489 桶 + 244 深路径），属 AR-3「门禁失焦」。
+    const kernelRegex = /from\s+['"]@openliri\/kernel(?:\/[^'"]*)?['"]/g;
+    while (kernelRegex.exec(content) !== null) {
+      imports.add('core');
+    }
+
     // 匹配相对路径 import，解析目标模块
     const relImportRegex = /from\s+['"](\.[^'"]+)['"]/g;
     while ((match = relImportRegex.exec(content)) !== null) {
@@ -2754,6 +2762,13 @@ class ArchitectureLinter {
       imports.add(match[1]);
     }
 
+    // P5：内核包名 ⇒ 模块 `core`（与 parseModuleImports 同口径；type-only 同样排除）
+    const kernelRegex = /from\s+['"]@openliri\/kernel(?:\/[^'"]*)?['"]/g;
+    while ((match = kernelRegex.exec(content)) !== null) {
+      if (isTypeStatement(match.index)) continue;
+      imports.add('core');
+    }
+
     // 匹配相对路径 import，解析目标模块
     const relImportRegex = /from\s+['"](\.[^'"]+)['"]/g;
     while ((match = relImportRegex.exec(content)) !== null) {
@@ -2792,6 +2807,12 @@ class ArchitectureLinter {
       const aliasMatch = /^@modules\/([^'"/]+)/.exec(spec);
       if (aliasMatch) {
         moduleName = aliasMatch[1];
+      } else if (
+        spec === '@openliri/kernel' ||
+        spec.startsWith('@openliri/kernel/')
+      ) {
+        // P5：内核包名 ⇒ 模块 `core`（同 parseModuleImports 的口径）
+        moduleName = 'core';
       } else if (spec.startsWith('.')) {
         const resolved = resolve(dirname(filePath), spec);
         if (resolved.startsWith(this.srcPath)) {
@@ -3755,6 +3776,13 @@ class ArchitectureLinter {
           abs = resolve(dirname(file), spec);
         } else if (spec.startsWith('@modules/')) {
           abs = resolve(appSrc, spec.slice('@modules/'.length));
+        } else if (spec.startsWith('@openliri/kernel/')) {
+          // P5：内核物理独立后，schemas 直连同样可解析（`../../packages/kernel/src/core`）
+          abs = resolve(
+            appSrc,
+            '../../packages/kernel/src/core',
+            spec.slice('@openliri/kernel/'.length)
+          );
         }
         if (!abs) continue;
         const key = toKey(abs);

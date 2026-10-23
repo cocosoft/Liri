@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 
 import { OrchestrationEventType, deriveParallelEndData } from '@modules/agent';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import {
   renderFragment,
   resolveContextWindowAsync,
@@ -39,7 +39,7 @@ import {
 } from '@modules/tasks';
 import { getUnifiedTokenTracker } from '@modules/tokenBudget';
 
-import { globalEventBus } from '@modules/core/events/EventBus.js';
+import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 import { getToolCategory } from '../toolCategories';
 import type { Tool, ToolCallProgress } from '../types/Tool';
 import { ToolExecutionStatus, type ToolResult } from '../types/ToolResult';

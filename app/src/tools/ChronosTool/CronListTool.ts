@@ -33,7 +33,7 @@ export class CronListTool {
         try {
           const { CronJobStore } =
             await import('@modules/tasks/cron/CronJobStore');
-          const { resolveDbPath } = await import('@modules/core/paths');
+          const { resolveDbPath } = await import('@openliri/kernel/paths');
           const store = new CronJobStore(resolveDbPath());
           await store.init();
           const jobs = await store.loadJobs();

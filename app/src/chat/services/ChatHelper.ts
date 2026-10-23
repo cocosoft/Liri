@@ -14,7 +14,7 @@ import {
   LOCAL_HTTP_HOST,
   LOCAL_SERVICE_HOST,
   WILDCARD_BIND_HOST,
-} from '@modules/core';
+} from '@openliri/kernel';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ToolResult } from '@modules/session/types/tool.js';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types.js';

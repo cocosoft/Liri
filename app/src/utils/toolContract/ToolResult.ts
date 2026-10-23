@@ -2,7 +2,7 @@
  * 工具执行结果类型
  * 参考CC_CODE的ToolResult设计，适应backend现有架构
  */
-import type { ToolResult as CoreToolResult } from '@modules/core';
+import type { ToolResult as CoreToolResult } from '@openliri/kernel';
 
 export enum ToolExecutionStatus {
   SUCCESS = 'success',

@@ -8,7 +8,7 @@ import { promisify } from 'util';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import type { OfficeCLIInfo, OfficeCLIVersionConstraint } from '../types';
 
 const logger = getLogger('doc:detection');

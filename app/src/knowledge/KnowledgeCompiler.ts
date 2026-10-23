@@ -28,7 +28,7 @@ import {
   resolvePyappHome,
   resolveDataSubDir,
   globalEventBus,
-} from '@modules/core';
+} from '@openliri/kernel';
 import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';

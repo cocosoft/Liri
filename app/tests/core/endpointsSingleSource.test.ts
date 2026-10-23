@@ -20,7 +20,7 @@ import {
   DEFAULT_OLLAMA_OPENAI_ENDPOINT,
   DEFAULT_WECHAT_BOT_ENDPOINT,
   DEFAULT_OAUTH_LOCAL_BASE_URL,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 const APP = process.cwd(); // `bun test` 于 app 目录运行
 const SRC = join(APP, 'src');

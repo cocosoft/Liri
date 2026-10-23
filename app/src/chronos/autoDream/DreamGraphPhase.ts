@@ -40,9 +40,9 @@ import {
   resolveKnowledgeDir,
   resolveDbPath,
   resolveDomainsRoot,
-} from '@modules/core';
+} from '@openliri/kernel';
 // D-148（2026-10-01）：知识图谱改经 core SPI（`infra -> app` 倒挂收口）
-import { resolveKnowledgeGraph } from '@modules/core/spi';
+import { resolveKnowledgeGraph } from '@openliri/kernel/spi';
 
 const logger = getLogger('chronos:graph');
 

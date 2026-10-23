@@ -35,7 +35,7 @@ import {
   type EventBus,
   type EventListener,
   type EventSubscription,
-} from '@modules/core/events/EventBus';
+} from '@openliri/kernel/events/EventBus';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:events');
 

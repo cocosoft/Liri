@@ -3,8 +3,8 @@
  * 读请求优先 + 超时控制 + 满队拒绝（>10 待处理）
  */
 
-import { AppError } from '@modules/core/errors.js';
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { AppError } from '@openliri/kernel/errors.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import type { MCPRequest, MCPRequestType, MCPResponse } from '../types';
 
 const logger = getLogger('doc:concurrency');

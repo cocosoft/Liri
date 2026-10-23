@@ -4,14 +4,14 @@
  */
 
 import { LLMTracker } from './LLMTracker.js';
-import { resolveScopedDbPath } from '@modules/core/paths';
+import { resolveScopedDbPath } from '@openliri/kernel/paths';
 // 多租户 P1（2026-10-21）：LLM 调用记录按身份分实例（本地身份零变更）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 
 /**
  * 全局 LLM 跟踪器实例（**本地身份 / 无请求作用域**使用）

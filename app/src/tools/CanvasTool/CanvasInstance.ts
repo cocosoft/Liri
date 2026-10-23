@@ -7,7 +7,7 @@
 import { loadSharp } from '@modules/utils/externalDeps';
 // C1（2026-10-09）：canvas id 熵源改用 crypto
 import { randomIdSuffix } from '../../utils/common';
-import { resolveOutputDir } from '@modules/core/paths';
+import { resolveOutputDir } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:canvas');
 

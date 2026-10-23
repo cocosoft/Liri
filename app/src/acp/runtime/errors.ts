@@ -10,7 +10,7 @@ export const ACP_ERROR_CODES = [
 
 export type AcpRuntimeErrorCode = (typeof ACP_ERROR_CODES)[number];
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/core';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/kernel';
 
 export class AcpRuntimeError extends AppError {
   declare readonly code: AcpRuntimeErrorCode;

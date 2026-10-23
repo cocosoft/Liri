@@ -9,7 +9,7 @@ import { getLogger } from '@modules/monitoring';
 import { createCliConfigManager } from '@modules/cli/config';
 import { createSessionGateway } from '@modules/session';
 import { SlowQueryDetector } from '@modules/query';
-import { GOOGLE_API_BASE_URL, NPM_REGISTRY_URL } from '@modules/core';
+import { GOOGLE_API_BASE_URL, NPM_REGISTRY_URL } from '@openliri/kernel';
 import { GITHUB_API_BASE } from '@modules/constants';
 
 const logger = getLogger('diagnoseHandler');

@@ -21,7 +21,7 @@
 import { Session } from 'node:inspector';
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir } from '@openliri/kernel/paths';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import {

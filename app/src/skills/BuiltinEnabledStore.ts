@@ -36,7 +36,7 @@ import {
   renameSync,
   writeFileSync,
 } from 'fs';
-import { resolveUserSkillsDir } from '@modules/core';
+import { resolveUserSkillsDir } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 const logger = getLogger('skills:builtinEnabled');

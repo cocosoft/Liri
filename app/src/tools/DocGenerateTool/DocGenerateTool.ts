@@ -1487,7 +1487,7 @@ export class DocGenerateTool extends BaseTool {
       }
 
       // 获取输出目录
-      const { resolveOutputDir } = await import('@modules/core');
+      const { resolveOutputDir } = await import('@openliri/kernel');
       const outputDir = resolveOutputDir();
 
       const officecliAvailable = await isOfficeCLIAvailable();

@@ -2,7 +2,7 @@
  * BlueBubbles 通道配置模式
  */
 
-import { DEFAULT_BLUEBUBBLES_SERVER_URL } from '@modules/core';
+import { DEFAULT_BLUEBUBBLES_SERVER_URL } from '@openliri/kernel';
 
 export interface BlueBubblesConfig {
   enabled: boolean;

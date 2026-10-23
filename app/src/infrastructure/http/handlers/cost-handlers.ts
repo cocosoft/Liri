@@ -16,7 +16,7 @@ import { resolveWorkspacePath } from './workspaces-handlers';
 import type { CostReportDto } from '@modules/runtime/api/workspaceOpsPorts';
 // C1（2026-09-30 D-108，`ai` 域 P2）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
+import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('http:cost');
 

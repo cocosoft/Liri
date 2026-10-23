@@ -31,10 +31,10 @@
  * - skill_provenance：技能溯源信息
  */
 
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath } from '@openliri/kernel';
 // 多租户 P5：技能使用记录带归属（删除租户时可按前缀清除）
-import { currentOwnerKey } from '@modules/core/identity/requestScope.js';
+import { currentOwnerKey } from '@openliri/kernel/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import type {
   SkillUsageRecord,

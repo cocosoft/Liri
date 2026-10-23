@@ -207,7 +207,7 @@ export class FileConvertTool extends BaseTool {
       // 全程不经过模型输出通道（0 token、不截断、内存有界）。
       if (targetFormat === 'docx') {
         const fullMarkdown = result.markdown;
-        const outputDir = (await import('@modules/core')).resolveOutputDir();
+        const outputDir = (await import('@openliri/kernel')).resolveOutputDir();
         const baseName = path.basename(filePath, path.extname(filePath));
         const { createWithOfficeCLI, createNativeDocx, isOfficeCLIAvailable } =
           await import('../DocGenerateTool/DocGenerateTool');

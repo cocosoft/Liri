@@ -25,7 +25,7 @@ import {
   PATTERN_PROVIDERS,
   type PatternAssembly,
   type PatternProvider,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 /** 单个 provider ID 的实现定位（诊断/自检用；CS02：非用户可见文案） */
 export interface PatternProviderBinding {

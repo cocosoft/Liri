@@ -24,7 +24,7 @@
  * 保留环境变量覆盖能力（FEATURE_* 前缀）
  */
 
-import { feature as coreFeature, type FeatureFlag } from '@modules/core';
+import { feature as coreFeature, type FeatureFlag } from '@openliri/kernel';
 
 const featureCache: Partial<Record<string, boolean>> = {};
 

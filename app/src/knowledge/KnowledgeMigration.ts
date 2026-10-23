@@ -7,7 +7,7 @@ import { readFile, writeFile, mkdir, readdir, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolvePyappHome, resolveKnowledgeBaseDir } from '@modules/core';
+import { resolvePyappHome, resolveKnowledgeBaseDir } from '@openliri/kernel';
 
 const logger = getLogger('knowledge:knowledgeMigration');
 

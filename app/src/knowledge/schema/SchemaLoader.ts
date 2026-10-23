@@ -38,7 +38,7 @@ import { join } from 'path';
 import { load } from 'js-yaml';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveKnowledgeDir, resolveDomainSchemaDir } from '@modules/core';
+import { resolveKnowledgeDir, resolveDomainSchemaDir } from '@openliri/kernel';
 import type { ValidationResult } from '@modules/common/types';
 import type { ConstraintStrength } from '../rule/types';
 

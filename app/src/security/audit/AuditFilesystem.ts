@@ -8,7 +8,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { existsSync, statSync } from 'fs';
 import { join } from 'path';
-import { resolveProjectRoot, resolveDataDir } from '@modules/core';
+import { resolveProjectRoot, resolveDataDir } from '@openliri/kernel';
 
 const logger = getLogger('security:auditFilesystem');
 

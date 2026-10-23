@@ -29,11 +29,11 @@
  * - 多维度聚合统计（总览/每日趋势/模型/供应商）
  */
 
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { randomUUID } from 'crypto';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath } from '@openliri/kernel';
 // 多租户 P5：使用日志带归属（删除租户时可按前缀清除）
-import { currentOwnerKey } from '@modules/core/identity/requestScope.js';
+import { currentOwnerKey } from '@openliri/kernel/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

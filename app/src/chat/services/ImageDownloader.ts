@@ -8,7 +8,7 @@
 import { getLogger } from '@modules/monitoring';
 import { buildUserAgent } from '@modules/constants';
 import { handleError } from '@modules/error/handleError';
-import { resolveCacheDir } from '@modules/core/paths';
+import { resolveCacheDir } from '@openliri/kernel/paths';
 import { withRetry, DEFAULT_RETRY_CONFIG } from '@modules/utils/withRetry';
 import { checkSsrf, describeSsrfBlock } from '@modules/tools';
 import { imageFormatDetector } from '../../media/image/ImageFormatDetector';

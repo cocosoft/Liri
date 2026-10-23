@@ -117,14 +117,14 @@ export type {
 } from './CostReportEndpoint';
 
 import { getLogger } from '../monitoring/logs/Logger.js';
-import { globalEventBus, SystemEvents } from '@modules/core';
-import type { CostRecordedEvent } from '@modules/core';
+import { globalEventBus, SystemEvents } from '@openliri/kernel';
+import type { CostRecordedEvent } from '@openliri/kernel';
 import { handleError } from '@modules/error';
 // 多租户 P5：成本事件按归属身份落库（订阅者不能依赖发布者的 ALS 作用域）
 import {
   principalFromKey,
   runWithPrincipal,
-} from '@modules/core/identity/requestScope.js';
+} from '@openliri/kernel/identity/requestScope.js';
 import type { CostRecordRepository } from './CostRecordRepository.js';
 import {
   AnalyticsCategory,

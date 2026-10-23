@@ -42,7 +42,7 @@ import type {
   ThinkingProviderChunk,
   ToolDefinition,
 } from '@modules/ai';
-import { LOCAL_INFERENCE_ENDPOINTS } from '@modules/core';
+import { LOCAL_INFERENCE_ENDPOINTS } from '@openliri/kernel';
 
 const logger = getLogger('ai:llama');
 

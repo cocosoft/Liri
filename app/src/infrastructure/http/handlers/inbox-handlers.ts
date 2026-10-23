@@ -25,7 +25,7 @@ import {
 } from '@modules/runtime/InboxManager.js';
 // 审批解析的**唯一实现**（HTTP / IM 文本审批 / 企业审批流共用）
 import { resolveInboxApproval } from '@modules/runtime/inboxApproval.js';
-import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
+import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('http:inbox');
 

@@ -27,7 +27,7 @@
  * 使用 SQLite 存储，注册在统一 app.db 中。
  */
 
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { handleError } from '@modules/error/handleError';
 
 /** sqlite3 run() 回调中的 this 上下文 */
@@ -46,14 +46,14 @@ interface SessionRouteRow {
   updated_at: number;
   hit_count: number;
 }
-import { resolveDbPath, resolveScopedDbPath } from '@modules/core';
+import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel';
 // 多租户 P1（2026-10-21）：黏性路由库按身份分实例（本地身份零变更）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 import type { RouterTier, SessionRouteRecord } from './types.js';
 

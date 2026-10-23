@@ -9,7 +9,7 @@
  * 使用 beforeAll 执行一次启动，所有测试共享同一状态。
  */
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { getDIContainer, resetDIContainer } from '@modules/core/DIContainer';
+import { getDIContainer, resetDIContainer } from '@openliri/kernel/DIContainer';
 
 let container: ReturnType<typeof getDIContainer>;
 let bootstrapSucceeded = false;

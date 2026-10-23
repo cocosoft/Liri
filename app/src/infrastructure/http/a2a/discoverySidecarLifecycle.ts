@@ -27,7 +27,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
-import { LOCAL_HTTP_HOST } from '@modules/core';
+import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import {
   hasA2ADelegator,

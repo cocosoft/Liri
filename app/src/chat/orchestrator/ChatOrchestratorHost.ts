@@ -5,7 +5,7 @@
  * 反向 `import type` 它，与 `ChatOrchestrator.ts -> 子模块` 构成 11 条静态环。
  * 端口类型下沉到本叶子模块后，双方都只依赖它 ⇒ 环消失；`ChatOrchestrator.ts` 仍原样重导出。
  */
-import type { SimpleMutex } from '@modules/core';
+import type { SimpleMutex } from '@openliri/kernel';
 import type {
   ToolAwareClient,
   ToolDefinition,

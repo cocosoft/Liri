@@ -1,4 +1,4 @@
-import { OPENAI_PLATFORM_URL } from '@modules/core';
+import { OPENAI_PLATFORM_URL } from '@openliri/kernel';
 /**
  * FewShotRegistry — Few-shot 示例管理系统
  *

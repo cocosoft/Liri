@@ -15,7 +15,7 @@ import { OrchestrationEventType as E } from '@modules/types/orchestrationEvents'
 import {
   globalEventBus,
   type EventSubscription,
-} from '@modules/core/events/EventBus';
+} from '@openliri/kernel/events/EventBus';
 import type { CouncilEngine } from '../../src/workspace/CouncilEngine';
 import { CouncilOrchestrator } from '../../src/workspace/CouncilOrchestrator';
 import type { CouncilSession } from '../../src/workspace/CouncilTypes';

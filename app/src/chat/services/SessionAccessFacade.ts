@@ -13,7 +13,7 @@
  * ChatManager 通过此门面与 session 子系统交互，减少直接依赖。
  */
 import { getLogger } from '@modules/monitoring';
-import { resolveSessionsDir } from '@modules/core/paths';
+import { resolveSessionsDir } from '@openliri/kernel/paths';
 import { SessionMemoryManager } from '@modules/session';
 import { globalEmbeddingManager } from '@modules/ai';
 import { SessionActivityTracker } from '@modules/session';

@@ -33,9 +33,9 @@
  * - `steps` / `tags` 以 JSON 文本存储；`created_at` / `updated_at` 存 **ISO 文本**
  *   （与 `WorkflowTemplate` 域类型同源，避免时间戳精度/时区转换失真）
  */
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath } from '@openliri/kernel';
 
 import type { WorkflowTemplate } from './types';
 

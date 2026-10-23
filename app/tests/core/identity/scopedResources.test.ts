@@ -14,7 +14,7 @@ import {
   registerScopedResource,
   resetScopedResourcesForTest,
   scopedResourceCount,
-} from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/scopedResources.js';
 
 /**
  * 登记表是**进程级全局**：全量套跑时其他用例文件留下的注册会污染本文件的**绝对计数**

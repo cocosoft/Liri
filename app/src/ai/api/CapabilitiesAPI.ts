@@ -26,7 +26,7 @@
  */
 
 import type http from 'http';
-import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
+import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 import { handleError, AppError } from '@modules/error';
 import { CapabilityCategory } from '../services/CapabilityService.js';
 import { parseBody, sendJson, sendError } from './utils.js';

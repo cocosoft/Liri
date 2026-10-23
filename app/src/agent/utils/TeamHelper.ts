@@ -8,7 +8,7 @@ import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 import { configManager } from '@modules/config';
 
 const logger = getLogger('agent:teamHelper');

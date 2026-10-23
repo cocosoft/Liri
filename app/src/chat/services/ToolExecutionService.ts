@@ -19,17 +19,17 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { ErrorHandler } from '@modules/core';
+import { ErrorHandler } from '@openliri/kernel';
 import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@openliri/kernel/paths';
 import { resolveToolCwd } from './toolCwdScope';
 // 多租户 P0 阶段 2：请求级权限角色（桌面/后台无请求作用域 ⇒ null ⇒ 保持既有回退语义）
 import {
   getRequestPermissionRole,
   getRequestPrincipal,
-} from '@modules/core/identity/requestScope.js';
+} from '@openliri/kernel/identity/requestScope.js';
 import { ToolExecutionStatus } from '@modules/utils/toolContract/ToolResult';
 import { isMediaOutputToolName } from '@modules/utils/toolContract/toolRoles';
 // U-02 v2 / P3（2026-10-20）：工作区边界判定（与 LRO 共用同一纯函数，实现落 utils 避免 chat↔tasks 环）

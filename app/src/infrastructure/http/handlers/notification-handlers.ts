@@ -22,7 +22,7 @@ import type {
   NotificationStatus,
   NotificationPriority,
 } from '@modules/runtime/NotificationPersistence.js';
-import { LOCAL_SERVICE_HOST } from '@modules/core';
+import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 function sendJSON(
   res: http.ServerResponse,

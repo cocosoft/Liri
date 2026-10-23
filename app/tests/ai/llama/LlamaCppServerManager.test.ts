@@ -39,7 +39,7 @@ import {
 import {
   resolveLlamaBinaryPath,
   resolveLlamaDir,
-} from '@modules/core/paths.js';
+} from '@openliri/kernel/paths.js';
 
 // ── 假 child_process.spawn（经 DI 端口注入）────────────────────
 

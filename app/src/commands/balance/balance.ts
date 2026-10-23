@@ -29,7 +29,7 @@ import { checkBalance, formatBalanceResult } from '@modules/ai';
 import { getProviderManager } from '@modules/ai';
 
 import { getLogger } from '@modules/monitoring';
-import { DEEPSEEK_API_BASE_URL } from '@modules/core';
+import { DEEPSEEK_API_BASE_URL } from '@openliri/kernel';
 const logger = getLogger('commands:balance:balance');
 
 const balanceCommand = {

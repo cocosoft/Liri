@@ -12,7 +12,7 @@
 import { connect as tlsConnect, TLSSocket } from 'tls';
 import { createHash, randomUUID } from 'crypto';
 import { getLogger } from '@modules/monitoring';
-import { WEBSOCKET_MAGIC_GUID } from '@modules/core';
+import { WEBSOCKET_MAGIC_GUID } from '@openliri/kernel';
 const logger = getLogger('voice:edgeTTS:transport');
 
 /** WebSocket 操作码 */

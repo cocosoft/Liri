@@ -6,7 +6,7 @@
  */
 
 import { mkdirSync, existsSync, rmSync } from 'fs';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 import { join } from 'path';
 import type { EffectScope } from '@modules/context';
 

@@ -8,9 +8,9 @@
  * 支持关键词搜索、收藏标星、批量删除。
  */
 
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { randomUUID } from 'crypto';
-import { resolveDbPath } from '@modules/core/paths';
+import { resolveDbPath } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '../../error/handleError';
 import type {

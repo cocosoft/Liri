@@ -4,10 +4,10 @@ import fs from 'fs/promises';
 import path from 'path';
 import { getLogger } from '@modules/monitoring';
 // D-146（2026-10-01）：embedding 管理器改经 core SPI（`infra -> app` 倒挂收口）
-import { resolveAiAccess } from '@modules/core/spi';
+import { resolveAiAccess } from '@openliri/kernel/spi';
 import { existsSync, readFileSync } from 'fs';
 import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
-import { resolveDataDir, resolvePyappHome } from '@modules/core';
+import { resolveDataDir, resolvePyappHome } from '@openliri/kernel';
 import { handleError } from '@modules/error/handleError';
 import {
   encodePayload,

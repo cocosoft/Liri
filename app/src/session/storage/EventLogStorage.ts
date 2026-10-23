@@ -33,7 +33,7 @@ import {
 } from 'fs';
 import { join } from 'path';
 import * as readline from 'readline';
-import { resolveLegacySessionsDir } from '@modules/core/paths';
+import { resolveLegacySessionsDir } from '@openliri/kernel/paths';
 import { enterPhase, exitPhase } from '@modules/diagnostics';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import {

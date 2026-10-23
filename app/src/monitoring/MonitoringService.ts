@@ -5,9 +5,9 @@
 
 import fs from 'fs';
 import path from 'path';
-import { resolveLogsDir } from '@modules/core';
-import { getPerformanceProfiler } from '@modules/core';
-import { performanceUtils } from '@modules/core';
+import { resolveLogsDir } from '@openliri/kernel';
+import { getPerformanceProfiler } from '@openliri/kernel';
+import { performanceUtils } from '@openliri/kernel';
 import { configManager } from '@modules/config';
 import { profileCheckpoint } from '../performance/StartupProfiler.js';
 import { getLogger, Logger } from '@modules/monitoring';

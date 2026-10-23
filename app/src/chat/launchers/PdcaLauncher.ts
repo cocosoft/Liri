@@ -4,7 +4,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@openliri/kernel/paths';
 import { configManager } from '@modules/config';
 import { PlanDrivenLoop } from '@modules/tasks';
 import type {

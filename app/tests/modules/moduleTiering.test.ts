@@ -16,7 +16,7 @@ import {
   getModuleLoadMode,
   getOnDemandModuleIds,
   PURE_ACCOUNTING_ON_DEMAND_MODULES,
-} from '@modules/core/LazyModuleStrategy';
+} from '@openliri/kernel/LazyModuleStrategy';
 import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,

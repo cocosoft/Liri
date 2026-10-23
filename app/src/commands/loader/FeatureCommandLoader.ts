@@ -4,7 +4,7 @@
  * 根据feature开关决定是否加载命令
  */
 
-import { feature, FeatureFlag } from '@modules/core';
+import { feature, FeatureFlag } from '@openliri/kernel';
 import type { Command, CommandLoader } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 

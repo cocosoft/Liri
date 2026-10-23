@@ -36,4 +36,4 @@ export {
   resolveErrorLogLevel,
   getErrorStats,
   type HandleErrorOptions,
-} from '@modules/core/errorHandler.js';
+} from '@openliri/kernel/errorHandler.js';

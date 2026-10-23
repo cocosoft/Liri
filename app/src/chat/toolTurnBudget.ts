@@ -23,7 +23,7 @@ import type { TodoBlockData } from '@modules/runtime/api/todo-types';
 import type {
   TodoExpansionState,
   ToolTurnBudget as ToolTurnBudgetState,
-} from '@modules/core';
+} from '@openliri/kernel';
 import type { ToolLoopContext } from './ToolLoopRunner.js';
 import {
   DYNAMIC_TURNS_PER_PENDING_TODO,

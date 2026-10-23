@@ -13,8 +13,8 @@ import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 import { handleError } from '@modules/error';
-import { resolveDbPath } from '@modules/core';
-import { Database } from '@modules/core/external/sqlite3';
+import { resolveDbPath } from '@openliri/kernel';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import type { FAQEntry, FAQSearchParams, FAQImportReport } from './types';
 
 const logger = new OTelAwareLogger({

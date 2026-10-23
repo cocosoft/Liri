@@ -13,7 +13,7 @@
  *
  * 与 `agent/tool-policy` 的 owner-only 审批**无关**：本模块只处理「阶段提问」，不碰危险操作审批。
  */
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 
 /** 交互提问的最小形状（`ask_user_question` 的入参子集） */
 export interface UnattendedQuestionShape {

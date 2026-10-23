@@ -23,11 +23,11 @@
  * 连接不泄漏：单例持有一个连接，`close()` 显式释放（与 `AgentRoleStore` 同法）。
  */
 
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath } from '@openliri/kernel';
 
 import type { AgentRunAttribution } from './runAttribution';
 

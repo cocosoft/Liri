@@ -8,7 +8,7 @@
  *   ③ ./knownEventTypes.ts 的 ALL_SESSION_EVENT_TYPES 清单（文件末穷尽断言）。
  */
 
-import type { DataAttachment } from '@modules/core';
+import type { DataAttachment } from '@openliri/kernel';
 // B2-2（2026-09-23）：目标事件载荷复用 Goal 域的既有词表（单一来源，不另立联合类型）
 // 2026-10-01 B11 前置 P1（D-223）：词表已下沉**类型中心** `@modules/types/goal`(core) ——
 // 本文件由此**不再依赖 `@modules/tasks`(app)**，为其迁往 `session/types/`(service) 扫清

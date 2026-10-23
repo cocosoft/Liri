@@ -10,7 +10,7 @@ import type {
   MessageLoadOptions,
   SessionListOptions,
 } from '../SessionStorage';
-import { resolveSessionsDir } from '@modules/core';
+import { resolveSessionsDir } from '@openliri/kernel';
 import { AtomicWriter } from '../persistence/AtomicWriter.js';
 import { renameToTrashWithRetry } from './trashRename';
 

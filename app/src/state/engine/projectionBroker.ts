@@ -37,8 +37,11 @@
  *   （该目录只收"有状态机语义"的定义；阶段 1.4 的 R09-006 亦不识别 `_PRIMITIVES` 形态）。
  */
 
-import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus.js';
-import { feature } from '@modules/core/featureFlags.js';
+import {
+  globalEventBus,
+  SystemEvents,
+} from '@openliri/kernel/events/EventBus.js';
+import { feature } from '@openliri/kernel/featureFlags.js';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('state:projectionBroker');

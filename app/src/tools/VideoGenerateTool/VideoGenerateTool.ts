@@ -14,7 +14,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 
 import { BaseTool } from '../BaseTool';
 // 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
-import { UUID_RE } from '@modules/core';
+import { UUID_RE } from '@openliri/kernel';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
 import { getLogger } from '@modules/monitoring';
@@ -26,12 +26,12 @@ import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { VideoGenerationRouter } from './VideoGenerationRouter';
 import { RegistryVideoProvider } from './providers/RegistryVideoProvider';
 import { randomUUID } from 'crypto';
-import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
+import { globalEventBus, SystemEvents } from '@openliri/kernel/events/EventBus';
 import { getVideoTaskPersistence } from './VideoTaskPersistence';
 import { getImageSafetyFilter } from '../ImageGenerateTool/ImageSafetyFilter';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveTempDir } from '@modules/core/paths';
+import { resolveTempDir } from '@openliri/kernel/paths';
 
 const logger = getLogger('tools:videoGenerate');
 

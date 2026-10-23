@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveProjectRoot } from '@modules/core';
+import { resolveProjectRoot } from '@openliri/kernel';
 
 const logger = getLogger('context:userContextService');
 

@@ -44,7 +44,7 @@ import {
   type VideoTaskPollState,
 } from './AsyncVideoTaskProvider';
 import type { VideoGenerationParams } from './AIProvider';
-import { VOLCENGINE_ARK_V3_BASE_URL } from '@modules/core';
+import { VOLCENGINE_ARK_V3_BASE_URL } from '@openliri/kernel';
 
 /** 火山方舟视频生成任务查询响应（仅声明本 Provider 使用的官方字段） */
 interface VolcengineTaskResult {

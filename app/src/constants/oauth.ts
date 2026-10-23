@@ -5,7 +5,7 @@ import {
   DEFAULT_LOCAL_OAUTH_API_BASE,
   DEFAULT_LOCAL_OAUTH_APPS_BASE,
   DEFAULT_MCP_PROXY_URL,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('constants\oauth');

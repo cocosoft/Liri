@@ -18,7 +18,7 @@ import type {
   ConsensusResult,
 } from './CouncilTypes.js';
 import type { CouncilConfig } from './CouncilEngine.js';
-import { globalEventBus } from '@modules/core/events/EventBus.js';
+import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 import { OrchestrationEventType } from '@modules/agent';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';

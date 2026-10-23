@@ -34,7 +34,7 @@ import { join } from 'path';
 import { existsSync, statSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { globalEventBus } from '@modules/core';
+import { globalEventBus } from '@openliri/kernel';
 
 const logger = getLogger('knowledge:tools:knowledgeImportTool');
 

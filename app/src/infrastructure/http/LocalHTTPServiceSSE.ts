@@ -8,7 +8,7 @@ import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope';
+} from '@openliri/kernel/identity/requestScope';
 const logger = getLogger('infrastructure:http:sse');
 
 /**

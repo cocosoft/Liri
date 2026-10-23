@@ -35,7 +35,7 @@ import { existsSync, readFileSync, writeFileSync, renameSync } from 'fs';
 import type { LocalSkillSearchResult } from './types';
 import type { ThirdPartySkillSearchResult } from './ThirdPartySkillAdapter';
 import { getLogger } from '@modules/monitoring';
-import { LOCAL_SERVICE_HOST, WILDCARD_BIND_HOST } from '@modules/core';
+import { LOCAL_SERVICE_HOST, WILDCARD_BIND_HOST } from '@openliri/kernel';
 const logger = getLogger('skills:searchEngine');
 
 /** 自定义源条目 */

@@ -18,11 +18,11 @@ import type {
   IChannelPlugin,
   MessageContext,
 } from '../../src/channels/types/IChannel';
-import type { Principal } from '@modules/core/identity/principal';
+import type { Principal } from '@openliri/kernel/identity/principal';
 import {
   getRequestPrincipal,
   isLocalPrincipal,
-} from '@modules/core/identity/requestScope';
+} from '@openliri/kernel/identity/requestScope';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };

@@ -10,8 +10,8 @@ import {
   type StructuredLogEntry,
   type LogSource,
 } from '../logs/LogMemory.js';
-import { Database } from '@modules/core/external/sqlite3.js';
-import { resolveDbPath } from '@modules/core';
+import { Database } from '@openliri/kernel/external/sqlite3.js';
+import { resolveDbPath } from '@openliri/kernel';
 
 interface LLMCallRecord {
   requestId: string;

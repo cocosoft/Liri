@@ -5,7 +5,7 @@
 
 // 2026-10-01 D-157（`permission -> sandbox` 倒挂收口）：`SandboxPermission` 定义已下沉 core
 // （`core/sandboxPermission.ts`，零依赖纯枚举），此处**导入 + 原样转出**，全仓导出名与取值不变。
-import { SandboxPermission } from '@modules/core/sandboxPermission.js';
+import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
 export { SandboxPermission };
 
 /**

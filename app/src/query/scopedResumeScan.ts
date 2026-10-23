@@ -11,8 +11,8 @@
  *
  * 副作用边界：本模块只负责"身份作用域 + 存储生命周期"，扫描/恢复语义仍全在 ResumeManager。
  */
-import type { Principal } from '@modules/core/identity/principal.js';
-import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
+import type { Principal } from '@openliri/kernel/identity/principal.js';
+import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import { DBTAORCheckpointStorage } from './DBTAORCheckpointStorage.js';
 import { ResumeManager } from './ResumeManager.js';
 

@@ -1,7 +1,7 @@
 /**
  * Execution 生命周期 —— 错误类型（PR1 / 2026-10-09）
  */
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/core';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/kernel';
 import type { AbortReason } from './types';
 
 /**

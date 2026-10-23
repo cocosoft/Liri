@@ -18,7 +18,7 @@ import {
 import {
   deferredLoader,
   DeferredLoadState,
-} from '@modules/core/LazyModuleStrategy';
+} from '@openliri/kernel/LazyModuleStrategy';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('performance:performanceMonitor');
 

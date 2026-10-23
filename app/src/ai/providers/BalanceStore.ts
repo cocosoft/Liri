@@ -24,15 +24,15 @@
  * 管理 provider_balances 表的读写，缓存余额查询结果。
  */
 
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath, resolveScopedDbPath } from '@modules/core';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel';
 // 多租户 P1（2026-10-21）：余额库按身份分实例（本地身份零变更）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

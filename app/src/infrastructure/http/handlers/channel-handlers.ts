@@ -32,7 +32,7 @@ import {
   isChannelDroppedByBuild,
 } from '@modules/channels/ChannelCatalog';
 import type { IChannelPlugin } from '@modules/channels/types/IChannel';
-import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
+import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 import { feature as buildFeature } from 'bun:bundle';
 
 const logger = getLogger('infrastructure:http:handlers:channel-handlers');

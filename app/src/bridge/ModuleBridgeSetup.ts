@@ -17,7 +17,7 @@ import type { ModuleBridgeDependencies } from './ModuleBridgeRuntime.js';
 import type { AcpWebSocketServerConfig } from '@modules/acp/types.js';
 import { configManager } from '@modules/config';
 import type { AcpRuntime } from '@modules/acp';
-import { LOCAL_HTTP_HOST, LOCAL_SERVICE_HOST } from '@modules/core';
+import { LOCAL_HTTP_HOST, LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 const logger = getLogger('bridge:moduleSetup');
 

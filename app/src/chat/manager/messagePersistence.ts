@@ -33,7 +33,7 @@ import type {
   MessageMetadata,
 } from '@modules/session/types/UnifiedMessage';
 import { MessageRole as SessionMessageRole } from '@modules/session/types/UnifiedMessage';
-import { resolveWorktreeHash } from '@modules/core/paths';
+import { resolveWorktreeHash } from '@openliri/kernel/paths';
 
 import { persistChatMessage, toSessionMsgType } from '../services/ChatHelper';
 import { buildAssistantTimingData } from '../services/timingEvent';

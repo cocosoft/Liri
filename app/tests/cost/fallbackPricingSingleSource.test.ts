@@ -13,7 +13,7 @@
 import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { DEFAULT_MODEL_PRICING } from '@modules/core/pricing';
+import { DEFAULT_MODEL_PRICING } from '@openliri/kernel/pricing';
 import { PriceManager } from '../../src/tokenBudget/PriceManager';
 
 const SRC = join(import.meta.dir, '..', '..', 'src');

@@ -28,7 +28,7 @@
 
 import * as crypto from 'crypto';
 
-import { WEBSOCKET_MAGIC_GUID } from '@modules/core';
+import { WEBSOCKET_MAGIC_GUID } from '@openliri/kernel';
 
 /** WebSocket 操作码 */
 export const enum OpCode {

@@ -27,10 +27,10 @@
  * 写操作受 SimpleMutex 保护，防止并发 WAL 锁冲突（与 KnowledgeGraph 同模式）。
  */
 
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath } from '@modules/core';
-import { SimpleMutex } from '@modules/core';
+import { resolveDbPath } from '@openliri/kernel';
+import { SimpleMutex } from '@openliri/kernel';
 
 const logger = getLogger('knowledge:record:store');
 

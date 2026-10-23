@@ -4,7 +4,7 @@
  */
 
 import { createProviderPlugin, type ProviderPlugin } from '../categories.js';
-import { OPENAI_API_V1_BASE_URL } from '@modules/core';
+import { OPENAI_API_V1_BASE_URL } from '@openliri/kernel';
 
 /**
  * OpenAI 配置

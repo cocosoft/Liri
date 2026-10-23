@@ -44,8 +44,8 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/core/errors.js';
-import { getLogger } from '@modules/core/loggerFacade.js';
+} from '@openliri/kernel/errors.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 
 const logger = getLogger('tokenBudget:policy');
 

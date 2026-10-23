@@ -41,7 +41,7 @@ import type { TAORCheckpoint } from '../../query/types.js';
 import type { ResumeManager } from '../../query/ResumeManager.js';
 import { getBudgetSuspendCoordinator } from '../../query/budgetSuspend.js';
 import { installOrchestrationSnapshotProviders } from '../../query/orchestrationSnapshotProviders.js';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import type { ToolAwareClient } from '@modules/ai';
 import { mapSessionStatusToState } from '../services/ChatHelper';
 import type { SessionAccessFacade } from '../services/SessionAccessFacade';
@@ -130,7 +130,7 @@ export class ChatBootstrap {
    */
   private async cleanStalePidFiles(): Promise<void> {
     try {
-      const { resolveSessionsDir } = await import('@modules/core');
+      const { resolveSessionsDir } = await import('@openliri/kernel');
       const { readdirSync, statSync, unlinkSync, existsSync } = require('fs');
       const { join } = require('path');
       const pidDir = join(resolveSessionsDir(), 'pid');
@@ -178,7 +178,7 @@ export class ChatBootstrap {
    */
   private async migrateHomeFromProjectToUser(): Promise<void> {
     try {
-      const { resolveProjectRoot } = await import('@modules/core');
+      const { resolveProjectRoot } = await import('@openliri/kernel');
       const oldDataDir = path.join(
         resolveProjectRoot(),
         'app',

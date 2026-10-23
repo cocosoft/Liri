@@ -14,7 +14,7 @@ import type {
   GovernanceEventType,
 } from '../types/GovernanceTypes';
 import { getLogger } from '@modules/monitoring';
-import { resolveGovernanceDir } from '@modules/core';
+import { resolveGovernanceDir } from '@openliri/kernel';
 // C1（2026-10-09）：audit id 熵源改用 crypto
 import { randomIdSuffix } from '../../utils/common';
 

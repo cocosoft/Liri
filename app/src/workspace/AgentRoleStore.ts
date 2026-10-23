@@ -6,9 +6,9 @@
  * 支持前端管理页面进行增删改查。
  */
 import { randomUUID } from 'crypto';
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath } from '@openliri/kernel';
 
 const logger = getLogger('AgentRoleStore');
 

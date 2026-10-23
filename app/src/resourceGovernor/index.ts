@@ -24,7 +24,7 @@
  * 触发门禁 R05-005（见 `scripts/lint-architecture.ts`）。
  */
 
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import type { RequestPriority } from '@modules/types/requestPriority';
 

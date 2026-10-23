@@ -15,12 +15,12 @@
  * `WorkspaceManager.createSync()`（适配器创建无 IO，见其文档）。
  */
 
-import { resolveScopedWorkspaceRoot } from '@modules/core/paths';
+import { resolveScopedWorkspaceRoot } from '@openliri/kernel/paths';
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
+} from '@openliri/kernel/identity/requestScope.js';
 import type { WorkspaceBase } from './WorkspaceBase.js';
 import { globalWorkspaceManager } from './WorkspaceManager.js';
 

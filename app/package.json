@@ -61,6 +61,7 @@
     "lint:kernel:baseline": "bun run ../scripts/lint-kernel-purity.ts --write-baseline",
     "lint:kernel-api": "bun run ../scripts/kernel-api-surface.ts --check",
     "lint:kernel-api:write": "bun run ../scripts/kernel-api-surface.ts --write",
+    "lint:kernel-alias": "bun run ../scripts/codemod-core-imports.ts --check",
     "lint:acceptance": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-acceptance-criteria.ts",
     "lint:variant-matrix": "bun run scripts/lint-variant-matrix.ts",
     "lint:startup-graph": "bun run scripts/lint-startup-graph.ts",

@@ -7,13 +7,13 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/core/errors.js';
+} from '@openliri/kernel/errors.js';
 // 2026-09-30 G2 倒挂收口：错误码纯数据表已下沉 core 模块根，直连 core 消除 core → infra 边
-import { ErrorCodes } from '@modules/core/errorCodes.js';
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { ErrorCodes } from '@openliri/kernel/errorCodes.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 // 2026-09-30（台账 D-131，CS01 归一化）：`BootstrapOptions` **单一来源 = `core/di/types.ts`**
 // （原在本文件重复声明，二者结构需人工同步 —— D-127 实测"仅改一处即触发 3 处 TS 报错"）
-import type { BootstrapOptions } from '@modules/core/di/types.js';
+import type { BootstrapOptions } from '@openliri/kernel/di/types.js';
 import {
   ModuleCategory,
   type ModuleDefinition,
@@ -294,7 +294,7 @@ export class ModuleRegistry {
    * 使用方式（main.ts 入口处）：
    *
    *   import { moduleRegistry } from './modules/ModuleRegistry';
-   *   import { getDIContainer } from '@modules/core';
+   *   import { getDIContainer } from '@openliri/kernel';
    *   await moduleRegistry.bootstrap(getDIContainer(), { mode: 'repl' });
    *
    * 为避免循环依赖，容器实例通过参数传入而非顶层导入获取。

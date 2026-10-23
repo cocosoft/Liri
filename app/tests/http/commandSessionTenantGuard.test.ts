@@ -11,9 +11,9 @@ import { afterAll, describe, expect, spyOn, test } from 'bun:test';
 import type http from 'http';
 
 import type { ChatSession } from '../../src/session/types/session';
-import { DataSessionStatus } from '@modules/core';
-import type { Principal } from '@modules/core/identity/principal';
-import { runWithPrincipal } from '@modules/core/identity/requestScope';
+import { DataSessionStatus } from '@openliri/kernel';
+import type { Principal } from '@openliri/kernel/identity/principal';
+import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
 import { SessionLifecycleManager } from '../../src/chat/services/SessionLifecycleManager';
 import type { SessionGateway } from '../../src/session/SessionGateway';
 import type { SessionAccessFacade } from '../../src/chat/services/SessionAccessFacade';

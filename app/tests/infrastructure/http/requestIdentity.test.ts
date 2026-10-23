@@ -16,8 +16,8 @@ import type http from 'http';
 import {
   LOCAL_PRINCIPAL,
   LOCAL_TENANT_ID,
-} from '@modules/core/identity/principal';
-import { getRequestPrincipal } from '@modules/core/identity/requestScope';
+} from '@openliri/kernel/identity/principal';
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope';
 import {
   resolveRequestPrincipal,
   withRequestIdentity,

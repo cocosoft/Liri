@@ -23,12 +23,12 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { getLogger } from '../../../monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
-import { resolveDataDir, resolveScopedLogsDir } from '@modules/core';
+import { resolveDataDir, resolveScopedLogsDir } from '@openliri/kernel';
 import {
   canAccessOwnerKey,
   currentOwnerKey,
   getRequestPrincipal,
-} from '@modules/core/identity/requestScope.js';
+} from '@openliri/kernel/identity/requestScope.js';
 
 const logger = getLogger('config:enterprise:audit:enterpriseAuditService');
 

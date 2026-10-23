@@ -334,7 +334,7 @@ process.env.LIRI_PROJECT_DIR = projectRoot;
 // 因此需要手动加载，确保 DEEPSEEK_API_KEY 等环境变量可用。
 // 分发前置「写路径不落安装目录」：安装目录内的 app/.env **只读**（开发/便携沿用），
 // 新写入一律落用户级 ~/.pyapp/.env（见 core/paths.ts 的 resolveUserEnvPath）。
-// 此处直接读 LIRI_HOME（上方已设置）而不 require('@modules/core/paths')：
+// 此处直接读 LIRI_HOME（上方已设置）而不 require('@openliri/kernel/paths')：
 // 该模块有模块级常量，必须等 LIRI_HOME 确定后才能求值（见文件头 lazyHandleError 注释）。
 // 也未抽独立模块：`.env` 必须在任何 app 模块加载前同步并入 env ⇒ 只能留在入口，
 // 抽出去会让启动面静态图 +1 文件（`lint:startup-graph` 棘轮只允许减少）。
@@ -383,7 +383,7 @@ process.env.LIRI_PROJECT_DIR = projectRoot;
 try {
   let pyappDir: string;
   try {
-    const { resolvePyappHome } = require('@modules/core/paths');
+    const { resolvePyappHome } = require('@openliri/kernel/paths');
     pyappDir = resolvePyappHome();
   } catch {
     // paths.ts 尚未就绪时的最小兜底

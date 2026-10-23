@@ -29,8 +29,8 @@ import { PermissionManager, RoleType } from '@modules/permission';
 import {
   LOCAL_TENANT_ID,
   parseTenantId,
-} from '@modules/core/identity/principal';
-import { getRequestPrincipal } from '@modules/core/identity/requestScope.js';
+} from '@openliri/kernel/identity/principal';
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('http:auth');

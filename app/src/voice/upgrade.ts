@@ -14,7 +14,7 @@ import type {
   VoiceServerEvent,
 } from './types';
 
-import { WEBSOCKET_MAGIC_GUID } from '@modules/core';
+import { WEBSOCKET_MAGIC_GUID } from '@openliri/kernel';
 
 const logger = getLogger('voice:upgrade');
 

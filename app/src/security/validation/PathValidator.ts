@@ -5,7 +5,7 @@
 
 import { homedir } from 'os';
 import { isAbsolute, resolve, dirname } from 'path';
-import { resolveProjectRoot } from '@modules/core';
+import { resolveProjectRoot } from '@openliri/kernel';
 import {
   PathValidationRule,
   ValidationResult,

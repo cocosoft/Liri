@@ -30,7 +30,7 @@ import { configManager } from '@modules/config';
 import { MessagesApiTransport } from '../transports/AnthropicMessagesTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
-import { ANTHROPIC_API_BASE_URL } from '@modules/core';
+import { ANTHROPIC_API_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('ai:anthropic');
 

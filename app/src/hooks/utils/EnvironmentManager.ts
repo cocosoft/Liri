@@ -5,7 +5,7 @@
  */
 
 import { platform } from 'os';
-import { resolveProjectRoot } from '@modules/core';
+import { resolveProjectRoot } from '@openliri/kernel';
 
 /**
  * 环境变量选项

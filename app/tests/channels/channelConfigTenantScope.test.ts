@@ -13,14 +13,14 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import type { Principal } from '@modules/core/identity/principal';
-import { runWithPrincipal } from '@modules/core/identity/requestScope';
+import type { Principal } from '@openliri/kernel/identity/principal';
+import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
 import { ChannelRegistry } from '../../src/channels/registry/ChannelRegistry';
 import {
   ChannelSecretStore,
   initRegistry,
 } from '../../src/channels/secrets/ChannelSecretStore';
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };

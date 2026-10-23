@@ -1,7 +1,7 @@
 import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import { EventEmitter } from 'events';
-import { resolveProjectRoot } from '@modules/core';
+import { resolveProjectRoot } from '@openliri/kernel';
 
 export interface ForkedDreamConfig {
   thinkingPrompt: string;

@@ -262,7 +262,7 @@ export async function handleSearchSemantic(
       return;
     }
 
-    const { resolveDataSubDir } = await import('@modules/core/paths');
+    const { resolveDataSubDir } = await import('@openliri/kernel/paths');
     const indexDir = resolveDataSubDir('semantic-index');
     // KB-SEM-P13（2026-08-27）：复用共享单例——原实现每次请求 new SemanticStore
     // + load() 全量解析 JSONL，文档多时搜索慢
@@ -311,7 +311,7 @@ export async function handleGetSemanticIndexStatus(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { resolveDataSubDir } = await import('@modules/core/paths');
+    const { resolveDataSubDir } = await import('@openliri/kernel/paths');
     const { stat } = await import('fs/promises');
     const { join } = await import('path');
     const indexDir = resolveDataSubDir('semantic-index');
@@ -358,7 +358,7 @@ export async function handleClearSemanticIndex(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { resolveDataSubDir } = await import('@modules/core/paths');
+    const { resolveDataSubDir } = await import('@openliri/kernel/paths');
     await (
       await getCoreAPI().getKnowledgeOpsPort()
     ).wipeSemanticStoreFiles(resolveDataSubDir('semantic-index'));

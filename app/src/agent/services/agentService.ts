@@ -8,7 +8,7 @@ import { AgentService, AgentConfig, AIAgent } from '../models/types';
 import { AIAgentImpl } from '../agent';
 import { ToolFactory } from '../tools/agentTool';
 import { join } from 'path';
-import { resolveMemoryDir } from '@modules/core';
+import { resolveMemoryDir } from '@openliri/kernel';
 import {
   readdirSync,
   writeFileSync,

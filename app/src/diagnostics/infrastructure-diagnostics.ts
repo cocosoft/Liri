@@ -10,7 +10,7 @@
 import { HealthChecker } from '@modules/monitoring/health/HealthChecker.js';
 import { systemHealthChecker } from '@modules/diagnostics/SystemHealthChecker.js';
 // C1（2026-09-30 D-123，`R00-003` P4/G3）：provider 快照改经 core SPI 端口（infra → core 合法）
-import { resolveDiagnosticsProbe } from '@modules/core/spi';
+import { resolveDiagnosticsProbe } from '@openliri/kernel/spi';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 // 2026-09-22：事件循环阻塞探针（P1 守株待兔 CPU profile + P2 阶段标签）挂载点。
 // 仅消费"已判定为真实阻塞"（非睡眠唤醒）的结论，不改变本监视器既有节拍与日志。

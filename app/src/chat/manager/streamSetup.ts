@@ -22,7 +22,7 @@ import type {
   StreamMessageOptions,
 } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';
-import type { SimpleMutex } from '@modules/core';
+import type { SimpleMutex } from '@openliri/kernel';
 
 import { securityService } from '../services/SecurityService.js';
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';

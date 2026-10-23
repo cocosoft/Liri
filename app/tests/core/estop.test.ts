@@ -32,7 +32,7 @@ import { join } from 'node:path';
 import {
   setUserDataDirOverride,
   getUserDataDirOverride,
-} from '@modules/core/paths';
+} from '@openliri/kernel/paths';
 import {
   engageEstop,
   disengageEstop,
@@ -40,7 +40,7 @@ import {
   getEstopState,
   checkEstop,
   estopSentinelPath,
-} from '@modules/core/estop/estop';
+} from '@openliri/kernel/estop/estop';
 
 describe('estop 全局急停', () => {
   let baseDir: string;

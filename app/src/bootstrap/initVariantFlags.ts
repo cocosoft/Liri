@@ -29,7 +29,7 @@
  * 生成物：`generatedVariantFlags.ts`（由 `app/scripts/build-variant.ts` 按变体写出）。
  * 内核不再持有该文件 —— 包内出现「由消费者构建脚本重写的源文件」正是 P3 要消除的东西。
  */
-import { setBuildVariantFlags } from '@modules/core';
+import { setBuildVariantFlags } from '@openliri/kernel';
 
 import { BUILD_VARIANT_FLAGS } from './generatedVariantFlags';
 

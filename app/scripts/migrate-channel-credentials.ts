@@ -25,7 +25,7 @@ process.env.PYAPP_PROJECT_DIR = process.cwd();
 import { Database } from 'bun:sqlite';
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { resolveDbPath, resolveDataSubDir } from '@modules/core';
+import { resolveDbPath, resolveDataSubDir } from '@openliri/kernel';
 import {
   isSensitiveKey,
   encryptSecret,

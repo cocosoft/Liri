@@ -78,4 +78,4 @@ export {
   isModuleOnDemand,
   requestModule,
   hasDynamicImport,
-} from '@modules/core/LazyModuleStrategy';
+} from '@openliri/kernel/LazyModuleStrategy';

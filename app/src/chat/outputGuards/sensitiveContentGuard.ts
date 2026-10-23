@@ -12,8 +12,8 @@
  * 本护栏改用 `sanitize()` 的"文本是否变化"判定 —— `String.replace(/(...)/g)` 无该状态残留问题。
  */
 
-import { feature } from '@modules/core';
-import type { OutputGuard, OutputGuardVerdict } from '@modules/core';
+import { feature } from '@openliri/kernel';
+import type { OutputGuard, OutputGuardVerdict } from '@openliri/kernel';
 import { SensitiveErrorType, sensitiveDataService } from '@modules/security';
 
 export const SENSITIVE_CONTENT_GUARD = 'sensitive_content';

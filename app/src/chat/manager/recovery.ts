@@ -88,7 +88,7 @@ import type {
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { SessionMetadata } from '@modules/session/types/session.js';
 import type { SessionCheckpoint } from '@modules/session/types/checkpoint.js';
-import { DataSessionStatus } from '@modules/core';
+import { DataSessionStatus } from '@openliri/kernel';
 import { extractPendingToolCallsFromEvents } from '../utils/pendingToolCalls.js';
 import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';

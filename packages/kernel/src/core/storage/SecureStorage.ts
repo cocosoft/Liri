@@ -15,7 +15,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('SecureStorage');
 import { warnDeprecatedCoreModule } from '../deprecationNotice.js';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '../paths.js';
 
 // C 档观察期（2026-10-23）：三重零引用 ⇒ 见 dev_docs/20261023/core-减重盘点清单.md §3
 warnDeprecatedCoreModule(

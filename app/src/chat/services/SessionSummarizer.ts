@@ -4,7 +4,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@openliri/kernel/paths';
 import { join } from 'path';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { Message } from '@modules/session/types/message.js';

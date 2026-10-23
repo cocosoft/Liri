@@ -25,7 +25,7 @@
  * 不依赖 Daemon 心跳，低频轮询（每分钟一次）。
  */
 
-import { globalEventBus, SystemEvents } from '@modules/core';
+import { globalEventBus, SystemEvents } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('dream:dreamIdleDetector');
 

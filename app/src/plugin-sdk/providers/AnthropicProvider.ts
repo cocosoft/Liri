@@ -4,7 +4,7 @@
  */
 
 import { createProviderPlugin, type ProviderPlugin } from '../categories.js';
-import { ANTHROPIC_API_V1_BASE_URL } from '@modules/core';
+import { ANTHROPIC_API_V1_BASE_URL } from '@openliri/kernel';
 
 /**
  * Anthropic 配置

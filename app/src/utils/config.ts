@@ -7,7 +7,7 @@ import { join } from 'path';
 import { configManager } from '@modules/config';
 import type { GlobalConfig } from '../config/types.js';
 import { profileCheckpoint } from '../performance/StartupProfiler.js';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 
 export type AppConfig = GlobalConfig;
 

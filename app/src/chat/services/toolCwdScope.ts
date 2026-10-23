@@ -21,12 +21,12 @@ import {
   isPathWithin,
   resolveProjectRoot,
   resolveScopedWorkspaceRoot,
-} from '@modules/core/paths';
+} from '@openliri/kernel/paths';
 import {
   getRequestPrincipal,
   isLocalPrincipal,
-} from '@modules/core/identity/requestScope';
-import type { Principal } from '@modules/core/identity/principal';
+} from '@openliri/kernel/identity/requestScope';
+import type { Principal } from '@openliri/kernel/identity/principal';
 
 const logger = getLogger('chat:services:toolCwdScope');
 

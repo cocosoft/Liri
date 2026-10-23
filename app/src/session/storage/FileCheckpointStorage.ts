@@ -9,7 +9,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveDataDir } from '@modules/core';
+import { resolveDataDir } from '@openliri/kernel';
 import type {
   SessionCheckpoint,
   CheckpointStorage,

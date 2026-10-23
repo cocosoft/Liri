@@ -18,7 +18,7 @@ import crypto from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 // 多租户 P3（2026-10-21）：录制时打归属，统计引擎据此分桶
-import { currentOwnerKey } from '@modules/core/identity/requestScope.js';
+import { currentOwnerKey } from '@openliri/kernel/identity/requestScope.js';
 const logger = getLogger('trace-recording:interceptor:FetchInterceptor');
 
 /** 拦截器回调 - 当有流量被录制时触发 */

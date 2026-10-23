@@ -51,7 +51,7 @@ import {
   ANTHROPIC_CONSOLE_URL,
   GOOGLE_AI_DEV_URL,
   GOOGLE_AI_STUDIO_URL,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 export interface ProviderPresetTheme {
   icon: string;

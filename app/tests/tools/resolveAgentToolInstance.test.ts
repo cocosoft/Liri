@@ -13,7 +13,7 @@
  *  ④ `resolveAgentToolInstance()` 用**能力判定**认领，且解析失败 fail-closed 为 `null`。
  */
 import { describe, test, expect } from 'bun:test';
-import { LazyModuleLoader } from '@modules/core/utils/LazyModuleLoader';
+import { LazyModuleLoader } from '@openliri/kernel/utils/LazyModuleLoader';
 import { ToolLazyWrapper } from '../../src/tools/utils/ToolLazyWrapper';
 import { AgentTool } from '../../src/tools/AgentTool/AgentTool';
 import { resolveAgentToolInstance } from '../../src/tools/utils/resolveAgentToolInstance';

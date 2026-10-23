@@ -3,7 +3,7 @@
  * 负责 OfficeCLI 安装引导和 OAuth2 邮箱配置引导
  */
 
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 const logger = getLogger('doc:lifecycle');
 
 /**

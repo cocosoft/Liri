@@ -6,7 +6,7 @@
 
 import { getCostMonitor, AlertLevel, type AlertRecord } from './CostMonitor';
 // 2026-10-01 D-155（`cost -> hooks` 倒挂收口）：Hook 分发改经 core SPI 取得
-import { resolveHookChain } from '@modules/core/spi';
+import { resolveHookChain } from '@openliri/kernel/spi';
 import { getLogger } from '../monitoring/logs/Logger';
 import { handleError } from '@modules/error';
 

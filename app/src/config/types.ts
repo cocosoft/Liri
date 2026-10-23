@@ -31,7 +31,10 @@ import {
   DEFAULT_FAST_PATH_MAX_LENGTH,
   type FastPathConfig,
 } from '@modules/types/fastPath';
-import { OPENAI_API_V1_BASE_URL, DEEPSEEK_API_BASE_URL } from '@modules/core';
+import {
+  OPENAI_API_V1_BASE_URL,
+  DEEPSEEK_API_BASE_URL,
+} from '@openliri/kernel';
 
 /**
  * 项目配置接口

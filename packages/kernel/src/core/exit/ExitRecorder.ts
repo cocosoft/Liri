@@ -30,7 +30,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '../paths.js';
 import { getLogger } from '../loggerFacade.js';
 // 2026-09-30 G2 倒挂收口：预期中断判据已下沉 core 侧（core 层不得引 infra 层，判据零依赖故可共用）
 import { isAbortReason } from '../abortReason.js';

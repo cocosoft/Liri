@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync } from 'fs';
-import { resolvePyappHome } from '@modules/core/paths.js';
+import { resolvePyappHome } from '@openliri/kernel/paths.js';
 import { getLogger } from '../../../monitoring/logs/Logger.js';
 const logger = getLogger('MDMSettings');
 import {

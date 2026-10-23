@@ -31,7 +31,7 @@ const GLOBAL_GITIGNORE_BASE =
           return join(userProfile, '.config', 'git', 'ignore');
         }
         // 回退：使用项目目录而非 C:\Users\Default（不可写的系统保护目录）
-        const { resolveProjectRoot } = require('@modules/core');
+        const { resolveProjectRoot } = require('@openliri/kernel');
         return join(resolveProjectRoot(), '.config', 'git', 'ignore');
       })()
     : join(configManager.env('HOME') || '/root', '.config', 'git', 'ignore');

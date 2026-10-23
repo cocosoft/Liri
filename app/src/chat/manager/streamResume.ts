@@ -22,7 +22,7 @@ import type {
   ToolDefinition,
 } from '@modules/ai';
 import { estimateMessagesTokens } from '@modules/ai';
-import { SimpleMutex } from '@modules/core';
+import { SimpleMutex } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import type { LoopDetector } from '@modules/query';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';

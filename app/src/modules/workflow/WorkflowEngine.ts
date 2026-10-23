@@ -28,8 +28,8 @@
  * `validate()` 的三重静态校验仍复用 `TaskDependencyService`（其拓扑排序与环检测不依赖 TaskRegistry）。
  */
 
-import { getLogger } from '@modules/core/loggerFacade.js';
-import { projectTaskGraph } from '@modules/core/systemgraph';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
+import { projectTaskGraph } from '@openliri/kernel/systemgraph';
 import { TaskDependencyService, TaskRegistry } from '@modules/tasks';
 
 import { WorkflowError } from './WorkflowError';

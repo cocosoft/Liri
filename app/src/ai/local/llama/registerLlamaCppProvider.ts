@@ -28,7 +28,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { LOCAL_HTTP_HOST } from '@modules/core';
+import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import {
   LLAMACPP_PROVIDER_TYPE,
   llamaCppServerManager,

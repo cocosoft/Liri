@@ -47,7 +47,7 @@ import { isOfflineMode } from './shared-state.js';
 import { channelRegistry } from '../channels/index.js';
 import { channelBootstrapper } from '@modules/channels';
 import { handleError } from '@modules/error';
-import { LOCAL_HTTP_HOST } from '@modules/core';
+import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 
 const logger = getLogger('repl');
 
@@ -638,7 +638,7 @@ export async function launchRepl(
           // 将 REPL 输入写入共享会话存储，使所有通道消息在统一上下文中可见
           try {
             const { getDIContainer } =
-              await import('@modules/core/DIContainer.js');
+              await import('@openliri/kernel/DIContainer.js');
             const { randomUUID } = await import('crypto');
             const { MessageType, MessageRole } =
               await import('../session/types/UnifiedMessage.js');

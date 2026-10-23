@@ -10,7 +10,7 @@ import { handleError } from '@modules/error/handleError.js';
 
 const logger = getLogger('LocalSettings');
 import { deepMerge } from '@modules/utils/common.js';
-import { resolvePyappHome } from '@modules/core/paths.js';
+import { resolvePyappHome } from '@openliri/kernel/paths.js';
 
 /**
  * 本地设置文件名

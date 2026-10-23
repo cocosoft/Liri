@@ -12,12 +12,12 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { Database } from '@modules/core/external/sqlite3.js';
+import { Database } from '@openliri/kernel/external/sqlite3.js';
 import {
   closeScopedResourcesForTenant,
   registerScopedResource,
   resetScopedResourcesForTest,
-} from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/scopedResources.js';
 
 const roots: string[] = [];
 

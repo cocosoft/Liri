@@ -8,9 +8,9 @@
  * - 降级策略（单源失败返回部分数据 + errors[]，不阻塞全景）
  */
 
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import { CronJobStore } from '@modules/tasks';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath } from '@openliri/kernel';
 import { computeNextCronRunMs } from '@modules/tasks';
 import { AIScheduleIndex, type AIScheduleEvent } from './AIScheduleIndex';
 import { EventStatus } from './types';

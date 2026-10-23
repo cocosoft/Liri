@@ -28,12 +28,12 @@ import type {
   WorkItemStatus,
 } from './types';
 import { WorkItemStore } from './WorkItemStore';
-import { resolveDataDir, resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataDir, resolveDataSubDir } from '@openliri/kernel/paths';
 // 多租户 P3：项目归属（创建请求的身份；本地身份不写字段、也不做过滤）
 import {
   canAccessOwnerKey,
   currentOwnerKey,
-} from '@modules/core/identity/requestScope';
+} from '@openliri/kernel/identity/requestScope';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';

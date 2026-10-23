@@ -29,7 +29,7 @@
  * 调用时机：入口（`main.ts`）在**任何** `requestModule()` 之前调用一次。
  * 幂等：重复调用直接返回（避免热重载/双入口触发「重复注册」的 fail-closed 抛错）。
  */
-import { registerLazyLoaders } from '@modules/core';
+import { registerLazyLoaders } from '@openliri/kernel';
 
 import { LAZY_LOADERS } from './generatedLazyLoaders';
 

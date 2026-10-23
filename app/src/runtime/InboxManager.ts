@@ -11,8 +11,8 @@ import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath, resolveScopedDbPath } from '@modules/core/paths';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel/paths';
 // 多租户 P1（2026-10-21）：审批库按身份分区（本地身份零变更）
 import {
   getRequestPrincipal,
@@ -20,8 +20,8 @@ import {
   principalFromKey,
   principalKeyOf,
   runWithPrincipal,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { randomUUID } from 'crypto';
 import { broadcastEvent } from '@modules/infrastructure';
 import type { FrontendMessageBlock } from '@modules/session/types/UnifiedMessage.js';

@@ -31,7 +31,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 // 复刻生产入口（main.ts）顺序：先求值 @modules/core barrel（完成 session 存储注册），
 // 避免 StorageFactory → error → monitoring → core → session 循环 TDZ
-import '@modules/core';
+import '@openliri/kernel';
 import { SessionGateway } from '../SessionGateway';
 import { StorageType } from '../storage/UnifiedStorage';
 import { getFTS5SearchEngine } from '../FTS5SearchEngine';

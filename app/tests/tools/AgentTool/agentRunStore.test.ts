@@ -11,7 +11,7 @@ import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { unlinkSync } from 'fs';
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import {
   AgentRunStore,
   AGENT_RUNS_TABLE,

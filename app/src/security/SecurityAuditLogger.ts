@@ -104,7 +104,7 @@ function getAuditLogPath(): string {
   // BUG15 修复：优先使用 paths.ts 统一路径，不可用时 fallback 到 homedir()
   let primaryPath: string;
   try {
-    const { resolveSecurityDir } = require('@modules/core/paths');
+    const { resolveSecurityDir } = require('@openliri/kernel/paths');
     primaryPath = join(resolveSecurityDir(), 'security-audit.log');
   } catch {
     primaryPath = join(homedir(), '.trae', 'security-audit.log');

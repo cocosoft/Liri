@@ -34,7 +34,7 @@ import type { ChunkOptions } from './chunker';
 import { globalEmbeddingManager } from '@modules/ai';
 import { SemanticStore, readIndexMeta, wipeStoreFiles } from './store';
 import type { IndexEntry } from './store';
-import { resolveDataSubDir, resolvePyappHome } from '@modules/core';
+import { resolveDataSubDir, resolvePyappHome } from '@openliri/kernel';
 
 const logger = getLogger('knowledge:semantic:builder');
 

@@ -18,8 +18,8 @@ import {
 } from '@modules/ai';
 import { getCachedTiktokenEncoder } from '@modules/ai';
 import { resolveContextWindow } from '@modules/context';
-import { getLogger } from '@modules/core/loggerFacade.js';
-import { handleError } from '@modules/core/errorHandler.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
+import { handleError } from '@openliri/kernel/errorHandler.js';
 import {
   TokenBudgetController,
   type TokenEstimatorFn,

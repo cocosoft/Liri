@@ -14,9 +14,9 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { setUserDataDirOverride } from '@modules/core/paths.js';
-import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
-import type { Principal } from '@modules/core/identity/principal.js';
+import { setUserDataDirOverride } from '@openliri/kernel/paths.js';
+import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
+import type { Principal } from '@openliri/kernel/identity/principal.js';
 import { LLMTracker } from '../../../src/monitoring/llm/LLMTracker.js';
 import { DBTAORCheckpointStorage } from '../../../src/query/DBTAORCheckpointStorage.js';
 import { ProviderTopologyWatcher } from '../../../src/ai/providers/TopologyWatcher.js';

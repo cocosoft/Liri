@@ -15,10 +15,13 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { resolveDataDir, setUserDataDirOverride } from '@modules/core/paths.js';
-import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
-import type { Principal } from '@modules/core/identity/principal.js';
-import { resetScopedResourcesForTest } from '@modules/core/identity/scopedResources.js';
+import {
+  resolveDataDir,
+  setUserDataDirOverride,
+} from '@openliri/kernel/paths.js';
+import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
+import type { Principal } from '@openliri/kernel/identity/principal.js';
+import { resetScopedResourcesForTest } from '@openliri/kernel/identity/scopedResources.js';
 import { DBTAORCheckpointStorage } from '../../src/query/DBTAORCheckpointStorage.js';
 import { withScopedResumeManager } from '../../src/query/scopedResumeScan.js';
 import { TAORPhase } from '../../src/query/types.js';

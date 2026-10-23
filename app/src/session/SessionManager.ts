@@ -21,7 +21,7 @@ import type {
 } from './qos/SessionPriority';
 import { BudgetTracker } from './budget/BudgetTracker';
 import { BudgetEnforcer } from './budget/BudgetEnforcer';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 import type {
   SessionTokenBudgetConfig,
   BudgetDecision,

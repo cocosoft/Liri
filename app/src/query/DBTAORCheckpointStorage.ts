@@ -7,15 +7,15 @@
  * 实现 CheckpointStorage 接口，与 FileTAORCheckpointStorage 可互换。
  */
 
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveScopedDbPath } from '@modules/core';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveScopedDbPath } from '@openliri/kernel';
 // 多租户 P5：非本地身份的分区句柄登记（删租户时统一释放）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 import { isCheckpointLogEnabled } from '@modules/config';
 import {

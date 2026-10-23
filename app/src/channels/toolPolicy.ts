@@ -14,7 +14,7 @@
  *   （**例外**：`ALWAYS_RESTRICTED_CHANNELS` 内的通道不受开关门控，见其注释）。
  * - 可见性 ≠ 授权：即便工具可见，命令执行 / 文件写入仍走审批与 PathGuard。
  */
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { CHANNEL_CATALOG } from './ChannelCatalog';
 
 /** 远程通道使用的任务面（`TASK_TOOL_CATEGORIES` 的键） */

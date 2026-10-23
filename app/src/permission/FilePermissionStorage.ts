@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { resolvePermissionsDir } from '@modules/core';
+import { resolvePermissionsDir } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import type {
   PermissionStorage,

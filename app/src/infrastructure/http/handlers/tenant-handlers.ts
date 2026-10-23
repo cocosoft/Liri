@@ -14,7 +14,7 @@
 import type http from 'http';
 
 import { getLogger } from '@modules/monitoring';
-import { getRequestPrincipal } from '@modules/core/identity/requestScope.js';
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import {
   purgeTenant,
   validatePurgeableTenantId,

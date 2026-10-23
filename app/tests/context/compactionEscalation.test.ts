@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'bun:test';
 
 import { shouldEscalateCompaction } from '../../src/context/compaction/compactionEscalation';
-import { FEATURE_FLAGS } from '@modules/core/featureFlags';
+import { FEATURE_FLAGS } from '@openliri/kernel/featureFlags';
 import {
   getLastSchemaEntropyPercent,
   recordToolSchemaEntropy,

@@ -15,7 +15,7 @@ import {
   OPENAI_API_BASE_URL,
   ANTHROPIC_API_BASE_URL,
   NPM_SITE_URL,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 import { getLogger } from '@modules/monitoring';
 import { GITHUB_API_BASE } from '@modules/constants';

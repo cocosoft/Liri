@@ -12,7 +12,7 @@
  * 该信号供日志/审计消费（`guardFinalOutput` 返回 `guardIssues`）。
  */
 
-import type { OutputGuard, OutputGuardVerdict } from '@modules/core';
+import type { OutputGuard, OutputGuardVerdict } from '@openliri/kernel';
 import { getPromptInjectionDetector } from '@modules/security';
 
 export const INJECTION_ECHO_GUARD = 'injection_echo';

@@ -30,8 +30,8 @@ import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveAiAccess } from '@modules/core/spi';
-import { resolveUserSkillsDir } from '@modules/core/paths';
+import { resolveAiAccess } from '@openliri/kernel/spi';
+import { resolveUserSkillsDir } from '@openliri/kernel/paths';
 import {
   EVOLUTION_MIN_INTERVAL_MS,
   readEvolutionState,

@@ -9,7 +9,7 @@ import {
   GOOGLE_ACCOUNTS_BASE_URL,
   GOOGLE_API_BASE_URL,
   GOOGLE_OAUTH2_BASE_URL,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 const GOOGLE_AUTHORIZE = `${GOOGLE_ACCOUNTS_BASE_URL}/o/oauth2/v2/auth`;
 const GOOGLE_TOKEN = `${GOOGLE_OAUTH2_BASE_URL}/token`;

@@ -13,8 +13,8 @@
 import {
   openBunDatabase,
   type BunDatabase,
-} from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core/paths';
+} from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

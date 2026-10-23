@@ -11,7 +11,7 @@ import {
   mkdirSync,
 } from 'fs';
 import { join, resolve } from 'path';
-import { resolveOutputDir } from '@modules/core';
+import { resolveOutputDir } from '@openliri/kernel';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
 import { handleError } from '@modules/error';

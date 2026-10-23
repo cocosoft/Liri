@@ -25,7 +25,7 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { LOCAL_HTTP_HOST } from '@modules/core';
+import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import * as net from 'net';
 
 import { getLogger } from '@modules/monitoring';

@@ -4,7 +4,7 @@
  */
 import * as path from 'path';
 import * as os from 'os';
-import { containsPathTraversal, expandTilde } from '@modules/core/paths';
+import { containsPathTraversal, expandTilde } from '@openliri/kernel/paths';
 
 /**
  * 路径类型

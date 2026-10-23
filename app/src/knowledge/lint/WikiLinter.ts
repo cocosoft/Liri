@@ -31,7 +31,7 @@ import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
 import { join, basename, dirname } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveDomainDir, resolveKnowledgeDir } from '@modules/core';
+import { resolveDomainDir, resolveKnowledgeDir } from '@openliri/kernel';
 import type { FieldDef } from '@modules/knowledge/schema/SchemaLoader';
 import { load } from 'js-yaml';
 

@@ -33,7 +33,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '../paths.js';
 import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:estop');
 

@@ -44,7 +44,7 @@
 import { handleError } from '@modules/error/handleError.js';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 // 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
-import { UUID_RE } from '@modules/core';
+import { UUID_RE } from '@openliri/kernel';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { ModelRegistry } from './models/ModelRegistry.js';
@@ -84,7 +84,7 @@ export type TaskType =
   | 'knowledge_compile'; // 知识库编译（raw 文档 → many-to-many wiki 页面）
 
 /** PDCA 阶段上下文（S3 ModelPhaseRouter）、意图族阶段（架构归一 B1-B6：单一真源 re-export） */
-import { type PdcaIntent as PdcaPhase } from '@modules/core';
+import { type PdcaIntent as PdcaPhase } from '@openliri/kernel';
 export type { PdcaPhase };
 
 export interface PhaseContext {

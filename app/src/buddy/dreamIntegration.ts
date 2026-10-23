@@ -11,8 +11,8 @@
 
 import type { DreamEvent } from '@modules/chronos';
 import { offDreamEvent } from '@modules/chronos';
-import type { EventBus } from '@modules/core';
-import { globalEventBus, SystemEvents } from '@modules/core';
+import type { EventBus } from '@openliri/kernel';
+import { globalEventBus, SystemEvents } from '@openliri/kernel';
 import {
   createInfoNotification,
   createAchievementNotification,

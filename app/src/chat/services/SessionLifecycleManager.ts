@@ -39,8 +39,8 @@ import {
   ErrorSeverity,
   SecurityError,
 } from '@modules/error';
-import { SimpleMutex } from '@modules/core';
-import { resolveDataDir } from '@modules/core/paths';
+import { SimpleMutex } from '@openliri/kernel';
+import { resolveDataDir } from '@openliri/kernel/paths';
 import { SessionGateway } from '@modules/session';
 import { HookChainManager } from '@modules/hooks';
 import { SessionAccessFacade } from './SessionAccessFacade';
@@ -54,14 +54,14 @@ import type {
   ChatSession,
   CreateSessionParams,
 } from '@modules/session/types/session.js';
-import { DataSessionStatus } from '@modules/core';
+import { DataSessionStatus } from '@openliri/kernel';
 // 多租户 P1：会话归属（创建时写入请求身份；本地身份不写）
-import { getRequestPrincipal } from '@modules/core/identity/requestScope.js';
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import {
   ownerOf,
   canAccessSession,
-} from '@modules/core/identity/sessionOwnership.js';
-import type { SessionOwner } from '@modules/core/identity/sessionOwnership.js';
+} from '@openliri/kernel/identity/sessionOwnership.js';
+import type { SessionOwner } from '@openliri/kernel/identity/sessionOwnership.js';
 import type { Message } from '@modules/session/types/message.js';
 
 const logger = getLogger('chat:sessionLifecycle');

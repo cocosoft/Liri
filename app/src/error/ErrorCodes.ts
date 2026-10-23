@@ -28,9 +28,9 @@
  * 本文件保留同名导出 ⇒ `@modules/error` 与 `@modules/error/ErrorCodes` 对外符号逐字不变。
  */
 
-export { ErrorCodes } from '@modules/core/errorCodes.js';
+export { ErrorCodes } from '@openliri/kernel/errorCodes.js';
 export type {
   ErrorCodeDef,
   ErrorCodeKey,
   ErrorCodeValue,
-} from '@modules/core/errorCodes.js';
+} from '@openliri/kernel/errorCodes.js';

@@ -19,7 +19,7 @@ import { join } from 'node:path';
 import {
   getOutputGuardRegistry,
   resetOutputGuardRegistryForTest,
-} from '@modules/core/outputGuard';
+} from '@openliri/kernel/outputGuard';
 import { createSensitiveContentGuard } from '../../src/chat/outputGuards/sensitiveContentGuard';
 import { writeFile } from '../../src/tools/FileWriteTool/FileWriteTool';
 import { MessageServiceImpl } from '../../src/chat/services/MessageService';

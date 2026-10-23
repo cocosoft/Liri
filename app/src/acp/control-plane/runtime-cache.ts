@@ -1,5 +1,5 @@
 import type { AcpRuntimeCapabilities } from '../runtime/types.js';
-import { TtlCache } from '@modules/core';
+import { TtlCache } from '@openliri/kernel';
 
 export class RuntimeCapabilitiesCache {
   private cache: TtlCache<AcpRuntimeCapabilities>;

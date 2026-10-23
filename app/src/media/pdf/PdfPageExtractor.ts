@@ -34,7 +34,7 @@ import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
-import { resolveTempDir } from '@modules/core/paths';
+import { resolveTempDir } from '@openliri/kernel/paths';
 
 const logger = getLogger('media:pdf-extractor');
 

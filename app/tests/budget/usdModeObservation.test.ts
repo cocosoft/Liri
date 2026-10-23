@@ -13,7 +13,7 @@ import {
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { globalEventBus } from '@modules/core/events/EventBus';
+import { globalEventBus } from '@openliri/kernel/events/EventBus';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,

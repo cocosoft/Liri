@@ -5,7 +5,7 @@
 import { EventEmitter } from 'events';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { resolvePluginsConfigDir } from '@modules/core';
+import { resolvePluginsConfigDir } from '@openliri/kernel';
 import { PluginConfig } from '../types/PluginTypes';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('plugins:management:pluginConfigManager');

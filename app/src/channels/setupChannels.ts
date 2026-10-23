@@ -13,8 +13,8 @@ import { ChannelSecretStore, initRegistry } from './secrets/ChannelSecretStore';
 import {
   principalFromKey,
   runWithPrincipal,
-} from '@modules/core/identity/requestScope';
-import type { Principal } from '@modules/core/identity/principal';
+} from '@openliri/kernel/identity/requestScope';
+import type { Principal } from '@openliri/kernel/identity/principal';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
 import type {
   IChannelPlugin,
@@ -23,7 +23,7 @@ import type {
 } from './types/IChannel';
 import { routeChannelMessage } from './routing/messageRouter';
 import { configManager } from '@modules/config';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { handleError } from '@modules/error';
 import { getDeliveryRouter } from './DeliveryRouter';
 import {

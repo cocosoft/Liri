@@ -8,7 +8,7 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { resolveProjectRoot } from '@modules/core';
+import { resolveProjectRoot } from '@openliri/kernel';
 import { join } from 'path';
 import type { CommandContext } from '@modules/commands';
 

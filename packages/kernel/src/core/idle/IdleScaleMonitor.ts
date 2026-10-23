@@ -33,7 +33,7 @@
 
 import { readdir, stat, unlink } from 'fs/promises';
 import { join } from 'path';
-import { resolveTempDir } from '@modules/core/paths';
+import { resolveTempDir } from '../paths.js';
 import { getLogger } from '../loggerFacade.js';
 const logger = getLogger('core:idleScale');
 

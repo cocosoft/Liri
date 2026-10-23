@@ -32,12 +32,12 @@
  *   - cleanupOrphans() 清理悬挂边
  */
 
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { randomUUID } from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveScopedDbPath } from '@modules/core';
-import { SimpleMutex } from '@modules/core';
+import { resolveScopedDbPath } from '@openliri/kernel';
+import { SimpleMutex } from '@openliri/kernel';
 import type { EdgeSchema } from '@modules/knowledge/schema/SchemaLoader';
 
 const logger = getLogger('knowledge:graph:knowledgeGraph');

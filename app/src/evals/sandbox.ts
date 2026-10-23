@@ -44,8 +44,8 @@ import {
 import { copyFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
-import { resolveDataSubDir } from '@modules/core/paths';
-import { LOCAL_HTTP_HOST } from '@modules/core';
+import { resolveDataSubDir } from '@openliri/kernel/paths';
+import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import { ENV_SHIELDED_PATHS } from '../tools/pathShield';
 
 export interface EvalSandbox {

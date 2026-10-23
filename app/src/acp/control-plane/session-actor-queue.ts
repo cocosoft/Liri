@@ -1,4 +1,4 @@
-import { handleError } from '@modules/core/errorHandler.js';
+import { handleError } from '@openliri/kernel/errorHandler.js';
 
 type Task<T = void> = () => Promise<T>;
 

@@ -10,12 +10,12 @@
  * 3. 保持与现有代码的向后兼容
  */
 
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import { BootPhase } from './BootPhase';
 import { bootPipeline } from './BootPipeline';
 import type { BootContext } from './BootPipeline';
 import type { RouterTier } from '@modules/types/router';
-import { handleError } from '@modules/core/errorHandler.js';
+import { handleError } from '@openliri/kernel/errorHandler.js';
 
 const logger = getLogger('BootPipelineIntegrator');
 
@@ -170,7 +170,8 @@ export function registerStandardHandlers(): void {
       try {
         const { loadUserSettings } =
           await import('../../config/settings/userSettings.js');
-        const { setUserDataDirOverride } = await import('@modules/core/paths');
+        const { setUserDataDirOverride } =
+          await import('@openliri/kernel/paths');
         const settings = loadUserSettings();
         const dataDirectory = settings.dataDirectory as string | undefined;
         if (
@@ -190,7 +191,7 @@ export function registerStandardHandlers(): void {
       enableConfigs();
 
       // 3. 确保所有数据目录结构完整
-      const { ensureDataDirectories } = await import('@modules/core');
+      const { ensureDataDirectories } = await import('@openliri/kernel');
       ensureDataDirectories();
 
       // 4. 设置优雅关闭
@@ -246,7 +247,7 @@ export function registerStandardHandlers(): void {
     phase: BootPhase.DI_STARTUP,
     handler: async (ctx: BootContext) => {
       logger.info('[Phase 4] DIContainer 启动');
-      const { getDIContainer } = await import('@modules/core/DIContainer');
+      const { getDIContainer } = await import('@openliri/kernel/DIContainer');
       const { moduleRegistry } = await import('../../modules/ModuleRegistry');
       await getDIContainer().bootstrap(moduleRegistry, {
         mode: ctx.mode,

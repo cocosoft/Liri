@@ -3,8 +3,8 @@
  * 基于全局 EventBusImpl 的轻量实例，用于日历事件的发布-订阅
  */
 
-import { EventBusImpl } from '@modules/core/events/EventBus';
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { EventBusImpl } from '@openliri/kernel/events/EventBus';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 const logger = getLogger('calendar:eventBus');
 
 /** 日历事件类型 */

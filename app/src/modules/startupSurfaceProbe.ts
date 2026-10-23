@@ -23,14 +23,14 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { resolveDataDir } from '@modules/core';
+import { resolveDataDir } from '@openliri/kernel';
 import {
   deferredLoader,
   getDeferredModuleIds,
   getEssentialModuleIds,
   getOnDemandModuleIds,
-} from '@modules/core/LazyModuleStrategy';
-import { getLogger } from '@modules/core/loggerFacade.js';
+} from '@openliri/kernel/LazyModuleStrategy';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import { MODULE_INITIALIZATION_ORDER } from './ModuleDefinitions';
 // 状态联合类型与结构子集都来自 `moduleStateTypes`（类型单一真源）
 import type {

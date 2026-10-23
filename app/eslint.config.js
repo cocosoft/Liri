@@ -92,7 +92,7 @@ export default [
             message: '日志功能已迁移至 @modules/monitoring 系列模块，metrics 功能使用 monitoring/metrics',
           },
           {
-            name: '@modules/core/paths',
+            name: '@openliri/kernel/paths',
             importNames: ['resolveSoulDir'],
             message: '[路径规范] resolveSoulDir() 指向 data/soul/（第二层），SOUL.md 应使用 resolveSoulPath()，USER.md 应使用 resolveUserProfilePath()',
           },

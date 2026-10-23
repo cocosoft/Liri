@@ -33,7 +33,7 @@ import type {
   ChatSession,
   CreateSessionParams,
 } from '@modules/session/types/session.js';
-import { DataSessionStatus } from '@modules/core';
+import { DataSessionStatus } from '@openliri/kernel';
 
 /**
  * ResumeCoordinator 门面依赖

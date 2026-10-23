@@ -7,7 +7,7 @@
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveProjectRoot } from '@modules/core';
+import { resolveProjectRoot } from '@openliri/kernel';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 

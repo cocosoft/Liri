@@ -33,7 +33,7 @@
  * - `error`：约定义非法以外的失败（步骤失败 / 未知工作流 / 未注册 Provider）
  */
 
-import type { RootCauseCandidate } from '@modules/core/systemgraph';
+import type { RootCauseCandidate } from '@openliri/kernel/systemgraph';
 
 export type WorkflowStopReason = 'completed' | 'cancelled' | 'error';
 

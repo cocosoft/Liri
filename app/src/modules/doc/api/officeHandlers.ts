@@ -5,9 +5,9 @@
 
 import type http from 'http';
 import type { EmailAccount } from '../../mail/types';
-import { getLogger } from '@modules/core/loggerFacade.js';
-import { handleError } from '@modules/core/errorHandler.js';
-import { LOCAL_SERVICE_HOST } from '@modules/core/endpoints.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
+import { handleError } from '@openliri/kernel/errorHandler.js';
+import { LOCAL_SERVICE_HOST } from '@openliri/kernel/endpoints.js';
 
 const logger = getLogger('doc:api');
 
@@ -658,7 +658,7 @@ export async function handleMailConfigDelete(
   try {
     const fs = await import('fs');
     const path = await import('path');
-    const { resolvePyappHome } = await import('@modules/core');
+    const { resolvePyappHome } = await import('@openliri/kernel');
 
     const officeDir = path.join(resolvePyappHome(), 'office');
     const configPath = path.join(officeDir, 'config', 'email.json');
@@ -1100,7 +1100,7 @@ export async function handleDocCreate(
  */
 async function assertDocPathWithin(fileName: string): Promise<string> {
   const path = await import('path');
-  const { resolveOutputDir, isPathWithin } = await import('@modules/core');
+  const { resolveOutputDir, isPathWithin } = await import('@openliri/kernel');
   const base = path.resolve(resolveOutputDir());
   const target = path.resolve(path.join(base, fileName));
   if (!isPathWithin(base, target)) {
@@ -1261,7 +1261,7 @@ export async function handleDocDownload(
 
     const path = await import('path');
     const fs = await import('fs');
-    const { resolveOutputDir, isPathWithin } = await import('@modules/core');
+    const { resolveOutputDir, isPathWithin } = await import('@openliri/kernel');
 
     const filePath = path.join(resolveOutputDir(), file);
 

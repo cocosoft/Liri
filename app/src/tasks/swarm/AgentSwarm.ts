@@ -37,8 +37,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import type { AgentIsolation } from '@modules/agent';
-import { randomIdSuffix } from '@modules/core';
-import { getOrchestrationMetrics } from '@modules/core/events/OrchestrationMetrics';
+import { randomIdSuffix } from '@openliri/kernel';
+import { getOrchestrationMetrics } from '@openliri/kernel/events/OrchestrationMetrics';
 import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 // G-02（2026-10-19）：批次级 in-flight 熔断（复用 chat 的单一预算收口）
 import { checkDailyBudget } from '../../query/dailyBudgetGate';

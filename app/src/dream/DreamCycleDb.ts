@@ -31,8 +31,8 @@
  * - prune 与 JSON 侧 pruneOldCycles 口径一致（超龄 + 溢出保留最近 keepMax）
  */
 
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath } from '@openliri/kernel';
 import { handleError } from '@modules/error';
 import type { DreamCycleRecord } from './types';
 

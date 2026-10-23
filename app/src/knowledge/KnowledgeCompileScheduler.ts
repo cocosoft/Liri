@@ -11,9 +11,9 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { recordBackgroundTask } from '@modules/monitoring';
 import type { CompileResult } from './KnowledgeCompiler';
-import { sleepMonitor, SLEEP_EVENTS } from '@modules/core';
-import { globalEventBus } from '@modules/core/events/EventBus';
-import type { EventSubscription } from '@modules/core/events/EventBus';
+import { sleepMonitor, SLEEP_EVENTS } from '@openliri/kernel';
+import { globalEventBus } from '@openliri/kernel/events/EventBus';
+import type { EventSubscription } from '@openliri/kernel/events/EventBus';
 import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';
 import { SafeInterval } from '@modules/utils/SafeInterval';
 

@@ -29,7 +29,7 @@
  * 失败不阻断主流程）。差异（如实）：本开关用 **feature flag 三级解析**（`feature('TOOL_SIDECAR_LSP')`，
  * 对齐 spec §3-D4），而非 A2A 的裸 env 读取。
  */
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import {
   ToolSidecarSupervisor,

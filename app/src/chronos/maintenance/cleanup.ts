@@ -6,7 +6,7 @@
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { resolveDataDir } from '@modules/core';
+import { resolveDataDir } from '@openliri/kernel';
 import { Logger, LogLevel, getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 

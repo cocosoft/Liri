@@ -3,15 +3,18 @@
  * 统一管理多个价格提供者，使用 ModelRegistry 作为默认回退
  */
 
-import { handleError } from '@modules/core/errorHandler.js';
+import { handleError } from '@openliri/kernel/errorHandler.js';
 import type { IPriceProvider, PricingResult } from './providers/IPriceProvider';
 import type { ModelPriceTable } from './types';
 import { ModelRegistry } from '@modules/ai';
 
 // 2026-09-30 直连 core（A1 倒挂收口）：原 `@modules/cost`，实体已下沉 `core/pricing.ts`
 // 2026-10-13（硬编码治理 HD-P0-1）：兜底价改为**引用 core 唯一真源**（原三处各写一份数值）
-import { calculateCost, DEFAULT_MODEL_PRICING } from '@modules/core/pricing.js';
-import type { ModelPricing } from '@modules/core/pricing.js';
+import {
+  calculateCost,
+  DEFAULT_MODEL_PRICING,
+} from '@openliri/kernel/pricing.js';
+import type { ModelPricing } from '@openliri/kernel/pricing.js';
 
 export interface CostCalculationResult {
   cost: number;

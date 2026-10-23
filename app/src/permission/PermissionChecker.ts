@@ -41,7 +41,7 @@ import { PATH_ARG_KEYS } from '@modules/utils/toolContract/pathArgs';
 import { resolveSandboxExemption } from './sandboxExemption';
 // Q-16（2026-10-23）：命令规则匹配语义（prefix / regex，单点实现，见 utils）
 import { matchesAnyCommandRule } from '@modules/utils/commandRuleMatch';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 const logger = getLogger('permission:checker');
 
 /**

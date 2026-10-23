@@ -8,7 +8,7 @@
  * 边界：`BUDGET_SUSPEND_RESUME`（**默认开**；`=false` 即关）门控新增行为；挂起事实源 = 检查点，协调器仅内存登记。
  */
 
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { getDailyBudget } from '../DailyBudgetManager.js';
 import { getBudgetSuspendCoordinator } from '../budgetSuspend.js';
 import type { GuardSuspendReason } from '../guardSuspend.js';

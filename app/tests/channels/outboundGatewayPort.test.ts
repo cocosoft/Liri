@@ -5,7 +5,7 @@
  * ② `OutboundGatewayPortAdapter` 的**形状搬运**（core DTO 原样转发给 delegate）。
  */
 import { describe, expect, it } from 'bun:test';
-import { resolveOutboundGateway } from '@modules/core/spi/GatewayService.js';
+import { resolveOutboundGateway } from '@openliri/kernel/spi/GatewayService.js';
 import { OutboundGatewayPortAdapter } from '../../src/channels/gateway/OutboundGatewayPortAdapter.js';
 
 describe('出站网关端口（阶段 2.1 · Port Layer Only）', () => {

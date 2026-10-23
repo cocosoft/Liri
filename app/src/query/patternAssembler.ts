@@ -34,7 +34,7 @@ import type {
   PatternAssemblerId,
   PatternRecipe,
   PatternSelection,
-} from '@modules/core';
+} from '@openliri/kernel';
 import {
   feature,
   isPatternReachable,
@@ -42,8 +42,8 @@ import {
   patternFeatureFlag,
   patternUnreachableReason,
   resolvePattern,
-} from '@modules/core';
-import { resolveDataSubDir } from '@modules/core/paths';
+} from '@openliri/kernel';
+import { resolveDataSubDir } from '@openliri/kernel/paths';
 import { mkdir, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
 

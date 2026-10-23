@@ -33,4 +33,4 @@ export {
   SYSTEM_ABORT_BRAND,
   markAsExpectedAbort,
   isAbortReason,
-} from '@modules/core/abortReason.js';
+} from '@openliri/kernel/abortReason.js';

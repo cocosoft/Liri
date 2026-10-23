@@ -59,12 +59,12 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { LOCAL_HTTP_HOST } from '@modules/core';
+import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import {
   resolveLlamaBinaryPath,
   resolveLlamaDir,
   resolveLlamaModelsDir,
-} from '@modules/core/paths';
+} from '@openliri/kernel/paths';
 // 大文件拆分（spec file-size-debt-partition-plan §35）：日志簇 / 路径安全簇外迁。
 // 路径安全函数经**再导出**保持既有 import 路径不变（`MigrationSafety.test.ts` 依赖）。
 import { LlamaServerLogs } from './LlamaServerLogs.js';

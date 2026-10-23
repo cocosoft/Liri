@@ -27,7 +27,7 @@ import {
   isAbnormalExit,
   readLastExit,
   recordExit,
-} from '@modules/core/exit/ExitRecorder';
+} from '@openliri/kernel/exit/ExitRecorder';
 
 let tmpDir: string;
 const originalDataDir = process.env.LIRI_DATA_DIR;

@@ -45,7 +45,7 @@ import {
   SILICONFLOW_API_V1_BASE_URL,
   MOONSHOT_API_V1_BASE_URL,
   XAI_API_V1_BASE_URL,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 const logger = getLogger('ai:modelManagementBootstrap');
 

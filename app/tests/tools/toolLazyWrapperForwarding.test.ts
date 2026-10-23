@@ -10,7 +10,7 @@
  * 所有写/执行/外部类工具在运行期都被判 `undeclared`，且 S4b 拿不到 `targetRoot`。
  */
 import { describe, expect, it } from 'bun:test';
-import type { LazyModuleLoader } from '@modules/core';
+import type { LazyModuleLoader } from '@openliri/kernel';
 import type { Tool, ToolInfo } from '../../src/tools/types/Tool';
 import { ToolLazyWrapper } from '../../src/tools/utils/ToolLazyWrapper';
 import {

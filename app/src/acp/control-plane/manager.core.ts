@@ -11,7 +11,7 @@ import type {
   AcpSessionManagerEvents,
 } from './manager.types.js';
 import { getSessionActorQueue } from './session-actor-queue.js';
-import { handleError } from '@modules/core/errorHandler.js';
+import { handleError } from '@openliri/kernel/errorHandler.js';
 
 export class AcpSessionManagerCore {
   private config: AcpSessionManagerConfig;

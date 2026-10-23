@@ -3,7 +3,7 @@
 // 输出侧具体护栏用例（13-P2-1，2026-10-05）：敏感内容（打码/阻断）+ 注入回显 + 组合根注册
 
 import { afterEach, describe, expect, it } from 'bun:test';
-import { OutputGuardRegistry } from '@modules/core';
+import { OutputGuardRegistry } from '@openliri/kernel';
 import {
   INJECTION_ECHO_GUARD,
   SENSITIVE_CONTENT_GUARD,

@@ -28,4 +28,4 @@
  * （`docs` 自身与 `knowledge` 域等）。新代码可直接引用 `@modules/core/knowledge-types`。
  */
 
-export * from '@modules/core/knowledge-types';
+export * from '@openliri/kernel/knowledge-types';

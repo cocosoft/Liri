@@ -13,7 +13,7 @@ import {
   SystemGraph,
   projectAgentGraph,
   type AgentLike,
-} from '@modules/core/systemgraph';
+} from '@openliri/kernel/systemgraph';
 
 const logger = getLogger('AgentRegistry');
 

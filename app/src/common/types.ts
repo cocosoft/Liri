@@ -271,7 +271,7 @@ export interface CpuMetrics {
   system: number;
 }
 
-import type { HealthStatus as CoreHealthStatus } from '@modules/core';
+import type { HealthStatus as CoreHealthStatus } from '@openliri/kernel';
 
 /**
  * 健康检查类型

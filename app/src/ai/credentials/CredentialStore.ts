@@ -40,13 +40,13 @@ import {
   chmodSync,
 } from 'fs';
 import { dirname, join } from 'path';
-import { resolvePyappHome, resolveScopedDataDir } from '@modules/core/paths';
+import { resolvePyappHome, resolveScopedDataDir } from '@openliri/kernel/paths';
 // 多租户 P1（2026-10-21）：凭据按身份分实例（与 ProviderManager 同源分区）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
+} from '@openliri/kernel/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

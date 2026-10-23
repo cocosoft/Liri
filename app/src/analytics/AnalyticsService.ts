@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 // 多租户 P3（2026-10-21）：内存累计按身份分桶，读侧只回当前身份
-import { getRequestPrincipalKey } from '@modules/core/identity/requestScope.js';
+import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
 
 const logger = getLogger('analytics');
 

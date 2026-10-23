@@ -31,7 +31,7 @@ import { describe, expect, it } from 'bun:test';
 
 import { KERNEL_PACKAGE_NAME, KERNEL_PACKAGE_VERSION } from '@openliri/kernel';
 import * as viaKernel from '@openliri/kernel/paths';
-import * as viaLegacyAlias from '@modules/core/paths';
+import * as viaLegacyAlias from '@openliri/kernel/paths';
 
 describe('P4 契约：内核包名与遗留别名同源', () => {
   it('包名与版本符合约定', () => {

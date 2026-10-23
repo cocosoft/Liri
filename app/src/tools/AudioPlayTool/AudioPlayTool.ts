@@ -12,7 +12,7 @@ import { ToolResult, ToolUseContext, ToolParam, ToolTag } from '../types/index';
 import { AudioUrlHelper } from '../AudioUrlHelper';
 import { existsSync, statSync } from 'fs';
 import path from 'path';
-import { resolveMediaDir } from '@modules/core/paths';
+import { resolveMediaDir } from '@openliri/kernel/paths';
 import { resolveAccessibleMediaUrl } from '../MediaUrlResolver';
 
 const logger = getLogger('tools:audioPlay');

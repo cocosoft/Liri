@@ -57,7 +57,7 @@ import { getDailyBudget } from '../../query/DailyBudgetManager.js';
 import { estimateAttachmentsTokens } from '../../query/attachmentBudget.js';
 import { estimateTurnCostUsd } from '../../query/modelPricingAdapter.js';
 import { evaluateTurnUsdPreflight } from '../../query/turnUsdPreflight.js';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import {
   checkDailyBudget,
   formatBudgetExhausted,

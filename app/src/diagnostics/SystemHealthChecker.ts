@@ -9,16 +9,16 @@ import { promisify } from 'util';
 import { freemem, totalmem, cpus, platform, arch, homedir } from 'os';
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
+import { resolvePyappHome, resolveProjectRoot } from '@openliri/kernel';
 import { configManager } from '@modules/config';
 import { getSystemCpuPercent, getDiskInfo } from '@modules/monitoring';
 import { probeExternalModule } from '@modules/utils/externalDeps';
 
 const execAsync = promisify(exec);
 
-import type { HealthStatus } from '@modules/core';
+import type { HealthStatus } from '@openliri/kernel';
 // C1（2026-09-30 D-123，`R00-003` P4/G3）：MCP 摘要改经 core SPI 端口（infra → core 合法）
-import { resolveDiagnosticsProbe } from '@modules/core/spi';
+import { resolveDiagnosticsProbe } from '@openliri/kernel/spi';
 export type { HealthStatus };
 
 /**

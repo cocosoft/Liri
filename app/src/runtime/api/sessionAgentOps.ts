@@ -31,12 +31,12 @@
 
 import * as fs from 'fs';
 // 多租户 P1：会话归属判定（本地身份恒放行 ⇒ 桌面零行为变更）
-import { getRequestPrincipal } from '@modules/core/identity/requestScope.js';
+import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import {
   canAccessSession,
   type SessionOwner,
-} from '@modules/core/identity/sessionOwnership.js';
-import type { Coordinator } from '@modules/core';
+} from '@openliri/kernel/identity/sessionOwnership.js';
+import type { Coordinator } from '@openliri/kernel';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import type { ChatManager } from '@modules/chat';

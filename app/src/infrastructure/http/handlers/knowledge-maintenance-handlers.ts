@@ -17,7 +17,7 @@ import {
   assertDocPathWithin,
   publishKnowledgeChanged,
 } from './knowledge-handlers';
-import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
+import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 
 export async function handleKnowledgeHealth(
   req: http.IncomingMessage,

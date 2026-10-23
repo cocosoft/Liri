@@ -18,9 +18,9 @@ import {
   GOOGLE_ACCOUNTS_BASE_URL,
   GOOGLE_API_BASE_URL,
   GOOGLE_OAUTH2_BASE_URL,
-} from '@modules/core';
+} from '@openliri/kernel';
 import { GITHUB_API_BASE } from '@modules/constants';
-import { DEFAULT_OAUTH_REDIRECT_URI } from '@modules/core';
+import { DEFAULT_OAUTH_REDIRECT_URI } from '@openliri/kernel';
 
 const logger = getLogger('authHandler');
 

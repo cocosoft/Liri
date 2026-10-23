@@ -21,7 +21,7 @@ import {
 import { TTLCache } from '@modules/utils/cache';
 
 import { getLogger } from '@modules/monitoring';
-import { GOOGLE_API_BASE_URL, GOOGLE_OAUTH2_BASE_URL } from '@modules/core';
+import { GOOGLE_API_BASE_URL, GOOGLE_OAUTH2_BASE_URL } from '@openliri/kernel';
 const logger = getLogger('channels:googlechat:GoogleChatChannel');
 
 const GOOGLE_CHAT_API_BASE = 'https://chat.googleapis.com/v1';

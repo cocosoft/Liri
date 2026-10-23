@@ -15,7 +15,7 @@ import { readFile } from 'fs/promises';
 import { existsSync, readFileSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 
 const logger = getLogger('knowledge:config');
 

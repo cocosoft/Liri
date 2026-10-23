@@ -34,16 +34,16 @@
  * 不做多进程/分布式。
  */
 
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveScopedDbPath } from '@modules/core/paths';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveScopedDbPath } from '@openliri/kernel/paths';
 // 多租户 P1（2026-10-21）：已认证身份用**自己的 store 实例**（独立 app.db），
 // 不做"共享实例换连接"——那会让并发请求交错到别人的库。
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 import {
   TOOL_CALL_INITIAL_STATUS,
@@ -196,7 +196,7 @@ export class ExecutionStore {
 
   private async doInit(): Promise<void> {
     const dbPath =
-      this.dbPath ?? (await import('@modules/core')).resolveDbPath();
+      this.dbPath ?? (await import('@openliri/kernel')).resolveDbPath();
     this.db = await new Promise<Database>((resolve, reject) => {
       const db = new Database(dbPath, (err: Error | null) =>
         err ? reject(err) : resolve(db)

@@ -25,7 +25,7 @@
 
 import type http from 'http';
 // 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
-import { UUID_RE } from '@modules/core';
+import { UUID_RE } from '@openliri/kernel';
 import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
 // N-45：会话级 yield 状态派生（同处 handlers 层，单向依赖，无环）
@@ -58,7 +58,7 @@ import {
   TOOL_CALL_INITIAL_STATUS,
   type ExecutionLease,
 } from '@modules/execution';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 
 const logger = getLogger('http:chat');
 
@@ -1539,7 +1539,7 @@ export async function handleGetDataDirectory(
 ): Promise<void> {
   try {
     const { resolvePyappHome, getUserDataDirOverride, setUserDataDirOverride } =
-      await import('@modules/core/paths');
+      await import('@openliri/kernel/paths');
 
     const currentDir = resolvePyappHome();
     const configuredDir = getUserDataDirOverride();

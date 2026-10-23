@@ -15,7 +15,7 @@ import type {
   BillingMode,
   TimeBasedPrice,
 } from '../models/ModelPricingService.js';
-import { GOOGLE_AI_DEV_URL } from '@modules/core';
+import { GOOGLE_AI_DEV_URL } from '@openliri/kernel';
 
 export interface OfficialModelPrice {
   modelId: string;

@@ -17,7 +17,7 @@
  *   console.log(result.summary);
  */
 
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { existsSync, readFileSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:file:attachmentMigration');

@@ -14,7 +14,7 @@ import type { Socket } from 'net';
 import { createHash, randomUUID } from 'crypto';
 import type { WakeDetectionResult } from './types';
 
-import { WEBSOCKET_MAGIC_GUID } from '@modules/core';
+import { WEBSOCKET_MAGIC_GUID } from '@openliri/kernel';
 
 const logger = getLogger('voice:wakews');
 

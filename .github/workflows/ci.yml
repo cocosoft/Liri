@@ -232,12 +232,14 @@ jobs:
     #   口径：棘轮 + **error 级** —— 基线 `.trae/architecture/kernel-purity-baseline.json`
     #   只减不增；新增 core→上层 的静态/动态泄漏、或 core 出工作区的引用 ⇒ exit 1。
     #   基线缺失视为空基线（现存 11 条已登记，故正常情况必红）⇒ 事实上的 fail-closed。
-    - name: Kernel purity gate (K01-K04 + K06 deps + baseline ratchet)
+    - name: Kernel purity gate (K01-K04 + K06 deps + K07 deep paths + baseline ratchet)
       working-directory: .
       run: |
         bun run scripts/lint-kernel-purity.ts
         # 导出面快照（P0-f）：内核 public API 的破坏性变更必须经评审后重写快照
         bun run scripts/kernel-api-surface.ts --check
+        # 别名回归（P5）：`@modules/core` 已统一为 `@openliri/kernel`，禁止回流
+        bun run scripts/codemod-core-imports.ts --check
 
     # 变体矩阵自洽 + **恒保留工具的能力前置覆盖**（K05 修正版）
     #   原口径「MANDATORY_TOOLS ⊆ 变体 features」与实现相反（core 按设计排除 AGENT/TODO），

@@ -17,7 +17,7 @@ import type {
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { WILDCARD_BIND_HOST } from '@modules/core';
+import { WILDCARD_BIND_HOST } from '@openliri/kernel';
 const logger = getLogger('channels:webhook:WebhookChannel');
 
 // ── 4.2（P0-2）：webhook 入站真实性校验 ──

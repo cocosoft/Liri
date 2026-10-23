@@ -1,7 +1,7 @@
 import { join } from 'path';
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath } from '@openliri/kernel';
 import { nextCronRunMs } from '../cron';
 import type { ScheduledTask } from '../types';
 

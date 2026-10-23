@@ -8,8 +8,8 @@ import {
   getOutputGuardRegistry,
   resetOutputGuardRegistryForTest,
   runOutputGuards,
-} from '@modules/core';
-import type { OutputGuard } from '@modules/core';
+} from '@openliri/kernel';
+import type { OutputGuard } from '@openliri/kernel';
 
 function mkGuard(
   name: string,

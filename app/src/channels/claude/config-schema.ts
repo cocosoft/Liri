@@ -1,4 +1,4 @@
-import { ANTHROPIC_API_V1_BASE_URL } from '@modules/core';
+import { ANTHROPIC_API_V1_BASE_URL } from '@openliri/kernel';
 /**
  * Claude 通道配置模式定义
  * 对标 IRC config-schema.ts 模式

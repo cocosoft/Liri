@@ -35,8 +35,11 @@ export {
 } from './abortReason.js';
 
 // 标准错误码（2026-09-30：定义下沉 core 侧 `core/errorCodes.ts`，此处转出改指向 core）
-export { ErrorCodes } from '@modules/core/errorCodes.js';
-export type { ErrorCodeKey, ErrorCodeValue } from '@modules/core/errorCodes.js';
+export { ErrorCodes } from '@openliri/kernel/errorCodes.js';
+export type {
+  ErrorCodeKey,
+  ErrorCodeValue,
+} from '@openliri/kernel/errorCodes.js';
 
 // 错误 ID 追踪系统
 export * from './ErrorIds';

@@ -34,8 +34,8 @@ import { readdir, readFile, writeFile, mkdir } from 'fs/promises';
 import { join, dirname, relative } from 'path';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core';
-import type { EventBus } from '@modules/core';
+import { resolveKnowledgeDir, resolveDomainDir } from '@openliri/kernel';
+import type { EventBus } from '@openliri/kernel';
 
 const logger = getLogger('knowledge:indexManager');
 

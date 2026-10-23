@@ -3,7 +3,7 @@
  * 对标 IRC config-schema.ts 模式
  */
 
-import { WILDCARD_BIND_HOST } from '@modules/core';
+import { WILDCARD_BIND_HOST } from '@openliri/kernel';
 
 export interface WebhookConfig {
   listenPort: number;

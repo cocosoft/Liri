@@ -37,13 +37,13 @@ import {
   resolveDataSubDir,
   parseSuccessCriteria,
   type SuccessCriteria,
-} from '@modules/core';
+} from '@openliri/kernel';
 import { NoteTask } from './NoteTask';
 import { TaskStatus } from './types';
 import type { PlanReview } from './PlanReview';
 import type { ReviewDecision } from './PlanReview';
 
-import { globalEventBus } from '@modules/core/events/EventBus.js';
+import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 import { OrchestrationEventType as OrchEvent } from '@modules/agent';
 import type { PlanProgressData } from '@modules/agent';
 

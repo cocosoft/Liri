@@ -3,14 +3,14 @@
  * 用于存储建议历史和系统配置
  */
 
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import type {
   SuggestionHistory,
   SuggestionConfig,
   DEFAULT_SUGGESTION_CONFIG,
 } from '../types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath } from '@modules/core';
+import { resolveDbPath } from '@openliri/kernel';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('promptSuggestion\database\PromptSuggestionDatabase');

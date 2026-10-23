@@ -60,7 +60,7 @@ export async function registerAllSpis(
   {
     const { getLogger, setGlobalConfigProvider } =
       await import('@modules/monitoring/logs/Logger');
-    const { registerLoggerSpi } = await import('@modules/core/spi');
+    const { registerLoggerSpi } = await import('@openliri/kernel/spi');
     await registerLoggerSpi(container, {
       getLogger: (module) => getLogger(module),
       setGlobalConfigProvider: (provider) => setGlobalConfigProvider(provider),
@@ -73,7 +73,7 @@ export async function registerAllSpis(
       await import('@modules/monitoring/otel/OTelTracing');
     const { isSpanCovered, markSpanCovered } =
       await import('@modules/monitoring/tracing/SpanCoverageRegistry');
-    const { registerOTelSpi } = await import('@modules/core/spi');
+    const { registerOTelSpi } = await import('@openliri/kernel/spi');
     await registerOTelSpi(container, {
       getTracing: () => {
         const tracing = getOTelTracing();
@@ -96,7 +96,7 @@ export async function registerAllSpis(
   {
     const { profileCheckpoint, profilePhaseStart, profilePhaseEnd } =
       await import('@modules/performance/StartupProfiler');
-    const { registerStartupProfilerSpi } = await import('@modules/core/spi');
+    const { registerStartupProfilerSpi } = await import('@openliri/kernel/spi');
     await registerStartupProfilerSpi(container, {
       profileCheckpoint: (name) => profileCheckpoint(name),
       profilePhaseStart: (phase) => profilePhaseStart(phase),
@@ -108,7 +108,7 @@ export async function registerAllSpis(
   {
     const { broadcastEvent } =
       await import('@modules/infrastructure/http/LocalHTTPServiceSSE');
-    const { registerBroadcastSpi } = await import('@modules/core/spi');
+    const { registerBroadcastSpi } = await import('@openliri/kernel/spi');
     await registerBroadcastSpi(container, {
       broadcast: (event, payload) => broadcastEvent(event, payload),
     });
@@ -119,7 +119,7 @@ export async function registerAllSpis(
   // 现改为经 `IAgentToolPort` 解析，实现在此注册（组合根，沿用注册表共享实例语义）。
   {
     const { resolveAgentToolInstance } = await import('@modules/tools');
-    const { registerAgentToolSpi } = await import('@modules/core/spi');
+    const { registerAgentToolSpi } = await import('@openliri/kernel/spi');
     const agentTool = resolveAgentToolInstance();
     if (agentTool) {
       await registerAgentToolSpi(container, agentTool);
@@ -131,7 +131,7 @@ export async function registerAllSpis(
   // ---- 插件系统 SPI（2026-09-30 D-122；D-129 转推送模型）----
   {
     const { pluginSystem } = await import('@modules/plugins');
-    const { registerPluginSystemSpi } = await import('@modules/core/spi');
+    const { registerPluginSystemSpi } = await import('@openliri/kernel/spi');
     await registerPluginSystemSpi(container, {
       getLoadedPlugins: () => pluginSystem.getLoader().getAllPlugins(),
     });
@@ -160,7 +160,7 @@ export async function registerAllSpis(
     const providerManager = getProviderManager();
     const { checkBalance } =
       await import('@modules/ai/providers/BalanceChecker.js');
-    const { registerAiAccessSpi } = await import('@modules/core/spi');
+    const { registerAiAccessSpi } = await import('@openliri/kernel/spi');
 
     await registerAiAccessSpi(container, {
       getAiService: () => aiService,
@@ -281,7 +281,7 @@ export async function registerAllSpis(
   {
     const { taskRegistry, BaseTask } = await import('@modules/tasks');
     const { TaskType } = await import('@modules/tasks/types');
-    const { registerTaskRegistrySpi } = await import('@modules/core/spi');
+    const { registerTaskRegistrySpi } = await import('@openliri/kernel/spi');
 
     await registerTaskRegistrySpi(container, {
       registerLightweightTask: (kind, id, description) => {
@@ -322,7 +322,7 @@ export async function registerAllSpis(
       await import('@modules/knowledge/schema/SchemaLoader');
     const { DomainManager } =
       await import('@modules/knowledge/domain/DomainManager');
-    const { registerKnowledgeGraphSpi } = await import('@modules/core/spi');
+    const { registerKnowledgeGraphSpi } = await import('@openliri/kernel/spi');
 
     await registerKnowledgeGraphSpi(container, {
       createGraph: (dbPath) => new KnowledgeGraph(dbPath),
@@ -338,7 +338,7 @@ export async function registerAllSpis(
   // 层持有**的事件日志里 ⇒ 梦境直读即构成 `infra → app` 倒挂（同 D-148 的 KnowledgeGraph 动因）。
   // 实现装配在此：读事件（经 chat 的 `readSessionEvents`）+ 纯函数摘要（`evals/online`）。
   {
-    const { registerSessionQualitySpi } = await import('@modules/core/spi');
+    const { registerSessionQualitySpi } = await import('@openliri/kernel/spi');
     const { summarizeTurnQuality } = await import('@modules/evals');
     const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
 
@@ -371,7 +371,7 @@ export async function registerAllSpis(
   // 由本文件（entry，可依赖任意层）推送注册 ⇒ 零新增倒挂、零环。
   // ⚠️ 实现体受 `TOOL_JOB_SUSPEND`（**默认关**）门控 ⇒ 关时 `register/release` 为 no-op（零行为变更）。
   {
-    const { registerToolJobSuspendSpi } = await import('@modules/core/spi');
+    const { registerToolJobSuspendSpi } = await import('@openliri/kernel/spi');
     const { createToolJobSuspendPort } =
       await import('@modules/query/toolJobSuspend');
     await registerToolJobSuspendSpi(container, createToolJobSuspendPort());
@@ -386,7 +386,7 @@ export async function registerAllSpis(
   // 待第一消费入口提供引擎 / executor 后，在此 `new SwarmChannelAdapter({ swarm, executor })`
   // 等并纳入通道清单。
   {
-    const { registerCollaborationSpi } = await import('@modules/core/spi');
+    const { registerCollaborationSpi } = await import('@openliri/kernel/spi');
     await registerCollaborationSpi(container, {
       listChannels: async () => [],
       dispatch: async () => null,
@@ -397,7 +397,7 @@ export async function registerAllSpis(
   // ⚠️ **预留端口**：生产中**暂无消费者**（后续"四原语只读出站广播"/进程外通道插件接入时消费）
   // ⇒ 登记 UW（先例 `ICollaborationPort`）。本期只把**既有** `DeliveryRouter` 能力暴露为 core 侧窄契约。
   {
-    const { registerOutboundGatewaySpi } = await import('@modules/core/spi');
+    const { registerOutboundGatewaySpi } = await import('@openliri/kernel/spi');
     const { OutboundGatewayPortAdapter } =
       await import('@modules/channels/gateway/OutboundGatewayPortAdapter');
     await registerOutboundGatewaySpi(
@@ -414,7 +414,8 @@ export async function registerAllSpis(
       await import('@modules/services/voice/services/ttsProvider');
     const { channelRegistry } = await import('@modules/channels');
     const { mcpSystem } = await import('@modules/services/mcp');
-    const { registerDiagnosticsProbeSpi } = await import('@modules/core/spi');
+    const { registerDiagnosticsProbeSpi } =
+      await import('@openliri/kernel/spi');
 
     await registerDiagnosticsProbeSpi(container, {
       getProvidersSnapshot: () => {
@@ -466,7 +467,7 @@ export async function registerAllSpis(
     // 用到的代码进 eager 图（`lint:startup-graph` 棘轮增长）。子入口已登记为规范入口。
     const { getScopedDefaultWorkspace, scopedActiveWorkspaceCount } =
       await import('@modules/sandbox/scopedDefaultWorkspace');
-    const { registerSandboxSpi } = await import('@modules/core/spi');
+    const { registerSandboxSpi } = await import('@openliri/kernel/spi');
     const sandboxManager = SandboxManager.getInstance();
 
     // S1（2026-10-09）：创建默认工作区。
@@ -523,7 +524,7 @@ export async function registerAllSpis(
   // 现改为经 `IHookChainPort` 解析，实现在此注册（组合根，动态导入避免静态跨层依赖）。
   {
     const { HookChainManager } = await import('@modules/hooks');
-    const { registerHookChainSpi } = await import('@modules/core/spi');
+    const { registerHookChainSpi } = await import('@openliri/kernel/spi');
     const hookChainManager = HookChainManager.getInstance();
     await registerHookChainSpi(container, {
       // 端口载荷 `{ event, data, sessionId }` 与 `HookContext` 值相容，边界处收窄
@@ -555,7 +556,7 @@ export async function registerAllSpis(
     const { getDefaultDigestService } =
       await import('@modules/knowledge/KnowledgeDigestService');
     const { registerKnowledgeSpi, resolveAiAccess } =
-      await import('@modules/core/spi');
+      await import('@openliri/kernel/spi');
 
     await registerKnowledgeSpi(container, {
       runCompile: async (options) => {

@@ -46,13 +46,13 @@ import {
   globalEventBus,
   EventBusImpl,
   type EventListener,
-} from '@modules/core/events/EventBus';
+} from '@openliri/kernel/events/EventBus';
 
 const logger = getLogger('agent-events');
 
 // ========== 统一事件总线桥接导出 ==========
 // 新代码应直接使用 globalEventBus
-export { globalEventBus, EventBusImpl } from '@modules/core/events/EventBus';
+export { globalEventBus, EventBusImpl } from '@openliri/kernel/events/EventBus';
 
 // ========== Agent 事件类型导出（保持向后兼容） ==========
 export {

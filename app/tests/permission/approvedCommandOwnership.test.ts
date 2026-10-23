@@ -11,8 +11,8 @@
 import { describe, expect, it } from 'bun:test';
 
 import { ApprovedCommandRegistry } from '../../src/permission/ApprovedCommandRegistry';
-import type { Principal } from '@modules/core/identity/principal';
-import { runWithPrincipal } from '@modules/core/identity/requestScope';
+import type { Principal } from '@openliri/kernel/identity/principal';
+import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };

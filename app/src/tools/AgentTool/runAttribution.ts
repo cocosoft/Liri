@@ -41,11 +41,11 @@
  * **仅在失败时调用**（成功路径零开销、零图构建）。
  */
 
-import { SystemGraph } from '@modules/core/systemgraph';
+import { SystemGraph } from '@openliri/kernel/systemgraph';
 import type {
   RootCauseCandidate,
   SystemGraphSnapshot,
-} from '@modules/core/systemgraph';
+} from '@openliri/kernel/systemgraph';
 
 /** 一次子代理 run 中的单个执行步骤（只记事实，不含解释） */
 export interface AgentRunStepFact {

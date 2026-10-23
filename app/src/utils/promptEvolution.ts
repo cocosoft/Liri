@@ -32,7 +32,7 @@ import { join } from 'path';
 import {
   resolvePromptEvolutionDir,
   resolveUserSkillsDir,
-} from '@modules/core/paths';
+} from '@openliri/kernel/paths';
 
 /** 覆盖层正文上限（字符）—— 会注入**每一条**请求的系统提示词，必须有界 */
 export const MAX_OVERLAY_CHARS = 4000;

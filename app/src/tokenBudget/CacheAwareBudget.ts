@@ -7,10 +7,10 @@ import { priceManager } from './PriceManager';
 import type { ModelPriceTable, TokenUsageDetail } from './types';
 
 // 2026-09-30 直连 core（A1 倒挂收口）：原 `@modules/cost`，实体已下沉 `core/pricing.ts`
-import { calculateTotalCost } from '@modules/core/pricing.js';
-import type { ModelPricing } from '@modules/core/pricing.js';
+import { calculateTotalCost } from '@openliri/kernel/pricing.js';
+import type { ModelPricing } from '@openliri/kernel/pricing.js';
 
-import { handleError } from '@modules/core/errorHandler.js';
+import { handleError } from '@openliri/kernel/errorHandler.js';
 
 export interface CacheEfficiencyResult {
   efficiency: number;

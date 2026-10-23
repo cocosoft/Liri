@@ -5,7 +5,7 @@
 import { readFileSync, existsSync, watch } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 import type {
   KeybindingsLoadResult,
   ParsedBinding,

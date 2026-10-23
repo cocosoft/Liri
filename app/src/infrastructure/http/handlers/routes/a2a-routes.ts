@@ -30,7 +30,7 @@ import type http from 'http';
 import type { HandlerCtx } from '../handler-utils';
 import { json, readBody } from '../handler-utils';
 import { configManager } from '@modules/config';
-import { LOCAL_HTTP_HOST } from '@modules/core';
+import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 // 复用既有请求鉴权语义（`x-api-key` / `Bearer`）——GR01：不新造第二套头部解析

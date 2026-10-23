@@ -7,7 +7,7 @@ import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { queryAuditLogs } from '@modules/security';
 import { denialTracker, PermissionManager } from '@modules/permission';
-import { LOCAL_REQUEST_BASE_URL, LOCAL_SERVICE_HOST } from '@modules/core';
+import { LOCAL_REQUEST_BASE_URL, LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 /** 解析可选日期参数（ISO 或 epoch ms），非法返回 undefined */
 function parseDateParam(value: string | null): Date | undefined {

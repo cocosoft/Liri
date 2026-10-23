@@ -10,7 +10,7 @@ import { tmpdir } from 'os';
 // 复刻生产入口（main.ts）顺序：先求值 @modules/core barrel（其链路会按序完成
 // session 存储注册），避免"StorageFactory → error → monitoring → core → session
 // → MemoryUnifiedStorage → StorageFactory"循环 TDZ
-import '@modules/core';
+import '@openliri/kernel';
 import { FileSystemUnifiedStorage } from './FileSystemUnifiedStorage';
 import { StorageType } from './UnifiedStorage';
 import type { UnifiedSession } from '../types/UnifiedSession';

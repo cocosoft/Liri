@@ -13,7 +13,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveDataSubDir } from '@modules/core';
+import { resolveDataSubDir } from '@openliri/kernel';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 

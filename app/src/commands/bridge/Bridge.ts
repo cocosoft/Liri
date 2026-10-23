@@ -2,7 +2,7 @@
  * Bridge 命令实现
  * 管理远程控制桥接连接，对标 CC 的 /remote-control (rc) 命令
  */
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { bridgeStateStore, type BridgeState } from '@modules/bridge';
 import { readBridgeConfig } from '@modules/bridge';
 import { createBridgeMain, type BridgeMain } from '@modules/bridge';

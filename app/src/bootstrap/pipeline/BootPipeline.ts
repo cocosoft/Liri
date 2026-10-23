@@ -18,8 +18,8 @@
 // 2026-09-30 归属搬迁（A/B 组收口，台账 D-82）：本目录由 `core/boot/` 迁至 **entry 层**的
 // `bootstrap/pipeline/` —— 该管道是「启动装配 / 进程入口」职责，留在 core 层会构成 11 对
 // core→上层倒挂。core 模块根文件按 2 段相对路径引用（R03-002 安全区），`core/events/**` 亦在白名单内。
-import { getLogger } from '@modules/core/loggerFacade.js';
-import { handleError } from '@modules/core/errorHandler.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
+import { handleError } from '@openliri/kernel/errorHandler.js';
 import { BootPhase, BOOT_PHASES } from './BootPhase';
 
 const logger = getLogger('BootPipeline');

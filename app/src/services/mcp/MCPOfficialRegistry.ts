@@ -10,7 +10,7 @@
  * */
 
 import { getLogger } from '@modules/monitoring';
-import { ANTHROPIC_API_BASE_URL } from '@modules/core';
+import { ANTHROPIC_API_BASE_URL } from '@openliri/kernel';
 const logger = getLogger('services:mcp:officialRegistry');
 
 interface RegistryServer {

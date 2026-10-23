@@ -135,6 +135,11 @@ export function resolveTargetModule(
 ): { module: string } | { outside: string } | null {
   const alias = /^@modules\/([^'"/]+)/.exec(spec);
   if (alias) return { module: alias[1]! };
+  // P5：内核包名即自身（`@openliri/kernel` / `@openliri/kernel/<sub>`）⇒ 恒合法，
+  // 与包内相对引用同口径。若不识别，它会被当成裸 npm 包误报 K06。
+  if (spec === '@openliri/kernel' || spec.startsWith('@openliri/kernel/')) {
+    return { module: KERNEL_SELF };
+  }
   if (!spec.startsWith('.')) return null; // 裸包 / node: / bun:
 
   const resolved = resolve(dirname(filePath), spec);
@@ -469,6 +474,8 @@ function main(): void {
     console.log(
       `已写入基线 ${entries.length} 条（maxEntries=${maxEntries}）: ${BASELINE}`
     );
+    // K07 的基线独立成文件（消费方深路径 ≠ 内核自身泄漏），同一次 --write-baseline 一并冻结
+    checkK07DeepPaths();
     return;
   }
 
@@ -523,6 +530,103 @@ function main(): void {
   console.log(
     `✅ 未登记模块 0 · 三方依赖白名单内 · 无新增内核泄漏（违规合计 ${violations.length} 处，均已登记）`
   );
+
+  checkK07DeepPaths();
+}
+
+/**
+ * **K07 深路径禁令**（方案 §4-P5，复审 B3 编号归属）。
+ *
+ * 判据：消费方（`app/src` + `app/packages`）对内核的导入**只允许**
+ * ① 桶 `@openliri/kernel`；② 五个实测刚需子路径（Q2：`paths` / `identity` / `external` / `spi` / `events`）。
+ * 其余 `@openliri/kernel/<sub>` 一律记违规，**存量进棘轮**（只减不增）。
+ *
+ * 为什么必须开这条门禁：`exports` 一旦收敛为桶 + 5 子路径，其余深路径在**独立发布后**
+ * 会直接解析失败；而 `tsconfig paths` 通配会让它在仓内**看起来一直可用**（假绿）。
+ * 棘轮语义与 K01–K06 一致：新增即红，想放宽必须手改基线 json（diff 可见）。
+ */
+function checkK07DeepPaths(): void {
+  const DEEP_BASELINE = resolve(
+    repoRoot,
+    '.trae/architecture/kernel-deep-path-baseline.json'
+  );
+  const ALLOWED = new Set(['paths', 'identity', 'external', 'spi', 'events']);
+  /** 消费方源码根（生产面；不含 npm 包外壳与历史归档） */
+  const consumerRoots = [
+    resolve(repoRoot, 'app/src'),
+    resolve(repoRoot, 'app/packages'),
+  ];
+  const DEEP_IMPORT =
+    /(?:from\s+|import\(\s*|require\(\s*)['"]@openliri\/kernel\/([^'"]+)['"]/g;
+
+  const hits: Array<{ file: string; subpath: string }> = [];
+  for (const abs of consumerRoots.flatMap((root) =>
+    existsSync(root) ? walk(root) : []
+  )) {
+    if (!abs.endsWith('.ts') && !abs.endsWith('.tsx')) continue;
+    const text = readFileSync(abs, 'utf8');
+    let m: RegExpExecArray | null;
+    DEEP_IMPORT.lastIndex = 0;
+    while ((m = DEEP_IMPORT.exec(text)) !== null) {
+      // 说明符可能带 `.js`（ESM 写法）⇒ 先去后缀再取首段
+      const subpath = m[1].replace(/\.js$/, '').split('/')[0];
+      if (ALLOWED.has(subpath)) continue;
+      hits.push({
+        file: relative(repoRoot, abs).split(sep).join('/'),
+        subpath: m[1],
+      });
+    }
+  }
+
+  const key = (h: { file: string; subpath: string }): string =>
+    `${h.file}|${h.subpath}`;
+  const sorted = hits
+    .filter((h, i) => hits.findIndex((x) => key(x) === key(h)) === i)
+    .sort((a, b) => key(a).localeCompare(key(b)));
+
+  const loadDeep = (): { maxEntries?: number; entries: Array<{ file: string; subpath: string }> } =>
+    existsSync(DEEP_BASELINE)
+      ? (JSON.parse(readFileSync(DEEP_BASELINE, 'utf8')) as {
+          maxEntries?: number;
+          entries: Array<{ file: string; subpath: string }>;
+        })
+      : { entries: [] };
+
+  if (process.argv.includes('--write-baseline')) {
+    const prev = loadDeep();
+    const maxEntries =
+      prev.maxEntries === undefined
+        ? sorted.length
+        : Math.min(prev.maxEntries, sorted.length);
+    writeFileSync(
+      DEEP_BASELINE,
+      `${JSON.stringify({ version: 1, maxEntries, entries: sorted }, null, 2)}\n`,
+      'utf8'
+    );
+    console.log(
+      `已写入 K07 深路径基线 ${sorted.length} 条（maxEntries=${maxEntries}）`
+    );
+    return;
+  }
+
+  const baseline = loadDeep();
+  const baselined = new Set(baseline.entries.map(key));
+  const added = sorted.filter((h) => !baselined.has(key(h)));
+  const shrinkable = baseline.entries.filter(
+    (e) => !sorted.some((h) => key(h) === key(e))
+  );
+
+  console.log(
+    `K07 深路径：${sorted.length} 处（基线 ${baseline.entries.length}）· 白名单 ${[...ALLOWED].join('/')}`
+  );
+  if (shrinkable.length > 0) {
+    console.log(`ℹ️ K07 基线项已不存在（请下调锁定成果）: ${shrinkable.length} 条`);
+  }
+  if (added.length > 0) {
+    console.error(`❌ K07 新增内核深路径 ${added.length} 处（应改走桶或白名单子路径）:`);
+    for (const h of added) console.error(`  - ${h.file} → @openliri/kernel/${h.subpath}`);
+    process.exit(1);
+  }
 }
 
 // 仅在被当作脚本执行时跑 main（测试通过 import 复用纯函数）

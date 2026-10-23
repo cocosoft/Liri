@@ -1,6 +1,6 @@
 import { MemoryManagerImpl } from '../MemoryManager';
 import type { Memory } from '../types/Memory';
-import type { ProtocolMessage } from '@modules/core';
+import type { ProtocolMessage } from '@openliri/kernel';
 
 /**
  * 记忆集成模块

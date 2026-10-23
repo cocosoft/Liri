@@ -20,7 +20,7 @@ import {
   DEEPSEEK_API_V1_BASE_URL,
   OPENAI_PLATFORM_URL,
   ANTHROPIC_CONSOLE_URL,
-} from '@modules/core';
+} from '@openliri/kernel';
 import { createInterface } from 'readline';
 import { setConfigValue, getConfig } from '@modules/config';
 import { writeSoulMd, readSoulMd } from '@modules/services/soul/SoulReader';

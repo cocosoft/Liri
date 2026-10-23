@@ -22,7 +22,7 @@
  *   （`validation/output_guard_applied`）—— 那是"正文被改写"的**持久留痕**，与 SSE 提示分属两条通道。
  */
 
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import type { LiriEvent } from '@modules/session/types/events.js';
 

@@ -36,8 +36,8 @@ import { describe, expect, it, spyOn } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { warnDeprecatedCoreModule } from '@modules/core/deprecationNotice.js';
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { warnDeprecatedCoreModule } from '@openliri/kernel/deprecationNotice.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 
 const CORE_ROOT = join(import.meta.dir, '../../../packages/kernel/src/core');
 

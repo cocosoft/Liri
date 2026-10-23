@@ -14,8 +14,11 @@ import {
 } from './ModelPricing.js';
 import { calculateTotalCost } from './calculateCost.js';
 import type { CostRecordRepository } from './CostRecordRepository.js';
-import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus.js';
-import type { CostRecordedEvent } from '@modules/core/events/EventBus.js';
+import {
+  globalEventBus,
+  SystemEvents,
+} from '@openliri/kernel/events/EventBus.js';
+import type { CostRecordedEvent } from '@openliri/kernel/events/EventBus.js';
 // 多租户 P5（2026-10-21）：累计值按**请求身份**分桶 —— 否则 `/v1/analytics/dashboard`、
 // `/v1/workspaces/:id/cost/report` 这类"读 costTracker 内存累计"的端点会把全进程的
 // 用量回给单个用户。本地身份恒 `local:local` 一个桶 ⇒ 桌面 / CLI 行为与改造前逐字一致。
@@ -23,7 +26,7 @@ import {
   currentOwnerKey,
   getRequestPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
+} from '@openliri/kernel/identity/requestScope.js';
 
 import { getLogger } from '../monitoring/logs/Logger.js';
 const logger = getLogger('cost:CostTracker');

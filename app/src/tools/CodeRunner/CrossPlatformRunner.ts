@@ -17,7 +17,7 @@
 import { spawn, execFileSync, type ChildProcess } from 'child_process';
 import { promises as fs } from 'fs';
 import { join, isAbsolute } from 'path';
-import { resolveTempDir } from '@modules/core/paths';
+import { resolveTempDir } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

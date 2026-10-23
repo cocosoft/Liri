@@ -17,7 +17,7 @@ import {
 } from '../../../src/tools/AgentTool/AgentTool';
 import { ToolExecutionStatus } from '../../../src/tools/types/ToolResult';
 import type { Tool } from '../../../src/tools/types/Tool';
-import { globalEventBus } from '@modules/core/events/EventBus.js';
+import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 import { OrchestrationEventType } from '@modules/agent';
 import { getAgentRunStore } from '../../../src/tools/AgentTool/AgentRunStore';
 import {

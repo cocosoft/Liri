@@ -58,7 +58,7 @@ function timingSafeEqualString(a: string, b: string): boolean {
 export async function seedKnowledgeBaseIfEmpty(): Promise<void> {
   const fs = await import('fs/promises');
   const path = await import('path');
-  const { resolvePyappHome } = await import('@modules/core/paths');
+  const { resolvePyappHome } = await import('@openliri/kernel/paths');
 
   const userKnowledgeDir = path.join(resolvePyappHome(), 'knowledge');
 
@@ -76,7 +76,7 @@ export async function seedKnowledgeBaseIfEmpty(): Promise<void> {
 
   // 拷贝源：1) 项目源码路径（开发环境）
   try {
-    const { resolveKnowledgeBaseDir } = await import('@modules/core/paths');
+    const { resolveKnowledgeBaseDir } = await import('@openliri/kernel/paths');
     const sourceDir = resolveKnowledgeBaseDir();
     const sourceFiles = await fs.readdir(sourceDir);
     const mdFiles = sourceFiles.filter((f: string) => f.endsWith('.md'));

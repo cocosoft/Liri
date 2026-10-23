@@ -29,8 +29,8 @@ import { createHash } from 'crypto';
 
 import type { MermaidLintIssue } from '@modules/types/mermaid';
 import type { LiriEventMap } from '@modules/session/types/eventPayloads.js';
-import { runOutputGuards } from '@modules/core';
-import type { OutputGuard, OutputGuardIssue } from '@modules/core';
+import { runOutputGuards } from '@openliri/kernel';
+import type { OutputGuard, OutputGuardIssue } from '@openliri/kernel';
 
 /** 守卫依赖（由调用方注入，保持本模块零重依赖、可单测） */
 export interface FinalOutputGuardDeps {

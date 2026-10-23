@@ -19,12 +19,12 @@ import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { BaseTool } from '../BaseTool';
 // 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
-import { UUID_RE } from '@modules/core';
+import { UUID_RE } from '@openliri/kernel';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { providerRegistry } from '@modules/ai';
 import type { AIProvider } from '@modules/ai';
 import { imageSanitizationPolicy } from '@modules/security';
-import { resolveOutputDir } from '@modules/core';
+import { resolveOutputDir } from '@openliri/kernel';
 import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
 import { ImageGenerationRouter } from './ImageGenerationRouter';
 import type { CostRecord } from './types';

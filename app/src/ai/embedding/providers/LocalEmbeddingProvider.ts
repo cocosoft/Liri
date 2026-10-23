@@ -36,7 +36,7 @@ import {
 } from '../EmbeddingBase';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
-import { DEFAULT_OLLAMA_ENDPOINT } from '@modules/core';
+import { DEFAULT_OLLAMA_ENDPOINT } from '@openliri/kernel';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ai:embedding:providers:LocalEmbeddingProvider');

@@ -5,15 +5,15 @@
  * 参照 BalanceStore 模式：单例 + 延迟初始化 + CREATE TABLE IF NOT EXISTS。
  */
 
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath, resolveScopedDbPath } from '@modules/core/paths';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel/paths';
 // 多租户 P1：任务库按身份分实例（本地身份零变更）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 import {
   AppError,

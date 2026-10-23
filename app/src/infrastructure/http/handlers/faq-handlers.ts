@@ -17,7 +17,7 @@ import { sendError, readRequestBody } from './handler-utils';
 import { handleError } from '@modules/error';
 // C1（2026-09-30 D-95，`knowledge` 域 P1）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { LOCAL_SERVICE_HOST } from '@modules/core';
+import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 /** 从 URL 路径中提取知识库名称 */
 function extractBaseName(url: string): string | null {

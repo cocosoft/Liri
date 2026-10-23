@@ -43,12 +43,12 @@
  *  - 本模块**不** import `chat/**`（与 `budgetSuspend` 同纪律，避免成环）。
  */
 
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import type {
   IToolJobSuspendPort,
   ToolJobSuspendRegisterResult,
-} from '@modules/core/spi/ToolJobSuspendService.js';
+} from '@openliri/kernel/spi/ToolJobSuspendService.js';
 import { publishStateProjection } from '../state/engine/projectionBroker.js';
 import {
   getBudgetSuspendCoordinator,

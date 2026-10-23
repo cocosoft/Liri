@@ -12,7 +12,7 @@ import type {
 } from '../types';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-import { DEFAULT_SD_WEBUI_ENDPOINT } from '@modules/core';
+import { DEFAULT_SD_WEBUI_ENDPOINT } from '@openliri/kernel';
 
 const logger = getLogger('tools:imageGenerate');
 

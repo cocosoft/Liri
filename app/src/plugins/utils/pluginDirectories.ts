@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
-import { resolvePluginsDir } from '@modules/core';
+import { resolvePluginsDir } from '@openliri/kernel';
 import { configManager } from '@modules/config';
 
 /**

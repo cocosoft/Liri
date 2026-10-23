@@ -10,7 +10,7 @@ import { type MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveProjectRoot } from '@modules/core';
+import { resolveProjectRoot } from '@openliri/kernel';
 
 const logger = getLogger('memory:memdir:memoryScanner');
 

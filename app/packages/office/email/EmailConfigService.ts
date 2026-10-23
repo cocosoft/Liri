@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 import { Logger, LogLevel } from '@modules/monitoring';
 
 import type { EmailConfig, EmailAccount } from '@modules/mail/types';

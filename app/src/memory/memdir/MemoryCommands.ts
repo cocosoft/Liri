@@ -8,7 +8,7 @@ import { mkdir, writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 import {
   type MemoryFile,
   MemoryType,

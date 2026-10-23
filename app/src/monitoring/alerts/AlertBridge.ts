@@ -35,7 +35,7 @@
  */
 
 import { createLogger, LogLevel } from '../logs/Logger';
-import { globalEventBus } from '@modules/core/events/EventBus';
+import { globalEventBus } from '@openliri/kernel/events/EventBus';
 
 const logger = createLogger({
   module: 'monitoring:alerts',

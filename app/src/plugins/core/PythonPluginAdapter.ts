@@ -27,10 +27,10 @@ import {
   KernelServiceRegistry,
   KernelServiceId,
 } from '../api/KernelServiceRegistry';
-import { resolveDataSubDir, resolveProjectRoot } from '@modules/core/paths';
+import { resolveDataSubDir, resolveProjectRoot } from '@openliri/kernel/paths';
 import { join, delimiter } from 'path';
 import { trackProcess } from '../../services/mcp/transports/ChildProcessTracker';
-import { globalEventBus } from '@modules/core/events/EventBus';
+import { globalEventBus } from '@openliri/kernel/events/EventBus';
 
 const logger = getLogger('plugins:core:pythonPluginAdapter');
 

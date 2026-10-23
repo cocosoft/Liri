@@ -37,7 +37,7 @@ import {
   resolveUserEnvPath,
   resolveBundledEnvPath,
   resolveEnvExamplePath,
-} from '@modules/core';
+} from '@openliri/kernel';
 import { configManager } from '../config/index.js';
 import { setOfflineMode } from '../entrypoints/shared-state.js';
 import { probeExternalModule } from '../utils/externalDeps.js';
@@ -288,7 +288,7 @@ export async function migrateSoulAndUserToConfigManager(
 ): Promise<void> {
   try {
     const { resolveSoulPath, resolveUserProfilePath } =
-      await import('@modules/core');
+      await import('@openliri/kernel');
 
     // 迁移 SOUL.md
     const soulConfig = configMgr.getConfigValue('settings.soul') as

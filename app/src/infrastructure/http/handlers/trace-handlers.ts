@@ -9,7 +9,7 @@
  */
 import type http from 'http';
 import { handleError } from '@modules/error';
-import { currentOwnerKey } from '@modules/core/identity/requestScope.js';
+import { currentOwnerKey } from '@openliri/kernel/identity/requestScope.js';
 
 export async function handleTraceStats(
   _req: http.IncomingMessage,

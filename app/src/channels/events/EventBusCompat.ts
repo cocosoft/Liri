@@ -40,7 +40,7 @@ import type {
   EventBus,
   EventListener,
   EventSubscription,
-} from '@modules/core/events/EventBus';
+} from '@openliri/kernel/events/EventBus';
 import { createLogger, LogLevel } from '@modules/monitoring';
 
 const logger = createLogger({

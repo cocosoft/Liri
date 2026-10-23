@@ -13,8 +13,8 @@ import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { EventEmitter } from 'events';
 import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
 import { DBTAORCheckpointStorage } from './DBTAORCheckpointStorage.js';

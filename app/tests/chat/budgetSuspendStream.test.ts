@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ReActToolLoop } from '../../src/chat/ReActToolLoop.js';
-import { SimpleMutex } from '@modules/core/SimpleMutex.js';
+import { SimpleMutex } from '@openliri/kernel/SimpleMutex.js';
 import { ChatOrchestrator } from '../../src/chat/orchestrator/ChatOrchestrator.js';
 import { createTestHost, createTestSession } from './orchestrator/helpers.js';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';

@@ -1,6 +1,6 @@
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import { resolveWorktreeHash } from '@modules/core/paths';
+import { resolveWorktreeHash } from '@openliri/kernel/paths';
 import { promises as fs } from 'fs';
 import { ArchiveStorage } from './ArchiveStorage';
 import type {

@@ -16,7 +16,7 @@ import {
   OPENAI_API_V1_BASE_URL,
   ANTHROPIC_API_V1_BASE_URL,
   GEMINI_API_BASE_URL,
-} from '@modules/core';
+} from '@openliri/kernel';
 const logger = getLogger('plugins:provider:ProviderDiscovery');
 
 /**

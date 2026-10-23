@@ -11,8 +11,8 @@ import type { LocalHTTPService } from '@modules/infrastructure';
 import {
   HTTP_PORT_SHIFT_ATTEMPTS,
   resolveHttpPortIntent,
-} from '@modules/core/ports.js';
-import { startWithPortFallback } from '@modules/core/httpPortFallback.js';
+} from '@openliri/kernel/ports.js';
+import { startWithPortFallback } from '@openliri/kernel/httpPortFallback.js';
 
 /**
  * 启动 LocalHTTPService

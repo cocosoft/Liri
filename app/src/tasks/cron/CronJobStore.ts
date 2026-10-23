@@ -3,7 +3,7 @@
  * 使用 SQLite 替代 JSON 文件提供更可靠的并发访问
  */
 
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type {

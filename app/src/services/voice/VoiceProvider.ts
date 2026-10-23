@@ -1,7 +1,7 @@
 /**
  * 由 VOICE_MODE feature flag 控制加载
  */
-import { FEATURE_FLAGS } from '@modules/core';
+import { FEATURE_FLAGS } from '@openliri/kernel';
 import { DEFAULT_LOCALE } from '@modules/constants';
 const feature = (name: keyof typeof FEATURE_FLAGS) =>
   FEATURE_FLAGS[name] ?? false;

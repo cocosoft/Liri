@@ -1,4 +1,4 @@
-import { resolveDataDir } from '@modules/core';
+import { resolveDataDir } from '@openliri/kernel';
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
 // T-①07（A5 记忆分层收敛）T1-2：声明实现四个窄端口（`memory/ports/MemoryPort.ts`）。
@@ -53,7 +53,7 @@ import {
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 // D-146（2026-10-01）：`trackUsage` 改经 core SPI（`infra -> app` 倒挂收口）
-import { resolveAiAccess } from '@modules/core/spi';
+import { resolveAiAccess } from '@openliri/kernel/spi';
 import { createHash } from 'crypto';
 import {
   encodePayload,

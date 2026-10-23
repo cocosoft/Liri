@@ -5,8 +5,8 @@
  */
 
 import * as fs from 'fs';
-import { AppError } from '@modules/core/errors.js';
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { AppError } from '@openliri/kernel/errors.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 const logger = getLogger('doc:execution');
 
 /**

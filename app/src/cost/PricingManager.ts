@@ -7,7 +7,7 @@
 import { logForDebugging } from '../utils/debug.js';
 import { ModelPricing } from './ModelPricing.js';
 // 2026-10-01 D-155（`cost -> ai` 倒挂收口）：模型定价改经 core SPI 取得
-import { resolveAiAccess } from '@modules/core/spi';
+import { resolveAiAccess } from '@openliri/kernel/spi';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

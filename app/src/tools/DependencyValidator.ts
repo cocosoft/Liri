@@ -6,7 +6,7 @@
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
-import { resolveProjectRoot, resolveDataSubDir } from '@modules/core';
+import { resolveProjectRoot, resolveDataSubDir } from '@openliri/kernel';
 import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,
@@ -17,7 +17,7 @@ import {
   getDeferredModuleIds,
   getOnDemandModuleIds,
   ModuleLoadPriority,
-} from '@modules/core/LazyModuleStrategy';
+} from '@openliri/kernel/LazyModuleStrategy';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

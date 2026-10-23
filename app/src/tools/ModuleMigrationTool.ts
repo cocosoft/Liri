@@ -12,7 +12,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { resolveDataSubDir } from '@modules/core';
+import { resolveDataSubDir } from '@openliri/kernel';
 
 const logger = getLogger('tools:moduleMigration');
 

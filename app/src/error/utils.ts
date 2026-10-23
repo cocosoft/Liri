@@ -568,4 +568,8 @@ export class ErrorUtils {
 // ─── 独立便捷函数（2026-09-30 下沉 core 侧，此处同名转出 ⇒ 对外 API 不变）─────
 // 下沉原因：core 侧 `core/utils/ErrorHandler` 直接引用构成 core → infra 倒挂（A 类台账）。
 
-export { toError, errorMessage, isAbortError } from '@modules/core/errors.js';
+export {
+  toError,
+  errorMessage,
+  isAbortError,
+} from '@openliri/kernel/errors.js';

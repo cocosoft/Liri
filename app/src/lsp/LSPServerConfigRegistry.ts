@@ -4,7 +4,7 @@
  */
 
 import type { ScopedLspServerConfig } from './types.js';
-import { NPM_SITE_URL } from '@modules/core';
+import { NPM_SITE_URL } from '@openliri/kernel';
 
 export interface LanguageServerRegistration {
   language: string;

@@ -33,7 +33,7 @@
  *   （`applied=false`）时，成果只在隔离目录里 ⇒ 不再删除，结果中给出 `keptIsolation` /
  *   `isolationPath` 供人工合并。只有 `applied=true`（git-worktree 回灌成功）才清理。
  */
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir } from '@openliri/kernel/paths';
 import { WorkspaceProviderRegistry } from './provider/WorkspaceProviderRegistry';
 import { GitWorktreeProvider } from './provider/GitWorktreeProvider';
 import { SnapshotCopyProvider } from './provider/SnapshotCopyProvider';

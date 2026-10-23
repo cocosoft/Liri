@@ -38,7 +38,7 @@ import {
 } from '@modules/error';
 import { withRetry } from '@modules/utils/withRetry';
 import { trackUsage } from '@modules/ai';
-import { globalEventBus } from '@modules/core/events/EventBus.js';
+import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 import { AgentEventType } from '@modules/agent';
 // 接线期③ ③-A（2026-09-24）：子代理 run 的分配落图 + 失败归因
 import {

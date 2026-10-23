@@ -15,7 +15,7 @@ import {
 import { join } from 'path';
 import { AgentConfig } from '../models/types';
 import { AIModelType } from '@modules/ai';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 
 const logger = getLogger('agent:managers:agentConfigManager');
 

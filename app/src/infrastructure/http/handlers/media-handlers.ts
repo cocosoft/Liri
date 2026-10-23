@@ -19,10 +19,10 @@ import {
   mkdirSync,
 } from 'fs';
 import { handleError } from '@modules/error';
-import { resolveTempDir } from '@modules/core/paths';
+import { resolveTempDir } from '@openliri/kernel/paths';
 import { videoProcessor } from '../../../media/video/VideoProcessor';
 import { MAX_HTTP_BODY_BYTES } from './handler-utils';
-import { LOCAL_SERVICE_HOST } from '@modules/core';
+import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 /** 支持的媒体文件扩展名 */
 const SUPPORTED_AUDIO_EXTS = new Set([

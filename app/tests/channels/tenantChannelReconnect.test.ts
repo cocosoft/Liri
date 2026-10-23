@@ -20,7 +20,7 @@ import type { IChannelPlugin } from '../../src/channels/types/IChannel.js';
 import {
   getRequestPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
+} from '@openliri/kernel/identity/requestScope.js';
 
 const CHANNEL_ID = 'acme:alice::fake-feishu';
 

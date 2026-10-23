@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import type {
   ScheduledTask,
   TaskExecutionHistory,
@@ -7,8 +7,8 @@ import type {
   TaskStatus,
 } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath } from '@modules/core';
-import { SimpleMutex } from '@modules/core';
+import { resolveDbPath } from '@openliri/kernel';
+import { SimpleMutex } from '@openliri/kernel';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('chronos\ChronosDatabase');

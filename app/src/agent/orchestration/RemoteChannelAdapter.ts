@@ -36,7 +36,7 @@ import type {
   CollaborationDispatchRequestDto,
   CollaborationDispatchResultDto,
   ICollaborationPort,
-} from '@modules/core/spi';
+} from '@openliri/kernel/spi';
 
 /** 通道标识（可观测值） */
 const REMOTE_CHANNEL = 'remote';

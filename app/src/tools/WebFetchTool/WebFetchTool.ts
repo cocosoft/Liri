@@ -19,7 +19,7 @@ import type {
 } from '../types/index';
 import { createToolResult } from '../types/ToolResult';
 import { buildUserAgent } from '@modules/constants';
-import { resolveDownloadsDir, resolveInboundDir } from '@modules/core';
+import { resolveDownloadsDir, resolveInboundDir } from '@openliri/kernel';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';

@@ -42,7 +42,7 @@ import type {
 } from './AIProvider';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { OPENAI_API_V1_BASE_URL } from '@modules/core';
+import { OPENAI_API_V1_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('ai:codex-provider');
 

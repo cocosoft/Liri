@@ -32,7 +32,7 @@ import { createPathGuard } from '@modules/query';
 import { checkDailyBudget } from '../query/dailyBudgetGate.js';
 // Task 5（债二-预算挂起续跑）：日预算耗尽挂起落点（协调器 + 特性开关）
 import { getBudgetSuspendCoordinator } from '../query/budgetSuspend.js';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import type {
   ReActLoopConfig,
   ReasonResult,

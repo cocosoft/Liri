@@ -12,12 +12,12 @@ import { describe, expect, it } from 'bun:test';
 import {
   LOCAL_PRINCIPAL,
   type Principal,
-} from '@modules/core/identity/principal';
+} from '@openliri/kernel/identity/principal';
 import {
   canAccessSession,
   ownerOf,
   type SessionOwner,
-} from '@modules/core/identity/sessionOwnership';
+} from '@openliri/kernel/identity/sessionOwnership';
 
 const ALICE: Principal = {
   tenantId: 'acme',

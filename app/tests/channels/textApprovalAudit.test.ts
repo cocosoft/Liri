@@ -15,7 +15,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { setUserDataDirOverride } from '@modules/core/paths.js';
+import { setUserDataDirOverride } from '@openliri/kernel/paths.js';
 import {
   buildTextApprovalAuditPayload,
   recordTextApprovalAudit,

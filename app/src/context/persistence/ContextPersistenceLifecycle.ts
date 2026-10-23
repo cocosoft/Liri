@@ -11,7 +11,7 @@ import {
   type ContextPersistence,
   type ContextSnapshot,
 } from '../persistence/ContextPersistence';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { join } from 'path';

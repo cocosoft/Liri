@@ -11,7 +11,7 @@
 
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:curatorReview');
 

@@ -3,7 +3,7 @@
  * 支持渠道内发送邮件通知
  */
 
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 const logger = getLogger('mail:channel');
 
 /**

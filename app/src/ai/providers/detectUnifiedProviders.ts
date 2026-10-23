@@ -39,7 +39,7 @@ import {
   DEEPSEEK_API_BASE_URL,
   GEMINI_API_BASE_URL,
   SILICONFLOW_API_V1_BASE_URL,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 /** 检测出的供应商配置 */
 export interface UnifiedProviderConfig {

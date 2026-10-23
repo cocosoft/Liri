@@ -31,7 +31,7 @@ import { createProjectStore } from '../../src/workspace/ProjectStore.js';
 import { WorkItemStore } from '../../src/workspace/WorkItemStore.js';
 import { WriteProjectFileTool } from '../../src/tools/WriteProjectFileTool/WriteProjectFileTool.js';
 import { ToolLazyWrapper } from '../../src/tools/utils/ToolLazyWrapper.js';
-import type { LazyModuleLoader } from '@modules/core';
+import type { LazyModuleLoader } from '@openliri/kernel';
 import type { Tool } from '../../src/tools/types/Tool.js';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'liri-wpf-iso-'));

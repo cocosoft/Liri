@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'bun:test';
-import { globalEventBus } from '@modules/core/events/EventBus';
+import { globalEventBus } from '@openliri/kernel/events/EventBus';
 import { handleError, getErrorStats } from '../../src/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '../../src/error/types';
 

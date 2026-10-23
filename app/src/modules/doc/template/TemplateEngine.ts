@@ -4,10 +4,10 @@
  * 管线：用户数据 → Handlebars 渲染 → Markdown → OfficeCLI → DOCX
  */
 
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname, join } from 'path';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@openliri/kernel/paths';
 import Handlebars from 'handlebars';
 
 const logger = getLogger('doc:template');

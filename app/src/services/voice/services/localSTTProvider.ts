@@ -36,7 +36,7 @@ import {
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
-import { resolveModelsDir } from '@modules/core/paths';
+import { resolveModelsDir } from '@openliri/kernel/paths';
 // 2026-08-06 接入（3.2/P1-2）：stdin 二进制直传，需嗅探容器以决定如何打包 PCM
 import { detectAudioContainer } from './audioNormalizer';
 import type { STTProvider, STTStreamConnection } from './sttProvider';

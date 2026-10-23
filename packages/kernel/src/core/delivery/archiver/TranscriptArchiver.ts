@@ -1,6 +1,6 @@
 import { readdir, stat, rename, mkdir } from 'fs/promises';
 import { join, basename, extname } from 'path';
-import { resolveDataDir } from '@modules/core';
+import { resolveDataDir } from '../../paths.js';
 import { createGzip } from 'zlib';
 import { createReadStream, createWriteStream, existsSync } from 'fs';
 import { pipeline } from 'stream/promises';

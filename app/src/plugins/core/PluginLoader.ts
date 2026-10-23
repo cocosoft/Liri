@@ -5,7 +5,7 @@
 import { EventEmitter } from 'events';
 import { join } from 'path';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'fs';
-import { resolvePluginsInstalledDir } from '@modules/core';
+import { resolvePluginsInstalledDir } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import {
   PluginState,

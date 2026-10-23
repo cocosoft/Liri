@@ -18,8 +18,8 @@ import {
   getRequestPrincipal,
   principalFromKey,
   runWithPrincipal,
-} from '@modules/core/identity/requestScope';
-import type { Principal } from '@modules/core/identity/principal';
+} from '@openliri/kernel/identity/requestScope';
+import type { Principal } from '@openliri/kernel/identity/principal';
 
 /** 当前身份的任务归属键（本地身份 ⇒ `undefined` ⇒ 不写列、不做过滤） */
 export function currentCronOwnerKey(

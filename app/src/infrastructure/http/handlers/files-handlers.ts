@@ -27,7 +27,7 @@ import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
 import { logSecurityBlock } from '../../../security/SecurityAuditLogger.js';
-import { LOCAL_SERVICE_HOST } from '@modules/core';
+import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 const logger = getLogger('infrastructure:http:handlers:files-handlers');
 
 // 已注册的存储分区别名 → 绝对路径解析函数（延迟动态 import）
@@ -54,7 +54,7 @@ function resolveStorePath(rawPath: string): string {
       (() => {
         // 从已知解析函数回退
         try {
-          const { resolveAttachmentsDir } = require('@modules/core/paths');
+          const { resolveAttachmentsDir } = require('@openliri/kernel/paths');
           return resolveAttachmentsDir();
         } catch {
           return undefined;
@@ -68,7 +68,7 @@ function resolveStorePath(rawPath: string): string {
     const rest = rawPath.slice(firstSegment.length).replace(/^[/\\]/, '');
     const resolved = rest ? join(base, rest) : base;
     // 安全校验：确保 path.join 没有被跨盘符绝对路径覆盖（BUG02修复）
-    const { isPathWithin } = require('@modules/core/paths');
+    const { isPathWithin } = require('@openliri/kernel/paths');
     const resolvedBase = base;
     if (!isPathWithin(resolvedBase, resolved)) {
       // 2-1（2026-09-03）：越权拦截统一审计
@@ -91,7 +91,7 @@ function resolveStorePath(rawPath: string): string {
   // 仅允许 LIRI_HOME 下的路径（~/.pyapp/）
   const home = process.env.LIRI_HOME || process.env.PYAPP_HOME;
   if (home) {
-    const { isPathWithin } = require('@modules/core/paths');
+    const { isPathWithin } = require('@openliri/kernel/paths');
     if (!isPathWithin(home, fallback)) {
       // 2-1（2026-09-03）：越权拦截统一审计
       logSecurityBlock({
@@ -428,8 +428,8 @@ export async function handleFileHealth(
     const { FileRegistry } =
       await import('@modules/services/file/FileRegistry');
     const { DiskSpaceMonitor } =
-      await import('@modules/core/delivery/monitor/DiskSpaceMonitor');
-    const { resolvePyappHome } = await import('@modules/core/paths');
+      await import('@openliri/kernel/delivery/monitor/DiskSpaceMonitor');
+    const { resolvePyappHome } = await import('@openliri/kernel/paths');
     const { existsSync } = await import('fs');
 
     const checks: Record<

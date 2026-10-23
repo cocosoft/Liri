@@ -30,7 +30,7 @@
  * （同形态：开关门控 + 单例 + 失败不阻断主流程）。
  */
 import { fileURLToPath } from 'node:url';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import {
   ToolSidecarSupervisor,

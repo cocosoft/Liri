@@ -37,8 +37,8 @@ import { truncateMemoryContent } from '@modules/memory';
 import { getGitInfo } from '@modules/context';
 import { readProjectFiles } from '@modules/context';
 import { basename, join } from 'path';
-import { resolveProjectRoot } from '@modules/core';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveProjectRoot } from '@openliri/kernel';
+import { resolveDataDir } from '@openliri/kernel/paths';
 // T-②06：经验自动演化覆盖层（受管文件；空 ⇒ 该段不注入）
 import { readPromptEvolutionOverlay } from '@modules/utils/promptEvolution';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';

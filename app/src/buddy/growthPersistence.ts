@@ -8,7 +8,7 @@
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('buddy:growthPersistence');
 

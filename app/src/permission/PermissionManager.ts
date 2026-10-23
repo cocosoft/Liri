@@ -34,9 +34,9 @@ import {
 } from './types/PermissionRule';
 import { logSecurityAuditEvent, truncateCommand } from '@modules/security';
 // 多租户 P0 阶段 1：请求级角色优先、缺失回退进程级（纯函数，零依赖）
-import { resolveEffectiveRole } from '@modules/core/identity/principal.js';
+import { resolveEffectiveRole } from '@openliri/kernel/identity/principal.js';
 // 语义护栏「便宜版」（2026-10-21）：规则化意图-动作偏离检查（纯函数）
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { detectIntentActionDeviation } from '@modules/utils/toolContract/intentActionDeviation';
 // PR-3a（2026-10-23）：沙箱上下文信号（执行入口注入，审批卡留证用）
 import type { SandboxExecutionSignal } from '@modules/utils/toolContract/Tool';

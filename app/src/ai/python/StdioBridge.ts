@@ -11,7 +11,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import { JsonRpcBridge } from './JsonRpcBridge';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@openliri/kernel/paths';
 
 /** 解析 vision_worker.py 路径（兼容开发与编译两种模式） */
 function resolveVisionWorkerScript(): string {

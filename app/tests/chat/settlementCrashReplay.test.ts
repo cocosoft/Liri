@@ -22,7 +22,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import {
   CLAIM_STALE_MS,
   SETTLEMENT_OUTBOX_TABLE,

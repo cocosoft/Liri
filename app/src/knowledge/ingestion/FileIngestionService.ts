@@ -28,7 +28,7 @@ import {
 } from './extractors/TextExtractor';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 import { configManager } from '@modules/config';
 
 const logger = getLogger('knowledge:ingestion:fileIngestionService');

@@ -58,7 +58,7 @@ import { compactionLockStore } from './CompactionLockStore';
 import { evaluateUsdWaterlineShadow } from './usdWaterlineShadow';
 // 2026-10-21（外部建议 §三）：预算低水位 × Schema 熵 ⇒ 压缩升级（纯判定；默认关）
 import { shouldEscalateCompaction } from './compactionEscalation';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import {
   getLastSchemaEntropyPercent,
   SCHEMA_ENTROPY_PERCENT_THRESHOLD,

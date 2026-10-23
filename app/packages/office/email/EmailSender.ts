@@ -9,7 +9,7 @@ import type { EmailSendArgs, EmailSendResult } from '@modules/mail/types';
 import { EmailConfigService } from './EmailConfigService';
 import type { EmailAccount } from '@modules/mail/types';
 import { resolvePlainPassword } from './crypto';
-import { resolveAttachmentsDir } from '@modules/core';
+import { resolveAttachmentsDir } from '@openliri/kernel';
 
 const logger = new Logger({
   module: 'mail:email',

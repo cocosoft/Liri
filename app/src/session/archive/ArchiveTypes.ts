@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { resolveDataDir } from '@modules/core';
+import { resolveDataDir } from '@openliri/kernel';
 
 export type ArchiveTrigger = 'manual' | 'auto_idle' | 'auto_size' | 'auto_age';
 

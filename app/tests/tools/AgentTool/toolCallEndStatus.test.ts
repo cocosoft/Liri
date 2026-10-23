@@ -13,7 +13,7 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import type { AIProvider, ChatResponse } from '@modules/ai';
 import { AgentEventType } from '../../../src/agent/events/types';
-import { globalEventBus } from '@modules/core/events/EventBus.js';
+import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 import { resetAgentRunLedger } from '../../../src/tools/AgentTool/AgentRunLedger';
 import { SubAgentEngine } from '../../../src/tools/AgentTool/SubAgentEngine';
 

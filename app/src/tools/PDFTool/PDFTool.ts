@@ -564,7 +564,7 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
           );
 
           // 写入输出目录（~/.pyapp/output/）
-          const { resolveOutputDir } = await import('@modules/core');
+          const { resolveOutputDir } = await import('@openliri/kernel');
           const outputDir = resolveOutputDir();
           if (!existsSync(outputDir)) {
             mkdirSync(outputDir, { recursive: true });

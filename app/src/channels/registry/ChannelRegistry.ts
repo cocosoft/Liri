@@ -12,10 +12,10 @@
  */
 
 import { EventEmitter } from 'events';
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath } from '@openliri/kernel';
 // 多租户 P3：通道配置/凭据按归属（租户）映射（本地身份 ⇒ 空键，零变更）
-import { currentOwnerKey } from '@modules/core/identity/requestScope';
+import { currentOwnerKey } from '@openliri/kernel/identity/requestScope';
 import type {
   ChannelCapabilities,
   ChannelMeta,
@@ -28,7 +28,7 @@ import { handleError } from '@modules/error';
 // **D-157 即已下沉 core**（`core/DependencyRegistry.ts`，`context/` 仅为转出层）⇒ 原
 // `@modules/context`（app 层）取用属倒挂。改**相对直连 core 模块根**
 // （同 D-157 先例 `permission/intercept/PermissionInterceptor.ts:40`；`core` 根文件不触发 R03-002）。
-import { dependencyRegistry } from '@modules/core/DependencyRegistry.js';
+import { dependencyRegistry } from '@openliri/kernel/DependencyRegistry.js';
 // B-4（2026-10-18）：凭据来源改为**显式注入**（默认实现见 `defaultSecretResolver`）。
 // 静态 import 合法：`ChannelSecretStore` 不反向 import 本文件（它经 `initRegistry()` 取注册表）。
 import { ChannelSecretStore } from '../secrets/ChannelSecretStore';

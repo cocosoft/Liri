@@ -21,8 +21,8 @@ import {
   DEFAULT_MODEL_PRICING,
   projectRegistryPricing,
   resolveTimeBasedPricing,
-} from '@modules/core/pricing';
-import type { ModelPricing } from '@modules/core/pricing';
+} from '@openliri/kernel/pricing';
+import type { ModelPricing } from '@openliri/kernel/pricing';
 
 const PRICING: ModelPricing = {
   inputPricePerMillion: 3,

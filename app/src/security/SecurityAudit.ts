@@ -164,7 +164,7 @@ export const DEFAULT_AUDIT_LOG_CONFIG: SecurityAuditLogConfig = {
   // BUG15 修复：使用 paths.ts 集中管理路径
   get logFilePath() {
     try {
-      const { resolveSecurityDir } = require('@modules/core/paths');
+      const { resolveSecurityDir } = require('@openliri/kernel/paths');
       return join(resolveSecurityDir(), 'security-audit.log');
     } catch {
       return join(homedir(), '.trae', 'security-audit.log');

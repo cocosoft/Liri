@@ -35,9 +35,9 @@ import {
 } from './loop-config.js';
 // LRO-17：进入 `locked` 时发一次 ALERT，经既有 AlertBridge（订阅 `alert:triggered`）路由，
 // 避免长程任务被日限额**静默**腰斩。
-import { globalEventBus } from '@modules/core/events/EventBus.js';
+import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 // 债四 D1/S3（2026-10-15）：USD 轨是否启用决定**主口径**（金额 vs Token）⇒ 需读功能开关。
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 // D-k（2026-10-11）：快照形状/格式化取自**叶子模块**（零依赖 ⇒ 不构成与闸门的循环导入）。
 import { formatBudget } from './dailyBudgetSnapshot.js';
 import type { BudgetSnapshot, BudgetUnit } from './dailyBudgetSnapshot.js';
@@ -53,7 +53,7 @@ import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
+} from '@openliri/kernel/identity/requestScope.js';
 // 预算档位：**单一事实源** = `dailyBudgetSnapshot.ts`（状态机方案 阶段 1.3 取证去重，消除双事实源）
 import type { BudgetMode } from './dailyBudgetSnapshot.js';
 // 债四「换算接线」（2026-10-13）：单轮用量 + 本轮模型 ⇒ 金额（USD）。

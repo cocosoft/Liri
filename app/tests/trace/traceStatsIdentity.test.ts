@@ -19,8 +19,8 @@ import { StatsEngine } from '../../src/trace-recording/engine/StatsEngine.js';
 import { TraceEngine } from '../../src/trace-recording/engine/TraceEngine.js';
 import { FetchInterceptor } from '../../src/trace-recording/interceptor/FetchInterceptor.js';
 import type { TraceRecord } from '../../src/trace-recording/types.js';
-import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
-import type { Principal } from '@modules/core/identity/principal.js';
+import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
+import type { Principal } from '@openliri/kernel/identity/principal.js';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const ALICE_KEY = 'acme:alice';

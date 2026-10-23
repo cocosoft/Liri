@@ -3,9 +3,9 @@
  * 存储 AI 对话中创建的日程元数据，用于日历面板中的"AI 提取"来源展示
  */
 
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core';
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath } from '@openliri/kernel';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 const logger = getLogger('calendar:aiScheduleIndex');
 
 const AI_SCHEDULE_SCHEMA = `

@@ -7,9 +7,9 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 // C1（2026-09-30 D-125，`R00-003` P6/G4）：知识运维改经 core SPI 端口（infra → core 合法）
-import { resolveKnowledge } from '@modules/core/spi';
+import { resolveKnowledge } from '@openliri/kernel/spi';
 
 const logger = getLogger('chronos:knowledge');
 

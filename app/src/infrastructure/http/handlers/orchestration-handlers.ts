@@ -27,10 +27,10 @@ import { resolveWorkspacePath } from './workspaces-handlers';
 import type { OrchestrationSnapshot } from '@modules/types/orchestrationSnapshot';
 import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 import { AgentEventType } from '@modules/types/agentEvents';
-import { globalEventBus } from '@modules/core/events/EventBus.js';
-import type { EventSubscription } from '@modules/core/events/EventBus.js';
+import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
+import type { EventSubscription } from '@openliri/kernel/events/EventBus.js';
 import { getOrchestrationHistoryAdapter } from './OrchestrationHistoryAdapter.js';
-import { LOCAL_SERVICE_HOST } from '@modules/core';
+import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 const logger = getLogger('http:orchestration');
 

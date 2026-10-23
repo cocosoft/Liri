@@ -6,7 +6,7 @@
  * 依赖方向：本模块**零依赖宿主** ⇒ 无循环；公开类型由宿主 **re-export** 保持公开面。
  */
 
-import type { PdcaPhase } from '@modules/core';
+import type { PdcaPhase } from '@openliri/kernel';
 import type { TaskType } from '@modules/ai';
 import type { Plan, PlanStep, PlanProgress } from '../TaskOrchestrator';
 import type { LifecycleEvent } from '../LifecycleTracker';

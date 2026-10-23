@@ -26,10 +26,10 @@
  * 与 RecordStore 同模式（SimpleMutex 防 WAL 冲突），字段形态不同故独立。
  */
 
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath } from '@modules/core';
-import { SimpleMutex } from '@modules/core';
+import { resolveDbPath } from '@openliri/kernel';
+import { SimpleMutex } from '@openliri/kernel';
 import type { RuleRecord, RuleKind, ConstraintStrength } from './types';
 
 const logger = getLogger('knowledge:rule:store');

@@ -10,7 +10,7 @@
 
 import { z } from 'zod';
 import { getLogger } from '@modules/monitoring';
-import { WILDCARD_BIND_HOST } from '@modules/core';
+import { WILDCARD_BIND_HOST } from '@openliri/kernel';
 import {
   loadUserSettings,
   saveUserSettings,

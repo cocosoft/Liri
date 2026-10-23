@@ -25,7 +25,7 @@ import {
 } from '../handler-utils';
 // C1（2026-09-30 D-104，`tasks` 域 P4）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { REQUEST_URL_PARSE_BASE } from '@modules/core';
+import { REQUEST_URL_PARSE_BASE } from '@openliri/kernel';
 
 /** 解析并校验创建目标的请求体（返回 null 表示已写出错误响应） */
 function parseCreateBody(

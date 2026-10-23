@@ -22,7 +22,7 @@ import {
   alignChecksToCriteria,
   renderCriteriaSkeleton,
   type SuccessCriteria,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 import { recordVerifierResult } from './taor/verifierMetrics.js';
 

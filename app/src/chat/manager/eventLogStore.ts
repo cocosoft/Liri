@@ -28,13 +28,16 @@ import {
   type SessionSummaryRecord,
 } from '@modules/session';
 import type { LiriEvent } from '@modules/session/types/events';
-import { resolveWorktreeHash, resolveScopedDataDir } from '@modules/core/paths';
+import {
+  resolveWorktreeHash,
+  resolveScopedDataDir,
+} from '@openliri/kernel/paths';
 // 多租户 P1：事件日志根随身份分区（本地身份零变更）
 import {
   getRequestPrincipal,
   getRequestPrincipalKey,
   isLocalPrincipal,
-} from '@modules/core/identity/requestScope.js';
+} from '@openliri/kernel/identity/requestScope.js';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

@@ -36,13 +36,13 @@ import {
   resolveDownloadsDir,
   resolveAttachmentsDir,
   resolvePyappHome,
-} from '@modules/core';
-import { resolveSandbox } from '@modules/core/spi';
+} from '@openliri/kernel';
+import { resolveSandbox } from '@openliri/kernel/spi';
 // 2026-10-01 D-200（子批 C）：原**静态**导入 `@modules/sandbox`（app 层）两个符号
 // （值 `globalWorkspaceManager` + 枚举 `SandboxPermission`）⇒ `infrastructure -> app` 倒挂。
 // 枚举改**相对直连 core 叶子**（同 D-186 四例）；值改经 **core SPI 端口**（`ISandboxPort`，
 // 服务层 → core 为下行，合法）。
-import type { SandboxPermission } from '@modules/core/sandboxPermission.js';
+import type { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
 
 const logger = getLogger('http:handlerUtils');
 
@@ -156,7 +156,7 @@ export function checkFilePathPermission(
   ];
 
   const normalizedPath = path.resolve(filePath);
-  const { isPathWithin } = require('@modules/core/paths');
+  const { isPathWithin } = require('@openliri/kernel/paths');
   const isAllowed = allowedDirs.some((dir) => {
     return isPathWithin(path.resolve(dir), normalizedPath);
   });

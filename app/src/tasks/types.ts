@@ -43,7 +43,7 @@ export enum TaskType {
 // 该子路径为**零依赖叶子**且已登记门禁 `canonicalEntryKeys`（同 `core/paths`、`core/spi`）。
 // 注：须"先 import 再 export"—— 纯 `export { X } from '…'` 只转出、**不引入本文件作用域**，
 // 而本文件后续（`TaskState.status` 等 4 处）仍要引用 `TaskStatus`。
-import { TaskStatus, isTerminalTaskStatus } from '@modules/core/taskStatus';
+import { TaskStatus, isTerminalTaskStatus } from '@openliri/kernel/taskStatus';
 export { TaskStatus, isTerminalTaskStatus };
 
 export interface TaskState {

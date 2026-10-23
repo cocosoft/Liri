@@ -237,7 +237,7 @@ export async function handleSystemSkillFileContent(
     const { readFile } = await import('fs/promises');
     const { existsSync } = await import('fs');
     const { resolveProjectRoot, resolvePyappHome } =
-      await import('@modules/core/paths');
+      await import('@openliri/kernel/paths');
     const pathMod = await import('path');
 
     const candidateDirs = [

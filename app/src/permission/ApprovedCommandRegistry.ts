@@ -35,12 +35,12 @@
  */
 import { createHash } from 'crypto';
 import { getLogger } from '@modules/monitoring';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 // 多租户 P3：放行记录带归属键，判定时 fail-closed（远端身份不得复用本机/他人记录）
 import {
   canAccessOwnerKey,
   currentOwnerKey,
-} from '@modules/core/identity/requestScope';
+} from '@openliri/kernel/identity/requestScope';
 const logger = getLogger('permission:approvedCommands');
 
 /** 批准记录默认 TTL（毫秒）— P0-1: 60s → 5min，匹配"批准→LLM 续跑"真实耗时（实测 75–131s） */

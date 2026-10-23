@@ -29,15 +29,15 @@
  * 连接不泄漏：单例持一个连接，`close()` 显式释放。
  */
 
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveScopedDbPath } from '@modules/core/paths';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveScopedDbPath } from '@openliri/kernel/paths';
 // 多租户 P1（2026-10-21）：结算台账按身份分实例（本地身份零变更）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 // B4-2（2026-09-23）：恢复通路的相位标签（`yield:*`）—— 台账认领/状态写是恢复期的
 // 两个真实阻塞点（SQLite 同步写），包相位后可由 `loopProbe` 逐条归因。
@@ -117,7 +117,7 @@ export class SettlementOutbox {
 
   private async doInit(): Promise<void> {
     const dbPath =
-      this.dbPath ?? (await import('@modules/core')).resolveDbPath();
+      this.dbPath ?? (await import('@openliri/kernel')).resolveDbPath();
     this.db = await new Promise<Database>((resolve, reject) => {
       const db = new Database(dbPath, (err: Error | null) =>
         err ? reject(err) : resolve(db)

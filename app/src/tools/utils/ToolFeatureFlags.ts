@@ -20,7 +20,7 @@
  * **`TOOL_FLAG_KEYS`**（`ENABLE_*` 开关键名，非工具名）⇒ 此处同步。
  */
 
-import { getToolFlag, TOOL_FLAG_KEYS } from '@modules/core';
+import { getToolFlag, TOOL_FLAG_KEYS } from '@openliri/kernel';
 
 export interface ToolFeatureFlag {
   name: string;

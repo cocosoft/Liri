@@ -23,7 +23,7 @@ import {
 } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
-import { DEFAULT_OLLAMA_ENDPOINT } from '@modules/core';
+import { DEFAULT_OLLAMA_ENDPOINT } from '@openliri/kernel';
 import { randomIdSuffix } from '../../utils/common';
 import { OllamaTransport } from '../transports/OllamaTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';

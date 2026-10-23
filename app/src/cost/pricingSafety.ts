@@ -11,7 +11,7 @@
 // 2026-09-30 下沉 core（A1 分层倒挂收口）：下沉后的 `calculateCost` 需要这两个安全函数，
 // 故随之下沉 `app/src/core/pricing.ts`；此处**原样转出**，导出名与签名逐字不变
 // （`app/tests/cost/calculate.test.ts` 直接引用本文件 ⇒ 测试零改动）。
-export { safeTokens, safePerTokenRate } from '@modules/core/pricing.js';
+export { safeTokens, safePerTokenRate } from '@openliri/kernel/pricing.js';
 
 /**
  * 安全模型名：剥离控制字符，截断过长的名称

@@ -5,7 +5,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { resolveLogsDir } from '@modules/core';
+import { resolveLogsDir } from '@openliri/kernel';
 // C1（2026-10-09）：慢操作 id 熵源改用 crypto
 import { randomIdSuffix } from '../utils/common';
 import { configManager } from '@modules/config';

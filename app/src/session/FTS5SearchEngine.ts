@@ -469,7 +469,10 @@ export class FTS5SearchEngine {
    * 防止搜索结果暴露受限目录的文件路径
    */
   private validateDocumentPaths(doc: FTSDocument): void {
-    const { isPathWithin, resolvePyappHome } = require('@modules/core/paths');
+    const {
+      isPathWithin,
+      resolvePyappHome,
+    } = require('@openliri/kernel/paths');
     const allowedRoots = [resolvePyappHome()];
 
     // 检查 metadata 中常见的路径字段

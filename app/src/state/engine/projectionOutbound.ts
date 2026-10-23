@@ -20,7 +20,7 @@ import {
   globalEventBus,
   SystemEvents,
   type EventSubscription,
-} from '@modules/core/events/EventBus.js';
+} from '@openliri/kernel/events/EventBus.js';
 import type { StateProjectionBroadcast } from './projectionBroker.js';
 import { getLogger } from '@modules/monitoring';
 

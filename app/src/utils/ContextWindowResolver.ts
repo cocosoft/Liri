@@ -10,8 +10,8 @@
  * 说明：context_window 为模型注册数据（DB model_registry），代码不维护硬编码模型名表。
  */
 import { getLogger } from '@modules/monitoring';
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveScopedDbPath } from '@modules/core';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveScopedDbPath } from '@openliri/kernel';
 // 2026-10-01 B14b（甲′）：原静态导入 app 层 `@modules/ai` 的 ModelRegistry（同步路径读取）
 // ⇒ 改为本文件自持的 **infra 级缓存**，由 `ModelRegistry` 在装载/刷新模型时**同步推入**
 // （DB 仍为唯一事实来源）。本站是该文件唯一的 app 层耦合点，解除后本文件 app-free，可落 infra。

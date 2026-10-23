@@ -13,8 +13,8 @@ import {
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
-import { SandboxPermission } from '@modules/core/sandboxPermission.js';
-import { LOCAL_SERVICE_HOST } from '@modules/core';
+import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
+import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 /** v1.3: 后端 MemoryType → 前端类型名映射 */
 const MEMORY_TYPE_TO_FRONTEND: Record<string, string> = {
@@ -644,7 +644,7 @@ export async function handleFileOpen(
 
     // 安全校验：路径必须在 pyappHome 范围内
     const { isPathWithin, resolvePyappHome } =
-      await import('@modules/core/paths');
+      await import('@openliri/kernel/paths');
     const home = resolvePyappHome();
     if (!isPathWithin(home, filePath)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
@@ -733,7 +733,7 @@ export async function handleFileRead(
 
     // 安全校验：路径必须在 pyappHome 范围内
     const { isPathWithin, resolvePyappHome } =
-      await import('@modules/core/paths');
+      await import('@openliri/kernel/paths');
     const home = resolvePyappHome();
     if (!isPathWithin(home, filePath)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
@@ -924,7 +924,7 @@ export async function handleFilePaths(
     resolveDownloadsDir,
     resolveDataDir,
     resolveDocsDir,
-  } = await import('@modules/core/paths');
+  } = await import('@openliri/kernel/paths');
   const projectRoot = resolveProjectRoot();
   const basePaths = {
     projectRoot,
@@ -1044,7 +1044,7 @@ export async function handleFileStream(
 
     // 安全校验
     const { isPathWithin, resolvePyappHome } =
-      await import('@modules/core/paths');
+      await import('@openliri/kernel/paths');
     const home = resolvePyappHome();
     if (!isPathWithin(home, filePath)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });

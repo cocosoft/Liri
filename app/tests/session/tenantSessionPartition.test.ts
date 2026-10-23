@@ -12,9 +12,9 @@ import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import type { Principal } from '@modules/core/identity/principal';
-import { runWithPrincipal } from '@modules/core/identity/requestScope';
-import { resolveWorktreeHash } from '@modules/core/paths';
+import type { Principal } from '@openliri/kernel/identity/principal';
+import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
+import { resolveWorktreeHash } from '@openliri/kernel/paths';
 import { SessionGateway } from '../../src/session/SessionGateway';
 
 const ALICE: Principal = {

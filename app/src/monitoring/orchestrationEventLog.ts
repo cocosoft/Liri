@@ -22,14 +22,14 @@ import { appendFile, mkdir, rename, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { configManager } from '@modules/config';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 
 import {
   globalEventBus,
   type EventSubscription,
-} from '@modules/core/events/EventBus';
+} from '@openliri/kernel/events/EventBus';
 
 const logger = getLogger('monitoring:orchestration-event-log');
 

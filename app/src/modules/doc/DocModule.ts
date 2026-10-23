@@ -3,8 +3,8 @@
  * 负责模块生命周期管理、Feature Flag 路由、MCP 集成协调
  */
 
-import { getLogger } from '@modules/core/loggerFacade.js';
-import { feature, resolveOutputDir } from '@modules/core';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
+import { feature, resolveOutputDir } from '@openliri/kernel';
 import { globalToolManager } from '@modules/tools';
 import { join } from 'path';
 import { readdirSync, statSync } from 'fs';

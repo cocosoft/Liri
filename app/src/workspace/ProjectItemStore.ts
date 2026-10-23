@@ -29,8 +29,8 @@
  * 参照 TaskStore 模式：延迟初始化 + CREATE TABLE IF NOT EXISTS
  */
 
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveDataDir } from '@modules/core/paths';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDataDir } from '@openliri/kernel/paths';
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync } from 'fs';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
@@ -50,7 +50,7 @@ const logger = getLogger('workspace:ProjectItemStore');
 export type ItemKind = 'context' | 'artifact';
 
 /** PDCA 阶段（意图族，架构归一 B1-B6：单一真源 re-export） */
-import { type PdcaIntent as PdcaPhase } from '@modules/core';
+import { type PdcaIntent as PdcaPhase } from '@openliri/kernel';
 export type { PdcaPhase };
 
 /** 项目条目统一模型 */

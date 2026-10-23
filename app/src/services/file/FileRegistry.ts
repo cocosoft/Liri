@@ -20,19 +20,19 @@
  *   });
  */
 
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, unlink, stat, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { SimpleMutex } from '@modules/core';
+import { SimpleMutex } from '@openliri/kernel';
 import {
   resolveDbPath,
   resolveInboundDir,
   resolveMediaDir,
-} from '@modules/core';
+} from '@openliri/kernel';
 import {
   getCreateTableSqlList,
   FILES_TABLE,

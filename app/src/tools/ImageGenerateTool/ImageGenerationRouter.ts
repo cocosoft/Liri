@@ -7,7 +7,7 @@
 
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 // 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
-import { UUID_RE } from '@modules/core';
+import { UUID_RE } from '@openliri/kernel';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

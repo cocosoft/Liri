@@ -16,8 +16,8 @@ import { AnalyticsEventQueue } from './AnalyticsEventQueue';
 import { calculateTotalCost } from '../cost/calculateCost.js';
 import { getModelPricing } from '../cost/ModelPricing.js';
 import type { ModelPricing } from '../cost/ModelPricing.js';
-import { globalEventBus, SystemEvents } from '@modules/core/events/EventBus';
-import type { CostRecordedEvent } from '@modules/core/events/EventBus';
+import { globalEventBus, SystemEvents } from '@openliri/kernel/events/EventBus';
+import type { CostRecordedEvent } from '@openliri/kernel/events/EventBus';
 import { createLogger, LogLevel } from '../monitoring/logs/Logger.js';
 
 const logger = createLogger({

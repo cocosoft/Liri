@@ -37,7 +37,7 @@
 import {
   dependencyRegistry,
   DepRegistry,
-} from '@modules/core/DependencyRegistry.js';
+} from '@openliri/kernel/DependencyRegistry.js';
 import { createDenyDecision } from '../PermissionResult.js';
 import { getLogger } from '@modules/monitoring';
 

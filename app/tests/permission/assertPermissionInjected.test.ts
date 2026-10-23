@@ -9,7 +9,7 @@
  */
 import { afterEach, describe, expect, it } from 'bun:test';
 import { assertPermissionManagerInjected } from '../../src/permission/assertPermissionInjected';
-import { AppError } from '@modules/core/errors.js';
+import { AppError } from '@openliri/kernel/errors.js';
 
 const prevNodeEnv = process.env.NODE_ENV;
 afterEach(() => {

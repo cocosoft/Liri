@@ -4,7 +4,7 @@
 import type {
   KnowledgeRoute,
   IKnowledgeSearch,
-} from '@modules/core/knowledge-types';
+} from '@openliri/kernel/knowledge-types';
 import type { Memory } from '../types/Memory';
 import { getLogger } from '@modules/monitoring';
 import { reciprocalRankFusion } from '@modules/utils/rrf';

@@ -926,7 +926,7 @@ export class DomainSnapshotOps {
       createCronJobStore: async () => {
         const { CronJobStore } =
           await import('@modules/tasks/cron/CronJobStore');
-        const { resolveDbPath } = await import('@modules/core/paths');
+        const { resolveDbPath } = await import('@openliri/kernel/paths');
         const store = new CronJobStore(resolveDbPath());
         return {
           init: () => store.init(),
@@ -952,7 +952,7 @@ export class DomainSnapshotOps {
       },
       createCronRunLog: async () => {
         const { CronRunLog } = await import('@modules/tasks/cron/CronRunLog');
-        const { resolveDbPath } = await import('@modules/core/paths');
+        const { resolveDbPath } = await import('@openliri/kernel/paths');
         const runLog = new CronRunLog(resolveDbPath());
         return {
           init: () => runLog.init(),
@@ -1398,7 +1398,7 @@ export class DomainSnapshotOps {
 
   async getWorkspaceOpsPort(): Promise<WorkspaceOpsPort> {
     /** `@modules/core/paths` 取用（原调用点由 handler 自行 `resolveDataDir()`） */
-    const paths = async () => import('@modules/core/paths');
+    const paths = async () => import('@openliri/kernel/paths');
 
     return {
       listProjectItemArtifacts: async (projectId: string) => {

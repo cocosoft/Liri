@@ -14,7 +14,7 @@
 
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { resolveOutputDir } from '@modules/core/paths';
+import { resolveOutputDir } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';

@@ -6,8 +6,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath } from '@modules/core/paths';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath } from '@openliri/kernel/paths';
 import { randomUUID } from 'crypto';
 import { broadcastEvent } from '@modules/infrastructure';
 

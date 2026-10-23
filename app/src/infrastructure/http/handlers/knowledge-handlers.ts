@@ -11,7 +11,7 @@ import {
   notifyFileChanged,
 } from './handler-utils';
 // 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
-import { SandboxPermission } from '@modules/core/sandboxPermission.js';
+import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 import { handleError } from '@modules/error';
@@ -19,7 +19,7 @@ import {
   globalEventBus,
   LOCAL_REQUEST_BASE_URL,
   LOCAL_SERVICE_HOST,
-} from '@modules/core';
+} from '@openliri/kernel';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // C1（2026-09-30 D-97，`knowledge` 域 P3）：类型位改为服务层端口类型
 // （原文由 docs 域提供；此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
@@ -1411,7 +1411,7 @@ export async function handleExportToNotebook(
 
     const { readFile, writeFile, mkdir } = await import('fs/promises');
     const { join } = await import('path');
-    const { resolveOutputDir } = await import('@modules/core/paths');
+    const { resolveOutputDir } = await import('@openliri/kernel/paths');
 
     const kops = await getCoreAPI().getKnowledgeOpsPort();
     const sourcePath = join(await kops.getDefaultKnowledgeRoot(), docPath);

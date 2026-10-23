@@ -14,15 +14,15 @@
  * 依赖 setInterval + unref：不阻止进程退出；周期检查失败仅告警，下周期重试。
  */
 
-import { Database } from '@modules/core/external/sqlite3';
-import { resolveDbPath, resolveScopedDbPath } from '@modules/core';
+import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel';
 // 多租户 P1（2026-10-21）：拓扑指纹按身份分连接（后台轮询 ⇒ 本地共享库）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
   principalKeyOf,
-} from '@modules/core/identity/requestScope.js';
-import { registerScopedResource } from '@modules/core/identity/scopedResources.js';
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

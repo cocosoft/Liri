@@ -27,8 +27,8 @@
 
 import type { Duplex } from 'stream';
 import * as net from 'net';
-import { resolveLogger, type ILogger } from '@modules/core';
-import { handleError } from '@modules/core/errorHandler.js';
+import { resolveLogger, type ILogger } from '@openliri/kernel';
+import { handleError } from '@openliri/kernel/errorHandler.js';
 import {
   OpCode,
   DEFAULT_MAX_MESSAGE_SIZE,

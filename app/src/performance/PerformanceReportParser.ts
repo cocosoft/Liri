@@ -9,7 +9,7 @@
  */
 
 import { PhaseSummaryEntry } from './StartupProfiler';
-import { DeferredLoadState } from '@modules/core/LazyModuleStrategy';
+import { DeferredLoadState } from '@openliri/kernel/LazyModuleStrategy';
 import { PerformanceDashboard, SnapshotComparison } from './PerformanceMonitor';
 
 export interface StartupReport {

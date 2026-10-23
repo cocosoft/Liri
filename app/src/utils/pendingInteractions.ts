@@ -14,8 +14,8 @@ import { PENDING_INTERACTION_TTL_MS } from '@modules/constants';
 import {
   canAccessOwnerKey,
   currentOwnerKey,
-} from '@modules/core/identity/requestScope';
-import type { Principal } from '@modules/core/identity/principal';
+} from '@openliri/kernel/identity/requestScope';
+import type { Principal } from '@openliri/kernel/identity/principal';
 
 /** 待处理交互条目（会话隔离；宿主与各执行路径共享同一 Map 实例） */
 export interface PendingInteractionEntry {

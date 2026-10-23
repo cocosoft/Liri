@@ -18,7 +18,7 @@ import { handleError } from '@modules/error';
 import {
   principalFromKey,
   runWithPrincipal,
-} from '@modules/core/identity/requestScope';
+} from '@openliri/kernel/identity/requestScope';
 import type { AlwaysOnQuota } from './AlwaysOnQuota';
 // 2026-10-08（架构治理 P1 续，用户裁定「一并处理 watchdog 和 cmdBridge」）：
 // 删除 `cmdBridge` / `watchdog` 两个**从未注入**的可选依赖（取证见下方 tryRun 注释）。

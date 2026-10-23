@@ -4,8 +4,11 @@
  * 将阶段计时委托给 performance/StartupProfiler。
  * 保留 SprintPerformanceChecker 的 SLO 红线检查功能。
  */
-import { SprintPerformanceChecker, type PerformancePhase } from '@modules/core';
-import { DEFAULT_REDLINES } from '@modules/core';
+import {
+  SprintPerformanceChecker,
+  type PerformancePhase,
+} from '@openliri/kernel';
+import { DEFAULT_REDLINES } from '@openliri/kernel';
 import {
   profilePhaseStart,
   profilePhaseEnd,

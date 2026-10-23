@@ -11,7 +11,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getLogger } from '@modules/monitoring';
-import { resolveOutputDir } from '@modules/core/paths';
+import { resolveOutputDir } from '@openliri/kernel/paths';
 import { handleError } from '@modules/error/handleError';
 // C1（2026-10-09）：temp file id 熵源改用 crypto
 import { randomIdSuffix } from '../../utils/common';

@@ -19,7 +19,7 @@ import type http from 'http';
 // （`getCoreAPI().getToolsPort()`，端口于 D-199 步骤 1 就绪）。
 // service 侧端口取用入口（同 D-93 先例）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { REQUEST_URL_PARSE_BASE } from '@modules/core';
+import { REQUEST_URL_PARSE_BASE } from '@openliri/kernel';
 import type { HandlerCtx } from './handler-utils';
 
 /**

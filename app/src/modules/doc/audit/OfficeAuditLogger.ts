@@ -6,8 +6,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome } from '@modules/core';
-import { getLogger } from '@modules/core/loggerFacade.js';
+import { resolvePyappHome } from '@openliri/kernel';
+import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import type { AuditEntry } from '../types';
 
 const logger = getLogger('doc:audit');

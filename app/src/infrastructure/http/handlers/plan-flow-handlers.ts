@@ -23,7 +23,7 @@ import type http from 'http';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 // C1（2026-09-30 D-102，`tasks` 域 P3）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
+import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 
 // ========== PlanFlow Handlers ==========
 

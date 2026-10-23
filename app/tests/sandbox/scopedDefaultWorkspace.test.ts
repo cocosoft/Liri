@@ -21,12 +21,12 @@ import {
   LOCAL_DEFAULT_WORKSPACE_ID,
 } from '../../src/sandbox/scopedDefaultWorkspace.js';
 import { globalWorkspaceManager } from '../../src/sandbox/WorkspaceManager.js';
-import { SandboxPermission } from '@modules/core/sandboxPermission.js';
-import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
+import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
+import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import {
   LOCAL_PRINCIPAL,
   type Principal,
-} from '@modules/core/identity/principal.js';
+} from '@openliri/kernel/identity/principal.js';
 
 const ALICE: Principal = {
   tenantId: 'scoped-ws-a',

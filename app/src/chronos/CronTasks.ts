@@ -12,7 +12,7 @@ import {
   normalizeSchedule,
   isValidCronExpression,
 } from './cron';
-import { resolveChronosDir } from '@modules/core';
+import { resolveChronosDir } from '@openliri/kernel';
 import type { ScheduledTask } from './types';
 import type { SqliteCronStore } from './service/SqliteCronStore';
 

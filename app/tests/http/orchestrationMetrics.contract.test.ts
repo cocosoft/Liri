@@ -12,8 +12,8 @@ import type http from 'http';
 import { handleOrchestrationMetrics } from '../../src/infrastructure/http/handlers/monitoring-handlers.js';
 import { dispatchMonitorCommandRoutes } from '../../src/infrastructure/http/handlers/routes/monitor-command-routes.js';
 import type { HandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils.js';
-import { globalEventBus } from '@modules/core/events/EventBus.js';
-import { getOrchestrationMetrics } from '@modules/core/events/OrchestrationMetrics.js';
+import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
+import { getOrchestrationMetrics } from '@openliri/kernel/events/OrchestrationMetrics.js';
 import { OrchestrationEventType as E } from '@modules/types/orchestrationEvents';
 
 const ctx = {} as unknown as HandlerCtx;

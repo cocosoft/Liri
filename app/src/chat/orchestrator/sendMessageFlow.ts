@@ -76,7 +76,7 @@ import {
 
 import { calculateTotalCost } from '@modules/cost';
 import { compactionOrchestrator } from '@modules/context';
-import { resolveOutputDir } from '@modules/core/paths';
+import { resolveOutputDir } from '@openliri/kernel/paths';
 import { agentTelemetry } from '@modules/agent';
 import type { ToolAwareClient } from '@modules/ai';
 import type { ChatMessage, ToolDefinition, ParsedToolCall } from '@modules/ai';
@@ -338,7 +338,7 @@ export async function loadSharedContext(
   const { options, session } = ctx;
   if (!options?.useSharedContext) return ctx.apiMessages;
   try {
-    const { getDIContainer } = await import('@modules/core/DIContainer.js');
+    const { getDIContainer } = await import('@openliri/kernel/DIContainer.js');
     const container = getDIContainer();
     if (container.has('combinedSessionGateway')) {
       const combinedGateway = container.resolve<{ getMessages: Function }>(

@@ -8,12 +8,12 @@ import type {
   LoadResult,
   CommandLoadStatus,
 } from '@modules/commands';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 
 import { LazyCommand } from './LazyCommand.js';
-import { resolveProjectRoot } from '@modules/core';
+import { resolveProjectRoot } from '@openliri/kernel';
 
 const logger = getLogger('CommandLoader');
 

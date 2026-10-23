@@ -1258,7 +1258,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         new RegExp(`(^|[^_A-Za-z])const ${oldName}\\s*=`)
       );
       expect(consumer).toContain(
-        "import { WEBSOCKET_MAGIC_GUID } from '@modules/core';"
+        "import { WEBSOCKET_MAGIC_GUID } from '@openliri/kernel';"
       );
       expect(consumer).toContain('WEBSOCKET_MAGIC_GUID');
     }
@@ -1362,7 +1362,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).not.toMatch(/(^|[^_A-Za-z])const UUID_RE\s*=/);
       expect(src).not.toMatch(/\[0-9a-f\]\{8\}-/); // 内联正则不得回流
       expect(src).toContain('UUID_RE');
-      expect(src).toContain("from '@modules/core'");
+      expect(src).toContain("from '@openliri/kernel'");
       expect(src).toContain('UUID_RE.test('); // 用法确实落到真源
     }
   });

@@ -7,7 +7,7 @@
 import type { OAuthConfig } from './oauth-types.js';
 import type { ValidationResult } from '@modules/common/types';
 import { configManager } from '@modules/config';
-import { DEFAULT_OAUTH_LOCAL_BASE_URL } from '@modules/core';
+import { DEFAULT_OAUTH_LOCAL_BASE_URL } from '@openliri/kernel';
 import {
   OAUTH_API_BASE_URL,
   OAUTH_STAGING_API_BASE_URL,

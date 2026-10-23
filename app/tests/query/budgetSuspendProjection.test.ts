@@ -15,7 +15,7 @@ import {
   globalEventBus,
   SystemEvents,
   type EventSubscription,
-} from '@modules/core/events/EventBus.js';
+} from '@openliri/kernel/events/EventBus.js';
 import type { StateProjectionBroadcast } from '../../src/state/engine/projectionBroker.js';
 import {
   getBudgetSuspendCoordinator,

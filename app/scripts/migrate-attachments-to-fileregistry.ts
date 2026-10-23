@@ -18,7 +18,7 @@
 import { Database } from '../../packages/kernel/src/core/external/sqlite3';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { resolveDbPath } from '@modules/core/paths';
+import { resolveDbPath } from '@openliri/kernel/paths';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource } from '@modules/services/file/types';

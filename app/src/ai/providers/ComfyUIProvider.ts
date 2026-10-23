@@ -46,7 +46,7 @@ import type {
 } from './AIProvider';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { DEFAULT_COMFYUI_ENDPOINT } from '@modules/core';
+import { DEFAULT_COMFYUI_ENDPOINT } from '@openliri/kernel';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('ai:comfy-provider');

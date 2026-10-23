@@ -33,7 +33,7 @@
  */
 
 import { afterEach, describe, expect, it, spyOn } from 'bun:test';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import {
   BashTool,

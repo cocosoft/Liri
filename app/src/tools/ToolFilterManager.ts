@@ -7,7 +7,7 @@
  * 3. MCP 合并 - 合并 MCP 工具
  */
 
-import type { FeatureFlag } from '@modules/core';
+import type { FeatureFlag } from '@openliri/kernel';
 import { Tool, ToolInfo } from './types/Tool';
 import { ToolRegistry } from './ToolRegistry';
 

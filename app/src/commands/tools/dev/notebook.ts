@@ -6,7 +6,7 @@
 
 import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import { notebookManager } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';

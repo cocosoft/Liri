@@ -28,7 +28,7 @@ import {
   releaseInstanceLock,
   writeInstanceLock,
   INSTANCE_LOCK_FILE_NAME,
-} from '@modules/core/instanceLock';
+} from '@openliri/kernel/instanceLock';
 
 let tempDataDir = '';
 let originalDataDir: string | undefined;

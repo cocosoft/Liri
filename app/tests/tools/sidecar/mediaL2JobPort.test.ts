@@ -20,7 +20,7 @@ import {
 import type {
   IToolJobSuspendPort,
   ToolJobSuspendRegisterResult,
-} from '@modules/core/spi';
+} from '@openliri/kernel/spi';
 
 const MEDIA_FLAG = 'FEATURE_TOOL_SIDECAR_MEDIA';
 const JOB_FLAG = 'FEATURE_TOOL_JOB_SUSPEND';

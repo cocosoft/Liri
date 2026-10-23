@@ -15,7 +15,7 @@ import {
   statSync,
 } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 import { load, dump } from 'js-yaml';
 
 import { getLogger } from '@modules/monitoring';

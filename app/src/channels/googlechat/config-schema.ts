@@ -3,7 +3,7 @@
  * 对标 OpenClaw extensions/googlechat/src/config-schema.ts
  */
 
-import { GOOGLE_API_BASE_URL, GOOGLE_OAUTH2_BASE_URL } from '@modules/core';
+import { GOOGLE_API_BASE_URL, GOOGLE_OAUTH2_BASE_URL } from '@openliri/kernel';
 
 export interface GoogleChatConfig {
   clientEmail: string;

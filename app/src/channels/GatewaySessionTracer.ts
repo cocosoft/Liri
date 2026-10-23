@@ -10,7 +10,7 @@ import {
   SPAN_ATTRIBUTE_KEYS,
   type SessionSpanContext,
   type SessionSpanAttributes,
-} from '@modules/core/SessionSpanTracer.js';
+} from '@openliri/kernel/SessionSpanTracer.js';
 import type { ChannelId, MessageContext } from './types/IChannel';
 
 /**

@@ -26,7 +26,7 @@ import path from 'path';
 import type { EventLogStorage } from '@modules/session';
 import type { ChatSession } from '@modules/session/types/session.js';
 import { ContextTracker } from '@modules/query';
-import { resolveProjectRoot, resolvePyappHome } from '@modules/core/paths';
+import { resolveProjectRoot, resolvePyappHome } from '@openliri/kernel/paths';
 import type { ToolSchema } from '@modules/tools';
 import { buildToolDefinitions as buildToolDefinitionsFromSchemas } from '@modules/tools';
 import type { ToolDefinition } from '@modules/ai';

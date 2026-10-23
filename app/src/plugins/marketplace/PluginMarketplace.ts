@@ -5,7 +5,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
-import { resolvePluginsCacheDir } from '@modules/core';
+import { resolvePluginsCacheDir } from '@openliri/kernel';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

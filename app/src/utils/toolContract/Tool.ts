@@ -6,7 +6,7 @@ import type { ToolResult } from './ToolResult';
 import type { PermissionResult } from './PermissionResult';
 import type { ToolProgressData } from './ToolProgress';
 import type { ToolRuntimePermissionContext } from './PermissionContext';
-import type { ProtocolMessage } from '@modules/core';
+import type { ProtocolMessage } from '@openliri/kernel';
 import type { SharedToolRiskLevel } from '@shared/types';
 
 export type { ToolResult };

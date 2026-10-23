@@ -9,7 +9,7 @@ import {
   getGitContextService,
 } from './GitContextService.js';
 import * as path from 'path';
-import { resolveProjectRoot } from '@modules/core/paths';
+import { resolveProjectRoot } from '@openliri/kernel/paths';
 import {
   UserContextService,
   getUserContextService,

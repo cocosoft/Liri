@@ -9,12 +9,12 @@ import {
   resolvePyappHome,
   resolveDataDir,
   resolveProjectRoot,
-} from '@modules/core';
+} from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 // C1（2026-09-30 D-122，`R00-003` P3/G5）：插件读取改经 core SPI 端口（service → core 合法）
-import { resolvePluginSystem } from '@modules/core/spi';
+import { resolvePluginSystem } from '@openliri/kernel/spi';
 
 const logger = getLogger('services:mcp:configManager');
 import {

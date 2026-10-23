@@ -10,7 +10,7 @@ import {
 } from '../EmbeddingBase';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
-import { OPENAI_API_V1_BASE_URL } from '@modules/core';
+import { OPENAI_API_V1_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('ai:embedding:providers:OpenAIEmbeddingProvider');
 

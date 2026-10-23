@@ -15,7 +15,7 @@ import { describe, it, expect } from 'bun:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { WORKSPACE_CONFIG_DIR_NAME } from '@modules/core/paths';
+import { WORKSPACE_CONFIG_DIR_NAME } from '@openliri/kernel/paths';
 
 /** `app/`（`app/tests/workspace/` → 上两级） */
 const APP = join(import.meta.dir, '..', '..');

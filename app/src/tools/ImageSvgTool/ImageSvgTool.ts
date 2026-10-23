@@ -16,7 +16,7 @@ import { AIMessageRole } from '@modules/ai';
 import { modelManager } from '@modules/ai';
 import fs from 'fs';
 import path from 'path';
-import { resolveOutputDir, resolveDownloadsDir } from '@modules/core/paths';
+import { resolveOutputDir, resolveDownloadsDir } from '@openliri/kernel/paths';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 const logger = getLogger('tools:imageSvg');

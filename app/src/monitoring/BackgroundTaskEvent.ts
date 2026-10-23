@@ -29,7 +29,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('observability:background-task');
 

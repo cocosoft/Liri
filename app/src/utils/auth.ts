@@ -8,7 +8,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 import { randomUUID } from 'crypto';
 import { configManager } from '@modules/config';
 import { OAUTH_AUTH_BASE_URL } from '@modules/constants';

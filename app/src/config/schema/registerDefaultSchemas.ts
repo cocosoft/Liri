@@ -7,7 +7,7 @@ import {
   OPENAI_API_V1_BASE_URL,
   ANTHROPIC_API_BASE_URL,
   DEEPSEEK_API_BASE_URL,
-} from '@modules/core';
+} from '@openliri/kernel';
 
 /**
  * 注册所有默认配置项到 configSchema

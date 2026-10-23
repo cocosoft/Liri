@@ -26,7 +26,7 @@
  * A1 publishAndWait（按序 await / 计数 / 失败不中断）；A2 publish fire-and-forget；A3 once 幂等。
  */
 import { describe, it, expect } from 'bun:test';
-import { EventBusImpl } from '@modules/core/events/EventBus.js';
+import { EventBusImpl } from '@openliri/kernel/events/EventBus.js';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

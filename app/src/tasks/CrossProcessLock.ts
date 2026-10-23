@@ -24,7 +24,7 @@ import {
   statSync,
   utimesSync,
 } from 'fs';
-import { resolveDataSubDir } from '@modules/core';
+import { resolveDataSubDir } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { SafeInterval } from '@modules/utils/SafeInterval';

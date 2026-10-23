@@ -1,6 +1,6 @@
 ﻿import { mkdir, readdir, unlink, stat, readFile } from 'fs/promises';
 import { join, extname } from 'path';
-import { resolveDataSubDir } from '@modules/core';
+import { resolveDataSubDir } from '@openliri/kernel';
 import type { RecordedSession } from './SessionRecorder';
 
 export interface VCRStorageEntry {

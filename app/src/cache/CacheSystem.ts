@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import { randomBytes } from 'crypto';
-import { resolveCacheDir } from '@modules/core';
+import { resolveCacheDir } from '@openliri/kernel';
 import {
   open,
   writeFile,

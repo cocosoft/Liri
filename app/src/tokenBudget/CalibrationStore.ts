@@ -11,7 +11,7 @@
 
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir } from '@openliri/kernel/paths';
 
 const CALIBRATION_FILE = 'calibration.json';
 

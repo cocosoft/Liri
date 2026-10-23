@@ -12,7 +12,7 @@ import type {
   GatewayContentDto,
   GatewayDeliveryResultDto,
   GatewayBroadcastResultDto,
-} from '@modules/core/spi';
+} from '@openliri/kernel/spi';
 import { getDeliveryRouter } from '../DeliveryRouter.js';
 
 /** 可注入的委托面（**测试专用**：不构造真实 router ⇒ 单测离线、确定） */

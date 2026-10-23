@@ -32,9 +32,9 @@ import { existsSync } from 'fs';
 
 import { Logger, getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
-import type { EventBus } from '@modules/core';
+import type { EventBus } from '@openliri/kernel';
 import { KnowledgeDedupStrategy } from '@modules/knowledge/KnowledgeDedupStrategy';
 
 export interface KnowledgeBaseEntry {

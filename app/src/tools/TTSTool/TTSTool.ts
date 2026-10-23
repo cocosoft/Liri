@@ -11,8 +11,8 @@ import { handleError } from '@modules/error';
 import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 import voiceService from '@modules/services/voice';
-import { globalEventBus } from '@modules/core';
-import type { EventSubscription } from '@modules/core';
+import { globalEventBus } from '@openliri/kernel';
+import type { EventSubscription } from '@openliri/kernel';
 import { parse, join } from 'path';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 

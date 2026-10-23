@@ -45,7 +45,7 @@ import {
 import { basename, join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDataSubDir } from '@modules/core';
+import { resolveDataSubDir } from '@openliri/kernel';
 import {
   getAppMigrationStore,
   type AppMigrationRow,

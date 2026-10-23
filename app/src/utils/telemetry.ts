@@ -8,7 +8,7 @@ import { configManager } from '@modules/config';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@openliri/kernel';
 
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';

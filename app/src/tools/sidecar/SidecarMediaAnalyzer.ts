@@ -30,9 +30,9 @@
  * - {@link resizeViaMediaSidecar}：给 `ImageInputRouter` 的超大图缩放用 —— 经 `media.resize`
  *   执行（native `sharp` 移出主进程），**同输入同参数 ⇒ 结果等价**。
  */
-import { feature } from '@modules/core';
-import type { IToolJobSuspendPort } from '@modules/core/spi';
-import { resolveToolJobSuspend } from '@modules/core/spi';
+import { feature } from '@openliri/kernel';
+import type { IToolJobSuspendPort } from '@openliri/kernel/spi';
+import { resolveToolJobSuspend } from '@openliri/kernel/spi';
 import { getLogger } from '@modules/monitoring';
 import type { MediaAnalysisKind } from './mediaCapabilities';
 import {

@@ -24,10 +24,10 @@ import { join } from 'node:path';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveDataDir, resolveDbPath } from '@modules/core';
-import { safePathSegment } from '@modules/core/identity/storageScope.js';
+import { resolveDataDir, resolveDbPath } from '@openliri/kernel';
+import { safePathSegment } from '@openliri/kernel/identity/storageScope.js';
 // 本地身份的租户标识（永远不允许被"删除租户"清掉）—— 单一真源在 identity/principal
-import { LOCAL_TENANT_ID } from '@modules/core/identity/principal.js';
+import { LOCAL_TENANT_ID } from '@openliri/kernel/identity/principal.js';
 
 const logger = getLogger('runtime:tenantPurge');
 
@@ -167,7 +167,7 @@ export async function purgeTenant(
   // 不关 ⇒ Windows 上分区目录 `rmSync` 失败（记入 blocked）。关闭失败同样记 blocked（可重跑）。
   await runStep(report, 'scopedResources', async () => {
     const { closeScopedResourcesForTenant } =
-      await import('@modules/core/identity/scopedResources.js');
+      await import('@openliri/kernel/identity/scopedResources.js');
     const closed = await closeScopedResourcesForTenant(normalized);
     report.removed.scopedConnections = closed.closed;
     for (const failure of closed.failed) {

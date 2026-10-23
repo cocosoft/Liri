@@ -15,5 +15,5 @@ export {
   calculateCost,
   calculateTotalCost,
   roundCost,
-} from '@modules/core/pricing.js';
-export type { CostBreakdown } from '@modules/core/pricing.js';
+} from '@openliri/kernel/pricing.js';
+export type { CostBreakdown } from '@openliri/kernel/pricing.js';

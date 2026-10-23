@@ -5,7 +5,7 @@
 
 import type { SessionLifecycleEventBus } from '@modules/session';
 import type { SessionLifecycleEvent } from '@modules/session';
-import type { EventSubscription } from '@modules/core';
+import type { EventSubscription } from '@openliri/kernel';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 
 import { getLogger } from '@modules/monitoring';

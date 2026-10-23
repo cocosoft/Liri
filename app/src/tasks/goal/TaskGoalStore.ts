@@ -20,7 +20,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { Database } from '@modules/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
 // 2026-10-01 B11 前置 P1（D-223）：`TaskGoalStatus` / `TaskGoalUpdateReason` 词表已下沉
 // **类型中心** `@modules/types/goal`（core —— 二者均为纯字面量联合、零出向依赖）⇒ 解除
@@ -152,7 +152,7 @@ export class TaskGoalStore {
 
   private async doInit(): Promise<void> {
     const dbPath =
-      this.dbPath ?? (await import('@modules/core')).resolveDbPath();
+      this.dbPath ?? (await import('@openliri/kernel')).resolveDbPath();
     this.db = await new Promise<Database>((resolve, reject) => {
       const db = new Database(dbPath, (err: Error | null) =>
         err ? reject(err) : resolve(db)

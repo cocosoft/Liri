@@ -32,7 +32,7 @@ import { relative, resolve } from 'path';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { handleError } from '@modules/error';
-import type { EventBus } from '@modules/core';
+import type { EventBus } from '@openliri/kernel';
 import type { EmbeddingManager } from '@modules/ai';
 import { autoChunk } from '@modules/knowledge/semantic/chunker';
 import type { IndexEntry } from '@modules/knowledge/semantic/store';

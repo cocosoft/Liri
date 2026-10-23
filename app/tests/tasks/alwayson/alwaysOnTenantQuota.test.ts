@@ -23,7 +23,7 @@ import type { DiscoveryPlan } from '../../../src/tasks/alwayson/types';
 import {
   getRequestPrincipal,
   isLocalPrincipal,
-} from '@modules/core/identity/requestScope';
+} from '@openliri/kernel/identity/requestScope';
 
 const PLAN: DiscoveryPlan = {
   id: 'p1',

@@ -13,12 +13,12 @@ import { join } from 'path';
 import {
   LOCAL_PRINCIPAL,
   type Principal,
-} from '@modules/core/identity/principal';
+} from '@openliri/kernel/identity/principal';
 import {
   isPartitionedScope,
   safePathSegment,
   scopedDataRoot,
-} from '@modules/core/identity/storageScope';
+} from '@openliri/kernel/identity/storageScope';
 
 const BASE = join('/tmp', 'liri-data');
 const ALICE: Principal = {

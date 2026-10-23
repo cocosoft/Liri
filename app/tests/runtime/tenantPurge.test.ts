@@ -15,12 +15,12 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { Database } from '@modules/core/external/sqlite3.js';
+import { Database } from '@openliri/kernel/external/sqlite3.js';
 import {
   setUserDataDirOverride,
   resolveDataDir,
   resolveDbPath,
-} from '@modules/core/paths.js';
+} from '@openliri/kernel/paths.js';
 import { purgeTenant } from '../../src/runtime/tenantPurge.js';
 import { CronJobStore } from '../../src/tasks/cron/CronJobStore.js';
 import { SqliteTaskStore } from '../../src/tasks/db/SqliteTaskStore.js';
@@ -28,8 +28,8 @@ import { GoalMetricsService } from '../../src/tasks/db/GoalMetricsService.js';
 import { UsageStatsService } from '../../src/ai/models/UsageStatsService.js';
 import { SkillDB } from '../../src/skills/persistence/SkillDB.js';
 import { ChannelRegistry } from '../../src/channels/registry/ChannelRegistry.js';
-import { runWithPrincipal } from '@modules/core/identity/requestScope.js';
-import type { Principal } from '@modules/core/identity/principal.js';
+import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
+import type { Principal } from '@openliri/kernel/identity/principal.js';
 import {
   getApprovedCommandRegistry,
   type ApprovedCommandRegistry,

@@ -54,7 +54,7 @@ const DEFAULT_QUOTA_BYTES = 5 * 1024 * 1024 * 1024;
  */
 function getTempRoot(): string {
   try {
-    const { resolveSnapshotsDir } = require('@modules/core/paths');
+    const { resolveSnapshotsDir } = require('@openliri/kernel/paths');
     return require('path').join(resolveSnapshotsDir(), 'tmp');
   } catch {
     return join(homedir(), '.pyapp', 'tmp', 'snapshots');

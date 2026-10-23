@@ -36,7 +36,7 @@
  *  - 本模块**不** import `chat/**`（与 `budgetSuspend` 同纪律）——续跑经注入的 `resume` 端口。
  */
 
-import { feature } from '@modules/core';
+import { feature } from '@openliri/kernel';
 import {
   getBudgetSuspendCoordinator,
   isResumableChain,

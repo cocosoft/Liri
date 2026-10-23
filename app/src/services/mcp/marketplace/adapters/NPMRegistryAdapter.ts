@@ -1,7 +1,7 @@
 import * as https from 'https';
 import { getLogger } from '@modules/monitoring';
 import { buildUserAgent } from '@modules/constants';
-import { NPM_REGISTRY_URL } from '@modules/core';
+import { NPM_REGISTRY_URL } from '@openliri/kernel';
 import type {
   RegistryAdapter,
   SearchParams,

@@ -15,9 +15,9 @@
 import { getAutoDreamConfig, isAutoDreamEnabled } from './AutoDreamConfig';
 // C1（2026-10-09）：dream session id 熵源改用 crypto
 import { randomIdSuffix } from '../../utils/common';
-import { resolveKnowledgeDir, resolvePyappHome } from '@modules/core';
+import { resolveKnowledgeDir, resolvePyappHome } from '@openliri/kernel';
 // C1（2026-09-30 D-125，`R00-003` P6/G4）：知识编译改经 core SPI 端口（infra → core 合法）
-import { resolveKnowledge } from '@modules/core/spi';
+import { resolveKnowledge } from '@openliri/kernel/spi';
 import { join } from 'path';
 import {
   readLastConsolidatedAt,
@@ -35,10 +35,10 @@ import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('AutoDream');
 // D-147（2026-10-01）：任务登记改经 core SPI（`infra -> app` 倒挂收口）
-import { resolveTaskRegistry } from '@modules/core/spi';
+import { resolveTaskRegistry } from '@openliri/kernel/spi';
 // U4（2026-10-06）：会话在线质量分改经 core SPI（同上动因 —— `turn/quality` 事件在 chat 持有）
-import { resolveSessionQuality } from '@modules/core/spi';
-import { globalEventBus, SystemEvents } from '@modules/core';
+import { resolveSessionQuality } from '@openliri/kernel/spi';
+import { globalEventBus, SystemEvents } from '@openliri/kernel';
 
 const SESSION_SCAN_INTERVAL_MS = 10 * 60 * 1000;
 

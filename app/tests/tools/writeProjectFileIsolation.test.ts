@@ -30,6 +30,9 @@ import { PermissionDecisionType } from '../../src/permission/types/PermissionDec
 import { createProjectStore } from '../../src/workspace/ProjectStore.js';
 import { WorkItemStore } from '../../src/workspace/WorkItemStore.js';
 import { WriteProjectFileTool } from '../../src/tools/WriteProjectFileTool/WriteProjectFileTool.js';
+import { ToolLazyWrapper } from '../../src/tools/utils/ToolLazyWrapper.js';
+import type { LazyModuleLoader } from '@modules/core';
+import type { Tool } from '../../src/tools/types/Tool.js';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'liri-wpf-iso-'));
 const hostWorkspace = join(dataDir, 'ws');
@@ -161,8 +164,25 @@ describe('§12.15 write_project_file：S4b 端到端（挂载与否决定豁免�
     });
   }
 
-  function decide() {
-    const tool = WriteProjectFileTool.create();
+  /**
+   * §12.18：生产链路里注册表存的是 `ToolLazyWrapper` ⇒ 用**同构包装器**验证
+   * "工具的 `sandboxLevel` / `riskClass` / `resolveFileIoRoot` 声明能到达权限层"。
+   * （修复前：包装器不透传 ⇒ 风险判 `undeclared`、`targetRoot` 恒空、S4b 失效。）
+   */
+  function wrapLazy(tool: Tool): Tool {
+    const loader = {
+      isLoaded: () => false,
+      getSync: () => tool,
+      get: async () => tool,
+      loadSync: () => tool,
+      reset: () => undefined,
+    } as unknown as LazyModuleLoader<Tool>;
+    return new ToolLazyWrapper(tool.getInfo(), loader);
+  }
+
+  function decide(wrapInLazy = false) {
+    const real = WriteProjectFileTool.create();
+    const tool = wrapInLazy ? wrapLazy(real) : real;
     const input = { projectId: 'p1', relativePath: 'x.txt', content: 'x' };
     const signal = resolveSandboxExecutionSignal({
       enabled: true,
@@ -173,6 +193,7 @@ describe('§12.15 write_project_file：S4b 端到端（挂载与否决定豁免�
     });
     const checker = new PermissionChecker(new RuleManager());
     return {
+      tool,
       signal,
       decision: checker.checkPermission(tool as never, input, {
         toolName: 'write_project_file',
@@ -203,6 +224,32 @@ describe('§12.15 write_project_file：S4b 端到端（挂载与否决定豁免�
       { hostPath: sandboxPath, containerPath: '/project-p1', mode: 'rw' },
     ]);
     const { signal, decision } = decide();
+    expect(signal.fileIoRoots).toContain(sandboxPath);
+
+    const result = await decision;
+    expect(result.type).toBe(PermissionDecisionType.ALLOW);
+  });
+
+  it('生产链路（经懒加载包装器）：未挂项目 sandbox ⇒ 仍 ask', async () => {
+    await mountWorkspace([
+      { hostPath: hostWorkspace, containerPath: '/workspace', mode: 'rw' },
+    ]);
+    const { tool, signal, decision } = decide(true);
+    // 声明经包装器可见（修复前 `sandboxLevel` / `riskClass` 均丢失）
+    expect(tool.sandboxLevel).toBe('file-io');
+    expect(signal.mode).toBe('container');
+
+    const result = await decision;
+    expect(result.type).toBe(PermissionDecisionType.ASK);
+  });
+
+  it('生产链路（经懒加载包装器）：项目 sandbox 已挂载 ⇒ allow', async () => {
+    await mountWorkspace([
+      { hostPath: hostWorkspace, containerPath: '/workspace', mode: 'rw' },
+      { hostPath: sandboxPath, containerPath: '/project-p1', mode: 'rw' },
+    ]);
+    const { tool, signal, decision } = decide(true);
+    expect(tool.sandboxLevel).toBe('file-io');
     expect(signal.fileIoRoots).toContain(sandboxPath);
 
     const result = await decision;

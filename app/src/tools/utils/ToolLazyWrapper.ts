@@ -6,12 +6,13 @@
  */
 
 import { LazyModuleLoader } from '@modules/core';
-import type { Tool, ToolInfo, ToolParam } from '../types/Tool';
+import type { Tool, ToolInfo, ToolParam, ToolRiskClass } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolResult } from '../types/ToolResult';
 import type { PermissionResult } from '../types/PermissionResult';
 import type { ValidationResult } from '../types/Tool';
 import type { ToolCallProgress } from '../types/Tool';
+import { deriveToolRiskClass } from '../toolRiskClass';
 
 export class ToolLazyWrapper implements Tool {
   readonly name: string;
@@ -23,8 +24,6 @@ export class ToolLazyWrapper implements Tool {
   readonly shouldDefer?: boolean;
   readonly alwaysLoad?: boolean;
   readonly maxResultSizeChars?: number;
-  /** U-03（2026-10-19）：沙箱级别（来自注册时快照，未加载也能判定执行类） */
-  readonly sandboxLevel?: Tool['sandboxLevel'];
 
   private loader: LazyModuleLoader<Tool>;
   private metadata: ToolInfo;
@@ -48,7 +47,25 @@ export class ToolLazyWrapper implements Tool {
     this.shouldDefer = metadata.deferred;
     this.alwaysLoad = metadata.alwaysLoad;
     this.maxResultSizeChars = metadata.maxResultSizeChars;
-    this.sandboxLevel = metadata.sandboxLevel;
+  }
+
+  /**
+   * U-03（2026-10-19）：沙箱级别（**能力位**）。
+   *
+   * 优先取注册时快照（未解包也能判定执行类）；快照缺失时（2026-10-23 补充：对象字面量工具的
+   * `getInfo()` 未必枚举新增能力位）委托真实实例 —— 否则 `file-io` / `execution` 声明
+   * 到不了权限层与 `modeHint`，与真实实例的判定不一致。
+   */
+  get sandboxLevel(): Tool['sandboxLevel'] {
+    if (this.metadata.sandboxLevel !== undefined) {
+      return this.metadata.sandboxLevel;
+    }
+    try {
+      return this.unwrap()?.sandboxLevel;
+    } catch {
+      // @ignore-catch — 取不到真身 ⇒ 视为未声明（保守）
+      return undefined;
+    }
   }
 
   requiresUserInteraction?(): boolean {
@@ -75,6 +92,48 @@ export class ToolLazyWrapper implements Tool {
 
   isReadOnly(input?: Record<string, unknown>): boolean {
     return this.metadata.readOnly;
+  }
+
+  /**
+   * PR-0 补充（2026-10-23）：**风险声明透传**。
+   *
+   * 注册表里存的本类实例（`ToolManager.registerBuiltinToolsFromLoaders`）就是权限层拿到的
+   * 工具对象 ⇒ 若这里不转发，`resolveRiskClass()` 只看得到包装器自身字段（`riskClass` /
+   * `riskClassFor` / `getRiskClass` 均为空）⇒ **所有**写/执行/外部类工具在运行期被判
+   * `undeclared`，与 `lint:tool-risk`（对真实实例做 `deriveToolRiskClass`）不一致，
+   * 沙箱豁免与会话 `auto-local` 因此永不生效。
+   *
+   * 语义：委托真实实现（`BaseTool.getRiskClass()` 已实现同一口径）；对象字面量工具没有该方法
+   * ⇒ 由本类按**同一唯一口径** `deriveToolRiskClass()` 派生。取不到真身 ⇒ `undeclared`
+   * （保守：仍询问，不静默放行）。
+   */
+  getRiskClass(input: Record<string, unknown> = {}): ToolRiskClass {
+    const real = this.unwrap();
+    if (!real) return 'undeclared';
+    try {
+      if (typeof real.getRiskClass === 'function') {
+        return real.getRiskClass(input);
+      }
+      return deriveToolRiskClass(real, input);
+    } catch {
+      // @ignore-catch — 派生异常 ⇒ 保守按"未声明"处理（CS03：不掩盖，仍询问）
+      return 'undeclared';
+    }
+  }
+
+  /**
+   * §12.15 补充（2026-10-23）：**文件落点根透传**（沙箱豁免 S4b 的输入）。
+   *
+   * 不透传 ⇒ 生产链路永远拿不到 `targetRoot`，S4b（"落点根已挂载"）形同虚设
+   * （只有直接传真实工具的测试能看到它）。取不到真身 ⇒ `undefined`（不编造落点根）。
+   */
+  resolveFileIoRoot(input: Record<string, unknown>): string | undefined {
+    try {
+      return this.unwrap()?.resolveFileIoRoot?.(input);
+    } catch {
+      // @ignore-catch — 加载异常 ⇒ 不给落点根（与"未声明"同义）
+      return undefined;
+    }
   }
 
   isDestructive(input?: Record<string, unknown>): boolean {

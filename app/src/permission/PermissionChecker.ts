@@ -229,6 +229,39 @@ export interface Tool {
 }
 
 /**
+ * 归一化**工具侧** `checkPermissions()` 的返回值 → 权限决策（2026-10-23）。
+ *
+ * 两套契约并存（历史原因）：
+ * - 工具契约（`utils/toolContract/Tool.ts`）：`{ behavior: 'allow' | 'deny' | 'ask' }`；
+ * - 权限内部契约（`permission/types/PermissionDecision.ts`）：`{ type: 'allow' | 'deny' | 'ask' }`。
+ *
+ * 修复前直接把工具返回值当决策用 ⇒ `type` 为 `undefined` ⇒ 上层 `allowed=false` 视为**拒绝**。
+ * 实证：PR-0 把注册表工具对象（`ToolLazyWrapper`）传进本层后，未覆写 `checkPermissions` 的工具
+ * 拿到包装器兜底的 `{ behavior: 'allow' }` ⇒ 正常调用被判"拒绝"（`writeProjectFileIsolation` 用例复现）。
+ *
+ * 语义：`allow` / 未表态 ⇒ **不短路**（交回正常判定链：内容规则 → 安全规则 → 风险默认档）。
+ */
+function normalizeToolCheckPermissionsResult(
+  raw: { type?: string; behavior?: string; reason?: string } | undefined
+): PermissionDecision {
+  if (raw && typeof raw.type === 'string') {
+    return raw as PermissionDecision;
+  }
+  const reason = raw?.reason || '';
+  switch (raw?.behavior) {
+    case 'deny':
+      return createDenyDecision(reason || 'Denied by tool checkPermissions');
+    case 'ask':
+      return createAskDecision(reason || 'Tool requires approval');
+    default:
+      // `allow` 与"工具未实现该钩子"（包装器兜底）⇒ 不表态
+      return createAllowDecision(
+        reason || 'Tool checkPermissions: no objection'
+      );
+  }
+}
+
+/**
  * 权限检查器类
  */
 export class PermissionChecker {
@@ -338,7 +371,10 @@ export class PermissionChecker {
       typeof toolOrName !== 'string' &&
       typeof toolOrName.checkPermissions === 'function'
     ) {
-      const toolDecision = await toolOrName.checkPermissions(input, context);
+      // 工具侧返回 `{behavior}`、本层需要 `{type}` ⇒ 先归一（见 normalizeToolCheckPermissionsResult）
+      const toolDecision = normalizeToolCheckPermissionsResult(
+        await toolOrName.checkPermissions(input, context)
+      );
       if (toolDecision.type !== PermissionDecisionType.ALLOW) {
         return toolDecision;
       }

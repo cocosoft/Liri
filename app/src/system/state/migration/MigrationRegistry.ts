@@ -43,15 +43,15 @@ import {
   writeFileSync,
 } from 'fs';
 import { basename, join } from 'path';
-import { getLogger } from '../loggerFacade.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
-import { resolveDataSubDir } from '../paths';
+import { getLogger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { resolveDataSubDir } from '@modules/core';
 import {
   getAppMigrationStore,
   type AppMigrationRow,
 } from './AppMigrationStore';
 
-const logger = getLogger('core:migration:registry');
+const logger = getLogger('system:state:migration:registry');
 
 /** 快照根目录名（第二层数据目录下） */
 export const MIGRATION_BACKUPS_DIRNAME = 'migration-backups';

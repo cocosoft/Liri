@@ -35,6 +35,39 @@ export type {
 
 export { StateMigrator } from './StateMigrator';
 
+// 迁移注册表 + 版本中枢（2026-10-23 自 `core/migration` 迁入：唯一消费者在 app 层 `/migrate`，
+// 与 `StateMigrator` 同域；本模块只做登记 / 编排 / 快照恢复，业务迁移的 `apply` 由调用方注册）
+export {
+  registerMigration,
+  listRegistered,
+  resetMigrationRegistry,
+  runAll,
+  recover,
+  getMigrationStatus,
+  cleanupMigrationSnapshots,
+  MIGRATION_BACKUPS_DIRNAME,
+  MIGRATION_SNAPSHOT_RETENTION_DAYS,
+} from './migration/MigrationRegistry';
+export type {
+  MigrationEntry,
+  MigrationContext,
+  MigrationStepStatus,
+  MigrationStepReport,
+  MigrationRunReport,
+  MigrationStatusEntry,
+} from './migration/MigrationRegistry';
+export {
+  AppMigrationStore,
+  getAppMigrationStore,
+  resetAppMigrationStore,
+  APP_MIGRATIONS_TABLE,
+} from './migration/AppMigrationStore';
+export type {
+  AppMigrationRow,
+  AppMigrationWrite,
+  AppMigrationStatus,
+} from './migration/AppMigrationStore';
+
 export type {
   DenialTrackingState,
   StateToolPermissionContext,

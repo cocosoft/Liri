@@ -31,10 +31,10 @@
  * store 模式对齐 `YieldWaitingStore` / `SettlementOutbox`（`initPromise` 失败须清空、回调式 sqlite）。
  */
 import { Database } from '@modules/core/external/sqlite3';
-import { getLogger } from '../loggerFacade.js';
-import { resolveDbPath } from '../paths';
+import { getLogger } from '@modules/monitoring';
+import { resolveDbPath } from '@modules/core';
 
-const logger = getLogger('core:migration:store');
+const logger = getLogger('system:state:migration:store');
 
 export const APP_MIGRATIONS_TABLE = 'app_migrations';
 

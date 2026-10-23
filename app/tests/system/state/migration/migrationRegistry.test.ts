@@ -26,11 +26,9 @@ import {
   getMigrationStatus,
   cleanupMigrationSnapshots,
   MIGRATION_BACKUPS_DIRNAME,
-} from '../../../src/core/migration/MigrationRegistry';
-import {
   getAppMigrationStore,
   resetAppMigrationStore,
-} from '../../../src/core/migration/AppMigrationStore';
+} from '@modules/system/state';
 
 let dataDir: string;
 

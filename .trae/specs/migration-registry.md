@@ -49,10 +49,16 @@
 
 ### 3.1 落点与分层
 
-- 内核：`app/src/core/migration/MigrationRegistry.ts`（与既有 `StateMigrator.ts` **同目录**，不新增顶层模块）。
-- 中枢存储：`app/src/core/migration/AppMigrationStore.ts`（新表 `app_migrations` 落唯一 `app.db`；沿用仓内 store 惯例：`constructor(dbPath = resolveDbPath())` + `init()` 建表 + 回调式 `db.run/all/get`，参照 `AgentRunStore` / `YieldWaitingStore`）。
+> **落点迁移（2026-10-23）**：本模块已从 `app/src/core/migration/` 迁至 **`app/src/system/state/migration/`**
+> （core 减重；见 `dev_docs/20261023/core-减重盘点清单.md` §4）。原定「与 `StateMigrator` 同目录」的
+> 落点理由仍然成立 —— 但 `StateMigrator` 早已按其分层归属迁到 `system/state/`，本模块随之对齐。
+> 出口改为 `@modules/system/state`；`core/index.ts` 不再再导出。分层约束（不得 import 业务模块、
+> `apply` 由调用方注册）**不变**。
+
+- 落点：`app/src/system/state/migration/MigrationRegistry.ts`（state/infra 域，与 `StateMigrator.ts` 同目录）。
+- 中枢存储：`app/src/system/state/migration/AppMigrationStore.ts`（新表 `app_migrations` 落唯一 `app.db`；沿用仓内 store 惯例：`constructor(dbPath = resolveDbPath())` + `init()` 建表 + 回调式 `db.run/all/get`，参照 `AgentRunStore` / `YieldWaitingStore`）。
 - 命令层：**扩展既有** `commands/migrate/MigrateCommand.ts`（`/migrate` 走注册表；新增 `--dry-run` / `recover` / `status`），**不新建命令**（CS01）。
-- 分层：`core/migration` **不得** import 业务模块（R06-008）⇒ 各业务迁移的 `apply` 由**调用方注册**（在各自的 bootstrap/命令层），内核只持接口。
+- 分层：本模块 **不得** import 业务模块（R06-008）⇒ 各业务迁移的 `apply` 由**调用方注册**（在各自的 bootstrap/命令层），本模块只持接口。
 
 ### 3.2 数据模型（唯一新增表）
 

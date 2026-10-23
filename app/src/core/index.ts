@@ -31,9 +31,8 @@
 export * from './paths';
 // `core/ids`（ID 熵源 + UUID 形态判定真源）：归属 core 供**各层**使用（`core → infra` 属分层倒挂）
 export * from './ids';
-// P2-9（2026-09-25）：迁移注册表与版本中枢（`core/migration/` 内部用相对路径引 `../paths`，无环）
-export * from './migration/AppMigrationStore';
-export * from './migration/MigrationRegistry';
+// 迁移注册表与版本中枢已迁至 `@modules/system/state/migration`（2026-10-23，core 减重：
+// 唯一消费者在 app 层的 `/migrate` 命令；与其兄弟 `StateMigrator` 同属 state/infra 域）
 // 硬编码治理 HD-P0-2：端点 / 本机 host 唯一事实源（纯常量、零副作用、零配置依赖 ⇒ 置于 paths 之后安全）
 export * from './endpoints';
 // 硬编码治理 B5-2-98：官方供应商 API 基址唯一事实源（纯常量、零 import、零副作用；各层共用）

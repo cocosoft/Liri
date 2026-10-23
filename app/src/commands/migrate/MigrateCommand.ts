@@ -11,15 +11,15 @@ import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'fs';
 import { join } from 'path';
+import { resolveProjectRoot } from '@modules/core';
 import {
-  resolveProjectRoot,
   registerMigration,
   listRegistered,
   runAll,
   recover,
   getMigrationStatus,
-} from '@modules/core';
-import type { MigrationEntry, MigrationRunReport } from '@modules/core';
+} from '@modules/system/state';
+import type { MigrationEntry, MigrationRunReport } from '@modules/system/state';
 
 const logger = getLogger('MigrateCommand');
 

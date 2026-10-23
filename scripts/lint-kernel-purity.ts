@@ -584,7 +584,10 @@ function checkK07DeepPaths(): void {
     .filter((h, i) => hits.findIndex((x) => key(x) === key(h)) === i)
     .sort((a, b) => key(a).localeCompare(key(b)));
 
-  const loadDeep = (): { maxEntries?: number; entries: Array<{ file: string; subpath: string }> } =>
+  const loadDeep = (): {
+    maxEntries?: number;
+    entries: Array<{ file: string; subpath: string }>;
+  } =>
     existsSync(DEEP_BASELINE)
       ? (JSON.parse(readFileSync(DEEP_BASELINE, 'utf8')) as {
           maxEntries?: number;
@@ -620,11 +623,16 @@ function checkK07DeepPaths(): void {
     `K07 深路径：${sorted.length} 处（基线 ${baseline.entries.length}）· 白名单 ${[...ALLOWED].join('/')}`
   );
   if (shrinkable.length > 0) {
-    console.log(`ℹ️ K07 基线项已不存在（请下调锁定成果）: ${shrinkable.length} 条`);
+    console.log(
+      `ℹ️ K07 基线项已不存在（请下调锁定成果）: ${shrinkable.length} 条`
+    );
   }
   if (added.length > 0) {
-    console.error(`❌ K07 新增内核深路径 ${added.length} 处（应改走桶或白名单子路径）:`);
-    for (const h of added) console.error(`  - ${h.file} → @openliri/kernel/${h.subpath}`);
+    console.error(
+      `❌ K07 新增内核深路径 ${added.length} 处（应改走桶或白名单子路径）:`
+    );
+    for (const h of added)
+      console.error(`  - ${h.file} → @openliri/kernel/${h.subpath}`);
     process.exit(1);
   }
 }

@@ -3843,7 +3843,6 @@ class ArchitectureLinter {
    */
   async checkStateMachineRegistration(): Promise<void> {
     const repoRoot = this.projectDir;
-    const appSrc = this.srcPath;
     const relOf = (p: string): string =>
       relative(repoRoot, p).replace(/\\/g, '/');
 

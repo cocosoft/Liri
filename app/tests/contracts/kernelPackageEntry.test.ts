@@ -20,27 +20,34 @@
 // SOFTWARE.
 
 /**
- * P4 契约：`@openliri/kernel` 与遗留别名 `@modules/core` **解析到同一份实现**。
+ * 内核包入口契约。
  *
- * 为什么需要这条断言（复审 R7）：`tsc` 与 `bun` 是两套解析器，别名一旦只改了一边，
- * 就会出现「typecheck 绿、运行时找不到模块」或反之。P5 会把 `@modules/core` 整体切到
- * `@openliri/kernel`（codemod），切换期间两个别名并存 —— 这里用**导出引用同一性**
- * 直接钉住「并存期它们确实是同一个模块实例」，而不是两条互不相干的路径各自能加载。
+ * 断言两件事：
+ *  ① 包标识常量在位（P1 引入，P6 后由发版流程维护版本）；
+ *  ② **桶入口与子路径同源** —— `@openliri/kernel` 与 `@openliri/kernel/paths` 暴露的
+ *     同名导出必须是**同一个函数引用**，防止二者各自另存一份实现（双轨制）。
+ *
+ * 沿革：P4 时本用例断言的是「新包名与旧别名 `@modules/core` 解析到同一模块」；
+ * P5 完成别名切换后旧别名已删除（CI 由 `codemod-core-imports.ts --check` 防回流），
+ * 故改为断言「桶 vs 子路径同源」这一**仍然有意义**的等价关系。
  */
 import { describe, expect, it } from 'bun:test';
 
 import { KERNEL_PACKAGE_NAME, KERNEL_PACKAGE_VERSION } from '@openliri/kernel';
-import * as viaKernel from '@openliri/kernel/paths';
-import * as viaLegacyAlias from '@openliri/kernel/paths';
+import { resolveDbPath, resolvePyappHome } from '@openliri/kernel';
+import {
+  resolveDbPath as subpathResolveDbPath,
+  resolvePyappHome as subpathResolvePyappHome,
+} from '@openliri/kernel/paths';
 
-describe('P4 契约：内核包名与遗留别名同源', () => {
+describe('内核包入口契约', () => {
   it('包名与版本符合约定', () => {
     expect(KERNEL_PACKAGE_NAME).toBe('@openliri/kernel');
     expect(KERNEL_PACKAGE_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
-  it('`@openliri/kernel/paths` 与 `@modules/core/paths` 是同一个模块实例', () => {
-    expect(viaKernel.resolveDbPath).toBe(viaLegacyAlias.resolveDbPath);
-    expect(viaKernel.resolvePyappHome).toBe(viaLegacyAlias.resolvePyappHome);
+  it('桶入口与 `/paths` 子路径暴露同一实现（防双轨）', () => {
+    expect(resolveDbPath).toBe(subpathResolveDbPath);
+    expect(resolvePyappHome).toBe(subpathResolvePyappHome);
   });
 });

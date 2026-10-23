@@ -82,9 +82,15 @@ async function auditDIContainer(): Promise<void> {
 async function auditAppCore(): Promise<void> {
   console.log('\n=== AppCore 审计 ===');
 
-  const appSrc = resolve(import.meta.dirname, '..', 'app', 'src');
   // 内核已物理迁出 `app/src/core` ⇒ 仓库根 `packages/kernel/src/core`（方案 §4-P4）
-  const kernelCore = resolve(import.meta.dirname, '..', 'packages', 'kernel', 'src', 'core');
+  const kernelCore = resolve(
+    import.meta.dirname,
+    '..',
+    'packages',
+    'kernel',
+    'src',
+    'core'
+  );
   const appCorePath = join(kernelCore, 'AppCore.ts');
   const mdMgrPath = join(kernelCore, 'ModuleDependencyManager.ts');
 

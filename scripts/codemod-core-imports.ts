@@ -14,7 +14,7 @@
  *
  * ❗ 迁移期注意事项：本脚本只改**引号内的说明符**，不改注释里的示例（注释属于叙事，不是依赖）。
  */
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const OLD = '@modules/core';
@@ -60,7 +60,10 @@ for (const root of ROOTS) {
     const text = readFileSync(file, 'utf8');
     const matches = text.match(SPECIFIER);
     if (!matches) continue;
-    hits.push({ file: relative(repoRoot, file).split('\\').join('/'), count: matches.length });
+    hits.push({
+      file: relative(repoRoot, file).split('\\').join('/'),
+      count: matches.length,
+    });
     if (!checkOnly) {
       writeFileSync(file, text.replace(SPECIFIER, `$1${NEW}`), 'utf8');
     }
@@ -68,12 +71,15 @@ for (const root of ROOTS) {
 }
 
 const total = hits.reduce((n, h) => n + h.count, 0);
-for (const h of hits) console.log(`  ${h.count.toString().padStart(3)}  ${h.file}`);
+for (const h of hits)
+  console.log(`  ${h.count.toString().padStart(3)}  ${h.file}`);
 console.log(
   `\n${checkOnly ? '检查' : '替换'}完成：${total} 处 / ${hits.length} 个文件（${OLD} ⇒ ${NEW}）`
 );
 
 if (checkOnly && total > 0) {
-  console.error('❌ 仍存在旧别名引用；请运行 `bun scripts/codemod-core-imports.ts`');
+  console.error(
+    '❌ 仍存在旧别名引用；请运行 `bun scripts/codemod-core-imports.ts`'
+  );
   process.exit(1);
 }

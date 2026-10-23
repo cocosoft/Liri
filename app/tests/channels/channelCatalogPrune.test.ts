@@ -12,7 +12,11 @@
 import { describe, expect, it } from 'bun:test';
 import { feature } from 'bun:bundle';
 
-import { CHANNEL_CATALOG } from '../../src/channels/ChannelCatalog.js';
+import {
+  CHANNEL_CATALOG,
+  describeChannelUnavailable,
+  isChannelDroppedByBuild,
+} from '../../src/channels/ChannelCatalog.js';
 
 describe('ChannelCatalog · 编译期裁剪（DROP_CHANNEL_FEISHU / DROP_CHANNELS_ALL）', () => {
   it('飞书条目随开关有无（默认保留）', () => {
@@ -79,5 +83,33 @@ describe('ChannelCatalog · 编译期裁剪（DROP_CHANNEL_FEISHU / DROP_CHANNEL
       const mod = await entry!.load();
       expect(typeof mod[entry!.exportKey]).not.toBe('undefined');
     }
+  });
+});
+
+/**
+ * R4（主包瘦身）：被裁通道的**可读错误** —— 裁掉与"拼错 type"必须给出不同指引。
+ * 判据是"目录里有没有该条目"与 `isChannelDroppedByBuild()` 是否一致。
+ */
+describe('ChannelCatalog · 被裁通道的可读错误（R4）', () => {
+  it('「裁掉」与「未登记」两种文案互斥，且都带 type 名', () => {
+    const dropped = isChannelDroppedByBuild('feishu');
+    const text = describeChannelUnavailable('feishu');
+    const inCatalog = CHANNEL_CATALOG.some((e) => e.type === 'feishu');
+
+    expect(text).toContain('feishu');
+    // 目录成员的"有无"必须与裁剪判定同向 —— 否则文案会误导用户去改凭据
+    expect(inCatalog).toBe(!dropped);
+    if (dropped) {
+      expect(text).toContain('编译期裁掉');
+      expect(text).not.toContain('拼写错误');
+    } else {
+      expect(text).toContain('未在 CHANNEL_CATALOG 中登记');
+      expect(text).not.toContain('编译期裁掉');
+    }
+  });
+
+  it('未知 type 的文案可直接定位（不回落到笼统的 Channel not found）', () => {
+    const text = describeChannelUnavailable('no-such-channel');
+    expect(text).toContain('no-such-channel');
   });
 });

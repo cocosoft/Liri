@@ -26,7 +26,11 @@ import { getLogger, getMetricsService } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { messageTraceBuffer } from '@modules/channels';
-import { getChannelCatalogEntry } from '@modules/channels/ChannelCatalog';
+import {
+  describeChannelUnavailable,
+  getChannelCatalogEntry,
+  isChannelDroppedByBuild,
+} from '@modules/channels/ChannelCatalog';
 import type { IChannelPlugin } from '@modules/channels/types/IChannel';
 import { LOCAL_REQUEST_BASE_URL } from '@modules/core';
 import { feature as buildFeature } from 'bun:bundle';
@@ -184,8 +188,18 @@ export async function handleToggleChannel(
       // 尝试动态注册（可能 registry 状态已丢失）
       const dynRegistered = await tryDynamicRegister(channelId, undefined);
       if (!dynRegistered) {
+        // 主包瘦身 R4：说明"本构建裁掉了它"而不是笼统的 Channel not found
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Channel not found' } }));
+        res.end(
+          JSON.stringify({
+            error: {
+              code: isChannelDroppedByBuild(channelId)
+                ? 'CHANNEL_DROPPED_BY_BUILD'
+                : 'CHANNEL_UNKNOWN',
+              message: describeChannelUnavailable(channelId),
+            },
+          })
+        );
         return;
       }
     }
@@ -276,8 +290,19 @@ export async function handleUpdateChannel(
         broadcastEvent
       );
       if (!dynRegistered) {
+        // 主包瘦身 R4：配置写入失败时给出可操作原因（裁剪 vs 未知 type），
+        // 保留 404 状态码以维持前端契约
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Channel not found' } }));
+        res.end(
+          JSON.stringify({
+            error: {
+              code: isChannelDroppedByBuild(channelId)
+                ? 'CHANNEL_DROPPED_BY_BUILD'
+                : 'CHANNEL_UNKNOWN',
+              message: describeChannelUnavailable(channelId),
+            },
+          })
+        );
         return;
       }
     }
@@ -354,6 +379,7 @@ export async function handleApplyChannelConfig(
 
     // 对每个已保存但未注册的通道，尝试动态注册
     let registeredCount = 0;
+    const errors: string[] = [];
     for (const config of savedConfigs) {
       const existing = channelRegistry.get(config.type);
       if (!existing) {
@@ -368,6 +394,12 @@ export async function handleApplyChannelConfig(
             enabled: config.enabled,
             options: config.options,
           });
+        } else {
+          // 主包瘦身 R4：此前这里静默跳过（接口仍返回 success，用户只看到"通道没起来"）。
+          // 目录里没有该 type ⇒ 报出可操作原因（编译期裁剪 / 未知 type）。
+          const unavailable = describeChannelUnavailable(config.type);
+          logger.warning(unavailable);
+          errors.push(unavailable);
         }
       }
     }
@@ -375,7 +407,6 @@ export async function handleApplyChannelConfig(
     // 连接所有已启用的通道
     const enabledChannels = channelRegistry.getEnabled();
     let connectedCount = 0;
-    const errors: string[] = [];
 
     for (const channel of enabledChannels) {
       try {

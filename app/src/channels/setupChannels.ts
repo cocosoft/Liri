@@ -26,7 +26,11 @@ import { configManager } from '@modules/config';
 import { feature } from '@modules/core';
 import { handleError } from '@modules/error';
 import { getDeliveryRouter } from './DeliveryRouter';
-import { CHANNEL_CATALOG, getChannelCatalogEntry } from './ChannelCatalog';
+import {
+  CHANNEL_CATALOG,
+  describeChannelUnavailable,
+  getChannelCatalogEntry,
+} from './ChannelCatalog';
 
 const logger = getLogger('channels:setup');
 
@@ -86,6 +90,15 @@ export async function setupChannelsFromConfig(): Promise<{
   // 补充：DB 中已持久化且有实际凭据配置的通道也视为"已启用"（凭据来自前端保存，不依赖 .env）
   // 仅当通道的 options 非空时才启用，避免"已启用但无凭据"的空壳状态
   const persistedConfigs = channelRegistry.getAllConfigs();
+
+  // 主包瘦身 R4：被 `DROP_*` 裁掉的通道会**从目录里物理消失**，DB 里的持久化配置却还在。
+  // 此前这类配置被候选表静默过滤（用户只看到"配了却不生效"），这里显式给出可操作原因。
+  for (const cfg of persistedConfigs) {
+    if (!cfg.enabled) continue;
+    if (getChannelCatalogEntry(cfg.type)) continue;
+    logger.warning(describeChannelUnavailable(cfg.type));
+  }
+
   const persistedTypesWithCredentials = new Set(
     persistedConfigs
       .filter(
@@ -174,7 +187,7 @@ export async function setupChannelsFromConfig(): Promise<{
       const t1 = Date.now();
       const entry = getChannelCatalogEntry(def.type);
       if (!entry) {
-        throw new Error(`通道 ${def.type} 未在 CHANNEL_CATALOG 中登记`);
+        throw new Error(describeChannelUnavailable(def.type));
       }
       const mod = await entry.load();
       const factory = (mod as Record<string, unknown>)[entry.exportKey];
@@ -289,7 +302,7 @@ async function collectConnectEntries(
       async (type) => {
         const catalogEntry = getChannelCatalogEntry(type);
         if (!catalogEntry) {
-          throw new Error(`未在 CHANNEL_CATALOG 中登记: ${type}`);
+          throw new Error(describeChannelUnavailable(type));
         }
         const mod = await catalogEntry.load();
         const factory = (mod as Record<string, unknown>)[

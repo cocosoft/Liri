@@ -351,3 +351,48 @@ export function getChannelCatalogEntry(
 ): ChannelCatalogEntry | undefined {
   return CHANNEL_CATALOG.find((e) => e.type === type);
 }
+
+/**
+ * 单通道裁剪清单：`DROP_CHANNEL_*` 与通道 type 的对应关系（声明式，供报错引用）。
+ *
+ * 为什么用「清单 + includes」而不是 `type === '…'`：`channels/**` 禁止**平台名判断分支**
+ * （R11-C6 守则，能力差异必须走能力位）；这里是"裁掉了谁"的声明，不是按平台分叉逻辑。
+ * 数组字面量在三元"被丢弃"分支里 ⇒ 未声明该开关时随 DCE 一起消失。
+ */
+const BUILD_DROPPED_TYPES: readonly string[] = buildFeature(
+  'DROP_CHANNEL_FEISHU'
+)
+  ? ['feishu']
+  : [];
+
+/**
+ * 该 type 是否**因编译期裁剪**而不在目录里（主包瘦身 R4）。
+ *
+ * 为什么需要单独判断：条目被 `DROP_*` 物理删除后，`getChannelCatalogEntry()` 的
+ * 「查不到」与"type 拼写错误 / 通道已下线"完全同形 —— 调用方无法给出正确指引。
+ *
+ * ⚠️ `feature()` 只能出现在 if / 三元条件里，故用逐项 if 而非 `&&` 表达式。
+ */
+export function isChannelDroppedByBuild(type: string): boolean {
+  if (buildFeature('DROP_CHANNELS_ALL')) {
+    // 整组裁剪下任何通道都不可用（含配置里拼错的 type：本构建确实一个通道都没有）
+    return true;
+  }
+  return BUILD_DROPPED_TYPES.includes(type);
+}
+
+/**
+ * 把「目录里查不到该 type」翻译成**可操作**的错误文案（主包瘦身 R4）。
+ *
+ * 裁剪是编译期行为、不可逆（代码已不在产物里），所以配置侧唯一正确的处置是
+ * "换未裁剪的构建 / 删掉这条配置" —— 文案必须把这点说清楚，否则用户会反复改凭据。
+ */
+export function describeChannelUnavailable(type: string): string {
+  if (isChannelDroppedByBuild(type)) {
+    return (
+      `通道「${type}」在本构建中不可用：该构建已在编译期裁掉它（DROP_CHANNELS_ALL / DROP_CHANNEL_FEISHU），` +
+      '与凭据配置无关 —— 请改用未裁剪的构建（personal / coding / enterprise），或删除该通道的持久化配置'
+    );
+  }
+  return `通道「${type}」未在 CHANNEL_CATALOG 中登记（type 拼写错误，或该通道已下线）`;
+}

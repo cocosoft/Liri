@@ -11,9 +11,9 @@
  *   （`BUILD_VARIANT_FLAGS`），被 `core/featureFlags.ts` 的 `feature()` 作为**中间层**消费；
  * - `buildFeatures` 是**编译期**裁剪（`bun build --feature=...`，物理删除分支）。
  *
- * ⚠️ `buildFeatures` 当前全部为空：`DROP_CHANNELS_ALL` 仍只作**构建设置**、不绑变体
- * （内核瘦身方案 §6-D3）。是否把 core 绑定 `DROP_CHANNELS_ALL` 属待裁定项
- * （变体矩阵方案 §9-1），裁定前不得在此预填。
+ * ⚠️ `buildFeatures` 只允许 `DROP_` 前缀：当前 **`core` 绑定 `DROP_CHANNELS_ALL`**
+ *（2026-10-20 用户裁定「core 绝对不含通道」，见其条目内注释），其余变体为空 ——
+ * 裁剪是**显式 opt-in**，未声明即全量保留（默认零行为变更）。
  */
 
 /** 变体名（顺序即"能力从少到多"；`headless` 是有意追加的服务端形态） */

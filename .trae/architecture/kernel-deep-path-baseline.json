@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "maxEntries": 34,
+  "maxEntries": 29,
   "entries": [
     {
       "file": "app/src/acp/AcpWebSocketServer.ts",
@@ -27,24 +27,12 @@
       "subpath": "idle/IdleScaleMonitor"
     },
     {
-      "file": "app/src/chat/orchestrator/sendMessageFlow.ts",
-      "subpath": "DIContainer.js"
-    },
-    {
       "file": "app/src/context/DependencyRegistry.ts",
       "subpath": "DependencyRegistry.js"
     },
     {
       "file": "app/src/docs/knowledge-types.ts",
       "subpath": "knowledge-types"
-    },
-    {
-      "file": "app/src/entrypoints/http-server.ts",
-      "subpath": "httpPortFallback.js"
-    },
-    {
-      "file": "app/src/entrypoints/http-server.ts",
-      "subpath": "ports.js"
     },
     {
       "file": "app/src/error/abortReason.ts",
@@ -72,19 +60,11 @@
     },
     {
       "file": "app/src/modules/ModuleInitializer.ts",
-      "subpath": "DIContainer.js"
-    },
-    {
-      "file": "app/src/modules/ModuleInitializer.ts",
       "subpath": "LazyModuleStrategy"
     },
     {
       "file": "app/src/modules/ModuleInitializer.ts",
       "subpath": "profilerFacade.js"
-    },
-    {
-      "file": "app/src/modules/ModuleRegistry.ts",
-      "subpath": "di/types.js"
     },
     {
       "file": "app/src/modules/startupSurfaceProbe.ts",

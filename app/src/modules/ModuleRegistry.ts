@@ -9,7 +9,7 @@ import { ErrorCodes } from '@modules/error';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 // 2026-09-30（台账 D-131，CS01 归一化）：`BootstrapOptions` **单一来源 = `core/di/types.ts`**
 // （原在本文件重复声明，二者结构需人工同步 —— D-127 实测"仅改一处即触发 3 处 TS 报错"）
-import type { BootstrapOptions } from '@openliri/kernel/di/types.js';
+import type { BootstrapOptions } from '@openliri/kernel';
 import {
   ModuleCategory,
   type ModuleDefinition,

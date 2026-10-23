@@ -2,7 +2,7 @@
   "version": 1,
   "kernelRoot": "packages/kernel/src/core",
   "fileCount": 146,
-  "symbolCount": 1366,
+  "symbolCount": 1367,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -596,6 +596,7 @@
         "AbnormalExitRecord",
         "AppError",
         "AutoWiringEngine",
+        "BootstrapOptions",
         "BootstrapPhase",
         "BootstrapPriority",
         "BootstrapProgress",

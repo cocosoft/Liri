@@ -585,6 +585,11 @@ function checkK07DeepPaths(): void {
     'errorCodes',
     'pricing',
     'sandboxPermission',
+    // `http-server.ts` 明写「静态依赖仅限 core 的**零依赖**模块」，为**不与 repl.ts 形成循环依赖**；
+    // 这两个模块自身零 import（`ports` 只有常量 + 纯函数，`httpPortFallback` 同），
+    // 改走桶会把它拉进整条内核求值链，与该注释的约束直接冲突 ⇒ 合法公开子路径。
+    'ports',
+    'httpPortFallback',
   ]);
   /** 消费方源码根（生产面；不含 npm 包外壳与历史归档） */
   const consumerRoots = [

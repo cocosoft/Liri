@@ -81,6 +81,9 @@ export {
   type ServiceDescriptor,
   type CycleDetectionResult,
 } from './DIContainer';
+// `DIContainer.bootstrap(moduleRegistry, options)` 的公开参数类型：宿主（app）要按它装配，
+// 但只需类型 ⇒ 走 `export type`（编译期擦除，零运行时求值），消费方无需深路径。
+export type { BootstrapOptions } from './di/types';
 // J-7 清理：旧版 PluginSDK 双轨已删除（@deprecated 由 pluginSystem 统一替代），re-export 一并移除
 // G1 收口（台账 D-59）：`Plugin` 的再导出亦移除——core 不得转出 app 层 plugin-sdk 类型（消费方直连 @modules/plugin-sdk，
 //   且 plugin-sdk 自身有「零反向引用」红线，故不能反向下沉到 core）

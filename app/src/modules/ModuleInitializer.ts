@@ -440,8 +440,7 @@ export class ModuleInitializer {
     try {
       const { createCombinedGateway } =
         await import('../session/gateway/index.js');
-      const { getDIContainer } =
-        await import('@openliri/kernel/DIContainer.js');
+      const { getDIContainer } = await import('@openliri/kernel');
       const container = getDIContainer();
 
       if (!container.has('combinedSessionGateway')) {

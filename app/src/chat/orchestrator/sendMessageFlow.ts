@@ -338,7 +338,7 @@ export async function loadSharedContext(
   const { options, session } = ctx;
   if (!options?.useSharedContext) return ctx.apiMessages;
   try {
-    const { getDIContainer } = await import('@openliri/kernel/DIContainer.js');
+    const { getDIContainer } = await import('@openliri/kernel');
     const container = getDIContainer();
     if (container.has('combinedSessionGateway')) {
       const combinedGateway = container.resolve<{ getMessages: Function }>(

@@ -22,6 +22,21 @@
 （v0.5.7 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.9 (2026-10-23)  主包瘦身 R4 收口 + bash 判定精度 + 评审遗留修复
+
+- ✅ **主包瘦身 R4：被裁能力的配置项可读错误** - 编译期裁剪（`DROP_CHANNELS_ALL` / `DROP_CHANNEL_FEISHU`）
+  后，配置里仍写着的通道不再静默失效：启动时逐个告警；`PUT/POST /v1/channels/:id` 返回
+  `CHANNEL_DROPPED_BY_BUILD` / `CHANNEL_UNKNOWN` 机器码与可操作文案；`applyConfig` 由静默跳过改为 `errors` 回报。
+- ✅ **bash 危险命令判定精度** - 从子串匹配改为 **token 边界匹配**（`result` / `git add` /
+  `format-test` / `skill.js` 不再被误伤），带空格的组合（`rm -rf`）仍按整串匹配，与沙箱检查器同口径。
+- ✅ **`POST /v1/agents/:id/stop` 特权显式化** - 不传 `sessionId` 时必须显式 `privileged: true`；
+  二者同传或都不传一律 400（附 hint），不再「不传即特权」。
+- ✅ **权限与工具修正** - `isWithinWorkingDirectory` 相对路径按**传入的 cwd** 解析（解锁长期 skip 的用例）；
+  `GlobTool` 正则一次编译 + 递归拼接相对路径；聊天流单轮复用 `turnModel` 解析。
+- ✅ **判据与测试清理** - 断言自检单列 no-op 变形（不再虚高有效检查数）；eval 快照子进程解析
+  `git` / `tar` 绝对路径（PATH 缺失不再 `spawn ENOENT`）；`subagent_type` 用例改用独占探针角色名
+  （消除并行顺序敏感）；移除已修复用例的 skip 登记。
+
 #### v0.5.8 (2026-10-23)  工具审批四档与自动执行 + 影子工具接线 + 归属/断环收口
 
 - ✅ **工具审批四档与长程自动执行** - 审批卡支持「本次 / 本会话 / 始终允许 / 拒绝」；

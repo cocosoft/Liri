@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.8-blue)
+![Version](https://img.shields.io/badge/version-0.5.9-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.8**
+当前版本：**v0.5.9**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,6 +435,17 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.5.9 (2026-10-23)
+主包瘦身 R4 收口 + bash 判定精度 + 评审遗留修复
+
+- ✅ **主包瘦身 R4** - 编译期裁掉的通道不再静默失效：启动逐个告警，`/v1/channels/:id` 返回 `CHANNEL_DROPPED_BY_BUILD` / `CHANNEL_UNKNOWN` 机器码与可操作文案，`applyConfig` 由静默跳过改为 `errors` 回报
+- ✅ **bash 危险命令判定精度** - 子串匹配改为 token 边界匹配（`result` / `git add` / `format-test` / `skill.js` 不再误伤），带空格组合（`rm -rf`）仍整串匹配
+- ✅ **`/v1/agents/:id/stop` 特权显式化** - 不传 `sessionId` 时必须显式 `privileged: true`，否则 400，不再「不传即特权」
+- ✅ **权限与工具修正** - `isWithinWorkingDirectory` 相对路径按传入 cwd 解析；`GlobTool` 正则一次编译；聊天流单轮复用 `turnModel`
+- ✅ **判据与测试清理** - 断言自检单列 no-op 变形；eval 快照解析 `git`/`tar` 绝对路径；消除 subagent 用例的并行顺序敏感；清理已修复用例的 skip 登记
+
+> 本版为补丁版：完成 R4 最后一项（被裁能力的可读错误），并收口安全判定精度与多处评审遗留（详见 [CHANGELOG.md](./CHANGELOG.md)）。
 
 #### v0.5.8 (2026-10-23)
 工具审批四档与自动执行 + 影子工具接线 + 归属/断环收口

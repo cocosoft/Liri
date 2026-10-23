@@ -40,11 +40,7 @@
  * 策略可配置、UI、新表、DI。
  */
 import { TokenBudgetStatus, UNIFIED_THRESHOLDS } from './TokenBudgetController';
-import {
-  AppError,
-  ErrorCategory,
-  ErrorSeverity,
-} from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 
 const logger = getLogger('tokenBudget:policy');

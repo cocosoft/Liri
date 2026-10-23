@@ -98,6 +98,10 @@ if [ -f "scripts/lint-fix-evidence.ts" ]; then
 fi
 
 # ── 进入 app 目录验证 ──
+# 记录「本次已暂存的文件」：ESLint --fix 会在**暂存之后**就地改文件，若不重新暂存，
+# 提交里仍是未修复内容 ⇒ 本地绿、CI 的 lint 红（2026-10-23 本仓实证 3 次：22/22/8 个文件）。
+STAGED_BEFORE_FIX=$(git diff --cached --name-only --diff-filter=ACMR)
+
 cd "$PROJECT_DIR/app" || exit 0
 
 # ── 类型检查（仅检查语法） ──
@@ -120,6 +124,15 @@ if grep -q '"lint"' package.json 2>/dev/null; then
 fi
 
 # ── 模块依赖验证（如果存在） ──
+if [ -n "$STAGED_BEFORE_FIX" ]; then
+  echo "  重新暂存 ESLint --fix 的修复结果..."
+  cd "$PROJECT_DIR" || exit 0
+  printf '%s\n' "$STAGED_BEFORE_FIX" | while IFS= read -r f; do
+    [ -f "$f" ] && git add -- "$f"
+  done
+  cd "$PROJECT_DIR/app" || exit 0
+fi
+
 if grep -q '"modules:validate"' package.json 2>/dev/null; then
   echo "  验证模块依赖..."
   bun run modules:validate 2>/dev/null || echo "  ⚠️ 模块验证有警告"

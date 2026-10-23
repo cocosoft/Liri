@@ -3,11 +3,7 @@
  * 统一管理模块导入，提供别名路径和批量导入功能
  */
 
-import {
-  AppError,
-  ErrorCategory,
-  ErrorSeverity,
-} from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 // 错误码表本体在内核（core 层）；这里经 `error` 模块桶转出 —— 单点出口，R03-002 口径
 import { ErrorCodes } from '@modules/error';
 import type { ModuleDefinition } from './moduleTypes';

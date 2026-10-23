@@ -26,11 +26,7 @@ import type { Tool, ToolUseContext } from '@modules/tools/types/Tool';
 import { ToolExecutionStatus } from '@modules/tools/types/ToolResult';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { handleError } from '@modules/error/handleError';
-import {
-  AppError,
-  ErrorCategory,
-  ErrorSeverity,
-} from '@modules/error/types';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { getWorkflowEngine, createRunRecordCollector } from '@modules/workflow';
 import {
   DOC_PIPELINE_WORKFLOW,

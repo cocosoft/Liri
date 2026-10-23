@@ -55,6 +55,9 @@ export class SkillTool implements Tool {
   /** 工具名称 */
   readonly name: string = SKILL_TOOL_NAME;
 
+  /** PR-0：非 `BaseTool`（无 `getRiskClass()`）⇒ 显式声明风险（lint:tool-risk 规则 3） */
+  readonly riskClass = 'write' as const;
+
   /** 工具描述 */
   readonly description: string = '执行已注册的技能';
 

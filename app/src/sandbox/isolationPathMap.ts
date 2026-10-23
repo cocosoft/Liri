@@ -38,9 +38,39 @@ export function isSameWorkspacePath(a: string, b: string): boolean {
 }
 
 /**
- * 宿主绝对路径 → 隔离环境内绝对路径。
+ * 从**多个**挂载中挑出覆盖该宿主路径的那一个（**最长前缀**优先）。
  *
- * @returns `null` = 不在 `hostRoot` 之下（**不得**据此声称隔离；调用方保持宿主直写）
+ * 用途：一个隔离环境可能挂载多个根（会话工作区 + 项目 sandbox）；路径可能同时落在
+ * 两个根之下（如项目在会话工作区内），必须选**更具体**的挂载，否则会把路径翻译到
+ * 较浅的容器路径上（写错位置）。
+ *
+ * @returns 覆盖该路径的挂载；都不覆盖 ⇒ `null`
+ */
+export function findMountForPath(
+  maps: readonly WorkspacePathMap[],
+  hostAbsPath: string
+): WorkspacePathMap | null {
+  const target = comparable(normalizeForFs(hostAbsPath));
+  let best: WorkspacePathMap | null = null;
+  let bestLen = -1;
+  for (const map of maps) {
+    const root = comparable(normalizeForFs(map.hostRoot));
+    if (root === '') continue;
+    const covered =
+      target === root || target.startsWith(root === '/' ? '/' : `${root}/`);
+    if (!covered) continue;
+    if (root.length > bestLen) {
+      best = map;
+      bestLen = root.length;
+    }
+  }
+  return best;
+}
+
+/**
+ * 宿主绝对路径 → 隔离环境内绝对路径（按**单条**挂载换算）。
+ *
+ * @returns `null` = 不在该挂载的 `hostRoot` 之下（**不得**据此声称隔离；调用方保持宿主直写）
  */
 export function toIsolatedPath(
   map: WorkspacePathMap,

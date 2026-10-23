@@ -174,6 +174,9 @@ export class KnowledgeSaveTool implements Tool {
   /** 工具名称 */
   readonly name: string = 'knowledge_save';
 
+  /** PR-0：非 `BaseTool`（无 `getRiskClass()`）⇒ 显式声明风险（lint:tool-risk 规则 3） */
+  readonly riskClass = 'write' as const;
+
   /** 工具描述 */
   readonly description: string =
     '将内容保存到用户知识库。用户要求保存文章/网页资料/知识/归档内容/记住某资料时使用。参数：title（标题）+ content（内容）。保存成功或内容已存在时任务即完成，直接向用户确认结果，不要重复调用本工具。';

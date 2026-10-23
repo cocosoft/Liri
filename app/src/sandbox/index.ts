@@ -124,12 +124,18 @@ export {
   resolveWorkspaceFileIo,
   resolveWorkspaceIsolationMode,
   resolveWorkspacePathMap,
+  resolveWorkspacePathMaps,
 } from './workspaceIsolation';
 export type {
   WorkspaceFileIo,
   WorkspaceIsolationMode,
 } from './workspaceIsolation';
-export { isSameWorkspacePath, toIsolatedPath } from './isolationPathMap';
+export {
+  findMountForPath,
+  isSameWorkspacePath,
+  toIsolatedPath,
+} from './isolationPathMap';
+
 export type { WorkspacePathMap } from './isolationPathMap';
 
 // PR-3a（2026-10-23）：本次执行的沙箱上下文信号（ToolUseContext.sandbox 的唯一解析点）

@@ -1,0 +1,12 @@
+{
+  "note": "Q-40 验收标准「仅形式命中」棘轮基线（存量 spec 的历史条目）。新增违规 ⇒ 门禁失败；收敛后请用 --update-baseline 下调。勿手改。",
+  "entries": [
+    "specs/chatarea-render-export-remediation.md::✅ 每页返回首条 `lastEventSeq` **恒为非空数字**；跨页游标严格递减（边界重复由前端 id 去重）。*实测：`5382 → 1` 严格递减，0 次 `ABSENT`*。",
+    "specs/chatarea-render-export-remediation.md::✅ 每页返回首条 `lastEventSeq` **恒为非空数字**；跨页游标严格递减（边界重复由前端 id 去重）。*实测：`5382 → 1` 严格递减，0 次 `ABSENT`*。",
+    "specs/eval-s1-real-task-baseline.md::**不变量测试**：`f2p ∩ p2p = ∅` 且 `f2p` 非空；**无 f2p/p2p 的旧题** `summarizeTask` 输出**逐字不变**（回归锁定）；",
+    "specs/execution-prepared-snapshot-persistence.md::**落盘**：一次执行在 PREPARED 阶段产生**恰好一条** `execution/prepared`（含 `visibleTools` 非空时）。",
+    "specs/layer-inversion-a-class-inventory.md::**实测（2026-09-30 实施后复跑，回填）**：动态跨层引用 **95 处**；`违规 0` / `已豁免 270` **未变**；`错误 0 / 警告 1 → 2`（新增即 `R00-003`）；**退出码 0**。详见 §3.6.6。",
+    "specs/pattern-catalog-reachability-and-persistence.md::可达性如实（P1） | `GET /v1/patterns` 中 `self_verify` ⇒ `reachable === false` + 非空 `unreachableReason`；`competitive_strategy` ⇒ `reachable === true` + `featureGate`",
+    "specs/pattern-catalog-visibility.md::如实性（P2） | `unavailable` 条目带**非空** `reason` 且 `route` 缺省；前端原样展示，不改写"
+  ]
+}

@@ -540,13 +540,7 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
     'kanban',
     'mcp_auth',
     'music_generate',
-    'nodes',
-    'sessions_send',
-    'sessions_spawn',
-    'session_status',
-    'thinking',
     'tts',
-    'update_plan',
   ];
   // D1 接线（2026-10-11）：`TEAM_CREATE`/`TEAM_DELETE` 成为**变体默认生效**（coding）
   // ⇒ `team_create`/`team_delete` 移出本差额集（进入生成物 `TOOL_NAMES`，75 名）。
@@ -579,8 +573,20 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
    * `ask_user_question`」⇒ 它从**声明面与生效面同时移除**（既不在常量表、也不在生成物），
    * 故**不属**差额集（差额集只统计"声明了但没生效"），也**不属**上面的接线锁。
    * 本锁防的是"半下线"：只摘 loader 却留着常量（会被 G5 判为 conditional）或只删常量却留着实现。
+   *
+   * 2026-10-23（Q-18，用户拍板）：6 个"下线类"影子工具同步从声明面移除
+   * （`nodes` / `session_status` / `sessions_send` / `sessions_spawn` / `update_plan` / `thinking`），
+   * 实现文件按 CD05 保留一版观察（第 2 步再删）—— 故它们同属本集合。
    */
-  const P4B_RETIRED_TOOL_NAMES = ['propose_plan'];
+  const P4B_RETIRED_TOOL_NAMES = [
+    'propose_plan',
+    'nodes',
+    'session_status',
+    'sessions_send',
+    'sessions_spawn',
+    'update_plan',
+    'thinking',
+  ];
 
   it('P4b 接线回归锁：已接线工具进生效面且已移出 conditional 差额集', () => {
     for (const name of P4B_WIRED_TOOL_NAMES) {

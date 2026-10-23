@@ -126,6 +126,9 @@ export class NotebookToolAdapter implements Tool {
    */
   name = 'notebook';
 
+  /** PR-0：非 `BaseTool`（无 `getRiskClass()`）⇒ 显式声明风险（lint:tool-risk 规则 3） */
+  readonly riskClass = 'write' as const;
+
   /**
    * 工具描述
    */

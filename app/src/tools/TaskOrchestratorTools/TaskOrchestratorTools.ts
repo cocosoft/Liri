@@ -78,6 +78,10 @@ function taskToolFail(message: string): ToolResult {
 
 export class TaskCreateListTool implements Tool {
   name = 'create_task_list';
+
+  /** PR-0：非 `BaseTool`（无 `getRiskClass()`）⇒ 显式声明风险（lint:tool-risk 规则 3） */
+  readonly riskClass = 'write' as const;
+
   description =
     '一次性创建多个任务。' +
     '当用户提供了一组希望作为任务跟踪的条目（例如计划步骤、待办事项）时使用。' +
@@ -218,6 +222,10 @@ export class TaskCreateListTool implements Tool {
 
 export class TaskUpdateStatusTool implements Tool {
   name = 'update_task_status';
+
+  /** PR-0：非 `BaseTool`（无 `getRiskClass()`）⇒ 显式声明风险（lint:tool-risk 规则 3） */
+  readonly riskClass = 'write' as const;
+
   description =
     '按 ID 更新任务状态。支持：pending、in_progress、completed、failed、cancelled。';
 
@@ -332,6 +340,10 @@ export class TaskUpdateStatusTool implements Tool {
 
 export class TaskGetListTool implements Tool {
   name = 'get_task_list';
+
+  /** PR-0：非 `BaseTool`（无 `getRiskClass()`）⇒ 显式声明风险（lint:tool-risk 规则 3） */
+  readonly riskClass = 'read' as const;
+
   description =
     '获取当前所有任务的列表，包含其 ID、描述和状态。' +
     '用于向用户展示其任务列表，或查找任务 ID 以便更新。';

@@ -201,6 +201,15 @@ export interface Tool {
   sandboxLevel?: ToolSandboxLevel;
 
   /**
+   * 文件类工具的**实际落点根**（宿主绝对路径；可选契约，2026-10-23 §12.15）。
+   *
+   * 为什么需要：`write_project_file` 落在项目 sandbox（不在会话工作区根下），
+   * 仅凭 `sandboxLevel` + `fileIoIsolated` 无法证明"这次写"落在隔离环境内。
+   * 提供 ⇒ 沙箱豁免的 S4b 额外要求该根被挂载；缺省 ⇒ 不做额外要求（不影响既有工具）。
+   */
+  resolveFileIoRoot?(input: Record<string, unknown>): string | undefined;
+
+  /**
    * 检查权限
    * @param input 工具输入
    * @param context 权限上下文
@@ -601,6 +610,12 @@ export class PermissionChecker {
         typeof toolOrName === 'string' ? undefined : toolOrName.sandboxLevel,
       input,
       workspacePath: context.workspacePath,
+      // §12.15：工具**实际落点根**（如 `write_project_file` 的项目 sandbox）——
+      // 提供时 S4b 额外要求它被挂载；取不到 ⇒ 不传（不影响既有工具）。
+      targetRoot:
+        typeof toolOrName === 'string'
+          ? undefined
+          : toolOrName.resolveFileIoRoot?.(input),
     });
     if (!result.exempt) return null;
 

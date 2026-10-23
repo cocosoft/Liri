@@ -55,11 +55,13 @@ describe('PR-3a 沙箱模式推导', () => {
         platform: 'linux',
         permissionLevel: 'standard',
         fileIoIsolated: false,
+        fileIoRoots: [],
       })
     ).toEqual({
       mode: 'none',
       permissionLevel: 'standard',
       fileIoIsolated: false,
+      fileIoRoots: [],
     });
   });
 
@@ -82,11 +84,13 @@ describe('PR-3a 沙箱模式推导', () => {
         landlockAvailable: true,
         permissionLevel: 'standard',
         fileIoIsolated: false,
+        fileIoRoots: [],
       })
     ).toEqual({
       mode: 'landlock',
       permissionLevel: 'standard',
       fileIoIsolated: false,
+      fileIoRoots: [],
     });
   });
 
@@ -135,11 +139,13 @@ describe('PR-3a 沙箱模式推导', () => {
         modeHint: 'ssh',
         permissionLevel: 'readonly',
         fileIoIsolated: false,
+        fileIoRoots: [],
       })
     ).toEqual({
       mode: 'ssh',
       permissionLevel: 'readonly',
       fileIoIsolated: false,
+      fileIoRoots: [],
     });
   });
 });

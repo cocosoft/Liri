@@ -130,6 +130,15 @@ export interface SandboxExecutionSignal {
    * （`WorkspaceBase.isolationMode()`）。缺省/`false` ⇒ 文件类能力**不豁免**。
    */
   fileIoIsolated?: boolean;
+  /**
+   * 方案 A 扩展（2026-10-23，§12.15）：**已挂载的宿主根**（宿主绝对路径列表）。
+   *
+   * 用途：某些文件工具的实际落点**不在**会话工作区根下（如 `write_project_file` 落在
+   * 项目 sandbox）⇒ 仅凭 `fileIoIsolated` 无法证明"这一次写"在隔离环境内。
+   * 提供本字段后，沙箱豁免的 S4b 会要求工具的 `resolveFileIoRoot(input)` 落在其中之一；
+   * 未提供/未覆盖 ⇒ 不豁免（fail-closed）。
+   */
+  fileIoRoots?: string[];
 }
 
 /**
@@ -502,6 +511,15 @@ export interface Tool<
    * 非 `BaseTool` 实现可省略（缺省视为非执行类）。
    */
   sandboxLevel?: ToolSandboxLevel;
+
+  /**
+   * 文件类工具**实际落点根**（宿主绝对路径；2026-10-23 §12.15）。
+   *
+   * 例：`write_project_file` 落在项目 sandbox ⇒ 返回该根，沙箱豁免的 S4b 据此要求
+   * "该根已被挂载进隔离环境"；未实现 ⇒ 不做额外要求（不影响既有工具）。
+   * **必须同步**（权限判定是同步热路径）。
+   */
+  resolveFileIoRoot?(input: Record<string, unknown>): string | undefined;
 
   /**
    * PR-0（2026-10-23）：风险类别**静态声明**。缺省时由 `TOOL_EFFECTS` + `sandboxLevel`

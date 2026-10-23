@@ -101,19 +101,18 @@ export const TOOL_GROUPS: Record<string, string[]> = {
   ],
   'group:sessions': [
     'sessions_list',
-    'sessions_send',
-    'sessions_spawn',
+    // 2026-10-23（Q-18）：`sessions_send` / `sessions_spawn` / `session_status` 三个影子工具
+    // 已摘除声明（真能力由 `sessions` 工具覆盖）⇒ 组内同步移除，避免引用不存在的工具名。
     // 注意（2026-09-20，N-25）：本组与下方 `PROFILE_TOOL_ALLOW_LISTS` 的声明都以
     // `setProfile()` 为前提，而该方法在全仓**零调用**（profile 恒为 null）⇒ 本文件
     // 的 profile 门控**当前不生效**；工具真实可用性由
     // `tools/utils/ToolManagerUtils.ts#getBuiltinToolLoaders()` 决定（无 profile 门控）。
     'sessions_yield',
-    'session_status',
   ],
   'group:ui': ['browser', 'canvas', 'voice_input', 'voice_output'],
   'group:messaging': ['message', 'send_message', 'push_notification'],
   'group:automation': ['cron', 'gateway'],
-  'group:agents': ['agents_list', 'update_plan', 'task'],
+  'group:agents': ['agents_list', 'task'],
   'group:media': [
     'image',
     'image_generate',
@@ -132,7 +131,6 @@ export const TOOL_GROUPS: Record<string, string[]> = {
     'exec',
     'bash',
     'sessions_list',
-    'sessions_send',
     'task',
     'memory_search',
     'memory_get',
@@ -161,7 +159,7 @@ const OWNER_ONLY_TOOL_APPROVAL_CLASSES: Record<
 > = {
   cron: 'control_plane',
   gateway: 'control_plane',
-  nodes: 'exec_capable',
+  // 2026-10-23（Q-18）：`nodes` 已摘除声明 ⇒ 审批等级登记同步移除。
 };
 
 // N-29（2026-09-20）：原 `PROFILE_TOOL_ALLOW_LISTS`（各 profile 允许的工具列表）已移除 ——

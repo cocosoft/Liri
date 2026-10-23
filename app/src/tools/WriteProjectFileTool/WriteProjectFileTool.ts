@@ -23,6 +23,7 @@ import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { resolveDataDir } from '@modules/core/paths';
+import { resolveIsolatedFileTarget } from '../utils/isolatedFileIo';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import {
@@ -61,14 +62,18 @@ function isDeliverablePath(relativePath: string): boolean {
   return DELIVERABLE_EXTENSIONS.has(extname(relativePath).toLowerCase());
 }
 
-// P4-1: Store 单例化
+// P4-1: Store 单例化（**按数据目录缓存**：`LIRI_DATA_DIR` 变化时重建，
+// 避免"首个子系统用旧目录建好单例后，后续指向新目录的读取看不到项目"。
+// 生产环境 dir 恒定 ⇒ 行为等价；测试用临时目录隔离时才有区别。）
+let _storesDir: string | null = null;
 let _workItemStore: WorkItemStore | null = null;
 let _projectStore: ReturnType<typeof createProjectStore> | null = null;
 function getStores() {
-  if (!_workItemStore || !_projectStore) {
-    const dataDir = resolveDataDir();
+  const dataDir = resolveDataDir();
+  if (!_workItemStore || !_projectStore || _storesDir !== dataDir) {
     _workItemStore = new WorkItemStore(dataDir);
     _projectStore = createProjectStore(dataDir, _workItemStore);
+    _storesDir = dataDir;
   }
   return { projectStore: _projectStore };
 }
@@ -127,6 +132,32 @@ export class WriteProjectFileTool {
       isReadOnly: () => false,
       isDestructive: () => false,
       isConcurrencySafe: () => true,
+      /**
+       * §12.15（2026-10-23）：文件 IO 能力声明。
+       *
+       * 落点是**项目 sandbox**（不在会话工作区根下）⇒ 仅凭 `sandboxLevel` 无法证明隔离；
+       * 免审批还要求 ① 项目 sandbox 已被挂载（`fileIoRoots` 覆盖 `resolveFileIoRoot`）
+       * 与 ② 写入真的经适配器（`resolveIsolatedFileTarget` 命中）。两者缺一，S4b/S1b 拒绝。
+       */
+      sandboxLevel: 'file-io' as const,
+      /**
+       * PR-0 声明（2026-10-23 补齐）：本工具是**对象字面量**实现（非 `BaseTool`），
+       * 没有 `getRiskClass()` ⇒ 若只依赖 `TOOL_EFFECTS` 派生，`resolveRiskClass()`
+       * 会判成 `undeclared`（实测：沙箱豁免因此永远进不去）。显式声明 `write`。
+       */
+      riskClass: 'write' as const,
+      /** 实际落点根 = 项目 sandbox（同步；供沙箱豁免 S4b 校验"已挂载"） */
+      resolveFileIoRoot: (input: Record<string, unknown>) => {
+        const projectId = String(input.projectId || '');
+        if (!projectId) return undefined;
+        try {
+          return (
+            getStores().projectStore.get(projectId)?.sandboxPath ?? undefined
+          );
+        } catch {
+          return undefined;
+        }
+      },
 
       execute: async (
         input: Record<string, unknown>,
@@ -192,24 +223,16 @@ export class WriteProjectFileTool {
 
           // 路径安全校验
           const rawPath = resolve(sandboxPath, normalize(targetRelative));
+          // §12.15（2026-10-23）：项目 sandbox 已被挂载进隔离环境 ⇒ 写入经适配器
+          // （宿主 `node:fs` 不参与）；未挂载 / 本地工作区 ⇒ `null`，保持既有宿主路径。
+          const isolated = resolveIsolatedFileTarget(rawPath);
+          // **词法**围栏（`resolve` 已消解 `..`）：两条路都必须过（宿主与隔离环境一致）
+          const sandboxAbs = resolve(sandboxPath);
+          const isLexicallyInside = (p: string): boolean =>
+            p === sandboxAbs ||
+            p.startsWith(sandboxAbs + '\\') ||
+            p.startsWith(sandboxAbs + '/');
 
-          // 确保 sandbox 存在（P0-3: 不存在则自动创建，与上传接口行为对齐；
-          // 自动建项目 delaySandbox 场景首次写入时在此落点创建）
-          if (!existsSync(sandboxPath)) {
-            mkdirSync(sandboxPath, { recursive: true });
-            logger.info('自动创建项目文件夹', {
-              projectId,
-              sandboxPath,
-            });
-          }
-
-          // realpath 校验（sandbox 必须存在才能调用 realpath）
-          const realSandbox = realpathSync(sandboxPath);
-          // 路径包含判定（保留既有 `\\` / `/` 双写口径）；**sandbox 根自身视为在内**
-          const isInsideSandbox = (p: string): boolean =>
-            p === realSandbox ||
-            p.startsWith(realSandbox + '\\') ||
-            p.startsWith(realSandbox + '/');
           // 越界拒绝：**落 `error`**（原仅写 newMessages ⇒ 载荷 null 且无 error = 失败不可判定）
           const rejectOutOfSandbox = (): ToolResult<null> => {
             span.setStatus({ code: SpanStatusCode.OK });
@@ -223,49 +246,71 @@ export class WriteProjectFileTool {
             );
           };
 
-          // 如果目标文件已存在，检查是否在 sandbox 内
-          if (existsSync(rawPath)) {
-            if (!isInsideSandbox(realpathSync(rawPath))) {
+          if (isolated) {
+            // 隔离分支：只做**词法**围栏（目标不在宿主，exists/realpath 校验不适用；
+            // 落点由适配器在容器/远端创建，目录由 `io.mkdir` 递归建）。
+            if (!isLexicallyInside(rawPath)) {
               return rejectOutOfSandbox();
             }
           } else {
-            // 新文件：**先做归一化路径围栏**（`resolve` 已消解 `..`）——必须在 mkdir 之前，
-            // 避免越界路径被 `mkdirSync(recursive)` 先在 sandbox 外创建目录
-            const sandboxAbs = resolve(sandboxPath);
-            if (
-              rawPath !== sandboxAbs &&
-              !rawPath.startsWith(sandboxAbs + '\\') &&
-              !rawPath.startsWith(sandboxAbs + '/')
-            ) {
-              return rejectOutOfSandbox();
+            // 确保 sandbox 存在（P0-3: 不存在则自动创建，与上传接口行为对齐；
+            // 自动建项目 delaySandbox 场景首次写入时在此落点创建）
+            if (!existsSync(sandboxPath)) {
+              mkdirSync(sandboxPath, { recursive: true });
+              logger.info('自动创建项目文件夹', {
+                projectId,
+                sandboxPath,
+              });
             }
-            const parentDir = dirname(rawPath);
-            if (!existsSync(parentDir)) {
-              mkdirSync(parentDir, { recursive: true });
-            }
-            // T-⑥14 / T-④02 根因修复（2026-10-03）：逐级 realpath **只校验 sandbox 之下**的各级目录。
-            // 原实现把 sandbox 根自身也纳入判定，而 `realSandbox.startsWith(realSandbox + sep)`
-            // **恒为 false** ⇒ 循环走到根时必然拒绝 ⇒ **新文件写入一律被拒**（实测该会话 40+ 次
-            // `write_project_file` 全部落此分支，返回"无 error 的空载荷"= 与 T-④02 描述的
-            // "静默失败：不抛错、返回空对象、文件不落地"逐字吻合）。
-            let checkDir = parentDir;
-            while (checkDir.length > realSandbox.length) {
-              if (existsSync(checkDir)) {
-                if (!isInsideSandbox(realpathSync(checkDir))) {
-                  return rejectOutOfSandbox();
-                }
+
+            // realpath 校验（sandbox 必须存在才能调用 realpath）
+            const realSandbox = realpathSync(sandboxPath);
+            // 路径包含判定（保留既有 `\\` / `/` 双写口径）；**sandbox 根自身视为在内**
+            const isInsideSandbox = (p: string): boolean =>
+              p === realSandbox ||
+              p.startsWith(realSandbox + '\\') ||
+              p.startsWith(realSandbox + '/');
+
+            // 如果目标文件已存在，检查是否在 sandbox 内
+            if (existsSync(rawPath)) {
+              if (!isInsideSandbox(realpathSync(rawPath))) {
+                return rejectOutOfSandbox();
               }
-              const next = dirname(checkDir);
-              if (next === checkDir) break;
-              checkDir = next;
+            } else {
+              // 新文件：**先做归一化路径围栏**——必须在 mkdir 之前，
+              // 避免越界路径被 `mkdirSync(recursive)` 先在 sandbox 外创建目录
+              if (!isLexicallyInside(rawPath)) {
+                return rejectOutOfSandbox();
+              }
+              const parentDir = dirname(rawPath);
+              if (!existsSync(parentDir)) {
+                mkdirSync(parentDir, { recursive: true });
+              }
+              // T-⑥14 / T-④02 根因修复（2026-10-03）：逐级 realpath **只校验 sandbox 之下**的各级目录。
+              // 原实现把 sandbox 根自身也纳入判定，而 `realSandbox.startsWith(realSandbox + sep)`
+              // **恒为 false** ⇒ 循环走到根时必然拒绝 ⇒ **新文件写入一律被拒**（实测该会话 40+ 次
+              // `write_project_file` 全部落此分支，返回"无 error 的空载荷"= 与 T-④02 描述的
+              // "静默失败：不抛错、返回空对象、文件不落地"逐字吻合）。
+              let checkDir = parentDir;
+              while (checkDir.length > realSandbox.length) {
+                if (existsSync(checkDir)) {
+                  if (!isInsideSandbox(realpathSync(checkDir))) {
+                    return rejectOutOfSandbox();
+                  }
+                }
+                const next = dirname(checkDir);
+                if (next === checkDir) break;
+                checkDir = next;
+              }
             }
           }
 
-          // source_file 优先：从盘读（0 输出 token）
+          // source_file 优先：从盘读（0 输出 token）；隔离环境下源文件也可能在环境内
           let effectiveContent: string;
           if (sourceFile && !hasContent) {
             const src = resolve(sourceFile);
-            if (!existsSync(src)) {
+            const srcIsolated = resolveIsolatedFileTarget(src);
+            if (!srcIsolated && !existsSync(src)) {
               span.setStatus({ code: SpanStatusCode.OK });
               return createToolResult(null, {
                 newMessages: [
@@ -277,7 +322,9 @@ export class WriteProjectFileTool {
               });
             }
             try {
-              effectiveContent = readFileSync(src, 'utf-8');
+              effectiveContent = srcIsolated
+                ? await srcIsolated.io.readFile(srcIsolated.isolatedPath)
+                : readFileSync(src, 'utf-8');
               logger.info(
                 'WriteProjectFileTool: source_file 读取成功，写入项目',
                 {
@@ -285,6 +332,7 @@ export class WriteProjectFileTool {
                   sourceFile: src,
                   target: targetRelative,
                   bytes: Buffer.byteLength(effectiveContent),
+                  isolated: Boolean(srcIsolated),
                 }
               );
             } catch (e) {
@@ -298,7 +346,16 @@ export class WriteProjectFileTool {
             effectiveContent = String(rawContent || '');
           }
 
-          writeFileSync(rawPath, effectiveContent, 'utf-8');
+          if (isolated) {
+            // 隔离环境内落盘：目录递归创建 + 写 + 回读，全经适配器（宿主 fs 不参与）
+            await isolated.io.mkdir(dirname(isolated.isolatedPath));
+            await isolated.io.writeFile(
+              isolated.isolatedPath,
+              effectiveContent
+            );
+          } else {
+            writeFileSync(rawPath, effectiveContent, 'utf-8');
+          }
 
           // T-⑥14 / T-④02（2026-10-03）：**写后回读校验（read-after-write）**。
           //
@@ -308,10 +365,13 @@ export class WriteProjectFileTool {
           // 原实现写完 `writeFileSync` 即报成功，**不校验实际落地** ⇒ 静默失败可伪装成功。
           // 现以「写前字节数 vs 写后 `statSync().size`」复核；不一致/不可读 ⇒ 显式 FATAL 失败
           // （CS03：失败必须可诊断；CS05：修到根因，不给"看起来成功"的假象）。
+          // 2026-10-23（§12.15）：隔离分支用适配器的 `statSize`，同样做字节比对。
           const expectedBytes = Buffer.byteLength(effectiveContent, 'utf-8');
           let readBackBytes: number;
           try {
-            readBackBytes = statSync(rawPath).size;
+            readBackBytes = isolated
+              ? await isolated.io.statSize(isolated.isolatedPath)
+              : statSync(rawPath).size;
           } catch (e) {
             span.setStatus({
               code: SpanStatusCode.ERROR,

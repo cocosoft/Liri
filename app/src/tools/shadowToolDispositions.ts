@@ -6,8 +6,8 @@
  *
  * ## 背景
  * 「工具可见性」里的 `conditional` = 声明面（`TOOL_NAME_CONSTANTS`）有、生效面（生成物
- * `TOOL_NAMES`）没有。实测 11 个，全部是**刻意保持条件化**的影子实现（桩/空壳/双轨）。
- * 此前面板只显示"未进生效工具面"，既不说原因、也没有处置期限 ⇒ 永久挂着。
+ * `TOOL_NAMES`）没有。实测 11 个；其中 6 个「下线类」已于 2026-10-23 按 Q-18 拍板摘除声明
+ * ⇒ 本表现只登记 **5 个**（重写 3 + 等前提 2）。
  *
  * ## 口径（逐项来自 `dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md` §2.1/§2.3）
  * - `reason`：为什么还不能接线（`stub` 桩 / `duplicate` 与生效工具重复 / `awaiting-provider`
@@ -38,37 +38,11 @@ export interface ShadowToolDispositionEntry {
 export const SHADOW_TOOL_DISPOSITIONS: Readonly<
   Record<string, ShadowToolDispositionEntry>
 > = {
-  // ── 下线类：纯桩/空壳，或与生效工具 100% 重复 ──────────────────────────
-  nodes: {
-    reason: 'stub',
-    disposition: 'retire',
-    reevaluateWhen: '出现真实分布式节点/worker 运行时',
-  },
-  session_status: {
-    reason: 'duplicate',
-    disposition: 'retire',
-    reevaluateWhen: '无（真能力由 sessions.status 覆盖）',
-  },
-  sessions_send: {
-    reason: 'duplicate',
-    disposition: 'retire',
-    reevaluateWhen: '无（真能力由 sessions.send 覆盖）',
-  },
-  sessions_spawn: {
-    reason: 'duplicate',
-    disposition: 'retire',
-    reevaluateWhen: '无（真能力由 sessions.spawn / agent 覆盖）',
-  },
-  update_plan: {
-    reason: 'duplicate',
-    disposition: 'retire',
-    reevaluateWhen: '无（真能力由 plan.update 覆盖）',
-  },
-  thinking: {
-    reason: 'duplicate',
-    disposition: 'retire',
-    reevaluateWhen: '出现"推理步骤需落盘审计"的真实需求',
-  },
+  // ── 下线类（2026-10-23 已执行第 1 步，条目移除）─────────────────────────
+  // `nodes` / `session_status` / `sessions_send` / `sessions_spawn` / `update_plan` /
+  // `thinking` 的声明已按 Q-18 拍板摘除（`TOOL_NAME_CONSTANTS` 与类别/策略/UI 登记同步清理）
+  // ⇒ 它们不再出现在"声明面 − 生效面"差额中，无需再登记处置。
+  // 实现文件按 CD05 保留一个版本观察；第 2 步（删实现）为独立变更。
 
   // ── 重写后接线：有真实能力，但当前实现不可用 ────────────────────────────
   agents_list: {

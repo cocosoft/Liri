@@ -192,6 +192,58 @@ describe('方案 A 沙箱豁免：S1b 文件 IO 可证隔离', () => {
   });
 });
 
+describe('§12.15 沙箱豁免：S4b 工具落点根须已挂载', () => {
+  const containerSignal = {
+    mode: 'container' as const,
+    permissionLevel: 'standard' as const,
+    fileIoIsolated: true,
+    fileIoRoots: ['/host/ws'],
+  };
+
+  it('targetRoot 落在已挂载根内 ⇒ 豁免', () => {
+    expect(
+      resolveSandboxExemption({
+        signal: containerSignal,
+        risk: RiskClass.WRITE_LOCAL,
+        sandboxLevel: 'file-io',
+        input: { relativePath: 'a.md' },
+        workspacePath: '/host/ws',
+        targetRoot: '/host/ws/projects/p1',
+      })
+    ).toEqual({ exempt: true, reason: 'sandbox-isolated' });
+  });
+
+  it('targetRoot 未被挂载 ⇒ 不豁免（防"S4 按会话工作区误判为界内"）', () => {
+    expect(
+      resolveSandboxExemption({
+        signal: containerSignal,
+        risk: RiskClass.WRITE_LOCAL,
+        sandboxLevel: 'file-io',
+        input: { relativePath: 'a.md' },
+        workspacePath: '/host/ws',
+        targetRoot: '/data/projects/p1',
+      })
+    ).toEqual({ exempt: false, reason: 'target-root-not-mounted' });
+  });
+
+  it('signal 缺 fileIoRoots ⇒ 不豁免（无挂载证据）', () => {
+    expect(
+      resolveSandboxExemption({
+        signal: {
+          mode: 'container',
+          permissionLevel: 'standard',
+          fileIoIsolated: true,
+        },
+        risk: RiskClass.WRITE_LOCAL,
+        sandboxLevel: 'file-io',
+        input: { relativePath: 'a.md' },
+        workspacePath: '/host/ws',
+        targetRoot: '/host/ws/projects/p1',
+      })
+    ).toEqual({ exempt: false, reason: 'target-root-not-mounted' });
+  });
+});
+
 describe('PR-3b 沙箱豁免：四前提全满足', () => {
   it('写操作（file-io + standard + 工作区内）⇒ 豁免', () => {
     expect(

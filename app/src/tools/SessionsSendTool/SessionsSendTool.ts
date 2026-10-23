@@ -1,4 +1,4 @@
-import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
+/** 2026-10-23（Q-18）：该工具已下线（声明摘除）；实现按 CD05 保留一版观察。 */
 /**
  * SessionsSendTool
  * 对标CC SessionsSendTool
@@ -30,7 +30,7 @@ export interface SessionMessageResult {
 }
 
 export class SessionsSendTool extends BaseTool {
-  name = TOOL_NAME_CONSTANTS.sessions_send;
+  name = 'sessions_send';
 
   description = '向运行中的会话发送消息。支持文本、命令、结果和系统消息。';
 

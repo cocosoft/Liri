@@ -160,8 +160,24 @@ export abstract class WorkspaceBase {
    * - `LocalWorkspace` / 未声明者一律 `null`（fail-closed）。
    *
    * 消费点：`sandbox/workspaceIsolation`（路由 + `fileIoIsolated` 取证）。
+   *
+   * 2026-10-23（§12.15）：改为"取**首个**挂载"以兼容单挂载调用方；多挂载请实现
+   * `fileIoMounts()`。
    */
   fileIoMount(): { hostRoot: string; isolatedRoot: string } | null {
-    return null;
+    return this.fileIoMounts()[0] ?? null;
+  }
+
+  /**
+   * **全部**可用挂载（宿主根 ↔ 环境内根）。
+   *
+   * 为什么需要多挂载：一个隔离环境可能同时挂会话工作区与**项目 sandbox**；
+   * 文件类工具的实际落点未必在工作区根下（如 `write_project_file`）。
+   * 路径命中多个根时由 `isolationPathMap.findMountForPath()` 取**最长前缀**。
+   *
+   * 默认 `[]`（fail-closed：未声明者不路由）。
+   */
+  fileIoMounts(): Array<{ hostRoot: string; isolatedRoot: string }> {
+    return [];
   }
 }

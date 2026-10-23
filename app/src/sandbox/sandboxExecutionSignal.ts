@@ -30,6 +30,7 @@ import { LandlockDetector } from './landlock/LandlockDetector';
 import {
   hasIsolatedFileIo,
   resolveFileIoExecutionMode,
+  resolveWorkspacePathMaps,
 } from './workspaceIsolation';
 
 /**
@@ -109,6 +110,11 @@ export interface ResolveSandboxSignalParams {
   landlockAvailable?: boolean;
   /** 覆盖**文件 IO 隔离证据**（缺省读默认工作区适配器形态，见 `workspaceIsolation`） */
   fileIoIsolated?: boolean;
+  /**
+   * 覆盖**已挂载的宿主根**（§12.15；缺省读默认工作区的 `fileIoMounts()`）。
+   * 供沙箱豁免 S4b 校验"工具实际落点根是否被挂载"。
+   */
+  fileIoRoots?: string[];
 }
 
 /**
@@ -137,9 +143,18 @@ export function resolveSandboxExecutionSignal(
   const permissionLevel =
     params.permissionLevel ?? readSandboxPermissionLevel();
   const fileIoIsolated = params.fileIoIsolated ?? hasIsolatedFileIo();
-  if (!enabled) return { mode: 'none', permissionLevel, fileIoIsolated };
+  const fileIoRoots =
+    params.fileIoRoots ??
+    resolveWorkspacePathMaps().map((mount) => mount.hostRoot);
+  if (!enabled)
+    return { mode: 'none', permissionLevel, fileIoIsolated, fileIoRoots };
   if (params.modeHint)
-    return { mode: params.modeHint, permissionLevel, fileIoIsolated };
+    return {
+      mode: params.modeHint,
+      permissionLevel,
+      fileIoIsolated,
+      fileIoRoots,
+    };
 
   const landlockEnabled =
     params.landlockEnabled ?? readLandlockConfig().enabled;
@@ -147,7 +162,7 @@ export function resolveSandboxExecutionSignal(
   const available = params.landlockAvailable ?? hasLandlockEvidence();
   const mode: SandboxExecutionMode =
     landlockEnabled && platform === 'linux' && available ? 'landlock' : 'none';
-  return { mode, permissionLevel, fileIoIsolated };
+  return { mode, permissionLevel, fileIoIsolated, fileIoRoots };
 }
 
 /**

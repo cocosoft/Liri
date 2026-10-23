@@ -16,7 +16,10 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { toIsolatedPath } from '../../src/sandbox/isolationPathMap.js';
+import {
+  toIsolatedPath,
+  findMountForPath,
+} from '../../src/sandbox/isolationPathMap.js';
 import { DockerWorkspace } from '../../src/sandbox/adapters/DockerWorkspace.js';
 import {
   hasIsolatedFileIo,
@@ -82,6 +85,20 @@ describe('方案 A：宿主路径 → 隔离环境路径', () => {
   it('前缀相似的兄弟目录 ⇒ null（`/host/ws2` 不是 `/host/ws`）', () => {
     expect(toIsolatedPath(map, '/host/ws2/a.txt')).toBeNull();
   });
+
+  it('§12.15 多挂载：命中多条时取**最长前缀**（项目 sandbox 在会话工作区内）', () => {
+    const mounts = [
+      { hostRoot: '/host/ws', isolatedRoot: '/workspace' },
+      { hostRoot: '/host/ws/projects/p1', isolatedRoot: '/project-p1' },
+    ];
+    expect(findMountForPath(mounts, '/host/ws/a.txt')?.isolatedRoot).toBe(
+      '/workspace'
+    );
+    expect(
+      findMountForPath(mounts, '/host/ws/projects/p1/out.md')?.isolatedRoot
+    ).toBe('/project-p1');
+    expect(findMountForPath(mounts, '/host/other/a.txt')).toBeNull();
+  });
 });
 
 describe('方案 A：fileIoMount 取证口径', () => {
@@ -134,6 +151,32 @@ describe('方案 A：fileIoMount 取证口径', () => {
       })
     );
     expect(ws.fileIoMount()).toBeNull();
+  });
+
+  it('§12.15 多挂载：fileIoMounts 取全部 rw 挂载；fileIoMount 只认工作区根', () => {
+    const ws = new DockerWorkspace(
+      config({
+        customConfig: {
+          [DOCKER_CONFIG_KEYS.VOLUMES]: [
+            { hostPath: '/host/ws', containerPath: '/workspace', mode: 'rw' },
+            {
+              hostPath: '/data/projects/p1',
+              containerPath: '/project-p1',
+              mode: 'rw',
+            },
+            { hostPath: '/host/ro', containerPath: '/ro', mode: 'ro' },
+          ],
+        },
+      })
+    );
+    expect(ws.fileIoMounts()).toEqual([
+      { hostRoot: '/host/ws', isolatedRoot: '/workspace' },
+      { hostRoot: '/data/projects/p1', isolatedRoot: '/project-p1' },
+    ]);
+    expect(ws.fileIoMount()).toEqual({
+      hostRoot: '/host/ws',
+      isolatedRoot: '/workspace',
+    });
   });
 });
 
@@ -259,6 +302,7 @@ describe('方案 A：默认工作区 → 文件 IO 端口', () => {
       mode: 'container',
       permissionLevel: 'standard',
       fileIoIsolated: true,
+      fileIoRoots: [hostDir],
     });
 
     expect(

@@ -14,11 +14,11 @@
 //
 // ⚠️ 表内**同时包含**"未进生效面"的工具名（它们不在生成物 `TOOL_NAMES` 内）
 // ⇒ 本表即台账 D-40/D-41 所需的"被排除名清单"的事实来源。
-// 该差额集（当前 **12**）**混装两类**（2026-10-16 P4a 评估实证，见
-// `dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md` §0.1）：
-//   · **E 类（未接线）**：loader/工厂表里零命中 —— 除 `send_message` 外皆属此类；
-//   · **D 类（flag 门控）**：`send_message` —— 有 loader，仅因 `SEND_MESSAGE` 默认关而不实例化。
-// 逐项保留理由与再评估触发条件见 P4a §2.3（I-3 三分类：删除 0 / 接线 0 / 保持 12）。
+// 差额集（2026-10-23 起 **5**，全部为 E 类未接线：`agents_list`/`kanban`/`mcp_auth`/
+// `music_generate`/`tts`）。原先另有 6 个"下线类"影子工具
+// （`nodes`/`session_status`/`sessions_send`/`sessions_spawn`/`update_plan`/`thinking`）
+// 已按 Q-18 拍板**摘除声明**（CD05 第 1 步：只摘登记，实现文件保留观察一版再删）。
+// 逐项保留理由与再评估触发条件见 P4a §2.3。
 //
 // ⚠️ 命名空间名（含 `:`，如 `office:workflow`）由运行期模块注册、键名非标识符 ⇒ 暂不入本表。
 
@@ -75,7 +75,6 @@ export const TOOL_NAME_CONSTANTS = {
   monitor: 'monitor',
   music: 'music',
   music_generate: 'music_generate',
-  nodes: 'nodes',
   notebook: 'notebook',
   pdf: 'pdf',
   plan: 'plan',
@@ -85,10 +84,7 @@ export const TOOL_NAME_CONSTANTS = {
   repl: 'repl',
   save_conversation: 'save_conversation',
   send_message: 'send_message',
-  session_status: 'session_status',
   sessions: 'sessions',
-  sessions_send: 'sessions_send',
-  sessions_spawn: 'sessions_spawn',
   sessions_yield: 'sessions_yield',
   skill: 'skill',
   skill_view: 'skill_view',
@@ -101,13 +97,11 @@ export const TOOL_NAME_CONSTANTS = {
   task_stop: 'task_stop',
   team_create: 'team_create',
   team_delete: 'team_delete',
-  thinking: 'thinking',
   todo_write: 'todo_write',
   tool_search: 'tool_search',
   trace_recording: 'trace_recording',
   tts: 'tts',
   tungsten: 'tungsten',
-  update_plan: 'update_plan',
   update_task_status: 'update_task_status',
   video: 'video',
   video_analysis: 'video_analysis',

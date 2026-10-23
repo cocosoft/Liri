@@ -44,18 +44,25 @@ export enum RiskClass {
 }
 
 /**
- * 风险覆盖规则
- * 允许用户配置特定路径/命令前缀的自动放行策略
+ * 风险覆盖规则（**已废弃，待删除**）
+ *
+ * @deprecated Q-15（2026-10-23）：全仓**零消费**（`allowReadPatterns` / `allowCommandPrefixes`
+ *   没有任何读取点，"配了也不生效"）。替代能力已经存在且更精确：
+ *   - 文件：工具 + 参数指纹（「始终允许」= `allowlist_call`）与沙箱豁免；
+ *   - 命令：`permission.customRules.commandRules`（前缀 / 正则，Q-16）。
+ *   按 CD05：先标记废弃（本步）→ 观察一版 → 再删实现；**禁止**新增读取点。
  */
 export interface RiskOverrides {
-  /** 自动放行的文件路径前缀 */
+  /** 自动放行的文件路径前缀（零消费） */
   allowReadPatterns: string[];
-  /** 自动放行的命令前缀 */
+  /** 自动放行的命令前缀（零消费） */
   allowCommandPrefixes: string[];
 }
 
 /**
  * 默认风险覆盖规则（空策略）
+ *
+ * @deprecated Q-15（2026-10-23）：随 `RiskOverrides` 一并废弃（零消费）；删除前仅供类型完整。
  */
 export const DEFAULT_RISK_OVERRIDES: RiskOverrides = {
   allowReadPatterns: [],

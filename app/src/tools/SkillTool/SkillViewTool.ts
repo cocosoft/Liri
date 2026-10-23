@@ -89,6 +89,9 @@ export class SkillViewTool implements Tool {
   /** 工具名称 */
   readonly name: string = 'skill_view';
 
+  /** PR-0：非 `BaseTool`（无 `getRiskClass()`）⇒ 显式声明风险（lint:tool-risk 规则 3） */
+  readonly riskClass = 'read' as const;
+
   /** 工具描述 */
   readonly description: string =
     '按名称加载技能的完整内容。使用 skills_list 查看可用技能。';

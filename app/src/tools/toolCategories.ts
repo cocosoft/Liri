@@ -225,17 +225,12 @@ const TOOL_CATEGORY_ENTRIES = {
   // 这些名字在 `TOOL_NAME_CONSTANTS` 中但此前未登记类别（落 misc ⇒ 被裁剪）。
   // 归类只影响「未来接线后的可见面」；当前它们均不在生成物 `TOOL_NAMES` ⇒
   // `conditional` 仍会使其不可见（零行为变更）。
+  // 2026-10-23（Q-18）：原「下线类」6 个已摘除声明，故其类别登记一并移除。
   agents_list: 'agent',
   kanban: 'task',
   mcp_auth: 'mcp',
   music_generate: 'media',
-  nodes: 'system',
-  session_status: 'session',
-  sessions_send: 'session',
-  sessions_spawn: 'session',
-  thinking: 'system',
   tts: 'media',
-  update_plan: 'assist',
 
   // ── misc 其他（⚠️ 不会被任何任务白名单保留 —— 仅作"已知但不默认开放"的归档） ──
   browser: 'misc',

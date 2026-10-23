@@ -76,6 +76,9 @@ export type LspSupervisorProvider = () => Promise<LspSidecarRequester | null>;
 export class SidecarLspTool implements Tool {
   name = 'lsp';
 
+  /** PR-0：非 `BaseTool`（无 `getRiskClass()`）⇒ 显式声明风险（lint:tool-risk 规则 3） */
+  readonly riskClass = 'write' as const;
+
   description =
     'Language Server Protocol 工具，提供代码智能提示/定义跳转/引用/诊断/格式化/重命名等能力。' +
     '当目标文件在磁盘上时（绝大多数情况），必须优先使用 file_path 而非 document —— ' +

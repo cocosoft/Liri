@@ -313,6 +313,9 @@ export class AgentTool implements Tool {
   /** 工具名称 */
   readonly name: string = AGENT_TOOL_NAME;
 
+  /** PR-0：非 `BaseTool`（无 `getRiskClass()`）⇒ 显式声明风险（lint:tool-risk 规则 3） */
+  readonly riskClass = 'external' as const;
+
   /** 工具描述 */
   readonly description: string = '创建一个专用子代理来执行特定任务';
 

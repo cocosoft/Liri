@@ -58,7 +58,8 @@ export type SandboxExemptionDenialReason =
   | 'permission-insufficient'
   | 'no-workspace'
   | 'no-path-arg'
-  | 'outside-workspace';
+  | 'outside-workspace'
+  | 'target-root-not-mounted';
 
 export type SandboxExemptionResult =
   | { exempt: true; reason: 'sandbox-isolated' }
@@ -73,6 +74,14 @@ export interface SandboxExemptionInput {
   input: Record<string, unknown>;
   /** 会话工作区边界（缺省 ⇒ 不豁免） */
   workspacePath?: string;
+  /**
+   * 工具**实际落点根**（宿主绝对路径；2026-10-23 §12.15）。
+   *
+   * 用途：`write_project_file` 的路径参数是"相对项目目录"，S4 按会话工作区判定会误判为
+   * "在界内"，而实际写的是**另一个根**（项目 sandbox）。提供本字段 ⇒ 额外要求它落在
+   * `signal.fileIoRoots` 之一（已被挂载）内；未提供 ⇒ 不做额外要求。
+   */
+  targetRoot?: string;
 }
 
 /** 本次风险级所需的**最低**沙箱能力；`null` = 该风险级不可豁免 */
@@ -163,5 +172,28 @@ export function resolveSandboxExemption(
     return deny('outside-workspace');
   }
 
+  // S4b（2026-10-23，§12.15）：工具的**实际落点根**必须在已挂载根之下。
+  // 例：`write_project_file` 的路径是"相对项目目录"，S4 按会话工作区判会误判为界内，
+  // 而实际写的是项目 sandbox（另一个根）⇒ 必须用落点证据单独校验。
+  if (params.targetRoot) {
+    const roots = signal.fileIoRoots;
+    if (!roots || roots.length === 0) return deny('target-root-not-mounted');
+    if (!roots.some((root) => isPathWithinRoot(params.targetRoot!, root))) {
+      return deny('target-root-not-mounted');
+    }
+  }
+
   return { exempt: true, reason: 'sandbox-isolated' };
+}
+
+/** 宿主路径是否在给定根之下（分隔符归一；Windows 比较不敏感） */
+function isPathWithinRoot(target: string, root: string): boolean {
+  const norm = (p: string): string => {
+    const unified = p.replace(/\\/g, '/').replace(/\/+$/, '');
+    return process.platform === 'win32' ? unified.toLowerCase() : unified;
+  };
+  const t = norm(target);
+  const r = norm(root);
+  if (!r) return false;
+  return t === r || t.startsWith(r === '/' ? '/' : `${r}/`);
 }

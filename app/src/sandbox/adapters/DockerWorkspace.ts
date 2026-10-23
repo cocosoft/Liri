@@ -38,24 +38,32 @@ export class DockerWorkspace extends WorkspaceBase {
   }
 
   /**
-   * 方案 A 路由（2026-10-23）：**仅当配置里有"宿主工作区根 → 容器内路径"的 `rw` 挂载**时给出映射。
+   * 方案 A 路由（2026-10-23）：容器里**所有 `rw` 挂载**都可作为文件的落点。
    *
-   * 没有挂载时容器是个临时层：写进去的文件宿主看不见、容器销毁即丢 ⇒ 不能把
-   * 宿主路径"翻译"进去（那会让工具以为自己写成功了）⇒ `null`（fail-closed）。
+   * 为什么不止工作区根：`write_project_file` 落在**项目 sandbox**（data 目录），
+   * 只有项目根也被挂进容器时，它的写才是真隔离（§12.15）。
+   * 只读（`ro`）挂载不参与：写不进去，不能声称文件 IO 隔离。
    */
+  override fileIoMounts(): Array<{ hostRoot: string; isolatedRoot: string }> {
+    const volumes = (this.config.customConfig?.[DOCKER_CONFIG_KEYS.VOLUMES] ??
+      []) as DockerVolumeMount[];
+    return volumes
+      .filter((vol) => vol.mode === 'rw')
+      .map((vol) => ({
+        hostRoot: vol.hostPath,
+        isolatedRoot: vol.containerPath,
+      }));
+  }
+
+  /** **工作区根**对应的挂载（`fileIoMount` 的单挂载语义；无 ⇒ `null`） */
   override fileIoMount(): { hostRoot: string; isolatedRoot: string } | null {
     const hostRoot = this.config.workingDirectory;
     if (!hostRoot) return null;
-
-    const volumes = (this.config.customConfig?.[DOCKER_CONFIG_KEYS.VOLUMES] ??
-      []) as DockerVolumeMount[];
-    for (const vol of volumes) {
-      if (vol.mode !== 'rw') continue;
-      if (isSameWorkspacePath(vol.hostPath, hostRoot)) {
-        return { hostRoot, isolatedRoot: vol.containerPath };
-      }
-    }
-    return null;
+    return (
+      this.fileIoMounts().find((mount) =>
+        isSameWorkspacePath(mount.hostRoot, hostRoot)
+      ) ?? null
+    );
   }
 
   /**

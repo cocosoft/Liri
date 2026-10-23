@@ -1,4 +1,3 @@
-import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 /**
  * NodesTool
  * 对标OpenClaw nodes 工具
@@ -106,7 +105,9 @@ const NODES_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
 };
 
 export class NodesTool extends BaseTool {
-  name = TOOL_NAME_CONSTANTS.nodes;
+  // 2026-10-23（Q-18）：已下线 —— 声明已从 `TOOL_NAME_CONSTANTS` 摘除；
+  // 本实现按 CD05 保留一版观察，第 2 步随文件删除（届时本字面量一并消失）。
+  name = 'nodes';
 
   description =
     '管理分布式节点与工作进程。支持列出、状态检查、添加、移除和 ping 节点。';

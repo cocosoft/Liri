@@ -1,4 +1,4 @@
-import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
+/** 2026-10-23（Q-18）：该工具已下线（声明摘除）；实现按 CD05 保留一版观察。 */
 /**
  * UpdatePlanTool
  * 对标OpenClaw update-plan 工具
@@ -43,7 +43,7 @@ export interface UpdatePlan {
 }
 
 export class UpdatePlanTool extends BaseTool {
-  name = TOOL_NAME_CONSTANTS.update_plan;
+  name = 'update_plan';
 
   description = '创建和管理更新执行计划。分析依赖、生成迁移步骤并评估风险。';
 

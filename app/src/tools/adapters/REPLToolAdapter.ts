@@ -27,6 +27,9 @@ export class REPLToolAdapter implements Tool {
    */
   name = 'repl';
 
+  /** PR-0：非 `BaseTool`（无 `getRiskClass()`）⇒ 显式声明风险（lint:tool-risk 规则 3） */
+  readonly riskClass = 'shell' as const;
+
   /**
    * 工具描述
    */

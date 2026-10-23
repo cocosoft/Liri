@@ -45,6 +45,8 @@ export class StatVfsTool {
         },
       ],
       isEnabled: () => true,
+      /** PR-0：对象字面量实现无 `getRiskClass()` ⇒ 显式声明风险（lint:tool-risk 规则 3） */
+      riskClass: 'read',
       isReadOnly: () => true,
       isDestructive: () => false,
       isConcurrencySafe: () => true,

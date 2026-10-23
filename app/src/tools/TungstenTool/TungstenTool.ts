@@ -118,6 +118,9 @@ export class TungstenTool implements Tool {
   /** 工具名称 */
   name = 'tungsten';
 
+  /** PR-0：非 `BaseTool`（无 `getRiskClass()`）⇒ 显式声明风险（lint:tool-risk 规则 3） */
+  readonly riskClass = 'write' as const;
+
   /** 工具描述 */
   description =
     'Manage terminal sessions (Tungsten). Create, list, switch, and manage interactive terminal sessions.';

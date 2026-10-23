@@ -41,6 +41,8 @@ export class CronStopTool {
       aliases: ['cron_pause', 'cron_resume', 'stop_task', 'pause_task'],
       searchTips: ['cron', 'pause', 'resume', 'stop', 'toggle'],
       isEnabled: () => true,
+      /** PR-0：对象字面量实现无 `getRiskClass()` ⇒ 显式声明风险（lint:tool-risk 规则 3） */
+      riskClass: 'write',
       isReadOnly: () => false,
       isDestructive: () => false,
       isConcurrencySafe: () => true,

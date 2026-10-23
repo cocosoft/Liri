@@ -5,7 +5,11 @@
  * 1. **一致性**（ERROR）：声明为只读（`riskClass === 'read'` 或 `riskClassFor({})==='read'`）
  *    但 `isReadOnly({}) === false` ⇒ 视为"声明与实际相反"，直接失败；
  * 2. **未声明棘轮**（WARN + 新条目 ERROR）：派生结果为 `undeclared` 的工具必须登记在
- *    基线 `.trae/architecture/tool-risk-baseline.json`；**新增**未声明工具 ⇒ ERROR。
+ *    基线 `.trae/architecture/tool-risk-baseline.json`；**新增**未声明工具 ⇒ ERROR；
+ * 3. **声明可达性**（ERROR，2026-10-23）：**非 `BaseTool`**（无 `getRiskClass()`）的工具若既没有
+ *    `riskClass`/`riskClassFor`，`resolveRiskClass()` 在运行期只能判 `undeclared`
+ *    （`TOOL_EFFECTS` 派生只存在于 `tools` 侧，infra 不感知）⇒ 与 `lint:tool-risk` 的派生结果
+ *    **不一致**（实证：`write_project_file` 沙箱豁免因此永远进不去）。要求显式声明。
  *
  * 用法：
  *   bun run lint:tool-risk                   # 校验
@@ -90,6 +94,18 @@ function main(): number {
       if (declaredRead && readOnly === false) {
         inconsistencies.push(
           `${tool.name}: 声明 read 但 isReadOnly()===false（声明与实际相反）`
+        );
+      }
+
+      // 3. 声明可达性（2026-10-23）：非 BaseTool 必须显式声明风险，
+      //    否则 `resolveRiskClass()` 在运行期判 `undeclared`（TOOL_EFFECTS 派生 infra 看不见）。
+      const hasRuntimeDeclaration =
+        Boolean(tool.riskClass) ||
+        typeof tool.riskClassFor === 'function' ||
+        typeof (tool as { getRiskClass?: unknown }).getRiskClass === 'function';
+      if (!hasRuntimeDeclaration && risk !== 'undeclared') {
+        inconsistencies.push(
+          `${tool.name}: 非 BaseTool 且未声明 riskClass/riskClassFor ⇒ 运行期被判 undeclared（与派生 ${risk} 不一致）`
         );
       }
     } catch (e) {

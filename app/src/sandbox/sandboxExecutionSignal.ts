@@ -27,6 +27,7 @@ import type {
 
 import { readLandlockConfig } from './landlock/config';
 import { LandlockDetector } from './landlock/LandlockDetector';
+import { readSandboxPermissionLevel } from './permissionLevel';
 import {
   hasIsolatedFileIo,
   resolveFileIoExecutionMode,
@@ -34,53 +35,15 @@ import {
 } from './workspaceIsolation';
 
 /**
- * 沙箱默认权限位（2026-10-23 用户拍板：`standard`）。
- *
- * - `full`（旧默认）= READ + WRITE + **EXECUTE**；
- * - `standard`（现默认）= READ + WRITE（**不含 EXECUTE**）；
- * - `readonly` = READ。
- *
- * 收窄理由（Q-30）：默认 `full` 时"沙箱内放行"等于允许任意执行 ⇒ 隔离形同虚设。
+ * 沙箱默认权限位 / 取值解析已下沉到 `./permissionLevel`（2026-10-23，断环）。
+ * 此处**原样转发**，保持既有导入面不变（`sandbox/index.ts` 与测试仍从本模块取）。
  */
-export const DEFAULT_SANDBOX_PERMISSION_LEVEL: SandboxPermissionLevel =
-  'standard';
-
-/** 合法权限位取值（与 HTTP handler 的白名单同域） */
-export const SANDBOX_PERMISSION_LEVELS: readonly SandboxPermissionLevel[] = [
-  'readonly',
-  'standard',
-  'full',
-];
-
-/**
- * 纯函数：把配置/环境原值规整为权限位。
- *
- * 未配置或取值非法 ⇒ **默认 `standard`**（不是 `full`，避免"写错一个字符就放宽到可执行"）。
- */
-export function resolveSandboxPermissionLevel(
-  configured?: unknown,
-  envDefault?: unknown
-): SandboxPermissionLevel {
-  const raw =
-    typeof configured === 'string' && configured.trim() !== ''
-      ? configured
-      : envDefault;
-  const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
-  return (SANDBOX_PERMISSION_LEVELS as readonly string[]).includes(value)
-    ? (value as SandboxPermissionLevel)
-    : DEFAULT_SANDBOX_PERMISSION_LEVEL;
-}
-
-/** 读当前生效权限位：`config.json sandbox.permissionLevel` > 环境变量 > 默认 `standard` */
-export function readSandboxPermissionLevel(): SandboxPermissionLevel {
-  return resolveSandboxPermissionLevel(
-    configManager.getValue<string>('sandbox.permissionLevel'),
-    configManager.env(
-      'PERMISSION_SANDBOX_DEFAULT',
-      DEFAULT_SANDBOX_PERMISSION_LEVEL
-    )
-  );
-}
+export {
+  DEFAULT_SANDBOX_PERMISSION_LEVEL,
+  SANDBOX_PERMISSION_LEVELS,
+  readSandboxPermissionLevel,
+  resolveSandboxPermissionLevel,
+} from './permissionLevel';
 
 /** 沙箱总开关（`config.json sandbox.enabled`，未配置 ⇒ 启用） */
 export function readSandboxEnabled(): boolean {

@@ -16,8 +16,9 @@ import {
 import type { SSHSandboxConfig } from './SSHSandbox';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-// PR-3a（2026-10-23）：权限位解析与默认值收敛到 `./sandboxExecutionSignal`（单一事实源）
-import { readSandboxPermissionLevel } from './sandboxExecutionSignal';
+// PR-3a（2026-10-23）：权限位解析与默认值收敛到 `./permissionLevel`（单一事实源；
+// 2026-10-23 从 `sandboxExecutionSignal` 下沉以断开 madge 静态环）
+import { readSandboxPermissionLevel } from './permissionLevel';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('sandbox\WorkspaceManager');

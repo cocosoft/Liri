@@ -7591,7 +7591,7 @@
       },
       "code": [
         "app/src/chronos/service/SqliteCronStore.ts",
-        "app/src/core/persona/PersonaService.ts"
+        "app/src/agent/persona/PersonaService.ts"
       ],
       "tests": [
         "app/tests/constants/sameNameConstsB2.test.ts"

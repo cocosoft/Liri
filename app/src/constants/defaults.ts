@@ -69,6 +69,11 @@ export interface RuntimeDefaults {
   // ── insights（命令展示阈值） ────────────────────────────────────────────
   /** 「慢操作」展示阈值（毫秒）：洞察报告把超过该值的调用计入 `slowCalls` */
   insightsSlowOperationThresholdMs: number;
+  // ── agentsList（`agents_list` 运行态清单分页） ─────────────────────────
+  /** 单页默认条数 */
+  agentsListDefaultLimit: number;
+  /** 单页上限（防止代理清单挤占上下文） */
+  agentsListMaxLimit: number;
 }
 
 /** 每 token 估算字节数（A 类换算常数；派生字段的唯一来源） */
@@ -90,7 +95,8 @@ const TOKEN_BYTES_ESTIMATE = 4;
  * `LIRI_API_MAX_MEDIA_PER_REQUEST` · `LIRI_TOOL_MAX_RESULT_CHARS` ·
  * `LIRI_TOOL_RESULT_MAX_TOKENS` · `LIRI_TOOL_SUMMARY_MAX_LENGTH` ·
  * `LIRI_TOOL_RESULT_PREVIEW_MAX_LENGTH` · `LIRI_TOOL_TIMEOUT_MS` ·
- * `LIRI_MAX_CONCURRENT_TOOLS` · `LIRI_MAX_TOOL_RETRIES` · `LIRI_INSIGHTS_SLOW_MS`
+ * `LIRI_MAX_CONCURRENT_TOOLS` · `LIRI_MAX_TOOL_RETRIES` · `LIRI_INSIGHTS_SLOW_MS` ·
+ * `LIRI_AGENTS_LIST_DEFAULT_LIMIT` · `LIRI_AGENTS_LIST_MAX_LIMIT`
  */
 export function getRuntimeDefaults(): RuntimeDefaults {
   const apiImageMaxBase64Size = envInt(
@@ -152,5 +158,9 @@ export function getRuntimeDefaults(): RuntimeDefaults {
 
     // insights
     insightsSlowOperationThresholdMs: envInt('LIRI_INSIGHTS_SLOW_MS', 1000),
+
+    // agentsList（`agents_list` 分页）
+    agentsListDefaultLimit: envInt('LIRI_AGENTS_LIST_DEFAULT_LIMIT', 50),
+    agentsListMaxLimit: envInt('LIRI_AGENTS_LIST_MAX_LIMIT', 200),
   };
 }

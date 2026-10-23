@@ -3,8 +3,8 @@
   "locale": "en-US",
   "generatedBy": "manual translation (C-3b, 2026-10-18)",
   "counts": {
-    "tools": 76,
-    "params": 362
+    "tools": 77,
+    "params": 366
   },
   "params": {
     "agent.allowedTools": "Comma-separated tool names that the subagent is allowed to use. If empty, all tools are available.",
@@ -19,6 +19,10 @@
     "agent.subagent_type": "Specialized agent type to use. Available: general, explore, plan, verification, code-guide, statusline-setup (built-in). Leave empty to use the default.",
     "agent.synthesize": "After parallel execution, synthesize all worker results into a single report. Default false.",
     "agent.verify": "After parallel execution, run a verification gate on each worker result (verified + allPassed per worker). Default false.",
+    "agents_list.limit": "Max items per page (default 50, max 200)",
+    "agents_list.offset": "Pagination offset (default 0)",
+    "agents_list.status": "Filter by run status (the active table only contains running / cancel_requested)",
+    "agents_list.type": "Filter by agent type",
     "ask_user_question.header": "Short category label shown at the top of the panel (max 12 characters)",
     "ask_user_question.multiSelect": "Whether multiple selections are allowed. Default false (single select). Only applies to the choice type.",
     "ask_user_question.options": "Array of options, exactly 2-4 items. Each item must contain label and an optional description. Required for the choice type; omit or pass an empty array for open/confirm.",

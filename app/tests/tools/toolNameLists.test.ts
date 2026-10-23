@@ -536,7 +536,6 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
    * 见 P4b；`task_output` 即首个（2026-10-16 接线，75 → 76）。
    */
   const KNOWN_CONDITIONAL_TOOL_NAMES = [
-    'agents_list',
     'kanban',
     'mcp_auth',
     'music_generate',
@@ -565,8 +564,17 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
    *
    * `send_message`（2026-10-20）：原属 **D 类**（loader / 类别 / 真实现齐备，仅 flag 默认关）⇒
    * 用户裁定「开 flag 接线」后 `SEND_MESSAGE` 默认 `true` 并补 `TOOL_EFFECTS` ⇒ 同属已接线。
+   *
+   * `agents_list`（2026-10-23，Q-18）：`rewrite` 处置 —— 实现由"硬编码空结果"改为读
+   * `AgentTool.getActiveAgents()` + `getSpawnPauseState()`（与 `/v1/agents/control` 同源），
+   * 补 loader / 工厂 / `TOOL_EFFECTS` 并重算生成物 ⇒ 同属已接线。
    */
-  const P4B_WIRED_TOOL_NAMES = ['task_output', 'pdf', 'send_message'];
+  const P4B_WIRED_TOOL_NAMES = [
+    'task_output',
+    'pdf',
+    'send_message',
+    'agents_list',
+  ];
 
   /**
    * **P4b 期"下线"（非接线）的工具**：`propose_plan` —— 2026-10-16 用户裁定「审批入口合并到

@@ -40,3 +40,17 @@ export const BYTES_PER_TOKEN = 4;
  * @kind B
  */
 export const CONTEXT_MAX_TOOL_RESULT_BYTES = B.contextMaxToolResultBytes;
+
+/**
+ * `agents_list` 单页默认条数（Q-18 接线；B 类上限，`LIRI_AGENTS_LIST_DEFAULT_LIMIT` 可覆盖）
+ *
+ * @kind B
+ */
+export const AGENTS_LIST_DEFAULT_LIMIT = B.agentsListDefaultLimit;
+
+/**
+ * `agents_list` 单页上限（防止"代理清单"挤占上下文；`LIRI_AGENTS_LIST_MAX_LIMIT` 可覆盖）
+ *
+ * @kind B
+ */
+export const AGENTS_LIST_MAX_LIMIT = B.agentsListMaxLimit;

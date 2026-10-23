@@ -8,6 +8,7 @@
 /** 内建工具名（编译期枚举源）—— **全量 ∧ 可实例化**（不含 flag-gated 且默认关闭者） */
 export const TOOL_NAMES = [
   'agent',
+  'agents_list',
   'ask_user_question',
   'audio_play',
   'bash',
@@ -91,4 +92,4 @@ export const TOOL_NAMES = [
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 /** 生成时的工具名总数（门禁守卫用：与真实清单不符 ⇒ 需重新生成） */
-export const TOOL_NAMES_COUNT = 78;
+export const TOOL_NAMES_COUNT = 79;

@@ -48,6 +48,8 @@ const EXTERNAL: ToolEffect = { idempotent: false, sideEffect: 'external' };
  */
 export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   agent: EXTERNAL,
+  // Q-18（2026-10-23）：`agents_list` 接线 —— 只读运行态投影（不启停代理）
+  agents_list: NONE,
   ask_user_question: EXTERNAL,
   // 2026-10-16：`propose_plan` 已下线 ⇒ 其 effects 声明随之移除（`Record<ToolName,…>` 亦会强制）。
   audio_play: NONE,

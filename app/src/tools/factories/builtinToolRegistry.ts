@@ -50,6 +50,8 @@ import { CronListTool } from '../ChronosTool/CronListTool';
 import { CronStopTool } from '../ChronosTool/CronStopTool';
 // ── Agent / Skill / 知识 ──
 import { AgentTool } from '../AgentTool/AgentTool';
+// Q-18（2026-10-23）：`agents_list` 由影子工具接线（只读活跃代理投影，与 /v1/agents/control 同源）
+import { AgentsListTool } from '../AgentsListTool/AgentsListTool';
 import { SkillTool } from '../SkillTool/SkillTool';
 import { SkillListTool } from '../SkillTool/SkillListTool';
 import { SkillViewTool } from '../SkillTool/SkillViewTool';
@@ -158,6 +160,7 @@ export const BUILTIN_TOOL_FACTORIES = {
   createCronStopTool: () => CronStopTool.create(),
   // ── Agent / Skill / 知识 ──
   createAgentTool: () => new AgentTool(),
+  createAgentsListTool: () => new AgentsListTool(),
   createSkillTool: () => new SkillTool(),
   createSkillListTool: () => new SkillListTool(),
   createSkillViewTool: () => new SkillViewTool(),

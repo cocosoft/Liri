@@ -3,8 +3,8 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-params.ts",
   "counts": {
-    "tools": 76,
-    "params": 362
+    "tools": 77,
+    "params": 366
   },
   "params": {
     "agent.allowedTools": "逗号分隔的工具名，表示子代理允许使用哪些工具。若为空，则所有工具均可用。",
@@ -19,6 +19,10 @@
     "agent.subagent_type": "要使用的专用代理类型。可用值：general, explore, plan, verification, code-guide, statusline-setup （内置）。留空以使用默认值。",
     "agent.synthesize": "并行执行后，将所有 worker 的结果综合为单一报告。默认 false。",
     "agent.verify": "并行执行后，对每个 worker 的结果运行验证关卡（每个 worker 的 verified + allPassed）。默认 false。",
+    "agents_list.limit": "本页最大条数（默认 50，上限 200）",
+    "agents_list.offset": "分页偏移量（默认 0）",
+    "agents_list.status": "按运行状态过滤（活跃表只含 running / cancel_requested）",
+    "agents_list.type": "按 Agent 类型过滤",
     "ask_user_question.header": "显示在面板顶部的简短分类标签（不超过 12 字）",
     "ask_user_question.multiSelect": "是否允许多选。默认 false（单选）。仅 choice 类型有效。",
     "ask_user_question.options": "选项数组，恰好 2-4 个项。每个项必须包含 label 和可选的 description。choice 类型必填；open/confirm 类型可省略或传空数组。",

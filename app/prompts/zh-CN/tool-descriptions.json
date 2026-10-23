@@ -3,10 +3,11 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-descriptions.ts",
   "counts": {
-    "tools": 78
+    "tools": 79
   },
   "descriptions": {
     "agent": "创建一个专用子代理来执行特定任务",
+    "agents_list": "列出当前活跃的子代理（运行态投影）与 spawn 暂停状态。可按类型/状态过滤并分页；只读，不启动也不停止代理。",
     "ask_user_question": "向用户提问以获取确认或决策。支持三种类型：\n1. **choice**（默认）：封闭式多选题，提供 2-4 个固定选项。适用于选项可穷举的问题（如\"选择技术栈\"）。\n2. **open**：开放式确认，用户自由回答。适用于无法穷举选项的问题（如\"你的目标是什么？\"）。\n3. **confirm**：是/否确认。适用于需要用户批准的决策点（如\"是否继续执行？\"）。\n\n**使用规范**：\n- choice 类型：每个选项的 label 作为独立字段传入，不要写进 question 文本。\n- open 类型：options 可传空数组或省略，系统会自动添加自由输入入口。\n- confirm 类型：options 可传空数组或省略，系统自动生成\"确认/取消\"选项。\n- 系统会在选项末尾自动添加\"其它\"选项，允许用户输入自由文本。",
     "audio_play": "Play audio files directly in the chat conversation. MUST call this after generating music/audio with music_generate to let users listen. Users cannot open file paths themselves — audio is only playable when you use this tool. Accepts local file paths or URLs. Supports audio playback with controls.",
     "bash": "在安全检查下执行 shell 命令。\n执行环境随平台而定：Windows 为 cmd.exe（不是 bash；路径用 \\，用 dir/type/findstr/del/copy/move 代替 ls/cat/grep/rm/cp/mv，临时目录用 %TEMP%，复杂脚本可前缀 powershell -Command \"…\"）；Unix 为 /bin/sh。",

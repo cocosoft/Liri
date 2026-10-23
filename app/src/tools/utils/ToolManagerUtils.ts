@@ -177,6 +177,10 @@ function buildBuiltinToolLoaders(
     byKey('createWebFetchTool'),
     byKey('createWebSearchTool'),
     byKey('createAgentTool'),
+    // P4b（2026-10-23，Q-18 `rewrite` 处置）：`agents_list` 由影子工具接线 ——
+    // 数据源 = `AgentTool.getActiveAgents()`（与 `GET /v1/agents/control` 同源），
+    // 只读；修复前实现返回硬编码空结果（CS04 假数据）。
+    byKey('createAgentsListTool'),
     byKey('createAskUserQuestionTool'),
     byKey('createBriefTool'),
     byKey('createSaveConversationTool'),

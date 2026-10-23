@@ -3,7 +3,7 @@
   "locale": "en-US",
   "generatedBy": "manual translation (T2 tool descriptions)",
   "counts": {
-    "tools": 80
+    "tools": 81
   },
   "descriptions": {
     "agent": "Create a dedicated sub-agent to perform a specific task.",
@@ -47,6 +47,7 @@
     "list_peers": "Discover local peers (UDS socket) or remote sessions (bridge). Use to find agent processes you can connect to.",
     "list_vfs": "List entries under an AI-VFS mount directory. Paths look like <scheme>://<authority>/<path>, e.g. dev_docs://配置与安全; calling with <scheme>:// (scheme-only, e.g. mcp://) lists the mounts under that scheme. Unregistered schemes fail explicitly and never fall back to the local filesystem.",
     "lsp": "Language Server Protocol tool providing code intelligence: hover/definition/references/diagnostics/formatting/rename. When the target file is on disk (the vast majority of cases), prefer file_path over document — this avoids the model reciting thousands of lines of source, which causes output token explosion, JSON truncation, and context overflow.",
+    "mcp_auth": "Manage OAuth authentication for registered MCP servers. Actions: list (per-server OAuth/token status), status (one server), login (returns an authorization URL for the user to open), logout (revoke tokens), refresh (ensure a valid token). Never returns tokens. Requires FEATURE_MCP_OAUTH.",
     "mcp_resource": "List and read resources and prompts from connected MCP (Model Context Protocol) servers.",
     "mcp_tool": "Connect to MCP (Model Context Protocol) servers and use external tools. Supports stdio, SSE, WebSocket, and HTTP transports.",
     "monitor": "Monitor system status and performance.",

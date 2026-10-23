@@ -45,14 +45,9 @@ export const SHADOW_TOOL_DISPOSITIONS: Readonly<
   // ⇒ 它们既不在"声明面 − 生效面"差额中，也无实现残留。
 
   // ── 重写后接线：有真实能力，但当前实现不可用 ────────────────────────────
-  // `agents_list`（2026-10-23）与 `kanban`（2026-10-23）已完成 `rewrite` 并接线
-  // ⇒ 均已移出本表（前者读 `AgentTool.getActiveAgents()`；后者读写 SQLite `kanban_cards`）。
-  mcp_auth: {
-    reason: 'needs-rewrite',
-    disposition: 'rewrite',
-    reevaluateWhen:
-      '先定 OAuth 交互形态（oauth 配置来源 + 浏览器授权如何回到用户），再经 mcpAuthManager 接线并受 MCP_OAUTH 门控；2026-10-23 已先移除原"假成功"（login/logout/refresh 不再返回 authenticated:true）',
-  },
+  // `agents_list` / `kanban` / `mcp_auth`（均 2026-10-23）已完成 `rewrite` 并接线 ⇒ 移出本表：
+  // 前者读 `AgentTool.getActiveAgents()`；`kanban` 读写 SQLite `kanban_cards`；
+  // `mcp_auth` 经 `mcpAuthManager`（受 `MCP_OAUTH` 门控）。
 
   // ── 等待外部前提 ────────────────────────────────────────────────────────
   music_generate: {

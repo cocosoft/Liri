@@ -3,7 +3,7 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-descriptions.ts",
   "counts": {
-    "tools": 80
+    "tools": 81
   },
   "descriptions": {
     "agent": "创建一个专用子代理来执行特定任务",
@@ -47,6 +47,7 @@
     "list_peers": "发现本地peer（UDS socket）或远程会话（bridge）。用于查找可连接的Agent进程。",
     "list_vfs": "列举 AI-VFS 挂载点目录下的条目。路径形如 <scheme>://<authority>/<path>，例如 dev_docs://配置与安全；以 <scheme>:// 形式（scheme-only，如 mcp://）调用时列举该 scheme 下的挂载点。未注册的 scheme 会明确失败，不会回退到本地文件系统。",
     "lsp": "Language Server Protocol 工具，提供代码智能提示/定义跳转/引用/诊断/格式化/重命名等能力。当目标文件在磁盘上时（绝大多数情况），必须优先使用 file_path 而非 document —— 避免模型背诵数千行源码导致 output token 爆炸、JSON 截断与上下文溢出。",
+    "mcp_auth": "Manage OAuth authentication for registered MCP servers. Actions: list (per-server OAuth/token status), status (one server), login (returns an authorization URL for the user to open), logout (revoke tokens), refresh (ensure a valid token). Never returns tokens. Requires FEATURE_MCP_OAUTH.",
     "mcp_resource": "列出并读取已连接 MCP（Model Context Protocol）服务器的资源和提示词",
     "mcp_tool": "Connect to MCP (Model Context Protocol) servers and use external tools. Supports stdio, SSE, WebSocket, and HTTP transports.",
     "monitor": "监控系统状态和性能",

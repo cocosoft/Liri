@@ -91,6 +91,8 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   list_peers: NONE,
   list_vfs: NONE,
   lsp: LOCAL,
+  // Q-18（2026-10-23）：`mcp_auth` 接线 —— OAuth 授权/撤销（对外部系统可见影响）
+  mcp_auth: EXTERNAL,
   mcp_resource: NONE,
   mcp_tool: EXTERNAL,
   monitor: LOCAL,

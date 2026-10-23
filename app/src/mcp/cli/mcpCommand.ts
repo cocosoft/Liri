@@ -10,39 +10,10 @@ import { MCPServerConfig } from '../types';
 import { readMcpConfig, writeMcpConfig } from '../utils/mcpConfig';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import {
-  DEFAULT_MCP_OAUTH_CALLBACK_PORT,
-  LOCAL_SERVICE_HOST,
-} from '@modules/core';
+// Q-18（2026-10-23）：派生口径抽到服务层共享（`mcp_auth` 工具与 CLI 同源）
+import { deriveOAuthConfig } from '@modules/services/mcp/auth/deriveOAuthConfig.js';
 
 const logger = getLogger('mcpCommand');
-
-import type { MCPOAuthConfig } from '@modules/services/mcp/auth/types.js';
-
-/**
- * 从 MCPServerConfig 派生 MCPOAuthConfig。
- * 如果服务器配置中缺少 OAuth 信息则返回 null。
- */
-function deriveOAuthConfig(config: MCPServerConfig): MCPOAuthConfig | null {
-  if (!config.oauth?.clientId) return null;
-
-  const metadataUrl = config.oauth.authServerMetadataUrl || config.url;
-  if (!metadataUrl) return null;
-
-  try {
-    const baseUrl = new URL(metadataUrl);
-    const origin = baseUrl.origin;
-
-    return {
-      clientId: config.oauth.clientId,
-      authUrl: `${origin}/authorize`,
-      tokenUrl: `${origin}/token`,
-      redirectUri: `http://${LOCAL_SERVICE_HOST}:${config.oauth.callbackPort || DEFAULT_MCP_OAUTH_CALLBACK_PORT}/callback`,
-    };
-  } catch {
-    return null;
-  }
-}
 
 /**
  * 创建MCP CLI命令

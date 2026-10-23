@@ -535,7 +535,7 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
    * ⚠️ 移出本集合的**唯一正规途径**是"真接线"（登记类别 + loader + 重算生成物 + 声明 effects），
    * 见 P4b；`task_output` 即首个（2026-10-16 接线，75 → 76）。
    */
-  const KNOWN_CONDITIONAL_TOOL_NAMES = ['mcp_auth', 'music_generate', 'tts'];
+  const KNOWN_CONDITIONAL_TOOL_NAMES = ['music_generate', 'tts'];
   // D1 接线（2026-10-11）：`TEAM_CREATE`/`TEAM_DELETE` 成为**变体默认生效**（coding）
   // ⇒ `team_create`/`team_delete` 移出本差额集（进入生成物 `TOOL_NAMES`，75 名）。
 
@@ -567,6 +567,10 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
    * `kanban`（2026-10-23，Q-18）：`rewrite` 处置 —— 实现由**进程内 Map** 改为读写 SQLite
    * `kanban_cards`（经 `getTaskOpsPort()`，与 `/v1/kanban` 及客户端 `KanbanBoard` 同源），
    * 动作面收敛为卡片 CRUD ⇒ 同属已接线。
+   *
+   * `mcp_auth`（2026-10-23，Q-18）：`rewrite` 处置 —— 假成功实现改为经 `mcpAuthManager`
+   * （list/status 读 token 状态、login 返回授权 URL、logout 撤销、refresh 确保有效），
+   * **D 类门控** `MCP_OAUTH`（默认关 ⇒ 运行期不注册，但生成物/声明面一致）⇒ 同属已接线。
    */
   const P4B_WIRED_TOOL_NAMES = [
     'task_output',
@@ -574,6 +578,7 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
     'send_message',
     'agents_list',
     'kanban',
+    'mcp_auth',
   ];
 
   /**

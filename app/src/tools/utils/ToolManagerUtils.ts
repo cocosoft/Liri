@@ -243,6 +243,10 @@ function buildBuiltinToolLoaders(
     cond(coreFeature('LSP'), selectLspToolLoader()),
     cond(coreFeature('MCP'), byKey('createMCPTool')),
     cond(coreFeature('MCP'), byKey('createMCPResourceTool')),
+    // P4b（2026-10-23，Q-18 `rewrite` 处置）：`mcp_auth` 接线 —— 经 `mcpAuthManager`
+    // （login 返回授权 URL / status·list 读 hasToken / logout 撤销）。**D 类门控**：
+    // 仅 `MCP_OAUTH` 开启时注册（默认关 ⇒ 运行期不出现；生成物按全量视图仍含该名）。
+    cond(coreFeature('MCP_OAUTH'), byKey('createMcpAuthTool')),
     // 2026-10-08：删除 `list_mcp_resources` / `read_mcp_resource` 两个加载器 —— 二者为**占位/伪造实现**
     // （前者 `fetchResourcesForClient()` 恒返回 []，后者直接编造 `Content of <uri>` 文本，属 CS04 违规），
     // 且功能被 `mcp_resource`（真实现，走 MCPServerManager.sendRequest）完全覆盖。

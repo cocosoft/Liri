@@ -116,6 +116,8 @@ import { CanvasTool } from '../CanvasTool/CanvasTool';
 // ── MCP（三方工具面） ──
 import { MCPTool } from '../../mcp/MCPTool';
 import { MCPResourceTool } from '../MCPResourceTool/MCPResourceTool';
+// Q-18（2026-10-23）：`mcp_auth` 由影子工具接线（经 mcpAuthManager；受 MCP_OAUTH 门控）
+import { McpAuthTool } from '../McpAuthTool/McpAuthTool';
 // ── 门控 / 守卫 / KAIROS 委托 ──
 import { isToolEnabled } from '../utils/ToolFeatureFlags';
 import { guardToolCreation } from './toolCreationGuard.js';
@@ -248,6 +250,7 @@ export const BUILTIN_TOOL_FACTORIES = {
   /** 原实现直返模块绑定（**无 `new`**）—— 逐字保留 */
   createMCPTool: () => MCPTool,
   createMCPResourceTool: () => new MCPResourceTool(),
+  createMcpAuthTool: () => new McpAuthTool(),
   // ── KAIROS 委托（实现见 `kairosNotificationFactories`） ──
   createPushNotificationTool: buildPushNotificationTool,
   createSubscribePRTool: buildSubscribePRTool,

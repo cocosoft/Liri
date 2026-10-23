@@ -3,8 +3,8 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-tool-params.ts",
   "counts": {
-    "tools": 78,
-    "params": 374
+    "tools": 79,
+    "params": 376
   },
   "params": {
     "agent.allowedTools": "逗号分隔的工具名，表示子代理允许使用哪些工具。若为空，则所有工具均可用。",
@@ -217,6 +217,8 @@
     "lsp.language": "编程语言",
     "lsp.newName": "新名称（用于rename操作）",
     "lsp.position": "光标位置 {line, character}",
+    "mcp_auth.action": "Action to perform: list / status (serverName required) / login (serverName required) / logout (serverName required) / refresh (serverName required)",
+    "mcp_auth.serverName": "Registered MCP server name (required for status/login/logout/refresh)",
     "mcp_resource.action": "要执行的操作：list_resources、read_resource、list_prompts、get_prompt",
     "mcp_resource.prompt_args": "提示词参数（get_prompt 操作使用）",
     "mcp_resource.prompt_name": "提示词名称（get_prompt 操作需要）",

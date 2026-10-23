@@ -60,7 +60,21 @@ jobs:
       # （2026-10-18 实测：`FATAL ERROR: Ineffective mark-compacts near heap limit` ⇒ exit 134）。
       # 只在 ubuntu 上跑一次；其余平台仍跑 typecheck + 全量测试。
       if: matrix.os == 'ubuntu-latest'
-      run: bun run lint
+      # 失败时把 eslint 的具体诊断**提升为 annotation**：Actions 的 job 日志下载接口
+      # 需要仓库 admin 权限（未授权调用返回 403），而 check-run annotations 可匿名读取
+      # ⇒ 没有这一步，红只会表现成一句 "Process completed with exit code 1"（2026-10-23 实证）。
+      run: |
+        set +e
+        out=$(bun run lint 2>&1)
+        code=$?
+        set -e
+        if [ "$code" -ne 0 ]; then
+          printf '%s\n' "$out" | grep -E 'error|✖|problems|Parsing' | tail -n 20 | while IFS= read -r line; do
+            printf '::error::%s\n' "$line"
+          done
+          exit "$code"
+        fi
+        printf '%s\n' "$out" | tail -n 3
 
     - name: "Run root scripts linter (待办 ⑨：scripts/** 原先不在 eslint 覆盖内)"
       # 同上：静态检查，单平台执行即可。

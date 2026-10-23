@@ -41,7 +41,7 @@ import {
   globalEventBus,
   SystemEvents,
 } from '@openliri/kernel/events/EventBus.js';
-import { feature } from '@openliri/kernel/featureFlags.js';
+import { feature } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('state:projectionBroker');

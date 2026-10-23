@@ -29,7 +29,7 @@
  */
 
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
-import { projectTaskGraph } from '@openliri/kernel/systemgraph';
+import { projectTaskGraph } from '@openliri/kernel';
 import { TaskDependencyService, TaskRegistry } from '@modules/tasks';
 
 import { WorkflowError } from './WorkflowError';

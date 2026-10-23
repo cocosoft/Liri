@@ -94,7 +94,7 @@ import { contextManager } from './context/ContextManager.js';
 // AC-7：type-only 导入，信号处理中同步强关 HTTP（零运行时依赖，无循环引用）
 import type { LocalHTTPService } from '@modules/infrastructure';
 // 端口单一事实来源（默认值 + 生效端口解析），运行时由 LIRI_HTTP_PORT 覆盖
-import { resolveHttpPort } from '@openliri/kernel/ports.js';
+import { resolveHttpPort } from '@openliri/kernel';
 // 单实例锁（PID + 实际监听端点）：解析 / 写入 / 端口发布 / 释放集中在此
 // 2026-10-20（分发前置）：第二实例据此拿到**运行中实例的实际端口**（动态端口可发现面）
 import {
@@ -1330,7 +1330,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // 显示加载提示（在 T1 执行期间给用户进度反馈）
     process.stdout.write('⏳ Liri 正在加载模块...\r');
 
-    const { getDIContainer } = await import('@openliri/kernel/DIContainer');
+    const { getDIContainer } = await import('@openliri/kernel');
     const { moduleRegistry } = await import('./modules/ModuleRegistry');
     await getDIContainer().bootstrap(moduleRegistry, {
       mode: options.mode,

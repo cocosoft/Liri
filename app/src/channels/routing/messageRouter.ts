@@ -450,7 +450,7 @@ async function routeChannelMessageInner(
   try {
     // ③ 共享会话写入
     try {
-      const { getDIContainer } = await import('@openliri/kernel/DIContainer');
+      const { getDIContainer } = await import('@openliri/kernel');
       const { MessageType, MessageRole } =
         await import('../../session/types/UnifiedMessage');
       const container = getDIContainer();

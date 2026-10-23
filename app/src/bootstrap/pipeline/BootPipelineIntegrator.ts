@@ -247,7 +247,7 @@ export function registerStandardHandlers(): void {
     phase: BootPhase.DI_STARTUP,
     handler: async (ctx: BootContext) => {
       logger.info('[Phase 4] DIContainer 启动');
-      const { getDIContainer } = await import('@openliri/kernel/DIContainer');
+      const { getDIContainer } = await import('@openliri/kernel');
       const { moduleRegistry } = await import('../../modules/ModuleRegistry');
       await getDIContainer().bootstrap(moduleRegistry, {
         mode: ctx.mode,

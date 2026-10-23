@@ -1,22 +1,14 @@
 {
   "version": 1,
-  "maxEntries": 49,
+  "maxEntries": 34,
   "entries": [
     {
       "file": "app/src/acp/AcpWebSocketServer.ts",
       "subpath": "tracingFacade.js"
     },
     {
-      "file": "app/src/agent/registry/AgentRegistry.ts",
-      "subpath": "systemgraph"
-    },
-    {
       "file": "app/src/ai/telemetry/SessionSpanTracer.ts",
       "subpath": "SessionSpanTracer.js"
-    },
-    {
-      "file": "app/src/bootstrap/pipeline/BootPipelineIntegrator.ts",
-      "subpath": "DIContainer"
     },
     {
       "file": "app/src/channels/GatewaySessionTracer.ts",
@@ -25,10 +17,6 @@
     {
       "file": "app/src/channels/registry/ChannelRegistry.ts",
       "subpath": "DependencyRegistry.js"
-    },
-    {
-      "file": "app/src/channels/routing/messageRouter.ts",
-      "subpath": "DIContainer"
     },
     {
       "file": "app/src/channels/routing/messageRouter.ts",
@@ -59,20 +47,8 @@
       "subpath": "ports.js"
     },
     {
-      "file": "app/src/entrypoints/repl.ts",
-      "subpath": "DIContainer.js"
-    },
-    {
       "file": "app/src/error/abortReason.ts",
       "subpath": "abortReason.js"
-    },
-    {
-      "file": "app/src/infrastructure/http/handlers/agent2-handlers.ts",
-      "subpath": "Coordinator"
-    },
-    {
-      "file": "app/src/infrastructure/http/handlers/files-handlers.ts",
-      "subpath": "delivery/monitor/DiskSpaceMonitor"
     },
     {
       "file": "app/src/infrastructure/http/handlers/image-handlers.ts",
@@ -84,23 +60,11 @@
     },
     {
       "file": "app/src/main.ts",
-      "subpath": "DIContainer"
-    },
-    {
-      "file": "app/src/main.ts",
       "subpath": "instanceLock.js"
-    },
-    {
-      "file": "app/src/main.ts",
-      "subpath": "ports.js"
     },
     {
       "file": "app/src/memory/services/UnifiedSearchService.ts",
       "subpath": "knowledge-types"
-    },
-    {
-      "file": "app/src/modules/doc/api/officeHandlers.ts",
-      "subpath": "endpoints.js"
     },
     {
       "file": "app/src/modules/index.ts",
@@ -127,18 +91,6 @@
       "subpath": "LazyModuleStrategy"
     },
     {
-      "file": "app/src/modules/workflow/failureAttribution.ts",
-      "subpath": "systemgraph"
-    },
-    {
-      "file": "app/src/modules/workflow/types.ts",
-      "subpath": "systemgraph"
-    },
-    {
-      "file": "app/src/modules/workflow/WorkflowEngine.ts",
-      "subpath": "systemgraph"
-    },
-    {
       "file": "app/src/performance/PerformanceMonitor.ts",
       "subpath": "LazyModuleStrategy"
     },
@@ -159,10 +111,6 @@
       "subpath": "ids"
     },
     {
-      "file": "app/src/state/engine/projectionBroker.ts",
-      "subpath": "featureFlags.js"
-    },
-    {
       "file": "app/src/state/task/TaskStateMachine.ts",
       "subpath": "taskStatus"
     },
@@ -171,20 +119,12 @@
       "subpath": "taskStatus"
     },
     {
-      "file": "app/src/tools/AgentTool/runAttribution.ts",
-      "subpath": "systemgraph"
-    },
-    {
       "file": "app/src/tools/DependencyValidator.ts",
       "subpath": "LazyModuleStrategy"
     },
     {
       "file": "app/src/tools/ImageDisplayTool/ImageDisplayTool.ts",
       "subpath": "mediaRoots"
-    },
-    {
-      "file": "app/src/tools/toolCategories.ts",
-      "subpath": "featureFlags"
     },
     {
       "file": "app/src/types/orchestrationEvents.ts",

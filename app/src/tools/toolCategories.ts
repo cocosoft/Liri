@@ -17,8 +17,8 @@
 import { toWireToolName } from './toolNameCodec';
 import type { ToolNameConstant } from './toolNameConstants';
 import { getLogger } from '@modules/monitoring';
-import { feature } from '@openliri/kernel/featureFlags';
-import type { FeatureFlag } from '@openliri/kernel/featureFlags';
+import { feature } from '@openliri/kernel';
+import type { FeatureFlag } from '@openliri/kernel';
 
 const logger = getLogger('tools:categories');
 

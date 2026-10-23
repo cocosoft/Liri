@@ -7,7 +7,7 @@ import type http from 'http';
 import type { EmailAccount } from '../../mail/types';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import { handleError } from '@modules/error/handleError';
-import { LOCAL_SERVICE_HOST } from '@openliri/kernel/endpoints.js';
+import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 const logger = getLogger('doc:api');
 

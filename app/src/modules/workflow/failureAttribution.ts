@@ -31,11 +31,8 @@
  * 属 RunLogger 接线范围（spec §一 E5）。
  */
 
-import { projectTaskGraph } from '@openliri/kernel/systemgraph';
-import type {
-  RootCauseCandidate,
-  TaskStepLike,
-} from '@openliri/kernel/systemgraph';
+import { projectTaskGraph } from '@openliri/kernel';
+import type { RootCauseCandidate, TaskStepLike } from '@openliri/kernel';
 
 /** 归因结果 */
 export interface FailureAttribution {

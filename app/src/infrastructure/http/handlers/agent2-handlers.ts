@@ -56,7 +56,7 @@ export async function handleCancelAgentTask(
   taskId: string
 ): Promise<void> {
   try {
-    const { coordinator } = await import('@openliri/kernel/Coordinator');
+    const { coordinator } = await import('@openliri/kernel');
     const success = coordinator.stopTask(taskId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success, taskId }));
@@ -281,7 +281,7 @@ export async function handleAgentTaskChat(
       reply = (await sender.sendTaskMessage?.(taskId, message)) || '';
     } catch {
       // 降级：通过 executor 直接执行
-      const { coordinator } = await import('@openliri/kernel/Coordinator');
+      const { coordinator } = await import('@openliri/kernel');
       const task = (coordinator as unknown as TaskLookup).getTask?.(taskId);
       if (task && typeof (task as MessageEndpoint).sendMessage === 'function') {
         reply = await (task as MessageEndpoint).sendMessage(message);

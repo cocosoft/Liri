@@ -70,6 +70,21 @@ jobs:
         working-directory: packages/kernel
         run: bun run build
 
+      # 产物可用性冒烟：只「构建成功」不等于「能 import」——`build` 出来的是单文件 bundle，
+      # 若入口 re-export 链路断开（例如 `export *` 指错文件），体积照样正常但符号是空的。
+      # 断言取桶入口的真实导出（注意：深路径 API 如 `/paths`、`/orchestrationEvents` 不在桶面，
+      # 由 K07 白名单与 app 侧门面负责，不在此断言）。
+      - name: Build artifact smoke (importable + barrel surface)
+        working-directory: packages/kernel
+        run: |
+          bun -e "
+          const m = await import('./dist/index.js');
+          const need = ['KERNEL_PACKAGE_NAME', 'feature', 'resolveDbPath', 'AppError', 'globalEventBus'];
+          const miss = need.filter((k) => m[k] === undefined);
+          if (miss.length) { console.error('缺失导出: ' + miss.join(', ')); process.exit(1); }
+          console.log('dist 可 import，关键导出齐备（共 ' + Object.keys(m).length + ' 个符号）');
+          "
+
       # 内核纯净度：K01–K04 跨层 / K06 依赖白名单 / K07 深路径棘轮（均可独立于 app 全量执行）
       - name: Kernel purity gate (K01-K07)
         run: bun run scripts/lint-kernel-purity.ts

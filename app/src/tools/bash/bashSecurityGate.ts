@@ -154,13 +154,23 @@ export function checkBashDangerousCommand(
   command: string
 ): ToolResult<unknown> | null {
   const lowerCommand = command.toLowerCase();
-  if (
-    DANGEROUS_COMMANDS.some((dangerousCommand) =>
-      lowerCommand.includes(dangerousCommand.toLowerCase())
-    )
-  ) {
+  // 2026-10-23（预存台账批次 A #1）：危险词改 **token 边界匹配**，与
+  // `SandboxSecurityChecker.checkDangerousCommands` 同口径；旧 `includes()` 会把
+  // `result`（含 `su`）、`git add`（含 `dd`）、`format-test`（含 `format`）、
+  // `skill`（含 `kill`）等正常命令误判为危险。带空格的组合（如 `rm -rf`）仍按
+  // 整串匹配 —— 组合本身足够具体，token 化反而会漏掉跨参数写法。
+  const tokens = lowerCommand.split(/[\s;|&<>]+/).filter(Boolean);
+  const matchedDangerousCommand = DANGEROUS_COMMANDS.find(
+    (dangerousCommand) => {
+      const d = dangerousCommand.toLowerCase().trim();
+      if (!d) return false;
+      return d.includes(' ') ? lowerCommand.includes(d) : tokens.includes(d);
+    }
+  );
+  if (matchedDangerousCommand) {
     return blockedResult('安全检查: 检测到危险命令', {
       reason: 'dangerous_command',
+      matchedCommand: matchedDangerousCommand,
     });
   }
 

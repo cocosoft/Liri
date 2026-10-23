@@ -27,8 +27,8 @@
  * - 已批准命令命中放行缓存：S1-2 起**只免"重复弹 ask 卡"**，硬拦截层恒执行
  *   （`FEATURE_BASH_APPROVED_REVALIDATE` 开关**关不掉**任何硬拦截，见 G11）
  *
- * 测试命令选择 "echo format-test"：
- * - 无审批：包含危险命令词 "format" → 在危险命令列表层被拦截
+ * 测试命令选择 "echo format"：
+ * - 无审批：包含危险命令词 "format"（独立 token）→ 在危险命令列表层被拦截
  * - 有审批：硬拦截仍生效（S1-2）⇒ 同样被拦截；"安全命令 + 已批准"才真实执行
  */
 import { describe, it, expect, afterEach, spyOn } from 'bun:test';
@@ -57,7 +57,7 @@ describe('BashTool 放行通道（P0-4）', () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
     const tool = new BashTool(reg);
     const result = await tool.execute(
-      { command: 'echo format-test' },
+      { command: 'echo format' },
       makeContext('session-1')
     );
     expect(result.metadata?.securityIntercepted).toBe(true);
@@ -84,10 +84,10 @@ describe('BashTool 放行通道（P0-4）', () => {
 
   it('跨会话不共享放行：其他会话仍被拦截', async () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
-    reg.approve('session-1', hashCommand('echo format-test'));
+    reg.approve('session-1', hashCommand('echo format'));
     const tool = new BashTool(reg);
     const result = await tool.execute(
-      { command: 'echo format-test' },
+      { command: 'echo format' },
       makeContext('session-2')
     );
     expect(result.metadata?.securityIntercepted).toBe(true);
@@ -96,11 +96,11 @@ describe('BashTool 放行通道（P0-4）', () => {
 
   it('命令实质变化不命中放行：修改后的命令仍被拦截', async () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
-    reg.approve('session-1', hashCommand('echo format-test'));
+    reg.approve('session-1', hashCommand('echo format'));
     const tool = new BashTool(reg);
     // 命令变化 → hash 不同 → 未命中放行 → 危险命令词 format 触发拦截
     const result = await tool.execute(
-      { command: 'echo format-evil' },
+      { command: 'echo format --help' },
       makeContext('session-1')
     );
     expect(result.metadata?.securityIntercepted).toBe(true);
@@ -194,10 +194,10 @@ describe('A2 已批准命令安全复检（安全基线 BASH_APPROVED_REVALIDATE
 
   it('默认开（基线）：已批准的危险命令**被硬拦截**（第九轮审查 §七 翻转）', async () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
-    reg.approve('session-1', hashCommand('echo format-test'));
+    reg.approve('session-1', hashCommand('echo format'));
     const tool = new BashTool(reg);
     const result = await tool.execute(
-      { command: 'echo format-test' },
+      { command: 'echo format' },
       makeContext('session-1')
     );
     // 翻转前（默认关）此处为 `not.toBe(true)`；翻转后批准只免"审批交互"，硬拦截仍须过
@@ -209,10 +209,10 @@ describe('A2 已批准命令安全复检（安全基线 BASH_APPROVED_REVALIDATE
   it('显式开：已批准的危险命令仍被硬拦截', async () => {
     restore = withFlag('BASH_APPROVED_REVALIDATE', true);
     const reg = new ApprovedCommandRegistry(60_000, false);
-    reg.approve('session-1', hashCommand('echo format-test'));
+    reg.approve('session-1', hashCommand('echo format'));
     const tool = new BashTool(reg);
     const result = await tool.execute(
-      { command: 'echo format-test' },
+      { command: 'echo format' },
       makeContext('session-1')
     );
     expect(result.metadata?.securityIntercepted).toBe(true);
@@ -231,10 +231,10 @@ describe('A2 已批准命令安全复检（安全基线 BASH_APPROVED_REVALIDATE
     process.env[key] = 'false';
     try {
       const reg = new ApprovedCommandRegistry(60_000, false);
-      reg.approve('session-1', hashCommand('echo format-test'));
+      reg.approve('session-1', hashCommand('echo format'));
       const tool = new BashTool(reg);
       const result = await tool.execute(
-        { command: 'echo format-test' },
+        { command: 'echo format' },
         makeContext('session-1')
       );
       expect(result.metadata?.securityIntercepted).toBe(true);

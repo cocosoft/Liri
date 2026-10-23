@@ -185,7 +185,7 @@ const DANGEROUS = ['rm -rf /', 'sudo apt install x', 'chmod 777 /etc/passwd'];
  * 危险命令：仅由 **BashTool 内建危险列表**（私有，`DANGEROUS_COMMANDS`）识别。
  * 这是**纵深防御的额外一层** —— analyzer/sandbox 合法地不报 `format`，但工具仍须拦截。
  */
-const DANGEROUS_LIST_ONLY = ['echo format-test'];
+const DANGEROUS_LIST_ONLY = ['echo format'];
 
 /** 良性命令：各层清白，最终应**真实执行**（防"恒拒"假绿） */
 const BENIGN = ['echo layer-consistent-ok', 'echo hello-layer'];
@@ -272,10 +272,10 @@ describe('专项 A #7-附 审批层与最终决策一致（A2 基线）', () => 
   it('已批准的危险命令：A2 复检仍须过硬拦截（审批 != 免拦截）', async () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
     registries.push(reg);
-    reg.approve('s-approved-danger', hashCommand('echo format-test'));
+    reg.approve('s-approved-danger', hashCommand('echo format'));
     const tool = new BashTool(reg);
     const r = await tool.execute(
-      { command: 'echo format-test' },
+      { command: 'echo format' },
       makeContext('s-approved-danger')
     );
     expect(r.metadata?.securityIntercepted).toBe(true);

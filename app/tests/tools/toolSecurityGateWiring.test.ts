@@ -78,6 +78,32 @@ describe('硬拦截结果必须带 error（BUG-8，2026-10-19）', () => {
   });
 });
 
+describe('危险命令判据：token 边界匹配（预存台账批次 A #1）', () => {
+  it.each([
+    ['echo result', 'result 含 su'],
+    ['git add .', 'add 含 dd'],
+    ['npm run format-test', 'format-test 含 format'],
+    ['node skill.js', 'skill.js 含 kill'],
+  ])('正常命令不误伤：%s（%s）', (command) => {
+    expect(checkBashDangerousCommand(command)).toBeNull();
+  });
+
+  it.each([
+    ['sudo ls', 'sudo'],
+    ['kill 1234', 'kill'],
+    ['echo hi; kill 1', 'kill'],
+    ['RM -RF /tmp/x', 'rm -rf'],
+    ['dd if=/dev/zero of=/dev/sda', 'dd'],
+  ])('危险命令仍拦截：%s', (command, expected) => {
+    const block = checkBashDangerousCommand(command);
+    expect(block).not.toBeNull();
+    expect(block?.success).toBe(false);
+    expect(String(block?.metadata?.['matchedCommand']).toLowerCase()).toContain(
+      expected
+    );
+  });
+});
+
 describe('PowerShell allowlist：按语句动词判定', () => {
   it('允许带赋值前缀的只读脚本', () => {
     expect(isPowerShellCommandAllowed("$f='a.md'; (Get-Item $f).Length")).toBe(

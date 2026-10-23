@@ -114,7 +114,6 @@ export const ALLOWED_COMMANDS = new Set([
   'cargo',
   'rustc',
   'tsc',
-  'npx',
   // PowerShell（安全参数）
   'pwsh',
   'powershell',

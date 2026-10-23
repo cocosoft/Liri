@@ -137,7 +137,7 @@ describe('ChatManager 权限三态化（P0-2/P1-2）', () => {
     // 模拟批准后 LLM 重发：命令 hash 已在放行缓存中
     getApprovedCommandRegistry().approve(
       'session-1',
-      hashCommand('echo format-test')
+      hashCommand('echo format')
     );
     cm.setPermissionManager(
       makePermissionManager({
@@ -149,7 +149,7 @@ describe('ChatManager 权限三态化（P0-2/P1-2）', () => {
     const result = await cm.executeTool({
       id: 'tool-5',
       name: 'bash',
-      arguments: { command: 'echo format-test' },
+      arguments: { command: 'echo format' },
       sessionId: 'session-1',
     } as ToolCall);
     // 非 awaiting_approval → 已放行；无 toolRegistry → 执行错误（而非审批卡片）

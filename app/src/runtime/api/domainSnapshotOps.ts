@@ -780,15 +780,11 @@ export class DomainSnapshotOps {
         domain?: string | undefined;
         version?: number | undefined;
       }) => {
-        const { LineageStore } =
+        const { getLineageStore } =
           await import('@modules/knowledge/lineage/LineageStore');
-        const store = new LineageStore();
-        try {
-          await store.init();
-          return await store.query(query);
-        } finally {
-          await store.close();
-        }
+        // 2026-10-25 租户级 DB §6.1：请求作用域内按当前身份取租户库单例（血缘互不可见）
+        const store = getLineageStore();
+        return await store.query(query);
       },
       runKnowledgeLint: async () => {
         const { runKnowledgeLint: runLint } =

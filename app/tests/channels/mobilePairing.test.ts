@@ -132,9 +132,14 @@ describe('MobilePairingService：配对与 token', () => {
 
   it('过期 token ⇒ 校验失败（不返回过期记录）', async () => {
     const store = new MobileDeviceTokenStore();
-    const record = store.issue('dev-x', 'u1', 1);
-    expect(store.verify(record.token)).not.toBeNull();
 
+    // ① 未过期：TTL 必须给足。原先用 1ms 在同一句里断言"仍有效"，
+    //    issue→verify 之间在慢 runner 上就可能跨过 1ms ⇒ 2026-10-24 macOS CI 假红。
+    const live = store.issue('dev-live', 'u1', 60_000);
+    expect(store.verify(live.token)).not.toBeNull();
+
+    // ② 已过期：TTL 1ms 后等待，再断言被清理
+    const record = store.issue('dev-x', 'u1', 1);
     await new Promise((r) => setTimeout(r, 10));
     expect(store.verify(record.token)).toBeNull();
     expect(store.hasActiveToken('dev-x')).toBe(false);

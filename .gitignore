@@ -10,6 +10,8 @@ dist/
 build/
 target/
 release/
+# `bun pm pack` 的产物（packages/kernel 下用；320KB 二进制，绝不入库）
+*.tgz
 
 # IDE
 .idea/

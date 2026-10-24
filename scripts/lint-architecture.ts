@@ -208,8 +208,6 @@ class ArchitectureLinter {
       'session/events/SessionLifecycleEventBus.ts',
       'voice\\VoiceEventBus.ts',
       'agent\\events\\index.ts',
-      'core\\auto-reply\\dispatch.ts',
-      'core/auto-reply/dispatch.ts',
       'core\\node-host\\NodeInvoke.ts',
       'core/node-host/NodeInvoke.ts',
       'plugins\\core\\PluginEventSystem.ts',

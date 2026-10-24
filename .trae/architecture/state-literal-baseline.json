@@ -1238,7 +1238,6 @@
       "app/src/tools/SendMessageTool/SendMessageTool.ts",
       "app/src/workspace/LiriConfigManager.ts",
       "app/src/workspace/types.ts",
-      "packages/kernel/src/core/auto-reply/types.ts",
       "packages/kernel/src/core/exit/ExitRecorder.ts",
       "packages/kernel/src/core/sleep/SleepMonitor.ts"
     ],

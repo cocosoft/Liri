@@ -1,8 +1,8 @@
 {
   "version": 1,
   "kernelRoot": "packages/kernel/src/core",
-  "fileCount": 146,
-  "symbolCount": 1368,
+  "fileCount": 140,
+  "symbolCount": 1343,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -27,61 +27,6 @@
       "symbols": [
         "ApprovalCache",
         "ApprovalCacheOptions"
-      ]
-    },
-    {
-      "file": "auto-reply/chunk.ts",
-      "symbols": [
-        "chunkText",
-        "resolveChunkLimit"
-      ]
-    },
-    {
-      "file": "auto-reply/dispatch.ts",
-      "symbols": [
-        "DispatchHandler",
-        "ReplyDispatcher"
-      ]
-    },
-    {
-      "file": "auto-reply/envelope.ts",
-      "symbols": [
-        "createEnvelope",
-        "hasContent",
-        "mergeEnvelopes"
-      ]
-    },
-    {
-      "file": "auto-reply/heartbeat.ts",
-      "symbols": [
-        "HeartbeatManager"
-      ]
-    },
-    {
-      "file": "auto-reply/index.ts",
-      "symbols": [
-        "HeartbeatManager",
-        "ReplyDispatcher",
-        "chunkText",
-        "createEnvelope",
-        "hasContent",
-        "mergeEnvelopes",
-        "resolveChunkLimit"
-      ]
-    },
-    {
-      "file": "auto-reply/types.ts",
-      "symbols": [
-        "ChunkMode",
-        "ChunkResult",
-        "DispatchResult",
-        "DispatchTarget",
-        "EnvelopeMetadata",
-        "HeartbeatState",
-        "ReplyContext",
-        "ReplyEnvelope",
-        "ReplyPayload",
-        "ReplyResult"
       ]
     },
     {

@@ -16,7 +16,6 @@ Liri 的核心模块提供了应用的基础能力支撑。
 | [Gateway](gateway.md) | 网关服务 |
 | [ACP 协议](acp-protocol.md) | Agent 通信协议 |
 | [Context Engine](context-engine.md) | 上下文引擎 |
-| [AutoReply](auto-reply.md) | 自动回复系统 |
 | [Memory Host SDK](memory-host.md) | 记忆托管 SDK |
 | [Markdown 渲染](markdown-render.md) | Markdown 渲染引擎 |
 | [Media 生成](media-generation.md) | 媒体生成模块 |

@@ -54,8 +54,9 @@ const OBSERVED_ENTRY_FILES = [
   'media-understanding/index.ts',
   'markdown/render.ts',
   'markdown/chunk.ts',
-  // B 档取证后转 C′（零消费者，与 app/src/auto-reply 同名不同物）
-  'auto-reply/index.ts',
+  // `auto-reply/index.ts` 已于 2026-10-24 **删除**（观察期被用户明确裁定终止；见
+  // `dev_docs/error_repairs/预存错误与待处理问题.md` 同日条目与 `git revert` 回滚点），
+  // 故不再列入观察清单。
 ] as const;
 
 describe('观察期：@deprecated + 加载期告警接线', () => {

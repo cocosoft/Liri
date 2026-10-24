@@ -73,7 +73,6 @@
     { "id": "utils", "kind": "dir", "domain": "base-utils", "note": "core 侧通用工具（错误处理/懒加载/性能/资源池）" }
   ],
   "exceptions": [
-    { "id": "auto-reply", "kind": "dir", "reason": "自动回复引擎（产品能力：收到消息自动生成回复），历史位置在 core，不属内核自服务能力" },
     { "id": "delivery", "kind": "dir", "reason": "投递侧实现（转录归档 / 磁盘监控 / 失败通知），属产品能力" },
     { "id": "markdown", "kind": "dir", "reason": "Markdown 分块与渲染，属表达能力而非内核基础设施" },
     { "id": "media-generation", "kind": "dir", "reason": "媒体生成运行时共享层，属产品能力" },

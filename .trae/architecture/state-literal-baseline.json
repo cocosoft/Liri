@@ -1043,7 +1043,6 @@
       "packages/kernel/src/core/events/OrchestrationMetrics.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
       "packages/kernel/src/core/lazy/LazyService.ts",
-      "packages/kernel/src/core/media-understanding/types.ts",
       "packages/kernel/src/core/node-host/NodeRunner.ts",
       "packages/kernel/src/core/node-host/types.ts",
       "packages/kernel/src/core/phases/PhaseVocabulary.ts",
@@ -1813,8 +1812,7 @@
       "packages/kernel/src/core/events/OrchestrationMetrics.ts",
       "packages/kernel/src/core/exit/ExitRecorder.ts",
       "packages/kernel/src/core/health/DependencyHealthChecker.ts",
-      "packages/kernel/src/core/health/types.ts",
-      "packages/kernel/src/core/memory-host-sdk/status.ts"
+      "packages/kernel/src/core/health/types.ts"
     ],
     "WAITING_USER": [
       "app/src/execution/ExecutionStore.ts"

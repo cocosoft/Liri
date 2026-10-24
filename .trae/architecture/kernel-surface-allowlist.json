@@ -74,10 +74,7 @@
   ],
   "exceptions": [
     { "id": "delivery", "kind": "dir", "reason": "投递侧实现（转录归档 / 磁盘监控 / 失败通知），属产品能力" },
-    { "id": "markdown", "kind": "dir", "reason": "Markdown 分块与渲染，属表达能力而非内核基础设施" },
     { "id": "media-generation", "kind": "dir", "reason": "媒体生成运行时共享层，属产品能力" },
-    { "id": "media-understanding", "kind": "dir", "reason": "媒体理解（格式/图像/解析），属产品能力" },
-    { "id": "memory-host-sdk", "kind": "dir", "reason": "记忆宿主 SDK（引擎/查询/梦境/密钥），属记忆能力实现而非内核自服务" },
     { "id": "node-host", "kind": "dir", "reason": "节点宿主执行（ExecPolicy/NodeInvoke/NodeRunner），半内核半业务：执行策略偏安全、节点调用偏产品，整体登记为例外" },
     { "id": "patterns", "kind": "dir", "reason": "声明式 pattern 注册表与选择器（Teamwork 编排），属产品能力" },
     { "id": "performance", "kind": "dir", "reason": "release 前性能红线检查（发布工程工具），不参与运行时内核" },

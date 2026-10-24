@@ -50,13 +50,10 @@ const OBSERVED_ENTRY_FILES = [
   'lazy/LazyService.ts',
   'node-host/index.ts',
   // B 档复评（§4）：无代码消费者，仅文档示例
-  'memory-host-sdk/index.ts',
-  'media-understanding/index.ts',
-  'markdown/render.ts',
-  'markdown/chunk.ts',
   // `auto-reply/index.ts` 已于 2026-10-24 **删除**（观察期被用户明确裁定终止；见
-  // `dev_docs/error_repairs/预存错误与待处理问题.md` 同日条目与 `git revert` 回滚点），
-  // 故不再列入观察清单。
+  // `dev_docs/error_repairs/预存错误与待处理问题.md` 同日条目与 `git revert` 回滚点）。
+  // 同日按方案 A 又删 4 项（整目录三重零：零 import、零字符串、零登记）：
+  // `memory-host-sdk/` / `media-understanding/` / `markdown/{render,chunk}.ts` —— 均不再列入观察清单。
 ] as const;
 
 describe('观察期：@deprecated + 加载期告警接线', () => {

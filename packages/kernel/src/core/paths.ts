@@ -34,7 +34,7 @@ import {
   getRequestPrincipal,
   isLocalPrincipal,
 } from './identity/requestScope.js';
-import { scopedDataRoot } from './identity/storageScope.js';
+import { scopedDataRoot, tenantScopedDataRoot } from './identity/storageScope.js';
 import type { Principal } from './identity/principal.js';
 
 const pathsLogger = getLogger('core:paths');
@@ -316,6 +316,30 @@ export function resolveScopedDbPath(
   env: NodeJS.ProcessEnv = process.env
 ): string {
   return join(resolveScopedDataDir(principal, env), 'app.db');
+}
+
+/**
+ * 该身份的**租户级**数据根（基础设施专项 §6.1，2026-10-24 拍板）
+ *
+ * - 本地身份 ⇒ `resolveDataDir()`（与改造前**逐字相同**）；
+ * - 已认证身份 ⇒ `<data>/tenants/<tenant>` —— **不含 `users/<user>`**。
+ *
+ * 用途：租户级 `app.db`（租户内按 `owner_key` 行级隔离）。仍需要**按用户物理隔离**的
+ * 资产（工作区等）继续走 `resolveScopedDataDir()` / `resolveScopedWorkspaceRoot()`。
+ */
+export function resolveTenantDataRoot(
+  principal: Principal = getRequestPrincipal(),
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return tenantScopedDataRoot(resolveDataDir(env), principal);
+}
+
+/** 该身份的**租户级**数据库文件（本地 ⇒ `resolveDbPath()`；租户 ⇒ `<data>/tenants/<t>/app.db`） */
+export function resolveTenantDbPath(
+  principal: Principal = getRequestPrincipal(),
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveTenantDataRoot(principal, env), 'app.db');
 }
 
 /**

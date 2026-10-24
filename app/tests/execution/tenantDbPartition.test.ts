@@ -144,12 +144,17 @@ describe('InboxManager：审批库按身份分区', () => {
   });
 });
 
-describe('QueryLogStore：按身份分实例', () => {
-  it('两个身份拿到不同实例，且写入落到自己的库', async () => {
+describe('QueryLogStore：租户级库 + 行级隔离（§6.1 期 2 试点）', () => {
+  it('同租户两个用户拿到**同一实例**（同一个租户库文件）', () => {
     const local = getQueryLogStore();
     const alice = runWithPrincipal(ALICE, () => getQueryLogStore());
-    expect(alice).not.toBe(local);
+    const bob = runWithPrincipal(BOB, () => getQueryLogStore());
 
+    expect(alice).not.toBe(local);
+    expect(bob).toBe(alice);
+  });
+
+  it('写入落到 `tenants/acme/app.db`（不再建 users/<u> 目录），且 alice 的行对 bob 不可见', async () => {
     await runWithPrincipal(ALICE, () =>
       getQueryLogStore().log({
         sessionId: 's-alice',
@@ -164,9 +169,20 @@ describe('QueryLogStore：按身份分实例', () => {
       })
     );
 
+    expect(existsSync(join(dataDir, 'tenants', 'acme', 'app.db'))).toBe(true);
     expect(
       existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
-    ).toBe(true);
+    ).toBe(false);
+
+    const bobRows = await runWithPrincipal(BOB, () =>
+      getQueryLogStore().query()
+    );
+    expect(bobRows).toEqual([]);
+
+    const aliceRows = await runWithPrincipal(ALICE, () =>
+      getQueryLogStore().query()
+    );
+    expect(aliceRows.map((r) => r.sessionId)).toEqual(['s-alice']);
   });
 });
 

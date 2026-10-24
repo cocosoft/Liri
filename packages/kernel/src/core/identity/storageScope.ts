@@ -63,3 +63,19 @@ export function scopedDataRoot(
 export function isPartitionedScope(principal: Principal): boolean {
   return !isLocalPrincipal(principal);
 }
+
+/**
+ * 计算该身份的**租户级**数据根：本地身份 ⇒ `baseDataDir`（原样）；否则 ⇒
+ * `join(baseDataDir, 'tenants', tenant)` —— **不含 `users/<user>`**。
+ *
+ * 与 `scopedDataRoot` 的分工（基础设施专项 §6.1，2026-10-24 拍板"租户级 DB"）：
+ * - `scopedDataRoot`（per-user）继续用于**必须按用户物理隔离**的资产（工作区等）；
+ * - `tenantScopedDataRoot`（per-tenant）用于**租户内按 `owner_key` 行级隔离**的数据库。
+ */
+export function tenantScopedDataRoot(
+  baseDataDir: string,
+  principal: Principal
+): string {
+  if (isLocalPrincipal(principal)) return baseDataDir;
+  return join(baseDataDir, 'tenants', safePathSegment(principal.tenantId));
+}

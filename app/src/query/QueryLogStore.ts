@@ -8,11 +8,12 @@ import { Database } from '@openliri/kernel/external/sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel';
+import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel';
 import { SimpleMutex } from '@openliri/kernel';
-// 多租户 P1（2026-10-21）：查询日志库按身份分实例（本地身份零变更）
+// 租户级 DB 试点（基础设施专项 §6.1 期 2，2026-10-24）：库按**租户**分，用户靠 owner_key 行级隔离
 import {
   getRequestPrincipal,
+  getRequestPrincipalKey,
   isLocalPrincipal,
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
@@ -100,8 +101,26 @@ export class QueryLogStore {
           turn_count INTEGER,
           tool_call_count INTEGER,
           timestamp INTEGER NOT NULL,
-          metadata TEXT
+          metadata TEXT,
+          owner_key TEXT NOT NULL DEFAULT 'local:local'
         )`,
+        (err: Error | null) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
+
+    // 存量库补列（`CREATE TABLE IF NOT EXISTS` 不改既有表）
+    await this.ensureOwnerColumn();
+
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `CREATE INDEX IF NOT EXISTS idx_query_logs_owner_key
+         ON ${QUERY_LOG_TABLE}(owner_key)`,
         (err: Error | null) => {
           if (err) {
             reject(err);
@@ -156,6 +175,37 @@ export class QueryLogStore {
   }
 
   /**
+   * 存量库补 `owner_key` 列。
+   *
+   * 默认值取 `local:local`（本地身份键）⇒ 桌面端历史行**自然归属**本地身份，
+   * 加上 owner 过滤后仍逐字可见（不需要数据回填）。
+   */
+  private async ensureOwnerColumn(): Promise<void> {
+    const columns = await new Promise<Array<Record<string, unknown>>>(
+      (resolve, reject) => {
+        this.db?.all(
+          `PRAGMA table_info(${QUERY_LOG_TABLE})`,
+          [],
+          (err: Error | null, rows: unknown[]) => {
+            if (err) reject(err);
+            else resolve((rows || []) as Array<Record<string, unknown>>);
+          }
+        );
+      }
+    );
+    if (columns.some((c) => c.name === 'owner_key')) return;
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `ALTER TABLE ${QUERY_LOG_TABLE} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  }
+
+  /**
    * 记录一条日志
    */
   async log(entry: Omit<QueryLogEntry, 'id'>): Promise<string> {
@@ -178,8 +228,8 @@ export class QueryLogStore {
           `INSERT INTO ${QUERY_LOG_TABLE}
           (id, session_id, type, model, prompt_tokens, output_tokens, total_tokens,
            duration_ms, success, error, tool_name, retry_count, turn_count,
-           tool_call_count, timestamp, metadata)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           tool_call_count, timestamp, metadata, owner_key)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             id,
             entry.sessionId,
@@ -197,6 +247,8 @@ export class QueryLogStore {
             entry.toolCallCount ?? null,
             entry.timestamp,
             metadataStr,
+            // 行级归属：本地身份 ⇒ `local:local`，租户内用户 ⇒ `<tenant>:<user>`
+            getRequestPrincipalKey(),
           ],
           (err: Error | null) => {
             if (err) {
@@ -231,8 +283,9 @@ export class QueryLogStore {
       );
     }
 
-    const conditions: string[] = [];
-    const params: unknown[] = [];
+    // owner 过滤**恒在首位**：租户库内按用户隔离（本地身份 = `local:local`）
+    const conditions: string[] = ['owner_key = ?'];
+    const params: unknown[] = [getRequestPrincipalKey()];
 
     if (filter.sessionId) {
       conditions.push('session_id = ?');
@@ -321,8 +374,8 @@ export class QueryLogStore {
           COALESCE(SUM(CASE WHEN type = 'tool_call' AND success = 0 THEN 1 ELSE 0 END), 0) AS tool_error_count,
           COALESCE(SUM(CASE WHEN type = 'query' THEN 1 ELSE 0 END), 0) AS total_queries
         FROM ${QUERY_LOG_TABLE}
-        WHERE timestamp >= ? AND timestamp <= ?`,
-          [actualStart, actualEnd],
+        WHERE timestamp >= ? AND timestamp <= ? AND owner_key = ?`,
+          [actualStart, actualEnd, getRequestPrincipalKey()],
           (err: Error | null, row: unknown) => {
             if (err) {
               reject(err);
@@ -395,10 +448,11 @@ export class QueryLogStore {
                   SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS ok
            FROM ${QUERY_LOG_TABLE}
            WHERE type = 'tool_call' AND tool_name IS NOT NULL AND tool_name != ''
+             AND owner_key = ?
            GROUP BY tool_name
            ORDER BY cnt DESC
            LIMIT ?`,
-          [limit],
+          [getRequestPrincipalKey(), limit],
           (err: Error | null, rows: unknown[]) => {
             if (err) reject(err);
             else resolve((rows || []) as Array<Record<string, unknown>>);
@@ -421,7 +475,8 @@ export class QueryLogStore {
                   COUNT(DISTINCT tool_name) AS uniq,
                   SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS errs
            FROM ${QUERY_LOG_TABLE}
-           WHERE type = 'tool_call'`,
+           WHERE type = 'tool_call' AND owner_key = ?`,
+          [getRequestPrincipalKey()],
           (err: Error | null, row: unknown) => {
             if (err) reject(err);
             else
@@ -468,10 +523,11 @@ export class QueryLogStore {
                   COUNT(*) AS cnt
            FROM ${QUERY_LOG_TABLE}
            WHERE success = 0 AND error IS NOT NULL AND error != ''
+             AND owner_key = ?
            GROUP BY err_type
            ORDER BY cnt DESC
            LIMIT ?`,
-          [limit],
+          [getRequestPrincipalKey(), limit],
           (err: Error | null, rows: unknown[]) => {
             if (err) reject(err);
             else resolve((rows || []) as Array<Record<string, unknown>>);
@@ -486,7 +542,8 @@ export class QueryLogStore {
           `SELECT COUNT(*) AS cnt,
                   SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS errs
            FROM ${QUERY_LOG_TABLE}
-           WHERE type IN ('api_call', 'tool_call')`,
+           WHERE type IN ('api_call', 'tool_call') AND owner_key = ?`,
+          [getRequestPrincipalKey()],
           (err: Error | null, row: unknown) => {
             if (err) reject(err);
             else
@@ -530,8 +587,8 @@ export class QueryLogStore {
     const result = await this.dbMutex.run(async () => {
       return await new Promise<any>((resolve, reject) => {
         this.db?.run(
-          `DELETE FROM ${QUERY_LOG_TABLE} WHERE timestamp < ?`,
-          [beforeTimestamp],
+          `DELETE FROM ${QUERY_LOG_TABLE} WHERE timestamp < ? AND owner_key = ?`,
+          [beforeTimestamp, getRequestPrincipalKey()],
           function (this: { changes: number }, err: Error | null) {
             if (err) {
               reject(err);
@@ -606,27 +663,30 @@ export class QueryLogStore {
  * 全局单例
  */
 let globalQueryLogStore: QueryLogStore | null = null;
-/** 多租户 P1：非本地身份的查询日志库实例（各自独立 app.db） */
-const scopedQueryLogStores = new Map<string, QueryLogStore>();
+/** 多租户 §6.1：**租户级**查询日志库实例（同租户的用户共用连接，行级隔离靠 `owner_key`） */
+const scopedQueryLogStores = new Map<string, QueryLogStore>(); // key = tenantId
 
 /**
  * 获取查询日志存储实例。
  *
- * 多租户 P1：本地身份 ⇒ 原全局实例（零变更）；已认证身份 ⇒ 该身份自己的实例。
+ * 多租户 §6.1（2026-10-24 拍板"租户级 DB"）：本地身份 ⇒ 原全局实例（零变更）；
+ * 已认证身份 ⇒ **该租户**的实例（`tenants/<t>/app.db`），用户维度的可见性由
+ * 每条 SQL 的 `owner_key = <tenant>:<user>` 决定。
  * 本类所有公开方法都先 `await this.init()` ⇒ 新实例首次读写会自动建表，无需额外预热。
  */
 export function getQueryLogStore(): QueryLogStore {
   const principal = getRequestPrincipal();
   if (!isLocalPrincipal(principal)) {
-    const key = principalKeyOf(principal);
-    const existing = scopedQueryLogStores.get(key);
+    const tenantKey = principal.tenantId;
+    const existing = scopedQueryLogStores.get(tenantKey);
     if (existing) return existing;
-    const scoped = new QueryLogStore(resolveScopedDbPath(principal));
-    scopedQueryLogStores.set(key, scoped);
-    // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
-    registerScopedResource(key, async () => {
+    const scoped = new QueryLogStore(resolveTenantDbPath(principal));
+    scopedQueryLogStores.set(tenantKey, scoped);
+    // 登记键用**创建者**的 `<tenant>:<user>`：purge 按 `<tenant>:` 前缀关闭 ⇒
+    // 无论哪个用户触发创建，删租户都能命中这**一个**租户级实例。
+    registerScopedResource(principalKeyOf(principal), async () => {
       await scoped.close();
-      scopedQueryLogStores.delete(key);
+      scopedQueryLogStores.delete(tenantKey);
     });
     return scoped;
   }

@@ -2,7 +2,7 @@
   "version": 1,
   "kernelRoot": "packages/kernel/src/core",
   "fileCount": 113,
-  "symbolCount": 1049,
+  "symbolCount": 1052,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -512,7 +512,8 @@
       "symbols": [
         "isPartitionedScope",
         "safePathSegment",
-        "scopedDataRoot"
+        "scopedDataRoot",
+        "tenantScopedDataRoot"
       ]
     },
     {
@@ -900,6 +901,8 @@
         "resolveSoulPath",
         "resolveTeamMemoryDir",
         "resolveTempDir",
+        "resolveTenantDataRoot",
+        "resolveTenantDbPath",
         "resolveTranscriptFilePath",
         "resolveTranscriptsDir",
         "resolveUserConfigPath",

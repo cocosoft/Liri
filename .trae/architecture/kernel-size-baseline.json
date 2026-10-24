@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "note": "2026-10-24 七次手改：① loc 18427→18494（Q3 身份注入点）；② files 112→113 / loc 18494→18549（productIdentity.ts 零依赖叶子）；③ loc 18549→18615（DI 契约修复 7 条）；④ loc 18615→18653（复审 B/C）；⑤ loc 18653→18706（复审 D：disposeAll 单条超时）；⑥ loc 18706→18732（P2：ServiceDescriptor 改判别联合）；⑦ loc 18732→18769（租户级 DB 契约 §6.1 期 1：tenantScopedDataRoot + resolveTenantDataRoot/resolveTenantDbPath，纯路径计算原语）。均为内核原语行为/契约修复，非注释膨胀；files/dirs 未放宽；DI/路径测试在 packages/kernel/tests/ 不占预算。",
+  "note": "2026-10-24 八次手改：① loc 18427→18494（Q3 身份注入点）；② files 112→113 / loc 18494→18549（productIdentity.ts 零依赖叶子）；③ loc 18549→18615（DI 契约修复 7 条）；④ loc 18615→18653（复审 B/C）；⑤ loc 18653→18706（复审 D：disposeAll 单条超时）；⑥ loc 18706→18732（P2：ServiceDescriptor 改判别联合）；⑦ loc 18732→18769（租户级 DB 契约 §6.1 期 1）；⑧ loc 18769→18783（§6-#11：新增安全开关 REQUIRE_BEARER，属内核开关注册表；无新文件/目录）。均为内核原语行为/契约，非注释膨胀；files/dirs 未放宽。",
   "metrics": {
     "files": 113,
-    "loc": 18769,
+    "loc": 18783,
     "dirs": 21
   }
 }

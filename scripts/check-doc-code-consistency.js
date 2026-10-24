@@ -192,6 +192,12 @@ const SAFETY_SWITCHES = [
         def: false,
         why: '客户端流式入口接入 Execution（写前记账 + 工具 fail-closed）须显式开启；默认关 = 该入口不记账/不拒绝（P0-2）',
     },
+    // §6-#11（2026-10-24）：非回环暴露面必须带登录态（默认开 = 安全基线）
+    {
+        name: 'REQUIRE_BEARER',
+        def: true,
+        why: '非回环暴露面（LIRI_HTTP_HOST / headless 变体）无有效 Bearer 必须 401 —— 默认开；关 = 回落本机身份（共享密钥为空时等于无鉴权）',
+    },
 ];
 
 /** 由清单派生的断言（避免 11 条近重复手写条目） */

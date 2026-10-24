@@ -28,7 +28,7 @@ import {
   type Principal,
 } from '@openliri/kernel/identity/principal.js';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
-import { getDIContainer } from '@openliri/kernel';
+import { feature, getBuildVariant, getDIContainer } from '@openliri/kernel';
 
 /** `authTokens` 的 value 形状（只读消费，避免把 handlers 的类型拖成静态依赖） */
 interface AuthTokenSession {
@@ -82,4 +82,67 @@ export async function withRequestIdentity<T>(
   return runWithPrincipal(principal, () =>
     getDIContainer().runInRequestScope(fn)
   );
+}
+
+// ─── 暴露面鉴权（§6-#11，2026-10-24）────────────────────────────────────────
+
+/** 回环地址集合（含 IPv6 写法；`localhost` 为用户/文档通用写法） */
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+
+/**
+ * 是否属于**对外暴露**部署。
+ *
+ * 两种来源（任一命中即算暴露）：
+ *   - HTTP 绑定地址为**非回环**（`LIRI_HTTP_HOST`，如 Docker 的 `0.0.0.0`）；
+ *   - 构建变体为 `headless`（无界面服务端版）。
+ *
+ * 桌面 / CLI 默认绑定 `127.0.0.1` ⇒ **恒为 false**（行为零变更）。
+ */
+export function isExposedDeployment(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  if (getBuildVariant() === 'headless') return true;
+  const host = env['LIRI_HTTP_HOST']?.trim().toLowerCase() ?? '';
+  if (!host) return false;
+  return !LOOPBACK_HOSTS.has(host);
+}
+
+/** 免登录态路径：容器探活（`/v1/health*`）与 A2A 对外面（自带 `A2A_API_KEYS` fail-closed） */
+const BEARER_EXEMPT_PREFIXES = ['/v1/health', '/v1/a2a'] as const;
+
+export function isBearerExemptPath(pathname: string): boolean {
+  return BEARER_EXEMPT_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
+/**
+ * 请求是否携带**有效**的 Bearer 登录会话。
+ *
+ * 与 `LocalHTTPService` 既有鉴权分支**同一判据**（`authTokens.has(token)`）——
+ * 这里只回答"是不是登录用户"，不重复实现鉴权策略。
+ */
+export async function hasValidBearerSession(
+  req: http.IncomingMessage
+): Promise<boolean> {
+  const header = req.headers['authorization'] ?? '';
+  if (!header.startsWith('Bearer ')) return false;
+  const token = header.slice(7).trim();
+  if (!token) return false;
+  const { authTokens } = await import('./handlers/auth-handlers');
+  return authTokens.has(token);
+}
+
+/**
+ * 该请求是否**必须**带登录态（否则 401）。
+ *
+ * 三个条件同时满足才拦截（任一不满足 ⇒ 保持既有语义）：
+ *   ① 开关 `REQUIRE_BEARER`（默认开，灰度回退 `FEATURE_REQUIRE_BEARER=false`）；
+ *   ② 对外暴露部署（见 {@link isExposedDeployment}）；
+ *   ③ 路径不在豁免清单（见 {@link isBearerExemptPath}）。
+ */
+export function requiresBearerSession(pathname: string): boolean {
+  if (!feature('REQUIRE_BEARER')) return false;
+  if (!isExposedDeployment()) return false;
+  return !isBearerExemptPath(pathname);
 }

@@ -44,7 +44,11 @@ import {
 } from './LocalHTTPServiceHelpers';
 import { broadcastEvent, stopSSE } from './LocalHTTPServiceSSE';
 // 多租户 P0 阶段 2：每请求解析身份 + 建立请求作用域（详见两个模块头注释）
-import { withRequestIdentity } from './requestIdentity';
+import {
+  hasValidBearerSession,
+  requiresBearerSession,
+  withRequestIdentity,
+} from './requestIdentity';
 
 const logger = getLogger('http:local');
 
@@ -401,6 +405,17 @@ export class LocalHTTPService {
     }
 
     const url = req.url?.split('?')[0] || '';
+
+    // §6-#11（2026-10-24）：**对外暴露部署**（非回环绑定 / headless 变体）必须带登录态。
+    // 共享密钥为空时 `verifyRequestAuth` 对任何请求都通过 ⇒ 无本检查则远端调用方
+    // 直接以 `LOCAL_PRINCIPAL` 拿到本机特权身份。桌面/CLI（127.0.0.1）不受影响；
+    // `/v1/health*`（容器探活）与 `/v1/a2a*`（自带 A2A_API_KEYS）豁免。
+    if (requiresBearerSession(url) && !(await hasValidBearerSession(req))) {
+      logger.warn('暴露面请求缺少有效登录态（fail-closed 401）', { url });
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Unauthorized' } }));
+      return;
+    }
 
     // 应用尚未完全就绪时，对业务请求返回 503
     if (!LocalHTTPService._appReady && url !== '/v1/health/report') {

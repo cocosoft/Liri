@@ -456,6 +456,21 @@ export const FEATURE_FLAGS = {
    */
   CLIENT_STREAM_EXECUTION: false,
 
+  // ───── 暴露面鉴权（2026-10-24；默认开 = 安全基线）─────
+  /**
+   * §6-#11：**非回环暴露面必须带登录态**（默认开 = 安全基线）。
+   *
+   * 生效条件（三者同时满足才拦截）：`LIRI_HTTP_HOST` 是**非回环**地址（如 Docker 的
+   * `0.0.0.0`）或构建变体为 `headless`；路径不在豁免清单（`/v1/health*`、`/v1/a2a*`）；
+   * 且请求**没有**有效 `Bearer` 登录会话。
+   *
+   * 为什么默认开：共享密钥（`LIRI_API_SECRET`）为空时 `verifyRequestAuth` 对**任何**请求
+   * 都通过，身份回落 `LOCAL_PRINCIPAL` ⇒ 远端调用方直接拿到**本机特权身份**（真实越权面）。
+   * 桌面/CLI（回环绑定）**不受影响**。
+   * 灰度回退：`FEATURE_REQUIRE_BEARER=false`。
+   */
+  REQUIRE_BEARER: true,
+
   // ───── 性能与监控 ─────
   /** 内存监控 */
   MEMORY_MONITORING: true,

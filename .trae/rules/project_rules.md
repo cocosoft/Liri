@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.26.0 | **更新**: 2026-10-24
+**版本**: 7.27.0 | **更新**: 2026-10-24
 
 ## §1 基础规则
 
@@ -38,7 +38,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 > —— 任一侧改单边即 **CI 阻断**（防「误翻转安全开关」静默改变安全姿态）。
 > 改默认值时必须**同批**更新本表 + 断言表，并在台账登记理由。
 >
-> 清单规模：**17 项**（2026-10-10 起；A2/A4/A5 新增三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL`；**P0-3 新增 `CODE_RUN_DEEP_SCAN_STRICT`、P0-2 新增 `CLIENT_STREAM_EXECUTION`**）。
+> 清单规模：**18 项**（2026-10-24 起；A2/A4/A5 新增三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL`；**P0-3 新增 `CODE_RUN_DEEP_SCAN_STRICT`、P0-2 新增 `CLIENT_STREAM_EXECUTION`；§6-#11 新增 `REQUIRE_BEARER`**）。
 
 | 开关 | 默认 | 生效语义 | 回退方式 | 触发条件（何时重开） |
 |------|:----:|---------|---------|:----:|
@@ -59,6 +59,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 | `EXECUTION_TWO_PHASE_CANCEL` | `false` | 两段式取消（`CANCEL_REQUESTED`→`abort()`→grace→`CANCELLED`；**未确认则保留 lease**，后续消息排队；PR2） | `FEATURE_EXECUTION_TWO_PHASE_CANCEL=true` | §2-#10 |
 | `CODE_RUN_DEEP_SCAN_STRICT` | `false` | code_run **深扫未完成即拒绝**（SWC 原生 CallExpression 深扫 `skipped`/`failed` ⇒ `security-rejected`；**默认关时保留"跳过"行为但结果带出 `scanStatus`**；P0-3） | `FEATURE_CODE_RUN_DEEP_SCAN_STRICT=true` | §2-#12 |
 | `CLIENT_STREAM_EXECUTION` | `false` | 客户端 `/v1/chat/stream` **接入 Execution**（SSE 入口 `acquire` + 注入 `executionId` ⇒ 工具写前记账 + fail-closed；终态 `complete`/`fail`；P0-2） | `FEATURE_CLIENT_STREAM_EXECUTION=true` | §2-#13 |
+| `REQUIRE_BEARER` | `true` | **非回环暴露面必须带登录态**（`LIRI_HTTP_HOST` 非回环 或 `headless` 变体 ⇒ 无有效 `Bearer` 一律 401，不再回落本机身份；`/v1/health*`、`/v1/a2a*` 豁免；桌面/CLI 回环不受影响） | `FEATURE_REQUIRE_BEARER=false`（灰度回退旧行为） | — |
 
 > **「触发条件」列口径（2026-10-09）**：`§2-#N` 指向「**默认关项 · 触发条件登记表**」[`default-off-switches-review-gates.md §2`](../specs/default-off-switches-review-gates.md) 的第 N 行（含**可观测信号 + 阈值 + 窗口 + 复评节奏**）；`—` = **默认开**（无"何时重开"之问）。本列**只放指针**，**不把散文触发条件塞进规则表**（见 `development-workflow.md §2.14 规则 5` / R12-1）。登记完整性由 `bun run lint:doc-code` 断言（`scripts/check-doc-code-consistency.js` 的 `REGISTRATION_ASSERTIONS`）**强制** —— 新增默认关项而漏登记即 CI 阻断。
 
@@ -349,6 +350,7 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/kernel/paths';  // �
 ---
 
 ## §2 版本历史
+- **v7.27.0**: §1.4 安全开关清单 **17 → 18 项**，新增 **`REQUIRE_BEARER`**（默认 `true` = 安全基线）—— 承接 **§6-#11**：HTTP 绑定**非回环**地址（`LIRI_HTTP_HOST`，如 Docker `0.0.0.0`）或 `headless` 变体时，**无有效 `Bearer` 登录会话一律 401**，不再回落 `LOCAL_PRINCIPAL`（共享密钥为空时 `verifyRequestAuth` 对任何请求都通过 ⇒ 远端可拿本机特权身份）；`/v1/health*`、`/v1/a2a*`（自带鉴权）豁免；桌面/CLI 回环绑定**零行为变更**。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（17 → 18）+ 本文表（触发条件 `—` = 默认开）
 - **v7.26.0**: §1.5「数据库统一约定」补**租户级**口径 —— 已认证身份走 `resolveTenantDbPath()`（`tenants/<t>/app.db`），租户内靠 `owner_key` 行级隔离且**每条读必须过滤**；实例缓存键改 `tenantId`；`resolveScopedDbPath()` 停用（非 DB 的按用户资产仍走 `resolveScopedDataDir()`）。同步：`app/src` 内 `resolveScopedDbPath` 归零、14 个仓储迁移完成（基础设施专项 §6.1）
 - **v7.25.0**: §1.4 安全开关清单 **16 → 17 项**，新增 **`CLIENT_STREAM_EXECUTION`**（默认 `false`）—— 承接 **P0-2**（客户端 `/v1/chat/stream` 接入 Execution 生命周期）：开 ⇒ SSE 入口 `acquire(sessionId)` 注入 `executionId`，与渠道路径**同一记账链路**（工具执行前 `await beginToolCall()` ⇒ 写前记账 + fail-closed），终态 `complete`/`fail`；关（默认）⇒ 零行为变更。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（16 → 17）+ 本文表 + 登记表 `default-off-switches-review-gates.md §2-#13`。设计见 [`.trae/specs/client-stream-execution.md`](../specs/client-stream-execution.md)
 - **v7.24.0**: §1.4 安全开关清单 **15 → 16 项**，新增 **`CODE_RUN_DEEP_SCAN_STRICT`**（默认 `false`）—— 承接 **P0-3**（统一安全决策词汇 + 消除 `INDETERMINATE → ALLOW` 折叠）：code_run 的 SWC 原生 CallExpression **深扫未执行/失败**（`scanStatus='skipped'|'failed'`）时，开 ⇒ 按 fail-closed **拒绝**（`security-rejected`），关（默认）⇒ 保留既有"跳过"行为但结果**如实带出 `scanStatus`**（可观测，未扫描 ≠ 通过）。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（15 → 16）+ 本文表 + 登记表 `default-off-switches-review-gates.md §2-#12`。设计见 [`.trae/specs/security-decision-verdict.md`](../specs/security-decision-verdict.md)

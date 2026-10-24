@@ -31,8 +31,13 @@ import { ProviderManager } from '../../src/ai/providers/ProviderManager';
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 
-const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
-const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
+// 2026-10-24（CI ubuntu 红）：`ProviderManager.getInstance(':memory:')` 在模块求值时**无身份**
+// ⇒ 命中进程级单例，可能与**同进程其它测试文件**共用同一实例/库。固定租户 `acme` 会因此读到
+// 上一份残留行（实测：Alice 列表多出 `alice-renamed`、统计 count 1→2）。租户按进程取唯一值 ⇒
+// 本文件的行永远只属于自己，跨文件/重复执行互不干扰；断言语义（行级隔离）不变。
+const TENANT = `acme-pm-${process.pid}-${Math.random().toString(36).slice(2, 8)}`;
+const ALICE: Principal = { tenantId: TENANT, userId: 'alice', roles: ['user'] };
+const BOB: Principal = { tenantId: TENANT, userId: 'bob', roles: ['user'] };
 
 const manager = ProviderManager.getInstance(':memory:');
 

@@ -102,13 +102,9 @@ interface SkipEntry {
  */
 const SKIP_REGISTRY: SkipEntry[] = [
   // ── app/tests/** ──────────────────────────────────────────────
-  {
-    file: 'app/tests/cost/dedup.test.ts',
-    match: '修复后：主响应 totalCostUSD',
-    reason: '成本去重修复的**验收占位**（修复未落地前不得启用）',
-    module: 'cost',
-    severity: 'pending',
-  },
+  // 2026-10-24：`app/tests/cost/dedup.test.ts` 的验收占位 skip 已删除 ——
+  // 根因（主响应 `onUsage` 二次调 `costTracker.addCost`）在 v1.2 已收敛到
+  // `UsageTracker.trackUsage` 唯一入口，该用例改为**接线守卫**（源码断言，常态执行）。
   {
     file: 'app/tests/mcp/realServerE2E.test.ts',
     match: 'MCP_E2E',

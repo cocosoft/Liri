@@ -405,6 +405,30 @@ describe('内核公开面三处一致（防漂移）', () => {
   });
 });
 
+describe('内核单副本不变量（@opentelemetry/api 只允许一份）', () => {
+  const REPO = resolve(import.meta.dir, '../../..');
+
+  it('packages/kernel 不得自带 node_modules / lockfile', () => {
+    // 2026-10-23 P4 实测过这一次：给内核单独 install 会产生**第二份** `@opentelemetry/api`
+    // ⇒ 启动面 +22 文件 / +30KB（棘轮红），且运行期出现两个 OTel 实例（追踪静默错乱）。
+    // 现状是「内核不自带依赖，由 app 单副本供血」；此断言把该形态钉住。
+    expect(existsSync(join(REPO, 'packages/kernel/node_modules'))).toBe(false);
+    expect(existsSync(join(REPO, 'packages/kernel/bun.lock'))).toBe(false);
+    expect(existsSync(join(REPO, 'packages/kernel/bun.lockb'))).toBe(false);
+  });
+
+  it('唯一副本在 app/node_modules，且内核 tsconfig 指向它', () => {
+    expect(
+      existsSync(join(REPO, 'app/node_modules/@opentelemetry/api/package.json'))
+    ).toBe(true);
+    const ts = JSON.parse(
+      readFileSync(join(REPO, 'packages/kernel/tsconfig.json'), 'utf-8')
+    ) as { compilerOptions?: { paths?: Record<string, string[]> } };
+    const mapped = ts.compilerOptions?.paths?.['@opentelemetry/api']?.[0];
+    expect(mapped).toContain('app/node_modules/@opentelemetry/api');
+  });
+});
+
 describe('内核纯净度门禁：字符串字面量不误报', () => {
   it("数组里的 'from' 不被当成模块说明符", () => {
     const root = fixture({

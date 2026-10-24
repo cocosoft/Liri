@@ -17,6 +17,10 @@ import { describe, expect, it } from 'bun:test';
 import { AppError } from '../src/core/errors.js';
 import { AutoWiringEngine } from '../src/core/di/AutoWiringEngine';
 import { DIContainer } from '../src/core/di/DIContainer';
+import {
+  DEFAULT_DISPOSE_TIMEOUT_MS,
+  DisposeManager,
+} from '../src/core/di/DisposeManager';
 
 /** 建一个"可被 resolve"的简单描述符 */
 const svc = (
@@ -270,6 +274,112 @@ describe('DI #6：按参数名自动装配的可失败自证', () => {
     }
     expect(caught).toBeInstanceOf(AppError);
     expect((caught as AppError).code).toBe('DI_AUTOWIRE_UNRELIABLE');
+  });
+});
+
+describe('DI · disposeAll 的单条超时（2026-10-24 复审 D）', () => {
+  /** 永不 settle 的 disposer：模拟"卡住的 onDispose" */
+  const stuck = (): Promise<void> => new Promise<void>(() => undefined);
+
+  it('默认超时为 5s（常量对外可见）', () => {
+    expect(DEFAULT_DISPOSE_TIMEOUT_MS).toBe(5_000);
+  });
+
+  it('卡住的一条被超时跳过，逆序中先执行的仍正常释放', async () => {
+    const manager = new DisposeManager({ disposeTimeoutMs: 20 });
+    const disposed: string[] = [];
+    manager.register(
+      'stuck',
+      { id: 'stuck', scope: 'singleton', factory: () => ({}), onDispose: stuck },
+      {}
+    );
+    manager.register(
+      'ok',
+      {
+        id: 'ok',
+        scope: 'singleton',
+        factory: () => ({}),
+        onDispose: async () => {
+          disposed.push('ok');
+        },
+      },
+      {}
+    );
+
+    const started = Date.now();
+    let caught: unknown;
+    try {
+      await manager.disposeAll(['stuck', 'ok']); // 逆序：ok → stuck
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(disposed).toEqual(['ok']);
+    expect(Date.now() - started).toBeLessThan(1_000); // 没有把关闭流程挂死
+    expect(caught).toBeInstanceOf(AppError);
+    expect((caught as AppError).code).toBe('DI_DISPOSE_TIMEOUT');
+  });
+
+  it('超时 + 抛错 ⇒ AggregateError，且更早的那条仍被释放', async () => {
+    const manager = new DisposeManager({ disposeTimeoutMs: 20 });
+    const disposed: string[] = [];
+    manager.register(
+      'ok',
+      {
+        id: 'ok',
+        scope: 'singleton',
+        factory: () => ({}),
+        onDispose: async () => {
+          disposed.push('ok');
+        },
+      },
+      {}
+    );
+    manager.register(
+      'stuck',
+      { id: 'stuck', scope: 'singleton', factory: () => ({}), onDispose: stuck },
+      {}
+    );
+    manager.register(
+      'boom',
+      {
+        id: 'boom',
+        scope: 'singleton',
+        factory: () => ({}),
+        onDispose: async () => {
+          throw new Error('boom');
+        },
+      },
+      {}
+    );
+
+    let caught: unknown;
+    try {
+      await manager.disposeAll(['ok', 'stuck', 'boom']); // 逆序：boom → stuck → ok
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(disposed).toEqual(['ok']);
+    expect(caught).toBeInstanceOf(AggregateError);
+    expect((caught as AggregateError).errors).toHaveLength(2);
+  });
+
+  it('正常返回（未超时）不误报', async () => {
+    const manager = new DisposeManager({ disposeTimeoutMs: 50 });
+    manager.register(
+      'fast',
+      {
+        id: 'fast',
+        scope: 'singleton',
+        factory: () => ({}),
+        onDispose: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 1));
+        },
+      },
+      {}
+    );
+    await expect(manager.disposeAll(['fast'])).resolves.toBeUndefined();
   });
 });
 

@@ -2,7 +2,7 @@
   "version": 1,
   "kernelRoot": "packages/kernel/src/core",
   "fileCount": 113,
-  "symbolCount": 1044,
+  "symbolCount": 1046,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -189,7 +189,9 @@
     {
       "file": "di/DisposeManager.ts",
       "symbols": [
-        "DisposeManager"
+        "DEFAULT_DISPOSE_TIMEOUT_MS",
+        "DisposeManager",
+        "DisposeManagerOptions"
       ]
     },
     {

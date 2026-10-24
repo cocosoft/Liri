@@ -3150,7 +3150,6 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#0","i":0,"c":"app/src/cost/DailyCostCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#1","i":0,"c":"app/src/tasks/CrossProcessLock.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#2","i":0,"c":"packages/kernel/src/core/cache/SessionCache.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#3","i":0,"c":"packages/kernel/src/core/approval/ApprovalCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#4","i":0,"c":"app/src/memory/FrozenSnapshotService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#5","i":0,"c":"app/src/media/image/TempFileManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#6","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
@@ -5925,7 +5924,6 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"title","i":0,"c":"U-20/B5-2-72..73：按域消歧 DEFAULT_MAX_ENTRIES 与 MAX_RECORDS"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"notes","i":0,"c":"语义/取值不同 ⇒ 不改值、按域改名（APPROVAL/SESSION_CACHE_MAX_ENTRIES、DREAM/EXECUTION_MAX_RECORDS）；基线 175→173。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#0","i":0,"c":"packages/kernel/src/core/approval/ApprovalCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#1","i":0,"c":"packages/kernel/src/core/cache/SessionCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#2","i":0,"c":"app/src/dream/DreamPersistence.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#3","i":0,"c":"app/src/execution/ExecutionManager.ts"}

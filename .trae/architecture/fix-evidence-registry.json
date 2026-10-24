@@ -5631,7 +5631,6 @@
         "app/src/cost/DailyCostCache.ts",
         "app/src/tasks/CrossProcessLock.ts",
         "packages/kernel/src/core/cache/SessionCache.ts",
-        "packages/kernel/src/core/approval/ApprovalCache.ts",
         "app/src/memory/FrozenSnapshotService.ts",
         "app/src/media/image/TempFileManager.ts",
         "app/src/permission/ApprovedCommandRegistry.ts",
@@ -10793,7 +10792,6 @@
         "e2eVerified": false
       },
       "code": [
-        "packages/kernel/src/core/approval/ApprovalCache.ts",
         "packages/kernel/src/core/cache/SessionCache.ts",
         "app/src/dream/DreamPersistence.ts",
         "app/src/execution/ExecutionManager.ts"

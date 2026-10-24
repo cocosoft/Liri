@@ -805,9 +805,9 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 | R01-001 | `session/events/SessionLifecycleEventBus.ts` | 通配符 `'*'` 支持，待统一后移除 | 2026-Q2 |
 | R01-001 | `voice/VoiceEventBus.ts` | 双工状态管理，待委托到 EventBusImpl | 2026-Q2 |
 | R01-001 | `agent/events/index.ts` | InternalEventBus（@deprecated），自建 Map 分发，待移除 | 2026-Q3 |
-| R01-001 | `core/auto-reply/dispatch.ts` | ReplyDispatcher，Handler 注册表 + dispatch 模式 | 2026-Q3 |
+| R01-001 | ~~`core/auto-reply/dispatch.ts`~~ | ReplyDispatcher，Handler 注册表 + dispatch 模式；**2026-10-24 已随 `core/auto-reply/` 整体下线删除** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
 | R01-001 | `core/extensibility/EventBus.ts` | 自建 EventBus 包装器 | 2026-Q3 |
-| R01-001 | `core/node-host/NodeInvoke.ts` | NodeInvoke + EventEmitter + Handler 注册表 | 2026-Q3 |
+| R01-001 | ~~`core/node-host/NodeInvoke.ts`~~ | NodeInvoke + EventEmitter + Handler 注册表；**2026-10-24 已随 `core/node-host/` 删除（见 `code-deletion.md` 六步核查）** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
 | R01-001 | `plugins/core/PluginEventSystem.ts` | 插件事件系统，extends EventEmitter + Map 分发 | 2026-Q3 |
 | R01-002 | `services/api/errors.ts` | 面向外部 API，与内部错误体系不同 | 待评估 |
 | R01-004 | `context/ContextCacheService.ts` | 已修复，改用 TTLCache | ✅ |
@@ -842,7 +842,7 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 | R01-003 | `performance/CodeOptimizer.ts` | 自建 retry<T>() 函数，代码优化模块重试 | 2026-Q3 |
 | R01-003 | `mcp/MCPCompatibilityTester.ts` | 内建 for 循环重试，MCP 兼容性测试重试 | 2026-Q3 |
 | R01-003 | `agent/chains/AgentChain.ts` | 内建 while 循环重试，Agent 链执行重试 | 2026-Q3 |
-| R01-003 | `core/node-host/ExecPolicy.ts` | 内建 for 循环重试，执行策略重试 | 2026-Q3 |
+| R01-003 | ~~`core/node-host/ExecPolicy.ts`~~ | 内建 for 循环重试，执行策略重试；**2026-10-24 已随 `core/node-host/` 删除** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
 | R01-003 | `remote/RemoteTaskScheduler.ts` | 内建 while 循环重试，远程任务调度重试 | 2026-Q3 |
 | R01-003 | `chronos/CronSubprocessExecutor.ts` | 内建 for 循环重试（`for (attempt=1; attempt<=config.maxRetries+1)`），子进程执行重试 | 2026-Q3 |
 | R01-003 | `agent/remote/RemoteAgentProtocol.ts` | 内建 for 循环重试，远程代理协议重试 | 2026-Q3 |
@@ -896,7 +896,7 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 | R03-001 | `utils/withRetry.ts` | R01-003 治理例外：标准 withRetry 工厂函数 | 永久 |
 | R03-001 | `utils/fileStateCache.ts` | 工具类缓存，非基础设施 | 永久 |
 | R03-001 | `core/health/DependencyHealthChecker.ts` | 标准健康检查基础设施 | 永久 |
-| R03-001 | `core/approval/ApprovalCache.ts` | 标准审批缓存，非自建基础设施 | 永久 |
+| R03-001 | ~~`core/approval/ApprovalCache.ts`~~ | 标准审批缓存，非自建基础设施；**2026-10-24 已删除**（三重零：0 静态引用 / 0 动态入口 / 0 测试覆盖）⇒ 本行转为历史记录 | ~~永久~~ **已删除** |
 | R03-001 | `diagnostics/SystemHealthChecker.ts` | 诊断模块健康检查，标准实现 | 永久 |
 | R03-001 | `monitoring/health/HealthChecker.ts` | 监控模块健康检查，标准实现 | 永久 |
 | R03-001 | `channels/line/LineChannel.ts` | 误报：UserProfileCache 为私有内联类，非独立基础设施 | 永久 |

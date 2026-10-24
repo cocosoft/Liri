@@ -185,8 +185,7 @@
       "app/src/workspace/types.ts",
       "app/src/workspace/WorkflowTemplateProvider.ts",
       "app/src/workspace/workflowTemplateRunner.ts",
-      "packages/kernel/src/core/events/UiEvents.ts",
-      "packages/kernel/src/core/node-host/types.ts"
+      "packages/kernel/src/core/events/UiEvents.ts"
     ],
     "CANCELLED": [
       "app/src/execution/ExecutionManager.ts",
@@ -380,8 +379,6 @@
       "packages/kernel/src/core/Coordinator.ts",
       "packages/kernel/src/core/data-models.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "packages/kernel/src/core/node-host/NodeRunner.ts",
-      "packages/kernel/src/core/node-host/types.ts",
       "packages/kernel/src/core/phases/PhaseVocabulary.ts",
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
@@ -1042,9 +1039,6 @@
       "packages/kernel/src/core/Coordinator.ts",
       "packages/kernel/src/core/events/OrchestrationMetrics.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "packages/kernel/src/core/lazy/LazyService.ts",
-      "packages/kernel/src/core/node-host/NodeRunner.ts",
-      "packages/kernel/src/core/node-host/types.ts",
       "packages/kernel/src/core/phases/PhaseVocabulary.ts",
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
@@ -1144,8 +1138,7 @@
       "app/src/voice/WakeWordEngine.ts",
       "packages/kernel/src/core/data-models.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "packages/kernel/src/core/ModuleBootstrapper.ts",
-      "packages/kernel/src/core/node-host/types.ts"
+      "packages/kernel/src/core/ModuleBootstrapper.ts"
     ],
     "installed": [
       "app/src/channels/wechat/cli-manager.ts",
@@ -1399,7 +1392,6 @@
       "app/src/workspace/types.ts",
       "app/src/workspace/WorkItemStore.ts",
       "packages/kernel/src/core/Coordinator.ts",
-      "packages/kernel/src/core/lazy/LazyService.ts",
       "packages/kernel/src/core/LazyModuleStrategy.ts",
       "packages/kernel/src/core/phases/PhaseVocabulary.ts",
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
@@ -1544,8 +1536,6 @@
       "packages/kernel/src/core/Coordinator.ts",
       "packages/kernel/src/core/data-models.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "packages/kernel/src/core/node-host/NodeRunner.ts",
-      "packages/kernel/src/core/node-host/types.ts",
       "packages/kernel/src/core/phases/PhaseVocabulary.ts",
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],

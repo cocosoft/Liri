@@ -44,11 +44,9 @@ const CORE_ROOT = join(import.meta.dir, '../../../packages/kernel/src/core');
 /** 观察期入口文件（消费者会 import 的那个） */
 const OBSERVED_ENTRY_FILES = [
   // C 档（§3）：三重零引用
-  'storage/SecureStorage.ts',
-  'lifecycle/GracefulRestartService.ts',
-  'approval/ApprovalCache.ts',
-  'lazy/LazyService.ts',
-  'node-host/index.ts',
+  // 2026-10-24 方案 B 已删除：`storage/SecureStorage.ts` / `lifecycle/GracefulRestartService.ts` /
+  // `approval/ApprovalCache.ts` / `lazy/LazyService.ts`（+ `lazy/index.ts`）/ `node-host/`（5 文件）
+  // —— 均零 import、零字符串注册、零动态发现；回滚 `git revert 4c04a173f..<本提交>`。
   // B 档复评（§4）：无代码消费者，仅文档示例
   // `auto-reply/index.ts` 已于 2026-10-24 **删除**（观察期被用户明确裁定终止；见
   // `dev_docs/error_repairs/预存错误与待处理问题.md` 同日条目与 `git revert` 回滚点）。

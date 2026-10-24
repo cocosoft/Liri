@@ -208,8 +208,6 @@ class ArchitectureLinter {
       'session/events/SessionLifecycleEventBus.ts',
       'voice\\VoiceEventBus.ts',
       'agent\\events\\index.ts',
-      'core\\node-host\\NodeInvoke.ts',
-      'core/node-host/NodeInvoke.ts',
       'plugins\\core\\PluginEventSystem.ts',
       'plugins/core/PluginEventSystem.ts',
     ];
@@ -480,8 +478,6 @@ class ArchitectureLinter {
         'performance/CodeOptimizer.ts',
         'mcp\\MCPCompatibilityTester.ts',
         'mcp/MCPCompatibilityTester.ts',
-        'core\\node-host\\ExecPolicy.ts',
-        'core/node-host/ExecPolicy.ts',
         'remote\\RemoteTaskScheduler.ts',
         'remote/RemoteTaskScheduler.ts',
         // 第三组：误报或领域重试，2026-Q3 前清理
@@ -1021,7 +1017,6 @@ class ArchitectureLinter {
       'utils\\fileStateCache.ts',
       // core/ 层标准基础设施
       'core\\health\\DependencyHealthChecker.ts',
-      'core\\approval\\ApprovalCache.ts',
       // 标准健康检查基础设施
       'diagnostics\\SystemHealthChecker.ts',
       'monitoring\\health\\HealthChecker.ts',

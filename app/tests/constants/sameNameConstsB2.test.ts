@@ -415,19 +415,15 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     );
   });
 
-  test('B5-2①：`DEFAULT_TTL_MS` ×9 已按域消歧（取值一字未改）', () => {
-    // 9 处同名 `DEFAULT_TTL_MS` 各属**独立缓存/锁**（60_000 ×3 · 5min ×2 · 1h ×2 · 30min · 300_000）
+  test('B5-2①：`DEFAULT_TTL_MS` ×8 已按域消歧（取值一字未改）', () => {
+    // 8 处同名 `DEFAULT_TTL_MS` 各属**独立缓存/锁**（60_000 ×3 · 5min ×1 · 1h ×2 · 30min · 300_000）
+    // （原 9 处；`core/approval/ApprovalCache.ts` 已于 2026-10-24 按方案 B 删除 ⇒ 断言同批移除）
     const items: Array<[string, string, string]> = [
       ['src/cost/DailyCostCache.ts', 'DAILY_COST_CACHE_TTL_MS', '60_000'],
       ['src/tasks/CrossProcessLock.ts', 'CROSS_PROCESS_LOCK_TTL_MS', '60_000'],
       [
         '../packages/kernel/src/core/cache/SessionCache.ts',
         'SESSION_CACHE_TTL_MS',
-        '5 * 60 * 1000',
-      ],
-      [
-        '../packages/kernel/src/core/approval/ApprovalCache.ts',
-        'APPROVAL_CACHE_TTL_MS',
         '5 * 60 * 1000',
       ],
       [

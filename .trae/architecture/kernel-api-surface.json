@@ -1,8 +1,8 @@
 {
   "version": 1,
   "kernelRoot": "packages/kernel/src/core",
-  "fileCount": 122,
-  "symbolCount": 1080,
+  "fileCount": 112,
+  "symbolCount": 1031,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -20,13 +20,6 @@
         "AppCoreStartupOptions",
         "SessionStartupOptions",
         "WorktreeOptions"
-      ]
-    },
-    {
-      "file": "approval/ApprovalCache.ts",
-      "symbols": [
-        "ApprovalCache",
-        "ApprovalCacheOptions"
       ]
     },
     {
@@ -687,18 +680,6 @@
       ]
     },
     {
-      "file": "lazy/LazyService.ts",
-      "symbols": [
-        "LazyConfig",
-        "LazyLoadStatus",
-        "LazyResult",
-        "LazyService",
-        "getLazy",
-        "preloadLazy",
-        "registerLazy"
-      ]
-    },
-    {
       "file": "lazy/loaderRegistry.ts",
       "symbols": [
         "LazyLoader",
@@ -740,18 +721,6 @@
       ]
     },
     {
-      "file": "lifecycle/GracefulRestartService.ts",
-      "symbols": [
-        "GracefulRestartConfig",
-        "GracefulRestartService",
-        "HookFailure",
-        "RestartEvent",
-        "RestartPhase",
-        "ShutdownHook",
-        "getGracefulRestartService"
-      ]
-    },
-    {
       "file": "loggerFacade.ts",
       "symbols": [
         "ILogger",
@@ -777,59 +746,6 @@
         "BootstrapperModule",
         "ModuleBootstrapper",
         "ModuleLifecycle"
-      ]
-    },
-    {
-      "file": "node-host/ExecPolicy.ts",
-      "symbols": [
-        "ExecPolicy",
-        "execPolicy"
-      ]
-    },
-    {
-      "file": "node-host/index.ts",
-      "symbols": [
-        "ExecPolicy",
-        "ExecPolicyConfig",
-        "InvokeRequest",
-        "InvokeResponse",
-        "NodeDefinition",
-        "NodeInvoke",
-        "NodeInvokeHandler",
-        "NodeMetrics",
-        "NodeRunner",
-        "NodeSession",
-        "NodeStatus",
-        "NodeType",
-        "execPolicy",
-        "nodeInvoke"
-      ]
-    },
-    {
-      "file": "node-host/NodeInvoke.ts",
-      "symbols": [
-        "NodeInvoke",
-        "NodeInvokeHandler",
-        "nodeInvoke"
-      ]
-    },
-    {
-      "file": "node-host/NodeRunner.ts",
-      "symbols": [
-        "NodeRunner"
-      ]
-    },
-    {
-      "file": "node-host/types.ts",
-      "symbols": [
-        "ExecPolicyConfig",
-        "InvokeRequest",
-        "InvokeResponse",
-        "NodeDefinition",
-        "NodeMetrics",
-        "NodeSession",
-        "NodeStatus",
-        "NodeType"
       ]
     },
     {
@@ -1531,16 +1447,6 @@
         "markSpiRegistered",
         "requireSpiDependencies",
         "resetSpiRegistryForTest"
-      ]
-    },
-    {
-      "file": "storage/SecureStorage.ts",
-      "symbols": [
-        "EncryptionConfig",
-        "ISecureStorage",
-        "SecureStorage",
-        "SecureStorageData",
-        "SecureStorageResult"
       ]
     },
     {

@@ -48,7 +48,6 @@
     { "id": "taskStatus.ts", "kind": "file", "domain": "execution-loop", "note": "任务状态枚举（跨层共享叶子）" },
     { "id": "tracingFacade.ts", "kind": "file", "domain": "base-utils", "note": "core 侧 OTel tracing 门面" },
     { "id": "types.ts", "kind": "file", "domain": "base-utils", "note": "核心类型定义" },
-    { "id": "approval", "kind": "dir", "domain": "security-permission", "note": "审批结果缓存" },
     { "id": "cache", "kind": "dir", "domain": "state-events", "note": "会话缓存" },
     { "id": "connections", "kind": "dir", "domain": "state-events", "note": "连接注册表" },
     { "id": "di", "kind": "dir", "domain": "ports-assembly", "note": "DI 容器实现（容器/作用域/循环检测/自动装配/释放）" },
@@ -60,7 +59,6 @@
     { "id": "identity", "kind": "dir", "domain": "security-permission", "note": "请求级身份（Principal + 请求作用域 ALS）+ 按身份登记的可关闭资源表（只记账 closer、无 IO）：阶段 1 纯类型/纯函数；阶段 2 增加 AsyncLocalStorage 作用域（不读请求、不碰存储，解析在 HTTP 层）；阶段 3 增 scopedResources（不解析路径、不开连接）" },
     { "id": "idle", "kind": "dir", "domain": "ports-assembly", "note": "空闲缩容监控（进程级）" },
     { "id": "lazy", "kind": "dir", "domain": "ports-assembly", "note": "懒加载服务" },
-    { "id": "lifecycle", "kind": "dir", "domain": "ports-assembly", "note": "优雅重启服务" },
     { "id": "migration", "kind": "dir", "domain": "state-events", "note": "应用迁移存储与迁移注册表" },
     { "id": "orchestrationEvents.ts", "kind": "file", "domain": "state-events", "note": "编排事件词汇表（纯字面量、零 import）；P6 由 app/src/types 内迁，供事件总线与指标共用" },
     { "id": "outputGuard", "kind": "dir", "domain": "security-permission", "note": "输出侧护栏契约与注册表" },
@@ -68,14 +66,12 @@
     { "id": "protocol", "kind": "dir", "domain": "base-utils", "note": "WebSocket 握手协议常量真源（零 import）" },
     { "id": "sleep", "kind": "dir", "domain": "ports-assembly", "note": "休眠监控（进程级）" },
     { "id": "spi", "kind": "dir", "domain": "ports-assembly", "note": "SPI 抽象契约统一出口（端口定义）" },
-    { "id": "storage", "kind": "dir", "domain": "state-events", "note": "安全存储" },
     { "id": "systemgraph", "kind": "dir", "domain": "state-events", "note": "运行时系统图（纯内存只读投影）" },
     { "id": "utils", "kind": "dir", "domain": "base-utils", "note": "core 侧通用工具（错误处理/懒加载/性能/资源池）" }
   ],
   "exceptions": [
     { "id": "delivery", "kind": "dir", "reason": "投递侧实现（转录归档 / 磁盘监控 / 失败通知），属产品能力" },
     { "id": "media-generation", "kind": "dir", "reason": "媒体生成运行时共享层，属产品能力" },
-    { "id": "node-host", "kind": "dir", "reason": "节点宿主执行（ExecPolicy/NodeInvoke/NodeRunner），半内核半业务：执行策略偏安全、节点调用偏产品，整体登记为例外" },
     { "id": "patterns", "kind": "dir", "reason": "声明式 pattern 注册表与选择器（Teamwork 编排），属产品能力" },
     { "id": "performance", "kind": "dir", "reason": "release 前性能红线检查（发布工程工具），不参与运行时内核" },
     { "id": "persona", "kind": "dir", "reason": "人格服务（角色设定），属产品能力" }

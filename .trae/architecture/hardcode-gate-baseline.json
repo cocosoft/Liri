@@ -172,7 +172,6 @@
     "裸字面量:app/src/context/compaction/CompactionLockStore.ts": 1,
     "裸字面量:app/src/context/compaction/CompactionOrchestrator.ts": 1,
     "裸字面量:app/src/context/hooks/CompactionHooks.ts": 1,
-    "裸字面量:app/src/core/approval/ApprovalCache.ts": 1,
     "裸字面量:app/src/core/auto-reply/chunk.ts": 1,
     "裸字面量:app/src/core/cache/SessionCache.ts": 1,
     "裸字面量:app/src/core/external/sqlite3.ts": 1,

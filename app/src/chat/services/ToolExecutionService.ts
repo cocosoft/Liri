@@ -12,7 +12,11 @@
 
 import fs from 'fs';
 import { join } from 'path';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import {
+  getLogger,
+  getOTelTracing,
+  runWithActiveSpan,
+} from '@modules/monitoring';
 import {
   AppError,
   ErrorCategory,
@@ -403,6 +407,11 @@ export class ToolExecutionService {
     const toolSpan = otel.startSpan(`chat.executeTool.${toolCall.name}`, {
       'tool.name': toolCall.name,
     });
+    // 让工具 span 在执行期间**活动**：下游出站（MCP 等）据此注入 traceparent（§6-#6）
+    const runTool = () =>
+      runWithActiveSpan(toolSpan, () =>
+        this._executeInternal(toolCall, opts?.onProgress)
+      );
     const startedAt = Date.now();
     // #5（2026-09-24）：留存本次结果，供 finally 的耗时构成分解读取（工具自报规模/耗时）
     let latestResult: ToolResult | undefined;
@@ -411,11 +420,7 @@ export class ToolExecutionService {
       if (opts?.useErrorHandler && this.deps.enableErrorHandler) {
         try {
           const handled = await ErrorHandler.handleAsync(
-            () =>
-              withToolTimeout(
-                () => this._executeInternal(toolCall, opts?.onProgress),
-                toolCall
-              ),
+            () => withToolTimeout(runTool, toolCall),
             { recoveryStrategy: 'retry', maxRetries: 2 }
           );
           const resolved: ToolResult =
@@ -438,17 +443,11 @@ export class ToolExecutionService {
           logger.warn('ErrorHandler failed, falling back to direct execution', {
             error: err instanceof Error ? err.message : String(err),
           });
-          latestResult = await withToolTimeout(
-            () => this._executeInternal(toolCall, opts?.onProgress),
-            toolCall
-          );
+          latestResult = await withToolTimeout(runTool, toolCall);
           return latestResult;
         }
       }
-      const result = await withToolTimeout(
-        () => this._executeInternal(toolCall, opts?.onProgress),
-        toolCall
-      );
+      const result = await withToolTimeout(runTool, toolCall);
       latestResult = result;
       // Phase 2: 收敛检测
       try {

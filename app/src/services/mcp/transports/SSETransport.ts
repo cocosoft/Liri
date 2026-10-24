@@ -5,7 +5,7 @@
 
 import type { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
-import { getLogger } from '@modules/monitoring';
+import { getLogger, withTraceparentHeaders } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { McpTlsConfig } from './McpTlsManager';
@@ -129,10 +129,10 @@ export class SSETransport extends MCPTransport {
       // 通过HTTP POST发送请求
       fetch(this.url, {
         method: 'POST',
-        headers: {
+        headers: withTraceparentHeaders({
           'Content-Type': 'application/json',
           ...this.headers,
-        },
+        }),
         body: JSON.stringify(request),
         ...(tlsOptions ? { tls: tlsOptions } : {}),
       }).catch((error) => {

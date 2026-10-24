@@ -41,6 +41,13 @@ export {
   extractTraceContextFromRequest,
 } from './traceContextExtractor.js';
 export {
+  TRACEPARENT_HEADER,
+  buildTraceparent,
+  currentTraceparent,
+  withTraceparentHeaders,
+  runWithActiveSpan,
+} from './traceContextInjector.js';
+export {
   isSpanCovered,
   markSpanCovered,
   dedupStartSpan,

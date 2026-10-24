@@ -7,8 +7,7 @@ import type { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { McpTlsConfig } from './McpTlsManager';
-
-import { getLogger } from '@modules/monitoring';
+import { getLogger, withTraceparentHeaders } from '@modules/monitoring';
 const logger = getLogger('services\mcp\transports\HTTPTransport');
 
 interface HTTPTransportOptions {
@@ -45,10 +44,10 @@ export class HTTPTransport extends MCPTransport {
 
     const response = await fetch(this.url, {
       method: 'POST',
-      headers: {
+      headers: withTraceparentHeaders({
         'Content-Type': 'application/json',
         ...this.headers,
-      },
+      }),
       body: JSON.stringify(request),
       ...(tlsOptions ? { tls: tlsOptions } : {}),
     });

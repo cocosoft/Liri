@@ -110,6 +110,15 @@ export type {
 export { LogTail } from './logs/tail/LogTail.js';
 export type { TailOptions, LogLine } from './logs/tail/LogTail.js';
 
+// W3C trace 上下文注入（出站透传，§6-#6）—— 经模块出口暴露，禁止消费方直取子目录
+export {
+  TRACEPARENT_HEADER,
+  buildTraceparent,
+  currentTraceparent,
+  withTraceparentHeaders,
+  runWithActiveSpan,
+} from './tracing/traceContextInjector.js';
+
 // OpenTelemetry集成
 export {
   PYAppDiagLogger,

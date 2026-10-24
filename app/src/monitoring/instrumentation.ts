@@ -2,7 +2,14 @@
  * OpenTelemetry  instrumentation 配置
  */
 
-import { DiagLogLevel, diag, metrics, trace } from '@opentelemetry/api';
+import {
+  DiagLogLevel,
+  diag,
+  metrics,
+  trace,
+  context,
+} from '@opentelemetry/api';
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import {
   envDetector,
   hostDetector,
@@ -67,6 +74,15 @@ function telemetryTimeout(ms: number, message: string): Promise<never> {
 }
 
 export function bootstrapTelemetry() {
+  // 上下文传播底座（基础设施专项 §6-#6）：`@opentelemetry/api` 默认 ContextManager
+  // 是 **noop** —— `context.with()` 直接执行，`context.active()` 永远没有 span。
+  // 后果：出站 `traceparent` 注入拿不到父 span、`traceContextExtractor` 永远提取到
+  // ROOT_CONTEXT（跨进程链路为空）。注册 AsyncLocalStorage 实现后，活动 span 才能
+  // 跨 await 边界传播。
+  const asyncHooksContextManager = new AsyncLocalStorageContextManager();
+  asyncHooksContextManager.enable();
+  context.setGlobalContextManager(asyncHooksContextManager);
+
   if (configManager.env('USER_TYPE') === 'ant') {
     // Read from ANT_ prefixed variables that are defined at build time
     const antMetricsExporter = configManager.env('ANT_OTEL_METRICS_EXPORTER');

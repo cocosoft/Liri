@@ -180,6 +180,14 @@ export class ProviderManager {
   private static instance: ProviderManager;
   /** 租户级库实例缓存（键 = `tenantId`；库按租户分，用户靠 `owner_key` 行级隔离） */
   private static scopedInstances = new Map<string, ProviderManager>();
+  /**
+   * 显式 `dbPath` 实例缓存（键 = 路径）。仅用于测试/工具注入（如 `':memory:'`）。
+   *
+   * 2026-10-24 修：原实现只在**首次**创建时采纳 `dbPath`，之后无论传什么都返回同一单例
+   * ⇒ `getInstance(':memory:')` 可能在默认单例已创建时拿到指向真实 `app.db` 的实例
+   * （实测：CI 上跨文件残留行污染断言；更危险的是测试写入真实库）。
+   */
+  private static explicitInstances = new Map<string, ProviderManager>();
 
   private db: Database | null = null;
   private dbPath: string;
@@ -199,8 +207,17 @@ export class ProviderManager {
    * `db`，换连接会让并发请求读到别人的供应商/凭据。
    */
   static getInstance(dbPath?: string): ProviderManager {
+    // ① 显式路径（测试/工具注入）：按路径分桶，**绝不**复用默认单例或租户实例。
+    //    否则"首次创建后忽略入参"会让 `:memory:` 拿到指向真实 `app.db` 的实例。
+    if (dbPath !== undefined) {
+      const existing = ProviderManager.explicitInstances.get(dbPath);
+      if (existing) return existing;
+      const created = new ProviderManager(dbPath);
+      ProviderManager.explicitInstances.set(dbPath, created);
+      return created;
+    }
     const principal = getRequestPrincipal();
-    if (!isLocalPrincipal(principal) && dbPath === undefined) {
+    if (!isLocalPrincipal(principal)) {
       const key = principal.tenantId;
       const existing = ProviderManager.scopedInstances.get(key);
       if (existing) return existing;

@@ -148,3 +148,27 @@ describe('门禁：ProviderManager 的读写 SQL 不许漏 owner_key', () => {
     expect(src).toContain('PRIMARY KEY (id, owner_key)');
   });
 });
+
+describe('门禁：显式 dbPath 不与默认单例混用', () => {
+  it('同路径复用同一实例（`:memory:` 连续取两次是同一个）', () => {
+    expect(ProviderManager.getInstance(':memory:')).toBe(manager);
+    expect(ProviderManager.getInstance(':memory:')).toBe(
+      ProviderManager.getInstance(':memory:')
+    );
+  });
+
+  it('源码守卫：显式路径分支在默认单例之前返回（否则 `:memory:` 会拿到真实 `app.db`）', () => {
+    const src = readFileSync(
+      new URL('../../src/ai/providers/ProviderManager.ts', import.meta.url),
+      'utf8'
+    );
+    const explicitAt = src.indexOf('if (dbPath !== undefined) {');
+    const defaultAt = src.indexOf('if (!ProviderManager.instance) {');
+    expect(explicitAt).toBeGreaterThan(-1);
+    expect(defaultAt).toBeGreaterThan(explicitAt);
+    // 显式路径必须走自己的缓存分桶（不是默认单例）
+    expect(src).toContain(
+      'ProviderManager.explicitInstances.set(dbPath, created)'
+    );
+  });
+});

@@ -4,8 +4,9 @@
 /**
  * 门禁：显式 `dbPath` 的实例必须**按路径分桶**，不得被默认单例吞掉。
  *
- * 背景（2026-10-24，CI ubuntu 红暴露）：`ProviderManager` / `BalanceStore` / `TaskStore` 原实现
- * 都是「`!isLocalPrincipal && dbPath === undefined` 才走租户实例，随后 `if (!instance) new(dbPath)`」
+ * 背景（2026-10-24，CI ubuntu 红暴露）：`ProviderManager` / `BalanceStore` / `TaskStore` /
+ * `ModelPricingService` 原实现都是「`!isLocalPrincipal && dbPath === undefined` 才走租户实例，
+ * 随后 `if (!instance) new(dbPath)`」
  * ⇒ 显式路径只在**首次**创建时被采纳；一旦默认单例（或租户实例）已存在，
  * `getInstance(':memory:')` 会静默返回**指向真实 `app.db`** 的实例。
  * 后果：测试读到上一份残留行（实测断言误红），更危险的是**测试写入真实库**。
@@ -22,9 +23,10 @@ const TARGETS = [
   { name: 'ProviderManager', path: 'src/ai/providers/ProviderManager.ts' },
   { name: 'BalanceStore', path: 'src/ai/providers/BalanceStore.ts' },
   { name: 'TaskStore', path: 'src/workspace/TaskStore.ts' },
+  { name: 'ModelPricingService', path: 'src/ai/models/ModelPricingService.ts' },
 ] as const;
 
-describe('显式 dbPath 分桶（三处同构单例）', () => {
+describe('显式 dbPath 分桶（四处同构单例）', () => {
   for (const target of TARGETS) {
     it(`${target.name}：显式路径分支先于默认单例返回，并写入 explicitInstances`, () => {
       const src = readFileSync(

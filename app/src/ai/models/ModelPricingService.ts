@@ -215,6 +215,9 @@ export class ModelPricingService {
     this.dbPath = dbPath;
   }
 
+  /** 显式 `dbPath` 实例缓存（键 = 路径；仅测试/工具注入，如 `':memory:'`） */
+  private static explicitInstances = new Map<string, ModelPricingService>();
+
   /**
    * 取实例。
    *
@@ -222,8 +225,17 @@ export class ModelPricingService {
    * 实例（`tenants/<t>/app.db`），同租户内不同用户共用连接、按 `owner_key` 行级隔离。
    */
   static getInstance(dbPath?: string): ModelPricingService {
+    // 2026-10-24：显式路径（测试/工具注入）按路径分桶，**不**复用默认单例 ——
+    // 原"首次创建后忽略入参"会让 `:memory:` 在默认单例已存在时拿到真实 `app.db`。
+    if (dbPath !== undefined) {
+      const existing = ModelPricingService.explicitInstances.get(dbPath);
+      if (existing) return existing;
+      const created = new ModelPricingService(dbPath);
+      ModelPricingService.explicitInstances.set(dbPath, created);
+      return created;
+    }
     const principal = getRequestPrincipal();
-    if (!isLocalPrincipal(principal) && dbPath === undefined) {
+    if (!isLocalPrincipal(principal)) {
       const key = principal.tenantId;
       const existing = ModelPricingService.scopedInstances.get(key);
       if (existing) return existing;

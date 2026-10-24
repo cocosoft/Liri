@@ -1,0 +1,16 @@
+{
+  // 包内测试的类型检查（2026-10-24）：
+  // 主 `tsconfig.json` 刻意排除 `*.test.ts`（不让测试进构建/导出面），
+  // 但这意味着**测试本身从未被 tsc 检查**——`di.test.ts` 里那些"故意绕过类型"的
+  // cast 是否真的必要、断言里的字段名是否写错，过去只能靠运行时撞见。
+  // 本文件只做 `noEmit` 类型检查，不参与构建。
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // 测试用 `bun:test` / Bun 运行时类型；bun-types 不在 @types 下 ⇒ 扩 typeRoots
+    "typeRoots": ["../../app/node_modules/@types", "../../app/node_modules"],
+    "types": ["node", "bun-types"]
+  },
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["dist", "node_modules"]
+}

@@ -265,13 +265,15 @@ describe('DI #6：按参数名自动装配的可失败自证', () => {
 
   it('解构参数 ⇒ DI_AUTOWIRE_UNRELIABLE（不再静默把 `{ a }` 当服务名）', () => {
     // 构造一个"形参不是纯标识符"的形态（TS 类型在运行期已擦除，故直接给函数源码）
-    const camel = (0, function ({ a }: { a: unknown }) {
+    function destructuredParam({ a }: { a: unknown }): unknown {
       return a;
-    });
+    }
     const engine = new AutoWiringEngine();
     let caught: unknown;
     try {
-      engine.getParameterNames(camel as unknown as new () => unknown);
+      engine.getParameterNames(
+        destructuredParam as unknown as new () => unknown
+      );
     } catch (error) {
       caught = error;
     }

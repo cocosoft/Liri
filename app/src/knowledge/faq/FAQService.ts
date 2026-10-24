@@ -5,7 +5,14 @@
  * FAQService — FAQ 条目管理服务
  *
  * 提供 FAQ 的 CRUD、去重、搜索能力。
- * 数据存储在 app.db 的 faq_entries 表中。
+ * 数据存储在 faq_entries 表中（租户级 DB）。
+ *
+ * **归属（2026-10-25，租户级 DB §6.1）**：与 RuleStore / RecordStore / LineageStore /
+ * SourceChunkStore 同口径 —— 库按**租户**分（`tenants/<t>/app.db`），租户内按
+ * `owner_key`（`<tenant>:<user>`）行级隔离。FAQ id 是随机 UUID（`faq_${randomUUID()}`）
+ * **非内容派生** ⇒ 保持单列 PK（跨用户 PK 碰撞不可能）；去重语义 = 同 `content_hash` +
+ * `knowledge_base` + **同 owner** 才判重复（跨用户同内容互不误伤）。旧库（ALTER 补列）
+ * 存量行落 `local:local` 归属。请求作用域读写走 `getFAQService()`（每次按当前身份解析单例）。
  */
 
 import { createHash, randomUUID } from 'crypto';
@@ -13,8 +20,16 @@ import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 import { handleError } from '@modules/error';
-import { resolveDbPath } from '@openliri/kernel';
 import { Database } from '@openliri/kernel/external/sqlite3';
+import { SimpleMutex } from '@openliri/kernel';
+import { resolveTenantDbPath } from '@openliri/kernel/paths';
+import {
+  getRequestPrincipal,
+  getRequestPrincipalKey,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import type { FAQEntry, FAQSearchParams, FAQImportReport } from './types';
 
 const logger = new OTelAwareLogger({
@@ -22,16 +37,8 @@ const logger = new OTelAwareLogger({
   level: LogLevel.INFO,
 });
 
-/** Promise 封装的 db.run */
-function dbRun(db: Database, sql: string, ...params: unknown[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (params.length > 0) {
-      db.run(sql, params, (err: Error | null) => reject(err ?? resolve()));
-    } else {
-      db.run(sql, (err: Error | null) => reject(err ?? resolve()));
-    }
-  });
-}
+/** FAQ 条目表名 */
+export const FAQ_TABLE = 'faq_entries';
 
 /** Promise 封装的 db.get */
 function dbGet<T = Record<string, unknown>>(
@@ -63,62 +70,112 @@ function dbAll<T = Record<string, unknown>>(
 
 export class FAQService {
   private db: Database | null = null;
-  private dbPath: string;
+  private dbPath?: string;
+  private dbMutex = new SimpleMutex();
+  /** 进行中的初始化（并发调用共享，避免重复打开连接） */
+  private initPromise: Promise<void> | null = null;
 
-  constructor(dbPath: string = resolveDbPath()) {
+  /**
+   * @param dbPath 显式库路径（测试/工具注入）；缺省由 `init()` 惰性解析 ——
+   *   2026-10-25 租户级 DB §6.1：默认参数会在**构造时**解析路径，模块级单例在无请求
+   *   身份下构造会把库钉死共享 `app.db` ⇒ 改惰性解析（按当前请求身份解析租户库）。
+   */
+  constructor(dbPath?: string) {
     this.dbPath = dbPath;
   }
 
-  /** 初始化数据库连接和表 */
+  /** 初始化数据库连接和表（幂等 + 并发安全） */
   async init(): Promise<void> {
-    if (this.db) return;
+    if (this.db) {
+      return;
+    }
+    if (!this.initPromise) {
+      this.initPromise = this.doInit();
+    }
+    try {
+      await this.initPromise;
+    } catch (err) {
+      this.initPromise = null;
+      throw err;
+    }
+  }
 
+  private async doInit(): Promise<void> {
+    const dbPath = this.dbPath ?? resolveTenantDbPath();
     this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err: Error | null) => {
+      const db = new Database(dbPath, (err: Error | null) => {
         if (err) reject(err);
         else resolve(db);
       });
     });
 
-    await dbRun(
-      this.db,
-      `
-      CREATE TABLE IF NOT EXISTS faq_entries (
-        id               TEXT PRIMARY KEY,
-        knowledge_base   TEXT NOT NULL,
-        question         TEXT NOT NULL,
-        similar_questions TEXT DEFAULT '[]',
-        answer           TEXT NOT NULL,
-        tags             TEXT DEFAULT '[]',
-        category         TEXT DEFAULT '',
-        enabled          INTEGER DEFAULT 1,
-        recommended      INTEGER DEFAULT 0,
-        content_hash     TEXT NOT NULL,
-        embedding_status TEXT DEFAULT 'pending',
-        created_at       INTEGER NOT NULL,
-        updated_at       INTEGER NOT NULL
-      )
-    `
-    );
-
-    await dbRun(
-      this.db,
-      'CREATE INDEX IF NOT EXISTS idx_faq_base ON faq_entries(knowledge_base)'
-    );
-    await dbRun(
-      this.db,
-      'CREATE INDEX IF NOT EXISTS idx_faq_hash ON faq_entries(content_hash)'
-    );
-    await dbRun(
-      this.db,
-      'CREATE INDEX IF NOT EXISTS idx_faq_category ON faq_entries(knowledge_base, category)'
-    );
-    await dbRun(
-      this.db,
-      'CREATE INDEX IF NOT EXISTS idx_faq_enabled ON faq_entries(knowledge_base, enabled)'
-    );
+    await this.dbMutex.run<void>(() => {
+      return new Promise((resolve, reject) => {
+        this.db!.run(
+          `CREATE TABLE IF NOT EXISTS ${FAQ_TABLE} (
+            id               TEXT PRIMARY KEY,
+            owner_key        TEXT NOT NULL DEFAULT 'local:local',
+            knowledge_base   TEXT NOT NULL,
+            question         TEXT NOT NULL,
+            similar_questions TEXT DEFAULT '[]',
+            answer           TEXT NOT NULL,
+            tags             TEXT DEFAULT '[]',
+            category         TEXT DEFAULT '',
+            enabled          INTEGER DEFAULT 1,
+            recommended      INTEGER DEFAULT 0,
+            content_hash     TEXT NOT NULL,
+            embedding_status TEXT DEFAULT 'pending',
+            created_at       INTEGER NOT NULL,
+            updated_at       INTEGER NOT NULL
+          )`,
+          (err: Error | null) => {
+            if (err) {
+              reject(err);
+              return;
+            }
+            this.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_faq_base ON ${FAQ_TABLE}(knowledge_base)`
+            );
+            this.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_faq_hash ON ${FAQ_TABLE}(content_hash)`
+            );
+            this.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_faq_category ON ${FAQ_TABLE}(knowledge_base, category)`
+            );
+            this.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_faq_enabled ON ${FAQ_TABLE}(knowledge_base, enabled)`
+            );
+            // 归属列走索引（2026-10-25）：list / search / count 以 owner_key 起手过滤
+            this.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_faq_owner ON ${FAQ_TABLE}(owner_key, knowledge_base)`
+            );
+            // 补 owner_key 列（2026-10-25，租户级 DB §6.1）：已建表的库没有该列。
+            // SQLite 的 `ALTER TABLE` 不能改主键 ⇒ 旧库保持单列 PK（id 随机 UUID，
+            // 跨用户碰撞不可能）；旧库只可能是本地库（只含 `local:local` 行）⇒ 无跨用户
+            // 碰撞面（存量行落默认值即本地身份）。
+            // sqlite3 db.run 无回调时静默吞错 ⇒ 必须传回调判成败，`/duplicate column/i` 过滤。
+            this.db!.run(
+              `ALTER TABLE ${FAQ_TABLE} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+              (alterErr: Error | null) => {
+                if (alterErr && !/duplicate column/i.test(alterErr.message)) {
+                  logger.warn('faq_entries 补 owner_key 失败', {
+                    error: alterErr.message,
+                  });
+                }
+                resolve();
+              }
+            );
+          }
+        );
+      });
+    });
 
     logger.info('FAQ 表初始化完成');
+  }
+
+  /** 当前身份归属键（本地 ⇒ `local:local`；租户 ⇒ `<tenant>:<user>`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
   }
 
   private computeHash(question: string, answer: string): string {
@@ -145,12 +202,14 @@ export class FAQService {
     try {
       const now = Date.now();
       const hash = this.computeHash(params.question, params.answer);
+      const owner = this.owner();
 
       const existing = await dbGet<{ id: string }>(
         this.db!,
-        'SELECT id FROM faq_entries WHERE content_hash = ? AND knowledge_base = ?',
+        `SELECT id FROM ${FAQ_TABLE} WHERE content_hash = ? AND knowledge_base = ? AND owner_key = ?`,
         hash,
-        params.knowledgeBaseName
+        params.knowledgeBaseName,
+        owner
       );
 
       if (existing) {
@@ -176,24 +235,34 @@ export class FAQService {
         updatedAt: now,
       };
 
-      await dbRun(
-        this.db!,
-        `INSERT INTO faq_entries (id, knowledge_base, question, similar_questions, answer, tags, category, enabled, recommended, content_hash, embedding_status, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        entry.id,
-        entry.knowledgeBaseName,
-        entry.question,
-        JSON.stringify(entry.similarQuestions),
-        entry.answer,
-        JSON.stringify(entry.tags),
-        entry.category,
-        entry.enabled ? 1 : 0,
-        entry.recommended ? 1 : 0,
-        entry.contentHash,
-        entry.embeddingStatus,
-        entry.createdAt,
-        entry.updatedAt
-      );
+      await this.dbMutex.run<void>(() => {
+        return new Promise((resolve, reject) => {
+          this.db!.run(
+            `INSERT INTO ${FAQ_TABLE} (id, owner_key, knowledge_base, question, similar_questions, answer, tags, category, enabled, recommended, content_hash, embedding_status, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              entry.id,
+              owner,
+              entry.knowledgeBaseName,
+              entry.question,
+              JSON.stringify(entry.similarQuestions),
+              entry.answer,
+              JSON.stringify(entry.tags),
+              entry.category,
+              entry.enabled ? 1 : 0,
+              entry.recommended ? 1 : 0,
+              entry.contentHash,
+              entry.embeddingStatus,
+              entry.createdAt,
+              entry.updatedAt,
+            ],
+            (err: Error | null) => {
+              if (err) reject(err);
+              else resolve();
+            }
+          );
+        });
+      });
 
       logger.info('FAQ 条目创建成功', { id });
       return entry;
@@ -205,7 +274,7 @@ export class FAQService {
     }
   }
 
-  /** 更新 FAQ 条目 */
+  /** 更新 FAQ 条目（他人条目等同不存在，不改动） */
   async update(
     id: string,
     params: Partial<
@@ -222,10 +291,12 @@ export class FAQService {
     >
   ): Promise<FAQEntry | null> {
     await this.init();
+    const owner = this.owner();
     const existing = await dbGet<Record<string, unknown>>(
       this.db!,
-      'SELECT * FROM faq_entries WHERE id = ?',
-      id
+      `SELECT * FROM ${FAQ_TABLE} WHERE id = ? AND owner_key = ?`,
+      id,
+      owner
     );
     if (!existing) return null;
 
@@ -235,47 +306,58 @@ export class FAQService {
     const hash = this.computeHash(question, answer);
     const now = Date.now();
 
-    await dbRun(
-      this.db!,
-      `UPDATE faq_entries SET question=?, answer=?, similar_questions=?, tags=?, category=?, enabled=?, recommended=?, content_hash=?, updated_at=? WHERE id=?`,
-      question,
-      answer,
-      JSON.stringify(
-        params.similarQuestions ??
-          JSON.parse(existing.similar_questions as string)
-      ),
-      JSON.stringify(params.tags ?? JSON.parse(existing.tags as string)),
-      params.category ?? existing.category,
-      params.enabled !== undefined
-        ? params.enabled
-          ? 1
-          : 0
-        : existing.enabled,
-      params.recommended !== undefined
-        ? params.recommended
-          ? 1
-          : 0
-        : existing.recommended,
-      hash,
-      now,
-      id
-    );
+    await this.dbMutex.run<void>(() => {
+      return new Promise((resolve, reject) => {
+        this.db!.run(
+          `UPDATE ${FAQ_TABLE} SET question=?, answer=?, similar_questions=?, tags=?, category=?, enabled=?, recommended=?, content_hash=?, updated_at=? WHERE id=? AND owner_key=?`,
+          [
+            question,
+            answer,
+            JSON.stringify(
+              params.similarQuestions ??
+                JSON.parse(existing.similar_questions as string)
+            ),
+            JSON.stringify(params.tags ?? JSON.parse(existing.tags as string)),
+            params.category ?? existing.category,
+            params.enabled !== undefined
+              ? params.enabled
+                ? 1
+                : 0
+              : existing.enabled,
+            params.recommended !== undefined
+              ? params.recommended
+                ? 1
+                : 0
+              : existing.recommended,
+            hash,
+            now,
+            id,
+            owner,
+          ],
+          (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+    });
 
     return this.getById(id);
   }
 
-  /** 获取单个条目 */
+  /** 获取单个条目（他人条目等同不存在） */
   async getById(id: string): Promise<FAQEntry | null> {
     await this.init();
     const row = await dbGet<Record<string, unknown>>(
       this.db!,
-      'SELECT * FROM faq_entries WHERE id = ?',
-      id
+      `SELECT * FROM ${FAQ_TABLE} WHERE id = ? AND owner_key = ?`,
+      id,
+      this.owner()
     );
     return row ? this.rowToEntry(row) : null;
   }
 
-  /** 列出条目（分页） */
+  /** 列出条目（分页；只列当前归属者） */
   async list(params: {
     knowledgeBaseName: string;
     category?: string;
@@ -284,8 +366,8 @@ export class FAQService {
     limit?: number;
   }): Promise<FAQEntry[]> {
     await this.init();
-    let sql = 'SELECT * FROM faq_entries WHERE knowledge_base = ?';
-    const args: unknown[] = [params.knowledgeBaseName];
+    let sql = `SELECT * FROM ${FAQ_TABLE} WHERE knowledge_base = ? AND owner_key = ?`;
+    const args: unknown[] = [params.knowledgeBaseName, this.owner()];
     if (params.category) {
       sql += ' AND category = ?';
       args.push(params.category);
@@ -300,44 +382,62 @@ export class FAQService {
     return rows.map((r) => this.rowToEntry(r));
   }
 
-  /** 统计数量 */
+  /** 统计数量（只统计当前归属者） */
   async count(knowledgeBaseName: string, enabledOnly = false): Promise<number> {
     await this.init();
-    let sql =
-      'SELECT COUNT(*) as cnt FROM faq_entries WHERE knowledge_base = ?';
+    let sql = `SELECT COUNT(*) as cnt FROM ${FAQ_TABLE} WHERE knowledge_base = ? AND owner_key = ?`;
+    const args: unknown[] = [knowledgeBaseName, this.owner()];
     if (enabledOnly) sql += ' AND enabled = 1';
-    const row = await dbGet<{ cnt: number }>(this.db!, sql, knowledgeBaseName);
+    const row = await dbGet<{ cnt: number }>(this.db!, sql, ...args);
     return row?.cnt ?? 0;
   }
 
-  /** 删除条目 */
+  /** 删除条目（只删当前归属者；他人的等同不存在） */
   async delete(id: string): Promise<boolean> {
     await this.init();
-    await dbRun(this.db!, 'DELETE FROM faq_entries WHERE id = ?', id);
+    await this.dbMutex.run<void>(() => {
+      return new Promise((resolve, reject) => {
+        this.db!.run(
+          `DELETE FROM ${FAQ_TABLE} WHERE id = ? AND owner_key = ?`,
+          [id, this.owner()],
+          (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+    });
     return true;
   }
 
-  /** 批量删除 */
+  /** 批量删除（只删当前归属者） */
   async deleteBatch(ids: string[]): Promise<number> {
     await this.init();
     if (ids.length === 0) return 0;
     const placeholders = ids.map(() => '?').join(',');
-    await dbRun(
-      this.db!,
-      `DELETE FROM faq_entries WHERE id IN (${placeholders})`,
-      ...ids
-    );
+    await this.dbMutex.run<void>(() => {
+      return new Promise((resolve, reject) => {
+        this.db!.run(
+          `DELETE FROM ${FAQ_TABLE} WHERE id IN (${placeholders}) AND owner_key = ?`,
+          [...ids, this.owner()],
+          (err: Error | null) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+    });
     return ids.length;
   }
 
-  /** 关键词搜索 */
+  /** 关键词搜索（只搜当前归属者） */
   async search(params: FAQSearchParams): Promise<FAQEntry[]> {
     await this.init();
     const tokens = params.query.toLowerCase().split(/\s+/).filter(Boolean);
     if (tokens.length === 0) return [];
 
-    let sql = 'SELECT * FROM faq_entries WHERE enabled = 1';
-    const args: unknown[] = [];
+    let sql = `SELECT * FROM ${FAQ_TABLE} WHERE enabled = 1 AND owner_key = ?`;
+    const args: unknown[] = [this.owner()];
     const conds = tokens.map(
       () => '(LOWER(question) LIKE ? OR LOWER(answer) LIKE ?)'
     );
@@ -414,13 +514,14 @@ export class FAQService {
     return report;
   }
 
-  /** 获取分类列表 */
+  /** 获取分类列表（只列当前归属者） */
   async getCategories(knowledgeBaseName: string): Promise<string[]> {
     await this.init();
     const rows = await dbAll<{ category: string }>(
       this.db!,
-      "SELECT DISTINCT category FROM faq_entries WHERE knowledge_base = ? AND category != '' ORDER BY category",
-      knowledgeBaseName
+      `SELECT DISTINCT category FROM ${FAQ_TABLE} WHERE knowledge_base = ? AND owner_key = ? AND category != '' ORDER BY category`,
+      knowledgeBaseName,
+      this.owner()
     );
     return rows.map((r) => r.category);
   }
@@ -443,10 +544,54 @@ export class FAQService {
       updatedAt: row.updated_at as number,
     };
   }
+
+  /** 关闭连接 */
+  async close(): Promise<void> {
+    if (!this.db) return;
+    await new Promise<void>((resolve) => {
+      this.db!.close(() => resolve());
+    });
+    this.db = null;
+    this.initPromise = null;
+  }
 }
 
-let _faqService: FAQService | null = null;
-export function getFAQService(): FAQService {
-  if (!_faqService) _faqService = new FAQService();
-  return _faqService;
+/**
+ * 请求作用域 FAQService 单例（2026-10-25，租户级 DB §6.1）
+ *
+ * 显式 dbPath 按路径分桶（测试隔离），不与默认/租户单例混用。
+ * 本地身份 ⇒ 模块级单例（惰性不锁库）；已认证身份 ⇒ 按 `principalKeyOf(principal)`
+ * 分桶（同租户同用户共享连接），`registerScopedResource` 删租户/退出时释放。
+ */
+const localInstance = new FAQService();
+const scopedInstances = new Map<string, FAQService>();
+const explicitInstances = new Map<string, FAQService>();
+
+export function getFAQService(dbPath?: string): FAQService {
+  if (dbPath) {
+    let inst = explicitInstances.get(dbPath);
+    if (!inst) {
+      inst = new FAQService(dbPath);
+      explicitInstances.set(dbPath, inst);
+    }
+    return inst;
+  }
+  const principal = getRequestPrincipal();
+  if (isLocalPrincipal(principal)) {
+    return localInstance;
+  }
+  const key = principalKeyOf(principal);
+  let scoped = scopedInstances.get(key);
+  if (!scoped) {
+    scoped = new FAQService();
+    scopedInstances.set(key, scoped);
+    registerScopedResource(principalKeyOf(principal), () => scoped?.close());
+  }
+  return scoped;
+}
+
+/** 仅测试：重置租户/显式路径单例桶 */
+export function resetFAQServiceScopedForTest(): void {
+  scopedInstances.clear();
+  explicitInstances.clear();
 }

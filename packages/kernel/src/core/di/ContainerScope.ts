@@ -139,28 +139,56 @@ export class ContainerScope {
     }
   }
 
-  /** 开始请求作用域：在当前异步上下文开一份独立实例表（评审 #3） */
+  /**
+   * 在**作用域边界内**执行 `fn` —— 请求作用域的推荐用法（2026-10-24 复审 B）。
+   *
+   * `enterWith` 没有天然退出点：一旦 `endRequest()` 因异常路径没执行，那份 Map 会沿异步链
+   * 一直存活（跨请求泄漏）。`run()` 在回调返回 / 抛错时自动恢复外层 store ⇒ 无泄漏。
+   */
+  runInRequestScope<T>(fn: () => T): T {
+    return this.requestStorage.run(new Map<string, unknown>(), fn);
+  }
+
+  /**
+   * 手动开启请求作用域。
+   *
+   * @deprecated 用 {@link runInRequestScope}：本方法基于 `enterWith`，**没有作用域边界**，
+   * 异常路径（漏掉 `endRequest`）会泄漏 store。保留仅为兼容既有成对调用形态。
+   */
   beginRequest(): void {
     this.requestStorage.enterWith(new Map<string, unknown>());
   }
 
-  /** 结束请求作用域：解除当前上下文的作用域绑定 */
+  /** 手动结束请求作用域（与 {@link beginRequest} 成对；其边界缺陷见上） */
   endRequest(): void {
     this.requestStorage.enterWith(undefined);
   }
 
-  /** 取（必要时按 `eager` 创建）钩子实例（评审 #8：钩子不再依赖「谁先被 resolve」） */
-  private hookInstance(id: string, desc: ServiceDescriptor): unknown {
-    const existing =
-      this.singletonInstances.get(id) ?? this.requestStorage.getStore()?.get(id);
-    if (existing) return existing;
+  /**
+   * 取（必要时按 `eager` 创建）钩子实例（评审 #8）。
+   *
+   * ⚠️ 用 `has()` 判"有没有"，**不用真值判**（2026-10-24 复审 C）：
+   * factory 合法返回 `0` / `''` / `false` / `null` 时，`if (!instance)` 会把"已实例化"当成"没实例"
+   * ⇒ `onLoad` / `onReady` 被静默跳过。故返回 `{ found, instance }` 而非直接返回值。
+   */
+  private hookInstance(
+    id: string,
+    desc: ServiceDescriptor
+  ): { found: boolean; instance: unknown } {
+    if (this.singletonInstances.has(id)) {
+      return { found: true, instance: this.singletonInstances.get(id) };
+    }
+    const store = this.requestStorage.getStore();
+    if (store?.has(id)) {
+      return { found: true, instance: store.get(id) };
+    }
     if (!desc.eager) {
       logger.debug('生命周期钩子跳过：服务未实例化且未声明 eager', {
         serviceId: id,
       });
-      return undefined;
+      return { found: false, instance: undefined };
     }
-    return this.resolve(id, desc.factory, desc.scope);
+    return { found: true, instance: this.resolve(id, desc.factory, desc.scope) };
   }
 
   /**
@@ -171,10 +199,10 @@ export class ContainerScope {
     for (const id of order) {
       const desc = this.descriptors.get(id);
       if (!desc?.onLoad) continue;
-      const instance = this.hookInstance(id, desc);
-      if (!instance) continue;
+      const hook = this.hookInstance(id, desc);
+      if (!hook.found) continue;
       try {
-        await desc.onLoad(instance);
+        await desc.onLoad(hook.instance);
       } catch (error) {
         await handleError(error, {
           module: 'core:di:scope',
@@ -193,10 +221,10 @@ export class ContainerScope {
     for (const id of order) {
       const desc = this.descriptors.get(id);
       if (!desc?.onReady) continue;
-      const instance = this.hookInstance(id, desc);
-      if (!instance) continue;
+      const hook = this.hookInstance(id, desc);
+      if (!hook.found) continue;
       try {
-        await desc.onReady(instance);
+        await desc.onReady(hook.instance);
       } catch (error) {
         await handleError(error, {
           module: 'core:di:scope',

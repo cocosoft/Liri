@@ -5,7 +5,8 @@
  *   #1 环注册被拒后不残留脏状态；#2 报出的环是闭环而非"根→环入口"前缀；
  *   #3 request 作用域在并发请求间隔离；#4 transient 的 onDispose 注册期即拒；
  *   #5 增量检测与全图检测等价；#7 disposeAll 单个失败不中断其它；#8 eager 才跑 onLoad。
- * 另含 #6 自动装配的可失败自证。
+ * 另含 #6 自动装配的可失败自证，以及 2026-10-24 复审 B（`runInRequestScope` 作用域边界）
+ * 与 C（`0/''/null` 不算"未实例化"）的回归。
  *
  * 位置说明：放在 `packages/kernel/tests/`（**不在** `src/core/` 下）——
  * K08 体量棘轮的观测面是内核源码，测试不该占用内核体量预算（棘轮只允许下调）。
@@ -79,13 +80,14 @@ describe('DI #3：request 作用域在并发请求间隔离', () => {
       factory: () => ({ seq: ++created }),
     });
 
-    const runOne = async (): Promise<{ first: number; sameWithin: boolean }> => {
-      container.beginRequest();
-      const first = container.resolve<{ seq: number }>('req');
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      const second = container.resolve<{ seq: number }>('req');
-      return { first: first.seq, sameWithin: second === first };
-    };
+    // 复审 B 后改用带边界的 `runInRequestScope`（`enterWith` 版没有天然退出点）
+    const runOne = async (): Promise<{ first: number; sameWithin: boolean }> =>
+      container.runInRequestScope(async () => {
+        const first = container.resolve<{ seq: number }>('req');
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        const second = container.resolve<{ seq: number }>('req');
+        return { first: first.seq, sameWithin: second === first };
+      });
 
     const [a, b] = await Promise.all([runOne(), runOne()]);
 
@@ -94,6 +96,35 @@ describe('DI #3：request 作用域在并发请求间隔离', () => {
     // 并发请求不共享：两个不同的 seq（原实现是同一份 Map，会被 clear 掉/串用）
     expect(a.first).not.toBe(b.first);
     expect(created).toBe(2);
+  });
+
+  it('作用域结束后不泄漏（含抛错路径）', () => {
+    const container = new DIContainer();
+    let seq = 0;
+    container.registerDescriptor({
+      id: 'req',
+      scope: 'request',
+      factory: () => ({ seq: ++seq }),
+    });
+
+    const insideA = container.runInRequestScope(
+      () => container.resolve<{ seq: number }>('req').seq
+    );
+    const insideB = container.runInRequestScope(
+      () => container.resolve<{ seq: number }>('req').seq
+    );
+    expect(insideA).toBe(1);
+    expect(insideB).toBe(2); // 两次作用域互不共享
+
+    expect(() =>
+      container.runInRequestScope(() => {
+        throw new Error('boom');
+      })
+    ).toThrow('boom');
+
+    // 作用域外 ⇒ 退化为 transient（每次新实例），不会拿到作用域内的缓存
+    expect(container.resolve<{ seq: number }>('req').seq).toBe(3);
+    expect(container.resolve<{ seq: number }>('req').seq).toBe(4);
   });
 });
 
@@ -239,5 +270,58 @@ describe('DI #6：按参数名自动装配的可失败自证', () => {
     }
     expect(caught).toBeInstanceOf(AppError);
     expect((caught as AppError).code).toBe('DI_AUTOWIRE_UNRELIABLE');
+  });
+});
+
+describe('DI · 生命周期钩子的「有无」判据（2026-10-24 复审 C）', () => {
+  it('已实例化但值为 0 ⇒ onLoad 仍执行（不再被 `if (!instance)` 跳过）', async () => {
+    const container = new DIContainer();
+    const seen: unknown[] = [];
+    container.registerDescriptor({
+      id: 'zero',
+      scope: 'singleton',
+      factory: () => 0,
+      onLoad: async (value: number) => {
+        seen.push(value);
+      },
+    });
+
+    container.resolve('zero'); // 显式实例化（非 eager）
+    await container.loadAll();
+
+    expect(seen).toEqual([0]);
+  });
+
+  it('eager + 空串 ⇒ 先实例化再执行钩子', async () => {
+    const container = new DIContainer();
+    const seen: unknown[] = [];
+    container.registerDescriptor({
+      id: 'empty',
+      scope: 'singleton',
+      factory: () => '',
+      eager: true,
+      onLoad: async (value: string) => {
+        seen.push(value);
+      },
+    });
+
+    await container.loadAll();
+    expect(seen).toEqual(['']);
+  });
+
+  it('未实例化且非 eager ⇒ 仍跳过（契约不变）', async () => {
+    const container = new DIContainer();
+    const seen: unknown[] = [];
+    container.registerDescriptor({
+      id: 'lazy',
+      scope: 'singleton',
+      factory: () => 'x',
+      onLoad: async (value: string) => {
+        seen.push(value);
+      },
+    });
+
+    await container.loadAll();
+    expect(seen).toEqual([]);
   });
 });

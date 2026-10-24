@@ -193,7 +193,18 @@ export class DIContainer {
   }
 
   /**
+   * 在请求作用域内执行 `fn`（**推荐用法**：`run()` 有作用域边界，异常也不会泄漏 store）。
+   *
+   * 与 `beginRequest()/endRequest()` 的区别：后者基于 `enterWith`，边界由调用方保证；
+   * 漏掉 `endRequest` 会让实例表沿异步链存活（评审 B，2026-10-24）。
+   */
+  runInRequestScope<T>(fn: () => T): T {
+    return this.scopeManager.runInRequestScope(fn);
+  }
+
+  /**
    * 开始请求作用域
+   * @deprecated 用 {@link runInRequestScope}
    */
   beginRequest(): void {
     this.scopeManager.beginRequest();
@@ -201,6 +212,7 @@ export class DIContainer {
 
   /**
    * 结束请求作用域
+   * @deprecated 与 {@link beginRequest} 成对；推荐改用 {@link runInRequestScope}
    */
   endRequest(): void {
     this.scopeManager.endRequest();

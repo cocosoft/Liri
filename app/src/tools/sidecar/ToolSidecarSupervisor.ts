@@ -47,6 +47,7 @@ import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { getLogger } from '@modules/monitoring';
 import { killProcessTree } from '@modules/utils/killProcessTree';
+import { parentPidEnv } from '@modules/utils/parentLiveness';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   SIDECAR_JOB_SUBMIT_METHOD,
@@ -152,7 +153,8 @@ export class ToolSidecarSupervisor {
     const spawnFn = this.deps.spawnFn ?? spawn;
     const child = spawnFn(runtime, [script], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env },
+      // 注入父 PID：侧车据此自清（主进程被硬杀时不至于变成孤儿占端口）
+      env: { ...process.env, ...parentPidEnv() },
     });
     this.child = child;
 

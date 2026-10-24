@@ -41,6 +41,7 @@
  */
 import readline from 'node:readline';
 import { getLogger } from '@modules/monitoring';
+import { installParentLivenessGuard } from '@modules/utils/parentLiveness';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   encodeFrame,
@@ -314,6 +315,11 @@ async function handleRequest(
 
 // 独立/子进程启动（`bun run src/tools/sidecar/lspSidecar.ts`）
 if (import.meta.main) {
+  // 父进程被硬杀 ⇒ 自清（防孤儿侧车占端口，基础设施专项 §6-#5）
+  installParentLivenessGuard({
+    onDetach: (parentPid) =>
+      logger.warn('父进程已退出 ⇒ 侧车自清', { parentPid }),
+  });
   startLspSidecar();
   logger.info('LSP 工具侧车已就绪（S2：真实 LS 接线）', { pid: process.pid });
 }

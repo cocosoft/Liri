@@ -32,6 +32,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { getLogger } from '@modules/monitoring';
 import { killProcessTree } from '@modules/utils/killProcessTree';
+import { parentPidEnv } from '@modules/utils/parentLiveness';
 
 const logger = getLogger('tools:sidecar:lspConnection');
 
@@ -165,7 +166,7 @@ export class LspSidecarConnection implements LspConnectionPort {
     const child = spawnFn(this.opts.serverPath, this.opts.serverArgs ?? [], {
       cwd: this.opts.cwd || process.cwd(),
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env },
+      env: { ...process.env, ...parentPidEnv() },
     });
     this.child = child;
     this.started = true;

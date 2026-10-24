@@ -44,6 +44,7 @@
  */
 import readline from 'node:readline';
 import { getLogger } from '@modules/monitoring';
+import { installParentLivenessGuard } from '@modules/utils/parentLiveness';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   SIDECAR_JOB_SUBMIT_METHOD,
@@ -357,6 +358,11 @@ async function handleJobSubmit(
 
 // 独立/子进程启动（`bun run src/tools/sidecar/mediaSidecar.ts`）
 if (import.meta.main) {
+  // 父进程被硬杀 ⇒ 自清（防孤儿侧车占端口，基础设施专项 §6-#5）
+  installParentLivenessGuard({
+    onDetach: (parentPid) =>
+      logger.warn('父进程已退出 ⇒ 侧车自清', { parentPid }),
+  });
   startMediaSidecar();
   logger.info('媒体工具侧车已就绪（S5：受管媒体原生面）', {
     pid: process.pid,

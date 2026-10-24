@@ -45,7 +45,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { getLogger } from '@modules/monitoring';
+import { getLogger, currentTraceparent } from '@modules/monitoring';
 import { killProcessTree } from '@modules/utils/killProcessTree';
 import { parentPidEnv } from '@modules/utils/parentLiveness';
 import {
@@ -53,6 +53,7 @@ import {
   SIDECAR_JOB_SUBMIT_METHOD,
   SIDECAR_STARTUP_TYPE,
   buildJobSubmit,
+  buildRequestFrame,
   encodeFrame,
   decodeFrame,
   isCompatibleVersion,
@@ -261,7 +262,10 @@ export class ToolSidecarSupervisor {
         : undefined;
       signal?.addEventListener('abort', onAbort, { once: true });
       this.pending.set(id, { resolve, reject, timer, cleanup });
-      stdin.write(encodeFrame({ id, method, params }));
+      // 帧内带上当前 trace 上下文（§6-#6）：无活动 span ⇒ 不带 `meta`，帧形状不变
+      stdin.write(
+        encodeFrame(buildRequestFrame(id, method, params, currentTraceparent()))
+      );
     });
   }
 

@@ -30,7 +30,10 @@ import { describe, expect, it } from 'bun:test';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import type { ChildProcess } from 'node:child_process';
+import { context, trace, TraceFlags } from '@opentelemetry/api';
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import { ToolSidecarSupervisor } from '../../../src/tools/sidecar/ToolSidecarSupervisor';
+import { runWithActiveSpan } from '../../../src/monitoring/tracing/traceContextInjector';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   SIDECAR_STARTUP_TYPE,
@@ -269,5 +272,59 @@ describe('工具侧车监督器：崩溃隔离 / 重启 / 停止', () => {
     sup.stop();
     expect(killed).toEqual([asChild(fake)]);
     expect(fake.killed).toBe(false);
+  });
+});
+
+describe('工具侧车监督器：请求帧 trace 上下文（§6-#6）', () => {
+  const cm = new AsyncLocalStorageContextManager();
+  cm.enable();
+  context.setGlobalContextManager(cm);
+
+  const span = trace.wrapSpanContext({
+    traceId: '0af7651916cd43dd8448eb211c80319c',
+    spanId: 'b7ad6b7169203331',
+    traceFlags: TraceFlags.SAMPLED,
+    isRemote: false,
+  });
+
+  const collectFrames = (fake: FakeChild): string[] => {
+    const lines: string[] = [];
+    fake.stdin.setEncoding('utf8');
+    fake.stdin.on('data', (chunk: string) => {
+      lines.push(...chunk.split('\n').filter((l) => l.trim().length > 0));
+    });
+    return lines;
+  };
+
+  it('无活动 span ⇒ 帧里没有 meta（形状与既有逐字节一致）；有 ⇒ 带 traceparent', async () => {
+    const fake = new FakeChild();
+    const lines = collectFrames(fake);
+    const sup = new ToolSidecarSupervisor({ spawnFn: () => asChild(fake) });
+    const started = sup.start();
+    fake.stdout.write(startupFrame());
+    await started;
+
+    const plain = sup.request('lsp.hover', {});
+    await tick();
+    fake.stdout.write(
+      encodeFrame({ id: 'toolsidecar_1', success: true, result: {} })
+    );
+    await plain;
+    const first = decodeFrame(lines[0]) ?? {};
+    expect(first.meta).toBeUndefined();
+    expect(first.method).toBe('lsp.hover');
+
+    const traced = runWithActiveSpan(span, () => sup.request('lsp.hover', {}));
+    await tick();
+    fake.stdout.write(
+      encodeFrame({ id: 'toolsidecar_2', success: true, result: {} })
+    );
+    await traced;
+    const second = decodeFrame(lines[1]) ?? {};
+    expect(
+      (second.meta as { traceparent?: string } | undefined)?.traceparent
+    ).toBe('00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01');
+
+    sup.stop();
   });
 });

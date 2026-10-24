@@ -110,6 +110,34 @@ export function buildHeartbeat(
   return { type: SIDECAR_HEARTBEAT_TYPE, at: now };
 }
 
+// ─── 请求帧元数据（trace 上下文透传，基础设施专项 §6-#6）────────────────────
+
+/**
+ * 请求帧元数据（可选）。当前仅承载 W3C `traceparent`：宿主把**当前活动 span**
+ * 带进帧，侧车据此可把自己的日志/耗时归属到同一 trace。
+ *
+ * 兼容性：缺省**不带** `meta` ⇒ 既有帧形状逐字节不变；侧车不解析也不参与决策
+ * （无 tracer 的侧车直接忽略）。
+ */
+export interface SidecarRequestMeta {
+  traceparent?: string;
+}
+
+/**
+ * 构造请求帧（宿主 → 侧车）。`traceparent` 缺省 ⇒ **不带 `meta`**
+ * （不塞 `meta: {}`：避免为"没有 trace"制造协议噪声）。
+ */
+export function buildRequestFrame(
+  id: string,
+  method: string,
+  params: Record<string, unknown> = {},
+  traceparent?: string
+): Record<string, unknown> {
+  const frame: Record<string, unknown> = { id, method, params };
+  if (traceparent) frame.meta = { traceparent } satisfies SidecarRequestMeta;
+  return frame;
+}
+
 // ─── 侧车「作业化」协议（T1-2② / TG-2+TG-6 · B 片，2026-10-13）───────────────
 //
 // 目标（`工具治理方案-20261012.md` 阶段 1.2 ②）：「长耗时侧车工具**不得同步阻塞** ——

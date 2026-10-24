@@ -138,6 +138,48 @@ export function buildRequestFrame(
   return frame;
 }
 
+/** W3C `traceparent` 三要素（版本固定 `00`，只认当前格式） */
+export interface ParsedTraceparent {
+  traceId: string;
+  spanId: string;
+  sampled: boolean;
+}
+
+const TRACEPARENT_RE = /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/;
+
+/**
+ * 解析并校验 `traceparent`（侧车侧消费用）。
+ *
+ * 格式不符 / 全零 id ⇒ `null`（**不臆造 trace**：宁可日志里没有 traceId，
+ * 也不要给一次请求安上别人的 trace）。
+ */
+export function parseTraceparent(value: unknown): ParsedTraceparent | null {
+  if (typeof value !== 'string') return null;
+  const matched = TRACEPARENT_RE.exec(value);
+  if (!matched) return null;
+  const [, traceId, spanId, flags] = matched;
+  if (/^0+$/.test(traceId) || /^0+$/.test(spanId)) return null;
+  return { traceId, spanId, sampled: (parseInt(flags, 16) & 0x01) === 0x01 };
+}
+
+/** 取请求帧里的 `traceparent`（`meta.traceparent`；缺失/非字符串 ⇒ `undefined`） */
+export function traceparentOf(
+  frame: Record<string, unknown> | null | undefined
+): string | undefined {
+  const meta = frame?.meta;
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta))
+    return undefined;
+  const value = (meta as Record<string, unknown>).traceparent;
+  return typeof value === 'string' && value ? value : undefined;
+}
+
+/** 便捷：从请求帧取 `traceId`（侧车日志关联用；缺失/非法 ⇒ `undefined`） */
+export function traceIdOf(
+  frame: Record<string, unknown> | null | undefined
+): string | undefined {
+  return parseTraceparent(traceparentOf(frame))?.traceId;
+}
+
 // ─── 侧车「作业化」协议（T1-2② / TG-2+TG-6 · B 片，2026-10-13）───────────────
 //
 // 目标（`工具治理方案-20261012.md` 阶段 1.2 ②）：「长耗时侧车工具**不得同步阻塞** ——

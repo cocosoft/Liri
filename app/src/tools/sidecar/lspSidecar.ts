@@ -47,6 +47,7 @@ import {
   encodeFrame,
   decodeFrame,
   buildHeartbeat,
+  traceIdOf,
 } from '@modules/utils/sidecarIpc';
 import {
   LspSidecarConnection,
@@ -301,6 +302,13 @@ async function handleRequest(
         ? err.code
         : 'LSP_ERROR';
     const message = err instanceof Error ? err.message : String(err);
+    // §6-#6：把宿主带来的 trace 关联进侧车日志（无 traceparent ⇒ traceId 缺省）
+    logger.warn('LSP 侧车请求失败', {
+      id,
+      method,
+      code,
+      traceId: traceIdOf(frame),
+    });
     output.write(
       encodeFrame({
         id,

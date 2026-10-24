@@ -52,6 +52,7 @@ import {
   encodeFrame,
   decodeFrame,
   buildHeartbeat,
+  traceIdOf,
 } from '@modules/utils/sidecarIpc';
 import {
   MediaSidecarRpcError,
@@ -242,6 +243,13 @@ async function handleRequest(
         ? err.code
         : 'MEDIA_ERROR';
     const message = err instanceof Error ? err.message : String(err);
+    // §6-#6：把宿主带来的 trace 关联进侧车日志（无 traceparent ⇒ traceId 缺省）
+    logger.warn('媒体侧车请求失败', {
+      id,
+      method,
+      code,
+      traceId: traceIdOf(frame),
+    });
     output.write(
       encodeFrame({
         id,
@@ -341,6 +349,13 @@ async function handleJobSubmit(
         : err instanceof Error
           ? err.message
           : String(err);
+      // §6-#6：作业失败同样带 traceId（长耗时失败最难复现，最需要关联）
+      logger.warn('媒体侧车作业失败', {
+        jobId,
+        action,
+        traceId: traceIdOf(frame),
+        error: message,
+      });
       output.write(
         encodeFrame(
           buildJobCompleted({

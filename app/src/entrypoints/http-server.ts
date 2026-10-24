@@ -10,6 +10,7 @@ import type { LocalHTTPService } from '@modules/infrastructure';
 // 不破坏本文件"不与 repl.ts 形成循环依赖"的初衷。
 import {
   HTTP_PORT_SHIFT_ATTEMPTS,
+  httpPortEnvKey,
   resolveHttpPortIntent,
 } from '@openliri/kernel/ports.js';
 import { startWithPortFallback } from '@openliri/kernel/httpPortFallback.js';
@@ -108,7 +109,8 @@ export async function startLaunchHTTPServer(
     allowPortShift: intent.allowShift,
   });
   // 实际端口是后续所有进程内消费者（健康检查 / 日志 / SSE 地址）的事实来源
-  process.env['LIRI_HTTP_PORT'] = String(started.port);
+  // 键名与内核读取端**同源**（`httpPortEnvKey()`），避免"内核读 A、这里写 B"
+  process.env[httpPortEnvKey()] = String(started.port);
 
   // 主包瘦身 R4：被编译期裁掉的能力必须**显式告知**（否则用户会以为开关还能开）。
   // 用动态 import：本文件刻意不静态依赖项目模块（见文件头注），且完整构建下这段几乎零成本。

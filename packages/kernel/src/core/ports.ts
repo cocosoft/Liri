@@ -13,9 +13,24 @@
  *
  * **动态端口（2026-10-20，分发前置）**：默认端口被**其他进程**占用时，
  * 未显式指定端口的启动会顺延（见 `HTTP_PORT_SHIFT_ATTEMPTS` 与
- * `core/httpPortFallback.ts`），实际端口写回 `LIRI_HTTP_PORT` 与实例锁文件
- * （`core/instanceLock.ts`），供客户端发现。**显式指定端口时不得漂移**。
+ * `core/httpPortFallback.ts`），实际端口写回 `<prefix>HTTP_PORT`（见 `httpPortEnvKey()`）
+ * 与实例锁文件（`core/instanceLock.ts`），供客户端发现。**显式指定端口时不得漂移**。
  */
+
+// 零依赖叶子：只依赖同样零 import 的 productIdentity（不拉入 paths 整条求值链）
+import { productEnvKey } from './productIdentity.js';
+
+/**
+ * HTTP 端口环境变量键名（**契约键**，读/写两端必须同键）
+ *
+ * 写入端：`app/src/infrastructure/http/http-server.ts`（启动后写回**实际**端口）。
+ * 外部引用：`client/vite.config.ts` · `client/playwright.config.ts` · `app/.env.example` ·
+ * `app/docker/{Dockerfile,docker-compose.yml}`。
+ * ⇒ 改 `envPrefix` 必须**同批**改这些外壳文件，否则「内核读 A、外壳写 B」。
+ */
+export function httpPortEnvKey(): string {
+  return productEnvKey('HTTP_PORT');
+}
 
 /** 默认 HTTP 服务端口 */
 export const DEFAULT_HTTP_PORT = 18990;
@@ -40,7 +55,7 @@ export const HTTP_PORT_SHIFT_ATTEMPTS = 20;
 export function resolveExplicitHttpPort(
   env: NodeJS.ProcessEnv = process.env
 ): number | undefined {
-  const raw = Number.parseInt(env['LIRI_HTTP_PORT'] ?? '', 10);
+  const raw = Number.parseInt(env[httpPortEnvKey()] ?? '', 10);
   return isValidPort(raw) ? raw : undefined;
 }
 

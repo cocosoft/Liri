@@ -18,6 +18,7 @@
  * 时序守卫：未注入且非测试环境时 `feature()` 抛 `CORE_VARIANT_FLAGS_NOT_INITIALIZED`（见 G4）。
  */
 import { AppError, ErrorCategory, ErrorSeverity } from './errors.js';
+import { productEnvKey } from './productIdentity.js';
 
 /** 宿主注入的变体层（`null` = 尚未注入） */
 let variantFlags: Readonly<Record<string, boolean>> | null = null;
@@ -49,10 +50,11 @@ export const BUILD_VARIANTS: readonly BuildVariant[] = [
  * - 'enterprise': 企业版（Coding + Slack/Discord + Auth + Audit）
  * - 'headless': 无界面服务端版（**与 personal 同能力面**，构建期剔除 UI；通道默认保留）
  *
- * 可通过环境变量 LIRI_BUILD_VARIANT 覆盖。
+ * 可通过环境变量 `<prefix>BUILD_VARIANT` 覆盖（默认前缀 `LIRI_`；见 `productIdentity.ts`）。
+ * ⚠️ 该键由 CI `variant-check` 注入，改前缀须同批改 `.github/workflows/ci.yml`。
  */
 export const BUILD_VARIANT: BuildVariant =
-  (process.env['LIRI_BUILD_VARIANT'] as BuildVariant) || 'coding';
+  (process.env[productEnvKey('BUILD_VARIANT')] as BuildVariant) || 'coding';
 
 export const FEATURE_FLAGS = {
   // ───── 变体标记（非用户可配能力） ─────

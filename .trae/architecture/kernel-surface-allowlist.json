@@ -38,6 +38,7 @@
     { "id": "paths.ts", "kind": "file", "domain": "base-utils", "note": "统一路径管理（三层目录分离）" },
     { "id": "ports.ts", "kind": "file", "domain": "ports-assembly", "note": "HTTP 端口默认值的单一事实源" },
     { "id": "pricing.ts", "kind": "file", "domain": "budget-ledger", "note": "成本计算核心（零依赖）" },
+    { "id": "productIdentity.ts", "kind": "file", "domain": "ports-assembly", "note": "产品身份（appName / envPrefix）注入点：零 import 叶子，供 paths / ports / featureFlags 派生环境变量键与默认目录名（Q3 去产品化）" },
     { "id": "profilerFacade.ts", "kind": "file", "domain": "base-utils", "note": "core 侧启动剖析门面" },
     { "id": "providerEndpoints.ts", "kind": "file", "domain": "ports-assembly", "note": "官方供应商 API 端点真源" },
     { "id": "sandboxPermission.ts", "kind": "file", "domain": "security-permission", "note": "沙箱权限类型（零依赖纯枚举）" },

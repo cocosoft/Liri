@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "recordedAt": "2026-10-23T16:45:56.432Z",
+  "recordedAt": "2026-10-24T06:48:25.697Z",
   "entry": "src/pyapp.ts",
   "eager": {
-    "total": 281,
+    "total": 282,
     "app": {
       "files": 145,
       "bytes": 956940

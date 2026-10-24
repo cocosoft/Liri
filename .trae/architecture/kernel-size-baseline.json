@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "note": "loc 2026-10-24 手改 18427→18494：Q3 去产品化的身份注入点（paths.ts，+67 行非空）。按 K08 规则「确属内核原语 ⇒ 手改基线并在 PR 说明」执行；files/dirs 未放宽。",
+  "note": "2026-10-24 两次手改：① loc 18427→18494（Q3 身份注入点）；② files 112→113 / loc 18494→18549（把身份定义抽成零依赖的 productIdentity.ts，供 ports/featureFlags 使用 —— 它们不能 import paths.ts，否则把整条求值链拉进启动面）。按 K08 规则「确属内核原语 ⇒ 手改基线并在 PR 说明」；dirs 未放宽。",
   "metrics": {
-    "files": 112,
-    "loc": 18494,
+    "files": 113,
+    "loc": 18549,
     "dirs": 21
   }
 }

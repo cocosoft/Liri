@@ -41,77 +41,37 @@ const pathsLogger = getLogger('core:paths');
 
 // ─── 产品身份（去产品化，Q3） ─────────────────
 //
-// 依据：`dev_docs/20261024/基础设施专项-现状与规划.md` §4.2。
-// 内核不再写死产品名 / 环境变量前缀 —— 宿主在**启动最早期**调用
-// `configureProductIdentity()` 注入；未注入时用**默认值（= 本仓现有身份）**，
-// 因此本仓行为逐字不变。
-//
-// 为什么放在本文件而不是新文件：内核体量棘轮（K08）把"新增 .ts 文件"视为回涨，
-// 而产品身份的全部消费者就是本文件（+ `seedSync` 的模板目录名）⇒ 不另起文件。
+// 定义已抽到零依赖的 `./productIdentity.ts`（`ports.ts` / `featureFlags.ts` 也要用，
+// 而它们不能 import 本文件 —— 见该文件头注）。此处只做**转出**，保持
+// `@openliri/kernel/paths` 的既有导出面不变。
 
-/** 产品身份（宿主可注入） */
-export interface ProductIdentity {
-  /** 数据目录名（`~/.<appName>`）与产品展示名 */
-  appName: string;
-  /** 环境变量前缀（不含/含尾部 `_` 均可，注入时自动补齐），如 `LIRI_` */
-  envPrefix: string;
-}
+import {
+  DEFAULT_PRODUCT_IDENTITY,
+  configureProductIdentity,
+  getProductIdentity,
+  legacyProductEnvKey,
+  productEnvKey,
+  resetProductIdentity,
+  type ProductIdentity,
+} from './productIdentity.js';
 
-/** 默认产品身份（= 现有产品，保证零行为变更） */
-export const DEFAULT_PRODUCT_IDENTITY: ProductIdentity = {
-  appName: 'pyapp',
-  envPrefix: 'LIRI_',
+export {
+  DEFAULT_PRODUCT_IDENTITY,
+  configureProductIdentity,
+  getProductIdentity,
+  resetProductIdentity,
+  type ProductIdentity,
 };
 
-let productIdentity: ProductIdentity = { ...DEFAULT_PRODUCT_IDENTITY };
-
-/**
- * 注入产品身份（宿主启动最早期调用）
- *
- * 增量覆盖：未传字段保持原值。`envPrefix` 会自动补尾部 `_`。
- * @throws `CORE_PRODUCT_IDENTITY_INVALID` — appName / envPrefix 为空白
- */
-export function configureProductIdentity(
-  patch: Partial<ProductIdentity>
-): void {
-  const appName = (patch.appName ?? productIdentity.appName).trim();
-  if (!appName) {
-    throw new Error('CORE_PRODUCT_IDENTITY_INVALID: appName 不能为空');
-  }
-  const rawPrefix = (patch.envPrefix ?? productIdentity.envPrefix).trim();
-  if (!rawPrefix) {
-    throw new Error('CORE_PRODUCT_IDENTITY_INVALID: envPrefix 不能为空');
-  }
-  productIdentity = {
-    appName,
-    envPrefix: rawPrefix.endsWith('_') ? rawPrefix : `${rawPrefix}_`,
-  };
-}
-
-/** 读取当前产品身份 */
-export function getProductIdentity(): ProductIdentity {
-  return productIdentity;
-}
-
-/** 恢复默认产品身份（测试用；宿主无需调用） */
-export function resetProductIdentity(): void {
-  productIdentity = { ...DEFAULT_PRODUCT_IDENTITY };
-}
-
 /** 环境变量键名：`HOME` ⇒ `<envPrefix>HOME` */
-function envKey(suffix: string): string {
-  return `${productIdentity.envPrefix}${suffix}`;
-}
+const envKey = productEnvKey;
 
 /**
- * **旧版**环境变量键名：`<APPNAME>_<suffix>`（大写 appName）
+ * **旧版**环境变量键名：`<APPNAME>_<suffix>`
  *
- * 历史遗留（`PYAPP_PROJECT_DIR`）：仅作 `resolveWorktreeHash` 的回退分支读取，
- * 新代码**不得**新增此类键（见 `.trae/rules/project_rules.md` §1.4 前缀规范）。
+ * 历史遗留（`PYAPP_PROJECT_DIR`）：仅作 `resolveWorktreeHash` 的回退分支读取。
  */
-function legacyEnvKey(suffix: string): string {
-  return `${productIdentity.appName.toUpperCase()}_${suffix}`;
-}
+const legacyEnvKey = legacyProductEnvKey;
 
 // ─── 全局配置存储 ─────────────────────────────
 
@@ -161,7 +121,7 @@ export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
   //    统一开发模式（bun run src/main.ts 不经 pyapp.ts 设置 LIRI_HOME）与生产
   //    模式（编译产物经 pyapp.ts 设置 LIRI_HOME）的数据目录，消除双目录并存。
   //    2026-08-18 用户决策：统一到 ~/.pyapp，一次性数据迁移已完成。
-  return join(os.homedir(), `.${productIdentity.appName}`);
+  return join(os.homedir(), `.${getProductIdentity().appName}`);
 }
 
 /**

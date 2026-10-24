@@ -19,8 +19,10 @@ import {
   feature,
   getProductIdentity,
   globalEventBus,
+  httpPortEnvKey,
   resetProductIdentity,
   resolveDbPath,
+  resolveExplicitHttpPort,
 } from './index.js';
 
 describe('@openliri/kernel 桶契约（冒烟）', () => {
@@ -89,12 +91,33 @@ describe('产品身份注入（Q3 去产品化）', () => {
       resetProductIdentity();
     }
   });
+
+  /**
+   * 契约键（读/写两端必须同键）：`<prefix>HTTP_PORT` 由内核读、由
+   * `app/src/entrypoints/http-server.ts` 写回，并被 client / docker / `.env.example` 引用。
+   * 默认前缀下必须**逐字**是 `LIRI_HTTP_PORT` —— 这是"零行为变更"的硬证据。
+   */
+  it('`httpPortEnvKey()` 默认 LIRI_HTTP_PORT；注入后跟随前缀', () => {
+    resetProductIdentity();
+    expect(httpPortEnvKey()).toBe('LIRI_HTTP_PORT');
+    expect(resolveExplicitHttpPort({ LIRI_HTTP_PORT: '3000' })).toBe(3000);
+
+    configureProductIdentity({ envPrefix: 'ACME' });
+    try {
+      expect(httpPortEnvKey()).toBe('ACME_HTTP_PORT');
+      expect(resolveExplicitHttpPort({ ACME_HTTP_PORT: '3001' })).toBe(3001);
+      // 旧键不再被读
+      expect(resolveExplicitHttpPort({ LIRI_HTTP_PORT: '3000' })).toBeUndefined();
+    } finally {
+      resetProductIdentity();
+    }
+  });
 });
 
 /**
  * 产品化字面量守卫（`基础设施专项` §4.2 的验收口径）。
  *
- * 允许出现的地方**只有一处**：`core/paths.ts` 的 `DEFAULT_PRODUCT_IDENTITY`。
+ * 允许出现的地方**只有一处**：`core/productIdentity.ts` 的 `DEFAULT_PRODUCT_IDENTITY`。
  * 其余任何 `'pyapp'` 字符串都说明"又写死了一次产品名" ⇒ 红。
  * 注释不算（剥离后再判）；诊断文案里提到函数名（`resolvePyappHome()`）也不算 ——
  * 判据是**引号内的取值本身**是产品名/产品目录，而不是任意含该词的句子。
@@ -135,6 +158,8 @@ describe('内核源码不含产品化字面量', () => {
     expect(hits.map((h) => `${h.file}:${h.line} ${h.text}`)).toEqual([
       expect.stringContaining("appName: 'pyapp'"),
     ]);
-    expect(hits[0]?.file.endsWith(join('core', 'paths.ts'))).toBe(true);
+    expect(hits[0]?.file.endsWith(join('core', 'productIdentity.ts'))).toBe(
+      true
+    );
   });
 });

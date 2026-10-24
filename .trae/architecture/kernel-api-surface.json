@@ -1,8 +1,8 @@
 {
   "version": 1,
   "kernelRoot": "packages/kernel/src/core",
-  "fileCount": 112,
-  "symbolCount": 1036,
+  "fileCount": 113,
+  "symbolCount": 1044,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -992,6 +992,7 @@
         "DEFAULT_HTTP_PORT",
         "HTTP_PORT_SHIFT_ATTEMPTS",
         "HttpPortIntent",
+        "httpPortEnvKey",
         "parseHttpPortFromArgs",
         "resolveExplicitHttpPort",
         "resolveHttpPort",
@@ -1014,6 +1015,18 @@
         "roundCost",
         "safePerTokenRate",
         "safeTokens"
+      ]
+    },
+    {
+      "file": "productIdentity.ts",
+      "symbols": [
+        "DEFAULT_PRODUCT_IDENTITY",
+        "ProductIdentity",
+        "configureProductIdentity",
+        "getProductIdentity",
+        "legacyProductEnvKey",
+        "productEnvKey",
+        "resetProductIdentity"
       ]
     },
     {

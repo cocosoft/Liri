@@ -30,10 +30,11 @@
  */
 
 import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveScopedDbPath } from '@openliri/kernel/paths';
-// 多租户 P1（2026-10-21）：结算台账按身份分实例（本地身份零变更）
+import { resolveTenantDbPath } from '@openliri/kernel/paths';
+// 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,
+  getRequestPrincipalKey,
   isLocalPrincipal,
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
@@ -133,9 +134,11 @@ export class SettlementOutbox {
         restored    INTEGER NOT NULL DEFAULT 0,
         last_error  TEXT,
         created_at  INTEGER NOT NULL,
-        updated_at  INTEGER NOT NULL
+        updated_at  INTEGER NOT NULL,
+        owner_key   TEXT NOT NULL DEFAULT 'local:local'
       )`
     );
+    await this._ensureOwnerColumn();
     await this.run(
       `CREATE INDEX IF NOT EXISTS idx_settlement_outbox_state
        ON ${SETTLEMENT_OUTBOX_TABLE} (state, created_at)`
@@ -146,9 +149,13 @@ export class SettlementOutbox {
     // `ORDER BY id DESC LIMIT 1` 回读可能让两个调用方拿到**同一** id（另一行成孤儿）。
     await this._collapseDuplicateLiveRows();
     try {
+      // 租户库（§6.1）：幂等键必须带 `owner_key` —— 否则同租户两用户的同名会话
+      // （session_id + ended_at 相同）会互相顶掉。旧索引键不含 owner，且
+      // `CREATE ... IF NOT EXISTS` 不会更新定义 ⇒ 先 DROP 再建。
+      await this.run(`DROP INDEX IF EXISTS idx_settlement_outbox_live`);
       await this.run(
         `CREATE UNIQUE INDEX IF NOT EXISTS idx_settlement_outbox_live
-         ON ${SETTLEMENT_OUTBOX_TABLE} (session_id, ended_at)
+         ON ${SETTLEMENT_OUTBOX_TABLE} (owner_key, session_id, ended_at)
          WHERE state NOT IN ('delivered', 'dropped')`
       );
     } catch (err) {
@@ -162,11 +169,34 @@ export class SettlementOutbox {
   }
 
   /**
+   * 旧库补 `owner_key` 列（租户库 §6.1）。
+   *
+   * 新库由 `CREATE TABLE` 直接带上；旧库（单身份）补列默认 `local:local` ⇒ 行为不变。
+   */
+  private async _ensureOwnerColumn(): Promise<void> {
+    const columns = await this.all<{ name: string }>(
+      `PRAGMA table_info(${SETTLEMENT_OUTBOX_TABLE})`
+    );
+    if (columns.some((c) => c.name === 'owner_key')) return;
+    await this.run(
+      `ALTER TABLE ${SETTLEMENT_OUTBOX_TABLE} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`
+    );
+  }
+
+  /** 当前写入/查询的归属键（本地 ⇒ `local:local`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
+  }
+
+  /**
    * 预存债务修复（2026-09-23）：折叠**历史遗留**的重复"未终结"行（每组保留最新一条）。
    *
    * 只处理"同一 (session_id, ended_at) 存在多行未终结"这一**缺陷产物**（否则部分唯一
    * 索引创建会失败）：较旧的重复行置 `dropped`（终态）并留痕 `last_error`，
    * **审计可回溯、不物理删除**；无重复时为 no-op（一条 UPDATE 影响 0 行）。
+   *
+   * ⚠️ 租户库（§6.1）：这是 init 期的**维护动作**（不按 owner 过滤），但分组必须
+   * 带 `owner_key` —— 否则会把同租户其他用户的同名会话行误判为"重复"并丢掉。
    */
   private async _collapseDuplicateLiveRows(): Promise<void> {
     await this.run(
@@ -178,7 +208,7 @@ export class SettlementOutbox {
           AND id NOT IN (
             SELECT MAX(id) FROM ${SETTLEMENT_OUTBOX_TABLE}
              WHERE state NOT IN ('delivered', 'dropped')
-             GROUP BY session_id, ended_at
+             GROUP BY owner_key, session_id, ended_at
           )`,
       [Date.now()]
     );
@@ -206,10 +236,10 @@ export class SettlementOutbox {
     // 代价极低），并让"顺序重复入队"无需依赖异常分支。
     const live = await this.get<{ id: number }>(
       `SELECT id FROM ${SETTLEMENT_OUTBOX_TABLE}
-        WHERE session_id = ? AND ended_at = ?
+        WHERE session_id = ? AND ended_at = ? AND owner_key = ?
           AND state NOT IN ('delivered', 'dropped')
         ORDER BY id DESC LIMIT 1`,
-      [params.sessionId, params.endedAt]
+      [params.sessionId, params.endedAt, this.owner()]
     );
     if (live?.id) return live.id;
 
@@ -221,10 +251,17 @@ export class SettlementOutbox {
     try {
       const inserted = await this.get<{ id: number }>(
         `INSERT INTO ${SETTLEMENT_OUTBOX_TABLE}
-          (session_id, ended_at, state, attempts, restored, created_at, updated_at)
-         VALUES (?, ?, 'pending', 0, ?, ?, ?)
+          (session_id, ended_at, state, attempts, restored, created_at, updated_at, owner_key)
+         VALUES (?, ?, 'pending', 0, ?, ?, ?, ?)
          RETURNING id`,
-        [params.sessionId, params.endedAt, params.restored ? 1 : 0, now, now]
+        [
+          params.sessionId,
+          params.endedAt,
+          params.restored ? 1 : 0,
+          now,
+          now,
+          this.owner(),
+        ]
       );
       if (inserted?.id) {
         await this.prune();
@@ -241,10 +278,10 @@ export class SettlementOutbox {
 
     const existing = await this.get<{ id: number }>(
       `SELECT id FROM ${SETTLEMENT_OUTBOX_TABLE}
-        WHERE session_id = ? AND ended_at = ?
+        WHERE session_id = ? AND ended_at = ? AND owner_key = ?
           AND state NOT IN ('delivered', 'dropped')
         ORDER BY id DESC LIMIT 1`,
-      [params.sessionId, params.endedAt]
+      [params.sessionId, params.endedAt, this.owner()]
     );
     return existing?.id ?? 0;
   }
@@ -281,11 +318,11 @@ export class SettlementOutbox {
     const changed = await this.run(
       `UPDATE ${SETTLEMENT_OUTBOX_TABLE}
          SET state = 'attempting', attempts = attempts + 1, updated_at = ?
-       WHERE id = ?
+       WHERE id = ? AND owner_key = ?
          AND attempts < ?
          AND (state IN ('pending', 'failed')
               OR (state = 'attempting' AND updated_at < ?))`,
-      [now, id, MAX_DELIVERY_ATTEMPTS, staleBefore]
+      [now, id, this.owner(), MAX_DELIVERY_ATTEMPTS, staleBefore]
     );
     if (changed === 0) {
       // 未获认领：区分"超重试上限"（转 dropped，终止重放）与
@@ -330,8 +367,8 @@ export class SettlementOutbox {
     const changed = await this.run(
       `UPDATE ${SETTLEMENT_OUTBOX_TABLE}
          SET state = ?, last_error = COALESCE(?, last_error), updated_at = ?
-       WHERE id = ? AND state NOT IN ('delivered', 'dropped')`,
-      [state, lastError ?? null, Date.now(), id]
+       WHERE id = ? AND owner_key = ? AND state NOT IN ('delivered', 'dropped')`,
+      [state, lastError ?? null, Date.now(), id, this.owner()]
     );
     if (changed === 0) {
       logger.debug('结算台账状态未迁移（已终态或行不存在）', { id, state });
@@ -374,10 +411,11 @@ export class SettlementOutbox {
     const rows = await this.all<Record<string, unknown>>(
       `SELECT * FROM ${SETTLEMENT_OUTBOX_TABLE}
        WHERE state IN ('pending', 'failed', 'attempting')
+         AND owner_key = ?
          AND created_at >= ?
          AND attempts < ?
        ORDER BY created_at ASC`,
-      [now - REPLAY_MAX_AGE_MS, MAX_DELIVERY_ATTEMPTS]
+      [this.owner(), now - REPLAY_MAX_AGE_MS, MAX_DELIVERY_ATTEMPTS]
     );
     return rows.map(SettlementOutbox.toRow);
   }
@@ -385,6 +423,8 @@ export class SettlementOutbox {
   /** ⑥ 保留裁剪：删 7 天前 + 只保留最近 {@link OUTBOX_MAX_ROWS} 行（优先删已投递） */
   async prune(now = Date.now()): Promise<number> {
     await this.init();
+    // ⚠️ 租户库（§6.1）：**跨用户维护动作** —— 上限是"本库总量"约束（7 天 / 500 行），
+    // 按 owner 拆分会让每个用户各占一份配额、库体积失控。过期/超限行对所有人都是噪声。
     let removed = await this.run(
       `DELETE FROM ${SETTLEMENT_OUTBOX_TABLE} WHERE created_at < ?`,
       [now - OUTBOX_MAX_AGE_MS]
@@ -416,7 +456,9 @@ export class SettlementOutbox {
   async getStateCounts(): Promise<Record<DeliveryState, number>> {
     await this.init();
     const rows = await this.all<{ state: string; n: number }>(
-      `SELECT state, COUNT(*) AS n FROM ${SETTLEMENT_OUTBOX_TABLE} GROUP BY state`
+      `SELECT state, COUNT(*) AS n FROM ${SETTLEMENT_OUTBOX_TABLE}
+        WHERE owner_key = ? GROUP BY state`,
+      [this.owner()]
     );
     const counts: Record<DeliveryState, number> = {
       pending: 0,
@@ -436,8 +478,8 @@ export class SettlementOutbox {
   async getRow(id: number): Promise<SettlementDeliveryRow | null> {
     await this.init();
     const row = await this.get<Record<string, unknown>>(
-      `SELECT * FROM ${SETTLEMENT_OUTBOX_TABLE} WHERE id = ?`,
-      [id]
+      `SELECT * FROM ${SETTLEMENT_OUTBOX_TABLE} WHERE id = ? AND owner_key = ?`,
+      [id, this.owner()]
     );
     return row ? SettlementOutbox.toRow(row) : null;
   }
@@ -446,7 +488,8 @@ export class SettlementOutbox {
   async listAll(): Promise<SettlementDeliveryRow[]> {
     await this.init();
     const rows = await this.all<Record<string, unknown>>(
-      `SELECT * FROM ${SETTLEMENT_OUTBOX_TABLE} ORDER BY id ASC`
+      `SELECT * FROM ${SETTLEMENT_OUTBOX_TABLE} WHERE owner_key = ? ORDER BY id ASC`,
+      [this.owner()]
     );
     return rows.map(SettlementOutbox.toRow);
   }
@@ -509,31 +552,33 @@ export class SettlementOutbox {
 }
 
 let instance: SettlementOutbox | null = null;
-/** 多租户 P1：非本地身份的结算台账实例（各自独立 app.db） */
+/** 租户级库实例缓存（键 = `tenantId`；库按租户分，用户靠 `owner_key` 行级隔离） */
 const scopedInstances = new Map<string, SettlementOutbox>();
 
 /**
  * 取结算台账（惰性：首次使用才解析 DB 路径并建表）。
  *
- * 多租户 P1（2026-10-21）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该身份自己的实例
- * （`<scoped>/app.db`），创建时即触发初始化（失败只记错误，与本地行为一致）。
+ * 租户级 DB（基础设施专项 §6.1 期 3）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒
+ * 该**租户**的实例（`tenants/<t>/app.db`），同租户内不同用户共用连接、按 `owner_key`
+ * 行级隔离。创建时即触发初始化（失败只记错误，与本地行为一致）。
  */
 export function getSettlementOutbox(): SettlementOutbox {
   const principal = getRequestPrincipal();
   if (!isLocalPrincipal(principal)) {
-    const key = principalKeyOf(principal);
+    const key = principal.tenantId;
     const existing = scopedInstances.get(key);
     if (existing) return existing;
-    const scoped = new SettlementOutbox(resolveScopedDbPath(principal));
+    const scoped = new SettlementOutbox(resolveTenantDbPath(principal));
     scoped.init().catch((err) => {
-      logger.error('SettlementOutbox 分区初始化失败', {
-        principalKey: key,
+      logger.error('SettlementOutbox 租户库初始化失败', {
+        tenantId: key,
         error: String(err),
       });
     });
     scopedInstances.set(key, scoped);
-    // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
-    registerScopedResource(key, () => {
+    // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄。
+    // 登记键用**创建者**的 `<tenant>:<user>`（purge 按 `<tenant>:` 前缀关闭）。
+    registerScopedResource(principalKeyOf(principal), () => {
       scoped.close();
       scopedInstances.delete(key);
     });

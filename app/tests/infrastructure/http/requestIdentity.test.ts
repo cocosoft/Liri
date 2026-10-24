@@ -18,6 +18,7 @@ import {
   LOCAL_TENANT_ID,
 } from '@openliri/kernel/identity/principal';
 import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope';
+import { getDIContainer } from '@openliri/kernel';
 import {
   resolveRequestPrincipal,
   withRequestIdentity,
@@ -103,5 +104,38 @@ describe('withRequestIdentity：入口接线', () => {
       getRequestPrincipal()
     );
     expect(seen).toEqual(LOCAL_PRINCIPAL);
+  });
+
+  it('请求级 DI 作用域：同请求内复用、跨请求隔离（ADR 2026-10-24）', async () => {
+    const container = getDIContainer();
+    const id = 'test:requestIdentity:req';
+    let seq = 0;
+    container.registerDescriptor({
+      id,
+      scope: 'request',
+      factory: () => ({ seq: ++seq }),
+    });
+
+    try {
+      const runOnce = (): Promise<{ first: number; same: boolean }> =>
+        withRequestIdentity(fakeReq(), async () => {
+          const first = container.resolve<{ seq: number }>(id);
+          await Promise.resolve();
+          const second = container.resolve<{ seq: number }>(id);
+          return { first: first.seq, same: second === first };
+        });
+
+      const [a, b] = await Promise.all([runOnce(), runOnce()]);
+      expect(a.same).toBe(true);
+      expect(b.same).toBe(true);
+      // 两个并发请求各拿一份（旧实现是容器级单表 ⇒ 会串用）
+      expect(a.first).not.toBe(b.first);
+
+      // 退出请求后不得残留：再 resolve 退化为 transient（每次新实例）
+      const outside = container.resolve<{ seq: number }>(id);
+      expect(outside.seq).toBe(3);
+    } finally {
+      container.clear(id);
+    }
   });
 });

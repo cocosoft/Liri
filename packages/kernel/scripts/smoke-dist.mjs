@@ -72,6 +72,16 @@ if (barrel.globalEventBus !== deepEvents.globalEventBus) {
 // ⑤ 子路径产物真的可 import
 await load('dist/core/paths.js');
 
+// ⑥ 发布必需文件（2026-10-24 评审 #5）：README / LICENSE 必须在包根且列入 `files`
+for (const required of ['README.md', 'LICENSE']) {
+  if (!existsSync(resolve(pkgDir, required))) {
+    fail(`缺少 ${required}：外部使用者拿不到用法/许可说明`);
+  }
+  if (!(pkg.files ?? []).includes(required)) {
+    fail(`\`files\` 未包含 ${required}（打包会被裁掉）`);
+  }
+}
+
 console.log(
-  `✅ dist 冒烟通过：${checked} 个 exports 目标存在 · 无通配 · 桶与子路径同实例（globalEventBus）`
+  `✅ dist 冒烟通过：${checked} 个 exports 目标存在 · 无通配 · 桶与子路径同实例（globalEventBus）· README/LICENSE 就位`
 );

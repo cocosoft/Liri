@@ -28,6 +28,7 @@ import {
   type Principal,
 } from '@openliri/kernel/identity/principal.js';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
+import { getDIContainer } from '@openliri/kernel';
 
 /** `authTokens` 的 value 形状（只读消费，避免把 handlers 的类型拖成静态依赖） */
 interface AuthTokenSession {
@@ -66,11 +67,19 @@ export async function resolveRequestPrincipal(
  *
  * 单独抽出的原因：把"解析身份 + 建立作用域"这两步绑定成一个可测的单元
  * —— 若入口侧的接线被摘掉，`requestIdentity` 的用例会立刻变红（纯函数用例不会）。
+ *
+ * **ADR（2026-10-24 拍板）**：`request` 作用域**保留并在此接线**，不删。
+ * 理由：① 删除会失去「每请求一份实例」的能力，SSE 长连接/多租户明确需要它；
+ * ② 当前全仓**零** `scope: 'request'` 注册 ⇒ 本接线是**零行为变更**的接缝；
+ * ③ 相比"一段只有测试在跑的代码"，接在唯一入口上更诚实。
+ * 边界由 `runInRequestScope`（`AsyncLocalStorage.run`）保证，异常路径也不泄漏。
  */
 export async function withRequestIdentity<T>(
   req: http.IncomingMessage,
   fn: () => Promise<T>
 ): Promise<T> {
   const principal = await resolveRequestPrincipal(req);
-  return runWithPrincipal(principal, fn);
+  return runWithPrincipal(principal, () =>
+    getDIContainer().runInRequestScope(fn)
+  );
 }

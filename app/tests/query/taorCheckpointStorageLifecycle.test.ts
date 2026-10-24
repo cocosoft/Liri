@@ -74,17 +74,11 @@ afterEach(() => {
 });
 
 describe('checkpointStorageLifecycle：托管 vs 未托管', () => {
-  it('createOwned 创建的 ⇒ 收尾真的关闭（分区目录可删）', async () => {
+  it('createOwned 创建的 ⇒ 收尾真的关闭（租户目录可删）', async () => {
     const root = makeRoot();
     // `setUserDataDirOverride(root)` 设的是**应用根** ⇒ 数据根为 `<root>/data`
-    const scopedDir = join(
-      root,
-      'data',
-      'tenants',
-      'taor-life',
-      'users',
-      'alice'
-    );
+    // 租户级库（§6.1）：检查点落 `tenants/<t>/app.db`（不再含 `users/<u>`）
+    const scopedDir = join(root, 'data', 'tenants', 'taor-life');
 
     const storage = await runWithPrincipal(ALICE, async () => {
       // 在身份作用域内创建 ⇒ 默认路径落在分区目录

@@ -8,10 +8,11 @@
  */
 
 import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveScopedDbPath } from '@openliri/kernel';
-// 多租户 P5：非本地身份的分区句柄登记（删租户时统一释放）
+import { resolveTenantDbPath } from '@openliri/kernel';
+// 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,
+  getRequestPrincipalKey,
   isLocalPrincipal,
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
@@ -35,13 +36,18 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
   private dbPath: string;
 
   /**
-   * 多租户 P1（2026-10-21）：缺省路径**按当前身份解析**。
+   * 租户级 DB（基础设施专项 §6.1 期 3）：缺省路径**按当前身份解析**（租户库）。
    *
    * 本类的实例是**每会话/每循环**创建（`TAORLoop` / `ResumeManager` 各 new 一个），
    * 而非进程单例 ⇒ 在创建它的请求作用域内解析路径即可，不存在"共享实例换连接"的竞态。
    */
-  constructor(dbPath: string = resolveScopedDbPath()) {
+  constructor(dbPath: string = resolveTenantDbPath()) {
     this.dbPath = dbPath;
+  }
+
+  /** 当前写入/查询的归属键（本地 ⇒ `local:local`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
   }
 
   /** 登记器返回的摘除句柄（非本地身份才有；`close()` 时一并撤销） */
@@ -105,7 +111,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
         `CREATE TABLE IF NOT EXISTS ${TAOR_CHECKPOINTS_TABLE_NAME} (
-          id TEXT PRIMARY KEY,
+          id TEXT NOT NULL,
           session_id TEXT NOT NULL,
           turn_count INTEGER NOT NULL,
           phase TEXT NOT NULL,
@@ -120,7 +126,9 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
           error_recovery_state TEXT,
           pending_tool_calls TEXT,
           message_count INTEGER,
-          inbox_state TEXT
+          inbox_state TEXT,
+          owner_key TEXT NOT NULL DEFAULT 'local:local',
+          PRIMARY KEY (id, owner_key)
         )`,
         (err) => {
           if (err) reject(err);
@@ -157,6 +165,21 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
         () => resolve()
       );
     });
+
+    // 租户库（§6.1）：旧库补 owner_key 列（`ALTER` 不能改主键，但本地全 `local:local` ⇒ 不碰撞）
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `ALTER TABLE ${TAOR_CHECKPOINTS_TABLE_NAME} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+        (err) => {
+          if (err && !/duplicate column/i.test(err.message)) {
+            logger.warn('taor_checkpoints 补 owner_key 列失败', {
+              error: err.message,
+            });
+          }
+          resolve();
+        }
+      );
+    });
   }
 
   async save(checkpoint: TAORCheckpoint): Promise<string> {
@@ -176,8 +199,8 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
           `INSERT OR REPLACE INTO ${TAOR_CHECKPOINTS_TABLE_NAME}
         (id, session_id, turn_count, phase, budget_state, conversation_summary,
          last_prompt, created_at, type, kind, breaker_state, loop_detector_state,
-         error_recovery_state, pending_tool_calls, message_count, inbox_state)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         error_recovery_state, pending_tool_calls, message_count, inbox_state, owner_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             checkpoint.id,
             checkpoint.sessionId,
@@ -206,6 +229,7 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
             checkpoint.inboxState
               ? JSON.stringify(checkpoint.inboxState)
               : null,
+            this.owner(),
           ],
           (err) => {
             if (err) reject(err);
@@ -241,8 +265,9 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
 
       const row = await new Promise<any>((resolve, reject) => {
         this.db!.get(
-          `SELECT * FROM ${TAOR_CHECKPOINTS_TABLE_NAME} WHERE id = ?`,
-          [id],
+          `SELECT * FROM ${TAOR_CHECKPOINTS_TABLE_NAME}
+            WHERE id = ? AND owner_key = ?`,
+          [id, this.owner()],
           (err, row) => {
             if (err) reject(err);
             else resolve(row);
@@ -267,8 +292,9 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
 
     const rows = await new Promise<any[]>((resolve, reject) => {
       this.db!.all(
-        `SELECT * FROM ${TAOR_CHECKPOINTS_TABLE_NAME} WHERE session_id = ? ORDER BY created_at DESC`,
-        [sessionId],
+        `SELECT * FROM ${TAOR_CHECKPOINTS_TABLE_NAME}
+          WHERE session_id = ? AND owner_key = ? ORDER BY created_at DESC`,
+        [sessionId, this.owner()],
         (err, rows) => {
           if (err) reject(err);
           else resolve(rows);
@@ -285,8 +311,9 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
 
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `DELETE FROM ${TAOR_CHECKPOINTS_TABLE_NAME} WHERE id = ?`,
-        [id],
+        `DELETE FROM ${TAOR_CHECKPOINTS_TABLE_NAME}
+          WHERE id = ? AND owner_key = ?`,
+        [id, this.owner()],
         (err) => {
           if (err) reject(err);
           else resolve();
@@ -297,6 +324,12 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
     return true;
   }
 
+  /**
+   * 清理过期检查点（维护动作）。
+   *
+   * ⚠️ 租户库（§6.1）：**不按 owner 过滤** —— 过期检查点对本租户所有用户都已无价值，
+   * 按用户拆分只会让死行长期滞留（与 `SessionRouterStore.cleanExpired` 同口径）。
+   */
   async cleanup(expireTime: number): Promise<number> {
     await this.initDatabase();
     if (!this.db) return 0;
@@ -349,8 +382,8 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
         // P0 修复（2026-08-14 排查）：过滤空/非法 session_id——脏检查点
         // （session_id=''）会污染 TAORLoop 单例导致会话串扰，此处源头拦截
         `SELECT DISTINCT session_id FROM ${TAOR_CHECKPOINTS_TABLE_NAME}
-         WHERE session_id IS NOT NULL AND session_id != ''`,
-        [],
+         WHERE session_id IS NOT NULL AND session_id != '' AND owner_key = ?`,
+        [this.owner()],
         (err, rows) => {
           if (err) reject(err);
           else resolve(rows);
@@ -368,8 +401,9 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
 
     const row = await new Promise<any>((resolve, reject) => {
       this.db!.get(
-        `SELECT COUNT(*) as count FROM ${TAOR_CHECKPOINTS_TABLE_NAME} WHERE session_id = ?`,
-        [sessionId],
+        `SELECT COUNT(*) as count FROM ${TAOR_CHECKPOINTS_TABLE_NAME}
+          WHERE session_id = ? AND owner_key = ?`,
+        [sessionId, this.owner()],
         (err, row) => {
           if (err) reject(err);
           else resolve(row);
@@ -381,8 +415,9 @@ export class DBTAORCheckpointStorage implements TAORCheckpointStorage {
     if (count > 0) {
       await new Promise<void>((resolve, reject) => {
         this.db!.run(
-          `DELETE FROM ${TAOR_CHECKPOINTS_TABLE_NAME} WHERE session_id = ?`,
-          [sessionId],
+          `DELETE FROM ${TAOR_CHECKPOINTS_TABLE_NAME}
+            WHERE session_id = ? AND owner_key = ?`,
+          [sessionId, this.owner()],
           (err) => {
             if (err) reject(err);
             else resolve();

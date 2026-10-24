@@ -240,16 +240,19 @@ describe('SettlementOutbox：按身份分实例', () => {
   });
 });
 
-describe('SessionRouterStore：按身份分实例', () => {
-  it('已认证身份 ⇒ 独立实例 + 独立库文件', async () => {
+describe('SessionRouterStore：租户级库 + 行级隔离', () => {
+  it('同租户两用户共用实例（租户库）；本地仍用共享库', async () => {
     const local = await getSessionRouterStore();
     const alice = await runWithPrincipal(ALICE, () => getSessionRouterStore());
+    const bob = await runWithPrincipal(BOB, () => getSessionRouterStore());
     expect(alice).not.toBeNull();
     expect(local).not.toBeNull();
     expect(alice).not.toBe(local);
+    expect(bob).toBe(alice);
+    expect(existsSync(join(dataDir, 'tenants', 'acme', 'app.db'))).toBe(true);
     expect(
       existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
-    ).toBe(true);
+    ).toBe(false);
   });
 });
 

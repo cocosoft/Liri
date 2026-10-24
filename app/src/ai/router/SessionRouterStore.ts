@@ -46,10 +46,11 @@ interface SessionRouteRow {
   updated_at: number;
   hit_count: number;
 }
-import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel';
-// 多租户 P1（2026-10-21）：黏性路由库按身份分实例（本地身份零变更）
+import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel';
+// 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,
+  getRequestPrincipalKey,
   isLocalPrincipal,
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
@@ -92,19 +93,25 @@ export class SessionRouterStore {
   }
 
   /**
-   * 创建表（IF NOT EXISTS）
+   * 创建表（IF NOT EXISTS）+ 旧库补 `owner_key` 列
+   *
+   * ⚠️ 租户库：同一 `sessionId` 可能属于同租户的不同用户 ⇒ 主键为
+   * `(session_id, owner_key)`。旧库（单身份）仍是 `session_id` 单列主键，
+   * `ALTER` 不能改主键，但本地全 `local:local` ⇒ 不会碰撞。
    */
-  private createTable(): Promise<void> {
-    return new Promise((resolve, reject) => {
+  private async createTable(): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
       this.db!.run(
         `CREATE TABLE IF NOT EXISTS ${SESSION_ROUTER_TABLE_NAME} (
-          session_id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
           tier TEXT NOT NULL,
           provider TEXT NOT NULL DEFAULT '',
           model TEXT NOT NULL DEFAULT '',
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL,
-          hit_count INTEGER NOT NULL DEFAULT 1
+          hit_count INTEGER NOT NULL DEFAULT 1,
+          owner_key TEXT NOT NULL DEFAULT 'local:local',
+          PRIMARY KEY (session_id, owner_key)
         )`,
         (err: Error | null) => {
           if (err) reject(err);
@@ -112,6 +119,29 @@ export class SessionRouterStore {
         }
       );
     });
+
+    const columns = await new Promise<Array<{ name: string }>>(
+      (resolve, reject) => {
+        this.db!.all(
+          `PRAGMA table_info(${SESSION_ROUTER_TABLE_NAME})`,
+          [],
+          (err: Error | null, rows) =>
+            err ? reject(err) : resolve((rows || []) as Array<{ name: string }>)
+        );
+      }
+    );
+    if (columns.some((c) => c.name === 'owner_key')) return;
+    await new Promise<void>((resolve, reject) => {
+      this.db!.run(
+        `ALTER TABLE ${SESSION_ROUTER_TABLE_NAME} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
+  }
+
+  /** 当前写入/查询的归属键（本地 ⇒ `local:local`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
   }
 
   /**
@@ -122,8 +152,9 @@ export class SessionRouterStore {
 
     return new Promise((resolve, reject) => {
       this.db!.get(
-        `SELECT * FROM ${SESSION_ROUTER_TABLE_NAME} WHERE session_id = ?`,
-        [sessionId],
+        `SELECT * FROM ${SESSION_ROUTER_TABLE_NAME}
+          WHERE session_id = ? AND owner_key = ?`,
+        [sessionId, this.owner()],
         (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else if (!row) resolve(null);
@@ -168,15 +199,15 @@ export class SessionRouterStore {
 
     return new Promise((resolve, reject) => {
       this.db!.run(
-        `INSERT INTO ${SESSION_ROUTER_TABLE_NAME} (session_id, tier, provider, model, created_at, updated_at, hit_count)
-         VALUES (?, ?, ?, ?, ?, ?, 1)
-         ON CONFLICT(session_id) DO UPDATE SET
+        `INSERT INTO ${SESSION_ROUTER_TABLE_NAME} (session_id, tier, provider, model, created_at, updated_at, hit_count, owner_key)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+         ON CONFLICT(session_id, owner_key) DO UPDATE SET
            tier = excluded.tier,
            provider = excluded.provider,
            model = excluded.model,
            updated_at = excluded.updated_at,
            hit_count = hit_count + 1`,
-        [sessionId, tier, provider, model, now, now],
+        [sessionId, tier, provider, model, now, now, this.owner()],
         (err: Error | null) => {
           if (err) reject(err);
           else resolve();
@@ -186,13 +217,13 @@ export class SessionRouterStore {
   }
 
   /**
-   * 删除过期记录
+   * 删除过期记录（**只删自己那行**：同一 `sessionId` 在租户内可能属于他人）
    */
   private delete(sessionId: string): Promise<void> {
     return new Promise((resolve, reject) => {
       this.db!.run(
-        `DELETE FROM ${SESSION_ROUTER_TABLE_NAME} WHERE session_id = ?`,
-        [sessionId],
+        `DELETE FROM ${SESSION_ROUTER_TABLE_NAME} WHERE session_id = ? AND owner_key = ?`,
+        [sessionId, this.owner()],
         (err: Error | null) => {
           if (err) reject(err);
           else resolve();
@@ -203,12 +234,17 @@ export class SessionRouterStore {
 
   /**
    * 清理所有过期记录（可定时调用）
+   *
+   * ⚠️ 这是**维护动作**：实例是租户级的，过期行对本租户内**所有用户**都已失效
+   * ⇒ 不按 owner 过滤（与 InboxManager 的过期清理同口径）；否则长期不登录的用户
+   * 会让死行永久滞留。`get()` 命中过期行时仍按 owner 精准删除自己那行。
    */
   async cleanExpired(): Promise<number> {
     await this.ensureInit();
     const cutoff = Date.now() - STICKY_TTL_MS;
 
     return new Promise((resolve, reject) => {
+      // @owner-exempt 跨用户维护动作（见方法注释）
       this.db!.run(
         `DELETE FROM ${SESSION_ROUTER_TABLE_NAME} WHERE updated_at < ?`,
         [cutoff],
@@ -265,7 +301,7 @@ export class SessionRouterStore {
 let _sessionRouterStore: SessionRouterStore | null = null;
 let _sessionRouterStoreInitPromise: Promise<SessionRouterStore | null> | null =
   null;
-/** 多租户 P1：非本地身份的黏性路由库实例（各自独立 app.db） */
+/** 租户级库实例缓存（键 = `tenantId`；库按租户分，用户靠 `owner_key` 行级隔离） */
 const _scopedStores = new Map<string, SessionRouterStore>();
 const _scopedInitPromises = new Map<
   string,
@@ -275,33 +311,36 @@ const _scopedInitPromises = new Map<
 /**
  * 取会话黏性路由存储。
  *
- * 多租户 P1（2026-10-21）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该身份自己的实例
- * （`<scoped>/app.db`）。并发初始化共用同一次 DDL（按身份分别去重）。
+ * 租户级 DB（基础设施专项 §6.1 期 3）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒
+ * 该**租户**的实例（`tenants/<t>/app.db`），同租户内不同用户共用连接、按 `owner_key`
+ * 行级隔离。
  */
 export function getSessionRouterStore(): Promise<SessionRouterStore | null> {
   const principal = getRequestPrincipal();
   if (!isLocalPrincipal(principal)) {
-    const key = principalKeyOf(principal);
-    const cached = _scopedStores.get(key);
+    const tenantKey = principal.tenantId;
+    const cached = _scopedStores.get(tenantKey);
     if (cached) return Promise.resolve(cached);
-    const existing = _scopedInitPromises.get(key);
+    const existing = _scopedInitPromises.get(tenantKey);
     if (existing) return existing;
     const pending = (async () => {
       try {
-        const store = new SessionRouterStore(resolveScopedDbPath(principal));
+        const store = new SessionRouterStore(resolveTenantDbPath(principal));
         await store.init();
         const cleaned = await store.cleanExpired();
         if (cleaned > 0) {
-          logger.info('会话黏性存储启动清理（分区）', {
-            principalKey: key,
+          logger.info('会话黏性存储启动清理（租户库）', {
+            tenantId: tenantKey,
             expiredRemoved: cleaned,
           });
         }
-        _scopedStores.set(key, store);
-        // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
-        registerScopedResource(key, () => {
+        _scopedStores.set(tenantKey, store);
+        // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄。
+        // 登记键用**创建者**的 `<tenant>:<user>`：purge 按 `<tenant>:` 前缀关闭 ⇒
+        // 无论哪个用户触发创建，删租户都能命中的这**一个**租户级实例。
+        registerScopedResource(principalKeyOf(principal), () => {
           store.close();
-          _scopedStores.delete(key);
+          _scopedStores.delete(tenantKey);
         });
         return store;
       } catch (error) {
@@ -309,14 +348,14 @@ export function getSessionRouterStore(): Promise<SessionRouterStore | null> {
           module: 'ai:session-store',
           action: 'getSessionRouterStore',
         });
-        logger.warning('分区会话黏性存储初始化失败，退回每轮 Judge', {
-          principalKey: key,
+        logger.warning('租户库会话黏性存储初始化失败，退回每轮 Judge', {
+          tenantId: tenantKey,
           error: error instanceof Error ? error.message : String(error),
         });
         return null;
       }
     })();
-    _scopedInitPromises.set(key, pending);
+    _scopedInitPromises.set(tenantKey, pending);
     return pending;
   }
 

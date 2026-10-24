@@ -62,3 +62,18 @@ jobs:
     # 圈复杂度重尾离群棘轮（P2-6）：≥100 的离群函数计数**只允许减少**
     - name: "Complexity ratchet (lint:complexity)"
       run: bun run lint:complexity
+
+    # ══════════════════════════════════════════════
+    # 基线棘轮（2026-10-24 补）：这三条的**基线都在 `.trae/architecture/*.json`**，
+    # 而 `ci.yml` 的 paths-ignore 含 `.trae/**` ⇒ 只改基线时那条工作流不触发、
+    # 消费它的门禁**从不运行**（假绿）。本工作流不设 paths-ignore，故在此承接。
+    # 依据：2026-10-24 下调 `hardcode-gate-baseline.json` 时实测「改完基线 CI 无人校验」。
+    # ══════════════════════════════════════════════
+    - name: "Hardcode ratchet (lint:consts · baseline in .trae/architecture)"
+      run: bun run lint:consts
+
+    - name: "State-literal ratchet (lint:state-ratchet · baseline in .trae/architecture)"
+      run: bun run lint:state-ratchet
+
+    - name: "Evidence line-width ratchet (lint:evidence-linewidth · baseline in .trae/architecture)"
+      run: bun run lint:evidence-linewidth

@@ -47,6 +47,14 @@ describe('@openliri/kernel 桶契约（冒烟）', () => {
     expect(KERNEL_PACKAGE_VERSION).toMatch(/^\d+\.\d+\.\d+/);
   });
 
+  it('版本常量与 package.json 单源一致（2026-10-24 评审 #6）', () => {
+    const pkg = JSON.parse(
+      readFileSync(join(import.meta.dir, '..', 'package.json'), 'utf-8')
+    ) as { version: string };
+    // 常量是手抄的：发版只改 package.json 时必须同步，否则这里红
+    expect(KERNEL_PACKAGE_VERSION).toBe(pkg.version);
+  });
+
   it('桶导出宿主开工所需的关键符号', () => {
     // 变体开关（宿主注入）、路径解析、错误基类、事件总线 —— 缺任一项内核即不可用
     expect(typeof feature).toBe('function');

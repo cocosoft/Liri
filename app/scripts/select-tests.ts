@@ -4,8 +4,9 @@
  *
  * 安全优先（本仓门禁要求可信）：
  *  - **tag 发布** ⇒ 恒全量（`refs/tags/v*`）。
- *  - 变更落在 `app/src` / `app/tests` **之外**（scripts / .github / package.json /
- *    bun.lock / tsconfig / prompts / shared / client …）⇒ 全量。
+ *  - 变更落在 `app/src` / `app/tests` / **`packages/kernel/src`** 之外（scripts / .github /
+ *    package.json / bun.lock / tsconfig / prompts / shared / client …）⇒ 全量。
+ *    内核源码自 2026-10-24 起纳入代码根（此前"只改内核 ⇒ 恒全量"，属纯成本）。
  *  - 门禁类测试目录（`tests/gates` / `tests/contracts` / `tests/ci`）变更 ⇒ 全量。
  *  - **反向导入闭包**：从变更文件沿「谁 import 了它」反向遍历，收集受影响的测试；
  *    闭包为空 或 选中测试 > 全部测试的 60% ⇒ 全量（省不下多少，别冒险）。
@@ -52,7 +53,7 @@ const GATE_TEST_DIRS = [
   'app/tests/ci/',
 ];
 
-const CODE_ROOTS = ['app/src/', 'app/tests/'];
+const CODE_ROOTS = ['app/src/', 'app/tests/', 'packages/kernel/src/'];
 
 /** 允许处理的最大变更文件数；超过直接全量（防异常 diff） */
 const MAX_CHANGED_FILES = 200;

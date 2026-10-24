@@ -55,6 +55,19 @@ describe('decideSelection：保守回退', () => {
     ).toBe('full');
   });
 
+  it('内核源码变更不再被判为「代码根之外」（走反向闭包，空则全量兜底）', () => {
+    const rel = 'packages/kernel/src/core/di/DIContainer.ts';
+    const result = decideSelection(
+      opts({
+        changed: [rel],
+        relToAbs: new Map([[rel, '/tmp/DIContainer.ts']]),
+      })
+    );
+    expect(result.reason).not.toContain('代码根之外');
+    // 冷门内核文件没有 app 侧消费者 ⇒ 闭包为空 ⇒ 安全兜底全量
+    expect(result.mode).toBe('full');
+  });
+
   it('反向导入闭包为空 ⇒ full', () => {
     const rel = 'app/src/chat/new-file.ts';
     expect(

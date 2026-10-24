@@ -80,11 +80,39 @@ function getVersion(filePath, type) {
     return { file: filePath, version: null, error: '未知类型' };
 }
 
+/**
+ * 内核独立包（`packages/kernel`）的**版本单源**检查（2026-10-24 评审 #6）。
+ *
+ * 与主版本（`app/package.json`）**不对齐**：内核有自己的 semver 线（当前 0.1.x）。
+ * 但 `packages/kernel/src/index.ts` 的 `KERNEL_PACKAGE_VERSION` 是**手抄常量** ⇒
+ * 发版只改 package.json 时，常量会静默漂移。故两者必须相等，且缺失即 fail-closed。
+ */
+function checkKernelVersionSingleSource() {
+    const pkgPath = path.join(ROOT, 'packages/kernel/package.json');
+    const srcPath = path.join(ROOT, 'packages/kernel/src/index.ts');
+    if (!fs.existsSync(pkgPath) || !fs.existsSync(srcPath)) {
+        return { ok: false, message: '内核包缺失（fail-closed，不视为通过）' };
+    }
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    const match = fs
+        .readFileSync(srcPath, 'utf-8')
+        .match(/KERNEL_PACKAGE_VERSION\s*=\s*'([^']+)'/);
+    if (!match) {
+        return { ok: false, message: 'src/index.ts 缺 KERNEL_PACKAGE_VERSION（fail-closed）' };
+    }
+    if (match[1] !== pkg.version) {
+        return {
+            ok: false,
+            message: `内核版本双源漂移：package.json=v${pkg.version} vs KERNEL_PACKAGE_VERSION=v${match[1]}`,
+        };
+    }
+    return { ok: true, message: `packages/kernel: v${pkg.version}（package.json = 常量）` };
+}
+
 function main() {
     console.log('=== 版本一致性检查 ===\n');
 
     const results = CHECKS.map(c => getVersion(c.file, c.type));
-
     // 严格 semver（禁止前导零）：`0.5.00` 能通过「各处一致」，却会被
     // Cargo（invalid leading zero）/ Tauri（must be a semver string）拒绝，
     // 属于跨工具链的硬失败 ⇒ 在门禁层先拦住。
@@ -120,6 +148,15 @@ function main() {
     }
 
     console.log('-'.repeat(60));
+
+    // 内核独立包：只校验「包内单源」，不参与主版本对齐（见 checkKernelVersionSingleSource）
+    const kernel = checkKernelVersionSingleSource();
+    console.log(`  ${kernel.ok ? '✓' : '✗'} ${kernel.message}`);
+
+    if (!kernel.ok) {
+        console.log('\n❌ 内核版本单源检查失败（见上）');
+        process.exit(1);
+    }
 
     if (allConsistent) {
         console.log(`\n✅ 所有版本一致: v${reference}`);

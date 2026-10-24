@@ -6,13 +6,14 @@
  * 若它固定指向启动时的共享库，租户请求的 GraphRAG 检索会读到别人的图谱。
  *
  * 做法：注入本代理，**每次调用**按当前请求身份取对应的 `KnowledgeGraph` 实例
- * （本地身份 ⇒ 共享 `app.db`，零变更；已认证 ⇒ `<scoped>/app.db`）。
+ * （本地身份 ⇒ 共享 `app.db`，零变更；已认证 ⇒ `tenants/<t>/app.db`，用户靠 `owner_key`
+ * 行级隔离）。
  * 与 `ScopedCheckpointStorage` 同构：不动注入点之外的任何调用方。
  *
  * 为什么不用"共享实例换连接"：`KnowledgeGraph` 持有单字段 `db`，`await` 交错会串库。
  */
 import { KnowledgeGraph } from './KnowledgeGraph.js';
-import { resolveScopedDbPath } from '@openliri/kernel/paths';
+import { resolveTenantDbPath } from '@openliri/kernel/paths';
 import { getLogger } from '@modules/monitoring';
 import {
   getRequestPrincipal,
@@ -28,7 +29,7 @@ type Graph = KnowledgeGraph;
 export class ScopedKnowledgeGraph {
   /** 本地身份 / 无请求作用域 ⇒ 共享库实例 */
   private local: Graph | null = null;
-  /** 已认证身份 ⇒ 各自实例（键 = `<tenantId>:<userId>`） */
+  /** 已认证身份 ⇒ 每个**租户**一个实例（键 = `tenantId`；用户靠 `owner_key` 行级隔离） */
   private scoped = new Map<string, Graph>();
   /** 同一身份的并发首调共用一次初始化（避免重复建连/DDL） */
   private pending = new Map<string, Promise<Graph>>();
@@ -38,7 +39,7 @@ export class ScopedKnowledgeGraph {
   /** 当前身份对应的图谱实例（惰性创建 + 初始化） */
   private graph(): Promise<Graph> {
     const principal = getRequestPrincipal();
-    const key = isLocalPrincipal(principal) ? '' : principalKeyOf(principal);
+    const key = isLocalPrincipal(principal) ? '' : principal.tenantId;
 
     const cached = key === '' ? this.local : this.scoped.get(key);
     if (cached) return Promise.resolve(cached);
@@ -47,14 +48,15 @@ export class ScopedKnowledgeGraph {
     if (existing) return existing;
 
     const opening = (async () => {
-      const graph = new KnowledgeGraph(resolveScopedDbPath(principal));
+      const graph = new KnowledgeGraph(resolveTenantDbPath(principal));
       if (this.edgeSchemas) graph.setEdgeSchemas(this.edgeSchemas);
       await graph.init();
       if (key === '') this.local = graph;
       else {
         this.scoped.set(key, graph);
-        // 多租户 P5：登记 closer（关连接 + 摘除本实例缓存），删租户时统一释放文件句柄
-        registerScopedResource(key, async () => {
+        // 多租户 P5：登记 closer（关连接 + 摘除本实例缓存），删租户时统一释放文件句柄。
+        // 登记键用**创建者**的 `<tenant>:<user>`（purge 按 `<tenant>:` 前缀关闭）。
+        registerScopedResource(principalKeyOf(principal), async () => {
           await graph.close();
           this.scoped.delete(key);
         });

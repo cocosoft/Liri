@@ -36,7 +36,9 @@ import { Database } from '@openliri/kernel/external/sqlite3';
 import { randomUUID } from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveScopedDbPath } from '@openliri/kernel';
+import { resolveTenantDbPath } from '@openliri/kernel';
+// 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
+import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
 import { SimpleMutex } from '@openliri/kernel';
 import type { EdgeSchema } from '@modules/knowledge/schema/SchemaLoader';
 
@@ -150,11 +152,17 @@ export class KnowledgeGraph {
 
   /**
    * @param dbPath 显式库路径（测试/特定装配用）；缺省**按当前身份**解析
-   *   —— 多租户 P1：本地身份 ⇒ 共享 `app.db`（零变更）；已认证身份 ⇒ `<scoped>/app.db`。
+   *   —— 租户级库（§6.1）：本地身份 ⇒ 共享 `app.db`（零变更）；已认证身份 ⇒
+   *   `tenants/<t>/app.db`（用户靠 `owner_key` 行级隔离）。
    *   本类实例由调用方按需 `new`（非进程单例）⇒ 在创建它的作用域内解析路径即安全。
    */
-  constructor(dbPath: string = resolveScopedDbPath()) {
+  constructor(dbPath: string = resolveTenantDbPath()) {
     this.dbPath = dbPath;
+  }
+
+  /** 当前写入/查询的归属键（本地 ⇒ `local:local`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
   }
 
   /**
@@ -200,7 +208,7 @@ export class KnowledgeGraph {
       return new Promise((resolve, reject) => {
         this.db!.run(
           `CREATE TABLE IF NOT EXISTS ${KG_EDGES_TABLE} (
-            edge_id     TEXT PRIMARY KEY,
+            edge_id     TEXT NOT NULL,
             from_id     TEXT NOT NULL,
             to_id       TEXT NOT NULL,
             edge_type   TEXT NOT NULL,
@@ -208,7 +216,9 @@ export class KnowledgeGraph {
             domain      TEXT DEFAULT '',
             attributes  TEXT DEFAULT '{}',
             created_at  INTEGER NOT NULL,
-            updated_at  INTEGER NOT NULL
+            updated_at  INTEGER NOT NULL,
+            owner_key   TEXT NOT NULL DEFAULT 'local:local',
+            PRIMARY KEY (edge_id, owner_key)
           )`,
           (err: Error | null) => {
             if (err) {
@@ -241,6 +251,24 @@ export class KnowledgeGraph {
                   logger.warning('添加 domain 列失败（非致命，可能已存在）', {
                     error: alterErr.message,
                   });
+                }
+              }
+            );
+
+            // 迁移：为旧表添加 owner_key 列（租户库 §6.1；旧库全 `local:local` ⇒ 不碰撞）
+            this!.db!.run(
+              `ALTER TABLE ${KG_EDGES_TABLE} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+              (alterErr) => {
+                if (
+                  alterErr &&
+                  !alterErr.message.includes('duplicate column')
+                ) {
+                  logger.warning(
+                    '添加 owner_key 列失败（非致命，可能已存在）',
+                    {
+                      error: alterErr.message,
+                    }
+                  );
                 }
               }
             );
@@ -317,8 +345,8 @@ export class KnowledgeGraph {
     await this.dbMutex.run<void>(() => {
       return new Promise((resolve, reject) => {
         this.db!.run(
-          `INSERT INTO ${KG_EDGES_TABLE} (edge_id, from_id, to_id, edge_type, direction, domain, attributes, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO ${KG_EDGES_TABLE} (edge_id, from_id, to_id, edge_type, direction, domain, attributes, created_at, updated_at, owner_key)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             fullEdge.id,
             fullEdge.from,
@@ -329,6 +357,7 @@ export class KnowledgeGraph {
             JSON.stringify(fullEdge.attributes),
             fullEdge.createdAt,
             fullEdge.updatedAt,
+            this.owner(),
           ],
           (err: Error | null) => {
             if (err) reject(err);
@@ -349,8 +378,8 @@ export class KnowledgeGraph {
 
     return new Promise((resolve, reject) => {
       this.db!.get(
-        `SELECT * FROM ${KG_EDGES_TABLE} WHERE edge_id = ?`,
-        [id],
+        `SELECT * FROM ${KG_EDGES_TABLE} WHERE edge_id = ? AND owner_key = ?`,
+        [id, this.owner()],
         (err, row: KgEdgeRow | null) => {
           if (err) {
             reject(err);
@@ -371,8 +400,8 @@ export class KnowledgeGraph {
     await this.dbMutex.run<void>(() => {
       return new Promise((resolve, reject) => {
         this.db!.run(
-          `DELETE FROM ${KG_EDGES_TABLE} WHERE edge_id = ?`,
-          [id],
+          `DELETE FROM ${KG_EDGES_TABLE} WHERE edge_id = ? AND owner_key = ?`,
+          [id, this.owner()],
           (err: Error | null) => {
             if (err) reject(err);
             else resolve();
@@ -388,8 +417,8 @@ export class KnowledgeGraph {
   async queryEdges(filters: EdgeQuery): Promise<Edge[]> {
     if (!this.db) await this.init();
 
-    const conditions: string[] = [];
-    const params: unknown[] = [];
+    const conditions: string[] = ['owner_key = ?'];
+    const params: unknown[] = [this.owner()];
 
     // 按实体 ID + 方向过滤
     if (filters.entityId) {
@@ -457,7 +486,8 @@ export class KnowledgeGraph {
 
     const totalEdges = await new Promise<number>((resolve, reject) => {
       this.db!.get(
-        `SELECT COUNT(*) AS count FROM ${KG_EDGES_TABLE}`,
+        `SELECT COUNT(*) AS count FROM ${KG_EDGES_TABLE} WHERE owner_key = ?`,
+        [this.owner()],
         (err, row: CountRow | null) => {
           if (err) reject(err);
           else resolve(row?.count ?? 0);
@@ -468,7 +498,9 @@ export class KnowledgeGraph {
     const byTypeRows = await new Promise<EdgeTypeCountRow[]>(
       (resolve, reject) => {
         this.db!.all(
-          `SELECT edge_type, COUNT(*) AS count FROM ${KG_EDGES_TABLE} GROUP BY edge_type ORDER BY count DESC`,
+          `SELECT edge_type, COUNT(*) AS count FROM ${KG_EDGES_TABLE}
+            WHERE owner_key = ? GROUP BY edge_type ORDER BY count DESC`,
+          [this.owner()],
           (err: Error | null, rows: EdgeTypeCountRow[]) => {
             if (err) reject(err);
             else resolve(rows ?? []);
@@ -483,12 +515,14 @@ export class KnowledgeGraph {
     }
 
     const entityCount = await new Promise<number>((resolve, reject) => {
+      const owner = this.owner();
       this.db!.get(
         `SELECT COUNT(DISTINCT eid) AS count FROM (
-          SELECT from_id AS eid FROM ${KG_EDGES_TABLE}
+          SELECT from_id AS eid FROM ${KG_EDGES_TABLE} WHERE owner_key = ?
           UNION
-          SELECT to_id AS eid FROM ${KG_EDGES_TABLE}
+          SELECT to_id AS eid FROM ${KG_EDGES_TABLE} WHERE owner_key = ?
         )`,
+        [owner, owner],
         (err, row: CountRow | null) => {
           if (err) reject(err);
           else resolve(row?.count ?? 0);
@@ -591,8 +625,8 @@ export class KnowledgeGraph {
   ): Promise<number> {
     if (!this.db) await this.init();
 
-    const conditions: string[] = [];
-    const params: unknown[] = [];
+    const conditions: string[] = ['owner_key = ?'];
+    const params: unknown[] = [this.owner()];
 
     // domain 过滤
     if (domain) {
@@ -600,8 +634,7 @@ export class KnowledgeGraph {
       params.push(domain);
     }
 
-    const wherePrefix =
-      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')} AND` : 'WHERE';
+    const wherePrefix = `WHERE ${conditions.join(' AND ')} AND`;
 
     const sql = `SELECT edge_id, from_id, to_id FROM ${KG_EDGES_TABLE} ${wherePrefix} (from_id NOT IN (${Array.from(
       validEntityIds
@@ -631,8 +664,8 @@ export class KnowledgeGraph {
     await this.dbMutex.run<void>(() => {
       return new Promise((resolve, reject) => {
         this.db!.run(
-          `DELETE FROM ${KG_EDGES_TABLE} WHERE edge_id IN (${orphanIds.map(() => '?').join(',')})`,
-          orphanIds,
+          `DELETE FROM ${KG_EDGES_TABLE} WHERE edge_id IN (${orphanIds.map(() => '?').join(',')}) AND owner_key = ?`,
+          [...orphanIds, this.owner()],
           (err: Error | null) => {
             if (err) reject(err);
             else resolve();

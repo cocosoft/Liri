@@ -3,8 +3,8 @@
  *
  * 锁四件事：
  *  ① 本地身份（无请求作用域）⇒ 共享 `app.db`，与改造前等价；
- *  ② 已认证身份 ⇒ `<data>/tenants/<t>/users/<u>/app.db`，且**读不到**本地写入的边；
- *  ③ 同一身份重复调用复用同一实例；并发首调只建一次；
+ *  ② 已认证身份 ⇒ `<data>/tenants/<t>/app.db`（用户靠 `owner_key` 隔离），且**读不到**本地写入的边；
+ *  ③ 同一**租户**重复调用复用同一实例；并发首调只建一次；
  *  ④ `cleanupOrphans` 等下游实际调用经代理后仍作用于**当前身份**的库。
  *
  * 为什么必须验证"读不到"：`KnowledgeRouter` 是进程级单实例，若图谱被钉在共享库，
@@ -62,9 +62,10 @@ describe('ScopedKnowledgeGraph：按身份取图谱实例', () => {
     });
 
     expect(aliceEdges.map((e) => e.from)).toEqual(['alice:a']);
+    expect(existsSync(join(dataDir, 'tenants', 'acme', 'app.db'))).toBe(true);
     expect(
       existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
-    ).toBe(true);
+    ).toBe(false);
 
     // 反向：租户写入不回流本地库
     expect((await graph.queryEdges({})).map((e) => e.from)).toEqual([
@@ -72,17 +73,17 @@ describe('ScopedKnowledgeGraph：按身份取图谱实例', () => {
     ]);
   });
 
-  it('同一身份复用实例；不同身份各自建实例', async () => {
+  it('同一租户复用实例（用户靠 owner_key 行级隔离）', async () => {
     await runWithPrincipal(ALICE, () => graph.init());
-    const aliceInstance = internals().scoped.get('acme:alice');
+    const tenantInstance = internals().scoped.get('acme');
 
     await runWithPrincipal(ALICE, () => graph.init());
     expect(internals().scoped.size).toBe(1);
-    expect(internals().scoped.get('acme:alice')).toBe(aliceInstance);
+    expect(internals().scoped.get('acme')).toBe(tenantInstance);
 
     await runWithPrincipal(BOB, () => graph.init());
-    expect(internals().scoped.size).toBe(2);
-    expect(internals().scoped.get('acme:bob')).not.toBe(aliceInstance);
+    expect(internals().scoped.size).toBe(1);
+    expect(internals().scoped.get('acme')).toBe(tenantInstance);
   });
 
   it('并发首调只建一次（pending 去重）', async () => {

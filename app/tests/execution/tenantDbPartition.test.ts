@@ -317,7 +317,7 @@ describe('ContextWindowResolver：DB 读取路径随身份', () => {
 });
 
 describe('KnowledgeGraph：构造期按身份解析库路径', () => {
-  it('已认证作用域内 new ⇒ 落到自己的库；默认构造本地仍共享', async () => {
+  it('已认证作用域内 new ⇒ 落到租户库；默认构造本地仍共享', async () => {
     const scoped = new KnowledgeGraph();
     // 本地（无作用域）⇒ 共享路径：init 后共享 app.db 出现
     await scoped.init();
@@ -329,8 +329,9 @@ describe('KnowledgeGraph：构造期按身份解析库路径', () => {
       return graph;
     });
     expect(aliceGraph).not.toBe(scoped);
+    expect(existsSync(join(dataDir, 'tenants', 'acme', 'app.db'))).toBe(true);
     expect(
       existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
-    ).toBe(true);
+    ).toBe(false);
   });
 });

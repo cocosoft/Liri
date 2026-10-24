@@ -21,8 +21,14 @@
  *   bun run scripts/lint-doc-alias.ts --write-baseline # 收敛后冻结（只降不增）
  */
 
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { join, relative, resolve, sep } from 'node:path';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { KERNEL_PUBLIC_SUBPATHS } from './lint-kernel-purity';
 
 const repoRoot = process.env['PYAPP_PROJECT_DIR']
@@ -128,6 +134,8 @@ if (process.argv.includes('--write-baseline')) {
     maxEntries,
     entries: sorted.map((h) => ({ file: h.file, alias: h.alias })),
   };
+  // 目录可能不存在（首次建基线 / 夹具环境）—— 不能靠"仓库里恰好已有该目录"
+  mkdirSync(dirname(BASELINE), { recursive: true });
   writeFileSync(BASELINE, `${JSON.stringify(payload, null, 2)}\n`);
   console.log(
     `已写入文档别名基线 ${sorted.length} 条（maxEntries=${maxEntries}）: ${BASELINE}`

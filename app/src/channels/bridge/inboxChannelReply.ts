@@ -321,10 +321,13 @@ async function _writeDeadLetter(inboxItem: InboxItem): Promise<void> {
   // 运行时仍是动态 import；`import type` 只在编译期取类型（擦除后无静态依赖）。
   let db: DatabaseConnection | null = null;
   try {
-    const { resolveScopedDbPath } = await import('@openliri/kernel/paths');
+    const { resolveTenantDbPath } = await import('@openliri/kernel/paths');
     const { Database } = await import('@openliri/kernel/external/sqlite3');
-    // 多租户 P1：死信表随请求身份落库（通道后台路径 ⇒ 本地共享库，零变更）
-    db = new Database(resolveScopedDbPath());
+    const { getRequestPrincipalKey } =
+      await import('@openliri/kernel/identity/requestScope.js');
+    // 租户级库（基础设施专项 §6.1）：死信表随请求身份落库（通道后台路径 ⇒ 本地共享库）
+    const ownerKey = getRequestPrincipalKey();
+    db = new Database(resolveTenantDbPath());
     await new Promise<void>((resolve, reject) => {
       db!.run(
         `CREATE TABLE IF NOT EXISTS inbox_reply_deadletter (
@@ -334,7 +337,8 @@ async function _writeDeadLetter(inboxItem: InboxItem): Promise<void> {
           target TEXT NOT NULL,
           content TEXT NOT NULL,
           failed_at INTEGER NOT NULL,
-          retry_count INTEGER NOT NULL DEFAULT 3
+          retry_count INTEGER NOT NULL DEFAULT 3,
+          owner_key TEXT NOT NULL DEFAULT 'local:local'
         )`,
         (err: Error | null) => {
           if (err) reject(err);
@@ -342,15 +346,30 @@ async function _writeDeadLetter(inboxItem: InboxItem): Promise<void> {
         }
       );
     });
+    // 旧库（单身份）补列：无回调会被兼容层静默吞错 ⇒ 带回调，只对非重复列告警
+    await new Promise<void>((resolve) => {
+      db!.run(
+        `ALTER TABLE inbox_reply_deadletter ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+        (err: Error | null) => {
+          if (err && !/duplicate column/i.test(err.message)) {
+            logger.warn('inbox_reply_deadletter 补 owner_key 列失败', {
+              error: err.message,
+            });
+          }
+          resolve();
+        }
+      );
+    });
     await new Promise<void>((resolve, reject) => {
       db!.run(
-        `INSERT INTO inbox_reply_deadletter (inbox_id, channel_name, target, content, failed_at) VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO inbox_reply_deadletter (inbox_id, channel_name, target, content, failed_at, owner_key) VALUES (?, ?, ?, ?, ?, ?)`,
         [
           inboxItem.id,
           inboxItem.channelId ?? '',
           inboxItem.channelConversationId ?? inboxItem.channelSessionId ?? '',
           _formatReplyMessage(inboxItem),
           Date.now(),
+          ownerKey,
         ],
         (err: Error | null) => {
           if (err) reject(err);

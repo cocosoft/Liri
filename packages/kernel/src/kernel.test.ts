@@ -8,22 +8,38 @@
  * 标识/版本常量存在，且桶确实导出了宿主开工所需的那几个符号。
  */
 
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, afterEach, beforeEach } from 'bun:test';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import {
   AppError,
+  ErrorCategory,
+  ErrorSeverity,
   KERNEL_PACKAGE_NAME,
   KERNEL_PACKAGE_VERSION,
   configureProductIdentity,
   feature,
+  getBuildVariant,
+  getBuildVariantFlags,
   getProductIdentity,
   globalEventBus,
   httpPortEnvKey,
+  isBuildVariantFlagsInitialized,
+  resetBuildVariantFlags,
   resetProductIdentity,
   resolveDbPath,
   resolveExplicitHttpPort,
+  setBuildVariantFlags,
 } from './index.js';
+// 桶面未转出、但包内需要覆盖的符号：按**公开子路径**同形的方式从源文件导入
+// （`src/*` 内部相对导入在包内与桶指向同一份文件，不产生第二实例）。
+import { BUILD_VARIANTS } from './core/featureFlags.js';
+import { lazySingleton } from './core/lazySingleton.js';
+import {
+  resolveCacheDir,
+  resolveDataDir,
+  resolveProjectRoot,
+} from './core/paths.js';
 
 describe('@openliri/kernel 桶契约（冒烟）', () => {
   it('包标识与版本常量存在且形如 semver', () => {
@@ -161,5 +177,172 @@ describe('内核源码不含产品化字面量', () => {
     expect(hits[0]?.file.endsWith(join('core', 'productIdentity.ts'))).toBe(
       true
     );
+  });
+
+  /**
+   * `LIRI_` 前缀同理（评审 B5 的第二半）：它是 `envPrefix` 的默认值，
+   * 只允许出现在默认身份定义处。**判据是引号内的取值**，因此
+   * `export const LIRI_HOME` 这类**标识符**不算（它是对外导出名，改名属破坏性变更）。
+   */
+  it("`'LIRI_'` 前缀字面量只出现在默认身份定义处", () => {
+    const coreDir = join(import.meta.dir, 'core');
+    const hits: string[] = [];
+    for (const file of walk(coreDir)) {
+      const lines = stripComments(readFileSync(file, 'utf-8')).split('\n');
+      lines.forEach((line, index) => {
+        for (const m of line.matchAll(/['"`]([^'"`\n]*)['"`]/g)) {
+          if ((m[1] ?? '').startsWith('LIRI_')) {
+            hits.push(`${file}:${index + 1} ${line.trim()}`);
+          }
+        }
+      });
+    }
+    expect(hits).toEqual([expect.stringContaining("envPrefix: 'LIRI_'")]);
+    expect(hits[0]).toContain(join('core', 'productIdentity.ts'));
+  });
+});
+
+/**
+ * 内核行为的**包内**覆盖（2026-10-24 评审 B4）。
+ *
+ * 原状：包内只有桶契约 + 产品身份，共 7 例；阶段二抽仓后 app 侧 400+ 例留在原地，
+ * 内核仓将只剩这点覆盖 ⇒ 这是比 OTel 归属更硬的准入缺口。
+ * 本组按评审要求补四条主干：`featureFlags` 三级解析与时序、`paths` 环境变量派生、
+ * `errors` 字段契约、`lazySingleton` 单次实例化。全部**不依赖 app 侧装配**。
+ */
+describe('featureFlags：三级解析与注入时序', () => {
+  /** 测试环境豁免时序守卫（见 feature() 的 G4 注释），这里显式钉住，避免受执行环境影响 */
+  const asTestEnv = <T>(fn: () => T): T => {
+    const prev = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = 'test';
+    try {
+      return fn();
+    } finally {
+      if (prev === undefined) delete process.env['NODE_ENV'];
+      else process.env['NODE_ENV'] = prev;
+    }
+  };
+
+  beforeEach(() => {
+    resetBuildVariantFlags();
+    delete process.env['FEATURE_UNATTENDED_MODE'];
+  });
+  afterEach(() => {
+    resetBuildVariantFlags();
+    delete process.env['FEATURE_UNATTENDED_MODE'];
+  });
+
+  it('变体层声明优先于静态默认', () => {
+    asTestEnv(() => {
+      expect(feature('UNATTENDED_MODE')).toBe(false); // 静态默认 false
+      setBuildVariantFlags({ UNATTENDED_MODE: true });
+      expect(feature('UNATTENDED_MODE')).toBe(true);
+    });
+  });
+
+  it('环境变量优先级最高（可覆盖变体层）', () => {
+    setBuildVariantFlags({ UNATTENDED_MODE: true });
+    process.env['FEATURE_UNATTENDED_MODE'] = 'false';
+    expect(feature('UNATTENDED_MODE')).toBe(false);
+  });
+
+  it('未注入 + 非测试环境 ⇒ 抛 CORE_VARIANT_FLAGS_NOT_INITIALIZED', () => {
+    process.env['NODE_ENV'] = 'production';
+    try {
+      // `code` 在 AppError 的第 4 个参数上，**不在 message 里** ⇒ 断言错误码字段，
+      // 而不是 message 子串（否则测试在正确实现上也会红，2026-10-24 实测）。
+      const err = (() => {
+        try {
+          feature('UNATTENDED_MODE');
+          return null;
+        } catch (error) {
+          return error;
+        }
+      })();
+      expect(err).toBeInstanceOf(AppError);
+      expect((err as AppError).code).toBe('CORE_VARIANT_FLAGS_NOT_INITIALIZED');
+    } finally {
+      process.env['NODE_ENV'] = 'test';
+    }
+  });
+
+  it('注入可重复覆盖；reset 后回到「未注入」', () => {
+    setBuildVariantFlags({ SANDBOX: false });
+    expect(getBuildVariantFlags()).toEqual({ SANDBOX: false });
+    setBuildVariantFlags({ SANDBOX: true });
+    expect(getBuildVariantFlags()).toEqual({ SANDBOX: true });
+    resetBuildVariantFlags();
+    expect(isBuildVariantFlagsInitialized()).toBe(false);
+    expect(getBuildVariantFlags()).toBeNull();
+  });
+
+  it('`getBuildVariant()` 必是已知变体之一', () => {
+    expect(BUILD_VARIANTS as readonly string[]).toContain(getBuildVariant());
+  });
+});
+
+describe('paths：环境变量派生（包内可独立验证）', () => {
+  beforeEach(() => resetProductIdentity());
+
+  it('`<prefix>DATA_DIR` 优先于默认目录', () => {
+    const fake = resolve('kernel-test-data');
+    expect(resolveDataDir({ LIRI_DATA_DIR: fake })).toBe(fake);
+  });
+
+  it('缓存目录落在数据目录之下', () => {
+    const fake = resolve('kernel-test-data');
+    expect(resolveCacheDir({ LIRI_DATA_DIR: fake })).toBe(join(fake, 'cache'));
+  });
+
+  it('`<prefix>PROJECT_DIR` 决定项目根', () => {
+    const fake = resolve('kernel-test-project');
+    expect(resolveProjectRoot({ LIRI_PROJECT_DIR: fake })).toBe(fake);
+  });
+});
+
+describe('errors：AppError 基座契约', () => {
+  it('构造参数逐项落位，且是 Error 子类', () => {
+    const err = new AppError(
+      'boom',
+      ErrorCategory.VALIDATION,
+      ErrorSeverity.LOW,
+      'E_X',
+      { k: 1 }
+    );
+    expect(err).toBeInstanceOf(Error);
+    expect(err.message).toBe('boom');
+    expect(err.category).toBe(ErrorCategory.VALIDATION);
+    expect(err.severity).toBe(ErrorSeverity.LOW);
+    expect(err.code).toBe('E_X');
+    expect(err.context).toEqual({ k: 1 });
+  });
+
+  it('`ErrorCategory` 取值唯一（防复制粘贴漂移）', () => {
+    const values = Object.values(ErrorCategory);
+    expect(new Set(values).size).toBe(values.length);
+  });
+});
+
+describe('lazySingleton：延迟与单次实例化', () => {
+  it('首次属性访问才实例化，且只实例化一次', () => {
+    let calls = 0;
+    const obj = lazySingleton(() => {
+      calls += 1;
+      return { value: 42 };
+    });
+    expect(calls).toBe(0);
+    expect(obj.value).toBe(42);
+    expect(obj.value).toBe(42);
+    expect(calls).toBe(1);
+  });
+
+  it('方法经 Proxy 调用时 `this` 指向真实实例', () => {
+    const obj = lazySingleton(() => ({
+      n: 7,
+      getN(): number {
+        return this.n;
+      },
+    }));
+    expect(obj.getN()).toBe(7);
   });
 });

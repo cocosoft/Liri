@@ -410,6 +410,10 @@ describe('内核公开面三处一致（防漂移）', () => {
       exports: Record<string, { types?: string; import?: string } | string>;
     };
     const keys = exportKeys();
+    // 反向（2026-10-24 评审 A3）：exports **不得**出现通配。
+    // `"./spi/*"` 这类目录通配会把 dist 下每个内部文件都变成公开 API，
+    // 而收窄公开面属破坏性变更（需 major）⇒ 只能在发布前拦住。
+    expect(keys.filter((k) => k.includes('*'))).toEqual([]);
     for (const p of KERNEL_PUBLIC_SUBPATHS) {
       expect(keys.some((k) => prefixOf(k) === p)).toBe(true);
     }

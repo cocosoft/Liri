@@ -22,6 +22,9 @@ on:
       # 只改基线不会触发任何测试 ⇒ 这里显式纳入，避免「改了棘轮上限却没人跑门禁」。
       - '.trae/architecture/kernel-*.json'
       - '.github/workflows/kernel-ci.yml'
+      # 三源一致性门禁（tsconfig ↔ exports ↔ K07 白名单）住在 app/tests，
+      # 但它是**内核**的守卫 ⇒ 改动它也属内核面变更（B2：抽仓时必须一并带走）。
+      - 'app/tests/gates/kernelPurityGate.test.ts'
   pull_request:
     paths:
       - 'packages/kernel/**'
@@ -32,6 +35,7 @@ on:
       - 'scripts/codemod-core-imports.ts'
       - '.trae/architecture/kernel-*.json'
       - '.github/workflows/kernel-ci.yml'
+      - 'app/tests/gates/kernelPurityGate.test.ts'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
@@ -72,44 +76,25 @@ jobs:
         working-directory: packages/kernel
         run: bun run test
 
-      - name: Package build (standalone bundle)
+      - name: Package build (tsc: barrel + per-module output)
         working-directory: packages/kernel
         run: bun run build
 
-      # 产物可用性冒烟：只「构建成功」不等于「能 import」，更不等于「发布后子路径可用」。
-      # 2026-10-24 实证：`exports` 一度指向 `dist/core/*.js`，而当时的 build 只产 `dist/index.js`
-      # ⇒ 包能打出来、桶能 import，但**所有公开子路径在发布后都是 404**。
-      # 故此处逐条断言 exports 的非通配目标**文件真实存在**，并抽查桶与一个子路径可 import。
-      - name: Build artifact smoke (barrel + every published subpath)
+      # 产物冒烟（脚本化：prepublishOnly 与 CI 共用同一份断言，见 packages/kernel/scripts/smoke-dist.mjs）：
+      #  · exports 无通配（否则内部模块全量公开）
+      #  · 每个导出目标真实存在（曾因只产 dist/index.js 导致全部子路径 404）
+      #  · **桶与子路径是同一模块实例**（A1：曾因 bun 打桶 + tsc 逐模块产出并存而双副本）
+      - name: Build artifact smoke (no wildcards · targets exist · singleton identity)
         working-directory: packages/kernel
-        run: |
-          bun -e "
-          const fs = await import('node:fs');
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          const m = await import('./dist/index.js');
-          const need = ['KERNEL_PACKAGE_NAME', 'feature', 'resolveDbPath', 'AppError', 'globalEventBus'];
-          const miss = need.filter((k) => m[k] === undefined);
-          if (miss.length) { console.error('桶面缺失导出: ' + miss.join(', ')); process.exit(1); }
-          let checked = 0;
-          for (const [key, val] of Object.entries(pkg.exports)) {
-            if (key === '.') continue;
-            const targets = typeof val === 'string' ? [val] : [val.types, val.import].filter(Boolean);
-            for (const t of targets) {
-              if (t.includes('*')) continue;            // 通配条目在下面单独抽查
-              if (!fs.existsSync(t)) { console.error('exports 目标不存在: ' + key + ' -> ' + t); process.exit(1); }
-              checked++;
-            }
-          }
-          for (const [key, val] of Object.entries(pkg.exports)) {
-            const t = typeof val === 'string' ? val : val.import;
-            if (!t || !t.includes('*')) continue;
-            const dir = t.slice(0, t.indexOf('*'));
-            const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.js')) : [];
-            if (files.length === 0) { console.error('通配导出无产物: ' + key + ' -> ' + dir); process.exit(1); }
-          }
-          await import('./dist/core/paths.js');          // 子路径产物真的可 import
-          console.log('dist 可 import；exports 目标全部存在（' + checked + ' 个文件）；子路径可 import');
-          "
+        run: bun run smoke
+
+      # 三源一致性（B2）：`app/tests/gates/kernelPurityGate.test.ts` 断言
+      # ① app/tsconfig.json 显式映射 ② packages/kernel/package.json exports ③ K07 白名单
+      # 三者互相覆盖且无通配。它住在 app/tests，阶段二抽仓时**必须一并抽入内核仓**，
+      # 否则内核仓自己不再有这条守卫。
+      - name: Three-source consistency (tsconfig ↔ exports ↔ K07 whitelist)
+        working-directory: app
+        run: bun test tests/gates/kernelPurityGate.test.ts
 
       # 内核纯净度：K01–K04 跨层 / K06 依赖白名单 / K07 深路径棘轮（均可独立于 app 全量执行）
       - name: Kernel purity gate (K01-K07)

@@ -90,9 +90,11 @@ Orchestrator 只负责驱动循环、执行工具、感知结果，推理决策�
 
 ### 3.1 状态管理统一
 
-- **`core/state/`** **为唯一状态管理层**，禁止使用其他状态管理实现
-- 现有 `state/` 目录功能必须迁移到 `core/state/` 扩展
-- 所有状态相关导入必须从 `@modules/core/state/` 引入
+- **`system/state/`**（别名 `@modules/state`，位于 `app/src/system/state/`）**为唯一状态管理层**，禁止使用其他状态管理实现
+- **订正（2026-10-24）**：本节原写「`core/state/` 为唯一状态层」——该目录在 core 物理剥离后**不存在**
+  （`packages/kernel/src/core/state` 实测不存在）；状态层实际在 `app/src/system/state/`，导入别名为 `@modules/state`。
+  原「现有 `state/` 必须迁移到 `core/state/`」的迁移指令已随该订正失效（迁移早已完成，方向相反）。
+- 所有状态相关导入必须从 `@modules/state/` 引入
 - 禁止新增 `Store` / `StateManager` 的独立实现
 
 ### 3.2 代码复用收敛

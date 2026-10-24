@@ -312,7 +312,7 @@ src/services/
 |------|------|------|
 | CoreAPI 接口 | `app/src/runtime/api/CoreAPI.ts` | 统一门面，所有功能的 API 定义 |
 | CoreAPI 实现 | `app/src/runtime/api/CoreAPIImpl.ts` | 具体实现 |
-| LocalHTTPService | `app/src/core/gateway/local/LocalHTTPService.ts` | 流式 HTTP API（SSE） |
+| LocalHTTPService | `app/src/infrastructure/http/LocalHTTPService.ts` | 流式 HTTP API（SSE） |
 | Command 系统 | `app/src/commands/` | 80+ 内置命令 |
 | 工具系统 | `app/src/tools/` | 60+ 工具 |
 | REPL 入口 | `app/src/entrypoints/repl.ts` | 被前端化的核心体验 |

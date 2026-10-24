@@ -239,7 +239,7 @@ bun run modules:snapshot # 6. 更新依赖快照
 
 **规则**：`app/scripts/**` 下的一次性脚本（验证/迁移/播种/诊断），凡 `import` 了 `../src/**`（尤其是 `@modules/*` **桶**），**必须在末尾显式 `process.exit(0)`**（失败路径用 `process.exit(1)`）。
 
-**为什么**：实测导入 `@modules/monitoring`、`@modules/core` 等桶所拉起的模块图后，进程会留下**无法枚举**的持有句柄 —— 工作完成后**永不退出**（`scripts/verify-derive.ts` 实测：工作 10s 内完成、+150s 仍未退出）。影响：CI / pre-commit hook / 人工跑脚本时"命令不返回"，易被误判为任务卡死。**依据**：台账 V-47（2026-09-15，TRAE-debugger 流程二分取证）。
+**为什么**：实测导入 `@modules/monitoring`、`@modules/core` 等桶所拉起的模块图后，进程会留下**无法枚举**的持有句柄 —— 工作完成后**永不退出**（`scripts/verify-derive.ts` 实测：工作 10s 内完成、+150s 仍未退出）。影响：CI / pre-commit hook / 人工跑脚本时"命令不返回"，易被误判为任务卡死。**依据**：台账 V-47（2026-09-15，TRAE-debugger 流程二分取证）。注：`@modules/core` 已于 2026-10-23 更名为 `@openliri/kernel`（本条保留原文以存证，复现时用新别名）。
 
 **诊断限制（勿重复踩坑）**：Bun 下 `process.getActiveResourcesInfo()` / `process._getActiveHandles()` 均返回空数组、`process.report.getReport()` 不含 libuv 句柄 ⇒ **无法枚举持有句柄**；已排除：全局定时器（打桩计数 0）、文件流/`fs.watch`/socket/server/Worker/dns/`Bun.serve·spawn`（探针 0 记录）、`bun:sqlite` 未关闭连接（最小复现可正常退出）、"大导入必然滞留"（`typescript` 384ms 导入可正常退出）。
 

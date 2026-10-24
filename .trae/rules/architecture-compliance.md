@@ -87,7 +87,7 @@ LightweightAPIError, LightweightConfigError
 
 ### R01-007 [MUST] 路径解析一致性
 
-所有路径解析必须通过 `@modules/core/paths` 中的标准函数获取，**禁止**在业务代码中硬编码路径或自行拼接。
+所有路径解析必须通过 `@openliri/kernel/paths` 中的标准函数获取，**禁止**在业务代码中硬编码路径或自行拼接。
 
 **禁止**：
 - 使用 `join(os.homedir(), '.pyapp', ...)` 直接构造路径（应使用 `resolvePyappHome()` 或 `LIRI_HOME` 环境变量）

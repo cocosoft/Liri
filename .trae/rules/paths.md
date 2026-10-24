@@ -89,6 +89,6 @@ description: 文件路径使用规范与统一路径管理规则，适用于所�
 **流程**：确定层级 → 在 `core/paths.ts` 新增导出函数 → 若是目录则加入 `ensureDataDirectories()` 创建列表 → `bun run typecheck`
 
 **参考文档**：
-- [core/paths.ts](file:///e:/PY/CODES/PY_APP/app/src/core/paths.ts) — 路径管理中心
+- [core/paths.ts](file:///e:/PY/CODES/PY_APP/packages/kernel/src/core/paths.ts) — 路径管理中心
 - [pyapp.ts](file:///e:/PY/CODES/PY_APP/app/src/pyapp.ts) — 启动引导层
 - [project_rules.md §1.13](file:///e:/PY/CODES/PY_APP/.trae/rules/project_rules.md) — 路径与依赖管理规范

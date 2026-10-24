@@ -92,7 +92,7 @@
 ## §3 HTTP API 清单（Node.js 后端 → 前端）
 
 **定义位置**:
-- 主路由: [LocalHTTPService.ts](file:///e:/PY/CODES/PY_APP/app/src/core/gateway/local/LocalHTTPService.ts)
+- 主路由: [LocalHTTPService.ts](file:///e:/PY/CODES/PY_APP/app/src/infrastructure/http/LocalHTTPService.ts)
 - 子路由: [ModelManagementAPI.ts](file:///e:/PY/CODES/PY_APP/app/src/ai/ModelManagementAPI.ts)（通过 `tryHandleRoute` 挂载）
 
 ### §3.1 系统

@@ -25,10 +25,11 @@
  */
 
 import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel';
-// 多租户 P1（2026-10-21）：余额库按身份分实例（本地身份零变更）
+import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel';
+// 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,
+  getRequestPrincipalKey,
   isLocalPrincipal,
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
@@ -58,7 +59,7 @@ export interface BalanceRecord {
  */
 export class BalanceStore {
   private static instance: BalanceStore;
-  /** 多租户 P1：非本地身份的余额库实例（各自独立 app.db） */
+  /** 租户级库实例缓存（键 = `tenantId`；库按租户分，用户靠 `owner_key` 行级隔离） */
   private static scopedInstances = new Map<string, BalanceStore>();
 
   private db: Database | null = null;
@@ -73,19 +74,21 @@ export class BalanceStore {
   /**
    * 取余额存储实例。
    *
-   * 多租户 P1（2026-10-21）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该身份自己的实例
-   * （`<scoped>/app.db`）。**不做"共享实例换连接"**——单字段连接在 `await` 交错点会串库。
+   * 租户级 DB（基础设施专项 §6.1 期 3）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒
+   * 该**租户**的实例（`tenants/<t>/app.db`），同租户内不同用户共用连接、按 `owner_key`
+   * 行级隔离。**不做"共享实例换连接"**——单字段连接在 `await` 交错点会串库。
    */
   static getInstance(dbPath?: string): BalanceStore {
     const principal = getRequestPrincipal();
     if (!isLocalPrincipal(principal) && dbPath === undefined) {
-      const key = principalKeyOf(principal);
+      const key = principal.tenantId;
       const existing = BalanceStore.scopedInstances.get(key);
       if (existing) return existing;
-      const scoped = new BalanceStore(resolveScopedDbPath(principal));
+      const scoped = new BalanceStore(resolveTenantDbPath(principal));
       BalanceStore.scopedInstances.set(key, scoped);
-      // 多租户 P5：登记 closer（关连接 + 摘除本类缓存），删租户时统一释放文件句柄
-      registerScopedResource(key, () => {
+      // 多租户 P5：登记 closer（关连接 + 摘除本类缓存），删租户时统一释放文件句柄。
+      // 登记键用**创建者**的 `<tenant>:<user>`（purge 按 `<tenant>:` 前缀关闭）。
+      registerScopedResource(principalKeyOf(principal), () => {
         scoped.close();
         BalanceStore.scopedInstances.delete(key);
       });
@@ -159,18 +162,42 @@ export class BalanceStore {
 
     await run(`
       CREATE TABLE IF NOT EXISTS ${BALANCES_TABLE} (
-        provider_id TEXT PRIMARY KEY,
+        provider_id TEXT NOT NULL,
         remaining REAL,
         total REAL,
         used REAL,
         unit TEXT DEFAULT 'CNY',
         queried_at INTEGER NOT NULL,
         is_supported INTEGER NOT NULL DEFAULT 1,
-        below_threshold INTEGER NOT NULL DEFAULT 0
+        below_threshold INTEGER NOT NULL DEFAULT 0,
+        owner_key TEXT NOT NULL DEFAULT 'local:local',
+        PRIMARY KEY (provider_id, owner_key)
       )
     `);
 
+    // 旧库（单身份）补列：`ALTER` 不能改主键，但本地全 `local:local` ⇒ 不碰撞
+    const columns = await new Promise<Array<{ name: string }>>(
+      (resolve, reject) => {
+        this.db!.all(
+          `PRAGMA table_info(${BALANCES_TABLE})`,
+          [],
+          (err: Error | null, rows) =>
+            err ? reject(err) : resolve((rows || []) as Array<{ name: string }>)
+        );
+      }
+    );
+    if (!columns.some((c) => c.name === 'owner_key')) {
+      await run(
+        `ALTER TABLE ${BALANCES_TABLE} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`
+      );
+    }
+
     logger.debug('BalanceStore: 表已就绪');
+  }
+
+  /** 当前写入/查询的归属键（本地 ⇒ `local:local`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
   }
 
   /** 确保数据库已初始化 */
@@ -194,8 +221,8 @@ export class BalanceStore {
       db.get(
         `SELECT provider_id, remaining, total, used, unit, queried_at, is_supported, below_threshold
          FROM ${BALANCES_TABLE}
-         WHERE provider_id = ?`,
-        [providerId],
+         WHERE provider_id = ? AND owner_key = ?`,
+        [providerId, this.owner()],
         (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else if (row) {
@@ -226,7 +253,9 @@ export class BalanceStore {
       db.all(
         `SELECT provider_id, remaining, total, used, unit, queried_at, is_supported, below_threshold
          FROM ${BALANCES_TABLE}
+         WHERE owner_key = ?
          ORDER BY provider_id`,
+        [this.owner()],
         (err: Error | null, rows: unknown[]) => {
           if (err) reject(err);
           else {
@@ -266,8 +295,8 @@ export class BalanceStore {
     return new Promise<void>((resolve, reject) => {
       db.run(
         `INSERT OR REPLACE INTO ${BALANCES_TABLE}
-         (provider_id, remaining, total, used, unit, queried_at, is_supported, below_threshold)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (provider_id, remaining, total, used, unit, queried_at, is_supported, below_threshold, owner_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           providerId,
           data.remaining,
@@ -277,6 +306,7 @@ export class BalanceStore {
           now,
           data.isSupported ? 1 : 0,
           data.belowThreshold ? 1 : 0,
+          this.owner(),
         ],
         (err: Error | null) => {
           if (err) reject(err);
@@ -292,8 +322,8 @@ export class BalanceStore {
 
     return new Promise<void>((resolve, reject) => {
       db.run(
-        `DELETE FROM ${BALANCES_TABLE} WHERE provider_id = ?`,
-        [providerId],
+        `DELETE FROM ${BALANCES_TABLE} WHERE provider_id = ? AND owner_key = ?`,
+        [providerId, this.owner()],
         (err: Error | null) => {
           if (err) reject(err);
           else resolve();

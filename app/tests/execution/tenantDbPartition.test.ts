@@ -217,11 +217,13 @@ describe('LLMTracker：按身份分实例', () => {
   });
 });
 
-describe('BalanceStore：按身份分实例', () => {
-  it('已认证身份 ⇒ 独立实例', () => {
+describe('BalanceStore：租户级库 + 行级隔离', () => {
+  it('同租户两用户共用实例；本地用共享实例', () => {
     const local = BalanceStore.getInstance();
     const alice = runWithPrincipal(ALICE, () => BalanceStore.getInstance());
+    const bob = runWithPrincipal(BOB, () => BalanceStore.getInstance());
     expect(alice).not.toBe(local);
+    expect(bob).toBe(alice);
   });
 });
 

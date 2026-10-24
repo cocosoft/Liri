@@ -8,10 +8,11 @@ import {
 } from '@modules/session/types/checkpoint';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel';
-// 多租户 P1（2026-10-21）：检查点库按身份分实例（本地身份仍用共享 app.db）
+import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel';
+// 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,
+  getRequestPrincipalKey,
   isLocalPrincipal,
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
@@ -68,7 +69,8 @@ export class CheckpointDatabase implements CheckpointStorage {
           metadata TEXT NOT NULL,
           state TEXT NOT NULL,
           token_count INTEGER DEFAULT 0,
-          auto_created INTEGER DEFAULT 0
+          auto_created INTEGER DEFAULT 0,
+          owner_key TEXT NOT NULL DEFAULT 'local:local'
         )
       `,
         (err) => {
@@ -80,6 +82,7 @@ export class CheckpointDatabase implements CheckpointStorage {
         }
       );
     });
+    await this.ensureOwnerColumn();
 
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
@@ -114,6 +117,36 @@ export class CheckpointDatabase implements CheckpointStorage {
     });
   }
 
+  /**
+   * 存量库补 `owner_key` 列（默认 `local:local` ⇒ 桌面端历史行仍归属本地身份、仍可见）。
+   */
+  private async ensureOwnerColumn(): Promise<void> {
+    const columns = await new Promise<Array<Record<string, unknown>>>(
+      (resolve, reject) => {
+        this.db?.all(
+          `PRAGMA table_info(${CHECKPOINT_TABLE})`,
+          [],
+          (err: Error | null, rows: unknown[]) =>
+            err
+              ? reject(err)
+              : resolve((rows || []) as Array<Record<string, unknown>>)
+        );
+      }
+    );
+    if (columns.some((c) => c.name === 'owner_key')) return;
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `ALTER TABLE ${CHECKPOINT_TABLE} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
+  }
+
+  /** 当前写入/查询的归属键（本地 ⇒ `local:local`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
+  }
+
   async saveCheckpoint(checkpoint: SessionCheckpoint): Promise<void> {
     await this.initDatabase();
     if (!this.db) {
@@ -128,8 +161,8 @@ export class CheckpointDatabase implements CheckpointStorage {
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
         `INSERT OR REPLACE INTO ${CHECKPOINT_TABLE}
-        (id, session_id, label, description, created_at, messages, metadata, state, token_count, auto_created)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, session_id, label, description, created_at, messages, metadata, state, token_count, auto_created, owner_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           checkpoint.id,
           checkpoint.sessionId,
@@ -141,6 +174,7 @@ export class CheckpointDatabase implements CheckpointStorage {
           checkpoint.state,
           checkpoint.tokenCount || 0,
           checkpoint.autoCreated ? 1 : 0,
+          this.owner(),
         ],
         (err) => {
           if (err) {
@@ -170,8 +204,9 @@ export class CheckpointDatabase implements CheckpointStorage {
 
     const row = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
-        `SELECT * FROM ${CHECKPOINT_TABLE} WHERE id = ?`,
-        [checkpointId],
+        `SELECT * FROM ${CHECKPOINT_TABLE}
+         WHERE id = ? AND owner_key = ?`,
+        [checkpointId, this.owner()],
         (err, row) => {
           if (err) {
             reject(err);
@@ -202,8 +237,9 @@ export class CheckpointDatabase implements CheckpointStorage {
 
     const rows = await new Promise<any[]>((resolve, reject) => {
       this.db?.all(
-        `SELECT * FROM ${CHECKPOINT_TABLE} WHERE session_id = ? ORDER BY created_at ASC`,
-        [sessionId],
+        `SELECT * FROM ${CHECKPOINT_TABLE}
+         WHERE session_id = ? AND owner_key = ? ORDER BY created_at ASC`,
+        [sessionId, this.owner()],
         (err, rows) => {
           if (err) {
             reject(err);
@@ -230,8 +266,8 @@ export class CheckpointDatabase implements CheckpointStorage {
 
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
-        `DELETE FROM ${CHECKPOINT_TABLE} WHERE id = ?`,
-        [checkpointId],
+        `DELETE FROM ${CHECKPOINT_TABLE} WHERE id = ? AND owner_key = ?`,
+        [checkpointId, this.owner()],
         (err) => {
           if (err) {
             reject(err);
@@ -256,8 +292,9 @@ export class CheckpointDatabase implements CheckpointStorage {
 
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
-        `DELETE FROM ${CHECKPOINT_TABLE} WHERE session_id = ?`,
-        [sessionId],
+        `DELETE FROM ${CHECKPOINT_TABLE}
+         WHERE session_id = ? AND owner_key = ?`,
+        [sessionId, this.owner()],
         (err) => {
           if (err) {
             reject(err);
@@ -282,8 +319,9 @@ export class CheckpointDatabase implements CheckpointStorage {
 
     const row = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
-        `SELECT COUNT(*) as count FROM ${CHECKPOINT_TABLE} WHERE session_id = ?`,
-        [sessionId],
+        `SELECT COUNT(*) as count FROM ${CHECKPOINT_TABLE}
+         WHERE session_id = ? AND owner_key = ?`,
+        [sessionId, this.owner()],
         (err, row) => {
           if (err) {
             reject(err);
@@ -312,8 +350,9 @@ export class CheckpointDatabase implements CheckpointStorage {
 
     const row = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
-        `SELECT * FROM ${CHECKPOINT_TABLE} WHERE session_id = ? ORDER BY created_at DESC LIMIT 1`,
-        [sessionId],
+        `SELECT * FROM ${CHECKPOINT_TABLE}
+         WHERE session_id = ? AND owner_key = ? ORDER BY created_at DESC LIMIT 1`,
+        [sessionId, this.owner()],
         (err, row) => {
           if (err) {
             reject(err);
@@ -339,8 +378,10 @@ export class CheckpointDatabase implements CheckpointStorage {
 
     const rows = await new Promise<any[]>((resolve, reject) => {
       this.db?.all(
-        `SELECT id FROM ${CHECKPOINT_TABLE} WHERE session_id = ? AND auto_created = 1 ORDER BY created_at ASC`,
-        [sessionId],
+        `SELECT id FROM ${CHECKPOINT_TABLE}
+         WHERE session_id = ? AND auto_created = 1 AND owner_key = ?
+         ORDER BY created_at ASC`,
+        [sessionId, this.owner()],
         (err, rows) => {
           if (err) {
             reject(err);
@@ -393,15 +434,14 @@ export function createCheckpointDatabase(dbPath?: string): CheckpointDatabase {
 }
 
 let sharedCheckpointDb: CheckpointDatabase | null = null;
-/** 多租户 P1：非本地身份的检查点库实例（各自独立 app.db） */
-const scopedCheckpointDbs = new Map<string, CheckpointDatabase>();
+/** 租户级 DB（§6.1）：实例按**租户**缓存（同租户用户共用连接，行级隔离靠 `owner_key`） */
+const scopedCheckpointDbs = new Map<string, CheckpointDatabase>(); // key = tenantId
 
 /**
- * 取检查点库（多租户 P1）。
+ * 取检查点库。
  *
- * 本地身份 ⇒ 原共享实例（零变更）；已认证身份 ⇒ 该身份自己的实例
- * （`<scoped>/app.db`）。**不做"共享实例换连接"**：`this.db` 是单字段，
- * 并发请求会在 `await` 交错点串到别人的库。
+ * 多租户 §6.1：本地身份 ⇒ 原共享实例（零变更）；已认证身份 ⇒ 该**租户**的实例
+ * （`tenants/<t>/app.db`），用户维度靠 `owner_key` 过滤。
  */
 export function getCheckpointDatabase(): CheckpointDatabase {
   const principal = getRequestPrincipal();
@@ -409,15 +449,15 @@ export function getCheckpointDatabase(): CheckpointDatabase {
     if (!sharedCheckpointDb) sharedCheckpointDb = new CheckpointDatabase();
     return sharedCheckpointDb;
   }
-  const key = principalKeyOf(principal);
-  const existing = scopedCheckpointDbs.get(key);
+  const tenantKey = principal.tenantId;
+  const existing = scopedCheckpointDbs.get(tenantKey);
   if (existing) return existing;
-  const scoped = new CheckpointDatabase(resolveScopedDbPath(principal));
-  scopedCheckpointDbs.set(key, scoped);
-  // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
-  registerScopedResource(key, async () => {
+  const scoped = new CheckpointDatabase(resolveTenantDbPath(principal));
+  scopedCheckpointDbs.set(tenantKey, scoped);
+  // 登记键用**创建者**的 `<tenant>:<user>`：purge 按 `<tenant>:` 前缀关闭 ⇒ 删租户能命中
+  registerScopedResource(principalKeyOf(principal), async () => {
     await scoped.close();
-    scopedCheckpointDbs.delete(key);
+    scopedCheckpointDbs.delete(tenantKey);
   });
   return scoped;
 }

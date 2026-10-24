@@ -67,9 +67,8 @@ describe('buildModelAliasIndex：wire 名 → 规范 modelId', () => {
       join(__dirname, '..', '..', 'src', 'ai', 'models', 'ModelRegistry.ts'),
       'utf-8'
     );
-    expect(source).toContain(
-      'this.modelAliasIndex = buildModelAliasIndex(all)'
-    );
+    // 2026-10-24 A2：索引改为写入**当前身份分桶**（`cache().modelAliasIndex`），故断言不含前缀
+    expect(source).toContain('modelAliasIndex = buildModelAliasIndex(all)');
     expect(source).toMatch(/resolveModelAlias\(modelName: string\): string/);
   });
 });

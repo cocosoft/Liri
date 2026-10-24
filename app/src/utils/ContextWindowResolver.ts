@@ -12,6 +12,8 @@
 import { getLogger } from '@modules/monitoring';
 import { Database } from '@openliri/kernel/external/sqlite3';
 import { resolveTenantDbPath } from '@openliri/kernel';
+// 租户库 §8-#14 A2：窗口缓存按 `<owner>\0<model>` 分桶（无请求作用域 ⇒ `local:local`）
+import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
 // 2026-10-01 B14b（甲′）：原静态导入 app 层 `@modules/ai` 的 ModelRegistry（同步路径读取）
 // ⇒ 改为本文件自持的 **infra 级缓存**，由 `ModelRegistry` 在装载/刷新模型时**同步推入**
 // （DB 仍为唯一事实来源）。本站是该文件唯一的 app 层耦合点，解除后本文件 app-free，可落 infra。
@@ -24,15 +26,25 @@ import { resolveTenantDbPath } from '@openliri/kernel';
 /** 模型 → 上下文窗口（tokens）映射，零依赖纯 Map（不含任何模型名/供应商名硬编码）。 */
 const modelWindows = new Map<string, number>();
 
+/**
+ * 缓存键：`<owner>\0<model>`（租户库 §8-#14 A2）。
+ *
+ * 模型目录已按**用户**隔离（`model_registry.owner_key`），窗口缓存若仍按模型名共享，
+ * 同租户两用户的同名模型会互相覆盖 ⇒ 必须一起分桶。无请求作用域时键为 `local:local`。
+ */
+function windowKey(model: string): string {
+  return `${getRequestPrincipalKey()}\u0000${model}`;
+}
+
 /** 写入/覆盖某模型的上下文窗口（tokens）。非正数忽略，避免污染缓存。 */
 export function setModelWindow(model: string, tokens: number): void {
   if (!model || !(tokens > 0)) return;
-  modelWindows.set(model, tokens);
+  modelWindows.set(windowKey(model), tokens);
 }
 
 /** 读取某模型的上下文窗口；未命中返回 undefined（由调用方走既有回落链）。 */
 export function getModelWindow(model: string): number | undefined {
-  return modelWindows.get(model);
+  return modelWindows.get(windowKey(model));
 }
 
 const logger = getLogger('context:window');

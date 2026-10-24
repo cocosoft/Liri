@@ -21,16 +21,19 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { VideoGenerateTool } from '../VideoGenerateTool';
-import { VideoGenerationRouter } from '../VideoGenerationRouter';
-import { RegistryVideoProvider } from '../providers/RegistryVideoProvider';
+import { VideoGenerateTool } from '../../src/tools/VideoGenerateTool/VideoGenerateTool';
+import { VideoGenerationRouter } from '../../src/tools/VideoGenerateTool/VideoGenerationRouter';
+import { RegistryVideoProvider } from '../../src/tools/VideoGenerateTool/providers/RegistryVideoProvider';
 import type { AIProvider } from '@modules/ai';
-import { syncDBProvidersToRegistry } from '../../../ai/providers/ProviderSyncService';
-import { resolveDbPath } from '../../../core/paths';
-import { ModelRouter } from '../../../ai/modelRouter';
+import { syncDBProvidersToRegistry } from '../../src/ai/providers/ProviderSyncService';
+// 2026-10-24：原引用 `../../../core/paths`（core 已下沉 packages/kernel）⇒ 改走唯一入口
+import { resolveDbPath } from '@openliri/kernel/paths';
+import { ModelRouter } from '../../src/ai/modelRouter';
+import type { ToolUseContext } from '../../src/tools/types/ToolUseContext.js';
 
 const tool = new VideoGenerateTool();
-const mockContext = {};
+// 本套件只做参数/路由断言，不依赖真实会话上下文
+const mockContext = {} as ToolUseContext;
 
 /** SiliconFlow API Key 是否可用 */
 let hasSiliconKey = false;
@@ -70,17 +73,28 @@ beforeAll(async () => {
 
   // 从 DB 读取 API Key（使用正确的 DB 路径）
   try {
-    const { Database } = await import('bun:sqlite');
+    // `bun:sqlite` 无 TS 声明（仓内测试统一走内核包装层）⇒ 此处只读一次、显式声明所需最小面
+    const { Database: BunDatabase } = (await import(
+      'bun:sqlite' as string
+    )) as {
+      Database: new (
+        path: string,
+        opts: { readonly: boolean }
+      ) => {
+        query(sql: string): { get(): { api_key?: string } | null };
+        close(): void;
+      };
+    };
     const dbPath = resolveDbPath();
     console.log(`[beforeAll] DB 路径: ${dbPath}`);
 
-    const db = new Database(dbPath, { readonly: true });
+    const db = new BunDatabase(dbPath, { readonly: true });
 
     const silicon = db
       .query(
         "SELECT api_key FROM ai_providers WHERE provider_type = 'siliconflow'"
       )
-      .get() as { api_key?: string } | null;
+      .get();
 
     if (silicon?.api_key) {
       siliconApiKey = silicon.api_key;
@@ -396,6 +410,12 @@ describe('VideoGenerateTool — 图生视频 (I2V)', () => {
 
 describe('VideoGenerateTool — 异步模式', () => {
   test('async=true 应立即返回 taskId', async () => {
+    // 2026-10-24（迁入 `tests/` 后进 CI 扫描面）：本用例走**真实 Router 生成路径**
+    // （无 mock provider）⇒ 无 key 环境必失败。对齐同文件其余集成测试加 skip 保护。
+    if (!hasSiliconKey) {
+      console.log('  [跳过] SiliconFlow API Key 未配置');
+      return;
+    }
     const result = await tool.execute(
       { prompt: '生成一段测试视频', async: true },
       mockContext
@@ -454,6 +474,7 @@ describe('VideoGenerationRouter — 空 providers', () => {
     // 不设置任何 provider
     const result = await router.generate({
       prompt: 'test',
+      model: T2V_MODEL,
     });
 
     expect(result.success).toBe(false);
@@ -540,6 +561,7 @@ describe('RegistryVideoProvider — isAvailable', () => {
     const provider = new RegistryVideoProvider(mockProvider, 'mock');
     const result = await provider.generate({
       prompt: 'test video',
+      model: T2V_MODEL,
     });
 
     expect(result.success).toBe(true);
@@ -562,6 +584,7 @@ describe('RegistryVideoProvider — isAvailable', () => {
     const provider = new RegistryVideoProvider(mockProvider, 'mock');
     const result = await provider.generate({
       prompt: 'test video',
+      model: T2V_MODEL,
     });
 
     expect(result.success).toBe(false);
@@ -654,6 +677,7 @@ describe('VideoGenerationRouter — 多 Provider 容错', () => {
 
     const result = await router.generate({
       prompt: 'test',
+      model: T2V_MODEL,
     });
 
     expect(result.success).toBe(false);
@@ -693,6 +717,7 @@ describe('VideoGenerationRouter — 多 Provider 容错', () => {
 
     const result = await router.generate({
       prompt: 'test',
+      model: T2V_MODEL,
     });
 
     expect(result.success).toBe(false);
@@ -728,7 +753,10 @@ describe('VideoGenerationRouter — 多 Provider 容错', () => {
       new RegistryVideoProvider(neverCalled, 'openai'),
     ]);
 
-    const result = await router.generate({ prompt: 'test' });
+    const result = await router.generate({
+      prompt: 'test',
+      model: T2V_MODEL,
+    });
 
     expect(result.success).toBe(true);
     expect(result.data?.[0]?.url).toBe('https://example.com/ok.mp4');

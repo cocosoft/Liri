@@ -8,7 +8,13 @@
 import { randomUUID } from 'crypto';
 import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath } from '@openliri/kernel';
+import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel/paths';
+import {
+  getRequestPrincipal,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 
 const logger = getLogger('AgentRoleStore');
 
@@ -114,11 +120,16 @@ export class AgentRoleStore {
     return agentId.trim().toLowerCase();
   }
 
-  private dbPath: string;
+  private dbPath?: string;
   /** 进行中的初始化（O11：并发调用共享，避免重复打开连接） */
   private initPromise: Promise<void> | null = null;
 
-  constructor(dbPath: string = resolveDbPath()) {
+  /**
+   * @param dbPath 显式库路径（测试/工具注入）；缺省由 `init()` 惰性解析 ——
+   *   2026-10-25 租户级 DB §6.1：默认参数会在**构造时**解析路径，模块级单例
+   *   `getAgentRoleStore()` 在无请求身份下构造会把库钉死共享 `app.db` ⇒ 改惰性解析。
+   */
+  constructor(dbPath?: string) {
     this.dbPath = dbPath;
   }
 
@@ -140,8 +151,9 @@ export class AgentRoleStore {
   }
 
   private async doInit(): Promise<void> {
+    const dbPath = this.dbPath ?? resolveDbPath();
     this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err: Error | null) => {
+      const db = new Database(dbPath, (err: Error | null) => {
         if (err) {
           reject(err);
         } else {
@@ -375,9 +387,10 @@ export class AgentRoleStore {
 
   /** 插入一条 Agent 角色 */
   async insert(config: AgentRoleConfig): Promise<string> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    // 2026-10-25 根因修（CS05）：`getAgentRoleStore()` 创建时 fire-and-forget `init()`，
+    // 首次访问若只判 `if (!this.db)` 会与"播种尚未完成"竞态 ⇒ 起手 `await init()` 幂等等齐
+    // （`doInit` 内由 `seedDefaults` 调 `insert` 时 `db` 已建 ⇒ 直接 return，不死锁）。
+    await this.init();
     const id = config.id || randomUUID();
     const now = Math.floor(Date.now() / 1000);
 
@@ -419,9 +432,7 @@ export class AgentRoleStore {
 
   /** 更新一条 Agent 角色 */
   async update(id: string, config: Partial<AgentRoleConfig>): Promise<void> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    await this.init();
     const now = Math.floor(Date.now() / 1000);
     const sets: string[] = ['updated_at = ?'];
     const params: unknown[] = [now];
@@ -488,9 +499,7 @@ export class AgentRoleStore {
 
   /** 删除一条 Agent 角色 */
   async delete(id: string): Promise<void> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
+    await this.init();
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
         `DELETE FROM ${AGENT_ROLES_TABLE} WHERE id = ?`,
@@ -508,9 +517,7 @@ export class AgentRoleStore {
 
   /** 查询所有 Agent 角色（按 sort_order 排序） */
   async listAll(): Promise<AgentRoleConfig[]> {
-    if (!this.db) {
-      return [];
-    }
+    await this.init();
     return await new Promise<AgentRoleConfig[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${AGENT_ROLES_TABLE} ORDER BY sort_order ASC`,
@@ -536,9 +543,7 @@ export class AgentRoleStore {
    *  属同一规则的"集合形态"，两处语义须一致。）
    */
   async listEnabled(): Promise<AgentRoleConfig[]> {
-    if (!this.db) {
-      return [];
-    }
+    await this.init();
     return await new Promise<AgentRoleConfig[]>((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${AGENT_ROLES_TABLE} WHERE enabled = 1 ORDER BY sort_order ASC`,
@@ -559,9 +564,7 @@ export class AgentRoleStore {
    * ⚠ 解析链请用 [`resolveForDelegation`] —— 它把"启用判定"一并收敛，避免调用方自建第二份判定（T7）。
    */
   async getByAgentId(agentId: string): Promise<AgentRoleConfig | null> {
-    if (!this.db) {
-      return null;
-    }
+    await this.init();
     return await new Promise<AgentRoleConfig | null>((resolve, reject) => {
       this.db!.get(
         `SELECT * FROM ${AGENT_ROLES_TABLE} WHERE agent_id = ?`,
@@ -619,18 +622,61 @@ export class AgentRoleStore {
   }
 }
 
-/** 全局单例 */
+/** 全局单例（本地身份；租户身份走 `scopedInstances`） */
 let instance: AgentRoleStore | null = null;
+/** 租户级实例缓存（键 = `tenantId`；各租户**独立**的角色配置库） */
+const scopedInstances = new Map<string, AgentRoleStore>();
+/** 显式 `dbPath` 实例缓存（键 = 路径；仅测试/工具注入） */
+const explicitInstances = new Map<string, AgentRoleStore>();
 
 /**
- * 获取 AgentRoleStore 单例
+ * 获取 AgentRoleStore 单例（方法内部自 `await init()`，调用方无需预热）。
+ *
+ * 2026-10-25 租户级 DB §6.1：`agent_roles` 判定为**租户级配置**（非用户级数据 ——
+ * ① 有默认播种 5 个内置角色；② `agent_id TEXT NOT NULL UNIQUE` 全局唯一；
+ * ③ 双消费者（理事会辩论 / 子代理描述符解析链）须在**同作用域**看到同一份配置）。
+ * ⇒ 隔离口径 = **库切租户**（各租户独立配置库 + 各自播种默认角色），**不加 `owner_key`**
+ * （同租户内所有用户共享一套角色，本就正确）。
  */
-export function getAgentRoleStore(): AgentRoleStore {
+export function getAgentRoleStore(dbPath?: string): AgentRoleStore {
+  // 显式路径（测试/工具注入）按路径分桶，**不**复用默认单例
+  if (dbPath !== undefined) {
+    const existing = explicitInstances.get(dbPath);
+    if (existing) return existing;
+    const created = new AgentRoleStore(dbPath);
+    explicitInstances.set(dbPath, created);
+    return created;
+  }
+  const principal = getRequestPrincipal();
+  if (!isLocalPrincipal(principal)) {
+    const key = principal.tenantId;
+    const existing = scopedInstances.get(key);
+    if (existing) return existing;
+    const scoped = new AgentRoleStore(resolveTenantDbPath(principal));
+    scopedInstances.set(key, scoped);
+    scoped.init().catch((err) => {
+      logger.error('AgentRoleStore 初始化失败', { error: String(err) });
+    });
+    // 删租户 / 退出时释放句柄并摘除缓存（否则 Windows 上 tenants/<t> 删不掉）
+    registerScopedResource(principalKeyOf(principal), () => {
+      scoped.close();
+      scopedInstances.delete(key);
+    });
+    return scoped;
+  }
   if (!instance) {
-    instance = new AgentRoleStore();
+    instance = new AgentRoleStore(dbPath);
     instance.init().catch((err) => {
       logger.error('AgentRoleStore 初始化失败', { error: String(err) });
     });
   }
   return instance;
+}
+
+/** 仅测试：关掉并清空租户级实例缓存（**生产不调用**） */
+export function resetAgentRoleStoreScopedForTest(): void {
+  for (const store of scopedInstances.values()) {
+    store.close();
+  }
+  scopedInstances.clear();
 }

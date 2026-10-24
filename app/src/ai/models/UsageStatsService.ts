@@ -166,7 +166,19 @@ export class UsageStatsService {
     this.dbPath = dbPath;
   }
 
+  /** 显式 `dbPath` 实例缓存（键 = 路径；仅测试/工具注入，如 `':memory:'`） */
+  private static explicitInstances = new Map<string, UsageStatsService>();
+
   static getInstance(dbPath?: string): UsageStatsService {
+    // 2026-10-24：显式路径（测试/工具注入）按路径分桶，**不**复用默认单例 ——
+    // 原"首次创建后忽略入参"会让 `:memory:` 在默认单例已存在时拿到真实 `app.db`。
+    if (dbPath !== undefined) {
+      const existing = UsageStatsService.explicitInstances.get(dbPath);
+      if (existing) return existing;
+      const created = new UsageStatsService(dbPath);
+      UsageStatsService.explicitInstances.set(dbPath, created);
+      return created;
+    }
     if (!UsageStatsService.instance) {
       UsageStatsService.instance = new UsageStatsService(dbPath);
     }

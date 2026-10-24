@@ -4,11 +4,12 @@
 /**
  * 门禁：显式 `dbPath` 的实例必须**按路径分桶**，不得被默认单例吞掉。
  *
- * 背景（2026-10-24，CI ubuntu 红暴露）：`ProviderManager` / `BalanceStore` / `TaskStore` /
- * `ModelPricingService` 原实现都是「`!isLocalPrincipal && dbPath === undefined` 才走租户实例，
- * 随后 `if (!instance) new(dbPath)`」
- * ⇒ 显式路径只在**首次**创建时被采纳；一旦默认单例（或租户实例）已存在，
- * `getInstance(':memory:')` 会静默返回**指向真实 `app.db`** 的实例。
+ * 背景（2026-10-24，CI ubuntu 红暴露）：全仓 8 个 `static getInstance(dbPath?)` 里，前 4 个
+ * （`ProviderManager` / `BalanceStore` / `TaskStore` / `ModelPricingService`）原实现为
+ * 「`!isLocalPrincipal && dbPath === undefined` 才走租户实例，随后 `if (!instance) new(dbPath)`」，
+ * 后 4 个（`TranslateHistoryStore` / `UsageStatsService` / `AppModelConfigService` / `FileRegistry`）
+ * 为「`if (!instance) new(dbPath)`」—— 共同缺陷是**显式路径只在首次创建时被采纳**：
+ * 一旦默认单例（或租户实例）已存在，`getInstance(':memory:')` 会静默返回**指向真实 `app.db`** 的实例。
  * 后果：测试读到上一份残留行（实测断言误红），更危险的是**测试写入真实库**。
  *
  * 本门禁以源码结构锁死三件事：
@@ -24,9 +25,19 @@ const TARGETS = [
   { name: 'BalanceStore', path: 'src/ai/providers/BalanceStore.ts' },
   { name: 'TaskStore', path: 'src/workspace/TaskStore.ts' },
   { name: 'ModelPricingService', path: 'src/ai/models/ModelPricingService.ts' },
+  {
+    name: 'TranslateHistoryStore',
+    path: 'src/ai/translation/TranslateHistoryStore.ts',
+  },
+  { name: 'UsageStatsService', path: 'src/ai/models/UsageStatsService.ts' },
+  {
+    name: 'AppModelConfigService',
+    path: 'src/ai/models/AppModelConfigService.ts',
+  },
+  { name: 'FileRegistry', path: 'src/services/file/FileRegistry.ts' },
 ] as const;
 
-describe('显式 dbPath 分桶（四处同构单例）', () => {
+describe('显式 dbPath 分桶（8 处同构单例，覆盖全部 `getInstance(dbPath?)`）', () => {
   for (const target of TARGETS) {
     it(`${target.name}：显式路径分支先于默认单例返回，并写入 explicitInstances`, () => {
       const src = readFileSync(

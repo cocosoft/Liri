@@ -1,0 +1,99 @@
+name: Kernel Release
+
+# 内核独立包（`packages/kernel`）的**发布通道**（2026-10-24 · 基础设施专项 §7 判据 5）。
+#
+# 与 app 的发版**完全隔离**：本工作流只认 `kernel-v*` tag（或手动触发），
+# app 的 `v*` tag 走 `release.yml`，两者互不触发。
+#
+# ⚠️ 默认**不会真的发布**，需要同时满足两个开关（均由人工显式打开）：
+#   ① `packages/kernel/package.json` 去掉 `"private": true`；
+#   ② 仓库 secret `NPM_TOKEN` 已配置。
+# 任一缺失 ⇒ 只产出 tarball 作为 artifact，publish 步骤自检后跳过（不会失败、更不会误发）。
+
+on:
+  push:
+    tags:
+      - 'kernel-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build · test · pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 复用既有 setup-bun（缓存 + app 依赖）；内核三方依赖仍解析自 app/node_modules
+      - name: Setup Bun (cache + install)
+        uses: ./.github/actions/setup-bun
+        with:
+          project: app
+
+      - name: "Package typecheck"
+        working-directory: packages/kernel
+        run: bun run typecheck
+
+      - name: "Package tests"
+        working-directory: packages/kernel
+        run: bun run test
+
+      - name: "Package build (tsc · barrel + per-module output)"
+        working-directory: packages/kernel
+        run: bun run build
+
+      - name: "Artifact smoke (no wildcards · targets exist · singleton identity · README/LICENSE)"
+        working-directory: packages/kernel
+        run: bun run smoke
+
+      # tag 名必须与包版本一致（`kernel-v0.1.0` ⇔ package.json 0.1.0）——
+      # 否则会发出一个"版本号与 git 标签对不上"的包。手动触发时跳过。
+      - name: "Tag ↔ package version guard"
+        if: startsWith(github.ref, 'refs/tags/')
+        working-directory: packages/kernel
+        run: |
+          TAG="${GITHUB_REF_NAME#kernel-v}"
+          PKG=$(bun -e "console.log(require('./package.json').version)")
+          echo "tag=$TAG package=$PKG"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "❌ tag 与 package.json 版本不一致"; exit 1
+          fi
+
+      - name: "Pack tarball"
+        working-directory: packages/kernel
+        run: |
+          bun pm pack
+          TARBALL=$(ls -1t *.tgz | head -n 1)
+          echo "TARBALL=$TARBALL" >> "$GITHUB_ENV"
+          echo "--- 包内容（README/LICENSE/dist 必须在） ---"
+          tar -tzf "$TARBALL" | grep -E '^(package/)?(README\.md|LICENSE|package\.json)$|dist/index\.js$' || {
+            echo "❌ 产物缺少 README/LICENSE/dist"; exit 1;
+          }
+
+      - name: "Upload tarball"
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-tarball
+          path: packages/kernel/${{ env.TARBALL }}
+          if-no-files-found: error
+
+      # 真正的发布：需要 NPM_TOKEN **且** 已去掉 `private: true`。
+      # 用 env 变量判断（secrets 不能直接写在 if 条件里）。
+      - name: "Publish to npm (opt-in)"
+        working-directory: packages/kernel
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "NPM_TOKEN 未配置 ⇒ 只产出 tarball，不发布"
+            exit 0
+          fi
+          if grep -q '"private": *true' package.json; then
+            echo "package.json 仍为 private:true ⇒ 跳过发布（去掉 private 后才生效）"
+            exit 0
+          fi
+          npm publish --access public

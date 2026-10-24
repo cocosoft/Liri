@@ -13,6 +13,7 @@ on:
   push:
     paths:
       - 'packages/kernel/**'
+      - 'app/tsconfig.json'
       - 'scripts/lint-kernel-purity.ts'
       - 'scripts/kernel-api-surface.ts'
       - 'scripts/kernel-allowed-deps.json'
@@ -21,6 +22,7 @@ on:
   pull_request:
     paths:
       - 'packages/kernel/**'
+      - 'app/tsconfig.json'
       - 'scripts/lint-kernel-purity.ts'
       - 'scripts/kernel-api-surface.ts'
       - 'scripts/kernel-allowed-deps.json'
@@ -70,19 +72,39 @@ jobs:
         working-directory: packages/kernel
         run: bun run build
 
-      # 产物可用性冒烟：只「构建成功」不等于「能 import」——`build` 出来的是单文件 bundle，
-      # 若入口 re-export 链路断开（例如 `export *` 指错文件），体积照样正常但符号是空的。
-      # 断言取桶入口的真实导出（注意：深路径 API 如 `/paths`、`/orchestrationEvents` 不在桶面，
-      # 由 K07 白名单与 app 侧门面负责，不在此断言）。
-      - name: Build artifact smoke (importable + barrel surface)
+      # 产物可用性冒烟：只「构建成功」不等于「能 import」，更不等于「发布后子路径可用」。
+      # 2026-10-24 实证：`exports` 一度指向 `dist/core/*.js`，而当时的 build 只产 `dist/index.js`
+      # ⇒ 包能打出来、桶能 import，但**所有公开子路径在发布后都是 404**。
+      # 故此处逐条断言 exports 的非通配目标**文件真实存在**，并抽查桶与一个子路径可 import。
+      - name: Build artifact smoke (barrel + every published subpath)
         working-directory: packages/kernel
         run: |
           bun -e "
+          const fs = await import('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           const m = await import('./dist/index.js');
           const need = ['KERNEL_PACKAGE_NAME', 'feature', 'resolveDbPath', 'AppError', 'globalEventBus'];
           const miss = need.filter((k) => m[k] === undefined);
-          if (miss.length) { console.error('缺失导出: ' + miss.join(', ')); process.exit(1); }
-          console.log('dist 可 import，关键导出齐备（共 ' + Object.keys(m).length + ' 个符号）');
+          if (miss.length) { console.error('桶面缺失导出: ' + miss.join(', ')); process.exit(1); }
+          let checked = 0;
+          for (const [key, val] of Object.entries(pkg.exports)) {
+            if (key === '.') continue;
+            const targets = typeof val === 'string' ? [val] : [val.types, val.import].filter(Boolean);
+            for (const t of targets) {
+              if (t.includes('*')) continue;            // 通配条目在下面单独抽查
+              if (!fs.existsSync(t)) { console.error('exports 目标不存在: ' + key + ' -> ' + t); process.exit(1); }
+              checked++;
+            }
+          }
+          for (const [key, val] of Object.entries(pkg.exports)) {
+            const t = typeof val === 'string' ? val : val.import;
+            if (!t || !t.includes('*')) continue;
+            const dir = t.slice(0, t.indexOf('*'));
+            const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.js')) : [];
+            if (files.length === 0) { console.error('通配导出无产物: ' + key + ' -> ' + dir); process.exit(1); }
+          }
+          await import('./dist/core/paths.js');          // 子路径产物真的可 import
+          console.log('dist 可 import；exports 目标全部存在（' + checked + ' 个文件）；子路径可 import');
           "
 
       # 内核纯净度：K01–K04 跨层 / K06 依赖白名单 / K07 深路径棘轮（均可独立于 app 全量执行）

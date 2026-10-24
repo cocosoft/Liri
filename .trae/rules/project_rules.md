@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.23.0 | **更新**: 2026-10-09
+**版本**: 7.26.0 | **更新**: 2026-10-24
 
 ## §1 基础规则
 
@@ -74,11 +74,27 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 **细目**：详见 [paths.ts](file:///E:/PY/CODES/PY_APP/packages/kernel/src/core/paths.ts)。命名统一 `~/.pyapp/`，禁用 `~/.Liri/`。
 
 #### 数据库统一约定
-所有模块共用唯一 `app.db`，通过 `resolveDbPath()` 获取。
+
+**本地身份（桌面 / CLI / 后台）**：所有模块共用唯一 `app.db`，通过 `resolveDbPath()` 获取。
+
 ```typescript
 import { resolveDbPath } from '@openliri/kernel/paths';
 constructor(dbPath: string = resolveDbPath()) { this.dbPath = dbPath; }
 ```
+
+**已认证身份（租户级，2026-10-24 拍板）**：库按**租户**分（`<data>/tenants/<tenant>/app.db`），
+租户内用户靠行的 `owner_key`（`<tenant>:<user>`）隔离 —— 通过 `resolveTenantDbPath()` 获取；
+**每条读都必须带 `owner_key` 过滤**（漏一处即租户内跨用户越权），并配「漏过滤」门禁。
+
+```typescript
+import { resolveTenantDbPath } from '@openliri/kernel/paths';
+constructor(dbPath: string = resolveTenantDbPath()) { this.dbPath = dbPath; }
+```
+
+- 实例缓存键 = **`tenantId`**（同租户共用一个连接/实例），不再按用户分实例。
+- 跨用户**维护动作**（过期清理 / 保留裁剪 / 重复行折叠）可不带 owner 过滤，但必须在代码注释中显式说明。
+- `resolveScopedDbPath()`（`tenants/<t>/users/<u>/app.db`）**已停用**；仍需按用户**物理**隔离的非 DB 资产
+  （`credentials.json`、工作区/会话目录）继续走 `resolveScopedDataDir()`。
 
 ### 1.6 Write-Ahead Persistence（写前持久化）规范
 
@@ -333,6 +349,7 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/kernel/paths';  // �
 ---
 
 ## §2 版本历史
+- **v7.26.0**: §1.5「数据库统一约定」补**租户级**口径 —— 已认证身份走 `resolveTenantDbPath()`（`tenants/<t>/app.db`），租户内靠 `owner_key` 行级隔离且**每条读必须过滤**；实例缓存键改 `tenantId`；`resolveScopedDbPath()` 停用（非 DB 的按用户资产仍走 `resolveScopedDataDir()`）。同步：`app/src` 内 `resolveScopedDbPath` 归零、14 个仓储迁移完成（基础设施专项 §6.1）
 - **v7.25.0**: §1.4 安全开关清单 **16 → 17 项**，新增 **`CLIENT_STREAM_EXECUTION`**（默认 `false`）—— 承接 **P0-2**（客户端 `/v1/chat/stream` 接入 Execution 生命周期）：开 ⇒ SSE 入口 `acquire(sessionId)` 注入 `executionId`，与渠道路径**同一记账链路**（工具执行前 `await beginToolCall()` ⇒ 写前记账 + fail-closed），终态 `complete`/`fail`；关（默认）⇒ 零行为变更。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（16 → 17）+ 本文表 + 登记表 `default-off-switches-review-gates.md §2-#13`。设计见 [`.trae/specs/client-stream-execution.md`](../specs/client-stream-execution.md)
 - **v7.24.0**: §1.4 安全开关清单 **15 → 16 项**，新增 **`CODE_RUN_DEEP_SCAN_STRICT`**（默认 `false`）—— 承接 **P0-3**（统一安全决策词汇 + 消除 `INDETERMINATE → ALLOW` 折叠）：code_run 的 SWC 原生 CallExpression **深扫未执行/失败**（`scanStatus='skipped'|'failed'`）时，开 ⇒ 按 fail-closed **拒绝**（`security-rejected`），关（默认）⇒ 保留既有"跳过"行为但结果**如实带出 `scanStatus`**（可观测，未扫描 ≠ 通过）。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（15 → 16）+ 本文表 + 登记表 `default-off-switches-review-gates.md §2-#12`。设计见 [`.trae/specs/security-decision-verdict.md`](../specs/security-decision-verdict.md)
 - **v7.23.0**: §1.4 **`BASH_APPROVED_REVALIDATE` 默认 `false` → `true`**（**安全基线**；第九轮审查 §七 用户裁定）—— 关闭时"已批准命令**跳过整套安全拦截层**"，与审批哈希语义问题叠加风险最高。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（`def: true`，防静默翻回）+ 本文表（触发条件列改 `—`）。`BASH_INTERPRETER_GUARD` / `BASH_APPROVAL_STRICT` **维持默认关**（灰度；启用条件/回滚/迁移期限见 `default-off-switches-review-gates.md`）

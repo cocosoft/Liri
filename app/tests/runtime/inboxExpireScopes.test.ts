@@ -52,11 +52,12 @@ function pendingItem(sessionId: string) {
 
 describe('审批过期清理（P3）', () => {
   it('无作用域定时清理 ⇒ 租户库 pending 变 expired，本地库不受影响', async () => {
-    // 租户库：提交一条 pending（连接落在 tenants/acme/users/alice/app.db）
+    // 租户库（§6.1）：提交一条 pending（连接落在 tenants/acme/app.db）
     await runWithPrincipal(ALICE, () => manager.submit(pendingItem('s-alice')));
+    expect(existsSync(join(dataDir, 'tenants', 'acme', 'app.db'))).toBe(true);
     expect(
       existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
-    ).toBe(true);
+    ).toBe(false);
 
     // 负 TTL ⇒ cutoff 在未来，所有 pending 都应过期（避免依赖毫秒级时序）
     const expired = await manager.expireAllScopes(-1000);

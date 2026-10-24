@@ -12,10 +12,11 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel/paths';
-// 多租户 P1（2026-10-21）：审批库按身份分区（本地身份零变更）
+import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel/paths';
+// 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,
+  getRequestPrincipalKey,
   isLocalPrincipal,
   principalFromKey,
   principalKeyOf,
@@ -126,12 +127,12 @@ export class InboxManager {
   }
 
   private async getDb(): Promise<Database> {
-    // 多租户 P1：本地身份 ⇒ 原共享连接（零变更）；已认证身份 ⇒ 该身份自己的库
+    // 租户级 DB（§6.1）：本地身份 ⇒ 原共享连接（零变更）；已认证身份 ⇒ **该租户**的库
     const principal = getRequestPrincipal();
     const scope =
       this.explicitPath || isLocalPrincipal(principal)
         ? ''
-        : principalKeyOf(principal);
+        : principal.tenantId;
 
     if (scope === '') {
       if (this.db) return this.db;
@@ -142,12 +143,11 @@ export class InboxManager {
 
     const cached = this.scopedDbs.get(scope);
     if (cached) return cached;
-    const opened = await this.open(resolveScopedDbPath(principal));
+    const opened = await this.open(resolveTenantDbPath(principal));
     await this._createTable(opened);
     this.scopedDbs.set(scope, opened);
-    // 多租户 P5：登记 closer（关该身份连接 + 摘除本实例缓存），
-    // 删租户时由 `core/identity/scopedResources` 统一关闭（不再需要按实例遍历的专属机制）。
-    registerScopedResource(scope, () => {
+    // 登记键用**创建者**的 `<tenant>:<user>`：purge 按 `<tenant>:` 前缀关闭 ⇒ 删租户能命中
+    registerScopedResource(principalKeyOf(principal), () => {
       try {
         opened.close();
       } catch {
@@ -156,6 +156,11 @@ export class InboxManager {
       this.scopedDbs.delete(scope);
     });
     return opened;
+  }
+
+  /** 当前写入/查询的归属键（本地 ⇒ `local:local`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
   }
 
   /** 打开连接（不建表） */
@@ -192,11 +197,13 @@ export class InboxManager {
           trace_id TEXT,
           created_at INTEGER NOT NULL,
           updated_at INTEGER NOT NULL,
-          replied_at INTEGER
+          replied_at INTEGER,
+          owner_key TEXT NOT NULL DEFAULT 'local:local'
         );
         CREATE INDEX IF NOT EXISTS idx_inbox_session ON inbox_items(session_id);
         CREATE INDEX IF NOT EXISTS idx_inbox_status ON inbox_items(status);
         CREATE INDEX IF NOT EXISTS idx_inbox_created ON inbox_items(created_at);
+        CREATE INDEX IF NOT EXISTS idx_inbox_owner ON inbox_items(owner_key);
       `,
         (err: Error | null) => {
           if (err) reject(err);
@@ -219,7 +226,8 @@ export class InboxManager {
           actor TEXT NOT NULL,
           detail TEXT,
           metadata TEXT,
-          created_at INTEGER NOT NULL
+          created_at INTEGER NOT NULL,
+          owner_key TEXT NOT NULL DEFAULT 'local:local'
         );
         CREATE INDEX IF NOT EXISTS idx_audit_item ON approval_audit_log(item_id);
         CREATE INDEX IF NOT EXISTS idx_audit_session ON approval_audit_log(session_id);`,
@@ -229,6 +237,8 @@ export class InboxManager {
         }
       );
     });
+
+    await this._ensureOwnerColumn(db, 'approval_audit_log');
 
     // Phase 4: 幂等列迁移（channel_id, channel_session_id, channel_conversation_id）
     await this._migrateSchema(db);
@@ -243,16 +253,19 @@ export class InboxManager {
           session_id TEXT NOT NULL,
           inbox_item_id TEXT NOT NULL,
           created_at INTEGER NOT NULL,
+          owner_key TEXT NOT NULL DEFAULT 'local:local',
           PRIMARY KEY (session_id, inbox_item_id)
         );
         CREATE INDEX IF NOT EXISTS idx_sim_inbox ON session_inbox_map(inbox_item_id);
-        CREATE INDEX IF NOT EXISTS idx_sim_session ON session_inbox_map(session_id);`,
+        CREATE INDEX IF NOT EXISTS idx_sim_session ON session_inbox_map(session_id);
+        CREATE INDEX IF NOT EXISTS idx_sim_owner ON session_inbox_map(owner_key);`,
         (err: Error | null) => {
           if (err) reject(err);
           else resolve();
         }
       );
     });
+    await this._ensureOwnerColumn(db, 'session_inbox_map');
   }
 
   /** 幂等列迁移：通过 PRAGMA table_info 检测列是否存在，仅新增缺失列 */
@@ -285,6 +298,10 @@ export class InboxManager {
         'trace_id',
         "ALTER TABLE inbox_items ADD COLUMN trace_id TEXT DEFAULT ''",
       ],
+      [
+        'owner_key',
+        "ALTER TABLE inbox_items ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'",
+      ],
     ];
 
     for (const [col, sql] of migrations) {
@@ -298,6 +315,25 @@ export class InboxManager {
         logger.info(`Schema migrated: added column ${col}`);
       }
     }
+
+    // 另两张表的补列在各自建表之后进行（新库已带列；旧库在此幂等补齐）
+  }
+
+  /** 幂等补列（`PRAGMA table_info` 判存在；`ALTER` 不能改主键，只补列） */
+  private async _ensureOwnerColumn(db: Database, table: string): Promise<void> {
+    const columns: { name: string }[] = await new Promise((resolve, reject) => {
+      db.all(`PRAGMA table_info(${table})`, (err: Error | null, rows) => {
+        if (err) reject(err);
+        else resolve(rows as { name: string }[]);
+      });
+    });
+    if (columns.some((c) => c.name === 'owner_key')) return;
+    await new Promise<void>((resolve, reject) => {
+      db.run(
+        `ALTER TABLE ${table} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
   }
 
   /**
@@ -318,7 +354,8 @@ export class InboxManager {
             WHERE type = 'approval' AND status = 'pending'
               AND json_extract(metadata, '$.toolName') IS NOT NULL
               AND json_extract(metadata, '$.commandHash') IS NOT NULL
-            GROUP BY session_id,
+            GROUP BY owner_key,
+                     session_id,
                      json_extract(metadata, '$.toolName'),
                      json_extract(metadata, '$.commandHash')
            HAVING COUNT(*) > 1
@@ -342,8 +379,10 @@ export class InboxManager {
 
     await new Promise<void>((resolve) => {
       db.exec(
-        `CREATE UNIQUE INDEX IF NOT EXISTS ux_inbox_pending_approval
+        `DROP INDEX IF EXISTS ux_inbox_pending_approval;
+         CREATE UNIQUE INDEX IF NOT EXISTS ux_inbox_pending_approval
            ON inbox_items (
+             owner_key,
              session_id,
              json_extract(metadata, '$.toolName'),
              json_extract(metadata, '$.commandHash')
@@ -393,10 +432,11 @@ export class InboxManager {
         db.get(
           `SELECT * FROM inbox_items
             WHERE session_id = ? AND type = 'approval' AND status = 'pending'
+              AND owner_key = ?
               AND json_extract(metadata, '$.toolName') = ?
               AND json_extract(metadata, '$.commandHash') = ?
             ORDER BY created_at ASC LIMIT 1`,
-          [item.sessionId, toolName, commandHash],
+          [item.sessionId, this.owner(), toolName, commandHash],
           (err: Error | null, row: Record<string, unknown> | undefined) => {
             resolve(err ? undefined : row);
           }
@@ -459,8 +499,8 @@ export class InboxManager {
       try {
         await new Promise<void>((resolve, reject) => {
           db.run(
-            `INSERT INTO inbox_items (id, session_id, type, title, message, status, options, offline_capable, source, metadata, channel_id, channel_session_id, channel_conversation_id, trace_id, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO inbox_items (id, session_id, type, title, message, status, options, offline_capable, source, metadata, channel_id, channel_session_id, channel_conversation_id, trace_id, created_at, updated_at, owner_key)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               full.id,
               full.sessionId,
@@ -478,6 +518,7 @@ export class InboxManager {
               full.traceId ?? null,
               full.createdAt,
               full.updatedAt,
+              this.owner(),
             ],
             (err: Error | null) => {
               if (err) reject(err);
@@ -490,8 +531,8 @@ export class InboxManager {
         if (full.channelSessionId) {
           await new Promise<void>((resolve, reject) => {
             db.run(
-              `INSERT OR IGNORE INTO session_inbox_map (session_id, inbox_item_id, created_at) VALUES (?, ?, ?)`,
-              [full.channelSessionId, full.id, now],
+              `INSERT OR IGNORE INTO session_inbox_map (session_id, inbox_item_id, created_at, owner_key) VALUES (?, ?, ?, ?)`,
+              [full.channelSessionId, full.id, now, this.owner()],
               (err: Error | null) => {
                 if (err) reject(err);
                 else resolve();
@@ -630,8 +671,9 @@ export class InboxManager {
       const now = Date.now();
       await new Promise<void>((resolve, reject) => {
         db.run(
-          `UPDATE inbox_items SET status = 'replied', reply = ?, updated_at = ?, replied_at = ? WHERE id = ?`,
-          [reply, now, now, id],
+          `UPDATE inbox_items SET status = 'replied', reply = ?, updated_at = ?, replied_at = ?
+            WHERE id = ? AND owner_key = ?`,
+          [reply, now, now, id, this.owner()],
           (err: Error | null) => {
             if (err) reject(err);
             else resolve();
@@ -696,8 +738,8 @@ export class InboxManager {
     const row = await new Promise<Record<string, unknown> | undefined>(
       (resolve, reject) => {
         db.get(
-          'SELECT * FROM inbox_items WHERE id = ?',
-          [id],
+          'SELECT * FROM inbox_items WHERE id = ? AND owner_key = ?',
+          [id, this.owner()],
           (err: Error | null, row: Record<string, unknown> | undefined) => {
             if (err) reject(err);
             else resolve(row);
@@ -717,8 +759,9 @@ export class InboxManager {
     offset?: number;
   }): Promise<{ items: InboxItem[]; total: number }> {
     const db = await this.getDb();
-    const conditions: string[] = [];
-    const values: unknown[] = [];
+    // owner 过滤**恒在首位**（本地 ⇒ `local:local`；租户内 ⇒ `<tenant>:<user>`）
+    const conditions: string[] = ['owner_key = ?'];
+    const values: unknown[] = [this.owner()];
 
     if (params?.sessionId) {
       conditions.push('session_id = ?');
@@ -769,9 +812,11 @@ export class InboxManager {
   async getPendingCount(sessionId?: string): Promise<number> {
     const db = await this.getDb();
     const sql = sessionId
-      ? 'SELECT COUNT(*) as cnt FROM inbox_items WHERE status = ? AND session_id = ?'
-      : 'SELECT COUNT(*) as cnt FROM inbox_items WHERE status = ?';
-    const params = sessionId ? ['pending', sessionId] : ['pending'];
+      ? 'SELECT COUNT(*) as cnt FROM inbox_items WHERE status = ? AND session_id = ? AND owner_key = ?'
+      : 'SELECT COUNT(*) as cnt FROM inbox_items WHERE status = ? AND owner_key = ?';
+    const params = sessionId
+      ? ['pending', sessionId, this.owner()]
+      : ['pending', this.owner()];
 
     const row = await new Promise<{ cnt: number }>((resolve, reject) => {
       db.get(sql, params, (err: Error | null, row: { cnt: number }) => {
@@ -794,19 +839,16 @@ export class InboxManager {
    * 凭空为每个身份建库文件反而是扩散而非收敛 ⇒ 只清理已被访问过的库；
    * 某身份重启后首次访问时，其 pending 仍会由下一次 tick 清掉。
    *
-   * 每个分区库都在**其归属者身份作用域**内清理：过期事件（`inbox:update`）才会
-   * 按 P2 的规则只推给该用户，而不是推到本地连接上（那等于把别人的审批状态广播出去）。
+   * 租户级库（§6.1）：清理是**跨用户**维护动作（不按当前身份过滤）；
+   * 事件按行内 `owner_key` 回落到各自身份投递，避免把别人的审批状态广播出去。
    */
   async expireAllScopes(maxAgeMs: number): Promise<number> {
     let total = 0;
     if (this.db) total += await this._expireOnDb(this.db, maxAgeMs);
-    for (const [scope, db] of this.scopedDbs) {
-      const principal = principalFromKey(scope);
-      total += principal
-        ? await runWithPrincipal(principal, () =>
-            this._expireOnDb(db, maxAgeMs)
-          )
-        : await this._expireOnDb(db, maxAgeMs);
+    for (const db of this.scopedDbs.values()) {
+      // 租户库：过期是**跨用户**维护动作（不按当前身份过滤）；事件按行内 owner_key
+      // 回落到各自身份（见 `_expireOnDb`），避免把别人的审批状态推给本地连接。
+      total += await this._expireOnDb(db, maxAgeMs);
     }
     return total;
   }
@@ -815,21 +857,31 @@ export class InboxManager {
   private async _expireOnDb(db: Database, maxAgeMs: number): Promise<number> {
     const cutoff = Date.now() - maxAgeMs;
 
-    // 先查询将要过期的项（获取 channelSessionId 用于通知）
-    const expiredItems = await new Promise<InboxItem[]>((resolve, reject) => {
+    // 先查询将要过期的项（获取 channelSessionId 用于通知）+ 归属键（用于事件投递身份）
+    const expired = await new Promise<
+      Array<{ item: InboxItem; ownerKey?: string }>
+    >((resolve, reject) => {
       db.all(
         `SELECT * FROM inbox_items WHERE status = 'pending' AND created_at < ?`,
         [cutoff],
         (err: Error | null, rows: Record<string, unknown>[]) => {
           if (err) reject(err);
-          else resolve(rows.map((r) => this._mapRow(r)));
+          else
+            resolve(
+              (rows ?? []).map((r) => ({
+                item: this._mapRow(r),
+                ownerKey:
+                  typeof r.owner_key === 'string' ? r.owner_key : undefined,
+              }))
+            );
         }
       );
     });
 
     const count = await new Promise<number>((resolve, reject) => {
       db.run(
-        `UPDATE inbox_items SET status = 'expired', updated_at = ? WHERE status = 'pending' AND created_at < ?`,
+        `UPDATE inbox_items SET status = 'expired', updated_at = ?
+          WHERE status = 'pending' AND created_at < ?`,
         [Date.now(), cutoff],
         function (this: { changes: number }, err: Error | null) {
           if (err) reject(err);
@@ -842,28 +894,34 @@ export class InboxManager {
       );
     });
 
-    // 通知渠道：已过期的审批项
-    for (const item of expiredItems) {
-      // SSE 推送过期状态到前端
-      void broadcastEvent('inbox:update', {
-        id: item.id,
-        status: 'expired',
-        sessionId: item.sessionId,
-      });
+    // 通知渠道：已过期的审批项（按行归属身份投递，租户库下不会串到别人）
+    for (const { item, ownerKey } of expired) {
+      const emit = async (): Promise<void> => {
+        // SSE 推送过期状态到前端
+        void broadcastEvent('inbox:update', {
+          id: item.id,
+          status: 'expired',
+          sessionId: item.sessionId,
+        });
 
-      if (item.channelSessionId) {
-        try {
-          const { notifyExpired } =
-            await import('@modules/channels/bridge/inboxChannelReply.js');
-          await notifyExpired(item);
-        } catch (err) {
-          logger.warn('Expired notification failed', {
-            inboxId: item.id,
-            channelSessionId: item.channelSessionId,
-            error: String(err),
-          });
+        if (item.channelSessionId) {
+          try {
+            const { notifyExpired } =
+              await import('@modules/channels/bridge/inboxChannelReply.js');
+            await notifyExpired(item);
+          } catch (err) {
+            logger.warn('Expired notification failed', {
+              inboxId: item.id,
+              channelSessionId: item.channelSessionId,
+              error: String(err),
+            });
+          }
         }
-      }
+      };
+
+      const principal = ownerKey ? principalFromKey(ownerKey) : null;
+      if (principal) await runWithPrincipal(principal, emit);
+      else await emit();
     }
 
     // 清理已过期项的关联记录
@@ -897,8 +955,9 @@ export class InboxManager {
     const db = await this.getDb();
     return new Promise<boolean>((resolve, reject) => {
       db.run(
-        `UPDATE inbox_items SET status = ?, updated_at = ? WHERE id = ? AND status = ?`,
-        [target, Date.now(), id, expected],
+        `UPDATE inbox_items SET status = ?, updated_at = ?
+          WHERE id = ? AND status = ? AND owner_key = ?`,
+        [target, Date.now(), id, expected, this.owner()],
         function (this: { changes: number }, err: Error | null) {
           if (err) reject(err);
           else resolve(this.changes > 0);
@@ -912,8 +971,9 @@ export class InboxManager {
     const db = await this.getDb();
     return new Promise<boolean>((resolve, reject) => {
       db.run(
-        `UPDATE inbox_items SET status = ?, reply = NULL, replied_at = NULL, updated_at = ? WHERE id = ?`,
-        [status, Date.now(), id],
+        `UPDATE inbox_items SET status = ?, reply = NULL, replied_at = NULL, updated_at = ?
+          WHERE id = ? AND owner_key = ?`,
+        [status, Date.now(), id, this.owner()],
         function (this: { changes: number }, err: Error | null) {
           if (err) reject(err);
           else resolve(this.changes > 0);
@@ -941,8 +1001,8 @@ export class InboxManager {
       const id = randomUUID();
       await new Promise<void>((resolve, reject) => {
         db.run(
-          `INSERT INTO approval_audit_log (id, item_id, session_id, event, actor, detail, metadata, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO approval_audit_log (id, item_id, session_id, event, actor, detail, metadata, created_at, owner_key)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             id,
             itemId,
@@ -952,6 +1012,7 @@ export class InboxManager {
             detail ?? null,
             meta ? JSON.stringify(meta) : null,
             Date.now(),
+            this.owner(),
           ],
           (err: Error | null) => {
             if (err) reject(err);
@@ -993,8 +1054,8 @@ export class InboxManager {
     const db = await this.getDb();
     await new Promise<void>((resolve, reject) => {
       db.run(
-        `INSERT OR IGNORE INTO session_inbox_map (session_id, inbox_item_id, created_at) VALUES (?, ?, ?)`,
-        [sessionId, inboxItemId, Date.now()],
+        `INSERT OR IGNORE INTO session_inbox_map (session_id, inbox_item_id, created_at, owner_key) VALUES (?, ?, ?, ?)`,
+        [sessionId, inboxItemId, Date.now(), this.owner()],
         (err: Error | null) => {
           if (err) reject(err);
           else resolve();
@@ -1011,9 +1072,9 @@ export class InboxManager {
         db.all(
           `SELECT i.* FROM inbox_items i
            JOIN session_inbox_map m ON i.id = m.inbox_item_id
-           WHERE m.session_id = ?
+           WHERE m.session_id = ? AND i.owner_key = ?
            ORDER BY i.created_at DESC`,
-          [sessionId],
+          [sessionId, this.owner()],
           (err: Error | null, rows: Record<string, unknown>[]) => {
             if (err) reject(err);
             else resolve(rows);
@@ -1035,8 +1096,9 @@ export class InboxManager {
     return new Promise<number>((resolve, reject) => {
       db.run(
         `UPDATE inbox_items SET status = 'dismissed', updated_at = ?
-         WHERE session_id = ? AND status IN ('pending', 'processing')`,
-        [Date.now(), sessionId],
+         WHERE session_id = ? AND status IN ('pending', 'processing')
+           AND owner_key = ?`,
+        [Date.now(), sessionId, this.owner()],
         function (this: { changes: number }, err: Error | null) {
           if (err) reject(err);
           else resolve(this.changes);
@@ -1062,8 +1124,9 @@ export class InboxManager {
     try {
       await new Promise<void>((resolve, reject) => {
         db.run(
-          `UPDATE inbox_items SET channel_id = ? WHERE id = ?`,
-          [channelId, inboxItemId],
+          `UPDATE inbox_items SET channel_id = ?
+            WHERE id = ? AND owner_key = ?`,
+          [channelId, inboxItemId, this.owner()],
           (err: Error | null) => {
             if (err) reject(err);
             else resolve();

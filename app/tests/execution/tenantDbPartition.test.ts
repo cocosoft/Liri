@@ -147,17 +147,18 @@ describe('CheckpointDatabase：租户级库（经身份感知代理，§6.1 期 
   });
 });
 
-describe('InboxManager：审批库按身份分区', () => {
-  it('已认证身份取连接 ⇒ 落在自己的 tenants 目录，本地共享库未被创建', async () => {
+describe('InboxManager：审批库按租户分区（§6.1 期 3）', () => {
+  it('已认证身份取连接 ⇒ 落在**租户**目录，本地共享库未被创建', async () => {
     const mgr = new InboxManager();
     // 白盒：getDb 是连接唯一入口（所有公开方法都保存为局部变量后使用）
     await runWithPrincipal(ALICE, () =>
       (mgr as unknown as { getDb: () => Promise<unknown> }).getDb()
     );
 
+    expect(existsSync(join(dataDir, 'tenants', 'acme', 'app.db'))).toBe(true);
     expect(
       existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
-    ).toBe(true);
+    ).toBe(false);
     expect(existsSync(join(dataDir, 'app.db'))).toBe(false);
   });
 });

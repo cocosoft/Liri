@@ -28,7 +28,13 @@ import {
   type Principal,
 } from '@openliri/kernel/identity/principal.js';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
-import { feature, getBuildVariant, getDIContainer } from '@openliri/kernel';
+import {
+  feature,
+  getBuildVariant,
+  getDIContainer,
+  LOCAL_HTTP_HOST,
+  LOCAL_SERVICE_HOST,
+} from '@openliri/kernel';
 
 /** `authTokens` 的 value 形状（只读消费，避免把 handlers 的类型拖成静态依赖） */
 interface AuthTokenSession {
@@ -86,8 +92,18 @@ export async function withRequestIdentity<T>(
 
 // ─── 暴露面鉴权（§6-#11，2026-10-24）────────────────────────────────────────
 
-/** 回环地址集合（含 IPv6 写法；`localhost` 为用户/文档通用写法） */
-const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+/**
+ * 回环地址集合。
+ *
+ * IPv4 / 名称形式复用内核单一事实源（`endpoints.ts`），避免散落字面量
+ * （`lint:consts` 的「同值 host」棘轮只减不增）；IPv6 两种写法在此补全。
+ */
+const LOOPBACK_HOSTS = new Set([
+  LOCAL_HTTP_HOST,
+  LOCAL_SERVICE_HOST,
+  '::1',
+  '[::1]',
+]);
 
 /**
  * 是否属于**对外暴露**部署。
@@ -96,7 +112,7 @@ const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
  *   - HTTP 绑定地址为**非回环**（`LIRI_HTTP_HOST`，如 Docker 的 `0.0.0.0`）；
  *   - 构建变体为 `headless`（无界面服务端版）。
  *
- * 桌面 / CLI 默认绑定 `127.0.0.1` ⇒ **恒为 false**（行为零变更）。
+ * 桌面 / CLI 默认绑定回环地址 ⇒ **恒为 false**（行为零变更）。
  */
 export function isExposedDeployment(
   env: NodeJS.ProcessEnv = process.env

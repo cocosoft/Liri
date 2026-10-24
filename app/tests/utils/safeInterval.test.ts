@@ -25,15 +25,24 @@ describe('SafeInterval', () => {
       },
     });
 
+    const before = timerLifecycleRegistry.size;
     timer.start(10);
     timer.start(10);
     timer.start(10);
-    await sleep(35);
+
+    // **不变量用注册表判**（确定性）：三次 start 只能有 1 个受管定时器。
+    // 原实现靠「35ms 内 tick 数 ≥ 2」间接推断 —— 该断言在慢 runner（macOS 3 vCPU）
+    // 上会因事件循环被其他并行用例占住而只跑到 1 次（CI 实证 `Expected: >= 2`）。
+    expect(timerLifecycleRegistry.size).toBe(before + 1);
+    expect(timer.isRunning).toBe(true);
+
+    await sleep(120);
     timer.stop();
+    expect(timerLifecycleRegistry.size).toBe(before);
 
     // 叠加三次会得到 ~3 倍 tick；允许调度抖动，只断言量级
-    expect(ticks).toBeGreaterThanOrEqual(2);
-    expect(ticks).toBeLessThanOrEqual(6);
+    expect(ticks).toBeGreaterThanOrEqual(1);
+    expect(ticks).toBeLessThanOrEqual(12);
   });
 
   test('stop 后不再触发，且可再次 start', async () => {
@@ -46,7 +55,7 @@ describe('SafeInterval', () => {
     });
 
     timer.start(10);
-    await sleep(25);
+    await sleep(120);
     timer.stop();
     const afterStop = ticks;
     await sleep(30);
@@ -54,7 +63,7 @@ describe('SafeInterval', () => {
     expect(timer.isRunning).toBe(false);
 
     timer.start(10);
-    await sleep(25);
+    await sleep(120);
     timer.stop();
     expect(ticks).toBeGreaterThan(afterStop);
   });
@@ -86,7 +95,7 @@ describe('SafeInterval', () => {
     });
 
     timer.start(10);
-    await sleep(35);
+    await sleep(120);
     timer.stop();
 
     expect(attempts).toBeGreaterThanOrEqual(2);
@@ -104,7 +113,7 @@ describe('SafeInterval', () => {
     });
 
     timer.start(10);
-    await sleep(25);
+    await sleep(120);
     timer.stop();
 
     expect(ticks).toBeGreaterThanOrEqual(1);

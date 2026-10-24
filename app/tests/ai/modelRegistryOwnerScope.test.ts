@@ -61,12 +61,14 @@ beforeAll(() => {
 });
 
 afterAll(async () => {
-  // 排空在途刷新（promise chain 串行化 ⇒ 等在本地身份下的一次刷新即可）
-  await registry()
-    .refreshDbPricing()
-    .catch(() => {
-      // @ignore-catch: 测试收尾，刷新失败不影响断言结论
-    });
+  // 排空在途刷新（promise chain 串行化 ⇒ 等排在最后的一次即可）。
+  // ⚠️ 必须在**已认证身份**里排空：本地身份下刷新会把 YAML 模型窗口写进 `local:local`
+  // 分桶，污染同进程其它用例（如 `context/ContextWindowResolver` 的默认 200K 断言）。
+  await as(ALICE, async () => {
+    await registry().refreshDbPricing();
+  }).catch(() => {
+    // @ignore-catch: 测试收尾，刷新失败不影响断言结论
+  });
   ModelRegistry.resetCacheForTest();
   resetModelPricingScopedForTest();
   delete process.env.LIRI_DATA_DIR;

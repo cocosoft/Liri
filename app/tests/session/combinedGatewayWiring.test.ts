@@ -16,7 +16,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { ModuleInitializer } from '../../src/modules/ModuleInitializer';
-import { getDIContainer } from '@openliri/kernel/DIContainer';
+import { getDIContainer } from '@openliri/kernel';
 import {
   CombinedSessionGateway,
   DEFAULT_AGENT_ID,

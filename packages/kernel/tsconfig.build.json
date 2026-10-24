@@ -3,7 +3,11 @@
   "compilerOptions": {
     "noEmit": false,
     "declaration": true,
-    "emitDeclarationOnly": true,
+    // 2026-10-24（阶段二前置）：必须**同时产出 JS 与声明**。
+    // 只产声明时包里只有 `dist/index.js`（bun 单包）+ 一棵 `.d.ts` 树，
+    // `exports` 的子路径指不到真实文件（`dist/core/*.js` 不存在）⇒ 发布后深路径 import 直接 404。
+    // 源码里的相对 import 已一律带 `.js` 后缀，故 tsc 的 ESM 产物开箱即用。
+    "emitDeclarationOnly": false,
     "outDir": "dist",
     "rootDir": "src"
   },

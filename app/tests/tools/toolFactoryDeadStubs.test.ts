@@ -39,7 +39,7 @@ import {
   getAllBuiltinToolLoaders,
   loadTools,
 } from '../../src/tools/utils/ToolManagerUtils.js';
-import { FEATURE_FLAGS } from '@openliri/kernel/featureFlags.js';
+import { FEATURE_FLAGS } from '@openliri/kernel';
 
 const LOADERS_SRC = join(
   import.meta.dir,

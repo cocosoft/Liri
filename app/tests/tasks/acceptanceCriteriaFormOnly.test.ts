@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from 'bun:test';
-import { findFormOnlyCriteria } from '@openliri/kernel/successCriteria.js';
+import { findFormOnlyCriteria } from '@openliri/kernel';
 
 describe('PR-5：findFormOnlyCriteria', () => {
   it('只要求"检索命中条数" ⇒ 命中', () => {

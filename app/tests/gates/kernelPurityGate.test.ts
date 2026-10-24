@@ -34,6 +34,7 @@
  */
 import { afterAll, describe, expect, it } from 'bun:test';
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -43,6 +44,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { KERNEL_PUBLIC_SUBPATHS } from '../../../scripts/lint-kernel-purity';
 
 const GATE = resolve(import.meta.dir, '../../../scripts/lint-kernel-purity.ts');
 
@@ -323,6 +325,83 @@ describe('内核纯净度门禁：K07 深路径（消费方）自证', () => {
     const overRun = run(overCap);
     expect(overRun.code).toBe(1);
     expect(overRun.out).toContain('K07 基线条目数超上限');
+  });
+});
+
+describe('内核公开面三处一致（防漂移）', () => {
+  const REPO = resolve(import.meta.dir, '../../..');
+  /** 从 `@openliri/kernel/<x>` / `./<x>` 里取**首段前缀**（去掉前导、`/*` 与 `.js`） */
+  const prefixOf = (spec: string): string =>
+    spec
+      .replace(/^(\.\/|@openliri\/kernel\/)/, '')
+      .replace(/(\.js|\/\*)$/, '')
+      .split('/')[0] as string;
+
+  const tsconfigKeys = (): string[] => {
+    const raw = readFileSync(join(REPO, 'app/tsconfig.json'), 'utf-8');
+    const paths = (
+      JSON.parse(raw) as {
+        compilerOptions: { paths: Record<string, string[]> };
+      }
+    ).compilerOptions.paths;
+    return Object.keys(paths)
+      .filter((k) => k.startsWith('@openliri/kernel/'))
+      .map((k) => k.slice('@openliri/kernel/'.length));
+  };
+
+  const exportKeys = (): string[] => {
+    const raw = readFileSync(
+      join(REPO, 'packages/kernel/package.json'),
+      'utf-8'
+    );
+    const exp = (JSON.parse(raw) as { exports: Record<string, unknown> })
+      .exports;
+    return Object.keys(exp).filter((k) => k !== '.' && k !== './package.json');
+  };
+
+  it('① tsconfig 判定：每个公开子路径都有显式映射，且**不留**全量通配', () => {
+    const keys = tsconfigKeys();
+    // 全量通配会让「未公开的深路径」在仓内假绿（发布后才 404）—— 必须不存在
+    expect(keys).not.toContain('*');
+    for (const p of KERNEL_PUBLIC_SUBPATHS) {
+      expect(keys.some((k) => prefixOf(k) === p)).toBe(true);
+    }
+  });
+
+  it('② exports 判定：每个公开子路径都能被 npm 解析，且目标文件真实存在', () => {
+    const pkg = JSON.parse(
+      readFileSync(join(REPO, 'packages/kernel/package.json'), 'utf-8')
+    ) as {
+      exports: Record<string, { types?: string; import?: string } | string>;
+    };
+    const keys = exportKeys();
+    for (const p of KERNEL_PUBLIC_SUBPATHS) {
+      expect(keys.some((k) => prefixOf(k) === p)).toBe(true);
+    }
+    // 非通配条目：目标必须是真实存在的源文件映射（`dist/x.js` ⇔ `src/x.ts`）。
+    // **不依赖 dist**（CI 测试 job 不构建内核），但能抓出拼错 / 指向已删模块的条目。
+    const srcOf = (target: string): string =>
+      target
+        .replace('./dist/', './src/')
+        .replace(/\.d\.ts$/, '.ts')
+        .replace(/\.js$/, '.ts');
+    for (const [k, v] of Object.entries(pkg.exports)) {
+      if (k === '.' || k === './package.json' || k.includes('*')) continue;
+      for (const target of [v].flatMap((x) =>
+        typeof x === 'string' ? [x] : [x.types, x.import]
+      )) {
+        if (!target) continue;
+        expect(existsSync(join(REPO, 'packages/kernel', srcOf(target)))).toBe(
+          true
+        );
+      }
+    }
+  });
+
+  it('③ 反向：tsconfig / exports 里没有「不在公开清单」的前缀', () => {
+    const allowed = new Set<string>(KERNEL_PUBLIC_SUBPATHS);
+    for (const k of tsconfigKeys()) expect(allowed.has(prefixOf(k))).toBe(true);
+    for (const k of exportKeys()) expect(allowed.has(prefixOf(k))).toBe(true);
   });
 });
 

@@ -19,7 +19,7 @@ import {
   getMandatoryTools,
   isMandatoryTool,
 } from '../../src/tools/toolCategories';
-import { feature } from '@openliri/kernel/featureFlags';
+import { feature } from '@openliri/kernel';
 
 const ENV_KEYS = ['FEATURE_AGENT', 'FEATURE_TODO'] as const;
 

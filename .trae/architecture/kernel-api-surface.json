@@ -2,7 +2,7 @@
   "version": 1,
   "kernelRoot": "packages/kernel/src/core",
   "fileCount": 146,
-  "symbolCount": 1367,
+  "symbolCount": 1368,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -681,6 +681,7 @@
         "getDIContainer",
         "getEstopState",
         "getOutputGuardRegistry",
+        "getPatternDescriptor",
         "getPerformanceProfiler",
         "getToolFlag",
         "installExitRecorder",

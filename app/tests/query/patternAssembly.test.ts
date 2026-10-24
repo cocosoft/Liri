@@ -18,9 +18,9 @@ import {
   selectPattern,
   listPatterns,
   getPatternDescriptor,
-} from '@openliri/kernel/patterns/index';
-import { PATTERN_PROVIDERS } from '@openliri/kernel/patterns/types';
-import { PATTERN_DESCRIPTORS } from '@openliri/kernel/patterns/PatternRegistry';
+} from '@openliri/kernel';
+import { PATTERN_PROVIDERS } from '@openliri/kernel';
+import { PATTERN_DESCRIPTORS } from '@openliri/kernel';
 
 describe('pattern 承担方解析层（A）：闭集无悬空', () => {
   it('闭集 ↔ 绑定表双向一致（无漏配、无闭集外键）', () => {

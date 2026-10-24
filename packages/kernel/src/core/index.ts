@@ -162,6 +162,7 @@ export {
   PATTERN_SELECTION_RULES,
   PATTERN_PROVIDERS,
   PATTERN_DESCRIPTORS,
+  getPatternDescriptor,
   listPatterns,
   validatePatterns,
 } from './patterns';

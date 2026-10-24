@@ -20,10 +20,7 @@
 // SOFTWARE.
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import {
-  sleepMonitor as monitor,
-  SLEEP_EVENTS,
-} from '@openliri/kernel/sleep/SleepMonitor';
+import { sleepMonitor as monitor, SLEEP_EVENTS } from '@openliri/kernel';
 import { globalEventBus } from '@openliri/kernel/events/EventBus';
 
 /** 模拟可控时钟 */

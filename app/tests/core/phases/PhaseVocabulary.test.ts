@@ -11,7 +11,7 @@ import {
   PDCA_TO_WORKITEM,
   PDCA_TERMINAL_PHASES,
   type PdcaPhase,
-} from '@openliri/kernel/phases/PhaseVocabulary.js';
+} from '@openliri/kernel';
 
 describe('PhaseVocabulary B6 — toPdcaPhase 隐式意图 → 意图阶段显式转换', () => {
   test('plan/do/check/act 同值映射', () => {

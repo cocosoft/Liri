@@ -13,7 +13,7 @@ import {
   EDGE_CAUSAL_WEIGHT,
   projectTaskGraph,
   projectAgentGraph,
-} from '@openliri/kernel/systemgraph/index.js';
+} from '@openliri/kernel';
 
 /** 断言 AppError 的错误码（`AppError.code`；避免按文案判别 —— CS02） */
 function codeOf(fn: () => unknown): string {

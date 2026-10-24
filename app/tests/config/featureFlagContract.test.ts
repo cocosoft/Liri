@@ -19,7 +19,7 @@ import {
   resetBuildVariantFlags,
   setBuildVariantFlags,
   type FeatureFlag,
-} from '@openliri/kernel/featureFlags.js';
+} from '@openliri/kernel';
 // P3（2026-10-23）：构建变体层改为**宿主注入**；生成物落在 `bootstrap/`（内核不再持有）
 import { BUILD_VARIANT_FLAGS } from '../../src/bootstrap/generatedVariantFlags.js';
 import { AppError } from '@openliri/kernel/errors.js';

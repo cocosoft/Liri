@@ -8,7 +8,7 @@ import {
   isPatternReachable,
   patternFeatureFlag,
   patternUnreachableReason,
-} from '@openliri/kernel/patterns/index.js';
+} from '@openliri/kernel';
 
 describe('PatternSelector（Teamwork P2a）', () => {
   test('simple 复杂度 → null（回退现状快速路径，验收 #4 语义）', () => {

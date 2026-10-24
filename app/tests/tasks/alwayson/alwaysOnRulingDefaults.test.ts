@@ -12,7 +12,7 @@
  */
 import { afterEach, describe, expect, it } from 'bun:test';
 
-import { FEATURE_FLAGS, feature } from '@openliri/kernel/featureFlags.js';
+import { FEATURE_FLAGS, feature } from '@openliri/kernel';
 
 const KEYS = ['ALWAYSON_GOAL_EVAL', 'ALWAYSON_SNAPSHOT_FALLBACK'] as const;
 

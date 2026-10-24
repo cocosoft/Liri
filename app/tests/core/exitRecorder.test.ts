@@ -23,11 +23,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import {
-  isAbnormalExit,
-  readLastExit,
-  recordExit,
-} from '@openliri/kernel/exit/ExitRecorder';
+import { isAbnormalExit, readLastExit, recordExit } from '@openliri/kernel';
 
 let tmpDir: string;
 const originalDataDir = process.env.LIRI_DATA_DIR;

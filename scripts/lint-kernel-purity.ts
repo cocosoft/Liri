@@ -535,14 +535,85 @@ function main(): void {
 }
 
 /**
+ * **内核公开子路径 —— 唯一事实源**（方案 §4-P5 补，2026-10-23/24 逐组实测后裁定）。
+ *
+ * 三处消费者必须与此一致（`tests/gates/kernelPurityGate.test.ts` 有断言防漂移）：
+ *   ① 本文件的 K07 门禁（`ALLOWED`）；② `app/tsconfig.json` 的显式 path 映射；③ `packages/kernel/package.json` 的 `exports`。
+ *
+ * 入列标准：**实测「改走桶 / 改走 app 门面」的代价大于收益**，而不是「用得多」。
+ * 每个条目的理由都必须可复现，否则就是静默放宽门禁（AR-3）：
+ *
+ *   - `paths` / `identity` / `external` / `spi` / `events` —— Q2 原始 5 项（用量 94%）；
+ *   - `loggerFacade` —— 45 处消费方；改走 `@modules/monitoring` barrel 会把 ≈657KB
+ *     依赖无条件拉进启动面（该文件注释的既有实测），改 `monitoring/logs/Logger` 是
+ *     另一套实现 ⇒ 行为变更。它是**零依赖叶子门面**，本就该是公开入口。
+ *   - `errors` / `errorHandler` / `errorCodes` —— app 侧 `error/*` 门面文件的**转出源**；
+ *     门面本身必须保留深路径，否则「唯一入口」无处可转出。
+ *   - `pricing` —— `@modules/cost` 桶含 React hooks + 20 余个成本类，且不导出
+ *     `DEFAULT_MODEL_PRICING` / `projectRegistryPricing` / `BillingMode` / `TimeBasedPrice`；
+ *     退到 `cost/ModelPricing` 会被 R03-002 判违规。
+ *   - `sandboxPermission` —— `@modules/sandbox` 属 **app 层**，5 个 infra/service 消费方
+ *     改走它会构成 `infra → app` 倒挂。
+ *   - 批次 5/6 的 13 项见下方逐条注释（共同点：进桶会涨启动面，消费方又无法再下沉）。
+ */
+export const KERNEL_PUBLIC_SUBPATHS = [
+  // Q2 原始五项
+  'paths',
+  'identity',
+  'external',
+  'spi',
+  'events',
+  // P5 补（实测无更优替代）
+  'loggerFacade',
+  'errors',
+  'errorHandler',
+  'errorCodes',
+  'pricing',
+  'sandboxPermission',
+  // `http-server.ts` 明写「静态依赖仅限 core 的**零依赖**模块」，为**不与 repl.ts 形成循环依赖**；
+  // 这两个模块自身零 import（`ports` 只有常量 + 纯函数，`httpPortFallback` 同），
+  // 改走桶会把它拉进整条内核求值链，与该注释的约束直接冲突 ⇒ 合法公开子路径。
+  'ports',
+  'httpPortFallback',
+  // `core/ids` 只依赖 `node:crypto`。两个消费方**都有明确的"不与内核求值链耦合"契约**：
+  // `session/storage/SessionStoragePortable.ts` 要求"零 Liri 内部依赖"（可移植存储），
+  // `utils/common.ts` 是极热底层工具（引桶＝把整条内核求值提前到它首次被 import 的时刻）。
+  'ids',
+  // 批次 5：以下模块**不进桶**，而是声明为公开子路径。
+  // 理由（实测，2026-10-24）：把它们加进桶后 `lint:startup-graph` 从 281 涨到 **285（+4 eager 文件）**
+  // —— 桶被启动期静态加载，进桶即提前求值。子路径则只在真正用到时才求值 ⇒ 同样收敛 K07、零启动成本。
+  // 五者自身依赖都只到 core 内部（paths / spi / loggerFacade）或零 import，无 app 层倒挂。
+  'taskStatus',
+  'knowledge-types',
+  'mediaRoots',
+  'lazySingleton',
+  'LazyModuleStrategy',
+  // 批次 6（终局）：最后 9 个前缀。同样不能走桶，而消费方是 app 层的门面/接线点，无法再下沉。
+  // 匹配粒度为**首段**（`idle/…` / `connections/…` 整目录随之公开），这是 K07 既有口径。
+  'DependencyRegistry', // 依赖注册表单例：channels / permission / mcp 三处接线 + app 门面
+  'SessionSpanTracer', // 会话级 span 追踪：通道链路 + app 门面
+  'tracingFacade', // OTel 追踪门面（`resolveOTelTracing` 的薄封装）
+  'idle', // 空转伸缩监视器（仅 ChatOrchestrator 动态导入）
+  'connections', // 连接注册表（main 启动期动态导入）
+  'instanceLock', // 单实例锁：main 解析/写入/发布端点
+  'profilerFacade', // 启动剖析门面（`resolveStartupProfiler` 的薄封装）
+  'abortReason', // 中断原因契约（app `error/abortReason` 门面的转出源）
+  'orchestrationEvents', // 编排事件契约（app `types/orchestrationEvents` 门面的转出源）
+  // 弃用告警工具：内核叶子（`process.emitWarning` 薄封装）。当前唯一消费方是
+  // `tests/core/deprecatedCoreModules.test.ts`（自证「接线不丢」）；不进桶是因为它没有任何生产消费方，
+  // 进桶会让每次启动都求值一个用不到的模块。
+  'deprecationNotice',
+] as const;
+
+/**
  * **K07 深路径禁令**（方案 §4-P5，复审 B3 编号归属）。
  *
  * 判据：消费方（`app/src` + `app/packages`）对内核的导入**只允许**
- * ① 桶 `@openliri/kernel`；② 五个实测刚需子路径（Q2：`paths` / `identity` / `external` / `spi` / `events`）。
- * 其余 `@openliri/kernel/<sub>` 一律记违规，**存量进棘轮**（只减不增）。
+ * ① 桶 `@openliri/kernel`；② `KERNEL_PUBLIC_SUBPATHS` 里的公开子路径（**首段匹配**）。
+ * 其余 `@openliri/kernel/<sub>` 一律记违规，存量进棘轮（只减不增；当前 0）。
  *
- * 为什么必须开这条门禁：`exports` 一旦收敛为桶 + 5 子路径，其余深路径在**独立发布后**
- * 会直接解析失败；而 `tsconfig paths` 通配会让它在仓内**看起来一直可用**（假绿）。
+ * 为什么必须开这条门禁：`exports` 只声明公开子路径，其余深路径在**独立发布后**会直接解析失败；
+ * 而 `tsconfig paths` 若留通配，会让它在仓内**看起来一直可用**（假绿）。
  * 棘轮语义与 K01–K06 一致：新增即红，想放宽必须手改基线 json（diff 可见）。
  */
 function checkK07DeepPaths(): void {
@@ -550,73 +621,8 @@ function checkK07DeepPaths(): void {
     repoRoot,
     '.trae/architecture/kernel-deep-path-baseline.json'
   );
-  /**
-   * **K07 公开子路径白名单**（方案 §4-P5 补，2026-10-23 逐组实测后裁定）。
-   *
-   * 入列标准：**实测「改走 app 门面」的代价大于收益**，而不是「用得多」。
-   * 每个条目的理由都必须可复现，否则就是静默放宽门禁（AR-3）：
-   *
-   *   - `paths` / `identity` / `external` / `spi` / `events` —— Q2 原始 5 项（用量 94%）；
-   *   - `loggerFacade` —— 45 处消费方；改走 `@modules/monitoring` barrel 会把 ≈657KB
-   *     依赖无条件拉进启动面（该文件注释的既有实测），改 `monitoring/logs/Logger` 是
-   *     另一套实现 ⇒ 行为变更。它是**零依赖叶子门面**，本就该是公开入口。
-   *   - `errors` / `errorHandler` / `errorCodes` —— app 侧 `error/*` 门面文件的**转出源**；
-   *     门面本身必须保留深路径，否则「唯一入口」无处可转出。
-   *   - `pricing` —— `@modules/cost` 桶含 React hooks + 20 余个成本类，且不导出
-   *     `DEFAULT_MODEL_PRICING` / `projectRegistryPricing` / `BillingMode` / `TimeBasedPrice`；
-   *     退到 `cost/ModelPricing` 会被 R03-002 判违规。
-   *   - `sandboxPermission` —— `@modules/sandbox` 属 **app 层**，5 个 infra/service 消费方
-   *     改走它会构成 `infra → app` 倒挂。
-   *
-   * 未入列的（`DIContainer` / `LazyModuleStrategy` / `systemgraph` / `SessionSpanTracer` …）
-   * 仍留在基线里，逐项评估后再决定，**不在本轮批量放行**。
-   */
-  const ALLOWED = new Set([
-    // Q2 原始五项
-    'paths',
-    'identity',
-    'external',
-    'spi',
-    'events',
-    // P5 补（实测无更优替代）
-    'loggerFacade',
-    'errors',
-    'errorHandler',
-    'errorCodes',
-    'pricing',
-    'sandboxPermission',
-    // `http-server.ts` 明写「静态依赖仅限 core 的**零依赖**模块」，为**不与 repl.ts 形成循环依赖**；
-    // 这两个模块自身零 import（`ports` 只有常量 + 纯函数，`httpPortFallback` 同），
-    // 改走桶会把它拉进整条内核求值链，与该注释的约束直接冲突 ⇒ 合法公开子路径。
-    'ports',
-    'httpPortFallback',
-    // `core/ids` 只依赖 `node:crypto`。两个消费方**都有明确的"不与内核求值链耦合"契约**：
-    // `session/storage/SessionStoragePortable.ts` 要求"零 Liri 内部依赖"（可移植存储），
-    // `utils/common.ts` 是极热底层工具（引桶＝把整条内核求值提前到它首次被 import 的时刻）。
-    'ids',
-    // K07 批次 5：以下模块**不进桶**，而是声明为公开子路径。
-    // 理由（实测，2026-10-24）：把它们加进桶后 `lint:startup-graph` 从 281 涨到 **285（+4 eager 文件）**
-    // —— 桶被启动期静态加载，进桶即提前求值。子路径则只在真正用到时才求值 ⇒ 同样收敛 K07、零启动成本。
-    // 五者自身依赖都只到 core 内部（paths / spi / loggerFacade）或零 import，无 app 层倒挂。
-    'taskStatus',
-    'knowledge-types',
-    'mediaRoots',
-    'lazySingleton',
-    'LazyModuleStrategy',
-    // K07 批次 6（终局）：下面 9 个前缀是「归零」需要放行的最后一批。
-    // 它们**不能走桶**（进桶即提前求值 ⇒ 启动面增长，批次 5 已实测 +4），
-    // 而消费方是 app 层的门面/接线点，无法再下沉 ⇒ 明确追认为内核公开子路径。
-    // 匹配粒度为**首段**（`idle/…` / `connections/…` 整目录随之公开），这是 K07 既有口径。
-    'DependencyRegistry', // 依赖注册表单例：channels / permission / mcp 三处接线 + app 门面
-    'SessionSpanTracer', // 会话级 span 追踪：通道链路 + app 门面
-    'tracingFacade', // OTel 追踪门面（`resolveOTelTracing` 的薄封装）
-    'idle', // 空转伸缩监视器（仅 ChatOrchestrator 动态导入）
-    'connections', // 连接注册表（main 启动期动态导入）
-    'instanceLock', // 单实例锁：main 解析/写入/发布端点
-    'profilerFacade', // 启动剖析门面（`resolveStartupProfiler` 的薄封装）
-    'abortReason', // 中断原因契约（app `error/abortReason` 门面的转出源）
-    'orchestrationEvents', // 编排事件契约（app `types/orchestrationEvents` 门面的转出源）
-  ]);
+  // 白名单唯一事实源见模块级 `KERNEL_PUBLIC_SUBPATHS`（不在函数内维护第二份清单）
+  const ALLOWED = new Set<string>(KERNEL_PUBLIC_SUBPATHS);
   /** 消费方源码根（生产面；不含 npm 包外壳与历史归档） */
   const consumerRoots = [
     resolve(repoRoot, 'app/src'),

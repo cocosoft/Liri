@@ -11,7 +11,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveScopedDbPath } from '@openliri/kernel';
+import { resolveTenantDbPath } from '@openliri/kernel';
 // 2026-10-01 B14b（甲′）：原静态导入 app 层 `@modules/ai` 的 ModelRegistry（同步路径读取）
 // ⇒ 改为本文件自持的 **infra 级缓存**，由 `ModelRegistry` 在装载/刷新模型时**同步推入**
 // （DB 仍为唯一事实来源）。本站是该文件唯一的 app 层耦合点，解除后本文件 app-free，可落 infra。
@@ -63,11 +63,11 @@ export interface ContextWindowInfo {
  * 如果 DB 有 model_registry 表且指定模型的 context_window 字段有值，则优先使用
  */
 async function resolveFromDB(model: string): Promise<number | null> {
-  // 多租户 P1：随请求身份解析（本地身份 ⇒ 共享 app.db，零变更）；
+  // 租户级库（基础设施专项 §6.1）：随请求身份解析（本地身份 ⇒ 共享 app.db，零变更）；
   // 该函数在**每次**调用时新开连接并立即读取，不缓存连接 ⇒ 无共享字段换连接的竞态。
   let db: Database | null = null;
   try {
-    db = new Database(resolveScopedDbPath());
+    db = new Database(resolveTenantDbPath());
     const row = await new Promise<{ context_window?: number } | undefined>(
       (resolve) => {
         db!.get(

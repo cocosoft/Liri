@@ -295,8 +295,8 @@ describe('CredentialStore：按身份分实例（与 ProviderManager 同源分�
 });
 
 describe('ContextWindowResolver：DB 读取路径随身份', () => {
-  it('租户请求读自己的 model_registry（本地读不到）', async () => {
-    const dir = join(dataDir, 'tenants', 'acme', 'users', 'alice');
+  it('租户请求读租户库的 model_registry（本地读不到）', async () => {
+    const dir = join(dataDir, 'tenants', 'acme');
     mkdirSync(dir, { recursive: true });
     const db = new Database(join(dir, 'app.db'));
     db.run(

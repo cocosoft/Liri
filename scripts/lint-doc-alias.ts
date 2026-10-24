@@ -8,10 +8,12 @@
  * 安全开关与常量，**不会校验文档里的别名**。这与 CS08 记过的根因同源：
  * 「规范指向不存在的真源」比「没有规范」更坏，因为它看起来有据可依。
  *
- * 判据（只看**导入别名**，不校验普通路径）：文档里出现的 `@modules/<x>` / `@openliri/kernel/<x>`
- * / `@shared/<x>`，必须能在 `app/tsconfig.json` 的 `paths`（或内核公开子路径清单）里命中。
- * 不检查普通文件路径引用 —— 文档里大量「原为 …」的历史叙述是**应当保留**的，
- * 纳进来只会逼人改写历史（本文件即因一次 `replace_all` 误改了 v7.7.0 的历史行而立项）。
+ * 判据（两条）：
+ *   ① **导入别名**：文档里出现的 `@modules/<x>` / `@openliri/kernel/<x>` / `@shared/<x>`，
+ *      必须能在 `app/tsconfig.json` 的 `paths`（或内核公开子路径清单）里命中；
+ *   ② **文件路径**：内联代码里的 `app|packages|scripts|client|shared/<...>.<ext>` 必须真实存在。
+ * 豁免：围栏代码块（示例）· 含「原为 / 曾 / 已删除 / 订正 / 更名 / 不存在」等措辞的行（历史存证）。
+ * 没有豁免就只剩两条路：改写历史，或把门禁关掉 —— 两者都比留白名单差。
  *
  * 历史存证的处理：与 K01–K07 同口径 —— 进**基线**（`doc-alias-baseline.json`），
  * `maxEntries` 只降不增；`--write-baseline` 只允许下调。
@@ -88,6 +90,14 @@ function checkAlias(alias: string, keys: Set<string>): string | null {
 }
 
 const ALIAS_RE = /@(?:modules|openliri|shared)\/[A-Za-z0-9_./-]*/g;
+/** 内联代码里的**文件路径**（相对仓库根）；只认这五个顶层目录，避免把 URL/示例当路径 */
+const PATH_RE =
+  /`((?:app|packages|scripts|client|shared)\/[A-Za-z0-9_./-]+\.(?:ts|tsx|js|json|md))`/g;
+/**
+ * 历史 / 订正行里的引用是**存证**，不参与校验。
+ * 否则「原为 `x`，已迁移到 `y`」这种正当写法会被判违规 —— 等于逼人改写历史。
+ */
+const HISTORY_RE = /原为|原写|曾|已删除|历史|订正|更名|已移除|不存在/;
 
 const keys = loadAliasKeys();
 const hits: Array<{
@@ -99,11 +109,30 @@ const hits: Array<{
 for (const abs of files) {
   const text = readFileSync(abs, 'utf-8');
   const file = relative(repoRoot, abs).split(sep).join('/');
+  let inFence = false;
   text.split('\n').forEach((line, i) => {
+    // 围栏代码块里的内容是**示例**（可能故意写假路径），跳过
+    if (/^\s*```/.test(line)) {
+      inFence = !inFence;
+      return;
+    }
+    if (inFence) return;
     for (const m of line.matchAll(ALIAS_RE)) {
       const alias = m[0].replace(/[.,;:）)]+$/, '');
       const reason = checkAlias(alias, keys);
       if (reason) hits.push({ file, alias, reason, line: i + 1 });
+    }
+    if (HISTORY_RE.test(line)) return;
+    for (const m of line.matchAll(PATH_RE)) {
+      const ref = m[1] as string;
+      if (!existsSync(join(repoRoot, ref))) {
+        hits.push({
+          file,
+          alias: ref,
+          reason: '文件不存在（相对仓库根）',
+          line: i + 1,
+        });
+      }
     }
   });
 }
@@ -150,7 +179,7 @@ const shrinkable = prev.entries.filter(
 );
 
 console.log(
-  `规则文档别名：${sorted.length} 处不可解析（基线 ${prev.entries.length}）· 扫描 ${files.length} 个文件`
+  `规则文档引用（别名 + 路径）：${sorted.length} 处不可解析（基线 ${prev.entries.length}）· 扫描 ${files.length} 个文件`
 );
 if (shrinkable.length > 0) {
   console.log(`ℹ️ 基线项已不存在（请下调锁定成果）: ${shrinkable.length} 条`);
@@ -162,10 +191,10 @@ if (prev.maxEntries !== undefined && prev.entries.length > prev.maxEntries) {
   process.exit(1);
 }
 if (added.length > 0) {
-  console.error(`❌ 新增不可解析的文档别名 ${added.length} 处：`);
+  console.error(`❌ 新增不可解析的文档引用 ${added.length} 处：`);
   for (const h of added)
     console.error(`  - ${h.file}:${h.line} ${h.alias} —— ${h.reason}`);
   process.exit(1);
 }
-console.log('✅ 文档别名全部可解析（或已登记进基线）');
+console.log('✅ 文档引用全部可解析（或已登记进基线）');
 process.exit(0);

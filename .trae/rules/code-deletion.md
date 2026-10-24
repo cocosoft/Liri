@@ -33,7 +33,7 @@
 
 **CD02 [MUST] 搜构建入口、插件入口与运行时发现机制**
 
-- 构建入口：`build:*/` 变体脚本（`scripts/build-variant.ts`）、编译入口（`pyapp.ts` / `main.ts`）、打包脚本。
+- 构建入口：`build:*/` 变体脚本（`app/scripts/build-variant.ts`）、编译入口（`pyapp.ts` / `main.ts`）、打包脚本。
 - 插件入口：`ModuleDefinitions` / 模块注册表 / `channelRegistry` / `skillRegistry` / 工具注册表 / MCP bridge / `dependencyRegistry`。
 - 运行时发现：目录扫描、约定式加载、`resolve*` 动态解析（如按名加载通道/技能/插件）。
 

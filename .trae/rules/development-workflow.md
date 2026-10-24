@@ -245,11 +245,15 @@ bun run modules:snapshot # 6. 更新依赖快照
 
 **同族先例**：`app/src/tools/DependencyValidator.ts` 早已用同一手法规避（其注释记录"import 链会初始化后台服务、定时器/监听器持有事件循环句柄 → 进程不退出 → pre-commit hook 永久挂起"，故显式 `process.exit`）。
 
-**新脚本（推荐写法）**：用 `app/scripts/_runner.ts` 的 `runScript(async () => { … })` 统一收尾 —— 正常返回 `exit(0)`、抛错打印后 `exit(1)`；示例见 `scripts/verify-derive.ts`。
+**新脚本（推荐写法）**：末尾显式 `process.exit(0)`（成功）/ 失败路径 `process.exit(1)`；示例见 `app/scripts/verify-derive.ts`。
 
-**存量迁移（2026-09-15 已完成）**：15 个 `import ../src/**` 的脚本已全部具备显式出口 —— **10 个**补 `process.exit(0)`、**4 个**原本已有显式出口（`benchmark-startup` / `measure-session-memory` / `migrate-attachments-to-fileregistry` / `migrate-graph-node-ids-o15b`）、**2 个**的**早返回分支**另行补齐（`migrate-channel-credentials` 的 `--rollback`、`migrate-memory-v1-to-v2` 的两处"跳过迁移"分支 —— 后者是迁移成功后再次运行的常态路径）；`verify-derive.ts` 已迁移到 `_runner`。
+> ⚠️ **订正（2026-10-24，实测）**：原文写「用 `app/scripts/_runner.ts` 的 `runScript(...)` 统一收尾」——该文件**全仓不存在**
+> （`_runner*` 0 命中、`runScript` 无定义），照做会引用空模块；且 `verify-derive.ts` 实际用的是裸 `process.exit`。
+> 原文的 `scripts/verify-derive.ts` 也应为 `app/scripts/verify-derive.ts`。历史条目保留在下方，**推荐写法以本行为准**。
 
-**范围现状（2026-09-15 评估）**：`app/scripts/**` **当前不在** tsc（`tsconfig.json` 的 `include` 仅 `src/**`、`tests/**`）与 ESLint（`tsconfig.eslint.json` 未含 scripts）范围内。纳入的**规模评估**（用临时 tsconfig 探针，`include` 取 `src+tests+scripts` 并集以免把 src 既有噪声计入，探针已删）：脚本侧 **12 处** TS 报错 → **已修 6 处（"活的"脚本，见下）**，**余 6 处待判定**（3 个**无任何调用方**的孤儿迁移脚本：`a4-migrate-and-accept`（globalThis 挂载 + `LogLevel` 未用枚举，3 处）、`migrate-attachments-to-fileregistry`（引用**已删除**的 `FileSource.TELEGRAM`/`WEB_FETCH`，2 处）、`migrate-memory-v1-to-v2`（`MemoryMetadata` 缺 `description/createdAt/updatedAt`，1 处））—— **删 or 修属产品判断**。
+**存量迁移（2026-09-15 已完成）**：15 个 `import ../src/**` 的脚本已全部具备显式出口 —— **10 个**补 `process.exit(0)`、**4 个**原本已有显式出口（`benchmark-startup` / `measure-session-memory` / `migrate-attachments-to-fileregistry` / `migrate-graph-node-ids-o15b`）、**2 个**的**早返回分支**另行补齐（`migrate-channel-credentials` 的 `--rollback`、`migrate-memory-v1-to-v2` 的两处"跳过迁移"分支 —— 后者是迁移成功后再次运行的常态路径）；`verify-derive.ts` 已迁移到 `_runner`（**订正 2026-10-24**：`_runner` 现已不存在，该脚本实际用裸 `process.exit`，见上）。
+
+**范围现状（2026-09-15 评估）**：~~`app/scripts/**` **当前不在** tsc（`tsconfig.json` 的 `include` 仅 `src/**`、`tests/**`）与 ESLint（`tsconfig.eslint.json` 未含 scripts）范围内。~~（**订正 2026-10-24**：`app/scripts/**` 现已纳入 `tsconfig.scripts.json`，随 `bun run typecheck` 一起检查；本段以下为当时评估的原始记录。）纳入的**规模评估**（用临时 tsconfig 探针，`include` 取 `src+tests+scripts` 并集以免把 src 既有噪声计入，探针已删）：脚本侧 **12 处** TS 报错 → **已修 6 处（"活的"脚本，见下）**，**余 6 处待判定**（3 个**无任何调用方**的孤儿迁移脚本：`a4-migrate-and-accept`（globalThis 挂载 + `LogLevel` 未用枚举，3 处）、`migrate-attachments-to-fileregistry`（引用**已删除**的 `FileSource.TELEGRAM`/`WEB_FETCH`，2 处）、`migrate-memory-v1-to-v2`（`MemoryMetadata` 缺 `description/createdAt/updatedAt`，1 处））—— **删 or 修属产品判断**。
 
 **已修复的 6 处（"活的"脚本，2026-09-15）**：均为"解析层"缺陷、**零行为变化**，修后探针复跑 12 → 6：
 | 文件 | 处数 | 根因 | 被谁调用 |
@@ -259,7 +263,9 @@ bun run modules:snapshot # 6. 更新依赖快照
 | `benchmark-startup.ts` | 1 | 动态 `import()` 带 `.ts` 后缀 | `.github/workflows/ci.yml`、`benchmark:startup` |
 | `install-service.ts` | 1 | 静态 import 带 `.ts` 后缀 | `service:install/uninstall/start/stop/restart/status/dev`（7 项） |
 
-**已完成的准备（① 统一类型声明，2026-09-15）**：新增 `app/scripts/bun-globals.d.ts`，消除脚本侧 `bun:sqlite` / `import.meta.dir` 类错误 **18 处 → 0**（实测）。三条踩坑记录：
+**已完成的准备（① 统一类型声明，2026-09-15）**：~~新增 `app/scripts/bun-globals.d.ts`~~（**该文件已不存在**，全仓 0 命中）
+—— **现状（2026-10-24 实测）**：`app/scripts/**` 已纳入 `app/tsconfig.scripts.json`（由 `bun run typecheck` 的第二段覆盖），
+根 scripts 的类型由 `app/scripts/bun-env.d.ts` 承担。下文三条踩坑记录仍然有效：
 1. **不要装 `@types/bun`**：会与 `app/tests/bun-test.d.ts` 既有的 `declare module 'bun:test'` 形成重复声明，且影响面外溢到整个程序。
 2. **该声明文件必须是"全局声明文件"**（无顶层 `import`/`export`）：带 `export {}` 的 `.d.ts` 会被当作**模块**，其中的 `declare module 'x'` 退化为"模块增强"，对环境模块（如 `bun:sqlite`）**不生效**（实测仍报 TS2307）。
 3. **临时 tsconfig 探针必须带 `--noEmit`**：`tsc -p <探针>` 若省略该参数，会按 `tsconfig.json` 的 `outDir` 把整个 app 编译产出成 `dist/app/**`（含测试的编译副本）；此后 `bun test` 会把源测试与 **dist 副本**一并执行（实测 388 → 602 文件、51 个"幽灵失败"，且失败项在隔离复跑时全绿）。清理：删除 `dist/app`、`dist/shared`，**保留** `dist/main.js` 等既有构建产物。

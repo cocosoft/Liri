@@ -12,7 +12,7 @@ description:
 |---|------|------|
 | 1 | `app/package.json` | `version` |
 | 2 | `client/package.json` | `version` |
-| 3 | `client/package-lock.json` | `version`（根级和 packages."" 级，共 2 处） |
+| 3 | `client/bun.lock` | 前端锁文件（**bun 管理**；旧文档写的 `client/package-lock.json` 已不存在） |
 | 4 | `client/src-tauri/Cargo.toml` | `package.version` |
 | 5 | `client/src-tauri/tauri.conf.json` | `version` |
 | 6 | `app/native/package.json` | `version` |
@@ -24,7 +24,7 @@ description:
 
 - [ ] `app/package.json` → `"version": "X.Y.Z"`
 - [ ] `client/package.json` → `"version": "X.Y.Z"`
-- [ ] `client/package-lock.json` → 根级 `"version"` + `packages.""` 级 `"version"`
+- [ ] `client/bun.lock` → 若锁定信息含版本号则同步（旧清单项的 `client/package-lock.json` 已不存在，2026-10-24 订正）
 - [ ] `client/src-tauri/Cargo.toml` → `version = "X.Y.Z"`
 - [ ] `client/src-tauri/tauri.conf.json` → `"version": "X.Y.Z"`
 - [ ] `app/native/package.json` → `"version": "X.Y.Z"`

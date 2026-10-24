@@ -115,6 +115,31 @@ describe('文档别名门禁：合法/占位样例必绿（防误伤）', () => 
   });
 });
 
+describe('文档引用门禁：文件路径', () => {
+  it('内联代码里的路径不存在 ⇒ 红', () => {
+    const root = fixture({
+      '.trae/rules/probe.md': '见 `app/src/ghost-file.ts`\n',
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(1);
+    expect(out).toContain('app/src/ghost-file.ts');
+    expect(out).toContain('文件不存在');
+  });
+
+  it('围栏代码块（示例）与历史措辞行 ⇒ 不判违规', () => {
+    const root = fixture({
+      '.trae/rules/examples.md':
+        '```ts\nimport x from `app/src/ghost-a.ts`\n```\n原为 `app/src/ghost-b.ts`，已迁移\n',
+      'app/src/real.ts': 'export const ok = 1;\n',
+      '.trae/rules/real.md': '见 `app/src/real.ts`\n',
+    });
+
+    expect(run(root).code).toBe(0);
+  });
+});
+
 describe('文档别名门禁：基线棘轮', () => {
   const LEAK = { '.trae/rules/legacy.md': '`@modules/ghost`\n' };
 

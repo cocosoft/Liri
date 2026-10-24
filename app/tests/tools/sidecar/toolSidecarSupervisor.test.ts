@@ -69,6 +69,23 @@ describe('工具侧车监督器：就绪握手', () => {
     sup.stop();
   });
 
+  it('spawn 时注入父 PID（侧车据此在父进程消失后自清）', async () => {
+    const fake = new FakeChild();
+    let seenEnv: NodeJS.ProcessEnv | undefined;
+    const sup = new ToolSidecarSupervisor({
+      spawnFn: (_cmd, _args, opts) => {
+        seenEnv = (opts as { env?: NodeJS.ProcessEnv }).env;
+        return asChild(fake);
+      },
+    });
+    const p = sup.start();
+    fake.stdout.write(startupFrame());
+    await expect(p).resolves.toEqual({ pid: 1234 });
+    // 键名走产品前缀，值为**当前进程** PID（与 parentLiveness 的读取端同一契约）
+    expect(seenEnv?.['LIRI_SIDECAR_PARENT_PID']).toBe(String(process.pid));
+    sup.stop();
+  });
+
   it('协议版本不兼容 ⇒ fail-closed 拒绝启动', async () => {
     const fake = new FakeChild();
     const killed: ChildProcess[] = [];

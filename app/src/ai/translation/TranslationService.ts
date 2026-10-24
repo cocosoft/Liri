@@ -45,13 +45,22 @@ export class TranslationService {
   private languageDetector: LanguageDetector;
   private promptBuilder: PromptBuilder;
   private postProcessor: PostProcessor;
-  private historyStore: TranslateHistoryStore;
+
+  /**
+   * 历史存储**按调用身份解析**，不在构造期钉死。
+   *
+   * 2026-10-24：本类有模块级单例 `translationService`（文件末尾），构造发生在**模块求值时**
+   * （无请求身份）⇒ 若把 `getInstance()` 的结果存成字段，会把库永久钉在共享 `app.db`，
+   * 租户请求的历史便写错库（读侧走租户库 ⇒ 看不见）。
+   */
+  private get historyStore(): TranslateHistoryStore {
+    return TranslateHistoryStore.getInstance();
+  }
 
   constructor() {
     this.languageDetector = new LanguageDetector();
     this.promptBuilder = new PromptBuilder();
     this.postProcessor = new PostProcessor();
-    this.historyStore = TranslateHistoryStore.getInstance();
   }
 
   /**

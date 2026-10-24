@@ -100,12 +100,6 @@ async function main(): Promise<void> {
   } catch {
     // ModuleRegistry 可能不存在或已合并
   }
-  // 加载 AppCore
-  try {
-    await import('../packages/kernel/src/core/AppCore.ts');
-  } catch {
-    // AppCore 可能不存在
-  }
   const moduleRegTime = performance.now() - moduleRegStart;
 
   const totalTime = performance.now() - startTime;

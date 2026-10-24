@@ -630,6 +630,14 @@ function checkK07DeepPaths(): void {
   ];
   const DEEP_IMPORT =
     /(?:from\s+|import\(\s*|require\(\s*)['"]@openliri\/kernel\/([^'"]+)['"]/g;
+  /**
+   * **相对路径直连内核源码**（2026-10-24 补漏）：K07 原先只匹配 `@openliri/kernel/…`，
+   * 于是 `import x from '../../packages/kernel/src/core/paths'` 这种写法**完全绕过门禁**
+   * —— 它既不受白名单约束，也不随 `exports` 收敛而失效。生产面实测 0 处，此处把口子封上。
+   */
+  const REL_IMPORT =
+    /(?:from\s+|import\(\s*|require\(\s*)['"](\.[^'"]+)['"]/g;
+  const KERNEL_SRC = resolve(repoRoot, 'packages/kernel/src');
 
   const hits: Array<{ file: string; subpath: string }> = [];
   for (const abs of consumerRoots.flatMap((root) =>
@@ -646,6 +654,19 @@ function checkK07DeepPaths(): void {
       hits.push({
         file: relative(repoRoot, abs).split(sep).join('/'),
         subpath: m[1],
+      });
+    }
+    // 相对路径直连内核源码 ⇒ 同样判违规（绕过白名单 / exports）
+    REL_IMPORT.lastIndex = 0;
+    let r: RegExpExecArray | null;
+    while ((r = REL_IMPORT.exec(text)) !== null) {
+      const spec = r[1];
+      const kernel = KERNEL_SRC.split(sep).join('/');
+      const target = resolve(dirname(abs), spec).split(sep).join('/');
+      if (!target.startsWith(`${kernel}/`)) continue;
+      hits.push({
+        file: relative(repoRoot, abs).split(sep).join('/'),
+        subpath: `[相对] ${spec}`,
       });
     }
   }
@@ -715,7 +736,13 @@ function checkK07DeepPaths(): void {
       `❌ K07 新增内核深路径 ${added.length} 处（应改走桶或白名单子路径）:`
     );
     for (const h of added)
-      console.error(`  - ${h.file} → @openliri/kernel/${h.subpath}`);
+      console.error(
+        `  - ${h.file} → ${
+          h.subpath.startsWith('[相对]')
+            ? h.subpath
+            : `@openliri/kernel/${h.subpath}`
+        }`
+      );
     process.exit(1);
   }
 }

@@ -33,7 +33,7 @@ import {
   syncDBProvidersToRegistry,
 } from '../src/ai/index';
 import { modelPricingService } from '../src/ai/models/ModelPricingService';
-import { getOrchestrationMetrics } from '../../packages/kernel/src/core/events/OrchestrationMetrics';
+import { getOrchestrationMetrics } from '@openliri/kernel/events/OrchestrationMetrics';
 import {
   orchestrationEventLogPath,
   startOrchestrationEventLog,

@@ -7,7 +7,9 @@
  * **`.trae/specs/**\/*.md` 的验收段落**（用户裁定扫描面，2026-10-23）。
  *
  * 判定复用运行期实现（**唯一事实源**，不在此复制正则）：
- *   `app/src/core/successCriteria.ts` 的 `findFormOnlyCriteria()` / `FORM_ONLY_CRITERIA_PATTERNS`
+ *   `packages/kernel/src/core/successCriteria.ts` 的 `findFormOnlyCriteria()` / `FORM_ONLY_CRITERIA_PATTERNS`
+ *   （⚠️ 本脚本位于**仓根** `scripts/`，运行时 bun 按 cwd 的 tsconfig 解析别名 ⇒ 这里只能用
+ *   相对路径 `../packages/kernel/src/...`，**不能**写成 `@openliri/kernel/...`；2026-10-24 实测踩中）
  *
  * 排除项（不视为"验收条目"）：
  * - 代码块（``` 围栏内）、标题行、空行；

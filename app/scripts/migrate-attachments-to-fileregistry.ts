@@ -15,7 +15,7 @@
  *   - 支持断点续传（基于 source 和 source_id 去重）
  */
 
-import { Database } from '../../packages/kernel/src/core/external/sqlite3';
+import { Database } from '@openliri/kernel/external/sqlite3';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { resolveDbPath } from '@openliri/kernel/paths';

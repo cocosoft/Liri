@@ -70,7 +70,7 @@ async function main(): Promise<number> {
 
   // 运行时取事实源（零文本解析，策略表改写法也不会让门禁失效）
   const { getCriticalModuleRegistry, getDeclaredModuleIds } =
-    await import('../../packages/kernel/src/core/LazyModuleStrategy');
+    await import('@openliri/kernel/LazyModuleStrategy');
   const { MODULE_INITIALIZATION_ORDER } =
     await import('../src/modules/ModuleDefinitions');
 

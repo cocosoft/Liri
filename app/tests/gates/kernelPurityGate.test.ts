@@ -296,6 +296,24 @@ describe('内核纯净度门禁：K07 深路径（消费方）自证', () => {
     expect(out).toContain('@openliri/kernel/foo/bar');
   });
 
+  it('相对路径直连内核源码 ⇒ 红（绕过别名/白名单的口子）', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      [CLEAN_KERNEL]: 'export const ok = 1;\n',
+      // `app/src/consumer.ts` → `../../packages/kernel/src/core/paths`（裸目录布局，与真实仓库一致）
+      'packages/kernel/src/core/paths.ts': 'export const p = 1;\n',
+      'app/src/consumer.ts':
+        "import { p } from '../../packages/kernel/src/core/paths';\nexport const y = p;\n",
+      [DEEP_BASELINE]: EMPTY_DEEP,
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(1);
+    expect(out).toContain('[相对]');
+    expect(out).toContain('app/src/consumer.ts');
+  });
+
   it('基线已登记 ⇒ 绿；条目数 > maxEntries ⇒ 红（硬上限）', () => {
     const entry = { file: 'app/src/consumer.ts', subpath: 'secretSubpath' };
     const registered = fixture({

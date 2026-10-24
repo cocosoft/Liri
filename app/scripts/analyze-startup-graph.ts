@@ -17,7 +17,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { getOnDemandModuleIds } from '../../packages/kernel/src/core/LazyModuleStrategy';
+import { getOnDemandModuleIds } from '@openliri/kernel/LazyModuleStrategy';
 import {
   bucketOf,
   buildEagerGraph,

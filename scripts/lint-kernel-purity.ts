@@ -12,6 +12,8 @@
  *   K03  说明符不得解析到 `app/src/` 之外（工作区外，如 `../client/**`）
  *   K04  `core/spi/**` 不得 `export class`（端口目录只放契约，实现交给上层注入）
  *   K06  裸包说明符必须在白名单内（`scripts/kernel-allowed-deps.json`；目标：0 个 npm 依赖）
+ *   K07  消费方深路径禁令（只允许桶 + `KERNEL_PUBLIC_SUBPATHS`；基线 0）
+ *   K08  内核体量棘轮（`.ts` 文件数 / 非空行数 / 顶层子目录数，只减不增）
  *
  * **未登记层归属 ⇒ Error（fail-closed）**：`modules-to-layers.json` 里没有的模块，
  * 内核一旦引用就判红（此前只进 warning ⇒ 新增一个上层模块即可绕过门禁）。
@@ -476,6 +478,7 @@ function main(): void {
     );
     // K07 的基线独立成文件（消费方深路径 ≠ 内核自身泄漏），同一次 --write-baseline 一并冻结
     checkK07DeepPaths();
+    checkK08Size(files);
     return;
   }
 
@@ -532,6 +535,7 @@ function main(): void {
   );
 
   checkK07DeepPaths();
+  checkK08Size(files);
 }
 
 /**
@@ -743,6 +747,124 @@ function checkK07DeepPaths(): void {
         }`
       );
     process.exit(1);
+  }
+}
+
+/**
+ * **K08 体量棘轮**（`dev_docs/20261023/core-减重盘点清单.md` §6，2026-10-24 落码）。
+ *
+ * 为什么需要：K01–K07 只管「内核不许依赖上层、不许开深路径」，**不管内核自己越长越大**。
+ * 减重（方案 A 18 文件 + 方案 B 10 文件 + auto-reply 6 文件）之后若没有硬上限，
+ * 下一次「顺手把新子模块塞进 core」会静默回涨 —— 与 `lint:startup-graph` 同属"只减不增"。
+ *
+ * 指标：`core` 树内 ① `.ts` 文件数 ② 非空行数 ③ **顶层**子目录数。
+ * 三方向各管一类回涨：拆分出更多文件 / 文件本身膨胀 / 新增子系统。
+ * 三方依赖数**不在此重复计**：K06 白名单已把它硬控在 1 个（`@opentelemetry/api`）。
+ *
+ * 语义与既有棘轮一致：`--write-baseline` 只能把上限**下调**（`Math.min`）；
+ * 想放宽必须手改 `.trae/architecture/kernel-size-baseline.json`，让 diff 里一眼可见。
+ * 基线缺失 ⇒ **fail-closed**（AR-3：不得把"没有基线"当成"零违规"）。
+ */
+const SIZE_BASELINE = resolve(
+  repoRoot,
+  '.trae/architecture/kernel-size-baseline.json'
+);
+
+interface SizeMetrics {
+  files: number;
+  loc: number;
+  dirs: number;
+}
+
+function collectSizeMetrics(
+  files: Array<{ path: string; text: string }>
+): SizeMetrics {
+  const loc = files.reduce(
+    (sum, f) =>
+      sum + f.text.split('\n').filter((line) => line.trim() !== '').length,
+    0
+  );
+  const dirs = readdirSync(kernelRoot, { withFileTypes: true }).filter((e) =>
+    e.isDirectory()
+  ).length;
+  return { files: files.length, loc, dirs };
+}
+
+function checkK08Size(files: Array<{ path: string; text: string }>): void {
+  const current = collectSizeMetrics(files);
+  const writing = process.argv.includes('--write-baseline');
+
+  let previous: { version: number; metrics?: SizeMetrics } | null = null;
+  if (existsSync(SIZE_BASELINE)) {
+    try {
+      previous = JSON.parse(readFileSync(SIZE_BASELINE, 'utf8')) as {
+        version: number;
+        metrics?: SizeMetrics;
+      };
+    } catch (err) {
+      console.error(
+        `K08 体量基线 JSON 解析失败（fail-closed）: ${String(err)}`
+      );
+      process.exit(1);
+    }
+  } else if (!writing) {
+    console.error(
+      `❌ K08 体量基线缺失: ${relative(repoRoot, SIZE_BASELINE)}（fail-closed；首次冻结用 --write-baseline）`
+    );
+    process.exit(1);
+  }
+
+  if (writing) {
+    const prev = previous?.metrics;
+    const cap = (key: keyof SizeMetrics): number =>
+      Math.min(prev?.[key] ?? current[key], current[key]);
+    const metrics: SizeMetrics = {
+      files: cap('files'),
+      loc: cap('loc'),
+      dirs: cap('dirs'),
+    };
+    writeFileSync(
+      SIZE_BASELINE,
+      `${JSON.stringify({ version: 1, metrics }, null, 2)}\n`,
+      'utf8'
+    );
+    console.log(
+      `已写入 K08 体量基线 files=${metrics.files} · loc=${metrics.loc} · dirs=${metrics.dirs}`
+    );
+    return;
+  }
+
+  const caps = previous!.metrics;
+  if (!caps) {
+    console.error('❌ K08 基线缺少 metrics 字段（fail-closed）');
+    process.exit(1);
+  }
+
+  const keys: Array<keyof SizeMetrics> = ['files', 'loc', 'dirs'];
+  console.log(
+    `K08 体量：files=${current.files}（≤${caps.files}）· loc=${current.loc}（≤${caps.loc}）· dirs=${current.dirs}（≤${caps.dirs}）`
+  );
+
+  const over = keys.filter((k) => current[k] > caps[k]);
+  if (over.length > 0) {
+    console.error(
+      `❌ K08 内核体量超上限（棘轮只允许下调）：${over
+        .map((k) => `${k} ${current[k]} > ${caps[k]}`)
+        .join(' · ')}`
+    );
+    console.error(
+      '   处置：① 把新增能力移出 core（优先）；② 确属内核原语 ⇒ 手改基线 json 并在 PR 说明理由'
+    );
+    process.exit(1);
+  }
+
+  const shrink = keys.filter((k) => current[k] < caps[k]);
+  if (shrink.length > 0) {
+    console.log(
+      `ℹ️ K08 体量已低于上限（可 --write-baseline 下调锁定）: ${shrink
+        .map((k) => `${k} ${current[k]} < ${caps[k]}`)
+        .join(' · ')}`
+    );
   }
 }
 

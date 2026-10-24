@@ -62,6 +62,23 @@ function fixture(files: Record<string, string>): string {
     mkdirSync(dirname(full), { recursive: true });
     writeFileSync(full, content, 'utf-8');
   }
+  // K08 体量棘轮**缺失基线即 fail-closed**（AR-3）。其余用例都只关心 K01–K07，
+  // 故默认给一份宽松上限；专测 K08 的用例会自己覆盖同名文件。
+  const sizeBaseline = join(
+    root,
+    '.trae/architecture/kernel-size-baseline.json'
+  );
+  if (!existsSync(sizeBaseline)) {
+    mkdirSync(dirname(sizeBaseline), { recursive: true });
+    writeFileSync(
+      sizeBaseline,
+      JSON.stringify({
+        version: 1,
+        metrics: { files: 9999, loc: 9999999, dirs: 999 },
+      }),
+      'utf-8'
+    );
+  }
   return root;
 }
 
@@ -78,8 +95,8 @@ function baseline(entries: Array<Record<string, string>>): string {
   return JSON.stringify({ version: 1, entries }, null, 2);
 }
 
-function run(root: string): { code: number; out: string } {
-  const result = spawnSync(process.execPath, [GATE], {
+function run(root: string, args: string[] = []): { code: number; out: string } {
+  const result = spawnSync(process.execPath, [GATE, ...args], {
     cwd: root,
     // 夹具沿用 `app/src/core` 布局（与真实仓库的 `packages/kernel/src/core` 不同），
     // 故显式指定内核根 —— 该 env 就是为此类夹具预留的。
@@ -513,5 +530,74 @@ describe('内核纯净度门禁：基线与棘轮', () => {
     expect(code).toBe(1);
     expect(out).toContain('leak2.ts');
     expect(out).not.toContain('leak.ts:1');
+  });
+});
+
+/**
+ * K08 体量棘轮（`core-减重盘点清单.md` §6）。
+ *
+ * 三例分别锁住：① 超上限必红；② 基线缺失 fail-closed（AR-3：不得把"没基线"当"零违规"）；
+ * ③ `--write-baseline` 只能把上限**下调**，不能顺手放宽。
+ */
+describe('内核体量棘轮（K08）：只减不增', () => {
+  const CLEAN = 'app/src/core/clean.ts';
+  const sizeBaseline = (metrics: Record<string, number>): string =>
+    JSON.stringify({ version: 1, metrics });
+
+  it('体量超上限 ⇒ 红（并指出是哪个指标）', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      [CLEAN]: 'export const ok = 1;\n',
+      '.trae/architecture/kernel-size-baseline.json': sizeBaseline({
+        files: 0,
+        loc: 0,
+        dirs: 0,
+      }),
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(1);
+    expect(out).toContain('K08');
+    expect(out).toContain('files 1 > 0');
+  });
+
+  it('体量基线缺失 ⇒ 红（fail-closed，不得当成零违规）', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      [CLEAN]: 'export const ok = 1;\n',
+    });
+    rmSync(join(root, '.trae/architecture/kernel-size-baseline.json'));
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(1);
+    expect(out).toContain('体量基线缺失');
+  });
+
+  it('`--write-baseline` 只下调（宽松上限被收紧到当前实测，不会被放大）', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      [CLEAN]: 'export const ok = 1;\n',
+      '.trae/architecture/kernel-size-baseline.json': sizeBaseline({
+        files: 9999,
+        loc: 9999999,
+        dirs: 999,
+      }),
+    });
+
+    const write = run(root, ['--write-baseline']);
+    expect(write.code).toBe(0);
+
+    const written = JSON.parse(
+      readFileSync(
+        join(root, '.trae/architecture/kernel-size-baseline.json'),
+        'utf-8'
+      )
+    ) as { metrics: Record<string, number> };
+
+    expect(written.metrics.files).toBe(1);
+    expect(written.metrics.files).toBeLessThan(9999);
+    expect(written.metrics.dirs).toBe(0);
   });
 });

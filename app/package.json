@@ -79,6 +79,7 @@
     "lint:case": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-case-collision.ts",
     "lint:refs": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-script-refs.ts",
     "lint:doc-code": "node ../scripts/check-doc-code-consistency.js",
+    "lint:doc-alias": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-doc-alias.ts",
     "lint:invariants": "bun run ../scripts/lint-invariants.ts",
     "lint:entrypoints": "bun run ../scripts/lint-entrypoints.ts",
     "lint:fix-evidence": "bun run ../scripts/lint-fix-evidence.ts",

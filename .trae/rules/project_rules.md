@@ -351,6 +351,6 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/kernel/paths';  // �
 - **v7.10.0**: §1.9 错误处理强化（handleError 统一入口、@ignore-catch、全局兜底）；§1.14 通道规范（双轨制收敛、注册/路由/事件总线/上限/废弃标记）；§1.6 Write-Ahead Persistence 规范；§1.15 技能系统规范（来源归一化：BundledSkillLoader/用户/第三方 vendor 三源隔离，verify 降级工具函数）
 - **v7.9.0**: §1.5 模型数据一致性规范（数出同源）
 - **v7.8.0**: §1.5 第二层数据目录移至 `~/.pyapp/data/`
-- **v7.7.0**: §1.13 路径注册表迁移至 `core/paths.ts`，全项目统一 `@openliri/kernel/paths`
+- **v7.7.0**: §1.13 路径注册表迁移至 `core/paths.ts`，全项目统一 `@modules/core/paths`（原文存证；该别名已于 2026-10-23 更名 `@openliri/kernel`）
 - **v7.6.0**: §1.6.1 前后端接口清单（api-spec.md）
 - **v7.5.0-v4.x**: 数据库约定、Logger 唯一入口、规则文件拆分、MCP/通道/安全/测试规范

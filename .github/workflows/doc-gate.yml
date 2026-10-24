@@ -39,6 +39,10 @@ jobs:
     - name: "Doc-code consistency (lint:doc-code)"
       run: bun run lint:doc-code
 
+    # 规则文档里的**导入别名**必须能解析（防「规范悬空」：文档教人写已删除的别名）
+    - name: "Doc alias resolvability (lint:doc-alias)"
+      run: bun run lint:doc-alias
+
     # 不变量注册表门禁（P1-1/P1-2）：每条不变量的源码/验证/spec 落点必须可解析；缺口须登记
     - name: "Invariant registry gate (lint:invariants)"
       run: bun run lint:invariants

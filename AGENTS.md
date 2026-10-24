@@ -50,7 +50,7 @@
 | 新增 HTTP 端点往哪放？ | [api-spec.md](.trae/docs/api-spec.md) + [R03 模块边界](.trae/rules/architecture-compliance.md) |
 | 日志怎么写？ | [project_rules.md §1.8](.trae/rules/project_rules.md) — 唯一入口 Logger.ts |
 | 错误怎么处理？ | [project_rules.md §1.9](.trae/rules/project_rules.md) — 唯一入口 handleError() |
-| 路径怎么获取？ | [paths.md](.trae/rules/paths.md) — 唯一入口 `@modules/core/paths` |
+| 路径怎么获取？ | [paths.md](.trae/rules/paths.md) — 唯一入口 `@openliri/kernel/paths` |
 | 模型名能硬编码吗？ | [model-usage.md](.trae/rules/model-usage.md) — 禁止 |
 | 新增通道怎么注册？ | [project_rules.md §1.14](.trae/rules/project_rules.md) |
 | 技能怎么加？ | [project_rules.md §1.15](.trae/rules/project_rules.md) |

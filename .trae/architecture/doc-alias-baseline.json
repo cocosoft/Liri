@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "maxEntries": 2,
+  "entries": [
+    {
+      "file": ".trae/rules/development-workflow.md",
+      "alias": "@modules/core"
+    },
+    {
+      "file": ".trae/rules/project_rules.md",
+      "alias": "@modules/core/paths"
+    }
+  ]
+}

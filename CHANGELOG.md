@@ -19,7 +19,13 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
-（v0.5.10 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）
+（v0.5.10 已发布；以下为发版后累积、待下一版带出）
+- ✅ **内核发布形态修正（评审 A1/A3）** - `build` 撤销 bundler 打桶（消除桶与子路径双实例）、`exports` 去 6 条目录通配改为逐文件列举、新增 `smoke` 断言（无通配 / 目标存在 / 单例一致）
+- ✅ **内核 DI 容器契约修复（架构评审 9 条）** - 环注册失败回滚、报错给出闭环路径、request 作用域改 AsyncLocalStorage（并发隔离）、
+  transient 的 `onDispose` 注册期 fail-closed、注册期增量环检测（去 O(N²)）、自动装配只接受纯标识符、
+  `disposeAll` 单点失败不中断、生命周期钩子依赖显式 `eager`；包内测试 20 → 31 例
+- ✅ **提交前拦 GitHub Actions YAML 破损** - 新增 `lint:workflows`（workflows + composite action），pre-commit 与 doc-gate 双处接线
+- ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
 #### v0.5.10 (2026-10-24)  内核独立包落地 + core 减重收口 + 内核面/基线门禁补强 + 侧车靶点复核

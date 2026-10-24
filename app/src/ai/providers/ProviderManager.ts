@@ -26,12 +26,15 @@
 
 import { Database } from '@openliri/kernel/external/sqlite3';
 import { randomUUID } from 'crypto';
-import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel';
-// 多租户 P1（2026-10-21）：供应商/凭据按身份分实例（本地身份零变更）
+import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel';
+// 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,
+  getRequestPrincipalKey,
   isLocalPrincipal,
+  principalFromKey,
   principalKeyOf,
+  runWithPrincipal,
 } from '@openliri/kernel/identity/requestScope.js';
 import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
@@ -175,7 +178,7 @@ const PROVIDERS_TABLE = 'ai_providers';
  */
 export class ProviderManager {
   private static instance: ProviderManager;
-  /** 多租户 P1：非本地身份的供应商库实例（各自独立 app.db） */
+  /** 租户级库实例缓存（键 = `tenantId`；库按租户分，用户靠 `owner_key` 行级隔离） */
   private static scopedInstances = new Map<string, ProviderManager>();
 
   private db: Database | null = null;
@@ -190,20 +193,22 @@ export class ProviderManager {
   /**
    * 获取单例。
    *
-   * 多租户 P1（2026-10-21）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该身份自己的实例
-   * （`<scoped>/app.db`）。**不做"共享实例换连接"**——实例同时持有内存 provider 注册表与
-   * 单字段 `db`，换连接会让并发请求读到别人的供应商/凭据。
+   * 租户级 DB（基础设施专项 §6.1 期 3）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒
+   * 该**租户**的实例（`tenants/<t>/app.db`），同租户内不同用户共用连接、按 `owner_key`
+   * 行级隔离。**不做"共享实例换连接"**——实例同时持有内存 provider 注册表与单字段
+   * `db`，换连接会让并发请求读到别人的供应商/凭据。
    */
   static getInstance(dbPath?: string): ProviderManager {
     const principal = getRequestPrincipal();
     if (!isLocalPrincipal(principal) && dbPath === undefined) {
-      const key = principalKeyOf(principal);
+      const key = principal.tenantId;
       const existing = ProviderManager.scopedInstances.get(key);
       if (existing) return existing;
-      const scoped = new ProviderManager(resolveScopedDbPath(principal));
+      const scoped = new ProviderManager(resolveTenantDbPath(principal));
       ProviderManager.scopedInstances.set(key, scoped);
-      // 多租户 P5：登记 closer（关连接 + 摘除本类缓存），删租户时统一释放文件句柄
-      registerScopedResource(key, () => {
+      // 多租户 P5：登记 closer（关连接 + 摘除本类缓存），删租户时统一释放文件句柄。
+      // 登记键用**创建者**的 `<tenant>:<user>`（purge 按 `<tenant>:` 前缀关闭）。
+      registerScopedResource(principalKeyOf(principal), () => {
         scoped.close();
         ProviderManager.scopedInstances.delete(key);
       });
@@ -279,7 +284,7 @@ export class ProviderManager {
 
     await this.runAsync(`
       CREATE TABLE IF NOT EXISTS ${PROVIDERS_TABLE} (
-        id TEXT PRIMARY KEY,
+        id TEXT NOT NULL,
         name TEXT NOT NULL,
         provider_type TEXT NOT NULL,
         base_url TEXT NOT NULL,
@@ -294,7 +299,9 @@ export class ProviderManager {
         category TEXT,
         requires_auth INTEGER NOT NULL DEFAULT 1,
         created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+        updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+        owner_key TEXT NOT NULL DEFAULT 'local:local',
+        PRIMARY KEY (id, owner_key)
       )
     `);
 
@@ -311,6 +318,16 @@ export class ProviderManager {
     try {
       await this.runAsync(
         `ALTER TABLE ${PROVIDERS_TABLE} ADD COLUMN requires_auth INTEGER NOT NULL DEFAULT 1`
+      );
+    } catch (err) {
+      // 列已存在，忽略
+    }
+
+    // 迁移：为已存在的 DB 添加 owner_key 列（如果不存在）。旧库（单身份）仍是
+    // `id` 单列主键，`ALTER` 不能改主键，但本地全 `local:local` ⇒ 不碰撞。
+    try {
+      await this.runAsync(
+        `ALTER TABLE ${PROVIDERS_TABLE} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`
       );
     } catch (err) {
       // 列已存在，忽略
@@ -406,12 +423,17 @@ export class ProviderManager {
 
   // ─── CRUD 操作 ────────────────────────────────────────
 
+  /** 当前写入/查询的归属键（本地 ⇒ `local:local`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
+  }
+
   /** 获取所有供应商（支持过滤） */
   async listProviders(filter?: ProviderListFilter): Promise<ProviderRecord[]> {
     this.ensureInitialized();
 
-    let sql = `SELECT * FROM ${PROVIDERS_TABLE} WHERE 1=1`;
-    const params: unknown[] = [];
+    let sql = `SELECT * FROM ${PROVIDERS_TABLE} WHERE owner_key = ?`;
+    const params: unknown[] = [this.owner()];
 
     if (filter?.providerType) {
       sql += ' AND provider_type = ?';
@@ -440,8 +462,8 @@ export class ProviderManager {
     this.ensureInitialized();
 
     const row = await this.getAsync<Record<string, unknown>>(
-      `SELECT * FROM ${PROVIDERS_TABLE} WHERE id = ?`,
-      [id]
+      `SELECT * FROM ${PROVIDERS_TABLE} WHERE id = ? AND owner_key = ?`,
+      [id, this.owner()]
     );
     return row ? this.rowToProvider(row) : undefined;
   }
@@ -472,8 +494,8 @@ export class ProviderManager {
 
     await this.runAsync(
       `INSERT INTO ${PROVIDERS_TABLE}
-       (id, name, provider_type, base_url, api_key, models_url, headers, is_active, sort_index, requires_auth, notes, icon, icon_color, category, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, provider_type, base_url, api_key, models_url, headers, is_active, sort_index, requires_auth, notes, icon, icon_color, category, created_at, updated_at, owner_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         params.name,
@@ -489,6 +511,7 @@ export class ProviderManager {
         params.category || null,
         now,
         now,
+        this.owner(),
       ]
     );
 
@@ -591,11 +614,11 @@ export class ProviderManager {
 
     fields.push('updated_at = ?');
     values.push(now);
-    values.push(id);
+    values.push(id, this.owner());
 
     // D9 乐观并发（2026-08-28）：客户端携带 expectedRevision（更新前读取的 updated_at），
     // 写入时 WHERE 版本校验，stale write（0 行受影响）拒绝
-    let whereClause = 'WHERE id = ?';
+    let whereClause = 'WHERE id = ? AND owner_key = ?';
     if (params.expectedRevision !== undefined) {
       whereClause += ' AND updated_at = ?';
       values.push(params.expectedRevision);
@@ -638,7 +661,10 @@ export class ProviderManager {
     await modelPricingService.initialize();
     const boundModels = await modelPricingService.getModelsByProviderId(id);
 
-    await this.runAsync(`DELETE FROM ${PROVIDERS_TABLE} WHERE id = ?`, [id]);
+    await this.runAsync(
+      `DELETE FROM ${PROVIDERS_TABLE} WHERE id = ? AND owner_key = ?`,
+      [id, this.owner()]
+    );
 
     const disabledModelIds: string[] = [];
     for (const m of boundModels) {
@@ -709,8 +735,10 @@ export class ProviderManager {
       `SELECT provider_type, COUNT(*) as count,
          SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active
        FROM ${PROVIDERS_TABLE}
+       WHERE owner_key = ?
        GROUP BY provider_type
-       ORDER BY count DESC`
+       ORDER BY count DESC`,
+      [this.owner()]
     );
 
     return rows.map((r) => ({
@@ -741,11 +769,19 @@ export class ProviderManager {
   /**
    * 迁移遗留明文 API Key：DB 中 api_key 非空且非占位的记录
    * → 写入 CredentialStore → DB 改写占位标记。幂等。
+   *
+   * ⚠️ 租户库（§6.1）：这是 init 期的**跨用户维护动作**（不按 owner 过滤）—— 但每行必须
+   * 在**该行归属者**的身份下写入 CredentialStore，否则会把别人的明文密钥写进当前用户的
+   * 凭据文件。新写入一律只存占位标记 ⇒ 命中本迁移的只可能是历史遗留行。
    */
   private async migrateLegacyApiKeys(): Promise<void> {
     try {
-      const rows = await this.allAsync<Record<string, unknown>>(
-        `SELECT id, api_key FROM ${PROVIDERS_TABLE}
+      const rows = await this.allAsync<{
+        id: string;
+        api_key: string;
+        owner_key: string;
+      }>(
+        `SELECT id, api_key, owner_key FROM ${PROVIDERS_TABLE}
          WHERE api_key IS NOT NULL AND api_key != '' AND api_key != ?`,
         [CRED_STORED_MARKER]
       );
@@ -753,14 +789,26 @@ export class ProviderManager {
 
       let migrated = 0;
       for (const row of rows) {
-        const id = row.id as string;
-        const key = row.api_key as string;
+        const key = row.api_key;
         if (!key) continue;
-        getCredentialStore().set(id, key);
-        await this.runAsync(
-          `UPDATE ${PROVIDERS_TABLE} SET api_key = ?, updated_at = ? WHERE id = ?`,
-          [CRED_STORED_MARKER, Math.floor(Date.now() / 1000), id]
-        );
+        const migrateOne = async (): Promise<void> => {
+          getCredentialStore().set(row.id, key);
+          await this.runAsync(
+            `UPDATE ${PROVIDERS_TABLE} SET api_key = ?, updated_at = ?
+              WHERE id = ? AND owner_key = ?`,
+            [
+              CRED_STORED_MARKER,
+              Math.floor(Date.now() / 1000),
+              row.id,
+              row.owner_key,
+            ]
+          );
+        };
+        const principal = row.owner_key
+          ? principalFromKey(row.owner_key)
+          : null;
+        if (principal) await runWithPrincipal(principal, migrateOne);
+        else await migrateOne();
         migrated++;
       }
       logger.info(`已迁移 ${migrated} 条遗留明文 API Key 到 CredentialStore`);

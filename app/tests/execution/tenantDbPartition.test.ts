@@ -261,13 +261,13 @@ describe('SessionRouterStore：租户级库 + 行级隔离', () => {
   });
 });
 
-describe('ProviderManager：按身份分实例', () => {
-  it('已认证身份 ⇒ 独立实例（内存注册表与 DB 都不共享）', () => {
+describe('ProviderManager：租户级库 + 行级隔离', () => {
+  it('同租户两用户共用实例（库不共享给人，行按 owner_key 隔离）', () => {
     const local = getProviderManager();
     const alice = runWithPrincipal(ALICE, () => getProviderManager());
     const bob = runWithPrincipal(BOB, () => getProviderManager());
     expect(alice).not.toBe(local);
-    expect(alice).not.toBe(bob);
+    expect(bob).toBe(alice);
   });
 });
 

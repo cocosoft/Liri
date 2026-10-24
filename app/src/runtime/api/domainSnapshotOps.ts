@@ -1784,7 +1784,10 @@ export class DomainSnapshotOps {
         return detectLiriDir(startPath);
       },
       getTaskStore: async (): Promise<TaskStorePort> => {
-        const { taskStore } = await import('@modules/workspace/TaskStore');
+        const { TaskStore } = await import('@modules/workspace/TaskStore');
+        // 按**当次身份**取实例（租户级库 §6.1）：模块级常量会在载入时固定成某一个库，
+        // 已认证请求将读写错误分区（原 `taskStore` 常量即此缺陷）。
+        const taskStore = TaskStore.getInstance();
         // 句柄方法保持 app 侧**异步**形态（`TaskStore` 走 SQLite）
         return {
           initialize: () => taskStore.initialize(),

@@ -16,11 +16,22 @@
  * - D3：`tokens_used` **累加写**（不做全量重算，避免双写）；
  * - D4：本类**只做持久化 + 状态机**，不含续接调度 / 预算熔断（属 M-7 / M-8）。
  *
- * 存储：唯一 `app.db`（`resolveDbPath()`），表 `task_goals`；**不新建库文件**（§1.5）。
+ * 存储：租户级 DB（基础设施专项 §6.1 / §1.5，2026-10-25 补齐）——
+ * 库按**租户**分（`tenants/<t>/app.db`），租户内按 `owner_key`（`<tenant>:<user>`）行级隔离，
+ * 表 `task_goals`。长程目标会话是用户级业务数据，此前落在共享本地库且无归属列 ⇒
+ * 租户内两用户会互相看见/覆盖。
  */
 
 import { randomUUID } from 'crypto';
 import { Database } from '@openliri/kernel/external/sqlite3';
+import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel/paths';
+import {
+  getRequestPrincipal,
+  getRequestPrincipalKey,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
 // 2026-10-01 B11 前置 P1（D-223）：`TaskGoalStatus` / `TaskGoalUpdateReason` 词表已下沉
 // **类型中心** `@modules/types/goal`（core —— 二者均为纯字面量联合、零出向依赖）⇒ 解除
@@ -151,8 +162,7 @@ export class TaskGoalStore {
   }
 
   private async doInit(): Promise<void> {
-    const dbPath =
-      this.dbPath ?? (await import('@openliri/kernel')).resolveDbPath();
+    const dbPath = this.dbPath ?? resolveDbPath();
     this.db = await new Promise<Database>((resolve, reject) => {
       const db = new Database(dbPath, (err: Error | null) =>
         err ? reject(err) : resolve(db)
@@ -161,6 +171,7 @@ export class TaskGoalStore {
     await this.run(
       `CREATE TABLE IF NOT EXISTS ${TASK_GOALS_TABLE} (
         id                 TEXT PRIMARY KEY,
+        owner_key          TEXT NOT NULL DEFAULT 'local:local',
         session_id         TEXT,
         objective          TEXT NOT NULL,
         status             TEXT NOT NULL,
@@ -171,6 +182,20 @@ export class TaskGoalStore {
         updated_at         INTEGER NOT NULL
       )`
     );
+    // **补 owner_key 列**（2026-10-25，租户级 DB §6.1）：已建表的库没有该列。
+    // SQLite 的 `ALTER TABLE` 不能改主键，故旧库仍是 `id` 单列 PK；
+    // 本地库只有 `local:local` 一种归属 ⇒ 不会与租户行碰撞（存量行落默认值即本地身份）。
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `ALTER TABLE ${TASK_GOALS_TABLE} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+        (err: Error | null) => {
+          if (err && !/duplicate column/i.test(err.message)) {
+            logger.warn('task_goals 补 owner_key 失败', { error: err.message });
+          }
+          resolve();
+        }
+      );
+    });
     // **增量加列**（2026-09-22，连续无进展停止条件）：已建表的库没有该列。
     // SQLite 无 `ADD COLUMN IF NOT EXISTS` ⇒ 列已存在时 ALTER 报错，属预期。
     // 既有同款约定见 `UsageStatsService.ts:236-243`（用 try 忽略）。
@@ -199,6 +224,11 @@ export class TaskGoalStore {
     await this.run(
       `CREATE INDEX IF NOT EXISTS idx_task_goals_status
        ON ${TASK_GOALS_TABLE} (status, created_at)`
+    );
+    // **归属列走索引**（2026-10-25）：`listActive` 全库扫描以 `owner_key` 起手过滤
+    await this.run(
+      `CREATE INDEX IF NOT EXISTS idx_task_goals_owner_status
+       ON ${TASK_GOALS_TABLE} (owner_key, status, created_at)`
     );
     // **增量加列**（2026-09-23，X8 / Spec §3.2 —— 仅新增、**不删改既有列**）：
     // `budget_limit_reported_at`：`budget_limit` 收尾指令的"已报告"时间戳 ⇒
@@ -236,10 +266,11 @@ export class TaskGoalStore {
     };
     await this.run(
       `INSERT INTO ${TASK_GOALS_TABLE}
-         (id, session_id, objective, status, token_budget, tokens_used, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, owner_key, session_id, objective, status, token_budget, tokens_used, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         goal.id,
+        this.owner(),
         goal.sessionId ?? null,
         goal.objective,
         goal.status,
@@ -252,43 +283,46 @@ export class TaskGoalStore {
     return goal;
   }
 
-  /** 取单个目标（不存在 ⇒ null） */
+  /** 取单个目标（不存在 ⇒ null；归属过滤：他人的目标等同不存在） */
   async get(id: string): Promise<TaskGoal | null> {
     await this.init();
     const row = await this.get1<Record<string, unknown>>(
-      `SELECT * FROM ${TASK_GOALS_TABLE} WHERE id = ?`,
-      [id]
+      `SELECT * FROM ${TASK_GOALS_TABLE} WHERE id = ? AND owner_key = ?`,
+      [id, this.owner()]
     );
     return row ? TaskGoalStore.toGoal(row) : null;
   }
 
-  /** 列某会话的全部目标（按创建时间升序） */
+  /** 列某会话的全部目标（按创建时间升序；归属过滤） */
   async listBySession(sessionId: string): Promise<TaskGoal[]> {
     await this.init();
     const rows = await this.all<Record<string, unknown>>(
-      `SELECT * FROM ${TASK_GOALS_TABLE} WHERE session_id = ? ORDER BY created_at ASC`,
-      [sessionId]
+      `SELECT * FROM ${TASK_GOALS_TABLE}
+         WHERE session_id = ? AND owner_key = ?
+         ORDER BY created_at ASC`,
+      [sessionId, this.owner()]
     );
     return rows.map(TaskGoalStore.toGoal);
   }
 
   /**
-   * 列**未终结**目标（`active` / `blocked`）。
-   * @param sessionId 省略 ⇒ 全库（长驻进程启动时用于恢复视角）
+   * 列**未终结**目标（`active` / `blocked`；归属过滤）。
+   * @param sessionId 省略 ⇒ 当前用户全库（长驻进程启动时用于恢复视角）
    */
   async listActive(sessionId?: string): Promise<TaskGoal[]> {
     await this.init();
     const rows = sessionId
       ? await this.all<Record<string, unknown>>(
           `SELECT * FROM ${TASK_GOALS_TABLE}
-             WHERE session_id = ? AND status IN ('active', 'blocked')
+             WHERE session_id = ? AND owner_key = ? AND status IN ('active', 'blocked')
              ORDER BY created_at ASC`,
-          [sessionId]
+          [sessionId, this.owner()]
         )
       : await this.all<Record<string, unknown>>(
           `SELECT * FROM ${TASK_GOALS_TABLE}
-             WHERE status IN ('active', 'blocked')
-             ORDER BY created_at ASC`
+             WHERE owner_key = ? AND status IN ('active', 'blocked')
+             ORDER BY created_at ASC`,
+          [this.owner()]
         );
     return rows.map(TaskGoalStore.toGoal);
   }
@@ -335,13 +369,13 @@ export class TaskGoalStore {
       ? await this.run(
           `UPDATE ${TASK_GOALS_TABLE}
              SET status = ?, updated_reason = ?, updated_at = ?
-           WHERE id = ? AND status = ?`,
-          [to, reason, now, id, current.status]
+           WHERE id = ? AND owner_key = ? AND status = ?`,
+          [to, reason, now, id, this.owner(), current.status]
         )
       : await this.run(
           `UPDATE ${TASK_GOALS_TABLE} SET status = ?, updated_at = ?
-             WHERE id = ? AND status = ?`,
-          [to, now, id, current.status]
+             WHERE id = ? AND owner_key = ? AND status = ?`,
+          [to, now, id, this.owner(), current.status]
         );
     if (changed === 0) {
       // 并发下被他人先迁移（条件更新未命中）⇒ 不覆盖
@@ -367,8 +401,8 @@ export class TaskGoalStore {
     await this.init();
     const changed = await this.run(
       `UPDATE ${TASK_GOALS_TABLE} SET run_id = ?, updated_at = ?
-         WHERE id = ?`,
-      [runId, Date.now(), id]
+         WHERE id = ? AND owner_key = ?`,
+      [runId, Date.now(), id, this.owner()]
     );
     return changed > 0;
   }
@@ -410,8 +444,8 @@ export class TaskGoalStore {
     params.push(Date.now());
     const changed = await this.run(
       `UPDATE ${TASK_GOALS_TABLE} SET ${sets.join(', ')}
-         WHERE id = ? AND status NOT IN (${terminal.map(() => '?').join(', ')})`,
-      [...params, id, ...terminal]
+         WHERE id = ? AND owner_key = ? AND status NOT IN (${terminal.map(() => '?').join(', ')})`,
+      [...params, id, this.owner(), ...terminal]
     );
     if (changed === 0) return null;
     return this.get(id);
@@ -430,8 +464,8 @@ export class TaskGoalStore {
     const changed = await this.run(
       `UPDATE ${TASK_GOALS_TABLE}
          SET tokens_used = tokens_used + ?, updated_at = ?
-       WHERE id = ?`,
-      [Math.floor(tokens), Date.now(), id]
+       WHERE id = ? AND owner_key = ?`,
+      [Math.floor(tokens), Date.now(), id, this.owner()]
     );
     if (changed === 0) return null;
     return (await this.get(id))?.tokensUsed ?? null;
@@ -491,8 +525,8 @@ export class TaskGoalStore {
       await this.run(
         `UPDATE ${TASK_GOALS_TABLE}
            SET tokens_used = tokens_used + ?, updated_at = ?
-         WHERE id = ?`,
-        [delta, Date.now(), id]
+         WHERE id = ? AND owner_key = ?`,
+        [delta, Date.now(), id, this.owner()]
       );
     }
     const current = await this.get(id);
@@ -523,9 +557,10 @@ export class TaskGoalStore {
       (await this.run(
         `UPDATE ${TASK_GOALS_TABLE}
            SET status = 'budget_limited', updated_reason = 'budget_limit', updated_at = ?
-         WHERE id = ? AND status IN ('active', 'blocked')
+         WHERE id = ? AND owner_key = ?
+           AND status IN ('active', 'blocked')
            AND token_budget IS NOT NULL AND tokens_used >= token_budget`,
-        [Date.now(), id]
+        [Date.now(), id, this.owner()]
       )) > 0;
     if (!promoted) {
       // 并发下被他人先晋升 / 先落定终态 ⇒ 不覆盖（终态优先级），如实回读当前事实
@@ -562,10 +597,11 @@ export class TaskGoalStore {
     await this.init();
     const candidate = await this.get1<Record<string, unknown>>(
       `SELECT id FROM ${TASK_GOALS_TABLE}
-         WHERE session_id = ? AND status = 'budget_limited'
+         WHERE session_id = ? AND owner_key = ?
+           AND status = 'budget_limited'
            AND budget_limit_reported_at IS NULL
          ORDER BY created_at ASC LIMIT 1`,
-      [sessionId]
+      [sessionId, this.owner()]
     );
     if (!candidate) return null;
     const id = String(candidate['id']);
@@ -573,8 +609,8 @@ export class TaskGoalStore {
     const claimed = await this.run(
       `UPDATE ${TASK_GOALS_TABLE}
          SET budget_limit_reported_at = ?, updated_at = ?
-       WHERE id = ? AND budget_limit_reported_at IS NULL`,
-      [now, now, id]
+       WHERE id = ? AND owner_key = ? AND budget_limit_reported_at IS NULL`,
+      [now, now, id, this.owner()]
     );
     if (claimed === 0) return null; // 并发下被他人先认领 ⇒ 不重复报告
     return this.get(id);
@@ -596,8 +632,8 @@ export class TaskGoalStore {
     const changed = await this.run(
       `UPDATE ${TASK_GOALS_TABLE}
          SET no_progress_streak = no_progress_streak + 1, updated_at = ?
-       WHERE id = ? AND status NOT IN (${placeholders})`,
-      [Date.now(), id, ...terminal]
+       WHERE id = ? AND owner_key = ? AND status NOT IN (${placeholders})`,
+      [Date.now(), id, this.owner(), ...terminal]
     );
     if (changed === 0) return null;
     return (await this.get(id))?.noProgressStreak ?? null;
@@ -628,20 +664,25 @@ export class TaskGoalStore {
     const changed = await this.run(
       `UPDATE ${TASK_GOALS_TABLE}
          SET updated_reason = ?, updated_at = ?
-       WHERE id = ? AND status NOT IN (${placeholders})`,
-      [reason, Date.now(), id, ...terminal]
+       WHERE id = ? AND owner_key = ? AND status NOT IN (${placeholders})`,
+      [reason, Date.now(), id, this.owner(), ...terminal]
     );
     return changed > 0;
   }
 
-  /** 删除目标（物理删除；仅测试与显式清理使用，长程任务应走终态而非删除） */
+  /** 删除目标（物理删除；仅测试与显式清理使用，长程任务应走终态而非删除；归属过滤） */
   async remove(id: string): Promise<boolean> {
     await this.init();
     const changed = await this.run(
-      `DELETE FROM ${TASK_GOALS_TABLE} WHERE id = ?`,
-      [id]
+      `DELETE FROM ${TASK_GOALS_TABLE} WHERE id = ? AND owner_key = ?`,
+      [id, this.owner()]
     );
     return changed > 0;
+  }
+
+  /** 当前身份归属键（本地 ⇒ `local:local`；租户 ⇒ `<tenant>:<user>`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
   }
 
   close(): void {
@@ -727,21 +768,56 @@ export class TaskGoalStore {
 }
 
 let instance: TaskGoalStore | null = null;
+/** 租户级实例缓存（键 = `tenantId`；同租户共用连接，按 `owner_key` 行级隔离） */
+const scopedInstances = new Map<string, TaskGoalStore>();
+/** 显式 `dbPath` 实例缓存（键 = 路径；仅测试/工具注入） */
+const explicitInstances = new Map<string, TaskGoalStore>();
 
-/** 全局单例（惰性：首次使用才解析 DB 路径并建表） */
-export function getTaskGoalStore(): TaskGoalStore {
+/** 全局单例（惰性：首次使用才解析 DB 路径并建表；租户身份 ⇒ 租户库实例） */
+export function getTaskGoalStore(dbPath?: string): TaskGoalStore {
+  // 2026-10-25：显式路径（测试/工具注入）按路径分桶，**不**复用默认单例
+  if (dbPath !== undefined) {
+    const existing = explicitInstances.get(dbPath);
+    if (existing) return existing;
+    const created = new TaskGoalStore(dbPath);
+    explicitInstances.set(dbPath, created);
+    return created;
+  }
+  const principal = getRequestPrincipal();
+  if (!isLocalPrincipal(principal)) {
+    const key = principal.tenantId;
+    const existing = scopedInstances.get(key);
+    if (existing) return existing;
+    const scoped = new TaskGoalStore(resolveTenantDbPath(principal));
+    scopedInstances.set(key, scoped);
+    // 删租户 / 退出时释放句柄并摘除缓存（否则 Windows 上 tenants/<t> 删不掉）
+    registerScopedResource(principalKeyOf(principal), () => {
+      scoped.close();
+      scopedInstances.delete(key);
+    });
+    return scoped;
+  }
   if (!instance) {
-    instance = new TaskGoalStore();
+    instance = new TaskGoalStore(dbPath);
   }
   return instance;
 }
 
 /**
- * **仅测试使用**：替换/清空全局单例 —— 让 HTTP 路由等"经单例取 store"的代码
+ * **仅测试使用**：替换/清空**本地默认**单例 —— 让 HTTP 路由等"经单例取 store"的代码
  * 可在临时库上被测试，而**不写入真实 `app.db`**（与 `resetAgentRunLedger()` 同法）。
+ * 租户身份经 `getTaskGoalStore()` 走 `scopedInstances`，不受本函数影响。
  *
  * 生产路径不得调用。
  */
 export function setTaskGoalStoreForTest(store: TaskGoalStore | null): void {
   instance = store;
+}
+
+/** 仅测试：关掉并清空租户级实例缓存（**生产不调用**） */
+export function resetTaskGoalStoreScopedForTest(): void {
+  for (const store of scopedInstances.values()) {
+    store.close();
+  }
+  scopedInstances.clear();
 }

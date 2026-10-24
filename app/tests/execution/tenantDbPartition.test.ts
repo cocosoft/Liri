@@ -20,6 +20,10 @@ import {
   getExecutionStore,
   resetExecutionStore,
 } from '../../src/execution/ExecutionStore';
+import type {
+  ExecutionGeneration,
+  ExecutionId,
+} from '../../src/execution/types';
 import { getCostRecordRepository } from '../../src/cost/CostRecordRepository';
 import { getCheckpointDatabase } from '../../src/chat/services/CheckpointDatabase';
 import { InboxManager } from '../../src/runtime/InboxManager';
@@ -79,8 +83,8 @@ afterEach(() => {
   }
 });
 
-describe('ExecutionStore：按身份分实例', () => {
-  it('已认证身份 ⇒ 独立实例 + 独立库文件；本地仍用共享库', async () => {
+describe('ExecutionStore：租户级库 + 行级隔离（§6.1 期 3）', () => {
+  it('已认证身份 ⇒ 租户库文件；本地仍用共享库', async () => {
     const local = getExecutionStore();
     const alice = await runWithPrincipal(ALICE, async () => {
       const store = getExecutionStore();
@@ -89,25 +93,36 @@ describe('ExecutionStore：按身份分实例', () => {
     });
 
     expect(alice).not.toBe(local);
-
-    const aliceDb = join(
-      dataDir,
-      'tenants',
-      'acme',
-      'users',
-      'alice',
-      'app.db'
-    );
-    expect(existsSync(aliceDb)).toBe(true);
+    expect(existsSync(join(dataDir, 'tenants', 'acme', 'app.db'))).toBe(true);
+    expect(
+      existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
+    ).toBe(false);
 
     // 本地库不应出现在 tenants/ 下；且本地实例未初始化 ⇒ 共享 app.db 尚未创建（不臆造）
     expect(existsSync(join(dataDir, 'app.db'))).toBe(false);
   });
 
-  it('两个身份拿到不同实例（互不共享连接）', () => {
+  it('同租户两个用户共用**同一实例**，但执行记录互不可见', async () => {
     const alice = runWithPrincipal(ALICE, () => getExecutionStore());
     const bob = runWithPrincipal(BOB, () => getExecutionStore());
-    expect(alice).not.toBe(bob);
+    expect(bob).toBe(alice);
+
+    await runWithPrincipal(ALICE, () =>
+      alice.upsertExecution({
+        executionId: 'exec-alice' as ExecutionId,
+        sessionId: 's',
+        generation: 1 as ExecutionGeneration,
+        status: 'RUNNING',
+        startedAt: 1,
+        updatedAt: 1,
+        heartbeatAt: 1,
+      })
+    );
+
+    const bobView = await runWithPrincipal(BOB, () => bob.listActive());
+    const aliceView = await runWithPrincipal(ALICE, () => alice.listActive());
+    expect(bobView).toEqual([]);
+    expect(aliceView.map((r) => r.executionId)).toEqual(['exec-alice']);
   });
 });
 

@@ -35,11 +35,12 @@
  */
 
 import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveScopedDbPath } from '@openliri/kernel/paths';
-// 多租户 P1（2026-10-21）：已认证身份用**自己的 store 实例**（独立 app.db），
-// 不做"共享实例换连接"——那会让并发请求交错到别人的库。
+import { resolveTenantDbPath } from '@openliri/kernel/paths';
+// 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离。
+// 仍然"每实例一个连接"——只是实例的粒度从 per-user 变为 per-tenant（同租户用户共用连接）。
 import {
   getRequestPrincipal,
+  getRequestPrincipalKey,
   isLocalPrincipal,
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
@@ -212,9 +213,11 @@ export class ExecutionStore {
         status       TEXT NOT NULL,
         started_at   INTEGER NOT NULL,
         updated_at   INTEGER NOT NULL,
-        heartbeat_at INTEGER NOT NULL
+        heartbeat_at INTEGER NOT NULL,
+        owner_key    TEXT NOT NULL DEFAULT 'local:local'
       )`
     );
+    await this.ensureOwnerColumn(EXECUTIONS_TABLE);
     await this.run(
       `CREATE INDEX IF NOT EXISTS idx_executions_session
        ON ${EXECUTIONS_TABLE} (session_id, status)`
@@ -227,9 +230,11 @@ export class ExecutionStore {
         seq          INTEGER NOT NULL,
         type         TEXT NOT NULL,
         payload_json TEXT,
-        created_at   INTEGER NOT NULL
+        created_at   INTEGER NOT NULL,
+        owner_key    TEXT NOT NULL DEFAULT 'local:local'
       )`
     );
+    await this.ensureOwnerColumn(EXECUTION_EVENTS_TABLE);
     await this.run(
       `CREATE INDEX IF NOT EXISTS idx_execution_events_exec
        ON ${EXECUTION_EVENTS_TABLE} (execution_id, seq)`
@@ -258,9 +263,11 @@ export class ExecutionStore {
         status       TEXT NOT NULL,
         started_at   INTEGER NOT NULL,
         ended_at     INTEGER,
-        error        TEXT
+        error        TEXT,
+        owner_key    TEXT NOT NULL DEFAULT 'local:local'
       )`
     );
+    await this.ensureOwnerColumn(TOOL_CALLS_TABLE);
     await this.run(
       `CREATE INDEX IF NOT EXISTS idx_tool_calls_exec
        ON ${TOOL_CALLS_TABLE} (execution_id)`
@@ -285,14 +292,34 @@ export class ExecutionStore {
     logger.debug('executionStore:initialized', { dbPath });
   }
 
+  /**
+   * 存量库补 `owner_key` 列（三张表各自一次）。
+   *
+   * 默认值 `local:local` ⇒ 桌面端历史行自然归属本地身份；加上 owner 过滤后仍逐字可见。
+   */
+  private async ensureOwnerColumn(table: string): Promise<void> {
+    const columns = await this.all<{ name: string }>(
+      `PRAGMA table_info(${table})`
+    );
+    if (columns.some((c) => c.name === 'owner_key')) return;
+    await this.run(
+      `ALTER TABLE ${table} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`
+    );
+  }
+
+  /** 当前写入/查询的归属键（本地 ⇒ `local:local`；租户内 ⇒ `<tenant>:<user>`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
+  }
+
   /** 写入/更新执行记录（幂等 upsert） */
   async upsertExecution(rec: PersistedExecution): Promise<void> {
     await this.init();
     await this.run(
       `INSERT INTO ${EXECUTIONS_TABLE}
         (execution_id, session_id, message_id, generation, status,
-         started_at, updated_at, heartbeat_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         started_at, updated_at, heartbeat_at, owner_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(execution_id) DO UPDATE SET
          status = excluded.status,
          generation = excluded.generation,
@@ -307,6 +334,7 @@ export class ExecutionStore {
         rec.startedAt,
         rec.updatedAt,
         rec.heartbeatAt,
+        this.owner(),
       ]
     );
   }
@@ -316,8 +344,9 @@ export class ExecutionStore {
   ): Promise<PersistedExecution | null> {
     await this.init();
     const row = await this.get<ExecutionRow>(
-      `SELECT * FROM ${EXECUTIONS_TABLE} WHERE execution_id = ?`,
-      [executionId]
+      `SELECT * FROM ${EXECUTIONS_TABLE}
+        WHERE execution_id = ? AND owner_key = ?`,
+      [executionId, this.owner()]
     );
     return row ? rowToExecution(row) : null;
   }
@@ -328,9 +357,9 @@ export class ExecutionStore {
     const placeholders = ACTIVE_STATUSES.map(() => '?').join(', ');
     const rows = await this.all<ExecutionRow>(
       `SELECT * FROM ${EXECUTIONS_TABLE}
-        WHERE status IN (${placeholders})
+        WHERE status IN (${placeholders}) AND owner_key = ?
         ORDER BY updated_at ASC`,
-      [...ACTIVE_STATUSES]
+      [...ACTIVE_STATUSES, this.owner()]
     );
     return rows.map(rowToExecution);
   }
@@ -340,8 +369,8 @@ export class ExecutionStore {
     await this.init();
     const row = await this.get<{ max_gen: number | null }>(
       `SELECT MAX(generation) AS max_gen FROM ${EXECUTIONS_TABLE}
-        WHERE session_id = ?`,
-      [sessionId]
+        WHERE session_id = ? AND owner_key = ?`,
+      [sessionId, this.owner()]
     );
     return row?.max_gen ?? 0;
   }
@@ -380,20 +409,22 @@ export class ExecutionStore {
     await this.init();
     const row = await this.get<{ next_seq: number }>(
       `SELECT COALESCE(MAX(seq), 0) + 1 AS next_seq
-         FROM ${EXECUTION_EVENTS_TABLE} WHERE execution_id = ?`,
-      [executionId]
+         FROM ${EXECUTION_EVENTS_TABLE}
+        WHERE execution_id = ? AND owner_key = ?`,
+      [executionId, this.owner()]
     );
     const seq = row?.next_seq ?? 1;
     await this.run(
       `INSERT INTO ${EXECUTION_EVENTS_TABLE}
-        (execution_id, seq, type, payload_json, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
+        (execution_id, seq, type, payload_json, created_at, owner_key)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         executionId,
         seq,
         type,
         payload === undefined ? null : JSON.stringify(payload),
         Date.now(),
+        this.owner(),
       ]
     );
     return seq;
@@ -405,8 +436,8 @@ export class ExecutionStore {
     await this.init();
     const rows = await this.all<EventRow>(
       `SELECT * FROM ${EXECUTION_EVENTS_TABLE}
-        WHERE execution_id = ? ORDER BY seq ASC`,
-      [executionId]
+        WHERE execution_id = ? AND owner_key = ? ORDER BY seq ASC`,
+      [executionId, this.owner()]
     );
     return rows.map((r) => ({
       id: r.id,
@@ -435,11 +466,11 @@ export class ExecutionStore {
     await this.init();
     await this.run(
       `INSERT INTO ${TOOL_CALLS_TABLE}
-        (execution_id, tool_call_id, tool_name, status, started_at)
-       SELECT ?, ?, ?, ?, ?
+        (execution_id, tool_call_id, tool_name, status, started_at, owner_key)
+       SELECT ?, ?, ?, ?, ?, ?
        WHERE NOT EXISTS (
          SELECT 1 FROM ${TOOL_CALLS_TABLE}
-          WHERE execution_id = ? AND tool_call_id = ?
+          WHERE execution_id = ? AND tool_call_id = ? AND owner_key = ?
        )`,
       [
         executionId,
@@ -447,8 +478,10 @@ export class ExecutionStore {
         toolName,
         TOOL_CALL_INITIAL_STATUS,
         startedAt,
+        this.owner(),
         executionId,
         toolCallId,
+        this.owner(),
       ]
     );
   }
@@ -482,11 +515,11 @@ export class ExecutionStore {
     await this.init();
     await this.run(
       `INSERT INTO ${TOOL_CALLS_TABLE}
-        (execution_id, tool_call_id, tool_name, status, started_at)
-       SELECT ?, ?, ?, ?, ?
+        (execution_id, tool_call_id, tool_name, status, started_at, owner_key)
+       SELECT ?, ?, ?, ?, ?, ?
        WHERE NOT EXISTS (
          SELECT 1 FROM ${TOOL_CALLS_TABLE}
-          WHERE execution_id = ? AND tool_call_id = ?
+          WHERE execution_id = ? AND tool_call_id = ? AND owner_key = ?
        )`,
       [
         executionId,
@@ -494,15 +527,18 @@ export class ExecutionStore {
         toolName,
         TOOL_CALL_INITIAL_STATUS,
         endedAt,
+        this.owner(),
         executionId,
         toolCallId,
+        this.owner(),
       ]
     );
     await this.run(
       `UPDATE ${TOOL_CALLS_TABLE}
          SET status = ?, ended_at = ?, error = ?
-       WHERE execution_id = ? AND tool_call_id = ? AND ended_at IS NULL`,
-      [status, endedAt, error ?? null, executionId, toolCallId]
+       WHERE execution_id = ? AND tool_call_id = ? AND ended_at IS NULL
+         AND owner_key = ?`,
+      [status, endedAt, error ?? null, executionId, toolCallId, this.owner()]
     );
   }
 
@@ -529,8 +565,9 @@ export class ExecutionStore {
     const changed = await this.run(
       `UPDATE ${TOOL_CALLS_TABLE}
          SET status = ?, ended_at = ?, error = ?
-       WHERE execution_id = ? AND tool_call_id = ? AND ended_at IS NULL`,
-      [status, endedAt, error ?? null, executionId, toolCallId]
+       WHERE execution_id = ? AND tool_call_id = ? AND ended_at IS NULL
+         AND owner_key = ?`,
+      [status, endedAt, error ?? null, executionId, toolCallId, this.owner()]
     );
     return changed > 0;
   }
@@ -550,8 +587,8 @@ export class ExecutionStore {
     return this.run(
       `UPDATE ${TOOL_CALLS_TABLE}
          SET status = ?, ended_at = ?
-       WHERE execution_id = ? AND ended_at IS NULL`,
-      [TOOL_CALL_UNKNOWN_STATUS, endedAt, executionId]
+       WHERE execution_id = ? AND ended_at IS NULL AND owner_key = ?`,
+      [TOOL_CALL_UNKNOWN_STATUS, endedAt, executionId, this.owner()]
     );
   }
 
@@ -559,8 +596,8 @@ export class ExecutionStore {
     await this.init();
     const rows = await this.all<ToolCallRow>(
       `SELECT * FROM ${TOOL_CALLS_TABLE}
-        WHERE execution_id = ? ORDER BY id ASC`,
-      [executionId]
+        WHERE execution_id = ? AND owner_key = ? ORDER BY id ASC`,
+      [executionId, this.owner()]
     );
     return rows.map((r) => ({
       id: r.id,
@@ -587,8 +624,9 @@ export class ExecutionStore {
     const changed = await this.run(
       `UPDATE ${EXECUTIONS_TABLE}
          SET status = 'STALE', generation = ?, updated_at = ?
-       WHERE execution_id = ? AND status IN (${placeholders})`,
-      [newGeneration, Date.now(), executionId, ...ACTIVE_STATUSES]
+       WHERE execution_id = ? AND status IN (${placeholders})
+         AND owner_key = ?`,
+      [newGeneration, Date.now(), executionId, ...ACTIVE_STATUSES, this.owner()]
     );
     return changed > 0;
   }
@@ -604,17 +642,22 @@ export class ExecutionStore {
     const removedExecs = await this.run(
       `DELETE FROM ${EXECUTIONS_TABLE}
         WHERE status NOT IN (${placeholders})
-          AND updated_at < ?`,
-      [...ACTIVE_STATUSES, cutoff]
+          AND updated_at < ?
+          AND owner_key = ?`,
+      [...ACTIVE_STATUSES, cutoff, this.owner()]
     );
-    // 事件/工具调用随执行一并清理（无跨表外键，显式删除）
+    // 事件/工具调用随执行一并清理（无跨表外键，显式删除；仍限本用户的行）
     await this.run(
       `DELETE FROM ${EXECUTION_EVENTS_TABLE}
-        WHERE execution_id NOT IN (SELECT execution_id FROM ${EXECUTIONS_TABLE})`
+        WHERE owner_key = ?
+          AND execution_id NOT IN (SELECT execution_id FROM ${EXECUTIONS_TABLE})`,
+      [this.owner()]
     );
     await this.run(
       `DELETE FROM ${TOOL_CALLS_TABLE}
-        WHERE execution_id NOT IN (SELECT execution_id FROM ${EXECUTIONS_TABLE})`
+        WHERE owner_key = ?
+          AND execution_id NOT IN (SELECT execution_id FROM ${EXECUTIONS_TABLE})`,
+      [this.owner()]
     );
     return removedExecs;
   }
@@ -695,27 +738,27 @@ export class ExecutionStore {
 }
 
 let _instance: ExecutionStore | null = null;
-/** 多租户 P1：非本地身份的 store 实例（键 = `<tenantId>:<userId>`，各自独立 app.db） */
-const _scopedInstances = new Map<string, ExecutionStore>();
+/** 租户级 DB（§6.1）：实例按**租户**缓存（同租户用户共用连接，行级隔离靠 `owner_key`） */
+const _scopedInstances = new Map<string, ExecutionStore>(); // key = tenantId
 
 /**
  * 全局单例（惰性建表）。
  *
- * 多租户 P1：本地身份（桌面 / CLI / 后台 / 无请求作用域）⇒ 原单例（零变更）；
- * 已认证身份 ⇒ 该身份自己的实例（`<scoped>/app.db`）。
+ * 多租户 §6.1：本地身份（桌面 / CLI / 后台 / 无请求作用域）⇒ 原单例（零变更）；
+ * 已认证身份 ⇒ 该**租户**的实例（`tenants/<t>/app.db`），用户维度靠 `owner_key` 过滤。
  */
 export function getExecutionStore(): ExecutionStore {
   const principal = getRequestPrincipal();
   if (!isLocalPrincipal(principal)) {
-    const key = principalKeyOf(principal);
-    const existing = _scopedInstances.get(key);
+    const tenantKey = principal.tenantId;
+    const existing = _scopedInstances.get(tenantKey);
     if (existing) return existing;
-    const scoped = new ExecutionStore(resolveScopedDbPath(principal));
-    _scopedInstances.set(key, scoped);
-    // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
-    registerScopedResource(key, () => {
+    const scoped = new ExecutionStore(resolveTenantDbPath(principal));
+    _scopedInstances.set(tenantKey, scoped);
+    // 登记键用**创建者**的 `<tenant>:<user>`：purge 按 `<tenant>:` 前缀关闭 ⇒ 删租户能命中
+    registerScopedResource(principalKeyOf(principal), () => {
       scoped.close();
-      _scopedInstances.delete(key);
+      _scopedInstances.delete(tenantKey);
     });
     return scoped;
   }

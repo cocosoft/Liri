@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.9-blue)
+![Version](https://img.shields.io/badge/version-0.5.10-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.9**
+当前版本：**v0.5.10**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,40 +436,17 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.9 (2026-10-23)
-主包瘦身 R4 收口 + bash 判定精度 + 评审遗留修复
+#### v0.5.10 (2026-10-24)
+内核独立包落地 + core 减重收口 + 内核面/基线门禁补强 + 侧车靶点复核
 
-- ✅ **主包瘦身 R4** - 编译期裁掉的通道不再静默失效：启动逐个告警，`/v1/channels/:id` 返回 `CHANNEL_DROPPED_BY_BUILD` / `CHANNEL_UNKNOWN` 机器码与可操作文案，`applyConfig` 由静默跳过改为 `errors` 回报
-- ✅ **bash 危险命令判定精度** - 子串匹配改为 token 边界匹配（`result` / `git add` / `format-test` / `skill.js` 不再误伤），带空格组合（`rm -rf`）仍整串匹配
-- ✅ **`/v1/agents/:id/stop` 特权显式化** - 不传 `sessionId` 时必须显式 `privileged: true`，否则 400，不再「不传即特权」
-- ✅ **权限与工具修正** - `isWithinWorkingDirectory` 相对路径按传入 cwd 解析；`GlobTool` 正则一次编译；聊天流单轮复用 `turnModel`
-- ✅ **判据与测试清理** - 断言自检单列 no-op 变形；eval 快照解析 `git`/`tar` 绝对路径；消除 subagent 用例的并行顺序敏感；清理已修复用例的 skip 登记
+- ✅ **内核独立包 `@openliri/kernel`** - 源码物理迁出 `app/src/core`；发布面收敛到 `dist`（双条件 `exports` + 声明树 + 显式依赖）；独立 CI 逐条校验子路径可 import，另有秒级 `test:kernel` 回路；编译期边界：删 tsconfig 通配，非公开子路径由解析器拒绝
+- ✅ **core 减重** - 删除 `auto-reply` 死代码；`media-generation` / `persona` / `migration` 搬出到各自消费域；方案 A 三个三重零模块 + 观察期收尾一并清掉 ⇒ core **146 → 113 文件**（导出面 146/1366 → 113/1044）
+- ✅ **内核门禁 K01–K08** - 跨层（静态/动态）、出工作区、SPI 禁实现类、三方依赖白名单、深路径棘轮 123 → 0、导出面快照，新增 **K08 体量棘轮**（文件/行/子目录只减不增，基线缺失即失败）
+- ✅ **Q3 去产品化** - 产品身份（`appName` / `envPrefix`）改为宿主注入，默认 `pyapp` / `LIRI_` ⇒ 零行为变更；端口与构建变体的契约键读/写同源；字面量守卫钉住「内核不再自带产品名」
+- ✅ **门禁与规则补强** - 新增 `lint:doc-alias`（规则里的导入别名必须可解析）；`doc-gate` 承接 `.trae/architecture` 基线棘轮（原被 `paths-ignore` 跳过 ⇒ 假绿）；规则要求方案状态头与证据台账一致
+- ✅ **侧车靶点复核** - 媒体原生面 / 常驻 LSP 在开关开启下分别 92 / 97 用例全绿（含崩溃隔离、有界重启、进程树强杀、E2E），默认仍关；`liri-native` 以量化证据结案「不侧车化」
 
-> 本版为补丁版：完成 R4 最后一项（被裁能力的可读错误），并收口安全判定精度与多处评审遗留（详见 [CHANGELOG.md](./CHANGELOG.md)）。
-
-#### v0.5.8 (2026-10-23)
-工具审批四档与自动执行 + 影子工具接线 + 归属/断环收口
-
-- ✅ **工具审批四档 + 自动执行** - 审批卡支持「本次 / 本会话 / 始终允许 / 拒绝」；「始终允许」按工具 + 参数指纹落盘；会话级 `auto-local` 只自动放行只读与工作区内本地写（默认关）；Inbox 审批加部分唯一索引兜底
-- ✅ **声明式风险 + 沙箱豁免 + 文件工具隔离** - 风险不再按工具名猜，改由工具声明 `riskClass`；沙箱信号单点解析并接入 chat / LRO / MCP；文件类工具在容器/SSH 工作区有挂载映射时经适配器读写
-- ✅ **命令规则与审计** - 白/黑名单支持前缀与正则匹配（存量默认前缀）；自动放行审计落 `security-audit.log`，安全页支持明细与 CSV 导出
-- ✅ **影子工具接线（Q-18）** - `agents_list` / `kanban` / `mcp_auth` / `tts` 接入生效面；`music_generate` 移除假成功；6 个下线类影子工具摘声明并删除实现
-- ✅ **思考预算与命令入口** - `/effort` 按 DB 能力位下发思考预算、`/fast` 分流 quick；prompt 型斜杠命令在聊天入口生效；`brief` / `insights` 接入 GUI
-- ✅ **归属与断环** - 事件派生读取补显式归属校验、HTTP/CoreAPI 入口补必填参数校验；权限位下沉与 AgentTool 反向登记使循环依赖回到 0，启动面棘轮恢复 282 文件
-
-> 本版为功能 + 修复混合版：工具审批/沙箱隔离是主线，另含影子工具接线与多处归属/契约收口（详见 [CHANGELOG.md](./CHANGELOG.md)）。
-
-#### v0.5.7 (2026-10-22)
-工作台导航重排（搜索 / 最近 / 6 组）+ 收掉第二个工作台外壳 + 两条后端契约缺陷
-
-- ✅ **工作台目录可搜、可记、可收** - 30 个入口不再同权重平铺：顶部搜索（标题 + 同义词）、「最近使用」（本地 6 条）、分组默认只展开第一组；侧栏与移动底栏不再展开 30 项抽屉，统一直达 `/workbench`
-- ✅ **分组 4 → 6、每组 ≤6 项** - Agent 与自动化 / 模型与能力 / 接入与凭据 / 可观测与安全 / 内容与媒体 / 个人；6 个借用 `settings.*` 命名的入口收回工作台命名；新增结构不变量用例防"组被撑回 9 项"
-- ✅ **收掉第二个工作台外壳（`/work`）** - 它原用 9 个标签复用工作台目录同一批页面组件且无导航入口；现只保留工作项（新建 / 列表 / 删除 / 进入规划），标签状态 store 与三个遗留文件一并删除
-- ✅ **设置 ↔ 工作台 同域互链** - 设置面板标题下新增「相关入口：X →」（模型管理 / 语音测试 / 权限管理 / 用户中心 / 办公），点击先收起抽屉再跳转；判定规则落盘 `.trae/rules/frontend.md §4.4`
-- ✅ **知识库删除后不再「复活」** - 删除时把目录移入 `.trash-bases/<name>-<ts>`（扫描跳过点开头目录，文档可恢复），先移目录后改注册表
-- ✅ **不存在的 `session_id` 返回 404** - 不再被下游静默建造成新会话；任何身份都要求会话确实存在（`session_id` 缺失时仍按既有语义新建）
-
-> 本版为补丁版：工作台/设置导航重排并收掉重复工作面，另修 2 条后端契约缺陷（详见 [CHANGELOG.md](./CHANGELOG.md)）。
+> 本版为架构收口版：内核成为可独立消费的包，core 物理减重完成，并用棘轮把「体量 / 深路径 / 依赖」钉住（详见 [CHANGELOG.md](./CHANGELOG.md)）。
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

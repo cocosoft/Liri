@@ -19,8 +19,28 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
-（v0.5.7 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）
+（v0.5.10 已发布；暂无未发布条目。新片写入后运行 `bun run scripts/gen-evidence-views.ts` 重新生成）
 <!-- EVIDENCE-VIEWS:END -->
+
+#### v0.5.10 (2026-10-24)  内核独立包落地 + core 减重收口 + 内核面/基线门禁补强 + 侧车靶点复核
+
+- ✅ **内核独立包 `@openliri/kernel`** - 源码物理迁出 `app/src/core`（P1–P6）；别名统一 `@openliri/kernel`；
+  发布面收敛到 `dist`（双条件 `exports` + 声明树 + 显式依赖）；独立 CI（产物逐条校验 `exports` 目标可
+  import）+ 秒级 `test:kernel` 回归回路；编译期边界：删 tsconfig 通配，非公开子路径由解析器拒绝。
+- ✅ **core 减重** - 删除 `auto-reply` 死代码（6 文件）；B 档搬出 `media-generation` → `ai/`、
+  `persona` → `agent/`、`migration` → `system/state/`；按方案 A 删 3 个三重零模块（18 文件）+
+  观察期收尾（10 文件）⇒ core **146 → 113 文件**（导出面 146/1366 → 113/1044）。
+- ✅ **内核门禁 K01–K08** - 静态/动态跨层、出工作区、SPI 禁实现类、三方依赖白名单、深路径棘轮
+  （123 → 0）、导出面快照、**K08 体量棘轮**（文件/行/子目录只减不增；基线缺失 fail-closed）。
+- ✅ **Q3 去产品化** - 产品身份（`appName` / `envPrefix`）改为**宿主注入**，默认 `pyapp` / `LIRI_`
+  ⇒ 本仓零行为变更；`<prefix>HTTP_PORT` / `<prefix>BUILD_VARIANT` 读/写同键；字面量守卫钉住
+  「内核不再自带产品名」。
+- ✅ **门禁与规则补强** - 新增 `lint:doc-alias`（规则文档里的导入别名必须可解析）；
+  `doc-gate` 承接 `.trae/architecture` 基线棘轮（原被 `ci.yml` 的 `paths-ignore` 跳过 ⇒ 假绿）；
+  规则 §2.16 要求方案状态头与证据台账一致。
+- ✅ **侧车靶点复核** - P2 媒体原生面 / P1 常驻 LSP 在开关开启下分别 **92 / 97 用例全绿**
+  （含崩溃隔离、有界重启、进程树强杀、E2E），默认仍关；`liri-native` 以量化证据
+  （1MB 计数原生 2.04ms vs JS 0.24ms）结案「不侧车化」。
 
 #### v0.5.9 (2026-10-23)  主包瘦身 R4 收口 + bash 判定精度 + 评审遗留修复
 

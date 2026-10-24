@@ -356,6 +356,46 @@
 
 ## §12 下一步
 
-1. **本文待用户批准**（HARD-GATE：批准前不写产品代码）。
-2. 批准后：出实施计划（按 §11 切片 S0→S7，含每片测试清单），再进入编码。
-3. 联动：S1 落地后回填 §11 待回填 1–4；S2 观察期结束再决定 S6 删除范围。
+1. ~~**本文待用户批准**（HARD-GATE：批准前不写产品代码）~~ → **已批准并落地**（S1/S3/S5 已实现，见 §13；原文保留以存证）。
+2. 已按 §11 切片推进：S0/S1/S3/S5 完成；S2（双轨收敛）**复核后改用独立条目**（见 §13.2）；S4/S6 未做。
+3. 联动：S1 落地后的回填 1–4 仍未做（§11 待回填项仍未勾）；S2 观察期结束再决定 S6 删除范围。
+
+---
+
+## §13 实施状态复核（2026-10-24，只读 + 开关开测试，未改产品代码）
+
+### 13.1 切片状态（如实）
+
+| 切片 | 状态 | 证据 |
+|---|---|---|
+| **S1** 侧车骨架 + `TOOL_SIDECAR_LSP` + loader 分支 | ✅ | `tools/sidecar/**`（10 文件）；开关 `featureFlags.ts:673`；loader 分支 `tools/utils/ToolManagerUtils.ts:114` |
+| **S3** 崩溃隔离 / 有界重启 / 取消 | ✅ | `tests/tools/sidecar/**`：含「意外退出 ⇒ 有界重启」「stop() 进程树强杀」 |
+| **S5** 媒体侧车（`vision_worker` 受管 + `sharp` 收口一处） | ✅ | `SidecarMediaAnalyzer` / `mediaSidecarLifecycle` / `ImageInputRouter` / `ImageAnalysisTool`；开关 `featureFlags.ts:680` |
+| **S2** LSP 双轨收敛 | ❌ **未做** | 见 §13.2 |
+| **S4** 与内置工具同源门禁（注册/PathGuard/权限/结果上限） | ❌ 未做 | 侧车当前不注册进 `MCPToolBridge`（待做） |
+| **S6** 物理删除被替代实现 | ❌ 未做 | 依赖观察期结论 |
+
+### 13.2 S2 前置的重新裁定（**关键**）
+
+- 原文 D2 要求「**先收敛双轨、再侧车**」。复核发现该前置**在实现侧车时已被绕过**：
+  `lspSidecar.ts` 自带 `LspSidecarConnection`（`tools/sidecar/lspConnection.ts:147`），**不依赖轨 B**（`app/src/lsp`）。
+- 轨 B 的消费面（CD01–CD04 口径）：`@modules/lsp` 生产静态消费者仍**只有校验器**一处（`tools/lsp/LSPToolIntegration.ts:10-15`）；
+  但存在**运行时发现入口** ⇒ 不可按「静态零引用」删除：
+  ① `app/src/bootstrap/generatedLazyLoaders.ts:11`（`lsp: () => import('@modules/lsp')`，惰性加载表）；
+  ② `app/scripts/build-variant.ts:112`（变体裁剪表含 `lsp`）；③ `modules/ImportManager.ts:107`（别名映射）。
+- **裁定**：① S2 **不再是 P1 灰度的前置**（侧车自带连接层），P1 可按开关灰度；
+  ② 双轨收敛降级为**独立技术债**（轨 B 无生产消费者，但受 CD07 保护 ⇒ 只登记不删）；
+  ③ 若将来要删轨 B，须按 CD01–CD06 独立变更，并先摘掉上述三个运行时/构建入口。
+
+### 13.3 灰度验证（开关开、默认仍关）
+
+- `FEATURE_TOOL_SIDECAR_MEDIA=true` + `FEATURE_TOOL_JOB_SUSPEND=true` ⇒ `tests/tools/sidecar` **92 pass / 0 fail**（18 文件，含 E2E）。
+- 追加 `FEATURE_TOOL_SIDECAR_LSP=true` ⇒ `tests/tools/sidecar` + `tests/tools/lsp` **97 pass / 0 fail**（20 文件）。
+- **默认值不变**（D4：`TOOL_SIDECAR_LSP` / `TOOL_SIDECAR_MEDIA` / `TOOL_JOB_SUSPEND` 均 `false`）——
+  灰度 = 运维 env 覆盖，不靠改默认值；改默认须按 `project_rules §1.4` 走安全开关口径并补登记。
+
+### 13.4 P3 `liri-native` 结案
+
+- 依据 U-25 量化（`scripts/bench-native-sidecar.ts`）：1MB `estimateTokens` 原生 **2.04ms** vs JS **0.24ms**、
+  `readFileWithEncoding` **4.68ms** vs `fs` **0.36ms**、IPC 往返 P50 **0.071ms** ⇒ 侧车化只增往返、无吞吐收益。
+- **结论：不侧车化**（以量化证据否决，符合原文"不得以 CS03 空谈直接否"的要求）。

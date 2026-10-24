@@ -36,6 +36,7 @@ import {
   resetModelPricingScopedForTest,
 } from '../../src/ai/models/ModelPricingService';
 import {
+  clearModelWindowsForOwner,
   getModelWindow,
   setModelWindow,
 } from '../../src/utils/ContextWindowResolver';
@@ -102,6 +103,18 @@ describe('ModelRegistry：运行时缓存按所有者分桶', () => {
 
     as(BOB, () => setModelWindow('w-shared', 2000));
     expect(as(ALICE, () => getModelWindow('w-shared'))).toBe(1000);
+  });
+
+  it('退出 / 删租户时清掉该所有者的窗口键（不留悬挂缓存）', () => {
+    const aliceKey = `${ALICE.tenantId}:${ALICE.userId}`;
+    as(ALICE, () => setModelWindow('w-cleanup', 4096));
+    as(BOB, () => setModelWindow('w-cleanup', 8192));
+    expect(as(ALICE, () => getModelWindow('w-cleanup'))).toBe(4096);
+
+    // 按 owner 前缀清理：只摘 ALICE 的键，BOB 的同名键不受影响
+    expect(clearModelWindowsForOwner(aliceKey)).toBeGreaterThan(0);
+    expect(as(ALICE, () => getModelWindow('w-cleanup'))).toBeUndefined();
+    expect(as(BOB, () => getModelWindow('w-cleanup'))).toBe(8192);
   });
 
   it('供应商凭据按所有者分桶（同一供应商类型不串号）', () => {

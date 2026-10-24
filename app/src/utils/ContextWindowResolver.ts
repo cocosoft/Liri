@@ -47,6 +47,25 @@ export function getModelWindow(model: string): number | undefined {
   return modelWindows.get(windowKey(model));
 }
 
+/**
+ * 清除某所有者的窗口缓存（退出登录 / 删租户时由写入方 `ModelRegistry` 的 closer 调用）。
+ *
+ * 窗口缓存按 `<owner>\0<model>` 分桶 ⇒ 没有回收就会随用户数无限增长；且过期窗口会在
+ * 同一用户下次登录时**覆盖读**（新写入覆盖旧值），故必须显式摘除而非依赖覆盖。
+ *
+ * @returns 实际删除的键数（供门禁断言）
+ */
+export function clearModelWindowsForOwner(ownerKey: string): number {
+  const prefix = `${ownerKey}\u0000`;
+  let removed = 0;
+  for (const key of modelWindows.keys()) {
+    if (!key.startsWith(prefix)) continue;
+    modelWindows.delete(key);
+    removed += 1;
+  }
+  return removed;
+}
+
 const logger = getLogger('context:window');
 
 /** 默认 fallback 上下文窗口（tokens） */

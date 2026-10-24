@@ -36,7 +36,10 @@ import { registerScopedResource } from '@openliri/kernel/identity/scopedResource
 // 自持的 modelWindows 映射，使该解析器无需再静态依赖本模块（app 层）⇒ 该文件 app-free。
 // 推入发生在内存映射变更的同一时刻（非异步预热）⇒ 与"同步读本注册表"语义等价、零竞态。
 // `ai(app) -> utils(infra)` 为合法方向，不新增跨层对。
-import { setModelWindow } from '@modules/utils/ContextWindowResolver';
+import {
+  clearModelWindowsForOwner,
+  setModelWindow,
+} from '@modules/utils/ContextWindowResolver';
 
 const logger = getLogger('ai:registry');
 
@@ -218,6 +221,8 @@ export class ModelRegistry {
     // 退出登录 / 删租户时摘掉分桶（与其余按身份缓存的模块同一登记口）
     registerScopedResource(owner, () => {
       this.caches.delete(owner);
+      // 窗口缓存的写入方就是本类 ⇒ 同一 closer 负责回收（否则分桶键永不释放）
+      clearModelWindowsForOwner(owner);
     });
     this.seedDefaultModels(created);
     if (this.preheating.has(owner)) return created;

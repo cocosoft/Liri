@@ -800,20 +800,20 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 
 | 规则 ID | 文件 | 理由 | 有效期 |
 |---------|------|------|--------|
-| R01-001 | `core/gateway/events/GatewayEventBus.ts` | 历史遗留，已列入 P2 改造计划 | 2026-Q2 |
+| R01-001 | ~~`core/gateway/events/GatewayEventBus.ts`~~ | 历史遗留，已列入 P2 改造计划；**2026-10-24 核查：全仓已不存在**（`core/gateway/` 于 2026-08-06 下线）⇒ 本行转为历史记录 | ~~2026-Q2~~ **已删除** |
 | R01-001 | `channels/events/ChannelEventBus.ts` | 独立 EventBusImpl 实例，通过桥接层与 globalEventBus 通信，满足 R01-007 分层要求 | 永久 |
-| R01-001 | `session/events/SessionLifecycleEventBus.ts` | 通配符 `'*'` 支持，待统一后移除 | 2026-Q2 |
+| R01-001 | `session/lifecycle/SessionLifecycleEventBus.ts` | 通配符 `'*'` 支持，待统一后移除（**2026-10-24 订正路径**：原写 `session/events/…`，该目录已不存在） | 2026-Q2 |
 | R01-001 | `voice/VoiceEventBus.ts` | 双工状态管理，待委托到 EventBusImpl | 2026-Q2 |
 | R01-001 | `agent/events/index.ts` | InternalEventBus（@deprecated），自建 Map 分发，待移除 | 2026-Q3 |
 | R01-001 | ~~`core/auto-reply/dispatch.ts`~~ | ReplyDispatcher，Handler 注册表 + dispatch 模式；**2026-10-24 已随 `core/auto-reply/` 整体下线删除** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
-| R01-001 | `core/extensibility/EventBus.ts` | 自建 EventBus 包装器 | 2026-Q3 |
+| R01-001 | ~~`core/extensibility/EventBus.ts`~~ | 自建 EventBus 包装器；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
 | R01-001 | ~~`core/node-host/NodeInvoke.ts`~~ | NodeInvoke + EventEmitter + Handler 注册表；**2026-10-24 已随 `core/node-host/` 删除（见 `code-deletion.md` 六步核查）** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
 | R01-001 | `plugins/core/PluginEventSystem.ts` | 插件事件系统，extends EventEmitter + Map 分发 | 2026-Q3 |
 | R01-002 | `services/api/errors.ts` | 面向外部 API，与内部错误体系不同 | 待评估 |
 | R01-004 | `context/ContextCacheService.ts` | 已修复，改用 TTLCache | ✅ |
-| R01-004 | `permission/cache/PermissionCache.ts` | 已修复，改用 TTLCache | ✅ |
+| R01-004 | `permission/PermissionCache.ts` | 已修复，改用 TTLCache（**2026-10-24 订正路径**：原写 `permission/cache/…`，该子目录已不存在） | ✅ |
 | R01-004 | ~~`subagent/communication/PermissionSync.ts`~~ | 已修复（改用 TTLCache）；**2026-10-06 该文件已删除**（N-78：整套 `subagent/communication/` 家族 0 消费者、被 `TeammateManager` 取代）⇒ 本行转为历史记录 | ~~✅~~ **已删除** |
-| R01-004 | `cost/CostCache.ts` | 已使用 CacheService（非自建 Map），不违反 R01-004 | ✅ |
+| R01-004 | ~~`cost/CostCache.ts`~~ | 已使用 CacheService（非自建 Map），不违反 R01-004；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~✅~~ **已删除** |
 | R01-004 | `tools/cache/ToolCacheManager.ts` | 自建持久缓存 + ICache 实现，待委托到标准实现 | 2026-Q3 |
 | R01-004 | `chat/services/PerformanceOptimizationService.ts` | 缓存+批处理+事件混合服务，需模块级重构 | 2026-Q3 |
 | R01-004 | `core/utils/Performance.ts` | 自建 MemoryCache（大小驱动淘汰），待改用标准实现 | 2026-Q3 |
@@ -823,40 +823,40 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 | R01-004 | `context/services/UserContextService.ts` | 已修复，改用 TTLCache + 消除 any | ✅ |
 | R01-004 | `context/services/SystemContextService.ts` | 已修复，改用 TTLCache + 消除 any | ✅ |
 | R01-004 | `oauth/services/OAuthDiscovery.ts` | 已修复，改用 TTLCache（MetadataCache 内建） | ✅ |
-| R01-004 | `ai/localAgent/LocalAgentCache.ts` | 已修复，改用 TTLCache | ✅ |
-| R01-004 | `memory/services/EmbeddingService.ts` | 已修复，改用 TTLCache（EmbeddingResult 缓存） | ✅ |
+| R01-004 | ~~`ai/localAgent/LocalAgentCache.ts`~~ | 已修复，改用 TTLCache；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~✅~~ **已删除** |
+| R01-004 | ~~`memory/services/EmbeddingService.ts`~~ | 已修复，改用 TTLCache（EmbeddingResult 缓存）；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~✅~~ **已删除** |
 | R01-004 | `tools/utils/OptimizedToolManagerUtils.ts` | 已修复，改用 TTLCache（ToolExecutionCache） | ✅ |
 | R01-004 | `ink/ink/screen.ts` | StylePool 内 4 个 memoization 缓存（transitionCache/inverseCache/currentMatchCache/selectionBgCache），属渲染引擎计算缓存，无 TTL 语义，在渲染热路径上 | 永久 |
 | R01-004 | `services/mcp/MCPConnectionManager.ts` | clientCache（SDK 连接引用缓存）和 toolsCache（工具列表缓存），属连接状态追踪和查找表 | 永久 |
 | R01-003 | `services/api/client.ts` | `ApiClient.request()` 内建 for 循环指数退避重试，含特定 API 错误分类处理；已设计 @deprecated 计划迁移到 utils/withRetry | 2026-Q3 |
 | R01-003 | `bridge/api/BridgeApi.ts` | 内建 `withRetry()`（名称冲突）+ `backoffWait()` + `shouldRetry()` 指数退避重试，为 bridge 模块核心基础设施 | 2026-Q3 |
-| R01-003 | `mcp/reconnect.ts` | `ReconnectManager.reconnect()` 内建 while 循环重试 + 工具漂移检测，领域逻辑复杂，不易用通用 withRetry 替代 | 2026-Q3 |
+| R01-003 | ~~`mcp/reconnect.ts`~~ | `ReconnectManager.reconnect()` 内建 while 循环重试 + 工具漂移检测；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
 | R01-003 | `chat/tool/SmartToolIntegrator.ts` | 内建 for 循环重试，含工具执行上下文管理 | 2026-Q3 |
 | R01-003 | `session/platform/WebhookPlatform.ts` | `flushPendingQueue()` 内建重试，含 Webhook 消息队列管理 | 2026-Q3 |
 | R01-003 | `infrastructure/http/handlers/channel-handlers.ts` | **AC-1 治理例外（2026-08-21 复核登记，永久）**：`bindInboundHandler()` 内 `_pendingOutboundReplies (Map) + schedulePendingFlush (setInterval 15s)` = 跨 N 条独立 onOutbound 失败消息的**批处理延迟调度状态机**。不是 R01-003 禁止的"单请求线性重试"语义：① 每条消息的重试时间戳单独管理（`pending.lastAttemptAt + 10s`），② 定时器懒启动 + 空自动销毁，③ 同一 tick 可并发重试多条消息。硬套 `utils/withRetry` 需要为每条消息单独开 Promise+setTimeout+for 循环+共享队列 drain 通知，代码量翻倍、更难追踪和 cancel，违背简洁优先。**故永久登记为例外**（与 WebhookPlatform flushPending 同类）。见 [预存错误 AC-1](../../dev_docs/error_repairs/预存错误与待处理问题.md) | 永久 |
 | R01-003 | `streaming/IncrementalRetry.ts` | 增量重试 + 断点续传，流式领域专用，已与 StreamingCircuitBreaker（utils/withRetry）共存 | 2026-Q3 |
 | R01-003 | `core/utils/ErrorHandler.ts` | 内建 while 循环重试，含错误处理管道上下文管理 | 2026-Q3 |
-| R01-003 | `core/StartupOptimizer.ts` | 内建 for 循环重试，启动优化器重试逻辑 | 2026-Q3 |
+| R01-003 | ~~`core/StartupOptimizer.ts`~~ | 内建 for 循环重试，启动优化器重试逻辑；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
 | R01-003 | `ai/providers/BaseAIProvider.ts` | 内建 for 循环重试，AI 提供者基础重试 | 2026-Q3 |
 | R01-003 | `agent/cli-runner/index.ts` | 内建 for 循环重试，CLI runner 重试逻辑 | 2026-Q3 |
 | R01-003 | `performance/CodeOptimizer.ts` | 自建 retry<T>() 函数，代码优化模块重试 | 2026-Q3 |
-| R01-003 | `mcp/MCPCompatibilityTester.ts` | 内建 for 循环重试，MCP 兼容性测试重试 | 2026-Q3 |
-| R01-003 | `agent/chains/AgentChain.ts` | 内建 while 循环重试，Agent 链执行重试 | 2026-Q3 |
+| R01-003 | ~~`mcp/MCPCompatibilityTester.ts`~~ | 内建 for 循环重试，MCP 兼容性测试重试；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
+| R01-003 | ~~`agent/chains/AgentChain.ts`~~ | 内建 while 循环重试，Agent 链执行重试；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
 | R01-003 | ~~`core/node-host/ExecPolicy.ts`~~ | 内建 for 循环重试，执行策略重试；**2026-10-24 已随 `core/node-host/` 删除** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
-| R01-003 | `remote/RemoteTaskScheduler.ts` | 内建 while 循环重试，远程任务调度重试 | 2026-Q3 |
+| R01-003 | ~~`remote/RemoteTaskScheduler.ts`~~ | 内建 while 循环重试，远程任务调度重试；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
 | R01-003 | `chronos/CronSubprocessExecutor.ts` | 内建 for 循环重试（`for (attempt=1; attempt<=config.maxRetries+1)`），子进程执行重试 | 2026-Q3 |
 | R01-003 | `agent/remote/RemoteAgentProtocol.ts` | 内建 for 循环重试，远程代理协议重试 | 2026-Q3 |
-| R01-003 | `bridge/utils/jwtUtils.ts` | `refreshToken()` 内建递归重试（`retryCount < maxRetries` + setTimeout），Token 刷新重试 | 2026-Q3 |
-| R01-003 | `chronos/engine/ExecutionEngine.ts` | 内建重试计数检查（`task.retryCount < task.maxRetries`），Cron 执行引擎重试 | 2026-Q3 |
+| R01-003 | ~~`bridge/utils/jwtUtils.ts`~~ | `refreshToken()` 内建递归重试（`retryCount < maxRetries` + setTimeout），Token 刷新重试；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
+| R01-003 | ~~`chronos/engine/ExecutionEngine.ts`~~ | 内建重试计数检查（`task.retryCount < task.maxRetries`），Cron 执行引擎重试；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
 | R01-003 | `ai/router/SmartRouter.ts` | `executeWithRetry()` AI 路由执行重试 | 2026-Q3 |
 | R01-003 | `oauth/services/TokenManager.ts` | `refreshTokenWithRetry()` OAuth Token 刷新重试 | 2026-Q3 |
 | R01-003 | `chronos/EnhancedCronTask.ts` | 内建重试策略（`retryCount` + `maxRetries` + `canRetry()`），增强定时任务重试 | 2026-Q3 |
-| R01-003 | `chronos/CronScheduler.ts` | `calculateNextRetryTime()` Cron 调度器重试时间计算 | 2026-Q3 |
+| R01-003 | `tasks/cron/CronScheduler.ts` | `calculateNextRetryTime()` Cron 调度器重试时间计算（**2026-10-24 订正路径**：原写 `chronos/…`，该模块已迁 `tasks/cron/`） | 2026-Q3 |
 | R01-003 | `error/context/QuerySource.ts` | `shouldRetryOnError()` 错误重试判定辅助函数，仅含类型字段 + 判定函数，无实际重试循环，误报 | 2026-Q3 |
 | R01-003 | `main.ts` | `getOnboardRetryFlagPath()` + `retryCount` 引导重试标记，仅引导流程，无实际重试循环 | 2026-Q3 |
 | R01-003 | `ai/router/RetryPolicy.ts` | 重试策略类型定义文件，仅含类型/接口声明，误报 | 2026-Q3 |
 | R01-003 | `tasks/LongRunningTaskOrchestrator.ts` | 长任务编排器 `hasRetry` + `retryCount` 状态管理，领域内建重试 | 2026-Q3 |
-| R01-005 | `core/flows/doctor-health.ts` | 已修复，registerHealthCheck 代理到 HealthChecker，导出 getHealthChecker() | ✅ |
+| R01-005 | ~~`core/flows/doctor-health.ts`~~ | 已修复，registerHealthCheck 代理到 HealthChecker，导出 getHealthChecker()；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~✅~~ **已删除** |
 | R01-006 | `config/ConfigManager.ts` | 已添加 `ConfigManager.env()` 统一入口方法 | ✅ |
 | R01-006 | NODE_ENV（16 文件/24 处） | 已迁移：SystemContextService、DirectConnectManager、MemorySnapshotService、PerformanceConfig、envUtils、SlowOperationDetector、MonitoringService、DaemonDiagnostics、analytics/config、InstallationTypeDetector、reconciler、Performance、GitContextService、DiagnosticService、MemoryManager、ConfigManager | ✅ |
 | R01-006 | 其余 ~262 处 process.env. 使用 | 分散在 ~65 文件中，含系统路径、telemetry 写操作等，计划分批迁移 | 2026-Q3 |
@@ -882,13 +882,13 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 | R01-006 | utils/（11 文件/~30 处） | 已迁移：auth.ts（3 处）、features.ts（2 处）、telemetry.ts（1 处）、debug.ts（3 处）、proxy.ts（5 处）、caCerts.ts（2 处）、mtls.ts（3 处）、deepLink/TerminalLauncher.ts（4 处）、git/GitignoreParser.ts（2 处）、constants/oauth.ts（4 处）、constants/betas.ts（1 处） | ✅ |
 | | R01-004 保留例外：ConfigLoader.ts（Object.entries）、StdioTransport.ts（子进程 env 传播）、environmentRuntimeDetector.ts（动态访问）、Doctor.ts（动态访问）、PromptSuggestionConfig.ts（动态 process.env[envKey]）、pyapp.ts（引导入口）、EnhancedMCPConfigManager.ts（Object.entries 遍历） | 无需迁移 | 有意保留 |
 | R03-001 | `agent/events/index.ts` | R01-001 治理例外：InternalEventBus（@deprecated） | 2026-Q3 |
-| R03-001 | `core/extensibility/EventBus.ts` | R01-001 治理例外：自建 EventBus 包装器 | 2026-Q3 |
+| R03-001 | ~~`core/extensibility/EventBus.ts`~~ | R01-001 治理例外：自建 EventBus 包装器；**2026-10-24 核查：全仓已不存在** ⇒ 本行转为历史记录 | ~~2026-Q3~~ **已删除** |
 | R03-001 | `voice/VoiceEventBus.ts` | R01-001 治理例外：双工状态管理，待委托到 EventBusImpl | 2026-Q2 |
 | R03-001 | `session/lifecycle/SessionLifecycleEventBus.ts` | R01-001 治理例外：通配符 `'*'` 支持，待统一后移除 | 2026-Q2 |
 | R03-001 | `streaming/IncrementalRetry.ts` | R01-003 治理例外：增量重试 + 断点续传 | 2026-Q3 |
 | R03-001 | `bridge/error/BridgeErrorHandler.ts` | R01-003 治理例外：RetryHandler | 2026-Q3 |
 | R03-001 | `query/withRetry.ts` | 误报：仅包含 CannotRetryError 错误类，非重试机制 | 永久 |
-| R03-001 | `core/tokenBudget/ModelContextCache.ts` | R01-004 治理例外：已修复，改用 TTLCache | ✅ |
+| R03-001 | `tokenBudget/ModelContextCache.ts` | R01-004 治理例外：已修复，改用 TTLCache（**2026-10-24 订正路径**：原写 `core/tokenBudget/…`，该文件已在 app 层） | ✅ |
 | R03-001 | `core/utils/Performance.ts` | R01-004 治理例外：自建 MemoryCache（大小驱动淘汰） | 2026-Q3 |
 | R03-001 | `performance/CacheAndLazyLoading.ts` | R01-004 治理例外：自建 CacheManager（大小+过期管理） | 2026-Q3 |
 | R03-001 | `context/ContextCacheService.ts` | R01-004 治理例外：已修复，改用 TTLCache | ✅ |

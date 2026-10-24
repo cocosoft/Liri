@@ -35,7 +35,15 @@
 
 import { Database } from '@openliri/kernel/external/sqlite3';
 import { randomUUID } from 'crypto';
-import { resolveDbPath } from '@openliri/kernel';
+import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel';
+// 租户级 DB（基础设施专项 §6.1 / §8-#14）：库按**租户**分，用户靠 `owner_key` 行级隔离
+import {
+  getRequestPrincipal,
+  getRequestPrincipalKey,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 // 2026-09-30 下沉 core（A1 分层倒挂收口）：`BillingMode` 被 `ModelPricing`（详见
 // `core/pricing.ts`）引用，定义若留在 app 层会让 core 侧新造 core → app 倒挂 ⇒ 定义移至 core，
 // 本文件原样转出（`@modules/ai` 对外导出名不变）。
@@ -192,30 +200,88 @@ function rowToRecord(row: Record<string, unknown>): ModelPricingRecord {
  */
 export class ModelPricingService {
   private static instance: ModelPricingService;
+  /** 租户级库实例缓存（键 = `tenantId`；库按租户分，用户靠 `owner_key` 行级隔离） */
+  private static scopedInstances = new Map<string, ModelPricingService>();
 
   private db: Database | null = null;
   private dbPath: string;
   private initialized = false;
   private initPromise: Promise<void> | null = null;
   private seeded = false;
+  /** 已播过 YAML 种子的归属者（租户内实例共享；按 owner 各播一次） */
+  private seededOwners = new Set<string>();
 
   private constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
   }
 
+  /**
+   * 取实例。
+   *
+   * 租户级 DB（§6.1 / §8-#14）：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该**租户**的
+   * 实例（`tenants/<t>/app.db`），同租户内不同用户共用连接、按 `owner_key` 行级隔离。
+   */
   static getInstance(dbPath?: string): ModelPricingService {
+    const principal = getRequestPrincipal();
+    if (!isLocalPrincipal(principal) && dbPath === undefined) {
+      const key = principal.tenantId;
+      const existing = ModelPricingService.scopedInstances.get(key);
+      if (existing) return existing;
+      const scoped = new ModelPricingService(resolveTenantDbPath(principal));
+      ModelPricingService.scopedInstances.set(key, scoped);
+      // 登记键用**创建者**的 `<tenant>:<user>`（purge 按 `<tenant>:` 前缀关闭）
+      registerScopedResource(principalKeyOf(principal), () => {
+        scoped.close();
+        ModelPricingService.scopedInstances.delete(key);
+      });
+      return scoped;
+    }
     if (!ModelPricingService.instance) {
       ModelPricingService.instance = new ModelPricingService(dbPath);
     }
     return ModelPricingService.instance;
   }
 
-  async initialize(): Promise<void> {
-    if (this.initialized) return;
-    if (this.initPromise) return this.initPromise;
+  /** 当前写入/查询的归属键（本地 ⇒ `local:local`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
+  }
 
-    this.initPromise = this._doInitialize();
-    return this.initPromise;
+  /** 关闭连接（幂等；仅 scoped 实例与测试使用） */
+  close(): void {
+    try {
+      this.db?.close();
+    } catch {
+      // 已关闭 / 关闭中：忽略（幂等）
+    }
+    this.db = null;
+    this.initialized = false;
+    this.initPromise = null;
+  }
+
+  /** 仅测试：关掉并清空租户级实例缓存（**生产不调用**） */
+  static resetScopedForTest(): void {
+    for (const svc of ModelPricingService.scopedInstances.values()) {
+      svc.close();
+    }
+    ModelPricingService.scopedInstances.clear();
+  }
+
+  async initialize(): Promise<void> {
+    if (!this.initialized) {
+      this.initPromise ??= this._doInitialize();
+      await this.initPromise;
+    }
+    // 租户内**每个用户**首次使用时各播一次 YAML 种子（实例/连接是租户级共享）
+    await this.ensureSeededForCurrentOwner();
+  }
+
+  /** 为当前归属者补种子（幂等：同一 owner 每进程一次；`INSERT OR IGNORE` 兜底） */
+  private async ensureSeededForCurrentOwner(): Promise<void> {
+    const owner = this.owner();
+    if (this.seededOwners.has(owner)) return;
+    await this.seedFromYamlIfEmpty();
+    this.seededOwners.add(owner);
   }
 
   /** 是否已经从 YAML 种过数据 */
@@ -234,7 +300,6 @@ export class ModelPricingService {
 
       await this.createRegistryTable();
       await this.migrateOldPricingTable();
-      await this.seedFromYamlIfEmpty();
       await this.migrateBackfillUUIDs();
 
       this.initialized = true;
@@ -258,7 +323,7 @@ export class ModelPricingService {
       this.db!.run(
         `CREATE TABLE IF NOT EXISTS ${REGISTRY_TABLE} (
           id                 TEXT NOT NULL DEFAULT '',
-          model_id           TEXT PRIMARY KEY,
+          model_id           TEXT NOT NULL,
           display_name       TEXT NOT NULL DEFAULT '',
           context_window     INTEGER NOT NULL DEFAULT 200000,
           max_output_tokens  INTEGER NOT NULL DEFAULT 8192,
@@ -277,7 +342,9 @@ export class ModelPricingService {
           enabled            INTEGER NOT NULL DEFAULT 1,
           is_custom          INTEGER NOT NULL DEFAULT 0,
           created_at         INTEGER NOT NULL DEFAULT (strftime('%s','now')),
-          updated_at         INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+          updated_at         INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+          owner_key          TEXT NOT NULL DEFAULT 'local:local',
+          PRIMARY KEY (model_id, owner_key)
         )`,
         (err: Error | null) => {
           if (err) reject(err);
@@ -342,6 +409,15 @@ export class ModelPricingService {
       );
     });
 
+    // 兼容旧库：归属列（租户库 §6.1 / §8-#14）。旧库（单身份）补列默认 `local:local`
+    // ⇒ 行为不变；`ALTER` 不能改主键（旧库仍是 `model_id` 单列），本地单身份不碰撞。
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `ALTER TABLE ${REGISTRY_TABLE} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+        () => resolve()
+      );
+    });
+
     // UUID 唯一索引（仅非空值）
     await new Promise<void>((resolve) => {
       this.db!.run(
@@ -365,13 +441,16 @@ export class ModelPricingService {
 
   /** 为存量记录回填 UUID（事务包裹，避免逐条 COMMIT） */
   private async migrateBackfillUUIDs(): Promise<void> {
-    const rows = await new Promise<{ model_id: string }[]>(
+    // 维护动作：跨用户回填（`owner_key` 一并取出，UPDATE 用它精确定位
+    // —— 同租户两用户可能有同名 `model_id`，只按 model_id 更新会撞 UUID 唯一索引）
+    const rows = await new Promise<{ model_id: string; owner_key: string }[]>(
       (resolve, reject) => {
         this.db!.all(
-          `SELECT model_id FROM ${REGISTRY_TABLE} WHERE id = '' OR id IS NULL`,
+          `SELECT model_id, owner_key FROM ${REGISTRY_TABLE}
+            WHERE id = '' OR id IS NULL`,
           (err: Error | null, rows: unknown[]) => {
             if (err) reject(err);
-            else resolve(rows as { model_id: string }[]);
+            else resolve(rows as { model_id: string; owner_key: string }[]);
           }
         );
       }
@@ -384,8 +463,8 @@ export class ModelPricingService {
     try {
       for (const row of rows) {
         await this.runAsync(
-          `UPDATE ${REGISTRY_TABLE} SET id = ? WHERE model_id = ?`,
-          [randomUUID(), row.model_id]
+          `UPDATE ${REGISTRY_TABLE} SET id = ? WHERE model_id = ? AND owner_key = ?`,
+          [randomUUID(), row.model_id, row.owner_key]
         );
       }
       await this.runAsync('COMMIT');
@@ -475,8 +554,8 @@ export class ModelPricingService {
             `INSERT OR IGNORE INTO ${REGISTRY_TABLE}
              (id, model_id, display_name, input_price, output_price,
               cache_read_price, cache_write_price, provider_id,
-              enabled, is_custom, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              enabled, is_custom, created_at, updated_at, owner_key)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               id,
               old.model_id,
@@ -498,6 +577,7 @@ export class ModelPricingService {
               old.is_custom ?? 0,
               old.created_at || Math.floor(Date.now() / 1000),
               old.updated_at || Math.floor(Date.now() / 1000),
+              this.owner(),
             ],
             (err: Error | null) => {
               if (err) reject(err);
@@ -527,11 +607,12 @@ export class ModelPricingService {
     );
   }
 
-  /** 首次启动时从 YAML 种子数据到 DB */
+  /** 首次启动时从 YAML 种子数据到 DB（种子按**归属者**各自播种） */
   private async seedFromYamlIfEmpty(): Promise<void> {
     const count = await new Promise<number>((resolve, reject) => {
       this.db!.get(
-        `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE}`,
+        `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE} WHERE owner_key = ?`,
+        [this.owner()],
         (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else resolve((row as Record<string, number>).cnt);
@@ -568,8 +649,8 @@ export class ModelPricingService {
              (id, model_id, display_name, context_window, max_output_tokens,
               capabilities, provider_mappings,
               input_price, output_price, cache_read_price, cache_write_price,
-              provider_id, enabled, is_custom, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?)`,
+              provider_id, enabled, is_custom, created_at, updated_at, owner_key)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)`,
             [
               id,
               key,
@@ -587,6 +668,7 @@ export class ModelPricingService {
                 '',
               now,
               now,
+              this.owner(),
             ],
             (err: Error | null) => {
               if (err) reject(err);
@@ -668,7 +750,7 @@ export class ModelPricingService {
            cost_multiplier = ?, pricing_source = ?,
            provider_id = ?, billing_mode = ?, price_per_request = ?,
            time_based_pricing = ?, updated_at = ?
-           WHERE model_id = ?`,
+           WHERE model_id = ? AND owner_key = ?`,
           [
             params.displayName || existing.displayName,
             params.contextWindow ?? existing.contextWindow,
@@ -692,6 +774,7 @@ export class ModelPricingService {
                 : '[]',
             now,
             params.modelId,
+            this.owner(),
           ],
           (err: Error | null) => {
             if (err) reject(err);
@@ -753,8 +836,8 @@ export class ModelPricingService {
             input_price, output_price, cache_read_price, cache_write_price,
             cost_multiplier, pricing_source,
             provider_id, billing_mode, price_per_request, time_based_pricing,
-            enabled, is_custom, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+            enabled, is_custom, created_at, updated_at, owner_key)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
           [
             id,
             params.modelId,
@@ -778,6 +861,7 @@ export class ModelPricingService {
             params.isCustom ? 1 : 0,
             now,
             now,
+            this.owner(),
           ],
           (err: Error | null) => {
             if (err) reject(err);
@@ -827,8 +911,8 @@ export class ModelPricingService {
 
     return new Promise<ModelPricingRecord | undefined>((resolve, reject) => {
       this.db!.get(
-        `SELECT * FROM ${REGISTRY_TABLE} WHERE model_id = ?`,
-        [modelId],
+        `SELECT * FROM ${REGISTRY_TABLE} WHERE model_id = ? AND owner_key = ?`,
+        [modelId, this.owner()],
         (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else if (!row) resolve(undefined);
@@ -844,7 +928,8 @@ export class ModelPricingService {
 
     return new Promise<ModelPricingRecord[]>((resolve, reject) => {
       this.db!.all(
-        `SELECT * FROM ${REGISTRY_TABLE} ORDER BY model_id ASC`,
+        `SELECT * FROM ${REGISTRY_TABLE} WHERE owner_key = ? ORDER BY model_id ASC`,
+        [this.owner()],
         (err: Error | null, rows: unknown[]) => {
           if (err) reject(err);
           else {
@@ -861,7 +946,8 @@ export class ModelPricingService {
 
     return new Promise<ModelPricingRecord[]>((resolve, reject) => {
       this.db!.all(
-        `SELECT * FROM ${REGISTRY_TABLE} WHERE enabled = 1 ORDER BY model_id ASC`,
+        `SELECT * FROM ${REGISTRY_TABLE} WHERE enabled = 1 AND owner_key = ? ORDER BY model_id ASC`,
+        [this.owner()],
         (err: Error | null, rows: unknown[]) => {
           if (err) reject(err);
           else {
@@ -878,8 +964,9 @@ export class ModelPricingService {
 
     return new Promise<boolean>((resolve, reject) => {
       this.db!.run(
-        `DELETE FROM ${REGISTRY_TABLE} WHERE model_id = ? AND is_custom = 1`,
-        [modelId],
+        `DELETE FROM ${REGISTRY_TABLE}
+          WHERE model_id = ? AND is_custom = 1 AND owner_key = ?`,
+        [modelId, this.owner()],
         function (this: SqliteRunContext, err: Error | null) {
           if (err) reject(err);
           else resolve(this.changes > 0);
@@ -898,8 +985,9 @@ export class ModelPricingService {
     const newEnabled = record.enabled ? 0 : 1;
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `UPDATE ${REGISTRY_TABLE} SET enabled = ?, updated_at = ? WHERE model_id = ?`,
-        [newEnabled, Math.floor(Date.now() / 1000), modelId],
+        `UPDATE ${REGISTRY_TABLE} SET enabled = ?, updated_at = ?
+          WHERE model_id = ? AND owner_key = ?`,
+        [newEnabled, Math.floor(Date.now() / 1000), modelId, this.owner()],
         (err: Error | null) => {
           if (err) reject(err);
           else resolve();
@@ -915,9 +1003,10 @@ export class ModelPricingService {
     const existing = await this.getPricing(modelId);
     if (!existing) return false;
 
-    await this.runAsync(`DELETE FROM ${REGISTRY_TABLE} WHERE model_id = ?`, [
-      modelId,
-    ]);
+    await this.runAsync(
+      `DELETE FROM ${REGISTRY_TABLE} WHERE model_id = ? AND owner_key = ?`,
+      [modelId, this.owner()]
+    );
     return true;
   }
 
@@ -927,8 +1016,8 @@ export class ModelPricingService {
 
     return new Promise<ModelPricingRecord | undefined>((resolve, reject) => {
       this.db!.get(
-        `SELECT * FROM ${REGISTRY_TABLE} WHERE id = ?`,
-        [id],
+        `SELECT * FROM ${REGISTRY_TABLE} WHERE id = ? AND owner_key = ?`,
+        [id, this.owner()],
         (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else if (!row) resolve(undefined);
@@ -949,8 +1038,9 @@ export class ModelPricingService {
     const newEnabled = record.enabled ? 0 : 1;
     await new Promise<void>((resolve, reject) => {
       this.db!.run(
-        `UPDATE ${REGISTRY_TABLE} SET enabled = ?, updated_at = ? WHERE id = ?`,
-        [newEnabled, Math.floor(Date.now() / 1000), id],
+        `UPDATE ${REGISTRY_TABLE} SET enabled = ?, updated_at = ?
+          WHERE id = ? AND owner_key = ?`,
+        [newEnabled, Math.floor(Date.now() / 1000), id, this.owner()],
         (err: Error | null) => {
           if (err) reject(err);
           else resolve();
@@ -977,8 +1067,9 @@ export class ModelPricingService {
 
     return new Promise((resolve, reject) => {
       this.db!.all(
-        `SELECT id, model_id, display_name, enabled FROM ${REGISTRY_TABLE} WHERE provider_id = ?`,
-        [providerId],
+        `SELECT id, model_id, display_name, enabled FROM ${REGISTRY_TABLE}
+          WHERE provider_id = ? AND owner_key = ?`,
+        [providerId, this.owner()],
         (err: Error | null, rows: unknown[]) => {
           if (err) reject(err);
           else
@@ -1008,8 +1099,9 @@ export class ModelPricingService {
     if (!record) return null;
 
     await this.runAsync(
-      `UPDATE ${REGISTRY_TABLE} SET enabled = ?, updated_at = ? WHERE id = ?`,
-      [enabled ? 1 : 0, Math.floor(Date.now() / 1000), id]
+      `UPDATE ${REGISTRY_TABLE} SET enabled = ?, updated_at = ?
+        WHERE id = ? AND owner_key = ?`,
+      [enabled ? 1 : 0, Math.floor(Date.now() / 1000), id, this.owner()]
     );
     return { modelId: record.modelId, enabled };
   }
@@ -1020,7 +1112,10 @@ export class ModelPricingService {
     const existing = await this.getPricingById(id);
     if (!existing) return false;
 
-    await this.runAsync(`DELETE FROM ${REGISTRY_TABLE} WHERE id = ?`, [id]);
+    await this.runAsync(
+      `DELETE FROM ${REGISTRY_TABLE} WHERE id = ? AND owner_key = ?`,
+      [id, this.owner()]
+    );
     return true;
   }
 
@@ -1030,7 +1125,8 @@ export class ModelPricingService {
 
     return new Promise<number>((resolve, reject) => {
       this.db!.get(
-        `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE}`,
+        `SELECT COUNT(*) as cnt FROM ${REGISTRY_TABLE} WHERE owner_key = ?`,
+        [this.owner()],
         (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else resolve((row as Record<string, number>).cnt);
@@ -1061,9 +1157,9 @@ export class ModelPricingService {
              (id, model_id, display_name, context_window, max_output_tokens,
               capabilities, provider_mappings,
               input_price, output_price, cache_read_price, cache_write_price,
-              provider_id, enabled, is_custom, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?)
-             ON CONFLICT(model_id) DO UPDATE SET
+              provider_id, enabled, is_custom, created_at, updated_at, owner_key)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)
+             ON CONFLICT(model_id, owner_key) DO UPDATE SET
               display_name = excluded.display_name,
               context_window = excluded.context_window,
               max_output_tokens = excluded.max_output_tokens,
@@ -1093,6 +1189,7 @@ export class ModelPricingService {
               ) || '',
               now,
               now,
+              this.owner(),
             ],
             function (this: { changes: number }, err: Error | null) {
               if (err) reject(err);
@@ -1117,4 +1214,26 @@ export class ModelPricingService {
   }
 }
 
-export const modelPricingService = ModelPricingService.getInstance();
+/**
+ * 进程级门面（**按调用身份**解析实例）。
+ *
+ * 为什么不是 `getInstance()` 常量：常量在**模块求值**时就把库/实例固定下来，
+ * 已认证请求会永远读写本地共享库（`TaskStore` 的 `taskStore` 常量即此缺陷）。
+ * 代理在**每次属性访问**时取当前身份对应的实例 ⇒ 32 个调用方零改动。
+ */
+export const modelPricingService: ModelPricingService = new Proxy(
+  {} as unknown as ModelPricingService,
+  {
+    get(_target, prop) {
+      const instance = ModelPricingService.getInstance();
+      if (typeof prop === 'symbol') return Reflect.get(instance, prop);
+      const value = Reflect.get(instance, prop, instance);
+      return typeof value === 'function' ? value.bind(instance) : value;
+    },
+  }
+);
+
+/** 仅测试：关掉并清空租户级实例缓存（**仅供测试**；生产不调用） */
+export function resetModelPricingScopedForTest(): void {
+  ModelPricingService.resetScopedForTest();
+}

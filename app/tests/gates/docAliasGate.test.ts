@@ -58,15 +58,17 @@ function run(root: string, ...args: string[]): { code: number; out: string } {
 
 describe('文档别名门禁：违规样例必红', () => {
   it('未注册的别名 ⇒ 红，并点名文件与原因', () => {
+    // 注意：夹具**不要**用 `@modules/core/...` 字面量 —— `codemod-core-imports --check`
+    // 会把它当成「旧别名回流」而红（2026-10-24 实测踩中），与实际要验证的东西无关。
     const root = fixture({
-      '.trae/rules/probe.md': '用 `@modules/core/paths` 取路径\n',
+      '.trae/rules/probe.md': '用 `@modules/ghostRouter` 取路由\n',
     });
 
     const { code, out } = run(root);
 
     expect(code).toBe(1);
     expect(out).toContain('probe.md:1');
-    expect(out).toContain('@modules/core/paths');
+    expect(out).toContain('@modules/ghostRouter');
     expect(out).toContain('tsconfig paths 里没有');
   });
 

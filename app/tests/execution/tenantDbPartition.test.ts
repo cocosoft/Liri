@@ -205,15 +205,18 @@ describe('QueryLogStore：租户级库 + 行级隔离（§6.1 期 2 试点）', 
   });
 });
 
-describe('LLMTracker：按身份分实例', () => {
-  it('两个身份拿到不同实例；分区实例**同步**开库（首条记录即可落库）', () => {
+describe('LLMTracker：租户级库 + 行级隔离', () => {
+  it('同租户两用户共用实例；实例**同步**开库（首条记录即可落库）', () => {
     const local = getLLMTracker();
     const alice = runWithPrincipal(ALICE, () => getLLMTracker());
+    const bob = runWithPrincipal(BOB, () => getLLMTracker());
     expect(alice).not.toBe(local);
+    expect(bob).toBe(alice);
 
+    expect(existsSync(join(dataDir, 'tenants', 'acme', 'app.db'))).toBe(true);
     expect(
       existsSync(join(dataDir, 'tenants', 'acme', 'users', 'alice', 'app.db'))
-    ).toBe(true);
+    ).toBe(false);
   });
 });
 

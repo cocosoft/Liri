@@ -12,6 +12,8 @@ import {
 } from '../logs/LogMemory.js';
 import { Database } from '@openliri/kernel/external/sqlite3.js';
 import { resolveDbPath } from '@openliri/kernel';
+// 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
+import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
 
 interface LLMCallRecord {
   requestId: string;
@@ -297,12 +299,27 @@ export class LLMTracker {
     this.initialized = false;
   }
 
+  /**
+   * 内存 Map 的键：`<owner>\u0000<sessionId>`。
+   *
+   * 租户内两用户共用实例/连接（基础设施专项 §6.1），但内存统计**不能混算** ——
+   * 同名会话必须各记各的。
+   */
+  private memoryKey(sessionId: string): string {
+    return `${getRequestPrincipalKey()}\u0000${sessionId}`;
+  }
+
+  /** 当前身份的内存键前缀（遍历时过滤用） */
+  private ownerPrefix(): string {
+    return `${getRequestPrincipalKey()}\u0000`;
+  }
+
   /** 建表/索引 DDL（`init` 与按身份同步开库共用，避免两份 DDL 漂移） */
   private createSchema(): void {
     if (!this.db) return;
     this.db.run(`
         CREATE TABLE IF NOT EXISTS llm_call_records (
-          request_id TEXT PRIMARY KEY,
+          request_id TEXT NOT NULL,
           session_id TEXT NOT NULL,
           title TEXT,
           timestamp TEXT NOT NULL,
@@ -314,9 +331,23 @@ export class LLMTracker {
           cache_create_tokens INTEGER DEFAULT 0,
           reasoning_tokens INTEGER DEFAULT 0,
           cost_usd REAL NOT NULL DEFAULT 0,
-          duration_ms INTEGER DEFAULT 0
+          duration_ms INTEGER DEFAULT 0,
+          owner_key TEXT NOT NULL DEFAULT 'local:local',
+          PRIMARY KEY (request_id, owner_key)
         )
       `);
+    // 旧库（单身份）补列：`ALTER` 不能改主键，但本地全 `local:local` ⇒ 不碰撞。
+    // 无回调时兼容层会静默吞错 ⇒ 显式带回调，只对"非重复列"的失败告警。
+    this.db.run(
+      `ALTER TABLE llm_call_records ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+      (err: Error | null) => {
+        if (err && !/duplicate column/i.test(err.message)) {
+          this.logger.warn('llm_call_records 补 owner_key 列失败', {
+            error: err.message,
+          });
+        }
+      }
+    );
     this.db.run(`
         CREATE INDEX IF NOT EXISTS idx_llm_calls_session
         ON llm_call_records(session_id, timestamp)
@@ -335,14 +366,17 @@ export class LLMTracker {
     const rows = await new Promise<any[]>((resolve) => {
       this.db!.all(
         `SELECT * FROM llm_call_records
-         WHERE timestamp > datetime('now', '-7 days')
+         WHERE owner_key = ?
+           AND timestamp > datetime('now', '-7 days')
          ORDER BY timestamp ASC`,
+        [getRequestPrincipalKey()],
         (err: Error | null, rows: any[]) => resolve(err ? [] : rows)
       );
     });
 
     for (const row of rows) {
-      const existingStats = this.sessionStats.get(row.session_id);
+      const memKey = this.memoryKey(row.session_id);
+      const existingStats = this.sessionStats.get(memKey);
       if (existingStats) {
         existingStats.totalRequests++;
         existingStats.totalInputTokens += row.input_tokens;
@@ -358,7 +392,7 @@ export class LLMTracker {
           existingStats.providers.push(row.provider);
         }
       } else {
-        this.sessionStats.set(row.session_id, {
+        this.sessionStats.set(memKey, {
           sessionId: row.session_id,
           title: row.title || undefined,
           totalRequests: 1,
@@ -375,10 +409,10 @@ export class LLMTracker {
         });
       }
 
-      let calls = this.sessionCalls.get(row.session_id);
+      let calls = this.sessionCalls.get(memKey);
       if (!calls) {
         calls = [];
-        this.sessionCalls.set(row.session_id, calls);
+        this.sessionCalls.set(memKey, calls);
       }
       calls.push({
         requestId: row.request_id,
@@ -417,8 +451,8 @@ export class LLMTracker {
         `INSERT OR REPLACE INTO llm_call_records
          (request_id, session_id, title, timestamp, model, provider,
           input_tokens, output_tokens, cache_read_tokens, cache_create_tokens,
-          reasoning_tokens, cost_usd, duration_ms)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          reasoning_tokens, cost_usd, duration_ms, owner_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           params.requestId,
           params.sessionId,
@@ -433,6 +467,7 @@ export class LLMTracker {
           params.reasoningTokens,
           params.costUsd,
           params.durationMs,
+          getRequestPrincipalKey(),
         ]
       );
     } catch (err) {
@@ -481,8 +516,9 @@ export class LLMTracker {
         : undefined,
     };
 
-    // 更新会话统计
-    const existingStats = this.sessionStats.get(params.sessionId);
+    // 更新会话统计（内存键带 owner 前缀：租户内两用户的同名会话不得混算）
+    const memKey = this.memoryKey(params.sessionId);
+    const existingStats = this.sessionStats.get(memKey);
     if (existingStats) {
       existingStats.totalRequests++;
       existingStats.totalInputTokens += params.inputTokens;
@@ -502,7 +538,7 @@ export class LLMTracker {
         existingStats.title = params.title;
       }
     } else {
-      this.sessionStats.set(params.sessionId, {
+      this.sessionStats.set(memKey, {
         sessionId: params.sessionId,
         title: params.title,
         totalRequests: 1,
@@ -520,10 +556,10 @@ export class LLMTracker {
     }
 
     // 保存调用记录（限制每个会话最多 10000 条）
-    let calls = this.sessionCalls.get(params.sessionId);
+    let calls = this.sessionCalls.get(memKey);
     if (!calls) {
       calls = [];
-      this.sessionCalls.set(params.sessionId, calls);
+      this.sessionCalls.set(memKey, calls);
     }
     calls.push(callRecord);
     if (calls.length > 10000) {
@@ -596,7 +632,7 @@ export class LLMTracker {
    * 获取会话统计
    */
   getSessionStats(sessionId: string): SessionLLMStats | null {
-    return this.sessionStats.get(sessionId) ?? null;
+    return this.sessionStats.get(this.memoryKey(sessionId)) ?? null;
   }
 
   /**
@@ -604,9 +640,11 @@ export class LLMTracker {
    */
   getAllSessions(): SessionSummary[] {
     const summaries: SessionSummary[] = [];
-    for (const [sessionId, stats] of this.sessionStats) {
+    const prefix = this.ownerPrefix();
+    for (const [key, stats] of this.sessionStats) {
+      if (!key.startsWith(prefix)) continue; // 只列自己的（租户内共用实例）
       summaries.push({
-        sessionId,
+        sessionId: stats.sessionId,
         title: stats.title,
         totalRequests: stats.totalRequests,
         totalTokens: stats.totalInputTokens + stats.totalOutputTokens,
@@ -623,8 +661,9 @@ export class LLMTracker {
    * 获取会话详情
    */
   getSessionDetail(sessionId: string): SessionDetail | null {
-    const stats = this.sessionStats.get(sessionId);
-    const calls = this.sessionCalls.get(sessionId) ?? [];
+    const memKey = this.memoryKey(sessionId);
+    const stats = this.sessionStats.get(memKey);
+    const calls = this.sessionCalls.get(memKey) ?? [];
 
     if (!stats) {
       return null;
@@ -650,8 +689,12 @@ export class LLMTracker {
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     let totalCostUsd = 0;
+    let totalSessions = 0;
 
-    for (const stats of this.sessionStats.values()) {
+    const prefix = this.ownerPrefix();
+    for (const [key, stats] of this.sessionStats) {
+      if (!key.startsWith(prefix)) continue; // 只汇总自己的
+      totalSessions++;
       totalRequests += stats.totalRequests;
       totalInputTokens += stats.totalInputTokens;
       totalOutputTokens += stats.totalOutputTokens;
@@ -659,7 +702,7 @@ export class LLMTracker {
     }
 
     return {
-      totalSessions: this.sessionStats.size,
+      totalSessions,
       totalRequests,
       totalInputTokens,
       totalOutputTokens,
@@ -671,16 +714,22 @@ export class LLMTracker {
    * 清理指定会话
    */
   clearSession(sessionId: string): void {
-    this.sessionStats.delete(sessionId);
-    this.sessionCalls.delete(sessionId);
+    const memKey = this.memoryKey(sessionId);
+    this.sessionStats.delete(memKey);
+    this.sessionCalls.delete(memKey);
   }
 
   /**
-   * 清理所有会话
+   * 清理所有会话（**仅当前身份**的；租户内共用实例不得清掉别人）
    */
   clearAll(): void {
-    this.sessionStats.clear();
-    this.sessionCalls.clear();
+    const prefix = this.ownerPrefix();
+    for (const key of [...this.sessionStats.keys()]) {
+      if (key.startsWith(prefix)) this.sessionStats.delete(key);
+    }
+    for (const key of [...this.sessionCalls.keys()]) {
+      if (key.startsWith(prefix)) this.sessionCalls.delete(key);
+    }
   }
 
   /**
@@ -692,10 +741,12 @@ export class LLMTracker {
     const cutoffStr = cutoff.toISOString();
 
     let cleanedCount = 0;
-    for (const [sessionId, stats] of this.sessionStats) {
+    // 内存键是 `<owner>\0<sessionId>`；按 key 删除即对（跨用户清理属维护动作：
+    // 过期条目对谁都已无价值，且内存只是 DB 的缓存）。
+    for (const [key, stats] of this.sessionStats) {
       if (stats.lastCallAt < cutoffStr) {
-        this.sessionStats.delete(sessionId);
-        this.sessionCalls.delete(sessionId);
+        this.sessionStats.delete(key);
+        this.sessionCalls.delete(key);
         cleanedCount++;
       }
     }

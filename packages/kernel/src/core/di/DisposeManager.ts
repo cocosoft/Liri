@@ -44,11 +44,22 @@ export class DisposeManager {
   }
 
   /**
-   * 按拓扑逆序释放所有服务
+   * 按拓扑逆序释放所有服务。
+   * 评审 #7：逐个 try/catch 收集错误并继续（原实现首个抛错即中断 ⇒ 后续服务全部漏释放），
+   * 单个错误原样抛、多个用 AggregateError。
    */
   async disposeAll(order: string[]): Promise<void> {
+    const errors: unknown[] = [];
     for (let i = order.length - 1; i >= 0; i--) {
-      await this.dispose(order[i]);
+      try {
+        await this.dispose(order[i]);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) {
+      throw new AggregateError(errors, `${errors.length} 个服务释放失败`);
     }
   }
 

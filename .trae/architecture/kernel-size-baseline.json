@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "note": "2026-10-24 两次手改：① loc 18427→18494（Q3 身份注入点）；② files 112→113 / loc 18494→18549（把身份定义抽成零依赖的 productIdentity.ts，供 ports/featureFlags 使用 —— 它们不能 import paths.ts，否则把整条求值链拉进启动面）。按 K08 规则「确属内核原语 ⇒ 手改基线并在 PR 说明」；dirs 未放宽。",
+  "note": "2026-10-24 三次手改：① loc 18427→18494（Q3 身份注入点）；② files 112→113 / loc 18494→18549（身份定义抽成零依赖 productIdentity.ts，供 ports/featureFlags 用 —— 它们不能 import paths.ts，否则把整条求值链拉进启动面）；③ loc 18549→18615（DI 容器契约修复：环注册回滚、闭环报错、request 作用域改 ALS、onDispose 作用域 fail-closed、增量环检测、disposeAll 不中断、eager 钩子；均为内核原语内的行为修复，非注释膨胀；DI 测试放 packages/kernel/tests/ 不占内核预算）。按 K08 规则「确属内核原语 ⇒ 手改基线并在 PR 说明」；files/dirs 未放宽。",
   "metrics": {
     "files": 113,
-    "loc": 18549,
+    "loc": 18615,
     "dirs": 21
   }
 }

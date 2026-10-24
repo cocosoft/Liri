@@ -64,27 +64,26 @@ export class DIContainer {
    * 注册服务描述符
    */
   registerDescriptor<T>(descriptor: ServiceDescriptor<T>): void {
-    if (this.config.detectCycles) {
-      this.scopeManager.registerDescriptor(descriptor);
-      const result = this.scopeManager.detectCycles();
-      if (result.hasCycle) {
-        // 先移除已注册的描述符，避免残留
-        this.scopeManager.getDescriptor(descriptor.id);
-        logger.error('循环依赖检测失败', {
-          serviceId: descriptor.id,
-          cycle: result.cycle,
-        });
-        throw new AppError(
-          `Cyclic dependency detected involving service: ${descriptor.id}`,
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          'DI_CYCLE_DETECTED',
-          { cycle: result.cycle }
-        );
-      }
-    } else {
-      this.scopeManager.registerDescriptor(descriptor);
-    }
+    this.scopeManager.registerDescriptor(descriptor);
+    if (!this.config.detectCycles) return;
+
+    // 增量检测（评审 #5）：原图无环时新环必过新节点 ⇒ 单点 DFS 与全图检测等价
+    const result = this.scopeManager.detectCyclesFrom(descriptor.id);
+    if (!result.hasCycle) return;
+
+    // 评审 #1：原为 getDescriptor（只读）⇒ 抛错后容器仍带环，后续检测继续报同一个环
+    this.scopeManager.remove(descriptor.id);
+    logger.error('循环依赖检测失败', {
+      serviceId: descriptor.id,
+      cycle: result.cycle,
+    });
+    throw new AppError(
+      `Cyclic dependency detected involving service: ${descriptor.id}`,
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      'DI_CYCLE_DETECTED',
+      { cycle: result.cycle }
+    );
   }
 
   /**

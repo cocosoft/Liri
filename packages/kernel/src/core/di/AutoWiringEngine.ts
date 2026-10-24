@@ -16,9 +16,14 @@ interface IContainer {
   resolve<T>(name: string): T;
 }
 
+/** 纯标识符（可作服务名）：`foo` / `_x` / `$y`；带修饰符、类型标注、解构、默认值一律不匹配 */
+const IDENTIFIER_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
 export class AutoWiringEngine {
   /**
-   * 获取构造函数的参数名列表
+   * 获取构造参数名。**只接受纯标识符**（评审 #6）：形参带修饰符 / 默认值 / 解构 /
+   * 含逗号的默认值都会被原实现当成服务名 ⇒ 静默解析错误；现在直接抛
+   * `DI_AUTOWIRE_UNRELIABLE`。⚠️ 打包器改名（`--minify`）不可检测 —— 只能靠显式 token 从根上避免。
    */
   getParameterNames<T>(target: new (...args: unknown[]) => T): string[] {
     const fnStr = target.toString();
@@ -29,10 +34,23 @@ export class AutoWiringEngine {
     }
 
     const params = fnStr.slice(parenOpen + 1, parenClose);
-    return params
+    const names = params
       .split(',')
       .map((p) => p.trim())
       .filter((p) => p.length > 0);
+
+    const unreliable = names.filter((name) => !IDENTIFIER_RE.test(name));
+    if (unreliable.length > 0) {
+      throw new AppError(
+        `AutoWiring: ${target.name} 的构造参数不是纯标识符（${unreliable.join(' | ')}）` +
+          '⇒ 按参数名解析不可靠；请改用显式 token / 注册表',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'DI_AUTOWIRE_UNRELIABLE',
+        { targetName: target.name, parameters: unreliable }
+      );
+    }
+    return names;
   }
 
   /**

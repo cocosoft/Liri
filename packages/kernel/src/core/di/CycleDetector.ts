@@ -10,6 +10,28 @@ export class CycleDetector {
    * 可选依赖（optionalDependencies）不参与循环检测
    */
   detect(descriptors: Map<string, ServiceDescriptor>): CycleDetectionResult {
+    const cycle = this.findCycle(descriptors, [...descriptors.keys()]);
+    return cycle ? { hasCycle: true, cycle } : { hasCycle: false };
+  }
+
+  /**
+   * 增量检测：只从 `startId` 出发找环（评审 #5：注册期全图 DFS 是 O(N²)；
+   * 原图无环时新环必过新节点 ⇒ 单点 DFS 与全图检测等价）。
+   */
+  detectFrom(
+    descriptors: Map<string, ServiceDescriptor>,
+    startId: string
+  ): CycleDetectionResult {
+    if (!descriptors.has(startId)) return { hasCycle: false };
+    const cycle = this.findCycle(descriptors, [startId]);
+    return cycle ? { hasCycle: true, cycle } : { hasCycle: false };
+  }
+
+  /** DFS 找环；返回**闭环**（评审 #2：原实现丢弃 cycle、返回「根→环入口」前缀路径） */
+  private findCycle(
+    descriptors: Map<string, ServiceDescriptor>,
+    roots: readonly string[]
+  ): string[] | null {
     const adjacency = new Map<string, string[]>();
     for (const [id, desc] of descriptors) {
       adjacency.set(id, desc.dependencies ?? []);
@@ -18,23 +40,20 @@ export class CycleDetector {
     const visited = new Set<string>();
     const visiting = new Set<string>();
     const path: string[] = [];
+    let found: string[] | null = null;
 
     const dfs = (node: string): boolean => {
       if (visiting.has(node)) {
         const cycleStart = path.indexOf(node);
-        if (cycleStart !== -1) {
-          const cycle = [...path.slice(cycleStart), node];
-          return true;
-        }
-        return false;
+        found = [...path.slice(cycleStart === -1 ? 0 : cycleStart), node];
+        return true;
       }
       if (visited.has(node)) return false;
 
       visiting.add(node);
       path.push(node);
 
-      const deps = adjacency.get(node) ?? [];
-      for (const dep of deps) {
+      for (const dep of adjacency.get(node) ?? []) {
         if (dfs(dep)) return true;
       }
 
@@ -44,15 +63,11 @@ export class CycleDetector {
       return false;
     };
 
-    for (const id of descriptors.keys()) {
-      if (!visited.has(id)) {
-        if (dfs(id)) {
-          return { hasCycle: true, cycle: [...path] };
-        }
-      }
+    for (const root of roots) {
+      if (!visited.has(root) && dfs(root)) break;
     }
 
-    return { hasCycle: false };
+    return found;
   }
 
   /**

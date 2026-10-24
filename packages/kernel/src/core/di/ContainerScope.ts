@@ -2,6 +2,7 @@
  * 容器作用域管理器
  * 管理 singleton/transient/request 三种作用域的服务实例生命周期
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
 import {
   type ContainerConfig,
   DEFAULT_CONTAINER_CONFIG,
@@ -13,13 +14,18 @@ import { CycleDetector } from './CycleDetector';
 import { DisposeManager } from './DisposeManager';
 import { getLogger } from '../loggerFacade.js';
 import { handleError } from '../errorHandler.js';
+import { AppError, ErrorCategory, ErrorSeverity } from '../errors.js';
 
 const logger = getLogger('DIContainer');
 
 export class ContainerScope {
   private singletonInstances = new Map<string, unknown>();
-  private requestInstances = new Map<string, unknown>();
-  private requestScopeActive = false;
+  /**
+   * 请求作用域实例表挂在 ALS 上（评审 #3：原「容器一份 Map + 全局布尔」在并发请求下互相清空）。
+   */
+  private readonly requestStorage = new AsyncLocalStorage<
+    Map<string, unknown> | undefined
+  >();
 
   private descriptors = new Map<string, ServiceDescriptor>();
   private cycleDetector = new CycleDetector();
@@ -65,10 +71,17 @@ export class ContainerScope {
     }
   }
 
-  /**
-   * 注册服务描述符
-   */
+  /** 注册描述符。`onDispose` 仅 singleton 支持 ⇒ 其余作用域在**注册期**直接拒（评审 #4） */
   registerDescriptor<T>(descriptor: ServiceDescriptor<T>): void {
+    if (descriptor.scope !== 'singleton' && descriptor.onDispose) {
+      throw new AppError(
+        `Service ${descriptor.id}: onDispose 仅支持 singleton 作用域（当前 ${descriptor.scope}）`,
+        ErrorCategory.CONFIGURATION,
+        ErrorSeverity.HIGH,
+        'DI_ONDISPOSE_REQUIRES_SINGLETON',
+        { serviceId: descriptor.id, scope: descriptor.scope }
+      );
+    }
     this.descriptors.set(descriptor.id, descriptor as ServiceDescriptor);
   }
 
@@ -113,33 +126,41 @@ export class ContainerScope {
       case 'transient':
         return factory();
       case 'request': {
-        if (!this.requestScopeActive) {
-          return factory();
-        }
-        if (!this.requestInstances.has(id)) {
+        // 评审 #3：实例表取自**当前异步上下文**的 Map；不在请求作用域内 ⇒ 退化为 transient
+        const store = this.requestStorage.getStore();
+        if (!store) return factory();
+        if (!store.has(id)) {
           const instance = factory();
-          this.requestInstances.set(id, instance);
+          store.set(id, instance);
           this.emitInstanceCreated(id, instance);
         }
-        return this.requestInstances.get(id) as T;
+        return store.get(id) as T;
       }
     }
   }
 
-  /**
-   * 开始请求作用域
-   */
+  /** 开始请求作用域：在当前异步上下文开一份独立实例表（评审 #3） */
   beginRequest(): void {
-    this.requestScopeActive = true;
-    this.requestInstances.clear();
+    this.requestStorage.enterWith(new Map<string, unknown>());
   }
 
-  /**
-   * 结束请求作用域
-   */
+  /** 结束请求作用域：解除当前上下文的作用域绑定 */
   endRequest(): void {
-    this.requestScopeActive = false;
-    this.requestInstances.clear();
+    this.requestStorage.enterWith(undefined);
+  }
+
+  /** 取（必要时按 `eager` 创建）钩子实例（评审 #8：钩子不再依赖「谁先被 resolve」） */
+  private hookInstance(id: string, desc: ServiceDescriptor): unknown {
+    const existing =
+      this.singletonInstances.get(id) ?? this.requestStorage.getStore()?.get(id);
+    if (existing) return existing;
+    if (!desc.eager) {
+      logger.debug('生命周期钩子跳过：服务未实例化且未声明 eager', {
+        serviceId: id,
+      });
+      return undefined;
+    }
+    return this.resolve(id, desc.factory, desc.scope);
   }
 
   /**
@@ -150,8 +171,7 @@ export class ContainerScope {
     for (const id of order) {
       const desc = this.descriptors.get(id);
       if (!desc?.onLoad) continue;
-      const instance =
-        this.singletonInstances.get(id) ?? this.requestInstances.get(id);
+      const instance = this.hookInstance(id, desc);
       if (!instance) continue;
       try {
         await desc.onLoad(instance);
@@ -173,8 +193,7 @@ export class ContainerScope {
     for (const id of order) {
       const desc = this.descriptors.get(id);
       if (!desc?.onReady) continue;
-      const instance =
-        this.singletonInstances.get(id) ?? this.requestInstances.get(id);
+      const instance = this.hookInstance(id, desc);
       if (!instance) continue;
       try {
         await desc.onReady(instance);
@@ -193,8 +212,12 @@ export class ContainerScope {
    */
   async disposeAll(): Promise<void> {
     const order = this.getTopologicalOrder();
-    await this.disposeManager.disposeAll(order);
-    this.singletonInstances.clear();
+    // 评审 #7：dispose 抛错时也必须清空实例表
+    try {
+      await this.disposeManager.disposeAll(order);
+    } finally {
+      this.singletonInstances.clear();
+    }
   }
 
   /**
@@ -202,6 +225,11 @@ export class ContainerScope {
    */
   detectCycles(): CycleDetectionResult {
     return this.cycleDetector.detect(this.descriptors);
+  }
+
+  /** 增量检测：只从 `startId` 出发找环（注册期用，见 CycleDetector.detectFrom） */
+  detectCyclesFrom(startId: string): CycleDetectionResult {
+    return this.cycleDetector.detectFrom(this.descriptors, startId);
   }
 
   /**
@@ -240,13 +268,10 @@ export class ContainerScope {
     return false;
   }
 
-  /**
-   * 移除服务
-   */
+  /** 移除服务（请求作用域实例随其异步上下文结束而失效，不在此清理 —— 评审 #3） */
   remove(id: string): void {
     this.descriptors.delete(id);
     this.singletonInstances.delete(id);
-    this.requestInstances.delete(id);
     this.disposeManager.unregister(id);
   }
 
@@ -255,9 +280,7 @@ export class ContainerScope {
    */
   clear(): void {
     this.singletonInstances.clear();
-    this.requestInstances.clear();
     this.descriptors.clear();
     this.disposeManager.clear();
-    this.requestScopeActive = false;
   }
 }

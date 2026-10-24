@@ -27,6 +27,12 @@ export interface ServiceDescriptor<T = unknown> {
   dependencies?: string[];
   optionalDependencies?: string[];
 
+  /**
+   * 预先实例化：`loadAll()` 前强制 resolve 一次，使 `onLoad`/`onReady` 不再依赖
+   * 「谁先被 resolve」这一隐式条件（评审 #8）。
+   */
+  eager?: boolean;
+
   /** 初始化阶段：服务实例创建后立即调用 */
   onInit?: (instance: T) => Promise<void>;
 
@@ -36,7 +42,10 @@ export interface ServiceDescriptor<T = unknown> {
   /** 就绪阶段：所有依赖已就绪，执行业务初始化 */
   onReady?: (instance: T) => Promise<void>;
 
-  /** 销毁阶段：释放资源，逆序调用 */
+  /**
+   * 销毁阶段（逆序调用）。**仅 singleton 支持**：非 singleton 声明它 ⇒ 注册期直接抛
+   * `DI_ONDISPOSE_REQUIRES_SINGLETON`（评审 #4：不留「接口支持、实际静默不执行」的死契约）。
+   */
   onDispose?: (instance: T) => Promise<void>;
 }
 

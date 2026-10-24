@@ -635,8 +635,7 @@ function checkK07DeepPaths(): void {
    * 于是 `import x from '../../packages/kernel/src/core/paths'` 这种写法**完全绕过门禁**
    * —— 它既不受白名单约束，也不随 `exports` 收敛而失效。生产面实测 0 处，此处把口子封上。
    */
-  const REL_IMPORT =
-    /(?:from\s+|import\(\s*|require\(\s*)['"](\.[^'"]+)['"]/g;
+  const REL_IMPORT = /(?:from\s+|import\(\s*|require\(\s*)['"](\.[^'"]+)['"]/g;
   const KERNEL_SRC = resolve(repoRoot, 'packages/kernel/src');
 
   const hits: Array<{ file: string; subpath: string }> = [];

@@ -109,10 +109,10 @@ describe('ProviderTopologyWatcher.close()', () => {
 
     const watcher = new ProviderTopologyWatcher(60_000);
     try {
-      // 非本地身份 ⇒ getDb() 打开 `<data>/tenants/acme/users/alice/app.db`
+      // 非本地身份 ⇒ getDb() 打开 `<data>/tenants/acme/app.db`（租户级库）
       await runWithPrincipal(ALICE, () => watcher.start());
       // `setUserDataDirOverride(root)` 设的是**应用根** ⇒ 数据根为 `<root>/data`
-      const scopedDir = join(root, 'data', 'tenants', 'acme', 'users', 'alice');
+      const scopedDir = join(root, 'data', 'tenants', 'acme');
       expect(existsSync(join(scopedDir, 'app.db'))).toBe(true);
 
       watcher.close();

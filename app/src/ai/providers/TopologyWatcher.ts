@@ -15,8 +15,8 @@
  */
 
 import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel';
-// 多租户 P1（2026-10-21）：拓扑指纹按身份分连接（后台轮询 ⇒ 本地共享库）
+import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel';
+// 租户级 DB（基础设施专项 §6.1 期 3）：拓扑指纹按租户分连接（后台轮询 ⇒ 本地共享库）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
@@ -120,20 +120,24 @@ export class ProviderTopologyWatcher {
   /**
    * 取连接。
    *
-   * 多租户 P1（2026-10-21）：本地身份 / 后台定时轮询 ⇒ 共享库（零变更）；
-   * 请求内被调用 ⇒ 该身份自己的库。**按身份分别缓存**，避免"首个调用者决定连接"
+   * 租户级库（基础设施专项 §6.1）：本地身份 / 后台定时轮询 ⇒ 共享库（零变更）；
+   * 请求内被调用 ⇒ 该**租户**的库。**按租户分别缓存**，避免"首个调用者决定连接"
    * 导致跨身份串库（单字段换连接在异步交错下不安全）。
+   *
+   * 指纹是**变更信号**（不看具体行内容）⇒ 不按 `owner_key` 过滤：租户内任一用户
+   * 的供应商/模型变化都应触发一次运行时同步。
    */
   private async getDb(): Promise<Database> {
     const principal = getRequestPrincipal();
     if (!isLocalPrincipal(principal)) {
-      const key = principalKeyOf(principal);
+      const key = principal.tenantId;
       const cached = this.scopedDbs.get(key);
       if (cached) return cached;
-      const opened = await this.open(resolveScopedDbPath(principal));
+      const opened = await this.open(resolveTenantDbPath(principal));
       this.scopedDbs.set(key, opened);
-      // 多租户 P5：登记 closer（关该身份连接 + 摘除本实例缓存），删租户时统一释放句柄
-      registerScopedResource(key, () => {
+      // 多租户 P5：登记 closer（关该租户连接 + 摘除本实例缓存），删租户时统一释放句柄。
+      // 登记键用**创建者**的 `<tenant>:<user>`（purge 按 `<tenant>:` 前缀关闭）。
+      registerScopedResource(principalKeyOf(principal), () => {
         try {
           opened.close();
         } catch {

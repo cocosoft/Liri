@@ -13,9 +13,13 @@
  */
 import { describe, it, expect } from 'bun:test';
 import { readFileSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, relative } from 'node:path';
 
-import { WORKSPACE_CONFIG_DIR_NAME } from '@openliri/kernel/paths';
+import {
+  WORKSPACE_CONFIG_DIR_NAME,
+  resolvePyappHome,
+} from '@openliri/kernel/paths';
 
 /** `app/`（`app/tests/workspace/` → 上两级） */
 const APP = join(import.meta.dir, '..', '..');
@@ -55,10 +59,12 @@ function isCommentLine(line: string): boolean {
 const BARE_CONFIG_DIR_NAME = /(?<!_)CONFIG_DIR_NAME/;
 
 describe('HD-P1-3 · 工作区级 `.liri` 名单一真源', () => {
-  it('① 真源取值 + 层级口径：工作区级 `.liri`；用户级根仍是 `~/.pyapp`（未被本次改动影响）', () => {
+  it('① 真源取值 + 层级口径：工作区级 `.liri`；用户级根**默认仍是** `~/.pyapp`', () => {
     expect(WORKSPACE_CONFIG_DIR_NAME).toBe('.liri');
-    const pathsSrc = readFileSync(join(KERNEL_SRC, 'paths.ts'), 'utf-8');
-    expect(pathsSrc).toMatch(/join\(os\.homedir\(\), '\.pyapp'\)/);
+    // 2026-10-24 Q3 去产品化：默认值改为「由注入的产品身份派生」，
+    // 故这里断言**行为**（默认值不变）而不是源码里的字面量写法。
+    // 传空 env 以排除 CI 里 LIRI_HOME 的影响。
+    expect(resolvePyappHome({})).toBe(join(homedir(), '.pyapp'));
   });
 
   it('② 生产代码内 `.liri` 字面量**只允许**出现在真源（消费方一律引用常量）', () => {

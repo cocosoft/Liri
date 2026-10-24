@@ -39,11 +39,79 @@ import type { Principal } from './identity/principal.js';
 
 const pathsLogger = getLogger('core:paths');
 
-// ─── 环境变量键名 ─────────────────────────────
+// ─── 产品身份（去产品化，Q3） ─────────────────
+//
+// 依据：`dev_docs/20261024/基础设施专项-现状与规划.md` §4.2。
+// 内核不再写死产品名 / 环境变量前缀 —— 宿主在**启动最早期**调用
+// `configureProductIdentity()` 注入；未注入时用**默认值（= 本仓现有身份）**，
+// 因此本仓行为逐字不变。
+//
+// 为什么放在本文件而不是新文件：内核体量棘轮（K08）把"新增 .ts 文件"视为回涨，
+// 而产品身份的全部消费者就是本文件（+ `seedSync` 的模板目录名）⇒ 不另起文件。
 
-const ENV_LIRI_HOME = 'LIRI_HOME';
-const ENV_LIRI_PROJECT_DIR = 'LIRI_PROJECT_DIR';
-const ENV_LIRI_DATA_DIR = 'LIRI_DATA_DIR';
+/** 产品身份（宿主可注入） */
+export interface ProductIdentity {
+  /** 数据目录名（`~/.<appName>`）与产品展示名 */
+  appName: string;
+  /** 环境变量前缀（不含/含尾部 `_` 均可，注入时自动补齐），如 `LIRI_` */
+  envPrefix: string;
+}
+
+/** 默认产品身份（= 现有产品，保证零行为变更） */
+export const DEFAULT_PRODUCT_IDENTITY: ProductIdentity = {
+  appName: 'pyapp',
+  envPrefix: 'LIRI_',
+};
+
+let productIdentity: ProductIdentity = { ...DEFAULT_PRODUCT_IDENTITY };
+
+/**
+ * 注入产品身份（宿主启动最早期调用）
+ *
+ * 增量覆盖：未传字段保持原值。`envPrefix` 会自动补尾部 `_`。
+ * @throws `CORE_PRODUCT_IDENTITY_INVALID` — appName / envPrefix 为空白
+ */
+export function configureProductIdentity(
+  patch: Partial<ProductIdentity>
+): void {
+  const appName = (patch.appName ?? productIdentity.appName).trim();
+  if (!appName) {
+    throw new Error('CORE_PRODUCT_IDENTITY_INVALID: appName 不能为空');
+  }
+  const rawPrefix = (patch.envPrefix ?? productIdentity.envPrefix).trim();
+  if (!rawPrefix) {
+    throw new Error('CORE_PRODUCT_IDENTITY_INVALID: envPrefix 不能为空');
+  }
+  productIdentity = {
+    appName,
+    envPrefix: rawPrefix.endsWith('_') ? rawPrefix : `${rawPrefix}_`,
+  };
+}
+
+/** 读取当前产品身份 */
+export function getProductIdentity(): ProductIdentity {
+  return productIdentity;
+}
+
+/** 恢复默认产品身份（测试用；宿主无需调用） */
+export function resetProductIdentity(): void {
+  productIdentity = { ...DEFAULT_PRODUCT_IDENTITY };
+}
+
+/** 环境变量键名：`HOME` ⇒ `<envPrefix>HOME` */
+function envKey(suffix: string): string {
+  return `${productIdentity.envPrefix}${suffix}`;
+}
+
+/**
+ * **旧版**环境变量键名：`<APPNAME>_<suffix>`（大写 appName）
+ *
+ * 历史遗留（`PYAPP_PROJECT_DIR`）：仅作 `resolveWorktreeHash` 的回退分支读取，
+ * 新代码**不得**新增此类键（见 `.trae/rules/project_rules.md` §1.4 前缀规范）。
+ */
+function legacyEnvKey(suffix: string): string {
+  return `${productIdentity.appName.toUpperCase()}_${suffix}`;
+}
 
 // ─── 全局配置存储 ─────────────────────────────
 
@@ -84,7 +152,7 @@ export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
   }
 
   // 2. 环境变量（由入口文件在启动时设置）
-  const override = env[ENV_LIRI_HOME]?.trim();
+  const override = env[envKey('HOME')]?.trim();
   if (override) {
     return resolve(override);
   }
@@ -93,7 +161,7 @@ export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
   //    统一开发模式（bun run src/main.ts 不经 pyapp.ts 设置 LIRI_HOME）与生产
   //    模式（编译产物经 pyapp.ts 设置 LIRI_HOME）的数据目录，消除双目录并存。
   //    2026-08-18 用户决策：统一到 ~/.pyapp，一次性数据迁移已完成。
-  return join(os.homedir(), '.pyapp');
+  return join(os.homedir(), `.${productIdentity.appName}`);
 }
 
 /**
@@ -112,7 +180,7 @@ export function resolveProjectRoot(
   env: NodeJS.ProcessEnv = process.env
 ): string {
   // 1. 环境变量优先（启动脚本设置）
-  const override = env[ENV_LIRI_PROJECT_DIR]?.trim();
+  const override = env[envKey('PROJECT_DIR')]?.trim();
   if (override) {
     return normalizeProjectRoot(resolve(override));
   }
@@ -185,7 +253,7 @@ function normalizeProjectRoot(dir: string): string {
  * 默认：用户目录下的 .pyapp/data/（部署安全：Program Files 安装也具备写入权限）
  */
 export function resolveDataDir(env: NodeJS.ProcessEnv = process.env): string {
-  const override = env[ENV_LIRI_DATA_DIR]?.trim();
+  const override = env[envKey('DATA_DIR')]?.trim();
   if (override) {
     return resolve(override);
   }
@@ -342,7 +410,7 @@ export function resolveLegacySessionsDir(
 export function resolveLegacySessionPartitionRoots(
   env: NodeJS.ProcessEnv = process.env
 ): string[] {
-  const legacyEnv = env['LIRI_SESSION_LEGACY_ROOTS']?.trim();
+  const legacyEnv = env[envKey('SESSION_LEGACY_ROOTS')]?.trim();
   if (legacyEnv) {
     return legacyEnv
       .split(',')
@@ -401,7 +469,7 @@ export function resolveWorktreeHash(
 ): string {
   // 1. 单一真源：项目根目录（同一真源，避免与 resolveProjectRoot 各读各的 env）
   const root = resolveProjectRoot(env);
-  const legacyOverride = env.PYAPP_PROJECT_DIR?.trim();
+  const legacyOverride = env[legacyEnvKey('PROJECT_DIR')]?.trim();
   const isRootPath =
     root === '' || root === '/' || root === '\\' || /^[a-zA-Z]:\\$/.test(root);
   // 2. 回退分支：resolveProjectRoot 退化为根路径时，用旧名显式指定值兜底
@@ -1176,35 +1244,36 @@ export function validatePathConsistency(logger?: {
     warn: (msg: string) => pathsLogger.warn(`[路径验证] ${msg}`),
   };
 
-  // 1. LIRI_HOME 必须已设置
-  const liriHome = process.env['LIRI_HOME']?.trim();
+  // 1. HOME 环境变量必须已设置
+  const homeKey = envKey('HOME');
+  const liriHome = process.env[homeKey]?.trim();
   if (!liriHome) {
-    log.warn('环境变量 LIRI_HOME 未设置，路径解析将回退到默认值');
+    log.warn(`环境变量 ${homeKey} 未设置，路径解析将回退到默认值`);
     return;
   }
 
-  // 2. resolvePyappHome() 应与 LIRI_HOME 一致
+  // 2. resolvePyappHome() 应与 HOME 环境变量一致
   const resolvedHome = resolvePyappHome();
   if (resolvedHome !== resolve(liriHome)) {
     log.warn(
-      `resolvePyappHome() 返回 "${resolvedHome}" 与 LIRI_HOME="${liriHome}" 不一致。` +
+      `resolvePyappHome() 返回 "${resolvedHome}" 与 ${homeKey}="${liriHome}" 不一致。` +
         '可能出现数据分散，请检查 setUserDataDirOverride() 调用栈'
     );
   }
 
-  // 3. SOUL.md / USER.md 应在 LIRI_HOME 根目录
+  // 3. SOUL.md / USER.md 应在 HOME 根目录
   const soulExpected = join(resolve(liriHome), 'SOUL.md');
   const userExpected = join(resolve(liriHome), 'USER.md');
   if (SOUL_PATH !== soulExpected) {
     log.warn(
       `SOUL_PATH="${SOUL_PATH}" 与预期路径 "${soulExpected}" 不一致。` +
-        'SOUL.md 应位于 LIRI_HOME 根目录（第三层）'
+        `SOUL.md 应位于 ${homeKey} 根目录（第三层）`
     );
   }
   if (USER_PROFILE_PATH !== userExpected) {
     log.warn(
       `USER_PROFILE_PATH="${USER_PROFILE_PATH}" 与预期路径 "${userExpected}" 不一致。` +
-        'USER.md 应位于 LIRI_HOME 根目录（第三层）'
+        `USER.md 应位于 ${homeKey} 根目录（第三层）`
     );
   }
 }

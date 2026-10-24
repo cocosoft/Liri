@@ -33,7 +33,7 @@
 
 import { existsSync, mkdirSync, readdirSync, copyFileSync, statSync } from 'fs';
 import { join, dirname } from 'path';
-import { resolveProjectRoot, resolvePyappHome } from './paths';
+import { getProductIdentity, resolveProjectRoot, resolvePyappHome } from './paths';
 
 /** 种子白名单（与 app/seed/pyapp 模板结构保持一致） */
 const SEED_ENTRIES: readonly string[] = [
@@ -74,7 +74,12 @@ function syncDirIfMissing(srcDir: string, destDir: string): void {
  * 本地开发环境：source 为运行时数据目录，同样只同步白名单条目。
  */
 export function syncSeedData(): void {
-  const source = join(resolveProjectRoot(), 'app', 'data', 'pyapp');
+  const source = join(
+    resolveProjectRoot(),
+    'app',
+    'data',
+    getProductIdentity().appName
+  );
   const target = resolvePyappHome();
   if (!existsSync(source)) return;
 

@@ -328,3 +328,70 @@ describe('工具侧车监督器：请求帧 trace 上下文（§6-#6）', () => 
     sup.stop();
   });
 });
+
+describe('工具侧车监督器：进程登记表（§6-#5）', () => {
+  const withPid = (fake: FakeChild, pid: number): FakeChild => {
+    (fake as unknown as { pid?: number }).pid = pid;
+    return fake;
+  };
+
+  it('就绪即登记、停止即注销（注入端口，不碰磁盘）', async () => {
+    const calls: string[] = [];
+    const fake = withPid(new FakeChild(), 4321);
+    const sup = new ToolSidecarSupervisor({
+      spawnFn: () => asChild(fake),
+      registry: {
+        register: (e) =>
+          calls.push(`register:${e.pid}:${e.parentPid}:${e.script}`),
+        unregister: (pid) => calls.push(`unregister:${pid}`),
+      },
+    });
+    const started = sup.start();
+    fake.stdout.write(startupFrame());
+    await started;
+    expect(calls).toEqual([`register:4321:${process.pid}:lspSidecar.ts`]);
+
+    sup.stop();
+    expect(calls).toEqual([
+      `register:4321:${process.pid}:lspSidecar.ts`,
+      'unregister:4321',
+    ]);
+  });
+
+  it('崩溃退出 ⇒ 注销', async () => {
+    const calls: string[] = [];
+    const fake = withPid(new FakeChild(), 555);
+    const sup = new ToolSidecarSupervisor({
+      spawnFn: () => asChild(fake),
+      maxRestarts: 0, // 不重启，只断言注销
+      registry: {
+        register: (e) => calls.push(`register:${e.pid}`),
+        unregister: (pid) => calls.push(`unregister:${pid}`),
+      },
+    });
+    const started = sup.start();
+    fake.stdout.write(startupFrame());
+    await started;
+
+    fake.emit('exit', 1);
+    await tick();
+    expect(calls).toEqual(['register:555', 'unregister:555']);
+  });
+
+  it('无 pid（替身/异常 spawn）⇒ 不登记', async () => {
+    const calls: string[] = [];
+    const fake = new FakeChild();
+    const sup = new ToolSidecarSupervisor({
+      spawnFn: () => asChild(fake),
+      registry: {
+        register: (e) => calls.push(`register:${e.pid}`),
+        unregister: (pid) => calls.push(`unregister:${pid}`),
+      },
+    });
+    const started = sup.start();
+    fake.stdout.write(startupFrame());
+    await started;
+    sup.stop();
+    expect(calls).toEqual([]);
+  });
+});

@@ -36,6 +36,7 @@ import {
   ToolSidecarSupervisor,
   type ToolSidecarDeps,
 } from './ToolSidecarSupervisor';
+import { sweepStaleSidecarRegistryOnce } from './sidecarRegistry';
 
 const logger = getLogger('tools:sidecar:media-lifecycle');
 
@@ -60,6 +61,8 @@ export async function maybeStartMediaSidecar(
 ): Promise<ToolSidecarSupervisor | null> {
   if (!isMediaSidecarEnabled()) return null;
   if (mediaSupervisor) return mediaSupervisor;
+  // §6-#5 第二刀：首次启用时对账登记表（清"已退出"条目；历史孤儿仅告警不清杀）
+  sweepStaleSidecarRegistryOnce();
   const sup = new ToolSidecarSupervisor({
     scriptPath: fileURLToPath(new URL('./mediaSidecar.ts', import.meta.url)),
     ...deps,

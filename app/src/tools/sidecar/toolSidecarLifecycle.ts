@@ -35,6 +35,7 @@ import {
   ToolSidecarSupervisor,
   type ToolSidecarDeps,
 } from './ToolSidecarSupervisor';
+import { sweepStaleSidecarRegistryOnce } from './sidecarRegistry';
 
 const logger = getLogger('tools:sidecar:lifecycle');
 
@@ -59,6 +60,8 @@ export async function maybeStartLspSidecar(
 ): Promise<ToolSidecarSupervisor | null> {
   if (!isLspSidecarEnabled()) return null;
   if (lspSupervisor) return lspSupervisor;
+  // §6-#5 第二刀：首次启用时对账登记表（清"已退出"条目；历史孤儿仅告警不清杀）
+  sweepStaleSidecarRegistryOnce();
   const sup = new ToolSidecarSupervisor(deps);
   try {
     await sup.start();

@@ -61,6 +61,11 @@ import {
 } from '@modules/utils/sidecarIpc';
 // T1-2② / B₂（2026-10-13）：异步作业登记表（宿主侧；协议常量仍取自唯一基座 `utils/sidecarIpc`）
 import { SidecarJobRegistry } from './sidecarJobs.js';
+import {
+  createSidecarRegistry,
+  scriptLabel,
+  type SidecarRegistryPort,
+} from './sidecarRegistry';
 
 const logger = getLogger('tools:sidecar:supervisor');
 
@@ -99,6 +104,11 @@ export interface ToolSidecarDeps {
    * 测试注入替身 ⇒ 不真杀进程（与 `DiscoverySidecarSupervisor.killTree` 同形态）。
    */
   killTree?: (child: ChildProcess) => void;
+  /**
+   * §6-#5 第二刀（2026-10-24）：进程**登记表**端口（缺省文件驱动）。
+   * 测试注入替身 ⇒ 不碰磁盘；写失败只告警，不影响启动/关停。
+   */
+  registry?: SidecarRegistryPort;
 }
 
 interface PendingRequest {
@@ -128,6 +138,10 @@ export class ToolSidecarSupervisor {
   private readonly jobs = new SidecarJobRegistry();
   private readonly readyWaiters: ReadyWaiter[] = [];
   private readonly deps: ToolSidecarDeps;
+  /** 已登记到登记表的 pid（null = 未登记 / 已注销） */
+  private registeredPid: number | null = null;
+  /** 登记表端口（懒建：import 期不碰磁盘） */
+  private registry: SidecarRegistryPort | null = null;
 
   constructor(deps: ToolSidecarDeps = {}) {
     this.deps = deps;
@@ -213,6 +227,7 @@ export class ToolSidecarSupervisor {
     this.fatal = null;
     child.on('exit', (code) => this.onExit(code));
     this.flushReady();
+    this.rememberRegistration(child.pid, script);
     logger.info('工具侧车已就绪', { pid });
     return { pid };
   }
@@ -318,6 +333,7 @@ export class ToolSidecarSupervisor {
     this.ready = false;
     const child = this.child;
     this.child = null;
+    this.forgetRegistration();
     this.rejectAllPending(new Error('工具侧车已停止'));
     this.settleReady(new Error('工具侧车已停止'));
     if (!child) return;
@@ -331,6 +347,46 @@ export class ToolSidecarSupervisor {
     } catch {
       // @ignore-catch — 进程树强杀是尽力而为，失败不得打断关停/失败路径
     }
+  }
+
+  /** 登记表端口（缺省文件驱动；懒建 ⇒ import 期不碰磁盘） */
+  private registryPort(): SidecarRegistryPort {
+    this.registry ??= this.deps.registry ?? createSidecarRegistry();
+    return this.registry;
+  }
+
+  /**
+   * 登记表是**观测面**：写失败只告警，不得阻断侧车启动 / 关停
+   * （否则磁盘满或目录只读会连带把侧车搞挂）。
+   */
+  private updateRegistry(action: (port: SidecarRegistryPort) => void): void {
+    try {
+      action(this.registryPort());
+    } catch (error) {
+      logger.warn('侧车登记表写入失败', { error: String(error) });
+    }
+  }
+
+  /** 就绪后登记（无 pid ⇒ 不登记，例如替身进程或 spawn 失败） */
+  private rememberRegistration(pid: number | undefined, script: string): void {
+    if (typeof pid !== 'number') return;
+    this.registeredPid = pid;
+    this.updateRegistry((port) =>
+      port.register({
+        pid,
+        parentPid: process.pid,
+        script: scriptLabel(script),
+        startedAt: Date.now(),
+      })
+    );
+  }
+
+  /** 注销（幂等：未登记过 ⇒ 不写盘） */
+  private forgetRegistration(): void {
+    const pid = this.registeredPid;
+    if (pid === null) return;
+    this.registeredPid = null;
+    this.updateRegistry((port) => port.unregister(pid));
   }
 
   /** T3.1：等待侧车就绪（崩溃后有界重启期间）——超时 / 降级 ⇒ reject（fail-closed） */
@@ -407,6 +463,7 @@ export class ToolSidecarSupervisor {
   private onExit(code: number | null): void {
     this.ready = false;
     this.child = null;
+    this.forgetRegistration();
     // D5：侧车崩溃 ⇒ pending 全部 reject（主内核收到普通错误，主进程存活）
     this.rejectAllPending(new Error(`工具侧车已退出（code=${String(code)}）`));
     if (this.stopping) return;

@@ -32,7 +32,7 @@
 
 import type { KnowledgeRoute } from '@modules/docs';
 import { KnowledgeRouter } from '@modules/knowledge/KnowledgeRouter';
-import { RuleStore } from '../rule/RuleStore';
+import { getRuleStore } from '../rule/RuleStore';
 import { getFAQService } from '../faq/FAQService';
 
 /** 搜索结果项 */
@@ -210,11 +210,10 @@ export class UnifiedSearchService {
       domain: options?.domain,
     });
 
-    // rules 桶：kg_rules（B8：domain 过滤 + base 前缀过滤）
+    // rules 桶：kg_rules（B8：domain 过滤 + base 前缀过滤；归属=当前请求身份）
     let rules: BucketedRuleItem[] = [];
-    const ruleStore = new RuleStore();
     try {
-      const rows = await ruleStore.search(query, {
+      const rows = await getRuleStore().search(query, {
         limit: ruleLimit,
         domain: options?.domain,
       });
@@ -235,8 +234,6 @@ export class UnifiedSearchService {
         }));
     } catch {
       rules = [];
-    } finally {
-      await ruleStore.close();
     }
 
     // faqs 桶（B8：base→knowledgeBaseName 过滤；缺省跨 base）
@@ -264,29 +261,24 @@ export class UnifiedSearchService {
     // records 桶（B7：knowledge_records 关键字命中；B8：domain/base 过滤）
     let records: BucketedRecordItem[] = [];
     try {
-      const { RecordStore } = await import('../record/RecordStore');
-      const recordStore = new RecordStore();
-      try {
-        const rows = await recordStore.search(query, {
-          limit: recordLimit,
-          domain: options?.domain,
-        });
-        records = rows
-          .filter((r) => baseMatches(r.sourceFile, options?.base))
-          .map((r, idx) => ({
-            bucket: 'record' as const,
-            recordId: r.id,
-            type: r.type,
-            key: r.key,
-            data: r.data,
-            evidence: r.evidence,
-            domain: r.domain,
-            sourceFile: r.sourceFile,
-            score: Math.max(0, recordLimit - idx),
-          }));
-      } finally {
-        await recordStore.close();
-      }
+      const { getRecordStore } = await import('../record/RecordStore');
+      const rows = await getRecordStore().search(query, {
+        limit: recordLimit,
+        domain: options?.domain,
+      });
+      records = rows
+        .filter((r) => baseMatches(r.sourceFile, options?.base))
+        .map((r, idx) => ({
+          bucket: 'record' as const,
+          recordId: r.id,
+          type: r.type,
+          key: r.key,
+          data: r.data,
+          evidence: r.evidence,
+          domain: r.domain,
+          sourceFile: r.sourceFile,
+          score: Math.max(0, recordLimit - idx),
+        }));
     } catch {
       records = [];
     }

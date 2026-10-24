@@ -329,56 +329,52 @@ export class KnowledgeSearchTool implements Tool {
   ): Promise<ToolResult<KnowledgeRoute[]>> {
     const startTime = Date.now();
     const executionId = `knowledge_search_${Date.now()}`;
-    const { RecordStore } = await import('../record/RecordStore');
-    const store = new RecordStore();
-    try {
-      const rows = await store.search(query, {
-        type: recordType,
-        domain,
-        limit,
+    const { getRecordStore } = await import('../record/RecordStore');
+    const store = getRecordStore();
+    const rows = await store.search(query, {
+      type: recordType,
+      domain,
+      limit,
+    });
+    const results: KnowledgeRoute[] = [];
+    for (const r of rows) {
+      const quote = Object.values(r.evidence).find(
+        (v): v is string => typeof v === 'string' && v.length > 0
+      );
+      const deco = await this.decorateCitation(r.sourceFile, quote);
+      results.push({
+        docPath: r.sourceFile,
+        title: `${r.type}:${r.key}`,
+        score: 1,
+        category: 'record',
+        snippet:
+          (deco ? `(${deco.cite}) ` : '') +
+          JSON.stringify({ fields: r.data, evidence: r.evidence }),
+        matchType: 'keyword',
+        isKnowledgeDoc: false,
       });
-      const results: KnowledgeRoute[] = [];
-      for (const r of rows) {
-        const quote = Object.values(r.evidence).find(
-          (v): v is string => typeof v === 'string' && v.length > 0
-        );
-        const deco = await this.decorateCitation(r.sourceFile, quote);
-        results.push({
-          docPath: r.sourceFile,
-          title: `${r.type}:${r.key}`,
-          score: 1,
-          category: 'record',
-          snippet:
-            (deco ? `(${deco.cite}) ` : '') +
-            JSON.stringify({ fields: r.data, evidence: r.evidence }),
-          matchType: 'keyword',
-          isKnowledgeDoc: false,
-        });
-      }
-      logger.info('记录检索完成', {
+    }
+    logger.info('记录检索完成', {
+      query,
+      recordType,
+      count: results.length,
+    });
+    return {
+      status: ToolExecutionStatus.SUCCESS,
+      data: results,
+      executionTime: Date.now() - startTime,
+      output: JSON.stringify(results),
+      errorOutput: '',
+      metadata: {
+        count: results.length,
         query,
         recordType,
-        count: results.length,
-      });
-      return {
-        status: ToolExecutionStatus.SUCCESS,
-        data: results,
-        executionTime: Date.now() - startTime,
-        output: JSON.stringify(results),
-        errorOutput: '',
-        metadata: {
-          count: results.length,
-          query,
-          recordType,
-          mode: 'record',
-        },
-        executionId,
-        toolName: this.name,
-        timestamp: Date.now(),
-      };
-    } finally {
-      await store.close().catch(() => undefined);
-    }
+        mode: 'record',
+      },
+      executionId,
+      toolName: this.name,
+      timestamp: Date.now(),
+    };
   }
 
   /**
@@ -392,55 +388,51 @@ export class KnowledgeSearchTool implements Tool {
   ): Promise<ToolResult<KnowledgeRoute[]>> {
     const startTime = Date.now();
     const executionId = `knowledge_search_${Date.now()}`;
-    const { RuleStore } = await import('../rule/RuleStore');
-    const store = new RuleStore();
-    try {
-      const rows = await store.search(query, {
-        kind: ruleKind as 'policy' | 'guideline' | 'tip',
-        domain,
-        limit,
+    const { getRuleStore } = await import('../rule/RuleStore');
+    const store = getRuleStore();
+    const rows = await store.search(query, {
+      kind: ruleKind as 'policy' | 'guideline' | 'tip',
+      domain,
+      limit,
+    });
+    const results: KnowledgeRoute[] = [];
+    for (const r of rows) {
+      const quote = r.evidence.statement ?? '';
+      const deco = await this.decorateCitation(
+        r.sourceFile,
+        quote || undefined
+      );
+      results.push({
+        docPath: r.sourceFile,
+        title: `${r.kind}:${r.statement.slice(0, 40)}`,
+        score: 1,
+        category: 'rule',
+        snippet: `[${r.constraintStrength}]${deco ? ` (${deco.cite})` : ''} ${r.statement}${quote ? `（原文：${quote.slice(0, 80)}）` : ''}`,
+        matchType: 'keyword',
+        isKnowledgeDoc: false,
       });
-      const results: KnowledgeRoute[] = [];
-      for (const r of rows) {
-        const quote = r.evidence.statement ?? '';
-        const deco = await this.decorateCitation(
-          r.sourceFile,
-          quote || undefined
-        );
-        results.push({
-          docPath: r.sourceFile,
-          title: `${r.kind}:${r.statement.slice(0, 40)}`,
-          score: 1,
-          category: 'rule',
-          snippet: `[${r.constraintStrength}]${deco ? ` (${deco.cite})` : ''} ${r.statement}${quote ? `（原文：${quote.slice(0, 80)}）` : ''}`,
-          matchType: 'keyword',
-          isKnowledgeDoc: false,
-        });
-      }
-      logger.info('规则检索完成', {
+    }
+    logger.info('规则检索完成', {
+      query,
+      ruleKind,
+      count: results.length,
+    });
+    return {
+      status: ToolExecutionStatus.SUCCESS,
+      data: results,
+      executionTime: Date.now() - startTime,
+      output: JSON.stringify(results),
+      errorOutput: '',
+      metadata: {
+        count: results.length,
         query,
         ruleKind,
-        count: results.length,
-      });
-      return {
-        status: ToolExecutionStatus.SUCCESS,
-        data: results,
-        executionTime: Date.now() - startTime,
-        output: JSON.stringify(results),
-        errorOutput: '',
-        metadata: {
-          count: results.length,
-          query,
-          ruleKind,
-          mode: 'rule',
-        },
-        executionId,
-        toolName: this.name,
-        timestamp: Date.now(),
-      };
-    } finally {
-      await store.close().catch(() => undefined);
-    }
+        mode: 'rule',
+      },
+      executionId,
+      toolName: this.name,
+      timestamp: Date.now(),
+    };
   }
 
   /**

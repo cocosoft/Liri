@@ -20,15 +20,30 @@
 // SOFTWARE.
 
 /**
- * RuleStore — 规则类知识存储（K3，kg_rules 表，统一 app.db）
+ * RuleStore — 规则类知识存储（K3，kg_rules 表，租户级 DB）
  *
  * 以 rule_id 为主键 upsert；删除按来源文件批量清理（重编译防残留）。
  * 与 RecordStore 同模式（SimpleMutex 防 WAL 冲突），字段形态不同故独立。
+ *
+ * **归属（2026-10-25，租户级 DB §6.1）**：编译产物属**用户级**数据 —— 库按**租户**分
+ * （`tenants/<t>/app.db`），租户内按 `owner_key`（`<tenant>:<user>`）行级隔离，
+ * 与同域先例 `KnowledgeGraph`（`kg_edges` 已 owner_key 隔离）同口径。
+ * 直接 `new RuleStore()`（编译写路径 / 检索读路径）在 **init 时按当前请求身份**
+ * 解析库（`resolveTenantDbPath()`：本地 ⇒ 共享 `app.db`，已认证 ⇒ 租户库）⇒
+ * 定时编译（调度器无请求身份）落 `local:local`，手动 / HTTP 编译落所属用户桶。
+ * 单例取用走 `getRuleStore()`（按 tenantId 分桶，删租户时释放）。
  */
 
 import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath } from '@openliri/kernel';
+import { resolveTenantDbPath } from '@openliri/kernel/paths';
+import {
+  getRequestPrincipal,
+  getRequestPrincipalKey,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { SimpleMutex } from '@openliri/kernel';
 import type { RuleRecord, RuleKind, ConstraintStrength } from './types';
 
@@ -64,19 +79,50 @@ export interface RuleQuery {
 
 export class RuleStore {
   private db: Database | null = null;
-  private dbPath: string;
+  private dbPath?: string;
   private dbMutex = new SimpleMutex();
+  /** 进行中的初始化（并发调用共享，避免重复打开连接） */
+  private initPromise: Promise<void> | null = null;
+  /**
+   * 表的主键是否含 `owner_key`（复合 PK `(rule_id, owner_key)`）。
+   * 新库（租户库 / 新建本地库）⇒ true；**旧库**（ALTER 补列，PK 仍是 `rule_id` 单列）⇒ false。
+   * 决定 upsert 的 ON CONFLICT 目标：复合 PK 必须是 `ON CONFLICT(rule_id, owner_key)`，
+   * 单列 PK 用 `ON CONFLICT(rule_id)`（写错会 prepare 报
+   * "ON CONFLICT clause does not match any PRIMARY KEY or UNIQUE constraint"）。
+   */
+  private pkIncludesOwner = false;
 
-  constructor(dbPath: string = resolveDbPath()) {
+  /**
+   * @param dbPath 显式库路径（测试/工具注入）；缺省由 `init()` 惰性解析 ——
+   *   `resolveTenantDbPath()` 按**当前请求身份**解析（本地 ⇒ 共享 `app.db`；已认证 ⇒
+   *   `tenants/<t>/app.db`）。2026-10-25 租户级 DB §6.1：默认参数会在**构造时**解析路径，
+   *   模块级单例在无请求身份下构造会把库钉死共享 `app.db` ⇒ 改惰性解析。
+   */
+  constructor(dbPath?: string) {
     this.dbPath = dbPath;
   }
 
-  /** 初始化连接并建表 */
+  /** 初始化连接并建表（幂等 + 并发安全） */
   async init(): Promise<void> {
-    if (this.db) return;
+    if (this.db) {
+      return;
+    }
+    if (!this.initPromise) {
+      this.initPromise = this.doInit();
+    }
+    try {
+      await this.initPromise;
+    } catch (err) {
+      // 与 TaskGoalStore 同法：失败必须清空，否则一次瞬时故障永久失效
+      this.initPromise = null;
+      throw err;
+    }
+  }
 
+  private async doInit(): Promise<void> {
+    const dbPath = this.dbPath ?? resolveTenantDbPath();
     this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err: Error | null) => {
+      const db = new Database(dbPath, (err: Error | null) => {
         if (err) reject(err);
         else resolve(db);
       });
@@ -86,7 +132,8 @@ export class RuleStore {
       return new Promise((resolve, reject) => {
         this.db!.run(
           `CREATE TABLE IF NOT EXISTS ${KG_RULES_TABLE} (
-            rule_id         TEXT PRIMARY KEY,
+            rule_id         TEXT NOT NULL,
+            owner_key       TEXT NOT NULL DEFAULT 'local:local',
             rule_kind       TEXT NOT NULL,
             statement       TEXT NOT NULL,
             triggers        TEXT NOT NULL DEFAULT '[]',
@@ -97,7 +144,8 @@ export class RuleStore {
             domain          TEXT NOT NULL DEFAULT 'knowledge',
             source_file     TEXT NOT NULL DEFAULT '',
             created_at      INTEGER NOT NULL,
-            updated_at      INTEGER NOT NULL
+            updated_at      INTEGER NOT NULL,
+            PRIMARY KEY (rule_id, owner_key)
           )`,
           (err: Error | null) => {
             if (err) {
@@ -113,7 +161,41 @@ export class RuleStore {
             this!.db!.run(
               `CREATE INDEX IF NOT EXISTS idx_rules_domain ON ${KG_RULES_TABLE}(domain)`
             );
-            resolve();
+            // 归属列走索引（2026-10-25）：`search` / `listAll` 以 owner_key 起手过滤
+            this!.db!.run(
+              `CREATE INDEX IF NOT EXISTS idx_rules_owner ON ${KG_RULES_TABLE}(owner_key, updated_at DESC)`
+            );
+            // 补 owner_key 列（2026-10-25，租户级 DB §6.1）：已建表的库没有该列。
+            // SQLite 的 `ALTER TABLE` 不能改主键 ⇒ 旧库保持 `rule_id` 单列 PK；旧库只可能
+            // 是本地库（只含 `local:local` 行）⇒ 不会与租户行碰撞（存量行落默认值即本地身份）。
+            // sqlite3 db.run 无回调时静默吞错 ⇒ 必须传回调判成败，`/duplicate column/i` 过滤。
+            this!.db!.run(
+              `ALTER TABLE ${KG_RULES_TABLE} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+              (alterErr: Error | null) => {
+                if (alterErr && !/duplicate column/i.test(alterErr.message)) {
+                  logger.warn('kg_rules 补 owner_key 失败', {
+                    error: alterErr.message,
+                  });
+                }
+                // 探测主键形态（决定 upsert 的 ON CONFLICT 目标）
+                this!.db!.all(
+                  `PRAGMA table_info(${KG_RULES_TABLE})`,
+                  (
+                    pErr: Error | null,
+                    cols: Array<{ name: string; pk: number }> | undefined
+                  ) => {
+                    if (!pErr) {
+                      this!.pkIncludesOwner = Boolean(
+                        (cols ?? []).some(
+                          (c) => c.name === 'owner_key' && c.pk > 0
+                        )
+                      );
+                    }
+                    resolve();
+                  }
+                );
+              }
+            );
           }
         );
       });
@@ -122,9 +204,14 @@ export class RuleStore {
     logger.info('规则存储已初始化');
   }
 
+  /** 当前身份归属键（本地 ⇒ `local:local`；租户 ⇒ `<tenant>:<user>`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
+  }
+
   /** upsert 一条规则 */
   async upsert(input: UpsertRuleInput): Promise<StoredRule> {
-    if (!this.db) await this.init();
+    await this.init();
 
     const now = Date.now();
     const rule: StoredRule = {
@@ -142,26 +229,36 @@ export class RuleStore {
       updatedAt: now,
     };
 
+    // 复合 PK（新库）⇒ 冲突目标含 owner_key，两用户的同 rule_id 是**不同行**；
+    // 旧库（单列 PK）⇒ 冲突目标仅 rule_id（旧库只有 local:local，天然不跨用户）。
+    // 目标不带括号 —— 模板里 `ON CONFLICT(${target})` 负责加括号，否则会叠成
+    // `ON CONFLICT((rule_id, owner_key))`（实测 SQLite prepare 报不匹配）。
+    const conflictTarget = this.pkIncludesOwner
+      ? 'rule_id, owner_key'
+      : 'rule_id';
+
     await this.dbMutex.run<void>(() => {
       return new Promise((resolve, reject) => {
+        const sql = `INSERT INTO ${KG_RULES_TABLE}
+           (rule_id, owner_key, rule_kind, statement, triggers, strength, applies_to,
+            conflict_of, evidence, domain, source_file, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(${conflictTarget}) DO UPDATE SET
+           rule_kind = excluded.rule_kind,
+           statement = excluded.statement,
+           triggers = excluded.triggers,
+           strength = excluded.strength,
+           applies_to = excluded.applies_to,
+           conflict_of = excluded.conflict_of,
+           evidence = excluded.evidence,
+           domain = excluded.domain,
+           source_file = excluded.source_file,
+           updated_at = excluded.updated_at`;
         this.db!.run(
-          `INSERT INTO ${KG_RULES_TABLE}
-             (rule_id, rule_kind, statement, triggers, strength, applies_to,
-              conflict_of, evidence, domain, source_file, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(rule_id) DO UPDATE SET
-             rule_kind = excluded.rule_kind,
-             statement = excluded.statement,
-             triggers = excluded.triggers,
-             strength = excluded.strength,
-             applies_to = excluded.applies_to,
-             conflict_of = excluded.conflict_of,
-             evidence = excluded.evidence,
-             domain = excluded.domain,
-             source_file = excluded.source_file,
-             updated_at = excluded.updated_at`,
+          sql,
           [
             rule.id,
+            this.owner(),
             rule.kind,
             rule.statement,
             JSON.stringify(rule.triggers),
@@ -187,57 +284,51 @@ export class RuleStore {
 
   /** 按关键字检索规则（statement/triggers 模糊），可按类别/强度过滤 */
   async search(q: string, filters: RuleQuery = {}): Promise<StoredRule[]> {
-    if (!this.db) await this.init();
+    await this.init();
 
-    const conditions: string[] = [];
-    const params: unknown[] = [];
-
-    conditions.push('(statement LIKE ? OR triggers LIKE ?)');
     const like = `%${q}%`;
-    params.push(like, like);
+    // 归属条件起手（2026-10-25）：租户内两用户的编译产物互不可见
+    const params: unknown[] = [this.owner(), like, like];
+
+    let sql = `SELECT * FROM ${KG_RULES_TABLE}
+      WHERE owner_key = ?
+      AND (statement LIKE ? OR triggers LIKE ?)`;
 
     if (filters.kind) {
-      conditions.push('rule_kind = ?');
+      sql += ' AND rule_kind = ?';
       params.push(filters.kind);
     }
     if (filters.strength) {
-      conditions.push('strength = ?');
+      sql += ' AND strength = ?';
       params.push(filters.strength);
     }
     if (filters.domain) {
-      conditions.push('domain = ?');
+      sql += ' AND domain = ?';
       params.push(filters.domain);
     }
 
-    const limit = filters.limit ?? 20;
-
-    const sql = `SELECT * FROM ${KG_RULES_TABLE}
-      WHERE ${conditions.join(' AND ')}
-      ORDER BY updated_at DESC LIMIT ?`;
+    sql += ' ORDER BY updated_at DESC LIMIT ?';
+    params.push(filters.limit ?? 20);
 
     return new Promise((resolve, reject) => {
-      this.db!.all(
-        sql,
-        [...params, limit],
-        (err: Error | null, rows: unknown[]) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve(rows.map((r) => this.rowToRule(r)));
+      this.db!.all(sql, params, (err: Error | null, rows: unknown[]) => {
+        if (err) {
+          reject(err);
+          return;
         }
-      );
+        resolve(rows.map((r) => this.rowToRule(r)));
+      });
     });
   }
 
   /** 按来源页面文件列出该页全部规则（K5 血缘：page → rule 反查） */
   async listBySourceFile(sourceFile: string): Promise<StoredRule[]> {
-    if (!this.db) await this.init();
+    await this.init();
 
     return new Promise((resolve, reject) => {
       this.db!.all(
-        `SELECT * FROM ${KG_RULES_TABLE} WHERE source_file = ? ORDER BY created_at`,
-        [sourceFile],
+        `SELECT * FROM ${KG_RULES_TABLE} WHERE source_file = ? AND owner_key = ? ORDER BY created_at`,
+        [sourceFile, this.owner()],
         (err: Error | null, rows: unknown[]) => {
           if (err) {
             reject(err);
@@ -249,14 +340,14 @@ export class RuleStore {
     });
   }
 
-  /** 列出全表规则（R3 跨批 conflictOf 全表扫描用） */
+  /** 列出当前归属的全部规则（R3 跨批 conflictOf 全表扫描用，扫描面=当前用户） */
   async listAll(): Promise<StoredRule[]> {
-    if (!this.db) await this.init();
+    await this.init();
 
     return new Promise((resolve, reject) => {
       this.db!.all(
-        `SELECT * FROM ${KG_RULES_TABLE} ORDER BY created_at`,
-        [],
+        `SELECT * FROM ${KG_RULES_TABLE} WHERE owner_key = ? ORDER BY created_at`,
+        [this.owner()],
         (err: Error | null, rows: unknown[]) => {
           if (err) {
             reject(err);
@@ -268,16 +359,16 @@ export class RuleStore {
     });
   }
 
-  /** 删除某来源文件的全部规则（重编译防残留） */
+  /** 删除某来源文件的全部规则（重编译防残留；只删当前归属的行） */
   async deleteBySource(sourceFile: string): Promise<number> {
-    if (!this.db) await this.init();
+    await this.init();
 
     let affected = 0;
     await this.dbMutex.run<void>(() => {
       return new Promise((resolve, reject) => {
         this.db!.all(
-          `SELECT rule_id FROM ${KG_RULES_TABLE} WHERE source_file = ?`,
-          [sourceFile],
+          `SELECT rule_id FROM ${KG_RULES_TABLE} WHERE source_file = ? AND owner_key = ?`,
+          [sourceFile, this.owner()],
           (err: Error | null, rows: unknown[]) => {
             if (err) {
               reject(err);
@@ -291,8 +382,8 @@ export class RuleStore {
             }
             const placeholders = ids.map(() => '?').join(',');
             this.db!.run(
-              `DELETE FROM ${KG_RULES_TABLE} WHERE rule_id IN (${placeholders})`,
-              ids,
+              `DELETE FROM ${KG_RULES_TABLE} WHERE rule_id IN (${placeholders}) AND owner_key = ?`,
+              [...ids, this.owner()],
               (delErr: Error | null) => {
                 if (delErr) reject(delErr);
                 else resolve();
@@ -306,14 +397,14 @@ export class RuleStore {
     return affected;
   }
 
-  /** 规则总数（可细分类别） */
+  /** 规则总数（可细分类别；计数面=当前归属） */
   async count(kind?: RuleKind): Promise<number> {
-    if (!this.db) await this.init();
+    await this.init();
 
     const sql = kind
-      ? `SELECT COUNT(*) AS n FROM ${KG_RULES_TABLE} WHERE rule_kind = ?`
-      : `SELECT COUNT(*) AS n FROM ${KG_RULES_TABLE}`;
-    const params = kind ? [kind] : [];
+      ? `SELECT COUNT(*) AS n FROM ${KG_RULES_TABLE} WHERE rule_kind = ? AND owner_key = ?`
+      : `SELECT COUNT(*) AS n FROM ${KG_RULES_TABLE} WHERE owner_key = ?`;
+    const params = kind ? [kind, this.owner()] : [this.owner()];
 
     return new Promise((resolve, reject) => {
       this.db!.get(sql, params, (err: Error | null, row: unknown) => {
@@ -334,6 +425,7 @@ export class RuleStore {
         if (err) reject(err);
         else {
           this.db = null;
+          this.initPromise = null;
           resolve();
         }
       });
@@ -397,4 +489,49 @@ export class RuleStore {
       return {};
     }
   }
+}
+
+/** 全局单例（本地身份；库由 `init()` 惰性解析） */
+let instance: RuleStore | null = null;
+/** 租户级实例缓存（键 = `tenantId`；同租户共用连接，按 `owner_key` 行级隔离） */
+const scopedInstances = new Map<string, RuleStore>();
+/** 显式 `dbPath` 实例缓存（键 = 路径；仅测试/工具注入） */
+const explicitInstances = new Map<string, RuleStore>();
+
+/** 获取 RuleStore 单例（方法内部自 `await init()`，调用方无需预热） */
+export function getRuleStore(dbPath?: string): RuleStore {
+  // 2026-10-25：显式路径（测试/工具注入）按路径分桶，**不**复用默认单例
+  if (dbPath !== undefined) {
+    const existing = explicitInstances.get(dbPath);
+    if (existing) return existing;
+    const created = new RuleStore(dbPath);
+    explicitInstances.set(dbPath, created);
+    return created;
+  }
+  const principal = getRequestPrincipal();
+  if (!isLocalPrincipal(principal)) {
+    const key = principal.tenantId;
+    const existing = scopedInstances.get(key);
+    if (existing) return existing;
+    const scoped = new RuleStore(resolveTenantDbPath(principal));
+    scopedInstances.set(key, scoped);
+    // 删租户 / 退出时释放句柄并摘除缓存（否则 Windows 上 tenants/<t> 删不掉）
+    registerScopedResource(principalKeyOf(principal), () => {
+      void scoped.close();
+      scopedInstances.delete(key);
+    });
+    return scoped;
+  }
+  if (!instance) {
+    instance = new RuleStore(dbPath);
+  }
+  return instance;
+}
+
+/** 仅测试：关掉并清空租户级实例缓存（**生产不调用**） */
+export function resetRuleStoreScopedForTest(): void {
+  for (const store of scopedInstances.values()) {
+    void store.close();
+  }
+  scopedInstances.clear();
 }

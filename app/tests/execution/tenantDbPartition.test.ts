@@ -126,11 +126,14 @@ describe('ExecutionStore：租户级库 + 行级隔离（§6.1 期 3）', () => 
   });
 });
 
-describe('CostRecordRepository：按身份分实例', () => {
-  it('已认证身份 ⇒ 独立实例', () => {
+describe('CostRecordRepository：租户级库（§6.1 期 3）', () => {
+  it('已认证身份 ⇒ 租户库实例；同租户两个用户共用同一实例', () => {
     const local = getCostRecordRepository();
     const alice = runWithPrincipal(ALICE, () => getCostRecordRepository());
+    const bob = runWithPrincipal(BOB, () => getCostRecordRepository());
+
     expect(alice).not.toBe(local);
+    expect(bob).toBe(alice);
   });
 });
 

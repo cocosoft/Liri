@@ -8,11 +8,12 @@ import { randomUUID } from 'crypto';
 import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath, resolveScopedDbPath } from '@openliri/kernel';
+import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel';
 import { SimpleMutex } from '@openliri/kernel';
-// 多租户 P1（2026-10-21）：已认证身份用独立库实例（不做"共享实例换连接"，避免并发串库）
+// 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,
+  getRequestPrincipalKey,
   isLocalPrincipal,
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
@@ -152,7 +153,8 @@ export class CostRecordRepository {
           duration_ms INTEGER DEFAULT 0,
           request_id TEXT,
           timestamp INTEGER NOT NULL,
-          created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+          created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+          owner_key TEXT NOT NULL DEFAULT 'local:local'
         )
       `,
         (err: Error | null) => {
@@ -164,6 +166,7 @@ export class CostRecordRepository {
         }
       );
     });
+    await this.ensureOwnerColumn(COST_RECORDS_TABLE);
 
     await new Promise<void>((resolve, reject) => {
       this.db?.run(
@@ -217,7 +220,7 @@ export class CostRecordRepository {
       this.db?.run(
         `
         CREATE TABLE IF NOT EXISTS ${COST_SESSION_SUMMARY_TABLE} (
-          session_id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
           total_cost_usd REAL DEFAULT 0,
           total_input_tokens INTEGER DEFAULT 0,
           total_output_tokens INTEGER DEFAULT 0,
@@ -227,7 +230,10 @@ export class CostRecordRepository {
           model_breakdown TEXT DEFAULT '{}',
           started_at INTEGER NOT NULL,
           ended_at INTEGER,
-          updated_at INTEGER NOT NULL
+          updated_at INTEGER NOT NULL,
+          owner_key TEXT NOT NULL DEFAULT 'local:local',
+          -- 租户级库：同一 sessionId 可能属于同租户的不同用户 ⇒ 主键必须带 owner_key
+          PRIMARY KEY (session_id, owner_key)
         )
       `,
         (err: Error | null) => {
@@ -239,6 +245,42 @@ export class CostRecordRepository {
         }
       );
     });
+    await this.ensureOwnerColumn(COST_SESSION_SUMMARY_TABLE);
+  }
+
+  /**
+   * 存量库补 `owner_key` 列（两张表各自一次）。
+   * 默认 `local:local` ⇒ 桌面端历史行自然归属本地身份，加 owner 过滤后仍可见。
+   *
+   * ⚠️ 如实边界：`ALTER TABLE` **不能改主键** —— 旧库的 `session_cost_summaries`
+   * 仍是单列 PK；但旧库只属本地单身份（全 `local:local`），不会碰撞。
+   * 租户库是**新库**，按复合主键 `(session_id, owner_key)` 建表。
+   */
+  private async ensureOwnerColumn(table: string): Promise<void> {
+    const columns = await new Promise<Array<Record<string, unknown>>>(
+      (resolve, reject) => {
+        this.db?.all(
+          `PRAGMA table_info(${table})`,
+          [],
+          (err: Error | null, rows: unknown[]) =>
+            err
+              ? reject(err)
+              : resolve((rows || []) as Array<Record<string, unknown>>)
+        );
+      }
+    );
+    if (columns.some((c) => c.name === 'owner_key')) return;
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `ALTER TABLE ${table} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
+  }
+
+  /** 当前写入/查询的归属键（本地 ⇒ `local:local`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
   }
 
   async recordCost(params: {
@@ -265,8 +307,8 @@ export class CostRecordRepository {
       await new Promise<void>((resolve, reject) => {
         this.db?.run(
           `INSERT INTO ${COST_RECORDS_TABLE}
-          (id, session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, cost_usd, duration_ms, request_id, timestamp)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, session_id, model, input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens, cost_usd, duration_ms, request_id, timestamp, owner_key)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             id,
             sessionId,
@@ -279,6 +321,7 @@ export class CostRecordRepository {
             durationMs,
             params.requestId || null,
             timestamp,
+            this.owner(),
           ],
           (err: Error | null) => {
             if (err) {
@@ -346,7 +389,7 @@ export class CostRecordRepository {
               total_requests = total_requests + 1,
               model_breakdown = ?,
               updated_at = ?
-          WHERE session_id = ?`,
+          WHERE session_id = ? AND owner_key = ?`,
           [
             delta.costUSD,
             delta.inputTokens,
@@ -356,6 +399,7 @@ export class CostRecordRepository {
             JSON.stringify(breakdown),
             now,
             sessionId,
+            this.owner(),
           ],
           (err: Error | null) => {
             if (err) {
@@ -379,8 +423,8 @@ export class CostRecordRepository {
       await new Promise<void>((resolve, reject) => {
         this.db?.run(
           `INSERT INTO ${COST_SESSION_SUMMARY_TABLE}
-          (session_id, total_cost_usd, total_input_tokens, total_output_tokens, total_cache_read_tokens, total_cache_creation_tokens, total_requests, model_breakdown, started_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (session_id, total_cost_usd, total_input_tokens, total_output_tokens, total_cache_read_tokens, total_cache_creation_tokens, total_requests, model_breakdown, started_at, updated_at, owner_key)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             sessionId,
             delta.costUSD,
@@ -392,6 +436,7 @@ export class CostRecordRepository {
             JSON.stringify(breakdown),
             now,
             now,
+            this.owner(),
           ],
           (err: Error | null) => {
             if (err) {
@@ -412,8 +457,9 @@ export class CostRecordRepository {
 
     const row = await new Promise<unknown>((resolve, reject) => {
       this.db?.get(
-        `SELECT * FROM ${COST_SESSION_SUMMARY_TABLE} WHERE session_id = ?`,
-        [sessionId],
+        `SELECT * FROM ${COST_SESSION_SUMMARY_TABLE}
+         WHERE session_id = ? AND owner_key = ?`,
+        [sessionId, this.owner()],
         (err: Error | null, row: unknown) => {
           if (err) {
             reject(err);
@@ -441,10 +487,10 @@ export class CostRecordRepository {
     const rows = await new Promise<unknown[]>((resolve, reject) => {
       this.db?.all(
         `SELECT * FROM ${COST_RECORDS_TABLE}
-        WHERE session_id = ?
+        WHERE session_id = ? AND owner_key = ?
         ORDER BY timestamp DESC
         LIMIT ? OFFSET ?`,
-        [sessionId, limit, offset],
+        [sessionId, this.owner(), limit, offset],
         (err: Error | null, rows: unknown[]) => {
           if (err) {
             reject(err);
@@ -463,8 +509,9 @@ export class CostRecordRepository {
   async getCostRecords(filter: CostQueryFilter): Promise<CostRecordRow[]> {
     await this.initDatabase();
 
-    const conditions: string[] = [];
-    const params: unknown[] = [];
+    // owner 过滤**恒在首位**（本地 ⇒ `local:local`；租户内 ⇒ `<tenant>:<user>`）
+    const conditions: string[] = ['owner_key = ?'];
+    const params: unknown[] = [this.owner()];
 
     if (filter.sessionId) {
       conditions.push('session_id = ?');
@@ -516,8 +563,9 @@ export class CostRecordRepository {
   async getAggregatedCosts(filter: CostQueryFilter): Promise<CostAggregation> {
     await this.initDatabase();
 
-    const conditions: string[] = [];
-    const params: unknown[] = [];
+    // owner 过滤**恒在首位**（本地 ⇒ `local:local`；租户内 ⇒ `<tenant>:<user>`）
+    const conditions: string[] = ['owner_key = ?'];
+    const params: unknown[] = [this.owner()];
 
     if (filter.sessionId) {
       conditions.push('session_id = ?');
@@ -618,8 +666,9 @@ export class CostRecordRepository {
     await this.dbMutex.run(async () => {
       await new Promise<void>((resolve, reject) => {
         this.db?.run(
-          `DELETE FROM ${COST_RECORDS_TABLE} WHERE session_id = ?`,
-          [sessionId],
+          `DELETE FROM ${COST_RECORDS_TABLE}
+            WHERE session_id = ? AND owner_key = ?`,
+          [sessionId, this.owner()],
           (err: Error | null) => {
             if (err) {
               reject(err);
@@ -632,8 +681,9 @@ export class CostRecordRepository {
 
       await new Promise<void>((resolve, reject) => {
         this.db?.run(
-          `DELETE FROM ${COST_SESSION_SUMMARY_TABLE} WHERE session_id = ?`,
-          [sessionId],
+          `DELETE FROM ${COST_SESSION_SUMMARY_TABLE}
+            WHERE session_id = ? AND owner_key = ?`,
+          [sessionId, this.owner()],
           (err: Error | null) => {
             if (err) {
               reject(err);
@@ -656,8 +706,8 @@ export class CostRecordRepository {
         this.db?.run(
           `UPDATE ${COST_SESSION_SUMMARY_TABLE}
           SET ended_at = ?, updated_at = ?
-          WHERE session_id = ?`,
-          [now, now, sessionId],
+          WHERE session_id = ? AND owner_key = ?`,
+          [now, now, sessionId, this.owner()],
           (err: Error | null) => {
             if (err) {
               reject(err);
@@ -679,9 +729,10 @@ export class CostRecordRepository {
     const rows = await new Promise<unknown[]>((resolve, reject) => {
       this.db?.all(
         `SELECT * FROM ${COST_SESSION_SUMMARY_TABLE}
+        WHERE owner_key = ?
         ORDER BY updated_at DESC
         LIMIT ? OFFSET ?`,
-        [limit, offset],
+        [this.owner(), limit, offset],
         (err: Error | null, rows: unknown[]) => {
           if (err) {
             reject(err);
@@ -706,7 +757,9 @@ export class CostRecordRepository {
     const row = await new Promise<Record<string, unknown> | undefined>(
       (resolve, reject) => {
         this.db?.get(
-          `SELECT COUNT(*) AS cnt FROM ${COST_SESSION_SUMMARY_TABLE}`,
+          `SELECT COUNT(*) AS cnt FROM ${COST_SESSION_SUMMARY_TABLE}
+           WHERE owner_key = ?`,
+          [this.owner()],
           (err: Error | null, row: unknown) => {
             if (err) {
               reject(err);
@@ -731,7 +784,8 @@ export class CostRecordRepository {
       (resolve, reject) => {
         this.db?.get(
           `SELECT COUNT(*) AS cnt FROM ${COST_SESSION_SUMMARY_TABLE}
-           WHERE ended_at IS NULL`,
+           WHERE ended_at IS NULL AND owner_key = ?`,
+          [this.owner()],
           (err: Error | null, row: unknown) => {
             if (err) {
               reject(err);
@@ -777,8 +831,9 @@ export class CostRecordRepository {
   > {
     await this.initDatabase();
 
-    const conditions: string[] = [];
-    const params: unknown[] = [];
+    // owner 过滤**恒在首位**（本地 ⇒ `local:local`；租户内 ⇒ `<tenant>:<user>`）
+    const conditions: string[] = ['owner_key = ?'];
+    const params: unknown[] = [this.owner()];
 
     if (startTime !== undefined) {
       conditions.push('timestamp >= ?');
@@ -869,8 +924,19 @@ export class CostRecordRepository {
   }> {
     await this.initDatabase();
 
-    const conds: string[] = ['u.status_code < 400'];
-    const params: unknown[] = [];
+    const owner = this.owner();
+    // `model_usage_logs.owner_key` 可空（历史/本地行 = NULL）：本地身份要连 NULL 一起看；
+    // 已认证身份只看自己的行（fail-closed）。
+    const local = isLocalPrincipal(getRequestPrincipal());
+    const usageOwnerAliased = local
+      ? '(u.owner_key IS NULL OR u.owner_key = ?)'
+      : 'u.owner_key = ?';
+    const usageOwnerBare = local
+      ? '(owner_key IS NULL OR owner_key = ?)'
+      : 'owner_key = ?';
+
+    const conds: string[] = ['u.status_code < 400', usageOwnerAliased];
+    const params: unknown[] = [owner];
 
     if (startTime !== undefined) {
       conds.push('u.timestamp >= ?');
@@ -894,8 +960,9 @@ export class CostRecordRepository {
          FROM model_usage_logs u
          INNER JOIN cost_records c ON u.request_id = c.request_id
          WHERE ${where} AND u.request_id IS NOT NULL AND c.request_id IS NOT NULL
+           AND c.owner_key = ?
            AND ABS(u.cost_usd - c.cost_usd) > 0.000001`,
-        params,
+        [...params, owner],
         (err: Error | null, rows: unknown[]) => {
           if (err) reject(err);
           else resolve((rows || []) as DiffRow[]);
@@ -914,14 +981,18 @@ export class CostRecordRepository {
         `SELECT
           (SELECT COUNT(*) FROM model_usage_logs u
            INNER JOIN cost_records c ON u.request_id = c.request_id
-           WHERE ${where} AND u.request_id IS NOT NULL) as matched,
+           WHERE ${where} AND u.request_id IS NOT NULL
+             AND c.owner_key = ?) as matched,
           (SELECT COUNT(*) FROM model_usage_logs u
            WHERE ${where} AND u.request_id IS NOT NULL
-           AND u.request_id NOT IN (SELECT request_id FROM cost_records WHERE request_id IS NOT NULL)) as only_usage,
+           AND u.request_id NOT IN (SELECT request_id FROM cost_records
+                                     WHERE request_id IS NOT NULL AND owner_key = ?)) as only_usage,
           (SELECT COUNT(*) FROM cost_records c
-           WHERE c.timestamp >= ? AND c.timestamp <= ? AND c.request_id IS NOT NULL
-           AND c.request_id NOT IN (SELECT request_id FROM model_usage_logs WHERE request_id IS NOT NULL)) as only_cost`,
-        [...params, s, e],
+           WHERE c.timestamp >= ? AND c.timestamp <= ? AND c.owner_key = ?
+           AND c.request_id IS NOT NULL
+           AND c.request_id NOT IN (SELECT request_id FROM model_usage_logs
+                                     WHERE request_id IS NOT NULL AND ${usageOwnerBare})) as only_cost`,
+        [...params, owner, ...params, owner, s, e, owner, owner],
         (err: Error | null, row: unknown) => {
           if (err) reject(err);
           else
@@ -987,28 +1058,27 @@ export class CostRecordRepository {
 }
 
 let defaultRepository: CostRecordRepository | null = null;
-/** 多租户 P1：非本地身份的成本库实例（各自独立 app.db） */
-const scopedRepositories = new Map<string, CostRecordRepository>();
+/** 租户级 DB（§6.1）：实例按**租户**缓存（同租户用户共用连接，行级隔离靠 `owner_key`） */
+const scopedRepositories = new Map<string, CostRecordRepository>(); // key = tenantId
 
 /**
  * 取成本记录仓库。
  *
- * 多租户 P1：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该身份自己的实例
- * （`<scoped>/app.db`）。**不做"共享实例换连接"**——`this.db` 是单字段，
- * 并发请求会在 `await` 交错点串到别人的库。
+ * 多租户 §6.1：本地身份 ⇒ 原单例（零变更）；已认证身份 ⇒ 该**租户**的实例
+ * （`tenants/<t>/app.db`），用户维度靠 `owner_key` 过滤。
  */
 export function getCostRecordRepository(): CostRecordRepository {
   const principal = getRequestPrincipal();
   if (!isLocalPrincipal(principal)) {
-    const key = principalKeyOf(principal);
-    const existing = scopedRepositories.get(key);
+    const tenantKey = principal.tenantId;
+    const existing = scopedRepositories.get(tenantKey);
     if (existing) return existing;
-    const scoped = new CostRecordRepository(resolveScopedDbPath(principal));
-    scopedRepositories.set(key, scoped);
-    // 多租户 P5：登记 closer（关连接 + 摘除本模块缓存），删租户时统一释放文件句柄
-    registerScopedResource(key, async () => {
+    const scoped = new CostRecordRepository(resolveTenantDbPath(principal));
+    scopedRepositories.set(tenantKey, scoped);
+    // 登记键用**创建者**的 `<tenant>:<user>`：purge 按 `<tenant>:` 前缀关闭 ⇒ 删租户能命中
+    registerScopedResource(principalKeyOf(principal), async () => {
       await scoped.close();
-      scopedRepositories.delete(key);
+      scopedRepositories.delete(tenantKey);
     });
     return scoped;
   }

@@ -97,6 +97,23 @@ if [ -f "scripts/lint-fix-evidence.ts" ]; then
   fi
 fi
 
+# ── GitHub Actions YAML 可解析门禁（2026-10-24）──
+# 实证：步骤名写成 name: Package build (tsc: barrel ...) 时，未加引号的冒号+空格
+# 会被 YAML 当成映射 ⇒ GitHub 判定整个 workflow 无效（表现为一条 0 job、
+# 名字是文件路径的失败记录）。本地 typecheck / eslint / lint 都不解析 workflow
+# ⇒ 只能靠这一条前置拦住。
+if [ -f "app/scripts/lint-workflows.ts" ]; then
+  echo "  检查 GitHub Actions YAML（可解析 + 结构完整）..."
+  $RUNNER app/scripts/lint-workflows.ts
+  RESULT=$?
+  if [ $RESULT -ne 0 ]; then
+    echo ""
+    echo "❌ GitHub Actions YAML 门禁失败！提交已阻止。"
+    echo "   常见原因：未加引号的 name: xxx (a: b) —— 把整行加引号即可。"
+    exit 1
+  fi
+fi
+
 # ── 进入 app 目录验证 ──
 # 记录「本次已暂存的文件」：ESLint --fix 会在**暂存之后**就地改文件，若不重新暂存，
 # 提交里仍是未修复内容 ⇒ 本地绿、CI 的 lint 红（2026-10-23 本仓实证 3 次：22/22/8 个文件）。
@@ -145,7 +162,7 @@ exit 0
   writeFileSync(hookPath, hookContent, { mode: 0o755 });
   console.log(`✅ pre-commit 钩子已安装: ${hookPath}`);
   console.log(
-    '   提交前自动运行: 架构合规检查 + 修复证据登记 + 类型检查 + ESLint + 模块验证'
+    '   提交前自动运行: 架构合规检查 + 修复证据登记 + GitHub Actions YAML + 类型检查 + ESLint + 模块验证'
   );
 }
 

@@ -55,6 +55,13 @@ jobs:
     - name: "Fix evidence gate (lint:fix-evidence)"
       run: bun run lint:fix-evidence
 
+    # GitHub Actions YAML 可解析 + 结构完整（2026-10-24）
+    # 实证：`name: Package build (tsc: barrel …)` 里未加引号的 `: ` 让 YAML 变成映射
+    # ⇒ GitHub 判整个 workflow 无效，只留一条 0 job 的失败记录；本地 typecheck/eslint 均不解析
+    # workflow ⇒ 由不设 paths-ignore 的本工作流承接。
+    - name: "GitHub Actions YAML (lint:workflows)"
+      run: bun run lint:workflows
+
     # 超大函数/文件棘轮（P2-1）：`runStreamMessage` 只允许缩小，不允许增长
     - name: "Function-size ratchet (lint:fn-size)"
       run: bun run lint:fn-size

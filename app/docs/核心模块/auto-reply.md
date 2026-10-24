@@ -7,7 +7,10 @@ AutoReply 系统提供消息自动回复的**分发**能力，位于 `core/auto-
 
 > **变更（2026-10-03，T-①04 T1-1）**：原 `ReplyOrchestrator`（`reply.ts`）属**零可达死码**
 > （构造点 0、无任何消费者），已随「编排家族收敛」下线。本模块现由下列组件构成，
-> 公开出口见 `core/auto-reply/index.ts`（经 `@modules/core` 可达）。
+> 公开出口见 `auto-reply/index.ts`。**订正（2026-10-24）**：该出口**当前不在内核公开面**——
+> `packages/kernel/src/core/index.ts` 未导出它，`KERNEL_PUBLIC_SUBPATHS` 里也没有 `auto-reply`；
+> 原文称「经旧别名可达」—— 该别名已在 P5 更名为 `@openliri/kernel`，且 `auto-reply` 同样不在公开清单中。
+> 若要对外使用，须先把它加进公开面（K07 会拦截新增子路径）。
 
 ## 组件说明
 

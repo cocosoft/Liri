@@ -106,6 +106,25 @@ describe('文档别名门禁：合法/占位样例必绿（防误伤）', () => 
     expect(run(root).code).toBe(0);
   });
 
+  it('扫描面含 app/docs（随产品发布的文档）', () => {
+    const root = fixture({
+      'app/docs/guide.md': '用 `@modules/ghostRouter`\n',
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(1);
+    expect(out).toContain('app/docs/guide.md');
+  });
+
+  it('教程示例模块名（`@modules/my-module`）不算违规', () => {
+    const root = fixture({
+      'app/docs/tutorial.md': '保留原有导入路径（`@modules/my-module`）\n',
+    });
+
+    expect(run(root).code).toBe(0);
+  });
+
   it('扫描面之外的文件（如 dev_docs 之外的普通 md）不被误判', () => {
     const root = fixture({
       'notes.md': '`@modules/ghost`\n',

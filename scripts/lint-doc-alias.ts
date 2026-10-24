@@ -54,7 +54,10 @@ function walk(root: string): string[] {
 const files = [
   ...walk(resolve(repoRoot, '.trae/rules')),
   ...walk(resolve(repoRoot, '.trae/docs')),
+  // 第一层文档（随安装目录发布给用户）—— 教错人比内部文档写错更贵
+  ...walk(resolve(repoRoot, 'app/docs')),
   resolve(repoRoot, 'AGENTS.md'),
+  resolve(repoRoot, 'README.md'),
 ].filter((f) => existsSync(f));
 
 /** tsconfig 里注册的别名键（去掉 `/*` 后缀） */
@@ -76,6 +79,8 @@ function checkAlias(alias: string, keys: Set<string>): string | null {
   // 不是可执行指令 ⇒ 不判违规。
   if (!seg) return null;
   if (/[<*]/.test(alias) || /^(x{2,}|xxx)$/i.test(seg)) return null;
+  // 教程里的示例模块名（`@modules/my-module`）不是真实依赖
+  if (/^(my|your|example|sample)-/i.test(seg)) return null;
   const root = `@${alias.split('/')[0]!.slice(1)}`;
   if (root === '@openliri') {
     if (alias === '@openliri/kernel') return null;

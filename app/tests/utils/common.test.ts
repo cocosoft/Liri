@@ -251,8 +251,12 @@ describe('debounce', () => {
     fn();
     fn();
 
+    // 同步返回后**尚未**触发：这一步是确定性断言
     expect(callCount).toBe(0);
-    await sleep(30);
+    // 之后**轮询**等它恰好触发 1 次（上限 500ms）。
+    // 原写法是 `sleep(30)` 后立刻断言 —— 定时器在慢 runner 上晚触发时，断言时刻仍是 0（假红）。
+    const t0 = Date.now();
+    while (callCount < 1 && Date.now() - t0 < 500) await sleep(10);
     expect(callCount).toBe(1);
   });
 });

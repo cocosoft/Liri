@@ -19,11 +19,10 @@ export const DEFAULT_CONTAINER_CONFIG: ContainerConfig = {
   detectCycles: true,
 };
 
-/** 服务描述符 */
-export interface ServiceDescriptor<T = unknown> {
+/** 三种作用域**共有**的字段 */
+export interface ServiceDescriptorBase<T = unknown> {
   id: string;
   factory: () => T;
-  scope: ServiceScope;
   dependencies?: string[];
   optionalDependencies?: string[];
 
@@ -41,13 +40,38 @@ export interface ServiceDescriptor<T = unknown> {
 
   /** 就绪阶段：所有依赖已就绪，执行业务初始化 */
   onReady?: (instance: T) => Promise<void>;
+}
 
-  /**
-   * 销毁阶段（逆序调用）。**仅 singleton 支持**：非 singleton 声明它 ⇒ 注册期直接抛
-   * `DI_ONDISPOSE_REQUIRES_SINGLETON`（评审 #4：不留「接口支持、实际静默不执行」的死契约）。
-   */
+/** singleton：**唯一**支持 `onDispose` 的作用域（实例由容器持有，关闭时可逆序释放） */
+export interface SingletonDescriptor<T = unknown>
+  extends ServiceDescriptorBase<T> {
+  scope: 'singleton';
+  /** 销毁阶段（逆序调用） */
   onDispose?: (instance: T) => Promise<void>;
 }
+
+/**
+ * transient / request：**不允许** `onDispose`。
+ *
+ * 这两类实例不由容器持有（transient 每次新建、request 随请求结束失效）⇒ 没有可靠的销毁时机。
+ * 用 `onDispose?: never` 把它变成**编译错误**（2026-10-24 评审：契约由类型表达），
+ * 运行时仍保留 `DI_ONDISPOSE_REQUIRES_SINGLETON` 作为纵深防御。
+ */
+export interface NonSingletonDescriptor<T = unknown>
+  extends ServiceDescriptorBase<T> {
+  scope: 'transient' | 'request';
+  onDispose?: never;
+}
+
+/**
+ * 服务描述符（判别联合，按 `scope` 收窄）。
+ *
+ * 为什么不是单一 interface：三作用域对 `onDispose` 的能力完全不同；
+ * 单一 interface 只能靠运行时抛错兜住"声明了却永不执行"的死契约。
+ */
+export type ServiceDescriptor<T = unknown> =
+  | SingletonDescriptor<T>
+  | NonSingletonDescriptor<T>;
 
 /** 循环依赖检测结果 */
 export interface CycleDetectionResult {

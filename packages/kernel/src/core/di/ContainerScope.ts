@@ -71,9 +71,13 @@ export class ContainerScope {
     }
   }
 
-  /** 注册描述符。`onDispose` 仅 singleton 支持 ⇒ 其余作用域在**注册期**直接拒（评审 #4） */
+  /** 注册描述符。`onDispose` 仅 singleton 支持（类型层 `never` + 注册期运行时兜底，评审 #4） */
   registerDescriptor<T>(descriptor: ServiceDescriptor<T>): void {
-    if (descriptor.scope !== 'singleton' && descriptor.onDispose) {
+    // 类型层已禁止 non-singleton 声明 onDispose；此处仍保留运行时检查，
+    // 覆盖 JS 调用方 / 绕过类型的外部装配（纵深防御）。用旁路变量读取，
+    // 避免 `descriptor.onDispose` 的真值收窄把 descriptor 判成 never。
+    const disposeHook = (descriptor as { onDispose?: unknown }).onDispose;
+    if (descriptor.scope !== 'singleton' && disposeHook) {
       throw new AppError(
         `Service ${descriptor.id}: onDispose 仅支持 singleton 作用域（当前 ${descriptor.scope}）`,
         ErrorCategory.CONFIGURATION,

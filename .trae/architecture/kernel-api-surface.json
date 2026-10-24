@@ -2,7 +2,7 @@
   "version": 1,
   "kernelRoot": "packages/kernel/src/core",
   "fileCount": 113,
-  "symbolCount": 1046,
+  "symbolCount": 1049,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -213,8 +213,11 @@
         "ContainerConfig",
         "CycleDetectionResult",
         "DEFAULT_CONTAINER_CONFIG",
+        "NonSingletonDescriptor",
         "ServiceDescriptor",
-        "ServiceScope"
+        "ServiceDescriptorBase",
+        "ServiceScope",
+        "SingletonDescriptor"
       ]
     },
     {

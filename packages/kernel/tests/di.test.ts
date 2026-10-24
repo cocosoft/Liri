@@ -135,15 +135,18 @@ describe('DI #3：request 作用域在并发请求间隔离', () => {
 describe('DI #4：onDispose 的作用域契约是显式的', () => {
   it('transient 声明 onDispose ⇒ 注册期抛 DI_ONDISPOSE_REQUIRES_SINGLETON', () => {
     const container = new DIContainer();
+    // 运行时兜底自证：类型层已禁止（`onDispose?: never`），这里**故意绕过类型**
+    // 模拟 JS 调用方 / 绕过类型的外部装配 ⇒ 注册期仍必须拒。
+    const illegal = {
+      id: 't',
+      scope: 'transient',
+      factory: () => ({}),
+      onDispose: async () => undefined,
+    } as unknown as Parameters<typeof container.registerDescriptor>[0];
     // 错误码在 AppError 的第 4 个参数上（不在 message 里）⇒ 断言 `code` 字段
     let caught: unknown;
     try {
-      container.registerDescriptor({
-        id: 't',
-        scope: 'transient',
-        factory: () => ({}),
-        onDispose: async () => undefined,
-      });
+      container.registerDescriptor(illegal);
     } catch (error) {
       caught = error;
     }

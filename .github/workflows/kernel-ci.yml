@@ -76,7 +76,7 @@ jobs:
         working-directory: packages/kernel
         run: bun run test
 
-      - name: Package build (tsc: barrel + per-module output)
+      - name: "Package build (tsc · barrel + per-module output)"
         working-directory: packages/kernel
         run: bun run build
 

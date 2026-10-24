@@ -23,8 +23,15 @@
  * SourceChunkStore — R4 原文分块页码索引存储
  *
  * 编译文档类 raw（PDF/XLSX 等）成功后，把抽取原文按 locators 切成的原文块
- * （携带 page/section/tableId）落库（统一 app.db）。检索期按块文本 LIKE 命中，
+ * （携带 page/section/tableId）落库（租户级 DB）。检索期按块文本 LIKE 命中，
  * 命中块直接可得 doc.pdf#p.N 引用（不依赖 LLM 页摘要与原文的逐字一致性）。
+ *
+ * **归属（2026-10-25，租户级 DB §6.1）**：与 RuleStore / RecordStore / LineageStore 同口径
+ * —— 库按**租户**分（`tenants/<t>/app.db`），租户内按 `owner_key`（`<tenant>:<user>`）行级隔离。
+ * 主键 `id` 是内容派生（`${rawPath}:${c.seq}`）⇒ 新库复合 PK `(id, owner_key)`，同租户两用户
+ * 编译相同 raw 互不覆盖；旧库（ALTER 补列）保持单列 PK，仅含 `local:local` 行 ⇒ 无碰撞面。
+ * 直接 `new SourceChunkStore()`（编译写路径 / `refreshSourceChunksForRaw`）在 init 时按当前请求
+ * 身份解析库；请求作用域读路径走 `getSourceChunkStore()`。
  *
  * 与 RecordStore/RuleStore 同模式：SimpleMutex 防并发 WAL 锁冲突。
  */
@@ -32,12 +39,18 @@
 import { readFile } from 'fs/promises';
 import { Database } from '@openliri/kernel/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath } from '@openliri/kernel';
+import { resolveTenantDbPath } from '@openliri/kernel/paths';
+import {
+  getRequestPrincipal,
+  getRequestPrincipalKey,
+  isLocalPrincipal,
+  principalKeyOf,
+} from '@openliri/kernel/identity/requestScope.js';
+import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { SimpleMutex } from '@openliri/kernel';
 import type { EvidenceSidecar } from '../evidence/EvidenceLocator';
 import { loadSidecar } from '../evidence/EvidenceLocator';
 import type { ExtractedDocument } from '../ingestion/extractors/types';
-import { extractDocument } from '../ingestion/extractors/TextExtractor';
 import { buildSourceChunks, type SourceChunk } from './sourceChunker';
 
 const logger = getLogger('knowledge:source:store');
@@ -79,19 +92,40 @@ function rowToChunk(row: Record<string, unknown>): StoredSourceChunk {
 
 export class SourceChunkStore {
   private db: Database | null = null;
-  private dbPath: string;
+  private dbPath?: string;
   private dbMutex = new SimpleMutex();
+  /** 进行中的初始化（并发调用共享，避免重复打开连接） */
+  private initPromise: Promise<void> | null = null;
 
-  constructor(dbPath: string = resolveDbPath()) {
+  /**
+   * @param dbPath 显式库路径（测试/工具注入）；缺省由 `init()` 惰性解析 ——
+   *   2026-10-25 租户级 DB §6.1：默认参数会在**构造时**解析路径，模块级单例在无请求
+   *   身份下构造会把库钉死共享 `app.db` ⇒ 改惰性解析（按当前请求身份解析租户库）。
+   */
+  constructor(dbPath?: string) {
     this.dbPath = dbPath;
   }
 
-  /** 初始化数据库连接并建表 */
+  /** 初始化数据库连接并建表（幂等 + 并发安全） */
   async init(): Promise<void> {
-    if (this.db) return;
+    if (this.db) {
+      return;
+    }
+    if (!this.initPromise) {
+      this.initPromise = this.doInit();
+    }
+    try {
+      await this.initPromise;
+    } catch (err) {
+      this.initPromise = null;
+      throw err;
+    }
+  }
 
+  private async doInit(): Promise<void> {
+    const dbPath = this.dbPath ?? resolveTenantDbPath();
     this.db = await new Promise<Database>((resolve, reject) => {
-      const db = new Database(this.dbPath, (err: Error | null) => {
+      const db = new Database(dbPath, (err: Error | null) => {
         if (err) reject(err);
         else resolve(db);
       });
@@ -101,14 +135,16 @@ export class SourceChunkStore {
       return new Promise((resolve, reject) => {
         this.db!.run(
           `CREATE TABLE IF NOT EXISTS ${SOURCE_CHUNKS_TABLE} (
-            id           TEXT PRIMARY KEY,
+            id           TEXT NOT NULL,
             raw_path     TEXT NOT NULL,
             seq          INTEGER NOT NULL,
             page         INTEGER,
             section      TEXT,
             table_id     TEXT,
             text         TEXT NOT NULL,
-            updated_at   INTEGER NOT NULL
+            updated_at   INTEGER NOT NULL,
+            owner_key    TEXT NOT NULL DEFAULT 'local:local',
+            PRIMARY KEY (id, owner_key)
           )`,
           (err: Error | null) => {
             if (err) {
@@ -123,7 +159,21 @@ export class SourceChunkStore {
               `CREATE INDEX IF NOT EXISTS idx_source_chunks_page
                  ON ${SOURCE_CHUNKS_TABLE}(raw_path, page)`
             );
-            resolve();
+            // 补 owner_key 列（2026-10-25，租户级 DB §6.1）：已建表的库没有该列。
+            // SQLite 的 `ALTER TABLE` 不能改主键 ⇒ 旧库保持单列 PK；旧库只可能是本地库
+            // （只含 `local:local` 行）⇒ 不会与租户行碰撞（存量行落默认值即本地身份）。
+            // sqlite3 db.run 无回调时静默吞错 ⇒ 必须传回调判成败，`/duplicate column/i` 过滤。
+            this.db!.run(
+              `ALTER TABLE ${SOURCE_CHUNKS_TABLE} ADD COLUMN owner_key TEXT NOT NULL DEFAULT 'local:local'`,
+              (alterErr: Error | null) => {
+                if (alterErr && !/duplicate column/i.test(alterErr.message)) {
+                  logger.warn('knowledge_source_chunks 补 owner_key 失败', {
+                    error: alterErr.message,
+                  });
+                }
+                resolve();
+              }
+            );
           }
         );
       });
@@ -132,17 +182,23 @@ export class SourceChunkStore {
     logger.info('原文块存储已初始化');
   }
 
-  /** 替换某 raw 的原文块（先清后插；重编译防残留） */
+  /** 当前身份归属键（本地 ⇒ `local:local`；租户 ⇒ `<tenant>:<user>`） */
+  private owner(): string {
+    return getRequestPrincipalKey();
+  }
+
+  /** 替换某 raw 的原文块（先清后插；重编译防残留；只作用于本归属者） */
   async replaceForRaw(rawPath: string, chunks: SourceChunk[]): Promise<number> {
-    if (!this.db) await this.init();
+    await this.init();
     if (chunks.length === 0) return 0;
 
     const now = Date.now();
+    const owner = this.owner();
     await this.dbMutex.run<void>(() => {
       return new Promise<void>((resolve, reject) => {
         this.db!.run(
-          `DELETE FROM ${SOURCE_CHUNKS_TABLE} WHERE raw_path = ?`,
-          [rawPath],
+          `DELETE FROM ${SOURCE_CHUNKS_TABLE} WHERE raw_path = ? AND owner_key = ?`,
+          [rawPath, owner],
           (err: Error | null) => {
             if (err) {
               reject(err);
@@ -157,8 +213,8 @@ export class SourceChunkStore {
               const c = chunks[idx++];
               this.db!.run(
                 `INSERT INTO ${SOURCE_CHUNKS_TABLE}
-                   (id, raw_path, seq, page, section, table_id, text, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                   (id, raw_path, seq, page, section, table_id, text, updated_at, owner_key)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                   `${rawPath}:${c.seq}`,
                   rawPath,
@@ -168,6 +224,7 @@ export class SourceChunkStore {
                   c.tableId ?? null,
                   c.text,
                   now,
+                  owner,
                 ],
                 (e2: Error | null) => {
                   if (e2) {
@@ -186,16 +243,17 @@ export class SourceChunkStore {
     return chunks.length;
   }
 
-  /** 删除某 raw 的全部原文块（返回删除数） */
+  /** 删除某 raw 的全部原文块（返回删除数；只删本归属者的） */
   async deleteByRaw(rawPath: string): Promise<number> {
-    if (!this.db) await this.init();
+    await this.init();
+    const owner = this.owner();
 
     let affected = 0;
     await this.dbMutex.run<void>(() => {
       return new Promise((resolve, reject) => {
         this.db!.all(
-          `SELECT COUNT(*) AS n FROM ${SOURCE_CHUNKS_TABLE} WHERE raw_path = ?`,
-          [rawPath],
+          `SELECT COUNT(*) AS n FROM ${SOURCE_CHUNKS_TABLE} WHERE raw_path = ? AND owner_key = ?`,
+          [rawPath, owner],
           (err: Error | null, rows: unknown[]) => {
             if (err) {
               reject(err);
@@ -204,8 +262,8 @@ export class SourceChunkStore {
             affected =
               Number((rows[0] as { n?: unknown } | undefined)?.n ?? 0) ?? 0;
             this.db!.run(
-              `DELETE FROM ${SOURCE_CHUNKS_TABLE} WHERE raw_path = ?`,
-              [rawPath],
+              `DELETE FROM ${SOURCE_CHUNKS_TABLE} WHERE raw_path = ? AND owner_key = ?`,
+              [rawPath, owner],
               (delErr: Error | null) => {
                 if (delErr) reject(delErr);
                 else resolve();
@@ -219,22 +277,23 @@ export class SourceChunkStore {
     return affected;
   }
 
-  /** 按关键字检索原文块（text LIKE；短块优先，命中更聚焦） */
+  /** 按关键字检索原文块（text LIKE；只检索本归属者的） */
   async search(
     q: string,
     filters: SourceChunkQuery = {}
   ): Promise<StoredSourceChunk[]> {
-    if (!this.db) await this.init();
+    await this.init();
+    const owner = this.owner();
     const limit = filters.limit ?? 10;
     const like = `%${q}%`;
 
     return new Promise((resolve, reject) => {
       this.db!.all(
         `SELECT * FROM ${SOURCE_CHUNKS_TABLE}
-         WHERE text LIKE ?
+         WHERE owner_key = ? AND text LIKE ?
          ORDER BY LENGTH(text) ASC, seq ASC
          LIMIT ?`,
-        [like, limit],
+        [owner, like, limit],
         (err: Error | null, rows: unknown[]) => {
           if (err) {
             reject(err);
@@ -255,7 +314,51 @@ export class SourceChunkStore {
       this.db!.close(() => resolve());
     });
     this.db = null;
+    this.initPromise = null;
   }
+}
+
+/**
+ * 请求作用域 SourceChunkStore 单例（2026-10-25，租户级 DB §6.1）
+ *
+ * 编译写路径（KnowledgeCompiler / refreshSourceChunksForRaw）保持 `new SourceChunkStore()`
+ * 直构 —— 无请求身份时归属 `local:local`；请求作用域读路径（KnowledgeSearchTool /
+ * UnifiedSearchService）用本函数取**每次按当前请求身份解析**的单例，避免模块级常量在载入时
+ * 锁定库（与 TaskStore 载入期锁库的错分区读同源）。
+ *
+ * 显式 dbPath 按路径分桶（测试隔离），不与默认/租户单例混用。
+ */
+const localInstance = new SourceChunkStore();
+const scopedInstances = new Map<string, SourceChunkStore>();
+const explicitInstances = new Map<string, SourceChunkStore>();
+
+export function getSourceChunkStore(dbPath?: string): SourceChunkStore {
+  if (dbPath) {
+    let inst = explicitInstances.get(dbPath);
+    if (!inst) {
+      inst = new SourceChunkStore(dbPath);
+      explicitInstances.set(dbPath, inst);
+    }
+    return inst;
+  }
+  const principal = getRequestPrincipal();
+  if (isLocalPrincipal(principal)) {
+    return localInstance;
+  }
+  const key = principalKeyOf(principal);
+  let scoped = scopedInstances.get(key);
+  if (!scoped) {
+    scoped = new SourceChunkStore();
+    scopedInstances.set(key, scoped);
+    registerScopedResource(principalKeyOf(principal), () => scoped?.close());
+  }
+  return scoped;
+}
+
+/** 仅测试：重置租户/显式路径单例桶 */
+export function resetSourceChunkStoreScopedForTest(): void {
+  scopedInstances.clear();
+  explicitInstances.clear();
 }
 
 /**
@@ -271,6 +374,10 @@ export async function refreshSourceChunksForRaw(
   dbPath?: string
 ): Promise<number> {
   const store = new SourceChunkStore(dbPath);
+  // 动态导入：TextExtractor 依赖树可触达 KnowledgeCompiler（TDZ 环，2026-10-25
+  // 冷启动实测）—— 本钩子低频，运行时求值即可，不参与 SourceChunkStore 静态图。
+  const { extractDocument } =
+    await import('../ingestion/extractors/TextExtractor');
   try {
     const sidecar: EvidenceSidecar | null = await loadSidecar(rawFile);
     let chunks: SourceChunk[] = [];

@@ -286,48 +286,44 @@ export class UnifiedSearchService {
     // sources 桶（B7：R4 原文块页码命中，docPath 优先映射编译页）
     let sources: BucketedSourceItem[] = [];
     try {
-      const { SourceChunkStore, readRawMetaPages } =
+      const { getSourceChunkStore, readRawMetaPages } =
         await import('../source/SourceChunkStore');
       const { basename, relative } = await import('path');
       const { resolveKnowledgeDir } = await import('@openliri/kernel');
       const knowledgeRoot = resolveKnowledgeDir();
-      const sourceStore = new SourceChunkStore();
-      try {
-        const hits = await sourceStore.search(query, { limit: sourceLimit });
-        for (let idx = 0; idx < hits.length; idx++) {
-          const hit = hits[idx]!;
-          const relRaw = relative(knowledgeRoot, hit.rawPath)
-            .split('\\')
-            .join('/');
-          let docPath = relRaw;
-          let title = basename(hit.rawPath).replace(/\.[^.]+$/, '');
-          try {
-            const pages = await readRawMetaPages(hit.rawPath);
-            if (pages.length > 0) {
-              const rawBase = basename(hit.rawPath).replace(/\.[^.]+$/, '');
-              const entry =
-                pages.find(
-                  (p) => basename(p).replace(/\.md$/i, '') === rawBase
-                ) ?? pages[0];
-              docPath = relative(knowledgeRoot, entry).split('\\').join('/');
-              title = basename(entry).replace(/\.md$/i, '');
-            }
-          } catch {
-            // @ignore-catch 元数据定位失败回退 raw 相对路径
+      const sourceStore = getSourceChunkStore();
+      const hits = await sourceStore.search(query, { limit: sourceLimit });
+      for (let idx = 0; idx < hits.length; idx++) {
+        const hit = hits[idx]!;
+        const relRaw = relative(knowledgeRoot, hit.rawPath)
+          .split('\\')
+          .join('/');
+        let docPath = relRaw;
+        let title = basename(hit.rawPath).replace(/\.[^.]+$/, '');
+        try {
+          const pages = await readRawMetaPages(hit.rawPath);
+          if (pages.length > 0) {
+            const rawBase = basename(hit.rawPath).replace(/\.[^.]+$/, '');
+            const entry =
+              pages.find(
+                (p) => basename(p).replace(/\.md$/i, '') === rawBase
+              ) ?? pages[0];
+            docPath = relative(knowledgeRoot, entry).split('\\').join('/');
+            title = basename(entry).replace(/\.md$/i, '');
           }
-          sources.push({
-            bucket: 'source' as const,
-            docPath,
-            rawPath: relRaw,
-            title,
-            page: hit.page,
-            section: hit.section,
-            text: hit.text.slice(0, 200),
-            score: Math.max(0, sourceLimit - idx),
-          });
+        } catch {
+          // @ignore-catch 元数据定位失败回退 raw 相对路径
         }
-      } finally {
-        await sourceStore.close();
+        sources.push({
+          bucket: 'source' as const,
+          docPath,
+          rawPath: relRaw,
+          title,
+          page: hit.page,
+          section: hit.section,
+          text: hit.text.slice(0, 200),
+          score: Math.max(0, sourceLimit - idx),
+        });
       }
     } catch {
       sources = [];

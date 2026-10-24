@@ -211,57 +211,53 @@ export class KnowledgeSearchTool implements Tool {
       // snippet 前缀 (doc.pdf#p.N) 引用，覆盖 LLM 摘要页无原文逐字引用的场景）
       let sourceChunkCount = 0;
       try {
-        const { SourceChunkStore, readRawMetaPages } =
+        const { getSourceChunkStore, readRawMetaPages } =
           await import('../source/SourceChunkStore');
         const { buildDocCitation } =
           await import('../evidence/EvidenceLocator');
         const { basename, relative } = await import('path');
-        const sourceStore = new SourceChunkStore();
-        try {
-          const hits = await sourceStore.search(query.trim(), {
-            limit: Math.max(1, Math.min(5, limit)),
-          });
-          const knowledgeRoot = resolveKnowledgeDir();
-          for (const hit of hits) {
-            let docPath = relative(knowledgeRoot, hit.rawPath)
-              .split('\\')
-              .join('/');
-            let title = basename(hit.rawPath).replace(/\.[^.]+$/, '');
-            try {
-              const pages = await readRawMetaPages(hit.rawPath);
-              if (pages.length > 0) {
-                const rawBase = basename(hit.rawPath).replace(/\.[^.]+$/, '');
-                const entry =
-                  pages.find(
-                    (p) => basename(p).replace(/\.md$/i, '') === rawBase
-                  ) ?? pages[0];
-                docPath = relative(knowledgeRoot, entry).split('\\').join('/');
-                title = basename(entry).replace(/\.md$/i, '');
-              }
-            } catch {
-              // @ignore-catch 元数据定位失败回退 raw 相对路径
+        const sourceStore = getSourceChunkStore();
+        const hits = await sourceStore.search(query.trim(), {
+          limit: Math.max(1, Math.min(5, limit)),
+        });
+        const knowledgeRoot = resolveKnowledgeDir();
+        for (const hit of hits) {
+          let docPath = relative(knowledgeRoot, hit.rawPath)
+            .split('\\')
+            .join('/');
+          let title = basename(hit.rawPath).replace(/\.[^.]+$/, '');
+          try {
+            const pages = await readRawMetaPages(hit.rawPath);
+            if (pages.length > 0) {
+              const rawBase = basename(hit.rawPath).replace(/\.[^.]+$/, '');
+              const entry =
+                pages.find(
+                  (p) => basename(p).replace(/\.md$/i, '') === rawBase
+                ) ?? pages[0];
+              docPath = relative(knowledgeRoot, entry).split('\\').join('/');
+              title = basename(entry).replace(/\.md$/i, '');
             }
-            const loc =
-              hit.page !== undefined
-                ? { page: hit.page, section: hit.section }
-                : null;
-            const cite = buildDocCitation(hit.rawPath, loc);
-            results.push({
-              docPath,
-              title,
-              score: 0.9,
-              category: 'document',
-              snippet:
-                loc && loc.page !== undefined
-                  ? `(${cite}) ${hit.text.slice(0, 180)}`
-                  : hit.text.slice(0, 180),
-              matchType: 'keyword',
-              isKnowledgeDoc: false,
-            });
-            sourceChunkCount++;
+          } catch {
+            // @ignore-catch 元数据定位失败回退 raw 相对路径
           }
-        } finally {
-          await sourceStore.close();
+          const loc =
+            hit.page !== undefined
+              ? { page: hit.page, section: hit.section }
+              : null;
+          const cite = buildDocCitation(hit.rawPath, loc);
+          results.push({
+            docPath,
+            title,
+            score: 0.9,
+            category: 'document',
+            snippet:
+              loc && loc.page !== undefined
+                ? `(${cite}) ${hit.text.slice(0, 180)}`
+                : hit.text.slice(0, 180),
+            matchType: 'keyword',
+            isKnowledgeDoc: false,
+          });
+          sourceChunkCount++;
         }
       } catch (err) {
         logger.warning('R4 原文块检索失败（忽略）', { error: String(err) });

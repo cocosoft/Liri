@@ -66,6 +66,7 @@ import {
   runWithLandlock,
   processRegistry,
   killProcessTree,
+  resolveLandlockHelperPath,
 } from '@modules/sandbox';
 import type {
   LandlockCapability,
@@ -84,8 +85,7 @@ import { reportBashLandlockGapOnce } from './bashLandlockGap';
 
 const logger = getLogger('tools:bash:landlock-exec');
 
-/** landlock-run helper（与 `LinuxSandboxRunner` **同一个**环境变量，不新增命名） */
-const BASH_LANDLOCK_HELPER = process.env.LANDLOCK_RUN_HELPER || 'landlock-run';
+/** landlock-run helper（与 `LinuxSandboxRunner` **同一解析器**：env → 随包 `bin/` → PATH；T25-11a） */
 
 /**
  * S7（2026-10-09）：把一次 bash 子进程登记进 `ProcessRegistry`，点亮
@@ -511,7 +511,7 @@ export async function execBashCommand(
           deps.detect ??
           (() =>
             LandlockDetector.detect({
-              helperPath: deps.helperPath ?? BASH_LANDLOCK_HELPER,
+              helperPath: deps.helperPath ?? resolveLandlockHelperPath(),
             }))
         )()
       : null;
@@ -552,7 +552,7 @@ export async function execBashCommand(
     );
   }
 
-  const helperPath = deps.helperPath ?? BASH_LANDLOCK_HELPER;
+  const helperPath = deps.helperPath ?? resolveLandlockHelperPath();
   const policy = buildBashLandlockPolicy({
     cwd: input.cwd ?? process.cwd(),
     abi: capability?.abi ?? 0,

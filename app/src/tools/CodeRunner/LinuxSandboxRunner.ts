@@ -33,6 +33,7 @@ import {
   isSandboxInitFailure,
   readLandlockConfig,
   processRegistry,
+  resolveLandlockHelperPath,
 } from '@modules/sandbox';
 import type {
   LandlockCapability,
@@ -49,9 +50,6 @@ import {
 import type { CodeRunResult } from './types';
 
 const logger = getLogger('tools:CodeRunner:landlock');
-
-/** landlock-run helper（环境变量可覆盖，默认 PATH 查找） */
-const LANDLOCK_HELPER = process.env.LANDLOCK_RUN_HELPER || 'landlock-run';
 
 /**
  * 构造最小 bun 执行 policy（CM-3a）。
@@ -203,7 +201,9 @@ export async function runCodeRunnerWithLandlock(
     return null;
   }
 
-  const cap = await LandlockDetector.detect({ helperPath: LANDLOCK_HELPER });
+  const cap = await LandlockDetector.detect({
+    helperPath: resolveLandlockHelperPath(),
+  });
   const gate = decideCodeRunnerLandlock({
     config,
     platform: process.platform,
@@ -240,7 +240,7 @@ export async function runCodeRunnerWithLandlock(
     `"${process.execPath}" run "${wrapperPath}" user.ts`,
   ];
 
-  const child = spawn(LANDLOCK_HELPER, argv, {
+  const child = spawn(resolveLandlockHelperPath(), argv, {
     cwd: runDir,
     stdio: ['pipe', 'pipe', 'pipe'],
   });

@@ -35,8 +35,8 @@ import { spawn } from 'node:child_process';
 import type { LandlockCapability } from './types';
 import { EXIT_SANDBOX_INIT_FAILED } from './types';
 import { MAX_SUPPORTED_ABI, MIN_FS_ABI } from './LandlockPolicyBuilder';
+import { resolveLandlockHelperPath } from './helperPaths';
 
-const DEFAULT_HELPER = 'landlock-run';
 const LSM_PATH = '/sys/kernel/security/lsm';
 const DEFAULT_PROBE_TIMEOUT_MS = 5000;
 
@@ -89,7 +89,7 @@ async function detectInternal(options: {
   }
   // 3. 功能 probe：真实构建 ruleset 验证 enforce 被允许（LSM 列表有盲区）
   return probeLandlock(
-    options.helperPath ?? DEFAULT_HELPER,
+    options.helperPath ?? resolveLandlockHelperPath(),
     options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS
   );
 }

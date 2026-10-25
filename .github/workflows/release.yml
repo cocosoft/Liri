@@ -186,6 +186,14 @@ jobs:
       - name: Copy native lib into bundle
         run: bun run build:native
 
+      # 阶段 4c（T25-11a，2026-10-25）：构建 **landlock-run helper** 并放进 `<bundle>/bin/`。
+      # 此前发布链从不构建/分发它 ⇒ Linux 用户开 `sandbox.landlock.bashEnabled` 也只会
+      # `capability-unavailable` 被拒（安全但功能不可用）；`code_run` 则静默降级。
+      # 仅 Linux 需要（Landlock 是 Linux 内核特性）；`--require` ⇒ 编译失败即失败。
+      - name: Build landlock helper (Linux only)
+        if: runner.os == 'Linux'
+        run: bun run build:landlock
+
       # 阶段 5：复制种子数据
       - name: Copy seed data
         run: bun run build:seed

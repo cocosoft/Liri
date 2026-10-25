@@ -156,6 +156,13 @@ export type { ResolveSandboxSignalParams } from './sandboxExecutionSignal';
 // 已随「沙箱实例层」下线（唯一构造方 `ToolSandboxRouter` 亦零消费者，台账 D-25）；
 // landlock 出口**保持不动**（见下方）。
 export { LandlockDetector } from './landlock';
+// T25-11a（2026-10-25）：helper 路径解析（`LANDLOCK_RUN_HELPER` → `<PROJECT_DIR>/bin/landlock-run` → PATH）
+export {
+  LANDLOCK_HELPER_BIN_NAME,
+  LANDLOCK_HELPER_ENV,
+  resolveLandlockHelperCandidates,
+  resolveLandlockHelperPath,
+} from './landlock/helperPaths';
 export {
   buildLandlockArgv,
   runWithLandlock,

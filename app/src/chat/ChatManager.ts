@@ -237,6 +237,8 @@ import { ContextTracker } from '@modules/query';
 // 经 `@modules/query` 模块出口导入（守 R03-002：不经 `query/taor` 子目录）。
 import { buildBudgetResumePrompt } from '@modules/query';
 import type { PendingToolCallRef } from '@modules/query';
+// T25-13a（2026-10-25）：续跑按幂等性拆分未完成工具（非幂等 ⇒ 人工确认，不自动重放）
+import { splitResumePending } from './manager/resumePending';
 // 13-P2-1（2026-10-05）：输出侧统一护栏组合根注册（默认关 ⇒ 空注册）
 import { registerDefaultOutputGuards } from './outputGuards/index.js';
 import { compactionOrchestrator, messageProjector } from '@modules/context';
@@ -2519,7 +2521,29 @@ export class ChatManagerImpl implements ChatManager {
     // 续跑 steering（与 bootstrap.resumePendingSessions 同源：`durable-resume`）。
     // I4：**消费**挂起检查点落盘的「未完成工具」清单 ⇒ 提示带上尚未完成的工具名/参数摘要；
     // 无清单（历史/首轮即撞限）⇒ 退化为通用续跑提示。
-    const resumeInstruction = buildBudgetResumePrompt(latest?.pendingToolCalls);
+    // T25-13a（2026-10-25）：**非幂等 / 未声明**的未完成工具**不进"请继续"清单**
+    // —— 续跑会让模型重发同一调用，而中断未失败 ⇒ `isNonIdempotentRetry` 不匹配 ⇒ 无审批。
+    // 改为提交 Inbox 人工确认；若只剩这类工具，则**不自动续跑**（返回 false，协调器保留挂起）。
+    const resumeSplit = splitResumePending(latest?.pendingToolCalls);
+    if (resumeSplit.manual.length > 0) {
+      await this._submitResumeManualConfirmations(
+        sessionId,
+        resumeSplit.manual
+      );
+      if (resumeSplit.replayable.length === 0) {
+        logger.info(
+          'resumeSuspendedSession: 仅剩非幂等未完成工具 ⇒ 已提交人工确认，不自动续跑',
+          {
+            sessionId,
+            manualTools: [
+              ...new Set(resumeSplit.manual.map((p) => p.toolName)),
+            ],
+          }
+        );
+        return false;
+      }
+    }
+    const resumeInstruction = buildBudgetResumePrompt(resumeSplit.replayable);
     taorLoop.injectSteering(resumeInstruction, 'durable-resume');
     // G-T3-1（2026-10-12）：登记**一次性**续跑意图——委托路径（`ChatOrchestrator.sendMessage`
     // 的 TAOR 分支）会 `taorLoop.reset()`，而 `reset()` 会清 `turnCount` / `resumedFromCheckpoint`
@@ -2529,6 +2553,53 @@ export class ChatManagerImpl implements ChatManager {
     // 真再跑：触发既有执行入口（TAOR 委托路径 `ChatOrchestrator.sendMessage`）
     await this.chatOrchestrator.sendMessage(resumeInstruction, { sessionId });
     return true;
+  }
+
+  /**
+   * T25-13a（2026-10-25）：续跑前为「非幂等 / 未声明」的未完成工具提交 **Inbox 人工确认**。
+   *
+   * 为什么走 Inbox：续跑靠"提示模型继续"，而中断的工具**没有失败历史** ⇒ `isNonIdempotentRetry`
+   * 不匹配 ⇒ 不会升级审批；因此必须由**人**决定是否重放（复用 `unknown-tool-call-recovery`
+   * S3/D3 的既有通道与去重口径，不新增审批机制）。
+   *
+   * 去重键：`sessionId + toolName`（同一次续跑内同名工具只提一条）。
+   * 失败为 **best-effort**（落盘失败只告警，不阻断续跑判定）。
+   */
+  private async _submitResumeManualConfirmations(
+    sessionId: string,
+    manual: readonly PendingToolCallRef[]
+  ): Promise<void> {
+    try {
+      const { inboxManager } = await import('../runtime/InboxManager.js');
+      const seen = new Set<string>();
+      for (const p of manual) {
+        if (seen.has(p.toolName)) continue;
+        seen.add(p.toolName);
+        await inboxManager.submit({
+          sessionId,
+          type: 'approval',
+          title: `续跑需人工确认：${p.toolName}`,
+          message:
+            `上次运行中断时工具「${p.toolName}」尚未完成，且它**不是幂等工具**` +
+            `（重复执行可能产生重复副作用）。请确认是否需要重放；` +
+            `系统**不会**自动重放非幂等 / 未声明工具。`,
+          offlineCapable: true,
+          source: 'resume-tool-confirm',
+          metadata: {
+            toolName: p.toolName,
+            toolCallId: p.toolCallId,
+            reason: 'resume-non-idempotent',
+            // 供 InboxManager 判定非"孤儿来源"（与 unknown-tool-recovery 同口径）
+            sourceModule: 'budget-resume',
+          },
+        });
+      }
+    } catch (error) {
+      logger.warn('续跑人工确认提交失败（best-effort）', {
+        sessionId,
+        error: String(error),
+      });
+    }
   }
 
   /**
@@ -2553,14 +2624,39 @@ export class ChatManagerImpl implements ChatManager {
         | undefined
     )?.pendingToolCalls;
 
+    // T25-13a（2026-10-25）：按幂等性拆分 —— 非幂等/未声明**不得自动重放**。
+    // 注意：下面的 ① `resumeStream` 重放**无法按工具筛选**（它按事件日志重放未完成调用），
+    // 故只要存在 manual，就**整段跳过 ①**（宁可少跑，也不重复副作用）。
+    const streamSplit = splitResumePending(pending);
+    if (streamSplit.manual.length > 0) {
+      await this._submitResumeManualConfirmations(
+        sessionId,
+        streamSplit.manual
+      );
+      if (streamSplit.replayable.length === 0) {
+        logger.info(
+          'resumeSuspendedSession(stream): 仅剩非幂等未完成工具 ⇒ 已提交人工确认，不自动续跑',
+          {
+            sessionId,
+            manualTools: [
+              ...new Set(streamSplit.manual.map((p) => p.toolName)),
+            ],
+          }
+        );
+        return false;
+      }
+    }
+
     // ① 先试重放：完整消费生成器（重放本身即"继续执行"，不可提前 break）
     let progressed = false;
-    for await (const chunk of this.resumeStream(sessionId, '')) {
-      if (this._isSubstantiveResumeChunk(chunk)) progressed = true;
-    }
-    if (progressed) {
-      await this._markBudgetResumed(sessionId);
-      return true;
+    if (streamSplit.manual.length === 0) {
+      for await (const chunk of this.resumeStream(sessionId, '')) {
+        if (this._isSubstantiveResumeChunk(chunk)) progressed = true;
+      }
+      if (progressed) {
+        await this._markBudgetResumed(sessionId);
+        return true;
+      }
     }
 
     // ② 无实质进展 ⇒ 重发一轮（既有执行入口，不新增执行路径）
@@ -2570,7 +2666,7 @@ export class ChatManagerImpl implements ChatManager {
     const forcedVisibleTools = await this._resolveReplayForcedTools(sessionId);
     try {
       await this.chatOrchestrator.sendMessage(
-        buildBudgetResumePrompt(pending),
+        buildBudgetResumePrompt(streamSplit.replayable),
         {
           sessionId,
           ...(forcedVisibleTools ? { forcedVisibleTools } : {}),

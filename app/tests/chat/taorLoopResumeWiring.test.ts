@@ -205,7 +205,7 @@ describe('resumeSuspendedSession「真再跑」（F2 / D7）', () => {
     expect(internals(cm).consumePendingResumeIntent(sid)).toBe(false);
   });
 
-  it("I4：chain='taor' 的续跑 steering 消费 pendingToolCalls 清单", async () => {
+  it("I4：chain='taor' 的续跑 steering 消费 pendingToolCalls 清单（仅幂等工具）", async () => {
     const cm = new ChatManagerImpl();
     const sid = 'taor-resume-i4';
     const loop = internals(cm)._getOrCreateTAORLoop(sid);
@@ -214,7 +214,7 @@ describe('resumeSuspendedSession「真再跑」（F2 / D7）', () => {
         {
           id: 'cp-i4',
           pendingToolCalls: [
-            { toolCallId: 'tc-1', toolName: 'bash', args: { command: 'ls' } },
+            { toolCallId: 'tc-1', toolName: 'read_project_file', args: {} },
             { toolCallId: 'tc-2', toolName: 'grep', args: { pattern: 'todo' } },
           ],
         },
@@ -228,8 +228,55 @@ describe('resumeSuspendedSession「真再跑」（F2 / D7）', () => {
 
     await cm.resumeSuspendedSession(sid, 'taor');
 
-    expect(steeringText).toContain('bash');
+    expect(steeringText).toContain('read_project_file');
     expect(steeringText).toContain('grep');
+  });
+
+  // T25-13a（2026-10-25）：非幂等工具**不进**"请继续"清单，改走 Inbox 人工确认
+  it('T25-13a：taor 续跑把非幂等工具踢出清单并提交 Inbox', async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'taor-resume-t13a';
+    const loop = internals(cm)._getOrCreateTAORLoop(sid);
+    loop.getCheckpointsForSession = async () =>
+      [
+        {
+          id: 'cp-t13a',
+          pendingToolCalls: [
+            { toolCallId: 'tc-1', toolName: 'bash', args: { command: 'ls' } },
+            { toolCallId: 'tc-2', toolName: 'grep', args: { pattern: 'todo' } },
+          ],
+        },
+      ] as never;
+    loop.resumeFromCheckpoint = async () => true;
+    let steeringText = '';
+    loop.injectSteering = ((text: string) => {
+      steeringText = text;
+    }) as never;
+    internals(cm).chatOrchestrator.sendMessage = async () => ({}) as never;
+
+    const { inboxManager } = await import('../../src/runtime/InboxManager');
+    const submitted: unknown[] = [];
+    const original = inboxManager.submit;
+    (
+      inboxManager as unknown as { submit: (i: unknown) => Promise<string> }
+    ).submit = async (item: unknown) => {
+      submitted.push(item);
+      return 'inbox-t13a';
+    };
+
+    try {
+      await cm.resumeSuspendedSession(sid, 'taor');
+    } finally {
+      (inboxManager as unknown as { submit: typeof original }).submit =
+        original;
+    }
+
+    expect(steeringText).toContain('grep');
+    expect(steeringText).not.toContain('bash');
+    expect(submitted).toHaveLength(1);
+    expect(
+      (submitted[0] as { metadata?: { reason?: string } }).metadata?.reason
+    ).toBe('resume-non-idempotent');
   });
 
   it('I4：无 pendingToolCalls ⇒ 续跑 steering 退化为通用提示（不报错）', async () => {

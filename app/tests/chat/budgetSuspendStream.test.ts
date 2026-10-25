@@ -449,14 +449,14 @@ describe('C1/I3：流式唤醒"真的继续跑"且返回值如实', () => {
     expect(saved.some((s) => s.label === 'budget_resumed')).toBe(true);
   });
 
-  it('I4：重发轮的提示消费挂起检查点的未完成工具清单', async () => {
+  it('I4：重发轮的提示消费挂起检查点的未完成工具清单（仅幂等工具）', async () => {
     const cm = new ChatManagerImpl();
     const sid = 'c1-stream-4';
     stubStreamResume(cm, [{ type: 'status', statusType: 'task_all_done' }], {
       id: 'cp-4',
       metadata: {
         pendingToolCalls: [
-          { toolCallId: 'tc-1', toolName: 'bash', args: { command: 'ls' } },
+          { toolCallId: 'tc-1', toolName: 'read_project_file', args: {} },
           { toolCallId: 'tc-2', toolName: 'grep', args: { pattern: 'todo' } },
         ],
       },
@@ -469,8 +469,49 @@ describe('C1/I3：流式唤醒"真的继续跑"且返回值如实', () => {
 
     await cm.resumeSuspendedSession(sid, 'stream');
 
-    expect(execContent).toContain('bash');
+    expect(execContent).toContain('read_project_file');
     expect(execContent).toContain('grep');
+  });
+
+  // T25-13a（2026-10-25）：只剩非幂等工具 ⇒ **不自动续跑**（不重放、不重发），改走 Inbox 确认
+  it('T25-13a：仅剩非幂等未完成工具 ⇒ 返回 false、不重发、提交 Inbox', async () => {
+    const cm = new ChatManagerImpl();
+    const sid = 'c1-stream-t13a';
+    stubStreamResume(cm, [{ type: 'status', statusType: 'task_all_done' }], {
+      id: 'cp-t13a',
+      metadata: {
+        pendingToolCalls: [
+          { toolCallId: 'tc-1', toolName: 'bash', args: { command: 'ls' } },
+        ],
+      },
+    });
+    let execContent = '';
+    asStreamInternals(cm).chatOrchestrator.sendMessage = async (content) => {
+      execContent = String(content);
+      return {} as never;
+    };
+
+    const { inboxManager } = await import('../../src/runtime/InboxManager');
+    const submitted: unknown[] = [];
+    const original = inboxManager.submit;
+    (
+      inboxManager as unknown as { submit: (i: unknown) => Promise<string> }
+    ).submit = async (item: unknown) => {
+      submitted.push(item);
+      return 'inbox-t13a';
+    };
+
+    let ok: boolean;
+    try {
+      ok = await cm.resumeSuspendedSession(sid, 'stream');
+    } finally {
+      (inboxManager as unknown as { submit: typeof original }).submit =
+        original;
+    }
+
+    expect(ok).toBe(false); // 协调器据此保留挂起，等人工确认
+    expect(execContent).toBe(''); // 未重发任何续跑提示
+    expect(submitted).toHaveLength(1);
   });
 });
 

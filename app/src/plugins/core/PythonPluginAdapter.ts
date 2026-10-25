@@ -69,6 +69,11 @@ export interface PythonPluginConfig {
   inject?: string[];
   /** 注入白名单（manifest injectOptional） */
   injectOptional?: string[];
+  /**
+   * 配置端口覆盖（测试 / 自定义宿主用）。
+   * 缺省 ⇒ `resolvePluginConfigPort()` 解析全局唯一 `PluginConfigManager`（生产路径）。
+   */
+  configPort?: PluginConfigPort | null;
 }
 
 /** Python 插件声明的工具（对齐 ToolRegistration 结构） */
@@ -371,6 +376,9 @@ export class PythonPluginAdapter {
 
   /** 懒解析**全局唯一**配置端口（禁止第二实例：两个 manager 会互相覆盖同一份配置文件） */
   private configPort(): Promise<PluginConfigPort | null> {
+    if (this.config.configPort !== undefined) {
+      return Promise.resolve(this.config.configPort);
+    }
     this.configPortPromise ??= resolvePluginConfigPort();
     return this.configPortPromise;
   }

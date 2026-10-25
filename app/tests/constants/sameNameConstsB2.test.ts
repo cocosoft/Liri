@@ -1667,20 +1667,12 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   // 51+ 无圈码字形 ⇒ 沿用台账 ASCII 编号（`B5-2-<n>-<SLUG>`）
-  test('B5-2-51：`TABLE` ×2 已按域消歧（异值异域：定时任务表 / 人设绑定表，取值一字未改）', () => {
+  test('B5-2-51：`TABLE` 已按域消歧（定时任务表 `scheduled_tasks`；原人设绑定表侧已随 agent/persona 死面清理删除，见台账）', () => {
     const cron = read('src/chronos/service/SqliteCronStore.ts');
     expect(cron).not.toMatch(/(^|[^_A-Za-z])const TABLE\s*=/);
     expect(cron).toContain("const SCHEDULED_TASKS_TABLE = 'scheduled_tasks';");
     expect(cron).toContain(
       'CREATE TABLE IF NOT EXISTS ${SCHEDULED_TASKS_TABLE} ('
-    );
-    const persona = read('src/agent/persona/PersonaService.ts');
-    expect(persona).not.toMatch(/(^|[^_A-Za-z])const TABLE\s*=/);
-    expect(persona).toContain(
-      "const PERSONA_BINDINGS_TABLE = 'persona_bindings';"
-    );
-    expect(persona).toContain(
-      'CREATE TABLE IF NOT EXISTS ${PERSONA_BINDINGS_TABLE} ('
     );
   });
 

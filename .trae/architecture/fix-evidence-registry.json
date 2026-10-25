@@ -7574,7 +7574,7 @@
     },
     {
       "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE",
-      "title": "`TABLE` ×2 按域消歧（异值异域：定时任务表 `scheduled_tasks` / 人设绑定表 `persona_bindings`，取值一字未改）⇒ 同名常量:TABLE 2>0",
+      "title": "`TABLE` 按域消歧（定时任务表 `scheduled_tasks`；人设绑定表侧已随 agent/persona 死面清理删除）⇒ 同名常量:TABLE 1>0",
       "source": "硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队首",
       "stages": {
         "discovered": true,
@@ -7589,15 +7589,16 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/chronos/service/SqliteCronStore.ts",
-        "app/src/agent/persona/PersonaService.ts"
+        "app/src/chronos/service/SqliteCronStore.ts"
       ],
       "tests": [
         "app/tests/constants/sameNameConstsB2.test.ts"
       ],
-      "changelog": [],
-      "reopenWhen": "① 若这两个模块的表名再被第三个模块复用，须提真源（当前各自私有、无复用诉求）；② 若新增 SQLite 表且沿用裸名 `TABLE`，`lint:consts` 会重新报同名常量 ⇒ 按域命名后再提交；③ 建表语句（DDL）若改为迁移脚本，需同步本项的两处断言。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE）",
-      "notes": "① **判据**：两处 `const TABLE = '...'` 是**同名不同事实**（两个不同的表名）⇒ 按域消歧（B5-2 系列惯例：异值异域改名、同值同事实合一）。② **改法**：`app/src/chronos/service/SqliteCronStore.ts` → `const SCHEDULED…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE）"
+      "changelog": [
+        "2026-10-25：人设绑定表侧已随 agent/persona 死面清理删除（CD01 取证：全仓 src/client/tests/scripts/.trae 零外部引用；仅本门禁与 B5-2-51 测试读取）。本项仅剩定时任务表域；回滚：revert 死面清理删除提交即恢复。"
+      ],
+      "reopenWhen": "① 若定时任务表名再被其它模块复用，须提真源（当前私有、无复用诉求）；② 若新增 SQLite 表且沿用裸名 `TABLE`，`lint:consts` 会重新报同名常量 ⇒ 按域命名后再提交；③ 建表语句（DDL）若改为迁移脚本，需同步本项的断言。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE）",
+      "notes": "① **判据**：`const TABLE` 同名域（仅剩定时任务表 `scheduled_tasks`）⇒ 按域命名（B5-2 系列惯例：异值异域改名、同值同事实合一）；原人设绑定表侧已随死面清理删除（详见本项 changelog）。② **改法**：`app/src/chronos/service/SqliteCronStore.ts` → `const SCHEDULED…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE）"
     },
     {
       "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS",

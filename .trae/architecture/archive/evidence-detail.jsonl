@@ -6325,3 +6325,12 @@
 {"id":"T25-08-P2-OFFICIAL-KEY","k":"tests#1","i":0,"c":"app/tests/plugins/pluginInstallCapabilities.test.ts"}
 {"id":"T25-08-P2-OFFICIAL-KEY","k":"tests#2","i":0,"c":"app/tests/plugins/pluginLoaderHostWiring.test.ts"}
 {"id":"T25-08-P2-OFFICIAL-KEY","k":"changelog#0","i":0,"c":"内置官方插件公钥（指纹 9e92b0c3b0fb3173）：签名闸默认开启，未签名第三方插件被拒；私钥保存在仓库外"}
+{"id":"T25-08-P2-PY-CONFIG-MERGE","k":"title","i":0,"c":"插件 config 双轨收敛：Python 并入 PluginConfigManager（旧文件一次性迁移）"}
+{"id":"T25-08-P2-PY-CONFIG-MERGE","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §34"}
+{"id":"T25-08-P2-PY-CONFIG-MERGE","k":"reopenWhen","i":0,"c":"新增第二语言运行时须复用同一 PluginConfigPort；若迁移被 schema 拒绝，需人工处理后旧文件才会改名留档"}
+{"id":"T25-08-P2-PY-CONFIG-MERGE","k":"code#0","i":0,"c":"app/src/plugins/core/PythonPluginAdapter.ts"}
+{"id":"T25-08-P2-PY-CONFIG-MERGE","k":"code#1","i":0,"c":"app/src/plugins/core/pythonPluginConfigMigration.ts"}
+{"id":"T25-08-P2-PY-CONFIG-MERGE","k":"code#2","i":0,"c":".trae/specs/plugin-process-isolation.md"}
+{"id":"T25-08-P2-PY-CONFIG-MERGE","k":"code#3","i":0,"c":"app/docs/插件系统/manifest.md"}
+{"id":"T25-08-P2-PY-CONFIG-MERGE","k":"tests#0","i":0,"c":"app/tests/plugins/pythonPluginConfig.test.ts"}
+{"id":"T25-08-P2-PY-CONFIG-MERGE","k":"changelog#0","i":0,"c":"插件配置双轨收敛：Python 插件并入 PluginConfigManager（旧文件一次性迁移，不覆盖新值、不删数据）"}

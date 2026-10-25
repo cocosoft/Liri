@@ -12245,6 +12245,36 @@
         "内置官方插件公钥（指纹 9e92b0c3b0fb3173）：签名闸默认开启，未签名第三方插件被拒；私钥保存在仓库外"
       ],
       "reopenWhen": "官方私钥丢失 ⇒ 换钥并重发包；若长期没有任何官方签名的插件，需复评是否保留默认开启（全文见 archive/evidence-detail.jsonl#T25-08-P2-OFFICIAL-KEY）"
+    },
+    {
+      "id": "T25-08-P2-PY-CONFIG-MERGE",
+      "title": "插件 config 双轨收敛：Python 并入 PluginConfigManager（旧文件一次性迁移）",
+      "source": "dev_docs/20261025/待完成工作任务清单-20261025.md §34",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/plugins/core/PythonPluginAdapter.ts",
+        "app/src/plugins/core/pythonPluginConfigMigration.ts",
+        ".trae/specs/plugin-process-isolation.md",
+        "app/docs/插件系统/manifest.md"
+      ],
+      "tests": [
+        "app/tests/plugins/pythonPluginConfig.test.ts"
+      ],
+      "changelog": [
+        "插件配置双轨收敛：Python 插件并入 PluginConfigManager（旧文件一次性迁移，不覆盖新值、不删数据）"
+      ],
+      "reopenWhen": "新增第二语言运行时须复用同一 PluginConfigPort；若迁移被 schema 拒绝，需人工处理后旧文件才会改名留档（全文见 archive/evidence-detail.jsonl#T25-08-P2-PY-CONFIG-MERGE）"
     }
   ]
 }

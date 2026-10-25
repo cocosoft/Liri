@@ -12648,6 +12648,32 @@
         "macOS 兜底沙箱（写隔离）：sandbox-exec 接入 bash/code_run，复用 landlock 开关，不可用即拒绝"
       ],
       "reopenWhen": "读白名单/网络收紧待 macOS 实机灰度数据；Windows 兜底另立专项（AppContainer/JobObject）（全文见 archive/evidence-detail.jsonl#MACOS-SANDBOX-WRITE-ISOLATION）"
+    },
+    {
+      "id": "PRECOMMIT-RATCHET-GATES",
+      "title": "",
+      "source": "",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/scripts/setup-git-hooks.ts",
+        ".trae/rules/development-workflow.md"
+      ],
+      "tests": [],
+      "changelog": [
+        "pre-commit 前置 state-ratchet / fn-size / consts / unref（约 3s），避免本地绿 CI 红"
+      ],
+      "reopenWhen": "若棘轮族耗时涨到 >5s，回退为仅在 CI 跑；改钩子后须 bun run modules:setup 重新生成（全文见 archive/evidence-detail.jsonl#PRECOMMIT-RATCHET-GATES）"
     }
   ]
 }

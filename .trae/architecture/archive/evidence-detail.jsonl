@@ -6432,3 +6432,7 @@
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"tests#0","i":0,"c":"app/tests/sandbox/macosSandboxPolicy.test.ts"}
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"tests#1","i":0,"c":"app/tests/sandbox/bashMacOSSandboxGate.test.ts"}
 {"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"changelog#0","i":0,"c":"macOS 兜底沙箱（写隔离）：sandbox-exec 接入 bash/code_run，复用 landlock 开关，不可用即拒绝"}
+{"id":"PRECOMMIT-RATCHET-GATES","k":"reopenWhen","i":0,"c":"若棘轮族耗时涨到 >5s，回退为仅在 CI 跑；改钩子后须 bun run modules:setup 重新生成"}
+{"id":"PRECOMMIT-RATCHET-GATES","k":"code#0","i":0,"c":"app/scripts/setup-git-hooks.ts"}
+{"id":"PRECOMMIT-RATCHET-GATES","k":"code#1","i":0,"c":".trae/rules/development-workflow.md"}
+{"id":"PRECOMMIT-RATCHET-GATES","k":"changelog#0","i":0,"c":"pre-commit 前置 state-ratchet / fn-size / consts / unref（约 3s），避免本地绿 CI 红"}

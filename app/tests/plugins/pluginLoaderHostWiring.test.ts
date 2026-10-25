@@ -40,12 +40,16 @@ const temps: string[] = [];
 const loaders: PluginLoader[] = [];
 const ENV_TRUSTED = 'LIRI_PLUGIN_TRUSTED_IDS';
 const ENV_GRANTS = 'LIRI_PLUGIN_CAPABILITY_GRANTS';
+const ENV_SIGN = 'LIRI_PLUGIN_REQUIRE_SIGNATURE';
 
 beforeEach(() => {
-  for (const key of [ENV_TRUSTED, ENV_GRANTS, 'LIRI_WIRING_SECRET']) {
+  for (const key of [ENV_TRUSTED, ENV_GRANTS, ENV_SIGN, 'LIRI_WIRING_SECRET']) {
     saved[key] = process.env[key];
   }
   delete process.env[ENV_GRANTS];
+  // 本组验证的是**宿主链路**：随包官方钥存在时签名闸默认开启（「信任锚即意图」）
+  // ⇒ 显式关闭，避免"未签名"先被签名闸拦下、掩盖宿主行为。
+  process.env[ENV_SIGN] = 'false';
   process.env['LIRI_WIRING_SECRET'] = 'must-not-cross-process';
 });
 
@@ -63,7 +67,7 @@ afterEach(async () => {
   } catch {
     // 未注册
   }
-  for (const key of [ENV_TRUSTED, ENV_GRANTS, 'LIRI_WIRING_SECRET']) {
+  for (const key of [ENV_TRUSTED, ENV_GRANTS, ENV_SIGN, 'LIRI_WIRING_SECRET']) {
     if (saved[key] === undefined) delete process.env[key];
     else process.env[key] = saved[key];
   }

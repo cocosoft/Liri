@@ -36,8 +36,8 @@
 | 4 | **进程** | 通过前三道后默认在**子进程**运行（`PLUGIN_HOST_PROCESS=true`） | 子进程只注入白名单 env，读不到宿主 `.env`；工具经 RPC 回主进程执行并留审计 |
 
 - 第一方 bundled 插件不走这套闸；
-- 第 2 道**只在有信任锚时启用**（随包官方钥 `app/trusted-keys/`、用户自建钥 `<plugins 根>/trusted-keys/`、
-  `LIRI_PLUGIN_TRUSTED_KEYS_DIR` **三处并集**，任一目录有 `*.pem` 即开始校验，
+- 第 2 道**已默认启用**（安装包内置官方公钥 `app/trusted-keys/`；信任锚 = 随包官方钥 ∪ 用户自建钥
+  `<plugins 根>/trusted-keys/` ∪ `LIRI_PLUGIN_TRUSTED_KEYS_DIR`，任一目录有 `*.pem` 即校验；
   `LIRI_PLUGIN_REQUIRE_SIGNATURE=false` 可临时关闭）；
 - 第 3 道在完全没有授权配置时不做门控（零行为变更），但清单里的**未知能力名永远被拒**。
 

@@ -19,19 +19,26 @@ import {
 import type { PluginRegistry } from '../../src/plugins/core/PluginRegistry';
 import type { NpmDistributor } from '../../src/plugins/distribution/NpmDistributor';
 import { PLUGIN_CAPABILITY_GRANTS_ENV } from '../../src/plugins/utils/pluginCapabilities';
+import { PLUGIN_SIGNATURE_ENFORCE_ENV } from '../../src/plugins/utils/pluginSignature';
 
 const ENV_GRANTS = PLUGIN_CAPABILITY_GRANTS_ENV;
+const ENV_SIGN = PLUGIN_SIGNATURE_ENFORCE_ENV;
 const saved: Record<string, string | undefined> = {};
 const temps: string[] = [];
 
 beforeEach(() => {
-  saved[ENV_GRANTS] = process.env[ENV_GRANTS];
+  for (const key of [ENV_GRANTS, ENV_SIGN]) saved[key] = process.env[key];
   delete process.env[ENV_GRANTS];
+  // 本组只验证**能力闸**：随包官方钥（`app/trusted-keys/*.pem`）存在时签名闸默认开启
+  // （「信任锚即意图」）⇒ 显式关闭以隔离被测闸位，避免签名先拒掩盖能力结论。
+  process.env[ENV_SIGN] = 'false';
 });
 
 afterEach(() => {
-  if (saved[ENV_GRANTS] === undefined) delete process.env[ENV_GRANTS];
-  else process.env[ENV_GRANTS] = saved[ENV_GRANTS];
+  for (const key of [ENV_GRANTS, ENV_SIGN]) {
+    if (saved[key] === undefined) delete process.env[key];
+    else process.env[key] = saved[key];
+  }
   for (const dir of temps.splice(0)) {
     try {
       rmSync(dir, { recursive: true, force: true });

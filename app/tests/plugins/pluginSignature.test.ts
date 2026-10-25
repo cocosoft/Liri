@@ -161,15 +161,14 @@ describe('签名开关与信任锚（纯函数）', () => {
     // 空白 ⇒ 视同未配
     expect(
       resolveTrustedKeysDirs({
+        ...isolatedEnv(),
         [ENV_KEYS]: '   ',
-        [ENV_HOME]: home,
-        [ENV_PROJECT]: project,
       })
     ).toEqual([]);
     // 显式配置**即使目录不存在**也参与判定（错误暴露成可读的「目录不存在」）
-    expect(resolveTrustedKeysDirs({ [ENV_KEYS]: ' /keys ' })).toEqual([
-      '/keys',
-    ]);
+    expect(
+      resolveTrustedKeysDirs({ ...isolatedEnv(), [ENV_KEYS]: ' /keys ' })
+    ).toEqual(['/keys']);
   });
 
   it('用户默认信任锚 `<plugins>/trusted-keys`：放了一把 *.pem 就自动生效', () => {

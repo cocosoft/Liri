@@ -121,8 +121,10 @@ mkdir -p ~/.pyapp/plugins/trusted-keys && cp ./keys/plugin-signing.pub.pem ~/.py
 
 > 工具**不会**替你摆放公钥：放进任一信任锚目录才会生效；私钥不托管、不进插件目录。
 > **随包分发官方公钥**已落地（2026-10-25）：仓库内 `app/trusted-keys/` 随包分发（`copy-seed-data.ts`
-> → 便携包 `app/trusted-keys/`；Tauri 由 `bundle.resources` 映射）；**本仓不内置任何私钥**，
-> 官方公钥本身由发布方在发版前放入（目录内只有说明文件时视为「无官方钥」，不改变默认行为）。
+> → 便携包 `app/trusted-keys/`；Tauri 由 `bundle.resources` 映射）；**本仓不内置任何私钥**。
+> 2026-10-25 已生成并内置官方**公钥** `official-plugin-signing.pub.pem`（指纹 `9e92b0c3b0fb3173`），
+> 私钥保存在仓库外 ⇒ 从此**本仓开发态与安装包内签名闸默认开启**（未签名第三方插件被拒；
+> 需要灰度时显式 `LIRI_PLUGIN_REQUIRE_SIGNATURE=false`）。
 
 > 无钥时**拒装**（而非告警放行）：开启该开关的语义就是"只装能证明来源的东西"；若缺钥时放行，攻击者只需清空目录即可绕过。
 

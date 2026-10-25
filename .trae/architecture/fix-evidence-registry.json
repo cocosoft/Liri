@@ -12362,6 +12362,34 @@
         "迁移状态改用 schema-rejected（避开状态词汇表 blocked）；全量 CI 8419 pass / 0 fail"
       ],
       "reopenWhen": "新增迁移/解析结论枚举时先对照 stateMachineCatalog 词汇表；若确属状态机则登记目录，不得随手改名绕过（全文见 archive/evidence-detail.jsonl#T25-08-P2-PY-STATE-LITERAL）"
+    },
+    {
+      "id": "T25-08-P2-CONFIG-PORT-DI",
+      "title": "配置端口改 DI 注入，消除 madge 判环（CI Static Checks 实证）",
+      "source": "dev_docs/20261025/待完成工作任务清单-20261025.md §34.3",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/plugins/host/pluginConfigPort.ts",
+        "app/src/plugins/index.ts"
+      ],
+      "tests": [
+        "app/tests/plugins/pluginHostConfig.test.ts"
+      ],
+      "changelog": [
+        "配置端口改 DI 注入（registerPluginConfigManagerProvider），消除 pluginConfigPort 反向 import 成环"
+      ],
+      "reopenWhen": "端口模块若再 import 上层（含动态 import）即复发；新增端口解析请用 register*Provider 注入而非反向 import（全文见 archive/evidence-detail.jsonl#T25-08-P2-CONFIG-PORT-DI）"
     }
   ]
 }

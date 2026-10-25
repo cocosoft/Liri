@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **T25-08-P2-CONFIG-PORT-DI**：配置端口改 DI 注入，消除 CI 判环 —— 验证 madge0|plugins99|typecheck；基线 src/ 4009 文件 madge --circular 0 环；tests/plugins 99 pass（详情见 archive/evidence-detail.jsonl#T25-08-P2-CONFIG-PORT-DI）
 - ✅ **T25-08-P2-PY-STATE-LITERAL**：全量 CI 收口：迁移状态改用 schema-rejected —— 验证 state-ratchet|plugins99|ci8419；基线 bun run ci exit0：8419 pass/43 skip/0 fail（8462 例/1037 文件/144.9s）（详情见 archive/evidence-detail.jsonl#T25-08-P2-PY-STATE-LITERAL）
 - ✅ **T25-08-P2-PY-E2E-CI**：CI 不允许静默 skip：Python 真链 E2E 缺解释器即报红 —— 验证 guard-red|e2e1|plugins99|workflows；基线 PATH='' ⇒ 1 fail/1 skip exit1；正常环境同开关 ⇒ 1 pass（详情见 archive/evidence-detail.jsonl#T25-08-P2-PY-E2E-CI）
 - ✅ **T25-08-P2-PY-CONFIG-E2E**：Python 插件 config 真链 E2E（真实 spawn + 反向 RPC） —— 验证 e2e1|plugins99|typecheck|arch|doc-code；基线 真链证明 Python _Config → 反向 RPC → 宿主端口；无解释器整组 skip（详情见 archive/evidence-detail.jsonl#T25-08-P2-PY-CONFIG-E2E）

@@ -116,10 +116,14 @@ export function extractSpecifiers(rawText: string): SpecHit[] {
     push(m[2]!, 'static', m.index);
   }
 
-  // 动态：`import('x')` / `require('x')`
-  const dynRe = /\b(import|require)\(\s*['"]([^'"]+)['"]/g;
+  // 动态：`import('x')` / `require('x')` / 模板拼接 `` import(`./x/${n}`) ``
+  // 模板一种**必须**能被看见：它是 R00-003 动态盲区里最容易被用来绕 K02 的写法
+  // （复审 B1："含拼接"若匹配不到，K02 的宣称就落空）。
+  const dynRe =
+    /\b(import|require)\(\s*(?:'([^'\n]+)'|"([^"\n]+)"|`([^`\n]*)`)/g;
   while ((m = dynRe.exec(text)) !== null) {
-    push(m[2]!, m[1] === 'require' ? 'require' : 'dynamic', m.index);
+    const spec = m[2] ?? m[3] ?? m[4] ?? '';
+    push(spec, m[1] === 'require' ? 'require' : 'dynamic', m.index);
   }
 
   return hits;
@@ -242,6 +246,18 @@ export function analyzeKernelPurity(input: AnalyzeInput): AnalyzeResult {
     const inSpi = file.path.startsWith(spiRoot);
 
     for (const hit of extractSpecifiers(file.text)) {
+      // K02 补盲（复审 B1）：模板拼接的动态导入 ⇒ 说明符静态不可证 ⇒ fail-closed
+      if (hit.spec.includes('${')) {
+        violations.push({
+          rule: 'K02',
+          file: relFile,
+          line: hit.line,
+          target: hit.spec,
+          message: `动态导入含模板拼接（静态不可证）：${hit.spec} —— 请改为字面量说明符，或经 core/spi 端口由上层注入`,
+        });
+        continue;
+      }
+
       const target = resolveTargetModule(
         hit.spec,
         file.path,

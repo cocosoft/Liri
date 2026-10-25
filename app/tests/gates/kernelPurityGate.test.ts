@@ -145,6 +145,25 @@ describe('内核纯净度门禁：违规样例必红', () => {
     expect(out).not.toContain('clean.ts');
   });
 
+  it('模板拼接的动态导入 ⇒ K02（静态不可证，fail-closed）；纯字面量模板 ⇒ 绿', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      'app/src/core/tpl-leak.ts':
+        'export async function load(n: string): Promise<unknown> {\n  return import(`./dyn/${n}`);\n}\n',
+      'app/src/core/tpl-literal.ts':
+        'export async function load(): Promise<unknown> {\n  return import(`./dyn`);\n}\n',
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(1);
+    expect(out).toContain('K02');
+    expect(out).toContain('模板拼接');
+    expect(out).toContain('tpl-leak.ts');
+    // 纯字面量模板（无插值）仍可静态解析 ⇒ 不误伤
+    expect(out).not.toContain('tpl-literal.ts');
+  });
+
   it('注释里的 import 不算违规（注释剥离有效）', () => {
     const root = fixture({
       'scripts/modules-to-layers.json': LAYERS,

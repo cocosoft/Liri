@@ -1,6 +1,8 @@
 # Spec：第三方插件进程隔离（T25-08）
 
-> 版本 1.0 ｜ 创建 2026-10-25 ｜ 状态：🟡 **设计定稿 · 待用户拍板 P0 策略**
+> 版本 1.1 ｜ 创建 2026-10-25 ｜ 状态：✅ **P0 + P1 已落地**（用户裁定 ① 默认拒绝 + 白名单）；P2（市场/安装链路）待施工
+> 实现落点：`app/src/plugins/utils/pluginTrust.ts`（P0 闸）· `app/src/plugins/host/{pluginHostProtocol,pluginHostEntry,PluginHostSupervisor}.ts`（P1 宿主）
+> 开关：`PLUGIN_THIRD_PARTY_INPROCESS=false`（准入闸）· `PLUGIN_HOST_PROCESS=true`（子进程宿主）
 > 来源：`dev_docs/20261025/待完成工作任务清单-20261025.md` §10.6（第二批建议组 6）
 > 关联：`google-ai-review-adjudication.md` §3.2（进程托管落点）· `tool-sidecar-isolation.md`（侧车先例）· `utils/sidecarIpc.ts`（可复用 IPC 帧）
 >

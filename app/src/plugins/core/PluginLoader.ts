@@ -5,7 +5,7 @@
 import { EventEmitter } from 'events';
 import { join } from 'path';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'fs';
-import { resolvePluginsInstalledDir } from '@openliri/kernel';
+import { feature, resolvePluginsInstalledDir } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import {
   isThirdPartyPluginTrusted,
@@ -369,7 +369,24 @@ export class PluginLoader extends EventEmitter {
       const entryPoint = manifest.entryPoint || manifest.main;
       if (entryPoint) {
         const entryPath = join(plugin.path, entryPoint);
-        plugin.instance = await import(entryPath);
+        // ── T25-08 P1（2026-10-25）：可信第三方插件默认**不在主进程内执行** ──
+        // 逃生开关 `FEATURE_PLUGIN_THIRD_PARTY_INPROCESS=true` 明确要求"回到旧行为"⇒ 进程内 import。
+        if (
+          feature('PLUGIN_HOST_PROCESS') &&
+          trust.reason !== 'in-process-optin'
+        ) {
+          const { PluginHostSupervisor } =
+            await import('../host/PluginHostSupervisor.js');
+          const host = new PluginHostSupervisor({
+            pluginId: plugin.id,
+            pluginDir: plugin.path,
+            entryPath,
+          });
+          await host.start();
+          plugin.hostProcess = host;
+        } else {
+          plugin.instance = await import(entryPath);
+        }
       }
 
       // 更新插件状态和统计信息
@@ -422,6 +439,9 @@ export class PluginLoader extends EventEmitter {
     try {
       // 更新插件状态
       plugin.state = PluginState.UNLOADED;
+      // T25-08 P1：子进程宿主必须一并停掉（否则进程残留、代理工具继续可调）
+      plugin.hostProcess?.stop();
+      plugin.hostProcess = undefined;
       plugin.instance = undefined;
       plugin.error = undefined;
 

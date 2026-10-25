@@ -26,9 +26,8 @@ import {
   KernelServiceId,
 } from '../api/KernelServiceRegistry';
 import { getServiceProviderPluginId } from '../utils/dependencyResolver';
-import { buildTool } from '@modules/tools/types/Tool';
-import type { ToolParam } from '@modules/tools/types/Tool';
-import { createToolResult } from '@modules/tools/types/ToolResult';
+// T25-08 P1（2026-10-25）：声明 → Tool 的装配收敛为**唯一实现**（子进程宿主共用同一路径）
+import { buildRegisteredTool } from '../utils/toolRegistration';
 import { getToolRegistry } from '../../tools/ToolRegistry';
 
 const logger = getLogger('plugins:core:sdkPluginAdapter');
@@ -224,9 +223,10 @@ export class SdkPluginAdapter {
 
     const registry = getToolRegistry();
     for (const registration of registrations) {
-      registry.registerTool(toRegisteredTool(registration), {
-        onConflict: 'error',
-      });
+      registry.registerTool(
+        buildRegisteredTool(registration, registration.execute),
+        { onConflict: 'error' }
+      );
     }
     logger.info(
       `SDK plugin ${plugin.id} registered ${registrations.length} tools`,
@@ -281,37 +281,4 @@ export class SdkPluginAdapter {
       );
     }
   }
-}
-
-/** JSON Schema properties 条目 → ToolParam 适配 */
-function toToolParam(name: string, schema: unknown): ToolParam {
-  const s = (schema ?? {}) as Record<string, unknown>;
-  return {
-    name,
-    type: typeof s.type === 'string' ? s.type : 'string',
-    description: typeof s.description === 'string' ? s.description : '',
-    required: s.required === true,
-    default: s.default,
-    enum: Array.isArray(s.enum) ? (s.enum as string[]) : undefined,
-  };
-}
-
-/** ToolRegistration → Tool（buildTool 填充默认方法） */
-function toRegisteredTool(registration: ToolRegistration) {
-  const schema = (registration.parameters ?? {}) as Record<string, unknown>;
-  const params = Object.entries(schema).map(([name, prop]) =>
-    toToolParam(name, prop)
-  );
-
-  return buildTool({
-    name: registration.name,
-    description: registration.description,
-    params,
-    isEnabled: () => true,
-    isConcurrencySafe: () => true,
-    execute: async (input: Record<string, unknown>) => {
-      const result = await registration.execute(input);
-      return createToolResult(result);
-    },
-  });
 }

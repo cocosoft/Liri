@@ -210,6 +210,12 @@ const SAFETY_SWITCHES = [
         def: false,
         why: '第三方插件在主进程内 `import` 执行 ⇒ 可读宿主 `.env` / spawn 子进程；须显式开启（默认拒绝 + LIRI_PLUGIN_TRUSTED_IDS 白名单）',
     },
+    // T25-08 P1（2026-10-25）：第三方插件子进程宿主（默认开 = 进程边界 + env 白名单）
+    {
+        name: 'PLUGIN_HOST_PROCESS',
+        def: true,
+        why: '第三方插件必须在子进程运行（env 白名单隔离密钥 / 崩溃有界重启 / 工具经 RPC 审计）；关 = 回到主进程内 import，与宿主同权限',
+    },
 ];
 
 /** 由清单派生的断言（避免 11 条近重复手写条目） */

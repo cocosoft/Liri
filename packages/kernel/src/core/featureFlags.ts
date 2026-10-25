@@ -173,6 +173,16 @@ export const FEATURE_FLAGS = {
    * 触发条件登记：`.trae/specs/default-off-switches-review-gates.md` §2 #16。
    */
   PLUGIN_THIRD_PARTY_INPROCESS: false,
+  /**
+   * T25-08 P1（2026-10-25）：**第三方插件在子进程宿主中运行**（**默认开**）。
+   *
+   * 开 ⇒ 已获授权的第三方插件由 `plugins/host/PluginHostSupervisor` 拉起独立进程：
+   * env 白名单（**不继承宿主 `.env`**）、崩溃有界重启、工具经 RPC 回主进程执行并留审计。
+   * 关 ⇒ 回退到进程内 `import(entryPath)`（仍受 `PLUGIN_THIRD_PARTY_INPROCESS` 准入闸约束）。
+   * 逃生开关 `FEATURE_PLUGIN_THIRD_PARTY_INPROCESS=true` 优先：用户显式要求"旧行为"时**不起**宿主。
+   * 触发条件见 `.trae/specs/plugin-process-isolation.md` §6（P1 验收）。
+   */
+  PLUGIN_HOST_PROCESS: true,
   /** 技能系统 */
   ENABLE_SKILLS: true,
   /** 高级命令 */

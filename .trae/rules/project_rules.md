@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 # Liri 项目规则文档
-**版本**: 7.27.0 | **更新**: 2026-10-24
+**版本**: 7.28.0 | **更新**: 2026-10-26
 
 ## §1 基础规则
 
@@ -36,9 +36,13 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 > **唯一事实源约定**：本表与 `packages/kernel/src/core/featureFlags.ts` 的**字面默认值**必须一致，由
 > `bun run lint:doc-code`（`scripts/check-doc-code-consistency.js` 的 `SAFETY_SWITCHES`）**逐项断言**
 > —— 任一侧改单边即 **CI 阻断**（防「误翻转安全开关」静默改变安全姿态）。
+> **例外一行**：`LIRI_PLUGIN_REQUIRE_SIGNATURE` 的默认值**不是字面量**，而是「信任锚目录里有没有 `*.pem`」
+> （随包官方钥随安装包分发 ⇒ 安装版默认开），故 `SAFETY_SWITCHES` 无法覆盖；它由
+> `PLUGIN_SIGNATURE_ASSERTIONS` **单独断言**（env 名 + 「信任锚即意图」默认语义 + 随包公钥真实存在）。
+> 改这一行的口径时，须同批更新该断言表。
 > 改默认值时必须**同批**更新本表 + 断言表，并在台账登记理由。
 >
-> 清单规模：**21 项**（2026-10-25 起；A2/A4/A5 新增三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL`；**P0-3 新增 `CODE_RUN_DEEP_SCAN_STRICT`、P0-2 新增 `CLIENT_STREAM_EXECUTION`；§6-#11 新增 `REQUIRE_BEARER`；T25-07 新增 `CHANNEL_UNTRUSTED_TAINT`（**默认开**，渠道来源 Taint）；T25-08 新增 `PLUGIN_THIRD_PARTY_INPROCESS`（默认关，第三方插件准入闸）与 `PLUGIN_HOST_PROCESS`（**默认开**，第三方插件子进程宿主）**）。
+> 清单规模：**22 项**（2026-10-26 起；A2/A4/A5 新增三个默认关的 Bash 安全姿态灰度开关；PR2 新增 `EXECUTION_TWO_PHASE_CANCEL`；**P0-3 新增 `CODE_RUN_DEEP_SCAN_STRICT`、P0-2 新增 `CLIENT_STREAM_EXECUTION`；§6-#11 新增 `REQUIRE_BEARER`；T25-07 新增 `CHANNEL_UNTRUSTED_TAINT`（**默认开**，渠道来源 Taint）；T25-08 新增 `PLUGIN_THIRD_PARTY_INPROCESS`（默认关，第三方插件准入闸）与 `PLUGIN_HOST_PROCESS`（**默认开**，第三方插件子进程宿主）；T25-08 P2 新增 `LIRI_PLUGIN_REQUIRE_SIGNATURE`（**信任锚存在即开**，第三方插件清单签名闸）**）。
 
 | 开关 | 默认 | 生效语义 | 回退方式 | 触发条件（何时重开） |
 |------|:----:|---------|---------|:----:|
@@ -62,6 +66,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 | `REQUIRE_BEARER` | `true` | **非回环暴露面必须带登录态**（`LIRI_HTTP_HOST` 非回环 或 `headless` 变体 ⇒ 无有效 `Bearer` 一律 401，不再回落本机身份；`/v1/health*`、`/v1/a2a*` 豁免；桌面/CLI 回环不受影响） | `FEATURE_REQUIRE_BEARER=false`（灰度回退旧行为） | — |
 | `CHANNEL_UNTRUSTED_TAINT` | `true` | **渠道来源 Taint**：通道入站驱动的会话打标 `origin='channel'`（只升不降）⇒ `sideEffect !== 'none'` 的工具（bash/写文件/子代理/网络发送…，判定复用 `tools/toolEffects.ts`；未声明效果 fail-closed）一律拒绝；桌面/REPL/CLI 零变更（T25-07） | `FEATURE_CHANNEL_UNTRUSTED_TAINT=false`（灰度回退旧行为） | — |
 | `PLUGIN_THIRD_PARTY_INPROCESS` | `false` | **第三方插件准入闸**：`~/.pyapp/plugins/installed/**` 等文件/安装型插件默认**不在主进程内加载**（它们在主进程 `import` 执行 ⇒ 可读 `.env` / spawn 子进程）；单插件放行走 `LIRI_PLUGIN_TRUSTED_IDS`；第一方 bundled 插件不受影响（T25-08 P0） | `FEATURE_PLUGIN_THIRD_PARTY_INPROCESS=true`（整体回到旧行为，自担风险） | §2-#16 |
+| `LIRI_PLUGIN_REQUIRE_SIGNATURE` | **自动**（信任锚含 `*.pem` ⇒ 开） | **第三方插件清单签名闸**（T25-08 P2）：「信任锚即意图」—— 信任锚 = 随包 `app/trusted-keys/` ∪ `<plugins 根>/trusted-keys/` ∪ `LIRI_PLUGIN_TRUSTED_KEYS_DIR`（**并集**，任一目录真正含 `*.pem` 即启用）；启用后未签名 / 非受信任钥签名的第三方插件**拒绝安装与加载**；第一方 bundled 插件（`BundledPluginManager`）不受影响 | `LIRI_PLUGIN_REQUIRE_SIGNATURE=false`（灰度回退旧行为：过了准入闸即加载，不验证来源） | — |
 | `PLUGIN_HOST_PROCESS` | `true` | **第三方插件子进程宿主**：获授权的第三方插件由 `plugins/host/PluginHostSupervisor` 拉起独立进程（env 白名单 ⇒ 读不到宿主 `.env`；崩溃有界重启；工具经 RPC 回主进程执行并留审计）；关 = 回到主进程内 `import(entryPath)`（仍受上面准入闸约束）；逃生 `PLUGIN_THIRD_PARTY_INPROCESS=true` 优先于本开关（T25-08 P1） | `FEATURE_PLUGIN_HOST_PROCESS=false`（回到进程内执行） | — |
 
 > **「触发条件」列口径（2026-10-09）**：`§2-#N` 指向「**默认关项 · 触发条件登记表**」[`default-off-switches-review-gates.md §2`](../specs/default-off-switches-review-gates.md) 的第 N 行（含**可观测信号 + 阈值 + 窗口 + 复评节奏**）；`—` = **默认开**（无"何时重开"之问）。本列**只放指针**，**不把散文触发条件塞进规则表**（见 `development-workflow.md §2.14 规则 5` / R12-1）。登记完整性由 `bun run lint:doc-code` 断言（`scripts/check-doc-code-consistency.js` 的 `REGISTRATION_ASSERTIONS`）**强制** —— 新增默认关项而漏登记即 CI 阻断。
@@ -353,6 +358,7 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/kernel/paths';  // �
 ---
 
 ## §2 版本历史
+- **v7.28.0**: §1.4 安全开关清单 **21 → 22 项**，新增 **`LIRI_PLUGIN_REQUIRE_SIGNATURE`**（默认值**由信任锚存在性决定**：随包 `app/trusted-keys/*.pem` 随安装包分发 ⇒ 安装版默认开）—— 承接 **T25-08 P2**：插件清单签名闸此前已默认生效（「信任锚即意图」），但**未进本表、不受 `lint:doc-code` 断言保护**（其默认值非 `featureFlags.ts` 字面量，`SAFETY_SWITCHES` 覆盖不到）。同步：新增 `PLUGIN_SIGNATURE_ASSERTIONS` 3 条断言（env 名 / 「信任锚即意图」默认语义 / 随包公钥真实存在）
 - **v7.27.0**: §1.4 安全开关清单 **17 → 18 项**，新增 **`REQUIRE_BEARER`**（默认 `true` = 安全基线）—— 承接 **§6-#11**：HTTP 绑定**非回环**地址（`LIRI_HTTP_HOST`，如 Docker `0.0.0.0`）或 `headless` 变体时，**无有效 `Bearer` 登录会话一律 401**，不再回落 `LOCAL_PRINCIPAL`（共享密钥为空时 `verifyRequestAuth` 对任何请求都通过 ⇒ 远端可拿本机特权身份）；`/v1/health*`、`/v1/a2a*`（自带鉴权）豁免；桌面/CLI 回环绑定**零行为变更**。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（17 → 18）+ 本文表（触发条件 `—` = 默认开）
 - **v7.26.0**: §1.5「数据库统一约定」补**租户级**口径 —— 已认证身份走 `resolveTenantDbPath()`（`tenants/<t>/app.db`），租户内靠 `owner_key` 行级隔离且**每条读必须过滤**；实例缓存键改 `tenantId`；`resolveScopedDbPath()` 停用（非 DB 的按用户资产仍走 `resolveScopedDataDir()`）。同步：`app/src` 内 `resolveScopedDbPath` 归零、14 个仓储迁移完成（基础设施专项 §6.1）
 - **v7.25.0**: §1.4 安全开关清单 **16 → 17 项**，新增 **`CLIENT_STREAM_EXECUTION`**（默认 `false`）—— 承接 **P0-2**（客户端 `/v1/chat/stream` 接入 Execution 生命周期）：开 ⇒ SSE 入口 `acquire(sessionId)` 注入 `executionId`，与渠道路径**同一记账链路**（工具执行前 `await beginToolCall()` ⇒ 写前记账 + fail-closed），终态 `complete`/`fail`；关（默认）⇒ 零行为变更。同步：`featureFlags.ts` + `SAFETY_SWITCHES` 断言（16 → 17）+ 本文表 + 登记表 `default-off-switches-review-gates.md §2-#13`。设计见 [`.trae/specs/client-stream-execution.md`](../specs/client-stream-execution.md)

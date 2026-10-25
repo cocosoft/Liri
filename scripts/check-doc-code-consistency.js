@@ -234,6 +234,49 @@ const SAFETY_ASSERTIONS = SAFETY_SWITCHES.map((s) => ({
     ],
 }));
 
+/**
+ * 文件存在性驱动的安全闸（2026-10-26）—— **第三方插件清单签名**（T25-08 P2）。
+ *
+ * 与上面 `SAFETY_SWITCHES` 不同：本项的默认值**不是 `featureFlags.ts` 的字面量**，而是
+ * 「信任锚目录里有没有 `*.pem`」—— 随包官方公钥随安装包分发 ⇒ 安装版**默认开**。
+ * 故单列断言，固化三件事（任一被单边改动即 CI 阻断）：
+ * ① env 名与 `project_rules.md §1.4` 登记一致；
+ * ② 「信任锚即意图」的默认语义不被打回「有钥也不校验」；
+ * ③ 随包官方公钥**真实存在**（缺了闸就形同虚设，且不会有任何编译期报错）。
+ */
+const PLUGIN_SIGNATURE_ASSERTIONS = [
+    {
+        id: 'safety-switch-plugin-require-signature-env',
+        why: '插件清单签名闸的 env 名须与 project_rules.md §1.4 登记一致（R07-2）',
+        code: {
+            file: 'app/src/plugins/utils/pluginSignature.ts',
+            contains: /PLUGIN_SIGNATURE_ENFORCE_ENV\s*=\s*'LIRI_PLUGIN_REQUIRE_SIGNATURE'/,
+        },
+        docs: [
+            {
+                file: '.trae/rules/project_rules.md',
+                contains: /\|\s*`LIRI_PLUGIN_REQUIRE_SIGNATURE`\s*\|/,
+            },
+        ],
+    },
+    {
+        id: 'safety-switch-plugin-require-signature-default',
+        why: '「信任锚即意图」：信任锚有 `*.pem` 即默认开启校验，不得静默退回「有钥也不校验」',
+        code: {
+            file: 'app/src/plugins/utils/pluginSignature.ts',
+            contains: /return resolveTrustedKeysDirs\(env\)\.length > 0;/,
+        },
+    },
+    {
+        id: 'safety-switch-bundled-official-pubkey-exists',
+        why: '随包官方公钥必须真实存在，否则安装版签名闸名存实亡（且无编译期报错）',
+        code: {
+            file: 'app/trusted-keys/official-plugin-signing.pub.pem',
+            contains: /BEGIN PUBLIC KEY/,
+        },
+    },
+];
+
 /** 触发条件登记表（单一事实源；见 `.trae/specs/default-off-switches-review-gates.md`） */
 const REVIEW_GATE_REGISTRY = '.trae/specs/default-off-switches-review-gates.md';
 
@@ -277,10 +320,11 @@ const REGISTRATION_ASSERTIONS = [
     })),
 ];
 
-/** 全部断言（漂移点 + 安全开关清单 + 默认关项登记完整性） */
+/** 全部断言（漂移点 + 安全开关清单 + 文件存在性闸 + 默认关项登记完整性） */
 const ALL_ASSERTIONS = [
     ...ASSERTIONS,
     ...SAFETY_ASSERTIONS,
+    ...PLUGIN_SIGNATURE_ASSERTIONS,
     ...REGISTRATION_ASSERTIONS,
 ];
 
@@ -335,7 +379,7 @@ function main() {
     }
 
     console.log(
-        `断言 ${ALL_ASSERTIONS.length} 条（漂移点 ${ASSERTIONS.length} + 安全开关 ${SAFETY_ASSERTIONS.length} + 登记完整性 ${REGISTRATION_ASSERTIONS.length}）｜文档侧 已校验 ${checkedDocs} 处 · 跳过 ${skippedDocs} 处`
+        `断言 ${ALL_ASSERTIONS.length} 条（漂移点 ${ASSERTIONS.length} + 安全开关 ${SAFETY_ASSERTIONS.length} + 文件存在性闸 ${PLUGIN_SIGNATURE_ASSERTIONS.length} + 登记完整性 ${REGISTRATION_ASSERTIONS.length}）｜文档侧 已校验 ${checkedDocs} 处 · 跳过 ${skippedDocs} 处`
     );
     console.log('-'.repeat(60));
 

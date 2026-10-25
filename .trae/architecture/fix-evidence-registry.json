@@ -12546,6 +12546,34 @@
         "安全开关清单 21→22：登记第三方插件签名闸（LIRI_PLUGIN_REQUIRE_SIGNATURE）"
       ],
       "reopenWhen": "若签名闸改为 featureFlags 字面量开关，应迁回 SAFETY_SWITCHES 并删除本组断言（全文见 archive/evidence-detail.jsonl#SAFETY-SWITCH-PLUGIN-REQUIRE-SIGNATURE）"
+    },
+    {
+      "id": "PLUGIN-CONFIG-SCHEMA-HOLLOW",
+      "title": "",
+      "source": "",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/plugins/management/PluginConfigManager.ts",
+        "app/src/plugins/host/pluginConfigPort.ts",
+        "app/src/plugins/index.ts",
+        "app/tests/plugins/pluginHostConfig.test.ts"
+      ],
+      "tests": [],
+      "changelog": [
+        "删除插件配置空壳 schema 层（setSchema 生产零调用；唯一实现仍在 pluginConfigSchema.ts）"
+      ],
+      "reopenWhen": "宿主侧若需配置 schema 校验，接 pluginConfigSchema.ts 的 validatePluginConfig（勿再建第二份类型）（全文见 archive/evidence-detail.jsonl#PLUGIN-CONFIG-SCHEMA-HOLLOW）"
     }
   ]
 }

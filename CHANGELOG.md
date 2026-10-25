@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **PLUGIN-CONFIG-SCHEMA-HOLLOW**：删除插件配置空壳 schema 层 —— 验证 tsc|eslint|arch0|t99|t8419；基线 setSchema 全仓0调用；schemas恒空；行为零变更；8419 pass（详情见 archive/evidence-detail.jsonl#PLUGIN-CONFIG-SCHEMA-HOLLOW）
 - ✅ **SAFETY-SWITCH-PLUGIN-REQUIRE-SIGNATURE**：登记签名闸（§1.4+断言） —— 验证 lint:doc-code|neg-control；基线 断言46条（8+21+3+14）；改文档行即 exit 1（详情见 archive/evidence-detail.jsonl#SAFETY-SWITCH-PLUGIN-REQUIRE-SIGNATURE）
 - ✅ **CHAT-BUBBLE-EXPORT-TOAST**：气泡导出成功 toast —— 验证 tsc|eslint|pw-bubble-toast；基线 toastText=已导出：ai-reply-*.md；下载 2,926 B；pageErrors=0（详情见 archive/evidence-detail.jsonl#CHAT-BUBBLE-EXPORT-TOAST）
 - ✅ **CHAT-EXPORT-SUCCESS-TOAST**：导出成功 toast（含文件名） —— 验证 tsc|eslint|pw-toast|i18n4；基线 toastText=已导出：chat-export-*.md；下载 124,275 B；pageErrors=0（详情见 archive/evidence-detail.jsonl#CHAT-EXPORT-SUCCESS-TOAST）

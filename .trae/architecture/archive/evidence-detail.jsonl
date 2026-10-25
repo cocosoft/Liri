@@ -6398,3 +6398,9 @@
 {"id":"SAFETY-SWITCH-PLUGIN-REQUIRE-SIGNATURE","k":"code#0","i":0,"c":".trae/rules/project_rules.md"}
 {"id":"SAFETY-SWITCH-PLUGIN-REQUIRE-SIGNATURE","k":"code#1","i":0,"c":"scripts/check-doc-code-consistency.js"}
 {"id":"SAFETY-SWITCH-PLUGIN-REQUIRE-SIGNATURE","k":"changelog#0","i":0,"c":"安全开关清单 21→22：登记第三方插件签名闸（LIRI_PLUGIN_REQUIRE_SIGNATURE）"}
+{"id":"PLUGIN-CONFIG-SCHEMA-HOLLOW","k":"reopenWhen","i":0,"c":"宿主侧若需配置 schema 校验，接 pluginConfigSchema.ts 的 validatePluginConfig（勿再建第二份类型）"}
+{"id":"PLUGIN-CONFIG-SCHEMA-HOLLOW","k":"code#0","i":0,"c":"app/src/plugins/management/PluginConfigManager.ts"}
+{"id":"PLUGIN-CONFIG-SCHEMA-HOLLOW","k":"code#1","i":0,"c":"app/src/plugins/host/pluginConfigPort.ts"}
+{"id":"PLUGIN-CONFIG-SCHEMA-HOLLOW","k":"code#2","i":0,"c":"app/src/plugins/index.ts"}
+{"id":"PLUGIN-CONFIG-SCHEMA-HOLLOW","k":"code#3","i":0,"c":"app/tests/plugins/pluginHostConfig.test.ts"}
+{"id":"PLUGIN-CONFIG-SCHEMA-HOLLOW","k":"changelog#0","i":0,"c":"删除插件配置空壳 schema 层（setSchema 生产零调用；唯一实现仍在 pluginConfigSchema.ts）"}

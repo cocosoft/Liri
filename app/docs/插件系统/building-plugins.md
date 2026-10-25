@@ -47,6 +47,27 @@ bun install
 }
 ```
 
+## 声明能力与签名（2026-10-25）
+
+第三方插件默认**不在主进程加载**，且必须声明 `capabilities`：
+
+```json
+{
+  "capabilities": ["tools", "config"]
+}
+```
+
+- 闭合集合：`tools` / `config` / `events`；`events` **尚未实现**，声明即被拒；
+- 声明了但用户未授权 ⇒ 拒绝安装/加载；授权入口见 [插件市场 § 能力权限](./marketplace.md)；
+- 需要来源证明时给清单签名（对 `plugin.json` 原始字节）：
+
+```bash
+cd app && bun run plugin:sign keygen --out ./keys     # 生成密钥对（私钥自己保管）
+bun run plugin:sign sign --plugin ./my-plugin --key ./keys/plugin-signing.key
+```
+
+字段与判定细节见 [插件清单](./manifest.md)；加载闸门见 [插件概述](./overview.md)。
+
 ## 构建与发布
 
 ```bash

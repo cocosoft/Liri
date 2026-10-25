@@ -49,6 +49,17 @@
 /plugin update plugin-name
 ```
 
+## 能力权限（2026-10-25）
+
+第三方插件必须声明 `capabilities`，并在用户授权后才会被加载。桌面端在「插件市场 → 已安装插件」
+每张卡片上点**能力权限**即可展开勾选（未实现的能力显示为禁用项，例如 `events`）。
+
+- 勾选即保存，落 `~/.pyapp/plugins/capability-grants.json`，与 `.env` 的
+  `LIRI_PLUGIN_CAPABILITY_GRANTS` **取并集**；
+- 收回某能力 ⇒ 取消勾选；声明了但未勾选的能力会让该插件**拒绝加载**（fail-closed）；
+- 接口：`GET` / `PUT /v1/plugins/marketplace/plugins/{id}/capabilities`
+  （`PUT` 体 `{ granted: string[] }`，覆盖语义，需要 admin 权限）。
+
 ## 发布插件
 
 1. 准备好插件包（zip 格式）

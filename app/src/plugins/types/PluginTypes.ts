@@ -307,9 +307,10 @@ export interface LoadedPlugin {
   /**
    * T25-08 P1（2026-10-25）：**子进程宿主句柄**。
    * 仅当插件在子进程宿主中运行（`PLUGIN_HOST_PROCESS` 开且非进程内逃生）时存在；
-   * 进程内 `import` 路径为 `undefined`。卸载时必须调用 `stop()`。
+   * 进程内 `import` 路径为 `undefined`。卸载时必须调用 `stop()`；
+   * 支持时优先 `shutdown()`（先让插件跑 `destroy`，超时再强杀）。
    */
-  hostProcess?: { stop(): void };
+  hostProcess?: { stop(): void; shutdown?(): Promise<void> };
 
   /** 错误信息 */
   error?: string;

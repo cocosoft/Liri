@@ -309,4 +309,67 @@ describe('T25-08 P1 · 关停', () => {
     expect(registry.tools.size).toBe(0);
     expect(sup.isRunning()).toBe(false);
   });
+
+  it('shutdown() ⇒ 先请求 plugin.shutdown（让插件跑 destroy），回包后再强杀', async () => {
+    const child = new FakeChild();
+    const chunks: Buffer[] = [];
+    child.stdin.on('data', (c: Buffer) => chunks.push(c));
+    const registry = fakeRegistry();
+    let killed = 0;
+    const sup = new PluginHostSupervisor(target, {
+      spawnFn: () => asChild(child),
+      registry,
+      killTree: () => {
+        killed += 1;
+      },
+      requestTimeoutMs: 5000,
+      shutdownTimeoutMs: 2000,
+    });
+    const startP = sup.start();
+    child.stdout.write(declareEcho());
+    child.stdout.write(startupLine());
+    await startP;
+
+    const shutdownP = sup.shutdown();
+    await waitFor(() =>
+      frames(chunks).some((f) => f.method === PLUGIN_HOST_METHOD.SHUTDOWN)
+    );
+    const req = frames(chunks).find(
+      (f) => f.method === PLUGIN_HOST_METHOD.SHUTDOWN
+    )!;
+    child.stdout.write(line({ id: req.id, success: true, result: null }));
+
+    await shutdownP;
+    expect(killed).toBe(1);
+    expect(registry.tools.size).toBe(0);
+    expect(sup.isRunning()).toBe(false);
+
+    // 子进程自退**不得**被当成崩溃去重启（stopping 已置位）
+    child.emit('exit', 0);
+    await tick(20);
+    expect(sup.getRestarts()).toBe(0);
+  });
+
+  it('shutdown() 子进程不响应 ⇒ 超时后强制停止（不悬挂、不抛错）', async () => {
+    const child = new FakeChild();
+    let killed = 0;
+    const sup = new PluginHostSupervisor(target, {
+      spawnFn: () => asChild(child),
+      registry: fakeRegistry(),
+      killTree: () => {
+        killed += 1;
+      },
+      requestTimeoutMs: 5000,
+      shutdownTimeoutMs: 60,
+    });
+    const startP = sup.start();
+    child.stdout.write(startupLine());
+    await startP;
+
+    const started = Date.now();
+    await sup.shutdown();
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(killed).toBe(1);
+    expect(sup.isRunning()).toBe(false);
+  });
 });

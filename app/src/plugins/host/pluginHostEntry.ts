@@ -81,6 +81,18 @@ export function startPluginHostChild(
     }
   };
 
+  /** 写完这一帧**再**执行后续（`plugin.shutdown` 用：回包不能因进程自退而丢） */
+  const sendThen = (
+    frame: Record<string, unknown>,
+    after: () => void
+  ): void => {
+    try {
+      output.write(encodeFrame(frame), () => after());
+    } catch {
+      after();
+    }
+  };
+
   const log = (level: string, message: string): void =>
     send({
       type: 'notify',
@@ -152,9 +164,11 @@ export function startPluginHostChild(
       }
       if (method === PLUGIN_HOST_METHOD.SHUTDOWN) {
         await runHook(['destroy', 'unload']);
-        send({ id, success: true, result: null });
-        handle.stop();
-        deps.onShutdown?.();
+        // 回包**先落地**再停读/自退（否则宿主会因丢包而走超时强杀）
+        sendThen({ id, success: true, result: null }, () => {
+          handle.stop();
+          deps.onShutdown?.();
+        });
         return;
       }
       throw new Error(`插件宿主未实现的方法：${String(method)}`);

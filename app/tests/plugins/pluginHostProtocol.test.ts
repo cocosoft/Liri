@@ -216,6 +216,8 @@ describe('T25-08 P1 · 接线防回流（源码级）', () => {
     expect(hostBranch).toBeGreaterThan(-1);
     expect(importCall).toBeGreaterThan(-1);
     expect(hostBranch).toBeLessThan(importCall);
-    expect(src).toContain('plugin.hostProcess?.stop()');
+    // 卸载：优先优雅关停（让插件跑 destroy），不支持才退回强杀
+    expect(src).toContain('host.shutdown()');
+    expect(src).toContain('host.stop()');
   });
 });

@@ -85,6 +85,8 @@ export interface PluginHostSupervisorDeps {
   maxRestarts?: number;
   /** 单个请求超时（默认 30s） */
   requestTimeoutMs?: number;
+  /** 优雅关停预算（默认 3s；超时 ⇒ 退回强制停止） */
+  shutdownTimeoutMs?: number;
   /** 进程树强杀注入（缺省 `killProcessTree`） */
   killTree?: (child: ChildProcess) => void;
   /** 工具登记表端口（缺省全局单例） */
@@ -251,6 +253,42 @@ export class PluginHostSupervisor {
       this.pending.set(id, { resolve, reject, timer });
       stdin.write(encodeFrame(buildRequestFrame(id, method, params)));
     });
+  }
+
+  /**
+   * **优雅关停**：先请求子进程执行 `destroy`/`unload`（有超时），再强制停止。
+   *
+   * 为什么要这一步：`stop()` 直接走进程树强杀，插件的 `destroy` 永远没机会跑
+   * （落盘 / 释放句柄 / 停定时器）。超时或失败 ⇒ 退回 `stop()`（**尽力而为，不悬挂**）。
+   *
+   * ⚠️ 先置 `stopping = true`：子进程收到 `plugin.shutdown` 后会自退，若不先置位，
+   * 退出回调会把它当成**崩溃**去有界重启（卸载即复活）。
+   */
+  async shutdown(timeoutMs?: number): Promise<void> {
+    this.stopping = true;
+    if (this.isRunning()) {
+      const budget = timeoutMs ?? this.deps.shutdownTimeoutMs ?? 3_000;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          this.request(PLUGIN_HOST_METHOD.SHUTDOWN, {}),
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(
+              () => reject(new Error('插件宿主优雅关停超时')),
+              budget
+            );
+          }),
+        ]);
+      } catch (error) {
+        logger.warn('插件宿主优雅关停失败 ⇒ 强制停止', {
+          pluginId: this.target.pluginId,
+          error: String(error),
+        });
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }
+    this.stop();
   }
 
   /** 停止子进程（注销代理工具；不再重启） */

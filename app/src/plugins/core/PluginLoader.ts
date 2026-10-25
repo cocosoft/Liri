@@ -484,8 +484,13 @@ export class PluginLoader extends EventEmitter {
     try {
       // 更新插件状态
       plugin.state = PluginState.UNLOADED;
-      // T25-08 P1：子进程宿主必须一并停掉（否则进程残留、代理工具继续可调）
-      plugin.hostProcess?.stop();
+      // T25-08 P1：子进程宿主必须一并停掉（否则进程残留、代理工具继续可调）。
+      // 优先**优雅关停**（让插件跑 `destroy`，有超时），不支持则退回强杀。
+      const host = plugin.hostProcess;
+      if (host) {
+        if (host.shutdown) await host.shutdown();
+        else host.stop();
+      }
       plugin.hostProcess = undefined;
       plugin.instance = undefined;
       plugin.error = undefined;

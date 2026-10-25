@@ -135,5 +135,12 @@ describe('T25-08 P1 · 真实子进程', () => {
       .get('e2e_env_probe')!
       .execute({}, {} as never)) as { data: Record<string, unknown> };
     expect(again.data['leaked']).toBeNull();
+
+    // ④ 优雅关停：先 plugin.shutdown 再强杀；子进程自退**不得**再触发重启
+    const restartsBefore = sup.getRestarts();
+    await sup.shutdown();
+    expect(sup.isRunning()).toBe(false);
+    expect(sup.getRestarts()).toBe(restartsBefore);
+    expect(registry.tools.size).toBe(0);
   }, 90_000);
 });

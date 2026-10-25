@@ -38,4 +38,3 @@ export * from './UnifiedSuggestions';
 export * from './Speculation';
 export * from './Analytics';
 export * from './PromptInputFooterSuggestions';
-export * from './database/PromptSuggestionDatabase';

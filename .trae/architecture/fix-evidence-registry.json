@@ -12275,6 +12275,35 @@
         "插件配置双轨收敛：Python 插件并入 PluginConfigManager（旧文件一次性迁移，不覆盖新值、不删数据）"
       ],
       "reopenWhen": "新增第二语言运行时须复用同一 PluginConfigPort；若迁移被 schema 拒绝，需人工处理后旧文件才会改名留档（全文见 archive/evidence-detail.jsonl#T25-08-P2-PY-CONFIG-MERGE）"
+    },
+    {
+      "id": "T25-08-P2-PY-CONFIG-E2E",
+      "title": "Python 插件 config 真链 E2E：真实 spawn + 反向 RPC 落到宿主端口",
+      "source": "dev_docs/20261025/待完成工作任务清单-20261025.md §34.1",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/plugins/core/PythonPluginAdapter.ts",
+        "app/tests/fixtures/plugins/python-cfg-probe/main.py",
+        ".trae/specs/plugin-process-isolation.md"
+      ],
+      "tests": [
+        "app/tests/plugins/pythonPluginE2E.test.ts"
+      ],
+      "changelog": [
+        "Python 插件 config 真链 E2E：真实 spawn 子进程，ctx.config.get/set/save 经反向 RPC 落到宿主端口"
+      ],
+      "reopenWhen": "更换 Python 协议/SDK 版本或适配器不再走反向 RPC 时需重跑；CI 无 Python 时该组自动 skip，须在含 Python 的 job 覆盖（全文见 archive/evidence-detail.jsonl#T25-08-P2-PY-CONFIG-E2E）"
     }
   ]
 }

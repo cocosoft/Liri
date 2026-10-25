@@ -6334,3 +6334,11 @@
 {"id":"T25-08-P2-PY-CONFIG-MERGE","k":"code#3","i":0,"c":"app/docs/插件系统/manifest.md"}
 {"id":"T25-08-P2-PY-CONFIG-MERGE","k":"tests#0","i":0,"c":"app/tests/plugins/pythonPluginConfig.test.ts"}
 {"id":"T25-08-P2-PY-CONFIG-MERGE","k":"changelog#0","i":0,"c":"插件配置双轨收敛：Python 插件并入 PluginConfigManager（旧文件一次性迁移，不覆盖新值、不删数据）"}
+{"id":"T25-08-P2-PY-CONFIG-E2E","k":"title","i":0,"c":"Python 插件 config 真链 E2E：真实 spawn + 反向 RPC 落到宿主端口"}
+{"id":"T25-08-P2-PY-CONFIG-E2E","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §34.1"}
+{"id":"T25-08-P2-PY-CONFIG-E2E","k":"reopenWhen","i":0,"c":"更换 Python 协议/SDK 版本或适配器不再走反向 RPC 时需重跑；CI 无 Python 时该组自动 skip，须在含 Python 的 job 覆盖"}
+{"id":"T25-08-P2-PY-CONFIG-E2E","k":"code#0","i":0,"c":"app/src/plugins/core/PythonPluginAdapter.ts"}
+{"id":"T25-08-P2-PY-CONFIG-E2E","k":"code#1","i":0,"c":"app/tests/fixtures/plugins/python-cfg-probe/main.py"}
+{"id":"T25-08-P2-PY-CONFIG-E2E","k":"code#2","i":0,"c":".trae/specs/plugin-process-isolation.md"}
+{"id":"T25-08-P2-PY-CONFIG-E2E","k":"tests#0","i":0,"c":"app/tests/plugins/pythonPluginE2E.test.ts"}
+{"id":"T25-08-P2-PY-CONFIG-E2E","k":"changelog#0","i":0,"c":"Python 插件 config 真链 E2E：真实 spawn 子进程，ctx.config.get/set/save 经反向 RPC 落到宿主端口"}

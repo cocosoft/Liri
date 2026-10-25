@@ -184,6 +184,21 @@ const BARE_BUILTINS = new Set(
 );
 
 /**
+ * K04 **显式豁免表**：`spi/` 下确属**工具**（而非端口契约）的文件。
+ *
+ * 键 = 相对内核根（`packages/kernel/src/core`）的 POSIX 路径；值 = 为什么它可以有实现类。
+ *
+ * 为什么改成点名豁免（复审 B2）：旧口径用「文件里有 `export function resolve*`」判断
+ * "是不是端口"，于是**把 resolve 改名、或把实现类挪进没有 resolve 的文件**即可绕过
+ * K04。现在 `spi/**` 一律无条件检查 `export class`，确属工具的文件必须在此**显式登记**
+ * —— 新增豁免在 diff 里一眼可见，且必须写理由。
+ */
+export const K04_EXEMPTIONS: Readonly<Record<string, string>> = {
+  'spi/CacheService.ts':
+    'TtlCache 是纯工具类（`spi/README.md` 明确「不是端口」），不参与注入；端口契约在其它 spi 文件',
+};
+
+/**
  * 判定裸包说明符是否被白名单放行。
  *
  * - `node:*` / `bun:*`：命中 `allowedPrefixes` ⇒ 放行；
@@ -321,11 +336,16 @@ export function analyzeKernelPurity(input: AnalyzeInput): AnalyzeResult {
       });
     }
 
-    // K04：端口目录只放契约，不放实现类
-    // 口径收紧：只约束**真端口文件**（含 `export function resolve*`）——
-    // `spi/` 下还放着 `CacheService.ts`（`TtlCache` 工具类，README 明确「不是端口」）等
-    // 非端口文件，按"是否有 resolve 面"判定可避免用文件名白名单做例外。
-    if (inSpi && /\bexport\s+function\s+resolve[A-Z]/.test(file.text)) {
+    // K04：端口目录只放契约，不放实现类。
+    //
+    // **无条件扫全体 `spi/**`**（复审 B2）：旧口径以「文件里有 `export function resolve*`」
+    // 作为"是不是端口"的前置判据 ⇒ 把 resolve 改名、或把实现类挪进没有 resolve 的文件，
+    // 即可让 K04 失效。现在不再前置判定，`export class` 出现在 `spi/` 下**一律报**；
+    // 确属工具（非端口）的文件走**显式豁免表**（见 K04_EXEMPTIONS），理由写在表里。
+    const relFromKernel = relative(input.kernelRoot, file.path)
+      .split(sep)
+      .join('/');
+    if (inSpi && !(relFromKernel in K04_EXEMPTIONS)) {
       const classRe = /\bexport\s+class\s+([A-Za-z0-9_]+)/g;
       let cm: RegExpExecArray | null;
       while ((cm = classRe.exec(file.text)) !== null) {
@@ -334,7 +354,7 @@ export function analyzeKernelPurity(input: AnalyzeInput): AnalyzeResult {
           file: relFile,
           line: lineOf(file.text, cm.index),
           target: `export class ${cm[1]}`,
-          message: `core/spi 端口文件不得导出实现类「${cm[1]}」（只放 interface / type / 常量 / register / resolve）`,
+          message: `core/spi 不得导出实现类「${cm[1]}」（只放 interface / type / 常量 / register / resolve；确属工具请登记 K04_EXEMPTIONS）`,
         });
       }
     }

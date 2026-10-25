@@ -127,7 +127,10 @@ describe('内核纯净度门禁：违规样例必红', () => {
         "import { shared } from '../../../client/src/shared';\nexport const s = shared;\n",
       'app/src/core/spi/Port.ts':
         "export interface IPort { ping(): void }\nexport function resolvePort(): IPort { throw new Error('x'); }\nexport class PortImpl { ping(): void {} }\n",
-      'app/src/core/spi/Util.ts': 'export class TtlCache {}\n',
+      'app/src/core/spi/Util.ts': 'export class UtilImpl {}\n',
+      // 显式豁免（K04_EXEMPTIONS）：工具类不是端口实现 ⇒ 不报
+      'app/src/core/spi/CacheService.ts':
+        'export class TtlCache<T = unknown> { get(): T | undefined { return undefined; } }\n',
     });
 
     const { code, out } = run(root);
@@ -140,9 +143,32 @@ describe('内核纯净度门禁：违规样例必红', () => {
     expect(out).toContain('K03');
     expect(out).toContain('leak-outside.ts');
     expect(out).toContain('K04');
-    // 白名单不误伤：非端口文件里的 class、以及 core 内部引用都不报
-    expect(out).not.toContain('Util.ts');
+    // 无 resolve 面的实现类同样报（旧口径会放过它 —— 复审 B2 的绕过口）
+    expect(out).toContain('Util.ts');
+    // 豁免文件与无关文件不误伤
+    expect(out).not.toContain('CacheService.ts');
     expect(out).not.toContain('clean.ts');
+  });
+
+  it('K04：改名 resolve / 挪到无 resolve 文件都不能绕过；豁免表外的 class 一律红', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      // ① 解析入口改名（不再叫 resolve*）+ 实现类
+      'app/src/core/spi/RenamedPort.ts':
+        "export interface IRenamed { ping(): void }\nexport function buildPort(): IRenamed { throw new Error('x'); }\nexport class RenamedImpl { ping(): void {} }\n",
+      // ② 只有实现类、连解析入口都没有
+      'app/src/core/spi/OnlyImpl.ts': 'export class OnlyImpl {}\n',
+      // ③ 非 spi 目录的实现类不受 K04 约束
+      'app/src/core/impl/Outside.ts': 'export class OutsideImpl {}\n',
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(1);
+    expect(out).toContain('K04');
+    expect(out).toContain('RenamedPort.ts');
+    expect(out).toContain('OnlyImpl.ts');
+    expect(out).not.toContain('Outside.ts');
   });
 
   it('模板拼接的动态导入 ⇒ K02（静态不可证，fail-closed）；纯字面量模板 ⇒ 绿', () => {

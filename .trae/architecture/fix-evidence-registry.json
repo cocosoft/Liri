@@ -12177,6 +12177,40 @@
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U13-METRICS-RESAMPLE）",
       "notes": "命令 measure-orchestration-metrics.ts --split 2026-10-17：247 日志 / 684,177 事件。改进后窗口首次出现非零工具错误（20 条，误调用率 2.04%，powershell 8.33% 为主）；改进前仍为 0（历史不可回填，不作显著性对比）。编排链路事件仍…（全文见 archive/evidence-detail.jsonl#U13-METRICS-RESAMPLE）"
+    },
+    {
+      "id": "T25-08-P2-BUNDLED-KEYS",
+      "title": "T25-08 P2：随包分发官方插件公钥（信任锚三处并集，私钥不入库）",
+      "source": "dev_docs/20261025/待完成工作任务清单-20261025.md §33",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/kernel/src/core/paths.ts",
+        "app/src/plugins/utils/pluginSignature.ts",
+        "app/scripts/copy-seed-data.ts",
+        "app/scripts/plugin-sign.ts",
+        "client/src-tauri/tauri.conf.json",
+        ".github/workflows/release.yml",
+        "app/trusted-keys/README.md"
+      ],
+      "tests": [
+        "app/tests/plugins/pluginSignature.test.ts",
+        "packages/kernel/tests/pathsResolvers.test.ts"
+      ],
+      "changelog": [
+        "随包分发官方插件公钥：安装包携带 app/trusted-keys，签名信任锚改为「随包官方钥 ∪ 用户目录 ∪ env 显式目录」并集；仓库仍不内置任何私钥"
+      ],
+      "reopenWhen": "官方公钥 *.pem 由发布方发版前放入 app/trusted-keys；若需密钥轮换/吊销，先补轮换机制再开（全文见 archive/evidence-detail.jsonl#T25-08-P2-BUNDLED-KEYS）"
     }
   ]
 }

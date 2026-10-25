@@ -6299,3 +6299,16 @@
 {"id":"U13-METRICS-RESAMPLE","k":"source","i":0,"c":"dev_docs/20261017/U-13-编排可观测量化口径与实测-20261017.md §3b"}
 {"id":"U13-METRICS-RESAMPLE","k":"notes","i":0,"c":"命令 measure-orchestration-metrics.ts --split 2026-10-17：247 日志 / 684,177 事件。改进后窗口首次出现非零工具错误（20 条，误调用率 2.04%，powershell 8.33% 为主）；改进前仍为 0（历史不可回填，不作显著性对比）。编排链路事件仍仅 goal/created×1，OrchestrationMetrics 为进程内指标 ⇒ P50/P95 需真实流量，不臆造。"}
 {"id":"@changelog-unreleased","k":"block#0","i":0,"c":"（v0.5.10 已发布；以下为发版后累积、待下一版带出）\n- ✅ **内核发布形态修正（评审 A1/A3）** - `build` 撤销 bundler 打桶（消除桶与子路径双实例）、`exports` 去 6 条目录通配改为逐文件列举、新增 `smoke` 断言（无通配 / 目标存在 / 单例一致）\n- ✅ **内核 DI 容器契约修复（架构评审 9 条）** - 环注册失败回滚、报错给出闭环路径、request 作用域改 AsyncLocalStorage（并发隔离）、\n  transient 的 `onDispose` 注册期 fail-closed、注册期增量环检测（去 O(N²)）、自动装配只接受纯标识符、\n  `disposeAll` 单点失败不中断、生命周期钩子依赖显式 `eager`；包内测试 20 → 31 例\n- ✅ **提交前拦 GitHub Actions YAML 破损** - 新增 `lint:workflows`（workflows + composite action），pre-commit 与 doc-gate 双处接线\n- ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"title","i":0,"c":"T25-08 P2：随包分发官方插件公钥（信任锚三处并集，私钥不入库）"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §33"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"reopenWhen","i":0,"c":"官方公钥 *.pem 由发布方发版前放入 app/trusted-keys；若需密钥轮换/吊销，先补轮换机制再开"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"code#0","i":0,"c":"packages/kernel/src/core/paths.ts"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"code#1","i":0,"c":"app/src/plugins/utils/pluginSignature.ts"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"code#2","i":0,"c":"app/scripts/copy-seed-data.ts"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"code#3","i":0,"c":"app/scripts/plugin-sign.ts"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"code#4","i":0,"c":"client/src-tauri/tauri.conf.json"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"code#5","i":0,"c":".github/workflows/release.yml"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"code#6","i":0,"c":"app/trusted-keys/README.md"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"tests#0","i":0,"c":"app/tests/plugins/pluginSignature.test.ts"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"tests#1","i":0,"c":"packages/kernel/tests/pathsResolvers.test.ts"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"changelog#0","i":0,"c":"随包分发官方插件公钥：安装包携带 app/trusted-keys，签名信任锚改为「随包官方钥 ∪ 用户目录 ∪ env 显式目录」并集；仓库仍不内置任何私钥"}

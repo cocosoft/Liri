@@ -19,6 +19,8 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **T25-08-P2-BUNDLED-KEYS**：T25-08 P2：随包分发官方插件公钥（信任锚三处并集） —— 验证 sig18|paths29|typecheck|kernel|kernel-api|arch|doc-code|doc-alias；基线 信任锚单目录→三处并集；无 *.pem 的构建零行为变更（详情见 archive/evidence-detail.jsonl#T25-08-P2-BUNDLED-KEYS）
+
 （v0.5.10 已发布；以下为发版后累积、待下一版带出）
 - ✅ **内核发布形态修正（评审 A1/A3）** - `build` 撤销 bundler 打桶（消除桶与子路径双实例）、`exports` 去 6 条目录通配改为逐文件列举、新增 `smoke` 断言（无通配 / 目标存在 / 单例一致）
 - ✅ **内核 DI 容器契约修复（架构评审 9 条）** - 环注册失败回滚、报错给出闭环路径、request 作用域改 AsyncLocalStorage（并发隔离）、

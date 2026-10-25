@@ -259,6 +259,20 @@ export const BOUNDARY_STATE_MACHINES: readonly {
     reason:
       '**协议分级词汇**（含 `requires_approval` 等同名字面量但语义为 ACP 审批策略）≠ 工具执行瞬态 ⇒ 不合并。',
   },
+  {
+    id: 'pluginHostChildLogLevel',
+    title: '插件子进程日志级别（`PluginContext.log` 的 `error`）',
+    sourceFile: 'app/src/plugins/host/pluginHostEntry.ts',
+    reason:
+      '**日志级别**（`debug/info/warn/error`，随 `notify` 帧回传宿主）≠ 状态机取值；本文件无状态机（T25-08 P1）。',
+  },
+  {
+    id: 'pluginHostNodeErrorEvent',
+    title: '插件宿主内的 `error`：Node 子进程事件名 + ToolRegistry 选项值',
+    sourceFile: 'app/src/plugins/host/PluginHostSupervisor.ts',
+    reason:
+      "**同名不同物**：`child.once('error')` 是 Node **事件名**、`registerTool(..., { onConflict: 'error' })` 是**撞名策略选项**（与 `SdkPluginAdapter` 同口径）⇒ 均非状态取值（T25-08 P1）。",
+  },
 ];
 
 /** 已登记的状态机 id 列表（单点可枚举） */

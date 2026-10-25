@@ -12211,6 +12211,40 @@
         "随包分发官方插件公钥：安装包携带 app/trusted-keys，签名信任锚改为「随包官方钥 ∪ 用户目录 ∪ env 显式目录」并集；仓库仍不内置任何私钥"
       ],
       "reopenWhen": "官方公钥 *.pem 由发布方发版前放入 app/trusted-keys；若需密钥轮换/吊销，先补轮换机制再开（全文见 archive/evidence-detail.jsonl#T25-08-P2-BUNDLED-KEYS）"
+    },
+    {
+      "id": "T25-08-P2-OFFICIAL-KEY",
+      "title": "T25-08 P2：内置官方插件公钥（Ed25519，签名闸默认开启）",
+      "source": "dev_docs/20261025/待完成工作任务清单-20261025.md §33.4",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/trusted-keys/official-plugin-signing.pub.pem",
+        "app/tests/plugins/pluginInstallCapabilities.test.ts",
+        "app/tests/plugins/pluginLoaderHostWiring.test.ts",
+        "app/tests/plugins/pluginSignature.test.ts",
+        "app/docs/插件系统/manifest.md",
+        ".trae/specs/plugin-process-isolation.md"
+      ],
+      "tests": [
+        "app/tests/plugins/pluginSignature.test.ts",
+        "app/tests/plugins/pluginInstallCapabilities.test.ts",
+        "app/tests/plugins/pluginLoaderHostWiring.test.ts"
+      ],
+      "changelog": [
+        "内置官方插件公钥（指纹 9e92b0c3b0fb3173）：签名闸默认开启，未签名第三方插件被拒；私钥保存在仓库外"
+      ],
+      "reopenWhen": "官方私钥丢失 ⇒ 换钥并重发包；若长期没有任何官方签名的插件，需复评是否保留默认开启（全文见 archive/evidence-detail.jsonl#T25-08-P2-OFFICIAL-KEY）"
     }
   ]
 }

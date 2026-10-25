@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **T25-08-P2-OFFICIAL-KEY**：T25-08 P2：内置官方插件公钥（签名闸默认开启） —— 验证 plugins93|typecheck|doc-code|doc-alias；基线 缺省启用签名闸：未签第三方插件被拒；私钥在仓库外（详情见 archive/evidence-detail.jsonl#T25-08-P2-OFFICIAL-KEY）
 - ✅ **T25-08-P2-BUNDLED-KEYS**：T25-08 P2：随包分发官方插件公钥（信任锚三处并集） —— 验证 sig18|paths29|typecheck|kernel|kernel-api|arch|doc-code|doc-alias；基线 信任锚单目录→三处并集；无 *.pem 的构建零行为变更（详情见 archive/evidence-detail.jsonl#T25-08-P2-BUNDLED-KEYS）
 
 （v0.5.10 已发布；以下为发版后累积、待下一版带出）

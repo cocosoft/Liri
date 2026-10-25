@@ -4139,15 +4139,12 @@
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"tests#0","i":0,"c":"app/tests/query/budgetSuspendTaor.test.ts"}
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"tests#1","i":0,"c":"app/tests/query/dailyBudgetUsdGate.test.ts"}
 {"id":"BUDGET-OBSERVE-LEFTOVER-CLEANUP","k":"tests#2","i":0,"c":"app/tests/http/chatBudgetNonStreaming.contract.test.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"title","i":0,"c":"`TABLE` ×2 按域消歧（异值异域：定时任务表 `scheduled_tasks` / 人设绑定表 `persona_bindings`，取值一字未改）⇒ 同名常量:TABLE 2>0"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"title","i":0,"c":"`TABLE` 按域消歧（定时任务表 `scheduled_tasks`；原人设绑定表侧已随 agent/persona 死面清理删除）⇒ 同名常量:TABLE 1>0"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队首"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"reopenWhen","i":0,"c":"① 若这两个模块的表名再被第三个模块复用，须提真源（当前各自私有、无复用诉求）；② 若新增 SQLite 表且沿用裸名 `TABLE`，`lint:consts` 会重新报同名常量 ⇒ 按域命名后再提交；③ 建表语句（DDL）若改为迁移脚本，需同步本项的两处断言。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"notes","i":0,"c":"① **判据**：两处 `const TABLE = '...'` 是**同名不同事实**（两个不同的表名）⇒ 按域消歧（B5-2 系列惯例：异值异域改名、同值同事实合一）。② **改法**：`app/src/chronos/service/SqliteCronStore.ts` → `const SCHEDULED_TASKS_TABLE = '"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"notes","i":1,"c":"scheduled_tasks'`（含 12 处 `${TABLE}` 模板引用与 DDL/索引/CRUD 全部同步；与同文件既有 `RUNS_TABLE` 命名对齐）；`app/src/agent/persona/PersonaService.ts` → `const PERSONA_BINDINGS_TABLE = 'persona_bindings'`（"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"notes","i":2,"c":"含 12 处模板引用与一处 `table:` 日志字段）。**表名字符串与 SQL 语义一字未改**。③ 守卫：`app/tests/constants/sameNameConstsB2.test.ts` 新增 `B5-2-51`（断言两文件均无 `const TABLE =`、且新名与新 DDL 同现）。④ 棘轮：`lint:consts` 基线键 `同名"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"notes","i":3,"c":"常量:TABLE` 由 2 归零（199→198 键）。⑤ 验证：`tsc` exit 0；`sameNameConstsB2` 等 3 个测试文件 **76 例全绿**；6 门禁 + `lint:no-module-mock` + `lint:size` 全 exit 0。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"reopenWhen","i":0,"c":"① 若定时任务表名再被其它模块复用，须提真源（当前私有、无复用诉求）；② 若新增 SQLite 表且沿用裸名 `TABLE`，`lint:consts` 会重新报同名常量 ⇒ 按域命名后再提交；③ 建表语句（DDL）若改为迁移脚本，需同步本项的断言。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"notes","i":0,"c":"① **判据**：`const TABLE` 同名域（仅剩定时任务表 `scheduled_tasks`）⇒ 按域命名；原人设绑定表侧已随 agent/persona 死面清理删除（`a0287b12f`）。② **改法**：`SqliteCronStore.ts` → `const SCHEDULED_TASKS_TABLE = 'scheduled_tasks'`（12 处 `${TABLE}` 模板与 DDL/索引/CRUD 同步；与同文件 `RUNS_TABLE` 命名对齐）。"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"notes","i":1,"c":"③ 守卫：`app/tests/constants/sameNameConstsB2.test.ts` B5-2-51 断言无裸 `const TABLE =`、新名与新 DDL 同现。④ 棘轮：`lint:consts` 基线键 `同名常量:TABLE` 已归零。⑤ 验证：`tsc` exit 0 · 全量 bun test 8084 pass · 门禁全 exit 0。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"code#0","i":0,"c":"app/src/chronos/service/SqliteCronStore.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"code#1","i":0,"c":"app/src/agent/persona/PersonaService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-TABLE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"title","i":0,"c":"`SKIP_DIRS` ×2 按域消歧（异值异域：插件安全扫描 6 项 / files 递归守卫 9 项；搜索工具真源另在 searchSkipDirs.ts，取值一字未改）⇒ 同名常量:SKIP_DIRS 2>0"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-SKIP-DIRS","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队首"}

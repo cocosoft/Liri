@@ -7,9 +7,9 @@
  * 口径（**信任锚即意图**，2026-10-25）：
  * - `LIRI_PLUGIN_REQUIRE_SIGNATURE` **显式**为 `false/0/no/off` ⇒ 关；显式为真值 ⇒ 开；
  *   **未设置** ⇒ 配了信任锚就自动开，否则关（详见 `isSignatureEnforcementEnabled`）；
- * - 信任锚 = `LIRI_PLUGIN_TRUSTED_KEYS_DIR` 指向的目录（放 `*.pem` 的 **Ed25519 公钥**）。
- *   **刻意不给默认目录**：信任锚位置必须显式声明，否则「校验」很容易因为"某个默认目录不可写/
- *   被替换"而变成假保护（paths.md 也禁止自建 fallback）；
+ * - 信任锚 = `LIRI_PLUGIN_TRUSTED_KEYS_DIR`；**未配置时用默认位置** `<plugins 根>/trusted-keys`
+ *   （且该目录必须**真的含 `*.pem`** 才算数）。默认位置是"用户自己放公钥"的约定，不含任何
+ *   厂商私钥；随包分发官方公钥仍属发布链决策，未做；
  * - 签名对象 = **`plugin.json` 的原始字节**（`plugin.sig` 存 base64），**不做 JSON 再序列化**
  *   —— 任何"规范化后签名"都要自己维护一套规范化规则，规则一偏就是验签成功但内容不同；
  * - 失败一律 fail-closed：未配信任锚 / 目录不存在 / 无有效公钥 / 缺签名 / 验签不匹配 ⇒ 拒绝。
@@ -19,11 +19,14 @@
 import { createPublicKey, verify, type KeyObject } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { resolvePluginsDir } from '@openliri/kernel';
 
 /** 启用强制签名校验的 env（`1` / `true` / `yes`，大小写不敏感） */
 export const PLUGIN_SIGNATURE_ENFORCE_ENV = 'LIRI_PLUGIN_REQUIRE_SIGNATURE';
-/** 受信任公钥目录 env（**无默认值**：未配置即视为 fail-closed） */
+/** 受信任公钥目录 env（未设置 ⇒ 用**默认信任锚** `<plugins 根>/trusted-keys`，见下） */
 export const PLUGIN_TRUSTED_KEYS_DIR_ENV = 'LIRI_PLUGIN_TRUSTED_KEYS_DIR';
+/** 默认信任锚目录名（位于 `<plugins 根>/` 下；放 `*.pem` 公钥） */
+export const PLUGIN_DEFAULT_TRUSTED_KEYS_DIR_NAME = 'trusted-keys';
 /** 清单文件名（签名对象） */
 export const PLUGIN_MANIFEST_FILE = 'plugin.json';
 /** 分离签名文件名（base64，签的是清单原始字节） */
@@ -72,12 +75,39 @@ export function isSignatureEnforcementEnabled(
   return resolveTrustedKeysDir(env) !== null;
 }
 
-/** 读取信任锚目录（未配置 / 空串 ⇒ `null`） */
+/** 默认信任锚目录（`<plugins 根>/trusted-keys`） */
+export function resolveDefaultTrustedKeysDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolvePluginsDir(env), PLUGIN_DEFAULT_TRUSTED_KEYS_DIR_NAME);
+}
+
+/** 目录里是否有至少一把 `*.pem` 公钥（无目录/空目录 ⇒ false） */
+function hasAnyPublicKey(dir: string): boolean {
+  try {
+    return readdirSync(dir).some((name) => name.endsWith('.pem'));
+  } catch {
+    // @ignore-catch — 目录不存在/不可读 ⇒ 视为没有公钥（下面的调用方按 null 处理）
+    return false;
+  }
+}
+
+/**
+ * 读取信任锚目录。
+ *
+ * 顺序（2026-10-25 起有**默认位置**）：
+ * 1. `LIRI_PLUGIN_TRUSTED_KEYS_DIR` 显式配置 ⇒ **原样使用**（即使不存在也返回它，让错误暴露成
+ *    可读的「信任锚目录不存在」，而不是悄悄退回默认目录）；
+ * 2. 未配置 ⇒ `<plugins 根>/trusted-keys`，**但仅当它真的含 `*.pem`** 才算数
+ *    （空目录不算"配了信任锚"，否则升级后所有已信任插件会突然被拒）。
+ */
 export function resolveTrustedKeysDir(
   env: NodeJS.ProcessEnv = process.env
 ): string | null {
   const raw = env[PLUGIN_TRUSTED_KEYS_DIR_ENV];
-  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null;
+  if (typeof raw === 'string' && raw.trim().length > 0) return raw.trim();
+  const fallback = resolveDefaultTrustedKeysDir(env);
+  return hasAnyPublicKey(fallback) ? fallback : null;
 }
 
 /**
@@ -179,8 +209,9 @@ export function checkPluginSignature(input: {
     return {
       allowed: false,
       reason:
-        `已启用清单签名校验（${PLUGIN_SIGNATURE_ENFORCE_ENV}），但未配置信任锚：` +
-        `请设置 ${PLUGIN_TRUSTED_KEYS_DIR_ENV}=<存放 *.pem Ed25519 公钥的目录>。`,
+        `已启用清单签名校验（${PLUGIN_SIGNATURE_ENFORCE_ENV}），但没有可用的信任锚：` +
+        `把 Ed25519 公钥（*.pem）放到默认目录 ${resolveDefaultTrustedKeysDir(env)}，` +
+        `或设置 ${PLUGIN_TRUSTED_KEYS_DIR_ENV}=<目录>。`,
     };
   }
   const { keys, problems } = loadTrustedPublicKeys(keysDir);

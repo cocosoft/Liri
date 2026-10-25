@@ -88,14 +88,16 @@ function makePluginDir(options: {
 }
 
 beforeEach(() => {
-  for (const key of [ENV_SIGN, ENV_KEYS, ENV_TRUSTED]) {
+  for (const key of [ENV_SIGN, ENV_KEYS, ENV_TRUSTED, 'LIRI_HOME']) {
     saved[key] = process.env[key];
     delete process.env[key];
   }
+  // 隔离默认信任锚（`<LIRI_HOME>/plugins/trusted-keys`）：不读开发机真实公钥目录
+  process.env.LIRI_HOME = tempDir('liri-sig-home-');
 });
 
 afterEach(() => {
-  for (const key of [ENV_SIGN, ENV_KEYS, ENV_TRUSTED]) {
+  for (const key of [ENV_SIGN, ENV_KEYS, ENV_TRUSTED, 'LIRI_HOME']) {
     if (saved[key] === undefined) delete process.env[key];
     else process.env[key] = saved[key];
   }
@@ -131,10 +133,34 @@ describe('签名开关与信任锚（纯函数）', () => {
     expect(isSignatureEnforcementEnabled({ [ENV_KEYS]: '/keys' })).toBe(true);
   });
 
-  it('信任锚无默认值：未配置 / 空白 ⇒ null', () => {
-    expect(resolveTrustedKeysDir({})).toBeNull();
-    expect(resolveTrustedKeysDir({ [ENV_KEYS]: '   ' })).toBeNull();
+  it('信任锚：未配 env ⇒ 默认位置；默认目录没有 *.pem ⇒ null', () => {
+    const home = process.env.LIRI_HOME!;
+    expect(resolveTrustedKeysDir({ LIRI_HOME: home })).toBeNull();
+
+    // 显式配置优先（空白 ⇒ 视同未配，回退默认位置）
+    expect(
+      resolveTrustedKeysDir({ [ENV_KEYS]: '   ', LIRI_HOME: home })
+    ).toBeNull();
     expect(resolveTrustedKeysDir({ [ENV_KEYS]: ' /keys ' })).toBe('/keys');
+  });
+
+  it('默认信任锚 `<plugins>/trusted-keys`：放了一把 *.pem 就自动生效', () => {
+    const home = process.env.LIRI_HOME!;
+    const defaultDir = join(home, 'plugins', 'trusted-keys');
+    mkdirSync(defaultDir, { recursive: true });
+    const env = { LIRI_HOME: home };
+
+    // 空目录不算"配了信任锚"（否则升级后所有已信任插件会突然被拒）
+    expect(resolveTrustedKeysDir(env)).toBeNull();
+    expect(isSignatureEnforcementEnabled(env)).toBe(false);
+
+    writeFileSync(
+      join(defaultDir, 'official.pem'),
+      ed25519Pair().publicPem,
+      'utf8'
+    );
+    expect(resolveTrustedKeysDir(env)).toBe(defaultDir);
+    expect(isSignatureEnforcementEnabled(env)).toBe(true);
   });
 
   it('签名文本允许折行/空白；非 base64 / 空 ⇒ null', () => {
@@ -202,7 +228,8 @@ describe('checkPluginSignature（安装/加载共用入口）', () => {
   it('未启用 ⇒ 放行且不读文件（目录不存在也不报错）', () => {
     const decision = checkPluginSignature({
       pluginDir: join(tmpdir(), 'definitely-not-here-liri'),
-      env: {},
+      // LIRI_HOME 指向空临时目录 ⇒ 默认信任锚不含公钥 ⇒ 判定为未启用
+      env: { LIRI_HOME: process.env.LIRI_HOME! },
     });
     expect(decision).toEqual({ allowed: true });
   });
@@ -268,6 +295,26 @@ describe('checkPluginSignature（安装/加载共用入口）', () => {
     });
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toContain('plugin.sig');
+  });
+
+  it('默认信任锚生效：公钥放 <plugins>/trusted-keys ⇒ 未签名被拒、签名放行（无需任何 env）', () => {
+    const home = process.env.LIRI_HOME!;
+    const keysDir = join(home, 'plugins', 'trusted-keys');
+    mkdirSync(keysDir, { recursive: true });
+    const pair = ed25519Pair();
+    writeFileSync(join(keysDir, 'official.pem'), pair.publicPem, 'utf8');
+    const env = { LIRI_HOME: home };
+
+    const unsigned = makePluginDir({ omitSignature: true });
+    expect(checkPluginSignature({ pluginDir: unsigned.dir, env }).allowed).toBe(
+      false
+    );
+
+    const signed = makePluginDir({ signWith: pair.privateKey });
+    expect(checkPluginSignature({ pluginDir: signed.dir, env })).toEqual({
+      allowed: true,
+      signerKeyFile: 'official.pem',
+    });
   });
 
   it('目录里没有 plugin.json ⇒ 放行（无清单不会被加载器发现）', () => {

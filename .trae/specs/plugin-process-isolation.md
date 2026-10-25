@@ -96,7 +96,7 @@
 | 项 | 口径 |
 |---|---|
 | 开关 | `LIRI_PLUGIN_REQUIRE_SIGNATURE`：显式 `false/0/no/off` ⇒ 关；显式为真值 ⇒ 开；**未设置 ⇒ 配了信任锚就自动开**（"信任锚即意图"，避免"配了公钥却忘了开开关"的假保护） |
-| 信任锚 | `LIRI_PLUGIN_TRUSTED_KEYS_DIR` 指向目录，放 `*.pem` 的 **Ed25519 公钥**；**刻意无默认目录**（信任位置必须显式声明，否则易变成假保护） |
+| 信任锚 | 默认位置 `<plugins 根>/trusted-keys`（放 `*.pem` 的 **Ed25519 公钥**；**目录里必须真的有公钥**才算生效）；`LIRI_PLUGIN_TRUSTED_KEYS_DIR` 可覆盖该位置 |
 | 签名对象 | `plugin.json` 的**原始字节**；`plugin.sig` 存 base64（允许折行） |
 | 为什么不对 JSON 再序列化 | "规范化后签名"要自带一套规范化规则，规则一偏就是「验签通过但内容不同」 |
 | 闸位 | **安装**（`PluginInstallManager`）与**加载**（`PluginLoader`）同一入口 `checkPluginSignature` —— 覆盖"手工丢进 installed 目录"绕过安装器的路径 |
@@ -112,12 +112,14 @@ cd app && bun run plugin:sign keygen --out ./keys
 bun run plugin:sign sign --plugin ~/.pyapp/plugins/installed/<id> --key ./keys/plugin-signing.key
 # 3) 本地先验一遍（与运行时门禁同一个 checkPluginSignature）
 bun run plugin:sign verify --plugin ~/.pyapp/plugins/installed/<id> --keys ./keys
-# 4) 启用：只需在 .env 指定信任锚（配了即校验；要灰度关闭写 =false）
-#    LIRI_PLUGIN_TRUSTED_KEYS_DIR=<放 *.pem 公钥的目录>
-#    LIRI_PLUGIN_REQUIRE_SIGNATURE=false   # 可选：临时关闭
+# 4) 启用：把公钥放进默认信任锚即可（无需再写开关）
+mkdir -p ~/.pyapp/plugins/trusted-keys && cp ./keys/plugin-signing.pub.pem ~/.pyapp/plugins/trusted-keys/
+#    要换位置：LIRI_PLUGIN_TRUSTED_KEYS_DIR=<目录>
+#    要临时关闭：LIRI_PLUGIN_REQUIRE_SIGNATURE=false
 ```
 
-> 工具**不会**替你改运行时的信任配置（信任锚仍要显式指定）；私钥不托管、不进插件目录。
+> 工具**不会**替你摆放公钥：默认信任锚目录要你放入公钥才会生效；私钥不托管、不进插件目录。
+> **随包分发官方公钥**（厂商签名体系）仍属发布链决策，本仓未内置任何私钥/公钥。
 
 > 无钥时**拒装**（而非告警放行）：开启该开关的语义就是"只装能证明来源的东西"；若缺钥时放行，攻击者只需清空目录即可绕过。
 

@@ -1,7 +1,7 @@
 # Spec：第三方插件进程隔离（T25-08）
 
-> 版本 1.2 ｜ 创建 2026-10-25 ｜ 状态：✅ **P0 + P1 已落地**；**P2 部分落地**（能力声明 + 安装/加载双闸 + env 授权表；签名校验与市场 UI 勾选未做）
-> 实现落点：`app/src/plugins/utils/pluginTrust.ts`（P0 闸）· `app/src/plugins/host/{pluginHostProtocol,pluginHostEntry,PluginHostSupervisor}.ts`（P1 宿主）· `app/src/plugins/utils/pluginCapabilities.ts`（P2 能力授权）
+> 版本 1.3 ｜ 创建 2026-10-25 ｜ 状态：✅ **P0 + P1 已落地**；**P2 部分落地**（能力声明 + 安装/加载双闸 + env 授权表 + **`config` 能力已兑现**；`events` 与签名校验未做）
+> 实现落点：`app/src/plugins/utils/pluginTrust.ts`（P0 闸）· `app/src/plugins/host/{pluginHostProtocol,pluginHostEntry,PluginHostSupervisor}.ts`（P1 宿主）· `app/src/plugins/host/pluginConfigPort.ts`（P2 `config` 读写端口）· `app/src/plugins/utils/pluginCapabilities.ts`（P2 能力授权）
 > 开关 / 授权：`PLUGIN_THIRD_PARTY_INPROCESS=false`（准入闸）· `PLUGIN_HOST_PROCESS=true`（子进程宿主）· `LIRI_PLUGIN_CAPABILITY_GRANTS=<id>:<cap>[,…]`（能力授权；未配置 = 不做能力门控）
 > 来源：`dev_docs/20261025/待完成工作任务清单-20261025.md` §10.6（第二批建议组 6）
 > 关联：`google-ai-review-adjudication.md` §3.2（进程托管落点）· `tool-sidecar-isolation.md`（侧车先例）· `utils/sidecarIpc.ts`（可复用 IPC 帧）
@@ -64,10 +64,18 @@
 - 每个第三方插件一个**常驻子进程**（`bun` 入口 `plugins/host/entry.ts`），宿主 ↔ 插件用 `utils/sidecarIpc.ts` 既有帧（`request` / `notify` / `response`）。
 - **能力白名单 RPC**（不是把 context 塞过去）：
   - `tools.register`（声明式：名称/schema/风险档）—— 实际执行回主进程，插件只提供 `handler` 的 RPC 调用；
-  - `config.get/set`（仅插件自己的命名空间）；
-  - `events.emit/subscribe`（仅白名单事件名）；
+  - `config.get/set`（仅插件自己的命名空间）—— ✅ **已落地（2026-10-25）**，见下方口径；
+  - `events.emit/subscribe`（仅白名单事件名）—— ⏸ 未做（主进程侧尚无跨进程事件面，先不造"授权了却什么都不发生"的面）；
   - `log.*`。
   - **不提供**：`fs`、`child_process`、`env`、`net`（确有需要走宿主代理并按权限审批）。
+- **`config` 的实现口径（如实）**：
+  - **读**走 env 快照 `LIRI_PLUGIN_CONFIG`：`PluginContext.config.get` 是**同步签名**，插件在
+    `initialize` 里就会读，等不了往返；
+  - **写**走 RPC：子进程 `set()` 排队 → `save()` 一次性发 `config.set`（id 带 `child_` 前缀），
+    宿主校验（既有 `PluginConfigManager` 的 schema）+ 落盘后才回 `success:true`；失败在 `save()` 抛出；
+  - **未授权 `config`** ⇒ 不下发快照、宿主拒绝 `config.set` ⇒ 子进程保持 SDK 的 no-op 实现；
+  - 存储**复用** `PluginConfigManager`（`~/.pyapp/plugins/config/config.json`）单例 —— 禁止第二实例
+    （两个实例会用各自的 Map 覆盖同一文件 ⇒ 抹掉别的插件配置）。
 - **生命周期**：`activate → ready` 握手；崩溃 ⇒ `Supervisor` 有界重启（复用 `ToolSidecarSupervisor` 的监督范式：进程树强杀 + 退避 + 上限）。
 - **env**：子进程只注入 `LIRI_PLUGIN_ID` / `LIRI_PLUGIN_DIR` 等最小集，**不继承** `process.env`（否则隔离失效）。
 
@@ -95,6 +103,7 @@
 | P0 | 单测：第一方放行 / 第三方未信任拒绝 / 白名单命中放行 / 拒绝原因落日志；本地无插件用户零变更；`lint:arch` 绿 |
 | P1 | 负向：插件读 `process.env` **拿不到**宿主密钥；插件崩溃**不杀主进程**且被有界重启；插件工具调用经 RPC 且宿主侧有审计 |
 | P2 | 安装链路 E2E：未授权能力 ⇒ 拒绝安装/启用 |
+| P2 · `config`（2026-10-25） | 单测：已授权 ⇒ env 有快照且 `config.set` 落库回 `success:true`；未授权 ⇒ 无快照且 `config.set` 回 `success:false`；校验失败 ⇒ 回因；子进程 `set/save` 失败可抛、成功后才更新本地视角 |
 
 ## 7. 回退
 

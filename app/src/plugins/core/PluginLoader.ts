@@ -28,6 +28,8 @@ import {
   PluginEventType,
   PluginEvent,
 } from '../types/PluginTypes';
+// 仅类型（运行时经 `../host/pluginConfigPort.js` 动态解析，避免与 plugins/index 成环）
+import type { PluginConfigPort } from '../host/pluginConfigPort';
 
 const logger = getLogger('plugins:core:pluginLoader');
 
@@ -422,11 +424,22 @@ export class PluginLoader extends EventEmitter {
         ) {
           const { PluginHostSupervisor } =
             await import('../host/PluginHostSupervisor.js');
-          const host = new PluginHostSupervisor({
-            pluginId: plugin.id,
-            pluginDir: plugin.path,
-            entryPath,
-          });
+          // `config` 已授权才解析配置端口：未授权时连端口都不取（fail-closed，
+          // 子进程也就拿不到快照 ⇒ 保持 no-op 实现）。
+          const configPort = capability.granted.includes('config')
+            ? await this.resolveConfigPort()
+            : null;
+          const host = new PluginHostSupervisor(
+            {
+              pluginId: plugin.id,
+              pluginDir: plugin.path,
+              entryPath,
+            },
+            {
+              capabilities: capability.granted,
+              configPort: configPort ?? undefined,
+            }
+          );
           await host.start();
           plugin.hostProcess = host;
         } else {
@@ -457,6 +470,18 @@ export class PluginLoader extends EventEmitter {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+  }
+
+  /**
+   * 配置端口（懒解析）。
+   *
+   * **禁止 `new PluginConfigManager()`**：第二个实例的 `persistConfigs()` 会用自己那份
+   * Map 覆盖同一个 `config.json` ⇒ 抹掉其它插件的配置。必须复用插件系统的单例。
+   */
+  private async resolveConfigPort(): Promise<PluginConfigPort | null> {
+    const { resolvePluginConfigPort } =
+      await import('../host/pluginConfigPort.js');
+    return resolvePluginConfigPort();
   }
 
   /**

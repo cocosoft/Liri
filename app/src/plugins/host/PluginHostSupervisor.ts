@@ -31,12 +31,16 @@ import { getToolRegistry } from '../../tools/ToolRegistry';
 import { buildRegisteredTool } from '../utils/toolRegistration';
 import type { PluginToolDeclaration } from '../utils/toolRegistration';
 import {
+  PLUGIN_HOST_CHILD_METHOD,
   PLUGIN_HOST_METHOD,
   buildPluginHostEnv,
+  isPluginHostChildRequest,
+  parseChildConfigSet,
   parsePluginLog,
   parseStartFailed,
   parseToolDeclarations,
 } from './pluginHostProtocol';
+import type { PluginConfigPort } from './pluginConfigPort';
 
 const logger = getLogger('plugins:host:supervisor');
 
@@ -95,6 +99,14 @@ export interface PluginHostSupervisorDeps {
   baseEnv?: NodeJS.ProcessEnv;
   /** 工具调用审计出口（缺省落 app.log） */
   onToolAudit?: (record: PluginToolAuditRecord) => void;
+  /**
+   * 已授权的**能力清单**（来自 `resolvePluginCapabilities().granted`）。
+   *
+   * 缺省 ⇒ 视为**未授权任何能力**（fail-closed）：不下发配置快照、不处理 `config.set`。
+   */
+  capabilities?: readonly string[];
+  /** 配置端口（仅 `config` 已授权时需要；缺省 ⇒ 配置能力不可用） */
+  configPort?: PluginConfigPort;
 }
 
 interface PendingRequest {
@@ -155,6 +167,7 @@ export class PluginHostSupervisor {
         pluginId: this.target.pluginId,
         pluginDir: this.target.pluginDir,
         entryPath: this.target.entryPath,
+        config: this.configSnapshot(),
       }),
     });
     this.child = child;
@@ -312,6 +325,22 @@ export class PluginHostSupervisor {
     return this.registryPort;
   }
 
+  /** 该能力是否已授权（缺省 `capabilities` ⇒ 一律未授权，fail-closed） */
+  private hasCapability(capability: string): boolean {
+    return this.deps.capabilities?.includes(capability) === true;
+  }
+
+  /**
+   * 拉起前取配置快照（**仅 `config` 已授权且有端口时**）。
+   *
+   * 每次 `start()`（含重启）都重读：插件在上一轮 `save()` 的写入会在重启后可见。
+   */
+  private configSnapshot(): Record<string, unknown> | undefined {
+    if (!this.hasCapability('config') || !this.deps.configPort)
+      return undefined;
+    return this.deps.configPort.read(this.target.pluginId);
+  }
+
   /**
    * 把**声明**装配成宿主侧代理工具。
    *
@@ -429,6 +458,12 @@ export class PluginHostSupervisor {
   private handleFrame(frame: Record<string, unknown>): void {
     if (isHeartbeatFrame(frame)) return;
 
+    // 子进程 → 宿主 的**请求**（带 method + 前缀 id）：先于「回包」分支处理
+    if (isPluginHostChildRequest(frame)) {
+      this.handleChildRequest(frame);
+      return;
+    }
+
     const declarations = parseToolDeclarations(frame);
     if (declarations) {
       this.registerDeclaredTools(declarations);
@@ -456,6 +491,77 @@ export class PluginHostSupervisor {
       return;
     }
     this.settle(id, (p) => p.resolve(frame));
+  }
+
+  /**
+   * 处理子进程发来的请求（当前只有 `config.set`）。
+   *
+   * fail-closed：能力未授权 / 端口缺失 / 参数非法 ⇒ 回 `success:false`（插件侧 `save()`
+   * 据此抛错），**不静默忽略**（否则插件会以为写成功了）。
+   */
+  private handleChildRequest(frame: { id: string; method: string }): void {
+    if (frame.method !== PLUGIN_HOST_CHILD_METHOD.CONFIG_SET) {
+      this.respondChild(frame.id, false, {
+        error: { message: `未知方法：${frame.method}` },
+      });
+      return;
+    }
+    if (!this.hasCapability('config') || !this.deps.configPort) {
+      this.respondChild(frame.id, false, {
+        error: { message: '能力未授权：config（宿主未注入配置端口）' },
+      });
+      return;
+    }
+    const parsed = parseChildConfigSet(frame);
+    if (!parsed) {
+      this.respondChild(frame.id, false, {
+        error: { message: 'config.set 参数非法：需要 {key, value}' },
+      });
+      return;
+    }
+    const result = this.deps.configPort.write(
+      this.target.pluginId,
+      parsed.key,
+      parsed.value
+    );
+    logger.info('plugins:host:config-write', {
+      pluginId: this.target.pluginId,
+      key: parsed.key,
+      ok: result.ok,
+      errorCount: result.errors.length,
+    });
+    if (!result.ok) {
+      this.respondChild(frame.id, false, {
+        error: { message: `配置校验失败：${result.errors.join('; ')}` },
+      });
+      return;
+    }
+    this.respondChild(frame.id, true, { result: { ok: true } });
+  }
+
+  /** 回包子进程（写失败仅记日志：管道已断时子进程本身也已不可用） */
+  private respondChild(
+    id: string,
+    success: boolean,
+    payload: Record<string, unknown>
+  ): void {
+    const stdin = this.child?.stdin;
+    if (!stdin?.writable) {
+      logger.warn('插件子进程回包丢弃（stdin 不可写）', {
+        pluginId: this.target.pluginId,
+        id,
+      });
+      return;
+    }
+    try {
+      stdin.write(encodeFrame({ id, success, ...payload }));
+    } catch (error) {
+      logger.warn('插件子进程回包失败', {
+        pluginId: this.target.pluginId,
+        id,
+        error: String(error),
+      });
+    }
   }
 
   private settle(id: string, action: (p: PendingRequest) => void): void {

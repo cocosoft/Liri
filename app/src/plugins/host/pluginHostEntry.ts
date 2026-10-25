@@ -30,8 +30,11 @@ import {
 import { createPluginContext } from '../../plugin-sdk/core';
 import type { PluginContext } from '../../plugin-sdk/types';
 import {
+  PLUGIN_HOST_CHILD_METHOD,
   PLUGIN_HOST_EVENT,
   PLUGIN_HOST_METHOD,
+  buildPluginHostChildRequest,
+  readPluginConfigSnapshot,
   readPluginHostTarget,
 } from './pluginHostProtocol';
 import type { PluginToolDeclaration } from '../utils/toolRegistration';
@@ -53,6 +56,8 @@ export interface PluginHostChildDeps {
   importEntry?: (entryPath: string) => Promise<unknown>;
   /** `plugin.shutdown` 之后的自退动作（缺省 `process.exit(0)`；测试注入替身） */
   onShutdown?: () => void;
+  /** 子进程 → 宿主 请求的等待上限（默认 10s） */
+  hostRequestTimeoutMs?: number;
 }
 
 export interface PluginHostChildHandle {
@@ -104,10 +109,26 @@ export function startPluginHostChild(
 
   let rl: readline.Interface | null = null;
 
+  // ── 子进程 → 宿主 的请求（当前仅 `config.set`）──────────────────────────
+  // 复用同一套 request/response 帧（id 带 `child_` 前缀，宿主据此分流）。
+  // ⚠️ 必须声明在 `handle` 之前：缺 env 时会提前 return，而 `handle.stop()` 仍要
+  // 清理在飞请求（否则命中 TDZ）。
+  let childSeq = 0;
+  const childPending = new Map<
+    string,
+    {
+      resolve: (frame: Record<string, unknown>) => void;
+      reject: (reason: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
+
   const handle: PluginHostChildHandle = {
     stop: () => {
       stopGuard();
       rl?.close();
+      // 停读后不可能再收到回包 ⇒ 在飞请求立即失败（不留悬挂定时器）
+      abortChildRequests('插件宿主已关闭');
     },
   };
 
@@ -124,6 +145,87 @@ export function startPluginHostChild(
   const tools = new Map<string, ToolHandler>();
   let context: PluginContext | null = null;
   let instance: Record<string, unknown> | null = null;
+
+  const callHost = (
+    method: string,
+    params: Record<string, unknown>
+  ): Promise<Record<string, unknown>> =>
+    new Promise<Record<string, unknown>>((resolve, reject) => {
+      const frame = buildPluginHostChildRequest(++childSeq, method, params);
+      const id = String(frame.id);
+      const timeoutMs = deps.hostRequestTimeoutMs ?? 10_000;
+      const timer = setTimeout(() => {
+        childPending.delete(id);
+        reject(new Error(`插件宿主请求超时：${method}`));
+      }, timeoutMs);
+      childPending.set(id, { resolve, reject, timer });
+      try {
+        output.write(encodeFrame(frame));
+      } catch (error) {
+        clearTimeout(timer);
+        childPending.delete(id);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+
+  /** 在飞请求全部失败（宿主停止/通道断开时用；函数声明可被上方 `handle` 提前引用） */
+  function abortChildRequests(reason: string): void {
+    for (const [id, pending] of childPending) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error(reason));
+      childPending.delete(id);
+    }
+  }
+
+  const settleChildRequest = (frame: Record<string, unknown>): void => {
+    const id = frame.id;
+    if (typeof id !== 'string') return;
+    const pending = childPending.get(id);
+    if (!pending) return;
+    childPending.delete(id);
+    clearTimeout(pending.timer);
+    if (frame.success === false) {
+      const err = (frame.error ?? {}) as Record<string, unknown>;
+      pending.reject(new Error(String(err.message ?? '插件宿主请求失败')));
+      return;
+    }
+    pending.resolve(frame);
+  };
+
+  /**
+   * 插件配置 API。
+   *
+   * - **读**：来自宿主下发的一次性快照（`config.get` 是同步签名，不能在 `initialize` 里等往返）；
+   * - **写**：`set()` 排队 → `save()` 一次 flush 并经宿主校验+落盘；失败在 `save()` 抛出，
+   *   插件能看见原因（不静默成功）。
+   * - 无快照（未授权 `config`）⇒ 返回 `undefined`，`createPluginContext` 回落 no-op 实现。
+   */
+  const buildConfigApi = (): PluginContext['config'] | undefined => {
+    const snapshot = readPluginConfigSnapshot(env);
+    if (snapshot === null) return undefined;
+    const values = new Map<string, unknown>(Object.entries(snapshot));
+    const pendingWrites: Array<Promise<unknown>> = [];
+    return {
+      get: <T>(key: string, defaultValue?: T): T =>
+        (values.has(key) ? values.get(key) : defaultValue) as T,
+      set: <T>(key: string, value: T): void => {
+        const write = callHost(PLUGIN_HOST_CHILD_METHOD.CONFIG_SET, {
+          key,
+          value,
+        }).then(() => {
+          values.set(key, value);
+        });
+        // 失败要留到 save() 抛给插件；这里先挂空 catch，避免未 await 期间触发
+        // unhandledRejection（进程级告警会把插件的正常容错误报成崩溃）
+        write.catch(() => undefined);
+        pendingWrites.push(write);
+      },
+      save: async (): Promise<void> => {
+        const writes = pendingWrites.splice(0);
+        await Promise.all(writes);
+      },
+    };
+  };
 
   const runHook = async (names: readonly string[]): Promise<void> => {
     if (!instance || !context) return;
@@ -209,6 +311,7 @@ export function startPluginHostChild(
           warn: (m: string) => log('warn', m),
           error: (m: string) => log('error', m),
         },
+        config: buildConfigApi(),
       });
 
       await runHook(['initialize']);
@@ -241,7 +344,10 @@ export function startPluginHostChild(
     if (!frame) return;
     if (typeof frame.id === 'string' && typeof frame.method === 'string') {
       void onRequest(frame);
+      return;
     }
+    // 宿主对我方请求的**回包**（只有 id + success，没有 method）
+    if (typeof frame.id === 'string') settleChildRequest(frame);
     // 其它帧（heartbeat / notify）当前不消费：宿主不下发控制帧
   });
 

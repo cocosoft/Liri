@@ -28,6 +28,19 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.11 (2026-10-25)  租户级数据库 + 内核发布闭环就绪 + 可观测性补强 + 死面清理收尾
+
+- ✅ **租户级数据库（多租户隔离）** - provider/task/cost/execution/checkpoint/knowledge/TAOR/session 等
+  14+ 仓储迁租户库，`owner_key` 行级隔离 + 漏网清单 8 仓逐仓修（knowledge 5 + workspace 2 + tasks 1）；
+  显式 dbPath 8 单例收口、按 owner 回收上下文缓存；多租户数据面边界裁定落盘
+- ✅ **内核包发布闭环** - 单模块实例（撤 bundler 打桶）+ `exports` 非通配逐文件列举 + smoke 三断言；
+  DI 容器契约 9 条修复（环回滚 / request 作用域 AsyncLocalStorage / disposeAll 超时）；
+  发布通道 `kernel-release.yml` + README/LICENSE 随包 + 内核纳入 test 选择与版本守卫
+- ✅ **暴露面登录态（REQUIRE_BEARER）** - 非回环暴露 / headless 必须有效 Bearer，回环零变更
+- ✅ **可观测性补强** - 工具运行与 bash 命令执行全链补 app.log（安全门拦截 / 成败 / 异常三分支 + 主链 onToolCall 升 INFO）
+- ✅ **死面清理收尾** - 删除 promptSuggestion / agent-persona 死面（先摘入口、后删实现，CD05）；Google AI 外部建议逐条裁定
+- ✅ **门禁与 CI 补强** - 提交前拦 GitHub Actions YAML 破损（lint:workflows + pre-commit/doc-gate 双接线）；macOS 假红修复
+
 #### v0.5.10 (2026-10-24)  内核独立包落地 + core 减重收口 + 内核面/基线门禁补强 + 侧车靶点复核
 
 - ✅ **内核独立包 `@openliri/kernel`** - 源码物理迁出 `app/src/core`（P1–P6）；别名统一 `@openliri/kernel`；

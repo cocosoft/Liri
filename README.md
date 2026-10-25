@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.10-blue)
+![Version](https://img.shields.io/badge/version-0.5.11-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -427,7 +427,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.10**
+当前版本：**v0.5.11**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -436,17 +436,17 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.10 (2026-10-24)
-内核独立包落地 + core 减重收口 + 内核面/基线门禁补强 + 侧车靶点复核
+#### v0.5.11 (2026-10-25)
+租户级数据库 + 内核发布闭环就绪 + 可观测性补强 + 死面清理收尾
 
-- ✅ **内核独立包 `@openliri/kernel`** - 源码物理迁出 `app/src/core`；发布面收敛到 `dist`（双条件 `exports` + 声明树 + 显式依赖）；独立 CI 逐条校验子路径可 import，另有秒级 `test:kernel` 回路；编译期边界：删 tsconfig 通配，非公开子路径由解析器拒绝
-- ✅ **core 减重** - 删除 `auto-reply` 死代码；`media-generation` / `persona` / `migration` 搬出到各自消费域；方案 A 三个三重零模块 + 观察期收尾一并清掉 ⇒ core **146 → 113 文件**（导出面 146/1366 → 113/1044）
-- ✅ **内核门禁 K01–K08** - 跨层（静态/动态）、出工作区、SPI 禁实现类、三方依赖白名单、深路径棘轮 123 → 0、导出面快照，新增 **K08 体量棘轮**（文件/行/子目录只减不增，基线缺失即失败）
-- ✅ **Q3 去产品化** - 产品身份（`appName` / `envPrefix`）改为宿主注入，默认 `pyapp` / `LIRI_` ⇒ 零行为变更；端口与构建变体的契约键读/写同源；字面量守卫钉住「内核不再自带产品名」
-- ✅ **门禁与规则补强** - 新增 `lint:doc-alias`（规则里的导入别名必须可解析）；`doc-gate` 承接 `.trae/architecture` 基线棘轮（原被 `paths-ignore` 跳过 ⇒ 假绿）；规则要求方案状态头与证据台账一致
-- ✅ **侧车靶点复核** - 媒体原生面 / 常驻 LSP 在开关开启下分别 92 / 97 用例全绿（含崩溃隔离、有界重启、进程树强杀、E2E），默认仍关；`liri-native` 以量化证据结案「不侧车化」
+- ✅ **租户级数据库（多租户隔离）** - provider/task/cost/execution/checkpoint/knowledge 等 14+ 仓储迁租户库，`owner_key` 行级隔离 + 漏网清单逐仓修；显式 dbPath 8 单例收口
+- ✅ **内核包发布闭环** - 单模块实例（撤打桶）+ `exports` 非通配列举 + smoke 三断言；DI 容器契约 9 条修复；`kernel-release.yml` 发布通道就绪
+- ✅ **暴露面登录态（REQUIRE_BEARER）** - 非回环暴露 / headless 必须有效 Bearer，回环零变更
+- ✅ **可观测性补强** - 工具运行与 bash 命令执行全链补 app.log（拦截/成败/异常三分支）
+- ✅ **死面清理收尾** - 删除 promptSuggestion / agent-persona 死面；Google AI 外部建议逐条裁定
+- ✅ **门禁与 CI 补强** - 提交前拦 GitHub Actions YAML 破损；macOS 假红修复
 
-> 本版为架构收口版：内核成为可独立消费的包，core 物理减重完成，并用棘轮把「体量 / 深路径 / 依赖」钉住（详见 [CHANGELOG.md](./CHANGELOG.md)）。
+> 本版为多租户收口版：租户级数据库隔离落地，内核包发布闭环就绪（详见 [CHANGELOG.md](./CHANGELOG.md)）。
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

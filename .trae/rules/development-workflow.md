@@ -211,6 +211,20 @@ bun run modules:snapshot # 6. 更新依赖快照
 
 > 可将此流程配置为 pre-commit hook：`bun run modules:setup`
 
+**pre-commit 钩子实际覆盖（2026-10-26 更新，生成器 `app/scripts/setup-git-hooks.ts`）**：
+
+| 顺序 | 门禁 | 说明 |
+|---|---|---|
+| 1 | `lint:arch` | 架构合规（error 阻断；**exit 2 亦阻断**，AR-3） |
+| 2 | `lint:fix-evidence` | 台账自洽 + JSON 可解析（CS08） |
+| 3 | `lint:workflows` | GitHub Actions YAML 可解析 |
+| 4 | `lint:state-ratchet` / `lint:fn-size` / `lint:consts` / `lint:unref` | **棘轮族（2026-10-26 前置，实测合计约 3s）**；`lint:complexity`（约 42s）**仍在 CI** |
+| 5 | `typecheck`（不阻断）/ `lint --fix` / `modules:validate` | 类型与风格 |
+
+> **动机（实证）**：2026-10-26 出现「本地 tsc / eslint / lint:arch 全绿，CI 的 `lint:state-ratchet` 红」——
+> 新增文件里写了状态词汇裸字面量（`'running'`/`'completed'`/`on('error')`）。棘轮族只在 CI 跑会重复踩坑
+> ⇒ 取**耗时短的 4 项**前置到钩子。改钩子后须 `bun run modules:setup` 重新生成（钩子是生成物）。
+
 ### 2.14 架构治理节奏（强制）
 
 架构规范采用 **D（定义规范）→ C（编码检查）→ G（门禁强制）→ M（度量反馈）→ A（季度复盘）** 闭环，按三个节奏运转：

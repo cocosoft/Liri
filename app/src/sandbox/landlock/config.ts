@@ -42,6 +42,11 @@
  * `readLandlockConfig()`（`enabled === false` ⇒ 直接交回跨平台执行器），`failClosed` 决定
  * "exit 125 时**拒绝**还是**降级**"（另见该文件的 `resolveSandboxInitFailure`）；
  * `bashEnabled` 的消费者在 `tools/bash/bashLandlockExec.ts`。
+ *
+ * ✅ **macOS 也吃这组开关（2026-10-26）**：`bashEnabled` 开启后 bash 与 `code_run` 走 Seatbelt
+ * （`/usr/bin/sandbox-exec`），首版只做**写隔离**（读/网络不收紧）；能力不可用 ⇒ 仍 **refuse**
+ * （与 Linux 同口径，不静默降级）。方案见 `.trae/specs/macos-sandbox-exec.md`。
+ * Windows 仍无 OS 级兜底（开启 `bashEnabled` ⇒ refuse / `platform-unsupported`）。
  */
 import { configManager } from '@modules/config';
 

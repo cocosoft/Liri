@@ -273,6 +273,9 @@ export class BashTool extends BaseTool {
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     const startTime = Date.now();
+    // B 类可观测性缺口 ②（2026-10-25）：catch 作用域访问不到 try 块内的 `command`，
+    // 故在执行前预存命令摘要，供异常分支落 app.log（含命令预览 + sessionId）。
+    let executedCommandPreview: string | undefined;
 
     try {
       // 对标CC：Zod输入验证
@@ -313,6 +316,8 @@ export class BashTool extends BaseTool {
         });
       }
       command = std.preprocessed;
+      // B 类可观测性缺口 ②：预存最终 spawn 字符串摘要（见 `executedCommandPreview` 声明处）
+      executedCommandPreview = command.slice(0, 200);
       // 自动修正 cwd 中的 Unix 路径
       if (this.isWindows && cwd) {
         cwd = this.translateWindowsPath(cwd);
@@ -442,6 +447,14 @@ export class BashTool extends BaseTool {
 
       const whitelistBlock = checkWhitelistAndSandbox(command, std);
       if (whitelistBlock) {
+        // 2026-10-25（B 类可观测性缺口 ①）：白名单 F3 / 沙箱二次校验 F2 拦截事件此前**零日志**
+        // —— 只落会话消息、不进 app.log（用户会话 `session_mvl0d0a3d6e2e9a764` 实证"bash 命令
+        // 被安全策略拦截"无迹可查）。与 path/danger/ast 三分支（本方法 :392/:402/:435）同构补齐。
+        logger.warn('bash: security_gate_blocked', {
+          sessionId: context.sessionId,
+          commandPreview: command.slice(0, 200),
+          reason: whitelistBlock.metadata?.['reason'],
+        });
         return whitelistBlock;
       }
 
@@ -474,6 +487,15 @@ export class BashTool extends BaseTool {
       const executionTime = ToolUtils.calculateExecutionTime(startTime);
       const msg = error instanceof Error ? error.message : String(error);
       const stderr = (error as { stderr?: string }).stderr;
+
+      // B 类可观测性缺口 ②（2026-10-25）：执行异常此前**零 app.log** —— 只返回 failureResult
+      // 给模型，排查"命令为什么失败"只能翻会话消息。现补 error 级日志（含命令摘要 + stderr 截断）。
+      logger.error('bash: execute_error', {
+        sessionId: context.sessionId,
+        commandPreview: executedCommandPreview ?? '',
+        error: msg.slice(0, 500),
+        ...(stderr ? { stderr: stderr.slice(0, 300) } : {}),
+      });
 
       // 报告执行错误
       onProgress?.({

@@ -476,6 +476,9 @@ export async function execBashCommand(
   const deps = input.deps ?? {};
   const config = deps.config ?? readLandlockConfig();
   const runPlain = deps.runPlain ?? defaultPlainRunner;
+  // B 类可观测性缺口 ③（2026-10-25）：各分支统一记录耗时（成功/失败同构字段）
+  const startedAt = Date.now();
+  const commandPreview = input.command.slice(0, 200);
   const plainOptions = {
     cwd: input.cwd,
     env: input.env,
@@ -490,7 +493,14 @@ export async function execBashCommand(
   if (!config.enabled || (!config.bashEnabled && !evalForced)) {
     // G1-C（选项 C）的顾问性提示：能力可用却未接入时 WARN 一次
     await reportBashLandlockGapOnce();
-    return runPlain(input.command, plainOptions);
+    const out = await runPlain(input.command, plainOptions);
+    logger.info('bash: exec_ok', {
+      commandPreview,
+      mode: 'plain',
+      exitCode: 0,
+      durationMs: Date.now() - startedAt,
+    });
+    return out;
   }
 
   const platform = deps.platform ?? process.platform;
@@ -515,10 +525,24 @@ export async function execBashCommand(
   // P0-4 ②：评测期强制但能力不可用 ⇒ **回退 plain**（非 refuse）
   if (gate.mode === 'plain') {
     await reportBashLandlockGapOnce();
-    return runPlain(input.command, plainOptions);
+    const out = await runPlain(input.command, plainOptions);
+    logger.info('bash: exec_ok', {
+      commandPreview,
+      mode: 'plain',
+      exitCode: 0,
+      durationMs: Date.now() - startedAt,
+    });
+    return out;
   }
 
   if (gate.mode === 'refuse') {
+    // B 类可观测性缺口 ③：fail-closed 拒绝事件此前零日志（AppError 只经调用方 catch 消化）。
+    // 补 warn 使"开启 Landlock 却拒绝执行"的原因（平台不支持 / 能力不可用）在 app.log 可查。
+    logger.warn('bash: exec_refused', {
+      commandPreview,
+      reason: gate.reason,
+      message: gate.message?.slice(0, 200),
+    });
     // fail-closed：显式开启却无法受限 ⇒ 拒绝执行（**不**静默降级）
     throw new AppError(
       gate.message ?? 'Landlock 无法生效，已按 fail-closed 拒绝执行',
@@ -570,12 +594,25 @@ export async function execBashCommand(
   }
 
   if (result.error || result.exitCode === null) {
+    // B 类可观测性缺口 ③：执行异常（spawn 失败 / 被杀 / 超时）补 error 日志
+    logger.error('bash: exec_error', {
+      commandPreview,
+      error: String(result.error ?? '未取到退出码').slice(0, 500),
+      durationMs: Date.now() - startedAt,
+    });
     throw (
       result.error ??
       new Error(`Command failed: ${input.command}（未取到退出码）`)
     );
   }
   if (result.exitCode !== 0) {
+    // B 类可观测性缺口 ③：命令非 0 退出补 warn（exitCode + stderr 截断）
+    logger.warn('bash: exec_failed', {
+      commandPreview,
+      exitCode: result.exitCode,
+      stderr: result.stderr.slice(0, 300),
+      durationMs: Date.now() - startedAt,
+    });
     throw commandFailedError({
       command: input.command,
       stdout: result.stdout,
@@ -583,5 +620,11 @@ export async function execBashCommand(
       exitCode: result.exitCode,
     });
   }
+  logger.info('bash: exec_ok', {
+    commandPreview,
+    mode: 'landlock',
+    exitCode: 0,
+    durationMs: Date.now() - startedAt,
+  });
   return { stdout: result.stdout, stderr: result.stderr };
 }

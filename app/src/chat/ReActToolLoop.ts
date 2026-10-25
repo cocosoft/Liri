@@ -1039,7 +1039,8 @@ export class ReActToolLoop extends ReActLoop<
         // 排查日志：日志内仍截断 200 字符，实际回调传完整对象。
         // 遗漏 3：safeStringify 防循环引用/BigInt 抛错中断整轮工具。
         const rawArgsJson = safeStringify(tc.input);
-        logger.debug('reactToolLoop:onToolCall start', {
+        // B 类可观测性缺口 ④（2026-10-25）：工具开始此前仅 DEBUG ⇒ 升 INFO（主链"开始→结束"全程可见）
+        logger.info('reactToolLoop:onToolCall start', {
           sessionId: this.ctx.session.id,
           toolName: tc.name,
           toolCallId: tc.id,

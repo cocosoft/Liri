@@ -1141,3 +1141,100 @@ describe('ReActToolLoop：压缩失败暂停续接', () => {
     expect(internals._boostNextReasonMaxTokens).toBe(false);
   });
 });
+
+/**
+ * **主链工具执行日志可观测性**（B 类缺口 ④，2026-10-25）。
+ *
+ * 缺口：工具**开始**此前仅 `logger.debug`（默认级别不可见），与 end 的 INFO/WARN 不对称 ⇒
+ * 排查"工具跑了没"只能靠 end 逆推。修复：start 升 INFO（记录 toolName/toolCallId/sessionId）。
+ *
+ * 断言方式：`addLogHandler` 捕获全部日志（与 R2 压缩稳态豁免用例同构），按消息 key 过滤，
+ * 并校验级别（info）与数据字段。
+ */
+describe('主链工具执行日志（onToolCall start/end，B 类缺口 ④）', () => {
+  interface SeenEntry {
+    level: string;
+    message: string;
+    data?: Record<string, unknown>;
+  }
+
+  it('工具轮：start 升 INFO 记录 + end 记录（成功路径）', async () => {
+    const seen: SeenEntry[] = [];
+    const off = addLogHandler((entry) => {
+      seen.push({
+        level: entry.level,
+        message: entry.message,
+        data: entry.data,
+      });
+    });
+    try {
+      const ctx = makeCtx({
+        activeClient: {
+          streamMessage: async function* (
+            _messages: ChatMessage[],
+            _options: Record<string, unknown>
+          ): AsyncGenerator<string, ChatResponse> {
+            yield 'thinking';
+            return {
+              content: '使用工具',
+              stop_reason: 'tool_calls',
+              tool_calls: [
+                { id: 'tc1', name: 'read', arguments: { path: 'a' } },
+              ],
+            } as ChatResponse;
+          },
+          sendMessage: async () =>
+            ({
+              content: '使用工具',
+              stop_reason: 'tool_calls',
+              tool_calls: [
+                { id: 'tc1', name: 'read', arguments: { path: 'a' } },
+              ],
+            }) as ChatResponse,
+          getProviderId: () => 'mock',
+        } as never,
+        executeTool: async (tc: {
+          id: string;
+          name: string;
+          arguments: Record<string, unknown>;
+          sessionId?: string;
+        }) => ({
+          toolCallId: tc.id,
+          toolName: tc.name,
+          result: 'file content',
+          error: undefined,
+        }),
+      });
+      const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 3 });
+      for await (const e of loop.run(makeInput())) {
+        if (e.type === 'iteration_end') break;
+      }
+
+      const starts = seen.filter(
+        (e) => e.message === 'reactToolLoop:onToolCall start'
+      );
+      const ends = seen.filter(
+        (e) => e.message === 'reactToolLoop:onToolCall end'
+      );
+
+      // start：必须可观测（INFO，不再被 DEBUG 默认过滤吞掉）
+      expect(starts.length).toBeGreaterThan(0);
+      expect(starts[0].level).toBe('info');
+      expect(starts[0].data).toMatchObject({
+        sessionId: 'sess-test',
+        toolName: 'read',
+        toolCallId: 'tc1',
+      });
+      // end：成功路径 INFO + 状态
+      expect(ends.length).toBeGreaterThan(0);
+      expect(ends[0].level).toBe('info');
+      expect(ends[0].data).toMatchObject({
+        sessionId: 'sess-test',
+        toolName: 'read',
+        status: 'success',
+      });
+    } finally {
+      off();
+    }
+  });
+});

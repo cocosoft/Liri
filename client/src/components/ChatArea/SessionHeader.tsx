@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useChatStore } from "../../stores/chat";
+import { toastSuccess } from "../../stores/toastStore";
 import { sessionService } from "../../services/sessionService";
 import type { Message } from "../../types";
 import { getMessageSearchText } from "../../utils/messageText";
@@ -439,10 +440,12 @@ function SessionHeader() {
     setExporting(true);
     try {
       const md = await buildSessionMarkdown(full);
+      const filename = `chat-export-${Date.now()}${full ? "-full" : ""}.md`;
       triggerBlobDownload(
         new Blob([md], { type: "text/markdown;charset=utf-8" }),
-        `chat-export-${Date.now()}${full ? "-full" : ""}.md`,
+        filename,
       );
+      toastSuccess(t("chat.exportSuccess", { filename }));
     } catch (e) {
       handleClientError(e, {
         module: "ui:session-header",
@@ -462,7 +465,14 @@ function SessionHeader() {
     setExporting(true);
     try {
       const md = await buildSessionMarkdown();
-      exportMessageAsFormat(md, format, `chat-export-${Date.now()}`);
+      const filenameBase = `chat-export-${Date.now()}`;
+      exportMessageAsFormat(md, format, filenameBase);
+      // 扩展名与 `exportMessageAsFormat` 内部一致：html → .html，word → .doc
+      toastSuccess(
+        t("chat.exportSuccess", {
+          filename: `${filenameBase}.${format === "html" ? "html" : "doc"}`,
+        }),
+      );
     } catch (e) {
       handleClientError(e, {
         module: "ui:session-header",
@@ -480,10 +490,12 @@ function SessionHeader() {
     try {
       const source = await resolveExportMessages();
       const json = await exportAsJson(source, buildExportMeta(), t);
+      const filename = `chat-export-${Date.now()}.json`;
       triggerBlobDownload(
         new Blob([json], { type: "application/json;charset=utf-8" }),
-        `chat-export-${Date.now()}.json`,
+        filename,
       );
+      toastSuccess(t("chat.exportSuccess", { filename }));
     } catch (e) {
       handleClientError(e, {
         module: "ui:session-header",

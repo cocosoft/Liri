@@ -92,3 +92,8 @@ export function toastWarning(message: string): void {
 export function toastInfo(message: string): void {
   useToastStore.getState().push(message, "info");
 }
+
+/** 便捷方法：显示成功 toast（如"导出已完成"这类瞬时正向反馈） */
+export function toastSuccess(message: string): void {
+  useToastStore.getState().push(message, "success");
+}

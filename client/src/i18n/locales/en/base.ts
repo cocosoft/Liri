@@ -536,6 +536,7 @@ const enBase = {
     renameSession: "Rename",
     exportSession: "Export Session",
     exportEmptyHint: "No messages to export in this session",
+    exportSuccess: "Exported: {{filename}} (check your downloads folder)",
     orphanToolResult: "Orphan tool result (no matching call)",
     thoughtProcess: "Thought Process",
     executing: "Executing",

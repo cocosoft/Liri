@@ -8,6 +8,7 @@ import React, {
   useLayoutEffect,
 } from "react";
 import { handleClientError } from "../../utils/handleError";
+import { toastSuccess } from "../../stores/toastStore";
 import { createLogger } from "@/utils/logger";
 import { useTimedToast } from "../../hooks/useTimedToast";
 
@@ -383,7 +384,11 @@ const ChatMessageMemo = memo(
         showCopyToast("failed");
         return;
       }
-      exportMessageAsFormat(content, format);
+      // 与右上角会话导出同口径：`exportMessageAsFormat` 不返回文件名 ⇒ 自己拼，成功后给 toast
+      const baseName = `ai-reply-${Date.now()}`;
+      exportMessageAsFormat(content, format, baseName);
+      const ext = format === "md" ? "md" : format === "html" ? "html" : "doc";
+      toastSuccess(t("chat.exportSuccess", { filename: `${baseName}.${ext}` }));
     };
 
     const handleRegenerate = () => {

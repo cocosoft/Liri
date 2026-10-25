@@ -261,6 +261,11 @@ export interface PluginManifest {
   homepage?: string;
   license?: string;
   icon?: string;
+  /**
+   * 能力声明（T25-08 P2）：闭合集合 `tools` / `config` / `events`。
+   * 缺省 = 旧清单 ⇒ 保守默认 `['tools']`；宿主配置授权表后，声明未授权能力会被拒绝安装/加载。
+   */
+  capabilities?: string[];
   tools?: PluginToolManifest[];
   skills?: PluginSkillManifest[];
   hooks?: PluginHookManifest[];

@@ -270,6 +270,12 @@ export interface PluginManifest {
    */
   dependencies?: PluginDependency[];
   /**
+   * T25-08 P2（2026-10-25）：**能力声明**（闭合集合，见 `plugins/utils/pluginCapabilities.ts`
+   * 的 `PLUGIN_CAPABILITIES`）。缺省视为旧清单 ⇒ 保守默认 `['tools']`。
+   * 授权表 `LIRI_PLUGIN_CAPABILITY_GRANTS` 配置后 fail-closed（声明未授权 ⇒ 拒绝安装/加载）。
+   */
+  capabilities?: string[];
+  /**
    * 插件配置
    */
   config?: Record<string, unknown>;

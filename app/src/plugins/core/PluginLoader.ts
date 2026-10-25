@@ -11,6 +11,11 @@ import {
   isThirdPartyPluginTrusted,
   PLUGIN_TRUST_REMEDY,
 } from '../utils/pluginTrust';
+// T25-08 P2（2026-10-25）：能力授权（与准入闸正交：能不能跑 / 允许做什么）
+import {
+  describeCapabilityDenial,
+  resolvePluginCapabilities,
+} from '../utils/pluginCapabilities';
 import {
   PluginState,
   PluginType,
@@ -338,6 +343,30 @@ export class PluginLoader extends EventEmitter {
       return {
         success: false,
         error: `插件「${plugin.id}」属第三方代码，默认不在主进程内加载。${PLUGIN_TRUST_REMEDY}`,
+      };
+    }
+
+    // ── T25-08 P2（2026-10-25）：**能力授权**（安装/加载双闸；未授权 ⇒ 不执行）──
+    // 授权表 `LIRI_PLUGIN_CAPABILITY_GRANTS` 未配置 ⇒ 零行为变更（仍受上面的准入闸约束）。
+    const capability = resolvePluginCapabilities(
+      plugin.id,
+      (plugin.manifest as Record<string, unknown> | undefined)?.['capabilities']
+    );
+    if (!capability.allowed) {
+      logger.warn(
+        'plugins:capability_denied — 插件能力校验未通过，已拒绝加载',
+        {
+          pluginId: plugin.id,
+          path: plugin.path,
+          declared: capability.declared,
+          missing: capability.missing,
+          unknown: capability.unknown,
+          malformed: capability.malformed,
+        }
+      );
+      return {
+        success: false,
+        error: `插件「${plugin.id}」能力校验未通过：${describeCapabilityDenial(capability)}`,
       };
     }
 

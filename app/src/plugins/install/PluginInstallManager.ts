@@ -16,6 +16,10 @@ import { resolvePluginsInstalledDir } from '@openliri/kernel';
 import { PluginRegistry } from '../core/PluginRegistry.js';
 import { NpmDistributor } from '../distribution/NpmDistributor.js';
 import { pluginSecurityScanner } from '../utils/pluginSecurityScanner.js';
+import {
+  describeCapabilityDenial,
+  resolvePluginCapabilities,
+} from '../utils/pluginCapabilities.js';
 import { installPythonPlugin } from './PythonPluginInstaller.js';
 
 import { getLogger } from '@modules/monitoring';
@@ -213,6 +217,20 @@ export class PluginInstallManager {
       };
     }
 
+    // ── T25-08 P2（2026-10-25）：能力授权（spec §6「未授权能力 ⇒ 拒绝安装」）──
+    // 授权表未配置 ⇒ 零行为变更；配置后 fail-closed：声明了但未授权 ⇒ 拒绝并清掉刚落盘的目录。
+    const capabilityError = this.checkCapabilities(targetPath);
+    if (capabilityError) {
+      this.discardInstalledDir(targetPath);
+      return {
+        success: false,
+        pluginName: options.sourcePath,
+        version: options.version || 'unknown',
+        installPath: '',
+        error: capabilityError,
+      };
+    }
+
     const record: InstallRecord = {
       pluginName: options.sourcePath,
       version: options.version || '1.0.0',
@@ -275,6 +293,59 @@ export class PluginInstallManager {
     } catch (error) {
       logger.warn('Python 插件检测失败', { targetPath, error });
       return undefined;
+    }
+  }
+
+  /**
+   * T25-08 P2：安装后的**能力授权**检查（纯读清单，不改动文件）。
+   *
+   * - 无 `plugin.json` ⇒ 放行（无清单的目录不会被 `PluginLoader` 发现，不构成运行时入口）；
+   * - 清单解析失败 / 声明了未授权能力 ⇒ 返回拒绝原因（调用方负责清理刚落盘的目录）。
+   */
+  private checkCapabilities(targetPath: string): string | null {
+    const manifestPath = path.join(targetPath, 'plugin.json');
+    if (!fs.existsSync(manifestPath)) return null;
+
+    try {
+      const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+      const base =
+        parsed && typeof parsed.plugin === 'object' && parsed.plugin !== null
+          ? parsed.plugin
+          : parsed;
+      const pluginId =
+        typeof base?.id === 'string' && base.id
+          ? base.id
+          : path.basename(targetPath);
+      const decision = resolvePluginCapabilities(pluginId, base?.capabilities);
+      if (decision.allowed) return null;
+      const denial = describeCapabilityDenial(decision);
+      logger.warn('plugins:install:capability_denied — 安装被拒', {
+        pluginId,
+        targetPath,
+        declared: decision.declared,
+        missing: decision.missing,
+        unknown: decision.unknown,
+        malformed: decision.malformed,
+      });
+      return `插件「${pluginId}」能力校验未通过，已取消安装：${denial}`;
+    } catch (error) {
+      return `插件清单解析失败（plugin.json）：${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+
+  /**
+   * 丢弃**本次安装**刚落盘的目录（能力校验未通过时回滚）。
+   *
+   * 只清理本次 install 的目标路径，且失败仅告警 —— 不因清理失败把安装错误覆盖掉。
+   */
+  private discardInstalledDir(targetPath: string): void {
+    try {
+      fs.rmSync(targetPath, { recursive: true, force: true });
+    } catch (error) {
+      logger.warn('能力校验未通过后清理安装目录失败', {
+        targetPath,
+        error: String(error),
+      });
     }
   }
 

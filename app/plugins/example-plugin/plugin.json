@@ -8,6 +8,7 @@
   "type": "tool",
   "main": "src/index.ts",
   "entryPoint": "src/index.ts",
+  "capabilities": ["tools"],
   "categories": ["utility"],
   "tags": ["example", "demo"],
   "dependencies": [],

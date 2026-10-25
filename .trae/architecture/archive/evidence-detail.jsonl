@@ -6394,3 +6394,7 @@
 {"id":"CHAT-BUBBLE-EXPORT-TOAST","k":"code#0","i":0,"c":"client/src/components/ChatArea/ChatMessage.tsx"}
 {"id":"CHAT-BUBBLE-EXPORT-TOAST","k":"tests#0","i":0,"c":"client/src/tests/exportFenceBalance.test.ts"}
 {"id":"CHAT-BUBBLE-EXPORT-TOAST","k":"changelog#0","i":0,"c":"单条回复导出后同样提示成功 toast（与会话级导出口径一致）"}
+{"id":"SAFETY-SWITCH-PLUGIN-REQUIRE-SIGNATURE","k":"reopenWhen","i":0,"c":"若签名闸改为 featureFlags 字面量开关，应迁回 SAFETY_SWITCHES 并删除本组断言"}
+{"id":"SAFETY-SWITCH-PLUGIN-REQUIRE-SIGNATURE","k":"code#0","i":0,"c":".trae/rules/project_rules.md"}
+{"id":"SAFETY-SWITCH-PLUGIN-REQUIRE-SIGNATURE","k":"code#1","i":0,"c":"scripts/check-doc-code-consistency.js"}
+{"id":"SAFETY-SWITCH-PLUGIN-REQUIRE-SIGNATURE","k":"changelog#0","i":0,"c":"安全开关清单 21→22：登记第三方插件签名闸（LIRI_PLUGIN_REQUIRE_SIGNATURE）"}

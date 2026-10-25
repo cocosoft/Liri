@@ -14,3 +14,8 @@ export {
   escapeSbplString,
 } from './MacOSSandboxPolicy';
 export type { MacOSSandboxProfileInput } from './MacOSSandboxPolicy';
+export { buildSandboxExecArgv, runWithSandboxExec } from './runWithSandboxExec';
+export type {
+  SandboxExecRunInput,
+  SandboxExecRunResult,
+} from './runWithSandboxExec';

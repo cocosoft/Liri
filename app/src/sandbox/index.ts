@@ -162,11 +162,15 @@ export {
   detectMacOSSandboxCapability,
   clearMacOSSandboxCapabilityCache,
   buildMacOSSandboxProfile,
+  buildSandboxExecArgv,
   escapeSbplString,
+  runWithSandboxExec,
 } from './darwin';
 export type {
   MacOSSandboxCapability,
   MacOSSandboxProfileInput,
+  SandboxExecRunInput,
+  SandboxExecRunResult,
 } from './darwin';
 // T25-11a（2026-10-25）：helper 路径解析（`LANDLOCK_RUN_HELPER` → `<PROJECT_DIR>/bin/landlock-run` → PATH）
 export {

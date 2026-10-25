@@ -64,6 +64,10 @@ import {
   readLandlockConfig,
   isEvalBashLandlockForced,
   runWithLandlock,
+  // 2026-10-26：macOS 兜底（Seatbelt = sandbox-exec），与 landlock 同口径「开启即真受限」
+  buildMacOSSandboxProfile,
+  detectMacOSSandboxCapability,
+  runWithSandboxExec,
   processRegistry,
   killProcessTree,
   resolveLandlockHelperPath,
@@ -74,7 +78,10 @@ import type {
   LandlockFsAccess,
   LandlockFsRule,
   LandlockPolicy,
+  MacOSSandboxCapability,
   ProcessInfo,
+  SandboxExecRunInput,
+  SandboxExecRunResult,
 } from '@modules/sandbox';
 import {
   resolveDownloadsDir,
@@ -220,12 +227,14 @@ export function buildBashLandlockPolicy(input: {
 
 /** 门控判定结果（`refuse` 时 `message` 必填，供用户可操作地排障） */
 export interface BashLandlockGate {
-  mode: 'plain' | 'landlock' | 'refuse';
+  mode: 'plain' | 'landlock' | 'sandbox-exec' | 'refuse';
   reason:
     | 'master-off'
     | 'switch-off'
     | 'platform-unsupported'
     | 'capability-unavailable'
+    | 'macos-enabled'
+    | 'macos-capability-unavailable'
     | 'eval-forced'
     | 'eval-forced-fallback'
     | 'enabled';
@@ -245,10 +254,18 @@ export function decideBashLandlockGate(input: {
   config: LandlockConfig;
   platform: NodeJS.Platform;
   capability: LandlockCapability | null;
+  /** 2026-10-26：macOS Seatbelt 能力（仅 `platform === 'darwin'` 时有意义；缺省按不可用处理） */
+  macCapability?: MacOSSandboxCapability | null;
   /** P0-4 ②：评测期**请求**强制（见 `sandbox/landlock/config.ts` 的 `ENV_EVAL_BASH_LANDLOCK`） */
   evalForced?: boolean;
 }): BashLandlockGate {
-  const { config, platform, capability, evalForced = false } = input;
+  const {
+    config,
+    platform,
+    capability,
+    macCapability = null,
+    evalForced = false,
+  } = input;
 
   if (!config.enabled) return { mode: 'plain', reason: 'master-off' };
 
@@ -261,6 +278,22 @@ export function decideBashLandlockGate(input: {
   }
 
   if (!config.bashEnabled) return { mode: 'plain', reason: 'switch-off' };
+
+  // 2026-10-26：macOS 走 Seatbelt（`sandbox-exec`）。与 Linux 同口径 —— 开启即真受限，
+  // 能力不可用则**拒绝执行**（不静默降级为 plain）。
+  if (platform === 'darwin') {
+    if (!macCapability?.available) {
+      return {
+        mode: 'refuse',
+        reason: 'macos-capability-unavailable',
+        message:
+          `已开启 sandbox.landlock.bashEnabled，但本机 macOS 沙箱不可用（原因：${macCapability?.reason ?? '未知'}）。` +
+          `为保证"开启即真受限"，本次命令被拒绝执行，而不是静默降级。` +
+          `请确认系统存在 /usr/bin/sandbox-exec，或关闭该开关（config.json 的 sandbox.landlock.bashEnabled）。`,
+      };
+    }
+    return { mode: 'sandbox-exec', reason: 'macos-enabled' };
+  }
 
   if (platform !== 'linux') {
     return {
@@ -430,6 +463,12 @@ export interface BashExecDeps {
   helperPath?: string;
   /** 规则路径存在性判定（默认 `fs.existsSync`，见 `buildLandlockArgv`）；测试可注入 */
   pathExists?: (path: string) => boolean;
+  /** 2026-10-26：macOS 能力探测（默认 `detectMacOSSandboxCapability`；测试可注入） */
+  detectMac?: () => MacOSSandboxCapability;
+  /** 2026-10-26：`sandbox-exec` 执行器（默认 `runWithSandboxExec`；测试可注入） */
+  runSandboxExec?: (
+    input: SandboxExecRunInput
+  ) => Promise<SandboxExecRunResult>;
 }
 
 export interface BashExecInput {
@@ -515,10 +554,16 @@ export async function execBashCommand(
             }))
         )()
       : null;
+  // 2026-10-26：macOS 能力探测（同步 + 缓存；非 darwin 恒 null）
+  const macCapability =
+    platform === 'darwin'
+      ? (deps.detectMac ?? detectMacOSSandboxCapability)()
+      : null;
   const gate = decideBashLandlockGate({
     config,
     platform,
     capability,
+    macCapability,
     evalForced,
   });
 
@@ -552,32 +597,72 @@ export async function execBashCommand(
     );
   }
 
-  const helperPath = deps.helperPath ?? resolveLandlockHelperPath();
-  const policy = buildBashLandlockPolicy({
-    cwd: input.cwd ?? process.cwd(),
-    abi: capability?.abi ?? 0,
-    extraWritablePaths: config.bashExtraWritablePaths,
-  });
-  const result = await (deps.runHelper ?? defaultLandlockHelperRunner)({
-    helperPath,
-    argv: [
-      ...buildLandlockArgv(policy, deps.pathExists),
-      '--',
-      '/bin/sh',
-      '-c',
-      input.command,
-    ],
-    policy,
-    command: input.command,
-    cwd: input.cwd,
-    env: input.env,
-    timeoutMs: input.timeoutMs,
-    maxBufferChars: input.maxBufferChars,
-    // R21：取消信号透传进沙箱 runner（abort ⇒ 强杀进程树）
-    ...(input.signal ? { signal: input.signal } : {}),
-  });
+  /** 2026-10-26：macOS 写入白名单（工作区 + 受管产物 + 临时目录 + 用户显式追加） */
+  const macWritablePaths = (): string[] => [
+    input.cwd ?? process.cwd(),
+    resolveOutputDir(),
+    resolveDownloadsDir(),
+    resolveTempDir(),
+    ...config.bashExtraWritablePaths,
+  ];
 
-  if (isSandboxInitFailure(result.exitCode ?? -1)) {
+  const runLandlockBash = async () => {
+    const helperPath = deps.helperPath ?? resolveLandlockHelperPath();
+    const policy = buildBashLandlockPolicy({
+      cwd: input.cwd ?? process.cwd(),
+      abi: capability?.abi ?? 0,
+      extraWritablePaths: config.bashExtraWritablePaths,
+    });
+    return (deps.runHelper ?? defaultLandlockHelperRunner)({
+      helperPath,
+      argv: [
+        ...buildLandlockArgv(policy, deps.pathExists),
+        '--',
+        '/bin/sh',
+        '-c',
+        input.command,
+      ],
+      policy,
+      command: input.command,
+      cwd: input.cwd,
+      env: input.env,
+      timeoutMs: input.timeoutMs,
+      maxBufferChars: input.maxBufferChars,
+      // R21：取消信号透传进沙箱 runner（abort ⇒ 强杀进程树）
+      ...(input.signal ? { signal: input.signal } : {}),
+    });
+  };
+
+  const runMacOSBash = async () =>
+    (deps.runSandboxExec ?? runWithSandboxExec)({
+      profile: buildMacOSSandboxProfile({ writablePaths: macWritablePaths() }),
+      command: input.command,
+      ...(input.cwd ? { cwd: input.cwd } : {}),
+      env: input.env,
+      timeoutMs: input.timeoutMs,
+      maxBufferChars: input.maxBufferChars,
+      ...(input.signal ? { signal: input.signal } : {}),
+    });
+
+  const result =
+    gate.mode === 'sandbox-exec'
+      ? await runMacOSBash()
+      : await runLandlockBash();
+
+  // S7（2026-10-09）：两条沙箱路径都以终态登记进 `ProcessRegistry`
+  // （landlock helper 内部已登记 ⇒ 仅 macOS 这里补一次，避免重复条目）
+  if (gate.mode === 'sandbox-exec') {
+    registerBashProcess(
+      result.pid,
+      input.command,
+      result.error ? 'error' : result.timedOut ? 'timed_out' : 'completed',
+      result.exitCode ?? undefined
+    );
+  }
+
+  // ⚠️ exit-125 协议**只属 landlock**：`sandbox-exec` 没有该语义，若把用户命令的 125 当"初始化失败"，
+  // 会触发 failClosed=false 的 plain 回退 ⇒ **逃出沙箱**。故此处显式按门控模式收窄。
+  if (gate.mode === 'landlock' && isSandboxInitFailure(result.exitCode ?? -1)) {
     if (config.failClosed) {
       throw new AppError(
         `Landlock 沙箱初始化失败（exit 125；failClosed=true）⇒ 拒绝执行：${result.stderr.slice(0, 500)}`,
@@ -622,7 +707,7 @@ export async function execBashCommand(
   }
   logger.info('bash: exec_ok', {
     commandPreview,
-    mode: 'landlock',
+    mode: gate.mode,
     exitCode: 0,
     durationMs: Date.now() - startedAt,
   });

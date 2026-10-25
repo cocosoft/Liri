@@ -16,6 +16,7 @@ import {
   describeCapabilityDenial,
   resolvePluginCapabilities,
 } from '../utils/pluginCapabilities';
+import { checkPluginSignature } from '../utils/pluginSignature';
 import {
   PluginState,
   PluginType,
@@ -390,6 +391,24 @@ export class PluginLoader extends EventEmitter {
       return {
         success: false,
         error: `插件「${plugin.id}」能力校验未通过：${describeCapabilityDenial(capability)}`,
+      };
+    }
+
+    // ── T25-08 P2（2026-10-25）：**清单签名**（默认关；开则 fail-closed）──
+    // 与安装链路同一入口（`checkPluginSignature`），覆盖"手工丢进 installed 目录"绕过安装器的路径。
+    const signature = checkPluginSignature({ pluginDir: plugin.path });
+    if (!signature.allowed) {
+      logger.warn(
+        'plugins:signature_denied — 插件清单签名校验未通过，已拒绝加载',
+        {
+          pluginId: plugin.id,
+          path: plugin.path,
+          reason: signature.reason,
+        }
+      );
+      return {
+        success: false,
+        error: `插件「${plugin.id}」签名校验未通过：${signature.reason ?? '未知原因'}`,
       };
     }
 

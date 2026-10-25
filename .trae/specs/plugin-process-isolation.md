@@ -1,8 +1,8 @@
 # Spec：第三方插件进程隔离（T25-08）
 
-> 版本 1.3 ｜ 创建 2026-10-25 ｜ 状态：✅ **P0 + P1 已落地**；**P2 部分落地**（能力声明 + 安装/加载双闸 + env 授权表 + **`config` 能力已兑现**；`events` 只留名字、声明即拒绝；签名校验未做）
-> 实现落点：`app/src/plugins/utils/pluginTrust.ts`（P0 闸）· `app/src/plugins/host/{pluginHostProtocol,pluginHostEntry,PluginHostSupervisor}.ts`（P1 宿主）· `app/src/plugins/host/pluginConfigPort.ts`（P2 `config` 读写端口）· `app/src/plugins/utils/pluginCapabilities.ts`（P2 能力授权）
-> 开关 / 授权：`PLUGIN_THIRD_PARTY_INPROCESS=false`（准入闸）· `PLUGIN_HOST_PROCESS=true`（子进程宿主）· `LIRI_PLUGIN_CAPABILITY_GRANTS=<id>:<cap>[,…]`（能力授权；未配置 = 不做能力门控）
+> 版本 1.4 ｜ 创建 2026-10-25 ｜ 状态：✅ **P0 + P1 已落地**；**P2 部分落地**（能力声明 + 安装/加载双闸 + env 授权表 + **`config` 能力已兑现**；`events` 只留名字、声明即拒绝；**清单签名已实现但默认关**）
+> 实现落点：`app/src/plugins/utils/pluginTrust.ts`（P0 闸）· `app/src/plugins/host/{pluginHostProtocol,pluginHostEntry,PluginHostSupervisor}.ts`（P1 宿主）· `app/src/plugins/host/pluginConfigPort.ts`（P2 `config` 读写端口）· `app/src/plugins/utils/pluginCapabilities.ts`（P2 能力授权）· `app/src/plugins/utils/pluginSignature.ts`（P2 签名校验）
+> 开关 / 授权：`PLUGIN_THIRD_PARTY_INPROCESS=false`（准入闸）· `PLUGIN_HOST_PROCESS=true`（子进程宿主）· `LIRI_PLUGIN_CAPABILITY_GRANTS=<id>:<cap>[,…]`（能力授权；未配置 = 不做能力门控）· `LIRI_PLUGIN_REQUIRE_SIGNATURE` + `LIRI_PLUGIN_TRUSTED_KEYS_DIR`（签名校验；默认关）
 > 来源：`dev_docs/20261025/待完成工作任务清单-20261025.md` §10.6（第二批建议组 6）
 > 关联：`google-ai-review-adjudication.md` §3.2（进程托管落点）· `tool-sidecar-isolation.md`（侧车先例）· `utils/sidecarIpc.ts`（可复用 IPC 帧）
 >
@@ -88,6 +88,20 @@
 - 安装时校验签名（可选）与 manifest 的 `capabilities` 声明；安装后默认「未信任」；
 - 市场 UI 显示请求的能力（tools/config/events），由用户勾选授权。
 
+#### P2 · 清单签名（2026-10-25 落地，**默认关**）
+
+| 项 | 口径 |
+|---|---|
+| 开关 | `LIRI_PLUGIN_REQUIRE_SIGNATURE` ∈ {`1`,`true`,`yes`,`on`}；**未设置 ⇒ 零行为变更，且不读任何文件** |
+| 信任锚 | `LIRI_PLUGIN_TRUSTED_KEYS_DIR` 指向目录，放 `*.pem` 的 **Ed25519 公钥**；**刻意无默认目录**（信任位置必须显式声明，否则易变成假保护） |
+| 签名对象 | `plugin.json` 的**原始字节**；`plugin.sig` 存 base64（允许折行） |
+| 为什么不对 JSON 再序列化 | "规范化后签名"要自带一套规范化规则，规则一偏就是「验签通过但内容不同」 |
+| 闸位 | **安装**（`PluginInstallManager`）与**加载**（`PluginLoader`）同一入口 `checkPluginSignature` —— 覆盖"手工丢进 installed 目录"绕过安装器的路径 |
+| 失败语义 | 未配信任锚 / 目录不存在 / 无有效公钥 / 缺 `.sig` / 非 base64 / 不匹配 ⇒ **一律拒绝**，文案给出可操作原因 |
+| 非目标（如实） | 无密钥轮换/吊销列表、无时间戳防重放；等市场链路落地再议 |
+
+> 无钥时**拒装**（而非告警放行）：开启该开关的语义就是"只装能证明来源的东西"；若缺钥时放行，攻击者只需清空目录即可绕过。
+
 ---
 
 ## 5. 待拍板：P0 策略（三选一）
@@ -108,6 +122,7 @@
 | P1 | 负向：插件读 `process.env` **拿不到**宿主密钥；插件崩溃**不杀主进程**且被有界重启；插件工具调用经 RPC 且宿主侧有审计 |
 | P2 | 安装链路 E2E：未授权能力 ⇒ 拒绝安装/启用 |
 | P2 · `config`（2026-10-25） | 单测：已授权 ⇒ env 有快照且 `config.set` 落库回 `success:true`；未授权 ⇒ 无快照且 `config.set` 回 `success:false`；校验失败 ⇒ 回因；子进程 `set/save` 失败可抛、成功后才更新本地视角 |
+| P2 · 签名（2026-10-25） | 单测：开关缺省不读文件；启用但未配信任锚 / 目录不存在 / 无 `.pem` / 缺 `.sig` / 非 base64 / 字节被改 ⇒ 全部拒绝；有效签名 ⇒ 放行并回签名者文件名；加载器层未签名 ⇒ 拒绝且状态回 `UNLOADED` |
 
 ## 7. 回退
 

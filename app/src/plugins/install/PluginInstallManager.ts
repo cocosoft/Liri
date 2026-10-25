@@ -20,6 +20,7 @@ import {
   describeCapabilityDenial,
   resolvePluginCapabilities,
 } from '../utils/pluginCapabilities.js';
+import { checkPluginSignature } from '../utils/pluginSignature.js';
 import { installPythonPlugin } from './PythonPluginInstaller.js';
 
 import { getLogger } from '@modules/monitoring';
@@ -222,8 +223,10 @@ export class PluginInstallManager {
     // ── T25-08 P2（2026-10-25）：能力授权（spec §6「未授权能力 ⇒ 拒绝安装」）──
     // 授权表未配置 ⇒ 零行为变更；配置后 fail-closed：声明了但未授权 ⇒ 拒绝，并**仅**回滚
     // 「本次新建且在受管目录内」的目标（不删用户既有目录，见 discardInstalledDir）。
-    const capabilityError = this.checkCapabilities(targetPath);
-    if (capabilityError) {
+    // 签名校验（默认关）与能力闸共用这段回滚逻辑。
+    const gateError =
+      this.checkCapabilities(targetPath) ?? this.checkSignature(targetPath);
+    if (gateError) {
       const discarded = this.discardInstalledDir(
         targetPath,
         targetExistedBefore
@@ -234,8 +237,8 @@ export class PluginInstallManager {
         version: options.version || 'unknown',
         installPath: '',
         error: discarded
-          ? `${capabilityError}（已回滚本次写入的安装目录）`
-          : `${capabilityError}（安装目录未删除：非本次新建或不在插件安装根目录内，请自行处理）`,
+          ? `${gateError}（已回滚本次写入的安装目录）`
+          : `${gateError}（安装目录未删除：非本次新建或不在插件安装根目录内，请自行处理）`,
       };
     }
 
@@ -339,6 +342,21 @@ export class PluginInstallManager {
     } catch (error) {
       return `插件清单解析失败（plugin.json）：${error instanceof Error ? error.message : String(error)}`;
     }
+  }
+
+  /**
+   * T25-08 P2：安装后的**清单签名**检查（默认关；开则 fail-closed）。
+   *
+   * 与加载器共用 `checkPluginSignature`：覆盖“装进来”和“已经有”的两条路径。
+   */
+  private checkSignature(targetPath: string): string | null {
+    const decision = checkPluginSignature({ pluginDir: targetPath });
+    if (decision.allowed) return null;
+    logger.warn('plugins:install:signature_denied — 安装被拒', {
+      targetPath,
+      reason: decision.reason,
+    });
+    return `插件清单签名校验未通过，已取消安装：${decision.reason ?? '未知原因'}`;
   }
 
   /**

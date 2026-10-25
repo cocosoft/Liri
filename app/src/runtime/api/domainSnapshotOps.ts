@@ -347,6 +347,46 @@ export class DomainSnapshotOps {
 
       // 插件系统
       getPluginInfoList: async () => pluginSystem.getPluginInfoList(),
+      // 2026-10-26：插件配置项（唯一事实源 = PluginConfigManager；schema 来自已加载清单）
+      getPluginConfig: async (pluginId: string) => {
+        const { buildPluginConfigView, extractPluginConfigSchema } =
+          await import('@modules/plugins/utils/pluginConfigValues');
+        return buildPluginConfigView(
+          pluginId,
+          extractPluginConfigSchema(pluginSystem.getPlugin(pluginId)?.manifest),
+          pluginSystem.getPluginConfig(pluginId) as Record<string, unknown>
+        );
+      },
+      setPluginConfig: async (
+        pluginId: string,
+        values: Record<string, unknown>
+      ) => {
+        const {
+          buildPluginConfigView,
+          extractPluginConfigSchema,
+          validatePluginConfigPatch,
+        } = await import('@modules/plugins/utils/pluginConfigValues');
+        const schema = extractPluginConfigSchema(
+          pluginSystem.getPlugin(pluginId)?.manifest
+        );
+        const stored = pluginSystem.getPluginConfig(pluginId) as Record<
+          string,
+          unknown
+        >;
+        const result = validatePluginConfigPatch(schema, stored, values);
+        if (!result.ok) return { ok: false as const, errors: result.errors };
+
+        // 写入走 `PluginSystem.setPluginConfig`（与 CLI 同一条公开 API，避免各自直捅 manager）
+        pluginSystem.setPluginConfig(pluginId, { ...stored, ...result.values });
+        return {
+          ok: true as const,
+          config: buildPluginConfigView(
+            pluginId,
+            schema,
+            pluginSystem.getPluginConfig(pluginId) as Record<string, unknown>
+          ),
+        };
+      },
       getPluginCapabilityState: async (pluginId: string) =>
         capabilityStateOf(pluginId),
       setPluginCapabilityGrants: async (

@@ -96,6 +96,15 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/command-registry.js', name: 'hooks' },
       { path: '../builtin/command-registry.js', name: 'mcp' },
       { path: '../builtin/command-registry.js', name: 'plugins' },
+      // 2026-10-26：插件**配置项**读写（唯一事实源 = PluginConfigManager；
+      // 与 HTTP `GET/PUT /v1/plugins/marketplace/plugins/:id/config` 同口径）。
+      // 走本目录自带的 default 导出（`commands/plugin-settings/index.ts`）——
+      // LazyCommand 先认 `module.default`，可避开 `plugin-settingsCommand` 这种非法标识符查找。
+      {
+        path: 'plugin-settings/index.js',
+        name: 'plugin-settings',
+        aliases: ['ps'],
+      },
       { path: '../builtin/command-registry.js', name: 'permissions' },
       { path: '../builtin/command-registry.js', name: 'tokens' },
       { path: '../builtin/command-registry.js', name: 'env' },

@@ -199,6 +199,80 @@ export async function handlePluginSetCapabilityGrants(
 }
 
 /**
+ * 插件**配置项** GET /v1/plugins/marketplace/plugins/:id/config
+ *
+ * 返回清单 schema 视图 + 已存储值（插件未加载 / 未声明 `configSchema` ⇒ `items` 为空，**不臆造**）。
+ * 存储在 `~/.pyapp/plugins/config/config.json`（`PluginConfigManager`，唯一事实源）。
+ */
+export async function handlePluginGetConfig(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  pluginId: string
+): Promise<void> {
+  try {
+    const port = await getCoreAPI().getPluginAdminPort();
+    json(res, 200, await port.getPluginConfig(pluginId));
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'plugin_config_get',
+      context: { pluginId },
+    });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 插件**配置项** PUT /v1/plugins/marketplace/plugins/:id/config
+ *
+ * 请求体 `{ values: { ... } }`：**合并写入**（只覆盖请求里出现的键）。
+ * 键存在性 / 类型 / 必填 / 范围校验不通过 ⇒ 400 且**不落盘**。
+ */
+export async function handlePluginSetConfig(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  pluginId: string
+): Promise<void> {
+  try {
+    const raw = await readBody(req);
+    let body: unknown;
+    try {
+      body = raw.trim() ? JSON.parse(raw) : null;
+    } catch {
+      json(res, 400, { error: { message: '请求体必须是 JSON' } });
+      return;
+    }
+    const values = (body as { values?: unknown } | null)?.values;
+    if (!values || typeof values !== 'object' || Array.isArray(values)) {
+      json(res, 400, {
+        error: { message: 'values 必须是对象（配置键值对）' },
+      });
+      return;
+    }
+
+    const port = await getCoreAPI().getPluginAdminPort();
+    const result = await port.setPluginConfig(
+      pluginId,
+      values as Record<string, unknown>
+    );
+    if (!result.ok) {
+      json(res, 400, {
+        error: { message: `配置校验失败：${result.errors.join('; ')}` },
+      });
+      return;
+    }
+    json(res, 200, result.config);
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'plugin_config_set',
+      context: { pluginId },
+    });
+    sendError(res, err);
+  }
+}
+
+/**
  * 处理插件详情 GET /v1/plugins/marketplace/plugins/:id
  */
 export async function handlePluginMarketplaceDetail(

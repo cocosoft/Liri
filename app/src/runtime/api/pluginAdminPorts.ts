@@ -72,7 +72,29 @@ export interface PluginCapabilityStateDto {
   enforced: boolean;
 }
 
-/** 插件管理端口（13 个方法 = 3 个 handler 文件的**实际调用面**，非 app 全量 API） */
+/** 单个配置项（`plugins/utils/pluginConfigValues` 的 `PluginConfigItemView` 的同形投影） */
+export interface PluginConfigItemDto {
+  key: string;
+  type: string;
+  label: string;
+  description?: string;
+  required: boolean;
+  default?: unknown;
+  options?: Array<{ label: string; value: string }>;
+  /** 当前生效值：已存储优先，否则 schema 默认 */
+  value: unknown;
+  /** 是否被显式写入过（区别于"只是默认值"） */
+  isSet: boolean;
+}
+
+/** 某插件的配置视图：`items` 来自清单 schema（未声明 ⇒ 空），`values` 为已存储键值 */
+export interface PluginConfigDto {
+  pluginId: string;
+  items: PluginConfigItemDto[];
+  values: Record<string, unknown>;
+}
+
+/** 插件管理端口（15 个方法 = 3 个 handler 文件的**实际调用面**，非 app 全量 API） */
 export interface PluginAdminPort {
   // ---- 插件市场（`pluginMarketplace`）----
   searchMarket(params: {
@@ -86,6 +108,23 @@ export interface PluginAdminPort {
 
   // ---- 插件系统（`pluginSystem`）----
   getPluginInfoList(): Promise<unknown>;
+  /**
+   * 读插件配置（schema 视图 + 已存储值）。
+   *
+   * 插件未加载或清单未声明 `configSchema` ⇒ `items` 为空（不臆造），`values` 仍如实返回。
+   */
+  getPluginConfig(pluginId: string): Promise<PluginConfigDto>;
+  /**
+   * 合并写入插件配置：**键存在性 + 类型 / 必填 / 范围**校验通过才落盘。
+   *
+   * 校验失败 ⇒ `ok:false` + `errors`（调用方映射 400），不静默成功。
+   */
+  setPluginConfig(
+    pluginId: string,
+    values: Record<string, unknown>
+  ): Promise<
+    { ok: true; config: PluginConfigDto } | { ok: false; errors: string[] }
+  >;
   /**
    * 能力状态（声明 / 已授权 / 未实现 / 可授权）。
    *

@@ -1431,10 +1431,24 @@ export type {
   DangerPattern,
   RiskLevel,
 } from './utils/pluginSecurityScanner';
-export { readPluginConfig, writePluginConfig } from './utils/pluginSettings.js';
+// 2026-10-26：`readPluginConfig` / `writePluginConfig`（`~/.pyapp/settings.json` 的
+// `plugins.{repositories,enabled,disabled}`）不再导出 —— 它既非插件配置项的事实源，
+// 也已被 `PluginConfigManager` 取代（CLI `plugin-settings` 与 HTTP config 端点同口径）。
 export {
   validatePluginConfig,
   mergeWithDefaults,
 } from './utils/pluginConfigSchema.js';
 export type { PluginConfigSchema } from './utils/pluginConfigSchema.js';
+// 2026-10-26：插件配置项的视图 / 写入校验（HTTP config 端点与 CLI `plugin-settings` 共用）。
+// 按 R03-002 从 index 出口导出，供 commands 层按模块入口引用。
+export {
+  buildPluginConfigView,
+  extractPluginConfigSchema,
+  validatePluginConfigPatch,
+} from './utils/pluginConfigValues.js';
+export type {
+  PluginConfigItemView,
+  PluginConfigPatchResult,
+  PluginConfigView,
+} from './utils/pluginConfigValues.js';
 export { PluginManager } from './managers/PluginManager';

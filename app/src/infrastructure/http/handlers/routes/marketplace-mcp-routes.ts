@@ -174,6 +174,34 @@ export async function dispatchMarketplaceMcpRoutes(
     );
     return true;
   }
+  // 2026-10-26：插件**配置项**读写（唯一事实源 = PluginConfigManager）。
+  // ⚠️ 同样必须排在下面 `plugins/{id}` 详情路由**之前**（否则 `(.+)` 会把 `id/config` 当成 pluginId）。
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)\/config$/)
+  ) {
+    const { handlePluginGetConfig } =
+      await import('../plugin-marketplace-handlers');
+    await handlePluginGetConfig(
+      req,
+      res,
+      url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)\/config$/)![1]
+    );
+    return true;
+  }
+  if (
+    method === 'PUT' &&
+    url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)\/config$/)
+  ) {
+    const { handlePluginSetConfig } =
+      await import('../plugin-marketplace-handlers');
+    await handlePluginSetConfig(
+      req,
+      res,
+      url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)\/config$/)![1]
+    );
+    return true;
+  }
   if (
     method === 'GET' &&
     url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)$/)

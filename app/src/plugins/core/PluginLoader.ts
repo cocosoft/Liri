@@ -8,6 +8,10 @@ import { existsSync, mkdirSync, readdirSync, readFileSync } from 'fs';
 import { resolvePluginsInstalledDir } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import {
+  isThirdPartyPluginTrusted,
+  PLUGIN_TRUST_REMEDY,
+} from '../utils/pluginTrust';
+import {
   PluginState,
   PluginType,
   PluginMetadata,
@@ -317,6 +321,23 @@ export class PluginLoader extends EventEmitter {
       return {
         success: false,
         error: `Plugin is already in state: ${plugin.state}`,
+      };
+    }
+
+    // ── T25-08 P0（2026-10-25 用户裁定「默认拒绝 + 白名单」）──
+    // 本加载器只处理**文件 / 安装型**插件（第一方 bundled 走 `BundledPluginManager`）⇒
+    // 一律按"第三方不可信"处理：未授权**不执行其代码**（下面就是 `import(entryPath)`）。
+    // 拒绝时落 warn 并把"如何放行"回给调用方（不静默）。
+    const trust = isThirdPartyPluginTrusted(plugin.id);
+    if (!trust.trusted) {
+      logger.warn('plugins:untrusted_blocked — 第三方插件未授权，已拒绝加载', {
+        pluginId: plugin.id,
+        path: plugin.path,
+        reason: trust.reason,
+      });
+      return {
+        success: false,
+        error: `插件「${plugin.id}」属第三方代码，默认不在主进程内加载。${PLUGIN_TRUST_REMEDY}`,
       };
     }
 

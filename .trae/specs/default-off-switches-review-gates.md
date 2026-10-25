@@ -46,6 +46,7 @@
 | 13 | `CLIENT_STREAM_EXECUTION` | false | ① **真实事件**：客户端 `/v1/chat/stream` 出现**未记账工具调用**或**崩溃后重复副作用**（无 executionId 导致）；② 前端/第三方调用方**回归清单通过**（`ChatRequest.executionId` 注入兼容）；③ 与渠道路径记账口径对齐验证（终态事件同构） | 事件 / 与 P0-2 联动 | `featureFlags.ts:338` · `.trae/specs/client-stream-execution.md` |
 | 14 | `CHANNEL_TOOL_POLICY` | false | ① 远程通道会话中 `bash` / `file_write` 等执行/写盘工具的调用率与审批拒绝率**可观测**（灰度期基线）；② `messaging` 任务面在灰度期**无「模型自述工具不可用」类反馈**（否则该通道需补类别）；③ 至少 **1 个发布周期**的灰度观察记录 | 季度 / 事件 | `featureFlags.ts`（`CHANNEL_TOOL_POLICY`）· G-2（`dev_docs/20261018/待修复任务清单-20261018.md`） |
 | 15 | `SWARM_VERIFY_RETRY` | false | ① verifier **明确判不过**的 worker 占比与「回灌后转通过」比例**可观测**（灰度期基线，见 `AgentSwarm` 的 `retried` 字段）；② 回灌增量 token 占批次 worker 用量**可量化且 ≤10%**；③ 至少 **1 个发布周期**的灰度观察记录；④ 独立 token 上限（默认 20k）未出现"预算半途耗尽导致回灌被系统性跳过" | 季度 / 事件 | `featureFlags.ts`（`SWARM_VERIFY_RETRY`）· E-1（`dev_docs/20261018/待修复任务清单-20261018.md`） |
+| 16 | `PLUGIN_THIRD_PARTY_INPROCESS` | false | ① **T25-08 P1 子进程宿主上线并验收通过**（插件读不到宿主 `process.env`、崩溃不杀主进程、能力经白名单 RPC）；② 市场/安装链路已按 `capabilities` 声明授权；③ 宿主不可用时的降级路径已验证（**不得**静默回到进程内执行） | 事件（与 P1 联动） | `featureFlags.ts`（`PLUGIN_THIRD_PARTY_INPROCESS`）· `.trae/specs/plugin-process-isolation.md` |
 
 **未列入（如实边界）**：`iterative_refine` / `parallel_distributed` 的**装配触发条件**已有（`pattern-wiring-closure.md §5/§6`），属"pattern 装配"而非"默认关开关"，本表**不重复登记**（同源去重，§2.14 规则 5）；其**可操作化判据已落入** `pattern-wiring-closure.md **§11**`（2026-10-09 追加，引用 O3/O4）。
 

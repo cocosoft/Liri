@@ -1,7 +1,7 @@
 {
   "$comment": "Liri 架构不变量注册表（机器可读单一事实源）。人读版见同目录 invariants.md。校验门禁见 P1-2（scripts/lint-invariants.ts）。字段：id/title/statement/sources(源码落点)/tests(验证落点)/level(验证级别)/status(verified|partial|gap)/reopenWhen(重开条件)/specs(关联 spec)。",
   "version": 1,
-  "updatedAt": "2026-10-10",
+  "updatedAt": "2026-10-25",
   "levels": ["static", "unit", "integration", "fault-injection", "e2e-security"],
   "statusMeaning": {
     "verified": "有对应验证手段且当前成立",
@@ -250,6 +250,84 @@
       "status": "verified",
       "reopenWhen": "修改 `mergeResults` 的融合/归一化、`matchType` 取值域或下游按 `score` 分档的阈值时。",
       "specs": [".trae/specs/unified-rrf-retrieval.md"]
+    },
+    {
+      "id": "INV-PLUGIN-001",
+      "title": "第三方插件代码不在主进程执行",
+      "statement": "文件 / 安装型第三方插件在未经显式信任时不得被加载；获信任后也默认在**子进程**执行（`import(entryPath)` 只用于第一方或显式进程内逃生），插件代码的任何异常都不得直接打断主进程。",
+      "sources": [
+        "app/src/plugins/utils/pluginTrust.ts",
+        "app/src/plugins/core/PluginLoader.ts",
+        "app/src/plugins/host/PluginHostSupervisor.ts"
+      ],
+      "tests": [
+        "app/tests/plugins/pluginTrust.test.ts",
+        "app/tests/plugins/pluginLoaderHostWiring.test.ts"
+      ],
+      "level": "integration",
+      "status": "verified",
+      "reopenWhen": "新增插件加载入口、修改 `PLUGIN_THIRD_PARTY_INPROCESS` / `PLUGIN_HOST_PROCESS` 判定，或调整信任来源（白名单 / 市场）时。",
+      "specs": [".trae/specs/plugin-process-isolation.md"]
+    },
+    {
+      "id": "INV-PLUGIN-002",
+      "title": "插件子进程不继承宿主环境",
+      "statement": "插件子进程的 `process.env` 只含白名单键与 `LIRI_PLUGIN_*` 注入项；宿主 `.env`（API Key 等）在插件侧读不到（`undefined`）。",
+      "sources": ["app/src/plugins/host/pluginHostProtocol.ts"],
+      "tests": [
+        "app/tests/plugins/pluginHostProtocol.test.ts",
+        "app/tests/plugins/pluginHostChildE2E.test.ts",
+        "app/tests/plugins/pluginLoaderHostWiring.test.ts"
+      ],
+      "level": "e2e-security",
+      "status": "verified",
+      "reopenWhen": "修改 `INHERITED_ENV_KEYS` / `buildPluginHostEnv`，或改宿主拉起子进程的方式（spawn 参数、stdio）时。",
+      "specs": [".trae/specs/plugin-process-isolation.md"]
+    },
+    {
+      "id": "INV-PLUGIN-003",
+      "title": "能力未授权即不提供对应能力面",
+      "statement": "插件清单声明但未获授权的能力 ⇒ 拒绝安装 / 拒绝加载；能力面之间互不代偿（未授权 `config` 时既不下发配置快照，也拒绝 `config.set`），不得以「已授权其它能力」放行。",
+      "sources": [
+        "app/src/plugins/utils/pluginCapabilities.ts",
+        "app/src/plugins/core/PluginLoader.ts",
+        "app/src/plugins/host/PluginHostSupervisor.ts"
+      ],
+      "tests": [
+        "app/tests/plugins/pluginCapabilities.test.ts",
+        "app/tests/plugins/pluginInstallCapabilities.test.ts",
+        "app/tests/plugins/pluginHostConfig.test.ts"
+      ],
+      "level": "unit",
+      "status": "verified",
+      "reopenWhen": "新增能力名（`PLUGIN_CAPABILITIES`）、修改授权表解析，或新增任一能力面的提供路径时。",
+      "specs": [".trae/specs/plugin-process-isolation.md"]
+    },
+    {
+      "id": "INV-PLUGIN-004",
+      "title": "插件配置写入经宿主校验并落盘，失败可见",
+      "statement": "插件的 `config.set` 必须先由宿主侧按 schema 校验并落盘（复用 `PluginConfigManager` 单例）才回成功；校验失败或未授权时回 `success:false`，插件侧 `save()` 抛出原因 —— 不得静默成功。",
+      "sources": [
+        "app/src/plugins/host/pluginConfigPort.ts",
+        "app/src/plugins/host/PluginHostSupervisor.ts",
+        "app/src/plugins/host/pluginHostEntry.ts"
+      ],
+      "tests": ["app/tests/plugins/pluginHostConfig.test.ts"],
+      "level": "unit",
+      "status": "verified",
+      "reopenWhen": "修改配置读写通道（快照 / RPC）、更换配置存储，或调整 `PluginContext.config` 契约时。",
+      "specs": [".trae/specs/plugin-process-isolation.md"]
+    },
+    {
+      "id": "INV-PLUGIN-005",
+      "title": "插件崩溃不连带主进程，且有界重启",
+      "statement": "插件子进程异常退出时，在飞请求全部失败、代理工具立即下线，主进程不受影响；重启次数有上限，超限后进入 fail-closed（后续请求直接失败，不再复活）。",
+      "sources": ["app/src/plugins/host/PluginHostSupervisor.ts"],
+      "tests": ["app/tests/plugins/pluginHostSupervisor.test.ts"],
+      "level": "fault-injection",
+      "status": "verified",
+      "reopenWhen": "修改 `onExit` / `maxRestarts` / 代理工具注册-注销时序，或引入退避策略时。",
+      "specs": [".trae/specs/plugin-process-isolation.md"]
     }
   ]
 }

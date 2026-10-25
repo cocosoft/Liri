@@ -50,6 +50,11 @@
 | **INV-SEC-004** | 深扫未完成不得折叠为放行 | unit | ✅ verified | `tools/CodeRunner/staticValidation.ts` · `security/decision.ts` | `tests/security/securityVerdict.test.ts` |
 | **INV-ARCH-001** | SPI 装配顺序约束 | unit | ✅ verified | `entrypoints/spiWiring.ts` · `core/spi/wiringGuard.ts` | `packages/kernel/tests/spiWiringOrder.test.ts` |
 | **INV-KB-001** | 混合检索分值域 `(0,1]` + 重叠命中 `hybrid` | unit | ✅ verified | `knowledge/KnowledgeRouter.ts` · `utils/rrf.ts` | `tests/utils/rrf.test.ts` · `src/knowledge/__tests__/KnowledgeRouter.test.ts` |
+| **INV-PLUGIN-001** | 第三方插件代码不在主进程执行 | integration | ✅ verified | `plugins/utils/pluginTrust.ts` · `plugins/core/PluginLoader.ts` · `plugins/host/PluginHostSupervisor.ts` | `tests/plugins/pluginTrust.test.ts` · `tests/plugins/pluginLoaderHostWiring.test.ts` |
+| **INV-PLUGIN-002** | 插件子进程不继承宿主环境 | e2e-security | ✅ verified | `plugins/host/pluginHostProtocol.ts` | `tests/plugins/pluginHostProtocol.test.ts` · `pluginHostChildE2E.test.ts` · `pluginLoaderHostWiring.test.ts` |
+| **INV-PLUGIN-003** | 能力未授权即不提供对应能力面 | unit | ✅ verified | `plugins/utils/pluginCapabilities.ts` · `plugins/core/PluginLoader.ts` · `plugins/host/PluginHostSupervisor.ts` | `tests/plugins/pluginCapabilities.test.ts` · `pluginInstallCapabilities.test.ts` · `pluginHostConfig.test.ts` |
+| **INV-PLUGIN-004** | 插件配置写入经宿主校验并落盘，失败可见 | unit | ✅ verified | `plugins/host/pluginConfigPort.ts` · `PluginHostSupervisor.ts` · `pluginHostEntry.ts` | `tests/plugins/pluginHostConfig.test.ts` |
+| **INV-PLUGIN-005** | 插件崩溃不连带主进程，且有界重启 | fault-injection | ✅ verified | `plugins/host/PluginHostSupervisor.ts` | `tests/plugins/pluginHostSupervisor.test.ts` |
 
 > 路径相对**仓库根**；源码路径省略 `app/src/` 前缀（除 `shared/` 外）。完整路径见 `invariant-registry.json`。
 
@@ -85,6 +90,7 @@
 | `.trae/specs/shared-event-name-single-source.md` | INV-EVENT-002 |
 | `.trae/specs/kernel-style-architecture-governance.md` | INV-ARCH-001 |
 | `.trae/specs/unified-rrf-retrieval.md` | INV-KB-001 |
+| `.trae/specs/plugin-process-isolation.md` | INV-PLUGIN-001/002/003/004/005 |
 
 ---
 
@@ -94,7 +100,8 @@
 - 修改**事件类型 / 载荷 / 序号** ⇒ 复查 `INV-EVENT-*`；
 - 修改**安全门禁 / 审批 / 沙箱 / 深扫** ⇒ 复查 `INV-SEC-*`（并同步 `project_rules §1.4` 安全开关表）；
 - 修改**检索融合 / 归一化 / 命中类型** ⇒ 复查 `INV-KB-001`（并同步 `.trae/specs/unified-rrf-retrieval.md`）；
-- **新增执行入口** ⇒ 复查 `INV-EXEC-006`（并登记 `.trae/architecture/execution-entrypoints.md`，P1-3）。
+- **新增执行入口** ⇒ 复查 `INV-EXEC-006`（并登记 `.trae/architecture/execution-entrypoints.md`，P1-3）；
+- 修改**插件信任 / 加载入口 / 子进程 env / 能力面 / 配置通道** ⇒ 复查 `INV-PLUGIN-*`（并同步 `.trae/specs/plugin-process-isolation.md`）。
 
 > 门禁（P1-2）：`scripts/lint-invariants.ts` 校验本注册表**每条** `sources`/`tests` 路径**存在**；
 > `status=gap` 的项**必须**在 §3 缺口表出现（防"缺口被遗忘"）。

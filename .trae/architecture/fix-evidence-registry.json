@@ -12390,6 +12390,33 @@
         "配置端口改 DI 注入（registerPluginConfigManagerProvider），消除 pluginConfigPort 反向 import 成环"
       ],
       "reopenWhen": "端口模块若再 import 上层（含动态 import）即复发；新增端口解析请用 register*Provider 注入而非反向 import（全文见 archive/evidence-detail.jsonl#T25-08-P2-CONFIG-PORT-DI）"
+    },
+    {
+      "id": "CHAT-SESSION-EXPORT-SYNC",
+      "title": "会话级导出无文件：改「菜单打开预构建 + 点击同步下载」（保住用户手势）",
+      "source": "dev_docs/20261025/待完成工作任务清单-20261025.md §35",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/components/ChatArea/SessionHeader.tsx"
+      ],
+      "tests": [
+        "client/src/tests/sessionHeaderExport.test.tsx"
+      ],
+      "changelog": [
+        "修复会话级导出无文件：菜单打开即预取+预构建，点击格式时同步下载（气泡导出同源不受影响）"
+      ],
+      "reopenWhen": "若改为后端生成文件或桌面壳保存，需重新评估手势约束；新增导出格式必须复用 downloadExport 同步路径（全文见 archive/evidence-detail.jsonl#CHAT-SESSION-EXPORT-SYNC）"
     }
   ]
 }

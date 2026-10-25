@@ -26,34 +26,7 @@ import type { ToolName } from '@modules/constants/toolNames.generated';
 
 export type PromptVariant = 'user_intent' | 'stated_intent';
 
-export type SuggestionOutcome = 'accepted' | 'ignored';
-
-export type AcceptMethod = 'tab' | 'enter';
-
 export type SuggestionSource = 'cli' | 'sdk';
-
-export interface SuggestionHistory {
-  id?: number;
-  suggestion: string;
-  prompt_id: string | null;
-  shown_at: number;
-  accepted_at: number | null;
-  outcome: SuggestionOutcome;
-  accept_method: AcceptMethod | null;
-  time_to_accept_ms: number | null;
-  time_to_ignore_ms: number | null;
-  time_to_first_keystroke_ms: number | null;
-  similarity: number | null;
-  session_id: string | null;
-  created_at: number;
-}
-
-export interface SuggestionConfig {
-  prompt_suggestion_enabled: boolean;
-  suggestion_max_words: number;
-  suggestion_max_length: number;
-  speculation_enabled: boolean;
-}
 
 export interface PromptSuggestionState {
   text: string;
@@ -69,13 +42,6 @@ export interface SuggestionSuppressReason {
   promptId?: PromptVariant;
   source?: SuggestionSource;
 }
-
-export const DEFAULT_SUGGESTION_CONFIG: SuggestionConfig = {
-  prompt_suggestion_enabled: true,
-  suggestion_max_words: 12,
-  suggestion_max_length: 100,
-  speculation_enabled: true,
-};
 
 export const SUGGESTION_PROMPT = `[建议模式：预测用户接下来可能自然输入到 Liri 的内容。]
 

@@ -11,7 +11,6 @@ import {
   SUGGESTION_PROMPTS,
   type PromptVariant,
   type SuggestionSource,
-  type SuggestionHistory,
 } from './types';
 import { shouldFilterSuggestion } from './SuggestionFilter';
 import { getSuggestionSuppressReason } from './PromptSuggestionConfig';

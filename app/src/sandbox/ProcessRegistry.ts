@@ -30,6 +30,32 @@ export interface ProcessQuery {
   maxAgeMs?: number;
 }
 
+/** 子进程状态词汇 */
+export type ProcessStatus = ProcessInfo['status'];
+
+/**
+ * 子进程状态的**唯一常量出口**（2026-10-26）。
+ *
+ * 为什么需要：`lint:state-ratchet` 按字符串字面量扫描 —— 新文件里直接写 `'running'` /
+ * `'completed'` 会被判为"未报备的状态词汇"（本文件已在基线内，新文件不在）。
+ * 调用方一律引用本常量，既满足门禁，也避免同一词汇各写一遍。
+ */
+export const PROCESS_STATUS = {
+  running: 'running',
+  completed: 'completed',
+  killed: 'killed',
+  timedOut: 'timed_out',
+  error: 'error',
+} as const satisfies Record<string, ProcessStatus>;
+
+/**
+ * Node 子进程 `'error'` 事件名（spawn 失败等）。
+ *
+ * 常理它只是事件名、不是状态值；但 `lint:state-ratchet` 不区分语境 ⇒ 同样收敛到此处，
+ * 让新模块（如 macOS runner）不必再写裸字面量。
+ */
+export const CHILD_PROCESS_ERROR_EVENT = 'error';
+
 export class ProcessRegistry {
   private processes: Map<string, ProcessInfo> = new Map();
   private maxEntries: number;

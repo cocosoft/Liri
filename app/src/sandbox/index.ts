@@ -61,8 +61,17 @@ export type { SSHSandboxConfig, SSHConnectionStatus } from './SSHSandbox';
 // —— 它们**全仓零消费者**（仅经各自 barrel 可达；`SandboxImpl` 的唯一构造方是 `ToolSandboxRouter`）。
 // 现**活**的沙箱面是**路径级**：`sandbox/landlock/*`（bash / code_run）、`SandboxSecurityChecker`、
 // `utils/PathRestrictions` —— 本文件下方这些导出**保持不动**。
-export { ProcessRegistry, processRegistry } from './ProcessRegistry';
-export type { ProcessInfo, ProcessQuery } from './ProcessRegistry';
+export {
+  ProcessRegistry,
+  processRegistry,
+  PROCESS_STATUS,
+  CHILD_PROCESS_ERROR_EVENT,
+} from './ProcessRegistry';
+export type {
+  ProcessInfo,
+  ProcessQuery,
+  ProcessStatus,
+} from './ProcessRegistry';
 // R21（2026-10-09）：进程树终止（取消/中止时防孤儿进程）
 export { killProcessTree } from './utils/killProcessTree';
 export type {

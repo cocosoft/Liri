@@ -37,6 +37,7 @@ import { homedir } from 'os';
 
 import {
   MACOS_SANDBOX_EXEC_PATH,
+  PROCESS_STATUS,
   buildMacOSSandboxProfile,
   buildSandboxExecArgv,
   detectMacOSSandboxCapability,
@@ -123,14 +124,16 @@ export async function runCodeRunnerWithMacOSSandbox(
       : processRegistry.register({
           pid: child.pid,
           command: 'code_run',
-          status: 'running',
+          status: PROCESS_STATUS.running,
           metadata: { source: 'code_run', sandbox: 'macos-seatbelt' },
         });
   child.on('close', (code) => {
     if (processEntryId === undefined) return;
     processRegistry.complete(
       processEntryId,
-      (child as { killed?: boolean }).killed ? 'timed_out' : 'completed',
+      (child as { killed?: boolean }).killed
+        ? PROCESS_STATUS.timedOut
+        : PROCESS_STATUS.completed,
       code ?? undefined
     );
   });

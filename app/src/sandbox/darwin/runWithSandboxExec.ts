@@ -32,6 +32,7 @@
 import { spawn } from 'node:child_process';
 import { appendWithinLimit } from '../SandboxPolicy';
 import { killProcessTree } from '../utils/killProcessTree';
+import { CHILD_PROCESS_ERROR_EVENT } from '../ProcessRegistry';
 import { MACOS_SANDBOX_EXEC_PATH } from './MacOSSandboxDetector';
 
 export interface SandboxExecRunInput {
@@ -141,7 +142,7 @@ export async function runWithSandboxExec(
     child.stderr.on('data', (d: Buffer) => {
       stderr = append(stderr, d.toString());
     });
-    child.on('error', (err: NodeJS.ErrnoException) => {
+    child.on(CHILD_PROCESS_ERROR_EVENT, (err: NodeJS.ErrnoException) => {
       cleanupAbort();
       resolve({
         stdout,

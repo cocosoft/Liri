@@ -610,6 +610,17 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | POST | `/v1/plugins/marketplace/plugins/{id}/uninstall` | ✅ | `pluginMarketplaceService.uninstall` |
 | GET | `/v1/plugins/marketplace/plugins/{id}/capabilities` | ✅ | `pluginMarketplaceService.getCapabilities` |
 | PUT | `/v1/plugins/marketplace/plugins/{id}/capabilities` | ✅ | `pluginMarketplaceService.setCapabilities` |
+| GET | `/v1/plugins/marketplace/plugins/{id}/config` | ✅ | 待接（UI 暂无调用方） |
+| PUT | `/v1/plugins/marketplace/plugins/{id}/config` | ✅ | 待接（UI 暂无调用方） |
+
+> **配置端点（2026-10-26）**：唯一事实源 = `PluginConfigManager`（`~/.pyapp/plugins/config/config.json`，
+> 与 Python 插件 `config.set` 同一份）。`GET` 返回 `{ pluginId, items[], values }`：
+> `items` 来自清单 `configSchema`（插件未加载 / 未声明 ⇒ 空数组，不臆造），每项含
+> `{ key,type,label,description?,required,default?,options?,value,isSet }`（`value` = 已存储优先，否则默认值）。
+> `PUT` 体为 `{ values: { ... } }`（**合并**语义，只覆盖出现的键）；键存在性 / 类型 / 必填 / 范围校验
+> 在 `stored ∪ patch` 上做（`mergeWithDefaults` + `validatePluginConfig`），失败 ⇒ **400 且不落盘**。
+> 两者共用 `plugins/utils/pluginConfigValues.ts`；CLI `/plugin-settings` 同口径。
+> `PUT` 纳入 admin 写鉴权（`route-table.ts`，与 `/capabilities` 同列）。
 
 > **能力端点（T25-08 P2，2026-10-25）**：`GET` 返回 `{ pluginId, declared, granted, missing, unimplemented, available, enforced }`；
 > `PUT` 体为 `{ granted: string[] }`（**覆盖**语义，空数组 = 收回全部），只接受 `available`（已实现）里的名字，

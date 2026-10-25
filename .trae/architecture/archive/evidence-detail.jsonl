@@ -6375,3 +6375,7 @@
 {"id":"CHAT-SESSION-EXPORT-SYNC-REVERT","k":"reopenWhen","i":0,"c":"若确认目标环境为 Tauri/内嵌 WebView 且确实吞下载，另立「桌面壳保存文件」方案（后端生成或 plugin-fs），不再改时序"}
 {"id":"CHAT-SESSION-EXPORT-SYNC-REVERT","k":"code#0","i":0,"c":"client/src/components/ChatArea/SessionHeader.tsx"}
 {"id":"CHAT-SESSION-EXPORT-SYNC-REVERT","k":"changelog#0","i":0,"c":"回滚会话导出时序改动（异步下载假设被对照实验证伪）：真实 Edge/Firefox 在修复前后均可导出"}
+{"id":"CHAT-SESSION-EXPORT-RESOLVED","k":"title","i":0,"c":"会话导出实为可用：文件落在自定义下载目录 E:/PY/Downloads（此前「无文件」系检索路径错误）"}
+{"id":"CHAT-SESSION-EXPORT-RESOLVED","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §35.2"}
+{"id":"CHAT-SESSION-EXPORT-RESOLVED","k":"reopenWhen","i":0,"c":"浏览器改下载目录/OneDrive 重定向时按「下载历史」定位；导出缺少完成提示属 UX 缺口，另立 toast 项"}
+{"id":"CHAT-SESSION-EXPORT-RESOLVED","k":"changelog#0","i":0,"c":"会话导出实为可用：Chrome 下载历史 20 条 state=1，文件落在 E:/PY/Downloads；无代码改动，台账更正此前误判"}

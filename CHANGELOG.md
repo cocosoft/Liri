@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **CHAT-SESSION-EXPORT-RESOLVED**：会话导出可用性结论更正（自定义下载目录） —— 验证 dl-history20|files8；基线 Chrome downloads 20 条 state=1；E:/PY/Downloads 最新 198,490 B（23:38）（详情见 archive/evidence-detail.jsonl#CHAT-SESSION-EXPORT-RESOLVED）
 - ✅ **CHAT-SESSION-EXPORT-SYNC-REVERT**：回滚会话导出改动（异步下载假设证伪） —— 验证 pw-edge2|pw-firefox2|tsc|eslint；基线 修复前/后 × Edge/Firefox 四组均导出成功（约 198KB/2869 行）（详情见 archive/evidence-detail.jsonl#CHAT-SESSION-EXPORT-SYNC-REVERT）
 - ✅ **T25-08-P2-CONFIG-PORT-DI**：配置端口改 DI 注入，消除 CI 判环 —— 验证 madge0|plugins99|typecheck；基线 src/ 4009 文件 madge --circular 0 环；tests/plugins 99 pass（详情见 archive/evidence-detail.jsonl#T25-08-P2-CONFIG-PORT-DI）
 - ✅ **T25-08-P2-PY-STATE-LITERAL**：全量 CI 收口：迁移状态改用 schema-rejected —— 验证 state-ratchet|plugins99|ci8419；基线 bun run ci exit0：8419 pass/43 skip/0 fail（8462 例/1037 文件/144.9s）（详情见 archive/evidence-detail.jsonl#T25-08-P2-PY-STATE-LITERAL）

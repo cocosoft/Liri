@@ -12574,6 +12574,43 @@
         "删除插件配置空壳 schema 层（setSchema 生产零调用；唯一实现仍在 pluginConfigSchema.ts）"
       ],
       "reopenWhen": "宿主侧若需配置 schema 校验，接 pluginConfigSchema.ts 的 validatePluginConfig（勿再建第二份类型）（全文见 archive/evidence-detail.jsonl#PLUGIN-CONFIG-SCHEMA-HOLLOW）"
+    },
+    {
+      "id": "PLUGIN-CONFIG-API",
+      "title": "",
+      "source": "",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/plugins/utils/pluginConfigValues.ts",
+        "app/src/plugins/index.ts",
+        "app/src/runtime/api/pluginAdminPorts.ts",
+        "app/src/runtime/api/domainSnapshotOps.ts",
+        "app/src/infrastructure/http/handlers/plugin-marketplace-handlers.ts",
+        "app/src/infrastructure/http/handlers/route-table.ts",
+        "app/src/infrastructure/http/handlers/routes/marketplace-mcp-routes.ts",
+        "app/src/commands/plugin-settings/pluginSettings.ts",
+        "app/src/commands/loader/CommandLoader.ts",
+        ".trae/docs/api-spec.md"
+      ],
+      "tests": [
+        "app/tests/plugins/pluginConfigValues.test.ts",
+        "app/tests/http/pluginConfigRoutes.test.ts"
+      ],
+      "changelog": [
+        "插件配置接活：注册 /plugin-settings + GET/PUT /v1/plugins/:id/config（失败 400 不落盘）"
+      ],
+      "reopenWhen": "UI 接表单时直接调 GET/PUT config；若需按租户隔离插件配置，需改 PluginConfigManager 的存储分片（全文见 archive/evidence-detail.jsonl#PLUGIN-CONFIG-API）"
     }
   ]
 }

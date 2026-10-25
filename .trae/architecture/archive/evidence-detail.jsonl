@@ -6404,3 +6404,17 @@
 {"id":"PLUGIN-CONFIG-SCHEMA-HOLLOW","k":"code#2","i":0,"c":"app/src/plugins/index.ts"}
 {"id":"PLUGIN-CONFIG-SCHEMA-HOLLOW","k":"code#3","i":0,"c":"app/tests/plugins/pluginHostConfig.test.ts"}
 {"id":"PLUGIN-CONFIG-SCHEMA-HOLLOW","k":"changelog#0","i":0,"c":"删除插件配置空壳 schema 层（setSchema 生产零调用；唯一实现仍在 pluginConfigSchema.ts）"}
+{"id":"PLUGIN-CONFIG-API","k":"reopenWhen","i":0,"c":"UI 接表单时直接调 GET/PUT config；若需按租户隔离插件配置，需改 PluginConfigManager 的存储分片"}
+{"id":"PLUGIN-CONFIG-API","k":"code#0","i":0,"c":"app/src/plugins/utils/pluginConfigValues.ts"}
+{"id":"PLUGIN-CONFIG-API","k":"code#1","i":0,"c":"app/src/plugins/index.ts"}
+{"id":"PLUGIN-CONFIG-API","k":"code#2","i":0,"c":"app/src/runtime/api/pluginAdminPorts.ts"}
+{"id":"PLUGIN-CONFIG-API","k":"code#3","i":0,"c":"app/src/runtime/api/domainSnapshotOps.ts"}
+{"id":"PLUGIN-CONFIG-API","k":"code#4","i":0,"c":"app/src/infrastructure/http/handlers/plugin-marketplace-handlers.ts"}
+{"id":"PLUGIN-CONFIG-API","k":"code#5","i":0,"c":"app/src/infrastructure/http/handlers/route-table.ts"}
+{"id":"PLUGIN-CONFIG-API","k":"code#6","i":0,"c":"app/src/infrastructure/http/handlers/routes/marketplace-mcp-routes.ts"}
+{"id":"PLUGIN-CONFIG-API","k":"code#7","i":0,"c":"app/src/commands/plugin-settings/pluginSettings.ts"}
+{"id":"PLUGIN-CONFIG-API","k":"code#8","i":0,"c":"app/src/commands/loader/CommandLoader.ts"}
+{"id":"PLUGIN-CONFIG-API","k":"code#9","i":0,"c":".trae/docs/api-spec.md"}
+{"id":"PLUGIN-CONFIG-API","k":"tests#0","i":0,"c":"app/tests/plugins/pluginConfigValues.test.ts"}
+{"id":"PLUGIN-CONFIG-API","k":"tests#1","i":0,"c":"app/tests/http/pluginConfigRoutes.test.ts"}
+{"id":"PLUGIN-CONFIG-API","k":"changelog#0","i":0,"c":"插件配置接活：注册 /plugin-settings + GET/PUT /v1/plugins/:id/config（失败 400 不落盘）"}

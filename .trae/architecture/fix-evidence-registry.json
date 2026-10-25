@@ -12415,6 +12415,31 @@
         "修复会话级导出无文件：菜单打开即预取+预构建，点击格式时同步下载（气泡导出同源不受影响）"
       ],
       "reopenWhen": "若改为后端生成文件或桌面壳保存，需重新评估手势约束；新增导出格式必须复用 downloadExport 同步路径（全文见 archive/evidence-detail.jsonl#CHAT-SESSION-EXPORT-SYNC）"
+    },
+    {
+      "id": "CHAT-SESSION-EXPORT-SYNC-REVERT",
+      "title": "回滚会话导出「预构建+同步下载」：根因假设被对照实验证伪",
+      "source": "dev_docs/20261025/待完成工作任务清单-20261025.md §35.1",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/components/ChatArea/SessionHeader.tsx"
+      ],
+      "tests": [],
+      "changelog": [
+        "回滚会话导出时序改动（异步下载假设被对照实验证伪）：真实 Edge/Firefox 在修复前后均可导出"
+      ],
+      "reopenWhen": "若确认目标环境为 Tauri/内嵌 WebView 且确实吞下载，另立「桌面壳保存文件」方案（后端生成或 plugin-fs），不再改时序（全文见 archive/evidence-detail.jsonl#CHAT-SESSION-EXPORT-SYNC-REVERT）"
     }
   ]
 }

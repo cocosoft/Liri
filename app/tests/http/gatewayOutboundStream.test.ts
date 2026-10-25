@@ -8,6 +8,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { EventEmitter } from 'events';
 import type http from 'http';
+import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
+import type { Principal } from '@openliri/kernel/identity/principal';
 import {
   handleGatewayOutboundStream,
   OUTBOUND_STATE_PROJECTION_EVENT,
@@ -72,5 +74,55 @@ describe('U-15 gateway outbound stream', () => {
     expect(getProjectionOutboundSinkCount()).toBe(1);
     req.emit('close');
     expect(getProjectionOutboundSinkCount()).toBe(0);
+  });
+
+  // ─── T25-01：身份绑定 + 前置过滤（跨租户不串流）────────────────────────
+  it('已认证连接的投影按身份隔离：A 收不到 B 发布的投影', async () => {
+    const alice: Principal = { tenantId: 'acme', userId: 'alice', roles: [] };
+    const bob: Principal = { tenantId: 'acme', userId: 'bob', roles: [] };
+
+    const { req, res, chunks } = makePair();
+    await runWithPrincipal(alice, () => handleGatewayOutboundStream(req, res));
+
+    runWithPrincipal(bob, () =>
+      publishStateProjection({
+        domain: 'orchestration',
+        primitive: 'RUNNING',
+        orchestrationId: 'bob-plan',
+      })
+    );
+    expect(chunks.join('')).not.toContain('bob-plan');
+
+    runWithPrincipal(alice, () =>
+      publishStateProjection({
+        domain: 'orchestration',
+        primitive: 'RUNNING',
+        orchestrationId: 'alice-plan',
+      })
+    );
+    expect(chunks.join('')).toContain('"orchestrationId":"alice-plan"');
+  });
+
+  it('本地身份只收本地发布的投影（fail-closed）', async () => {
+    const alice: Principal = { tenantId: 'acme', userId: 'alice', roles: [] };
+
+    const { req, res, chunks } = makePair();
+    await handleGatewayOutboundStream(req, res);
+
+    runWithPrincipal(alice, () =>
+      publishStateProjection({
+        domain: 'orchestration',
+        primitive: 'RUNNING',
+        orchestrationId: 'alice-plan',
+      })
+    );
+    expect(chunks.join('')).not.toContain('alice-plan');
+
+    publishStateProjection({
+      domain: 'orchestration',
+      primitive: 'SETTLED',
+      orchestrationId: 'local-plan',
+    });
+    expect(chunks.join('')).toContain('"orchestrationId":"local-plan"');
   });
 });

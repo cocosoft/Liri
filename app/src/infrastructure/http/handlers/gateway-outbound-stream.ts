@@ -11,6 +11,7 @@
  */
 
 import type http from 'http';
+import { currentOwnerKey } from '@openliri/kernel/identity/requestScope';
 import { registerProjectionOutboundSink } from '../../../state/engine/projectionOutbound.js';
 import type { StateProjectionBroadcast } from '../../../state/engine/projectionBroker.js';
 import { getLogger } from '@modules/monitoring';
@@ -29,6 +30,11 @@ export async function handleGatewayOutboundStream(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
+  // T25-01：身份键在**连接建立时**快照（本函数运行于 `withRequestIdentity` 作用域内，见
+  // `LocalHTTPService.ts` 的 `dispatchRoute` 包裹）。之后的广播发生在**各自的**发布方作用域，
+  // 长连接不继承任何请求上下文 ⇒ **禁止**在 `deliver` 内再取身份。
+  const ownerKey = currentOwnerKey();
+
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache',
@@ -40,6 +46,11 @@ export async function handleGatewayOutboundStream(
 
   const sink = {
     name: 'http-sse',
+    // fail-closed 同键匹配：本地身份（`undefined`）只收本地发布的投影；
+    // 已认证身份只收自己作用域发布的投影（与 `LocalHTTPServiceSSE` 的 SSE 过滤同口径）。
+    accept(projection: StateProjectionBroadcast): boolean {
+      return projection.ownerKey === ownerKey;
+    },
     deliver(projection: StateProjectionBroadcast): void {
       res.write(
         `event: ${OUTBOUND_STATE_PROJECTION_EVENT}\ndata: ${JSON.stringify(projection)}\n\n`

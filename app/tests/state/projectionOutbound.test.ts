@@ -72,4 +72,29 @@ describe('U-15 projection outbound pipeline', () => {
     });
     expect(received).toHaveLength(0);
   });
+
+  // T25-01：准入由 sink 自声明，choke point 只机械调用（不做裁决）
+  it('sink.accept 返回 false ⇒ 不交付；不声明 accept ⇒ 恒交付', () => {
+    process.env[FLAG_ENV] = 'true';
+    const denied: StateProjectionBroadcast[] = [];
+    const all: StateProjectionBroadcast[] = [];
+    registerProjectionOutboundSink({
+      name: 'deny-all',
+      accept: () => false,
+      deliver: (p) => denied.push(p),
+    });
+    registerProjectionOutboundSink({
+      name: 'no-accept',
+      deliver: (p) => all.push(p),
+    });
+
+    publishStateProjection({
+      domain: 'orchestration',
+      primitive: 'RUNNING',
+      orchestrationId: 'plan-3',
+    });
+
+    expect(denied).toHaveLength(0);
+    expect(all).toHaveLength(1);
+  });
 });

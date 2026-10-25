@@ -42,6 +42,7 @@ import {
   SystemEvents,
 } from '@openliri/kernel/events/EventBus.js';
 import { feature } from '@openliri/kernel';
+import { currentOwnerKey } from '@openliri/kernel/identity/requestScope';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('state:projectionBroker');
@@ -96,6 +97,14 @@ export interface StateProjectionBroadcast {
   readonly orchestrationId?: string;
   /** 观测时间（epoch ms） */
   readonly at: number;
+  /**
+   * **投递作用域归属**（出站过滤用元数据，**非领域状态**）：发布时当前身份键
+   * `<tenantId>:<userId>`；本地身份 / 无请求作用域 ⇒ 缺省。
+   *
+   * 为什么随载荷走：广播发生在**发布方**作用域，订阅方（长连接）不继承任何上下文
+   * ⇒ 归属只能在发布点取一次（见 `.trae/specs/gateway-outbound-principal-filter.md`）。
+   */
+  readonly ownerKey?: string;
 }
 
 /** 广播开关名（`FEATURE_STATE_PROJECTION_BROADCAST`，默认关） */
@@ -119,6 +128,10 @@ export function publishStateProjection(input: {
 }): void {
   if (!isStateProjectionBroadcastEnabled()) return;
 
+  // T25-01：出站归属在**发布点**取一次（广播发生在发布方作用域，订阅方长连接不继承上下文）。
+  // 本地身份 / 无作用域 ⇒ 缺省 ⇒ 下游 sink 只投递给本地连接（fail-closed）。
+  const ownerKey = currentOwnerKey();
+
   const payload: StateProjectionBroadcast = {
     domain: input.domain,
     primitive: input.primitive,
@@ -126,6 +139,7 @@ export function publishStateProjection(input: {
     ...(input.orchestrationId !== undefined
       ? { orchestrationId: input.orchestrationId }
       : {}),
+    ...(ownerKey !== undefined ? { ownerKey } : {}),
     at: Date.now(),
   };
 

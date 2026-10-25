@@ -30,6 +30,13 @@ const logger = getLogger('state:projectionOutbound');
 export interface ProjectionOutboundSink {
   /** 诊断名（日志用，不参与业务判定） */
   readonly name: string;
+  /**
+   * 可选投递准入：返回 `false` ⇒ 本条不交付（T25-01）。
+   *
+   * **归属判定由 sink 自己声明**，本模块只机械调用 —— 保住「不做裁决 / 只搬运」边界
+   * （见文件头 `## 边界`）。缺省 ⇒ 恒交付（历史行为）。
+   */
+  accept?(projection: StateProjectionBroadcast): boolean;
   /** 交付一条投影；实现方不得抛异常（本模块仍会兜底捕获） */
   deliver(projection: StateProjectionBroadcast): void;
 }
@@ -43,6 +50,8 @@ function ensureSubscribed(): void {
     SystemEvents.STATE_PROJECTED,
     (projection) => {
       for (const sink of sinks) {
+        // T25-01：准入由 sink 自声明；本模块**不做**任何身份/租户判定（只机械调用）。
+        if (sink.accept && !sink.accept(projection)) continue;
         try {
           sink.deliver(projection);
         } catch (err) {

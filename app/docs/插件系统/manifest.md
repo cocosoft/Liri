@@ -72,7 +72,7 @@
 | 能力 | 提供的内容 | 状态 |
 |---|---|---|
 | `tools` | `ctx.services` / 工具注册（工具执行回主进程） | ✅ |
-| `config` | `ctx.config.get/set/save`（仅本插件命名空间，落 `~/.pyapp/plugins/config/config.json`） | ✅ |
+| `config` | `ctx.config.get/set/save`（仅本插件命名空间，落 `~/.pyapp/plugins/config/config.json`；Python 插件与 Node 插件**同一份**，旧 `<data>/plugin-config/` 首次启动自动并入） | ✅ |
 | `events` | `ctx.events.on/off/emit` | ⏸ **未实现**：声明即拒绝（授权了也没有提供面） |
 
 - 声明了但用户未授权 ⇒ **拒绝安装 / 拒绝加载**（fail-closed）；用户可从「插件市场 → 能力权限」勾选，

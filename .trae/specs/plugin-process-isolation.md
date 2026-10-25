@@ -80,6 +80,10 @@
   - **未授权 `config`** ⇒ 不下发快照、宿主拒绝 `config.set` ⇒ 子进程保持 SDK 的 no-op 实现；
   - 存储**复用** `PluginConfigManager`（`~/.pyapp/plugins/config/config.json`）单例 —— 禁止第二实例
     （两个实例会用各自的 Map 覆盖同一文件 ⇒ 抹掉别的插件配置）。
+  - **Python 插件同一份存储（2026-10-25 收敛双轨）**：旧版 `PythonPluginAdapter` 自带
+    `<data>/plugin-config/<id>.json`，与市场 UI / Node 插件互不可见 ⇒ 现改为经同一 `PluginConfigPort`
+    读写（反向 RPC 的 `getConfig/setConfig` 语义不变）；旧文件在首次 `initialize` 时**一次性并入**
+    （只补缺失键、不覆盖新值；被 schema 拒绝则保留旧文件下次重试；成功后改名 `.migrated` 留档）。
 - **生命周期**：`activate → ready` 握手；崩溃 ⇒ `Supervisor` 有界重启（复用 `ToolSidecarSupervisor` 的监督范式：进程树强杀 + 退避 + 上限）。
 - **env**：子进程只注入 `LIRI_PLUGIN_ID` / `LIRI_PLUGIN_DIR` 等最小集，**不继承** `process.env`（否则隔离失效）。
 
@@ -148,6 +152,7 @@ mkdir -p ~/.pyapp/plugins/trusted-keys && cp ./keys/plugin-signing.pub.pem ~/.py
 | P1 | 负向：插件读 `process.env` **拿不到**宿主密钥；插件崩溃**不杀主进程**且被有界重启；插件工具调用经 RPC 且宿主侧有审计 |
 | P2 | 安装链路 E2E：未授权能力 ⇒ 拒绝安装/启用 |
 | P2 · `config`（2026-10-25） | 单测：已授权 ⇒ env 有快照且 `config.set` 落库回 `success:true`；未授权 ⇒ 无快照且 `config.set` 回 `success:false`；校验失败 ⇒ 回因；子进程 `set/save` 失败可抛、成功后才更新本地视角 |
+| P2 · `config` · Python 迁移（2026-10-25） | 单测：旧文件缺失 ⇒ `absent`；坏 JSON / 非对象 ⇒ `invalid` 且保留原文件；某键被 schema 拒绝 ⇒ `blocked` 且保留原文件、已导入键保留；成功 ⇒ 只补缺失键、不覆盖新值、改名 `.migrated`、二次调用 `absent`；源码级防回流（适配器不再自带 `configStore/persistConfig`） |
 | P2 · 签名（2026-10-25） | 单测：开关缺省不读文件；启用但未配信任锚 / 目录不存在 / 无 `.pem` / 缺 `.sig` / 非 base64 / 字节被改 ⇒ 全部拒绝；有效签名 ⇒ 放行并回签名者文件名；加载器层未签名 ⇒ 拒绝且状态回 `UNLOADED`；**信任锚并集**：随包 `<project>/app/trusted-keys`（仅说明文件 ⇒ 不生效；放 `*.pem` ⇒ 零配置生效）与用户目录互不挤占 |
 
 ## 7. 回退

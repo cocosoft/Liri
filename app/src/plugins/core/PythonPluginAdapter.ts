@@ -10,6 +10,11 @@
  *    注入白名单 = manifest inject/injectOptional 并集（防提权）
  * 4. config / events 主进程侧桥接
  *
+ * config 口径（2026-10-25 收敛双轨）：**不另建存储** —— 与 Node 插件共用
+ * `PluginConfigManager`（`~/.pyapp/plugins/config/config.json`），经 `PluginConfigPort` 收窄到
+ * 本插件命名空间。旧版 `<data>/plugin-config/<id>.json` 在首次启动时**一次性并入**（见
+ * `migrateLegacyConfig`），此后不再读写该文件。
+ *
  * 桥：复用 JsonRpcBridge（PY-1 泛化基类），pythonPath = venv 内解释器。
  */
 import { getLogger } from '@modules/monitoring';
@@ -27,6 +32,11 @@ import {
   KernelServiceRegistry,
   KernelServiceId,
 } from '../api/KernelServiceRegistry';
+import {
+  resolvePluginConfigPort,
+  type PluginConfigPort,
+} from '../host/pluginConfigPort';
+import { migrateLegacyPythonConfig } from './pythonPluginConfigMigration';
 import { resolveDataSubDir, resolveProjectRoot } from '@openliri/kernel/paths';
 import { join, delimiter } from 'path';
 import { trackProcess } from '../../services/mcp/transports/ChildProcessTracker';
@@ -88,19 +98,14 @@ export class PythonPluginAdapter {
   private skills: PythonSkillInfo[] = [];
   private config: PythonPluginConfig;
   private registry: KernelServiceRegistry;
-  /** 主进程侧 config 存储（pluginId → key → value，JSON 文件持久化） */
-  private configStore: Record<string, unknown> = {};
-  private configPath: string;
+  /** 宿主侧配置端口（懒解析；唯一事实源 = `PluginConfigManager`，见 `pluginConfigPort.ts`） */
+  private configPortPromise?: Promise<PluginConfigPort | null>;
   /** 插件订阅的事件列表 */
   private subscribedEvents: Set<string> = new Set();
 
   constructor(config: PythonPluginConfig, registry: KernelServiceRegistry) {
     this.config = config;
     this.registry = registry;
-    this.configPath = join(
-      resolveDataSubDir('plugin-config'),
-      `${config.pluginId}.json`
-    );
     // PY-5：WorkerGuard 看护（bridge factory 注入 venv 解释器配置；崩溃指数退避重启 + 熔断）
     this.guard = new WorkerGuard({
       createBridge: () =>
@@ -162,7 +167,7 @@ export class PythonPluginAdapter {
           'PYTHON_PLUGIN_PROTOCOL_MISMATCH'
         );
       }
-      this.loadConfigFromDisk();
+      await this.migrateLegacyConfig();
       this.state = 'running';
       // PY-5：注册进 ChildProcessTracker，主进程退出时统一回收，避免孤儿进程
       const child = this.guard.getBridge().getProcess();
@@ -272,12 +277,12 @@ export class PythonPluginAdapter {
       case 'injectService':
         return this.handleInjectService(params);
       case 'getConfig':
-        return this.configStore[String(params.key)];
+        return this.readConfigValue(String(params.key));
       case 'setConfig':
-        this.configStore[String(params.key)] = params.value;
+        await this.writeConfigValue(String(params.key), params.value);
         return undefined;
       case 'saveConfig':
-        this.persistConfig();
+        // 写入即落盘（`PluginConfigManager.setConfigValue` → `persistConfigs`），无需二次保存
         return undefined;
       case 'subscribeEvent':
         this.subscribedEvents.add(String(params.event));
@@ -362,31 +367,88 @@ export class PythonPluginAdapter {
     });
   }
 
-  // ==================== config 持久化 ====================
+  // ==================== config（与 Node 插件共用 PluginConfigManager） ====================
 
-  private loadConfigFromDisk(): void {
-    try {
-      const { existsSync, readFileSync } = require('fs') as typeof import('fs');
-      if (existsSync(this.configPath)) {
-        this.configStore = JSON.parse(readFileSync(this.configPath, 'utf-8'));
-      }
-    } catch (error) {
-      logger.warn(`Python plugin ${this.config.pluginId} 读取配置失败`, {
-        error,
-      });
+  /** 懒解析**全局唯一**配置端口（禁止第二实例：两个 manager 会互相覆盖同一份配置文件） */
+  private configPort(): Promise<PluginConfigPort | null> {
+    this.configPortPromise ??= resolvePluginConfigPort();
+    return this.configPortPromise;
+  }
+
+  private async readConfigValue(key: string): Promise<unknown> {
+    const port = await this.configPort();
+    return port ? port.read(this.config.pluginId)[key] : undefined;
+  }
+
+  private async writeConfigValue(key: string, value: unknown): Promise<void> {
+    const port = await this.configPort();
+    if (!port) {
+      throw new AppError(
+        `Python plugin ${this.config.pluginId} 配置端口不可用（插件系统未就绪）`,
+        ErrorCategory.CONFIGURATION,
+        ErrorSeverity.HIGH,
+        'PYTHON_PLUGIN_CONFIG_PORT_UNAVAILABLE'
+      );
+    }
+    const result = port.write(this.config.pluginId, key, value);
+    if (!result.ok) {
+      throw new AppError(
+        `Python plugin ${this.config.pluginId} 配置写入被拒：${
+          result.errors.join('；') || '未知原因'
+        }`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.MEDIUM,
+        'PYTHON_PLUGIN_CONFIG_WRITE_REJECTED'
+      );
     }
   }
 
-  private persistConfig(): void {
-    try {
-      const { writeFileSync, mkdirSync } = require('fs') as typeof import('fs');
-      const { dirname } = require('path') as typeof import('path');
-      mkdirSync(dirname(this.configPath), { recursive: true });
-      writeFileSync(this.configPath, JSON.stringify(this.configStore, null, 2));
-    } catch (error) {
-      logger.warn(`Python plugin ${this.config.pluginId} 保存配置失败`, {
-        error,
-      });
+  /**
+   * 一次性迁移旧版双轨存储 `<data>/plugin-config/<id>.json` → 共用存储。
+   * 迁移口径（只补缺失键 / 被拒即保留旧文件 / 成功改名 `.migrated`）见 `pythonPluginConfigMigration.ts`。
+   */
+  private async migrateLegacyConfig(): Promise<void> {
+    const legacyPath = join(
+      resolveDataSubDir('plugin-config'),
+      `${this.config.pluginId}.json`
+    );
+    const port = await this.configPort();
+    if (!port) return;
+
+    const result = migrateLegacyPythonConfig({
+      pluginId: this.config.pluginId,
+      port,
+      legacyPath,
+    });
+    if (result.status === 'invalid') {
+      logger.warn(
+        `Python plugin ${this.config.pluginId} 旧配置不可解析，保留旧文件跳过迁移`,
+        { legacyPath, reason: result.invalidReason }
+      );
+      return;
+    }
+    if (result.status === 'blocked') {
+      logger.warn(
+        `Python plugin ${this.config.pluginId} 旧配置项迁移被拒，保留旧文件待下次重试`,
+        { legacyPath, key: result.blockedKey, errors: result.errors }
+      );
+      return;
+    }
+    if (result.status === 'migrated') {
+      logger.info(
+        `Python plugin ${this.config.pluginId} 旧配置已并入共用存储（旧文件改名留档）`,
+        {
+          legacyPath: `${legacyPath}.migrated`,
+          importedKeys: result.importedKeys,
+        }
+      );
+      return;
+    }
+    if (result.status === 'rename-failed') {
+      logger.warn(
+        `Python plugin ${this.config.pluginId} 旧配置已并入但改名留档失败`,
+        { legacyPath, errors: result.errors }
+      );
     }
   }
 

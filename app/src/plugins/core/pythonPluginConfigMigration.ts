@@ -15,11 +15,11 @@
 import { existsSync, readFileSync, renameSync } from 'node:fs';
 import type { PluginConfigPort } from '../host/pluginConfigPort';
 
-/** 迁移结论（调用方据此记日志；`blocked`/`invalid` 都保留旧文件） */
+/** 迁移结论（调用方据此记日志；`schema-rejected`/`invalid` 都保留旧文件） */
 export type LegacyConfigMigrationStatus =
   | 'absent'
   | 'invalid'
-  | 'blocked'
+  | 'schema-rejected'
   | 'migrated'
   | 'rename-failed';
 
@@ -27,8 +27,8 @@ export interface LegacyConfigMigrationResult {
   status: LegacyConfigMigrationStatus;
   /** 本次真正写入共用存储的键（已存在的不计） */
   importedKeys: string[];
-  /** `blocked` 时被拒的键与原因 */
-  blockedKey?: string;
+  /** `schema-rejected` 时被拒的键与原因 */
+  rejectedKey?: string;
   errors?: string[];
   /** `invalid` 时的原因（解析失败 / 不是对象） */
   invalidReason?: string;
@@ -68,9 +68,9 @@ export function migrateLegacyPythonConfig(input: {
     const result = port.write(pluginId, key, value);
     if (!result.ok) {
       return {
-        status: 'blocked',
+        status: 'schema-rejected',
         importedKeys,
-        blockedKey: key,
+        rejectedKey: key,
         errors: result.errors,
       };
     }

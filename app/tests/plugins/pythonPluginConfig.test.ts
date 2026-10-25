@@ -114,8 +114,8 @@ describe('旧版 Python 配置 → 共用存储（一次性迁移）', () => {
     expect(existsSync(arrayPath)).toBe(true);
   });
 
-  it('某键被 schema 拒绝 ⇒ blocked，旧文件保留，已导入的键仍写入', () => {
-    const dir = tempDir('liri-mig-blocked-');
+  it('某键被 schema 拒绝 ⇒ schema-rejected，旧文件保留，已导入的键仍写入', () => {
+    const dir = tempDir('liri-mig-rejected-');
     const legacyPath = writeLegacy(dir, { theme: 'dark', lang: 'zh' });
     const port = fakePort({}, ['lang']);
 
@@ -124,8 +124,8 @@ describe('旧版 Python 配置 → 共用存储（一次性迁移）', () => {
       port,
       legacyPath,
     });
-    expect(result.status).toBe('blocked');
-    expect(result.blockedKey).toBe('lang');
+    expect(result.status).toBe('schema-rejected');
+    expect(result.rejectedKey).toBe('lang');
     expect(port.store.get(PLUGIN_ID)).toEqual({ theme: 'dark' });
     expect(existsSync(legacyPath)).toBe(true);
     expect(existsSync(`${legacyPath}.migrated`)).toBe(false);

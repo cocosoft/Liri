@@ -435,10 +435,10 @@ export class PythonPluginAdapter {
       );
       return;
     }
-    if (result.status === 'blocked') {
+    if (result.status === 'schema-rejected') {
       logger.warn(
         `Python plugin ${this.config.pluginId} 旧配置项迁移被拒，保留旧文件待下次重试`,
-        { legacyPath, key: result.blockedKey, errors: result.errors }
+        { legacyPath, key: result.rejectedKey, errors: result.errors }
       );
       return;
     }

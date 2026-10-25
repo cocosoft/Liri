@@ -172,6 +172,20 @@ jobs:
       - name: Copy native deps
         run: bun run build:deps
 
+      # 阶段 4b（T25-09，2026-10-25）：构建并复制 **Rust 原生库** —— 此前发布链完全没有
+      # cargo 步骤、`build:deps` 也只复制 3 个 npm 包 ⇒ 发布包缺 `libliri_native.*`，
+      # 运行时静默降级 JS（Rust AST 加速在发布包里等于未生效）。
+      # `--require` ⇒ 缺库即失败（fail-closed），不把"静默降级"带进发布物。
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build native core (release)
+        working-directory: app/native
+        run: cargo build --release
+
+      - name: Copy native lib into bundle
+        run: bun run build:native
+
       # 阶段 5：复制种子数据
       - name: Copy seed data
         run: bun run build:seed

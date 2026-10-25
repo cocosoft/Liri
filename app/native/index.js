@@ -1,16 +1,23 @@
 const { dlopen, FFIType, suffix, CString } = require("bun:ffi");
-const path = require("path");
 const os = require("os");
+const { nativeLibCandidates } = require("./loaderPaths");
 
 function loadLibrary() {
-  const isWindows = os.platform() === "win32";
-  // 注意: DLL 名称由 Cargo.toml [package].name 决定 ("liri-native" -> liri_native.dll)
-  // 如果修改了 Cargo.toml 中的 name，这里需要同步更新
-  const libName = isWindows ? "liri_native.dll" : `libliri_native.${suffix}`;
-  const libPath = path.join(__dirname, "target", "release", libName);
+  // T25-09（2026-10-25）：候选路径见 `loaderPaths.js`（显式覆盖 → 包根 target/release →
+  // native/ 子目录 → 仓库根的 native/）。原实现只看 `__dirname/target/release`，
+  // 发布包里该目录不存在 ⇒ 永远降级 JS 且只有一句无上下文的 warn。
+  const candidates = nativeLibCandidates({
+    platform: os.platform(),
+    suffix,
+    dirname: __dirname,
+    cwd: process.cwd(),
+    env: process.env,
+  });
 
-  try {
-    const lib = dlopen(libPath, {
+  let lastError = null;
+  for (const libPath of candidates) {
+    try {
+      const lib = dlopen(libPath, {
       py_estimate_tokens: {
         args: [FFIType.cstring, FFIType.cstring],
         returns: FFIType.i32,
@@ -147,10 +154,22 @@ function loadLibrary() {
         return result ? JSON.parse(result) : null;
       },
     };
-  } catch (err) {
-    console.warn("[native] Failed to load Rust native library:", err.message);
-    return null;
+    } catch (err) {
+      lastError = err;
+    }
   }
+
+  // T25-09（2026-10-25）：**显式告警** —— 带上平台与"找过哪些路径"，
+  // 让"发布包缺库 ⇒ 静默降级"变成可诊断事实（`[native] UNAVAILABLE` 可被日志检索）。
+  console.warn(
+    "[native] UNAVAILABLE — Rust 原生库加载失败，已降级为 JS 实现（功能不受影响，性能下降）",
+    {
+      platform: os.platform(),
+      searched: candidates,
+      error: lastError ? lastError.message : "未尝试任何路径（候选为空）",
+    }
+  );
+  return null;
 }
 
 const native = loadLibrary();

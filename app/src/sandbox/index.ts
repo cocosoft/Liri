@@ -156,6 +156,18 @@ export type { ResolveSandboxSignalParams } from './sandboxExecutionSignal';
 // 已随「沙箱实例层」下线（唯一构造方 `ToolSandboxRouter` 亦零消费者，台账 D-25）；
 // landlock 出口**保持不动**（见下方）。
 export { LandlockDetector } from './landlock';
+// 2026-10-26：macOS Seatbelt（sandbox-exec）兜底沙箱 —— 探测 + SBPL 策略（首版只做写隔离）
+export {
+  MACOS_SANDBOX_EXEC_PATH,
+  detectMacOSSandboxCapability,
+  clearMacOSSandboxCapabilityCache,
+  buildMacOSSandboxProfile,
+  escapeSbplString,
+} from './darwin';
+export type {
+  MacOSSandboxCapability,
+  MacOSSandboxProfileInput,
+} from './darwin';
 // T25-11a（2026-10-25）：helper 路径解析（`LANDLOCK_RUN_HELPER` → `<PROJECT_DIR>/bin/landlock-run` → PATH）
 export {
   LANDLOCK_HELPER_BIN_NAME,

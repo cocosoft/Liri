@@ -1,8 +1,8 @@
 # Spec：第三方插件进程隔离（T25-08）
 
-> 版本 1.4 ｜ 创建 2026-10-25 ｜ 状态：✅ **P0 + P1 已落地**；**P2 部分落地**（能力声明 + 安装/加载双闸 + env 授权表 + **`config` 能力已兑现**；`events` 只留名字、声明即拒绝；**清单签名已实现但默认关**）
+> 版本 1.5 ｜ 创建 2026-10-25 ｜ 状态：✅ **P0 + P1 已落地**；**P2 全部落地**（能力声明 + 安装/加载双闸 + env/UI 双授权 + **`config` 能力** + `events` 声明即拒绝 + **清单签名（信任锚即开）** + 签名工具链）
 > 实现落点：`app/src/plugins/utils/pluginTrust.ts`（P0 闸）· `app/src/plugins/host/{pluginHostProtocol,pluginHostEntry,PluginHostSupervisor}.ts`（P1 宿主）· `app/src/plugins/host/pluginConfigPort.ts`（P2 `config` 读写端口）· `app/src/plugins/utils/pluginCapabilities.ts`（P2 能力授权）· `app/src/plugins/utils/pluginSignature.ts`（P2 签名校验）
-> 开关 / 授权：`PLUGIN_THIRD_PARTY_INPROCESS=false`（准入闸）· `PLUGIN_HOST_PROCESS=true`（子进程宿主）· `LIRI_PLUGIN_CAPABILITY_GRANTS=<id>:<cap>[,…]`（能力授权；未配置 = 不做能力门控）· `LIRI_PLUGIN_REQUIRE_SIGNATURE` + `LIRI_PLUGIN_TRUSTED_KEYS_DIR`（签名校验；默认关）
+> 开关 / 授权：`PLUGIN_THIRD_PARTY_INPROCESS=false`（准入闸）· `PLUGIN_HOST_PROCESS=true`（子进程宿主）· `LIRI_PLUGIN_CAPABILITY_GRANTS=<id>:<cap>[,…]`（能力授权；未配置 = 不做能力门控）· `LIRI_PLUGIN_TRUSTED_KEYS_DIR`（签名信任锚；**配了即校验**，`LIRI_PLUGIN_REQUIRE_SIGNATURE=false` 可关）
 > 来源：`dev_docs/20261025/待完成工作任务清单-20261025.md` §10.6（第二批建议组 6）
 > 关联：`google-ai-review-adjudication.md` §3.2（进程托管落点）· `tool-sidecar-isolation.md`（侧车先例）· `utils/sidecarIpc.ts`（可复用 IPC 帧）
 >
@@ -91,11 +91,11 @@
   - 授权落 `<plugins 根>/capability-grants.json`，与 env `LIRI_PLUGIN_CAPABILITY_GRANTS` **取并集**；
   - UI 侧 `buildCapabilityOptions` 把**未实现**能力渲染为禁用项（勾了也没有提供面，后端也 400）。
 
-#### P2 · 清单签名（2026-10-25 落地，**默认关**）
+#### P2 · 清单签名（2026-10-25 落地，**信任锚即开**）
 
 | 项 | 口径 |
 |---|---|
-| 开关 | `LIRI_PLUGIN_REQUIRE_SIGNATURE` ∈ {`1`,`true`,`yes`,`on`}；**未设置 ⇒ 零行为变更，且不读任何文件** |
+| 开关 | `LIRI_PLUGIN_REQUIRE_SIGNATURE`：显式 `false/0/no/off` ⇒ 关；显式为真值 ⇒ 开；**未设置 ⇒ 配了信任锚就自动开**（"信任锚即意图"，避免"配了公钥却忘了开开关"的假保护） |
 | 信任锚 | `LIRI_PLUGIN_TRUSTED_KEYS_DIR` 指向目录，放 `*.pem` 的 **Ed25519 公钥**；**刻意无默认目录**（信任位置必须显式声明，否则易变成假保护） |
 | 签名对象 | `plugin.json` 的**原始字节**；`plugin.sig` 存 base64（允许折行） |
 | 为什么不对 JSON 再序列化 | "规范化后签名"要自带一套规范化规则，规则一偏就是「验签通过但内容不同」 |
@@ -112,9 +112,9 @@ cd app && bun run plugin:sign keygen --out ./keys
 bun run plugin:sign sign --plugin ~/.pyapp/plugins/installed/<id> --key ./keys/plugin-signing.key
 # 3) 本地先验一遍（与运行时门禁同一个 checkPluginSignature）
 bun run plugin:sign verify --plugin ~/.pyapp/plugins/installed/<id> --keys ./keys
-# 4) 启用：.env 里写下面两行后重启
-#    LIRI_PLUGIN_REQUIRE_SIGNATURE=true
+# 4) 启用：只需在 .env 指定信任锚（配了即校验；要灰度关闭写 =false）
 #    LIRI_PLUGIN_TRUSTED_KEYS_DIR=<放 *.pem 公钥的目录>
+#    LIRI_PLUGIN_REQUIRE_SIGNATURE=false   # 可选：临时关闭
 ```
 
 > 工具**不会**替你改运行时的信任配置（信任锚仍要显式指定）；私钥不托管、不进插件目录。

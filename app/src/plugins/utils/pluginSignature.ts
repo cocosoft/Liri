@@ -4,8 +4,9 @@
  * 方案：`.trae/specs/plugin-process-isolation.md` §4「P2：市场 / 安装链路改造」——
  * 「安装时校验签名（可选）」。
  *
- * 口径（**默认关**，与其它插件闸一致走纯 env，不占安全开关注册表）：
- * - `LIRI_PLUGIN_REQUIRE_SIGNATURE=true` 才启用；未启用 ⇒ **零行为变更**（不读任何文件）；
+ * 口径（**信任锚即意图**，2026-10-25）：
+ * - `LIRI_PLUGIN_REQUIRE_SIGNATURE` **显式**为 `false/0/no/off` ⇒ 关；显式为真值 ⇒ 开；
+ *   **未设置** ⇒ 配了信任锚就自动开，否则关（详见 `isSignatureEnforcementEnabled`）；
  * - 信任锚 = `LIRI_PLUGIN_TRUSTED_KEYS_DIR` 指向的目录（放 `*.pem` 的 **Ed25519 公钥**）。
  *   **刻意不给默认目录**：信任锚位置必须显式声明，否则「校验」很容易因为"某个默认目录不可写/
  *   被替换"而变成假保护（paths.md 也禁止自建 fallback）；
@@ -45,13 +46,30 @@ export interface PluginSignatureDecision {
 }
 
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
+const FALSY = new Set(['0', 'false', 'no', 'off']);
 
-/** 是否启用强制签名校验（缺省/其它值 ⇒ 关） */
+/**
+ * 是否启用强制签名校验。
+ *
+ * 判定顺序（2026-10-25 起"信任锚即意图"）：
+ * 1. 显式 `=false/0/no/off` ⇒ **关**（灰度回退，即使配了信任锚）；
+ * 2. 显式 `=true/1/yes/on` ⇒ **开**；
+ * 3. 未设置 ⇒ **配了信任锚就自动开**，否则关。
+ *
+ * 为什么第 3 条值得这个"自动"：信任锚（`LIRI_PLUGIN_TRUSTED_KEYS_DIR`）是**显式的安全意图**，
+ * 但此前必须再记得写第二个开关；漏写就变成"配了公钥却完全不校验"的假保护 —— 与
+ * `INV-SEC-003` 那类"把存在当生效"的失真同型。关掉仍有一条明确退路（显式 `=false`）。
+ */
 export function isSignatureEnforcementEnabled(
   env: NodeJS.ProcessEnv = process.env
 ): boolean {
   const raw = env[PLUGIN_SIGNATURE_ENFORCE_ENV];
-  return typeof raw === 'string' && TRUTHY.has(raw.trim().toLowerCase());
+  if (typeof raw === 'string') {
+    const value = raw.trim().toLowerCase();
+    if (FALSY.has(value)) return false;
+    if (TRUTHY.has(value)) return true;
+  }
+  return resolveTrustedKeysDir(env) !== null;
 }
 
 /** 读取信任锚目录（未配置 / 空串 ⇒ `null`） */

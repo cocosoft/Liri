@@ -49,9 +49,9 @@ const USAGE = `插件清单签名工具（T25-08 P2）
   verify --plugin <dir> --keys <dir>
       用受信任公钥目录（*.pem）验签；与运行时门禁共用 checkPluginSignature
 
-启用（运行时）：
-  ${PLUGIN_SIGNATURE_ENFORCE_ENV}=true
+启用（运行时）：只需指定信任锚 —— 配了即校验
   ${PLUGIN_TRUSTED_KEYS_DIR_ENV}=<放 *.pem 公钥的目录>
+  ${PLUGIN_SIGNATURE_ENFORCE_ENV}=false   # 可选：临时关闭校验
 `;
 
 function fail(message: string): never {

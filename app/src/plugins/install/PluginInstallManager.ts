@@ -345,7 +345,7 @@ export class PluginInstallManager {
   }
 
   /**
-   * T25-08 P2：安装后的**清单签名**检查（默认关；开则 fail-closed）。
+   * T25-08 P2：安装后的**清单签名**检查（信任锚即开；显式 false 可关）。
    *
    * 与加载器共用 `checkPluginSignature`：覆盖“装进来”和“已经有”的两条路径。
    */

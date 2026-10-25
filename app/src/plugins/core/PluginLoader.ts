@@ -394,7 +394,7 @@ export class PluginLoader extends EventEmitter {
       };
     }
 
-    // ── T25-08 P2（2026-10-25）：**清单签名**（默认关；开则 fail-closed）──
+    // ── T25-08 P2（2026-10-25）：**清单签名**（信任锚即开；显式 false 可关）──
     // 与安装链路同一入口（`checkPluginSignature`），覆盖"手工丢进 installed 目录"绕过安装器的路径。
     const signature = checkPluginSignature({ pluginDir: plugin.path });
     if (!signature.allowed) {

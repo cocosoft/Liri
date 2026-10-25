@@ -109,14 +109,26 @@ afterEach(() => {
 });
 
 describe('签名开关与信任锚（纯函数）', () => {
-  it('只认 1/true/yes/on（大小写不敏感）；缺省与其它值 ⇒ 关', () => {
+  it('显式值优先：1/true/yes/on ⇒ 开；0/false/no/off ⇒ 关；缺省看信任锚', () => {
     expect(isSignatureEnforcementEnabled({})).toBe(false);
     for (const value of ['1', 'true', 'TRUE', ' yes ', 'on']) {
       expect(isSignatureEnforcementEnabled({ [ENV_SIGN]: value })).toBe(true);
     }
-    for (const value of ['0', 'false', '', 'maybe']) {
-      expect(isSignatureEnforcementEnabled({ [ENV_SIGN]: value })).toBe(false);
+    for (const value of ['0', 'false', 'NO', 'off']) {
+      // 即使配了信任锚，显式关也必须生效（灰度回退的唯一退路）
+      expect(
+        isSignatureEnforcementEnabled({
+          [ENV_SIGN]: value,
+          [ENV_KEYS]: '/keys',
+        })
+      ).toBe(false);
     }
+    // 空串 = 未设置（不是"关"）：仍按信任锚判定
+    expect(
+      isSignatureEnforcementEnabled({ [ENV_SIGN]: '', [ENV_KEYS]: '/keys' })
+    ).toBe(true);
+    // 未设置开关：配了信任锚即视为"要校验"（漏写开关不再等于无校验）
+    expect(isSignatureEnforcementEnabled({ [ENV_KEYS]: '/keys' })).toBe(true);
   });
 
   it('信任锚无默认值：未配置 / 空白 ⇒ null', () => {
@@ -242,6 +254,20 @@ describe('checkPluginSignature（安装/加载共用入口）', () => {
     expect(
       checkPluginSignature({ pluginDir: garbage.dir, env }).reason
     ).toContain('base64');
+  });
+
+  it('只配信任锚（不写开关）⇒ 也校验：未签名插件被拒（防"配了公钥却不校验"）', () => {
+    const pair = ed25519Pair();
+    const keysDir = tempDir('liri-keys-auto-');
+    writeFileSync(join(keysDir, 'trusted.pem'), pair.publicPem, 'utf8');
+    const { dir } = makePluginDir({ omitSignature: true });
+
+    const decision = checkPluginSignature({
+      pluginDir: dir,
+      env: { [ENV_KEYS]: keysDir },
+    });
+    expect(decision.allowed).toBe(false);
+    expect(decision.reason).toContain('plugin.sig');
   });
 
   it('目录里没有 plugin.json ⇒ 放行（无清单不会被加载器发现）', () => {

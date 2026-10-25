@@ -38,6 +38,7 @@ import {
 } from './api/index.js';
 import type { IPluginAPI } from './api/index.js';
 import { BundledPluginManager } from './bundled/BundledPluginManager';
+import { registerPluginConfigManagerProvider } from './host/pluginConfigPort';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
@@ -1385,6 +1386,11 @@ export class PluginSystem {
 
 // 创建全局插件系统实例（构造函数轻量，不创建任何子系统）
 export const pluginSystem = new PluginSystem();
+
+// 配置端口 DI（2026-10-25）：把 `configManager` 的 getter 注入端口模块，
+// 避免端口模块反向 `import('./index.js')` 成环（madge 连动态 import 一起算 ⇒ CI 判环）。
+// 注意 getter 内部仍是**懒创建**（首次访问才 new），不违反上面的「构造函数轻量」。
+registerPluginConfigManagerProvider(() => pluginSystem.getConfigManager());
 
 // 将自身注入 PluginManager（DI 模式，避免循环依赖）
 import('./managers/PluginManager')

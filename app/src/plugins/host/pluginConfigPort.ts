@@ -54,29 +54,35 @@ export function pluginConfigPortFromManager(
   };
 }
 
+/** 管理器提供者（由 `plugins/index.ts` 注入；**不在本模块 import 上层**，否则 madge 判环） */
+type ConfigManagerProvider = () => PluginConfigManagerLike | null;
+
+let managerProvider: ConfigManagerProvider | null = null;
+
+/**
+ * 注册**全局唯一**配置管理器的提供者。
+ *
+ * 为什么是"注册"而不是在本模块 `import('../index.js')`：`plugins/index.ts`（经 `PluginLoader`）
+ * 静态依赖本模块，反向 import 会形成 `index → PluginLoader → pluginConfigPort → index` 的环
+ * —— `lint:circular` 的 madge 会连**动态** `import()` 一起算，当时代码里那条"动态导入避免成环"
+ * 的注释与实际行为不符（2026-10-25 CI 实证）。改为 DI：由 `index.ts` 把 getter 传进来。
+ */
+export function registerPluginConfigManagerProvider(
+  provider: ConfigManagerProvider
+): void {
+  managerProvider = provider;
+}
+
 /**
  * 解析**全局唯一**的配置端口。
  *
- * 为什么是动态导入：`plugins/index.ts` 静态依赖 `PluginLoader`，而 `PluginLoader` 是
- * 本模块的调用方 ⇒ 静态反向导入会成环。与仓内既有 `getHotloadManagerLazy()` 同手法。
- *
- * 返回 `null` 仅当插件系统未导出配置管理器（理论上不会发生）；调用方据此**不注入**
- * 配置快照 ⇒ 子进程退回 no-op 实现（fail-closed：宁可读不到，也不另建一个存储）。
+ * 返回 `null` 当且仅当：
+ * - 尚未注册提供者（如只 import 了 `PluginLoader` 而未初始化插件系统）⇒ 调用方不注入配置
+ *   ⇒ 插件退回空实现（fail-closed：宁可读不到，也不另建第二个存储）；
+ * - 提供者返回空（理论上不会发生）。
  */
 export async function resolvePluginConfigPort(): Promise<PluginConfigPort | null> {
-  const mod: unknown = await import('../index.js');
-  const system = (mod as { pluginSystem?: unknown }).pluginSystem;
-  if (!system || typeof system !== 'object') return null;
-  const getter = (system as { getConfigManager?: unknown }).getConfigManager;
-  if (typeof getter !== 'function') return null;
-  const manager = (getter as () => unknown).call(system);
-  if (
-    !manager ||
-    typeof manager !== 'object' ||
-    typeof (manager as PluginConfigManagerLike).getConfig !== 'function' ||
-    typeof (manager as PluginConfigManagerLike).setConfigValue !== 'function'
-  ) {
-    return null;
-  }
-  return pluginConfigPortFromManager(manager as PluginConfigManagerLike);
+  if (!managerProvider) return null;
+  const manager = managerProvider();
+  return manager ? pluginConfigPortFromManager(manager) : null;
 }

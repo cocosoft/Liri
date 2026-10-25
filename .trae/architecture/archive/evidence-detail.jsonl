@@ -6350,3 +6350,11 @@
 {"id":"T25-08-P2-PY-E2E-CI","k":"code#2","i":0,"c":".trae/specs/plugin-process-isolation.md"}
 {"id":"T25-08-P2-PY-E2E-CI","k":"tests#0","i":0,"c":"app/tests/plugins/pythonPluginE2E.test.ts"}
 {"id":"T25-08-P2-PY-E2E-CI","k":"changelog#0","i":0,"c":"CI 设 PYTHON_E2E_REQUIRE=1：Python 真链 E2E 缺解释器即报红，不把「没跑」当「通过」"}
+{"id":"T25-08-P2-PY-STATE-LITERAL","k":"title","i":0,"c":"全量 CI 收口：迁移状态字面量避让状态词汇表（blocked → schema-rejected）"}
+{"id":"T25-08-P2-PY-STATE-LITERAL","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §34.2"}
+{"id":"T25-08-P2-PY-STATE-LITERAL","k":"reopenWhen","i":0,"c":"新增迁移/解析结论枚举时先对照 stateMachineCatalog 词汇表；若确属状态机则登记目录，不得随手改名绕过"}
+{"id":"T25-08-P2-PY-STATE-LITERAL","k":"code#0","i":0,"c":"app/src/plugins/core/pythonPluginConfigMigration.ts"}
+{"id":"T25-08-P2-PY-STATE-LITERAL","k":"code#1","i":0,"c":"app/src/plugins/core/PythonPluginAdapter.ts"}
+{"id":"T25-08-P2-PY-STATE-LITERAL","k":"code#2","i":0,"c":".trae/specs/plugin-process-isolation.md"}
+{"id":"T25-08-P2-PY-STATE-LITERAL","k":"tests#0","i":0,"c":"app/tests/plugins/pythonPluginConfig.test.ts"}
+{"id":"T25-08-P2-PY-STATE-LITERAL","k":"changelog#0","i":0,"c":"迁移状态改用 schema-rejected（避开状态词汇表 blocked）；全量 CI 8419 pass / 0 fail"}

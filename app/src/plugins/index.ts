@@ -1218,9 +1218,9 @@ export class PluginSystem {
     return this.configManager.getConfig(pluginId);
   }
 
-  setPluginConfig(pluginId: string, config: PluginConfig): any {
+  setPluginConfig(pluginId: string, config: PluginConfig): void {
     this.ensureInitialized();
-    return this.configManager.setConfig(pluginId, config);
+    this.configManager.setConfig(pluginId, config);
   }
 
   registerEventHandler(handler: any): void {
@@ -1264,7 +1264,6 @@ export class PluginSystem {
 
     const pluginStats = this.lifecycleManager.getPluginStats();
     const eventStats = this.eventSystem.getEventStats();
-    const configStats = this.configManager.getConfigStats();
 
     return {
       plugins: {
@@ -1278,8 +1277,10 @@ export class PluginSystem {
         recent: eventStats.recentEvents,
       },
       configs: {
-        configured: configStats.configuredPlugins,
-        total: configStats.totalPlugins,
+        // `total` = 已注册插件数（生命周期口径）；`configured` = 真正有配置的插件数。
+        // 此前 `total` 取 `PluginConfigManager.schemas.size`（schema 层已删 ⇒ 恒 0）。
+        configured: this.configManager.getAllConfigs().size,
+        total: pluginStats.total,
       },
     };
   }

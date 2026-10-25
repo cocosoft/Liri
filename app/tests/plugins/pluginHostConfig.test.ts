@@ -6,7 +6,7 @@
 // 锁四件事：
 //  ① 配置快照只走 env，且**未授权时不下发**（子进程退回 no-op）；
 //  ② 子进程 → 宿主 的请求与「回包」可区分（前缀 + method），不会把回包当请求；
-//  ③ 宿主对 `config.set`：未授权 / 参数非法 / 校验失败一律回 `success:false`（不静默成功）；
+//  ③ 宿主对 `config.set`：未授权 / 参数非法 / **端口拒绝** 一律回 `success:false`（不静默成功）；
 //  ④ 子进程 `set()` 排队、`save()` flush：失败在 `save()` 抛出，成功后才更新本地快照视角。
 import { describe, expect, it } from 'bun:test';
 import { EventEmitter } from 'node:events';
@@ -106,15 +106,7 @@ function fakeManager(): PluginConfigManagerLike & {
     },
     setConfigValue(id, key, value) {
       written.push({ pluginId: id, key, value });
-      if (key === 'invalid') {
-        return {
-          valid: false,
-          errors: [{ key, message: '拒绝写入' }],
-          warnings: [],
-        };
-      }
       store[id] = { ...(store[id] ?? {}), [key]: value };
-      return { valid: true, errors: [], warnings: [] };
     },
   };
 }
@@ -194,7 +186,7 @@ describe('子进程 → 宿主 请求的帧判别', () => {
 });
 
 describe('pluginConfigPortFromManager（复用既有 manager，按 id 收窄）', () => {
-  it('read 返回该插件配置副本；write 把校验失败映射为 ok:false + errors', () => {
+  it('read 返回该插件配置副本；write 落库并回 ok:true（宿主本层不做 schema 校验）', () => {
     const manager = fakeManager();
     const port = pluginConfigPortFromManager(manager);
 
@@ -208,10 +200,6 @@ describe('pluginConfigPortFromManager（复用既有 manager，按 id 收窄）'
       errors: [],
     });
     expect(manager.written).toEqual([{ pluginId, key: 'lang', value: 'zh' }]);
-
-    const denied = port.write(pluginId, 'invalid', 1);
-    expect(denied.ok).toBe(false);
-    expect(denied.errors.join()).toContain('拒绝写入');
   });
 });
 
@@ -332,8 +320,7 @@ describe('宿主：快照注入与 config.set 处理', () => {
     host.stop();
   });
 
-  it('校验失败 ⇒ 回 success:false 且带原因（插件 save() 能抛出来）', async () => {
-    const manager = fakeManager();
+  it('端口拒绝 ⇒ 回 success:false 且带原因（端口契约；真实 manager 不拒绝）', async () => {
     const child = new FakeChild();
     const spawnEnv: Record<string, string> = {};
     const host = new PluginHostSupervisor(target, {
@@ -342,7 +329,12 @@ describe('宿主：快照注入与 config.set 处理', () => {
         return asChild(child);
       },
       capabilities: ['config'],
-      configPort: pluginConfigPortFromManager(manager),
+      // 直接注入「会拒绝」的端口：验证宿主对**端口契约**的处理
+      // （真实 manager 不做 schema 校验 ⇒ 永不拒绝，见 `pluginConfigPort.ts`）
+      configPort: {
+        read: () => ({}),
+        write: () => ({ ok: false, errors: ['拒绝写入'] }),
+      },
       registry: { registerTool() {}, unregisterTool() {} },
       killTree: () => {},
       startupTimeoutMs: 500,
@@ -362,7 +354,7 @@ describe('宿主：快照注入与 config.set 处理', () => {
     child.stdout.write(
       encodeFrame(
         buildPluginHostChildRequest(2, PLUGIN_HOST_CHILD_METHOD.CONFIG_SET, {
-          key: 'invalid',
+          key: 'anyKey',
           value: 1,
         })
       )

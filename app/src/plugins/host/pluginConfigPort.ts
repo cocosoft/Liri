@@ -10,8 +10,6 @@
  * - 提供一个**唯一**的解析入口，保证不会出现第二个 `PluginConfigManager` 实例
  *   —— 两个实例各自 `persistConfigs()` 会用「自己的 Map」覆盖同一个文件 ⇒ 丢别的插件配置。
  */
-import type { ConfigValidationResult } from '../management/PluginConfigManager';
-
 /** 一次写入的结果（回给子进程，让插件看得见失败原因） */
 export interface PluginConfigWriteResult {
   ok: boolean;
@@ -29,11 +27,7 @@ export interface PluginConfigPort {
 /** `PluginConfigManager` 中本端口用到的最小面（避免把整个类当契约） */
 export interface PluginConfigManagerLike {
   getConfig(pluginId: string): Record<string, unknown>;
-  setConfigValue(
-    pluginId: string,
-    key: string,
-    value: unknown
-  ): ConfigValidationResult;
+  setConfigValue(pluginId: string, key: string, value: unknown): void;
 }
 
 /** 适配器（纯组合，无 IO：IO 在 manager 内部） */
@@ -45,11 +39,10 @@ export function pluginConfigPortFromManager(
       return { ...manager.getConfig(pluginId) };
     },
     write(pluginId, key, value) {
-      const result = manager.setConfigValue(pluginId, key, value);
-      return {
-        ok: result.valid,
-        errors: result.errors.map((e) => `${e.key}: ${e.message}`),
-      };
+      // 宿主这一层**不做** schema 校验（唯一实现在 `plugins/utils/pluginConfigSchema.ts`）
+      // ⇒ 管理器不会拒绝写入，`ok` 恒为 true。
+      manager.setConfigValue(pluginId, key, value);
+      return { ok: true, errors: [] };
     },
   };
 }

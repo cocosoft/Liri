@@ -10,99 +10,20 @@ import { PluginConfig } from '../types/PluginTypes';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('plugins:management:pluginConfigManager');
 
-/**
- * 配置验证结果
+/*
+ * 说明（2026-10-26，CS01 / 实现唯一性）：本类**不持有** config schema。
+ * 插件配置的 schema 与校验唯一实现在 `plugins/utils/pluginConfigSchema.ts`
+ * （`validatePluginConfig` / `mergeWithDefaults`，消费方 `commands/plugin-settings`）。
+ * 此前这里的 `ConfigSchema` / `setSchema` / `getSchema` / `validateConfig` 全套**无任何调用者**
+ * （生产与测试均为 0），却让 `setConfig` 看似"校验过"——实际 `schemas` 恒空、恒返回 valid，
+ * 只多带一条无人读取的 warning。已删除，行为零变更（见台账 SAFETY-... 系列之外的
+ * `PLUGIN-CONFIG-SCHEMA-HOLLOW`）。
  */
-export interface ConfigValidationResult {
-  /** 是否有效 */
-  valid: boolean;
-
-  /** 错误信息 */
-  errors: ConfigValidationError[];
-
-  /** 警告信息 */
-  warnings: ConfigValidationWarning[];
-}
-
-/**
- * 配置验证错误
- */
-export interface ConfigValidationError {
-  /** 配置键 */
-  key: string;
-
-  /** 错误信息 */
-  message: string;
-
-  /** 配置值 */
-  value?: unknown;
-}
-
-/**
- * 配置验证警告
- */
-export interface ConfigValidationWarning {
-  /** 配置键 */
-  key: string;
-
-  /** 警告信息 */
-  message: string;
-
-  /** 配置值 */
-  value?: unknown;
-}
-
-/**
- * 配置架构定义
- */
-export interface ConfigSchema {
-  /** 配置键 */
-  key: string;
-
-  /** 配置类型 */
-  type: 'string' | 'number' | 'boolean' | 'array' | 'object';
-
-  /** 配置标签 */
-  label: string;
-
-  /** 配置描述 */
-  description?: string;
-
-  /** 默认值 */
-  default?: unknown;
-
-  /** 是否必需 */
-  required?: boolean;
-
-  /** 验证规则 */
-  validation?: {
-    /** 正则表达式 */
-    pattern?: string;
-
-    /** 最小值 */
-    min?: number;
-
-    /** 最大值 */
-    max?: number;
-
-    /** 最小长度 */
-    minLength?: number;
-
-    /** 最大长度 */
-    maxLength?: number;
-
-    /** 枚举值 */
-    enum?: string[];
-  };
-}
-
 /**
  * 插件配置管理器
  */
 export class PluginConfigManager extends EventEmitter {
   private configs: Map<string, PluginConfig> = new Map();
-  private schemas: Map<string, ConfigSchema[]> = new Map();
-  private defaultConfigs: Map<string, PluginConfig> = new Map();
   /** 2026-08-06 新增：配置持久化文件（~/.pyapp/plugins/config/config.json） */
   private configFilePath = join(resolvePluginsConfigDir(), 'config.json');
 
@@ -148,48 +69,9 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 设置插件配置架构
-   */
-  setSchema(pluginId: string, schema: ConfigSchema[]): void {
-    this.schemas.set(pluginId, schema);
-
-    // 生成默认配置
-    const defaultConfig: PluginConfig = {};
-
-    for (const item of schema) {
-      if (item.default !== undefined) {
-        defaultConfig[item.key] = item.default;
-      }
-    }
-
-    this.defaultConfigs.set(pluginId, defaultConfig);
-
-    logger.info(`✅ Config schema set for plugin: ${pluginId}`);
-  }
-
-  /**
-   * 获取插件配置架构
-   */
-  getSchema(pluginId: string): ConfigSchema[] | undefined {
-    return this.schemas.get(pluginId);
-  }
-
-  /**
    * 设置插件配置
    */
-  setConfig(pluginId: string, config: PluginConfig): ConfigValidationResult {
-    // 验证配置
-    const validationResult = this.validateConfig(pluginId, config);
-
-    if (!validationResult.valid) {
-      this.emit('configValidationFailed', {
-        pluginId,
-        config,
-        validationResult,
-      });
-      return validationResult;
-    }
-
+  setConfig(pluginId: string, config: PluginConfig): void {
     // 合并配置
     const currentConfig = this.configs.get(pluginId) || {};
     const mergedConfig = { ...currentConfig, ...config };
@@ -202,18 +84,14 @@ export class PluginConfigManager extends EventEmitter {
     this.emit('configUpdated', { pluginId, config: mergedConfig });
 
     logger.info(`✅ Config updated for plugin: ${pluginId}`);
-
-    return validationResult;
   }
 
   /**
    * 获取插件配置
    */
   getConfig(pluginId: string): PluginConfig {
-    const config = this.configs.get(pluginId);
-    const defaultConfig = this.defaultConfigs.get(pluginId) || {};
-
-    return { ...defaultConfig, ...config };
+    // 只返回**已存储**的值：本类不做 schema 默认值合并（唯一实现在 `pluginConfigSchema.ts`）
+    return { ...this.configs.get(pluginId) };
   }
 
   /**
@@ -226,32 +104,17 @@ export class PluginConfigManager extends EventEmitter {
       return config[key] as T;
     }
 
-    // 检查架构中的默认值
-    const schema = this.schemas.get(pluginId);
-
-    if (schema) {
-      const schemaItem = schema.find((item) => item.key === key);
-
-      if (schemaItem && schemaItem.default !== undefined) {
-        return schemaItem.default as T;
-      }
-    }
-
     return defaultValue as T;
   }
 
   /**
    * 设置配置值
    */
-  setConfigValue(
-    pluginId: string,
-    key: string,
-    value: unknown
-  ): ConfigValidationResult {
+  setConfigValue(pluginId: string, key: string, value: unknown): void {
     const currentConfig = this.getConfig(pluginId);
     const newConfig = { ...currentConfig, [key]: value };
 
-    return this.setConfig(pluginId, newConfig);
+    this.setConfig(pluginId, newConfig);
   }
 
   /**
@@ -269,181 +132,10 @@ export class PluginConfigManager extends EventEmitter {
   }
 
   /**
-   * 验证配置
-   */
-  validateConfig(
-    pluginId: string,
-    config: PluginConfig
-  ): ConfigValidationResult {
-    const schema = this.schemas.get(pluginId);
-
-    if (!schema) {
-      return {
-        valid: true,
-        errors: [],
-        warnings: [{ key: 'schema', message: 'No schema defined for plugin' }],
-      };
-    }
-
-    const errors: ConfigValidationError[] = [];
-    const warnings: ConfigValidationWarning[] = [];
-
-    // 验证必需字段
-    for (const item of schema) {
-      if (item.required && config[item.key] === undefined) {
-        errors.push({
-          key: item.key,
-          message: `Required configuration item is missing`,
-        });
-      }
-    }
-
-    // 验证配置值
-    for (const [key, value] of Object.entries(config)) {
-      const schemaItem = schema.find((item) => item.key === key);
-
-      if (!schemaItem) {
-        warnings.push({
-          key,
-          message: `Unknown configuration item`,
-          value,
-        });
-        continue;
-      }
-
-      // 类型检查
-      if (!this.validateType(value, schemaItem.type)) {
-        errors.push({
-          key,
-          message: `Expected type ${schemaItem.type}, got ${typeof value}`,
-          value,
-        });
-        continue;
-      }
-
-      // 验证规则检查
-      if (schemaItem.validation) {
-        const validationErrors = this.validateValue(
-          value,
-          schemaItem.validation
-        );
-
-        for (const error of validationErrors) {
-          errors.push({
-            key,
-            message: error,
-            value,
-          });
-        }
-      }
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors,
-      warnings,
-    };
-  }
-
-  /**
-   * 验证类型
-   */
-  private validateType(value: unknown, expectedType: string): boolean {
-    switch (expectedType) {
-      case 'string':
-        return typeof value === 'string';
-      case 'number':
-        return typeof value === 'number';
-      case 'boolean':
-        return typeof value === 'boolean';
-      case 'array':
-        return Array.isArray(value);
-      case 'object':
-        return (
-          typeof value === 'object' && value !== null && !Array.isArray(value)
-        );
-      default:
-        return false;
-    }
-  }
-
-  /**
-   * 验证值
-   */
-  private validateValue(value: unknown, validation: any): string[] {
-    const errors: string[] = [];
-
-    if (validation.pattern && typeof value === 'string') {
-      const regex = new RegExp(validation.pattern);
-      if (!regex.test(value)) {
-        errors.push(`Value does not match pattern: ${validation.pattern}`);
-      }
-    }
-
-    if (validation.min !== undefined && typeof value === 'number') {
-      if (value < validation.min) {
-        errors.push(`Value must be >= ${validation.min}`);
-      }
-    }
-
-    if (validation.max !== undefined && typeof value === 'number') {
-      if (value > validation.max) {
-        errors.push(`Value must be <= ${validation.max}`);
-      }
-    }
-
-    if (validation.minLength !== undefined && typeof value === 'string') {
-      if (value.length < validation.minLength) {
-        errors.push(`Length must be >= ${validation.minLength}`);
-      }
-    }
-
-    if (validation.maxLength !== undefined && typeof value === 'string') {
-      if (value.length > validation.maxLength) {
-        errors.push(`Length must be <= ${validation.maxLength}`);
-      }
-    }
-
-    if (validation.enum && typeof value === 'string') {
-      if (!validation.enum.includes(value)) {
-        errors.push(`Value must be one of: ${validation.enum.join(', ')}`);
-      }
-    }
-
-    return errors;
-  }
-
-  /**
    * 获取所有插件配置
    */
   getAllConfigs(): Map<string, PluginConfig> {
     return new Map(this.configs);
-  }
-
-  /**
-   * 获取配置统计
-   */
-  getConfigStats(): {
-    totalPlugins: number;
-    configuredPlugins: number;
-    validationErrors: number;
-    validationWarnings: number;
-  } {
-    let validationErrors = 0;
-    let validationWarnings = 0;
-
-    for (const [pluginId, config] of this.configs.entries()) {
-      const validationResult = this.validateConfig(pluginId, config);
-      validationErrors += validationResult.errors.length;
-      validationWarnings += validationResult.warnings.length;
-    }
-
-    return {
-      totalPlugins: this.schemas.size,
-      configuredPlugins: this.configs.size,
-      validationErrors,
-      validationWarnings,
-    };
   }
 
   /**
@@ -462,17 +154,10 @@ export class PluginConfigManager extends EventEmitter {
   /**
    * 导入配置
    */
-  importConfigs(
-    configs: Record<string, PluginConfig>
-  ): ConfigValidationResult[] {
-    const results: ConfigValidationResult[] = [];
-
+  importConfigs(configs: Record<string, PluginConfig>): void {
     for (const [pluginId, config] of Object.entries(configs)) {
-      const result = this.setConfig(pluginId, config);
-      results.push(result);
+      this.setConfig(pluginId, config);
     }
-
-    return results;
   }
 
   /**
@@ -480,8 +165,6 @@ export class PluginConfigManager extends EventEmitter {
    */
   clear(): void {
     this.configs.clear();
-    this.schemas.clear();
-    this.defaultConfigs.clear();
 
     logger.info('✅ Plugin config manager cleared');
   }

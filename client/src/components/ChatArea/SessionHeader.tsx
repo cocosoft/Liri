@@ -37,20 +37,6 @@ interface ExportMeta {
 }
 
 /**
- * 菜单打开时**预构建**的三份载荷。
- *
- * 为什么预构建（2026-10-25 真机实证）：会话级导出原先在点击菜单项后才 `await` 取持久层消息
- * 并分批让出主线程，最后才 `<a download>` —— 此时已脱离**用户手势**，Chromium/WebKit 会
- * **静默丢弃**下载（无报错、无提示、无文件；气泡导出因全程同步而正常）。
- * ⇒ 取数与构建提前到「点开菜单」那一帧之外完成，点击格式时只剩同步下载。
- */
-interface ExportPayloads {
-  markdown: string;
-  markdownFull: string;
-  json: string;
-}
-
-/**
  * 导出正文结构保护（P1-4，最小化）：正文里若出现与导出自身标记同形的
  * 角色标题行（`### 👤/🤖/⚙️/🛠 …`），会被误读为新的消息节 ⇒ 行首 `#` 转义。
  *
@@ -355,13 +341,7 @@ function SessionHeader() {
   const [showInfo, setShowInfo] = useState(false);
   const [copied, setCopied] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  /** 菜单打开后预取 + 预构建（异步）；未就绪时菜单项禁用 */
-  const [exportPreparing, setExportPreparing] = useState(false);
-  const [exportPayloads, setExportPayloads] = useState<ExportPayloads | null>(
-    null,
-  );
-  /** 准备令牌：关闭菜单 / 换会话即作废在途构建，避免用旧内容生成文件 */
-  const exportPrepareToken = useRef(0);
+  const [exporting, setExporting] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
   const handleDoubleClick = () => {
@@ -411,11 +391,7 @@ function SessionHeader() {
     if (!exportOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
-        // 关闭即作废在途构建与已构建载荷（下次打开重新取数，保证导出一致）
-        exportPrepareToken.current += 1;
         setExportOpen(false);
-        setExportPayloads(null);
-        setExportPreparing(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -441,100 +417,82 @@ function SessionHeader() {
     exportedAt: new Date().toISOString(),
   });
 
-  /** 关闭菜单并作废已构建载荷（下次打开重新取数） */
-  const resetExport = () => {
-    exportPrepareToken.current += 1;
-    setExportOpen(false);
-    setExportPayloads(null);
-    setExportPreparing(false);
-  };
-
-  /**
-   * 菜单打开即预取 + 预构建（异步都发生在这里，**不涉及下载**）。
-   * 点击具体格式时只剩同步下载 ⇒ 保住用户手势（见 `ExportPayloads` 注释）。
-   */
-  const prepareExport = async () => {
-    const token = ++exportPrepareToken.current;
-    setExportPreparing(true);
-    setExportPayloads(null);
-    try {
-      const source = await resolveExportMessages();
-      const meta = buildExportMeta();
-      const labels = {
+  /** 组装会话 Markdown（md/html/word/完整版 共用，避免重复构造） */
+  const buildSessionMarkdown = async (full = false): Promise<string> => {
+    const source = await resolveExportMessages();
+    return exportAsMarkdown(
+      source,
+      {
         user: t("chat.user"),
         assistant: t("chat.assistant"),
         system: t("chat.system"),
         tool: t("chat.tool"),
-      };
-      const markdown = await exportAsMarkdown(source, labels, meta, t);
-      const markdownFull = await exportAsMarkdown(source, labels, meta, t, {
-        full: true,
-      });
-      const json = await exportAsJson(source, meta, t);
-      if (token !== exportPrepareToken.current) return;
-      setExportPayloads({ markdown, markdownFull, json });
-    } catch (e) {
-      if (token === exportPrepareToken.current) {
-        handleClientError(e, {
-          module: "ui:session-header",
-          action: "prepareExport",
-        });
-      }
-    } finally {
-      if (token === exportPrepareToken.current) setExportPreparing(false);
-    }
+      },
+      buildExportMeta(),
+      t,
+      { full },
+    );
   };
 
-  const handleToggleExport = () => {
-    if (exportOpen) {
-      resetExport();
-      return;
-    }
-    setExportOpen(true);
-    void prepareExport();
-  };
-
-  /**
-   * 同步下载（点击任务内完成，无 await）。
-   * HTML / Word 复用 `utils/exportMessage#exportMessageAsFormat`（不另立实现，CS01）。
-   */
-  const downloadExport = (
-    format: "md" | "md-full" | "json" | "html" | "word",
-  ) => {
-    if (!exportPayloads) return;
+  /** 导出 Markdown（full=true 为 D6 完整版：思考/工具结果不截断、工具调用附参数） */
+  const handleExportMarkdown = async (full = false) => {
+    setExporting(true);
     try {
-      const stamp = Date.now();
-      if (format === "json") {
-        triggerBlobDownload(
-          new Blob([exportPayloads.json], {
-            type: "application/json;charset=utf-8",
-          }),
-          `chat-export-${stamp}.json`,
-        );
-      } else if (format === "html" || format === "word") {
-        exportMessageAsFormat(
-          exportPayloads.markdown,
-          format,
-          `chat-export-${stamp}`,
-        );
-      } else {
-        const full = format === "md-full";
-        triggerBlobDownload(
-          new Blob(
-            [full ? exportPayloads.markdownFull : exportPayloads.markdown],
-            { type: "text/markdown;charset=utf-8" },
-          ),
-          `chat-export-${stamp}${full ? "-full" : ""}.md`,
-        );
-      }
+      const md = await buildSessionMarkdown(full);
+      triggerBlobDownload(
+        new Blob([md], { type: "text/markdown;charset=utf-8" }),
+        `chat-export-${Date.now()}${full ? "-full" : ""}.md`,
+      );
     } catch (e) {
       handleClientError(e, {
         module: "ui:session-header",
-        action: `export-${format}`,
+        action: full ? "exportMarkdownFull" : "exportMarkdown",
       });
     } finally {
-      resetExport();
+      setExporting(false);
     }
+    setExportOpen(false);
+  };
+
+  /**
+   * 导出 HTML / Word（D2 定案，2026-09-27）：会话级与单条导出对齐，复用既有
+   * `utils/exportMessage#exportMessageAsFormat`（md → HTML / Word 壳），**不另立实现**（CS01）。
+   */
+  const handleExportHtmlOrWord = async (format: "html" | "word") => {
+    setExporting(true);
+    try {
+      const md = await buildSessionMarkdown();
+      exportMessageAsFormat(md, format, `chat-export-${Date.now()}`);
+    } catch (e) {
+      handleClientError(e, {
+        module: "ui:session-header",
+        action: `export${format}`,
+      });
+    } finally {
+      setExporting(false);
+    }
+    setExportOpen(false);
+  };
+
+  /** 导出 JSON */
+  const handleExportJson = async () => {
+    setExporting(true);
+    try {
+      const source = await resolveExportMessages();
+      const json = await exportAsJson(source, buildExportMeta(), t);
+      triggerBlobDownload(
+        new Blob([json], { type: "application/json;charset=utf-8" }),
+        `chat-export-${Date.now()}.json`,
+      );
+    } catch (e) {
+      handleClientError(e, {
+        module: "ui:session-header",
+        action: "exportJson",
+      });
+    } finally {
+      setExporting(false);
+    }
+    setExportOpen(false);
   };
 
   return (
@@ -647,11 +605,10 @@ function SessionHeader() {
         {currentSession && (
           <div ref={exportRef} className="relative flex-shrink-0">
             <button
-              onClick={handleToggleExport}
+              onClick={() => setExportOpen((prev) => !prev)}
               // P2-6（2026-09-27 审计）：空会话/导出中禁用并给出原因——原实现可点，
-              // 空会话会下载只含分隔符的空文件且无任何提示。
-              // 2026-10-25：菜单打开后进入"准备中"（预取 + 预构建），期间显示进度且不可重复点开。
-              disabled={exportPreparing || messages.length === 0}
+              // 空会话会下载只含分隔符的空文件且无任何提示
+              disabled={exporting || messages.length === 0}
               className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
               title={
                 messages.length === 0
@@ -659,7 +616,7 @@ function SessionHeader() {
                   : t("chat.exportSession")
               }
             >
-              {exportPreparing ? (
+              {exporting ? (
                 <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
               ) : (
                 <svg
@@ -680,48 +637,35 @@ function SessionHeader() {
 
             {exportOpen && (
               <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
-                {!exportPayloads && (
-                  <div
-                    className="flex items-center justify-center py-2"
-                    aria-busy="true"
-                  >
-                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
                 <button
-                  onClick={() => downloadExport("md")}
-                  disabled={!exportPayloads}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  onClick={() => handleExportMarkdown(false)}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   {t("chat.exportAsMarkdown")}
                 </button>
                 {/* D6（2026-09-27）= B：默认轻量 + 完整版（思考/工具结果不截断、工具调用附参数） */}
                 <button
-                  onClick={() => downloadExport("md-full")}
-                  disabled={!exportPayloads}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  onClick={() => handleExportMarkdown(true)}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   {t("chat.exportAsMarkdownFull")}
                 </button>
                 <button
-                  onClick={() => downloadExport("json")}
-                  disabled={!exportPayloads}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  onClick={handleExportJson}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   {t("chat.exportAsJson")}
                 </button>
                 {/* D2（2026-09-27）：与会话级导出对齐，补 HTML / Word（复用单条导出渲染） */}
                 <button
-                  onClick={() => downloadExport("html")}
-                  disabled={!exportPayloads}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  onClick={() => handleExportHtmlOrWord("html")}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   {t("chat.exportAsHtml")}
                 </button>
                 <button
-                  onClick={() => downloadExport("word")}
-                  disabled={!exportPayloads}
-                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  onClick={() => handleExportHtmlOrWord("word")}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   {t("chat.exportAsWord")}
                 </button>

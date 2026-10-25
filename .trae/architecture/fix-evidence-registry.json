@@ -12404,15 +12404,13 @@
       "flags": {
         "designed": true,
         "coded": true,
-        "unitTested": true,
+        "unitTested": false,
         "e2eVerified": false
       },
       "code": [
         "client/src/components/ChatArea/SessionHeader.tsx"
       ],
-      "tests": [
-        "client/src/tests/sessionHeaderExport.test.tsx"
-      ],
+      "tests": [],
       "changelog": [
         "修复会话级导出无文件：菜单打开即预取+预构建，点击格式时同步下载（气泡导出同源不受影响）"
       ],

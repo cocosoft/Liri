@@ -6369,5 +6369,4 @@
 {"id":"CHAT-SESSION-EXPORT-SYNC","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §35"}
 {"id":"CHAT-SESSION-EXPORT-SYNC","k":"reopenWhen","i":0,"c":"若改为后端生成文件或桌面壳保存，需重新评估手势约束；新增导出格式必须复用 downloadExport 同步路径"}
 {"id":"CHAT-SESSION-EXPORT-SYNC","k":"code#0","i":0,"c":"client/src/components/ChatArea/SessionHeader.tsx"}
-{"id":"CHAT-SESSION-EXPORT-SYNC","k":"tests#0","i":0,"c":"client/src/tests/sessionHeaderExport.test.tsx"}
 {"id":"CHAT-SESSION-EXPORT-SYNC","k":"changelog#0","i":0,"c":"修复会话级导出无文件：菜单打开即预取+预构建，点击格式时同步下载（气泡导出同源不受影响）"}

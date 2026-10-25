@@ -385,11 +385,25 @@ export class BashTool extends BaseTool {
       //   ④ `checkWhitelistAndSandbox`（白名单 F3 + 沙箱二次校验 F2）
       const pathBlock = checkPathSafety(std);
       if (pathBlock) {
+        // 2026-10-25（预存台账 B 类可观测性缺口）：拦截事件此前**零日志** —— 只落会话消息、
+        // 不进 app.log（用户会话 `session_mvl0d0a3d6e2e9a764` 实证），排查"命令被安全策略拦截"
+        // 只能翻 messages.jsonl。现按 `powershell_wrapper_blocked`（本方法 :403）先例补 warn，
+        // 字段同构：sessionId + commandPreview + reason。
+        logger.warn('bash: security_gate_blocked', {
+          sessionId: context.sessionId,
+          commandPreview: command.slice(0, 200),
+          reason: pathBlock.metadata?.['reason'],
+        });
         return pathBlock;
       }
 
       const dangerBlock = checkBashDangerousCommand(command);
       if (dangerBlock) {
+        logger.warn('bash: security_gate_blocked', {
+          sessionId: context.sessionId,
+          commandPreview: command.slice(0, 200),
+          reason: dangerBlock.metadata?.['reason'],
+        });
         return dangerBlock;
       }
 
@@ -416,6 +430,13 @@ export class BashTool extends BaseTool {
         trustLevel,
       });
       if (analysisBlock) {
+        // 2026-10-25（与 path/danger 分支同源补日志）：分析器 deny / AST 拦截事件落 app.log，
+        // 字段同构（reason 区分 deny 与 ask/inconclusive 等来源）。
+        logger.warn('bash: security_gate_blocked', {
+          sessionId: context.sessionId,
+          commandPreview: command.slice(0, 200),
+          reason: analysisBlock.metadata?.['reason'],
+        });
         return analysisBlock;
       }
 

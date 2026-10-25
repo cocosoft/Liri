@@ -198,6 +198,37 @@ describe('T25-08 P2 · 加载器闸位（拒绝未授权能力）', () => {
     expect(loader.getPlugin(id)?.state).toBe(PluginState.UNLOADED);
   });
 
+  it('闸门读**磁盘上最新清单**：发现后把能力改大 ⇒ 仍按新清单拒绝（不吃发现期缓存）', async () => {
+    const { dir, id } = makePluginManifest(['tools']);
+    process.env[ENV_TRUSTED] = id;
+    process.env[ENV_GRANTS] = `${id}:tools`;
+
+    const loader = new PluginLoader({
+      pluginDirectories: [dir],
+      autoLoad: false,
+    });
+    await loader.initialize(); // 发现期清单：capabilities = ['tools']
+
+    // 发现之后、加载之前，磁盘上的清单被改成要求 config
+    writeFileSync(
+      join(dir, id, 'plugin.json'),
+      JSON.stringify({
+        id,
+        name: 'cap-probe',
+        version: '1.0.0',
+        description: 'probe',
+        entryPoint: 'index.js',
+        capabilities: ['tools', 'config'],
+      }),
+      'utf8'
+    );
+
+    const result = await loader.loadPlugin(id);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('能力校验未通过');
+    expect(result.error).toContain('config');
+  });
+
   it('源码级防回流：能力闸在 import(entryPath) 之前', () => {
     const src = readFileSync(
       new URL('../../src/plugins/core/PluginLoader.ts', import.meta.url),

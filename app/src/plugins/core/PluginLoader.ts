@@ -329,6 +329,27 @@ export class PluginLoader extends EventEmitter {
       };
     }
 
+    // ── 清单必须在**闸门之前**读 ──
+    // P0/P2 两道闸判的是"本次要加载的那份清单"：磁盘上的 plugin.json 可能在发现之后被改动，
+    // 用发现期的缓存会让能力声明与实际执行的内容错配（少判 = 放行未授权能力）。
+    let manifest: PluginMetadata;
+    try {
+      manifest = await this.loadManifest(plugin.path);
+    } catch (error) {
+      plugin.state = PluginState.FAILED;
+      plugin.error = error instanceof Error ? error.message : String(error);
+      if (plugin.stats) plugin.stats.errorCount++;
+      this.emitPluginEvent(PluginEventType.ERROR, pluginId, { error });
+      return {
+        success: false,
+        error: plugin.error,
+      };
+    }
+    plugin.manifest = {
+      ...(plugin.manifest ?? {}),
+      ...manifest,
+    } as unknown as NonNullable<LoadedPlugin['manifest']>;
+
     // ── T25-08 P0（2026-10-25 用户裁定「默认拒绝 + 白名单」）──
     // 本加载器只处理**文件 / 安装型**插件（第一方 bundled 走 `BundledPluginManager`）⇒
     // 一律按"第三方不可信"处理：未授权**不执行其代码**（下面就是 `import(entryPath)`）。
@@ -350,7 +371,7 @@ export class PluginLoader extends EventEmitter {
     // 授权表 `LIRI_PLUGIN_CAPABILITY_GRANTS` 未配置 ⇒ 零行为变更（仍受上面的准入闸约束）。
     const capability = resolvePluginCapabilities(
       plugin.id,
-      (plugin.manifest as Record<string, unknown> | undefined)?.['capabilities']
+      manifest.capabilities
     );
     if (!capability.allowed) {
       logger.warn(
@@ -376,12 +397,7 @@ export class PluginLoader extends EventEmitter {
       // 更新插件状态
       plugin.state = PluginState.LOADING;
 
-      // 2026-08-06 修复：真实解析清单并动态加载插件入口（原实现 setTimeout(100ms) 模拟，违反 CS04）
-      const manifest = await this.loadManifest(plugin.path);
-      plugin.manifest = {
-        ...(plugin.manifest ?? {}),
-        ...manifest,
-      } as unknown as NonNullable<LoadedPlugin['manifest']>;
+      // 清单已在闸门之前解析并合并进 `plugin.manifest`（见上）
       // 同步清单中声明的 paths 字段（Agent/命令/技能）
       const strArray = (v: unknown): string[] | undefined =>
         Array.isArray(v)

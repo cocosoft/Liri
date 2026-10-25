@@ -7,9 +7,9 @@
 > 玲珑鸟 · 你的 AI 私人助手
 > 官网：https://openliri.com
 
-**终端里的 AI 智能体 · 连接 26 个平台的智能助手**
+**终端里的 AI 智能体 · 连接 27 个平台的智能助手**
 
-一键安装 · 自然语言交互 · 75 个内置工具 · 企业级安全
+一键安装 · 自然语言交互 · 82 个内置工具 · 企业级安全
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -30,13 +30,13 @@
 Liri 是一个运行在终端中的 **AI 智能助手**。你用它做什么？
 
 - **终端里的编程搭档** — 在命令行中自然语言对话，读代码、搜文件、写脚本、查文档
-- **跨平台消息机器人** — 接入 Telegram、Discord、微信、钉钉、Slack 等 26 个平台，一处部署处处可用
+- **跨平台消息机器人** — 接入 Telegram、Discord、微信、钉钉、Slack 等 27 个平台，一处部署处处可用
 - **可编程 AI 工作流** — 插件系统 + 技能系统 + 定时任务，构建属于你的自动化流程
 - **安全的命令执行环境** — Rust AST 级安全分析 + 沙箱隔离，让 AI 安全地操作你的系统
 
 > ⚡ **一行命令启动**：`cd app && bun install && cp .env.example .env` 填入 API Key，即可开始对话
 
-拥有 65 个模块化子系统、4 阶段分层启动、三级延迟加载策略、多智能体通信协议（ACP），以及完整的安全沙箱与可观测性体系。
+拥有 71 个模块化子系统、4 阶段分层启动、三级延迟加载策略、多智能体通信协议（ACP），以及完整的安全沙箱与可观测性体系。
 
 ---
 
@@ -48,8 +48,8 @@ Liri 是一个运行在终端中的 **AI 智能助手**。你用它做什么？
 |---|------|------------------|
 | 1 | **可复现优先** | 凡**进入模型请求**的内容（提示词、工具清单、注入上下文、检索结果）都必须落为**会话事件**（`events.jsonl`），可重建、回放、审计。事件类型的三处登记由**编译期**强制 —— 漏登记直接 `TS2322` 编译失败 |
 | 2 | **写前持久化（Write-Ahead）** | 渲染所依赖的数据**先落盘再渲染**；工具调用完成/失败、输出截断、会话切换等关键节点**即时**落盘（非防抖），切换会话前 `flush` 且带超时保护 |
-| 3 | **自带评测与回归门禁** | 能力评测**内建**于仓库：38 题基线逐题登记地板，含**成对安全测量**（7 攻击变体 + 1 良性对照）与**判分器自检控制题**；支持 `pass^k` 重复运行可靠性口径（详见下文） |
-| 4 | **架构门禁化** | 六层分层（`entry > ui > app > service > infra > core`）+ 可执行门禁 `lint:arch`：跨层违规、基础设施重复实现、数据模型分叉、单文件超长等均**脚本化检查**，当前**违规 0** |
+| 3 | **自带评测与回归门禁** | 能力评测**内建**于仓库：36 题基线逐题登记地板，含**成对安全测量**（7 攻击变体 + 1 良性对照）与**判分器自检控制题**；支持 `pass^k` 重复运行可靠性口径（详见下文） |
+| 4 | **架构门禁化** | 六层分层（`entry > ui > app > service > infra > core`）+ 可执行门禁 `lint:arch`：跨层违规、基础设施重复实现、数据模型分叉、单文件超长等均**脚本化检查**（分层检查违规 0，门禁 0 错误 + 5 条 WARNING 级上报，不阻断） |
 | 5 | **数据库是唯一事实来源** | 模型、供应商、定价、上下文窗口、能力标签全部读 DB；**禁止**按模型名硬编码属性表（如"某模型上下文 200K"这类表）与硬编码供应商名 |
 | 6 | **用真实语料自测** | 检索基准以**仓库自身文档**（143 篇真实文档）为语料，输出 `recall@k` / `MRR` / 延迟，而非假数据自证；语料为空直接**报错**而非回退模拟数据 |
 
@@ -61,8 +61,8 @@ Liri 是一个运行在终端中的 **AI 智能助手**。你用它做什么？
 
 | 层级 | 技术 |
 |------|------|
-| **运行时** | Bun（主要）/ Node.js |
-| **语言** | TypeScript（≈99.6%，约 111 万行）+ Rust（≈0.4%，约 4.3 千行原生模块） |
+| **运行时** | Bun（必需） |
+| **语言** | TypeScript（≈103 万行，≈99.8%）+ Rust（≈2.5 千行原生模块） |
 | **终端 UI** | React + Ink |
 | **AI 接口** | DeepSeek API（默认），支持多 Provider 切换（OpenAI、Gemini 等） |
 | **协议层** | ACP（Agent Communication Protocol）+ MCP + LSP |
@@ -77,7 +77,7 @@ Liri 是一个运行在终端中的 **AI 智能助手**。你用它做什么？
 
 ### 环境要求
 
-- [Bun](https://bun.sh) >= 1.0（推荐）或 Node.js >= 20
+- [Bun](https://bun.sh) >= 1.0（必需，数据库核心依赖 `bun:sqlite`）
 - Windows 10+ / macOS 12+ / Linux
 
 ### 安装（30 秒）
@@ -89,7 +89,7 @@ cd app
 # 2. 安装依赖
 bun install
 
-# 3. 配置 API 密钥（DeepSeek 新用户送 500 万 tokens）
+# 3. 配置 API 密钥
 cp .env.example .env
 # 编辑 .env，填入 DEEPSEEK_API_KEY
 
@@ -128,9 +128,9 @@ T0 ── 并行预读取（MDM / Keychain，不阻塞）
  │
 T1 ── 模块系统初始化（仅 CRITICAL 模块）
  │
-T2 ── 模式分发（REPL / CLI / MCP / Daemon）
+T2 ── 模式分发（REPL / MCP / Daemon / Test / Healthcheck）
  │
-T3 ── 后台延迟加载（DEFERRED + ON_DEMAND 模块）
+T3 ── 后台批次加载 DEFERRED 模块（ON_DEMAND 首次请求时按需动态加载）
 ```
 
 模块按优先级分三级：
@@ -148,14 +148,14 @@ T3 ── 后台延迟加载（DEFERRED + ON_DEMAND 模块）
 |------|------|
 | 多模型支持 | DeepSeek / OpenAI / Ollama / Azure / Vertex，模型与定价以数据库为唯一事实来源 |
 | 多轮对话 | 完整会话管理，支持上下文记忆与跨会话检索 |
-| 思维链 | Agent 自主规划-执行-观察循环（TAOR），5 种停止条件 |
+| 思维链 | Agent 自主规划-执行-观察循环（TAOR），多种停止条件（正常完成 / 熔断中止 / 轮数上限 / 预算耗尽 / 收益递减等） |
 | 流式输出 | 实时显示 AI 思考过程 |
 | 上下文治理 | 分层切窗 + 按需取回原文 + 自动压缩（详见下文） |
 | Token 预算 | 多级预算控制（预警 / 压缩 / 阻断），防止超额 |
 
-Agent 引擎内置 4 种检查点机制，长时间运行的任务可落盘续跑；工具调用轮次、压缩、截断等关键节点均写事件日志，支持回放与审计。
+Agent 引擎内置多种检查点机制（周期性落盘、流式自动检查点、纯文本检查点、DB TAOR 检查点等），长时间运行的任务可落盘续跑；工具调用轮次、压缩、截断等关键节点均写事件日志，支持回放与审计。
 
-### 🛠 内置工具（75 个）
+### 🛠 内置工具（82 个）
 
 | 分类 | 工具 |
 |------|------|
@@ -207,7 +207,7 @@ LLM 请求链路已对齐 **OTel GenAI 语义约定**：在自有的 `Liri.*` �
 Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 → AutoMode 分类器 → Sandbox 沙箱隔离
 ```
 
-- **命令安全模式库** — 危险命令 725 条、敏感路径 138 条、环境变量污染 153 条、零宽字符 177 条
+- **命令安全模式库** — 多平台（bash / PowerShell / cmd）危险命令与敏感路径检测，含环境变量污染、零宽字符等注入形态
 - 细粒度权限控制，支持按工具 / 按通道授权
 - 完整审计日志，所有操作可追溯
 - 速率限制与会话风险行为追踪
@@ -215,7 +215,7 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 
 ### 🧩 插件与技能系统
 
-- 标准插件 SDK（`@liri/core` / `@liri/personal` / `@liri/coding` / 企业版）
+- 标准插件 SDK（内置 `@modules/plugin-sdk` 适配器，支持程序化注册与技能注入）
 - 插件市场支持，本地和 npm 来源
 - 完整的生命周期管理（激活、停用、热加载）
 - 技能系统：内置 / 用户 / 第三方市场三来源物理隔离，支持条件触发与自动编排
@@ -270,7 +270,6 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 | 模式 | 命令 | 适用场景 |
 |------|------|---------|
 | **REPL** 🖥 | `bun run dev` | 终端交互，日常使用 |
-| **CLI** ⌨️ | 启动参数指定 | 一次性命令、管道处理 |
 | **MCP Server** 🔗 | `--mode mcp` | 作为 MCP 服务器供其他应用调用 |
 | **Daemon** ⚙️ | `--mode daemon` | 后台守护进程，配合消息通道使用 |
 
@@ -278,7 +277,7 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 
 ## 🌐 渠道生态
 
-一次部署，连接所有平台。Liri 支持 **26 个消息通道**，配置环境变量即可启用：
+一次部署，连接所有平台。Liri 支持 **27 个消息通道**，配置环境变量即可启用：
 
 | 区域 | 通道 |
 |------|------|
@@ -286,7 +285,7 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 | **中国平台** | 微信、企业微信、钉钉、飞书、QQ、元宝 |
 | **社交平台** | Facebook Messenger、Twitter/X |
 | **协作工具** | Microsoft Teams、Google Chat、Mattermost |
-| **其他** | Email、SMS、Webhook、Nostr、Zalo、BlueBubbles、Claude |
+| **其他** | Email、SMS、Webhook、Nostr、Zalo、BlueBubbles、Claude、移动端（接入） |
 
 每个通道支持完整的消息收发、交互卡片、文件传输，自动适配平台特性。
 
@@ -364,19 +363,19 @@ Liri/                            # 工程根目录
 │   │   │   ├── repl.ts          # REPL 模式
 │   │   │   └── mcp.ts           # MCP Server 模式
 │   │   ├── modules/             # 模块系统（注册表 + 初始化 + 延迟加载）
-│   │   ├── core/                # 核心基础设施
-│   │   │   ├── session/         # 会话管理
-│   │   │   ├── storage/         # 存储抽象
-│   │   │   ├── permission/      # 权限控制
-│   │   │   ├── events/          # 事件总线
-│   │   │   ├── lifecycle/       # 生命周期管理
-│   │   │   ├── cache/           # 缓存抽象
-│   │   │   └── tokenBudget/     # Token 预算控制
+│   │   ├── session/             # 会话管理
+│   │   ├── permission/          # 权限控制（AutoMode 分类器等）
+│   │   ├── cache/               # 缓存抽象
+│   │   ├── tokenBudget/         # Token 预算控制
+│   │   ├── chat/                # 对话 / 流式 / 工具循环
+│   │   ├── query/               # TAOR 查询引擎
+│   │   ├── knowledge/           # 知识库与检索
+│   │   ├── state/               # 应用状态
 │   │   ├── acp/                 # Agent Communication Protocol
 │   │   ├── ai/                  # AI 模型适配层
 │   │   ├── agent/               # AI Agent 核心
-│   │   ├── tools/               # 内置工具实现（75 个）
-│   │   ├── channels/            # 26 个消息通道
+│   │   ├── tools/               # 内置工具实现（82 个）
+│   │   ├── channels/            # 27 个消息通道
 │   │   ├── mcp/                 # MCP 协议实现
 │   │   ├── security/            # 安全防护体系（5 层）
 │   │   ├── plugins/             # 插件系统

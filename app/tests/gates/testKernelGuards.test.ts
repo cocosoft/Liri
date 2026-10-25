@@ -16,10 +16,13 @@ import {
 
 describe('test:kernel 守卫 · 每组文件数下限', () => {
   it('低于下限 ⇒ 报出该组；等于/高于下限 ⇒ 通过', () => {
+    const coreFloor = KERNEL_SET_MIN_FILES['tests/core']!;
     expect(checkSetFloors([{ dir: 'tests/core', count: 5 }])).toEqual([
-      'tests/core: 5 < 下限 32',
+      `tests/core: 5 < 下限 ${coreFloor}`,
     ]);
-    expect(checkSetFloors([{ dir: 'tests/core', count: 32 }])).toEqual([]);
+    expect(checkSetFloors([{ dir: 'tests/core', count: coreFloor }])).toEqual(
+      []
+    );
     expect(checkSetFloors([{ dir: 'tests/core', count: 99 }])).toEqual([]);
   });
 

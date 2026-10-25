@@ -53,7 +53,13 @@ const GATE_TEST_DIRS = [
   'app/tests/ci/',
 ];
 
-const CODE_ROOTS = ['app/src/', 'app/tests/', 'packages/kernel/src/'];
+const CODE_ROOTS = [
+  'app/src/',
+  'app/tests/',
+  'packages/kernel/src/',
+  // 2026-10-25：纯内核用例迁入包内（`tests/identity/**`），改动同样要能选中测试
+  'packages/kernel/tests/',
+];
 
 /** 允许处理的最大变更文件数；超过直接全量（防异常 diff） */
 const MAX_CHANGED_FILES = 200;

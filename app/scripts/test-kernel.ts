@@ -41,9 +41,12 @@ export const KERNEL_TEST_SETS: readonly KernelTestSet[] = [
  * 每组文件的**下限**（棘轮，复审 1-B3）：
  * 只允许上调；要下调必须改这里（diff 里可见），防止「路径失效/被摘掉用例」后
  * 集合缩水但循环仍然"绿"。
+ *
+ * 2026-10-25：`tests/core` 32 → 27 —— 5 个**纯内核**身份用例已迁入
+ * `packages/kernel/tests/identity/`（随包走；抽仓后不再丢覆盖），不是"用例被删"。
  */
 export const KERNEL_SET_MIN_FILES: Readonly<Record<string, number>> = {
-  'tests/core': 32,
+  'tests/core': 27,
   'tests/execution': 13,
   'tests/session': 7,
 };

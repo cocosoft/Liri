@@ -6388,3 +6388,9 @@
 {"id":"CHAT-EXPORT-SUCCESS-TOAST","k":"code#3","i":0,"c":"client/src/i18n/locales/en/base.ts"}
 {"id":"CHAT-EXPORT-SUCCESS-TOAST","k":"tests#0","i":0,"c":"client/src/tests/i18nKeyCoverage.test.ts"}
 {"id":"CHAT-EXPORT-SUCCESS-TOAST","k":"changelog#0","i":0,"c":"会话导出成功后提示 toast（含文件名与下载目录提示），消除「点了没反应」的错觉"}
+{"id":"CHAT-BUBBLE-EXPORT-TOAST","k":"title","i":0,"c":"单条回复导出（📤 md/html/word）成功后同样提示 toast"}
+{"id":"CHAT-BUBBLE-EXPORT-TOAST","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §35.4"}
+{"id":"CHAT-BUBBLE-EXPORT-TOAST","k":"reopenWhen","i":0,"c":"若 exportMessageAsFormat 改为返回文件名，可去掉本地拼接；新增导出入口必须复用 toastSuccess 与 chat.exportSuccess"}
+{"id":"CHAT-BUBBLE-EXPORT-TOAST","k":"code#0","i":0,"c":"client/src/components/ChatArea/ChatMessage.tsx"}
+{"id":"CHAT-BUBBLE-EXPORT-TOAST","k":"tests#0","i":0,"c":"client/src/tests/exportFenceBalance.test.ts"}
+{"id":"CHAT-BUBBLE-EXPORT-TOAST","k":"changelog#0","i":0,"c":"单条回复导出后同样提示成功 toast（与会话级导出口径一致）"}

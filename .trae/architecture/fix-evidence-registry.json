@@ -12493,6 +12493,33 @@
         "会话导出成功后提示 toast（含文件名与下载目录提示），消除「点了没反应」的错觉"
       ],
       "reopenWhen": "若后续改为桌面壳保存（plugin-fs/dialog），toast 文案需改为显示真实保存路径而非「下载目录」（全文见 archive/evidence-detail.jsonl#CHAT-EXPORT-SUCCESS-TOAST）"
+    },
+    {
+      "id": "CHAT-BUBBLE-EXPORT-TOAST",
+      "title": "单条回复导出（📤 md/html/word）成功后同样提示 toast",
+      "source": "dev_docs/20261025/待完成工作任务清单-20261025.md §35.4",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/components/ChatArea/ChatMessage.tsx"
+      ],
+      "tests": [
+        "client/src/tests/exportFenceBalance.test.ts"
+      ],
+      "changelog": [
+        "单条回复导出后同样提示成功 toast（与会话级导出口径一致）"
+      ],
+      "reopenWhen": "若 exportMessageAsFormat 改为返回文件名，可去掉本地拼接；新增导出入口必须复用 toastSuccess 与 chat.exportSuccess（全文见 archive/evidence-detail.jsonl#CHAT-BUBBLE-EXPORT-TOAST）"
     }
   ]
 }

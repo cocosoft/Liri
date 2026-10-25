@@ -1,6 +1,6 @@
 # Spec：第三方插件进程隔离（T25-08）
 
-> 版本 1.3 ｜ 创建 2026-10-25 ｜ 状态：✅ **P0 + P1 已落地**；**P2 部分落地**（能力声明 + 安装/加载双闸 + env 授权表 + **`config` 能力已兑现**；`events` 与签名校验未做）
+> 版本 1.3 ｜ 创建 2026-10-25 ｜ 状态：✅ **P0 + P1 已落地**；**P2 部分落地**（能力声明 + 安装/加载双闸 + env 授权表 + **`config` 能力已兑现**；`events` 只留名字、声明即拒绝；签名校验未做）
 > 实现落点：`app/src/plugins/utils/pluginTrust.ts`（P0 闸）· `app/src/plugins/host/{pluginHostProtocol,pluginHostEntry,PluginHostSupervisor}.ts`（P1 宿主）· `app/src/plugins/host/pluginConfigPort.ts`（P2 `config` 读写端口）· `app/src/plugins/utils/pluginCapabilities.ts`（P2 能力授权）
 > 开关 / 授权：`PLUGIN_THIRD_PARTY_INPROCESS=false`（准入闸）· `PLUGIN_HOST_PROCESS=true`（子进程宿主）· `LIRI_PLUGIN_CAPABILITY_GRANTS=<id>:<cap>[,…]`（能力授权；未配置 = 不做能力门控）
 > 来源：`dev_docs/20261025/待完成工作任务清单-20261025.md` §10.6（第二批建议组 6）
@@ -65,7 +65,11 @@
 - **能力白名单 RPC**（不是把 context 塞过去）：
   - `tools.register`（声明式：名称/schema/风险档）—— 实际执行回主进程，插件只提供 `handler` 的 RPC 调用；
   - `config.get/set`（仅插件自己的命名空间）—— ✅ **已落地（2026-10-25）**，见下方口径；
-  - `events.emit/subscribe`（仅白名单事件名）—— ⏸ 未做（主进程侧尚无跨进程事件面，先不造"授权了却什么都不发生"的面）；
+  - `events.emit/subscribe`（仅白名单事件名）—— ⏸ **未实现**：主进程侧尚无跨进程事件面。
+    **现状口径（2026-10-25）**：`events` 仍留在词汇表（名字合法），但登记在
+    `PLUGIN_CAPABILITIES_UNIMPLEMENTED` ⇒ 清单**一旦声明就拒绝**（与授权表无关：授权造不
+    出提供面，放行只会给插件一个永不触发的空实现）。拒绝文案明确「尚未实现」且**不**引导
+    用户去配 `LIRI_PLUGIN_CAPABILITY_GRANTS`；可用能力文案只列 `tools / config`。
   - `log.*`。
   - **不提供**：`fs`、`child_process`、`env`、`net`（确有需要走宿主代理并按权限审批）。
 - **`config` 的实现口径（如实）**：

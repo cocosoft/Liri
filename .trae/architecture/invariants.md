@@ -50,11 +50,11 @@
 | **INV-SEC-004** | 深扫未完成不得折叠为放行 | unit | ✅ verified | `tools/CodeRunner/staticValidation.ts` · `security/decision.ts` | `tests/security/securityVerdict.test.ts` |
 | **INV-ARCH-001** | SPI 装配顺序约束 | unit | ✅ verified | `entrypoints/spiWiring.ts` · `core/spi/wiringGuard.ts` | `packages/kernel/tests/spiWiringOrder.test.ts` |
 | **INV-KB-001** | 混合检索分值域 `(0,1]` + 重叠命中 `hybrid` | unit | ✅ verified | `knowledge/KnowledgeRouter.ts` · `utils/rrf.ts` | `tests/utils/rrf.test.ts` · `src/knowledge/__tests__/KnowledgeRouter.test.ts` |
-| **INV-PLUGIN-001** | 第三方插件代码不在主进程执行 | integration | ✅ verified | `plugins/utils/pluginTrust.ts` · `plugins/core/PluginLoader.ts` · `plugins/host/PluginHostSupervisor.ts` | `tests/plugins/pluginTrust.test.ts` · `tests/plugins/pluginLoaderHostWiring.test.ts` |
-| **INV-PLUGIN-002** | 插件子进程不继承宿主环境 | e2e-security | ✅ verified | `plugins/host/pluginHostProtocol.ts` | `tests/plugins/pluginHostProtocol.test.ts` · `pluginHostChildE2E.test.ts` · `pluginLoaderHostWiring.test.ts` |
-| **INV-PLUGIN-003** | 能力未授权即不提供对应能力面 | unit | ✅ verified | `plugins/utils/pluginCapabilities.ts` · `plugins/core/PluginLoader.ts` · `plugins/host/PluginHostSupervisor.ts` | `tests/plugins/pluginCapabilities.test.ts` · `pluginInstallCapabilities.test.ts` · `pluginHostConfig.test.ts` |
-| **INV-PLUGIN-004** | 插件配置写入经宿主校验并落盘，失败可见 | unit | ✅ verified | `plugins/host/pluginConfigPort.ts` · `PluginHostSupervisor.ts` · `pluginHostEntry.ts` | `tests/plugins/pluginHostConfig.test.ts` |
-| **INV-PLUGIN-005** | 插件崩溃不连带主进程，且有界重启 | fault-injection | ✅ verified | `plugins/host/PluginHostSupervisor.ts` | `tests/plugins/pluginHostSupervisor.test.ts` |
+| **INV-PLUGIN-001** | 第三方插件代码不在主进程执行 | integration | ✅ verified | `plugins/utils/pluginTrust.ts` · `plugins/core/PluginLoader.ts` · `plugins/host/PluginHostSupervisor.ts` | `pluginTrust` · `pluginLoaderHostWiring` |
+| **INV-PLUGIN-002** | 插件子进程不继承宿主环境 | e2e-security | ✅ verified | `plugins/host/pluginHostProtocol.ts` | `pluginHostProtocol` · `pluginHostChildE2E` · `pluginLoaderHostWiring` |
+| **INV-PLUGIN-003** | 能力未授权即不提供对应能力面 | unit | ✅ verified | `plugins/utils/pluginCapabilities.ts` · `plugins/core/PluginLoader.ts` | `pluginCapabilities` · `pluginInstallCapabilities` · `pluginHostConfig` |
+| **INV-PLUGIN-004** | 配置写入经宿主校验落盘，失败可见 | unit | ✅ verified | `plugins/host/pluginConfigPort.ts` · `pluginHostSupervisor.ts` · `pluginHostEntry.ts` | `pluginHostConfig` |
+| **INV-PLUGIN-005** | 插件崩溃不连带主进程，且有界重启 | fault-injection | ✅ verified | `plugins/host/PluginHostSupervisor.ts` | `pluginHostSupervisor` |
 
 > 路径相对**仓库根**；源码路径省略 `app/src/` 前缀（除 `shared/` 外）。完整路径见 `invariant-registry.json`。
 

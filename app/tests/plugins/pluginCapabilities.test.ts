@@ -12,7 +12,9 @@ import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import {
   LEGACY_DEFAULT_CAPABILITIES,
+  PLUGIN_CAPABILITIES_IMPLEMENTED,
   PLUGIN_CAPABILITY_GRANTS_ENV,
+  PLUGIN_CAPABILITY_REMEDY,
   decidePluginCapabilities,
   describeCapabilityDenial,
   isCapabilityEnforcementEnabled,
@@ -76,6 +78,14 @@ describe('T25-08 P2 · 声明解析（闭合集合）', () => {
     expect(parseDeclaredCapabilities('tools').malformed).toBe(true);
     expect(parseDeclaredCapabilities(['tools', 1]).malformed).toBe(true);
   });
+
+  it('`events` 仍是**合法词汇**（不归 unknown）—— 未实现由判定层拒绝', () => {
+    expect(parseDeclaredCapabilities(['events'])).toEqual({
+      declared: ['events'],
+      unknown: [],
+      malformed: false,
+    });
+  });
 });
 
 describe('T25-08 P2 · 授权表解析', () => {
@@ -137,6 +147,30 @@ describe('T25-08 P2 · 判定矩阵', () => {
       expect(d.unknown).toEqual(['network']);
       expect(describeCapabilityDenial(d)).toContain('未知能力');
     }
+  });
+
+  it('未实现能力（events）⇒ 即使已授权也拒绝，且不误导去配授权表', () => {
+    for (const enforce of [false, true]) {
+      const d = decidePluginCapabilities({
+        pluginId: 'p',
+        manifestCapabilities: ['tools', 'events'],
+        grants: new Map([['p', new Set(['tools', 'events'])]]),
+        enforce,
+      });
+      expect(d.allowed).toBe(false);
+      expect(d.unimplemented).toEqual(['events']);
+      expect(d.granted).toEqual([]);
+      const reason = describeCapabilityDenial(d);
+      expect(reason).toContain('尚未实现');
+      expect(reason).toContain('events');
+      // 配授权表解决不了「没有提供面」⇒ 文案不得把用户引向 GRANTS
+      expect(reason).not.toContain(ENV_GRANTS);
+    }
+  });
+
+  it('可用能力清单不含 events（remedy 文案不承诺未实现的能力）', () => {
+    expect([...PLUGIN_CAPABILITIES_IMPLEMENTED]).toEqual(['tools', 'config']);
+    expect(PLUGIN_CAPABILITY_REMEDY).not.toContain('events');
   });
 });
 
@@ -239,5 +273,22 @@ describe('T25-08 P2 · 加载器闸位（拒绝未授权能力）', () => {
     expect(gate).toBeGreaterThan(-1);
     expect(importCall).toBeGreaterThan(-1);
     expect(gate).toBeLessThan(importCall);
+  });
+
+  it('声明未实现能力（events）⇒ 已信任且已授权也拒绝（不加载、不执行入口）', async () => {
+    const { dir, id } = makePluginManifest(['tools', 'events']);
+    process.env[ENV_TRUSTED] = id;
+    process.env[ENV_GRANTS] = `${id}:tools,events`;
+
+    const loader = new PluginLoader({
+      pluginDirectories: [dir],
+      autoLoad: false,
+    });
+    await loader.initialize();
+    const result = await loader.loadPlugin(id);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('尚未实现');
+    expect(loader.getPlugin(id)?.state).toBe(PluginState.UNLOADED);
   });
 });

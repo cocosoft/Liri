@@ -24,6 +24,28 @@ export const PLUGIN_CAPABILITIES = ['tools', 'config', 'events'] as const;
 
 export type PluginCapability = (typeof PLUGIN_CAPABILITIES)[number];
 
+/**
+ * **已进词汇表但尚未实现**的能力（2026-10-25）。
+ *
+ * 为什么单独一张表而不是直接从 `PLUGIN_CAPABILITIES` 删掉：`events` 是 spec §4 规划的
+ * 能力名（将来要实现），删掉会让它变成「未知能力」，报错语义不准；留在这里则表示
+ * 「名字合法、但**当前没有任何提供面**」⇒ 声明即拒绝（fail-closed）。
+ *
+ * 判据（实测）：子进程 context 的 `events` 是 SDK 的安全空实现（`plugin-sdk/core.ts`），
+ * 授权了也只会得到一个永远不触发的 `on/emit` —— 与 T25-08 P2 之前的 `config` 同型。
+ *
+ * **实现 `events` 后请把它从本集合移出**，并同步 bump 下面的「可用能力」文案与测试。
+ */
+export const PLUGIN_CAPABILITIES_UNIMPLEMENTED: readonly PluginCapability[] = [
+  'events',
+];
+
+/** 当前**真正可用**的能力（= 词汇表 − 未实现） */
+export const PLUGIN_CAPABILITIES_IMPLEMENTED: readonly PluginCapability[] =
+  PLUGIN_CAPABILITIES.filter(
+    (cap) => !PLUGIN_CAPABILITIES_UNIMPLEMENTED.includes(cap)
+  );
+
 /** 旧清单（未声明 capabilities）的保守默认：只给历史唯一接线过的能力 */
 export const LEGACY_DEFAULT_CAPABILITIES: readonly PluginCapability[] = [
   'tools',
@@ -32,10 +54,10 @@ export const LEGACY_DEFAULT_CAPABILITIES: readonly PluginCapability[] = [
 /** 授权表环境变量名 */
 export const PLUGIN_CAPABILITY_GRANTS_ENV = 'LIRI_PLUGIN_CAPABILITY_GRANTS';
 
-/** 拒绝时的放行指引（与日志/接口错误文案同源） */
+/** 拒绝时的放行指引（与日志/接口错误文案同源；只列**已实现**的能力） */
 export const PLUGIN_CAPABILITY_REMEDY =
   `放行方式：在 .env 设置 ${PLUGIN_CAPABILITY_GRANTS_ENV}=<插件id>:<能力>[,<能力>]` +
-  `（多插件用分号分隔，能力可选 ${PLUGIN_CAPABILITIES.join(' / ')}）后重启。`;
+  `（多插件用分号分隔，可选 ${PLUGIN_CAPABILITIES_IMPLEMENTED.join(' / ')}）后重启。`;
 
 /** 声明解析结果 */
 export interface DeclaredCapabilities {
@@ -115,6 +137,8 @@ export interface CapabilityDecision {
   /** 声明了但未授权（fail-closed 的直接原因） */
   missing: PluginCapability[];
   unknown: string[];
+  /** 声明了但**尚未实现**（名字合法、当前无任何提供面；与授权与否无关） */
+  unimplemented: PluginCapability[];
   malformed: boolean;
   /** 授权表是否已配置（未配置 ⇒ 不做门控） */
   enforced: boolean;
@@ -142,7 +166,26 @@ export function decidePluginCapabilities(input: {
       granted: [],
       missing: [],
       unknown: parsed.unknown,
+      unimplemented: [],
       malformed: parsed.malformed,
+      enforced,
+    };
+  }
+
+  // 未实现的能力 ⇒ **无论授权表怎么配**都拒绝：授权不能凭空造出提供面，
+  // 放行只会让插件拿到一个永远不触发的空实现（静默失效）。
+  const unimplemented = parsed.declared.filter((cap) =>
+    PLUGIN_CAPABILITIES_UNIMPLEMENTED.includes(cap)
+  );
+  if (unimplemented.length > 0) {
+    return {
+      allowed: false,
+      declared: parsed.declared,
+      granted: [],
+      missing: [],
+      unknown: [],
+      unimplemented,
+      malformed: false,
       enforced,
     };
   }
@@ -154,6 +197,7 @@ export function decidePluginCapabilities(input: {
       granted: [...parsed.declared],
       missing: [],
       unknown: [],
+      unimplemented: [],
       malformed: false,
       enforced: false,
     };
@@ -168,6 +212,7 @@ export function decidePluginCapabilities(input: {
     granted,
     missing,
     unknown: [],
+    unimplemented: [],
     malformed: false,
     enforced: true,
   };
@@ -194,13 +239,20 @@ export function resolvePluginCapabilities(
   });
 }
 
-/** 拒绝原因（人类可读；含缺哪几项 / 非法项） */
+/** 拒绝原因（人类可读；含未实现 / 缺哪几项 / 非法项） */
 export function describeCapabilityDenial(decision: CapabilityDecision): string {
   if (decision.malformed) {
     return `插件清单的 capabilities 必须是字符串数组（可选 ${PLUGIN_CAPABILITIES.join(' / ')}）。`;
   }
   if (decision.unknown.length > 0) {
     return `插件清单声明了未知能力：${decision.unknown.join(', ')}（可选 ${PLUGIN_CAPABILITIES.join(' / ')}）。`;
+  }
+  if (decision.unimplemented.length > 0) {
+    return (
+      `插件声明了尚未实现的能力：${decision.unimplemented.join(', ')}` +
+      `（当前可用：${PLUGIN_CAPABILITIES_IMPLEMENTED.join(' / ')}）。` +
+      `请从清单移除该能力，或等对应能力面落地后再声明。`
+    );
   }
   return `插件声明了未授权能力：${decision.missing.join(', ')}。${PLUGIN_CAPABILITY_REMEDY}`;
 }

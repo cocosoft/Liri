@@ -103,6 +103,22 @@
 | 失败语义 | 未配信任锚 / 目录不存在 / 无有效公钥 / 缺 `.sig` / 非 base64 / 不匹配 ⇒ **一律拒绝**，文案给出可操作原因 |
 | 非目标（如实） | 无密钥轮换/吊销列表、无时间戳防重放；等市场链路落地再议 |
 
+**工具链（2026-10-25）**：`bun run plugin:sign <子命令>`（`app/scripts/plugin-sign.ts`）
+
+```bash
+# 1) 生成密钥对（私钥留在本地，公钥放进信任锚目录）
+cd app && bun run plugin:sign keygen --out ./keys
+# 2) 给插件清单签名（对 plugin.json 原始字节）
+bun run plugin:sign sign --plugin ~/.pyapp/plugins/installed/<id> --key ./keys/plugin-signing.key
+# 3) 本地先验一遍（与运行时门禁同一个 checkPluginSignature）
+bun run plugin:sign verify --plugin ~/.pyapp/plugins/installed/<id> --keys ./keys
+# 4) 启用：.env 里写下面两行后重启
+#    LIRI_PLUGIN_REQUIRE_SIGNATURE=true
+#    LIRI_PLUGIN_TRUSTED_KEYS_DIR=<放 *.pem 公钥的目录>
+```
+
+> 工具**不会**替你改运行时的信任配置（信任锚仍要显式指定）；私钥不托管、不进插件目录。
+
 > 无钥时**拒装**（而非告警放行）：开启该开关的语义就是"只装能证明来源的东西"；若缺钥时放行，攻击者只需清空目录即可绕过。
 
 ---

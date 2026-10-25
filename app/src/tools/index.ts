@@ -370,6 +370,8 @@ export {
   // P0-4（2026-10-10）：崩溃恢复后 `unknown` 工具调用的重放策略（幂等 ⇒ 可重放；否则人工）
   resolveToolRecoveryPolicy,
   canReplayAfterUnknown,
+  // T25-07（2026-10-25）：渠道来源（不可信输入）下的工具准入判定
+  isBlockedForUntrustedOrigin,
 } from './toolEffects';
 export type {
   ToolEffect,

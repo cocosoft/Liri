@@ -101,6 +101,13 @@ export async function* runStreamToolLoop(
   let assistantMessage = input.assistantMessage;
   let toolLoopTermination: string | undefined;
 
+  // T25-07（2026-10-25 用户裁定）：**渠道来源 Taint** —— 本轮由通道入站驱动（Router 打标）
+  // ⇒ 给会话打"不可信来源"污点（**只升不降**）：副作用类工具在 ToolExecutionService 被拒。
+  // 本地/桌面/REPL 无该标记 ⇒ 零行为变更。
+  if (options?.metadata?.['untrustedOrigin'] === true) {
+    session.metadata.origin = 'channel';
+  }
+
   try {
     streamSpan.addEvent('streamMessage.toolLoop.start', {
       'toolCalls.count': finalResponse.tool_calls!.length,

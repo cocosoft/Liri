@@ -164,6 +164,20 @@ export function shouldBlindRetryTool(name: string): boolean {
 export const TOOL_EFFECTS_COUNT = Object.keys(TOOL_EFFECTS).length;
 
 /**
+ * T25-07（2026-10-25）：**不可信来源（渠道入站）下该工具是否必须拒绝**。
+ *
+ * 判据（唯一事实源 = 本文件的 `TOOL_EFFECTS`，**不按工具名硬编码**）：
+ * - `sideEffect === 'none'`（纯只读） ⇒ **放行**；
+ * - `sideEffect === 'local' | 'external'` ⇒ **拒绝**（用户裁定：external + local）；
+ * - **未声明**（MCP / 插件等外部工具）⇒ **拒绝**（fail-closed：无法证明无副作用）。
+ */
+export function isBlockedForUntrustedOrigin(name: string): boolean {
+  const effect = resolveToolEffect(name);
+  if (!effect) return true;
+  return effect.sideEffect !== 'none';
+}
+
+/**
  * 工具调用**恢复策略**（P0-4，`.trae/specs/unknown-tool-call-recovery.md`）。
  *
  * 用途：崩溃恢复后对 `tool_calls.status='unknown'`（**副作用是否已发生不可知**）的处置判定。

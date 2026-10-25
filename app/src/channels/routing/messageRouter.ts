@@ -60,7 +60,10 @@ import type { SessionSpanContext } from '@openliri/kernel/SessionSpanTracer.js';
 import { channelSessionManager } from '../session/ChannelSessionManager';
 import { isBridgeEnabled } from '../bridgeEnabled';
 // G-2（2026-10-18）：通道来源 → 默认任务面（远程通道最小权限；开关默认关 ⇒ 零变更）
-import { resolveChannelTaskTypeOverride } from '../toolPolicy';
+import {
+  isUntrustedChannelOrigin,
+  resolveChannelTaskTypeOverride,
+} from '../toolPolicy';
 // 2026-08-06 接入（P0-2）：DM 策略授权引擎（pairing/allowlist/open）
 import { DmPolicyEngine } from '../policy/DmPolicy';
 // 2026-08-06 接入（P1-5）：渠道入站限流（按渠道+sender 令牌桶）
@@ -658,6 +661,10 @@ async function routeChannelMessageInner(
       const channelTaskType = resolveChannelTaskTypeOverride(
         message.channelId || channelName
       );
+      // T25-07（2026-10-25 用户裁定）：**渠道来源 Taint**（默认开）——
+      // 通道入站一律视为不可信输入，随本轮 metadata 下传 ⇒ 会话打标 ⇒ 副作用类工具被拒。
+      const channelKey = message.channelId || channelName;
+      const untrustedOrigin = isUntrustedChannelOrigin(channelKey);
       const generator = coreAPI.chatStream({
         content: message.content,
         sessionId: safeSessionId,
@@ -686,7 +693,8 @@ async function routeChannelMessageInner(
         // 契约见 `messageRouterContract.CHANNEL_DELIVERY_CONTRACT`。
         runtimeSystemNote: CHANNEL_DELIVERY_CONTRACT,
         metadata: {
-          channel: message.channelId || channelName,
+          channel: channelKey,
+          ...(untrustedOrigin ? { untrustedOrigin: true } : {}),
           ...(channelTaskType ? { taskType: channelTaskType } : {}),
           sender: message.senderId,
           messageType: message.messageType,

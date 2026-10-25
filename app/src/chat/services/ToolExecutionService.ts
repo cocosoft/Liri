@@ -23,7 +23,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { ErrorHandler } from '@openliri/kernel';
+import { ErrorHandler, feature } from '@openliri/kernel';
 import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
@@ -42,7 +42,11 @@ import type { ToolName } from '@modules/constants/toolNames.generated';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
 // S2-6（2026-10-11）：工具调用统一指标（工具名/结果/耗时/入参字节/估算 tokens）—— 唯一实现 = tools/monitoring
-import { isNonIdempotentRetry, recordToolInvocation } from '@modules/tools';
+import {
+  isBlockedForUntrustedOrigin,
+  isNonIdempotentRetry,
+  recordToolInvocation,
+} from '@modules/tools';
 // PR-3a（2026-10-23）：本次执行的沙箱信号（唯一解析点 = sandbox/sandboxExecutionSignal）
 import {
   resolveFileIoToolModeHint,
@@ -528,6 +532,19 @@ export class ToolExecutionService {
    *  _executeInternal() — 工具执行核心逻辑（原 ChatManager._executeToolInternal）
    * =============================================================== */
 
+  /**
+   * T25-07（2026-10-25）：该会话是否被标记为**不可信来源**（渠道入站驱动）。
+   *
+   * 判定：会话元数据 `origin === 'channel'`（由 `streamMessageToolLoop` 在渠道轮次打标，
+   * **只升不降**）。无会话 / 无标记 ⇒ **可信**（桌面 / REPL / CLI 零行为变更）。
+   * 只读内存态（同一会话对象），无 DB 往返。
+   */
+  private _isUntrustedSession(sessionId?: string): boolean {
+    if (!sessionId) return false;
+    const session = this.deps.chatSessions.get(sessionId);
+    return session?.metadata?.['origin'] === 'channel';
+  }
+
   private async _executeInternal(
     toolCall: ToolCall,
     // 2026-08-24 进度链路打通：透传 onProgress 到 registry.executeTool → tool.execute
@@ -663,6 +680,32 @@ export class ToolExecutionService {
           sessionId: sessionId || undefined,
         },
         error: undefined,
+      };
+    }
+
+    // ── T25-07（2026-10-25 用户裁定）：渠道来源 Taint（不可信输入）──
+    // 会话由外部通道入站驱动 ⇒ `sideEffect !== 'none'` 的工具一律拒绝（external + local）。
+    // 判定复用 `tools/toolEffects.ts`（唯一事实源，不按工具名硬编码）；未声明效果（MCP/插件）fail-closed。
+    if (
+      feature('CHANNEL_UNTRUSTED_TAINT') &&
+      this._isUntrustedSession(toolCall.sessionId) &&
+      isBlockedForUntrustedOrigin(normalizedToolCall.name)
+    ) {
+      logger.warn(
+        'chat:untrusted_origin_blocked — 渠道来源会话拒绝副作用工具',
+        {
+          toolName: normalizedToolCall.name,
+          toolCallId: toolCall.id,
+          sessionId: toolCall.sessionId,
+        }
+      );
+      return {
+        toolCallId: toolCall.id,
+        toolName: normalizedToolCall.name,
+        result: { blocked: true, reason: 'UNTRUSTED_ORIGIN' },
+        error:
+          `该会话由外部通道入站驱动（不可信来源），已拒绝执行有副作用的工具「${normalizedToolCall.name}」。` +
+          '如需执行，请在桌面端 / REPL 继续该会话。',
       };
     }
 

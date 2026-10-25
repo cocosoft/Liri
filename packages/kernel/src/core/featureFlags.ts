@@ -163,6 +163,16 @@ export const FEATURE_FLAGS = {
   // ───── 功能系统 ─────
   /** 插件系统 */
   ENABLE_PLUGINS: true,
+  /**
+   * T25-08 P0（2026-10-25 用户裁定「默认拒绝 + 白名单」）：**第三方插件在主进程内加载**。
+   *
+   * 默认 **false** ⇒ `plugins/core/PluginLoader` 拒绝加载 `~/.pyapp/plugins/installed/**`
+   * 等文件/安装型插件（它们在主进程内 `import` 执行 ⇒ 可读 `.env`、spawn 子进程）；
+   * 放行单插件请用 `LIRI_PLUGIN_TRUSTED_IDS=<id>[,<id>]`（无需开本开关）。
+   * 本开关 = **整体逃生**（回到隔离前的旧行为，用于灰度 / 自担风险）。
+   * 触发条件登记：`.trae/specs/default-off-switches-review-gates.md` §2 #16。
+   */
+  PLUGIN_THIRD_PARTY_INPROCESS: false,
   /** 技能系统 */
   ENABLE_SKILLS: true,
   /** 高级命令 */
@@ -302,6 +312,19 @@ export const FEATURE_FLAGS = {
    * 触发条件见 `.trae/specs/default-off-switches-review-gates.md` §2 #14。
    */
   CHANNEL_TOOL_POLICY: false,
+  /**
+   * T25-07（2026-10-25 用户裁定）：**渠道来源 Taint（不可信输入）**（**默认开**）。
+   *
+   * 开 ⇒ 由通道（Telegram / 飞书 / 邮件 / Webhook …）入站触发的**本轮**，被标记为
+   * `untrustedOrigin`：任何 `sideEffect !== 'none'` 的工具（bash / 写文件 / 子代理 /
+   * 网络发送 …，判定复用 `tools/toolEffects.ts`，不按工具名硬编码）一律**拒绝执行**。
+   * 未声明效果的工具（MCP / 插件）**按不可信处理**（fail-closed）。
+   *
+   * 边界：**按会话**打标（`session.metadata.origin = 'channel'`，只升不降）—— 桌面端/REPL/CLI
+   * 无通道来源 ⇒ 不标记 ⇒ 零行为变更；同一会话改从桌面继续时**仍受约束**（不可信内容已进入
+   * 该会话上下文）。逃生：`FEATURE_CHANNEL_UNTRUSTED_TAINT=false`。
+   */
+  CHANNEL_UNTRUSTED_TAINT: true,
   /** 远程触发器工具 */
   REMOTE_TRIGGER: false,
   /** 发送用户文件工具 */

@@ -76,6 +76,15 @@ export interface SessionMetadata {
   owner?: { tenantId: string; userId: string };
 
   /**
+   * T25-07（2026-10-25）：**输入来源污点**（只升不降）。
+   *
+   * `'channel'` ⇒ 该会话曾由外部通道入站驱动（群聊 / 邮件 / Webhook …），其上下文
+   * 含不可信内容 ⇒ 工具执行按 `isBlockedForUntrustedOrigin()` 拒绝一切副作用类工具。
+   * 本地 / 桌面新建会话**不写**该字段 ⇒ 零行为变更（判定缺省为可信）。
+   */
+  origin?: 'channel';
+
+  /**
    * 总消息数
    */
   totalMessages?: number;

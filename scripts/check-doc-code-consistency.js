@@ -198,6 +198,18 @@ const SAFETY_SWITCHES = [
         def: true,
         why: '非回环暴露面（LIRI_HTTP_HOST / headless 变体）无有效 Bearer 必须 401 —— 默认开；关 = 回落本机身份（共享密钥为空时等于无鉴权）',
     },
+    // T25-07（2026-10-25）：渠道来源 Taint（默认开 = 安全基线）
+    {
+        name: 'CHANNEL_UNTRUSTED_TAINT',
+        def: true,
+        why: '通道入站驱动的会话（不可信输入）必须拒绝副作用类工具 —— 默认开；关 = 群聊/邮件内容可诱导执行 bash、写文件等副作用操作',
+    },
+    // T25-08 P0（2026-10-25）：第三方插件准入闸（默认关 = 拒绝未授权插件在主进程执行）
+    {
+        name: 'PLUGIN_THIRD_PARTY_INPROCESS',
+        def: false,
+        why: '第三方插件在主进程内 `import` 执行 ⇒ 可读宿主 `.env` / spawn 子进程；须显式开启（默认拒绝 + LIRI_PLUGIN_TRUSTED_IDS 白名单）',
+    },
 ];
 
 /** 由清单派生的断言（避免 11 条近重复手写条目） */

@@ -60,6 +60,22 @@ export function resolveChannelToolPolicy(
 }
 
 /**
+ * T25-07（2026-10-25）：该通道入站是否属**不可信来源**（供 Taint 打标）。
+ *
+ * 口径：本函数**只被** `messageRouter`（通道入站唯一入口）调用 ⇒ 有值即为通道来源；
+ * 桌面 / REPL / CLI / HTTP 客户端都不经过这里 ⇒ 不标记（零行为变更）。
+ * 空值（无通道标识）⇒ **不**标记（不臆造来源）。
+ *
+ * 注：与 `resolveChannelToolPolicy` 的区别 —— 后者决定"可见工具面"（可灰度、按目录成员），
+ * 本函数决定"**授权**是否降级"（不可信来源即降级，不依赖目录是否收录）。
+ */
+export function isUntrustedChannelOrigin(
+  channelKey: string | undefined
+): boolean {
+  return typeof channelKey === 'string' && channelKey.trim().length > 0;
+}
+
+/**
  * 本次入站请求应注入的 `taskType`（缺省值）。
  *
  * @param channelKey 通道标识（`message.channelId ?? channelName`）

@@ -749,6 +749,9 @@ export class CompactionOrchestrator {
       afterTokens,
       savingPercent: Number(savingPercent.toFixed(1)),
       durationMs,
+      // T25-03：带 sessionId 才能把「升级触发（compaction:escalated）」与其压缩结果配对，
+      // 供离线取证脚本统计「升级后 token 降幅中位数」（否则只能靠时间窗猜，不可信）。
+      sessionId: ctx.sessionId,
     });
 
     return result;

@@ -124,6 +124,7 @@
     "evidence:prompt-locale": "bun run scripts/compare-prompt-locale-behavior.ts",
     "evidence:verifier-role": "bun run scripts/verify-role-model-evidence.ts",
     "evidence:orchestration-window": "bun run scripts/measure-orchestration-window.ts",
+    "evidence:compaction-escalation": "bun run scripts/report-compaction-escalation.ts",
     "evidence:tool-params-locale": "bun run scripts/verify-tool-params-locale.ts",
     "health:arch": "PYAPP_PROJECT_DIR=.. bun run ../scripts/architecture-health.ts --compare",
     "health:arch:json": "PYAPP_PROJECT_DIR=.. bun run ../scripts/architecture-health.ts --json",

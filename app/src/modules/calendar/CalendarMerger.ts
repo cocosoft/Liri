@@ -10,7 +10,7 @@
 
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import { CronJobStore } from '@modules/tasks';
-import { resolveDbPath } from '@openliri/kernel';
+import { resolveTenantDbPath } from '@openliri/kernel';
 import { computeNextCronRunMs } from '@modules/tasks';
 import { AIScheduleIndex, type AIScheduleEvent } from './AIScheduleIndex';
 import { EventStatus } from './types';
@@ -68,8 +68,9 @@ export class CalendarMerger {
   private aiIndex: AIScheduleIndex;
 
   constructor(cronStore?: CronJobStore, aiIndex?: AIScheduleIndex) {
-    this.cronStore = cronStore ?? new CronJobStore(resolveDbPath());
-    this.aiIndex = aiIndex ?? new AIScheduleIndex(resolveDbPath());
+    // T25-02 补（2026-10-25）：按**当前身份**解析库路径（本地身份下与 `resolveDbPath()` 等值）。
+    this.cronStore = cronStore ?? new CronJobStore(resolveTenantDbPath());
+    this.aiIndex = aiIndex ?? new AIScheduleIndex(resolveTenantDbPath());
   }
 
   /**

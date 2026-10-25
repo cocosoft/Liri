@@ -1,6 +1,6 @@
 # Spec：Google AI 外部建议逐条裁定 + core/infra 职责契约（项目裁决依据）
 
-> 版本 1.0 ｜ 创建 2026-10-25 ｜ 状态：🟢 **裁定已定案（施工项另行各立 spec）**
+> 版本 **1.1** ｜ 创建 2026-10-25 ｜ 更新 2026-10-25（§3.4 补「为什么不做连接池」的可检索理由，**裁定不变**；来源 `dev_docs/20261025/待完成工作任务清单-20261025.md` T25-05）｜ 状态：🟢 **裁定已定案（施工项另行各立 spec）**
 > 来源：`dev_docs/20261009/google ai 建议.md`（全 7 段主张）· 核实基线 `dev_docs/20261024/基础设施专项-现状与规划.md v1.2`（2026-10-25）
 > 层归属唯一事实源：`scripts/modules-to-layers.json`；规则口径见 [`architecture-compliance.md`](../rules/architecture-compliance.md)（R06-008）· [`project_rules.md`](../rules/project_rules.md) §1.5
 > 关联 spec：`bash-security-9th-review-hardening.md`（同源第九轮审查落地）· `tool-sidecar-isolation.md`（侧车三靶点）· `layer-inversion-*.md`（层倒挂清零）
@@ -121,6 +121,16 @@
 - 结论 **B**：租户级 DB 文件 + 租户内 `owner_key` 行级隔离；连接维持「每 store 一句柄」（**不加池**）。
 - 层边界：`resolveTenantDbPath()` 等**契约在内核**；各 store 的归属过滤是**infra/service 侧实现**；`core → infra` 依然禁止（身份贯穿走内核 `identity/requestScope` 的 ALS）。
 - 不做的边界：跨租户聚合查询 · 连接池 · 旧 per-user 数据迁移。
+
+**「为什么不做连接池」的可检索理由（2026-10-25 补，裁定不变）**：
+
+1. **前提不成立**：`openBunDatabase()` **不是进程级单例**，而是每次调用 `new BunDB` 的工厂（`packages/kernel/src/core/external/sqlite3.ts:148-158`）；
+   多租户并发并不共享同一条连接。
+2. **隔离已由文件粒度承担**：已认证身份走 `resolveTenantDbPath()`（`tenants/<t>/app.db`），跨租户本就是**不同库文件**；
+   同库内的写竞争由 `busy_timeout=10000` + WAL 兜底，不是"连接池"能解决的问题。
+3. **池会引入新问题**：连接复用需要"归属可证 + 生命周期可回收"，而当前仓储三桶已用 `registerScopedResource` 在删租户时释放句柄
+   （如 `app/src/workspace/TaskStore.ts:124-153`）；加池等于在同一件事上开第二条生命周期轨道（双轨，违反实现唯一性）。
+4. **触发重开条件**：出现「单进程服务大量租户 + 同库高频并发写」的真实部署，且实测到 `SQLITE_BUSY` 显著上升（需给出量化证据）时再评估。
 
 ---
 

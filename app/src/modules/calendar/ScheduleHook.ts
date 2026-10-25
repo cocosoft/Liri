@@ -12,7 +12,7 @@
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import type { EventSubscription } from '@openliri/kernel/events/EventBus';
 import { CronJobStore } from '@modules/tasks';
-import { resolveDbPath } from '@openliri/kernel';
+import { resolveTenantDbPath } from '@openliri/kernel';
 import {
   getCalendarEventBus,
   CalendarEvents,
@@ -36,8 +36,10 @@ export class ScheduleHook {
   private unsubscribes: EventSubscription[] = [];
 
   constructor(cronStore?: CronJobStore, aiIndex?: AIScheduleIndex) {
-    this.cronStore = cronStore ?? new CronJobStore(resolveDbPath());
-    this.aiIndex = aiIndex ?? new AIScheduleIndex(resolveDbPath());
+    // T25-02 补（2026-10-25）：库路径按**当前身份**解析 —— 此前钉死 `resolveDbPath()`
+    // ⇒ 租户请求读写的是本地库。本地身份下两者等值（`tenantScopedDataRoot` 对本地原样返回）⇒ 桌面零变更。
+    this.cronStore = cronStore ?? new CronJobStore(resolveTenantDbPath());
+    this.aiIndex = aiIndex ?? new AIScheduleIndex(resolveTenantDbPath());
   }
 
   /**

@@ -922,8 +922,9 @@ export class DomainSnapshotOps {
       createCronJobStore: async () => {
         const { CronJobStore } =
           await import('@modules/tasks/cron/CronJobStore');
-        const { resolveDbPath } = await import('@openliri/kernel/paths');
-        const store = new CronJobStore(resolveDbPath());
+        // T25-02 补（2026-10-25）：按**当前身份**取库（此前钉死 `resolveDbPath()` ⇒ 租户读到本地库）。
+        const { resolveTenantDbPath } = await import('@openliri/kernel/paths');
+        const store = new CronJobStore(resolveTenantDbPath());
         return {
           init: () => store.init(),
           // 下列 2 处为**边界收窄**：app 侧 CronJob 是 interface（无隐式索引签名），
@@ -948,8 +949,9 @@ export class DomainSnapshotOps {
       },
       createCronRunLog: async () => {
         const { CronRunLog } = await import('@modules/tasks/cron/CronRunLog');
-        const { resolveDbPath } = await import('@openliri/kernel/paths');
-        const runLog = new CronRunLog(resolveDbPath());
+        // T25-02 补（2026-10-25）：同 `createCronJobStore`，库路径随当前身份。
+        const { resolveTenantDbPath } = await import('@openliri/kernel/paths');
+        const runLog = new CronRunLog(resolveTenantDbPath());
         return {
           init: () => runLog.init(),
           queryPage: (opts: {

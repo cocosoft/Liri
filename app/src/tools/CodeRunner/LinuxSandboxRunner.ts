@@ -285,11 +285,18 @@ export async function runCodeRunnerWithLandlock(
 }
 
 /**
- * 执行编排代码（安全选择器）：Linux + landlock 可用 → landlock；否则跨平台。
+ * 执行编排代码（安全选择器）：macOS → Seatbelt；Linux + landlock 可用 → landlock；否则跨平台。
  */
 export async function runCodeRunnerSafely(
   opts: CodeRunnerExecOptions
 ): Promise<CodeRunResult> {
+  // 2026-10-26：macOS 兜底（sandbox-exec）。放在 landlock 之前 —— landlock 在 darwin 上恒回 null。
+  if (process.platform === 'darwin') {
+    const { runCodeRunnerWithMacOSSandbox } =
+      await import('./MacOSSandboxRunner');
+    const macResult = await runCodeRunnerWithMacOSSandbox(opts);
+    if (macResult) return macResult;
+  }
   const landlockResult = await runCodeRunnerWithLandlock(opts);
   if (landlockResult) return landlockResult;
   const { runCodeRunner } = await import('./CrossPlatformRunner');

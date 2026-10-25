@@ -173,6 +173,8 @@ export class PluginInstallManager {
     const targetPath =
       options.installPath ||
       this.installPaths.getPluginPath(this.sanitizeName(options.sourcePath));
+    // 能力回滚只允许删「本次新建」且在受管目录内的目标（见 discardInstalledDir）
+    const targetExistedBefore = fs.existsSync(targetPath);
     this.installPaths.ensureDirectories(this.sanitizeName(options.sourcePath));
 
     try {
@@ -218,16 +220,22 @@ export class PluginInstallManager {
     }
 
     // ── T25-08 P2（2026-10-25）：能力授权（spec §6「未授权能力 ⇒ 拒绝安装」）──
-    // 授权表未配置 ⇒ 零行为变更；配置后 fail-closed：声明了但未授权 ⇒ 拒绝并清掉刚落盘的目录。
+    // 授权表未配置 ⇒ 零行为变更；配置后 fail-closed：声明了但未授权 ⇒ 拒绝，并**仅**回滚
+    // 「本次新建且在受管目录内」的目标（不删用户既有目录，见 discardInstalledDir）。
     const capabilityError = this.checkCapabilities(targetPath);
     if (capabilityError) {
-      this.discardInstalledDir(targetPath);
+      const discarded = this.discardInstalledDir(
+        targetPath,
+        targetExistedBefore
+      );
       return {
         success: false,
         pluginName: options.sourcePath,
         version: options.version || 'unknown',
         installPath: '',
-        error: capabilityError,
+        error: discarded
+          ? `${capabilityError}（已回滚本次写入的安装目录）`
+          : `${capabilityError}（安装目录未删除：非本次新建或不在插件安装根目录内，请自行处理）`,
       };
     }
 
@@ -336,16 +344,42 @@ export class PluginInstallManager {
   /**
    * 丢弃**本次安装**刚落盘的目录（能力校验未通过时回滚）。
    *
-   * 只清理本次 install 的目标路径，且失败仅告警 —— 不因清理失败把安装错误覆盖掉。
+   * 安全边界（CD：删除只作用于自己创建的东西）：
+   * - `existedBefore === true` ⇒ **不删**（那是用户既有目录，可能是升级前版本或别处数据）；
+   * - 目标不在插件安装根目录内（`options.installPath` 指到外面）⇒ **不删**；
+   * - 删除失败仅告警，不覆盖掉安装错误。
+   *
+   * @returns 是否真的删除了目录
    */
-  private discardInstalledDir(targetPath: string): void {
+  private discardInstalledDir(
+    targetPath: string,
+    existedBefore: boolean
+  ): boolean {
+    if (existedBefore) {
+      logger.warn('能力校验未通过：目标目录为既有目录 ⇒ 不删除', {
+        targetPath,
+      });
+      return false;
+    }
+    const base = path.resolve(this.installPaths.getBasePath());
+    const target = path.resolve(targetPath);
+    const rel = path.relative(base, target);
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+      logger.warn('能力校验未通过：目标不在插件安装根目录内 ⇒ 不删除', {
+        targetPath,
+        base,
+      });
+      return false;
+    }
     try {
-      fs.rmSync(targetPath, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+      return true;
     } catch (error) {
       logger.warn('能力校验未通过后清理安装目录失败', {
         targetPath,
         error: String(error),
       });
+      return false;
     }
   }
 

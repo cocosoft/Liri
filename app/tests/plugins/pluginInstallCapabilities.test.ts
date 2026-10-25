@@ -154,4 +154,47 @@ describe('T25-08 P2 · 安装链路能力闸', () => {
     expect(result.success).toBe(true);
     expect(existsSync(join(dest, 'plugin.json'))).toBe(true);
   });
+
+  it('目标目录在安装前已存在 ⇒ 拒绝安装但**不删除**已有内容（只回滚自己创建的）', async () => {
+    const root = tempDir('liri-cap-installed-');
+    const src = makeSourcePlugin('cap-probe', ['tools', 'config']);
+    const dest = join(root, 'cap-probe');
+    // 用户既有目录：先放一个 marker
+    mkdirSync(dest, { recursive: true });
+    writeFileSync(join(dest, 'USER_DATA.txt'), 'keep me', 'utf8');
+    process.env[ENV_GRANTS] = 'cap-probe:tools';
+
+    const manager = makeManager(root);
+    const result = await manager.install({
+      source: 'local',
+      sourcePath: src,
+      installPath: dest,
+      skipSecurityScan: true,
+    });
+
+    expect(result.success).toBe(false);
+    expect(String(result.error)).toContain('安装目录未删除');
+    expect(existsSync(dest)).toBe(true);
+    expect(existsSync(join(dest, 'USER_DATA.txt'))).toBe(true);
+  });
+
+  it('installPath 指到受管根目录之外 ⇒ 拒绝安装但**不删除**该目录（交给调用方）', async () => {
+    const root = tempDir('liri-cap-installed-');
+    const outside = tempDir('liri-cap-outside-');
+    const src = makeSourcePlugin('cap-probe', ['tools', 'config']);
+    const dest = join(outside, 'cap-probe');
+    process.env[ENV_GRANTS] = 'cap-probe:tools';
+
+    const manager = makeManager(root);
+    const result = await manager.install({
+      source: 'local',
+      sourcePath: src,
+      installPath: dest,
+      skipSecurityScan: true,
+    });
+
+    expect(result.success).toBe(false);
+    expect(String(result.error)).toContain('安装目录未删除');
+    expect(existsSync(dest)).toBe(true);
+  });
 });

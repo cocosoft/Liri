@@ -11,6 +11,7 @@ import {
   PDCA_TO_WORKITEM,
   PDCA_TERMINAL_PHASES,
   type PdcaPhase,
+  type WorkItemStatus,
 } from '@openliri/kernel';
 
 describe('PhaseVocabulary B6 — toPdcaPhase 隐式意图 → 意图阶段显式转换', () => {
@@ -44,7 +45,10 @@ describe('PhaseVocabulary B4 — 编排族单一真源（pdcaCheckpointStatus / 
   });
 
   test('PDCA_TO_WORKITEM 派生 WorkItem.status（与 Bridge 原映射一致）', () => {
-    const expected: Record<PdcaPhase, string> = {
+    // 2026-10-25：迁入包内后由包 `tsconfig.tests.json` 按 **源码类型** 检查
+    // （原先在 app 侧解析到 dist d.ts，`Record<PdcaPhase, string>` 的松标注才得以通过）——
+    // 这里改成与真源一致的 `WorkItemStatus`，让映射表漏项/错值在编译期就红。
+    const expected: Record<PdcaPhase, WorkItemStatus> = {
       plan: 'pending',
       plan_pending: 'review',
       stage_awaiting_approval: 'review',

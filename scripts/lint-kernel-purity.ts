@@ -675,7 +675,8 @@ export const KERNEL_PUBLIC_SUBPATHS = [
   'abortReason', // 中断原因契约（app `error/abortReason` 门面的转出源）
   'orchestrationEvents', // 编排事件契约（app `types/orchestrationEvents` 门面的转出源）
   // 弃用告警工具：内核叶子（`process.emitWarning` 薄封装）。当前唯一消费方是
-  // `tests/core/deprecatedCoreModules.test.ts`（自证「接线不丢」）；不进桶是因为它没有任何生产消费方，
+  // `packages/kernel/tests/deprecatedCoreModules.test.ts`（自证「接线不丢」；2026-10-25 迁入包内）；
+  // 不进桶是因为它没有任何生产消费方，
   // 进桶会让每次启动都求值一个用不到的模块。
   'deprecationNotice',
 ] as const;

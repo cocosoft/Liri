@@ -17,7 +17,9 @@ import {
 } from '@openliri/kernel/events/OrchestrationMetrics.js';
 import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 import { OrchestrationEventPairer } from '@openliri/kernel/events/orchestrationPairing.js';
-import { OrchestrationEventType as E } from '@modules/types/orchestrationEvents';
+// 2026-10-25：本用例已迁入包内 ⇒ 词汇表直接取内核真源（app 的
+// `@modules/types/orchestrationEvents` 本就是它的纯转出，见该文件头部说明）。
+import { OrchestrationEventType as E } from '@openliri/kernel/orchestrationEvents.js';
 
 interface LatencySample {
   name: string;

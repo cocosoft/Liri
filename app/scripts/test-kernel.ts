@@ -44,9 +44,12 @@ export const KERNEL_TEST_SETS: readonly KernelTestSet[] = [
  *
  * 2026-10-25：`tests/core` 32 → 27 —— 5 个**纯内核**身份用例已迁入
  * `packages/kernel/tests/identity/`（随包走；抽仓后不再丢覆盖），不是"用例被删"。
+ * 2026-10-25（第二批）：再 27 → 10 —— 17 个**零 app 依赖**用例迁入
+ * `packages/kernel/tests/`（事件总线 / 相位 / 输出护栏 / 定价 / estop / 路径解析 …），
+ * 同上：迁出非删除；包内用例由 `packages/kernel` 的 `bun test` 独立跑（当前 26 文件 / 241 例）。
  */
 export const KERNEL_SET_MIN_FILES: Readonly<Record<string, number>> = {
-  'tests/core': 27,
+  'tests/core': 10,
   'tests/execution': 13,
   'tests/session': 7,
 };

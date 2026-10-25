@@ -228,7 +228,7 @@
         "app/src/entrypoints/spiWiring.ts",
         "packages/kernel/src/core/spi/wiringGuard.ts"
       ],
-      "tests": ["app/tests/core/spiWiringOrder.test.ts"],
+      "tests": ["packages/kernel/tests/spiWiringOrder.test.ts"],
       "level": "unit",
       "status": "verified",
       "reopenWhen": "新增端口顺序依赖（须在 `SPI_WIRING_REQUIRES` 登记并在依赖端口 register 内断言）时。",

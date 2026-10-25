@@ -468,7 +468,7 @@
         "packages/kernel/src/core/spi/KnowledgeService.ts"
       ],
       "tests": [
-        "app/tests/core/spiWiringOrder.test.ts"
+        "packages/kernel/tests/spiWiringOrder.test.ts"
       ],
       "changelog": [
         "v0.4.76"
@@ -3376,7 +3376,7 @@
         "app/src/query/index.ts"
       ],
       "tests": [
-        "app/tests/core/pricing.test.ts",
+        "packages/kernel/tests/pricing.test.ts",
         "app/tests/query/modelPricingAdapter.test.ts"
       ],
       "changelog": [
@@ -11690,7 +11690,7 @@
         "packages/kernel/src/core/events/OrchestrationMetrics.ts"
       ],
       "tests": [
-        "app/tests/core/OrchestrationMetrics.test.ts"
+        "packages/kernel/tests/OrchestrationMetrics.test.ts"
       ],
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#U13-T13B-ORCH-LATENCY）",

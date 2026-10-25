@@ -39,7 +39,8 @@ import { join } from 'node:path';
 import { warnDeprecatedCoreModule } from '@openliri/kernel/deprecationNotice.js';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 
-const CORE_ROOT = join(import.meta.dir, '../../../packages/kernel/src/core');
+// 2026-10-25：本用例随内核测试迁入包内 ⇒ 基准从「仓库根下的 packages/kernel」改为「本包 src」。
+const CORE_ROOT = join(import.meta.dir, '..', 'src', 'core');
 
 /** 观察期入口文件（消费者会 import 的那个） */
 const OBSERVED_ENTRY_FILES = [

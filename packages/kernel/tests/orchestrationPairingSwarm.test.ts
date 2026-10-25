@@ -12,7 +12,8 @@
 import { describe, it, expect } from 'bun:test';
 
 import { OrchestrationEventPairer } from '@openliri/kernel/events/orchestrationPairing';
-import { OrchestrationEventType } from '../../src/types/orchestrationEvents';
+// 2026-10-25：迁入包内 ⇒ 词汇表取内核真源（原先经 app 门面转出）。
+import { OrchestrationEventType } from '@openliri/kernel/orchestrationEvents';
 
 const DISPATCH = OrchestrationEventType.SWARM_DISPATCH;
 const COMPLETE = OrchestrationEventType.SWARM_COMPLETE;

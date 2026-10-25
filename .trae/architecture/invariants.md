@@ -48,7 +48,7 @@
 | **INV-SEC-002** | 审批有效性 | unit | ✅ verified | `tools/bash/BashTool.ts` · `permission/ApprovedCommandRegistry.ts` | `crossLayerSecurityConsistency.test.ts` · `bashSecuritySwitchDefaults.test.ts` |
 | **INV-SEC-003** | 沙箱边界由运行时强制执行 | e2e-security | ⚠️ partial | `sandbox/landlock/runWithLandlock.ts` · `tools/bash/bashLandlockExec.ts` | `sandbox/negativeEnforcement.test.ts` · `spawnPathRestrictions.test.ts` |
 | **INV-SEC-004** | 深扫未完成不得折叠为放行 | unit | ✅ verified | `tools/CodeRunner/staticValidation.ts` · `security/decision.ts` | `tests/security/securityVerdict.test.ts` |
-| **INV-ARCH-001** | SPI 装配顺序约束 | unit | ✅ verified | `entrypoints/spiWiring.ts` · `core/spi/wiringGuard.ts` | `tests/core/spiWiringOrder.test.ts` |
+| **INV-ARCH-001** | SPI 装配顺序约束 | unit | ✅ verified | `entrypoints/spiWiring.ts` · `core/spi/wiringGuard.ts` | `packages/kernel/tests/spiWiringOrder.test.ts` |
 | **INV-KB-001** | 混合检索分值域 `(0,1]` + 重叠命中 `hybrid` | unit | ✅ verified | `knowledge/KnowledgeRouter.ts` · `utils/rrf.ts` | `tests/utils/rrf.test.ts` · `src/knowledge/__tests__/KnowledgeRouter.test.ts` |
 
 > 路径相对**仓库根**；源码路径省略 `app/src/` 前缀（除 `shared/` 外）。完整路径见 `invariant-registry.json`。

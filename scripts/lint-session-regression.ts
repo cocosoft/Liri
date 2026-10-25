@@ -17,11 +17,19 @@
  */
 
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
+
+/**
+ * 路径基准（2026-10-25 修正）：此前的基准是 `cwd` ⇒ 从 `app/` 运行时
+ * `app/src/...` 会被解析成 `app/app/src/...`，报出**误导性的**
+ * 「文件不存在」而不是「跑错目录」。现默认用**脚本自身位置**推导仓库根，
+ * 与 cwd 无关；`PYAPP_PROJECT_DIR` 仍可显式覆盖（相对 cwd）。
+ */
+const SCRIPT_REPO_ROOT = resolve(import.meta.dir, '..');
 
 const PROJECT_ROOT = process.env.PYAPP_PROJECT_DIR
   ? join(process.cwd(), process.env.PYAPP_PROJECT_DIR)
-  : process.cwd();
+  : SCRIPT_REPO_ROOT;
 
 interface Check {
   /** 相对项目根的文件路径 */

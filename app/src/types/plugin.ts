@@ -28,6 +28,13 @@ export interface PluginManifest {
   hooksConfig?: PluginHooks;
   mcpServers?: PluginMcpServer[];
   settings?: Record<string, unknown>;
+  /**
+   * T25-08 P2：**能力声明**（`plugins/utils/pluginCapabilities.ts` 的闭合集合）。
+   *
+   * `LoadedPlugin.manifest` 落的就是 `plugin.json` 解析结果 ⇒ 这里必须有，否则读取清单能力
+   * 只能靠类型断言（能力闸与市场页展示都要读它）。
+   */
+  capabilities?: string[];
 }
 
 /**

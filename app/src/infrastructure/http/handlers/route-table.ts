@@ -58,6 +58,10 @@ export async function dispatchRoute(
       url.startsWith('/v1/apikeys') ||
       url.startsWith('/v1/oauth/providers') ||
       url.startsWith('/v1/skills') ||
+      // T25-08 P2：**能力授权写入**是安全姿态变更 ⇒ 与 skills 同属 admin 写操作
+      // （只卡这一条路径，不改动既有的插件安装/卸载口径；桌面回环无 token 仍按基线放行）
+      (url.startsWith('/v1/plugins/marketplace/plugins/') &&
+        url.endsWith('/capabilities')) ||
       // 多租户 P5：删除租户会清空整租户数据 ⇒ 与 skills/apikeys 同属 admin 写操作
       url.startsWith('/v1/tenants'))
   ) {

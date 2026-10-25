@@ -598,6 +598,9 @@ export const ENDPOINTS = {
       `/v1/plugins/marketplace/plugins/${encodeURIComponent(pluginId)}/install`,
     marketplacePluginUninstall: (pluginId: string) =>
       `/v1/plugins/marketplace/plugins/${encodeURIComponent(pluginId)}/uninstall`,
+    /** T25-08 P2：能力状态（GET）/ 勾选授权（PUT）共用同一路径 */
+    marketplacePluginCapabilities: (pluginId: string) =>
+      `/v1/plugins/marketplace/plugins/${encodeURIComponent(pluginId)}/capabilities`,
   },
   router: {
     config: "/v1/router/config",

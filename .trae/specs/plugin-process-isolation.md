@@ -86,7 +86,10 @@
 ### P2：市场 / 安装链路改造
 
 - 安装时校验签名（可选）与 manifest 的 `capabilities` 声明；安装后默认「未信任」；
-- 市场 UI 显示请求的能力（tools/config/events），由用户勾选授权。
+- 市场 UI 显示请求的能力（tools/config/events），由用户勾选授权 —— ✅ **已落地（2026-10-25）**：
+  - `GET/PUT /v1/plugins/marketplace/plugins/{id}/capabilities`（`PUT` 覆盖语义，纳入 admin 写鉴权）；
+  - 授权落 `<plugins 根>/capability-grants.json`，与 env `LIRI_PLUGIN_CAPABILITY_GRANTS` **取并集**；
+  - UI 侧 `buildCapabilityOptions` 把**未实现**能力渲染为禁用项（勾了也没有提供面，后端也 400）。
 
 #### P2 · 清单签名（2026-10-25 落地，**默认关**）
 

@@ -51,6 +51,27 @@ export interface PluginLoadResultDto {
   success: boolean;
 }
 
+/**
+ * 插件**能力状态**（市场页勾选授权用，2026-10-25）。
+ *
+ * 每个字段都是调用方（handler / 前端）**实际读取**的最小投影；不含 app 类型。
+ */
+export interface PluginCapabilityStateDto {
+  pluginId: string;
+  /** 清单声明的能力（未声明 ⇒ 旧清单默认 `['tools']`） */
+  declared: string[];
+  /** 已授权（env 与市场 UI 写入的文件取并集） */
+  granted: string[];
+  /** 声明了但未授权（fail-closed 的直接原因） */
+  missing: string[];
+  /** 声明了但尚未实现（如 `events`） */
+  unimplemented: string[];
+  /** 当前**可授权**的能力（= 已实现） */
+  available: string[];
+  /** 授权门控是否已生效（env 或文件任一非空） */
+  enforced: boolean;
+}
+
 /** 插件管理端口（13 个方法 = 3 个 handler 文件的**实际调用面**，非 app 全量 API） */
 export interface PluginAdminPort {
   // ---- 插件市场（`pluginMarketplace`）----
@@ -65,6 +86,17 @@ export interface PluginAdminPort {
 
   // ---- 插件系统（`pluginSystem`）----
   getPluginInfoList(): Promise<unknown>;
+  /**
+   * 能力状态（声明 / 已授权 / 未实现 / 可授权）。
+   *
+   * 只读：未安装或清单缺失时 `declared` 为空（不臆造），并由 `enforced` 说明当前是否门控。
+   */
+  getPluginCapabilityState(pluginId: string): Promise<PluginCapabilityStateDto>;
+  /** 覆盖某插件的授权集合（写 `<plugins 根>/capability-grants.json`；空数组 ⇒ 删除条目） */
+  setPluginCapabilityGrants(
+    pluginId: string,
+    granted: string[]
+  ): Promise<PluginCapabilityStateDto>;
   checkPendingSdkTimeouts(): Promise<void>;
   getPendingSdkPlugins(): Promise<unknown>;
   loadPlugin(pluginId: string): Promise<PluginLoadResultDto>;

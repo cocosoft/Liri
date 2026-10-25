@@ -31,14 +31,18 @@ const saved: Record<string, string | undefined> = {};
 const temps: string[] = [];
 
 beforeEach(() => {
-  for (const key of [ENV_GRANTS, ENV_TRUSTED]) {
+  for (const key of [ENV_GRANTS, ENV_TRUSTED, 'LIRI_HOME']) {
     saved[key] = process.env[key];
     delete process.env[key];
   }
+  // 隔离持久化授权表（`<plugins>/capability-grants.json`）：不读开发机上的真实文件
+  const home = mkdtempSync(join(tmpdir(), 'liri-cap-home-'));
+  temps.push(home);
+  process.env.LIRI_HOME = home;
 });
 
 afterEach(() => {
-  for (const key of [ENV_GRANTS, ENV_TRUSTED]) {
+  for (const key of [ENV_GRANTS, ENV_TRUSTED, 'LIRI_HOME']) {
     if (saved[key] === undefined) delete process.env[key];
     else process.env[key] = saved[key];
   }

@@ -4,6 +4,7 @@ import {
   type MarketplacePlugin,
   type InstalledPlugin,
   type PendingPlugin,
+  type PluginCapabilityState,
 } from "../services/pluginMarketplaceService";
 import { handleClientError } from "@/utils/handleError";
 
@@ -33,6 +34,10 @@ interface PluginStoreState {
   /** 分页 */
   page: number;
   pageSize: number;
+  /** 已加载的能力状态（按插件 id 缓存；T25-08 P2 勾选授权） */
+  capabilityStates: Record<string, PluginCapabilityState>;
+  /** 正在读写能力状态的插件 id */
+  capabilityLoadingId: string | null;
 
   searchMarket: (query?: string) => Promise<void>;
   loadInstalled: () => Promise<void>;
@@ -40,6 +45,8 @@ interface PluginStoreState {
   install: (pluginId: string) => Promise<void>;
   uninstall: (pluginId: string) => Promise<void>;
   getPluginDetail: (pluginId: string) => Promise<void>;
+  loadCapabilities: (pluginId: string) => Promise<void>;
+  saveCapabilities: (pluginId: string, granted: string[]) => Promise<void>;
   setQuery: (query: string) => void;
   clearError: () => void;
   closeDetail: () => void;
@@ -63,6 +70,8 @@ export const usePluginStore = create<PluginStoreState>((set, get) => ({
   confirmUninstallId: null,
   page: 1,
   pageSize: 20,
+  capabilityStates: {},
+  capabilityLoadingId: null,
 
   searchMarket: async (query) => {
     const { page, pageSize } = get();
@@ -153,6 +162,47 @@ export const usePluginStore = create<PluginStoreState>((set, get) => ({
         action: "getPluginDetail",
       });
       set({ error: String(err) });
+    }
+  },
+
+  loadCapabilities: async (pluginId) => {
+    set({ capabilityLoadingId: pluginId, error: null });
+    try {
+      const state = await pluginMarketplaceService.getCapabilities(pluginId);
+      set((prev) => ({
+        capabilityStates: { ...prev.capabilityStates, [pluginId]: state },
+      }));
+    } catch (err) {
+      handleClientError(err, {
+        module: "stores:plugins",
+        action: "loadCapabilities",
+        meta: { pluginId },
+      });
+      set({ error: String(err) });
+    } finally {
+      set({ capabilityLoadingId: null });
+    }
+  },
+
+  saveCapabilities: async (pluginId, granted) => {
+    set({ capabilityLoadingId: pluginId, error: null });
+    try {
+      const state = await pluginMarketplaceService.setCapabilities(
+        pluginId,
+        granted,
+      );
+      set((prev) => ({
+        capabilityStates: { ...prev.capabilityStates, [pluginId]: state },
+      }));
+    } catch (err) {
+      handleClientError(err, {
+        module: "stores:plugins",
+        action: "saveCapabilities",
+        meta: { pluginId },
+      });
+      set({ error: String(err) });
+    } finally {
+      set({ capabilityLoadingId: null });
     }
   },
 

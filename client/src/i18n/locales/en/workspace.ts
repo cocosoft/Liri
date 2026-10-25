@@ -37,6 +37,11 @@ const enWorkspace = {
     manualInstallHint:
       "If installation fails, run the following command in your terminal:",
     noPluginPackage: "No plugin packages available",
+    capabilities: "Capabilities",
+    capabilitiesLoading: "Loading…",
+    capabilityUnimplemented: "Not implemented",
+    capabilityNotEnforcedHint:
+      "No grants configured yet: after you save, capabilities the plugin declares but you did not check will be blocked.",
   },
   tts: {
     title: "Text-to-Speech",

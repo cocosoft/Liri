@@ -54,6 +54,22 @@ export interface PluginMarketplaceSearchResult {
   hasMore: boolean;
 }
 
+/**
+ * 插件能力状态（T25-08 P2，`GET/PUT /v1/plugins/marketplace/plugins/{id}/capabilities`）。
+ *
+ * `declared` 来自清单；`granted` 是**展示视角**（env 与 UI 写入的文件取并集）；
+ * `available` 才是可以勾选的集合（未实现的能力在 `unimplemented` 里，不可勾选）。
+ */
+export interface PluginCapabilityState {
+  pluginId: string;
+  declared: string[];
+  granted: string[];
+  missing: string[];
+  unimplemented: string[];
+  available: string[];
+  enforced: boolean;
+}
+
 class PluginMarketplaceService {
   async search(params: {
     query?: string;
@@ -115,6 +131,24 @@ class PluginMarketplaceService {
   }> {
     return http.post<{ success: boolean; name: string }>(
       ENDPOINTS.plugins.marketplacePluginUninstall(pluginId),
+    );
+  }
+
+  /** T25-08 P2：能力状态（声明 / 已授权 / 未实现 / 可授权） */
+  async getCapabilities(pluginId: string): Promise<PluginCapabilityState> {
+    return http.get<PluginCapabilityState>(
+      ENDPOINTS.plugins.marketplacePluginCapabilities(pluginId),
+    );
+  }
+
+  /** T25-08 P2：覆盖该插件的授权集合（空数组 = 收回全部） */
+  async setCapabilities(
+    pluginId: string,
+    granted: string[],
+  ): Promise<PluginCapabilityState> {
+    return http.put<PluginCapabilityState>(
+      ENDPOINTS.plugins.marketplacePluginCapabilities(pluginId),
+      { granted },
     );
   }
 }

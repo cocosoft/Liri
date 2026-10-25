@@ -278,6 +278,60 @@ export class DomainSnapshotOps {
     const { PLUGIN_CATEGORIES } =
       await import('@modules/plugins/categories/PluginCategories');
 
+    /**
+     * 取清单里的**能力声明**：优先已加载插件的 manifest（与闸门读到的是同一份），
+     * 未加载则回退到安装目录的 `plugin.json`；都没有 ⇒ `undefined`（判定层按旧清单默认处理）。
+     */
+    const declaredCapabilitiesOf = async (
+      pluginId: string
+    ): Promise<unknown> => {
+      const loaded = pluginSystem.getPlugin(pluginId);
+      const inMemory = loaded?.manifest?.capabilities;
+      if (inMemory !== undefined) return inMemory;
+
+      const { existsSync, readFileSync } = await import('node:fs');
+      const { join } = await import('node:path');
+      const { resolvePluginsInstalledDir } = await import('@openliri/kernel');
+      const dir = loaded?.path ?? join(resolvePluginsInstalledDir(), pluginId);
+      const manifestPath = join(dir, 'plugin.json');
+      if (!existsSync(manifestPath)) return undefined;
+      try {
+        const parsed: unknown = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+        const base =
+          parsed &&
+          typeof parsed === 'object' &&
+          typeof (parsed as { plugin?: unknown }).plugin === 'object' &&
+          (parsed as { plugin?: unknown }).plugin !== null
+            ? (parsed as { plugin: Record<string, unknown> }).plugin
+            : (parsed as Record<string, unknown>);
+        return base?.['capabilities'];
+      } catch {
+        // @ignore-catch — 清单损坏 ⇒ 交给判定层按"未声明"处理（不在这里造默认值）
+        return undefined;
+      }
+    };
+
+    /** 能力状态（读）：declared 来自清单，granted 是**展示视角**（见 readMergedCapabilityGrants） */
+    const capabilityStateOf = async (pluginId: string) => {
+      const {
+        resolvePluginCapabilities,
+        readMergedCapabilityGrants,
+        PLUGIN_CAPABILITIES_IMPLEMENTED,
+      } = await import('@modules/plugins/utils/pluginCapabilities');
+      const declared = await declaredCapabilitiesOf(pluginId);
+      const decision = resolvePluginCapabilities(pluginId, declared);
+      const grantedSet = readMergedCapabilityGrants(pluginId);
+      return {
+        pluginId,
+        declared: [...decision.declared],
+        granted: decision.declared.filter((cap) => grantedSet.has(cap)),
+        missing: [...decision.missing],
+        unimplemented: [...decision.unimplemented],
+        available: [...PLUGIN_CAPABILITIES_IMPLEMENTED] as string[],
+        enforced: decision.enforced,
+      };
+    };
+
     return {
       // 市场
       searchMarket: async (params: {
@@ -293,6 +347,17 @@ export class DomainSnapshotOps {
 
       // 插件系统
       getPluginInfoList: async () => pluginSystem.getPluginInfoList(),
+      getPluginCapabilityState: async (pluginId: string) =>
+        capabilityStateOf(pluginId),
+      setPluginCapabilityGrants: async (
+        pluginId: string,
+        granted: string[]
+      ) => {
+        const { writeCapabilityGrants } =
+          await import('@modules/plugins/utils/pluginCapabilityGrantsStore');
+        writeCapabilityGrants(pluginId, granted);
+        return capabilityStateOf(pluginId);
+      },
       checkPendingSdkTimeouts: async () => {
         pluginSystem.checkPendingSdkTimeouts();
       },

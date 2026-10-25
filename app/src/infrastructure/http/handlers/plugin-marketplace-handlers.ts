@@ -7,7 +7,7 @@
  */
 
 import type http from 'http';
-import { sendError } from './handler-utils';
+import { json, readBody, sendError } from './handler-utils';
 import { handleError } from '@modules/error';
 // C1（2026-09-30 D-92）：插件管理改经服务层端口（消除 service → app 跨层引用）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
@@ -109,6 +109,90 @@ export async function handlePluginPendingList(
     await handleError(err, {
       module: 'infra:http',
       action: 'plugin_pending_list',
+    });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 插件**能力状态** GET /v1/plugins/marketplace/plugins/:id/capabilities
+ *
+ * 返回清单声明的能力 / 已授权 / 缺失 / 未实现 / 可授权集合（市场页勾选授权用）。
+ */
+export async function handlePluginCapabilityState(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse,
+  pluginId: string
+): Promise<void> {
+  try {
+    const state = await (
+      await getCoreAPI().getPluginAdminPort()
+    ).getPluginCapabilityState(pluginId);
+    json(res, 200, state);
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'plugin_capability_state',
+      context: { pluginId },
+    });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 插件**能力授权** PUT /v1/plugins/marketplace/plugins/:id/capabilities
+ *
+ * 请求体 `{ granted: string[] }`：覆盖该插件的授权集合（空数组 = 收回全部）。
+ * 只接受 `available`（已实现）里的名字 —— 未实现能力授权了也不会有提供面，直接 400。
+ */
+export async function handlePluginSetCapabilityGrants(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  pluginId: string
+): Promise<void> {
+  try {
+    const raw = await readBody(req);
+    let body: unknown;
+    try {
+      body = raw.trim() ? JSON.parse(raw) : null;
+    } catch {
+      json(res, 400, { error: { message: '请求体必须是 JSON' } });
+      return;
+    }
+    const granted = (body as { granted?: unknown } | null)?.granted;
+    if (
+      !Array.isArray(granted) ||
+      granted.some((item) => typeof item !== 'string')
+    ) {
+      json(res, 400, {
+        error: { message: 'granted 必须是字符串数组（能力名）' },
+      });
+      return;
+    }
+
+    const port = await getCoreAPI().getPluginAdminPort();
+    const current = await port.getPluginCapabilityState(pluginId);
+    const available = new Set(current.available);
+    const invalid = (granted as string[]).filter((cap) => !available.has(cap));
+    if (invalid.length > 0) {
+      json(res, 400, {
+        error: {
+          message: `不支持的能力：${invalid.join(', ')}（当前可用：${current.available.join(' / ')}）`,
+        },
+      });
+      return;
+    }
+
+    const next = await port.setPluginCapabilityGrants(
+      pluginId,
+      granted as string[]
+    );
+    json(res, 200, next);
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'plugin_set_capability_grants',
+      context: { pluginId },
     });
     sendError(res, err);
   }

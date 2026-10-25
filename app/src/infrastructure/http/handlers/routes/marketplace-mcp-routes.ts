@@ -145,6 +145,35 @@ export async function dispatchMarketplaceMcpRoutes(
     await handlePluginPendingList(req, res);
     return true;
   }
+  // T25-08 P2（2026-10-25）：插件能力展示与勾选授权。
+  // ⚠️ 必须排在下面的 `plugins/{id}` 详情路由**之前**：否则 `(.+)` 会把 `id/capabilities`
+  // 整个当成 pluginId（顺序即语义）。
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)\/capabilities$/)
+  ) {
+    const { handlePluginCapabilityState } =
+      await import('../plugin-marketplace-handlers');
+    await handlePluginCapabilityState(
+      req,
+      res,
+      url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)\/capabilities$/)![1]
+    );
+    return true;
+  }
+  if (
+    method === 'PUT' &&
+    url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)\/capabilities$/)
+  ) {
+    const { handlePluginSetCapabilityGrants } =
+      await import('../plugin-marketplace-handlers');
+    await handlePluginSetCapabilityGrants(
+      req,
+      res,
+      url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)\/capabilities$/)![1]
+    );
+    return true;
+  }
   if (
     method === 'GET' &&
     url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)$/)

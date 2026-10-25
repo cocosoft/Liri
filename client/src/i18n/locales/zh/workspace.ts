@@ -36,6 +36,11 @@ const zhWorkspace = {
       '{{channel}} 需要 {{plugins}} 插件才能正常工作。 点击"安装插件"自动通过 npm 安装。',
     manualInstallHint: "如安装失败，请在终端执行以下命令：",
     noPluginPackage: "无可用插件包",
+    capabilities: "能力权限",
+    capabilitiesLoading: "加载中…",
+    capabilityUnimplemented: "未实现",
+    capabilityNotEnforcedHint:
+      "当前尚未设置授权：勾选并保存后，插件声明但未勾选的能力将被拦截。",
   },
   tts: {
     title: "文字转语音",

@@ -18,6 +18,7 @@
  *   声明了但未授权的能力 ⇒ 拒绝安装 / 拒绝加载，并回传缺哪几项。
  */
 import { configManager } from '@modules/config';
+import { readCapabilityGrants } from './pluginCapabilityGrantsStore';
 
 /** 能力闭合集合（新增能力必须同时落到 P1 的提供面，否则只声明不兑现） */
 export const PLUGIN_CAPABILITIES = ['tools', 'config', 'events'] as const;
@@ -218,25 +219,66 @@ export function decidePluginCapabilities(input: {
   };
 }
 
-/** 授权表是否已配置（生产入口：env 非空即视为显式启用门控） */
+/** 授权表是否已配置（env 或文件任一非空即视为显式启用门控） */
 export function isCapabilityEnforcementEnabled(): boolean {
-  return (
-    (configManager.env(PLUGIN_CAPABILITY_GRANTS_ENV) ?? '').trim().length > 0
-  );
+  const raw = (configManager.env(PLUGIN_CAPABILITY_GRANTS_ENV) ?? '').trim();
+  if (raw.length > 0) return true;
+  return readCapabilityGrants().size > 0;
 }
 
-/** 生产调用点唯一入口：读 env 后判定（安装链路与加载器共用） */
+/**
+ * 合并两个授权来源（纯函数）：**取并集**。
+ *
+ * env 与市场 UI 写下的文件是同一件事的两个入口，不存在"谁覆盖谁"——用户从任一处放行都算
+ * 放行；收窄则要两处都移除（文件里的空数组会被 `writeCapabilityGrants` 直接删条目）。
+ */
+export function mergeCapabilityGrants(
+  envGrants: ReadonlyMap<string, Set<string>>,
+  fileGrants: ReadonlyMap<string, Set<string>>
+): Map<string, Set<string>> {
+  const merged = new Map<string, Set<string>>();
+  for (const [id, caps] of envGrants) merged.set(id, new Set(caps));
+  for (const [id, caps] of fileGrants) {
+    const existing = merged.get(id);
+    if (!existing) {
+      merged.set(id, new Set(caps));
+      continue;
+    }
+    for (const cap of caps) existing.add(cap);
+  }
+  return merged;
+}
+
+/** 生产调用点唯一入口：读 env + 持久化授权表后判定（安装链路与加载器共用） */
 export function resolvePluginCapabilities(
   pluginId: string,
   manifestCapabilities: unknown
 ): CapabilityDecision {
   const raw = configManager.env(PLUGIN_CAPABILITY_GRANTS_ENV);
+  const envGrants = parseCapabilityGrants(raw);
+  const fileGrants = readCapabilityGrants();
+  const enforce = (raw ?? '').trim().length > 0 || fileGrants.size > 0;
   return decidePluginCapabilities({
     pluginId,
     manifestCapabilities,
-    grants: parseCapabilityGrants(raw),
-    enforce: (raw ?? '').trim().length > 0,
+    grants: mergeCapabilityGrants(envGrants, fileGrants),
+    enforce,
   });
+}
+
+/**
+ * 某插件**已放行**的能力名集合（env ∪ 文件）。
+ *
+ * 与 `resolvePluginCapabilities().granted` 的区别：后者是**门控结论**（被拒时为空数组），
+ * 本函数是**展示视角**（即使清单因声明了未实现能力被整体拒绝，UI 仍需如实显示已勾选项）。
+ */
+export function readMergedCapabilityGrants(pluginId: string): Set<string> {
+  const raw = configManager.env(PLUGIN_CAPABILITY_GRANTS_ENV);
+  const merged = mergeCapabilityGrants(
+    parseCapabilityGrants(raw),
+    readCapabilityGrants()
+  );
+  return merged.get(pluginId) ?? new Set<string>();
 }
 
 /** 拒绝原因（人类可读；含未实现 / 缺哪几项 / 非法项） */

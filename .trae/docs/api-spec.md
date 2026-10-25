@@ -604,9 +604,17 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | GET | `/v1/plugins/marketplace/search?query=&page=&pageSize=` | ✅ | `pluginMarketplaceService.search` |
 | GET | `/v1/plugins/marketplace/categories` | ✅ | `pluginMarketplaceService.getCategories` |
 | GET | `/v1/plugins/marketplace/installed` | ✅ | `pluginMarketplaceService.getInstalledPlugins` |
+| GET | `/v1/plugins/marketplace/pending` | ✅ | `pluginMarketplaceService.getPendingPlugins` |
 | GET | `/v1/plugins/marketplace/plugins/{id}` | ✅ | `pluginMarketplaceService.getPluginDetail` |
 | POST | `/v1/plugins/marketplace/plugins/{id}/install` | ✅ | `pluginMarketplaceService.install` |
 | POST | `/v1/plugins/marketplace/plugins/{id}/uninstall` | ✅ | `pluginMarketplaceService.uninstall` |
+| GET | `/v1/plugins/marketplace/plugins/{id}/capabilities` | ✅ | `pluginMarketplaceService.getCapabilities` |
+| PUT | `/v1/plugins/marketplace/plugins/{id}/capabilities` | ✅ | `pluginMarketplaceService.setCapabilities` |
+
+> **能力端点（T25-08 P2，2026-10-25）**：`GET` 返回 `{ pluginId, declared, granted, missing, unimplemented, available, enforced }`；
+> `PUT` 体为 `{ granted: string[] }`（**覆盖**语义，空数组 = 收回全部），只接受 `available`（已实现）里的名字，
+> 否则 400；写入落在 `<plugins 根>/capability-grants.json`，与 env `LIRI_PLUGIN_CAPABILITY_GRANTS` **取并集**。
+> `PUT` 纳入 admin 写鉴权（`route-table.ts` 的 M0d 名单），不动既有的安装/卸载口径。
 
 
 ### §3.23 MCP 服务器 & 工具

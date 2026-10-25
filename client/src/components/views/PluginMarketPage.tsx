@@ -1,10 +1,90 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { usePluginStore } from "../../stores/pluginStore";
 import { useToastStore } from "../../stores/toastStore";
-import type { MarketplacePlugin } from "../../services/pluginMarketplaceService";
+import type {
+  MarketplacePlugin,
+  PluginCapabilityState,
+} from "../../services/pluginMarketplaceService";
+import {
+  buildCapabilityOptions,
+  toggleCapabilityGrant,
+} from "../../utils/pluginCapabilityOptions";
 import ConfirmDialog from "../common/ConfirmDialog";
+
+/**
+ * 能力勾选面板（T25-08 P2）。
+ *
+ * 只负责渲染与回调：可勾选性/顺序/去重全在 `utils/pluginCapabilityOptions`（有单测）。
+ * `unimplemented` 的能力展示为禁用项 —— 授权了也没有提供面，后端也会 400。
+ */
+function PluginCapabilityPanel({
+  isDark,
+  state,
+  loading,
+  onSave,
+}: {
+  isDark: boolean;
+  state: PluginCapabilityState | undefined;
+  loading: boolean;
+  onSave: (granted: string[]) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      className={`mt-2 p-2.5 rounded-md text-xs ${
+        isDark
+          ? "bg-gray-900/60 border border-gray-700"
+          : "bg-gray-50 border border-gray-200"
+      }`}
+    >
+      {!state ? (
+        <span className="text-gray-500 dark:text-gray-400">
+          {t("pluginMarket.capabilitiesLoading")}
+        </span>
+      ) : (
+        <>
+          {buildCapabilityOptions(state).map((option) => (
+            <label
+              key={option.name}
+              className="flex items-center gap-2 py-0.5"
+            >
+              <input
+                type="checkbox"
+                checked={option.checked}
+                disabled={!option.selectable || loading}
+                onChange={(event) =>
+                  onSave(
+                    toggleCapabilityGrant(
+                      state.granted,
+                      option.name,
+                      event.target.checked,
+                      state.available,
+                    ),
+                  )
+                }
+              />
+              <span className="text-gray-700 dark:text-gray-300">
+                {option.name}
+              </span>
+              {!option.selectable && (
+                <span className="text-gray-400 dark:text-gray-500">
+                  {t("pluginMarket.capabilityUnimplemented")}
+                </span>
+              )}
+            </label>
+          ))}
+          {!state.enforced && (
+            <p className="mt-1 text-gray-400 dark:text-gray-500">
+              {t("pluginMarket.capabilityNotEnforcedHint")}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
 
 /**
  * PluginMarketPage — Liri 应用插件市场页面
@@ -34,6 +114,10 @@ function PluginMarketPage() {
     install,
     uninstall,
     getPluginDetail,
+    capabilityStates,
+    capabilityLoadingId,
+    loadCapabilities,
+    saveCapabilities,
     setQuery,
     clearError,
     closeDetail,
@@ -42,6 +126,20 @@ function PluginMarketPage() {
     isInstalled,
   } = usePluginStore();
   const { addToast } = useToastStore();
+
+  /** 能力面板展开状态（按插件 id；首次展开时拉取能力状态） */
+  const [capabilityOpen, setCapabilityOpen] = useState<Record<string, boolean>>(
+    {},
+  );
+  const toggleCapabilityPanel = useCallback(
+    (pluginId: string) => {
+      const next = !capabilityOpen[pluginId];
+      setCapabilityOpen({ ...capabilityOpen, [pluginId]: next });
+      // 展开且还没缓存 ⇒ 拉一次（不在 setState 的 updater 里做副作用，避免 StrictMode 双调用）
+      if (next && !capabilityStates[pluginId]) void loadCapabilities(pluginId);
+    },
+    [capabilityOpen, capabilityStates, loadCapabilities],
+  );
 
   // 首次加载已安装列表 + 响应式挂起插件
   useEffect(() => {
@@ -149,16 +247,38 @@ function PluginMarketPage() {
                       {plugin.description}
                     </p>
                   )}
-                  <button
-                    onClick={() => promptUninstall(plugin.name)}
-                    className={`mt-3 text-xs px-2.5 py-1 rounded-md transition-colors ${
-                      isDark
-                        ? "text-red-400 hover:bg-red-900/30"
-                        : "text-red-600 hover:bg-red-50"
-                    }`}
-                  >
-                    {t("pluginMarket.uninstall")}
-                  </button>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      onClick={() => toggleCapabilityPanel(plugin.id)}
+                      className={`text-xs px-2.5 py-1 rounded-md transition-colors ${
+                        isDark
+                          ? "text-gray-300 hover:bg-gray-700"
+                          : "text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      {t("pluginMarket.capabilities")}
+                    </button>
+                    <button
+                      onClick={() => promptUninstall(plugin.name)}
+                      className={`text-xs px-2.5 py-1 rounded-md transition-colors ${
+                        isDark
+                          ? "text-red-400 hover:bg-red-900/30"
+                          : "text-red-600 hover:bg-red-50"
+                      }`}
+                    >
+                      {t("pluginMarket.uninstall")}
+                    </button>
+                  </div>
+                  {capabilityOpen[plugin.id] && (
+                    <PluginCapabilityPanel
+                      isDark={isDark}
+                      state={capabilityStates[plugin.id]}
+                      loading={capabilityLoadingId === plugin.id}
+                      onSave={(granted) =>
+                        void saveCapabilities(plugin.id, granted)
+                      }
+                    />
+                  )}
                 </div>
               ))}
             </div>

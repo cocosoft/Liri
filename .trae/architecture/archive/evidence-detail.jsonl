@@ -6418,3 +6418,17 @@
 {"id":"PLUGIN-CONFIG-API","k":"tests#0","i":0,"c":"app/tests/plugins/pluginConfigValues.test.ts"}
 {"id":"PLUGIN-CONFIG-API","k":"tests#1","i":0,"c":"app/tests/http/pluginConfigRoutes.test.ts"}
 {"id":"PLUGIN-CONFIG-API","k":"changelog#0","i":0,"c":"插件配置接活：注册 /plugin-settings + GET/PUT /v1/plugins/:id/config（失败 400 不落盘）"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"reopenWhen","i":0,"c":"读白名单/网络收紧待 macOS 实机灰度数据；Windows 兜底另立专项（AppContainer/JobObject）"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#0","i":0,"c":".trae/specs/macos-sandbox-exec.md"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#1","i":0,"c":"app/src/sandbox/darwin/MacOSSandboxDetector.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#2","i":0,"c":"app/src/sandbox/darwin/MacOSSandboxPolicy.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#3","i":0,"c":"app/src/sandbox/darwin/runWithSandboxExec.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#4","i":0,"c":"app/src/sandbox/darwin/index.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#5","i":0,"c":"app/src/sandbox/index.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#6","i":0,"c":"app/src/sandbox/landlock/config.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#7","i":0,"c":"app/src/tools/bash/bashLandlockExec.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#8","i":0,"c":"app/src/tools/CodeRunner/MacOSSandboxRunner.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"code#9","i":0,"c":"app/src/tools/CodeRunner/LinuxSandboxRunner.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"tests#0","i":0,"c":"app/tests/sandbox/macosSandboxPolicy.test.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"tests#1","i":0,"c":"app/tests/sandbox/bashMacOSSandboxGate.test.ts"}
+{"id":"MACOS-SANDBOX-WRITE-ISOLATION","k":"changelog#0","i":0,"c":"macOS 兜底沙箱（写隔离）：sandbox-exec 接入 bash/code_run，复用 landlock 开关，不可用即拒绝"}

@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **MACOS-SANDBOX-WRITE-ISOLATION**：macOS 兜底沙箱（写隔离） —— 验证 tsc|eslint|arch0|t8452；基线 新增19例；全量8452 pass；macOS 真机验证未做（CI 无 mac 矩阵）（详情见 archive/evidence-detail.jsonl#MACOS-SANDBOX-WRITE-ISOLATION）
 - ✅ **PLUGIN-CONFIG-API**：插件配置端点+CLI接活 —— 验证 tsc|eslint|arch0|t8476；基线 pluginConfigValues 14例；全量8476 pass；PUT 校验失败400不落盘（详情见 archive/evidence-detail.jsonl#PLUGIN-CONFIG-API）
 - ✅ **PLUGIN-CONFIG-SCHEMA-HOLLOW**：删除插件配置空壳 schema 层 —— 验证 tsc|eslint|arch0|t99|t8419；基线 setSchema 全仓0调用；schemas恒空；行为零变更；8419 pass（详情见 archive/evidence-detail.jsonl#PLUGIN-CONFIG-SCHEMA-HOLLOW）
 - ✅ **SAFETY-SWITCH-PLUGIN-REQUIRE-SIGNATURE**：登记签名闸（§1.4+断言） —— 验证 lint:doc-code|neg-control；基线 断言46条（8+21+3+14）；改文档行即 exit 1（详情见 archive/evidence-detail.jsonl#SAFETY-SWITCH-PLUGIN-REQUIRE-SIGNATURE）

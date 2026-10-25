@@ -199,6 +199,20 @@ export const K04_EXEMPTIONS: Readonly<Record<string, string>> = {
 };
 
 /**
+ * 找出**幽灵豁免**（登记了但文件已不存在）—— 只告警不判红：
+ * 文件改名后新文件仍会被 K04 正常检查（不会因此放宽），但残留条目会误导后来者。
+ */
+export function findDanglingExemptions(
+  existingKernelRelativePaths: readonly string[],
+  exemptions: Readonly<Record<string, string>> = K04_EXEMPTIONS
+): string[] {
+  const seen = new Set(existingKernelRelativePaths);
+  return Object.keys(exemptions)
+    .filter((key) => !seen.has(key))
+    .sort();
+}
+
+/**
  * 判定裸包说明符是否被白名单放行。
  *
  * - `node:*` / `bun:*`：命中 `allowedPrefixes` ⇒ 放行；
@@ -570,8 +584,29 @@ function main(): void {
     `✅ 未登记模块 0 · 三方依赖白名单内 · 无新增内核泄漏（违规合计 ${violations.length} 处，均已登记）`
   );
 
+  checkK04ExemptionHygiene(files);
   checkK07DeepPaths();
   checkK08Size(files);
+}
+
+/**
+ * K04 豁免表卫生（**只告警**）：登记的文件必须真实存在。
+ *
+ * 为什么只告警：豁免失效不会放宽门禁（文件不存在 ⇒ 没有 class 可漏），
+ * 但残留条目会让人误以为"某文件仍被豁免"。文件改名后新文件仍会被 K04 正常检查。
+ */
+function checkK04ExemptionHygiene(
+  files: ReadonlyArray<{ path: string }>
+): void {
+  const rels = files.map((f) =>
+    relative(kernelRoot, f.path).split(sep).join('/')
+  );
+  const dangling = findDanglingExemptions(rels);
+  if (dangling.length > 0) {
+    console.warn(
+      `⚠️ K04 豁免指向不存在的文件：${dangling.join(', ')} —— 请清理 K04_EXEMPTIONS`
+    );
+  }
 }
 
 /**

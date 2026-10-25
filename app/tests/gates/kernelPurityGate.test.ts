@@ -38,13 +38,18 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { KERNEL_PUBLIC_SUBPATHS } from '../../../scripts/lint-kernel-purity';
+import {
+  K04_EXEMPTIONS,
+  KERNEL_PUBLIC_SUBPATHS,
+  findDanglingExemptions,
+} from '../../../scripts/lint-kernel-purity';
 
 const GATE = resolve(import.meta.dir, '../../../scripts/lint-kernel-purity.ts');
 
@@ -169,6 +174,26 @@ describe('内核纯净度门禁：违规样例必红', () => {
     expect(out).toContain('RenamedPort.ts');
     expect(out).toContain('OnlyImpl.ts');
     expect(out).not.toContain('Outside.ts');
+  });
+
+  it('K04 豁免表卫生：幽灵条目被点名；真实仓库当前无幽灵', () => {
+    expect(
+      findDanglingExemptions(['spi/CacheService.ts'], {
+        'spi/CacheService.ts': 'x',
+        'spi/Gone.ts': 'y',
+      })
+    ).toEqual(['spi/Gone.ts']);
+
+    const spiDir = resolve(
+      import.meta.dir,
+      '../../../packages/kernel/src/core/spi'
+    );
+    const actual = readdirSync(spiDir)
+      .filter((n) => n.endsWith('.ts'))
+      .map((n) => `spi/${n}`);
+    expect(findDanglingExemptions(actual)).toEqual([]);
+    // 豁免表当前确有一条（CacheService）；表被清空时上面这条断言会失去意义
+    expect(Object.keys(K04_EXEMPTIONS).length).toBeGreaterThan(0);
   });
 
   it('模板拼接的动态导入 ⇒ K02（静态不可证，fail-closed）；纯字面量模板 ⇒ 绿', () => {

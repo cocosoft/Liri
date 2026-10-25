@@ -48,7 +48,23 @@ function resolvePython(): string | null {
 }
 
 const PYTHON = resolvePython();
+/**
+ * `PYTHON_E2E_REQUIRE=1`（CI 设置）：找不到解释器 ⇒ **报红**，不允许静默 skip。
+ * 与 `SANDBOX_NEGATIVE_REQUIRE=1` 同口径（环境不满足即失败，不把"没跑"当"通过"）。
+ */
+const REQUIRE_PYTHON = process.env['PYTHON_E2E_REQUIRE'] === '1';
 const describeE2E = PYTHON ? describe : describe.skip;
+
+if (!PYTHON && REQUIRE_PYTHON) {
+  describe('Python 真链 E2E 前置（PYTHON_E2E_REQUIRE=1）', () => {
+    it('必须存在可用的 Python 解释器（不允许静默 skip）', () => {
+      throw new Error(
+        'PYTHON_E2E_REQUIRE=1 但未找到 Python（已尝试 LIRI_TEST_PYTHON / python / python3）：' +
+          '本 job 必须实际执行 Python 插件真链 E2E。'
+      );
+    });
+  });
+}
 
 const savedDataDir = process.env['LIRI_DATA_DIR'];
 const temps: string[] = [];

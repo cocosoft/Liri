@@ -153,7 +153,7 @@ mkdir -p ~/.pyapp/plugins/trusted-keys && cp ./keys/plugin-signing.pub.pem ~/.py
 | P2 | 安装链路 E2E：未授权能力 ⇒ 拒绝安装/启用 |
 | P2 · `config`（2026-10-25） | 单测：已授权 ⇒ env 有快照且 `config.set` 落库回 `success:true`；未授权 ⇒ 无快照且 `config.set` 回 `success:false`；校验失败 ⇒ 回因；子进程 `set/save` 失败可抛、成功后才更新本地视角 |
 | P2 · `config` · Python 迁移（2026-10-25） | 单测：旧文件缺失 ⇒ `absent`；坏 JSON / 非对象 ⇒ `invalid` 且保留原文件；某键被 schema 拒绝 ⇒ `blocked` 且保留原文件、已导入键保留；成功 ⇒ 只补缺失键、不覆盖新值、改名 `.migrated`、二次调用 `absent`；源码级防回流（适配器不再自带 `configStore/persistConfig`） |
-| P2 · `config` · Python 真链 E2E（2026-10-25） | 真实 spawn Python 子进程（`tests/fixtures/plugins/python-cfg-probe/main.py`）：`ctx.config.get/set/save` 经反向 RPC 落到宿主端口——读回宿主初值、写入落库；无 Python 解释器时**整组 skip**（不伪造通过） |
+| P2 · `config` · Python 真链 E2E（2026-10-25） | 真实 spawn Python 子进程（`tests/fixtures/plugins/python-cfg-probe/main.py`）：`ctx.config.get/set/save` 经反向 RPC 落到宿主端口——读回宿主初值、写入落库；无 Python 解释器时**整组 skip**（不伪造通过）；CI（`ci.yml` / `release.yml` 的测试步）置 `PYTHON_E2E_REQUIRE=1` ⇒ 缺解释器即**报红**（与 `SANDBOX_NEGATIVE_REQUIRE=1` 同口径） |
 | P2 · 签名（2026-10-25） | 单测：开关缺省不读文件；启用但未配信任锚 / 目录不存在 / 无 `.pem` / 缺 `.sig` / 非 base64 / 字节被改 ⇒ 全部拒绝；有效签名 ⇒ 放行并回签名者文件名；加载器层未签名 ⇒ 拒绝且状态回 `UNLOADED`；**信任锚并集**：随包 `<project>/app/trusted-keys`（仅说明文件 ⇒ 不生效；放 `*.pem` ⇒ 零配置生效）与用户目录互不挤占 |
 
 ## 7. 回退

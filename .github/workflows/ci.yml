@@ -112,6 +112,10 @@ jobs:
 
     - name: Run tests (incremental, full fallback)
       shell: bash
+      env:
+        # 真链 E2E 必须执行（2026-10-25）：job 内找不到 Python 解释器 ⇒ 该组**报红**（不静默 skip）。
+        # 与 `SANDBOX_NEGATIVE_REQUIRE=1` 同口径：环境不满足即失败，不把「没跑」当「通过」。
+        PYTHON_E2E_REQUIRE: '1'
       # 门禁自证 / 集成类用例会 spawn `bun`/lint 脚本：实测 Linux 容器 8–28s，
       # 超过 bun test 默认 5s ⇒ CI 上稳定超时假红。统一放宽到 30s（仍为有界）。
       run: |

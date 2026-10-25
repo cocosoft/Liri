@@ -12304,6 +12304,35 @@
         "Python 插件 config 真链 E2E：真实 spawn 子进程，ctx.config.get/set/save 经反向 RPC 落到宿主端口"
       ],
       "reopenWhen": "更换 Python 协议/SDK 版本或适配器不再走反向 RPC 时需重跑；CI 无 Python 时该组自动 skip，须在含 Python 的 job 覆盖（全文见 archive/evidence-detail.jsonl#T25-08-P2-PY-CONFIG-E2E）"
+    },
+    {
+      "id": "T25-08-P2-PY-E2E-CI",
+      "title": "CI 不允许静默 skip：Python 真链 E2E 缺解释器即报红（PYTHON_E2E_REQUIRE=1）",
+      "source": "dev_docs/20261025/待完成工作任务清单-20261025.md §34.1",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        ".github/workflows/ci.yml",
+        ".github/workflows/release.yml",
+        ".trae/specs/plugin-process-isolation.md"
+      ],
+      "tests": [
+        "app/tests/plugins/pythonPluginE2E.test.ts"
+      ],
+      "changelog": [
+        "CI 设 PYTHON_E2E_REQUIRE=1：Python 真链 E2E 缺解释器即报红，不把「没跑」当「通过」"
+      ],
+      "reopenWhen": "若将来把真链 E2E 迁到独立 job，需同步搬移 PYTHON_E2E_REQUIRE；停止使用 Python 插件时一并撤下该开关（全文见 archive/evidence-detail.jsonl#T25-08-P2-PY-E2E-CI）"
     }
   ]
 }

@@ -6342,3 +6342,11 @@
 {"id":"T25-08-P2-PY-CONFIG-E2E","k":"code#2","i":0,"c":".trae/specs/plugin-process-isolation.md"}
 {"id":"T25-08-P2-PY-CONFIG-E2E","k":"tests#0","i":0,"c":"app/tests/plugins/pythonPluginE2E.test.ts"}
 {"id":"T25-08-P2-PY-CONFIG-E2E","k":"changelog#0","i":0,"c":"Python 插件 config 真链 E2E：真实 spawn 子进程，ctx.config.get/set/save 经反向 RPC 落到宿主端口"}
+{"id":"T25-08-P2-PY-E2E-CI","k":"title","i":0,"c":"CI 不允许静默 skip：Python 真链 E2E 缺解释器即报红（PYTHON_E2E_REQUIRE=1）"}
+{"id":"T25-08-P2-PY-E2E-CI","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §34.1"}
+{"id":"T25-08-P2-PY-E2E-CI","k":"reopenWhen","i":0,"c":"若将来把真链 E2E 迁到独立 job，需同步搬移 PYTHON_E2E_REQUIRE；停止使用 Python 插件时一并撤下该开关"}
+{"id":"T25-08-P2-PY-E2E-CI","k":"code#0","i":0,"c":".github/workflows/ci.yml"}
+{"id":"T25-08-P2-PY-E2E-CI","k":"code#1","i":0,"c":".github/workflows/release.yml"}
+{"id":"T25-08-P2-PY-E2E-CI","k":"code#2","i":0,"c":".trae/specs/plugin-process-isolation.md"}
+{"id":"T25-08-P2-PY-E2E-CI","k":"tests#0","i":0,"c":"app/tests/plugins/pythonPluginE2E.test.ts"}
+{"id":"T25-08-P2-PY-E2E-CI","k":"changelog#0","i":0,"c":"CI 设 PYTHON_E2E_REQUIRE=1：Python 真链 E2E 缺解释器即报红，不把「没跑」当「通过」"}

@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **T25-08-P2-PY-E2E-CI**：CI 不允许静默 skip：Python 真链 E2E 缺解释器即报红 —— 验证 guard-red|e2e1|plugins99|workflows；基线 PATH='' ⇒ 1 fail/1 skip exit1；正常环境同开关 ⇒ 1 pass（详情见 archive/evidence-detail.jsonl#T25-08-P2-PY-E2E-CI）
 - ✅ **T25-08-P2-PY-CONFIG-E2E**：Python 插件 config 真链 E2E（真实 spawn + 反向 RPC） —— 验证 e2e1|plugins99|typecheck|arch|doc-code；基线 真链证明 Python _Config → 反向 RPC → 宿主端口；无解释器整组 skip（详情见 archive/evidence-detail.jsonl#T25-08-P2-PY-CONFIG-E2E）
 - ✅ **T25-08-P2-PY-CONFIG-MERGE**：插件 config 双轨收敛：Python 并入 PluginConfigManager —— 验证 plugins98|typecheck|arch|doc-code|doc-alias；基线 Python/Node 同一份配置；旧文件首次启动并入后改名 .migrated（详情见 archive/evidence-detail.jsonl#T25-08-P2-PY-CONFIG-MERGE）
 - ✅ **T25-08-P2-OFFICIAL-KEY**：T25-08 P2：内置官方插件公钥（签名闸默认开启） —— 验证 plugins93|typecheck|doc-code|doc-alias；基线 缺省启用签名闸：未签第三方插件被拒；私钥在仓库外（详情见 archive/evidence-detail.jsonl#T25-08-P2-OFFICIAL-KEY）

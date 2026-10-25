@@ -34,6 +34,7 @@
     ],
     "resources": {
       "../../app/docs": "app/docs",
+      "../../app/trusted-keys": "app/trusted-keys",
       "../../app/config": "app/config",
       "../../app/seed/pyapp": "app/data/pyapp",
       "../../app/.env.example": "app/.env.example",

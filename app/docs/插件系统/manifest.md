@@ -92,6 +92,13 @@ bun run plugin:sign sign --plugin <插件目录> --key ./keys/plugin-signing.key
 bun run plugin:sign verify --plugin <插件目录> --keys ./keys
 ```
 
-启用方式：把公钥 `*.pem` 放进 `<plugins 根>/trusted-keys/`（默认信任锚，**有公钥即开始校验**），
-或用 `LIRI_PLUGIN_TRUSTED_KEYS_DIR` 指定目录；要临时关闭写 `LIRI_PLUGIN_REQUIRE_SIGNATURE=false`。
+启用方式：把公钥 `*.pem` 放进下列**任一**目录即开始校验（三处取**并集**，互不替代）：
+
+| 目录 | 用途 |
+|------|------|
+| `<安装目录>/app/trusted-keys/` | **随包官方钥**（只读；由发布方维护，用户无需改动） |
+| `~/.pyapp/plugins/trusted-keys/` | 用户自建钥（自己签的插件放这里） |
+| `LIRI_PLUGIN_TRUSTED_KEYS_DIR` 指向的目录 | 追加的信任锚（即使目录不存在也参与判定） |
+
+要临时关闭写 `LIRI_PLUGIN_REQUIRE_SIGNATURE=false`。
 开启后，未签名 / 签名不匹配的第三方插件会被拒绝安装与加载。

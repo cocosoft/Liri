@@ -31,12 +31,13 @@
 | 顺序 | 闸门 | 判定 | 放行方式 |
 |---|---|---|---|
 | 1 | **准入** | 第三方代码默认**不在主进程**加载 | `LIRI_PLUGIN_TRUSTED_IDS=<插件id>`（逗号分隔） |
-| 2 | **签名** | 配置了信任锚就必须是受信任公钥签过的清单 | 把公钥放进 `<plugins 根>/trusted-keys/`，并给清单签名（`bun run plugin:sign`） |
+| 2 | **签名** | 有信任锚就必须是受信任公钥签过的清单 | 公钥放 `app/trusted-keys/`（随包官方钥）或 `<plugins 根>/trusted-keys/`（自建钥），并给清单签名（`bun run plugin:sign`） |
 | 3 | **能力** | 清单声明的 `capabilities` 必须已授权 | 市场页「能力权限」勾选，或 `.env` 的 `LIRI_PLUGIN_CAPABILITY_GRANTS` |
 | 4 | **进程** | 通过前三道后默认在**子进程**运行（`PLUGIN_HOST_PROCESS=true`） | 子进程只注入白名单 env，读不到宿主 `.env`；工具经 RPC 回主进程执行并留审计 |
 
 - 第一方 bundled 插件不走这套闸；
-- 第 2 道**只在有信任锚时启用**（默认位置 `<plugins 根>/trusted-keys/`，有 `*.pem` 即开始校验；
+- 第 2 道**只在有信任锚时启用**（随包官方钥 `app/trusted-keys/`、用户自建钥 `<plugins 根>/trusted-keys/`、
+  `LIRI_PLUGIN_TRUSTED_KEYS_DIR` **三处并集**，任一目录有 `*.pem` 即开始校验，
   `LIRI_PLUGIN_REQUIRE_SIGNATURE=false` 可临时关闭）；
 - 第 3 道在完全没有授权配置时不做门控（零行为变更），但清单里的**未知能力名永远被拒**。
 

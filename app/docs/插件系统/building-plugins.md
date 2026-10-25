@@ -66,6 +66,9 @@ cd app && bun run plugin:sign keygen --out ./keys     # 生成密钥对（私钥
 bun run plugin:sign sign --plugin ./my-plugin --key ./keys/plugin-signing.key
 ```
 
+公钥（`*.pem`）放 `~/.pyapp/plugins/trusted-keys/`（自建钥）或随包官方钥目录
+`<安装目录>/app/trusted-keys/`，两者是**并集**；放进任一目录即开始校验。
+
 字段与判定细节见 [插件清单](./manifest.md)；加载闸门见 [插件概述](./overview.md)。
 
 ## 构建与发布

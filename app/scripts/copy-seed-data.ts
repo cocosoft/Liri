@@ -155,6 +155,18 @@ function main(): void {
     console.warn(`[跳过] docs/ 不存在: ${docsSrc}`);
   }
 
+  // trusted-keys/ — 随包**官方插件公钥**（只读；`resolveBundledTrustedKeysDir()` 期望
+  // projectRoot/app/trusted-keys）。只含 *.pem 公钥与说明文件；私钥永不入库、不随包。
+  // 目录缺省时只告警不失败：没有官方公钥的构建等价于"签名闸未启用"（fail-closed 由判定侧负责）。
+  const trustedKeysSrc = path.join(appRoot, 'trusted-keys');
+  const trustedKeysDest = path.join(targetAppDir, 'trusted-keys');
+  if (fs.existsSync(trustedKeysSrc)) {
+    copyRecursive(trustedKeysSrc, trustedKeysDest);
+    console.log(`[复制] trusted-keys/`);
+  } else {
+    console.warn(`[跳过] trusted-keys/ 不存在: ${trustedKeysSrc}`);
+  }
+
   // config/startup.yaml 和 permissions.yaml
   const configSrc = path.join(appRoot, 'config');
   const configDest = path.join(targetAppDir, 'config');

@@ -49,9 +49,10 @@ const USAGE = `插件清单签名工具（T25-08 P2）
   verify --plugin <dir> --keys <dir>
       用受信任公钥目录（*.pem）验签；与运行时门禁共用 checkPluginSignature
 
-启用（运行时）：把公钥放进**默认信任锚**即生效
-  ${PLUGIN_TRUSTED_KEYS_DIR_ENV}=<自定义目录>   # 可选；不设则用下面的默认位置
-  默认位置：<plugins 根>/trusted-keys（放 *.pem）
+启用（运行时）：把公钥放进下列**任一**目录即生效（并集，互不替代）
+  ${PLUGIN_TRUSTED_KEYS_DIR_ENV}=<自定义目录>   # 可追加（即使目录不存在也参与判定）
+  随包官方钥：<安装目录>/app/trusted-keys/（随包分发，只读；放 *.pem）
+  用户自建钥：<plugins 根>/trusted-keys/（~/.pyapp/plugins/trusted-keys）
   ${PLUGIN_SIGNATURE_ENFORCE_ENV}=false   # 可选：临时关闭校验
 `;
 
@@ -99,7 +100,8 @@ function keygen(args: readonly string[]): void {
   process.stdout.write(
     `[plugin-sign] ✅ 已生成密钥对\n` +
       `  私钥：${keyPath}（保密；不要放进插件目录）\n` +
-      `  公钥：${pubPath}（复制到默认信任锚 <plugins 根>/trusted-keys/，或 ${PLUGIN_TRUSTED_KEYS_DIR_ENV} 指向的目录）\n` +
+      `  公钥：${pubPath}（放进随包目录 app/trusted-keys/（官方钥）或 ~/.pyapp/plugins/trusted-keys/，` +
+      `或 ${PLUGIN_TRUSTED_KEYS_DIR_ENV} 指向的目录）\n` +
       `  指纹：${fingerprintOf(publicPem)}\n`
   );
 }

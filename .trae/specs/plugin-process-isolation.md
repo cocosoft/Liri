@@ -1,6 +1,6 @@
 # Spec：第三方插件进程隔离（T25-08）
 
-> 版本 1.5 ｜ 创建 2026-10-25 ｜ 状态：✅ **P0 + P1 已落地**；**P2 全部落地**（能力声明 + 安装/加载双闸 + env/UI 双授权 + **`config` 能力** + `events` 声明即拒绝 + **清单签名（信任锚即开）** + 签名工具链）
+> 版本 1.6 ｜ 创建 2026-10-25 ｜ 状态：✅ **P0 + P1 已落地**；**P2 全部落地**（能力声明 + 安装/加载双闸 + env/UI 双授权 + **`config` 能力** + `events` 声明即拒绝 + **清单签名（信任锚即开）** + 签名工具链 + **随包官方公钥分发**）
 > 实现落点：`app/src/plugins/utils/pluginTrust.ts`（P0 闸）· `app/src/plugins/host/{pluginHostProtocol,pluginHostEntry,PluginHostSupervisor}.ts`（P1 宿主）· `app/src/plugins/host/pluginConfigPort.ts`（P2 `config` 读写端口）· `app/src/plugins/utils/pluginCapabilities.ts`（P2 能力授权）· `app/src/plugins/utils/pluginSignature.ts`（P2 签名校验）
 > 开关 / 授权：`PLUGIN_THIRD_PARTY_INPROCESS=false`（准入闸）· `PLUGIN_HOST_PROCESS=true`（子进程宿主）· `LIRI_PLUGIN_CAPABILITY_GRANTS=<id>:<cap>[,…]`（能力授权；未配置 = 不做能力门控）· `LIRI_PLUGIN_TRUSTED_KEYS_DIR`（签名信任锚；**配了即校验**，`LIRI_PLUGIN_REQUIRE_SIGNATURE=false` 可关）
 > 来源：`dev_docs/20261025/待完成工作任务清单-20261025.md` §10.6（第二批建议组 6）
@@ -96,7 +96,7 @@
 | 项 | 口径 |
 |---|---|
 | 开关 | `LIRI_PLUGIN_REQUIRE_SIGNATURE`：显式 `false/0/no/off` ⇒ 关；显式为真值 ⇒ 开；**未设置 ⇒ 配了信任锚就自动开**（"信任锚即意图"，避免"配了公钥却忘了开开关"的假保护） |
-| 信任锚 | 默认位置 `<plugins 根>/trusted-keys`（放 `*.pem` 的 **Ed25519 公钥**；**目录里必须真的有公钥**才算生效）；`LIRI_PLUGIN_TRUSTED_KEYS_DIR` 可覆盖该位置 |
+| 信任锚 | **三处并集**（互不替代）：① 随包官方钥 `<projectRoot>/app/trusted-keys`（只读，随安装包分发）；② 用户自建钥 `<plugins 根>/trusted-keys`；③ `LIRI_PLUGIN_TRUSTED_KEYS_DIR`（显式配置，即使目录不存在也参与判定）。每处**必须真的含 `*.pem`** 才计入（空目录/仅说明文件不算） |
 | 签名对象 | `plugin.json` 的**原始字节**；`plugin.sig` 存 base64（允许折行） |
 | 为什么不对 JSON 再序列化 | "规范化后签名"要自带一套规范化规则，规则一偏就是「验签通过但内容不同」 |
 | 闸位 | **安装**（`PluginInstallManager`）与**加载**（`PluginLoader`）同一入口 `checkPluginSignature` —— 覆盖"手工丢进 installed 目录"绕过安装器的路径 |
@@ -112,14 +112,17 @@ cd app && bun run plugin:sign keygen --out ./keys
 bun run plugin:sign sign --plugin ~/.pyapp/plugins/installed/<id> --key ./keys/plugin-signing.key
 # 3) 本地先验一遍（与运行时门禁同一个 checkPluginSignature）
 bun run plugin:sign verify --plugin ~/.pyapp/plugins/installed/<id> --keys ./keys
-# 4) 启用：把公钥放进默认信任锚即可（无需再写开关）
+# 4) 启用：把公钥放进任一信任锚目录即可（无需再写开关）
 mkdir -p ~/.pyapp/plugins/trusted-keys && cp ./keys/plugin-signing.pub.pem ~/.pyapp/plugins/trusted-keys/
-#    要换位置：LIRI_PLUGIN_TRUSTED_KEYS_DIR=<目录>
+#    随包官方钥：发布方把公钥放 app/trusted-keys/（随包复制到 <安装目录>/app/trusted-keys/）
+#    要追加位置：LIRI_PLUGIN_TRUSTED_KEYS_DIR=<目录>
 #    要临时关闭：LIRI_PLUGIN_REQUIRE_SIGNATURE=false
 ```
 
-> 工具**不会**替你摆放公钥：默认信任锚目录要你放入公钥才会生效；私钥不托管、不进插件目录。
-> **随包分发官方公钥**（厂商签名体系）仍属发布链决策，本仓未内置任何私钥/公钥。
+> 工具**不会**替你摆放公钥：放进任一信任锚目录才会生效；私钥不托管、不进插件目录。
+> **随包分发官方公钥**已落地（2026-10-25）：仓库内 `app/trusted-keys/` 随包分发（`copy-seed-data.ts`
+> → 便携包 `app/trusted-keys/`；Tauri 由 `bundle.resources` 映射）；**本仓不内置任何私钥**，
+> 官方公钥本身由发布方在发版前放入（目录内只有说明文件时视为「无官方钥」，不改变默认行为）。
 
 > 无钥时**拒装**（而非告警放行）：开启该开关的语义就是"只装能证明来源的东西"；若缺钥时放行，攻击者只需清空目录即可绕过。
 
@@ -143,7 +146,7 @@ mkdir -p ~/.pyapp/plugins/trusted-keys && cp ./keys/plugin-signing.pub.pem ~/.py
 | P1 | 负向：插件读 `process.env` **拿不到**宿主密钥；插件崩溃**不杀主进程**且被有界重启；插件工具调用经 RPC 且宿主侧有审计 |
 | P2 | 安装链路 E2E：未授权能力 ⇒ 拒绝安装/启用 |
 | P2 · `config`（2026-10-25） | 单测：已授权 ⇒ env 有快照且 `config.set` 落库回 `success:true`；未授权 ⇒ 无快照且 `config.set` 回 `success:false`；校验失败 ⇒ 回因；子进程 `set/save` 失败可抛、成功后才更新本地视角 |
-| P2 · 签名（2026-10-25） | 单测：开关缺省不读文件；启用但未配信任锚 / 目录不存在 / 无 `.pem` / 缺 `.sig` / 非 base64 / 字节被改 ⇒ 全部拒绝；有效签名 ⇒ 放行并回签名者文件名；加载器层未签名 ⇒ 拒绝且状态回 `UNLOADED` |
+| P2 · 签名（2026-10-25） | 单测：开关缺省不读文件；启用但未配信任锚 / 目录不存在 / 无 `.pem` / 缺 `.sig` / 非 base64 / 字节被改 ⇒ 全部拒绝；有效签名 ⇒ 放行并回签名者文件名；加载器层未签名 ⇒ 拒绝且状态回 `UNLOADED`；**信任锚并集**：随包 `<project>/app/trusted-keys`（仅说明文件 ⇒ 不生效；放 `*.pem` ⇒ 零配置生效）与用户目录互不挤占 |
 
 ## 7. 回退
 

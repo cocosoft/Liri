@@ -2,7 +2,7 @@
   "version": 1,
   "kernelRoot": "packages/kernel/src/core",
   "fileCount": 113,
-  "symbolCount": 1052,
+  "symbolCount": 1053,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -848,6 +848,7 @@
         "resolveAttachmentsDateDir",
         "resolveAttachmentsDir",
         "resolveBundledEnvPath",
+        "resolveBundledTrustedKeysDir",
         "resolveCacheDir",
         "resolveChronosDir",
         "resolveConfigDir",

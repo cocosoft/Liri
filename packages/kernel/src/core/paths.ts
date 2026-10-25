@@ -688,6 +688,19 @@ export function resolveEnvExamplePath(
   return join(resolveProjectRoot(env), 'app', '.env.example');
 }
 
+/**
+ * 安装目录内的**官方插件公钥**目录（`<projectRoot>/app/trusted-keys`，随包分发，只读）
+ *
+ * 只放 `*.pem` 公钥（厂商签名体系）；私钥**永不入库、不随包**。
+ * 与用户级信任锚（`~/.pyapp/plugins/trusted-keys`）是**并集**关系：
+ * 用户自建钥不会把随包官方钥挤掉（判定在 `plugins/utils/pluginSignature.ts`）。
+ */
+export function resolveBundledTrustedKeysDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveProjectRoot(env), 'app', 'trusted-keys');
+}
+
 /** AI 人格定义（~/.pyapp/SOUL.md） */
 export function resolveSoulPath(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolvePyappHome(env), 'SOUL.md');

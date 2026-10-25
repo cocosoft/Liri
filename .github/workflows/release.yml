@@ -299,6 +299,7 @@ jobs:
           if [ -d "$PKG_DIR/node_modules/sharp" ]; then echo "  ✅ deps/sharp"; fi
           if [ -d "$PKG_DIR/app/config" ]; then echo "  ✅ app/config/ (startup.yaml)"; fi
           if [ -d "$PKG_DIR/app/docs" ]; then echo "  ✅ app/docs/"; fi
+          if [ -d "$PKG_DIR/app/trusted-keys" ]; then echo "  ✅ app/trusted-keys/ (official plugin pubkeys)"; fi
           if [ -f "$PKG_DIR/app/package.json" ]; then echo "  ✅ app/package.json (runtime version)"; fi
           if [ -f "$PKG_DIR/app/data/pyapp/SOUL.md" ]; then echo "  ✅ app/data/pyapp/SOUL.md"; fi
           echo "=== Verification passed ==="
@@ -332,7 +333,7 @@ jobs:
           fi
 
           echo "=== [2/4] 断言关键路径 ==="
-          for p in liri.js runtime app/config app/docs app/package.json; do
+          for p in liri.js runtime app/config app/docs app/trusted-keys app/package.json; do
             if [[ -e "$PKG/$p" ]]; then echo "  ✅ $p"; else echo "  ❌ $p MISSING"; exit 1; fi
           done
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then

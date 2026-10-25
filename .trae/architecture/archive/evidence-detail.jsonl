@@ -6379,3 +6379,12 @@
 {"id":"CHAT-SESSION-EXPORT-RESOLVED","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §35.2"}
 {"id":"CHAT-SESSION-EXPORT-RESOLVED","k":"reopenWhen","i":0,"c":"浏览器改下载目录/OneDrive 重定向时按「下载历史」定位；导出缺少完成提示属 UX 缺口，另立 toast 项"}
 {"id":"CHAT-SESSION-EXPORT-RESOLVED","k":"changelog#0","i":0,"c":"会话导出实为可用：Chrome 下载历史 20 条 state=1，文件落在 E:/PY/Downloads；无代码改动，台账更正此前误判"}
+{"id":"CHAT-EXPORT-SUCCESS-TOAST","k":"title","i":0,"c":"会话导出成功后提示 toast（含文件名，覆盖 md/完整版/json/html/word）"}
+{"id":"CHAT-EXPORT-SUCCESS-TOAST","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §35.3"}
+{"id":"CHAT-EXPORT-SUCCESS-TOAST","k":"reopenWhen","i":0,"c":"若后续改为桌面壳保存（plugin-fs/dialog），toast 文案需改为显示真实保存路径而非「下载目录」"}
+{"id":"CHAT-EXPORT-SUCCESS-TOAST","k":"code#0","i":0,"c":"client/src/components/ChatArea/SessionHeader.tsx"}
+{"id":"CHAT-EXPORT-SUCCESS-TOAST","k":"code#1","i":0,"c":"client/src/stores/toastStore.ts"}
+{"id":"CHAT-EXPORT-SUCCESS-TOAST","k":"code#2","i":0,"c":"client/src/i18n/locales/zh/base.ts"}
+{"id":"CHAT-EXPORT-SUCCESS-TOAST","k":"code#3","i":0,"c":"client/src/i18n/locales/en/base.ts"}
+{"id":"CHAT-EXPORT-SUCCESS-TOAST","k":"tests#0","i":0,"c":"client/src/tests/i18nKeyCoverage.test.ts"}
+{"id":"CHAT-EXPORT-SUCCESS-TOAST","k":"changelog#0","i":0,"c":"会话导出成功后提示 toast（含文件名与下载目录提示），消除「点了没反应」的错觉"}

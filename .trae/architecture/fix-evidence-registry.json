@@ -12463,6 +12463,36 @@
         "会话导出实为可用：Chrome 下载历史 20 条 state=1，文件落在 E:/PY/Downloads；无代码改动，台账更正此前误判"
       ],
       "reopenWhen": "浏览器改下载目录/OneDrive 重定向时按「下载历史」定位；导出缺少完成提示属 UX 缺口，另立 toast 项（全文见 archive/evidence-detail.jsonl#CHAT-SESSION-EXPORT-RESOLVED）"
+    },
+    {
+      "id": "CHAT-EXPORT-SUCCESS-TOAST",
+      "title": "会话导出成功后提示 toast（含文件名，覆盖 md/完整版/json/html/word）",
+      "source": "dev_docs/20261025/待完成工作任务清单-20261025.md §35.3",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "client/src/components/ChatArea/SessionHeader.tsx",
+        "client/src/stores/toastStore.ts",
+        "client/src/i18n/locales/zh/base.ts",
+        "client/src/i18n/locales/en/base.ts"
+      ],
+      "tests": [
+        "client/src/tests/i18nKeyCoverage.test.ts"
+      ],
+      "changelog": [
+        "会话导出成功后提示 toast（含文件名与下载目录提示），消除「点了没反应」的错觉"
+      ],
+      "reopenWhen": "若后续改为桌面壳保存（plugin-fs/dialog），toast 文案需改为显示真实保存路径而非「下载目录」（全文见 archive/evidence-detail.jsonl#CHAT-EXPORT-SUCCESS-TOAST）"
     }
   ]
 }

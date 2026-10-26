@@ -12701,6 +12701,49 @@
         "新增 bun run verify:sandbox-macos：4 条断言自证 macOS 写隔离（无需人工敲命令）"
       ],
       "reopenWhen": "Mac 上跑通后把 baseline 换成真实输出；若 sandbox-exec 被系统移除，脚本 exit 2 即为信号（全文见 archive/evidence-detail.jsonl#MACOS-SANDBOX-SELFCHECK）"
+    },
+    {
+      "id": "WINDOWS-SANDBOX-LOW-IL",
+      "title": "",
+      "source": "",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        ".trae/specs/windows-sandbox.md",
+        "app/src/sandbox/win/native/win_sandbox_run.c",
+        "app/src/sandbox/win/helperPaths.ts",
+        "app/src/sandbox/win/WindowsSandboxDetector.ts",
+        "app/src/sandbox/win/runWithWinSandbox.ts",
+        "app/src/sandbox/win/index.ts",
+        "app/src/sandbox/helperBinDir.ts",
+        "app/src/sandbox/landlock/helperPaths.ts",
+        "app/src/sandbox/index.ts",
+        "app/src/tools/CodeRunner/WindowsSandboxRunner.ts",
+        "app/src/tools/CodeRunner/LinuxSandboxRunner.ts",
+        "app/scripts/build-win-sandbox.ts",
+        "app/scripts/verify-win-sandbox.ts",
+        "app/package.json",
+        ".github/workflows/ci.yml",
+        ".gitignore"
+      ],
+      "tests": [
+        "app/tests/sandbox/winSandbox.test.ts",
+        "app/tests/sandbox/winSandboxRunner.test.ts"
+      ],
+      "changelog": [
+        "Windows 兜底沙箱（Low IL + Job）：code_run 写隔离，CI 全自动构建与自证"
+      ],
+      "reopenWhen": "若要沙箱化 bash：需给用户仓库打 ACL/标签（污染风险）或改 AppContainer ⇒ 另立专项（全文见 archive/evidence-detail.jsonl#WINDOWS-SANDBOX-LOW-IL）"
     }
   ]
 }

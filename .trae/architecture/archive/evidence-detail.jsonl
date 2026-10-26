@@ -6441,3 +6441,23 @@
 {"id":"MACOS-SANDBOX-SELFCHECK","k":"code#1","i":0,"c":"app/package.json"}
 {"id":"MACOS-SANDBOX-SELFCHECK","k":"code#2","i":0,"c":".trae/specs/macos-sandbox-exec.md"}
 {"id":"MACOS-SANDBOX-SELFCHECK","k":"changelog#0","i":0,"c":"新增 bun run verify:sandbox-macos：4 条断言自证 macOS 写隔离（无需人工敲命令）"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"reopenWhen","i":0,"c":"若要沙箱化 bash：需给用户仓库打 ACL/标签（污染风险）或改 AppContainer ⇒ 另立专项"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#0","i":0,"c":".trae/specs/windows-sandbox.md"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#1","i":0,"c":"app/src/sandbox/win/native/win_sandbox_run.c"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#2","i":0,"c":"app/src/sandbox/win/helperPaths.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#3","i":0,"c":"app/src/sandbox/win/WindowsSandboxDetector.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#4","i":0,"c":"app/src/sandbox/win/runWithWinSandbox.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#5","i":0,"c":"app/src/sandbox/win/index.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#6","i":0,"c":"app/src/sandbox/helperBinDir.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#7","i":0,"c":"app/src/sandbox/landlock/helperPaths.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#8","i":0,"c":"app/src/sandbox/index.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#9","i":0,"c":"app/src/tools/CodeRunner/WindowsSandboxRunner.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#10","i":0,"c":"app/src/tools/CodeRunner/LinuxSandboxRunner.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#11","i":0,"c":"app/scripts/build-win-sandbox.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#12","i":0,"c":"app/scripts/verify-win-sandbox.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#13","i":0,"c":"app/package.json"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#14","i":0,"c":".github/workflows/ci.yml"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"code#15","i":0,"c":".gitignore"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"tests#0","i":0,"c":"app/tests/sandbox/winSandbox.test.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"tests#1","i":0,"c":"app/tests/sandbox/winSandboxRunner.test.ts"}
+{"id":"WINDOWS-SANDBOX-LOW-IL","k":"changelog#0","i":0,"c":"Windows 兜底沙箱（Low IL + Job）：code_run 写隔离，CI 全自动构建与自证"}

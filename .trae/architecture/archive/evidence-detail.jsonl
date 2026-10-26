@@ -6524,3 +6524,16 @@
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#1","i":0,"c":".trae/architecture/kernel-size-baseline.json"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#2","i":0,"c":".trae/architecture/kernel-api-surface.json"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"tests#0","i":0,"c":"app/tests/paths/resolveProjectRootRuntimeExe.test.ts"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"title","i":0,"c":"批处理（TAOR/LRO）路径透传 failureKind（LRO-D5）"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"source","i":0,"c":"2026-10-26 用户指令「好的，执行吧」（承接计划 §10.3 第 4 项）；依据 dev_docs/20261026/长程任务失败排查工作计划-20261026.md §10-D5"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"reopenWhen","i":0,"c":"若出现「长任务/批处理路径仍以 circuit_breaker 收口而非 environment_blocked」或「未分类失败被误当阻塞」：回看 TAORLoop.act 的 results 构造与 taor/types.ts 的 executeTools 契约；回滚 = revert 8e43a0c13"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"notes","i":0,"c":"【机制】TAORLoop.act 先把结果映射成 ToolResultEntry 时只取 toolCallId/name/status/output/error ⇒ 骨架 classifyTurn 看到的永远是\"未分类\"，双预算在批处理路径形同不存在。"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"notes","i":1,"c":"【改法】executeTools 契约与 ChatManagerTAORAdapter 结果构造补 failureKind；PathGuard 跳过项标 safety_blocked；映射抽到 ReActLoop.toToolResultEntries（与 ToolResultEntry 同处，避开 lint:state-ratchet 的新文件 error 字面量）。"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"notes","i":2,"c":"【体量】TAORLoop.ts 本次曾到 2018 行（R04-001 上限 2000）⇒ 跳过回填抽到 query/taor/roundResults.ts、结果映射移到 ReActLoop，最终 1995 行。"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"notes","i":3,"c":"【如实缺口】① failureKind 未落盘（仅内存 ToolResultEntry）⇒ 恢复/续跑无法据分类短路，属 LRO-13 设计范畴，未提前实现（无消费者）；② SubAgentLoop（AgentTool/SubAgentEngine）走 {ok,content} 契约，未分类；③ aborted/timeout 仍按 progress 计（旧语义保留）。"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#0","i":0,"c":"app/src/query/TAORLoop.ts"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#1","i":0,"c":"app/src/query/ReActLoop.ts"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#2","i":0,"c":"app/src/query/ChatManagerTAORAdapter.ts"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#3","i":0,"c":"app/src/query/taor/types.ts"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"code#4","i":0,"c":"app/src/query/taor/roundResults.ts"}
+{"id":"TAOR-FAILURE-KIND-PARITY","k":"tests#0","i":0,"c":"app/tests/query/taorLoopPathGuardPerCallSkip.test.ts"}

@@ -125,6 +125,34 @@ export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 /**
+ * 宿主运行时的可执行文件名（LRO-D4，2026-10-26）。
+ *
+ * `resolveProjectRoot()` 的"从 argv[0] 推断应用 exe 所在目录"只对**随包分发的应用 exe**
+ * 成立；开发入口 `bun run …` 的 `argv[0]` 是 `bun.exe`，若同样按"exe 所在目录"推断，
+ * 项目根会被算成 **bun 的安装目录**（`~/.bun/bin`）⇒ 启动 `chdir` 到那里，随后
+ * 工具 cwd / 受信工作区判定 / 相对路径全线偏移。
+ */
+const RUNTIME_EXE_BASENAMES = new Set([
+  'bun.exe',
+  'bunx.exe',
+  'node.exe',
+  'npx.exe',
+  'npm.exe',
+  'pnpm.exe',
+  'yarn.exe',
+  'deno.exe',
+  'tsx.exe',
+  'ts-node.exe',
+]);
+
+/** argv[0] 是否指向宿主运行时（而非本应用的可执行文件） */
+export function isRuntimeExecutable(argv0: string | undefined): boolean {
+  if (!argv0) return false;
+  const base = argv0.split(/[\\/]/).pop()?.toLowerCase() ?? '';
+  return RUNTIME_EXE_BASENAMES.has(base);
+}
+
+/**
  * 获取项目根目录
  * 可通过 LIRI_PROJECT_DIR 环境变量覆盖
  * 默认使用 process.cwd()
@@ -133,6 +161,7 @@ export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
  * 此时 fallback 链为：
  *   1. LIRI_PROJECT_DIR 环境变量（启动脚本设置）
  *   2. process.argv[0] → 编译 exe 的实际磁盘路径，推断项目根
+ *      （**宿主运行时 exe 除外**，见 `isRuntimeExecutable`）
  *   3. INIT_CWD 环境变量
  *   4. process.cwd()（原样返回）
  */
@@ -150,8 +179,10 @@ export function resolveProjectRoot(
   const isWindowsRoot = /^[a-zA-Z]:\\$/.test(cwd) || cwd === '\\';
   if (cwd === '' || cwd === '/' || isWindowsRoot) {
     // 2. 从 argv[0] 推断 exe 实际路径（Bun 编译 exe 中指向用户硬盘上的 .exe 文件）
+    //    LRO-D4（2026-10-26）：**排除宿主运行时**（bun.exe / node.exe …）——
+    //    否则开发入口的"项目根"会被算成 bun 安装目录。
     const argv0 = process.argv[0] || '';
-    if (argv0.endsWith('.exe')) {
+    if (argv0.endsWith('.exe') && !isRuntimeExecutable(argv0)) {
       const exeDir = resolve(argv0, '..');
       // exe 在 dist/ 下，项目根为 dist/ 的父目录
       if (

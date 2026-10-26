@@ -2,7 +2,7 @@
   "version": 1,
   "kernelRoot": "packages/kernel/src/core",
   "fileCount": 113,
-  "symbolCount": 1053,
+  "symbolCount": 1054,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -841,6 +841,7 @@
         "getProductIdentity",
         "getUserDataDirOverride",
         "isPathWithin",
+        "isRuntimeExecutable",
         "normalizePathForComparison",
         "resetPaths",
         "resetProductIdentity",

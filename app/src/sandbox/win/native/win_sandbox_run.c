@@ -42,9 +42,9 @@ SOFTWARE.
  *   win-sandbox-run.exe [--timeout-ms N] [--mem-mb N] [--max-procs N] -- <program> [args...]
  *
  * 退出码：
- *   - 子进程退出码原样返回（含 125 —— 上层**只**按 helper 自身失败判 125，见 spec §3.5）
+ *   - 子进程退出码原样返回（含 125 —— 上层**只**按 126 判 helper 自身失败，避免与用户命令的 125 混淆）
  *   - 124 = 超时被终止
- *   - 125 = helper 自身初始化失败（取令牌 / 建 Job / 起进程失败）
+ *   - 126 = helper 自身初始化失败（取令牌 / 建 Job / 起进程失败）
  *   - 2   = 参数错误
  *
  * 明确不做：路径授权。写白名单由 TypeScript 侧对**自有目录**打 Low 强制标签实现
@@ -58,10 +58,14 @@ SOFTWARE.
 #include <stdlib.h>
 #include <wchar.h>
 
-#define EXIT_HELPER_INIT_FAILED 125
+/* 126 而非 125：125 是 landlock 协议的"初始化失败"，若复用会与「用户命令恰好退出 125」混淆
+ * （macOS 侧已踩过这个坑，见 macos-sandbox-exec.md 的 exit-125 守卫）。 */
+#define EXIT_HELPER_INIT_FAILED 126
 #define EXIT_USAGE 2
 #define EXIT_TIMEOUT 124
 
+/* 运行期文案一律 ASCII：控制台代码页（CP936/CP65001）不同会导致中文变 `???`，
+ * 而 helper 的 stderr 会直接进日志/CI 输出。 */
 static void err(const wchar_t *msg) {
   fwprintf(stderr, L"win-sandbox-run: %ls (GetLastError=%lu)\n", msg,
            (unsigned long)GetLastError());
@@ -105,14 +109,14 @@ static int make_low_il_restricted_token(HANDLE *out_token) {
                         TOKEN_DUPLICATE | TOKEN_QUERY | TOKEN_ADJUST_DEFAULT |
                             TOKEN_ASSIGN_PRIMARY | TOKEN_ADJUST_SESSIONID,
                         &self)) {
-    err(L"OpenProcessToken 失败");
+    err(L"OpenProcessToken failed");
     return 0;
   }
 
   HANDLE restricted = NULL;
   if (!CreateRestrictedToken(self, DISABLE_MAX_PRIVILEGE, 0, NULL, 0, NULL, 0,
                              NULL, &restricted)) {
-    err(L"CreateRestrictedToken 失败");
+    err(L"CreateRestrictedToken failed");
     CloseHandle(self);
     return 0;
   }
@@ -121,7 +125,7 @@ static int make_low_il_restricted_token(HANDLE *out_token) {
   /* Low 完整性级别 = S-1-16-4096 */
   PSID low_sid = NULL;
   if (!ConvertStringSidToSidW(L"S-1-16-4096", &low_sid)) {
-    err(L"ConvertStringSidToSidW 失败");
+    err(L"ConvertStringSidToSidW failed");
     CloseHandle(restricted);
     return 0;
   }
@@ -132,7 +136,7 @@ static int make_low_il_restricted_token(HANDLE *out_token) {
   if (!tml) {
     LocalFree(low_sid);
     CloseHandle(restricted);
-    err(L"内存不足");
+    err(L"out of memory");
     return 0;
   }
   tml->Label.Attributes = SE_GROUP_INTEGRITY;
@@ -143,7 +147,7 @@ static int make_low_il_restricted_token(HANDLE *out_token) {
   LocalFree(low_sid);
 
   if (!ok) {
-    err(L"SetTokenInformation(TokenIntegrityLevel) 失败");
+    err(L"SetTokenInformation(TokenIntegrityLevel) failed");
     CloseHandle(restricted);
     return 0;
   }
@@ -175,20 +179,20 @@ int wmain(int argc, wchar_t **argv) {
       max_procs = (DWORD)_wtoi(argv[++i]);
       continue;
     }
-    fwprintf(stderr, L"win-sandbox-run: 未知参数 %ls\n", argv[i]);
+    fwprintf(stderr, L"win-sandbox-run: unknown argument %ls\n", argv[i]);
     return EXIT_USAGE;
   }
 
   if (i >= argc) {
     fwprintf(stderr,
-             L"用法: win-sandbox-run.exe [--timeout-ms N] [--mem-mb N] "
+             L"usage: win-sandbox-run.exe [--timeout-ms N] [--mem-mb N] "
              L"[--max-procs N] -- <program> [args...]\n");
     return EXIT_USAGE;
   }
 
   wchar_t *cmdline = build_command_line(argc, argv, i);
   if (!cmdline) {
-    err(L"构建命令行失败");
+    err(L"build command line failed");
     return EXIT_HELPER_INIT_FAILED;
   }
 
@@ -200,7 +204,7 @@ int wmain(int argc, wchar_t **argv) {
 
   HANDLE job = CreateJobObjectW(NULL, NULL);
   if (!job) {
-    err(L"CreateJobObject 失败");
+    err(L"CreateJobObject failed");
     CloseHandle(token);
     free(cmdline);
     return EXIT_HELPER_INIT_FAILED;
@@ -219,7 +223,7 @@ int wmain(int argc, wchar_t **argv) {
   }
   if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, &jlim,
                                sizeof(jlim))) {
-    err(L"SetInformationJobObject 失败");
+    err(L"SetInformationJobObject failed");
     CloseHandle(job);
     CloseHandle(token);
     free(cmdline);
@@ -236,7 +240,7 @@ int wmain(int argc, wchar_t **argv) {
   if (!CreateProcessAsUserW(token, NULL, cmdline, NULL, NULL, TRUE,
                             CREATE_SUSPENDED | CREATE_UNICODE_ENVIRONMENT, NULL,
                             NULL, &si, &pi)) {
-    err(L"CreateProcessAsUser 失败（Low IL 令牌）");
+    err(L"CreateProcessAsUser failed (low IL token)");
     CloseHandle(job);
     CloseHandle(token);
     free(cmdline);
@@ -247,7 +251,7 @@ int wmain(int argc, wchar_t **argv) {
   CloseHandle(token);
 
   if (!AssignProcessToJobObject(job, pi.hProcess)) {
-    err(L"AssignProcessToJobObject 失败");
+    err(L"AssignProcessToJobObject failed");
     TerminateProcess(pi.hProcess, EXIT_HELPER_INIT_FAILED);
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
@@ -268,7 +272,7 @@ int wmain(int argc, wchar_t **argv) {
     return EXIT_TIMEOUT;
   }
   if (wait != WAIT_OBJECT_0) {
-    err(L"WaitForSingleObject 失败");
+    err(L"WaitForSingleObject failed");
     TerminateJobObject(job, EXIT_HELPER_INIT_FAILED);
     CloseHandle(pi.hProcess);
     CloseHandle(job);

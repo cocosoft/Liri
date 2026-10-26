@@ -181,6 +181,24 @@ export type {
   SandboxExecRunInput,
   SandboxExecRunResult,
 } from './darwin';
+// 2026-10-26：Windows 兜底沙箱（Low IL + Job Object）—— helper 路径 / 探测 / 执行器
+export {
+  WIN_SANDBOX_HELPER_BIN_NAME,
+  WIN_SANDBOX_HELPER_ENV,
+  WIN_SANDBOX_EXIT,
+  resolveWinSandboxHelperCandidates,
+  resolveWinSandboxHelperPath,
+  detectWindowsSandboxCapability,
+  clearWindowsSandboxCapabilityCache,
+  buildWinSandboxArgv,
+  classifyWinSandboxExit,
+  runWithWinSandbox,
+} from './win';
+export type {
+  WinSandboxRunInput,
+  WinSandboxRunResult,
+  WindowsSandboxCapability,
+} from './win';
 // T25-11a（2026-10-25）：helper 路径解析（`LANDLOCK_RUN_HELPER` → `<PROJECT_DIR>/bin/landlock-run` → PATH）
 export {
   LANDLOCK_HELPER_BIN_NAME,

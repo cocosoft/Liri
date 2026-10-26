@@ -57,7 +57,8 @@ win-sandbox-run.exe [--mem-mb N] [--max-procs N] --timeout-ms N -- <program> [ar
 约定：
 - 只做「降 IL + 建 Job + 起进程 + 转发退出码/信号」，**不做路径授权**（授权由 TypeScript 侧对**自有目录**做，见 §3.4）；
 - stdout/stderr 直接继承（Node 侧已用 pipe 接），helper 不缓冲、不改写；
-- 退出码：子进程退出码原样返回；helper 自身失败 ⇒ `125`（沿用 landlock 的"初始化失败"语义，便于上层统一处置）；参数错误 ⇒ `2`。
+- 退出码：子进程退出码原样返回；helper 自身失败 ⇒ **`126`**（**不复用 125** —— 125 是 landlock 的"初始化失败"
+  语义，复用会与「用户命令恰好退出 125」混淆，macOS 侧已踩过该坑）；超时 ⇒ `124`；参数错误 ⇒ `2`。
 
 ### 3.3 为什么 v1 不做 bash（决策与代价，如实）
 
@@ -88,10 +89,10 @@ Low IL 进程**默认不能写** Medium 目录。要让 bash 能写工作区，�
 |---|---|
 | `enabled=false` | 跨平台执行器（与今天一致） |
 | helper 缺失 | `failClosed=true` ⇒ `security-rejected`；`false` ⇒ 降级 + warn |
-| helper 自身失败（exit 125） | 同 landlock 的 125 语义：按 `failClosed` 拒绝或降级 |
+| helper 自身失败（exit 126） | 按 `failClosed` 拒绝（`security-rejected`）或降级 + warn |
 | `icacls` 打标失败 | **拒绝**（无法证明写隔离成立时不得声称受限） |
 | 子进程超时/取消 | `killProcessTree` + Job 的 kill-on-close 双保险 |
-| 子进程 `exit 125` | **不得**被误判为"helper 初始化失败"（同 macOS 教训：只按 helper 自身失败判 125） |
+| 子进程 `exit 125` | **不得**被误判为"helper 初始化失败"（126/125 分离后天然成立） |
 
 ---
 

@@ -6603,3 +6603,15 @@
 {"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"code#2","i":0,"c":"app/src/chat/manager/pdcaLaunch.ts"}
 {"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"code#3","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"tests#0","i":0,"c":"app/tests/chat/longTaskRoutingHint.test.ts"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"title","i":0,"c":"规则拒绝来源如实（ruleStore）+ 文案给出可执行的解除入口"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"source","i":0,"c":"2026-10-26 用户指令「继续处理 LRO-07 剩余项」；依据计划 §LRO-07 ① ② 与真机日志（file_write 6/6 被拒、无 ruleId）"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"reopenWhen","i":0,"c":"若出现「规则列表来源显示异常」「settings 来源规则被误当成可删」「解除提示与实际接口不一致」：回看 RuleManager.loadRules 迁移段与 PermissionManager._denyByRule；回滚 = revert fa1012fba"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"notes","i":0,"c":"【根因】createPermissionRule 默认 source=userSettings，而三个写入口（PermissionManager.addRule、inboxApproval 始终允许/白名单）都不传 source ⇒ tool_rules.json 全标成用户设置，磁盘上没有 settings.json；deny 文案照抄该标签，指向不存在的文件。"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"notes","i":1,"c":"【改法】新增 PermissionRuleSource.RULE_STORE；三个写入口显式标注；loadRules 对历史数据做一次性迁移（userSettings→ruleStore 并回写，留 ruleSourceRelabeled 日志）。"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"notes","i":2,"c":"【解除入口】_denyByRule 增加 removableVia（面板 + DELETE /v1/permissions/rules/<id>；settings 来源指向配置文件），同时进文案、决策 context 与 permission:deny 日志 ⇒ 用户与模型都能看到怎么放行。"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#0","i":0,"c":"app/src/permission/types/PermissionRule.ts"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#1","i":0,"c":"app/src/permission/RuleManager.ts"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#2","i":0,"c":"app/src/permission/PermissionManager.ts"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#3","i":0,"c":"app/src/runtime/inboxApproval.ts"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"tests#0","i":0,"c":"app/tests/permission/ruleSourceAndRemovalHint.test.ts"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"tests#1","i":0,"c":"app/src/permission/__tests__/PermissionDenyLocatable.test.ts"}

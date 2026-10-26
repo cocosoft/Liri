@@ -13071,6 +13071,36 @@
       "changelog": [],
       "reopenWhen": "若出现「长任务被强制分解后成本暴涨」「模式提示刷屏或误导」「forceDecompose 影响非信号路径」：回看 PlanDrivenLoop.decideSimplePath 与 pdcaLaunch.onLongTaskSignal；回滚 = revert 15d8d3dc1（全文见 archive/evidence-detail.jsonl#LONG-TASK-ROUTING-FORCE-DECOMPOSE）",
       "notes": "【根因】PDL 快速路径只看消息长度 ≤60（classifyTaskComplexity），不读长任务信号；真机会话 04:39:20 信号触发（todo=10）却记「简单任务，跳过分解直接执行」，37s 后 decomposed=false/stepCount=1。【改法】PDL 新增 decideSimpleP…（全文见 archive/evidence-detail.jsonl#LONG-TASK-ROUTING-FORCE-DECOMPOSE）"
+    },
+    {
+      "id": "PERMISSION-RULE-SOURCE-REMOVAL-HINT",
+      "title": "规则拒绝来源如实（ruleStore）+ 文案给出可执行的解除入口",
+      "source": "2026-10-26 用户指令「继续处理 LRO-07 剩余项」；依据计划 §LRO-07 ① ② 与真机日志（file_write 6/6 被拒、无 ruleId）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/permission/types/PermissionRule.ts",
+        "app/src/permission/RuleManager.ts",
+        "app/src/permission/PermissionManager.ts",
+        "app/src/runtime/inboxApproval.ts"
+      ],
+      "tests": [
+        "app/tests/permission/ruleSourceAndRemovalHint.test.ts",
+        "app/src/permission/__tests__/PermissionDenyLocatable.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若出现「规则列表来源显示异常」「settings 来源规则被误当成可删」「解除提示与实际接口不一致」：回看 RuleManager.loadRules 迁移段与 PermissionManager._denyByRule；回滚 = revert fa1012fba（全文见 archive/evidence-detail.jsonl#PERMISSION-RULE-SOURCE-REMOVAL-HINT）",
+      "notes": "【根因】createPermissionRule 默认 source=userSettings，而三个写入口（PermissionManager.addRule、inboxApproval 始终允许/白名单）都不传 source ⇒ tool_rules.json 全标成用户设置，磁盘上没有 settings.jso…（全文见 archive/evidence-detail.jsonl#PERMISSION-RULE-SOURCE-REMOVAL-HINT）"
     }
   ]
 }

@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **PERMISSION-RULE-SOURCE-REMOVAL-HINT**：规则拒绝来源如实 + 给出解除入口（LRO-07） —— 验证 tsc|arch0|ratchet0|consts0|perm168；基线 改前：tool_rules.json 规则全标 userSettings（磁盘无该文件）且 deny 只说来源；改后：来源 ruleStore + ruleId + 面板/API 解除路径（详情见 archive/evidence-detail.jsonl#PERMISSION-RULE-SOURCE-REMOVAL-HINT）
 - ✅ **LONG-TASK-ROUTING-FORCE-DECOMPOSE**：长任务信号压过长度门 + 执行模式可见提示（LRO-11） —— 验证 tsc|arch0|ratchet0|sg0|unit1226；基线 改前：长任务信号已触发却因首条 39 字≤60 被判 simple ⇒ 单步直执行；改后：信号强制分解 + 三种执行模式可见提示（详情见 archive/evidence-detail.jsonl#LONG-TASK-ROUTING-FORCE-DECOMPOSE）
 - ✅ **SESSION-CWD-PROJECT-SANDBOX**：工具默认 cwd 锚定项目 sandboxPath（LRO-06） —— 验证 tsc|arch0|ratchet0|sg0|unit1219；基线 改前：项目会话无 workspacePath ⇒ 工具 cwd 落代码仓根；改后：按 projectId 解析 sandboxPath 并回写 metadata.workspacePath（详情见 archive/evidence-detail.jsonl#SESSION-CWD-PROJECT-SANDBOX）
 - ✅ **LRO-BLOCKED-COMMAND-REPLAY**：续跑短路已判定阻塞的命令（LRO-13） —— 验证 tsc|arch0|ratchet0|consts0|tasks552；基线 改前：续跑/resume 原样重放被安全门硬拒的命令（同一堵墙反复撞）；改后：命中 (命令,cwd,策略版本) 直接短路并附既有结论（详情见 archive/evidence-detail.jsonl#LRO-BLOCKED-COMMAND-REPLAY）

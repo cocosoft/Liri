@@ -6490,3 +6490,16 @@
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"tests#0","i":0,"c":"app/src/permission/__tests__/PermissionDenyLocatable.test.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"tests#1","i":0,"c":"app/tests/chat/toolFailureKindWiring.test.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"tests#2","i":0,"c":"app/tests/query/environmentBlockedTermination.test.ts"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"title","i":0,"c":"指纹规则不再当工具级 + 规则键补 inputFingerprint（LRO-D1/D2）"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"source","i":0,"c":"2026-10-26 用户指令「把复查的合并到计划中，然后按顺序开始执行修复」；依据 dev_docs/20261026/长程任务失败排查工作计划-20261026.md §10-D1/D2；证据件 dev_docs/20261026/证据/tool_rules.json（allow/deny 同指纹、均无 contentPattern、相隔 1ms）"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"reopenWhen","i":0,"c":"若出现「指纹 deny 又变成整工具封锁」「同工具不同指纹的始终允许互相覆盖」或「内容 deny 被工具级 allow 越过」：回看 RuleManager.toolMatchesRule / addRule 与 PermissionManager.handleDefault 顺序；回滚 = revert bfa8a3910"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"notes","i":0,"c":"【D1 粒度】旧实现把\"无 contentPattern\"一律当工具级 ⇒ 指纹 deny 封锁整个工具（且早于 ask、无审批逃生），指纹 allow 放行该工具任何参数（授权放大）。证据：toolMatchesRule 只判 contentPattern。"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"notes","i":1,"c":"【D1 顺序】handleDefault 原顺序 ask(tool) → allow(tool) → deny(content) → … ⇒「始终允许此工具」静默越过内容 deny。现改为 deny(content/fingerprint) → ask → allow，deny 恒先。"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"notes","i":2,"c":"【D1 指纹来源】PermissionManager 用 hashApprovalFingerprint(resolveApprovalFingerprint(toolOrName,input))，与审批落盘（PermissionChecker:783 / inboxApproval）同源；不传指纹 ⇒ 指纹规则不匹配（fail-closed）。"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"notes","i":3,"c":"【D2 键】deduplicateRules/addRule 键补 inputFingerprint；同键不同 behavior ⇒ 替换（后写为准）+ ruleReplaced 日志。ShadowedRuleDetector 补指纹维度（事故那对冲突此前 UI 不可见）。"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"notes","i":4,"c":"【边界】只做\"检测 + 写入互斥\"，不改既有规则数据（不回写历史冲突）；跨来源（settings vs tool_rules.json）冲突仍由 settings 只读视图展示。"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#0","i":0,"c":"app/src/permission/RuleManager.ts"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#1","i":0,"c":"app/src/permission/PermissionManager.ts"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#2","i":0,"c":"app/src/permission/utils/RuleMatcher.ts"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#3","i":0,"c":"app/src/permission/utils/ShadowedRuleDetector.ts"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"tests#0","i":0,"c":"app/tests/permission/ruleGranularity.test.ts"}

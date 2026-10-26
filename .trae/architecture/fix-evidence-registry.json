@@ -12805,6 +12805,35 @@
       "changelog": [],
       "reopenWhen": "若出现「环境阻塞未按 2 轮收口」或「模型无效输出被误判为环境阻塞」：回看 app/src/query/ReActLoop.ts 的 classifyTurn() 与各 failureKind 生产者；回滚按提交粒度 779101f5c / a74e973f6 / 27b2460b3 / 71b0ba812 逐条 r…（全文见 archive/evidence-detail.jsonl#CIRCUIT-BREAKER-CLASSIFICATION）",
       "notes": "【根因·实测】file_write 连续 3 次 Denied by rule，4 秒内烧完 consecutiveInvalidTurns（max 3）⇒ circuit_breaker；根因是 tool_rules.json 同工具同指纹 allow+deny 冲突，属环境层不可自愈。【为何分型】checkCir…（全文见 archive/evidence-detail.jsonl#CIRCUIT-BREAKER-CLASSIFICATION）"
+    },
+    {
+      "id": "RULE-FINGERPRINT-GRANULARITY",
+      "title": "指纹规则不再当工具级 + 规则键补 inputFingerprint（LRO-D1/D2）",
+      "source": "2026-10-26 用户指令「把复查的合并到计划中，然后按顺序开始执行修复」；依据 dev_docs/20261026/长程任务失败排查工作计划-20261026.md §10-D1/D2；证据件 dev_docs/20261026/证据/tool_rules.json（allow/deny 同指纹、均无 contentPattern、相隔 1ms）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/permission/RuleManager.ts",
+        "app/src/permission/PermissionManager.ts",
+        "app/src/permission/utils/RuleMatcher.ts",
+        "app/src/permission/utils/ShadowedRuleDetector.ts"
+      ],
+      "tests": [
+        "app/tests/permission/ruleGranularity.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若出现「指纹 deny 又变成整工具封锁」「同工具不同指纹的始终允许互相覆盖」或「内容 deny 被工具级 allow 越过」：回看 RuleManager.toolMatchesRule / addRule 与 PermissionManager.handleDefault 顺序；回滚 = revert bfa8a…（全文见 archive/evidence-detail.jsonl#RULE-FINGERPRINT-GRANULARITY）",
+      "notes": "【D1 粒度】旧实现把\"无 contentPattern\"一律当工具级 ⇒ 指纹 deny 封锁整个工具（且早于 ask、无审批逃生），指纹 allow 放行该工具任何参数（授权放大）。证据：toolMatchesRule 只判 contentPattern。【D1 顺序】handleDefault 原顺序 ask(…（全文见 archive/evidence-detail.jsonl#RULE-FINGERPRINT-GRANULARITY）"
     }
   ]
 }

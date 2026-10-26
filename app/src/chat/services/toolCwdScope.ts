@@ -16,6 +16,7 @@
  * 也不该知道"cwd 要怎么兜底"这一策略）；目录创建属于执行侧职责。
  */
 import { existsSync, mkdirSync } from 'fs';
+import { isAbsolute } from 'path';
 import { getLogger } from '@modules/monitoring';
 import {
   isPathWithin,
@@ -35,6 +36,43 @@ export interface ToolCwdDecision {
   cwd: string;
   /** 会话工作区被拒（越出该身份根）⇒ 调用方可据此留痕 */
   rejectedSessionWorkspace: boolean;
+}
+
+/**
+ * LRO-06（2026-10-26 真机实测）／D4 后半：由**会话元数据**解析"会话工作区"。
+ *
+ * 实测缺口：项目模块会话的 `metadata` 只有 `projectId`、**没有 `workspacePath`**，
+ * 于是 `resolveToolCwd` 回落到 `resolveProjectRoot()`（= **代码仓根**）—— 同会话 188 次
+ * 无 cwd 的 bash 全部落在仓库根，产物散落且 0 件进项目目录。
+ *
+ * 解析优先级（**只认绝对路径**，相对值/项目名一律忽略）：
+ *   1. `metadata.workspacePath`（客户端/用户显式指定，历史语义不变）；
+ *   2. `metadata.projectId` 对应项目的 `project.json#sandboxPath`（既有 ProjectStore 提供）；
+ *   3. `undefined` ⇒ 调用方回落 `resolveProjectRoot()`（无项目会话保持旧行为）。
+ *
+ * 纯函数 + 回调注入：便于单测，也避免在 `chat/services` 里静态依赖 `workspace/ProjectStore`
+ * （会把该模块拉进启动图）。
+ */
+export function resolveSessionWorkspacePath(input: {
+  metadata: Record<string, unknown> | undefined;
+  /** `projectId → sandboxPath`（由调用方延迟加载 ProjectStore 提供） */
+  getProjectSandboxPath: (projectId: string) => string | undefined;
+}): string | undefined {
+  const workspacePath = input.metadata?.workspacePath;
+  // P2-2 收尾：仅接受绝对路径（存量会话的 workspacePath 可能是修复前的项目名，非路径）
+  if (typeof workspacePath === 'string' && isAbsolute(workspacePath)) {
+    return workspacePath;
+  }
+
+  const projectId = input.metadata?.projectId;
+  if (typeof projectId === 'string' && projectId) {
+    const sandboxPath = input.getProjectSandboxPath(projectId);
+    if (typeof sandboxPath === 'string' && isAbsolute(sandboxPath)) {
+      return sandboxPath;
+    }
+  }
+
+  return undefined;
 }
 
 /**

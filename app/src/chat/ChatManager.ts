@@ -319,7 +319,13 @@ import {
 } from '@modules/compaction';
 import type { SessionMessage } from '@modules/session';
 import { SessionGateway, createSessionGateway } from '@modules/session';
-import { resolveProjectRoot, resolveOutputDir } from '@openliri/kernel/paths';
+import {
+  resolveProjectRoot,
+  resolveOutputDir,
+  resolveDataDir,
+} from '@openliri/kernel/paths';
+// LRO-06 / D4 后半（2026-10-26）：会话工作区解析（绝对 workspacePath > 项目 sandboxPath）
+import { resolveSessionWorkspacePath } from './services/toolCwdScope';
 import {
   AppError,
   ErrorCategory,
@@ -404,6 +410,14 @@ export class ChatManagerImpl implements ChatManager {
    * 会话内存缓存
    */
   private _chatSessions: Map<string, ChatSession> = new Map();
+
+  /**
+   * LRO-06：`ProjectStore` 实例缓存（仅"项目会话 + 无显式 workspacePath"分支用到，
+   * 延迟 `require` 创建；见 `_getProjectSandboxPath`）。
+   */
+  private _projectSandboxPathCache?: {
+    get: (id: string) => { sandboxPath?: string } | undefined;
+  };
 
   /**
    * 会话级互斥锁 — 防止同一会话并发流式请求（Bug Fix: 工具链被用户新消息打断）
@@ -3296,20 +3310,69 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * P2-4: 获取会话绑定的工作区路径（仅项目模块会话有值 = sandboxPath）
+   * P2-4: 获取会话绑定的工作区路径（项目模块会话 = `sandboxPath`）
    * 用于工具默认 cwd 的会话上下文化，替代全局 SandboxConfigBuilder.defaultWorkspacePath
+   *
+   * LRO-06 / D4 后半（2026-10-26 真机实测）：项目会话的 metadata 只有 `projectId`、
+   * 没有 `workspacePath` ⇒ 此前工具 cwd 回落到**代码仓根**。现由 `projectId` 解析
+   * `project.json#sandboxPath`（用户项目目录），并**回写** `metadata.workspacePath`，
+   * 使客户端 `currentSession.workspacePath` 与服务端同一口径。
    */
   private getSessionWorkspacePath(sessionId?: string): string | undefined {
     if (!sessionId) return undefined;
     const session = this._chatSessions.get(sessionId);
     const metadata = session?.metadata as Record<string, unknown> | undefined;
-    const workspacePath = metadata?.workspacePath as string | undefined;
-    // P2-2 收尾：仅接受绝对路径。存量会话的 workspacePath 可能是修复前的项目名（非路径），
-    // 不能作为工具默认 cwd；自动建项目沙箱路径为绝对路径（homedir 展开），校验通过
-    if (workspacePath && path.isAbsolute(workspacePath)) {
-      return workspacePath;
+    const resolved = resolveSessionWorkspacePath({
+      metadata,
+      getProjectSandboxPath: (projectId) =>
+        this._getProjectSandboxPath(projectId),
+    });
+    // 由 projectId 派生（而非客户端显式传入）时回写元数据：本进程内后续读取与
+    // 会话落盘/列表接口都拿到同一值；已有绝对 workspacePath 时不覆盖。
+    if (resolved && metadata && !metadata.workspacePath) {
+      metadata.workspacePath = resolved;
     }
-    return undefined;
+    return resolved;
+  }
+
+  /**
+   * `projectId → project.json#sandboxPath`（LRO-06 实测缺口的最小补齐）。
+   *
+   * 延迟 `require`：`workspace/ProjectStore` 不进启动图（`lint:startup-graph` 棘轮只减不增），
+   * 且只有"项目会话 + 没有显式 workspacePath"这一条分支才会触发。
+   */
+  private _getProjectSandboxPath(projectId: string): string | undefined {
+    try {
+      const { createProjectStore } =
+        require('../../workspace/ProjectStore.js') as {
+          createProjectStore: (
+            dataDir: string,
+            itemStore: unknown
+          ) => { get: (id: string) => { sandboxPath?: string } | undefined };
+        };
+      const { WorkItemStore } = require('../../workspace/WorkItemStore.js') as {
+        WorkItemStore: new (dataDir: string) => unknown;
+      };
+      if (!this._projectSandboxPathCache) {
+        const dataDir = resolveDataDir();
+        this._projectSandboxPathCache = createProjectStore(
+          dataDir,
+          new WorkItemStore(dataDir)
+        );
+      }
+      const sandboxPath =
+        this._projectSandboxPathCache.get(projectId)?.sandboxPath;
+      return typeof sandboxPath === 'string' && sandboxPath
+        ? sandboxPath
+        : undefined;
+    } catch (error) {
+      // @ignore-catch — 项目解析失败 ⇒ 回落历史行为（resolveProjectRoot），不阻塞工具执行
+      logger.warning('解析项目 sandboxPath 失败，工具 cwd 回落项目根', {
+        projectId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
   }
 
   /**

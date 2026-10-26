@@ -197,6 +197,8 @@ function makeResumeDeps(taskId: string): {
     turnsExtensions: number;
     startedAt: number;
     loopRan: boolean;
+    /** LRO-13：resume 恢复的阻塞命令台账（条数即可） */
+    blockedCount: number;
   };
 } {
   const state = {
@@ -206,6 +208,7 @@ function makeResumeDeps(taskId: string): {
     turnsExtensions: 0,
     startedAt: 0,
     loopRan: false,
+    blockedCount: -1,
   };
   const deps: ResumeDeps = {
     taskId,
@@ -246,6 +249,9 @@ function makeResumeDeps(taskId: string): {
     },
     setStartedAt: (value) => {
       state.startedAt = value;
+    },
+    setBlockedCommands: (value) => {
+      state.blockedCount = value.length;
     },
   };
   return { deps, state };
@@ -314,5 +320,55 @@ describe('resume 可达性与字段回填', () => {
     expect(state.totalTokens).toBe(42);
     expect(state.turnsExtensions).toBe(2);
     expect(state.startedAt).toBe(1700000000000);
+  });
+
+  it('LRO-13：resume 恢复阻塞命令台账（残缺项被丢弃），续跑才有短路依据', async () => {
+    const { deps, state } = makeResumeDeps('blocked-1');
+    await resumeFromCheckpoint(
+      {
+        taskId: 'blocked-1',
+        sessionId: 'sess-blocked',
+        phase: 'execute',
+        status: 'failed',
+        replanPending: true,
+        replanFailCount: 0,
+        description: '撞墙任务',
+        steps: [{ id: 's1', description: '步骤1', status: 'pending' }],
+        blockedCommands: [
+          {
+            key: 'k1',
+            toolName: 'bash',
+            command: 'echo /etc/passwd',
+            cwd: '/work',
+            policyVersion: 'v1',
+            reason: 'path_safety',
+            recordedAt: 1,
+          },
+          // 残缺项（缺 reason）⇒ 必须被丢弃，不得进短路依据
+          { key: 'k2', toolName: 'bash', command: 'rm -rf /' },
+        ],
+      },
+      deps
+    );
+
+    expect(state.blockedCount).toBe(1);
+  });
+
+  it('LRO-13：checkpoint 无台账（旧存档）⇒ 恢复为空，不影响续跑', async () => {
+    const { deps, state } = makeResumeDeps('blocked-none');
+    await resumeFromCheckpoint(
+      {
+        taskId: 'blocked-none',
+        sessionId: 'sess-none',
+        phase: 'execute',
+        status: 'abort',
+        description: '旧存档',
+        steps: [{ id: 's1', description: '步骤1', status: 'pending' }],
+      },
+      deps
+    );
+
+    expect(state.blockedCount).toBe(0);
+    expect(state.loopRan).toBe(true);
   });
 });

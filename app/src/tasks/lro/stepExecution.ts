@@ -52,6 +52,14 @@ import {
   summarizeToolOutcomes,
 } from './stepHelpers.js';
 import { findWorkspaceEscape } from './workspaceGuard.js';
+// LRO-13（2026-10-26）：阻塞命令台账 —— 续跑时同 (命令, cwd, 策略版本) 直接短路，不重放
+import {
+  blockedReplayResult,
+  findBlockedReplay,
+  type BlockedCommandCandidateInput,
+  type BlockedCommandEntry,
+  type BlockedCommandProbeInput,
+} from './blockedCommandLedger.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -93,6 +101,17 @@ export interface StepExecutionDeps {
   persistCheckpoint: () => Promise<void>;
   getPlanId: () => string | null;
   getSessionId: () => string | null;
+  /**
+   * LRO-13（2026-10-26）：**阻塞命令台账**（宿主持有，随 checkpoint 持久化）。
+   *
+   * 读：同 `(命令, cwd, 策略版本)` 命中 ⇒ **不执行**，直接返回既有结论；
+   * 写：安全门硬拦截（`metadata.securityIntercepted`）的命令入账。
+   * 未注入时不启用（保持旧行为，供只跑文本的测试替身）。
+   */
+  blockedCommands?: {
+    find: (probe: BlockedCommandProbeInput) => BlockedCommandEntry | undefined;
+    record: (probe: BlockedCommandCandidateInput) => void;
+  };
 }
 
 export async function executeSingleStep(
@@ -267,6 +286,28 @@ export async function executeSingleStep(
           for (const tc of toolCalls) {
             const toolStart = Date.now();
             try {
+              // LRO-13（2026-10-26）：**续跑幂等** —— 同一 (命令, cwd, 策略版本) 已被安全门
+              // 判定为不可执行 ⇒ 直接短路，把既有结论交回模型，**不再重放**（拦截是确定性的：
+              // 同命令同目录同策略必然得到同一结论，重放只会再撞一次墙）。
+              // 放在注册表解析之前：结论来自台账，不依赖该工具此刻是否仍注册。
+              const replay = deps.blockedCommands?.find({
+                toolName: tc.name,
+                args: tc.arguments,
+                cwd: deps.isolation.workspace,
+              });
+              if (replay) {
+                results.push(blockedReplayResult(replay, tc));
+                logger.warn('[orchestrator] 阻塞命令短路（不重放）', {
+                  taskId: deps.taskId,
+                  stepId: step.id,
+                  toolName: tc.name,
+                  toolCallId: tc.id,
+                  reason: replay.reason,
+                  recordedAt: replay.recordedAt,
+                  cwd: replay.cwd,
+                });
+                continue;
+              }
               // 模型回传的是 **wire 安全名**（`calendar_add`），注册表登记的是真名
               // （`calendar:add`）；`getTool()` 内置别名解析（注册期为非 wire 安全名
               // 自动登记 wire 别名），故必须经注册表而非直接比对 `tool.name`。
@@ -345,6 +386,17 @@ export async function executeSingleStep(
               // 2026-10-08（steering）：被安全策略拦截的工具名先记账，本轮结束后统一注入改道指令
               if (isSecurityIntercepted(toolResult)) {
                 blockedBySecurity.push(tc.name);
+              }
+              // LRO-13：安全门硬拦截的命令入账（随 checkpoint 持久化）⇒ 续跑短路。
+              // 记账门槛（只认 `metadata.securityIntercepted`、只认命令工具）在台账侧判定；
+              // 普通工具报错不入账 —— 那不是"确定性撞墙"，重放有意义。
+              if (deps.blockedCommands && isSecurityIntercepted(toolResult)) {
+                deps.blockedCommands.record({
+                  toolName: tc.name,
+                  args: tc.arguments,
+                  cwd: deps.isolation.workspace,
+                  result: toolResult,
+                });
               }
               // 2026-10-08（机械保障 · 写后读回）：登记本步的产物读写台账。
               // 仅在**调用未报错**时登记（失败调用不构成"已写入/已读回"）。

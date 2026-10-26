@@ -154,6 +154,13 @@ import {
   emitTaskMessage,
 } from './lro/taskMessaging.js';
 // 大文件拆分（spec file-size-debt-partition-plan §46）：报告投影 + 纯函数判定外迁 `./lro/*`。
+// LRO-13（2026-10-26）：阻塞命令台账 —— 续跑时同一 (命令, cwd, 策略版本) 直接短路
+import {
+  createHostBlockedCommandLedger,
+  type BlockedCommandEntry,
+} from './lro/blockedCommandLedger.js';
+import { resolveCommandPolicyVersion } from './lro/commandPolicyVersion.js';
+import { projectCheckpointSteps } from './lro/checkpointSnapshot.js';
 import {
   renderAuditReport,
   persistAuditReportFile,
@@ -284,6 +291,8 @@ export class LongRunningTaskOrchestrator {
    * 重开循环时注入"基线 + 缺陷清单 → 仅修订受影响部分"的增量 replan 指令。
    */
   private _lastEscalations: EscalationRecord[] = [];
+  /** LRO-13：阻塞命令台账（键 = 命令 + cwd + 策略版本；随 checkpoint 持久化，续跑短路） */
+  private _blockedCommands: BlockedCommandEntry[] = [];
   private decisionAwait: Promise<ReviewDecision> | null = null;
   private decisionResolve: ((d: ReviewDecision) => void) | null = null;
   private auditReport: AuditReport | null = null;
@@ -519,27 +528,12 @@ export class LongRunningTaskOrchestrator {
         planId: this.planId ?? undefined,
         sessionId: this._sessionId ?? undefined,
         description: plan?.description ?? '',
-        steps: (plan?.steps ?? []).map((s) => ({
-          id: s.id,
-          description: s.description,
-          status: s.status,
-          result: s.result,
-          error: s.error,
-          reviewResult: s.reviewResult,
-          decision: s.decision,
-          retryCount: s.retryCount,
-          maxRetries: s.maxRetries,
-          acceptanceCriteria: s.acceptanceCriteria,
-          // E1①/B（2026-09-05）：步骤终止原因随快照持久化（resume 扩容判定输入）
-          terminationReason: s.terminationReason,
-          // 1-1c（2026-09-03）：快照携带依赖（resume 按快照顺序位置映射重建）
-          dependsOn: s.dependsOn,
-          // LRO-12（2026-10-26）：产物台账随快照持久化 —— 否则重启后进度会掉回 0
-          // （产物门按台账判定，台账丢失 ⇒ 已完成的步骤看起来"没有产物"）
-          artifacts: s.artifacts,
-        })),
+        // 步骤快照投影（字段口径见 `lro/checkpointSnapshot`：扩容原因/依赖/产物台账等）
+        steps: projectCheckpointSteps(plan),
         // D5（M6）：escalate 缺陷清单（跨重启恢复后增量 replan 仍生效）
         lastEscalations: this._lastEscalations,
+        // LRO-13：阻塞命令台账随快照落盘（resume 后同一命令直接短路，不重放那堵墙）
+        blockedCommands: this._blockedCommands,
         // D4（M4）：TAORLoop token 累计（阶段边界结算 → StageOrchestrator 成本护栏）
         totalTokens: this._totalTokensTracked,
         // 2026-10-17：任务开始时间（跨重启恢复 duration 口径；0 ⇒ 不写）
@@ -877,7 +871,33 @@ export class LongRunningTaskOrchestrator {
       persistCheckpoint: () => this._persistCheckpoint(),
       getPlanId: () => this.planId,
       getSessionId: () => this._sessionId,
+      // LRO-13：阻塞命令台账（步首取策略版本 ⇒ 规则/姿态变化下一步生效，不进工具热路径）
+      blockedCommands: this._blockedCommandLedger(
+        resolveCommandPolicyVersion()
+      ),
     };
+  }
+
+  /** LRO-13：台账读写面（门槛/裁剪见 `lro/blockedCommandLedger`；策略版本步首取定） */
+  private _blockedCommandLedger(policyVersion: string) {
+    return createHostBlockedCommandLedger({
+      getEntries: () => this._blockedCommands,
+      setEntries: (value) => {
+        this._blockedCommands = value;
+      },
+      taskId: this.taskId,
+      policyVersion,
+      onRecorded: (entry, total) => {
+        logger.info('[orchestrator] 阻塞命令入账（续跑将短路）', {
+          taskId: this.taskId,
+          toolName: entry.toolName,
+          reason: entry.reason,
+          commandPreview: entry.command.slice(0, 120),
+          cwd: entry.cwd,
+          blockedCount: total,
+        });
+      },
+    });
   } /** Phase 3: REVIEW（U-22/S3 外移；实现在 `./lro/stepReviewDecide`）。 */
   async reviewStep(stepId: string): Promise<PlanReview> {
     return reviewStep(stepId, this.stepReviewDeps());
@@ -1618,6 +1638,10 @@ export class LongRunningTaskOrchestrator {
       },
       setStartedAt: (value) => {
         this._startedAt = value;
+      },
+      // LRO-13：恢复阻塞命令台账（续跑短路依据）
+      setBlockedCommands: (value) => {
+        this._blockedCommands = value;
       },
     }) as Promise<PdcaStatus>;
   }

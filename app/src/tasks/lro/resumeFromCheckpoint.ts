@@ -27,6 +27,11 @@ import {
   shouldReRollMaxTurnsStep,
 } from './pureDecisions.js';
 import { replanMaxRetries } from './portResolvers.js';
+// LRO-13（2026-10-26）：阻塞命令台账随 checkpoint 恢复 —— 续跑时同一命令直接短路
+import {
+  restoreBlockedCommands,
+  type BlockedCommandEntry,
+} from './blockedCommandLedger.js';
 
 const logger = getLogger('tasks:longRunning');
 
@@ -67,6 +72,11 @@ export interface ResumeDeps {
   setTotalTokensTracked: (value: number) => void;
   /** 任务开始时间（duration 口径；旧 checkpoint 无该字段 ⇒ 0） */
   setStartedAt: (value: number) => void;
+  /**
+   * LRO-13（2026-10-26）：恢复**阻塞命令台账**（续跑幂等）——
+   * 同一 `(命令, cwd, 策略版本)` 在续跑时直接短路，不再撞同一堵墙。
+   */
+  setBlockedCommands: (value: BlockedCommandEntry[]) => void;
 }
 
 /** P0(M9)：从 checkpoint 跨重启恢复执行（/goal resume 入口）。 */
@@ -112,6 +122,17 @@ export async function resumeFromCheckpoint(
       'PDCA_RESUME_TERMINAL',
       { taskId: deps.taskId, phase, status: ckStatus }
     );
+  }
+
+  // LRO-13（2026-10-26）：先恢复阻塞命令台账（两条分支都要），使续跑的**第一步**就短路。
+  // 台账项自带策略版本 ⇒ 策略变化后自然不命中；结构残缺项由 restore 丢弃。
+  const blockedCommands = restoreBlockedCommands(ck.blockedCommands);
+  deps.setBlockedCommands(blockedCommands);
+  if (blockedCommands.length > 0) {
+    logger.info('[orchestrator] resume 恢复阻塞命令台账（续跑短路生效）', {
+      taskId: deps.taskId,
+      count: blockedCommands.length,
+    });
   }
 
   // PR5（#6）：半自动 replan resume——failed+replanPending → 用上轮缺陷驱动

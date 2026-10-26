@@ -58,6 +58,27 @@ export interface PdcaLauncherDeps {
 }
 
 /**
+ * LRO-11（2026-10-26）：**执行模式提示文案**（纯函数，供单测）。
+ *
+ * 真机实证：用户无法从界面判断"编排接管了没有、是不是只跑了单步"，于是把 900+ 次
+ * 工具调用的普通循环误认为"长任务已被编排"。此文案在**真正执行前**落一条会话消息。
+ */
+export function formatPdcaModeHint(
+  mode: 'simple' | 'decomposed' | 'direct'
+): string {
+  if (mode === 'simple') {
+    return (
+      '🧭 已用编排接管：本次为**单步快速路径**（未分步）。\n' +
+      '若需要严格分步与逐步验收，可用 `/goal start <描述>` 走经典阶段链。'
+    );
+  }
+  if (mode === 'decomposed') {
+    return '🧭 已用编排接管：本次**分步执行**（每步独立验收）。';
+  }
+  return '🧭 已用编排接管：本次**直执行**（任务分解未成功，降级为单步）。';
+}
+
+/**
  * PDCA 启动器
  * 提取自 ChatManager._launchImplicitPdca（L2964-L3079，115 行）
  *
@@ -66,6 +87,41 @@ export interface PdcaLauncherDeps {
 export class PdcaLauncher {
   constructor(private deps: PdcaLauncherDeps) {}
 
+  /**
+   * LRO-11：回写"本次执行模式"的**用户可见**消息（失败不影响编排）。
+   *
+   * 与 `onStepProgress` 的档位消息同通道（`isTaskMessage` + `taskType`），前端按类型渲染。
+   */
+  private _persistModeHint(
+    sessionId: string,
+    taskId: string,
+    mode: 'simple' | 'decomposed' | 'direct'
+  ): void {
+    try {
+      this.deps.persistMessage(
+        sessionId,
+        this.deps.messageService.createAssistantMessage(
+          formatPdcaModeHint(mode),
+          {
+            sessionId,
+            metadata: {
+              taskId,
+              isTaskMessage: true,
+              taskType: 'pdca-mode',
+            },
+          }
+        )
+      );
+    } catch (error) {
+      // @ignore-catch — 提示消息回写失败不影响编排执行
+      logger.warn('PDCA 执行模式提示回写失败', {
+        sessionId,
+        taskId,
+        mode,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
   async launch(
     projectId: string,
     description: string,
@@ -75,7 +131,12 @@ export class PdcaLauncher {
      * S3（P1-5 §5 S3）：快速路径分流决策（ChatManager._shouldUsePlanDrivenLoop 两层过滤后）
      * 未传入时回退 deps.enablePlanDrivenLoop 静态开关。
      */
-    useFastPath?: boolean
+    useFastPath?: boolean,
+    /**
+     * LRO-11（2026-10-26）：长任务信号升级 ⇒ 强制分解（压过消息长度门），
+     * 并向用户回写一条"本次执行模式"的可见提示。
+     */
+    opts?: { forceDecompose?: boolean }
   ): Promise<void> {
     const otel = getOTelTracing();
     const span = otel.startSpan('chat:pdcaLaunch', {
@@ -144,6 +205,12 @@ export class PdcaLauncher {
             },
             enableAutoDecompose: true,
             decomposerProvider,
+            // LRO-11（2026-10-26）：长任务信号压过长度门 + 把"本次执行模式"回写成
+            // 一条用户可见消息（此前用户只能从 PDCA 徽标猜，看不出是不是单步直执行）。
+            forceDecompose: opts?.forceDecompose,
+            onModeDecided: (mode) => {
+              this._persistModeHint(sessionId, taskId, mode);
+            },
             onStepProgress: (progress) => {
               // 详细日志：记录每次进度回调的原始数据 + 档位计算（total/isDone/bucket/lastReportedBucket）
               const total = progress.total || progress.completed;

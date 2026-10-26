@@ -143,6 +143,21 @@ export interface PlanDrivenLoopConfig {
   escalateMinSamples?: number;
   /** 13-P2-2：升级判据——失败率阈值（缺省 0.5） */
   escalateFailureRate?: number;
+  /**
+   * LRO-11（2026-10-26）：**长任务信号压过长度门**。
+   *
+   * 真机实证：长任务信号已触发升级（未完成 todo=10），但首条消息只有 39 字 ⇒
+   * `classifyTaskComplexity` 判 simple ⇒ 跳过分解、单步直执行，长任务主体仍留在普通
+   * 对话循环里。由升级入口（`PdcaLaunchCoordinator.onLongTaskSignal`）置 `true`
+   * ⇒ 本次 run **不使用**快速路径（走分解；分解失败再降级直执行）。
+   */
+  forceDecompose?: boolean;
+  /**
+   * LRO-11（2026-10-26）：**执行模式确定回调**（供调用方给用户一条可见提示）。
+   *
+   * 在真正执行前触发一次：`simple`（单步快速路径）/ `decomposed`（分步）/ `direct`（降级直执行）。
+   */
+  onModeDecided?: (mode: 'simple' | 'decomposed' | 'direct') => void;
 }
 
 /**
@@ -260,9 +275,21 @@ export function isEligibleForFastPath(
   );
 }
 
-function isSimpleTask(message: string, policy: FastPathPolicy): boolean {
+/**
+ * LRO-11（2026-10-26）：快速路径准入的**单一判定**（供 run 与单测共用）。
+ *
+ * `forceDecompose`（长任务信号触发）**压过**长度门：信号已经说明"这是长任务"，
+ * 不能再因为首条消息短而走单步直执行（真机实证：39 字长任务被 60 字长度门判为 simple）。
+ */
+export function decideSimplePath(input: {
+  message: string;
+  policy: FastPathPolicy;
+  forceDecompose?: boolean;
+}): boolean {
+  if (input.forceDecompose) return false;
   return (
-    classifyTaskComplexity(message, policy.maxSimpleTaskLength) === 'simple'
+    classifyTaskComplexity(input.message, input.policy.maxSimpleTaskLength) ===
+    'simple'
   );
 }
 
@@ -358,6 +385,10 @@ export class PlanDrivenLoop {
   private outcomeKey: string;
   private escalateMinSamples: number;
   private escalateFailureRate: number;
+  /** LRO-11：长任务信号强制分解（压过消息长度门） */
+  private forceDecompose: boolean;
+  /** LRO-11：执行模式确定回调（simple / decomposed / direct） */
+  private onModeDecided?: (mode: 'simple' | 'decomposed' | 'direct') => void;
 
   private plan: Plan | null = null;
   private stepResults: StepResult[] = [];
@@ -388,6 +419,9 @@ export class PlanDrivenLoop {
       config.escalateMinSamples ?? DEFAULT_ESCALATE_MIN_SAMPLES;
     this.escalateFailureRate =
       config.escalateFailureRate ?? DEFAULT_ESCALATE_FAILURE_RATE;
+    // LRO-11：长任务信号压过长度门 + 执行模式回调（缺省不启用，行为零变化）
+    this.forceDecompose = config.forceDecompose === true;
+    this.onModeDecided = config.onModeDecided;
 
     if (config.decomposerProvider) {
       this.decomposer = new TaskDecomposer(null, config.decomposerProvider);
@@ -436,7 +470,19 @@ export class PlanDrivenLoop {
       });
       // 复杂度判定门：简单任务跳过分解，直接执行（T-②05：阈值取本次生效判据）
       // 13-P2-2：接**最小回流点**——简单路径近期失败率偏高 ⇒ 不走近路（升级为分解/经典路径）
-      let useSimplePath = isSimpleTask(userMessage, this.fastPathPolicy);
+      // LRO-11（2026-10-26）：长任务信号（forceDecompose）**压过**长度门。
+      let useSimplePath = decideSimplePath({
+        message: userMessage,
+        policy: this.fastPathPolicy,
+        forceDecompose: this.forceDecompose,
+      });
+      if (this.forceDecompose && !useSimplePath) {
+        logger.info('长任务信号升级：跳过快速路径，强制分解', {
+          sessionId: this.sessionId,
+          taskId: this.taskId,
+          messageLength: userMessage.trim().length,
+        });
+      }
       if (useSimplePath) {
         const signal = this.outcomeLedger.signal(this._ledgerKey('simple'));
         if (
@@ -464,6 +510,8 @@ export class PlanDrivenLoop {
         logger.info('简单任务，跳过分解直接执行', {
           sessionId: this.sessionId,
         });
+        // LRO-11：先告知调用方本次执行模式（用户可见提示），再执行
+        this.onModeDecided?.('simple');
         return this._recordOutcome(
           'simple',
           await this._executeDirect(userMessage)
@@ -483,6 +531,8 @@ export class PlanDrivenLoop {
               sessionId: this.sessionId,
               stepCount: decomposition.subTasks.length,
             });
+            // LRO-11：先告知调用方本次执行模式（用户可见提示），再执行
+            this.onModeDecided?.('decomposed');
             // A1（2026-10-01）：原此处调用 selectPattern 记录所套模式——该决策对本层无任何
             // 执行后果（PDL 只能分解/直执行，无法承接 competitive_strategy），且输入是硬编码
             // 字面量 ⇒ 必然退化为日志。决策权已归位到分流层（ChatManager._maybeLaunchPdca，
@@ -506,6 +556,8 @@ export class PlanDrivenLoop {
 
       span.addEvent('planDrivenLoop.directExecute');
       // 降级：直接执行（13-P2-2：计入 'direct' 分桶，与快速路径 'simple' 隔离）
+      // LRO-11：先告知调用方本次执行模式（用户可见提示），再执行
+      this.onModeDecided?.('direct');
       return this._recordOutcome(
         'direct',
         await this._executeDirect(userMessage)

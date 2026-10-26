@@ -1303,6 +1303,16 @@ export class ChatManagerImpl implements ChatManager {
       persistSessionMetadata: (session) => this.persistSessionMetadata(session),
       recentUserText: (session, n) => this._recentUserText(session, n),
       lastAssistantText: (session) => this._lastAssistantText(session),
+      // LRO-11（2026-10-26）：执行模式可见告知（"仍在普通对话循环"等）
+      notifyUser: (sid, text, metadata) => {
+        this._addAndPersistMessage(
+          sid,
+          this.messageService.createAssistantMessage(text, {
+            sessionId: sid,
+            metadata: { isTaskMessage: true, ...metadata },
+          })
+        );
+      },
     });
 
     // 流式请求准备段（U-22/S2 外移）：注入 host 端口，方法体在 `chat/manager/streamSetup.ts`。

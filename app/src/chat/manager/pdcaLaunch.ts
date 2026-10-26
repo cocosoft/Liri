@@ -69,9 +69,21 @@ export interface PdcaLaunchDeps {
   recentUserText: (session: ChatSession, n?: number) => string;
   /** 最后一条 assistant 文本 */
   lastAssistantText: (session: ChatSession) => string;
+  /**
+   * LRO-11（2026-10-26）：给用户一条**可见**消息（"仍在普通对话循环"等执行模式告知）。
+   * 未注入 ⇒ 只记日志（测试替身/无 UI 场景保持旧行为）。
+   */
+  notifyUser?: (
+    sessionId: string,
+    text: string,
+    metadata?: Record<string, unknown>
+  ) => void;
 }
 
 export class PdcaLaunchCoordinator {
+  /** LRO-11：已提示过"仍在普通对话循环"的会话（每会话一次，防刷屏） */
+  private readonly _longTaskHinted = new Set<string>();
+
   constructor(private readonly deps: PdcaLaunchDeps) {}
 
   /**
@@ -104,6 +116,22 @@ export class PdcaLaunchCoordinator {
         consumedTurns: fact.consumedTurns,
         userMessageCount,
       });
+      // LRO-11（2026-10-26）：**用户可见**告知"仍在普通对话循环"——此前只在日志里，
+      // 用户会以为长任务已被编排接管。仅对"项目会话"提示（裸会话会走升级分支），
+      // 且每会话只提示一次（防每回合刷屏）。
+      if (
+        (session.metadata?.projectId ?? session.metadata?.workspaceId) &&
+        !this._longTaskHinted.has(session.id)
+      ) {
+        this._longTaskHinted.add(session.id);
+        this.deps.notifyUser?.(
+          session.id,
+          `🧭 检测到长任务信号（未完成待办 ${fact.pendingTodoCount} 个 / 已耗 ${fact.consumedTurns} 轮），` +
+            '但本次仍将在**普通对话循环**中继续（项目会话不自动升级）。' +
+            '若需要分步执行与逐步验收，请用 `/goal start <描述>`。',
+          { taskType: 'pdca-mode' }
+        );
+      }
       return;
     }
     logger.info('pdca:long_task_signal_escalation', {
@@ -116,6 +144,8 @@ export class PdcaLaunchCoordinator {
       session,
       assistantContent: this.deps.lastAssistantText(session),
       lastUserContent,
+      // LRO-11：信号已证明是长任务 ⇒ 不允许被"消息长度 ≤60"判成单步直执行
+      forceDecompose: true,
     });
   }
 
@@ -126,6 +156,8 @@ export class PdcaLaunchCoordinator {
     session: ChatSession;
     assistantContent: string;
     lastUserContent: string;
+    /** LRO-11：长任务信号升级 ⇒ 强制分解 */
+    forceDecompose?: boolean;
   }): Promise<void> {
     const { session, assistantContent, lastUserContent } = params;
     const goalSummary = lastUserContent
@@ -138,7 +170,9 @@ export class PdcaLaunchCoordinator {
       goalSummary,
     });
     if (projectId) {
-      this.maybeLaunch(session, assistantContent, projectId, lastUserContent);
+      this.maybeLaunch(session, assistantContent, projectId, lastUserContent, {
+        forceDecompose: params.forceDecompose,
+      });
     }
   }
 
@@ -152,7 +186,9 @@ export class PdcaLaunchCoordinator {
     session: ChatSession,
     assistantContent: string,
     projectId: string,
-    lastUserContent: string | undefined
+    lastUserContent: string | undefined,
+    /** LRO-11：长任务信号升级 ⇒ 强制分解 */
+    opts?: { forceDecompose?: boolean }
   ): void {
     const launcher = this.deps.getPdcaLauncher();
     if (this.deps.launchingSessions.has(session.id)) {
@@ -352,7 +388,9 @@ export class PdcaLaunchCoordinator {
         session.id,
         lastUserContent || undefined,
         // S3（P1-5 §5 S3）：两层分流决策（复杂度门 + 危险工具 + message 粒度 hash 10%）
-        usePlanDriven
+        usePlanDriven,
+        // LRO-11：长任务信号升级 ⇒ 强制分解（压过消息长度门）
+        opts
       )
       .catch(() => {
         /* 隐性引擎失败不阻塞消息流 */

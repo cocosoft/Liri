@@ -15,8 +15,8 @@
 | **PDFTool** | `app/src/tools/PDFTool/` | 简单 PDF 生成/提取（手写 PDF 语法） |
 | **mammoth** | 已有依赖 | DOCX 读取库 |
 | **xlsx** | 已有依赖 | XLSX 读取库 |
-| **outlook-email-parser** | 已有依赖 | Outlook MSG 解析 |
-| **msg.js** | 已有依赖 | 邮件消息解析 |
+| **outlook-email-parser** | 已有依赖 | Outlook MSG 解析（`src/tools/converter/converters/OutlookMsgConverter.ts` 在用） |
+| ~~**msg.js**~~ | ~~已有依赖~~ | **已于 2026-10-26 移除**（W26-04）：全仓代码 **0 引用**，仅本表与 `package.json` 提到它；属未消费依赖 |
 
 ### 1.2 缺失能力
 

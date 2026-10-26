@@ -6639,3 +6639,65 @@
 {"id":"PLANS-PAGE-PDCA-START-SESSION","k":"code#1","i":0,"c":"client/src/i18n/locales/zh/workspace.ts"}
 {"id":"PLANS-PAGE-PDCA-START-SESSION","k":"code#2","i":0,"c":"client/src/i18n/locales/en/workspace.ts"}
 {"id":"PLANS-PAGE-PDCA-START-SESSION","k":"tests#0","i":0,"c":"client/src/components/views/__tests__/PlansPage.pdcaStart.test.tsx"}
+{"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"title","i":0,"c":"Inbox 迁移顺序缺陷导致审批通道全废"}
+{"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"source","i":0,"c":"会话 session_mvoqs1ho875ea6b95e / app.log / app.db PRAGMA"}
+{"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"reopenWhen","i":0,"c":"任一环境日志再现 Inbox unavailable"}
+{"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"notes","i":0,"c":"建表与索引拆段；初始化失败不缓存连接；旧库夹具回归"}
+{"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"code#0","i":0,"c":"app/src/runtime/InboxManager.ts"}
+{"id":"INBOX-SCHEMA-MIGRATION-ORDER","k":"tests#0","i":0,"c":"app/tests/runtime/inboxLegacySchemaMigration.test.ts"}
+{"id":"SESSION-CWD-REQUIRE-PATH","k":"title","i":0,"c":"LRO-06 的 cwd 修复运行期从未生效"}
+{"id":"SESSION-CWD-REQUIRE-PATH","k":"source","i":0,"c":"app.log「解析项目 sandboxPath 失败」"}
+{"id":"SESSION-CWD-REQUIRE-PATH","k":"reopenWhen","i":0,"c":"日志再现解析项目 sandboxPath 失败"}
+{"id":"SESSION-CWD-REQUIRE-PATH","k":"notes","i":0,"c":"改为 ../workspace/*；重启后该告警计数归零"}
+{"id":"SESSION-CWD-REQUIRE-PATH","k":"code#0","i":0,"c":"app/src/chat/ChatManager.ts"}
+{"id":"THINK-ONLY-INCOMPLETE-TURN","k":"title","i":0,"c":"think-only 终稿被当成完成"}
+{"id":"THINK-ONLY-INCOMPLETE-TURN","k":"source","i":0,"c":"Liri 报告 R6 / 会话实测两轮空正文"}
+{"id":"THINK-ONLY-INCOMPLETE-TURN","k":"reopenWhen","i":0,"c":"再现 assistant 正文仅 <think>"}
+{"id":"THINK-ONLY-INCOMPLETE-TURN","k":"notes","i":0,"c":"先 stripThinkResponseTags 再判空；新增 F1-4 用例"}
+{"id":"THINK-ONLY-INCOMPLETE-TURN","k":"code#0","i":0,"c":"app/src/chat/agentIncompleteTurn.ts"}
+{"id":"THINK-ONLY-INCOMPLETE-TURN","k":"tests#0","i":0,"c":"app/tests/chat/reactToolLoop-termination.test.ts"}
+{"id":"SECURITY-COMPOUND-READONLY","k":"title","i":0,"c":"只读串联被整体拒绝且拒绝原因不可读"}
+{"id":"SECURITY-COMPOUND-READONLY","k":"source","i":0,"c":"Liri 报告 R1/R2 / 会话 session_mvoqs1ho875ea6b95e"}
+{"id":"SECURITY-COMPOUND-READONLY","k":"reopenWhen","i":0,"c":"出现新的仅因操作符被拒的只读串联"}
+{"id":"SECURITY-COMPOUND-READONLY","k":"notes","i":0,"c":"全段只读才放行；重定向/替换/变量/后台仍拒；deny 带 matchedRule"}
+{"id":"SECURITY-COMPOUND-READONLY","k":"code#0","i":0,"c":"app/src/security/compoundReadOnly.ts"}
+{"id":"SECURITY-COMPOUND-READONLY","k":"code#1","i":0,"c":"app/src/security/BashSecurityAnalyzer.ts"}
+{"id":"SECURITY-COMPOUND-READONLY","k":"code#2","i":0,"c":"app/src/tools/bash/bashSecurityGate.ts"}
+{"id":"SECURITY-COMPOUND-READONLY","k":"tests#0","i":0,"c":"app/tests/security/compoundReadOnly.test.ts"}
+{"id":"SECURITY-COMPOUND-READONLY","k":"tests#1","i":0,"c":"app/tests/tools/bashGateBlockLogging.test.ts"}
+{"id":"COMPACTION-SUMMARY-NEW-MESSAGE","k":"title","i":0,"c":"压缩摘要取错消息导致 no_effect"}
+{"id":"COMPACTION-SUMMARY-NEW-MESSAGE","k":"source","i":0,"c":"Liri 报告 R5 / compactionFold 读码"}
+{"id":"COMPACTION-SUMMARY-NEW-MESSAGE","k":"reopenWhen","i":0,"c":"再现 summary 内容与首条 user 相同"}
+{"id":"COMPACTION-SUMMARY-NEW-MESSAGE","k":"notes","i":0,"c":"按 id 差集取新增；单点折叠由既有 no_effect 覆盖"}
+{"id":"COMPACTION-SUMMARY-NEW-MESSAGE","k":"code#0","i":0,"c":"app/src/chat/orchestrator/streamMessageHelpers.ts"}
+{"id":"COMPACTION-SUMMARY-NEW-MESSAGE","k":"tests#0","i":0,"c":"app/tests/chat/orchestrator/compactionFold.test.ts"}
+{"id":"POWERSHELL-DENY-REASON","k":"title","i":0,"c":"PowerShell 拒绝原因不可诊断"}
+{"id":"POWERSHELL-DENY-REASON","k":"source","i":0,"c":"Liri 报告 R2 / 本机 4 次 Select-String 报文"}
+{"id":"POWERSHELL-DENY-REASON","k":"reopenWhen","i":0,"c":"再现「不在允许列表」但首词确在白名单"}
+{"id":"POWERSHELL-DENY-REASON","k":"notes","i":0,"c":"判定未放宽；方法调用收窄待安全评审；失败回填 stderr 末 40 行"}
+{"id":"POWERSHELL-DENY-REASON","k":"code#0","i":0,"c":"app/src/tools/PowerShellTool/PowerShellTool.ts"}
+{"id":"POWERSHELL-DENY-REASON","k":"tests#0","i":0,"c":"app/tests/tools/toolSecurityGateWiring.test.ts"}
+{"id":"PERMISSION-RULE-MATCH-SCOPE","k":"title","i":0,"c":"规则命中维度不可观测"}
+{"id":"PERMISSION-RULE-MATCH-SCOPE","k":"source","i":0,"c":"Liri 报告 P1-2 / 预存 §11 冲突"}
+{"id":"PERMISSION-RULE-MATCH-SCOPE","k":"reopenWhen","i":0,"c":"再现「整工具被一条 deny 笼罩」"}
+{"id":"PERMISSION-RULE-MATCH-SCOPE","k":"notes","i":0,"c":"负向用例证伪工具级笼罩；matchScope 进日志与 denyInfo"}
+{"id":"PERMISSION-RULE-MATCH-SCOPE","k":"code#0","i":0,"c":"app/src/permission/PermissionManager.ts"}
+{"id":"PERMISSION-RULE-MATCH-SCOPE","k":"code#1","i":0,"c":"app/src/permission/types/PermissionDecision.ts"}
+{"id":"PERMISSION-RULE-MATCH-SCOPE","k":"tests#0","i":0,"c":"app/tests/permission/ruleSourceAndRemovalHint.test.ts"}
+{"id":"PATH-MISSING-SIBLING-HINT","k":"title","i":0,"c":"路径缺失提示不可据以改正"}
+{"id":"PATH-MISSING-SIBLING-HINT","k":"source","i":0,"c":"Liri 报告 P2-1 / 会话 5 次搜索目录不存在"}
+{"id":"PATH-MISSING-SIBLING-HINT","k":"reopenWhen","i":0,"c":"再现模型连续重试同一不存在路径"}
+{"id":"PATH-MISSING-SIBLING-HINT","k":"notes","i":0,"c":"定位首个缺失层级并列出同级目录（≤20）"}
+{"id":"PATH-MISSING-SIBLING-HINT","k":"code#0","i":0,"c":"app/src/tools/utils/ToolUtils.ts"}
+{"id":"PATH-MISSING-SIBLING-HINT","k":"tests#0","i":0,"c":"app/tests/tools/pathAccessibilityHint.test.ts"}
+{"id":"LOOP-GUARD-PROGRESS-AWARE","k":"title","i":0,"c":"重读守卫误杀有进展的长任务"}
+{"id":"LOOP-GUARD-PROGRESS-AWARE","k":"source","i":0,"c":"Liri 报告 P2-2"}
+{"id":"LOOP-GUARD-PROGRESS-AWARE","k":"reopenWhen","i":0,"c":"再现有产物推进却触发重读收敛"}
+{"id":"LOOP-GUARD-PROGRESS-AWARE","k":"notes","i":0,"c":"completedWork 增长即重置；500 轮硬上限不变"}
+{"id":"LOOP-GUARD-PROGRESS-AWARE","k":"code#0","i":0,"c":"app/src/chat/toolResultPostProcess.ts"}
+{"id":"LOOP-GUARD-PROGRESS-AWARE","k":"tests#0","i":0,"c":"app/tests/chat/readReexploreProgress.test.ts"}
+{"id":"TERMINATION-TEXT-INVARIANT","k":"title","i":0,"c":"终止零正文缺回归守护"}
+{"id":"TERMINATION-TEXT-INVARIANT","k":"source","i":0,"c":"Liri 报告 R6"}
+{"id":"TERMINATION-TEXT-INVARIANT","k":"reopenWhen","i":0,"c":"再现 assistant 正文为空的终止"}
+{"id":"TERMINATION-TEXT-INVARIANT","k":"notes","i":0,"c":"仅测试；核实兜底已覆盖四类原因"}
+{"id":"TERMINATION-TEXT-INVARIANT","k":"tests#0","i":0,"c":"app/tests/chat/terminationAlwaysHasText.test.ts"}

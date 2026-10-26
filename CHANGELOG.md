@@ -19,6 +19,16 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TERMINATION-TEXT-INVARIANT**：锁定终止必有正文的不变量 —— 验证 tsc0|arch0|fnsize0|state0；基线 此前无用例守护「非 completed 终止必须给正文」（详情见 archive/evidence-detail.jsonl#TERMINATION-TEXT-INVARIANT）
+- ✅ **LOOP-GUARD-PROGRESS-AWARE**：重读守卫改按增量进展判定 —— 验证 tsc0|arch0|fnsize0|state0；基线 纯累计次数 ⇒ 边做边查被误判空转（详情见 archive/evidence-detail.jsonl#LOOP-GUARD-PROGRESS-AWARE）
+- ✅ **PATH-MISSING-SIBLING-HINT**：路径缺失时给出同级目录候选 —— 验证 tsc0|arch0|fnsize0|state0；基线 只提示「请确认拼写」⇒ 模型沿用旧路径反复重试（详情见 archive/evidence-detail.jsonl#PATH-MISSING-SIBLING-HINT）
+- ✅ **PERMISSION-RULE-MATCH-SCOPE**：规则命中补 matchScope/callFingerprint —— 验证 tsc0|arch0|fnsize0|state0；基线 只记规则侧指纹 ⇒ 无法区分工具级与指纹级命中（详情见 archive/evidence-detail.jsonl#PERMISSION-RULE-MATCH-SCOPE）
+- ✅ **POWERSHELL-DENY-REASON**：PowerShell 拒绝报文指向真实原因与命中语句 —— 验证 tsc0|arch0|fnsize0|state0；基线 报文只回显首词「X 不在允许列表」⇒ 与真实原因（方法调用等）不符（详情见 archive/evidence-detail.jsonl#POWERSHELL-DENY-REASON）
+- ✅ **COMPACTION-SUMMARY-NEW-MESSAGE**：压缩摘要取本次新增消息（不再回填旧用户消息） —— 验证 tsc0|arch0|fnsize0|state0；基线 find(无seq) 取第一条 ⇒ 摘要恒等于用户原始 prompt，压缩无效（详情见 archive/evidence-detail.jsonl#COMPACTION-SUMMARY-NEW-MESSAGE）
+- ✅ **SECURITY-COMPOUND-READONLY**：复合只读命令逐段放行 + deny 报文可归因 —— 验证 tsc0|arch0|fnsize0|state0；基线 含 ; & | $ 一律硬 deny 且报文只有「命令被阻止执行」⇒ 模型盲试（实测 179 次）（详情见 archive/evidence-detail.jsonl#SECURITY-COMPOUND-READONLY）
+- ✅ **THINK-ONLY-INCOMPLETE-TURN**：终稿只含 think 时按不完整回合重试 —— 验证 tsc0|arch0|fnsize0|state0；基线 result.text 非空（全是 think）⇒ 判为已完成 ⇒ 空回答落盘且不重试（详情见 archive/evidence-detail.jsonl#THINK-ONLY-INCOMPLETE-TURN）
+- ✅ **SESSION-CWD-REQUIRE-PATH**：项目 workspace 解析 require 路径少退一层 —— 验证 tsc0|arch0|fnsize0|state0；基线 require("../../workspace/…") 多退一层 ⇒ 每次工具执行 Cannot find module ⇒ cwd 恒回落项目根（详情见 archive/evidence-detail.jsonl#SESSION-CWD-REQUIRE-PATH）
+- ✅ **INBOX-SCHEMA-MIGRATION-ORDER**：Inbox 迁移顺序：建表→补列→建索引，失败不缓存连接 —— 验证 tsc0|arch0|fnsize0|state0；基线 旧库缺 owner_key ⇒ 建索引即抛 ⇒ 初始化失败且连接被缓存 ⇒ 所有 ask 降级 Inbox unavailable（实测 ≥18 次）（详情见 archive/evidence-detail.jsonl#INBOX-SCHEMA-MIGRATION-ORDER）
 - ✅ **PLANS-PAGE-PDCA-START-SESSION**：计划页启动 PDCA 透传会话 + 可见提示 —— 验证 tc0|eslint0|vitest3|unit706；基线 改前：计划页不传 sessionId ⇒ 后端 400 被 catch 吞掉，按钮无反应；改后：透传当前会话 + 缺会话/失败均有可见提示（详情见 archive/evidence-detail.jsonl#PLANS-PAGE-PDCA-START-SESSION）
 - ✅ **PERMISSION-DENY-STRUCTURED-TOOL-RESULT**：deny 结构化依据进工具结果 —— 验证 tsc|arch0|ratchet0|consts0|unit844；基线 改前：deny 依据只在 decision.context，归一化即丢 ⇒ 工具结果 metadata 为 null；改后：denyInfo 进 metadata.permissionDeny（详情见 archive/evidence-detail.jsonl#PERMISSION-DENY-STRUCTURED-TOOL-RESULT）
 - ✅ **PERMISSION-RULE-SOURCE-REMOVAL-HINT**：规则拒绝来源如实 + 给出解除入口（LRO-07） —— 验证 tsc|arch0|ratchet0|consts0|perm168；基线 改前：tool_rules.json 规则全标 userSettings（磁盘无此文件）且 deny 只说来源；改后：来源 ruleStore + ruleId + 面板/API 解除路径（详情见 archive/evidence-detail.jsonl#PERMISSION-RULE-SOURCE-REMOVAL-HINT）

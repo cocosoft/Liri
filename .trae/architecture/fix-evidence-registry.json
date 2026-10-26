@@ -13159,6 +13159,266 @@
       "changelog": [],
       "reopenWhen": "若计划页再次「点启动无反应」、前端传空会话、或后端放宽 sessionId 必填：回看 PlansPage.handleStart 与 pdcaService.start；回滚 = revert 3a210decb（全文见 archive/evidence-detail.jsonl#PLANS-PAGE-PDCA-START-SESSION）",
       "notes": "【根因】计划页调 `pdcaService.start(d)` 未传 sessionId ⇒ `POST /v1/pdca/start` 400；而 `pdcaService.start` 的 catch 吞错返回 null ⇒ 无提示、输入被清空。【改法】`useSessionStore` 取 currentSes…（全文见 archive/evidence-detail.jsonl#PLANS-PAGE-PDCA-START-SESSION）"
+    },
+    {
+      "id": "INBOX-SCHEMA-MIGRATION-ORDER",
+      "title": "Inbox 迁移顺序缺陷导致审批通道全废",
+      "source": "会话 session_mvoqs1ho875ea6b95e / app.log / app.db PRAGMA",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/runtime/InboxManager.ts"
+      ],
+      "tests": [
+        "app/tests/runtime/inboxLegacySchemaMigration.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "任一环境日志再现 Inbox unavailable（全文见 archive/evidence-detail.jsonl#INBOX-SCHEMA-MIGRATION-ORDER）",
+      "notes": "建表与索引拆段；初始化失败不缓存连接；旧库夹具回归（全文见 archive/evidence-detail.jsonl#INBOX-SCHEMA-MIGRATION-ORDER）"
+    },
+    {
+      "id": "SESSION-CWD-REQUIRE-PATH",
+      "title": "LRO-06 的 cwd 修复运行期从未生效",
+      "source": "app.log「解析项目 sandboxPath 失败」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/ChatManager.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "日志再现解析项目 sandboxPath 失败（全文见 archive/evidence-detail.jsonl#SESSION-CWD-REQUIRE-PATH）",
+      "notes": "改为 ../workspace/*；重启后该告警计数归零（全文见 archive/evidence-detail.jsonl#SESSION-CWD-REQUIRE-PATH）"
+    },
+    {
+      "id": "THINK-ONLY-INCOMPLETE-TURN",
+      "title": "think-only 终稿被当成完成",
+      "source": "Liri 报告 R6 / 会话实测两轮空正文",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/agentIncompleteTurn.ts"
+      ],
+      "tests": [
+        "app/tests/chat/reactToolLoop-termination.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现 assistant 正文仅 <think>（全文见 archive/evidence-detail.jsonl#THINK-ONLY-INCOMPLETE-TURN）",
+      "notes": "先 stripThinkResponseTags 再判空；新增 F1-4 用例（全文见 archive/evidence-detail.jsonl#THINK-ONLY-INCOMPLETE-TURN）"
+    },
+    {
+      "id": "SECURITY-COMPOUND-READONLY",
+      "title": "只读串联被整体拒绝且拒绝原因不可读",
+      "source": "Liri 报告 R1/R2 / 会话 session_mvoqs1ho875ea6b95e",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/security/compoundReadOnly.ts",
+        "app/src/security/BashSecurityAnalyzer.ts",
+        "app/src/tools/bash/bashSecurityGate.ts"
+      ],
+      "tests": [
+        "app/tests/security/compoundReadOnly.test.ts",
+        "app/tests/tools/bashGateBlockLogging.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "出现新的仅因操作符被拒的只读串联（全文见 archive/evidence-detail.jsonl#SECURITY-COMPOUND-READONLY）",
+      "notes": "全段只读才放行；重定向/替换/变量/后台仍拒；deny 带 matchedRule（全文见 archive/evidence-detail.jsonl#SECURITY-COMPOUND-READONLY）"
+    },
+    {
+      "id": "COMPACTION-SUMMARY-NEW-MESSAGE",
+      "title": "压缩摘要取错消息导致 no_effect",
+      "source": "Liri 报告 R5 / compactionFold 读码",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/orchestrator/streamMessageHelpers.ts"
+      ],
+      "tests": [
+        "app/tests/chat/orchestrator/compactionFold.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现 summary 内容与首条 user 相同（全文见 archive/evidence-detail.jsonl#COMPACTION-SUMMARY-NEW-MESSAGE）",
+      "notes": "按 id 差集取新增；单点折叠由既有 no_effect 覆盖（全文见 archive/evidence-detail.jsonl#COMPACTION-SUMMARY-NEW-MESSAGE）"
+    },
+    {
+      "id": "POWERSHELL-DENY-REASON",
+      "title": "PowerShell 拒绝原因不可诊断",
+      "source": "Liri 报告 R2 / 本机 4 次 Select-String 报文",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/PowerShellTool/PowerShellTool.ts"
+      ],
+      "tests": [
+        "app/tests/tools/toolSecurityGateWiring.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现「不在允许列表」但首词确在白名单（全文见 archive/evidence-detail.jsonl#POWERSHELL-DENY-REASON）",
+      "notes": "判定未放宽；方法调用收窄待安全评审；失败回填 stderr 末 40 行（全文见 archive/evidence-detail.jsonl#POWERSHELL-DENY-REASON）"
+    },
+    {
+      "id": "PERMISSION-RULE-MATCH-SCOPE",
+      "title": "规则命中维度不可观测",
+      "source": "Liri 报告 P1-2 / 预存 §11 冲突",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/permission/PermissionManager.ts",
+        "app/src/permission/types/PermissionDecision.ts"
+      ],
+      "tests": [
+        "app/tests/permission/ruleSourceAndRemovalHint.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现「整工具被一条 deny 笼罩」（全文见 archive/evidence-detail.jsonl#PERMISSION-RULE-MATCH-SCOPE）",
+      "notes": "负向用例证伪工具级笼罩；matchScope 进日志与 denyInfo（全文见 archive/evidence-detail.jsonl#PERMISSION-RULE-MATCH-SCOPE）"
+    },
+    {
+      "id": "PATH-MISSING-SIBLING-HINT",
+      "title": "路径缺失提示不可据以改正",
+      "source": "Liri 报告 P2-1 / 会话 5 次搜索目录不存在",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/utils/ToolUtils.ts"
+      ],
+      "tests": [
+        "app/tests/tools/pathAccessibilityHint.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现模型连续重试同一不存在路径（全文见 archive/evidence-detail.jsonl#PATH-MISSING-SIBLING-HINT）",
+      "notes": "定位首个缺失层级并列出同级目录（≤20）（全文见 archive/evidence-detail.jsonl#PATH-MISSING-SIBLING-HINT）"
+    },
+    {
+      "id": "LOOP-GUARD-PROGRESS-AWARE",
+      "title": "重读守卫误杀有进展的长任务",
+      "source": "Liri 报告 P2-2",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/toolResultPostProcess.ts"
+      ],
+      "tests": [
+        "app/tests/chat/readReexploreProgress.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现有产物推进却触发重读收敛（全文见 archive/evidence-detail.jsonl#LOOP-GUARD-PROGRESS-AWARE）",
+      "notes": "completedWork 增长即重置；500 轮硬上限不变（全文见 archive/evidence-detail.jsonl#LOOP-GUARD-PROGRESS-AWARE）"
+    },
+    {
+      "id": "TERMINATION-TEXT-INVARIANT",
+      "title": "终止零正文缺回归守护",
+      "source": "Liri 报告 R6",
+      "stages": {
+        "discovered": true,
+        "fixed": false,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": false,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [],
+      "tests": [
+        "app/tests/chat/terminationAlwaysHasText.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现 assistant 正文为空的终止（全文见 archive/evidence-detail.jsonl#TERMINATION-TEXT-INVARIANT）",
+      "notes": "仅测试；核实兜底已覆盖四类原因（全文见 archive/evidence-detail.jsonl#TERMINATION-TEXT-INVARIANT）"
     }
   ]
 }

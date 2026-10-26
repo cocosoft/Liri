@@ -184,6 +184,13 @@
 `Verify macOS sandbox (seatbelt write isolation)` step，每次 CI 在真实 macOS runner 上跑 4 条断言；
 不再依赖人工在 Mac 上执行。首次 CI 通过后本节回填**真实输出**。
 
+**首次 CI 记录（2026-10-26，`81899911e`）**：❌ `Test Suite (macos-latest)` 在该步骤 **exit 1**
+（不是 exit 2 ⇒ `sandbox-exec` 存在、是断言失败）。根因：`os.tmpdir()` 返回 `/var/folders/…`，
+而 `/var` 是 `/private/var` 的符号链接，SBPL 的 `(subpath …)` 按**内核解析后**的路径匹配
+⇒ 白名单里写 `/var/…` 匹配不到 `/private/var/…`，「白名单内可写」被误拒（**假阴性**）。
+修法：`buildMacOSSandboxProfile` 的归一阶段调用 `toKernelPath`（`realpathSync`，路径不存在时原样保留），
+并给 CI 步骤加 annotation 提升（job 日志下载接口需 admin，annotations 可匿名读取）。
+
 **本地复现（在 Mac 上）**：
 
 ```bash

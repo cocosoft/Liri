@@ -77,7 +77,21 @@ jobs:
     # ---------------------------------------------------------------------
     - name: Verify macOS sandbox (seatbelt write isolation)
       if: matrix.os == 'macos-latest'
-      run: bun run verify:sandbox-macos
+      # 失败时把逐条断言结论提升为 annotation：Actions 的 job 日志下载接口需要仓库 admin 权限
+      # （匿名调用 403），而 check-run annotations 可匿名读取（2026-10-23 实证）。
+      run: |
+        set +e
+        out=$(bun run verify:sandbox-macos 2>&1)
+        code=$?
+        set -e
+        printf '%s\n' "$out"
+        if [ $code -ne 0 ]; then
+          printf '%s\n' "$out" \
+            | grep -E '^(✅|❌|\[verify-macos-sandbox\])' \
+            | while IFS= read -r line; do echo "::error title=macOS sandbox::${line}"; done \
+            || true
+          exit $code
+        fi
 
     - name: Run linter
       # 静态检查与平台无关；macOS runner 内存较小，eslint 全量扫描会 OOM

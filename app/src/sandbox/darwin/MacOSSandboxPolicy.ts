@@ -20,7 +20,10 @@
 // SOFTWARE.
 
 /**
- * macOS Seatbelt（SBPL）策略生成（**纯函数**，不 spawn、不读盘）。
+ * macOS Seatbelt（SBPL）策略生成。
+ *
+ * **纯度口径（2026-10-26 订正）**：不 spawn、不写盘；唯一 IO 是 `realpathSync`
+ * （见 {@link toKernelPath}）—— 因为 SBPL 的 `(subpath …)` 按**内核解析后的路径**匹配。
  *
  * 首版只做**写隔离**（用户 2026-10-26 裁定）：
  * - `(deny default)` ⇒ 默认拒绝；
@@ -32,11 +35,30 @@
  * 读白名单化 / 网络收紧见方案 §3.5（本次不做，登记为后续项）。
  */
 
+import { realpathSync } from 'node:fs';
+
 export interface MacOSSandboxProfileInput {
   /** 写入白名单（逐条 `subpath`）；调用方负责给出绝对路径并自行过滤不存在的项 */
   writablePaths: string[];
   /** 是否放行网络；缺省 `true`（与现有基线同口径） */
   allowNetwork?: boolean;
+}
+
+/**
+ * 把路径归一成**内核实际看到的路径**（解析符号链接）。
+ *
+ * 为什么必须：macOS 上 `/var` → `/private/var`，而 `os.tmpdir()` 返回的正是
+ * `/var/folders/…/T`；SBPL 按**解析后**的路径匹配 ⇒ 不归一就会出现「白名单里写了、
+ * 却仍被拒」的假阴性（2026-10-26 首次 macOS CI 实证：白名单内写入被拒）。
+ *
+ * 不存在的路径**原样保留**：profile 可以先于目录创建，纯函数用例也可用假路径。
+ */
+export function toKernelPath(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
 }
 
 /**
@@ -47,13 +69,16 @@ export function escapeSbplString(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-/** 去重（保持声明顺序），并丢弃空串 */
+/** 归一（符号链接解析）+ 去重（保持声明顺序），并丢弃空串 */
 function normalizePaths(paths: string[]): string[] {
   const out: string[] = [];
   for (const raw of paths) {
     const trimmed = raw.trim();
-    if (!trimmed || out.includes(trimmed)) continue;
-    out.push(trimmed);
+    if (!trimmed) continue;
+    // 先归一再查重：`/tmp` 与 `/private/tmp` 归一后应当合并成一条
+    const resolved = toKernelPath(trimmed);
+    if (out.includes(resolved)) continue;
+    out.push(resolved);
   }
   return out;
 }

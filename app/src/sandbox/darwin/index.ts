@@ -12,6 +12,7 @@ export type { MacOSSandboxCapability } from './MacOSSandboxDetector';
 export {
   buildMacOSSandboxProfile,
   escapeSbplString,
+  toKernelPath,
 } from './MacOSSandboxPolicy';
 export type { MacOSSandboxProfileInput } from './MacOSSandboxPolicy';
 export { buildSandboxExecArgv, runWithSandboxExec } from './runWithSandboxExec';

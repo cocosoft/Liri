@@ -18,7 +18,10 @@ import {
   clearMacOSSandboxCapabilityCache,
   detectMacOSSandboxCapability,
 } from '../src/sandbox/darwin/MacOSSandboxDetector';
-import { buildMacOSSandboxProfile } from '../src/sandbox/darwin/MacOSSandboxPolicy';
+import {
+  buildMacOSSandboxProfile,
+  toKernelPath,
+} from '../src/sandbox/darwin/MacOSSandboxPolicy';
 import { runWithSandboxExec } from '../src/sandbox/darwin/runWithSandboxExec';
 
 interface ProbeResult {
@@ -55,6 +58,11 @@ async function main(): Promise<void> {
     writablePaths: [allowDir],
     allowNetwork: false,
   });
+  // 诊断行：macOS 上 `tmpdir()` 是 `/var/folders/…`（符号链接），而 SBPL 按内核解析后的
+  // `/private/var/folders/…` 匹配 ⇒ 失败时这一行能直接看出"白名单归一到了哪"
+  console.log(
+    `[verify-macos-sandbox] tmpdir=${tmpdir()} allow=${toKernelPath(allowDir)} deny=${toKernelPath(denyDir)}`
+  );
   const run = (command: string) =>
     runWithSandboxExec({
       profile,

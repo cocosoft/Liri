@@ -9,6 +9,10 @@
  */
 
 import { checkBashAllowlist } from './BashAllowlistMatcher';
+import {
+  checkCompoundReadOnly,
+  type CompoundReadOnlyVerdict,
+} from './compoundReadOnly';
 
 /**
  * 原生分析器句柄。**三态**：`undefined` = 未尝试加载；`null` = 加载失败/不可用；函数 = 可用。
@@ -226,6 +230,9 @@ export class BashSecurityAnalyzer {
         safe: false,
         behavior: 'deny' as SecurityBehavior,
         riskLevel: 'high' as RiskLevel,
+        // F1（2026-10-27）：deny 必须带**可读原因** —— 原实现只给 behavior，
+        // 门禁侧兜底成「命令被阻止执行」，模型拿不到任何可执行信息只能盲试（实测 179 次）。
+        message: `命令未匹配用户配置的 bash 白名单规则（whitelist），已拒绝执行：${command.slice(0, 120)}`,
         matchedPatterns: [`未匹配白名单规则: ${command}`],
       };
     } catch (err) {
@@ -234,6 +241,8 @@ export class BashSecurityAnalyzer {
         safe: false,
         behavior: 'deny' as SecurityBehavior,
         riskLevel: 'high' as RiskLevel,
+        message:
+          'bash 白名单检查异常，按 fail-closed 拒绝执行（请检查白名单配置）',
         matchedPatterns: ['白名单检查异常，已熔断拒绝'],
       };
     }
@@ -314,30 +323,53 @@ export class BashSecurityAnalyzer {
       };
     }
 
-    // P3-3: allowlist 前缀匹配 — shell operator 始终 deny
-    // 不在已知安全列表 → 先标记，等危险命令检测后再判断
+    // P3-3: allowlist 前缀匹配 —— 含 shell operator 的复合命令**先做逐段只读判定**
+    // （P1-3，2026-10-27）：全段只读 ⇒ 放行；重定向 / 命令替换 / 后台 `&` /
+    // 变量展开 / 任一段非只读 ⇒ **维持原硬拒**。
+    // 背景：真机实测 `cd /d X && dir /b`、`dir /s /b *.ts | find /c /v ""` 连审批机会都没有。
     const allowlistCheck = checkBashAllowlist(trimmedCommand);
     let allowlistPendingDeny = false;
+    let compoundVerdict: CompoundReadOnlyVerdict | null = null;
     if (!allowlistCheck.safe) {
       const isShellOperator = allowlistCheck.reason.includes('Shell operator');
       if (isShellOperator) {
-        return {
-          safe: false,
-          behavior: 'deny',
-          riskLevel: 'high',
-          matchedPatterns: [
-            `Bash allowlist rejected: ${allowlistCheck.reason}`,
-          ],
-        };
+        compoundVerdict = checkCompoundReadOnly(trimmedCommand);
+        if (!compoundVerdict.allowed) {
+          return {
+            safe: false,
+            behavior: 'deny',
+            riskLevel: 'high',
+            // F1：给出**可执行的原因**，让模型改命令而不是反复重试同一条
+            message: `复合命令被拒绝：${compoundVerdict.reason}。仅允许「全段只读」的串联（&& || | ;），且不得含重定向/命令替换/变量/后台执行`,
+            matchedPatterns: [
+              `Bash allowlist rejected: ${allowlistCheck.reason}`,
+              `compound-readonly denied: ${compoundVerdict.reason}`,
+            ],
+          };
+        }
+      } else {
+        // 不在已知安全列表 — 暂不拦截，等危险命令检测后再决定
+        allowlistPendingDeny = true;
       }
-      // 不在已知安全列表 — 暂不拦截，等危险命令检测后再决定
-      allowlistPendingDeny = true;
     }
 
     // 前置检查：白名单模式 — 配置了 whitelist 时，只放行匹配的指令
+    // （必须**先于** compound 放行：用户显式配置的白名单优先）
     {
       const preCheck = this.checkWhitelistPreCheck(trimmedCommand);
       if (preCheck) return preCheck;
+    }
+
+    // P1-3：全段只读的复合命令 ⇒ 直接放行。每段已命中只读白名单；
+    // 危险命令 / 路径安全检查仍在调用链的更早位置独立生效。
+    if (compoundVerdict) {
+      return {
+        safe: true,
+        behavior: 'allow',
+        riskLevel: 'low',
+        message: `复合只读命令放行（${compoundVerdict.segments.length} 段，全部命中只读白名单）`,
+        matchedPatterns: ['compound-readonly'],
+      };
     }
 
     // 尝试Rust原生安全分析作为第一遍检查

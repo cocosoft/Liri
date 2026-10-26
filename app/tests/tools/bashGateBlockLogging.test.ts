@@ -163,6 +163,41 @@ describe('BashTool 硬拦截分支可观测性（2026-10-25 补日志）', () =>
     }
   });
 
+  it('F1：deny 带原因 ⇒ 工具结果含 matchedRule / code，不再是「命令被阻止执行」', async () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    try {
+      const tool = new BashTool(reg);
+      const analyzer = (
+        tool as unknown as { securityAnalyzer: BashSecurityAnalyzer }
+      ).securityAnalyzer;
+      const analyzeSpy = spyOn(analyzer, 'analyze').mockReturnValue({
+        safe: false,
+        behavior: 'deny',
+        riskLevel: 'high',
+        message: '复合命令被拒绝：重定向（>）',
+        matchedPatterns: ['compound-readonly denied: 重定向（>）'],
+      } as ReturnType<BashSecurityAnalyzer['analyze']>);
+      try {
+        const result = await tool.execute(
+          { command: 'dir > out.txt' },
+          makeContext('sess-deny-reason')
+        );
+        expect(result.success).toBe(false);
+        expect(String(result.error ?? result.data)).toContain(
+          '复合命令被拒绝：重定向'
+        );
+        expect(result.metadata?.matchedRule).toBe(
+          'compound-readonly denied: 重定向（>）'
+        );
+        expect(result.metadata?.code).toBe('SECURITY_ANALYZER_DENY');
+      } finally {
+        analyzeSpy.mockRestore();
+      }
+    } finally {
+      reg.dispose();
+    }
+  });
+
   it('负向对照：正常放行命令 ⇒ 零条 security_gate_blocked（不误报）', async () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
     try {

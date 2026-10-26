@@ -75,6 +75,7 @@ export interface CommandAnalyzer {
   ) => {
     behavior: 'allow' | 'deny' | 'ask';
     message?: string;
+    matchedPatterns?: string[];
   };
 }
 
@@ -254,10 +255,24 @@ export function checkAstAndAnalyzer(params: {
   }
 
   if (securityResult.behavior === 'deny') {
-    return blockedResult(
-      `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
-      { reason: 'security_analyzer_deny' }
-    );
+    // F1（2026-10-27）：deny 必须带**可归因**的原因。
+    // 原实现 `|| '命令被阻止执行'` 会在分析器未给 message 时把信息吃光 —— 实测会话
+    // `session_mvoqs1ho875ea6b95e` 有 179 次同值报文，模型无法据此改正，只能反复盲试
+    // （Liri 报告 R1）。现：保留分析器文案 + 带上命中的规则/模式，写入 metadata 供审计。
+    const matchedRule = securityResult.matchedPatterns?.[0];
+    const reason =
+      securityResult.message ||
+      (matchedRule
+        ? `命中安全规则：${matchedRule}`
+        : '命令被安全检查拒绝（分析器未返回具体规则，请查看 app.log 的 bash: security_gate_blocked）');
+    return blockedResult(`安全检查失败: ${reason}`, {
+      reason: 'security_analyzer_deny',
+      code: 'SECURITY_ANALYZER_DENY',
+      ...(matchedRule ? { matchedRule } : {}),
+      ...(securityResult.matchedPatterns?.length
+        ? { matchedPatterns: securityResult.matchedPatterns.slice(0, 5) }
+        : {}),
+    });
   }
 
   // S1-2：批准只免"审批交互"——`bypassAsk` 时不再重复弹 ask 卡；

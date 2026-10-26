@@ -17,6 +17,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveProjectRoot } from '@openliri/kernel/paths';
+import { SANDBOX_HELPER_BIN_DIR } from '../helperBinDir';
 
 /** helper 可执行文件名（与 Cargo/native 无关，纯 C 编译产物） */
 export const LANDLOCK_HELPER_BIN_NAME = 'landlock-run';
@@ -24,8 +25,7 @@ export const LANDLOCK_HELPER_BIN_NAME = 'landlock-run';
 /** 显式覆盖的环境变量名（与 `LinuxSandboxRunner` / `bashLandlockExec` 同一口径） */
 export const LANDLOCK_HELPER_ENV = 'LANDLOCK_RUN_HELPER';
 
-/** 随包分发目录（`<PROJECT_DIR>/bin/`） */
-const SHIPPED_SUBDIR = 'bin';
+/** 随包分发目录（`<PROJECT_DIR>/bin/`；定义见 `../helperBinDir`） */
 
 /**
  * 候选路径（按优先级，去重去空；非 Linux ⇒ 空数组）。
@@ -41,7 +41,7 @@ export function resolveLandlockHelperCandidates(input: {
   const explicit = input.env?.[LANDLOCK_HELPER_ENV]?.trim();
   const list = [
     explicit,
-    join(input.projectDir, SHIPPED_SUBDIR, LANDLOCK_HELPER_BIN_NAME),
+    join(input.projectDir, SANDBOX_HELPER_BIN_DIR, LANDLOCK_HELPER_BIN_NAME),
     LANDLOCK_HELPER_BIN_NAME,
   ];
   const seen = new Set<string>();
@@ -74,6 +74,10 @@ export function resolveLandlockHelperPath(
 
   const projectDir = input.projectDir ?? resolveProjectRoot();
   const exists = input.exists ?? existsSync;
-  const shipped = join(projectDir, SHIPPED_SUBDIR, LANDLOCK_HELPER_BIN_NAME);
+  const shipped = join(
+    projectDir,
+    SANDBOX_HELPER_BIN_DIR,
+    LANDLOCK_HELPER_BIN_NAME
+  );
   return exists(shipped) ? shipped : LANDLOCK_HELPER_BIN_NAME;
 }

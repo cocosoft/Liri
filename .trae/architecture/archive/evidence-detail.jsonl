@@ -6461,3 +6461,11 @@
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"tests#0","i":0,"c":"app/tests/sandbox/winSandbox.test.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"tests#1","i":0,"c":"app/tests/sandbox/winSandboxRunner.test.ts"}
 {"id":"WINDOWS-SANDBOX-LOW-IL","k":"changelog#0","i":0,"c":"Windows 兜底沙箱（Low IL + Job）：code_run 写隔离，CI 全自动构建与自证"}
+{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"title","i":0,"c":"删除根目录调试脚本 probe_sessions.ps1（CD05 先摘代码侧引用）"}
+{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"source","i":0,"c":"用户 2026-10-26 指令「先做 W26-02」（外部评审：删掉这类根目录开发残留）；承接 ROOTCLEAN-REPORTS-SCRIPTS 的 reopenWhen②「要删必须先摘引用」"}
+{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"reopenWhen","i":0,"c":"若需恢复该探针：文件原本已跟踪 ⇒ `git log --oneline -- probe_sessions.ps1` 找删除前最后提交，再 `git show <commit>:probe_sessions.ps1 > probe_sessions.ps1` 原样取回"}
+{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":0,"c":"【为什么这次删、上次保留】2026-10-16 的 ROOTCLEAN-REPORTS-SCRIPTS 按 CD01 判「保留」：① `dev_docs/trajectory-dual-source-evidence-report.md:94,104` 当它是可用工具；② 台账有「登记不改」处置。"}
+{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":1,"c":"本次改判依据：该报告属**本地不推送**域（`.gitignore:262` 的 `dev_docs/*`），非仓内契约；代码侧唯一真实引用是 `packages/kernel/src/core/paths.ts:264` 的注释 ⇒ 按 CD05 先改写该注释（不再点名脚本），引用归零后再删文件。"}
+{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":2,"c":"【核查 CD01–CD04】全仓 grep `probe_sessions` 仅命中：脚本自身、paths.ts 注释、上述本地报告、台账历史记录；无 import / 构建入口 / 插件注册表 / DI / 运行时发现。脚本内容佐证「非产品代码」：一次性扫描候选会话目录并统计 events.jsonl / messages.jsonl。"}
+{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":3,"c":"【回滚与边界】脚本为**已跟踪**文件 ⇒ git 历史即回滚点（CD06）；取回命令写进本地报告的更新提示。无测试改动（文件级清理，无运行时行为面）⇒ testVerified=false、e2eVerified=false。"}
+{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"code#0","i":0,"c":"packages/kernel/src/core/paths.ts"}

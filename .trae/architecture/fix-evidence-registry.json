@@ -12744,6 +12744,30 @@
         "Windows 兜底沙箱（Low IL + Job）：code_run 写隔离，CI 全自动构建与自证"
       ],
       "reopenWhen": "若要沙箱化 bash：需给用户仓库打 ACL/标签（污染风险）或改 AppContainer ⇒ 另立专项（全文见 archive/evidence-detail.jsonl#WINDOWS-SANDBOX-LOW-IL）"
+    },
+    {
+      "id": "ROOTCLEAN-PROBE-SCRIPT-RETIRED",
+      "title": "删除根目录调试脚本 probe_sessions.ps1（CD05 先摘代码侧引用）",
+      "source": "用户 2026-10-26 指令「先做 W26-02」（外部评审：删掉这类根目录开发残留）；承接 ROOTCLEAN-REPORTS-SCRIPTS 的 reopenWhen②「要删必须先摘引用」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/kernel/src/core/paths.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "若需恢复该探针：文件原本已跟踪 ⇒ `git log --oneline -- probe_sessions.ps1` 找删除前最后提交，再 `git show <commit>:probe_sessions.ps1 > probe_sessions.ps1` 原样取回（全文见 archive/evidence-detail.jsonl#ROOTCLEAN-PROBE-SCRIPT-RETIRED）",
+      "notes": "【为什么这次删、上次保留】2026-10-16 的 ROOTCLEAN-REPORTS-SCRIPTS 按 CD01 判「保留」：① `dev_docs/trajectory-dual-source-evidence-report.md:94,104` 当它是可用工具；② 台账有「登记不改」处置。本次改判依据：该报告…（全文见 archive/evidence-detail.jsonl#ROOTCLEAN-PROBE-SCRIPT-RETIRED）"
     }
   ]
 }

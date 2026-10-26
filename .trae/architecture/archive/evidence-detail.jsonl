@@ -6615,3 +6615,5 @@
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#3","i":0,"c":"app/src/runtime/inboxApproval.ts"}
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"tests#0","i":0,"c":"app/tests/permission/ruleSourceAndRemovalHint.test.ts"}
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"tests#1","i":0,"c":"app/src/permission/__tests__/PermissionDenyLocatable.test.ts"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"notes","i":3,"c":"【矩阵复核，2026-10-26】路由矩阵已按当前代码逐行复核并落到正式文档 `.trae/specs/long-task-routing.md` §9（唯一事实源）：原 10 行中 6 行路径/行号错位、2 行条件表述不准，均订正；补充 3 类真实入口（Inbox 审批续跑 / 远程 `/goal` 执行 / `PDCA_AUTO_REPLAN` 自动 replan）。"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"notes","i":4,"c":"【复核附带发现】`POST /v1/pdca/:id/confirm` 恒 no-op（app 编排器无 `confirm`）；`handleResumeCheckpoint`/`handlePdcaResumeCheckpoint` 已定义但未注册路由（且其注册表是 TAORLoop）。两条均登记到预存错误文档（未修，影响低）。"}

@@ -12920,6 +12920,34 @@
       "changelog": [],
       "reopenWhen": "若出现「长任务/批处理路径仍以 circuit_breaker 收口而非 environment_blocked」或「未分类失败被误当阻塞」：回看 TAORLoop.act 的 results 构造与 taor/types.ts 的 executeTools 契约；回滚 = revert 8e43a0c13（全文见 archive/evidence-detail.jsonl#TAOR-FAILURE-KIND-PARITY）",
       "notes": "【机制】TAORLoop.act 先把结果映射成 ToolResultEntry 时只取 toolCallId/name/status/output/error ⇒ 骨架 classifyTurn 看到的永远是\"未分类\"，双预算在批处理路径形同不存在。【改法】executeTools 契约与 ChatManagerT…（全文见 archive/evidence-detail.jsonl#TAOR-FAILURE-KIND-PARITY）"
+    },
+    {
+      "id": "TOOL-EMPTY-RESULT-MARKER",
+      "title": "成功但无任何输出的命令调用标 emptyResult 并提示（bash/powershell 同一口径）",
+      "source": "2026-10-26 用户指令「先处理 LRO-10 剩余的 empty_result 问题」；依据计划 §10.3 第 5 项；代码取证 BashTool 成功返回分支与 PowerShellTool execute 成功分支",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/utils/ToolUtils.ts",
+        "app/src/tools/bash/BashTool.ts",
+        "app/src/tools/PowerShellTool/PowerShellTool.ts"
+      ],
+      "tests": [
+        "app/tests/tools/bashEmptyResult.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若出现「命令确实产生了信息但被标记为空输出」「正常静默命令（mkdir 等）被当成异常」或「提示文案被模型原样复述」：回看 app/src/tools/utils/ToolUtils.ts 的 isEmptyOutput 与 EMPTY_OUTPUT_HINT；回滚 = revert f8fa942b0（全文见 archive/evidence-detail.jsonl#TOOL-EMPTY-RESULT-MARKER）",
+      "notes": "【根因】成功路径把 stdout+stderr 直接当正文；零输出时正文为空串 ⇒ 模型拿不到任何信息，却以为「命令跑过了、环境就是这样」，继续盲试下一条（长程任务失败窗口实证）。【改法】判定与文案收敛到 ToolUtils.isEmptyOutput / EMPTY_OUTPUT_HINT（stdout+stder…（全文见 archive/evidence-detail.jsonl#TOOL-EMPTY-RESULT-MARKER）"
     }
   ]
 }

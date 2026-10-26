@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TOOL-EMPTY-RESULT-MARKER**：成功但无输出 ⇒ emptyResult 标记 + 提示（LRO-10） —— 验证 tsc|arch0|ratchet0|tools1221；基线 改前：success 且零输出只回空串，模型误判为已获取信息继续盲试；改后：正文换提示 + metadata.emptyResult=true，状态仍 success（不进熔断）（详情见 archive/evidence-detail.jsonl#TOOL-EMPTY-RESULT-MARKER）
 - ✅ **TAOR-FAILURE-KIND-PARITY**：批处理（TAOR/LRO）路径透传 failureKind（LRO-D5） —— 验证 tsc|eslint|arch0|ratchet0|unit1778；基线 改前：TAOR/LRO 路径 ActResult 丢弃 failureKind ⇒ 双预算永不触发 environment_blocked；改后：透传 + 护栏跳过标 safety_blocked（详情见 archive/evidence-detail.jsonl#TAOR-FAILURE-KIND-PARITY）
 - ✅ **PROJECT-ROOT-RUNTIME-EXE**：resolveProjectRoot 排除宿主运行时 exe（LRO-D4） —— 验证 tsc|eslint|kernel0|kernel-api0|unit144；基线 改前：argv[0]=bun.exe 时项目根被算成 bun 安装目录（启动 chdir 偏移）；改后：仅应用自身 exe 才按目录推断（详情见 archive/evidence-detail.jsonl#PROJECT-ROOT-RUNTIME-EXE）
 - ✅ **SECURITY-ALLOWLIST-UNTRUSTED-ASK**：未受信未知命令改转审批 + 版本查询进白名单（LRO-D3） —— 验证 tsc|eslint|arch0|ratchet0|unit8442；基线 改前：未受信 + 不在 37 条只读前缀 ⇒ 直接 deny（node -v 也被拒、无审批入口）；改后：转 ask，版本查询放行，危险命令仍 deny（详情见 archive/evidence-detail.jsonl#SECURITY-ALLOWLIST-UNTRUSTED-ASK）

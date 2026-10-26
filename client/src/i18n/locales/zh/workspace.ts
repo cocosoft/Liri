@@ -169,6 +169,8 @@ const zhWorkspace = {
     permissionReadonly: "只读（仅可读）",
     permissionHint:
       "决定新沙箱工作空间的授权范围：完整 = 读写 + 执行，标准 = 读写（默认）， 只读 = 仅可读。现有工作空间不受影响。",
+    permissionLevelInactive:
+      "当前平台没有可用的隔离后端（无 Landlock / Seatbelt / Low IL 证据），权限级别不参与实际判定，已停用。",
     runtimeStatus: "运行时状态",
     enabledStatus: "启用状态",
     notEnabled: "未启用",

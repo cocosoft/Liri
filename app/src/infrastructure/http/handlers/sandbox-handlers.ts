@@ -73,6 +73,16 @@ function readEnabled(): boolean {
   return configured ?? true;
 }
 
+/**
+ * 当前生效的隔离模式（P1-1，2026-10-27）。
+ *
+ * `'none'` ⇒ 无隔离证据 ⇒ 权限级别不参与豁免判定，页面须**诚实降级**（禁用级别控件）。
+ * 事实源为 SPI 快照，本层不自行探测（D-200：infrastructure 不 import app 模块）。
+ */
+function readRuntimeIsolation(): string {
+  return resolveSandbox().getRuntimeStatus().runtimeIsolation;
+}
+
 /** 获取沙箱配置 GET /v1/sandbox/config */
 export async function handleGetSandboxConfig(
   _req: http.IncomingMessage,
@@ -84,6 +94,7 @@ export async function handleGetSandboxConfig(
       JSON.stringify({
         enabled: readEnabled(),
         permissionLevel: readPermissionLevel(),
+        runtimeIsolation: readRuntimeIsolation(),
       })
     );
   } catch (err) {
@@ -136,6 +147,7 @@ export async function handleUpdateSandboxConfig(
       JSON.stringify({
         enabled: readEnabled(),
         permissionLevel: readPermissionLevel(),
+        runtimeIsolation: readRuntimeIsolation(),
       })
     );
   } catch (err) {
@@ -165,6 +177,7 @@ export async function handleGetSandboxStatus(
         processStats: status.processStats,
         resourceSummary: status.resourceSummary,
         activeWorkspaceCount: status.activeWorkspaceCount,
+        runtimeIsolation: status.runtimeIsolation,
       })
     );
   } catch (err) {

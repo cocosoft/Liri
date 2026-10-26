@@ -5,10 +5,16 @@ import { ENDPOINTS } from "./endpoints";
 /** 沙箱权限级别（与后端 PERMISSION_SANDBOX_DEFAULT 取值一致） */
 export type SandboxPermissionLevel = "full" | "standard" | "readonly";
 
+/** 当前生效的隔离模式（P1-1：`none` ⇒ 无隔离证据，权限级别不参与实际判定） */
+export type SandboxIsolationMode =
+  | "landlock" | "container" | "ssh" | "pty" | "none";
+
 /** 沙箱配置 */
 export interface SandboxConfig {
   enabled: boolean;
   permissionLevel: SandboxPermissionLevel;
+  /** 隔离模式（`none` ⇒ 页面诚实降级：禁用级别控件） */
+  runtimeIsolation: SandboxIsolationMode;
 }
 
 /** 沙箱运行时状态（GET /v1/sandbox/status） */
@@ -16,6 +22,8 @@ export interface SandboxStatus {
   enabled: boolean;
   permissionLevel: SandboxPermissionLevel;
   runtimeEnabled: boolean;
+  /** 隔离模式（同 `SandboxConfig.runtimeIsolation`） */
+  runtimeIsolation: SandboxIsolationMode;
   settings: {
     enabled?: boolean;
     allowUnsandboxedCommands?: boolean;

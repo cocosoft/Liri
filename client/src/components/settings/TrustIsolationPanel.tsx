@@ -209,7 +209,7 @@ function TrustIsolationPanel({ isDark }: TrustIsolationPanelProps) {
               <button
                 key={level}
                 onClick={() => void patchSandbox({ permissionLevel: level })}
-                disabled={sandboxBusy}
+                disabled={sandboxBusy || sandbox.runtimeIsolation === "none"}
                 className={`text-xs px-3 py-1.5 rounded border transition-colors disabled:opacity-50 ${
                   sandbox.permissionLevel === level
                     ? isDark
@@ -224,6 +224,13 @@ function TrustIsolationPanel({ isDark }: TrustIsolationPanelProps) {
               </button>
             ))}
           </div>
+          {sandbox.runtimeIsolation === "none" && (
+            <p
+              className={`text-xs mt-2 ${isDark ? "text-amber-400" : "text-amber-600"}`}
+            >
+              {t("sandbox.permissionLevelInactive")}
+            </p>
+          )}
         </div>
       )}
 

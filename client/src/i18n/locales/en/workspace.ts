@@ -175,6 +175,8 @@ const enWorkspace = {
     permissionReadonly: "Read-only (read only)",
     permissionHint:
       "Determines the authorization scope for new sandbox workspaces: Full = read/write + execute, Standard = read/write (default), Read-only = read only. Existing workspaces are unaffected.",
+    permissionLevelInactive:
+      "No isolation backend is available on this platform (no Landlock / Seatbelt / Low-IL evidence), so the permission level does not affect enforcement and is disabled.",
     runtimeStatus: "Runtime Status",
     enabledStatus: "Enabled Status",
     notEnabled: "Not enabled",

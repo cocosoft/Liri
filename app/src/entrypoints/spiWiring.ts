@@ -482,6 +482,7 @@ export async function registerAllSpis(
       globalWorkspaceManager,
       processRegistry,
       resourceLimitManager,
+      resolveSandboxExecutionSignal,
     } = await import('@modules/sandbox');
     // 多租户 P3（2026-10-21）：默认工作区按**请求身份**解析。
     // 走**子路径**而非沙箱桶：本文件是启动面，桶再导出会让这段只在"已认证请求"路径
@@ -536,6 +537,8 @@ export async function registerAllSpis(
         resourceSummary: resourceLimitManager.getSummary(),
         // 全进程 `list().size` 会把"宿主 + 其他租户共有几个工作区"暴露给单个用户 ⇒ 按身份计数
         activeWorkspaceCount: scopedActiveWorkspaceCount(),
+        // P1-1（2026-10-27）：页面据此诚实降级 —— 无隔离证据时权限级别不参与判定
+        runtimeIsolation: resolveSandboxExecutionSignal().mode,
       }),
     });
     markSpiRegistered('sandbox');

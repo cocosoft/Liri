@@ -89,6 +89,13 @@ function SandboxPage() {
     ? "rounded-lg border border-gray-700 bg-gray-800 p-6"
     : "rounded-lg border border-gray-200 bg-white p-6";
 
+  /**
+   * P1-1（2026-10-27）：无隔离证据时（`runtimeIsolation === 'none'`，如 Windows 桌面）
+   * 权限级别只进 `PERMISSION_RANK`，豁免链在 S1 已先拒 ⇒ 级别对实际行为零影响。
+   * 因此**诚实降级**：控件禁用 + 说明，不虚构"配了就有用"。
+   */
+  const levelInactive = sandboxConfig?.runtimeIsolation === "none";
+
   const labelClass = isDark ? "text-gray-300" : "text-gray-700";
   const valueClass = isDark ? "text-gray-100" : "text-gray-900";
   const mutedClass = isDark ? "text-gray-400" : "text-gray-500";
@@ -148,7 +155,7 @@ function SandboxPage() {
                       <button
                         key={level.value}
                         onClick={() => changePermissionLevel(level.value)}
-                        disabled={!sandboxConfig}
+                        disabled={!sandboxConfig || levelInactive}
                         className={`px-3 py-1.5 rounded-lg text-sm border transition-colors disabled:opacity-50 ${
                           sandboxConfig?.permissionLevel === level.value
                             ? isDark
@@ -166,6 +173,13 @@ function SandboxPage() {
                   <p className={`text-xs mt-2 ${mutedClass}`}>
                     {t("sandbox.permissionHint")}
                   </p>
+                  {levelInactive && (
+                    <p
+                      className={`text-xs mt-1 ${isDark ? "text-amber-400" : "text-amber-600"}`}
+                    >
+                      {t("sandbox.permissionLevelInactive")}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

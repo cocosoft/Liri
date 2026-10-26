@@ -261,7 +261,7 @@ export function resolveProjectSettingsPath(
  * （第三层，见 `resolvePyappHome()`），而本常量描述的是**用户项目里**的配置目录
  * （随项目走、可随仓库提交）⇒ **两者不同层，不可合并、不可改名**。
  * 与之同层的历史目录 `~/.liri` 已由「2026-08-18 用户决策」迁入 `~/.pyapp`，**迁移已完成**
- * （其残留仅在开发探针脚本 `probe_sessions.ps1` 的候选路径列表里，非产品代码）。
+ * （代码侧已无残留引用；历史记录见台账 `ROOTCLEAN-REPORTS-SCRIPTS` / `ROOTCLEAN-PROBE-SCRIPT-RETIRED`）。
  *
  * 本常量是工作区级 `.liri` 名的**唯一事实源**：消费方一律引用它，**勿再各自写死字面量**。
  */

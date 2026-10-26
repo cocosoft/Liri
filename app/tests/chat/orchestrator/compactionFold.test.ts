@@ -54,4 +54,19 @@ describe('P2-1d S6 压缩段 · deriveCompactionFold（纯函数）', () => {
     expect(fold!.summary).toBe('');
     expect('summaryMessageId' in fold!).toBe(false); // 防 undefined 键（D1 校验会整条拒绝）
   });
+
+  it('F2：更早的用户消息无 seq ⇒ 摘要**不得**回填成用户原文（取本次新增的那条）', () => {
+    const before = [
+      { id: 'u1', content: '超级玛丽两关长程编程任务' }, // 无 lastEventSeq 的旧用户消息
+      { id: 'm1', lastEventSeq: 1 },
+      { id: 'm2', lastEventSeq: 2 },
+    ];
+    const after = [
+      { id: 'u1', content: '超级玛丽两关长程编程任务' }, // 幸存
+      { id: 'sum-1', content: '本次压缩产出的真正摘要' }, // 新增、无 seq
+    ];
+    const fold = deriveCompactionFold(before, after);
+    expect(fold!.summary).toBe('本次压缩产出的真正摘要');
+    expect(fold!.summaryMessageId).toBe('sum-1');
+  });
 });

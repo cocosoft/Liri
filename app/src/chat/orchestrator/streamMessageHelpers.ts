@@ -264,14 +264,29 @@ export function deriveCompactionFold(
   const compressedSeqs = beforeSeqs.filter((s) => !afterSeqs.has(s));
   if (compressedSeqs.length === 0) return null;
 
-  // summary 消息 = after 中无 lastEventSeq 的新消息（压缩产物）
-  const summaryMsg = afterMessages.find((m) => m.lastEventSeq === undefined);
+  // F2（2026-10-27）：摘要消息必须是**本次新增**且无 `lastEventSeq` 的那条。
+  // 原实现用 `find(m => m.lastEventSeq === undefined)` 取**第一条** —— 若更早的用户消息/
+  // 系统提示也没有 `lastEventSeq`，摘要就会取到它们（Liri 报告 R5 实测：摘要恒等于
+  // 用户原始 prompt、`summaryMessageId` 恒定）。现按 id 差集判定"新增"，取不到就返回空串
+  // （宁可空摘要，也不把旧消息冒充压缩产物）。
+  const beforeIds = new Set(
+    beforeMessages
+      .map((m) => (m as { id?: string }).id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0)
+  );
+  const summaryMsg = afterMessages.find(
+    (m) =>
+      m.lastEventSeq === undefined &&
+      typeof m.id === 'string' &&
+      m.id.length > 0 &&
+      !beforeIds.has(m.id)
+  );
+
+  const startSeq = Math.min(...compressedSeqs);
+  const endSeq = Math.max(...compressedSeqs);
   return {
     compressedSeqs,
-    compactedRange: {
-      startSeq: Math.min(...compressedSeqs),
-      endSeq: Math.max(...compressedSeqs),
-    },
+    compactedRange: { startSeq, endSeq },
     summary: typeof summaryMsg?.content === 'string' ? summaryMsg.content : '',
     ...(summaryMsg?.id !== undefined
       ? { summaryMessageId: summaryMsg.id }

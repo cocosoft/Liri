@@ -451,9 +451,16 @@ jobs:
 
       - name: Install system dependencies (Linux)
         if: matrix.config.os == 'ubuntu-latest'
+        # 2026-10-26 实测：该步骤无超时 ⇒ 一次 apt 卡死把整个 release 挂了 45+ 分钟。
+        # 收紧：非交互 + 重试 + 硬超时（失败即红，便于直接重跑，而不是无限等待）。
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        timeout-minutes: 15
         run: |
-          sudo apt-get update
+          sudo apt-get update -o Acquire::Retries=3
           sudo apt-get install -y \
+            -o Acquire::Retries=3 \
+            -o Acquire::http::Timeout=30 \
             libwebkit2gtk-4.1-dev \
             librsvg2-dev \
             patchelf \

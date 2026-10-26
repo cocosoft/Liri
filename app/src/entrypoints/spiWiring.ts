@@ -56,6 +56,13 @@ export interface SpiRegistrationContainer {
 export async function registerAllSpis(
   container: SpiRegistrationContainer
 ): Promise<void> {
+  // 装配守卫（P1-7 / W26-16，2026-10-26）：**每个端口注册完成后立刻打标记**，
+  // 供 `wiringGuard#requireSpiDependencies` 在依赖端口注册时断言顺序。
+  // 机制此前只有 2 个端口在打标记（aiAccess / knowledge）⇒ 守卫对其余 15 个端口形同未启用。
+  // 新增端口的约束：标记名必须出现在 `SPI_WIRING_REQUIRES` 的键里，或在
+  // `app/tests/entrypoints/spiWiringCoverage.test.ts` 的「无依赖白名单」中显式声明。
+  const { markSpiRegistered } = await import('@openliri/kernel/spi');
+
   // ---- Logger SPI（三件套；2026-09-30 D-129 转推送模型）----
   {
     const { getLogger, setGlobalConfigProvider } =
@@ -65,6 +72,7 @@ export async function registerAllSpis(
       getLogger: (module) => getLogger(module),
       setGlobalConfigProvider: (provider) => setGlobalConfigProvider(provider),
     });
+    markSpiRegistered('logger');
   }
 
   // ---- OTel Tracing SPI（三件套）----
@@ -90,6 +98,7 @@ export async function registerAllSpis(
         };
       },
     });
+    markSpiRegistered('otel');
   }
 
   // ---- 启动剖析 SPI（三件套）----
@@ -102,6 +111,7 @@ export async function registerAllSpis(
       profilePhaseStart: (phase) => profilePhaseStart(phase),
       profilePhaseEnd: (phase) => profilePhaseEnd(phase),
     });
+    markSpiRegistered('startupProfiler');
   }
 
   // ---- SSE 广播 SPI（2026-09-30 D-121；D-129 转推送模型）----
@@ -112,6 +122,7 @@ export async function registerAllSpis(
     await registerBroadcastSpi(container, {
       broadcast: (event, payload) => broadcastEvent(event, payload),
     });
+    markSpiRegistered('broadcast');
   }
 
   // ---- Agent 执行端口 SPI（2026-10-01 D-144）----
@@ -123,6 +134,7 @@ export async function registerAllSpis(
     const agentTool = resolveAgentToolInstance();
     if (agentTool) {
       await registerAgentToolSpi(container, agentTool);
+      markSpiRegistered('agentTool');
     }
     // else：工具管理器尚未就绪 ⇒ 本时点无法注册。**不静默降级**（CS03）——
     // `resolveAgentTool()` 在未注册时**调用即抛错**，错误不会被"任务永不执行"掩盖。
@@ -135,6 +147,7 @@ export async function registerAllSpis(
     await registerPluginSystemSpi(container, {
       getLoadedPlugins: () => pluginSystem.getLoader().getAllPlugins(),
     });
+    markSpiRegistered('pluginSystem');
   }
 
   // ---- AI 能力访问 SPI（2026-09-30 D-124；D-128 转推送模型）----
@@ -273,6 +286,7 @@ export async function registerAllSpis(
         };
       },
     });
+    markSpiRegistered('aiAccess');
   }
 
   // ---- 任务注册表 SPI（2026-10-01 D-147）----
@@ -310,6 +324,7 @@ export async function registerAllSpis(
         taskRegistry.updateState(registryTaskId, state as never);
       },
     });
+    markSpiRegistered('taskRegistry');
   }
 
   // ---- 知识图谱 SPI（2026-10-01 D-148）----
@@ -331,6 +346,7 @@ export async function registerAllSpis(
       generateEntityId: (domain, kind, slug) =>
         KnowledgeGraph.generateEntityId(domain, kind, slug),
     });
+    markSpiRegistered('knowledgeGraph');
   }
 
   // ---- 会话在线质量 SPI（2026-10-06 U4，`.trae/specs/online-quality-evaluation.md` §D6）----
@@ -361,6 +377,7 @@ export async function registerAllSpis(
         };
       },
     });
+    markSpiRegistered('sessionQuality');
   }
 
   // ---- 侧车**作业挂起**端口 SPI（2026-10-13 · T1-2② C₂「提交→挂起→完成→续跑」）----
@@ -375,6 +392,7 @@ export async function registerAllSpis(
     const { createToolJobSuspendPort } =
       await import('@modules/query/toolJobSuspend');
     await registerToolJobSuspendSpi(container, createToolJobSuspendPort());
+    markSpiRegistered('toolJobSuspend');
   }
 
   // ---- 协作编排统一层 · 薄端口（2026-10-07；`.trae/specs/collaboration-orchestration-port.md`）----
@@ -391,6 +409,7 @@ export async function registerAllSpis(
       listChannels: async () => [],
       dispatch: async () => null,
     });
+    markSpiRegistered('collaboration');
   }
 
   // ---- 出站网关端口 SPI（2026-10-12 · 通道治理 阶段 2.1「Port Layer Only」）----
@@ -404,6 +423,7 @@ export async function registerAllSpis(
       container,
       new OutboundGatewayPortAdapter()
     );
+    markSpiRegistered('outboundGateway');
   }
 
   // ---- 诊断采集 SPI（2026-09-30 D-123；D-128 转推送模型）----
@@ -448,6 +468,7 @@ export async function registerAllSpis(
         };
       },
     });
+    markSpiRegistered('diagnosticsProbe');
   }
 
   // ---- 沙箱 SPI（2026-10-01 D-154；D-157 扩展 `hasWorkspacePermission`；D-200 扩展两个）----
@@ -517,6 +538,7 @@ export async function registerAllSpis(
         activeWorkspaceCount: scopedActiveWorkspaceCount(),
       }),
     });
+    markSpiRegistered('sandbox');
   }
 
   // ---- Hook 链 SPI（2026-10-01 D-155）----
@@ -544,6 +566,7 @@ export async function registerAllSpis(
         };
       },
     });
+    markSpiRegistered('hookChain');
   }
 
   // ---- 知识库运维 SPI（2026-09-30 D-125；D-129 转推送模型）----
@@ -579,5 +602,8 @@ export async function registerAllSpis(
         await digestService.buildDigest();
       },
     });
+    // knowledge 的实现体（`KnowledgeService`）自身也会打标记 ⇒ 此处重复调用是幂等的（Set），
+    // 保留是为了让「装配声明」在本文件内**可见且可被覆盖测试枚举**。
+    markSpiRegistered('knowledge');
   }
 }

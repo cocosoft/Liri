@@ -13014,6 +13014,34 @@
       "changelog": [],
       "reopenWhen": "若出现「策略放宽后命令仍被旧结论封死」「重启后同一命令又被重放」「台账无限增长撑大 checkpoint」：回看 tasks/lro/blockedCommandLedger.ts 与 commandPolicyVersion.ts；回滚 = revert d3e6e3e7c（全文见 archive/evidence-detail.jsonl#LRO-BLOCKED-COMMAND-REPLAY）",
       "notes": "【根因】安全门拦截是确定性的（同命令 + 同 cwd + 同策略 ⇒ 同结论），但续跑时没有任何\"已判定\"记忆 ⇒ 模型原样再撞一次，白耗轮次与 token。【改法】新增阻塞命令台账：只认 metadata.securityIntercepted（显式标记，不猜文案）的 bash/powershell 调用；键 = …（全文见 archive/evidence-detail.jsonl#LRO-BLOCKED-COMMAND-REPLAY）"
+    },
+    {
+      "id": "SESSION-CWD-PROJECT-SANDBOX",
+      "title": "工具默认 cwd 锚定会话项目 sandboxPath（无 projectId 才回落项目根）",
+      "source": "2026-10-26 用户指令「继续处理 LRO-06 实测」并拍板「锚定项目 sandboxPath」；依据计划 §LRO-06 与 D4 后半",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/services/toolCwdScope.ts",
+        "app/src/chat/ChatManager.ts",
+        ".trae/architecture/startup-graph-baseline.json"
+      ],
+      "tests": [
+        "app/tests/chat/sessionWorkspaceResolve.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若出现「项目会话 cwd 仍为代码仓根」「跨身份读到别人 sandboxPath」「sandboxPath 不存在致工具启动失败」：回看 chat/services/toolCwdScope.ts 与 ChatManager._getProjectSandboxPath；回滚 = revert d601cb453（全文见 archive/evidence-detail.jsonl#SESSION-CWD-PROJECT-SANDBOX）",
+      "notes": "【根因】getSessionWorkspacePath 只读 metadata.workspacePath；项目会话 metadata 只有 projectId（真机 session.json 实证）⇒ resolveToolCwd 回落 resolveProjectRoot()。【改法】纯函数 resolveSes…（全文见 archive/evidence-detail.jsonl#SESSION-CWD-PROJECT-SANDBOX）"
     }
   ]
 }

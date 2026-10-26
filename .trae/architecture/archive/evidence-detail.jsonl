@@ -6581,3 +6581,14 @@
 {"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"tests#0","i":0,"c":"app/tests/tasks/blockedCommandLedger.test.ts"}
 {"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"tests#1","i":0,"c":"app/tests/tasks/lroBlockedCommandReplay.test.ts"}
 {"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"tests#2","i":0,"c":"app/tests/tasks/longRunningRootFix.test.ts"}
+{"id":"SESSION-CWD-PROJECT-SANDBOX","k":"title","i":0,"c":"工具默认 cwd 锚定会话项目 sandboxPath（无 projectId 才回落项目根）"}
+{"id":"SESSION-CWD-PROJECT-SANDBOX","k":"source","i":0,"c":"2026-10-26 用户指令「继续处理 LRO-06 实测」并拍板「锚定项目 sandboxPath」；依据计划 §LRO-06 与 D4 后半"}
+{"id":"SESSION-CWD-PROJECT-SANDBOX","k":"reopenWhen","i":0,"c":"若出现「项目会话 cwd 仍为代码仓根」「跨身份读到别人 sandboxPath」「sandboxPath 不存在致工具启动失败」：回看 chat/services/toolCwdScope.ts 与 ChatManager._getProjectSandboxPath；回滚 = revert d601cb453"}
+{"id":"SESSION-CWD-PROJECT-SANDBOX","k":"notes","i":0,"c":"【根因】getSessionWorkspacePath 只读 metadata.workspacePath；项目会话 metadata 只有 projectId（真机 session.json 实证）⇒ resolveToolCwd 回落 resolveProjectRoot()。"}
+{"id":"SESSION-CWD-PROJECT-SANDBOX","k":"notes","i":1,"c":"【改法】纯函数 resolveSessionWorkspacePath（绝对 workspacePath > projectId→sandboxPath > undefined）+ ChatManager 延迟 require ProjectStore，并回写 metadata.workspacePath。"}
+{"id":"SESSION-CWD-PROJECT-SANDBOX","k":"notes","i":2,"c":"【边界】非本地身份仍走 resolveToolCwd 租户根 fail-closed（未放宽）；只认绝对路径，脏值（项目名）继续忽略。"}
+{"id":"SESSION-CWD-PROJECT-SANDBOX","k":"notes","i":3,"c":"【闸门】启动图棘轮 app/src 字节 963840→965984（已 eager 文件内代码增量，非新增依赖）⇒ 按脚本指引 --update 基线并登记。"}
+{"id":"SESSION-CWD-PROJECT-SANDBOX","k":"code#0","i":0,"c":"app/src/chat/services/toolCwdScope.ts"}
+{"id":"SESSION-CWD-PROJECT-SANDBOX","k":"code#1","i":0,"c":"app/src/chat/ChatManager.ts"}
+{"id":"SESSION-CWD-PROJECT-SANDBOX","k":"code#2","i":0,"c":".trae/architecture/startup-graph-baseline.json"}
+{"id":"SESSION-CWD-PROJECT-SANDBOX","k":"tests#0","i":0,"c":"app/tests/chat/sessionWorkspaceResolve.test.ts"}

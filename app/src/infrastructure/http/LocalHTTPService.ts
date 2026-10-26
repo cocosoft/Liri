@@ -382,38 +382,40 @@ export class LocalHTTPService {
       return;
     }
 
-    // 共享密钥校验：确保请求来自被授权的 Tauri 客户端；
-    // 兼容登录会话：携带有效 Bearer 登录 token 的请求同样放行（M0d）
-    // 加固部署专项（2026-08-30）：/v1/events SSE 白名单已移除——前端 sseService
-    // 改用 fetch + ReadableStream 解析 SSE（可携带 X-API-Key/Bearer 头），
-    // 与普通请求走同一鉴权，不再豁免。
-    if (!this.verifyRequestAuth(req)) {
-      const authHeader = req.headers['authorization'] || '';
-      const sessionToken = authHeader.startsWith('Bearer ')
-        ? authHeader.slice(7)
-        : '';
-      let validSession = false;
-      if (sessionToken) {
-        const { authTokens } = await import('./handlers/auth-handlers');
-        validSession = authTokens.has(sessionToken);
-      }
-      if (!validSession) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Unauthorized' } }));
-        return;
-      }
-    }
-
     const url = req.url?.split('?')[0] || '';
+
+    // ---- 鉴权：两道门共用**一次**登录态判定（W26-19，2026-10-26）----
+    // 此前是两套实现：① 共享密钥失败时 inline 解析 Bearer（且每请求 `await import('auth-handlers')`）；
+    // ② 暴露面再调 `hasValidBearerSession(req)` 独立判一次 —— 同一 token 被解析两次，
+    //    两份逻辑一旦漂移就会出现「第一道放行、第二道拒绝」这类难以排查的状态。
+    const sendUnauthorized = (): void => {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Unauthorized' } }));
+    };
+
+    // 惰性记忆化：只在真的需要判登录态时查一次（无 Bearer 时 `hasValidBearerSession` 立即返回 false）
+    let sessionOk: boolean | undefined;
+    const resolveSession = async (): Promise<boolean> => {
+      sessionOk ??= await hasValidBearerSession(req);
+      return sessionOk;
+    };
+
+    // 共享密钥校验：确保请求来自被授权的 Tauri 客户端；
+    // 兼容登录会话：携带有效 Bearer 登录 token 的请求同样放行（M0d）。
+    // 加固部署专项（2026-08-30）：/v1/events SSE 白名单已移除 —— 前端改用 fetch + ReadableStream，
+    // 可携带 X-API-Key/Bearer 头 ⇒ 与普通请求走同一鉴权，不再豁免。
+    if (!this.verifyRequestAuth(req) && !(await resolveSession())) {
+      sendUnauthorized();
+      return;
+    }
 
     // §6-#11（2026-10-24）：**对外暴露部署**（非回环绑定 / headless 变体）必须带登录态。
     // 共享密钥为空时 `verifyRequestAuth` 对任何请求都通过 ⇒ 无本检查则远端调用方
     // 直接以 `LOCAL_PRINCIPAL` 拿到本机特权身份。桌面/CLI（127.0.0.1）不受影响；
     // `/v1/health*`（容器探活）与 `/v1/a2a*`（自带 A2A_API_KEYS）豁免。
-    if (requiresBearerSession(url) && !(await hasValidBearerSession(req))) {
+    if (requiresBearerSession(url) && !(await resolveSession())) {
       logger.warn('暴露面请求缺少有效登录态（fail-closed 401）', { url });
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: 'Unauthorized' } }));
+      sendUnauthorized();
       return;
     }
 

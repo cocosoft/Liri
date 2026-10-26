@@ -6629,3 +6629,13 @@
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#3","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"tests#0","i":0,"c":"app/tests/permission/ruleSourceAndRemovalHint.test.ts"}
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"tests#1","i":0,"c":"app/tests/chat/toolFailureKindWiring.test.ts"}
+{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"title","i":0,"c":"计划页启动 PDCA 透传 sessionId（不再「点了没反应」）"}
+{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"source","i":0,"c":"2026-10-26 LRO-11 路由矩阵复核（前端入口面）发现：后端 `pdca-handlers.ts#L224-L228` 要求 description+sessionId 必填"}
+{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"reopenWhen","i":0,"c":"若计划页再次「点启动无反应」、前端传空会话、或后端放宽 sessionId 必填：回看 PlansPage.handleStart 与 pdcaService.start；回滚 = revert 3a210decb"}
+{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"notes","i":0,"c":"【根因】计划页调 `pdcaService.start(d)` 未传 sessionId ⇒ `POST /v1/pdca/start` 400；而 `pdcaService.start` 的 catch 吞错返回 null ⇒ 无提示、输入被清空。"}
+{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"notes","i":1,"c":"【改法】`useSessionStore` 取 currentSession.id；无会话 ⇒ 提示 `plans.pdcaNeedSession` 且**不发请求**；返回 null ⇒ 提示 `plans.pdcaStartFailed` 并保留输入；成功才清空。i18n zh/en 同步两键。"}
+{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"notes","i":2,"c":"【验证】3 例组件测试（透传/缺会话/失败）；client typecheck 0、eslint 0、全量 vitest 706 pass（3 文件 7 例在全量并发下超时，单跑 26 pass ⇒ 负载抖动，非回归）。"}
+{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"code#0","i":0,"c":"client/src/components/views/PlansPage.tsx"}
+{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"code#1","i":0,"c":"client/src/i18n/locales/zh/workspace.ts"}
+{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"code#2","i":0,"c":"client/src/i18n/locales/en/workspace.ts"}
+{"id":"PLANS-PAGE-PDCA-START-SESSION","k":"tests#0","i":0,"c":"client/src/components/views/__tests__/PlansPage.pdcaStart.test.tsx"}

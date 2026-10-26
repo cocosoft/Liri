@@ -221,3 +221,37 @@ ReActToolLoop.getLongTaskSignal()            ← 纯读数（todos / 已耗轮�
 3. **G2 的 UI 豁免前提**：需一个可靠的"是否 CLI"判据；若不可得，则不豁免（仅记录：UI 场景会在服务端 console 打印一次、并标记已见 ⇒ **可能吞掉** CLI 用户的提示，实施时以 `typecheck`/实测判定，结论记入 §6.5）。
 4. **阈值属可调参数**：D1 的 3 / base 为**建议值**，无历史数据支撑（本仓无正式用户，§1.3）⇒ 以"可观测 + 可调 + 单测边界"为准，不承诺最优。
 5. **与 `HINT_METHODOLOGY_PDCA` 语义边界**：该 hint 旨在**首次**告知"能力存在"，G3 是"运行中提示可用它"，二者文案需**明确区分**（避免重复说同一件事）。
+
+---
+
+## 9. 路由矩阵（2026-10-26 逐行复核后）
+
+> **本节是「长任务入口 × 是否进 LRO」的唯一事实源**。工作稿（含排查取证过程）在
+> `dev_docs/20261026/长程任务失败排查工作计划-20261026.md` §LRO-11 ①（本地文档，不入库）。
+> 复核触发：LRO-11 修法（`15d8d3dc1`）落地后，原矩阵有 **6 处路径/行号错位**、**2 处条件表述不准**，
+> 且漏了 **3 类真实入口** ⇒ 本节按当前代码重写；行号为复核时点，判据不变即仍有效。
+
+| # | 入口 | 进 LRO？ | 实现 | 关键条件 | 证据 |
+|:--:|---|:---:|---|---|---|
+| 1 | `/goal start <描述>`（亦经 `POST /v1/commands/execute` 远程执行同一命令） | ✅ | 经典单链 `runFullPdca` | `context.sessionId` 必填；同会话存在**非终态** checkpoint ⇒ 幂等返回 `existing` | `app/src/commands/builtin/goal/Goal.ts#L95-L152`；远程面 `routes/monitor-command-routes.ts#L523-L524` → `commands-handlers.ts#L66-L129` |
+| 2 | `/goal resume <id>` | ✅（恢复） | `resumeFromCheckpoint` | checkpoint 存在且非终态（豁免：`failed+replanPending`；`abort` 且 phase 非终态且 steps 非空） | `Goal.ts#L219-L229`、`app/src/tasks/lro/resumeFromCheckpoint.ts#L91-L125` |
+| 3 | `/goal approve [stage]` | ✅（恢复） | plan：`resumeAfterApproval`；stage：`StageOrchestrator.fromCheckpoint` + `resumeAfterApproval` | **orchestrator 在内存中**（重启后命令会提示先 `/goal resume`）；stage 需 `stages[]` 型 checkpoint | `Goal.ts#L274-L322` |
+| 4 | `/goal reject <id>` | ✅（中止） | `orchestrator.abort()` | **orchestrator 在内存中** | `Goal.ts#L356-L365` |
+| 5 | `POST /v1/pdca/start`（任务面板「用编排推进」） | ✅ | 经典单链 `runFullPdca` | `description`+`sessionId` 必填；同会话非终态幂等 | `routes/plan-flow-routes.ts#L132-L135`、`pdca-handlers.ts#L209-L298`、`client/src/components/ChatArea/usePdcaStartEntry.ts#L94` |
+| 6 | Inbox 审批续跑（HTTP 回复 / IM 渠道文本审批 / 执行审批桥） | ✅（恢复） | `resolveInboxApproval` → `resumeAfterApproval`（撤销 ⇒ `abort()`） | 审批项带 `metadata.taskId`（`source=pdca`）或 `metadata.pdcaTaskId`（`source=permission`） | `app/src/runtime/inboxApproval.ts#L263-L283`、`inbox-handlers.ts#L155`/`#L188`/`#L298-L313`、`channels/bridge/TextApprovalParser.ts#L133`、`runtime/execApprovalBridge.ts#L30` |
+| 7 | 聊天：裸会话 + 执行意图（收尾时） | ✅ | `PdcaLauncher.launch` → PDL 或阶段链 | 无 project/workspace；有助手正文；`userMsgs≥2` 或首条强产出意图；执行意图；非 Code Mode | `app/src/chat/manager/streamFinalize.ts#L246-L262` |
+| 8 | 聊天：项目会话 goal（收尾时） | ✅ | 同上 | 有 `projectId`（或 workspace）；`hasGoal` 或（执行意图 且 非 Code Mode） | `streamFinalize.ts#L277-L338` |
+| 9 | 聊天：运行中长任务信号（回合末） | ✅ | 同上（带 `forceDecompose:true`） | 未完成 todo ≥3 **或** 已耗轮次 ≥ 基础阈值（默认 **30**，`MAX_TAOR_TURNS`/`MAX_TOOL_TURNS` 可覆盖）；裸会话；非 Code Mode；`userMsgs≥2` | `chat/orchestrator/streamMessageToolLoop.ts#L428-L444`、`chat/longTaskEscalation.ts#L28-L44`、`chat/toolTurnBudget.ts#L65`、`chat/loopTurnLimits.ts#L49` |
+| 10 | 启动自动续跑 | ✅（恢复） | `resumeFromCheckpoint` | `PDCA_AUTO_RESUME=true` + 崩溃遗留 checkpoint；上限 `PDCA_AUTO_RESUME_LIMIT`（默认 3） | `app/src/main.ts#L1800-L1829` |
+| 11 | 目标未收敛自动 replan | ✅ | `goalConvergence` → `resumeFromCheckpoint` | `PDCA_AUTO_REPLAN=true`（**默认关**） | `tasks/lro/goalConvergence.ts#L161`、`runtime/api/portResolvers.ts#L105-L107` |
+| 12 | 普通聊天（一句话 / 无工具调用） | ❌ | **不创建任何循环**；有工具调用才进流式 `ReActToolLoop` 或 batch `TAORLoop` | 未命中 7/8/9 | `chat/orchestrator/streamMessageFlow.ts#L1821-L1827`、`createAgentLoop.ts#L159-L169`、`ChatOrchestrator.ts#L700-L702` |
+| 13 | `/plan` / `/tasks` / `POST /v1/plans/*` | ❌ | 计划存储 / 本地待办（不启动循环） | — | `commands/builtin/plan/Plan.ts#L211-L235`、`plan-flow-handlers.ts#L105-L130` |
+| 14 | 研究模式（聊天自动分流） | ❌（旁路编排） | `launchResearch` | 研究意图 + `COMPETITIVE_STRATEGY`（**默认关**） | `chat/manager/pdcaLaunch.ts#L202-L324`、`PdcaLauncher.ts#L593-L694`、`kernel/core/featureFlags.ts#L543` |
+| 15 | `POST /v1/research/start` | ❌（旁路编排） | `runCompetitiveOrchestration` | **无 feature 门控**（仅会话级 `activeResearch` 幂等） | `plan-flow-routes.ts#L137-L140`、`research-handlers.ts#L38-L76` |
+| 16 | 不可达 / 非入口（如实记录） | — | `POST /v1/pdca/:id/confirm`（app 侧编排器**无** `confirm` ⇒ 恒 no-op）；`handleResumeCheckpoint` / `handlePdcaResumeCheckpoint`（**未注册路由**，其注册表是 TAORLoop） | — | `runtime/api/taskOpsPorts.ts#L175-L179`、`checkpoint-handlers.ts#L145`/`#L206` |
+
+- **已穷尽而未发现 LRO 入口**：CLI 参数、MCP 工具、ACP、A2A、cron/定时任务、通道消息（非审批）。
+- **`forceDecompose` 的作用边界**：只在走 PDL 快路径时有意义；`ChatManager._shouldUsePlanDrivenLoop`
+  （`ChatManager.ts#L659-L674`）不读该标志 —— 消息被判复杂/危险时直接走阶段链（本就不做"单步直执行"），
+  因此不存在"信号被忽略导致单步"的缺口。研究分流（`pdcaLaunch.ts#L275-L324`）早于 launch 且不带 `opts`。
+- 第 16 行的两条不可达入口已按「发现即记录」登记到 `dev_docs/error_repairs/预存错误与待处理问题.md`（未修）。

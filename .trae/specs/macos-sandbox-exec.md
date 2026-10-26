@@ -148,7 +148,13 @@
 | 纯函数 | `MacOSSandboxDetector`：注入 `existsSync` 桩 ⇒ available / unavailable 两态 | ✅ |
 | 门禁 | `decideBashLandlockGate`：darwin+available ⇒ `sandbox-exec`；darwin+unavailable ⇒ `refuse`；linux 三分支**回归不变**；其他平台仍 refuse | ✅ |
 | 执行器 | 注入式 runner：断言 argv 形状 `[-p, <profile>, --, <shell>, -c, <cmd>]`、超时/输出上限/abort 调用 | ✅（桩） |
-| 真机 | macOS 实机：`bashEnabled=true` 下 `echo x > /tmp/a` 成功、`echo x > ~/Documents/a` 失败（`Operation not permitted`） | ❌ CI 无 macOS ⇒ 记录为本机验证项 |
+| 真机 | macOS 实机：`bashEnabled=true` 下 `echo x > /tmp/a` 成功、`echo x > ~/Documents/a` 失败（`Operation not permitted`） | ❌ CI 无 macOS ⇒ 由 **`bun run verify:sandbox-macos`** 一键自证（脚本见下） |
+
+**真机自证脚本（2026-10-26 新增）**：`app/scripts/verify-macos-sandbox.ts` —— 复用生产同一套模块
+（探测器 / SBPL 生成器 / `sandbox-exec` 执行器），在临时目录里跑 4 条断言：
+① 白名单内可写；② 白名单外被拒（非 0 退出 **且** 文件未落盘，不依赖本地化文案）；
+③ 系统文件可读（shell 能启动）；④ 用户命令 `exit 125` 原样透传（不得被当成"初始化失败"而回退 plain）。
+退出码：0 全通过 / 1 有失败 / 2 环境不支持（非 macOS 或缺 `sandbox-exec`）。
 
 > CI 现状：workflow 仅 `ubuntu`/`windows` 矩阵（无 macOS）⇒ 真机用例**不纳入 CI**，在台账 `baseline`
 > 字段如实标注"本机 macOS 验证"，不以单测替代。

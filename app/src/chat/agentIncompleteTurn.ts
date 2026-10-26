@@ -25,6 +25,7 @@ import {
 
 import type { ToolLoopContext } from './ToolLoopRunner';
 import { CONTINUATION_TEMPLATES } from '../constants/goalTemplates';
+import { stripThinkResponseTags } from './services/MessageContextPipeline';
 
 const logger = getLogger('chat:reactToolLoop');
 
@@ -89,7 +90,10 @@ export async function onIncompleteTurn(
     }
     return false;
   }
-  const text = (result.text ?? '').trim();
+  // 2026-10-27 实测（会话 `session_mvoqs1ho875ea6b95e`）：模型终稿**只含 `<think>…</think>`**、
+  // 无任何正文时，`result.text` 非空 ⇒ 原判据判为"已完成" ⇒ 用户拿到空回答，且不会重试。
+  // 现按**可见正文**（剥离 think/response 标签后）判定完整性。
+  const text = stripThinkResponseTags((result.text ?? '').trim()).trim();
 
   let kind: 'empty' | 'reasoning' | 'planning' | 'truncated' | null = null;
   // 修复（2026-09-03）：输出被长度限制截断（finishReason=max_tokens）是最常见的

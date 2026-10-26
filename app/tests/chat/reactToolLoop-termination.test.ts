@@ -126,6 +126,27 @@ describe('ReActToolLoop 终止收尾（一期 F1-1/F1-2/F1-3）', () => {
     expect(String(final.content)).toBe(tip);
   });
 
+  it('F1-4：终稿只含 <think>（无正文）⇒ 回捞重试一次，不把空回答当完成', async () => {
+    const { ctx } = makeCtx({
+      llmSequence: [
+        () =>
+          ({
+            content: '<think>我需要先取回历史证据</think>',
+            stop_reason: 'stop',
+          }) as ChatResponse,
+        () =>
+          ({ content: '最终报告正文', stop_reason: 'stop' }) as ChatResponse,
+      ],
+    });
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 5 });
+    await drain(loop);
+
+    // 修复前：think-only 文本非空 ⇒ 判为"已完成" ⇒ 正文只剩 <think>，无重试
+    expect(String(loop.getAssistantMessage().content)).toContain(
+      '最终报告正文'
+    );
+  });
+
   it('F1-2：截断 + 有 tool_calls ⇒ finishReason 保留 max_tokens（不再被覆盖），rawFinishReason 并存', async () => {
     const { ctx } = makeCtx({
       llmSequence: [

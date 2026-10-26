@@ -175,6 +175,9 @@ export function resolveTerminationOutput(
     case 'no_progress':
     case 'exploration_fatigue':
     case 'circuit_breaker':
+    // LRO-09 步骤 3（2026-10-26）：环境阻塞同属 `error` 族「透传 lastError」策略
+    //（lastError 由产出点写成可操作结论：哪条规则/哪个门、如何放行）。
+    case 'environment_blocked':
     case 'internal_error':
       finishReason = reason;
       // ⚠️ **新增 `error` 类相位必须同批写入 `state.lastError`**（台账 S15 约束，2026-10-08 取证）：
@@ -285,6 +288,10 @@ export function mapTerminationToGoalReason(
     case 'no_progress':
     case 'circuit_breaker':
       return 'turn_error';
+    // LRO-09 步骤 3（2026-10-26）：环境阻塞**不是**模型无进展（模型可能完全正确，
+    // 是环境不放行）⇒ 只记录、不推进 `no_progress_streak`，避免把环境故障记成目标退化。
+    case 'environment_blocked':
+      return 'turn_interrupted';
     // 二期 O2-1：其余细分成员都不是"无进展" ⇒ 只记录（见 N2 语义边界）
     case 'reasoning_error':
     case 'exploration_fatigue':

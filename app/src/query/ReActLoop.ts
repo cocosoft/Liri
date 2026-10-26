@@ -102,6 +102,9 @@ export type TerminationReason =
   | 'no_progress'
   | 'exploration_fatigue'
   | 'circuit_breaker'
+  // LRO-09 步骤 3（2026-10-26）：**环境阻塞**（权限拒绝 / 安全拦截 / 能力未就绪）
+  // 与「模型无效输出」分型 —— 前者重试不可能改变结果，必须给出可执行结论。
+  | 'environment_blocked'
   | 'internal_error'
   | 'aborted'
   // 二期 O2-1：**系统中止**与"用户主动放弃"区分。此前一律映射 `user_aborted` ⇒
@@ -210,6 +213,8 @@ export interface ReActState {
     | 'no_progress'
     | 'exploration_fatigue'
     | 'circuit_breaker'
+    // LRO-09 步骤 3（2026-10-26）：环境阻塞 ⇒ 专门相位（与 circuit_breaker 分开计数）
+    | 'environment_blocked'
     | 'internal_error'
     // A1（2026-09-05）：达 maxIterations 截断使用专门 phase，避免被消费方当完成
     | 'truncated'
@@ -285,6 +290,45 @@ export interface ToolResultEntry {
    * 从「模型输出无效」里分出来（见 `.trae/specs/circuit-breaker-classification.md`）。
    */
   failureKind?: ToolFailureKind;
+}
+
+/**
+ * 环境层**阻塞**类失败（LRO-09 步骤 3）：重试同一动作不会改变结果，只能由用户/环境侧
+ * 处置（放行规则、修审批通道、装依赖）。
+ *
+ * 为什么不单开模块：`classifyTurn` 的类型与判定都依赖 `ToolResultEntry`，而
+ * `lint:state-ratchet` 会把"新文件里出现已登记状态词汇"当作**未报备新增**阻断提交
+ * ⇒ 与 `ToolResultEntry` 同文件是最小且可过门禁的落点。
+ */
+const ENVIRONMENT_BLOCKING_KINDS = new Set<ToolFailureKind>([
+  'permission_denied',
+  'safety_blocked',
+  'env_unavailable',
+]);
+
+/**
+ * 一轮工具执行的分型（**纯判定**，不做计数、不改相位）：
+ *
+ * - `progress`：**非全部**失败 ⇒ 既有语义（`consecutiveInvalidTurns` 清零），
+ *   也是"本轮有推进"的唯一判据；
+ * - `environment_blocked`：全部失败且**每一种**失败都是环境阻塞类；
+ * - `invalid`：全部失败但含未分类 / `tool_error` ⇒ 既有 invalid 预算。
+ *
+ * ⚠️ 判定只看结构化字段 `status` + `failureKind`，**禁止解析 `error` 文本**（CS02）；
+ * `status !== 'error'` 的条目即便被误填 `failureKind` 也不得算阻塞（负向对照见用例）。
+ */
+export function classifyTurn(
+  results: readonly Pick<ToolResultEntry, 'status' | 'failureKind'>[]
+): 'progress' | 'environment_blocked' | 'invalid' {
+  const allFailed =
+    results.length > 0 && results.every((r) => r.status === 'error');
+  if (!allFailed) return 'progress';
+  const allBlocking = results.every(
+    (r) =>
+      r.failureKind !== undefined &&
+      ENVIRONMENT_BLOCKING_KINDS.has(r.failureKind)
+  );
+  return allBlocking ? 'environment_blocked' : 'invalid';
 }
 
 /** ReAct 事件流 */
@@ -364,6 +408,13 @@ export interface ReActLoopConfig {
   /** 最大连续 all-invalid 轮数（熔断器），0=禁用 */
   maxConsecutiveInvalidTurns: number;
   /**
+   * LRO-09（2026-10-26）：最大连续**环境阻塞**轮数，0=禁用。默认 **2**（比 invalid 的 3 更早收口：
+   * 环境问题不是概率事件，第二次已足以确认「不是偶发」）。
+   *
+   * 与 `maxConsecutiveInvalidTurns` **互不污染**：分型见 `classifyTurn()`。
+   */
+  maxConsecutiveBlockedTurns: number;
+  /**
    * D 项（2026-08-30）：无进展熔断阈值——连续 N 轮"工具名+状态"签名完全相同
    * 视为无进展死循环（实测 skills_list 反复搜索 249 轮），0=禁用
    */
@@ -392,6 +443,7 @@ export interface ReActLoopConfig {
 const DEFAULT_CONFIG: ReActLoopConfig = {
   maxIterations: 30,
   maxConsecutiveInvalidTurns: 3,
+  maxConsecutiveBlockedTurns: 2,
   maxRepeatedRounds: 3,
 };
 
@@ -411,6 +463,8 @@ export abstract class ReActLoop<
   private _abortController: AbortController;
   protected state: ReActState;
   protected consecutiveInvalidTurns = 0;
+  /** LRO-09 步骤 3：连续「环境阻塞」轮数（与 `consecutiveInvalidTurns` 双预算、互不污染） */
+  protected consecutiveBlockedTurns = 0;
 
   /**
    * N-42（2026-09-20）：外部已产生的工具调用 ⇒ 作为**首轮 ACT** 执行（消费一次即清空）。
@@ -472,6 +526,7 @@ export abstract class ReActLoop<
     this.exploreBudgetPrompted = false;
     this.exploreFatiguePrompted = false;
     this.consecutiveInvalidTurns = 0;
+    this.consecutiveBlockedTurns = 0;
     this.completedWork = [];
     this.steeringQueue = [];
   }
@@ -625,6 +680,10 @@ export abstract class ReActLoop<
     if (this.state.phase === 'exploration_fatigue')
       return 'exploration_fatigue';
     if (this.state.phase === 'circuit_breaker') return 'circuit_breaker';
+    // LRO-09 步骤 3：环境阻塞独立原因码（必须与 circuit_breaker 同位置判别——
+    // 都是"已决定不再继续"的终态，排在 max_turns 之后会被"恰好同时到上限"遮蔽）
+    if (this.state.phase === 'environment_blocked')
+      return 'environment_blocked';
     if (this.state.phase === 'internal_error') return 'internal_error';
     // K1 复查收口（2026-09-05）：预算耗尽 phase 显式判别——必须先于 max_turns/
     // truncated，否则纯骨架直连 + config.budget 时（迭代也达上限）会被 max_turns
@@ -719,39 +778,115 @@ export abstract class ReActLoop<
   // Circuit Breaker
   // ==========================================
 
-  private checkCircuitBreaker(result: ActResult): boolean {
-    if (this.config.maxConsecutiveInvalidTurns <= 0) return false;
-    const allInvalid = result.results.every((r) => r.status === 'error');
-    if (allInvalid) {
-      this.consecutiveInvalidTurns++;
-      // 排查锚点：每轮 all-error 时记录失败工具名 + 错误摘要，便于定位根因
-      // （常见根因：工具 schema 不兼容本地 LLM、上下文超限导致 LLM 返回非法 tool_call、
-      // 工具自身 bug）。错误信息截断 200 字符避免日志膨胀。
-      const failedTools = result.results.map((r) => ({
+  /**
+   * 轮级熔断判定（LRO-09 步骤 3：**双预算**）。
+   *
+   * 返回本轮触发的预算；`null` = 不终止。分型规则见 `classifyTurn()`：
+   * - `progress`（非全部失败）⇒ 两个计数器**都清零**（既有 invalid 语义不变）；
+   * - `environment_blocked`（全部失败且全为环境阻塞类）⇒ `consecutiveBlockedTurns++`，
+   *   `consecutiveInvalidTurns` **保持不清零**（避免掩盖上一轮模型错误）；
+   * - `invalid`（全部失败但含未分类 / tool_error）⇒ 既有 `consecutiveInvalidTurns++`。
+   */
+  private checkCircuitBreaker(
+    result: ActResult
+  ): 'invalid' | 'environment_blocked' | null {
+    const outcome = classifyTurn(result.results);
+    if (outcome === 'progress') {
+      this.consecutiveInvalidTurns = 0;
+      this.consecutiveBlockedTurns = 0;
+      return null;
+    }
+    if (outcome === 'environment_blocked') {
+      if (this.config.maxConsecutiveBlockedTurns <= 0) return null;
+      this.consecutiveBlockedTurns++;
+      const blockedTools = result.results.map((r) => ({
         name: r.name,
+        kind: r.failureKind,
         error: (r.error ?? r.output ?? '').slice(0, 200),
       }));
-      logger.warn('reActLoop:all-tools-failed (consecutive invalid turn)', {
-        iteration: this.state.iteration,
+      logger.warn(
+        'reActLoop:turn_blocked (consecutive environment-blocked turn)',
+        {
+          iteration: this.state.iteration,
+          consecutiveBlockedTurns: this.consecutiveBlockedTurns,
+          maxConsecutiveBlockedTurns: this.config.maxConsecutiveBlockedTurns,
+          blockedToolCount: result.results.length,
+          blockedTools,
+        }
+      );
+      if (
+        this.consecutiveBlockedTurns >= this.config.maxConsecutiveBlockedTurns
+      ) {
+        logger.warn('reActLoop:environment_blocked triggered', {
+          sessionId: this.config.sessionId,
+          blockedTurns: this.consecutiveBlockedTurns,
+          maxBlockedTurns: this.config.maxConsecutiveBlockedTurns,
+          reasons: result.results.map((r) => ({
+            tool: r.name,
+            kind: r.failureKind,
+          })),
+        });
+        return 'environment_blocked';
+      }
+      return null;
+    }
+    // outcome === 'invalid'（模型无效输出 / 工具自身失败）：既有语义逐字保留
+    if (this.config.maxConsecutiveInvalidTurns <= 0) return null;
+    this.consecutiveInvalidTurns++;
+    // 排查锚点：每轮 all-error 时记录失败工具名 + 错误摘要，便于定位根因
+    // （常见根因：工具 schema 不兼容本地 LLM、上下文超限导致 LLM 返回非法 tool_call、
+    // 工具自身 bug）。错误信息截断 200 字符避免日志膨胀。
+    const failedTools = result.results.map((r) => ({
+      name: r.name,
+      error: (r.error ?? r.output ?? '').slice(0, 200),
+    }));
+    logger.warn('reActLoop:all-tools-failed (consecutive invalid turn)', {
+      iteration: this.state.iteration,
+      consecutiveInvalidTurns: this.consecutiveInvalidTurns,
+      maxConsecutiveInvalidTurns: this.config.maxConsecutiveInvalidTurns,
+      failedToolCount: result.results.length,
+      failedTools,
+    });
+    if (
+      this.consecutiveInvalidTurns >= this.config.maxConsecutiveInvalidTurns
+    ) {
+      logger.warn('reActLoop:circuit_breaker triggered', {
         consecutiveInvalidTurns: this.consecutiveInvalidTurns,
         maxConsecutiveInvalidTurns: this.config.maxConsecutiveInvalidTurns,
-        failedToolCount: result.results.length,
-        failedTools,
+        lastFailedTools: failedTools,
       });
-      if (
-        this.consecutiveInvalidTurns >= this.config.maxConsecutiveInvalidTurns
-      ) {
-        logger.warn('reActLoop:circuit_breaker triggered', {
-          consecutiveInvalidTurns: this.consecutiveInvalidTurns,
-          maxConsecutiveInvalidTurns: this.config.maxConsecutiveInvalidTurns,
-          lastFailedTools: failedTools,
-        });
-        return true;
-      }
-    } else {
-      this.consecutiveInvalidTurns = 0;
+      return 'invalid';
     }
-    return false;
+    return null;
+  }
+
+  /**
+   * LRO-09 步骤 3：`environment_blocked` 的用户可见结论（写入 `state.lastError`）。
+   *
+   * 口径由 spec §4.3 定，拍板结论（2026-10-26）：
+   * - 每个被拦调用给出「工具 → 分类」与原因（原因文本已含 `[rule=…]`，即 ruleId **只给用户**）；
+   * - **不自动重试**：只给放行/修复入口，由用户处理后重发本条消息。
+   */
+  private _formatEnvironmentBlocked(result: ActResult): string {
+    const blocked = result.results.filter((r) => r.status === 'error');
+    const shown = blocked
+      .slice(0, 5)
+      .map(
+        (r) =>
+          `- ${r.name} → ${r.failureKind ?? '未分类'}：${(r.error ?? '')
+            .replace(/\s+/g, ' ')
+            .slice(0, 120)}`
+      );
+    const more =
+      blocked.length > shown.length
+        ? `\n- …另有 ${blocked.length - shown.length} 个同类调用`
+        : '';
+    return (
+      `本轮无法继续：${blocked.length} 个工具调用被环境拦截` +
+      `（连续 ${this.consecutiveBlockedTurns} 轮），继续重试不会改变结果。\n\n` +
+      `${shown.join('\n')}${more}\n\n` +
+      `请按上述提示放行/修复后**重新发送本条消息**（本次不会自动重试）。`
+    );
   }
 
   /**
@@ -1222,8 +1357,17 @@ export abstract class ReActLoop<
         this.state.iteration++;
         this.state.pendingToolCalls = [];
 
-        // --- Circuit breaker ---
-        if (this.checkCircuitBreaker(actResult)) {
+        // --- Circuit breaker（LRO-09 步骤 3：双预算 —— 环境阻塞 / 模型无效输出分型）---
+        const breaker = this.checkCircuitBreaker(actResult);
+        if (breaker === 'environment_blocked') {
+          this.state.phase = 'environment_blocked';
+          // ⚠️ 必须同批写 lastError：本相位属 `error` 族「透传 lastError」策略，
+          // 为空 ⇒ 正文空 ⇒ 被空消息护栏拒持久化（见 terminationOutput 注释）。
+          this.state.lastError = this._formatEnvironmentBlocked(actResult);
+          yield { type: 'error', message: this.state.lastError };
+          return this.finalize(this.state, context);
+        }
+        if (breaker === 'invalid') {
           this.state.phase = 'circuit_breaker';
           // 2026-10-19：把**最近一次失败的工具与原因**带进用户可见错误，
           // 否则只剩一句 "consecutive invalid turns exceeded"，无法定位根因

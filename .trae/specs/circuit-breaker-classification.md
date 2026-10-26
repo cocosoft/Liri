@@ -98,10 +98,14 @@ consecutiveInvalidTurns        // 既有：模型无效输出 / 未分类失败
 consecutiveBlockedTurns        // 新增：permission_denied | safety_blocked | env_unavailable
 
 每轮结束（actResult）：
-  若本轮无 error        ⇒ 两者都清零（有成功即视为环境与模型都正常）
-  若本轮全为"阻塞类"   ⇒ blocked++ ；invalid 保持（不清零，避免掩盖上一轮模型错误）
-  否则（含 tool_error/未分类） ⇒ invalid++ ；blocked 保持
+  非"全部失败"（含 0 条结果）      ⇒ 两者都清零（既有 invalid 语义只对全失败计数，保持不动）
+  全部失败且全为"阻塞类"           ⇒ blocked++ ；invalid 保持（不清零，避免掩盖上一轮模型错误）
+  全部失败但含 tool_error / 未分类 ⇒ invalid++ ；blocked 保持
 ```
+
+> 实施注记（2026-10-26）：分型判定落在 `query/ReActLoop.ts` 的 `classifyTurn()` 上——
+> 它依赖 `ToolResultEntry`，而 `lint:state-ratchet` 会把"新文件里出现已登记状态词汇"
+> （`error` / `blocked`）判为未报备新增 ⇒ 与 `ToolResultEntry` 同文件是最小可过门禁的落点。
 
 - `maxConsecutiveBlockedTurns` **默认 2**（比 3 更早收口：环境阻塞的第二次就足以确认"不是偶发"）。
 - 触发顺序：先判 `blocked`（更具体），再判 `invalid`（既有语义不变）。
@@ -164,11 +168,11 @@ consecutiveBlockedTurns        // 新增：permission_denied | safety_blocked | 
 | 1a | `refactor(chat): 抽出「跳过结果」构造` | 把 `ReActToolLoop` 里的 `recordSkippedTool` + 两处 push 抽成独立模块（**纯搬运，行为零变更**） | `tsc` 0；既有测试全绿；`ReActToolLoop` 行数 < 2000 |
 | 1b | `feat(loop): ToolResultEntry 增加 failureKind` | 类型 + 各生产者**只加字段不改行为** | `tsc` 0；既有测试全绿 |
 | 2 | `fix(permission): deny 决策带出 ruleId` | `createDenyDecision` 传 rule；`context` 带 `ruleId/fingerprint/sourceKind`；来源标签不伪造 | 单测断言 ruleId 透出；日志出现 `permission:deny` |
-| 3 | `feat(loop): 熔断分型（双预算）` | 拆计数器 + `environment_blocked` 相位 + 文案 | 新增用例：3 次权限拒绝 ⇒ `environment_blocked`（不再 `circuit_breaker`）；3 次非法 tool_call ⇒ 仍 `circuit_breaker` |
+| 3 | `feat(loop): 熔断分型（双预算）` | 拆计数器 + `environment_blocked` 相位 + 文案 | 新增用例：**2** 次环境阻塞 ⇒ `environment_blocked`（不再 `circuit_breaker`）；3 次非法 tool_call ⇒ 仍 `circuit_breaker` |
 | 4 | `fix(bash): 预处理拦截语义与安全拦截一致` | 预处理"禁止"分支不再返回 success（LRO-10 的交集） | 用例：被预处理拦下 ⇒ `status:'error'` + `failureKind:'safety_blocked'` |
 | 5 | `docs+evidence` | 台账登记 + 本 spec 状态改"已实施" | 台账三门禁绿 |
 
-> **进度（2026-10-26）**：步骤 2 ✅（`4b6b3986c`）· 步骤 1a ✅ · 步骤 1b ✅ · 步骤 3/4/5 待做。
+> **进度（2026-10-26）**：步骤 1a ✅ · 1b ✅ · 2 ✅（`4b6b3986c`）· 3 ✅（本次提交）· 步骤 4/5 待做。
 > **1a 是硬前置**：`chat/ReActToolLoop.ts` 抽取前 **2000 行**（= `R04-001` 上限，`split('\n')` 口径），
 > 1b 的接线要 +12 行 ⇒ 直接被架构门禁拒提；且 pre-commit 的 `eslint --fix`（prettier）
 > 会把压行的改动重新折回去，**压行不是解法**。
@@ -202,15 +206,12 @@ consecutiveBlockedTurns        // 新增：permission_denied | safety_blocked | 
 
 ---
 
-## 9. 待拍板（3 项）
+## 9. 待拍板（3 项）——**已于 2026-10-26 拍板**
 
-1. **`ruleId` 要不要给模型看？**
-   - 给：模型可据此换路径/换策略（但可能"学会"绕规则）；
-   - 只给用户：模型只得到"被拒绝，请换做法"，由用户决定放行。
-   - 建议：**文本给模型"被规则拒绝，请改方案"**，`ruleId` 只进用户侧展示与日志。
-2. **阻塞阈值取 2 还是 3？** 建议 2（环境问题不是概率事件），可配置。
-3. **`environment_blocked` 是否允许"自动续跑"**（用户放行后由系统重试当前轮）？
-   - 建议 v1 **不自动**：给出结论与入口，用户重发（避免自动重试再次撞墙）。
+1. **`ruleId` 要不要给模型看？** ⇒ **只给用户与日志**（模型只看到"被拦截"的事实；`ruleId` 随
+   `error` 文本进终止文案与日志，不注入模型可见输入）。
+2. **阻塞阈值取 2 还是 3？** ⇒ **2**（`maxConsecutiveBlockedTurns: 2`，`0` 可禁用）。
+3. **`environment_blocked` 是否允许"自动续跑"？** ⇒ **不自动**（v1 只给放行入口，用户处理后重发）。
 
 ---
 

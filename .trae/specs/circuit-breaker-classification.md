@@ -161,13 +161,18 @@ consecutiveBlockedTurns        // 新增：permission_denied | safety_blocked | 
 
 | # | 提交 | 内容 | 验收 |
 |---|---|---|---|
-| 1 | `feat(loop): ToolResultEntry 增加 failureKind` | 类型 + 各生产者**只加字段不改行为** | `tsc` 0；既有测试全绿 |
+| 1a | `refactor(chat): 抽出「跳过结果」构造` | 把 `ReActToolLoop` 里的 `recordSkippedTool` + 两处 push 抽成独立模块（**纯搬运，行为零变更**） | `tsc` 0；既有测试全绿；`ReActToolLoop` 行数 < 2000 |
+| 1b | `feat(loop): ToolResultEntry 增加 failureKind` | 类型 + 各生产者**只加字段不改行为** | `tsc` 0；既有测试全绿 |
 | 2 | `fix(permission): deny 决策带出 ruleId` | `createDenyDecision` 传 rule；`context` 带 `ruleId/fingerprint/sourceKind`；来源标签不伪造 | 单测断言 ruleId 透出；日志出现 `permission:deny` |
 | 3 | `feat(loop): 熔断分型（双预算）` | 拆计数器 + `environment_blocked` 相位 + 文案 | 新增用例：3 次权限拒绝 ⇒ `environment_blocked`（不再 `circuit_breaker`）；3 次非法 tool_call ⇒ 仍 `circuit_breaker` |
 | 4 | `fix(bash): 预处理拦截语义与安全拦截一致` | 预处理"禁止"分支不再返回 success（LRO-10 的交集） | 用例：被预处理拦下 ⇒ `status:'error'` + `failureKind:'safety_blocked'` |
 | 5 | `docs+evidence` | 台账登记 + 本 spec 状态改"已实施" | 台账三门禁绿 |
 
-> 步骤 3 依赖 1、2；步骤 4 独立。**不要**把 1+3 合提（回滚粒度）。
+> **进度（2026-10-26）**：步骤 2 ✅（`4b6b3986c`）· 步骤 1a/1b 待做。
+> **1a 是硬前置**：`chat/ReActToolLoop.ts` 已 **2012 行**（`R04-001` 上限 2000），1b 的接线要 +12 行
+> ⇒ 直接被架构门禁拒提；且 pre-commit 的 `eslint --fix`（prettier）会把压行的改动重新折回去，**压行不是解法**。
+
+> 步骤 3 依赖 1b、2；步骤 4 独立。**不要**把 1b+3 合提（回滚粒度）。
 
 ---
 

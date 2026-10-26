@@ -12,10 +12,17 @@
  *   4. 无 projectId 且无 workspacePath ⇒ undefined（无项目会话保持旧行为）。
  */
 import { describe, it, expect } from 'bun:test';
+import { join } from 'node:path';
 import { resolveSessionWorkspacePath } from '../../src/chat/services/toolCwdScope.js';
 
-const SANDBOX = 'C:\\Users\\csdnc\\Documents\\LiriProjects\\proj_1';
-const EXPLICIT = 'D:\\work\\my-project';
+// `isAbsolute()` 是**平台相关**的：`D:\…` 在 POSIX 上不是绝对路径。
+// 本文件断言的是"绝对/相对"语义，因此夹具必须按当前平台构造，
+// 否则 Windows 绿的用例会在 ubuntu/macOS 上全红（CI 实测）。
+const IS_WIN = process.platform === 'win32';
+const SANDBOX = IS_WIN
+  ? 'C:\\Users\\csdnc\\Documents\\LiriProjects\\proj_1'
+  : join('/home/csdnc/Documents/LiriProjects', 'proj_1');
+const EXPLICIT = IS_WIN ? 'D:\\work\\my-project' : '/work/my-project';
 
 function resolveWith(
   metadata: Record<string, unknown> | undefined,

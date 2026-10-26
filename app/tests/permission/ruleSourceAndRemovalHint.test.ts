@@ -13,13 +13,7 @@
  * 不碰真实 `~/.pyapp/data/permissions/tool_rules.json`。
  */
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import {
-  mkdtempSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import {
@@ -50,7 +44,9 @@ beforeEach(() => {
 
 afterEach(() => {
   setUserDataDirOverride(prevOverride);
-  rmSync(baseDir, { recursive: true, force: true });
+  // **不删除**临时数据目录：若有 DB/文件单例在其上缓存了路径，删除会让**后续测试文件**
+  // 落到已消失的库上（同类隐患已在 CI macOS 以 `SQLiteError: disk I/O error` 现形）。
+  // 临时目录由 OS 清理。
 });
 
 /** 历史数据形态：规则库文件里的规则被标成 `userSettings` */

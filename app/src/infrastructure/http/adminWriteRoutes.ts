@@ -12,7 +12,12 @@
  * 段边界口径：`pathname === prefix || pathname.startsWith(prefix + '/')`。
  *
  * ⚠️ **本模块只管"是否属于管理写"，不做鉴权本身**（鉴权仍是 `auth-handlers#checkAdminRequest`），
- * 也不决定状态码 —— 校验点与路由定义的合并见 W26-17（`RouteRegistry` 接线后 `adminOnly` 声明化）。
+ * 也不决定状态码。
+ *
+ * 「校验点与路由定义同址」由此处的**数据声明表**承担：新增管理写路由 = 往
+ * `ADMIN_WRITE_PREFIXES` / `PLUGIN_ADMIN_SUFFIXES` 加一条（同文件、紧邻规则），
+ * 不再需要回 `route-table.ts` 改内联条件。W26-17（2026-10-26）已裁定：不再为
+ * 「adminOnly 声明化」引入 `RouteRegistry` 那一层（该抽象已退役，见该文件删除提交）。
  *
  * 与既有语义的**唯一**差异：`/v1/permissions` **裸路径**此前不匹配（原断言带尾斜杠），
  * 现按段边界匹配会覆盖它。仓内不存在该裸路径的写路由（实测全部为 `/v1/permissions/...`），

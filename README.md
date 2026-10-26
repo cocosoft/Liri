@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.11-blue)
+![Version](https://img.shields.io/badge/version-0.5.12-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.11**
+当前版本：**v0.5.12**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,17 +435,17 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.11 (2026-10-25)
-租户级数据库 + 内核发布闭环就绪 + 可观测性补强 + 死面清理收尾
+#### v0.5.12 (2026-10-26)
+长程任务失败链路整改 + 双平台兜底沙箱 + 第三方插件治理
 
-- ✅ **租户级数据库（多租户隔离）** - provider/task/cost/execution/checkpoint/knowledge 等 14+ 仓储迁租户库，`owner_key` 行级隔离 + 漏网清单逐仓修；显式 dbPath 8 单例收口
-- ✅ **内核包发布闭环** - 单模块实例（撤打桶）+ `exports` 非通配列举 + smoke 三断言；DI 容器契约 9 条修复；`kernel-release.yml` 发布通道就绪
-- ✅ **暴露面登录态（REQUIRE_BEARER）** - 非回环暴露 / headless 必须有效 Bearer，回环零变更
-- ✅ **可观测性补强** - 工具运行与 bash 命令执行全链补 app.log（拦截/成败/异常三分支）
-- ✅ **死面清理收尾** - 删除 promptSuggestion / agent-persona 死面；Google AI 外部建议逐条裁定
-- ✅ **门禁与 CI 补强** - 提交前拦 GitHub Actions YAML 破损；macOS 假红修复
+- ✅ **长程任务（LRO）失败链路整改** - 熔断分型（环境阻塞独立预算）+ `failureKind` 全链透传；空输出 `emptyResult`；进度只由**产物存在性**推进；续跑短路已判定阻塞命令；工具 cwd 锚定会话项目 `sandboxPath`；长任务信号压过长度门 + 执行模式可见；规则拒绝可解释（来源如实 / `ruleId` / 解除入口 / 工具结果 `metadata.permissionDeny`）
+- ✅ **未受信命令转审批** - 未受信且不在只读白名单的命令改走审批（原为直接 deny）
+- ✅ **双平台兜底沙箱** - Windows（Low IL + Job）与 macOS（seatbelt 写白名单）runner 落地，CI 各挂自证
+- ✅ **第三方插件治理** - 准入闸 + 子进程宿主 + 清单签名闸（信任锚即意图，随包官方公钥）+ 能力授权 + 配置端点
+- ✅ **身份与租户面** - 渠道来源 Taint、出站投影按身份过滤、cron/日历按身份取库
+- ✅ **内核与门禁** - 内核包测试 76 → 241 例；K02/K04 补盲；本地 `ci` 补 4 道缺口；`SECURITY.md` 入库
 
-> 本版为多租户收口版：租户级数据库隔离落地，内核包发布闭环就绪（详见 [CHANGELOG.md](./CHANGELOG.md)）。
+> 本版为长程任务健壮性收口版：失败链路可解释、可续跑、可验收；同时落地双平台兜底沙箱与第三方插件治理（详见 [CHANGELOG.md](./CHANGELOG.md)）。
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

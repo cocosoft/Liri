@@ -60,6 +60,22 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.12 (2026-10-26)  长程任务失败链路整改 + 双平台兜底沙箱 + 第三方插件治理
+
+- ✅ **长程任务（LRO）失败链路整改** - 熔断分型（环境阻塞独立 2 轮预算、`failureKind` 全链透传）；
+  工具成功但零输出标 `emptyResult`；计划进度只由产物存在性推进（`artifactGated`）；续跑短路已判定
+  阻塞的命令（命令+cwd+策略版本）；工具默认 cwd 锚定会话项目 `sandboxPath`；长任务信号压过消息
+  长度门 + 执行模式可见提示；规则拒绝可解释（`ruleStore` 来源如实 + `ruleId` + 解除入口 +
+  工具结果 `metadata.permissionDeny` 结构化回传）；计划页启动 PDCA 透传会话并给出失败提示
+- ✅ **未受信命令转审批** - 未受信且不在只读白名单的命令改走审批（原为直接 deny，`node -v` 也被拒）
+- ✅ **双平台兜底沙箱** - Windows（Low IL + Job Object）与 macOS（seatbelt 写白名单归一）runner 落地，
+  CI 各挂自证（windows build+verify、macos 4/4）
+- ✅ **第三方插件治理** - 准入闸（默认不在主进程加载）+ 子进程宿主 + 清单签名闸（信任锚即意图，
+  随包官方公钥）+ 能力声明与授权 + 插件配置端点接活
+- ✅ **身份与租户面** - 渠道来源 Taint（`CHANNEL_UNTRUSTED_TAINT`）、出站投影按身份过滤、cron/日历按身份取库
+- ✅ **内核与门禁** - 内核包测试 76 → 241 例；K02 补动态导入盲区、K04 改无条件扫 SPI + 幽灵条目告警；
+  本地 `ci` 补 4 道缺口；pre-commit 前置快棘轮门禁；依赖清理与 `SECURITY.md` 入库
+
 #### v0.5.11 (2026-10-25)  租户级数据库 + 内核发布闭环就绪 + 可观测性补强 + 死面清理收尾
 
 - ✅ **租户级数据库（多租户隔离）** - provider/task/cost/execution/checkpoint/knowledge/TAOR/session 等

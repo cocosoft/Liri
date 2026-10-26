@@ -6547,3 +6547,20 @@
 {"id":"TOOL-EMPTY-RESULT-MARKER","k":"code#1","i":0,"c":"app/src/tools/bash/BashTool.ts"}
 {"id":"TOOL-EMPTY-RESULT-MARKER","k":"code#2","i":0,"c":"app/src/tools/PowerShellTool/PowerShellTool.ts"}
 {"id":"TOOL-EMPTY-RESULT-MARKER","k":"tests#0","i":0,"c":"app/tests/tools/bashEmptyResult.test.ts"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"title","i":0,"c":"计划进度只由产物存在性推进（空产物台账的完成步不计数）"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"source","i":0,"c":"2026-10-26 用户指令「继续处理 LRO-12 进度绑定产出」；依据计划 §LRO-12 设计「0 产物 ⇒ 不得 >0%」与验收锚点「0 产物但步骤全 done ⇒ 进度不得报完成」"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"reopenWhen","i":0,"c":"若出现「分析型步骤（不写文件）导致进度长期 0%」「重启/resume 后进度掉回 0」「内存态与 checkpoint 态百分比不一致」：回看 TaskOrchestrator.getPlanProgress 与 pdca-handlers.deriveCheckpointProgress；回滚 = revert f81a772f4"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"notes","i":0,"c":"【根因】percent 唯一输入是 PlanStep.status，而 status 由「TAORLoop 正常返回」写入 ⇒ 模型把步骤/待办打勾就等于进度 100%，磁盘可以一件产物都没有。"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"notes","i":1,"c":"【改法】PlanStep 增 artifacts（来自执行器写后读回台账 writtenPaths）；markStepCompleted 落台账（空数组也落）；getPlanProgress 只计「有产物支撑的完成步」，并暴露 artifacts/artifactGated。"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"notes","i":2,"c":"【口径一致】checkpoint 推导（pdca-handlers）同规则；PlanDrivenLoop 的 pdca:stage:phase 不再按序号直算；PdcaLauncher 的「执行完成」改判 percent>=100，0 产物时附「进度不计」。"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"notes","i":3,"c":"【跨重启】台账随 checkpoint 持久化 + resume 回填，否则重启后已完成的步骤看起来「没有产物」⇒ 进度掉回 0。"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"notes","i":4,"c":"【边界】未采集台账的路径（PlanStep.artifacts 为 undefined，如 PlanDrivenLoop 快速路径）沿旧口径，不把「没采集」误判成「没产物」；该路径的产物采集登记为后续项。"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"code#0","i":0,"c":"app/src/tasks/TaskOrchestrator.ts"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"code#1","i":0,"c":"app/src/tasks/lro/stepExecution.ts"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"code#2","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"code#3","i":0,"c":"app/src/tasks/lro/resumeFromCheckpoint.ts"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"code#4","i":0,"c":"app/src/infrastructure/http/handlers/pdca-handlers.ts"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"code#5","i":0,"c":"app/src/tasks/PlanDrivenLoop.ts"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"code#6","i":0,"c":"app/src/chat/launchers/PdcaLauncher.ts"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"code#7","i":0,"c":".trae/docs/api-spec.md"}
+{"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"tests#0","i":0,"c":"app/tests/tasks/planProgressArtifactGate.test.ts"}

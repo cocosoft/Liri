@@ -12948,6 +12948,39 @@
       "changelog": [],
       "reopenWhen": "若出现「命令确实产生了信息但被标记为空输出」「正常静默命令（mkdir 等）被当成异常」或「提示文案被模型原样复述」：回看 app/src/tools/utils/ToolUtils.ts 的 isEmptyOutput 与 EMPTY_OUTPUT_HINT；回滚 = revert f8fa942b0（全文见 archive/evidence-detail.jsonl#TOOL-EMPTY-RESULT-MARKER）",
       "notes": "【根因】成功路径把 stdout+stderr 直接当正文；零输出时正文为空串 ⇒ 模型拿不到任何信息，却以为「命令跑过了、环境就是这样」，继续盲试下一条（长程任务失败窗口实证）。【改法】判定与文案收敛到 ToolUtils.isEmptyOutput / EMPTY_OUTPUT_HINT（stdout+stder…（全文见 archive/evidence-detail.jsonl#TOOL-EMPTY-RESULT-MARKER）"
+    },
+    {
+      "id": "PLAN-PROGRESS-ARTIFACT-GATE",
+      "title": "计划进度只由产物存在性推进（空产物台账的完成步不计数）",
+      "source": "2026-10-26 用户指令「继续处理 LRO-12 进度绑定产出」；依据计划 §LRO-12 设计「0 产物 ⇒ 不得 >0%」与验收锚点「0 产物但步骤全 done ⇒ 进度不得报完成」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/TaskOrchestrator.ts",
+        "app/src/tasks/lro/stepExecution.ts",
+        "app/src/tasks/LongRunningTaskOrchestrator.ts",
+        "app/src/tasks/lro/resumeFromCheckpoint.ts",
+        "app/src/infrastructure/http/handlers/pdca-handlers.ts",
+        "app/src/tasks/PlanDrivenLoop.ts",
+        "app/src/chat/launchers/PdcaLauncher.ts",
+        ".trae/docs/api-spec.md"
+      ],
+      "tests": [
+        "app/tests/tasks/planProgressArtifactGate.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若出现「分析型步骤（不写文件）导致进度长期 0%」「重启/resume 后进度掉回 0」「内存态与 checkpoint 态百分比不一致」：回看 TaskOrchestrator.getPlanProgress 与 pdca-handlers.deriveCheckpointProgress；回滚 = revert …（全文见 archive/evidence-detail.jsonl#PLAN-PROGRESS-ARTIFACT-GATE）",
+      "notes": "【根因】percent 唯一输入是 PlanStep.status，而 status 由「TAORLoop 正常返回」写入 ⇒ 模型把步骤/待办打勾就等于进度 100%，磁盘可以一件产物都没有。【改法】PlanStep 增 artifacts（来自执行器写后读回台账 writtenPaths）；markStepCom…（全文见 archive/evidence-detail.jsonl#PLAN-PROGRESS-ARTIFACT-GATE）"
     }
   ]
 }

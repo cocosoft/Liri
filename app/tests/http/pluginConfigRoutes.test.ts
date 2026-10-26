@@ -30,6 +30,11 @@ const HANDLERS = readFileSync(
   ),
   'utf8'
 );
+// W26-15（2026-10-26）：管理写判定下沉到该模块（纯函数 + 数据声明表）
+const ADMIN_WRITE_ROUTES = readFileSync(
+  new URL('../../src/infrastructure/http/adminWriteRoutes.ts', import.meta.url),
+  'utf8'
+);
 
 describe('插件配置端点接线', () => {
   it('GET / PUT 两条配置路由都已注册', () => {
@@ -48,7 +53,8 @@ describe('插件配置端点接线', () => {
   });
 
   it('配置写入（PUT）纳入 admin 写鉴权', () => {
-    expect(ROUTE_TABLE).toContain("url.endsWith('/config')");
+    expect(ROUTE_TABLE).toContain('isAdminWriteRoute(method, url)');
+    expect(ADMIN_WRITE_ROUTES).toContain("'/config'");
   });
 
   it('校验失败回 400 且带原因（不静默成功）', () => {

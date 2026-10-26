@@ -7,6 +7,7 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { checkAdminRequest } from './auth-handlers';
+import { isAdminWriteRoute } from '../adminWriteRoutes';
 import { dispatchChatSessionRoutes } from './routes/chat-session-routes';
 import { dispatchPlanFlowRoutes } from './routes/plan-flow-routes';
 import { dispatchToolMediaRoutes } from './routes/tool-media-routes';
@@ -51,30 +52,27 @@ export async function dispatchRoute(
   const method = req.method || 'GET';
 
   // ---- 管理写 API 鉴权（M0d：登录态非 admin → 403；无效 token → 401；无 token → 本地回环基线放行）----
-  // M1（2026-08-06）：skill 管理写操作（install/uninstall/delete/import/clone/update/toggle/create）并入 admin 权限体系
-  if (
-    (method === 'POST' || method === 'PUT' || method === 'DELETE') &&
-    (url.startsWith('/v1/permissions/') ||
-      url.startsWith('/v1/apikeys') ||
-      url.startsWith('/v1/oauth/providers') ||
-      url.startsWith('/v1/skills') ||
-      // T25-08 P2：**能力授权写入**是安全姿态变更 ⇒ 与 skills 同属 admin 写操作
-      // （只卡这一条路径，不改动既有的插件安装/卸载口径；桌面回环无 token 仍按基线放行）
-      (url.startsWith('/v1/plugins/marketplace/plugins/') &&
-        (url.endsWith('/capabilities') ||
-          // 2026-10-26：配置写入会改变插件运行参数 ⇒ 同属 admin 写操作
-          url.endsWith('/config'))) ||
-      // 多租户 P5：删除租户会清空整租户数据 ⇒ 与 skills/apikeys 同属 admin 写操作
-      url.startsWith('/v1/tenants'))
-  ) {
+  // 「哪些路径属管理写」下沉到 `adminWriteRoutes#isAdminWriteRoute`（W26-15，2026-10-26）：
+  //   - 前缀改**段边界**匹配 ⇒ `/v1/skills` 不再误伤 `/v1/skillsets`；
+  //   - 判定变纯函数 ⇒ 可单测覆盖（此前内联在调度链里，只能靠集成测试）。
+  // M1（2026-08-06）：skill 管理写操作并入 admin 权限体系；T25-08 P2：能力授权；多租户 P5：租户删除。
+  if (isAdminWriteRoute(method, url)) {
     const result = checkAdminRequest(req);
     if (result !== 'ok') {
       res.writeHead(result === 'unauthorized' ? 401 : 403, {
         'Content-Type': 'application/json',
       });
+      // `type` 与既有 4xx 词表对齐（OpenAI 风格）：401 ⇒ authentication_error、403 ⇒ permission_error。
+      // 此前该分支**没有** `type`，按 `error.type` 分派的消费方会掉进 undefined 分支。
       res.end(
         JSON.stringify({
-          error: { message: '管理操作需要 admin 权限' },
+          error: {
+            message: '管理操作需要 admin 权限',
+            type:
+              result === 'unauthorized'
+                ? 'authentication_error'
+                : 'permission_error',
+          },
         })
       );
       return true;

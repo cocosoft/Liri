@@ -24,6 +24,11 @@ const ROUTE_TABLE = readFileSync(
   ),
   'utf8'
 );
+// W26-15（2026-10-26）：管理写判定下沉到该模块（纯函数 + 数据声明表）
+const ADMIN_WRITE_ROUTES = readFileSync(
+  new URL('../../src/infrastructure/http/adminWriteRoutes.ts', import.meta.url),
+  'utf8'
+);
 
 describe('能力端点接线', () => {
   it('GET / PUT 两条能力路由都已注册', () => {
@@ -43,10 +48,9 @@ describe('能力端点接线', () => {
   });
 
   it('能力授权写入（PUT）纳入 admin 写鉴权', () => {
-    // 断言鉴权条件里点名了该路径（只卡这一条，不影响插件安装/卸载）
-    expect(ROUTE_TABLE).toContain(
-      "url.startsWith('/v1/plugins/marketplace/plugins/')"
-    );
-    expect(ROUTE_TABLE).toContain("url.endsWith('/capabilities')");
+    // 断言「注册表确实消费该判定」+「规则点名了该路径」两条
+    // （只卡这一条，不影响插件安装/卸载）
+    expect(ROUTE_TABLE).toContain('isAdminWriteRoute(method, url)');
+    expect(ADMIN_WRITE_ROUTES).toContain("'/capabilities'");
   });
 });

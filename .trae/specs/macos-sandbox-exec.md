@@ -215,10 +215,20 @@ cd app && bun run verify:sandbox-macos
 ✅ macOS 兜底沙箱自证通过（4/4）
 ```
 
-**CI 实际输出（待首次绿后回填）**：
+**CI 实际结果（2026-10-26，`97b848c7f`）**：✅ `Test Suite (macos-latest)` 的该步骤 **success**（4/4），
+该 run 的 **16 个 job 全绿** ——
+https://github.com/cocosoft/Liri/actions/runs/40262589094
+
+> 逐条断言的 `detail` 含 runner 上的本机路径，此处只记录**结论**；原始输出见该 run 的
+> `Verify macOS sandbox` 步骤日志（或失败时的 check-run annotations）。
 
 ```
-（占位：首次 `Test Suite (macos-latest)` 通过后，把 `Verify macOS sandbox` 步骤日志贴入）
+✅ 白名单内可写
+✅ 白名单外写入被拒（非 0 退出 且 文件未落盘）
+✅ 系统文件可读（shell 能启动）
+✅ 用户命令 exit 125 原样透传（sandboxInitFailed=false）
+
+✅ macOS 兜底沙箱自证通过（4/4）
 ```
 
 **若失败**：把失败行的 `detail`（含 `exit` / `stderr` 前 120 字符）贴回，按 §4 失败模式表定位 ——

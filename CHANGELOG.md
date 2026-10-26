@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **MACOS-SANDBOX-SELFCHECK**：macOS 沙箱一键自证脚本 —— 验证 win-exit2|tsc|eslint|exit-gate；基线 win32 实测 exit 2 且提示非 macOS；4 条真机断言待 Mac 执行（详情见 archive/evidence-detail.jsonl#MACOS-SANDBOX-SELFCHECK）
 - ✅ **PRECOMMIT-RATCHET-GATES**：前置快棘轮门禁到 pre-commit —— 验证 neg-control|hook-pass|3s；基线 故意加 'running' ⇒ commit 被拦（exit 1）；正常提交通过；四门禁合计约 3s（详情见 archive/evidence-detail.jsonl#PRECOMMIT-RATCHET-GATES）
 - ✅ **MACOS-SANDBOX-WRITE-ISOLATION**：macOS 兜底沙箱（写隔离） —— 验证 tsc|eslint|arch0|t8452；基线 新增19例；全量8452 pass；macOS 真机验证未做（CI 无 mac 矩阵）（详情见 archive/evidence-detail.jsonl#MACOS-SANDBOX-WRITE-ISOLATION）
 - ✅ **PLUGIN-CONFIG-API**：插件配置端点+CLI接活 —— 验证 tsc|eslint|arch0|t8476；基线 pluginConfigValues 14例；全量8476 pass；PUT 校验失败400不落盘（详情见 archive/evidence-detail.jsonl#PLUGIN-CONFIG-API）

@@ -6436,3 +6436,8 @@
 {"id":"PRECOMMIT-RATCHET-GATES","k":"code#0","i":0,"c":"app/scripts/setup-git-hooks.ts"}
 {"id":"PRECOMMIT-RATCHET-GATES","k":"code#1","i":0,"c":".trae/rules/development-workflow.md"}
 {"id":"PRECOMMIT-RATCHET-GATES","k":"changelog#0","i":0,"c":"pre-commit 前置 state-ratchet / fn-size / consts / unref（约 3s），避免本地绿 CI 红"}
+{"id":"MACOS-SANDBOX-SELFCHECK","k":"reopenWhen","i":0,"c":"Mac 上跑通后把 baseline 换成真实输出；若 sandbox-exec 被系统移除，脚本 exit 2 即为信号"}
+{"id":"MACOS-SANDBOX-SELFCHECK","k":"code#0","i":0,"c":"app/scripts/verify-macos-sandbox.ts"}
+{"id":"MACOS-SANDBOX-SELFCHECK","k":"code#1","i":0,"c":"app/package.json"}
+{"id":"MACOS-SANDBOX-SELFCHECK","k":"code#2","i":0,"c":".trae/specs/macos-sandbox-exec.md"}
+{"id":"MACOS-SANDBOX-SELFCHECK","k":"changelog#0","i":0,"c":"新增 bun run verify:sandbox-macos：4 条断言自证 macOS 写隔离（无需人工敲命令）"}

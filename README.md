@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.13-blue)
+![Version](https://img.shields.io/badge/version-0.5.14-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.13**
+当前版本：**v0.5.14**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,12 +435,13 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.13 (2026-10-26)
-Linux AppImage 产物补齐
+#### v0.5.14 (2026-10-26)
+Linux AppImage 产物补齐（修复 v0.5.13 打包失败）
 
-- ✅ **Linux AppImage** - release 矩阵 Linux 由 `deb` 扩为 `deb,appimage`；Release 同时提供 `.AppImage` 与 `.deb`
+- ✅ **Linux AppImage** - Release 同时提供 `.AppImage` 与 `.deb`；AppImage 工具链在无 FUSE 环境自解包运行
+- ✅ **打包稳定性** - Linux 依赖安装补非交互 / 重试 / 15min 硬超时
 
-> 本版为产物补齐版：Linux 发布面新增 AppImage（详见 [CHANGELOG.md](./CHANGELOG.md)）。
+> 本版为 v0.5.13 的修复版：Linux AppImage 真正产出（详见 [CHANGELOG.md](./CHANGELOG.md)）。
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

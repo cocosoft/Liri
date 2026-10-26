@@ -60,6 +60,15 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.14 (2026-10-26)  Linux AppImage 产物（修复 v0.5.13 打包失败）
+
+- ✅ **Linux AppImage 产物** - release 矩阵 Linux `deb,appimage`；AppImage 工具链（linuxdeploy /
+  appimagetool）在无 FUSE 环境以 `APPIMAGE_EXTRACT_AND_RUN=1` 自解包运行，并补装
+  `libfuse2`/`libfuse2t64` ⇒ v0.5.13 在 `Build Tauri app` 的失败（工具链缺 `libfuse.so.2`）已修复
+- ✅ **打包稳定性** - Linux 依赖安装补 `DEBIAN_FRONTEND=noninteractive` + `Acquire::Retries/Timeout`
+  + `timeout-minutes: 15`（此前一次 apt 卡死让 release 挂起 45+ 分钟）
+- 说明：v0.5.13 的 tag 未产出 Release（Linux 打包失败），本版为其修复版
+
 #### v0.5.13 (2026-10-26)  Linux AppImage 产物补齐
 
 - ✅ **Linux AppImage** - release 矩阵 Linux 由 `deb` 扩为 `deb,appimage`：release 的 `files:` 早已列出

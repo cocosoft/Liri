@@ -589,6 +589,38 @@ export class PermissionManager {
   }
 
   /**
+   * 规则拒绝的**统一出口**（LRO-09 步骤 2，2026-10-26）。
+   *
+   * 为什么单独抽：此前两处 deny 只回 `Denied by rule from <source>`，而 `<source>` 是
+   * `RuleManager.parseRuleString()` 的**硬编码默认值**（`userSettings`），真实来源是
+   * `tool_rules.json` ⇒ 用户按提示去 `settings.json` 里找永远找不到（2026-10-26 实测）。
+   * 现在把 **ruleId** 一并带出（文案 + 决策上下文 + 结构化日志）。
+   */
+  private _denyByRule(
+    toolName: string,
+    rule:
+      | { id?: string; source?: string; inputFingerprint?: string }
+      | undefined
+  ): PermissionDecision {
+    const ruleId = rule?.id;
+    const source = rule?.source;
+    const marker = ruleId ? ` [rule=${ruleId}]` : '';
+    const from = source ? ` from ${source}` : '';
+    logger.warn('permission:deny', {
+      toolName,
+      ruleId,
+      ruleSource: source,
+      fingerprint: rule?.inputFingerprint,
+    });
+    return createDenyDecision(`Denied by rule${from}${marker}`, rule, {
+      ruleId,
+      toolName,
+      inputFingerprint: rule?.inputFingerprint,
+      sourceKind: source,
+    });
+  }
+
+  /**
    * 处理默认模式
    * @param toolOrName 工具对象或工具名称
    * @param input 工具输入
@@ -614,7 +646,7 @@ export class PermissionManager {
     const denyRule = this.ruleManager.getDenyRuleForTool(toolName, ruleContext);
     if (denyRule) {
       this.denialTracker.trackDenial(toolName);
-      return createDenyDecision(`Denied by rule from ${denyRule.source}`);
+      return this._denyByRule(toolName, denyRule);
     }
 
     // E↔A 打通（演进项）：当前认证角色存在时，D 体系角色 deny 规则优先（角色 deny 优先）
@@ -662,9 +694,7 @@ export class PermissionManager {
     );
     if (matchingDenyRule) {
       this.denialTracker.trackDenial(toolName);
-      return createDenyDecision(
-        `Denied by rule from ${matchingDenyRule.source}`
-      );
+      return this._denyByRule(toolName, matchingDenyRule);
     }
 
     const matchingAskRule = this.ruleManager.getMatchingRule(
@@ -761,7 +791,7 @@ export class PermissionManager {
         return createAskDecision('Too many denials, asking user');
       }
 
-      return createDenyDecision(`Denied by rule from ${denyRule.source}`);
+      return this._denyByRule(toolName, denyRule);
     }
 
     // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）— 与 handleDefault 一致

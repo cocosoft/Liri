@@ -3354,13 +3354,13 @@ export class ChatManagerImpl implements ChatManager {
   private _getProjectSandboxPath(projectId: string): string | undefined {
     try {
       const { createProjectStore } =
-        require('../../workspace/ProjectStore.js') as {
+        require('../workspace/ProjectStore.js') as {
           createProjectStore: (
             dataDir: string,
             itemStore: unknown
           ) => { get: (id: string) => { sandboxPath?: string } | undefined };
         };
-      const { WorkItemStore } = require('../../workspace/WorkItemStore.js') as {
+      const { WorkItemStore } = require('../workspace/WorkItemStore.js') as {
         WorkItemStore: new (dataDir: string) => unknown;
       };
       if (!this._projectSandboxPathCache) {

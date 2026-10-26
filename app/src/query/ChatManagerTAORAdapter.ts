@@ -10,7 +10,11 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { messageProjector } from '@modules/context';
-import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
+import type {
+  ToolCall,
+  ToolFailureKind,
+  ToolResult,
+} from '@modules/session/types/tool.js';
 import type { ChatMessage, ToolDefinition } from '@modules/ai';
 import type { TAORLoopDeps } from './TAORLoop.js';
 import { createTAORLoopDeps } from './TAORLoop.js';
@@ -229,6 +233,8 @@ export function createChatManagerTAORDeps(
         toolName?: string;
         result?: unknown;
         error?: string;
+        /** LRO-D5（2026-10-26）：失败分类透传（权限拒绝/安全拦截/工具自身失败） */
+        failureKind?: ToolFailureKind;
       }> = [];
 
       // P1-5: 级联中止 — 启动新一轮，创建 cascade controller
@@ -482,6 +488,8 @@ export function createChatManagerTAORDeps(
             toolName: tc.name,
             result: toolResult.result,
             error: toolResult.error,
+            // LRO-D5（2026-10-26）：分类透传（权限拒绝/安全拦截/工具自身失败）
+            failureKind: toolResult.failureKind,
           });
 
           // P4（2026-09-17）：非流式路径 todo 链路——工具结果含 _todoData 时产出

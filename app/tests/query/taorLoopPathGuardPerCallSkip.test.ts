@@ -23,6 +23,8 @@ interface ActResult {
     name: string;
     status: string;
     error?: string;
+    /** LRO-D5（2026-10-26）：批处理路径必须透传失败分类 */
+    failureKind?: string;
   }>;
   allSucceeded: boolean;
   anyAborted: boolean;
@@ -39,6 +41,7 @@ interface TestableLoop {
         toolName?: string;
         result?: unknown;
         error?: string;
+        failureKind?: string;
       }>
     >;
   };
@@ -111,6 +114,9 @@ describe('B14: TAORLoop PathGuard 按调用跳过（不再整批终止）', () =
     expect(actResult.results[0].status).toBe('success');
     expect(actResult.results[1].status).toBe('error');
     expect(actResult.results[1].error).toContain('安全护栏');
+    // ④ LRO-D5：护栏跳过必须带结构化分类（批处理路径此前丢弃）
+    expect(actResult.results[1].failureKind).toBe('safety_blocked');
+    expect(actResult.results[0].failureKind).toBeUndefined();
     expect(actResult.results[2].status).toBe('success');
     // ③ 配对完整（PAIR-FILL）：三条 tool 消息与 tool_call_id 一一对应
     const toolMsgs = loop.messages.filter((m) => m.role === 'tool');
@@ -141,5 +147,39 @@ describe('B14: TAORLoop PathGuard 按调用跳过（不再整批终止）', () =
     expect(executedIds).toEqual(['c1', 'c2']);
     expect(actResult.results.map((r) => r.toolCallId)).toEqual(['c1', 'c2']);
     expect(actResult.allSucceeded).toBe(true);
+  });
+
+  /**
+   * LRO-D5（2026-10-26）：批处理路径必须透传 `failureKind` —— 否则熔断双预算在
+   * TAOR/LRO 路径永不触发 `environment_blocked`（长任务仍按"模型无效输出"烧完预算）。
+   */
+  it('执行器给出的失败分类原样透传（未分类不得被臆造）', async () => {
+    const loop = makeLoop();
+    loop.deps = {
+      executeTools: async (calls) => [
+        {
+          toolCallId: calls[0].id,
+          toolName: calls[0].name,
+          error: 'Permission denied: Denied by rule from tool_rules.json',
+          failureKind: 'permission_denied',
+        },
+        {
+          toolCallId: calls[1].id,
+          toolName: calls[1].name,
+          error: '工具内部异常',
+        },
+      ],
+    };
+    loop.pathGuard = { checkToolCall: () => ({ allowed: true }) };
+
+    const actResult = await drain(
+      loop.act([
+        { id: 'c1', name: 'file_write', input: {} },
+        { id: 'c2', name: 'bash', input: {} },
+      ])
+    );
+
+    expect(actResult.results[0].failureKind).toBe('permission_denied');
+    expect(actResult.results[1].failureKind).toBeUndefined();
   });
 });

@@ -18,6 +18,8 @@ import type {
 import type { VerifierAgentConfig } from '../VerifierAgent.js';
 import type { StopHookReason } from '../StopHooks.js';
 import type { TerminationReason } from '../ReActLoop.js';
+// LRO-D5（2026-10-26）：失败分类随工具结果透传（与 `ToolResult.failureKind` 同源）
+import type { ToolFailureKind } from '@modules/session/types/tool.js';
 
 // ─── TAORLoop 依赖注入接口 ────────────────────────────
 /**
@@ -57,6 +59,8 @@ export interface TAORLoopDeps {
       toolName?: string;
       result?: unknown;
       error?: string;
+      /** LRO-D5（2026-10-26）：失败分类 —— 供熔断双预算区分"环境阻塞"与"模型无效输出" */
+      failureKind?: ToolFailureKind;
     }>
   >;
 

@@ -70,7 +70,9 @@ import type { VerifierAgentConfig } from './VerifierAgent.js';
 import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
 import * as ckptLifecycle from './checkpointStorageLifecycle.js';
 import type { ChatMessage } from '@modules/ai/models/types.js';
-import { ReActLoop } from './ReActLoop.js';
+// LRO-D5（2026-10-26）：跳过回填抽到叶子模块；结果映射用 ReActLoop.toToolResultEntries
+import { fillSkippedResults } from './taor/roundResults.js';
+import { ReActLoop, toToolResultEntries } from './ReActLoop.js';
 import type {
   ReActEvent,
   ReasonResult,
@@ -774,14 +776,13 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       } as ChatMessage);
     }
 
-    // B14（2026-10-07）：被跳过的调用**原位回填失败结果**（PAIR-FILL）—— 下游按 `rawResults[i] ↔ calls[i]` 位置消费。
-    let executedIdx = 0;
-    const rawResults = calls.map((tc) => {
-      const skip = pathBlockedById.get(tc.id);
-      return skip
-        ? { toolCallId: tc.id, toolName: tc.name, error: skip }
-        : executedResults[executedIdx++];
-    });
+    // B14（2026-10-07）：被跳过的调用**原位回填失败结果**（PAIR-FILL）——
+    // LRO-D5：跳过项标 `safety_blocked`，`failureKind` 一路透传到 ActResult。
+    const rawResults = fillSkippedResults(
+      calls,
+      executedResults,
+      pathBlockedById
+    );
 
     // trace ok/error + 工具统计
     for (let i = 0; i < calls.length; i++) {
@@ -974,13 +975,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
 
     // OBSERVE 收尾（工具轮完成后，对齐旧 while 公共尾部）
     await this._observeRound();
-    const results = rawResults.map((r, i) => ({
-      toolCallId: r?.toolCallId ?? calls[i]?.id ?? '',
-      name: calls[i]?.name ?? '',
-      status: r?.error ? ('error' as const) : ('success' as const),
-      output: typeof r?.result === 'string' ? r.result : undefined,
-      error: r?.error,
-    }));
+    const results = toToolResultEntries(calls, rawResults);
     // 阶段 A（N-28 修复）：成功 yield ⇒ 登记等待 + 标记让出本轮。
     // 骨架 `ReActLoop.run()` 见 `yielded` 即短路收尾（短路点在骨架，两条路径共用）。
     // 注：本路径（batch / 非流式）不写 turn/end 事件，故 yield 语义由

@@ -293,6 +293,35 @@ export interface ToolResultEntry {
 }
 
 /**
+ * 单次工具执行的**中间结果**（批处理路径的 `executeTools` 返回元素 + 跳过回填共用）。
+ *
+ * LRO-D5（2026-10-26）：`failureKind` 必须能从这里一路透传到 `ToolResultEntry`，
+ * 否则熔断双预算在 TAOR/LRO 路径永不触发 `environment_blocked`。
+ */
+export interface RawToolResult {
+  toolCallId?: string;
+  toolName?: string;
+  result?: unknown;
+  error?: string;
+  failureKind?: ToolFailureKind;
+}
+
+/** 中间结果 → `ActResult.results`（`failureKind` 原样透传，未分类不臆造） */
+export function toToolResultEntries(
+  calls: readonly Pick<ToolCallEntry, 'id' | 'name'>[],
+  rawResults: readonly (RawToolResult | undefined)[]
+): ToolResultEntry[] {
+  return rawResults.map((r, i) => ({
+    toolCallId: r?.toolCallId ?? calls[i]?.id ?? '',
+    name: calls[i]?.name ?? '',
+    status: r?.error ? 'error' : 'success',
+    output: typeof r?.result === 'string' ? r.result : undefined,
+    error: r?.error,
+    failureKind: r?.failureKind,
+  }));
+}
+
+/**
  * 环境层**阻塞**类失败（LRO-09 步骤 3）：重试同一动作不会改变结果，只能由用户/环境侧
  * 处置（放行规则、修审批通道、装依赖）。
  *

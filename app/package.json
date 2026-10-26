@@ -198,9 +198,6 @@
     "@opentelemetry/sdk-trace-base": "^2.7.0",
     "@opentelemetry/sdk-trace-node": "^2.7.0",
     "@opentelemetry/semantic-conventions": "^1.40.0",
-    "@types/js-yaml": "^4.0.9",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/uuid": "^10.0.0",
     "adm-zip": "^0.5.17",
     "auto-bind": "^5.0.1",
     "axios": "^1.15.0",
@@ -252,6 +249,8 @@
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
+    "@types/js-yaml": "^4.0.9",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.14",
     "@typescript-eslint/eslint-plugin": "^8.58.2",

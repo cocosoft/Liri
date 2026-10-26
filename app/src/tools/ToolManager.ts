@@ -412,7 +412,7 @@ export class ToolManager extends EventEmitter {
               `Error: Missing required parameter: ${missingParams.join(', ')}. ` +
               `请按工具定义的参数名重新调用（本次收到的参数键: ${
                 Object.keys(input ?? {}).join(', ') || '（空）'
-              }）。`,
+              }；本工具参数: ${tool.params.map((p) => p.name).join(', ')}）。`,
           },
         ],
       });

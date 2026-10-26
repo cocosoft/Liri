@@ -76,14 +76,9 @@ export interface SandboxRuntimeStatus {
   /** 活跃工作区数（`globalWorkspaceManager.list().size`） */
   activeWorkspaceCount: number;
   /**
-   * 当前生效的隔离模式（`resolveSandboxExecutionSignal().mode`；P1-1，2026-10-27）。
-   *
-   * `'none'` ⇒ **无隔离证据**（如 Windows 桌面恒 `none`）⇒ 沙箱权限级别只进
-   * `PERMISSION_RANK`，而豁免链在 S1（`mode === 'none'`）已先拒 ⇒ 级别对实际行为**零影响**。
-   * UI 据此诚实降级（禁用级别控件 + 说明），不虚构"配了就有用"。
-   *
-   * 取值域见 app 侧 `SandboxExecutionMode`（`landlock` / `container` / `ssh` / `pty` / `none`）；
-   * 此处按本文件既有约定以不透明值承载（端口不引 app 类型）。
+   * 当前生效的隔离模式（`resolveSandboxExecutionSignal().mode`；P1-1）。
+   * `'none'` ⇒ 无隔离证据（如 Windows 桌面）⇒ 权限级别不参与豁免判定，
+   * UI 据此诚实降级（禁用级别控件）。取值域见 app 侧 `SandboxExecutionMode`。
    */
   runtimeIsolation: string;
 }

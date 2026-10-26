@@ -285,7 +285,7 @@ export async function runCodeRunnerWithLandlock(
 }
 
 /**
- * 执行编排代码（安全选择器）：macOS → Seatbelt；Linux + landlock 可用 → landlock；否则跨平台。
+ * 执行编排代码（安全选择器）：macOS → Seatbelt；Windows → Low IL；Linux + landlock 可用 → landlock；否则跨平台。
  */
 export async function runCodeRunnerSafely(
   opts: CodeRunnerExecOptions
@@ -296,6 +296,13 @@ export async function runCodeRunnerSafely(
       await import('./MacOSSandboxRunner');
     const macResult = await runCodeRunnerWithMacOSSandbox(opts);
     if (macResult) return macResult;
+  }
+  // 2026-10-26：Windows 兜底（Low IL + Job Object），同上。
+  if (process.platform === 'win32') {
+    const { runCodeRunnerWithWindowsSandbox } =
+      await import('./WindowsSandboxRunner');
+    const winResult = await runCodeRunnerWithWindowsSandbox(opts);
+    if (winResult) return winResult;
   }
   const landlockResult = await runCodeRunnerWithLandlock(opts);
   if (landlockResult) return landlockResult;

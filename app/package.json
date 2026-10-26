@@ -132,6 +132,7 @@
     "evidence:compaction-escalation": "bun run scripts/report-compaction-escalation.ts",
     "evidence:tool-params-locale": "bun run scripts/verify-tool-params-locale.ts",
     "verify:sandbox-macos": "bun run scripts/verify-macos-sandbox.ts",
+    "verify:win-sandbox": "bun run scripts/verify-win-sandbox.ts",
     "health:arch": "PYAPP_PROJECT_DIR=.. bun run ../scripts/architecture-health.ts --compare",
     "health:arch:json": "PYAPP_PROJECT_DIR=.. bun run ../scripts/architecture-health.ts --json",
     "format": "prettier --write src",

@@ -111,6 +111,19 @@
 - 读白名单化（`file-read*` → 逐条 `subpath`）：收益大但误伤面广，需先有 macOS 实机灰度数据；
 - 网络收紧（`(allow network*)` → 仅本地回环 / 白名单）：与 Linux 网络策略对齐时一并做。
 
+### 3.6 已知限制（如实，2026-10-26 收口时确认）
+
+| 限制 | 事实与影响 | 为什么不现在修 |
+|---|---|---|
+| **执行信号不报 `sandbox-exec`** | `SandboxExecutionMode` 只有 `landlock/container/ssh/pty/none`（[Tool.ts:108-112](../../app/src/utils/toolContract/Tool.ts#L108-L112)）；`resolveSandboxExecutionSignal` 的缺省推导只看 Landlock（[sandboxExecutionSignal.ts:122-128](../../app/src/sandbox/sandboxExecutionSignal.ts#L122-L128)）⇒ macOS 真受限时工具结果里仍是 `mode='none'` | 该信号在**权限判定之前**构造（[ToolExecutionService.ts:783](../../app/src/chat/services/ToolExecutionService.ts#L783)），此时尚未执行、拿不到实际门控结果；要做到"本次真走了 sandbox-exec"需两阶段回填，改动面大于收益 |
+| 安全影响：**无** | `resolveSandboxExemption` 对 `RiskClass.SHELL` 一律 `shell-unprovable`；文件类还必须 `fileIoIsolated===true`（只来自 container/ssh 工作区）⇒ 信号不报 macOS **不会**放宽任何审批 | — |
+| **`/v1/sandbox/status` 不含 macOS 能力字段** | 该端点的读取面是 kernel SPI 端口投影（[spiWiring.ts:509-518](../../app/src/entrypoints/spiWiring.ts#L509-L518)），增加字段要动 kernel 端口契约 + `lint:kernel-api` | 属可观测性增强，不影响运行时行为 |
+| 既有的同类不精确（非本次引入） | Landlock 侧同样按**能力**而非**本次调用**推导：`enabled=true` 但 `bashEnabled=false` 时 bash 实际走 plain，信号仍报 `landlock` | 同一根因；修则两侧一起改（两阶段回填） |
+
+**触发条件（何时重开）**：需要"按调用证明隔离"的场景成立时（如把 SHELL 类也纳入沙箱豁免、或审计要求逐次留证），
+按"执行入口回填实际 mode → 信号采用回填值"两阶段方案一次性修，并 **同批**扩展 `SandboxExecutionMode`；
+仅做展示/排障时优先给 `/v1/sandbox/status` 加只读能力字段。
+
 ---
 
 ## 4. 安全姿态与失败模式

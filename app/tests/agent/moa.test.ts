@@ -172,9 +172,23 @@ describe('MoARouter', () => {
     expect(result.aggregated).toBe('Aggregated');
   });
 
-  it('并行查询比串行更快', async () => {
-    router.registerAdapter('slow-a', createDelayedAdapter('slow-a', 'A', 30));
-    router.registerAdapter('slow-b', createDelayedAdapter('slow-b', 'B', 30));
+  it('并行查询：两个分模型真正并发（而非串行等待）', async () => {
+    // 原断言用**绝对墙钟**（`elapsed < 150ms`），在负载高的 CI runner 上会假红
+    // （2026-10-26 macOS runner 实测 160ms）。这里改判**事件的交错顺序**：
+    // 串行实现不可能出现「a 结束前 b 已开始」，该判据与机器快慢无关。
+    const events: string[] = [];
+    const recordAdapter = (name: string): MoAModelAdapter => ({
+      name,
+      async query() {
+        events.push(`start:${name}`);
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        events.push(`end:${name}`);
+        return name;
+      },
+    });
+
+    router.registerAdapter('slow-a', recordAdapter('slow-a'));
+    router.registerAdapter('slow-b', recordAdapter('slow-b'));
     router.registerAdapter(
       'aggregator',
       createDelayedAdapter('aggregator', 'Aggregated', 10)
@@ -186,12 +200,14 @@ describe('MoARouter', () => {
       aggregatorModel: 'aggregator',
     };
 
-    const start = Date.now();
     await router.route(request);
-    const elapsed = Date.now() - start;
 
-    // 并行应明显快于串行（~70ms），CI 虚拟机性能波动给足余量
-    expect(elapsed).toBeLessThan(150);
+    expect(events.indexOf('start:slow-b')).toBeLessThan(
+      events.indexOf('end:slow-a')
+    );
+    expect(events.indexOf('start:slow-a')).toBeLessThan(
+      events.indexOf('end:slow-b')
+    );
   });
 
   it('自定义 systemPrompt 和 maxTokens 传递给模型适配器', async () => {

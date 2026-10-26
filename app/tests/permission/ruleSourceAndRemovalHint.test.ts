@@ -152,6 +152,43 @@ describe('LRO-07：规则拒绝给出可执行的解除入口', () => {
       ruleId: LEGACY_RULE_ID,
       sourceKind: 'ruleStore',
       removableVia: `在「设置 → 权限管理 → 工具权限规则」删除该规则，或 DELETE /v1/permissions/rules/${LEGACY_RULE_ID}`,
+      // F5：该规则**不含** inputFingerprint ⇒ 工具级命中（能据此判断"是不是整工具被拦"）
+      matchScope: 'tool',
     });
+  });
+
+  it('F5：带 inputFingerprint 的 deny 规则**不匹配**其它参数（不再是工具级笼罩）', async () => {
+    mkdirSync(dirname(ruleFile), { recursive: true });
+    writeFileSync(
+      ruleFile,
+      JSON.stringify(
+        [
+          {
+            id: 'rule_fp_1',
+            behavior: 'deny',
+            toolName: 'file_write',
+            // 与本次调用无关的指纹 ⇒ 必须不命中
+            inputFingerprint: 'deadbeefdeadbeefdeadbeefdeadbeef',
+            source: 'ruleStore',
+            priority: 1,
+            createdAt: '2026-10-26T14:02:41.496Z',
+            updatedAt: '2026-10-26T14:02:41.496Z',
+          },
+        ],
+        null,
+        2
+      ),
+      'utf8'
+    );
+
+    const pm = new PermissionManager();
+    const result = await pm.checkPermissionForTool(
+      'file_write',
+      { file_path: 'probe.txt' },
+      { sessionId: 's-f5' }
+    );
+
+    expect(result.reason).not.toContain('Denied by rule');
+    expect(result.denyInfo).toBeUndefined();
   });
 });

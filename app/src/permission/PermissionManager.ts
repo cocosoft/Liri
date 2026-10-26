@@ -127,6 +127,9 @@ function buildDenyInfo(
   if (typeof context.removableVia === 'string') {
     info.removableVia = context.removableVia;
   }
+  if (context.matchScope === 'tool' || context.matchScope === 'fingerprint') {
+    info.matchScope = context.matchScope;
+  }
   return Object.keys(info).length > 0 ? info : undefined;
 }
 
@@ -653,18 +656,28 @@ export class PermissionManager {
     toolName: string,
     rule:
       | { id?: string; source?: string; inputFingerprint?: string }
-      | undefined
+      | undefined,
+    /**
+     * F5（2026-10-27）：**本次调用**的指纹摘要（`hashApprovalFingerprint(...)`）。
+     * 与 `rule.inputFingerprint` 并列落日志，才能区分"指纹级命中"与"工具级命中"
+     * —— 真机曾出现「一条 deny 笼罩整个 file_write」的误判（Liri 报告 R4）。
+     */
+    callFingerprint?: string
   ): PermissionDecision {
     const ruleId = rule?.id;
     const source = rule?.source;
     const marker = ruleId ? ` [rule=${ruleId}]` : '';
     const from = source ? ` from ${source}` : '';
     const removableVia = resolveRuleRemovalHint(ruleId, source);
+    // 命中维度：规则带指纹 ⇒ 指纹级（只管该参数组合）；否则工具级（管整个工具）
+    const matchScope = rule?.inputFingerprint ? 'fingerprint' : 'tool';
     logger.warn('permission:deny', {
       toolName,
       ruleId,
       ruleSource: source,
       fingerprint: rule?.inputFingerprint,
+      callFingerprint,
+      matchScope,
       removableVia,
     });
     return createDenyDecision(
@@ -674,6 +687,8 @@ export class PermissionManager {
         ruleId,
         toolName,
         inputFingerprint: rule?.inputFingerprint,
+        callFingerprint,
+        matchScope,
         sourceKind: source,
         removableVia,
       }
@@ -750,7 +765,7 @@ export class PermissionManager {
     );
     if (matchingDenyRule) {
       this.denialTracker.trackDenial(toolName);
-      return this._denyByRule(toolName, matchingDenyRule);
+      return this._denyByRule(toolName, matchingDenyRule, approvalFingerprint);
     }
 
     const askRule = this.ruleManager.getAskRuleForTool(toolName, ruleContext);

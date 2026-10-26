@@ -35,6 +35,11 @@ export interface PermissionDenyInfo {
   inputFingerprint?: string;
   /** 怎么解除（面板路径 + 精确 API；settings 来源指向配置文件） */
   removableVia?: string;
+  /**
+   * F5（2026-10-27）：命中维度 —— `fingerprint`（规则绑定参数指纹，只拦该组合）或
+   * `tool`（规则不含指纹，拦整个工具）。用于区分"整工具被一条 deny 笼罩"的真假。
+   */
+  matchScope?: 'tool' | 'fingerprint';
 }
 
 /**

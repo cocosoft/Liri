@@ -17,6 +17,7 @@ import { PermissionMode } from './PermissionMode';
 import {
   PermissionDecision,
   PermissionDecisionType,
+  PermissionDenyInfo,
   createAllowDecision,
   createDenyDecision,
   createAskDecision,
@@ -103,6 +104,30 @@ function resolveRuleRemovalHint(
     return `在设置文件的 permissions 段修改（来源 ${source} 由配置文件维护，面板不可删除）`;
   }
   return '在「设置 → 权限管理 → 工具权限规则」删除对应规则';
+}
+
+/**
+ * LRO-07（2026-10-26）：把 deny 决策的 `context` 收敛成**跨层 DTO**。
+ *
+ * 只搬运真实存在且为字符串的字段（缺省不臆造）；没有任何可回传字段 ⇒ `undefined`
+ * （避免给上层一个空对象冒充"有依据"）。
+ */
+function buildDenyInfo(
+  context: Record<string, unknown> | undefined
+): PermissionDenyInfo | undefined {
+  if (!context) return undefined;
+  const info: PermissionDenyInfo = {};
+  if (typeof context.ruleId === 'string') info.ruleId = context.ruleId;
+  if (typeof context.sourceKind === 'string') {
+    info.sourceKind = context.sourceKind;
+  }
+  if (typeof context.inputFingerprint === 'string') {
+    info.inputFingerprint = context.inputFingerprint;
+  }
+  if (typeof context.removableVia === 'string') {
+    info.removableVia = context.removableVia;
+  }
+  return Object.keys(info).length > 0 ? info : undefined;
 }
 
 /**
@@ -1345,6 +1370,12 @@ export class PermissionManager {
     commandHash?: string;
     /** U-06-5: 已提交的 Inbox 项 id（前端工具卡片就地审批用） */
     inboxItemId?: string;
+    /**
+     * LRO-07（2026-10-26）：规则拒绝的**结构化**依据（ruleId / sourceKind /
+     * inputFingerprint / removableVia）。此前它只存在 `decision.context`，
+     * 归一化时被截断 ⇒ 工具结果拿不到「哪条规则、怎么解除」。
+     */
+    denyInfo?: PermissionDenyInfo;
   }> {
     // P1-2: 构造完整 PermissionContext（补 toolName/input），透传 sessionId 供统一提交
     const permissionContext = createPermissionContext({
@@ -1410,6 +1441,7 @@ export class PermissionManager {
     submittedToInbox?: boolean;
     commandHash?: string;
     inboxItemId?: string;
+    denyInfo?: PermissionDenyInfo;
   } {
     const allowed = decision.type === 'allow';
     const submittedToInbox = decision.context?.submittedToInbox === true;
@@ -1420,6 +1452,11 @@ export class PermissionManager {
     const inboxItemId =
       typeof decision.context?.inboxItemId === 'string'
         ? (decision.context.inboxItemId as string)
+        : undefined;
+    // LRO-07：DENY 才回传结构化依据（ask/allow 的 context 里有别的字段，不可混用）
+    const denyInfo =
+      decision.type === PermissionDecisionType.DENY
+        ? buildDenyInfo(decision.context)
         : undefined;
     return {
       allowed,
@@ -1432,6 +1469,7 @@ export class PermissionManager {
       submittedToInbox,
       commandHash,
       inboxItemId,
+      denyInfo,
     };
   }
 }

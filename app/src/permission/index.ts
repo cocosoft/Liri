@@ -41,6 +41,9 @@ export type {
   PermissionRule,
 } from './types/PermissionRule';
 
+// LRO-07（2026-10-26）：规则拒绝的结构化回传（工具结果 `metadata.permissionDeny`）
+export type { PermissionDenyInfo } from './types/PermissionDecision';
+
 export type {
   PermissionRuleEntry,
   PermissionUpdateDestination,

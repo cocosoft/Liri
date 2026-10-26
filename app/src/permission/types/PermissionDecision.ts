@@ -19,6 +19,25 @@ export enum PermissionDecisionType {
 }
 
 /**
+ * 规则拒绝的**结构化回传**（LRO-07，2026-10-26）。
+ *
+ * 为什么需要：`PermissionDecision.context` 是权限层内部字段，`checkPermissionForTool`
+ * 归一化结果时会被截断 ⇒ 工具结果只拿到一句 reason，结构化字段（哪条规则、怎么解除）
+ * 到不了上层。本类型是**跨层 DTO**：由 `PermissionManager` 从 context 提取，
+ * 由工具执行层原样放进 `ToolResult.metadata.permissionDeny`。
+ */
+export interface PermissionDenyInfo {
+  /** 命中的规则 id（用户可据此定位到具体规则） */
+  ruleId?: string;
+  /** 规则来源（如 `ruleStore` / `userSettings`），如实反映，不伪造 */
+  sourceKind?: string;
+  /** 「始终允许/拒绝」档的参数指纹摘要 */
+  inputFingerprint?: string;
+  /** 怎么解除（面板路径 + 精确 API；settings 来源指向配置文件） */
+  removableVia?: string;
+}
+
+/**
  * 权限决策接口
  */
 export interface PermissionDecision {

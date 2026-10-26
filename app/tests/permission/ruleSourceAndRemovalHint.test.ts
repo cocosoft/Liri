@@ -141,4 +141,21 @@ describe('LRO-07：规则拒绝给出可执行的解除入口', () => {
       `DELETE /v1/permissions/rules/${LEGACY_RULE_ID}`
     );
   });
+
+  it('denyInfo 结构化回传（此前只存在 decision.context，归一化时被截断）', async () => {
+    writeLegacyRules();
+
+    const pm = new PermissionManager();
+    const result = await pm.checkPermissionForTool(
+      'file_write',
+      { file_path: 'a.txt' },
+      { sessionId: 's-lro07' }
+    );
+
+    expect(result.denyInfo).toEqual({
+      ruleId: LEGACY_RULE_ID,
+      sourceKind: 'ruleStore',
+      removableVia: `在「设置 → 权限管理 → 工具权限规则」删除该规则，或 DELETE /v1/permissions/rules/${LEGACY_RULE_ID}`,
+    });
+  });
 });

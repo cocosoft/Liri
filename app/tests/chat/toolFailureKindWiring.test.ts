@@ -77,6 +77,15 @@ describe('failureKind 生产者接线（LRO-09 步骤 1b）', () => {
     expect(hits.length).toBe(2);
   });
 
+  it('LRO-07：规则拒绝的结构化依据进工具结果（metadata.permissionDeny）', () => {
+    // 此前 `decision.context` 在 checkPermissionForTool 归一化时被截断 ⇒ 工具结果 metadata 为 null，
+    // 模型/用户只能看到一句 reason。这里钉住"结构化字段必须被搬进 ToolResult.metadata"。
+    expect(EXEC_SERVICE_SRC).toContain(
+      'metadata: { permissionDeny: permissionResult.denyInfo }'
+    );
+    expect(EXEC_SERVICE_SRC).toContain('denyInfo?: PermissionDenyInfo');
+  });
+
   it('安全生产者：PathGuard 跳过标 safety_blocked', () => {
     expect(TOOL_LOOP_SRC).toContain("'safety_blocked'");
   });

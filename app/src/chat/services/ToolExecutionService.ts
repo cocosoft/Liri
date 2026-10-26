@@ -70,7 +70,12 @@ import type { ChatSession } from '@modules/session/types/session.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
 import type { RollbackIntegration, FileOperation } from '@modules/security';
 // S1-1（2026-10-11）：审批作用域 / 快照类型（**仅类型导入**，运行时判定在 permission 层）
-import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
+// LRO-07（2026-10-26）：deny 结构化依据（ruleId/来源/解除入口）⇒ 进工具结果 metadata
+import type {
+  ApprovalScope,
+  ApprovalSnapshot,
+  PermissionDenyInfo,
+} from '@modules/permission';
 // D2（2026-10-11）：权限管理器注入断言（生产 fail-fast，G9）
 import {
   assertPermissionManagerInjected,
@@ -751,6 +756,8 @@ export class ToolExecutionService {
           submittedToInbox?: boolean;
           /** U-06-5：已提交的 Inbox 项 id（前端就地审批） */
           inboxItemId?: string;
+          /** LRO-07：规则拒绝的结构化依据（缺省 = 非规则拒绝或无依据） */
+          denyInfo?: PermissionDenyInfo;
         }>;
       };
       // R07-3（2026-10-07）：非幂等工具的「重试」⇒ 执行前**主动分流**为审批
@@ -868,6 +875,11 @@ export class ToolExecutionService {
             error: `Permission denied: ${permissionResult.reason || 'Tool execution not allowed'}`,
             // LRO-09：权限决策为 DENY（结构化依据）⇒ 重试不会改变结果
             failureKind: 'permission_denied',
+            // LRO-07（2026-10-26）：把「哪条规则、来源、怎么解除」**结构化**带进工具结果
+            //（此前只有一句 reason，`decision.context` 在归一化时被截断 ⇒ 上游只能看到文案）
+            ...(permissionResult.denyInfo
+              ? { metadata: { permissionDeny: permissionResult.denyInfo } }
+              : {}),
           };
         }
       }

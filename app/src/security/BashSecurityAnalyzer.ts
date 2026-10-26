@@ -435,29 +435,28 @@ export class BashSecurityAnalyzer {
 
     // allowlist 标记了"不在已知安全列表" → 根据信任级别处理
     if (allowlistPendingDeny) {
-      if (trustLevel === 'work' || trustLevel === 'development') {
-        // 信任工作区：降级为 ask，再交给信任级别处理
-        const askResult: SecurityAnalysisResult = {
-          ...result,
-          safe: false,
-          behavior: 'ask',
-          matchedPatterns: [
-            ...(result.matchedPatterns || []),
-            `Bash allowlist: ${allowlistReason}`,
-          ],
-        };
-        return this.applyTrustLevelBehavior(askResult, trustLevel);
-      }
-      // 无信任级别或 chat 级别 → 保持 deny
-      return {
+      const askResult: SecurityAnalysisResult = {
         ...result,
         safe: false,
-        behavior: 'deny',
+        behavior: 'ask',
+        message:
+          result.message ??
+          `命令不在已知安全列表（${allowlistReason}），需人工确认后执行`,
         matchedPatterns: [
           ...(result.matchedPatterns || []),
-          `Bash allowlist rejected: ${allowlistReason}`,
+          `Bash allowlist: ${allowlistReason}`,
         ],
       };
+      if (trustLevel === 'work' || trustLevel === 'development') {
+        // 信任工作区：降级为 ask，再交给信任级别处理
+        return this.applyTrustLevelBehavior(askResult, trustLevel);
+      }
+      // LRO-D3（2026-10-26）：未受信 ⇒ **转人工审批**，不再静默硬拒。
+      // 原实现直接 deny ⇒ 工作区未被登记为受信时，任何不在只读白名单里的命令
+      // （`node -v` / `npm -v` / `git add` / `bun test` …）连"批准"的机会都没有
+      // ——实测失败窗口 04:15 的三条 `security_analyzer_deny` 即此路径。
+      // 危险命令在上方 `result.behavior === 'deny'` 已短路；本分支只覆盖"未知但未判危险"。
+      return askResult;
     }
 
     // 没有 allowlist 问题 → 正常应用信任级别

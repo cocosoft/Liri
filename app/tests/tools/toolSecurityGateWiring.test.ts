@@ -58,10 +58,20 @@ describe('checkAstAndAnalyzer：信任级别透传', () => {
     expect(block).toBeNull();
   });
 
-  it('development 信任下 node --version 不再被 allowlist 硬拒', () => {
+  /**
+   * LRO-D3（2026-10-26）：口径已变 —— 未受信时"未知命令"由 **deny 改 ask**，
+   * 且解释器的**版本查询**（`node --version`）本身已进只读白名单。
+   * 本用例改用真正"未知"的命令（`git add`）继续钉"信任级别透传"这一原意。
+   */
+  it('未知命令：未受信 ⇒ ask（可审批），development 信任 ⇒ allow', () => {
     const analyzer = new BashSecurityAnalyzer();
 
-    expect(analyzer.analyze('node --version').behavior).toBe('deny');
+    expect(analyzer.analyze('git add -A').behavior).toBe('ask');
+    expect(analyzer.analyze('git add -A', 'development').behavior).toBe(
+      'allow'
+    );
+    // 版本查询在两种信任级别下都不再被拦
+    expect(analyzer.analyze('node --version').behavior).not.toBe('deny');
     expect(analyzer.analyze('node --version', 'development').behavior).toBe(
       'allow'
     );

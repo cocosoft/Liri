@@ -48,6 +48,17 @@ const READ_ONLY_PREFIXES: RegExp[] = [
   /^md5sum\b/i,
 ];
 
+/**
+ * 解释器 / 构建器的**只读版本查询**（LRO-D3，2026-10-26）。
+ *
+ * 只认"命令 + 版本开关"的**完整命令**（`^…\s+(--version|-v|-V)$`）——
+ * **不**把解释器本身加入只读白名单：`node script.js` 仍是"未知命令"，照旧走审批。
+ * 背景：失败窗口里连 `node -v` 都被判"不在已知安全列表"，用户拿不到任何环境信息。
+ */
+const VERSION_ONLY_PATTERNS: RegExp[] = [
+  /^(node|npm|npx|pnpm|yarn|bun|deno|python|python3|pip|pip3|go|cargo|rustc|java|mvn|gradle|dotnet|git|tsc)\s+(--version|-v|-V)$/i,
+];
+
 export interface AllowlistResult {
   safe: boolean;
   reason: string;
@@ -77,6 +88,13 @@ export function checkBashAllowlist(command: string): AllowlistResult {
   for (const prefix of READ_ONLY_PREFIXES) {
     if (prefix.test(trimmed)) {
       return { safe: true, reason: 'Command matches known-safe pattern' };
+    }
+  }
+
+  // 2.1 只读版本查询（LRO-D3）：`node -v` 这类"完整命令 + 版本开关"放行
+  for (const pattern of VERSION_ONLY_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      return { safe: true, reason: 'Command is a read-only version query' };
     }
   }
 

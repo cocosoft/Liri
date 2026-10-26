@@ -43,3 +43,7 @@
 - 禁止直接在 `package.json` 以外的地方硬编码版本号
 - 构建产物中的版本信息需通过构建脚本从 `package.json` 自动读取
 - 代码中如需引用版本号，应通过 `import { version } from '../package.json'` 引入
+
+## 安全问题
+
+发现安全漏洞请**不要**开公开 issue —— 按 [SECURITY.md](./SECURITY.md) 的私密渠道报告，说明版本、复现步骤与影响面。

@@ -53,9 +53,10 @@ async function main(): Promise<void> {
   // 两个独立临时目录：allow 进白名单，deny 只在"本不该可写"的用例里用
   const allowDir = mkdtempSync(join(tmpdir(), 'vms-allow-'));
   const denyDir = mkdtempSync(join(tmpdir(), 'vms-deny-'));
-  // 故意**最小化**白名单（只有 allowDir），不套用生产默认路径 —— 否则"外部被拒"测不出来
+  // 故意**最小化**白名单（只有 allowDir + /dev），不套用生产默认路径 —— 否则"外部被拒"测不出来。
+  // `/dev` 与生产同口径（shell 常规重定向 `>/dev/null`；见 `buildBashLandlockPolicy` 的 `/dev` 注释）。
   const profile = buildMacOSSandboxProfile({
-    writablePaths: [allowDir],
+    writablePaths: [allowDir, '/dev'],
     allowNetwork: false,
   });
   // 诊断行：macOS 上 `tmpdir()` 是 `/var/folders/…`（符号链接），而 SBPL 按内核解析后的

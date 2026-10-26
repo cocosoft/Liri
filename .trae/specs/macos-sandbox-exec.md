@@ -191,6 +191,13 @@
 修法：`buildMacOSSandboxProfile` 的归一阶段调用 `toKernelPath`（`realpathSync`，路径不存在时原样保留），
 并给 CI 步骤加 annotation 提升（job 日志下载接口需 admin，annotations 可匿名读取）。
 
+**第二次 CI 记录（2026-10-26，`c0d6ce1b2`）**：归一化修复生效（「白名单内可写」「白名单外写入被拒」双双 ✅），
+剩 **1/4** 失败：`cat /etc/hosts > /dev/null` 报 `/bin/bash: /dev/null: Operation not permitted`。
+根因：写白名单未含 `/dev`，而 Linux 侧 `buildBashLandlockPolicy` **早已放行 `/dev`**
+（注释：「`2>/dev/null`、`>&2` 等常规重定向；只限制不提权」）⇒ 这是 **macOS 与 Linux 的口径差**，属真缺陷
+（几乎所有 shell 脚本都会重定向到 `/dev/null`）。修法：`macWritablePaths()` 与自证脚本的白名单都补 `/dev`，
+与 landlock 逐条对齐。
+
 **本地复现（在 Mac 上）**：
 
 ```bash

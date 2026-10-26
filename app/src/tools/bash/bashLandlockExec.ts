@@ -603,6 +603,10 @@ export async function execBashCommand(
     resolveOutputDir(),
     resolveDownloadsDir(),
     resolveTempDir(),
+    // `/dev`：与 Linux landlock 策略**同口径**（见 `buildBashLandlockPolicy` 的 `/dev` 注释）——
+    // `2>/dev/null`、`>&2` 是 shell 常规重定向；不放行会让几乎所有脚本在 macOS 侧莫名失败
+    // （2026-10-26 首次 macOS CI 实证：`cat /etc/hosts > /dev/null` 报 Operation not permitted）。
+    '/dev',
     ...config.bashExtraWritablePaths,
   ];
 

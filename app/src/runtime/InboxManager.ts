@@ -289,6 +289,47 @@ export class InboxManager {
       );
     });
     await this._ensureOwnerColumn(db, 'session_inbox_map');
+
+    // P0-3（2026-10-27）：启动期 schema **自检** —— 三张表的必备列缺失即 error。
+    // 实测教训：v0.5.15 之前 `owner_key` 缺失只留一条 warn，日志里看不出"审批已全废"。
+    await this._assertSchemaComplete(db);
+  }
+
+  /**
+   * P0-3：启动期 schema 自检（唯一判据 = 实际列集合，不猜）。
+   *
+   * 缺失不抛出（避免把"历史库"整体打死），但必须留 **error** 级日志，
+   * 使健康检查/排查看得到"审批通道不可用"，而不是从业务失败反推。
+   */
+  private async _assertSchemaComplete(db: Database): Promise<void> {
+    const required: Array<[string, string[]]> = [
+      ['inbox_items', ['owner_key']],
+      ['approval_audit_log', ['owner_key']],
+      ['session_inbox_map', ['owner_key']],
+    ];
+    let failing = 0;
+    for (const [table, cols] of required) {
+      const rows = await new Promise<{ name: string }[]>((resolve, reject) => {
+        db.all(`PRAGMA table_info(${table})`, (err, r) => {
+          if (err) reject(err);
+          else resolve(r as { name: string }[]);
+        });
+      });
+      const have = new Set(rows.map((r) => r.name));
+      const missing = cols.filter((c) => !have.has(c));
+      if (missing.length > 0) {
+        failing += 1;
+        logger.error('inbox schema 缺列（审批通道将不可用）', {
+          table,
+          missing,
+        });
+      }
+    }
+    if (failing === 0) {
+      logger.info('inbox schema 自检通过', {
+        tables: required.map(([t]) => t),
+      });
+    }
   }
 
   /** 幂等列迁移：通过 PRAGMA table_info 检测列是否存在，仅新增缺失列 */

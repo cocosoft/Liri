@@ -862,9 +862,15 @@ export class ToolExecutionService {
               toolCallId: toolCall.id,
               toolName: normalizedToolCall.name,
               result: null,
-              error: `需要用户确认: ${permissionResult.reason || 'Tool requires approval'}`,
+              // P0-2（2026-10-27）：审批通道不可用必须**可见**。
+              // 此前只回「需要用户确认」，用户以为在等审批，而审批卡从未生成（实测会话
+              // `session_mvoqs1ho875ea6b95e` 连续 13 次因此被判失败且无人可批）。
+              error:
+                `需要用户确认，但审批通道不可用（${permissionResult.reason || 'Inbox 提交失败'}）：` +
+                '本次调用未排队；请先修复审批通道（如数据库迁移/权限目录）后重新发起。',
               // LRO-09：审批未能提交（Inbox 不可用等）⇒ 环境层阻塞，非模型输出问题
               failureKind: 'permission_denied',
+              metadata: { approvalChannelDown: true },
             };
           }
         } else {

@@ -362,7 +362,8 @@ async function persistFingerprintRule(current: {
 
   const { PermissionManager } =
     await import('@modules/permission/PermissionManager.js');
-  const { createPermissionRule, PermissionBehavior } =
+  // LRO-07（2026-10-26）：落盘来源标注为规则库（此前默认 userSettings ⇒ deny 文案指错地方）
+  const { createPermissionRule, PermissionBehavior, PermissionRuleSource } =
     await import('@modules/permission/types/PermissionRule.js');
 
   const ruleManager = PermissionManager.getInstance().getRuleManager();
@@ -371,6 +372,7 @@ async function persistFingerprintRule(current: {
       behavior: PermissionBehavior.ALLOW,
       toolName,
       inputFingerprint,
+      source: PermissionRuleSource.RULE_STORE,
     })
   );
   logger.info('「始终允许」规则已持久化（工具 + 参数指纹）', {
@@ -406,7 +408,8 @@ async function persistAllowlistRule(
 
   const { PermissionManager } =
     await import('@modules/permission/PermissionManager.js');
-  const { createPermissionRule, PermissionBehavior } =
+  // LRO-07（2026-10-26）：落盘来源标注为规则库（此前默认 userSettings ⇒ deny 文案指错地方）
+  const { createPermissionRule, PermissionBehavior, PermissionRuleSource } =
     await import('@modules/permission/types/PermissionRule.js');
 
   const ruleManager = PermissionManager.getInstance().getRuleManager();
@@ -415,6 +418,7 @@ async function persistAllowlistRule(
       behavior: PermissionBehavior.ALLOW,
       toolName,
       contentPattern,
+      source: PermissionRuleSource.RULE_STORE,
     })
   );
   logger.info('白名单规则已持久化', {

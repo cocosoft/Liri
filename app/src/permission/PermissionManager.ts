@@ -81,6 +81,31 @@ import { loadAllPermissionSettings } from './permissionsLoader';
 const logger = getLogger('permission:manager');
 
 /**
+ * LRO-07（2026-10-26）：规则拒绝时告诉调用方「这条规则怎么解除」。
+ *
+ * 为什么必须有：deny 文案此前只写来源（且来源还被伪造成 `userSettings`），既没给出
+ * 「去哪删」也没给出「删哪条」⇒ 用户只能翻盘，模型只会重复同一个被拒调用
+ * （真机实测：`file_write` 连续 6 次全被拒，元数据里连 ruleId 都没有）。
+ *
+ * 分档依据是**真实可删性**：`ruleStore`（`tool_rules.json`）可经面板 / API 删除；
+ * settings 来源是配置文件维护的只读视图，只能改文件。
+ */
+function resolveRuleRemovalHint(
+  ruleId: string | undefined,
+  source: string | undefined
+): string {
+  if (source === PermissionRuleSource.RULE_STORE) {
+    return ruleId
+      ? `在「设置 → 权限管理 → 工具权限规则」删除该规则，或 DELETE /v1/permissions/rules/${ruleId}`
+      : '在「设置 → 权限管理 → 工具权限规则」删除对应规则';
+  }
+  if (source) {
+    return `在设置文件的 permissions 段修改（来源 ${source} 由配置文件维护，面板不可删除）`;
+  }
+  return '在「设置 → 权限管理 → 工具权限规则」删除对应规则';
+}
+
+/**
  * 权限管理器类
  */
 export class PermissionManager {
@@ -597,7 +622,7 @@ export class PermissionManager {
    * 为什么单独抽：此前两处 deny 只回 `Denied by rule from <source>`，而 `<source>` 是
    * `RuleManager.parseRuleString()` 的**硬编码默认值**（`userSettings`），真实来源是
    * `tool_rules.json` ⇒ 用户按提示去 `settings.json` 里找永远找不到（2026-10-26 实测）。
-   * 现在把 **ruleId** 一并带出（文案 + 决策上下文 + 结构化日志）。
+   * 现在把 **ruleId + 解除入口**一并带出（文案 + 决策上下文 + 结构化日志；LRO-07）。
    */
   private _denyByRule(
     toolName: string,
@@ -609,18 +634,25 @@ export class PermissionManager {
     const source = rule?.source;
     const marker = ruleId ? ` [rule=${ruleId}]` : '';
     const from = source ? ` from ${source}` : '';
+    const removableVia = resolveRuleRemovalHint(ruleId, source);
     logger.warn('permission:deny', {
       toolName,
       ruleId,
       ruleSource: source,
       fingerprint: rule?.inputFingerprint,
+      removableVia,
     });
-    return createDenyDecision(`Denied by rule${from}${marker}`, rule, {
-      ruleId,
-      toolName,
-      inputFingerprint: rule?.inputFingerprint,
-      sourceKind: source,
-    });
+    return createDenyDecision(
+      `Denied by rule${from}${marker}（解除：${removableVia}）`,
+      rule,
+      {
+        ruleId,
+        toolName,
+        inputFingerprint: rule?.inputFingerprint,
+        sourceKind: source,
+        removableVia,
+      }
+    );
   }
 
   /**
@@ -882,6 +914,10 @@ export class PermissionManager {
 
   /**
    * 添加权限规则
+   *
+   * LRO-07（2026-10-26）：**落盘来源必须是 `ruleStore`**。此前走 `createPermissionRule`
+   * 的默认值 `userSettings` ⇒ `tool_rules.json` 里的规则全被标成「用户设置」，
+   * deny 文案随之指错地方（磁盘上没有 settings.json）。这里显式标注真实来源。
    * @param behavior 权限行为
    * @param toolName 工具名称
    * @param contentPattern 内容模式（可选）
@@ -895,6 +931,7 @@ export class PermissionManager {
       behavior,
       toolName,
       contentPattern,
+      source: PermissionRuleSource.RULE_STORE,
     });
     this.ruleManager.addRule(rule);
   }

@@ -33,17 +33,24 @@ describe('PermissionManager 规则拒绝（LRO-09 步骤 2）', () => {
 
   it('拒绝文案带 ruleId 标记（`[rule=…]`），用户可据此定位到具体规则', () => {
     expect(SRC).toContain('[rule=');
-    expect(SRC).toContain('`Denied by rule${from}${marker}`');
+    expect(SRC).toContain('`Denied by rule${from}${marker}');
   });
 
-  it('落结构化事件 `permission:deny`（含 ruleId/fingerprint）', () => {
+  it('落结构化事件 `permission:deny`（含 ruleId/fingerprint/removableVia）', () => {
     expect(SRC).toContain("logger.warn('permission:deny'");
     expect(SRC).toContain('ruleId');
     expect(SRC).toContain('fingerprint');
+    expect(SRC).toContain('removableVia');
   });
 
   it('决策上下文透出定位字段（供上游工具结果/审计消费）', () => {
     expect(SRC).toContain('sourceKind');
     expect(SRC).toContain('inputFingerprint');
+  });
+
+  it('拒绝文案带「怎么解除」（LRO-07：面板 + 精确 API，字段不能只进日志）', () => {
+    expect(SRC).toContain('resolveRuleRemovalHint(');
+    expect(SRC).toContain('（解除：${removableVia}）');
+    expect(SRC).toContain('/v1/permissions/rules/${ruleId}');
   });
 });

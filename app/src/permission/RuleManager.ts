@@ -119,6 +119,8 @@ export class RuleManager {
     [PermissionRuleSource.LOCAL_SETTINGS]: 3,
     [PermissionRuleSource.PROJECT_SETTINGS]: 2,
     [PermissionRuleSource.USER_SETTINGS]: 1,
+    // LRO-07（2026-10-26）：规则库文件与用户设置同级（两者都是"本机显式规则"）
+    [PermissionRuleSource.RULE_STORE]: 1,
   };
 
   /**
@@ -155,6 +157,24 @@ export class RuleManager {
             rule.updatedAt = new Date(rule.updatedAt);
           }
         });
+
+        // LRO-07（2026-10-26）：来源标签迁移 —— 本文件里的规则**都来自规则库**，
+        // 历史数据却标成 `userSettings`（磁盘上没有 settings.json）⇒ 统一改为 `ruleStore`，
+        // 使 deny 文案/面板显示与真实来源一致（不伪造来源）。
+        let relabeled = 0;
+        for (const rule of this.rules) {
+          if (rule.source === PermissionRuleSource.USER_SETTINGS) {
+            rule.source = PermissionRuleSource.RULE_STORE;
+            relabeled++;
+          }
+        }
+        if (relabeled > 0) {
+          logger.info('ruleSourceRelabeled: 规则库来源标签迁移', {
+            count: relabeled,
+            to: PermissionRuleSource.RULE_STORE,
+          });
+          this.saveRules(this.rules);
+        }
 
         // P1-1: 加载时清理历史重复规则（启动迁移），并回写文件
         const deduped = deduplicateRules(this.rules);

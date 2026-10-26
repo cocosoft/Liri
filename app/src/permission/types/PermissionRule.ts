@@ -32,13 +32,23 @@ export enum PermissionBehavior {
 }
 
 /**
- * 权限规则来源枚举（8个来源）
+ * 权限规则来源枚举（9 个来源）
  */
 export enum PermissionRuleSource {
   /**
    * 用户设置
    */
   USER_SETTINGS = 'userSettings',
+
+  /**
+   * **规则库**（LRO-07，2026-10-26）：运行期可写的 `tool_rules.json`
+   * （`~/.pyapp/data/permissions/tool_rules.json`）。
+   *
+   * 为什么单独一项：规则文件里的规则此前被打上 `userSettings` 标签，而磁盘上**没有**
+   * settings.json —— 用户按提示去找永远找不到（真机实测文案 `Denied by rule from userSettings`）。
+   * 本项表示"这条规则来自规则库文件"，与 settings 里的 `permissions.{allow,ask,deny}` 区分。
+   */
+  RULE_STORE = 'ruleStore',
 
   /**
    * 项目设置

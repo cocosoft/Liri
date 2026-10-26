@@ -136,8 +136,21 @@ export class InboxManager {
 
     if (scope === '') {
       if (this.db) return this.db;
-      this.db = await this.open(this.dbPath);
-      await this._createTable(this.db);
+      const opened = await this.open(this.dbPath);
+      try {
+        await this._createTable(opened);
+      } catch (err) {
+        // 初始化失败**不得缓存**：原实现先赋值 `this.db` 再建表，建表抛错后
+        // `if (this.db) return this.db` 会让后续每次调用都跳过迁移 ⇒ 首次失败被永久固化。
+        // 实测 2026-10-27：旧库缺 `owner_key` ⇒ 建索引抛错 ⇒ 审批通道整日不可用。
+        try {
+          opened.close();
+        } catch {
+          // 已关闭 / 关闭中：忽略
+        }
+        throw err;
+      }
+      this.db = opened;
       return this.db;
     }
 
@@ -203,7 +216,6 @@ export class InboxManager {
         CREATE INDEX IF NOT EXISTS idx_inbox_session ON inbox_items(session_id);
         CREATE INDEX IF NOT EXISTS idx_inbox_status ON inbox_items(status);
         CREATE INDEX IF NOT EXISTS idx_inbox_created ON inbox_items(created_at);
-        CREATE INDEX IF NOT EXISTS idx_inbox_owner ON inbox_items(owner_key);
       `,
         (err: Error | null) => {
           if (err) reject(err);
@@ -242,6 +254,17 @@ export class InboxManager {
 
     // Phase 4: 幂等列迁移（channel_id, channel_session_id, channel_conversation_id）
     await this._migrateSchema(db);
+
+    // Phase 4.0（2026-10-27）：`owner_key` 索引**必须在补列之后**创建。
+    // 原实现把它写在建表的同一个 `exec` 里 ⇒ 旧库（无该列）执行到
+    // `CREATE INDEX … (owner_key)` 即抛 `table inbox_items has no column named owner_key`
+    // ⇒ `_createTable` 整体失败 ⇒ 审批提交全部降级为 "Inbox unavailable"。
+    await new Promise<void>((resolve, reject) => {
+      db.run(
+        'CREATE INDEX IF NOT EXISTS idx_inbox_owner ON inbox_items(owner_key)',
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
 
     // Phase 4.1（2026-10-23）：审批卡去重的 **DB 级兜底**（部分唯一索引）
     await this._ensureApprovalDedupeIndex(db);

@@ -855,6 +855,8 @@ export class ToolExecutionService {
               toolName: normalizedToolCall.name,
               result: null,
               error: `需要用户确认: ${permissionResult.reason || 'Tool requires approval'}`,
+              // LRO-09：审批未能提交（Inbox 不可用等）⇒ 环境层阻塞，非模型输出问题
+              failureKind: 'permission_denied',
             };
           }
         } else {
@@ -863,6 +865,8 @@ export class ToolExecutionService {
             toolName: normalizedToolCall.name,
             result: null,
             error: `Permission denied: ${permissionResult.reason || 'Tool execution not allowed'}`,
+            // LRO-09：权限决策为 DENY（结构化依据）⇒ 重试不会改变结果
+            failureKind: 'permission_denied',
           };
         }
       }

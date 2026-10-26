@@ -29,6 +29,8 @@ import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
 // 2026-10-08（架构治理 P1 · §1.6 红线审计修复）：steering 来源联合的**单一事实源**在
 // `session/types/eventPayloads.ts`（service 层）⇒ app 层向下引用合法，不另立第二份联合。
 import type { SteeringSource } from '@modules/session/types/eventPayloads';
+// LRO-09（2026-10-26）：失败分类的**单一事实源**在 session 工具契约（与 `ToolResult.failureKind` 同源）
+import type { ToolFailureKind } from '@modules/session/types/tool.js';
 import { buildRoundSignature, isRepeatedLoop } from './loopGuard.js';
 
 const logger = getLogger('query:reactLoop');
@@ -277,6 +279,12 @@ export interface ToolResultEntry {
   status: 'success' | 'error' | 'aborted' | 'timeout';
   output?: string;
   error?: string;
+  /**
+   * 失败分类（LRO-09）：仅 `status === 'error'` 时有意义。
+   * 缺省 = 未分类（按「模型无效输出」计）；分类用于把「环境不可自愈的阻塞」
+   * 从「模型输出无效」里分出来（见 `.trae/specs/circuit-breaker-classification.md`）。
+   */
+  failureKind?: ToolFailureKind;
 }
 
 /** ReAct 事件流 */

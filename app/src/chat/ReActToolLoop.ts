@@ -846,7 +846,9 @@ export class ReActToolLoop extends ReActLoop<
           recordSkippedToolCall(
             roundResults,
             tc,
-            `路径被安全护栏拦截（本次调用未执行）：${guardReason}`
+            `路径被安全护栏拦截（本次调用未执行）：${guardReason}`,
+            // LRO-09：护栏拦截 = 安全门（结构化依据），非模型输出无效
+            'safety_blocked'
           );
           continue;
         }

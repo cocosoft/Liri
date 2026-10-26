@@ -25,7 +25,11 @@ import type {
   ToolResultEntry,
 } from '@modules/query';
 import { EXTERNAL_FETCH_TOOLS } from '@modules/query';
-import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
+import type {
+  ToolCall,
+  ToolFailureKind,
+  ToolResult,
+} from '@modules/session/types/tool.js';
 import type { Message } from '@modules/session/types/message.js';
 import type { ToolLoopContext } from './ToolLoopRunner.js';
 import { extractTodoData } from './services/ChatHelper';
@@ -545,6 +549,9 @@ export class ToolResultPostProcess {
             ? safeStringify(toolResult.result)
             : undefined,
       error: toolResult.error,
+      // LRO-09：上游（权限决策 / 安全门）已给出的分类优先；缺省按「工具自身失败」兜底
+      failureKind:
+        toolResult.failureKind ?? (toolResult.error ? 'tool_error' : undefined),
     };
     // todo chunk 数据：工具结果含 _todoData 时收集（对齐旧类 _executeToolRound extractTodoData）
     const todoData = extractTodoData(toolResult);
@@ -580,13 +587,15 @@ export interface ToolRoundResults {
 export function recordSkippedToolCall(
   round: ToolRoundResults,
   tc: ToolCallEntry,
-  error: string
+  error: string,
+  failureKind?: ToolFailureKind
 ): void {
   round.results.push({
     toolCallId: tc.id,
     name: tc.name,
     status: 'error',
     error,
+    failureKind,
   });
   round.processedResults.push({
     normalizedToolCall: {

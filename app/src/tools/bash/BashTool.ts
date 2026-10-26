@@ -16,7 +16,7 @@ import type {
   PermissionResult,
   ValidationResult,
 } from '../types';
-import { createToolResult } from '../types/ToolResult';
+import { createToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { createBashProgress } from '../types/ToolProgress';
 import { ToolUtils } from '../utils/ToolUtils';
 import type { InterruptBehavior } from '../types/Tool';
@@ -306,7 +306,13 @@ export class BashTool extends BaseTool {
       });
       if (std.warnings.some((w) => w.includes('禁止'))) {
         const warningMsg = `BashTool 命令预处理警告:\n${std.warnings.join('\n')}`;
+        // LRO-09 步骤 4（2026-10-26）：预处理"禁止"分支**不再返回 success** ——
+        // 该分支的命令从未执行，返回成功会让模型误以为已生效、也让熔断器把它当"有推进"。
+        // 分类走结构化字段（`safety_blocked`），不解析文案（CS02）。
         return createToolResult(warningMsg, {
+          status: ToolExecutionStatus.FAILURE,
+          error: warningMsg,
+          failureKind: 'safety_blocked',
           newMessages: [
             {
               role: 'system',

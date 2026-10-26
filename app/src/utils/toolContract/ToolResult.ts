@@ -38,6 +38,25 @@ export enum ErrorLevel {
 }
 
 /**
+ * 工具失败分类（LRO-09，2026-10-26）——**单一事实源**。
+ *
+ * 落点选择（分层事实源 `scripts/modules-to-layers.json`）：`utils` = infra，`tools`（app）与
+ * `session`（service）都可合法向下依赖它；`session/types/tool.ts` 的会话侧投影以 re-export
+ * 复用同一份定义（不另立第二份联合，R02）。
+ *
+ * 由**生产者按结构化依据**写入，禁止解析 `error` 文本反推（CS02）。
+ */
+export type ToolFailureKind =
+  /** 权限规则 / 审批拒绝（含 Inbox 不可用降级） */
+  | 'permission_denied'
+  /** 安全分析器 / PathGuard / 预处理拦截 */
+  | 'safety_blocked'
+  /** 依赖缺失、能力未就绪（如沙箱 helper 不可用） */
+  | 'env_unavailable'
+  /** 工具自身执行失败（可能可恢复） */
+  | 'tool_error';
+
+/**
  * 工具出参（**主契约**，工具执行层）
  *
  * 2026-09-30（P1-3 **B1 档**，spec `architecture-benchmark-20260928.md` §2.2）：
@@ -78,6 +97,11 @@ export interface ToolResult<T = unknown> extends CoreToolResult<T> {
   requireApproval?: boolean;
   /** 审批原因描述 */
   approvalReason?: string;
+  /**
+   * 失败分类（LRO-09）：仅失败时有意义；缺省 = 未分类。
+   * 由工具在**结构化拒绝**处写入（如 BashTool 预处理"禁止"分支 ⇒ `safety_blocked`）。
+   */
+  failureKind?: ToolFailureKind;
 }
 
 export function createToolResult<T = unknown>(

@@ -63,6 +63,7 @@ import {
 import type {
   ToolCall,
   ToolResult,
+  ToolFailureKind,
   ToolIntegration,
 } from '@modules/session/types/tool.js';
 import type { ChatSession } from '@modules/session/types/session.js';
@@ -1172,6 +1173,8 @@ export class ToolExecutionService {
             status?: string;
             requireApproval?: boolean;
             approvalReason?: string;
+            // LRO-09：工具侧的结构化失败分类（如 BashTool 预处理 ⇒ safety_blocked）
+            failureKind?: ToolFailureKind;
           }>;
         };
         const toolResult = await registry.executeTool(
@@ -1358,6 +1361,8 @@ export class ToolExecutionService {
           result: toolResult.data,
           error,
           metadata: toolResult.metadata as Record<string, unknown> | undefined,
+          // LRO-09：工具在结构化拒绝处写入的分类（如 BashTool 预处理 ⇒ safety_blocked）随结果透传
+          failureKind: toolResult.failureKind,
         };
       } catch (error) {
         handleError(error, {

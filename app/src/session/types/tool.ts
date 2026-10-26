@@ -1,6 +1,8 @@
 /**
  * 工具类型
  */
+import type { ToolFailureKind } from '@modules/utils/toolContract/ToolResult';
+
 export enum ToolType {
   /**
    * Bash工具
@@ -31,18 +33,10 @@ export enum ToolType {
 /**
  * 工具失败分类（LRO-09，设计见 `.trae/specs/circuit-breaker-classification.md §4.1`）
  *
- * 由**生产者按结构化依据**写入，禁止解析 `error` 文本反推（CS02）。
- * 缺省 = 未分类（按「模型无效输出」计，与既有语义一致）。
+ * **单一事实源在 `utils/toolContract/ToolResult.ts`**（infra 层：`tools`(app) 与 `session`(service)
+ * 都可合法向下依赖）——此处 re-export，供会话侧投影与既有读取点沿用同一份联合（R02 不立第二份）。
  */
-export type ToolFailureKind =
-  /** 权限规则 / 审批拒绝（含 Inbox 不可用降级） */
-  | 'permission_denied'
-  /** 安全分析器 / PathGuard / 预处理拦截 */
-  | 'safety_blocked'
-  /** 依赖缺失、能力未就绪（如沙箱 helper 不可用） */
-  | 'env_unavailable'
-  /** 工具自身执行失败（可能可恢复） */
-  | 'tool_error';
+export type { ToolFailureKind };
 
 /**
  * 工具调用接口

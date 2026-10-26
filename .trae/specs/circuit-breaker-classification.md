@@ -172,7 +172,9 @@ consecutiveBlockedTurns        // 新增：permission_denied | safety_blocked | 
 | 4 | `fix(bash): 预处理拦截语义与安全拦截一致` | 预处理"禁止"分支不再返回 success（LRO-10 的交集） | 用例：被预处理拦下 ⇒ `status:'error'` + `failureKind:'safety_blocked'` |
 | 5 | `docs+evidence` | 台账登记 + 本 spec 状态改"已实施" | 台账三门禁绿 |
 
-> **进度（2026-10-26）**：步骤 1a ✅ · 1b ✅ · 2 ✅（`4b6b3986c`）· 3 ✅（本次提交）· 步骤 4/5 待做。
+> **进度（2026-10-26）**：步骤 1a ✅ · 1b ✅ · 2 ✅（`4b6b3986c`）· 3 ✅ · 4 ✅ · 步骤 5（台账）待做。
+> **4 的类型落点**：`ToolFailureKind` 单一事实源放在 `utils/toolContract/ToolResult.ts`（infra 层，
+> `tools`(app) 与 `session`(service) 都可合法向下依赖），`session/types/tool.ts` 以 re-export 复用。
 > **1a 是硬前置**：`chat/ReActToolLoop.ts` 抽取前 **2000 行**（= `R04-001` 上限，`split('\n')` 口径），
 > 1b 的接线要 +12 行 ⇒ 直接被架构门禁拒提；且 pre-commit 的 `eslint --fix`（prettier）
 > 会把压行的改动重新折回去，**压行不是解法**。

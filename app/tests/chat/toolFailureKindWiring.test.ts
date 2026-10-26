@@ -15,6 +15,7 @@ import {
   type ToolRoundResults,
 } from '../../src/chat/toolResultPostProcess.js';
 import type { ToolCallEntry } from '../../src/query/ReActLoop.js';
+import { standardizeCommand } from '../../src/tools/bash/commandNormalization.js';
 
 const POST_PROCESS_SRC = readFileSync(
   new URL('../../src/chat/toolResultPostProcess.ts', import.meta.url),
@@ -26,6 +27,10 @@ const EXEC_SERVICE_SRC = readFileSync(
 );
 const TOOL_LOOP_SRC = readFileSync(
   new URL('../../src/chat/ReActToolLoop.ts', import.meta.url),
+  'utf8'
+);
+const BASH_TOOL_SRC = readFileSync(
+  new URL('../../src/tools/bash/BashTool.ts', import.meta.url),
   'utf8'
 );
 
@@ -74,5 +79,21 @@ describe('failureKind 生产者接线（LRO-09 步骤 1b）', () => {
 
   it('安全生产者：PathGuard 跳过标 safety_blocked', () => {
     expect(TOOL_LOOP_SRC).toContain("'safety_blocked'");
+  });
+
+  it('BashTool 预处理"禁止"分支：改判失败态并标 safety_blocked（LRO-09 步骤 4）', () => {
+    // 触发前提仍是真实存在的（`cd /usr` 在 Windows 语义下产生 `禁止:` 告警；
+    // 不要用 `/tmp` —— 它会被改写为 `%TEMP%`，早于"禁止"检测）
+    const std = standardizeCommand('cd /usr', { isWindows: true });
+    expect(std.warnings.some((w) => w.includes('禁止'))).toBe(true);
+
+    // 分支必须同时给出：失败态 + 结构化分类 + error（会话侧 status 由 error 派生）
+    const branch = BASH_TOOL_SRC.slice(
+      BASH_TOOL_SRC.indexOf("w.includes('禁止')"),
+      BASH_TOOL_SRC.indexOf('command = std.preprocessed')
+    );
+    expect(branch).toContain('status: ToolExecutionStatus.FAILURE');
+    expect(branch).toContain("failureKind: 'safety_blocked'");
+    expect(branch).toContain('error: warningMsg');
   });
 });

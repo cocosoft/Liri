@@ -174,6 +174,36 @@
 
 ---
 
+## 6.1 真机验证记录（待填）
+
+**状态**：⏳ **未执行（2026-10-26）** —— 开发机为 Windows，CI 无 macOS 矩阵。
+
+**执行方式（在 Mac 上）**：
+
+```bash
+cd app && bun run verify:sandbox-macos
+```
+
+**期望输出**（4 条全 ✅，退出码 0）：
+
+```
+✅ 白名单内可写 — exit=0 ...
+✅ 白名单外写入被拒 — exit≠0 文件存在=false ...
+✅ 系统文件可读（shell 能启动） — exit=0 ...
+✅ 用户命令 exit 125 原样透传 — exit=125 sandboxInitFailed=false
+
+✅ macOS 兜底沙箱自证通过（4/4）
+```
+
+**填写位置**：跑完后把实际输出贴回本节的代码块，并同步更新台账 `MACOS-SANDBOX-SELFCHECK` 的
+`baseline`（当前为"win32 实测 exit 2；4 条真机断言待 Mac 执行"）。
+
+**若失败**：把失败行的 `detail`（含 `exit` / `stderr` 前 120 字符）贴回，按 §4 失败模式表定位 ——
+白名单外仍可写 ⇒ profile 未生效（查 `-p` 实参与 SBPL 语法）；`125` 被判 `sandboxInitFailed` ⇒ 检查
+`bashLandlockExec` 里是否为 landlock 专属分支（该守卫不得被移除）。
+
+---
+
 ## 7. 风险与待确认项
 
 | 项 | 说明 | 需要你拍板 |

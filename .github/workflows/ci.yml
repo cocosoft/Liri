@@ -55,6 +55,20 @@ jobs:
         NODE_OPTIONS: '--max-old-space-size=6144'
       run: bun run typecheck
 
+    # ---------------------------------------------------------------------
+    # Windows 兜底沙箱（2026-10-26，`.trae/specs/windows-sandbox.md` 步骤 4）
+    # 本机可编译、可自证；这里在 windows runner 上做**同一件事**：先编译 helper，
+    # 再跑 4 条 low-IL 写隔离断言（Low 目录可写 / Medium 拒写 / exit125 透传 / 系统文件可读）。
+    # 编译产物落在 <PROJECT_DIR>/bin（已 gitignore），不参与任何提交。
+    # ---------------------------------------------------------------------
+    - name: Build win-sandbox helper (low IL + job object)
+      if: matrix.os == 'windows-latest'
+      run: bun run build:win-sandbox
+
+    - name: Verify Windows sandbox (low IL write isolation)
+      if: matrix.os == 'windows-latest'
+      run: bun run verify:win-sandbox
+
     - name: Run linter
       # 静态检查与平台无关；macOS runner 内存较小，eslint 全量扫描会 OOM
       # （2026-10-18 实测：`FATAL ERROR: Ineffective mark-compacts near heap limit` ⇒ exit 134）。

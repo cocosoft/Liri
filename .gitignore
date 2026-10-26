@@ -7,6 +7,9 @@ package-lock.json
 
 # Build outputs
 dist/
+# 原生 helper 编译产物（`bun run build:landlock` / `build:win-sandbox` 输出；不入库）
+bin/*.exe
+bin/landlock-run
 build/
 target/
 release/

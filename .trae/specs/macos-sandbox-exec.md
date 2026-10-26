@@ -156,8 +156,10 @@
 ③ 系统文件可读（shell 能启动）；④ 用户命令 `exit 125` 原样透传（不得被当成"初始化失败"而回退 plain）。
 退出码：0 全通过 / 1 有失败 / 2 环境不支持（非 macOS 或缺 `sandbox-exec`）。
 
-> CI 现状：workflow 仅 `ubuntu`/`windows` 矩阵（无 macOS）⇒ 真机用例**不纳入 CI**，在台账 `baseline`
-> 字段如实标注"本机 macOS 验证"，不以单测替代。
+> CI 现状（**2026-10-26 订正**）：`ci.yml` 的 Test Suite 矩阵是 `ubuntu-latest, windows-latest, macos-latest`
+> ⇒ CI **有** macOS，且 `bun test` 在三平台都跑（本文件的纯函数用例会真在 macOS 上执行）。
+> 但**真机探针仍未接入 CI**：`sandbox-exec` 自 10.15 起被 Apple 标为 deprecated，arm64 runner 上是否稳定可用
+> 未经验证 ⇒ 真机行为仍由 `verify:sandbox-macos` 自证（接入 CI 见 windows-sandbox.md §4 第 4 步的同款做法）。
 
 ---
 
@@ -176,7 +178,7 @@
 
 ## 6.1 真机验证记录（待填）
 
-**状态**：⏳ **未执行（2026-10-26）** —— 开发机为 Windows，CI 无 macOS 矩阵。
+**状态**：⏳ **未执行（2026-10-26）** —— 开发机为 Windows；CI 虽有 macOS 矩阵，但真机探针尚未接入（见 §5 订正说明）。
 
 **执行方式（在 Mac 上）**：
 

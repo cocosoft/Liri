@@ -37,6 +37,7 @@
     "build:native": "bun run scripts/copy-native-lib.ts --target=../dist/pkg --require",
     "build:native:optional": "bun run scripts/copy-native-lib.ts --target=../dist/pkg",
     "build:landlock": "bun run scripts/build-landlock-helper.ts --target=../dist/pkg --require",
+    "build:win-sandbox": "bun run scripts/build-win-sandbox.ts",
     "build:package:win": "bun run build:bundle && bun run build:runtime && bun run build:deps && bun run build:native && bun run build:seed && bun run scripts/package.ts --platform=win-x64",
     "build:update:win": "bun run build:bundle && bun run build:deps && bun run build:native && bun run scripts/package.ts --platform=win-x64 --update-only",
     "build:dry-run": "bun run scripts/build-variant.ts --dry-run",

@@ -458,6 +458,10 @@ const zhWorkspace = {
     starting: "启动中...",
     start: "启动",
     noActivePdca: "暂无活动的 PDCA 流程，在上方输入描述启动一个",
+    pdcaNeedSession:
+      "请先在对话中打开一个会话：PDCA 需要会话上下文（否则启动请求会被后端拒绝）",
+    pdcaStartFailed:
+      "启动失败：请确认后端服务正常，或改用对话里的「用编排推进」入口",
     loopTitle: "Loop 管理中心",
     goalCommand: "/goal 命令",
     goalDesc: "设置目标让 Liri 自动迭代直到达标。在对话中输入 /goal 描述。",

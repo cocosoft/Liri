@@ -468,6 +468,10 @@ const enWorkspace = {
     start: "Start",
     noActivePdca:
       "No active PDCA flow. Enter a description above to start one.",
+    pdcaNeedSession:
+      "Open a chat session first — PDCA requires a session context.",
+    pdcaStartFailed:
+      "Failed to start: check the backend service, or use the Run as PDCA entry in chat.",
     loopTitle: "Loop Management Center",
     goalCommand: "/goal Command",
     goalDesc:

@@ -5,6 +5,7 @@ import type { Plan } from "../../services/planService";
 import PdcaPipeline from "../Agent/PdcaPipeline";
 import KanbanBoard from "../Agent/KanbanBoard";
 import { SkeletonCard } from "../common/Skeleton";
+import { useSessionStore } from "../../stores/sessionStore";
 
 type TabId = "plans" | "pdca" | "kanban";
 
@@ -210,6 +211,11 @@ function PdcaView() {
   const [description, setDescription] = useState("");
   const [starting, setStarting] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  // LRO-11（2026-10-26）：`POST /v1/pdca/start` 要求 description + sessionId 必填。
+  // 本页此前**不传 sessionId** ⇒ 后端 400 ⇒ `pdcaService.start` 的 catch 吞掉 ⇒
+  // 按钮"点了没反应"（输入被清空、无任何提示）。现取当前会话并显式提示缺失/失败。
+  const [error, setError] = useState<string | null>(null);
+  const sessionId = useSessionStore((s) => s.currentSession?.id);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -228,11 +234,20 @@ function PdcaView() {
   const handleStart = async () => {
     const d = description.trim();
     if (!d || starting) return;
+    if (!sessionId) {
+      setError(t("plans.pdcaNeedSession"));
+      return;
+    }
     setStarting(true);
-    const taskId = await pdcaService.start(d);
-    if (taskId) setActiveTaskId(taskId);
-    setDescription("");
+    setError(null);
+    const taskId = await pdcaService.start(d, sessionId);
     setStarting(false);
+    if (!taskId) {
+      setError(t("plans.pdcaStartFailed"));
+      return;
+    }
+    setActiveTaskId(taskId);
+    setDescription("");
   };
 
   if (loading) {
@@ -269,6 +284,9 @@ function PdcaView() {
             {starting ? t("plans.starting") : t("plans.start")}
           </button>
         </div>
+        {error && (
+          <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
+        )}
       </div>
 
       {/* PDCA Pipeline 组件 */}

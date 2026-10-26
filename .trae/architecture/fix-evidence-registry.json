@@ -12834,6 +12834,62 @@
       "changelog": [],
       "reopenWhen": "若出现「指纹 deny 又变成整工具封锁」「同工具不同指纹的始终允许互相覆盖」或「内容 deny 被工具级 allow 越过」：回看 RuleManager.toolMatchesRule / addRule 与 PermissionManager.handleDefault 顺序；回滚 = revert bfa8a…（全文见 archive/evidence-detail.jsonl#RULE-FINGERPRINT-GRANULARITY）",
       "notes": "【D1 粒度】旧实现把\"无 contentPattern\"一律当工具级 ⇒ 指纹 deny 封锁整个工具（且早于 ask、无审批逃生），指纹 allow 放行该工具任何参数（授权放大）。证据：toolMatchesRule 只判 contentPattern。【D1 顺序】handleDefault 原顺序 ask(…（全文见 archive/evidence-detail.jsonl#RULE-FINGERPRINT-GRANULARITY）"
+    },
+    {
+      "id": "SECURITY-ALLOWLIST-UNTRUSTED-ASK",
+      "title": "未受信未知命令改转审批 + 版本查询进只读白名单（LRO-D3）",
+      "source": "2026-10-26 用户指令「把复查的合并到计划中，然后按顺序开始执行修复」；依据计划 §10-D3；实测证据 dev_docs/20261026/证据/app-log-0415-0445.raw.txt（04:15:54 单条 node -v 被 security_analyzer_deny）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/security/BashAllowlistMatcher.ts",
+        "app/src/security/BashSecurityAnalyzer.ts"
+      ],
+      "tests": [
+        "app/tests/security/bashAllowlistUntrusted.test.ts",
+        "app/tests/tools/toolSecurityGateWiring.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若出现「未受信工作区里未知命令又变成静默硬拒」「node -v 之类只读查询被拦」或「危险命令被 ask 放宽」：回看 BashSecurityAnalyzer.applyAllowlistThenTrust 与 BashAllowlistMatcher；回滚 = revert 6d7dcb502（全文见 archive/evidence-detail.jsonl#SECURITY-ALLOWLIST-UNTRUSTED-ASK）",
+      "notes": "【机制】allowlist 只认 37 条只读前缀；未命中且 trustLevel 非 work/development ⇒ 原实现 behavior=deny（早于任何审批）。危险命令在 applyAllowlistThenTrust 上方 result.behavior===deny 已短路。【改法】① 新增 V…（全文见 archive/evidence-detail.jsonl#SECURITY-ALLOWLIST-UNTRUSTED-ASK）"
+    },
+    {
+      "id": "PROJECT-ROOT-RUNTIME-EXE",
+      "title": "resolveProjectRoot 不再把宿主运行时当应用 exe（LRO-D4）",
+      "source": "2026-10-26 用户指令「把复查的合并到计划中，然后按顺序开始执行修复」；依据计划 §10-D4；代码取证 paths.ts resolveProjectRoot 的 argv[0].endsWith(\".exe\") 分支 + main.ts:1932 的 chdir",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/kernel/src/core/paths.ts",
+        ".trae/architecture/kernel-size-baseline.json",
+        ".trae/architecture/kernel-api-surface.json"
+      ],
+      "tests": [
+        "app/tests/paths/resolveProjectRootRuntimeExe.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若出现「开发入口启动后 cwd 指向 bun/node 安装目录」「工具相对路径整体偏移」或「已打包 exe 的项目根推断失效」：回看 packages/kernel/src/core/paths.ts 的 RUNTIME_EXE_BASENAMES 与 isRuntimeExecutable；回滚 = revert…（全文见 archive/evidence-detail.jsonl#PROJECT-ROOT-RUNTIME-EXE）",
+      "notes": "【机制】原判断只认 .exe 后缀：bun.exe 也被当\"应用 exe\" ⇒ exeDir 的父目录（或 exeDir 本身）成为项目根，main.ts:1932 chdir 到该处；叠加 LRO-D3 的信任级别按 cwd 判定，造成\"命令大面积被拒\"。【改法】新增 isRuntimeExecutable（bun…（全文见 archive/evidence-detail.jsonl#PROJECT-ROOT-RUNTIME-EXE）"
     }
   ]
 }

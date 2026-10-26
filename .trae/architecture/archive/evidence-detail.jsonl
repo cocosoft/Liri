@@ -6503,3 +6503,24 @@
 {"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#2","i":0,"c":"app/src/permission/utils/RuleMatcher.ts"}
 {"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#3","i":0,"c":"app/src/permission/utils/ShadowedRuleDetector.ts"}
 {"id":"RULE-FINGERPRINT-GRANULARITY","k":"tests#0","i":0,"c":"app/tests/permission/ruleGranularity.test.ts"}
+{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"title","i":0,"c":"未受信未知命令改转审批 + 版本查询进只读白名单（LRO-D3）"}
+{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"source","i":0,"c":"2026-10-26 用户指令「把复查的合并到计划中，然后按顺序开始执行修复」；依据计划 §10-D3；实测证据 dev_docs/20261026/证据/app-log-0415-0445.raw.txt（04:15:54 单条 node -v 被 security_analyzer_deny）"}
+{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"reopenWhen","i":0,"c":"若出现「未受信工作区里未知命令又变成静默硬拒」「node -v 之类只读查询被拦」或「危险命令被 ask 放宽」：回看 BashSecurityAnalyzer.applyAllowlistThenTrust 与 BashAllowlistMatcher；回滚 = revert 6d7dcb502"}
+{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"notes","i":0,"c":"【机制】allowlist 只认 37 条只读前缀；未命中且 trustLevel 非 work/development ⇒ 原实现 behavior=deny（早于任何审批）。危险命令在 applyAllowlistThenTrust 上方 result.behavior===deny 已短路。"}
+{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"notes","i":1,"c":"【改法】① 新增 VERSION_ONLY_PATTERNS：只认「命令 + 版本开关」完整命令（node -v / npm --version / git --version …），解释器本身仍是未知命令；② 未受信分支由 deny 改 ask（转人工审批，文案说明不在已知安全列表）；受信路径与危险命令 deny 不变。"}
+{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"notes","i":2,"c":"【口径变更】既有用例 toolSecurityGateWiring 曾断言 node --version 在无信任级别时 deny —— 该断言就是本次修正的\"旧行为\"，已改用 git add 继续钉\"信任级别透传\"。"}
+{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"code#0","i":0,"c":"app/src/security/BashAllowlistMatcher.ts"}
+{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"code#1","i":0,"c":"app/src/security/BashSecurityAnalyzer.ts"}
+{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"tests#0","i":0,"c":"app/tests/security/bashAllowlistUntrusted.test.ts"}
+{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"tests#1","i":0,"c":"app/tests/tools/toolSecurityGateWiring.test.ts"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"title","i":0,"c":"resolveProjectRoot 不再把宿主运行时当应用 exe（LRO-D4）"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"source","i":0,"c":"2026-10-26 用户指令「把复查的合并到计划中，然后按顺序开始执行修复」；依据计划 §10-D4；代码取证 paths.ts resolveProjectRoot 的 argv[0].endsWith(\".exe\") 分支 + main.ts:1932 的 chdir"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"reopenWhen","i":0,"c":"若出现「开发入口启动后 cwd 指向 bun/node 安装目录」「工具相对路径整体偏移」或「已打包 exe 的项目根推断失效」：回看 packages/kernel/src/core/paths.ts 的 RUNTIME_EXE_BASENAMES 与 isRuntimeExecutable；回滚 = revert 1d36c76fa"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"notes","i":0,"c":"【机制】原判断只认 .exe 后缀：bun.exe 也被当\"应用 exe\" ⇒ exeDir 的父目录（或 exeDir 本身）成为项目根，main.ts:1932 chdir 到该处；叠加 LRO-D3 的信任级别按 cwd 判定，造成\"命令大面积被拒\"。"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"notes","i":1,"c":"【改法】新增 isRuntimeExecutable（bun/bunx/node/npx/npm/pnpm/yarn/deno/tsx/ts-node 的 .exe）；resolveProjectRoot 的 exe 分支加 !isRuntimeExecutable 守卫，落到 INIT_CWD / process.cwd()。应用自身 exe 行为不变。"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"notes","i":2,"c":"【闸门配套】K08 体量棘轮 loc 18828→18857（note 追加 ⑪ 理由）；导出面快照 kernel-api-surface.json 以 --write 重生成（新增 1 符号）。"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"notes","i":3,"c":"【边界】\"工具 cwd 锚定用户项目\"未做：本地身份下会话工作区缺省时仍回落 resolveProjectRoot，哪个目录算\"用户项目\"属产品决策，留 LRO-06 实测后定。"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#0","i":0,"c":"packages/kernel/src/core/paths.ts"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#1","i":0,"c":".trae/architecture/kernel-size-baseline.json"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#2","i":0,"c":".trae/architecture/kernel-api-surface.json"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"tests#0","i":0,"c":"app/tests/paths/resolveProjectRootRuntimeExe.test.ts"}

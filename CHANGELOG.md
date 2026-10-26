@@ -19,6 +19,8 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **PROJECT-ROOT-RUNTIME-EXE**：resolveProjectRoot 排除宿主运行时 exe（LRO-D4） —— 验证 tsc|eslint|kernel0|kernel-api0|unit144；基线 改前：argv[0]=bun.exe 时项目根被算成 bun 安装目录（启动 chdir 偏移）；改后：仅应用自身 exe 才按目录推断（详情见 archive/evidence-detail.jsonl#PROJECT-ROOT-RUNTIME-EXE）
+- ✅ **SECURITY-ALLOWLIST-UNTRUSTED-ASK**：未受信未知命令改转审批 + 版本查询进白名单（LRO-D3） —— 验证 tsc|eslint|arch0|ratchet0|unit8442；基线 改前：未受信 + 不在 37 条只读前缀 ⇒ 直接 deny（node -v 也被拒、无审批入口）；改后：转 ask，版本查询放行，危险命令仍 deny（详情见 archive/evidence-detail.jsonl#SECURITY-ALLOWLIST-UNTRUSTED-ASK）
 - ✅ **RULE-FINGERPRINT-GRANULARITY**：指纹规则粒度与规则键（LRO-D1/D2） —— 验证 tsc|eslint|arch0|ratchet0|perm185|unit2346；基线 改前：一条指纹 deny 封锁整个工具且早于 ask；同工具不同指纹 allow 互相顶掉。改后：指纹仅按指纹命中，deny 先于 ask/allow，键含指纹（详情见 archive/evidence-detail.jsonl#RULE-FINGERPRINT-GRANULARITY）
 - ✅ **CIRCUIT-BREAKER-CLASSIFICATION**：熔断分型：环境阻塞与模型无效输出分流（LRO-09） —— 验证 tsc|eslint|arch0|ratchet0|consts0|unit2299；基线 改前：环境阻塞与模型无效输出共用 3 轮预算（实测 4 秒熔断）；改后：环境阻塞独立 2 轮收口，invalid 仍为 3 轮（详情见 archive/evidence-detail.jsonl#CIRCUIT-BREAKER-CLASSIFICATION）
 - ✅ **WINDOWS-SANDBOX-LOW-IL**：Windows 兜底沙箱（Low IL + Job） —— 验证 cl-build|local-verify4|tsc|eslint|consts0|t200；基线 本机 4/4：Low 目录可写 / Medium 拒写 / exit125 透传 / 系统可读；helper 126=自身失败（详情见 archive/evidence-detail.jsonl#WINDOWS-SANDBOX-LOW-IL）

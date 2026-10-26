@@ -368,6 +368,14 @@ export function toolMatchesRule(
     return false;
   }
 
+  // LRO-D1（2026-10-26）：**指纹规则不是工具级规则**。
+  // `inputFingerprint` 表示"仅对这一组参数生效"（PR-2「始终允许此命令」），
+  // 若在此放行，一条指纹 deny 会封锁该工具的**全部**调用（且早于 ask、无审批逃生），
+  // 一条指纹 allow 会放行该工具的**任何**参数（授权放大）。
+  if (rule.inputFingerprint) {
+    return false;
+  }
+
   // 直接工具名称匹配
   return rule.toolName === toolName;
 }

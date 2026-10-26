@@ -9,6 +9,9 @@ import {
   checkCommandCustomRules,
 } from './PermissionChecker';
 import { RuleManager, RuleContext } from './RuleManager';
+// LRO-D1（2026-10-26）：指纹规则的匹配维度 —— 与审批落盘**同一摘要**（`hashApprovalFingerprint(resolveApprovalFingerprint(...))`）
+import { resolveApprovalFingerprint } from './approvalFingerprint';
+import { hashApprovalFingerprint } from './ApprovedCommandRegistry';
 import { DenialTracker } from './trackers/DenialTracker';
 import { PermissionMode } from './PermissionMode';
 import {
@@ -672,9 +675,41 @@ export class PermissionManager {
       if (cmdDecision) return cmdDecision;
     }
 
+    // LRO-D1（2026-10-26）：**内容级 / 指纹级 deny 必须先于一切 ask / allow 评估**。
+    // 原顺序把"工具级 ask / 工具级 allow"排在内容 deny 之前 ⇒ 一条「始终允许此工具」
+    // 会静默越过针对该工具的内容 deny（安全排序不对称）。
+    // 指纹摘要与审批落盘**同源**：`hashApprovalFingerprint(resolveApprovalFingerprint(...))`。
+    const approvalFingerprint = hashApprovalFingerprint(
+      resolveApprovalFingerprint(toolOrName, input)
+    );
+    const matchOptions = { fingerprint: approvalFingerprint };
+
+    const matchingDenyRule = this.ruleManager.getMatchingRule(
+      toolName,
+      input,
+      PermissionBehavior.DENY,
+      ruleContext,
+      matchOptions
+    );
+    if (matchingDenyRule) {
+      this.denialTracker.trackDenial(toolName);
+      return this._denyByRule(toolName, matchingDenyRule);
+    }
+
     const askRule = this.ruleManager.getAskRuleForTool(toolName, ruleContext);
     if (askRule) {
       return createAskDecision(`Asked by rule from ${askRule.source}`);
+    }
+
+    const matchingAskRule = this.ruleManager.getMatchingRule(
+      toolName,
+      input,
+      PermissionBehavior.ASK,
+      ruleContext,
+      matchOptions
+    );
+    if (matchingAskRule) {
+      return createAskDecision(`Asked by rule from ${matchingAskRule.source}`);
     }
 
     const allowRule = this.ruleManager.toolAlwaysAllowedRule(
@@ -685,33 +720,12 @@ export class PermissionManager {
       return createAllowDecision(`Allowed by rule from ${allowRule.source}`);
     }
 
-    // 检查内容模式规则
-    const matchingDenyRule = this.ruleManager.getMatchingRule(
-      toolName,
-      input,
-      PermissionBehavior.DENY,
-      ruleContext
-    );
-    if (matchingDenyRule) {
-      this.denialTracker.trackDenial(toolName);
-      return this._denyByRule(toolName, matchingDenyRule);
-    }
-
-    const matchingAskRule = this.ruleManager.getMatchingRule(
-      toolName,
-      input,
-      PermissionBehavior.ASK,
-      ruleContext
-    );
-    if (matchingAskRule) {
-      return createAskDecision(`Asked by rule from ${matchingAskRule.source}`);
-    }
-
     const matchingAllowRule = this.ruleManager.getMatchingRule(
       toolName,
       input,
       PermissionBehavior.ALLOW,
-      ruleContext
+      ruleContext,
+      matchOptions
     );
     if (matchingAllowRule) {
       return createAllowDecision(

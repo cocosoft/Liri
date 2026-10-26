@@ -12,6 +12,7 @@ import {
   PermissionRule,
   PermissionBehavior,
   PermissionRuleSource,
+  type RuleMatchOptions,
   createPermissionRule,
   permissionRuleValueFromString,
   permissionRuleValueToString,
@@ -42,8 +43,12 @@ export interface RuleContext {
 }
 
 /**
- * P1-1: 按 (source + toolName + contentPattern + behavior) 幂等去重，保留最旧规则。
+ * P1-1: 按 (source + toolName + contentPattern + inputFingerprint + behavior) 幂等去重，保留最旧规则。
  * 供 saveRules/loadRules/addRule 复用，防止重复规则累积（历史曾出现 5 条重复 bash 规则）。
+ *
+ * LRO-D2（2026-10-26）：**键补 `inputFingerprint`**。原键只看 `contentPattern`，而指纹规则的
+ * `contentPattern` 恒为空 ⇒ 同工具的两条**不同指纹** allow 被判重复、后写被静默丢弃
+ * （「始终允许」对第二个命令永久无效）；指纹 allow 与工具级 allow 也会互相顶掉。
  */
 export function deduplicateRules(rules: PermissionRule[]): PermissionRule[] {
   const seen = new Map<string, PermissionRule>();
@@ -53,6 +58,7 @@ export function deduplicateRules(rules: PermissionRule[]): PermissionRule[] {
       rule.behavior,
       rule.toolName,
       rule.contentPattern ?? '',
+      rule.inputFingerprint ?? '',
     ].join('|');
     const existing = seen.get(key);
     if (!existing) {
@@ -209,16 +215,27 @@ export class RuleManager {
   }
 
   /**
-   * 添加规则（P1-1: 幂等去重 — (source + toolName + contentPattern + behavior) 相同则复用旧规则）
+   * 添加规则（幂等去重 + **同键互斥**）
+   *
+   * 键 = `(source, toolName, contentPattern, inputFingerprint)`：
+   * - 同键同 behavior ⇒ 复用旧规则（仅刷新 `updatedAt`），避免重复累积；
+   * - 同键**不同 behavior** ⇒ **替换**旧规则（后写为准）并留日志。
+   *
+   * 为什么"同键不同 behavior 必须互斥"（LRO-08 / LRO-D2，2026-10-26）：
+   * 事故实测里 `tool_rules.json` 同一 `(file_write, 指纹)` 上同时存在 allow 与 deny（相隔 1ms），
+   * 两者都生效、由判定顺序隐式决定谁赢；且旧去重键含 behavior ⇒ **永远不会**把这对冲突清掉。
+   * 用户对"同一次调用"的最新表态应当生效，旧规则留着只会变成 100% 无效的影子规则。
    * @param rule 权限规则
    */
   addRule(rule: PermissionRule): void {
+    const sameKey = (r: PermissionRule): boolean =>
+      r.source === rule.source &&
+      r.toolName === rule.toolName &&
+      (r.contentPattern ?? null) === (rule.contentPattern ?? null) &&
+      (r.inputFingerprint ?? null) === (rule.inputFingerprint ?? null);
+
     const existingIdx = this.rules.findIndex(
-      (r) =>
-        r.source === rule.source &&
-        r.toolName === rule.toolName &&
-        (r.contentPattern ?? null) === (rule.contentPattern ?? null) &&
-        r.behavior === rule.behavior
+      (r) => sameKey(r) && r.behavior === rule.behavior
     );
     if (existingIdx !== -1) {
       // 保留最旧规则，仅刷新 updatedAt，避免重复累积
@@ -231,6 +248,23 @@ export class RuleManager {
       });
       return;
     }
+
+    // 同键不同 behavior ⇒ 替换（后写为准）
+    const conflicting = this.rules.find(
+      (r) => sameKey(r) && r.behavior !== rule.behavior
+    );
+    if (conflicting) {
+      this.rules = this.rules.filter((r) => r.id !== conflicting.id);
+      logger.info('ruleReplaced', {
+        replacedId: conflicting.id,
+        replacedBehavior: conflicting.behavior,
+        newId: rule.id,
+        newBehavior: rule.behavior,
+        toolName: rule.toolName,
+        inputFingerprint: rule.inputFingerprint,
+      });
+    }
+
     this.rules.push(rule);
     this.saveRules(this.rules);
     logger.info('ruleAdded', {
@@ -580,6 +614,11 @@ export class RuleManager {
     if (rule.contentPattern) {
       return false;
     }
+    // LRO-D1（2026-10-26）：指纹规则（PR-2 的"始终允许此命令"）是**单次调用**粒度，
+    // 不得参与"整体工具"匹配 —— 否则一条指纹 deny = 整工具封锁、一条指纹 allow = 整工具放行。
+    if (rule.inputFingerprint) {
+      return false;
+    }
     return isToolNameMatch(toolName, rule.toolName);
   }
 
@@ -643,11 +682,18 @@ export class RuleManager {
     toolName: string,
     input: Record<string, unknown>,
     behavior: PermissionBehavior,
-    context?: RuleContext
+    context?: RuleContext,
+    /**
+     * LRO-D1（2026-10-26）：本次调用的审批指纹摘要。
+     *
+     * 指纹规则（`inputFingerprint`）已**不再**参与"整体工具"匹配（见 `toolMatchesRule`），
+     * 只能在本层按指纹等值命中；调用方不传 ⇒ 指纹规则一律不匹配（fail-closed）。
+     */
+    options: RuleMatchOptions = {}
   ): PermissionRule | null {
     const rules = this.getRulesByBehavior(behavior, context);
     for (const rule of rules) {
-      if (isRuleMatch(rule, toolName, input)) {
+      if (isRuleMatch(rule, toolName, input, options)) {
         return rule;
       }
     }

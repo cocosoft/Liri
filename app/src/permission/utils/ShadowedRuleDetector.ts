@@ -101,6 +101,18 @@ export class ShadowedRuleDetector {
       return false;
     }
 
+    // LRO-D2（2026-10-26）：**指纹规则单独构成一个匹配维度**。
+    // 原实现对两条"无 contentPattern"的规则调 `isPatternBroader(undefined, undefined)`
+    // ⇒ 恒 false ⇒ 事故里那对「同工具同指纹 allow + deny」在 UI 上**完全不可见**。
+    if (shadowing.inputFingerprint || shadowed.inputFingerprint) {
+      if (shadowing.inputFingerprint && shadowed.inputFingerprint) {
+        // 同一指纹：两者竞争同一次调用 ⇒ 先写入者遮蔽后者（与判定顺序一致）
+        return shadowing.inputFingerprint === shadowed.inputFingerprint;
+      }
+      // 一方是"工具级"（既无 contentPattern 也无指纹）⇒ 覆盖指纹规则；反向不成立
+      return !shadowing.contentPattern && !shadowing.inputFingerprint;
+    }
+
     if (
       shadowing.toolName === '*' &&
       shadowing.behavior !== shadowed.behavior

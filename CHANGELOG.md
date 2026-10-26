@@ -70,6 +70,13 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.17 (2026-10-27)  Linux 发布先出 deb 保底 + 审批通道可见性
+
+- ✅ **Linux 打包**：AppImage 在 v0.5.13 / v0.5.15 / v0.5.16 连续三次卡在 `Build Tauri app` ⇒ 本轮 Linux **只出 `deb`**，保证每个版本都有 Linux 产物；AppImage 单列修（配置保留在 `release.yml` 注释里，修好后改回 `deb,appimage`）。
+- ✅ **审批通道不可用可见**：需确认但 Inbox 提交失败时，工具结果带 `metadata.approvalChannelDown` 并明示"本次调用**未排队**"，不再让模型误以为在等待批准而空转。
+- ✅ **inbox 启动 schema 自检**：三张表缺 `owner_key` 即 `logger.error`（启动期暴露，而非等到第一次审批才失败）。
+- ✅ **缺参自纠**：缺必需参数时的提示补上"本工具参数"清单（实测模型对 `write_project_file` 误传 `file_path`，此前无法自纠）。
+
 #### v0.5.16 (2026-10-27)  Linux 发布任务 apt 超时修复
 
 - ✅ **Linux release 卡死**：`Install system dependencies (Linux)` 缺单条兜底，一次 apt 变慢即整步 15 分钟超时（v0.5.15 实测 job 15m38s、其后 7 步全部 skipped，Linux 无产物）。现：超时 25 分钟 + `--no-install-recommends` 降下载量 + 每条命令 `timeout` 兜底与时间戳，可直接定位卡在哪一条。

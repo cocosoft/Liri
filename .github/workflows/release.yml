@@ -410,11 +410,11 @@ jobs:
           - name: Linux
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            # AppImage（2026-10-26 补配）：release 的 `files:` 一直列了
-            # `installers/**/*.AppImage`，但本矩阵此前只传 `deb` ⇒ 从未产出过 AppImage。
-            # Tauri v2 的 appimage bundler 自带 `linuxdeploy`（以 `--appimage-extract-and-run`
-            # 运行）⇒ 不需要宿主机装 FUSE。
-            bundles: deb,appimage
+            # AppImage（2026-10-27 暂缓）：v0.5.13 / v0.5.15 / v0.5.16 三次均卡在
+            # `Build Tauri app`（AppImage 打包段），Linux 因此整版无产物。
+            # 本轮先只出 `deb` 保底；AppImage 修好后改回 `deb,appimage`
+            # （Tauri v2 的 appimage bundler 自带 `linuxdeploy`，不需宿主机装 FUSE）。
+            bundles: deb
             sidecar-build: build:linux
             sidecar-ext: ""
 

@@ -147,7 +147,9 @@ export class PdcaLauncher {
             onStepProgress: (progress) => {
               // 详细日志：记录每次进度回调的原始数据 + 档位计算（total/isDone/bucket/lastReportedBucket）
               const total = progress.total || progress.completed;
-              const isDone = progress.completed >= total;
+              // LRO-12（2026-10-26）：**报完成必须有产物支撑** —— 步骤全打勾但零产物时
+              // `percent` 被产物门压住（`artifactGated`），不得据此宣布"PDCA 执行完成"。
+              const isDone = progress.percent >= 100;
               const bucket = isDone
                 ? 4
                 : Math.min(3, Math.floor((progress.completed / total) * 4));
@@ -159,7 +161,8 @@ export class PdcaLauncher {
                   isDone,
                   bucket,
                   lastReportedBucket,
-                  // 对比校验：自算百分比与原始 percent 应一致（同源公式），偏差非 0 说明计算链路有分歧
+                  // 对比校验：LRO-12 后 `percent` 受产物门约束 ⇒ pctDiff>0 表示
+                  // "有完成步零产物"（gate），**不再**是计算链路分歧；无产物门时仍应一致
                   derivedPct:
                     total > 0
                       ? Math.round((progress.completed / total) * 100)
@@ -196,14 +199,19 @@ export class PdcaLauncher {
                   completed: progress.completed,
                   total,
                   isDone,
-                  pct: Math.round((progress.completed / total) * 100),
+                  pct: progress.percent,
                 });
-                const pct = Math.round((progress.completed / total) * 100);
+                // LRO-12（2026-10-26）：正文用**产物门后的 percent**（不再自算 completed/total）
+                const pct = progress.percent;
                 const failedNote =
                   progress.failed > 0 ? `，${progress.failed} 步失败` : '';
+                // 步骤都打勾但零产物 ⇒ 如实说明"进度不计"，避免用户以为卡死
+                const gatedNote = progress.artifactGated
+                  ? '（本任务尚未产出任何产物，进度不计）'
+                  : '';
                 const summary = isDone
                   ? `PDCA 执行完成：${progress.completed}/${total} 步${failedNote}`
-                  : `已完成 ${progress.completed}/${total} 步（进度 ${pct}%）${failedNote}`;
+                  : `已完成 ${progress.completed}/${total} 步（进度 ${pct}%）${failedNote}${gatedNote}`;
                 this.deps.persistMessage(
                   sessionId,
                   this.deps.messageService.createAssistantMessage(

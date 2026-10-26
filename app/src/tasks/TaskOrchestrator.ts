@@ -104,6 +104,14 @@ export interface PlanStep {
    * `pendingApproval>0` ⇒ 决策 `suspend`（等人工批准，不判失败）。
    */
   toolOutcomes?: ToolOutcomeSummary;
+  /**
+   * LRO-12（2026-10-26）：本步**真实产物**路径台账（来自执行器的写后读回台账）。
+   *
+   * 语义是"产物存在性"，不是"步骤跑完了"：空数组表示**本步确实跑了但没写出任何产物**，
+   * 这样的完成步**不推进进度**（见 `getPlanProgress`）。未采集台账的执行路径保持
+   * `undefined` ⇒ 沿用旧口径（不误伤）。
+   */
+  artifacts?: string[];
 }
 
 /**
@@ -147,6 +155,14 @@ export interface PlanProgress {
   failed: number;
   cancelled: number;
   percent: number;
+  /**
+   * LRO-12（2026-10-26）：**已产生产物**的路径总数（各步 `artifacts` 去重汇总）。
+   *
+   * 供 UI/日志解释"为什么步骤完成了但进度不涨"——不是卡死，是**零产物**。
+   */
+  artifacts: number;
+  /** LRO-12：有完成步但**零产物** ⇒ 进度已被产物门压住（`percent` 不随 completed 前进） */
+  artifactGated: boolean;
 }
 
 let nextStepId = 1;
@@ -582,6 +598,27 @@ export class TaskOrchestrator implements ISnapshotCapable {
       }
     }
 
+    // LRO-12（2026-10-26）：进度**只由产物存在性推进** —— 与"步骤跑完了"解耦。
+    //
+    // 失败窗口实测：模型把步骤/待办标成完成，进度就报到 100%，但磁盘上没有任何产物
+    // （用户看到"完成"却拿不到东西）。故：已有产物台账（`artifacts` 为数组）的完成步，
+    // **空台账不计数**；未采集台账的路径（`undefined`，如 PlanDrivenLoop 快速路径）
+    // 沿旧口径，避免把"没采集"误判成"没产物"。
+    const artifactPaths = new Set<string>();
+    let artifactBackedCompleted = 0;
+    for (const step of plan.steps) {
+      const stepArtifacts = step.artifacts;
+      if (stepArtifacts) {
+        for (const p of stepArtifacts) artifactPaths.add(p);
+      }
+      if (step.status !== 'completed') continue;
+      // 未采集台账（undefined）⇒ 旧口径；采集了但为空 ⇒ 本步不推进进度
+      if (stepArtifacts === undefined || stepArtifacts.length > 0) {
+        artifactBackedCompleted++;
+      }
+    }
+    const artifactCount = artifactPaths.size;
+
     return {
       total,
       pending,
@@ -589,7 +626,11 @@ export class TaskOrchestrator implements ISnapshotCapable {
       completed,
       failed,
       cancelled,
-      percent: total > 0 ? Math.round((completed / total) * 100) : 0,
+      percent:
+        total > 0 ? Math.round((artifactBackedCompleted / total) * 100) : 0,
+      artifacts: artifactCount,
+      // 有完成步因"零产物"未被计入 ⇒ 进度被产物门压住（未采集台账的步骤不计入此判定）
+      artifactGated: artifactBackedCompleted < completed,
     };
   }
 
@@ -630,7 +671,12 @@ export class TaskOrchestrator implements ISnapshotCapable {
   markStepCompleted(
     stepId: string,
     result?: string,
-    meta?: { terminationReason?: string; toolOutcomes?: ToolOutcomeSummary }
+    meta?: {
+      terminationReason?: string;
+      toolOutcomes?: ToolOutcomeSummary;
+      /** LRO-12：本步真实产物路径台账（空数组 = 跑了但没产物，**不推进进度**） */
+      artifacts?: string[];
+    }
   ): PlanStep | undefined {
     const plan = this.getPlanByStepId(stepId);
     if (!plan) return undefined;
@@ -644,6 +690,8 @@ export class TaskOrchestrator implements ISnapshotCapable {
     step.terminationReason = meta?.terminationReason;
     // PR-5：结构化工具结局（审查门据此判"失败/拦截/待审批"）
     if (meta?.toolOutcomes) step.toolOutcomes = meta.toolOutcomes;
+    // LRO-12（2026-10-26）：产物台账（**空数组也要落**，与"未采集"区分）
+    if (meta?.artifacts) step.artifacts = [...new Set(meta.artifacts)];
 
     const task = taskRegistry.getTask(step.taskId);
     if (task && task instanceof NoteTask) {

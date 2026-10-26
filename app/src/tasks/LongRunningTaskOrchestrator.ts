@@ -534,6 +534,9 @@ export class LongRunningTaskOrchestrator {
           terminationReason: s.terminationReason,
           // 1-1c（2026-09-03）：快照携带依赖（resume 按快照顺序位置映射重建）
           dependsOn: s.dependsOn,
+          // LRO-12（2026-10-26）：产物台账随快照持久化 —— 否则重启后进度会掉回 0
+          // （产物门按台账判定，台账丢失 ⇒ 已完成的步骤看起来"没有产物"）
+          artifacts: s.artifacts,
         })),
         // D5（M6）：escalate 缺陷清单（跨重启恢复后增量 replan 仍生效）
         lastEscalations: this._lastEscalations,

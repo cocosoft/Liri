@@ -189,6 +189,8 @@ export async function resumeFromCheckpoint(
       parseSuccessCriteria(step.acceptanceCriteria);
     // E1①/B（2026-09-05）：终止原因回填（扩容判定/审计输入；先前丢失）
     step.terminationReason = s.terminationReason as string | undefined;
+    // LRO-12（2026-10-26）：产物台账回填 —— 与快照同批（缺失时保持 undefined ⇒ 旧口径）
+    step.artifacts = s.artifacts as string[] | undefined;
     // S2/B（PR9）：扩容候选步骤置回 pending 重跑（决策谓词见纯函数 shouldReRollMaxTurnsStep，
     // 本轮完成时由 markStepCompleted 重新落盘新 reason）
     if (

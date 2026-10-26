@@ -1151,6 +1151,11 @@ export class PlanDrivenLoop {
           });
 
           // OBS（M1a）：步骤级 phase（独立通道）
+          // LRO-12（2026-10-26）：进度取**编排器口径**（含产物门），不再按循环序号直算 ——
+          // 序号直算会绕开产物门（0 产物也报 100%），且前置步失败/阻断时虚高。
+          const stepProgress = this.plan
+            ? taskOrchestrator.getPlanProgress(this.plan.id)
+            : undefined;
           void emitPdcaLiveEvent(
             'pdca:stage:phase',
             {
@@ -1163,9 +1168,11 @@ export class PlanDrivenLoop {
               stage: 'execute',
               status: 'completed',
               stepId,
-              percent: Math.round(((i + 1) / subtasks.length) * 100),
-              completedSteps: i + 1,
-              totalSteps: subtasks.length,
+              percent:
+                stepProgress?.percent ??
+                Math.round(((i + 1) / subtasks.length) * 100),
+              completedSteps: stepProgress?.completed ?? i + 1,
+              totalSteps: stepProgress?.total ?? subtasks.length,
               currentStep: task.description.slice(0, 80),
               tokenCost: result.totalTokens,
               durationMs: duration,

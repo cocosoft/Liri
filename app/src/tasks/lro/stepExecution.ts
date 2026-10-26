@@ -539,6 +539,9 @@ export async function executeSingleStep(
           // E1①（2026-09-05，方案甲）：终止原因透传落 PlanStep
           terminationReason,
           toolOutcomes,
+          // LRO-12（2026-10-26）：产物台账（**空数组也传**）⇒ 进度只由产物存在性推进；
+          // 本步跑了但没写出任何文件时不推进进度，避免"步骤打勾即完成"的假进度
+          artifacts: [...writtenPaths],
         });
       }
       await deps.persistCheckpoint(); // P0(M2)

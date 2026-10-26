@@ -351,6 +351,8 @@ function deriveCheckpointProgress(steps: Array<Record<string, unknown>>):
       failed: number;
       cancelled: number;
       percent: number;
+      artifacts: number;
+      artifactGated: boolean;
     }
   | undefined {
   const total = steps.length;
@@ -366,6 +368,20 @@ function deriveCheckpointProgress(steps: Array<Record<string, unknown>>):
     else if (st === 'failed') failed++;
     else if (st === 'cancelled') cancelled++;
   }
+  // LRO-12（2026-10-26）：与 `TaskOrchestrator.getPlanProgress` **同一口径** ——
+  // 进度只由产物存在性推进：已采集台账（数组）但为空的完成步不计数；
+  // 未采集（undefined，旧存档/快速路径）沿旧口径。两份公式不一致会导致
+  // "内存态 0% / checkpoint 态 100%"的诡异切换。
+  const artifactPaths = new Set<string>();
+  let artifactBackedCompleted = 0;
+  for (const s of steps) {
+    const arts = Array.isArray(s.artifacts)
+      ? (s.artifacts as string[])
+      : undefined;
+    if (arts) for (const p of arts) artifactPaths.add(p);
+    if (s.status !== 'completed') continue;
+    if (arts === undefined || arts.length > 0) artifactBackedCompleted++;
+  }
   return {
     total,
     pending: total - completed - running - failed - cancelled,
@@ -373,7 +389,10 @@ function deriveCheckpointProgress(steps: Array<Record<string, unknown>>):
     completed,
     failed,
     cancelled,
-    percent: Math.round((completed / total) * 100),
+    percent: Math.round((artifactBackedCompleted / total) * 100),
+    artifacts: artifactPaths.size,
+    // 与 TaskOrchestrator 同口径：有完成步因零产物未计入 ⇒ 被门压住
+    artifactGated: artifactBackedCompleted < completed,
   };
 }
 

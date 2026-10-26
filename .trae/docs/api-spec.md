@@ -741,6 +741,10 @@ data: {"type":"done","result":{...}}
 | POST | `/v1/pdca/list` | ✅ | 无前端调用方；请求体（可选）`{workspaceId?, projectId?, sessionId?}`（1-5 P1，2026-09-03）；数据源 = 内存 orchestrator + checkpoint 回退（重启后非空）；条目统一含 taskId/phase/status/归属字段，checkpoint-only 条目带 `source:'checkpoint'` |
 | GET | `/v1/pdca/:taskId` | ✅ | PdcaPipeline / projects 编排 tab；读模型 = 有内存 → `getStatus()`（含 plan/progress/audit/currentStep）；无内存 → checkpoint 回退（1-5 P2，2026-09-04）：构造 getStatus 对齐形态（`plan`/`progress` 由快照 `steps` 推导并原样透传，无 steps 则省略不编造，带 `source:'checkpoint'`）；checkpoint 不存在 → `{taskId, phase:'none', planId:'', lifecycle:[]}` |
 
+> LRO-12（2026-10-26）：`progress.percent` 受**产物门**约束（与 `TaskOrchestrator.getPlanProgress` 同口径）——
+> 已采集产物台账的完成步若为零产物（`artifacts: []`）**不推进进度**；额外字段 `progress.artifacts`（产物路径数）
+> 与 `progress.artifactGated`（是否有完成步因零产物未计入）。内存态与 checkpoint 回退两条路径口径一致。
+
 **响应示例**：
 ```json
 {

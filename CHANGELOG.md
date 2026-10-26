@@ -60,6 +60,11 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.13 (2026-10-26)  Linux AppImage 产物补齐
+
+- ✅ **Linux AppImage** - release 矩阵 Linux 由 `deb` 扩为 `deb,appimage`：release 的 `files:` 早已列出
+  `installers/**/*.AppImage`，但打包矩阵从未产出过；自本版起 Release 同时提供 `.AppImage` 与 `.deb`
+
 #### v0.5.12 (2026-10-26)  长程任务失败链路整改 + 双平台兜底沙箱 + 第三方插件治理
 
 - ✅ **长程任务（LRO）失败链路整改** - 熔断分型（环境阻塞独立 2 轮预算、`failureKind` 全链透传）；

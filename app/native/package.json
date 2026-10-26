@@ -1,6 +1,6 @@
 {
   "name": "liri-native",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "description": "Liri Rust performance core - Bun FFI bindings",
   "main": "index.js",
   "scripts": {

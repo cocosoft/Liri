@@ -70,6 +70,10 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.16 (2026-10-27)  Linux 发布任务 apt 超时修复
+
+- ✅ **Linux release 卡死**：`Install system dependencies (Linux)` 缺单条兜底，一次 apt 变慢即整步 15 分钟超时（v0.5.15 实测 job 15m38s、其后 7 步全部 skipped，Linux 无产物）。现：超时 25 分钟 + `--no-install-recommends` 降下载量 + 每条命令 `timeout` 兜底与时间戳，可直接定位卡在哪一条。
+
 #### v0.5.15 (2026-10-27)  长程任务可诊断性 + 复合只读放行
 
 - ✅ **Inbox 迁移死锁**：`owner_key` 索引先于补列创建 ⇒ 旧库初始化必失败且连接被缓存 ⇒ 所有 ask 降级 `Inbox unavailable`。改为「建表 → 补列 → 建索引」，初始化失败不缓存连接。

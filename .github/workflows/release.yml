@@ -451,15 +451,21 @@ jobs:
 
       - name: Install system dependencies (Linux)
         if: matrix.config.os == 'ubuntu-latest'
-        # 2026-10-26 实测：该步骤无超时 ⇒ 一次 apt 卡死把整个 release 挂了 45+ 分钟。
-        # 收紧：非交互 + 重试 + 硬超时（失败即红，便于直接重跑，而不是无限等待）。
+        # 2026-10-27 实测：v0.5.15 的 release **卡在这一步 15 分钟超时**（job 15m38s，
+        # 之后 7 个步骤全部 skipped，Linux 无任何产物）。⇒ ① 超时 15 → 25 分钟；
+        # ② `--no-install-recommends` 缩小下载量；③ 每条命令用 `timeout` 兜底 + 打时间戳，
+        # 让"卡在哪一条"能从日志直接读出，而不是整步静默到超时。
         env:
           DEBIAN_FRONTEND: noninteractive
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: |
-          sudo apt-get update -o Acquire::Retries=3
-          sudo apt-get install -y \
-            -o Acquire::Retries=3 \
+          set -x
+          date -u +"step-start %H:%M:%S"
+          timeout 600 sudo apt-get update \
+            -o Acquire::Retries=5 -o Acquire::http::Timeout=30
+          date -u +"after-update %H:%M:%S"
+          timeout 900 sudo apt-get install -y --no-install-recommends \
+            -o Acquire::Retries=5 \
             -o Acquire::http::Timeout=30 \
             libwebkit2gtk-4.1-dev \
             librsvg2-dev \
@@ -467,9 +473,13 @@ jobs:
             libssl-dev \
             libgtk-3-dev \
             libayatana-appindicator3-dev
+          date -u +"after-install %H:%M:%S"
           # AppImage 工具链（linuxdeploy / appimagetool）是 AppImage 形态，部分 runner 上
           # 仍会去加载 libfuse.so.2。24.04 包名为 libfuse2t64，22.04 为 libfuse2 ⇒ 两者择一。
-          sudo apt-get install -y libfuse2 || sudo apt-get install -y libfuse2t64 || true
+          timeout 180 sudo apt-get install -y --no-install-recommends libfuse2 \
+            || timeout 180 sudo apt-get install -y --no-install-recommends libfuse2t64 \
+            || true
+          date -u +"step-done %H:%M:%S"
 
       - name: Install client dependencies
         shell: bash

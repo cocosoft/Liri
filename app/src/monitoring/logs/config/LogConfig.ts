@@ -9,15 +9,17 @@ import { LogLevel } from '../Logger.js';
 
 /**
  * 日志输出目标
+ *
+ * ⚠️ **轮转策略不在这里**（LRO-14，2026-10-26）：本类型历史上声明过
+ * `maxSize` / `maxFiles` / `compress`，但**全仓零消费者** —— 真实轮转发生在
+ * `monitoring/MonitoringService.ts#rotateLogs()`（阈值 10MB / 每小时 / 保留 `maxRotatedLogs` 个）。
+ * 保留两份声明只会制造"配了 5 个却留 10 个"的假象，故删除死字段并在此注明唯一事实源。
  */
 export interface LogTarget {
   type: 'console' | 'file' | 'stream' | 'syslog' | 'http';
   level: LogLevel;
   path?: string;
   format?: 'text' | 'json' | 'pretty';
-  maxSize?: number;
-  maxFiles?: number;
-  compress?: boolean;
 }
 
 /**
@@ -67,9 +69,6 @@ export class LogConfigManager {
           level: LogLevel.DEBUG,
           path: join(resolveLogsDir(), 'app.log'),
           format: 'json',
-          maxSize: 10485760,
-          maxFiles: 5,
-          compress: true,
         },
       ],
       filters: [],

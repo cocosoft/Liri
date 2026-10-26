@@ -30,6 +30,24 @@ import { withPhaseSync } from '@modules/diagnostics';
 
 const logger = getLogger('monitoring:service');
 
+/** 轮转文件名特征：`<name>.log.<ISO>`（由 `rotateLogs()` 生成，ISO 里 `:`/`.` 已被替换为 `-`） */
+const ROTATED_LOG_RE = /\.log\.\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/;
+
+/**
+ * 从目录条目里挑出**应删除**的轮转文件（纯函数，供单测）。
+ *
+ * 只保留最近 `keep` 个：轮转名内嵌 ISO 时间戳 ⇒ 字典序即时间序。
+ * `keep <= 0` 视为"不限"（返回空数组，绝不因误配把日志全删）。
+ */
+export function selectRotatedLogsToDelete(
+  names: string[],
+  keep: number
+): string[] {
+  const rotated = names.filter((n) => ROTATED_LOG_RE.test(n)).sort();
+  if (keep <= 0) return [];
+  return rotated.slice(0, Math.max(0, rotated.length - keep));
+}
+
 /**
  * 监控配置
  */
@@ -39,6 +57,14 @@ export interface MonitoringConfig {
   metricsInterval: number; // 指标收集间隔（毫秒）
   logRotationInterval: number; // 日志轮换间隔（毫秒）
   maxLogSize: number; // 最大日志大小（字节）
+  /**
+   * 轮转文件**保留个数**（LRO-14，2026-10-26）。
+   *
+   * 此前只有阈值、没有上限 ⇒ 每小时一个 10MB+ 文件、**从不删除**（实测已积 10 个 ≈ 130MB）。
+   * 注意：`logs/config/LogConfig.ts` 里的 `maxFiles: 5` 是**另一份未被消费的声明**（死配置），
+   * 真实策略以本字段为准（单一事实源）。
+   */
+  maxRotatedLogs: number;
   healthCheckInterval: number; // 健康检查间隔（毫秒）
   alertThresholds: {
     memoryUsage: number; // 内存使用阈值（字节）
@@ -100,6 +126,7 @@ export class MonitoringService {
       metricsInterval: 5000,
       logRotationInterval: 3600000, // 1小时
       maxLogSize: 10485760, // 10MB
+      maxRotatedLogs: 10, // 保留最近 10 个轮转文件（LRO-14）
       healthCheckInterval: 30000, // 30秒
       alertThresholds: {
         memoryUsage: 1024 * 1024 * 1024, // 1GB
@@ -390,6 +417,22 @@ export class MonitoringService {
           fs.writeFileSync(filePath, '');
           this.log('info', `日志已轮换: ${file} -> ${rotatedFile}`);
         }
+      }
+
+      // LRO-14（2026-10-26）：**保留上限**。此前只轮转、从不删除 ⇒ 无限增长
+      //（实测已积 10 个 / 约 130MB）。删除最旧的、保留最近 `maxRotatedLogs` 个。
+      const stale = selectRotatedLogsToDelete(
+        fs.readdirSync(logDir),
+        this.config.maxRotatedLogs
+      );
+      for (const name of stale) {
+        fs.unlinkSync(path.join(logDir, name));
+      }
+      if (stale.length > 0) {
+        this.log(
+          'info',
+          `日志清理: 删除 ${stale.length} 个旧轮转文件（保留最近 ${this.config.maxRotatedLogs} 个）: ${stale.join(', ')}`
+        );
       }
     } catch (error) {
       this.log(

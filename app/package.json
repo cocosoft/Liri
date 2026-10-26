@@ -139,6 +139,7 @@
     "format:check": "prettier --check src",
     "codegen": "bun run src/tools/codegen/cli.ts",
     "health": "bun run src/healthcheck.ts",
+    "logs:scan": "bun run scripts/logscan.ts",
     "monitor": "bun run src/monitor.ts",
     "deploy": "bash deploy.sh",
     "deploy:docker": "docker-compose up -d",

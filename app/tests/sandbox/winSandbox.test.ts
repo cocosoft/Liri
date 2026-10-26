@@ -5,6 +5,7 @@
 //
 // 只覆盖**纯逻辑**；真机行为由 `bun run verify:win-sandbox`（步骤 3 之后）与 CI windows job 覆盖。
 import { beforeEach, describe, expect, it } from 'bun:test';
+import { join } from 'node:path';
 import {
   WIN_SANDBOX_HELPER_BIN_NAME,
   WIN_SANDBOX_HELPER_ENV,
@@ -17,6 +18,8 @@ import {
 } from '../../src/sandbox/win';
 
 const PROJECT = 'C:\\proj';
+/** 期望路径一律用 `join()` 生成：CI 在 ubuntu/macos 也跑这些用例，写死 `\\` 会在 POSIX 上失败 */
+const SHIPPED = join(PROJECT, 'bin', WIN_SANDBOX_HELPER_BIN_NAME);
 
 describe('resolveWinSandboxHelperCandidates', () => {
   it('win32 ⇒ [显式 env, <PROJECT>/bin, 裸名]（去重保序）', () => {
@@ -26,11 +29,7 @@ describe('resolveWinSandboxHelperCandidates', () => {
         projectDir: PROJECT,
         env: { [WIN_SANDBOX_HELPER_ENV]: 'D:\\tools\\helper.exe' },
       })
-    ).toEqual([
-      'D:\\tools\\helper.exe',
-      `${PROJECT}\\bin\\${WIN_SANDBOX_HELPER_BIN_NAME}`,
-      WIN_SANDBOX_HELPER_BIN_NAME,
-    ]);
+    ).toEqual(['D:\\tools\\helper.exe', SHIPPED, WIN_SANDBOX_HELPER_BIN_NAME]);
   });
 
   it('非 win32 ⇒ 空数组（平台门控在探测/调度处）', () => {
@@ -73,7 +72,7 @@ describe('resolveWinSandboxHelperPath', () => {
         env: {},
         exists: () => true,
       })
-    ).toBe(`${PROJECT}\\bin\\${WIN_SANDBOX_HELPER_BIN_NAME}`);
+    ).toBe(SHIPPED);
   });
 
   it('都没有 ⇒ 裸名（交给 PATH）', () => {

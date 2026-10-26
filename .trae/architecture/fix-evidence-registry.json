@@ -13042,6 +13042,35 @@
       "changelog": [],
       "reopenWhen": "若出现「项目会话 cwd 仍为代码仓根」「跨身份读到别人 sandboxPath」「sandboxPath 不存在致工具启动失败」：回看 chat/services/toolCwdScope.ts 与 ChatManager._getProjectSandboxPath；回滚 = revert d601cb453（全文见 archive/evidence-detail.jsonl#SESSION-CWD-PROJECT-SANDBOX）",
       "notes": "【根因】getSessionWorkspacePath 只读 metadata.workspacePath；项目会话 metadata 只有 projectId（真机 session.json 实证）⇒ resolveToolCwd 回落 resolveProjectRoot()。【改法】纯函数 resolveSes…（全文见 archive/evidence-detail.jsonl#SESSION-CWD-PROJECT-SANDBOX）"
+    },
+    {
+      "id": "LONG-TASK-ROUTING-FORCE-DECOMPOSE",
+      "title": "长任务信号压过消息长度门；执行模式（单步/分步/直执行）向用户可见",
+      "source": "2026-10-26 用户指令「继续处理 LRO-11 路由矩阵」并拍板「信号压过长度门 + 可见提示」；依据计划 §LRO-11 ③④ 与真机日志取证",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/PlanDrivenLoop.ts",
+        "app/src/chat/launchers/PdcaLauncher.ts",
+        "app/src/chat/manager/pdcaLaunch.ts",
+        "app/src/chat/ChatManager.ts"
+      ],
+      "tests": [
+        "app/tests/chat/longTaskRoutingHint.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若出现「长任务被强制分解后成本暴涨」「模式提示刷屏或误导」「forceDecompose 影响非信号路径」：回看 PlanDrivenLoop.decideSimplePath 与 pdcaLaunch.onLongTaskSignal；回滚 = revert 15d8d3dc1（全文见 archive/evidence-detail.jsonl#LONG-TASK-ROUTING-FORCE-DECOMPOSE）",
+      "notes": "【根因】PDL 快速路径只看消息长度 ≤60（classifyTaskComplexity），不读长任务信号；真机会话 04:39:20 信号触发（todo=10）却记「简单任务，跳过分解直接执行」，37s 后 decomposed=false/stepCount=1。【改法】PDL 新增 decideSimpleP…（全文见 archive/evidence-detail.jsonl#LONG-TASK-ROUTING-FORCE-DECOMPOSE）"
     }
   ]
 }

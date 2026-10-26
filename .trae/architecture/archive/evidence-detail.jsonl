@@ -6592,3 +6592,14 @@
 {"id":"SESSION-CWD-PROJECT-SANDBOX","k":"code#1","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"SESSION-CWD-PROJECT-SANDBOX","k":"code#2","i":0,"c":".trae/architecture/startup-graph-baseline.json"}
 {"id":"SESSION-CWD-PROJECT-SANDBOX","k":"tests#0","i":0,"c":"app/tests/chat/sessionWorkspaceResolve.test.ts"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"title","i":0,"c":"长任务信号压过消息长度门；执行模式（单步/分步/直执行）向用户可见"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"source","i":0,"c":"2026-10-26 用户指令「继续处理 LRO-11 路由矩阵」并拍板「信号压过长度门 + 可见提示」；依据计划 §LRO-11 ③④ 与真机日志取证"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"reopenWhen","i":0,"c":"若出现「长任务被强制分解后成本暴涨」「模式提示刷屏或误导」「forceDecompose 影响非信号路径」：回看 PlanDrivenLoop.decideSimplePath 与 pdcaLaunch.onLongTaskSignal；回滚 = revert 15d8d3dc1"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"notes","i":0,"c":"【根因】PDL 快速路径只看消息长度 ≤60（classifyTaskComplexity），不读长任务信号；真机会话 04:39:20 信号触发（todo=10）却记「简单任务，跳过分解直接执行」，37s 后 decomposed=false/stepCount=1。"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"notes","i":1,"c":"【改法】PDL 新增 decideSimplePath（forceDecompose 压过长度门）与 onModeDecided 回调；长任务信号升级链路透传 forceDecompose；PdcaLauncher 在真正执行前落一条 pdca-mode 会话消息。"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"notes","i":2,"c":"【可见性】项目会话跳过升级时也提示「仍在普通对话循环」（每会话一次，防刷屏）；此前只在日志里，用户误以为已被编排接管。"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"code#0","i":0,"c":"app/src/tasks/PlanDrivenLoop.ts"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"code#1","i":0,"c":"app/src/chat/launchers/PdcaLauncher.ts"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"code#2","i":0,"c":"app/src/chat/manager/pdcaLaunch.ts"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"code#3","i":0,"c":"app/src/chat/ChatManager.ts"}
+{"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"tests#0","i":0,"c":"app/tests/chat/longTaskRoutingHint.test.ts"}

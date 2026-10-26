@@ -445,6 +445,48 @@ export interface PathAccessResult {
 }
 
 /**
+ * F7（2026-10-27）：定位"第一个不存在的层级"，列出其**同级目录**作为候选。
+ *
+ * 实测（Liri 报告 P2-1）：模型沿用了重构前的路径 `app/src/modules/...`，而真实目录是
+ * `app/src/runtime/`、`app/src/permission/`；旧提示只会说"请确认拼写正确"或
+ * "请确认项目源码已同步"，模型据此改不动、反复重试同一路径。
+ *
+ * @returns 提示文本；无可列候选（根目录/不可读/无子目录）⇒ `null`
+ */
+export function buildMissingSegmentCandidateHint(
+  resolvedPath: string
+): string | null {
+  let ancestor = path.dirname(resolvedPath);
+  let missing = path.basename(resolvedPath);
+
+  let guard = 0;
+  while (!fs.existsSync(ancestor)) {
+    missing = path.basename(ancestor);
+    const up = path.dirname(ancestor);
+    if (up === ancestor || guard >= 32) return null;
+    ancestor = up;
+    guard += 1;
+  }
+
+  let entries: import('node:fs').Dirent[];
+  try {
+    entries = fs.readdirSync(ancestor, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  const dirs = entries
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .sort();
+  if (dirs.length === 0) return null;
+
+  const shown = dirs.slice(0, 20);
+  const more =
+    dirs.length > shown.length ? `（共 ${dirs.length} 个，仅列前 20）` : '';
+  return `目录 "${missing}" 在 "${ancestor}" 下不存在；同级现有目录: ${shown.join(', ')}${more}`;
+}
+
+/**
  * 检查目标路径是否可访问
  * 在执行文件操作前调用，可避免跨磁盘或路径缺失导致的静默失败
  *
@@ -521,6 +563,10 @@ export function checkPathAccessibility(
       '如果路径来自 AI 模型输出，请检查反斜杠是否被 JSON 转义（应使用 \\\\ 或 /）'
     );
   }
+
+  // F7：无论父目录是否存在，都尝试给出"同级候选目录"——这是模型能直接据以改正的信息
+  const candidateHint = buildMissingSegmentCandidateHint(resolved);
+  if (candidateHint) suggestions.push(candidateHint);
 
   return {
     accessible: false,

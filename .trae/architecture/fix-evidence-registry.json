@@ -12981,6 +12981,39 @@
       "changelog": [],
       "reopenWhen": "若出现「分析型步骤（不写文件）导致进度长期 0%」「重启/resume 后进度掉回 0」「内存态与 checkpoint 态百分比不一致」：回看 TaskOrchestrator.getPlanProgress 与 pdca-handlers.deriveCheckpointProgress；回滚 = revert …（全文见 archive/evidence-detail.jsonl#PLAN-PROGRESS-ARTIFACT-GATE）",
       "notes": "【根因】percent 唯一输入是 PlanStep.status，而 status 由「TAORLoop 正常返回」写入 ⇒ 模型把步骤/待办打勾就等于进度 100%，磁盘可以一件产物都没有。【改法】PlanStep 增 artifacts（来自执行器写后读回台账 writtenPaths）；markStepCom…（全文见 archive/evidence-detail.jsonl#PLAN-PROGRESS-ARTIFACT-GATE）"
+    },
+    {
+      "id": "LRO-BLOCKED-COMMAND-REPLAY",
+      "title": "续跑幂等：同一 (命令, cwd, 策略版本) 直接短路，不再重放已被判定阻塞的命令",
+      "source": "2026-10-26 用户指令「继续处理 LRO-13 续跑幂等问题」；依据计划 §LRO-13「resume 时不再重放被判定的环境阻塞命令」与验收锚点「同一会话连续两次请继续，第二次不再重复撞同一堵墙」",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/lro/blockedCommandLedger.ts",
+        "app/src/tasks/lro/commandPolicyVersion.ts",
+        "app/src/tasks/lro/stepExecution.ts",
+        "app/src/tasks/lro/resumeFromCheckpoint.ts",
+        "app/src/tasks/LongRunningTaskOrchestrator.ts",
+        "app/src/tasks/lro/checkpointSnapshot.ts"
+      ],
+      "tests": [
+        "app/tests/tasks/blockedCommandLedger.test.ts",
+        "app/tests/tasks/lroBlockedCommandReplay.test.ts",
+        "app/tests/tasks/longRunningRootFix.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若出现「策略放宽后命令仍被旧结论封死」「重启后同一命令又被重放」「台账无限增长撑大 checkpoint」：回看 tasks/lro/blockedCommandLedger.ts 与 commandPolicyVersion.ts；回滚 = revert d3e6e3e7c（全文见 archive/evidence-detail.jsonl#LRO-BLOCKED-COMMAND-REPLAY）",
+      "notes": "【根因】安全门拦截是确定性的（同命令 + 同 cwd + 同策略 ⇒ 同结论），但续跑时没有任何\"已判定\"记忆 ⇒ 模型原样再撞一次，白耗轮次与 token。【改法】新增阻塞命令台账：只认 metadata.securityIntercepted（显式标记，不猜文案）的 bash/powershell 调用；键 = …（全文见 archive/evidence-detail.jsonl#LRO-BLOCKED-COMMAND-REPLAY）"
     }
   ]
 }

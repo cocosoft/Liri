@@ -6564,3 +6564,20 @@
 {"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"code#6","i":0,"c":"app/src/chat/launchers/PdcaLauncher.ts"}
 {"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"code#7","i":0,"c":".trae/docs/api-spec.md"}
 {"id":"PLAN-PROGRESS-ARTIFACT-GATE","k":"tests#0","i":0,"c":"app/tests/tasks/planProgressArtifactGate.test.ts"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"title","i":0,"c":"续跑幂等：同一 (命令, cwd, 策略版本) 直接短路，不再重放已被判定阻塞的命令"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"source","i":0,"c":"2026-10-26 用户指令「继续处理 LRO-13 续跑幂等问题」；依据计划 §LRO-13「resume 时不再重放被判定的环境阻塞命令」与验收锚点「同一会话连续两次请继续，第二次不再重复撞同一堵墙」"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"reopenWhen","i":0,"c":"若出现「策略放宽后命令仍被旧结论封死」「重启后同一命令又被重放」「台账无限增长撑大 checkpoint」：回看 tasks/lro/blockedCommandLedger.ts 与 commandPolicyVersion.ts；回滚 = revert d3e6e3e7c"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"notes","i":0,"c":"【根因】安全门拦截是确定性的（同命令 + 同 cwd + 同策略 ⇒ 同结论），但续跑时没有任何\"已判定\"记忆 ⇒ 模型原样再撞一次，白耗轮次与 token。"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"notes","i":1,"c":"【改法】新增阻塞命令台账：只认 metadata.securityIntercepted（显式标记，不猜文案）的 bash/powershell 调用；键 = sha256(工具, 规范化命令, cwd, 策略版本)；步骤执行前命中即短路，返回既有 reason + 不再重放指令。"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"notes","i":2,"c":"【失效语义】策略版本 = APP_VERSION + permissionMode + defaultTrustLevel + Bash 三开关 + 权限规则签名；版本进键 ⇒ 策略变化后旧结论自然不命中（不会封死本可执行的命令）。"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"notes","i":3,"c":"【持久化】台账随 checkpoint 落盘，resume 先恢复再续跑（残缺项丢弃）；上限 50 条，同键覆盖、超限丢最旧。"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"notes","i":4,"c":"【顺带】LRTO 顶到 R04-001 上限，把 checkpoint 步骤快照投影外移到 lro/checkpointSnapshot.ts（逐字未变）⇒ 1984 行。"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"code#0","i":0,"c":"app/src/tasks/lro/blockedCommandLedger.ts"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"code#1","i":0,"c":"app/src/tasks/lro/commandPolicyVersion.ts"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"code#2","i":0,"c":"app/src/tasks/lro/stepExecution.ts"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"code#3","i":0,"c":"app/src/tasks/lro/resumeFromCheckpoint.ts"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"code#4","i":0,"c":"app/src/tasks/LongRunningTaskOrchestrator.ts"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"code#5","i":0,"c":"app/src/tasks/lro/checkpointSnapshot.ts"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"tests#0","i":0,"c":"app/tests/tasks/blockedCommandLedger.test.ts"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"tests#1","i":0,"c":"app/tests/tasks/lroBlockedCommandReplay.test.ts"}
+{"id":"LRO-BLOCKED-COMMAND-REPLAY","k":"tests#2","i":0,"c":"app/tests/tasks/longRunningRootFix.test.ts"}

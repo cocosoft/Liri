@@ -70,6 +70,17 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.15 (2026-10-27)  长程任务可诊断性 + 复合只读放行
+
+- ✅ **Inbox 迁移死锁**：`owner_key` 索引先于补列创建 ⇒ 旧库初始化必失败且连接被缓存 ⇒ 所有 ask 降级 `Inbox unavailable`。改为「建表 → 补列 → 建索引」，初始化失败不缓存连接。
+- ✅ **cwd 锚定失效**：`ProjectStore` 的 `require` 路径多退一层 ⇒ 运行期恒回落项目根。修正后按项目 `sandboxPath` 定位。
+- ✅ **think-only 终稿**：正文只有 `<think>` 时按不完整回合重试，不再把空回答当完成。
+- ✅ **复合只读命令**：`cd X && dir /b`、只读管道这类全段只读串联放行；重定向 / 命令替换 / 变量 / 后台执行仍硬拒。
+- ✅ **拒绝原因可归因**：bash 与 PowerShell 的 deny 报文带命中规则 / 语句 / 动词，不再只有「命令被阻止执行」或首词背锅。
+- ✅ **压缩摘要取错消息**：改为按 id 差集取本次新增消息，避免摘要恒等于用户原始 prompt。
+- ✅ **重读守卫改按进展**：期间有新产物即重置计数（500 轮硬上限不变）。
+- ✅ 修复证据：10 条登记（`.trae/architecture/fix-evidence-log.jsonl`）。
+
 #### v0.5.14 (2026-10-26)  Linux AppImage 产物（修复 v0.5.13 打包失败）
 
 - ✅ **Linux AppImage 产物** - release 矩阵 Linux `deb,appimage`；AppImage 工具链（linuxdeploy /

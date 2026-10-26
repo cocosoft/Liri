@@ -122,6 +122,14 @@ export class ToolResultPostProcess {
   private readReExploreCounts = new Map<string, number>();
   /** BUG-05：是否已注入一次"重读收敛" steering（避免重复刷屏） */
   private readReExploreSteered = false;
+  /**
+   * F8（2026-10-27）：每次重读计数开始时的"已完成工作"条数基线。
+   *
+   * Liri 报告 P2-2：重读守卫只按**累计次数**判定 ⇒ 长任务里"边做边查"（持续产出文件、
+   * 同时回看同一份源码）也会在累计 5 次时被判空转。现改为**增量进展**判据：
+   * 期间只要有新产物（`completedWork` 增长），就重置该资源的重读计数。
+   */
+  private readReExploreArtifactBaseline = new Map<string, number>();
 
   constructor(private readonly deps: ToolResultPostProcessDeps) {}
 
@@ -230,6 +238,24 @@ export class ToolResultPostProcess {
     if (!resource) return;
 
     const key = `${name}:${resource}`;
+
+    // F8：期间有新产物 ⇒ 属"边做边查"，重置该资源的计数（不判空转）
+    const artifactCount = this.deps.getCompletedWork().length;
+    const baseline = this.readReExploreArtifactBaseline.get(key);
+    if (baseline === undefined) {
+      this.readReExploreArtifactBaseline.set(key, artifactCount);
+    } else if (artifactCount > baseline) {
+      this.readReExploreArtifactBaseline.set(key, artifactCount);
+      this.readReExploreCounts.set(key, 0);
+      logger.info('reactToolLoop:read_reexplore_reset_by_progress', {
+        sessionId: this.deps.getCtx().session.id,
+        toolName: name,
+        resource,
+        artifacts: artifactCount,
+      });
+      return;
+    }
+
     const count = (this.readReExploreCounts.get(key) ?? 0) + 1;
     this.readReExploreCounts.set(key, count);
     if (

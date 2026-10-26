@@ -1,6 +1,6 @@
 # 熔断分型与"环境阻塞"终止设计（LRO-09）
 
-> 状态：**设计稿（待拍板 3 项，见 §9）** ｜ 日期：2026-10-26
+> 状态：**已实施（2026-10-26：步骤 1a–4 + 台账）** ｜ 日期：2026-10-26
 > 来源：`dev_docs/20261026/长程任务失败排查工作计划-20261026.md` §3-R3 / §5-LRO-09
 > 证据：`dev_docs/20261026/证据/`（transcript + 失败窗口日志 + `tool_rules.json`）
 > 约束：分类**只能**基于结构化字段（CS02 禁止用错误字符串做状态判断）；删除/停用走 CD01–CD07。
@@ -172,7 +172,7 @@ consecutiveBlockedTurns        // 新增：permission_denied | safety_blocked | 
 | 4 | `fix(bash): 预处理拦截语义与安全拦截一致` | 预处理"禁止"分支不再返回 success（LRO-10 的交集） | 用例：被预处理拦下 ⇒ `status:'error'` + `failureKind:'safety_blocked'` |
 | 5 | `docs+evidence` | 台账登记 + 本 spec 状态改"已实施" | 台账三门禁绿 |
 
-> **进度（2026-10-26）**：步骤 1a ✅ · 1b ✅ · 2 ✅（`4b6b3986c`）· 3 ✅ · 4 ✅ · 步骤 5（台账）待做。
+> **进度（2026-10-26）**：步骤 1a ✅ · 1b ✅ · 2 ✅（`4b6b3986c`）· 3 ✅（`27b2460b3`）· 4 ✅（`71b0ba812`）· 5 ✅（台账 `CIRCUIT-BREAKER-CLASSIFICATION`）。
 > **4 的类型落点**：`ToolFailureKind` 单一事实源放在 `utils/toolContract/ToolResult.ts`（infra 层，
 > `tools`(app) 与 `session`(service) 都可合法向下依赖），`session/types/tool.ts` 以 re-export 复用。
 > **1a 是硬前置**：`chat/ReActToolLoop.ts` 抽取前 **2000 行**（= `R04-001` 上限，`split('\n')` 口径），

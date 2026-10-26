@@ -12768,6 +12768,43 @@
       "changelog": [],
       "reopenWhen": "若需恢复该探针：文件原本已跟踪 ⇒ `git log --oneline -- probe_sessions.ps1` 找删除前最后提交，再 `git show <commit>:probe_sessions.ps1 > probe_sessions.ps1` 原样取回（全文见 archive/evidence-detail.jsonl#ROOTCLEAN-PROBE-SCRIPT-RETIRED）",
       "notes": "【为什么这次删、上次保留】2026-10-16 的 ROOTCLEAN-REPORTS-SCRIPTS 按 CD01 判「保留」：① `dev_docs/trajectory-dual-source-evidence-report.md:94,104` 当它是可用工具；② 台账有「登记不改」处置。本次改判依据：该报告…（全文见 archive/evidence-detail.jsonl#ROOTCLEAN-PROBE-SCRIPT-RETIRED）"
+    },
+    {
+      "id": "CIRCUIT-BREAKER-CLASSIFICATION",
+      "title": "熔断分型：environment_blocked 与 circuit_breaker 分流（LRO-09 步骤 1a–4）",
+      "source": "用户 2026-10-26 指令「好的，从 LRO-01 开始」/「好的，执行吧」；依据 dev_docs/20261026/长程任务失败排查工作计划-20261026.md §3-R3；实测证据 dev_docs/20261026/证据/（04:17:23-27 日志 + tool_rules.json 同指纹 allow+deny）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/ReActLoop.ts",
+        "app/src/chat/toolResultPostProcess.ts",
+        "app/src/session/types/tool.ts",
+        "app/src/utils/toolContract/ToolResult.ts",
+        "app/src/permission/PermissionManager.ts",
+        "app/src/chat/services/ToolExecutionService.ts",
+        "app/src/tools/bash/BashTool.ts",
+        "app/src/chat/terminationOutput.ts",
+        "app/src/chat/ReActToolLoop.ts",
+        ".trae/specs/circuit-breaker-classification.md"
+      ],
+      "tests": [
+        "app/src/permission/__tests__/PermissionDenyLocatable.test.ts",
+        "app/tests/chat/toolFailureKindWiring.test.ts",
+        "app/tests/query/environmentBlockedTermination.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若出现「环境阻塞未按 2 轮收口」或「模型无效输出被误判为环境阻塞」：回看 app/src/query/ReActLoop.ts 的 classifyTurn() 与各 failureKind 生产者；回滚按提交粒度 779101f5c / a74e973f6 / 27b2460b3 / 71b0ba812 逐条 r…（全文见 archive/evidence-detail.jsonl#CIRCUIT-BREAKER-CLASSIFICATION）",
+      "notes": "【根因·实测】file_write 连续 3 次 Denied by rule，4 秒内烧完 consecutiveInvalidTurns（max 3）⇒ circuit_breaker；根因是 tool_rules.json 同工具同指纹 allow+deny 冲突，属环境层不可自愈。【为何分型】checkCir…（全文见 archive/evidence-detail.jsonl#CIRCUIT-BREAKER-CLASSIFICATION）"
     }
   ]
 }

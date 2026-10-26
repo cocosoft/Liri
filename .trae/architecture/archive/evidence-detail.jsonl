@@ -6469,3 +6469,24 @@
 {"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":2,"c":"【核查 CD01–CD04】全仓 grep `probe_sessions` 仅命中：脚本自身、paths.ts 注释、上述本地报告、台账历史记录；无 import / 构建入口 / 插件注册表 / DI / 运行时发现。脚本内容佐证「非产品代码」：一次性扫描候选会话目录并统计 events.jsonl / messages.jsonl。"}
 {"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":3,"c":"【回滚与边界】脚本为**已跟踪**文件 ⇒ git 历史即回滚点（CD06）；取回命令写进本地报告的更新提示。无测试改动（文件级清理，无运行时行为面）⇒ testVerified=false、e2eVerified=false。"}
 {"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"code#0","i":0,"c":"packages/kernel/src/core/paths.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"title","i":0,"c":"熔断分型：environment_blocked 与 circuit_breaker 分流（LRO-09 步骤 1a–4）"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"source","i":0,"c":"用户 2026-10-26 指令「好的，从 LRO-01 开始」/「好的，执行吧」；依据 dev_docs/20261026/长程任务失败排查工作计划-20261026.md §3-R3；实测证据 dev_docs/20261026/证据/（04:17:23-27 日志 + tool_rules.json 同指纹 allow+deny）"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"reopenWhen","i":0,"c":"若出现「环境阻塞未按 2 轮收口」或「模型无效输出被误判为环境阻塞」：回看 app/src/query/ReActLoop.ts 的 classifyTurn() 与各 failureKind 生产者；回滚按提交粒度 779101f5c / a74e973f6 / 27b2460b3 / 71b0ba812 逐条 revert"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"notes","i":0,"c":"【根因·实测】file_write 连续 3 次 Denied by rule，4 秒内烧完 consecutiveInvalidTurns（max 3）⇒ circuit_breaker；根因是 tool_rules.json 同工具同指纹 allow+deny 冲突，属环境层不可自愈。"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"notes","i":1,"c":"【为何分型】checkCircuitBreaker 原只看 status===\"error\"：模型非法 tool_call、权限/安全拒绝、工具自身报错共用同一预算，最不可自愈的最快烧完。分类只读结构化字段 status+failureKind，禁解析 error 文本（CS02）。"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"notes","i":2,"c":"【拍板 2026-10-26】阈值 2（maxConsecutiveBlockedTurns，0=禁用）；ruleId 只给用户与日志（随 error 文本进终止文案，不注入模型可见输入）；不自动续跑，用户处理后重发。"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"notes","i":3,"c":"【落点取舍】classifyTurn 与 ToolResultEntry 同文件（新建文件会让 status/blocked 成为 lint:state-ratchet 未报备新增）；ToolFailureKind 单一事实源在 utils/toolContract/ToolResult.ts（infra），session/types/tool.ts re-export。"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"notes","i":4,"c":"【如实缺口 e2eVerified=false】未接真实会话验证「规则拒绝→2 轮→终止文案」全链；步骤 4 的 BashTool 用例为源码级断言 + 纯函数触发前提，未跑真实 bash 执行。"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#0","i":0,"c":"app/src/query/ReActLoop.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#1","i":0,"c":"app/src/chat/toolResultPostProcess.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#2","i":0,"c":"app/src/session/types/tool.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#3","i":0,"c":"app/src/utils/toolContract/ToolResult.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#4","i":0,"c":"app/src/permission/PermissionManager.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#5","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#6","i":0,"c":"app/src/tools/bash/BashTool.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#7","i":0,"c":"app/src/chat/terminationOutput.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#8","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#9","i":0,"c":".trae/specs/circuit-breaker-classification.md"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"tests#0","i":0,"c":"app/src/permission/__tests__/PermissionDenyLocatable.test.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"tests#1","i":0,"c":"app/tests/chat/toolFailureKindWiring.test.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"tests#2","i":0,"c":"app/tests/query/environmentBlockedTermination.test.ts"}

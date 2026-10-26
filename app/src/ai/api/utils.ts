@@ -63,13 +63,23 @@ export function sendJson(
   res.end(JSON.stringify(data));
 }
 
-/** 发送错误响应 */
+/**
+ * 发送**模型管理 REST API** 的错误响应（4xx 为主）。
+ *
+ * ⚠️ 与 `infrastructure/http/handlers/handler-utils.ts#sendError` **同名但不是同一实现**：
+ * 后者接收 `unknown` 错误、经 `handleError` 记账（Logger + ErrorTracker）、默认 500；
+ * 本函数接收**已格式化的 message**、不记账、默认 400，并借 `sendJson` 复用 `headersSent` 保护。
+ * 两者服务于不同层（本函数只服务 `ai/api/*` 的轻量 REST 子域），**不要**为「去重」盲合并。
+ *
+ * 2026-10-26（W26-23）：补 `type` —— 此前本函数产出的响应体只有 `message`，
+ * 与 handler 层 `{ message, type }` 口径不一致 ⇒ 按 `error.type` 分派的消费方会掉进 undefined。
+ */
 export function sendError(
   res: http.ServerResponse,
   message: string,
   status = 400
 ): void {
-  sendJson(res, { error: { message } }, status);
+  sendJson(res, { error: { message, type: 'invalid_request_error' } }, status);
 }
 
 /** 路由处理器签名 */

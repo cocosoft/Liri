@@ -165,6 +165,37 @@ describe('PowerShell allowlist：按语句动词判定', () => {
     ).toBe(false);
   });
 
+  // F4（2026-10-27）：拒绝报文必须指向**真实原因**，不能再拿首词背锅
+  //（真机实测 83 次都写成「PowerShell 命令 "Select-String" 不在允许列表」）。
+  it('F4：方法调用被拒时，原因明确写"方法调用"（不再指向首词）', async () => {
+    const { explainPowerShellNotAllowed } =
+      await import('../../src/tools/PowerShellTool/PowerShellTool.js');
+    const why = explainPowerShellNotAllowed(
+      "$f='a.md'; Select-String -Path $f -Pattern x | % { $_.Line.Substring(0,260) }"
+    );
+    expect(why).not.toBeNull();
+    expect(why!.reason).toContain('方法调用');
+
+    // 判定结果不变（仍拒绝）
+    expect(
+      isPowerShellCommandAllowed(
+        "$f='a.md'; Select-String -Path $f -Pattern x | % { $_.Line.Substring(0,260) }"
+      )
+    ).toBe(false);
+  });
+
+  it('F4：动词不在白名单时，报文给出**命中的语句与动词**', async () => {
+    const { explainPowerShellNotAllowed } =
+      await import('../../src/tools/PowerShellTool/PowerShellTool.js');
+    const why = explainPowerShellNotAllowed(
+      'Get-Content a.md; Set-Content b.md x'
+    );
+    expect(why).not.toBeNull();
+    expect(why!.verb).toBe('set-content');
+    expect(why!.statement).toContain('Set-Content');
+    expect(why!.reason).toContain('命令「set-content」不在允许列表');
+  });
+
   it('真机失败脚本通过**完整**安全链（allowlist → analyzer → sandbox）', () => {
     const command =
       "$s='E:\\PY\\Documents\\CODES\\PY_APP\\app\\src'; " +

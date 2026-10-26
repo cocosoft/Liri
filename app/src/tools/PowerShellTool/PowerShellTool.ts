@@ -216,38 +216,94 @@ function extractPowerShellStatementVerb(statement: string): string | null {
     : null;
 }
 
+/** 拒绝原因（F4，2026-10-27） */
+export interface PowerShellNotAllowed {
+  /** 人读原因（可直接拼进错误报文） */
+  reason: string;
+  /** 命中的语句（截断 ≤120 字）—— 让模型知道该改哪一段 */
+  statement?: string;
+  /** 命中的动词（命令名） */
+  verb?: string;
+}
+
+/** 单个动词是否命中白名单（`get-` 为前缀族，其余精确匹配） */
+function isAllowedPowerShellVerb(verb: string): boolean {
+  for (const allowed of ALLOWED_POWERSHELL_COMMANDS) {
+    if (allowed.endsWith('-') ? verb.startsWith(allowed) : verb === allowed) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * F4（2026-10-27）：**给出拒绝原因**而非只回布尔值。
+ *
+ * 真机实测（会话 `session_mvoqs1ho875ea6b95e`，Liri 报告 R2）：83 次拒绝报文都写成
+ * `PowerShell 命令 "<首词>" 不在允许列表` —— 而真实原因往往**不是**首词那条命令
+ * （可能是脚本里另一处方法调用/静态调用）。模型据此改不动，只能反复重试。
+ *
+ * ⚠️ **本轮只改"报错"，不放宽判定**（安全面零变更，与 §12.3 的 F4 分期一致）：
+ * 方法调用/静态调用仍是**整脚本 fail-closed**（`$_.Line.Substring(…)` 依旧被拒），
+ * 只是报文会明确说"检测到方法调用"，让模型改写而不是盲试。是否把方法调用收窄到
+ * "命令分派面"需单独做安全评审（会放宽 `Get-ChildItem | % { Remove-Item $_ }` 一类）。
+ *
+ * @returns `null` = 允许；否则为可读拒绝原因
+ */
+export function explainPowerShellNotAllowed(
+  command: string
+): PowerShellNotAllowed | null {
+  if (!command.trim()) return { reason: '命令为空' };
+
+  // ① 方法调用（fail-closed 不变）：`(Get-Item x).Delete()` 一类"看似只读"的调用
+  if (/\.[A-Za-z_]\w*\s*\(/.test(command)) {
+    return {
+      reason:
+        '检测到方法调用（obj.Method(…)），属任意代码面；请改写为单一命令或去掉方法链',
+    };
+  }
+  // ② 静态方法调用（fail-closed 不变）
+  if (/::\s*[A-Za-z_]\w*\s*\(/.test(command)) {
+    return {
+      reason:
+        '检测到静态方法调用（[Type]::Method(…)），属任意代码面；请改写为单一命令',
+    };
+  }
+
+  const statements = splitPowerShellStatements(command);
+  const verbs = statements.map(extractPowerShellStatementVerb);
+
+  // ③ 纯赋值/注释脚本没有可执行动词 ⇒ 维持原策略（拒绝）
+  if (verbs.filter((v): v is string => v !== null).length === 0) {
+    return { reason: '脚本没有可执行命令（纯赋值/注释），不在允许列表' };
+  }
+
+  // ④ 逐语句取动词：报**第一处未命中**的语句与动词（不再拿首词背锅）
+  for (let i = 0; i < statements.length; i++) {
+    const verb = verbs[i];
+    if (verb === null) continue;
+    if (isAllowedPowerShellVerb(verb)) continue;
+    return {
+      reason: `命令「${verb}」不在允许列表`,
+      statement: statements[i].trim().slice(0, 120),
+      verb,
+    };
+  }
+
+  return null;
+}
+
 /**
  * 检查 PowerShell 命令是否在白名单中
  * @param command PowerShell 命令
  * @returns 是否允许
  *
  * 导出仅供单测断言（`PowerShellTool.execute` 会在真正 spawn 前调用它）。
+ * F4：改为 `explainPowerShellNotAllowed(...) === null` 的薄封装 —— 判定逻辑单点，
+ * 调用方可另取原因（不再出现"首词背锅"的报文）。
  */
 export function isPowerShellCommandAllowed(command: string): boolean {
-  if (!command.trim()) return false;
-
-  // 括号前缀被放开后，`(Get-Item x).Delete()` 这类"看似只读"的方法调用必须 fail-closed。
-  if (/\.[A-Za-z_]\w*\s*\(/.test(command)) return false;
-  // 静态方法调用（`[IO.File]::Delete(...)`）与 `.Delete()` 同属任意代码面 ⇒ fail-closed。
-  if (/::\s*[A-Za-z_]\w*\s*\(/.test(command)) return false;
-
-  const verbs = splitPowerShellStatements(command)
-    .map(extractPowerShellStatementVerb)
-    .filter((verb): verb is string => verb !== null);
-
-  // 纯赋值/注释脚本没有可执行动词 ⇒ 维持原策略（拒绝）。
-  if (verbs.length === 0) return false;
-
-  return verbs.every((verb) => {
-    for (const allowed of ALLOWED_POWERSHELL_COMMANDS) {
-      // `get-` 一类是**前缀族**（尾部带 `-`）；其余为**精确命令名**
-      //（收紧：避免 `node.ps1` 被 `startsWith('node')` 误放行）
-      if (allowed.endsWith('-') ? verb.startsWith(allowed) : verb === allowed) {
-        return true;
-      }
-    }
-    return false;
-  });
+  return explainPowerShellNotAllowed(command) === null;
 }
 
 /**
@@ -315,12 +371,18 @@ export function evaluatePowerShellSecurity(
     };
   }
 
-  if (!isPowerShellCommandAllowed(command)) {
+  const notAllowed = explainPowerShellNotAllowed(command);
+  if (notAllowed) {
+    // F4（2026-10-27）：报文必须指向**真实原因与命中语句**；旧实现只回显首词
+    //（`PowerShell 命令 "Select-String" 不在允许列表`），而实际原因可能是别处的方法调用。
     return {
       allowed: false,
       behavior: 'deny',
       code: 'COMMAND_NOT_ALLOWED',
-      message: `PowerShell 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
+      message:
+        `PowerShell 命令被拒绝：${notAllowed.reason}` +
+        (notAllowed.verb ? `｜动词：${notAllowed.verb}` : '') +
+        (notAllowed.statement ? `｜语句：${notAllowed.statement}` : ''),
     };
   }
 
@@ -739,7 +801,27 @@ export class PowerShellTool extends BaseTool {
         });
       }
 
-      return createFailureResult(psMsg, {
+      // F7（2026-10-27）：失败报文不能只剩 `pwsh … -EncodedCommand <base64>`。
+      // 实测（Liri 报告 P2-1）：模型/用户看到一串不可读编码 + 无 stderr，无法定位原因。
+      // 现：①把 base64 载荷替换为**真实脚本预览**；②回填 stderr 末 40 行。
+      const errWithStreams = error as { stdout?: string; stderr?: string };
+      let failureDetail = psMsg;
+      if (failureDetail.includes('-EncodedCommand')) {
+        failureDetail = failureDetail.replace(
+          /-EncodedCommand\s+\S+/,
+          `-Command "<脚本预览: ${commandPreview.replace(/\s+/g, ' ').slice(0, 120)}>"`
+        );
+      }
+      const stderrText =
+        typeof errWithStreams.stderr === 'string'
+          ? errWithStreams.stderr.trim()
+          : '';
+      if (stderrText) {
+        const stderrTail = stderrText.split(/\r?\n/).slice(-40).join('\n');
+        failureDetail += `\n[stderr]\n${stderrTail}`;
+      }
+
+      return createFailureResult(failureDetail, {
         executionTime,
         errorLevel: ErrorLevel.RETRYABLE,
         metadata: { errorCategory: 'execution', errorCode: 'EXECUTION_FAILED' },

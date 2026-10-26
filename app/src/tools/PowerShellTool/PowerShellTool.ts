@@ -21,6 +21,9 @@ import {
   createSuccessResult,
   createFailureResult,
   checkPathAccessibility,
+  // LRO-10（2026-10-26）：空输出判定/文案与 BashTool 同一口径（禁止双轨）
+  isEmptyOutput,
+  EMPTY_OUTPUT_HINT,
 } from '../utils/ToolUtils';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -673,6 +676,15 @@ export class PowerShellTool extends BaseTool {
 
       const output = stdout + (stderr ? '\n[stderr]:\n' + stderr : '');
 
+      // LRO-10（2026-10-26）：成功但完全无输出 ⇒ 结构化标记 + 提示（状态仍是成功）
+      const emptyResult = isEmptyOutput(stdout, stderr);
+      if (emptyResult) {
+        logger.info('powershell: empty_result', {
+          sessionId: context?.sessionId,
+          commandPreview: command.slice(0, 200),
+        });
+      }
+
       onProgress?.({
         toolUseID: toolUseId,
         data: {
@@ -682,9 +694,11 @@ export class PowerShellTool extends BaseTool {
         },
       });
 
-      return createSuccessResult(output, {
+      return createSuccessResult(emptyResult ? EMPTY_OUTPUT_HINT : output, {
         executionTime: Date.now() - startTime,
-        output,
+        output: emptyResult ? EMPTY_OUTPUT_HINT : output,
+        // LRO-10：空输出是**事实标记**，不是失败（前端/审计可据此区分"跑了但没信息"）
+        ...(emptyResult ? { metadata: { emptyResult: true } } : {}),
       });
     } catch (error: unknown) {
       onProgress?.({

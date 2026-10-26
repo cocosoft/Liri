@@ -18,7 +18,12 @@ import type {
 } from '../types';
 import { createToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { createBashProgress } from '../types/ToolProgress';
-import { ToolUtils } from '../utils/ToolUtils';
+// LRO-10（2026-10-26）：空输出判定/文案落在 `tools/utils/ToolUtils`（与 PowerShellTool 同一口径）
+import {
+  ToolUtils,
+  isEmptyOutput,
+  EMPTY_OUTPUT_HINT,
+} from '../utils/ToolUtils';
 import type { InterruptBehavior } from '../types/Tool';
 import { ToolTag } from '../types/Tool';
 import {
@@ -619,6 +624,15 @@ export class BashTool extends BaseTool {
     const output = stdout + (stderr ? '\n' + stderr : '');
     const executionTime = ToolUtils.calculateExecutionTime(startTime);
 
+    // LRO-10（2026-10-26）：成功但完全无输出 ⇒ 结构化标记 + 提示（状态仍是成功）
+    const emptyResult = isEmptyOutput(stdout, stderr);
+    if (emptyResult) {
+      logger.info('bash: empty_result', {
+        sessionId: context?.sessionId,
+        commandPreview: command.slice(0, 200),
+      });
+    }
+
     // 报告执行完成
     onProgress?.({
       toolUseID: context.toolUseId || 'bash-tool',
@@ -626,20 +640,27 @@ export class BashTool extends BaseTool {
     });
 
     // 对标CC：返回元数据丰富的结果
-    return ToolUtils.createSuccessResult(output, {
-      output,
-      errorOutput: stderr,
-      executionTime,
-      toolName: 'bash',
-      executionId: ToolUtils.generateExecutionId('bash'),
-      timestamp: Date.now(),
-      newMessages: [
-        {
-          role: 'system',
-          content: `Command executed successfully in ${executionTime}ms`,
-        },
-      ],
-    });
+    return ToolUtils.createSuccessResult(
+      emptyResult ? EMPTY_OUTPUT_HINT : output,
+      {
+        output: emptyResult ? EMPTY_OUTPUT_HINT : output,
+        errorOutput: stderr,
+        executionTime,
+        toolName: 'bash',
+        executionId: ToolUtils.generateExecutionId('bash'),
+        timestamp: Date.now(),
+        // LRO-10：空输出是**事实标记**，不是失败（前端/审计可据此区分"跑了但没信息"）
+        ...(emptyResult ? { metadata: { emptyResult: true } } : {}),
+        newMessages: [
+          {
+            role: 'system',
+            content: emptyResult
+              ? `Command executed successfully in ${executionTime}ms (no output)`
+              : `Command executed successfully in ${executionTime}ms`,
+          },
+        ],
+      }
+    );
   }
 
   // G18（2026-10-11）：5 个安全门（`checkPathSafety` / `checkDangerousCommand` / `checkAstAndAnalyzer` /

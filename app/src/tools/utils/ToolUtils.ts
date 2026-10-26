@@ -62,6 +62,26 @@ export function getToolBaseDir(context?: {
 }
 
 /**
+ * LRO-10（2026-10-26）：命令**成功但完全无输出**时替换正文的提示（`bash` / `powershell` 共用）。
+ *
+ * 失败窗口实测：这类调用返回 success 却拿不到任何信息，模型误以为"命令跑过了、
+ * 环境就是这样"，于是继续盲试下一条。空输出本身**不是失败**（`mkdir` 等正常静默）
+ * ⇒ 不改状态、不进熔断预算，只把事实结构化（`metadata.emptyResult`）并明确提示。
+ */
+export const EMPTY_OUTPUT_HINT =
+  '（命令执行成功，但没有任何输出。若你期望获取信息，请检查路径/参数或改换命令；不要原样重复本条。）';
+
+/**
+ * LRO-10：判定"成功但无任何输出"（纯函数，供两个 shell 工具与单测共用）。
+ *
+ * 只看 stdout + stderr 的**合并文本**是否为空（含纯空白）；stdout 为空但 stderr 有内容
+ * 不算空（stderr 本身就是信息）。前端/审计消费的是 `metadata.emptyResult`。
+ */
+export function isEmptyOutput(stdout: string, stderr: string): boolean {
+  return `${stdout}${stderr ? `\n${stderr}` : ''}`.trim() === '';
+}
+
+/**
  * 必填参数校验（单一实现：`ToolExecutor.validateInput` 与长程任务编排器共用）。
  *
  * **背景（2026-10-22 真机日志）**：PDCA 步骤内的 `file_write` 连续三次报

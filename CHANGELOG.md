@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **SANDBOX-LEVEL-HONEST-DEGRADE**：无隔离后端时权限级别诚实降级 —— 验证 tsc0|arch0|kapi0|unit3；基线 级别只进 S3，S1(mode=none)已先拒 ⇒ Windows 桌面配了零生效且无任何提示（详情见 archive/evidence-detail.jsonl#SANDBOX-LEVEL-HONEST-DEGRADE）
 - ✅ **TERMINATION-TEXT-INVARIANT**：锁定终止必有正文的不变量 —— 验证 tsc0|arch0|fnsize0|state0；基线 此前无用例守护「非 completed 终止必须给正文」（详情见 archive/evidence-detail.jsonl#TERMINATION-TEXT-INVARIANT）
 - ✅ **LOOP-GUARD-PROGRESS-AWARE**：重读守卫改按增量进展判定 —— 验证 tsc0|arch0|fnsize0|state0；基线 纯累计次数 ⇒ 边做边查被误判空转（详情见 archive/evidence-detail.jsonl#LOOP-GUARD-PROGRESS-AWARE）
 - ✅ **PATH-MISSING-SIBLING-HINT**：路径缺失时给出同级目录候选 —— 验证 tsc0|arch0|fnsize0|state0；基线 只提示「请确认拼写」⇒ 模型沿用旧路径反复重试（详情见 archive/evidence-detail.jsonl#PATH-MISSING-SIBLING-HINT）

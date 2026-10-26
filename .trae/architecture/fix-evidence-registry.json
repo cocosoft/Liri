@@ -13419,6 +13419,36 @@
       "changelog": [],
       "reopenWhen": "再现 assistant 正文为空的终止（全文见 archive/evidence-detail.jsonl#TERMINATION-TEXT-INVARIANT）",
       "notes": "仅测试；核实兜底已覆盖四类原因（全文见 archive/evidence-detail.jsonl#TERMINATION-TEXT-INVARIANT）"
+    },
+    {
+      "id": "SANDBOX-LEVEL-HONEST-DEGRADE",
+      "title": "沙箱页无隔离后端时权限级别诚实降级",
+      "source": "排查计划 §11.1-B（沙箱页零生效）/ §11.2 P1-1 方案①",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/kernel/src/core/spi/SandboxService.ts",
+        "app/src/entrypoints/spiWiring.ts",
+        "app/src/infrastructure/http/handlers/sandbox-handlers.ts",
+        "client/src/components/views/SandboxPage.tsx",
+        "client/src/components/settings/TrustIsolationPanel.tsx"
+      ],
+      "tests": [
+        "app/tests/http/sandboxConfigRuntimeIsolation.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "本地工作区改为参与豁免判定（方案②）时重评降级提示（全文见 archive/evidence-detail.jsonl#SANDBOX-LEVEL-HONEST-DEGRADE）",
+      "notes": "SPI 快照新增 runtimeIsolation（= resolveSandboxExecutionSignal().mode）；config/status 双端透出；两处 UI 在 none 时禁用级别控件并给黄色说明（全文见 archive/evidence-detail.jsonl#SANDBOX-LEVEL-HONEST-DEGRADE）"
     }
   ]
 }

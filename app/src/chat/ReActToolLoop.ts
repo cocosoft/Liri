@@ -47,7 +47,10 @@ import { StreamingLlm } from './streamingLlm.js';
 import {
   ToolResultPostProcess,
   safeStringify,
+  // LRO-09 步骤 1a：跳过调用的结果回填（原 `act()` 内 `recordSkippedTool` 闭包，纯搬运）
+  recordSkippedToolCall,
   type ParallelBatchItem,
+  type ToolRoundResults,
 } from './toolResultPostProcess.js';
 import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
@@ -783,10 +786,8 @@ export class ReActToolLoop extends ReActLoop<
   ): AsyncGenerator<ReActEvent, ActResult> {
     this.loopState.toolTurnCount++;
     const results: ToolResultEntry[] = [];
-    const processedResults: Array<{
-      normalizedToolCall: ToolCall;
-      result: ToolResult;
-    }> = [];
+    const processedResults: ToolRoundResults['processedResults'] = [];
+    const roundResults: ToolRoundResults = { results, processedResults };
     // M3-T3.2（2026-08-31）：读类并发批次——isConcurrencySafe 工具批量并发执行，
     // 其余严格串行。遇到非并发安全工具或循环结束时 flush。
     const parallelBatch: ParallelBatchItem[] = [];
@@ -836,35 +837,15 @@ export class ReActToolLoop extends ReActLoop<
       }
 
       for (const tc of calls) {
-        // PAIR-FILL（2026-08-30）：被跳过工具必须回填 processedResults——assistant 消息
-        // 携带全部 tool_calls，若部分调用无 tool 结果消息，OpenAI 兼容 API 返回 400
-        // "tool_calls must be followed by tool messages"（reactLoop:[reasoning] 400 根因）。
-        // 与成功分支的 processedResults.push 对称，保证 buildToolRoundMessages 配对完整。
-        const recordSkippedTool = (error: string) => {
-          results.push({
-            toolCallId: tc.id,
-            name: tc.name,
-            status: 'error' as const,
-            error,
-          });
-          processedResults.push({
-            normalizedToolCall: {
-              id: tc.id,
-              name: tc.name,
-              arguments: tc.input,
-            },
-            result: {
-              toolCallId: tc.id,
-              toolName: tc.name,
-              error,
-            },
-          });
-        };
+        // LRO-09 步骤 1a：跳过结果的双写（results + processedResults）已抽到
+        // `./toolRoundSkippedResult`（PAIR-FILL 说明见该模块头注释）。
         // 2026-10-07：PathGuard 命中的调用 ⇒ **仅跳过本次**（回填失败结果，配对完整），
         // 同批其余调用照常执行、本轮继续（详见上方 guardBlockedReasonById 注释）。
         const guardReason = guardBlockedReasonById.get(tc.id);
         if (guardReason) {
-          recordSkippedTool(
+          recordSkippedToolCall(
+            roundResults,
+            tc,
             `路径被安全护栏拦截（本次调用未执行）：${guardReason}`
           );
           continue;
@@ -903,7 +884,11 @@ export class ReActToolLoop extends ReActLoop<
                 sessionId: this.ctx.session.id,
                 toolName: tc.name,
               });
-              recordSkippedTool('已有待处理交互，决策门控被跳过');
+              recordSkippedToolCall(
+                roundResults,
+                tc,
+                '已有待处理交互，决策门控被跳过'
+              );
               continue;
             }
             const gatePromise = registerPendingAnswer(
@@ -955,7 +940,7 @@ export class ReActToolLoop extends ReActLoop<
                 toolCallId: tc.id,
                 toolName: tc.name,
               });
-              recordSkippedTool('用户取消执行');
+              recordSkippedToolCall(roundResults, tc, '用户取消执行');
               continue;
             }
           }
@@ -987,7 +972,11 @@ export class ReActToolLoop extends ReActLoop<
                 toolName: tc.name,
                 toolCallId: tc.id,
               });
-              recordSkippedTool('已有待处理交互，本次提问被拒绝');
+              recordSkippedToolCall(
+                roundResults,
+                tc,
+                '已有待处理交互，本次提问被拒绝'
+              );
               continue;
             }
             const { questionData, promise } = this._registerInteraction(tc);

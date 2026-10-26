@@ -168,9 +168,13 @@ consecutiveBlockedTurns        // 新增：permission_denied | safety_blocked | 
 | 4 | `fix(bash): 预处理拦截语义与安全拦截一致` | 预处理"禁止"分支不再返回 success（LRO-10 的交集） | 用例：被预处理拦下 ⇒ `status:'error'` + `failureKind:'safety_blocked'` |
 | 5 | `docs+evidence` | 台账登记 + 本 spec 状态改"已实施" | 台账三门禁绿 |
 
-> **进度（2026-10-26）**：步骤 2 ✅（`4b6b3986c`）· 步骤 1a/1b 待做。
-> **1a 是硬前置**：`chat/ReActToolLoop.ts` 已 **2012 行**（`R04-001` 上限 2000），1b 的接线要 +12 行
-> ⇒ 直接被架构门禁拒提；且 pre-commit 的 `eslint --fix`（prettier）会把压行的改动重新折回去，**压行不是解法**。
+> **进度（2026-10-26）**：步骤 2 ✅（`4b6b3986c`）· 步骤 1a ✅（本次提交）· 步骤 1b 待做。
+> **1a 是硬前置**：`chat/ReActToolLoop.ts` 抽取前 **2000 行**（= `R04-001` 上限，`split('\n')` 口径），
+> 1b 的接线要 +12 行 ⇒ 直接被架构门禁拒提；且 pre-commit 的 `eslint --fix`（prettier）
+> 会把压行的改动重新折回去，**压行不是解法**。
+> 1a 后实测 **1989 行**（跳过结果构造已抽到 `app/src/chat/toolResultPostProcess.ts` 的
+> `recordSkippedToolCall`，与成功路径 `_postProcessToolResult` 同处：新建独立文件会让
+> `status: 'error'` 成为 `lint:state-ratchet` 的**新文件新出现点**而阻断提交，且同处更聚合）。
 
 > 步骤 3 依赖 1b、2；步骤 4 独立。**不要**把 1b+3 合提（回滚粒度）。
 

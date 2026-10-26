@@ -559,3 +559,45 @@ export class ToolResultPostProcess {
     return { resultEntry, processedEntry, todoData: todoData ?? undefined };
   }
 }
+
+/** 一次工具轮累积的两份记录（对外结果流 / 下一轮消息回填） */
+export interface ToolRoundResults {
+  results: ToolResultEntry[];
+  processedResults: Array<{ normalizedToolCall: ToolCall; result: ToolResult }>;
+}
+
+/**
+ * 回填一次「调用被跳过」的失败结果（双写 `results` + `processedResults`）。
+ *
+ * PAIR-FILL（2026-08-30）：被跳过的工具调用**必须**回填失败结果——assistant 消息携带全部
+ * tool_calls，若部分调用没有对应的 tool 结果消息，OpenAI 兼容 API 返回 400
+ * "tool_calls must be followed by tool messages"（reactLoop:[reasoning] 400 根因）。
+ * 与上面 `_postProcessToolResult` 成功路径的 `resultEntry` / `processedEntry` 对称。
+ *
+ * LRO-09 步骤 1a：由 `ReActToolLoop.act()` 内的 `recordSkippedTool` 闭包纯搬运而来
+ * （不新增判定、不改变文案）。
+ */
+export function recordSkippedToolCall(
+  round: ToolRoundResults,
+  tc: ToolCallEntry,
+  error: string
+): void {
+  round.results.push({
+    toolCallId: tc.id,
+    name: tc.name,
+    status: 'error',
+    error,
+  });
+  round.processedResults.push({
+    normalizedToolCall: {
+      id: tc.id,
+      name: tc.name,
+      arguments: tc.input,
+    },
+    result: {
+      toolCallId: tc.id,
+      toolName: tc.name,
+      error,
+    },
+  });
+}

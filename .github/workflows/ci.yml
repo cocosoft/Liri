@@ -69,6 +69,16 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: bun run verify:win-sandbox
 
+    # ---------------------------------------------------------------------
+    # macOS 兜底沙箱（2026-10-26，`.trae/specs/macos-sandbox-exec.md` §5 / §6.1）
+    # 与 Windows 侧同构：用生产同一套模块（探测器 / SBPL 生成器 / 执行器）跑 4 条断言
+    # （白名单内可写 / 白名单外拒写 / 系统文件可读 / exit 125 不得被判为初始化失败）。
+    # 这把 spec §6.1「待 Mac 真机执行」的长期挂账，收敛为**每次 CI 自动验证**。
+    # ---------------------------------------------------------------------
+    - name: Verify macOS sandbox (seatbelt write isolation)
+      if: matrix.os == 'macos-latest'
+      run: bun run verify:sandbox-macos
+
     - name: Run linter
       # 静态检查与平台无关；macOS runner 内存较小，eslint 全量扫描会 OOM
       # （2026-10-18 实测：`FATAL ERROR: Ineffective mark-compacts near heap limit` ⇒ exit 134）。

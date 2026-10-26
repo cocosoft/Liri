@@ -148,7 +148,7 @@
 | 纯函数 | `MacOSSandboxDetector`：注入 `existsSync` 桩 ⇒ available / unavailable 两态 | ✅ |
 | 门禁 | `decideBashLandlockGate`：darwin+available ⇒ `sandbox-exec`；darwin+unavailable ⇒ `refuse`；linux 三分支**回归不变**；其他平台仍 refuse | ✅ |
 | 执行器 | 注入式 runner：断言 argv 形状 `[-p, <profile>, --, <shell>, -c, <cmd>]`、超时/输出上限/abort 调用 | ✅（桩） |
-| 真机 | macOS 实机：`bashEnabled=true` 下 `echo x > /tmp/a` 成功、`echo x > ~/Documents/a` 失败（`Operation not permitted`） | ❌ CI 无 macOS ⇒ 由 **`bun run verify:sandbox-macos`** 一键自证（脚本见下） |
+| 真机 | macOS 实机：`bashEnabled=true` 下 `echo x > /tmp/a` 成功、`echo x > ~/Documents/a` 失败（`Operation not permitted`） | ✅ **已接入 CI（2026-10-26）**：`Verify macOS sandbox` step（`macos-latest`）跑 `bun run verify:sandbox-macos` |
 
 **真机自证脚本（2026-10-26 新增）**：`app/scripts/verify-macos-sandbox.ts` —— 复用生产同一套模块
 （探测器 / SBPL 生成器 / `sandbox-exec` 执行器），在临时目录里跑 4 条断言：
@@ -158,8 +158,10 @@
 
 > CI 现状（**2026-10-26 订正**）：`ci.yml` 的 Test Suite 矩阵是 `ubuntu-latest, windows-latest, macos-latest`
 > ⇒ CI **有** macOS，且 `bun test` 在三平台都跑（本文件的纯函数用例会真在 macOS 上执行）。
-> 但**真机探针仍未接入 CI**：`sandbox-exec` 自 10.15 起被 Apple 标为 deprecated，arm64 runner 上是否稳定可用
-> 未经验证 ⇒ 真机行为仍由 `verify:sandbox-macos` 自证（接入 CI 见 windows-sandbox.md §4 第 4 步的同款做法）。
+> **真机探针已接入 CI**（2026-10-26，W26-01）：`ci.yml` 新增 `Verify macOS sandbox (seatbelt write isolation)`
+> （`if: matrix.os == 'macos-latest'`）⇒ 4 条真机断言每次 CI 自动跑，不再依赖人工在 Mac 上执行。
+> `sandbox-exec` 自 10.15 起被 Apple 标为 deprecated，若某版 runner 上不可用，该脚本会以 exit 2 明确报
+> 「不可用」而不是静默降级。
 
 ---
 
@@ -176,11 +178,13 @@
 
 ---
 
-## 6.1 真机验证记录（待填）
+## 6.1 真机验证记录
 
-**状态**：⏳ **未执行（2026-10-26）** —— 开发机为 Windows；CI 虽有 macOS 矩阵，但真机探针尚未接入（见 §5 订正说明）。
+**状态**：✅ **已自动化（2026-10-26，W26-01）** —— `ci.yml` 的 `Test Suite (macos-latest)` 新增
+`Verify macOS sandbox (seatbelt write isolation)` step，每次 CI 在真实 macOS runner 上跑 4 条断言；
+不再依赖人工在 Mac 上执行。首次 CI 通过后本节回填**真实输出**。
 
-**执行方式（在 Mac 上）**：
+**本地复现（在 Mac 上）**：
 
 ```bash
 cd app && bun run verify:sandbox-macos
@@ -197,12 +201,16 @@ cd app && bun run verify:sandbox-macos
 ✅ macOS 兜底沙箱自证通过（4/4）
 ```
 
-**填写位置**：跑完后把实际输出贴回本节的代码块，并同步更新台账 `MACOS-SANDBOX-SELFCHECK` 的
-`baseline`（当前为"win32 实测 exit 2；4 条真机断言待 Mac 执行"）。
+**CI 实际输出（待首次绿后回填）**：
+
+```
+（占位：首次 `Test Suite (macos-latest)` 通过后，把 `Verify macOS sandbox` 步骤日志贴入）
+```
 
 **若失败**：把失败行的 `detail`（含 `exit` / `stderr` 前 120 字符）贴回，按 §4 失败模式表定位 ——
 白名单外仍可写 ⇒ profile 未生效（查 `-p` 实参与 SBPL 语法）；`125` 被判 `sandboxInitFailed` ⇒ 检查
-`bashLandlockExec` 里是否为 landlock 专属分支（该守卫不得被移除）。
+`bashLandlockExec` 里是否为 landlock 专属分支（该守卫不得被移除）；exit 2 ⇒ runner 上 `sandbox-exec`
+不可用（Apple 已标 deprecated），此时需评估改用 `App Sandbox`/`sandbox_init` 或降级为"仅 Linux 硬隔离"。
 
 ---
 

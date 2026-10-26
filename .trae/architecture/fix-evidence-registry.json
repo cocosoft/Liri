@@ -13101,6 +13101,36 @@
       "changelog": [],
       "reopenWhen": "若出现「规则列表来源显示异常」「settings 来源规则被误当成可删」「解除提示与实际接口不一致」：回看 RuleManager.loadRules 迁移段与 PermissionManager._denyByRule；回滚 = revert fa1012fba（全文见 archive/evidence-detail.jsonl#PERMISSION-RULE-SOURCE-REMOVAL-HINT）",
       "notes": "【根因】createPermissionRule 默认 source=userSettings，而三个写入口（PermissionManager.addRule、inboxApproval 始终允许/白名单）都不传 source ⇒ tool_rules.json 全标成用户设置，磁盘上没有 settings.jso…（全文见 archive/evidence-detail.jsonl#PERMISSION-RULE-SOURCE-REMOVAL-HINT）"
+    },
+    {
+      "id": "PERMISSION-DENY-STRUCTURED-TOOL-RESULT",
+      "title": "规则拒绝的结构化依据进工具结果（denyInfo → metadata.permissionDeny）",
+      "source": "2026-10-26 用户指令「继续处理 LRO-07 剩余项」；验收锚点「工具结果与日志都带 ruleId」；LRO-05 实测工具元数据为 null",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/permission/types/PermissionDecision.ts",
+        "app/src/permission/PermissionManager.ts",
+        "app/src/permission/index.ts",
+        "app/src/chat/services/ToolExecutionService.ts"
+      ],
+      "tests": [
+        "app/tests/permission/ruleSourceAndRemovalHint.test.ts",
+        "app/tests/chat/toolFailureKindWiring.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "若出现「工具结果 metadata 缺 permissionDeny」「ask/allow 被误填 denyInfo」「上游拿 permissionDeny 做业务判定」：回看 PermissionManager._checkPermissionForToolResult 与 ToolExecutionService…（全文见 archive/evidence-detail.jsonl#PERMISSION-DENY-STRUCTURED-TOOL-RESULT）",
+      "notes": "【根因】step1 把 ruleId 等放进 decision.context，但 `_checkPermissionForToolResult` 只回 decision{behavior,updatedInput,reason} ⇒ context 被截断；工具结果 metadata 恒为 null（LRO-05 …（全文见 archive/evidence-detail.jsonl#PERMISSION-DENY-STRUCTURED-TOOL-RESULT）"
     }
   ]
 }

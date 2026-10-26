@@ -6617,3 +6617,15 @@
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"tests#1","i":0,"c":"app/src/permission/__tests__/PermissionDenyLocatable.test.ts"}
 {"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"notes","i":3,"c":"【矩阵复核，2026-10-26】路由矩阵已按当前代码逐行复核并落到正式文档 `.trae/specs/long-task-routing.md` §9（唯一事实源）：原 10 行中 7 行证据引用（路径/行号）过期、3 行条件表述不完整（第 6 行兼有），均订正；补充 3 类真实入口（Inbox 审批续跑 / 远程 `/goal` 执行 / `PDCA_AUTO_REPLAN` 自动 replan）。"}
 {"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"notes","i":4,"c":"【复核附带发现】`POST /v1/pdca/:id/confirm` 恒 no-op（app 编排器无 `confirm`）；`handleResumeCheckpoint`/`handlePdcaResumeCheckpoint` 已定义但未注册路由（且其注册表是 TAORLoop）。两条均登记到预存错误文档（未修，影响低）。"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"title","i":0,"c":"规则拒绝的结构化依据进工具结果（denyInfo → metadata.permissionDeny）"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"source","i":0,"c":"2026-10-26 用户指令「继续处理 LRO-07 剩余项」；验收锚点「工具结果与日志都带 ruleId」；LRO-05 实测工具元数据为 null"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"reopenWhen","i":0,"c":"若出现「工具结果 metadata 缺 permissionDeny」「ask/allow 被误填 denyInfo」「上游拿 permissionDeny 做业务判定」：回看 PermissionManager._checkPermissionForToolResult 与 ToolExecutionService 的 DENY 分支；回滚 = revert e4d80f233"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"notes","i":0,"c":"【根因】step1 把 ruleId 等放进 decision.context，但 `_checkPermissionForToolResult` 只回 decision{behavior,updatedInput,reason} ⇒ context 被截断；工具结果 metadata 恒为 null（LRO-05 实测「元数据为 null」）。"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"notes","i":1,"c":"【改法】新增 PermissionDenyInfo DTO（types/PermissionDecision.ts，经 @modules/permission 导出）；checkPermissionForTool 仅对 DENY 回传 denyInfo（从 context 提取，空则 undefined，不臆造）；DENY 分支写 metadata.permissionDeny，toolResultPostProcess 会原样展开进持久化结果。"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"notes","i":2,"c":"【真实数据复核】~/.pyapp/data/permissions/tool_rules.json 已是 ruleStore（1 条 deny file_write，id rule_1793016441745_a694f4d10）；用该文件副本（隔离数据目录）探针命中 ⇒ reason 含 from ruleStore + [rule=…] + DELETE 路径，重载幂等。运行中 app 未重启，app.log 尚无 permission:deny ⇒ 端到端留待重启后首次拒绝。"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#0","i":0,"c":"app/src/permission/types/PermissionDecision.ts"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#1","i":0,"c":"app/src/permission/PermissionManager.ts"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#2","i":0,"c":"app/src/permission/index.ts"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#3","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"tests#0","i":0,"c":"app/tests/permission/ruleSourceAndRemovalHint.test.ts"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"tests#1","i":0,"c":"app/tests/chat/toolFailureKindWiring.test.ts"}

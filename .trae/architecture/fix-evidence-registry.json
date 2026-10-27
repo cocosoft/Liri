@@ -14152,6 +14152,36 @@
       "changelog": [],
       "reopenWhen": "再现 TAOR 收尾 contentLength=0；或 think-only 正文再次被判为可见（全文见 archive/evidence-detail.jsonl#LIRI-BUG-E2）",
       "notes": "hasVisibleAssistantText 先 stripThinkResponseTags（与终稿校验同源）；新增 buildEmptyReplyFallback 并在 ChatOrchestrator TAOR 分支补消息落盘（带 metadata.emptyOutputFallback，幂等）（全文见 archive/evidence-detail.jsonl#LIRI-BUG-E2）"
+    },
+    {
+      "id": "LIRI-BUG-F",
+      "title": "参数 JSON 被截断时静默降级为空参数 ⇒ 缺参不可自纠",
+      "source": "dev_docs/20261027/Liri-bug分析报告-20261027.md §8.6；真机 session_mvqr6vtfe9b47d73c9（14:01:13Z）与 session_mvqstue8ecef7606df（14:46:55Z）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/utils/toolContract/argParseError.ts",
+        "app/src/utils/toolContract/index.ts",
+        "app/src/ai/transports/TransportProviderAdapter.ts",
+        "app/src/tools/ToolRegistry.ts",
+        "app/src/tools/ToolManager.ts"
+      ],
+      "tests": [
+        "app/tests/tools/argParseDiagnostics.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现工具只报 Missing required parameter 而看不出参数被截断；或适配器日志再次出现未附诊断的按空参数降级（全文见 archive/evidence-detail.jsonl#LIRI-BUG-F）",
+      "notes": "保留键只由适配器写、执行层读，执行前 stripArgParseErrorKey；preview 仅进日志不回显给模型；真机 14:46:55Z rawLength=1805 触发后模型自述「写入被截断，分段写入」且未原样重试（全文见 archive/evidence-detail.jsonl#LIRI-BUG-F）"
     }
   ]
 }

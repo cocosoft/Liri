@@ -8,6 +8,12 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Tool, type ToolResult } from './types/Tool';
 import { createToolResult } from './types/ToolResult';
 import { findMissingRequiredParams } from './utils/ToolUtils';
+// 2026-10-27：缺参文案与诊断共用（含"参数 JSON 被截断"的可操作建议）
+import {
+  ARG_PARSE_ERROR_KEY,
+  describeMissingRequiredParams,
+  stripArgParseErrorKey,
+} from '@modules/utils/toolContract/argParseError';
 import { guardShieldedToolCall } from './shieldGuard';
 import { ToolFactory } from './ToolFactory';
 import { setAgentToolManager } from './AgentTool/AgentTool';
@@ -397,31 +403,39 @@ export class ToolManager extends EventEmitter {
     // Registry 同口径的失败结果（缺哪个参数 + 本次收到的键），不再执行工具。
     const missingParams = findMissingRequiredParams(tool.params, input);
     if (missingParams.length > 0) {
+      // BUG-F（2026-10-27）：与 `ToolRegistry` 共用同一文案（含"参数被截断"的可操作建议）
+      const detail = describeMissingRequiredParams(
+        input,
+        missingParams,
+        tool.params.map((p) => p.name)
+      );
       logger.warn('工具调用缺少必填参数，拒绝执行（HTTP/CoreAPI 路径）', {
         toolName: name,
         missingParams,
-        receivedKeys: Object.keys(input ?? {}),
+        receivedKeys: detail.receivedKeys,
+        ...(detail.parseErr
+          ? {
+              argsParseFailed: true,
+              argsRawLength: detail.parseErr.rawLength,
+            }
+          : {}),
       });
       return createToolResult(null, {
         success: false,
-        error: `Missing required parameter: ${missingParams.join(', ')}`,
-        newMessages: [
-          {
-            role: 'system',
-            content:
-              `Error: Missing required parameter: ${missingParams.join(', ')}. ` +
-              `请按工具定义的参数名重新调用（本次收到的参数键: ${
-                Object.keys(input ?? {}).join(', ') || '（空）'
-              }；本工具参数: ${tool.params.map((p) => p.name).join(', ')}）。`,
-          },
-        ],
+        error: detail.error,
+        newMessages: [{ role: 'system', content: detail.systemContent }],
       });
     }
 
+    // 防御性剥除解析失败保留键（合法调用不会携带；避免污染工具入参）
+    const execInput =
+      ARG_PARSE_ERROR_KEY in (input ?? {})
+        ? stripArgParseErrorKey(input)
+        : input;
     try {
       const result = await optimizedExecuteTool(
         tool,
-        input,
+        execInput,
         context,
         onProgress
       );

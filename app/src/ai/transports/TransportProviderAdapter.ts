@@ -18,6 +18,8 @@
 import type { BaseTransport } from './BaseTransport';
 import { getLogger } from '@modules/monitoring';
 import { parseModelJsonObject } from '../../utils/json';
+// 参数 JSON 解析失败的保留键诊断（2026-10-27，见该文件头注）
+import { withArgParseError } from '../../utils/toolContract/argParseError';
 import type {
   NormalizedResponse,
   NormalizedToolCall,
@@ -71,17 +73,29 @@ function toParsedToolCall(tc: NormalizedToolCall): ParsedToolCall {
   // 2026-10-22：解析失败**不再静默兜底** —— 原先 `catch { args = {} }` 把"参数 JSON 非法/
   // 被截断"变成"参数为空"，下游只看到缺参（实测：`file_write` 连报
   // `The "path" property must be of type string, got undefined`，日志里毫无线索）。
-  // 先走共享修复链（Windows 单反斜杠等非法转义可救回）；确实救不回才 warn + 空参数。
+  // 先走共享修复链（Windows 单反斜杠等非法转义可救回）；确实救不回才带诊断降级。
+  //
+  // 2026-10-27（真机 14:01:13Z，`rawLength=12068` 的 file_write 参数解析失败）：**只记日志
+  // 不够** —— 模型收到的仍是「Missing required parameter」，无法区分"漏传"与"输出被截断"，
+  // 只能重复同一调用直至 `diminishing_returns`。此处改为带**保留键诊断**（`{}` + 原始长度），
+  // 由 `ToolRegistry` 的缺参分支转成可操作建议，并在执行前剥除（见 `toolContract/argParseError`）。
   const args = parseModelJsonObject(tc.arguments);
   if (!args) {
-    logger.warn('工具调用参数 JSON 无法解析，按空参数继续', {
+    const rawLength = tc.arguments?.length ?? 0;
+    const preview = (tc.arguments ?? '').slice(0, 200);
+    logger.warn('工具调用参数 JSON 无法解析，按空参数继续（已附诊断）', {
       toolName: tc.name,
       toolCallId: tc.id,
-      rawLength: tc.arguments?.length ?? 0,
-      rawPreview: (tc.arguments ?? '').slice(0, 200),
+      rawLength,
+      rawPreview: preview,
     });
+    return {
+      id: tc.id,
+      name: tc.name,
+      arguments: withArgParseError({ rawLength, preview }),
+    };
   }
-  return { id: tc.id, name: tc.name, arguments: args ?? {} };
+  return { id: tc.id, name: tc.name, arguments: args };
 }
 
 /**

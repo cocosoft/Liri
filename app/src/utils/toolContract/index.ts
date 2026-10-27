@@ -25,3 +25,5 @@ export * from './PermissionResult';
 // 供 query / tasks / chat 三处共用，避免 chat↔tasks 的模块环）。
 export * from './pathArgs';
 export * from './pathBoundary';
+// 2026-10-27：参数 JSON 解析失败的保留键契约（适配器写入 → 工具执行层读并给可操作建议）
+export * from './argParseError';

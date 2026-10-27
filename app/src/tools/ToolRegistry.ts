@@ -14,6 +14,12 @@ import {
 } from './utils/toolSearch';
 import { ToolDefinitionAdapter } from './utils/ToolDefinitionAdapter';
 import { findMissingRequiredParams } from './utils/ToolUtils';
+// 2026-10-27：参数 JSON 解析失败的保留键诊断（适配器写入，缺参分支读取后剥除）
+import {
+  ARG_PARSE_ERROR_KEY,
+  describeMissingRequiredParams,
+  stripArgParseErrorKey,
+} from '@modules/utils/toolContract/argParseError';
 import type { ToolDefinition, ToolImplementation } from './types/ToolTypes';
 import { isWireSafeToolName, toWireToolName } from './toolNameCodec';
 import { getDefaultToolPolicyPipeline } from './policy/defaultPipeline';
@@ -548,31 +554,42 @@ export class ToolRegistry {
       toolCall.input
     );
     if (missingParams.length > 0) {
+      // BUG-F（2026-10-27 真机，`rawLength=12068`）：参数 JSON 被截断时适配器会以**保留键**
+      // 携带诊断（见 `toolContract/argParseError`）。此时必须告诉模型"参数不完整"而非
+      // "缺 file_path"——否则它只会重复同一调用直至 `diminishing_returns`。
+      // 文案由 `describeMissingRequiredParams` 单一提供（与 ToolManager 入口共用）。
+      const detail = describeMissingRequiredParams(
+        toolCall.input,
+        missingParams,
+        tool.params.map((p) => p.name)
+      );
       logger.warn('工具调用缺少必填参数，拒绝执行', {
         toolName: toolCall.toolName,
         sessionId: policyContext.sessionId,
         missingParams,
-        receivedKeys: Object.keys(toolCall.input ?? {}),
+        receivedKeys: detail.receivedKeys,
+        ...(detail.parseErr
+          ? {
+              argsParseFailed: true,
+              argsRawLength: detail.parseErr.rawLength,
+            }
+          : {}),
       });
       return createToolResult(null, {
         success: false,
-        error: `Missing required parameter: ${missingParams.join(', ')}`,
-        newMessages: [
-          {
-            role: 'system',
-            content:
-              `Error: Missing required parameter: ${missingParams.join(', ')}. ` +
-              `请按工具定义的参数名重新调用（本次收到的参数键: ${
-                Object.keys(toolCall.input ?? {}).join(', ') || '（空）'
-              }；本工具参数: ${tool.params.map((p) => p.name).join(', ')}）。`,
-          },
-        ],
+        error: detail.error,
+        newMessages: [{ role: 'system', content: detail.systemContent }],
       });
     }
+    // 保留键可能随合法参数一起出现（解析成功时不会写入；此处防御性剥除，避免污染工具入参）
+    const execInput =
+      ARG_PARSE_ERROR_KEY in (toolCall.input ?? {})
+        ? stripArgParseErrorKey(toolCall.input)
+        : toolCall.input;
 
     try {
       result = await tool.execute(
-        toolCall.input,
+        execInput,
         context,
         onProgress as Parameters<typeof tool.execute>[2]
       );

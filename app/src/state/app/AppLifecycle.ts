@@ -140,6 +140,13 @@ export function getAppStateMachine(): StateMachine<AppState> {
  */
 export function initAppStateMachine(): StateMachine<AppState> {
   const machine = getAppStateMachine();
+  // FIX-14（2026-10-27）：**复位上次运行遗留的全局 ERROR**。转移表里 ERROR 只有
+  // 出口 `IDLE|PAUSED`，而全仓**没有任何**生产代码调 `markAppIdle` ⇒ 一旦崩溃恢复
+  // 失败写入 ERROR 并落快照，状态就永久卡在 error（真机：08:54:47 仍是上次的 error）。
+  // 复位放在进程已活到这一步时执行；本轮崩溃恢复若再失败会经 IDLE→BUSY→ERROR 重设。
+  if (machine.getState() === AppState.ERROR) {
+    machine.transition(AppState.IDLE, 'startup: 复位上次运行遗留的 ERROR');
+  }
   logger.info('应用状态机已接线', {
     initialState: machine.getState(),
   });
@@ -170,6 +177,9 @@ export function markAppPaused(reason?: string): boolean {
 export function markAppError(err: Error): boolean {
   const machine = getAppStateMachine();
   try {
+    // FIX-14：**已处于 ERROR 时幂等返回** —— 原实现会再走一次「ERROR → BUSY」回弹，
+    // 而转移表无该边 ⇒ 每次启动都留一条 `非法状态转换: error → busy` 的假告警。
+    if (machine.getState() === AppState.ERROR) return true;
     if (machine.canTransition(AppState.ERROR)) {
       return machine.transition(AppState.ERROR, err.message, {
         stack: err.stack,

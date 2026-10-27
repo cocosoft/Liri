@@ -616,19 +616,6 @@ export async function* runStreamMessage(
         schemaCount: toolRegistry?.getToolSchemas().length ?? 0,
       });
     }
-    // C 阶段（P1，2026-09-02）：本次构建发生分页切窗（超窗大会话）→ 注入
-    // session_lookup 取回被切原文（host 提供 schema；未注册/分层关闭则跳过）
-    if (host.isLastStreamBuildWindowed?.() === true) {
-      const lookupTool = host.getSessionLookupTool?.();
-      if (lookupTool) {
-        toolDefinitions.push(lookupTool);
-        logger.info('stream:注入 session_lookup（分页切窗生效，C 阶段）', {
-          sessionId: session.id,
-          toolCount: toolDefinitions.length,
-        });
-      }
-    }
-
     // Step 3（2026-08-22）：按任务裁剪工具集——全量工具定义（50+ 个，~10K tokens）
     // 在小上下文（llama.cpp 8K）下放不进，preSendProtection 只能整体移除 → 模型无工具可用。
     // 任务类型优先级：调用方显式 metadata.taskType > 本地 LLM 端点（llama.cpp/ollama，工具
@@ -644,6 +631,19 @@ export async function* runStreamMessage(
         host,
         apiMessages,
       });
+    }
+    // C 阶段（P1）session_lookup 取回工具。FIX-12（2026-10-27）：必须**排在本轮任务裁剪
+    // 之后** —— 它未登记 `TOOL_CATEGORIES`（落 misc），放裁剪前会被 `filterToolsByTask`
+    // 裁掉，而提示词仍让模型调用它（真机 08:59:49「工具未登记类别」告警即此路径）。
+    if (host.isLastStreamBuildWindowed?.() === true) {
+      const lookupTool = host.getSessionLookupTool?.();
+      if (lookupTool) {
+        toolDefinitions.push(lookupTool);
+        logger.info('stream:注入 session_lookup（分页切窗生效，C 阶段）', {
+          sessionId: session.id,
+          toolCount: toolDefinitions.length,
+        });
+      }
     }
 
     // 触发 ChatPreStream Hook

@@ -243,15 +243,11 @@ export class SessionsTool extends BaseTool {
 
   private async ensureGatewayInitialized(): Promise<void> {
     if (!this.gatewayInitialized) {
+      // FIX-13（2026-10-27）：此前此处会**凭空创建**硬编码会话 `sess_001`「默认会话」
+      // （CS04 禁止的生产数据）—— 真机后果：会话表里留下一条无事件/无消息文件的幽灵
+      // 会话，每次启动崩溃恢复都报「重算结果为空，疑消息文件丢失」（08:54:47）。
+      // 工具初始化只需要 gateway 就绪，不承担"造一个默认会话"的职责。
       await this.gateway.initialize();
-      const existing = await this.gateway.getSession('sess_001');
-      if (!existing) {
-        await this.gateway.createSession({
-          id: 'sess_001',
-          title: '默认会话',
-          type: SessionType.LOCAL,
-        });
-      }
       this.gatewayInitialized = true;
     }
   }

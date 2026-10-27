@@ -98,6 +98,33 @@ describe('AppLifecycle — §十 阶段 A', () => {
   });
 });
 
+describe('FIX-14 全局 ERROR 态不得自锁', () => {
+  /** 读快照里的转移历史长度（无快照 ⇒ 0） */
+  function historyLen(): number {
+    const file = snapshotFile();
+    if (!fs.existsSync(file)) return 0;
+    return JSON.parse(fs.readFileSync(file, 'utf-8')).history.length as number;
+  }
+
+  test('已处于 ERROR 时 markAppError 幂等：返回 true 且不再产生状态转移', () => {
+    markAppBusy('prep');
+    expect(markAppError(new Error('first'))).toBe(true);
+    expect(getAppState()).toBe(AppState.ERROR);
+    const before = historyLen();
+
+    // 旧实现：canTransition(ERROR)=false ⇒ 回弹 BUSY（转移表无 error→busy）⇒ 抛错后只留 warn
+    expect(markAppError(new Error('second'))).toBe(true);
+    expect(getAppState()).toBe(AppState.ERROR);
+    expect(historyLen()).toBe(before);
+  });
+
+  test('启动接线复位上次运行遗留的 ERROR', () => {
+    expect(getAppState()).toBe(AppState.ERROR);
+    initAppStateMachine();
+    expect(getAppState()).toBe(AppState.IDLE);
+  });
+});
+
 describe('AppLifecycle — §十 阶段 B（引擎事件化）', () => {
   test('引擎 onTransition 钩子随每次成功转移触发', () => {
     const transitions: Array<{ from: string; to: string }> = [];

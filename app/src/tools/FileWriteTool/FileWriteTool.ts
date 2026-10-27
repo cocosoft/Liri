@@ -166,7 +166,10 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { checkPathAccessibility } from '../utils/ToolUtils';
+import {
+  checkPathAccessibility,
+  resolveWritableProbeDir,
+} from '../utils/ToolUtils';
 
 import { getLogger } from '@modules/monitoring';
 import { normalizeApprovalPath } from '@modules/permission';
@@ -259,10 +262,19 @@ export class FileWriteTool extends BaseTool {
 
       // 宿主直写时才做宿主侧可访问性检查（隔离环境下宿主目录未必存在，检查会误杀）。
       if (!isolated) {
-        const filePathCheck = checkPathAccessibility(
-          path.dirname(input.file_path),
-          '写入目录'
-        );
+        // BUG-D（2026-10-27 真机长程任务）：目标目录**不必**已存在 —— `writeFile` 会递归建目录。
+        // 此前对 `path.dirname(input.file_path)`（还是**未解析**的相对路径）要求"已存在" ⇒
+        // 新建子目录的写入直接被 `写入目录不存在` 拒绝（`mkdir` 又被安全闸 fail-closed 拦住，
+        // 模型无路可走）。现在改为检查**最近已存在的祖先目录**。
+        const targetDir = path.dirname(resolvedPath);
+        const probe = resolveWritableProbeDir(targetDir);
+        const filePathCheck = probe.blockedByFile
+          ? {
+              accessible: false,
+              reason: `路径中 "${probe.blockedByFile}" 是文件而非目录，无法在其下创建目录`,
+              suggestions: undefined as string[] | undefined,
+            }
+          : checkPathAccessibility(probe.probeDir, '写入根目录');
         if (!filePathCheck.accessible) {
           const msg = filePathCheck.reason || '';
           const hint = filePathCheck.suggestions?.length

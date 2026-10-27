@@ -487,6 +487,45 @@ export function buildMissingSegmentCandidateHint(
 }
 
 /**
+ * BUG-D（2026-10-27 真机长程任务）：**写前**检查的目标目录不要求已存在。
+ *
+ * 背景：写入类工具（`file_write` / `write_project_file`）落盘时会**递归建目录**，
+ * 但写前却用 `checkPathAccessibility(父目录)` 要求父目录**已经存在** ⇒ 新建子目录的
+ * 写入被 `写入目录不存在` 拒绝（实测长程任务里新建 `js/` 就被卡死）。
+ *
+ * 口径：向上找到**最近已存在的祖先目录**作为探针 —— 它必须是目录（否则路径中某段是
+ * 文件，需明确报错），并交由调用方对该探针做可访问性检查。
+ *
+ * @returns `{ probeDir, missing }`；`missing` 为需要新建的目录层数（0 = 目标目录已存在）
+ */
+export function resolveWritableProbeDir(dirPath: string): {
+  probeDir: string;
+  missing: number;
+  blockedByFile?: string;
+} {
+  const resolved = path.resolve(dirPath.replace(/\\/g, '/'));
+  let probe = resolved;
+  let missing = 0;
+  let guard = 0;
+  while (!fs.existsSync(probe)) {
+    const parent = path.dirname(probe);
+    if (parent === probe || guard >= 32) break;
+    probe = parent;
+    missing += 1;
+    guard += 1;
+  }
+  // 探针存在但不是目录 ⇒ 路径中某一段是文件（无法在此建目录）
+  try {
+    if (fs.existsSync(probe) && !fs.statSync(probe).isDirectory()) {
+      return { probeDir: probe, missing, blockedByFile: probe };
+    }
+  } catch {
+    // 无法 stat ⇒ 交给后续可访问性检查给原因
+  }
+  return { probeDir: probe, missing };
+}
+
+/**
  * 检查目标路径是否可访问
  * 在执行文件操作前调用，可避免跨磁盘或路径缺失导致的静默失败
  *

@@ -173,6 +173,18 @@ const DEFAULT_SENSITIVE_DIRECTORIES = [
   '/lib64',
 ];
 
+/**
+ * FIX-15（2026-10-27）：单条 PowerShell 包裹命令的放行结论（`analyze` 的委托分支返回）。
+ * 取值恒定 ⇒ 模块级冻结常量，避免每次分析新建对象。
+ */
+const DELEGATED_SINGLE_PS_ALLOW: SecurityAnalysisResult = Object.freeze({
+  safe: true,
+  behavior: 'allow',
+  riskLevel: 'low',
+  message: 'PowerShell 包裹命令：内层脚本已由 PowerShell 安全链判定通过',
+  matchedPatterns: ['powershell-wrapper-delegated'],
+} as SecurityAnalysisResult);
+
 export class BashSecurityAnalyzer {
   private allPatterns: SecurityPattern[];
   private pathValidator: PathValidator;
@@ -301,8 +313,17 @@ export class BashSecurityAnalyzer {
    * 分析命令安全性
    * @param command 命令字符串
    * @param trustLevel 信任级别（可选），用于信任工作区场景下行为降级
+   * @param options.delegatedSinglePowerShell FIX-15（2026-10-27）：调用方已把**单条**
+   *   `powershell|pwsh -Command "…"` 的内层脚本交给 PowerShell 安全链判定通过
+   *   （`tools/bash/powerShellWrapper` + `evaluatePowerShellSecurity`）⇒ 不再用 bash
+   *   只读族复判整串（`powershell` 不在 bash 只读族 ⇒ 恒 deny，两道闸结论互斥）。
+   *   仅当整条命令**只有**这一条语句时由调用方置真；多段形态一律保持原 deny。
    */
-  analyze(command: string, trustLevel?: string): SecurityAnalysisResult {
+  analyze(
+    command: string,
+    trustLevel?: string,
+    options: { delegatedSinglePowerShell?: boolean } = {}
+  ): SecurityAnalysisResult {
     if (!command) {
       return {
         safe: true,
@@ -333,6 +354,8 @@ export class BashSecurityAnalyzer {
     if (!allowlistCheck.safe) {
       const isShellOperator = allowlistCheck.reason.includes('Shell operator');
       if (isShellOperator) {
+        // FIX-15：单条 PowerShell 包裹已由 PowerShell 安全链判定 ⇒ 交由该结论（见 options 注释）
+        if (options.delegatedSinglePowerShell) return DELEGATED_SINGLE_PS_ALLOW;
         compoundVerdict = checkCompoundReadOnly(trimmedCommand);
         if (!compoundVerdict.allowed) {
           return {

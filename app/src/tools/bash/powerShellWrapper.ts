@@ -167,6 +167,27 @@ function getAnalyzer(): PowerShellSecurityAnalyzer {
   return (sharedAnalyzer ??= new PowerShellSecurityAnalyzer());
 }
 
+/**
+ * FIX-15（2026-10-27）：整条命令是否**仅**由一条语句位置的 `powershell|pwsh -Command "…"`
+ * 构成（语句外无 `&&` / `;` / `|` / 换行 等串联段）。
+ *
+ * 用途：bash 侧的复合只读判定把 `powershell` 当"非只读命令"⇒ 恒 `deny`，而内层脚本
+ * **已**由 PowerShell 安全链判定通过（`checkPowerShellWrapper` 在此之前已放行）⇒
+ * 两道闸结论互斥（真机 10:13:59Z / 10:14:03Z 的只读 `Get-ChildItem … | Select-Object …`
+ * 被 `security_analyzer_deny` 拦下）。
+ *
+ * ⚠️ 多段形态（如 `powershell -Command "x" && del /f y`）**不算**单条：兄弟段未经验证，
+ * 必须继续走原 deny，不得被顺带放行。
+ */
+export function isSinglePowerShellWrapperCommand(command: string): boolean {
+  const trimmed = command.trim();
+  const head = /^(?:powershell(?:\.exe)?|pwsh(?:\.exe)?)\b/i.exec(trimmed);
+  if (!head) return false;
+  // readStatement 在**引号外**遇分隔符截止 ⇒ 单条语句时 rest 为空
+  const statement = readStatement(trimmed, head[0].length);
+  return trimmed.slice(head[0].length + statement.length).trim() === '';
+}
+
 function deny(message: string, reason: string): ToolResult<unknown> {
   // BUG-8（2026-10-19）：硬拦截必须带 `error`/`success:false`，
   // 否则消费方按 `toolResult.error` 判定时会把拦截误记为成功。

@@ -50,7 +50,10 @@ import {
 } from './bashSecurityGate';
 // G-07（2026-10-19）：`powershell/pwsh -Command "…"` 包裹的内层脚本不得绕过安全链 ——
 // 复用 PowerShellTool 的同一判定入口（不新增第二套危险词表）。
-import { checkPowerShellWrapper } from './powerShellWrapper';
+import {
+  checkPowerShellWrapper,
+  isSinglePowerShellWrapperCommand,
+} from './powerShellWrapper';
 // G18：大输出软截断抽至 `./bashOutputTruncate`
 import {
   applyBashOutputSoftTruncate,
@@ -444,6 +447,8 @@ export class BashTool extends BaseTool {
         approvalSnapshot,
         analyzer: this.securityAnalyzer,
         trustLevel,
+        // FIX-15：单条 PowerShell 包裹已由上一道闸（G-07）用 PowerShell 安全链判定过
+        delegatedSinglePowerShell: isSinglePowerShellWrapperCommand(command),
       });
       if (analysisBlock) {
         // 2026-10-25（与 path/danger 分支同源补日志）：分析器 deny / AST 拦截事件落 app.log，

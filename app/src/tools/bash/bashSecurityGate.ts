@@ -81,7 +81,9 @@ function blockedResult(
 export interface CommandAnalyzer {
   analyze: (
     command: string,
-    trustLevel?: string
+    trustLevel?: string,
+    /** FIX-15：单条 PowerShell 包裹已由 PowerShell 安全链判定 ⇒ 授权分析器跳过 bash 只读族复判 */
+    options?: { delegatedSinglePowerShell?: boolean }
   ) => {
     behavior: 'allow' | 'deny' | 'ask';
     message?: string;
@@ -223,6 +225,12 @@ export function checkAstAndAnalyzer(params: {
    * 显式传 `null` 表示"本次无规则"（供单测与复用点确定性注入，避免依赖全局配置）。
    */
   commandRules?: CommandRulesSettings | null;
+  /**
+   * FIX-15（2026-10-27）：整条命令**仅**为一条 `powershell|pwsh -Command "…"`，且内层脚本
+   * 已由 PowerShell 安全链判定通过（`checkPowerShellWrapper` 先行放行）⇒ 透传给分析器，
+   * 避免 bash 只读族把 `powershell` 判"非只读"而二次否掉同一判定。
+   */
+  delegatedSinglePowerShell?: boolean;
 }): ToolResult<unknown> | null {
   const {
     command,
@@ -232,9 +240,12 @@ export function checkAstAndAnalyzer(params: {
     analyzer,
     trustLevel,
     commandRules,
+    delegatedSinglePowerShell,
   } = params;
 
-  const securityResult = analyzer.analyze(command, trustLevel);
+  const securityResult = analyzer.analyze(command, trustLevel, {
+    delegatedSinglePowerShell,
+  });
 
   const astResult = parseForSecurity(command);
   if (astResult.kind === 'simple') {

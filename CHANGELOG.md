@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TASKS-PARTIAL-VALIDATION**：任务分工只校验本次改动的键 —— 验证 tsc0|arch0|unit14；基线 全量 PUT 下按整张表校验 ⇒ 旧坏键（供应商未激活）锁死无关修改（详情见 archive/evidence-detail.jsonl#TASKS-PARTIAL-VALIDATION）
 - ✅ **APPIMAGE-FOREIGN-NATIVE-PRUNE**：裁剪异平台原生包，修复 AppImage 打包 —— 验证 tsc0|wf0|unit6|docker-appimage-ok；基线 musl 变体随 sidecar 依赖进 AppDir ⇒ linuxdeploy 的 ldd 报 invalid ELF header ⇒ failed to run linuxdeploy（详情见 archive/evidence-detail.jsonl#APPIMAGE-FOREIGN-NATIVE-PRUNE）
 - ✅ **SANDBOX-LEVEL-HONEST-DEGRADE**：无隔离后端时权限级别诚实降级 —— 验证 tsc0|arch0|kapi0|unit3；基线 级别只进 S3，S1(mode=none)已先拒 ⇒ Windows 桌面配了零生效且无任何提示（详情见 archive/evidence-detail.jsonl#SANDBOX-LEVEL-HONEST-DEGRADE）
 - ✅ **TERMINATION-TEXT-INVARIANT**：锁定终止必有正文的不变量 —— 验证 tsc0|arch0|fnsize0|state0；基线 此前无用例守护「非 completed 终止必须给正文」（详情见 archive/evidence-detail.jsonl#TERMINATION-TEXT-INVARIANT）

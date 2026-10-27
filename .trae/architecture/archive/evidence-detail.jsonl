@@ -6719,3 +6719,9 @@
 {"id":"APPIMAGE-FOREIGN-NATIVE-PRUNE","k":"code#1","i":0,"c":"app/scripts/copy-external-deps.ts"}
 {"id":"APPIMAGE-FOREIGN-NATIVE-PRUNE","k":"code#2","i":0,"c":".github/workflows/release.yml"}
 {"id":"APPIMAGE-FOREIGN-NATIVE-PRUNE","k":"tests#0","i":0,"c":"app/tests/scripts/platformVariant.test.ts"}
+{"id":"TASKS-PARTIAL-VALIDATION","k":"title","i":0,"c":"任务分工保存只校验本次改动的键"}
+{"id":"TASKS-PARTIAL-VALIDATION","k":"source","i":0,"c":"计划 §11.2 P2 遗留 / 运行期观察：translation 等键供应商不可用 ⇒ 改 chat 也 400"}
+{"id":"TASKS-PARTIAL-VALIDATION","k":"reopenWhen","i":0,"c":"再现「改 A 键被 B 键旧问题拦住」"}
+{"id":"TASKS-PARTIAL-VALIDATION","k":"notes","i":0,"c":"pickChangedTaskAssignments(next, current) 差分；校验只覆盖改动子集，写入仍全量；N-72 防线（改哪个键校验哪个键）不变"}
+{"id":"TASKS-PARTIAL-VALIDATION","k":"code#0","i":0,"c":"app/src/ai/api/ModelRuntimeAPI.ts"}
+{"id":"TASKS-PARTIAL-VALIDATION","k":"tests#0","i":0,"c":"app/tests/ai/taskRoutingValidation.test.ts"}

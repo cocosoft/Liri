@@ -13477,6 +13477,32 @@
       "changelog": [],
       "reopenWhen": "再次出现 failed to run linuxdeploy 且 AppDir 内有异平台 .node（全文见 archive/evidence-detail.jsonl#APPIMAGE-FOREIGN-NATIVE-PRUNE）",
       "notes": "根因：@napi-rs/canvas-linux-x64-musl 等 musl 变体随 sidecar 依赖复制 ⇒ linuxdeploy 递归 ldd 报 invalid ELF header。修：按宿主 os/arch/libc 裁剪；容器内实测出包 185MB（全文见 archive/evidence-detail.jsonl#APPIMAGE-FOREIGN-NATIVE-PRUNE）"
+    },
+    {
+      "id": "TASKS-PARTIAL-VALIDATION",
+      "title": "任务分工保存只校验本次改动的键",
+      "source": "计划 §11.2 P2 遗留 / 运行期观察：translation 等键供应商不可用 ⇒ 改 chat 也 400",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/ai/api/ModelRuntimeAPI.ts"
+      ],
+      "tests": [
+        "app/tests/ai/taskRoutingValidation.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现「改 A 键被 B 键旧问题拦住」（全文见 archive/evidence-detail.jsonl#TASKS-PARTIAL-VALIDATION）",
+      "notes": "pickChangedTaskAssignments(next, current) 差分；校验只覆盖改动子集，写入仍全量；N-72 防线（改哪个键校验哪个键）不变（全文见 archive/evidence-detail.jsonl#TASKS-PARTIAL-VALIDATION）"
     }
   ]
 }

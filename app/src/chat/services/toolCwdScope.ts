@@ -19,9 +19,11 @@ import { existsSync, mkdirSync } from 'fs';
 import { isAbsolute } from 'path';
 import { getLogger } from '@modules/monitoring';
 import {
+  isCompiledRuntime,
   isPathWithin,
   resolveProjectRoot,
   resolveScopedWorkspaceRoot,
+  resolveSessionWorkspaceDir,
 } from '@openliri/kernel/paths';
 import {
   getRequestPrincipal,
@@ -78,18 +80,36 @@ export function resolveSessionWorkspacePath(input: {
 /**
  * 解析一次工具执行的 cwd。
  *
+ * P2-4（2026-10-27）口径：**本地身份的裸会话按运行形态分流**
+ * - 编译版（安装 / 便携）：`<data>/workspace/sessions/<sessionId>`（首次使用创建）——
+ *   编译版的 `resolveProjectRoot()` 是 exe 所在目录（安装目录不可写 / 不该写）；
+ * - 开发入口（非编译）：保持 `resolveProjectRoot()`（代码仓根，便于调试）；
+ * - 已显式给出会话工作区 ⇒ 恒用会话工作区（任何形态都不覆盖用户的显式选择）。
+ *
  * @param sessionWorkspacePath 会话元数据里的工作区（可能来自请求体，未经验证）
  * @param principal 当前请求身份（缺省取 ALS）
+ * @param options `sessionId` 供裸会话锚定会话级目录；`compiled` 仅供单测注入
  */
 export function resolveToolCwd(
   sessionWorkspacePath: string | null | undefined,
-  principal: Principal = getRequestPrincipal()
+  principal: Principal = getRequestPrincipal(),
+  options: { sessionId?: string; compiled?: boolean } = {}
 ): ToolCwdDecision {
   if (isLocalPrincipal(principal)) {
-    return {
-      cwd: sessionWorkspacePath ?? resolveProjectRoot(),
-      rejectedSessionWorkspace: false,
-    };
+    if (sessionWorkspacePath) {
+      return { cwd: sessionWorkspacePath, rejectedSessionWorkspace: false };
+    }
+    const compiled = options.compiled ?? isCompiledRuntime();
+    if (compiled && options.sessionId) {
+      // bash / grep / glob 都以 cwd 启动 ⇒ 目录必须存在，否则工具直接失败
+      // （只在真正回落到会话级目录时创建，避免每次调用都碰文件系统）
+      const dir = resolveSessionWorkspaceDir(options.sessionId);
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+      }
+      return { cwd: dir, rejectedSessionWorkspace: false };
+    }
+    return { cwd: resolveProjectRoot(), rejectedSessionWorkspace: false };
   }
 
   const root = resolveScopedWorkspaceRoot(principal);

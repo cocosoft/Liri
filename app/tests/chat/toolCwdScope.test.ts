@@ -107,3 +107,60 @@ describe('工具 cwd 按身份分治（P3）', () => {
     expect(existsSync(bob.cwd)).toBe(true);
   });
 });
+
+/**
+ * P2-4（2026-10-27）：本地身份的**裸会话**按运行形态分流。
+ *
+ * 编译版的 `resolveProjectRoot()` 是 exe 所在目录（安装目录）⇒ 裸会话工具不能落在那里；
+ * 开发入口保持仓库根（便于调试）。`compiled` 由用例注入，避免依赖真实 execPath。
+ */
+describe('P2-4 裸会话 cwd 按运行形态分流', () => {
+  const LOCAL: Principal = { tenantId: 'local', userId: 'local', roles: [] };
+
+  it('编译版 + 裸会话 + sessionId ⇒ <data>/workspace/sessions/<id>，且目录被创建', () => {
+    const decision = resolveToolCwd(undefined, LOCAL, {
+      sessionId: 'sess-abc',
+      compiled: true,
+    });
+
+    expect(decision.cwd).toBe(
+      resolve(join(dataDir, 'workspace', 'sessions', 'sess-abc'))
+    );
+    expect(existsSync(decision.cwd)).toBe(true);
+    expect(decision.cwd).not.toBe(resolveProjectRoot());
+  });
+
+  it('开发入口（非编译）⇒ 保持仓库根（零变更）', () => {
+    const decision = resolveToolCwd(undefined, LOCAL, {
+      sessionId: 'sess-abc',
+      compiled: false,
+    });
+    expect(decision.cwd).toBe(resolveProjectRoot());
+  });
+
+  it('编译版但无 sessionId ⇒ 无法锚定，退回仓库根（不凭空造目录）', () => {
+    const decision = resolveToolCwd(undefined, LOCAL, { compiled: true });
+    expect(decision.cwd).toBe(resolveProjectRoot());
+    expect(!existsSync(join(dataDir, 'workspace', 'sessions'))).toBe(true);
+  });
+
+  it('显式会话工作区优先（编译版也不覆盖用户指定）', () => {
+    const explicit = resolve(dataDir, 'user-picked');
+    const decision = resolveToolCwd(explicit, LOCAL, {
+      sessionId: 'sess-abc',
+      compiled: true,
+    });
+    expect(decision.cwd).toBe(explicit);
+  });
+
+  it('sessionId 做路径安全化（`../` 不得逃逸）', () => {
+    const decision = resolveToolCwd(undefined, LOCAL, {
+      sessionId: '../../evil',
+      compiled: true,
+    });
+    expect(decision.cwd).toBe(
+      resolve(join(dataDir, 'workspace', 'sessions', '.._.._evil'))
+    );
+    expect(decision.cwd).toContain(join('workspace', 'sessions'));
+  });
+});

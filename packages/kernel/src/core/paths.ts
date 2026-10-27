@@ -239,6 +239,33 @@ function normalizeProjectRoot(dir: string): string {
 }
 
 /**
+ * 当前进程是否 `--compile` 产物（安装版 / 便携版）。
+ *
+ * P2-4（2026-10-27）：裸会话的工具 cwd 需要按运行形态分流 —— 编译版的
+ * `resolveProjectRoot()` 是 **exe 所在目录**（安装目录，Program Files 下不可写），
+ * 开发入口则是代码仓根（便于调试）。判据与 `pyapp.ts` / `utils/externalDeps.ts`
+ * 一致：`execPath` 不是 bun 运行时即为编译产物。
+ */
+export function isCompiledRuntime(execPath: string = process.execPath): boolean {
+  return !basename(execPath).toLowerCase().startsWith('bun');
+}
+
+/**
+ * 会话级工作区目录（编译版**裸会话**的工具 cwd）：
+ * `<data>/workspace/sessions/<safeId>`
+ *
+ * 为什么要独立目录：裸会话（无 `projectId` / `workspacePath`）在安装版里若回落到
+ * `resolveProjectRoot()`，工具会往**安装目录**读/写（散落 + 权限失败）。会话级目录
+ * 与"项目工作区"（`project.json#sandboxPath`）分开，清理时互不影响。
+ *
+ * `sessionId` 做**路径安全化**（只留 `[A-Za-z0-9._-]`），防 `../` 逃逸。
+ */
+export function resolveSessionWorkspaceDir(sessionId: string): string {
+  const safeId = sessionId.replace(/[^A-Za-z0-9._-]/g, '_') || 'session';
+  return join(resolveDataDir(), 'workspace', 'sessions', safeId);
+}
+
+/**
  * 获取项目数据目录（第二层）
  * 可通过 LIRI_DATA_DIR 环境变量覆盖
  * 默认：用户目录下的 .pyapp/data/（部署安全：Program Files 安装也具备写入权限）

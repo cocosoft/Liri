@@ -2,7 +2,7 @@
   "version": 1,
   "kernelRoot": "packages/kernel/src/core",
   "fileCount": 113,
-  "symbolCount": 1054,
+  "symbolCount": 1056,
   "entries": [
     {
       "file": "abortReason.ts",
@@ -840,6 +840,7 @@
         "getDisplayPath",
         "getProductIdentity",
         "getUserDataDirOverride",
+        "isCompiledRuntime",
         "isPathWithin",
         "isRuntimeExecutable",
         "normalizePathForComparison",
@@ -897,6 +898,7 @@
         "resolveScopedSessionsDir",
         "resolveScopedWorkspaceRoot",
         "resolveSecurityDir",
+        "resolveSessionWorkspaceDir",
         "resolveSessionsDir",
         "resolveSnapshotsDir",
         "resolveSoulDir",

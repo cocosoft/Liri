@@ -1107,7 +1107,10 @@ export class ToolExecutionService {
         );
         // 多租户 P3：cwd 按请求身份分治（本地身份与改造前逐字相同；已认证身份只落在
         // 自己的 `<scoped>/workspace` 内，越界的会话工作区被忽略）
-        const cwdDecision = resolveToolCwd(sessionWorkspacePath);
+        // P2-4（2026-10-27）：本地身份的**裸会话**在编译版下改用会话级 workspace（传 sessionId）
+        const cwdDecision = resolveToolCwd(sessionWorkspacePath, undefined, {
+          sessionId: toolCall.sessionId,
+        });
         const context = {
           toolUseId: normalizedToolCall.id,
           sessionId: toolCall.sessionId,

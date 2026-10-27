@@ -13981,7 +13981,8 @@
         "app/src/chat/ChatManager.ts"
       ],
       "tests": [
-        "app/tests/chat/terminationAlwaysHasText.test.ts"
+        "app/tests/chat/terminationAlwaysHasText.test.ts",
+        "app/tests/chat/streamFinalizePdcaEscalation.test.ts"
       ],
       "changelog": [],
       "reopenWhen": "再现 PDCA descPreview 为系统兜底文案；或对兜底文案做字符串匹配（CS02 回归）（全文见 archive/evidence-detail.jsonl#LIRI-BUG-A）",

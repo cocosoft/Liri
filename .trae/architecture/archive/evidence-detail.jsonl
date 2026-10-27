@@ -6868,6 +6868,7 @@
 {"id":"LIRI-BUG-A","k":"code#3","i":0,"c":"app/src/chat/manager/pdcaLaunch.ts"}
 {"id":"LIRI-BUG-A","k":"code#4","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"LIRI-BUG-A","k":"tests#0","i":0,"c":"app/tests/chat/terminationAlwaysHasText.test.ts"}
+{"id":"LIRI-BUG-A","k":"tests#1","i":0,"c":"app/tests/chat/streamFinalizePdcaEscalation.test.ts"}
 {"id":"LIRI-BUG-B","k":"title","i":0,"c":"请求体 workspace_path 未落会话 metadata ⇒ 工具 cwd 回落代码仓根"}
 {"id":"LIRI-BUG-B","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-B；会话 session_mvqneyvafe63f7bd6b metadata 无 workspacePath"}
 {"id":"LIRI-BUG-B","k":"reopenWhen","i":0,"c":"再现产物写入代码仓根而非会话工作区；或请求 workspace_path 不再影响工具 cwd"}

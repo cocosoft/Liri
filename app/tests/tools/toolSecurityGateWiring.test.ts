@@ -18,6 +18,7 @@ import {
   checkBashDangerousCommand,
 } from '../../src/tools/bash/bashSecurityGate.js';
 import {
+  describePowerShellFailure,
   evaluatePowerShellSecurity,
   isPowerShellCommandAllowed,
 } from '../../src/tools/PowerShellTool/PowerShellTool.js';
@@ -220,5 +221,65 @@ describe('PowerShell allowlist：按语句动词判定', () => {
       "$out='C:\\Users\\csdnc\\Documents\\LiriProjects\\proj_1792339340147_ca7ac3\\01_work\\_ctx_out.txt'; " +
       "& node 'C:\\script.js'";
     expect(evaluatePowerShellSecurity(command).allowed).toBe(true);
+  });
+});
+
+/**
+ * F7b（2026-10-27）：失败报文可诊断性。
+ *
+ * 真机实测（Liri 报告 P2-1）：失败报文只剩 `pwsh … -EncodedCommand <base64>`，
+ * 既看不到脚本也看不到 stderr。此前这段逻辑内联在 `execute` 的 catch 里，
+ * **只能等真机失败才能看** ⇒ 抽成纯函数后由本组用例钉住格式。
+ */
+describe('F7b：PowerShell 失败报文（base64 → 脚本预览 + stderr 末 40 行）', () => {
+  const encodedError =
+    'Command failed: pwsh -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABmAD0A';
+
+  it('把 -EncodedCommand 的 base64 换成真实脚本预览', () => {
+    const detail = describePowerShellFailure(encodedError, '$f = "a.md"');
+    expect(detail).not.toContain('JABmAD0A');
+    expect(detail).toContain('-Command "<脚本预览: $f = "a.md">"');
+  });
+
+  it('脚本预览压缩空白并截断 120 字', () => {
+    const longCommand = `Get-Item\n\n   ${'x'.repeat(200)}`;
+    const detail = describePowerShellFailure(encodedError, longCommand);
+    const preview = detail.match(/-Command "<脚本预览: ([^"]*)>"/)![1];
+    expect(preview).not.toContain('\n');
+    expect(preview.length).toBe(120);
+  });
+
+  it('回填 stderr 末 40 行（60 行输入只留后 40 行）', () => {
+    const stderr = Array.from({ length: 60 }, (_, i) => `line-${i + 1}`).join(
+      '\r\n'
+    );
+    const detail = describePowerShellFailure(encodedError, 'Get-Item x', {
+      stderr,
+    });
+    const tail = detail.split('\n[stderr]\n')[1].split('\n');
+    expect(tail).toHaveLength(40);
+    expect(tail[0]).toBe('line-21');
+    expect(tail[39]).toBe('line-60');
+  });
+
+  it('取不到 stderr 时不追加 [stderr] 段（不臆造）', () => {
+    expect(
+      describePowerShellFailure(encodedError, 'Get-Item x', {})
+    ).not.toContain('[stderr]');
+    expect(
+      describePowerShellFailure(encodedError, 'Get-Item x', { stderr: '   ' })
+    ).not.toContain('[stderr]');
+  });
+
+  it('报文不含 -EncodedCommand 时保留原文并追加 stderr', () => {
+    const detail = describePowerShellFailure(
+      'Command failed: 权限不足',
+      'Get-Item x',
+      {
+        stderr: 'Access is denied.',
+      }
+    );
+    expect(detail.startsWith('Command failed: 权限不足')).toBe(true);
+    expect(detail).toContain('[stderr]\nAccess is denied.');
   });
 });

@@ -531,6 +531,38 @@ const PowerShellOutputSchema = z.object({
 const execAsync = promisify(exec);
 
 /**
+ * F7b（2026-10-27）：把 PowerShell 执行失败报文整理成**可诊断**形态。
+ *
+ * 真机实测（Liri 报告 P2-1）失败报文只剩 `pwsh -NoProfile … -EncodedCommand <base64>`，
+ * 既看不到脚本也看不到 stderr ⇒ 模型/用户无法定位。这里做两件事：
+ * ① 把 `-EncodedCommand <base64>` 换成**真实脚本预览**（压缩空白、截断 120 字）；
+ * ② 有 stderr 时回填**末 40 行**（`exec` 的错误对象才带 stderr，取不到就不追加，不臆造）。
+ *
+ * 抽成纯函数是为了让这段"只能等真机失败才能看"的逻辑有自动化用例
+ * （原先内联在 `execute` 的 catch 里，无法单测）。
+ */
+export function describePowerShellFailure(
+  errorMessage: string,
+  commandPreview: string,
+  streams: { stdout?: string; stderr?: string } = {}
+): string {
+  let failureDetail = errorMessage;
+  if (failureDetail.includes('-EncodedCommand')) {
+    failureDetail = failureDetail.replace(
+      /-EncodedCommand\s+\S+/,
+      `-Command "<脚本预览: ${commandPreview.replace(/\s+/g, ' ').slice(0, 120)}>"`
+    );
+  }
+  const stderrText =
+    typeof streams.stderr === 'string' ? streams.stderr.trim() : '';
+  if (stderrText) {
+    const stderrTail = stderrText.split(/\r?\n/).slice(-40).join('\n');
+    failureDetail += `\n[stderr]\n${stderrTail}`;
+  }
+  return failureDetail;
+}
+
+/**
  * PowerShell 命令执行工具类
  * 专用于 Windows 环境的命令执行
  */
@@ -848,21 +880,11 @@ export class PowerShellTool extends BaseTool {
       // 实测（Liri 报告 P2-1）：模型/用户看到一串不可读编码 + 无 stderr，无法定位原因。
       // 现：①把 base64 载荷替换为**真实脚本预览**；②回填 stderr 末 40 行。
       const errWithStreams = error as { stdout?: string; stderr?: string };
-      let failureDetail = psMsg;
-      if (failureDetail.includes('-EncodedCommand')) {
-        failureDetail = failureDetail.replace(
-          /-EncodedCommand\s+\S+/,
-          `-Command "<脚本预览: ${commandPreview.replace(/\s+/g, ' ').slice(0, 120)}>"`
-        );
-      }
-      const stderrText =
-        typeof errWithStreams.stderr === 'string'
-          ? errWithStreams.stderr.trim()
-          : '';
-      if (stderrText) {
-        const stderrTail = stderrText.split(/\r?\n/).slice(-40).join('\n');
-        failureDetail += `\n[stderr]\n${stderrTail}`;
-      }
+      const failureDetail = describePowerShellFailure(
+        psMsg,
+        commandPreview,
+        errWithStreams
+      );
 
       return createFailureResult(failureDetail, {
         executionTime,

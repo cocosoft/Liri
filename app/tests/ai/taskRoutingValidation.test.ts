@@ -9,6 +9,7 @@
  */
 import { describe, test, expect } from 'bun:test';
 import {
+  pickChangedTaskAssignments,
   validateTaskRoutingTargets,
   type TaskRoutingValidationDeps,
 } from '../../src/ai/api/ModelRuntimeAPI';
@@ -156,5 +157,60 @@ describe('N-72 任务分工保存时可用性校验', () => {
       makeDeps({ 'llama-id': LLAMA }, [ACTIVE_DS, INACTIVE_LLAMA])
     );
     expect(body).toEqual({ agent: 'llama-id', chat: '' });
+  });
+});
+
+/**
+ * P2-6（2026-10-27）：全量 PUT 下只校验**改动的键**。
+ *
+ * 实测背景：`translation` / `quick` / `scheduled` / `embedding` 指向不可用供应商时，
+ * 想改 `chat` 也会 400（校验把整张表都算进去）。
+ */
+describe('P2-6 任务分工：只校验本次改动的键', () => {
+  const CURRENT = {
+    chat: 'ds-id',
+    agent: 'ds-id',
+    translation: 'broken-id',
+    embedding: 'broken-id',
+  };
+
+  test('未改动的遗留坏键被排除（核心回归）', () => {
+    const changed = pickChangedTaskAssignments(
+      { ...CURRENT, chat: 'new-id' },
+      CURRENT
+    );
+    expect(changed).toEqual({ chat: 'new-id' });
+  });
+
+  test('新增键 / 清空键都算改动', () => {
+    const changed = pickChangedTaskAssignments(
+      { chat: 'ds-id', quick: 'new-id', translation: '' },
+      CURRENT
+    );
+    expect(changed).toEqual({ quick: 'new-id', translation: '' });
+  });
+
+  test('改回原值（与现状相同）⇒ 不校验', () => {
+    expect(pickChangedTaskAssignments({ chat: 'ds-id' }, CURRENT)).toEqual({});
+  });
+
+  test('null 视为改动（交由校验层按「非空才校验」处理）', () => {
+    expect(pickChangedTaskAssignments({ chat: null }, CURRENT)).toEqual({
+      chat: null,
+    });
+  });
+
+  test('负向对照：真正改坏的键仍会被 N-72 拦住', async () => {
+    const changed = pickChangedTaskAssignments(
+      { ...CURRENT, chat: 'llama-id' },
+      CURRENT
+    );
+    const problems = await validateTaskRoutingTargets(
+      changed,
+      makeDeps({ 'llama-id': LLAMA }, [ACTIVE_DS, INACTIVE_LLAMA])
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('chat');
+    expect(problems[0]).toContain('已禁用');
   });
 });

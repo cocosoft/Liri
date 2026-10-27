@@ -603,6 +603,29 @@ export interface TaskRoutingValidationDeps {
 }
 
 /**
+ * P2-6（2026-10-27）：挑出**本次相对现状有改动**的任务键。
+ *
+ * 为什么需要：UI 保存时 PUT 的是**整张任务表**，而 N-72 的可用性校验作用于整个 body ⇒
+ * 任何一条**历史遗留**的坏条目（模型已删 / 供应商未激活 …）都会阻断与它无关的修改。
+ * 实测：`translation` / `quick` / `scheduled` / `embedding` 指向不可用供应商时，
+ * 想改 `chat` 也会 400「任务分工未保存」。
+ *
+ * 口径：**改哪个键就校验哪个键**（既保住 N-72 的防线，也不让旧问题锁死保存）。
+ */
+export function pickChangedTaskAssignments(
+  next: Record<string, unknown>,
+  /** 现状（`modelRouter.getTasks()`；具名接口无索引签名 ⇒ 按 `object` 收，用 `Object.entries` 读） */
+  current: object
+): Record<string, unknown> {
+  const currentMap = new Map(Object.entries(current));
+  const changed: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(next)) {
+    if (currentMap.get(key) !== value) changed[key] = value;
+  }
+  return changed;
+}
+
+/**
  * N-72（2026-09-25）：校验任务分工里**每个非空**路由目标是否可用。
  *
  * 返回问题描述列表（空数组 ⇒ 通过）。**只读校验**：不改写入参、不自动改正、不静默回退。
@@ -689,7 +712,15 @@ export async function handleSaveTasks(
     //      ② 目标须可解析到模型（按 DB id，兼容传 modelId）+ 模型 `enabled` +
     //         其 provider 已注册且 `isActive`；
     //      ③ 不通过 ⇒ **400 + 逐键列出原因**（不静默回退、不自动改写用户的选择）。
-    const routingProblems = await validateTaskRoutingTargets(body);
+    const { modelRouter } = await import('../modelRouter.js');
+    // P2-6（2026-10-27）：只校验**本次改动**的键 —— 全量 PUT 下，历史遗留的坏条目
+    // 不应阻断无关修改（改哪个键就校验哪个键，N-72 的防线不变）。
+    const changedAssignments = pickChangedTaskAssignments(
+      body,
+      modelRouter.getTasks()
+    );
+    const routingProblems =
+      await validateTaskRoutingTargets(changedAssignments);
     if (routingProblems.length > 0) {
       res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(
@@ -701,7 +732,6 @@ export async function handleSaveTasks(
       return;
     }
 
-    const { modelRouter } = await import('../modelRouter.js');
     await modelRouter.setTasks(body);
     // KB-TASK-FIX（2026-08-28）：任务分工变更后刷新运行时缓存——
     // 原实现只写 DB + _taskCache，resolveAsync 的 UUID 兜底走 ModelPricingService

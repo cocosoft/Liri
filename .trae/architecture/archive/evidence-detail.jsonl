@@ -6778,3 +6778,12 @@
 {"id":"PS-FAILURE-DIAGNOSTIC","k":"notes","i":0,"c":"报文整理抽为纯函数 describePowerShellFailure：-EncodedCommand 的载荷替换为脚本预览（压缩空白、≤120 字），stderr 取末 40 行且取不到不追加；5 例钉住格式"}
 {"id":"PS-FAILURE-DIAGNOSTIC","k":"code#0","i":0,"c":"app/src/tools/PowerShellTool/PowerShellTool.ts"}
 {"id":"PS-FAILURE-DIAGNOSTIC","k":"tests#0","i":0,"c":"app/tests/tools/toolSecurityGateWiring.test.ts"}
+{"id":"PERMISSION-P0-STOPBLEED","k":"title","i":0,"c":"权限归一化 P0：ask 走审批契约 + 命令级黑白名单接线 + 静默放行可观测"}
+{"id":"PERMISSION-P0-STOPBLEED","k":"source","i":0,"c":"dev_docs/20261027/工具权限体系归一化方案-20261027.md §2 B1/B3/B4/B5/B6"}
+{"id":"PERMISSION-P0-STOPBLEED","k":"reopenWhen","i":0,"c":"再现 ask 却落 success / 命令级黑白名单不生效 / 静默放行无日志"}
+{"id":"PERMISSION-P0-STOPBLEED","k":"notes","i":0,"c":"ask 分支补 requireApproval+approvalReason（上层提交 Inbox 并返回 awaiting_approval）；新增 commandRulePolicy（黑名单优先、白名单命中免审批、空白名单视为未配置）并接入 bashSecurityGate；default-allow/分类器 fail-open/bypass 三处 warn 留痕（去重，不改默认行为）"}
+{"id":"PERMISSION-P0-STOPBLEED","k":"code#0","i":0,"c":"app/src/permission/commandRulePolicy.ts"}
+{"id":"PERMISSION-P0-STOPBLEED","k":"code#1","i":0,"c":"app/src/permission/index.ts"}
+{"id":"PERMISSION-P0-STOPBLEED","k":"code#2","i":0,"c":"app/src/permission/PermissionManager.ts"}
+{"id":"PERMISSION-P0-STOPBLEED","k":"code#3","i":0,"c":"app/src/tools/bash/bashSecurityGate.ts"}
+{"id":"PERMISSION-P0-STOPBLEED","k":"tests#0","i":0,"c":"app/tests/permission/commandRulePolicy.test.ts"}

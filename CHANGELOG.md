@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **PERMISSION-P0-STOPBLEED**：权限归一化 P0：ask 走审批契约 + 命令级黑白名单接线 + 静默放行可观测 —— 验证 tsc0|arch0|fnsize0|state0|unit12+1236+182+136；基线 分析器判 ask 却返回 success 且不入 Inbox（实测 07:09:31Z）；commandRules 零消费者（文档宣称生效）；default-allow/分类器 fail-open/bypass 三处静默（详情见 archive/evidence-detail.jsonl#PERMISSION-P0-STOPBLEED）
 - ✅ **PS-FAILURE-DIAGNOSTIC**：PS 失败报文可诊断（脚本预览 + stderr 末 40 行） —— 验证 tsc0|arch0|fnsize0|state0|unit29+1236；基线 失败报文只剩 pwsh … -EncodedCommand <base64> 且无 stderr ⇒ 谁都无法定位（F7b 原无自动化用例）（详情见 archive/evidence-detail.jsonl#PS-FAILURE-DIAGNOSTIC）
 - ✅ **PS-READONLY-METHOD-ALLOWLIST**：PS 方法调用收窄到只读字符串白名单 —— 验证 tsc0|arch0|fnsize0|state0|unit24+1231；基线 任何 obj.Method(…) 一律整脚本 fail-closed ⇒ 真机 83 次拒绝里 3 例只是 $_.Line.Substring 文本整理，被一并拒绝（详情见 archive/evidence-detail.jsonl#PS-READONLY-METHOD-ALLOWLIST）
 - ✅ **FAILURE-KIND-PERSISTED**：工具失败分类随 tool/result 落盘 —— 验证 tsc0|arch0|fnsize0|state0|unit16+1049；基线 failureKind 只活在内存 ToolResultEntry ⇒ 重启后无法回答「为什么失败」（续跑短路/误调用率口径依赖它）（详情见 archive/evidence-detail.jsonl#FAILURE-KIND-PERSISTED）

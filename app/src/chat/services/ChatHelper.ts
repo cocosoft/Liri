@@ -230,6 +230,87 @@ export function resolveMaxContextTokens(model?: string): number {
 }
 
 /**
+ * BUG-C（2026-10-27 真机长程任务）：解析本轮**输出预算**——唯一事实源是 DB 的
+ * `model_registry.max_output_tokens`（经 `ModelRegistry` 内存缓存读取）。
+ *
+ * ## 为什么需要它
+ *
+ * 此前聊天链（`streamMessageFlow` / `streamingLlm`）在调用方未显式给 `maxTokens` 时
+ * **硬编码 4096**：实测长程任务 4 次 LLM 调用 `outputTokens` 全部恰好 4096（整点值），
+ * 写大文件被截断 ⇒ 无从收尾（与 `EMPTY-TOOL-TURN` 同一症状面）。
+ *
+ * 口径（与 `resolveMaxContextTokens` 同源，且遵守「模型属性读 DB」）：
+ *   1. 查不到模型 / 注册表未就绪 ⇒ `undefined`（**不臆造**，调用方保留原兜底）；
+ *   2. 查到则用 DB 值（用户可在模型管理里改）；
+ *   3. 结果**封顶**为该模型窗口的一半，避免"输出预算 > 窗口"导致 400。
+ */
+export function resolveMaxOutputTokens(model?: string): number | undefined {
+  const name = model?.trim();
+  if (!name) return undefined;
+  try {
+    const { ModelRegistry } = require('@modules/ai/models/ModelRegistry');
+    const cfg = (
+      ModelRegistry.getInstance() as {
+        getModel?: (
+          id: string
+        ) => { maxOutputTokens?: number; contextWindow?: number } | undefined;
+      }
+    ).getModel?.(name);
+    const out = cfg?.maxOutputTokens;
+    if (typeof out !== 'number' || out <= 0) return undefined;
+    // 封顶用**同一 DB 记录**的窗口（不与 `resolveMaxContextTokens` 的回落值混源：
+    // 后者在注册表未预热时会回落 200k/128k，会让封顶失效）。
+    const window = cfg?.contextWindow;
+    return typeof window === 'number' && window > 0
+      ? Math.min(out, Math.floor(window / 2))
+      : out;
+  } catch (e) {
+    // @ignore-catch — 注册表读取失败不影响发送（回落到调用方原兜底）
+    logger.warn('输出预算解析失败（ModelRegistry），回落调用方兜底', {
+      model: name,
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return undefined;
+  }
+}
+
+/**
+ * BUG-C（2026-10-27 真机长程任务）：给一轮请求**补齐输出预算**（返回副本，不改入参）。
+ *
+ * - 调用方显式给了 `maxTokens` ⇒ 原样保留（用户/上层优先）；
+ * - 否则取 DB 的 `model_registry.max_output_tokens`（见 `resolveMaxOutputTokens`）；
+ * - 模型名缺失时先用 `resolveEffectiveTurnModel` 解析（自发轮次不带 `options.model`），
+ *   并把解析结果回填到副本的 `model`，让工具轮沿用同一模型名解析预算。
+ * - 都取不到 ⇒ 保持原样（不臆造，下游保留既有 4096 兜底）。
+ *
+ * 位置选择：放在发送链路**入口**（`ChatOrchestrator` 调 `runStreamMessage` 之前）一次性
+ * 归一，使 `streamMessageFlow` / `streamingLlm` / 发送前保护读到同一值，且不必在
+ * 已锁棘轮的超大函数里再长出分支。
+ */
+export async function withTurnBudget<
+  T extends { maxTokens?: number; model?: string; sessionId?: string },
+>(options: T | undefined, client?: BudgetClientLike): Promise<T | undefined> {
+  if (!options || options.maxTokens) return options;
+  const model = await resolveEffectiveTurnModel({
+    explicitModel: options?.model,
+    client,
+    sessionId: options?.sessionId,
+  });
+  const maxTokens = resolveMaxOutputTokens(model);
+  if (!model && maxTokens === undefined) return options;
+  return {
+    ...options,
+    ...(model && !options?.model ? { model } : {}),
+    ...(maxTokens !== undefined ? { maxTokens } : {}),
+  } as T;
+}
+
+/** `withTurnBudget` 的客户端接缝（只读 provider 级默认模型名） */
+export interface BudgetClientLike {
+  getConfiguredModel?: () => string | undefined;
+}
+
+/**
  * 解析"本轮**实际会使用**的模型"（发送前使用：窗口 / 压缩阈值 / 预估价归因）。
  *
  * ## 为什么需要它（2026-09-27，服务端自发轮次的模型归属）

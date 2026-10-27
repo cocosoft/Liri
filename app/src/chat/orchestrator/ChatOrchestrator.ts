@@ -31,6 +31,9 @@ import { getLogger } from '@modules/monitoring';
 // 2026-10-22：`type:'prompt'` 的斜杠命令（security-review / plan / review …）展开为
 // 本轮运行时补充提示词，而不是回一段用法文案（见 promptCommand.ts 头注）。
 import { expandPromptCommand, mergeRuntimeNote } from './promptCommand.js';
+// BUG-C（2026-10-27 真机长程任务）：发送链入口归一输出预算（DB 的 max_output_tokens），
+// 避免下游各处硬编码 4096（实测大文件写入被整点截断）
+import { withTurnBudget } from '../services/ChatHelper.js';
 // P0-1② 覆盖面补齐（2026-10-04，final-output-guard-no-tool-turns.md）：非流式无工具回合终稿校验
 import { guardFinalOutput } from '../finalOutputGuard.js';
 import {
@@ -1055,7 +1058,13 @@ export class ChatOrchestrator {
     // 10 分钟静默熔断将永不触发（安全网失效）。真卡死的 turn 仍由看门狗中断。
     const heartbeatMs = resolveStreamHeartbeatMs();
 
-    const gen = runStreamMessage(this.host, content, options);
+    const gen = runStreamMessage(
+      this.host,
+      content,
+      // BUG-C（2026-10-27）：未显式给 maxTokens ⇒ 用 DB 的该模型 max_output_tokens
+      //（工具轮同用副本里的 model 名解析，保持一致；取不到则原样，保留下游 4096 兜底）
+      await withTurnBudget(options, this.host.getClientForModel(options?.model))
+    );
     let started = false;
     let sessionId: string | undefined;
     /** 最近一次真实 chunk 产出时刻（供心跳文案计算"已 N 秒无新输出"） */

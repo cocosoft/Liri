@@ -36,7 +36,7 @@ import {
   StreamingToolCallScrubber,
   StreamingThinkScrubber,
 } from '@modules/streaming';
-import { repairImageUrls } from './services/ChatHelper';
+import { repairImageUrls, resolveMaxOutputTokens } from './services/ChatHelper';
 import { startRequest } from './services/requestBoundary';
 import { getLogger } from '@modules/monitoring';
 
@@ -232,8 +232,14 @@ export class StreamingLlm {
     this._activeToolRoundMessageId =
       this.deps.getLoopState().assistantMessage?.id ||
       `msg-turn-${Date.now().toString(36)}-${randomIdSuffix(6)}`;
+    // BUG-C（2026-10-27 真机长程任务）：工具轮输出预算同样以 DB 的 `max_output_tokens`
+    // 为准（此前硬编码 4096 ⇒ 生成大文件参数的轮次被整点截断）；取不到才回落 4096。
     const toolRoundBaseMaxTokens =
-      (this.deps.getCtx().options?.maxTokens as number | undefined) ?? 4096;
+      (this.deps.getCtx().options?.maxTokens as number | undefined) ??
+      resolveMaxOutputTokens(
+        this.deps.getCtx().options?.model as string | undefined
+      ) ??
+      4096;
     // 截断续接放大（2026-09-03）：onIncompleteTurn truncated 分支置位后，本轮预算 base×4
     //（封顶 64K），一次性消费掉标记，避免后续轮次持续放大。
     const boostMaxTokens = this.deps.getBoostNextReasonMaxTokens();

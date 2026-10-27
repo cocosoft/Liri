@@ -13956,6 +13956,119 @@
       "changelog": [],
       "reopenWhen": "再现单条 findstr/git log/tasklist 需审批，或只读命令被送审；或重定向/非只读段被放行（全文见 archive/evidence-detail.jsonl#READONLY-SINGLE-PARITY）",
       "notes": "analyze 非管道分支复用 checkCompoundReadOnly；GIT_READ_ONLY 允许 -C/--no-pager；sensitiveDirectories 反斜杠变体仅非 win32（全文见 archive/evidence-detail.jsonl#READONLY-SINGLE-PARITY）"
+    },
+    {
+      "id": "LIRI-BUG-A",
+      "title": "空输出兜底文案被当作 PDCA 任务描述 ⇒ 改为结构化标记",
+      "source": "dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-A；app.log 12:27:35Z runFullPdca descPreview",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/terminationOutput.ts",
+        "app/src/chat/ReActToolLoop.ts",
+        "app/src/chat/manager/streamFinalize.ts",
+        "app/src/chat/manager/pdcaLaunch.ts",
+        "app/src/chat/ChatManager.ts"
+      ],
+      "tests": [
+        "app/tests/chat/terminationAlwaysHasText.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现 PDCA descPreview 为系统兜底文案；或对兜底文案做字符串匹配（CS02 回归）（全文见 archive/evidence-detail.jsonl#LIRI-BUG-A）",
+      "notes": "resolveTerminationOutput 产出 emptyOutputFallback；computeFinalMessage 落 metadata.emptyOutputFallback；下游只读 metadata（isEmptyOutputFallbackMessage），兜底轮改用用户任务原句作描述（全文见 archive/evidence-detail.jsonl#LIRI-BUG-A）"
+    },
+    {
+      "id": "LIRI-BUG-B",
+      "title": "请求体 workspace_path 未落会话 metadata ⇒ 工具 cwd 回落代码仓根",
+      "source": "dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-B；会话 session_mvqneyvafe63f7bd6b metadata 无 workspacePath",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/services/toolCwdScope.ts",
+        "app/src/chat/services/SessionLifecycleManager.ts",
+        "app/src/session/types/UnifiedSession.ts"
+      ],
+      "tests": [
+        "app/tests/chat/sessionWorkspaceResolve.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现产物写入代码仓根而非会话工作区；或请求 workspace_path 不再影响工具 cwd（全文见 archive/evidence-detail.jsonl#LIRI-BUG-B）",
+      "notes": "getOrLoadSession 的 metadata 仅新建会话时生效；新增 _applyRequestWorkspacePath 在缓存命中与存储加载两分支补落盘，值判定收敛 resolveRequestWorkspaceUpdate（只认绝对路径、同值不写库）（全文见 archive/evidence-detail.jsonl#LIRI-BUG-B）"
+    },
+    {
+      "id": "LIRI-BUG-C",
+      "title": "输出预算硬编码 4096 ⇒ 大文件写入参数整点截断",
+      "source": "dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-C；app.log 四次 outputTokens=4096",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/services/ChatHelper.ts",
+        "app/src/chat/orchestrator/ChatOrchestrator.ts",
+        "app/src/chat/streamingLlm.ts"
+      ],
+      "tests": [
+        "app/tests/chat/maxOutputBudget.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现 outputTokens 恒为整点 4096；或模型属性回退为代码硬编码表（model-usage 违规）（全文见 archive/evidence-detail.jsonl#LIRI-BUG-C）",
+      "notes": "新增 resolveMaxOutputTokens（读 DB model_registry.max_output_tokens，按同记录 contextWindow 一半封顶）；withTurnBudget 在 ChatOrchestrator 发送入口一次性归一，未显式给值不再落到 4096 硬编码（全文见 archive/evidence-detail.jsonl#LIRI-BUG-C）"
+    },
+    {
+      "id": "LIRI-BUG-D",
+      "title": "file_write 写前要求父目录已存在 ⇒ 写入新建子目录被拒",
+      "source": "dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-D；mkdir 被复合只读闸拒绝后的连锁失败",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/utils/ToolUtils.ts",
+        "app/src/tools/FileWriteTool/FileWriteTool.ts"
+      ],
+      "tests": [
+        "app/tests/tools/fileWriteToolPath.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现「写入目录不存在」；或写前检查重新要求目标目录已存在（全文见 archive/evidence-detail.jsonl#LIRI-BUG-D）",
+      "notes": "写前改用 resolveWritableProbeDir 取最近已存在祖先（探针须是目录，否则明确报错），与 writeFile 的递归建目录语义对齐；不放宽安全闸（全文见 archive/evidence-detail.jsonl#LIRI-BUG-D）"
     }
   ]
 }

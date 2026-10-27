@@ -6858,3 +6858,36 @@
 {"id":"READONLY-SINGLE-PARITY","k":"code#0","i":0,"c":"app/src/security/BashSecurityAnalyzer.ts"}
 {"id":"READONLY-SINGLE-PARITY","k":"code#1","i":0,"c":"app/src/security/compoundReadOnly.ts"}
 {"id":"READONLY-SINGLE-PARITY","k":"tests#0","i":0,"c":"app/tests/security/readOnlySingleCommand.test.ts"}
+{"id":"LIRI-BUG-A","k":"title","i":0,"c":"空输出兜底文案被当作 PDCA 任务描述 ⇒ 改为结构化标记"}
+{"id":"LIRI-BUG-A","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-A；app.log 12:27:35Z runFullPdca descPreview"}
+{"id":"LIRI-BUG-A","k":"reopenWhen","i":0,"c":"再现 PDCA descPreview 为系统兜底文案；或对兜底文案做字符串匹配（CS02 回归）"}
+{"id":"LIRI-BUG-A","k":"notes","i":0,"c":"resolveTerminationOutput 产出 emptyOutputFallback；computeFinalMessage 落 metadata.emptyOutputFallback；下游只读 metadata（isEmptyOutputFallbackMessage），兜底轮改用用户任务原句作描述"}
+{"id":"LIRI-BUG-A","k":"code#0","i":0,"c":"app/src/chat/terminationOutput.ts"}
+{"id":"LIRI-BUG-A","k":"code#1","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
+{"id":"LIRI-BUG-A","k":"code#2","i":0,"c":"app/src/chat/manager/streamFinalize.ts"}
+{"id":"LIRI-BUG-A","k":"code#3","i":0,"c":"app/src/chat/manager/pdcaLaunch.ts"}
+{"id":"LIRI-BUG-A","k":"code#4","i":0,"c":"app/src/chat/ChatManager.ts"}
+{"id":"LIRI-BUG-A","k":"tests#0","i":0,"c":"app/tests/chat/terminationAlwaysHasText.test.ts"}
+{"id":"LIRI-BUG-B","k":"title","i":0,"c":"请求体 workspace_path 未落会话 metadata ⇒ 工具 cwd 回落代码仓根"}
+{"id":"LIRI-BUG-B","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-B；会话 session_mvqneyvafe63f7bd6b metadata 无 workspacePath"}
+{"id":"LIRI-BUG-B","k":"reopenWhen","i":0,"c":"再现产物写入代码仓根而非会话工作区；或请求 workspace_path 不再影响工具 cwd"}
+{"id":"LIRI-BUG-B","k":"notes","i":0,"c":"getOrLoadSession 的 metadata 仅新建会话时生效；新增 _applyRequestWorkspacePath 在缓存命中与存储加载两分支补落盘，值判定收敛 resolveRequestWorkspaceUpdate（只认绝对路径、同值不写库）"}
+{"id":"LIRI-BUG-B","k":"code#0","i":0,"c":"app/src/chat/services/toolCwdScope.ts"}
+{"id":"LIRI-BUG-B","k":"code#1","i":0,"c":"app/src/chat/services/SessionLifecycleManager.ts"}
+{"id":"LIRI-BUG-B","k":"code#2","i":0,"c":"app/src/session/types/UnifiedSession.ts"}
+{"id":"LIRI-BUG-B","k":"tests#0","i":0,"c":"app/tests/chat/sessionWorkspaceResolve.test.ts"}
+{"id":"LIRI-BUG-C","k":"title","i":0,"c":"输出预算硬编码 4096 ⇒ 大文件写入参数整点截断"}
+{"id":"LIRI-BUG-C","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-C；app.log 四次 outputTokens=4096"}
+{"id":"LIRI-BUG-C","k":"reopenWhen","i":0,"c":"再现 outputTokens 恒为整点 4096；或模型属性回退为代码硬编码表（model-usage 违规）"}
+{"id":"LIRI-BUG-C","k":"notes","i":0,"c":"新增 resolveMaxOutputTokens（读 DB model_registry.max_output_tokens，按同记录 contextWindow 一半封顶）；withTurnBudget 在 ChatOrchestrator 发送入口一次性归一，未显式给值不再落到 4096 硬编码"}
+{"id":"LIRI-BUG-C","k":"code#0","i":0,"c":"app/src/chat/services/ChatHelper.ts"}
+{"id":"LIRI-BUG-C","k":"code#1","i":0,"c":"app/src/chat/orchestrator/ChatOrchestrator.ts"}
+{"id":"LIRI-BUG-C","k":"code#2","i":0,"c":"app/src/chat/streamingLlm.ts"}
+{"id":"LIRI-BUG-C","k":"tests#0","i":0,"c":"app/tests/chat/maxOutputBudget.test.ts"}
+{"id":"LIRI-BUG-D","k":"title","i":0,"c":"file_write 写前要求父目录已存在 ⇒ 写入新建子目录被拒"}
+{"id":"LIRI-BUG-D","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-D；mkdir 被复合只读闸拒绝后的连锁失败"}
+{"id":"LIRI-BUG-D","k":"reopenWhen","i":0,"c":"再现「写入目录不存在」；或写前检查重新要求目标目录已存在"}
+{"id":"LIRI-BUG-D","k":"notes","i":0,"c":"写前改用 resolveWritableProbeDir 取最近已存在祖先（探针须是目录，否则明确报错），与 writeFile 的递归建目录语义对齐；不放宽安全闸"}
+{"id":"LIRI-BUG-D","k":"code#0","i":0,"c":"app/src/tools/utils/ToolUtils.ts"}
+{"id":"LIRI-BUG-D","k":"code#1","i":0,"c":"app/src/tools/FileWriteTool/FileWriteTool.ts"}
+{"id":"LIRI-BUG-D","k":"tests#0","i":0,"c":"app/tests/tools/fileWriteToolPath.test.ts"}

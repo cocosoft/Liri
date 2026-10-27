@@ -102,6 +102,16 @@ export {
 
 export * from './EnhancedPermissionEngine.js';
 
+// P0-2（2026-10-27，权限归一化）：命令级黑白名单（B 体系）判定单点。
+// 工具侧（`tools/bash/bashSecurityGate`）经本 barrel 取用 ⇒ 满足 R03-002 子入口约束。
+export {
+  evaluateCommandRules,
+  readCommandRulesConfig,
+  type CommandRuleLike,
+  type CommandRulesSettings,
+  type CommandRuleVerdict,
+} from './commandRulePolicy';
+
 export {
   ShadowedRuleDetector,
   shadowedRuleDetector,

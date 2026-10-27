@@ -82,6 +82,14 @@ import { loadAllPermissionSettings } from './permissionsLoader';
 const logger = getLogger('permission:manager');
 
 /**
+ * P0-3（2026-10-27，权限归一化）：三处"静默放行"的可观测去重状态。
+ * - `defaultAllowWarnedTools`：`defaultBehavior=allow` 无规则命中（按工具去重，避免刷屏）
+ * - `bypassObservabilityLogged`：`bypass` 模式无条件放行（进程内只记一次）
+ */
+const defaultAllowWarnedTools = new Set<string>();
+let bypassObservabilityLogged = false;
+
+/**
  * LRO-07（2026-10-26）：规则拒绝时告诉调用方「这条规则怎么解除」。
  *
  * 为什么必须有：deny 文案此前只写来源（且来源还被伪造成 `userSettings`），既没给出
@@ -580,6 +588,14 @@ export class PermissionManager {
    * @returns 权限决策
    */
   private handleBypassPermissions(): PermissionDecision {
+    // P0-3（2026-10-27，权限归一化）：bypass 无条件放行且**不查 killswitch**
+    // （`BypassPermissionsKillswitch` 在决策链零调用点）。此处只加可观测，不改语义。
+    if (!bypassObservabilityLogged) {
+      bypassObservabilityLogged = true;
+      logger.warn('权限模式为 bypass：无条件放行且未校验 killswitch', {
+        reasonCode: 'bypass_no_killswitch',
+      });
+    }
     return createAllowDecision('Bypassing permissions check');
   }
 
@@ -826,6 +842,15 @@ export class PermissionManager {
     if (this.defaultBehavior === 'deny') {
       return createDenyDecision('No matching rules, default denying');
     }
+    // P0-3（2026-10-27，权限归一化）：`defaultBehavior='allow'` 属"无规则即放行"，
+    // 是与 fail-closed 相反的默认；按**工具**去重记一次，便于统计"权限空转"面。
+    if (!defaultAllowWarnedTools.has(toolName)) {
+      defaultAllowWarnedTools.add(toolName);
+      logger.warn('权限默认放行（无规则匹配，defaultBehavior=allow）', {
+        reasonCode: 'default_allow',
+        toolName,
+      });
+    }
     return createAllowDecision('No matching rules, default allowing');
   }
 
@@ -930,6 +955,13 @@ export class PermissionManager {
       await handleError(error, {
         module: 'permission:manager',
         action: 'classifier_check',
+      });
+      // P0-3（2026-10-27，权限归一化）：分类器异常是**fail-open** —— 必须留痕，
+      // 否则"安全组件坏了 ⇒ 全部放行"在日志里看不出来。
+      logger.warn('权限分类器异常，按放行处理（fail-open）', {
+        reasonCode: 'classifier_fail_open',
+        toolName,
+        error: error instanceof Error ? error.message : String(error),
       });
       // 分类器出错时，回退到允许
       return createAllowDecision('Classifier error, default allowing');

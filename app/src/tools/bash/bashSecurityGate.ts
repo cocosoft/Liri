@@ -28,7 +28,13 @@ import { createToolResult } from '../types/ToolResult';
 import { getLogger } from '@modules/monitoring';
 import { feature } from '@openliri/kernel';
 import { SandboxSecurityChecker } from '@modules/sandbox';
-import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
+import {
+  evaluateCommandRules,
+  readCommandRulesConfig,
+  type ApprovalScope,
+  type ApprovalSnapshot,
+  type CommandRulesSettings,
+} from '@modules/permission';
 import { parseForSecurity, isDangerousCommand } from '@modules/security';
 import {
   DANGEROUS_COMMANDS,
@@ -208,6 +214,11 @@ export function checkAstAndAnalyzer(params: {
    * 列表"的命令一律 `deny`（"信任工作区可降级"分支成为死代码）。此处显式透传。
    */
   trustLevel?: string;
+  /**
+   * 命令级黑白名单（B 体系）。缺省 ⇒ 运行时读配置（`readCommandRulesConfig`）；
+   * 显式传 `null` 表示"本次无规则"（供单测与复用点确定性注入，避免依赖全局配置）。
+   */
+  commandRules?: CommandRulesSettings | null;
 }): ToolResult<unknown> | null {
   const {
     command,
@@ -216,6 +227,7 @@ export function checkAstAndAnalyzer(params: {
     approvalSnapshot,
     analyzer,
     trustLevel,
+    commandRules,
   } = params;
 
   const securityResult = analyzer.analyze(command, trustLevel);
@@ -275,26 +287,61 @@ export function checkAstAndAnalyzer(params: {
     });
   }
 
+  // P0-2（2026-10-27，权限归一化）：用户「命令级黑白名单」（B 体系）此前**零消费者**
+  // （`permission.customRules.commandRules` 只有配置与匹配器，没有读取点）⇒ 配置不生效。
+  // 位置刻意放在 `deny` 之后、`ask` 之前：黑名单可否决，白名单命中只免掉"未知命令 ⇒ ask"，
+  // 后续硬拦截（基命令白名单 / 沙箱二次校验）**照旧执行**。
+  const commandRuleVerdict = evaluateCommandRules(
+    command,
+    commandRules === null
+      ? undefined
+      : (commandRules ?? readCommandRulesConfig())
+  );
+  if (commandRuleVerdict?.behavior === 'deny') {
+    const reason =
+      commandRuleVerdict.reasonCode === 'custom_blacklist'
+        ? `命中命令黑名单「${
+            commandRuleVerdict.rule.label ?? commandRuleVerdict.rule.pattern
+          }」`
+        : '命令未命中白名单（当前为白名单模式）';
+    return blockedResult(`安全检查失败: ${reason}`, {
+      reason: commandRuleVerdict.reasonCode,
+      code: 'CUSTOM_COMMAND_RULE_DENY',
+      ...(commandRuleVerdict.reasonCode === 'custom_blacklist'
+        ? { matchedRule: commandRuleVerdict.rule.pattern }
+        : {}),
+    });
+  }
+  if (commandRuleVerdict?.behavior === 'allow') {
+    // 白名单命中 ⇒ 免审批（返回 null 让调用方继续后续硬拦截）
+    return null;
+  }
+
   // S1-2：批准只免"审批交互"——`bypassAsk` 时不再重复弹 ask 卡；
   // 硬拦截（deny/危险命令/白名单/沙箱）无论批准与否都照旧生效。
   if (securityResult.behavior === 'ask' && !bypassAsk) {
-    return createToolResult(
-      `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
-      {
-        newMessages: [
-          {
-            role: 'system',
-            content: `Error: 需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
-          },
-        ],
-        metadata: {
-          securityIntercepted: true,
-          reason: 'security_analyzer_ask',
-          approvalScope,
-          approvalSnapshot,
+    // P0-1（2026-10-27，权限归一化）：**必须**带 `requireApproval: true`。
+    // 此前只返回文本 ⇒ `ToolExecutionService` 不认它是"待审批"，工具结果落成
+    // `status:'success'` 且 `pendingApproval:false`（实测 2026-10-27 07:09:31Z
+    // `bun _scan.js`：命令未执行、未入 Inbox，模型只能反复换命令）。
+    // 现：走既有 `requireApproval` 契约 ⇒ 上层提交 Inbox 卡并返回 awaiting_approval。
+    const askMessage = securityResult.message || '此命令需要确认后执行';
+    return createToolResult(`需要用户确认: ${askMessage}`, {
+      requireApproval: true,
+      approvalReason: askMessage,
+      newMessages: [
+        {
+          role: 'system',
+          content: `Error: 需要用户确认: ${askMessage}`,
         },
-      }
-    );
+      ],
+      metadata: {
+        securityIntercepted: true,
+        reason: 'security_analyzer_ask',
+        approvalScope,
+        approvalSnapshot,
+      },
+    });
   }
 
   return null;

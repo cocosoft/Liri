@@ -57,6 +57,28 @@ function localToday(): string {
   return `${y}-${m}-${day}`;
 }
 
+/**
+ * 轮询等待"自动落盘"达到期望用量（2026-10-27，CI 实测去抖竞态修复）。
+ *
+ * 为什么不用固定 sleep：去抖 ≤1s 但 macOS runner 抖动大（实测 1200ms 时仍读到
+ * `undefined`）⇒ 固定等待会假红。轮询到期限：断言语义不变（无需显式调用即落盘），
+ * 只是不再与 runner 时钟赛跑。
+ *
+ * @returns 期限内的最后一次读到的 `used`（未落盘 ⇒ `undefined`，由调用方断言）
+ */
+async function waitForPersistedUsed(
+  expected: number,
+  timeoutMs = 3_000
+): Promise<number | undefined> {
+  const deadline = Date.now() + timeoutMs;
+  let last: number | undefined;
+  for (;;) {
+    last = (await loadDailyBudgetState())?.used;
+    if (last === expected || Date.now() >= deadline) return last;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
 describe('DailyBudgetManager 用量状态持久化（P1/P3）', () => {
   let baseDir: string;
   const prevOverride = getUserDataDirOverride();
@@ -96,9 +118,12 @@ describe('DailyBudgetManager 用量状态持久化（P1/P3）', () => {
 
   it('记账后自动落盘（去抖 ≤1s）：无需显式调用即可恢复', async () => {
     getDailyBudget().recordUsage(7_000);
-    await new Promise((r) => setTimeout(r, 1200));
-    const persisted = await loadDailyBudgetState();
-    expect(persisted?.used).toBe(7_000);
+    // 2026-10-27（CI 实测）：原为固定 `sleep(1200ms)` 断言——macOS runner 上
+    // 去抖定时器 + 写盘可能晚于 1200ms（实测该用例 1423ms 时读到 undefined）
+    // ⇒ 改为**轮询到期限**（≤3s）：断言语义不变（无需显式调用即可落盘），
+    // 只是不再与 runner 时钟赛跑。
+    const persisted = await waitForPersistedUsed(7_000);
+    expect(persisted).toBe(7_000);
   });
 
   it('跨本地日界清零：持久化日期 ≠ 今日 ⇒ 恢复为 0', async () => {

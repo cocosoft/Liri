@@ -79,6 +79,15 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.19 (2026-10-27)  长程任务熔断/落盘闭环 + PS 只读方法收窄
+
+- ✅ **子代理轮级熔断**：`maxConsecutiveInvalidTurns` 原为 `0`（等于关闭）且工具失败仍记 `ok` ⇒ 轮级熔断双重失效、只能等 `maxTurns`。现引用主循环同阈值（invalid 3 / blocked 2）并透传 `failureKind`；熔断终态带上 `lastError`。
+- ✅ **中止轮不再冒充进展**：全 `aborted/timeout` 的轮次判为中性（不计失败、也不清零），避免一次取消把连续失败的预算清零；混入 error 仍按原分型计数。
+- ✅ **失败分类落盘**：`failureKind` 随 `tool/result` 事件持久化（缺省/非法不写键，守住无损 JSON 约定），重启后仍能回答「为什么失败」。
+- ✅ **裸会话 cwd 按运行形态分流**：编译版落到 `<data>/workspace/sessions/<id>`（惰性创建），开发入口仍为仓库根；显式 `workspacePath` 恒优先。
+- ✅ **PS 方法调用收窄为只读白名单**：`$_.Line.Substring(…).Trim()` 一类文本整理不再整脚本被拒；`Delete/MoveTo/CopyTo/Open*/Invoke/GetType` 与静态调用 `::` 仍 fail-closed，拒绝报文点名具体方法。
+- ✅ **任务分工只校验本次改动的键**：`PUT /v1/models/tasks` 不再因旧坏键（供应商未激活）锁死无关修改；沙箱改 `permissionLevel` 后即时刷新已存在工作区的权限位。
+
 #### v0.5.18 (2026-10-27)  Linux AppImage 修复 + 沙箱页诚实降级
 
 - ✅ **AppImage 打包失败（连挂三版）**：根因是 sidecar 依赖里带入了 **musl 变体**（`@napi-rs/canvas-linux-x64-musl` 等），Tauri 的 linuxdeploy 对 AppDir 内每个 ELF 递归 `ldd`，musl 的 `.node` 在 glibc 宿主上报 `invalid ELF header` ⇒ `failed to run linuxdeploy`（Tauri 只回显这一行，掩盖了真实原因）。现按宿主 os/arch/libc 裁剪异平台原生包，Linux 恢复 `deb,appimage`。

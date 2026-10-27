@@ -53,6 +53,11 @@ export interface SessionMetadata {
   worktreeState?: string;
   prLink?: string;
   projectPath?: string;
+  /**
+   * BUG-B（2026-10-27）：会话工作区绝对路径（`POST /v1/sessions` 与聊天请求体
+   * `workspace_path` 共用同一字段；工具默认 cwd 的会话级事实来源）。
+   */
+  workspacePath?: string;
   userId?: string;
   createdBy?: string;
   parentSessionId?: string;

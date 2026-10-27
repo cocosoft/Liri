@@ -13,7 +13,10 @@
  */
 import { describe, it, expect } from 'bun:test';
 import { join } from 'node:path';
-import { resolveSessionWorkspacePath } from '../../src/chat/services/toolCwdScope.js';
+import {
+  resolveSessionWorkspacePath,
+  resolveRequestWorkspaceUpdate,
+} from '../../src/chat/services/toolCwdScope.js';
 
 // `isAbsolute()` 是**平台相关**的：`D:\…` 在 POSIX 上不是绝对路径。
 // 本文件断言的是"绝对/相对"语义，因此夹具必须按当前平台构造，
@@ -64,5 +67,50 @@ describe('LRO-06：会话工作区解析优先级', () => {
   it('无 projectId 且无 workspacePath ⇒ undefined（无项目会话保持旧行为）', () => {
     expect(resolveWith({})).toBeUndefined();
     expect(resolveWith(undefined)).toBeUndefined();
+  });
+});
+
+/**
+ * BUG-B（2026-10-27，真机长程任务）：请求体 `workspace_path` 原本只进请求 metadata、
+ * 不进会话 metadata ⇒ 工具 cwd 回落代码仓根（实测把产物写进仓库）。
+ * 本用例锁定"请求值 ⇒ 会话 workspacePath"的落盘口径。
+ */
+describe('BUG-B：请求体 workspace_path 落到会话 metadata', () => {
+  it('请求值绝对路径 + 会话无工作区 ⇒ 采用请求值', () => {
+    expect(
+      resolveRequestWorkspaceUpdate({
+        requestWorkspacePath: EXPLICIT,
+        sessionWorkspacePath: undefined,
+      })
+    ).toBe(EXPLICIT);
+  });
+
+  it('请求值与会话一致 ⇒ undefined（不重复写库）', () => {
+    expect(
+      resolveRequestWorkspaceUpdate({
+        requestWorkspacePath: EXPLICIT,
+        sessionWorkspacePath: EXPLICIT,
+      })
+    ).toBeUndefined();
+  });
+
+  it('请求值不同 ⇒ 以请求值为准（客户端当前显式选择）', () => {
+    expect(
+      resolveRequestWorkspaceUpdate({
+        requestWorkspacePath: EXPLICIT,
+        sessionWorkspacePath: SANDBOX,
+      })
+    ).toBe(EXPLICIT);
+  });
+
+  it('负向对照：相对路径 / 空值 / 非字符串 ⇒ 不更新', () => {
+    for (const bad of ['super-mario-liri', '', 42, null, undefined]) {
+      expect(
+        resolveRequestWorkspaceUpdate({
+          requestWorkspacePath: bad,
+          sessionWorkspacePath: undefined,
+        })
+      ).toBeUndefined();
+    }
   });
 });

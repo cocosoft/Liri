@@ -45,6 +45,8 @@ import { SessionGateway } from '@modules/session';
 import { HookChainManager } from '@modules/hooks';
 import { SessionAccessFacade } from './SessionAccessFacade';
 import { resolveChannelSourceOnce } from './channelSourceOnce.js';
+// BUG-B（2026-10-27）：请求体 workspace_path ⇒ 会话 metadata 的落盘判定（纯函数）
+import { resolveRequestWorkspaceUpdate } from './toolCwdScope.js';
 import { MessageService } from './MessageService.js';
 import { eventNotificationService } from './EventNotificationService.js';
 import { clearPathCheckCache } from './PathGuardService';
@@ -355,6 +357,42 @@ export class SessionLifecycleManager {
   }
 
   /**
+   * BUG-B（2026-10-27 真机长程任务）：把**请求体** `workspace_path` 落到会话 metadata。
+   *
+   * 背景：`getOrLoadSession` 的 metadata 参数只在新会话创建时生效（见上 `_applyChannelSourceOnce`
+   * 同源根因）。聊天请求携带的 `workspace_path` 因此永远进不到既有会话 ⇒ 工具 cwd 回落
+   * `resolveProjectRoot()`（代码仓根），实测产物直接写进仓库。
+   *
+   * 判定收敛在 `resolveRequestWorkspaceUpdate`（只认绝对路径、值相同不写库）；落盘失败
+   * 不影响内存标记（下次请求再补）。
+   */
+  private async _applyRequestWorkspacePath(
+    session: ChatSession,
+    metadata?: Record<string, unknown>
+  ): Promise<void> {
+    const next = resolveRequestWorkspaceUpdate({
+      requestWorkspacePath: metadata?.workspacePath,
+      sessionWorkspacePath: session.metadata?.workspacePath,
+    });
+    if (!next) return;
+    session.metadata = { ...session.metadata, workspacePath: next };
+    try {
+      const stored = await this.sessionGateway.getSession(session.id);
+      if (stored) {
+        stored.metadata = { ...stored.metadata, workspacePath: next };
+        await this.sessionGateway.updateSession(stored);
+      }
+    } catch (e) {
+      // @ignore-catch — 工作区落盘失败不影响内存标记（下次请求再补）
+      logger.warn('会话工作区落盘失败', {
+        sessionId: session.id,
+        workspacePath: next,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  /**
    * 该会话在当前身份下是否**可用**（多租户 P3：HTTP 入口 404 语义的唯一判据）。
    *
    * - 任何身份都**必须确实存在**（内存缓存或按身份分区的存储）；
@@ -415,6 +453,8 @@ export class SessionLifecycleManager {
         );
       }
       await this._applyChannelSourceOnce(cached, metadata);
+      // BUG-B（2026-10-27）：请求体 workspace_path 落到既有会话（缓存命中分支）
+      await this._applyRequestWorkspacePath(cached, metadata);
       return cached;
     }
 
@@ -494,6 +534,8 @@ export class SessionLifecycleManager {
           });
         }
         await this._applyChannelSourceOnce(chatSession, metadata);
+        // BUG-B（2026-10-27）：请求体 workspace_path 落到既有会话（存储加载分支）
+        await this._applyRequestWorkspacePath(chatSession, metadata);
         return chatSession;
       }
     } catch (e) {

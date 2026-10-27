@@ -78,6 +78,29 @@ export function resolveSessionWorkspacePath(input: {
 }
 
 /**
+ * BUG-B（2026-10-27 真机长程任务）：请求体 `workspace_path` ⇒ 会话 `metadata.workspacePath`
+ * 的**待落盘值**（返回 `undefined` 表示"无需更新"）。
+ *
+ * 根因：HTTP 入口只把 `workspace_path` 放进**请求** metadata，而 `getOrLoadSession` 的
+ * metadata 仅在**新建会话**时生效 ⇒ 既有会话永远没有 `workspacePath` ⇒ 工具 cwd 回落
+ * `resolveProjectRoot()`（代码仓根，实测把产物写进了仓库）。
+ *
+ * 口径：只认**绝对路径**（与 `resolveSessionWorkspacePath` 一致）；与既有值相同则不更新
+ * （避免每次请求都写库）。请求值是客户端**当前显式选择** ⇒ 与既有值不同时以请求值为准。
+ */
+export function resolveRequestWorkspaceUpdate(input: {
+  requestWorkspacePath: unknown;
+  sessionWorkspacePath: unknown;
+}): string | undefined {
+  const incoming = input.requestWorkspacePath;
+  if (typeof incoming !== 'string' || !incoming || !isAbsolute(incoming)) {
+    return undefined;
+  }
+  if (input.sessionWorkspacePath === incoming) return undefined;
+  return incoming;
+}
+
+/**
  * 解析一次工具执行的 cwd。
  *
  * P2-4（2026-10-27）口径：**本地身份的裸会话按运行形态分流**

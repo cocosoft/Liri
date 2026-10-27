@@ -6800,3 +6800,11 @@
 {"id":"LONG-TASK-FALSE-BLOCKERS","k":"tests#1","i":0,"c":"app/tests/security/compoundReadOnly.test.ts"}
 {"id":"LONG-TASK-FALSE-BLOCKERS","k":"tests#2","i":0,"c":"app/tests/tools/toolSecurityGateWiring.test.ts"}
 {"id":"LONG-TASK-FALSE-BLOCKERS","k":"tests#3","i":0,"c":"app/tests/permission/commandRulePolicy.test.ts"}
+{"id":"TOOL-ERROR-DEDUP-AND-HINTS","k":"title","i":0,"c":"失败结果错误文本去重 + PS 拒绝报文附允许摘要"}
+{"id":"TOOL-ERROR-DEDUP-AND-HINTS","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §五（events.jsonl 第 16/40 条实测 + 自述 P0-2）"}
+{"id":"TOOL-ERROR-DEDUP-AND-HINTS","k":"reopenWhen","i":0,"c":"再现 tool/result 内同一句错误出现两次；或 PS 拒绝报文缺少允许面提示"}
+{"id":"TOOL-ERROR-DEDUP-AND-HINTS","k":"notes","i":0,"c":"createToolResultMessage：payload 与 error 同句（去引号/压空白相等）时只保留前缀，payload 不同仍保留全文；result 为 null 不再追加 null。PS：动词拒绝附允许常用族/执行器/文件/导航摘要，方法拒绝附允许方法清单"}
+{"id":"TOOL-ERROR-DEDUP-AND-HINTS","k":"code#0","i":0,"c":"app/src/chat/services/MessageService.ts"}
+{"id":"TOOL-ERROR-DEDUP-AND-HINTS","k":"code#1","i":0,"c":"app/src/tools/PowerShellTool/PowerShellTool.ts"}
+{"id":"TOOL-ERROR-DEDUP-AND-HINTS","k":"tests#0","i":0,"c":"app/tests/chat/toolResultErrorDedup.test.ts"}
+{"id":"TOOL-ERROR-DEDUP-AND-HINTS","k":"tests#1","i":0,"c":"app/tests/tools/toolSecurityGateWiring.test.ts"}

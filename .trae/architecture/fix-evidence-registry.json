@@ -13758,6 +13758,34 @@
       "changelog": [],
       "reopenWhen": "再现 grep 0 命中但 files>0 / cmd 复合命令被当后台 / PS 键值行被当命令 / 只读静态调用被拒（全文见 archive/evidence-detail.jsonl#LONG-TASK-FALSE-BLOCKERS）",
       "notes": "grep 上限 1MiB→16MiB 且 skippedLargeFiles 计数上报；compoundReadOnly 按平台区分 &（cmd 分隔符 / POSIX 后台）；PS 提取器跳过键值行与块界符、控制流给明确改写建议、静态调用改只读类型白名单、只读表达式不再判空脚本；安全门 deny/ask 补 fai…（全文见 archive/evidence-detail.jsonl#LONG-TASK-FALSE-BLOCKERS）"
+    },
+    {
+      "id": "TOOL-ERROR-DEDUP-AND-HINTS",
+      "title": "失败结果错误文本去重 + PS 拒绝报文附允许摘要",
+      "source": "dev_docs/20261027/Liri-bug分析报告-20261027.md §五（events.jsonl 第 16/40 条实测 + 自述 P0-2）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/services/MessageService.ts",
+        "app/src/tools/PowerShellTool/PowerShellTool.ts"
+      ],
+      "tests": [
+        "app/tests/chat/toolResultErrorDedup.test.ts",
+        "app/tests/tools/toolSecurityGateWiring.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现 tool/result 内同一句错误出现两次；或 PS 拒绝报文缺少允许面提示（全文见 archive/evidence-detail.jsonl#TOOL-ERROR-DEDUP-AND-HINTS）",
+      "notes": "createToolResultMessage：payload 与 error 同句（去引号/压空白相等）时只保留前缀，payload 不同仍保留全文；result 为 null 不再追加 null。PS：动词拒绝附允许常用族/执行器/文件/导航摘要，方法拒绝附允许方法清单（全文见 archive/evidence-detail.jsonl#TOOL-ERROR-DEDUP-AND-HINTS）"
     }
   ]
 }

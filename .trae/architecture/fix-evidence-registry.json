@@ -13725,6 +13725,39 @@
       "changelog": [],
       "reopenWhen": "再现 ask 却落 success / 命令级黑白名单不生效 / 静默放行无日志（全文见 archive/evidence-detail.jsonl#PERMISSION-P0-STOPBLEED）",
       "notes": "ask 分支补 requireApproval+approvalReason（上层提交 Inbox 并返回 awaiting_approval）；新增 commandRulePolicy（黑名单优先、白名单命中免审批、空白名单视为未配置）并接入 bashSecurityGate；default-allow/分类器 f…（全文见 archive/evidence-detail.jsonl#PERMISSION-P0-STOPBLEED）"
+    },
+    {
+      "id": "LONG-TASK-FALSE-BLOCKERS",
+      "title": "长程任务四类误杀：grep 大文件 / cmd 的 & / PS 键值行与控制流 / 静态调用",
+      "source": "dev_docs/20261027/Liri-bug分析报告-20261027.md §五（导出 session_mvq91mtme1e76c5808）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/GrepTool/grep.ts",
+        "app/src/tools/GrepTool/GrepTool.ts",
+        "app/src/security/compoundReadOnly.ts",
+        "app/src/tools/PowerShellTool/PowerShellTool.ts",
+        "app/src/tools/bash/bashSecurityGate.ts"
+      ],
+      "tests": [
+        "app/tests/tools/GrepTool/grepLargeFile.test.ts",
+        "app/tests/security/compoundReadOnly.test.ts",
+        "app/tests/tools/toolSecurityGateWiring.test.ts",
+        "app/tests/permission/commandRulePolicy.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现 grep 0 命中但 files>0 / cmd 复合命令被当后台 / PS 键值行被当命令 / 只读静态调用被拒（全文见 archive/evidence-detail.jsonl#LONG-TASK-FALSE-BLOCKERS）",
+      "notes": "grep 上限 1MiB→16MiB 且 skippedLargeFiles 计数上报；compoundReadOnly 按平台区分 &（cmd 分隔符 / POSIX 后台）；PS 提取器跳过键值行与块界符、控制流给明确改写建议、静态调用改只读类型白名单、只读表达式不再判空脚本；安全门 deny/ask 补 fai…（全文见 archive/evidence-detail.jsonl#LONG-TASK-FALSE-BLOCKERS）"
     }
   ]
 }

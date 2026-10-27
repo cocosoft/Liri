@@ -6787,3 +6787,16 @@
 {"id":"PERMISSION-P0-STOPBLEED","k":"code#2","i":0,"c":"app/src/permission/PermissionManager.ts"}
 {"id":"PERMISSION-P0-STOPBLEED","k":"code#3","i":0,"c":"app/src/tools/bash/bashSecurityGate.ts"}
 {"id":"PERMISSION-P0-STOPBLEED","k":"tests#0","i":0,"c":"app/tests/permission/commandRulePolicy.test.ts"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"title","i":0,"c":"长程任务四类误杀：grep 大文件 / cmd 的 & / PS 键值行与控制流 / 静态调用"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §五（导出 session_mvq91mtme1e76c5808）"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"reopenWhen","i":0,"c":"再现 grep 0 命中但 files>0 / cmd 复合命令被当后台 / PS 键值行被当命令 / 只读静态调用被拒"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"notes","i":0,"c":"grep 上限 1MiB→16MiB 且 skippedLargeFiles 计数上报；compoundReadOnly 按平台区分 &（cmd 分隔符 / POSIX 后台）；PS 提取器跳过键值行与块界符、控制流给明确改写建议、静态调用改只读类型白名单、只读表达式不再判空脚本；安全门 deny/ask 补 failureKind（safety_blocked / permission_denied）"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"code#0","i":0,"c":"app/src/tools/GrepTool/grep.ts"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"code#1","i":0,"c":"app/src/tools/GrepTool/GrepTool.ts"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"code#2","i":0,"c":"app/src/security/compoundReadOnly.ts"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"code#3","i":0,"c":"app/src/tools/PowerShellTool/PowerShellTool.ts"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"code#4","i":0,"c":"app/src/tools/bash/bashSecurityGate.ts"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"tests#0","i":0,"c":"app/tests/tools/GrepTool/grepLargeFile.test.ts"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"tests#1","i":0,"c":"app/tests/security/compoundReadOnly.test.ts"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"tests#2","i":0,"c":"app/tests/tools/toolSecurityGateWiring.test.ts"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"tests#3","i":0,"c":"app/tests/permission/commandRulePolicy.test.ts"}

@@ -125,6 +125,30 @@ describe('deriveMessagesFromEvents', () => {
     expect(asst?.content).toBe('新内容');
   });
 
+  it('BUG-G：投影旧但 metadata 只在投影侧 ⇒ 元数据仍透出（内容仍以事件为准）', () => {
+    const events: LiriEvent[] = [
+      ev(1, 'assistant/text', { content: '兜底文案', messageId: 'msg-2' }),
+    ];
+    const projections: DerivedMessage[] = [
+      {
+        ...proj('msg-2', '兜底文案', 0),
+        metadata: { emptyOutputFallback: true },
+      },
+    ];
+    const messages = deriveMessagesFromEvents(events, projections);
+    const asst = messages.find((m) => m.id === 'msg-2');
+    expect(asst?.content).toBe('兜底文案');
+    expect(asst?.metadata).toEqual({ emptyOutputFallback: true });
+  });
+
+  it('BUG-G 负向：无投影 ⇒ 不伪造 metadata', () => {
+    const events: LiriEvent[] = [
+      ev(1, 'assistant/text', { content: '正文', messageId: 'msg-2' }),
+    ];
+    const messages = deriveMessagesFromEvents(events, []);
+    expect(messages[0]?.metadata).toBeUndefined();
+  });
+
   it('纯投影消息（events 无 chunk）直接取投影', () => {
     const events: LiriEvent[] = [];
     const projections = [proj('msg-9', '纯投影消息', 10)];

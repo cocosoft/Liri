@@ -982,6 +982,13 @@ export function deriveMessagesFromEvents(
         finishReason: interruptedTurnFinish ?? yieldTurnFinish,
         blocks: markOrphanWorkflowBlocks(markOrphanToolBlocks(agg.blocks)),
         tool_calls: agg.tool_calls.length > 0 ? agg.tool_calls : undefined,
+        // 2026-10-27（BUG-G）：投影"版本戳不够新"时（`proj.lastEventSeq < maxChunkSeq`）
+        // 上面分支不成立，原先**整条 metadata 被丢掉** —— 而 metadata 只有投影侧有
+        //（事件流无对应载体：`workspacePath` / `emptyOutputFallback` / `toolCallId`）。
+        // 实测：兜底轮 assistant 在 `messages.jsonl` 带 `emptyOutputFallback:true`，但
+        // `GET /v1/sessions/:id/messages` 返回 `metadata: null` ⇒ 前端无法区分系统兜底。
+        // 内容仍以事件为准，这里只补齐元数据（与覆盖分支 `...proj` 对齐）。
+        ...(proj?.metadata ? { metadata: proj.metadata } : {}),
       });
     }
   }

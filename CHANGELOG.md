@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **LIRI-BUG-G**：投影版本戳不够新时整条 metadata 被丢弃 ⇒ 兜底标记不可见 —— 验证 tsc0|arch0|fnsize0|state0|unit2；基线 真机 GET /v1/sessions/session_mvqstue8ecef7606df/messages 的兜底轮 assistant 返回 metadata:null（messages.jsonl 有 emptyOutputFallback:true）（详情见 archive/evidence-detail.jsonl#LIRI-BUG-G）
 - ✅ **LIRI-BUG-F**：参数 JSON 被截断时静默降级为空参数 ⇒ 缺参不可自纠 —— 验证 tsc0|arch0|fnsize0|state0|unit8；基线 真机 14:01:13Z rawLength=12068 解析失败 ⇒ 降级 {} ⇒ 模型只见缺参并原样重试至 diminishing_returns（详情见 archive/evidence-detail.jsonl#LIRI-BUG-F）
 - ✅ **LIRI-BUG-E2**：TAOR 收尾不产出消息 + think-only 被判可见 ⇒ 空答复 —— 验证 tsc0|arch0|fnsize0|state0|unit12；基线 真机 13:57:17Z contentLength=0（TAOR diminishing_returns）；14:01Z think-only 被判有正文；修复后 14:06:11Z 返回兜底文案并落 metadata.emptyOutputFallback（详情见 archive/evidence-detail.jsonl#LIRI-BUG-E2）
 - ✅ **LIRI-BUG-C2**：非流式与 TAOR 输出预算未归一 ⇒ outputTokens 仍为 4096 —— 验证 tsc0|arch0|fnsize0|state0|unit8；基线 真机 14:07:43Z 非流式 deepseek-v4-pro outputTokens=4096；14:14:03Z 修复后同任务 8777（767 行 / 24KB 且结尾完整）（详情见 archive/evidence-detail.jsonl#LIRI-BUG-C2）

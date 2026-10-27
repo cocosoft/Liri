@@ -6924,3 +6924,9 @@
 {"id":"LIRI-BUG-F","k":"code#3","i":0,"c":"app/src/tools/ToolRegistry.ts"}
 {"id":"LIRI-BUG-F","k":"code#4","i":0,"c":"app/src/tools/ToolManager.ts"}
 {"id":"LIRI-BUG-F","k":"tests#0","i":0,"c":"app/tests/tools/argParseDiagnostics.test.ts"}
+{"id":"LIRI-BUG-G","k":"title","i":0,"c":"投影版本戳不够新时整条 metadata 被丢弃 ⇒ 兜底标记不可见"}
+{"id":"LIRI-BUG-G","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §8.6「兜底标记的对外可见性」；真机 session_mvqstue8ecef7606df"}
+{"id":"LIRI-BUG-G","k":"reopenWhen","i":0,"c":"再出现 messages.jsonl 带 metadata（emptyOutputFallback / workspacePath）而 GET /v1/sessions/:id/messages 返回 null"}
+{"id":"LIRI-BUG-G","k":"notes","i":0,"c":"只补元数据，内容仍以事件聚合为准；覆盖分支本已 ...proj 带入 metadata，本处与之对齐。复验：同一接口返回 metadata.emptyOutputFallback=true，用户消息恢复 workspacePath"}
+{"id":"LIRI-BUG-G","k":"code#0","i":0,"c":"app/src/session/storage/EventMessageDeriver.ts"}
+{"id":"LIRI-BUG-G","k":"tests#0","i":0,"c":"app/tests/session/EventMessageDeriver.test.ts"}

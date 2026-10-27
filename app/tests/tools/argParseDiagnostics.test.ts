@@ -12,7 +12,8 @@
  * 修法：适配器把「解析失败 + 原始长度」作为**保留键诊断**带给执行层，缺参文案据此外显
  * "参数不完整 / 可能被截断 + 分段写入建议"；执行前剥除该键（不污染工具入参）。
  *
- * 安全边界：诊断里的 `preview`（可能含用户代码）**绝不**进入错误文案。
+ * 安全边界：保留键**只带原始长度**，不带参数内容前缀（该键会随 assistant `tool_calls`
+ * 落盘并在后续轮回放给模型 —— 真机 `session_mvqstue8ecef7606df` 实测）。
  */
 import { describe, expect, it } from 'bun:test';
 
@@ -26,19 +27,21 @@ import {
 import { TransportProviderAdapter } from '../../src/ai/transports/TransportProviderAdapter.js';
 import type { NormalizedResponse } from '../../src/ai/transports/types.js';
 
-const SECRET_PREVIEW = '{"file_path": "a.html", "content": "保密内容X"';
-
 describe('保留键契约：写入 / 读取 / 剥除', () => {
-  it('往返：写入后可按长度读回', () => {
-    const input = withArgParseError({ rawLength: 12068, preview: 'x' });
+  it('往返：写入后可按长度读回，载荷只含原始长度', () => {
+    const input = withArgParseError({ rawLength: 12068 });
     expect(getArgParseError(input)?.rawLength).toBe(12068);
     expect(Object.keys(input)).toEqual([ARG_PARSE_ERROR_KEY]);
+    // 载荷形状锁死：不得夹带参数内容前缀
+    expect(Object.keys(input[ARG_PARSE_ERROR_KEY] as object)).toEqual([
+      'rawLength',
+    ]);
   });
 
   it('剥除后不残留保留键（其余键原样保留）', () => {
     const input = {
       file_path: 'a.md',
-      [ARG_PARSE_ERROR_KEY]: { rawLength: 1, preview: '' },
+      [ARG_PARSE_ERROR_KEY]: { rawLength: 1 },
     };
     expect(stripArgParseErrorKey(input)).toEqual({ file_path: 'a.md' });
   });
@@ -51,9 +54,9 @@ describe('保留键契约：写入 / 读取 / 剥除', () => {
 });
 
 describe('缺参文案：三档依据（禁止解析文本反推 —— CS02）', () => {
-  it('① 解析失败 ⇒ 明确「参数不完整/被截断」+ 分段写入建议，且**不泄漏**原始内容', () => {
+  it('① 解析失败 ⇒ 明确「参数不完整/被截断」+ 分段写入建议', () => {
     const detail = describeMissingRequiredParams(
-      withArgParseError({ rawLength: 12068, preview: SECRET_PREVIEW }),
+      withArgParseError({ rawLength: 12068 }),
       ['file_path'],
       ['file_path', 'content']
     );
@@ -63,9 +66,6 @@ describe('缺参文案：三档依据（禁止解析文本反推 —— CS02）'
     expect(detail.error).toContain('参数 JSON 不完整');
     expect(detail.error).toContain('12068');
     expect(detail.error).toContain('分段');
-    // 安全：原始参数前缀不得出现在任何回给模型/用户的文本里
-    expect(detail.error).not.toContain('保密内容X');
-    expect(detail.systemContent).not.toContain('保密内容X');
     // 收到键里也不应把保留键算进去
     expect(detail.receivedKeys).toEqual([]);
     expect(detail.parseErr?.rawLength).toBe(12068);
@@ -120,6 +120,10 @@ describe('适配器：解析失败 ⇒ 携带诊断（不再静默空参数）',
     const info = getArgParseError(args);
     expect(info).toBeDefined();
     expect(info?.rawLength).toBe(truncated.length);
+    // 落盘后会回放给模型的载荷：只有长度，不带内容前缀
+    expect(
+      Object.keys(args[ARG_PARSE_ERROR_KEY] as Record<string, unknown>)
+    ).toEqual(['rawLength']);
     // 工具真正的必填键确实缺失（执行层据此走缺参分支）
     expect(args.file_path).toBeUndefined();
   });

@@ -89,10 +89,12 @@ function toParsedToolCall(tc: NormalizedToolCall): ParsedToolCall {
       rawLength,
       rawPreview: preview,
     });
+    // 2026-10-27：保留键**只带长度**。该键会随 assistant `tool_calls` 落盘并在后续轮
+    // 回放给模型（真机 `session_mvqstue8ecef7606df`），原始前缀只进上面的日志。
     return {
       id: tc.id,
       name: tc.name,
-      arguments: withArgParseError({ rawLength, preview }),
+      arguments: withArgParseError({ rawLength }),
     };
   }
   return { id: tc.id, name: tc.name, arguments: args };

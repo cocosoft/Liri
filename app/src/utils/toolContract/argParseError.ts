@@ -18,10 +18,14 @@
 export const ARG_PARSE_ERROR_KEY = '__liri_args_parse_error__';
 
 export interface ArgParseErrorInfo {
-  /** 原始参数串长度（字符数）—— 与「是否被输出上限截断」直接相关 */
+  /**
+   * 原始参数串长度（字符数）—— 与「是否被输出上限截断」直接相关。
+   *
+   * 只带长度、**不带原始串前缀**：该保留键会随 assistant `tool_calls` 落盘并在后续轮
+   * 回放给模型（2026-10-27 真机 `session_mvqstue8ecef7606df` 实测），前缀属用户内容，
+   * 没有留在入参里的理由 —— 原始前缀另由适配器写进日志（`rawPreview`）。
+   */
   rawLength: number;
-  /** 原始串前缀，**仅用于日志/诊断**，不得回显给模型或用户 */
-  preview: string;
 }
 
 /** 构造带诊断的入参（替代裸 `{}`） */
@@ -39,10 +43,7 @@ export function getArgParseError(
   if (!raw || typeof raw !== 'object') return undefined;
   const info = raw as Partial<ArgParseErrorInfo>;
   if (typeof info.rawLength !== 'number') return undefined;
-  return {
-    rawLength: info.rawLength,
-    preview: typeof info.preview === 'string' ? info.preview : '',
-  };
+  return { rawLength: info.rawLength };
 }
 
 /**
@@ -53,7 +54,7 @@ export function getArgParseError(
  *   2. `input` 真·空对象 ⇒ 提示"未携带任何参数"；
  *   3. 有键但漏必填 ⇒ 仅回显收到的键（不臆测原因）。
  *
- * ⚠️ 诊断里的 `preview` **绝不**回显给模型/用户（可能含用户代码内容），只回显长度。
+ * 诊断载荷只含原始长度 ⇒ 文案仅回显长度，不携带用户参数内容。
  */
 export function describeMissingRequiredParams(
   input: Record<string, unknown> | undefined,

@@ -167,21 +167,39 @@ describe('PowerShell allowlist：按语句动词判定', () => {
 
   // F4（2026-10-27）：拒绝报文必须指向**真实原因**，不能再拿首词背锅
   //（真机实测 83 次都写成「PowerShell 命令 "Select-String" 不在允许列表」）。
-  it('F4：方法调用被拒时，原因明确写"方法调用"（不再指向首词）', async () => {
+  // §12.4 方案 B（2026-10-27 安全评审）：只读字符串方法**放行**（真机 3 例
+  // `$_.Line.Substring(…)` 全部因此失败），其余方法仍 fail-closed。
+  it('§12.4-B：只读字符串方法放行（Substring/Trim/Split 链）', async () => {
     const { explainPowerShellNotAllowed } =
       await import('../../src/tools/PowerShellTool/PowerShellTool.js');
-    const why = explainPowerShellNotAllowed(
-      "$f='a.md'; Select-String -Path $f -Pattern x | % { $_.Line.Substring(0,260) }"
-    );
-    expect(why).not.toBeNull();
-    expect(why!.reason).toContain('方法调用');
-
-    // 判定结果不变（仍拒绝）
+    const command =
+      "$f='a.md'; Select-String -Path $f -Pattern x | % { $_.Line.Substring(0,260).Trim() }";
+    expect(explainPowerShellNotAllowed(command)).toBeNull();
+    expect(isPowerShellCommandAllowed(command)).toBe(true);
     expect(
-      isPowerShellCommandAllowed(
-        "$f='a.md'; Select-String -Path $f -Pattern x | % { $_.Line.Substring(0,260) }"
-      )
-    ).toBe(false);
+      isPowerShellCommandAllowed("Get-Content a.md | % { $_.Split(',')[0] }")
+    ).toBe(true);
+  });
+
+  it('§12.4-B：非白名单方法仍拒，且报文**点名**该方法', async () => {
+    const { explainPowerShellNotAllowed } =
+      await import('../../src/tools/PowerShellTool/PowerShellTool.js');
+    const cases: Array<[string, string]> = [
+      ['(Get-Item a.md).Delete()', 'delete'],
+      ["Get-Item a.md | % { $_.MoveTo('b.md') }", 'moveto'],
+      // 反射链：`GetType()` 不在白名单 ⇒ 整条拒绝（防 `GetMethod('Delete').Invoke(…)`）
+      [
+        "(Get-Item a.md).GetType().GetMethod('Delete').Invoke($null, $null)",
+        'gettype',
+      ],
+    ];
+    for (const [command, method] of cases) {
+      const why = explainPowerShellNotAllowed(command);
+      expect(why).not.toBeNull();
+      expect(why!.reason).toContain('方法调用');
+      expect(why!.reason.toLowerCase()).toContain(method);
+      expect(isPowerShellCommandAllowed(command)).toBe(false);
+    }
   });
 
   it('F4：动词不在白名单时，报文给出**命中的语句与动词**', async () => {

@@ -226,6 +226,50 @@ export interface PowerShellNotAllowed {
   verb?: string;
 }
 
+/**
+ * 方法调用**只读白名单**（§12.4 方案 B，2026-10-27 安全评审后收窄）。
+ *
+ * 背景：原实现只要出现 `obj.Method(…)` 就整脚本 fail-closed，真机 83 次拒绝里
+ * 可解释的 3 例都是 `$_.Line.Substring(0,260)` 这类**文本整理**（Liri R2）。
+ *
+ * 收窄口径 = **方法名逐字命中白名单**，且名单内全部无 I/O 副作用：
+ * - 放行：字符串只读方法（截取/裁剪/切分/大小写/比较/补齐/拼接）；
+ * - 继续拒绝：`Delete` / `MoveTo` / `CopyTo` / `Create` / `Open*` / `Invoke` /
+ *   `GetType` 等有副作用或可串到反射的入口 —— `GetType` 尤其关键，
+ *   `$x.GetType().GetMethod('Delete').Invoke(...)` 一步就能绕过本白名单。
+ *   同理，静态调用 `[Type]::Method(…)` 仍整条拒绝（见 `explainPowerShellNotAllowed` ②）。
+ */
+const ALLOWED_READONLY_METHODS = new Set([
+  'substring',
+  'trim',
+  'trimstart',
+  'trimend',
+  'split',
+  'replace',
+  'tolower',
+  'tolowerinvariant',
+  'toupper',
+  'toupperinvariant',
+  'startswith',
+  'endswith',
+  'contains',
+  'indexof',
+  'lastindexof',
+  'padleft',
+  'padright',
+  'tostring',
+  'join',
+]);
+
+/** 取脚本中**第一处不在只读白名单**的方法调用名（无 ⇒ `null`） */
+function findDisallowedMethodCall(command: string): string | null {
+  for (const match of command.matchAll(/\.([A-Za-z_]\w*)\s*\(/g)) {
+    const name = match[1].toLowerCase();
+    if (!ALLOWED_READONLY_METHODS.has(name)) return name;
+  }
+  return null;
+}
+
 /** 单个动词是否命中白名单（`get-` 为前缀族，其余精确匹配） */
 function isAllowedPowerShellVerb(verb: string): boolean {
   for (const allowed of ALLOWED_POWERSHELL_COMMANDS) {
@@ -243,10 +287,9 @@ function isAllowedPowerShellVerb(verb: string): boolean {
  * `PowerShell 命令 "<首词>" 不在允许列表` —— 而真实原因往往**不是**首词那条命令
  * （可能是脚本里另一处方法调用/静态调用）。模型据此改不动，只能反复重试。
  *
- * ⚠️ **本轮只改"报错"，不放宽判定**（安全面零变更，与 §12.3 的 F4 分期一致）：
- * 方法调用/静态调用仍是**整脚本 fail-closed**（`$_.Line.Substring(…)` 依旧被拒），
- * 只是报文会明确说"检测到方法调用"，让模型改写而不是盲试。是否把方法调用收窄到
- * "命令分派面"需单独做安全评审（会放宽 `Get-ChildItem | % { Remove-Item $_ }` 一类）。
+ * ⚠️ **方法调用已按 §12.4 方案 B 收窄**（2026-10-27 安全评审）：只放行
+ * `ALLOWED_READONLY_METHODS` 里的**只读字符串方法**（`$_.Line.Substring(…)` 一类），
+ * 其余方法仍整脚本 fail-closed；静态调用 `[Type]::Method(…)` 依旧全拒。
  *
  * @returns `null` = 允许；否则为可读拒绝原因
  */
@@ -255,11 +298,11 @@ export function explainPowerShellNotAllowed(
 ): PowerShellNotAllowed | null {
   if (!command.trim()) return { reason: '命令为空' };
 
-  // ① 方法调用（fail-closed 不变）：`(Get-Item x).Delete()` 一类"看似只读"的调用
-  if (/\.[A-Za-z_]\w*\s*\(/.test(command)) {
+  // ① 方法调用（方案 B：只读方法名白名单，其余 fail-closed）
+  const disallowedMethod = findDisallowedMethodCall(command);
+  if (disallowedMethod) {
     return {
-      reason:
-        '检测到方法调用（obj.Method(…)），属任意代码面；请改写为单一命令或去掉方法链',
+      reason: `检测到方法调用「.${disallowedMethod}(…)」不在只读白名单（仅支持字符串只读方法）；请改写为单一命令或去掉方法链`,
     };
   }
   // ② 静态方法调用（fail-closed 不变）

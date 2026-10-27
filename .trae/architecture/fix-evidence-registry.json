@@ -13562,6 +13562,32 @@
       "changelog": [],
       "reopenWhen": "再现改级别后需重启才生效（全文见 archive/evidence-detail.jsonl#SANDBOX-PERMISSION-HOT-RELOAD）",
       "notes": "级别→权限位映射上提到 permissionLevel（单一事实源）；WorkspaceBase 增 updateAllowedPermissions；PUT handler 经 SPI refreshDefaultWorkspacePermissions 刷新（无工作区⇒false 不建）（全文见 archive/evidence-detail.jsonl#SANDBOX-PERMISSION-HOT-RELOAD）"
+    },
+    {
+      "id": "ABORTED-TURN-NEUTRAL",
+      "title": "中止/超时轮改中性（不再冒充进展）",
+      "source": "排查计划 §11.2 P2-2（classifyTurn 只把 error 计失败，中止按 progress 清零掩盖卡死）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/ReActLoop.ts"
+      ],
+      "tests": [
+        "app/tests/query/environmentBlockedTermination.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现「中止→失败→中止」循环始终不触发熔断（全文见 archive/evidence-detail.jsonl#ABORTED-TURN-NEUTRAL）",
+      "notes": "classifyTurn 新增 aborted（全 aborted/timeout）；checkCircuitBreaker 对该结果既不计失败也不清零；混入成功=progress、混入 error 仍按失败分型（全文见 archive/evidence-detail.jsonl#ABORTED-TURN-NEUTRAL）"
     }
   ]
 }

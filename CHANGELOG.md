@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **ABORTED-TURN-NEUTRAL**：中止/超时轮改中性（不再冒充进展） —— 验证 tsc0|arch0|fnsize0|state0|unit16+1318|neg3；基线 aborted/timeout 因 status!=error 被判 progress ⇒ 清零双预算，掩盖连续失败（回退旧码实测 3 例红）（详情见 archive/evidence-detail.jsonl#ABORTED-TURN-NEUTRAL）
 - ✅ **SANDBOX-PERMISSION-HOT-RELOAD**：改级别即时生效（刷新工作区权限位） —— 验证 tsc0|arch0|purity0|kapi0|unit6+207；基线 权限位是创建时快照 ⇒ PUT config 只改配置，已存在工作区仍按旧权限（改完要重启）（详情见 archive/evidence-detail.jsonl#SANDBOX-PERMISSION-HOT-RELOAD）
 - ✅ **SUBAGENT-ROUND-BREAKER**：子代理启用轮级熔断（同阈值+分型） —— 验证 tsc0|arch0|fnsize0|unit3+197+1106；基线 maxConsecutiveInvalidTurns=0 且工具失败仍记 ok ⇒ 轮级熔断完全失效，只能等 maxTurns（详情见 archive/evidence-detail.jsonl#SUBAGENT-ROUND-BREAKER）
 - ✅ **TASKS-PARTIAL-VALIDATION**：任务分工只校验本次改动的键 —— 验证 tsc0|arch0|unit14；基线 全量 PUT 下按整张表校验 ⇒ 旧坏键（供应商未激活）锁死无关修改（详情见 archive/evidence-detail.jsonl#TASKS-PARTIAL-VALIDATION）

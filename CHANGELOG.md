@@ -72,6 +72,11 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.18 (2026-10-27)  Linux AppImage 修复 + 沙箱页诚实降级
+
+- ✅ **AppImage 打包失败（连挂三版）**：根因是 sidecar 依赖里带入了 **musl 变体**（`@napi-rs/canvas-linux-x64-musl` 等），Tauri 的 linuxdeploy 对 AppDir 内每个 ELF 递归 `ldd`，musl 的 `.node` 在 glibc 宿主上报 `invalid ELF header` ⇒ `failed to run linuxdeploy`（Tauri 只回显这一行，掩盖了真实原因）。现按宿主 os/arch/libc 裁剪异平台原生包，Linux 恢复 `deb,appimage`。
+- ✅ **沙箱页"配了没用"**：权限级别只进豁免判定 S3，而 S1（`mode === 'none'`）先拒 ⇒ Windows 桌面该级别对实际行为零影响且无提示。现 `GET /v1/sandbox/config`、`/status` 透出 `runtimeIsolation`，无隔离后端时**禁用级别控件**并说明原因。
+
 #### v0.5.17 (2026-10-27)  Linux 发布先出 deb 保底 + 审批通道可见性
 
 - ✅ **Linux 打包**：AppImage 在 v0.5.13 / v0.5.15 / v0.5.16 连续三次卡在 `Build Tauri app` ⇒ 本轮 Linux **只出 `deb`**，保证每个版本都有 Linux 产物；AppImage 单列修（配置保留在 `release.yml` 注释里，修好后改回 `deb,appimage`）。

@@ -29,6 +29,8 @@ import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { Message } from '@modules/session/types/message';
+// P2-3（2026-10-27）：把工具失败分类写进 `tool/result` 事件（落盘侧校验）
+import { isToolFailureKind } from '@modules/session/types/tool';
 import { MessageStatus } from '@modules/session/types/message';
 import { EventLogStorage } from './EventLogStorage';
 // ②b（2026-09-24）：工作流 run 记录投影（自包含，从本文件拆出以控行长）
@@ -377,6 +379,11 @@ export class MessageToEventMigrator {
           toolCallId: message.toolCallId,
           result: this.extractStringContent(message.content),
           isError: this.isToolError(message),
+          // P2-3（2026-10-27）：失败分类随事件落盘（缺省不写键 —— undefined 键会被
+          // D1 无损 JSON 校验拒绝，见下方 messageId 同因）
+          ...(isToolFailureKind(meta.failureKind)
+            ? { failureKind: meta.failureKind }
+            : {}),
           // 2026-08-30：parentMsgId 可选——v0 数据无 parent 来源时 undefined 键会触发
           // D1 无损 JSON 校验拒绝（event.data.messageId: undefined → invalid-event）
           ...(parentMsgId ? { messageId: parentMsgId } : {}),

@@ -519,10 +519,18 @@ export class MessageServiceImpl implements MessageService {
       // T-13-a（2026-10-17）：失败状态位**在构造处落定** —— 事件投影
       // （`MessageToEventMigrator.isToolError`）与误调用率口径都读这两个持久化标记，
       // 此前只有文案前缀 ⇒ `tool/result.isError` 恒 false（U-13 实测暴露）。
+      // P2-3（2026-10-27）：失败**分类**同批落盘 —— 原仅活在内存 `ToolResultEntry` 里，
+      // 重启后"为什么失败"无从判断（续跑短路 / 误调用率口径都要读）。
       ...(hasError
         ? {
             status: MessageStatus.FAILED,
-            metadata: { ...(options?.metadata ?? {}), isError: true },
+            metadata: {
+              ...(options?.metadata ?? {}),
+              isError: true,
+              ...(toolResult.failureKind
+                ? { failureKind: toolResult.failureKind }
+                : {}),
+            },
           }
         : { metadata: options?.metadata }),
     });

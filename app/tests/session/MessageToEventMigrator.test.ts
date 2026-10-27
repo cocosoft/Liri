@@ -160,3 +160,75 @@ describe('tool/result isError 状态位（T-13-a）', () => {
     expect(toolEventData(events).isError).toBe(false);
   });
 });
+
+/**
+ * P2-3（2026-10-27）：失败**分类**随 `tool/result` 落盘。
+ *
+ * 修复前：`failureKind` 只活在内存 `ToolResultEntry` 里 ⇒ 重启后无法回答
+ * "这个调用为什么失败"（续跑短路 / 误调用率口径都依赖它）。
+ */
+describe('tool/result failureKind 落盘（P2-3）', () => {
+  const dataOf = (events: Array<{ type: string; data: unknown }>) =>
+    events.find((e) => e.type === 'tool/result')!.data as Record<
+      string,
+      unknown
+    >;
+
+  it('构造处：error + failureKind ⇒ 写进 metadata', () => {
+    const ms = createMessageService();
+    const msg = ms.createToolResultMessage({
+      toolCallId: 'call_pd',
+      result: '',
+      error: 'Denied by rule',
+      failureKind: 'permission_denied',
+    } as never);
+    expect((msg.metadata as Record<string, unknown>)?.failureKind).toBe(
+      'permission_denied'
+    );
+  });
+
+  it('构造处：成功结果不写 failureKind（即使被误填）', () => {
+    const ms = createMessageService();
+    const msg = ms.createToolResultMessage({
+      toolCallId: 'call_ok2',
+      result: 'ok',
+      failureKind: 'tool_error',
+    } as never);
+    expect(
+      (msg.metadata as Record<string, unknown> | undefined)?.failureKind
+    ).toBeUndefined();
+  });
+
+  it('投影：metadata.failureKind ⇒ 事件 data 携带', () => {
+    const { events } = convert({
+      role: 'tool',
+      toolCallId: 'c_pd',
+      content: 'x',
+      metadata: { isError: true, failureKind: 'safety_blocked' },
+    } as unknown as Partial<Message>);
+    expect(dataOf(events).failureKind).toBe('safety_blocked');
+  });
+
+  it('投影：无分类 ⇒ 不写键（防 undefined 键被 D1 无损 JSON 校验拒绝）', () => {
+    const { events } = convert({
+      role: 'tool',
+      toolCallId: 'c_none',
+      content: 'x',
+    } as unknown as Partial<Message>);
+    expect(
+      Object.prototype.hasOwnProperty.call(dataOf(events), 'failureKind')
+    ).toBe(false);
+  });
+
+  it('投影：非法分类值被丢弃（不把任意字符串写进事件）', () => {
+    const { events } = convert({
+      role: 'tool',
+      toolCallId: 'c_bad',
+      content: 'x',
+      metadata: { isError: true, failureKind: 'not-a-kind' },
+    } as unknown as Partial<Message>);
+    expect(
+      Object.prototype.hasOwnProperty.call(dataOf(events), 'failureKind')
+    ).toBe(false);
+  });
+});

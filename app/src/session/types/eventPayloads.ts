@@ -23,6 +23,8 @@ import type {
 // 2026-10-01 B11 前置 P1（D-223）：同上，问题项接口已下沉 `@modules/types/mermaid`(core)
 // ⇒ 本文件不再依赖 `@modules/utils/mermaidLint`(infra)，成为**纯 core 引用**的契约文件。
 import type { MermaidLintIssue } from '@modules/types/mermaid';
+// P2-3（2026-10-27）：工具失败分类随 `tool/result` 落盘（与 `ToolResult.failureKind` 同源）
+import type { ToolFailureKind } from '@modules/utils/toolContract/ToolResult';
 
 /**
  * Steering 注入**来源**（2026-10-08，架构治理 P1 · §1.6 红线审计修复）。
@@ -234,6 +236,14 @@ export interface LiriEventMap {
     result: string;
     /** 是否为错误结果 */
     isError?: boolean;
+    /**
+     * 失败分类（P2-3，2026-10-27）：`permission_denied` / `safety_blocked` /
+     * `env_unavailable` / `tool_error`。
+     *
+     * 为什么必须落盘：分类原本只活在内存 `ToolResultEntry` 里 ⇒ 重启后"为什么失败"
+     * 无从判断（续跑短路 LRO-13、误调用率口径都要读它）。缺省 = 未分类。
+     */
+    failureKind?: ToolFailureKind;
     /** 归属的 assistant 消息 id（v1 起，= metadata.parentMessageId 回退 parentUuid；A2） */
     messageId?: string;
   };

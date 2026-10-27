@@ -20,6 +20,12 @@ import { estimateMessagesTokens, providerRegistry } from '@modules/ai';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 // G-2/E（2026-10-11）：子代理用量计入每日预算（`recordDailyBudgetFromUsage` 是非 chat 管线的唯一计账助手）
 import { ReActLoop, recordDailyBudgetFromUsage } from '@modules/query';
+// P2-1（2026-10-27）：子代理与主循环**同阈值**（单一事实源在 ReActLoop）
+import {
+  DEFAULT_MAX_CONSECUTIVE_INVALID_TURNS,
+  DEFAULT_MAX_CONSECUTIVE_BLOCKED_TURNS,
+} from '@modules/query';
+import type { ToolFailureKind } from '@modules/utils/toolContract/ToolResult';
 // G-01（2026-10-19）：调用**前**走与 chat 同一预算收口（此前仅"事后记账" ⇒ 批次内可透支）
 import { assertEntryBudget } from '../../query/dailyBudgetGate';
 import type {
@@ -850,7 +856,7 @@ export class SubAgentEngine {
     toolCall: { id: string; name: string; arguments: Record<string, unknown> },
     toolInstances: Map<string, Tool>,
     toolContext?: ToolUseContext
-  ): Promise<{ ok: boolean; content: string }> {
+  ): Promise<{ ok: boolean; content: string; failureKind?: ToolFailureKind }> {
     const tool = toolInstances.get(toolCall.name);
     if (!tool) {
       return {
@@ -859,6 +865,7 @@ export class SubAgentEngine {
           success: false,
           error: `Tool '${toolCall.name}' not found`,
         }),
+        failureKind: 'tool_error',
       };
     }
 
@@ -883,9 +890,18 @@ export class SubAgentEngine {
       // B2-c 读取侧收口（2026-09-30）：载荷以 **`data`** 为准，`result` 并行载荷已清零。
       const output = result.output || result.data || JSON.stringify(result);
 
-      if (typeof output === 'string') return { ok: true, content: output };
+      // P2-1（2026-10-27）：`ok` 必须反映**工具自身的成功位**——原实现只要没抛异常就记
+      // `ok:true` ⇒ 子代理的"全失败"轮永远不存在 ⇒ 轮级熔断（即便打开）也不会触发。
+      // `failureKind` 由工具侧结构化写入（CS02：不解析 error 文本）。
+      const ok = result.success !== false;
+      const failureKind: ToolFailureKind | undefined = ok
+        ? undefined
+        : (result.failureKind ?? 'tool_error');
 
-      return { ok: true, content: JSON.stringify(output) };
+      if (typeof output === 'string')
+        return { ok, content: output, failureKind };
+
+      return { ok, content: JSON.stringify(output), failureKind };
     } catch (error) {
       handleError(error, {
         module: 'tools:AgentTool:SubAgentEngine',
@@ -897,6 +913,7 @@ export class SubAgentEngine {
           success: false,
           error: error instanceof Error ? error.message : String(error),
         }),
+        failureKind: 'tool_error',
       };
     }
   }
@@ -994,7 +1011,11 @@ class SubAgentLoop extends ReActLoop<
   ) {
     super({
       maxIterations: opts.maxTurns,
-      maxConsecutiveInvalidTurns: 0,
+      // P2-1（2026-10-27）：原为 0（= 关闭）⇒ 子代理路径**轮级熔断完全失效**
+      //（连续无效轮 / 环境阻塞都不会中止，只能等 maxTurns 耗尽）。
+      // 现与主循环同阈值、同分型（`classifyTurn()` 读 `failureKind`）。
+      maxConsecutiveInvalidTurns: DEFAULT_MAX_CONSECUTIVE_INVALID_TURNS,
+      maxConsecutiveBlockedTurns: DEFAULT_MAX_CONSECUTIVE_BLOCKED_TURNS,
       abortSignal: opts.abortSignal,
     });
   }
@@ -1086,7 +1107,9 @@ class SubAgentLoop extends ReActLoop<
       );
       // D3（2026-09-17）：executeToolCall 返回结构化结果——工具缺失/执行异常
       // （ok=false）不再被上报为全成功
-      const { ok, content } = await this.opts.engine['executeToolCall'](
+      const { ok, content, failureKind } = await this.opts.engine[
+        'executeToolCall'
+      ](
         {
           id: tc.id,
           name: tc.name,
@@ -1112,6 +1135,9 @@ class SubAgentLoop extends ReActLoop<
         name: tc.name,
         status: ok ? 'success' : 'error',
         output: content,
+        // P2-1（2026-10-27）：分型进结果，`classifyTurn()` 才能区分
+        // 「环境阻塞」（2 轮收口）与「模型无效输出/工具自身失败」（3 轮收口）。
+        failureKind,
       });
     }
     return {
@@ -1137,22 +1163,32 @@ class SubAgentLoop extends ReActLoop<
     // L4（2026-09-06）：终止语义单一判别（骨架 getTerminationReason 按 phase/abort/iteration 派生），
     // completed/截断(max_turns)/中止(aborted)/错误(error)不再靠两布尔折叠。
     const terminationReason = this.getTerminationReason();
+    const error = ((): string | undefined => {
+      switch (terminationReason) {
+        case 'aborted':
+          return 'Execution aborted';
+        case 'max_turns':
+          return `Max turns (${this.config.maxIterations}) reached without completion`;
+        // P2-1（2026-10-27）：轮级熔断的两种终态同样透传 `lastError`
+        //（骨架已写入「最近失败的工具 + 原因」，否则子代理只会返回空 error，无从归因）
+        case 'circuit_breaker':
+        case 'environment_blocked':
+          return this.state.lastError ?? 'Circuit breaker tripped';
+        case 'error':
+          return this.state.lastError ?? 'Execution error';
+        case 'budget_exhausted':
+          return 'Token budget exhausted without completion';
+        default:
+          return undefined;
+      }
+    })();
     return {
       completed: terminationReason === 'completed',
       output,
       toolCallCount: this.toolCallCount,
       turnsUsed: this.state.iteration,
       terminationReason,
-      error:
-        terminationReason === 'aborted'
-          ? 'Execution aborted'
-          : terminationReason === 'max_turns'
-            ? `Max turns (${this.config.maxIterations}) reached without completion`
-            : terminationReason === 'error'
-              ? (this.state.lastError ?? 'Execution error')
-              : terminationReason === 'budget_exhausted'
-                ? 'Token budget exhausted without completion'
-                : undefined,
+      error,
     };
   }
 }

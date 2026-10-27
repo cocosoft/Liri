@@ -469,10 +469,21 @@ export interface ReActLoopConfig {
   sessionId?: string;
 }
 
+/**
+ * 连续 all-invalid 轮数默认阈值。
+ *
+ * P2-1（2026-10-27）：主循环与**子代理**共用同一阈值（`SubAgentEngine` 直接引用本常量），
+ * 避免两处各写一个字面量而漂移。
+ */
+export const DEFAULT_MAX_CONSECUTIVE_INVALID_TURNS = 3;
+
+/** 连续环境阻塞轮数默认阈值（同上，与 invalid 双预算互不污染） */
+export const DEFAULT_MAX_CONSECUTIVE_BLOCKED_TURNS = 2;
+
 const DEFAULT_CONFIG: ReActLoopConfig = {
   maxIterations: 30,
-  maxConsecutiveInvalidTurns: 3,
-  maxConsecutiveBlockedTurns: 2,
+  maxConsecutiveInvalidTurns: DEFAULT_MAX_CONSECUTIVE_INVALID_TURNS,
+  maxConsecutiveBlockedTurns: DEFAULT_MAX_CONSECUTIVE_BLOCKED_TURNS,
   maxRepeatedRounds: 3,
 };
 

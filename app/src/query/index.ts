@@ -35,6 +35,9 @@ export {
   createSystemAbortReason,
   isAbortReason,
   isSystemAbortReason,
+  // P2-1（2026-10-27）：阈值单一事实源（主循环与子代理共用）
+  DEFAULT_MAX_CONSECUTIVE_INVALID_TURNS,
+  DEFAULT_MAX_CONSECUTIVE_BLOCKED_TURNS,
 } from './ReActLoop.js';
 export type {
   ReActState,

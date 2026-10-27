@@ -19,6 +19,11 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **LIRI-BUG-E**：结构化空内容被当成「有正文」⇒ 收尾零答复 —— 验证 tsc0|arch0|fnsize0|state0|unit9；基线 content 为空数组或只含 tool_call 块时 Array.isArray 直接判有正文 ⇒ 跳过兜底（落库长度 0）（详情见 archive/evidence-detail.jsonl#LIRI-BUG-E）
+- ✅ **LIRI-BUG-D**：file_write 写前要求父目录已存在 ⇒ 写入新建子目录被拒 —— 验证 tsc0|arch0|fnsize0|state0|unit3；基线 mkdir 被复合只读安全闸 fail-closed 拒绝，file_write 又报「写入目录不存在」，新建 js/ 无路可走（详情见 archive/evidence-detail.jsonl#LIRI-BUG-D）
+- ✅ **LIRI-BUG-C**：输出预算硬编码 4096 ⇒ 大文件参数整点截断 —— 验证 tsc0|arch0|fnsize0|state0|unit4；基线 12:17:03Z/12:20:40Z/12:26:23Z/12:27:30Z 四次 LLM 调用 outputTokens 均为整点 4096（详情见 archive/evidence-detail.jsonl#LIRI-BUG-C）
+- ✅ **LIRI-BUG-B**：请求体 workspace_path 未落会话 metadata ⇒ 工具 cwd 回落代码仓根 —— 验证 tsc0|arch0|fnsize0|state0|unit4；基线 该会话 metadata 无 workspacePath，7 个文件写进 E:\PY\Documents\CODES\PY_APP\mario-game（详情见 archive/evidence-detail.jsonl#LIRI-BUG-B）
+- ✅ **LIRI-BUG-A**：空输出兜底文案被当作 PDCA 任务描述 ⇒ 改为结构化标记 —— 验证 tsc0|arch0|fnsize0|state0|unit3；基线 12:27:35Z runFullPdca 开始，descPreview 即「本次未能生成回复…」兜底文案；随后该会话被灌入 89 条无关 PRD 消息（详情见 archive/evidence-detail.jsonl#LIRI-BUG-A）
 - ✅ **READONLY-SINGLE-PARITY**：单条只读命令与复合只读不同口径 + Windows \bin 误判敏感目录 —— 验证 tsc0|arch0|fnsize0|state0|unit4+1586；基线 10:14–10:26Z 11 次 security_analyzer_ask：findstr / git log / tasklist 单条需批准；dir /b …\bin 被判敏感目录（详情见 archive/evidence-detail.jsonl#READONLY-SINGLE-PARITY）
 - ✅ **INBOX-APPROVAL-SOURCE**：审批卡缺来源模块标记 ⇒ 孤儿告警 —— 验证 tsc0|arch0|fnsize0|state0|unit1586；基线 10:14–10:26Z 12 分钟内 9 次 Inbox item missing source reference（type=approval source=permission）（详情见 archive/evidence-detail.jsonl#INBOX-APPROVAL-SOURCE）
 - ✅ **PS-WRAPPER-GATE-CONFLICT**：bash 内单条 powershell -Command 被只读族二次否决 —— 验证 tsc0|arch0|fnsize0|state0|unit7+2103；基线 10:13:59Z/10:14:03Z 只读 Get-ChildItem…|Select-Object 被判 security_analyzer_deny，而同一脚本经 evaluatePowerShellSecurity 实测 allow（详情见 archive/evidence-detail.jsonl#PS-WRAPPER-GATE-CONFLICT）

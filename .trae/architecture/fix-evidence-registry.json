@@ -14069,6 +14069,33 @@
       "changelog": [],
       "reopenWhen": "再现「写入目录不存在」；或写前检查重新要求目标目录已存在（全文见 archive/evidence-detail.jsonl#LIRI-BUG-D）",
       "notes": "写前改用 resolveWritableProbeDir 取最近已存在祖先（探针须是目录，否则明确报错），与 writeFile 的递归建目录语义对齐；不放宽安全闸（全文见 archive/evidence-detail.jsonl#LIRI-BUG-D）"
+    },
+    {
+      "id": "LIRI-BUG-E",
+      "title": "结构化空内容被当成「有正文」⇒ 收尾落库 fullContentLength=0，用户零答复",
+      "source": "dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-E；app.log chatStream 完成 contentLength=59 与 chatStream:complete fullContentLength=0",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/terminationOutput.ts",
+        "app/src/chat/ReActToolLoop.ts"
+      ],
+      "tests": [
+        "app/tests/chat/terminationAlwaysHasText.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现 zero-text 收尾无兜底答复；或可见性判定退回 Array.isArray 即 true（全文见 archive/evidence-detail.jsonl#LIRI-BUG-E）",
+      "notes": "新增 hasVisibleAssistantText（text/code 且 value 非空白才算可见，thinking/tool_call/tool_result 不算）；空数组与仅工具块不再跳过兜底，兜底同时置 emptyOutputFallback 供 BUG-A 下游判定（全文见 archive/evidence-detail.jsonl#LIRI-BUG-E）"
     }
   ]
 }

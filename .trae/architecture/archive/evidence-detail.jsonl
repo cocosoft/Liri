@@ -6891,3 +6891,10 @@
 {"id":"LIRI-BUG-D","k":"code#0","i":0,"c":"app/src/tools/utils/ToolUtils.ts"}
 {"id":"LIRI-BUG-D","k":"code#1","i":0,"c":"app/src/tools/FileWriteTool/FileWriteTool.ts"}
 {"id":"LIRI-BUG-D","k":"tests#0","i":0,"c":"app/tests/tools/fileWriteToolPath.test.ts"}
+{"id":"LIRI-BUG-E","k":"title","i":0,"c":"结构化空内容被当成「有正文」⇒ 收尾落库 fullContentLength=0，用户零答复"}
+{"id":"LIRI-BUG-E","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-E；app.log chatStream 完成 contentLength=59 与 chatStream:complete fullContentLength=0"}
+{"id":"LIRI-BUG-E","k":"reopenWhen","i":0,"c":"再现 zero-text 收尾无兜底答复；或可见性判定退回 Array.isArray 即 true"}
+{"id":"LIRI-BUG-E","k":"notes","i":0,"c":"新增 hasVisibleAssistantText（text/code 且 value 非空白才算可见，thinking/tool_call/tool_result 不算）；空数组与仅工具块不再跳过兜底，兜底同时置 emptyOutputFallback 供 BUG-A 下游判定"}
+{"id":"LIRI-BUG-E","k":"code#0","i":0,"c":"app/src/chat/terminationOutput.ts"}
+{"id":"LIRI-BUG-E","k":"code#1","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
+{"id":"LIRI-BUG-E","k":"tests#0","i":0,"c":"app/tests/chat/terminationAlwaysHasText.test.ts"}

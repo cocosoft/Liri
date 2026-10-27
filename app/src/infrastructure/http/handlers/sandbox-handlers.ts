@@ -40,6 +40,9 @@ import { configManager } from '@modules/config';
 // （服务层 → core 为下行，合法）；端口按 CS01 复用既有端口，不另立。
 import { resolveSandbox } from '@openliri/kernel/spi';
 import { securityIntegrationService } from '@modules/security';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('http:sandbox-handlers');
 
 /** 沙箱权限级别（与 PERMISSION_SANDBOX_DEFAULT 取值一致） */
 export type SandboxPermissionLevel = 'full' | 'standard' | 'readonly';
@@ -140,6 +143,13 @@ export async function handleUpdateSandboxConfig(
     }
     if (body.permissionLevel !== undefined) {
       configManager.setValue('sandbox.permissionLevel', body.permissionLevel);
+      // P1-2（2026-10-27）：权限位是工作区**创建时快照** ⇒ 改级别后必须刷新已有默认
+      // 工作区，否则要重启才生效。`false` = 当前身份还没有默认工作区（不建、不报错）。
+      const refreshed = resolveSandbox().refreshDefaultWorkspacePermissions();
+      logger.info('sandbox: permissionLevel 已保存', {
+        permissionLevel: body.permissionLevel,
+        workspaceRefreshed: refreshed,
+      });
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

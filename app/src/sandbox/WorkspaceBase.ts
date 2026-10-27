@@ -139,6 +139,19 @@ export abstract class WorkspaceBase {
   }
 
   /**
+   * P1-2（2026-10-27）：按**最新配置**刷新本工作区的权限位。
+   *
+   * 为什么需要：`hasPermission` 读的是**创建时快照**（`config.allowedPermissions`）⇒
+   * 在管理页改 `sandbox.permissionLevel` 后，已存在的默认工作区仍按旧权限判定，
+   * 表现为「改完要重启才生效」（`WorkspaceBase.ts:137-139` 的历史语义）。
+   *
+   * 只改权限位数组，不重建适配器、不动工作目录 ⇒ 无 IO、无连接重建。
+   */
+  updateAllowedPermissions(permissions: SandboxPermission[]): void {
+    this.config.allowedPermissions = [...permissions];
+  }
+
+  /**
    * 本工作区的**隔离形态**（2026-10-23，方案 A 取证用）。
    *
    * - `local`：宿主进程直接操作文件系统（**不是隔离**，仅路径/权限位约束）；

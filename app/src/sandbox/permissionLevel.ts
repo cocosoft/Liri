@@ -18,7 +18,33 @@
  */
 
 import { configManager } from '@modules/config';
+import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
 import type { SandboxPermissionLevel } from '@modules/utils/toolContract/Tool';
+
+/**
+ * P1-2（2026-10-27）：权限级别 → 权限位（**单一事实源**）。
+ *
+ * 为什么上提到这里：建工作区时用（`WorkspaceManager.getDefaultPermissions`）与
+ * **运行期改级别后刷新已有工作区**时用（`refreshScopedDefaultWorkspacePermissions`）
+ * 必须是同一套映射，否则"新建的工作区"与"刷新过的工作区"权限位会分叉。
+ */
+export function permissionsForPermissionLevel(
+  level: SandboxPermissionLevel
+): SandboxPermission[] {
+  switch (level) {
+    case 'readonly':
+      return [SandboxPermission.READ_FILE];
+    case 'standard':
+      return [SandboxPermission.READ_FILE, SandboxPermission.WRITE_FILE];
+    case 'full':
+    default:
+      return [
+        SandboxPermission.READ_FILE,
+        SandboxPermission.WRITE_FILE,
+        SandboxPermission.EXECUTE,
+      ];
+  }
+}
 
 /** 沙箱默认权限位（2026-10-23 用户拍板：`standard`） */
 export const DEFAULT_SANDBOX_PERMISSION_LEVEL: SandboxPermissionLevel =

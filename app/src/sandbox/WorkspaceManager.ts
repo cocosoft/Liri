@@ -18,7 +18,10 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 // PR-3a（2026-10-23）：权限位解析与默认值收敛到 `./permissionLevel`（单一事实源；
 // 2026-10-23 从 `sandboxExecutionSignal` 下沉以断开 madge 静态环）
-import { readSandboxPermissionLevel } from './permissionLevel';
+import {
+  permissionsForPermissionLevel,
+  readSandboxPermissionLevel,
+} from './permissionLevel';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('sandbox\WorkspaceManager');
@@ -180,20 +183,8 @@ export class WorkspaceManager {
    * 单工作区仍可通过 options.permissions 覆盖。
    */
   private getDefaultPermissions(): SandboxPermission[] {
-    const policy = readSandboxPermissionLevel();
-    switch (policy) {
-      case 'readonly':
-        return [SandboxPermission.READ_FILE];
-      case 'standard':
-        return [SandboxPermission.READ_FILE, SandboxPermission.WRITE_FILE];
-      case 'full':
-      default:
-        return [
-          SandboxPermission.READ_FILE,
-          SandboxPermission.WRITE_FILE,
-          SandboxPermission.EXECUTE,
-        ];
-    }
+    // P1-2（2026-10-27）：映射上提到 `permissionLevel`（与运行期刷新共用同一事实源）
+    return permissionsForPermissionLevel(readSandboxPermissionLevel());
   }
 
   /**

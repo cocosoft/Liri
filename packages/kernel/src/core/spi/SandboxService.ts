@@ -118,6 +118,12 @@ export interface ISandboxPort {
    * （未注册时返回 `false` = 放行，与实现侧「无默认工作区」分支同向）。
    */
   isWorkspacePermissionDenied(permission: SandboxPermission): boolean;
+  /**
+   * 按**当前配置**刷新当前身份的默认工作区权限位（P1-2，2026-10-27）。
+   * 权限位是工作区创建时快照 ⇒ 改级别后调用本方法即时生效；
+   * `false` = 当前身份尚无默认工作区（不建、不报错）。
+   */
+  refreshDefaultWorkspacePermissions(): boolean;
   /** 沙箱运行时状态快照（未注册时返回全零快照，见 `SandboxRuntimeStatus`） */
   getRuntimeStatus(): SandboxRuntimeStatus;
 }
@@ -153,6 +159,8 @@ const _proxy: ISandboxPort = {
     _service?.hasWorkspacePermission(permission) ?? false,
   isWorkspacePermissionDenied: (permission) =>
     _service?.isWorkspacePermissionDenied(permission) ?? false,
+  refreshDefaultWorkspacePermissions: () =>
+    _service?.refreshDefaultWorkspacePermissions() ?? false,
   getRuntimeStatus: () => _service?.getRuntimeStatus() ?? _EMPTY_RUNTIME_STATUS,
 };
 

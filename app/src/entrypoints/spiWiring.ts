@@ -487,8 +487,11 @@ export async function registerAllSpis(
     // 多租户 P3（2026-10-21）：默认工作区按**请求身份**解析。
     // 走**子路径**而非沙箱桶：本文件是启动面，桶再导出会让这段只在"已认证请求"路径
     // 用到的代码进 eager 图（`lint:startup-graph` 棘轮增长）。子入口已登记为规范入口。
-    const { getScopedDefaultWorkspace, scopedActiveWorkspaceCount } =
-      await import('@modules/sandbox/scopedDefaultWorkspace');
+    const {
+      getScopedDefaultWorkspace,
+      scopedActiveWorkspaceCount,
+      refreshScopedDefaultWorkspacePermissions,
+    } = await import('@modules/sandbox/scopedDefaultWorkspace');
     const { registerSandboxSpi } = await import('@openliri/kernel/spi');
     const sandboxManager = SandboxManager.getInstance();
 
@@ -527,6 +530,10 @@ export async function registerAllSpis(
         const workspace = getScopedDefaultWorkspace();
         return workspace ? !workspace.hasPermission(permission) : false;
       },
+      // P1-2（2026-10-27）：改级别后刷新默认工作区权限位（消除"改完要重启"）。
+      // 只改权限位数组，不重建适配器；无默认工作区 ⇒ false（不建、不报错）。
+      refreshDefaultWorkspacePermissions: () =>
+        refreshScopedDefaultWorkspacePermissions(),
       // D-200：`GET /v1/sandbox/status` 的读取面（最小投影，子字段原样进 JSON）
       getRuntimeStatus: () => ({
         runtimeEnabled: sandboxManager.isSandboxingEnabled(),

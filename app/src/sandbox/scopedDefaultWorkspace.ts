@@ -23,6 +23,10 @@ import {
 } from '@openliri/kernel/identity/requestScope.js';
 import type { WorkspaceBase } from './WorkspaceBase.js';
 import { globalWorkspaceManager } from './WorkspaceManager.js';
+import {
+  permissionsForPermissionLevel,
+  readSandboxPermissionLevel,
+} from './permissionLevel';
 
 /** 本地身份的默认工作区 id（启动期由 `entrypoints/spiWiring` 创建） */
 export const LOCAL_DEFAULT_WORKSPACE_ID = 'default';
@@ -54,6 +58,25 @@ export function getScopedDefaultWorkspace(): WorkspaceBase | undefined {
   return globalWorkspaceManager.createSync(id, {
     workingDirectory: resolveScopedWorkspaceRoot(),
   });
+}
+
+/**
+ * P1-2（2026-10-27）：把**当前身份默认工作区**的权限位刷新为最新配置。
+ *
+ * 背景：`hasPermission` 读的是创建时快照 ⇒ 管理页改 `sandbox.permissionLevel` 后，
+ * 已存在的默认工作区仍按旧权限判定（表现为「改完要重启才生效」）。本函数在
+ * `PUT /v1/sandbox/config` 之后经 SPI 调用；只改权限位数组，不重建适配器、无 IO。
+ *
+ * @returns `true` = 已刷新；`false` = 当前身份还没有默认工作区（本地身份未建 / 首启），
+ *          不建也不报错 —— 之后新建时会直接按最新级别取权限位。
+ */
+export function refreshScopedDefaultWorkspacePermissions(): boolean {
+  const workspace = getScopedDefaultWorkspace();
+  if (!workspace) return false;
+  workspace.updateAllowedPermissions(
+    permissionsForPermissionLevel(readSandboxPermissionLevel())
+  );
+  return true;
 }
 
 /**

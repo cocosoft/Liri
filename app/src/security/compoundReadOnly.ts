@@ -149,8 +149,22 @@ function splitSafely(
     }
     if (ch === '`') return { segments, forbidden: '反引号命令替换' };
     if (ch === '$') return { segments, forbidden: '变量/命令替换（$）' };
-    if (ch === '>' || ch === '<')
+    // FIX-9（2026-10-27）：**丢弃/合并型重定向**不算"写文件"——
+    // `dir x 2>nul` / `cmd 2>&1` / `cmd >/dev/null` 是 Windows/POSIX 最常见的
+    // "静音 stderr"写法，真机 21 条 analyzer deny 里多例因此被拒（`where /r … 2>nul`）。
+    // 仅放行"目标为 nul / /dev/null / &1 / &2"的形态；`> out.txt`、`>>` 仍拒绝。
+    if (ch === '>') {
+      const discard = /^>\s*(?:nul\b|\/dev\/null\b|&[12])/i.exec(
+        command.slice(i)
+      );
+      if (discard) {
+        buf += discard[0];
+        i += discard[0].length - 1;
+        continue;
+      }
       return { segments, forbidden: `重定向（${ch}）` };
+    }
+    if (ch === '<') return { segments, forbidden: `重定向（${ch}）` };
 
     if (ch === '&') {
       if (next === '&') {

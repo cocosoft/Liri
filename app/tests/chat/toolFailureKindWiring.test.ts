@@ -71,10 +71,11 @@ describe('failureKind 生产者接线（LRO-09 步骤 1b）', () => {
     );
   });
 
-  it('权限生产者：DENY 与「审批未能提交」两处都标 permission_denied', () => {
+  it('权限生产者：DENY / 审批未能提交 / 工作区越界 三处都标 permission_denied', () => {
     const hits =
       EXEC_SERVICE_SRC.match(/failureKind: 'permission_denied'/g) ?? [];
-    expect(hits.length).toBe(2);
+    // FIX-10（2026-10-27）：新增第三处 —— 会话工作区严格边界越界（原缺失 ⇒ 计入 invalid 预算）
+    expect(hits.length).toBe(3);
   });
 
   it('LRO-07：规则拒绝的结构化依据进工具结果（metadata.permissionDeny）', () => {

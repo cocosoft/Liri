@@ -316,6 +316,25 @@ export interface ToolExecutionDeps {
  *  ToolExecutionService
  * =================================================================== */
 
+/**
+ * FIX-10（2026-10-27）：会话工作区**严格边界**越界时的错误文案（纯函数，便于单测）。
+ *
+ * 原文案只说"不在会话工作区内"，不给**允许根** ⇒ 模型继续猜绝对路径
+ * （真机 6 次 `glob`/`file_read` 指向仓库根，被拒后反复重试）。
+ * 现明确给出可访问根，便于一次性改写路径。
+ */
+export function formatWorkspaceEscapeError(params: {
+  argKey: string;
+  argValue: string;
+  workspace: string;
+}): string {
+  return (
+    `路径越界：${params.argKey}=${params.argValue} 不在会话工作区内；` +
+    `本会话可访问根：${params.workspace}；` +
+    '请改用该根下的相对路径，或改用会话内已有的工作区文件。'
+  );
+}
+
 export class ToolExecutionService {
   constructor(public readonly deps: ToolExecutionDeps) {}
 
@@ -1167,9 +1186,17 @@ export class ToolExecutionService {
               toolCallId: toolCall.id,
               toolName: normalizedToolCall.name,
               result: null,
-              error:
-                `路径越界：${escape.key}=${escape.value} 不在会话工作区内；` +
-                '请改用工作区内相对路径。',
+              // FIX-10（2026-10-27）：两个缺口一起补 ——
+              // ① 原错误只说"不在工作区内"，不给**允许根**：模型会继续猜绝对路径
+              //    （真机 6 次 glob/file_read 指向仓库根，全部被拒后反复重试）；
+              // ② 未带 `failureKind` ⇒ 被计入 invalid 预算（3 轮）而非环境阻塞（2 轮），
+              //    与 FIX-5 同源。
+              error: formatWorkspaceEscapeError({
+                argKey: escape.key,
+                argValue: escape.value,
+                workspace: sessionWorkspacePath,
+              }),
+              failureKind: 'permission_denied' as const,
             };
           }
         }

@@ -39,6 +39,31 @@ describe('checkCompoundReadOnly：正向（全段只读）', () => {
   it('git 只读子命令可作为段', () => {
     expect(checkCompoundReadOnly('git status | head').allowed).toBe(true);
   });
+
+  it('FIX-9：丢弃/合并型重定向不算写操作（2>nul / 2>&1 / /dev/null）', () => {
+    // 真机：`where /r C:\Users\csdnc openliri 2>nul` 被 analyzer deny
+    expect(
+      checkCompoundReadOnly('where /r C:\\Users\\csdnc openliri 2>nul', {
+        platform: 'win32',
+      }).allowed
+    ).toBe(true);
+    expect(
+      checkCompoundReadOnly('dir /b X 2>nul & dir /b Y', {
+        platform: 'win32',
+      }).allowed
+    ).toBe(true);
+    expect(
+      checkCompoundReadOnly('dir /b X 2>&1 | findstr a', { platform: 'win32' })
+        .allowed
+    ).toBe(true);
+    expect(checkCompoundReadOnly('ls /tmp 2>/dev/null').allowed).toBe(true);
+  });
+
+  it('FIX-9 负向：写文件型重定向（> / >>）仍拒绝', () => {
+    expect(checkCompoundReadOnly('dir > out.txt').allowed).toBe(false);
+    expect(checkCompoundReadOnly('dir >> out.txt').allowed).toBe(false);
+    expect(checkCompoundReadOnly('dir >nulx').allowed).toBe(false);
+  });
 });
 
 describe('checkCompoundReadOnly：负向（必须仍拒绝）', () => {
@@ -46,10 +71,11 @@ describe('checkCompoundReadOnly：负向（必须仍拒绝）', () => {
     expect(checkCompoundReadOnly(cmd).allowed).toBe(false);
   };
 
-  it('重定向', () => {
+  it('重定向（写文件）', () => {
     denied('dir > out.txt');
     denied('dir >> out.txt');
-    denied('dir 2>nul');
+    // FIX-9（2026-10-27）：`dir 2>nul` 属"丢弃 stderr"，已移入正向（见上方 FIX-9 用例）；
+    // 写文件型重定向仍必须拒绝。
   });
 
   it('命令替换 / 变量展开', () => {

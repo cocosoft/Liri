@@ -61,6 +61,36 @@ export interface MessagePersistenceDeps {
   getStreamTailSeq: (sessionId: string) => Promise<number>;
 }
 
+/**
+ * FIX-8（2026-10-27）：空正文 assistant 消息**是否应拒绝持久化**（纯函数，导出便于单测）。
+ *
+ * 规则：无可见正文 + 无任何工具调用 + 无 `text`/`tool_call` 块 ⇒ 拒绝
+ * （DeepSeek 对"历史里含空 assistant"会级联返回空响应，见下方原注释）。
+ *
+ * ⚠️ 本轮修复点：工具轮次的 `tool_calls` 在本仓**有两处存放位置**——
+ * 顶层 `message.tool_calls` 与 `metadata.tool_calls`（`ReActToolLoop` 写后者）。
+ * 原判据只查顶层 ⇒ 真机出现 4 次「空正文助手消息拒绝持久化」且 `blockTypes: []`，
+ * 而同一轮 raw response 明确 `hasToolCalls: true（glob×2）`、`textChunkCount: 0`
+ * （模型只输出思考 + 工具调用）⇒ **合法工具轮次被丢弃**，历史里缺
+ * assistant/tool_call，下一轮模型看不到自己发起过调用。
+ */
+export function shouldRejectEmptyAssistantMessage(message: Message): boolean {
+  if (message.role !== 'assistant') return false;
+  if (typeof message.content !== 'string') return false;
+  if (message.content.trim() !== '') return false;
+  if ((message.tool_calls?.length ?? 0) > 0) return false;
+
+  const metaToolCalls = (
+    message.metadata as { tool_calls?: unknown } | undefined
+  )?.tool_calls;
+  if (Array.isArray(metaToolCalls) && metaToolCalls.length > 0) return false;
+
+  const blockTypes = (message.blocks ?? []).map(
+    (b) => (b as { type?: unknown }).type
+  );
+  return !blockTypes.includes('text') && !blockTypes.includes('tool_call');
+}
+
 export class ChatMessagePersistence {
   /**
    * P0-3（2026-10-04，D-238 第 1 条）：持久化侧**单轮聚合**窗口（按会话累计工具结果载荷字符）。
@@ -84,27 +114,18 @@ export class ChatMessagePersistence {
     // assistant 消息直接拒绝持久化（含工具活动的空 content 是合法 tool 轮次，仍允许）。
     // F3（2026-09-04）：放行条件从"顶层 tool_calls"扩到"blocks 含 tool_call"——
     // 工具轮次助手消息若仅以 block 承载 toolCall（无顶层 tool_calls 字段）会被误拒。
-    if (
-      message.role === 'assistant' &&
-      typeof message.content === 'string' &&
-      message.content.trim() === '' &&
-      !message.tool_calls?.length
-    ) {
+    if (shouldRejectEmptyAssistantMessage(message)) {
       const blockTypes = (message.blocks ?? []).map(
         (b) => (b as { type?: unknown }).type
       );
-      const hasTextBlock = blockTypes.includes('text');
-      const hasToolCallBlock = blockTypes.includes('tool_call');
       // 工具轮次快照（含 tool_call 块）放行——事件溯源按 messageId 聚合，拒绝会造成
       // 中断/崩溃场景的孤立 assistant/tool_call 事件；真正的"终态真空"仍拦截。
-      if (!hasTextBlock && !hasToolCallBlock) {
-        logger.warn('chat:空正文助手消息拒绝持久化（防历史污染）', {
-          sessionId,
-          messageId: message.id,
-          blockTypes: blockTypes.filter(Boolean),
-        });
-        return;
-      }
+      logger.warn('chat:空正文助手消息拒绝持久化（防历史污染）', {
+        sessionId,
+        messageId: message.id,
+        blockTypes: blockTypes.filter(Boolean),
+      });
+      return;
     }
     // T2 / D-236（2026-10-02）：**持久化侧同口径改写**（spec `.trae/specs/tool-result-persistence-limit.md` §3.1）。
     // 此前限额只在上下文侧生效、持久化存原文 ⇒ 样本会话 `messages.jsonl` 30.43MB（单条 ≈14MB）；

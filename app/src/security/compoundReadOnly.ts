@@ -62,9 +62,15 @@ const READ_ONLY_BASES = new Set([
 const VERSION_ONLY =
   /^(node|npm|npx|pnpm|yarn|bun|deno|python|python3|pip|pip3|go|cargo|rustc|java|mvn|gradle|dotnet|git|tsc)\s+(--version|-v|-V)$/i;
 
-/** git 只读子命令（不含 `git diff --output` 之类写操作：重定向已被上层拒绝） */
+/**
+ * git 只读子命令（不含 `git diff --output` 之类写操作：重定向已被上层拒绝）。
+ *
+ * FIX-16c（2026-10-27）：允许只读的**全局选项**出现在子命令之前 —— 真机
+ * `git -C <repo> log --oneline -12` 因 `^git\s+(log|…)` 不匹配而被判"非只读"⇒ ask
+ * （`-C` / `--no-pager` / `--no-optional-locks` 均不改变子命令的只读语义）。
+ */
 const GIT_READ_ONLY =
-  /^git\s+(status|log|diff|show|rev-parse|branch\s+--list|--version)(\s|$)/i;
+  /^git(?:\s+(?:-C\s+(?:"[^"]*"|'[^']*'|[^\s]+)|--no-pager|--no-optional-locks))*\s+(status|log|diff|show|rev-parse|branch\s+--list|--version)(\s|$)/i;
 
 export interface CompoundReadOnlyVerdict {
   allowed: boolean;

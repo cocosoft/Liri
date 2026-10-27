@@ -185,6 +185,15 @@ const DELEGATED_SINGLE_PS_ALLOW: SecurityAnalysisResult = Object.freeze({
   matchedPatterns: ['powershell-wrapper-delegated'],
 } as SecurityAnalysisResult);
 
+/** FIX-16（2026-10-27）：单条只读命令的放行结论（与 `compoundReadOnly` 同一只读族）。 */
+const SINGLE_READONLY_ALLOW: SecurityAnalysisResult = Object.freeze({
+  safe: true,
+  behavior: 'allow',
+  riskLevel: 'low',
+  message: '只读命令放行（命中只读白名单，与复合只读同口径）',
+  matchedPatterns: ['readonly-single'],
+} as SecurityAnalysisResult);
+
 export class BashSecurityAnalyzer {
   private allPatterns: SecurityPattern[];
   private pathValidator: PathValidator;
@@ -371,6 +380,13 @@ export class BashSecurityAnalyzer {
           };
         }
       } else {
+        // FIX-16（2026-10-27）：**单条只读命令**与"多段只读串联"必须同一口径 ——
+        // `compoundReadOnly` 在串联时放行（`dir | find /c`），单独执行时却因基命令不在
+        // `ALLOWED_COMMANDS` 而 ask（真机 10:14–10:26Z：`findstr …` / `git log …` /
+        // `tasklist /fi …` 各自弹一次审批）。此处复用同一只读族，不再维护第二套。
+        if (checkCompoundReadOnly(trimmedCommand).allowed) {
+          return SINGLE_READONLY_ALLOW;
+        }
         // 不在已知安全列表 — 暂不拦截，等危险命令检测后再决定
         allowlistPendingDeny = true;
       }
@@ -781,10 +797,15 @@ export class BashSecurityAnalyzer {
    */
   private checkSensitiveDirectoryAccess(command: string): boolean {
     const lowerCommand = command.toLowerCase();
+    // FIX-16b（2026-10-27）：下方反斜杠变体在 Windows 上把 POSIX 目录名降级成**子串**
+    // （`/bin` → `\bin`），于是任何 `E:\…\bin` 路径都被判"访问敏感系统目录"并转审批
+    // （真机 `dir /b "…\PY_APP\bin"` ⇒ ask）。这些 POSIX 目录在 Windows 无对应物，
+    // 用户自定义目录又只收以 `/` 开头的项 ⇒ Windows 上不做该替换，零安全损失。
+    const useBackslashVariant = process.platform !== 'win32';
     return this.sensitiveDirectories.some(
       (dir) =>
         lowerCommand.includes(dir) ||
-        lowerCommand.includes(dir.replace('/', '\\'))
+        (useBackslashVariant && lowerCommand.includes(dir.replace('/', '\\')))
     );
   }
 

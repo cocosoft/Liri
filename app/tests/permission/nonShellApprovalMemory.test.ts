@@ -79,6 +79,9 @@ describe('PR-1：非 shell 工具的批准必须落盘', () => {
     const meta = submitted[0].metadata as Record<string, unknown>;
     expect(typeof meta.commandHash).toBe('string');
     expect((meta.commandHash as string).length).toBeGreaterThan(8);
+    // P1-4（2026-10-27）：审批卡必须带来源模块，否则 InboxManager 判为孤儿
+    // （真机 10:14–10:26Z 12 分钟内 9 次 `Inbox item missing source reference`）
+    expect(meta.sourceModule).toBe('permission');
 
     // 批准后（模拟 inboxApproval 的副作用）同一调用应命中放行缓存
     getApprovedCommandRegistry().approve(SESSION, meta.commandHash as string);

@@ -779,6 +779,11 @@ export class PermissionChecker {
           risk,
           taskId,
           commandHash,
+          // P1-4 修复（2026-10-27）：审批卡必须带**来源模块**标记 —— `InboxManager.submit`
+          // 对 `type='approval'` 且既无 `channelSessionId` 又无 `metadata.sourceModule` 的项
+          // 记 warn 并打 `_orphan: true`（该标记当前**无**消费方，只影响可观测性）。
+          // 真机 2026-10-27 10:14–10:26Z：12 分钟内 9 次 `Inbox item missing source reference`。
+          sourceModule: 'permission',
           // PR-2：「始终允许」按参数指纹持久化（只落摘要 + 截断预览，不落明文参数）
           approvalFingerprintHash: hashApprovalFingerprint(approvalFingerprint),
           approvalFingerprintPreview:

@@ -6826,3 +6826,13 @@
 {"id":"PROJECT-NAME-AS-PATH","k":"code#0","i":0,"c":"app/src/tools/CreateProjectTool/projectName.ts"}
 {"id":"PROJECT-NAME-AS-PATH","k":"code#1","i":0,"c":"app/src/tools/CreateProjectTool/CreateProjectTool.ts"}
 {"id":"PROJECT-NAME-AS-PATH","k":"tests#0","i":0,"c":"app/tests/tools/createProjectIdentity.test.ts"}
+{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"title","i":0,"c":"取回工具被任务裁剪 + 全局 ERROR 自锁 + 会话工具造假数据"}
+{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"source","i":0,"c":"app.log 2026-10-27T08:54–09:20Z（工具未登记类别 / error→busy / sess_001 消息文件丢失）"}
+{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"reopenWhen","i":0,"c":"再现切窗后工具列表无 session_lookup；或启动后应用状态恒为 error；或会话表出现固定 id 的默认会话"}
+{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"notes","i":0,"c":"FIX-12 注入移到 filterToolsByTask 之后；FIX-13 删掉 SessionsTool 建 sess_001 的分支；FIX-14 启动复位遗留 ERROR + markAppError 幂等"}
+{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"code#0","i":0,"c":"app/src/chat/orchestrator/streamMessageFlow.ts"}
+{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"code#1","i":0,"c":"app/src/state/app/AppLifecycle.ts"}
+{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"code#2","i":0,"c":"app/src/tools/SessionsTool/SessionsTool.ts"}
+{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"tests#0","i":0,"c":"app/tests/chat/orchestrator/sessionLookupInjection.test.ts"}
+{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"tests#1","i":0,"c":"app/tests/state/app/appLifecycle.test.ts"}
+{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"tests#2","i":0,"c":"app/tests/tools/sessionsToolInit.test.ts"}

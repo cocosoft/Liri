@@ -13503,6 +13503,34 @@
       "changelog": [],
       "reopenWhen": "再现「改 A 键被 B 键旧问题拦住」（全文见 archive/evidence-detail.jsonl#TASKS-PARTIAL-VALIDATION）",
       "notes": "pickChangedTaskAssignments(next, current) 差分；校验只覆盖改动子集，写入仍全量；N-72 防线（改哪个键校验哪个键）不变（全文见 archive/evidence-detail.jsonl#TASKS-PARTIAL-VALIDATION）"
+    },
+    {
+      "id": "SUBAGENT-ROUND-BREAKER",
+      "title": "子代理启用轮级熔断（与主循环同阈值+分型）",
+      "source": "排查计划 §11.2 P2-1 / Liri 报告 D 项",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/ReActLoop.ts",
+        "app/src/query/index.ts",
+        "app/src/tools/AgentTool/SubAgentEngine.ts"
+      ],
+      "tests": [
+        "app/tests/tools/AgentTool/subAgentCircuitBreaker.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现子代理跑到 maxTurns 才停、且失败工具未归因（全文见 archive/evidence-detail.jsonl#SUBAGENT-ROUND-BREAKER）",
+      "notes": "① 阈值改引用 ReActLoop 常量（invalid 3 / blocked 2）；② executeToolCall 的 ok 反映 result.success，并透传 failureKind；③ finalize 透传熔断终态 lastError（全文见 archive/evidence-detail.jsonl#SUBAGENT-ROUND-BREAKER）"
     }
   ]
 }

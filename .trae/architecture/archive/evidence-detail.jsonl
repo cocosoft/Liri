@@ -6725,3 +6725,11 @@
 {"id":"TASKS-PARTIAL-VALIDATION","k":"notes","i":0,"c":"pickChangedTaskAssignments(next, current) 差分；校验只覆盖改动子集，写入仍全量；N-72 防线（改哪个键校验哪个键）不变"}
 {"id":"TASKS-PARTIAL-VALIDATION","k":"code#0","i":0,"c":"app/src/ai/api/ModelRuntimeAPI.ts"}
 {"id":"TASKS-PARTIAL-VALIDATION","k":"tests#0","i":0,"c":"app/tests/ai/taskRoutingValidation.test.ts"}
+{"id":"SUBAGENT-ROUND-BREAKER","k":"title","i":0,"c":"子代理启用轮级熔断（与主循环同阈值+分型）"}
+{"id":"SUBAGENT-ROUND-BREAKER","k":"source","i":0,"c":"排查计划 §11.2 P2-1 / Liri 报告 D 项"}
+{"id":"SUBAGENT-ROUND-BREAKER","k":"reopenWhen","i":0,"c":"再现子代理跑到 maxTurns 才停、且失败工具未归因"}
+{"id":"SUBAGENT-ROUND-BREAKER","k":"notes","i":0,"c":"① 阈值改引用 ReActLoop 常量（invalid 3 / blocked 2）；② executeToolCall 的 ok 反映 result.success，并透传 failureKind；③ finalize 透传熔断终态 lastError"}
+{"id":"SUBAGENT-ROUND-BREAKER","k":"code#0","i":0,"c":"app/src/query/ReActLoop.ts"}
+{"id":"SUBAGENT-ROUND-BREAKER","k":"code#1","i":0,"c":"app/src/query/index.ts"}
+{"id":"SUBAGENT-ROUND-BREAKER","k":"code#2","i":0,"c":"app/src/tools/AgentTool/SubAgentEngine.ts"}
+{"id":"SUBAGENT-ROUND-BREAKER","k":"tests#0","i":0,"c":"app/tests/tools/AgentTool/subAgentCircuitBreaker.test.ts"}

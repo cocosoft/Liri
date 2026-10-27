@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **FAILURE-KIND-PERSISTED**：工具失败分类随 tool/result 落盘 —— 验证 tsc0|arch0|fnsize0|state0|unit16+1049；基线 failureKind 只活在内存 ToolResultEntry ⇒ 重启后无法回答「为什么失败」（续跑短路/误调用率口径依赖它）（详情见 archive/evidence-detail.jsonl#FAILURE-KIND-PERSISTED）
 - ✅ **BARE-SESSION-COMPILED-CWD**：编译版裸会话改用会话级 workspace —— 验证 tsc0|arch0|purity0|kapi0|unit10+1323；基线 裸会话 cwd=resolveProjectRoot() ⇒ 安装版落到 exe 目录（散落/权限失败）；开发入口需保持仓库根（详情见 archive/evidence-detail.jsonl#BARE-SESSION-COMPILED-CWD）
 - ✅ **ABORTED-TURN-NEUTRAL**：中止/超时轮改中性（不再冒充进展） —— 验证 tsc0|arch0|fnsize0|state0|unit16+1318|neg3；基线 aborted/timeout 因 status!=error 被判 progress ⇒ 清零双预算，掩盖连续失败（回退旧码实测 3 例红）（详情见 archive/evidence-detail.jsonl#ABORTED-TURN-NEUTRAL）
 - ✅ **SANDBOX-PERMISSION-HOT-RELOAD**：改级别即时生效（刷新工作区权限位） —— 验证 tsc0|arch0|purity0|kapi0|unit6+207；基线 权限位是创建时快照 ⇒ PUT config 只改配置，已存在工作区仍按旧权限（改完要重启）（详情见 archive/evidence-detail.jsonl#SANDBOX-PERMISSION-HOT-RELOAD）

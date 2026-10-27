@@ -13616,6 +13616,34 @@
       "changelog": [],
       "reopenWhen": "再现安装版裸会话把产物写进安装目录（全文见 archive/evidence-detail.jsonl#BARE-SESSION-COMPILED-CWD）",
       "notes": "编译版+无 projectId ⇒ <data>/workspace/sessions/<safeId>（惰性创建）；开发入口仍仓库根；显式 workspacePath 恒优先；sessionId 做路径安全化（全文见 archive/evidence-detail.jsonl#BARE-SESSION-COMPILED-CWD）"
+    },
+    {
+      "id": "FAILURE-KIND-PERSISTED",
+      "title": "工具失败分类随 tool/result 落盘",
+      "source": "排查计划 §11.2 P2-3（原定随 LRO-13 续跑）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/services/MessageService.ts",
+        "app/src/session/storage/MessageToEventMigrator.ts",
+        "app/src/session/types/eventPayloads.ts"
+      ],
+      "tests": [
+        "app/tests/session/MessageToEventMigrator.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现重启后无法判断某工具调用的失败分类（全文见 archive/evidence-detail.jsonl#FAILURE-KIND-PERSISTED）",
+      "notes": "构造处（createToolResultMessage）把 failureKind 写进失败消息 metadata；投影（MessageToEventMigrator）经 isToolFailureKind 守卫后写入 tool/result 事件；非法/缺省不写键（防 D1 无损 JSON 拒绝）（全文见 archive/evidence-detail.jsonl#FAILURE-KIND-PERSISTED）"
     }
   ]
 }

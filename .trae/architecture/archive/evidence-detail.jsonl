@@ -6819,3 +6819,10 @@
 {"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"tests#1","i":0,"c":"app/tests/chat/workspaceEscapeMessage.test.ts"}
 {"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"tests#2","i":0,"c":"app/tests/security/compoundReadOnly.test.ts"}
 {"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"tests#3","i":0,"c":"app/tests/chat/toolFailureKindWiring.test.ts"}
+{"id":"PROJECT-NAME-AS-PATH","k":"title","i":0,"c":"create_project 名称是路径 ⇒ 标题与沙箱根都错"}
+{"id":"PROJECT-NAME-AS-PATH","k":"source","i":0,"c":"app.log 2026-10-27T08:59:53Z 路径越界 6 次 + project.json 的 name 为路径前缀"}
+{"id":"PROJECT-NAME-AS-PATH","k":"reopenWhen","i":0,"c":"再现项目 name 含路径分隔符、或 sandboxPath 与用户指定目录不一致"}
+{"id":"PROJECT-NAME-AS-PATH","k":"notes","i":0,"c":"resolveProjectIdentity：路径形态名称 ⇒ 标题取目录名；该目录存在 ⇒ 直接作为项目 sandboxPath；目录不存在则只净化标题，不猜路径"}
+{"id":"PROJECT-NAME-AS-PATH","k":"code#0","i":0,"c":"app/src/tools/CreateProjectTool/projectName.ts"}
+{"id":"PROJECT-NAME-AS-PATH","k":"code#1","i":0,"c":"app/src/tools/CreateProjectTool/CreateProjectTool.ts"}
+{"id":"PROJECT-NAME-AS-PATH","k":"tests#0","i":0,"c":"app/tests/tools/createProjectIdentity.test.ts"}

@@ -13817,6 +13817,33 @@
       "changelog": [],
       "reopenWhen": "再现合法工具轮次被空正文守卫丢弃 / 2>nul 被拒 / 越界错误不含允许根（全文见 archive/evidence-detail.jsonl#EMPTY-TOOL-TURN-NUL-REDIRECT）",
       "notes": "空正文守卫改纯函数并纳入 metadata.tool_calls；compoundReadOnly 放行 nul|/dev/null|&1|&2 型丢弃重定向（写文件仍拒）；工作区越界错误给出允许根并标 permission_denied（全文见 archive/evidence-detail.jsonl#EMPTY-TOOL-TURN-NUL-REDIRECT）"
+    },
+    {
+      "id": "PROJECT-NAME-AS-PATH",
+      "title": "create_project 名称是路径 ⇒ 标题与沙箱根都错",
+      "source": "app.log 2026-10-27T08:59:53Z 路径越界 6 次 + project.json 的 name 为路径前缀",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/CreateProjectTool/projectName.ts",
+        "app/src/tools/CreateProjectTool/CreateProjectTool.ts"
+      ],
+      "tests": [
+        "app/tests/tools/createProjectIdentity.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现项目 name 含路径分隔符、或 sandboxPath 与用户指定目录不一致（全文见 archive/evidence-detail.jsonl#PROJECT-NAME-AS-PATH）",
+      "notes": "resolveProjectIdentity：路径形态名称 ⇒ 标题取目录名；该目录存在 ⇒ 直接作为项目 sandboxPath；目录不存在则只净化标题，不猜路径（全文见 archive/evidence-detail.jsonl#PROJECT-NAME-AS-PATH）"
     }
   ]
 }

@@ -410,11 +410,13 @@ jobs:
           - name: Linux
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            # AppImage（2026-10-27 暂缓）：v0.5.13 / v0.5.15 / v0.5.16 三次均卡在
-            # `Build Tauri app`（AppImage 打包段），Linux 因此整版无产物。
-            # 本轮先只出 `deb` 保底；AppImage 修好后改回 `deb,appimage`
-            # （Tauri v2 的 appimage bundler 自带 `linuxdeploy`，不需宿主机装 FUSE）。
-            bundles: deb
+            # AppImage 恢复（2026-10-27）：此前 v0.5.13/15/16 三次失败，v0.5.17 临时只出 deb 定位。
+            # 本地 Docker 复现确认根因：sidecar 依赖里带入了 musl 变体
+            # （`@napi-rs/canvas-linux-x64-musl` 等），linuxdeploy 对 AppDir 内每个 ELF 递归
+            # `ldd`，musl 的 `.node` 在 glibc 宿主上报 `invalid ELF header` ⇒
+            # `Failed to run ldd` ⇒ Tauri 只回显 `failed to run linuxdeploy`。
+            # 已由 `app/scripts/copy-external-deps.ts` 裁剪异平台原生包修复（容器内实测出包）。
+            bundles: deb,appimage
             sidecar-build: build:linux
             sidecar-ext: ""
 
@@ -684,8 +686,7 @@ jobs:
 
       - name: Build Tauri app
         # AppImage 打包会下载并执行 linuxdeploy / appimagetool（AppImage 形态）。
-        # 无 FUSE 的运行环境必须让它们自解包运行，否则报 `libfuse.so.2` 缺失
-        # （2026-10-26：Linux job 在 `--bundles deb,appimage` 处失败即此因）。
+        # 无 FUSE 的运行环境必须让它们自解包运行，否则报 `libfuse.so.2` 缺失。
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: bun run tauri build --bundles ${{ matrix.config.bundles }}

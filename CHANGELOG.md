@@ -19,6 +19,8 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **READONLY-SINGLE-PARITY**：单条只读命令与复合只读不同口径 + Windows \bin 误判敏感目录 —— 验证 tsc0|arch0|fnsize0|state0|unit4+1586；基线 10:14–10:26Z 11 次 security_analyzer_ask：findstr / git log / tasklist 单条需批准；dir /b …\bin 被判敏感目录（详情见 archive/evidence-detail.jsonl#READONLY-SINGLE-PARITY）
+- ✅ **INBOX-APPROVAL-SOURCE**：审批卡缺来源模块标记 ⇒ 孤儿告警 —— 验证 tsc0|arch0|fnsize0|state0|unit1586；基线 10:14–10:26Z 12 分钟内 9 次 Inbox item missing source reference（type=approval source=permission）（详情见 archive/evidence-detail.jsonl#INBOX-APPROVAL-SOURCE）
 - ✅ **PS-WRAPPER-GATE-CONFLICT**：bash 内单条 powershell -Command 被只读族二次否决 —— 验证 tsc0|arch0|fnsize0|state0|unit7+2103；基线 10:13:59Z/10:14:03Z 只读 Get-ChildItem…|Select-Object 被判 security_analyzer_deny，而同一脚本经 evaluatePowerShellSecurity 实测 allow（详情见 archive/evidence-detail.jsonl#PS-WRAPPER-GATE-CONFLICT）
 - ✅ **TOOL-TRIM-ERROR-LOCK-MOCK**：取回工具被任务裁剪 + 全局 ERROR 自锁 + 会话工具造假数据 —— 验证 tsc0|arch0|fnsize0|state0|unit11+2094；基线 08:59:49「工具未登记类别」告警；08:54:47「非法状态转换 error → busy」且全窗口零状态变更；08:54:47 sess_001「疑消息文件丢失」（详情见 archive/evidence-detail.jsonl#TOOL-TRIM-ERROR-LOCK-MOCK）
 - ✅ **PROJECT-NAME-AS-PATH**：create_project 名称是路径 ⇒ 标题与沙箱根都错 —— 验证 tsc0|arch0|fnsize0|state0|unit6+1251；基线 真机 proj_1792831085133_bfc455 的 name=【E:\PY\...\（括号未闭合），sandboxPath 落空目录 ⇒ always-on 会话 glob 仓库被边界拒 6 次（详情见 archive/evidence-detail.jsonl#PROJECT-NAME-AS-PATH）

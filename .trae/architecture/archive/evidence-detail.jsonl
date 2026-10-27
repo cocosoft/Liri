@@ -6845,3 +6845,16 @@
 {"id":"PS-WRAPPER-GATE-CONFLICT","k":"code#2","i":0,"c":"app/src/tools/bash/BashTool.ts"}
 {"id":"PS-WRAPPER-GATE-CONFLICT","k":"code#3","i":0,"c":"app/src/security/BashSecurityAnalyzer.ts"}
 {"id":"PS-WRAPPER-GATE-CONFLICT","k":"tests#0","i":0,"c":"app/tests/security/psWrapperDelegation.test.ts"}
+{"id":"INBOX-APPROVAL-SOURCE","k":"title","i":0,"c":"审批卡缺来源模块标记 ⇒ 孤儿告警"}
+{"id":"INBOX-APPROVAL-SOURCE","k":"source","i":0,"c":"app.log 2026-10-27T10:14–10:26Z 九次 Inbox item missing source reference"}
+{"id":"INBOX-APPROVAL-SOURCE","k":"reopenWhen","i":0,"c":"再现 type=approval 且无 sourceModule 的提交"}
+{"id":"INBOX-APPROVAL-SOURCE","k":"notes","i":0,"c":"_submitToInbox 的 metadata 补 sourceModule=permission（与 execution-recovery / budget-resume 同约定）；_orphan 标记当前无消费方"}
+{"id":"INBOX-APPROVAL-SOURCE","k":"code#0","i":0,"c":"app/src/permission/PermissionChecker.ts"}
+{"id":"INBOX-APPROVAL-SOURCE","k":"tests#0","i":0,"c":"app/tests/permission/nonShellApprovalMemory.test.ts"}
+{"id":"READONLY-SINGLE-PARITY","k":"title","i":0,"c":"单条只读命令与复合只读不同口径 + Windows \\bin 误判敏感目录"}
+{"id":"READONLY-SINGLE-PARITY","k":"source","i":0,"c":"app.log 2026-10-27T10:14–10:26Z 十一条 security_analyzer_ask 及各条 commandPreview"}
+{"id":"READONLY-SINGLE-PARITY","k":"reopenWhen","i":0,"c":"再现单条 findstr/git log/tasklist 需审批，或只读命令被送审；或重定向/非只读段被放行"}
+{"id":"READONLY-SINGLE-PARITY","k":"notes","i":0,"c":"analyze 非管道分支复用 checkCompoundReadOnly；GIT_READ_ONLY 允许 -C/--no-pager；sensitiveDirectories 反斜杠变体仅非 win32"}
+{"id":"READONLY-SINGLE-PARITY","k":"code#0","i":0,"c":"app/src/security/BashSecurityAnalyzer.ts"}
+{"id":"READONLY-SINGLE-PARITY","k":"code#1","i":0,"c":"app/src/security/compoundReadOnly.ts"}
+{"id":"READONLY-SINGLE-PARITY","k":"tests#0","i":0,"c":"app/tests/security/readOnlySingleCommand.test.ts"}

@@ -13903,6 +13903,59 @@
       "changelog": [],
       "reopenWhen": "再现只读 PowerShell 脚本经 bash 被 deny、或含外部串联段的包裹命令被放行（全文见 archive/evidence-detail.jsonl#PS-WRAPPER-GATE-CONFLICT）",
       "notes": "仅当 isSinglePowerShellWrapperCommand 为真（语句外无串联）才把结论委托给 PowerShell 链；多段保持原 deny（全文见 archive/evidence-detail.jsonl#PS-WRAPPER-GATE-CONFLICT）"
+    },
+    {
+      "id": "INBOX-APPROVAL-SOURCE",
+      "title": "审批卡缺来源模块标记 ⇒ 孤儿告警",
+      "source": "app.log 2026-10-27T10:14–10:26Z 九次 Inbox item missing source reference",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/permission/PermissionChecker.ts"
+      ],
+      "tests": [
+        "app/tests/permission/nonShellApprovalMemory.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现 type=approval 且无 sourceModule 的提交（全文见 archive/evidence-detail.jsonl#INBOX-APPROVAL-SOURCE）",
+      "notes": "_submitToInbox 的 metadata 补 sourceModule=permission（与 execution-recovery / budget-resume 同约定）；_orphan 标记当前无消费方（全文见 archive/evidence-detail.jsonl#INBOX-APPROVAL-SOURCE）"
+    },
+    {
+      "id": "READONLY-SINGLE-PARITY",
+      "title": "单条只读命令与复合只读不同口径 + Windows \\bin 误判敏感目录",
+      "source": "app.log 2026-10-27T10:14–10:26Z 十一条 security_analyzer_ask 及各条 commandPreview",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/security/BashSecurityAnalyzer.ts",
+        "app/src/security/compoundReadOnly.ts"
+      ],
+      "tests": [
+        "app/tests/security/readOnlySingleCommand.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现单条 findstr/git log/tasklist 需审批，或只读命令被送审；或重定向/非只读段被放行（全文见 archive/evidence-detail.jsonl#READONLY-SINGLE-PARITY）",
+      "notes": "analyze 非管道分支复用 checkCompoundReadOnly；GIT_READ_ONLY 允许 -C/--no-pager；sensitiveDirectories 反斜杠变体仅非 win32（全文见 archive/evidence-detail.jsonl#READONLY-SINGLE-PARITY）"
     }
   ]
 }

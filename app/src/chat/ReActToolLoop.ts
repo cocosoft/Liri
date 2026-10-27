@@ -1834,7 +1834,8 @@ export class ReActToolLoop extends ReActLoop<
       maxTotalDurationMs: ReActToolLoop.MAX_TOTAL_DURATION_MS,
       assistantMessageContent: this.loopState.assistantMessage?.content as
         | string
-        | Array<{ type: string }>
+        // BUG-E（2026-10-27）：需读块内 `value` 才能判定"是否有可见正文"
+        | Array<{ type: string; value?: unknown }>
         | undefined,
     });
   }

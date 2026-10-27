@@ -47,7 +47,7 @@ export interface TerminationOutputInput {
   /** 会话总时长上限（毫秒） */
   maxTotalDurationMs: number;
   /** 最终助手消息内容（用于"无可见正文"兜底判定） */
-  assistantMessageContent?: string | Array<{ type: string }>;
+  assistantMessageContent?: string | Array<{ type: string; value?: unknown }>;
 }
 
 export interface TerminationOutput {
@@ -84,6 +84,28 @@ export function isEmptyOutputFallbackMessage(message: unknown): boolean {
   const meta = (message as { metadata?: Record<string, unknown> } | null)
     ?.metadata;
   return meta?.['emptyOutputFallback'] === true;
+}
+
+/**
+ * BUG-E（2026-10-27 真机长程任务）：判定助手消息内容里是否存在**用户可见正文**。
+ *
+ * 口径（与 `ContentBlockType` 一致）：`text` / `code` 且 `value` 非空白才算可见；
+ * `thinking` / `tool_call` / `tool_result` **都不算**（模型"只想了没答"就是这个形态）。
+ *
+ * 为什么不能 `Array.isArray ⇒ true`：长程任务收尾时 `content` 常是空数组或只含工具块，
+ * 旧判定直接跳过兜底 ⇒ 落库 `fullContentLength=0`，用户看到一片空白。
+ */
+export function hasVisibleAssistantText(
+  rawContent: string | Array<{ type: string; value?: unknown }> | undefined
+): boolean {
+  if (typeof rawContent === 'string') return rawContent.trim().length > 0;
+  if (!Array.isArray(rawContent)) return false;
+  return rawContent.some(
+    (block) =>
+      (block?.type === 'text' || block?.type === 'code') &&
+      typeof block.value === 'string' &&
+      block.value.trim().length > 0
+  );
 }
 
 /**
@@ -253,11 +275,10 @@ export function resolveTerminationOutput(
   // 一期 F1-1：无提示且正文为空 ⇒ 兜底（"正常结束但零文本"此前是静默空白，即本 BUG 现象）。
   if (!suffix) {
     const rawContent = input.assistantMessageContent;
-    // 结构化内容（ContentBlock[]）视为"已有内容"——不在此处改写，避免丢块
-    const hasVisibleText = Array.isArray(rawContent)
-      ? true
-      : (typeof rawContent === 'string' ? rawContent : '').trim().length > 0;
-    if (!hasVisibleText) {
+    // BUG-E（2026-10-27 真机长程任务）：结构化内容**不再一律视为有正文** —— 实测长程任务
+    // 收尾时 `content` 是空数组 / 只含 tool_call 块，旧判定 `Array.isArray ⇒ true` 直接跳过
+    // 兜底 ⇒ 落库 `fullContentLength=0`，用户看不到任何答复（"跑了几千次工具调用、正文 0"）。
+    if (!hasVisibleAssistantText(rawContent)) {
       suffix = EMPTY_OUTPUT_FALLBACK_TEXT;
       // BUG-A（2026-10-27）：把"这是兜底文案而非模型产出"结构化，供下游（PDCA 升级等）
       // 做判定——**不得**靠比对文案（CS02）。

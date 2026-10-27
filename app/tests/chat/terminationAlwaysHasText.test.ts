@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import {
+  hasVisibleAssistantText,
   isEmptyOutputFallbackMessage,
   resolveTerminationOutput,
   type TerminationOutputInput,
@@ -74,7 +75,7 @@ describe('BUG-A：空输出兜底的结构化标记', () => {
     expect(out.suffix.trim().length).toBeGreaterThan(0);
   });
 
-  it('负向对照：有正文 / 有结构化块 ⇒ emptyOutputFallback=false', () => {
+  it('负向对照：有正文 / 有可见文本块 ⇒ emptyOutputFallback=false', () => {
     expect(
       resolveTerminationOutput(
         base({ reason: 'completed', assistantMessageContent: '正文' })
@@ -84,10 +85,51 @@ describe('BUG-A：空输出兜底的结构化标记', () => {
       resolveTerminationOutput(
         base({
           reason: 'completed',
-          assistantMessageContent: [{ type: 'text' }],
+          assistantMessageContent: [{ type: 'text', value: '正文' }],
         })
       ).emptyOutputFallback
     ).toBe(false);
+    // 代码块同样是用户可见正文
+    expect(
+      resolveTerminationOutput(
+        base({
+          reason: 'completed',
+          assistantMessageContent: [{ type: 'code', value: 'const a = 1;' }],
+        })
+      ).emptyOutputFallback
+    ).toBe(false);
+  });
+
+  it('BUG-E：空数组 / 只含工具块 / 空白文本块 ⇒ 都算"无可见正文"，必须兜底', () => {
+    for (const content of [
+      [],
+      [{ type: 'tool_call', value: '' }],
+      [{ type: 'tool_result', value: '{"ok":true}' }],
+      [{ type: 'thinking', value: '想了很久' }],
+      [{ type: 'text', value: '   ' }],
+      [{ type: 'text' }],
+      undefined,
+    ]) {
+      const out = resolveTerminationOutput(
+        base({ reason: 'completed', assistantMessageContent: content })
+      );
+      expect(out.emptyOutputFallback).toBe(true);
+      expect(out.suffix.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('BUG-E：hasVisibleAssistantText 的边界（text/code 非空才算可见）', () => {
+    expect(hasVisibleAssistantText(' x ')).toBe(true);
+    expect(hasVisibleAssistantText('  ')).toBe(false);
+    expect(hasVisibleAssistantText([])).toBe(false);
+    expect(hasVisibleAssistantText([{ type: 'text', value: 'x' }])).toBe(true);
+    expect(hasVisibleAssistantText([{ type: 'text', value: ' ' }])).toBe(false);
+    expect(
+      hasVisibleAssistantText([
+        { type: 'tool_call', value: '' },
+        { type: 'text', value: '结论' },
+      ])
+    ).toBe(true);
   });
 
   it('标记读取只认 metadata（禁止比对文案 —— CS02）', () => {

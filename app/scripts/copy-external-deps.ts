@@ -11,6 +11,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import { isForeignPlatformVariant } from './lib/platformVariant';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,6 +80,43 @@ function trimPdfjsDist(depsDir: string): void {
     console.log(
       `[裁剪] pdfjs-dist: 删除 modern build/ 目录，节省 ${savedMB} MB`
     );
+  }
+}
+
+/**
+ * 裁剪**异平台原生包**（2026-10-27）。
+ *
+ * 为什么必须裁：`sharp` / `@napi-rs/canvas` 的 optionalDependencies 会带全部平台变体
+ * （`@img/sharp-win32-x64`、`@napi-rs/canvas-linux-x64-musl` …）。异平台二进制在当前宿主
+ * 永远加载不到，但会让 Linux AppImage 打包失败 —— `linuxdeploy` 对 AppDir 内每个 ELF 递归
+ * `ldd`，musl 的 `.node` 在 glibc 宿主上 `ldd` 报 `invalid ELF header` ⇒ 抛
+ * `Failed to run ldd: exited with code 1`（Tauri 只回显 `failed to run linuxdeploy`）。
+ *
+ * 同时用于**增量构建自愈**：上一轮已复制进来的异平台目录也在这里清掉。
+ */
+function pruneForeignPlatformPackages(depsDir: string): void {
+  if (!fs.existsSync(depsDir)) return;
+  const names: string[] = [];
+  for (const entry of fs.readdirSync(depsDir)) {
+    if (entry.startsWith('@')) {
+      const scopeDir = path.join(depsDir, entry);
+      if (!fs.statSync(scopeDir).isDirectory()) continue;
+      for (const sub of fs.readdirSync(scopeDir)) {
+        names.push(`${entry}/${sub}`);
+      }
+    } else {
+      names.push(entry);
+    }
+  }
+
+  const removed: string[] = [];
+  for (const name of names) {
+    if (!isForeignPlatformVariant(name)) continue;
+    fs.rmSync(path.join(depsDir, name), { recursive: true, force: true });
+    removed.push(name);
+  }
+  if (removed.length > 0) {
+    console.log(`[裁剪] 异平台原生包 ${removed.length} 个: ${removed.join(', ')}`);
   }
 }
 
@@ -195,6 +233,9 @@ function main(): void {
     // 复制该包的全部运行时依赖（递归）到目标 node_modules
     const allDeps = collectAllDepsRecursive(srcPath);
     for (const nd of allDeps) {
+      // 异平台原生包（如 canvas-linux-x64-musl / sharp-win32-x64）运行期永远用不到，
+      // 且会让 Linux AppImage 打包失败（见 pruneForeignPlatformPackages 头注）
+      if (isForeignPlatformVariant(nd.name)) continue;
       const ndDest = path.join(depsDir, nd.name);
       if (fs.existsSync(ndDest)) continue; // 已存在，跳过
       console.log(`[复制]   依赖 ${nd.name}: ${nd.srcPath} → ${ndDest}`);
@@ -209,6 +250,9 @@ function main(): void {
   // 裁剪 pdfjs-dist：仅保留 legacy/ 构建，删除 modern build/ 目录
   // 项目统一使用 pdfjs-dist/legacy/build/pdf，modern build/ 约 150MB 无需携带
   trimPdfjsDist(depsDir);
+
+  // 裁剪异平台原生包（含增量构建遗留）
+  pruneForeignPlatformPackages(depsDir);
 
   // 复制编译运行时 README
   const readmeSrc = path.resolve(__dirname, '..', 'docs', 'README-compiled.md');

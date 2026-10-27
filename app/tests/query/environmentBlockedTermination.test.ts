@@ -76,11 +76,40 @@ describe('classifyTurn：按结构化字段分型（不解析 error 文本）', 
       classifyTurn([{ status: 'success', failureKind: 'permission_denied' }])
     ).toBe('progress');
   });
+
+  // ── P2-2（2026-10-27）：外部/系统中止的中性归类 ──
+  test('全 aborted / 全 timeout（或两者混合）⇒ aborted（中性，不算进展）', () => {
+    expect(classifyTurn([{ status: 'aborted' }])).toBe('aborted');
+    expect(classifyTurn([{ status: 'timeout' }, { status: 'aborted' }])).toBe(
+      'aborted'
+    );
+  });
+
+  test('中止 + 成功 ⇒ progress（本轮确有推进）', () => {
+    expect(classifyTurn([{ status: 'aborted' }, { status: 'success' }])).toBe(
+      'progress'
+    );
+  });
+
+  test('中止 + 失败 ⇒ 仍按失败分型（不因混入中止就洗白）', () => {
+    expect(
+      classifyTurn([
+        { status: 'aborted' },
+        { status: 'error', failureKind: 'tool_error' },
+      ])
+    ).toBe('invalid');
+    expect(
+      classifyTurn([
+        { status: 'timeout' },
+        { status: 'error', failureKind: 'permission_denied' },
+      ])
+    ).toBe('environment_blocked');
+  });
 });
 
 // ── 2. 双预算计数与终止 ────────────────────────────────────
 
-type RoundKind = 'blocked' | 'invalid' | 'ok';
+type RoundKind = 'blocked' | 'invalid' | 'ok' | 'aborted';
 
 interface TestResult {
   phase: string;
@@ -138,6 +167,21 @@ class ScriptedLoop extends ReActLoop<
         ],
         allSucceeded: true,
         anyAborted: false,
+      };
+    }
+    // P2-2：外部/系统中止（骨架不消费 anyAborted，本用例只验证计数口径）
+    if (kind === 'aborted') {
+      return {
+        results: [
+          {
+            toolCallId: id,
+            name: 'powershell',
+            status: 'aborted' as const,
+            error: 'Execution aborted before tool run',
+          },
+        ],
+        allSucceeded: false,
+        anyAborted: true,
       };
     }
     const result =
@@ -222,6 +266,24 @@ describe('environment_blocked：环境阻塞独立预算与终止', () => {
 
   test('成功一轮即清零阻塞预算（偶发拦截不终止）', async () => {
     const loop = new ScriptedLoop(['blocked', 'ok', 'blocked']);
+    const { result } = await drain(loop);
+
+    expect(loop.actCount).toBe(3);
+    expect(result.phase).toBe('completed');
+  });
+
+  // ── P2-2（2026-10-27）：中止轮中性，不清零既有失败计数 ──
+  test('中止轮不清零失败计数（原实现按 progress 清零 ⇒ 永远攒不满 3 轮）', async () => {
+    const loop = new ScriptedLoop(['invalid', 'aborted', 'invalid', 'invalid']);
+    const { result } = await drain(loop);
+
+    // 1 + (aborted 中性) + 1 + 1 = 3 ⇒ 熔断；修复前在第 2 轮被清零 ⇒ 只到 2 ⇒ 不熔断
+    expect(result.phase).toBe('circuit_breaker');
+    expect(result.reason).toBe('circuit_breaker');
+  });
+
+  test('连续中止不触发熔断（外部因素，不算进展也不算失败）', async () => {
+    const loop = new ScriptedLoop(['aborted', 'aborted', 'aborted']);
     const { result } = await drain(loop);
 
     expect(loop.actCount).toBe(3);

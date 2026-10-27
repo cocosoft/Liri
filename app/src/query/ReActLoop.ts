@@ -338,21 +338,30 @@ const ENVIRONMENT_BLOCKING_KINDS = new Set<ToolFailureKind>([
 /**
  * 一轮工具执行的分型（**纯判定**，不做计数、不改相位）：
  *
- * - `progress`：**非全部**失败 ⇒ 既有语义（`consecutiveInvalidTurns` 清零），
+ * - `progress`：至少一个条目**有结论**（成功 / 非 error）⇒ 既有语义（两个计数器清零），
  *   也是"本轮有推进"的唯一判据；
  * - `environment_blocked`：全部失败且**每一种**失败都是环境阻塞类；
- * - `invalid`：全部失败但含未分类 / `tool_error` ⇒ 既有 invalid 预算。
+ * - `invalid`：全部失败但含未分类 / `tool_error` ⇒ 既有 invalid 预算；
+ * - `aborted`（P2-2，2026-10-27）：本轮条目**全部**是外部/系统中止（`aborted` / `timeout`）
+ *   ⇒ 既不算进展、也不算失败（中性）。见 `checkCircuitBreaker` 的"不清零"口径。
  *
  * ⚠️ 判定只看结构化字段 `status` + `failureKind`，**禁止解析 `error` 文本**（CS02）；
  * `status !== 'error'` 的条目即便被误填 `failureKind` 也不得算阻塞（负向对照见用例）。
  */
 export function classifyTurn(
   results: readonly Pick<ToolResultEntry, 'status' | 'failureKind'>[]
-): 'progress' | 'environment_blocked' | 'invalid' {
+): 'progress' | 'environment_blocked' | 'invalid' | 'aborted' {
+  // P2-2：中止/超时是**外部因素**，与"模型是否产出有效调用"无关 ⇒ 先摘出来单独判。
+  // 原实现把它们当 `progress`（因 `status !== 'error'`）⇒ 一次中止即清零两个预算，
+  // 掩盖"本来在连续失败"的事实。
+  const decisive = results.filter(
+    (r) => r.status !== 'aborted' && r.status !== 'timeout'
+  );
+  if (results.length > 0 && decisive.length === 0) return 'aborted';
   const allFailed =
-    results.length > 0 && results.every((r) => r.status === 'error');
+    decisive.length > 0 && decisive.every((r) => r.status === 'error');
   if (!allFailed) return 'progress';
-  const allBlocking = results.every(
+  const allBlocking = decisive.every(
     (r) =>
       r.failureKind !== undefined &&
       ENVIRONMENT_BLOCKING_KINDS.has(r.failureKind)
@@ -834,6 +843,17 @@ export abstract class ReActLoop<
     if (outcome === 'progress') {
       this.consecutiveInvalidTurns = 0;
       this.consecutiveBlockedTurns = 0;
+      return null;
+    }
+    // P2-2（2026-10-27）：本轮全是外部/系统中止 ⇒ **既不计失败、也不清零**。
+    // 清零会掩盖"之前已连续失败"，导致"中止 → 再失败 → 再中止"永远攒不满预算。
+    if (outcome === 'aborted') {
+      logger.info('reActLoop:turn_neutral_aborted', {
+        iteration: this.state.iteration,
+        consecutiveInvalidTurns: this.consecutiveInvalidTurns,
+        consecutiveBlockedTurns: this.consecutiveBlockedTurns,
+        statuses: result.results.map((r) => r.status),
+      });
       return null;
     }
     if (outcome === 'environment_blocked') {

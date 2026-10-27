@@ -17,8 +17,9 @@ import { resolveDataDir } from '@openliri/kernel/paths';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import { register } from '../../workspaces/WorkspaceRegistry.js';
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { resolveProjectIdentity } from './projectName.js';
 
 const logger = getLogger('tools:create_project');
 
@@ -70,7 +71,21 @@ export class CreateProjectTool {
         const otel = getOTelTracing();
         const span = otel.startSpan('CreateProjectTool.execute');
         try {
-          const name = String(input.name || '未命名项目');
+          // FIX-11（2026-10-27）：名称可能是**路径**（真机：`【E:\PY\Documents\CODES\PY_APP\`）。
+          // 解析出可用的目录 ⇒ 直接当沙箱根，标题改用目录名；否则只净化标题。
+          const resolved = resolveProjectIdentity(
+            String(input.name || '未命名项目'),
+            {
+              isDirectory: (p) => {
+                try {
+                  return existsSync(p) && statSync(p).isDirectory();
+                } catch {
+                  return false;
+                }
+              },
+            }
+          );
+          const name = resolved.name;
           const description = String(input.description || '');
           // P0-D 配套: 优先取会话真实 workspaceId（项目模块下 = projectId，由 ChatManager
           // 工具上下文注入），fallback 到 sessionId/'default' — 此前固定用 sessionId 导致
@@ -87,7 +102,21 @@ export class CreateProjectTool {
             workspaceId,
             name,
             description,
+            // FIX-11：名称是已存在目录 ⇒ 用它作沙箱根（否则维持默认 LiriProjects/<id>）
+            ...(resolved.sandboxPath
+              ? { sandboxPath: resolved.sandboxPath }
+              : {}),
           });
+          if (resolved.sandboxPath) {
+            logger.info(
+              'create_project: 名称是已存在目录，直接作为项目沙箱根',
+              {
+                sandboxPath: resolved.sandboxPath,
+                projectId: project.id,
+                displayName: name,
+              }
+            );
+          }
 
           // P0-E（2026-08-14）：create_project 创建的项目注册为 workspace + 写入 .workspace.json，
           // 使 GET /v1/workspaces 能列出 → 前端 /projects 列表显示项目名称（此前项目只存 ProjectStore，

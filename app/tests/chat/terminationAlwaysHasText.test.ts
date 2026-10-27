@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import {
+  isEmptyOutputFallbackMessage,
   resolveTerminationOutput,
   type TerminationOutputInput,
 } from '../../src/chat/terminationOutput.js';
@@ -57,5 +58,50 @@ describe('F3：终止必须有正文', () => {
       base({ reason: 'completed', assistantMessageContent: '已完成分析。' })
     );
     expect(out.suffix).toBe('');
+  });
+});
+
+/**
+ * BUG-A（2026-10-27，真机长程任务）：兜底文案必须**结构化**，供下游判定
+ * （实测：兜底文案被当成 PDCA 任务描述，建出无关需求并灌入 89 条无关消息）。
+ */
+describe('BUG-A：空输出兜底的结构化标记', () => {
+  it('无可见正文且走统一兜底 ⇒ emptyOutputFallback=true', () => {
+    const out = resolveTerminationOutput(
+      base({ reason: 'completed', assistantMessageContent: '' })
+    );
+    expect(out.emptyOutputFallback).toBe(true);
+    expect(out.suffix.trim().length).toBeGreaterThan(0);
+  });
+
+  it('负向对照：有正文 / 有结构化块 ⇒ emptyOutputFallback=false', () => {
+    expect(
+      resolveTerminationOutput(
+        base({ reason: 'completed', assistantMessageContent: '正文' })
+      ).emptyOutputFallback
+    ).toBe(false);
+    expect(
+      resolveTerminationOutput(
+        base({
+          reason: 'completed',
+          assistantMessageContent: [{ type: 'text' }],
+        })
+      ).emptyOutputFallback
+    ).toBe(false);
+  });
+
+  it('标记读取只认 metadata（禁止比对文案 —— CS02）', () => {
+    expect(
+      isEmptyOutputFallbackMessage({
+        metadata: { emptyOutputFallback: true },
+      })
+    ).toBe(true);
+    // 文案里含「未生成回复」但没有标记 ⇒ 不是兜底消息
+    expect(
+      isEmptyOutputFallbackMessage({
+        content: '⚠️ 本次未能生成回复（模型本轮未产出可见内容）',
+      })
+    ).toBe(false);
+    expect(isEmptyOutputFallbackMessage(undefined)).toBe(false);
   });
 });

@@ -63,6 +63,27 @@ export interface TerminationOutput {
    * 本字段**不改判别器优先级语义**，只把已被识别的事实结构化（与 F2-5 文案并列同源）。
    */
   concurrentReasons?: TerminationReason[];
+  /**
+   * BUG-A（2026-10-27，真机长程任务）：本轮**无可见正文**、已落 `EMPTY_OUTPUT_FALLBACK_TEXT`
+   * 兜底文案的结构化标记。
+   *
+   * **为什么结构化**：兜底文案随最终消息落盘后，下游（PDCA 自动升级）曾把这段文案当作
+   * **任务描述**传给编排器（实测 `descPreview` = 兜底文案，进而建出与任务无关的 PDCA 需求）。
+   * 判定"是否兜底"必须依赖本标记，**禁止对文案做字符串匹配**（CS02）。
+   */
+  emptyOutputFallback: boolean;
+}
+
+/**
+ * BUG-A（2026-10-27）：判定一条已落盘的助手消息是否为"空输出兜底"投影。
+ *
+ * 唯一事实来源是消息 `metadata.emptyOutputFallback`（由 `computeFinalMessage` 写入），
+ * **禁止**比对正文文案（CS02）。
+ */
+export function isEmptyOutputFallbackMessage(message: unknown): boolean {
+  const meta = (message as { metadata?: Record<string, unknown> } | null)
+    ?.metadata;
+  return meta?.['emptyOutputFallback'] === true;
 }
 
 /**
@@ -80,6 +101,7 @@ export function resolveTerminationOutput(
   let suffix = '';
   let finishReason: string | undefined;
   let concurrentReasons: TerminationReason[] | undefined;
+  let emptyOutputFallback = false;
 
   switch (reason) {
     // 6. maxTurns 提示文案：达 maxIterations 时附加。
@@ -237,6 +259,9 @@ export function resolveTerminationOutput(
       : (typeof rawContent === 'string' ? rawContent : '').trim().length > 0;
     if (!hasVisibleText) {
       suffix = EMPTY_OUTPUT_FALLBACK_TEXT;
+      // BUG-A（2026-10-27）：把"这是兜底文案而非模型产出"结构化，供下游（PDCA 升级等）
+      // 做判定——**不得**靠比对文案（CS02）。
+      emptyOutputFallback = true;
       // T-⑥08（2026-10-02 实证）：该兜底触发时**此前不落任何诊断字段** —— 实测会话里
       // 4 次命中的助手消息 `finishReason` / `tokenUsage` / `startedAt` **全为 null**，
       // 导致"高频空回复"无法归因（其中 3 次是"只出思考、无正文"）。此处补一条结构化
@@ -258,7 +283,13 @@ export function resolveTerminationOutput(
     }
   }
 
-  return { suffix, finishReason, reason, concurrentReasons };
+  return {
+    suffix,
+    finishReason,
+    reason,
+    concurrentReasons,
+    emptyOutputFallback,
+  };
 }
 
 /**

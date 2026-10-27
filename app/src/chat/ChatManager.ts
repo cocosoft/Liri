@@ -104,6 +104,8 @@ import { TaskFacade } from './facades/TaskFacade';
 import { PdcaLauncher } from './launchers/PdcaLauncher';
 // U-22/S1：PDCA 自动启动簇外移（自动建项目 → launch → 决策轨迹）
 import { PdcaLaunchCoordinator } from './manager/pdcaLaunch';
+// BUG-A（2026-10-27）：空输出兜底的**结构化**判定（禁止文案匹配 —— CS02）
+import { isEmptyOutputFallbackMessage } from './terminationOutput';
 // U-22/S2：流式请求准备段外移（输入净化 → 取会话 → abort/锁 → 用户消息落盘）
 import { ChatStreamSetup, type StreamSetupResult } from './manager/streamSetup';
 // U-22/S3：消息持久化 / 事件投影簇外移
@@ -1303,6 +1305,9 @@ export class ChatManagerImpl implements ChatManager {
       persistSessionMetadata: (session) => this.persistSessionMetadata(session),
       recentUserText: (session, n) => this._recentUserText(session, n),
       lastAssistantText: (session) => this._lastAssistantText(session),
+      // BUG-A（2026-10-27）：长任务信号升级时区分"模型产出"与"空输出兜底"（结构化标记）
+      isLastAssistantOutputFallback: (session) =>
+        this._isLastAssistantOutputFallback(session),
       // LRO-11（2026-10-26）：执行模式可见告知（"仍在普通对话循环"等）
       notifyUser: (sid, text, metadata) => {
         this._addAndPersistMessage(
@@ -3465,7 +3470,26 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
     return '';
-  } /** 裸会话 ⇒ PDCA 编排升级（U-22/S1 外移；单一动作入口，实现在 `manager/pdcaLaunch.ts`） */
+  }
+
+  /**
+   * BUG-A（2026-10-27）：最近一条 assistant 消息是否为「空输出兜底」投影。
+   *
+   * 判定唯一依据是消息 `metadata.emptyOutputFallback`（`computeFinalMessage` 写入的
+   * 结构化标记），**禁止**比对兜底文案本身（CS02）。
+   */
+  private _isLastAssistantOutputFallback(session: ChatSession): boolean {
+    const messages = session.messages ?? [];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if ((m as { role?: string })?.role === 'assistant') {
+        return isEmptyOutputFallbackMessage(m);
+      }
+    }
+    return false;
+  }
+
+  /** 裸会话 ⇒ PDCA 编排升级（U-22/S1 外移；单一动作入口，实现在 `manager/pdcaLaunch.ts`） */
   private async _escalateToPdcaViaBareSession(params: {
     session: ChatSession;
     assistantContent: string;

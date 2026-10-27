@@ -1712,7 +1712,7 @@ export class ReActToolLoop extends ReActLoop<
    * 漂移，"流里提示"与"落库提示"就会对不上）。
    */
   private computeFinalMessage(): Message {
-    const { suffix, finishReason, concurrentReasons } =
+    const { suffix, finishReason, concurrentReasons, emptyOutputFallback } =
       this.resolveTerminationOutput();
 
     // 无终止提示且已有消息（正文非空）⇒ 原样返回，零行为变更
@@ -1730,7 +1730,7 @@ export class ReActToolLoop extends ReActLoop<
         ? { id: this.loopState.assistantMessage.id }
         : {}),
     });
-    if (finishReason || concurrentReasons?.length) {
+    if (finishReason || concurrentReasons?.length || emptyOutputFallback) {
       // A3（2026-09-05）：截断/循环/预算终止消息 metadata 落 finishReason
       //（自由 Record、JSON 落库无需 schema 扩展）
       // 一期 O1-1（2026-09-24）：并列上报的**并发终止原因**一并落 metadata —— 此前循环信号
@@ -1740,6 +1740,9 @@ export class ReActToolLoop extends ReActLoop<
         ...withMeta.metadata,
         ...(finishReason ? { finishReason } : {}),
         ...(concurrentReasons?.length ? { concurrentReasons } : {}),
+        // BUG-A（2026-10-27）：兜底文案的结构化标记 —— 下游据此区分"模型产出"与
+        // "系统兜底"，**禁止**对文案做字符串匹配（CS02）。
+        ...(emptyOutputFallback ? { emptyOutputFallback: true } : {}),
       };
     }
     return msg;

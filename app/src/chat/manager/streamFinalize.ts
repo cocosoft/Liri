@@ -35,6 +35,7 @@ import type { ChatSession } from '@modules/session/types/session.js';
 import { getYieldRegistry } from '../../session/yield';
 import { ImplicitEngineHook } from '../../project/ImplicitEngineHook';
 import { isExecutionTaskIntent, isStrongBuildIntent } from '../taskIntent';
+import { isEmptyOutputFallbackMessage } from '../terminationOutput';
 
 const logger = getLogger('chat:manager');
 
@@ -238,6 +239,11 @@ export class ChatStreamFinalize {
     const bareUserMessages =
       session.messages?.filter((m) => m.role === 'user') ?? [];
     const bareLastContent = deps.recentUserText(session, 3);
+    // BUG-A（2026-10-27，真机长程任务）：本轮若以「空输出兜底」收尾，正文是**系统文案**
+    // 而非模型产出 ⇒ 不得作为编排任务描述流转（实测被当作 PDCA 需求，建出无关需求并灌入
+    // 89 条无关消息）。判定用**结构化标记** `metadata.emptyOutputFallback`，
+    // **禁止**对文案做字符串匹配（CS02）。
+    const emptyOutputFallback = isEmptyOutputFallbackMessage(assistantMessage);
     const bareFirstContent =
       bareUserMessages.length > 0
         ? (((bareUserMessages[0] as unknown as Record<string, unknown>)
@@ -253,10 +259,15 @@ export class ChatStreamFinalize {
       logger.info('pdca:bare_session_intent_detected', {
         sessionId: session.id,
         intent: bareLastContent.slice(0, 60),
+        // BUG-A：兜底文案已改走用户任务原句（可诊断：本轮无模型产出仍触发升级）
+        emptyOutputFallback,
       });
       await deps.escalateToPdcaViaBareSession({
         session,
-        assistantContent: assistantMessage.content as string,
+        // BUG-A：兜底文案 ⇒ 用**用户任务原句**作描述，绝不把系统文案当需求
+        assistantContent: emptyOutputFallback
+          ? bareLastContent
+          : (assistantMessage.content as string),
         lastUserContent: bareLastContent,
       });
     }
@@ -331,7 +342,10 @@ export class ChatStreamFinalize {
             if (!deps.shouldUseCodeMode(lastUserContent || '')) {
               deps.maybeLaunchPdca(
                 session,
-                assistantMessage.content as string,
+                // BUG-A：兜底文案 ⇒ 用**用户任务原句**作描述（同裸会话分支，单一判定口径）
+                emptyOutputFallback
+                  ? lastUserContent
+                  : (assistantMessage.content as string),
                 session.metadata.projectId as string,
                 lastUserContent
               );

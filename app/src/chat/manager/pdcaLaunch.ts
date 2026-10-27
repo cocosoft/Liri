@@ -70,6 +70,11 @@ export interface PdcaLaunchDeps {
   /** 最后一条 assistant 文本 */
   lastAssistantText: (session: ChatSession) => string;
   /**
+   * BUG-A（2026-10-27）：最近一条 assistant 消息是否为「空输出兜底」投影。
+   * 未注入 ⇒ 视为 false（测试替身/无 UI 场景保持旧行为）。
+   */
+  isLastAssistantOutputFallback?: (session: ChatSession) => boolean;
+  /**
    * LRO-11（2026-10-26）：给用户一条**可见**消息（"仍在普通对话循环"等执行模式告知）。
    * 未注入 ⇒ 只记日志（测试替身/无 UI 场景保持旧行为）。
    */
@@ -142,7 +147,12 @@ export class PdcaLaunchCoordinator {
     });
     await this.escalateViaBareSession({
       session,
-      assistantContent: this.deps.lastAssistantText(session),
+      // BUG-A（2026-10-27）：兜底文案是**系统文案**而非模型产出 ⇒ 用用户任务原句作描述
+      //（判定走结构化标记，禁止文案匹配 —— CS02）。
+      assistantContent:
+        (this.deps.isLastAssistantOutputFallback?.(session) ?? false)
+          ? lastUserContent
+          : this.deps.lastAssistantText(session),
       lastUserContent,
       // LRO-11：信号已证明是长任务 ⇒ 不允许被"消息长度 ≤60"判成单步直执行
       forceDecompose: true,

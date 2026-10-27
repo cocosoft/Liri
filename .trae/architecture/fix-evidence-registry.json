@@ -13449,6 +13449,34 @@
       "changelog": [],
       "reopenWhen": "本地工作区改为参与豁免判定（方案②）时重评降级提示（全文见 archive/evidence-detail.jsonl#SANDBOX-LEVEL-HONEST-DEGRADE）",
       "notes": "SPI 快照新增 runtimeIsolation（= resolveSandboxExecutionSignal().mode）；config/status 双端透出；两处 UI 在 none 时禁用级别控件并给黄色说明（全文见 archive/evidence-detail.jsonl#SANDBOX-LEVEL-HONEST-DEGRADE）"
+    },
+    {
+      "id": "APPIMAGE-FOREIGN-NATIVE-PRUNE",
+      "title": "裁剪异平台原生包，修复 Linux AppImage 打包",
+      "source": "v0.5.13/15/16 三次 Release 失败；v0.5.17 只出 deb 定位；Docker 本地复现",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/scripts/lib/platformVariant.ts",
+        "app/scripts/copy-external-deps.ts",
+        ".github/workflows/release.yml"
+      ],
+      "tests": [
+        "app/tests/scripts/platformVariant.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再次出现 failed to run linuxdeploy 且 AppDir 内有异平台 .node（全文见 archive/evidence-detail.jsonl#APPIMAGE-FOREIGN-NATIVE-PRUNE）",
+      "notes": "根因：@napi-rs/canvas-linux-x64-musl 等 musl 变体随 sidecar 依赖复制 ⇒ linuxdeploy 递归 ldd 报 invalid ELF header。修：按宿主 os/arch/libc 裁剪；容器内实测出包 185MB（全文见 archive/evidence-detail.jsonl#APPIMAGE-FOREIGN-NATIVE-PRUNE）"
     }
   ]
 }

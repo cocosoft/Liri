@@ -498,10 +498,42 @@ export class MessageServiceImpl implements MessageService {
       resultJson = gatedResult.text;
     }
     const hasError = !!toolResult.error;
+    /**
+     * FIX-7（2026-10-27）：**错误文本去重**。
+     *
+     * 真机实测（`session_mvq91mtme1e76c5808` 的 `events.jsonl`）：安全门拦截的
+     * tool/result 里同一句失败文本出现两次 ——
+     * `⚠️ 工具执行失败: X … --- "X"`（`error` 前缀一次、payload 又一次）。
+     * 模型侧与导出都被放大成噪音（自检报告称"错误回显 3～10 倍"的主要来源）。
+     * 处置：payload 与 error 语义相同（去引号/压空白后相等）⇒ 只保留前缀；
+     * payload 与 error 不同（如带 stderr / 结构化详情）⇒ 维持原格式保留全文。
+     */
+    const payloadText = (() => {
+      const raw = resultJson;
+      if (raw === undefined || raw === 'null' || raw === 'undefined') return '';
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        return typeof parsed === 'string' ? parsed : raw;
+      } catch {
+        return raw;
+      }
+    })();
+    const normalizeForCompare = (s: string): string =>
+      s.replace(/\s+/g, ' ').trim();
+    const payloadIsSameAsError =
+      hasError &&
+      payloadText.length > 0 &&
+      normalizeForCompare(payloadText) ===
+        normalizeForCompare(String(toolResult.error));
+
     const errorPrefix = hasError
-      ? `⚠️ 工具执行失败: ${toolResult.error}\n\n请基于此错误调整后续方案，不要默默切换为其他工具。\n\n---\n\n`
+      ? `⚠️ 工具执行失败: ${toolResult.error}\n\n请基于此错误调整后续方案，不要默默切换为其他工具。`
       : '';
-    const value = hasError ? errorPrefix + resultJson : resultJson;
+    const value = hasError
+      ? payloadText.length === 0 || payloadIsSameAsError
+        ? errorPrefix
+        : `${errorPrefix}\n\n---\n\n${resultJson}`
+      : resultJson;
 
     const content: ContentBlock[] = [
       {

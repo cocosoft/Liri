@@ -336,4 +336,17 @@ describe('FIX-3/4：PS 方法/静态调用与键值行的白名单边界', () =>
     expect(why!.reason).toContain('控制流「foreach」');
     expect(why!.reason).toContain('Where-Object');
   });
+
+  it('FIX-6：拒绝报文附**允许摘要**（模型一次即可自纠）', () => {
+    const verbWhy = explainPowerShellNotAllowed('Invoke-Mystery -X 1');
+    expect(verbWhy).not.toBeNull();
+    expect(verbWhy!.reason).toContain('允许的常用族');
+    expect(verbWhy!.reason).toContain('Get-/Test-/Select-');
+
+    const methodWhy = explainPowerShellNotAllowed(
+      '$x = (Get-Item a).OpenText()'
+    );
+    expect(methodWhy).not.toBeNull();
+    expect(methodWhy!.reason).toContain('ContainsKey/GetEnumerator');
+  });
 });

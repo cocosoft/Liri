@@ -372,7 +372,7 @@ export function explainPowerShellNotAllowed(
   const disallowedMethod = findDisallowedMethodCall(command);
   if (disallowedMethod) {
     return {
-      reason: `检测到方法调用「.${disallowedMethod}(…)」不在只读白名单（仅支持字符串只读方法）；请改写为单一命令或去掉方法链`,
+      reason: `检测到方法调用「.${disallowedMethod}(…)」不在只读白名单；允许的纯内存方法：Substring/Trim/Split/Replace/ToLower/ToUpper/StartsWith/EndsWith/Contains/IndexOf/PadLeft/PadRight/ToString/Join/ContainsKey/GetEnumerator/ToLocalTime（其余请去掉方法链）`,
     };
   }
   // ② 静态方法调用（FIX-4：只读类型白名单；其余仍 fail-closed）
@@ -413,7 +413,11 @@ export function explainPowerShellNotAllowed(
     }
     if (isAllowedPowerShellVerb(verb)) continue;
     return {
-      reason: `命令「${verb}」不在允许列表`,
+      // FIX-6（2026-10-27）：报文补**允许摘要** —— 真机 65 次白名单拒绝中模型只能靠试错
+      // 反推边界（信息熵黑洞）。给一句"允许哪几族"，一次拒绝即可自纠。
+      reason:
+        `命令「${verb}」不在允许列表｜允许的常用族：Get-/Test-/Select-/Where-/Format-/Out-/ConvertTo-/ConvertFrom-/Write-；` +
+        `执行器：node/npm/bun/git/python；文件：New-Item/Copy-Item/Move-Item/Rename-Item/Expand-Archive；导航：cd/Set-Location`,
       statement: statements[i].trim().slice(0, 120),
       verb,
     };

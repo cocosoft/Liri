@@ -309,10 +309,15 @@ export class GrepTool extends BaseTool {
         : '';
 
       // 构造可读的输出摘要
+      const skippedLargeFiles = result.stats?.skippedLargeFiles ?? 0;
       const summary = [
         `${invalidNotice}搜索 "${validated.pattern}" 完成:`,
         `  - 匹配 ${result.matchCount} 处，分布在 ${result.fileCount} 个文件`,
         `  - 耗时 ${result.durationMs}ms`,
+        // FIX-1（2026-10-27）：大文件被跳过时必须显式告知 —— 否则"没搜"会被读成"没命中"
+        skippedLargeFiles > 0
+          ? `  - ⚠️ 另有 ${skippedLargeFiles} 个文件超过 16MiB 未扫描：本次结论**不覆盖**这些文件`
+          : '',
         result.truncated ? '  - (结果已截断，使用 headLimit 调整)' : '',
         // O3-3：空结果附带可执行诊断（减少"换关键词空转"）
         result.matchCount === 0

@@ -59,7 +59,24 @@ describe('checkCompoundReadOnly：负向（必须仍拒绝）', () => {
   });
 
   it('后台执行', () => {
-    denied('dir & del x');
+    // FIX-2：`&` 的语义随 shell 而定 —— POSIX 下仍是后台执行，必须拒绝
+    const v = checkCompoundReadOnly('dir & del x', { platform: 'linux' });
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toContain('后台执行');
+  });
+
+  it('FIX-2：cmd.exe 下 `&` 是分隔符 —— 全段只读则放行', () => {
+    const v = checkCompoundReadOnly('echo CWD & dir /b', {
+      platform: 'win32',
+    });
+    expect(v.allowed).toBe(true);
+    expect(v.segments).toHaveLength(2);
+  });
+
+  it('FIX-2：cmd 分隔符不放宽写操作（任一段非只读仍拒）', () => {
+    const v = checkCompoundReadOnly('dir & del x', { platform: 'win32' });
+    expect(v.allowed).toBe(false);
+    expect(v.reason).toContain('非只读命令');
   });
 
   it('任一段非只读', () => {

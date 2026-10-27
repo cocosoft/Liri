@@ -98,6 +98,16 @@ export interface GrepStats {
   entries: number;
   /** 实际进入内容匹配的文件数（调用 `searchFile` 的次数） */
   files: number;
+  /**
+   * 因**体积超上限**被跳过的文件数（2026-10-27，FIX-1）。
+   *
+   * 为什么必须暴露：原实现 `>1MiB 直接 return`，`files` 却已 +1 ⇒ 表现为
+   * "看过这个文件但 0 命中"（真机实测 `session_mvq91mtme1e76c5808`：
+   * `events.jsonl` 6.84 MB 被跳过，grep 返回 `{matchCount:0, files:1, durationMs:0}`，
+   * 而 Select-String 在同文件命中 627 次）。静默跳过 = 把"没搜"伪装成"没命中"，
+   * 违反 CS06；故计数上报，由调用方在输出里明示。
+   */
+  skippedLargeFiles?: number;
 }
 
 export interface GrepResult {
@@ -117,6 +127,15 @@ export interface GrepResult {
 
 const VCS_DIRS = new Set(['.git', '.svn', '.hg', '.bzr']);
 const MAX_RESULTS = 500;
+
+/**
+ * 单文件文本扫描体积上限（2026-10-27，FIX-1）。
+ *
+ * 原值 1 MiB：会把会话日志（`events.jsonl` 6.8 MB / `messages.jsonl` 4.9 MB）与多数
+ * 构建产物直接跳过且**不告知** ⇒ 模型把"没搜"当"没命中"继续换关键词（长程任务实测）。
+ * 提到 16 MiB 覆盖常见日志；仍超限的文件按 `skippedLargeFiles` 计数并在输出中明示。
+ */
+const MAX_TEXT_FILE_BYTES = 16 * 1024 * 1024;
 
 /**
  * 构建产物 / 备份 / 缓存目录的跳过清单已迁至 {@link SKIP_DIRS}
@@ -187,7 +206,7 @@ export function grep(options: GrepOptions): GrepResult {
     if (stat.isFile()) {
       // 单文件搜索：直接搜索该文件，跳过 include/type 过滤
       stats.files++;
-      searchFile(searchPath, regex, options, fileMatches, MAX_RESULTS);
+      searchFile(searchPath, regex, options, fileMatches, MAX_RESULTS, stats);
     } else {
       searchDir(
         searchPath,
@@ -286,7 +305,7 @@ export async function grepAsync(options: GrepOptions): Promise<GrepResult> {
     const stat = fs.statSync(searchPath);
     if (stat.isFile()) {
       stats.files++;
-      searchFile(searchPath, regex, options, fileMatches, MAX_RESULTS);
+      searchFile(searchPath, regex, options, fileMatches, MAX_RESULTS, stats);
     } else {
       await searchDirAsync(
         searchPath,
@@ -392,7 +411,7 @@ async function searchDirAsync(
     } else if (entry.isFile()) {
       if (options.include && !matchGlob(entry.name, options.include)) continue;
       stats.files++;
-      searchFile(fullPath, regex, options, results, maxTotal);
+      searchFile(fullPath, regex, options, results, maxTotal, stats);
     }
 
     // 协作式让出：每处理一批条目让出事件循环，扫描期间 SSE 心跳保持
@@ -442,7 +461,7 @@ function searchDir(
     } else if (entry.isFile()) {
       if (options.include && !matchGlob(entry.name, options.include)) continue;
       stats.files++;
-      searchFile(fullPath, regex, options, results, maxTotal);
+      searchFile(fullPath, regex, options, results, maxTotal, stats);
     }
   }
 }
@@ -460,15 +479,19 @@ function searchFile(
   regex: RegExp,
   options: GrepOptions,
   results: Map<string, string[]>,
-  maxTotal: number
+  maxTotal: number,
+  stats: GrepStats
 ): void {
   // 如果已收集的匹配总数达到上限，则直接返回以停止进一步搜索
   if (getTotalCount(results) >= maxTotal) return;
 
   try {
     const stat = fs.statSync(filePath);
-    // 跳过大小超过 1MB 的文件，避免处理过大文件导致性能问题
-    if (stat.size > 1024 * 1024) return;
+    // 超过上限 ⇒ 跳过，但**必须计数**（否则"没搜"会被当成"没命中"，见 FIX-1 注释）
+    if (stat.size > MAX_TEXT_FILE_BYTES) {
+      stats.skippedLargeFiles = (stats.skippedLargeFiles ?? 0) + 1;
+      return;
+    }
     // 2026-09-01 P1：跳过二进制文件（含 NUL 字节）——.db/.dll/.exe 等被
     // 当文本读取匹配既慢又产生误报（曾匹配到 _migration_backup\app.db）
     if (looksBinary(filePath)) return;

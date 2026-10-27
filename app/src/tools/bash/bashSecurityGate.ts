@@ -68,6 +68,10 @@ function blockedResult(
   return createToolResult(message, {
     success: false,
     error: message,
+    // FIX-5（2026-10-27）：安全门拦截属**环境阻塞**，不是"模型无效输出"。
+    // 不带分类时会被计入 `consecutiveInvalidTurns`（3 轮）；带上 `safety_blocked`
+    // 后走 `environment_blocked` 预算（2 轮），且失败原因在恢复期可读（P2-3 落盘）。
+    failureKind: 'safety_blocked',
     newMessages: [{ role: 'system', content: modelMessage }],
     metadata: { securityIntercepted: true, ...metadata },
   });
@@ -329,6 +333,8 @@ export function checkAstAndAnalyzer(params: {
     return createToolResult(`需要用户确认: ${askMessage}`, {
       requireApproval: true,
       approvalReason: askMessage,
+      // FIX-5：待审批同样属于"环境阻塞"而非模型无效输出
+      failureKind: 'permission_denied',
       newMessages: [
         {
           role: 'system',

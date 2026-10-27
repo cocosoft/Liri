@@ -141,6 +141,10 @@ describe('安全门接线（checkAstAndAnalyzer + 命令级规则）', () => {
     expect(result?.success).toBe(false);
     expect(result?.metadata?.['reason']).toBe('custom_blacklist');
     expect(String(result?.error)).toContain('命中命令黑名单');
+    // FIX-5：安全门拦截必须带 failureKind=safety_blocked（走环境阻塞预算，不计 invalid）
+    expect((result as { failureKind?: string }).failureKind).toBe(
+      'safety_blocked'
+    );
   });
 
   it('白名单命中 ⇒ 跳过 ask（返回 null，继续后续硬拦截）', () => {

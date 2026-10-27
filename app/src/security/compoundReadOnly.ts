@@ -6,10 +6,10 @@
  * `dir /s /b *.ts | find /c /v ""` 这类**纯只读串联**连审批机会都没有，长程任务因此反复空转。
  *
  * 口径（**仅放宽"多段只读"这一种形态**，其余一律维持原硬拒）：
- * - 允许的分隔符：`&&`、`||`、`|`、`;`；
+ * - 允许的分隔符：`&&`、`||`、`|`、`;`；**Windows(cmd.exe) 下单 `&` 亦为分隔符**（FIX-2）；
  * - **每段**的首命令必须命中只读白名单（或版本查询 / git 只读子命令）；
  * - 出现以下任一即**拒绝**（fail-closed）：
- *   重定向 `<` `>`、后台 `&`、命令替换 `` ` `` / `$(`、变量展开 `$`、
+ *   POSIX 语义的 `&`（后台）、重定向 `<` `>`、命令替换 `` ` `` / `$(`、变量展开 `$`、
  *   变量赋值（`VAR=…` 作为段首）、引号未闭合、空段、非常规命令名（含路径/通配）。
  *
  * 设计约束：本函数只回答"是否**全部**为只读串联"，**不**替代危险命令检测
@@ -76,8 +76,15 @@ export interface CompoundReadOnlyVerdict {
 
 /**
  * 引号感知切段；同时拒绝重定向 / 命令替换 / 变量展开 / 后台执行。
+ *
+ * FIX-2（2026-10-27）：`&` 的语义**随 shell 而定** —— POSIX 里是"后台执行"，
+ * 而 Windows `cmd.exe` 里是**命令分隔符**（等价换行）。故由 `ampersandSeparator` 决定：
+ * 为真时 `&` 按分隔符切段（后续仍逐段过只读白名单），为假时维持 fail-closed。
  */
-function splitSafely(command: string): {
+function splitSafely(
+  command: string,
+  ampersandSeparator: boolean
+): {
   segments: string[];
   forbidden?: string;
 } {
@@ -152,6 +159,12 @@ function splitSafely(command: string): {
         i++;
         continue;
       }
+      // FIX-2：cmd.exe 下 `&` 是分隔符（单 `&`），按段切开继续逐段判定
+      if (ampersandSeparator) {
+        segments.push(buf);
+        buf = '';
+        continue;
+      }
       return { segments, forbidden: '后台执行（&）' };
     }
     if (ch === '|') {
@@ -182,19 +195,25 @@ function splitSafely(command: string): {
 /**
  * 判定一条命令是否为"全部段皆只读"的串联。
  *
+ * FIX-2（2026-10-27）：`&` 按**实际 shell** 解释 —— Windows（cmd.exe）视为分隔符，
+ * 其余平台视为后台执行并拒绝。平台可由 `options.platform` 显式注入（单测/跨平台复用）。
+ *
  * @example
  * checkCompoundReadOnly('cd /d E:\\X && dir /b')        // allowed
  * checkCompoundReadOnly('dir /s /b *.ts | find /c /v ""') // allowed
  * checkCompoundReadOnly('dir > out.txt')                // 拒绝：重定向
  * checkCompoundReadOnly('cd X && node script.js')       // 拒绝：node 非只读
+ * checkCompoundReadOnly('echo a & dir /b', { platform: 'win32' }) // allowed（cmd 分隔符）
  */
 export function checkCompoundReadOnly(
-  command: string
+  command: string,
+  options: { platform?: NodeJS.Platform } = {}
 ): CompoundReadOnlyVerdict {
   const trimmed = command.trim();
   if (!trimmed) return { allowed: false, reason: '空命令', segments: [] };
 
-  const { segments, forbidden } = splitSafely(trimmed);
+  const platform = options.platform ?? process.platform;
+  const { segments, forbidden } = splitSafely(trimmed, platform === 'win32');
   if (forbidden) return { allowed: false, reason: forbidden, segments };
 
   const cleaned: string[] = [];

@@ -20,6 +20,7 @@ import {
 import {
   describePowerShellFailure,
   evaluatePowerShellSecurity,
+  explainPowerShellNotAllowed,
   isPowerShellCommandAllowed,
 } from '../../src/tools/PowerShellTool/PowerShellTool.js';
 import { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer.js';
@@ -281,5 +282,58 @@ describe('F7b：PowerShell 失败报文（base64 → 脚本预览 + stderr 末 4
     );
     expect(detail.startsWith('Command failed: 权限不足')).toBe(true);
     expect(detail).toContain('[stderr]\nAccess is denied.');
+  });
+});
+
+/**
+ * FIX-3/4（2026-10-27）：真实会话 `session_mvq91mtme1e76c5808` 的误杀面。
+ *
+ * 该会话 07:07 重启后仍有 105 条 PS 拒绝，按原因排序：
+ * 静态调用 19 / `&` 6 / `.ContainsKey|.GetEnumerator` 6 / `foreach` 2 / `>` 3。
+ * 本组只钉**可安全放宽**的那部分（纯内存调用 + 键值行），危险静态调用仍须拒绝。
+ */
+describe('FIX-3/4：PS 方法/静态调用与键值行的白名单边界', () => {
+  it('只读静态类型放行（[math] / [datetime]）', () => {
+    expect(isPowerShellCommandAllowed('[math]::Round(1.5)')).toBe(true);
+    expect(
+      isPowerShellCommandAllowed(
+        "[datetime]::ParseExact('2026-10-27', 'yyyy-MM-dd', $null)"
+      )
+    ).toBe(true);
+    expect(isPowerShellCommandAllowed('[System.Math]::Floor(1.9)')).toBe(true);
+  });
+
+  it('写操作静态类型仍拒，且报文点名类型', () => {
+    const why = explainPowerShellNotAllowed("[System.IO.File]::Delete('a')");
+    expect(why).not.toBeNull();
+    expect(why!.reason).toContain('System.IO.File');
+    expect(why!.reason).toContain('只读类型白名单');
+  });
+
+  it('纯内存集合方法放行（ContainsKey / GetEnumerator）', () => {
+    expect(isPowerShellCommandAllowed("$h = @{}; $h.ContainsKey('x')")).toBe(
+      true
+    );
+    expect(isPowerShellCommandAllowed('$e = @{}; $e.GetEnumerator()')).toBe(
+      true
+    );
+  });
+
+  it('FIX-3：哈希表键值行不再被当命令（旧行为会报「命令「errors」不在允许列表」）', () => {
+    const why = explainPowerShellNotAllowed(
+      '$h = @{\n  errors = 0\n  isError = $true\n}'
+    );
+    // 纯赋值/键值脚本 ⇒ 零动词拒绝，但**不得**把 errors / isError 当命令
+    expect(why!.reason).not.toContain('errors');
+    expect(why!.reason).not.toContain('iserror');
+  });
+
+  it('FIX-3：控制流关键字给可执行的改写建议（不再伪装成"不在允许列表"）', () => {
+    const why = explainPowerShellNotAllowed(
+      'foreach ($p in $pat) { Get-Item $p }'
+    );
+    expect(why).not.toBeNull();
+    expect(why!.reason).toContain('控制流「foreach」');
+    expect(why!.reason).toContain('Where-Object');
   });
 });

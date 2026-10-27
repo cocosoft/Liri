@@ -187,12 +187,20 @@ function splitPowerShellStatements(command: string): string[] {
 function extractPowerShellStatementVerb(statement: string): string | null {
   let rest = statement.trim();
   if (!rest || rest.startsWith('#')) return null;
+  // 块界符 / 续行符单独成行时不是命令（`{`、`}`、`)`、`|` 等）
+  if (/^[{}()[\]]\s*$/.test(rest)) return null;
+  if (rest === '|' || rest === '\\') return null;
 
   const assignment = rest.match(/^\$[A-Za-z_][\w:]*\s*=\s*/);
   if (assignment) {
     rest = rest.slice(assignment[0].length).trim();
     if (!rest || rest.startsWith("'") || rest.startsWith('"')) return null;
   }
+
+  // FIX-3（2026-10-27）：**哈希表 / 传参键值行**不是命令。
+  // 多行字面量 `@{ errors = 0; isError = $true }` 的无 `$` 行此前被当动词
+  // （`errors=0` ⇒ 动词 `errors`），产生「命令「errors」不在允许列表」的误杀。
+  if (/^[A-Za-z_][\w.-]*\s*[=:]/.test(rest)) return null;
 
   // 调用运算符：剥离 `&`（点源 `.` 不剥离 ⇒ 保守拒绝脚本）
   rest = rest.replace(/^&\s*/, '');
@@ -259,7 +267,43 @@ const ALLOWED_READONLY_METHODS = new Set([
   'padright',
   'tostring',
   'join',
+  // FIX-4（2026-10-27）：纯内存集合/时间转换（无副作用），真机高频误杀
+  'containskey',
+  'getenumerator',
+  'tolocaltime',
+  'touniversaltime',
 ]);
+
+/**
+ * FIX-4（2026-10-27）：静态调用**只读类型白名单**。
+ *
+ * 原实现「见 `::` 即整条拒绝」—— 真机 19 次命中 `[Type]::Method(…)`，其中包括
+ * `[datetime]::ParseExact` / `[math]::Round` 这类纯计算，导致分析脚本写不出来。
+ * 收窄口径：**类型名逐字命中**白名单才放行；`[System.IO.File]::Delete` 一类仍拒绝。
+ */
+const ALLOWED_STATIC_TYPES = new Set([
+  'datetime',
+  'math',
+  'string',
+  'convert',
+  'guid',
+  'timespan',
+]);
+
+/** 取第一处**不在**只读类型白名单的静态调用（无 ⇒ `null`） */
+function findDisallowedStaticCall(command: string): string | null {
+  for (const match of command.matchAll(
+    /\[\s*([A-Za-z_][\w.]*)\s*\]\s*::\s*([A-Za-z_]\w*)\s*\(/g
+  )) {
+    const rawType = match[1];
+    // `[System.Math]::…` 与 `[math]::…` 同义：去掉 `System.` 前缀再比
+    const normalized = rawType.toLowerCase().replace(/^system\./, '');
+    if (!ALLOWED_STATIC_TYPES.has(normalized)) {
+      return `${rawType}::${match[2]}`;
+    }
+  }
+  return null;
+}
 
 /** 取脚本中**第一处不在只读白名单**的方法调用名（无 ⇒ `null`） */
 function findDisallowedMethodCall(command: string): string | null {
@@ -269,6 +313,32 @@ function findDisallowedMethodCall(command: string): string | null {
   }
   return null;
 }
+
+/**
+ * FIX-3（2026-10-27）：PowerShell **控制流关键字**。
+ *
+ * 它们不是"命令"，但本安全门不做 AST 解析 ⇒ 无法证明块内命令全只读。
+ * 此前报文写成「命令「foreach」不在允许列表」—— 把语法结构说成命令，模型改不动
+ * （真机实测 2 次）。现单独识别并给出可执行的改写建议。
+ */
+const POWERSHELL_CONTROL_KEYWORDS = new Set([
+  'if',
+  'elseif',
+  'else',
+  'foreach',
+  'for',
+  'while',
+  'do',
+  'switch',
+  'try',
+  'catch',
+  'finally',
+  'function',
+  'param',
+  'begin',
+  'process',
+  'end',
+]);
 
 /** 单个动词是否命中白名单（`get-` 为前缀族，其余精确匹配） */
 function isAllowedPowerShellVerb(verb: string): boolean {
@@ -288,8 +358,8 @@ function isAllowedPowerShellVerb(verb: string): boolean {
  * （可能是脚本里另一处方法调用/静态调用）。模型据此改不动，只能反复重试。
  *
  * ⚠️ **方法调用已按 §12.4 方案 B 收窄**（2026-10-27 安全评审）：只放行
- * `ALLOWED_READONLY_METHODS` 里的**只读字符串方法**（`$_.Line.Substring(…)` 一类），
- * 其余方法仍整脚本 fail-closed；静态调用 `[Type]::Method(…)` 依旧全拒。
+ * `ALLOWED_READONLY_METHODS` 里的**只读方法**（`$_.Line.Substring(…)`、`.ContainsKey(…)` 一类）；
+ * 静态调用按 `ALLOWED_STATIC_TYPES` 的**只读类型白名单**放行（FIX-4），其余仍整条 fail-closed。
  *
  * @returns `null` = 允许；否则为可读拒绝原因
  */
@@ -305,19 +375,28 @@ export function explainPowerShellNotAllowed(
       reason: `检测到方法调用「.${disallowedMethod}(…)」不在只读白名单（仅支持字符串只读方法）；请改写为单一命令或去掉方法链`,
     };
   }
-  // ② 静态方法调用（fail-closed 不变）
-  if (/::\s*[A-Za-z_]\w*\s*\(/.test(command)) {
+  // ② 静态方法调用（FIX-4：只读类型白名单；其余仍 fail-closed）
+  const disallowedStatic = findDisallowedStaticCall(command);
+  if (disallowedStatic) {
     return {
-      reason:
-        '检测到静态方法调用（[Type]::Method(…)），属任意代码面；请改写为单一命令',
+      reason: `检测到静态方法调用「${disallowedStatic}(…)」不在只读类型白名单（仅 ${[
+        ...ALLOWED_STATIC_TYPES,
+      ].join('/')}）；请改写为单一命令`,
     };
   }
 
   const statements = splitPowerShellStatements(command);
   const verbs = statements.map(extractPowerShellStatementVerb);
 
-  // ③ 纯赋值/注释脚本没有可执行动词 ⇒ 维持原策略（拒绝）
+  // ③ 无可执行动词：纯赋值/注释仍拒；但**只读表达式**（方法链/静态调用）应放行 ——
+  //    `[math]::Round(1.5)` / `$h.ContainsKey('x')` 这类语句的动词提取本就是 null，
+  //    其安全性已由 ①（只读方法白名单）与 ②（只读类型白名单）逐条闸过。
+  //    FIX-3（2026-10-27）：否则"能算出结果的分析表达式"会被当成"空脚本"误杀。
   if (verbs.filter((v): v is string => v !== null).length === 0) {
+    const hasReadOnlyExpression =
+      /\.[A-Za-z_]\w*\s*\(/.test(command) ||
+      /\[\s*[A-Za-z_][\w.]*\s*\]\s*::/.test(command);
+    if (hasReadOnlyExpression) return null;
     return { reason: '脚本没有可执行命令（纯赋值/注释），不在允许列表' };
   }
 
@@ -325,6 +404,13 @@ export function explainPowerShellNotAllowed(
   for (let i = 0; i < statements.length; i++) {
     const verb = verbs[i];
     if (verb === null) continue;
+    if (POWERSHELL_CONTROL_KEYWORDS.has(verb)) {
+      return {
+        reason: `控制流「${verb}」不在支持范围（安全门只判定单条命令）；请改用管道 / Where-Object，或拆成多次工具调用`,
+        statement: statements[i].trim().slice(0, 120),
+        verb,
+      };
+    }
     if (isAllowedPowerShellVerb(verb)) continue;
     return {
       reason: `命令「${verb}」不在允许列表`,

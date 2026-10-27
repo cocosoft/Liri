@@ -6750,3 +6750,11 @@
 {"id":"ABORTED-TURN-NEUTRAL","k":"notes","i":0,"c":"classifyTurn 新增 aborted（全 aborted/timeout）；checkCircuitBreaker 对该结果既不计失败也不清零；混入成功=progress、混入 error 仍按失败分型"}
 {"id":"ABORTED-TURN-NEUTRAL","k":"code#0","i":0,"c":"app/src/query/ReActLoop.ts"}
 {"id":"ABORTED-TURN-NEUTRAL","k":"tests#0","i":0,"c":"app/tests/query/environmentBlockedTermination.test.ts"}
+{"id":"BARE-SESSION-COMPILED-CWD","k":"title","i":0,"c":"编译版裸会话改用会话级 workspace"}
+{"id":"BARE-SESSION-COMPILED-CWD","k":"source","i":0,"c":"排查计划 §11.2 P2-4（裸会话回落 resolveProjectRoot）"}
+{"id":"BARE-SESSION-COMPILED-CWD","k":"reopenWhen","i":0,"c":"再现安装版裸会话把产物写进安装目录"}
+{"id":"BARE-SESSION-COMPILED-CWD","k":"notes","i":0,"c":"编译版+无 projectId ⇒ <data>/workspace/sessions/<safeId>（惰性创建）；开发入口仍仓库根；显式 workspacePath 恒优先；sessionId 做路径安全化"}
+{"id":"BARE-SESSION-COMPILED-CWD","k":"code#0","i":0,"c":"packages/kernel/src/core/paths.ts"}
+{"id":"BARE-SESSION-COMPILED-CWD","k":"code#1","i":0,"c":"app/src/chat/services/toolCwdScope.ts"}
+{"id":"BARE-SESSION-COMPILED-CWD","k":"code#2","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
+{"id":"BARE-SESSION-COMPILED-CWD","k":"tests#0","i":0,"c":"app/tests/chat/toolCwdScope.test.ts"}

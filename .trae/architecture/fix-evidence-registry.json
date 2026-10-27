@@ -13670,6 +13670,32 @@
       "changelog": [],
       "reopenWhen": "再现只读字符串方法仍被整脚本拒绝，或白名单方法被用于有副作用场景（全文见 archive/evidence-detail.jsonl#PS-READONLY-METHOD-ALLOWLIST）",
       "notes": "只放行无副作用的字符串方法（精确匹配方法名）；Delete/MoveTo/CopyTo/Open*/Invoke/GetType 与静态调用 :: 仍 fail-closed；反射链经 GetType 仍被拒（全文见 archive/evidence-detail.jsonl#PS-READONLY-METHOD-ALLOWLIST）"
+    },
+    {
+      "id": "PS-FAILURE-DIAGNOSTIC",
+      "title": "PS 失败报文可诊断（脚本预览 + stderr 末 40 行）",
+      "source": "排查计划 §12 F7b（原标注「无自动化用例，待真机」）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/PowerShellTool/PowerShellTool.ts"
+      ],
+      "tests": [
+        "app/tests/tools/toolSecurityGateWiring.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现失败报文只有 base64 无 stderr，或 stderr 回填截断行数不符（全文见 archive/evidence-detail.jsonl#PS-FAILURE-DIAGNOSTIC）",
+      "notes": "报文整理抽为纯函数 describePowerShellFailure：-EncodedCommand 的载荷替换为脚本预览（压缩空白、≤120 字），stderr 取末 40 行且取不到不追加；5 例钉住格式（全文见 archive/evidence-detail.jsonl#PS-FAILURE-DIAGNOSTIC）"
     }
   ]
 }

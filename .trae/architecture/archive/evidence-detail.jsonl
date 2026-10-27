@@ -6772,3 +6772,9 @@
 {"id":"PS-READONLY-METHOD-ALLOWLIST","k":"notes","i":0,"c":"只放行无副作用的字符串方法（精确匹配方法名）；Delete/MoveTo/CopyTo/Open*/Invoke/GetType 与静态调用 :: 仍 fail-closed；反射链经 GetType 仍被拒"}
 {"id":"PS-READONLY-METHOD-ALLOWLIST","k":"code#0","i":0,"c":"app/src/tools/PowerShellTool/PowerShellTool.ts"}
 {"id":"PS-READONLY-METHOD-ALLOWLIST","k":"tests#0","i":0,"c":"app/tests/tools/toolSecurityGateWiring.test.ts"}
+{"id":"PS-FAILURE-DIAGNOSTIC","k":"title","i":0,"c":"PS 失败报文可诊断（脚本预览 + stderr 末 40 行）"}
+{"id":"PS-FAILURE-DIAGNOSTIC","k":"source","i":0,"c":"排查计划 §12 F7b（原标注「无自动化用例，待真机」）"}
+{"id":"PS-FAILURE-DIAGNOSTIC","k":"reopenWhen","i":0,"c":"再现失败报文只有 base64 无 stderr，或 stderr 回填截断行数不符"}
+{"id":"PS-FAILURE-DIAGNOSTIC","k":"notes","i":0,"c":"报文整理抽为纯函数 describePowerShellFailure：-EncodedCommand 的载荷替换为脚本预览（压缩空白、≤120 字），stderr 取末 40 行且取不到不追加；5 例钉住格式"}
+{"id":"PS-FAILURE-DIAGNOSTIC","k":"code#0","i":0,"c":"app/src/tools/PowerShellTool/PowerShellTool.ts"}
+{"id":"PS-FAILURE-DIAGNOSTIC","k":"tests#0","i":0,"c":"app/tests/tools/toolSecurityGateWiring.test.ts"}

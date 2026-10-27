@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **PS-WRAPPER-GATE-CONFLICT**：bash 内单条 powershell -Command 被只读族二次否决 —— 验证 tsc0|arch0|fnsize0|state0|unit7+2103；基线 10:13:59Z/10:14:03Z 只读 Get-ChildItem…|Select-Object 被判 security_analyzer_deny，而同一脚本经 evaluatePowerShellSecurity 实测 allow（详情见 archive/evidence-detail.jsonl#PS-WRAPPER-GATE-CONFLICT）
 - ✅ **TOOL-TRIM-ERROR-LOCK-MOCK**：取回工具被任务裁剪 + 全局 ERROR 自锁 + 会话工具造假数据 —— 验证 tsc0|arch0|fnsize0|state0|unit11+2094；基线 08:59:49「工具未登记类别」告警；08:54:47「非法状态转换 error → busy」且全窗口零状态变更；08:54:47 sess_001「疑消息文件丢失」（详情见 archive/evidence-detail.jsonl#TOOL-TRIM-ERROR-LOCK-MOCK）
 - ✅ **PROJECT-NAME-AS-PATH**：create_project 名称是路径 ⇒ 标题与沙箱根都错 —— 验证 tsc0|arch0|fnsize0|state0|unit6+1251；基线 真机 proj_1792831085133_bfc455 的 name=【E:\PY\...\（括号未闭合），sandboxPath 落空目录 ⇒ always-on 会话 glob 仓库被边界拒 6 次（详情见 archive/evidence-detail.jsonl#PROJECT-NAME-AS-PATH）
 - ✅ **EMPTY-TOOL-TURN-NUL-REDIRECT**：空正文工具轮次被误拒 + 2>nul 误判重定向 + 越界文案与分类 —— 验证 tsc0|arch0|fnsize0|state0|unit26+701+140+1245；基线 守卫只查顶层 tool_calls（工具轮次写在 metadata.tool_calls）⇒ 4 次合法轮次被丢弃；2>nul/2>&1 被当写重定向（21 条 analyzer deny）；越界错误不给允许根且未分类（详情见 archive/evidence-detail.jsonl#EMPTY-TOOL-TURN-NUL-REDIRECT）

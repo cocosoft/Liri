@@ -13874,6 +13874,35 @@
       "changelog": [],
       "reopenWhen": "再现切窗后工具列表无 session_lookup；或启动后应用状态恒为 error；或会话表出现固定 id 的默认会话（全文见 archive/evidence-detail.jsonl#TOOL-TRIM-ERROR-LOCK-MOCK）",
       "notes": "FIX-12 注入移到 filterToolsByTask 之后；FIX-13 删掉 SessionsTool 建 sess_001 的分支；FIX-14 启动复位遗留 ERROR + markAppError 幂等（全文见 archive/evidence-detail.jsonl#TOOL-TRIM-ERROR-LOCK-MOCK）"
+    },
+    {
+      "id": "PS-WRAPPER-GATE-CONFLICT",
+      "title": "bash 内单条 powershell -Command 被只读族二次否决",
+      "source": "app.log 2026-10-27T10:13:59Z / 10:14:03Z session_mvq91mtme1e76c5808 的 security_gate_blocked",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/bash/powerShellWrapper.ts",
+        "app/src/tools/bash/bashSecurityGate.ts",
+        "app/src/tools/bash/BashTool.ts",
+        "app/src/security/BashSecurityAnalyzer.ts"
+      ],
+      "tests": [
+        "app/tests/security/psWrapperDelegation.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现只读 PowerShell 脚本经 bash 被 deny、或含外部串联段的包裹命令被放行（全文见 archive/evidence-detail.jsonl#PS-WRAPPER-GATE-CONFLICT）",
+      "notes": "仅当 isSinglePowerShellWrapperCommand 为真（语句外无串联）才把结论委托给 PowerShell 链；多段保持原 deny（全文见 archive/evidence-detail.jsonl#PS-WRAPPER-GATE-CONFLICT）"
     }
   ]
 }

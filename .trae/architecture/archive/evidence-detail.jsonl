@@ -6836,3 +6836,12 @@
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"tests#0","i":0,"c":"app/tests/chat/orchestrator/sessionLookupInjection.test.ts"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"tests#1","i":0,"c":"app/tests/state/app/appLifecycle.test.ts"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"tests#2","i":0,"c":"app/tests/tools/sessionsToolInit.test.ts"}
+{"id":"PS-WRAPPER-GATE-CONFLICT","k":"title","i":0,"c":"bash 内单条 powershell -Command 被只读族二次否决"}
+{"id":"PS-WRAPPER-GATE-CONFLICT","k":"source","i":0,"c":"app.log 2026-10-27T10:13:59Z / 10:14:03Z session_mvq91mtme1e76c5808 的 security_gate_blocked"}
+{"id":"PS-WRAPPER-GATE-CONFLICT","k":"reopenWhen","i":0,"c":"再现只读 PowerShell 脚本经 bash 被 deny、或含外部串联段的包裹命令被放行"}
+{"id":"PS-WRAPPER-GATE-CONFLICT","k":"notes","i":0,"c":"仅当 isSinglePowerShellWrapperCommand 为真（语句外无串联）才把结论委托给 PowerShell 链；多段保持原 deny"}
+{"id":"PS-WRAPPER-GATE-CONFLICT","k":"code#0","i":0,"c":"app/src/tools/bash/powerShellWrapper.ts"}
+{"id":"PS-WRAPPER-GATE-CONFLICT","k":"code#1","i":0,"c":"app/src/tools/bash/bashSecurityGate.ts"}
+{"id":"PS-WRAPPER-GATE-CONFLICT","k":"code#2","i":0,"c":"app/src/tools/bash/BashTool.ts"}
+{"id":"PS-WRAPPER-GATE-CONFLICT","k":"code#3","i":0,"c":"app/src/security/BashSecurityAnalyzer.ts"}
+{"id":"PS-WRAPPER-GATE-CONFLICT","k":"tests#0","i":0,"c":"app/tests/security/psWrapperDelegation.test.ts"}

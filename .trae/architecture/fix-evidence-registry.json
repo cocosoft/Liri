@@ -13786,6 +13786,37 @@
       "changelog": [],
       "reopenWhen": "再现 tool/result 内同一句错误出现两次；或 PS 拒绝报文缺少允许面提示（全文见 archive/evidence-detail.jsonl#TOOL-ERROR-DEDUP-AND-HINTS）",
       "notes": "createToolResultMessage：payload 与 error 同句（去引号/压空白相等）时只保留前缀，payload 不同仍保留全文；result 为 null 不再追加 null。PS：动词拒绝附允许常用族/执行器/文件/导航摘要，方法拒绝附允许方法清单（全文见 archive/evidence-detail.jsonl#TOOL-ERROR-DEDUP-AND-HINTS）"
+    },
+    {
+      "id": "EMPTY-TOOL-TURN-NUL-REDIRECT",
+      "title": "空正文工具轮次被误拒 + 2>nul 误判重定向 + 越界文案与分类",
+      "source": "app.log 2026-10-27T07:38–08:22Z 新窗口（4 次空正文拒绝 / 21 条 analyzer deny / 6 次路径越界）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/manager/messagePersistence.ts",
+        "app/src/security/compoundReadOnly.ts",
+        "app/src/chat/services/ToolExecutionService.ts"
+      ],
+      "tests": [
+        "app/tests/chat/emptyAssistantPersistGuard.test.ts",
+        "app/tests/chat/workspaceEscapeMessage.test.ts",
+        "app/tests/security/compoundReadOnly.test.ts",
+        "app/tests/chat/toolFailureKindWiring.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现合法工具轮次被空正文守卫丢弃 / 2>nul 被拒 / 越界错误不含允许根（全文见 archive/evidence-detail.jsonl#EMPTY-TOOL-TURN-NUL-REDIRECT）",
+      "notes": "空正文守卫改纯函数并纳入 metadata.tool_calls；compoundReadOnly 放行 nul|/dev/null|&1|&2 型丢弃重定向（写文件仍拒）；工作区越界错误给出允许根并标 permission_denied（全文见 archive/evidence-detail.jsonl#EMPTY-TOOL-TURN-NUL-REDIRECT）"
     }
   ]
 }

@@ -6808,3 +6808,14 @@
 {"id":"TOOL-ERROR-DEDUP-AND-HINTS","k":"code#1","i":0,"c":"app/src/tools/PowerShellTool/PowerShellTool.ts"}
 {"id":"TOOL-ERROR-DEDUP-AND-HINTS","k":"tests#0","i":0,"c":"app/tests/chat/toolResultErrorDedup.test.ts"}
 {"id":"TOOL-ERROR-DEDUP-AND-HINTS","k":"tests#1","i":0,"c":"app/tests/tools/toolSecurityGateWiring.test.ts"}
+{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"title","i":0,"c":"空正文工具轮次被误拒 + 2>nul 误判重定向 + 越界文案与分类"}
+{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"source","i":0,"c":"app.log 2026-10-27T07:38–08:22Z 新窗口（4 次空正文拒绝 / 21 条 analyzer deny / 6 次路径越界）"}
+{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"reopenWhen","i":0,"c":"再现合法工具轮次被空正文守卫丢弃 / 2>nul 被拒 / 越界错误不含允许根"}
+{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"notes","i":0,"c":"空正文守卫改纯函数并纳入 metadata.tool_calls；compoundReadOnly 放行 nul|/dev/null|&1|&2 型丢弃重定向（写文件仍拒）；工作区越界错误给出允许根并标 permission_denied"}
+{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"code#0","i":0,"c":"app/src/chat/manager/messagePersistence.ts"}
+{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"code#1","i":0,"c":"app/src/security/compoundReadOnly.ts"}
+{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"code#2","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
+{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"tests#0","i":0,"c":"app/tests/chat/emptyAssistantPersistGuard.test.ts"}
+{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"tests#1","i":0,"c":"app/tests/chat/workspaceEscapeMessage.test.ts"}
+{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"tests#2","i":0,"c":"app/tests/security/compoundReadOnly.test.ts"}
+{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"tests#3","i":0,"c":"app/tests/chat/toolFailureKindWiring.test.ts"}

@@ -13531,6 +13531,37 @@
       "changelog": [],
       "reopenWhen": "再现子代理跑到 maxTurns 才停、且失败工具未归因（全文见 archive/evidence-detail.jsonl#SUBAGENT-ROUND-BREAKER）",
       "notes": "① 阈值改引用 ReActLoop 常量（invalid 3 / blocked 2）；② executeToolCall 的 ok 反映 result.success，并透传 failureKind；③ finalize 透传熔断终态 lastError（全文见 archive/evidence-detail.jsonl#SUBAGENT-ROUND-BREAKER）"
+    },
+    {
+      "id": "SANDBOX-PERMISSION-HOT-RELOAD",
+      "title": "改沙箱级别即时生效（刷新默认工作区权限位）",
+      "source": "排查计划 §11.2 P1-2（第三重断点：运行期改级别不更新已有工作区）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/kernel/src/core/spi/SandboxService.ts",
+        "app/src/sandbox/permissionLevel.ts",
+        "app/src/sandbox/WorkspaceBase.ts",
+        "app/src/sandbox/scopedDefaultWorkspace.ts",
+        "app/src/entrypoints/spiWiring.ts",
+        "app/src/infrastructure/http/handlers/sandbox-handlers.ts"
+      ],
+      "tests": [
+        "app/tests/sandbox/permissionRefresh.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现改级别后需重启才生效（全文见 archive/evidence-detail.jsonl#SANDBOX-PERMISSION-HOT-RELOAD）",
+      "notes": "级别→权限位映射上提到 permissionLevel（单一事实源）；WorkspaceBase 增 updateAllowedPermissions；PUT handler 经 SPI refreshDefaultWorkspacePermissions 刷新（无工作区⇒false 不建）（全文见 archive/evidence-detail.jsonl#SANDBOX-PERMISSION-HOT-RELOAD）"
     }
   ]
 }

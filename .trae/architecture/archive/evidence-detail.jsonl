@@ -6733,3 +6733,14 @@
 {"id":"SUBAGENT-ROUND-BREAKER","k":"code#1","i":0,"c":"app/src/query/index.ts"}
 {"id":"SUBAGENT-ROUND-BREAKER","k":"code#2","i":0,"c":"app/src/tools/AgentTool/SubAgentEngine.ts"}
 {"id":"SUBAGENT-ROUND-BREAKER","k":"tests#0","i":0,"c":"app/tests/tools/AgentTool/subAgentCircuitBreaker.test.ts"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"title","i":0,"c":"改沙箱级别即时生效（刷新默认工作区权限位）"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"source","i":0,"c":"排查计划 §11.2 P1-2（第三重断点：运行期改级别不更新已有工作区）"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"reopenWhen","i":0,"c":"再现改级别后需重启才生效"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"notes","i":0,"c":"级别→权限位映射上提到 permissionLevel（单一事实源）；WorkspaceBase 增 updateAllowedPermissions；PUT handler 经 SPI refreshDefaultWorkspacePermissions 刷新（无工作区⇒false 不建）"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#0","i":0,"c":"packages/kernel/src/core/spi/SandboxService.ts"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#1","i":0,"c":"app/src/sandbox/permissionLevel.ts"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#2","i":0,"c":"app/src/sandbox/WorkspaceBase.ts"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#3","i":0,"c":"app/src/sandbox/scopedDefaultWorkspace.ts"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#4","i":0,"c":"app/src/entrypoints/spiWiring.ts"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"code#5","i":0,"c":"app/src/infrastructure/http/handlers/sandbox-handlers.ts"}
+{"id":"SANDBOX-PERMISSION-HOT-RELOAD","k":"tests#0","i":0,"c":"app/tests/sandbox/permissionRefresh.test.ts"}

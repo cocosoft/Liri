@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **SANDBOX-PERMISSION-HOT-RELOAD**：改级别即时生效（刷新工作区权限位） —— 验证 tsc0|arch0|purity0|kapi0|unit6+207；基线 权限位是创建时快照 ⇒ PUT config 只改配置，已存在工作区仍按旧权限（改完要重启）（详情见 archive/evidence-detail.jsonl#SANDBOX-PERMISSION-HOT-RELOAD）
 - ✅ **SUBAGENT-ROUND-BREAKER**：子代理启用轮级熔断（同阈值+分型） —— 验证 tsc0|arch0|fnsize0|unit3+197+1106；基线 maxConsecutiveInvalidTurns=0 且工具失败仍记 ok ⇒ 轮级熔断完全失效，只能等 maxTurns（详情见 archive/evidence-detail.jsonl#SUBAGENT-ROUND-BREAKER）
 - ✅ **TASKS-PARTIAL-VALIDATION**：任务分工只校验本次改动的键 —— 验证 tsc0|arch0|unit14；基线 全量 PUT 下按整张表校验 ⇒ 旧坏键（供应商未激活）锁死无关修改（详情见 archive/evidence-detail.jsonl#TASKS-PARTIAL-VALIDATION）
 - ✅ **APPIMAGE-FOREIGN-NATIVE-PRUNE**：裁剪异平台原生包，修复 AppImage 打包 —— 验证 tsc0|wf0|unit6|docker-appimage-ok；基线 musl 变体随 sidecar 依赖进 AppDir ⇒ linuxdeploy 的 ldd 报 invalid ELF header ⇒ failed to run linuxdeploy（详情见 archive/evidence-detail.jsonl#APPIMAGE-FOREIGN-NATIVE-PRUNE）

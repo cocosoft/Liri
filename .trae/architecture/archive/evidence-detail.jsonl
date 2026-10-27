@@ -6766,3 +6766,9 @@
 {"id":"FAILURE-KIND-PERSISTED","k":"code#1","i":0,"c":"app/src/session/storage/MessageToEventMigrator.ts"}
 {"id":"FAILURE-KIND-PERSISTED","k":"code#2","i":0,"c":"app/src/session/types/eventPayloads.ts"}
 {"id":"FAILURE-KIND-PERSISTED","k":"tests#0","i":0,"c":"app/tests/session/MessageToEventMigrator.test.ts"}
+{"id":"PS-READONLY-METHOD-ALLOWLIST","k":"title","i":0,"c":"PS 方法调用收窄到只读字符串白名单"}
+{"id":"PS-READONLY-METHOD-ALLOWLIST","k":"source","i":0,"c":"排查计划 §12.4（需安全评审项；Liri R2 的 83 次拒绝）"}
+{"id":"PS-READONLY-METHOD-ALLOWLIST","k":"reopenWhen","i":0,"c":"再现只读字符串方法仍被整脚本拒绝，或白名单方法被用于有副作用场景"}
+{"id":"PS-READONLY-METHOD-ALLOWLIST","k":"notes","i":0,"c":"只放行无副作用的字符串方法（精确匹配方法名）；Delete/MoveTo/CopyTo/Open*/Invoke/GetType 与静态调用 :: 仍 fail-closed；反射链经 GetType 仍被拒"}
+{"id":"PS-READONLY-METHOD-ALLOWLIST","k":"code#0","i":0,"c":"app/src/tools/PowerShellTool/PowerShellTool.ts"}
+{"id":"PS-READONLY-METHOD-ALLOWLIST","k":"tests#0","i":0,"c":"app/tests/tools/toolSecurityGateWiring.test.ts"}

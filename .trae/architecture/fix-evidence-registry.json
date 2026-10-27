@@ -13644,6 +13644,32 @@
       "changelog": [],
       "reopenWhen": "再现重启后无法判断某工具调用的失败分类（全文见 archive/evidence-detail.jsonl#FAILURE-KIND-PERSISTED）",
       "notes": "构造处（createToolResultMessage）把 failureKind 写进失败消息 metadata；投影（MessageToEventMigrator）经 isToolFailureKind 守卫后写入 tool/result 事件；非法/缺省不写键（防 D1 无损 JSON 拒绝）（全文见 archive/evidence-detail.jsonl#FAILURE-KIND-PERSISTED）"
+    },
+    {
+      "id": "PS-READONLY-METHOD-ALLOWLIST",
+      "title": "PS 方法调用收窄到只读字符串白名单",
+      "source": "排查计划 §12.4（需安全评审项；Liri R2 的 83 次拒绝）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/PowerShellTool/PowerShellTool.ts"
+      ],
+      "tests": [
+        "app/tests/tools/toolSecurityGateWiring.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再现只读字符串方法仍被整脚本拒绝，或白名单方法被用于有副作用场景（全文见 archive/evidence-detail.jsonl#PS-READONLY-METHOD-ALLOWLIST）",
+      "notes": "只放行无副作用的字符串方法（精确匹配方法名）；Delete/MoveTo/CopyTo/Open*/Invoke/GetType 与静态调用 :: 仍 fail-closed；反射链经 GetType 仍被拒（全文见 archive/evidence-detail.jsonl#PS-READONLY-METHOD-ALLOWLIST）"
     }
   ]
 }

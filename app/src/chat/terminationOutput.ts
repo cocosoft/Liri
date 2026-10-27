@@ -18,6 +18,8 @@
 import { getLogger } from '@modules/monitoring';
 import type { TerminationReason } from '@modules/query';
 import type { GoalTurnReason } from '@modules/tasks';
+// BUG-E 第二轮复验（2026-10-27）：可见性判定需先剥离 `<think>`（与终稿校验同源，CS01）
+import { stripThinkResponseTags } from './services/MessageContextPipeline.js';
 
 const logger = getLogger('chat:reactToolLoop');
 
@@ -98,14 +100,58 @@ export function isEmptyOutputFallbackMessage(message: unknown): boolean {
 export function hasVisibleAssistantText(
   rawContent: string | Array<{ type: string; value?: unknown }> | undefined
 ): boolean {
-  if (typeof rawContent === 'string') return rawContent.trim().length > 0;
+  // BUG-E 第二轮复验（2026-10-27 14:01Z）：**只含 `<think>` 的正文不算可见** ——
+  // 实测末条 assistant 为 `<think>上次调用漏了参数…</think>`，旧判据 trim 后非空 ⇒
+  // 跳过兜底 ⇒ HTTP `contentLength` 远小于用户实际可见（剥掉 think 后为空）。
+  // 复用既有剥离器（CS01，不重复造）。
+  if (typeof rawContent === 'string') {
+    return stripThinkResponseTags(rawContent).trim().length > 0;
+  }
   if (!Array.isArray(rawContent)) return false;
-  return rawContent.some(
-    (block) =>
-      (block?.type === 'text' || block?.type === 'code') &&
-      typeof block.value === 'string' &&
-      block.value.trim().length > 0
+  return rawContent.some((block) => {
+    if (typeof block?.value !== 'string') return false;
+    // 代码块保留原样（正文里可能合法包含 `<think>` 字样）
+    if (block.type === 'code') return block.value.trim().length > 0;
+    if (block.type !== 'text') return false;
+    return stripThinkResponseTags(block.value).trim().length > 0;
+  });
+}
+
+/**
+ * BUG-E 补口（2026-10-27 真机复验）：**非 ReActToolLoop 路径**（TAOR/批处理）的空答复兜底。
+ *
+ * 背景：`TAORLoop.finalize()` 只返回统计、不产出消息，上层取"会话最后一条 assistant"作
+ * 返回值；末轮无可见文本时该值为空 ⇒ HTTP 200 且 `contentLength=0`（实测
+ * `stopReason=diminishing_returns`，13:57:17Z），用户拿不到任何答复。
+ *
+ * 与 `resolveTerminationOutput` 的统一兜底**同源**（同一常量、同一 `hasVisibleAssistantText`
+ * 判据、同一 `metadata.emptyOutputFallback` 标记），只是不依赖 ReAct 的 `TerminationReason`。
+ *
+ * @returns `null` ⇒ 已有可见正文，**不得**追加任何文案
+ */
+export function buildEmptyReplyFallback(
+  assistantContent:
+    | string
+    | Array<{ type: string; value?: unknown }>
+    | undefined
+): { content: string; metadata: Record<string, unknown> } | null {
+  if (hasVisibleAssistantText(assistantContent)) return null;
+  // T-⑥08 同源诊断：该兜底触发时必须留痕，否则"高频空回复"无法归因
+  const blocks = Array.isArray(assistantContent) ? assistantContent : [];
+  const blockTypes = Array.from(new Set(blocks.map((b) => b.type)));
+  logger.warn(
+    'chat:emptyReplyFallback（非 ReAct 路径本轮无可见回复，已补兜底文案）',
+    {
+      blockTypes,
+      reasoningOnly:
+        blockTypes.includes('thinking') && !blockTypes.includes('text'),
+    }
   );
+  return {
+    content: EMPTY_OUTPUT_FALLBACK_TEXT,
+    // 与 BUG-A 同源：结构化标记供下游区分"模型产出/系统兜底"（禁止文案匹配 —— CS02）
+    metadata: { emptyOutputFallback: true },
+  };
 }
 
 /**

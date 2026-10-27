@@ -36,6 +36,11 @@ import { expandPromptCommand, mergeRuntimeNote } from './promptCommand.js';
 import { withTurnBudget } from '../services/ChatHelper.js';
 // P0-1② 覆盖面补齐（2026-10-04，final-output-guard-no-tool-turns.md）：非流式无工具回合终稿校验
 import { guardFinalOutput } from '../finalOutputGuard.js';
+// BUG-E 补口（2026-10-27 真机复验）：TAOR 路径末轮无可见文本时补同源兜底
+import {
+  buildEmptyReplyFallback,
+  isEmptyOutputFallbackMessage,
+} from '../terminationOutput.js';
 import {
   lintMermaidBlocks,
   formatMermaidIssues,
@@ -471,6 +476,11 @@ export class ChatOrchestrator {
           throw new Error('LLM client not initialized');
         }
         const activeClient = this.host.getClientForModel(options?.model);
+        // BUG-C 第二轮复验（2026-10-27 14:07Z）：**非流式**同样归一出预算 —— 此前仅流式
+        // `runStreamMessage` 走了 `withTurnBudget`，非流式 + TAOR 的 `outputTokens` 仍恒为
+        // 4096（实测 deepseek-v4-pro）。`sendOptions` 同时供 `ctx.options`（invokeLlm 透传给
+        // provider）与 TAOR 上下文（首轮 callModel 的 `...options`）使用。
+        const sendOptions = await withTurnBudget(options, activeClient);
 
         // 构建编排上下文 + 阶段管线
         const {
@@ -487,7 +497,8 @@ export class ChatOrchestrator {
         const ctx = {
           host: this.host,
           content: safeContent,
-          options,
+          // BUG-C：带有效输出预算的副本（invokeLlm 会 `...options` 传给 provider）
+          options: sendOptions,
           session,
           sessionId: session.id,
           apiMessages: [] as Record<string, unknown>[],
@@ -780,7 +791,8 @@ export class ChatOrchestrator {
               const taorContext = this.host.buildTAORContext(
                 session.id,
                 ctx.toolDefinitions,
-                options
+                // BUG-C：带有效输出预算（TAOR 首轮 callModel 的 `...options` 依赖它）
+                sendOptions
               );
               const deps = createChatManagerTAORDeps(
                 taorContext as ChatManagerTAORContext
@@ -811,11 +823,37 @@ export class ChatOrchestrator {
               this.host.onTurnEnd?.();
               // TAORLoop 已持久化消息，取会话最后一条 assistant 作为返回值
               const updatedSession = this.host.chatSessions.get(session.id);
-              if (updatedSession) {
-                const lastAssistant = [...updatedSession.messages]
-                  .reverse()
-                  .find((m) => m.role === 'assistant');
-                if (lastAssistant) assistantMessage = lastAssistant;
+              const lastAssistant = updatedSession
+                ? [...updatedSession.messages]
+                    .reverse()
+                    .find((m) => m.role === 'assistant')
+                : undefined;
+              if (lastAssistant) assistantMessage = lastAssistant;
+
+              // BUG-E 补口（2026-10-27 真机复验）：TAOR 的 finalize 不产出消息 ⇒ 末轮
+              // "无可见文本"时返回值 content 为空（实测 13:57:17Z `stopReason=diminishing_returns`
+              // + HTTP `contentLength=0`，用户零答复）。与 ReAct 路径同源兜底（同一常量/判据）。
+              // 已是兜底消息则不重复追加（幂等）。
+              if (!isEmptyOutputFallbackMessage(lastAssistant)) {
+                const emptyFallback = buildEmptyReplyFallback(
+                  lastAssistant?.content as
+                    | string
+                    | Array<{ type: string; value?: unknown }>
+                    | undefined
+                );
+                if (emptyFallback) {
+                  const fallbackMsg =
+                    this.host.messageService.createAssistantMessage(
+                      emptyFallback.content,
+                      { sessionId: session.id }
+                    );
+                  fallbackMsg.metadata = {
+                    ...(fallbackMsg.metadata ?? {}),
+                    ...emptyFallback.metadata,
+                  };
+                  this.host.addAndPersistMessage(session.id, fallbackMsg);
+                  assistantMessage = fallbackMsg;
+                }
               }
             } catch (err) {
               await handleError(err, {

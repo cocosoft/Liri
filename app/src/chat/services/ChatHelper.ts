@@ -29,6 +29,8 @@ import type { SessionGateway } from '@modules/session';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import { getAIModelManager } from '@modules/ai';
 import { TOOL_RESULT_MAX_LENGTH } from '@modules/utils/toolResultLimits';
+// BUG-C 第二轮复验（2026-10-27）：HTTP 未指定模型时填的是占位哨兵，预算归一须排除
+import { DEFAULT_MODEL_SENTINEL } from '../../constants/common.js';
 
 const logger = getLogger('chat:helper');
 
@@ -291,16 +293,23 @@ export async function withTurnBudget<
   T extends { maxTokens?: number; model?: string; sessionId?: string },
 >(options: T | undefined, client?: BudgetClientLike): Promise<T | undefined> {
   if (!options || options.maxTokens) return options;
+  // BUG-C 第二轮复验（2026-10-27 14:07Z）：HTTP 请求的 `model` 可能是**占位哨兵**
+  // `pyapp-default`（未显式指定模型时由 handler 填入）——它查不到 DB 记录，会让预算
+  // 归一直接失效（实测非流式 + TAOR 路径 outputTokens 仍恒为 4096）。哨兵视为"未指定"。
+  const explicit =
+    options.model && options.model !== DEFAULT_MODEL_SENTINEL
+      ? options.model
+      : undefined;
   const model = await resolveEffectiveTurnModel({
-    explicitModel: options?.model,
+    explicitModel: explicit,
     client,
     sessionId: options?.sessionId,
   });
   const maxTokens = resolveMaxOutputTokens(model);
-  if (!model && maxTokens === undefined) return options;
+  if (maxTokens === undefined) return options;
   return {
     ...options,
-    ...(model && !options?.model ? { model } : {}),
+    // 不覆盖调用方显式给的模型名（哨兵也不覆盖——下游按哨兵做默认路由）
     ...(maxTokens !== undefined ? { maxTokens } : {}),
   } as T;
 }

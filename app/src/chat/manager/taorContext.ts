@@ -164,6 +164,12 @@ export function buildTAORContext(
       const response = await client.sendMessage(projected.messages, {
         ...options,
         ...(thinking ? { thinking } : {}),
+        // BUG-C 第二轮复验（2026-10-27）：TAOR 的 `maxOutputTokens`（首轮归一值 / 翻倍重试）
+        // 此前被**静默丢弃**（只取 `opts.tools`）⇒ 工具轮仍按 provider 默认 4096 截断。
+        ...(typeof opts?.maxOutputTokens === 'number' &&
+        opts.maxOutputTokens > 0
+          ? { maxTokens: opts.maxOutputTokens }
+          : {}),
         tools: (opts?.tools as Array<Record<string, unknown>>)?.length
           ? (opts?.tools as unknown as ToolDefinition[])
           : undefined,

@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import {
+  buildEmptyReplyFallback,
   hasVisibleAssistantText,
   isEmptyOutputFallbackMessage,
   resolveTerminationOutput,
@@ -130,6 +131,51 @@ describe('BUG-A：空输出兜底的结构化标记', () => {
         { type: 'text', value: '结论' },
       ])
     ).toBe(true);
+  });
+
+  it('BUG-E 补口：非 ReAct 路径（TAOR）空答复也走同一兜底', () => {
+    // 真机复验实测：TAORLoop finalize 不产出消息 ⇒ 末条 assistant 为空 ⇒ contentLength=0
+    for (const content of [
+      '',
+      [],
+      [{ type: 'tool_call', value: '' }],
+      undefined,
+    ]) {
+      const fb = buildEmptyReplyFallback(content);
+      expect(fb).not.toBeNull();
+      expect(fb?.content.trim().length).toBeGreaterThan(0);
+      expect(fb?.metadata.emptyOutputFallback).toBe(true);
+    }
+  });
+
+  it('BUG-E 第二轮复验：只含 <think> 的正文不算可见（真机实测形态）', () => {
+    // 14:01Z 实测末条 assistant = '<think>上次调用漏了参数。现在直接写两个文件。</think>'
+    const thinkOnly = '<think>上次调用漏了参数。现在直接写两个文件。</think>';
+    expect(hasVisibleAssistantText(thinkOnly)).toBe(false);
+    expect(
+      buildEmptyReplyFallback(thinkOnly)?.metadata.emptyOutputFallback
+    ).toBe(true);
+    expect(hasVisibleAssistantText([{ type: 'text', value: thinkOnly }])).toBe(
+      false
+    );
+    // 负向对照：think 之外还有结论 ⇒ 算可见
+    expect(
+      hasVisibleAssistantText(`<think>推理</think>\n已完成，产物在 game/。`)
+    ).toBe(true);
+    // 未闭合 think（模型常见残渣）⇒ 也不算可见
+    expect(hasVisibleAssistantText('<think>想了一半没有闭合')).toBe(false);
+  });
+
+  it('BUG-E 补口负向对照：已有可见正文 ⇒ 返回 null（不得追加文案）', () => {
+    expect(
+      buildEmptyReplyFallback('已完成，产物在 game/index.html')
+    ).toBeNull();
+    expect(
+      buildEmptyReplyFallback([{ type: 'text', value: '结论' }])
+    ).toBeNull();
+    expect(
+      buildEmptyReplyFallback([{ type: 'code', value: 'const a=1' }])
+    ).toBeNull();
   });
 
   it('标记读取只认 metadata（禁止比对文案 —— CS02）', () => {

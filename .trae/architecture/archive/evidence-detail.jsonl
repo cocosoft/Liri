@@ -6898,3 +6898,18 @@
 {"id":"LIRI-BUG-E","k":"code#0","i":0,"c":"app/src/chat/terminationOutput.ts"}
 {"id":"LIRI-BUG-E","k":"code#1","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
 {"id":"LIRI-BUG-E","k":"tests#0","i":0,"c":"app/tests/chat/terminationAlwaysHasText.test.ts"}
+{"id":"LIRI-BUG-C2","k":"title","i":0,"c":"非流式与 TAOR 输出预算未归一 ⇒ outputTokens 仍为 4096"}
+{"id":"LIRI-BUG-C2","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §8.6；真机 14:07:43Z outputTokens=4096，14:14:03Z 修复后 8777"}
+{"id":"LIRI-BUG-C2","k":"reopenWhen","i":0,"c":"再现非流式/TAOR 路径 outputTokens 恒为 4096；或占位哨兵模型名让预算归一失效"}
+{"id":"LIRI-BUG-C2","k":"notes","i":0,"c":"withTurnBudget 把 pyapp-default 哨兵视为未指定；_sendMessage 非流式入口补归一（ctx.options 与 TAOR 上下文共用）；taorContext.sendModelRequest 透传 opts.maxOutputTokens 为 maxTokens（此前静默丢弃）"}
+{"id":"LIRI-BUG-C2","k":"code#0","i":0,"c":"app/src/chat/services/ChatHelper.ts"}
+{"id":"LIRI-BUG-C2","k":"code#1","i":0,"c":"app/src/chat/orchestrator/ChatOrchestrator.ts"}
+{"id":"LIRI-BUG-C2","k":"code#2","i":0,"c":"app/src/chat/manager/taorContext.ts"}
+{"id":"LIRI-BUG-C2","k":"tests#0","i":0,"c":"app/tests/chat/maxOutputBudget.test.ts"}
+{"id":"LIRI-BUG-E2","k":"title","i":0,"c":"TAOR 收尾不产出消息 + think-only 被判可见 ⇒ 空答复"}
+{"id":"LIRI-BUG-E2","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §8.6；真机 session_mvqr20s4ffca47ddef（13:57:17Z）与 session_mvqrcllmfe47338391（14:06:11Z）"}
+{"id":"LIRI-BUG-E2","k":"reopenWhen","i":0,"c":"再现 TAOR 收尾 contentLength=0；或 think-only 正文再次被判为可见"}
+{"id":"LIRI-BUG-E2","k":"notes","i":0,"c":"hasVisibleAssistantText 先 stripThinkResponseTags（与终稿校验同源）；新增 buildEmptyReplyFallback 并在 ChatOrchestrator TAOR 分支补消息落盘（带 metadata.emptyOutputFallback，幂等）"}
+{"id":"LIRI-BUG-E2","k":"code#0","i":0,"c":"app/src/chat/terminationOutput.ts"}
+{"id":"LIRI-BUG-E2","k":"code#1","i":0,"c":"app/src/chat/orchestrator/ChatOrchestrator.ts"}
+{"id":"LIRI-BUG-E2","k":"tests#0","i":0,"c":"app/tests/chat/terminationAlwaysHasText.test.ts"}

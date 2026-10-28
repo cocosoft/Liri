@@ -693,16 +693,16 @@ function HelpPage() {
             {t("help.relatedLinks")}
           </h4>
           <div className="space-y-2 text-sm">
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                switchNav("docs");
-              }}
-              className="block px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded text-blue-600 dark:text-blue-400 hover:underline"
+            {/* P2（2026-10-29）：这是「切到文档 Tab」的动作而非导航，原 `<a href="#">`
+                在无 JS / 中键新开标签时会跳回页顶并污染 hash，语义也不符（屏幕阅读器读作链接）。
+                改为 button（同样是动作型控件）。 */}
+            <button
+              type="button"
+              onClick={() => switchNav("docs")}
+              className="block w-full text-left px-3 py-2 bg-gray-50 dark:bg-gray-700/50 rounded text-blue-600 dark:text-blue-400 hover:underline"
             >
               {t("help.viewDocs")}
-            </a>
+            </button>
           </div>
         </div>
       </div>

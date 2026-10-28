@@ -175,15 +175,19 @@ describe("ToolService (fallback)", () => {
   });
 });
 
-describe("FileService (fallback)", () => {
-  it("listDir returns empty array", async () => {
-    const entries = await fileService.listDir("/");
-    expect(entries).toEqual([]);
+describe("FileService（HTTP 单一实现，F-05）", () => {
+  // F-05（2026-10-28）：原「非 Tauri ⇒ fallback」分支让 listDir/listWorkspaces 静默返回 []，
+  // 而 getFileStats 仍走真实 HTTP ⇒ /files 空态与统计同屏。改为统一走 HTTP：
+  // 后端不可用时上抛真实错误，由页面展示错误态（不再伪装成空目录）。
+  it("listDir 后端不可用时上抛（不再静默返回空数组）", async () => {
+    await expect(fileService.listDir("/")).rejects.toThrow(
+      "无法列出目录内容",
+    );
   });
 
-  it("readFile throws error", async () => {
+  it("readFile 后端不可用时上抛", async () => {
     await expect(fileService.readFile("/test.txt")).rejects.toThrow(
-      "File operations unavailable outside Tauri",
+      "无法读取文件",
     );
   });
 });

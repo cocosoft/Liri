@@ -37,14 +37,6 @@ export interface FileReadDetail {
   mimeType: string;
 }
 
-/**
- * 检测是否运行在 Tauri WebView 环境中。
- * Tauri v1 使用 window.__TAURI__，Tauri v2 使用 window.__TAURI_INTERNALS__。
- */
-const isTauri =
-  typeof window !== "undefined" &&
-  ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
-
 export interface ConvertFileOptions {
   filePath: string;
   outputFormat: string;
@@ -57,67 +49,17 @@ export interface FileDetectResult {
   extension: string;
 }
 
-function createFallbackFileService() {
-  return {
-    listDir: async (_path: string): Promise<FileEntry[]> => {
-      return [];
-    },
-    readFile: async (_path: string): Promise<string> => {
-      throw new Error("File operations unavailable outside Tauri");
-    },
-    readFileDetail: async (_path: string): Promise<FileReadDetail> => {
-      throw new Error("File operations unavailable outside Tauri");
-    },
-    upload: uploadViaHttp,
-    uploadBase64: uploadBase64ViaHttp,
-    convert: async (params: ConvertFileOptions): Promise<unknown> => {
-      return http.post(ENDPOINTS.files.convert, params);
-    },
-    detect: async (filePath: string): Promise<FileDetectResult> => {
-      return http.post<FileDetectResult>(ENDPOINTS.files.detect, { filePath });
-    },
-    listWorkspaces: async (): Promise<WorkspaceInfo[]> => {
-      return [];
-    },
-    sendToAI: async (_filePath: string): Promise<void> => {
-      throw new Error("Not implemented");
-    },
-    saveToKnowledge: async (_filePath: string): Promise<void> => {
-      throw new Error("Not implemented");
-    },
-    saveToMemory: async (_filePath: string): Promise<void> => {
-      throw new Error("Not implemented");
-    },
-    searchFiles: async (
-      params: FileSearchParams,
-    ): Promise<FileSearchResult> => {
-      const queryParams: Record<string, unknown> = {};
-      if (params.query) queryParams.q = params.query;
-      if (params.source) queryParams.source = params.source;
-      if (params.storeZone) queryParams.store_zone = params.storeZone;
-      if (params.startDate) queryParams.start_date = params.startDate;
-      if (params.endDate) queryParams.end_date = params.endDate;
-      if (params.cursor) queryParams.cursor = params.cursor;
-      if (params.limit) queryParams.limit = params.limit;
-      return http.get<FileSearchResult>(ENDPOINTS.files.registrySearch, {
-        params: queryParams,
-      });
-    },
-    getFileDetail: async (fileId: string): Promise<FileRegistryRecord> => {
-      return http.get<FileRegistryRecord>(ENDPOINTS.files.registryDetail, {
-        params: { fileId },
-      });
-    },
-    getFileStats: async (): Promise<FileStats> => {
-      return http.get<FileStats>(ENDPOINTS.files.registryStats);
-    },
-    batchDelete: async (ids: string[]): Promise<void> => {
-      await deleteRegistryFiles(ids);
-    },
-  };
-}
-
-function createTauriFileService() {
+/**
+ * 文件服务（HTTP 单一实现）
+ *
+ * F-05（2026-10-28）：原先按「是否运行在 Tauri」二分 —— 浏览器里落到
+ * `createFallbackFileService()`，其 `listDir()` / `listWorkspaces()` 直接返回 `[]`，
+ * 而 `getFileStats()` 仍走真实 HTTP ⇒ `/files` 同时出现「此目录为空 / 暂无文件 /
+ * 未选择工作空间」与「文件总数 8240」。
+ * 后端文件能力本来就只经 HTTP 暴露（`/v1/files/*`），不存在 Tauri IPC 实现，
+ * 故取消分叉，统一走 HTTP；后端不可用时由调用方展示错误态（不再伪装成空目录）。
+ */
+function createHttpFileService() {
   return {
     // 走 HTTP API 而非 Tauri IPC（后端 Rust 命令未实现）
     listDir: async (path: string): Promise<FileEntry[]> => {
@@ -257,6 +199,4 @@ async function uploadBase64ViaHttp(
   });
 }
 
-export const fileService = isTauri
-  ? createTauriFileService()
-  : createFallbackFileService();
+export const fileService = createHttpFileService();

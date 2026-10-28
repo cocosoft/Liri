@@ -283,7 +283,13 @@ export default function ProjectsPage() {
   const sessionsLoading = useRootStore((s) => s.isLoading);
   const sessionsOfProject = (projectId: string) =>
     chatSessions.filter(
-      (s) => resolveSessionWorkspaceId(s.workspaceId) === projectId,
+      // F-15（2026-10-29）：原判据只看 `workspaceId`，但后端建会话时**常不写**
+      // metadata.workspaceId（本机 28 条里仅 6 条有）⇒ 3 个明明各有 1 个会话的项目
+      // 显示成「0 个会话」。后端 `effectiveProjectId()` 以 metadata.projectId 为权威
+      // （N-64），此处对齐：projectId 优先、workspaceId 兜底。
+      (s) =>
+        ((s.projectId ?? "").trim() ||
+          resolveSessionWorkspaceId(s.workspaceId)) === projectId,
     );
   /** `chatSessions`（会话列表）的 `updatedAt` 是 **ISO 字符串**（Hub 记录里是 number），需解析为毫秒 */
   const sessionTs = (s: { updatedAt?: string }): number =>

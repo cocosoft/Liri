@@ -795,7 +795,7 @@ export default function OfficeCalendarPage() {
       <div className="h-full w-full min-h-0 flex bg-white dark:bg-gray-950">
         {/* 左侧：迷你月历 + 操作 — 响应式 */}
         <div
-          className={`${layout.isNarrow ? (sidebarOpen ? "fixed inset-y-0 left-0 z-40 w-[280px]" : "hidden") : "w-[280px] flex-shrink-0"} border-r border-gray-200 dark:border-gray-700 flex flex-col bg-gray-50 dark:bg-gray-950`}
+          className={`${layout.isNarrow ? (sidebarOpen ? "fixed inset-y-0 left-0 z-40 w-[280px]" : "hidden") : "w-[280px] flex-shrink-0"} border-r border-gray-200 dark:border-gray-700 flex flex-col min-h-0 overflow-y-auto bg-gray-50 dark:bg-gray-950`}
         >
           <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-200 dark:border-gray-700">
             <Link
@@ -857,7 +857,10 @@ export default function OfficeCalendarPage() {
                 cell.dateStr &&
                 unifiedEvents.some((ev) => ev.date === cell.dateStr);
               const isToday = cell.dateStr === todayStr;
-              const isSelected = cell.dateStr === selectedDate;
+              // F-02（2026-10-28）：空白格（本月之前）的 `dateStr` 是 `null`，
+              // 原判定 `cell.dateStr === selectedDate` 在「未选日期」（也是 null）时会成立
+              // ⇒ 首行空白格被染成选中态（浅蓝 bg，真机实测 4 格）。必须先要求非空。
+              const isSelected = !!cell.dateStr && cell.dateStr === selectedDate;
               return (
                 <div
                   key={i}

@@ -6,7 +6,7 @@
 
 import { useEffect, useCallback, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useOfficeStore } from "../../../stores/officeStore";
 import { useRootStore } from "../../../stores/root-store";
 import { useChatStore } from "../../../stores/chat";
@@ -462,14 +462,11 @@ export default function OfficePage() {
 
   // D5：日历并入办公——canonical /office?view=calendar 时整页承载日历（?date= 由日历页读取）
   if (searchParams.get("view") === "calendar") {
+    // F-02（2026-10-28）：移除此处 `absolute top-2 left-3 z-50` 的「← 办公」浮层 ——
+    // 日历页左栏自带返回入口，两者在同一坐标重叠（真机实测 40×16 与 76×20 相交 40×14），
+    // 且 z-50 浮层还会盖住左栏首行。返回入口统一由 OfficeCalendarPage 提供。
     return (
       <div className="h-full w-full min-h-0 overflow-hidden bg-white dark:bg-gray-950 relative">
-        <Link
-          to="/office"
-          className="absolute top-2 left-3 z-50 text-xs text-blue-600 dark:text-blue-400 hover:underline"
-        >
-          ← {t("office.title", "办公")}
-        </Link>
         <OfficeCalendarPage />
       </div>
     );

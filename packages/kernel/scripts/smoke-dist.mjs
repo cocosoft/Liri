@@ -69,7 +69,9 @@ if (barrel.globalEventBus !== deepEvents.globalEventBus) {
 }
 
 // ⑤ 子路径产物真的可 import
-await load('dist/core/paths.js');
+//    （原先断言 `dist/core/paths.js`；内核外移后 `paths` 已下沉到 app，此处改用仍在内核的
+//    公开子路径 —— 保留「深路径产物可 import」这一判据本身，不因文件搬家而失效）
+await load('dist/core/identity/scopedResources.js');
 
 // ⑥ 发布必需文件（2026-10-24 评审 #5）：README / LICENSE 必须在包根且列入 `files`
 for (const required of ['README.md', 'LICENSE']) {

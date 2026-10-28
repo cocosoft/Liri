@@ -7,7 +7,7 @@
  * 用真实 sqlite 连接（不用 stub）—— 这是本模块唯一能证明"关掉连接 ⇒ 目录可删"的
  * 证据链；纯 closer 计数用例（`scopedResources.test.ts`）覆盖不到这一步。
  */
-import { describe, it, expect, afterEach } from 'bun:test';
+import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -42,6 +42,17 @@ function makeTenantDb(
   return { root, dir, dbPath, db };
 }
 
+/**
+ * 登记表是**进程级全局**：全量套跑时其他用例文件（如 `costRepositoryOwnerScope`、
+ * `scopedDbClose`，都以 `acme:*` 身份建过真库）留下的注册会污染本文件的**绝对计数** ——
+ * Linux 上 `tests/core/identity/**` 可能先于 `tests/cost/**` 跑，实测 `closed` 变成 2。
+ * ⇒ 与 `packages/kernel/tests/identity/scopedResources.test.ts` 同一条约定：
+ * ① `beforeEach` 重置登记表；② 用**本文件独有**的租户前缀（`sq-*`）。
+ */
+beforeEach(() => {
+  resetScopedResourcesForTest();
+});
+
 afterEach(() => {
   resetScopedResourcesForTest();
   for (const root of roots.splice(0)) {
@@ -55,9 +66,9 @@ afterEach(() => {
 
 describe('ScopedResources：真 sqlite 句柄', () => {
   it('登记后按租户关闭 ⇒ 分区目录可删（复现 blocked 场景）', async () => {
-    const { root, dir, dbPath, db } = makeTenantDb('acme', 'alice');
+    const { root, dir, dbPath, db } = makeTenantDb('sq-res', 'alice');
     const instances = new Map<string, InstanceType<typeof Database>>([
-      ['acme:alice', db],
+      ['sq-res:alice', db],
     ]);
 
     // 关闭前：句柄占用 ⇒ Windows 上目录删不掉（这就是 purge 的 blocked）
@@ -72,12 +83,12 @@ describe('ScopedResources：真 sqlite 句柄', () => {
       expect(existsSync(dbPath)).toBe(true);
     }
 
-    registerScopedResource('acme:alice', () => {
+    registerScopedResource('sq-res:alice', () => {
       db.close();
-      instances.delete('acme:alice');
+      instances.delete('sq-res:alice');
     });
 
-    const result = await closeScopedResourcesForTenant('acme');
+    const result = await closeScopedResourcesForTenant('sq-res');
 
     expect(result.closed).toBe(1);
     expect(result.failed).toEqual([]);
@@ -91,12 +102,12 @@ describe('ScopedResources：真 sqlite 句柄', () => {
   });
 
   it('未登记的连接不会被关（只影响匹配的租户）', async () => {
-    const acme = makeTenantDb('acme', 'alice');
-    const other = makeTenantDb('other', 'bob');
+    const scoped = makeTenantDb('sq-res', 'alice');
+    const other = makeTenantDb('sq-other', 'bob');
 
-    registerScopedResource('acme:alice', () => acme.db.close());
+    registerScopedResource('sq-res:alice', () => scoped.db.close());
 
-    const result = await closeScopedResourcesForTenant('acme');
+    const result = await closeScopedResourcesForTenant('sq-res');
     expect(result.closed).toBe(1);
 
     // 另一个租户的连接仍然可用

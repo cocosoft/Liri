@@ -55,7 +55,12 @@ function ToolInlineTags({ blocks }: ToolInlineTagsProps) {
               title={
                 isExpanded
                   ? t("chat.clickCollapseDetail", "点击收起详情")
-                  : (argsText ?? t("chat.clickViewDetail", "点击查看详情"))
+                  : // P2（2026-10-29）：摘要被 `truncate` 截断后原先无处可看全文（原 title 只有参数 JSON）
+                    // ⇒ 悬停提示里补上完整摘要（有参数时两段一起显示）。
+                    [summary, argsText]
+                      .filter(Boolean)
+                      .join("\n\n") ||
+                    t("chat.clickViewDetail", "点击查看详情")
               }
               onClick={() => toggleExpand(b.id)}
               className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] leading-none border cursor-pointer transition-colors ${
@@ -71,7 +76,8 @@ function ToolInlineTags({ blocks }: ToolInlineTagsProps) {
                 {displayName}
               </span>
               {summary && (
-                <span className="opacity-75 truncate max-w-[160px]">
+                // 行内是 flex-wrap，放宽后换行而非挤压；更长的内容由 title 悬停给出全文
+                <span className="opacity-75 truncate max-w-[280px]">
                   {summary}
                 </span>
               )}

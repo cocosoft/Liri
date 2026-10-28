@@ -3918,9 +3918,8 @@ export class ChatManagerImpl implements ChatManager {
       // P5-1（2026-10-28）：审批四段打点 —— ① 申请 / ② 呈现（③④ 在审批解析侧）。
       // 只在新卡真正要建时开链（复用既有卡的那条链已在更早的提交里落过 ①②）。
       // 开关默认关（`config.json → approvalFourStage`）⇒ 关闭时以下调用为空操作。
-      const { emitApprovalAudit, newApprovalId } = await import(
-        '@modules/permission'
-      );
+      const { emitApprovalAudit, newApprovalId } =
+        await import('@modules/permission');
       const approvalId = newApprovalId();
       const risk = resolveRiskClass(tool ?? toolName, input);
       if (sessionId) {

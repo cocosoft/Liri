@@ -53,7 +53,11 @@ afterAll(() => {
 import { handleFileRegistryDetail } from '../../src/infrastructure/http/handlers/files-handlers.js';
 import { handleFileRegistrySearch } from '../../src/infrastructure/http/handlers/files-handlers.js';
 import { handleFileRegistryStats } from '../../src/infrastructure/http/handlers/files-handlers.js';
+import { handleFileList } from '../../src/infrastructure/http/handlers/files-handlers.js';
 import { buildEntryRelPath } from '../../src/infrastructure/http/handlers/files-handlers.js';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 /** 捕获响应的 res stub */
 function makeRes() {
@@ -191,5 +195,73 @@ describe('buildEntryRelPath（P1-1 逻辑相对路径构造）', () => {
   test('rawPath 首尾分隔符剥离（兼容 / 与 \）', () => {
     expect(buildEntryRelPath('attachments/', 'x')).toBe('attachments/x');
     expect(buildEntryRelPath('\\attachments\\', 'y')).toBe('attachments/y');
+  });
+});
+
+/**
+ * F-20（2026-10-28）：`/v1/files/list?path=memory` 曾返回 ~/.pyapp 根目录内容并标 `memory/…`
+ * —— 根因是 resolveStorePath 对未注册分区按**进程 CWD** 解析，判越权后静默回退成 home。
+ * 本组用例把 LIRI_HOME 指向临时目录，断言未注册分区（memory/data）落到 `<LIRI_HOME>/<分区>`。
+ */
+describe('handleFileList 未注册分区解析（F-20）', () => {
+  const tmpRoot = mkdtempSync(join(tmpdir(), 'liri-f20-'));
+  const homeDir = join(tmpRoot, 'home');
+  const memoryDir = join(homeDir, 'memory');
+  const dataDir = join(homeDir, 'data');
+  let prevHome: string | undefined;
+
+  beforeAll(() => {
+    mkdirSync(memoryDir, { recursive: true });
+    mkdirSync(dataDir, { recursive: true });
+    writeFileSync(join(memoryDir, 'mem.txt'), 'x');
+    writeFileSync(join(dataDir, 'db.sqlite'), 'y');
+    writeFileSync(join(homeDir, 'root-only.txt'), 'z');
+    prevHome = process.env.LIRI_HOME;
+    process.env.LIRI_HOME = homeDir;
+  });
+
+  afterAll(() => {
+    if (prevHome === undefined) delete process.env.LIRI_HOME;
+    else process.env.LIRI_HOME = prevHome;
+    rmSync(tmpRoot, { recursive: true, force: true });
+  });
+
+  type Entry = { name: string; relPath: string; path: string };
+
+  test('path=memory → <LIRI_HOME>/memory（不再回退成 home 根目录）', async () => {
+    const { res, body } = makeRes();
+    await handleFileList(
+      {} as never,
+      makeReq('/v1/files/list?path=memory'),
+      res as never
+    );
+    expect(res.statusCode).toBe(200);
+    const list = body() as Entry[];
+    expect(list.map((e) => e.name)).toEqual(['mem.txt']);
+    expect(list[0].relPath).toBe('memory/mem.txt');
+    expect(list[0].path).toBe(join(memoryDir, 'mem.txt'));
+  });
+
+  test('path=data → <LIRI_HOME>/data（任意未注册分区同理）', async () => {
+    const { res, body } = makeRes();
+    await handleFileList(
+      {} as never,
+      makeReq('/v1/files/list?path=data'),
+      res as never
+    );
+    const list = body() as Entry[];
+    expect(list.map((e) => e.name)).toEqual(['db.sqlite']);
+    expect(list[0].path).toBe(join(dataDir, 'db.sqlite'));
+  });
+
+  test('path=memory/.. 越出 LIRI_HOME → 回退 home（保留越权拦截）', async () => {
+    const { res, body } = makeRes();
+    await handleFileList(
+      {} as never,
+      makeReq('/v1/files/list?path=memory/..'),
+      res as never
+    );
+    const list = body() as Entry[];
+    expect(list.map((e) => e.name)).toContain('root-only.txt');
   });
 });

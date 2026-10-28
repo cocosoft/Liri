@@ -87,24 +87,29 @@ function resolveStorePath(rawPath: string): string {
     return resolved;
   }
   // BUG-B 修复：未知前缀的绝对路径拒绝访问，防止目录列表越权
-  const fallback = isAbsolute(rawPath) ? rawPath : resolve(rawPath);
   // 仅允许 LIRI_HOME 下的路径（~/.pyapp/）
-  const home = process.env.LIRI_HOME || process.env.PYAPP_HOME;
-  if (home) {
-    const { isPathWithin } = require('@modules/environment');
-    if (!isPathWithin(home, fallback)) {
-      // 2-1（2026-09-03）：越权拦截统一审计
-      logSecurityBlock({
-        kind: 'unauthorized_path',
-        requestedPath: rawPath,
-        detail: 'resolveStorePath: 未知前缀路径不在 LIRI_HOME 下',
-      });
-      logger.warn('resolveStorePath: 未知前缀路径拒绝访问', {
-        rawPath,
-        fallback,
-      });
-      return home;
-    }
+  const home =
+    process.env.LIRI_HOME ||
+    process.env.PYAPP_HOME ||
+    join(require('os').homedir(), '.pyapp');
+  // F-20（2026-10-28）：相对路径必须按 LIRI_HOME 解析。原先 `resolve(rawPath)` 按进程 CWD
+  // 解析 ⇒ memory / data / logs 等**未注册分区**被判"越权"后**静默回退成 home**，
+  // 页面于是把整个 ~/.pyapp 根目录当成该分区内容（relPath 仍标 `memory/…`），
+  // 目录树里除 output/downloads/attachments 外的顶级目录全部不可达。
+  const fallback = isAbsolute(rawPath) ? rawPath : resolve(home, rawPath);
+  const { isPathWithin } = require('@modules/environment');
+  if (!isPathWithin(home, fallback)) {
+    // 2-1（2026-09-03）：越权拦截统一审计
+    logSecurityBlock({
+      kind: 'unauthorized_path',
+      requestedPath: rawPath,
+      detail: 'resolveStorePath: 未知前缀路径不在 LIRI_HOME 下',
+    });
+    logger.warn('resolveStorePath: 未知前缀路径拒绝访问', {
+      rawPath,
+      fallback,
+    });
+    return home;
   }
   return fallback;
 }

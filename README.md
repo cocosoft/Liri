@@ -435,13 +435,12 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.14 (2026-10-26)
-Linux AppImage 产物补齐（修复 v0.5.13 打包失败）
+#### v0.5.21 (2026-10-28)
+默认披露面收口到 12 + AC-16b 体积达标
 
-- ✅ **Linux AppImage** - Release 同时提供 `.AppImage` 与 `.deb`；AppImage 工具链在无 FUSE 环境自解包运行
-- ✅ **打包稳定性** - Linux 依赖安装补非交互 / 重试 / 15min 硬超时
-
-> 本版为 v0.5.13 的修复版：Linux AppImage 真正产出（详见 [CHANGELOG.md](./CHANGELOG.md)）。
+- ✅ **默认披露面收口到 12 个（AC-16a）** - `default`/`chat`/未指定任务只下发 12 个工具；注册面 82、执行面、`tool_search` 检索面与 `coding`/`agent` 任务面均不动，未列入者仍注册可调用
+- ✅ **AC-16b 披露面体积达标（1,397 / 1,500）** - 门禁按 provider 真实投影测量（`output_schema`/`aliases`/`searchTips` 从未下发），新旧两个口径都冻结
+- ✅ **跨平台 CI 修复** - 披露面收窄后的可见性回归锁同步为「收窄≠删除」；描述字符基线取跨平台最大值
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

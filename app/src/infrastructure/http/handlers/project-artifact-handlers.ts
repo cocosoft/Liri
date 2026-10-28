@@ -59,6 +59,27 @@ async function getArtifactStore() {
   );
 }
 
+/**
+ * F-19（2026-10-28）：读端点必须先确认项目存在。
+ *
+ * `ProjectItemStore.initialize()` 会 `mkdirSync(<data>/projects/<id>)` 并建库
+ * —— 于是「读」也会给**不存在的项目**留下一个只有 `items.db` 的空目录。
+ * 真机复现：一次拼错 id 的深链访问就让后端落下空目录（且该目录不进 `/v1/projects`，
+ * 属静默副作用）。故 context / summaries / artifacts 三个读端点先查 ProjectStore；
+ * 不存在直接 404，**不触碰** item store。
+ */
+async function projectExists(projectId: string): Promise<boolean> {
+  const store = await (
+    await getCoreAPI().getWorkspaceOpsPort()
+  ).getProjectStore();
+  return !!store.get(projectId);
+}
+
+/** 项目不存在时的统一拒绝（不产生任何磁盘副作用） */
+function rejectUnknownProject(res: http.ServerResponse): void {
+  json(res, 404, { error: '项目不存在' });
+}
+
 /** GET /v1/projects/:projectId/artifacts */
 export async function handleListArtifacts(
   req: http.IncomingMessage,
@@ -72,6 +93,12 @@ export async function handleListArtifacts(
   const kind = url.searchParams.get('kind') as ArtifactKindDto | null;
   const effectiveKind =
     kind === 'input' || kind === 'output' ? kind : undefined;
+
+  // F-19：不存在的项目直接 404（否则下方 items.db 回退会给它建空目录）
+  if (!(await projectExists(projectId))) {
+    rejectUnknownProject(res);
+    return;
+  }
 
   // E-1 修复：合并两处来源（artifacts.json 旧格式 + items.db 已迁移成果）。
   // 原实现"优先 artifacts.json、仅当空才回退 items.db"——双写时某一侧数据被隐藏，
@@ -251,6 +278,11 @@ export async function handleGetProjectContext(
   try {
     if (!isSafeProjectId(projectId)) {
       json(res, 400, { error: '非法 projectId' });
+      return;
+    }
+    // F-19：不存在的项目直接 404（否则 items.db 回退会给它建空目录）
+    if (!(await projectExists(projectId))) {
+      rejectUnknownProject(res);
       return;
     }
     const rulesPath = join(LIRI_PROJECTS_DIR, projectId, 'rules.md');
@@ -535,6 +567,11 @@ export async function handleGetSummaries(
   const span = otel.startSpan('project:artifactHandlers:getSummaries');
   span.setAttribute('projectId', projectId);
   try {
+    // F-19：不存在的项目直接 404（否则下方 items.db 回退会给它建空目录）
+    if (!(await projectExists(projectId))) {
+      rejectUnknownProject(res);
+      return;
+    }
     const summariesPath = join(
       resolveDataDir(),
       'projects',

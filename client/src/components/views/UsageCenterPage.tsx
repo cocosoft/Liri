@@ -329,7 +329,7 @@ export default function UsageCenterPage() {
               Out: {formatTokens(summary.sessionOutputTokens)}
             </span>
             <span className="text-red-500">
-              {formatCost(summary.sessionCost, "$")}
+              {formatCost(summary.sessionCost, currency)}
             </span>
             <span className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
             <span className="text-gray-500">{t("cost.today")}</span>
@@ -589,7 +589,7 @@ export default function UsageCenterPage() {
                   />
                   <MetricCard
                     label={t("cost.currentSession")}
-                    value={formatCost(summary.sessionCost, "$")}
+                    value={formatCost(summary.sessionCost, currency)}
                     sublabel={`${formatTokens(summary.sessionTokens)} tokens`}
                   />
                 </div>
@@ -735,7 +735,8 @@ export default function UsageCenterPage() {
                               {formatCost(provider.cost, currency)}
                             </td>
                             <td className="px-4 py-3 text-sm text-right text-gray-500">
-                              {provider.percentage}%
+                              {/* F-06：后端给的是未截断的占比（如 73.08268835608848），统一一位小数 */}
+                              {Number(provider.percentage).toFixed(1)}%
                             </td>
                           </tr>
                         ))}

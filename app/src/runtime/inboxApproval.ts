@@ -21,7 +21,10 @@ import {
   type InboxItem,
 } from '@modules/runtime/InboxManager.js';
 import {
+  APPROVAL_REPLY_TO_DECISION,
   getApprovedCommandRegistry,
+  resolveApprovalDecision,
+  resolveRecordScope,
   type ApprovalScope,
   type ApprovalSnapshot,
 } from '@modules/permission';
@@ -61,14 +64,11 @@ export function onInboxApprovalResolved(
  * - `approve_session`  本会话都允许（放行缓存不过期，随会话结束清理）
  * - `allowlist_call`   始终允许（持久化「工具 + 参数指纹」规则）
  * - `allowlist_tool` / `allowlist_command`：命令类的工具级 / 命令前缀级白名单
+ *
+ * P5-1（2026-10-28）：集合改由 `@modules/permission` 的 `APPROVAL_REPLY_TO_DECISION`
+ * **派生**（审批四段的决策词表同源）⇒ 新增一档只改一处，受理与审计不会漂移。
  */
-const APPROVAL_REPLIES = new Set([
-  'approve',
-  'approve_session',
-  'allowlist_call',
-  'allowlist_tool',
-  'allowlist_command',
-]);
+const APPROVAL_REPLIES = new Set(Object.keys(APPROVAL_REPLY_TO_DECISION));
 
 function isApprovalReply(reply: string, selectedOption?: string): boolean {
   return (
@@ -155,6 +155,7 @@ export async function resolveInboxApproval(
   if (!updated) return { kind: 'update_failed' };
 
   await applyApprovalSideEffects(current, reply, selectedOption);
+  await recordApprovalDecision(current, reply, selectedOption);
   await resumePdcaIfApplicable(current, reply, selectedOption);
 
   // 通知旁路（企业审批镜像据此取消自身请求）
@@ -171,6 +172,53 @@ export async function resolveInboxApproval(
   }
 
   return { kind: 'ok', item: updated };
+}
+
+/**
+ * P5-1（2026-10-28）：审批四段 —— ③ 决定 / ④ 留痕。
+ *
+ * 只在**能成链**时落：卡上必须带 `metadata.approvalId`（由提交侧写入）。
+ * 卡片建于开关关闭期间 ⇒ 没有链起点 ⇒ 这里**不伪造** ③④（否则产生孤立事件）。
+ *
+ * ④ 的语义是"这次决定留下了什么"：批准 ⇒ 放行缓存键 + 范围；拒绝 ⇒ 无放行、范围记 `once`。
+ * 事件落盘失败不影响审批结果（`emitApprovalAudit` 内部已降级）。
+ */
+async function recordApprovalDecision(
+  current: InboxItem,
+  reply: string,
+  selectedOption?: string
+): Promise<void> {
+  if (current.type !== 'approval' || current.source !== 'permission') return;
+  const approvalId = current.metadata?.approvalId as string | undefined;
+  const sessionId = current.sessionId;
+  if (!approvalId || !sessionId) return;
+
+  try {
+    const { emitApprovalAudit } = await import('@modules/permission');
+    const decision = resolveApprovalDecision(reply, selectedOption);
+    const commandHash = current.metadata?.commandHash as string | undefined;
+
+    emitApprovalAudit(sessionId, {
+      stage: 'decided',
+      approvalId,
+      decision,
+      by: 'user',
+      reply,
+    });
+    emitApprovalAudit(sessionId, {
+      stage: 'recorded',
+      approvalId,
+      decision,
+      ...(commandHash ? { commandHash } : {}),
+      scopeKind: resolveRecordScope(decision),
+    });
+  } catch (e) {
+    logger.warn('审批四段事件打点失败（不影响审批结果）', {
+      sessionId,
+      approvalId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 }
 
 /**

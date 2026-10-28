@@ -3879,6 +3879,7 @@ export class ChatManagerImpl implements ChatManager {
         hashApprovalFingerprint,
         resolveApprovalFingerprint,
         previewApprovalFingerprint,
+        resolveRiskClass,
         findPendingApprovalId,
       } = await import('@modules/permission');
       const command = typeof input.command === 'string' ? input.command : '';
@@ -3909,6 +3910,29 @@ export class ChatManagerImpl implements ChatManager {
         return existingId;
       }
 
+      // PR-2（2026-10-23）四档：允许本次 / 本会话都允许 / 始终允许（工具+指纹）/ 拒绝
+      const options = command
+        ? ['approve', 'approve_session', 'allowlist_command', 'deny']
+        : ['approve', 'approve_session', 'allowlist_call', 'deny'];
+
+      // P5-1（2026-10-28）：审批四段打点 —— ① 申请 / ② 呈现（③④ 在审批解析侧）。
+      // 只在新卡真正要建时开链（复用既有卡的那条链已在更早的提交里落过 ①②）。
+      // 开关默认关（`config.json → approvalFourStage`）⇒ 关闭时以下调用为空操作。
+      const { emitApprovalAudit, newApprovalId } = await import(
+        '@modules/permission'
+      );
+      const approvalId = newApprovalId();
+      const risk = resolveRiskClass(tool ?? toolName, input);
+      if (sessionId) {
+        emitApprovalAudit(sessionId, {
+          stage: 'requested',
+          approvalId,
+          toolName,
+          risk,
+          inputPreview: JSON.stringify(input).slice(0, 200),
+        });
+      }
+
       const submitted = await inboxManager.submit(
         {
           sessionId: sid,
@@ -3922,15 +3946,15 @@ export class ChatManagerImpl implements ChatManager {
                 : `参数: ${JSON.stringify(input).slice(0, 300)}`
             }`,
           // PR-2（2026-10-23）四档：允许本次 / 本会话都允许 / 始终允许（工具+指纹）/ 拒绝
-          options: command
-            ? ['approve', 'approve_session', 'allowlist_command', 'deny']
-            : ['approve', 'approve_session', 'allowlist_call', 'deny'],
+          options,
           offlineCapable: true,
           source: 'permission',
           metadata: {
             toolName,
             sessionId: sid,
             toolCallId,
+            // P5-1（2026-10-28）：审批链 id —— 审批解析侧据此把决定与申请串成一条链
+            approvalId,
             // PR-1（2026-10-23）：**一律**写入审批指纹（非 shell 也要有），否则
             // `applyApprovalSideEffects` 因缺 hash 直接 return ⇒ 批准从不落盘。
             commandHash: approvalHash,
@@ -3952,7 +3976,19 @@ export class ChatManagerImpl implements ChatManager {
         sid
       );
       // U-06-5：把 Inbox 项 id 回传，供工具卡片就地审批
-      return (submitted as { id?: string } | null | undefined)?.id ?? null;
+      const inboxItemId = (submitted as { id?: string } | null | undefined)?.id;
+      if (sessionId) {
+        emitApprovalAudit(sessionId, {
+          stage: 'presented',
+          approvalId,
+          toolName,
+          risk,
+          options,
+          fingerprintHash: hashApprovalFingerprint(approvalFingerprint),
+          ...(inboxItemId ? { inboxItemId } : {}),
+        });
+      }
+      return inboxItemId ?? null;
     } catch (err) {
       // P1-3：Inbox 提交失败降级为普通 ask 文本，不静默
       logger.warn('工具审批提交失败，降级为 ask 文本', {

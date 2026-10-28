@@ -109,6 +109,11 @@ const ALL_SESSION_EVENT_TYPES = [
   'execution/recovery',
   // T1-13 / `✅-4`（2026-10-13）：PREPARED 快照 durable 落盘（写前持久化，非遥测广播）
   'execution/prepared',
+  // ─── 审批四段（P5-1，2026-10-28；log-only，顺序判据在 permission/approvalStages） ───
+  'approval/requested',
+  'approval/presented',
+  'approval/decided',
+  'approval/recorded',
 ] as const satisfies readonly LiriEventType[];
 
 /**

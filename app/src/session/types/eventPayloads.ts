@@ -1173,4 +1173,63 @@ export interface LiriEventMap {
     /** 裁剪判据留痕（与 `selectToolsForTurn` 的 `taskType` 同源；未判定 ⇒ 省略） */
     taskType?: string;
   };
+
+  // ─── 审批四段（P5-1，2026-10-28；规格 `.trae/specs/p5-runtime-hardening-specs.md` §1） ───
+  // 四段是**同一条审批链的四个可观测点**。顺序判据在判定内核
+  // `app/src/permission/approvalStages.ts`（本映射只描述"每一段留什么"）。
+  // log-only：不进消息 surface（与 `agent/recovery` / `session/wake` 同口径）。
+  //
+  // `decision` 词表与本仓 Inbox 四档一一对应（实测 `PermissionChecker._submitToInbox`
+  // 的 `options`）：`approve`→`allow_once`、`approve_session`→`allow_session`、
+  // `allowlist_*`→`allow_always`、其余→`deny`。规格 §1.1 原写三值，
+  // `allow_always` 是**取证后的补充**（持久化白名单是既有一等能力，不能记账成 session）。
+
+  /** ① 申请：工具请求审批（尚未呈现给用户） */
+  'approval/requested': {
+    /** 审批链 id（同一条链的四个事件共用；不复用 Inbox 项 id —— 复用卡时卡 id 会重复） */
+    approvalId: string;
+    toolName: string;
+    /** 风险级（与审批卡同一口径，`RiskClass` 取值） */
+    risk: string;
+    /** 参数摘要（脱敏 + 截断；不落明文全量参数） */
+    inputPreview?: string;
+    /** 关联执行身份（有则记，便于把审批挂回 execution 轨迹） */
+    executionId?: string;
+  };
+
+  /** ② 呈现：审批卡已落成，用户侧可见（含可选项与授权维度摘要） */
+  'approval/presented': {
+    approvalId: string;
+    toolName: string;
+    risk: string;
+    /** 可选项（Inbox 卡原文词表：`approve` / `approve_session` / `allowlist_*` / `deny`） */
+    options: string[];
+    /** 授权维度摘要（`approvalFingerprint` 的 hash；只落摘要，不落明文参数） */
+    fingerprintHash?: string;
+    /** 承载呈现的 Inbox 项 id（复用既有卡时即该卡 id） */
+    inboxItemId?: string;
+  };
+
+  /** ③ 决定：用户作答或超时（超时按既有 `timeoutToDeny` 口径记 `deny`） */
+  'approval/decided': {
+    approvalId: string;
+    decision: 'allow_once' | 'allow_session' | 'allow_always' | 'deny';
+    /** 决定来源；`timeout` = fail-closed 自动拒绝 */
+    by: 'user' | 'timeout';
+    /** 原始回复值（对账用；`by:'timeout'` 时省略） */
+    reply?: string;
+  };
+
+  /** ④ 留痕：放行缓存/规则落盘结果（与 `ApprovedCommandRegistry` 同口径） */
+  'approval/recorded': {
+    approvalId: string;
+    decision: 'allow_once' | 'allow_session' | 'allow_always' | 'deny';
+    /** 放行缓存键（`hashCommandForExecution(approvalFingerprint)`） */
+    commandHash?: string;
+    /**
+     * 留痕范围：`once` 本次 / `session` 本会话 / `always` 持久化规则。
+     * `deny` ⇒ `once`（拒绝不落任何放行）。
+     */
+    scopeKind: 'once' | 'session' | 'always';
+  };
 }

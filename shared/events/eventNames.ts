@@ -133,6 +133,19 @@ export const LIRI_EVENT_NAMES = [
   // 记「本次执行 PREPARED 时点的最终可见工具名」，供重放**读落盘快照**而非直读当前运行时 Profile。
   // 见 `.trae/specs/execution-prepared-snapshot-persistence.md`。
   'execution/prepared',
+  // ─── 审批四段（P5-1，2026-10-28） ───
+  // 规格：`.trae/specs/p5-runtime-hardening-specs.md` §1.2 A1。
+  // 四段 = **同一条审批链的四个可观测点**（不是四次独立询问）：
+  // `requested`（申请）→ `presented`（呈现：参数摘要 + 风险 + 授权维度 + 可选动作）
+  // → `decided`（决定：`allow_once` / `allow_session` / `allow_always` / `deny`）
+  // → `recorded`（留痕：放行缓存键 + 范围）。
+  // log-only（不入消息 surface，与 `agent/recovery` / `session/wake` 同口径）：
+  // 它描述"这次审批发生了什么"，不是模型看到的内容。
+  // 顺序判据在 `app/src/permission/approvalStages.ts`（纯状态机）。
+  'approval/requested',
+  'approval/presented',
+  'approval/decided',
+  'approval/recorded',
 ] as const;
 
 /** 会话事件名（联合类型）——两端事件名联合均由此派生 */

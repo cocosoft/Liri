@@ -966,6 +966,12 @@ async function startDeferredPrefetches(): Promise<void> {
                 riskLevel: e.risk,
               }),
           });
+          // P5-1（2026-10-28）：审批四段事件的落盘出口 —— 由入口注入 ⇒
+          // `permission`(infra) 不静态依赖 `chat`(service)。开关在 sink 内按
+          // `config.json → approvalFourStage.enabled`（默认关）判定。
+          const { installApprovalAuditSink } =
+            await import('../runtime/api/approvalAuditSink.js');
+          await installApprovalAuditSink();
         } catch (error) {
           logger.warning('权限运行时依赖注入失败（非关键）', { error });
         }

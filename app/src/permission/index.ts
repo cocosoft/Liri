@@ -170,6 +170,45 @@ export type { ApprovalFingerprintDeclaringTool } from './approvalFingerprint';
 export { findPendingApprovalId } from './inboxApprovalDedupe';
 export type { PendingApprovalLookup } from './inboxApprovalDedupe';
 
+// P5-5（2026-10-28）：审批四段判定内核（规格 `.trae/specs/p5-runtime-hardening-specs.md` §1）
+export {
+  APPROVAL_REPLY_TO_DECISION,
+  APPROVAL_STAGES,
+  advanceApproval,
+  isApprovalExecutable,
+  resolveApprovalDecision,
+  resolveRecordScope,
+  startApprovalChain,
+} from './approvalStages';
+export type {
+  ApprovalAdvanceOptions,
+  ApprovalAdvanceResult,
+  ApprovalChainState,
+  ApprovalDecisionValue,
+  ApprovalStage,
+} from './approvalStages';
+
+// P5-1（2026-10-28）：审批四段**事件打点**（开关 + 注入式落盘出口）
+// 规格 §1.2 A1/A2；落盘出口由入口注入（`runtime/api/approvalAuditSink`），
+// 避免 `permission`(infra) 反向依赖 `chat`/`runtime`。
+export {
+  DEFAULT_APPROVAL_FOUR_STAGE_CONFIG,
+  emitApprovalAudit,
+  newApprovalId,
+  parseApprovalFourStageConfig,
+  readApprovalFourStageConfig,
+  setApprovalAuditSink,
+} from './approvalAudit';
+export type {
+  ApprovalAuditEvent,
+  ApprovalAuditSink,
+  ApprovalDecidedAudit,
+  ApprovalFourStageConfig,
+  ApprovalPresentedAudit,
+  ApprovalRecordedAudit,
+  ApprovalRequestedAudit,
+} from './approvalAudit';
+
 // Risk classification (Phase 3: OpenWorker-style)
 export {
   RiskClass,

@@ -618,6 +618,35 @@ export interface LiriEventMap {
     visibleTools: string[];
     taskType?: string;
   };
+  // ─── 审批四段（P5-1，2026-10-28；镜像 app 侧同名字段，勿单端改） ───
+  // log-only：不参与消息 surface 派生（前端按"未知类型可跳过"约定处理即可）。
+  "approval/requested": {
+    approvalId: string;
+    toolName: string;
+    risk: string;
+    inputPreview?: string;
+    executionId?: string;
+  };
+  "approval/presented": {
+    approvalId: string;
+    toolName: string;
+    risk: string;
+    options: string[];
+    fingerprintHash?: string;
+    inboxItemId?: string;
+  };
+  "approval/decided": {
+    approvalId: string;
+    decision: "allow_once" | "allow_session" | "allow_always" | "deny";
+    by: "user" | "timeout";
+    reply?: string;
+  };
+  "approval/recorded": {
+    approvalId: string;
+    decision: "allow_once" | "allow_session" | "allow_always" | "deny";
+    commandHash?: string;
+    scopeKind: "once" | "session" | "always";
+  };
 }
 
 // ─── 事件结构 ───────────────────────────────────

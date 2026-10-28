@@ -96,6 +96,8 @@ export interface BackgroundStatus {
   buddyGrowth: {
     totalCompleted: number;
     totalSessions: number;
+    /** 用户对话轮数（Buddy 成长 sessions_100 里程碑的基数，与 totalSessions 相互独立） */
+    userSessions: number;
     totalInsights: number;
     consecutiveDays: number;
     taskCompletionCount: number;

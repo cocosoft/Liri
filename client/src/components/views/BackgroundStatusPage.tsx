@@ -197,10 +197,10 @@ function BackgroundStatusPage() {
                 </div>
                 <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-center">
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {t("backgroundStatus.totalSessions")}
+                    {t("backgroundStatus.userSessions")}
                   </div>
                   <div className="text-xl font-semibold text-gray-900 dark:text-gray-100 mt-1">
-                    {data.buddyGrowth.totalSessions}
+                    {data.buddyGrowth.userSessions}
                   </div>
                 </div>
                 <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-center">

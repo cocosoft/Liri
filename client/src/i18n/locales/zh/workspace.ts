@@ -1436,7 +1436,9 @@ const zhWorkspace = {
     noLogs: "暂无记录 —— 若会话量/时间不足会被跳过（见后端日志）",
     buddySection: "🐣 伙伴成长（Buddy）",
     dreamsCompleted: "梦境完成",
-    totalSessions: "累计会话",
+    // 「累计会话」原取 buddyGrowth.totalSessions（= 梦境整理处理过的会话数，与上方 Dream 卡
+    // 「整理会话」同源、恒重复）；改为用户对话轮数（userSessions，也是 sessions_100 里程碑的基数）。
+    userSessions: "对话轮数",
     tasksCompleted: "任务完成",
     totalExp: "累计经验",
     noAchievements: "暂无成就（达成里程碑后自动解锁）",

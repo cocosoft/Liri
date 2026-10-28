@@ -1473,7 +1473,7 @@ const enWorkspace = {
       "No records yet — skipped when session volume/time is insufficient (see backend logs)",
     buddySection: "🐣 Companion Growth (Buddy)",
     dreamsCompleted: "Dreams Completed",
-    totalSessions: "Total Sessions",
+    userSessions: "Conversation Rounds",
     tasksCompleted: "Tasks Completed",
     totalExp: "Total XP",
     noAchievements:

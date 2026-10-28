@@ -98,6 +98,13 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.20 (2026-10-28)  审批四段事件化 + 预算租约口径 + 跨平台安全修复
+
+- ✅ **审批四段事件化（默认关闭）**：`approval/requested|presented|decided|recorded` 进双端事件契约，在两条真实建卡路径（权限层 `_submitToInbox` / 工具级 `_submitToolApproval`）与解析侧（`inboxApproval`）逐段打点；开关 `config.json → approvalFourStage.enabled`，关闭时零事件、行为零变更。决策词表与 Inbox 四档对齐（新增 `allow_always`），受理与审计同源派生。
+- ✅ **Budget Lease 的 `cap` 来源定口径**：新增 `resolveLeaseCap`（配置显式值优先，缺省取会话级 `tokenBudget` 汇总；两者不可用 ⇒ 拒绝授予）。接线经取证搁置——`ExecutionManager.acquire()` 全仓 2 处调用都在 `CLIENT_STREAM_EXECUTION` 默认关后，且同会话至多一个 RUNNING ⇒ 会话粒度租约与既有 `EXCEEDED` 停止钩子语义重复，价值粒度在并发子执行。
+- ✅ **敏感目录反斜杠变体改按路径段边界匹配**（跨平台 CI 红）：`FIX-16b` 的变体原为裸子串匹配，任何以 `bin` 结尾的用户目录都被判 `sensitive_directory_access`；初版只在 Windows 关掉该变体，导致 Linux/macOS 上同一用例固定红。现按分隔符/引号/冒号边界匹配，平台无关，Windows 行为不变。
+- ✅ **门禁**：新增 `tests/gates/approvalFourStageGate.test.ts`（15 条：事件注册 / 段序 / 授权维度 / 负向夹具 / 开关 fail-closed / 接线扫描）；Budget Lease 用例补至 14 条（含 `cap` 三态）。
+
 #### v0.5.19 (2026-10-27)  长程任务熔断/落盘闭环 + PS 只读方法收窄
 
 - ✅ **子代理轮级熔断**：`maxConsecutiveInvalidTurns` 原为 `0`（等于关闭）且工具失败仍记 `ok` ⇒ 轮级熔断双重失效、只能等 `maxTurns`。现引用主循环同阈值（invalid 3 / blocked 2）并透传 `failureKind`；熔断终态带上 `lastError`。

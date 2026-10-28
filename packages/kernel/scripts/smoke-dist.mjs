@@ -55,7 +55,6 @@ const barrel = await load('dist/index.js');
 for (const name of [
   'KERNEL_PACKAGE_NAME',
   'feature',
-  'resolveDbPath',
   'AppError',
   'globalEventBus',
   'configureProductIdentity',

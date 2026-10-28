@@ -225,7 +225,6 @@ export interface KernelIoAllowlistEntry {
   note?: string;
 }
 
-
 const BARE_BUILTINS = new Set(
   builtinModules.map((m) => (m.startsWith('node:') ? m.slice(5) : m))
 );
@@ -276,7 +275,10 @@ export function isAllowedBareSpecifier(
   // Bun/Node 两种写法可互换）。反向不成立 —— 未登记的根名（`fs` / `os` / `child_process`）
   // 即使裸写也照样判红，`allowBareBuiltins` 不再提供"全部裸内建放行"的后门。
   const bareRoot = spec.split('/')[0] ?? '';
-  if (!spec.startsWith('@') && allowed.allowedPrefixes.includes(`node:${bareRoot}`))
+  if (
+    !spec.startsWith('@') &&
+    allowed.allowedPrefixes.includes(`node:${bareRoot}`)
+  )
     return true;
 
   const root = spec.startsWith('@')
@@ -599,9 +601,7 @@ function loadIoAllowlist(): {
  * I/O 台账强制（AC-02）：未登记即判红 —— **在写基线之前**执行，
  * 否则「加一处 I/O → `--write-baseline`」就能把它合法化（§12 指标假达成）。
  */
-function enforceIoAllowlist(
-  violations: readonly PurityViolation[]
-): void {
+function enforceIoAllowlist(violations: readonly PurityViolation[]): void {
   const allowlist = loadIoAllowlist();
   const report = checkKernelIoAllowlist(violations, allowlist.entries);
   for (const d of report.dangling) {

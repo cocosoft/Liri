@@ -2081,7 +2081,7 @@
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"notes","i":16,"c":".md` §2）；② **未改名任何目录/文件**（`.liri` 名、`com.liri.client`、`.liri.lock` 全部保持原值）⇒ 对既有用户项目**零影响**（这正是「改名会污染用户仓库」的规避）；③ 仅处理**工作区级 `.liri` 名**这一事实源；`LiriConfigManager` 内的 `CONFIG_FILE='"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"notes","i":17,"c":"config.json'` 等**文件名**常量不在本片（同文件也已有一份与 `constants/common.ts` 的 `CONFIG_FILE_NAME` 重复，属另一事实源，未纳入）；④ 「一次性数据迁移已完成」这一结论**依据仓内注释 + 全仓零活动引用**得出，**未**在真实用户机器上核对 `~/.liri` 是否仍有历史残留目录（若要彻底，"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"notes","i":18,"c":"需在真机确认后由用户决定是否手工清理）。"}
-{"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#0","i":0,"c":"packages/kernel/src/core/paths.ts"}
+{"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#0","i":0,"c":"app/src/environment/paths.ts"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#1","i":0,"c":"app/src/constants/common.ts"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#2","i":0,"c":"app/src/workspace/LiriConfigManager.ts"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#3","i":0,"c":"app/src/workspace/RuleEngine.ts"}
@@ -3402,7 +3402,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"notes","i":0,"c":"**代为收尾**：原切片会话在「代码+守卫完成 → 未收紧基线/未写台账/未提交」处终止（60s 零写入 + HEAD 未前进 ⇒ 判已静止）。取证：2 处同值 30min **异事实** ⇒ 按域消歧、**数值一字未改**。效果：244 → 243 键（消陈键）。验证：守卫 28 pass / 0 fail · 5 门禁 exit 0 · "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"notes","i":1,"c":"hardcodeGateBlocking 8 pass。边界：e2eVerified=false、未跑全量。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#0","i":0,"c":"app/src/acp/session.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#1","i":0,"c":"packages/kernel/src/core/idle/IdleScaleMonitor.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#1","i":0,"c":"app/src/runtimeHost/IdleScaleMonitor.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -4792,7 +4792,7 @@
 {"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":2,"c":"app/tests/tools/toolNameCodec.test.ts:8`；② `11_复查_代码更新后架构差异与优化建议.md` —— `dev_docs/任务计划-20261004.md:1816` 明写「**仓库根**」，另 `:32` 与 `dev_docs/20261007/任务计划.md:296,548`；③ `12_复查_代码更新后收敛进"}
 {"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":3,"c":"度与优化建议.md` —— 台账 §25 来源 + 被 11 篇自身引用；④ `Liri_契约层详细设计文档.md` —— `.trae/specs/contract-layer-6-proposals.md:4,75` + 台账 §24.2/§24.4 四条；⑤ `04_终版复核报告_按当前代码实测.md` 与 ⑥ `第四次架构复查报告.md` —— `"}
 {"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":4,"c":".trae/specs/orchestration-family-convergence.md:4` 的「原始出处」；⑦ `06_最新复核_架构不足按当前代码实测.md` —— `dev_docs/任务计划-20261004.md:1343` 登记表按名入表）。脚本侧：`probe_sessions.ps1` **保留** —— `"}
-{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":5,"c":"dev_docs/trajectory-dual-source-evidence-report.md:94,104` 把它当**可用工具**（含可执行命令 `powershell -ExecutionPolicy Bypass -File .\\probe_sessions.ps1`），`packages/kernel/src/core/paths.ts:229` 亦以它说明 `"}
+{"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":5,"c":"dev_docs/trajectory-dual-source-evidence-report.md:94,104` 把它当**可用工具**（含可执行命令 `powershell -ExecutionPolicy Bypass -File .\\probe_sessions.ps1`），`app/src/environment/paths.ts:229` 亦以它说明 `"}
 {"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":6,"c":"~/.liri` 残留位置，且 `dev_docs/20261013/硬编码统一治理方案-20261013.md:370` 对其有「**登记不改**」的既有处置。【实际处置】① **移出仓外备份**（不是硬删 —— 这 7 篇是**未跟踪**文件，被 `/*.md` 忽略 ⇒ 无 git 回滚点，违 CD06「保留可回滚路径」，故改为移到 `"}
 {"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":7,"c":"E:\\PY\\Documents\\CODES\\_pyapp_root_reports_backup_20261016\\`）：`向量数据库选型调研报告.md`(15464B)、`中止测试说明.md`(3849B)、`AI-Agent技术简报_2026-10.md`(11917B)、`LIRI_技术报告.md`(13671B)、`Liri架构对照分析报告.md`("}
 {"id":"ROOTCLEAN-REPORTS-SCRIPTS","k":"notes","i":8,"c":"6978B)、`Liri架构分析报告-AgenticDesignPatterns-21模式-20261015.md`(23913B)、`ThinkPad_T14p_本地大模型推理优化报告.md`(7518B) —— 全仓 `--no-ignore` 检索（含 `dev_docs`/`.trae`）**零引用**；② **删除** `"}
@@ -5507,7 +5507,7 @@
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"reopenWhen","i":3,"c":"2s` 判定：若出现「工具产出但 mtime 偏旧」（如复制保留 mtime）或跨机时钟偏差 ⇒ 该文件只剩「交付面内」一条路。⑤ 本片**未**动入站方向与 QQ 上传/发送口径（那属 `QQ-FILE-UPLOAD-MEDIA-PAYLOAD`）。"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":0,"c":"【问题（真机实证的频繁误触发）】旧资格 = 「路径存在 + 非禁区」⇒ 只要**最终回复正文**里出现一个已存在的绝对路径，就被当成「用户在索要这个文件」而投递。真机连续两条消息**各误触发一次**：两条都是「让机器人 `file_read` 某文件、它顺势把路径回显在回复里」——用户在只想知道字段值，系统却在试着发文件（其中一次还因上传口径错误把「⚠️ 以"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":1,"c":"下文件未能发送」推给了用户）。\n【取证（三处）】① **spec 原意**：`qq-file-transfer.md` §3.2-③ 从 v1 起就写着「**限定 output/downloads/attachments 目录**（安全：防止发送任意系统文件）」——是实现**做宽了**（只留了「禁 pyapp 根 + 禁系统目录」的**黑名单**），故本片是"}
-{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":2,"c":"**回到 spec 原意**再收紧一步。② 三个目录**都有真源函数**（`packages/kernel/src/core/paths.ts:687/710/720` 的 `resolveAttachmentsDir`/`resolveOutputDir`/`resolveDownloadsDir`）⇒ 交付面不是臆造的约定。③ 真机日志：`outbound_files 阶段开始"}
+{"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":2,"c":"**回到 spec 原意**再收紧一步。② 三个目录**都有真源函数**（`app/src/environment/paths.ts:687/710/720` 的 `resolveAttachmentsDir`/`resolveOutputDir`/`resolveDownloadsDir`）⇒ 交付面不是臆造的约定。③ 真机日志：`outbound_files 阶段开始"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":3,"c":" {candidates:1,sendable:1}`（08:07 与 08:33 各一次），两次都是回显场景。\n【做法（`outboundFileRouter.filterSendableFiles`）】资格改为**双信号**（满足其一）：① **在交付面内**（`~/.pyapp/{output,downloads,attachments}`；判定走 "}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":4,"c":"**realpath** + 补尾分隔符 ⇒ 面内符号链接指向面外**不**放行、`outputs/` 之类前缀不会误命中）；② **本轮新产出**（`mtime ≥ runStartedAtMs − 2s`；`runStartedAtMs` 取 `messageRouter` 的 `llmStartMs`，经 `channelOutbound` 透传）。"}
 {"id":"QQ-FILE-OUTBOUND-ELIGIBILITY","k":"notes","i":5,"c":"**两者都不满足 ⇒ 静默忽略**（按叙述性路径处理：既不投递、也**不**产生用户可见噪音）。同时**删掉**已不可达的 `isForbidden` 黑名单（白名单收紧后它成死代码；且白名单 = fail-closed，安全性更高）。仍**如实告知**（`skipped` ⇒ 「⚠️ 以下文件未能发送」）的只剩两类：**超 30MB** 与 **单条超 2"}
@@ -5909,7 +5909,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"title","i":0,"c":"U-20/B5-2-69：媒体根目录 3 组同名常量收敛到 core/mediaRoots"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；.trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"notes","i":0,"c":"lint:consts 180→177 键；解析时机与拼接逐字保留（零行为变化）。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#0","i":0,"c":"packages/kernel/src/core/mediaRoots.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#0","i":0,"c":"app/src/environment/mediaRoots.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#1","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#2","i":0,"c":".trae/architecture/hardcode-progress.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"title","i":0,"c":"U-20/B5-2-70..71：readFile 缓存容量与 SSL 错误码收敛"}
@@ -6302,7 +6302,7 @@
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"title","i":0,"c":"T25-08 P2：随包分发官方插件公钥（信任锚三处并集，私钥不入库）"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §33"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"reopenWhen","i":0,"c":"官方公钥 *.pem 由发布方发版前放入 app/trusted-keys；若需密钥轮换/吊销，先补轮换机制再开"}
-{"id":"T25-08-P2-BUNDLED-KEYS","k":"code#0","i":0,"c":"packages/kernel/src/core/paths.ts"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"code#0","i":0,"c":"app/src/environment/paths.ts"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"code#1","i":0,"c":"app/src/plugins/utils/pluginSignature.ts"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"code#2","i":0,"c":"app/scripts/copy-seed-data.ts"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"code#3","i":0,"c":"app/scripts/plugin-sign.ts"}
@@ -6310,7 +6310,7 @@
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"code#5","i":0,"c":".github/workflows/release.yml"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"code#6","i":0,"c":"app/trusted-keys/README.md"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"tests#0","i":0,"c":"app/tests/plugins/pluginSignature.test.ts"}
-{"id":"T25-08-P2-BUNDLED-KEYS","k":"tests#1","i":0,"c":"packages/kernel/tests/pathsResolvers.test.ts"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"tests#1","i":0,"c":"app/tests/environment/pathsResolvers.test.ts"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"changelog#0","i":0,"c":"随包分发官方插件公钥：安装包携带 app/trusted-keys，签名信任锚改为「随包官方钥 ∪ 用户目录 ∪ env 显式目录」并集；仓库仍不内置任何私钥"}
 {"id":"T25-08-P2-OFFICIAL-KEY","k":"title","i":0,"c":"T25-08 P2：内置官方插件公钥（Ed25519，签名闸默认开启）"}
 {"id":"T25-08-P2-OFFICIAL-KEY","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §33.4"}
@@ -6465,10 +6465,10 @@
 {"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"source","i":0,"c":"用户 2026-10-26 指令「先做 W26-02」（外部评审：删掉这类根目录开发残留）；承接 ROOTCLEAN-REPORTS-SCRIPTS 的 reopenWhen②「要删必须先摘引用」"}
 {"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"reopenWhen","i":0,"c":"若需恢复该探针：文件原本已跟踪 ⇒ `git log --oneline -- probe_sessions.ps1` 找删除前最后提交，再 `git show <commit>:probe_sessions.ps1 > probe_sessions.ps1` 原样取回"}
 {"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":0,"c":"【为什么这次删、上次保留】2026-10-16 的 ROOTCLEAN-REPORTS-SCRIPTS 按 CD01 判「保留」：① `dev_docs/trajectory-dual-source-evidence-report.md:94,104` 当它是可用工具；② 台账有「登记不改」处置。"}
-{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":1,"c":"本次改判依据：该报告属**本地不推送**域（`.gitignore:262` 的 `dev_docs/*`），非仓内契约；代码侧唯一真实引用是 `packages/kernel/src/core/paths.ts:264` 的注释 ⇒ 按 CD05 先改写该注释（不再点名脚本），引用归零后再删文件。"}
+{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":1,"c":"本次改判依据：该报告属**本地不推送**域（`.gitignore:262` 的 `dev_docs/*`），非仓内契约；代码侧唯一真实引用是 `app/src/environment/paths.ts:264` 的注释 ⇒ 按 CD05 先改写该注释（不再点名脚本），引用归零后再删文件。"}
 {"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":2,"c":"【核查 CD01–CD04】全仓 grep `probe_sessions` 仅命中：脚本自身、paths.ts 注释、上述本地报告、台账历史记录；无 import / 构建入口 / 插件注册表 / DI / 运行时发现。脚本内容佐证「非产品代码」：一次性扫描候选会话目录并统计 events.jsonl / messages.jsonl。"}
 {"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":3,"c":"【回滚与边界】脚本为**已跟踪**文件 ⇒ git 历史即回滚点（CD06）；取回命令写进本地报告的更新提示。无测试改动（文件级清理，无运行时行为面）⇒ testVerified=false、e2eVerified=false。"}
-{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"code#0","i":0,"c":"packages/kernel/src/core/paths.ts"}
+{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"code#0","i":0,"c":"app/src/environment/paths.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"title","i":0,"c":"熔断分型：environment_blocked 与 circuit_breaker 分流（LRO-09 步骤 1a–4）"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"source","i":0,"c":"用户 2026-10-26 指令「好的，从 LRO-01 开始」/「好的，执行吧」；依据 dev_docs/20261026/长程任务失败排查工作计划-20261026.md §3-R3；实测证据 dev_docs/20261026/证据/（04:17:23-27 日志 + tool_rules.json 同指纹 allow+deny）"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"reopenWhen","i":0,"c":"若出现「环境阻塞未按 2 轮收口」或「模型无效输出被误判为环境阻塞」：回看 app/src/query/ReActLoop.ts 的 classifyTurn() 与各 failureKind 生产者；回滚按提交粒度 779101f5c / a74e973f6 / 27b2460b3 / 71b0ba812 逐条 revert"}
@@ -6515,12 +6515,12 @@
 {"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"tests#1","i":0,"c":"app/tests/tools/toolSecurityGateWiring.test.ts"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"title","i":0,"c":"resolveProjectRoot 不再把宿主运行时当应用 exe（LRO-D4）"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"source","i":0,"c":"2026-10-26 用户指令「把复查的合并到计划中，然后按顺序开始执行修复」；依据计划 §10-D4；代码取证 paths.ts resolveProjectRoot 的 argv[0].endsWith(\".exe\") 分支 + main.ts:1932 的 chdir"}
-{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"reopenWhen","i":0,"c":"若出现「开发入口启动后 cwd 指向 bun/node 安装目录」「工具相对路径整体偏移」或「已打包 exe 的项目根推断失效」：回看 packages/kernel/src/core/paths.ts 的 RUNTIME_EXE_BASENAMES 与 isRuntimeExecutable；回滚 = revert 1d36c76fa"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"reopenWhen","i":0,"c":"若出现「开发入口启动后 cwd 指向 bun/node 安装目录」「工具相对路径整体偏移」或「已打包 exe 的项目根推断失效」：回看 app/src/environment/paths.ts 的 RUNTIME_EXE_BASENAMES 与 isRuntimeExecutable；回滚 = revert 1d36c76fa"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"notes","i":0,"c":"【机制】原判断只认 .exe 后缀：bun.exe 也被当\"应用 exe\" ⇒ exeDir 的父目录（或 exeDir 本身）成为项目根，main.ts:1932 chdir 到该处；叠加 LRO-D3 的信任级别按 cwd 判定，造成\"命令大面积被拒\"。"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"notes","i":1,"c":"【改法】新增 isRuntimeExecutable（bun/bunx/node/npx/npm/pnpm/yarn/deno/tsx/ts-node 的 .exe）；resolveProjectRoot 的 exe 分支加 !isRuntimeExecutable 守卫，落到 INIT_CWD / process.cwd()。应用自身 exe 行为不变。"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"notes","i":2,"c":"【闸门配套】K08 体量棘轮 loc 18828→18857（note 追加 ⑪ 理由）；导出面快照 kernel-api-surface.json 以 --write 重生成（新增 1 符号）。"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"notes","i":3,"c":"【边界】\"工具 cwd 锚定用户项目\"未做：本地身份下会话工作区缺省时仍回落 resolveProjectRoot，哪个目录算\"用户项目\"属产品决策，留 LRO-06 实测后定。"}
-{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#0","i":0,"c":"packages/kernel/src/core/paths.ts"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#0","i":0,"c":"app/src/environment/paths.ts"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#1","i":0,"c":".trae/architecture/kernel-size-baseline.json"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#2","i":0,"c":".trae/architecture/kernel-api-surface.json"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"tests#0","i":0,"c":"app/tests/paths/resolveProjectRootRuntimeExe.test.ts"}
@@ -6754,7 +6754,7 @@
 {"id":"BARE-SESSION-COMPILED-CWD","k":"source","i":0,"c":"排查计划 §11.2 P2-4（裸会话回落 resolveProjectRoot）"}
 {"id":"BARE-SESSION-COMPILED-CWD","k":"reopenWhen","i":0,"c":"再现安装版裸会话把产物写进安装目录"}
 {"id":"BARE-SESSION-COMPILED-CWD","k":"notes","i":0,"c":"编译版+无 projectId ⇒ <data>/workspace/sessions/<safeId>（惰性创建）；开发入口仍仓库根；显式 workspacePath 恒优先；sessionId 做路径安全化"}
-{"id":"BARE-SESSION-COMPILED-CWD","k":"code#0","i":0,"c":"packages/kernel/src/core/paths.ts"}
+{"id":"BARE-SESSION-COMPILED-CWD","k":"code#0","i":0,"c":"app/src/environment/paths.ts"}
 {"id":"BARE-SESSION-COMPILED-CWD","k":"code#1","i":0,"c":"app/src/chat/services/toolCwdScope.ts"}
 {"id":"BARE-SESSION-COMPILED-CWD","k":"code#2","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
 {"id":"BARE-SESSION-COMPILED-CWD","k":"tests#0","i":0,"c":"app/tests/chat/toolCwdScope.test.ts"}

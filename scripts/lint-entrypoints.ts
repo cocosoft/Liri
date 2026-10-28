@@ -166,7 +166,9 @@ for (const e of reg.entries) {
     continue;
   }
   const hasAcquire = e.patterns.includes('execution.acquire');
-  const requiresAcquire = LEDGER_REQUIRES_ACQUIRE.includes(ledger as EntryLedger);
+  const requiresAcquire = LEDGER_REQUIRES_ACQUIRE.includes(
+    ledger as EntryLedger
+  );
   if (requiresAcquire && !hasAcquire) {
     problems.push(
       `账本契约不自洽: ${e.file} 声明 ledger='${ledger}' 但未登记 execution.acquire（无执行身份 ⇒ 不可能记账）`

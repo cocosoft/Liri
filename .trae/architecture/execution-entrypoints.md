@@ -9,7 +9,9 @@
 
 ## §0 规则（**强制**）
 
-1. **新增入口必须登记**：任何引入"启动对话轮"（`coreAPI.chatStream(` / `coreAPI.chat(` / 窄端口 `core.chat(`）、"取得执行所有权"（`executionManager.acquire(`）或"**子代理直接执行工具**"（`private async executeToolCall(`）的**新文件**，必须在 `execution-entrypoints.json` 登记 —— 否则 `lint:entrypoints` **CI 阻断**。
+1. **新增入口必须登记**：任何引入"启动对话轮"（`coreAPI.chatStream(` / `coreAPI.chat(` / 窄端口 `core.chat(`）、
+   "取得执行所有权"（`executionManager.acquire(`）或"**子代理直接执行工具**"（`private async executeToolCall(`）的**新文件**，
+   必须在 `execution-entrypoints.json` 登记 —— 否则 `lint:entrypoints` **CI 阻断**。
 2. **登记须与实际一致**：已登记文件若**不再命中**其声明模式（入口被删/改名/搬移）⇒ 同样阻断（防登记漂移）。
 3. **五项契约必须显式声明**：执行身份 / 取消传播 / 写前记账 / 权限校验 / 恢复语义 —— **不得留空**（无则写 `none` 并说明）。
 4. **`ledger` 必填且自洽**（P5-2，2026-10-28）：每条登记必须写 `attached | gated | missing | not-applicable`；声明 `attached`/`gated` 却未登记 `execution.acquire`（或反之）⇒ 阻断。

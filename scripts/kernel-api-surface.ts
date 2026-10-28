@@ -240,7 +240,10 @@ function collectConsumers(): {
     if (!existsSync(dir)) continue;
     for (const abs of walk(dir)) {
       const relPath = relative(repoRoot, abs).split(sep).join('/');
-      if (/(^|\/)(tests?|__tests__)\//.test(relPath) || /\.test\.tsx?$/.test(relPath))
+      if (
+        /(^|\/)(tests?|__tests__)\//.test(relPath) ||
+        /\.test\.tsx?$/.test(relPath)
+      )
         continue;
       const text = readFileSync(abs, 'utf8');
       if (!text.includes('@openliri/kernel')) continue;

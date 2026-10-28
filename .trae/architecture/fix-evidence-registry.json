@@ -12888,7 +12888,7 @@
         "app/tests/paths/resolveProjectRootRuntimeExe.test.ts"
       ],
       "changelog": [],
-      "reopenWhen": "若出现「开发入口启动后 cwd 指向 bun/node 安装目录」「工具相对路径整体偏移」或「已打包 exe 的项目根推断失效」：回看 packages/kernel/src/core/paths.ts 的 RUNTIME_EXE_BASENAMES 与 isRuntimeExecutable；回滚 = revert…（全文见 archive/evidence-detail.jsonl#PROJECT-ROOT-RUNTIME-EXE）",
+      "reopenWhen": "若出现「开发入口启动后 cwd 指向 bun/node 安装目录」「工具相对路径整体偏移」或「已打包 exe 的项目根推断失效」：回看 app/src/environment/paths.ts 的 RUNTIME_EXE_BASENAMES 与 isRuntimeExecutable；回滚 = revert 1d36…（全文见 archive/evidence-detail.jsonl#PROJECT-ROOT-RUNTIME-EXE）",
       "notes": "【机制】原判断只认 .exe 后缀：bun.exe 也被当\"应用 exe\" ⇒ exeDir 的父目录（或 exeDir 本身）成为项目根，main.ts:1932 chdir 到该处；叠加 LRO-D3 的信任级别按 cwd 判定，造成\"命令大面积被拒\"。【改法】新增 isRuntimeExecutable（bun…（全文见 archive/evidence-detail.jsonl#PROJECT-ROOT-RUNTIME-EXE）"
     },
     {

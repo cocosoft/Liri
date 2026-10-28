@@ -13,7 +13,7 @@
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
-import { resolveDataSubDir } from '@openliri/kernel/paths';
+import { resolveDataSubDir } from '@modules/environment';
 // C1（2026-10-09）：pitfall id 熵源改用 crypto
 import { randomIdSuffix } from '../../utils/common';
 

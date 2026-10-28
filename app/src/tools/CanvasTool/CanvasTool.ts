@@ -16,7 +16,7 @@ import {
   resolveOutputDir,
   resolvePyappHome,
   resolveProjectRoot,
-} from '@openliri/kernel/paths';
+} from '@modules/environment';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types';
 import { CanvasInstance } from './CanvasInstance';

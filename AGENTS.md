@@ -23,7 +23,7 @@
 | 架构合规检查 | [architecture-compliance.md](.trae/rules/architecture-compliance.md) | 架构合规规则 R01-R05（基础设施复用、数据模型统一、模块边界、文件组织） |
 | 前端开发 | [frontend.md](.trae/rules/frontend.md) | 前端规范（React 18 + TS + TailwindCSS + Zustand） |
 | 模型/AI 相关 | [model-usage.md](.trae/rules/model-usage.md) | 模型使用规则（DB 唯一事实来源、禁止硬编码模型名/属性表） |
-| 路径/存储操作 | [paths.md](.trae/rules/paths.md) | 路径使用规范（三层分离架构、统一入口 `core/paths.ts`） |
+| 路径/存储操作 | [paths.md](.trae/rules/paths.md) | 路径使用规范（三层分离架构、统一入口 `environment/paths.ts`） |
 | 版本规划 | [versioning.md](.trae/rules/versioning.md) | 版本管理规范 |
 | 版本一致性 | [version-consistency.md](.trae/rules/version-consistency.md) | 版本号一致性检查 |
 | 部署/安全 | [operations.md](.trae/rules/operations.md) | 运维 Checklist |
@@ -50,7 +50,7 @@
 | 新增 HTTP 端点往哪放？ | [api-spec.md](.trae/docs/api-spec.md) + [R03 模块边界](.trae/rules/architecture-compliance.md) |
 | 日志怎么写？ | [project_rules.md §1.8](.trae/rules/project_rules.md) — 唯一入口 Logger.ts |
 | 错误怎么处理？ | [project_rules.md §1.9](.trae/rules/project_rules.md) — 唯一入口 handleError() |
-| 路径怎么获取？ | [paths.md](.trae/rules/paths.md) — 唯一入口 `@openliri/kernel/paths` |
+| 路径怎么获取？ | [paths.md](.trae/rules/paths.md) — 唯一入口 `@modules/environment` |
 | 模型名能硬编码吗？ | [model-usage.md](.trae/rules/model-usage.md) — 禁止 |
 | 新增通道怎么注册？ | [project_rules.md §1.14](.trae/rules/project_rules.md) |
 | 技能怎么加？ | [project_rules.md §1.15](.trae/rules/project_rules.md) |

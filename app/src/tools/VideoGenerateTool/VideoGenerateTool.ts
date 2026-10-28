@@ -31,7 +31,7 @@ import { getVideoTaskPersistence } from './VideoTaskPersistence';
 import { getImageSafetyFilter } from '../ImageGenerateTool/ImageSafetyFilter';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveTempDir } from '@openliri/kernel/paths';
+import { resolveTempDir } from '@modules/environment';
 
 const logger = getLogger('tools:videoGenerate');
 

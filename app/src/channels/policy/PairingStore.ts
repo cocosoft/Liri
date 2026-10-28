@@ -25,7 +25,7 @@ interface PendingPairing {
   expiresAt: number;
 }
 
-import { resolvePairingsDir } from '@openliri/kernel';
+import { resolvePairingsDir } from '@modules/environment';
 
 export class PairingStore {
   private storeDir: string;

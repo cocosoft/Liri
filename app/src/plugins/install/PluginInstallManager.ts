@@ -12,7 +12,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { resolvePluginsInstalledDir } from '@openliri/kernel';
+import { resolvePluginsInstalledDir } from '@modules/environment';
 import { PluginRegistry } from '../core/PluginRegistry.js';
 import { NpmDistributor } from '../distribution/NpmDistributor.js';
 import { pluginSecurityScanner } from '../utils/pluginSecurityScanner.js';

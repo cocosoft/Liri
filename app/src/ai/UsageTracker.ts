@@ -37,10 +37,7 @@ import { randomIdSuffix } from '../utils/common';
 import { LogLevel } from '@modules/monitoring/logs/Logger.js';
 import { extractUsage } from './tokenizer/UsageExtractor.js';
 import { getCanonicalModelName } from '../cost/ModelPricing.js';
-import {
-  getUserDataDirOverride,
-  resolveDbPath,
-} from '@openliri/kernel/paths.js';
+import { getUserDataDirOverride, resolveDbPath } from '@modules/environment';
 
 const logger = new OTelAwareLogger({
   module: 'ai:usageTracker',

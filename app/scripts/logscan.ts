@@ -30,7 +30,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { resolveLogsDir } from '@openliri/kernel/paths';
+import { resolveLogsDir } from '@modules/environment';
 
 export interface LogScanOptions {
   dir: string;

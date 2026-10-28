@@ -18,7 +18,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import type { PdcaPhase } from '@openliri/kernel';
+import type { PdcaPhase } from '@modules/tasks/phases';
 import type { Plan, PlanStep } from '../TaskOrchestrator';
 import { STEP_STATUS_PENDING } from '../TaskOrchestrator';
 import type { PdcaStatus } from './contracts.js';

@@ -9,7 +9,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveDataDir } from '@openliri/kernel';
+import { resolveDataDir } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 import { isCheckpointLogEnabled } from '@modules/config';
 import { randomUUID } from 'crypto';

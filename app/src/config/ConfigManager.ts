@@ -50,7 +50,7 @@ import {
   resolveUserConfigPath,
   resolvePyappHome,
   ensureDir,
-} from '@openliri/kernel/paths.js';
+} from '@modules/environment';
 import {
   setRuntimeConfigSnapshot,
   clearRuntimeConfigSnapshot,

@@ -60,7 +60,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
-import { resolveProjectRoot } from '@openliri/kernel/paths';
+import { resolveProjectRoot } from '@modules/environment';
 import type {
   EvalTask,
   SourceCaseResult,

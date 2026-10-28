@@ -1,8 +1,8 @@
 {
-  "version": 1,
-  "comment": "内核第三方依赖白名单（K06）。目标：0 个 npm 依赖；只允许 Node/Bun 内建。新增 npm 包必须先在此评审登记（「内核可独立安装」的最大障碍就是 npm 依赖）。",
-  "allowedPrefixes": ["node:", "bun:"],
-  "allowBareBuiltins": true,
+  "version": 2,
+  "comment": "内核依赖白名单（K06）。判据是「零 I/O + 零 npm 依赖」，不是「可独立安装」。只允许零 I/O 的 Node 内建：node:path（纯字符串）· node:crypto（仅 randomUUID/createHash）· node:async_hooks（AsyncLocalStorage）· node:util（仅 util.promisify）· node:stream / node:zlib（纯计算/管道，唯一消费方 core/delivery/archiver/TranscriptArchiver.ts，随 P1 迁出）；fs / fs/promises / child_process / os / net / http / bun:sqlite 一律判违规 —— 存量登记在 scripts/kernel-io-allowlist.json 并冻结进纯度基线，只减不增。裸写同根名（path / crypto / async_hooks / util / stream / zlib）与带前缀写法同权；新增 npm 包必须先在此评审登记。",
+  "allowedPrefixes": ["node:path", "node:crypto", "node:async_hooks", "node:util", "node:stream", "node:zlib"],
+  "allowBareBuiltins": false,
   "allowedPackages": ["@opentelemetry/api"],
   "packageNotes": {
     "@opentelemetry/api": "仅接口/类型包（无实现）。3 处使用：core/events/EventBusOTelBridge.ts、core/spi/OTelService.ts、core/tracingFacade.ts。官方 Span.addEvent 是函数属性，自造最小接口会在 strictFunctionTypes 下不可赋值（见 tracingFacade 头注）⇒ 作为内核唯一运行依赖保留。阶段二（独立发版）必须二选一：① 在 package.json 显式声明该依赖；② 改为上层注入最小 Span 接口并删除此依赖。"

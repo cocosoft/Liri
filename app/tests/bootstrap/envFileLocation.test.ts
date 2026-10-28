@@ -22,7 +22,7 @@ import {
   resolveUserEnvPath,
   resolveBundledEnvPath,
   resolveEnvExamplePath,
-} from '@openliri/kernel/paths.js';
+} from '@modules/environment';
 import { ensureEnvFileExists } from '../../src/bootstrap/preflight.js';
 
 let root: string;

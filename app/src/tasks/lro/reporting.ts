@@ -12,14 +12,14 @@
 import { getLogger } from '@modules/monitoring';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { resolveDataDir } from '@openliri/kernel/paths';
+import { resolveDataDir } from '@modules/environment';
 import { taskOrchestrator } from '../TaskOrchestrator';
 import type { PlanProgress, PlanStep } from '../TaskOrchestrator';
 import { generateAuditReport } from '../AuditReport';
 import type { AuditReport } from '../AuditReport';
 import { TaskStatus } from '../types';
 import type { LifecycleEvent } from '../LifecycleTracker';
-import type { PdcaPhase } from '@openliri/kernel';
+import type { PdcaPhase } from '@modules/tasks/phases';
 import type { ReviewDecision } from '../PlanReview';
 import type { PdcaStatus, PdcaMetrics } from './contracts.js';
 

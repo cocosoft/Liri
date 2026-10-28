@@ -15,16 +15,16 @@
 
 import { join } from 'path';
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
-import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveDbPath, resolveDataSubDir } from '@openliri/kernel';
+import { Database } from '@modules/external';
+import { resolveDbPath, resolveDataSubDir } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 import {
   type PdcaPhase,
   PDCA_TO_WORKITEM,
   PDCA_TERMINAL_PHASES,
-} from '@openliri/kernel';
+} from '@modules/tasks/phases';
 export type { PdcaPhase };
-export { PDCA_TERMINAL_PHASES } from '@openliri/kernel';
+export { PDCA_TERMINAL_PHASES } from '@modules/tasks/phases';
 
 const logger = getLogger('tasks:pdcaBridge');
 

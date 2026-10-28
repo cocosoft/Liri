@@ -24,7 +24,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { resolvePluginsDir } from '@openliri/kernel';
+import { resolvePluginsDir } from '@modules/environment';
 
 /** 授权文件名（位于插件根目录下） */
 export const PLUGIN_CAPABILITY_GRANTS_FILE = 'capability-grants.json';

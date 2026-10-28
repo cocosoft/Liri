@@ -263,6 +263,19 @@ export type { ApprovalResult, ApprovalDecision } from './SmartApprovalObserver';
 export { sanitizeSchema } from './SchemaSanitizer';
 export type { SanitizeOptions, SanitizeResult } from './SchemaSanitizer';
 
+// P5-4（2026-10-28）：Checkpoint 边界策略（规格 `.trae/specs/p5-runtime-hardening-specs.md` §3）
+export {
+  decideCheckpointBoundary,
+  deriveCheckpointBoundaryTools,
+  isCheckpointBoundaryTool,
+} from './policy/checkpointBoundary';
+export type {
+  CheckpointBoundaryDecision,
+  CheckpointBoundaryInput,
+  CheckpointBoundaryMode,
+  CheckpointBoundaryResult,
+} from './policy/checkpointBoundary';
+
 // S2-6（2026-10-11）：工具调用可观测性指标（统一调用指标 + Tool-Use Context Entropy）
 // TG-5（2026-10-12）：熵阈值门禁（纯判定 + 阈值常量；只告警不阻断）
 export {

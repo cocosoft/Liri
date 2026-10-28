@@ -50,7 +50,7 @@ export async function getAllowedBaseDirs(): Promise<string[]> {
     resolveDownloadsDir,
     resolveDataDir,
     resolveDocsDir,
-  } = await import('@openliri/kernel/paths');
+  } = await import('@modules/environment');
   const projectRoot = resolveProjectRoot();
   return [
     // 2026-08-24：用户主目录——file_write/FileLink 引用 AI 生成到主目录根下的
@@ -71,7 +71,7 @@ export async function getAllowedBaseDirs(): Promise<string[]> {
 
 /** 判断文件路径是否在文件访问白名单（任一 baseDir）内 */
 export async function isPathAllowed(filePath: string): Promise<boolean> {
-  const { isPathWithin } = await import('@openliri/kernel/paths');
+  const { isPathWithin } = await import('@modules/environment');
   const baseDirs = await getAllowedBaseDirs();
   return baseDirs.some((dir) => isPathWithin(dir, filePath));
 }
@@ -379,7 +379,7 @@ export async function handleFilePaths(
     resolveDownloadsDir,
     resolveDataDir,
     resolveDocsDir,
-  } = await import('@openliri/kernel/paths');
+  } = await import('@modules/environment');
   const projectRoot = resolveProjectRoot();
   const basePaths = {
     projectRoot,
@@ -420,7 +420,7 @@ export async function handleFileResolvePath(
     }
 
     const { resolveProjectRoot, resolvePyappHome, containsPathTraversal } =
-      await import('@openliri/kernel/paths');
+      await import('@modules/environment');
 
     // BUG-C 修复：绝对路径必须验证在文件访问白名单（统一 baseDirs）
     if (path.isAbsolute(rawPath)) {

@@ -4,11 +4,14 @@
  * 将阶段计时委托给 performance/StartupProfiler。
  * 保留 SprintPerformanceChecker 的 SLO 红线检查功能。
  */
+// P1（2026-10-28）：`SprintPerformanceChecker`（含 fs 读数）已出内核 ⇒ 与下面
+// `StartupProfiler` 同样按**同域相对路径**引用 performance 模块（entry → infra 合法；
+// 不走 `@modules/performance` 桶，避免把整个性能面拉进启动图 —— AC-28）。
 import {
   SprintPerformanceChecker,
+  DEFAULT_REDLINES,
   type PerformancePhase,
-} from '@openliri/kernel';
-import { DEFAULT_REDLINES } from '@openliri/kernel';
+} from '../performance/SprintPerformanceChecker.js';
 import {
   profilePhaseStart,
   profilePhaseEnd,

@@ -49,7 +49,7 @@ import type { RerankService } from '@modules/knowledge/RerankService';
 import { COMMON_STOP_WORDS } from '@modules/knowledge/stopwords';
 import type { EventBus } from '@openliri/kernel';
 import type { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';

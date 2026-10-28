@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { resolveLogsDir } from '@openliri/kernel';
+import { resolveLogsDir } from '@modules/environment';
 import { getPerformanceProfiler } from '@openliri/kernel';
 import { performanceUtils } from '@openliri/kernel';
 import { configManager } from '@modules/config';

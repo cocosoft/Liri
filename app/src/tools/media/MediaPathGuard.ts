@@ -14,7 +14,7 @@ import {
   resolveOutputDir,
   resolveAttachmentsDir,
   isPathWithin,
-} from '@openliri/kernel/paths';
+} from '@modules/environment';
 import { logSecurityBlock } from '../../security/SecurityAuditLogger.js';
 
 /** 允许的基础目录 */

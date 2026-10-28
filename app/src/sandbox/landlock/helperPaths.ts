@@ -16,7 +16,7 @@
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveProjectRoot } from '@openliri/kernel/paths';
+import { resolveProjectRoot } from '@modules/environment';
 import { SANDBOX_HELPER_BIN_DIR } from '../helperBinDir';
 
 /** helper 可执行文件名（与 Cargo/native 无关，纯 C 编译产物） */

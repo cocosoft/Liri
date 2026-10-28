@@ -5,7 +5,7 @@
  */
 
 import { join } from 'path';
-import { resolveProjectRoot } from '@openliri/kernel';
+import { resolveProjectRoot } from '@modules/environment';
 import { readFileSync, existsSync, mkdirSync } from 'fs';
 import {
   MEMORY_FRONTMATTER_EXAMPLE,

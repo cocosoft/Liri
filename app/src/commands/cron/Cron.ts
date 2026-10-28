@@ -12,7 +12,7 @@ import {
   scheduleToCron,
   scheduleToDisplayText,
 } from '@modules/chronos';
-import { resolveDbPath } from '@openliri/kernel';
+import { resolveDbPath } from '@modules/environment';
 import { configManager } from '@modules/config';
 
 import { getLogger } from '@modules/monitoring';

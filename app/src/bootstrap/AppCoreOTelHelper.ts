@@ -170,7 +170,7 @@ async function startAITracePlugin(
 ): Promise<void> {
   try {
     const { createAITracePlugin } = await import('../trace-recording/index.js');
-    const { resolveDataSubDir } = await import('@openliri/kernel/paths.js');
+    const { resolveDataSubDir } = await import('@modules/environment');
 
     // 2026-10-09 lint 清理（台账 L-5）：返回值从未被使用；但 `createAITracePlugin` 有**全局注册副作用**
     // （模块内 `globalPlugin` + 启动录制）⇒ 仅去掉未使用的绑定，**调用行为不变**。

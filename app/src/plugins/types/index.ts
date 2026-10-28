@@ -60,6 +60,17 @@ export type {
   PluginMetadata as PluginMetadataExtended,
 } from './PluginMetadata.js';
 
+// === 统一 Plugin ABI（三档共用，§8.5 / P4-4） ===
+export { validatePluginAbi } from './PluginAbi.js';
+export type {
+  PluginAbi,
+  PluginAbiIssue,
+  PluginAbiIssueCode,
+  PluginChannelContribution,
+  PluginContributions,
+  PluginTier,
+} from './PluginAbi.js';
+
 // === 本地特有类型（不冲突） ===
 export interface PluginRepository {
   name: string;

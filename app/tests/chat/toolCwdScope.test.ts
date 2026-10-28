@@ -14,7 +14,7 @@ import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 
 import type { Principal } from '@openliri/kernel/identity/principal';
-import { resolveProjectRoot } from '@openliri/kernel/paths';
+import { resolveProjectRoot } from '@modules/environment';
 import { resolveToolCwd } from '../../src/chat/services/toolCwdScope';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };

@@ -12,8 +12,8 @@ import {
   resolveAttachmentsDir,
   resolveDataSubDir,
   resolveDbPath,
-} from '@openliri/kernel';
-import { Database } from '@openliri/kernel/external/sqlite3';
+} from '@modules/environment';
+import { Database } from '@modules/external';
 // C1（2026-10-09）：附件名/ID 熵源改用 crypto
 import { randomIdSuffix } from '../../utils/common';
 
@@ -554,7 +554,7 @@ export class AttachmentManager {
       try {
         const { writeFile, mkdir } = await import('fs/promises');
         const { join } = await import('path');
-        const { resolvePyappHome } = await import('@openliri/kernel/paths');
+        const { resolvePyappHome } = await import('@modules/environment');
         const metadata = attachment.metadata;
 
         // 构建 raw 目录路径：~/.pyapp/knowledge/raw/{source}/{sourceId}/

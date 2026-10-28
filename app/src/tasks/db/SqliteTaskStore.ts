@@ -1,8 +1,8 @@
 import { join } from 'path';
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import { getLogger } from '@modules/monitoring';
 import { DatabaseError, handleError } from '@modules/error';
-import { resolveDbPath } from '@openliri/kernel';
+import { resolveDbPath } from '@modules/environment';
 import {
   TASKS_SCHEMA,
   FTS5_SCHEMA,

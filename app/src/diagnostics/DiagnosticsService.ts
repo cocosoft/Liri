@@ -9,9 +9,8 @@ import { existsSync, statSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir, hostname } from 'os';
 import { randomUUID } from 'crypto';
+import { resolveDbPath, resolveProjectRoot } from '@modules/environment';
 import {
-  resolveDbPath,
-  resolveProjectRoot,
   OPENAI_API_BASE_URL,
   ANTHROPIC_API_BASE_URL,
   NPM_SITE_URL,

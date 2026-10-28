@@ -8,7 +8,7 @@ import { mkdir, readFile, writeFile, stat, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolvePyappHome, resolveProjectRoot } from '@openliri/kernel';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/environment';
 
 const logger = getLogger('memory:memdir:memdirService');
 

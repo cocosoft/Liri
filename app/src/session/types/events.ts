@@ -33,6 +33,14 @@ import type { LiriEventMap } from './eventPayloads';
  */
 export type LiriEventType = (typeof LIRI_EVENT_NAMES)[number];
 
+/**
+ * 事件三态（AC-11，P0-8）：`planned` 已计划 → `dispatched` 已派发 → `confirmed` 已确认。
+ *
+ * P0 阶段**只加类型、不加生产者/消费者**（行为零变更）；执行链落地后，
+ * 不可逆副作用类事件必须先写本字段，否则不得标 `retryable`（AC-11 幂等键配套）。
+ */
+export type LiriEventPhase = 'planned' | 'dispatched' | 'confirmed';
+
 // ─── 事件结构 ───────────────────────────────────────────────────────────────
 
 /**
@@ -60,6 +68,13 @@ export interface LiriEvent<T extends LiriEventType = LiriEventType> {
   sourceEventSeqs?: number[];
   /** 未知 type 安全跳过标记（向前兼容） */
   ignorable?: true;
+  /**
+   * 事件三态（AC-11）：见 {@link LiriEventPhase}。
+   *
+   * **可选字段，P0-8 只落类型**：当前无写入方，读侧也不解读（`isLiriEvent` 不校验）
+   * ⇒ 行为与既有 `events.jsonl` 完全一致；新增字段不改变序列化面（undefined 不落盘）。
+   */
+  phase?: LiriEventPhase;
 }
 
 // ─── 类型守卫 ───────────────────────────────────────────────────────────────

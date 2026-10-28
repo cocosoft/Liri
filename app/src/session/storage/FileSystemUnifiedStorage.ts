@@ -14,7 +14,7 @@ import {
   resolveSessionsDir,
   resolveLegacySessionsDir,
   resolveLegacySessionPartitionRoots,
-} from '@openliri/kernel/paths';
+} from '@modules/environment';
 import type {
   UnifiedSession,
   SessionFilter,

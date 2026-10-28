@@ -34,8 +34,8 @@
  * 不做多进程/分布式。
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveTenantDbPath } from '@openliri/kernel/paths';
+import { Database } from '@modules/external';
+import { resolveTenantDbPath } from '@modules/environment';
 // 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离。
 // 仍然"每实例一个连接"——只是实例的粒度从 per-user 变为 per-tenant（同租户用户共用连接）。
 import {
@@ -197,7 +197,7 @@ export class ExecutionStore {
 
   private async doInit(): Promise<void> {
     const dbPath =
-      this.dbPath ?? (await import('@openliri/kernel')).resolveDbPath();
+      this.dbPath ?? (await import('@modules/environment')).resolveDbPath();
     this.db = await new Promise<Database>((resolve, reject) => {
       const db = new Database(dbPath, (err: Error | null) =>
         err ? reject(err) : resolve(db)

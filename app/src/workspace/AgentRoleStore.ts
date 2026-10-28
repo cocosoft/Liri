@@ -6,9 +6,9 @@
  * 支持前端管理页面进行增删改查。
  */
 import { randomUUID } from 'crypto';
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel/paths';
+import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
 import {
   getRequestPrincipal,
   isLocalPrincipal,

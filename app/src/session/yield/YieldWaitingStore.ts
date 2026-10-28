@@ -22,7 +22,7 @@
  *（否则回放必然找不到等待者）。
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('session:yield:waitingStore');
@@ -75,7 +75,7 @@ export class YieldWaitingStore implements YieldWaitingPersistence {
 
   private async doInit(): Promise<void> {
     const dbPath =
-      this.dbPath ?? (await import('@openliri/kernel')).resolveDbPath();
+      this.dbPath ?? (await import('@modules/environment')).resolveDbPath();
     this.db = await new Promise<Database>((resolve, reject) => {
       const db = new Database(dbPath, (err: Error | null) =>
         err ? reject(err) : resolve(db)

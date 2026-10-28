@@ -20,7 +20,7 @@
  *   });
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, unlink, stat, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
@@ -32,7 +32,7 @@ import {
   resolveDbPath,
   resolveInboundDir,
   resolveMediaDir,
-} from '@openliri/kernel';
+} from '@modules/environment';
 import {
   getCreateTableSqlList,
   FILES_TABLE,

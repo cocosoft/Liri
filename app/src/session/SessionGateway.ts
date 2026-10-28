@@ -13,14 +13,14 @@ import {
   resolveSessionsDir,
   resolveDataDir,
   resolveWorktreeHash,
-} from '@openliri/kernel';
+} from '@modules/environment';
 // 多租户 P1：按请求身份选择存储实例（本地身份 ⇒ 原实例，零变更）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
 } from '@openliri/kernel/identity/requestScope.js';
-import { canAccessSession } from '@openliri/kernel/identity/sessionOwnership.js';
-import { ownerOf } from '@openliri/kernel/identity/sessionOwnership.js';
+import { canAccessSession } from '@modules/security/identity';
+import { ownerOf } from '@modules/security/identity';
 import { ScopedStorageRegistry } from './gateway/ScopedStorageRegistry.js';
 // 2026-10-01 B14 C′ 步：原经 `@modules/context` 桶取用 ⇒ 改指 infra（`utils/`），
 // 解除 `session -> context`(app) 倒挂的一半（另一半 resolveContextWindow 见 D 步）。

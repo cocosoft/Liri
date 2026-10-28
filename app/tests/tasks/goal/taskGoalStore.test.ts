@@ -18,7 +18,7 @@ import {
   isTerminalGoalStatus,
   type TaskGoalStatus,
 } from '../../../src/tasks/goal/TaskGoalStore';
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 
 const createdPaths: string[] = [];
 const opened: TaskGoalStore[] = [];

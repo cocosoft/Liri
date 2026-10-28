@@ -88,7 +88,7 @@ describe('文档别名门禁：合法/占位样例必绿（防误伤）', () => 
   it('已注册别名、桶入口、公开子路径 ⇒ 绿', () => {
     const root = fixture({
       '.trae/rules/ok.md':
-        '`@modules/ai/router` 与 `@openliri/kernel` 与 `@openliri/kernel/paths`\n',
+        '`@modules/ai/router` 与 `@openliri/kernel` 与 `@openliri/kernel/identity`\n',
     });
 
     const { code, out } = run(root);

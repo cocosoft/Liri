@@ -40,7 +40,7 @@ import {
   chmodSync,
 } from 'fs';
 import { dirname, join } from 'path';
-import { resolvePyappHome, resolveScopedDataDir } from '@openliri/kernel/paths';
+import { resolvePyappHome, resolveScopedDataDir } from '@modules/environment';
 // 多租户 P1（2026-10-21）：凭据按身份分实例（与 ProviderManager 同源分区）
 import {
   getRequestPrincipal,

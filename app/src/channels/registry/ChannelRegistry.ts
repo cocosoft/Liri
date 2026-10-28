@@ -12,8 +12,8 @@
  */
 
 import { EventEmitter } from 'events';
-import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveDbPath } from '@openliri/kernel';
+import { Database } from '@modules/external';
+import { resolveDbPath } from '@modules/environment';
 // 多租户 P3：通道配置/凭据按归属（租户）映射（本地身份 ⇒ 空键，零变更）
 import { currentOwnerKey } from '@openliri/kernel/identity/requestScope';
 import type {

@@ -25,7 +25,7 @@
  * 由 /health 端点读取并输出。
  */
 
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { handleError } from '@modules/error';

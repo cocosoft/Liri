@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

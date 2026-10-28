@@ -13,7 +13,7 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
-import { resolveDataDir } from '@openliri/kernel/paths';
+import { resolveDataDir } from '@modules/environment';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import { register } from '../../workspaces/WorkspaceRegistry.js';

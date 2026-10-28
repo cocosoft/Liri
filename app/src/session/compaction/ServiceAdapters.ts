@@ -22,7 +22,7 @@ import { SummaryCompactor } from './SummaryCompactor';
 import { LayeredCompactor } from './LayeredCompactor';
 import { KeyInfoExtractor } from './KeyInfoExtractor';
 import { join } from 'path';
-import { resolveDataDir } from '@openliri/kernel';
+import { resolveDataDir } from '@modules/environment';
 
 export class AutoCompactServiceAdapter implements AutoCompactServiceRef {
   constructor(private real: AutoCompactServiceRefPort) {}

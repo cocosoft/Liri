@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
-import { resolveDataDir } from '@openliri/kernel';
+import { resolveDataDir } from '@modules/environment';
 
 /**
  * 安全模式库条目

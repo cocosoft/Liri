@@ -1,7 +1,7 @@
 ﻿import { createHash, randomUUID } from 'crypto';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 

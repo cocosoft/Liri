@@ -129,7 +129,7 @@ const logger = getLogger('chat:manager');
 import { SimpleMutex, feature } from '@openliri/kernel';
 // T2-8 / `✅-17`（2026-10-13）：编排域只读投影（形态 A）
 import { publishOrchestrationProjection } from '../state/engine/orchestrationProjection.js';
-import { resolveWorktreeHash } from '@openliri/kernel/paths';
+import { resolveWorktreeHash } from '@modules/environment';
 // 多租户 P0 阶段 2：当前会话 id 按请求身份分桶（无请求作用域 ⇒ 本地身份单桶）
 import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
 import { join } from 'path';
@@ -203,7 +203,11 @@ import {
 import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry, ToolSchema } from '@modules/tools';
 // 13-P1-2（2026-10-05）：非幂等工具失败时的重试告诫（模型是实际"重试方"）
-import { resolveToolEffect } from '@modules/tools';
+import {
+  decideCheckpointBoundary,
+  isCheckpointBoundaryTool,
+  resolveToolEffect,
+} from '@modules/tools';
 import type {
   ChatMessage,
   ParsedToolCall,
@@ -325,7 +329,7 @@ import {
   resolveProjectRoot,
   resolveOutputDir,
   resolveDataDir,
-} from '@openliri/kernel/paths';
+} from '@modules/environment';
 // LRO-06 / D4 后半（2026-10-26）：会话工作区解析（绝对 workspacePath > 项目 sandboxPath）
 import { resolveSessionWorkspacePath } from './services/toolCwdScope';
 import {
@@ -3757,6 +3761,25 @@ export class ChatManagerImpl implements ChatManager {
     const svc = this._toolExecutionService!;
     svc.deps.currentSessionId = this._currentSessionId ?? '';
 
+    // P5-4（2026-10-28）：**Checkpoint 边界** —— 不可逆操作（有副作用 ∧ 非幂等）执行前，
+    // 同会话必须存在 checkpoint。默认关闭（`config.json` 的 `checkpointBoundary.enabled`），
+    // 关闭时零行为变更；开启后 `relaxed` 先补建快照，建失败 ⇒ 拒绝（fail-closed）。
+    // 规格：`.trae/specs/p5-runtime-hardening-specs.md` §3。
+    const boundaryRefusal = await this._ensureCheckpointBoundary(toolCall.name);
+    if (boundaryRefusal) {
+      logger.warn('Checkpoint 边界拒绝执行（不可逆操作前无可用快照）', {
+        sessionId: this._currentSessionId,
+        toolName: toolCall.name,
+        reason: boundaryRefusal,
+      });
+      return {
+        toolCallId: toolCall.id,
+        toolName: toolCall.name,
+        result: null,
+        error: boundaryRefusal,
+      };
+    }
+
     // B-05（2026-10-09，第九轮审查 §十五）：**逐工具前置记账（fail-closed）**。
     //
     // `executionId` 由入口下传（Router → `ChatRequest.executionId` → `StreamMessageOptions`
@@ -3806,6 +3829,77 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     return svc.execute(toolCall, opts);
+  }
+
+  /**
+   * Checkpoint 边界判定（P5-4，规格 `.trae/specs/p5-runtime-hardening-specs.md` §3）。
+   *
+   * @returns `null` = 放行（含"未启用 / 只读工具 / 无会话 / 已有快照 / 补建成功"）；
+   *          否则为**拒绝原因**（不可逆操作前无法保证可回滚）。
+   *
+   * 边界三态全部来自 `tools/policy/checkpointBoundary`（派生自 `TOOL_EFFECTS`，不手写清单）：
+   * `allow` / `create-then-allow` / `deny`。
+   */
+  private async _ensureCheckpointBoundary(
+    toolName: string
+  ): Promise<string | null> {
+    // ⚠️ 动态导入（**不改启动面**）：AC-28 的 eager 棘轮只允许减少；本策略是"按工具调用
+    // 才需要"的配置读取，进静态图会让 eager +1 文件。ESM 缓存 ⇒ 首次之后零成本。
+    const { readCheckpointBoundaryConfig } =
+      await import('@modules/config/settings/CheckpointBoundaryConfig');
+    const config = readCheckpointBoundaryConfig();
+    if (!config.enabled) return null;
+    const sessionId = this._currentSessionId;
+    // 无会话（纯 CLI / 单次调用）⇒ 无从判定"同会话是否有快照"⇒ 不阻断（与既有 checkpoint 语义一致）
+    if (!sessionId) return null;
+    if (!isCheckpointBoundaryTool(toolName)) return null;
+
+    let hasCheckpoint = false;
+    try {
+      hasCheckpoint =
+        !!(await this.resumeCoordinator.getLatestCheckpoint(sessionId));
+    } catch (error) {
+      // @ignore-catch — 查询失败按"无快照"处理（随后由 strict/relaxed 决定：拒绝或补建）
+      logger.warn('Checkpoint 边界：查询最新快照失败 ⇒ 按无快照处理', {
+        sessionId,
+        toolName,
+        error: String(error),
+      });
+      hasCheckpoint = false;
+    }
+
+    const decision = decideCheckpointBoundary({
+      toolName,
+      hasCheckpoint,
+      mode: config.mode,
+    });
+    if (decision.decision === 'allow') return null;
+    if (decision.decision === 'deny') {
+      return (
+        decision.reason ??
+        `不可逆操作 ${toolName} 之前缺少 checkpoint（strict 边界）`
+      );
+    }
+
+    // create-then-allow：先补建快照再执行；建失败 ⇒ 拒绝（fail-closed）
+    try {
+      await this.resumeCoordinator.createCheckpoint(
+        sessionId,
+        'auto:before-irreversible',
+        { checkpointBoundaryTool: toolName }
+      );
+      return null;
+    } catch (error) {
+      logger.error(
+        'Checkpoint 边界：补建快照失败 ⇒ 拒绝执行不可逆工具（fail-closed）',
+        {
+          sessionId,
+          toolName,
+          error: String(error),
+        }
+      );
+      return `不可逆操作 ${toolName} 之前无法创建 checkpoint ⇒ 已拒绝执行（relaxed 边界 fail-closed）`;
+    }
   }
 
   /**

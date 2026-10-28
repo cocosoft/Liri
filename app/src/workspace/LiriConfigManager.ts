@@ -8,7 +8,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 // HD-P1-3：工作区级 `.liri` 名的**唯一事实源**（`core/paths.ts`）—— 本文件原自行写死两处
-import { WORKSPACE_CONFIG_DIR_NAME } from '@openliri/kernel';
+import { WORKSPACE_CONFIG_DIR_NAME } from '@modules/environment';
 import type {
   LiriWorkspaceConfig,
   LiriKnowledgeConfig,

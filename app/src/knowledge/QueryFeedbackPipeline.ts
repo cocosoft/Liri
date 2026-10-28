@@ -38,7 +38,7 @@ import { handleError } from '@modules/error';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { getQueryLogStore } from '@modules/query';
-import { resolveKnowledgeDir, resolveDomainDir } from '@openliri/kernel';
+import { resolveKnowledgeDir, resolveDomainDir } from '@modules/environment';
 import { IndexManager } from './IndexManager';
 import { KnowledgeGraph } from './graph/KnowledgeGraph';
 

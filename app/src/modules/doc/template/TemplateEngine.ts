@@ -7,7 +7,7 @@
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname, join } from 'path';
-import { resolveProjectRoot } from '@openliri/kernel/paths';
+import { resolveProjectRoot } from '@modules/environment';
 import Handlebars from 'handlebars';
 
 const logger = getLogger('doc:template');

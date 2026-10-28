@@ -5,7 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { handleError } from '@modules/error';
 // C1（2026-10-09）：audit id 熵源改用 crypto
 import { randomIdSuffix } from '../../utils/common';

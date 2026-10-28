@@ -25,7 +25,7 @@
  * 恢复未完成的梦境周期（标记为 failed）或清理已完成的检查点。
  */
 
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 import { join } from 'path';
 import { readdir, readFile, unlink } from 'fs/promises';
 import { getLogger } from '@modules/monitoring';

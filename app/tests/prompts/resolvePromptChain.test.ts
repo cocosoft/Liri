@@ -43,7 +43,7 @@ import {
   resolveSystemPromptSections,
   type SystemPromptSection,
 } from '@modules/constants';
-import { setUserDataDirOverride } from '@openliri/kernel';
+import { setUserDataDirOverride } from '@modules/environment';
 
 const BUNDLED_IDENTITY = join(
   import.meta.dir,

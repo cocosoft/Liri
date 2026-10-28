@@ -24,8 +24,8 @@ import { join } from 'node:path';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveDataDir, resolveDbPath } from '@openliri/kernel';
-import { safePathSegment } from '@openliri/kernel/identity/storageScope.js';
+import { resolveDataDir, resolveDbPath } from '@modules/environment';
+import { safePathSegment } from '@modules/security/identity';
 // 本地身份的租户标识（永远不允许被"删除租户"清掉）—— 单一真源在 identity/principal
 import { LOCAL_TENANT_ID } from '@openliri/kernel/identity/principal.js';
 

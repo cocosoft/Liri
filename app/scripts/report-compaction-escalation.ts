@@ -23,7 +23,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveLogsDir } from '@openliri/kernel/paths';
+import { resolveLogsDir } from '@modules/environment';
 
 /** 清单 §2.4 阈值（**先立后用**；改动须同步清单） */
 const MIN_SAMPLES = 200;

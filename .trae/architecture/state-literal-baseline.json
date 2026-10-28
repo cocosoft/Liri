@@ -376,10 +376,10 @@
       "app/src/workspace/WorkflowTemplateProvider.ts",
       "app/src/workspace/workflowTemplateRunner.ts",
       "app/src/workspace/workflowTemplateTool.ts",
-      "packages/kernel/src/core/Coordinator.ts",
+      "app/src/runtime/coordinator.ts",
       "packages/kernel/src/core/data-models.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "packages/kernel/src/core/phases/PhaseVocabulary.ts",
+      "app/src/tasks/phases.ts",
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "COMPLETED": [
@@ -1036,10 +1036,10 @@
       "app/src/workspace/WorkflowTemplateProvider.ts",
       "app/src/workspace/workflowTemplateRunner.ts",
       "app/src/workspace/WorkItemStore.ts",
-      "packages/kernel/src/core/Coordinator.ts",
+      "app/src/runtime/coordinator.ts",
       "packages/kernel/src/core/events/OrchestrationMetrics.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "packages/kernel/src/core/phases/PhaseVocabulary.ts",
+      "app/src/tasks/phases.ts",
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "FAILED": [
@@ -1144,7 +1144,7 @@
       "app/src/channels/wechat/cli-manager.ts",
       "app/src/config/ConfigMigration.ts",
       "app/src/skills/loaders/adapter/AggregatedSkillSearch.ts",
-      "packages/kernel/src/core/paths.ts"
+      "app/src/environment/paths.ts"
     ],
     "installing": [
       "app/src/channels/wechat/cli-manager.ts"
@@ -1230,7 +1230,7 @@
       "app/src/tools/SendMessageTool/SendMessageTool.ts",
       "app/src/workspace/LiriConfigManager.ts",
       "app/src/workspace/types.ts",
-      "packages/kernel/src/core/exit/ExitRecorder.ts",
+      "app/src/runtimeHost/ExitRecorder.ts",
       "packages/kernel/src/core/sleep/SleepMonitor.ts"
     ],
     "paused": [
@@ -1266,7 +1266,7 @@
       "app/src/workspace/ProjectStore.ts",
       "app/src/workspace/types.ts",
       "packages/kernel/src/core/data-models.ts",
-      "packages/kernel/src/core/phases/PhaseVocabulary.ts",
+      "app/src/tasks/phases.ts",
       "packages/kernel/src/core/sleep/SleepMonitor.ts"
     ],
     "pending": [
@@ -1391,9 +1391,9 @@
       "app/src/workspace/ProjectStore.ts",
       "app/src/workspace/types.ts",
       "app/src/workspace/WorkItemStore.ts",
-      "packages/kernel/src/core/Coordinator.ts",
+      "app/src/runtime/coordinator.ts",
       "packages/kernel/src/core/LazyModuleStrategy.ts",
-      "packages/kernel/src/core/phases/PhaseVocabulary.ts",
+      "app/src/tasks/phases.ts",
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "QUEUED": [
@@ -1533,10 +1533,10 @@
       "app/src/utils/toolContract/ToolProgress.ts",
       "app/src/workspace/ProjectStore.ts",
       "app/src/workspace/types.ts",
-      "packages/kernel/src/core/Coordinator.ts",
+      "app/src/runtime/coordinator.ts",
       "packages/kernel/src/core/data-models.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "packages/kernel/src/core/phases/PhaseVocabulary.ts",
+      "app/src/tasks/phases.ts",
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "RUNNING": [
@@ -1800,8 +1800,8 @@
       "packages/kernel/src/core/errorHandler.ts",
       "packages/kernel/src/core/errors.ts",
       "packages/kernel/src/core/events/OrchestrationMetrics.ts",
-      "packages/kernel/src/core/exit/ExitRecorder.ts",
-      "packages/kernel/src/core/health/DependencyHealthChecker.ts",
+      "app/src/runtimeHost/ExitRecorder.ts",
+      "app/src/runtimeHost/health/DependencyHealthChecker.ts",
       "packages/kernel/src/core/health/types.ts"
     ],
     "WAITING_USER": [

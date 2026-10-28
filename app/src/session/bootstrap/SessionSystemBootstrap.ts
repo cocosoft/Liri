@@ -9,7 +9,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { resolveSessionsDir } from '@openliri/kernel/paths';
+import { resolveSessionsDir } from '@modules/environment';
 import { configManager } from '@modules/config';
 import { SessionMemoryManager } from '../memory/SessionMemoryManager';
 // 2026-10-01 D-222（子批 F `ai` 组）：原静态导入 app 层 `@modules/ai` 的 `globalEmbeddingManager`

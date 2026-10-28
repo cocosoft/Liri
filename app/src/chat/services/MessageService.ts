@@ -20,7 +20,7 @@ import {
   reorderMessages,
 } from '@modules/session/types/message';
 import type { ToolUse, ToolResult } from '@modules/session/types/tool';
-import { runRegisteredOutputGuards } from '@openliri/kernel';
+import { runRegisteredOutputGuards } from '@modules/security/outputGuardRegistry';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('chat:messageService');

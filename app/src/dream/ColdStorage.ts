@@ -25,7 +25,7 @@
  * 归档到 .cold 文件中，减轻 LLM 上下文膨胀。
  */
 
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { getLogger } from '@modules/monitoring';

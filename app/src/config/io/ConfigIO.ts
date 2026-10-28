@@ -5,10 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getLogger } from '../../monitoring/logs/Logger.js';
-import {
-  resolvePyappHome,
-  resolveProjectRoot,
-} from '@openliri/kernel/paths.js';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/environment';
 import { handleError } from '@modules/error/handleError.js';
 
 const logger = getLogger('config:io:configIO');

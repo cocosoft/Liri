@@ -16,7 +16,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { setUserDataDirOverride } from '@openliri/kernel/paths.js';
+import { setUserDataDirOverride } from '@modules/environment';
 import { AuthUserStore } from '../../src/infrastructure/http/auth/AuthUserStore.js';
 import type { TenantPurgeReport } from '../../src/runtime/tenantPurge.js';
 import { handleDeleteTenant } from '../../src/infrastructure/http/handlers/tenant-handlers.js';

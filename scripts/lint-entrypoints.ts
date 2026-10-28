@@ -8,7 +8,12 @@
  *
  * 检查（双向）：
  *  1. 扫描到的 (文件, 模式) 必须已登记（防"新增入口不登记"）；
- *  2. 登记的文件必须存在，且其 `patterns` 必须**实际命中**（防"入口已删/改名而登记未同步"）。
+ *  2. 登记的文件必须存在，且其 `patterns` 必须**实际命中**（防"入口已删/改名而登记未同步"）；
+ *  3. **记账契约（P5-2，2026-10-28）**：每条登记必须显式声明 `ledger`
+ *     （`attached` 已接 / `gated` 灰度 / `missing` 未接 / `not-applicable` 不适用），且与
+ *     `patterns` 自洽 —— `attached`/`gated` ⇒ 必须含 `execution.acquire`；
+ *     `missing`/`not-applicable` ⇒ **不得**含 `execution.acquire`
+ *     （否则台账说"没记账"、代码却真的 acquire ⇒ 与事实漂移）。
  *
  * 负向自证：路径可用环境变量覆盖 —— `ENTRYPOINTS_REPO_ROOT` / `ENTRYPOINTS_REGISTRY` / `ENTRYPOINTS_SCAN_ROOT`。
  * 退出码：0 = 通过；1 = 有违规。
@@ -32,11 +37,30 @@ interface Pattern {
   regex: string;
   description: string;
 }
+
+/**
+ * **记账契约**（P5-2）：该入口的工具调用是否有 `executionId` 前置记账
+ * （`ExecutionManager.beginToolCall` ⇒ 崩溃恢复的 `unknown` 判定依赖它）。
+ */
+type EntryLedger = 'attached' | 'gated' | 'missing' | 'not-applicable';
+
+const LEDGER_VALUES: readonly EntryLedger[] = [
+  'attached',
+  'gated',
+  'missing',
+  'not-applicable',
+];
+
+/** 声明"已接 / 灰度"的入口必须真的取执行所有权（`execution.acquire`） */
+const LEDGER_REQUIRES_ACQUIRE: readonly EntryLedger[] = ['attached', 'gated'];
+
 interface Entry {
   file: string;
   patterns: string[];
   label: string;
   status: string;
+  /** 记账契约（必填；见 `EntryLedger`） */
+  ledger?: string;
   notes: string;
 }
 interface Registry {
@@ -123,6 +147,35 @@ for (const e of reg.entries) {
         `登记漂移: ${e.file} 声明模式 '${p}' 但扫描未命中（入口已改动？请同步注册表）`
       );
     }
+  }
+}
+
+// ③ 记账契约（P5-2）：必须显式声明，且与 `execution.acquire` 自洽
+for (const e of reg.entries) {
+  const ledger = e.ledger;
+  if (!ledger) {
+    problems.push(
+      `账本契约缺失: ${e.file} 未声明 ledger（attached/gated/missing/not-applicable）—— 新增入口必须回答"工具调用是否前置记账"`
+    );
+    continue;
+  }
+  if (!LEDGER_VALUES.includes(ledger as EntryLedger)) {
+    problems.push(
+      `账本契约非法: ${e.file} 的 ledger='${ledger}'（只允许 ${LEDGER_VALUES.join(' / ')}）`
+    );
+    continue;
+  }
+  const hasAcquire = e.patterns.includes('execution.acquire');
+  const requiresAcquire = LEDGER_REQUIRES_ACQUIRE.includes(ledger as EntryLedger);
+  if (requiresAcquire && !hasAcquire) {
+    problems.push(
+      `账本契约不自洽: ${e.file} 声明 ledger='${ledger}' 但未登记 execution.acquire（无执行身份 ⇒ 不可能记账）`
+    );
+  }
+  if (!requiresAcquire && hasAcquire) {
+    problems.push(
+      `账本契约不自洽: ${e.file} 声明 ledger='${ledger}' 却登记了 execution.acquire（请改为 attached/gated）`
+    );
   }
 }
 

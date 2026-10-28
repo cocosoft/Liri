@@ -1,4 +1,4 @@
-import { resolveDataDir } from '@openliri/kernel';
+import { resolveDataDir } from '@modules/environment';
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
 // T-①07（A5 记忆分层收敛）T1-2：声明实现四个窄端口（`memory/ports/MemoryPort.ts`）。

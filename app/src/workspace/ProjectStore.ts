@@ -28,7 +28,7 @@ import type {
   WorkItemStatus,
 } from './types';
 import { WorkItemStore } from './WorkItemStore';
-import { resolveDataDir, resolveDataSubDir } from '@openliri/kernel/paths';
+import { resolveDataDir, resolveDataSubDir } from '@modules/environment';
 // 多租户 P3：项目归属（创建请求的身份；本地身份不写字段、也不做过滤）
 import {
   canAccessOwnerKey,

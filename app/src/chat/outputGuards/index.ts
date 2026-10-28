@@ -12,8 +12,9 @@
  * - `OUTPUT_GUARD=true` ⇒ 注册 敏感内容（打码/阻断）+ 注入回显（提示）两条护栏。
  */
 
-import { feature, getOutputGuardRegistry } from '@openliri/kernel';
-import type { OutputGuardRegistry } from '@openliri/kernel';
+import { getOutputGuardRegistry } from '@modules/security/outputGuardRegistry';
+import { feature } from '@openliri/kernel';
+import type { OutputGuardRegistry } from '@modules/security/outputGuardRegistry';
 
 import { createInjectionEchoGuard } from './injectionEchoGuard.js';
 import { createSensitiveContentGuard } from './sensitiveContentGuard.js';

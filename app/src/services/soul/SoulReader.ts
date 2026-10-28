@@ -10,7 +10,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveSoulPath } from '@openliri/kernel';
+import { resolveSoulPath } from '@modules/environment';
 import { configManager } from '@modules/config';
 
 const SOUL_FILE_PATH = resolveSoulPath();

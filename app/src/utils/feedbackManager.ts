@@ -15,7 +15,7 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('utils:feedbackManager');
 import { handleError } from '@modules/error/handleError';
 import { sanitizeInput } from '@modules/security';
-import { resolveDataDir } from '@openliri/kernel';
+import { resolveDataDir } from '@modules/environment';
 // C1（2026-10-09）：feedback id 熵源改用 crypto
 import { randomIdSuffix } from './common';
 

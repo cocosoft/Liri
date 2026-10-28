@@ -8,7 +8,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { resolvePyappHome } from '@openliri/kernel';
+import { USER_CONFIG_PATH, resolvePyappHome } from '@modules/environment';
 import { randomUUID } from 'crypto';
 import { configManager } from '@modules/config';
 import { OAUTH_AUTH_BASE_URL } from '@modules/constants';
@@ -32,7 +32,9 @@ export interface AuthConfig {
 }
 
 const CONFIG_DIR = resolvePyappHome();
-const USER_CONFIG_PATH = join(CONFIG_DIR, 'config.json');
+// P1（2026-10-28）：原先自建的同名常量已删除 —— 路径唯一入口是 `@modules/environment`
+// 的 `USER_CONFIG_PATH`（= join(resolvePyappHome(), 'config.json')，与本文件原值逐字相同）。
+// 同名常量重复（`lint:consts`）在 paths 迁入 app/src 后首次被扫出，此处按唯一事实源收口。
 const SESSION_FILE = join(CONFIG_DIR, 'session.json');
 
 function resolveApiKeyFromEnv(): string | undefined {

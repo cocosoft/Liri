@@ -6,7 +6,7 @@
 import { readFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { load } from 'js-yaml';
-import { resolvePyappHome } from '@openliri/kernel/paths.js';
+import { resolvePyappHome } from '@modules/environment';
 
 /**
  * Provider 配置

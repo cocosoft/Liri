@@ -7,7 +7,7 @@ import { mkdir, writeFile, readdir, readFile, stat, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import type { CommandContext } from '@modules/commands';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 

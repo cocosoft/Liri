@@ -9,9 +9,10 @@
 
 ## §0 规则（**强制**）
 
-1. **新增入口必须登记**：任何引入"启动对话轮"（`coreAPI.chatStream(` / `coreAPI.chat(` / 窄端口 `core.chat(`）或"取得执行所有权"（`executionManager.acquire(`）的**新文件**，必须在 `execution-entrypoints.json` 登记 —— 否则 `lint:entrypoints` **CI 阻断**。
+1. **新增入口必须登记**：任何引入"启动对话轮"（`coreAPI.chatStream(` / `coreAPI.chat(` / 窄端口 `core.chat(`）、"取得执行所有权"（`executionManager.acquire(`）或"**子代理直接执行工具**"（`private async executeToolCall(`）的**新文件**，必须在 `execution-entrypoints.json` 登记 —— 否则 `lint:entrypoints` **CI 阻断**。
 2. **登记须与实际一致**：已登记文件若**不再命中**其声明模式（入口被删/改名/搬移）⇒ 同样阻断（防登记漂移）。
 3. **五项契约必须显式声明**：执行身份 / 取消传播 / 写前记账 / 权限校验 / 恢复语义 —— **不得留空**（无则写 `none` 并说明）。
+4. **`ledger` 必填且自洽**（P5-2，2026-10-28）：每条登记必须写 `attached | gated | missing | not-applicable`；声明 `attached`/`gated` 却未登记 `execution.acquire`（或反之）⇒ 阻断。
 
 ---
 
@@ -49,9 +50,10 @@
 
 ## §3 变更触发（何时必须复查本文件）
 
-- **新增**任一"启动对话轮 / 取得执行所有权"的调用点 ⇒ 必须同批更新 `execution-entrypoints.json`（否则门禁阻断）；
+- **新增**任一"启动对话轮 / 取得执行所有权 / 子代理执行工具"的调用点 ⇒ 必须同批更新 `execution-entrypoints.json`（否则门禁阻断）；
 - 修改 `CLIENT_STREAM_EXECUTION` / `EXECUTION_TWO_PHASE_CANCEL` 默认值 ⇒ 复查本表 HTTP 行；
-- 修改 `ExecutionManager.acquire` 语义 ⇒ 复查本表所有行 + `INV-EXEC-001/002`。
+- 修改 `ExecutionManager.acquire` 语义 ⇒ 复查本表所有行 + `INV-EXEC-001/002`；
+- 修改任一入口的记账行为（`beginToolCall` 接入 / 移除）⇒ 同批改 `ledger`（门禁校验其与 `execution.acquire` 自洽）。
 
 ---
 
@@ -60,5 +62,5 @@
 | 关联 | 说明 |
 |---|---|
 | `INV-EXEC-006`（执行入口契约一致） | 本表即该不变量的**证据面**；`status=gap` 的入口即其 `partial` 的成因 |
-| `scripts/lint-entrypoints.ts` | 双向校验（扫描命中 ⇄ 登记）；接入 `bun run ci` + `.github/workflows/doc-gate.yml` |
+| `scripts/lint-entrypoints.ts` | 双向校验（扫描命中 ⇄ 登记）+ **`ledger` 记账契约自洽**（P5-2）；接入 `bun run ci` + `.github/workflows/doc-gate.yml` |
 | `scripts/lint-invariants.ts` | 校验 `INV-EXEC-006` 的源码/测试落点可解析 |

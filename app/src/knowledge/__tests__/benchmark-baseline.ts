@@ -38,7 +38,7 @@
 /* eslint-disable no-console */
 import { mkdir, writeFile } from 'fs/promises';
 import { join } from 'path';
-import { resolveDocsDir, resolveProjectRoot } from '@openliri/kernel/paths';
+import { resolveDocsDir, resolveProjectRoot } from '@modules/environment';
 import { FileDocsProvider } from '@modules/docs';
 import type { FileDocEntry } from '@modules/docs';
 import { KnowledgeRouter } from '../KnowledgeRouter';

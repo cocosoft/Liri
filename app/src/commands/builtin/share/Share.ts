@@ -7,7 +7,7 @@
 
 import { writeFileSync } from 'fs';
 import { join } from 'path';
-import { resolveDataDir } from '@openliri/kernel';
+import { resolveDataDir } from '@modules/environment';
 import type { CommandContext } from '@modules/commands';
 
 import { getLogger } from '@modules/monitoring';

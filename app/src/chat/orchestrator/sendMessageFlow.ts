@@ -76,7 +76,7 @@ import {
 
 import { calculateTotalCost } from '@modules/cost';
 import { compactionOrchestrator } from '@modules/context';
-import { resolveOutputDir } from '@openliri/kernel/paths';
+import { resolveOutputDir } from '@modules/environment';
 import { agentTelemetry } from '@modules/agent';
 import type { ToolAwareClient } from '@modules/ai';
 import type { ChatMessage, ToolDefinition, ParsedToolCall } from '@modules/ai';

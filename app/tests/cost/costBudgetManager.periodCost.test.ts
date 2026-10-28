@@ -17,7 +17,7 @@ import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { setUserDataDirOverride } from '@openliri/kernel/paths';
+import { setUserDataDirOverride } from '@modules/environment';
 import { CostRecordRepository } from '../../src/cost/CostRecordRepository';
 import { costBudgetManager } from '../../src/cost/CostBudgetManager';
 import { costTracker } from '../../src/cost/CostTracker';

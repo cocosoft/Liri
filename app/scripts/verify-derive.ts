@@ -17,7 +17,7 @@ if (!sid) {
 
 // 与 EventLogStorage 相同的会话目录解析（default worktree）
 const env: NodeJS.ProcessEnv = { PYAPP_PROJECT_DIR: '' };
-const { resolveSessionsDir } = await import('@openliri/kernel/paths');
+const { resolveSessionsDir } = await import('@modules/environment');
 const sessionsRoot = path.dirname(resolveSessionsDir(env));
 const filePath = path.join(sessionsRoot, 'default', sid, 'events.jsonl');
 if (!fs.existsSync(filePath)) {

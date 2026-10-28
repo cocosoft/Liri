@@ -19,7 +19,7 @@ import {
   mkdirSync,
 } from 'fs';
 import { handleError } from '@modules/error';
-import { resolveTempDir } from '@openliri/kernel/paths';
+import { resolveTempDir } from '@modules/environment';
 import { videoProcessor } from '../../../media/video/VideoProcessor';
 import { MAX_HTTP_BODY_BYTES } from './handler-utils';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';

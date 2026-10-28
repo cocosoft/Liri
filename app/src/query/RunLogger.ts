@@ -31,7 +31,7 @@ import { appendFile, mkdir } from 'node:fs/promises';
 // C1（2026-10-09）：run id 熵源改用 crypto
 import { randomIdSuffix } from '../utils/common';
 import { join } from 'node:path';
-import { resolveDataDir } from '@openliri/kernel/paths';
+import { resolveDataDir } from '@modules/environment';
 
 /** 停止原因类型 */
 type StopReason = 'completed' | 'aborted' | 'error' | 'timeout' | 'max_turns';

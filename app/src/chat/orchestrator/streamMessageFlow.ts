@@ -110,7 +110,7 @@ import { buildBackgroundCompactionNotice } from './streamMessageBackgroundCompac
 import { guardFinalOutput } from '../finalOutputGuard.js';
 // B5-2㊸/㊹ 合一：THINKING_BATCH_SIZE / THINKING_BATCH_MS 唯一真源在 ../streamingLlm.js（chat 域 thinking 事件防抖参数），本处直接引用
 import { THINKING_BATCH_SIZE, THINKING_BATCH_MS } from '../streamingLlm.js';
-import { getOutputGuardRegistry, runOutputGuards } from '@openliri/kernel';
+import { getOutputGuardRegistry, runOutputGuards } from '@modules/security';
 // PC-1（2026-10-07）：护栏命中 ⇒ 下发前端（消息级"已打码/已阻断"标注，不再静默改写）
 import {
   appendOutputGuardAudit,

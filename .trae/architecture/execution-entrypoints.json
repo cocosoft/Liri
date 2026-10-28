@@ -1,12 +1,18 @@
 {
-  "$comment": "执行入口注册表（机器可读；人读版见同目录 execution-entrypoints.md）。门禁 scripts/lint-entrypoints.ts 扫描 app/src 中的『启动对话轮 / 取得执行所有权』调用点，要求**每一处**都在 entries 中登记 ⇒ 新增入口而漏登记即 CI 阻断。",
-  "version": 1,
-  "updatedAt": "2026-10-10",
+  "$comment": "执行入口注册表（机器可读；人读版见同目录 execution-entrypoints.md）。门禁 scripts/lint-entrypoints.ts 扫描 app/src 中的『启动对话轮 / 取得执行所有权 / 子代理执行工具』调用点，要求**每一处**都在 entries 中登记，且每条都声明 ledger（记账契约）⇒ 新增入口而漏登记/漏声明即 CI 阻断。",
+  "version": 2,
+  "updatedAt": "2026-10-28",
   "statusMeaning": {
     "verified": "五项契约（执行身份/取消/记账/权限/恢复）均已具备并被测试覆盖",
     "partial": "部分具备（如灰度门控 / 缺取消传播）",
     "gap": "未接入（无执行身份/记账/恢复）",
     "not-applicable": "非 agent 轮（单次结构化生成，不调用工具、无副作用链）"
+  },
+  "ledgerMeaning": {
+    "attached": "工具调用有 executionId 前置记账（ExecutionManager.beginToolCall，落盘失败即拒绝执行）",
+    "gated": "同上，但受灰度开关门控（默认关 ⇒ 关时零行为变更、也不记账）",
+    "missing": "未接：工具调用无 executionId ⇒ 崩溃后无法判定副作用是否发生（恢复侧只能按 manual 处理）",
+    "not-applicable": "不调用工具 ⇒ 无记账需求"
   },
   "patterns": [
     {
@@ -28,6 +34,11 @@
       "id": "delegation.chat",
       "regex": "\\bcore\\.chat\\(",
       "description": "经窄端口启动一次对话轮（A2A 委派）"
+    },
+    {
+      "id": "subagent.toolExecute",
+      "regex": "private async executeToolCall\\(",
+      "description": "子代理直接执行工具（SubAgentEngine，不经 ChatManager.executeTool）"
     }
   ],
   "entries": [
@@ -36,6 +47,7 @@
       "patterns": ["coreapi.chatstream", "execution.acquire"],
       "label": "渠道 Router（入站消息 → 对话轮）",
       "status": "verified",
+      "ledger": "attached",
       "notes": "唯一入口处 acquire（含 QUEUED 有界等待）；AbortSignal 端到端贯通；executionId 下传 ⇒ ChatManager 写前记账 fail-closed。"
     },
     {
@@ -43,13 +55,15 @@
       "patterns": ["coreapi.chatstream", "coreapi.chat", "execution.acquire"],
       "label": "HTTP API（流式 handleStreamingChat / 非流式 handleNormalChat）",
       "status": "partial",
-      "notes": "**流式**：P0-2 接入（灰度 CLIENT_STREAM_EXECUTION，默认关）——acquire + 注入 executionId + 三处结算；**未接取消信号**。**非流式**：未接入（gap）。"
+      "ledger": "gated",
+      "notes": "**流式**：P0-2 接入（灰度 CLIENT_STREAM_EXECUTION，默认关）——acquire + 注入 executionId + 三处结算；**未接取消信号**（断开走 FAILED: client_disconnected，非 requestCancel/confirmCancel）。**非流式**（handleNormalChat）：未接入（gap）——无 executionId ⇒ 不记账；接入需走 default-off-switches-review-gates §2.3 复评（新灰度开关 + handler 级用例）。"
     },
     {
       "file": "app/src/infrastructure/http/handlers/workspaces-handlers.ts",
       "patterns": ["coreapi.chat"],
       "label": "工作区任务分解（单次结构化生成）",
       "status": "not-applicable",
+      "ledger": "not-applicable",
       "notes": "单次 LLM 调用产出任务树 JSON；不建会话、不调用工具 ⇒ 无执行身份/记账/恢复需求。"
     },
     {
@@ -57,7 +71,16 @@
       "patterns": ["delegation.chat"],
       "label": "A2A 委派（外部智能体 → 本地对话轮）",
       "status": "gap",
+      "ledger": "missing",
       "notes": "每次委派新建独立会话并跑一次非流式对话轮（走模型路由/工具/权限/成本）；**无 executionId**、不参与 ownership/fencing。默认关（A2A_ENABLED）。"
+    },
+    {
+      "file": "app/src/tools/AgentTool/SubAgentEngine.ts",
+      "patterns": ["subagent.toolExecute"],
+      "label": "子代理工具执行（SubAgentEngine.executeToolCall）",
+      "status": "gap",
+      "ledger": "missing",
+      "notes": "P5-2 实测（2026-10-28）：`executeToolCall` 直接 `tool.execute(...)`，**绕过** `ChatManager.executeTool` ⇒ 无 executionId、无 `beginToolCall` 前置记账。崩溃后子代理的工具调用无法判定\"副作用是否已发生\"（恢复侧只能人工确认）。运行级状态由 `AgentRunLedger` 记录（run 粒度，非工具调用粒度），不能替代记账。"
     }
   ]
 }

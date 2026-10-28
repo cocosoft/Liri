@@ -24,7 +24,7 @@
  * 记录梦境执行历史，用于判断最短间隔等调度决策。
  */
 
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import type { DreamRecord, DreamCycleRecord, DreamCycleSummary } from './types';

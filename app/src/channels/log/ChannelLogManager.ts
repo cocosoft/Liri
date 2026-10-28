@@ -6,7 +6,7 @@ import fs from 'fs';
 // C1（2026-10-09）：渠道日志 id 熵源改用 crypto
 import { randomIdSuffix } from '../../utils/common';
 import path from 'path';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { handleError } from '@modules/error';
 
 import type { ChannelId, MessageContext } from '../types/IChannel.js';

@@ -6,7 +6,7 @@
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
-import { resolveProjectRoot, resolveDataSubDir } from '@openliri/kernel';
+import { resolveProjectRoot, resolveDataSubDir } from '@modules/environment';
 import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,

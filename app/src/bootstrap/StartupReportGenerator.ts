@@ -3,7 +3,10 @@
  * 对标 CC 61+ checkpoint 报告格式
  * 支持 JSON / Text / Markdown 三种输出格式
  */
-import { type PerformancePhase, type SLORreport } from '@openliri/kernel';
+import type {
+  PerformancePhase,
+  SLORreport,
+} from '../performance/SprintPerformanceChecker.js';
 import { STARTUP_PHASES } from './StartupChainProfiler';
 
 /** 启动报告条目 */

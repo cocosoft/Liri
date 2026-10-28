@@ -17,7 +17,13 @@ on:
       - 'scripts/lint-kernel-purity.ts'
       - 'scripts/kernel-api-surface.ts'
       - 'scripts/kernel-allowed-deps.json'
+      - 'scripts/kernel-io-allowlist.json'
       - 'scripts/codemod-core-imports.ts'
+      # 层门禁（lint:arch）的三个真源：内核是它的**第二扫描根**，改这三份会改变内核的
+      # 子目录可见性（AC-05：`core/<sub>` 登记后才与 `core` 区分开）⇒ 必须触发内核回路。
+      - 'scripts/lint-architecture.ts'
+      - 'scripts/modules-to-layers.json'
+      - 'scripts/layer-exceptions.json'
       # 内核三份基线（purity / deep-path / size）：`.trae/**` 在 ci.yml 里被 paths-ignore，
       # 只改基线不会触发任何测试 ⇒ 这里显式纳入，避免「改了棘轮上限却没人跑门禁」。
       - '.trae/architecture/kernel-*.json'
@@ -32,7 +38,13 @@ on:
       - 'scripts/lint-kernel-purity.ts'
       - 'scripts/kernel-api-surface.ts'
       - 'scripts/kernel-allowed-deps.json'
+      - 'scripts/kernel-io-allowlist.json'
       - 'scripts/codemod-core-imports.ts'
+      # 层门禁（lint:arch）的三个真源：内核是它的**第二扫描根**，改这三份会改变内核的
+      # 子目录可见性（AC-05：`core/<sub>` 登记后才与 `core` 区分开）⇒ 必须触发内核回路。
+      - 'scripts/lint-architecture.ts'
+      - 'scripts/modules-to-layers.json'
+      - 'scripts/layer-exceptions.json'
       - '.trae/architecture/kernel-*.json'
       - '.github/workflows/kernel-ci.yml'
       - 'app/tests/gates/kernelPurityGate.test.ts'
@@ -99,6 +111,12 @@ jobs:
       # 内核纯净度：K01–K04 跨层 / K06 依赖白名单 / K07 深路径棘轮（均可独立于 app 全量执行）
       - name: Kernel purity gate (K01-K07)
         run: bun run scripts/lint-kernel-purity.ts
+
+      # 层门禁（AC-05 / AC-07）：`scripts/lint-architecture.ts` 的 main() 把内核当**第二扫描根**
+      # （`packages/kernel/src`）。此前内核 PR 只跑 K01–K07 ⇒ 跨层与子目录可见性无回归保护。
+      # 直接以仓库根为 cwd 执行，避免 AC-25 禁止的 `VAR=value cmd` 前缀写法。
+      - name: Kernel layer gate (lint:arch · kernel as second scan root)
+        run: bun run scripts/lint-architecture.ts
 
       # 导出面快照：未评审的破坏性 API 变更直接失败
       - name: Kernel API surface snapshot

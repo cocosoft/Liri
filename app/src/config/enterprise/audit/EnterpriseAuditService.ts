@@ -23,7 +23,7 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { getLogger } from '../../../monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
-import { resolveDataDir, resolveScopedLogsDir } from '@openliri/kernel';
+import { resolveDataDir, resolveScopedLogsDir } from '@modules/environment';
 import {
   canAccessOwnerKey,
   currentOwnerKey,

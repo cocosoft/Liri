@@ -26,7 +26,8 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
-import { resolvePyappHome, DEEPSEEK_API_BASE_URL } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
+import { DEEPSEEK_API_BASE_URL } from '@openliri/kernel';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

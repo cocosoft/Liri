@@ -30,7 +30,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { resolveSessionsDir } from '@openliri/kernel';
+import { resolveSessionsDir } from '@modules/environment';
 
 const logger = getLogger('session:gateway');
 

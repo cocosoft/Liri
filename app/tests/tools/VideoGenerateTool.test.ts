@@ -27,7 +27,7 @@ import { RegistryVideoProvider } from '../../src/tools/VideoGenerateTool/provide
 import type { AIProvider } from '@modules/ai';
 import { syncDBProvidersToRegistry } from '../../src/ai/providers/ProviderSyncService';
 // 2026-10-24：原引用 `../../../core/paths`（core 已下沉 packages/kernel）⇒ 改走唯一入口
-import { resolveDbPath } from '@openliri/kernel/paths';
+import { resolveDbPath } from '@modules/environment';
 import { ModelRouter } from '../../src/ai/modelRouter';
 import type { ToolUseContext } from '../../src/tools/types/ToolUseContext.js';
 

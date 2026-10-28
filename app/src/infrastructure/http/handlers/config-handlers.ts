@@ -483,7 +483,7 @@ export async function handleSetDataDirectory(
 
     // 获取当前数据目录
     const { resolvePyappHome, setUserDataDirOverride } =
-      await import('@openliri/kernel/paths');
+      await import('@modules/environment');
     const currentDir = resolvePyappHome();
 
     // 执行数据迁移（两阶段：先复制，成功后再切换）

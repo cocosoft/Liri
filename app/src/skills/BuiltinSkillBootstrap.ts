@@ -36,7 +36,7 @@
 
 import { join } from 'path';
 import { existsSync, readFileSync } from 'fs';
-import { resolveUserSkillsDir } from '@openliri/kernel/paths';
+import { resolveUserSkillsDir } from '@modules/environment';
 import { skillRegistry, skillInjectionService } from './skillSingletons.js';
 import { getSkillHub } from './SkillHub';
 import { loadBuiltinEnabled } from './BuiltinEnabledStore';

@@ -21,7 +21,7 @@ import * as path from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 // HD-P1-3：工作区级 `.liri` 名的唯一事实源（`core/paths.ts`）
-import { WORKSPACE_CONFIG_DIR_NAME } from '@openliri/kernel';
+import { WORKSPACE_CONFIG_DIR_NAME } from '@modules/environment';
 
 const logger = getLogger('RuleEngine');
 

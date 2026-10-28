@@ -1,6 +1,6 @@
 ﻿import * as fs from 'fs';
 import * as path from 'path';
-import { resolveMemoryDir } from '@openliri/kernel';
+import { resolveMemoryDir } from '@modules/environment';
 import { configManager } from '@modules/config';
 
 export function getAutoMemPath(): string {

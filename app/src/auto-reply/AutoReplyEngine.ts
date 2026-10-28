@@ -6,7 +6,7 @@ import {
 } from '@modules/error';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 // C1（2026-10-09）：rule id 熵源改用 crypto
 import { randomIdSuffix } from '../utils/common';
 

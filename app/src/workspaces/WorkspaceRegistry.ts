@@ -27,7 +27,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import type { WorkspaceRegistryData } from './types';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import os from 'os';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -46,7 +46,7 @@ function getRegistryPath(): string {
  */
 export function getDefaultWorkspaceRoot(): string {
   try {
-    const { resolveDataSubDir } = require('@openliri/kernel/paths');
+    const { resolveDataSubDir } = require('@modules/environment');
     return resolveDataSubDir('workspaces');
   } catch {
     return join(os.homedir(), 'workspace');

@@ -10,7 +10,7 @@ import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir, rename, cp } from 'fs/promises';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { SimpleMutex } from '@openliri/kernel';
 
 export interface KnowledgeBaseMeta {

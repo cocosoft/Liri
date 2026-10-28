@@ -41,7 +41,7 @@ import {
   type Stats,
 } from 'node:fs';
 import { extname, isAbsolute, join, relative, resolve } from 'node:path';
-import { resolveDocsDir } from '@openliri/kernel/paths';
+import { resolveDocsDir } from '@modules/environment';
 import { createPathGuard, type PathGuard } from '@modules/query';
 import {
   vfsError,

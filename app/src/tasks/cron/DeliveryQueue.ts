@@ -3,7 +3,7 @@
  * 基于 SQLite 持久化，支持指数退避重试、失败管理、统计查询
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { SafeInterval } from '@modules/utils/SafeInterval';

@@ -17,7 +17,7 @@ import {
   AuditEventType,
   parseAuditFileDate,
 } from '../../src/config/enterprise/audit/EnterpriseAuditService.js';
-import { setUserDataDirOverride } from '@openliri/kernel/paths.js';
+import { setUserDataDirOverride } from '@modules/environment';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 

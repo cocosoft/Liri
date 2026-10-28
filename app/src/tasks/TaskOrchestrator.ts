@@ -33,11 +33,11 @@ import {
 } from 'fs';
 import { taskRegistry } from './TaskRegistry';
 import { configManager } from '@modules/config';
+import { resolveDataSubDir } from '@modules/environment';
 import {
-  resolveDataSubDir,
   parseSuccessCriteria,
   type SuccessCriteria,
-} from '@openliri/kernel';
+} from '@modules/tasks/successCriteria';
 import { NoteTask } from './NoteTask';
 import { TaskStatus } from './types';
 import type { PlanReview } from './PlanReview';

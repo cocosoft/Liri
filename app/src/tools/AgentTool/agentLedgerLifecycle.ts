@@ -119,7 +119,7 @@ export class AgentLedgerLifecycle {
         await Promise.all([
           import('fs/promises'),
           import('path'),
-          import('@openliri/kernel/paths'),
+          import('@modules/environment'),
         ]);
       const dir = resolveOutputDir();
       await mkdir(dir, { recursive: true });

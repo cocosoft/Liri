@@ -7,7 +7,7 @@
 import { getConfig, setConfigValue } from '@modules/config/index.js';
 import { join } from 'path';
 import { readFileSync, existsSync } from 'fs';
-import { resolveDataSubDir, resolveProjectRoot } from '@openliri/kernel';
+import { resolveDataSubDir, resolveProjectRoot } from '@modules/environment';
 // Q-H2（2026-10-13）：默认语言统一走 `constants/common.ts` 唯一真源（原写死 'zh-CN'）
 import { DEFAULT_LOCALE } from '@modules/constants';
 

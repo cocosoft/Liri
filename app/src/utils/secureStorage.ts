@@ -8,7 +8,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { randomBytes } from 'crypto';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import {
   encrypt,
   decrypt,

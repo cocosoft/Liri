@@ -9,7 +9,7 @@
 
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { resolveDataDir } from '@openliri/kernel/paths';
+import { resolveDataDir } from '@modules/environment';
 import { randomUUID } from 'crypto';
 import type { ProjectContextType } from '@modules/workspace/types';
 import { createProjectHistoryStore } from './ProjectHistoryStore';
@@ -25,7 +25,7 @@ import { ProjectItemStore } from '../workspace/ProjectItemStore';
 const logger = getLogger('project:ImplicitEngine');
 
 /** 意图分类（架构归一 B1-B6：单一真源 re-export） */
-import { type ImplicitIntent } from '@openliri/kernel';
+import { type ImplicitIntent } from '@modules/tasks/phases';
 export type { ImplicitIntent };
 
 /** 规则匹配结果 */

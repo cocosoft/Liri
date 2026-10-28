@@ -9,7 +9,7 @@ import { promisify } from 'util';
 import { freemem, totalmem, cpus, platform, arch, homedir } from 'os';
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome, resolveProjectRoot } from '@openliri/kernel';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/environment';
 import { configManager } from '@modules/config';
 import { getSystemCpuPercent, getDiskInfo } from '@modules/monitoring';
 import { probeExternalModule } from '@modules/utils/externalDeps';

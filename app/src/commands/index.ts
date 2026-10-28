@@ -27,6 +27,7 @@ export type {
   CommandContext,
   CommandResult,
   CommandLoader,
+  CommandSource,
   CommandType,
   CommandImplementation,
   CommandLoadStatus,

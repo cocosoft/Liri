@@ -13,7 +13,7 @@ import {
   TerminalSession,
 } from '../ui/TerminalUIIntegration.js';
 import { RealtimeTerminalOutput } from '../ui/RealtimeTerminalOutput.js';
-import { resolveSessionsDir } from '@openliri/kernel';
+import { resolveSessionsDir } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ui:remoteSession');
 
@@ -358,7 +358,7 @@ export class RemoteSessionManagerUI {
     try {
       const fs = require('fs');
       const path = require('path');
-      const { resolveDataDir } = require('@openliri/kernel/paths');
+      const { resolveDataDir } = require('@modules/environment');
       const historyPath =
         this.config.historyFilePath ||
         path.join(resolveDataDir(), 'session_history.json');

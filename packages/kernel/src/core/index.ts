@@ -23,12 +23,13 @@
  * 核心模块统一入口
  * 导出所有核心相关的类型、类和函数
  *
- * 注意：paths 必须最先求值——后续导出（monitoring → config 等）
- * 可能在模块顶层访问 configManager/路径函数，若 paths 尚未初始化会触发
- * userDataDirOverride 的 TDZ（循环导入）。
+ * P1（2026-10-28，v3 §6.1 批次 4）：`paths`（含 fs/os 环境探测）整体迁至
+ * `@modules/environment`，内核不再持有目录解析实现。此前「paths 必须最先求值」
+ * 的顺序约束随之消失；内核仍保留其**零依赖叶子** `productIdentity`
+ * （`ports` / `featureFlags` 与本文件都要用），并由本桶转出以维持既有导入面。
  */
 
-export * from './paths';
+export * from './productIdentity';
 // `core/ids`（ID 熵源 + UUID 形态判定真源）：归属 core 供**各层**使用（`core → infra` 属分层倒挂）
 export * from './ids';
 // P2（2026-10-23）：按需加载器注册表 —— 宿主推送清单，内核只持机制（内核不再 import 上层）
@@ -48,7 +49,6 @@ export * from './protocol/websocket';
 //   门禁 `parseModuleImports` 的两条正则**都不剥离注释**，照抄一条 import 语句会让该依赖
 //   在门禁眼里"复活"（2026-09-30 实测踩中：本行原写作 `export * from '<包名>'` 的形式，
 //   导致该对边在删除后再现，靠探针才定位到）。要提及包名时只写包名本身即可。
-export * from './seedSync';
 export type {
   ProtocolMessage,
   ToolCall,
@@ -87,12 +87,7 @@ export type { BootstrapOptions } from './di/types';
 // J-7 清理：旧版 PluginSDK 双轨已删除（@deprecated 由 pluginSystem 统一替代），re-export 一并移除
 // G1 收口（台账 D-59）：`Plugin` 的再导出亦移除——core 不得转出 app 层 plugin-sdk 类型（消费方直连 @modules/plugin-sdk，
 //   且 plugin-sdk 自身有「零反向引用」红线，故不能反向下沉到 core）
-export {
-  Coordinator,
-  coordinator,
-  type CoordinatorConfig,
-  type CoordinatorTask,
-} from './Coordinator';
+// P2（2026-10-28，v3 §6.1）：`Coordinator`（多 Agent 并行编排，Q3 任务语义）迁 `@modules/runtime/coordinator`。
 // G1 收口（台账 D-59）：移除 core → app(context) 的 ContextData 再导出（无消费方，消费方直连 @modules/context/types/ContextData）
 // G1 收口（台账 D-77 / A5）：同批移除 `AuthManager` / `AuthConfig` 的 core → system 再导出（零消费，
 //   与上方 `system/state` 同属 `(core/index.ts × system)` 这一对 —— 同对语句须一次搬净）。
@@ -116,15 +111,15 @@ export {
 // 2026-08-29 R03-002 收敛：子模块统一出口
 export * from './data-models';
 export * from './ports';
-// 13-P0-2（2026-10-05）：验收标准结构化契约（纯模块，无出向依赖 ⇒ 放 core 供 tasks/query 共用）
-export * from './successCriteria';
+// P2（2026-10-28，v3 §6.1）：验收标准（`successCriteria`，Q3 任务语义）迁 `@modules/tasks/successCriteria`。
 export type { HealthStatus } from './health';
 export { HEALTH_SEVERITY, isAcceptable, mergeHealthStatuses } from './health';
-export * from './performance';
+// P1（2026-10-28）：`performance/SprintPerformanceChecker`（fs 读数）迁 `@modules/performance`。
 export { getBuildVariant } from './featureFlags';
 
-// ==================== 交付模块（从 delivery/ 迁移） ====================
-export * from './delivery/index';
+// ==================== 交付模块 ====================
+// P1（2026-10-28，v3 方案 §6.1）：`delivery/**` 含 fs / fs/promises / child_process ⇒
+// 整体迁出内核到 `@modules/runtimeHost`（infra · zone: runtime-host）。此处不再转出。
 
 // ==================== 并发工具 ====================
 export { SimpleMutex } from './SimpleMutex';
@@ -149,41 +144,12 @@ export {
   resolveBroadcast,
 } from './spi';
 
-// 2026-10-01 D-144：patterns 出口（供 tasks 层的 PlanDrivenLoop 消费，
-// 避免 `@modules/core/patterns/index.js` 子目录直连触发 R03-002）
-// T-①04 T1-3（A 解析层）：补出装配契约符号（`PATTERN_PROVIDERS` / `PatternProvider` /
-// `PatternAssembly`）——装配解析层（app 层）据此断言"闭集无悬空"，仍走本 barrel 出口。
-export {
-  selectPattern,
-  resolvePattern,
-  isPatternReachable,
-  patternUnreachableReason,
-  patternFeatureFlag,
-  PATTERN_SELECTION_RULES,
-  PATTERN_PROVIDERS,
-  PATTERN_DESCRIPTORS,
-  getPatternDescriptor,
-  listPatterns,
-  validatePatterns,
-} from './patterns';
-export type {
-  PatternProvider,
-  PatternAssemblerId,
-  PatternAssembly,
-  PatternRecipe,
-  PatternSelection,
-  PatternDescriptor,
-  PatternSelectionRule,
-} from './patterns';
+// P2（2026-10-28，v3 §6.1）：`patterns/**`（任务模式语义，Q3）迁 `@modules/query/patterns`。
+// 装配解析层（app/query/patternAssembler）改为同模块相对引用，不再经内核 barrel。
 
-// 13-P2-1（2026-10-05）：输出侧护栏统一契约 + 注册表（core 层；具体护栏在 app 层注册）
-export {
-  OutputGuardRegistry,
-  getOutputGuardRegistry,
-  resetOutputGuardRegistryForTest,
-  runOutputGuards,
-  runRegisteredOutputGuards,
-} from './outputGuard';
+// 13-P2-1（2026-10-05）：输出侧护栏统一契约（core 层；具体护栏在 app 层注册）
+// P2（2026-10-28，v3 §6.1）：注册表实现（排序 / fail-closed 聚合策略）迁 `@modules/security/outputGuardRegistry`，
+// 内核只保留类型契约，避免「策略实现藏在 core」。
 export type {
   OutputGuard,
   OutputGuardAction,
@@ -209,45 +175,14 @@ export { LazyModuleLoader } from './utils/LazyModuleLoader';
 // 2026-08-30 R03-002 收敛：sleep / exit 统一出口
 export { sleepMonitor, SLEEP_EVENTS } from './sleep/SleepMonitor';
 export type { SleepInfo, TickResult } from './sleep/SleepMonitor';
-export {
-  installExitRecorder,
-  logStartupContext,
-  readLastExit,
-  recordAbnormalExit,
-  recordExit,
-  isAbnormalExit,
-} from './exit/ExitRecorder';
-export type {
-  ExitReason,
-  ExitRecord,
-  AbnormalExitRecord,
-} from './exit/ExitRecorder';
+// P1（2026-10-28）：`exit/ExitRecorder`（fs）迁 `@modules/runtimeHost`，内核不再转出；
+// `abortReason` 契约仍留在 core（`@openliri/kernel/abortReason`）。
 
-// 2026-09-24 R03-002 收敛：phases / topoBatches / estop 统一出口
-export {
-  toPdcaPhase,
-  pdcaCheckpointStatus,
-  PDCA_TO_WORKITEM,
-  PDCA_TERMINAL_PHASES,
-} from './phases/PhaseVocabulary';
-export type {
-  PdcaIntent,
-  ImplicitIntent,
-  PdcaPhase,
-  WorkItemStatus,
-} from './phases/PhaseVocabulary';
+// P2（2026-10-28，v3 §6.1）：`phases/PhaseVocabulary`（PDCA 阶段词汇，Q3 任务语义）迁 `@modules/tasks/phases`。
 // 2026-10-01 D-144：`scheduleTopoBatches` / `TopoBatchTask` 已移至 `@modules/tasks`
 // （原 core → app 倒挂；consumer 见 `ai/router/OrchEngine.ts`）
 // P0-1（2026-09-24，基础期）：运行时系统图内核（图结构 + 只读投影）
 // 设计见 .trae/specs/graph-engineering-p0.md（零侵入：本期无生产调用点）
 export * from './systemgraph/SystemGraph';
 export * from './systemgraph/types';
-export {
-  estopSentinelPath,
-  isEstopEngaged,
-  engageEstop,
-  disengageEstop,
-  getEstopState,
-  checkEstop,
-} from './estop/estop';
-export type { EstopState } from './estop/estop';
+// P1（2026-10-28）：`estop/estop`（fs 落盘）迁 `@modules/runtimeHost`，内核不再转出。

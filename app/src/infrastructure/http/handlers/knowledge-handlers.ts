@@ -1411,7 +1411,7 @@ export async function handleExportToNotebook(
 
     const { readFile, writeFile, mkdir } = await import('fs/promises');
     const { join } = await import('path');
-    const { resolveOutputDir } = await import('@openliri/kernel/paths');
+    const { resolveOutputDir } = await import('@modules/environment');
 
     const kops = await getCoreAPI().getKnowledgeOpsPort();
     const sourcePath = join(await kops.getDefaultKnowledgeRoot(), docPath);

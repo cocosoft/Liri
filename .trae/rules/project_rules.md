@@ -87,7 +87,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 **本地身份（桌面 / CLI / 后台）**：所有模块共用唯一 `app.db`，通过 `resolveDbPath()` 获取。
 
 ```typescript
-import { resolveDbPath } from '@openliri/kernel/paths';
+import { resolveDbPath } from '@modules/environment';
 constructor(dbPath: string = resolveDbPath()) { this.dbPath = dbPath; }
 ```
 
@@ -96,7 +96,7 @@ constructor(dbPath: string = resolveDbPath()) { this.dbPath = dbPath; }
 **每条读都必须带 `owner_key` 过滤**（漏一处即租户内跨用户越权），并配「漏过滤」门禁。
 
 ```typescript
-import { resolveTenantDbPath } from '@openliri/kernel/paths';
+import { resolveTenantDbPath } from '@modules/environment';
 constructor(dbPath: string = resolveTenantDbPath()) { this.dbPath = dbPath; }
 ```
 
@@ -273,10 +273,10 @@ try { nonCriticalOp(); } catch { /* @ignore-catch 缺注释 */ }
 
 ### 1.13 路径与依赖管理规范
 
-**路径注册表唯一入口**：`core/paths.ts`，所有路径通过 `@openliri/kernel/paths` 获取。❌ 禁止 `@modules/config/paths`（已删除）、`path.join(homedir(), '.pyapp')`、`process.cwd()` 拼路径、`join(resolveDataDir(), 'xxx')` 绕过已有函数、在 constants.ts 中自建路径常量。
+**路径注册表唯一入口**：`environment/paths.ts`，所有路径通过 `@modules/environment` 获取。❌ 禁止 `@modules/config/paths`（已删除）、`path.join(homedir(), '.pyapp')`、`process.cwd()` 拼路径、`join(resolveDataDir(), 'xxx')` 绕过已有函数、在 constants.ts 中自建路径常量。
 
 ```typescript
-import { resolveOutputDir, resolveDbPath } from '@openliri/kernel/paths';  // ✅
+import { resolveOutputDir, resolveDbPath } from '@modules/environment';  // ✅
 ```
 
 **三层路径**：
@@ -292,7 +292,7 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/kernel/paths';  // �
 
 **环境变量语义**（⚠️ 2026-09-11 O11 修正：此处原写作 `PYAPP_*`，与代码不符，按文档配置会**静默失效**）：`LIRI_PROJECT_DIR`（项目根目录）、`LIRI_DATA_DIR`（第二层）、`LIRI_HOME`（第三层），均由 `pyapp.ts` 设置。代码常量定义见 [paths.ts](file:///E:/PY/CODES/PY_APP/packages/kernel/src/core/paths.ts)（`ENV_LIRI_PROJECT_DIR` / `ENV_LIRI_DATA_DIR` / `ENV_LIRI_HOME`）。
 
-**目录变更步骤**：①搜索 `backend/` 等旧路径 ②更新 `core/paths.ts` ③更新健康检查/监控引用 ④更新文档/Docker/`.gitignore` ⑤`bun run typecheck` ⑥验证健康报告
+**目录变更步骤**：①搜索 `backend/` 等旧路径 ②更新 `environment/paths.ts` ③更新健康检查/监控引用 ④更新文档/Docker/`.gitignore` ⑤`bun run typecheck` ⑥验证健康报告
 
 **红线（一票否决）**：❌ `join(homedir(), '.pyapp')` ❌ `process.cwd()` 拼路径 ❌ 硬编码相对路径 ❌ 自建 fallback ❌ 新建 `.db` 文件 ❌ 表名冲突
 
@@ -379,6 +379,6 @@ import { resolveOutputDir, resolveDbPath } from '@openliri/kernel/paths';  // �
 - **v7.10.0**: §1.9 错误处理强化（handleError 统一入口、@ignore-catch、全局兜底）；§1.14 通道规范（双轨制收敛、注册/路由/事件总线/上限/废弃标记）；§1.6 Write-Ahead Persistence 规范；§1.15 技能系统规范（来源归一化：BundledSkillLoader/用户/第三方 vendor 三源隔离，verify 降级工具函数）
 - **v7.9.0**: §1.5 模型数据一致性规范（数出同源）
 - **v7.8.0**: §1.5 第二层数据目录移至 `~/.pyapp/data/`
-- **v7.7.0**: §1.13 路径注册表迁移至 `core/paths.ts`，全项目统一 `@modules/core/paths`（原文存证；该别名已于 2026-10-23 更名 `@openliri/kernel`）
+- **v7.7.0**: §1.13 路径注册表迁移至 `environment/paths.ts`，全项目统一 `@modules/core/paths`（原文存证；该别名已于 2026-10-23 更名 `@openliri/kernel`）
 - **v7.6.0**: §1.6.1 前后端接口清单（api-spec.md）
 - **v7.5.0-v4.x**: 数据库约定、Logger 唯一入口、规则文件拆分、MCP/通道/安全/测试规范

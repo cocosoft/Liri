@@ -13,7 +13,7 @@
  * ⚠️ 本机为 Windows ⇒ **真实 Linux 上的 enforce 行为未验证**；用例覆盖的是判据、形状与分支。
  */
 import { describe, expect, it } from 'bun:test';
-import { resolveOutputDir } from '@openliri/kernel/paths';
+import { resolveOutputDir } from '@modules/environment';
 import {
   buildBashLandlockPolicy,
   decideBashLandlockGate,

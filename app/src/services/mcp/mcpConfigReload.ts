@@ -38,7 +38,7 @@ import {
 } from './EnhancedMCPConfigManager';
 import { ConfigReloader } from '@modules/config';
 import type { ConfigReloadTarget } from '@modules/config';
-import { resolvePyappHome, resolveProjectRoot } from '@openliri/kernel/paths';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/environment';
 
 /** 匹配 MCP 三层配置文件（Windows/Unix 路径分隔符兼容） */
 const MCP_CONFIG_PATTERNS: RegExp[] = [/[\\/]mcp\.json$/, /[\\/]\.mcp\.json$/];

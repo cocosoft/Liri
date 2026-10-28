@@ -15,12 +15,12 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { Database } from '@openliri/kernel/external/sqlite3.js';
+import { Database } from '@modules/external';
 import {
   setUserDataDirOverride,
   resolveDataDir,
   resolveDbPath,
-} from '@openliri/kernel/paths.js';
+} from '@modules/environment';
 import { purgeTenant } from '../../src/runtime/tenantPurge.js';
 import { CronJobStore } from '../../src/tasks/cron/CronJobStore.js';
 import { SqliteTaskStore } from '../../src/tasks/db/SqliteTaskStore.js';

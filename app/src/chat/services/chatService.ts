@@ -22,7 +22,7 @@ import {
 import { AIModelType } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 
 const logger = getLogger('chat:services:chatService');
 

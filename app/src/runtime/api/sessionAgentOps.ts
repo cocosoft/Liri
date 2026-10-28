@@ -35,8 +35,8 @@ import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import {
   canAccessSession,
   type SessionOwner,
-} from '@openliri/kernel/identity/sessionOwnership.js';
-import type { Coordinator } from '@openliri/kernel';
+} from '@modules/security/identity';
+import type { Coordinator } from '@modules/runtime/coordinator';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import type { ChatManager } from '@modules/chat';

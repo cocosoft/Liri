@@ -10,7 +10,8 @@ import type http from 'http';
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { randomUUID } from 'crypto';
-import { resolveDataDir, LOCAL_SERVICE_HOST } from '@openliri/kernel';
+import { resolveDataDir } from '@modules/environment';
+import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 // C1（D-117）：构件存储 / 上下文服务 / 引擎钩子 的导入已移除（改经服务层端口，见下方 C1 注释块）
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';

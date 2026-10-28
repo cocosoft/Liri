@@ -19,7 +19,7 @@ import {
   SkillConditionMatcher,
   type ConditionContext,
 } from '../SkillConditionMatcher';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 
 /** 辅助：找数组最后一个满足条件的元素索引 */
 function findLastIndex<T>(arr: T[], predicate: (item: T) => boolean): number {

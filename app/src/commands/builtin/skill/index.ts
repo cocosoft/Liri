@@ -33,7 +33,7 @@ import {
   BundledSkillLoader,
   collectSkillsFromProviders,
 } from '@modules/skills';
-import { resolveUserSkillsDir, resolveDataDir } from '@openliri/kernel';
+import { resolveUserSkillsDir, resolveDataDir } from '@modules/environment';
 
 /** 加载所有技能到注册表（统一经 SkillProvider 契约聚合，顺序语义与原 loaders 数组一致） */
 async function loadAllSkills(): Promise<SkillRegistry> {

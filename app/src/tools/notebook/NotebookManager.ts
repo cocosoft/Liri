@@ -23,7 +23,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 const logger = getLogger('tools:notebook');

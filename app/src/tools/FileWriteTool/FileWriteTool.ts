@@ -7,11 +7,8 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  resolveOutputDir,
-  resolveInboundDir,
-  runRegisteredOutputGuards,
-} from '@openliri/kernel';
+import { resolveOutputDir, resolveInboundDir } from '@modules/environment';
+import { runRegisteredOutputGuards } from '@modules/security/outputGuardRegistry';
 import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
 import { resolveIsolatedFileTarget } from '../utils/isolatedFileIo';
 import type { FileOperationResult } from '../types/ToolResult';

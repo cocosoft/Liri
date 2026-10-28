@@ -11,7 +11,7 @@ import { FileSkillLoader } from '../loaders/sources/FileSkillLoader';
 import { BundledSkillLoader } from '../loaders/sources/BundledSkillLoader';
 import { PluginSkillLoader } from '../loaders/sources/PluginSkillLoader';
 import { MCPSkillLoader } from '../loaders/sources/MCPSkillLoader';
-import { resolveUserSkillsDir, resolveDataDir } from '@openliri/kernel/paths';
+import { resolveUserSkillsDir, resolveDataDir } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

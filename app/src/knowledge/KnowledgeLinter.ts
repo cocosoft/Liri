@@ -14,7 +14,7 @@ import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import type { AIService } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 
 const logger = getLogger('knowledge:knowledgeLinter');
 

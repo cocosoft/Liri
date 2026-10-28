@@ -12,9 +12,9 @@ description: 文件路径使用规范与统一路径管理规则，适用于所�
 
 ## §1 核心原则
 
-**所有文件路径操作必须通过 `core/paths.ts` 获取，禁止绕过。**
+**所有文件路径操作必须通过 `environment/paths.ts` 获取，禁止绕过。**
 
-`core/paths.ts` 是统一的路径管理中心，提供 36+ 个 `resolve*` 导出函数，覆盖以下三层架构：
+`environment/paths.ts` 是统一的路径管理中心，提供 36+ 个 `resolve*` 导出函数，覆盖以下三层架构：
 
 | 层级 | 目录 | Git 跟踪 | 用途 | 根函数 | 典型数据 |
 |------|------|----------|------|--------|---------|
@@ -54,10 +54,10 @@ description: 文件路径使用规范与统一路径管理规则，适用于所�
 |---|--------|---------|
 | R1 | `__dirname`（编译 exe 后指向临时目录） | 用 `resolve*` 函数 |
 | R2 | `process.cwd()` 做持久化 | 用 `resolve*` 函数 |
-| R3 | 在 `core/paths.ts` 外自建路径解析逻辑 | 收敛到 `core/paths.ts` |
+| R3 | 在 `environment/paths.ts` 外自建路径解析逻辑 | 收敛到 `environment/paths.ts` |
 | R4 | 在 `pyapp.ts` 外自行解析根目录 | 由 `pyapp.ts` 统一处理 |
 | R5 | 硬编码路径字符串（含 `./` 或绝对路径） | 用 `resolve*` 函数 |
-| R6 | 新模块自己实现路径函数 | 必须用 `core/paths.ts` |
+| R6 | 新模块自己实现路径函数 | 必须用 `environment/paths.ts` |
 | **R7** | **L2/L3 数据混放** | 严格区分项目数据 vs 用户数据 |
 
 > **R7 是最重要的规则**。`process.cwd()` 仅在「获取用户当前工作目录」场景下允许（如 Bash/CD 等工具操作的目标目录），**禁止用于持久化**。
@@ -86,9 +86,9 @@ description: 文件路径使用规范与统一路径管理规则，适用于所�
 
 ## §5 新增路径流程 & 参考
 
-**流程**：确定层级 → 在 `core/paths.ts` 新增导出函数 → 若是目录则加入 `ensureDataDirectories()` 创建列表 → `bun run typecheck`
+**流程**：确定层级 → 在 `environment/paths.ts` 新增导出函数 → 若是目录则加入 `ensureDataDirectories()` 创建列表 → `bun run typecheck`
 
 **参考文档**：
-- [core/paths.ts](file:///e:/PY/CODES/PY_APP/packages/kernel/src/core/paths.ts) — 路径管理中心
+- [environment/paths.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/environment/paths.ts) — 路径管理中心
 - [pyapp.ts](file:///e:/PY/CODES/PY_APP/app/src/pyapp.ts) — 启动引导层
 - [project_rules.md §1.13](file:///e:/PY/CODES/PY_APP/.trae/rules/project_rules.md) — 路径与依赖管理规范

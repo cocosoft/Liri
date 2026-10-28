@@ -2,7 +2,7 @@
   "version": 1,
   "recordedAt": "2026-10-24",
   "root": "packages/kernel/src/core",
-  "note": "C2 内核面 allowlist（按能力域，不按文件）。对象是 packages/kernel/src/core 的顶层条目（文件 / 目录）；子目录内部重构不触发变更，新增顶层子系统必须归域或在 exceptions 登记理由。由 `bun run lint:kernel-surface` 校验。2026-10-24 清理 4 条已不存在条目（门禁 hint 报出）：entries 删 buildVariantFlags.ts（P3 起改宿主注入）、migration（已迁 app/src/system/state/migration）；exceptions 删 media-generation（已迁 app/src/ai）、persona（已迁 app/src/agent）。",
+  "note": "C2 内核面 allowlist（按能力域，不按文件）。对象是 packages/kernel/src/core 的顶层条目（文件 / 目录）；子目录内部重构不触发变更，新增顶层子系统必须归域或在 exceptions 登记理由。由 `bun run lint:kernel-surface` 校验。2026-10-24 清理 4 条已不存在条目（门禁 hint 报出）：entries 删 buildVariantFlags.ts（P3 起改宿主注入）、migration（已迁 app/src/system/state/migration）；exceptions 删 media-generation（已迁 app/src/ai）、persona（已迁 app/src/agent）。 2026-10-28（P1 内核去 I/O）：已清理 10 个不存在条目（delivery/estop/exit/external/idle/instanceLock.ts/mediaRoots.ts/paths.ts/performance/seedSync.ts），它们已迁出内核到 @modules/runtimeHost · @modules/external · @modules/performance · @modules/environment。 2026-10-28（P2 内核去策略）：清理 4 个不存在条目（Coordinator.ts / patterns / phases / successCriteria.ts），已迁 @modules/runtime/coordinator · @modules/query/patterns · @modules/tasks/phases · @modules/tasks/successCriteria。",
   "domains": {
     "state-events": "状态与事件存储：事件总线、数据契约、缓存/连接/迁移/健康等状态注册表",
     "security-permission": "安全与权限：审批、输出护栏、沙箱权限、急停",
@@ -12,65 +12,270 @@
     "base-utils": "基础工具：paths/ids/错误/日志与追踪门面、通用原语、协议常量"
   },
   "entries": [
-    { "id": "abortReason.ts", "kind": "file", "domain": "base-utils", "note": "「预期中断」判据的单一事实源，零依赖叶子" },
-    { "id": "AppCoreConfig.ts", "kind": "file", "domain": "ports-assembly", "note": "AppCore 装配所需的配置类型" },
-    { "id": "Coordinator.ts", "kind": "file", "domain": "execution-loop", "note": "多 Agent 任务并行处理与结果汇总" },
-    { "id": "data-models.ts", "kind": "file", "domain": "state-events", "note": "Message / Session / AuditEvent 统一数据契约" },
-    { "id": "deprecationNotice.ts", "kind": "file", "domain": "base-utils", "note": "观察期废弃告警门面（warnDeprecatedCoreModule），零依赖叶子" },
-    { "id": "DIContainer.ts", "kind": "file", "domain": "ports-assembly", "note": "DI 容器向后兼容重导出入口（实现在 core/di）" },
-    { "id": "DependencyRegistry.ts", "kind": "file", "domain": "ports-assembly", "note": "声明式依赖注册表" },
-    { "id": "endpoints.ts", "kind": "file", "domain": "ports-assembly", "note": "本机端点与回环 host 的唯一事实源" },
-    { "id": "errorCodes.ts", "kind": "file", "domain": "base-utils", "note": "标准错误码表（纯数据、零依赖）" },
-    { "id": "errorHandler.ts", "kind": "file", "domain": "base-utils", "note": "统一错误处理入口（core 侧实现）" },
-    { "id": "errors.ts", "kind": "file", "domain": "base-utils", "note": "错误基座与错误值归一化工具" },
-    { "id": "featureFlags.ts", "kind": "file", "domain": "ports-assembly", "note": "功能开关与条件编译能力" },
-    { "id": "httpPortFallback.ts", "kind": "file", "domain": "ports-assembly", "note": "端口被占用时的顺延重试" },
-    { "id": "ids.ts", "kind": "file", "domain": "base-utils", "note": "统一 ID 熵源" },
-    { "id": "index.ts", "kind": "file", "domain": "ports-assembly", "note": "核心模块统一出口（paths 必须最先求值）" },
-    { "id": "instanceLock.ts", "kind": "file", "domain": "ports-assembly", "note": "单实例锁文件（PID + 实际监听端点）" },
-    { "id": "knowledge-types.ts", "kind": "file", "domain": "base-utils", "note": "知识搜索的纯类型契约（零依赖叶子）" },
-    { "id": "LazyModuleStrategy.ts", "kind": "file", "domain": "ports-assembly", "note": "模块加载优先级与惰性加载策略" },
-    { "id": "lazySingleton.ts", "kind": "file", "domain": "base-utils", "note": "懒加载单例纯 HOF" },
-    { "id": "loggerFacade.ts", "kind": "file", "domain": "base-utils", "note": "core 侧日志门面（Logger SPI 延迟绑定）" },
-    { "id": "mediaRoots.ts", "kind": "file", "domain": "base-utils", "note": "媒体根目录事实源（由 paths 派生）" },
-    { "id": "ModuleBootstrapper.ts", "kind": "file", "domain": "ports-assembly", "note": "模块系统的统一引导契约" },
-    { "id": "paths.ts", "kind": "file", "domain": "base-utils", "note": "统一路径管理（三层目录分离）" },
-    { "id": "ports.ts", "kind": "file", "domain": "ports-assembly", "note": "HTTP 端口默认值的单一事实源" },
-    { "id": "pricing.ts", "kind": "file", "domain": "budget-ledger", "note": "成本计算核心（零依赖）" },
-    { "id": "productIdentity.ts", "kind": "file", "domain": "ports-assembly", "note": "产品身份（appName / envPrefix）注入点：零 import 叶子，供 paths / ports / featureFlags 派生环境变量键与默认目录名（Q3 去产品化）" },
-    { "id": "profilerFacade.ts", "kind": "file", "domain": "base-utils", "note": "core 侧启动剖析门面" },
-    { "id": "providerEndpoints.ts", "kind": "file", "domain": "ports-assembly", "note": "官方供应商 API 端点真源" },
-    { "id": "sandboxPermission.ts", "kind": "file", "domain": "security-permission", "note": "沙箱权限类型（零依赖纯枚举）" },
-    { "id": "seedSync.ts", "kind": "file", "domain": "base-utils", "note": "首启种子数据同步（幂等）" },
-    { "id": "SessionSpanTracer.ts", "kind": "file", "domain": "base-utils", "note": "会话级 Span 属性构建（可观测）" },
-    { "id": "SimpleMutex.ts", "kind": "file", "domain": "base-utils", "note": "零依赖互斥锁（保护 SQLite 写）" },
-    { "id": "successCriteria.ts", "kind": "file", "domain": "execution-loop", "note": "验收标准的结构化一等对象" },
-    { "id": "taskStatus.ts", "kind": "file", "domain": "execution-loop", "note": "任务状态枚举（跨层共享叶子）" },
-    { "id": "tracingFacade.ts", "kind": "file", "domain": "base-utils", "note": "core 侧 OTel tracing 门面" },
-    { "id": "types.ts", "kind": "file", "domain": "base-utils", "note": "核心类型定义" },
-    { "id": "cache", "kind": "dir", "domain": "state-events", "note": "会话缓存" },
-    { "id": "connections", "kind": "dir", "domain": "state-events", "note": "连接注册表" },
-    { "id": "di", "kind": "dir", "domain": "ports-assembly", "note": "DI 容器实现（容器/作用域/循环检测/自动装配/释放）" },
-    { "id": "estop", "kind": "dir", "domain": "security-permission", "note": "紧急停止" },
-    { "id": "events", "kind": "dir", "domain": "state-events", "note": "事件总线、编排指标、Token 追踪、UI 事件" },
-    { "id": "exit", "kind": "dir", "domain": "state-events", "note": "退出记录" },
-    { "id": "external", "kind": "dir", "domain": "state-events", "note": "sqlite3 驱动封装" },
-    { "id": "health", "kind": "dir", "domain": "state-events", "note": "依赖健康检查与模块健康注册表" },
-    { "id": "identity", "kind": "dir", "domain": "security-permission", "note": "请求级身份（Principal + 请求作用域 ALS）+ 按身份登记的可关闭资源表（只记账 closer、无 IO）：阶段 1 纯类型/纯函数；阶段 2 增加 AsyncLocalStorage 作用域（不读请求、不碰存储，解析在 HTTP 层）；阶段 3 增 scopedResources（不解析路径、不开连接）" },
-    { "id": "idle", "kind": "dir", "domain": "ports-assembly", "note": "空闲缩容监控（进程级）" },
-    { "id": "lazy", "kind": "dir", "domain": "ports-assembly", "note": "懒加载服务" },
-    { "id": "orchestrationEvents.ts", "kind": "file", "domain": "state-events", "note": "编排事件词汇表（纯字面量、零 import）；P6 由 app/src/types 内迁，供事件总线与指标共用" },
-    { "id": "outputGuard", "kind": "dir", "domain": "security-permission", "note": "输出侧护栏契约与注册表" },
-    { "id": "phases", "kind": "dir", "domain": "execution-loop", "note": "阶段词汇表唯一真源（PDCA / 意图族）" },
-    { "id": "protocol", "kind": "dir", "domain": "base-utils", "note": "WebSocket 握手协议常量真源（零 import）" },
-    { "id": "sleep", "kind": "dir", "domain": "ports-assembly", "note": "休眠监控（进程级）" },
-    { "id": "spi", "kind": "dir", "domain": "ports-assembly", "note": "SPI 抽象契约统一出口（端口定义）" },
-    { "id": "systemgraph", "kind": "dir", "domain": "state-events", "note": "运行时系统图（纯内存只读投影）" },
-    { "id": "utils", "kind": "dir", "domain": "base-utils", "note": "core 侧通用工具（错误处理/懒加载/性能/资源池）" }
+    {
+      "id": "abortReason.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "「预期中断」判据的单一事实源，零依赖叶子"
+    },
+    {
+      "id": "AppCoreConfig.ts",
+      "kind": "file",
+      "domain": "ports-assembly",
+      "note": "AppCore 装配所需的配置类型"
+    },
+    {
+      "id": "data-models.ts",
+      "kind": "file",
+      "domain": "state-events",
+      "note": "Message / Session / AuditEvent 统一数据契约"
+    },
+    {
+      "id": "deprecationNotice.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "观察期废弃告警门面（warnDeprecatedCoreModule），零依赖叶子"
+    },
+    {
+      "id": "DIContainer.ts",
+      "kind": "file",
+      "domain": "ports-assembly",
+      "note": "DI 容器向后兼容重导出入口（实现在 core/di）"
+    },
+    {
+      "id": "DependencyRegistry.ts",
+      "kind": "file",
+      "domain": "ports-assembly",
+      "note": "声明式依赖注册表"
+    },
+    {
+      "id": "endpoints.ts",
+      "kind": "file",
+      "domain": "ports-assembly",
+      "note": "本机端点与回环 host 的唯一事实源"
+    },
+    {
+      "id": "errorCodes.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "标准错误码表（纯数据、零依赖）"
+    },
+    {
+      "id": "errorHandler.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "统一错误处理入口（core 侧实现）"
+    },
+    {
+      "id": "errors.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "错误基座与错误值归一化工具"
+    },
+    {
+      "id": "featureFlags.ts",
+      "kind": "file",
+      "domain": "ports-assembly",
+      "note": "功能开关与条件编译能力"
+    },
+    {
+      "id": "httpPortFallback.ts",
+      "kind": "file",
+      "domain": "ports-assembly",
+      "note": "端口被占用时的顺延重试"
+    },
+    {
+      "id": "ids.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "统一 ID 熵源"
+    },
+    {
+      "id": "index.ts",
+      "kind": "file",
+      "domain": "ports-assembly",
+      "note": "核心模块统一出口（paths 必须最先求值）"
+    },
+    {
+      "id": "knowledge-types.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "知识搜索的纯类型契约（零依赖叶子）"
+    },
+    {
+      "id": "LazyModuleStrategy.ts",
+      "kind": "file",
+      "domain": "ports-assembly",
+      "note": "模块加载优先级与惰性加载策略"
+    },
+    {
+      "id": "lazySingleton.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "懒加载单例纯 HOF"
+    },
+    {
+      "id": "loggerFacade.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "core 侧日志门面（Logger SPI 延迟绑定）"
+    },
+    {
+      "id": "ModuleBootstrapper.ts",
+      "kind": "file",
+      "domain": "ports-assembly",
+      "note": "模块系统的统一引导契约"
+    },
+    {
+      "id": "ports.ts",
+      "kind": "file",
+      "domain": "ports-assembly",
+      "note": "HTTP 端口默认值的单一事实源"
+    },
+    {
+      "id": "pricing.ts",
+      "kind": "file",
+      "domain": "budget-ledger",
+      "note": "成本计算核心（零依赖）"
+    },
+    {
+      "id": "productIdentity.ts",
+      "kind": "file",
+      "domain": "ports-assembly",
+      "note": "产品身份（appName / envPrefix）注入点：零 import 叶子，供 paths / ports / featureFlags 派生环境变量键与默认目录名（Q3 去产品化）"
+    },
+    {
+      "id": "profilerFacade.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "core 侧启动剖析门面"
+    },
+    {
+      "id": "providerEndpoints.ts",
+      "kind": "file",
+      "domain": "ports-assembly",
+      "note": "官方供应商 API 端点真源"
+    },
+    {
+      "id": "sandboxPermission.ts",
+      "kind": "file",
+      "domain": "security-permission",
+      "note": "沙箱权限类型（零依赖纯枚举）"
+    },
+    {
+      "id": "SessionSpanTracer.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "会话级 Span 属性构建（可观测）"
+    },
+    {
+      "id": "SimpleMutex.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "零依赖互斥锁（保护 SQLite 写）"
+    },
+    {
+      "id": "taskStatus.ts",
+      "kind": "file",
+      "domain": "execution-loop",
+      "note": "任务状态枚举（跨层共享叶子）"
+    },
+    {
+      "id": "tracingFacade.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "core 侧 OTel tracing 门面"
+    },
+    {
+      "id": "types.ts",
+      "kind": "file",
+      "domain": "base-utils",
+      "note": "核心类型定义"
+    },
+    {
+      "id": "cache",
+      "kind": "dir",
+      "domain": "state-events",
+      "note": "会话缓存"
+    },
+    {
+      "id": "connections",
+      "kind": "dir",
+      "domain": "state-events",
+      "note": "连接注册表"
+    },
+    {
+      "id": "di",
+      "kind": "dir",
+      "domain": "ports-assembly",
+      "note": "DI 容器实现（容器/作用域/循环检测/自动装配/释放）"
+    },
+    {
+      "id": "events",
+      "kind": "dir",
+      "domain": "state-events",
+      "note": "事件总线、编排指标、Token 追踪、UI 事件"
+    },
+    {
+      "id": "health",
+      "kind": "dir",
+      "domain": "state-events",
+      "note": "依赖健康检查与模块健康注册表"
+    },
+    {
+      "id": "identity",
+      "kind": "dir",
+      "domain": "security-permission",
+      "note": "请求级身份（Principal + 请求作用域 ALS）+ 按身份登记的可关闭资源表（只记账 closer、无 IO）：阶段 1 纯类型/纯函数；阶段 2 增加 AsyncLocalStorage 作用域（不读请求、不碰存储，解析在 HTTP 层）；阶段 3 增 scopedResources（不解析路径、不开连接）"
+    },
+    {
+      "id": "lazy",
+      "kind": "dir",
+      "domain": "ports-assembly",
+      "note": "懒加载服务"
+    },
+    {
+      "id": "orchestrationEvents.ts",
+      "kind": "file",
+      "domain": "state-events",
+      "note": "编排事件词汇表（纯字面量、零 import）；P6 由 app/src/types 内迁，供事件总线与指标共用"
+    },
+    {
+      "id": "outputGuard",
+      "kind": "dir",
+      "domain": "security-permission",
+      "note": "输出侧护栏契约与注册表"
+    },
+    {
+      "id": "protocol",
+      "kind": "dir",
+      "domain": "base-utils",
+      "note": "WebSocket 握手协议常量真源（零 import）"
+    },
+    {
+      "id": "sleep",
+      "kind": "dir",
+      "domain": "ports-assembly",
+      "note": "休眠监控（进程级）"
+    },
+    {
+      "id": "spi",
+      "kind": "dir",
+      "domain": "ports-assembly",
+      "note": "SPI 抽象契约统一出口（端口定义）"
+    },
+    {
+      "id": "systemgraph",
+      "kind": "dir",
+      "domain": "state-events",
+      "note": "运行时系统图（纯内存只读投影）"
+    },
+    {
+      "id": "utils",
+      "kind": "dir",
+      "domain": "base-utils",
+      "note": "core 侧通用工具（错误处理/懒加载/性能/资源池）"
+    }
   ],
-  "exceptions": [
-    { "id": "delivery", "kind": "dir", "reason": "投递侧实现（转录归档 / 磁盘监控 / 失败通知），属产品能力" },
-    { "id": "patterns", "kind": "dir", "reason": "声明式 pattern 注册表与选择器（Teamwork 编排），属产品能力" },
-    { "id": "performance", "kind": "dir", "reason": "release 前性能红线检查（发布工程工具），不参与运行时内核" }
-  ]
+  "exceptions": []
 }

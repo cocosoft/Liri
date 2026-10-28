@@ -33,9 +33,9 @@
  *   const pricing = await modelPricingService.getPricing('gpt-4o');
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import { randomUUID } from 'crypto';
-import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel';
+import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
 // 租户级 DB（基础设施专项 §6.1 / §8-#14）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,

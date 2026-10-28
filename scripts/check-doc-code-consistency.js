@@ -7,8 +7,9 @@
  * 本仓曾**两次**出现「文档/注释断言的状态与代码相反」的双源漂移：
  *   ① `CHANGELOG.md` v0.4.66 的 D2 条目写「应当翻转但不能单独翻转」，而
  *      `app/src/tasks/topoBatches.ts` 缺省值**已**为 `'hard'`（台账 §20.6 记 Step 1+2 已落地）；
- *   ② `app/src/core/patterns/PatternRegistry.ts` 遗留注释称 `selectPattern` 对 complex 非研究
- *      **仍返回** `long_task_pdl`，而 `PatternSelector.ts` **已**如实返回 `null`（D4）。
+ *   ② `app/src/query/patterns/PatternRegistry.ts`（P2 前为 `core/patterns/`）遗留注释称
+ *      `selectPattern` 对 complex 非研究 **仍返回** `long_task_pdl`，而 `PatternSelector.ts`
+ *      **已**如实返回 `null`（D4）。
  * 两处均靠**人工登记 + 订正**闭合，**无门禁** ⇒ 会复发（报告 11 §五-P0 / 报告 12 §2.5）。
  *
  * 本脚本把**关键语义事实**登记为「**代码侧 ∩ 文档侧**」断言：**任一侧不符即 `exit 1`（阻断）**。
@@ -72,7 +73,8 @@ const ASSERTIONS = [
         id: 'pattern-registry-no-stale-debt',
         why: '`PatternRegistry` 必须保持 D4 订正版（描述层与选择层已一致）；旧措辞「已登记为预存语义债」若复现即为漂移回归',
         code: {
-            file: 'packages/kernel/src/core/patterns/PatternRegistry.ts',
+            // P2（2026-10-28）：`core/patterns/**` 已迁出内核 ⇒ 落点改为 `app/src/query/patterns/`
+            file: 'app/src/query/patterns/PatternRegistry.ts',
             // 正向：订正后的表述在位（引用原文时含「仍返回本 pattern」字样，故不能只做负向匹配）
             contains: /矛盾\*\*已解除\*\*/,
             // 负向：旧陈述的**结论句**（订正版写作「原"预存语义债"消除」，故该短语仅存在于旧版）

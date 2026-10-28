@@ -10,7 +10,7 @@ import { join } from 'path';
 import type { GovernanceConfig } from '../types/GovernanceTypes';
 import { createDefaultGovernanceConfig } from '../types/GovernanceTypes';
 import { getLogger } from '@modules/monitoring';
-import { resolveGovernanceDir } from '@openliri/kernel';
+import { resolveGovernanceDir } from '@modules/environment';
 
 const logger = getLogger('governance:managers:governanceConfigManager');
 

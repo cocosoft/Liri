@@ -18,7 +18,8 @@ import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { resolveDataSubDir, LOCAL_SERVICE_HOST } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
+import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 import { existsSync } from 'fs';
 
 const DS_CONFIG_PATH = join(

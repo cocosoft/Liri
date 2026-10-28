@@ -12,7 +12,7 @@ import type { ToolCallProgress } from '../types/Tool';
 import { getTeammateManager } from '@modules/subagent/TeammateManager';
 import { join } from 'path';
 import { unlinkSync, existsSync, readFileSync } from 'fs';
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';

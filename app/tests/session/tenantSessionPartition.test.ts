@@ -14,7 +14,7 @@ import { join } from 'path';
 
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
-import { resolveWorktreeHash } from '@openliri/kernel/paths';
+import { resolveWorktreeHash } from '@modules/environment';
 import { SessionGateway } from '../../src/session/SessionGateway';
 
 const ALICE: Principal = {

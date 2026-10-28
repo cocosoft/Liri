@@ -37,7 +37,7 @@
 import { describe, expect, test } from 'bun:test';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { resolveDbPath, resolvePyappHome } from '@openliri/kernel/paths';
+import { resolveDbPath, resolvePyappHome } from '@modules/environment';
 import { createSandbox } from '../../src/evals/sandbox';
 import { resolveEvalRepoRoot } from '../../src/evals/sourceTask';
 

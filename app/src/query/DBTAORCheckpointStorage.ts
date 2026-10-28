@@ -7,8 +7,8 @@
  * 实现 CheckpointStorage 接口，与 FileTAORCheckpointStorage 可互换。
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveTenantDbPath } from '@openliri/kernel';
+import { Database } from '@modules/external';
+import { resolveTenantDbPath } from '@modules/environment';
 // 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,

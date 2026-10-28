@@ -27,7 +27,6 @@ import {
   isBuildVariantFlagsInitialized,
   resetBuildVariantFlags,
   resetProductIdentity,
-  resolveDbPath,
   resolveExplicitHttpPort,
   setBuildVariantFlags,
 } from './index.js';
@@ -35,11 +34,9 @@ import {
 // （`src/*` 内部相对导入在包内与桶指向同一份文件，不产生第二实例）。
 import { BUILD_VARIANTS } from './core/featureFlags.js';
 import { lazySingleton } from './core/lazySingleton.js';
-import {
-  resolveCacheDir,
-  resolveDataDir,
-  resolveProjectRoot,
-} from './core/paths.js';
+// P1（2026-10-28）：`paths` 已整体迁 `@modules/environment`（含 resolveDataDir /
+// resolveCacheDir / resolveProjectRoot），其环境变量派生用例随实现迁至
+// `app/tests/environment/pathsResolvers.test.ts`；内核不再保有目录解析。
 
 describe('@openliri/kernel 桶契约（冒烟）', () => {
   it('包标识与版本常量存在且形如 semver', () => {
@@ -56,9 +53,10 @@ describe('@openliri/kernel 桶契约（冒烟）', () => {
   });
 
   it('桶导出宿主开工所需的关键符号', () => {
-    // 变体开关（宿主注入）、路径解析、错误基类、事件总线 —— 缺任一项内核即不可用
+    // 变体开关（宿主注入）、产品身份、错误基类、事件总线 —— 缺任一项内核即不可用。
+    // P1：目录解析（resolveDbPath 等）已随 paths 迁 `@modules/environment`，不再由桶转出。
     expect(typeof feature).toBe('function');
-    expect(typeof resolveDbPath).toBe('function');
+    expect(typeof getProductIdentity).toBe('function');
     expect(typeof AppError).toBe('function');
     expect(globalEventBus).toBeDefined();
   });
@@ -80,27 +78,16 @@ describe('产品身份注入（Q3 去产品化）', () => {
     });
   });
 
-  it('注入 envPrefix 后，路径解析改用新前缀；reset 后恢复', () => {
-    const fakeHome = join(process.cwd(), 'kernel-test-home');
-    const env = (key: string): NodeJS.ProcessEnv => ({ [key]: fakeHome });
-
-    // 默认身份：读 LIRI_DATA_DIR
-    expect(resolveDbPath(env('LIRI_DATA_DIR'))).toContain('kernel-test-home');
-
+  it('注入 envPrefix 后身份前缀生效（路径联动用例已随 paths 迁出）', () => {
+    // P1（2026-10-28）：`resolveDbPath` 随 paths 迁 `@modules/environment`，
+    // 「前缀真的影响路径」的联动断言见 `app/tests/environment/productIdentityPrefix.test.ts`。
     configureProductIdentity({ envPrefix: 'ACME' });
     try {
-      // 旧前缀不再生效；新前缀生效（`ACME` 自动补成 `ACME_`）
-      expect(resolveDbPath(env('LIRI_DATA_DIR'))).not.toContain(
-        'kernel-test-home'
-      );
-      expect(resolveDbPath(env('ACME_DATA_DIR'))).toContain(
-        'kernel-test-home'
-      );
+      // `ACME` 自动补成 `ACME_`
+      expect(getProductIdentity().envPrefix).toBe('ACME_');
     } finally {
       resetProductIdentity();
     }
-
-    expect(resolveDbPath(env('LIRI_DATA_DIR'))).toContain('kernel-test-home');
   });
 
   it('空白 appName / envPrefix ⇒ 抛 CORE_PRODUCT_IDENTITY_INVALID', () => {
@@ -286,25 +273,6 @@ describe('featureFlags：三级解析与注入时序', () => {
 
   it('`getBuildVariant()` 必是已知变体之一', () => {
     expect(BUILD_VARIANTS as readonly string[]).toContain(getBuildVariant());
-  });
-});
-
-describe('paths：环境变量派生（包内可独立验证）', () => {
-  beforeEach(() => resetProductIdentity());
-
-  it('`<prefix>DATA_DIR` 优先于默认目录', () => {
-    const fake = resolve('kernel-test-data');
-    expect(resolveDataDir({ LIRI_DATA_DIR: fake })).toBe(fake);
-  });
-
-  it('缓存目录落在数据目录之下', () => {
-    const fake = resolve('kernel-test-data');
-    expect(resolveCacheDir({ LIRI_DATA_DIR: fake })).toBe(join(fake, 'cache'));
-  });
-
-  it('`<prefix>PROJECT_DIR` 决定项目根', () => {
-    const fake = resolve('kernel-test-project');
-    expect(resolveProjectRoot({ LIRI_PROJECT_DIR: fake })).toBe(fake);
   });
 });
 

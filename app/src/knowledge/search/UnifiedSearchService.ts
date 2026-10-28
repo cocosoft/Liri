@@ -289,7 +289,7 @@ export class UnifiedSearchService {
       const { getSourceChunkStore, readRawMetaPages } =
         await import('../source/SourceChunkStore');
       const { basename, relative } = await import('path');
-      const { resolveKnowledgeDir } = await import('@openliri/kernel');
+      const { resolveKnowledgeDir } = await import('@modules/environment');
       const knowledgeRoot = resolveKnowledgeDir();
       const sourceStore = getSourceChunkStore();
       const hits = await sourceStore.search(query, { limit: sourceLimit });

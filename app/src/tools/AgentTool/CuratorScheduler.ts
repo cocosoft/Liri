@@ -16,7 +16,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 
 const logger = getLogger('tools:curatorScheduler');
 

@@ -9,7 +9,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { existsSync, readFileSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
-import { resolveDataDir, resolveSessionsDir } from '@openliri/kernel';
+import { resolveDataDir, resolveSessionsDir } from '@modules/environment';
 import { AtomicWriter } from './persistence/AtomicWriter';
 
 const logger = getLogger('session:migration');

@@ -27,7 +27,7 @@ import { ErrorHandler, feature } from '@openliri/kernel';
 import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
-import { resolveDataDir } from '@openliri/kernel/paths';
+import { resolveDataDir } from '@modules/environment';
 import { resolveToolCwd } from './toolCwdScope';
 // 多租户 P0 阶段 2：请求级权限角色（桌面/后台无请求作用域 ⇒ null ⇒ 保持既有回退语义）
 import {

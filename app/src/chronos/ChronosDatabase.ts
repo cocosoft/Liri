@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import type {
   ScheduledTask,
   TaskExecutionHistory,
@@ -7,7 +7,7 @@ import type {
   TaskStatus,
 } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath } from '@openliri/kernel';
+import { resolveDbPath } from '@modules/environment';
 import { SimpleMutex } from '@openliri/kernel';
 
 import { getLogger } from '@modules/monitoring';

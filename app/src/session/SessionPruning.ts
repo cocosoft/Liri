@@ -26,7 +26,7 @@ export interface PruningResult {
   prunedSessions: string[];
 }
 
-import { resolveSessionsDir } from '@openliri/kernel';
+import { resolveSessionsDir } from '@modules/environment';
 
 const DEFAULT_PRUNING_CONFIG: PruningConfig = {
   sessionsDir: resolveSessionsDir(),

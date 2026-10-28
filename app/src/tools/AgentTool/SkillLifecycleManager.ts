@@ -14,7 +14,7 @@
 import { getLogger } from '@modules/monitoring';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 
 const logger = getLogger('tools:skillLifecycle');
 

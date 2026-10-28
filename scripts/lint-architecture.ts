@@ -1017,6 +1017,8 @@ class ArchitectureLinter {
       'utils\\fileStateCache.ts',
       // core/ 层标准基础设施
       'core\\health\\DependencyHealthChecker.ts',
+      // P1（2026-10-28）：同一实现随内核去 I/O 迁至 `runtimeHost/health/`（infra · runtime-host）
+      'runtimeHost\\health\\DependencyHealthChecker.ts',
       // 标准健康检查基础设施
       'diagnostics\\SystemHealthChecker.ts',
       'monitoring\\health\\HealthChecker.ts',
@@ -1280,6 +1282,16 @@ class ArchitectureLinter {
       'src\\context\\',
       'src\\core\\',
       'src\\diagnostics\\',
+      // P1（2026-10-28）：内核去 I/O 的落点（infra · zone: runtime-host），模块公共 API 边界
+      'src\\runtimeHost\\',
+      // P1（2026-10-28）：外部技术适配层（infra · zone: storage），模块公共 API 边界
+      'src\\external\\',
+      // P1（2026-10-28）：环境解析层（infra · zone: environment），模块公共 API 边界
+      'src\\environment\\',
+      // P2（2026-10-28）：任务模式语义（app/query 内聚子目录，P2 从内核迁入）
+      'src\\query\\patterns\\',
+      // P2（2026-10-28）：身份化存储策略（infra/security 内聚子目录，P2 从内核迁入）
+      'src\\security\\identity\\',
       'src\\error\\',
       'src\\hooks\\',
       'src\\infrastructure\\',
@@ -2080,6 +2092,20 @@ class ArchitectureLinter {
       // tools/AgentTool 等重面）⇒ 与 `ai/router`、`error/types` 同属"桶精确化"的规范子路径。
       // 注：`goalTemplates` 已于 2026-10-21 下沉 `constants/goalTemplates`，本项不再服务于它。
       'tasks/goal',
+      // P2（2026-10-28，v3 §6.1）：任务语义从内核迁入 app 后，三者都是**零静态出向依赖的纯函数/常量**
+      // （`tasks/phaseVocabulary` 无 import、`tasks/successCriteria` 无 import、`query/patterns` 只依赖
+      // kernel 的 loggerFacade / featureFlags 类型）。若改走 `@modules/tasks` / `@modules/query` 桶，
+      // 会把 PlanDrivenLoop、TAORLoop 等整条任务/查询链路拉进调用点（且 tasks↔query 存在静态互指）
+      // ⇒ 与 `tasks/goal`、`query/tool-constants` 同属「桶精确化」子入口。
+      'tasks/phases',
+      'tasks/successCriteria',
+      'query/patterns',
+      // P2（2026-10-28）：身份化存储作用域 / 会话归属 / 输出护栏注册表从内核迁入 infra/security；
+      // 三者都是**零 I/O 的纯策略实现**（无出向依赖，仅用 kernel 的 principal/requestScope 契约），
+      // 走 `@modules/security` 桶会连带拉入鉴权/审计等重面 ⇒ 目录级/文件级规范子入口
+      // （与内核侧 `core/identity` 同一手法）。
+      'security/identity',
+      'security/outputGuardRegistry',
       // 循环安全子入口（2026-09-24）：`core/systemgraph` 只依赖 `@modules/error`（叶子级），
       // 而 `@modules/core` 桶会拉入 `core/loop/PlanDrivenLoop`（其依赖 `@modules/tasks`）；
       // `modules/workflow/WorkflowEngine` 已依赖 `@modules/tasks`，若改走 core 桶将把整条
@@ -2606,7 +2632,27 @@ class ArchitectureLinter {
     const first = parts[0];
     // 根目录文件（如 main.ts, index.ts）以文件名作为模块名
     if (first.includes('.ts') || first.includes('.tsx')) return first;
+    // AC-05（内核子目录可见，v3 P0-3）：二级目录若已在层表登记，模块名取 `core/<sub>`。
+    // 否则 `packages/kernel/src/core/**` 全部解析成 `core`，而 `core` 的 allowedDependencies
+    // 只有 `core` ⇒ `core → core` 恒合法 ⇒ `instanceLock → delivery → sqlite3` 在门禁眼里
+    // 是三条绿色同层依赖（方案 §4.3 裂缝②）。登记与否由层表决定，**不在此硬编码目录名**。
+    if (parts.length > 1 && this.moduleToLayer.has(`${first}/${parts[1]}`)) {
+      return `${first}/${parts[1]}`;
+    }
     return first;
+  }
+
+  /**
+   * 内核包名 → 模块名（AC-05 同一口径）。
+   *
+   * `@openliri/kernel/events/EventBus` ⇒ `core/events`（当层表已登记 `core/events`），
+   * 未登记的二级目录退回 `core` ⇒ 既让已登记子目录**可见**，又不会因拼错路径凭空造出模块名。
+   */
+  kernelModuleName(subpath: string | undefined): string {
+    const sub = (subpath ?? '').replace(/\.js$/, '').split('/')[0];
+    return sub && this.moduleToLayer.has(`core/${sub}`)
+      ? `core/${sub}`
+      : 'core';
   }
 
   /**
@@ -2695,12 +2741,13 @@ class ArchitectureLinter {
       imports.add(match[1]);
     }
 
-    // P5（2026-10-23）：内核物理独立为包后，`@openliri/kernel[/*]` 恒归模块 `core`
+    // P5（2026-10-23）：内核物理独立为包后，`@openliri/kernel[/*]` 归模块 `core`
     // （内核根 `packages/kernel/src` 的路径首段即 `core`）。缺这一段会让内核依赖从
     // 分层检查里**静默消失**（489 桶 + 244 深路径），属 AR-3「门禁失焦」。
-    const kernelRegex = /from\s+['"]@openliri\/kernel(?:\/[^'"]*)?['"]/g;
-    while (kernelRegex.exec(content) !== null) {
-      imports.add('core');
+    // P0-3（2026-10-28）：二级目录已登记时解析为 `core/<sub>`，使 21 个内核子目录**可见**（AC-05）。
+    const kernelRegex = /from\s+['"]@openliri\/kernel(?:\/([^'"]*))?['"]/g;
+    while ((match = kernelRegex.exec(content)) !== null) {
+      imports.add(this.kernelModuleName(match[1]));
     }
 
     // 匹配相对路径 import，解析目标模块
@@ -2756,10 +2803,11 @@ class ArchitectureLinter {
     }
 
     // P5：内核包名 ⇒ 模块 `core`（与 parseModuleImports 同口径；type-only 同样排除）
-    const kernelRegex = /from\s+['"]@openliri\/kernel(?:\/[^'"]*)?['"]/g;
+    // P0-3：已登记二级目录解析为 `core/<sub>`（与 parseModuleImports 一致）
+    const kernelRegex = /from\s+['"]@openliri\/kernel(?:\/([^'"]*))?['"]/g;
     while ((match = kernelRegex.exec(content)) !== null) {
       if (isTypeStatement(match.index)) continue;
-      imports.add('core');
+      imports.add(this.kernelModuleName(match[1]));
     }
 
     // 匹配相对路径 import，解析目标模块
@@ -2805,7 +2853,10 @@ class ArchitectureLinter {
         spec.startsWith('@openliri/kernel/')
       ) {
         // P5：内核包名 ⇒ 模块 `core`（同 parseModuleImports 的口径）
-        moduleName = 'core';
+        // P0-3：已登记二级目录解析为 `core/<sub>`（AC-05 子目录可见）
+        moduleName = this.kernelModuleName(
+          spec.slice('@openliri/kernel'.length).replace(/^\//, '')
+        );
       } else if (spec.startsWith('.')) {
         const resolved = resolve(dirname(filePath), spec);
         if (resolved.startsWith(this.srcPath)) {
@@ -3443,6 +3494,16 @@ class ArchitectureLinter {
       'src\\context\\',
       'src\\core\\',
       'src\\diagnostics\\',
+      // P1（2026-10-28）：内核去 I/O 的落点（infra · zone: runtime-host），模块公共 API 边界
+      'src\\runtimeHost\\',
+      // P1（2026-10-28）：外部技术适配层（infra · zone: storage），模块公共 API 边界
+      'src\\external\\',
+      // P1（2026-10-28）：环境解析层（infra · zone: environment），模块公共 API 边界
+      'src\\environment\\',
+      // P2（2026-10-28）：任务模式语义（app/query 内聚子目录，P2 从内核迁入）
+      'src\\query\\patterns\\',
+      // P2（2026-10-28）：身份化存储策略（infra/security 内聚子目录，P2 从内核迁入）
+      'src\\security\\identity\\',
       'src\\error\\',
       'src\\hooks\\',
       'src\\infrastructure\\',

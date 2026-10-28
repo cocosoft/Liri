@@ -22,14 +22,14 @@ import {
 import { handleError } from '@modules/error';
 // C1（2026-09-30 D-93）：工具运行时改经服务层端口（消除 service → app 跨层引用）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { isPathWithin } from '@openliri/kernel/paths';
+import { isPathWithin } from '@modules/environment';
 // U-20（B5-2-69，2026-10-17）：三个媒体根目录收敛到 core 单一事实源
 import {
   ATTACHMENTS_ROOT,
   IMAGES_ROOT,
   IMAGE_ROOTS,
   MEDIA_IMAGES_ROOT,
-} from '@openliri/kernel/mediaRoots';
+} from '@modules/environment';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 /** MIME 类型映射 */

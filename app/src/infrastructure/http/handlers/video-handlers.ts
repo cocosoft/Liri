@@ -18,7 +18,7 @@ import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 // C1（2026-09-30 D-93）：工具运行时改经服务层端口（消除 service → app 跨层引用）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { resolveMediaDir, isPathWithin } from '@openliri/kernel/paths';
+import { resolveMediaDir, isPathWithin } from '@modules/environment';
 import { ffmpegWrapper } from '../../../media/ffmpeg/FFmpegWrapper';
 import { videoProcessor } from '../../../media/video/VideoProcessor';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
@@ -157,8 +157,8 @@ function collectRegisteredVideos(): Array<{
   // 从 DB 读取已注册的视频文件（file_files 表 store_zone = 'media', media_type = 'video'）
   try {
     // D-241：经统一封装建立连接（PRAGMA 单一事实源；`readonly` 由封装表达）
-    const { openBunDatabase } = require('@openliri/kernel/external/sqlite3');
-    const { resolveDbPath } = require('@openliri/kernel/paths');
+    const { openBunDatabase } = require('@modules/external');
+    const { resolveDbPath } = require('@modules/environment');
     const db = openBunDatabase(resolveDbPath(), { readonly: true });
 
     const rows = db
@@ -372,8 +372,8 @@ export async function handleVideoMetadata(
 
     try {
       // D-241：经统一封装建立连接（PRAGMA 单一事实源；`readonly` 由封装表达）
-      const { openBunDatabase } = require('@openliri/kernel/external/sqlite3');
-      const { resolveDbPath } = require('@openliri/kernel/paths');
+      const { openBunDatabase } = require('@modules/external');
+      const { resolveDbPath } = require('@modules/environment');
       const db = openBunDatabase(resolveDbPath(), { readonly: true });
 
       // 从 video_tasks 表查询（按 result_video_url LIKE 匹配）
@@ -676,8 +676,8 @@ export async function handleVideoDelete(
     // 尝试从 DB 中移除记录
     try {
       // D-241：经统一封装建立连接（PRAGMA 单一事实源）
-      const { openBunDatabase } = require('@openliri/kernel/external/sqlite3');
-      const { resolveDbPath } = require('@openliri/kernel/paths');
+      const { openBunDatabase } = require('@modules/external');
+      const { resolveDbPath } = require('@modules/environment');
       const db = openBunDatabase(resolveDbPath());
       const fileName = path.basename(fullPath);
       db.prepare(`DELETE FROM file_files WHERE saved_name = ?`).run(fileName);

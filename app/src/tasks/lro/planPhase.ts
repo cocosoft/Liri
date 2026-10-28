@@ -17,7 +17,10 @@
 
 import { SpanStatusCode } from '@opentelemetry/api';
 
-import { findFormOnlyCriteria, findUnprovableCriteria } from '@openliri/kernel';
+import {
+  findFormOnlyCriteria,
+  findUnprovableCriteria,
+} from '@modules/tasks/successCriteria';
 import {
   AppError,
   ErrorCategory,

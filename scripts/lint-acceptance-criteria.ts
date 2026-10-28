@@ -38,7 +38,8 @@ import { fileURLToPath } from 'node:url';
 import {
   FORM_ONLY_CRITERIA_PATTERNS,
   findFormOnlyCriteria,
-} from '../packages/kernel/src/core/successCriteria';
+  // P2（2026-10-28）：验收标准（任务语义）已从内核迁至 app 的 tasks 模块
+} from '../app/src/tasks/successCriteria';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SPECS_DIR = resolve(HERE, '..', '.trae', 'specs');

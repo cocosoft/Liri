@@ -33,7 +33,7 @@ import { handleError } from '@modules/error';
 import { withRetry, RetryableError } from '@modules/utils/withRetry';
 import type { InboxItem } from '@modules/runtime/InboxManager.js';
 // 仅类型：sqlite 连接在 `_writeDeadLetter` 里**动态** import（不进启动面），类型用擦除式导入
-import type { Database } from '@openliri/kernel/external/sqlite3';
+import type { Database } from '@modules/external';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import { channelBootstrapper } from '../bootstrap/ChannelBootstrapper';
 import { isReplyEnabled } from '../setupChannels';
@@ -321,8 +321,8 @@ async function _writeDeadLetter(inboxItem: InboxItem): Promise<void> {
   // 运行时仍是动态 import；`import type` 只在编译期取类型（擦除后无静态依赖）。
   let db: DatabaseConnection | null = null;
   try {
-    const { resolveTenantDbPath } = await import('@openliri/kernel/paths');
-    const { Database } = await import('@openliri/kernel/external/sqlite3');
+    const { resolveTenantDbPath } = await import('@modules/environment');
+    const { Database } = await import('@modules/external');
     const { getRequestPrincipalKey } =
       await import('@openliri/kernel/identity/requestScope.js');
     // 租户级库（基础设施专项 §6.1）：死信表随请求身份落库（通道后台路径 ⇒ 本地共享库）

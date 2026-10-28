@@ -54,7 +54,7 @@ function resolveStorePath(rawPath: string): string {
       (() => {
         // 从已知解析函数回退
         try {
-          const { resolveAttachmentsDir } = require('@openliri/kernel/paths');
+          const { resolveAttachmentsDir } = require('@modules/environment');
           return resolveAttachmentsDir();
         } catch {
           return undefined;
@@ -68,7 +68,7 @@ function resolveStorePath(rawPath: string): string {
     const rest = rawPath.slice(firstSegment.length).replace(/^[/\\]/, '');
     const resolved = rest ? join(base, rest) : base;
     // 安全校验：确保 path.join 没有被跨盘符绝对路径覆盖（BUG02修复）
-    const { isPathWithin } = require('@openliri/kernel/paths');
+    const { isPathWithin } = require('@modules/environment');
     const resolvedBase = base;
     if (!isPathWithin(resolvedBase, resolved)) {
       // 2-1（2026-09-03）：越权拦截统一审计
@@ -91,7 +91,7 @@ function resolveStorePath(rawPath: string): string {
   // 仅允许 LIRI_HOME 下的路径（~/.pyapp/）
   const home = process.env.LIRI_HOME || process.env.PYAPP_HOME;
   if (home) {
-    const { isPathWithin } = require('@openliri/kernel/paths');
+    const { isPathWithin } = require('@modules/environment');
     if (!isPathWithin(home, fallback)) {
       // 2-1（2026-09-03）：越权拦截统一审计
       logSecurityBlock({
@@ -427,8 +427,8 @@ export async function handleFileHealth(
   try {
     const { FileRegistry } =
       await import('@modules/services/file/FileRegistry');
-    const { DiskSpaceMonitor } = await import('@openliri/kernel');
-    const { resolvePyappHome } = await import('@openliri/kernel/paths');
+    const { DiskSpaceMonitor } = await import('@modules/runtimeHost');
+    const { resolvePyappHome } = await import('@modules/environment');
     const { existsSync } = await import('fs');
 
     const checks: Record<

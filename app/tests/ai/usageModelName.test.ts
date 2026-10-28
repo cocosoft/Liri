@@ -14,10 +14,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  setUserDataDirOverride,
-  resolveDbPath,
-} from '@openliri/kernel/paths.js';
+import { setUserDataDirOverride, resolveDbPath } from '@modules/environment';
 import {
   resolveUsageModelName,
   trackUsage,

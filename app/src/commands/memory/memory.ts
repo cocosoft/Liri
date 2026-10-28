@@ -8,7 +8,7 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:memory:memory');

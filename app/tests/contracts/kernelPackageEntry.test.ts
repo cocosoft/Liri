@@ -24,7 +24,7 @@
  *
  * 断言两件事：
  *  ① 包标识常量在位（P1 引入，P6 后由发版流程维护版本）；
- *  ② **桶入口与子路径同源** —— `@openliri/kernel` 与 `@openliri/kernel/paths` 暴露的
+ *  ② **桶入口与子路径同源** —— `@openliri/kernel` 与 `@modules/environment` 暴露的
  *     同名导出必须是**同一个函数引用**，防止二者各自另存一份实现（双轨制）。
  *
  * 沿革：P4 时本用例断言的是「新包名与旧别名 `@modules/core` 解析到同一模块」；
@@ -34,11 +34,11 @@
 import { describe, expect, it } from 'bun:test';
 
 import { KERNEL_PACKAGE_NAME, KERNEL_PACKAGE_VERSION } from '@openliri/kernel';
-import { resolveDbPath, resolvePyappHome } from '@openliri/kernel';
+import { resolveDbPath, resolvePyappHome } from '@modules/environment';
 import {
   resolveDbPath as subpathResolveDbPath,
   resolvePyappHome as subpathResolvePyappHome,
-} from '@openliri/kernel/paths';
+} from '@modules/environment';
 
 describe('内核包入口契约', () => {
   it('包名与版本符合约定', () => {

@@ -15,7 +15,7 @@ import {
   setVoiceWakeTriggers,
   detectWakeWord,
 } from '../../src/voice/VoiceWakeManager.js';
-import { resolvePyappHome } from '@openliri/kernel/paths';
+import { resolvePyappHome } from '@modules/environment';
 
 const CONFIG_PATH = join(resolvePyappHome(), 'settings', 'voicewake.json');
 

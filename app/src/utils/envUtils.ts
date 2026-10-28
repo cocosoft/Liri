@@ -2,7 +2,7 @@
  * 环境变量工具函数
  */
 
-import { resolvePyappHome } from '@openliri/kernel/paths.js';
+import { resolvePyappHome } from '@modules/environment';
 
 /**
  * 检查环境变量是否为真值

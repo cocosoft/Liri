@@ -48,7 +48,8 @@ import {
 import { renderGoalTemplate } from '../../constants/goalTemplates';
 import { createFragment, renderFragment } from '@modules/context';
 import { AppError, handleError } from '@modules/error';
-import { SimpleMutex, getOutputGuardRegistry } from '@openliri/kernel';
+import { getOutputGuardRegistry } from '@modules/security/outputGuardRegistry';
+import { SimpleMutex } from '@openliri/kernel';
 // PC-1（2026-10-07）：护栏命中 ⇒ 下发前端（消息级"已打码/已阻断"标注，不再静默改写）
 import {
   appendOutputGuardAudit,
@@ -65,7 +66,7 @@ import type {
   QuestionData,
 } from '@modules/runtime/api/CoreAPI.js';
 import { compactionOrchestrator } from '@modules/context';
-import { isEstopEngaged } from '@openliri/kernel';
+import { isEstopEngaged } from '@modules/runtimeHost';
 import {
   TurnLivenessWatchdog,
   resolveLivenessTimeout,
@@ -165,10 +166,8 @@ export class ChatOrchestrator {
    */
   private async _ensureIdleScaleMonitor(): Promise<void> {
     if (this.idleScaleMonitor) return;
-    const { IdleScaleMonitor } =
-      await import('@openliri/kernel/idle/IdleScaleMonitor');
-    const { cleanupStaleTempFiles } =
-      await import('@openliri/kernel/idle/IdleScaleMonitor');
+    const { IdleScaleMonitor } = await import('@modules/runtimeHost');
+    const { cleanupStaleTempFiles } = await import('@modules/runtimeHost');
     const monitor = new IdleScaleMonitor({
       activeWorkCount: () => {
         let count = 0;
@@ -1004,7 +1003,7 @@ export class ChatOrchestrator {
     let commandResult = '';
     const { commandExecutor, formatCommandResult } =
       await import('../../commands/index.js');
-    const { resolveProjectRoot } = await import('@openliri/kernel/paths');
+    const { resolveProjectRoot } = await import('@modules/environment');
     const result = await commandExecutor.execute(
       `/${commandName} ${args.join(' ')}`,
       {

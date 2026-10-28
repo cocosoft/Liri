@@ -214,7 +214,7 @@ export async function startCronEngine(): Promise<StartCronEngineResult> {
     const realExecutor = createCronExecutor(provider);
 
     // 初始化投递队列和路由器（AI 定时任务 → 渠道主动推送）
-    const { resolveDbPath } = await import('@openliri/kernel/paths');
+    const { resolveDbPath } = await import('@modules/environment');
     const { DeliveryQueue } = await import('./DeliveryQueue');
     const deliveryQueue = new DeliveryQueue(resolveDbPath());
     await deliveryQueue.init();

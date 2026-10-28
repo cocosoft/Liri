@@ -39,7 +39,9 @@ const PATTERNS = [
 function makeFixture(opts: {
   /** 相对 app/src 的源文件 → 内容 */
   sources: Record<string, string>;
-  entries: Array<{ file: string; patterns: string[] }>;
+  entries: Array<{ file: string; patterns: string[]; ledger?: string }>;
+  /** 便于构造"漏声明 ledger"的负向夹具 */
+  omitLedgerFor?: string;
 }): { root: string; env: NodeJS.ProcessEnv } {
   const root = mkdtempSync(join(tmpdir(), 'liri-entry-gate-'));
   roots.push(root);
@@ -58,13 +60,23 @@ function makeFixture(opts: {
     registryPath,
     JSON.stringify(
       {
-        version: 1,
+        version: 2,
         patterns: PATTERNS,
         entries: opts.entries.map((e) => ({
           file: e.file,
           patterns: e.patterns,
           label: 'x',
           status: 'verified',
+          // 默认推出自洽的 ledger：有 acquire ⇒ attached，否则 missing
+          ...(opts.omitLedgerFor === e.file
+            ? {}
+            : {
+                ledger:
+                  e.ledger ??
+                  (e.patterns.includes('execution.acquire')
+                    ? 'attached'
+                    : 'missing'),
+              }),
           notes: '',
         })),
       },
@@ -138,5 +150,66 @@ describe('P1-3 执行入口门禁 · 负向自证', () => {
     const r = run(env);
     expect(r.status).toBe(1);
     expect(r.out).toContain('入口文件不存在');
+  });
+
+  it('未声明 ledger ⇒ 变红（记账契约必填，新增入口必须回答"是否前置记账"）', () => {
+    const { env } = makeFixture({
+      sources: { 'app/src/a.ts': 'coreAPI.chatStream({});\n' },
+      entries: [{ file: 'app/src/a.ts', patterns: ['coreapi.chatstream'] }],
+      omitLedgerFor: 'app/src/a.ts',
+    });
+    const r = run(env);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain('账本契约缺失');
+  });
+
+  it('ledger 与 acquire 不自洽（声明已接却无执行身份 / 声明未接却真的 acquire）⇒ 变红', () => {
+    const noIdentity = makeFixture({
+      sources: { 'app/src/a.ts': 'coreAPI.chatStream({});\n' },
+      entries: [
+        {
+          file: 'app/src/a.ts',
+          patterns: ['coreapi.chatstream'],
+          ledger: 'attached',
+        },
+      ],
+    });
+    const r1 = run(noIdentity.env);
+    expect(r1.status).toBe(1);
+    expect(r1.out).toContain('账本契约不自洽');
+
+    const claimsMissingButAcquires = makeFixture({
+      sources: {
+        'app/src/a.ts': 'coreAPI.chatStream({});\n',
+        'app/src/b.ts': 'executionManager.acquire(x);\n',
+      },
+      entries: [
+        { file: 'app/src/a.ts', patterns: ['coreapi.chatstream'] },
+        {
+          file: 'app/src/b.ts',
+          patterns: ['execution.acquire'],
+          ledger: 'missing',
+        },
+      ],
+    });
+    const r2 = run(claimsMissingButAcquires.env);
+    expect(r2.status).toBe(1);
+    expect(r2.out).toContain('账本契约不自洽');
+  });
+
+  it('ledger 非法取值 ⇒ 变红', () => {
+    const { env } = makeFixture({
+      sources: { 'app/src/a.ts': 'coreAPI.chatStream({});\n' },
+      entries: [
+        {
+          file: 'app/src/a.ts',
+          patterns: ['coreapi.chatstream'],
+          ledger: 'whatever',
+        },
+      ],
+    });
+    const r = run(env);
+    expect(r.status).toBe(1);
+    expect(r.out).toContain('账本契约非法');
   });
 });

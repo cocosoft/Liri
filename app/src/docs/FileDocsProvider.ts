@@ -5,7 +5,7 @@
 
 import { readFile, readdir, stat } from 'fs/promises';
 import { join, relative, basename, dirname } from 'path';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { parseTags } from '@modules/knowledge/frontmatter';
 
 import { getLogger } from '@modules/monitoring';

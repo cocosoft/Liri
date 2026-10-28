@@ -30,7 +30,7 @@ import {
   resolveSoulPath,
   resolveUserProfilePath,
   resolvePyappHome,
-} from '@openliri/kernel';
+} from '@modules/environment';
 import { AtomicWriter } from '@modules/session';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';

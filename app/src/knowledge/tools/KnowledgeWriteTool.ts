@@ -36,7 +36,7 @@ import { globalEventBus } from '@openliri/kernel';
 import { writeAuditLog } from '../KnowledgeAuditLogger';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 const logger = getLogger('knowledge:tools:knowledgeWriteTool');

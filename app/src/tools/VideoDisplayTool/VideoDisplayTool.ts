@@ -12,7 +12,7 @@ import { ToolResult, ToolUseContext, ToolParam, ToolTag } from '../types/index';
 import { VideoUrlHelper } from '../VideoUrlHelper';
 import { existsSync, statSync } from 'fs';
 import path from 'path';
-import { resolveMediaDir } from '@openliri/kernel/paths';
+import { resolveMediaDir } from '@modules/environment';
 import { resolveAccessibleMediaUrl } from '../MediaUrlResolver';
 
 const logger = getLogger('tools:videoDisplay');

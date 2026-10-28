@@ -32,7 +32,7 @@
  * **仅新增表**（`project_rules §1.5`）。写盘为 best-effort（观测面失败仅留痕，不阻断去重判定）。
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import type { MessageProcessingState } from './types';
 
 export const DEDUP_STATES_TABLE = 'channel_message_states';
@@ -75,7 +75,7 @@ export class DedupStore {
 
   private async doInit(): Promise<void> {
     const dbPath =
-      this.dbPath ?? (await import('@openliri/kernel')).resolveDbPath();
+      this.dbPath ?? (await import('@modules/environment')).resolveDbPath();
     this.db = await new Promise<Database>((resolve, reject) => {
       const db = new Database(dbPath, (err: Error | null) =>
         err ? reject(err) : resolve(db)

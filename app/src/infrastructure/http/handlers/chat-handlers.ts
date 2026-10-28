@@ -1539,7 +1539,7 @@ export async function handleGetDataDirectory(
 ): Promise<void> {
   try {
     const { resolvePyappHome, getUserDataDirOverride, setUserDataDirOverride } =
-      await import('@openliri/kernel/paths');
+      await import('@modules/environment');
 
     const currentDir = resolvePyappHome();
     const configuredDir = getUserDataDirOverride();

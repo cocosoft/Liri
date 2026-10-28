@@ -19,8 +19,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /**
- * 命令类型定义
+ * 命令类型的类型定义
  */
+
+import type { ToolSandboxLevel } from '../../utils/toolContract/Tool';
 
 /**
  * 命令类型
@@ -32,6 +34,17 @@ export type CommandType =
   | 'chat'
   | 'local'
   | 'local-jsx';
+
+/**
+ * 命令**来源**（信任边界；方案 §8.4）。
+ *
+ * - `builtin`：随包分发（`commands/**`、bundled skill 命令）—— 与代码同源，可审计；
+ * - `plugin`：外部注册（插件 / 第三方）—— **默认需要审批**（fail-closed）。
+ *
+ * ⚠️ 与 `loadedFrom` 的分工：`loadedFrom` 是**加载器标识**（`'builtin'` / `'skill'` …，观测用），
+ * `source` 是**信任等级**（授权判定用）。二者不可互相替代。
+ */
+export type CommandSource = 'builtin' | 'plugin';
 
 /**
  * 命令接口
@@ -91,6 +104,30 @@ export interface Command {
    * 加载来源
    */
   loadedFrom?: string;
+
+  /**
+   * 信任等级（方案 §8.4；缺省视为 `builtin`）。
+   *
+   * ⚠️ 这是**权限元数据**，不是观测字段 —— 授权判定必须读它（或注册表的派生方法
+   * `CommandRegistry.requiresApproval()`），**不得**用 `loadedFrom` 字符串代替（CS02）。
+   */
+  source?: CommandSource;
+
+  /**
+   * 沙箱级别（与 `Tool` 同域，取值复用 `ToolSandboxLevel`）。
+   *
+   * 命令此前**一个权限元数据都没有**（方案 §8.4）；该字段供执行侧按级别限域
+   * （`execution` ⇒ 需沙箱；`readonly` ⇒ 只读域）。未声明 ⇒ 由调用方按"未知"保守处理。
+   */
+  sandboxLevel?: ToolSandboxLevel;
+
+  /**
+   * 是否需要用户审批。
+   *
+   * 缺省语义（**fail-closed**，见 `CommandRegistry.requiresApproval()`）：
+   * `source === 'plugin'` ⇒ `true`；否则 `false`（内置命令与代码同源）。
+   */
+  requiresApproval?: boolean;
 
   /**
    * 是否隐藏
@@ -405,7 +442,6 @@ declare module './index' {
   interface Command {
     isEnabled?: () => boolean | Promise<boolean>; // 条件启用（允许异步探测，如 `git rev-parse`）
     availability?: string[]; // 可用性要求
-    source?: string; // 来源
     supportsNonInteractive?: boolean; // 非交互支持
     allowedTools?: string[]; // 允许的工具
     progressMessage?: string; // 进度消息

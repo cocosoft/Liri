@@ -13,7 +13,7 @@ import { appendFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 
 const logger = getLogger('knowledge:monitor');
 

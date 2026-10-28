@@ -19,8 +19,8 @@ import {
   MODULE_INITIALIZATION_ORDER,
 } from '@modules/modules';
 import { getLogger } from '@modules/monitoring';
-import { resolveCacheDir } from '@openliri/kernel';
-import { resolveProjectRoot } from '@openliri/kernel/paths';
+import { resolveCacheDir } from '@modules/environment';
+import { resolveProjectRoot } from '@modules/environment';
 
 const logger = getLogger('DependencyGraphScanner');
 

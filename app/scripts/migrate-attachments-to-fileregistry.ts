@@ -15,10 +15,10 @@
  *   - 支持断点续传（基于 source 和 source_id 去重）
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { resolveDbPath } from '@openliri/kernel/paths';
+import { resolveDbPath } from '@modules/environment';
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource } from '@modules/services/file/types';

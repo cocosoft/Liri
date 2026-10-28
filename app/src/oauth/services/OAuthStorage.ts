@@ -14,7 +14,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { readFile, writeFile, mkdir, access } from 'fs/promises';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 // AES-256-GCM 参数统一到真源 `../utils/OAuthCrypto.ts`（硬编码治理「同名常量」B2b）——

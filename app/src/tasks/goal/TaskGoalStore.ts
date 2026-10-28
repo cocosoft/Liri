@@ -23,8 +23,8 @@
  */
 
 import { randomUUID } from 'crypto';
-import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel/paths';
+import { Database } from '@modules/external';
+import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
 import {
   getRequestPrincipal,
   getRequestPrincipalKey,

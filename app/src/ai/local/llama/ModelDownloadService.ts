@@ -6,7 +6,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { resolveLlamaModelsDir } from '@openliri/kernel/paths';
+import { resolveLlamaModelsDir } from '@modules/environment';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { createHash } from 'crypto';
 import { stat, mkdir, writeFile, rename, open, unlink } from 'fs/promises';

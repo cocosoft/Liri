@@ -34,16 +34,16 @@ import type {
   PatternAssemblerId,
   PatternRecipe,
   PatternSelection,
-} from '@openliri/kernel';
+} from './patterns';
 import {
-  feature,
   isPatternReachable,
   listPatterns,
   patternFeatureFlag,
   patternUnreachableReason,
   resolvePattern,
-} from '@openliri/kernel';
-import { resolveDataSubDir } from '@openliri/kernel/paths';
+} from './patterns';
+import { feature } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 import { mkdir, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
 

@@ -13,11 +13,8 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { Database } from '@openliri/kernel/external/sqlite3.js';
-import {
-  resolveDataDir,
-  setUserDataDirOverride,
-} from '@openliri/kernel/paths.js';
+import { Database } from '@modules/external';
+import { resolveDataDir, setUserDataDirOverride } from '@modules/environment';
 import { purgeTenant } from '../../src/runtime/tenantPurge.js';
 import {
   registerScopedResource,

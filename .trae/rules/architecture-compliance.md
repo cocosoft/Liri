@@ -87,7 +87,7 @@ LightweightAPIError, LightweightConfigError
 
 ### R01-007 [MUST] 路径解析一致性
 
-所有路径解析必须通过 `@openliri/kernel/paths` 中的标准函数获取，**禁止**在业务代码中硬编码路径或自行拼接。
+所有路径解析必须通过 `@modules/environment` 中的标准函数获取，**禁止**在业务代码中硬编码路径或自行拼接。
 
 **禁止**：
 - 使用 `join(os.homedir(), '.pyapp', ...)` 直接构造路径（应使用 `resolvePyappHome()` 或 `LIRI_HOME` 环境变量）
@@ -895,7 +895,7 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 | R03-001 | `utils/cache.ts` | 标准实现：LRUCache、TTLCache、MemoryCache、PersistentCache、MultiLevelCache、CacheManager | 永久 |
 | R03-001 | `utils/withRetry.ts` | R01-003 治理例外：标准 withRetry 工厂函数 | 永久 |
 | R03-001 | `utils/fileStateCache.ts` | 工具类缓存，非基础设施 | 永久 |
-| R03-001 | `core/health/DependencyHealthChecker.ts` | 标准健康检查基础设施 | 永久 |
+| R03-001 | `runtimeHost/health/DependencyHealthChecker.ts` | 标准健康检查基础设施（P1 由 `core/health/` 随内核去 I/O 迁出） | 永久 |
 | R03-001 | ~~`core/approval/ApprovalCache.ts`~~ | 标准审批缓存，非自建基础设施；**2026-10-24 已删除**（三重零：0 静态引用 / 0 动态入口 / 0 测试覆盖）⇒ 本行转为历史记录 | ~~永久~~ **已删除** |
 | R03-001 | `diagnostics/SystemHealthChecker.ts` | 诊断模块健康检查，标准实现 | 永久 |
 | R03-001 | `monitoring/health/HealthChecker.ts` | 监控模块健康检查，标准实现 | 永久 |

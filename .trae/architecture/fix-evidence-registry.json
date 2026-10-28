@@ -4255,7 +4255,7 @@
         "e2eVerified": false
       },
       "code": [
-        "packages/kernel/src/core/paths.ts",
+        "app/src/environment/paths.ts",
         "app/src/constants/common.ts",
         "app/src/workspace/LiriConfigManager.ts",
         "app/src/workspace/RuleEngine.ts",
@@ -5985,7 +5985,7 @@
       },
       "code": [
         "app/src/acp/session.ts",
-        "packages/kernel/src/core/idle/IdleScaleMonitor.ts",
+        "app/src/runtimeHost/IdleScaleMonitor.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -10739,7 +10739,7 @@
         "e2eVerified": false
       },
       "code": [
-        "packages/kernel/src/core/mediaRoots.ts",
+        "app/src/environment/mediaRoots.ts",
         ".trae/architecture/hardcode-gate-baseline.json",
         ".trae/architecture/hardcode-progress.json"
       ],
@@ -12195,7 +12195,7 @@
         "e2eVerified": false
       },
       "code": [
-        "packages/kernel/src/core/paths.ts",
+        "app/src/environment/paths.ts",
         "app/src/plugins/utils/pluginSignature.ts",
         "app/scripts/copy-seed-data.ts",
         "app/scripts/plugin-sign.ts",
@@ -12205,7 +12205,7 @@
       ],
       "tests": [
         "app/tests/plugins/pluginSignature.test.ts",
-        "packages/kernel/tests/pathsResolvers.test.ts"
+        "app/tests/environment/pathsResolvers.test.ts"
       ],
       "changelog": [
         "随包分发官方插件公钥：安装包携带 app/trusted-keys，签名信任锚改为「随包官方钥 ∪ 用户目录 ∪ env 显式目录」并集；仓库仍不内置任何私钥"
@@ -12762,7 +12762,7 @@
         "e2eVerified": false
       },
       "code": [
-        "packages/kernel/src/core/paths.ts"
+        "app/src/environment/paths.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -12880,7 +12880,7 @@
         "e2eVerified": false
       },
       "code": [
-        "packages/kernel/src/core/paths.ts",
+        "app/src/environment/paths.ts",
         ".trae/architecture/kernel-size-baseline.json",
         ".trae/architecture/kernel-api-surface.json"
       ],
@@ -13606,7 +13606,7 @@
         "e2eVerified": false
       },
       "code": [
-        "packages/kernel/src/core/paths.ts",
+        "app/src/environment/paths.ts",
         "app/src/chat/services/toolCwdScope.ts",
         "app/src/chat/services/ToolExecutionService.ts"
       ],

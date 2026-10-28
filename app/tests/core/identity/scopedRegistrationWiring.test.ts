@@ -14,7 +14,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { setUserDataDirOverride } from '@openliri/kernel/paths.js';
+import { setUserDataDirOverride } from '@modules/environment';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 import {

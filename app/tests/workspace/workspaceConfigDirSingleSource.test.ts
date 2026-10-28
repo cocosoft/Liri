@@ -19,7 +19,7 @@ import { join, relative } from 'node:path';
 import {
   WORKSPACE_CONFIG_DIR_NAME,
   resolvePyappHome,
-} from '@openliri/kernel/paths';
+} from '@modules/environment';
 
 /** `app/`（`app/tests/workspace/` → 上两级） */
 const APP = join(import.meta.dir, '..', '..');
@@ -74,7 +74,8 @@ describe('HD-P1-3 · 工作区级 `.liri` 名单一真源', () => {
     const hits: string[] = [];
     for (const abs of files) {
       const r = rel(abs);
-      if (r === '../packages/kernel/src/core/paths.ts') continue; // 真源本身
+      // P1（2026-10-28）：真源随内核去 I/O 迁至 `@modules/environment`（paths.ts）
+      if (r === 'src/environment/paths.ts') continue; // 真源本身
       readFileSync(abs, 'utf-8')
         .split('\n')
         .forEach((line, i) => {

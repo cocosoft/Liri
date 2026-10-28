@@ -44,7 +44,7 @@ import {
 import { KnowledgeGraph } from '../../src/knowledge/graph/KnowledgeGraph';
 import { getProviderManager } from '../../src/ai/providers/ProviderManager';
 import { getCredentialStore } from '../../src/ai/credentials/CredentialStore';
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import { resolveContextWindowAsync } from '../../src/utils/ContextWindowResolver';
 
 const ALICE: Principal = {

@@ -11,7 +11,7 @@
 // 非 Windows 返回裸名（平台门控在探测器/调度处，不会真正使用）。
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveProjectRoot } from '@openliri/kernel/paths';
+import { resolveProjectRoot } from '@modules/environment';
 import { SANDBOX_HELPER_BIN_DIR } from '../helperBinDir';
 
 /** helper 可执行文件名（C 编译产物，不入库） */

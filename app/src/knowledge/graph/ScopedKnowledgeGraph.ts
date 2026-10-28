@@ -13,7 +13,7 @@
  * 为什么不用"共享实例换连接"：`KnowledgeGraph` 持有单字段 `db`，`await` 交错会串库。
  */
 import { KnowledgeGraph } from './KnowledgeGraph.js';
-import { resolveTenantDbPath } from '@openliri/kernel/paths';
+import { resolveTenantDbPath } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 import {
   getRequestPrincipal,

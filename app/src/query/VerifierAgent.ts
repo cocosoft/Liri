@@ -18,11 +18,11 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import {
-  feature,
   alignChecksToCriteria,
   renderCriteriaSkeleton,
   type SuccessCriteria,
-} from '@openliri/kernel';
+} from '@modules/tasks/successCriteria';
+import { feature } from '@openliri/kernel';
 
 import { recordVerifierResult } from './taor/verifierMetrics.js';
 

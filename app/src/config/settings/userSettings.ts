@@ -10,7 +10,7 @@ import { handleError } from '@modules/error/handleError.js';
 
 const logger = getLogger('UserSettings');
 import { deepMerge } from '@modules/utils/common.js';
-import { resolvePyappHome } from '@openliri/kernel/paths.js';
+import { resolvePyappHome } from '@modules/environment';
 
 /**
  * 用户设置文件名

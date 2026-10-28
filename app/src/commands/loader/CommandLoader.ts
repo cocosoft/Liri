@@ -13,7 +13,7 @@ import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 
 import { LazyCommand } from './LazyCommand.js';
-import { resolveProjectRoot } from '@openliri/kernel';
+import { resolveProjectRoot } from '@modules/environment';
 
 const logger = getLogger('CommandLoader');
 

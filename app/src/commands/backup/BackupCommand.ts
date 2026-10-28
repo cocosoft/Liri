@@ -16,7 +16,7 @@ import {
   writeFileSync,
 } from 'fs';
 import { join, basename } from 'path';
-import { resolveProjectRoot, resolveDataDir } from '@openliri/kernel';
+import { resolveProjectRoot, resolveDataDir } from '@modules/environment';
 
 const logger = getLogger('BackupCommand');
 

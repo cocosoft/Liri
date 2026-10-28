@@ -36,7 +36,7 @@ import { dirname, join } from 'node:path';
 import {
   setUserDataDirOverride,
   getUserDataDirOverride,
-} from '@openliri/kernel/paths';
+} from '@modules/environment';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,

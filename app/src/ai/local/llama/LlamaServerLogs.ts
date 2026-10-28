@@ -40,7 +40,7 @@ import {
 } from 'fs';
 import { basename, dirname, join } from 'path';
 import { getLogger } from '@modules/monitoring';
-import { resolveLlamaDir } from '@openliri/kernel/paths';
+import { resolveLlamaDir } from '@modules/environment';
 
 const logger = getLogger('ai:llama');
 

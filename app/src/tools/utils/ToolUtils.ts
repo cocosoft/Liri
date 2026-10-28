@@ -12,7 +12,7 @@ import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { configManager } from '@modules/config';
-import { resolveOutputDir } from '@openliri/kernel';
+import { resolveOutputDir } from '@modules/environment';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

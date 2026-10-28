@@ -9,7 +9,7 @@ import {
   resolvePyappHome,
   resolveDataDir,
   resolveProjectRoot,
-} from '@openliri/kernel';
+} from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';

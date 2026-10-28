@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import {
   resolveBundledTrustedKeysDir,
   resolvePluginsDir,
-} from '@openliri/kernel';
+} from '@modules/environment';
 
 /** 启用强制签名校验的 env（`1` / `true` / `yes`，大小写不敏感） */
 export const PLUGIN_SIGNATURE_ENFORCE_ENV = 'LIRI_PLUGIN_REQUIRE_SIGNATURE';

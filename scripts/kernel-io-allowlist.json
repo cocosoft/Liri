@@ -1,0 +1,5 @@
+{
+  "version": 4,
+  "comment": "内核逐文件 I/O 白名单（AC-02 / AC-05）。判据：内核零 I/O —— 任何 fs / fs/promises / child_process / os / net / http / bun:sqlite 违规都必须在此逐条登记（file + specifiers），否则 lint:kernel 直接判红（即使写了基线也不行）。本表是「意图账本」：每条须写明 P1 迁往哪个落点；迁出后必须删除对应条目（只减不增）。\n\n2026-10-28 收口（P1 完成）：16 条 → 0 条。批次 1 runtime-host（instanceLock / seedSync / estop / ExitRecorder / IdleScaleMonitor / delivery 4 件 / DependencyHealthChecker）→ `@modules/runtimeHost`；批次 2 SprintPerformanceChecker → `@modules/performance`；批次 3 sqlite3 → `@modules/external`；批次 4 paths → `@modules/environment`（整体迁出，理由见该模块 index.ts 头注）。\n\n⚠️ 本表为空 = 最严状态：任何新增 I/O 都会因未登记而判红（不需要也不允许「先登记再放行」的便利路径）。",
+  "entries": []
+}

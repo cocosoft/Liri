@@ -9,7 +9,7 @@ import crypto from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveCacheDir } from '@openliri/kernel';
+import { resolveCacheDir } from '@modules/environment';
 
 const logger = getLogger('cache:persistedCacheService');
 

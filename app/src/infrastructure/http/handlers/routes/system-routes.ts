@@ -9,13 +9,13 @@ import type { HandlerCtx } from '../handler-utils';
 import { readBody, json } from '../handler-utils';
 import { sleepMonitor } from '@openliri/kernel';
 import { APP_VERSION } from '@modules/constants';
-import { resolveDataDir, resolvePyappHome } from '@openliri/kernel/paths';
+import { resolveDataDir, resolvePyappHome } from '@modules/environment';
 import {
   engageEstop,
   disengageEstop,
   isEstopEngaged,
   getEstopState,
-} from '@openliri/kernel';
+} from '@modules/runtimeHost';
 
 /**
  * dispatchSystemRoutes — 系统领域路由分发

@@ -12,7 +12,7 @@ import {
   instantiatePattern,
   verifierConfigForRecipe,
 } from '../../src/query/patternAssembler.js';
-import type { PatternAssemblerId } from '@openliri/kernel';
+import type { PatternAssemblerId } from '@modules/query/patterns';
 import { VerifierAgent } from '../../src/query/VerifierAgent.js';
 
 function selection(assembler: PatternAssemblerId, name?: string): never {

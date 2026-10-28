@@ -4,7 +4,7 @@
  * 支持 LRU 淘汰、TTL 过期、磁盘持久化和下载即缓存
  */
 
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 import { mkdir, readFile, writeFile, unlink, readdir, stat } from 'fs/promises';
 import { join, extname } from 'path';
 import { createHash } from 'crypto';

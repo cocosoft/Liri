@@ -24,7 +24,7 @@ import { join, basename, extname } from 'path';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveInboundDir } from '@openliri/kernel';
+import { resolveInboundDir } from '@modules/environment';
 import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';
 

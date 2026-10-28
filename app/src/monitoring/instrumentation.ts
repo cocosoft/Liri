@@ -275,7 +275,7 @@ class FileSpanExporter implements SpanExporter {
 
   constructor() {
     const { join } = require('path');
-    const { resolveDataDir } = require('@openliri/kernel/paths');
+    const { resolveDataDir } = require('@modules/environment');
     this.dir = join(resolveDataDir(), 'otel-traces');
     const { mkdirSync } = require('fs');
     try {

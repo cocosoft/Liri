@@ -32,7 +32,7 @@ import type { ToolUseContext, ToolResult, ToolParam } from '../types';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
-import { resolveTempDir } from '@openliri/kernel/paths';
+import { resolveTempDir } from '@modules/environment';
 import { DEFAULT_CDP_ENDPOINT } from '@openliri/kernel';
 import * as path from 'path';
 import * as fs from 'fs';

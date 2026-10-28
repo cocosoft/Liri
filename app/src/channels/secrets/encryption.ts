@@ -35,7 +35,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { configManager } from '@modules/config';
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 
 const ENC_PREFIX = 'enc:';

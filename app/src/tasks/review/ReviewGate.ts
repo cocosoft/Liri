@@ -20,7 +20,7 @@
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 // 13-P0-2（2026-10-05）：验收标准结构化（注入验证器骨架）
-import { parseSuccessCriteria } from '@openliri/kernel';
+import { parseSuccessCriteria } from '@modules/tasks/successCriteria';
 import { parseReviewFromText } from '../PlanReview.js';
 import type { PlanReview, ReviewDecision, ReviewIssue } from '../PlanReview.js';
 import type { AgentIsolation } from '@modules/agent';

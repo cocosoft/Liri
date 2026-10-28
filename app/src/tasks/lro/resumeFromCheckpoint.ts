@@ -21,7 +21,7 @@ import { getLogger } from '@modules/monitoring';
 import type { PlanReview, ReviewDecision } from '../PlanReview';
 import type { Plan, PlanStep } from '../TaskOrchestrator';
 import { TaskStatus } from '../types';
-import { parseSuccessCriteria } from '@openliri/kernel';
+import { parseSuccessCriteria } from '@modules/tasks/successCriteria';
 import {
   planTurnsExtensionDecision,
   shouldReRollMaxTurnsStep,

@@ -19,7 +19,7 @@ import {
   patternCatalogSnapshotPath,
   writePatternCatalogSnapshot,
 } from '../../src/query/patternAssembler.js';
-import { listPatterns } from '@openliri/kernel';
+import { listPatterns } from '@modules/query/patterns';
 
 describe('listPatternCatalog（PC-6 编排模式目录）', () => {
   it('① 覆盖注册表全部 pattern，且顺序 = 声明序', () => {

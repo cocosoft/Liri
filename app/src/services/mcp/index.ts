@@ -29,7 +29,7 @@ import { handleError } from '@modules/error';
 import { profilePhaseStart, profilePhaseEnd } from '@modules/performance';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolvePyappHome } from '@openliri/kernel/paths';
+import { resolvePyappHome } from '@modules/environment';
 
 const logger = getLogger('services:mcp:index');
 import { enhancedMcpConfigManager } from './EnhancedMCPConfigManager';

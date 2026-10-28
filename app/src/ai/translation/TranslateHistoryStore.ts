@@ -12,9 +12,9 @@
  * 翻译历史是用户级业务数据，此前落在共享本地库且无归属列，租户内两用户会互相看见/覆盖。
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import { randomUUID } from 'crypto';
-import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel/paths';
+import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
 import {
   getRequestPrincipal,
   getRequestPrincipalKey,

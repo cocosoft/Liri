@@ -35,9 +35,9 @@
  * 当前请求身份解析库（`resolveTenantDbPath()`）；单例取用走 `getRecordStore()`。
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import { getLogger } from '@modules/monitoring';
-import { resolveTenantDbPath } from '@openliri/kernel/paths';
+import { resolveTenantDbPath } from '@modules/environment';
 import {
   getRequestPrincipal,
   getRequestPrincipalKey,

@@ -170,8 +170,7 @@ export function registerStandardHandlers(): void {
       try {
         const { loadUserSettings } =
           await import('../../config/settings/userSettings.js');
-        const { setUserDataDirOverride } =
-          await import('@openliri/kernel/paths');
+        const { setUserDataDirOverride } = await import('@modules/environment');
         const settings = loadUserSettings();
         const dataDirectory = settings.dataDirectory as string | undefined;
         if (
@@ -191,7 +190,7 @@ export function registerStandardHandlers(): void {
       enableConfigs();
 
       // 3. 确保所有数据目录结构完整
-      const { ensureDataDirectories } = await import('@openliri/kernel');
+      const { ensureDataDirectories } = await import('@modules/environment');
       ensureDataDirectories();
 
       // 4. 设置优雅关闭

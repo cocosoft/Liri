@@ -229,8 +229,11 @@ describe('内核纯净度门禁：违规样例必红', () => {
   });
 });
 
-describe('内核纯净度门禁：K06 第三方依赖白名单', () => {
-  it('npm 依赖 ⇒ 红（K06）；Node/Bun 内建与显式允许的包 ⇒ 绿', () => {
+describe('内核纯净度门禁：K06 零 I/O 判据 + I/O 台账', () => {
+  const IO_ALLOWLIST = 'scripts/kernel-io-allowlist.json';
+  const PURITY_BASELINE = '.trae/architecture/kernel-purity-baseline.json';
+
+  it('npm 依赖 ⇒ 红（K06）；零 I/O 内建（裸写与 `node:` 前缀同权）⇒ 绿', () => {
     const leaking = fixture({
       'scripts/modules-to-layers.json': LAYERS,
       'app/src/core/leak-dep.ts':
@@ -241,20 +244,94 @@ describe('内核纯净度门禁：K06 第三方依赖白名单', () => {
     expect(leakRun.out).toContain('K06');
     expect(leakRun.out).toContain('axios');
 
+    // 默认白名单（不写配置文件）：只放行零 I/O 内建 —— 裸写 `path` / `crypto` 与带前缀等价
     const clean = fixture({
       'scripts/modules-to-layers.json': LAYERS,
       'app/src/core/ok-dep.ts':
-        "import { join } from 'node:path';\nimport fs from 'fs';\nimport { describe } from 'bun:test';\nexport const p = join('a', 'b');\nexport const f = fs;\nexport const d = describe;\n",
-      'scripts/kernel-allowed-deps.json': JSON.stringify({
-        version: 1,
-        allowedPrefixes: ['node:', 'bun:'],
-        allowBareBuiltins: true,
-        allowedPackages: ['@opentelemetry/api'],
-      }),
+        "import { join } from 'node:path';\nimport { randomUUID } from 'crypto';\nimport { AsyncLocalStorage } from 'node:async_hooks';\nexport const p = join('a', 'b');\nexport const id = randomUUID();\nexport const s = new AsyncLocalStorage();\n",
     });
     const cleanRun = run(clean);
     expect(cleanRun.code).toBe(0);
     expect(cleanRun.out).toContain('三方依赖白名单内');
+  });
+
+  it('I/O ⇒ 红（判据是**零 I/O**，不是「可独立安装」）：裸 fs / node:fs / child_process / bun:sqlite 同罪', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      [IO_ALLOWLIST]: JSON.stringify({ version: 1, entries: [] }),
+      'app/src/core/io.ts':
+        "import fs from 'node:fs';\nimport { exec } from 'child_process';\nexport const f = fs;\nexport const e = exec;\nexport const db = require('bun:sqlite');\n",
+      // 关键：即使**已经写进基线**，未登记 I/O 照样判红（防「加一处 I/O → 手改基线」合法化）
+      [PURITY_BASELINE]: JSON.stringify({
+        version: 1,
+        maxEntries: 3,
+        entries: [
+          { file: 'app/src/core/io.ts', rule: 'K06', target: 'node:fs' },
+          { file: 'app/src/core/io.ts', rule: 'K06', target: 'child_process' },
+          { file: 'app/src/core/io.ts', rule: 'K06', target: 'bun:sqlite' },
+        ],
+      }),
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(1);
+    expect(out).toContain('内核 I/O 未登记 3 处');
+    expect(out).toContain('node:fs');
+    expect(out).toContain('child_process');
+    expect(out).toContain('bun:sqlite');
+  });
+
+  it('I/O 已登记进台账 + 已进基线 ⇒ 绿，并打印台账条数（P1 迁出后应归零）', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      [IO_ALLOWLIST]: JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            file: 'app/src/core/io.ts',
+            specifiers: ['node:fs'],
+            target: 'infra/runtime-host',
+            note: '夹具：模拟存量登记',
+          },
+        ],
+      }),
+      'app/src/core/io.ts': "import fs from 'node:fs';\nexport const f = fs;\n",
+      [PURITY_BASELINE]: JSON.stringify({
+        version: 1,
+        maxEntries: 1,
+        entries: [
+          { file: 'app/src/core/io.ts', rule: 'K06', target: 'node:fs' },
+        ],
+      }),
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(0);
+    expect(out).toContain('内核 I/O 台账：1 处已登记');
+  });
+
+  it('台账里的幽灵条目 ⇒ 告警但 exit 0（同 K04 豁免表卫生口径）', () => {
+    const root = fixture({
+      'scripts/modules-to-layers.json': LAYERS,
+      [IO_ALLOWLIST]: JSON.stringify({
+        version: 1,
+        entries: [
+          {
+            file: 'app/src/core/gone.ts',
+            specifiers: ['fs'],
+            target: 'infra/runtime-host',
+          },
+        ],
+      }),
+      'app/src/core/clean.ts': 'export const ok = 1;\n',
+    });
+
+    const { code, out } = run(root);
+
+    expect(code).toBe(0);
+    expect(out).toContain('已无对应违规');
   });
 });
 
@@ -356,7 +433,7 @@ describe('内核纯净度门禁：K07 深路径（消费方）自证', () => {
       'scripts/modules-to-layers.json': LAYERS,
       [CLEAN_KERNEL]: 'export const ok = 1;\n',
       'app/src/consumer.ts':
-        "import { a } from '@openliri/kernel/paths.js';\nimport { b } from '@openliri/kernel/events/EventBus.js';\nimport { c } from '@openliri/kernel/idle/IdleScaleMonitor';\nexport const y = [a, b, c];\n",
+        "import { a } from '@openliri/kernel/errors.js';\nimport { b } from '@openliri/kernel/events/EventBus.js';\nimport { c } from '@openliri/kernel/connections/ConnectionRegistry';\nexport const y = [a, b, c];\n",
       [DEEP_BASELINE]: EMPTY_DEEP,
     });
 
@@ -511,6 +588,109 @@ describe('内核公开面三处一致（防漂移）', () => {
     const allowed = new Set<string>(KERNEL_PUBLIC_SUBPATHS);
     for (const k of tsconfigKeys()) expect(allowed.has(prefixOf(k))).toBe(true);
     for (const k of exportKeys()) expect(allowed.has(prefixOf(k))).toBe(true);
+  });
+});
+
+describe('内核导出面：ABI 分级 + 转出面棘轮（AC-14 / AC-06）', () => {
+  const SURFACE = resolve(
+    import.meta.dir,
+    '../../../scripts/kernel-api-surface.ts'
+  );
+  const KERNEL = 'packages/kernel/src/core';
+  const SNAPSHOT = '.trae/architecture/kernel-api-surface.json';
+
+  /** 造一个最小 repo：内核只导出 foo.ts#Foo；snapshot 由调用方给 */
+  function surfaceFixture(opts: {
+    facade: boolean;
+    registered: boolean;
+  }): string {
+    const files: Record<string, string> = {
+      [`${KERNEL}/foo.ts`]: 'export const Foo = 1;\n',
+      [`${KERNEL}/index.ts`]: "export * from './foo';\n",
+    };
+    if (opts.facade)
+      files['app/src/facade.ts'] = "export { Foo } from '@openliri/kernel';\n";
+    // Foo 有外部消费者（门面即消费者）⇒ stable；否则 internal
+    const level = opts.facade ? 'stable' : 'internal';
+    files[SNAPSHOT] = JSON.stringify({
+      version: 3,
+      kernelRoot: KERNEL,
+      fileCount: 1,
+      symbolCount: 1,
+      levelCounts: { stable: 0, experimental: 0, internal: 0 },
+      entries: [{ file: 'foo.ts', symbols: ['Foo'] }],
+      levels: { 'foo.ts#Foo': level },
+      reexportFacades: opts.registered
+        ? ['app/src/facade.ts -> @openliri/kernel']
+        : [],
+    });
+    return fixture(files);
+  }
+
+  function runSurface(root: string): { code: number; out: string } {
+    const r = spawnSync(process.execPath, [SURFACE, '--check'], {
+      cwd: root,
+      env: {
+        ...process.env,
+        KAS_REPO_ROOT: root,
+        KAS_KERNEL_ROOT: join(root, KERNEL),
+        KAS_SNAPSHOT: join(root, SNAPSHOT),
+      },
+      encoding: 'utf-8',
+    });
+    return {
+      code: r.status ?? -1,
+      out: `${r.stdout ?? ''}${r.stderr ?? ''}`,
+    };
+  }
+
+  it('未登记级别 ⇒ 红（AC-14「未登记导出 0」）；分级漂移 ⇒ 红', () => {
+    const missingLevel = fixture({
+      [`${KERNEL}/foo.ts`]: 'export const Foo = 1;\n',
+      [SNAPSHOT]: JSON.stringify({
+        version: 3,
+        kernelRoot: KERNEL,
+        fileCount: 1,
+        symbolCount: 1,
+        levelCounts: { stable: 0, experimental: 0, internal: 1 },
+        entries: [{ file: 'foo.ts', symbols: ['Foo'] }],
+        levels: {}, // 快照里没有登记
+        reexportFacades: [],
+      }),
+    });
+    const r = runSurface(missingLevel);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('ABI 分级');
+
+    const drifted = surfaceFixture({ facade: true, registered: true });
+    // 把快照里的级别改成 internal（模拟 stable → internal 的收缩）
+    const p = join(drifted, SNAPSHOT);
+    const snap = JSON.parse(readFileSync(p, 'utf-8')) as {
+      levels: Record<string, string>;
+    };
+    snap.levels['foo.ts#Foo'] = 'internal';
+    writeFileSync(p, JSON.stringify(snap));
+    const d = runSurface(drifted);
+    expect(d.code).toBe(1);
+    expect(d.out).toContain('分级漂移');
+  });
+
+  it('转出面：已登记 ⇒ 绿；**新增**转出式重复 ⇒ 红（AC-06）', () => {
+    const ok = surfaceFixture({ facade: true, registered: true });
+    expect(runSurface(ok).code).toBe(0);
+
+    const fresh = surfaceFixture({ facade: true, registered: false });
+    const r = runSurface(fresh);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('未登记的转出式重复');
+    expect(r.out).toContain('app/src/facade.ts');
+  });
+
+  it('真实仓库：本次快照覆盖全部导出点，且转出面已冻结', () => {
+    const live = runSurface(resolve(import.meta.dir, '../../..'));
+    expect(live.code).toBe(0);
+    expect(live.out).toContain('ABI 分级：');
+    expect(live.out).toContain('新增 0');
   });
 });
 

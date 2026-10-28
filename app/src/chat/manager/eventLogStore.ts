@@ -31,7 +31,7 @@ import type { LiriEvent } from '@modules/session/types/events';
 import {
   resolveWorktreeHash,
   resolveScopedDataDir,
-} from '@openliri/kernel/paths';
+} from '@modules/environment';
 // 多租户 P1：事件日志根随身份分区（本地身份零变更）
 import {
   getRequestPrincipal,

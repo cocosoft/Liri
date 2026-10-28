@@ -15,7 +15,7 @@
 import { getAutoDreamConfig, isAutoDreamEnabled } from './AutoDreamConfig';
 // C1（2026-10-09）：dream session id 熵源改用 crypto
 import { randomIdSuffix } from '../../utils/common';
-import { resolveKnowledgeDir, resolvePyappHome } from '@openliri/kernel';
+import { resolveKnowledgeDir, resolvePyappHome } from '@modules/environment';
 // C1（2026-09-30 D-125，`R00-003` P6/G4）：知识编译改经 core SPI 端口（infra → core 合法）
 import { resolveKnowledge } from '@openliri/kernel/spi';
 import { join } from 'path';

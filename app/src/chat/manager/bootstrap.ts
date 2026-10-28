@@ -130,7 +130,7 @@ export class ChatBootstrap {
    */
   private async cleanStalePidFiles(): Promise<void> {
     try {
-      const { resolveSessionsDir } = await import('@openliri/kernel');
+      const { resolveSessionsDir } = await import('@modules/environment');
       const { readdirSync, statSync, unlinkSync, existsSync } = require('fs');
       const { join } = require('path');
       const pidDir = join(resolveSessionsDir(), 'pid');
@@ -178,7 +178,7 @@ export class ChatBootstrap {
    */
   private async migrateHomeFromProjectToUser(): Promise<void> {
     try {
-      const { resolveProjectRoot } = await import('@openliri/kernel');
+      const { resolveProjectRoot } = await import('@modules/environment');
       const oldDataDir = path.join(
         resolveProjectRoot(),
         'app',

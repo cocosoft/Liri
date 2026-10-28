@@ -17,7 +17,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveInboundBaseDir } from '@openliri/kernel';
+import { resolveInboundBaseDir } from '@modules/environment';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';
 

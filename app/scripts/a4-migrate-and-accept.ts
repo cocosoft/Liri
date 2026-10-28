@@ -5,7 +5,7 @@ import { join, dirname } from 'path';
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { EventLogStorage } from '../src/session/storage/EventLogStorage';
 import { MessageToEventMigrator } from '../src/session/storage/MessageToEventMigrator';
-import { resolveSessionsDir, resolveDbPath } from '@openliri/kernel/paths';
+import { resolveSessionsDir, resolveDbPath } from '@modules/environment';
 // 防止 Logger 未初始化导致报错：设置一个全局 logger fallback（用 console）
 const mod_logger = await import('../src/monitoring/logs/Logger');
 // D-137 收网（2026-09-30）：两处修正 ——

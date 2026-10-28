@@ -14,7 +14,7 @@ import {
   renderCriteriaSkeleton,
   alignChecksToCriteria,
   findUnprovableCriteria,
-} from '@openliri/kernel';
+} from '@modules/tasks/successCriteria';
 import { VerifierAgent } from '../../src/query/VerifierAgent.js';
 import type { VerificationInput } from '../../src/query/VerifierAgent.js';
 

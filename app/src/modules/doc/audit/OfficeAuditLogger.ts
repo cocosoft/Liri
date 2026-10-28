@@ -6,7 +6,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import type { AuditEntry } from '../types';
 

@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome, isPathWithin } from '@openliri/kernel';
+import { resolvePyappHome, isPathWithin } from '@modules/environment';
 // C1（2026-10-09）：event id 熵源改用 crypto
 import { randomIdSuffix } from '@modules/utils/common';
 import { Logger, LogLevel } from '@modules/monitoring';

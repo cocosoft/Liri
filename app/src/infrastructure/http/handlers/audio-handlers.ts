@@ -12,7 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { resolveMediaDir, isPathWithin } from '@openliri/kernel/paths';
+import { resolveMediaDir, isPathWithin } from '@modules/environment';
 
 /** 音频根目录 */
 const AUDIO_ROOT = path.join(resolveMediaDir(), 'audio');

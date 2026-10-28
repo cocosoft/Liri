@@ -16,7 +16,7 @@ import { configManager } from '@modules/config';
 import { detectSystemLocale } from '@modules/system/i18n/extended';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { resolvePyappHome } from '@openliri/kernel/paths';
+import { resolvePyappHome } from '@modules/environment';
 
 /**
  * 语言标点风格提示（默认表；可通过外部资源包 `~/.pyapp/i18n/language-packs.json`

@@ -29,7 +29,7 @@ import {
   resolvePyappHome,
   resolveProjectRoot,
   WORKSPACE_CONFIG_DIR_NAME,
-} from '@openliri/kernel';
+} from '@modules/environment';
 import { SECTION_NAMES, getSectionCacheLocale } from '@modules/constants';
 import { getLogger } from '@modules/monitoring';
 

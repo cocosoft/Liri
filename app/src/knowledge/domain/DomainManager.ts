@@ -15,7 +15,7 @@ import {
   resolveDomainsRoot,
   resolveDomainDir,
   resolveDomainSchemaDir,
-} from '@openliri/kernel';
+} from '@modules/environment';
 
 const logger = getLogger('knowledge:domain:domainManager');
 

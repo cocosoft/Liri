@@ -5,8 +5,8 @@
  * 参照 BalanceStore 模式：单例 + 延迟初始化 + CREATE TABLE IF NOT EXISTS。
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel/paths';
+import { Database } from '@modules/external';
+import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
 // 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,

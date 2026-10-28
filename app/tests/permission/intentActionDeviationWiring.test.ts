@@ -16,7 +16,7 @@ import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'fs';
 import { createPermissionManager } from '../../src/permission/PermissionManager.js';
 import { inboxManager } from '../../src/runtime/InboxManager.js';
 import { unattendedMode } from '../../src/runtime/UnattendedModeManager.js';
-import { resolvePermissionsDir } from '@openliri/kernel/paths.js';
+import { resolvePermissionsDir } from '@modules/environment';
 import { setPermissionRuntimeDeps } from '../../src/permission/PermissionChecker.js';
 
 const RULE_FILE = join(resolvePermissionsDir(), 'tool_rules.json');

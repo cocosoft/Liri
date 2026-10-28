@@ -31,7 +31,7 @@ import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveAiAccess } from '@openliri/kernel/spi';
-import { resolveUserSkillsDir } from '@openliri/kernel/paths';
+import { resolveUserSkillsDir } from '@modules/environment';
 import {
   EVOLUTION_MIN_INTERVAL_MS,
   readEvolutionState,

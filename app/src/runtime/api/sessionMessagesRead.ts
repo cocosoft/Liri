@@ -49,11 +49,11 @@ import type {
   FrontendMessageBlock,
 } from '@modules/session/types/UnifiedMessage';
 import type { ChatManager } from '@modules/chat';
-import { resolveWorktreeHash } from '@openliri/kernel/paths';
+import { resolveWorktreeHash } from '@modules/environment';
 import {
   canAccessSession,
   type SessionOwner,
-} from '@openliri/kernel/identity/sessionOwnership';
+} from '@modules/security/identity';
 import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

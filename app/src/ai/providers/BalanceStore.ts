@@ -24,8 +24,8 @@
  * 管理 provider_balances 表的读写，缓存余额查询结果。
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel';
+import { Database } from '@modules/external';
+import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
 // 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,

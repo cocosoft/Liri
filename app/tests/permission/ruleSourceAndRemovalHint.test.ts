@@ -20,7 +20,7 @@ import {
   setUserDataDirOverride,
   getUserDataDirOverride,
   resolvePermissionsDir,
-} from '@openliri/kernel/paths.js';
+} from '@modules/environment';
 
 import { RuleManager } from '../../src/permission/RuleManager.js';
 import { PermissionManager } from '../../src/permission/PermissionManager.js';

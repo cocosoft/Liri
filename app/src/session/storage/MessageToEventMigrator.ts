@@ -24,7 +24,7 @@
 import { promises as fs, existsSync, createReadStream } from 'fs';
 import { join } from 'path';
 import * as readline from 'readline';
-import { resolveLegacySessionsDir } from '@openliri/kernel/paths';
+import { resolveLegacySessionsDir } from '@modules/environment';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
 import type { LiriEvent } from '@modules/session/types/events';

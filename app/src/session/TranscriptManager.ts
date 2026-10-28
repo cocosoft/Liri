@@ -5,7 +5,7 @@
 import { writeFile, readFile, mkdir, stat, unlink, readdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { resolveDataDir } from '@openliri/kernel';
+import { resolveDataDir } from '@modules/environment';
 
 import {
   UnifiedMessage,

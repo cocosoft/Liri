@@ -4,7 +4,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';

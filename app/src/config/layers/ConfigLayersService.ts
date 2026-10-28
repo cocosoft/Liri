@@ -22,7 +22,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { load as yamlLoad } from 'js-yaml';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { getBuildVariant } from '@openliri/kernel';
 import { configManager } from '@modules/config';
 import { resolveAiAccess } from '@openliri/kernel/spi';

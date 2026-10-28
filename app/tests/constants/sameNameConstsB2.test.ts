@@ -802,11 +802,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     // 2 处同名 `DEFAULT_IDLE_TIMEOUT_MS` 同值 30min 异事实：ACP 会话空闲回收 · 空闲降载监控（P3-5）
     const items: Array<[string, string, string]> = [
       ['src/acp/session.ts', 'ACP_SESSION_IDLE_TIMEOUT_MS', '30 * 60 * 1000'],
-      [
-        '../packages/kernel/src/core/idle/IdleScaleMonitor.ts',
-        'IDLE_SCALE_TIMEOUT_MS',
-        '30 * 60_000',
-      ],
+      ['src/runtimeHost/defaults.ts', 'IDLE_SCALE_TIMEOUT_MS', '30 * 60_000'],
     ];
     for (const [rel, name, value] of items) {
       const src = read(rel);

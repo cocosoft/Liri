@@ -16,7 +16,7 @@ import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { configManager } from '@modules/config';
-import { resolveDbPath } from '@openliri/kernel/paths';
+import { resolveDbPath } from '@modules/environment';
 import { trackUsage, modelRouter, estimateMessagesTokens } from '@modules/ai';
 import { taskOrchestrator } from './TaskOrchestrator';
 import { emitPdcaLiveEvent } from './PdcaLiveEvents';
@@ -63,7 +63,7 @@ import type { TAORLoopDeps } from '@modules/query';
 import { VerifierAgent, createVerifierAgent } from '@modules/query';
 import type { VerificationResult } from '@modules/query';
 // 13-P0-2（2026-10-05）：验收标准结构化（存档回填时由文本重派生）
-import { parseSuccessCriteria } from '@openliri/kernel';
+import { parseSuccessCriteria } from '@modules/tasks/successCriteria';
 import { FileLockManager, fileLockManager } from './FileLockManager.js';
 import { inboxManager } from '@modules/runtime/InboxManager.js';
 import {
@@ -71,8 +71,9 @@ import {
   writePdcaCheckpoint,
   readPdcaCheckpoint,
 } from './PdcaWorkItemBridge';
-import type { PdcaPhase } from '@openliri/kernel';
-import { pdcaCheckpointStatus, findUnprovableCriteria } from '@openliri/kernel';
+import type { PdcaPhase } from '@modules/tasks/phases';
+import { pdcaCheckpointStatus } from '@modules/tasks/phases';
+import { findUnprovableCriteria } from '@modules/tasks/successCriteria';
 import { getToolRegistry, buildToolDefinitions } from '../tools/index.js';
 import type { ToolUseContext } from '../tools/types/Tool.js';
 

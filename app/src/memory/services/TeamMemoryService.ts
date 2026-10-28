@@ -19,7 +19,7 @@ interface MemoryManager {
 }
 import * as fs from 'fs';
 import { join } from 'path';
-import { resolveDataDir } from '@openliri/kernel';
+import { resolveDataDir } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

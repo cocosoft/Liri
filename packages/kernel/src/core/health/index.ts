@@ -26,18 +26,14 @@
  * HealthStatus 是项目标准健康状态类型（2026-06 架构治理统一）
  * 所有模块请使用此类型。DependencyHealthChecker 的 HealthStatus
  * 已通过 types.js 统一。
+ *
+ * P1（2026-10-28，v3 §6.1）：`DependencyHealthChecker`（含 fs 读写标记文件）
+ * 已迁出内核到 `@modules/runtimeHost`。内核只保留**契约与纯函数**
+ * （`HealthStatus` / `HEALTH_SEVERITY` / `isAcceptable` / `mergeHealthStatuses`
+ * 与 `ModuleHealthRegistry`），因此本 barrel 不再转出该实现类。
  * ════════════════════════════════════════════════════
  */
 
-export {
-  DependencyHealthChecker,
-  getDependencyHealthChecker,
-} from './DependencyHealthChecker';
-export type {
-  DependencyHealthResult,
-  DependencyHealthConfig,
-  DependencyType,
-} from './DependencyHealthChecker';
 export {
   ModuleHealthRegistry,
   moduleHealthRegistry,

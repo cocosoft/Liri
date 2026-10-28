@@ -10,7 +10,7 @@ import { handleError } from '@modules/error/handleError';
 import { join } from 'path';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { WakeWordEngine } from './WakeWordEngine';
 import type { WakeWordResult } from './WakeWordEngine';
 import type { WakeDetectionResult } from './types';

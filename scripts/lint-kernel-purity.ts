@@ -11,7 +11,10 @@
  *   K02  动态 `import('…')` / `require('…')` 同上（R00-003 的动态盲区在此**硬拦**）
  *   K03  说明符不得解析到 `app/src/` 之外（工作区外，如 `../client/**`）
  *   K04  `core/spi/**` 不得 `export class`（端口目录只放契约，实现交给上层注入）
- *   K06  裸包说明符必须在白名单内（`scripts/kernel-allowed-deps.json`；目标：0 个 npm 依赖）
+ *   K06  裸包说明符必须在白名单内（`scripts/kernel-allowed-deps.json`；目标：**零 I/O + 0 个 npm 依赖**）
+ *        —— 判据自 v0.4.x 起由「可独立安装」收紧为「零 I/O」：只放行 `node:path` / `node:crypto` /
+ *        `node:async_hooks` 三个**零 I/O** 内建；`fs` / `fs/promises` / `child_process` / `os` 等
+ *        一律判违规（存量登记见 `scripts/kernel-io-allowlist.json`，只减不增）。
  *   K07  消费方深路径禁令（只允许桶 + `KERNEL_PUBLIC_SUBPATHS`；基线 0）
  *   K08  内核体量棘轮（`.ts` 文件数 / 非空行数 / 顶层子目录数，只减不增）
  *
@@ -172,12 +175,56 @@ export interface AllowedDeps {
   allowedPackages: string[];
 }
 
-/** 默认白名单：零 npm 依赖 + 允许 Node/Bun 内建（内核当前的实测姿态） */
+/** 默认白名单：零 npm 依赖 + 仅零 I/O 的 Node 内建（K06 收紧后的实测姿态） */
 export const DEFAULT_ALLOWED_DEPS: AllowedDeps = {
-  allowedPrefixes: ['node:', 'bun:'],
-  allowBareBuiltins: true,
+  allowedPrefixes: ['node:path', 'node:crypto', 'node:async_hooks'],
+  allowBareBuiltins: false,
   allowedPackages: [],
 };
+
+/**
+ * **内核 I/O 根名（AC-21 永久禁止面）**：说明符去掉 `node:` / `bun:` 前缀后取根名，
+ * 命中本表即判「内核 I/O 违规」。裸内建与带前缀写法同罪（`fs` ≡ `node:fs`）。
+ */
+export const FORBIDDEN_IO_ROOTS: ReadonlySet<string> = new Set([
+  'fs',
+  'child_process',
+  'os',
+  'net',
+  'http',
+  'https',
+  'dgram',
+  'worker_threads',
+  'sqlite',
+]);
+
+/** 说明符的 I/O 根名；非 I/O 返回 null */
+export function ioRootOf(spec: string): string | null {
+  const bare = spec.replace(/^(node|bun):/, '');
+  const root = bare.split('/')[0] ?? '';
+  return FORBIDDEN_IO_ROOTS.has(root) ? root : null;
+}
+
+/**
+ * **逐文件 I/O 白名单**（`scripts/kernel-io-allowlist.json`，AC-02/AC-05）。
+ *
+ * 与纯度基线的分工（双账本，`§12 指标假达成`）：
+ *   - 本表 = **意图账本**：「这个文件为什么可以有 I/O、P1 迁去哪」；只减不增；
+ *   - 纯度基线 = **存量账本**：把当前 (file, rule, target) 冻住，只允许减少。
+ *
+ * 二者缺一都会失真：只有基线 ⇒ 新增 I/O 只要手改基线就能进；只有本表 ⇒ 存量违规无法消化。
+ */
+export interface KernelIoAllowlistEntry {
+  /** 仓库相对路径（正斜杠，含 `.ts`） */
+  file: string;
+  /** 该文件被登记的 I/O 说明符（逐条，`fs` 与 `fs/promises` 分别登记） */
+  specifiers: string[];
+  /** P1 迁移目标落点（如 `infra/runtime-host`） */
+  target: string;
+  /** 为什么暂时留存 */
+  note?: string;
+}
+
 
 const BARE_BUILTINS = new Set(
   builtinModules.map((m) => (m.startsWith('node:') ? m.slice(5) : m))
@@ -215,8 +262,8 @@ export function findDanglingExemptions(
 /**
  * 判定裸包说明符是否被白名单放行。
  *
- * - `node:*` / `bun:*`：命中 `allowedPrefixes` ⇒ 放行；
- * - 裸内建（`fs` / `path` / `fs/promises`）：`allowBareBuiltins` 且根名在内建集合 ⇒ 放行；
+ * - 命中 `allowedPrefixes`（如 `node:path`）⇒ 放行；裸写同根名（`path`）等价放行；
+ * - `allowBareBuiltins` + 根名在内建集合 ⇒ 放行（**当前配置为 false**：不再"全部裸内建放行"）；
  * - 其余：命中 `allowedPackages` 才放行（`@scope/pkg/sub` 按 `@scope/pkg` 取根名）。
  */
 export function isAllowedBareSpecifier(
@@ -225,9 +272,16 @@ export function isAllowedBareSpecifier(
 ): boolean {
   if (allowed.allowedPrefixes.some((p) => spec.startsWith(p))) return true;
 
+  // 裸内建与带前缀写法**同权**：白名单登记了 `node:path` 即等价放行裸写 `path`（同一模块，
+  // Bun/Node 两种写法可互换）。反向不成立 —— 未登记的根名（`fs` / `os` / `child_process`）
+  // 即使裸写也照样判红，`allowBareBuiltins` 不再提供"全部裸内建放行"的后门。
+  const bareRoot = spec.split('/')[0] ?? '';
+  if (!spec.startsWith('@') && allowed.allowedPrefixes.includes(`node:${bareRoot}`))
+    return true;
+
   const root = spec.startsWith('@')
     ? spec.split('/').slice(0, 2).join('/')
-    : spec.split('/')[0]!;
+    : bareRoot;
   if (allowed.allowedPackages.includes(root)) return true;
   return allowed.allowBareBuiltins && BARE_BUILTINS.has(root);
 }
@@ -306,20 +360,23 @@ export function analyzeKernelPurity(input: AnalyzeInput): AnalyzeResult {
         continue;
       }
       if (!target) {
-        // 裸包：K06 白名单（`node:` / `bun:` / 内建 / 显式允许的 npm 包）
+        // 裸包：K06 白名单（零 I/O 内建前缀 / 显式允许的 npm 包；裸内建默认**不放行**）
         const isAlias = hit.spec.startsWith('@modules/');
         const isRelative = hit.spec.startsWith('.');
         if (!isAlias && !isRelative) {
           const allowed = input.allowedDeps ?? DEFAULT_ALLOWED_DEPS;
           if (!isAllowedBareSpecifier(hit.spec, allowed)) {
+            const ioRoot = ioRootOf(hit.spec);
             violations.push({
               rule: 'K06',
               file: relFile,
               line: hit.line,
               target: hit.spec,
-              message:
-                `内核引入第三方依赖「${hit.spec}」（白名单见 scripts/kernel-allowed-deps.json）` +
-                ' —— 内核目标为 0 个 npm 依赖；确需引入须先评审并登记',
+              message: ioRoot
+                ? `内核 I/O 违规「${hit.spec}」（根名 ${ioRoot}）—— 内核判据为零 I/O；` +
+                  '存量须登记 scripts/kernel-io-allowlist.json，P1 迁出内核'
+                : `内核引入第三方依赖「${hit.spec}」（白名单见 scripts/kernel-allowed-deps.json）` +
+                  ' —— 内核目标为 0 个 npm 依赖；确需引入须先评审并登记',
             });
           }
         }
@@ -377,6 +434,43 @@ export function analyzeKernelPurity(input: AnalyzeInput): AnalyzeResult {
   return { violations, unmapped: [...unmapped].sort() };
 }
 
+/** `checkKernelIoAllowlist` 的结果 */
+export interface KernelIoAllowlistReport {
+  /** 有 I/O 违规但未被 allowlist 登记 ⇒ **fail-closed**（即使已在基线里也不行） */
+  unregistered: PurityViolation[];
+  /** 登记了但没有对应违规 ⇒ 幽灵条目（只告警；同 K04 豁免表卫生） */
+  dangling: string[];
+  /** 已登记且实际存在的 I/O 违规数 */
+  registered: number;
+}
+
+/**
+ * **I/O 台账校验**：把「实际 I/O 违规」与「逐文件白名单」对上账。
+ *
+ * 为什么不能在基线之外只靠 allowlist：基线是按 `(file, rule, target)` 冻结的存量，
+ * 只保证「不新增」，不保证「新增的 I/O 有人评审过」。本函数补上后者：
+ * 任何未登记的 I/O 违规**即使写进基线也判红**（防「手改基线即放行」，§12 指标假达成）。
+ */
+export function checkKernelIoAllowlist(
+  violations: readonly PurityViolation[],
+  entries: readonly KernelIoAllowlistEntry[]
+): KernelIoAllowlistReport {
+  const declared = new Set(
+    entries.flatMap((e) => e.specifiers.map((s) => `${e.file}|${s}`))
+  );
+  const ioViolations = violations.filter((v) => ioRootOf(v.target) !== null);
+  const actual = new Set(ioViolations.map((v) => `${v.file}|${v.target}`));
+  const unregistered = ioViolations.filter(
+    (v) => !declared.has(`${v.file}|${v.target}`)
+  );
+  const dangling = [...declared].filter((k) => !actual.has(k)).sort();
+  return {
+    unregistered,
+    dangling,
+    registered: ioViolations.length - unregistered.length,
+  };
+}
+
 // ─────────────────────────────── CLI ───────────────────────────────
 
 interface BaselineEntry {
@@ -405,6 +499,9 @@ const LAYERS_FILE = process.env.KP_LAYERS
 const ALLOWED_DEPS_FILE = process.env.KP_ALLOWED_DEPS
   ? resolve(process.env.KP_ALLOWED_DEPS)
   : resolve(repoRoot, 'scripts/kernel-allowed-deps.json');
+const IO_ALLOWLIST_FILE = process.env.KP_IO_ALLOWLIST
+  ? resolve(process.env.KP_IO_ALLOWLIST)
+  : resolve(repoRoot, 'scripts/kernel-io-allowlist.json');
 const srcRoot = resolve(repoRoot, 'app/src');
 const kernelRoot = process.env.KP_KERNEL_ROOT
   ? resolve(process.env.KP_KERNEL_ROOT)
@@ -478,6 +575,61 @@ function loadAllowedDeps(): AllowedDeps {
   }
 }
 
+/** 逐文件 I/O 白名单（缺失 ⇒ 空表；有 I/O 违规时由 `enforceIoAllowlist` 判红） */
+function loadIoAllowlist(): {
+  entries: KernelIoAllowlistEntry[];
+  found: boolean;
+} {
+  if (!existsSync(IO_ALLOWLIST_FILE)) return { entries: [], found: false };
+  try {
+    const raw = JSON.parse(readFileSync(IO_ALLOWLIST_FILE, 'utf8')) as {
+      entries?: KernelIoAllowlistEntry[];
+    };
+    if (!Array.isArray(raw.entries)) {
+      throw new Error('缺少 entries 数组');
+    }
+    return { entries: raw.entries, found: true };
+  } catch (err) {
+    console.error(`I/O 白名单 JSON 解析失败（fail-closed）: ${String(err)}`);
+    process.exit(1);
+  }
+}
+
+/**
+ * I/O 台账强制（AC-02）：未登记即判红 —— **在写基线之前**执行，
+ * 否则「加一处 I/O → `--write-baseline`」就能把它合法化（§12 指标假达成）。
+ */
+function enforceIoAllowlist(
+  violations: readonly PurityViolation[]
+): void {
+  const allowlist = loadIoAllowlist();
+  const report = checkKernelIoAllowlist(violations, allowlist.entries);
+  for (const d of report.dangling) {
+    console.warn(
+      `⚠️ kernel-io-allowlist 登记项已无对应违规（请清理）: ${d.replace('|', ' → ')}`
+    );
+  }
+  if (report.unregistered.length > 0) {
+    console.error(
+      `❌ 内核 I/O 未登记 ${report.unregistered.length} 处（fail-closed；登记表 scripts/kernel-io-allowlist.json）:`
+    );
+    for (const v of report.unregistered) {
+      console.error(`  - ${v.file}:${v.line} → ${v.target}`);
+    }
+    if (!allowlist.found) {
+      console.error(
+        `   未找到 ${relative(repoRoot, IO_ALLOWLIST_FILE)} —— I/O 判据（零 I/O）要求逐文件登记，缺表不得当成零违规`
+      );
+    }
+    process.exit(1);
+  }
+  if (report.registered > 0) {
+    console.log(
+      `内核 I/O 台账：${report.registered} 处已登记（scripts/kernel-io-allowlist.json，P1 迁出后应归零）`
+    );
+  }
+}
+
 function main(): void {
   if (!existsSync(kernelRoot)) {
     console.error(`内核根目录不存在: ${kernelRoot}`);
@@ -498,6 +650,8 @@ function main(): void {
     repoRoot,
     allowedDeps,
   });
+
+  enforceIoAllowlist(violations);
 
   const key = (v: { file: string; rule: string; target: string }): string =>
     `${v.file}|${v.rule}|${v.target}`;
@@ -632,10 +786,8 @@ function checkK04ExemptionHygiene(
  *   - 批次 5/6 的 13 项见下方逐条注释（共同点：进桶会涨启动面，消费方又无法再下沉）。
  */
 export const KERNEL_PUBLIC_SUBPATHS = [
-  // Q2 原始五项
-  'paths',
+  // Q2 原始五项（`paths` / `external` 已随 P1 去 I/O 迁出内核 ⇒ `@modules/environment` / `@modules/external`）
   'identity',
-  'external',
   'spi',
   'events',
   // P5 补（实测无更优替代）
@@ -660,17 +812,14 @@ export const KERNEL_PUBLIC_SUBPATHS = [
   // 五者自身依赖都只到 core 内部（paths / spi / loggerFacade）或零 import，无 app 层倒挂。
   'taskStatus',
   'knowledge-types',
-  'mediaRoots',
   'lazySingleton',
   'LazyModuleStrategy',
   // 批次 6（终局）：最后 9 个前缀。同样不能走桶，而消费方是 app 层的门面/接线点，无法再下沉。
-  // 匹配粒度为**首段**（`idle/…` / `connections/…` 整目录随之公开），这是 K07 既有口径。
+  // 匹配粒度为**首段**（`connections/…` 整目录随之公开），这是 K07 既有口径。
   'DependencyRegistry', // 依赖注册表单例：channels / permission / mcp 三处接线 + app 门面
   'SessionSpanTracer', // 会话级 span 追踪：通道链路 + app 门面
   'tracingFacade', // OTel 追踪门面（`resolveOTelTracing` 的薄封装）
-  'idle', // 空转伸缩监视器（仅 ChatOrchestrator 动态导入）
   'connections', // 连接注册表（main 启动期动态导入）
-  'instanceLock', // 单实例锁：main 解析/写入/发布端点
   'profilerFacade', // 启动剖析门面（`resolveStartupProfiler` 的薄封装）
   'abortReason', // 中断原因契约（app `error/abortReason` 门面的转出源）
   'orchestrationEvents', // 编排事件契约（app `types/orchestrationEvents` 门面的转出源）

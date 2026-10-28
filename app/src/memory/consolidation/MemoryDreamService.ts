@@ -14,7 +14,7 @@ import { handleError } from '@modules/error';
 // D-146（2026-10-01）：modelRouter / providerRegistry / ToolAwareClient 改经 core SPI
 // （`infra -> app` 倒挂收口）
 import { resolveAiAccess } from '@openliri/kernel/spi';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { enterPhase, exitPhase } from '@modules/diagnostics';
 import { join } from 'path';
 import {

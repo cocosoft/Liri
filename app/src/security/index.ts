@@ -293,3 +293,7 @@ export {
   stripSensitiveEnv,
   sanitizeCallerEnv,
 } from './sensitiveEnv';
+
+// 2026-10-28（内核外移）：输出护栏注册表随 outputGuard 下放到本模块；chat 侧
+// 经模块桶取用（裸导入 = 公开 API），避免直连子路径。
+export { getOutputGuardRegistry, runOutputGuards } from './outputGuardRegistry';

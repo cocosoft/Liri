@@ -113,7 +113,7 @@ describe('HD-P0-2 端点 / 本机 host 单一真源', () => {
   it('③b A6 棘轮：各文件 `127.0.0.1` 出现次数只减不增，且均已引用 LOCAL_HTTP_HOST', () => {
     // 期望上限（只减不增）：LocalHTTPService.ts 保留 1 处「本机判定谓词」（非绑定默认值）
     const expectedMax: Record<string, number> = {
-      '../packages/kernel/src/core/health/DependencyHealthChecker.ts': 0,
+      'src/runtimeHost/health/DependencyHealthChecker.ts': 0,
       'src/acp/AcpWebSocketServer.ts': 0,
       'src/cli/ports/index.ts': 0,
       'src/bridge/ModuleBridgeSetup.ts': 0,

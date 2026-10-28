@@ -37,11 +37,8 @@ const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
   };
 import { getMonitoringService } from '@modules/monitoring/index.js';
 import { getLogger } from '@modules/monitoring';
-import {
-  resolvePyappHome,
-  ensureDataDirectories,
-  globalEventBus,
-} from '@openliri/kernel';
+import { resolvePyappHome, ensureDataDirectories } from '@modules/environment';
+import { globalEventBus } from '@openliri/kernel';
 import {
   getStartupChainProfiler,
   loadStartupConfig,
@@ -90,7 +87,7 @@ async function loadUserDataDirectory(): Promise<void> {
   try {
     const { loadUserSettings } =
       await import('../config/settings/userSettings.js');
-    const { setUserDataDirOverride } = await import('@openliri/kernel/paths');
+    const { setUserDataDirOverride } = await import('@modules/environment');
 
     const settings = loadUserSettings();
     const dataDirectory = settings.dataDirectory as string | undefined;
@@ -653,7 +650,7 @@ async function startDeferredPrefetches(): Promise<void> {
             const { mkdir, readdir, copyFile } = await import('fs/promises');
             const { existsSync } = await import('fs');
             const { join } = await import('path');
-            const { resolveDataDir } = await import('@openliri/kernel/paths');
+            const { resolveDataDir } = await import('@modules/environment');
             const legacyDir = join(resolveDataDir(), 'pyapp', 'data', 'memory');
             if (existsSync(legacyDir)) {
               const legacyFiles = await readdir(legacyDir);
@@ -728,8 +725,7 @@ async function startDeferredPrefetches(): Promise<void> {
           const { SemanticIndexUpdater } =
             await import('@modules/knowledge/SemanticIndexUpdater.js');
           const { globalEmbeddingManager } = await import('@modules/ai');
-          const { resolveDataSubDir } =
-            await import('@openliri/kernel/paths.js');
+          const { resolveDataSubDir } = await import('@modules/environment');
 
           // 创建共享向量存储（当前唯一实现 JsonlVectorStore；B5 已下架 sqlite_vec 分支）
           // B0/B3（2026-09-08）：同一实例同时注入 SemanticIndexUpdater（写入）与

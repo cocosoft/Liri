@@ -18,7 +18,7 @@ import {
 } from '../utils/agentLoader';
 import { DirectoryWatcher, WatchEvent } from '../utils/directoryWatcher';
 import { join } from 'node:path';
-import { resolvePyappHome, resolveDataDir } from '@openliri/kernel';
+import { resolvePyappHome, resolveDataDir } from '@modules/environment';
 
 /**
  * Agent源优先级

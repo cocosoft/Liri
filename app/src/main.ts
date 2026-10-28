@@ -46,8 +46,8 @@ import {
   logStartupContext,
   readLastExit,
   recordAbnormalExit,
-  LOCAL_HTTP_HOST,
-} from '@openliri/kernel';
+} from '@modules/runtimeHost';
+import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 // P2（core 独立包）：内核按需加载清单由宿主推送（清单本体是构建期生成物）
 import { registerKernelLazyLoaders } from './bootstrap/registerKernelLazyLoaders';
 import { initAppStateMachine } from './state/app/AppLifecycle.js';
@@ -82,8 +82,9 @@ import {
   resolvePyappHome,
   ensureDataDirectories,
   validatePathConsistency,
-  syncSeedData,
-} from '@openliri/kernel';
+} from '@modules/environment';
+// P1：首启种子同步（fs 复制）已出内核 ⇒ `@modules/runtimeHost`
+import { syncSeedData } from '@modules/runtimeHost';
 import { modelRouter } from '@modules/ai';
 import {
   configManager,
@@ -103,7 +104,7 @@ import {
   publishInstanceEndpoint,
   releaseInstanceLock,
   writeInstanceLock,
-} from '@openliri/kernel/instanceLock.js';
+} from '@modules/runtimeHost';
 // 版本号（唯一事实来源 app/package.json）—— 供 healthcheck 模式打印（L-12.1）
 import { APP_VERSION } from '@modules/constants';
 
@@ -1624,8 +1625,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
         // 从 ConfigManager 或 settings.json 恢复用户自定义数据目录
         const { loadUserSettings } =
           await import('./config/settings/userSettings.js');
-        const { setUserDataDirOverride } =
-          await import('@openliri/kernel/paths.js');
+        const { setUserDataDirOverride } = await import('@modules/environment');
 
         // 优先读取 ConfigManager（新），fallback settings.json（旧，自动迁移）
         let dataDirectory = configManager.getConfigValue(
@@ -1891,7 +1891,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     try {
       const { writeFileSync } = await import('fs');
       const { join } = await import('path');
-      const { resolveLogsDir } = await import('@openliri/kernel/paths.js');
+      const { resolveLogsDir } = await import('@modules/environment');
       const logPath = join(resolveLogsDir(), 'startup-error.log');
       writeFileSync(
         logPath,

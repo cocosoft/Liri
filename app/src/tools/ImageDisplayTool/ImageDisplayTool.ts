@@ -16,7 +16,7 @@ import {
   ATTACHMENTS_ROOT,
   IMAGES_ROOT,
   MEDIA_IMAGES_ROOT,
-} from '@openliri/kernel/mediaRoots';
+} from '@modules/environment';
 import { resolveAccessibleMediaUrl, MediaRoot } from '../MediaUrlResolver';
 
 const logger = getLogger('tools:imageDisplay');

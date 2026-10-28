@@ -11,7 +11,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolCallProgress } from '../types/Tool';
 import { readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
-import { resolveDataSubDir } from '@openliri/kernel';
+import { resolveDataSubDir } from '@modules/environment';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

@@ -14,8 +14,8 @@
  * 依赖 setInterval + unref：不阻止进程退出；周期检查失败仅告警，下周期重试。
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
-import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel';
+import { Database } from '@modules/external';
+import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
 // 租户级 DB（基础设施专项 §6.1 期 3）：拓扑指纹按租户分连接（后台轮询 ⇒ 本地共享库）
 import {
   getRequestPrincipal,

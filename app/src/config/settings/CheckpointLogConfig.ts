@@ -14,7 +14,7 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { resolveUserConfigPath } from '@openliri/kernel/paths.js';
+import { resolveUserConfigPath } from '@modules/environment';
 
 /**
  * 惰性解析配置路径。

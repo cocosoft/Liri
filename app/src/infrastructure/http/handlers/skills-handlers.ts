@@ -83,7 +83,7 @@ export async function handleListSystemSkills(
 ): Promise<void> {
   try {
     const { resolveProjectRoot, resolvePyappHome } =
-      await import('@openliri/kernel/paths');
+      await import('@modules/environment');
     const { readdir, readFile, stat } = await import('fs/promises');
     const { existsSync, readFileSync } = await import('fs');
     const { join } = await import('path');
@@ -260,7 +260,7 @@ export async function handleListSystemSkills(
     await scanDir(userSkillsDir, 'user', { exclude: ['vendor'] });
 
     // 2026-08-06：扫描第三方技能（~/.pyapp/skills/vendor/），标为 third_party
-    const { resolveVendorSkillsDir } = await import('@openliri/kernel/paths');
+    const { resolveVendorSkillsDir } = await import('@modules/environment');
     await scanDir(resolveVendorSkillsDir(), 'third_party');
 
     // 2026-08-06：补充 BundledSkillLoader 注册的内置技能（BUILTIN 源，程序化定义非 SKILL.md 文件）
@@ -374,7 +374,7 @@ export async function handleSystemSkillContent(
     const { readFile } = await import('fs/promises');
     const { existsSync } = await import('fs');
     const { resolveProjectRoot, resolvePyappHome } =
-      await import('@openliri/kernel/paths');
+      await import('@modules/environment');
     const pathMod = await import('path');
 
     const candidateDirs = [
@@ -489,7 +489,7 @@ export async function handleExportSkills(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { resolvePyappHome } = await import('@openliri/kernel/paths');
+    const { resolvePyappHome } = await import('@modules/environment');
     const { default: AdmZipClass } = await import('adm-zip');
 
     const userSkillsDir = path.join(resolvePyappHome(), 'skills');
@@ -552,7 +552,7 @@ export async function handleImportSkill(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { resolvePyappHome } = await import('@openliri/kernel/paths');
+    const { resolvePyappHome } = await import('@modules/environment');
     const body = JSON.parse((await readRequestBody(req)) || '{}');
 
     const userSkillsDir = path.join(resolvePyappHome(), 'skills');
@@ -720,7 +720,7 @@ export async function handleCloneSkill(
     const decoded = await validateSkillIdParam(skillId, res);
     if (decoded === null) return;
 
-    const { resolvePyappHome } = await import('@openliri/kernel/paths');
+    const { resolvePyappHome } = await import('@modules/environment');
     const userSkillsDir = path.join(resolvePyappHome(), 'skills');
     const src = path.join(userSkillsDir, decoded);
 
@@ -761,7 +761,7 @@ export async function handleSkillFiles(
     const decoded = await validateSkillIdParam(skillId, res);
     if (decoded === null) return;
 
-    const { resolvePyappHome } = await import('@openliri/kernel/paths');
+    const { resolvePyappHome } = await import('@modules/environment');
     const userSkillsDir = path.join(resolvePyappHome(), 'skills');
     const skillDir = path.join(userSkillsDir, decoded);
 
@@ -825,7 +825,7 @@ export async function handleSystemSkillFileContent(
     }
 
     const { resolveProjectRoot, resolvePyappHome } =
-      await import('@openliri/kernel/paths');
+      await import('@modules/environment');
     const candidateDirs = [
       path.join(
         resolveProjectRoot(),
@@ -1277,7 +1277,7 @@ async function createLocalSkill(
   description: string,
   category: string
 ): Promise<Record<string, unknown>> {
-  const { resolvePyappHome } = await import('@openliri/kernel/paths');
+  const { resolvePyappHome } = await import('@modules/environment');
   const userSkillsDir = path.join(resolvePyappHome(), 'skills');
   // 目录名清洗（v1.5 阶段 4：safeSkillId）
   const safeName =
@@ -1329,7 +1329,7 @@ export async function handleUpdateSkillById(
 
     // S2-1 ④：PUT 携带本地技能内容更新字段 → 更新本地 SKILL.md（原实现丢弃 body）
     if (body && typeof body === 'object' && Object.keys(body).length > 0) {
-      const { resolvePyappHome } = await import('@openliri/kernel/paths');
+      const { resolvePyappHome } = await import('@modules/environment');
       const skillMdPath = path.join(
         resolvePyappHome(),
         'skills',
@@ -1444,7 +1444,7 @@ export async function handleDeleteSkill(
     }
 
     // 本地技能（目录扫描）：删目录
-    const { resolvePyappHome } = await import('@openliri/kernel/paths');
+    const { resolvePyappHome } = await import('@modules/environment');
     const userSkillsDir = path.join(resolvePyappHome(), 'skills');
     const skillDir = path.join(userSkillsDir, decoded);
     if (fs.existsSync(skillDir)) {
@@ -1483,7 +1483,7 @@ async function applyLocalSkillEnabled(
       });
       return;
     }
-    const { resolvePyappHome } = await import('@openliri/kernel/paths');
+    const { resolvePyappHome } = await import('@modules/environment');
     const skillDir = path.join(resolvePyappHome(), 'skills', skillId);
     if (!fs.existsSync(path.join(skillDir, 'SKILL.md'))) return;
     const enabledFile = path.join(skillDir, '.enabled');

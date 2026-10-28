@@ -6,7 +6,7 @@
 import { getLogger } from '@modules/monitoring';
 import { join } from 'path';
 import { accessSync, constants, copyFileSync, unlinkSync } from 'fs';
-import { resolveProjectRoot } from '@openliri/kernel';
+import { resolveProjectRoot } from '@modules/environment';
 
 const logger = getLogger('cli:updater:installManager');
 

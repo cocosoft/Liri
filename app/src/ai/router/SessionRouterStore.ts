@@ -27,7 +27,7 @@
  * 使用 SQLite 存储，注册在统一 app.db 中。
  */
 
-import { Database } from '@openliri/kernel/external/sqlite3';
+import { Database } from '@modules/external';
 import { handleError } from '@modules/error/handleError';
 
 /** sqlite3 run() 回调中的 this 上下文 */
@@ -46,7 +46,7 @@ interface SessionRouteRow {
   updated_at: number;
   hit_count: number;
 }
-import { resolveDbPath, resolveTenantDbPath } from '@openliri/kernel';
+import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
 // 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,

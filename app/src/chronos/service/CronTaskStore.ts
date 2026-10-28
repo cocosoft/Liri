@@ -4,7 +4,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { resolvePyappHome } from '@openliri/kernel';
+import { resolvePyappHome } from '@modules/environment';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

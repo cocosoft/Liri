@@ -22,7 +22,7 @@ import { appendFile, mkdir, rename, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { configManager } from '@modules/config';
-import { resolveDataSubDir } from '@openliri/kernel/paths';
+import { resolveDataSubDir } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 

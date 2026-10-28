@@ -440,12 +440,11 @@ export default function OfficePage() {
             </button>
           </>
         )}
-        {isDrawer && (
-          <div
-            className="fixed inset-0 bg-black/30 z-[999]"
-            onClick={handleCloseDrawer}
-          />
-        )}
+        {/* F-03（2026-10-28）：drawer 模式**不再铺全屏遮罩**。
+            原 `fixed inset-0 z-[999]` 在窄宽（≤1069）下默认展开 AI 抽屉时会把整页盖住，
+            主区「让 AI 写… / + 上传…」等按钮中心命中的是遮罩而非按钮（真机实测）。
+            改为非模态抽屉：仍以 absolute 覆盖右侧、保留投影，主区可继续操作；
+            关闭入口为抽屉内的「←」与「收起」按钮。 */}
         <div className="h-full">
           <ErrorBoundary message={t("office.aiPanelError", "AI助手加载失败")}>
             <OfficeChatPanel

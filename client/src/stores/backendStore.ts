@@ -14,6 +14,16 @@ import type { BackendStatus } from "../types";
 
 const logger = createLogger("stores:backendStore");
 
+/**
+ * F-08（2026-10-29）：浏览器模式下底栏「运行中/已停止」的判停阈值。
+ * `chatService.getBackendStatus()` 在浏览器里等价于**单次** `/health` 探测，
+ * 一次抖动就会翻状态；改为连续 N 次探测失败才判停（与
+ * `services/connectionMonitor.ts` 的 `FAIL_THRESHOLD = 3` 同口径）。
+ */
+const BACKEND_FAIL_THRESHOLD = 3;
+/** 连续探测失败计数（成功即清零；显式启停动作也清零） */
+let backendFailStreak = 0;
+
 export type { BackendStatus };
 
 /** Backend Store 状态切片 */
@@ -60,7 +70,28 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
     try {
       const status = await chatService.getBackendStatus();
       logger.info("[checkStatus] 后端状态", status);
-      set({ status, isChecking: false, error: null });
+      // F-08（2026-10-29）：浏览器模式下 `getBackendStatus()` = 单次 `/health` 探测，
+      // 一次抖动/超时就会把底栏从「运行中」翻成「已停止」，下一次 5s 轮询又翻回来
+      // ⇒ 真机可见的状态跳变。改为连续 3 次失败才判停（与 connectionMonitor 的
+      // FAIL_THRESHOLD=3 同口径，CS01 复用既有阈值语义）；Tauri 模式仍以进程状态为准。
+      if (status.running) {
+        backendFailStreak = 0;
+        set({ status, isChecking: false, error: null });
+        return;
+      }
+      if (!get().isBrowserMode || !get().status.running) {
+        set({ status, isChecking: false, error: null });
+        return;
+      }
+      backendFailStreak++;
+      if (backendFailStreak >= BACKEND_FAIL_THRESHOLD) {
+        set({ status, isChecking: false, error: null });
+      } else {
+        logger.warn("[checkStatus] 后端探测失败一次，保留上一次状态", {
+          streak: backendFailStreak,
+        });
+        set({ isChecking: false });
+      }
     } catch (e) {
       handleClientError(
         e,

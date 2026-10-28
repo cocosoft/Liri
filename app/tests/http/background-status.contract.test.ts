@@ -31,22 +31,31 @@
 import { afterAll, describe, expect, spyOn, test } from 'bun:test';
 import type http from 'http';
 import type { HandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils';
-import * as dreamLogStore from '../../src/buddy/dreamLogStore';
 import * as growthPersistence from '../../src/buddy/growthPersistence';
 import * as backgroundTaskEvent from '../../src/monitoring/BackgroundTaskEvent';
+import { CoreAPIImpl } from '../../src/runtime/api/CoreAPIImpl';
 
-// 命名空间 spy：替换目标函数，不破坏其他导出（recordBackgroundTask 等仍可用）
-const dreamStatsSpy = spyOn(dreamLogStore, 'getDreamStats').mockImplementation(
-  () =>
+// F-07（2026-10-29）：Dream 段的数据源从「Buddy 梦境日志」（恒空）改为
+// 梦境周期 DB 真相源（与 /v1/memory/dream/cycles 同源）⇒ 契约断言改为 cycles 字段映射。
+const dreamCyclesSpy = spyOn(
+  CoreAPIImpl.prototype,
+  'queryDreamCycles'
+).mockImplementation(
+  async () =>
     ({
-      totalRuns: 3,
-      totalSkipped: 1,
-      lastRunAt: 1786370000000,
+      cycles: [
+        {
+          cycleId: 'dream_1',
+          startedAt: 1786370000000,
+          completedAt: 1786370001000,
+          status: 'completed',
+          sessionsProcessed: 2,
+          knowledgeFilesUpdated: 1,
+          insights: ['记忆回写已完成'],
+        },
+      ],
+      stats: { completed: 3, failed: 0 },
     }) as never
-);
-const dreamLogsSpy = spyOn(dreamLogStore, 'getDreamLogs').mockImplementation(
-  () =>
-    ({ logs: [{ ts: 1786370000000, phase: 'complete', note: 'ok' }] }) as never
 );
 const growthSpy = spyOn(
   growthPersistence,
@@ -79,8 +88,7 @@ const taskLogSpy = spyOn(
 );
 
 afterAll(() => {
-  dreamStatsSpy.mockRestore();
-  dreamLogsSpy.mockRestore();
+  dreamCyclesSpy.mockRestore();
   growthSpy.mockRestore();
   taskLogSpy.mockRestore();
 });
@@ -133,14 +141,20 @@ describe('GET /v1/background/status 契约', () => {
     // 顶层
     expect(typeof data.generatedAt).toBe('number');
 
-    // dream 块
+    // dream 块（F-07：读梦境周期 DB，不再读 Buddy 梦境日志）
     expect(data.dream).toBeDefined();
     const dream = data.dream as Record<string, unknown>;
     const stats = dream.stats as Record<string, unknown>;
-    expect(stats.totalRuns).toBe(3);
+    expect(stats.totalCompleted).toBe(3);
+    expect(stats.totalFailed).toBe(0);
+    expect(stats.totalSessions).toBe(2);
+    expect(stats.totalInsights).toBe(1);
+    expect(stats.lastDreamAt).toBe(1786370001000);
     expect(Array.isArray(dream.recentLogs)).toBe(true);
     const recentLogs = dream.recentLogs as Array<Record<string, unknown>>;
-    expect(recentLogs[0].phase).toBe('complete');
+    expect(recentLogs[0].id).toBe('dream_1');
+    expect(recentLogs[0].summary).toBe('记忆回写已完成');
+    expect(recentLogs[0].timestamp).toBe(1786370001000);
 
     // buddyGrowth 块
     const g = data.buddyGrowth as Record<string, unknown>;
@@ -163,8 +177,8 @@ describe('GET /v1/background/status 契约', () => {
   });
 
   test('依赖加载失败时返回 500 而非崩溃', async () => {
-    // 临时让 getDreamStats 抛错，模拟依赖异常
-    dreamStatsSpy.mockImplementation(() => {
+    // 让成长状态读取抛错，模拟依赖异常（Dream 段已改走 DB，不再受 Buddy 日志影响）
+    growthSpy.mockImplementation(() => {
       throw new Error('mock load failed');
     });
     const created = createRes();
@@ -172,12 +186,16 @@ describe('GET /v1/background/status 契约', () => {
     expect(created.status).toBe(500);
 
     // 恢复默认 mock，避免影响（若未来新增测试）
-    dreamStatsSpy.mockImplementation(
+    growthSpy.mockImplementation(
       () =>
         ({
-          totalRuns: 3,
-          totalSkipped: 1,
-          lastRunAt: 1786370000000,
+          totalCompleted: 2,
+          totalSessions: 1,
+          totalInsights: 4,
+          consecutiveDays: 2,
+          taskCompletionCount: 5,
+          totalTaskExp: 50,
+          unlockedAchievements: ['first'],
         }) as never
     );
   });

@@ -151,6 +151,20 @@ export async function handleGetDreamLogs(
 }
 
 /**
+ * 梦境周期行（DB 真相源 `/v1/memory/dream/cycles` 的同源字段，仅取本端展示所需）
+ */
+interface DreamCycleRow {
+  cycleId: string;
+  startedAt: number;
+  completedAt?: number;
+  status?: string;
+  sessionsProcessed?: number;
+  knowledgeFilesUpdated?: number;
+  insights?: string[];
+  errors?: string[];
+}
+
+/**
  * 处理获取后台任务运行状况请求
  * 聚合：Dream（记忆整理）+ Buddy 成长统计 + 最近执行日志。
  * 供前端"运行状况"面板展示，回答"功能承诺 vs 实际执行"。
@@ -165,8 +179,36 @@ export async function handleGetBackgroundStatus(
     const { getBackgroundTaskLog, detectTaskAlerts } =
       await import('@modules/monitoring');
 
-    const dreamStats = await buddyOps.getBuddyDreamStats();
-    const recentLogs = await buddyOps.getBuddyDreamLogs(10);
+    // F-07（2026-10-29）：Dream 卡片原先读 **Buddy 梦境日志**
+    // （buddyOps.getBuddyDreamStats/getBuddyDreamLogs，伙伴互动的独立存储，恒空），
+    // 而真正在跑的是 MemoryDreamService 的梦境周期（DB 已 100+ 条 completed）⇒
+    // 卡片「完成次数 0 / 最近执行 从未执行」与状态机 background:dream completed 自相矛盾。
+    // 改为读梦境周期（数据库真相源，与 /v1/memory/dream/cycles 同源）。
+    const dreamData = (await getCoreAPI().queryDreamCycles({ limit: 500 })) as {
+      cycles?: DreamCycleRow[];
+      stats?: { completed?: number; failed?: number };
+    };
+    const cycles = dreamData.cycles ?? [];
+    const lastDreamAt = cycles.reduce<number | null>((max, c) => {
+      const t = c.completedAt ?? c.startedAt;
+      return max === null || t > max ? t : max;
+    }, null);
+    const dreamStats = {
+      totalCompleted: dreamData.stats?.completed ?? 0,
+      totalFailed: dreamData.stats?.failed ?? 0,
+      totalSessions: cycles.reduce((n, c) => n + (c.sessionsProcessed ?? 0), 0),
+      totalInsights: cycles.reduce((n, c) => n + (c.insights?.length ?? 0), 0),
+      lastDreamAt,
+    };
+    // 最近执行（UI 只消费 id / summary / timestamp）
+    // 摘要只用「本周期做了什么」的描述，不复述状态字面量（状态词唯一事实源见 stateMachineCatalog）
+    const recentDreamLogs = cycles.slice(0, 10).map((c) => ({
+      id: c.cycleId,
+      summary: c.insights?.length
+        ? c.insights.join('；')
+        : `记忆整理：知识文件 ${c.knowledgeFilesUpdated ?? 0} · 错误 ${c.errors?.length ?? 0}`,
+      timestamp: c.completedAt ?? c.startedAt,
+    }));
 
     // 成长统计从持久化层读取（与 DreamGrowthTracker 共享同一文件）
     const growth = await buddyOps.loadBuddyGrowthState();
@@ -180,7 +222,7 @@ export async function handleGetBackgroundStatus(
       JSON.stringify({
         dream: {
           stats: dreamStats,
-          recentLogs: recentLogs.logs,
+          recentLogs: recentDreamLogs,
         },
         buddyGrowth: {
           totalCompleted: growth.totalCompleted,

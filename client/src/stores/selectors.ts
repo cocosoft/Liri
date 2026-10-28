@@ -72,6 +72,16 @@ export function resolveSessionWorkspaceId(
   return (fromHub ?? "").trim() || (fromSession ?? "").trim();
 }
 
+/**
+ * P2（2026-10-29）：判断 id 是否为**后端项目实体**（`proj_<毫秒>_<随机>`，由
+ * `ProjectItemStore` 生成）。项目与工作空间是两套实体：项目 id 拿去请求
+ * `/v1/workspaces/:id` 必然 404（真机：打开旧会话时 `/v1/workspaces/proj_…` ⇒
+ * `Workspace not found`）。消费方据此跳过「会话 → 工作空间」联动。
+ */
+export function isProjectEntityId(id: string | null | undefined): boolean {
+  return /^proj_\d+_[a-z0-9]+$/i.test((id ?? "").trim());
+}
+
 /** 当前 worktree 下所有 session */
 export const selectSessionsByCurrentWorkspace = (
   state: RootState,

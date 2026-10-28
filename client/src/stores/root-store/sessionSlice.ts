@@ -22,6 +22,7 @@ import type { Message, Session } from "@/types";
 import { createLogger } from "@/utils/logger";
 import { useModelSwitchStore } from "../modelSwitchStore";
 import { chatCoordinator } from "@/stores/chat/chatCoordinator";
+import { isProjectEntityId } from "@/stores/selectors";
 
 const logger = createLogger("root-store:sessionSlice");
 
@@ -1239,7 +1240,11 @@ export const createSessionSlice: StateCreator<
         });
 
       // 联动工作空间
-      if (session.workspaceId) {
+      // P2（2026-10-29）：`workspaceId` 可能是**项目 id**（`proj_*`）或系统工作空间 id，
+      // 它们在后端没有 workspace 记录 ⇒ `GET /v1/workspaces/proj_…` 必然 404
+      //（真机打开旧会话时 console 出现 `Workspace not found`）。项目归属由
+      // `metadata.projectId` + 项目页承载，不需要这层联动，直接跳过。
+      if (session.workspaceId && !isProjectEntityId(session.workspaceId)) {
         try {
           const { useWorkspaceStore } = await import("@/stores/workspaceStore");
           const wsState = useWorkspaceStore.getState();

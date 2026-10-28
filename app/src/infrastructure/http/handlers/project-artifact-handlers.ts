@@ -692,7 +692,11 @@ export async function handleListProjectFiles(
     }
     if (!existsSync(project.sandboxPath)) {
       span.setStatus({ code: SpanStatusCode.OK });
-      json(res, 200, []);
+      // 契约一致（2026-10-28，F-18）：缺目录时必须返回**同形对象**。
+      // 原实现回 `[]`（数组）⇒ 前端 `ProjectMaterialsPanel` 的
+      // `fileResult.files.length` 取到 `undefined.length` 抛 TypeError，
+      // 整页落错误边界（真机实测：空项目 → 「页面发生错误」）。
+      json(res, 200, { files: [], dirs: [], sandboxPath: project.sandboxPath });
       return;
     }
     const { readdirSync: _readdir, statSync: _stat } = await import('fs');

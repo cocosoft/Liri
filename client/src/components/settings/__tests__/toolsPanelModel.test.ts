@@ -40,6 +40,7 @@ import {
   primaryReasonOf,
   requiresRiskConfirm,
   summarize,
+  toPlainSummary,
   withOverride,
 } from "../toolsPanelModel";
 import type { SharedToolVisibilityEntry } from "@shared/types";
@@ -240,5 +241,41 @@ describe("I-4：单行只显示一个主因（conditional 优先）", () => {
         }),
       ),
     ).toBe("not-in-task-whitelist");
+  });
+});
+
+/**
+ * P2（2026-10-29）：工具描述是给模型看的 Markdown，列表行需压成单行可读摘要。
+ * 回归锁 = 真实描述样本（`AskUserQuestionTool.description`）里不再残留 `**` 与换行。
+ */
+describe("P2 工具描述摘要（toPlainSummary）", () => {
+  const sample =
+    "向用户提问以获取确认或决策。支持三种类型：\n" +
+    "1. **choice**（默认）：封闭式多选题，提供 2-4 个固定选项。\n" +
+    "2. **open**：开放式确认，用户自由回答。\n\n" +
+    "**使用规范**：\n" +
+    "- choice 类型：每个选项的 label 作为独立字段传入。\n" +
+    "- 见 `docs/x.md` 的示例。\n";
+
+  it("去掉 ** 强调、反引号与换行，压成单行", () => {
+    const out = toPlainSummary(sample);
+    expect(out).not.toContain("**");
+    expect(out).not.toContain("`");
+    expect(out).not.toContain("\n");
+    expect(out.startsWith("向用户提问以获取确认或决策。")).toBe(true);
+    expect(out).toContain("1. choice（默认）：封闭式多选题");
+  });
+
+  it("代码块整体省略，列表符号不残留", () => {
+    const out = toPlainSummary("说明：\n```bash\nrm -rf /\n```\n- 结尾");
+    expect(out).not.toContain("rm -rf");
+    expect(out).not.toContain("- 结尾");
+    expect(out).toContain("说明：");
+    expect(out).toContain("结尾");
+  });
+
+  it("空串/纯空白 ⇒ 空串（渲染侧按 falsy 跳过）", () => {
+    expect(toPlainSummary("")).toBe("");
+    expect(toPlainSummary("  \n\n ")).toBe("");
   });
 });

@@ -64,6 +64,7 @@ import {
   primaryReasonOf,
   requiresRiskConfirm,
   summarize,
+  toPlainSummary,
   withOverride,
   type ToolReasonTone,
   type ToolVisibilityGroupId,
@@ -283,9 +284,9 @@ function ToolsPanel({ isDark }: ToolsPanelProps) {
             {entry.description && (
               <p
                 className={`text-[11px] mt-1 line-clamp-2 ${textMuted}`}
-                title={entry.description}
+                title={toPlainSummary(entry.description)}
               >
-                {entry.description}
+                {toPlainSummary(entry.description)}
               </p>
             )}
             <div className="flex items-center gap-1.5 flex-wrap mt-1">

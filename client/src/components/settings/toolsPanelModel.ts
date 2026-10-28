@@ -228,3 +228,18 @@ export function summarize(
   }
   return { total: entries.length, visible, forcedOn, forcedOff, conditional };
 }
+
+/**
+ * P2（2026-10-29）：工具描述是**给模型看的 Markdown**（含 `**强调**`、换行、编号列表，
+ * 见 `app/src/tools/AskUserQuestionTool/AskUserQuestionTool.ts` 的 `description`），
+ * 列表行直接渲染会出现满屏 `**` 与 `\n`。此处把它压成单行可读摘要（仅展示用，不改原描述）。
+ */
+export function toPlainSummary(md: string): string {
+  return md
+    .replace(/```[\s\S]*?```/g, " ") // 代码块整体去掉
+    .replace(/^[ \t]*[-*+]\s+/gm, "") // 无序列表符号
+    .replace(/~~|[*_`#>]/g, "") // 强调 / 标题 / 行内代码标记
+    .replace(/\s*\r?\n\s*/g, " ") // 换行压成空格
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}

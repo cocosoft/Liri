@@ -59,6 +59,10 @@ const LEGACY_PHANTOM_WORKTREE_IDS = [
   "wt-1790479146397-v7f862",
   "wt-1790488674240-iu23d9",
   "wt-1792681884524-brvgpd",
+  // `plan-e2e`：2026-09 的 e2e 用例残留（path 在系统 Temp），
+  // `<data>/projects/<id>` 只剩 `items.db`（无 project.json ⇒ 不可被 `/v1/projects` 列出），
+  // 且其唯一会话已于 2026-10-28 删除（0 消息空壳）。磁盘文件保留、仅摘除本地入口。
+  "proj_1789352729390_8i8adn",
 ] as const;
 
 /** 水合后摘除幽灵 worktree（含 recentWorkspaceIds 中的对应引用） */

@@ -39,6 +39,23 @@ export {
   isExecutionAbortedError,
 } from './errors';
 export { ExecutionLease } from './ExecutionLease';
+// P5-6（2026-10-28）：Budget Lease 判定内核（规格 `.trae/specs/p5-runtime-hardening-specs.md` §2）
+export {
+  findActiveLeaseOfExecution,
+  grantLease,
+  isLeaseActive,
+  isLeaseExhausted,
+  resolveLeaseCap,
+  settleLease,
+  shouldRejectNextTurn,
+  summarizeLeases,
+} from './budgetLease';
+export type {
+  BudgetLease,
+  GrantLeaseInput,
+  GrantLeaseResult,
+  LeaseSummary,
+} from './budgetLease';
 export {
   ExecutionManager,
   getExecutionManager,

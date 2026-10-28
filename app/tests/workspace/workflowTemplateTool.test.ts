@@ -86,7 +86,7 @@ function makeTool(overrides: Partial<WorkflowTemplateToolDeps> = {}) {
 }
 
 describe('workflow:run-template · 模型可见性（N-44/N-45 回归锁）', () => {
-  it('真名与 **wire 形态**均解析为 assist；在 chat / default / coding / agent 下不被裁剪', () => {
+  it('真名与 **wire 形态**均解析为 assist；coding / agent 下不被裁剪（默认面受 AC-16 收窄）', () => {
     expect(getToolCategory(WORKFLOW_TEMPLATE_TOOL_NAME)).toBe('assist');
 
     const wire = toWireToolName(WORKFLOW_TEMPLATE_TOOL_NAME);
@@ -97,7 +97,15 @@ describe('workflow:run-template · 模型可见性（N-44/N-45 回归锁）', ()
       { type: 'function' as const, function: { name: wire } },
       { type: 'function' as const, function: { name: 'bash' } },
     ];
-    for (const taskType of ['chat', 'default', 'coding', 'agent', undefined]) {
+    // AC-16（2026-10-28）：`default` / `chat` 的默认披露面只留 12 个 ⇒ assist 类被收窄
+    //（工作流模板仍可用：模型可经 `tool_search` 检索后调用；编码/代理任务面照常可见）。
+    for (const taskType of ['chat', 'default', undefined]) {
+      const kept = filterToolsByTask(defs, taskType).map(
+        (t) => t.function.name
+      );
+      expect(kept).not.toContain(wire);
+    }
+    for (const taskType of ['coding', 'agent']) {
       const kept = filterToolsByTask(defs, taskType).map(
         (t) => t.function.name
       );

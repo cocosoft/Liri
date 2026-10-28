@@ -16,9 +16,11 @@
  *     ⚠️ 不用 `estimateTokens()`：它对**无空格 JSON** 会走 `words*1.3 + chars*0.05` 分支
  *     （整段 JSON 只有 1 个"词"）⇒ 实测 37,622 字符被估成 1,884 token（真实 ≈9,400），
  *     不可加总、也不可比（2026-10-28 实测纠正，见方案附录 D.5）。
- *   - `sourceDescriptionChars`：源码描述字符数（`tool.getInfo()`，含参数描述；同样与 locale 无关）
+ *   - `sourceDescriptionChars`：源码描述字符数（`tool.getInfo()`，含参数描述；与 locale 无关）。
+ *     ⚠️ **与平台有关**（实测：ubuntu 3,481 / windows+macos 3,411，差 70），故基线取**跨平台最大值**
+ *     —— 棘轮以最差平台为准，仍然只减不增。
  *
- * 棘轮语义：总数 / 披露集数 / 结构 token 三项 + 描述字符 四项**只减不增**；披露集**成员名单**同样冻结
+ * 棘轮语义：总数 / 披露集数 / 两个结构 token / 描述字符 **五项只减不增**；披露集**成员名单**同样冻结
  * （新增工具进入默认面 ⇒ 必须显式评审并下调/上调基线）。缩小 ⇒ 提示下调基线锁定成果。
  *
  * ## 度量口径纠正（2026-10-28，AC-16b）
@@ -236,7 +238,7 @@ const baseline = readBaseline();
 const current = measureDisclosure();
 
 describe('AC-16 模型可见面预算 · 棘轮', () => {
-  it('默认披露面四项指标均不超过基线（只减不增），成员名单冻结', () => {
+  it('默认披露面五项指标均不超过基线（只减不增），成员名单冻结', () => {
     // 防空转（恒真守卫）：测量面必须真的非空
     expect(current.totalToolCount).toBeGreaterThan(0);
     expect(current.disclosureCount).toBeGreaterThan(0);
@@ -282,8 +284,9 @@ describe('AC-16 模型可见面预算 · 棘轮', () => {
 
   it('门禁自证（负向夹具）：工具总数 / 结构 token / 描述字符 任一增长 ⇒ 必报', () => {
     for (const [key, label] of METRICS) {
+      // 以**基线**为起点 +1（不能用 current：某指标可能低于基线 ⇒ +1 仍不越线，夹具会假绿）
       const bumped = Object.assign({}, current, {
-        [key]: current[key] + 1,
+        [key]: baseline[key] + 1,
       }) as DisclosureSnapshot;
       const comparison = compareDisclosureBudget(bumped, baseline);
       expect(comparison.problems.join('\n')).toContain(label);

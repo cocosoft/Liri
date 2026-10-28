@@ -1,7 +1,7 @@
 {
   "version": 1,
   "measuredFrom": "loadTools(getAllBuiltinToolLoaders) → ToolRegistry.getToolSchemas() → filterToolsByTask(…, 'default')",
-  "note": "AC-16 棘轮：五项数值指标 + 披露集成员名单只减不增。structuralTokens = 抹 description/searchTips 后 JSON 字符数 / 4（可加总、与 locale 无关；勿改用 estimateTokens —— 它对无空格 JSON 低估约 5 倍）。providerSurfaceTokens = 同一算法作用在 buildToolDefinitions() 的投影上（真正下发给 provider 的 name/description/parameters；output_schema / aliases / searchTips 从不出现在任何 provider 请求里，output_schema 全仓零读取方）⇒ AC-16b 的目标以它为准（2026-10-28 口径纠正，两个数都记账：旧口径 2253 继续冻结防事件载荷膨胀）。",
+  "note": "AC-16 棘轮：五项数值指标 + 披露集成员名单只减不增。structuralTokens = 抹 description/searchTips 后 JSON 字符数 / 4（可加总、与 locale 无关；勿改用 estimateTokens —— 它对无空格 JSON 低估约 5 倍）。providerSurfaceTokens = 同一算法作用在 buildToolDefinitions() 的投影上（真正下发给 provider 的 name/description/parameters；output_schema / aliases / searchTips 从不出现在任何 provider 请求里，output_schema 全仓零读取方）⇒ AC-16b 的目标以它为准（2026-10-28 口径纠正，两个数都记账：旧口径 2253 继续冻结防事件载荷膨胀）。sourceDescriptionChars 取**跨平台最大值** 3481（ubuntu 3481 / windows+macos 3411，某工具源码描述含 ≥70 字符的平台差异；棘轮以最差平台为准，仍只减不增）。",
   "targets": {
     "disclosureCount": 12,
     "providerSurfaceTokens": 1500
@@ -11,7 +11,7 @@
   "disclosureCount": 12,
   "structuralTokens": 2253,
   "providerSurfaceTokens": 1397,
-  "sourceDescriptionChars": 3411,
+  "sourceDescriptionChars": 3481,
   "disclosureNames": [
     "agent",
     "ask_user_question",

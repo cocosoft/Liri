@@ -253,14 +253,9 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <aside className="relative w-20 bg-gray-100 dark:bg-gray-900 flex flex-col h-full">
-      {/* 4.1-2：品牌 Logo 作为首页入口（对齐 Copilot 品牌按钮） */}
-      <button
-        onClick={() => navigate("/")}
-        title="Liri"
-        className="flex items-center justify-center h-12 shrink-0 text-blue-600 dark:text-blue-400 font-bold text-sm tracking-tight hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
-      >
-        Liri
-      </button>
+      {/* 2026-10-28：移除顶部「Liri」品牌按钮 —— 它与分组内「首页」项**都指向 `/`**，
+          真机实测侧栏出现两个首页入口（Liri 80×48 在 y=56，首页在 y=108）。
+          收敛为只保留「首页」导航项（图标+文字，与其余导航项同构）。 */}
       {/* 高频导航 */}
       <div className="flex-1 overflow-y-auto p-1">
         <div className="space-y-0.5">

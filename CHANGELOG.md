@@ -166,6 +166,9 @@
 - ✅ **打包稳定性** - Linux 依赖安装补 `DEBIAN_FRONTEND=noninteractive` + `Acquire::Retries/Timeout`
   + `timeout-minutes: 15`（此前一次 apt 卡死让 release 挂起 45+ 分钟）
 - 说明：v0.5.13 的 tag 未产出 Release（Linux 打包失败），本版为其修复版
+- ⚠️ **如实标注（本版无 tag / 无 Release）**：仓内**没有 v0.5.14 tag，GitHub 也没有对应的 Release**，
+  只有版本号提交 1330cdd0c「chore: bump version to v0.5.14」（位于 v0.5.13..v0.5.15 之间）；
+  下述改动随 v0.5.15（2026-10-27）一同发布。
 
 #### v0.5.13 (2026-10-26)  Linux AppImage 产物补齐
 

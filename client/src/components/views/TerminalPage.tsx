@@ -46,7 +46,15 @@ function TerminalPage() {
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * P2（2026-10-29）：`main.tsx` 开了 `React.StrictMode`，dev 下 effect 双执行 ⇒
+   * 欢迎语「欢迎使用 Liri 终端 / 输入 help 查看可用命令」被注入两遍（真机同屏两份，
+   * y=152 / y=192）。用 ref 幂等守卫（同一实例的 ref 在双执行间保留）。
+   */
+  const didInitRef = useRef(false);
   useEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
     loadBackendCommands();
     addLine(t("terminal.welcome"), "output");
     addLine(t("terminal.helpHint"), "output");

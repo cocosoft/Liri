@@ -447,8 +447,14 @@ function KnowledgePage() {
     (async () => {
       try {
         const bases = await knowledgeService.listBases();
-        if (bases.length > 0 && !selectedBase)
-          setView({ selectedBase: bases[0].name });
+        // F-10（2026-10-29）：原先固定选中 bases[0]（系统 `default`，本机 0 篇），
+        // 而其余知识库有文档（concept 406 / entity 42 …）⇒ 首屏「0 个文档 / 知识库为空」
+        // 与左栏药丸上的计数自相矛盾。改为优先选中**第一个有文档**的知识库；
+        // 全部为空时才回落到第一个（保留具体 base，供 FAQ/图谱等按 base 取数的 Tab 使用）。
+        if (bases.length > 0 && !selectedBase) {
+          const firstWithDocs = bases.find((b) => b.docCount > 0);
+          setView({ selectedBase: (firstWithDocs ?? bases[0]).name });
+        }
       } finally {
         setView({ isInitialLoading: false });
       }

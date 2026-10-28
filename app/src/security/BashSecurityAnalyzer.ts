@@ -797,16 +797,24 @@ export class BashSecurityAnalyzer {
    */
   private checkSensitiveDirectoryAccess(command: string): boolean {
     const lowerCommand = command.toLowerCase();
-    // FIX-16b（2026-10-27）：下方反斜杠变体在 Windows 上把 POSIX 目录名降级成**子串**
-    // （`/bin` → `\bin`），于是任何 `E:\…\bin` 路径都被判"访问敏感系统目录"并转审批
-    // （真机 `dir /b "…\PY_APP\bin"` ⇒ ask）。这些 POSIX 目录在 Windows 无对应物，
-    // 用户自定义目录又只收以 `/` 开头的项 ⇒ Windows 上不做该替换，零安全损失。
+    // FIX-16b（2026-10-27 初版 + 2026-10-28 根因修复）：
+    // 反斜杠变体（`/bin` → `\bin`）修复前是**裸子串**匹配 ⇒ 任何以 `bin` 结尾的用户目录
+    // （`E:\…\PY_APP\bin`）都被判"访问敏感系统目录"并转审批。初版只在 Windows 关掉该变体，
+    // 而命令文本可含任意平台的路径写法 ⇒ Linux/macOS 上同一用例仍固定红（2026-10-28 CI 实证）。
+    // 现改为**路径段边界**匹配：`\bin\` / `C:\bin` / `"\bin"` 命中，
+    // `…\PY_APP\bin`（父目录名以字母结尾）不命中。
+    // Windows 上仍不做该替换（初版口径，POSIX 目录在 Windows 无对应物）⇒ Windows 行为零变更。
     const useBackslashVariant = process.platform !== 'win32';
-    return this.sensitiveDirectories.some(
-      (dir) =>
-        lowerCommand.includes(dir) ||
-        (useBackslashVariant && lowerCommand.includes(dir.replace('/', '\\')))
-    );
+    return this.sensitiveDirectories.some((dir) => {
+      if (lowerCommand.includes(dir)) return true;
+      if (!useBackslashVariant) return false;
+      const variant = dir
+        .replace('/', '\\')
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`(?:^|[\\s"':=])${variant}(?=$|[\\\\/\\s"'])`).test(
+        lowerCommand
+      );
+    });
   }
 
   /**

@@ -591,7 +591,11 @@ jobs:
 
   e2e-test:
     name: E2E Fault Injection Tests
-    runs-on: ubuntu-latest
+    # 钉 24.04：`ubuntu-latest` 自 2026-10-19 迁到 Ubuntu 26.04（resolute），
+    # 而 client 锁定的 Playwright 1.60.0 只支持到 ubuntu24.04-x64 ⇒ 安装步骤
+    # 直接报 `Playwright does not support chromium on ubuntu26.04-x64`（job 18s 即红）。
+    # 待 Playwright 支持 resolute 后回退为 ubuntu-latest。
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:

@@ -438,7 +438,7 @@ bun run build:enterprise  # 企业版（全功能）
 #### v0.5.22 (2026-10-28)
 内核外移落定 + 门禁基线同步
 
-- ✅ **内核外移** - 37 个不满足「零 I/O / 零上层依赖」的模块从 `packages/kernel/src/core` 下沉到 `app/src`（`environment`/`external`/`runtimeHost`/`query`/`security`/`tasks`），同步 470+ 处 import，`@openliri/kernel/*` 公开面随之收窄
+- ✅ **内核外移** - 37 个不满足「零 I/O / 零上层依赖」的模块从 `packages/kernel/src/core` 下沉到 `app/src`（`environment`/`external`/`runtimeHost`/`query`/`security`/`tasks`），同步 470+ 处 import，内核公开面随之收窄
 - ✅ **门禁基线同步** - 内核导出面 / 体量 / 白名单 / 启动图 / 状态字面量基线按新布局重生成，证据归档与修复证据台账一并重生成
 - ✅ **CI 两处红修复** - 产物冒烟改断言仍在内核的公开子路径（`core/paths.js` 已下沉）；`scopedResources` 用例改 `beforeEach` 重置 + 独有租户前缀，消除跨文件登记污染
 

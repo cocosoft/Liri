@@ -48,7 +48,10 @@ const APPROVAL_EVENTS = [
 function mustAdvance(
   state: ApprovalChainState,
   next: (typeof APPROVAL_STAGES)[number],
-  options: { decision?: 'allow_once' | 'allow_session' | 'allow_always' | 'deny'; fingerprint?: string } = {}
+  options: {
+    decision?: 'allow_once' | 'allow_session' | 'allow_always' | 'deny';
+    fingerprint?: string;
+  } = {}
 ): ApprovalChainState {
   const result = advanceApproval(state, next, options);
   if (!result.ok) throw new Error(`unexpected reject: ${result.reason}`);
@@ -229,7 +232,9 @@ describe('开关（默认关闭，fail-closed）', () => {
   it('只有严格 true 才开启（其余一律关闭）', () => {
     expect(parseApprovalFourStageConfig(undefined).enabled).toBe(false);
     expect(parseApprovalFourStageConfig({}).enabled).toBe(false);
-    expect(parseApprovalFourStageConfig({ enabled: 'true' }).enabled).toBe(false);
+    expect(parseApprovalFourStageConfig({ enabled: 'true' }).enabled).toBe(
+      false
+    );
     expect(parseApprovalFourStageConfig({ enabled: 1 }).enabled).toBe(false);
     expect(parseApprovalFourStageConfig({ enabled: true }).enabled).toBe(true);
   });

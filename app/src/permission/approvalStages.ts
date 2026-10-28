@@ -107,7 +107,10 @@ export function advanceApproval(
   }
   if (next === 'decided') {
     if (!options.decision) {
-      return { ok: false, reason: '进入 decided 必须带 decision（不得"默认允许"）' };
+      return {
+        ok: false,
+        reason: '进入 decided 必须带 decision（不得"默认允许"）',
+      };
     }
     if (
       (options.decision === 'allow_session' ||

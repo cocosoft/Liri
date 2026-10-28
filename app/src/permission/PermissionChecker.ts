@@ -768,9 +768,8 @@ export class PermissionChecker {
       // P5-1（2026-10-28）：审批四段打点 —— ① 申请（② 呈现待卡片落成后补）。
       // 只在新卡真正要建时开链（复用既有卡的那条链已在更早的提交里落过 ①②）。
       // 开关默认关（`config.json → approvalFourStage`）⇒ 关闭时本调用为空操作。
-      const { emitApprovalAudit, newApprovalId } = await import(
-        './approvalAudit.js'
-      );
+      const { emitApprovalAudit, newApprovalId } =
+        await import('./approvalAudit.js');
       const approvalId = newApprovalId();
       emitApprovalAudit(sessionId, {
         stage: 'requested',

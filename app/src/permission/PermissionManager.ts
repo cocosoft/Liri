@@ -90,6 +90,27 @@ const defaultAllowWarnedTools = new Set<string>();
 let bypassObservabilityLogged = false;
 
 /**
+ * F-01（2026-10-28）：把 `decision.rule` 归一为**可读标签**。
+ *
+ * `PermissionDecision.rule` 声明为 `any`，实际常是规则**对象**；原实现 `String(rule)`
+ * 直接得到 `"[object Object]"`，该串被写进审计 `matchedRules` ⇒ 安全仪表盘
+ * 「越权拦截类别 Top」里出现一个叫 `[object Object]` 的类别（真机实测 211 次）。
+ * 现按 id → ruleId → name → pattern → type 取第一个非空字符串，取不到则回落 `rule`。
+ */
+export function ruleLabel(rule: unknown): string {
+  if (typeof rule === 'string') return rule;
+  if (rule && typeof rule === 'object') {
+    const r = rule as Record<string, unknown>;
+    for (const key of ['id', 'ruleId', 'name', 'pattern', 'type'] as const) {
+      const v = r[key];
+      if (typeof v === 'string' && v.trim()) return v;
+    }
+    return 'rule';
+  }
+  return String(rule);
+}
+
+/**
  * LRO-07（2026-10-26）：规则拒绝时告诉调用方「这条规则怎么解除」。
  *
  * 为什么必须有：deny 文案此前只写来源（且来源还被伪造成 `userSettings`），既没给出
@@ -557,7 +578,7 @@ export class PermissionManager {
           taskDescription: decision.reason,
           currentMode: 'auto',
         },
-        matchedRules: decision.rule ? [String(decision.rule)] : [],
+        matchedRules: decision.rule ? [ruleLabel(decision.rule)] : [],
         behavior:
           decision.type === PermissionDecisionType.ALLOW
             ? 'allow'

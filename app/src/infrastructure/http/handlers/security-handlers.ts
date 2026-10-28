@@ -91,7 +91,14 @@ export async function handleSecurityDashboard(
     const blockKinds = new Map<string, number>();
     for (const event of windowEvents) {
       if (event.decision !== 'auto_denied') continue;
-      const kind = event.matchedRules[0] ?? 'UNKNOWN';
+      const raw = event.matchedRules[0];
+      // F-01（2026-10-28）：历史数据里存在「对象被 String() 后写入」的 `[object Object]`，
+      // 它会让仪表盘出现一个虚假类别。写入侧已修（PermissionManager.ruleLabel），
+      // 这里把存量该值归并到 UNKNOWN。
+      const kind =
+        typeof raw === 'string' && raw.trim() && raw !== '[object Object]'
+          ? raw
+          : 'UNKNOWN';
       blockKinds.set(kind, (blockKinds.get(kind) ?? 0) + 1);
     }
     const topBlockKinds = Array.from(blockKinds.entries())

@@ -22,6 +22,7 @@ import {
   triggerEngineHook,
   deleteProject,
 } from "@/services/projectArtifactService";
+import { listProjects, type ProjectListItem } from "@/services/projectService";
 import CreateProjectModal from "@/components/Workspace/CreateProjectModal";
 import ChatArea from "@/components/ChatArea/ChatArea";
 import SessionHistorySidebar from "@/components/ChatArea/SessionHistorySidebar";
@@ -46,6 +47,14 @@ import {
 /* ---------- 常量 ---------- */
 
 const logger = createLogger("components:projectsPage");
+
+/**
+ * F-16b（2026-10-28）：正在进行「首会话自动创建」的项目 id 集合。
+ *
+ * 放在模块层而非组件内：StrictMode 下组件挂载两次、实例各自的 ref 互不可见，
+ * 只有模块级集合能跨实例去重（真机实测同一秒写出 2 条 `对话 1`）。
+ */
+const autoCreateInFlight = new Set<string>();
 
 interface CreationItem {
   id: string;
@@ -263,6 +272,15 @@ export default function ProjectsPage() {
    * 避免"卡片 N 个会话 / 侧栏 0 条"。
    */
   const chatSessions = useRootStore((s) => s.chatSessions);
+  /**
+   * F-16（2026-10-28）：会话列表是否仍在加载。
+   *
+   * `init()` 会依据「本项目已有会话数」决定是否**自动创建首个会话**；若在
+   * `chatSessions` 尚未从后端拉回时判定，必然得到 0 ⇒ 每进一次空列表就造一条
+   * `对话 1` 空壳（后端实测曾累计 11 条 `messageCount=0` 的项目会话）。
+   * 该守卫与 `useAutoCreateSession` 的 `isLoading` 判据一致（CS01 复用既有口径）。
+   */
+  const sessionsLoading = useRootStore((s) => s.isLoading);
   const sessionsOfProject = (projectId: string) =>
     chatSessions.filter(
       (s) => resolveSessionWorkspaceId(s.workspaceId) === projectId,
@@ -290,11 +308,33 @@ export default function ProjectsPage() {
   const listWorkspaces = useRootStore((s) => s.listWorkspaces);
   const createWorkspace = useRootStore((s) => s.createWorkspace);
   const workspaceList = useRootStore((s) => s.workspaceList);
+  /** 后端真实项目列表（`GET /v1/projects`；旧 `/v1/workspaces` 实测恒为 `[]`） */
+  const [backendProjects, setBackendProjects] = useState<ProjectListItem[]>([]);
 
   // 挂载时拉取后端 workspace 列表
   useEffect(() => {
     listWorkspaces();
   }, [listWorkspaces]);
+
+  // F-17（2026-10-28）：项目列表的事实源是 `GET /v1/projects`（`<data>/projects`）。
+  // 旧 `/v1/workspaces` 扫描的 `<data>/workspaces` 在本机不存在 ⇒ 恒返回 []，
+  // 只靠它 + localStorage 的 worktrees 会导致「后端项目不可见、历史会话不可达」。
+  useEffect(() => {
+    let cancelled = false;
+    listProjects()
+      .then((list) => {
+        if (!cancelled) setBackendProjects(list);
+      })
+      .catch((e) => {
+        handleClientError(e, {
+          module: "views:ProjectsPage",
+          action: "list_projects",
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 将后端 workspaceList 中尚未进入 worktrees 的项目补全（create_project 工具创建的项目在此可见）
   useEffect(() => {
@@ -312,6 +352,26 @@ export default function ProjectsPage() {
       });
     }
   }, [workspaceList, worktrees, createWorkspace]);
+
+  // F-17：把后端项目补进 worktrees（只补缺失 id，不覆盖本地已有项 ——
+  // `createWorkspace` 是整体写入，覆盖会丢掉分桶/置顶/布局等本地字段）。
+  // `workspaceSource` 必须是 `user`：列表按 `workspaceSource === "user"` 过滤。
+  useEffect(() => {
+    if (backendProjects.length === 0) return;
+    const worktreeIds = new Set(Object.keys(worktrees));
+    const missing = backendProjects.filter((p) => !worktreeIds.has(p.id));
+    if (missing.length === 0) return;
+    for (const p of missing) {
+      createWorkspace({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        path: p.sandboxPath ?? "",
+        workspaceSource: "user",
+        workspaceType: "project",
+      });
+    }
+  }, [backendProjects, worktrees, createWorkspace]);
 
   useEffect(() => {
     // P2-1: 仅当 moduleType 不是 project 或 projectId 为空时才 enterModule，
@@ -583,11 +643,23 @@ export default function ProjectsPage() {
     const project = selectedProject;
 
     async function init() {
+      // ===== 0. 会话列表未就绪 ⇒ 不做任何判定（F-16）=====
+      // 原实现直接读 `state.sessions`，列表未拉回时恒判 0 ⇒ 静默创建 `对话 1` 空壳。
+      // 这里不设 `inited`，待 isLoading 翻转后由 effect 重新进入。
+      if (useRootStore.getState().isLoading) {
+        logger.debug("[ProjectsPage] 会话列表加载中，跳过项目初始化判定", {
+          projectId: wid,
+        });
+        return;
+      }
+
       // ===== 1. 读取状态（无副作用）=====
+      // F-16：判定口径与**展示**同源 —— `chatSessions` + `resolveSessionWorkspaceId`
+      // （原实现读 Hub `sessions` Map 且严格比较 `workspaceId`，两套口径会打架）
       const state = useRootStore.getState();
-      const projSessions = Object.values(state.sessions)
-        .filter((s) => s.workspaceId === wid)
-        .sort((a, b) => b.updatedAt - a.updatedAt);
+      const projSessions = state.chatSessions
+        .filter((s) => resolveSessionWorkspaceId(s.workspaceId) === wid)
+        .sort((a, b) => sessionTs(b) - sessionTs(a));
       const currentId = state.currentSessionId;
 
       logger.info("[ProjectsPage] init 开始", {
@@ -601,20 +673,47 @@ export default function ProjectsPage() {
       // ===== 2. 无会话场景：创建首个会话（流式也允许，创建不中断现有流）=====
       if (projSessions.length === 0) {
         inited.current = wid;
-        logger.info("[ProjectsPage] 项目无会话，创建首个会话", {
-          projectId: wid,
-        });
-        // P0-4: 项目会话必须关联 projectId（createChatSession 从 moduleContext 读取）
-        enterModule({
-          moduleType: "project",
-          projectId: wid,
-          projectName: project.name,
-        });
-        await switchWorkspace(wid);
-        await createChatSession("对话 1");
-        logger.info("[ProjectsPage] 首个会话创建完成", {
-          projectId: wid,
-        });
+        // F-16b（2026-10-28）：**幂等**——同一项目同一时刻只允许一个「首会话」创建在飞。
+        // 真机实测（StrictMode / 多 effect 触发）曾出现同一秒写出 2 条 `对话 1`：
+        // 两个 init 都读到 0 条 → 各建一条。此处 ① 在飞集合挡住并发；② `await` 之后再复查
+        // 一次（另一个实例可能在等待期间已建好），确保最多一条。
+        if (autoCreateInFlight.has(wid)) {
+          logger.debug("[ProjectsPage] 首会话创建在飞，跳过重复创建", {
+            projectId: wid,
+          });
+          return;
+        }
+        autoCreateInFlight.add(wid);
+        try {
+          logger.info("[ProjectsPage] 项目无会话，创建首个会话", {
+            projectId: wid,
+          });
+          // P0-4: 项目会话必须关联 projectId（createChatSession 从 moduleContext 读取）
+          enterModule({
+            moduleType: "project",
+            projectId: wid,
+            projectName: project.name,
+          });
+          await switchWorkspace(wid);
+          const afterSwitch = useRootStore
+            .getState()
+            .chatSessions.filter(
+              (s) => resolveSessionWorkspaceId(s.workspaceId) === wid,
+            );
+          if (afterSwitch.length === 0) {
+            await createChatSession("对话 1");
+            logger.info("[ProjectsPage] 首个会话创建完成", {
+              projectId: wid,
+            });
+          } else {
+            logger.info("[ProjectsPage] 等待期间已存在会话，跳过创建", {
+              projectId: wid,
+              sessionId: afterSwitch[0].id,
+            });
+          }
+        } finally {
+          autoCreateInFlight.delete(wid);
+        }
         return;
       }
 
@@ -704,6 +803,7 @@ export default function ProjectsPage() {
     createChatSession,
     enterModule,
     isStreaming, // 流式状态变化时重新评估，实现流式结束后自动补做切换
+    sessionsLoading, // F-16：列表加载完成后重新评估（未就绪时 init 直接跳过）
   ]);
 
   const handleSelectProject = (id: string) => {

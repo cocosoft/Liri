@@ -348,29 +348,31 @@ function SecurityDashboard() {
                     .filter(([, v]) => v > 0)
                     .map(([k, v]) => `${decisionLabel(k)} ${v}`);
                   return (
-                    <div
-                      key={d.date}
-                      className="flex items-center gap-3 text-xs"
-                    >
-                      <span className={`w-16 shrink-0 ${textSecondary}`}>
-                        {d.date.slice(5)}
-                      </span>
-                      <div
-                        className={`flex-1 h-2 rounded overflow-hidden ${isDark ? "bg-gray-700" : "bg-gray-200"}`}
-                      >
+                    // F-01（2026-10-28）：图例改两行 —— 原实现把「日期 + 柱 + 图例」挤在一行，
+                    // 图例被固定 `w-28`（112px）+ `truncate` 硬切（实测 scrollWidth 238），
+                    // 只能读到「pending 454 · 自…」。现图例独占第二行、可换行，不再截断。
+                    <div key={d.date} className="space-y-1 text-xs">
+                      <div className="flex items-center gap-3">
+                        <span className={`w-16 shrink-0 ${textSecondary}`}>
+                          {d.date.slice(5)}
+                        </span>
                         <div
-                          className="h-full bg-blue-500"
-                          style={{
-                            width: `${maxTrendTotal > 0 ? (total / maxTrendTotal) * 100 : 0}%`,
-                          }}
-                        />
+                          className={`flex-1 h-2 rounded overflow-hidden ${isDark ? "bg-gray-700" : "bg-gray-200"}`}
+                        >
+                          <div
+                            className="h-full bg-blue-500"
+                            style={{
+                              width: `${maxTrendTotal > 0 ? (total / maxTrendTotal) * 100 : 0}%`,
+                            }}
+                          />
+                        </div>
                       </div>
-                      <span
-                        className={`w-28 shrink-0 text-right truncate ${textPrimary}`}
+                      <div
+                        className={`pl-[76px] break-words leading-snug ${textPrimary}`}
                         title={parts.join(" · ")}
                       >
                         {parts.join(" · ") || t("security.noEvents")}
-                      </span>
+                      </div>
                     </div>
                   );
                 })}

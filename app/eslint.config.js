@@ -71,6 +71,18 @@ export default [
           '\\/inboxApproval$',
           '\\/execApprovalBridge$',
           '\\/scopedDefaultWorkspace$',
+          // 2026-10-28（内核外移）：从 `packages/kernel` 下放的**纯叶子模块** ——
+          // 零实例、零生命周期、纯函数/常量，`moduleRegistry.resolve()` 对其不适用
+          // （规则文档本就把「常量 / 工具函数」列为允许导入类）。
+          // `tasks/phases` 是状态词表、`tasks/successCriteria` 是解析纯函数、
+          // `security/identity` 是作用域计算、`security/outputGuardRegistry` 是无状态注册表。
+          '\\/tasks\\/phases$',
+          '\\/tasks\\/successCriteria$',
+          '\\/security\\/identity$',
+          '\\/security\\/outputGuardRegistry$',
+          // 编排模式目录（原 `packages/kernel/src/core/patterns`）：纯目录 + 选择器，
+          // 无实例/无生命周期（`chat → query` 只取 featureFlag 与选择器纯函数）。
+          '\\/query\\/patterns$',
         ],
       }],
       'no-restricted-imports': ['warn', {
@@ -92,7 +104,7 @@ export default [
             message: '日志功能已迁移至 @modules/monitoring 系列模块，metrics 功能使用 monitoring/metrics',
           },
           {
-            name: '@openliri/kernel/paths',
+            name: '@modules/environment',
             importNames: ['resolveSoulDir'],
             message: '[路径规范] resolveSoulDir() 指向 data/soul/（第二层），SOUL.md 应使用 resolveSoulPath()，USER.md 应使用 resolveUserProfilePath()',
           },
@@ -220,7 +232,8 @@ export default [
       'src/ui/buddy/useBuddyNotification.tsx',
       'src/query/queryProfiler.ts',
       'src/query/SlowQueryDetector.ts',
-      '../packages/kernel/src/core/paths.ts',
+      // P1（2026-10-28）：paths 已迁至 infra 的 environment 模块
+      'src/environment/paths.ts',
       'src/utils/errorHintManager.ts',
       'src/analytics/AnalyticsService.ts',
       'src/analytics/IntelligentAnalysisService.ts',

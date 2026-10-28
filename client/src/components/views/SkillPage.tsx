@@ -547,7 +547,10 @@ function SkillPage() {
                 </>
               ) : (
                 <div
-                  className={`h-full flex items-center justify-center rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
+                  // P2（2026-10-29）：原 `h-full` 让空态撑满整格（格高 = 左侧技能列表高度 1454px），
+                  // 提示被垂直居中到 y=1221 ⇒ 矮视口首屏看不到。改为保底 140px（图标 64 + 文案 24 + 间距）
+                  // 贴顶展示：1280×736 下提示 y≈488，569 高视口也在首屏内。
+                  className={`min-h-[140px] flex items-center justify-center rounded-lg border ${isDark ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
                 >
                   <div
                     className={`text-center ${isDark ? "text-gray-400" : "text-gray-500"}`}

@@ -557,6 +557,73 @@ export function isMandatoryTool(toolName: string): boolean {
 }
 
 /**
+ * **默认披露面白名单**（AC-16，P4，2026-10-28）—— 方案 §9「默认披露集 ≤12」的落地口径。
+ *
+ * ## 是什么 / 不是什么
+ * - **是**：`default` / `chat`（以及未指定任务时的回退集）下，**下发给模型**的工具白名单；
+ * - **不是**删除：注册面（82）、执行面、`tool_search` 检索面、`coding` / `agent` 等任务类型
+ *   一律不受影响 —— 未列入者仍**注册可调用**，模型可经 `tool_search` 检索到名字后直接调用
+ *   （provider 不校验工具名，后端按注册表解析）。
+ *
+ * ## 为什么这 12 个（取舍依据）
+ * - `tool_search` **必须在列**：否则被隐藏的 38 个工具对模型**永久不可达**（检索入口本身被藏
+ *   = 功能缺失，不是预算决策）；
+ * - 编码/执行核心：`file_read` / `file_write` / `file_edit` / `bash` / `grep`；
+ * - 协作与规划：`agent`（并行子代理）/ `todo_write`（任务卡）；
+ * - 外部信息：`web_fetch` / `web_search`；
+ * - 交互与扩展：`ask_user_question` / `mcp_tool`（MCP 三方工具入口）。
+ *
+ * ## 与"同族合并"的关系（实测结论，见方案附录 D.5）
+ * 合族（`fs_query`/`fs_mutate`/…）会让**工具总数 82 → 88**（违反 AC-16「只减不增」），且
+ * schema 参数面**并集不减少**（两族下界即 1,486 token，超整个 1.5k 预算）⇒ 本仓采用
+ * **披露面收口**：不新增、不删除，只收窄默认可见面。
+ *
+ * ## 改动方式
+ * 想让某个工具重新可见：把它加进本集合（会触发 `toolDisclosureBudget` 门禁的红灯，
+ * 必须同步下调基线 —— 这正是"显式评审"的入口）。
+ */
+export const DEFAULT_DISCLOSURE_TOOLS: ReadonlySet<string> = new Set([
+  'file_read',
+  'file_write',
+  'file_edit',
+  'bash',
+  'grep',
+  'agent',
+  'todo_write',
+  'web_fetch',
+  'web_search',
+  'ask_user_question',
+  'mcp_tool',
+  'tool_search',
+]);
+
+/** 该任务类型是否套用**默认披露面白名单**（`default` / `chat` / 未指定） */
+function usesDefaultDisclosure(taskType: string | undefined): boolean {
+  return (
+    taskType === undefined ||
+    taskType === DEFAULT_TASK_KEY ||
+    taskType === 'chat'
+  );
+}
+
+/**
+ * 该工具是否**因默认披露面白名单**而不可见（唯一判定；`filterToolsByTask` 与可见性报表同源）。
+ *
+ * `extraCategories` 是**显式能力声明**（带图消息的 `image`、会话 profile 的 `media`/`coding`…）
+ * ⇒ 命中即**放开**白名单：否则 TG-4 / D7-L2 的"按需追加能力"会被白名单静默吃掉
+ * （2026-10-28 实测：带图会话看不到 `image_analysis`、profile 声明 `coding` 也加不进 `code` 类）。
+ */
+export function isOutsideDefaultDisclosure(
+  toolName: string,
+  taskType: string | undefined,
+  extraCategories: readonly ToolCategory[] = []
+): boolean {
+  if (!usesDefaultDisclosure(taskType)) return false;
+  if (DEFAULT_DISCLOSURE_TOOLS.has(toolName)) return false;
+  return !extraCategories.includes(getToolCategory(toolName));
+}
+
+/**
  * 获取任务的工具类别白名单；未配置的任务回退 default 保底集。
  */
 export function getTaskToolCategories(
@@ -585,11 +652,14 @@ export function filterToolsByTask<
   for (const c of extraCategories) allowed.add(c);
   // 变体收敛（2026-10-20）：恒保留集由能力开关过滤（如 core 不含 AGENT ⇒ agent 不再恒保留）
   const mandatory = getMandatoryTools();
+  // AC-16（P4，2026-10-28）：默认披露面白名单 —— 只收窄 `default`/`chat` 的**可见面**
   /** 本次新发现（且非归档）的"未登记类别"工具 —— 用于首次告警（去重由 warnedUnregisteredTools 承担） */
   const newlyUnregistered: string[] = [];
   const kept = toolDefinitions.filter((t) => {
     const toolName = t.name ?? t.function?.name ?? '';
     if (mandatory.has(toolName)) return true;
+    if (isOutsideDefaultDisclosure(toolName, taskType, extraCategories))
+      return false;
     const category = getToolCategory(toolName);
     if (category === 'misc' && !ARCHIVED_MISC_TOOLS.has(toolName)) {
       if (!warnedUnregisteredTools.has(toolName)) {
@@ -628,5 +698,13 @@ export function getRealToolNamesForTask(
   const derived = Object.entries(TOOL_CATEGORIES)
     .filter(([, category]) => allowed.has(category))
     .map(([name]) => name);
-  return [...new Set([...derived, ...getMandatoryTools()])];
+  const names = new Set([...derived, ...getMandatoryTools()]);
+  // AC-16（P4）：与 `filterToolsByTask` 同源 —— 默认披露面白名单同样收窄本清单
+  // （否则 LRTO 角色工具范围会比模型真实可见面更宽，形成第二套口径）。
+  if (usesDefaultDisclosure(taskType)) {
+    for (const name of names) {
+      if (!DEFAULT_DISCLOSURE_TOOLS.has(name)) names.delete(name);
+    }
+  }
+  return [...names];
 }

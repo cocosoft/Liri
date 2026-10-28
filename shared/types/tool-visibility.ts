@@ -26,6 +26,11 @@ export type SharedToolVisibilityReason =
   | "unregistered-category"
   /** 类别已登记，但当前任务的类别白名单不含它 */
   | "not-in-task-whitelist"
+  /**
+   * 类别命中，但被**默认披露面白名单**（AC-16：默认只下发 12 个）收窄 ⇒ 仍可经 `tool_search`
+   * 检索到并直接调用（2026-10-28，P4）。
+   */
+  | "not-in-default-disclosure"
   /** ∉ 生效工具面（未接线 / 工厂内 flag 门控关闭）⇒ 覆写也无效 */
   | "conditional"
   /** 用户显式 `off` */

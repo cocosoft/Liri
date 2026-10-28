@@ -745,6 +745,8 @@ const enSettings = {
       "Unregistered category (filtered out for every task type)",
     toolsReasonNotInTaskWhitelist:
       "Current task type does not include this category",
+    toolsReasonNotInDefaultDisclosure:
+      "Not disclosed by default (find it via tool_search, then call it)",
     toolsReasonConditional: "Not in the effective tool set",
     toolsReasonUserOff: "Forced hidden by you",
     toolsReasonUserOnBypass: "Forced visible by you",

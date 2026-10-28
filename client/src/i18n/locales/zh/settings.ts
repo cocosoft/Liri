@@ -710,6 +710,8 @@ const zhSettings = {
     toolsReasonArchived: "有意归档（需显式开启）",
     toolsReasonUnregisteredCategory: "未登记类别（任何任务下都被裁剪）",
     toolsReasonNotInTaskWhitelist: "当前任务类型不含该类别",
+    toolsReasonNotInDefaultDisclosure:
+      "默认不下发（可用 tool_search 检索后调用）",
     toolsReasonConditional: "未进生效工具面",
     toolsReasonUserOff: "已被你强制不可见",
     toolsReasonUserOnBypass: "已被你强制可见",

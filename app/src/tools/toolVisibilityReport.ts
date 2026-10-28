@@ -57,6 +57,7 @@ import {
   getTaskToolCategories,
   getToolCategory,
   isMandatoryTool,
+  isOutsideDefaultDisclosure,
 } from './toolCategories';
 import type { ToolCategory } from './toolCategories';
 import { TOOL_NAME_CONSTANTS } from './toolNameConstants';
@@ -185,6 +186,12 @@ export function resolveToolVisibilityReport(
         reasons.push('unregistered-category');
       } else if (!allowed.has(category)) {
         reasons.push('not-in-task-whitelist');
+      } else if (
+        isOutsideDefaultDisclosure(name, options.taskType, extraCategories)
+      ) {
+        // AC-16（P4，2026-10-28）：类别命中却被**默认披露面白名单**收窄 ⇒ 如实给出原因
+        // （否则该工具 hidden 但 reasons 为空，违反"hidden 必带原因"的界面契约）
+        reasons.push('not-in-default-disclosure');
       }
       let visible =
         filterToolsByTask([{ name }], options.taskType, [...extraCategories])

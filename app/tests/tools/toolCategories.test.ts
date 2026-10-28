@@ -20,16 +20,23 @@
 // SOFTWARE.
 
 /**
- * toolCategories 回归测试（2026-09-01）
+ * toolCategories 回归测试（2026-09-01；P4 披露面收口后更新，2026-10-28）
  *
  * P0 修复：knowledge_save 此前未登记类别（misc）被 default/chat 白名单裁剪，
  * 导致"保存到知识库"在 default 任务下模型无保存工具 → 循环搜索 → 30 轮截断。
  * 修复后 knowledge_save 归 knowledge 类别、技能工具归 search 类别。
- * 本测试固化：核心工具在 default/chat 白名单内可见，防止再次被裁剪。
+ *
+ * ⚠️ 2026-10-28（P4 / AC-16）：`default` / `chat` 的**可见面**再收窄为
+ * `DEFAULT_DISCLOSURE_TOOLS`（12 个，方案 §9）。因此本文件的口径拆成两条：
+ * ① **类别登记**仍必须正确（`getToolCategory`）—— 它决定 `coding`/`agent` 等任务面的裁剪；
+ * ② **默认可见**只对 12 个白名单成员成立；未列入者**不是被删除**（注册/执行/`tool_search`
+ * 检索都在），只是不再随默认面下发 —— 故其"可见性"断言改用「显式 `extraCategories`
+ * 可放开」或「其它任务类型仍可见」来证明映射没坏。
  */
 
 import { describe, expect, test } from 'bun:test';
 import {
+  DEFAULT_DISCLOSURE_TOOLS,
   filterToolsByTask,
   getToolCategory,
   TOOL_CATEGORIES,
@@ -60,19 +67,26 @@ describe('toolCategories — P0 工具可见性回归', () => {
     expect(getToolCategory('skill')).toBe('search');
   });
 
-  test('default 任务白名单保留核心工具（knowledge_save + 技能工具）', () => {
+  test('default / chat 只披露白名单 12 个（AC-16）', () => {
     const defs = CORE_TOOLS.map((name) => ({ name }));
-    const kept = filterToolsByTask(defs, 'default').map((t) => t.name);
-    for (const name of CORE_TOOLS) {
-      expect(kept).toContain(name);
+    for (const taskType of ['default', 'chat', undefined]) {
+      const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
+      // 12 个里只有 tool_search / web_fetch 在 CORE_TOOLS 内 ⇒ 其余（knowledge/skill*）被收窄
+      expect(kept.sort()).toEqual(['tool_search', 'web_fetch']);
     }
+    // 收窄 ≠ 删除：显式声明类别（等价于 profile / 带图等能力追加）即可放开
+    const widened = filterToolsByTask(
+      [{ name: 'knowledge_save' }, { name: 'skill_view' }],
+      'default',
+      ['knowledge', 'search']
+    ).map((t) => t.name);
+    expect(widened.sort()).toEqual(['knowledge_save', 'skill_view']);
   });
 
-  test('chat 任务白名单保留核心工具', () => {
-    const defs = CORE_TOOLS.map((name) => ({ name }));
-    const kept = filterToolsByTask(defs, 'chat').map((t) => t.name);
-    for (const name of CORE_TOOLS) {
-      expect(kept).toContain(name);
+  test('白名单自洽：12 个名字都已登记类别（拼错/改名 ⇒ 默认面对模型为空）', () => {
+    expect(DEFAULT_DISCLOSURE_TOOLS.size).toBe(12);
+    for (const name of DEFAULT_DISCLOSURE_TOOLS) {
+      expect(getToolCategory(name)).not.toBe('misc');
     }
   });
 
@@ -120,20 +134,24 @@ describe('toolCategories — P0 工具可见性回归', () => {
     }
   });
 
-  test('N-44: MCP 动态工具名（server__tool）归 mcp 类别且在 default 保留', () => {
+  test('N-44: MCP 动态工具名（server__tool）归 mcp 类别；默认面只留 mcp_tool 入口', () => {
     // McpToolWrapper 命名 `${server}__${tool}`；normalizeToolName 命名 `mcp__${server}__${tool}`。
-    // 两者都含双下划线 ⇒ getToolCategory 归 'mcp' ⇒ 纳入 chat/default 白名单。
-    // 修复前：动态名未登记 → misc → misc 不在任何白名单 → MCP 工具对模型永久不可见。
+    // 两者都含双下划线 ⇒ getToolCategory 归 'mcp'。
+    // AC-16 后：默认面只下发 `mcp_tool` 入口（动态名经它调用/检索），类别映射本身不变
+    // ⇒ `coding`（含 mcp 类）仍按类别可见。
     expect(getToolCategory('github__create_issue')).toBe('mcp');
     expect(getToolCategory('mcp__demo__search')).toBe('mcp');
     const defs = [{ name: 'github__create_issue' }, { name: 'bash' }];
     for (const taskType of ['chat', 'default', undefined]) {
       const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
-      expect(kept).toContain('github__create_issue');
+      expect(kept).toEqual(['bash']);
     }
+    expect(filterToolsByTask(defs, 'coding').map((t) => t.name)).toContain(
+      'github__create_issue'
+    );
   });
 
-  test('N-44: plan / clipboard / canvas 归 assist，普通对话可见', () => {
+  test('N-44: plan / clipboard / canvas 归 assist；默认面收窄，coding 仍可见', () => {
     expect(getToolCategory('plan')).toBe('assist');
     expect(getToolCategory('clipboard')).toBe('assist');
     expect(getToolCategory('canvas')).toBe('assist');
@@ -144,6 +162,12 @@ describe('toolCategories — P0 工具可见性回归', () => {
       { name: 'bash' },
     ];
     for (const taskType of ['chat', 'default', undefined]) {
+      expect(filterToolsByTask(defs, taskType).map((t) => t.name)).toEqual([
+        'bash',
+      ]);
+    }
+    // coding / agent 的类别白名单含 'assist' ⇒ 不受默认披露面收窄影响
+    for (const taskType of ['coding', 'agent']) {
       const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
       for (const name of ['plan', 'clipboard', 'canvas']) {
         expect(kept).toContain(name);
@@ -151,16 +175,20 @@ describe('toolCategories — P0 工具可见性回归', () => {
     }
   });
 
-  test('N-44: sessions_yield 归 session，default/chat 可见', () => {
+  test('N-44: sessions_yield 归 session；默认面收窄，agent 任务集仍可见', () => {
     expect(getToolCategory('sessions_yield')).toBe('session');
     const defs = [{ name: 'sessions_yield' }, { name: 'bash' }];
     for (const taskType of ['chat', 'default', undefined]) {
-      const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
-      expect(kept).toContain('sessions_yield');
+      expect(filterToolsByTask(defs, taskType).map((t) => t.name)).toEqual([
+        'bash',
+      ]);
     }
+    expect(filterToolsByTask(defs, 'agent').map((t) => t.name)).toContain(
+      'sessions_yield'
+    );
   });
 
-  test('N-44: doc / channel / calendar / mail 四类已纳入 default', () => {
+  test('N-44: doc / channel / calendar / mail 四类仍在 default 类别白名单内（仅披露面收窄）', () => {
     const defs = [
       { name: 'doc_generate' },
       { name: 'channel' },
@@ -169,9 +197,19 @@ describe('toolCategories — P0 工具可见性回归', () => {
       { name: 'mail:send' },
       { name: 'bash' },
     ];
-    const kept = filterToolsByTask(defs, 'default').map((t) => t.name);
-    // 2026-10-11：`bash` 随 `shell` 类别一并保留（见下方 shell 可见性修复用例）
-    expect(kept).toEqual([
+    // 默认面：只有 bash 在白名单
+    expect(filterToolsByTask(defs, 'default').map((t) => t.name)).toEqual([
+      'bash',
+    ]);
+    // 但四类**仍在 default 的类别白名单内** ⇒ 显式追加类别（等价 profile 声明）即恢复可见
+    expect(
+      filterToolsByTask(defs, 'default', [
+        'doc',
+        'channel',
+        'calendar',
+        'mail',
+      ]).map((t) => t.name)
+    ).toEqual([
       'doc_generate',
       'channel',
       'broadcast',
@@ -188,7 +226,7 @@ describe('toolCategories — P0 工具可见性回归', () => {
    * `bash`/`powershell` ⇒ 模型看不到 shell（自述"环境无 shell 工具"），执行类任务
    * 无法跑命令验证产物。shell 属通用执行能力，小上下文已由 `local` 轻量集兜底。
    */
-  test('2026-10-11 修复: shell 类在 chat/default/undefined 均保留', () => {
+  test('2026-10-11 修复: shell 类的 `bash` 在默认披露面内；`powershell` 收窄但任务面可见', () => {
     expect(getToolCategory('bash')).toBe('shell');
     expect(getToolCategory('powershell')).toBe('shell');
     const defs = [
@@ -198,11 +236,15 @@ describe('toolCategories — P0 工具可见性回归', () => {
     ];
     for (const taskType of ['chat', 'default', undefined]) {
       const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
-      expect(kept).toContain('bash');
-      expect(kept).toContain('powershell');
-      // 反证：有意归档的 misc 仍被裁（本次只放开 shell，未全量放行）
+      // AC-16（2026-10-28）：默认面只留 `bash`（12 个之一）；`powershell` 同族但不在白名单
+      expect(kept).toEqual(['bash']);
+      // 反证：有意归档的 misc 仍被裁（不是全量放行）
       expect(kept).not.toContain('computer_use');
     }
+    // 收窄 ≠ 删除：`coding`（含 shell 类）仍可见 `powershell`
+    expect(filterToolsByTask(defs, 'coding').map((t) => t.name)).toContain(
+      'powershell'
+    );
     // `local`（小上下文/本地端点）仍取轻量只读集 ⇒ shell 不因本次修复而进入
     expect(filterToolsByTask(defs, 'local').map((t) => t.name)).toEqual([]);
   });
@@ -242,7 +284,7 @@ describe('toolCategories — P0 工具可见性回归', () => {
     expect(getToolCategory('mail_send')).toBe('mail');
   });
 
-  test('N-45: 生产形态（function.name = wire 名）裁剪后 office 工具对模型可见', () => {
+  test('N-45: 生产形态（function.name = wire 名）类别解析正确；默认面收窄，显式类别可放开', () => {
     // 修复前：office_workflow → misc → 被裁 ⇒ 模型函数清单无该工具
     //（现场：模型称"工具不存在"、tool_search 返回空）
     const wfWire = toWireToolName('office:workflow');
@@ -255,13 +297,16 @@ describe('toolCategories — P0 工具可见性回归', () => {
       { type: 'function' as const, function: { name: 'computer_use' } },
     ];
     for (const taskType of ['chat', 'default', undefined]) {
-      const kept = filterToolsByTask(defs, taskType).map(
-        (t) => t.function.name
-      );
-      expect(kept).toContain(wfWire);
-      expect(kept).toContain(pipeWire);
-      expect(kept).not.toContain('computer_use'); // 反证：裁剪仍生效（非全量放行）
+      // AC-16：office 类（'doc'）不在默认披露面 ⇒ 三者全被裁
+      expect(filterToolsByTask(defs, taskType)).toHaveLength(0);
     }
+    // 但 wire 形态的**类别解析**没坏 ⇒ 显式追加 'doc' 两个 office 工具立即恢复
+    const kept = filterToolsByTask(defs, 'default', ['doc']).map(
+      (t) => t.function.name
+    );
+    expect(kept).toContain(wfWire);
+    expect(kept).toContain(pipeWire);
+    expect(kept).not.toContain('computer_use'); // 反证：裁剪仍生效（非全量放行）
   });
 
   test('N-45: 系统性不变量 —— 登记表每项的 wire 形态都解析到同一类别', () => {
@@ -303,7 +348,7 @@ describe('toolCategories — P0 工具可见性回归', () => {
     expect(kept).toContain('media_video_extract_thumbnail');
   });
 
-  test('N-44 扩展: sleep_for / sleep_until 归 system，通用任务集内可见', () => {
+  test('N-44 扩展: sleep_for / sleep_until 归 system；默认面收窄，coding 仍可见', () => {
     // 与同族的阻塞式 `sleep`（亦为 'system'）保持同一类别口径。
     expect(getToolCategory('sleep_for')).toBe('system');
     expect(getToolCategory('sleep_until')).toBe('system');
@@ -312,10 +357,14 @@ describe('toolCategories — P0 工具可见性回归', () => {
       { name: 'sleep_until' },
       { name: 'bash' },
     ];
-    for (const taskType of ['chat', 'default', 'coding', undefined]) {
-      const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
-      expect(kept).toContain('sleep_for');
-      expect(kept).toContain('sleep_until');
+    for (const taskType of ['chat', 'default', undefined]) {
+      // AC-16：睡眠族不在默认披露面（默认只留 12 个）；类别映射本身不变
+      expect(filterToolsByTask(defs, taskType).map((t) => t.name)).toEqual([
+        'bash',
+      ]);
     }
+    const coding = filterToolsByTask(defs, 'coding').map((t) => t.name);
+    expect(coding).toContain('sleep_for');
+    expect(coding).toContain('sleep_until');
   });
 });

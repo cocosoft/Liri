@@ -198,12 +198,13 @@ describe("P3 原因穷尽映射", () => {
     "archived",
     "unregistered-category",
     "not-in-task-whitelist",
+    "not-in-default-disclosure",
     "conditional",
     "user-off",
     "user-on-bypass",
   ];
 
-  it("7 个原因各有文案键与色调（均以 settings. 起头）", () => {
+  it("8 个原因各有文案键与色调（均以 settings. 起头）", () => {
     expect(Object.keys(TOOL_VISIBILITY_REASON_KEYS).sort()).toEqual(
       [...ALL_REASONS].sort(),
     );

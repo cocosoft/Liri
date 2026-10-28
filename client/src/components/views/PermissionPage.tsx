@@ -174,28 +174,33 @@ function PermissionPage() {
   const loadUsers = async () => {
     try {
       const list = await permissionService.listUsers();
-      setUsers(
-        list.map((u) => ({
-          id: u.id,
-          username: u.name,
-          email: "",
-          role:
-            u.roles.includes("admin") || u.roles.includes("system")
-              ? "admin"
-              : u.roles.includes("guest")
-                ? "guest"
-                : "user",
-          trustLevel:
-            u.roles.includes("admin") || u.roles.includes("system")
-              ? 4
-              : u.roles.includes("guest")
-                ? 0
-                : 2,
-          permissions: u.roles,
-          lastActive: u.updatedAt
-            ? new Date(u.updatedAt).toLocaleString()
-            : "—",
-        })),
+      const mapped = list.map((u) => ({
+        id: u.id,
+        username: u.name,
+        email: "",
+        role:
+          u.roles.includes("admin") || u.roles.includes("system")
+            ? ("admin" as const)
+            : u.roles.includes("guest")
+              ? ("guest" as const)
+              : ("user" as const),
+        trustLevel:
+          u.roles.includes("admin") || u.roles.includes("system")
+            ? 4
+            : u.roles.includes("guest")
+              ? 0
+              : 2,
+        permissions: u.roles,
+        lastActive: u.updatedAt
+          ? new Date(u.updatedAt).toLocaleString()
+          : "—",
+      }));
+      setUsers(mapped);
+      // F-09（2026-10-28）：左侧有用户、右侧恒「暂无用户数据」—— 原实现只在点击后才设
+      // selectedUser。改为加载后自动选中（保留已有选中项；失效则回落到第一个），
+      // 详情与列表同源。
+      setSelectedUser(
+        (prev) => mapped.find((u) => u.id === prev?.id) ?? mapped[0] ?? null,
       );
     } catch (e) {
       handleClientError(e, { module: "permission:page", action: "loadUsers" });

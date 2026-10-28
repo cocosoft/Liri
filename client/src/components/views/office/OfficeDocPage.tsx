@@ -225,7 +225,10 @@ export default function OfficeDocPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-white dark:bg-gray-950">
+    // P2（2026-10-29）：根节点缺 `w-full`，在 `flex-1 flex`（行向）父容器里按内容收缩成 711px，
+    // 右侧留下约 489px 空白（真机 1280 宽：父 1200 / 本节点 711）。补 `w-full` 后
+    // 内层 `max-w-4xl mx-auto` 才能正常居中。
+    <div className="h-full w-full overflow-y-auto bg-white dark:bg-gray-950">
       <div className="max-w-4xl mx-auto p-6">
         <Link
           to="/office"

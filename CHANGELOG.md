@@ -98,6 +98,13 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.22 (2026-10-28)  内核外移落定 + 门禁基线同步
+
+- ✅ **内核外移（`packages/kernel/src/core` → `app/src`）**：37 个不满足「零 I/O / 零上层依赖」的模块下沉到应用层 —— `paths`/`mediaRoots` → `environment`，`sqlite3`/`performance` → `external`/`performance`，`delivery`/`estop`/`health`/`instanceLock`/`seedSync`/`Coordinator` → `runtimeHost`/`runtime`，`patterns` → `query/patterns`，会话归属/存储范围/outputGuard 注册表 → `security`，`phases`/`successCriteria` → `tasks`；同步 470+ 处 import，内核公开面（`@openliri/kernel/*`）随之收窄。
+- ✅ **门禁基线同步**：`kernel-api-surface` / `kernel-size-baseline` / `kernel-surface-allowlist` / `startup-graph` / `state-literal` 基线按新布局重生成，证据归档路径与修复证据台账一并重生成（`lint:evidence-views-drift` 绿）。
+- ✅ **eslint 直连豁免**：`module-registry` 对本次下放的**纯叶子模块**（`tasks/phases`、`tasks/successCriteria`、`security/identity`、`security/outputGuardRegistry`、`query/patterns`）放行，其余安全面仍强制走 `@modules/security` 门面。
+- ✅ **CI 两处红修复**：① kernel 产物冒烟原断言 `dist/core/paths.js`，该模块已下沉 ⇒ Linux 全新构建必红（本机旧 `dist` 掩盖），改断言仍在内核的公开子路径；② `scopedResources` 真句柄用例在 Linux 上 `closed` 实测 2 —— 登记表是进程级全局，其他用例的 `acme:*` 登记会漏进来，改为 `beforeEach` 重置 + 本文件独有租户前缀 `sq-*`（断言强度不变）。
+
 #### v0.5.21 (2026-10-28)  默认披露面收口到 12 + AC-16b 体积达标
 
 - ✅ **默认披露面收口到 12 个（AC-16a）**：`default`/`chat`/未指定任务只下发 12 个工具（`DEFAULT_DISCLOSURE_TOOLS`）；注册面 82、执行面、`tool_search` 检索面与 `coding`/`agent` 任务面**均不动**——未列入者仍注册可调用，模型经 `tool_search` 拿到名字即可调用。`extraCategories`（带图 / profile）为显式能力声明，命中即放开。设置页新增可见性原因 `not-in-default-disclosure`（双端穷尽映射 + zh/en 文案）。

@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.21-blue)
+![Version](https://img.shields.io/badge/version-0.5.22-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -426,7 +426,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.21**
+当前版本：**v0.5.22**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -435,12 +435,12 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.21 (2026-10-28)
-默认披露面收口到 12 + AC-16b 体积达标
+#### v0.5.22 (2026-10-28)
+内核外移落定 + 门禁基线同步
 
-- ✅ **默认披露面收口到 12 个（AC-16a）** - `default`/`chat`/未指定任务只下发 12 个工具；注册面 82、执行面、`tool_search` 检索面与 `coding`/`agent` 任务面均不动，未列入者仍注册可调用
-- ✅ **AC-16b 披露面体积达标（1,397 / 1,500）** - 门禁按 provider 真实投影测量（`output_schema`/`aliases`/`searchTips` 从未下发），新旧两个口径都冻结
-- ✅ **跨平台 CI 修复** - 披露面收窄后的可见性回归锁同步为「收窄≠删除」；描述字符基线取跨平台最大值
+- ✅ **内核外移** - 37 个不满足「零 I/O / 零上层依赖」的模块从 `packages/kernel/src/core` 下沉到 `app/src`（`environment`/`external`/`runtimeHost`/`query`/`security`/`tasks`），同步 470+ 处 import，`@openliri/kernel/*` 公开面随之收窄
+- ✅ **门禁基线同步** - 内核导出面 / 体量 / 白名单 / 启动图 / 状态字面量基线按新布局重生成，证据归档与修复证据台账一并重生成
+- ✅ **CI 两处红修复** - 产物冒烟改断言仍在内核的公开子路径（`core/paths.js` 已下沉）；`scopedResources` 用例改 `beforeEach` 重置 + 独有租户前缀，消除跨文件登记污染
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

@@ -77,7 +77,9 @@ function ApiKeyContent() {
     });
 
   return (
-    <div className="p-6">
+    // P2（2026-10-29）：`/apikeys` 直接把本组件挂在 `flex-1 flex`（行向）父容器下，
+    // 根节点缺 `w-full` ⇒ 按内容收缩成 362px（真机实测），空态卡与将来的密钥表都被挤在左侧。
+    <div className="w-full p-6">
       {/* 安全定位横幅（M1） */}
       <SafetyPositionBanner
         layer={{ primary: "user" }}

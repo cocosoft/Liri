@@ -39,6 +39,40 @@ interface Migration {
   fn: (state: RootState) => void;
 }
 
+// ─── F-17b 存量清理（2026-10-28，一次性） ────────────────
+
+/**
+ * 旧 workspace 链路残留的**幽灵 worktree**（一次性清理名单）。
+ *
+ * 判定依据（逐条核对，非猜测）：
+ * - `GET /v1/projects` 与 `GET /v1/workspaces` 均无对应记录；
+ * - `<data>/projects` 下也没有这些 id 的目录；
+ * - `GET /v1/sessions` 中**没有任何会话**引用这些 id（故删除不会孤立任何历史会话）。
+ *
+ * 它们被 `openWorkspace()` 的失败兜底反复重建（该兜底已在本批一并移除），
+ * 只从 localStorage 删会被任何存活实例的内存态回写，所以放在**水合后**统一摘除。
+ * 存量清完后本段可整体删除。
+ */
+const LEGACY_PHANTOM_WORKTREE_IDS = [
+  "wt-1789397997212-vfeyzg",
+  "wt-1789973973634-up1lmi",
+  "wt-1790479146397-v7f862",
+  "wt-1790488674240-iu23d9",
+  "wt-1792681884524-brvgpd",
+] as const;
+
+/** 水合后摘除幽灵 worktree（含 recentWorkspaceIds 中的对应引用） */
+function pruneLegacyPhantomWorktrees(state: RootState): void {
+  for (const id of LEGACY_PHANTOM_WORKTREE_IDS) {
+    delete state.worktrees?.[id];
+  }
+  if (state.recentWorkspaceIds) {
+    state.recentWorkspaceIds = state.recentWorkspaceIds.filter(
+      (id) => !(LEGACY_PHANTOM_WORKTREE_IDS as readonly string[]).includes(id),
+    );
+  }
+}
+
 const MIGRATIONS: Migration[] = [
   // v0→v1: 清理 worktrees 中 gitRepo.path 的失效标记字段
   {
@@ -163,6 +197,8 @@ export const useRootStore = create<RootState>()(
         onRehydrateStorage: () => (state) => {
           if (state) {
             state.worktrees = { ...SYSTEM_WORKSPACES, ...state.worktrees };
+            // F-17b：水合后摘除旧 workspace 链路残留的幽灵 worktree（一次性名单）
+            pruneLegacyPhantomWorktrees(state);
             // 等待页面 mount 后 enterModule 覆盖才标记就绪，避免刷新时闪现旧模块会话
             state._contextReady = false;
           }

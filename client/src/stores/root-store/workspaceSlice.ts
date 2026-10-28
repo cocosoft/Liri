@@ -550,9 +550,14 @@ export const createWorkspaceSlice: StateCreator<
         } as Partial<RootState>;
       });
     } catch (err) {
-      if (!get().worktrees[workspaceId]) {
-        get().createWorkspace({ name: workspaceId, path: workspaceId });
-      }
+      // F-17b（2026-10-28）：**不再**为"后端不存在的 workspace"补一个本地幽灵 worktree。
+      // 原实现在失败时 `createWorkspace({ name: workspaceId, path: workspaceId })`，
+      // 把 404/不存在的旧 id 变成 `wt-*` 幽灵项并永久留在侧栏（真机复现：5 条
+      // name/path 均等于 id 的无主项，且后端与磁盘都没有对应实体）。
+      logger.warn("打开工作空间失败（不创建本地幽灵项）", {
+        workspaceId,
+        error: String(err),
+      });
       set({
         currentWorkspaceId: workspaceId,
         isLoading: false,

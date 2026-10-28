@@ -1041,8 +1041,12 @@ function MediaPage() {
       {/* ========== 主体：画廊 + 预览区 ========== */}
       <div className="flex flex-1 overflow-hidden">
         {/* ========== 左侧：画廊 ========== */}
+        {/* F-04（2026-10-28）：列内可滚动 —— 窗口偏矮时（顶部轮播 47 + 工具栏 122 +
+            底部输入栏约 180 已吃掉大半高度）画廊剩余高度会小于一张方形卡片，
+            首行被裁切且「下滚也只看得到半张」。改为：画廊区保底一行卡片高度，
+            放不下时由本列整体滚动补足。 */}
         <div
-          className={`flex flex-shrink-0 flex-col border-r border-gray-200 dark:border-gray-700 ${
+          className={`flex flex-shrink-0 flex-col overflow-y-auto border-r border-gray-200 dark:border-gray-700 ${
             isCompact ? "flex-1" : "w-80"
           }`}
         >
@@ -1183,8 +1187,10 @@ function MediaPage() {
             {showUpload && <ImageUploadDrop onUploaded={handleUploaded} />}
           </div>
 
-          {/* 画廊 — flex-1 min-h-0 撑满剩余高度，让 h-full 在 MasonryGallery 内生效 */}
-          <div className="flex-1 min-h-0">
+          {/* 画廊 — flex-1 撑满剩余高度，让 h-full 在 MasonryGallery 内生效；
+              min-h 保底一行卡片（实测方形缩略图 1280 宽 288px、889 宽 273px，加 12px 内边距取 300），
+              避免「滚动容器比卡片还矮 ⇒ 首行被裁」（F-04） */}
+          <div className="flex-1 min-h-[300px]">
             {viewMode === "masonry" ? (
               <MasonryGallery
                 items={filteredItems}

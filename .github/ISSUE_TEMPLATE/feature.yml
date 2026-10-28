@@ -1,0 +1,52 @@
+name: Feature request / 功能建议
+description: Propose a capability or an improvement. 提出新能力或改进想法。
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        我们更关心"你遇到什么问题"，而不是"请加某个功能"。
+        Tell us the problem first — the feature is one possible answer, not the only one.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / 你遇到的问题
+      description: 现在你是怎么绕过它的？绕法越具体，越说明这是真问题
+      placeholder: "每次要导出会话时，我得手动……"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution / 建议的做法
+      description: 可以写多个方案，并说明你更倾向哪个、为什么
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / 涉及区域
+      options:
+        - Tools / 工具
+        - Channels / 渠道
+        - Desktop client / 桌面端
+        - Kernel / 内核与架构
+        - Security & sandbox / 安全与沙箱
+        - Docs / 文档
+        - Other / 其他
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Willingness / 参与意愿
+      options:
+        - label: 我愿意提交 PR（可以先在 issue 里对齐方案）
+          required: false
+        - label: 我可以提供复现环境或测试数据
+          required: false

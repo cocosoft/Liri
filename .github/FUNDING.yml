@@ -1,0 +1,7 @@
+# 赞助入口：GitHub 仓库页会据此显示 Sponsor 按钮
+# - github：需 GitHub Sponsors 审核通过后才生效（中国大陆收款暂不支持）
+# - custom：立即生效，按顺序展示；国内走爱发电，国际/说明走官网赞助页
+github: cocosoft
+custom:
+  - https://afdian.com/a/cocosoft
+  - https://openliri.com/sponsor

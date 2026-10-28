@@ -1,0 +1,54 @@
+name: Security audit / 安全审计
+description: Coordination for an external audit — NOT for reporting vulnerability details. 审计协作，不接收漏洞细节。
+title: "[audit] "
+labels: ["security", "help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > **不要在这里贴漏洞细节。** 发现可利用问题请按 [SECURITY.md](https://github.com/cocosoft/Liri/blob/main/SECURITY.md) 私密报告。
+        > **Do not post vulnerability details here.** Report exploitable issues privately per SECURITY.md.
+
+        这个模板只用于：认领审计范围、对齐复现方式、公示审计进度与结论。
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Audit scope / 审计范围
+      multiple: true
+      options:
+        - Dangerous command rules / 危险命令规则（37 条）
+        - Prompt injection rules / 提示注入规则（14 条）
+        - Shell rules / Shell 规则（10 条）
+        - Sandbox backends & degradation / 沙箱后端与降级逻辑（6 种）
+        - Approval stages / 审批四段
+        - Privilege surface / 越权面
+    validations:
+      required: true
+
+  - type: textarea
+    id: method
+    attributes:
+      label: Method / 复现与验证方式
+      description: 你打算怎么验证？用了什么环境、什么输入
+      placeholder: "在 Docker 后端下构造 `rm -rf` 变体，观察是否命中危险命令规则并落审计日志"
+    validations:
+      required: true
+
+  - type: input
+    id: paths
+    attributes:
+      label: Source paths / 相关源码路径
+      placeholder: "app/src/security, app/src/sandbox"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: disclosure
+    attributes:
+      label: Disclosure / 披露
+      options:
+        - label: 我确认没有在公开渠道披露漏洞细节
+          required: true
+        - label: 我愿意把审计结论（不含利用代码）公开到本 issue
+          required: false

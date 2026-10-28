@@ -259,6 +259,8 @@ codemidas_extract.md
 # 例外（2026-10-26）：`SECURITY.md` 是漏洞披露渠道的**唯一事实源** —— 必须入库才能在
 # GitHub 的 Security 页展示、也才能被 CONTRIBUTING 引用（W26-03）
 !/SECURITY.md
+# 例外（2026-10-29）：`SPONSORS.md` 是赞助者名单的唯一事实源 —— 官网赞助页与爱发电权益文案都指向它
+!/SPONSORS.md
 temp _url.txt
 temp_url2.txt
 test.txt

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation / 使用文档
+    url: https://openliri.com/docs
+    about: 安装、配置、渠道接入与命令参考
+  - name: Build log / 演进记录
+    url: https://openliri.com/evolution
+    about: 项目为什么长成现在这样，以及还缺什么
+  - name: Report a vulnerability / 私密报告安全问题
+    url: https://github.com/cocosoft/Liri/blob/main/SECURITY.md
+    about: 请勿在公开 issue 中披露漏洞细节

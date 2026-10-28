@@ -1,0 +1,77 @@
+name: Bug report / 缺陷报告
+description: Something does not work as documented. 与文档或预期不符的行为。
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请尽量补全环境与复现步骤——没有复现路径的 issue 很难被修。
+        Thanks for reporting. A reproducible case gets fixed far faster than a description.
+
+  - type: input
+    id: version
+    attributes:
+      label: Liri version / 版本
+      description: 输出 `liri --version` 或 `app/package.json` 中的版本号
+      placeholder: "v0.5.22"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: Install method / 安装方式
+      options:
+        - Bun (git clone + bun install)
+        - Docker
+        - Desktop client (Tauri)
+        - Other / 其他
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: OS & runtime / 系统与运行时
+      placeholder: "Windows 11 · Bun 1.2 · Node 24"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 复现步骤
+      description: 按顺序写清每一步，能贴命令就贴命令
+      placeholder: |
+        1. 运行 `bun run dev`
+        2. 输入 `/task create ...`
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual / 期望与实际
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / 日志
+      description: 请先脱敏——不要贴 API Key、token、私人路径
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: 已确认不是权限/配置问题（见 docs/configuration）
+          required: false
+        - label: 日志已脱敏，不含密钥
+          required: true

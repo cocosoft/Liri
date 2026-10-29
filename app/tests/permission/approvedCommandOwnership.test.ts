@@ -56,16 +56,16 @@ describe('ApprovedCommandRegistry 归属隔离（P3）', () => {
 
   it('命令名级放行同样按归属过滤', () => {
     const registry = makeRegistry();
-    runWithPrincipal(ALICE, () => registry.approve('s1', 'h1', 'npm test'));
+    runWithPrincipal(ALICE, () => registry.approve('s1', 'h1', 'dir /b x'));
 
     expect(
       runWithPrincipal(ALICE, () =>
-        registry.isCommandNameApproved('s1', 'npm run build')
+        registry.isCommandNameApproved('s1', 'dir /b y')
       )
     ).toBe(true);
     expect(
       runWithPrincipal(BOB, () =>
-        registry.isCommandNameApproved('s1', 'npm run build')
+        registry.isCommandNameApproved('s1', 'dir /b y')
       )
     ).toBe(false);
   });

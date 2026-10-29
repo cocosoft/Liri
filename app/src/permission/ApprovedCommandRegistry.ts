@@ -205,6 +205,12 @@ export interface ApprovalEntry {
   ownerKey?: string;
   /** P0-3: 批准命令的命令名（首个 token），供命令名级放行 */
   baseCommand?: string;
+  /**
+   * B3（2026-10-30，issue #37）：命令**审批签名**（基命令|子命令|高危选项|目标路径）。
+   *
+   * 缺省（老记录 / 无命令文本）⇒ 命令名级放行**不命中**（fail-closed，只保留精确 hash 命中）。
+   */
+  commandSignature?: string;
   /** S1-1: 绑定的执行作用域摘要（批准时记录；执行时若给 scope 必须与之一致） */
   scopeDigest?: string;
   /**
@@ -267,6 +273,90 @@ export function getBaseCommand(command: string): string {
   return normalizeCommand(command).split(/\s+/)[0] || '';
 }
 
+/**
+ * B3（2026-10-30，issue #37）：**审批签名**（命令名级放行的结构化维度）。
+ *
+ * 背景：命令名级放行只看首个 token ⇒ 批准 `git status` 会连带放行 `git push --force`
+ * （两者 baseCommand 都是 `git`）。本函数把放行维度收紧为：
+ * `基命令 | 子命令 | 高危选项集合（排序） | 目标路径（排序）`。
+ *
+ * 取向：**只收紧不放宽** —— 多一个维度只会多弹一次审批，不会多放行；
+ * 且 `DANGEROUS_BASE_NAMES` 的命令本就不走本通道（见 `isCommandNameApproved`）。
+ */
+export function commandApprovalSignature(command: string): string {
+  const normalized = normalizeCommand(command).trim();
+  if (!normalized) return '';
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  const base = tokens[0] ?? '';
+  const isSwitch = (t: string): boolean =>
+    t.startsWith('-') || /^\/[A-Za-z]{1,3}(:|$)/.test(t);
+  // 子命令：**仅**对"基命令 + 子命令"型 CLI 取值（`git status` ⇒ status）。
+  // 其余命令（`dir`、`cat`…）的第二个 token 多是目标路径/参数，不当作子命令
+  // ⇒ 保持既有"同名放行"语义（零行为变更），避免把只读命令的重复调用全部打断。
+  const sub = SUBCOMMAND_BASES.has(base)
+    ? (tokens.slice(1).find((t) => !isSwitch(t)) ?? '')
+    : '';
+  // 高危选项：顺序无关 ⇒ 排序后拼接
+  const risky = tokens
+    .filter((t) => isSwitch(t))
+    .map((t) => t.replace(/^--?/, '').toLowerCase().split('=')[0])
+    .filter((t) => HIGH_RISK_FLAGS.has(t))
+    .sort();
+  // 目标路径：盘符 / 绝对 / 相对（开关与裸词不计）
+  const paths = tokens
+    .filter(
+      (t) =>
+        !isSwitch(t) &&
+        (/^[A-Za-z]:[\\/]/.test(t) ||
+          /^\.{0,2}\//.test(t) ||
+          /^\\/.test(t) ||
+          (!t.startsWith('"') && t.includes('/')))
+    )
+    .sort();
+  return [base, sub, risky.join(','), paths.join(',')].join('|');
+}
+
+/**
+ * 高危选项词表（仅用于**收紧**命令名级放行维度）：出现即要求重新审批。
+ * 与 `DANGEROUS_BASE_NAMES` 互补 —— 后者拦命令，本表拦"同一命令的危险参数"。
+ */
+const HIGH_RISK_FLAGS = new Set([
+  'rf',
+  'f',
+  'r',
+  'recursive',
+  'recurse',
+  'force',
+  'hard',
+  'delete',
+  'purge',
+  'mirror',
+  'no-verify',
+  'amend',
+  'exec',
+  'command',
+  'encodedcommand',
+  'eval',
+]);
+
+/** "基命令 + 子命令"型 CLI（第二个非开关 token 视为子命令，参与审批签名） */
+const SUBCOMMAND_BASES = new Set([
+  'git',
+  'npm',
+  'pnpm',
+  'yarn',
+  'bun',
+  'cargo',
+  'go',
+  'dotnet',
+  'pip',
+  'pip3',
+  'uv',
+  'docker',
+  'kubectl',
+  'gh',
+]);
+
 export class ApprovedCommandRegistry {
   private store = new Map<string, Map<string, ApprovalEntry>>();
   private cleanupTimer: ReturnType<typeof setInterval> | null = null;
@@ -322,6 +412,10 @@ export class ApprovedCommandRegistry {
       // 多租户 P3：记录批准时的身份（本地身份 ⇒ 不写字段，零变更）
       ...(ownerKey ? { ownerKey } : {}),
       baseCommand: command ? getBaseCommand(command) : undefined,
+      // B3：命令名级放行的结构化维度（无命令文本 ⇒ 不写 ⇒ 该通道不命中，fail-closed）
+      ...(command
+        ? { commandSignature: commandApprovalSignature(command) }
+        : {}),
       scopeDigest,
       capabilityDigest: extras?.capabilityDigest,
       snapshot: extras?.snapshot,
@@ -393,13 +487,20 @@ export class ApprovedCommandRegistry {
     if (!sessionId || !command) return false;
     const base = getBaseCommand(command);
     if (!base || DANGEROUS_BASE_NAMES.has(base)) return false;
+    // B3（2026-10-30，issue #37）：除命令名外还要求**审批签名**一致 ——
+    // 批准 `git status` 不得连带放行 `git push --force`（子命令 / 高危选项 / 目标路径任一不同即不命中）。
+    const signature = commandApprovalSignature(command);
     const sessionMap = this.store.get(sessionId);
     if (!sessionMap) return false;
     const now = Date.now();
     for (const entry of sessionMap.values()) {
       // 多租户 P3：命令名级放行同样按归属过滤
       if (!canAccessOwnerKey(entry.ownerKey)) continue;
-      if (entry.baseCommand === base && now <= entry.expiresAt) {
+      if (
+        entry.baseCommand === base &&
+        entry.commandSignature === signature &&
+        now <= entry.expiresAt
+      ) {
         // O1-B3（2026-10-09，触发条件补全方案 §三-O1）：**命令名级放行命中**观测（仅日志，
         // 零行为变更）。用途：使 `BASH_APPROVAL_STRICT` 的触发条件「同名不同参被命令名级
         // 放行」可读（见 `.trae/specs/default-off-switches-review-gates.md`）。

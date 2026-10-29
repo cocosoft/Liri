@@ -38,6 +38,7 @@ import {
   hashEnvForApproval,
   computeScopeDigest,
   getBaseCommand,
+  commandApprovalSignature,
 } from '../../src/permission/ApprovedCommandRegistry.js';
 
 describe('ApprovedCommandRegistry 放行缓存', () => {
@@ -215,6 +216,31 @@ describe('命令名级放行 isCommandNameApproved（P0-3）', () => {
     await new Promise((r) => setTimeout(r, 40));
     expect(reg.isCommandNameApproved('session-1', 'dir')).toBe(false);
     reg.dispose();
+  });
+
+  // B3（2026-10-30，issue #37）：审批签名收紧 —— 子命令 / 高危选项 / 目标路径
+  it('B3：批准 `git status` 不覆盖 `git push --force`（指纹不同）', () => {
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    reg.approve('session-1', hashCommand('git status'), 'git status');
+    expect(reg.isCommandNameApproved('session-1', 'git status')).toBe(true);
+    expect(reg.isCommandNameApproved('session-1', 'git push --force')).toBe(
+      false
+    );
+    expect(reg.isCommandNameApproved('session-1', 'git push')).toBe(false);
+    reg.dispose();
+  });
+
+  it('B3：命令签名包含高危选项与目标路径（任一不同即重批）', () => {
+    expect(commandApprovalSignature('git status')).not.toBe(
+      commandApprovalSignature('git push --force')
+    );
+    expect(commandApprovalSignature('cat a/x.txt')).not.toBe(
+      commandApprovalSignature('cat b/x.txt')
+    );
+    // 只读命令的"同名放行"语义保持不变（dir 不是子命令型 CLI）
+    expect(commandApprovalSignature('dir /b x')).toBe(
+      commandApprovalSignature('dir /b y')
+    );
   });
 });
 

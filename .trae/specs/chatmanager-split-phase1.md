@@ -2,7 +2,7 @@
 
 > 对应 issue：[#8](https://github.com/cocosoft/Liri/issues/8)（替代已关闭的 #2）
 > 基线（2026-10-29 实测）：`app/src/chat/ChatManager.ts` **4840 行**、方法声明 **164** 个；`app/src/chat/manager/` 已有 **14** 个子模块（最大 `bootstrap.ts` 742 行）。
-> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**；Cut D1（#17 第一刀）后 **3898 行**。
+> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**；Cut D1（#17 第一刀）后 **3898 行**；Cut D2/D3 后 **3807 行**。
 > 目标：第一阶段把「检查点（checkpoint）+ 预算（budget）」编排抽到 `app/src/chat/manager/`（`checkpointBudget.ts` + `budgetResume.ts`，单文件 ≤900 行），`ChatManager.ts` **≤4000 行**，行为不变。
 
 ## 一、实测现状（决定拆分粒度的事实）
@@ -101,6 +101,19 @@
 - **实测**：`ChatManager.ts` **3972 → 3898**（**−74**）；顺带清掉 6 个因外移而不再使用的导入（`assertEntryBudget` / `estimateMessagesTokens` / `messageProjector` / `resolveToolEffect` / `stripThinkResponseTags` / `ChatMessage`）。
 - **门禁**：`tsc` 0 错；`lint:arch` / `lint:size` 0 错；`lint:state-ratchet` 维持（新文件命中既有取值 `completed` ⇒ 基线补登 1 行）；`bun test tests/chat tests/budget` **775 pass**；全量 `bun test tests` **8958 pass / 41 skip / 0 fail**（既有 `tests/budget/chatDowngradeGate.test.ts` 仍绿）。
 - **#17 剩余候选**（实测跨度）：`_submitToolApproval` 137（审批路径，**先补单测**）、`extractMemoryFromChat` 69、`getClientForModel` 46、`getSessionManager` 45、`runPendingReconciles` 43、`_ensureVerifierCallModel` 39、`_buildTAORContext` 36、`_createStreamPipeline` 35、`_isCommandApproved` 35、`_getProjectSandboxPath` 33。
+
+### Cut D2 / D3（issue #17 第二、三刀）— 记忆抽取 + 按模型选客户端（2026-10-29）
+
+- **D2 · `manager/memoryExtract.ts`**：`extractMemoryFromChat`（原 69 行 ⇒ **14 行 delegate**）。
+  - `CONVERSATION_MEMORY_MAX_CHARS`（20k 上限）随实现迁为**模块常量**，`ChatManager` 的静态字段删除；
+  - 会话 → memoryId 的 Map **仍归宿主**（实例级生命周期），以端口传入（**不得**做成模块级单例，否则跨实例/测试串扰）；
+  - 三条分支（缓存命中 / 按会话标签续写 / 首次新建）与封顶、失败只记日志的语义逐字保留。
+- **D3 · `manager/modelClient.ts`**：`getClientForModel`（原 46 行 ⇒ **14 行 delegate**）。
+  - `toolRegistry` 的 `tools` 域类型在模块内**单点转换**为 `ai` 域类型（与迁移前调用点同口径）；
+  - BUG-08「有归属供应商但未注册 ⇒ 抛配置错误、绝不静默回落」逐字保留。
+- **实测**：`ChatManager.ts` **3898 → 3807**（**−91**）；同时清掉 2 个失效导入（`resolveModelRoutingFailure` / `providerRegistry`）。
+- **门禁**：`tsc` 0 错；`lint:arch` / `lint:size` 0 错；`lint:state-ratchet` 维持；`bun test tests/chat tests/ai` **1093 pass**；全量 `bun test tests` **8958 pass / 41 skip / 0 fail**。
+- **#17 剩余候选**：`_submitToolApproval` 137（审批路径，先补单测）、`getSessionManager` 45、`runPendingReconciles` 43、`_ensureVerifierCallModel` 39、`_buildTAORContext` 36、`_createStreamPipeline` 35、`_isCommandApproved` 35（审批路径）、`_getProjectSandboxPath` 33。
 
 ## 三、统一验收命令（每刀都要跑）
 

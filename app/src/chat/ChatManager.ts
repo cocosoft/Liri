@@ -166,9 +166,6 @@ import { isCheckpointLogEnabled } from '@modules/config';
 import { HookChainManager } from '@modules/hooks';
 import { toolResultRegistry } from '../tool/ToolResultRegistry.js';
 import { ToolAwareClient } from '@modules/ai';
-import { providerRegistry } from '@modules/ai';
-// BUG-08：模型有归属供应商但供应商未就绪时，禁止静默回落到默认客户端
-import { resolveModelRoutingFailure } from '../ai/providers/modelRoutingGuard';
 import { trackUsage } from '@modules/ai';
 import {
   createMaxOutputRetryState,
@@ -201,6 +198,9 @@ import { wireChatFacades, type FacadeWiringHost } from './manager/facadeWiring';
 import { asWiringHost } from './manager/wiringHostGuard';
 // issue #17 · D1（2026-10-29）：TAORLoop 失败后的降级路径外移
 import { sendMessageDowngradePath } from './manager/sendDowngrade';
+// issue #17 · D2 / D3（2026-10-29）：对话记忆抽取、按模型名选客户端外移
+import { extractMemoryFromChat as extractMemoryFromChatImpl } from './manager/memoryExtract';
+import { getClientForModel as getClientForModelImpl } from './manager/modelClient';
 import type {
   ParsedToolCall,
   ToolDefinition,
@@ -2117,77 +2117,22 @@ export class ChatManagerImpl implements ChatManager {
    */
   private readonly _conversationMemoryIdBySession = new Map<string, string>();
 
-  /** D5-A：单条对话记忆的**内容上限**（按会话聚合后必须封顶，否则单条无界增长） */
-  private static readonly CONVERSATION_MEMORY_MAX_CHARS = 20_000;
-
+  /**
+   * 响应后自动提取记忆（issue #17 · D2：实现体已外移到 `manager/memoryExtract.ts`）。
+   *
+   * 会话 → memoryId 的 Map 仍由本类持有（实例级生命周期），以端口传入。
+   */
   private async extractMemoryFromChat(
     userContent: string,
     assistantContent: string,
     sessionId: string
   ): Promise<void> {
-    try {
-      const { getMemoryManager } = await import('@modules/memory');
-      const mm = getMemoryManager();
-      const turnText = `用户: ${userContent}\n助手: ${assistantContent}`;
-
-      /** 追加一轮对话并封顶（保留最近内容） */
-      const appendTurn = (prev: string): string => {
-        const joined = prev ? `${prev}\n\n${turnText}` : turnText;
-        const cap = ChatManagerImpl.CONVERSATION_MEMORY_MAX_CHARS;
-        return joined.length > cap ? joined.slice(joined.length - cap) : joined;
-      };
-
-      // `updateMemory` 是**合并语义**（metadata 浅合并、updatedAt 由它自设）⇒ 只传 content
-      const writeInto = async (
-        id: string,
-        prevContent: string
-      ): Promise<void> => {
-        await mm.updateMemory(id, { content: appendTurn(prevContent) });
-      };
-
-      // ① 快路径：进程内缓存命中 ⇒ 追加（不再新建）
-      const cachedId = this._conversationMemoryIdBySession.get(sessionId);
-      if (cachedId) {
-        const existing = await mm.getMemory(cachedId);
-        if (existing) {
-          await writeInto(cachedId, existing.content ?? '');
-          return;
-        }
-        // 该条已被删除（维护期去重/清理）⇒ 清缓存，走重建分支
-        this._conversationMemoryIdBySession.delete(sessionId);
-      }
-
-      // ② 慢路径：按会话标签查找既有条目（进程重启后仍能续写同一条，而非另起一条）
-      const all = await mm.getAllMemories();
-      const found = all.find(
-        (m) =>
-          m.metadata?.type === 'conversation' &&
-          Array.isArray(m.metadata?.tags) &&
-          m.metadata.tags.includes(sessionId)
-      );
-      if (found) {
-        this._conversationMemoryIdBySession.set(sessionId, found.id);
-        await writeInto(found.id, found.content ?? '');
-        return;
-      }
-
-      // ③ 首次：新建（此后每轮都追加到这一条）
-      const created = await mm.createMemory({
-        content: turnText,
-        metadata: {
-          name: `会话 ${sessionId.slice(0, 8)} 对话`,
-          description: '从对话中自动提取（按会话聚合，逐轮追加）',
-          type: 'conversation',
-          tags: ['auto-extracted', sessionId],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      });
-      this._conversationMemoryIdBySession.set(sessionId, created.id);
-    } catch (err) {
-      // 记忆提取失败不影响主流程
-      handleError(err, { module: 'chat:manager', action: 'extractMemory' });
-    }
+    return extractMemoryFromChatImpl(
+      { conversationMemoryIdBySession: this._conversationMemoryIdBySession },
+      userContent,
+      assistantContent,
+      sessionId
+    );
   }
 
   /**
@@ -3308,53 +3253,17 @@ export class ChatManagerImpl implements ChatManager {
 
   /**
    * 根据模型名获取对应的 LLM 客户端
-   * 如果模型属于其他 Provider（如 Ollama），自动创建对应的 ToolAwareClient
+   * （issue #17 · D3：实现体已外移到 `manager/modelClient.ts`；BUG-08 的"不静默回落"语义不变）
    */
   private getClientForModel(model?: string): ToolAwareClient {
-    if (!this.llmClient) {
-      throw new AppError(
-        'LLM client not initialized',
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-
-    if (!model) return this.llmClient;
-
-    const currentProviderId = this.llmClient.getProviderId();
-    const resolvedProvider = providerRegistry.getByModel(model);
-
-    if (resolvedProvider && resolvedProvider.id !== currentProviderId) {
-      return new ToolAwareClient(
-        resolvedProvider,
-        this.toolRegistry as unknown as import('@modules/ai').ToolRegistry,
-        this.toolExecutor
-      );
-    }
-
-    // BUG-08（2026-10-22）：模型有归属供应商、但该供应商**未注册**（凭据缺失被同步跳过 /
-    // 供应商停用）时，绝不静默回落到当前客户端 —— 否则会把该模型名发给默认供应商，
-    // 得到上游 400 并被折成"正常回复"（HTTP 200 假成功）。
-    const providerType = providerRegistry.resolveModelToProviderId(model);
-    const failure = resolveModelRoutingFailure({
-      model,
-      providerType,
-      providerLabel: providerRegistry.getModelProviderLabel(model),
-      providerRegistered:
-        !!resolvedProvider ||
-        (!!providerType && !!providerRegistry.getByType(providerType)),
-    });
-    if (failure) {
-      throw new AppError(
-        failure.message,
-        ErrorCategory.CONFIGURATION,
-        ErrorSeverity.MEDIUM,
-        failure.code
-      );
-    }
-
-    return this.llmClient;
+    return getClientForModelImpl(
+      {
+        llmClient: this.llmClient,
+        toolRegistry: this.toolRegistry,
+        toolExecutor: this.toolExecutor,
+      },
+      model
+    );
   }
 
   /**

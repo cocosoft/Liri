@@ -69,21 +69,9 @@ import {
   type YieldRecoveryStats,
 } from '@modules/session';
 // D 阶段（2026-09-02，v5 P0-⑥）：跨会话记忆适配器——静态导入保证模块加载即触发
-// session_summary 类型注册（registerSessionSummaryMemoryType 由构造期显式调用，
-// 早于 memory scanner/memdir 扫描；createMemory 不校验 type，注册约束面在扫描/统计路径）
-import {
-  registerSessionSummaryMemoryType,
-  rollupSessionSummaryToLongTerm,
-} from '@modules/memory';
+// session_summary 类型注册（注册动作已随 Cut C（issue #8）迁入 `manager/hostWiring.ts`）
+import { rollupSessionSummaryToLongTerm } from '@modules/memory';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
-// TR-14 / TR-12-A（2026-09-22）：`metric/timing` 事件载荷构造（纯函数，可单测）
-import { buildRequestTimingData } from './services/timingEvent';
-// P2-2（2026-09-23）：请求边界事件（`request/start` + 请求级 `metric/timing.requestId`）
-import {
-  finishRequest,
-  startRequest,
-  type RequestEventAppender,
-} from './services/requestBoundary';
 import { feature as coreFeature } from '@openliri/kernel';
 import { configureCodeRunner } from '@modules/tools';
 import {
@@ -117,9 +105,9 @@ import { ChatStreamResume } from './manager/streamResume';
 // U-22/S5（2026-10-17）：非流式 TAORLoop 依赖装配外移（行为等价搬迁）
 import { buildTAORContext } from './manager/taorContext';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
-// R16：每日预算（进程共享单例；S3 后**主口径=金额**，Token 轨只观测）——记账点收敛到本类的 recordChatResponseUsage。
-// 债四「换算接线」（2026-10-13）：同一记账点并行记**金额**台账（`recordTurnCostUsd`）。
-import { getDailyBudget, recordTurnCostUsd } from '../query/DailyBudgetManager';
+// issue #8 · Cut C（2026-10-29）：用量记账（R16 日预算结算 / 债四金额台账 / `metric/timing`）
+// 已外移到 `manager/usageAccounting.ts`；本类保留同名 thin delegate。
+import { recordChatResponseUsage as recordChatResponseUsageImpl } from './manager/usageAccounting';
 // Task 7（2026-10-12，预算挂起续跑）：放行 ⇒ 唤醒挂起会话的进程内协调器。
 // `query/budgetSuspend` **不得** import `chat/**`（防环）⇒ 唤醒经注入的 handler 端口（下方装配）。
 import { getBudgetSuspendCoordinator } from '../query/budgetSuspend';
@@ -208,6 +196,15 @@ import {
   ensureCheckpointBoundary,
   installBudgetSuspendResume,
 } from './manager/checkpointBudget';
+// issue #8 · Cut C（2026-10-29）：宿主级 sink / 退出钩子 / 内存水位装配外移
+import { installHostWiring } from './manager/hostWiring';
+// issue #8 · Cut C（2026-10-29）：`ChatOrchestrator` 宿主端口字面量外移
+import {
+  createOrchestratorHost,
+  type OrchestratorWiringHost,
+} from './manager/orchestratorHost';
+// issue #8 · Cut C（2026-10-29）：子门面/服务装配外移
+import { wireChatFacades, type FacadeWiringHost } from './manager/facadeWiring';
 import type {
   ChatMessage,
   ParsedToolCall,
@@ -247,8 +244,6 @@ import {
 // 13-P2-1（2026-10-05）：输出侧统一护栏组合根注册（默认关 ⇒ 空注册）
 import { registerDefaultOutputGuards } from './outputGuards/index.js';
 import { compactionOrchestrator, messageProjector } from '@modules/context';
-// 内存水位（2026-09-02，OS kswapd 式；见 dev_docs/内存水位触发机制-详细设计）
-import { getMemoryPressureMonitor } from '@modules/monitoring';
 import { estimateMessagesTokens } from '@modules/ai';
 // G-2（2026-10-11）：降级路径的日预算闸门（非 chat 管线入口的统一判定 + 拒绝对外载体）
 import { assertEntryBudget } from '../query/dailyBudgetGate';
@@ -265,35 +260,19 @@ import { getYieldRegistry, setActiveSubagentRunProbe } from '../session/yield';
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
 import type { YieldRegistry, YieldWaitingStore } from '../session/yield';
 // 阶段 A（A1-e）：yield 恢复通路（子代理结算 → 恢复父会话）
-import {
-  setYieldResumeHandler,
-  // B4-1（2026-09-23）：恢复审计（认领/恢复/放弃）的唯一写入实现
-  setYieldRecoveryAuditSink,
-} from './yield';
+import { setYieldResumeHandler } from './yield';
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
 import type { SettlementOutbox } from './yield/SettlementOutbox';
 // 阶段 A（N-26 修复）：SelfWake 唤醒执行器（fire 时真正唤醒会话）
 import {
   setSelfWakeResumeHandler,
-  setSelfWakeAuditSink,
-  // T-②06（2026-10-03）：经验自动演化落盘审计出口
-  setEvolutionAuditSink,
   // 2026-10-08：步骤 TAORLoop 工厂出口（长程任务步骤"无工具可用"根因修复；
-  // 与上面 setSelfWakeResumeHandler / setGoalEventSink 同一"chat 层注入 sink"手法）
+  // 与上面 setSelfWakeResumeHandler 同一"chat 层注入 sink"手法）
   setStepLoopFactory,
 } from '@modules/tasks';
-import { setGoalEventSink } from '@modules/tasks';
-// P1-19 ①（2026-10-05）：工作流成员级事件实时落盘 —— 本模块持有会话事件日志，
-// 故在此注入唯一写入出口（与 setGoalEventSink 同一手法；避免 workflow/ → chat/ 反向依赖）。
-import { setWorkflowRunEventSink } from '@modules/workflow';
-// PR5-S3（2026-10-09）：Execution 生命周期事件落盘 —— 本模块持有会话事件日志，
-// 故在此注入唯一写入出口（同上手法；避免 execution/ → chat/ 反向依赖）。
-import { setExecutionEventSink } from '@modules/execution';
 // F2（2026-10-12，预算挂起续跑 Task 3）：活跃 TAORLoop 注册表入口（经 infrastructure barrel）。
 // 修复前 `registerTAORLoop` 全仓零调用 ⇒ `activeLoops` 恒空 ⇒ checkpoint 恢复端点恒 404。
 import { registerTAORLoop, unregisterTAORLoop } from '@modules/infrastructure';
-// X8（2026-09-23，Spec §5.5）：**主会话**用量入账到该会话的未终结目标
-import { chargeSessionGoalUsage } from '@modules/tasks';
 import {
   PlanDrivenLoop,
   classifyTaskComplexity,
@@ -1020,14 +999,14 @@ export class ChatManagerImpl implements ChatManager {
    */
   private sessionAccess = new SessionAccessFacade();
 
-  /** 会话生命周期门面（SessionLifecycleManager 拆分） */
-  private sessionLifecycle: SessionLifecycleManager;
+  /** 会话生命周期门面（SessionLifecycleManager 拆分；装配见 `manager/facadeWiring.ts`） */
+  private sessionLifecycle!: SessionLifecycleManager;
 
   /** 检查点/恢复门面（ResumeCoordinator 拆分） */
-  private resumeCoordinator: ResumeCoordinator;
+  private resumeCoordinator!: ResumeCoordinator;
 
   /** 上下文压缩门面（ContextCompactor 拆分） */
-  private contextCompactor: ContextCompactor;
+  private contextCompactor!: ContextCompactor;
 
   /** 消息编排门面（ChatOrchestrator 拆分） */
   private chatOrchestrator: import('./orchestrator/ChatOrchestrator.js').ChatOrchestrator;
@@ -1118,535 +1097,32 @@ export class ChatManagerImpl implements ChatManager {
     );
     // C7 收敛：压缩评估统一走 UnifiedTokenTracker（注入到单例编排器）
     compactionOrchestrator.setTracker(this.unifiedTracker);
-    // P2-2（2026-09-23）：compaction 的摘要请求**也是一次请求** ⇒ 同样落请求边界事件
-    // （与普通请求共用同一编号序列，带 reason='compaction'）。本模块持有会话事件日志，
-    // 故在此实现上报并注入单例编排器（避免 `context/` → `chat/` 的反向 import）。
-    // 用量/延迟**能拿才写**；未拿到 usage ⇒ 只写真实墙钟耗时（不估不算）。
-    const requestAppender: RequestEventAppender = (sid, event) =>
-      this.appendStreamEvent(sid, event);
-    compactionOrchestrator.setRequestReporter({
-      start: (sessionId, info) =>
-        startRequest(requestAppender, sessionId, {
-          model: info.model,
-          reason: 'compaction',
-        }),
-      finish: async (sessionId, requestId, info) => {
-        await finishRequest(requestAppender, sessionId, requestId, {
-          usage: info.usage as Record<string, unknown> | undefined,
-          durationMs: info.durationMs,
-        });
-      },
-    });
-    // B2-2（2026-09-23）：目标生命周期事件落盘 —— 本模块持有会话事件日志，故在此注入
-    // 唯一写入实现（与上方 requestReporter 同一手法；避免 `tasks/` → `chat/` 的反向依赖）。
-    // 目标状态迁移与"注入模型的目标指令"（`goal/injected`）都经此出口落 `events.jsonl`。
-    setGoalEventSink((sid, event) => this.appendStreamEvent(sid, event));
-    // B4-1（2026-09-23）：恢复通路审计落盘 —— 同上手法：本模块持有会话事件日志，
-    // 故在此注入 `YieldRecoveryAudit` 的唯一写入出口（认领/恢复/放弃三条记录）。
-    // 通道为**既有**会话事件日志（`events.jsonl`），不新建审计通道。
-    setYieldRecoveryAuditSink((sid, event) =>
-      this.appendStreamEvent(sid, event)
-    );
-    // T-⑥12（2026-10-03）：自唤醒续跑审计落盘 —— 同上手法：本模块持有会话事件日志，
-    // 故在此注入 `SelfWakeAudit` 的唯一写入出口（`session/wake`：resumed / resume_failed /
-    // handler_absent 三节点）。通道同样为既有 `events.jsonl`，不新建审计通道、不改 UI。
-    setSelfWakeAuditSink((sid, event) => this.appendStreamEvent(sid, event));
-    // T-②06（2026-10-03）：经验自动演化落盘审计 —— 同上手法：本模块持有会话事件日志，
-    // 故在此注入 `EvolutionAudit` 的唯一写入出口（`evolution/applied`：提示覆盖层/技能侧车
-    // 被自动改写时各一条）。通道为既有 `events.jsonl`，不新建审计通道、不改 UI。
-    setEvolutionAuditSink((sid, event) => this.appendStreamEvent(sid, event));
-    // P1-19 ①（2026-10-05）：工作流成员级 run/step 事件实时落盘 —— 同上手法的唯一写入出口。
-    // 使 `office:workflow` / `office:doc-pipeline` 在 run 执行期即逐条落 `assistant/workflow_*`
-    // 事件（不再等工具结束后批末投影）；批末投影据 `metadata.workflowRun.liveEmitted` 去重。
-    setWorkflowRunEventSink((sid, event) => this.appendStreamEvent(sid, event));
-    // PR5-S3（2026-10-09，`.trae/specs/durable-execution.md` §3.6）：Execution 生命周期事件落盘
-    // —— 同上手法的唯一写入出口（`execution/status_changed` / `execution/recovery`）。
-    // `execution` 模块不持有会话事件日志 ⇒ 经注入避免反向依赖；未注入 ⇒ 如实不落。
-    setExecutionEventSink((sid, event) => this.appendStreamEvent(sid, event));
-    // D 阶段（v5 P0-⑥）：session_summary 自定义类型注册——构造期即执行（早于任何
-    // memory scanner/memdir 扫描与压缩触发；registerMemoryType 幂等，重复调用安全）
-    registerSessionSummaryMemoryType();
-    // 优雅退出（2026-09-02 排查"会话中断"补充）：注册本实例全会话 text-batch
-    // 缓冲 flush——进程收到 SIGTERM/SIGINT（watch 重启/Ctrl+C/系统关闭）时先落盘
-    // 缓冲正文再退出，避免 torn-tail / open-turn（证据：mtjkl/mtjdmjpo torn + 105 次启动）。
-    // 注册幂等（模块级数组，重复构造仅多一条 no-op 闭包）。
-    registerEventBufferFlusher(() => this.flushAllPendingEventBuffers());
-    // A6（2026-09-04）：退出前 flush 各会话 TAORLoop 未落盘 checkpoint（库不碰全局信号，
-    // 宿主钩子链统一调用——main 信号链 → flushAllEventBuffers → 本闭包）
-    registerEventBufferFlusher(async () => {
-      await this.flushAllCheckpoints();
-      return 0;
-    });
-    // M4（2026-09-17）：退出前为可中断会话写 cleanShutdown 标记——下次启动崩溃恢复跳过
-    registerCleanShutdownHandler(async () => {
-      await this.sessionGateway.markCleanShutdown();
-    });
-    // 内存水位订阅（2026-09-02）：L0+ 触发时先落盘全部会话缓冲（脏页写回，
-    // OS kswapd 式"压力前先写回"）；订阅在构造期幂等注册一次
-    getMemoryPressureMonitor().subscribe((level) => {
-      if (level >= 1) {
-        void this.flushAllPendingEventBuffers().catch(() => {});
-      }
+    // issue #8 · Cut C（2026-10-29）：宿主级 sink / 退出钩子 / 内存水位装配已外移到
+    // `manager/hostWiring.ts`（注册顺序与迁移前逐条一致；退出钩子注册表仍在模块级，
+    // 经参数传入以避免循环 import）。
+    installHostWiring({
+      appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
+      flushAllPendingEventBuffers: () => this.flushAllPendingEventBuffers(),
+      flushAllCheckpoints: () => this.flushAllCheckpoints(),
+      markCleanShutdown: () => this.sessionGateway.markCleanShutdown(),
+      registerEventBufferFlusher,
+      registerCleanShutdownHandler,
     });
     this.stopHookManager = createStopHookManager();
     this._registerStopHooks();
 
-    // 第一阶段收敛：初始化提取的服务
-    this._summarizer = new SessionSummarizer(this.llmClient);
-    this._memoryManager = new SessionMemoryManager(
-      this.sessionAccess,
-      this.llmClient,
-      this._chatSessions
-    );
-    // 2026-10-08（长程任务「执行不了」根因修复）：向 tasks 层注册步骤 TAORLoop 工厂。
-    // 此前**只有** PdcaLauncher（会话内升级 / 阶段链）显式 `setTAORLoopFactory`，
-    // 而 `getOrCreateOrchestrator()` 这条入口（前端「用编排推进」按钮 = `POST /v1/pdca/start`、
-    // CLI `/goal start`）**从不注入** ⇒ 步骤退化为"纯 LLM 文本执行"：模型看不到工具、
-    // 工具调用也无处执行（事故 `pdca_muz3wada`：`hasTAORLoop:false`，9 步 / 0 次工具调用）。
-    // 注册后两条入口同源同行为。
-    setStepLoopFactory((sid, opts) => this._getOrCreateTAORLoop(sid, opts));
-
-    this._pdcaLauncher = new PdcaLauncher({
-      enablePlanDrivenLoop: true, // 阶段 3 退役（2026-09-01）：灰度开关删除，恒启用
-      taorLoopFactory: (sid, opts) => this._getOrCreateTAORLoop(sid, opts),
-      buildTAORContext: (sid, defs, opts) =>
-        this._buildTAORContext(sid, defs, opts),
-      sessionMap: this._chatSessions,
-      messageService: this.messageService,
-      persistMessage: (sid, msg) => this._addAndPersistMessage(sid, msg),
-      // 转正（2026-09-01）：任务分解 Provider——任务分工→chat 路由→ProviderRegistry
-      // （模型体系唯一事实来源，不硬编码模型名）；失败/缺失返回 null，TaskDecomposer 降级简单分解
-      getDecomposerProvider: async () => {
-        try {
-          const { resolveModelRoute, RouteKey } =
-            await import('@modules/ai/router/resolveModelRoute');
-          const { providerRegistry } = await import('@modules/ai');
-          const modelId = await resolveModelRoute(RouteKey.CHAT);
-          return providerRegistry.getByModel(modelId) ?? null;
-        } catch {
-          return null;
-        }
-      },
-    });
-
-    // CM-6：Code Mode 运行期依赖接线（CODE_MODE 开启时）
-    this._wireCodeRunnerDeps();
-
-    // 第三阶段收敛：初始化工具执行服务
-    this._toolExecutionService = new ToolExecutionService({
-      getToolRegistry: () => this.toolRegistry,
-      getToolIntegration: () => this.toolIntegration ?? null,
-      getPermissionManager: () => this.permissionManager,
-      imageContextService: this.imageContextService,
-      rollbackIntegrations: this.rollbackIntegrations,
-      sessionGateway: this.sessionGateway,
-      chatSessions: this._chatSessions,
-      currentSessionId: this._currentSessionId ?? '',
-      enableErrorHandler: this.ENABLE_ERROR_HANDLER,
-      submitToolApproval: this._submitToolApproval.bind(this),
-      getSessionWorkspacePath: this.getSessionWorkspacePath.bind(this),
-      getSessionWorkspaceId: this.getSessionWorkspaceId.bind(this),
-      isSessionWorkspaceStrict: this.isSessionWorkspaceStrict.bind(this),
-      // PR-3（2026-10-23）：会话级审批模式（缺省 ask）
-      getSessionApprovalMode: this.getSessionApprovalMode.bind(this),
-      isCommandApproved: this._isCommandApproved.bind(this),
-      sessionLookup: (args) => this._sessionLookup(args),
-      // R3（2026-09-21）：向工具执行注入**会话级中断控制器**。
-      // 工具 context 原先没有 `abortController`（被内联类型断言掩盖）⇒ AgentTool 的
-      // 父级取消桥接恒空转。此 Map 即 `stopMessage()` 中止的对象（见 `_sessionAbortControllers`），
-      // 故"用户点停止"从此能传导到工具内部（并行批次短路未投递 worker）。
-      getSessionAbortController: (sessionId) =>
-        sessionId ? this._sessionAbortControllers.get(sessionId) : undefined,
-    });
-
-    // 会话生命周期门面：与会话状态共享 Map 引用 + currentSessionId 端口
-    this.sessionLifecycle = new SessionLifecycleManager({
-      chatSessions: this._chatSessions,
-      currentSessionIdRef: {
-        get: () => this._currentSessionId,
-        set: (id) => {
-          this._currentSessionId = id;
-        },
-      },
-      sessionLeaveTimes: this._sessionLeaveTimes,
-      sessionMutexes: this._sessionMutexes,
-      sessionAbortControllers: this._sessionAbortControllers,
-      sessionGateway: this.sessionGateway,
-      sessionAccess: this.sessionAccess,
-      hookChainManager: this.hookChainManager,
-      messageService: this.messageService,
-    });
-
-    // 检查点/恢复门面：注入 checkpointService + 共享会话 Map + createSession 委托
-    this.resumeCoordinator = new ResumeCoordinator({
-      checkpointService: this._checkpointService,
-      chatSessions: this._chatSessions,
-      createSession: (p) => this.createSession(p),
-    });
-
-    // 上下文压缩门面：注入 compactService + 共享会话 Map + currentSessionId 端口
-    this.contextCompactor = new ContextCompactor({
-      compactService: this.compactService,
-      chatSessions: this._chatSessions,
-      currentSessionIdRef: {
-        get: () => this._currentSessionId,
-        set: (id) => {
-          this._currentSessionId = id;
-        },
-      },
-    });
-
-    // PDCA 自动启动簇（U-22/S1 外移）：注入 host 端口，方法体在 `chat/manager/pdcaLaunch.ts`。
-    this._pdcaLaunch = new PdcaLaunchCoordinator({
-      launchingSessions: this._pdcaLaunchingSessions,
-      getPdcaLauncher: () => this._pdcaLauncher,
-      shouldUsePlanDrivenLoop: (msg) => this._shouldUsePlanDrivenLoop(msg),
-      shouldUseCodeMode: (msg) => this._shouldUseCodeMode(msg),
-      getOrCreateTAORLoop: (sid) => this._getOrCreateTAORLoop(sid),
-      getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
-      appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
-      persistSessionMetadata: (session) => this.persistSessionMetadata(session),
-      recentUserText: (session, n) => this._recentUserText(session, n),
-      lastAssistantText: (session) => this._lastAssistantText(session),
-      // BUG-A（2026-10-27）：长任务信号升级时区分"模型产出"与"空输出兜底"（结构化标记）
-      isLastAssistantOutputFallback: (session) =>
-        this._isLastAssistantOutputFallback(session),
-      // LRO-11（2026-10-26）：执行模式可见告知（"仍在普通对话循环"等）
-      notifyUser: (sid, text, metadata) => {
-        this._addAndPersistMessage(
-          sid,
-          this.messageService.createAssistantMessage(text, {
-            sessionId: sid,
-            metadata: { isTaskMessage: true, ...metadata },
-          })
-        );
-      },
-    });
-
-    // 流式请求准备段（U-22/S2 外移）：注入 host 端口，方法体在 `chat/manager/streamSetup.ts`。
-    this._streamSetup = new ChatStreamSetup({
-      currentSessionId: () => this._currentSessionId,
-      getOrLoadSession: (sid, metadata) =>
-        this.sessionLifecycle.getOrLoadSession(sid, metadata),
-      onModelSwitch: (model) => this.unifiedTracker.onModelSwitch(model),
-      beginStreamSession: (sid, model) =>
-        this.unifiedTracker.beginStreamSession(sid, model),
-      getExistingAbort: (sid) => this._sessionAbortControllers.get(sid),
-      waitForAbortSettled: (sid, ac) => this._waitForAbortSettled(sid, ac),
-      setAbortController: (sid, ac) => {
-        this._sessionAbortControllers.set(sid, ac);
-      },
-      setExecutionId: (sid, executionId) => {
-        this._sessionExecutionIds.set(sid, executionId);
-      },
-      checkpointService: this._checkpointService,
-      getOrCreateMutex: (sid) => {
-        let mutex = this._sessionMutexes.get(sid);
-        if (!mutex) {
-          mutex = new SimpleMutex();
-          this._sessionMutexes.set(sid, mutex);
-        }
-        return mutex;
-      },
-      executePreMessageHook: (args) =>
-        this.hookChainManager.execute('chat', args),
-      createUserMessage: (content, opts) =>
-        this.messageService.createUserMessage(content, opts),
-      addAndPersistMessage: (sid, msg) => {
-        this._addAndPersistMessage(sid, msg);
-      },
-      startProcessing: (sid) => {
-        this.getSessionMachine(sid).start('processUserInput');
-      },
-    });
-
-    // 消息持久化 / 事件投影（U-22/S3 外移）：注入 host 端口，方法体在
-    // `chat/manager/messagePersistence.ts`；待落盘 Promise 集合仍归宿主（flush 共用）。
-    this._msgPersist = new ChatMessagePersistence({
-      chatSessions: this._chatSessions,
-      sessionGateway: this.sessionGateway,
-      getOrCreateEventLog: (sid) => this._getOrCreateEventLog(sid),
-      rebuildToolCallSeqMap: (sid) => this._rebuildToolCallSeqMap(sid),
-      toolCallSeqMap: this._toolCallSeqMap,
-      requestReconcile: (sid, eventLog) =>
-        this._requestReconcile(sid, eventLog),
-      pendingPersistPromises: this._pendingPersistPromises,
-      createAssistantMessage: (content, opts) =>
-        this.messageService.createAssistantMessage(content, opts),
-      getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
-    });
-
-    // 流式消息收尾（U-22/S4 外移）：注入 host 端口，方法体在
-    // `chat/manager/streamFinalize.ts`；abort/executionId 两个 Map 与宿主共享。
-    this._streamFinalize = new ChatStreamFinalize({
-      addAndPersistMessage: (sid, msg) => this._addAndPersistMessage(sid, msg),
-      getStreamMaxTurn: (sid) => this.getStreamMaxTurn(sid),
-      getToolRound: (sid) => this.getToolRound(sid),
-      hasTurnEnded: (sid, turn) => this.hasTurnEnded(sid, turn),
-      getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
-      appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
-      endStreamSession: (sid) => this.unifiedTracker.endStreamSession(sid),
-      finishSessionMachine: (sid, reason) => {
-        this.getSessionMachine(sid).finish(reason);
-      },
-      sessionAbortControllers: this._sessionAbortControllers,
-      sessionExecutionIds: this._sessionExecutionIds,
-      persistTurnSummary: (session) => this._persistTurnSummary(session),
-      accumulateSessionMemory: (sid, user, assistant, tokens, toolCalls) => {
-        this._memoryManager!.accumulate(
-          sid,
-          user,
-          assistant,
-          tokens,
-          toolCalls
-        );
-      },
-      recentUserText: (session, n) => this._recentUserText(session, n),
-      shouldUseCodeMode: (msg) => this._shouldUseCodeMode(msg),
-      escalateToPdcaViaBareSession: (params) =>
-        this._escalateToPdcaViaBareSession(params),
-      autoCreateProject: (session, workspaceId, result) =>
-        this._autoCreateProject(session, workspaceId, result),
-      maybeLaunchPdca: (session, assistantContent, projectId, lastUser) =>
-        this._maybeLaunchPdca(session, assistantContent, projectId, lastUser),
-      isTelemetryEnabled: () => this.ENABLE_TELEMETRY,
-      summarizeSession: (session, message) => {
-        void this._summarizer!.summarize(session, message).catch(() => {
-          /* 摘要生成失败不阻塞 */
-        });
-      },
-      flushPendingPersists: () => this.flushPendingPersists(),
-      incToolRound: (sid) => this.incToolRound(sid),
-    });
-
-    // 断点续跑（U-22/S4 外移）：注入 host 端口，方法体在
-    // `chat/manager/streamResume.ts`；互斥锁 / abort 两个 Map 与宿主共享。
-    this._streamResume = new ChatStreamResume({
-      sessionMutexes: this._sessionMutexes,
-      resumeSessionState: async (sid) => {
-        await this.sessionGateway.resumeSession(sid);
-      },
-      checkpointService: this._checkpointService,
-      rebuildTrailingTurnFromEvents: (sid) =>
-        this._recovery.rebuildTrailingTurnFromEvents(sid),
-      getOrLoadSession: (sid) => this.sessionLifecycle.getOrLoadSession(sid),
-      sessionAbortControllers: this._sessionAbortControllers,
-      getLLMClient: () => this.getLLMClient(),
-      getToolSchemas: () =>
-        this.toolRegistry ? this.toolRegistry.getToolSchemas() : null,
-      buildToolDefinitions: (schemas) => this._buildToolDefinitions(schemas),
-      recordToolsSnapshot: (sid, schemas) =>
-        this._recordToolsSnapshot(sid, schemas),
-      maxToolTurns: this.MAX_TOOL_TURNS,
-      executeTool: (tc, opts) => this.executeTool(tc, opts),
-      pendingInteractions: this._pendingInteractions,
-      loopDetector: this._loopDetector,
-      messageService: this.messageService,
-      addAndPersistMessage: (sid, msg) => this._addAndPersistMessage(sid, msg),
-      unifiedTracker: this.unifiedTracker,
-      recordChatResponseUsage: (sid, usage, requestId, model) =>
-        this.recordChatResponseUsage(sid, usage, requestId, model),
-      getToolRegistry: () => this.getToolRegistry(),
-      buildToolRoundMessages: (msgs, am, tcs, prs) =>
-        this._buildToolRoundMessages(msgs, am, tcs, prs),
-    });
+    // issue #8 · Cut C（2026-10-29）：子门面/服务装配已外移到 `manager/facadeWiring.ts`
+    // （装配顺序与迁移前逐条一致；类型断言点只有这一处）。
+    wireChatFacades(this as unknown as FacadeWiringHost);
 
     // 消息编排门面：注入 host 端口（sendMessage/streamMessage 编排委托）
-    const managerRef = this;
+    // issue #8 · Cut C（2026-10-29）：`ChatOrchestrator` 宿主端口字面量已外移到
+    // `manager/orchestratorHost.ts`（逐条转发、无业务判定；类型断言点只有这一处）。
     this.chatOrchestrator = new ChatOrchestrator({
-      host: {
-        chatSessions: this._chatSessions,
-        sessionMutexes: this._sessionMutexes,
-        sessionAbortControllers: this._sessionAbortControllers,
-        currentSessionIdRef: {
-          get: () => this._currentSessionId,
-          set: (id) => {
-            this._currentSessionId = id;
-          },
-        },
-        pendingInteractions: this._pendingInteractions as unknown as Map<
-          string,
-          unknown
-        >,
-        get toolRoundCount(): number {
-          // 设计三：per-session——host 未持有会话时回退当前会话
-          return managerRef.getToolRound(managerRef._currentSessionId ?? '');
-        },
-        incrementToolRoundCount: (): void => {
-          const sid = managerRef._currentSessionId;
-          if (sid) {
-            const next = managerRef.incToolRound(sid);
-            logger.debug('chat:toolRoundCount 递增', {
-              currentSessionId: sid,
-              newValue: next,
-            });
-          }
-        },
-        get executingPlan(): boolean {
-          return managerRef._executingPlan;
-        },
-        withExecutingPlan: async <T>(
-          flag: boolean,
-          fn: () => Promise<T>
-        ): Promise<T> => {
-          const prev = this._executingPlan;
-          this._executingPlan = flag;
-          try {
-            return await fn();
-          } finally {
-            this._executingPlan = prev;
-          }
-        },
-        ENABLE_TELEMETRY: this.ENABLE_TELEMETRY,
-        ENABLE_PLAN_DRIVEN_LOOP: true, // 阶段 3 退役（2026-09-01）：灰度开关删除，恒启用
-        MAX_TOOL_TURNS: this.MAX_TOOL_TURNS,
-        messageService: this.messageService,
-        sessionLifecycle: this.sessionLifecycle,
-        hookChainManager: this.hookChainManager,
-        unifiedTracker: this.unifiedTracker,
-        imageContextService: this.imageContextService,
-        checkpointService: this._checkpointService,
-        memoryManager: this._memoryManager,
-        summarizer: this._summarizer,
-        pdcaLauncher: this._pdcaLauncher,
-        getLLMClient: () => this.llmClient as ToolAwareClient,
-        getClientForModel: (model?: string) => this.getClientForModel(model),
-        getToolRegistry: () => this.toolRegistry,
-        buildToolDefinitions: (schemas: unknown[]) =>
-          this._buildToolDefinitions(schemas as ToolSchema[]),
-        recordToolsSnapshot: (sid, schemas) =>
-          this._recordToolsSnapshot(sid, schemas as ToolSchema[]),
-        loopDetector: this
-          ._loopDetector as import('@modules/query').LoopDetector,
-        addAndPersistMessage: (sid, msg) =>
-          this._addAndPersistMessage(sid, msg),
-        appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
-        // U4（2026-10-06）：读会话事件（与 appendStreamEvent 成对）——
-        // 空闲期在线质量评估器经此按水位增量读；**主链不调用**。
-        readSessionEvents: (sid, query) => this.readSessionEvents(sid, query),
-        // U4（2026-10-06）：磁盘层"最近更新"会话（历史会话补评用）
-        listRecentSessionIds: (limit) => this.listRecentSessionIds(limit),
-        // P0-1② 覆盖面补齐（2026-10-04）：无工具回合终稿修复后替换正文（走既有实现）
-        updateMessageBlocks: (sid, mid, blocks, text) =>
-          this.updateMessageBlocks(sid, mid, blocks, text),
-        bufferStreamTextChunk: (sid, mid, content) =>
-          this.bufferStreamTextChunk(sid, mid, content),
-        flushStreamEventBuffer: (sid) => this.flushStreamEventBuffer(sid),
-        getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
-        getStreamMaxTurn: (sid) => this.getStreamMaxTurn(sid),
-        getSessionMachine: (sid) => this.getSessionMachine(sid),
-        getOrAssembleSystemPrompt: (session, content) =>
-          this.getOrAssembleSystemPrompt(session, content),
-        extractFilePathsFromText: (text) => this.extractFilePathsFromText(text),
-        extractMemoryFromChat: (u, a, sid) =>
-          this.extractMemoryFromChat(u, a, sid),
-        recordChatResponseUsage: (sid, usage, requestId, model) =>
-          this.recordChatResponseUsage(sid, usage, requestId, model),
-        sanitizeApiMessages: (msgs) => this._sanitizeApiMessages(msgs),
-        truncateApiMessages: (msgs, max, sid, outputBudgetTokens) =>
-          this._truncateApiMessages(msgs, max, sid, outputBudgetTokens),
-        persistTurnSummary: (session) => this._persistTurnSummary(session),
-        // D3（2026-09-25）：运行中长任务信号 ⇒ 按既有升级通道接给 PDCA（闸门见 longTaskEscalation）
-        onLongTaskSignal: (session, fact) =>
-          this.onLongTaskSignal(session, fact),
-        // 跨 run 预算（2026-09-25）：轮次边界把 `metadata.toolTurnBudget` 写回会话存储
-        persistSessionMetadata: (session) =>
-          this.persistSessionMetadata(session),
-        flushPendingPersists: () => this.flushPendingPersists(),
-        shouldUseTAORLoop: (sid) => this._shouldUseTAORLoop(sid),
-        getOrCreateTAORLoop: (sid) => this._getOrCreateTAORLoop(sid),
-        // G-T3-1（2026-10-12）：委托路径据此跳过 `taorLoop.reset()`（一次性续跑意图）。
-        consumePendingResumeIntent: (sid) =>
-          this.consumePendingResumeIntent(sid),
-        buildTAORContext: (sid, defs, opts) =>
-          this._buildTAORContext(sid, defs, opts),
-        executeTool: (tc, opts) => this.executeTool(tc as ToolCall, opts),
-        executeStepPrompt: (prompt, session, options) =>
-          this.executeStepPrompt(prompt, session, options),
-        executePlanSteps: (session, options) =>
-          this.executePlanSteps(session, options),
-        triggerCouncilDebate: (wid, topic, ctx, ownerSessionId) =>
-          this.triggerCouncilDebate(wid, topic, ctx, ownerSessionId),
-        sendMessageDowngradePath: (session, tcs, msgs, client, options) =>
-          this._sendMessageDowngradePath(session, tcs, msgs, client, options),
-        shouldTriggerCouncil: (session, content, options) =>
-          session.metadata?.is_ultraplan_mode === true ||
-          containsComplexKeywords(content) ||
-          options?.metadata?.councilTriggeredManually === true,
-        triggerCouncilDebateAsync: (session, content, options) => {
-          this.triggerCouncilDebate(
-            session.metadata?.workspaceId || 'default',
-            content,
-            session.metadata?.context || '',
-            session.id
-          ).catch((err) => {
-            handleError(err, {
-              module: 'chat:manager',
-              action: 'Council辩论执行失败',
-            });
-          });
-        },
-        endTurnTelemetry: (sessionId, _ok, content) => {
-          if (this.ENABLE_TELEMETRY) {
-            try {
-              agentTelemetry.endTurn(sessionId, 'completed');
-            } catch (err) {
-              logger.debug('Telemetry recording skipped', {
-                error: err instanceof Error ? err.message : String(err),
-              });
-            }
-          }
-        },
-        onTurnEnd: () => this.onTurnEnd?.(),
-        _prepareStreamSession: (content, options) =>
-          this._prepareStreamSession(content, options),
-        _buildApiMessagesForStream: (
-          msgs,
-          maxCtx,
-          outBudget
-        ): Promise<Record<string, unknown>[]> =>
-          this._buildApiMessagesForStream(msgs, maxCtx, outBudget),
-        // C 阶段（P1）：session_lookup 工具注入辅助（schema + 本次构建是否切窗）
-        getSessionLookupTool: () =>
-          contextLayeringEnabled()
-            ? (this.constructor as typeof ChatManagerImpl).SESSION_LOOKUP_TOOL
-            : null,
-        isLastStreamBuildWindowed: () => this._lastStreamBuildWindowed,
-        // D 阶段（v5）：跨会话摘要上卷至长期记忆（adapter 实现：幂等 upsert +
-        // skipConsolidation；内部失败仅 warn 不抛）
-        rollupSessionSummaryToLongTerm: (input) =>
-          rollupSessionSummaryToLongTerm(input),
-        _createStreamPipeline: (session, content, options) =>
-          this._createStreamPipeline(session, content, options),
-        _finalizeStreamMessage: (
-          session,
-          content,
-          acc,
-          am,
-          fr,
-          abortCtl,
-          span,
-          options,
-          terminationReason
-        ) =>
-          this._finalizeStreamMessage(
-            session,
-            content,
-            acc,
-            am,
-            fr as ChatResponse,
-            abortCtl,
-            span as ReturnType<ReturnType<typeof getOTelTracing>['startSpan']>,
-            options,
-            terminationReason
-          ),
-        startRollbackRound: (sid, roundId) =>
-          this._startRollbackRound(sid, roundId),
-        endRollbackRound: (sid, content, firstContent) =>
-          this._endRollbackRound(sid, content, firstContent),
-        buildToolRoundMessages: (msgs, am, tcs, prs) =>
-          this._buildToolRoundMessages(msgs, am, tcs, prs),
-      },
+      host: createOrchestratorHost(
+        this as unknown as OrchestratorWiringHost,
+        (this.constructor as typeof ChatManagerImpl).SESSION_LOOKUP_TOOL
+      ),
     });
 
     // Fix round 2（2026-10-12）：预算挂起唤醒端口**不再在构造器内注册**，改为惰性装配
@@ -2791,11 +2267,9 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * 记录 LLM 响应的令牌用量
    *
-   * @param requestId P2-2（2026-09-23）：所属请求标识（= 同请求 `request/start` 的 seq）。
-   *   **仅透传新增字段**，不改任何用量口径（TR-11 修复的 usage 语义/守卫原样）；
-   *   拿不到（工具轮 / 非流式路径 / start 落盘失败）⇒ 不写该字段。
-   * @param model 债四「换算接线」（2026-10-13）：本轮**实际模型**（供金额台账取价换算）。
-   *   缺失 / 占位 `'unknown'` ⇒ 只记 token、**不记金额**（**不臆造金额**，见 `recordTurnCostUsd`）。
+   * issue #8 · Cut C（2026-10-29）：实现体已外移到 `manager/usageAccounting.ts`
+   * （水位预算 / 日预算结算 / 目标入账 / `metric/timing` 落盘），此处保留同名 thin delegate；
+   * **同步签名不变**（事件落盘仍 fire-and-forget，失败只记日志）。
    */
   private recordChatResponseUsage(
     sessionId: string,
@@ -2803,71 +2277,17 @@ export class ChatManagerImpl implements ChatManager {
     requestId?: number,
     model?: string
   ): void {
-    if (!usage) return;
-    const inputTokens = usage.prompt_tokens ?? usage.inputTokens ?? 0;
-    const outputTokens = usage.completion_tokens ?? usage.outputTokens ?? 0;
-    if (inputTokens === 0 && outputTokens === 0) return;
-
-    const totalTokens = inputTokens + outputTokens;
-    this.tokenBudget.consumeTokens(totalTokens);
-
-    // R16（台账 L-14）：**每日 Token 预算**（进程共享单例）——**结算**本会话预扣
-    // （`reserveFor` 在发送前预留；此处多退少补为真实用量），覆盖主/快速/流式；
-    // 与 `tokenBudget`（按会话/循环的水位预算）用途不同、各自记账。
-    getDailyBudget().settleFor(sessionId, totalTokens);
-
-    // X8（2026-09-23，Spec §5.5）：**主会话**用量入账到该会话的未终结目标。
-    // **记账与判定解耦**：此处只 fire-and-forget 写库（不 await ⇒ 不改本方法同步签名、
-    // 不阻塞响应）；"触顶 ⇒ 下一轮请求前 steering 收尾"的判定在既有闸门
-    // （`ReActToolLoop.beforeReasoning` 的 `checkBeforeRequest` 处）读库进行 ——
-    // 不在记账处主动发起/唤醒任何请求。
-    // 与 swarm 批次路径（`settleGoalForRun` 记 worker 汇总用量）**不同源、不重复计数**。
-    // 无目标会话 ⇒ `chargeSessionGoalUsage` 立即返回 null（不建行、不写库）。
-    void chargeSessionGoalUsage({
+    recordChatResponseUsageImpl(
+      {
+        tokenBudget: this.tokenBudget,
+        unifiedTracker: this.unifiedTracker,
+        appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
+      },
       sessionId,
-      tokens: totalTokens,
-    }).catch((err) => {
-      // @ignore-catch — 目标用量入账属观测/意图面，失败不得影响用量记账与主流程（CS03）
-      logger.warn('目标用量入账失败（不影响用量记账与主流程）', {
-        sessionId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
-
-    // TR-12-A（2026-09-22）：请求级用量分桶落事件（含缓存命中/写入，供轨迹"用量"视图）。
-    // 本方法是**同步**签名（由管线 ctx 注入调用），故不 await；`appendStreamEvent` 自带
-    // try/catch 并返回 `{ok,reason}`，失败只记日志 —— 该事件是**可观测数据**，不是渲染依赖，
-    // 不能因其失败影响用量记账与主流程。
-    const timingData = buildRequestTimingData(usage);
-    if (timingData) {
-      // 债四「换算接线」（2026-10-13）：**金额**台账（`usedUsd`）与 token 口径**并行**。
-      // 四参**复用 `timingData`**（缓存字段的唯一提取点 `extractCacheTokens`，CS01 不另造一份）；
-      // 模型不可得 ⇒ 内部跳过并如实 warn（**不臆造金额**）。
-      // ⚠️ **不改闸门**：`usedUsd` 当前不参与任何拦截/档位判定（USD 闸门 = S3，待 U3 裁定）。
-      recordTurnCostUsd(
-        {
-          inputTokens: timingData.inputTokens ?? 0,
-          outputTokens: timingData.outputTokens ?? 0,
-          cacheCreationTokens: timingData.cacheCreationTokens,
-          cacheReadTokens: timingData.cacheReadTokens,
-        },
-        model,
-        sessionId
-      );
-      // D1（2026-09-23）：**同一份载荷**先喂入校准闭环 —— 校准的数据源即
-      // `metric/timing` 事件的用量字段（唯一构造点 `buildRequestTimingData`），
-      // 不再依赖 `traces/` 落盘数据（已降级为观测层）。复用既有"调用方直接喂入"通路。
-      this.unifiedTracker.recordTimingUsage(timingData);
-      // P2-2：请求边界配对键（与延迟条共享同一 requestId ⇒ 读端归并为一个请求区间）
-      if (requestId !== undefined) timingData.requestId = requestId;
-      void this.appendStreamEvent(sessionId, {
-        type: 'metric/timing',
-        seq: 0, // 由 append 在 mutex 内原子分配（P3-7a）
-        time: Date.now(),
-        sessionId,
-        data: timingData,
-      });
-    }
+      usage,
+      requestId,
+      model
+    );
   }
 
   /**

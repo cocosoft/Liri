@@ -2,7 +2,7 @@
 
 > 对应 issue：[#8](https://github.com/cocosoft/Liri/issues/8)（替代已关闭的 #2）
 > 基线（2026-10-29 实测）：`app/src/chat/ChatManager.ts` **4840 行**、方法声明 **164** 个；`app/src/chat/manager/` 已有 **14** 个子模块（最大 `bootstrap.ts` 742 行）。
-> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**（本刀，见 §二）。
+> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3975 行**（已达 ≤4000）。
 > 目标：第一阶段把「检查点（checkpoint）+ 预算（budget）」编排抽到 `app/src/chat/manager/`（`checkpointBudget.ts` + `budgetResume.ts`，单文件 ≤900 行），`ChatManager.ts` **≤4000 行**，行为不变。
 
 ## 一、实测现状（决定拆分粒度的事实）
@@ -66,10 +66,20 @@
   - 门禁实测：`tsc` 0 错误 / `lint:arch` 0 错误 / `lint:size` 0 错误 527 警告 / `bun test tests/chat` **730 pass / 0 fail**（基线 725 + 新增 5）。
   - **对目标的含义（如实）**：距 4000 仍差 **552 行**，只能由 Cut C 承担。
 
-### Cut C — 字段/初始化归并，达到 ≤4000
+### Cut C — 构造期装配归并，达到 ≤4000
 
-- **抽走**：Cut A/B 留下的字段、构造期初始化、budget 状态（`budgetSuspend*` 相关局部成员）并入 `CheckpointBudgetManager`。
-- **验收**：`wc -l src/chat/ChatManager.ts` **≤ 4000**；`checkpointBudget.ts` **≤ 900**；其余门禁同上。
+- **原计划**：Cut A/B 留下的字段、构造期初始化、budget 状态（`budgetSuspend*` 相关局部成员）并入 `CheckpointBudgetManager`。
+- **实测订正（2026-10-29）**：本域残余（checkpoint 门面 32 + `flushAllCheckpoints` 16 + 预算装配/清理/停止钩子 ~40 + `_budgetResumeDeps` 23 + 字段 ~20）只有 **≈130–200 行**，且门面全是**一行委托**（搬走只多一层跳转）⇒ **单靠本域到不了 4000**（≈4.3k）。经用户裁定扩围为「构造期装配外移」（该文件唯一成块的另一半：constructor 562 行）。
+- **Cut C 实测结果（2026-10-29）**：
+  - `manager/hostWiring.ts` **119 行**：全局 sink（goal/yield/selfWake/evolution/workflow/execution）、退出钩子、内存水位；构造器原 97 行 ⇒ **8 行调用**；
+  - `manager/orchestratorHost.ts` **442 行**：`ChatOrchestrator` 宿主端口字面量；原 195 行 ⇒ **6 行调用**；
+  - `manager/facadeWiring.ts` **481 行**：12 个子门面/服务装配（summarizer/memory/stepLoopFactory/pdcaLauncher/toolExec/sessionLifecycle/resumeCoordinator/contextCompactor/pdcaLaunch/streamSetup/msgPersist/streamFinalize/streamResume）；原 259 行 ⇒ **3 行调用**；
+  - `manager/usageAccounting.ts` **121 行**：`recordChatResponseUsage`（本域：水位预算 / 日预算结算 / 金额台账 / `metric/timing`）；原 72 行 ⇒ **25 行 delegate**（同步签名不变）；
+  - `ChatManager.ts` **4552 → 3975**（**−577**）✅ **达成 ≤4000**；`ChatManagerInterface` **零改动**。
+  - 门禁实测：`tsc` 0 错误 / `lint:arch` 0 错误 / `lint:size` 0 错误 527 警告 / `bun test tests/chat` **730 pass / 0 fail**。
+  - ⚠️ **如实记录（风险面）**：`orchestratorHost.ts` / `facadeWiring.ts` 以「结构接口 + **调用点单点断言**」接收宿主**私有成员** ⇒ 私有成员改名**不会被编译器发现**，由 `tests/chat` 的构造/编排回归兜底；要彻底消除需把宿主端口改为公开接口（`ChatOrchestratorHost` 直连本类），属后续独立 issue。
+  - 状态字面量棘轮：新文件命中的既有取值（`error` / `completed`）按规则在 `.trae/architecture/state-literal-baseline.json` **逐条补登**（未跑 `--update`，避免带入无关重排序噪声）。
+- **验收**：`wc -l src/chat/ChatManager.ts` **= 3975 ≤ 4000** ✅；新模块均 < 500 行；其余门禁同上。
 
 ## 三、统一验收命令（每刀都要跑）
 
@@ -97,9 +107,6 @@ git diff --stat                        # 抽走了哪些文件/多少行
 
 1. ~~先做 Cut A~~（**已完成 `1017bb9fc`**：−54 行，四道门禁全绿）；
 2. ~~Cut B~~（**已完成，2026-10-29**）：`resumeSuspendedSession`（taor/stream 分流）+ `resumeSuspendedStream` + `submitResumeManualConfirmations` + `markBudgetResumed` + `resolveReplayForcedTools` + `isSubstantiveResumeChunk` 迁入 `budgetResume.ts`（327 行，显式注入）；`ChatManager` **4786 → 4552**（**−234**）；先补 `budgetResume.test.ts`（5 例）再替换调用点；四道门禁全绿（730 pass）。详见 §二 Cut B 实测结果。
-3. **Cut C（下一步，唯一还差的一刀）**：目标 `ChatManager.ts` **≤ 4000**（当前 4552，需再移出 ≥552 行）。候选面（按可整块移动排序，基于 Cut B 实测）：
-   - 门面 getter/setter 区与 checkpoint 门面委托（`createCheckpoint` / `listCheckpoints` / `rollbackToCheckpoint` / `deleteCheckpoint` / `getLatestCheckpoint` / `deleteSessionCheckpoints`，`4201–4400` 区间内命中 13）；
-   - 与检查点/预算绑定的**字段 + 构造期初始化**（`_checkpointService`、`checkpointInterval` 两处、`_budgetSuspendResumeWired` / `_budgetReliefUninstall`）并入各 manager 的持有者；
-   - 若仍不足：把 `streamMessage` 内的**预算/检查点单行调用点**收敛为「一次调用一处判定」（Cut B 未做，因实测它们是单行、搬走无收益）。
-   - **验收**：`wc -l src/chat/ChatManager.ts` ≤ 4000 + 四道门禁同 §三。
-4. 每刀落地后把本文件的行数基线更新为当次实测值（禁止沿用旧数字）。
+3. ~~Cut C~~（**已完成，2026-10-29**）：构造期装配外移 4 个模块（`hostWiring` 119 / `orchestratorHost` 442 / `facadeWiring` 481 / `usageAccounting` 121）；`ChatManager` **4552 → 3975**（**−577**）✅ 达成 ≤4000；四道门禁全绿。详见 §二 Cut C 实测结果。
+4. 后续（新 issue，非本阶段）：① 消除 `orchestratorHost`/`facadeWiring` 的宿主私有成员断言盲区（改公开端口）；② `ChatManager` 仍是全仓最大文件（3975 行，>500 阈值），继续按域拆分（streamMessage 主链路 / approval / TAOR 装配）。
+5. 每刀落地后把本文件的行数基线更新为当次实测值（禁止沿用旧数字）。

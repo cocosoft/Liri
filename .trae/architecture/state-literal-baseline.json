@@ -215,6 +215,7 @@
       "app/src/channels/turn/TurnManager.ts",
       "app/src/chat/ChatManager.ts",
       "app/src/chat/launchers/PdcaLauncher.ts",
+      "app/src/chat/manager/orchestratorHost.ts",
       "app/src/chat/manager/streamFinalize.ts",
       "app/src/chat/manager/taorContext.ts",
       "app/src/chat/orchestrator/ChatOrchestrator.ts",

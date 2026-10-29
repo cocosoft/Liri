@@ -867,6 +867,9 @@ export abstract class ReActLoop<
       logger.warn(
         'reActLoop:turn_blocked (consecutive environment-blocked turn)',
         {
+          // B0-1（2026-10-30）：与 `environment_blocked triggered` 对齐带 sessionId ——
+          // 否则熔断日志无法按会话归因（真机 72h 内 35 次 turn_blocked 全部统计不到会话）。
+          sessionId: this.config.sessionId,
           iteration: this.state.iteration,
           consecutiveBlockedTurns: this.consecutiveBlockedTurns,
           maxConsecutiveBlockedTurns: this.config.maxConsecutiveBlockedTurns,
@@ -901,6 +904,8 @@ export abstract class ReActLoop<
       error: (r.error ?? r.output ?? '').slice(0, 200),
     }));
     logger.warn('reActLoop:all-tools-failed (consecutive invalid turn)', {
+      // B0-1（2026-10-30）：同上，熔断链日志必须能按会话归因
+      sessionId: this.config.sessionId,
       iteration: this.state.iteration,
       consecutiveInvalidTurns: this.consecutiveInvalidTurns,
       maxConsecutiveInvalidTurns: this.config.maxConsecutiveInvalidTurns,
@@ -911,6 +916,8 @@ export abstract class ReActLoop<
       this.consecutiveInvalidTurns >= this.config.maxConsecutiveInvalidTurns
     ) {
       logger.warn('reActLoop:circuit_breaker triggered', {
+        // B0-1（2026-10-30）：熔断点必须能按会话归因
+        sessionId: this.config.sessionId,
         consecutiveInvalidTurns: this.consecutiveInvalidTurns,
         maxConsecutiveInvalidTurns: this.config.maxConsecutiveInvalidTurns,
         lastFailedTools: failedTools,

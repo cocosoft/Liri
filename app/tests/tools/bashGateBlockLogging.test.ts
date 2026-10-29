@@ -34,7 +34,7 @@
  * - 分析器 deny（security_analyzer_deny）⇒ warn 记录 reason
  * - 负向对照：正常放行命令 ⇒ 零条 security_gate_blocked（不误报）
  *
- * 日志断言方式与 `bashSecuritySwitchDefaults.test.ts` 同构：spy `getLogger('tools\bash\BashTool')`
+ * 日志断言方式与 `bashSecuritySwitchDefaults.test.ts` 同构：spy `getLogger('tools:bash:BashTool')`
  * 的 `warn`（同一 logger 单例），按消息 key 过滤。
  */
 import { afterEach, describe, expect, it, spyOn } from 'bun:test';
@@ -58,7 +58,7 @@ function makeContext(sessionId: string): ToolUseContext {
 }
 
 /** BashTool 使用的 logger 单例（与 `BashTool.ts` 同一字面量 ⇒ 同一实例） */
-const bashLogger = getLogger('tools\bash\BashTool');
+const bashLogger = getLogger('tools:bash:BashTool');
 
 /** 安全门拦截日志 key（与 BashTool.ts 新增 warn 一致） */
 const GATE_BLOCKED_KEY = 'bash: security_gate_blocked';

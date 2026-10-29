@@ -7,7 +7,7 @@
  *
  * 拍板结论（2026-10-26）：阻塞阈值 **2**；ruleId 只给用户与日志；**不自动**续跑。
  */
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, spyOn, test } from 'bun:test';
 import { ReActLoop, classifyTurn } from '../../src/query/ReActLoop';
 import type {
   ActResult,
@@ -16,6 +16,7 @@ import type {
   ReActState,
 } from '../../src/query/ReActLoop';
 import { resolveTerminationOutput } from '../../src/chat/terminationOutput.js';
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
 
 // ── 1. 纯判定 ──────────────────────────────────────────────
 
@@ -63,6 +64,19 @@ describe('classifyTurn：按结构化字段分型（不解析 error 文本）', 
       classifyTurn([
         { status: 'error', failureKind: 'permission_denied' },
         { status: 'error' },
+      ])
+    ).toBe('invalid');
+  });
+
+  test('workspace_escape（B1）⇒ invalid 而**非** environment_blocked（可恢复）', () => {
+    // 越界可由「批准加根」修复（issue #35）⇒ 不得 2 轮即熔断整轮
+    expect(
+      classifyTurn([{ status: 'error', failureKind: 'workspace_escape' }])
+    ).toBe('invalid');
+    expect(
+      classifyTurn([
+        { status: 'error', failureKind: 'workspace_escape' },
+        { status: 'error', failureKind: 'workspace_escape' },
       ])
     ).toBe('invalid');
   });
@@ -125,11 +139,12 @@ class ScriptedLoop extends ReActLoop<
   private reasonCount = 0;
   actCount = 0;
 
-  constructor(script: RoundKind[]) {
+  constructor(script: RoundKind[], sessionId?: string) {
     super({
       maxIterations: 20,
       maxConsecutiveInvalidTurns: 3,
       maxConsecutiveBlockedTurns: 2,
+      ...(sessionId ? { sessionId } : {}),
     });
     this.script = script;
   }
@@ -302,5 +317,54 @@ describe('environment_blocked：环境阻塞独立预算与终止', () => {
     });
     expect(out.finishReason).toBe('environment_blocked');
     expect(out.suffix).toContain('环境拦截');
+  });
+});
+
+// ── 3. B0-1（2026-10-30）：熔断链日志必须能按会话归因 ──────────
+
+describe('B0-1：熔断链日志带 sessionId', () => {
+  const reactLogger = getLogger('query:reactLoop');
+
+  function metaOf(
+    calls: readonly unknown[][],
+    key: string
+  ): Record<string, unknown> | undefined {
+    const hit = calls.find((c) => String(c[0]).includes(key));
+    return hit?.[1] as Record<string, unknown> | undefined;
+  }
+
+  test('turn_blocked / environment_blocked triggered 均带 sessionId', async () => {
+    const spy = spyOn(reactLogger, 'warn');
+    try {
+      await drain(new ScriptedLoop(['blocked', 'blocked'], 'session_b0'));
+      expect(metaOf(spy.mock.calls, 'turn_blocked')?.sessionId).toBe(
+        'session_b0'
+      );
+      expect(
+        metaOf(spy.mock.calls, 'environment_blocked triggered')?.sessionId
+      ).toBe('session_b0');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test('all-tools-failed / circuit_breaker triggered 均带 sessionId', async () => {
+    const spy = spyOn(reactLogger, 'warn');
+    try {
+      await drain(
+        new ScriptedLoop(
+          ['invalid', 'invalid', 'invalid'],
+          'session_b0_invalid'
+        )
+      );
+      expect(metaOf(spy.mock.calls, 'all-tools-failed')?.sessionId).toBe(
+        'session_b0_invalid'
+      );
+      expect(
+        metaOf(spy.mock.calls, 'circuit_breaker triggered')?.sessionId
+      ).toBe('session_b0_invalid');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

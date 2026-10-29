@@ -110,7 +110,7 @@ describe('BashTool 放行通道（P0-4）', () => {
 
 describe('S1-1 审批作用域绑定（执行端，2026-10-11）', () => {
   it('作用域一致 ⇒ 走"已批准命令放行"；cwd 不一致 ⇒ 不命中（fail-closed）', async () => {
-    const bashLogger = getLogger('tools\bash\BashTool');
+    const bashLogger = getLogger('tools:bash:BashTool');
     const infoSpy = spyOn(bashLogger, 'info');
     const reg = new ApprovedCommandRegistry(60_000, false);
     try {

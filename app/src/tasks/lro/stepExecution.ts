@@ -903,6 +903,9 @@ async function submitStepApprovalCards(args: {
           approvalScopeKind: 'once',
           command: command || undefined,
           inputPreview: JSON.stringify(input).slice(0, 200),
+          // B0-3（2026-10-30）：补来源模块，避免 Inbox 记 `missing source reference`
+          // 并把 LRO 步骤审批卡标记为孤儿（无法回连到步骤）。
+          sourceModule: 'lro-step',
           /** PR-5：批准后由 inboxApproval 回到 PDCA（步骤级挂起恢复） */
           pdcaTaskId: args.taskId,
           ...(outcome.approvalReason

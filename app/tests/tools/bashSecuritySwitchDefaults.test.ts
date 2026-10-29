@@ -57,9 +57,10 @@ function setEnv(key: string, value: 'true' | 'false' | null): void {
 
 /**
  * BashTool 使用的 logger 单例（与 `BashTool.ts` **同一字面量** ⇒ 同一实例）。
- * 注：`'tools\bash\BashTool'` 与源码一致（`\b` 为转义），故 module 名完全相同。
+ * 注：B0-2（2026-10-30）把 module 名从反斜杠改为 `tools:bash:BashTool` ——
+ * 反斜杠会被 JSON 转义成退格字符，导致按 module 过滤/聚合失效。
  */
-const bashLogger = getLogger('tools\bash\BashTool');
+const bashLogger = getLogger('tools:bash:BashTool');
 
 let warnSpy: ReturnType<typeof spyOn> | undefined;
 

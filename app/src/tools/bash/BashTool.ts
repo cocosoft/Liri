@@ -81,7 +81,7 @@ import {
 } from '@modules/permission';
 
 import { getLogger } from '@modules/monitoring';
-const logger = getLogger('tools\bash\BashTool');
+const logger = getLogger('tools:bash:BashTool');
 
 /**
  * 第九轮审查 §七 建议 5（2026-10-09）：**不让安全开关在缺少告警的情况下长期停留默认关闭**。

@@ -188,6 +188,10 @@ export async function submitToolApproval(
           approvalScope: approvalScope ?? undefined,
           // S1-1: 携带审批快照 —— 批准时一并记录（原始命令 / 规范化命令 / 改写项）
           approvalSnapshot: approvalSnapshot ?? undefined,
+          // B0-3（2026-10-30）：补来源模块 —— 缺它时 `InboxManager.submit` 会记
+          // `Inbox item missing source reference` 并给卡片打 `_orphan`
+          // （72h 真机 5 次；审批卡与来源工具调用脱钩后无法关联）。
+          sourceModule: 'chat-tool-approval',
           inputPreview: JSON.stringify(input).slice(0, 300),
         },
       },

@@ -203,11 +203,12 @@ import {
 import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry, ToolSchema } from '@modules/tools';
 // 13-P1-2（2026-10-05）：非幂等工具失败时的重试告诫（模型是实际"重试方"）
+import { resolveToolEffect } from '@modules/tools';
+// issue #8 · Cut A（2026-10-29）：检查点边界判定 + 预算挂起/放行装配外移
 import {
-  decideCheckpointBoundary,
-  isCheckpointBoundaryTool,
-  resolveToolEffect,
-} from '@modules/tools';
+  ensureCheckpointBoundary,
+  installBudgetSuspendResume,
+} from './manager/checkpointBudget';
 import type {
   ChatMessage,
   ParsedToolCall,
@@ -1672,24 +1673,19 @@ export class ChatManagerImpl implements ChatManager {
    * （修「重启后未先发消息即点放行 ⇒ 静默无效」）；仍非构造期，不违反上述裁决。
    */
   private _ensureBudgetSuspendResumeInstalled(): void {
-    if (this._budgetSuspendResumeWired) return;
-    if (!coreFeature('BUDGET_SUSPEND_RESUME')) return; // 关（=false）⇒ 不注册（零行为变更）
-    this._budgetSuspendResumeWired = true;
-    const coordinator = getBudgetSuspendCoordinator();
-    this._budgetReliefUninstall = getDailyBudget().onReliefApplied((e) => {
-      // `targetSessionId` 原样透传（可选）：会话级入口（挂起卡片「继续」）把唤醒收窄到本会话，
-      // 缺省 ⇒ 旧口径（全局，时间序 + 上限）。
-      void coordinator
-        .onReliefApplied(e.kind, e.targetSessionId)
-        .catch((err) => {
-          logger.warn('budgetSuspend:onReliefApplied failed', {
-            error: err instanceof Error ? err.message : String(err),
-          });
-        });
+    // issue #8 · Cut A（2026-10-29）：装配体已外移到 `manager/checkpointBudget.ts`，
+    // 此处只做**状态注入/回写**（幂等守卫与解绑函数仍由本类持有）。
+    installBudgetSuspendResume({
+      alreadyWired: this._budgetSuspendResumeWired,
+      markWired: () => {
+        this._budgetSuspendResumeWired = true;
+      },
+      setUninstall: (fn) => {
+        this._budgetReliefUninstall = fn;
+      },
+      resumeSuspendedSession: (sessionId, chain) =>
+        this.resumeSuspendedSession(sessionId, chain as never),
     });
-    coordinator.setResumeHandler((sessionId, chain) =>
-      this.resumeSuspendedSession(sessionId, chain)
-    );
   }
 
   /**
@@ -3843,63 +3839,13 @@ export class ChatManagerImpl implements ChatManager {
   private async _ensureCheckpointBoundary(
     toolName: string
   ): Promise<string | null> {
-    // ⚠️ 动态导入（**不改启动面**）：AC-28 的 eager 棘轮只允许减少；本策略是"按工具调用
-    // 才需要"的配置读取，进静态图会让 eager +1 文件。ESM 缓存 ⇒ 首次之后零成本。
-    const { readCheckpointBoundaryConfig } =
-      await import('@modules/config/settings/CheckpointBoundaryConfig');
-    const config = readCheckpointBoundaryConfig();
-    if (!config.enabled) return null;
-    const sessionId = this._currentSessionId;
-    // 无会话（纯 CLI / 单次调用）⇒ 无从判定"同会话是否有快照"⇒ 不阻断（与既有 checkpoint 语义一致）
-    if (!sessionId) return null;
-    if (!isCheckpointBoundaryTool(toolName)) return null;
-
-    let hasCheckpoint = false;
-    try {
-      hasCheckpoint =
-        !!(await this.resumeCoordinator.getLatestCheckpoint(sessionId));
-    } catch (error) {
-      // @ignore-catch — 查询失败按"无快照"处理（随后由 strict/relaxed 决定：拒绝或补建）
-      logger.warn('Checkpoint 边界：查询最新快照失败 ⇒ 按无快照处理', {
-        sessionId,
-        toolName,
-        error: String(error),
-      });
-      hasCheckpoint = false;
-    }
-
-    const decision = decideCheckpointBoundary({
+    // issue #8 · Cut A（2026-10-29）：判定体已外移到 `manager/checkpointBudget.ts`，
+    // 依赖按**显式参数**注入（当前会话 id 在调用时读取，避免快照过期）。
+    return ensureCheckpointBoundary({
       toolName,
-      hasCheckpoint,
-      mode: config.mode,
+      currentSessionId: this._currentSessionId,
+      resumeCoordinator: this.resumeCoordinator,
     });
-    if (decision.decision === 'allow') return null;
-    if (decision.decision === 'deny') {
-      return (
-        decision.reason ??
-        `不可逆操作 ${toolName} 之前缺少 checkpoint（strict 边界）`
-      );
-    }
-
-    // create-then-allow：先补建快照再执行；建失败 ⇒ 拒绝（fail-closed）
-    try {
-      await this.resumeCoordinator.createCheckpoint(
-        sessionId,
-        'auto:before-irreversible',
-        { checkpointBoundaryTool: toolName }
-      );
-      return null;
-    } catch (error) {
-      logger.error(
-        'Checkpoint 边界：补建快照失败 ⇒ 拒绝执行不可逆工具（fail-closed）',
-        {
-          sessionId,
-          toolName,
-          error: String(error),
-        }
-      );
-      return `不可逆操作 ${toolName} 之前无法创建 checkpoint ⇒ 已拒绝执行（relaxed 边界 fail-closed）`;
-    }
   }
 
   /**

@@ -96,7 +96,13 @@
   - ⚠️ 编号勘误：先前按「13 条 issue」推的下一个编号 **#14 实际被一个 PR 占用**（PR 与 issue 共号）⇒ 本子任务落在 **#15**。
   - 同时在 #1 追加了带标记（`<!-- sub-issues-index:2026-10-29-c -->`）的索引评论，按**真实 title**列出 #9–#13 + #15（不猜 S 编号↔issue 映射）。
   - 执行方式同上：一次性 workflow `sub-issue-s5.yml` 在临时分支 `ci/sub-issue-s5` 上跑（run `40827392334`，13s 成功），跑完已删本地与远端分支。
-  - 当前 issue 状态：**open 9 条**（#1 / #7 / #8 / #9 / #10 / #11 / #12 / #13 / #15），**closed 5 条**（#2 / #3 / #4 / #5 / #6）；#1 的 6 个 Phase A 子任务至此**全部开单**。
+  - 当前 issue 状态（**开单当时的时点数**）：open 9 条（#1 / #7 / #8 / #9 / #10 / #11 / #12 / #13 / #15），closed 5 条（#2 / #3 / #4 / #5 / #6）；#1 的 6 个 Phase A 子任务至此**全部开单**。S1/S2 关闭后的最新数字见下条。
+- **S1 / S2 已交付并关闭（2026-10-29）**：
+  - **#9（S1 桶导出）** → commit `833701037`：新增 `app/src/knowledge/domain/index.ts`，`knowledge/index.ts` 两条深导入改 `'./domain'`，对外导出面不变；`tsc` 绿、`lint:arch` exit 0（仅存量 WARNING）、`bun test tests/knowledge` 33/33。
+  - **#10（S2 `DomainManager` 单测）** → commit `cfbff93b4`：新增 `app/tests/knowledge/domainManager.test.ts`（10 例，覆盖 5 个方法），用 `LIRI_HOME`=mkdtemp 隔离并带「覆盖未生效即抛错」护栏，不写真实 `~/.pyapp`；未改生产代码。
+  - 关单方式：一次性 workflow `close-9-10.yml` 在临时分支 `ci/close-9-10` 上跑（run `40830679423`，10s 成功），跑完已把该 workflow 从 main 移除并删分支。
+  - **附带发现（待定，未开单）**：`DomainManager` 构造参数 `domainsRoot`（`DomainManager.ts:95-97`）只影响 `getDomainsRoot`/`ensureRoot`/`list` 的读取，`create`/`getConfig`/`writeConfig`/`countWikiPages` 一律走全局 `resolveDomainDir(name)` ⇒ 注入根与写入根可能不一致。
+  - 当前 issue 状态：**open 7 条**（#1 / #7 / #8 / #11 / #12 / #13 / #15），**closed 7 条**（#2 / #3 / #4 / #5 / #6 / #9 / #10）。
 
 
 

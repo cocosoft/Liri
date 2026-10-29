@@ -49,6 +49,17 @@ export interface SessionMetadata {
   effortLevel?: 'low' | 'medium' | 'high' | 'auto';
 
   /**
+   * 知识域（S5 / issue #15，2026-10-29）：**会话级**知识域标记。
+   *
+   * 语义：写入后检索侧按域限缩（`domains/{name}/`）；**未设置 ⇒ 全局**，零行为变更。
+   * 来源决策（2026-10-29 用户裁定）：域 = 会话 metadata 继承，不做关键词/LLM 自动判定。
+   * 写入渠道：会话更新接口写 `metadata.domain`；本阶段不做前端选择器。
+   * 读取点：`MessageContextPipeline.assembleContextualSystemPrompt` → 注入
+   * `KnowledgePromptProvider.setCurrentKnowledgeDomain`，由 `knowledgeContext` 段消费。
+   */
+  domain?: string;
+
+  /**
    * **预留**（2026-10-22）：由 `effortLevel` 推导的思考预算（token）。
    * 当前无 provider 消费，仅随会话元数据落库，供后续 thinking 接线使用。
    */

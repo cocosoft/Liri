@@ -16,9 +16,14 @@ export interface KnowledgeQueryResult {
 }
 
 export interface KnowledgeQueryProvider {
+  /**
+   * @param domain S5 / issue #15（2026-10-29）：可选知识域。提供方**可**据此限缩检索范围；
+   *   未提供 ⇒ 全局检索（默认行为不变）。实现方允许忽略（接口向前兼容）。
+   */
   getKnowledgeSummaries(
     query: string,
-    limit?: number
+    limit?: number,
+    domain?: string
   ): Promise<KnowledgeQueryResult>;
 }
 
@@ -40,4 +45,21 @@ export function setCurrentKnowledgeQuery(query: string): void {
 
 export function getCurrentKnowledgeQuery(): string | null {
   return currentKnowledgeQuery;
+}
+
+/**
+ * S5 / issue #15（2026-10-29）：当前轮次的知识域（来自会话 `metadata.domain`）。
+ *
+ * 与 `currentKnowledgeQuery` 同模式由组装入口每轮**覆盖式**设置（含清空），
+ * 避免跨会话串域。合法性校验在消费侧（`knowledgeContext` 段）统一做。
+ */
+let currentKnowledgeDomain: string | null = null;
+
+export function setCurrentKnowledgeDomain(domain: string | undefined): void {
+  const trimmed = (domain ?? '').trim();
+  currentKnowledgeDomain = trimmed ? trimmed : null;
+}
+
+export function getCurrentKnowledgeDomain(): string | null {
+  return currentKnowledgeDomain;
 }

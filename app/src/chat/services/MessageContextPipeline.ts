@@ -24,7 +24,10 @@ import {
 import { isLocalLlmEndpoint, sanitizePass } from './ChatHelper';
 import { buildReplyEffortPrompt } from '../replyEffort';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
-import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
+import {
+  setCurrentKnowledgeQuery,
+  setCurrentKnowledgeDomain,
+} from '@modules/services/prompt/KnowledgePromptProvider';
 import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
 import type { ImageContextService } from './ImageContextService';
 
@@ -944,6 +947,15 @@ export async function assembleContextualSystemPrompt(
   if (currentMessage) {
     setCurrentKnowledgeQuery(currentMessage);
   }
+
+  // S5 / issue #15（2026-10-29）：域来源 = 会话 `metadata.domain`（持久化标记，见 CS02）。
+  // **每轮覆盖式设置（含清空）** —— 该状态是模块级单例，不清空会把上一个会话的域带过来。
+  // 合法性校验在消费侧（`knowledgeContext` 段）统一做，此处只透传原始值。
+  setCurrentKnowledgeDomain(
+    (session.metadata as Record<string, unknown> | undefined)?.domain as
+      | string
+      | undefined
+  );
 
   // P0-1（提示词分层治理）：旁路内容注册为动态段（cacheBreak=true），随统一组装进入
   // stable/dynamic 分区与 SystemPromptReport——不再在组装后游离手工拼接（曾破坏

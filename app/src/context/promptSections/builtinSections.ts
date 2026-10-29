@@ -31,7 +31,9 @@ import { getFrozenSnapshotService } from '@modules/memory';
 import {
   getKnowledgeQueryProvider,
   getCurrentKnowledgeQuery,
+  getCurrentKnowledgeDomain,
 } from '@modules/services/prompt/KnowledgePromptProvider';
+import { getLogger } from '@modules/monitoring';
 import { generateDigestContext } from '@modules/knowledge';
 import { DomainManager } from '@modules/knowledge';
 import { truncateMemoryContent } from '@modules/memory';
@@ -63,6 +65,9 @@ function getPromptProjectStore() {
   }
   return _promptProjectStore;
 }
+
+/** S5（#15）：域校验失败等可观测痕迹统一走 Logger（project_rules §1.8 唯一入口） */
+const logger = getLogger('context:promptSections');
 
 /**
  * 内置段落（键名 = infra `SECTION_NAMES` 的段名）。
@@ -627,7 +632,22 @@ ${overlay}`;
       const query = getCurrentKnowledgeQuery();
       if (!query) return null;
 
-      const result = await provider.getKnowledgeSummaries(query, 3);
+      // S5 / issue #15（2026-10-29）：域来自会话 `metadata.domain`（组装入口每轮覆盖设置）。
+      // 合法性在此**统一校验**：域不存在 ⇒ warn 并**回全局**（不拿不存在的路径去检索）。
+      const requestedDomain = getCurrentKnowledgeDomain();
+      let domain: string | undefined;
+      if (requestedDomain) {
+        const config = await new DomainManager().getConfig(requestedDomain);
+        if (config) {
+          domain = requestedDomain;
+        } else {
+          logger.warn('会话知识域不存在，回落全局检索', {
+            domain: requestedDomain,
+          });
+        }
+      }
+
+      const result = await provider.getKnowledgeSummaries(query, 3, domain);
       if (result.summaries.length === 0) return null;
 
       const parts: string[] = ['## 相关知识'];

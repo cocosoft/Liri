@@ -31,11 +31,14 @@
  */
 
 import { getDefaultDigestService } from '@modules/knowledge/KnowledgeDigestService';
+import { getLogger } from '@modules/monitoring';
 import type { IKnowledgeSearch, KnowledgeRoute } from '../docs/knowledge-types';
 import type {
   KnowledgeSummary,
   KnowledgeQueryResult as KQR,
 } from '../services/prompt/KnowledgePromptProvider';
+
+const logger = getLogger('knowledge:summarizer');
 
 export type { KnowledgeSummary };
 
@@ -49,8 +52,19 @@ export class KnowledgeSummarizer {
 
   async getKnowledgeSummaries(
     query: string,
-    limit: number = 3
+    limit: number = 3,
+    domain?: string
   ): Promise<KnowledgeQueryResult> {
+    // S5 / issue #15（2026-10-29）：域参数**已接线**（调用方会传），但**检索侧限缩尚未实现**
+    // —— digest（`searchDigest`）与 `IKnowledgeSearch` 两条链当前都没有域过滤。
+    // TODO: CS05-ROOTFIX — 根因方案是把 domain 透传进 `searchDigest` 与 router 查询，
+    // 由 #15 的后续子任务落地；在此之前**行为与不传 domain 完全一致**（不静默改写结果）。
+    if (domain) {
+      logger.debug('收到知识域参数（检索限缩待接线，本轮仍走全局）', {
+        domain,
+      });
+    }
+
     // 策略 1: 优先使用预编译摘要
     const digestResult = await this.tryDigestFirst(query, limit);
     if (digestResult) return digestResult;

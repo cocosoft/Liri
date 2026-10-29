@@ -109,8 +109,6 @@ import { getModelPricing } from '@modules/cost';
 import { calculateTotalCost } from '@modules/cost';
 
 import type { ChatManager } from './ChatManagerInterface.js';
-// S1-1（2026-10-11）：审批作用域 / 快照类型（**仅类型导入**；判定与存储在 permission 层）
-import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
 
 /**
  * 聊天管理器
@@ -184,8 +182,6 @@ import {
 import { wireChatFacades, type FacadeWiringHost } from './manager/facadeWiring';
 // issue #16（2026-10-29）：装配宿主的**单点断言**（契约由各模块键表 + 存在性守卫兑现）
 import { asWiringHost } from './manager/wiringHostGuard';
-// issue #17 · D1（2026-10-29）：TAORLoop 失败后的降级路径外移
-import { sendMessageDowngradePath } from './manager/sendDowngrade';
 // issue #17 · D2 / D3（2026-10-29）：对话记忆抽取、按模型名选客户端外移
 import { extractMemoryFromChat as extractMemoryFromChatImpl } from './manager/memoryExtract';
 import { getClientForModel as getClientForModelImpl } from './manager/modelClient';
@@ -201,10 +197,7 @@ import {
   ensureVerifierCallModel,
   type VerifierModelState,
 } from './manager/verifierModel';
-// issue #17 · D8（2026-10-29）：工具审批（放行缓存查询 + 审批卡片提交）外移
-import { isCommandApproved, submitToolApproval } from './manager/toolApproval';
 // issue #17 · D9 / D10（2026-10-29）：TAOR 上下文与流式管线工厂的端口装配外移
-import { buildTAORContextFor } from './manager/taorContextWiring';
 import { createStreamPipelineFor } from './manager/streamPipelineFactory';
 import type {
   ParsedToolCall,
@@ -1317,22 +1310,6 @@ export class ChatManagerImpl implements ChatManager {
         },
       });
     });
-  } /**
-   * 构建 TAORLoopDeps 上下文（issue #17 · D9：端口装配已外移到 `manager/taorContextWiring.ts`）。
-   */
-  private _buildTAORContext(
-    sessionId: string,
-    toolDefinitions: ToolDefinition[],
-    options?: SendMessageOptions
-  ): ChatManagerTAORContext {
-    return buildTAORContextFor(this, sessionId, toolDefinitions, options);
-  } /** U-22/S3 外移：消息持久化主入口（实现在 `manager/messagePersistence.ts`） */
-  private async _addAndPersistMessage(
-    sessionId: string,
-    message: Message,
-    options?: { throwOnError?: boolean }
-  ): Promise<void> {
-    return this._msgPersist.addAndPersistMessage(sessionId, message, options);
   }
 
   /**
@@ -1747,36 +1724,6 @@ export class ChatManagerImpl implements ChatManager {
   clearResumeIntent(sessionId: string): void {
     this._pendingResumeIntent.delete(sessionId);
   }
-  /**
-   * TAORLoop 失败后的降级路径（issue #17 · D1：实现体已外移到 `manager/sendDowngrade.ts`，
-   * 此处保留同名 thin delegate；预算闸门 / 工具回填 / 投影 / 失败兜底语义不变）。
-   */
-  private async _sendMessageDowngradePath(
-    session: ChatSession,
-    toolCalls: ParsedToolCall[],
-    apiMessages: Record<string, unknown>[],
-    activeClient: ToolAwareClient,
-    options?: SendMessageOptions
-  ): Promise<Message> {
-    return sendMessageDowngradePath(
-      {
-        executeTool: (tc, opts) => this.executeTool(tc, opts),
-        createAssistantMessage: (content, opts) =>
-          this.messageService.createAssistantMessage(content, opts),
-        addAndPersistMessage: (sid, msg) =>
-          this._addAndPersistMessage(sid, msg),
-      },
-      session,
-      toolCalls,
-      apiMessages,
-      activeClient,
-      options
-    );
-  }
-
-  /**
-   * 响应后自动提取记忆
-   */
 
   /**
    * 触发 Council 辩论（异步，不阻塞主流程）
@@ -2455,68 +2402,6 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     return svc.execute(toolCall, opts);
-  }
-
-  /**
-   * Checkpoint 边界判定（P5-4，规格 `.trae/specs/p5-runtime-hardening-specs.md` §3）。
-   *
-   * @returns `null` = 放行（含"未启用 / 只读工具 / 无会话 / 已有快照 / 补建成功"）；
-   *          否则为**拒绝原因**（不可逆操作前无法保证可回滚）。
-   *
-   * 边界三态全部来自 `tools/policy/checkpointBoundary`（派生自 `TOOL_EFFECTS`，不手写清单）：
-   * `allow` / `create-then-allow` / `deny`。
-   */
-  private async _ensureCheckpointBoundary(
-    toolName: string
-  ): Promise<string | null> {
-    // issue #8 · Cut A（2026-10-29）：判定体已外移到 `manager/checkpointBudget.ts`，
-    // 依赖按**显式参数**注入（当前会话 id 在调用时读取，避免快照过期）。
-    return ensureCheckpointBoundary({
-      toolName,
-      currentSessionId: this._currentSessionId,
-      resumeCoordinator: this.resumeCoordinator,
-    });
-  }
-
-  /**
-   * 检查命令是否已批准放行（P0-6 放行缓存）
-   *
-   * issue #17 · D8：实现体已外移到 `manager/toolApproval.ts`（逐字搬迁，语义不变）。
-   */
-  private async _isCommandApproved(
-    toolName: string,
-    input: Record<string, unknown>,
-    sessionId: string | undefined,
-    approvalFingerprint?: string
-  ): Promise<boolean> {
-    return isCommandApproved(toolName, input, sessionId, approvalFingerprint);
-  }
-
-  /**
-   * 提交工具审批卡片到 Inbox（P0-2 工具执行审批链路）
-   *
-   * issue #17 · D8：实现体已外移到 `manager/toolApproval.ts`（逐字搬迁，语义不变）；
-   * @returns 已提交的 Inbox 项 id（提交失败/Inbox 不可用时返回 null，上层降级为 ask 文本）
-   */
-  private async _submitToolApproval(
-    toolName: string,
-    input: Record<string, unknown>,
-    sessionId: string | undefined,
-    toolCallId: string,
-    approvalReason?: string,
-    approvalScope?: ApprovalScope,
-    approvalSnapshot?: ApprovalSnapshot
-  ): Promise<string | null> {
-    return submitToolApproval(
-      { toolRegistry: this.toolRegistry },
-      toolName,
-      input,
-      sessionId,
-      toolCallId,
-      approvalReason,
-      approvalScope,
-      approvalSnapshot
-    );
   }
 
   /**

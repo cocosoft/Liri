@@ -1,0 +1,60 @@
+name: close-s1-s2
+
+# 一次性作业：给 #9（S1）、#10（S2）回交付评论并关闭
+# 幂等：按评论 marker 去重；跑完即删分支
+
+on:
+  push:
+    branches: [ci/close-9-10]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const jobs = [
+              {
+                n: 9,
+                marker: '<!-- close-note-s1:2026-10-29 -->',
+                lines: [
+                  '**已完成（S1 / commit 833701037）**',
+                  '',
+                  '- **交付**：新增 `app/src/knowledge/domain/index.ts` 桶导出（`DomainManager` + 5 个类型）；`app/src/knowledge/index.ts` 两条深导入改为 `\'./domain\'`，**对外导出面不变**。',
+                  '- **验收**：`bunx tsc --noEmit`（app）绿；`bun run lint:arch` **exit 0**（仅存量 WARNING，无新增违规、无新增循环依赖）；`cd app && bun test tests/knowledge` → **33/33 通过**。',
+                  '- **范围说明**：`app/src/entrypoints/spiWiring.ts:339` 的 `await import(\'@modules/knowledge/domain/DomainManager\')` 属 SPI 接线侧，按本子任务范围（只改 `knowledge/index.ts` 的两条深导入）**未动**。'
+                ]
+              },
+              {
+                n: 10,
+                marker: '<!-- close-note-s2:2026-10-29 -->',
+                lines: [
+                  '**已完成（S2 / commit S2_SHA）**',
+                  '',
+                  '- **交付**：新增 `app/tests/knowledge/domainManager.test.ts`，**10 个用例**覆盖 `getDomainsRoot` / `ensureRoot`（幂等）/ `list`（空根、跳过 `.` 前缀与无 `.domain.yaml` 目录、wiki 页面计数）/ `create`（目录结构 `.schema`+`wiki`、overrides 回退、重名抛错）/ `getConfig`（存在、不存在 ⇒ null、`default` 缺配置 ⇒ 内置默认、字段缺失不崩）。',
+                  '- **隔离方式**：把 `LIRI_HOME` 指向 `mkdtemp` 临时目录（`DomainManager` 内部经 `resolveDomainDir` → `resolvePyappHome(process.env)` 取路径）；`beforeEach` 带**安全护栏** —— 若环境覆盖未生效（如 `userDataDirOverride` 被设置）立即抛错，绝不写真实 `~/.pyapp`。',
+                  '- **验收**：`cd app && bun test tests/knowledge/domainManager.test.ts` → **10/10 通过**；**未改任何生产代码**。',
+                  '- **附带发现（供后续单独立项，不在本单范围）**：构造函数参数 `domainsRoot`（`DomainManager.ts:95-97`）只被 `getDomainsRoot()`/`ensureRoot()`/`list()` 的 readdir 使用，而 `create()`/`getConfig()`/`writeConfig()`/`countWikiPages()` 一律走全局 `resolveDomainDir(name)` ⇒ **注入根与写入/读取根可能不一致**（本例正是因此改用 `LIRI_HOME` 隔离）。若后续要真正支持自定义根，应把上述方法统一改为 `join(this.domainsRoot, name)`。'
+                ]
+              }
+            ];
+
+            for (const job of jobs) {
+              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: job.n, per_page: 100 });
+              if (comments.some(c => (c.body || '').includes(job.marker))) {
+                core.info('comment exists on #' + job.n);
+              } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number: job.n, body: [job.marker, ...job.lines].join('\n') });
+                core.info('comment posted on #' + job.n);
+              }
+              await github.rest.issues.update({ owner, repo, issue_number: job.n, state: 'closed', state_reason: 'completed' });
+              core.info('closed #' + job.n);
+            }

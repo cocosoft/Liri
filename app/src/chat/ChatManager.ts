@@ -26,7 +26,6 @@ import path from 'path';
 import { configManager } from '@modules/config';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { repairModelJson } from '@modules/utils/json';
-import { abortSessionPlans } from './planAbortRegistry.js';
 import { resolveBaseToolTurns } from './loopTurnLimits.js';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
 import { ImageContextService } from './services/ImageContextService';
@@ -94,8 +93,6 @@ import { recordChatResponseUsage as recordChatResponseUsageImpl } from './manage
 const logger = getLogger('chat:manager');
 
 import { SimpleMutex, feature } from '@openliri/kernel';
-// T2-8 / `✅-17`（2026-10-13）：编排域只读投影（形态 A）
-import { publishOrchestrationProjection } from '../state/engine/orchestrationProjection.js';
 import { resolveWorktreeHash } from '@modules/environment';
 // 多租户 P0 阶段 2：当前会话 id 按请求身份分桶（无请求作用域 ⇒ 本地身份单桶）
 import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
@@ -180,6 +177,10 @@ import { wireChatFacades, type FacadeWiringHost } from './manager/facadeWiring';
 import { asWiringHost } from './manager/wiringHostGuard';
 // issue #19 · Cut G（2026-10-29）：宿主清理外移（顺序/纪律不变）
 import { cleanupHost } from './manager/shutdown';
+// issue #19 · Cut H（2026-10-29）：计划步骤单步执行外移
+import { executeStepPrompt } from './manager/stepExecution';
+// issue #19 · Cut H（2026-10-29）：会话流中止判定外移（契约方法保留）
+import { abortSessionStream as abortSessionStreamImpl } from './manager/streamAbort';
 // issue #17 · D2 / D3（2026-10-29）：对话记忆抽取、按模型名选客户端外移
 import { extractMemoryFromChat as extractMemoryFromChatImpl } from './manager/memoryExtract';
 import { getClientForModel as getClientForModelImpl } from './manager/modelClient';
@@ -240,7 +241,7 @@ import {
   DEFAULT_STOP_HOOK_PRIORITIES,
 } from '@modules/query';
 import type { StopHookReason } from '@modules/query';
-import { TAORLoop, createSystemAbortReason } from '@modules/query';
+import { TAORLoop } from '@modules/query';
 import { createChatAgentLoop } from './createAgentLoop.js';
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
 import type { YieldRegistry, YieldWaitingStore } from '../session/yield';
@@ -266,8 +267,6 @@ import { ToolExecutionService } from './services/ToolExecutionService.js';
 import type { ToolExecutionDeps } from './services/ToolExecutionService.js';
 import { StreamPipeline } from './pipeline/StreamPipeline.js';
 import { LoopDetector } from '@modules/query';
-import { createChatManagerTAORDeps } from '@modules/query';
-import type { ChatManagerTAORContext } from '@modules/query';
 import { agentTelemetry } from '@modules/agent';
 import { ErrorHandler } from '@openliri/kernel';
 import { convergenceDetector } from './services/ConvergenceDetector.js';
@@ -408,30 +407,20 @@ export class ChatManagerImpl implements ChatManager {
 
   /**
    * S1: 中止指定会话的流式请求
-   * 用于 req.on('close') → 通知后端停止工具执行
+   * （issue #19 · Cut H：实现体已外移到 `manager/streamAbort.ts`，三条纪律逐字保留）
    */
   public abortSessionStream(sessionId: string): void {
-    // S4/BUG-7 修复（2026-08-23）：停止会话流时顺带中止该会话的活跃计划循环
-    // （方案 A：前端现有停止路径自动生效，无需透传 planId）
-    abortSessionPlans(sessionId);
-    const controller = this._sessionAbortControllers.get(sessionId);
-    if (controller) {
-      logger.info('req.on(close) 触发 — 中止会话流', { sessionId });
-      // 二期 O2-1（2026-09-24）：本路径由 **HTTP 连接关闭（页面刷新/断线/请求中止）** 触发，
-      // 属**系统侧**中止 —— 显式带 reason 声明来源，避免被记成"用户主动放弃"
-      //（并据此把 Goal 落成 `system_aborted` 而非 `user_aborted`）。
-      // ② 加固（2026-09-25，`.trae/specs/system-abort-reason-hardening.md`）：用**工厂**
-      // 传 Error 形态 reason（带真实栈）—— 该 reason 若在下游外泄，栈可定位遗漏的 catch；
-      // 每次新实例（禁止共享单例，否则栈全指向模块加载点）。
-      controller.abort(createSystemAbortReason());
-      // P2 修复（AB-2）：中止后立即清理条目，防止 isSessionStreaming() 恒 true
-      // （幽灵块永久误报）。正常路径由 _finalizeStreamMessage（L2342-2346）删除，
-      // 此处兜底幂等；若内层生成器被遗弃、_finalizeStreamMessage 永不执行，
-      // 旧条目也会在此清理。
-      if (this._sessionAbortControllers.get(sessionId) === controller) {
-        this._sessionAbortControllers.delete(sessionId);
-      }
-    }
+    abortSessionStreamImpl(
+      {
+        getAbortController: (sid) => this._sessionAbortControllers.get(sid),
+        deleteAbortControllerIfSame: (sid, controller) => {
+          if (this._sessionAbortControllers.get(sid) === controller) {
+            this._sessionAbortControllers.delete(sid);
+          }
+        },
+      },
+      sessionId
+    );
   }
 
   /**
@@ -1226,36 +1215,6 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * RC-E（08-09）：获取或创建 PlanDrivenLoop 实例（懒初始化）
-   * 仅在 ENABLE_PLAN_DRIVEN_LOOP 启用时调用
-   */
-  private _getOrCreatePlanDrivenLoop(
-    sessionId: string,
-    taorContext: ChatManagerTAORContext
-  ): PlanDrivenLoop {
-    // B3（2026-09-04）：per-session 缓存——原单例固化首会话 taorContext，
-    // 后续会话复用串扰（taorLoop 侧已按 sessionId Map，此处同源修复）
-    return this._planDrivenLoops.getOrCreate(sessionId, () => {
-      const taorLoop = this._getOrCreateTAORLoop(sessionId);
-      const deps = createChatManagerTAORDeps(taorContext);
-      return new PlanDrivenLoop({
-        taorLoop,
-        deps,
-        sessionId,
-        // B3（2026-09-04）：PDL 侧未注入 decomposerProvider，自动分解实际不可用——
-        // 显式关闭避免"enableAutoDecompose:true 静默无效"误读（分解走 PdcaLauncher 阶段链）
-        enableAutoDecompose: false,
-        onStepProgress: (progress) => {
-          logger.info('PlanDrivenLoop 进度', {
-            sessionId,
-            ...progress,
-          });
-        },
-      });
-    });
-  }
-
-  /**
    * A-7（2026-08-23）：触发该会话 T-D 对账（Phase D 对账服务消费）
    *
    * - 记录待对账会话到内存集合，Phase D 实现对账后从集合消费
@@ -1463,14 +1422,6 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 获取 HookChain 管理器
-   * @returns HookChain 管理器实例
-   */
-  public getHookChainManager(): HookChainManager {
-    return this.hookChainManager;
-  }
-
-  /**
    * A3 拆分：系统提示词组装已迁至 `ChatPromptAssembly.getOrAssembleSystemPrompt`（薄转发）。
    * 原 `resolvePromptClientForSystemPrompt` 仅被本方法调用 ⇒ 整体迁出；原静态常量
    * `PROMPT_ASSEMBLY_ROUTE` 随之迁出为该模块的模块级常量（`PROMPT_ASSEMBLY_ROUTE`）。
@@ -1638,37 +1589,6 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 触发 Council 辩论（异步，不阻塞主流程）
-   */
-  private async triggerCouncilDebate(
-    workspaceId: string,
-    topic: string,
-    context: string,
-    /** 发起辩论的聊天会话 ID（U-14 阶段 1.3：会话级挂起快照的关联键） */
-    ownerSessionId?: string
-  ): Promise<void> {
-    // T2-8 / `✅-17`（2026-10-13，形态 A）：编排**入口**只读上报 `PREPARED` —— **不**承载
-    // "断言/锁定"裁决（四原语严格无状态、只读，见 `state/engine/projectionBroker.ts` 头注）。
-    // 受 `STATE_PROJECTION_BROADCAST`（默认关）门控 ⇒ 关时零发布、零行为变更。
-    publishOrchestrationProjection({
-      primitive: 'PREPARED',
-      ...(ownerSessionId !== undefined
-        ? { sessionId: ownerSessionId }
-        : { orchestrationId: workspaceId }),
-    });
-    // A10（2026-10-06）：走单一构造点 —— 原 `new CouncilOrchestrator(getCouncilEngine())`
-    const { getCouncilOrchestrator } =
-      await import('@modules/workspace/CouncilOrchestrator');
-    await getCouncilOrchestrator().startCouncil(
-      workspaceId,
-      topic,
-      context,
-      undefined,
-      ownerSessionId !== undefined ? { ownerSessionId } : undefined
-    );
-  }
-
-  /**
    * D5-A（2026-09-25，`.trae/specs/memory-dedup-blocking-rootfix.md`）：会话 → 该会话
    * 「对话记忆」的 memoryId。用于**按会话聚合**（原实现每轮新建一条 ⇒ 库随轮数线性增长，
    * 本机实测已 576 条，全库去重成本 O(n²) 随之膨胀）。
@@ -1720,31 +1640,6 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 执行单步提示（委托给 sendMessage，统一路径，批次4.3）
-   * 不再维护独立的 LLM 调用 + 工具执行循环。
-   */
-  private async executeStepPrompt(
-    prompt: string,
-    session: ChatSession,
-    options?: SendMessageOptions
-  ): Promise<void> {
-    // 委托给 sendMessage，复用统一的 LLM 调用 + 工具循环（含 TAORLoop 支持）
-    // 计划步骤内通常不触发 ask_user_question 等交互工具，
-    // 若触发则 sendMessage 的 pendingInteraction 机制会保存状态并提前返回。
-    // 验证日志：确认内部调用标记 _fromInternal 已传入（埋点据此不计入 Buddy 用户对话轮数）
-    logger.info('executeStepPrompt 内部调用 sendMessage', {
-      sessionId: session.id,
-      _fromInternal: true,
-    });
-    await this.sendMessage(prompt, {
-      ...options,
-      sessionId: session.id,
-      _fromInternal: true, // 计划步骤为系统内部调用：不计入 Buddy 用户对话轮数
-      _fromInternalSource: 'executeStepPrompt',
-    });
-  }
-
-  /**
    * 执行所有计划步骤（委托给 TaskFacade）
    */
   private async executePlanSteps(
@@ -1753,7 +1648,13 @@ export class ChatManagerImpl implements ChatManager {
   ): Promise<void> {
     await this.taskFacade.executePlanSteps(
       session,
-      (prompt, sess, opts) => this.executeStepPrompt(prompt, sess, opts),
+      (prompt, sess, opts) =>
+        executeStepPrompt(
+          (content, o) => this.sendMessage(content, o),
+          prompt,
+          sess,
+          opts
+        ),
       options
     );
   }

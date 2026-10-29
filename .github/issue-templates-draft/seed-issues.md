@@ -130,7 +130,14 @@
   - 真机证据：`~/.pyapp/data/logs/app.log` 实测 1 info + 3 warn（`mode=none` / `failClosed=false` / `bashEnabled=false`），`/v1/sandbox/status` 返回 `runtimeIsolation=none`；新增 4 例单测，`tests/sandbox`+`tests/security` **422 pass**；`typecheck` 绿、`lint:arch` exit 0。
   - **未做（如实）**：默认值未改（需误伤评估）；设置页可视化未做（需给 `ISandboxPort` 加字段，建议另开单）。
   - 关单作业 `close-7.yml` 仅存于临时分支 `ci/close-7`（run `40841213007`），已删。
-  - 当前 issue 状态：**open 4 条**（#1 / #8 / #11 / #12），**closed 10 条**（#2–#7 / #9 / #10 / #13 / #15）。
+  - 当前 issue 状态（**#7 关闭时点**）：**open 4 条**（#1 / #8 / #11 / #12），**closed 10 条**（#2–#7 / #9 / #10 / #13 / #15）。
+- **S3（#11）已交付并关闭（2026-10-29，commit `b4d36074f`）**：
+  - `app/scripts/migrate-knowledge-domains.ts`：全局 `wiki/` · `index.md` · `log.md` · `.schema/` → `domains/default/`；**复制**到域目录后把原项**移动**到 `knowledge/legacy/<时间戳>/`（不删除，可回滚）；**默认 dry-run**，`--apply` 才落盘；**按项幂等**（目标已存在则跳过、不覆盖域内既有，重复 apply 为 0 变更且不新建 legacy）；`raw/` 保持不动。
+  - `app/tests/knowledge/migrateDomains.test.ts` 4 例（dry-run 零副作用 / apply 副本+legacy / 再 apply 0 变更 / 目标已存在则跳过）；`typecheck`（含 scripts tsconfig）绿、`lint:arch` exit 0。
+  - 真机**只跑 dry-run**（未 `--apply`）：待迁移 2 项（`index.md` / `log.md`）—— 真实数据迁移时机由使用者决定，本单交付的是可 dry-run 的幂等脚本。
+  - 偏差（如实）：issue 写「支持 `LIRI_HOME` / `PYAPP_HOME` 注入」；脚本只走 `LIRI_HOME`（`paths.ts` 唯一入口），`PYAPP_HOME` 为本仓已弃用别名，未单独支持。
+  - 当前 issue 状态：**open 3 条**（#1 / #8 / #12），**closed 11 条**（#2–#7 / #9–#11 / #13 / #15）。
+  - Phase A 六个子任务：**S1 / S2 / S3 / S5 / S6 已交付**；**S4（#12）等外部 PR #14**。
 
 
 

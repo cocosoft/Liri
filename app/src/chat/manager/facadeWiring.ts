@@ -74,6 +74,7 @@ import { ChatStreamFinalize } from './streamFinalize';
 import { ChatStreamResume } from './streamResume';
 import type { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import type { SessionLookupArgs, SessionLookupResult } from './eventLogStore';
+import { assertHostSurface, type AssertNever } from './wiringHostGuard';
 
 /** 工具执行的进度回调（`executeTool` 的 opts 形状） */
 interface ToolExecOpts {
@@ -235,9 +236,119 @@ export interface FacadeWiringHost {
 }
 
 /**
+ * 装配期**必须存在**的宿主成员（issue #16 契约守卫；`key in host` 逐条校验）。
+ *
+ * 只列**输入**：输出（本函数赋值）在装配前不存在，不能参与存在性检查。
+ */
+const FACADE_HOST_REQUIRED_KEYS = [
+  'sessionAccess',
+  '_chatSessions',
+  'messageService',
+  'toolRegistry',
+  'permissionManager',
+  'imageContextService',
+  'rollbackIntegrations',
+  'sessionGateway',
+  '_currentSessionId',
+  '_sessionLeaveTimes',
+  '_sessionMutexes',
+  '_sessionAbortControllers',
+  '_sessionExecutionIds',
+  '_pendingInteractions',
+  '_pendingPersistPromises',
+  '_toolCallSeqMap',
+  '_pdcaLaunchingSessions',
+  'compactService',
+  '_checkpointService',
+  'unifiedTracker',
+  'hookChainManager',
+  'ENABLE_ERROR_HANDLER',
+  'ENABLE_TELEMETRY',
+  'MAX_TOOL_TURNS',
+  '_loopDetector',
+  '_recovery',
+  '_getOrCreateTAORLoop',
+  '_buildTAORContext',
+  '_addAndPersistMessage',
+  '_submitToolApproval',
+  'getSessionWorkspacePath',
+  'getSessionWorkspaceId',
+  'isSessionWorkspaceStrict',
+  'getSessionApprovalMode',
+  '_isCommandApproved',
+  '_sessionLookup',
+  '_wireCodeRunnerDeps',
+  'createSession',
+  '_shouldUsePlanDrivenLoop',
+  '_shouldUseCodeMode',
+  'getStreamTailSeq',
+  'appendStreamEvent',
+  'persistSessionMetadata',
+  '_recentUserText',
+  '_lastAssistantText',
+  '_isLastAssistantOutputFallback',
+  '_waitForAbortSettled',
+  'getSessionMachine',
+  '_getOrCreateEventLog',
+  '_rebuildToolCallSeqMap',
+  '_requestReconcile',
+  'getStreamMaxTurn',
+  'getToolRound',
+  'hasTurnEnded',
+  'incToolRound',
+  '_persistTurnSummary',
+  '_escalateToPdcaViaBareSession',
+  '_autoCreateProject',
+  '_maybeLaunchPdca',
+  'flushPendingPersists',
+  'getLLMClient',
+  '_buildToolDefinitions',
+  '_recordToolsSnapshot',
+  'executeTool',
+  'recordChatResponseUsage',
+  'getToolRegistry',
+  '_buildToolRoundMessages',
+] as const;
+
+/** 构造期**尚未赋值**的成员（由宿主稍后注入；存在性检查会误报，故单列） */
+const FACADE_HOST_DEFERRED_KEYS = ['llmClient', 'toolIntegration'] as const;
+
+/** 本函数**赋值**的产物（装配前不存在，不参与存在性检查） */
+const FACADE_HOST_OUTPUT_KEYS = [
+  '_summarizer',
+  '_memoryManager',
+  '_pdcaLauncher',
+  '_toolExecutionService',
+  'sessionLifecycle',
+  'resumeCoordinator',
+  'contextCompactor',
+  '_pdcaLaunch',
+  '_streamSetup',
+  '_msgPersist',
+  '_streamFinalize',
+  '_streamResume',
+] as const;
+
+/**
+ * 编译期全量覆盖检查：`FacadeWiringHost` 的每个成员都必须落进上面三张表之一。
+ *
+ * 接口新增成员而键表漏登记 ⇒ 此处 `tsc` 报错（`Exclude` 结果不是 `never`）。
+ */
+export type FacadeHostKeysExhaustive = AssertNever<
+  Exclude<
+    keyof FacadeWiringHost,
+    | (typeof FACADE_HOST_REQUIRED_KEYS)[number]
+    | (typeof FACADE_HOST_DEFERRED_KEYS)[number]
+    | (typeof FACADE_HOST_OUTPUT_KEYS)[number]
+  >
+>;
+
+/**
  * 装配全部子门面（顺序敏感，见文件头注释）。
  */
 export function wireChatFacades(host: FacadeWiringHost): void {
+  // issue #16：装配前先校验宿主端口存在性（私有成员改名/删除 ⇒ 立即抛错并点名缺失键）
+  assertHostSurface(host, FACADE_HOST_REQUIRED_KEYS, 'wireChatFacades');
   // 第一阶段收敛：初始化提取的服务
   host._summarizer = new SessionSummarizer(host.llmClient);
   host._memoryManager = new SessionMemoryManager(

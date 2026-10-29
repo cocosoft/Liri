@@ -205,6 +205,8 @@ import {
 } from './manager/orchestratorHost';
 // issue #8 · Cut C（2026-10-29）：子门面/服务装配外移
 import { wireChatFacades, type FacadeWiringHost } from './manager/facadeWiring';
+// issue #16（2026-10-29）：装配宿主的**单点断言**（契约由各模块键表 + 存在性守卫兑现）
+import { asWiringHost } from './manager/wiringHostGuard';
 import type {
   ChatMessage,
   ParsedToolCall,
@@ -1111,16 +1113,14 @@ export class ChatManagerImpl implements ChatManager {
     this.stopHookManager = createStopHookManager();
     this._registerStopHooks();
 
-    // issue #8 · Cut C（2026-10-29）：子门面/服务装配已外移到 `manager/facadeWiring.ts`
-    // （装配顺序与迁移前逐条一致；类型断言点只有这一处）。
-    wireChatFacades(this as unknown as FacadeWiringHost);
+    // issue #8 · Cut C / #16：子门面装配外移（顺序不变）+ 宿主端口单点断言与契约守卫
+    wireChatFacades(asWiringHost<FacadeWiringHost>(this));
 
-    // 消息编排门面：注入 host 端口（sendMessage/streamMessage 编排委托）
-    // issue #8 · Cut C（2026-10-29）：`ChatOrchestrator` 宿主端口字面量已外移到
-    // `manager/orchestratorHost.ts`（逐条转发、无业务判定；类型断言点只有这一处）。
+    // 消息编排门面（issue #8 · Cut C）：宿主端口字面量外移到 `manager/orchestratorHost.ts`
+    // （逐条转发、无业务判定）；#16 起由 `asWiringHost` 单点断言 + 装配契约守卫兜底。
     this.chatOrchestrator = new ChatOrchestrator({
       host: createOrchestratorHost(
-        this as unknown as OrchestratorWiringHost,
+        asWiringHost<OrchestratorWiringHost>(this),
         (this.constructor as typeof ChatManagerImpl).SESSION_LOOKUP_TOOL
       ),
     });

@@ -59,6 +59,7 @@ import type { StreamPipeline } from '../pipeline/StreamPipeline.js';
 import type { StreamSetupResult } from './streamSetup';
 import type { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import type { ChatOrchestratorHost } from '../orchestrator/ChatOrchestratorHost.js';
+import { assertHostSurface, type AssertNever } from './wiringHostGuard';
 
 const logger = getLogger('chat:manager');
 
@@ -245,15 +246,104 @@ export interface OrchestratorWiringHost {
 }
 
 /**
+ * 装配期**必须存在**的宿主成员（issue #16 契约守卫；`key in host` 逐条校验）。
+ */
+const ORCHESTRATOR_HOST_REQUIRED_KEYS = [
+  '_chatSessions',
+  '_sessionMutexes',
+  '_sessionAbortControllers',
+  '_currentSessionId',
+  '_pendingInteractions',
+  '_executingPlan',
+  '_lastStreamBuildWindowed',
+  '_loopDetector',
+  'ENABLE_TELEMETRY',
+  'MAX_TOOL_TURNS',
+  'messageService',
+  'sessionLifecycle',
+  'hookChainManager',
+  'unifiedTracker',
+  'imageContextService',
+  '_checkpointService',
+  '_memoryManager',
+  '_summarizer',
+  '_pdcaLauncher',
+  'toolRegistry',
+  'getToolRound',
+  'incToolRound',
+  'getClientForModel',
+  '_buildToolDefinitions',
+  '_recordToolsSnapshot',
+  '_addAndPersistMessage',
+  'appendStreamEvent',
+  'readSessionEvents',
+  'listRecentSessionIds',
+  'updateMessageBlocks',
+  'bufferStreamTextChunk',
+  'flushStreamEventBuffer',
+  'getStreamTailSeq',
+  'getStreamMaxTurn',
+  'getSessionMachine',
+  'getOrAssembleSystemPrompt',
+  'extractFilePathsFromText',
+  'extractMemoryFromChat',
+  'recordChatResponseUsage',
+  '_sanitizeApiMessages',
+  '_truncateApiMessages',
+  '_persistTurnSummary',
+  'onLongTaskSignal',
+  'persistSessionMetadata',
+  'flushPendingPersists',
+  '_shouldUseTAORLoop',
+  '_getOrCreateTAORLoop',
+  'consumePendingResumeIntent',
+  '_buildTAORContext',
+  'executeTool',
+  'executeStepPrompt',
+  'executePlanSteps',
+  'triggerCouncilDebate',
+  '_sendMessageDowngradePath',
+  '_prepareStreamSession',
+  '_buildApiMessagesForStream',
+  '_createStreamPipeline',
+  '_finalizeStreamMessage',
+  '_startRollbackRound',
+  '_endRollbackRound',
+  '_buildToolRoundMessages',
+] as const;
+
+/** 构造期**尚未赋值 / 可选**的成员（存在性检查会误报，故单列） */
+const ORCHESTRATOR_HOST_DEFERRED_KEYS = ['llmClient', 'onTurnEnd'] as const;
+
+/**
+ * 编译期全量覆盖检查：`OrchestratorWiringHost` 的每个成员都必须落进上面两张表之一。
+ *
+ * 接口新增成员而键表漏登记 ⇒ 此处 `tsc` 报错（`Exclude` 结果不是 `never`）。
+ */
+export type OrchestratorHostKeysExhaustive = AssertNever<
+  Exclude<
+    keyof OrchestratorWiringHost,
+    | (typeof ORCHESTRATOR_HOST_REQUIRED_KEYS)[number]
+    | (typeof ORCHESTRATOR_HOST_DEFERRED_KEYS)[number]
+  >
+>;
+
+/**
  * 构建编排器宿主端口（逐条转发，不含业务判定）。
  *
- * @param host 宿主（`ChatManager` 实例；调用点单点断言为 {@link OrchestratorWiringHost}）
+ * @param host 宿主（`ChatManager` 实例；调用点经 `asWiringHost` 单点断言传入）
  * @param sessionLookupTool `session_lookup` 工具定义（宿主静态常量；仅在 `contextLayeringEnabled()` 时注入）
  */
 export function createOrchestratorHost(
   host: OrchestratorWiringHost,
   sessionLookupTool: ToolDefinition
 ): ChatOrchestratorHost {
+  // issue #16：构建前先校验宿主端口存在性（私有成员改名/删除 ⇒ 立即抛错并点名缺失键）
+  assertHostSurface(
+    host,
+    ORCHESTRATOR_HOST_REQUIRED_KEYS,
+    'createOrchestratorHost'
+  );
   return {
     chatSessions: host._chatSessions,
     sessionMutexes: host._sessionMutexes,

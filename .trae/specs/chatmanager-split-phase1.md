@@ -2,7 +2,7 @@
 
 > 对应 issue：[#8](https://github.com/cocosoft/Liri/issues/8)（替代已关闭的 #2）
 > 基线（2026-10-29 实测）：`app/src/chat/ChatManager.ts` **4840 行**、方法声明 **164** 个；`app/src/chat/manager/` 已有 **14** 个子模块（最大 `bootstrap.ts` 742 行）。
-> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）。
+> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**（未回升）。
 > 目标：第一阶段把「检查点（checkpoint）+ 预算（budget）」编排抽到 `app/src/chat/manager/`（`checkpointBudget.ts` + `budgetResume.ts`，单文件 ≤900 行），`ChatManager.ts` **≤4000 行**，行为不变。
 
 ## 一、实测现状（决定拆分粒度的事实）
@@ -80,6 +80,18 @@
   - ⚠️ **如实记录（风险面）**：`orchestratorHost.ts` / `facadeWiring.ts` 以「结构接口 + **调用点单点断言**」接收宿主**私有成员** ⇒ 私有成员改名**不会被编译器发现**，由 `tests/chat` 的构造/编排回归兜底；要彻底消除需把宿主端口改为公开接口（`ChatOrchestratorHost` 直连本类），属后续独立 issue。
   - 状态字面量棘轮：新文件命中的既有取值（`error` / `completed`）按规则在 `.trae/architecture/state-literal-baseline.json` **逐条补登**（未跑 `--update`，避免带入无关重排序噪声）。
 - **验收**：`wc -l src/chat/ChatManager.ts` **= 3972 ≤ 4000** ✅；新模块均 < 500 行；其余门禁同上（含全量 `bun test tests`：**8953 pass / 41 skip / 0 fail**）。
+
+### Cut D（issue #16）— 装配宿主端口的契约守卫（2026-10-29）
+
+- **动因**：Cut C 的两个模块（`orchestratorHost.ts` / `facadeWiring.ts`）端口值取自 `ChatManager` 的**私有成员**，只能用 `this as unknown as XHost` 单点断言 ⇒ 私有成员改名/删除时**编译器不报错**、运行时 `undefined`（静默失效）。
+- **落地**：
+  - 新增 `manager/wiringHostGuard.ts`：`asWiringHost`（**唯一**断言点，集中审计）+ `assertHostSurface`（装配入口按 `key in host` 逐条校验，缺失即**抛错并点名**）；
+  - 两模块各带三张键表（`FACADE_HOST_REQUIRED/DEFERRED/OUTPUT_KEYS`、`ORCHESTRATOR_HOST_REQUIRED/DEFERRED_KEYS`），并用 `AssertNever<Exclude<keyof XHost, …>>` 做**编译期全量覆盖检查**（接口加成员而键表漏登记 ⇒ `tsc` 报错）；
+  - 新增 `tests/chat/wiringHostGuard.test.ts`（5 例：缺失键抛错并点名 / 原型方法计入 / 未赋值键不误报 / 断言保持引用 / 真实构造 `ChatManagerImpl` 通过守卫）。
+- **负向验证（实测，已还原）**：把 `ChatManager._requestReconcile` 临时改名 ⇒ `bunx tsc --noEmit` **仍通过**（确证盲区），构造期抛出 `wireChatFacades: 宿主端口缺失 [_requestReconcile] —— 私有成员被改名/删除？（issue #16 装配契约守卫）`。
+- **实测门禁**：`ChatManager.ts` 仍 **3972 行**（未回升）；`tsc` 0 错；`lint:arch` / `lint:size` 0 错；`tests/chat` **735 pass / 0 fail**；全量 `bun test tests` **8958 pass / 41 skip / 0 fail**。
+- ⚠️ **未做（如实）**：断言本身仍存在（已收敛到 guard 一处）；要**彻底移除**需把约 70 个宿主成员改为公开端口，属可见性/封装面的独立决策，记录在 #17 的后续项。
+  - 另：初版两名模块共用常量名 `HOST_REQUIRED_KEYS` / `HOST_DEFERRED_KEYS` 触发「同名常量」门禁（`hardcodeGateBlocking` 全量回归变红）⇒ 已改为模块前缀命名。
 
 ## 三、统一验收命令（每刀都要跑）
 

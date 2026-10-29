@@ -311,3 +311,31 @@ git diff --stat                        # 抽走了哪些文件/多少行
 - 顺带清理 7 个失效导入（`resolveSessionWorkspacePath` / `resolveFastPathPolicy` / `isEligibleForFastPath` / `classifyTaskComplexity` / `hasDangerousToolIntent` / `coreFeature` / `getProjectSandboxPath`）。
 - 实测：**2900 → 2796（−104）**；自 4840 起累计 **−2044（−42.2%）**；`tests/chat` 738 pass；全量 **8961 pass / 41 skip / 0 fail**；四道门禁全绿（`lint:size` 529 警告未新增）。
 - **Cut H 判定为收敛完毕**：剩余 `recordChatResponseUsage`（18）需在 4 处装配点复现 deps 字面量（耦合反增）、`_ensureBudgetSuspendResumeInstalled`（15）仅剩标志位读写（外移收益 ≈ −5）⇒ 二者均**不做**。
+
+## 九、Cut F 消费者普查（2026-10-30，只读未改码）
+
+> 口径：扫描 `app/src/**` + `app/tests/**` 中提及 `ChatManager|chatManager|getChatManager` 的文件（排除 `ChatManager.ts`），按 `.<方法名>` 统计；`src` 列含 `chat/manager/**` 内部端口引用 ⇒ 为**上界**。另做了全仓（含 `client/`）复核。
+
+### A 类 — 零消费者（可删，17 项 ≈ −127 行实现 / −85 行接口）
+
+`checkCompactBoundary`(5) / `getCompactService`(3) / `loadSessions`(3) / `getMessageProcessingService`(3) / `getPerformanceOptimizationService`(3) / `getPermissionModeIntegrationService`(3) / `getSecurityService`(3) / `getSessionMetadataService`(3) / `getStreamService`(3) / `getToolExecutor`(3) / `setToolIntegration`(3) / `getQueryState`(6) / `streamQuery`(~40) / `query`(~40) / `setQueryEngineConfig`(6)。
+
+- **查询栈四项**（`query` / `streamQuery` / `getQueryState` / `setQueryEngineConfig`）全仓零调用：`QueryEngine` 构造时虽收 `this`，但只调 `sendMessage` / `executeTool` / `getSessions`（`QueryEngine.ts:863/1094/1257`）。
+- ⚠️ `query` / `streamQuery` 是**公开契约方法**，删除属破坏性变更（已确认零消费者）。
+- `getQueryEngine` **保留**（`ChatManager.ts:1020` 内部真实调用）。
+
+### B 类 — 1–2 个消费者（可收编，≈ −50 行）
+
+`loadSession`(1 `entrypoints/alwaysOnEntry.ts`) / `hasActiveStreams`(1 `entrypoints/init.ts`) / `getSubAgentManager`+`setSubAgentManager`(各 1 `entrypoints/repl.ts`) / `setLLMClient`(1 `runtime/api/llmChatOps.ts`) / `bootstrapRecovery`(1 `main.ts`) / `undoRoundsSince`(1 `runtime/api/messageMutation.ts`) / `searchMessages`(2) / `getToolIntegration`+`setToolExecutor`(各 2) / `getEventNotificationService`(2)。
+
+### C 类 — 保留（主链/跨层）
+
+`sendMessage`(61) / `streamMessage`(19) / `executeTool`(54) / `appendStreamEvent`(64) / `initialize`(53) / `getSessionGateway`(27) / `getSessions`(24) / `getStreamTailSeq`(21) / `createSession`(20) / `resumeSuspendedSession`(20) / `deleteSession`(19) / `getSessionManager`(18) / `ensureSessionsLoaded`(17) / `getCurrentSession`(16) / `compactSession`(14) 等。
+
+### 落地顺序（待确认）
+
+1. **F-a**：删 A 类 17 项（先全仓 grep 复核 → 接口与实现同删，破坏性但零消费者）；
+2. **F-b**：B 类逐项迁移调用点 → 再删；
+3. 复核 C 类中「引用高但实现 3 行」者（`getSessions` / `getSessionGateway` 等）是否经 `getSessionManager()` 收敛。
+
+> 量级结论（如实）：Cut F 合计约 **−180 ~ −220 行**（2796 ⇒ ~2580），**仍不足以单独达成 ≤1500**；要再往下必须在 F 之后评估「`ChatOrchestrator` 反向依赖注入」这类结构（编排层 11 个文件同步改）。

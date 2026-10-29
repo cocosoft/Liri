@@ -88,6 +88,11 @@ git diff --stat                        # 抽走了哪些文件/多少行
 ## 五、下一步
 
 1. ~~先做 Cut A~~（**已完成 `1017bb9fc`**：−54 行，四道门禁全绿）；
-2. **Cut B 的目标据实上调**：需从中移出 **≈400–500 行**（策略函数化 + 调用点收敛），完成后预计 ~4300，仍不达 4000；
-3. **Cut C** 负责剩余 ~300 行（字段/初始化归并）并**只在 Cut C 验收 ≤4000**；
-4. 每刀落地后把本文件的行数基线更新为当次实测值（禁止沿用旧数字）。
+2. **Cut B 目标物（2026-10-29 实测定位）**：流式主链路里的 checkpoint/budget **主体不是分散调用点，而是「预算挂起后的续跑」这一段** ——
+   - `resumeSuspendedSession`（doc 起 `2523`，方法体至 `_markBudgetResumed` 之前 ≈`2520–2710`，约 **190 行**）：按 `chain='taor'|'stream'` 分流、`getCheckpointsForSession`/`resumeFromCheckpoint`、`buildBudgetResumePrompt`、`_markBudgetResumed` 收尾；
+   - `_markBudgetResumed`（`2728` 起，约 **15 行**）：落「已从挂起点恢复」轻量检查点（`StreamingAutoCheckpoint.markResumed`）；
+   - 其余命中多为**调用点**（`2423` `tokenBudget.checkBudget()`、`2506` `_ensureBudgetSuspendResumeInstalled()`、`2826–2833` `assertEntryBudget`、`3046/3051` 记账），单行不改语义。
+   - **抽法**：`resumeSuspendedSession` + `_markBudgetResumed` 迁入 `checkpointBudget.ts`（或新 `budgetResume.ts`），依赖显式注入（`resumeCoordinator` / `getStreamingAutoCheckpoint` 工厂 / `sessionManager` 取会话 / TAOR 取用面）；ChatManager 保留同名 delegate。
+   - **实施前置**：先为该段补 2–3 个「分流决策」单测（taor vs stream 分支选择、无 checkpoints 时的行为），再替换调用点 —— 该段是崩溃恢复路径，**测试难以覆盖**（见 `code-deletion.md` CD07 对会话恢复模块的警示）。
+   - **预期**：−180 ~ −220 行 ⇒ `ChatManager` ≈ **4560–4600**，仍不达 4000；剩余由 Cut C 承担。
+3. 每刀落地后把本文件的行数基线更新为当次实测值（禁止沿用旧数字）。

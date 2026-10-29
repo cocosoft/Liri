@@ -195,5 +195,7 @@ git diff --stat                        # 抽走了哪些文件/多少行
 1. ~~先做 Cut A~~（**已完成 `1017bb9fc`**：−54 行，四道门禁全绿）；
 2. ~~Cut B~~（**已完成，2026-10-29**）：`resumeSuspendedSession`（taor/stream 分流）+ `resumeSuspendedStream` + `submitResumeManualConfirmations` + `markBudgetResumed` + `resolveReplayForcedTools` + `isSubstantiveResumeChunk` 迁入 `budgetResume.ts`（327 行，显式注入）；`ChatManager` **4786 → 4552**（**−234**）；先补 `budgetResume.test.ts`（5 例）再替换调用点；四道门禁全绿（730 pass）。详见 §二 Cut B 实测结果。
 3. ~~Cut C~~（**已完成，2026-10-29**，`2e33aa625` + 测试跟随 `3dbd0e483`）：构造期装配外移 4 个模块（`hostWiring` 119 / `orchestratorHost` 442 / `facadeWiring` 481 / `usageAccounting` 121）；`ChatManager` **4552 → 3972**（**−580**）✅ 达成 ≤4000；四道门禁全绿 + 全量测试 8952 pass。详见 §二 Cut C 实测结果。
-4. 后续（新 issue，非本阶段）：① 消除 `orchestratorHost`/`facadeWiring` 的宿主私有成员断言盲区（改公开端口）；② `ChatManager` 仍是全仓最大文件（3972 行，>500 阈值），继续按域拆分（streamMessage 主链路 / approval / TAOR 装配）。
-5. 每刀落地后把本文件的行数基线更新为当次实测值（禁止沿用旧数字）。
+4. ~~#16 装配契约守卫~~（**已完成 `e76db2b14`**）：`manager/wiringHostGuard.ts`（`asWiringHost` 单点断言 + `assertHostSurface` 存在性守卫 + 键表编译期全量覆盖）；负向验证：私有成员改名 ⇒ `tsc` 仍通过、装配期抛错点名缺失键。`ChatManager` 行数保持 3972（未回升）。
+5. ~~#17 按域拆分~~（**已完成并关单，`59ea947f8` / `ee5127951`**）：D1–D10 共 10 刀；本 issue 区间 **3972 → 3461**（−511），累计（自 4840）**−1379 / −28.5%**；全量 `bun test tests` **8961 pass / 41 skip / 0 fail**。未达成「≤1500」。
+6. **第二阶段已另开 [#18](https://github.com/cocosoft/Liri/issues/18)（≤1500 行）**：实测依据 —— 外移后**已无大块**（最大方法 `constructor` 57 行、`cleanup` 48、`_wireCodeRunnerDeps` 37，其余 ≤27）⇒ 后续靠「收敛薄委托（按 `code-deletion.md` CD01–CD06 先摘入口再删实现）」与「`ChatOrchestratorHost` 公开化（可能连带删除两个装配模块）」。
+7. 每刀落地后把本文件的行数基线更新为当次实测值（禁止沿用旧数字）。

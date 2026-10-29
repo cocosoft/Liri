@@ -750,7 +750,7 @@ export class ChatManagerImpl implements ChatManager {
    *
    * - `callModel === null` ⇒ 未配置 `verifier` 角色 ⇒ **不注入** TAOR 配置（行为零变化）；
    * - 惰性解析：`resolveRoleModel('verifier')` 是异步，而 `_getOrCreateTAORLoop` 同步 ——
-   *   故在 `sendMessage` 入口先 await `_ensureVerifierCallModel()` 再建实例。
+   *   故在 `sendMessage` 入口先 await `ensureVerifierCallModel(this._verifier)` 再建实例。
    */
   private readonly _verifier: VerifierModelState = {
     callModel: null,
@@ -855,7 +855,7 @@ export class ChatManagerImpl implements ChatManager {
     getImageContextService: () => this.imageContextService,
     getSessionAccess: () => this.sessionAccess,
     recordModelInputSnapshot: (sid, input) =>
-      this._recordModelInputSnapshot(sid, input),
+      this._requestPrep.recordModelInputSnapshot(sid, input),
     getClientForModel: (model?: string) => this.getClientForModel(model),
     getLlmClient: () => this.llmClient,
   });
@@ -1858,7 +1858,7 @@ export class ChatManagerImpl implements ChatManager {
     this._ensureBudgetSuspendResumeInstalled();
     // G-3：解析 verifier 角色模型（幂等；未配置 ⇒ 不注入，行为零变化）。
     // 必须在 `chatOrchestrator.sendMessage` 创建/复用 TAORLoop **之前**完成。
-    await this._ensureVerifierCallModel();
+    await ensureVerifierCallModel(this._verifier);
     // G-T3-1 / Important-1（Fix round 2）：进入**普通轮**前无条件清空该会话的残留续跑意图。
     // `resumeSuspendedSession` 的 taor 分支只在委托执行**前**登记意图，而消费点在 TAOR 分支
     // **内部**（`ChatOrchestrator` 的 `tool_calls` + `shouldUseTAORLoop` 两层）⇒ 若续跑轮未进入
@@ -2257,7 +2257,10 @@ export class ChatManagerImpl implements ChatManager {
     const resolved = resolveSessionWorkspacePath({
       metadata,
       getProjectSandboxPath: (projectId) =>
-        this._getProjectSandboxPath(projectId),
+        getProjectSandboxPath(
+          { cacheRef: this._projectSandboxStoreRef },
+          projectId
+        ),
     });
     // 由 projectId 派生（而非客户端显式传入）时回写元数据：本进程内后续读取与
     // 会话落盘/列表接口都拿到同一值；已有绝对 workspacePath 时不覆盖。
@@ -2806,7 +2809,7 @@ export class ChatManagerImpl implements ChatManager {
     // D2（2026-09-22）：切换即"用户意图转移" ⇒ 释放**非当前会话**的事件快照常驻内存
     // （先 flush 各会话的缓冲正文再释放，见 `_releaseEventLogMemory`）。
     // 放在委托之前：切换后若原会话仍有后台追加，其写入路径不依赖快照（会回落磁盘路径）。
-    await this._releaseInactiveEventLogSnapshots(sessionId);
+    await this._eventLogStore.releaseInactiveEventLogSnapshots(sessionId);
     return this.sessionLifecycle.switchSession(sessionId);
   }
 
@@ -2892,7 +2895,7 @@ export class ChatManagerImpl implements ChatManager {
    */
   getSessionManager(): any {
     return createSessionManagerFacade({
-      getLocalSession: (id) => this._getLocalSession(id),
+      getLocalSession: (id) => getLocalSession(this._chatSessions, id),
       currentSessionIdRef: {
         get: () => this._currentSessionId,
         set: (id) => {

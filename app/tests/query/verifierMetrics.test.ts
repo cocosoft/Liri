@@ -149,8 +149,8 @@ describe('G-3 主对话接线守卫', () => {
     const impl = read('src/chat/manager/verifierModel.ts');
     // ① 角色解析
     expect(impl).toContain("resolveRoleModel('verifier')");
-    // ② 入口 await（在建 TAOR 实例之前）
-    expect(src).toContain('await this._ensureVerifierCallModel()');
+    // ② 入口 await（在建 TAOR 实例之前；#18 薄委托收敛后入口直连模块函数）
+    expect(src).toContain('await ensureVerifierCallModel(this._verifier)');
     // ③ 条件注入：未配置 ⇒ 不出现 `verifierModel` 键
     expect(src).toContain('...(this._verifier.callModel');
     expect(src).toContain('{ verifierModel: this._verifier.callModel }');

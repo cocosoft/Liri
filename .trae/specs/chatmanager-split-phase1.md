@@ -2,7 +2,7 @@
 
 > 对应 issue：[#8](https://github.com/cocosoft/Liri/issues/8)（替代已关闭的 #2）
 > 基线（2026-10-29 实测）：`app/src/chat/ChatManager.ts` **4840 行**、方法声明 **164** 个；`app/src/chat/manager/` 已有 **14** 个子模块（最大 `bootstrap.ts` 742 行）。
-> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**；Cut D1（#17 第一刀）后 **3898 行**；Cut D2/D3 后 **3807 行**；Cut D4/D5 后 **3738 行**；Cut D6/D7 后 **3666 行**；Cut D8（工具审批外移）后 **3526 行**。
+> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**；Cut D1（#17 第一刀）后 **3898 行**；Cut D2/D3 后 **3807 行**；Cut D4/D5 后 **3738 行**；Cut D6/D7 后 **3666 行**；Cut D8（工具审批外移）后 **3518 行**；Cut D9/D10 后 **3461 行**。
 > 目标：第一阶段把「检查点（checkpoint）+ 预算（budget）」编排抽到 `app/src/chat/manager/`（`checkpointBudget.ts` + `budgetResume.ts`，单文件 ≤900 行），`ChatManager.ts` **≤4000 行**，行为不变。
 
 ## 一、实测现状（决定拆分粒度的事实）
@@ -151,11 +151,22 @@
   - 新增 `tests/chat/toolApproval.test.ts`（3 例，纯函数、无 mock）：命令类无 command、有 command 无 session、非命令类无 session 三条**短路分支**；
   - 仓库无 `mock.module` 先例，故未引入模块级 stub（避免进程级污染）。
 - **既有源码级守卫随实现迁移**：`tests/gates/approvalFourStageGate.test.ts` 的 ①② 扫描面由 `ChatManager.ts` 改为 `manager/toolApproval.ts`（**断言强度不变**）。
-- **实测**：`ChatManager.ts` **3666 → 3526**（**−140**）；清掉 1 个失效导入（`isShellToolName`）。
+- **实测**：`ChatManager.ts` **3666 → 3518**（**−148**，提交后 `git show` 实测；提交钩子的格式化又压缩了 8 行）；清掉 1 个失效导入（`isShellToolName`）。
 - **门禁**：`tsc` 0 错；`lint:arch` / `lint:size` 0 错；`lint:state-ratchet` 维持；`bun test tests/chat tests/permission tests/gates` 全绿；全量 `bun test tests` **8961 pass / 41 skip / 0 fail**。
 - **#17 剩余项（如实评估：不建议继续搬）**：
   - `_buildTAORContext`（36 行）与 `_createStreamPipeline`（35 行）的**方法体本身就是端口字面量**（20+ 个 `() => this.x(...)` 转发），搬到模块只会把同一份字面量挪位置（净收益 ≈ 0 或为负，且多一层跳转）——与 Cut A 对「一行委托门面」的判定一致；
   - 若确实要减，只能改为「宿主整体传入 + 断言」（即 #16 否决过的方向），或等后续把 `ChatOrchestrator` 的端口改为公开接口后再评估。
+
+### Cut D9 / D10（issue #17 第九、十刀）— TAOR 上下文 / 流式管线端口装配（2026-10-29）
+
+- **D9 · `manager/taorContextWiring.ts`**：`_buildTAORContext`（原 38 行 ⇒ **6 行 delegate**）。
+  - 端口字面量迁入模块；宿主以 `asWiringHost` 单点断言 + `assertHostSurface` 守卫（键表 10 项，`AssertNever` 编译期全量覆盖）。
+- **D10 · `manager/streamPipelineFactory.ts`**：`_createStreamPipeline`（原 39 行 ⇒ **6 行 delegate**）。
+  - 键表 9 项；`llmClient` 列入 **deferred**（由 `setLLMClient` 稍后注入，避免装配期误报）。
+- **实测**：`ChatManager.ts` **3518 → 3461**（**−57**）；清掉 2 个失效导入（`buildTAORContext` / `PipelineContext`）。
+- **如实说明**：这两处方法体**本身就是端口字面量**，搬走**不减少总代码量**（同一份字面量换了文件），收益是 `ChatManager` 更薄 + 契约守卫覆盖；净减 −57 主要来自删除的 import 与折叠后的签名。
+- **门禁**：`tsc` 0 错；`lint:arch` / `lint:size` 0 错；`lint:state-ratchet` 维持；`bun test tests/chat tests/gates` **985 pass**；全量 `bun test tests` **8961 pass / 41 skip / 0 fail**。
+- **#17 清单至此全部处理完**（含「`_buildTAORContext` / `_createStreamPipeline` 原本评估为不建议搬」的结论——本次按用户要求执行，并如实记录收益来源）。
 
 ## 三、统一验收命令（每刀都要跑）
 

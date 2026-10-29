@@ -94,8 +94,6 @@ import { ChatMessagePersistence } from './manager/messagePersistence';
 import { ChatStreamFinalize } from './manager/streamFinalize';
 // U-22/S4：断点续跑外移（`resumeStream` 的实现，见 `manager/streamResume.ts`）
 import { ChatStreamResume } from './manager/streamResume';
-// U-22/S5（2026-10-17）：非流式 TAORLoop 依赖装配外移（行为等价搬迁）
-import { buildTAORContext } from './manager/taorContext';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
 // issue #8 · Cut C（2026-10-29）：用量记账（R16 日预算结算 / 债四金额台账 / `metric/timing`）
 // 已外移到 `manager/usageAccounting.ts`；本类保留同名 thin delegate。
@@ -212,6 +210,9 @@ import {
 } from './manager/verifierModel';
 // issue #17 · D8（2026-10-29）：工具审批（放行缓存查询 + 审批卡片提交）外移
 import { isCommandApproved, submitToolApproval } from './manager/toolApproval';
+// issue #17 · D9 / D10（2026-10-29）：TAOR 上下文与流式管线工厂的端口装配外移
+import { buildTAORContextFor } from './manager/taorContextWiring';
+import { createStreamPipelineFor } from './manager/streamPipelineFactory';
 import type {
   ParsedToolCall,
   ToolDefinition,
@@ -290,7 +291,6 @@ import { withToolTimeout } from './services/ToolTimeoutWrapper.js';
 import { ToolExecutionService } from './services/ToolExecutionService.js';
 import type { ToolExecutionDeps } from './services/ToolExecutionService.js';
 import { StreamPipeline } from './pipeline/StreamPipeline.js';
-import type { PipelineContext } from './pipeline/StreamPipeline.js';
 import { LoopDetector } from '@modules/query';
 import { createChatManagerTAORDeps } from '@modules/query';
 import type { ChatManagerTAORContext } from '@modules/query';
@@ -1339,43 +1339,14 @@ export class ChatManagerImpl implements ChatManager {
       });
     });
   } /**
-   * 构建 TAORLoopDeps 上下文（U-22/S5 外移；实现在 `manager/taorContext.ts`）。
+   * 构建 TAORLoopDeps 上下文（issue #17 · D9：端口装配已外移到 `manager/taorContextWiring.ts`）。
    */
   private _buildTAORContext(
     sessionId: string,
     toolDefinitions: ToolDefinition[],
     options?: SendMessageOptions
   ): ChatManagerTAORContext {
-    return buildTAORContext(sessionId, toolDefinitions, options, {
-      // 2026-10-23（`/effort` 第二步）：会话元数据 → 本轮 thinking（同步只读，含归属校验）
-      getSessionMetadata: (id) => this.sessionLifecycle.getSessionMetadata(id),
-      getToolInteraction: (name) => {
-        const tool = this.toolRegistry?.getTool(name);
-        if (!tool) return undefined;
-        return {
-          requiresUserInteraction: () =>
-            typeof (tool as { requiresUserInteraction?: () => boolean })
-              .requiresUserInteraction === 'function'
-              ? (
-                  tool as { requiresUserInteraction: () => boolean }
-                ).requiresUserInteraction()
-              : false,
-        };
-      },
-      pendingInteractions: this._pendingInteractions,
-      getClientForModel: (model) => this.getClientForModel(model),
-      executeTool: (toolCall, opts) => this.executeTool(toolCall, opts),
-      createToolResultMessage: (toolResult, opts) =>
-        this.messageService.createToolResultMessage(toolResult, opts),
-      createAssistantMessage: (content, opts) =>
-        this.messageService.createAssistantMessage(content, opts),
-      addAndPersistMessage: (sid, message) => {
-        this._addAndPersistMessage(sid, message);
-      },
-      appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
-      getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
-      flushPendingPersists: () => this.flushPendingPersists(),
-    });
+    return buildTAORContextFor(this, sessionId, toolDefinitions, options);
   } /** U-22/S3 外移：消息持久化主入口（实现在 `manager/messagePersistence.ts`） */
   private async _addAndPersistMessage(
     sessionId: string,
@@ -2232,42 +2203,14 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * P2（08-09）：创建 StreamPipeline 实例
    *
-   * 从 ChatManager 注入所有外部依赖到管线上下文。
+   * issue #17 · D10：端口装配已外移到 `manager/streamPipelineFactory.ts`。
    */
   private _createStreamPipeline(
     session: ChatSession,
     content: string,
     options?: StreamMessageOptions
   ): StreamPipeline {
-    const activeClient = this.getClientForModel(options?.model);
-    const ctx: PipelineContext = {
-      content,
-      session,
-      options,
-      imageContextService: this.imageContextService,
-      llmClient: this.llmClient as PipelineContext['llmClient'],
-      activeClient: activeClient as PipelineContext['activeClient'],
-      unifiedTracker: this.unifiedTracker as PipelineContext['unifiedTracker'],
-      hookChainManager: this
-        .hookChainManager as unknown as PipelineContext['hookChainManager'],
-      extractFilePathsFromText: this.extractFilePathsFromText.bind(this),
-      addAndPersistMessage: (sid, msg) => this._addAndPersistMessage(sid, msg),
-      recordChatResponseUsage: (sid, usage, requestId, model) =>
-        this.recordChatResponseUsage(
-          sid,
-          usage as Record<string, number>,
-          requestId,
-          model
-        ),
-      extractMemoryFromChat: (userMsg, aiMsg, sid) =>
-        this.extractMemoryFromChat(userMsg, aiMsg, sid),
-      messageService: this.messageService as PipelineContext['messageService'],
-      apiMessages: [],
-      toolDefinitions: [],
-      accumulatedContent: '',
-      finalResponse: null,
-    };
-    return new StreamPipeline(ctx);
+    return createStreamPipelineFor(this, session, content, options);
   } /**
    * P2-3.5: 流式消息最终化 — 清理资源 + 持久化 + 构建返回消息
    *

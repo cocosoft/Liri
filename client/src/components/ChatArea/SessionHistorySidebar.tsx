@@ -8,7 +8,10 @@ import { useRootStore } from "../../stores/root-store";
 import { sessionService } from "../../services/sessionService";
 import { getOTelTracing } from "../../monitoring/otel/OTelTracing";
 import { handleClientError } from "../../utils/handleError";
-import { resolveSessionWorkspaceId } from "@/stores/selectors";
+import {
+  resolveSessionWorkspaceId,
+  sessionBelongsToProject,
+} from "@/stores/selectors";
 import { createLogger } from "@/utils/logger";
 import { inferModuleTypeFromWorkspaceId } from "@/stores/root-store/moduleContextSlice";
 
@@ -387,13 +390,14 @@ function SessionHistorySidebar({
         hub?.moduleType ?? inferModuleTypeFromWorkspaceId(s.workspaceId ?? "");
       // N-62 V2（2026-09-20）：**只用会话自身的值**（不再取 Hub 覆盖）—— 与项目页卡片
       // 同源（`chatSessions`）同判据，保证"项目页卡片数 = 项目页侧栏条数"。
-      // （Hub 记录的陈旧值/空串属数据侧问题，见 N-63）
-      const workspaceId = resolveSessionWorkspaceId(s.workspaceId);
+      // （Hub 记录的陈旧值/空串属数据侧问题，见 N-63；该口径现收敛进 `sessionBelongsToProject`）
 
-      // 项目作用域：workspaceId 是会话归属的权威信号
-      // （兼容 metadata.projectId / moduleType 缺失的历史会话）
+      // 项目作用域：**与项目页卡片同判据**（`projectId` 优先、`workspaceId` 兜底）。
+      // F-24（2026-10-29）：此前只比 `workspaceId`，而后端创建的会话 `workspaceId` 常为空、
+      // 归属只在 `metadata.projectId` ⇒ 真机 `proj_1793116653351_d0760e`（侧栏「暂无会话」、
+      // 主区已渲染 311 条消息的会话）出现在侧栏 0 条 / 卡片 1 条的矛盾。
       if (effectiveModuleType === "project" && effectiveProjectId) {
-        return workspaceId === effectiveProjectId;
+        return sessionBelongsToProject(s, effectiveProjectId);
       }
 
       if (moduleType !== effectiveModuleType) return false;

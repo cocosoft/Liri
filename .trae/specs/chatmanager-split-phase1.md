@@ -340,10 +340,21 @@ git diff --stat                        # 抽走了哪些文件/多少行
 - **门禁**：`tsc` 0 错误；pre-commit（`lint:arch` / `lint-fix-evidence` / workflows / 4 个棘轮 / ESLint / `modules:validate`）全通过；`lint:size` 0 错误 529 警告（未新增）；`bun test tests/chat` **738 pass**；全量 **8961 pass / 41 skip / 0 fail**（与基线逐项一致 ⇒ 无测试因删除失效）。
 - **未动（待用户决策）**：查询栈四项 `query` / `streamQuery`（各 ~40 行实现）/ `getQueryState` / `setQueryEngineConfig` —— 均属 `ChatManagerInterface` 公开契约、全仓零调用，删除为**破坏性变更**，保留待明确授权。
 
+### F-b 判定：**不可做**（2026-10-30，实测）
+
+- **结论**：B 类 11 项无法按「迁移调用点 → 删方法」收编，收益为负。
+- **依据（逐项核对实现 + 调用点）**：
+  - **字段访问器**（`setLLMClient:2268` / `getToolIntegration:2260` / `setToolExecutor:2308` / `set-getSubAgentManager:2316/2324` / `hasActiveStreams:386`）读写的都是 `ChatManager` **私有字段**（`repl.ts:136` / `:838`、`llmChatOps.ts`、`chat-handlers.ts:76`、`init.ts:514` 只持有接口）⇒ 删方法只能靠**暴露字段**（耦合反增）。
+  - **子模块委托**（`loadSession:2167`→`sessionLifecycle`、`searchMessages:2175`→`sessionLifecycle`、`bootstrapRecovery:1902`→`_recovery`、`undoRoundsSince:1982`→`_rollback`）调用方拿不到这些子模块实例（均在构造期内部创建，无访问器）⇒ 删方法需新增访问器，等于换名不换量。
+  - `getEventNotificationService:2332` 是**跨层缝**（`infrastructure` 不得 import `chat` 域），注释已写明（`chat-handlers.ts:70-76`）⇒ 保留。
+- **实测组成（2706 行，`method_spans2.ts` / `thin_delegates.ts`）**：imports+头 **305**；类字段区 L327–L897 **571**；构造函数 **58**（`898-955`，全文件最大方法）；其余 **115** 个方法共 1751 行，其中 **67 个 ≤6 行**（合计约 280 行）。
+- **对 ≤1500 的含义（如实）**：文件已是「多小方法」形态（最大方法仅 58 行），**继续删方法只能删契约/字段访问器**；要再降 1200 行必须**搬走状态所有权**（571 行字段区 + 构造期装配），即 Cut E 同向的结构性改造（上次实测该方向会让接口侧 +150）。
+
 ### 落地顺序（待确认）
 
-1. **F-a**：删 A 类 17 项（先全仓 grep 复核 → 接口与实现同删，破坏性但零消费者）；
-2. **F-b**：B 类逐项迁移调用点 → 再删；
-3. 复核 C 类中「引用高但实现 3 行」者（`getSessions` / `getSessionGateway` 等）是否经 `getSessionManager()` 收敛。
+1. ~~**F-b**：B 类逐项迁移调用点 → 再删~~ ⇒ **实测不可做**（见上节）；
+2. **F-a-2**（可选，破坏性契约）：查询栈四项 `query` / `streamQuery` / `getQueryState` / `setQueryEngineConfig`，估 −92；
+3. 复核 C 类中「引用高但实现 3 行」者（`getSessions` / `getSessionGateway`）—— 实测引用 24/27 处，**不可删**，仅可考虑经 `getSessionManager()` 收敛（需要新增访问器，收益≈0）；
+4. 若仍要逼近 ≤1500：唯一剩余方向是**状态所有权搬迁**（571 行字段区 + 构造期装配），须单独立项评估。
 
 > 量级结论（如实）：Cut F 合计约 **−180 ~ −220 行**（2796 ⇒ ~2580），**仍不足以单独达成 ≤1500**；要再往下必须在 F 之后评估「`ChatOrchestrator` 反向依赖注入」这类结构（编排层 11 个文件同步改）。

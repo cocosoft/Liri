@@ -521,7 +521,14 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   return (
     <div className="flex-1 relative bg-gray-50 dark:bg-gray-900 flex flex-col min-h-0">
       {/* X11：会话级目标条（顶栏下方、消息区上方；无 sessionId 时不渲染） */}
-      {currentSid && <GoalBar sessionId={currentSid} />}
+      {/* 矮视口折叠（2026-10-29 巡检 P2 收尾，用户裁定）：569 高时目标条占 41px，
+          与输入区叠加后消息区只剩 181px。这里只折叠**目标条展示**（目标数据仍可经
+          `/goal` 查看），换取消息区约 222px；正常高度下不受影响。 */}
+      {currentSid && (
+        <div className="[@media(max-height:700px)]:hidden">
+          <GoalBar sessionId={currentSid} />
+        </div>
+      )}
       <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto">
         <div ref={contentRef}>
           {/* 错误提示（1.10-4：删除文档流重复渲染，保留底部绝对定位浮层版本，始终可见） */}

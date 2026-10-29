@@ -63,3 +63,21 @@
 **任务**：整理一张表：后端 / 触发降级的条件 / 降级后的行为 / 是否 fail-closed / 源码位置。
 **验收**：表格入文档（`app/docs` 或 `dev_docs`）；每个后端至少一条源码链接；发现 fail-open 的地方单独开 issue。
 **参考**：`app/src/sandbox`、`app/src/security`
+
+---
+
+## 建单后核对（2026-10-29，已建 #1–#6）
+
+> 草稿开头要求「建单前再核一次数字」，实际是建单后才逐条核对。以下为仓库当时实测值，供后续编辑 issue 时取用（本机无写权限 token，未直接改 issue 正文）。
+
+| # | 草稿中的前提 | 实测 | 结论 |
+|---|---|---|---|
+| 1 | Phase A 未实施 | `app/src/knowledge/domains/` 不存在；仓内 `.domain.yaml` 计数 **0**；`dev_docs/domain-first-plan.md` 存在（127 行） | ✅ 前提成立 |
+| 2 | `ChatManager` 7036 行 | `app/src/chat/ChatManager.ts` = **4532 行**（`app/src/chat/**` 合计 44140 行） | ⚠️ 数字过期，建议改为 4532 并注明统计时间 |
+| 3 | `handlers/` 测试覆盖为 0 | 该目录 **112** 个 `.ts`；`app/tests/http/` 下 **48** 个测试文件，含 `auto-reply-handlers` / `checkpoint-handlers` / `daily-budget-handlers` / `state-all.contract` 等直测 handler 的用例 | ❌ 前提不成立（应改为「覆盖仍不均衡」，或关闭） |
+| 4 | CI 覆盖率门槛尚未建立 | `ci.yml:193` 已有 `Check coverage threshold (at least 18%)` → `bun run scripts/check-coverage-threshold.ts 18` | ❌ 前提不成立（门槛已存在；可改为「棘轮化/提升到只拦下降」） |
+| 5 | 37 条危险命令规则 | `app/src/security/patterns/dangerousCommands.ts`：`DELETION 7 + FORMAT 3 + PRIVILEGE 4 + SYSTEM 3 + INJECTION 3 + COMPOSITE 7 + DANGEROUS_COMMAND_PATTERNS 10` = **37** | ✅ 属实 |
+| 6 | 6 种沙箱后端 | `app/src/sandbox/` 下为 `darwin`（seatbelt）/ `landlock` / `win`（job object）/ `docker`，另有 `adapters` 的 Local / Docker / SSH | ⚠️ 计数口径依赖怎么定义「后端」，建议 issue 内直接列出 6 个名字 |
+
+处置建议：#2 更新行数；#3、#4 改写前提或直接关闭（原目标已被满足）；#6 补明确清单后即可认领。
+

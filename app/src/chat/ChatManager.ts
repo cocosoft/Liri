@@ -205,11 +205,7 @@ import type {
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
 import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
-import {
-  QueryEngine,
-  createQueryEngine,
-  type QueryEngineConfig,
-} from '@modules/query';
+import { QueryEngine, createQueryEngine } from '@modules/query';
 import {
   TokenBudgetController,
   TokenBudgetStatus,
@@ -503,11 +499,6 @@ export class ChatManagerImpl implements ChatManager {
    * 查询引擎
    */
   private queryEngine: QueryEngine | undefined;
-
-  /**
-   * 查询引擎配置
-   */
-  private queryEngineConfig: QueryEngineConfig | undefined;
 
   /**
    * Token 预算管理器（仅累计，不做循环控制——循环控制由 Phase 2 的 StopHookManager 负责）
@@ -2339,168 +2330,9 @@ export class ChatManagerImpl implements ChatManager {
    */
   getQueryEngine(): QueryEngine {
     if (!this.queryEngine) {
-      this.queryEngine = createQueryEngine(this, this.queryEngineConfig);
+      this.queryEngine = createQueryEngine(this);
     }
     return this.queryEngine;
-  }
-
-  /**
-   * 设置查询引擎配置
-   * @param config 查询引擎配置
-   */
-  setQueryEngineConfig(config: QueryEngineConfig): void {
-    this.queryEngineConfig = config;
-    if (this.queryEngine) {
-      this.queryEngine = createQueryEngine(this, config);
-    }
-  }
-
-  /**
-   * 使用查询引擎处理消息
-   * @param content 消息内容
-   * @param options 选项
-   * @returns 异步生成器，产生消息块
-   */
-  async *query(
-    content: string,
-    options?: {
-      sessionId?: string;
-      maxTurns?: number;
-      maxBudgetUsd?: number;
-    }
-  ): AsyncGenerator<string, unknown, unknown> {
-    const queryEngine = this.getQueryEngine();
-
-    // 构建配置
-    const config: QueryEngineConfig = {
-      maxTurns: options?.maxTurns || this.queryEngineConfig?.maxTurns,
-      maxBudgetUsd:
-        options?.maxBudgetUsd || this.queryEngineConfig?.maxBudgetUsd,
-    };
-
-    // 更新配置
-    this.setQueryEngineConfig(config);
-
-    // 创建或获取会话
-    const sessionId =
-      options?.sessionId ||
-      (await this.createSession({ title: 'Query Session' })).id;
-
-    // 使用QueryEngine处理消息
-    const messages = queryEngine.submitMessage(content, { sessionId });
-
-    for await (const message of messages) {
-      if (message.type === 'text' && message.content) {
-        yield message.content;
-      } else if (message.type === 'tool_use' && message.toolUse) {
-        yield `[工具调用: ${message.toolUse.name}]`;
-      } else if (message.type === 'tool_result' && message.toolResult) {
-        yield `[工具结果: ${message.toolResult.content}]`;
-      } else if (message.type === 'error') {
-        throw new AppError(
-          message.error || '查询错误',
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          '1000'
-        );
-      }
-    }
-
-    return undefined;
-  }
-
-  /**
-   * 获取查询状态
-   * @returns 查询状态
-   */
-  getQueryState(): string {
-    if (!this.queryEngine) {
-      return 'idle';
-    }
-    return this.queryEngine.getQueryState();
-  }
-
-  /**
-   * 使用查询引擎进行流式查询
-   * @param content 消息内容
-   * @param options 选项
-   * @returns 异步生成器，产生流式消息块
-   */
-  async *streamQuery(
-    content: string,
-    options?: {
-      sessionId?: string;
-      maxTurns?: number;
-      maxBudgetUsd?: number;
-      onChunk?: (chunk: string) => void;
-      onComplete?: (result: unknown) => void;
-    }
-  ): AsyncGenerator<string, unknown, unknown> {
-    const queryEngine = this.getQueryEngine();
-
-    // 构建配置
-    const config: QueryEngineConfig = {
-      maxTurns: options?.maxTurns || this.queryEngineConfig?.maxTurns,
-      maxBudgetUsd:
-        options?.maxBudgetUsd || this.queryEngineConfig?.maxBudgetUsd,
-    };
-
-    // 更新配置
-    this.setQueryEngineConfig(config);
-
-    // 创建或获取会话
-    const sessionId =
-      options?.sessionId ||
-      (await this.createSession({ title: 'Stream Query Session' })).id;
-
-    // 使用QueryEngine处理消息
-    const messages = queryEngine.submitMessage(content, { sessionId });
-
-    let accumulatedResult: unknown[] = [];
-
-    for await (const message of messages) {
-      if (message.type === 'text' && message.content) {
-        // 流式输出文本内容
-        for (let i = 0; i < message.content.length; i += 10) {
-          const chunk = message.content.slice(
-            i,
-            Math.min(i + 10, message.content.length)
-          );
-          options?.onChunk?.(chunk);
-          yield chunk;
-        }
-        accumulatedResult.push({ type: 'text', content: message.content });
-      } else if (message.type === 'tool_use' && message.toolUse) {
-        const toolInfo = `[工具调用: ${message.toolUse.name}]`;
-        options?.onChunk?.(toolInfo);
-        yield toolInfo;
-        accumulatedResult.push({ type: 'tool_use', toolUse: message.toolUse });
-      } else if (message.type === 'tool_result' && message.toolResult) {
-        const resultContent = `[工具结果: ${message.toolResult.content}]`;
-        options?.onChunk?.(resultContent);
-        yield resultContent;
-        accumulatedResult.push({
-          type: 'tool_result',
-          toolResult: message.toolResult,
-        });
-      } else if (message.type === 'error') {
-        throw new AppError(
-          message.error || '查询错误',
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          '1000'
-        );
-      }
-    }
-
-    // 调用完成回调
-    options?.onComplete?.({
-      sessionId,
-      result: accumulatedResult,
-      state: this.getQueryState(),
-    });
-
-    return accumulatedResult;
   }
 
   /**

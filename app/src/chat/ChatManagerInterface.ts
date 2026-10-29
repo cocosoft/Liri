@@ -33,7 +33,7 @@ import type {
 import type { ToolAwareClient } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools';
 import type { IToolExecutor } from '@modules/ai';
-import type { QueryEngine, QueryEngineConfig } from '@modules/query';
+import type { QueryEngine } from '@modules/query';
 import type { CompactArtifact } from '@modules/compaction';
 import type {
   ChatStreamChunk,
@@ -359,50 +359,6 @@ export interface ChatManager {
    * @returns QueryEngine实例
    */
   getQueryEngine(): QueryEngine;
-
-  /**
-   * 设置查询引擎配置
-   * @param config 查询引擎配置
-   */
-  setQueryEngineConfig(config: QueryEngineConfig): void;
-
-  /**
-   * 使用查询引擎处理消息
-   * @param content 消息内容
-   * @param options 选项
-   * @returns 异步生成器，产生消息块
-   */
-  query(
-    content: string,
-    options?: {
-      sessionId?: string;
-      maxTurns?: number;
-      maxBudgetUsd?: number;
-    }
-  ): AsyncGenerator<string, unknown, unknown>;
-
-  /**
-   * 使用查询引擎进行流式查询
-   * @param content 消息内容
-   * @param options 选项
-   * @returns 异步生成器，产生流式消息块
-   */
-  streamQuery(
-    content: string,
-    options?: {
-      sessionId?: string;
-      maxTurns?: number;
-      maxBudgetUsd?: number;
-      onChunk?: (chunk: string) => void;
-      onComplete?: (result: unknown) => void;
-    }
-  ): AsyncGenerator<string, unknown, unknown>;
-
-  /**
-   * 获取查询状态
-   * @returns 查询状态
-   */
-  getQueryState(): string;
 
   /**
    * 执行会话压缩

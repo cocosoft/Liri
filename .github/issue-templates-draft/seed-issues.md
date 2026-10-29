@@ -123,6 +123,14 @@
   - 新增 `app/tests/knowledge/knowledgeSummarizerDomain.test.ts`（5 例）；相关测试 **278/278**；`typecheck` 绿；`lint:arch` exit 0。关单一次性作业 `close-15.yml` 仅存于临时分支 `ci/close-15`（已删；首次 run 因 YAML 里 `\\'` 转义把 JS 字符串截断而失败，修正后重推成功）。
   - 当前 issue 状态：**open 5 条**（#1 / #7 / #8 / #11 / #12），**closed 9 条**（#2 / #3 / #4 / #5 / #6 / #9 / #10 / #13 / #15）。
   - Phase A 六个子任务：**S1 / S2 / S5 / S6 已交付**；**S3（#11）未开工**；**S4（#12）等外部 PR #14**。
+- **#7（沙箱默认 fail-open 可见化）已交付并关闭（2026-10-29，commit `79dd90faa`）**：走 issue 允许的「启动日志」路径 ——
+  - 新增 `app/src/sandbox/sandboxPosture.ts`：`describeSandboxPosture()` **纯描述**（不改判定/默认值），输出 `mode` / `permissionLevel` / `landlock.{enabled,bashEnabled,failClosed,available}` / `openRisks[]`（只在风险实际存在时出项）。
+  - 组合根 `spiWiring.ts` 启动时打印 `sandbox:posture` 一行 info + 每条实际 fail-open 一条 warn（文案注明「2026-08-25 兼容优先的既定决策，非缺陷」）。
+  - 文档 `app/docs/配置与安全/沙箱后端降级对照.md` 新增 §3.1（启动日志 + `/v1/sandbox/status.runtimeIsolation` 两个出口与判定口径）。
+  - 真机证据：`~/.pyapp/data/logs/app.log` 实测 1 info + 3 warn（`mode=none` / `failClosed=false` / `bashEnabled=false`），`/v1/sandbox/status` 返回 `runtimeIsolation=none`；新增 4 例单测，`tests/sandbox`+`tests/security` **422 pass**；`typecheck` 绿、`lint:arch` exit 0。
+  - **未做（如实）**：默认值未改（需误伤评估）；设置页可视化未做（需给 `ISandboxPort` 加字段，建议另开单）。
+  - 关单作业 `close-7.yml` 仅存于临时分支 `ci/close-7`（run `40841213007`），已删。
+  - 当前 issue 状态：**open 4 条**（#1 / #8 / #11 / #12），**closed 10 条**（#2–#7 / #9 / #10 / #13 / #15）。
 
 
 

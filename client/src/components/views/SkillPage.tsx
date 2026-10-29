@@ -250,8 +250,9 @@ function SkillPage() {
           </div>
         )}
 
-        {/* 统计面板 */}
-        <div className="grid grid-cols-4 gap-3 mb-4">
+        {/* 统计面板（矮视口折叠：569 高时面板+标签栏占 468px 固定 chrome，
+            会把下面「选择一个技能查看详情」挤出首屏 —— 巡检 P2 残留，2026-10-29） */}
+        <div className="grid grid-cols-4 gap-3 mb-4 [@media(max-height:700px)]:hidden">
           {[
             {
               label: t("skill.totalCount"),

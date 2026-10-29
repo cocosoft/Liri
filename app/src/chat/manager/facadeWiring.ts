@@ -78,6 +78,9 @@ import type { ChatRequestPrep } from './requestPrep';
 import { buildTAORContextFor } from './taorContextWiring';
 import { isCommandApproved, submitToolApproval } from './toolApproval';
 import { wireCodeRunnerDeps } from './codeRunnerWiring';
+import { shouldUseCodeMode, shouldUsePlanDrivenLoop } from './routing';
+import { getSessionWorkspacePath } from './workspacePath';
+import type { ProjectStoreLike } from './projectSandboxPath';
 import { persistTurnSummary } from '../services/MessageContextPipeline';
 import { assertHostSurface, type AssertNever } from './wiringHostGuard';
 
@@ -145,13 +148,12 @@ export interface FacadeWiringHost {
     sessionId: string,
     opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
   ): TAORLoop;
-  getSessionWorkspacePath(sessionId?: string): string | undefined;
   getSessionWorkspaceId(sessionId?: string): string | undefined;
   isSessionWorkspaceStrict(sessionId?: string): boolean;
   getSessionApprovalMode(sessionId?: string): 'ask' | 'auto-local';
   createSession(params: CreateSessionParams): Promise<ChatSession>;
-  _shouldUsePlanDrivenLoop(message: string): boolean;
-  _shouldUseCodeMode(message: string): boolean;
+  /** LRO-06：`ProjectStore` 实例缓存（`getSessionWorkspacePath` 端口直连所需） */
+  _projectSandboxStoreRef: { current?: ProjectStoreLike };
   getStreamTailSeq(sessionId: string): Promise<number>;
   appendStreamEvent(
     sessionId: string,
@@ -237,13 +239,11 @@ const FACADE_HOST_REQUIRED_KEYS = [
   '_loopDetector',
   '_recovery',
   '_getOrCreateTAORLoop',
-  'getSessionWorkspacePath',
   'getSessionWorkspaceId',
   'isSessionWorkspaceStrict',
   'getSessionApprovalMode',
   'createSession',
-  '_shouldUsePlanDrivenLoop',
-  '_shouldUseCodeMode',
+  '_projectSandboxStoreRef',
   'getStreamTailSeq',
   'appendStreamEvent',
   'persistSessionMetadata',
@@ -383,7 +383,14 @@ export function wireChatFacades(host: FacadeWiringHost): void {
         approvalScope,
         approvalSnapshot
       ),
-    getSessionWorkspacePath: host.getSessionWorkspacePath.bind(host),
+    getSessionWorkspacePath: (sid) =>
+      getSessionWorkspacePath(
+        {
+          getSession: (id) => host._chatSessions.get(id),
+          projectSandboxStoreRef: host._projectSandboxStoreRef,
+        },
+        sid
+      ),
     getSessionWorkspaceId: host.getSessionWorkspaceId.bind(host),
     isSessionWorkspaceStrict: host.isSessionWorkspaceStrict.bind(host),
     // PR-3（2026-10-23）：会话级审批模式（缺省 ask）
@@ -440,8 +447,8 @@ export function wireChatFacades(host: FacadeWiringHost): void {
   host._pdcaLaunch = new PdcaLaunchCoordinator({
     launchingSessions: host._pdcaLaunchingSessions,
     getPdcaLauncher: () => host._pdcaLauncher,
-    shouldUsePlanDrivenLoop: (msg) => host._shouldUsePlanDrivenLoop(msg),
-    shouldUseCodeMode: (msg) => host._shouldUseCodeMode(msg),
+    shouldUsePlanDrivenLoop: (msg) => shouldUsePlanDrivenLoop(msg),
+    shouldUseCodeMode: (msg) => shouldUseCodeMode(msg),
     getOrCreateTAORLoop: (sid) => host._getOrCreateTAORLoop(sid),
     getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
@@ -537,7 +544,7 @@ export function wireChatFacades(host: FacadeWiringHost): void {
       host._memoryManager!.accumulate(sid, user, assistant, tokens, toolCalls);
     },
     recentUserText: (session, n) => host._recentUserText(session, n),
-    shouldUseCodeMode: (msg) => host._shouldUseCodeMode(msg),
+    shouldUseCodeMode: (msg) => shouldUseCodeMode(msg),
     escalateToPdcaViaBareSession: (params) =>
       host._escalateToPdcaViaBareSession(params),
     autoCreateProject: (session, workspaceId, result) =>

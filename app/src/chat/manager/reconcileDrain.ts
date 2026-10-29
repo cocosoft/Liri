@@ -29,6 +29,31 @@ export interface ReconcileDrainPorts {
   sessionGateway: SessionGateway;
 }
 
+/**
+ * 触发该会话的 T-D 对账（入队；issue #19 · Cut H 外移自 `ChatManager._requestReconcile`）。
+ *
+ * - 熔断期间跳过（防失败风暴，方案 T-B#1 评审 v0.3#11）；
+ * - 入队后**接上消费者**（TB-10）：否则队列只入不出、`ReconcileService` 运行时从不执行。
+ */
+export function requestReconcile(
+  ports: { pendingReconcileSessions: Set<string>; scheduleDrain: () => void },
+  sessionId: string,
+  eventLog: EventLogStorage
+): void {
+  if (eventLog.isAppendCircuitOpen()) {
+    logger.debug('chat:manager 对账请求被熔断跳过（防风暴）', { sessionId });
+    return;
+  }
+  ports.pendingReconcileSessions.add(sessionId);
+  logger.warn('chat:manager 会话已加入待对账队列（Phase D T-D 消费）', {
+    sessionId,
+  });
+  // TB-10 修复（2026-09-23）：入队后**接上消费者**。
+  // 修复前本方法只入队，而 `runPendingReconciles()` 全仓无任何调用点 ⇒ 队列只入不出、
+  // `ReconcileService`（5 类漂移检测 + 修复计划）运行时从不执行、`pendingRepair` 标记无消费方。
+  ports.scheduleDrain();
+}
+
 export async function runPendingReconciles(
   ports: ReconcileDrainPorts
 ): Promise<void> {

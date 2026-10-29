@@ -300,3 +300,14 @@ git diff --stat                        # 抽走了哪些文件/多少行
 - 实测：**2999 → 2900（−99）**；自 4840 起累计 **−1940（−40.1%）**。
 - 门禁：`tsc` 0 错误；`lint:arch` / `lint:size` 0 错误（529 警告未新增）；`state-ratchet` 维持；`tests/chat` 738 pass；全量 **8961 pass / 41 skip / 0 fail**。
 - **剩余候选（按实测跨度）**：`getSessionWorkspacePath` 19 / `recordChatResponseUsage` 18 / `_requestReconcile` 17 / `_shouldUsePlanDrivenLoop` 16 / `_ensureBudgetSuspendResumeInstalled` 15。其中 `recordChatResponseUsage` 若要删需在 4 处装配点复现 3 字段 deps（耦合反增，见 §六 判定）。
+
+### 第二批 — 分流决策 / 工作区解析 / 对账入队（2026-10-30）
+
+- **独立提交**：`3adba4c6a`（端口直连）+ `a5f8ef64f`（删实现）。
+- `manager/routing.ts`（~110 行）：`shouldUsePlanDrivenLoop` / `shouldUseCodeMode` / `hashMessage` + 灰度高水位缓存；`ChatManager` 删除 4 个成员（两决策方法 + `_hashMessage` + `_codeModeTrafficPercent` 字段），`facadeWiring` 三处端口（pdcaLaunch ×2、streamFinalize ×1）直连模块。
+  - 唯一语义差异（如实）：`CODE_MODE_TRAFFIC_PERCENT` 由"实例构造时读一次"改为"首次决策时读一次并缓存"（env 进程内不变 ⇒ 实测无行为差异，且避免模块加载早于 env 注入）。
+- `manager/workspacePath.ts`（~50 行）：`getSessionWorkspacePath(host, sessionId)`；`FacadeWiringHost` −1 成员 +1 字段（`_projectSandboxStoreRef`），端口直连。
+- `manager/reconcileDrain.ts` +`requestReconcile(ports, sessionId, eventLog)`（熔断判定 + 入队 + 接消费者）；宿主保留 13 行 delegate（去抖调度仍归宿主）。
+- 顺带清理 7 个失效导入（`resolveSessionWorkspacePath` / `resolveFastPathPolicy` / `isEligibleForFastPath` / `classifyTaskComplexity` / `hasDangerousToolIntent` / `coreFeature` / `getProjectSandboxPath`）。
+- 实测：**2900 → 2796（−104）**；自 4840 起累计 **−2044（−42.2%）**；`tests/chat` 738 pass；全量 **8961 pass / 41 skip / 0 fail**；四道门禁全绿（`lint:size` 529 警告未新增）。
+- **Cut H 判定为收敛完毕**：剩余 `recordChatResponseUsage`（18）需在 4 处装配点复现 deps 字面量（耦合反增）、`_ensureBudgetSuspendResumeInstalled`（15）仅剩标志位读写（外移收益 ≈ −5）⇒ 二者均**不做**。

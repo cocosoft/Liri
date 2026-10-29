@@ -283,3 +283,20 @@ git diff --stat                        # 抽走了哪些文件/多少行
 
 - `bunx tsc --noEmit` 0 错误；`lint:arch` 0 错误；`lint:size` 0 错误（529 警告，未新增）；`lint:state-ratchet` 维持；`bun test tests/chat` 738 pass；全量 `bun test tests` **8961 pass / 41 skip / 0 fail**。
 - 进度：**3087 → 2999 行**；自 4840 起累计 **−1841（−38.0%）**。
+
+## 八、#19 Cut H 前四项实测（2026-10-29）
+
+> 每项都先做 CD01–CD04（全仓引用 / 宿主端口 / 接口契约 / 测试扫描面）再动手；按「先摘入口」+「再删实现」两个提交落地。
+
+| 项 | 实测跨度 | 做法 | 提交 |
+|---|---:|---|---|
+| `_getOrCreatePlanDrivenLoop` | 27 | **零调用者**（无端口、无测试）⇒ 直接删；连带 `createChatManagerTAORDeps` / `ChatManagerTAORContext` 两个失效导入 | `1eae682d2` |
+| `triggerCouncilDebate` | 27 | → `manager/councilDebate.ts`（纯函数，无宿主状态）；`orchestratorHost` 的同步端口与 `triggerCouncilDebateAsync` 均直连模块 | `bb2b1d252` + `1eae682d2` |
+| `executeStepPrompt` | 20 | → `manager/stepExecution.ts`（注入 `sendMessage` 端口）；`executePlanSteps` 内联调用；宿主端口直连模块 | `bb2b1d252` + `1eae682d2` |
+| `abortSessionStream` | 23 | **契约方法保留**（`ChatManagerInterface:586`），仅方法体外移 → `manager/streamAbort.ts`（三条纪律逐字保留：先中止计划循环 / 工厂 reason / 同实例才删条目） | `bb2b1d252` + `1eae682d2` |
+| `getHookChainManager` | 4 | 全仓零消费者、且不在契约内 ⇒ 顺带删除 | `1eae682d2` |
+
+- 宿主契约变化：`OrchestratorWiringHost` **−2 成员**（`executeStepPrompt` / `triggerCouncilDebate`）**+1 成员**（`sendMessage`，供 `executeStepPrompt` 注入），键表同步。
+- 实测：**2999 → 2900（−99）**；自 4840 起累计 **−1940（−40.1%）**。
+- 门禁：`tsc` 0 错误；`lint:arch` / `lint:size` 0 错误（529 警告未新增）；`state-ratchet` 维持；`tests/chat` 738 pass；全量 **8961 pass / 41 skip / 0 fail**。
+- **剩余候选（按实测跨度）**：`getSessionWorkspacePath` 19 / `recordChatResponseUsage` 18 / `_requestReconcile` 17 / `_shouldUsePlanDrivenLoop` 16 / `_ensureBudgetSuspendResumeInstalled` 15。其中 `recordChatResponseUsage` 若要删需在 4 处装配点复现 3 字段 deps（耦合反增，见 §六 判定）。

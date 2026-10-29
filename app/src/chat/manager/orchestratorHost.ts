@@ -64,6 +64,8 @@ import type { ChatStreamMessageLifecycle } from '../pipeline/streamMessageLifecy
 import type { ChatMessagePersistence } from './messagePersistence';
 import { buildTAORContextFor } from './taorContextWiring';
 import { sendMessageDowngradePath } from './sendDowngrade';
+import { triggerCouncilDebate } from './councilDebate';
+import { executeStepPrompt } from './stepExecution';
 import { persistTurnSummary } from '../services/MessageContextPipeline';
 import type { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import type { ChatOrchestratorHost } from '../orchestrator/ChatOrchestratorHost.js';
@@ -106,6 +108,8 @@ export interface OrchestratorWiringHost {
   onTurnEnd?: () => void;
 
   // —— 宿主方法（签名同实现）——
+  /** 统一消息入口（供 `executeStepPrompt` 注入；ChatManager 契约方法） */
+  sendMessage(content: string, options?: SendMessageOptions): Promise<Message>;
   getToolRound(sessionId: string): number;
   incToolRound(sessionId: string): number;
   getClientForModel(model?: string): ToolAwareClient;
@@ -173,20 +177,9 @@ export interface OrchestratorWiringHost {
       }) => void;
     }
   ): Promise<ToolResult>;
-  executeStepPrompt(
-    prompt: string,
-    session: ChatSession,
-    options?: SendMessageOptions
-  ): Promise<void>;
   executePlanSteps(
     session: ChatSession,
     options?: SendMessageOptions
-  ): Promise<void>;
-  triggerCouncilDebate(
-    workspaceId: string,
-    topic: string,
-    context: string,
-    ownerSessionId?: string
   ): Promise<void>;
   /** #18 薄委托收敛：流式准备/消息构建/收尾端口直连子模块（不再经宿主同名转发） */
   _streamSetup: ChatStreamSetup;
@@ -240,6 +233,7 @@ const ORCHESTRATOR_HOST_REQUIRED_KEYS = [
   '_summarizer',
   '_pdcaLauncher',
   'toolRegistry',
+  'sendMessage',
   'getToolRound',
   'incToolRound',
   'getClientForModel',
@@ -262,9 +256,7 @@ const ORCHESTRATOR_HOST_REQUIRED_KEYS = [
   '_getOrCreateTAORLoop',
   'consumePendingResumeIntent',
   'executeTool',
-  'executeStepPrompt',
   'executePlanSteps',
-  'triggerCouncilDebate',
   '_createStreamPipeline',
   '_streamSetup',
   '_streamMessageLifecycle',
@@ -410,11 +402,16 @@ export function createOrchestratorHost(
       buildTAORContextFor(host, sid, defs, opts),
     executeTool: (tc, opts) => host.executeTool(tc as ToolCall, opts),
     executeStepPrompt: (prompt, session, options) =>
-      host.executeStepPrompt(prompt, session, options),
+      executeStepPrompt(
+        (content, opts) => host.sendMessage(content, opts),
+        prompt,
+        session,
+        options
+      ),
     executePlanSteps: (session, options) =>
       host.executePlanSteps(session, options),
     triggerCouncilDebate: (wid, topic, ctx, ownerSessionId) =>
-      host.triggerCouncilDebate(wid, topic, ctx, ownerSessionId),
+      triggerCouncilDebate(wid, topic, ctx, ownerSessionId),
     sendMessageDowngradePath: (session, tcs, msgs, client, options) =>
       sendMessageDowngradePath(
         {
@@ -435,19 +432,17 @@ export function createOrchestratorHost(
       containsComplexKeywords(content) ||
       options?.metadata?.councilTriggeredManually === true,
     triggerCouncilDebateAsync: (session, content, options) => {
-      host
-        .triggerCouncilDebate(
-          session.metadata?.workspaceId || 'default',
-          content,
-          session.metadata?.context || '',
-          session.id
-        )
-        .catch((err) => {
-          handleError(err, {
-            module: 'chat:manager',
-            action: 'Council辩论执行失败',
-          });
+      triggerCouncilDebate(
+        session.metadata?.workspaceId || 'default',
+        content,
+        session.metadata?.context || '',
+        session.id
+      ).catch((err) => {
+        handleError(err, {
+          module: 'chat:manager',
+          action: 'Council辩论执行失败',
         });
+      });
     },
     endTurnTelemetry: (sessionId, _ok, content) => {
       if (host.ENABLE_TELEMETRY) {

@@ -102,7 +102,15 @@
   - **#10（S2 `DomainManager` 单测）** → commit `cfbff93b4`：新增 `app/tests/knowledge/domainManager.test.ts`（10 例，覆盖 5 个方法），用 `LIRI_HOME`=mkdtemp 隔离并带「覆盖未生效即抛错」护栏，不写真实 `~/.pyapp`；未改生产代码。
   - 关单方式：一次性 workflow `close-9-10.yml` 在临时分支 `ci/close-9-10` 上跑（run `40830679423`，10s 成功），跑完已把该 workflow 从 main 移除并删分支。
   - **附带发现（待定，未开单）**：`DomainManager` 构造参数 `domainsRoot`（`DomainManager.ts:95-97`）只影响 `getDomainsRoot`/`ensureRoot`/`list` 的读取，`create`/`getConfig`/`writeConfig`/`countWikiPages` 一律走全局 `resolveDomainDir(name)` ⇒ 注入根与写入根可能不一致。
-  - 当前 issue 状态：**open 7 条**（#1 / #7 / #8 / #11 / #12 / #13 / #15），**closed 7 条**（#2 / #3 / #4 / #5 / #6 / #9 / #10）。
+  - 当前 issue 状态（**S1/S2 关闭时的时点数**）：open 7 条（#1 / #7 / #8 / #11 / #12 / #13 / #15），closed 7 条（#2 / #3 / #4 / #5 / #6 / #9 / #10）。S6 关闭后的最新数字见本节末条。
+- **S6 已交付并关闭（2026-10-29，commit `b851faae8`，issue #13）**：
+  - `SECTION_NAMES` 新增 `knowledgeDomains`（**uncached** 段）；实现体一行一域（`label（name）：description`），**零域返回 null** 整段省略；层级登记 `L2`；新增 `app/tests/context/knowledgeDomainsSection.test.ts`（4 例：有域含元数据 / 不含 wiki 正文 / 零域 null / label==name 不重复 + 一行一域）。
+  - 冻结导出同步：`app/prompts/zh-CN/manifest.json` → **23 段（静态 9 / 动态 14）**；`promptExportSources.ts` 的 `DYNAMIC_SECTION_REASONS` 必须登记该段（否则导出器直接 throw）。
+  - 门禁：相关测试 **102/102**；`bun run typecheck`（含 2 个 scripts tsconfig）绿；`lint:arch` exit 0（仅存量 WARNING）。
+  - **如实订正**：#13 原文的「原 `knowledgeIndex` 行为不变」前提**不成立** —— 代码里没有 `knowledgeIndex` 段（只有 `knowledgeContext`/`knowledgeDigest`，C1 从未实现）；本单是**新增独立段**，不替换任何既有段。
+  - 关单方式：一次性 workflow `close-13.yml` 只提交在临时分支 `ci/close-13`（run `40832929118`，8s 成功），**未落到 main**，跑完已删本地与远端分支。
+- **注意（S4 冲突规避）**：**#14 是外部贡献者 jay23606 提交的 Open PR（正文 `Fixes #12`）**，因此 S4（#12）**不再由本仓重复实现**，等该 PR 评审/合并后再关闭 #12。
+  - 当前 issue 状态：**open 6 条**（#1 / #7 / #8 / #11 / #12 / #15），**closed 8 条**（#2 / #3 / #4 / #5 / #6 / #9 / #10 / #13）。
 
 
 

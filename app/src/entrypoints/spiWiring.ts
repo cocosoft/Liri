@@ -548,6 +548,29 @@ export async function registerAllSpis(
         runtimeIsolation: resolveSandboxExecutionSignal().mode,
       }),
     });
+
+    // issue #7（2026-10-29）：把「本次执行是否受内核级约束」写进**启动日志**。
+    // 两个默认 fail-open（`sandbox.landlock.failClosed` / `bashEnabled` 均默认 false）
+    // 此前只有文档层说明，使用者容易误读成「沙箱开了就受内核级约束」。
+    // 这里只做**如实播报**，不改任何默认值与判定。
+    {
+      const { describeSandboxPosture } =
+        await import('@modules/sandbox/sandboxPosture');
+      const { getLogger } = await import('@modules/monitoring/logs/Logger');
+      const posture = describeSandboxPosture();
+      const logger = getLogger('sandbox:posture');
+      logger.info('沙箱姿态（本次进程）', {
+        mode: posture.mode,
+        permissionLevel: posture.permissionLevel,
+        landlock: posture.landlock,
+      });
+      for (const risk of posture.openRisks) {
+        logger.warn('沙箱 fail-open（2026-08-25 兼容优先的既定决策，非缺陷）', {
+          risk,
+        });
+      }
+    }
+
     markSpiRegistered('sandbox');
   }
 

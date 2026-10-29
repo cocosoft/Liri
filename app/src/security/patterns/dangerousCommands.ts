@@ -254,7 +254,10 @@ export const INJECTION_RULES: UnifiedSecurityRule[] = [
   },
   {
     name: 'base64_decode_exec',
-    patterns: [/base64\s+-d\s+\|/i, /echo\s+.*\|\s*base64\s+-d/i],
+    // 2026-10-29（issue #5 样例驱动）：原为 `/base64\s+-d\s+\|/`，要求 `-d` 后**紧跟**管道，
+    // 只覆盖 `base64 -d | sh` 这种不常见写法；最常见的 `base64 -d payload.b64 | sh` 反而漏判。
+    // 改为「`-d` / `--decode` 之后、管道之前允许有载荷」（口径与 `injectionPatterns.ts` 的同名规则对齐）。
+    patterns: [/base64\s+(?:-d|--decode)\b.*\|/i, /echo\s+.*\|\s*base64\s+-d/i],
     riskLevel: 'high',
     defaultBehavior: 'ask',
     category: 'injection',

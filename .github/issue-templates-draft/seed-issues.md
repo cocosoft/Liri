@@ -76,8 +76,8 @@
 | 2 | `ChatManager` 7036 行 | `app/src/chat/ChatManager.ts` = **4532 行**（`app/src/chat/**` 合计 44140 行） | ⚠️ 数字过期，建议改为 4532 并注明统计时间 |
 | 3 | `handlers/` 测试覆盖为 0 | 该目录 **112** 个 `.ts`；`app/tests/http/` 下 **48** 个测试文件，含 `auto-reply-handlers` / `checkpoint-handlers` / `daily-budget-handlers` / `state-all.contract` 等直测 handler 的用例 | ❌ 前提不成立（应改为「覆盖仍不均衡」，或关闭） |
 | 4 | CI 覆盖率门槛尚未建立 | `ci.yml:193` 已有 `Check coverage threshold (at least 18%)` → `bun run scripts/check-coverage-threshold.ts 18` | ❌ 前提不成立（门槛已存在；可改为「棘轮化/提升到只拦下降」） |
-| 5 | 37 条危险命令规则 | `app/src/security/patterns/dangerousCommands.ts`：`DELETION 7 + FORMAT 3 + PRIVILEGE 4 + SYSTEM 3 + INJECTION 3 + COMPOSITE 7 + DANGEROUS_COMMAND_PATTERNS 10` = **37** | ✅ 属实 |
+| 5 | 37 条危险命令规则 | `app/src/security/patterns/dangerousCommands.ts`：`DELETION 7 + FORMAT 3 + PRIVILEGE 4 + SYSTEM 3 + INJECTION 3 + COMPOSITE 7 + DANGEROUS_COMMAND_PATTERNS 10` = **37**；且建单时**无任何测试引用**这两份常量 | ✅ 属实 → **样例已补**：`app/tests/security/dangerousCommandRuleSamples.test.ts`（38 例，逐规则一条应拦截输入 + 正常命令零命中）；样例还驱动修掉一处规则过窄（`base64_decode_exec` 漏判 `base64 -d payload \| sh`） |
 | 6 | 6 种沙箱后端 | `app/src/sandbox/` 下为 `darwin`（seatbelt）/ `landlock` / `win`（job object）/ `docker`，另有 `adapters` 的 Local / Docker / SSH | ⚠️ 计数口径依赖怎么定义「后端」，建议 issue 内直接列出 6 个名字 |
 
-处置建议：#2 更新行数；#3、#4 改写前提或直接关闭（原目标已被满足）；#6 补明确清单后即可认领。
+处置建议：#2 更新行数；#3、#4 改写前提或直接关闭（原目标已被满足）；#5 的验收物已落地（见上）+ 可关闭；#6 补明确清单后即可认领。
 

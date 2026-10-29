@@ -2,7 +2,7 @@
 
 > 对应 issue：[#8](https://github.com/cocosoft/Liri/issues/8)（替代已关闭的 #2）
 > 基线（2026-10-29 实测）：`app/src/chat/ChatManager.ts` **4840 行**、方法声明 **164** 个；`app/src/chat/manager/` 已有 **14** 个子模块（最大 `bootstrap.ts` 742 行）。
-> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**；Cut D1（#17 第一刀）后 **3898 行**；Cut D2/D3 后 **3807 行**；Cut D4/D5 后 **3738 行**；Cut D6/D7 后 **3666 行**。
+> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**；Cut D1（#17 第一刀）后 **3898 行**；Cut D2/D3 后 **3807 行**；Cut D4/D5 后 **3738 行**；Cut D6/D7 后 **3666 行**；Cut D8（工具审批外移）后 **3526 行**。
 > 目标：第一阶段把「检查点（checkpoint）+ 预算（budget）」编排抽到 `app/src/chat/manager/`（`checkpointBudget.ts` + `budgetResume.ts`，单文件 ≤900 行），`ChatManager.ts` **≤4000 行**，行为不变。
 
 ## 一、实测现状（决定拆分粒度的事实）
@@ -139,6 +139,23 @@
 - **门禁**：`tsc` 0 错；`lint:arch` / `lint:size` 0 错；`lint:state-ratchet` 维持；`bun test tests/chat` **735 pass**；全量 `bun test tests` **8958 pass / 41 skip / 0 fail**。
 - ⚠️ **如实记录**：本轮有一次全量运行的 **1 例失败**（未在后续两次复跑中重现），未定位到稳定复现路径；若再现需单独立项排查。
 - **#17 剩余候选**：`_submitToolApproval` 137（审批路径，先补单测）、`_buildTAORContext` 36、`_createStreamPipeline` 35、`_isCommandApproved` 35（审批路径）。
+
+### Cut D8（issue #17 第八刀）— 工具审批链路外移（2026-10-29）
+
+- **抽走**（`manager/toolApproval.ts`，215 行）：
+  - `_isCommandApproved`（原 35 行 ⇒ **8 行 delegate**）：放行缓存查询（shell 哈希 / 非 shell 工具调用键）；
+  - `_submitToolApproval`（原 137 行 ⇒ **19 行 delegate**）：审批卡片提交（同指纹复用、四档 options、四段打点 ①②）。
+- **审批路径纪律（CD07）**：逐字搬迁、零语义改动；依赖仍走**动态 import**（`@modules/permission` / `InboxManager`），不改变启动期 eager 依赖。
+- **测试**：
+  - 既有端到端决策回归 `tests/chat/ChatManagerPermission.test.ts`（ask / deny / allow / 放行缓存命中）**6 pass**，迁移前后均绿；
+  - 新增 `tests/chat/toolApproval.test.ts`（3 例，纯函数、无 mock）：命令类无 command、有 command 无 session、非命令类无 session 三条**短路分支**；
+  - 仓库无 `mock.module` 先例，故未引入模块级 stub（避免进程级污染）。
+- **既有源码级守卫随实现迁移**：`tests/gates/approvalFourStageGate.test.ts` 的 ①② 扫描面由 `ChatManager.ts` 改为 `manager/toolApproval.ts`（**断言强度不变**）。
+- **实测**：`ChatManager.ts` **3666 → 3526**（**−140**）；清掉 1 个失效导入（`isShellToolName`）。
+- **门禁**：`tsc` 0 错；`lint:arch` / `lint:size` 0 错；`lint:state-ratchet` 维持；`bun test tests/chat tests/permission tests/gates` 全绿；全量 `bun test tests` **8961 pass / 41 skip / 0 fail**。
+- **#17 剩余项（如实评估：不建议继续搬）**：
+  - `_buildTAORContext`（36 行）与 `_createStreamPipeline`（35 行）的**方法体本身就是端口字面量**（20+ 个 `() => this.x(...)` 转发），搬到模块只会把同一份字面量挪位置（净收益 ≈ 0 或为负，且多一层跳转）——与 Cut A 对「一行委托门面」的判定一致；
+  - 若确实要减，只能改为「宿主整体传入 + 断言」（即 #16 否决过的方向），或等后续把 `ChatOrchestrator` 的端口改为公开接口后再评估。
 
 ## 三、统一验收命令（每刀都要跑）
 

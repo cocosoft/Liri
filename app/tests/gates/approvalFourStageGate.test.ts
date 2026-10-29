@@ -261,9 +261,11 @@ describe('开关（默认关闭，fail-closed）', () => {
 
 describe('接线自证（三处调用点各落自己那几段）', () => {
   it('①② 在权限层与工具级审批卡提交处各一份', () => {
+    // issue #17 · D8（2026-10-29）：工具级审批卡提交已外移到 `chat/manager/toolApproval.ts`，
+    // 扫描面随实现迁移（断言强度不变）。
     for (const file of [
       'app/src/permission/PermissionChecker.ts',
-      'app/src/chat/ChatManager.ts',
+      'app/src/chat/manager/toolApproval.ts',
     ]) {
       const source = readSource(file);
       expect(source).toContain("stage: 'requested'");

@@ -1036,7 +1036,12 @@ function MediaPage() {
         )}
 
       {/* ========== 顶部：模板轮播 ========== */}
-      <TemplateCarousel isDark={isDark} />
+      {/* 矮视口折叠（2026-10-29 巡检 P2 收尾）：轮播是**纯展示块**（约 47px），
+          569 高时与提示条/工具栏/输入栏叠加会把画廊首行卡片挤出首屏。
+          只折叠它，**保留**顶部提示条（可能承载环境/配置告警）。 */}
+      <div className="[@media(max-height:700px)]:hidden">
+        <TemplateCarousel isDark={isDark} />
+      </div>
 
       {/* ========== 主体：画廊 + 预览区 ========== */}
       <div className="flex flex-1 overflow-hidden">

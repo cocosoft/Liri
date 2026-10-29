@@ -2,7 +2,7 @@
 
 > 对应 issue：[#8](https://github.com/cocosoft/Liri/issues/8)（替代已关闭的 #2）
 > 基线（2026-10-29 实测）：`app/src/chat/ChatManager.ts` **4840 行**、方法声明 **164** 个；`app/src/chat/manager/` 已有 **14** 个子模块（最大 `bootstrap.ts` 742 行）。
-> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**；Cut D1（#17 第一刀）后 **3898 行**；Cut D2/D3 后 **3807 行**；Cut D4/D5 后 **3738 行**；Cut D6/D7 后 **3666 行**；Cut D8（工具审批外移）后 **3518 行**；Cut D9/D10 后 **3461 行**。
+> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**；Cut D1（#17 第一刀）后 **3898 行**；Cut D2/D3 后 **3807 行**；Cut D4/D5 后 **3738 行**；Cut D6/D7 后 **3666 行**；Cut D8（工具审批外移）后 **3518 行**；Cut D9/D10 后 **3461 行**；#18 三批后 **3087**；Cut G **2999**；Cut H 两批 **2796**；Cut F-a **2706**；Cut F-a-2 **2535 行**（`ad76605a8`）。
 > 目标：第一阶段把「检查点（checkpoint）+ 预算（budget）」编排抽到 `app/src/chat/manager/`（`checkpointBudget.ts` + `budgetResume.ts`，单文件 ≤900 行），`ChatManager.ts` **≤4000 行**，行为不变。
 
 ## 一、实测现状（决定拆分粒度的事实）
@@ -338,7 +338,15 @@ git diff --stat                        # 抽走了哪些文件/多少行
 - **删除依据（CD01–CD05 实证）**：全仓（`app/src` + `app/tests` + `client/src`）复核后，命中的 `loadSessions` / `checkCompactBoundary` / `getCompactService` 均属**其他类**（`SessionLifecycleManager.loadSessions:778`、`ContextCompactor.checkCompactBoundary:79` / `getCompactService:156`、`client` 的 store 同名 action），**无一处**是 `ChatManager` 实例调用；接口声明与实现同批删除（`git revert 2a29fe4bf` 即可完整恢复）。
 - **实测**：`ChatManager.ts` 2799 → **2706（−93）**、`ChatManagerInterface.ts` 616 → **541（−75）** ⇒ 自 4840 起累计 **−2134（−44.1%）**。
 - **门禁**：`tsc` 0 错误；pre-commit（`lint:arch` / `lint-fix-evidence` / workflows / 4 个棘轮 / ESLint / `modules:validate`）全通过；`lint:size` 0 错误 529 警告（未新增）；`bun test tests/chat` **738 pass**；全量 **8961 pass / 41 skip / 0 fail**（与基线逐项一致 ⇒ 无测试因删除失效）。
-- **未动（待用户决策）**：查询栈四项 `query` / `streamQuery`（各 ~40 行实现）/ `getQueryState` / `setQueryEngineConfig` —— 均属 `ChatManagerInterface` 公开契约、全仓零调用，删除为**破坏性变更**，保留待明确授权。
+- **查询栈四项**（`query` / `streamQuery` / `getQueryState` / `setQueryEngineConfig`）：已在 **F-a-2** 删除（见下节）。
+
+### F-a-2 已落地（2026-10-30，commit `ad76605a8`）
+
+- **范围**：查询栈四项 —— `query` / `streamQuery` / `getQueryState` / `setQueryEngineConfig`（`ChatManagerInterface` 公开契约，全仓零调用；`QueryEngine` 只用 `sendMessage` / `executeTool` / `getSessions`）。
+- **连带清理**：仅由这四个方法写入的私有字段 `queryEngineConfig`；`getQueryEngine()` 改为 `createQueryEngine(this)`（该字段删除前也只有这两个方法会写 ⇒ 运行期恒 `undefined`，**行为不变**）。`getQueryEngine` 保留（`ChatManager.ts:1011/1041` 内部真实调用）。
+- **实测**：`ChatManager.ts` 2706 → **2535（−171）**、`ChatManagerInterface.ts` 541 → **495（−46）** ⇒ 自 4840 起累计 **−2305 行（−47.6%）**。
+- **门禁**：`tsc` 0 错误；pre-commit 全通过；`lint:size` 0 错误 **528** 警告（较前 −1）；`tests/chat` 738 pass；全量 **8961 pass / 41 skip / 0 fail**（与基线逐项一致）。
+- **回滚**：`git revert ad76605a8`。
 
 ### F-b 判定：**不可做**（2026-10-30，实测）
 
@@ -353,7 +361,7 @@ git diff --stat                        # 抽走了哪些文件/多少行
 ### 落地顺序（待确认）
 
 1. ~~**F-b**：B 类逐项迁移调用点 → 再删~~ ⇒ **实测不可做**（见上节）；
-2. **F-a-2**（可选，破坏性契约）：查询栈四项 `query` / `streamQuery` / `getQueryState` / `setQueryEngineConfig`，估 −92；
+2. ~~**F-a-2**（可选，破坏性契约）：查询栈四项 `query` / `streamQuery` / `getQueryState` / `setQueryEngineConfig`，估 −92~~ ⇒ **已落地 `ad76605a8`，实测 −171 / −46**；
 3. 复核 C 类中「引用高但实现 3 行」者（`getSessions` / `getSessionGateway`）—— 实测引用 24/27 处，**不可删**，仅可考虑经 `getSessionManager()` 收敛（需要新增访问器，收益≈0）；
 4. 若仍要逼近 ≤1500：唯一剩余方向是**状态所有权搬迁**（571 行字段区 + 构造期装配），须单独立项评估。
 

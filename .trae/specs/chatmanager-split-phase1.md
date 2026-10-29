@@ -2,7 +2,7 @@
 
 > 对应 issue：[#8](https://github.com/cocosoft/Liri/issues/8)（替代已关闭的 #2）
 > 基线（2026-10-29 实测）：`app/src/chat/ChatManager.ts` **4840 行**、方法声明 **164** 个；`app/src/chat/manager/` 已有 **14** 个子模块（最大 `bootstrap.ts` 742 行）。
-> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**（未回升）。
+> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**；Cut D1（#17 第一刀）后 **3898 行**。
 > 目标：第一阶段把「检查点（checkpoint）+ 预算（budget）」编排抽到 `app/src/chat/manager/`（`checkpointBudget.ts` + `budgetResume.ts`，单文件 ≤900 行），`ChatManager.ts` **≤4000 行**，行为不变。
 
 ## 一、实测现状（决定拆分粒度的事实）
@@ -92,6 +92,15 @@
 - **实测门禁**：`ChatManager.ts` 仍 **3972 行**（未回升）；`tsc` 0 错；`lint:arch` / `lint:size` 0 错；`tests/chat` **735 pass / 0 fail**；全量 `bun test tests` **8958 pass / 41 skip / 0 fail**。
 - ⚠️ **未做（如实）**：断言本身仍存在（已收敛到 guard 一处）；要**彻底移除**需把约 70 个宿主成员改为公开端口，属可见性/封装面的独立决策，记录在 #17 的后续项。
   - 另：初版两名模块共用常量名 `HOST_REQUIRED_KEYS` / `HOST_DEFERRED_KEYS` 触发「同名常量」门禁（`hardcodeGateBlocking` 全量回归变红）⇒ 已改为模块前缀命名。
+
+### Cut D1（issue #17 第一刀）— 降级路径外移（2026-10-29）
+
+- **抽走**：`_sendMessageDowngradePath`（`ChatManager` 原 2061–2150，**90 行**）⇒ 新模块 `manager/sendDowngrade.ts`；
+  依赖显式注入（`executeTool` / `createAssistantMessage` / `addAndPersistMessage`），`ChatManager` 保留同名 thin delegate。
+- **行为不变**：预算闸门 `assertEntryBudget('chat-downgrade')` 仍在**最前**；非幂等失败告诫、`messageProjector.project` 修复配对、失败兜底文案逐字保留；`_addAndPersistMessage` 仍**不 await**（fire-and-forget）。
+- **实测**：`ChatManager.ts` **3972 → 3898**（**−74**）；顺带清掉 6 个因外移而不再使用的导入（`assertEntryBudget` / `estimateMessagesTokens` / `messageProjector` / `resolveToolEffect` / `stripThinkResponseTags` / `ChatMessage`）。
+- **门禁**：`tsc` 0 错；`lint:arch` / `lint:size` 0 错；`lint:state-ratchet` 维持（新文件命中既有取值 `completed` ⇒ 基线补登 1 行）；`bun test tests/chat tests/budget` **775 pass**；全量 `bun test tests` **8958 pass / 41 skip / 0 fail**（既有 `tests/budget/chatDowngradeGate.test.ts` 仍绿）。
+- **#17 剩余候选**（实测跨度）：`_submitToolApproval` 137（审批路径，**先补单测**）、`extractMemoryFromChat` 69、`getClientForModel` 46、`getSessionManager` 45、`runPendingReconciles` 43、`_ensureVerifierCallModel` 39、`_buildTAORContext` 36、`_createStreamPipeline` 35、`_isCommandApproved` 35、`_getProjectSandboxPath` 33。
 
 ## 三、统一验收命令（每刀都要跑）
 

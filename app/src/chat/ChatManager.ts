@@ -74,13 +74,7 @@ import { rollupSessionSummaryToLongTerm } from '@modules/memory';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
 import { feature as coreFeature } from '@openliri/kernel';
 import { configureCodeRunner } from '@modules/tools';
-import {
-  persistTurnSummary,
-  contextLayeringEnabled,
-  ensureThinkResponseTags,
-  stripThinkResponseTags,
-  stripOrphanToolTags,
-} from './services/MessageContextPipeline';
+import { persistTurnSummary } from './services/MessageContextPipeline';
 import { StreamingToolCallScrubber } from '@modules/streaming';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
 import { SessionLifecycleManager } from './services/SessionLifecycleManager.js';
@@ -189,8 +183,6 @@ import {
 } from '@modules/ai';
 import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry, ToolSchema } from '@modules/tools';
-// 13-P1-2（2026-10-05）：非幂等工具失败时的重试告诫（模型是实际"重试方"）
-import { resolveToolEffect } from '@modules/tools';
 // issue #8 · Cut A（2026-10-29）：检查点边界判定 + 预算挂起/放行装配外移
 import {
   ensureCheckpointBoundary,
@@ -207,8 +199,9 @@ import {
 import { wireChatFacades, type FacadeWiringHost } from './manager/facadeWiring';
 // issue #16（2026-10-29）：装配宿主的**单点断言**（契约由各模块键表 + 存在性守卫兑现）
 import { asWiringHost } from './manager/wiringHostGuard';
+// issue #17 · D1（2026-10-29）：TAORLoop 失败后的降级路径外移
+import { sendMessageDowngradePath } from './manager/sendDowngrade';
 import type {
-  ChatMessage,
   ParsedToolCall,
   ToolDefinition,
   ChatResponse as AIChatResponse,
@@ -245,10 +238,7 @@ import {
 } from './manager/budgetResume';
 // 13-P2-1（2026-10-05）：输出侧统一护栏组合根注册（默认关 ⇒ 空注册）
 import { registerDefaultOutputGuards } from './outputGuards/index.js';
-import { compactionOrchestrator, messageProjector } from '@modules/context';
-import { estimateMessagesTokens } from '@modules/ai';
-// G-2（2026-10-11）：降级路径的日预算闸门（非 chat 管线入口的统一判定 + 拒绝对外载体）
-import { assertEntryBudget } from '../query/dailyBudgetGate';
+import { compactionOrchestrator } from '@modules/context';
 import { FileCheckpointStorage } from '@modules/session';
 import {
   StopHookManager,
@@ -2058,6 +2048,10 @@ export class ChatManagerImpl implements ChatManager {
   clearResumeIntent(sessionId: string): void {
     this._pendingResumeIntent.delete(sessionId);
   }
+  /**
+   * TAORLoop 失败后的降级路径（issue #17 · D1：实现体已外移到 `manager/sendDowngrade.ts`，
+   * 此处保留同名 thin delegate；预算闸门 / 工具回填 / 投影 / 失败兜底语义不变）。
+   */
   private async _sendMessageDowngradePath(
     session: ChatSession,
     toolCalls: ParsedToolCall[],
@@ -2065,88 +2059,20 @@ export class ChatManagerImpl implements ChatManager {
     activeClient: ToolAwareClient,
     options?: SendMessageOptions
   ): Promise<Message> {
-    // G-2（2026-10-11，Spec `daily-budget-over-limit-ux.md` §1.2 G-2 / §5-D-1）：**降级路径补闸门**。
-    //
-    // 本路径**直调** `activeClient.sendMessage`（不经 `sendMessageFlow.invokeLlm` 的闸门）⇒ 此前
-    // TAORLoop 一失败就换条路再烧一遍额度（G-2 的绕过路径）。判定放在**最前**：整轮被拒时
-    // **连工具副作用也不做**，避免"工具已执行、模型却没调"的半成品。
-    // 载体：抛带真实业务码的业务异常 —— 由调用方 `ChatOrchestrator.sendMessage` 的 catch **放行上抛**
-    //（见该处预算例外）⇒ 最终经 `llmChatOps.chat` 保真为 `errorCode`（HTTP 429 + 放行入口，同 T8 契约）。
-    assertEntryBudget({
-      entry: 'chat-downgrade',
-      estimatedTokens: estimateMessagesTokens(apiMessages),
-    });
-
-    try {
-      for (const tc of toolCalls) {
-        const toolResult = await this.executeTool(
-          {
-            id: tc.id,
-            name: tc.name,
-            arguments:
-              typeof tc.arguments === 'string'
-                ? JSON.parse(tc.arguments)
-                : tc.arguments,
-            sessionId: session.id,
-          },
-          { useErrorHandler: true }
-        );
-        // 13-P1-2（2026-10-05）：非幂等工具失败 ⇒ 明确告知模型**不要盲目重试**
-        // （模型是实际的"重试方"，此处是唯一能约束它的位置；策略事实源 = tools/toolEffects.ts）
-        const effect = resolveToolEffect(tc.name);
-        const retryCaution =
-          toolResult.error && effect && effect.idempotent === false
-            ? `\n\n[重试注意] 该工具已声明为**非幂等**（sideEffect=${effect.sideEffect}）：` +
-              '重复执行可能导致副作用重复。请先确认上一次调用的实际影响，再决定是否重试；' +
-              '必要时改为向用户确认或执行补偿，禁止直接原样重试。'
-            : '';
-        apiMessages.push({
-          role: 'tool',
-          content:
-            JSON.stringify(toolResult.result ?? toolResult.error ?? '') +
-            retryCaution,
-          tool_call_id: tc.id,
-        });
-      }
-
-      // A1（2026-08-31 对标 PilotDeck P1-1）：发送前投影——修复 tool 配对，
-      // 防 provider 拒收（降级路径 tool 结果可能缺配对 assistant.tool_calls）
-      const projected = messageProjector.project(
-        apiMessages as unknown as ChatMessage[]
-      );
-      const fallbackResponse = await activeClient.sendMessage(
-        projected.messages,
-        options
-      );
-      const fallbackContent =
-        typeof fallbackResponse.content === 'string'
-          ? fallbackResponse.content
-          : JSON.stringify(fallbackResponse.content);
-      const msg = this.messageService.createAssistantMessage(
-        stripThinkResponseTags(fallbackContent),
-        { sessionId: session.id }
-      );
-      msg.sessionId = session.id;
-      this._addAndPersistMessage(session.id, msg);
-      options?.onProgress?.({
-        stage: 'completed',
-        message: '处理完成（降级路径）',
-      });
-      return msg;
-    } catch (fallbackErr) {
-      await handleError(fallbackErr, {
-        module: 'chat:manager',
-        action: 'TAORLoop降级路径也失败',
-      });
-      options?.onProgress?.({
-        stage: 'completed',
-        message: '处理异常，请重试',
-      });
-      // 降级完全失败，返回错误提示消息
-      return this.messageService.createAssistantMessage('处理异常，请重试', {
-        sessionId: session.id,
-      });
-    }
+    return sendMessageDowngradePath(
+      {
+        executeTool: (tc, opts) => this.executeTool(tc, opts),
+        createAssistantMessage: (content, opts) =>
+          this.messageService.createAssistantMessage(content, opts),
+        addAndPersistMessage: (sid, msg) =>
+          this._addAndPersistMessage(sid, msg),
+      },
+      session,
+      toolCalls,
+      apiMessages,
+      activeClient,
+      options
+    );
   }
 
   /**

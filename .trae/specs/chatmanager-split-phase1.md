@@ -199,6 +199,7 @@ git diff --stat                        # 抽走了哪些文件/多少行
 5. ~~#17 按域拆分~~（**已完成并关单，`59ea947f8` / `ee5127951`**）：D1–D10 共 10 刀；本 issue 区间 **3972 → 3461**（−511），累计（自 4840）**−1379 / −28.5%**；全量 `bun test tests` **8961 pass / 41 skip / 0 fail**。未达成「≤1500」。
 6. **第二阶段已另开 [#18](https://github.com/cocosoft/Liri/issues/18)（≤1500 行）**：实测依据 —— 外移后**已无大块**（最大方法 `constructor` 57 行、`cleanup` 48、`_wireCodeRunnerDeps` 37，其余 ≤27）⇒ 后续靠「收敛薄委托（按 `code-deletion.md` CD01–CD06 先摘入口再删实现）」与「`ChatOrchestratorHost` 公开化（可能连带删除两个装配模块）」。
 7. 每刀落地后把本文件的行数基线更新为当次实测值（禁止沿用旧数字）。
+8. **第三阶段已另开 [#19](https://github.com/cocosoft/Liri/issues/19)（结构性拆分）**：依据 #18 实测 —— 薄委托已到上限（135 方法中 61 个 ≤4 行、接口 70 个契约方法、最大方法仅 58 行）⇒ 转入 Cut E（编排宿主公开化，删 `orchestratorHost.ts`）/ Cut F（契约门面瘦身，破坏性变更需前置消费者检索）/ Cut G（会话运行时状态聚合 + `cleanup`·`_wireCodeRunnerDeps` 外移）/ Cut H（按实测跨度排序的残余方法）。阶段目标 ≤2600，最终 ≤1500 需 Cut F 彻底版单独立项。
 
 ## 六、#18 第 1 步：薄委托收敛（2026-10-29 实测）
 

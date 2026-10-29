@@ -71,6 +71,69 @@ async function getDisplayOptions(channelId: string): Promise<{
 // ========== Channel Handlers ==========
 
 /**
+ * #21（2026-10-30）：**未注册渠道的回显条目**（纯函数，便于单测）。
+ *
+ * 关键点：`enabled` 取 **DB 配置**（`channel_configs.enabled`），不再固定 `false` ——
+ * 原实现把 DB 里的启用状态丢掉，UI 只能显示"已启用 0"，与 DB 的 `enabled=1` 直接冲突。
+ */
+export function buildUnregisteredChannelEntry(params: {
+  def: { type: string; name: string };
+  /** DB 配置（未配置 ⇒ `undefined`） */
+  config?: { enabled?: boolean; options?: Record<string, unknown> };
+  /** 回显视图（解密后的凭据；坏密文字段单独回报） */
+  display?: { config: Record<string, unknown>; unreadableFields: string[] };
+  /** 是否被本构建裁剪（`DROP_*`） */
+  droppedByBuild: boolean;
+}): Record<string, unknown> {
+  const { def, config, display, droppedByBuild } = params;
+  return {
+    id: def.type,
+    name: def.name,
+    type: def.type,
+    enabled: config?.enabled ?? false,
+    connected: false,
+    registered: false,
+    // 未注册原因要可读（构建裁剪 vs 本实例未注册），不再只给一个 false
+    unregisteredReason: droppedByBuild ? 'dropped_by_build' : 'not_registered',
+    config: display?.config ?? {},
+    unreadableCredentialFields: display?.unreadableFields ?? [],
+  };
+}
+
+/**
+ * #21（2026-10-30）：**开关无法生效**时的可读错误（纯函数）。
+ *
+ * 三种情形必须区分：① 构建裁剪（本变体没有该渠道）；② 已知但本实例未注册
+ * （未导入 / 未过启用判据）⇒ `ENOT_REGISTERED`；③ 完全未知 ⇒ `CHANNEL_UNKNOWN`。
+ */
+export function describeChannelToggleFailure(
+  channelId: string,
+  flags: { droppedByBuild: boolean; known: boolean }
+): { status: number; code: string; message: string } {
+  if (flags.droppedByBuild) {
+    return {
+      status: 404,
+      code: 'CHANNEL_DROPPED_BY_BUILD',
+      message: describeChannelUnavailable(channelId),
+    };
+  }
+  if (flags.known) {
+    return {
+      status: 409,
+      code: 'ENOT_REGISTERED',
+      message:
+        `通道 ${channelId} 未在本实例注册（未导入或未通过启用判据），开关不会生效；` +
+        '请先在凭据配置或环境变量中启用它并重启后再试',
+    };
+  }
+  return {
+    status: 404,
+    code: 'CHANNEL_UNKNOWN',
+    message: `未知通道：${channelId}`,
+  };
+}
+
+/**
  * 列出所有通道
  */
 export async function handleListChannels(
@@ -105,25 +168,30 @@ export async function handleListChannels(
     }
 
     // 合并：全部候选 + 已注册数据
-    const result: Array<Record<string, unknown>> = ALL_CHANNEL_DEFS.map(
-      (def) => {
-        const registered = registeredMap.get(def.type);
-        if (registered) {
-          // 已注册的保留实际数据，但名使用定义中的显示名
-          return { ...registered, name: def.name, registered: true };
-        }
-        // 未注册的显示为已知但未配置
-        return {
-          id: def.type,
-          name: def.name,
-          type: def.type,
-          enabled: false,
-          connected: false,
-          registered: false,
-          config: {},
-        };
+    const result: Array<Record<string, unknown>> = [];
+    for (const def of ALL_CHANNEL_DEFS) {
+      const registered = registeredMap.get(def.type);
+      if (registered) {
+        // 已注册的保留实际数据，但名使用定义中的显示名
+        result.push({ ...registered, name: def.name, registered: true });
+        continue;
       }
-    );
+      // #21（2026-10-30）：**未注册也要回显 DB 配置** —— 原实现直接返回
+      // `enabled:false` 丢掉 `channel_configs.enabled=1`，造成"DB 说启用、UI 说未启用"
+      // 的双口径（实测 3 条 enabled=1 全部显示为已禁用）。
+      const cfg = channelRegistry.getConfig(def.type);
+      const display = cfg?.options
+        ? await getDisplayOptions(def.type)
+        : { config: {}, unreadableFields: [] };
+      result.push(
+        buildUnregisteredChannelEntry({
+          def,
+          config: cfg,
+          display,
+          droppedByBuild: isChannelDroppedByBuild(def.type),
+        })
+      );
+    }
 
     // 追加注册了但不在候选表中的通道（如有）
     for (const [name, reg] of registeredMap) {
@@ -188,16 +256,15 @@ export async function handleToggleChannel(
       // 尝试动态注册（可能 registry 状态已丢失）
       const dynRegistered = await tryDynamicRegister(channelId, undefined);
       if (!dynRegistered) {
-        // 主包瘦身 R4：说明"本构建裁掉了它"而不是笼统的 Channel not found
-        res.writeHead(404, { 'Content-Type': 'application/json' });
+        // #21（2026-10-30）：区分三种"开关点了也不生效"的原因，不再只给 404。
+        const failure = describeChannelToggleFailure(channelId, {
+          droppedByBuild: isChannelDroppedByBuild(channelId),
+          known: getChannelCatalogEntry(channelId) !== undefined,
+        });
+        res.writeHead(failure.status, { 'Content-Type': 'application/json' });
         res.end(
           JSON.stringify({
-            error: {
-              code: isChannelDroppedByBuild(channelId)
-                ? 'CHANNEL_DROPPED_BY_BUILD'
-                : 'CHANNEL_UNKNOWN',
-              message: describeChannelUnavailable(channelId),
-            },
+            error: { code: failure.code, message: failure.message },
           })
         );
         return;
@@ -209,14 +276,18 @@ export async function handleToggleChannel(
     if (enabled) {
       const connectSuccess = await channelRegistry.connect(channelId);
       if (!connectSuccess) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        // #21：连接失败必须把落盘的 enabled **回滚**，否则 DB 停在 enabled=1、
+        // 运行时却是断开态 ⇒ UI 与真实状态长期不一致（实测正是这种"静默无效"）。
+        channelRegistry.updateConfig(channelId, { enabled: false });
+        res.writeHead(502, { 'Content-Type': 'application/json' });
         res.end(
           JSON.stringify({
             success: false,
             id: channelId,
             enabled: false,
             error: {
-              message: `通道 ${channelId} 连接失败，请检查配置是否正确`,
+              code: 'CHANNEL_CONNECT_FAILED',
+              message: `通道 ${channelId} 连接失败，已回滚为禁用；请检查配置后重试`,
             },
           })
         );

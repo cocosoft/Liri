@@ -246,6 +246,30 @@ export async function setupChannelsFromConfig(): Promise<{
     logger.info(`通道自动注册完成: ${result.registered} 通道已注册`);
   }
 
+  // #21（2026-10-30）：**启动自检** —— `channel_configs.enabled=1` 但运行时没注册的渠道必须留痕。
+  // 此前这类错配在日志里几乎不可见（全量 app.log 中 `"module":"channels` 仅 2 条），
+  // 用户只看到"DB 里启用了、界面上未连接"。构建裁剪的情形已在上面单独告警过，这里不重复。
+  const registeredNames = new Set(channelRegistry.getAll().map((c) => c.name));
+  const enabledButUnregistered = channelRegistry
+    .getAllConfigs()
+    .filter(
+      (cfg) =>
+        cfg.enabled &&
+        !registeredNames.has(cfg.type) &&
+        getChannelCatalogEntry(cfg.type) !== undefined
+    );
+  for (const cfg of enabledButUnregistered) {
+    logger.warning(
+      `通道配置已启用但运行时未注册（开关不会生效）: ${cfg.type}` +
+        '；原因：未通过启用判据或无有效凭据，请检查凭据配置/环境变量后重启'
+    );
+  }
+  if (enabledButUnregistered.length > 0) {
+    logger.info(
+      `通道启动自检: ${enabledButUnregistered.length} 个已启用渠道未注册`
+    );
+  }
+
   // 第七步：返回（连接延迟到应用启动后由 lazyConnectChannels() 执行）
   logger.info(`通道自动注册结束, 总耗时: ${Date.now() - t0}ms`);
   return result;

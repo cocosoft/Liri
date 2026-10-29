@@ -1709,6 +1709,41 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * B1（2026-10-30，issue #35）：会话的**工作区根列表**（首根 = `workspacePath`）。
+   *
+   * `metadata.workspaceRoots` 由用户批准越界申请时追加（见 `runtime/inboxApproval.ts`）；
+   * 未声明 ⇒ 只返回主工作区（与改造前单根语义逐字一致）。
+   * 仅在 `FEATURE_WORKSPACE_MULTI_ROOT` 开启时被消费。
+   */
+  private getSessionWorkspaceRoots(sessionId?: string): string[] {
+    if (!sessionId) return [];
+    const session = this._chatSessions.get(sessionId);
+    const metadata = session?.metadata as Record<string, unknown> | undefined;
+    const extra = Array.isArray(metadata?.workspaceRoots)
+      ? (metadata.workspaceRoots as unknown[]).filter(
+          (r): r is string => typeof r === 'string' && r.trim().length > 0
+        )
+      : [];
+    const primary =
+      typeof metadata?.workspacePath === 'string' &&
+      metadata.workspacePath.trim()
+        ? metadata.workspacePath
+        : undefined;
+    if (!primary) return extra;
+    const normalized = (p: string) => p.replace(/[\\/]+$/, '').toLowerCase();
+    const seen = new Set([normalized(primary)]);
+    return [
+      primary,
+      ...extra.filter((r) => {
+        const key = normalized(r);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }),
+    ];
+  }
+
+  /**
    * PR-3（2026-10-23）：会话级审批模式（会话元数据 `approvalMode`）。
    *
    * 只认白名单值：`auto-local` ⇒ 自动执行（仅只读 + 本地写，受 `FEATURE_SESSION_AUTO_LOCAL` 约束）；

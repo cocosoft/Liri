@@ -150,6 +150,8 @@ export interface FacadeWiringHost {
   ): TAORLoop;
   getSessionWorkspaceId(sessionId?: string): string | undefined;
   isSessionWorkspaceStrict(sessionId?: string): boolean;
+  /** B1（2026-10-30）：多根工作区（首根 = `workspacePath`） */
+  getSessionWorkspaceRoots(sessionId?: string): string[];
   getSessionApprovalMode(sessionId?: string): 'ask' | 'auto-local';
   createSession(params: CreateSessionParams): Promise<ChatSession>;
   /** LRO-06：`ProjectStore` 实例缓存（`getSessionWorkspacePath` 端口直连所需） */
@@ -241,6 +243,7 @@ const FACADE_HOST_REQUIRED_KEYS = [
   '_getOrCreateTAORLoop',
   'getSessionWorkspaceId',
   'isSessionWorkspaceStrict',
+  'getSessionWorkspaceRoots',
   'getSessionApprovalMode',
   'createSession',
   '_projectSandboxStoreRef',
@@ -393,6 +396,8 @@ export function wireChatFacades(host: FacadeWiringHost): void {
       ),
     getSessionWorkspaceId: host.getSessionWorkspaceId.bind(host),
     isSessionWorkspaceStrict: host.isSessionWorkspaceStrict.bind(host),
+    // B1（2026-10-30，issue #35）：多根工作区（仅 FEATURE_WORKSPACE_MULTI_ROOT 开启时消费）
+    getSessionWorkspaceRoots: host.getSessionWorkspaceRoots.bind(host),
     // PR-3（2026-10-23）：会话级审批模式（缺省 ask）
     getSessionApprovalMode: host.getSessionApprovalMode.bind(host),
     isCommandApproved: (toolName, input, sid, approvalFingerprint) =>

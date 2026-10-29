@@ -71,11 +71,15 @@ describe('failureKind 生产者接线（LRO-09 步骤 1b）', () => {
     );
   });
 
-  it('权限生产者：DENY / 审批未能提交 / 工作区越界 三处都标 permission_denied', () => {
+  it('权限生产者：DENY / 审批未能提交固定 permission_denied；工作区越界按灰度开关分型', () => {
     const hits =
       EXEC_SERVICE_SRC.match(/failureKind: 'permission_denied'/g) ?? [];
-    // FIX-10（2026-10-27）：新增第三处 —— 会话工作区严格边界越界（原缺失 ⇒ 计入 invalid 预算）
-    expect(hits.length).toBe(3);
+    // FIX-10（2026-10-27）原有三处；B1（2026-10-30，issue #35）把"工作区越界"改为
+    // 随 `FEATURE_WORKSPACE_MULTI_ROOT` 分型 ⇒ 固定 permission_denied 只剩两处。
+    expect(hits.length).toBe(2);
+    // 开启多根 ⇒ `workspace_escape`（可恢复，不计入 environment_blocked 的 2 轮熔断）
+    expect(EXEC_SERVICE_SRC).toContain("? 'workspace_escape'");
+    expect(EXEC_SERVICE_SRC).toContain(": 'permission_denied'");
   });
 
   it('LRO-07：规则拒绝的结构化依据进工具结果（metadata.permissionDeny）', () => {

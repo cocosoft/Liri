@@ -433,6 +433,17 @@ export const FEATURE_FLAGS = {
    */
   BASH_APPROVAL_STRICT: false,
   /**
+   * B1（2026-10-30，issue #35）：**会话工作区多根 + 越界可恢复**（默认关 = 零行为变更）。
+   *
+   * 开 ⇒ 会话严格边界（`metadata.workspaceStrict`）按 `metadata.workspaceRoots`
+   * **任一根**判定；根外路径不再直接死拒，而是提交一次「允许本会话访问 `<目标>`」的
+   * 审批卡（批准后写回 `workspaceRoots` 并自动续跑），失败分类记为 `workspace_escape`
+   * （可恢复，不计入 `environment_blocked` 熔断预算）。
+   * 关（默认）⇒ 与改造前逐字一致：单根 + 越界即拒 + `permission_denied`。
+   * 运维/灰度覆盖：`FEATURE_WORKSPACE_MULTI_ROOT=true`。
+   */
+  WORKSPACE_MULTI_ROOT: false,
+  /**
    * PR-3（2026-10-23）：**会话级自动执行（仅只读 + 本地写）**（默认关）。
    *
    * 开 ⇒ 会话元数据 `approvalMode='auto-local'` 时，**风险默认档**里的 READ 之外，

@@ -37,7 +37,10 @@ import {
 import { ToolExecutionStatus } from '@modules/utils/toolContract/ToolResult';
 import { isMediaOutputToolName } from '@modules/utils/toolContract/toolRoles';
 // U-02 v2 / P3（2026-10-20）：工作区边界判定（与 LRO 共用同一纯函数，实现落 utils 避免 chat↔tasks 环）
-import { findWorkspaceEscape } from '@modules/utils/toolContract';
+import {
+  findWorkspaceEscape,
+  findWorkspaceEscapeInRoots,
+} from '@modules/utils/toolContract';
 import type { ToolName } from '@modules/constants/toolNames.generated';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
@@ -270,6 +273,13 @@ export interface ToolExecutionDeps {
    */
   isSessionWorkspaceStrict?: (sessionId?: string) => boolean;
   /**
+   * B1（2026-10-30，issue #35）：会话的**工作区根列表**（首根 = 主工作区）。
+   *
+   * 仅在 `FEATURE_WORKSPACE_MULTI_ROOT` 开启时消费；未注入或返回空 ⇒ 回落单根
+   * `getSessionWorkspacePath()`（与改造前逐字一致）。
+   */
+  getSessionWorkspaceRoots?: (sessionId?: string) => string[];
+  /**
    * PR-3（2026-10-23）：会话级审批模式（会话元数据 `approvalMode`，缺省 `ask`）。
    *
    * `auto-local` ⇒ 在**风险默认档**额外放行「本地写 + 路径全在会话工作区内」
@@ -327,11 +337,30 @@ export function formatWorkspaceEscapeError(params: {
   argKey: string;
   argValue: string;
   workspace: string;
+  /** B1（2026-10-30）：多根模式下的**全部**可访问根（缺省 = 单根 `workspace`） */
+  roots?: readonly string[];
+  /** B1（2026-10-30）：是否已向用户提交「允许访问该目录」的审批申请 */
+  approvalRequested?: boolean;
 }): string {
-  return (
+  const base =
     `路径越界：${params.argKey}=${params.argValue} 不在会话工作区内；` +
     `本会话可访问根：${params.workspace}；` +
-    '请改用该根下的相对路径，或改用会话内已有的工作区文件。'
+    '请改用该根下的相对路径，或改用会话内已有的工作区文件。';
+  // 以下为 B1 新增（`FEATURE_WORKSPACE_MULTI_ROOT` 关闭时不传 ⇒ 文案与改造前逐字一致）
+  const extraRoots = (params.roots ?? []).filter((r) => r !== params.workspace);
+  if (extraRoots.length === 0 && params.approvalRequested === undefined) {
+    return base;
+  }
+  const rootsHint =
+    extraRoots.length > 0 ? `（另含：${extraRoots.join('、')}）` : '';
+  const applyHint =
+    params.approvalRequested === true
+      ? '\n已向用户提交「允许本会话访问该目录」的审批申请：批准后本次调用会被自动重试，无需你重复申请。'
+      : params.approvalRequested === false
+        ? '\n如需访问该目录，请在回复中说明用途并向用户申请（当前工作区仅含上述根）。'
+        : '';
+  return (
+    base.replace('本会话可访问根：', `本会话可访问根${rootsHint}：`) + applyHint
   );
 }
 
@@ -350,6 +379,66 @@ export class ToolExecutionService {
       this._readFileStateCaches.set(key, cache);
     }
     return cache;
+  }
+
+  /**
+   * B1（2026-10-30，issue #35）：越界时提交「允许本会话访问 `<target>`」审批卡。
+   *
+   * 同一会话 + 同一目标**只建一张**（查询既有 pending 卡去重，避免每轮重复刷屏）。
+   * 批准后的加根与续跑在 `runtime/inboxApproval.ts` 的统一批准副作用里落地。
+   *
+   * @returns 是否已有/已建审批卡（`false` = 提交失败，调用方据此如实告知模型）
+   */
+  private async _requestWorkspaceScopeApproval(
+    sessionId: string | undefined,
+    targetPath: string
+  ): Promise<boolean> {
+    if (!sessionId) return false;
+    try {
+      const { inboxManager, INBOX_STATUS_PENDING } =
+        await import('@modules/runtime/InboxManager.js');
+      const { items } = await inboxManager.list({
+        sessionId,
+        // 用规范常量（状态字面量棘轮：`pending` 不得裸写）
+        status: INBOX_STATUS_PENDING,
+        type: 'approval',
+        limit: 50,
+      });
+      const duplicated = items.some(
+        (item) =>
+          item.metadata?.kind === 'workspace-scope' &&
+          item.metadata?.workspaceScopeRoot === targetPath
+      );
+      if (duplicated) return true;
+
+      await inboxManager.submit({
+        sessionId,
+        type: 'approval',
+        title: `工作区访问申请: ${targetPath}`,
+        message:
+          `模型请求访问会话工作区之外的路径：\n${targetPath}\n\n` +
+          '批准后该路径将加入本会话的工作区根，被拒的工具调用会自动重试；' +
+          '拒绝则该调用保持被拒。',
+        options: ['approve', 'deny'],
+        offlineCapable: true,
+        source: 'permission',
+        metadata: {
+          kind: 'workspace-scope',
+          workspaceScopeRoot: targetPath,
+          sourceModule: 'workspace-boundary',
+          approvalScopeKind: 'once',
+        },
+      });
+      logger.info('工作区越界审批卡已提交', { sessionId, targetPath });
+      return true;
+    } catch (error) {
+      logger.warn('工作区越界审批卡提交失败（按未申请处理）', {
+        sessionId,
+        targetPath,
+        error: String(error),
+      });
+      return false;
+    }
   }
 
   /**
@@ -1167,11 +1256,28 @@ export class ToolExecutionService {
           sessionWorkspacePath &&
           this.deps.isSessionWorkspaceStrict?.(toolCall.sessionId) === true
         ) {
-          const escape = findWorkspaceEscape(
-            sessionWorkspacePath,
-            normalizedToolCall.arguments
-          );
+          // B1（2026-10-30，issue #35）：灰度开关关闭 ⇒ 单根 + 原分类（逐字不变）
+          const multiRootEnabled = feature('WORKSPACE_MULTI_ROOT');
+          const roots = multiRootEnabled
+            ? (this.deps.getSessionWorkspaceRoots?.(toolCall.sessionId) ?? [])
+            : [];
+          const escape =
+            roots.length > 0
+              ? findWorkspaceEscapeInRoots(roots, normalizedToolCall.arguments)
+              : findWorkspaceEscape(
+                  sessionWorkspacePath,
+                  normalizedToolCall.arguments
+                );
           if (escape) {
+            // 首次越界 ⇒ 提交「允许本会话访问该目录」审批卡（同一目标只建一张）。
+            // 提交失败不影响拒绝：按"未申请"如实告知模型（CS03-002 不静默）。
+            let approvalRequested: boolean | undefined;
+            if (multiRootEnabled) {
+              approvalRequested = await this._requestWorkspaceScopeApproval(
+                toolCall.sessionId,
+                escape.resolved
+              );
+            }
             logger.warn('工具路径越界，已拒绝执行（会话工作区严格边界）', {
               toolCallId: toolCall.id,
               toolName: normalizedToolCall.name,
@@ -1181,6 +1287,9 @@ export class ToolExecutionService {
               resolved: escape.resolved,
               via: escape.via,
               workspace: sessionWorkspacePath,
+              ...(multiRootEnabled
+                ? { multiRootEnabled, roots, approvalRequested }
+                : {}),
             });
             return {
               toolCallId: toolCall.id,
@@ -1195,8 +1304,14 @@ export class ToolExecutionService {
                 argKey: escape.key,
                 argValue: escape.value,
                 workspace: sessionWorkspacePath,
+                ...(multiRootEnabled ? { roots, approvalRequested } : {}),
               }),
-              failureKind: 'permission_denied' as const,
+              // B1（2026-10-30）：多根模式下越界是**可恢复**的（批准加根即可重发）
+              // ⇒ 记 `workspace_escape`（不计入 environment_blocked 的 2 轮熔断）；
+              // 开关关闭时保持既有 `permission_denied`（零行为变更）。
+              failureKind: (multiRootEnabled
+                ? 'workspace_escape'
+                : 'permission_denied') as ToolFailureKind,
             };
           }
         }

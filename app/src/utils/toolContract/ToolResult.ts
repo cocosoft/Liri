@@ -53,6 +53,13 @@ export type ToolFailureKind =
   | 'safety_blocked'
   /** 依赖缺失、能力未就绪（如沙箱 helper 不可用） */
   | 'env_unavailable'
+  /**
+   * 会话工作区严格边界越界（B1，2026-10-30，issue #35）。
+   *
+   * **可恢复**：用户批准后目标可作为新根加入 `metadata.workspaceRoots` ⇒ 重发即通过。
+   * 因此**不得**归入 `environment_blocked`（那会在 2 轮内熔断整轮，模型没有改错机会）。
+   */
+  | 'workspace_escape'
   /** 工具自身执行失败（可能可恢复） */
   | 'tool_error';
 

@@ -234,6 +234,12 @@ async function applyApprovalSideEffects(
   selectedOption?: string
 ): Promise<void> {
   if (current.type !== 'approval' || current.source !== 'permission') return;
+  // B1（2026-10-30，issue #35）：工作区访问申请走独立副作用（加根 + 续跑），
+  // 它**没有** commandHash（不写命令放行缓存），必须在放行缓存分支之前分流。
+  if (current.metadata?.kind === 'workspace-scope') {
+    await applyWorkspaceScopeApproval(current, reply, selectedOption);
+    return;
+  }
   if (!isApprovalReply(reply, selectedOption)) return;
 
   const commandHash = current.metadata?.commandHash as string | undefined;
@@ -293,6 +299,82 @@ async function applyApprovalSideEffects(
       });
     }
   );
+}
+
+/**
+ * B1（2026-10-30，issue #35）：「允许本会话访问 `<root>`」申请获批 ⇒ 把该路径追加到
+ * 会话 `metadata.workspaceRoots`，然后走既有"批准后续跑"（重放被拒的工具调用）。
+ *
+ * 只追加**这一条**被用户看到的路径（不扩大到父目录），避免批准一次等于放开整盘。
+ * 存储侧与内存态都要更新（`loadSession` 只读内存 Map ⇒ 冷会话走 gateway）。
+ */
+async function applyWorkspaceScopeApproval(
+  current: InboxItem,
+  reply: string,
+  selectedOption?: string
+): Promise<void> {
+  const sessionId = current.sessionId;
+  const root = current.metadata?.workspaceScopeRoot;
+  if (!sessionId || typeof root !== 'string' || !root.trim()) return;
+  if (!isApprovalReply(reply, selectedOption)) {
+    logger.info('工作区访问申请被拒绝（保持原工作区根）', { sessionId, root });
+    return;
+  }
+
+  type SessionLike = { metadata?: Record<string, unknown> };
+  type ChatManagerLike = {
+    loadSession?: (id: string) => Promise<SessionLike | undefined>;
+    saveSession?: (session: SessionLike) => Promise<void>;
+    persistSessionMetadata?: (session: SessionLike) => Promise<void>;
+    getSessionGateway?: () =>
+      | {
+          getSession(id: string): Promise<SessionLike | undefined>;
+          updateSession(session: SessionLike): Promise<void>;
+        }
+      | undefined;
+  };
+
+  const mergeRoot = (session: SessionLike): void => {
+    const metadata = session.metadata ?? {};
+    const existing = Array.isArray(metadata['workspaceRoots'])
+      ? (metadata['workspaceRoots'] as unknown[]).filter(
+          (r): r is string => typeof r === 'string'
+        )
+      : [];
+    if (existing.includes(root)) return;
+    session.metadata = { ...metadata, workspaceRoots: [...existing, root] };
+  };
+
+  try {
+    const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
+    const chatManager = getCoreAPI().chatManager as unknown as
+      | ChatManagerLike
+      | undefined;
+
+    const cached = await chatManager?.loadSession?.(sessionId);
+    if (cached && chatManager) {
+      mergeRoot(cached);
+      await chatManager.saveSession?.(cached);
+      await chatManager.persistSessionMetadata?.(cached);
+    } else {
+      const gateway = chatManager?.getSessionGateway?.();
+      const stored = await gateway?.getSession(sessionId);
+      if (stored) {
+        mergeRoot(stored);
+        await gateway?.updateSession(stored);
+      }
+    }
+
+    logger.info('工作区根已追加（越界申请获批）', { sessionId, root });
+    await triggerResumeAfterApproval(sessionId);
+  } catch (error) {
+    // 加根失败不应影响审批结果本身：如实记录，用户可重发（此时仍会被拒）
+    logger.warn('工作区根追加失败（不影响审批结果）', {
+      sessionId,
+      root,
+      error: String(error),
+    });
+  }
 }
 
 /**

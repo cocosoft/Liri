@@ -101,18 +101,45 @@ export function findWorkspaceEscape(
   args: Record<string, unknown>,
   deps: WorkspaceGuardDeps = {}
 ): WorkspaceEscape | null {
-  const root = resolve(workspace);
+  return findWorkspaceEscapeInRoots([workspace], args, deps);
+}
+
+/**
+ * B1（2026-10-30，issue #35）：**多根**版本 —— 任一根之内即视为通过。
+ *
+ * `roots` 的顺序有意义：第一个根是会话主工作区，相对路径按它解析
+ * （与单根版本同口径）；空数组 ⇒ 不判（调用方应回落 `findWorkspaceEscape`）。
+ *
+ * 判定仍是「词法 → 真实路径」两道，语义与单根版本逐一对应：
+ *  1. 任一根内（词法）⇒ 继续下一个入参；全部根外 ⇒ `via: 'lexical'`；
+ *  2. 任一根内（展开符号链接后）⇒ 通过；否则 `via: 'symlink'`。
+ *
+ * ⚠️ 只放宽"根的个数"，**不放宽**根外判据 —— 根外仍一律判越界（fail-closed）。
+ */
+export function findWorkspaceEscapeInRoots(
+  roots: readonly string[],
+  args: Record<string, unknown>,
+  deps: WorkspaceGuardDeps = {}
+): WorkspaceEscape | null {
+  const resolvedRoots = roots
+    .filter((r): r is string => typeof r === 'string' && r.trim().length > 0)
+    .map((r) => resolve(r));
+  if (resolvedRoots.length === 0) return null;
+
   const realPath = deps.realPath ?? defaultRealPath;
-  const realRoot = realPath(root);
+  const realRoots = resolvedRoots.map((r) => realPath(r));
+  const base = resolvedRoots[0];
+
   for (const key of PATH_ARG_KEYS) {
     const value = args[key];
     if (typeof value !== 'string' || !value.trim()) continue;
 
-    const resolved = isAbsolute(value) ? resolve(value) : resolve(root, value);
-    if (isOutside(root, resolved)) {
+    const resolved = isAbsolute(value) ? resolve(value) : resolve(base, value);
+    if (!resolvedRoots.some((root) => !isOutside(root, resolved))) {
       return { key, value, resolved, via: 'lexical' };
     }
-    if (isOutside(realRoot, realPath(resolved))) {
+    const real = realPath(resolved);
+    if (!realRoots.some((root) => !isOutside(root, real))) {
       return { key, value, resolved, via: 'symlink' };
     }
   }

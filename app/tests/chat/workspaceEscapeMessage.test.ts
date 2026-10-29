@@ -34,3 +34,51 @@ describe('越界错误文案（FIX-10）', () => {
     expect(text).toContain('C:\\ws');
   });
 });
+
+describe('越界错误文案（B1，2026-10-30，issue #35）', () => {
+  const workspace = 'C:\\Users\\csdnc\\Documents\\LiriProjects\\proj_x';
+
+  it('未传新参数 ⇒ 与改造前逐字一致（零行为变更）', () => {
+    const text = formatWorkspaceEscapeError({
+      argKey: 'path',
+      argValue: 'E:\\out',
+      workspace,
+    });
+    expect(text).not.toContain('另含');
+    expect(text).not.toContain('审批申请');
+  });
+
+  it('多根：文案列出其余可访问根', () => {
+    const text = formatWorkspaceEscapeError({
+      argKey: 'path',
+      argValue: 'D:\\secrets',
+      workspace,
+      roots: [workspace, 'E:\\PY\\Documents\\CODES\\PY_APP'],
+      approvalRequested: true,
+    });
+    expect(text).toContain('另含：E:\\PY\\Documents\\CODES\\PY_APP');
+  });
+
+  it('已提交申请 ⇒ 告知模型批准后会重试（不要重复申请）', () => {
+    const text = formatWorkspaceEscapeError({
+      argKey: 'path',
+      argValue: 'D:\\secrets',
+      workspace,
+      roots: [workspace],
+      approvalRequested: true,
+    });
+    expect(text).toContain('审批申请');
+    expect(text).toContain('自动重试');
+  });
+
+  it('申请未提交 ⇒ 明确要求向用户申请（不静默）', () => {
+    const text = formatWorkspaceEscapeError({
+      argKey: 'path',
+      argValue: 'D:\\secrets',
+      workspace,
+      roots: [workspace],
+      approvalRequested: false,
+    });
+    expect(text).toContain('向用户申请');
+  });
+});

@@ -11,7 +11,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { resolveSessionWorkspaceId } from "@/stores/selectors";
+import { sessionBelongsToProject } from "@/stores/selectors";
 import { useRootStore } from "@/stores/root-store";
 import { useChatStore } from "@/stores/chat";
 import { chatCoordinator } from "@/stores/chat/chatCoordinator";
@@ -287,9 +287,9 @@ export default function ProjectsPage() {
       // metadata.workspaceId（本机 28 条里仅 6 条有）⇒ 3 个明明各有 1 个会话的项目
       // 显示成「0 个会话」。后端 `effectiveProjectId()` 以 metadata.projectId 为权威
       // （N-64），此处对齐：projectId 优先、workspaceId 兜底。
-      (s) =>
-        ((s.projectId ?? "").trim() ||
-          resolveSessionWorkspaceId(s.workspaceId)) === projectId,
+      // F-22（2026-10-29）：判据收敛到 `sessionBelongsToProject`（唯一来源），
+      // 避免「展示用一套、init/删除用另一套」。
+      (s) => sessionBelongsToProject(s, projectId),
     );
   /** `chatSessions`（会话列表）的 `updatedAt` 是 **ISO 字符串**（Hub 记录里是 number），需解析为毫秒 */
   const sessionTs = (s: { updatedAt?: string }): number =>
@@ -660,11 +660,13 @@ export default function ProjectsPage() {
       }
 
       // ===== 1. 读取状态（无副作用）=====
-      // F-16：判定口径与**展示**同源 —— `chatSessions` + `resolveSessionWorkspaceId`
-      // （原实现读 Hub `sessions` Map 且严格比较 `workspaceId`，两套口径会打架）
+      // F-16：判定口径与**展示**同源 —— `chatSessions` + `sessionBelongsToProject`
+      // （原实现读 Hub `sessions` Map 且严格比较 `workspaceId`，两套口径会打架；
+      //  F-22：2026-10-29 复核发现此处仍只看 `workspaceId` ⇒ 对「只绑 projectId」的
+      //  已有会话项目又建空壳，故与展示收敛到同一谓词）
       const state = useRootStore.getState();
       const projSessions = state.chatSessions
-        .filter((s) => resolveSessionWorkspaceId(s.workspaceId) === wid)
+        .filter((s) => sessionBelongsToProject(s, wid))
         .sort((a, b) => sessionTs(b) - sessionTs(a));
       const currentId = state.currentSessionId;
 
@@ -703,9 +705,7 @@ export default function ProjectsPage() {
           await switchWorkspace(wid);
           const afterSwitch = useRootStore
             .getState()
-            .chatSessions.filter(
-              (s) => resolveSessionWorkspaceId(s.workspaceId) === wid,
-            );
+            .chatSessions.filter((s) => sessionBelongsToProject(s, wid));
           if (afterSwitch.length === 0) {
             await createChatSession("对话 1");
             logger.info("[ProjectsPage] 首个会话创建完成", {
@@ -826,9 +826,11 @@ export default function ProjectsPage() {
     try {
       await chatCoordinator.stopMessage();
       // N-62 V2：与展示同源（`chatSessions`）—— 删除项目时清理的会话集合应与卡片/侧栏所见一致
+      // F-22（2026-10-29）：此处原只看 `workspaceId` ⇒ 只绑 `projectId` 的会话会被漏删（数据残留），
+      // 改为与展示同一谓词。
       const state = useRootStore.getState();
-      const projSessions = state.chatSessions.filter(
-        (s) => resolveSessionWorkspaceId(s.workspaceId) === selectedProjectId,
+      const projSessions = state.chatSessions.filter((s) =>
+        sessionBelongsToProject(s, selectedProjectId),
       );
       for (const s of projSessions) {
         try {

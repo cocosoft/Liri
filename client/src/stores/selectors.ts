@@ -82,6 +82,27 @@ export function isProjectEntityId(id: string | null | undefined): boolean {
   return /^proj_\d+_[a-z0-9]+$/i.test((id ?? "").trim());
 }
 
+/**
+ * F-22（2026-10-29）：会话是否属于某项目 —— **唯一判据**。
+ *
+ * 后端 `effectiveProjectId()` 以 `metadata.projectId` 为权威（N-64），`workspaceId` 仅兜底
+ * （本机 28 条会话：10 条只有 `projectId`、6 条只有 `workspaceId`）。此前 `ProjectsPage`
+ * 有两套口径：**展示**用「projectId 优先」、**init 的『无会话』判定**只看 `workspaceId`
+ * ⇒ 明明已有会话的项目被判成「无会话」，又新建一条 `对话 1`（真机：`proj_1793116653351_d0760e`
+ * 已有 311 条消息的会话，仍被新建空壳）。
+ *
+ * 任何「这个项目有几个会话」的判断都必须走这里，禁止各处自写。
+ */
+export function sessionBelongsToProject(
+  session: { projectId?: string | null; workspaceId?: string | null },
+  projectId: string,
+): boolean {
+  const effective =
+    (session.projectId ?? "").trim() ||
+    resolveSessionWorkspaceId(session.workspaceId ?? undefined);
+  return effective === projectId;
+}
+
 /** 当前 worktree 下所有 session */
 export const selectSessionsByCurrentWorkspace = (
   state: RootState,

@@ -77,6 +77,7 @@ import type { ChatEventLogStore } from './eventLogStore';
 import type { ChatRequestPrep } from './requestPrep';
 import { buildTAORContextFor } from './taorContextWiring';
 import { isCommandApproved, submitToolApproval } from './toolApproval';
+import { wireCodeRunnerDeps } from './codeRunnerWiring';
 import { persistTurnSummary } from '../services/MessageContextPipeline';
 import { assertHostSurface, type AssertNever } from './wiringHostGuard';
 
@@ -148,7 +149,6 @@ export interface FacadeWiringHost {
   getSessionWorkspaceId(sessionId?: string): string | undefined;
   isSessionWorkspaceStrict(sessionId?: string): boolean;
   getSessionApprovalMode(sessionId?: string): 'ask' | 'auto-local';
-  _wireCodeRunnerDeps(): void;
   createSession(params: CreateSessionParams): Promise<ChatSession>;
   _shouldUsePlanDrivenLoop(message: string): boolean;
   _shouldUseCodeMode(message: string): boolean;
@@ -241,7 +241,6 @@ const FACADE_HOST_REQUIRED_KEYS = [
   'getSessionWorkspaceId',
   'isSessionWorkspaceStrict',
   'getSessionApprovalMode',
-  '_wireCodeRunnerDeps',
   'createSession',
   '_shouldUsePlanDrivenLoop',
   '_shouldUseCodeMode',
@@ -347,7 +346,12 @@ export function wireChatFacades(host: FacadeWiringHost): void {
   });
 
   // CM-6：Code Mode 运行期依赖接线（CODE_MODE 开启时）
-  host._wireCodeRunnerDeps();
+  // issue #19 · Cut G：实现已外移到 `manager/codeRunnerWiring.ts`（端口直连，不经宿主同名转发）
+  wireCodeRunnerDeps({
+    getCurrentSessionId: () => host._currentSessionId,
+    getOrCreateEventLog: (sid) => host._eventLogStore.getOrCreateEventLog(sid),
+    appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
+  });
 
   // 第三阶段收敛：初始化工具执行服务
   host._toolExecutionService = new ToolExecutionService({

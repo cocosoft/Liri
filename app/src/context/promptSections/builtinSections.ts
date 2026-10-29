@@ -33,6 +33,7 @@ import {
   getCurrentKnowledgeQuery,
 } from '@modules/services/prompt/KnowledgePromptProvider';
 import { generateDigestContext } from '@modules/knowledge';
+import { DomainManager } from '@modules/knowledge';
 import { truncateMemoryContent } from '@modules/memory';
 import { getGitInfo } from '@modules/context';
 import { readProjectFiles } from '@modules/context';
@@ -645,6 +646,30 @@ ${overlay}`;
       return await generateDigestContext({ maxCount: 3, strategy: 'combined' });
     },
     'Knowledge digest updated periodically, cache 5min'
+  ),
+
+  // S6 / issue #13（2026-10-29）：知识域清单 —— 让模型知道「有哪些域」，
+  // 但**只列元数据**（name/label/description），不灌任何域内正文（wikis 由检索侧按需取）。
+  // 零域 ⇒ 整段省略（返回 null，不产生空标题）。不缓存：域的 create 无失效钩子。
+  knowledgeDomains: DANGEROUS_uncachedSystemPromptSection(
+    'knowledgeDomains',
+    async () => {
+      const domains = await new DomainManager().list();
+      if (domains.length === 0) return null;
+
+      const parts: string[] = [
+        '## 知识域',
+        '',
+        '可用知识域（仅清单，正文需按需检索）：',
+      ];
+      for (const d of domains) {
+        const label =
+          d.label && d.label !== d.name ? `${d.label}（${d.name}）` : d.name;
+        parts.push(`- ${label}${d.description ? `：${d.description}` : ''}`);
+      }
+      return parts.join('\n');
+    },
+    '域清单随 DomainManager.create 变化，且当前没有段落缓存失效钩子'
   ),
 
   // P1-11: Few-shot 工具使用示例

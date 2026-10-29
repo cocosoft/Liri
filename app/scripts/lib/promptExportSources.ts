@@ -60,6 +60,8 @@ export const DYNAMIC_SECTION_REASONS: Record<string, string> = {
   projectContext: '读取项目文件清单（随工作区变化）',
   knowledgeContext: '知识库检索结果（运行时数据）',
   knowledgeDigest: '知识摘要异步生成（定时更新）',
+  // S6 / issue #13（2026-10-29）：域清单读 ~/.pyapp/knowledge/domains/ 的 .domain.yaml（随用户建域变化）
+  knowledgeDomains: '知识域清单读取磁盘配置（随用户创建域变化）',
 };
 
 export interface SectionExport {
@@ -95,7 +97,7 @@ export function sha256(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
-/** 采集 22 段：静态段带原文，动态段带原因（顺序 = `SECTION_NAMES`） */
+/** 采集全部段（23）：静态段带原文，动态段带原因（顺序 = `SECTION_NAMES`） */
 export async function collectSections(): Promise<SectionExport[]> {
   const staticSet = new Set<string>(STATIC_SECTION_IDS);
   const out: SectionExport[] = [];

@@ -155,6 +155,8 @@ export const SECTION_NAMES = [
   'projectContext',
   'knowledgeContext',
   'knowledgeDigest',
+  // S6 / issue #13（2026-10-29）：知识域清单（只列 name/label/description，不灌域内正文；零域整段省略）
+  'knowledgeDomains',
   'fewShotExamples',
   'knowledgeSaveGuide',
   'outputArtifactBoundary',

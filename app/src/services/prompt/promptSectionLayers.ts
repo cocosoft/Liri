@@ -110,6 +110,8 @@ const SECTION_META = {
   promptEvolution: { layer: 'L3' },
   knowledgeContext: { layer: 'L3' },
   knowledgeDigest: { layer: 'L3' },
+  // S6 / issue #13（2026-10-29）：域清单是**小体量元数据**（一行一域），放 L2（会话动态类）
+  knowledgeDomains: { layer: 'L2' },
   fewShotExamples: { layer: 'L3' },
   knowledgeSaveGuide: { layer: 'L3' },
 

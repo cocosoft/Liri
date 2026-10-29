@@ -3,9 +3,9 @@
   "locale": "zh-CN",
   "generatedBy": "app/scripts/export-prompts.ts",
   "counts": {
-    "sections": 22,
+    "sections": 23,
     "sectionsStatic": 9,
-    "sectionsDynamic": 13,
+    "sectionsDynamic": 14,
     "toolModules": 3,
     "toolPrompts": 3
   },
@@ -167,6 +167,14 @@
       "locale": "zh-CN",
       "source": "app/src/context/promptSections/builtinSections.ts",
       "reason": "知识摘要异步生成（定时更新）"
+    },
+    {
+      "id": "section:knowledgeDomains",
+      "layer": "system",
+      "kind": "dynamic",
+      "locale": "zh-CN",
+      "source": "app/src/context/promptSections/builtinSections.ts",
+      "reason": "知识域清单读取磁盘配置（随用户创建域变化）"
     },
     {
       "id": "section:fewShotExamples",

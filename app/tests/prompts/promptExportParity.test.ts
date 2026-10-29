@@ -4,7 +4,7 @@
  * 判据（对应清单 C-1 验收）：
  * - 逐段文本 **diff = 0**：磁盘内容 === 当前源文本（静态段 / 工具提示词）；
  * - **hash 与导出源一致**：manifest 的 sha256 === 重算值；
- * - 22 段**全覆盖**：静态 9 段有文件；动态 13 段只登记原因（不编造文本，CS06）；
+ * - 23 段**全覆盖**：静态 9 段有文件；动态 14 段只登记原因（不编造文本，CS06）；
  * - **行为零变化**：包内资源读取收敛于 PromptVersionManager 单点（C-2 六级链，
  *   见末条守卫）；框架与段落定义不直接读盘；
  * - 目录与 manifest 相互闭合（无缺失 / 无多余产物）。
@@ -62,17 +62,17 @@ function listFiles(dir: string, base: string = LOCALE_ROOT): string[] {
 }
 
 describe('C-1 提示词冻结导出', () => {
-  it('manifest 存在且 22 段全覆盖（静态 9 / 动态 13）', () => {
+  it('manifest 存在且 23 段全覆盖（静态 9 / 动态 14）', () => {
     expect(existsSync(MANIFEST_PATH)).toBe(true);
     const manifest = readManifest();
     expect(manifest.schemaVersion).toBe(1);
     expect(manifest.locale).toBe(PROMPT_LOCALE);
-    expect(manifest.counts.sections).toBe(22);
+    expect(manifest.counts.sections).toBe(23);
     expect(manifest.counts.sectionsStatic).toBe(9);
-    expect(manifest.counts.sectionsDynamic).toBe(13);
+    expect(manifest.counts.sectionsDynamic).toBe(14);
 
     const sectionEntries = manifest.entries.filter((e) => e.layer === 'system');
-    expect(sectionEntries).toHaveLength(22);
+    expect(sectionEntries).toHaveLength(23);
     for (const entry of sectionEntries) {
       if (entry.kind === 'static') {
         expect(entry.file).toBeDefined();

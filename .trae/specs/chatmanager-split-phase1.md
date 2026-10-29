@@ -393,3 +393,12 @@ git diff --stat                        # 抽走了哪些文件/多少行
 - **助手侧**：`dead_helpers.ts` 扫 46 个非契约助手 —— 43 个 `this.` 引用为 0 但 `host.*` 引用 1~27 处（如 `recordChatResponseUsage` 27、`getSessionMachine` 10、`onLongTaskSignal` 10）；其余 6 个各 1 处内部调用（`_unregisterTaorLoop` / `_assertSessionScopedDisposed` / `_scheduleReconcileDrain` / `_registerStopHooks` / `_budgetResumeDeps` / `clearResumeIntent`）。⇒ **零死方法**。
 - **结论**：`ChatManager` 现存每个成员都是**契约方法**或**宿主端口载体**，剩余 2535 行**没有"清死代码"空间**；再降只能改宿主端口/装配结构本身（Cut J 的实质），否则就是为凑行数搬移代码（净收益 ≈ 0，风险非 0）。
 
+## 十一、关单结论（2026-10-30，方案 A）
+
+- **决策**：接受现状 **2535 行**（自 4840 起 **−2305 / −47.6%**），issue **#19 关单**；不再做 Cut J（重写级、改面覆盖 46 助手 + 567 行字段区 + 8 个装配模块）。
+- **达标情况（如实）**：#8 的 **≤4000 已达成**（Cut C 后 3972）；原 line-target **≤1500 未达成**，且经 §十/§十一 定量证明：不改装配结构则不可达。
+- **质量口径**：`tsc` 0 错误；`lint:arch` 0 错误；`lint:size` 0 错误 / 528 警告；`bun test tests/chat` 738 pass；全量 **8961 pass / 41 skip / 0 fail**（与起点基线逐项一致 ⇒ 全程行为不变）。
+- **可回滚点**：#18 三批（`3087`）→ Cut G（`2999`）→ Cut H 两批（`2796`）→ Cut F-a（`2a29fe4bf`，`2706`）→ Cut F-a-2（`ad76605a8`，`2535`）。
+- **若日后重启**：从 §十 的组成表与 §十一 的 Cut J 口径出发，单开 issue 分批实施（每批独立提交 + 门禁 + spec 记录）。
+
+

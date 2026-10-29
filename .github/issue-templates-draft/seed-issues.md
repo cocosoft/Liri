@@ -72,7 +72,7 @@
 
 | # | 草稿中的前提 | 实测 | 结论 |
 |---|---|---|---|
-| 1 | Phase A 未实施 | `app/src/knowledge/domains/` 不存在；仓内 `.domain.yaml` 计数 **0**；`dev_docs/domain-first-plan.md` 存在（**155 行**，非空 127） | ✅ 前提成立 |
+| 1 | Phase A 未实施 | ❌ **前提不成立**：A1 路径（`environment/paths.ts:800/812/825`）、A2 `DomainManager`（`list/create/getConfig`）、A4 `SchemaLoader(schemaDir?, domainName?)` 均已完成；A3 桶导出、A5 迁移脚本未做；Phase B 参数就绪但**除 SchemaLoader 的 SPI seam 外无调用方传 domain**；Phase C 未做（`detectDomain` 已按 N-76 裁定删除）。`dev_docs/domain-first-plan.md` 存在（**155 行**，非空 127） | ⚠️ 已把「真实进度 + 6 个可认领子任务」作为评论发到 #1（2026-10-29） |
 | 2 | `ChatManager` 7036 行 | `app/src/chat/ChatManager.ts` = **4840 行**（非空 4532）；`app/src/chat/**` 合计 **47547 行**（非空 44140）。⚠️ 口径提醒：`Measure-Object -Line` 统计的是**非空行**，别当总行数 | ❌ 数据过期且「抽出会话持久化」已完成（`manager/messagePersistence.ts` 510 / `eventLogStore.ts` 562）⇒ 原单 `not_planned` 关闭，已另开 **#8** |
 | 3 | `handlers/` 测试覆盖为 0 | 该目录 **112** 个 `.ts`；`app/tests/http/` 下 **48** 个测试文件，含 `auto-reply-handlers` / `checkpoint-handlers` / `daily-budget-handlers` / `state-all.contract` 等直测 handler 的用例 | ❌ 前提不成立（应改为「覆盖仍不均衡」，或关闭） |
 | 4 | CI 覆盖率门槛尚未建立 | `ci.yml:193` 已有 `Check coverage threshold (at least 18%)` → `bun run scripts/check-coverage-threshold.ts 18` | ❌ 前提不成立（门槛已存在；可改为「棘轮化/提升到只拦下降」） |

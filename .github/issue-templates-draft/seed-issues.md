@@ -110,6 +110,11 @@
   - **如实订正**：#13 原文的「原 `knowledgeIndex` 行为不变」前提**不成立** —— 代码里没有 `knowledgeIndex` 段（只有 `knowledgeContext`/`knowledgeDigest`，C1 从未实现）；本单是**新增独立段**，不替换任何既有段。
   - 关单方式：一次性 workflow `close-13.yml` 只提交在临时分支 `ci/close-13`（run `40832929118`，8s 成功），**未落到 main**，跑完已删本地与远端分支。
 - **注意（S4 冲突规避）**：**#14 是外部贡献者 jay23606 提交的 Open PR（正文 `Fixes #12`）**，因此 S4（#12）**不再由本仓重复实现**，等该 PR 评审/合并后再关闭 #12。
+- **S5（#15）部分交付 · 单仍 open（2026-10-29，commit `f3b4c2275`）**：按用户裁定「最小可交付」实施 ——
+  - `SessionMetadata.domain`（session.ts）+ `KnowledgeQueryProvider.getKnowledgeSummaries(query, limit?, domain?)` + `MessageContextPipeline` 每轮**覆盖式**注入 `setCurrentKnowledgeDomain`（含清空防串域）+ `knowledgeContext` 段统一校验（`DomainManager.getConfig`，不存在 ⇒ warn 回全局）+ `KnowledgeSummarizer` 接收但留 `TODO: CS05-ROOTFIX`（digest / IKnowledgeSearch 两条链尚无域过滤）。
+  - 新增 `app/tests/context/knowledgeContextDomain.test.ts`（5 例）；相关测试 **273/273**；`typecheck` 绿；`lint:arch` exit 0。
+  - **验收对照**：#15 的「传域 ⇒ 检索根 = `domains/{name}`」**未满足**（限缩未接线）⇒ **不关单**，只在 #15 回进展评论（一次性作业 `note-15.yml` 仅存于临时分支 `ci/note-15`，run `40835673438` 7s 成功，分支已删）。
+  - 剩余：把 domain 透传进 `searchDigest` 与 `IKnowledgeSearch`，再补「检索根 = domains/{name}」契约测试即可关单。
   - 当前 issue 状态：**open 6 条**（#1 / #7 / #8 / #11 / #12 / #15），**closed 8 条**（#2 / #3 / #4 / #5 / #6 / #9 / #10 / #13）。
 
 

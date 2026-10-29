@@ -230,10 +230,32 @@ git diff --stat                        # 抽走了哪些文件/多少行
 - 删除（6）：`extractFilePathsFromText`、`_sanitizeApiMessages`、`_recordToolsSnapshot`、`_buildToolDefinitions`、`_truncateApiMessages`、`_persistTurnSummary`。
 - 实测：**3311 → 3262（−49）**；`tests/chat` 738 pass。
 
+### Batch 4 — 流式准备/收尾 + PDCA 端口直连子模块
+
+- **独立提交**：`353a34837`（端口直连）+ `3cd18d90f`（删实现）。
+- 端口改直连：`orchestratorHost`（`_prepareStreamSession` → `_streamSetup.prepare`、`_buildApiMessagesForStream` → `_streamMessageLifecycle.buildApiMessagesForStream`、`_finalizeStreamMessage` → `_streamFinalize.finalize`）、`facadeWiring`（`maybeLaunchPdca` → `_pdcaLaunch.maybeLaunch`）。
+- 宿主契约：`OrchestratorWiringHost` **−3 成员 +3 字段**（`_streamSetup` / `_streamMessageLifecycle` / `_streamFinalize`），`FacadeWiringHost` −1 成员。
+- 类型修正：`_finalizeStreamMessage` 端口的 `finalResponse` 由 **ai 域** `ChatResponse` 断言改为 **session 域** `SessionChatResponse`（原先经宿主同名方法"顺带"完成了跨域转换，直连后必须显式）。
+- 删除（4）：`_prepareStreamSession`、`_buildApiMessagesForStream`、`_finalizeStreamMessage`（24 行）、`_maybeLaunchPdca`。
+- 实测：**3262 → 3197（−65）**；`tests/chat` 738 pass。
+
+### Batch 5 — 持久化/审批/TAOR/降级路径端口直连
+
+- **独立提交**：`f3b33d753`（端口直连）+ `37bdb08b0`（删实现）+ `89dc7648b`（测试驱动面迁移）。
+- 端口改直连：
+  - `_addAndPersistMessage` → `_msgPersist.addAndPersistMessage`（`facadeWiring` 5 处、`orchestratorHost`、`taorContextWiring`、`streamPipelineFactory`；`ChatManager` 的 `_rollback` 端口与 `getSessionManager` 视图同步）；
+  - `_buildTAORContext` → 模块函数 `buildTAORContextFor(host, …)`（`facadeWiring` / `orchestratorHost`）；
+  - `_isCommandApproved` / `_submitToolApproval` → 模块函数（`facadeWiring`，`toolRegistry: host.toolRegistry`）；
+  - `_sendMessageDowngradePath` → 模块函数（`orchestratorHost` 内构造 deps 字面量）。
+- 宿主契约：`OrchestratorWiringHost` −3 成员 +1 字段（`_msgPersist`）；`FacadeWiringHost` −4 成员；`TaorContextWiringHost` / `StreamPipelineHost` 各 −1 成员 +1 字段（`_msgPersist`）。
+- 删除（6）：`_addAndPersistMessage`、`_buildTAORContext`、`_sendMessageDowngradePath`、`_ensureCheckpointBoundary`、`_isCommandApproved`、`_submitToolApproval`。
+- 测试驱动面迁移（断言强度不变）：`tests/budget/chatDowngradeGate.test.ts` 由直调 `ChatManager._sendMessageDowngradePath` 改为驱动**编排宿主端口** `chatOrchestrator.host.sendMessageDowngradePath`（仍走真实装配：host 端口 → 模块）。
+- 实测：**3197 → 3087（−110）**；`tests/chat` 738 pass；全量 `bun test tests` **8961 pass / 41 skip / 0 fail**。
+
 ### 汇总与门禁（2026-10-29 实测）
 
-- 本步：**3461 → 3262（−199，−5.7%）**；自 4840 起累计 **−1578（−32.6%）**。
+- 本步：**3461 → 3087（−374，−10.8%）**；自 4840 起累计 **−1753（−36.2%）**。
 - `bunx tsc --noEmit` 0 错误；`lint:arch` 0 错误；`lint:size` 0 错误（529 警告，本轮前既有）；`lint:state-ratchet` 维持；全量 `bun test tests` **8961 pass / 41 skip / 0 fail**。
-- ⚠️ **风险如实**：端口直连后，装配模块以宿主**私有字段**（`_eventLogStore` / `_requestPrep`）作为入参，与 #16 同一盲区（字段改名编译器不报错）；已把这两个字段登记进三张键表，由装配期 `assertHostSurface` + `tests/chat` 构造回归兜底。
-- **剩余候选（未做）**：`_addAndPersistMessage`（`_msgPersist`，涉及 `facadeWiring`/`orchestratorHost`/`taorContextWiring`/`streamPipelineFactory` + 2 处字段注入）、`_prepareStreamSession`（`_streamSetup`）、`_finalizeStreamMessage`（24 行，`_streamFinalize`）、`updateMessageBlocks`、`_maybeLaunchPdca`、`_buildTAORContext` / `_ensureCheckpointBoundary` / `_isCommandApproved` / `_submitToolApproval`（模块自由函数）；`_ensureYieldResumerInstalled` 因被 `tests/chat/taorLoopResumeWiring.test.ts` **实例级 monkey-patch** 暂留。
-- **不可删**：`ChatManagerInterface` 声明的契约方法（`appendStreamEvent` / `getStreamTailSeq` / `readSessionEvents` / `createSession` / `saveSession` …），只可改内部实现。
+- ⚠️ **风险如实**：端口直连后，装配模块以宿主**私有字段**作为入参（`_eventLogStore` / `_requestPrep` / `_msgPersist` / `_streamSetup` / `_streamMessageLifecycle` / `_streamFinalize` / `_pdcaLaunch`），与 #16 同一盲区（字段改名编译器不报错）；七个字段均已登记进对应键表，由装配期 `assertHostSurface` + `tests/chat` 构造回归兜底。
+- **剩余候选（未做，如实）**：`_startRollbackRound` / `_endRollbackRound` / `_buildToolRoundMessages`（`_rollback` / `_streamMessageLifecycle` 端口）、`getOrAssembleSystemPrompt`（`_promptAssembly`）；`_createStreamPipeline` 需以宿主本体重入工厂（有环风险）故暂留；`_ensureYieldResumerInstalled` 因被 `tests/chat/taorLoopResumeWiring.test.ts` **实例级 monkey-patch** 暂留；`getClientForModel` / `recordChatResponseUsage` / `extractMemoryFromChat` 若要删，需在 4 处装配点各自复现 3 字段 deps 字面量（**耦合反而增加**）⇒ 判定为「不值得收敛」。
+- **不可删**：`ChatManagerInterface` 声明的契约方法（`appendStreamEvent` / `getStreamTailSeq` / `readSessionEvents` / `updateMessageBlocks` / `createSession` / `saveSession` …），只可改内部实现。

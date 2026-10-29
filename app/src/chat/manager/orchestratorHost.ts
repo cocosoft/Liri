@@ -18,7 +18,6 @@
 
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import type {
-  ChatResponse,
   ParsedToolCall,
   ToolAwareClient,
   ToolDefinition,
@@ -26,6 +25,7 @@ import type {
 import type { ToolCall, ToolResult } from '@modules/session/types/tool';
 import type { ChatSession } from '@modules/session/types/session';
 import type {
+  ChatResponse as SessionChatResponse,
   Message,
   SendMessageOptions,
   StreamMessageOptions,
@@ -56,9 +56,11 @@ import type { SessionMemoryManager } from '../services/SessionMemoryManager';
 import type { SessionSummarizer } from '../services/SessionSummarizer';
 import type { PdcaLauncher } from '../launchers/PdcaLauncher';
 import type { StreamPipeline } from '../pipeline/StreamPipeline.js';
-import type { StreamSetupResult } from './streamSetup';
 import type { ChatEventLogStore } from './eventLogStore';
 import type { ChatRequestPrep } from './requestPrep';
+import type { ChatStreamSetup } from './streamSetup';
+import type { ChatStreamFinalize } from './streamFinalize';
+import type { ChatStreamMessageLifecycle } from '../pipeline/streamMessageLifecycle';
 import { persistTurnSummary } from '../services/MessageContextPipeline';
 import type { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import type { ChatOrchestratorHost } from '../orchestrator/ChatOrchestratorHost.js';
@@ -198,31 +200,15 @@ export interface OrchestratorWiringHost {
     activeClient: ToolAwareClient,
     options?: SendMessageOptions
   ): Promise<Message>;
-  _prepareStreamSession(
-    content: string,
-    options?: StreamMessageOptions
-  ): Promise<StreamSetupResult>;
-  _buildApiMessagesForStream(
-    messages: Message[],
-    maxContextTokens?: number,
-    outputBudgetTokens?: number
-  ): Promise<Array<Record<string, unknown>>>;
+  /** #18 薄委托收敛：流式准备/消息构建/收尾端口直连子模块（不再经宿主同名转发） */
+  _streamSetup: ChatStreamSetup;
+  _streamMessageLifecycle: ChatStreamMessageLifecycle;
+  _streamFinalize: ChatStreamFinalize;
   _createStreamPipeline(
     session: ChatSession,
     content: string,
     options?: StreamMessageOptions
   ): StreamPipeline;
-  _finalizeStreamMessage(
-    session: ChatSession,
-    content: string,
-    accumulatedContent: string,
-    assistantMessage: Message,
-    finalResponse: ChatResponse | null,
-    streamAbortController: AbortController,
-    streamSpan: ReturnType<ReturnType<typeof getOTelTracing>['startSpan']>,
-    options?: StreamMessageOptions,
-    terminationReason?: string
-  ): Promise<Message>;
   _startRollbackRound(sessionId: string, roundId: number): Promise<void>;
   _endRollbackRound(
     sessionId: string,
@@ -293,10 +279,10 @@ const ORCHESTRATOR_HOST_REQUIRED_KEYS = [
   'executePlanSteps',
   'triggerCouncilDebate',
   '_sendMessageDowngradePath',
-  '_prepareStreamSession',
-  '_buildApiMessagesForStream',
   '_createStreamPipeline',
-  '_finalizeStreamMessage',
+  '_streamSetup',
+  '_streamMessageLifecycle',
+  '_streamFinalize',
   '_startRollbackRound',
   '_endRollbackRound',
   '_buildToolRoundMessages',
@@ -476,13 +462,13 @@ export function createOrchestratorHost(
     },
     onTurnEnd: () => host.onTurnEnd?.(),
     _prepareStreamSession: (content, options) =>
-      host._prepareStreamSession(content, options),
-    _buildApiMessagesForStream: (
-      msgs,
-      maxCtx,
-      outBudget
-    ): Promise<Record<string, unknown>[]> =>
-      host._buildApiMessagesForStream(msgs, maxCtx, outBudget),
+      host._streamSetup.prepare(content, options),
+    _buildApiMessagesForStream: (msgs, maxCtx, outBudget) =>
+      host._streamMessageLifecycle.buildApiMessagesForStream(
+        msgs,
+        maxCtx,
+        outBudget
+      ),
     // C 阶段（P1）：session_lookup 工具注入辅助（schema + 本次构建是否切窗）
     getSessionLookupTool: () =>
       contextLayeringEnabled() ? sessionLookupTool : null,
@@ -504,12 +490,12 @@ export function createOrchestratorHost(
       options,
       terminationReason
     ) =>
-      host._finalizeStreamMessage(
+      host._streamFinalize.finalize(
         session,
         content,
         acc,
         am,
-        fr as ChatResponse,
+        fr as SessionChatResponse,
         abortCtl,
         span as ReturnType<ReturnType<typeof getOTelTracing>['startSpan']>,
         options,

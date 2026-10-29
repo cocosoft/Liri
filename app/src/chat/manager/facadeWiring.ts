@@ -206,12 +206,6 @@ export interface FacadeWiringHost {
     workspaceId: string | undefined,
     result: { hasGoal: boolean; deliverables: number; goalSummary?: string }
   ): Promise<string | null>;
-  _maybeLaunchPdca(
-    session: ChatSession,
-    assistantContent: string,
-    projectId: string,
-    lastUserContent: string | undefined
-  ): void;
   flushPendingPersists(): Promise<void>;
   getLLMClient(): ToolAwareClient;
   executeTool(toolCall: ToolCall, opts?: ToolExecOpts): Promise<ToolResult>;
@@ -293,7 +287,6 @@ const FACADE_HOST_REQUIRED_KEYS = [
   'incToolRound',
   '_escalateToPdcaViaBareSession',
   '_autoCreateProject',
-  '_maybeLaunchPdca',
   'flushPendingPersists',
   'getLLMClient',
   'executeTool',
@@ -552,7 +545,12 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     autoCreateProject: (session, workspaceId, result) =>
       host._autoCreateProject(session, workspaceId, result),
     maybeLaunchPdca: (session, assistantContent, projectId, lastUser) =>
-      host._maybeLaunchPdca(session, assistantContent, projectId, lastUser),
+      host._pdcaLaunch.maybeLaunch(
+        session,
+        assistantContent,
+        projectId,
+        lastUser
+      ),
     isTelemetryEnabled: () => host.ENABLE_TELEMETRY,
     summarizeSession: (session, message) => {
       void host._summarizer!.summarize(session, message).catch(() => {

@@ -61,6 +61,9 @@ import type { ChatRequestPrep } from './requestPrep';
 import type { ChatStreamSetup } from './streamSetup';
 import type { ChatStreamFinalize } from './streamFinalize';
 import type { ChatStreamMessageLifecycle } from '../pipeline/streamMessageLifecycle';
+import type { ChatMessagePersistence } from './messagePersistence';
+import { buildTAORContextFor } from './taorContextWiring';
+import { sendMessageDowngradePath } from './sendDowngrade';
 import { persistTurnSummary } from '../services/MessageContextPipeline';
 import type { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import type { ChatOrchestratorHost } from '../orchestrator/ChatOrchestratorHost.js';
@@ -106,11 +109,8 @@ export interface OrchestratorWiringHost {
   getToolRound(sessionId: string): number;
   incToolRound(sessionId: string): number;
   getClientForModel(model?: string): ToolAwareClient;
-  _addAndPersistMessage(
-    sessionId: string,
-    message: Message,
-    options?: { throwOnError?: boolean }
-  ): Promise<void>;
+  /** S3 消息持久化（#18 薄委托收敛：端口直连子模块） */
+  _msgPersist: ChatMessagePersistence;
   appendStreamEvent(
     sessionId: string,
     event: LiriEvent
@@ -163,11 +163,6 @@ export interface OrchestratorWiringHost {
     opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
   ): TAORLoop;
   consumePendingResumeIntent(sessionId: string): boolean;
-  _buildTAORContext(
-    sessionId: string,
-    toolDefinitions: ToolDefinition[],
-    options?: SendMessageOptions
-  ): ChatManagerTAORContext;
   executeTool(
     toolCall: ToolCall,
     opts?: {
@@ -193,13 +188,6 @@ export interface OrchestratorWiringHost {
     context: string,
     ownerSessionId?: string
   ): Promise<void>;
-  _sendMessageDowngradePath(
-    session: ChatSession,
-    toolCalls: ParsedToolCall[],
-    apiMessages: Record<string, unknown>[],
-    activeClient: ToolAwareClient,
-    options?: SendMessageOptions
-  ): Promise<Message>;
   /** #18 薄委托收敛：流式准备/消息构建/收尾端口直连子模块（不再经宿主同名转发） */
   _streamSetup: ChatStreamSetup;
   _streamMessageLifecycle: ChatStreamMessageLifecycle;
@@ -255,7 +243,7 @@ const ORCHESTRATOR_HOST_REQUIRED_KEYS = [
   'getToolRound',
   'incToolRound',
   'getClientForModel',
-  '_addAndPersistMessage',
+  '_msgPersist',
   'appendStreamEvent',
   'readSessionEvents',
   'listRecentSessionIds',
@@ -273,12 +261,10 @@ const ORCHESTRATOR_HOST_REQUIRED_KEYS = [
   '_shouldUseTAORLoop',
   '_getOrCreateTAORLoop',
   'consumePendingResumeIntent',
-  '_buildTAORContext',
   'executeTool',
   'executeStepPrompt',
   'executePlanSteps',
   'triggerCouncilDebate',
-  '_sendMessageDowngradePath',
   '_createStreamPipeline',
   '_streamSetup',
   '_streamMessageLifecycle',
@@ -383,7 +369,8 @@ export function createOrchestratorHost(
     recordToolsSnapshot: (sid, schemas) =>
       host._requestPrep.recordToolsSnapshot(sid, schemas as ToolSchema[]),
     loopDetector: host._loopDetector as import('@modules/query').LoopDetector,
-    addAndPersistMessage: (sid, msg) => host._addAndPersistMessage(sid, msg),
+    addAndPersistMessage: (sid, msg) =>
+      host._msgPersist.addAndPersistMessage(sid, msg),
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     // U4（2026-10-06）：读会话事件（与 appendStreamEvent 成对）——
     // 空闲期在线质量评估器经此按水位增量读；**主链不调用**。
@@ -420,7 +407,7 @@ export function createOrchestratorHost(
     // G-T3-1（2026-10-12）：委托路径据此跳过 `taorLoop.reset()`（一次性续跑意图）。
     consumePendingResumeIntent: (sid) => host.consumePendingResumeIntent(sid),
     buildTAORContext: (sid, defs, opts) =>
-      host._buildTAORContext(sid, defs, opts),
+      buildTAORContextFor(host, sid, defs, opts),
     executeTool: (tc, opts) => host.executeTool(tc as ToolCall, opts),
     executeStepPrompt: (prompt, session, options) =>
       host.executeStepPrompt(prompt, session, options),
@@ -429,7 +416,20 @@ export function createOrchestratorHost(
     triggerCouncilDebate: (wid, topic, ctx, ownerSessionId) =>
       host.triggerCouncilDebate(wid, topic, ctx, ownerSessionId),
     sendMessageDowngradePath: (session, tcs, msgs, client, options) =>
-      host._sendMessageDowngradePath(session, tcs, msgs, client, options),
+      sendMessageDowngradePath(
+        {
+          executeTool: (tc, opts) => host.executeTool(tc, opts),
+          createAssistantMessage: (content, opts) =>
+            host.messageService.createAssistantMessage(content, opts),
+          addAndPersistMessage: (sid, msg) =>
+            host._msgPersist.addAndPersistMessage(sid, msg),
+        },
+        session,
+        tcs,
+        msgs,
+        client,
+        options
+      ),
     shouldTriggerCouncil: (session, content, options) =>
       session.metadata?.is_ultraplan_mode === true ||
       containsComplexKeywords(content) ||

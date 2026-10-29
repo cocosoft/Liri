@@ -75,6 +75,8 @@ import { ChatStreamResume } from './streamResume';
 import type { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import type { ChatEventLogStore } from './eventLogStore';
 import type { ChatRequestPrep } from './requestPrep';
+import { buildTAORContextFor } from './taorContextWiring';
+import { isCommandApproved, submitToolApproval } from './toolApproval';
 import { persistTurnSummary } from '../services/MessageContextPipeline';
 import { assertHostSurface, type AssertNever } from './wiringHostGuard';
 
@@ -142,35 +144,10 @@ export interface FacadeWiringHost {
     sessionId: string,
     opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
   ): TAORLoop;
-  _buildTAORContext(
-    sessionId: string,
-    toolDefinitions: ToolDefinition[],
-    options?: SendMessageOptions
-  ): ChatManagerTAORContext;
-  _addAndPersistMessage(
-    sessionId: string,
-    message: Message,
-    options?: { throwOnError?: boolean }
-  ): Promise<void>;
-  _submitToolApproval(
-    toolName: string,
-    input: Record<string, unknown>,
-    sessionId: string | undefined,
-    toolCallId: string,
-    approvalReason?: string,
-    approvalScope?: ApprovalScope,
-    approvalSnapshot?: ApprovalSnapshot
-  ): Promise<string | null>;
   getSessionWorkspacePath(sessionId?: string): string | undefined;
   getSessionWorkspaceId(sessionId?: string): string | undefined;
   isSessionWorkspaceStrict(sessionId?: string): boolean;
   getSessionApprovalMode(sessionId?: string): 'ask' | 'auto-local';
-  _isCommandApproved(
-    toolName: string,
-    input: Record<string, unknown>,
-    sessionId: string | undefined,
-    approvalFingerprint?: string
-  ): Promise<boolean>;
   _wireCodeRunnerDeps(): void;
   createSession(params: CreateSessionParams): Promise<ChatSession>;
   _shouldUsePlanDrivenLoop(message: string): boolean;
@@ -260,14 +237,10 @@ const FACADE_HOST_REQUIRED_KEYS = [
   '_loopDetector',
   '_recovery',
   '_getOrCreateTAORLoop',
-  '_buildTAORContext',
-  '_addAndPersistMessage',
-  '_submitToolApproval',
   'getSessionWorkspacePath',
   'getSessionWorkspaceId',
   'isSessionWorkspaceStrict',
   'getSessionApprovalMode',
-  '_isCommandApproved',
   '_wireCodeRunnerDeps',
   'createSession',
   '_shouldUsePlanDrivenLoop',
@@ -353,10 +326,11 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     enablePlanDrivenLoop: true, // 阶段 3 退役（2026-09-01）：灰度开关删除，恒启用
     taorLoopFactory: (sid, opts) => host._getOrCreateTAORLoop(sid, opts),
     buildTAORContext: (sid, defs, opts) =>
-      host._buildTAORContext(sid, defs, opts),
+      buildTAORContextFor(host, sid, defs, opts),
     sessionMap: host._chatSessions,
     messageService: host.messageService,
-    persistMessage: (sid, msg) => host._addAndPersistMessage(sid, msg),
+    persistMessage: (sid, msg) =>
+      host._msgPersist.addAndPersistMessage(sid, msg),
     // 转正（2026-09-01）：任务分解 Provider——任务分工→chat 路由→ProviderRegistry
     // （模型体系唯一事实来源，不硬编码模型名）；失败/缺失返回 null，TaskDecomposer 降级简单分解
     getDecomposerProvider: async () => {
@@ -386,13 +360,32 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     chatSessions: host._chatSessions,
     currentSessionId: host._currentSessionId ?? '',
     enableErrorHandler: host.ENABLE_ERROR_HANDLER,
-    submitToolApproval: host._submitToolApproval.bind(host),
+    submitToolApproval: (
+      toolName,
+      input,
+      sid,
+      toolCallId,
+      approvalReason,
+      approvalScope,
+      approvalSnapshot
+    ) =>
+      submitToolApproval(
+        { toolRegistry: host.toolRegistry },
+        toolName,
+        input,
+        sid,
+        toolCallId,
+        approvalReason,
+        approvalScope,
+        approvalSnapshot
+      ),
     getSessionWorkspacePath: host.getSessionWorkspacePath.bind(host),
     getSessionWorkspaceId: host.getSessionWorkspaceId.bind(host),
     isSessionWorkspaceStrict: host.isSessionWorkspaceStrict.bind(host),
     // PR-3（2026-10-23）：会话级审批模式（缺省 ask）
     getSessionApprovalMode: host.getSessionApprovalMode.bind(host),
-    isCommandApproved: host._isCommandApproved.bind(host),
+    isCommandApproved: (toolName, input, sid, approvalFingerprint) =>
+      isCommandApproved(toolName, input, sid, approvalFingerprint),
     sessionLookup: (args) => host._eventLogStore.sessionLookup(args),
     // R3（2026-09-21）：向工具执行注入**会话级中断控制器**。
     // 工具 context 原先没有 `abortController`（被内联类型断言掩盖）⇒ AgentTool 的
@@ -456,7 +449,7 @@ export function wireChatFacades(host: FacadeWiringHost): void {
       host._isLastAssistantOutputFallback(session),
     // LRO-11（2026-10-26）：执行模式可见告知（"仍在普通对话循环"等）
     notifyUser: (sid, text, metadata) => {
-      host._addAndPersistMessage(
+      host._msgPersist.addAndPersistMessage(
         sid,
         host.messageService.createAssistantMessage(text, {
           sessionId: sid,
@@ -496,7 +489,7 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     createUserMessage: (content, opts) =>
       host.messageService.createUserMessage(content, opts),
     addAndPersistMessage: (sid, msg) => {
-      host._addAndPersistMessage(sid, msg);
+      host._msgPersist.addAndPersistMessage(sid, msg);
     },
     startProcessing: (sid) => {
       host.getSessionMachine(sid).start('processUserInput');
@@ -522,7 +515,8 @@ export function wireChatFacades(host: FacadeWiringHost): void {
   // 流式消息收尾（U-22/S4 外移）：注入 host 端口，方法体在
   // `chat/manager/streamFinalize.ts`；abort/executionId 两个 Map 与宿主共享。
   host._streamFinalize = new ChatStreamFinalize({
-    addAndPersistMessage: (sid, msg) => host._addAndPersistMessage(sid, msg),
+    addAndPersistMessage: (sid, msg) =>
+      host._msgPersist.addAndPersistMessage(sid, msg),
     getStreamMaxTurn: (sid) => host._eventLogStore.getStreamMaxTurn(sid),
     getToolRound: (sid) => host.getToolRound(sid),
     hasTurnEnded: (sid, turn) => host._eventLogStore.hasTurnEnded(sid, turn),
@@ -585,7 +579,8 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     pendingInteractions: host._pendingInteractions,
     loopDetector: host._loopDetector,
     messageService: host.messageService,
-    addAndPersistMessage: (sid, msg) => host._addAndPersistMessage(sid, msg),
+    addAndPersistMessage: (sid, msg) =>
+      host._msgPersist.addAndPersistMessage(sid, msg),
     unifiedTracker: host.unifiedTracker,
     recordChatResponseUsage: (sid, usage, requestId, model) =>
       host.recordChatResponseUsage(sid, usage, requestId, model),

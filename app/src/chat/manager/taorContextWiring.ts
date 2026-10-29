@@ -25,6 +25,7 @@ import type { SessionScopedRegistry } from '@modules/utils/SessionScopedRegistry
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
 import type { MessageService } from '../services/MessageService.js';
 import { buildTAORContext } from './taorContext';
+import type { ChatMessagePersistence } from './messagePersistence';
 import {
   asWiringHost,
   assertHostSurface,
@@ -47,7 +48,8 @@ export interface TaorContextWiringHost {
     }
   ): Promise<ToolResult>;
   messageService: MessageService;
-  _addAndPersistMessage(sessionId: string, message: Message): Promise<void>;
+  /** S3 消息持久化（#18 薄委托收敛：端口直连子模块） */
+  _msgPersist: ChatMessagePersistence;
   appendStreamEvent(
     sessionId: string,
     event: LiriEvent
@@ -63,7 +65,7 @@ const TAOR_CONTEXT_HOST_KEYS = [
   'getClientForModel',
   'executeTool',
   'messageService',
-  '_addAndPersistMessage',
+  '_msgPersist',
   'appendStreamEvent',
   'getStreamTailSeq',
   'flushPendingPersists',
@@ -109,7 +111,7 @@ export function buildTAORContextFor(
     createAssistantMessage: (content, opts) =>
       host.messageService.createAssistantMessage(content, opts),
     addAndPersistMessage: (sid, message) => {
-      host._addAndPersistMessage(sid, message);
+      host._msgPersist.addAndPersistMessage(sid, message);
     },
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),

@@ -21,6 +21,7 @@ import type { HookChainManager } from '@modules/hooks';
 import type { ImageContextService } from '../services/ImageContextService';
 import type { MessageService } from '../services/MessageService.js';
 import type { ChatRequestPrep } from './requestPrep';
+import type { ChatMessagePersistence } from './messagePersistence';
 import { StreamPipeline } from '../pipeline/StreamPipeline.js';
 import type { PipelineContext } from '../pipeline/StreamPipeline.js';
 import {
@@ -37,7 +38,8 @@ export interface StreamPipelineHost {
   hookChainManager: HookChainManager;
   /** A1 请求构建（#18 薄委托收敛：端口直连，不再经宿主同名转发） */
   _requestPrep: ChatRequestPrep;
-  _addAndPersistMessage(sessionId: string, message: Message): Promise<void>;
+  /** S3 消息持久化（#18 薄委托收敛：端口直连子模块） */
+  _msgPersist: ChatMessagePersistence;
   recordChatResponseUsage(
     sessionId: string,
     usage: Record<string, number> | null | undefined,
@@ -58,7 +60,7 @@ const STREAM_PIPELINE_HOST_KEYS = [
   'unifiedTracker',
   'hookChainManager',
   '_requestPrep',
-  '_addAndPersistMessage',
+  '_msgPersist',
   'recordChatResponseUsage',
   'extractMemoryFromChat',
   'messageService',
@@ -100,7 +102,8 @@ export function createStreamPipelineFor(
       host.hookChainManager as unknown as PipelineContext['hookChainManager'],
     extractFilePathsFromText: (text) =>
       host._requestPrep.extractFilePathsFromText(text),
-    addAndPersistMessage: (sid, msg) => host._addAndPersistMessage(sid, msg),
+    addAndPersistMessage: (sid, msg) =>
+      host._msgPersist.addAndPersistMessage(sid, msg),
     recordChatResponseUsage: (sid, usage, requestId, model) =>
       host.recordChatResponseUsage(
         sid,

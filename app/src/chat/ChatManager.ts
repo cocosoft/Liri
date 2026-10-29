@@ -833,7 +833,7 @@ export class ChatManagerImpl implements ChatManager {
     getPendingInteractions: () => this._pendingInteractions,
     getMessageService: () => this.messageService,
     addAndPersistMessage: (sid, msg, opts) =>
-      this._addAndPersistMessage(sid, msg, opts),
+      this._msgPersist.addAndPersistMessage(sid, msg, opts),
     getRollbackIntegrations: () => this.rollbackIntegrations,
     getPermissionManager: () => this.permissionManager,
     getSessionGateway: () => this.sessionGateway,
@@ -2387,7 +2387,11 @@ export class ChatManagerImpl implements ChatManager {
     // 同会话必须存在 checkpoint。默认关闭（`config.json` 的 `checkpointBoundary.enabled`），
     // 关闭时零行为变更；开启后 `relaxed` 先补建快照，建失败 ⇒ 拒绝（fail-closed）。
     // 规格：`.trae/specs/p5-runtime-hardening-specs.md` §3。
-    const boundaryRefusal = await this._ensureCheckpointBoundary(toolCall.name);
+    const boundaryRefusal = await ensureCheckpointBoundary({
+      toolName: toolCall.name,
+      currentSessionId: this._currentSessionId,
+      resumeCoordinator: this.resumeCoordinator,
+    });
     if (boundaryRefusal) {
       logger.warn('Checkpoint 边界拒绝执行（不可逆操作前无可用快照）', {
         sessionId: this._currentSessionId,
@@ -2594,7 +2598,7 @@ export class ChatManagerImpl implements ChatManager {
    * @param message 消息对象
    */
   addMessage(sessionId: string, message: Message): void {
-    this._addAndPersistMessage(sessionId, message);
+    this._msgPersist.addAndPersistMessage(sessionId, message);
   }
 
   /**
@@ -2636,7 +2640,8 @@ export class ChatManagerImpl implements ChatManager {
         },
       },
       chatSessions: this._chatSessions,
-      addAndPersistMessage: (sid, msg) => this._addAndPersistMessage(sid, msg),
+      addAndPersistMessage: (sid, msg) =>
+        this._msgPersist.addAndPersistMessage(sid, msg),
       checkpointService: this._checkpointService,
     });
   }

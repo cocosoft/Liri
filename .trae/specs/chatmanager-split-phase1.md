@@ -260,3 +260,26 @@ git diff --stat                        # 抽走了哪些文件/多少行
 - ⚠️ **风险如实**：端口直连后，装配模块以宿主**私有字段**作为入参（`_eventLogStore` / `_requestPrep` / `_msgPersist` / `_streamSetup` / `_streamMessageLifecycle` / `_streamFinalize` / `_pdcaLaunch`），与 #16 同一盲区（字段改名编译器不报错）；七个字段均已登记进对应键表，由装配期 `assertHostSurface` + `tests/chat` 构造回归兜底。
 - **剩余候选（未做，如实）**：`_startRollbackRound` / `_endRollbackRound` / `_buildToolRoundMessages`（`_rollback` / `_streamMessageLifecycle` 端口）、`getOrAssembleSystemPrompt`（`_promptAssembly`）；`_createStreamPipeline` 需以宿主本体重入工厂（有环风险）故暂留；`_ensureYieldResumerInstalled` 因被 `tests/chat/taorLoopResumeWiring.test.ts` **实例级 monkey-patch** 暂留；`getClientForModel` / `recordChatResponseUsage` / `extractMemoryFromChat` 若要删，需在 4 处装配点各自复现 3 字段 deps 字面量（**耦合反而增加**）⇒ 判定为「不值得收敛」。
 - **不可删**：`ChatManagerInterface` 声明的契约方法（`appendStreamEvent` / `getStreamTailSeq` / `readSessionEvents` / `updateMessageBlocks` / `createSession` / `saveSession` …），只可改内部实现。
+
+## 七、#19 Cut G 实测（2026-10-29）
+
+> 前置订正（如实）：#19 里 Cut E 的「ChatManager ±0 / 全仓 −450」是**估错**。实测 `manager/orchestratorHost.ts` **526 行**（接口 230 + 键表 60 + 字面量 ~200 + 头/imports 36），且字面量里约 10 项是**派生逻辑**；让 `ChatManagerImpl` 直接 `implements ChatOrchestratorHost` 需补 ~20 个公开字段别名 + ~10 个派生端口 + ~10 个已删转发（以接口名重加）⇒ 估算 **ChatManager 3087 → ~3240（+150）**。故经用户裁定改做 **Cut G**，Cut E 暂缓。
+
+### G-a — `_wireCodeRunnerDeps` + `cleanup` 外移
+
+- **独立提交**：`f014663fe`（端口直连）+ `9ead14c40`（删实现）。
+- `manager/codeRunnerWiring.ts`（105 行）：`wireCodeRunnerDeps(deps)`，`CODE_MODE` 关闭即返回；`facadeWiring` 直接调用（`getCurrentSessionId` / `_eventLogStore.getOrCreateEventLog` / `appendStreamEvent` 三端口），`_wireCodeRunnerDeps` 从 `FacadeWiringHost` 与键表移除。
+- `manager/shutdown.ts`（105 行）：`cleanupHost(host)`，**顺序与纪律逐条保留**（yield 卸载 → 预算监听（仅装配者才摘）→ `YieldRegistry.clear()` → TAORLoop 注销 → 任务收口 → 流服务重置）；`ChatManager.cleanup()` 变 17 行端口字面量。
+- 顺带清理 7 个失效导入（`configureCodeRunner` / `getBudgetSuspendCoordinator` / `getYieldRegistry` / `setActiveSubagentRunProbe` / `setYieldResumeHandler` / `setSelfWakeResumeHandler` + `setStepLoopFactory` / `taskRegistry` + `taskOrchestrator`）。
+- 实测：**3087 → 2999（−88）**；`tests/chat` 738 pass。
+
+### G-b — 会话级状态聚合（**实测后未做，如实**）
+
+- 实测引用数：`_sessionAbortControllers` 9、`_toolRoundCounts` 5、`_pendingResumeIntent` 4、`_pendingReconcileSessions` 4、`_sessionExecutionIds` 3、其余各 1–2（共 24 处）。
+- 聚合后这些引用改为 `this._sessionState.*`（**行更长**，多处会触发换行），且 `facadeWiring` / `orchestratorHost` / `streamPipelineFactory` / `streamSetup` 的共享 Map 端口都要改成 `host._sessionState.*` 并新增 4 处宿主字段登记。
+- **净收益实测约 −10~−20 行**（字段声明省 ~20，端口与换行回吐 ~10），却要动 4 个装配模块 ⇒ 判定「**收益 < 风险**」，**未执行**；如后续确需收敛，随 Cut H 一起做（届时有更多方法一并外移）。
+
+### 门禁（实测）
+
+- `bunx tsc --noEmit` 0 错误；`lint:arch` 0 错误；`lint:size` 0 错误（529 警告，未新增）；`lint:state-ratchet` 维持；`bun test tests/chat` 738 pass；全量 `bun test tests` **8961 pass / 41 skip / 0 fail**。
+- 进度：**3087 → 2999 行**；自 4840 起累计 **−1841（−38.0%）**。

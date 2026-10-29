@@ -81,3 +81,11 @@
 
 处置建议：#2 更新行数；#3、#4 改写前提或直接关闭（原目标已被满足）；#5、#6 的验收物均已落地（见上）+ 可关闭。
 
+### 处置记录（2026-10-29 已执行）
+
+- 新建 **#7** `[security] 沙箱两个默认值即 fail-open：landlock.failClosed 与 bashEnabled`（标签 `security`、`help wanted`），正文含两处默认值的 `file:line` 与三条候选修法。
+- 给 **#2 / #3 / #4** 各补一条核对评论（带标记 `<!-- maintainer-note:2026-10-29 -->`，只补事实，**未关闭**任何 issue）。
+- 仓库原本**没有 `security` 标签**（最初导入时按「标签不存在则跳过」处理，故 #5/#6 只剩 `help wanted`）⇒ 已新建该标签并回填 **#5 / #6 / #7**。
+- 执行方式：一次性 workflow `.github/workflows/issue-maint.yml`，在临时分支上跑（跑完即删分支），用 CI 自带 `GITHUB_TOKEN`（`permissions: issues: write`）；按「标题 / 评论标记」幂等，重跑不产生重复。
+
+

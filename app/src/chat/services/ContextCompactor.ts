@@ -23,7 +23,8 @@
  * ContextCompactor — 上下文压缩门面（ChatManager 拆分第 3 步）
  *
  * 从 ChatManager.ts 提取：压缩边界检测 / 会话压缩 / 压缩服务访问。
- * _compressToolHistory/_estimateArrayTokens 与编排循环紧耦合，暂留 ChatManager。
+ * _compressToolHistory/_estimateArrayTokens 已随 A1 批迁入 `manager/requestPrep.ts`
+ * （#18 薄委托收敛：宿主侧的同名转发已删）。
  */
 
 import {

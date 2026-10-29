@@ -58,11 +58,9 @@ import { ChatSessionTeardown } from './manager/sessionTeardown';
 import { ChatRecovery } from './manager/recovery';
 // U4 历史会话补评（2026-10-06）：磁盘会话的"最近更新优先"排序（纯函数）
 import { rankRecentSessionIds } from './quality/sessionScan';
-import type { ModelInputSnapshot } from './services/RequestSnapshotService';
 import {
   EventLogStorage,
   type EventLogQuery,
-  type SessionSummaryRecord,
   type RecoveryReport,
   type YieldRecoveryStats,
 } from '@modules/session';
@@ -816,7 +814,9 @@ export class ChatManagerImpl implements ChatManager {
    *
    * 原 C14 簇（`extractFilePathsFromText` / `_sanitizeApiMessages` / `requestSnapshot` 家族 /
    * `_buildToolDefinitions` / `_truncateApiMessages` / `_compressToolHistory` /
-   * `_estimateArrayTokens` / `_approxJsonLength`）已随迁至该模块；本类经同族方法**薄转发**。
+   * `_estimateArrayTokens` / `_approxJsonLength`）已随迁至该模块；本类经同族方法**薄转发**
+   * （#18 薄委托收敛：`_recordModelInputSnapshot` / `_compressToolHistory` /
+   * `_estimateArrayTokens` 已无调用者 ⇒ 已删，调用点直连本模块）。
    * 对外签名与日志口径不变（行为等价）；跨簇状态经全 getter 注入（无初始化顺序陷阱）。
    */
   private readonly _requestPrep = new ChatRequestPrep({
@@ -1036,15 +1036,6 @@ export class ChatManagerImpl implements ChatManager {
   private sessionMachines: Map<string, SessionStateMachine> = new Map();
 
   /**
-   * 从本地缓存获取会话（委托给 ChatHelper）
-   */
-  private _getLocalSession(
-    sessionId: string | null | undefined
-  ): ChatSession | undefined {
-    return getLocalSession(this._chatSessions, sessionId);
-  }
-
-  /**
    * 获取或创建会话状态机（委托给 ChatHelper）
    */
   private getSessionMachine(sessionId: string): SessionStateMachine {
@@ -1146,15 +1137,6 @@ export class ChatManagerImpl implements ChatManager {
       resumeSuspendedSession: (sessionId, chain) =>
         this.resumeSuspendedSession(sessionId, chain as never),
     });
-  }
-
-  /**
-   * G-3（2026-10-18）：解析 `verifier` 角色模型（幂等）。
-   *
-   * issue #17 · D7：实现体已外移到 `manager/verifierModel.ts`；解析状态仍由本类持有。
-   */
-  private async _ensureVerifierCallModel(): Promise<void> {
-    return ensureVerifierCallModel(this._verifier);
   }
 
   /**
@@ -1354,12 +1336,6 @@ export class ChatManagerImpl implements ChatManager {
     options?: { throwOnError?: boolean }
   ): Promise<void> {
     return this._msgPersist.addAndPersistMessage(sessionId, message, options);
-  } /** U-22/S3 外移：消息 → 事件日志（实现在 `manager/messagePersistence.ts`） */
-  private async _appendEventsForMessage(
-    sessionId: string,
-    message: Message
-  ): Promise<void> {
-    return this._msgPersist.appendEventsForMessage(sessionId, message);
   }
 
   /**
@@ -1431,15 +1407,6 @@ export class ChatManagerImpl implements ChatManager {
    */
   private _getOrCreateEventLog(sessionId: string): EventLogStorage {
     return this._eventLogStore.getOrCreateEventLog(sessionId);
-  }
-
-  /** D2：会话切换时释放非当前会话的事件快照（实现在 `ChatEventLogStore`） */
-  private async _releaseInactiveEventLogSnapshots(
-    activeSessionId: string
-  ): Promise<void> {
-    return this._eventLogStore.releaseInactiveEventLogSnapshots(
-      activeSessionId
-    );
   }
 
   /** Fix2：该会话的指定 turn 是否已写 turn/end（状态在 `ChatEventLogStore`） */
@@ -1524,33 +1491,6 @@ export class ChatManagerImpl implements ChatManager {
     args: SessionLookupArgs
   ): Promise<SessionLookupResult> {
     return this._eventLogStore.sessionLookup(args);
-  }
-
-  /**
-   * D 阶段（2026-09-02，v4 §8）：读取会话远期摘要
-   * （实现在 `ChatEventLogStore.getSessionSummaries`）。
-   */
-  async getSessionSummaries(
-    sessionId: string,
-    limit: number = 200
-  ): Promise<SessionSummaryRecord[]> {
-    return this._eventLogStore.getSessionSummaries(sessionId, limit);
-  }
-
-  /**
-   * D 阶段：按关键词检索会话摘要
-   * （实现在 `ChatEventLogStore.searchSessionSummaries`）。
-   */
-  async searchSessionSummaries(
-    sessionId: string,
-    keyword: string,
-    limit: number = 5
-  ): Promise<SessionSummaryRecord[]> {
-    return this._eventLogStore.searchSessionSummaries(
-      sessionId,
-      keyword,
-      limit
-    );
   }
 
   /**
@@ -1696,17 +1636,6 @@ export class ChatManagerImpl implements ChatManager {
     this._requestPrep.sanitizeApiMessages(apiMessages);
   }
 
-  /**
-   * A1 拆分：模型输入快照（TR-12-B）已迁至 `ChatRequestPrep`（含其 `_requestSnapshot` 惰性单例）。
-   * 快照服务仍复用宿主的事件日志访问器（`_getOrCreateEventLog`）⇒ 无 tailSeq 分裂。
-   */
-  private _recordModelInputSnapshot(
-    sessionId: string,
-    input: ModelInputSnapshot
-  ): Promise<void> {
-    return this._requestPrep.recordModelInputSnapshot(sessionId, input);
-  }
-
   /** TR-12-B：工具清单快照（3 个装配点的统一出口） */
   private _recordToolsSnapshot(sessionId: string, schemas: ToolSchema[]): void {
     this._requestPrep.recordToolsSnapshot(sessionId, schemas);
@@ -1736,32 +1665,6 @@ export class ChatManagerImpl implements ChatManager {
       sessionId,
       outputBudgetTokens
     );
-  }
-
-  /**
-   * 压缩工具循环历史消息（委托给 MessageContextPipeline；已随 A1 拆入 `ChatRequestPrep`）
-   */
-  private async _compressToolHistory(
-    currentRoundMessages: Record<string, unknown>[],
-    sessionId: string,
-    assistantMsg: Record<string, unknown>,
-    toolResults: Record<string, unknown>[]
-  ): Promise<Record<string, unknown>[]> {
-    return this._requestPrep.compressToolHistory(
-      currentRoundMessages,
-      sessionId,
-      assistantMsg,
-      toolResults
-    );
-  }
-
-  /**
-   * 估算消息数组的 token 数（已随 A1 拆入 `ChatRequestPrep.estimateArrayTokens`）
-   */
-  private async _estimateArrayTokens(
-    messages: Record<string, unknown>[]
-  ): Promise<number> {
-    return this._requestPrep.estimateArrayTokens(messages);
   }
 
   /**
@@ -2268,19 +2171,6 @@ export class ChatManagerImpl implements ChatManager {
       metadata.workspacePath = resolved;
     }
     return resolved;
-  }
-
-  /**
-   * `projectId → project.json#sandboxPath`（LRO-06 实测缺口的最小补齐）。
-   *
-   * issue #17 · D6：实现体已外移到 `manager/projectSandboxPath.ts`（仍为延迟 `require`）；
-   * store 缓存仍由本类持有（实例级）。
-   */
-  private _getProjectSandboxPath(projectId: string): string | undefined {
-    return getProjectSandboxPath(
-      { cacheRef: this._projectSandboxStoreRef },
-      projectId
-    );
   }
 
   /**

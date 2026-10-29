@@ -41,11 +41,7 @@ import {
   getLocalSession,
   getOrCreateSessionMachine,
 } from './services/ChatHelper';
-import {
-  ChatEventLogStore,
-  type SessionLookupArgs,
-  type SessionLookupResult,
-} from './manager/eventLogStore';
+import { ChatEventLogStore } from './manager/eventLogStore';
 import { ChatRequestPrep } from './manager/requestPrep';
 import { ChatRollback } from './manager/rollback';
 import type { PendingInteractionEntry } from '@modules/utils/pendingInteractions';
@@ -1411,11 +1407,6 @@ export class ChatManagerImpl implements ChatManager {
     return this._eventLogStore.getOrCreateEventLog(sessionId);
   }
 
-  /** Fix2：该会话的指定 turn 是否已写 turn/end（状态在 `ChatEventLogStore`） */
-  private hasTurnEnded(sessionId: string, turn: number): boolean {
-    return this._eventLogStore.hasTurnEnded(sessionId, turn);
-  }
-
   /**
    * M1 事件溯源：流式过程中追加事件到 events.jsonl
    *
@@ -1459,16 +1450,6 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 优雅退出（2026-09-02）：flush 全部已创建会话的 text-batch 缓冲。
-   * 供进程级 SIGTERM/SIGINT 钩子调用（watch 重启/Ctrl+C）——退出前把缓冲正文
-   * 落盘为 assistant/text-batch，避免 torn-tail / open-turn 与流式正文丢失。
-   * 单个失败不抛错（CS03），返回 flush 的 chunk 总数。
-   */
-  async flushAllPendingEventBuffers(): Promise<number> {
-    return this._eventLogStore.flushAllPendingEventBuffers();
-  }
-
-  /**
    * A6（2026-09-04）：退出兜底——flush 各会话 TAORLoop 未落盘 checkpoint。
    * 库代码不注册全局信号；由 main 信号链经 flushAllEventBuffers 到达本方法。
    * 逐条容错（幂等；无进行中 run 无操作）。
@@ -1483,16 +1464,6 @@ export class ChatManagerImpl implements ChatManager {
         })
       )
     );
-  }
-
-  /**
-   * C 阶段（2026-09-02，P1，C 详设 §4）：`session_lookup` 取回实现
-   * （实现在 `ChatEventLogStore.sessionLookup`）。
-   */
-  private async _sessionLookup(
-    args: SessionLookupArgs
-  ): Promise<SessionLookupResult> {
-    return this._eventLogStore.sessionLookup(args);
   }
 
   /**
@@ -1533,22 +1504,6 @@ export class ChatManagerImpl implements ChatManager {
       stored.map((s) => ({ id: s.id, updatedAt: s.updatedAt })),
       limit
     );
-  }
-
-  /**
-   * T2.2（2026-08-23）：从 events 重建 toolCallId → 事件 seq 映射
-   * （实现在 `ChatEventLogStore.rebuildToolCallSeqMap`）。
-   */
-  private async _rebuildToolCallSeqMap(sessionId: string): Promise<void> {
-    return this._eventLogStore.rebuildToolCallSeqMap(sessionId);
-  }
-
-  /**
-   * M1 事件溯源：获取当前会话已有事件的最大 turn 编号（重启后恢复 turn 计数）
-   * （实现在 `ChatEventLogStore.getStreamMaxTurn`）。
-   */
-  async getStreamMaxTurn(sessionId: string): Promise<number> {
-    return this._eventLogStore.getStreamMaxTurn(sessionId);
   }
 
   /**

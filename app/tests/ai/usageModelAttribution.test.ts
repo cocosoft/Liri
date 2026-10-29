@@ -180,9 +180,11 @@ describe('防漂移：金额台账的模型来源与成本归因同源（债四�
     expect(code).toMatch(/model:\s*turnModel,/);
   });
 
-  it('chat/ChatManager.ts：记账点内调用 `recordTurnCostUsd(..., model, sessionId)`', () => {
+  it('chat/manager/usageAccounting.ts：记账点内调用 `recordTurnCostUsd(..., model, sessionId)`', () => {
+    // issue #8 · Cut C（2026-10-29）：记账实现已外移到 `manager/usageAccounting.ts`，
+    // 扫描面随实现一起迁移（断言不变）。
     const code = stripComments(
-      readFileSync(join(APP_SRC, 'chat/ChatManager.ts'), 'utf-8')
+      readFileSync(join(APP_SRC, 'chat/manager/usageAccounting.ts'), 'utf-8')
     );
     expect(code).toMatch(
       /recordTurnCostUsd\([\s\S]{0,400}?model,\s*\n?\s*sessionId\s*\n?\s*\)/

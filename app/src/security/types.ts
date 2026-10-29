@@ -32,6 +32,15 @@ export interface SecurityAnalysisResult {
   riskLevel: RiskLevel;
   message?: string;
   matchedPatterns: string[];
+  /**
+   * B3（2026-10-30，issue #37）：本次判定是否基于**只读族**放行
+   * （`readonly-single` / `compound-readonly` / PowerShell 包裹委托）。
+   *
+   * 用途：`checkAstAndAnalyzer` 的"AST 解析不确定 ⇒ 转人工"分支据此**免 ask** ——
+   * 只读族已由 argv 级判据确认无副作用，再弹卡只会让调用悬空（真机 6 次 ask 无人应答）。
+   * 缺省 `undefined` ⇒ 维持原 fail-closed 转人工。
+   */
+  readOnly?: boolean;
 }
 
 export interface SecurityPattern {

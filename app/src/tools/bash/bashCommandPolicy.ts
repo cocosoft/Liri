@@ -66,6 +66,39 @@ export const DANGEROUS_PATTERNS = [
 ];
 
 /**
+ * B2-3（2026-10-30，issue #36）：把**引号内**的内容挖空（保留引号本身），只留裸露的
+ * 命令文本。
+ *
+ * 用途：`powershell|pwsh -Command "…"` 的内层脚本由 PowerShell 安全链
+ * （`checkPowerShellWrapper` → `evaluatePowerShellSecurity`）判定；bash 侧若再拿
+ * **整串文本**过 `DANGEROUS_PATTERNS`，会把脚本里的 `$(…)` / `exec ` 等字面量
+ * 当危险（真机 3 次 `dangerous_pattern` 误伤只读统计脚本）。
+ *
+ * ⚠️ 只对「单条 PowerShell 包裹」使用（见 `bashSecurityGate.checkBashDangerousCommand`）：
+ * 多段形态的兄弟段未经 PowerShell 链验证 ⇒ 必须保持原文扫描。
+ */
+export function maskQuotedSegments(command: string): string {
+  let out = '';
+  let quote: '"' | "'" | null = null;
+  for (const ch of command) {
+    if (quote) {
+      if (ch === quote) {
+        quote = null;
+        out += ch;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      out += ch;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/**
  * 安全命令白名单（F3 修复）
  * 仅允许以这些基命令开头的命令执行，防止任意命令注入
  * 注意：路径类命令（如 ./node_modules/.bin/xxx）也需处理
@@ -163,4 +196,27 @@ export const HIGH_CAPABILITY_INTERPRETERS = new Set([
 export function isHighCapabilityInterpreter(baseCommand: string): boolean {
   if (!baseCommand) return false;
   return HIGH_CAPABILITY_INTERPRETERS.has(baseCommand);
+}
+
+/**
+ * B3（2026-10-30，issue #37）：命令是否带**内联代码**开关（`-c` / `-e` / `--eval` /
+ * `-Command` / `-EncodedCommand`）。
+ *
+ * 用途：`BASH_INTERPRETER_GUARD` 只应拦"能把任意代码作为字符串直接执行"的形态；
+ * `node script.js`、`python -m pytest` 这类**文件/模块**调用不应被一律升级人工确认
+ * （否则只读族也会被 ask 卡悬空）。
+ */
+export function hasInlineCodeFlag(command: string): boolean {
+  if (!command) return false;
+  const flags = new Set([
+    '-c',
+    '-e',
+    '--eval',
+    '-command',
+    '-encodedcommand',
+    '-ec',
+  ]);
+  return command
+    .split(/\s+/)
+    .some((token) => flags.has(token.toLowerCase().replace(/^["']/, '')));
 }

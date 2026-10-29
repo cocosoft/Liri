@@ -39,9 +39,12 @@ import { parseForSecurity, isDangerousCommand } from '@modules/security';
 import {
   DANGEROUS_COMMANDS,
   DANGEROUS_PATTERNS,
+  hasInlineCodeFlag,
   isBaseCommandAllowed,
   isHighCapabilityInterpreter,
+  maskQuotedSegments,
 } from './bashCommandPolicy';
+import { isSinglePowerShellWrapperCommand } from './powerShellWrapper';
 import {
   isUnixSensitivePath,
   type StandardizedCommand,
@@ -88,6 +91,8 @@ export interface CommandAnalyzer {
     behavior: 'allow' | 'deny' | 'ask';
     message?: string;
     matchedPatterns?: string[];
+    /** B3（issue #37）：只读族放行标记（AST 不确定分支据此免 ask） */
+    readOnly?: boolean;
   };
 }
 
@@ -187,7 +192,14 @@ export function checkBashDangerousCommand(
     });
   }
 
-  if (DANGEROUS_PATTERNS.some((pattern) => pattern.test(command))) {
+  // B2-3（2026-10-30，issue #36）：单条 `powershell|pwsh -Command "…"` 的内层脚本
+  // 由 PowerShell 安全链判定（本方法之后的 G-07 门）⇒ 文本模式只扫**引号外**的部分，
+  // 避免脚本里的 `$(…)` / `exec ` / `source ` 字面量被当成 bash 危险模式。
+  // 多段形态不做掩码（兄弟段未经验证，必须保持原文 fail-closed）。
+  const patternTarget = isSinglePowerShellWrapperCommand(command)
+    ? maskQuotedSegments(command)
+    : command;
+  if (DANGEROUS_PATTERNS.some((pattern) => pattern.test(patternTarget))) {
     return blockedResult('安全检查: 检测到危险命令模式', {
       reason: 'dangerous_pattern',
     });
@@ -256,13 +268,16 @@ export function checkAstAndAnalyzer(params: {
         'Error: AST安全分析阻止了危险命令执行'
       );
     }
-  } else if (!bypassAsk) {
+  } else if (!bypassAsk && securityResult.readOnly !== true) {
     // 第九轮审查 §十-4（2026-10-09，缺陷 #4）：**AST 不确定 ⇒ 失败关闭（fail-closed）**。
     // 原实现仅在 `kind === 'simple'` 时判危险；`too-complex` / `parse-unavailable`
     // **既不阻断也不要求审批** ⇒ 解析器能力边界与实际安全决策不一致（盲区即放行）。
     // 现：两种"无法可靠解析"⇒ **转人工审批**（不静默放行；也不直接 deny，保留可用性）。
     // S1-2（2026-10-11）：已批准（bypassAsk）⇒ 不再重复弹卡，但**继续**走其后的
     // deny/白名单/沙箱等硬拦截（不因"免问"而放行）。
+    // B3（2026-10-30，issue #37）：分析器已按**只读族**（argv 级）放行
+    // （`readOnly === true`）⇒ 不再转人工 —— 只读命令无副作用，弹卡只会让调用悬空
+    // （真机 6 次 `security_analyzer_ask` 无人应答）。危险命令/deny/白名单/沙箱随后照旧执行。
     return createToolResult('需要用户确认: 命令无法被可靠解析', {
       requireApproval: true,
       approvalReason: `AST 分析不确定（${astResult.kind}），为避免解析盲区被绕过，需人工确认`,
@@ -417,7 +432,10 @@ export function checkInterpreterGuard(params: {
   if (
     !isApproved &&
     feature('BASH_INTERPRETER_GUARD') &&
-    isHighCapabilityInterpreter(std.baseCommand)
+    isHighCapabilityInterpreter(std.baseCommand) &&
+    // B3（2026-10-30，issue #37）：只对"内联代码"形态（-c/-e/-Command…）升级确认 ——
+    // 脚本/模块调用（`node x.js`、`python -m pytest`）不再一律弹卡。
+    hasInlineCodeFlag(std.preprocessed)
   ) {
     return createToolResult('需要用户确认: 解释器命令', {
       requireApproval: true,

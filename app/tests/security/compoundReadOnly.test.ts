@@ -64,6 +64,27 @@ describe('checkCompoundReadOnly：正向（全段只读）', () => {
     expect(checkCompoundReadOnly('dir >> out.txt').allowed).toBe(false);
     expect(checkCompoundReadOnly('dir >nulx').allowed).toBe(false);
   });
+
+  // B2-2（2026-10-30，issue #36）：引号内的 `>`/`<` 是普通字符
+  it('B2-2：引号内的 `>` 不再被当成重定向（findstr 模式）', () => {
+    expect(
+      checkCompoundReadOnly(
+        'git show --stat --oneline abc | findstr /c:"=>" /c:"renamed"'
+      ).allowed
+    ).toBe(true);
+    // 引号外的写文件重定向仍拒绝
+    expect(checkCompoundReadOnly('dir "x" > out.txt').allowed).toBe(false);
+  });
+
+  // B3（2026-10-30，issue #37）：只读放行必须带结构化标记（供 AST 不确定分支免 ask）
+  it('B3：只读族放行结论带 readOnly 标记；危险命令不带', () => {
+    const analyzer = new BashSecurityAnalyzer();
+    expect(analyzer.analyze('findstr /n /c:"a" x.ts').readOnly).toBe(true);
+    expect(
+      analyzer.analyze('dir /b x | find /c /v ""', undefined).readOnly
+    ).toBe(true);
+    expect(analyzer.analyze('rm -rf /').readOnly).toBeUndefined();
+  });
 });
 
 describe('checkCompoundReadOnly：负向（必须仍拒绝）', () => {

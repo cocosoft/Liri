@@ -11,12 +11,14 @@
  *    构造期 `new BashSecurityAnalyzer()` 与叶子模块的初始化顺序冲突而抛
  *    `Cannot access 'BashSecurityAnalyzer' before initialization`（TDZ）。
  */
-import { describe, expect, it } from 'bun:test';
+import { afterEach, describe, expect, it } from 'bun:test';
 
 import {
   checkAstAndAnalyzer,
   checkBashDangerousCommand,
+  checkInterpreterGuard,
 } from '../../src/tools/bash/bashSecurityGate.js';
+import { standardizeCommand } from '../../src/tools/bash/commandNormalization.js';
 import {
   describePowerShellFailure,
   evaluatePowerShellSecurity,
@@ -113,6 +115,69 @@ describe('危险命令判据：token 边界匹配（预存台账批次 A #1）',
     expect(String(block?.metadata?.['matchedCommand']).toLowerCase()).toContain(
       expected
     );
+  });
+});
+
+// B2-3（2026-10-30，issue #36）：单条 PowerShell 包裹不再被 bash 危险模式误伤
+describe('危险模式：单条 PowerShell 包裹只扫引号外文本', () => {
+  it('只读脚本里的 `$(...)` 字面量不再判 dangerous_pattern', () => {
+    expect(
+      checkBashDangerousCommand(
+        'powershell -NoProfile -Command "$s=$(Get-Date); $s"'
+      )
+    ).toBeNull();
+  });
+
+  it('多段形态不掩码：兄弟段仍按原文扫描（| sh）', () => {
+    expect(
+      checkBashDangerousCommand('powershell -Command "Get-Date" | sh')
+    ).not.toBeNull();
+  });
+
+  it.each(['bash -c "rm -rf /"', 'rm -rf /', 'chmod -R 777 /'])(
+    '负向：%s 仍被拦（只收紧不放宽）',
+    (command) => {
+      expect(checkBashDangerousCommand(command)).not.toBeNull();
+    }
+  );
+});
+
+// B3（2026-10-30，issue #37）：解释器守卫只拦"内联代码"形态
+describe('解释器守卫：仅内联代码升级确认', () => {
+  const KEY = 'FEATURE_BASH_INTERPRETER_GUARD';
+  const prev = process.env[KEY];
+  afterEach(() => {
+    if (prev === undefined) delete process.env[KEY];
+    else process.env[KEY] = prev;
+  });
+
+  it('node script.js（文件调用）不升级确认', () => {
+    process.env[KEY] = 'true';
+    const std = standardizeCommand('node script.js', { isWindows: true });
+    expect(
+      checkInterpreterGuard({
+        std,
+        isApproved: false,
+        approvalScope,
+        approvalSnapshot,
+        sessionId: undefined,
+      })
+    ).toBeNull();
+  });
+
+  it('node -e "…"（内联代码）仍升级确认', () => {
+    process.env[KEY] = 'true';
+    const std = standardizeCommand('node -e "console.log(1)"', {
+      isWindows: true,
+    });
+    const block = checkInterpreterGuard({
+      std,
+      isApproved: false,
+      approvalScope,
+      approvalSnapshot,
+      sessionId: undefined,
+    });
+    expect(block?.requireApproval).toBe(true);
   });
 });
 

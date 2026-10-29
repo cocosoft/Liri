@@ -183,6 +183,7 @@ const DELEGATED_SINGLE_PS_ALLOW: SecurityAnalysisResult = Object.freeze({
   riskLevel: 'low',
   message: 'PowerShell 包裹命令：内层脚本已由 PowerShell 安全链判定通过',
   matchedPatterns: ['powershell-wrapper-delegated'],
+  readOnly: true,
 } as SecurityAnalysisResult);
 
 /** FIX-16（2026-10-27）：单条只读命令的放行结论（与 `compoundReadOnly` 同一只读族）。 */
@@ -192,6 +193,7 @@ const SINGLE_READONLY_ALLOW: SecurityAnalysisResult = Object.freeze({
   riskLevel: 'low',
   message: '只读命令放行（命中只读白名单，与复合只读同口径）',
   matchedPatterns: ['readonly-single'],
+  readOnly: true,
 } as SecurityAnalysisResult);
 
 export class BashSecurityAnalyzer {
@@ -408,6 +410,7 @@ export class BashSecurityAnalyzer {
         riskLevel: 'low',
         message: `复合只读命令放行（${compoundVerdict.segments.length} 段，全部命中只读白名单）`,
         matchedPatterns: ['compound-readonly'],
+        readOnly: true,
       };
     }
 

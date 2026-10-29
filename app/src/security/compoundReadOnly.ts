@@ -125,8 +125,9 @@ function splitSafely(
       // 双引号内仍会展开 —— 一律拒绝
       if (ch === '`') return { segments, forbidden: '反引号命令替换' };
       if (ch === '$') return { segments, forbidden: '变量/命令替换（$）' };
-      if (ch === '>' || ch === '<')
-        return { segments, forbidden: `重定向（${ch}）` };
+      // B2-2（2026-10-30，issue #36）：引号内的 `>` / `<` 是**普通字符**，不是重定向。
+      // 真机实测 `git show --stat | findstr /c:"=>"` 因模式里的 `>` 被判「重定向」硬拒。
+      // 引号外的重定向仍在下方的普通态分支里 fail-closed。
       if (ch === '&' || ch === '|' || ch === ';') {
         // 引号内的 `|`/`&`/`;` 是普通字符（如 findstr 模式），保留
         buf += ch;

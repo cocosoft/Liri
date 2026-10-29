@@ -121,15 +121,127 @@ export function preprocessWindowsCommand(command: string): PreprocessResult {
  * 覆盖：`--key=/path` 形式、Unix 绝对路径、Windows 盘符路径（`C:\` / `C:/`）、
  * 反斜杠根路径 / UNC（`\etc`、`\\host`）。
  * 返回**全部**候选（非仅首个），使"多个路径只查第一个"的盲区被消除。
+ *
+ * B2-1（2026-10-30，issue #36）：改为 **argv 感知**（先切 token 再判路径），
+ * 真机实测旧正则把 Windows 开关 / findstr 搜索模式当 Unix 绝对路径：
+ * ```
+ * findstr /n /c:"app/src" /c:"../../app" x.ts
+ *   ⇒ ["/n","/c:","/src","/c:","/../app","/c:"]  ⇒ 误判「路径遍历」硬拒
+ * ```
+ * 现在：`/n`、`/b`、`/ad`、`/c:"…"` 这类开关/模式**整体排除**（仅 Windows 语义下），
+ * 引号内的相对片段（`app/src`、`../../app`）不再被当成绝对路径。
+ *
+ * @param options.isWindows 是否按 Windows 开关语义过滤（缺省 false = POSIX 口径，不过滤）
  */
-export function extractPathCandidates(command: string): string[] {
-  const re =
-    /(?:--?\w+=)?['"]?((?:\/[^\s'"]*|[A-Za-z]:[\\/][^\s'"]*|\\+[^\s'"]+))['"]?/g;
+export function extractPathCandidates(
+  command: string,
+  options: { isWindows?: boolean } = {}
+): string[] {
+  const isWindows = options.isWindows === true;
   const out: string[] = [];
-  for (const m of command.matchAll(re)) {
-    if (m[1]) out.push(m[1]);
+  for (const raw of tokenizeCommand(command)) {
+    const token = stripOuterQuotes(raw.trim());
+    if (!token) continue;
+    // `--key=value` ⇒ 只判 value（与旧口径一致）
+    const eq = /^--?[\w-]+=(.+)$/.exec(token);
+    const candidate = stripOuterQuotes((eq ? eq[1] : token).trim());
+    if (!candidate) continue;
+    if (isWindows && isWindowsSwitchToken(candidate)) continue;
+    if (
+      /^\/[^\s'"]*$/.test(candidate) ||
+      /^[A-Za-z]:[\\/][^\s'"]*$/.test(candidate) ||
+      /^\\+[^\s'"]+$/.test(candidate)
+    ) {
+      out.push(candidate);
+    }
   }
   return out;
+}
+
+/**
+ * 引号感知切 token：空白与 shell 分隔符（`| & ; < >`）处断开，引号内不断开。
+ * 引号**保留**在 token 内（后续开关判定要能看到 `/c:"…"` 的冒号）。
+ */
+function tokenizeCommand(command: string): string[] {
+  const tokens: string[] = [];
+  let buf = '';
+  let quote: '"' | "'" | null = null;
+  const push = (): void => {
+    const trimmed = buf.trim();
+    if (trimmed) tokens.push(trimmed);
+    buf = '';
+  };
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (quote) {
+      buf += ch;
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      buf += ch;
+      continue;
+    }
+    if (
+      ch === '|' ||
+      ch === '&' ||
+      ch === ';' ||
+      ch === '<' ||
+      ch === '>' ||
+      /\s/.test(ch)
+    ) {
+      push();
+      continue;
+    }
+    buf += ch;
+  }
+  push();
+  return tokens;
+}
+
+/** 去掉包裹 token 的最外层引号（仅首尾，不影响内部引号） */
+function stripOuterQuotes(token: string): string {
+  let t = token;
+  if (t.length >= 2) {
+    const first = t[0];
+    const last = t[t.length - 1];
+    if ((first === '"' || first === "'") && first === last) {
+      t = t.slice(1, -1);
+    }
+  }
+  return t;
+}
+
+/** Unix 顶层目录：即便只有 1–3 个字母，也**不得**当成 Windows 开关 */
+const UNIX_TOP_DIRS = new Set([
+  '/etc',
+  '/usr',
+  '/var',
+  '/tmp',
+  '/dev',
+  '/bin',
+  '/lib',
+  '/opt',
+  '/sys',
+  '/sbin',
+  '/root',
+  '/home',
+  '/boot',
+  '/proc',
+]);
+
+/**
+ * 是否为 Windows 命令行**开关 / 搜索模式**（`/n`、`/b`、`/ad`、`/c:"…"`）。
+ *
+ * 判据刻意保守：仅「`/` + 1–3 个字母（可带冒号参数）」且**不是** Unix 顶层目录
+ * ⇒ 开关。多段路径（`/usr/local`）与更长名字（`/path`）一律仍按路径判定（fail-closed）。
+ */
+function isWindowsSwitchToken(token: string): boolean {
+  if (!token.startsWith('/')) return false;
+  if (/^\/[A-Za-z]{1,3}:/.test(token)) return true;
+  if (!/^\/[A-Za-z]{1,3}$/.test(token)) return false;
+  return !UNIX_TOP_DIRS.has(token.toLowerCase());
 }
 
 /** 是否为 Unix 绝对路径（以 `/` 开头） */
@@ -204,7 +316,7 @@ export function standardizeCommand(
     ? preprocessWindowsCommand(raw)
     : { command: raw, warnings: [] as string[], rewrites: [] as string[] };
   const preprocessed = pre.command;
-  const paths = extractPathCandidates(preprocessed);
+  const paths = extractPathCandidates(preprocessed, { isWindows });
   const unixAbsolutePaths = paths.filter(isUnixAbsolutePath);
   return {
     raw,

@@ -268,12 +268,11 @@ describe('A4 解释器命令人工确认（灰度开关 BASH_INTERPRETER_GUARD�
     restore = undefined;
   });
 
-  it('开关开：本会被放行的解释器命令转人工确认（不执行）', async () => {
+  it('开关开：B3 后仅"内联代码"形态升级确认，脚本/版本调用不再被 A4 升级', async () => {
     restore = withFlag('BASH_INTERPRETER_GUARD', true);
     const reg = new ApprovedCommandRegistry(60_000, false);
     const tool = new BashTool(reg);
-    // 强制安全分析器放行（模拟"白名单/信任工作区"本会 allow 的场景），
-    // 以验证 A4 把"本会执行"的解释器命令升级为人工确认。
+    // 强制安全分析器放行（模拟"白名单/信任工作区"本会 allow 的场景）
     const analyzer = (
       tool as unknown as { securityAnalyzer: BashSecurityAnalyzer }
     ).securityAnalyzer;
@@ -284,12 +283,15 @@ describe('A4 解释器命令人工确认（灰度开关 BASH_INTERPRETER_GUARD�
       matchedPatterns: [],
     });
     try {
+      // B3（issue #37）：A4 只对 `-c`/`-e`/`-Command` 等内联代码形态升级；
+      // `node --version` 属版本查询 ⇒ 不再弹卡（内联形态的升级由
+      // `tests/tools/toolSecurityGateWiring.test.ts` 的 `checkInterpreterGuard` 单测守护）
       const result = await tool.execute(
         { command: 'node --version' },
         makeContext('session-1')
       );
-      expect(result.requireApproval).toBe(true);
-      expect(result.metadata?.reason).toBe('interpreter_guard');
+      expect(result.requireApproval).not.toBe(true);
+      expect(result.metadata?.reason).not.toBe('interpreter_guard');
     } finally {
       spy.mockRestore();
       reg.dispose();

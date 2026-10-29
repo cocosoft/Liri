@@ -140,6 +140,33 @@ describe('S1-5 路径提取与基命令归一化（统一口径）', () => {
     expect(std.unixSensitivePaths).toEqual(['/etc/shadow']);
   });
 
+  // ── B2-1（2026-10-30，issue #36）：argv 感知提取 ──
+  it('B2-1：Windows 开关 / findstr 搜索模式不参与路径判定', () => {
+    const std = standardizeCommand(
+      'findstr /n /c:"app/src" /c:"../../app" /c:"@modules" E:\\X\\a.ts',
+      { isWindows: true }
+    );
+    // 旧实现产出 ["/n","/c:","/src","/c:","/../app","/c:"] ⇒ 误判路径遍历
+    expect(std.paths).toEqual(['E:\\X\\a.ts']);
+    expect(std.unixAbsolutePaths).toEqual([]);
+    expect(std.unixSensitivePaths).toEqual([]);
+  });
+
+  it('B2-1：dir /b /ad 的开关被排除；Unix 顶层目录仍按路径判定', () => {
+    expect(
+      standardizeCommand('dir /b /ad C:\\x', { isWindows: true }).paths
+    ).toEqual(['C:\\x']);
+    // /etc 虽是 3 字母，但属 Unix 顶层目录 ⇒ 不得当开关
+    expect(
+      standardizeCommand('type /etc/passwd', { isWindows: true })
+        .unixSensitivePaths
+    ).toEqual(['/etc/passwd']);
+  });
+
+  it('B2-1：POSIX 语义下不做开关过滤（/n 仍视为根路径，fail-closed 不变）', () => {
+    expect(extractPathCandidates('findstr /n x')).toEqual(['/n']);
+  });
+
   it('基命令归一化：去路径前缀 / 去扩展名 / 小写', () => {
     expect(deriveBaseCommand('./node_modules/.bin/Node.EXE -v')).toBe('node');
     expect(deriveBaseCommand('  ')).toBe('');

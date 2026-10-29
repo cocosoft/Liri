@@ -728,6 +728,25 @@ export async function handleListProjectFiles(
       return;
     }
     if (!existsSync(project.sandboxPath)) {
+      // F-23（2026-10-29）：读侧自愈。`delaySandbox` 的语义是「等首次使用再 mkdir」，
+      // 但它只接在**写**路径（首次写文件 / 上传 00_input）⇒ 从未写过文件的项目
+      // （真机 3 个：迁移建项目时旧 path 已不存在）永远没有目录，`project-context.md`
+      // 的「文件夹」指向不存在的路径、提示词里的项目文件列表恒为空。
+      // 首次**列目录**即补建；失败不阻断读（磁盘/权限问题不该让页面 500）。
+      try {
+        mkdirSync(project.sandboxPath, { recursive: true });
+        logger.info('项目文件夹已按需补建', {
+          projectId,
+          sandboxPath: project.sandboxPath,
+        });
+      } catch (e) {
+        // @ignore-catch best-effort：补建失败不影响读，仍按下述同形契约返回空对象
+        logger.warn('项目文件夹补建失败', {
+          projectId,
+          sandboxPath: project.sandboxPath,
+          error: String(e),
+        });
+      }
       span.setStatus({ code: SpanStatusCode.OK });
       // 契约一致（2026-10-28，F-18）：缺目录时必须返回**同形对象**。
       // 原实现回 `[]`（数组）⇒ 前端 `ProjectMaterialsPanel` 的

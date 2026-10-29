@@ -35,11 +35,13 @@
 ### Cut A — 门面与安装器外移（低风险，先做）
 
 - **抽走**：`checkpointBudget.ts` 新增 `CheckpointBudgetManager`（沿用 `app/src/chat/manager/` 现有 **deps 注入**方式，**不建全局单例**），承载：
-  - 5 个 checkpoint 门面方法的实现体（`4652–4677`）；
+  - ~~5 个 checkpoint 门面方法的实现体~~ ⇒ **实测后未搬**（它们本就是一行委托，搬走只会多一层跳转，见下方「Cut A 实测结果」）；
   - `_ensureCheckpointBoundary`（`3843`）与 `_ensureBudgetSuspendResumeInstalled`（`1674`）的实现体；
   - 与它们绑定的私有字段/常量（`checkpointInterval` 两处、`checkpointBoundaryTool` 相关常量）。
 - **ChatManager 保留**：同名 thin delegate（保持 `ChatManagerInterface` 与现有调用点零改动）。
-- **预计**：移出 **250–400 行**（含注释与字段）。**单独完成达不到 ≤4000**，但它是后两刀的前置。
+- **Cut A 实测结果（2026-10-29，commit `1017bb9fc`）**：`ChatManager.ts` **4840 → 4786**（**−54 行**）、新模块 `checkpointBudget.ts` **153 行**。原「预计 250–400 行」**估高了** —— 实测两个 `_ensure*` 方法体合计约 85 行，减去新增 import 与 delegate 后净减 54 行；5 个 checkpoint 门面本就是一行委托，**未搬**（搬只会多一层跳转，不产生收益）。
+- **验收（实测全绿）**：`bunx tsc --noEmit` ✅；`bun run lint:arch` exit 0 ✅；`bun run lint:size` exit 0（0 错误 / 527 警告）✅；`bun test tests/chat` **725 pass / 0 fail** ✅。
+- **对目标的含义（如实）**：距 4000 还差 **786 行**，只能从 **Cut B/C** 的流式主链路内联块（`1001–1400` / `2401–3000` 等，checkpoint|budget 命中 33 处）里出；因此 **Cut A 单独不满足 #8 验收是设计内预期**，不作为 PR 关单依据。
 - **验收**：
   ```bash
   cd app && bunx tsc --noEmit
@@ -85,5 +87,7 @@ git diff --stat                        # 抽走了哪些文件/多少行
 
 ## 五、下一步
 
-1. 先做 **Cut A**（低风险、可独立合并），拿到 `git diff --stat` 后据此校准 Cut B/C 的预期行数；
-2. Cut A 落地后把本文件的行数基线更新为当次实测值（禁止沿用旧数字）。
+1. ~~先做 Cut A~~（**已完成 `1017bb9fc`**：−54 行，四道门禁全绿）；
+2. **Cut B 的目标据实上调**：需从中移出 **≈400–500 行**（策略函数化 + 调用点收敛），完成后预计 ~4300，仍不达 4000；
+3. **Cut C** 负责剩余 ~300 行（字段/初始化归并）并**只在 Cut C 验收 ≤4000**；
+4. 每刀落地后把本文件的行数基线更新为当次实测值（禁止沿用旧数字）。

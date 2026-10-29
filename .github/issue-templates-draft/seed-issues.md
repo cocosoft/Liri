@@ -114,8 +114,15 @@
   - `SessionMetadata.domain`（session.ts）+ `KnowledgeQueryProvider.getKnowledgeSummaries(query, limit?, domain?)` + `MessageContextPipeline` 每轮**覆盖式**注入 `setCurrentKnowledgeDomain`（含清空防串域）+ `knowledgeContext` 段统一校验（`DomainManager.getConfig`，不存在 ⇒ warn 回全局）+ `KnowledgeSummarizer` 接收但留 `TODO: CS05-ROOTFIX`（digest / IKnowledgeSearch 两条链尚无域过滤）。
   - 新增 `app/tests/context/knowledgeContextDomain.test.ts`（5 例）；相关测试 **273/273**；`typecheck` 绿；`lint:arch` exit 0。
   - **验收对照**：#15 的「传域 ⇒ 检索根 = `domains/{name}`」**未满足**（限缩未接线）⇒ **不关单**，只在 #15 回进展评论（一次性作业 `note-15.yml` 仅存于临时分支 `ci/note-15`，run `40835673438` 7s 成功，分支已删）。
-  - 剩余：把 domain 透传进 `searchDigest` 与 `IKnowledgeSearch`，再补「检索根 = domains/{name}」契约测试即可关单。
-  - 当前 issue 状态：**open 6 条**（#1 / #7 / #8 / #11 / #12 / #15），**closed 8 条**（#2 / #3 / #4 / #5 / #6 / #9 / #10 / #13）。
+  - 剩余：~~把 domain 透传进 `searchDigest` 与 `IKnowledgeSearch`~~ ⇒ **已完成并关单（`f37368601`）**，见下条。
+  - 当前 issue 状态（**S5 部分交付时点**）：open 6 条（#1 / #7 / #8 / #11 / #12 / #15），closed 8 条（#2 / #3 / #4 / #5 / #6 / #9 / #10 / #13）。最新数字见本节末条。
+- **S5 完成并关闭（2026-10-29，commit `f37368601`，issue #15）**：
+  - **搜索链**：域名进入内核 `KnowledgeRouterOptions.domain` —— 该选项与 `KnowledgeRouter.filterByDomain` 本就存在（按文档 `domain` 字段过滤，字段由 `domains/<name>/…` 路径解析），本层只传参、不重复过滤。
+  - **digest 链**：`KnowledgeDigestService.searchDigest(query, domain?)` 新增可选域参数，按域目录前缀过滤。
+  - **关键实测修正**：`DocDigest.path` 是**相对 knowledgeRoot** 的路径（`checkStaleness` 用 `join(knowledgeRoot, doc.path)` 还原，`KnowledgeDigestService.ts:294`）⇒ 域过滤必须用**相对前缀** `domains/<name>`，不能与绝对目录比较；判定用「归一化分隔符 + `/` 边界」，避免 `botany` 吞 `botany2`。
+  - 新增 `app/tests/knowledge/knowledgeSummarizerDomain.test.ts`（5 例）；相关测试 **278/278**；`typecheck` 绿；`lint:arch` exit 0。关单一次性作业 `close-15.yml` 仅存于临时分支 `ci/close-15`（已删；首次 run 因 YAML 里 `\\'` 转义把 JS 字符串截断而失败，修正后重推成功）。
+  - 当前 issue 状态：**open 5 条**（#1 / #7 / #8 / #11 / #12），**closed 9 条**（#2 / #3 / #4 / #5 / #6 / #9 / #10 / #13 / #15）。
+  - Phase A 六个子任务：**S1 / S2 / S5 / S6 已交付**；**S3（#11）未开工**；**S4（#12）等外部 PR #14**。
 
 
 

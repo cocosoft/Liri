@@ -119,7 +119,7 @@ export type ContinueOutcome =
  *  - 开关关 ⇒ `{ ok:false, code:'disabled' }`（零行为变更）；
  *  - 未挂起 ⇒ `not_suspended`；budget 挂起 ⇒ `budget_kind`（拒绝，不成为 relief 旁路）；
  *  - 命中 guard ⇒ 先 `coordinator.release`（幂等占位，防并发重复续跑），再经注入的 `resume`
- *    端口触发**既有**续跑通道（流式链见 `ChatManager._resumeSuspendedStream`；taor 链见
+ *    端口触发**既有**续跑通道（流式链见 `chat/manager/budgetResume.ts` 的 `resumeSuspendedStream`；taor 链见
  *    `resumeSuspendedSession(sid,'taor')`）；
  *  - 续跑失败（`resume` 返回 false）⇒ 回滚为挂起（保留 `chain`），返回 `resume_failed`。
  *

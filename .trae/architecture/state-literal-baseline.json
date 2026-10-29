@@ -501,6 +501,7 @@
       "app/src/channels/zalo/ZaloChannel.ts",
       "app/src/chat/ChatManager.ts",
       "app/src/chat/components/MessageSelector.tsx",
+      "app/src/chat/manager/budgetResume.ts",
       "app/src/chat/manager/streamResume.ts",
       "app/src/chat/orchestrator/streamMessageApiMessagesBuild.ts",
       "app/src/chat/orchestrator/streamMessageFlow.ts",

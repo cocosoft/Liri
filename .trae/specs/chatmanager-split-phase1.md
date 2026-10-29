@@ -2,7 +2,8 @@
 
 > 对应 issue：[#8](https://github.com/cocosoft/Liri/issues/8)（替代已关闭的 #2）
 > 基线（2026-10-29 实测）：`app/src/chat/ChatManager.ts` **4840 行**、方法声明 **164** 个；`app/src/chat/manager/` 已有 **14** 个子模块（最大 `bootstrap.ts` 742 行）。
-> 目标：第一阶段把「检查点（checkpoint）+ 预算（budget）」编排抽到 `app/src/chat/manager/checkpointBudget.ts`（≤900 行），`ChatManager.ts` **≤4000 行**，行为不变。
+> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**（本刀，见 §二）。
+> 目标：第一阶段把「检查点（checkpoint）+ 预算（budget）」编排抽到 `app/src/chat/manager/`（`checkpointBudget.ts` + `budgetResume.ts`，单文件 ≤900 行），`ChatManager.ts` **≤4000 行**，行为不变。
 
 ## 一、实测现状（决定拆分粒度的事实）
 
@@ -57,6 +58,13 @@
 - **风险**：改动落在 `streamMessage` 主链路 ⇒ **行为不变**要求高；必须先补「策略函数级」单测再替换。
 - **预计**：移出 **300–450 行**。
 - **验收**：同上 + 新增 `app/tests/chat/checkpointBudgetPolicy.test.ts`；并跑 `bun test tests/chat` 全绿（含流式相关用例）。
+- **Cut B 实测结果（2026-10-29）**：原计划的「纯策略函数化」**未按预估成立** —— 实测 `1001–1400` / `2401–3000` 区间的 checkpoint/budget 命中绝大多数是**单行调用点**（`checkBudget()` / 记账 / `assertEntryBudget`），可抽的**成块逻辑**只有「预算挂起后的续跑」这一段。故 Cut B 实抽：
+  - 新模块 `app/src/chat/manager/budgetResume.ts` **327 行**：`resumeSuspendedSession`（taor/stream 分流）、`resumeSuspendedStream`、`submitResumeManualConfirmations`、`markBudgetResumed`、`resolveReplayForcedTools`、`isSubstantiveResumeChunk`；
+  - `ChatManager.ts` **4786 → 4552**（**−234 行**，略优于预估 −180~−220），`ChatManagerInterface` **零改动**；
+  - 新增 `app/tests/chat/budgetResume.test.ts`（5 例：taor 无检查点 / taor 正常链路顺序 / stream 有进展 / stream 回退重发 / chunk 判据）；
+  - 既有两条接线级回归随实现迁移扫描面（`resumePendingSplit.test.ts` 改读新模块；`preparedReplayForce.test.ts` 的 W3 改为直接驱动新模块），**断言强度不变**；
+  - 门禁实测：`tsc` 0 错误 / `lint:arch` 0 错误 / `lint:size` 0 错误 527 警告 / `bun test tests/chat` **730 pass / 0 fail**（基线 725 + 新增 5）。
+  - **对目标的含义（如实）**：距 4000 仍差 **552 行**，只能由 Cut C 承担。
 
 ### Cut C — 字段/初始化归并，达到 ≤4000
 
@@ -88,11 +96,10 @@ git diff --stat                        # 抽走了哪些文件/多少行
 ## 五、下一步
 
 1. ~~先做 Cut A~~（**已完成 `1017bb9fc`**：−54 行，四道门禁全绿）；
-2. **Cut B 目标物（2026-10-29 实测定位）**：流式主链路里的 checkpoint/budget **主体不是分散调用点，而是「预算挂起后的续跑」这一段** ——
-   - `resumeSuspendedSession`（doc 起 `2523`，方法体至 `_markBudgetResumed` 之前 ≈`2520–2710`，约 **190 行**）：按 `chain='taor'|'stream'` 分流、`getCheckpointsForSession`/`resumeFromCheckpoint`、`buildBudgetResumePrompt`、`_markBudgetResumed` 收尾；
-   - `_markBudgetResumed`（`2728` 起，约 **15 行**）：落「已从挂起点恢复」轻量检查点（`StreamingAutoCheckpoint.markResumed`）；
-   - 其余命中多为**调用点**（`2423` `tokenBudget.checkBudget()`、`2506` `_ensureBudgetSuspendResumeInstalled()`、`2826–2833` `assertEntryBudget`、`3046/3051` 记账），单行不改语义。
-   - **抽法**：`resumeSuspendedSession` + `_markBudgetResumed` 迁入 `checkpointBudget.ts`（或新 `budgetResume.ts`），依赖显式注入（`resumeCoordinator` / `getStreamingAutoCheckpoint` 工厂 / `sessionManager` 取会话 / TAOR 取用面）；ChatManager 保留同名 delegate。
-   - **实施前置**：先为该段补 2–3 个「分流决策」单测（taor vs stream 分支选择、无 checkpoints 时的行为），再替换调用点 —— 该段是崩溃恢复路径，**测试难以覆盖**（见 `code-deletion.md` CD07 对会话恢复模块的警示）。
-   - **预期**：−180 ~ −220 行 ⇒ `ChatManager` ≈ **4560–4600**，仍不达 4000；剩余由 Cut C 承担。
-3. 每刀落地后把本文件的行数基线更新为当次实测值（禁止沿用旧数字）。
+2. ~~Cut B~~（**已完成，2026-10-29**）：`resumeSuspendedSession`（taor/stream 分流）+ `resumeSuspendedStream` + `submitResumeManualConfirmations` + `markBudgetResumed` + `resolveReplayForcedTools` + `isSubstantiveResumeChunk` 迁入 `budgetResume.ts`（327 行，显式注入）；`ChatManager` **4786 → 4552**（**−234**）；先补 `budgetResume.test.ts`（5 例）再替换调用点；四道门禁全绿（730 pass）。详见 §二 Cut B 实测结果。
+3. **Cut C（下一步，唯一还差的一刀）**：目标 `ChatManager.ts` **≤ 4000**（当前 4552，需再移出 ≥552 行）。候选面（按可整块移动排序，基于 Cut B 实测）：
+   - 门面 getter/setter 区与 checkpoint 门面委托（`createCheckpoint` / `listCheckpoints` / `rollbackToCheckpoint` / `deleteCheckpoint` / `getLatestCheckpoint` / `deleteSessionCheckpoints`，`4201–4400` 区间内命中 13）；
+   - 与检查点/预算绑定的**字段 + 构造期初始化**（`_checkpointService`、`checkpointInterval` 两处、`_budgetSuspendResumeWired` / `_budgetReliefUninstall`）并入各 manager 的持有者；
+   - 若仍不足：把 `streamMessage` 内的**预算/检查点单行调用点**收敛为「一次调用一处判定」（Cut B 未做，因实测它们是单行、搬走无收益）。
+   - **验收**：`wc -l src/chat/ChatManager.ts` ≤ 4000 + 四道门禁同 §三。
+4. 每刀落地后把本文件的行数基线更新为当次实测值（禁止沿用旧数字）。

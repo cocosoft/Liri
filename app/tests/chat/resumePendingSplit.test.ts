@@ -69,11 +69,13 @@ describe('T25-13a：续跑未完成工具拆分', () => {
 
 describe('T25-13a：接线防回流（源码级）', () => {
   it('两条续跑路径都使用 splitResumePending，且不再直接把原始 pending 交给提示', () => {
+    // issue #8 · Cut B（2026-10-29）：续跑实现已外移到 `manager/budgetResume.ts`，
+    // 故防回流扫描面随实现一起迁移（断言不变）。
     const src = readFileSync(
-      new URL('../../src/chat/ChatManager.ts', import.meta.url),
+      new URL('../../src/chat/manager/budgetResume.ts', import.meta.url),
       'utf8'
     );
-    // 两个拆分变量各出现一次（resumeSuspendedSession / _resumeSuspendedStream）
+    // 两个拆分变量各出现一次（resumeSuspendedSession / resumeSuspendedStream）
     expect(src).toContain('splitResumePending(latest?.pendingToolCalls)');
     expect(src).toContain('splitResumePending(pending)');
     // 提示只消费 replayable（原始清单不得直接进提示）

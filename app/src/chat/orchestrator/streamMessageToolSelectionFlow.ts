@@ -154,6 +154,6 @@ export function selectAndObserveToolDefinitions(
   // T3-12（2026-10-13 用户裁定）：熵门禁**接通挂起** —— 命中 warn 且 `GUARD_SUSPEND` 开时，
   // 在**轮间安全点**登记一条 guard 挂起（`kind='guard'`，reason='schema_entropy'）；
   // 开关关（默认）⇒ `guardSuspendFromEntropy` 返回 false 且不登记（零行为变更，熵门禁仍只 WARN）。
-  // 挂起事实源 = 既有流式自动检查点链（继续入口 `_resumeSuspendedStream` 复用之）。
+  // 挂起事实源 = 既有流式自动检查点链（继续入口 `manager/budgetResume.ts` 的 `resumeSuspendedStream` 复用之）。
   guardSuspendFromEntropy(session.id, 'stream', verdict);
 }

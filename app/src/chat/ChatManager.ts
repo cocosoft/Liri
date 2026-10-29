@@ -63,7 +63,6 @@ import {
 // session_summary 类型注册（注册动作已随 Cut C（issue #8）迁入 `manager/hostWiring.ts`）
 import { rollupSessionSummaryToLongTerm } from '@modules/memory';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
-import { feature as coreFeature } from '@openliri/kernel';
 import { StreamingToolCallScrubber } from '@modules/streaming';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
 import { SessionLifecycleManager } from './services/SessionLifecycleManager.js';
@@ -92,7 +91,7 @@ import { recordChatResponseUsage as recordChatResponseUsageImpl } from './manage
 
 const logger = getLogger('chat:manager');
 
-import { SimpleMutex, feature } from '@openliri/kernel';
+import { SimpleMutex } from '@openliri/kernel';
 import { resolveWorktreeHash } from '@modules/environment';
 // 多租户 P0 阶段 2：当前会话 id 按请求身份分桶（无请求作用域 ⇒ 本地身份单桶）
 import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
@@ -186,12 +185,12 @@ import { extractMemoryFromChat as extractMemoryFromChatImpl } from './manager/me
 import { getClientForModel as getClientForModelImpl } from './manager/modelClient';
 // issue #17 · D4 / D5（2026-10-29）：会话管理器视图、待对账会话消费外移
 import { createSessionManagerFacade } from './manager/sessionManagerFacade';
-import { runPendingReconciles } from './manager/reconcileDrain';
-// issue #17 · D6 / D7（2026-10-29）：项目 sandboxPath 解析、verifier 模型解析外移
 import {
-  getProjectSandboxPath,
-  type ProjectStoreLike,
-} from './manager/projectSandboxPath';
+  requestReconcile,
+  runPendingReconciles,
+} from './manager/reconcileDrain';
+// issue #17 · D6 / D7（2026-10-29）：项目 sandboxPath 解析、verifier 模型解析外移
+import type { ProjectStoreLike } from './manager/projectSandboxPath';
 import {
   ensureVerifierCallModel,
   type VerifierModelState,
@@ -250,13 +249,7 @@ import type { SettlementOutbox } from './yield/SettlementOutbox';
 // F2（2026-10-12，预算挂起续跑 Task 3）：活跃 TAORLoop 注册表入口（经 infrastructure barrel）。
 // 修复前 `registerTAORLoop` 全仓零调用 ⇒ `activeLoops` 恒空 ⇒ checkpoint 恢复端点恒 404。
 import { registerTAORLoop, unregisterTAORLoop } from '@modules/infrastructure';
-import {
-  PlanDrivenLoop,
-  classifyTaskComplexity,
-  hasDangerousToolIntent,
-  isEligibleForFastPath,
-  resolveFastPathPolicy,
-} from '@modules/tasks';
+import { PlanDrivenLoop } from '@modules/tasks';
 import type { PlanDrivenLoopResult } from '@modules/tasks';
 // 2026-10-01 D-144：core 的 TokenBudgetController 改为 DI ⇒ 由本层注入精确估算器
 import { estimateTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
@@ -277,8 +270,6 @@ import {
 } from '@modules/compaction';
 import type { SessionMessage } from '@modules/session';
 import { SessionGateway, createSessionGateway } from '@modules/session';
-// LRO-06 / D4 后半（2026-10-26）：会话工作区解析（绝对 workspacePath > 项目 sandboxPath）
-import { resolveSessionWorkspacePath } from './services/toolCwdScope';
 import {
   AppError,
   ErrorCategory,
@@ -590,68 +581,9 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * S3（P1-5 §5 S3）：PlanDrivenLoop 快速路径判定。
-   * 阶段 3 退役（2026-09-01）：灰度 hash 分流已删除，仅保留业务复杂度门——
-   * isEligibleForFastPath（isSimpleTask 复杂度门 + 危险工具准入筛除）。
-   * 简单任务走 PlanDrivenLoop 快速路径；复杂/危险任务走经典 PDCA 阶段链。
+   * S3（P1-5 §5 S3）/ CM-6：PlanDrivenLoop 与 Code Mode 的**分流决策**已外移到
+   * `manager/routing.ts`（纯决策：只读配置 / feature / env，无会话状态；issue #19 · Cut H）。
    */
-  private _shouldUsePlanDrivenLoop(message: string): boolean {
-    // T-②05（2026-10-03）：判据改为**配置驱动**（GlobalConfig.fastPath；缺省回退原冻结基线）
-    const policy = resolveFastPathPolicy();
-    if (!isEligibleForFastPath(message, policy)) {
-      logger.debug('PlanDrivenLoop 分流：复杂度门/危险工具筛除', {
-        messagePreview: message.slice(0, 50),
-        complexity: classifyTaskComplexity(message, policy.maxSimpleTaskLength),
-        dangerousTool: hasDangerousToolIntent(
-          message,
-          policy.dangerousIntentPatterns
-        ),
-      });
-      return false;
-    }
-    return true;
-  }
-
-  /** message 粒度 hash（S3：字符串散列 → 0~99，避开 sessionId 偏差） */
-  private _hashMessage(message: string): number {
-    let hash = 0;
-    for (let i = 0; i < message.length; i++) {
-      hash = (hash * 31 + message.charCodeAt(i)) >>> 0;
-    }
-    return hash % 100;
-  }
-
-  /**
-   * CM-6（2026-08-25）：Code Mode 自动分流灰度百分比（0~100，默认 0）
-   * 首版默认不自动分流——模型显式选择 code_run 工具优先；
-   * 可通过 CODE_MODE_TRAFFIC_PERCENT 开启灰度（message 粒度 hash，复用 _hashMessage）。
-   */
-  private readonly _codeModeTrafficPercent: number = (() => {
-    const raw = configManager.env('CODE_MODE_TRAFFIC_PERCENT');
-    const val = raw && !isNaN(Number(raw)) ? Number(raw) : 0;
-    return Math.min(100, Math.max(0, val));
-  })();
-
-  /**
-   * CM-6：Code Mode 分流决策（与 _shouldUsePlanDrivenLoop 平级）
-   * CODE_MODE feature 关闭 → 恒 false（不注入 code_run 建议）；
-   * 灰度命中表示"本轮建议走 code_run 编排"（用于与 PDCA launch 互斥）。
-   * 工具注册/模型显式选择 code_run 不受此方法控制（优先级更高）。
-   */
-  private _shouldUseCodeMode(message: string): boolean {
-    if (!coreFeature('CODE_MODE')) return false;
-    if (this._codeModeTrafficPercent >= 100) return true;
-    if (this._codeModeTrafficPercent <= 0) return false;
-    const hash = this._hashMessage(message);
-    const shouldUse = hash < this._codeModeTrafficPercent;
-    logger.info('Code Mode 分流', {
-      messagePreview: message.slice(0, 50),
-      hash,
-      trafficPercent: this._codeModeTrafficPercent,
-      shouldUse,
-    });
-    return shouldUse;
-  }
 
   /**
    * P0 修复（2026-08-14 排查）：TAORLoop 按 sessionId 的 Map 缓存——原单例 `_taorLoop`
@@ -1217,25 +1149,21 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * A-7（2026-08-23）：触发该会话 T-D 对账（Phase D 对账服务消费）
    *
-   * - 记录待对账会话到内存集合，Phase D 实现对账后从集合消费
-   * - 熔断期间跳过（防失败风暴，方案 T-B#1 评审 v0.3#11）
+   * issue #19 · Cut H：入队 + 熔断判定已外移到 `manager/reconcileDrain.ts`；
+   * 队列与去抖调度仍归本类（实例级）。
    */
   private _requestReconcile(
     sessionId: string,
     eventLog: EventLogStorage
   ): void {
-    if (eventLog.isAppendCircuitOpen()) {
-      logger.debug('chat:manager 对账请求被熔断跳过（防风暴）', { sessionId });
-      return;
-    }
-    this._pendingReconcileSessions.add(sessionId);
-    logger.warn('chat:manager 会话已加入待对账队列（Phase D T-D 消费）', {
+    requestReconcile(
+      {
+        pendingReconcileSessions: this._pendingReconcileSessions,
+        scheduleDrain: () => this._scheduleReconcileDrain(),
+      },
       sessionId,
-    });
-    // TB-10 修复（2026-09-23）：入队后**接上消费者**。
-    // 修复前本方法只入队，而 `runPendingReconciles()` 全仓无任何调用点 ⇒ 队列只入不出、
-    // `ReconcileService`（5 类漂移检测 + 修复计划）运行时从不执行、`pendingRepair` 标记无消费方。
-    this._scheduleReconcileDrain();
+      eventLog
+    );
   }
 
   /**
@@ -1758,35 +1686,6 @@ export class ChatManagerImpl implements ChatManager {
     options?: StreamMessageOptions
   ): StreamPipeline {
     return createStreamPipelineFor(this, session, content, options);
-  }
-
-  /**
-   * P2-4: 获取会话绑定的工作区路径（项目模块会话 = `sandboxPath`）
-   * 用于工具默认 cwd 的会话上下文化，替代全局 SandboxConfigBuilder.defaultWorkspacePath
-   *
-   * LRO-06 / D4 后半（2026-10-26 真机实测）：项目会话的 metadata 只有 `projectId`、
-   * 没有 `workspacePath` ⇒ 此前工具 cwd 回落到**代码仓根**。现由 `projectId` 解析
-   * `project.json#sandboxPath`（用户项目目录），并**回写** `metadata.workspacePath`，
-   * 使客户端 `currentSession.workspacePath` 与服务端同一口径。
-   */
-  private getSessionWorkspacePath(sessionId?: string): string | undefined {
-    if (!sessionId) return undefined;
-    const session = this._chatSessions.get(sessionId);
-    const metadata = session?.metadata as Record<string, unknown> | undefined;
-    const resolved = resolveSessionWorkspacePath({
-      metadata,
-      getProjectSandboxPath: (projectId) =>
-        getProjectSandboxPath(
-          { cacheRef: this._projectSandboxStoreRef },
-          projectId
-        ),
-    });
-    // 由 projectId 派生（而非客户端显式传入）时回写元数据：本进程内后续读取与
-    // 会话落盘/列表接口都拿到同一值；已有绝对 workspacePath 时不覆盖。
-    if (resolved && metadata && !metadata.workspacePath) {
-      metadata.workspacePath = resolved;
-    }
-    return resolved;
   }
 
   /**

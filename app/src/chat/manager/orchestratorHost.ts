@@ -57,6 +57,7 @@ import type { SessionSummarizer } from '../services/SessionSummarizer';
 import type { PdcaLauncher } from '../launchers/PdcaLauncher';
 import type { StreamPipeline } from '../pipeline/StreamPipeline.js';
 import type { StreamSetupResult } from './streamSetup';
+import type { ChatEventLogStore } from './eventLogStore';
 import type { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import type { ChatOrchestratorHost } from '../orchestrator/ChatOrchestratorHost.js';
 import { assertHostSurface, type AssertNever } from './wiringHostGuard';
@@ -86,6 +87,8 @@ export interface OrchestratorWiringHost {
   unifiedTracker: UnifiedTokenTracker;
   imageContextService: ImageContextService;
   _checkpointService: SessionCheckpointService;
+  /** D2 事件日志实例缓存（#18 薄委托收敛：端口直连，不再经宿主同名转发） */
+  _eventLogStore: ChatEventLogStore;
   _memoryManager: SessionMemoryManager | null;
   _summarizer: SessionSummarizer | null;
   _pdcaLauncher: PdcaLauncher | null;
@@ -128,7 +131,6 @@ export interface OrchestratorWiringHost {
     sessionId: string
   ): Promise<{ ok: boolean; flushed: number }>;
   getStreamTailSeq(sessionId: string): Promise<number>;
-  getStreamMaxTurn(sessionId: string): Promise<number>;
   getSessionMachine(sessionId: string): SessionStateMachine;
   getOrAssembleSystemPrompt(
     session: ChatSession,
@@ -265,6 +267,7 @@ const ORCHESTRATOR_HOST_REQUIRED_KEYS = [
   'unifiedTracker',
   'imageContextService',
   '_checkpointService',
+  '_eventLogStore',
   '_memoryManager',
   '_summarizer',
   '_pdcaLauncher',
@@ -282,7 +285,6 @@ const ORCHESTRATOR_HOST_REQUIRED_KEYS = [
   'bufferStreamTextChunk',
   'flushStreamEventBuffer',
   'getStreamTailSeq',
-  'getStreamMaxTurn',
   'getSessionMachine',
   'getOrAssembleSystemPrompt',
   'extractFilePathsFromText',
@@ -421,7 +423,7 @@ export function createOrchestratorHost(
       host.bufferStreamTextChunk(sid, mid, content),
     flushStreamEventBuffer: (sid) => host.flushStreamEventBuffer(sid),
     getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
-    getStreamMaxTurn: (sid) => host.getStreamMaxTurn(sid),
+    getStreamMaxTurn: (sid) => host._eventLogStore.getStreamMaxTurn(sid),
     getSessionMachine: (sid) => host.getSessionMachine(sid),
     getOrAssembleSystemPrompt: (session, content) =>
       host.getOrAssembleSystemPrompt(session, content),

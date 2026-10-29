@@ -943,7 +943,8 @@ export class ChatManagerImpl implements ChatManager {
    */
   private readonly _recovery = new ChatRecovery({
     getSessionGateway: () => this.sessionGateway,
-    getStreamMaxTurn: (sid: string) => this.getStreamMaxTurn(sid),
+    getStreamMaxTurn: (sid: string) =>
+      this._eventLogStore.getStreamMaxTurn(sid),
     getUnifiedTracker: () => this.unifiedTracker,
     getYieldResumerInstalled: () => this._yieldResumerInstalled,
     setYieldResumerInstalled: (v: boolean) => {
@@ -1081,7 +1082,8 @@ export class ChatManagerImpl implements ChatManager {
     // 经参数传入以避免循环 import）。
     installHostWiring({
       appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
-      flushAllPendingEventBuffers: () => this.flushAllPendingEventBuffers(),
+      flushAllPendingEventBuffers: () =>
+        this._eventLogStore.flushAllPendingEventBuffers(),
       flushAllCheckpoints: () => this.flushAllCheckpoints(),
       markCleanShutdown: () => this.sessionGateway.markCleanShutdown(),
       registerEventBufferFlusher,

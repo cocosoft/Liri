@@ -73,7 +73,7 @@ import { ChatMessagePersistence } from './messagePersistence';
 import { ChatStreamFinalize } from './streamFinalize';
 import { ChatStreamResume } from './streamResume';
 import type { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
-import type { SessionLookupArgs, SessionLookupResult } from './eventLogStore';
+import type { ChatEventLogStore } from './eventLogStore';
 import { assertHostSurface, type AssertNever } from './wiringHostGuard';
 
 /** 工具执行的进度回调（`executeTool` 的 opts 形状） */
@@ -169,7 +169,6 @@ export interface FacadeWiringHost {
     sessionId: string | undefined,
     approvalFingerprint?: string
   ): Promise<boolean>;
-  _sessionLookup(args: SessionLookupArgs): Promise<SessionLookupResult>;
   _wireCodeRunnerDeps(): void;
   createSession(params: CreateSessionParams): Promise<ChatSession>;
   _shouldUsePlanDrivenLoop(message: string): boolean;
@@ -188,12 +187,10 @@ export interface FacadeWiringHost {
     controller: AbortController
   ): Promise<void>;
   getSessionMachine(sessionId: string): SessionStateMachine;
-  _getOrCreateEventLog(sessionId: string): EventLogStorage;
-  _rebuildToolCallSeqMap(sessionId: string): Promise<void>;
   _requestReconcile(sessionId: string, eventLog: EventLogStorage): void;
-  getStreamMaxTurn(sessionId: string): Promise<number>;
+  /** D2 事件日志实例缓存（#18 薄委托收敛：端口直连，不再经宿主同名转发） */
+  _eventLogStore: ChatEventLogStore;
   getToolRound(sessionId: string): number;
-  hasTurnEnded(sessionId: string, turn: number): boolean;
   incToolRound(sessionId: string): number;
   _persistTurnSummary(session: ChatSession): void;
   _escalateToPdcaViaBareSession(params: {
@@ -276,7 +273,6 @@ const FACADE_HOST_REQUIRED_KEYS = [
   'isSessionWorkspaceStrict',
   'getSessionApprovalMode',
   '_isCommandApproved',
-  '_sessionLookup',
   '_wireCodeRunnerDeps',
   'createSession',
   '_shouldUsePlanDrivenLoop',
@@ -289,12 +285,9 @@ const FACADE_HOST_REQUIRED_KEYS = [
   '_isLastAssistantOutputFallback',
   '_waitForAbortSettled',
   'getSessionMachine',
-  '_getOrCreateEventLog',
-  '_rebuildToolCallSeqMap',
+  '_eventLogStore',
   '_requestReconcile',
-  'getStreamMaxTurn',
   'getToolRound',
-  'hasTurnEnded',
   'incToolRound',
   '_persistTurnSummary',
   '_escalateToPdcaViaBareSession',
@@ -408,7 +401,7 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     // PR-3（2026-10-23）：会话级审批模式（缺省 ask）
     getSessionApprovalMode: host.getSessionApprovalMode.bind(host),
     isCommandApproved: host._isCommandApproved.bind(host),
-    sessionLookup: (args) => host._sessionLookup(args),
+    sessionLookup: (args) => host._eventLogStore.sessionLookup(args),
     // R3（2026-09-21）：向工具执行注入**会话级中断控制器**。
     // 工具 context 原先没有 `abortController`（被内联类型断言掩盖）⇒ AgentTool 的
     // 父级取消桥接恒空转。此 Map 即 `stopMessage()` 中止的对象（见 `_sessionAbortControllers`），
@@ -523,8 +516,9 @@ export function wireChatFacades(host: FacadeWiringHost): void {
   host._msgPersist = new ChatMessagePersistence({
     chatSessions: host._chatSessions,
     sessionGateway: host.sessionGateway,
-    getOrCreateEventLog: (sid) => host._getOrCreateEventLog(sid),
-    rebuildToolCallSeqMap: (sid) => host._rebuildToolCallSeqMap(sid),
+    getOrCreateEventLog: (sid) => host._eventLogStore.getOrCreateEventLog(sid),
+    rebuildToolCallSeqMap: (sid) =>
+      host._eventLogStore.rebuildToolCallSeqMap(sid),
     toolCallSeqMap: host._toolCallSeqMap,
     requestReconcile: (sid, eventLog) => host._requestReconcile(sid, eventLog),
     pendingPersistPromises: host._pendingPersistPromises,
@@ -537,9 +531,9 @@ export function wireChatFacades(host: FacadeWiringHost): void {
   // `chat/manager/streamFinalize.ts`；abort/executionId 两个 Map 与宿主共享。
   host._streamFinalize = new ChatStreamFinalize({
     addAndPersistMessage: (sid, msg) => host._addAndPersistMessage(sid, msg),
-    getStreamMaxTurn: (sid) => host.getStreamMaxTurn(sid),
+    getStreamMaxTurn: (sid) => host._eventLogStore.getStreamMaxTurn(sid),
     getToolRound: (sid) => host.getToolRound(sid),
-    hasTurnEnded: (sid, turn) => host.hasTurnEnded(sid, turn),
+    hasTurnEnded: (sid, turn) => host._eventLogStore.hasTurnEnded(sid, turn),
     getStreamTailSeq: (sid) => host.getStreamTailSeq(sid),
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
     endStreamSession: (sid) => host.unifiedTracker.endStreamSession(sid),

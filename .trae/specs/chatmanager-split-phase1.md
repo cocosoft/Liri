@@ -380,6 +380,16 @@ git diff --stat                        # 抽走了哪些文件/多少行
 | imports + 文件头 | — | 305 |
 | 文档注释 / 空行 / 其他 | — | ~858 |
 
-**结论（如实）**：把**全部**非契约助手（420 行）与**全部**字段区搬走，理论下界仍 **≈2115 行**（2535 − 420 − 567 + 新增装配开销）；要达到 **≤1500** 必须同时处置**契约方法**（327 行实现 + 495 行接口）⇒ 会改动 `CoreAPI` 消费者（60+ 文件）的调用面，属**契约重构**，不是「拆分文件」能达成的。
+**结论（如实，2026-10-30 二次校正）**：上面「其余 = 858」是**推算的余项**（2535 − 327 − 420 − 567 − 58 − 305 = 858），主要是每个方法上方的 JSDoc 与空行 —— **它会随实现外移同步下降**（注释跟着方法走、imports 也跟着减）。
+- 若把**全部非契约助手（420）+ 全部字段区（567）**搬走，**算术下界 = 1548 行**（= 契约实现 327 + 构造函数 58 + imports 305 + 余项 858），**不是**上一版误写的 2115（那一版只减了助手、漏减字段区，已在 `149516e0d` 的后续提交订正）。
+- 且 imports（305）与余项（858）都含大量**只为助手服务**的部分 ⇒ 真实下界 **< 1548，约 1300~1450**。
+- ⇒ **≤1500 在技术上可达，但代价是「ChatManager 收缩为装配壳 + 56 个契约委托」**（327 行契约委托必须保留，因为消费者通过 `CoreAPI.getChatManager()` 调用）；这是一次覆盖 46 个助手 + 567 行字段区的大迁移，需分多批（Cut J）执行，不是收尾小刀。
 
-**因此**：#19 的 Cut F 系列到此收口（累计 **−2305 行 / −47.6%**）；≤1500 需单独立项「ChatManager 契约面收敛」（先评估 `CoreAPI.getChatManager()` 的消费方改造），不再是本拆分的续刀。
+**因此**：#19 的 Cut F 系列到此收口（累计 **−2305 行 / −47.6%**）；≤1500 转入 **Cut J**（状态所有权 + 私有助手整体外移，多批执行），不再走「删方法」路线。
+
+### Cut J-a 前置审查（2026-10-30，只读）：**无死代码可删**
+
+- **字段侧**：`field_refs.ts` 找出 9 个 `this._X` 引用为 0 的字段（`_summarizer` / `_memoryManager` / `_pdcaLauncher` / `_pdcaLaunchingSessions` / `_loopDetector` / `_sessionMutexes` / `_sessionLeaveTimes` / `_projectSandboxStoreRef` / `_executingPlan`）。**CD01 复核推翻"可删"**：它们全部是**宿主端口载体** —— `facadeWiring.ts:310/311/324` 直接赋值（`host._summarizer = new SessionSummarizer(...)`）、`:418/419/448/491/544/561/591` 读用，`orchestratorHost.ts:84-105` 与键表 `:215` 声明，`PlanDrivenLoop.ts` 亦经 `_shouldUseTAORLoop` 使用端口。⇒ **删除即破坏装配**（与 `code-deletion.md` §0 沙箱事故同型）。
+- **助手侧**：`dead_helpers.ts` 扫 46 个非契约助手 —— 43 个 `this.` 引用为 0 但 `host.*` 引用 1~27 处（如 `recordChatResponseUsage` 27、`getSessionMachine` 10、`onLongTaskSignal` 10）；其余 6 个各 1 处内部调用（`_unregisterTaorLoop` / `_assertSessionScopedDisposed` / `_scheduleReconcileDrain` / `_registerStopHooks` / `_budgetResumeDeps` / `clearResumeIntent`）。⇒ **零死方法**。
+- **结论**：`ChatManager` 现存每个成员都是**契约方法**或**宿主端口载体**，剩余 2535 行**没有"清死代码"空间**；再降只能改宿主端口/装配结构本身（Cut J 的实质），否则就是为凑行数搬移代码（净收益 ≈ 0，风险非 0）。
+

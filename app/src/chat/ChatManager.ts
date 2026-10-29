@@ -62,7 +62,6 @@ import { rankRecentSessionIds } from './quality/sessionScan';
 import type { ModelInputSnapshot } from './services/RequestSnapshotService';
 import {
   EventLogStorage,
-  ReconcileService,
   type EventLogQuery,
   type SessionSummaryRecord,
   type RecoveryReport,
@@ -138,7 +137,6 @@ import type {
   ChatSession,
   CreateSessionParams,
 } from '@modules/session/types/session.js';
-import { DataSessionStatus } from '@openliri/kernel';
 import type {
   ToolCall,
   ToolResult,
@@ -201,6 +199,9 @@ import { sendMessageDowngradePath } from './manager/sendDowngrade';
 // issue #17 · D2 / D3（2026-10-29）：对话记忆抽取、按模型名选客户端外移
 import { extractMemoryFromChat as extractMemoryFromChatImpl } from './manager/memoryExtract';
 import { getClientForModel as getClientForModelImpl } from './manager/modelClient';
+// issue #17 · D4 / D5（2026-10-29）：会话管理器视图、待对账会话消费外移
+import { createSessionManagerFacade } from './manager/sessionManagerFacade';
+import { runPendingReconciles } from './manager/reconcileDrain';
 import type {
   ParsedToolCall,
   ToolDefinition,
@@ -1480,56 +1481,16 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * D-1（2026-08-23）：执行待对账会话（消费 A-7 标记的 _pendingReconcileSessions）
+   * D-1（2026-08-23）：执行待对账会话（issue #17 · D5：实现体已外移到 `manager/reconcileDrain.ts`）。
    *
-   * 对账默认只检测 + 告警 + 生成修复计划（自动修复关闭）。
-   *
-   * **触发时机（TB-10 修复后更正）**：由 `_requestReconcile` 入队后经 `_scheduleReconcileDrain()`
-   * **延迟去抖**调用。原文写"启动时 / 后台定时任务（由外部触发）"——经实测**不存在该外部触发方**，
-   * 且该队列**仅存在于内存**（重启即空）⇒ "启动时消费"恒为空操作，故改为入队后自调度。
+   * 对账默认只检测 + 告警 + 生成修复计划（自动修复关闭）；队列仍由本类持有，以端口传入。
    */
   async runPendingReconciles(): Promise<void> {
-    if (this._pendingReconcileSessions.size === 0) return;
-    const service = new ReconcileService({
-      getEventLog: (sid) => this._getOrCreateEventLog(sid),
-      getProjections: async (sid) => {
-        const msgs = await this.sessionGateway.getMessages(sid);
-        return msgs.map((m) => ({
-          id: m.id,
-          role: m.role.toLowerCase(),
-          content: typeof m.content === 'string' ? m.content : '',
-          timestamp: m.timestamp,
-          blocks: m.blocks as Array<Record<string, unknown>> | undefined,
-          lastEventSeq: m.lastEventSeq,
-        }));
-      },
-      getSessionMeta: async (sid) => {
-        const session = await this.sessionGateway.getSession(sid);
-        return session?.metadata as Record<string, unknown> | undefined;
-      },
+    return runPendingReconciles({
+      pendingReconcileSessions: this._pendingReconcileSessions,
+      getOrCreateEventLog: (sid) => this._getOrCreateEventLog(sid),
+      sessionGateway: this.sessionGateway,
     });
-    const pending = [...this._pendingReconcileSessions];
-    for (const sid of pending) {
-      try {
-        const report = await service.reconcileSession(sid);
-        if (!report.ok) {
-          logger.warn('chat:manager 会话对账完成（有漂移）', {
-            sessionId: sid,
-            driftCount: report.drifts.length,
-            repairPlan: report.repairPlan,
-          });
-        }
-      } catch (e) {
-        void handleError(e, {
-          module: 'chat:manager',
-          action: 'runPendingReconciles',
-          context: { sessionId: sid },
-        }).catch(() => {});
-      }
-    }
-    // TB-10 修复（2026-09-23）：**只删已处理项**，不再 `clear()` ——
-    // 上面的 await 循环期间可能又有新会话入队（同一次故障风暴），`clear()` 会把它们**静默丢弃**。
-    for (const sid of pending) this._pendingReconcileSessions.delete(sid);
   }
 
   /**
@@ -3203,52 +3164,22 @@ export class ChatManagerImpl implements ChatManager {
 
   /**
    * 获取会话管理器
+   * （issue #17 · D4：对象字面量已外移到 `manager/sessionManagerFacade.ts`；对外签名仍为 `any`）
    * @returns 会话管理器
    */
   getSessionManager(): any {
-    return {
-      getSession: (id: string) => this._getLocalSession(id),
-      getCurrentSession: () => this._getLocalSession(this._currentSessionId),
-      setCurrentSession: (id: string) => {
-        this._currentSessionId = id;
+    return createSessionManagerFacade({
+      getLocalSession: (id) => this._getLocalSession(id),
+      currentSessionIdRef: {
+        get: () => this._currentSessionId,
+        set: (id) => {
+          this._currentSessionId = id;
+        },
       },
-      getSessions: () => Array.from(this._chatSessions.values()),
-      addMessage: (id: string, msg: Message) =>
-        this._addAndPersistMessage(id, msg),
-      deleteSession: (id: string) => {
-        this._chatSessions.delete(id);
-      },
-      saveSession: (s: ChatSession) => {
-        this._chatSessions.set(s.id, s);
-      },
-      loadSession: (id: string) => Promise.resolve(this._getLocalSession(id)),
-      loadSessions: () =>
-        Promise.resolve(Array.from(this._chatSessions.values())),
-      createCheckpoint: (sessionId: string, label?: string) =>
-        this._checkpointService
-          .saveCheckpointWithData(
-            sessionId,
-            this._getLocalSession(sessionId)?.messages || [],
-            this._getLocalSession(sessionId)?.metadata || { title: '' },
-            this._getLocalSession(sessionId)?.state || DataSessionStatus.ACTIVE,
-            label
-          )
-          .then((cp) => cp.id),
-      listCheckpoints: (sessionId: string) =>
-        this._checkpointService.listCheckpoints(sessionId),
-      rollbackToCheckpoint: (checkpointId: string) =>
-        this._checkpointService.rollbackToCheckpoint(checkpointId, {
-          messages: [],
-          metadata: { title: '' },
-          state: DataSessionStatus.ACTIVE,
-        }),
-      deleteCheckpoint: (checkpointId: string) =>
-        this._checkpointService.deleteCheckpoint(checkpointId),
-      deleteSessionCheckpoints: (sessionId: string) =>
-        this._checkpointService.deleteSessionCheckpoints(sessionId),
-      getLatestCheckpoint: (sessionId: string) =>
-        this._checkpointService.getLatestCheckpoint(sessionId),
-    };
+      chatSessions: this._chatSessions,
+      addAndPersistMessage: (sid, msg) => this._addAndPersistMessage(sid, msg),
+      checkpointService: this._checkpointService,
+    });
   }
 
   /**

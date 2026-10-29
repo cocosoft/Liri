@@ -2,7 +2,7 @@
 
 > 对应 issue：[#8](https://github.com/cocosoft/Liri/issues/8)（替代已关闭的 #2）
 > 基线（2026-10-29 实测）：`app/src/chat/ChatManager.ts` **4840 行**、方法声明 **164** 个；`app/src/chat/manager/` 已有 **14** 个子模块（最大 `bootstrap.ts` 742 行）。
-> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**；Cut D1（#17 第一刀）后 **3898 行**；Cut D2/D3 后 **3807 行**。
+> 进度（同实测口径）：Cut A 后 **4786 行**（`1017bb9fc`）；Cut B 后 **4552 行**；Cut C 后 **3972 行**（即 `2e33aa625`，已达 ≤4000）；Cut D（#16 装配契约守卫）后仍 **3972 行**；Cut D1（#17 第一刀）后 **3898 行**；Cut D2/D3 后 **3807 行**；Cut D4/D5 后 **3738 行**。
 > 目标：第一阶段把「检查点（checkpoint）+ 预算（budget）」编排抽到 `app/src/chat/manager/`（`checkpointBudget.ts` + `budgetResume.ts`，单文件 ≤900 行），`ChatManager.ts` **≤4000 行**，行为不变。
 
 ## 一、实测现状（决定拆分粒度的事实）
@@ -114,6 +114,17 @@
 - **实测**：`ChatManager.ts` **3898 → 3807**（**−91**）；同时清掉 2 个失效导入（`resolveModelRoutingFailure` / `providerRegistry`）。
 - **门禁**：`tsc` 0 错；`lint:arch` / `lint:size` 0 错；`lint:state-ratchet` 维持；`bun test tests/chat tests/ai` **1093 pass**；全量 `bun test tests` **8958 pass / 41 skip / 0 fail**。
 - **#17 剩余候选**：`_submitToolApproval` 137（审批路径，先补单测）、`getSessionManager` 45、`runPendingReconciles` 43、`_ensureVerifierCallModel` 39、`_buildTAORContext` 36、`_createStreamPipeline` 35、`_isCommandApproved` 35（审批路径）、`_getProjectSandboxPath` 33。
+
+### Cut D4 / D5（issue #17 第四、五刀）— 会话管理器视图 + 待对账消费（2026-10-29）
+
+- **D4 · `manager/sessionManagerFacade.ts`**：`getSessionManager` 的对象字面量（原 44 行 ⇒ **14 行 delegate**）。
+  - 对外签名仍是 `any`（`ChatManagerInterface` **零改动**）；内部改为工厂返回同形视图；检查点方法原样转发；
+  - 端口：`getLocalSession` / `currentSessionIdRef` / `chatSessions` / `addAndPersistMessage` / `checkpointService`。
+- **D5 · `manager/reconcileDrain.ts`**：`runPendingReconciles`（原 43 行 ⇒ **7 行 delegate**）。
+  - 队列仍归宿主（端口传入）；TB-10「只删已处理项、不 clear()」语义逐字保留；失败只 `handleError` 留痕。
+- **实测**：`ChatManager.ts` **3807 → 3738**（**−69**）；清掉 2 个失效导入（`ReconcileService` / `DataSessionStatus`）。
+- **门禁**：`tsc` 0 错；`lint:arch` / `lint:size` 0 错；`lint:state-ratchet` 维持；`bun test tests/chat tests/session` **1097 pass**；全量 `bun test tests` **8958 pass / 41 skip / 0 fail**。
+- **#17 剩余候选**：`_submitToolApproval` 137（审批路径，先补单测）、`_ensureVerifierCallModel` 39、`_buildTAORContext` 36、`_createStreamPipeline` 35、`_isCommandApproved` 35（审批路径）、`_getProjectSandboxPath` 33。
 
 ## 三、统一验收命令（每刀都要跑）
 

@@ -144,17 +144,18 @@ describe('G-3 验证器指标', () => {
 describe('G-3 主对话接线守卫', () => {
   it('ChatManager 按 verifier 角色解析并注入（未配置不注入）', () => {
     const src = read('src/chat/ChatManager.ts');
+    // issue #17 · D7（2026-10-29）：解析/幂等实现已外移到 `manager/verifierModel.ts`，
+    // 扫描面随实现迁移（断言强度不变）：① 角色解析 + ④ 幂等 → 模块；② 入口 await + ③ 条件注入 → 宿主。
+    const impl = read('src/chat/manager/verifierModel.ts');
     // ① 角色解析
-    expect(src).toContain("resolveRoleModel('verifier')");
+    expect(impl).toContain("resolveRoleModel('verifier')");
     // ② 入口 await（在建 TAOR 实例之前）
     expect(src).toContain('await this._ensureVerifierCallModel()');
     // ③ 条件注入：未配置 ⇒ 不出现 `verifierModel` 键
-    expect(src).toContain('...(this._verifierCallModel');
-    expect(src).toContain('{ verifierModel: this._verifierCallModel }');
+    expect(src).toContain('...(this._verifier.callModel');
+    expect(src).toContain('{ verifierModel: this._verifier.callModel }');
     // ④ 幂等：解析只进行一次
-    expect(src).toContain(
-      'if (this._verifierRoleResolved) return this._verifierRoleResolved'
-    );
+    expect(impl).toContain('if (state.resolved) return state.resolved');
   });
 
   it('VerifierAgent 是唯一采集收口点（计时 + verdict + 输入键）', () => {

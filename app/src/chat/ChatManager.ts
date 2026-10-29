@@ -202,6 +202,15 @@ import { getClientForModel as getClientForModelImpl } from './manager/modelClien
 // issue #17 · D4 / D5（2026-10-29）：会话管理器视图、待对账会话消费外移
 import { createSessionManagerFacade } from './manager/sessionManagerFacade';
 import { runPendingReconciles } from './manager/reconcileDrain';
+// issue #17 · D6 / D7（2026-10-29）：项目 sandboxPath 解析、verifier 模型解析外移
+import {
+  getProjectSandboxPath,
+  type ProjectStoreLike,
+} from './manager/projectSandboxPath';
+import {
+  ensureVerifierCallModel,
+  type VerifierModelState,
+} from './manager/verifierModel';
 import type {
   ParsedToolCall,
   ToolDefinition,
@@ -213,8 +222,6 @@ import type {
   QuestionData,
 } from '@modules/runtime/api/CoreAPI.js';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
-// G-3：主对话验证器独立模型——按角色（`verifier`）解析模型并注入 TAOR 配置
-import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
 import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
 import {
@@ -296,11 +303,6 @@ import {
 } from '@modules/compaction';
 import type { SessionMessage } from '@modules/session';
 import { SessionGateway, createSessionGateway } from '@modules/session';
-import {
-  resolveProjectRoot,
-  resolveOutputDir,
-  resolveDataDir,
-} from '@modules/environment';
 // LRO-06 / D4 后半（2026-10-26）：会话工作区解析（绝对 workspacePath > 项目 sandboxPath）
 import { resolveSessionWorkspacePath } from './services/toolCwdScope';
 import {
@@ -390,11 +392,9 @@ export class ChatManagerImpl implements ChatManager {
 
   /**
    * LRO-06：`ProjectStore` 实例缓存（仅"项目会话 + 无显式 workspacePath"分支用到，
-   * 延迟 `require` 创建；见 `_getProjectSandboxPath`）。
+   * 延迟 `require` 创建；实现见 `manager/projectSandboxPath.ts`）。
    */
-  private _projectSandboxPathCache?: {
-    get: (id: string) => { sandboxPath?: string } | undefined;
-  };
+  private readonly _projectSandboxStoreRef: { current?: ProjectStoreLike } = {};
 
   /**
    * 会话级互斥锁 — 防止同一会话并发流式请求（Bug Fix: 工具链被用户新消息打断）
@@ -744,23 +744,17 @@ export class ChatManagerImpl implements ChatManager {
   );
 
   /**
-   * G-3（2026-10-18）：主对话验证器的**独立模型**调用函数。
+   * G-3（2026-10-18）：主对话验证器的**独立模型**解析状态（issue #17 · D7 外移到
+   * `manager/verifierModel.ts`）。
    *
-   * - `null` = 未配置 `verifier` 角色 ⇒ **不注入** TAOR 配置（现状：验证器跳过/共享，行为零变化）；
-   * - 非空 ⇒ 注入 `TAORLoopConfig.verifierModel`（日志/追踪里可见"生产者/验证器"两个模型）。
-   *
-   * 惰性解析：`resolveRoleModel('verifier')` 是异步，而 `_getOrCreateTAORLoop` 同步 ——
-   * 故在 `sendMessage` 入口先 await `_ensureVerifierCallModel()` 再建实例。
+   * - `callModel === null` ⇒ 未配置 `verifier` 角色 ⇒ **不注入** TAOR 配置（行为零变化）；
+   * - 惰性解析：`resolveRoleModel('verifier')` 是异步，而 `_getOrCreateTAORLoop` 同步 ——
+   *   故在 `sendMessage` 入口先 await `_ensureVerifierCallModel()` 再建实例。
    */
-  private _verifierCallModel:
-    | ((
-        messages: Array<{ role: string; content: string }>,
-        signal: AbortSignal
-      ) => AsyncGenerator<{ content?: string }>)
-    | null = null;
-
-  /** 角色解析幂等（成功/失败都只尝试一次） */
-  private _verifierRoleResolved: Promise<void> | null = null;
+  private readonly _verifier: VerifierModelState = {
+    callModel: null,
+    resolved: null,
+  };
 
   /**
    * G-T3-1（2026-10-12）：**一次性**续跑意图登记（`sessionId` 集合）。
@@ -1156,49 +1150,10 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * G-3（2026-10-18）：解析 `verifier` 角色模型（幂等）。
    *
-   * 未配置角色（`resolveRoleModel` 返回空串）⇒ 保持 `_verifierCallModel = null`，
-   * 主对话 TAOR 配置**不注入** `verifierModel` ⇒ 与改动前完全一致（行为零变化）。
-   *
-   * 解析失败（DB / 端口不可用）⇒ warn + 不注入（fail-open 到现状，不阻断主对话）。
+   * issue #17 · D7：实现体已外移到 `manager/verifierModel.ts`；解析状态仍由本类持有。
    */
   private async _ensureVerifierCallModel(): Promise<void> {
-    if (this._verifierRoleResolved) return this._verifierRoleResolved;
-    this._verifierRoleResolved = (async () => {
-      try {
-        const aiOps = await getCoreAPI().getAiOpsPort();
-        const modelId = await aiOps.resolveRoleModel('verifier');
-        if (!modelId) {
-          logger.debug(
-            'verifier 角色未配置模型，主对话验证器保持现状（不注入独立模型）'
-          );
-          return;
-        }
-        // 与 `research-handlers` 的 verifier 正例同构：流式聚合正文（思考模型非流会空响应）
-        const service = await aiOps.createAiService({
-          defaultModel: '',
-          apiKey: '',
-        });
-        this._verifierCallModel = async function* (messages, signal) {
-          if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-          const gen = service.stream(messages as never, modelId, {
-            max_tokens: 4000,
-          });
-          for await (const chunk of gen) {
-            const content = (chunk as { content?: unknown })?.content;
-            if (typeof content === 'string' && content) yield { content };
-          }
-        };
-        logger.info('verifier 角色模型已解析：主对话验证器将使用独立模型', {
-          modelId,
-        });
-      } catch (error) {
-        // G-3：解析失败 ⇒ 不注入（保持现状），不阻断主对话
-        logger.warn('verifier 角色模型解析失败，主对话验证器保持现状', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    })();
-    return this._verifierRoleResolved;
+    return ensureVerifierCallModel(this._verifier);
   }
 
   /**
@@ -1235,8 +1190,8 @@ export class ChatManagerImpl implements ChatManager {
           enableCheckpoint: false,
           checkpointInterval: 0,
           // G-3：仅在配置了 verifier 角色时注入（未配置 ⇒ 键不存在，行为零变化）
-          ...(this._verifierCallModel
-            ? { verifierModel: this._verifierCallModel }
+          ...(this._verifier.callModel
+            ? { verifierModel: this._verifier.callModel }
             : {}),
         },
       });
@@ -1263,8 +1218,8 @@ export class ChatManagerImpl implements ChatManager {
             enableCheckpoint: true,
             checkpointInterval: 3,
             // G-3：仅在配置了 verifier 角色时注入（未配置 ⇒ 键不存在，行为零变化）
-            ...(this._verifierCallModel
-              ? { verifierModel: this._verifierCallModel }
+            ...(this._verifier.callModel
+              ? { verifierModel: this._verifier.callModel }
               : {}),
           },
         });
@@ -2371,41 +2326,14 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * `projectId → project.json#sandboxPath`（LRO-06 实测缺口的最小补齐）。
    *
-   * 延迟 `require`：`workspace/ProjectStore` 不进启动图（`lint:startup-graph` 棘轮只减不增），
-   * 且只有"项目会话 + 没有显式 workspacePath"这一条分支才会触发。
+   * issue #17 · D6：实现体已外移到 `manager/projectSandboxPath.ts`（仍为延迟 `require`）；
+   * store 缓存仍由本类持有（实例级）。
    */
   private _getProjectSandboxPath(projectId: string): string | undefined {
-    try {
-      const { createProjectStore } =
-        require('../workspace/ProjectStore.js') as {
-          createProjectStore: (
-            dataDir: string,
-            itemStore: unknown
-          ) => { get: (id: string) => { sandboxPath?: string } | undefined };
-        };
-      const { WorkItemStore } = require('../workspace/WorkItemStore.js') as {
-        WorkItemStore: new (dataDir: string) => unknown;
-      };
-      if (!this._projectSandboxPathCache) {
-        const dataDir = resolveDataDir();
-        this._projectSandboxPathCache = createProjectStore(
-          dataDir,
-          new WorkItemStore(dataDir)
-        );
-      }
-      const sandboxPath =
-        this._projectSandboxPathCache.get(projectId)?.sandboxPath;
-      return typeof sandboxPath === 'string' && sandboxPath
-        ? sandboxPath
-        : undefined;
-    } catch (error) {
-      // @ignore-catch — 项目解析失败 ⇒ 回落历史行为（resolveProjectRoot），不阻塞工具执行
-      logger.warning('解析项目 sandboxPath 失败，工具 cwd 回落项目根', {
-        projectId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return undefined;
-    }
+    return getProjectSandboxPath(
+      { cacheRef: this._projectSandboxStoreRef },
+      projectId
+    );
   }
 
   /**

@@ -88,8 +88,8 @@
 - 仓库原本**没有 `security` 标签**（最初导入时按「标签不存在则跳过」处理，故 #5/#6 只剩 `help wanted`）⇒ 已新建该标签并回填 **#5 / #6 / #7**。
 - 执行方式：一次性 workflow `.github/workflows/issue-maint.yml`，在临时分支上跑（跑完即删分支），用 CI 自带 `GITHUB_TOKEN`（`permissions: issues: write`）；按「标题 / 评论标记」幂等，重跑不产生重复。
 - **#2 / #3 / #4 已按用户决定关闭**（2026-10-29，`close-issues.yml` 一次性作业）：#2 `not_planned`（正文行数过期、任务范围已变，需要时按新数据重开），#3 `completed`（handler 测试已存在），#4 `completed`（18% 覆盖率门槛已在 CI）。每条都先补了带原因的关闭评论（标记 `<!-- close-note:2026-10-29 -->`）。
-- 当前 issue 状态：**open 5 条**（#1 / #7 / #8 / #9 / #10），**closed 5 条**（#2 / #3 / #4 / #5 / #6）。
-- **#1 的 Phase A 拆分已落地**：#1 评论里给出「真实进度 + 6 个子任务（S1–S6）」，并把其中两条开成 GFI —— **#9**（`knowledge/domain` 桶导出）、**#10**（`DomainManager` 单测，当前 0 覆盖）。其余 S3–S6 仍写在 #1 评论里，待认领/决策（S5 需先定「域从哪来」）。
+- 当前 issue 状态：**open 8 条**（#1 / #7 / #8 / #9 / #10 / #11 / #12 / #13），**closed 5 条**（#2 / #3 / #4 / #5 / #6）。
+- **#1 的 Phase A 拆分已落地**：#1 评论里给出「真实进度 + 6 个子任务（S1–S6）」，并已开出 5 条子 issue —— **#9**（S1 桶导出，GFI）、**#10**（S2 `DomainManager` 单测，GFI）、**#11**（S3 迁移脚本）、**#12**（S4 `KnowledgeCompiler` 域支持）、**#13**（S6 prompt 域清单）；**S5（接线）暂不开单**，需先定「域从哪来」。另在 #1 留了一条子 issue 索引评论。
 - 新建 **#8** `[help wanted] ChatManager 拆分第一阶段：抽出「检查点 + 预算」编排（当前 4840 行）`：按真实数据重开，正文含关注点词频（checkpoint 99 / budget 81 / persist 58 / approv 54 …）作为切分依据、明确的验收命令与「行为不变」约束；并在 #2 补了一条**行数口径勘误**评论（4532 是非空行数，实际 4840）。
 - **#5 / #6 已关闭**（2026-10-29，`close-5-6.yml` 一次性作业，`completed`）：两者的验收物都已合入 `main` —— #5 是 `app/tests/security/dangerousCommandRuleSamples.test.ts`（38 例），#6 是 `app/docs/配置与安全/沙箱后端降级对照.md`；关闭评论里写明交付物与验证方式。需要时可直接 reopen。
 

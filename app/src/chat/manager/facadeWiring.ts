@@ -74,6 +74,8 @@ import { ChatStreamFinalize } from './streamFinalize';
 import { ChatStreamResume } from './streamResume';
 import type { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import type { ChatEventLogStore } from './eventLogStore';
+import type { ChatRequestPrep } from './requestPrep';
+import { persistTurnSummary } from '../services/MessageContextPipeline';
 import { assertHostSurface, type AssertNever } from './wiringHostGuard';
 
 /** 工具执行的进度回调（`executeTool` 的 opts 形状） */
@@ -190,9 +192,10 @@ export interface FacadeWiringHost {
   _requestReconcile(sessionId: string, eventLog: EventLogStorage): void;
   /** D2 事件日志实例缓存（#18 薄委托收敛：端口直连，不再经宿主同名转发） */
   _eventLogStore: ChatEventLogStore;
+  /** A1 请求构建/快照（#18 薄委托收敛：端口直连） */
+  _requestPrep: ChatRequestPrep;
   getToolRound(sessionId: string): number;
   incToolRound(sessionId: string): number;
-  _persistTurnSummary(session: ChatSession): void;
   _escalateToPdcaViaBareSession(params: {
     session: ChatSession;
     assistantContent: string;
@@ -211,8 +214,6 @@ export interface FacadeWiringHost {
   ): void;
   flushPendingPersists(): Promise<void>;
   getLLMClient(): ToolAwareClient;
-  _buildToolDefinitions(schemas: ToolSchema[]): ToolDefinition[];
-  _recordToolsSnapshot(sessionId: string, schemas: ToolSchema[]): void;
   executeTool(toolCall: ToolCall, opts?: ToolExecOpts): Promise<ToolResult>;
   recordChatResponseUsage(
     sessionId: string,
@@ -286,17 +287,15 @@ const FACADE_HOST_REQUIRED_KEYS = [
   '_waitForAbortSettled',
   'getSessionMachine',
   '_eventLogStore',
+  '_requestPrep',
   '_requestReconcile',
   'getToolRound',
   'incToolRound',
-  '_persistTurnSummary',
   '_escalateToPdcaViaBareSession',
   '_autoCreateProject',
   '_maybeLaunchPdca',
   'flushPendingPersists',
   'getLLMClient',
-  '_buildToolDefinitions',
-  '_recordToolsSnapshot',
   'executeTool',
   'recordChatResponseUsage',
   'getToolRegistry',
@@ -542,7 +541,7 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     },
     sessionAbortControllers: host._sessionAbortControllers,
     sessionExecutionIds: host._sessionExecutionIds,
-    persistTurnSummary: (session) => host._persistTurnSummary(session),
+    persistTurnSummary: (session) => persistTurnSummary(session),
     accumulateSessionMemory: (sid, user, assistant, tokens, toolCalls) => {
       host._memoryManager!.accumulate(sid, user, assistant, tokens, toolCalls);
     },
@@ -579,9 +578,10 @@ export function wireChatFacades(host: FacadeWiringHost): void {
     getLLMClient: () => host.getLLMClient(),
     getToolSchemas: () =>
       host.toolRegistry ? host.toolRegistry.getToolSchemas() : null,
-    buildToolDefinitions: (schemas) => host._buildToolDefinitions(schemas),
+    buildToolDefinitions: (schemas) =>
+      host._requestPrep.buildToolDefinitions(schemas),
     recordToolsSnapshot: (sid, schemas) =>
-      host._recordToolsSnapshot(sid, schemas),
+      host._requestPrep.recordToolsSnapshot(sid, schemas),
     maxToolTurns: host.MAX_TOOL_TURNS,
     executeTool: (tc, opts) => host.executeTool(tc, opts),
     pendingInteractions: host._pendingInteractions,

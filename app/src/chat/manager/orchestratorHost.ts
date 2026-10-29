@@ -58,6 +58,8 @@ import type { PdcaLauncher } from '../launchers/PdcaLauncher';
 import type { StreamPipeline } from '../pipeline/StreamPipeline.js';
 import type { StreamSetupResult } from './streamSetup';
 import type { ChatEventLogStore } from './eventLogStore';
+import type { ChatRequestPrep } from './requestPrep';
+import { persistTurnSummary } from '../services/MessageContextPipeline';
 import type { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import type { ChatOrchestratorHost } from '../orchestrator/ChatOrchestratorHost.js';
 import { assertHostSurface, type AssertNever } from './wiringHostGuard';
@@ -89,6 +91,8 @@ export interface OrchestratorWiringHost {
   _checkpointService: SessionCheckpointService;
   /** D2 事件日志实例缓存（#18 薄委托收敛：端口直连，不再经宿主同名转发） */
   _eventLogStore: ChatEventLogStore;
+  /** A1 请求构建/快照/压缩（#18 薄委托收敛：端口直连） */
+  _requestPrep: ChatRequestPrep;
   _memoryManager: SessionMemoryManager | null;
   _summarizer: SessionSummarizer | null;
   _pdcaLauncher: PdcaLauncher | null;
@@ -100,8 +104,6 @@ export interface OrchestratorWiringHost {
   getToolRound(sessionId: string): number;
   incToolRound(sessionId: string): number;
   getClientForModel(model?: string): ToolAwareClient;
-  _buildToolDefinitions(schemas: ToolSchema[]): ToolDefinition[];
-  _recordToolsSnapshot(sessionId: string, schemas: ToolSchema[]): void;
   _addAndPersistMessage(
     sessionId: string,
     message: Message,
@@ -136,7 +138,6 @@ export interface OrchestratorWiringHost {
     session: ChatSession,
     currentMessage?: string
   ): Promise<string>;
-  extractFilePathsFromText(text: string): string[];
   extractMemoryFromChat(
     userContent: string,
     assistantContent: string,
@@ -148,14 +149,6 @@ export interface OrchestratorWiringHost {
     requestId?: number,
     model?: string
   ): void;
-  _sanitizeApiMessages(apiMessages: Record<string, unknown>[]): void;
-  _truncateApiMessages(
-    apiMessages: Record<string, unknown>[],
-    maxContextTokens: number,
-    sessionId?: string,
-    outputBudgetTokens?: number
-  ): Promise<void>;
-  _persistTurnSummary(session: ChatSession): void;
   onLongTaskSignal(
     session: ChatSession,
     fact: { pendingTodoCount: number; consumedTurns: number }
@@ -268,6 +261,7 @@ const ORCHESTRATOR_HOST_REQUIRED_KEYS = [
   'imageContextService',
   '_checkpointService',
   '_eventLogStore',
+  '_requestPrep',
   '_memoryManager',
   '_summarizer',
   '_pdcaLauncher',
@@ -275,8 +269,6 @@ const ORCHESTRATOR_HOST_REQUIRED_KEYS = [
   'getToolRound',
   'incToolRound',
   'getClientForModel',
-  '_buildToolDefinitions',
-  '_recordToolsSnapshot',
   '_addAndPersistMessage',
   'appendStreamEvent',
   'readSessionEvents',
@@ -287,12 +279,8 @@ const ORCHESTRATOR_HOST_REQUIRED_KEYS = [
   'getStreamTailSeq',
   'getSessionMachine',
   'getOrAssembleSystemPrompt',
-  'extractFilePathsFromText',
   'extractMemoryFromChat',
   'recordChatResponseUsage',
-  '_sanitizeApiMessages',
-  '_truncateApiMessages',
-  '_persistTurnSummary',
   'onLongTaskSignal',
   'persistSessionMetadata',
   'flushPendingPersists',
@@ -405,9 +393,9 @@ export function createOrchestratorHost(
     getClientForModel: (model?: string) => host.getClientForModel(model),
     getToolRegistry: () => host.toolRegistry,
     buildToolDefinitions: (schemas: unknown[]) =>
-      host._buildToolDefinitions(schemas as ToolSchema[]),
+      host._requestPrep.buildToolDefinitions(schemas as ToolSchema[]),
     recordToolsSnapshot: (sid, schemas) =>
-      host._recordToolsSnapshot(sid, schemas as ToolSchema[]),
+      host._requestPrep.recordToolsSnapshot(sid, schemas as ToolSchema[]),
     loopDetector: host._loopDetector as import('@modules/query').LoopDetector,
     addAndPersistMessage: (sid, msg) => host._addAndPersistMessage(sid, msg),
     appendStreamEvent: (sid, event) => host.appendStreamEvent(sid, event),
@@ -427,14 +415,15 @@ export function createOrchestratorHost(
     getSessionMachine: (sid) => host.getSessionMachine(sid),
     getOrAssembleSystemPrompt: (session, content) =>
       host.getOrAssembleSystemPrompt(session, content),
-    extractFilePathsFromText: (text) => host.extractFilePathsFromText(text),
+    extractFilePathsFromText: (text) =>
+      host._requestPrep.extractFilePathsFromText(text),
     extractMemoryFromChat: (u, a, sid) => host.extractMemoryFromChat(u, a, sid),
     recordChatResponseUsage: (sid, usage, requestId, model) =>
       host.recordChatResponseUsage(sid, usage, requestId, model),
-    sanitizeApiMessages: (msgs) => host._sanitizeApiMessages(msgs),
+    sanitizeApiMessages: (msgs) => host._requestPrep.sanitizeApiMessages(msgs),
     truncateApiMessages: (msgs, max, sid, outputBudgetTokens) =>
-      host._truncateApiMessages(msgs, max, sid, outputBudgetTokens),
-    persistTurnSummary: (session) => host._persistTurnSummary(session),
+      host._requestPrep.truncateApiMessages(msgs, max, sid, outputBudgetTokens),
+    persistTurnSummary: (session) => persistTurnSummary(session),
     // D3（2026-09-25）：运行中长任务信号 ⇒ 按既有升级通道接给 PDCA（闸门见 longTaskEscalation）
     onLongTaskSignal: (session, fact) => host.onLongTaskSignal(session, fact),
     // 跨 run 预算（2026-09-25）：轮次边界把 `metadata.toolTurnBudget` 写回会话存储

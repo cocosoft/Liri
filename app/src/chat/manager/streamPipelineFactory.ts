@@ -20,6 +20,7 @@ import type { UnifiedTokenTracker } from '@modules/tokenBudget';
 import type { HookChainManager } from '@modules/hooks';
 import type { ImageContextService } from '../services/ImageContextService';
 import type { MessageService } from '../services/MessageService.js';
+import type { ChatRequestPrep } from './requestPrep';
 import { StreamPipeline } from '../pipeline/StreamPipeline.js';
 import type { PipelineContext } from '../pipeline/StreamPipeline.js';
 import {
@@ -34,7 +35,8 @@ export interface StreamPipelineHost {
   llmClient: ToolAwareClient | undefined;
   unifiedTracker: UnifiedTokenTracker;
   hookChainManager: HookChainManager;
-  extractFilePathsFromText(text: string): string[];
+  /** A1 请求构建（#18 薄委托收敛：端口直连，不再经宿主同名转发） */
+  _requestPrep: ChatRequestPrep;
   _addAndPersistMessage(sessionId: string, message: Message): Promise<void>;
   recordChatResponseUsage(
     sessionId: string,
@@ -55,7 +57,7 @@ const STREAM_PIPELINE_HOST_KEYS = [
   'imageContextService',
   'unifiedTracker',
   'hookChainManager',
-  'extractFilePathsFromText',
+  '_requestPrep',
   '_addAndPersistMessage',
   'recordChatResponseUsage',
   'extractMemoryFromChat',
@@ -96,7 +98,8 @@ export function createStreamPipelineFor(
     unifiedTracker: host.unifiedTracker as PipelineContext['unifiedTracker'],
     hookChainManager:
       host.hookChainManager as unknown as PipelineContext['hookChainManager'],
-    extractFilePathsFromText: (text) => host.extractFilePathsFromText(text),
+    extractFilePathsFromText: (text) =>
+      host._requestPrep.extractFilePathsFromText(text),
     addAndPersistMessage: (sid, msg) => host._addAndPersistMessage(sid, msg),
     recordChatResponseUsage: (sid, usage, requestId, model) =>
       host.recordChatResponseUsage(

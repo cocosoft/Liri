@@ -66,7 +66,6 @@ import { rollupSessionSummaryToLongTerm } from '@modules/memory';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
 import { feature as coreFeature } from '@openliri/kernel';
 import { configureCodeRunner } from '@modules/tools';
-import { persistTurnSummary } from './services/MessageContextPipeline';
 import { StreamingToolCallScrubber } from '@modules/streaming';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
 import { SessionLifecycleManager } from './services/SessionLifecycleManager.js';
@@ -168,7 +167,7 @@ import {
   type DegradationState,
 } from '@modules/ai';
 import type { IToolExecutor } from '@modules/ai';
-import type { ToolRegistry, ToolSchema } from '@modules/tools';
+import type { ToolRegistry } from '@modules/tools';
 // issue #8 · Cut A（2026-10-29）：检查点边界判定 + 预算挂起/放行装配外移
 import {
   ensureCheckpointBoundary,
@@ -1583,47 +1582,6 @@ export class ChatManagerImpl implements ChatManager {
     await this._bootstrap.initialize();
   }
 
-  /** A1 拆分：文件路径提取已迁至 `ChatRequestPrep.extractFilePathsFromText`（薄转发） */
-  private extractFilePathsFromText(text: string): string[] {
-    return this._requestPrep.extractFilePathsFromText(text);
-  }
-
-  /** A1 拆分：API 消息 sanitize 已迁至 `ChatRequestPrep.sanitizeApiMessages`（薄转发） */
-  private _sanitizeApiMessages(apiMessages: Record<string, unknown>[]): void {
-    this._requestPrep.sanitizeApiMessages(apiMessages);
-  }
-
-  /** TR-12-B：工具清单快照（3 个装配点的统一出口） */
-  private _recordToolsSnapshot(sessionId: string, schemas: ToolSchema[]): void {
-    this._requestPrep.recordToolsSnapshot(sessionId, schemas);
-  }
-
-  /** A1 拆分：`ToolSchema[] → ToolDefinition[]` 已迁至 `ChatRequestPrep.buildToolDefinitions` */
-  private _buildToolDefinitions(schemas: ToolSchema[]): ToolDefinition[] {
-    return this._requestPrep.buildToolDefinitions(schemas);
-  }
-
-  /**
-   * 上下文长度保护（委托给 MessageContextPipeline；已随 A1 拆入 `ChatRequestPrep`）
-   *
-   * @param apiMessages - 待发送的消息列表（会被原地修改）
-   * @param maxContextTokens - 模型上下文窗口上限（如 1_000_000），
-   *       如果传入 0 或负数，则跳过滤检
-   */
-  private async _truncateApiMessages(
-    apiMessages: Record<string, unknown>[],
-    maxContextTokens: number,
-    sessionId?: string,
-    outputBudgetTokens?: number
-  ): Promise<void> {
-    await this._requestPrep.truncateApiMessages(
-      apiMessages,
-      maxContextTokens,
-      sessionId,
-      outputBudgetTokens
-    );
-  }
-
   /**
    * 注册停止钩子（预算告警 → 压缩/停止）
    */
@@ -1638,13 +1596,6 @@ export class ChatManagerImpl implements ChatManager {
         }
       },
     });
-  }
-
-  /**
-   * 跨轮对话摘要持久化（委托给 MessageContextPipeline）
-   */
-  private _persistTurnSummary(session: ChatSession): void {
-    persistTurnSummary(session);
   }
 
   /**

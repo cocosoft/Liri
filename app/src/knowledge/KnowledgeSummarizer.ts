@@ -55,22 +55,22 @@ export class KnowledgeSummarizer {
     limit: number = 3,
     domain?: string
   ): Promise<KnowledgeQueryResult> {
-    // S5 / issue #15（2026-10-29）：域参数**已接线**（调用方会传），但**检索侧限缩尚未实现**
-    // —— digest（`searchDigest`）与 `IKnowledgeSearch` 两条链当前都没有域过滤。
-    // TODO: CS05-ROOTFIX — 根因方案是把 domain 透传进 `searchDigest` 与 router 查询，
-    // 由 #15 的后续子任务落地；在此之前**行为与不传 domain 完全一致**（不静默改写结果）。
-    if (domain) {
-      logger.debug('收到知识域参数（检索限缩待接线，本轮仍走全局）', {
-        domain,
-      });
-    }
+    // S5 / issue #15（2026-10-29）：域限缩分两条链、各有其道 ——
+    // 1) **搜索链**：内核 `KnowledgeRouterOptions` 已内置 `domain`（`KnowledgeRouter.filterByDomain`
+    //    按文档的 `domain` 字段过滤，该字段由路径 `domains/<name>/…` 解析而来，见 `KnowledgeRouter`
+    //    的 `domainMatch`）⇒ 这里只需把域名放进 options，**不重复过滤**（实现唯一性）。
+    // 2) **digest 链**：`DocDigest` 没有 domain 字段 ⇒ 由 `KnowledgeDigestService.searchDigest(query, domain)`
+    //    在**该服务内**按域目录前缀过滤（判定逻辑与其数据同处，避免跨层重复实现）。
+    // 语义：给了合法域 ⇒ 只返回该域结果（可能为空）；未给 ⇒ 全局（默认行为不变）。
+    const domainName = domain?.trim() || undefined;
+    if (domainName) logger.debug('知识检索按域限缩', { domain: domainName });
 
     // 策略 1: 优先使用预编译摘要
-    const digestResult = await this.tryDigestFirst(query, limit);
+    const digestResult = await this.tryDigestFirst(query, limit, domainName);
     if (digestResult) return digestResult;
 
     // 策略 2: 回退到实时搜索
-    return this.searchFallback(query, limit);
+    return this.searchFallback(query, limit, domainName);
   }
 
   /**
@@ -79,11 +79,13 @@ export class KnowledgeSummarizer {
    */
   private async tryDigestFirst(
     query: string,
-    limit: number
+    limit: number,
+    domain?: string
   ): Promise<KnowledgeQueryResult | null> {
     try {
       const digestService = getDefaultDigestService();
-      const matches = await digestService.searchDigest(query);
+      // 域过滤在 digest 服务内完成（按域目录前缀）
+      const matches = await digestService.searchDigest(query, domain);
 
       if (matches.length === 0) return null;
 
@@ -108,11 +110,14 @@ export class KnowledgeSummarizer {
    */
   private async searchFallback(
     query: string,
-    limit: number
+    limit: number,
+    domain?: string
   ): Promise<KnowledgeQueryResult> {
     const routes = await this.searchRouter.search(query, {
       maxResults: limit,
       minScore: 0.1,
+      // 域过滤由内核 router 完成（`KnowledgeRouter.filterByDomain`），本层不再二次过滤
+      ...(domain ? { domain } : {}),
     });
 
     const summaries = routes.map((r: KnowledgeRoute) => ({

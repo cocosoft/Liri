@@ -37,6 +37,20 @@ const DIGEST_VERSION = 1;
 const DIGEST_FILENAME = 'digest.json';
 
 /**
+ * 路径是否位于 `rootDir` 内（含 rootDir 自身）。
+ *
+ * 入参可为**绝对或相对**路径：本文件内 digest 的 `path` 是**相对 knowledgeRoot**
+ * 的路径（`checkStaleness` 用 `join(knowledgeRoot, doc.path)` 还原），故统一归一化
+ * 分隔符后按 `/` 边界比较；不用裸 `startsWith` 以免 `botany` 误吞 `botany2`。
+ */
+function isUnderDir(filePath: string, rootDir: string): boolean {
+  const norm = (p: string) => p.replaceAll('\\', '/').replace(/\/+$/, '');
+  const file = norm(filePath);
+  const root = norm(rootDir);
+  return file === root || file.startsWith(root + '/');
+}
+
+/**
  * 预编译摘要服务
  */
 export class KnowledgeDigestService {
@@ -112,17 +126,23 @@ export class KnowledgeDigestService {
 
   /**
    * 按关键词搜索摘要
+   *
+   * @param domain S5 / issue #15（2026-10-29）：可选知识域。给定时**只返回**落在
+   *   `domains/{domain}/` 下的条目 —— `DocDigest` 没有 domain 字段，且其 `path` 是
+   *   **相对 knowledgeRoot** 的路径 ⇒ 按相对前缀 `domains/<name>` 判定。
    */
-  async searchDigest(query: string): Promise<DocDigest[]> {
+  async searchDigest(query: string, domain?: string): Promise<DocDigest[]> {
     const cache = await this.loadDigest();
     const lowerQuery = query.toLowerCase();
+    const relDomainDir = domain ? `domains/${domain}` : undefined;
 
     return cache.docs.filter(
       (doc) =>
-        doc.title.toLowerCase().includes(lowerQuery) ||
-        doc.summary.toLowerCase().includes(lowerQuery) ||
-        doc.tags.some((tag) => tag.toLowerCase().includes(lowerQuery)) ||
-        doc.category.toLowerCase().includes(lowerQuery)
+        (!relDomainDir || isUnderDir(doc.path, relDomainDir)) &&
+        (doc.title.toLowerCase().includes(lowerQuery) ||
+          doc.summary.toLowerCase().includes(lowerQuery) ||
+          doc.tags.some((tag) => tag.toLowerCase().includes(lowerQuery)) ||
+          doc.category.toLowerCase().includes(lowerQuery))
     );
   }
 

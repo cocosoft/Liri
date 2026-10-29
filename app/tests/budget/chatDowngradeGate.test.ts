@@ -47,15 +47,22 @@ afterAll(() => {
   }
 });
 
-/** 只暴露本用例用到的私有入口 */
-type ManagerWithPrivates = {
-  _sendMessageDowngradePath: (
-    session: unknown,
-    toolCalls: unknown[],
-    apiMessages: unknown[],
-    client: unknown,
-    options?: unknown
-  ) => Promise<{ content?: unknown }>;
+/** 只暴露本用例用到的编排宿主端口 */
+// #18 薄委托收敛（2026-10-29）：`ChatManager._sendMessageDowngradePath` 已删，
+// 降级路径改由编排宿主端口直连 `manager/sendDowngrade.ts` ⇒ 驱动面随实现迁移
+// （仍走**真实装配**：host 端口 → 模块，断言强度不变）。
+type ManagerWithOrchestrator = {
+  chatOrchestrator: {
+    host: {
+      sendMessageDowngradePath: (
+        session: unknown,
+        toolCalls: unknown[],
+        apiMessages: unknown[],
+        client: unknown,
+        options?: unknown
+      ) => Promise<{ content?: unknown }>;
+    };
+  };
 };
 
 function makeClient(): { client: unknown; calls: () => number } {
@@ -86,12 +93,12 @@ describe('G-2：ChatManager 降级路径的日预算闸门', () => {
     budget.recordUsdUsage(2);
     expect(budget.getMode().mode).toBe('locked');
 
-    const manager = createChatManager() as unknown as ManagerWithPrivates;
+    const manager = createChatManager() as unknown as ManagerWithOrchestrator;
     const { client, calls } = makeClient();
 
     let thrown: unknown;
     try {
-      await manager._sendMessageDowngradePath(
+      await manager.chatOrchestrator.host.sendMessageDowngradePath(
         { id: 'sess-downgrade-locked', messages: [] },
         // 非空 toolCalls：若闸门放在工具执行之后，这里会先产生**工具副作用**
         [
@@ -115,10 +122,10 @@ describe('G-2：ChatManager 降级路径的日预算闸门', () => {
   });
 
   it('额度充足 ⇒ 既有行为不回归（照调模型并返回助手消息）', async () => {
-    const manager = createChatManager() as unknown as ManagerWithPrivates;
+    const manager = createChatManager() as unknown as ManagerWithOrchestrator;
     const { client, calls } = makeClient();
 
-    const msg = await manager._sendMessageDowngradePath(
+    const msg = await manager.chatOrchestrator.host.sendMessageDowngradePath(
       { id: 'sess-downgrade-ok', messages: [] },
       [], // 无工具调用 ⇒ 只检验"闸门放行后照常调模型"
       [{ role: 'user', content: 'hi' }],

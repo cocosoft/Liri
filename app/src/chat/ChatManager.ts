@@ -80,7 +80,7 @@ import { PdcaLaunchCoordinator } from './manager/pdcaLaunch';
 // BUG-A（2026-10-27）：空输出兜底的**结构化**判定（禁止文案匹配 —— CS02）
 import { isEmptyOutputFallbackMessage } from './terminationOutput';
 // U-22/S2：流式请求准备段外移（输入净化 → 取会话 → abort/锁 → 用户消息落盘）
-import { ChatStreamSetup, type StreamSetupResult } from './manager/streamSetup';
+import { ChatStreamSetup } from './manager/streamSetup';
 // U-22/S3：消息持久化 / 事件投影簇外移
 import { ChatMessagePersistence } from './manager/messagePersistence';
 // U-22/S4：流式消息收尾簇外移（`_finalizeStreamMessage` 的实现，见 `manager/streamFinalize.ts`）
@@ -1988,30 +1988,6 @@ export class ChatManagerImpl implements ChatManager {
   };
 
   /**
-   * P2-3.5: 将 session.messages 转换为 API 格式消息列表
-   *
-   * 提取自 streamMessage，处理工具结果截断、tool_call_id 补全、
-   * 跨轮 tool_calls 清理等纯数据转换逻辑。
-   */
-  private async _buildApiMessagesForStream(
-    messages: Message[],
-    maxContextTokens?: number,
-    outputBudgetTokens?: number
-  ): Promise<Array<Record<string, unknown>>> {
-    return this._streamMessageLifecycle.buildApiMessagesForStream(
-      messages,
-      maxContextTokens,
-      outputBudgetTokens
-    );
-  } /** U-22/S2 外移：流式请求准备段（实现在 `manager/streamSetup.ts`，顺序/日志/异常不变） */
-  private async _prepareStreamSession(
-    content: string,
-    options?: StreamMessageOptions
-  ): Promise<StreamSetupResult> {
-    return this._streamSetup.prepare(content, options);
-  }
-
-  /**
    * P2（08-09）：创建 StreamPipeline 实例
    *
    * issue #17 · D10：端口装配已外移到 `manager/streamPipelineFactory.ts`。
@@ -2022,34 +1998,6 @@ export class ChatManagerImpl implements ChatManager {
     options?: StreamMessageOptions
   ): StreamPipeline {
     return createStreamPipelineFor(this, session, content, options);
-  } /**
-   * P2-3.5: 流式消息最终化 — 清理资源 + 持久化 + 构建返回消息
-   *
-   * U-22/S4：方法体已外移到 `manager/streamFinalize.ts`（`ChatStreamFinalize`），此处仅薄转发。
-   */
-  private async _finalizeStreamMessage(
-    session: ChatSession,
-    content: string,
-    accumulatedContent: string,
-    assistantMessage: Message,
-    finalResponse: ChatResponse | null,
-    streamAbortController: AbortController,
-    streamSpan: ReturnType<ReturnType<typeof getOTelTracing>['startSpan']>,
-    options?: StreamMessageOptions,
-    /** TB-16（2026-09-24）：主循环终止判定（写入 `turn/end.terminationReason`） */
-    terminationReason?: string
-  ): Promise<Message> {
-    return this._streamFinalize.finalize(
-      session,
-      content,
-      accumulatedContent,
-      assistantMessage,
-      finalResponse,
-      streamAbortController,
-      streamSpan,
-      options,
-      terminationReason
-    );
   }
 
   /**
@@ -2212,19 +2160,6 @@ export class ChatManagerImpl implements ChatManager {
         action: '持久化会话 metadata 失败',
       });
     }
-  } /** P0-1：PDCA launch 统一出口（U-22/S1 外移；锁/trace/双路径语义见 `manager/pdcaLaunch.ts`） */
-  private _maybeLaunchPdca(
-    session: ChatSession,
-    assistantContent: string,
-    projectId: string,
-    lastUserContent: string | undefined
-  ): void {
-    this._pdcaLaunch.maybeLaunch(
-      session,
-      assistantContent,
-      projectId,
-      lastUserContent
-    );
   }
 
   /**

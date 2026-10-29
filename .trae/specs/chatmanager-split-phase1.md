@@ -332,6 +332,14 @@ git diff --stat                        # 抽走了哪些文件/多少行
 
 `sendMessage`(61) / `streamMessage`(19) / `executeTool`(54) / `appendStreamEvent`(64) / `initialize`(53) / `getSessionGateway`(27) / `getSessions`(24) / `getStreamTailSeq`(21) / `createSession`(20) / `resumeSuspendedSession`(20) / `deleteSession`(19) / `getSessionManager`(18) / `ensureSessionsLoaded`(17) / `getCurrentSession`(16) / `compactSession`(14) 等。
 
+### F-a 已落地（2026-10-30，commit `2a29fe4bf`）
+
+- **范围**：A 类中**非查询栈**的 11 项 —— `loadSessions` / `getStreamService` / `setToolIntegration` / `getToolExecutor` / `getSessionMetadataService` / `getMessageProcessingService` / `getPermissionModeIntegrationService` / `getPerformanceOptimizationService` / `getSecurityService` / `checkCompactBoundary` / `getCompactService`。
+- **删除依据（CD01–CD05 实证）**：全仓（`app/src` + `app/tests` + `client/src`）复核后，命中的 `loadSessions` / `checkCompactBoundary` / `getCompactService` 均属**其他类**（`SessionLifecycleManager.loadSessions:778`、`ContextCompactor.checkCompactBoundary:79` / `getCompactService:156`、`client` 的 store 同名 action），**无一处**是 `ChatManager` 实例调用；接口声明与实现同批删除（`git revert 2a29fe4bf` 即可完整恢复）。
+- **实测**：`ChatManager.ts` 2799 → **2706（−93）**、`ChatManagerInterface.ts` 616 → **541（−75）** ⇒ 自 4840 起累计 **−2134（−44.1%）**。
+- **门禁**：`tsc` 0 错误；pre-commit（`lint:arch` / `lint-fix-evidence` / workflows / 4 个棘轮 / ESLint / `modules:validate`）全通过；`lint:size` 0 错误 529 警告（未新增）；`bun test tests/chat` **738 pass**；全量 **8961 pass / 41 skip / 0 fail**（与基线逐项一致 ⇒ 无测试因删除失效）。
+- **未动（待用户决策）**：查询栈四项 `query` / `streamQuery`（各 ~40 行实现）/ `getQueryState` / `setQueryEngineConfig` —— 均属 `ChatManagerInterface` 公开契约、全仓零调用，删除为**破坏性变更**，保留待明确授权。
+
 ### 落地顺序（待确认）
 
 1. **F-a**：删 A 类 17 项（先全仓 grep 复核 → 接口与实现同删，破坏性但零消费者）；

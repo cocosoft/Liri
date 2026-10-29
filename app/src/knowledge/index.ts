@@ -107,13 +107,13 @@ export { WikiLinter, defaultRules } from './lint/WikiLinter';
 export type { LintRule, LintReport } from './lint/WikiLinter';
 export type { LintResult as WikiLintResult } from './lint/WikiLinter';
 
-export { DomainManager } from './domain/DomainManager';
+export { DomainManager } from './domain';
 export type {
   DomainInfo,
   DomainConfig,
   DomainSummary,
   DomainQueryHints,
-} from './domain/DomainManager';
+} from './domain';
 
 export { IndexManager } from './IndexManager';
 export type { LogEntry } from './IndexManager';

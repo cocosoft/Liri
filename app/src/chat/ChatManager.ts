@@ -132,12 +132,7 @@ import {
   createStreamService,
 } from './services/StreamService.js';
 import { SessionStateMachine } from '../state/session/SessionStateMachine.js';
-import { sessionMetadataService } from './services/SessionMetadataService.js';
 import { eventNotificationService } from './services/EventNotificationService.js';
-import { messageProcessingService } from './services/MessageProcessingService.js';
-import { permissionModeIntegrationService } from './services/PermissionModeIntegrationService.js';
-import { performanceOptimizationService } from './services/PerformanceOptimizationService.js';
-import { securityService } from './services/SecurityService.js';
 import { createCheckpointService } from './services/SessionCheckpointService.js';
 import { PlainTextCheckpoint } from './services/PlainTextCheckpoint.js';
 import { isCheckpointLogEnabled } from '@modules/config';
@@ -263,11 +258,7 @@ import { LoopDetector } from '@modules/query';
 import { agentTelemetry } from '@modules/agent';
 import { ErrorHandler } from '@openliri/kernel';
 import { convergenceDetector } from './services/ConvergenceDetector.js';
-import {
-  CompactServiceImpl,
-  type CompactBoundary,
-  type CompactArtifact,
-} from '@modules/compaction';
+import { CompactServiceImpl, type CompactArtifact } from '@modules/compaction';
 import type { SessionMessage } from '@modules/session';
 import { SessionGateway, createSessionGateway } from '@modules/session';
 import {
@@ -2177,10 +2168,6 @@ export class ChatManagerImpl implements ChatManager {
     return this.sessionLifecycle.loadSession(sessionId);
   }
 
-  async loadSessions(): Promise<ChatSession[]> {
-    return this.sessionLifecycle.loadSessions();
-  }
-
   getSessionMessages(sessionId: string): Message[] {
     return this.sessionLifecycle.getSessionMessages(sessionId);
   }
@@ -2204,14 +2191,6 @@ export class ChatManagerImpl implements ChatManager {
    */
   getMessageService(): MessageService {
     return this.messageService;
-  }
-
-  /**
-   * 获取流服务
-   * @returns 流服务
-   */
-  getStreamService(): StreamService {
-    return this.streamService;
   }
 
   /**
@@ -2283,14 +2262,6 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 设置工具集成
-   * @param toolIntegration 工具集成
-   */
-  setToolIntegration(toolIntegration: ToolIntegration): void {
-    this.toolIntegration = toolIntegration;
-  }
-
-  /**
    * 设置LLM客户端
    * @param llmClient LLM客户端
    */
@@ -2339,14 +2310,6 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 获取工具执行器
-   * @returns 工具执行器
-   */
-  getToolExecutor(): IToolExecutor | null {
-    return this.toolExecutor;
-  }
-
-  /**
    * 设置子Agent管理器
    * @param subAgentManager 子Agent管理器
    */
@@ -2363,51 +2326,11 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 获取会话元数据服务
-   * @returns 会话元数据服务
-   */
-  getSessionMetadataService(): typeof sessionMetadataService {
-    return sessionMetadataService;
-  }
-
-  /**
    * 获取事件通知服务
    * @returns 事件通知服务
    */
   getEventNotificationService(): typeof eventNotificationService {
     return eventNotificationService;
-  }
-
-  /**
-   * 获取消息处理服务
-   * @returns 消息处理服务
-   */
-  getMessageProcessingService(): typeof messageProcessingService {
-    return messageProcessingService;
-  }
-
-  /**
-   * 获取权限模式集成服务
-   * @returns 权限模式集成服务
-   */
-  getPermissionModeIntegrationService(): typeof permissionModeIntegrationService {
-    return permissionModeIntegrationService;
-  }
-
-  /**
-   * 获取性能优化服务
-   * @returns 性能优化服务
-   */
-  getPerformanceOptimizationService(): typeof performanceOptimizationService {
-    return performanceOptimizationService;
-  }
-
-  /**
-   * 获取安全服务
-   * @returns 安全服务
-   */
-  getSecurityService(): typeof securityService {
-    return securityService;
   }
 
   /**
@@ -2581,31 +2504,12 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 检查是否需要压缩
-   * @param sessionId 会话ID
-   * @returns 压缩边界信息或null
-   */
-  async checkCompactBoundary(
-    sessionId?: string
-  ): Promise<CompactBoundary | null> {
-    return this.contextCompactor.checkCompactBoundary(sessionId);
-  }
-
-  /**
    * 执行会话压缩
    * @param sessionId 会话ID
    * @returns 压缩产物列表
    */
   async compactSession(sessionId?: string): Promise<CompactArtifact[]> {
     return this.contextCompactor.compactSession(sessionId);
-  }
-
-  /**
-   * 获取压缩服务
-   * @returns 压缩服务实例
-   */
-  getCompactService(): CompactServiceImpl {
-    return this.contextCompactor.getCompactService();
   }
 
   async createCheckpoint(

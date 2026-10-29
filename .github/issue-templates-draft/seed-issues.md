@@ -72,8 +72,8 @@
 
 | # | 草稿中的前提 | 实测 | 结论 |
 |---|---|---|---|
-| 1 | Phase A 未实施 | `app/src/knowledge/domains/` 不存在；仓内 `.domain.yaml` 计数 **0**；`dev_docs/domain-first-plan.md` 存在（127 行） | ✅ 前提成立 |
-| 2 | `ChatManager` 7036 行 | `app/src/chat/ChatManager.ts` = **4532 行**（`app/src/chat/**` 合计 44140 行） | ⚠️ 数字过期，建议改为 4532 并注明统计时间 |
+| 1 | Phase A 未实施 | `app/src/knowledge/domains/` 不存在；仓内 `.domain.yaml` 计数 **0**；`dev_docs/domain-first-plan.md` 存在（**155 行**，非空 127） | ✅ 前提成立 |
+| 2 | `ChatManager` 7036 行 | `app/src/chat/ChatManager.ts` = **4840 行**（非空 4532）；`app/src/chat/**` 合计 **47547 行**（非空 44140）。⚠️ 口径提醒：`Measure-Object -Line` 统计的是**非空行**，别当总行数 | ❌ 数据过期且「抽出会话持久化」已完成（`manager/messagePersistence.ts` 510 / `eventLogStore.ts` 562）⇒ 原单 `not_planned` 关闭，已另开 **#8** |
 | 3 | `handlers/` 测试覆盖为 0 | 该目录 **112** 个 `.ts`；`app/tests/http/` 下 **48** 个测试文件，含 `auto-reply-handlers` / `checkpoint-handlers` / `daily-budget-handlers` / `state-all.contract` 等直测 handler 的用例 | ❌ 前提不成立（应改为「覆盖仍不均衡」，或关闭） |
 | 4 | CI 覆盖率门槛尚未建立 | `ci.yml:193` 已有 `Check coverage threshold (at least 18%)` → `bun run scripts/check-coverage-threshold.ts 18` | ❌ 前提不成立（门槛已存在；可改为「棘轮化/提升到只拦下降」） |
 | 5 | 37 条危险命令规则 | `app/src/security/patterns/dangerousCommands.ts`：`DELETION 7 + FORMAT 3 + PRIVILEGE 4 + SYSTEM 3 + INJECTION 3 + COMPOSITE 7 + DANGEROUS_COMMAND_PATTERNS 10` = **37**；且建单时**无任何测试引用**这两份常量 | ✅ 属实 → **样例已补**：`app/tests/security/dangerousCommandRuleSamples.test.ts`（38 例，逐规则一条应拦截输入 + 正常命令零命中）；样例还驱动修掉一处规则过窄（`base64_decode_exec` 漏判 `base64 -d payload \| sh`） |
@@ -88,7 +88,8 @@
 - 仓库原本**没有 `security` 标签**（最初导入时按「标签不存在则跳过」处理，故 #5/#6 只剩 `help wanted`）⇒ 已新建该标签并回填 **#5 / #6 / #7**。
 - 执行方式：一次性 workflow `.github/workflows/issue-maint.yml`，在临时分支上跑（跑完即删分支），用 CI 自带 `GITHUB_TOKEN`（`permissions: issues: write`）；按「标题 / 评论标记」幂等，重跑不产生重复。
 - **#2 / #3 / #4 已按用户决定关闭**（2026-10-29，`close-issues.yml` 一次性作业）：#2 `not_planned`（正文行数过期、任务范围已变，需要时按新数据重开），#3 `completed`（handler 测试已存在），#4 `completed`（18% 覆盖率门槛已在 CI）。每条都先补了带原因的关闭评论（标记 `<!-- close-note:2026-10-29 -->`）。
-- 当前 issue 状态：**open 4 条**（#1 / #5 / #6 / #7），**closed 3 条**（#2 / #3 / #4）。
+- 当前 issue 状态：**open 5 条**（#1 / #5 / #6 / #7 / #8），**closed 3 条**（#2 / #3 / #4）。
+- 新建 **#8** `[help wanted] ChatManager 拆分第一阶段：抽出「检查点 + 预算」编排（当前 4840 行）`：按真实数据重开，正文含关注点词频（checkpoint 99 / budget 81 / persist 58 / approv 54 …）作为切分依据、明确的验收命令与「行为不变」约束；并在 #2 补了一条**行数口径勘误**评论（4532 是非空行数，实际 4840）。
 
 
 

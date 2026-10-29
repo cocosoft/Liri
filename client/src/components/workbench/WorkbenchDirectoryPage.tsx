@@ -118,12 +118,10 @@ export default function WorkbenchDirectoryPage() {
 
   const [query, setQuery] = useState("");
   const [recentIds, setRecentIds] = useState<string[]>(() => readRecent());
-  // 默认只展开第一组：其余组收起，避免一屏 30 项同时争夺注意力
+  // 2026-10-30（用户裁定）：默认**全部展开**。
+  // 原实现"只展开第一组、其余收起"会让用户以为工作台只有 6 项能力（其余 5 组被折叠隐藏）。
   const [expanded, setExpanded] = useState<ReadonlySet<WorkbenchGroupId>>(
-    () => {
-      const first = groups[0];
-      return new Set<WorkbenchGroupId>(first ? [first.id] : []);
-    },
+    () => new Set<WorkbenchGroupId>(groups.map((group) => group.id)),
   );
 
   const tokens = useMemo(

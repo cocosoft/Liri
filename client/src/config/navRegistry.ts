@@ -168,13 +168,15 @@ export const NAV_ENTRIES: NavEntry[] = [
     order: { high: 30, home: 20, mobile: 10 },
   },
   {
+    // 2026-10-30（用户裁定）：`/tasks` 已改挂「定时任务」页（CronPage）⇒ 导航名与描述同步改为定时任务，
+    // 避免"导航叫任务、页面是定时任务"的错位（背景见 issue #25）。
     id: "tasks",
-    labelKey: "nav.tasks",
+    labelKey: "nav.cron",
     icon: TaskIcon,
     path: "/tasks",
     surfaces: ["high", "home"],
     homeSection: "tool",
-    descKey: "home.card.tasksDesc",
+    descKey: "home.card.cronDesc",
     order: { high: 40, home: 10 },
   },
   {

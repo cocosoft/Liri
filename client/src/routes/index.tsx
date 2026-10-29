@@ -69,7 +69,6 @@ const BackgroundStatusPage = lazy(
 );
 
 const ProjectsPage = lazy(() => import("../components/views/ProjectsPage"));
-const TasksPage = lazy(() => import("../components/views/TasksPage"));
 const ProjectOutputPage = lazy(
   () => import("../components/views/ProjectOutputPage"),
 );
@@ -414,12 +413,15 @@ export const routes: RouteObject[] = [
   // Inbox 路由已删除（2026-09-10 复查）：能力现由聊天内 InboxBlock 卡片承载（走 /v1/inbox API），
   // 通知中心为弹窗（notificationStore.openPanel），/inbox 页面零驱动方。
 
-  // 任务聚合收件箱（D3：/tasks 由死重定向改为跨项目聚合页）
+  // 任务页（2026-10-30 用户裁定）：`/tasks` 改挂「定时任务」页（CronPage）。
+  // 原因：原 `TasksPage`（任务聚合收件箱）的数据源 `GET /v1/tasks` 读的是 `tasks` 表（实测 0 行）
+  // ⇒ 进去只有空状态，用户不知道能做什么（见 issue #25）。`TasksPage` 文件保留，
+  // 待 #25 把数据源接好后再决定是否切回。
   {
     path: "/tasks",
     element: (
       <AuthGuard>
-        <TasksPage />
+        <CronPage />
       </AuthGuard>
     ),
   },

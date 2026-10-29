@@ -8,7 +8,7 @@
  *  ① 侧栏不再有内联展开块，按钮直达 `WORKBENCH_PATH`（一处工作面）；
  *  ② 移动底栏的「工作台」同样改为跳转，不再弹抽屉；
  *  ③ 目录页具备「搜索 / 最近使用 / 分组收起」三件套；
- *  ④ 分组默认只展开第一组（否则又回到"30 项同时铺开"）。
+ *  ④ 分组默认全部展开（2026-10-30 用户裁定；原为"只展开第一组"）。
  *
  * **为什么用源码扫描**：`Sidebar` 依赖 6+ 个 store / 路由 / 主题上下文，渲染成本与脆弱度都高；
  * 本仓既有同类手法（`Sidebar/__tests__/systemItemsOverride.test.ts`）。
@@ -71,8 +71,8 @@ describe("目录页：搜索 / 最近使用 / 分组收起", () => {
     expect(directorySrc).toContain('t("workbench.itemCount"');
   });
 
-  it("默认只展开第一组（避免一屏 30 项）", () => {
-    expect(directorySrc).toContain("const first = groups[0]");
-    expect(directorySrc).toContain("new Set<WorkbenchGroupId>(first ? [first.id] : [])");
+  it("默认全部展开（2026-10-30 用户裁定：目录页要一眼看到所有能力）", () => {
+    expect(directorySrc).toContain("groups.map((group) => group.id)");
+    expect(directorySrc).toContain("new Set<WorkbenchGroupId>(");
   });
 });

@@ -199,3 +199,41 @@ git diff --stat                        # 抽走了哪些文件/多少行
 5. ~~#17 按域拆分~~（**已完成并关单，`59ea947f8` / `ee5127951`**）：D1–D10 共 10 刀；本 issue 区间 **3972 → 3461**（−511），累计（自 4840）**−1379 / −28.5%**；全量 `bun test tests` **8961 pass / 41 skip / 0 fail**。未达成「≤1500」。
 6. **第二阶段已另开 [#18](https://github.com/cocosoft/Liri/issues/18)（≤1500 行）**：实测依据 —— 外移后**已无大块**（最大方法 `constructor` 57 行、`cleanup` 48、`_wireCodeRunnerDeps` 37，其余 ≤27）⇒ 后续靠「收敛薄委托（按 `code-deletion.md` CD01–CD06 先摘入口再删实现）」与「`ChatOrchestratorHost` 公开化（可能连带删除两个装配模块）」。
 7. 每刀落地后把本文件的行数基线更新为当次实测值（禁止沿用旧数字）。
+
+## 六、#18 第 1 步：薄委托收敛（2026-10-29 实测）
+
+> 纪律：按 `code-deletion.md` CD05 拆成「先摘入口（调用点/端口直连）」与「再删实现」两个独立提交；
+> 每批前后跑 `tsc` + `tests/chat`，收尾跑全量。
+
+### Batch 1 — 纯宿主内委托（无端口、无外部消费者）
+
+- **独立提交**：`0cb42670a`（改调用点）+ `15e49f47e`（删实现）。
+- **零调用者直接删**（5）：`_appendEventsForMessage`、`getSessionSummaries`、`searchSessionSummaries`、`_compressToolHistory`、`_estimateArrayTokens`；
+- **单调用点内联后删**（5）：`_getLocalSession`、`_ensureVerifierCallModel`、`_recordModelInputSnapshot`、`_getProjectSandboxPath`、`_releaseInactiveEventLogSnapshots`；
+- 源码扫描面随实现迁移：`tests/query/verifierMetrics.test.ts` 的 ② 断言改为 `await ensureVerifierCallModel(this._verifier)`（强度不变）。
+- 实测：**3461 → 3355（−106）**；`tests/chat` 746 pass。
+
+### Batch 2 — 事件日志家族端口直连 `ChatEventLogStore`
+
+- **独立提交**：`b5113bb85`（端口直连）+ `2198c1ee4`（删实现）。
+- 端口改直连：`facadeWiring` 5 处（`sessionLookup` / `getOrCreateEventLog` / `rebuildToolCallSeqMap` / `getStreamMaxTurn` / `hasTurnEnded`）、`orchestratorHost` 1 处（`getStreamMaxTurn`）、`ChatManager` 构造期 2 处（`_recovery.getStreamMaxTurn`、`installHostWiring.flushAllPendingEventBuffers`）。
+- 宿主契约同步：`FacadeWiringHost` / `OrchestratorWiringHost` 各 **−5 成员 +1 字段**（`_eventLogStore`），两张键表同步（`AssertNever` 编译期覆盖保证不漏登记）。
+- 删除（5）：`hasTurnEnded`、`_sessionLookup`、`_rebuildToolCallSeqMap`、`getStreamMaxTurn`、`flushAllPendingEventBuffers`。
+- ⚠️ **`_getOrCreateEventLog` 保留**：外部结构化消费者 `runtime/api/sessionMessagesRead.ts:389/708` 以**可选链**调用（`chatManager._getOrCreateEventLog?.(sid)`），删除会让读路径**静默降级**（不上报错误）；`tests/runtime/verifySessionDerivation.test.ts` / `sessionMessagesReadOwnership.test.ts` 也以假对象提供该成员。
+- 实测：**3355 → 3311（−44）**；`tests/chat` 738 pass。
+
+### Batch 3 — 请求构建家族端口直连 `ChatRequestPrep`
+
+- **独立提交**：`05b6e9fc5`（端口直连）+ `e31956f85`（删实现）。
+- 端口改直连：`facadeWiring`（`buildToolDefinitions` / `recordToolsSnapshot` / `persistTurnSummary`）、`orchestratorHost`（`buildToolDefinitions` / `recordToolsSnapshot` / `extractFilePathsFromText` / `sanitizeApiMessages` / `truncateApiMessages` / `persistTurnSummary`）、`streamPipelineFactory`（`extractFilePathsFromText`）。
+- `persistTurnSummary` 直连模块函数（不再经宿主同名转发）；三张宿主契约各 **−N 成员 +1 字段**（`_requestPrep`）。
+- 删除（6）：`extractFilePathsFromText`、`_sanitizeApiMessages`、`_recordToolsSnapshot`、`_buildToolDefinitions`、`_truncateApiMessages`、`_persistTurnSummary`。
+- 实测：**3311 → 3262（−49）**；`tests/chat` 738 pass。
+
+### 汇总与门禁（2026-10-29 实测）
+
+- 本步：**3461 → 3262（−199，−5.7%）**；自 4840 起累计 **−1578（−32.6%）**。
+- `bunx tsc --noEmit` 0 错误；`lint:arch` 0 错误；`lint:size` 0 错误（529 警告，本轮前既有）；`lint:state-ratchet` 维持；全量 `bun test tests` **8961 pass / 41 skip / 0 fail**。
+- ⚠️ **风险如实**：端口直连后，装配模块以宿主**私有字段**（`_eventLogStore` / `_requestPrep`）作为入参，与 #16 同一盲区（字段改名编译器不报错）；已把这两个字段登记进三张键表，由装配期 `assertHostSurface` + `tests/chat` 构造回归兜底。
+- **剩余候选（未做）**：`_addAndPersistMessage`（`_msgPersist`，涉及 `facadeWiring`/`orchestratorHost`/`taorContextWiring`/`streamPipelineFactory` + 2 处字段注入）、`_prepareStreamSession`（`_streamSetup`）、`_finalizeStreamMessage`（24 行，`_streamFinalize`）、`updateMessageBlocks`、`_maybeLaunchPdca`、`_buildTAORContext` / `_ensureCheckpointBoundary` / `_isCommandApproved` / `_submitToolApproval`（模块自由函数）；`_ensureYieldResumerInstalled` 因被 `tests/chat/taorLoopResumeWiring.test.ts` **实例级 monkey-patch** 暂留。
+- **不可删**：`ChatManagerInterface` 声明的契约方法（`appendStreamEvent` / `getStreamTailSeq` / `readSessionEvents` / `createSession` / `saveSession` …），只可改内部实现。

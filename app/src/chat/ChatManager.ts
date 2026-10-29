@@ -65,7 +65,6 @@ import {
 import { rollupSessionSummaryToLongTerm } from '@modules/memory';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
 import { feature as coreFeature } from '@openliri/kernel';
-import { configureCodeRunner } from '@modules/tools';
 import { StreamingToolCallScrubber } from '@modules/streaming';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
 import { SessionLifecycleManager } from './services/SessionLifecycleManager.js';
@@ -91,9 +90,6 @@ import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
 // issue #8 · Cut C（2026-10-29）：用量记账（R16 日预算结算 / 债四金额台账 / `metric/timing`）
 // 已外移到 `manager/usageAccounting.ts`；本类保留同名 thin delegate。
 import { recordChatResponseUsage as recordChatResponseUsageImpl } from './manager/usageAccounting';
-// Task 7（2026-10-12，预算挂起续跑）：放行 ⇒ 唤醒挂起会话的进程内协调器。
-// `query/budgetSuspend` **不得** import `chat/**`（防环）⇒ 唤醒经注入的 handler 端口（下方装配）。
-import { getBudgetSuspendCoordinator } from '../query/budgetSuspend';
 
 const logger = getLogger('chat:manager');
 
@@ -182,6 +178,8 @@ import {
 import { wireChatFacades, type FacadeWiringHost } from './manager/facadeWiring';
 // issue #16（2026-10-29）：装配宿主的**单点断言**（契约由各模块键表 + 存在性守卫兑现）
 import { asWiringHost } from './manager/wiringHostGuard';
+// issue #19 · Cut G（2026-10-29）：宿主清理外移（顺序/纪律不变）
+import { cleanupHost } from './manager/shutdown';
 // issue #17 · D2 / D3（2026-10-29）：对话记忆抽取、按模型名选客户端外移
 import { extractMemoryFromChat as extractMemoryFromChatImpl } from './manager/memoryExtract';
 import { getClientForModel as getClientForModelImpl } from './manager/modelClient';
@@ -244,20 +242,10 @@ import {
 import type { StopHookReason } from '@modules/query';
 import { TAORLoop, createSystemAbortReason } from '@modules/query';
 import { createChatAgentLoop } from './createAgentLoop.js';
-import { getYieldRegistry, setActiveSubagentRunProbe } from '../session/yield';
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
 import type { YieldRegistry, YieldWaitingStore } from '../session/yield';
-// 阶段 A（A1-e）：yield 恢复通路（子代理结算 → 恢复父会话）
-import { setYieldResumeHandler } from './yield';
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
 import type { SettlementOutbox } from './yield/SettlementOutbox';
-// 阶段 A（N-26 修复）：SelfWake 唤醒执行器（fire 时真正唤醒会话）
-import {
-  setSelfWakeResumeHandler,
-  // 2026-10-08：步骤 TAORLoop 工厂出口（长程任务步骤"无工具可用"根因修复；
-  // 与上面 setSelfWakeResumeHandler 同一"chat 层注入 sink"手法）
-  setStepLoopFactory,
-} from '@modules/tasks';
 // F2（2026-10-12，预算挂起续跑 Task 3）：活跃 TAORLoop 注册表入口（经 infrastructure barrel）。
 // 修复前 `registerTAORLoop` 全仓零调用 ⇒ `activeLoops` 恒空 ⇒ checkpoint 恢复端点恒 404。
 import { registerTAORLoop, unregisterTAORLoop } from '@modules/infrastructure';
@@ -303,8 +291,6 @@ import { TaskStatus } from '@modules/tasks/types';
 
 import { RollbackIntegration } from '@modules/security';
 import type { FileOperation } from '@modules/security';
-import { taskRegistry } from '@modules/tasks';
-import { taskOrchestrator } from '@modules/tasks';
 
 /**
  * 崩溃恢复重算 `totalMessages` 是否应**落盘**？（纯判据，2026-09-26）
@@ -676,49 +662,6 @@ export class ChatManagerImpl implements ChatManager {
       shouldUse,
     });
     return shouldUse;
-  }
-
-  /**
-   * CM-6：CodeRunner 运行期依赖接线（CODE_MODE 开启时配置）
-   * readContext 复用 per-session EventLogStorage.read；
-   * writeEvent 复用 appendStreamEvent（seq 取自 EventLogStorage tailSeq）。
-   */
-  private _wireCodeRunnerDeps(): void {
-    if (!coreFeature('CODE_MODE')) return;
-    configureCodeRunner({
-      readContext: async (opts) => {
-        const sid = this._currentSessionId;
-        if (!sid) return { unavailable: true, reason: 'no active session' };
-        const log = this._getOrCreateEventLog(sid);
-        return log.read({ limit: opts?.limit ?? 100 });
-      },
-      writeEvent: async (type, data) => {
-        const sid = this._currentSessionId;
-        if (!sid) return;
-        const log = this._getOrCreateEventLog(sid);
-        const tail = await log.getTailSeq();
-        await this.appendStreamEvent(sid, {
-          type: type as LiriEvent['type'],
-          schemaVersion: 1,
-          seq: tail + 1,
-          time: Date.now(),
-          sessionId: sid,
-          data: data as LiriEvent['data'],
-        });
-      },
-      // CM-1 持久化重建：统计会话事件流中 code_run 事件数作为已用轮次
-      loadUsedRounds: async () => {
-        const sid = this._currentSessionId;
-        if (!sid) return 0;
-        const log = this._getOrCreateEventLog(sid);
-        const events = await log.read({
-          types: ['assistant/code_run' as LiriEvent['type']],
-          limit: 10000,
-        });
-        return events.length;
-      },
-    });
-    logger.info('CodeRunner runtime deps wired (CODE_MODE enabled)');
   }
 
   /**
@@ -1576,55 +1519,24 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 清理
+   * 清理（issue #19 · Cut G：实现体已外移到 `manager/shutdown.ts`，顺序/纪律不变）
    */
   cleanup(): void {
-    // B1/O1-1：卸载 yield 恢复器 + 清空两条续跑执行器与 run 探针。
-    // 未卸载时实例重建会把 listener 累积在模块级数组里，且旧 listener 的闭包
-    // 仍指向旧实例（结算信号唤醒的是旧实例）。
-    this._yieldResumerUninstall?.();
-    this._yieldResumerUninstall = null;
-    this._yieldResumerInstalled = false;
-    setYieldResumeHandler(null);
-    setSelfWakeResumeHandler(null);
-    setActiveSubagentRunProbe(null);
-    // Task 7：卸载预算放行监听 + 摘除协调器 handler（同 yield 恢复器的防闭包累积纪律）
-    // Fix round 2：仅当**本实例**确是装配者时才摘除 —— 惰性装配后未装配的实例（如丢弃实例）
-    // 不得清掉 live 实例已装配的 handler。
-    if (this._budgetSuspendResumeWired) {
-      this._budgetReliefUninstall?.();
-      this._budgetReliefUninstall = null;
-      this._budgetSuspendResumeWired = false;
-      getBudgetSuspendCoordinator().setResumeHandler(null);
-    }
-    // B1-6 / P0-6：**清空模块级单例的等待集**。卸载 listener 只切断"新信号"，
-    // 而 `YieldRegistry` 是**进程级单例**（`getYieldRegistry()`）⇒ 条目会跨实例残留，
-    // 新实例可能对**陈旧登记**发起恢复（修复前此处无 clear()，见 §2.5 P0-6）。
-    getYieldRegistry().clear();
-
-    // I1：注销本实例登记进进程级注册表的全部 TAORLoop（同"清理模块级单例"纪律，
-    // 否则实例重建会让 `activeLoops` 累积僵尸端口）。
-    this._unregisterAllTaorLoops();
-
-    taskOrchestrator
-      .abortAll()
-      .catch((e) =>
-        logger.warn('cleanup: abortAll 失败', { error: String(e) })
-      );
-    for (const task of taskRegistry.getRunningTasks()) {
-      task.kill().catch((e) =>
-        logger.warn('cleanup: kill task 失败', {
-          taskId: task.id,
-          error: String(e),
-        })
-      );
-    }
-    taskRegistry
-      .shutdown()
-      .catch((e) =>
-        logger.warn('cleanup: shutdown 失败', { error: String(e) })
-      );
-    this.streamService.reset();
+    cleanupHost({
+      yieldResumerUninstall: this._yieldResumerUninstall,
+      budgetSuspendResumeWired: this._budgetSuspendResumeWired,
+      budgetReliefUninstall: this._budgetReliefUninstall,
+      clearYieldResumer: () => {
+        this._yieldResumerUninstall = null;
+        this._yieldResumerInstalled = false;
+      },
+      clearBudgetRelief: () => {
+        this._budgetReliefUninstall = null;
+        this._budgetSuspendResumeWired = false;
+      },
+      unregisterAllTaorLoops: () => this._unregisterAllTaorLoops(),
+      resetStreamService: () => this.streamService.reset(),
+    });
   }
 
   /**

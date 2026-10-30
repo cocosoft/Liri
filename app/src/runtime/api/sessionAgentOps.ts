@@ -377,6 +377,8 @@ export class SessionAgentOps {
       roundCount:
         session.metadata.roundCount ?? countUserMessages(session.messages),
       source: this.resolveSessionSource(session),
+      // #23：状态取持久层（与列表同口径）
+      status: persisted.status,
       metadata: session.metadata,
     };
   }
@@ -511,7 +513,12 @@ export class SessionAgentOps {
         this.deps.getChatManager().getSessionGateway().getSession(s.id)
       )
     );
+    // #23（2026-10-30）：同一次持久层回查顺带取出**磁盘状态**——列表此前只投影内存
+    // `session.state`（`mapSessionStatusToState` 对 `error` 无映射 ⇒ 出错会话显示成正常）。
+    // 状态是**持久事实**，故以持久层为准（`presence[i].status`），缺失才回退内存态。
     const sessions = all.filter((_, i) => presence[i] !== null);
+    const persistedStatus = new Map<string, string | undefined>();
+    all.forEach((s, i) => persistedStatus.set(s.id, presence[i]?.status));
     // 多租户 P1：`getSessions()` 是**进程级内存 Map**（含其他身份的会话）⇒
     // 非本地身份再按归属过滤一次（本地身份不过滤，零行为变更）。
     const principal = getRequestPrincipal();
@@ -551,6 +558,8 @@ export class SessionAgentOps {
         messageCount: countConversationMessages(session.messages),
         roundCount: countUserMessages(session.messages),
         source: this.resolveSessionSource(session),
+        // 持久层权威；`presence` 缺失（已过滤）时不会走到这里
+        status: persistedStatus.get(session.id) ?? session.state,
         metadata: session.metadata,
       }));
     // P2-2：记录空壳会话被过滤条数，便于排查"会话缺失"类问题（总数 vs 返回数对不上）
@@ -792,6 +801,8 @@ export class SessionAgentOps {
       updatedAt: session.updatedAt,
       messageCount: countConversationMessages(session.messages),
       roundCount: countUserMessages(session.messages),
+      // #23：状态取持久层（与列表同口径）
+      status: persisted.status,
       metadata: session.metadata,
     };
   }

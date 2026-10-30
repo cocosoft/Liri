@@ -3,17 +3,17 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useChatStore } from "../../stores/chat";
-import { toastError } from "../../stores/toastStore";
+import { toastError, toastSuccess } from "../../stores/toastStore";
 import { useRootStore } from "../../stores/root-store";
 import { sessionService } from "../../services/sessionService";
 import { getOTelTracing } from "../../monitoring/otel/OTelTracing";
 import { handleClientError } from "../../utils/handleError";
 import {
   resolveSessionWorkspaceId,
-  sessionBelongsToProject,
+  sessionMatchesModuleScope,
 } from "@/stores/selectors";
 import { createLogger } from "@/utils/logger";
-import { inferModuleTypeFromWorkspaceId } from "@/stores/root-store/moduleContextSlice";
+import { isEmptySession } from "@/utils/sessionStatus";
 
 const logger = createLogger("SessionHistorySidebar");
 import ConfirmDialog from "../common/ConfirmDialog";
@@ -158,10 +158,16 @@ function SessionHistorySidebar({
   const [editTitle, setEditTitle] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTab, setFilterTab] = useState<"all" | "pinned">("all");
+  /** #23：空会话（0 条消息）默认折叠，按需展开 */
+  const [showEmptySessions, setShowEmptySessions] = useState(false);
 
   // 确认对话框状态
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  /** #23：清理空会话确认框 */
+  const [showClearEmptyConfirm, setShowClearEmptyConfirm] = useState(false);
+  /** #23：清理空会话进行中（防重复点击） */
+  const [clearingEmpty, setClearingEmpty] = useState(false);
   // 虚拟列表状态
   const listContainerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -377,39 +383,28 @@ function SessionHistorySidebar({
     };
   }, [debouncedQuery, searchScopeModuleType]);
 
-  const filteredSessions = useMemo(() => {
-    let result = sessions;
+  const effectiveModuleType = scopeModuleType ?? moduleContext.moduleType;
+  const effectiveProjectId = scopeProjectId ?? moduleContext.projectId;
 
-    const effectiveModuleType = scopeModuleType ?? moduleContext.moduleType;
-    const effectiveProjectId = scopeProjectId ?? moduleContext.projectId;
-
+  /**
+   * #23（2026-10-30）：**作用域 + 搜索**过滤结果（不含 tab / 空会话折叠）。
+   *
+   * 拆出来是为了让「空会话计数」与「列表内容」同源：折叠开关与清理入口都基于这一份
+   * 结果，避免两处各算一次导致"显示 3 个空会话但清理按钮说 4"。
+   */
+  const scopedSessions = useMemo(() => {
     // 0. 模块类型 + 项目过滤（替代旧的 worktree 作用域过滤）
-    result = result.filter((s) => {
-      const hub = rootSessions[s.id];
-      const moduleType =
-        hub?.moduleType ?? inferModuleTypeFromWorkspaceId(s.workspaceId ?? "");
-      // N-62 V2（2026-09-20）：**只用会话自身的值**（不再取 Hub 覆盖）—— 与项目页卡片
-      // 同源（`chatSessions`）同判据，保证"项目页卡片数 = 项目页侧栏条数"。
-      // （Hub 记录的陈旧值/空串属数据侧问题，见 N-63；该口径现收敛进 `sessionBelongsToProject`）
+    //    判据已收敛进 `sessionMatchesModuleScope`（可单测，见 selectors.ts）
+    let result = sessions.filter((s) =>
+      sessionMatchesModuleScope(
+        s,
+        rootSessions[s.id]?.moduleType,
+        effectiveModuleType,
+        effectiveProjectId,
+      ),
+    );
 
-      // 项目作用域：**与项目页卡片同判据**（`projectId` 优先、`workspaceId` 兜底）。
-      // F-24（2026-10-29）：此前只比 `workspaceId`，而后端创建的会话 `workspaceId` 常为空、
-      // 归属只在 `metadata.projectId` ⇒ 真机 `proj_1793116653351_d0760e`（侧栏「暂无会话」、
-      // 主区已渲染 311 条消息的会话）出现在侧栏 0 条 / 卡片 1 条的矛盾。
-      if (effectiveModuleType === "project" && effectiveProjectId) {
-        return sessionBelongsToProject(s, effectiveProjectId);
-      }
-
-      if (moduleType !== effectiveModuleType) return false;
-      return true;
-    });
-
-    // 1. 过滤 tab：仅保留"已固定"筛选（M1-T1.3：状态源 session.pinned）
-    if (filterTab === "pinned") {
-      result = result.filter((s) => s.pinned);
-    }
-
-    // 2. 搜索过滤（§4.3-8：标题/ID 本地匹配 **或** 消息正文 FTS 命中）
+    // 1. 搜索过滤（§4.3-8：标题/ID 本地匹配 **或** 消息正文 FTS 命中）
     if (debouncedQuery.trim()) {
       const lower = debouncedQuery.toLowerCase();
       result = result.filter(
@@ -419,6 +414,35 @@ function SessionHistorySidebar({
           contentHitSessionIds.has(s.id),
       );
     }
+    return result;
+  }, [
+    sessions,
+    debouncedQuery,
+    contentHitSessionIds,
+    rootSessions,
+    effectiveModuleType,
+    effectiveProjectId,
+  ]);
+
+  /** 当前作用域下的空会话（0 条消息）—— 折叠开关与清理入口共用 */
+  const emptyScopedSessions = useMemo(
+    () => scopedSessions.filter((s) => isEmptySession(s)),
+    [scopedSessions],
+  );
+
+  const filteredSessions = useMemo(() => {
+    let result = scopedSessions;
+
+    // 1. 过滤 tab：仅保留"已固定"筛选（M1-T1.3：状态源 session.pinned）
+    if (filterTab === "pinned") {
+      result = result.filter((s) => s.pinned);
+    }
+
+    // 2. #23：空会话**默认折叠**（0 条消息的壳会话不再混在正常会话里）；
+    //    需要查看时用筛选条右侧的「空会话 N」开关展开。
+    if (!showEmptySessions) {
+      result = result.filter((s) => !isEmptySession(s));
+    }
 
     // 3. 固定会话优先（非"已固定" tab 时，仅在过滤后的结果中置顶）
     if (filterTab !== "pinned" && result.some((s) => s.pinned)) {
@@ -427,16 +451,7 @@ function SessionHistorySidebar({
       return [...pinnedItems, ...normalItems];
     }
     return result;
-  }, [
-    sessions,
-    debouncedQuery,
-    contentHitSessionIds,
-    filterTab,
-    rootSessions,
-    moduleContext,
-    scopeModuleType,
-    scopeProjectId,
-  ]);
+  }, [scopedSessions, filterTab, showEmptySessions]);
 
   /**
    * §4.3-9（2026-09-20）：会话按**项目（= 工作区）**分组（对齐 Copilot 的 Projects 分组）。
@@ -713,6 +728,42 @@ function SessionHistorySidebar({
     }
   };
 
+  /**
+   * #23：一键清理当前作用域内的空会话（0 条消息）。
+   *
+   * 走 `deleteChatSession` 逐条删除而非批删端点：空会话通常只有个位数，
+   * 而逐条路径已处理"删的是当前会话 ⇒ 切到最近会话""清消息缓存""停挂起流"，
+   * 批删端点不做这些收尾（清空历史是另有一套本地先清空的方案）。
+   * 失败如实报告（不把部分失败当成功）。
+   */
+  const handleConfirmClearEmpty = async () => {
+    const ids = emptyScopedSessions.map((s) => s.id);
+    setShowClearEmptyConfirm(false);
+    if (ids.length === 0 || clearingEmpty) return;
+    setClearingEmpty(true);
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        await deleteSession(id);
+      } catch (e) {
+        failed += 1;
+        handleClientError(
+          e,
+          { module: "ui:session-sidebar", action: "clearEmptySession" },
+          "warn",
+        );
+      }
+    }
+    setClearingEmpty(false);
+    if (failed > 0) {
+      toastError(
+        new Error(t("chat.clearEmptySessionsFailed", { count: failed })),
+      );
+    } else {
+      toastSuccess(t("chat.clearEmptySessionsDone", { count: ids.length }));
+    }
+  };
+
   const handleClearAll = () => {
     setShowClearConfirm(true);
   };
@@ -787,6 +838,16 @@ function SessionHistorySidebar({
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
           {t("chat.sessionHistory")}
+          {/* #23：口径透明 —— 左为本模块会话数、右为已加载的全部会话。
+              两者不等不是"丢数据"：其他模块的会话不在此列表（空会话另有折叠开关）。
+              用 scopedSessions（不含 tab/搜索/折叠）⇒ 数字不受临时筛选影响。 */}
+          <span
+            className="ml-1.5 text-[10px] font-normal text-gray-400 dark:text-gray-500"
+            title={t("chat.sessionListScopeHint")}
+            data-testid="session-list-scope-count"
+          >
+            {scopedSessions.length}/{sessions.length}
+          </span>
         </h3>
         <div className="flex items-center gap-1">
           <button
@@ -843,7 +904,7 @@ function SessionHistorySidebar({
       </div>
 
       {/* 过滤 tabs */}
-      <div className="flex gap-0.5 px-3 py-1.5 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex items-center gap-0.5 px-3 py-1.5 border-b border-gray-200 dark:border-gray-700">
         {(["all", "pinned"] as const).map((tab) => (
           <button
             key={tab}
@@ -859,6 +920,25 @@ function SessionHistorySidebar({
               : t("chat.filterPinned")}
           </button>
         ))}
+        {/* #23：空会话折叠开关（默认折叠；有才显示，避免空列表噪音） */}
+        {emptyScopedSessions.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowEmptySessions((v) => !v)}
+            aria-pressed={showEmptySessions}
+            title={t("chat.emptySessionsToggleHint")}
+            className={`ml-auto px-2 py-0.5 text-xs rounded transition-colors ${
+              showEmptySessions
+                ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 font-medium"
+                : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+            }`}
+            data-testid="empty-sessions-toggle"
+          >
+            {t("chat.emptySessionsToggle", {
+              count: emptyScopedSessions.length,
+            })}
+          </button>
+        )}
       </div>
 
       {/* 切换加载指示器 */}
@@ -1054,27 +1134,55 @@ function SessionHistorySidebar({
         </div>
       )}
 
-      {sessions.length > 0 && (
+      {(sessions.length > 0 || emptyScopedSessions.length > 0) && (
         <div className="p-2 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onClick={handleClearAll}
-            className="w-full flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-          >
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          {/* #23：空会话一键清理（默认折叠的空壳会话，用户确认后删除） */}
+          {emptyScopedSessions.length > 0 && (
+            <button
+              onClick={() => setShowClearEmptyConfirm(true)}
+              disabled={clearingEmpty}
+              className="w-full flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors disabled:opacity-50"
+              data-testid="clear-empty-sessions"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              />
-            </svg>
-            {t("chat.clearHistory")}
-          </button>
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+              {t("chat.clearEmptySessions", {
+                count: emptyScopedSessions.length,
+              })}
+            </button>
+          )}
+          {sessions.length > 0 && (
+            <button
+              onClick={handleClearAll}
+              className="w-full flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+              {t("chat.clearHistory")}
+            </button>
+          )}
         </div>
       )}
 
@@ -1091,6 +1199,19 @@ function SessionHistorySidebar({
         variant="danger"
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
+      />
+
+      {/* #23：清理空会话确认对话框 */}
+      <ConfirmDialog
+        open={showClearEmptyConfirm}
+        title={t("chat.clearEmptySessionsTitle")}
+        message={t("chat.clearEmptySessionsConfirm", {
+          count: emptyScopedSessions.length,
+        })}
+        confirmText={t("chat.clearEmptySessionsAction")}
+        variant="danger"
+        onConfirm={() => void handleConfirmClearEmpty()}
+        onCancel={() => setShowClearEmptyConfirm(false)}
       />
 
       {/* 清除全部确认对话框 */}

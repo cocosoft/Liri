@@ -529,6 +529,27 @@ const enBase = {
     contentMatch: "Body",
     filterHistory: "History",
     filterPinned: "Pinned",
+    /** #23: persisted session status badges */
+    sessionStatusPaused: "Paused",
+    sessionStatusPausedHint:
+      "This session is paused: the previous turn did not finish (backend interruption / awaiting resume).",
+    sessionStatusError: "Error",
+    sessionStatusErrorHint:
+      "The previous turn failed and did not finish; open the session to review the messages and retry.",
+    /** #23: empty sessions (0 messages) are collapsed by default */
+    emptySessionsToggle: "Empty {{count}}",
+    emptySessionsToggleHint: "Show/hide sessions with 0 messages",
+    /** #23: one-click cleanup of empty sessions (requires confirmation) */
+    clearEmptySessions: "Clean empty ({{count}})",
+    clearEmptySessionsTitle: "Clean empty sessions",
+    clearEmptySessionsConfirm:
+      "This will delete {{count}} session(s) with no messages. This cannot be undone. Continue?",
+    clearEmptySessionsAction: "Clean",
+    clearEmptySessionsDone: "Cleaned {{count}} empty session(s)",
+    clearEmptySessionsFailed: "{{count}} empty session(s) failed to delete",
+    /** #23: list count scope (this module / all) */
+    sessionListScopeHint:
+      "Left: sessions in this module. Right: all loaded sessions; sessions of other modules are not listed here.",
     today: "Today",
     yesterday: "Yesterday",
     earlier: "Earlier",

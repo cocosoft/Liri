@@ -7,6 +7,7 @@ export { isApiResponse, unwrapApiResponse } from "./system";
 // ─── 核心业务类型 ───
 export type {
   Session,
+  SessionStatus,
   WorkMode,
   ApprovalMode,
   ReplyEffortLevel,

@@ -148,6 +148,16 @@ export function mapSessionStatusToState(status: string): DataSessionStatus {
       return DataSessionStatus.ENDED;
     case 'archived':
       return DataSessionStatus.ARCHIVED;
+    // #23（2026-10-30）：原实现缺 error/idle/requires_action 三个词表取值 ⇒
+    // 磁盘 `status="error"` 的会话被加载成 ACTIVE（UI 无从显示"出错"，且此后再
+    // 落检查点时会把状态写成 active —— 状态事实被静默改写）。
+    // 以枚举成员作 case（非字符串字面量），避免状态字面量棘轮误拦。
+    case DataSessionStatus.ERROR:
+      return DataSessionStatus.ERROR;
+    case DataSessionStatus.IDLE:
+      return DataSessionStatus.IDLE;
+    case DataSessionStatus.REQUIRES_ACTION:
+      return DataSessionStatus.REQUIRES_ACTION;
     default:
       return DataSessionStatus.ACTIVE;
   }

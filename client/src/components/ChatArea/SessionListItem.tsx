@@ -12,7 +12,9 @@ import { useTranslation } from "react-i18next";
 import SessionTitle from "./SessionTitle";
 import { createLogger } from "@/utils/logger";
 import { formatRelativeTime } from "../../utils/format";
+import { resolveSessionStatusBadge } from "../../utils/sessionStatus";
 import { useRootStore } from "../../stores/root-store";
+import type { SessionStatus } from "../../types";
 
 const logger = createLogger("components:chat:sessionListItem");
 
@@ -25,6 +27,8 @@ interface SessionListItemProps {
     roundCount?: number;
     messageCount: number;
     workspaceId?: string | null;
+    /** 持久化状态（#23：`paused` / `error` 需要可见徽标） */
+    status?: SessionStatus;
   };
   isActive: boolean;
   isEditing: boolean;
@@ -75,6 +79,8 @@ function SessionListItem({
   const workspaceName = session.workspaceId
     ? worktrees[session.workspaceId]?.name
     : null;
+  /** #23：状态徽标（正常态返回 null，不渲染） */
+  const statusBadge = resolveSessionStatusBadge(session.status);
 
   // R4 修复：单击延迟 250ms 执行切换，双击时第一次点击被取消——
   // 原 onClick + onDoubleClick 并存，双击先触发 2 次切换再重命名
@@ -194,6 +200,23 @@ function SessionListItem({
                       : "chat.streamingLabel",
                   )}
                 />
+              )}
+              {/* #23：持久化状态徽标 —— `paused` / `error` 会话此前与正常会话外观相同，
+                  用户必须能一眼看出"这轮没正常结束"（悬停给出说明，不暴露内部错误细节） */}
+              {statusBadge && (
+                <span
+                  role="status"
+                  className={`text-[10px] leading-4 px-1 rounded flex-shrink-0 ${
+                    statusBadge.tone === "danger"
+                      ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
+                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                  }`}
+                  title={t(statusBadge.hintKey)}
+                  aria-label={t(statusBadge.hintKey)}
+                  data-testid={`session-status-${session.id}`}
+                >
+                  {t(statusBadge.labelKey)}
+                </span>
               )}
               <SessionTitle
                 text={session.title}

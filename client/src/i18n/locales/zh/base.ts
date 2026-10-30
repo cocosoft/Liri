@@ -509,6 +509,27 @@ const zhBase = {
     contentMatch: "正文",
     filterHistory: "历史记录",
     filterPinned: "已固定",
+    /** #23：会话状态徽标（持久化状态 ⇒ 用户可见） */
+    sessionStatusPaused: "已暂停",
+    sessionStatusPausedHint:
+      "该会话已暂停：上一轮回复未正常结束（后端中断/等待恢复）。",
+    sessionStatusError: "出错",
+    sessionStatusErrorHint:
+      "该会话上一轮执行出错，未正常完成；可打开查看已有消息后重试。",
+    /** #23：空会话（0 条消息）默认折叠，可展开查看 */
+    emptySessionsToggle: "空会话 {{count}}",
+    emptySessionsToggleHint: "显示/隐藏 0 条消息的空会话",
+    /** #23：空会话一键清理（需用户确认） */
+    clearEmptySessions: "清理空会话 ({{count}})",
+    clearEmptySessionsTitle: "清理空会话",
+    clearEmptySessionsConfirm:
+      "将删除 {{count}} 个没有任何消息的会话，删除后不可恢复。确定继续吗？",
+    clearEmptySessionsAction: "清理",
+    clearEmptySessionsDone: "已清理 {{count}} 个空会话",
+    clearEmptySessionsFailed: "有 {{count}} 个空会话清理失败，请稍后重试",
+    /** #23：列表条数口径（本模块 / 全部） */
+    sessionListScopeHint:
+      "左侧为本模块会话数，右侧为已加载的全部会话；其他模块的会话不在本列表显示。",
     today: "今天",
     yesterday: "昨天",
     earlier: "更早",

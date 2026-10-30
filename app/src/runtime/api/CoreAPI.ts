@@ -386,6 +386,14 @@ export interface SessionInfo {
   roundCount: number;
   /** 渠道来源标识，如 'web'、'qq'、'discord' 等 */
   source?: string;
+  /**
+   * #23（2026-10-30）：会话**持久化状态**（10 态词表，见 `DataSessionStatus`）。
+   *
+   * 取值直接来自持久层 `UnifiedSession.status`，而非进程内存 `ChatSession.state`
+   * —— 后者对 `error` 曾无映射（见 `mapSessionStatusToState`），会把出错会话
+   * 显示成正常会话。前端据该字段渲染状态徽标。
+   */
+  status?: string;
   metadata?: Record<string, unknown>;
 }
 

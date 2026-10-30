@@ -14,8 +14,28 @@ export type ApprovalMode = "ask" | "auto-local";
  */
 export type ReplyEffortLevel = "low" | "medium" | "high" | "auto";
 
+/**
+ * #23（2026-10-30）：会话**持久化状态**（与后端 `DataSessionStatus` 10 态词表一致）。
+ *
+ * 来源：后端 `GET /v1/sessions`（`SessionInfo.status`，取自持久层 `UnifiedSession.status`）。
+ * 此前该字段未上接口 ⇒ 前端无从区分「正常 / 已暂停 / 出错」会话。
+ */
+export type SessionStatus =
+  | "active"
+  | "paused"
+  | "ended"
+  | "archived"
+  | "idle"
+  | "running"
+  | "requires_action"
+  | "completed"
+  | "error"
+  | "aborted";
+
 export interface Session {
   id: string;
+  /** 会话持久化状态（缺省 = 后端未提供，按正常会话处理） */
+  status?: SessionStatus;
   /** 会话的 Plan/Do 工作模式（源：metadata.workMode 展平） */
   workMode?: WorkMode;
   /** PR-3：会话级审批模式（源：metadata.approvalMode 展平；缺省 ask） */

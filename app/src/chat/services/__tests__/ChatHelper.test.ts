@@ -212,6 +212,22 @@ describe('ChatHelper — mapSessionStatusToState', () => {
     expect(mapSessionStatusToState('archived')).toBe(SessionState.ARCHIVED);
   });
 
+  // #23（2026-10-30）：原实现缺这三态 ⇒ 磁盘 status=error 的会话被加载成 ACTIVE
+  // （UI 无从显示"出错"，且再落检查点时把状态改写成 active）。
+  it('error 映射为 ERROR（保真，不再退化为 ACTIVE）', () => {
+    expect(mapSessionStatusToState('error')).toBe(SessionState.ERROR);
+  });
+
+  it('idle 映射为 IDLE', () => {
+    expect(mapSessionStatusToState('idle')).toBe(SessionState.IDLE);
+  });
+
+  it('requires_action 映射为 REQUIRES_ACTION', () => {
+    expect(mapSessionStatusToState('requires_action')).toBe(
+      SessionState.REQUIRES_ACTION
+    );
+  });
+
   it('未知状态默认映射为 ACTIVE', () => {
     expect(mapSessionStatusToState('unknown')).toBe(SessionState.ACTIVE);
   });

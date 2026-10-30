@@ -9,6 +9,7 @@
 
 import type { RootState } from "./root-store";
 import type { SessionRecord, Workspace } from "./root-store/types";
+import { inferModuleTypeFromWorkspaceId } from "./root-store/moduleContextSlice";
 
 // ─── Workspace Selectors ────────────────────────────────
 
@@ -101,6 +102,34 @@ export function sessionBelongsToProject(
     (session.projectId ?? "").trim() ||
     resolveSessionWorkspaceId(session.workspaceId ?? undefined);
   return effective === projectId;
+}
+
+/**
+ * #23（2026-10-30）：会话列表**作用域口径** —— 唯一判据（原逻辑内联在
+ * `SessionHistorySidebar.filteredSessions` 里，无法单测）。
+ *
+ * 口径：
+ * - 项目作用域（`scopeModuleType === "project"` 且有 `scopeProjectId`）：走
+ *   `sessionBelongsToProject`（`projectId` 优先、`workspaceId` 兜底），与项目页卡片同源；
+ * - 其余作用域：`Hub 记录的 moduleType` 优先，缺失按 `workspaceId` 反推（`proj_*`
+ *   这类无法反推的 id 归入 `chat`），再与作用域比较。
+ *
+ * 为什么单列一个函数：UI 条数与磁盘会话数"对不上"时，必须先能证明**过滤口径**是什么
+ * （跨模块会话本就不该出现在本模块列表里）——判据固定在这里，回归由单测锁定。
+ */
+export function sessionMatchesModuleScope(
+  session: { workspaceId?: string | null; projectId?: string | null },
+  hubModuleType: string | undefined,
+  scopeModuleType: string,
+  scopeProjectId?: string,
+): boolean {
+  if (scopeModuleType === "project" && scopeProjectId) {
+    return sessionBelongsToProject(session, scopeProjectId);
+  }
+  const moduleType =
+    hubModuleType ??
+    inferModuleTypeFromWorkspaceId((session.workspaceId ?? "").trim());
+  return moduleType === scopeModuleType;
 }
 
 /** 当前 worktree 下所有 session */

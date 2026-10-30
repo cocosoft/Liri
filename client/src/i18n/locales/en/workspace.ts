@@ -1806,6 +1806,9 @@ const enWorkspace = {
     showInternal: "Show {{count}} internal traces",
     noDeliverables:
       "No deliverables yet. Once the conversation starts, AI outputs will appear here automatically.",
+    // #26: this panel lists project files (including checklist documents), not tasks/tickets.
+    deliverablesHint:
+      "These are project files (including checklist documents), not tasks or tickets.",
     deliverable: "Deliverable",
     deliverableSandbox: "Deliverable (sandbox)",
   },

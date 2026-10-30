@@ -263,7 +263,9 @@ const zhBase = {
     accountProfile: "账户信息",
     dashboard: "仪表盘",
     files: "文件",
-    backgroundStatus: "后台任务",
+    // #26（2026-10-30）：导航名对齐页面 h2（`backgroundStatus.title` = 运行状况）——
+    // 原「后台任务」与「任务」入口同名不同义（该页是 Dream/Buddy 运行观测，不是待办）。
+    backgroundStatus: "运行状况",
     settings: "设置",
     office: "办公",
     media: "媒体",

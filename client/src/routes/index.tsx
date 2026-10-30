@@ -525,7 +525,11 @@ export const routes: RouteObject[] = [
   },
 
   // 重定向路由
-  { path: "/plans", element: <Navigate to="/tasks" replace /> },
+  // #26（2026-10-30）：`/tasks` 已按用户裁定改挂「定时任务」（CronPage，见 #25），
+  // 故 `/plans` 必须指向 `cron` 的规范路径 —— 此前跳 `/tasks`，用户看到的是"计划"
+  // 菜单却落在定时任务页，URL 名与页面内容错位。等 #25 把任务数据源接好、恢复独立
+  // 「计划」页后再改回。
+  { path: "/plans", element: <Navigate to="/cron" replace /> },
   { path: "/semantic", element: <Navigate to="/knowledge" replace /> },
 
   // 终端

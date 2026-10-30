@@ -1763,6 +1763,9 @@ const zhWorkspace = {
     hideInternal: "隐藏内部轨迹",
     showInternal: "显示 {{count}} 条内部轨迹",
     noDeliverables: "暂无成果。开始对话后，AI 产出物会自动出现在这里。",
+    // #26（2026-10-30）：本面板列的是**文件**（含「待修复任务清单.md」这类文档），
+    // 而非常规意义上的任务/工单数据 —— 加一行口径说明，避免被误读成任务列表。
+    deliverablesHint: "以下为项目产出的文件（含清单类文档），不是任务/工单数据。",
     deliverable: "成果",
     deliverableSandbox: "成果（沙箱）",
   },

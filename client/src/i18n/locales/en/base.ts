@@ -269,7 +269,9 @@ const enBase = {
     accountProfile: "Account Info",
     dashboard: "Dashboard",
     files: "Files",
-    backgroundStatus: "Background Tasks",
+    // #26: align with the page heading (`backgroundStatus.title`) — this page observes
+    // Dream/Buddy runs, it is not a to-do list.
+    backgroundStatus: "Runtime Status",
     settings: "Settings",
     office: "Office",
     media: "Media",

@@ -95,6 +95,11 @@ export const ProjectDeliverablesPanel: React.FC<Props> = ({
 
   return (
     <div className="p-2 space-y-1.5">
+      {/* #26：口径说明 —— 这里列的是文件（可能是"待修复任务清单.md"这类文档），
+          不是任务/工单数据，避免被误读成任务列表 */}
+      <p className="px-1 text-[10px] leading-4 text-gray-400 dark:text-gray-500">
+        {t("projects.deliverablesHint")}
+      </p>
       {/* 正式成果（ProjectArtifactStore） */}
       {artifacts.map((a) => (
         <div

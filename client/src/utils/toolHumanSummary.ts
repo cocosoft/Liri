@@ -444,14 +444,80 @@ function buildToolHumanSummary(toolCall: ToolCall): string {
       const firstArgStr = typeof firstArg === "string" ? firstArg : "";
       if (firstArgStr) {
         return formatSummary(
-          name,
+          // #29（2026-10-30）：这里原先用**原始工具名**（`session_lookup`），与同行的
+          // 中文显示名并排就出现「会话查询 session_lookup …」「任务管理 管理任务」重复；
+          // 统一改用显示名，再由 `stripDuplicateToolPrefix` 去一次重。
+          getToolDisplayName(name),
           firstArgStr.length > 30
             ? firstArgStr.slice(0, 30) + "..."
             : firstArgStr,
         );
       }
-      return name;
+      return getToolDisplayName(name);
   }
+}
+
+/**
+ * #29（2026-10-30）：去掉摘要里与标题**重复的前缀**（"任务管理 管理任务" → "管理任务"）。
+ *
+ * 折叠标题的两种版式都会把「显示名」和「人话摘要」并排：
+ * `ToolCallGroup` 的 card 版式 = `displayName` + `summary`，inline 版式 = `summary || displayName`。
+ * 未知工具走默认摘要分支时摘要以工具名开头 ⇒ 两段叠成重复词。此处按"显示名 + 分隔符"剥一层，
+ * 只剥**完全匹配的前缀**，不改动摘要其余语义。
+ */
+export function stripDuplicateToolPrefix(
+  displayName: string,
+  summary: string,
+): string {
+  if (!displayName || !summary) return summary;
+  if (!summary.startsWith(displayName)) return summary;
+  const rest = summary.slice(displayName.length);
+  // 允许的分隔符：空白 / 冒号 / 破折号（中英文）
+  return rest.replace(/^[\s:：\-—–]+/, "");
+}
+
+/** 工具组聚合状态（#29：由**全部** tool_call 块推导，而非取第一块） */
+export type ToolGroupStatus =
+  | "completed"
+  | "running"
+  | "pending_approval"
+  | "failed";
+
+/**
+ * #29（2026-10-30）：工具组状态 = 全组聚合，不再"取第一条调用的状态"。
+ *
+ * 真机症状：已完成的组仍显示「正在执行命令」/ 组头是 ✅ 但文案是进行中 / 已完成消息下
+ * 还挂着「⏳ 等待审批」。根因是原实现 `for (block) return block.toolCall.status` 只看第一块。
+ *
+ * 口径（自上而下短路）：有**正在执行** ⇒ running；否则有**待审批** ⇒ pending_approval；
+ * 否则有**失败** ⇒ failed；否则 completed。
+ */
+export function resolveGroupStatus(
+  blocks: ReadonlyArray<{
+    type: string;
+    isStreaming?: boolean;
+    toolCall?: { status?: string; pendingApproval?: boolean };
+  }>,
+): ToolGroupStatus {
+  let hasTool = false;
+  let anyRunning = false;
+  let anyPending = false;
+  let anyFailed = false;
+
+  for (const block of blocks) {
+    if (block.type !== "tool_call") continue;
+    hasTool = true;
+    const tc = block.toolCall;
+    if (tc?.status === "running" || block.isStreaming) anyRunning = true;
+    if (tc?.pendingApproval) anyPending = true;
+    if (tc?.status === "failed") anyFailed = true;
+  }
+
+  if (anyRunning) return "running";
+  if (anyPending) return "pending_approval";
+  if (anyFailed) return "failed";
+  if (hasTool) return "completed";
+  return blocks.some((b) => b.isStreaming) ? "running" : "completed";
 }
 
 // ============================================================

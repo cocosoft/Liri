@@ -7,6 +7,7 @@ import { useChatStore } from "../../stores/chat";
 import {
   getToolDisplayName,
   getToolHumanSummary,
+  resolveGroupStatus,
 } from "../../utils/toolHumanSummary";
 import GroupStatusLine from "./GroupStatusLine";
 import { getToolResultFull } from "../../stores/chat/chat-message-shared";
@@ -63,21 +64,8 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   }, [blocks, t]);
 
   const status = useMemo(() => {
-    // P2-2: 审批等待态优先（结构化标记，非字符串匹配）
-    for (const block of blocks) {
-      if (block.type === "tool_call" && block.toolCall?.pendingApproval) {
-        return "pending_approval";
-      }
-    }
-    // 优先使用 tool_call 块自带的状态字段
-    for (const block of blocks) {
-      if (block.type === "tool_call" && block.toolCall?.status) {
-        return block.toolCall.status;
-      }
-    }
-
-    // 回退：基于 isStreaming 判断（避免字符串匹配 CS02 违规）
-    return blocks.some((b) => b.isStreaming) ? "running" : "completed";
+    // #29（2026-10-30）：全组聚合（原实现取第一块 ⇒ 已完成组仍显示执行中/待审批）
+    return resolveGroupStatus(blocks);
   }, [blocks]);
 
   const statusConfig = useMemo(() => {
@@ -266,6 +254,8 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
                     defaultValue: "{{count}} 个工具调用",
                   })}
               <span className="font-normal text-xs text-gray-400 ml-1">
+                {/* #29：补分隔符 —— 原实现直接拼成「118 个工具调用107/118」，两段粘在一起 */}
+                {" · "}
                 {aggregateStats.completed}/{aggregateStats.total}
                 {aggregateStats.failed > 0 && (
                   <span className="text-red-400 ml-1">

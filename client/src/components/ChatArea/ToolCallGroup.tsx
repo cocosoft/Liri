@@ -19,6 +19,7 @@ import {
   getToolHumanSummary,
   isMediaDisplayToolName,
   isMediaToolName,
+  stripDuplicateToolPrefix,
 } from "../../utils/toolHumanSummary";
 import { formatKey } from "../../utils/formatKey";
 import { formatValue } from "../../utils/formatValue";
@@ -174,6 +175,8 @@ function ToolCallGroup({
 
   const humanSummary = getToolHumanSummary(toolCall);
   const displayName = getToolDisplayName(toolCall.name);
+  // #29（2026-10-30）：摘要与标题重复前缀只保留一份（"任务管理 管理任务" → "管理任务"）
+  const summary = stripDuplicateToolPrefix(displayName, humanSummary);
 
   /** U-06-5: 审批等待且带 Inbox 项 id ⇒ 工具卡片就地审批（无需另找 Inbox 卡片） */
   const approvalBar =
@@ -279,7 +282,7 @@ function ToolCallGroup({
           <span className="shrink-0">{statusIcon}</span>
           {pendingBadge}
           <span className="min-w-0 truncate">
-            {humanSummary || displayName}
+            {summary || displayName}
           </span>
           {isStreaming && (
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse shrink-0" />
@@ -314,9 +317,9 @@ function ToolCallGroup({
         <span className="flex-1 font-medium text-gray-200 overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
           {displayName}
         </span>
-        {humanSummary && (
+        {summary && (
           <span className="text-[#565f89] text-[11px] overflow-hidden text-ellipsis whitespace-nowrap max-w-[160px] shrink">
-            {humanSummary}
+            {summary}
           </span>
         )}
         <span className="text-[10px] shrink-0">

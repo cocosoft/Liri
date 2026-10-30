@@ -5,9 +5,10 @@
  * Phase 3: 凭证脱敏 + 插件检测 + 保存/保存并应用
  */
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useChannelStore } from "../../stores/channelStore";
+import { useOnceOnMount } from "../../hooks/useOnceOnMount";
 import ChannelStatsPanel from "./ChannelStatsPanel";
 import ChannelFilterBar from "./ChannelFilterBar";
 import ChannelFormModal from "./ChannelFormModal";
@@ -107,9 +108,11 @@ function ChannelsPage() {
     getStats,
   } = useChannelStore();
 
-  useEffect(() => {
+  // M9（2026-10-30）：首屏只拉一次 —— StrictMode 下 effect 双执行会让
+  // `GET /v1/channels`（及其 schema）各请求 2 次。
+  useOnceOnMount(() => {
     loadChannels();
-  }, [loadChannels]);
+  });
 
   const filteredChannels = getFilteredChannels();
   const stats = getStats();

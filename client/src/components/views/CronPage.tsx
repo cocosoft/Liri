@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useCronStore } from "../../stores/cronStore";
+import { useOnceOnMount } from "../../hooks/useOnceOnMount";
 import { SkeletonCard } from "../common/Skeleton";
 import CronExecutionHistory from "../Cron/CronExecutionHistory";
 import CronRetryConfig from "../Cron/CronRetryConfig";
@@ -65,11 +66,12 @@ function CronPage() {
     type: "success" | "error" | "info";
   } | null>(null);
 
-  useEffect(() => {
+  // M15（2026-10-30）：首屏只拉一次 —— StrictMode 下 effect 双执行会各请求 2 次
+  // （真机实测 `GET /v1/cron`、`GET /v1/cron/status` 各 2 次）。
+  useOnceOnMount(() => {
     loadTasks();
     loadStatus();
-  }, [loadTasks, loadStatus]);
-
+  });
   // 每 30s 刷新调度器状态
   useEffect(() => {
     const interval = setInterval(() => {

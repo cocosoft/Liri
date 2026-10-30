@@ -28,6 +28,23 @@ import { publishOrchestrationProjection } from '../../state/engine/orchestration
 
 const logger = getLogger('chat:pdcaLauncher');
 
+/**
+ * #28（2026-10-30）：正文是否像"被序列化的工具结果"（`{"data":…,"success":…}`）。
+ *
+ * 仅用于**写入侧兜底**：正常叙述文本极少以 `{` 开头且整体可 `JSON.parse`。
+ * 命中即跳过回写（并 warn），避免原始 JSON 直达用户气泡。
+ */
+export function looksLikeSerializedJson(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return false;
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    return !!parsed && typeof parsed === 'object' && !Array.isArray(parsed);
+  } catch {
+    return false;
+  }
+}
+
 /** T2-8 只读一致性观测：已告警过的会话（一次性，避免长程编排重复噪声） */
 const warnedNoParentExecution = new Set<string>();
 
@@ -456,6 +473,19 @@ export class PdcaLauncher {
         ) => {
           if (!this.deps.sessionMap.has(sid)) return;
           for (const m of msgs) {
+            // #28（2026-10-30）：任务回写只承载**叙述文本**。
+            // tool 消息已有真实工具块，不该再以 assistant 气泡出现；
+            // 另外兜底拦掉"整包 JSON"（真机 144 条 `{"data":…}` 气泡的来源），
+            // 避免上游任何一处仍在 JSON.stringify 工具结果时再次污染会话。
+            if (m.role !== 'assistant') continue;
+            if (looksLikeSerializedJson(m.content)) {
+              logger.warn('任务消息回写跳过：正文疑似序列化 JSON', {
+                sessionId: sid,
+                taskId,
+                preview: m.content.slice(0, 80),
+              });
+              continue;
+            }
             this.deps.persistMessage(
               sid,
               this.deps.messageService.createAssistantMessage(m.content, {

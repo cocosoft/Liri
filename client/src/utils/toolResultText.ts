@@ -101,3 +101,51 @@ export function decodeToolResultContent(value: string): string {
   }
   return text;
 }
+
+/**
+ * #28（2026-10-30）：识别"整包工具结果被当成 assistant 正文"的历史消息，并给一句可读摘要。
+ *
+ * 真机（`session_mvoqs1ho875ea6b95e`）：405 条 assistant 里 **144 条**正文是
+ * `{"data":…,"success":false,"error":…}` —— 由任务回写路径 `JSON.stringify(工具结果)`
+ * 写入。写入侧已修（见 `tasks/lro/stepExecution` 与 `PdcaLauncher.onTaskMessage`），
+ * 但**已落盘的历史消息**仍需渲染侧兜底：这里把整包 JSON 折叠成一句人话，绝不原样铺开。
+ *
+ * @returns 命中 ⇒ 可读摘要；非工具结果 JSON ⇒ `null`（调用方原样处理）
+ */
+export function summarizeSerializedToolResult(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    // @ignore-catch — 非法 JSON：不是"序列化工具结果"，交回调用方
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const record = parsed as Record<string, unknown>;
+  // 保守识别：必须同时有 success 布尔位 + (data 或 error)，避免误伤普通 JSON 正文
+  const hasSuccess = typeof record.success === "boolean";
+  const hasPayload = "data" in record || "error" in record;
+  if (!hasSuccess || !hasPayload) return null;
+
+  if (record.success === false) {
+    const reason =
+      typeof record.error === "string" && record.error.trim()
+        ? record.error.trim()
+        : "未提供原因";
+    return `⚠️ 工具执行失败：${reason}`;
+  }
+  for (const key of ["output", "content"]) {
+    const text = record[key];
+    if (typeof text === "string" && text.trim()) {
+      const short = text.trim().slice(0, 200);
+      return `工具返回：${short}${text.trim().length > 200 ? "…" : ""}`;
+    }
+  }
+  if (typeof record.data === "string" && record.data.trim()) {
+    const short = record.data.trim().slice(0, 200);
+    return `工具返回：${short}${record.data.trim().length > 200 ? "…" : ""}`;
+  }
+  return "工具返回了结构化结果（已折叠）";
+}

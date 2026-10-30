@@ -15,7 +15,10 @@ import {
   stripProtocolTagsInBlocks,
 } from "./chat-toolcall.slice";
 import { setSessionCache, enqueueSaveBlocks } from "./chat-history.slice";
-import { decodeToolResultContent } from "@/utils/toolResultText";
+import {
+  decodeToolResultContent,
+  summarizeSerializedToolResult,
+} from "@/utils/toolResultText";
 import { restorePlanTasks } from "@/utils/planRestore";
 import { handleClientError } from "@/utils/handleError";
 import {
@@ -126,7 +129,16 @@ export function setMessagesImpl(
           blocks: msg.blocks.filter((b) => b.type !== "progress"),
         });
       } else {
-        filteredMessages.push(msg);
+        // #28（2026-10-30）：历史 assistant 正文若是"整包工具结果 JSON"
+        // （真机 144 条 `{"data":…,"success":…}`），折叠成一句可读摘要再入列表，
+        // 绝不把原始 JSON 铺到气泡里。写入侧已同步修复，这里只兜历史数据。
+        const summarized =
+          msg.role === "assistant" && typeof msg.content === "string"
+            ? summarizeSerializedToolResult(msg.content)
+            : null;
+        filteredMessages.push(
+          summarized ? { ...msg, content: summarized } : msg,
+        );
       }
     }
 

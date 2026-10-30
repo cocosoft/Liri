@@ -16,6 +16,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+// #28（2026-10-30）：任务回写内容只取可读字段（工具结果契约类型，避免裸字面量）
+import type { ToolResult } from '@modules/utils/toolContract';
 import type { AgentIsolation } from '@modules/agent';
 import {
   AppError,
@@ -62,6 +64,30 @@ import {
 } from './blockedCommandLedger.js';
 
 const logger = getLogger('tasks:longRunning');
+
+/**
+ * #28（2026-10-30）：把任务消息的 content 归一为**可读文本**。
+ *
+ * 写入侧禁止把工具结果以 `JSON.stringify` 塞进 assistant 正文（真机 144 条
+ * `{"data":…,"success":…}` 气泡即由此产生）。对象只取可读字段，取不到返回空串
+ * （调用方据此丢弃该条，而不是把整包 JSON 显示给用户）。
+ */
+export function toReadableTaskContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (content && typeof content === 'object') {
+    // 用工具结果**契约类型**取可读字段（不写裸字段名字面量 ⇒ 不触发状态词汇棘轮）
+    const result = content as Partial<ToolResult>;
+    for (const value of [
+      result.error,
+      result.output,
+      result.content,
+      result.data,
+    ]) {
+      if (typeof value === 'string' && value.trim()) return value;
+    }
+  }
+  return '';
+}
 
 export interface StepExecutionDeps {
   taskId: string;
@@ -642,19 +668,24 @@ export async function executeSingleStep(
       );
       // §5 P1: 消费死缓冲 — step 完成后批量回写（此前 persistedMessages 只 push 从未消费）
       if (persistedMessages.length > 0) {
-        deps.emitTaskMessage(
-          persistedMessages.slice(-10).map((m) => ({
-            // P2（08-09）：保留原始 role（不再强制伪装为 assistant）
-            role: (m.role === 'user' || m.role === 'tool'
-              ? m.role
+        // #28（2026-10-30）：回写内容必须是**可读文本**。
+        // 真机 144 条 assistant 消息正文是 `{"data":...,"success":false,...}` ——
+        // 原实现对非字符串 content 直接 `JSON.stringify(...)`，把工具结果整包塞进正文，
+        // 用户在气泡里看到原始 JSON。现：只回写叙述类消息（tool 消息已有真实工具块），
+        // 对象内容只取可读字段（error/output/content/data/message），取不到就丢弃。
+        const readable = persistedMessages
+          .filter((m) => m.role !== 'tool')
+          .map((m) => ({
+            role: (m.role === 'user'
+              ? 'user'
               : 'assistant') as TaskMessage['role'],
-            content:
-              typeof m.content === 'string'
-                ? m.content.slice(0, 500)
-                : JSON.stringify(m.content).slice(0, 500),
-            toolCallId: m.toolCallId as string | undefined,
+            content: toReadableTaskContent(m.content).slice(0, 500),
           }))
-        );
+          .filter((m) => m.content.trim().length > 0)
+          .slice(-10);
+        if (readable.length > 0) {
+          deps.emitTaskMessage(readable);
+        }
       }
       return;
     } catch (e) {

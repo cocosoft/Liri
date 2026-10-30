@@ -141,3 +141,64 @@ export function selectVisiblePageStart<T extends { role?: string }>(
   if (hardCap > 0 && len - aligned > hardCap) return len - hardCap;
   return aligned;
 }
+
+/**
+ * C1（2026-10-30，一致性核查）：把分页窗口起点**扩到整轮**，并保证首屏至少覆盖最近 N 轮。
+ *
+ * 背景（真机 `session_mvquoj3z9ce98e6845`，`limit=30&maxVisible=10`）：单轮 57 条工具记录
+ * 撑满 `hardCap=60` ⇒ `selectVisiblePageStart()` 退回纯行数窗口（`len-60`），首屏只剩
+ * 3 条可见（1 user + 2 assistant），且"恰好整轮"只是巧合；一旦该轮跨过边界，页首就落在
+ * **轮中**（前端只能按残片渲染）。
+ *
+ * 规则（顺序执行）：
+ *  ① **不切半轮**：页首不是 `user` ⇒ 回退到该轮 `user` 处（上界 `completeRoundMaxRows`：
+ *     "看到完整一轮"优先于行数预算 —— 自主执行会话常见一轮 200+ 条工具记录）；
+ *  ② **至少 `minRounds` 轮**：窗口内 `user` 条数不足 ⇒ 继续向前补整轮（上界 `maxRows`）；
+ *  ③ 任一步会让窗口超过对应上界 ⇒ 停止（响应体有界，宁可少一轮）。
+ *
+ * @param list 已按权威顺序排好的消息列表
+ * @param start `selectVisiblePageStart()` 等给出的候选页首
+ * @param options.minRounds 首屏至少覆盖的轮数（缺省 2）
+ * @param options.maxRows 补轮的行数上界（缺省不限制）
+ * @param options.completeRoundMaxRows "补齐当前轮"的行数上界（缺省同 `maxRows`）
+ * @returns 扩窗后的页首下标（无法安全扩展时返回入参）
+ */
+export function extendPageStartToWholeRounds<T extends { role?: string }>(
+  list: readonly T[],
+  start: number,
+  options: {
+    minRounds?: number;
+    maxRows?: number;
+    completeRoundMaxRows?: number;
+  } = {}
+): number {
+  const len = list.length;
+  if (start <= 0 || start >= len) return start <= 0 ? 0 : start;
+  const minRounds = Math.max(1, options.minRounds ?? 2);
+  const maxRows = options.maxRows ?? len;
+  const completeRoundMaxRows = options.completeRoundMaxRows ?? maxRows;
+  const isUser = (i: number) =>
+    String(list[i]?.role ?? '').toLowerCase() === 'user';
+  const prevUser = (from: number): number => {
+    for (let i = from - 1; i >= 0; i--) if (isUser(i)) return i;
+    return -1;
+  };
+
+  let next = start;
+  // ① 不切半轮
+  if (!isUser(next)) {
+    const aligned = prevUser(next);
+    if (aligned >= 0 && len - aligned <= completeRoundMaxRows) next = aligned;
+  }
+
+  // ② 至少 minRounds 轮（缺一轮就向前补一轮，受 maxRows 约束）
+  let rounds = 0;
+  for (let i = next; i < len; i++) if (isUser(i)) rounds++;
+  while (rounds < minRounds) {
+    const prev = prevUser(next);
+    if (prev < 0 || len - prev > maxRows) break;
+    next = prev;
+    rounds++;
+  }
+  return next;
+}

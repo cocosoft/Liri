@@ -42,6 +42,7 @@ import {
 import { dedupeMessagesToolCallBlocks } from '@modules/utils/chatBlocks';
 import {
   alignPageStartToTurn,
+  extendPageStartToWholeRounds,
   selectVisiblePageStart,
   withPaginationSeq,
 } from './paginationSeq';
@@ -383,7 +384,18 @@ export class SessionMessagesRead {
     // 既保证至少够 maxVisible 条可见内容，也不让工具密集页无界膨胀。
     if (maxVisible != null && maxVisible > 0) {
       const hardCap = Math.max(limit ?? 0, maxVisible * 6);
-      const start = selectVisiblePageStart(filtered, maxVisible, { hardCap });
+      const visibleStart = selectVisiblePageStart(filtered, maxVisible, {
+        hardCap,
+      });
+      // C1（2026-10-30）：不切半轮 + 首屏至少覆盖最近 2 轮。
+      //  - 补齐当前轮的上界放宽到 8×hardCap：自主执行会话一轮常达 200+ 条工具记录，
+      //    只有整轮返回，首屏才有"提问 + 回复"（退到 2× 时真机仍只见 AI 文本）；
+      //  - 多补一轮的上界维持 2×hardCap：不让响应体无界膨胀。
+      const start = extendPageStartToWholeRounds(filtered, visibleStart, {
+        minRounds: 2,
+        maxRows: hardCap * 2,
+        completeRoundMaxRows: hardCap * 8,
+      });
       return { messages: filtered.slice(start), hasMore: start > 0 };
     }
 

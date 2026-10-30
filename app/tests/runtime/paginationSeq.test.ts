@@ -31,6 +31,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   alignPageStartToTurn,
+  extendPageStartToWholeRounds,
   selectVisiblePageStart,
   withPaginationSeq,
 } from '../../src/runtime/api/paginationSeq';
@@ -252,5 +253,98 @@ describe('selectVisiblePageStart（#27 可见条目预算）', () => {
     ];
     // 可见 2 条 < 3 ⇒ 全量
     expect(selectVisiblePageStart(list, 3)).toBe(0);
+  });
+});
+
+/**
+ * C1（2026-10-30）：扩窗到整轮 —— 真机 `session_mvquoj3z9ce98e6845` 单轮 57 条工具记录
+ * 吃满 `hardCap=60`，首屏只剩 3 条可见；扩窗后应覆盖最近 2 整轮，且不切半轮、响应体有界。
+ */
+describe('extendPageStartToWholeRounds（C1 整轮扩窗）', () => {
+  const rows = (roles: string[]) =>
+    roles.map((role, i) => ({ id: `m${i}`, role }));
+
+  test('页首落在轮中 ⇒ 回退到该轮 user（不切半轮）', () => {
+    const list = rows([
+      'user',
+      'assistant',
+      'tool',
+      'user',
+      'assistant',
+      'tool',
+    ]);
+    // 候选页首 = 下标 4（assistant，属于第 2 轮）⇒ 回退到下标 3
+    // （minRounds=1 只验①；默认 minRounds=2 会继续补到下标 0）
+    expect(extendPageStartToWholeRounds(list, 4, { minRounds: 1 })).toBe(3);
+  });
+
+  test('窗口只有 1 轮 ⇒ 向前补到 2 轮', () => {
+    const list = rows([
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+      'tool',
+      'tool',
+      'assistant',
+    ]);
+    // 候选页首 = 2（最后一轮起点），只有 1 轮 ⇒ 补到下标 0（两轮）
+    expect(extendPageStartToWholeRounds(list, 2)).toBe(0);
+  });
+
+  test('行数上界生效 ⇒ 不再扩窗（响应体有界）', () => {
+    const list = rows([
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+      'tool',
+      'tool',
+      'assistant',
+    ]);
+    // maxRows=4：补第 1 轮需要 7 行 ⇒ 保持候选页首 2
+    expect(extendPageStartToWholeRounds(list, 2, { maxRows: 4 })).toBe(2);
+  });
+
+  test('补齐当前轮的上界可独立放宽（completeRoundMaxRows）', () => {
+    // 两轮，每轮 5 行；候选页首=7（第 2 轮轮中）
+    const list = rows([
+      'user',
+      'assistant',
+      'tool',
+      'tool',
+      'tool',
+      'user',
+      'assistant',
+      'tool',
+      'tool',
+      'tool',
+    ]);
+    // 补轮上界只有 2 行（补不了第 1 轮），但补齐当前轮放宽到 5 行 ⇒ 回退到第 2 轮起点 5
+    expect(
+      extendPageStartToWholeRounds(list, 7, {
+        maxRows: 2,
+        completeRoundMaxRows: 5,
+      })
+    ).toBe(5);
+  });
+
+  test('minRounds=3 时补到 3 轮（够则补，不够则停）', () => {
+    const list = rows([
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+      'user',
+      'assistant',
+    ]);
+    expect(extendPageStartToWholeRounds(list, 4, { minRounds: 3 })).toBe(0);
+    expect(extendPageStartToWholeRounds(list, 0, { minRounds: 3 })).toBe(0);
+  });
+
+  test('页首已是最早（0）/ 越界 ⇒ 原样返回', () => {
+    const list = rows(['user', 'assistant']);
+    expect(extendPageStartToWholeRounds(list, 0)).toBe(0);
+    expect(extendPageStartToWholeRounds(list, 5)).toBe(5);
   });
 });

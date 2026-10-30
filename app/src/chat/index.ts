@@ -19,8 +19,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-import { createChatService } from './services/chatService';
-export { createChatService };
+// M7（2026-10-30，一致性核查）：**已摘除遗留 `ChatService` 的入口**（CD05 第一步）。
+// 事实：`createChatService` 全仓零消费者（`SaveConversationTool` / `BriefTool` 的注释亦记
+// 「旧 chatService 无写入方」）；它唯一的作用是把会话写进 `data/chat_sessions/`（实测 0 文件），
+// 与事件流真源构成"第三套存储面"。按 CD05：先摘入口（本处）→ 观察无运行时消费者 →
+// 再删实现（`services/chatService.ts`）。回滚 = 恢复本文件的 3 行导出。
 export type { ChatService } from './models/types';
 
 // ChatManager 核心导出
@@ -89,9 +92,6 @@ export type { Message, ContentBlock } from '@modules/session/types/message';
 export type { DataSessionStatus } from '@modules/session/types/session';
 export type { ToolCall, ToolResult } from '@modules/session/types/tool';
 export type { ToolUseBlock } from '@modules/session/types/ToolUseBlock';
-
-const chatService = createChatService();
-export default chatService;
 
 export * from './ChatManagerInterface.js';
 

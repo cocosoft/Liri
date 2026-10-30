@@ -1153,8 +1153,10 @@ export class PowerShellSecurityAnalyzer {
       },
       {
         name: 'download_execution',
+        // 2026-10-30（外部建议 #3 取证）：补 `irm` / `iwr` 官方短别名 —— 原模式只认长名与
+        // curl/wget，实测 `iwr https://… -OutFile a.ps1` 这类最常见写法**零命中**。
         pattern:
-          /(?:invoke-webrequest|invoke-restmethod|curl|wget).*[-/]?(?:outfile|saveas)/i,
+          /\b(?:irm|iwr|invoke-webrequest|invoke-restmethod|curl|wget)\b.*[-/]?(?:outfile|saveas)/i,
         riskLevel: 'medium',
         behavior: 'ask',
         message: '下载并执行需要确认',
@@ -1191,7 +1193,9 @@ export class PowerShellSecurityAnalyzer {
       // V7 修复：补充 PowerShell 危险命令（安全审计发现）
       {
         name: 'invoke_expression',
-        pattern: /invoke-expression\s+|iex\s+/i,
+        // 2026-10-30（外部建议 #3 取证）：原为 `invoke-expression\s+|iex\s+`，要求**尾随空白**
+        // ⇒ 最常见的下载执行形态 `irm https://… | iex`（`iex` 在串尾）漏判。改为词边界匹配。
+        pattern: /\binvoke-expression\b|\biex\b/i,
         riskLevel: 'critical',
         behavior: 'deny',
         message: '禁止 Invoke-Expression（iex），可执行任意代码',

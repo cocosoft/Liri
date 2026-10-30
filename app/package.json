@@ -177,7 +177,8 @@
     "native:test": "cd native && cargo test",
     "native:clean": "cd native && cargo clean",
     "native:check": "cd native && cargo check",
-    "preview:project-backfill": "bun run scripts/preview-session-project-backfill.ts"
+    "preview:project-backfill": "bun run scripts/preview-session-project-backfill.ts",
+    "split:session-messages": "bun run scripts/split-session-messages.ts"
   },
   "keywords": [
     "ai",

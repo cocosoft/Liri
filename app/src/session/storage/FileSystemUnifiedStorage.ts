@@ -23,6 +23,14 @@ import type {
 import { SessionStatus } from '../types/UnifiedSession.js';
 import type { UnifiedMessage } from '../types/UnifiedMessage.js';
 import { AtomicWriter } from '../persistence/AtomicWriter.js';
+// M8（2026-10-30）：消息投影分片（唯一实现在 `./messageSegments`）
+import {
+  MESSAGE_SEGMENT_MAX_BYTES,
+  MESSAGE_SEGMENT_MAX_LINES,
+  listMessageSegments,
+  planMessageSplit,
+  segmentFileName,
+} from './messageSegments.js';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
@@ -106,6 +114,14 @@ function sessionFilePath(basePath: string, sessionId: string): string {
 function messagesFilePath(basePath: string, sessionId: string): string {
   return path.join(sessionDir(basePath, sessionId), 'messages.jsonl');
 }
+
+/**
+ * M8（2026-10-30，一致性核查）：消息投影的分片唯一实现在 `./messageSegments`
+ * （`planMessageSplit` / `listMessageSegments` / `segmentFileName`）。
+ *
+ * 布局：旧内容切到 `messages.0001.jsonl`…，**活动尾文件仍是 `messages.jsonl`**
+ * ⇒ 写路径只追加尾文件；读侧「分片升序 + 尾文件」拼接后沿用既有的反向去重。
+ */
 
 /**
  * 增量写入方案（2026-08-14）：updateMessage 改为 O(1) 追加后，同 id 在
@@ -372,8 +388,27 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     // A（2026-09-26）：读**实体所在分区**的消息文件（历史分区会话不再恒 ENOENT）
     const root = this.rootFor(sessionId);
     const filePath = messagesFilePath(root, sessionId);
+    const dirPath = sessionDir(root, sessionId);
     try {
-      const data = await fs.readFile(filePath, 'utf-8');
+      // M8（2026-10-30）：**分片兼容读** —— 分片按序号升序在前、活动尾文件 `messages.jsonl` 在后；
+      // 无分片时与原实现逐字等价（单次 readFile）。尾文件缺失但存在分片 ⇒ 按分片读取
+      // （**不**走 K-6 僵尸自愈，否则会删掉真实历史）。
+      const segments = await listMessageSegments(dirPath);
+      const parts: string[] = [];
+      for (const name of segments) {
+        parts.push(await fs.readFile(path.join(dirPath, name), 'utf-8'));
+      }
+      try {
+        parts.push(await fs.readFile(filePath, 'utf-8'));
+      } catch (tailErr) {
+        if (segments.length === 0) throw tailErr;
+        logger.warn('loadMessages:尾文件缺失但存在分片，按分片读取', {
+          sessionId,
+          segments: segments.length,
+          filePath,
+        });
+      }
+      const data = parts.join('\n');
       const lines = data.split('\n').filter((l) => l.trim().length > 0);
       // 增量写入方案（2026-08-14）：updateMessage 改为追加后同 id 可能多行，
       // 反向去重——后写覆盖先写（Map.set 天然覆盖），兼容旧全量重写格式
@@ -595,8 +630,55 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     const root = this.rootFor(sessionId); // A：全量重写与实体同分区
     const dir = sessionDir(root, sessionId);
     await fs.mkdir(dir, { recursive: true });
-    const data = messages.map((m) => JSON.stringify(m)).join('\n') + '\n';
-    await this.writer.write(messagesFilePath(root, sessionId), data);
+    const lines = messages.map((m) => JSON.stringify(m));
+    // M8（2026-10-30）：compact 重写同样输出**分片布局** —— 否则每次 compact 都把全量历史
+    // 写回单个 `messages.jsonl`，分片被还原成重复内容（体积回到 17 MB）。
+    // 仅对**有事件日志**的会话启用分片：v0 legacy 的投影是唯一真源，切分会让
+    // `MessageToEventMigrator` 只读到尾段 ⇒ 丢数据。
+    const canSegment = existsSync(path.join(dir, 'events.jsonl'));
+    if (!canSegment) {
+      await this.writer.write(
+        messagesFilePath(root, sessionId),
+        `${lines.join('\n')}\n`
+      );
+      return;
+    }
+    const { chunks } = planMessageSplit(
+      lines.map((line) => Buffer.byteLength(line, 'utf-8') + 1),
+      {
+        maxBytes: MESSAGE_SEGMENT_MAX_BYTES,
+        maxLines: MESSAGE_SEGMENT_MAX_LINES,
+      }
+    );
+    const keep = new Set<string>();
+    for (let i = 0; i < chunks.length - 1; i++) {
+      const name = segmentFileName(i + 1);
+      keep.add(name);
+      const { from, to } = chunks[i];
+      await this.writer.write(
+        path.join(dir, name),
+        `${lines.slice(from, to).join('\n')}\n`
+      );
+    }
+    const tail = chunks[chunks.length - 1];
+    await this.writer.write(
+      messagesFilePath(root, sessionId),
+      `${lines.slice(tail.from, tail.to).join('\n')}\n`
+    );
+    // 清理上次布局残留的分片（本次块数变少时避免陈旧分片被读到）
+    for (const name of await listMessageSegments(dir)) {
+      if (keep.has(name)) continue;
+      try {
+        await fs.rm(path.join(dir, name), { force: true });
+      } catch (rmErr) {
+        // @ignore-catch 残留分片删除失败不影响正确性（读侧按 id 反向去重，后写覆盖先写）
+        logger.warn('persistMessagesRewrite: 清理陈旧分片失败', {
+          sessionId,
+          name,
+          error: String(rmErr),
+        });
+      }
+    }
   }
 
   /**
@@ -665,11 +747,19 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
         orphanIds: string[];
       } | null = null;
       try {
-        const diskData = await fs.readFile(
-          messagesFilePath(this.rootFor(sessionId), sessionId), // A：校验同一分区
-          'utf-8'
+        // M8（2026-10-30）：校验也必须读**分片 + 尾文件**的拼接 —— 只看尾文件会把
+        // 分片里的旧消息误报成 missingIds（噪音日志，且掩盖真实差异）。
+        const root = this.rootFor(sessionId); // A：校验同一分区
+        const dir = sessionDir(root, sessionId);
+        const parts: string[] = [];
+        for (const name of await listMessageSegments(dir)) {
+          parts.push(await fs.readFile(path.join(dir, name), 'utf-8'));
+        }
+        parts.push(
+          await fs.readFile(messagesFilePath(root, sessionId), 'utf-8')
         );
-        const diskLines = diskData
+        const diskLines = parts
+          .join('\n')
           .split('\n')
           .filter((l) => l.trim().length > 0);
         diskLineCount = diskLines.length;

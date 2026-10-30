@@ -36,6 +36,30 @@ interface ReadSessionOpts {
   strategy?: 'recent' | 'summary' | 'full';
 }
 
+/**
+ * M8（2026-10-30，一致性核查）：读取消息投影的**分片兼容**文本。
+ *
+ * 分片方案把旧内容切成 `messages.<序号>.jsonl`，活动尾文件仍是 `messages.jsonl`
+ * （见 `session/storage/FileSystemUnifiedStorage.ts` 的 `listMessageSegments`）。
+ * 本采集器只做摘要，故只拼文本、不做去重（重复行由下游 token 截断兜底）。
+ */
+async function readProjectionText(sessionDir: string): Promise<string> {
+  const parts: string[] = [];
+  try {
+    const entries = await readdir(sessionDir);
+    const segs = entries
+      .filter((name) => /^messages\.(\d{4,})\.jsonl$/.test(name))
+      .sort((a, b) => Number(a.split('.')[1]) - Number(b.split('.')[1]));
+    for (const name of segs) {
+      parts.push(await readFile(join(sessionDir, name), 'utf-8'));
+    }
+  } catch {
+    // @ignore-catch 目录不可读 ⇒ 交给尾文件读取抛错（保持既有失败语义）
+  }
+  parts.push(await readFile(join(sessionDir, 'messages.jsonl'), 'utf-8'));
+  return parts.join('\n');
+}
+
 export class SessionContentGatherer {
   /**
    * 扫描上次梦境以来的新会话
@@ -137,10 +161,9 @@ export class SessionContentGatherer {
         hasCodeBlocks: false,
       };
 
-      // 尝试读取消息 JSONL 检测工具调用和代码块
-      const msgPath = join(sessionPath, 'messages.jsonl');
+      // 尝试读取消息 JSONL 检测工具调用和代码块（M8：分片兼容读）
       try {
-        const content = await readFile(msgPath, 'utf-8');
+        const content = await readProjectionText(sessionPath);
         const lines = content.split('\n').filter((l) => l.trim());
         for (const line of lines) {
           try {
@@ -200,10 +223,10 @@ export class SessionContentGatherer {
   ): Promise<string> {
     const sessionsDir = resolveSessionsDir();
     const sessionPath = join(sessionsDir, sessionId);
-    const msgPath = join(sessionPath, 'messages.jsonl');
 
     try {
-      const content = await readFile(msgPath, 'utf-8');
+      // M8（2026-10-30）：分片兼容读（分片升序 + 活动尾文件）
+      const content = await readProjectionText(sessionPath);
       const lines = content.split('\n').filter((l) => l.trim());
       const messages = lines
         .map((l) => {

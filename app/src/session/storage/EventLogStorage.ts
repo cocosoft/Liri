@@ -47,6 +47,10 @@ import { isLiriEvent } from '@modules/session/types/events';
 import { sanitizeEvent } from './eventSanitize';
 // 大文件拆分（spec file-size-debt-partition-plan §36/§37）
 import { EventLogTextBuffer } from './EventLogTextBuffer';
+import {
+  EventLogThinkingBuffer,
+  THINKING_MERGE_MAX_BYTES,
+} from './EventLogThinkingBuffer';
 import { EventLogRepair } from './EventLogRepair';
 import { splitJsonLine, filterSnapshotEvents } from './eventLineParse';
 import {
@@ -249,6 +253,8 @@ export class EventLogStorage {
    */
   private readonly textBuffer: EventLogTextBuffer;
 
+  private readonly thinkingBuffer: EventLogThinkingBuffer;
+
   // ─── P3-8 事件字节索引（2026-09-02）──────────────────────────────────
   /** 索引区间内存视图（按 fromSeq 升序；与磁盘 .idx 同源） */
   private idxEntries: EventIdxEntry[] = [];
@@ -320,7 +326,8 @@ export class EventLogStorage {
     /**
      * P2-E（2026-08-30）：buildSnapshot"扫描后-提交前"挂起点（测试构造并发竞态用）。
      */
-    snapshotPreCommitHook?: () => Promise<void>
+    snapshotPreCommitHook?: () => Promise<void>,
+    maxThinkingMergeBytes?: number
   ) {
     this.maxSnapshotEvents = maxSnapshotEvents;
     this.maxSnapshotBytes = maxSnapshotBytes;
@@ -336,6 +343,11 @@ export class EventLogStorage {
     // 流式正文缓冲门面（spec §36）：flush 时经宿主 append 落盘（seq 由 append 分配）
     this.textBuffer = new EventLogTextBuffer({
       sessionId: this.sessionId,
+      append: (event) => this.append(event),
+    });
+    this.thinkingBuffer = new EventLogThinkingBuffer({
+      sessionId: this.sessionId,
+      maxBytes: maxThinkingMergeBytes ?? THINKING_MERGE_MAX_BYTES,
       append: (event) => this.append(event),
     });
     // 崩溃修复链门面（spec §37）：显式端口（路径/存在性 + tail 状态 + 逐行读 + 快照失效 + append）
@@ -398,6 +410,7 @@ export class EventLogStorage {
     if (this.textBuffer.hasPending()) {
       await this.flushTextBuffer();
     }
+    await this.thinkingBuffer.flush(); // B1：在途 thinking 同 text 缓冲
     if (this.tailSeqInitialized && !force) {
       return this.tailSeq;
     }
@@ -533,7 +546,9 @@ export class EventLogStorage {
 
   /** A-2①：flush 全部缓冲 text —— 实现见 `EventLogTextBuffer` */
   async flushTextBuffer(): Promise<number> {
-    return this.textBuffer.flushTextBuffer();
+    const flushed = await this.textBuffer.flushTextBuffer();
+    await this.thinkingBuffer.flush(); // B1：消息/turn 末顺带落盘 thinking
+    return flushed;
   }
 
   /**
@@ -556,6 +571,10 @@ export class EventLogStorage {
       // 后续 tool/status 等事件 seq 在其后，不破坏事件流单调与消息内顺序）
       if (this.textBuffer.hasPending()) {
         await this.flushTextBuffer();
+      }
+      // B1：相邻 thinking 合并——同 messageId 的连续 chunk 只落一条（非 thinking 先 flush，顺序不变）
+      if (await this.thinkingBuffer.absorb(event)) {
+        return { ok: true, tailSeq: this.tailSeq };
       }
       // 串行化：所有 append 调用排队执行
       return this.queueAppend(async () => {
@@ -1103,6 +1122,7 @@ export class EventLogStorage {
     if (this.textBuffer.hasPending()) {
       await this.flushTextBuffer();
     }
+    await this.thinkingBuffer.flush(); // B1：在途 thinking 同 text 缓冲
 
     if (!this.exists()) {
       return [];

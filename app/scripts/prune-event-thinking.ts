@@ -183,17 +183,22 @@ function main(): number {
   const argv = process.argv.slice(2);
   const apply = argv.includes('--apply');
   const json = argv.includes('--json');
+  // 同时支持 `--name value` 与 `--name=value`（后者若被忽略会让"0 值"静默失效）
   const arg = (name: string): string | undefined => {
+    const eq = argv.find((a) => a.startsWith(`${name}=`));
+    if (eq) return eq.slice(name.length + 1);
     const i = argv.indexOf(name);
     return i >= 0 ? argv[i + 1] : undefined;
   };
   const root = arg('--root') ?? join(homedir(), '.pyapp', 'data');
-  const keepTurns = arg('--keep-turns')
-    ? Number.parseInt(arg('--keep-turns')!, 10)
-    : DEFAULT_THINKING_KEEP_TURNS;
-  const idleMinutes = arg('--idle-minutes')
-    ? Number.parseInt(arg('--idle-minutes')!, 10)
-    : DEFAULT_THINKING_IDLE_MINUTES;
+  // 非法数值退回默认（否则 NaN 会让"保留轮数"判据整体失效、静默变 noop）
+  const num = (name: string, fallback: number): number => {
+    const raw = arg(name);
+    const parsed = raw === undefined ? Number.NaN : Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  const keepTurns = num('--keep-turns', DEFAULT_THINKING_KEEP_TURNS);
+  const idleMinutes = num('--idle-minutes', DEFAULT_THINKING_IDLE_MINUTES);
 
   const result = pruneEventThinking(root, { apply, keepTurns, idleMinutes });
   const candidates = result.items.filter(

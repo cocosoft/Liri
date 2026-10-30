@@ -11,7 +11,7 @@
 | **定时任务**（cron） | 按 cron 表达式周期触发的调度作业 | `cron_*`（CronPage 数据源） | `/cron`；左侧导航「定时任务」；工作台「Agent 与自动化 → 定时任务」 | ✅ 唯一入口；`/tasks` 亦指向它（历史兼容，见下） |
 | **运行状况**（原「后台任务」） | Dream 记忆整理 / Buddy 成长等**后台运行**的执行观测 | `backgroundTaskService` 读取的运行记录 | `/background-status`（页面 h2 =「运行状况」） | ✅ 导航名已对齐页面（#26）；与待办无关 |
 | **PDCA** | 项目内的「执行计划 / 执行流程 / PDCA 检查点」编排 | `pdca_checkpoints`(184) + 项目 items | 项目详情 →「编排」 | ✅ 入口唯一；与 `/tasks` **不同源** |
-| **工作项**（work item） | 项目看板上的工作条目 | `workitems`(16) 在用；`work_items`(0) **空表待下线** | 项目详情 → 看板 | ⚠️ 双表并存（`work_items` 0 行） |
+| **工作项**（work item） | 项目看板上的工作条目 | `workitems`(16) 在用 | 项目详情 → 看板 | ✅ 单表（`work_items` 空表已于 2026-10-30 下线，见 §二） |
 | **长期目标**（goal） | 长程任务的目标与执行审计痕迹 | `task_goals`(879) / `task_audit_log`(31379) | **无独立页面**（作为执行痕迹被引用） | ⚠️ 概念与「工作项/任务」重叠 |
 | **任务**（task inbox） | 任务聚合收件箱（P0–P3 / 状态筛选） | `tasks`（**0 行**）← `GET /v1/tasks` | 组件 `TasksPage` 仍在，但**当前未挂路由** | ❌ 数据源未接线（#25） |
 | **计划**（plan） | （未定）本应独立于任务列表 | —— | `/plans` → `/cron`（本单对齐） | ❌ 无独立页面；待裁定 |
@@ -30,7 +30,9 @@
 1. **「任务」的权威语义**：`task_goals`（目标级）/ `workitems`（工作项）/ `tasks`（任务节点）
    三选一，然后让 `/v1/tasks` 从权威表**投影**（或写入时双写 `tasks`）。参见 #25。
 2. **「计划」是独立页还是并入任务列表**：`/plans` 的最终行为。
-3. **空表下线**：`work_items`(0) 是否删除（删除前按删除规则做六步核查）。
+3. ~~**空表下线**：`work_items`(0) 是否删除~~ —— **已闭环（2026-10-30，用户批准）**：
+   建表语句已从 `TASKS_SCHEMA` 删除；存量库的空表由 `SqliteTaskStore.retireDeadWorkItemsTable()`
+   幂等 DROP（**有数据则保留并告警**）；守卫见 `app/tests/tasks/workItemsTableRetirement.test.ts`。
 
 ## 四、维护约定
 

@@ -214,6 +214,58 @@ export class SqliteTaskStore implements ITaskStore {
         () => resolve()
       );
     });
+
+    // M14（2026-10-30）：下线废弃空表 `work_items`（schema 侧建表语句已删除）
+    await this.retireDeadWorkItemsTable();
+  }
+
+  /**
+   * M14（2026-10-30，一致性核查）：**下线废弃空表 `work_items`**。
+   *
+   * 背景：该表原由 `TASKS_SCHEMA` 建出（Phase 2 预留），但全仓**零读零写**
+   * （CD01–CD04：app/client/scripts/packages 只剩建表语句与一条日志 action 名）；
+   * 真实工作项在 `app.db.workitems`（`PdcaWorkItemBridge`，实测 16 行）。
+   * `task-surface-map.md` 已登记「空表下线」待办。
+   *
+   * 安全边界（CD05/CD06）：**只在表存在且 0 行时 DROP**；有任何数据行 ⇒ 保留并告警
+   * （绝不静默丢数据），交由人工确认。幂等：表已不存在 ⇒ 直接返回。
+   */
+  private async retireDeadWorkItemsTable(): Promise<void> {
+    if (!this.db) return;
+    try {
+      const exists = await new Promise<boolean>((resolve, reject) => {
+        this.db!.get(
+          `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'work_items'`,
+          (err: Error | null, row: unknown) =>
+            err ? reject(err) : resolve(Boolean(row))
+        );
+      });
+      if (!exists) return;
+
+      const rows = await new Promise<number>((resolve, reject) => {
+        this.db!.get(
+          'SELECT COUNT(*) AS n FROM work_items',
+          (err: Error | null, row: { n?: number } | undefined) =>
+            err ? reject(err) : resolve(Number(row?.n ?? 0))
+        );
+      });
+      if (rows > 0) {
+        logger.warn('废弃表 work_items 仍有数据，保留待人工确认', { rows });
+        return;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run('DROP TABLE work_items', (err: Error | null) =>
+          err ? reject(err) : resolve()
+        );
+      });
+      logger.info('废弃空表 work_items 已下线（真实工作项在 workitems 表）');
+    } catch (err) {
+      await handleError(err, {
+        module: 'tasks:sqliteStore',
+        action: 'retireDeadWorkItemsTable',
+      });
+    }
   }
 
   private async createTables(): Promise<void> {

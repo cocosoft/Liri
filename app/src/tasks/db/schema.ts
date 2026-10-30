@@ -63,25 +63,9 @@ CREATE INDEX IF NOT EXISTS idx_task_audit_timestamp ON task_audit_log(timestamp)
 CREATE INDEX IF NOT EXISTS idx_task_flow_status ON task_flow(status);
 CREATE INDEX IF NOT EXISTS idx_task_flow_owner ON task_flow(owner_key);
 
--- Phase 2: 工作项表
-CREATE TABLE IF NOT EXISTS work_items (
-  id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL,
-  title TEXT NOT NULL,
-  description TEXT NOT NULL DEFAULT '',
-  type TEXT NOT NULL DEFAULT 'task',
-  status TEXT NOT NULL DEFAULT 'pending',
-  session_id TEXT,
-  tags TEXT,
-  priority INTEGER DEFAULT 3,
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  completed_at INTEGER
-);
-
-CREATE INDEX IF NOT EXISTS idx_work_items_workspace ON work_items(workspace_id);
-CREATE INDEX IF NOT EXISTS idx_work_items_status ON work_items(status);
-CREATE INDEX IF NOT EXISTS idx_work_items_updated ON work_items(updated_at);
+-- M14（2026-10-30，一致性核查）：原「Phase 2 工作项表 work_items」建表语句已删除 ——
+-- 该表全仓零读零写（真实工作项在 app.db 的 workitems 表，见 PdcaWorkItemBridge）。
+-- 存量库里的空表由 SqliteTaskStore.retireDeadWorkItemsTable() 幂等下线（有数据则保留并告警）。
 
 -- task_runs: 跟踪每个任务的执行历史记录
 CREATE TABLE IF NOT EXISTS task_runs (

@@ -5,6 +5,8 @@
  */
 import { commandRegistry } from '@modules/commands';
 import type { Command } from '@modules/commands';
+// P3（2026-10-30）：顶层分组（`/help` 分组视图 + `/help <分组> <子命令>`）
+import { COMMAND_GROUPS, KEEP_TOP_LEVEL } from '../../groups/commandGroups.js';
 
 /**
  * 命令主题分类
@@ -136,22 +138,39 @@ const helpHandler = {
    */
   async call(args: string): Promise<{ type: 'text'; value: string }> {
     if (!args) {
-      const commands = commandRegistry.getVisible();
-      const cmdList = commands
-        .map((cmd) => `  /${cmd.name.padEnd(12)} - ${cmd.description}`)
-        .join('\n');
+      // P3（2026-10-30）：顶层收敛后的**分组视图** —— 先列 8 个分组父命令（含子命令），
+      // 再列独立保留的 16 个；隐藏命令（旧顶层名 / 工具影子命令）不进本列表，但仍可执行。
+      const visible = new Set(commandRegistry.getVisible().map((c) => c.name));
+      const groupLines = Object.entries(COMMAND_GROUPS)
+        .filter(([parent]) => visible.has(parent))
+        .map(([parent, spec]) => {
+          const subs = Object.keys(spec.subcommands).join(', ');
+          return `  /${parent.padEnd(10)} - ${spec.summary}\n     子命令: ${subs}`;
+        });
+      const standalone = KEEP_TOP_LEVEL.filter((n) => visible.has(n))
+        .map((n) => `  /${n}`)
+        .join(' ');
+
       return {
         type: 'text',
         value: [
-          '可用命令列表:',
+          `顶层命令: ${visible.size} 个（分组 ${groupLines.length} + 独立 ${
+            KEEP_TOP_LEVEL.filter((n) => visible.has(n)).length
+          }）`,
           '',
-          cmdList,
+          '分组命令（用法：/分组 <子命令>）:',
+          ...groupLines,
+          '',
+          '独立命令:',
+          standalone,
           '',
           '使用:',
-          '  /help <命令名>       查看特定命令的帮助',
-          '  /help search <关键词>  搜索命令',
-          '  /help topic <主题>     按主题查看命令',
-          '  /help topic           查看所有主题',
+          '  /help <命令名>            查看特定命令的帮助',
+          '  /help <分组> <子命令>      查看分组内子命令的帮助',
+          '  /help search <关键词>      搜索命令',
+          '  /help topic <主题>         按主题查看命令',
+          '',
+          '旧命令名仍可直接使用（例：/budget 等价于 /usage budget）。',
         ].join('\n'),
       };
     }
@@ -167,6 +186,26 @@ const helpHandler = {
     if (subcommand === 'topic') {
       const topic = parts.slice(1).join(' ');
       return { type: 'text', value: topicCommands(topic) };
+    }
+
+    // P3（2026-10-30）：`/help <分组> <子命令>` ⇒ 解析到分组表里的目标命令
+    const groupSub = parts[1]?.toLowerCase();
+    const groupTarget = groupSub
+      ? COMMAND_GROUPS[subcommand]?.subcommands[groupSub]
+      : undefined;
+    if (groupTarget) {
+      const target = commandRegistry.getCommand(groupTarget);
+      if (target) {
+        const usage = target.argumentHint
+          ? `\n用法: /${subcommand} ${groupSub} ${target.argumentHint}`
+          : '';
+        return {
+          type: 'text',
+          value:
+            `命令: /${subcommand} ${groupSub}（等价 /${target.name}）\n` +
+            `描述: ${target.description}${usage}`,
+        };
+      }
     }
 
     // 按命令名查看

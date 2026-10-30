@@ -14,6 +14,8 @@ import { getLogger } from '@modules/monitoring';
 
 import { LazyCommand } from './LazyCommand.js';
 import { resolveProjectRoot } from '@modules/environment';
+// P3（2026-10-30）：顶层收敛的唯一判定（可见 = 8 个分组父命令 + 16 个独立保留）
+import { isVisibleTopLevel } from '../groups/commandGroups.js';
 
 const logger = getLogger('CommandLoader');
 
@@ -24,6 +26,8 @@ interface BuiltinModuleEntry {
   path: string;
   name: string;
   aliases?: string[];
+  /** P3（2026-10-30）：显式隐藏标记。缺省时由 `isVisibleTopLevel()` 统一判定（见 `loadBuiltInCommands`） */
+  isHidden?: boolean;
 }
 
 /**
@@ -57,6 +61,11 @@ export class BuiltinCommandLoader implements CommandLoader {
         aliases: ['preview', 'example', 'demo-chat'],
       },
       { path: '../builtin/command-registry.js', name: 'status' },
+      // P3（2026-10-30）：把"定义了但没接线"的 `health` 接进来（经 `/diagnose health` 到达；
+      // 顶层隐藏）。⚠️ 其余 8 个未接线命令保留文件、登记待定，不在此批接线（用户裁定）。
+      { path: '../builtin/command-registry.js', name: 'health' },
+      // P3：`gateway` 此前从未注册（`/gateway` 直接 Command not found）—— 现经 `/diagnose gateway` 到达
+      { path: '../builtin/gateway/index.js', name: 'gateway', aliases: ['gw'] },
       { path: '../builtin/clear/index.js', name: 'clear' },
       { path: '../builtin/skill/index.js', name: 'skill' },
       { path: '../builtin/config/index.js', name: 'config' },
@@ -79,7 +88,8 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/git/index.js', name: 'git' },
       { path: '../builtin/complete/index.js', name: 'complete' },
       { path: '../builtin/parallel/index.js', name: 'parallel' },
-      { path: '../builtin/command-registry.js', name: 'permission' },
+      // P3（2026-10-30）：原 `permission` 伪条目已删（`command-registry` 只有 `permissionsCommand`，
+      // `LazyCommand` 兜底查找使 `/permission` 实际执行 context 命令）⇒ 由 `/permissions` 的别名承担。
       { path: '../builtin/security/index.js', name: 'security' },
       { path: '../builtin/vim/index.js', name: 'vim' },
       { path: '../builtin/voice/index.js', name: 'voice' },
@@ -105,7 +115,13 @@ export class BuiltinCommandLoader implements CommandLoader {
         name: 'plugin-settings',
         aliases: ['ps'],
       },
-      { path: '../builtin/command-registry.js', name: 'permissions' },
+      // P3：`permissions` 的定义里写了 `perm/auth/permission` 别名，但**懒加载命令的别名
+      // 来自本表**（`LazyCommand` 只认构造参数）⇒ 在此补齐（否则 `/permission` 无处可去）。
+      {
+        path: '../builtin/command-registry.js',
+        name: 'permissions',
+        aliases: ['perm', 'auth', 'permission'],
+      },
       { path: '../builtin/command-registry.js', name: 'tokens' },
       { path: '../builtin/command-registry.js', name: 'env' },
       { path: '../builtin/command-registry.js', name: 'debug' },
@@ -272,6 +288,11 @@ export class BuiltinCommandLoader implements CommandLoader {
         name: 'cron',
         aliases: ['scheduler', 'scheduled'],
       },
+      // P3（2026-10-30）：四个**新增分组父命令**（子命令经 `CommandManager` 的分组改写执行）
+      { path: 'groups/groupCommands.js', name: 'setup' },
+      { path: 'groups/groupCommands.js', name: 'diagnose' },
+      { path: 'groups/groupCommands.js', name: 'work' },
+      { path: 'groups/groupCommands.js', name: 'media' },
     ];
 
     const commands: Command[] = [];
@@ -296,6 +317,9 @@ export class BuiltinCommandLoader implements CommandLoader {
           modulePath: absolutePath,
           aliases: entry.aliases,
           loadedFrom: 'builtin',
+          // P3（2026-10-30）：**隐藏 ≠ 删除** —— 未列入顶层清单的命令仍注册、仍可执行
+          //（`/budget status` 照旧），只是不出现在 `/help` 与斜杠补全里（`getVisible()`）。
+          isHidden: entry.isHidden ?? !isVisibleTopLevel(entry.name),
         });
 
         commands.push(lazyCmd);

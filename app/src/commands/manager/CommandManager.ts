@@ -10,6 +10,8 @@ import { getCommandParser } from '@modules/commands';
 import { REMOTE_SAFE_COMMANDS, BRIDGE_SAFE_COMMANDS } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
+// P3（2026-10-30）：分组改写（`/git commit` ⇒ `commit`）的唯一数据源
+import { resolveGroupDelegation } from '../groups/commandGroups.js';
 
 const logger = getLogger('CommandManager');
 
@@ -99,6 +101,15 @@ export class CommandManager {
     args: string,
     context: CommandContext = {}
   ): Promise<CommandResult> {
+    // P3（2026-10-30）：分组改写 —— `/git commit -m x` ⇒ 执行 `commit` 命令（`-m x`）。
+    // 只改写"父命令自身没有的子命令"（表里显式列出）；其余（`/git status`）原样交给父命令，
+    // 语义不变。旧顶层名（`/commit`）仍是独立（隐藏）命令 ⇒ 用户两条路径都可用。
+    const delegation = resolveGroupDelegation(name, args);
+    if (delegation && this.registry.hasCommand(delegation.name)) {
+      name = delegation.name;
+      args = delegation.args;
+    }
+
     const command = this.registry.getCommand(name);
     if (!command) {
       return {

@@ -248,4 +248,6 @@ if (import.meta.main) {
   const summary = summarizeUsage(scan.counts);
   console.log(`样本根：${root}`);
   for (const line of formatReport(scan, summary)) console.log(line);
+  // lint:exit（N-16/N-49）：入口脚本必须显式退出，避免长驻句柄让命令"卡住不返回"
+  process.exit(0);
 }

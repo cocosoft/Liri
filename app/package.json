@@ -176,7 +176,8 @@
     "native:build:debug": "cd native && cargo build",
     "native:test": "cd native && cargo test",
     "native:clean": "cd native && cargo clean",
-    "native:check": "cd native && cargo check"
+    "native:check": "cd native && cargo check",
+    "preview:project-backfill": "bun run scripts/preview-session-project-backfill.ts"
   },
   "keywords": [
     "ai",

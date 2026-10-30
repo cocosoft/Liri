@@ -623,6 +623,208 @@ export function isOutsideDefaultDisclosure(
   return !extraCategories.includes(getToolCategory(toolName));
 }
 
+// ============================================================
+// 能力包（P0-2，2026-10-30）：可选能力**默认不披露**
+//
+// 背景：`DEFAULT_DISCLOSURE_TOOLS` 只收窄 `default`/`chat`；`coding`/`agent` 面按类别放行
+// ⇒ 单轮仍下发 53/59 个工具。29 会话 32 127 次调用只用到 27/82 个工具 ⇒ 把"可选能力"
+// 按包**默认关闭**（见治理方案 §4.3）。
+//
+// 与 AC-16 / P0-1 同口径：**只收窄下发面**，不是删除、不是注销 ——
+//   · 工具仍注册、仍可执行；
+//   · `tool_search` 的检索面是**全量已注册**（`ToolSearchTool`），故仍可检索到名字后按名调用；
+//   · `settings.tools` 的 `on` 覆写切在 `filterToolsByTask` **之后**（`selectToolsForTurn`）
+//     ⇒ 用户逐个放开优先于本层；
+//   · `extraCategories`（带图消息的 `image`、会话 profile 的 `media` …）是**显式能力声明**
+//     ⇒ 命中即放开（与 `isOutsideDefaultDisclosure` 同规则）。
+//
+// ⚠️ 只对**通用任务面**生效（`PACK_GATED_TASK_TYPES`）：`image` / `video` / `tts` 等任务类型的
+// 类别白名单本身即"显式声明要这块能力"，若再被包裁掉就成了自相矛盾。
+// ============================================================
+
+/** 能力包 id（与 `FEATURE_FLAGS.TOOL_PACK_*` 一一对应） */
+export type CapabilityPack =
+  | 'media_image'
+  | 'media_video'
+  | 'media_audio'
+  | 'doc_extra'
+  | 'collab'
+  | 'schedule'
+  | 'workspace'
+  | 'system_extra';
+
+interface CapabilityPackSpec {
+  /** 开关（`feature()`；默认 false ⇒ 包内工具不下发） */
+  flag: FeatureFlag;
+  /** 包内工具名（**真名**，非 wire 名；本包内均为无命名空间的内置名） */
+  tools: readonly string[];
+  /** 一句话说明（供日志 / 文档引用） */
+  summary: string;
+}
+
+/**
+ * 能力包 → 工具清单（**唯一映射表**）。
+ *
+ * 取舍依据（`dev_docs/20261030/Liri-工具与命令治理方案-20261030.md` §4.3 + 附录 B）：
+ * 只收"0 调用 + 可选能力"者；**实测有调用**的工具**不入包**（`channel` `config` `monitor`
+ * `pdf` `file_convert` `notebook` `trace_recording` `stat_vfs` …）—— 样本只有 1 个用户，
+ * 0 调用 ≠ 无需求，故"入包"只用于**默认不可见、可一键开**者。
+ */
+export const CAPABILITY_PACKS: Readonly<
+  Record<CapabilityPack, CapabilityPackSpec>
+> = {
+  media_image: {
+    flag: 'TOOL_PACK_MEDIA_IMAGE',
+    summary: '图像生成/分析/展示/SVG',
+    tools: [
+      'image',
+      'image_analysis',
+      'image_display',
+      'image_generate',
+      'image_svg_generate',
+    ],
+  },
+  media_video: {
+    flag: 'TOOL_PACK_MEDIA_VIDEO',
+    summary: '视频生成/分析/展示 + 浏览器视觉',
+    tools: [
+      'video',
+      'video_analysis',
+      'video_display',
+      'video_generate',
+      'browser_vision',
+    ],
+  },
+  media_audio: {
+    flag: 'TOOL_PACK_MEDIA_AUDIO',
+    summary: '音频播放 / 音乐 / TTS',
+    tools: ['audio_play', 'music', 'tts'],
+  },
+  doc_extra: {
+    flag: 'TOOL_PACK_DOC_EXTRA',
+    summary: '文档生成（pdf / file_convert 因有实测调用不在包内）',
+    tools: ['doc_generate'],
+  },
+  collab: {
+    flag: 'TOOL_PACK_COLLAB',
+    summary: '团队 / 消息 / 广播（channel 因有实测调用不在包内）',
+    tools: [
+      'team_create',
+      'team_delete',
+      'list_peers',
+      'send_message',
+      'broadcast',
+    ],
+  },
+  schedule: {
+    flag: 'TOOL_PACK_SCHEDULE',
+    summary: '定时任务 / 睡眠 / 让出轮次',
+    tools: [
+      'cron_create',
+      'cron_delete',
+      'cron_list',
+      'cron_stop',
+      'sleep',
+      'sleep_for',
+      'sleep_until',
+      'sessions_yield',
+    ],
+  },
+  workspace: {
+    flag: 'TOOL_PACK_WORKSPACE',
+    summary:
+      '工作树 / 看板 / 建项目 / 存会话（VFS 三件由 VFS_ENABLED 另行门控）',
+    tools: [
+      'enter_worktree',
+      'exit_worktree',
+      'kanban',
+      'create_project',
+      'save_conversation',
+    ],
+  },
+  system_extra: {
+    flag: 'TOOL_PACK_SYSTEM_EXTRA',
+    summary: '剪贴板 / 简报 / 代理清单 / 知识写入 / MCP 认证与资源',
+    tools: [
+      'clipboard',
+      'brief',
+      'agents_list',
+      'knowledge_save',
+      'mcp_auth',
+      'mcp_resource',
+    ],
+  },
+};
+
+/** 工具名 → 能力包（`CAPABILITY_PACKS` 的派生索引；同族重复登记 ⇒ 首次求值即告警） */
+const TOOL_PACK_INDEX: ReadonlyMap<string, CapabilityPack> = (() => {
+  const index = new Map<string, CapabilityPack>();
+  const duplicated: string[] = [];
+  for (const [pack, spec] of Object.entries(CAPABILITY_PACKS) as [
+    CapabilityPack,
+    CapabilityPackSpec,
+  ][]) {
+    for (const toolName of spec.tools) {
+      if (index.has(toolName)) {
+        duplicated.push(`${toolName}（${index.get(toolName)} / ${pack}）`);
+        continue;
+      }
+      index.set(toolName, pack);
+    }
+  }
+  if (duplicated.length > 0) {
+    logger.warn(
+      '工具被登记到多个能力包 ⇒ 仅首个生效，请修正 CAPABILITY_PACKS',
+      {
+        duplicated,
+      }
+    );
+  }
+  return index;
+})();
+
+/** 该工具所属能力包（不在任何包内 ⇒ `undefined`） */
+export function getCapabilityPackOf(
+  toolName: string
+): CapabilityPack | undefined {
+  return TOOL_PACK_INDEX.get(toolName);
+}
+
+/** 该能力包当前是否开启（每次现读 `feature()`：env 覆盖即时生效，与 P0-1 同口径） */
+export function isCapabilityPackEnabled(pack: CapabilityPack): boolean {
+  return feature(CAPABILITY_PACKS[pack].flag);
+}
+
+/**
+ * 该工具是否**因所属能力包未开**而不应下发给模型。
+ *
+ * 纯判定（不读 taskType / extraCategories —— 由调用方叠加，见 `filterToolsByTask`）。
+ */
+export function isToolInDisabledCapabilityPack(toolName: string): boolean {
+  const pack = TOOL_PACK_INDEX.get(toolName);
+  return pack !== undefined && !isCapabilityPackEnabled(pack);
+}
+
+/**
+ * 套用能力包门控的**通用任务面**（其余任务类型 = 显式声明能力 ⇒ 不裁）。
+ *
+ * `undefined` 视作 `default`（与 `usesDefaultDisclosure` 同口径）。
+ */
+export const PACK_GATED_TASK_TYPES: ReadonlySet<string> = new Set([
+  'default',
+  'chat',
+  'coding',
+  'agent',
+]);
+
+/** 该任务面是否套用能力包门控 */
+function usesPackageGating(taskType: string | undefined): boolean {
+  return taskType === undefined || PACK_GATED_TASK_TYPES.has(taskType);
+}
+
+/** 已告警的组合（每个 taskType 只报一次，避免每轮刷屏） */
+const warnedPackTaps = new Set<string>();
+
 /**
  * 获取任务的工具类别白名单；未配置的任务回退 default 保底集。
  */
@@ -655,6 +857,8 @@ export function filterToolsByTask<
   // AC-16（P4，2026-10-28）：默认披露面白名单 —— 只收窄 `default`/`chat` 的**可见面**
   /** 本次新发现（且非归档）的"未登记类别"工具 —— 用于首次告警（去重由 warnedUnregisteredTools 承担） */
   const newlyUnregistered: string[] = [];
+  /** 本次首次因能力包未开而被裁的工具（去重由 warnedPackTaps 承担） */
+  const newlyPackTapped: string[] = [];
   const kept = toolDefinitions.filter((t) => {
     const toolName = t.name ?? t.function?.name ?? '';
     if (mandatory.has(toolName)) return true;
@@ -667,8 +871,32 @@ export function filterToolsByTask<
         newlyUnregistered.push(toolName);
       }
     }
-    return allowed.has(category);
+    const categoryAllowed = allowed.has(category);
+    // P0-2（2026-10-30）：能力包未开 ⇒ 不下发（仍注册可执行，可经 tool_search 检索）。
+    // `extraCategories` 是**显式能力声明**（带图消息的 `image`、会话 profile 的 `media`）⇒
+    // 命中即放开（与 `isOutsideDefaultDisclosure` 同规则；不能只看 `allowed` —— 任务类别
+    // 白名单也在其中，无法区分"任务允许"与"显式声明"）。
+    if (
+      categoryAllowed &&
+      usesPackageGating(taskType) &&
+      !extraCategories.includes(category) &&
+      isToolInDisabledCapabilityPack(toolName)
+    ) {
+      if (!warnedPackTaps.has(toolName)) {
+        warnedPackTaps.add(toolName);
+        newlyPackTapped.push(toolName);
+      }
+      return false;
+    }
+    return categoryAllowed;
   });
+  if (newlyPackTapped.length > 0) {
+    logger.info(
+      '能力包未开 ⇒ 工具本轮不下发（仍注册可调用，可经 tool_search 检索；' +
+        '开关：FEATURE_TOOL_PACK_*=true）',
+      { taskType: taskType ?? DEFAULT_TASK_KEY, tools: newlyPackTapped }
+    );
+  }
   if (newlyUnregistered.length > 0) {
     logger.warn(
       '工具未登记类别 ⇒ 落 misc ⇒ 不在任何任务白名单 ⇒ 被静默裁剪（模型永远看不到）；' +
@@ -727,6 +955,12 @@ export function getRealToolNamesForTask(
   if (usesDefaultDisclosure(taskType)) {
     for (const name of names) {
       if (!DEFAULT_DISCLOSURE_TOOLS.has(name)) names.delete(name);
+    }
+  }
+  // P0-2（2026-10-30）：能力包未开的工具同样从本清单剔除（同一判据，避免第二套口径）。
+  if (usesPackageGating(taskType)) {
+    for (const name of names) {
+      if (isToolInDisabledCapabilityPack(name)) names.delete(name);
     }
   }
   // P0-1（2026-10-30）：严格披露预算同样收窄本清单（同一判据，避免第二套口径）

@@ -166,12 +166,25 @@ describe('toolCategories — P0 工具可见性回归', () => {
         'bash',
       ]);
     }
-    // coding / agent 的类别白名单含 'assist' ⇒ 不受默认披露面收窄影响
+    // coding / agent 的类别白名单含 'assist' ⇒ 不受默认披露面收窄影响。
+    // P0-2（2026-10-30）：`clipboard` 属 `system_extra` 能力包（默认关）⇒ 这两个任务面
+    // 只剩 `plan` / `canvas`；包开即恢复（下方断言）。
     for (const taskType of ['coding', 'agent']) {
       const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
-      for (const name of ['plan', 'clipboard', 'canvas']) {
+      for (const name of ['plan', 'canvas']) {
         expect(kept).toContain(name);
       }
+      expect(kept).not.toContain('clipboard');
+    }
+    process.env['FEATURE_TOOL_PACK_SYSTEM_EXTRA'] = 'true';
+    try {
+      for (const taskType of ['coding', 'agent']) {
+        expect(filterToolsByTask(defs, taskType).map((t) => t.name)).toContain(
+          'clipboard'
+        );
+      }
+    } finally {
+      delete process.env['FEATURE_TOOL_PACK_SYSTEM_EXTRA'];
     }
   });
 
@@ -183,9 +196,19 @@ describe('toolCategories — P0 工具可见性回归', () => {
         'bash',
       ]);
     }
-    expect(filterToolsByTask(defs, 'agent').map((t) => t.name)).toContain(
+    // P0-2（2026-10-30）：`sessions_yield` 属 `schedule` 能力包（默认关）⇒ agent 面默认不下发；
+    // 包开即恢复（证明类别映射没坏）。
+    expect(filterToolsByTask(defs, 'agent').map((t) => t.name)).not.toContain(
       'sessions_yield'
     );
+    process.env['FEATURE_TOOL_PACK_SCHEDULE'] = 'true';
+    try {
+      expect(filterToolsByTask(defs, 'agent').map((t) => t.name)).toContain(
+        'sessions_yield'
+      );
+    } finally {
+      delete process.env['FEATURE_TOOL_PACK_SCHEDULE'];
+    }
   });
 
   test('N-44: doc / channel / calendar / mail 四类仍在 default 类别白名单内（仅披露面收窄）', () => {
@@ -364,7 +387,17 @@ describe('toolCategories — P0 工具可见性回归', () => {
       ]);
     }
     const coding = filterToolsByTask(defs, 'coding').map((t) => t.name);
-    expect(coding).toContain('sleep_for');
-    expect(coding).toContain('sleep_until');
+    // P0-2（2026-10-30）：睡眠族属 `schedule` 能力包（默认关）⇒ coding 面默认不下发；
+    // 包开即恢复（证明类别映射没坏）。
+    expect(coding).not.toContain('sleep_for');
+    expect(coding).not.toContain('sleep_until');
+    process.env['FEATURE_TOOL_PACK_SCHEDULE'] = 'true';
+    try {
+      const withPack = filterToolsByTask(defs, 'coding').map((t) => t.name);
+      expect(withPack).toContain('sleep_for');
+      expect(withPack).toContain('sleep_until');
+    } finally {
+      delete process.env['FEATURE_TOOL_PACK_SCHEDULE'];
+    }
   });
 });

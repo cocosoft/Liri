@@ -211,6 +211,34 @@ export const FEATURE_FLAGS = {
    * 关（默认）⇒ 与改造前逐字一致（零行为变更）。运维/灰度覆盖：`FEATURE_TOOL_DISCLOSURE_STRICT=true`。
    */
   TOOL_DISCLOSURE_STRICT: false,
+
+  // ───── 工具能力包（P0-2，2026-10-30；**默认关**）─────
+  /**
+   * **可选能力包**（`tools/toolCategories.ts` 的 `CAPABILITY_PACKS` 是唯一映射表）。
+   *
+   * 口径：包**关**（默认）⇒ 包内工具在 `default` / `chat` / `coding` / `agent` 四个通用任务面
+   * **不下发**给模型；包**开** ⇒ 与改造前逐字一致。
+   *
+   * ⚠️ **不是删除 / 不是注销**：工具仍注册可调用、仍可经 `tool_search` 检索到名字；
+   * 用户也可在 `settings.tools` 里逐个 `on` 覆盖（覆写层切在 `filterToolsByTask` 之后）。
+   * 依据：29 会话 32 127 次调用只用到 27/82 个工具（详见治理方案 §4.3）。
+   * 运维/灰度覆盖：`FEATURE_TOOL_PACK_MEDIA_IMAGE=true` 等。
+   */
+  TOOL_PACK_MEDIA_IMAGE: false,
+  /** 能力包：媒体（视频）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
+  TOOL_PACK_MEDIA_VIDEO: false,
+  /** 能力包：媒体（音频 / TTS）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
+  TOOL_PACK_MEDIA_AUDIO: false,
+  /** 能力包：文档扩展（`doc_generate`）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
+  TOOL_PACK_DOC_EXTRA: false,
+  /** 能力包：协作（团队 / 消息 / 广播）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
+  TOOL_PACK_COLLAB: false,
+  /** 能力包：调度（cron / sleep / yield）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
+  TOOL_PACK_SCHEDULE: false,
+  /** 能力包：工作区（worktree / kanban / 建项目 / 存会话）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
+  TOOL_PACK_WORKSPACE: false,
+  /** 能力包：系统扩展（剪贴板 / 简报 / 代理清单 / 知识写入 / MCP 认证）—— 见 `TOOL_PACK_MEDIA_IMAGE` */
+  TOOL_PACK_SYSTEM_EXTRA: false,
   /** 缓存 */
   ENABLE_CACHE: true,
 

@@ -38,6 +38,12 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'pdca-retention-'));
+/** 污染治理（2026-10-30）：模块级改 env 必须**记录原值**并在 afterAll 还原 ——
+ * 原来只删了 `LIRI_DATA_DIR`、漏删 `LIRI_HOME`，导致后续测试文件的 `resolveDataDir()`
+ * 仍指向已删除的临时目录（真机现象：`tests/tools/toolFamilies` 的注册面用例偶发缺工具）。
+ * 与 `costBudgetManager.periodCost` / `sessionStickyRouting` 的 prev* 还原写法对齐。 */
+const prevDataDirEnv = process.env.LIRI_DATA_DIR;
+const prevHomeEnv = process.env.LIRI_HOME;
 process.env.LIRI_DATA_DIR = dataDir;
 process.env.LIRI_HOME = dataDir;
 
@@ -229,7 +235,11 @@ describe('PDCA 检查点留存清理（另案 ⑥ · 留存）', () => {
   afterAll(() => {
     // 先关闭 DB 连接（WAL 句柄），否则 Windows 下 rmSync 报 EBUSY
     closePdcaCheckpointStore();
-    delete process.env.LIRI_DATA_DIR;
+    // 还原 env（原值优先；原本未设置 ⇒ 删除），避免跨文件污染
+    if (prevDataDirEnv === undefined) delete process.env.LIRI_DATA_DIR;
+    else process.env.LIRI_DATA_DIR = prevDataDirEnv;
+    if (prevHomeEnv === undefined) delete process.env.LIRI_HOME;
+    else process.env.LIRI_HOME = prevHomeEnv;
     rmSync(dataDir, { recursive: true, force: true });
   });
 });

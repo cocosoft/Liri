@@ -592,6 +592,7 @@ const zhBase = {
     toolOutput: "输出",
     expandDetail: "展开详情",
     collapseDetail: "收起详情",
+    diagnosticTitle: "诊断详情",
     sessionSettings: "会话设置",
     clearHistory: "清空历史",
     clearingSessions: "正在删除 {{count}} 个会话…",

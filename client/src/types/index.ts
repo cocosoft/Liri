@@ -41,6 +41,7 @@ export type {
   WorkflowRunStatus,
   WorkflowRunStepStatus,
   CodeRunBlockData,
+  DiagnosticBlockData,
 } from "./message";
 
 // ─── 模型与供应商 ───

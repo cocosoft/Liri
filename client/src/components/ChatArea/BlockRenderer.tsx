@@ -24,6 +24,7 @@ import TaskCard from "./TaskCard";
 import ProgressCard from "./ProgressCard";
 import DeliverableCard from "./DeliverableCard";
 import DiffBlock from "./DiffBlock";
+import DiagnosticBlock from "./DiagnosticBlock";
 import InboxBlock from "./InboxBlock";
 import { DocWorkflowProgress } from "./DocWorkflowProgress";
 import PdcaWorkflowCard from "./PdcaWorkflowCard";
@@ -143,6 +144,11 @@ function BlockRenderer({
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
 
   switch (block.type) {
+    case "diagnostic":
+      if (block.diagnosticData) {
+        return <DiagnosticBlock data={block.diagnosticData} />;
+      }
+      return <MissingDataFallback type="diagnostic" block={block} />;
     case "thinking":
       return (
         <ThinkingBlock

@@ -613,6 +613,7 @@ const enBase = {
     toolOutput: "Output",
     expandDetail: "Expand Detail",
     collapseDetail: "Collapse Detail",
+    diagnosticTitle: "Diagnostics",
     sessionSettings: "Session Settings",
     clearHistory: "Clear History",
     clearingSessions: "Deleting {{count}} session(s)…",

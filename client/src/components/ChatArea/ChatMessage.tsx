@@ -23,6 +23,7 @@ import ToolResultMessage from "./ToolResultMessage";
 import BlockRenderer from "./BlockRenderer";
 import { isMediaDisplayToolName } from "../../utils/toolHumanSummary";
 import { unwrapJsonDataPayload } from "../../utils/jsonPayloadText";
+import { splitDiagnosticText } from "../../utils/diagnosticText";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useConfigStore } from "../../stores/configStore";
 import {
@@ -1327,6 +1328,20 @@ function AssistantMessage({
     return unwrapped === null ? b : { ...b, content: unwrapped };
   });
 
+  // C4（2026-10-30，一致性核查 §8.1）：内部诊断（`[系统提示]` / `工具执行失败` / `安全检查失败`）
+  // ⇒ 折叠为「诊断详情」（默认收起），气泡只留一行摘要，不再把原始 stderr / steering 文案铺开。
+  blocks = blocks.map((b) => {
+    if (b.type !== "text") return b;
+    const split = splitDiagnosticText(b.content);
+    if (!split) return b;
+    return {
+      ...b,
+      type: "diagnostic" as const,
+      content: split.detail,
+      diagnosticData: split,
+    };
+  });
+
   // H-FIX-2 流式中断兜底：blocks 中没有 text 正文且 content 为空，
   // 但存在 thinking 块（典型的流式在思考阶段被打断场景），
   // 追加提示 text 块，避免用户以为"正文消失"。
@@ -1336,7 +1351,10 @@ function AssistantMessage({
   // text 正文稍后才到——若此时判断，整个思考阶段都会误报"生成中断"。
   // 且 text 未产出是正常等待，不是中断；只有流式结束仍 thinking-only 才是真中断。
   const hasTextBlock = blocks.some(
-    (b) => b.type === "text" && (b.content || "").trim(),
+    // C4：诊断块也是"有可见内容"，否则只有诊断的消息会被误判为「生成中断/无正文」
+    (b) =>
+      (b.type === "text" || b.type === "diagnostic") &&
+      (b.content || "").trim(),
   );
   const hasThinkBlock = blocks.some(
     (b) => b.type === "thinking" && (b.content || "").trim(),

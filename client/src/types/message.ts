@@ -93,7 +93,8 @@ export interface MessageBlock {
     | "doc_workflow"
     | "pdca_workflow"
     | "workflow_run"
-    | "code_run";
+    | "code_run"
+    | "diagnostic";
   content: string;
   toolCall?: ToolCall;
   /** 事件派生块字段（后端 EventMessageDeriver.makeBlock）：toolName/args 为 toolCall 的扁平化，加载时归一化 */
@@ -117,6 +118,19 @@ export interface MessageBlock {
   pdcaWorkflowData?: PdcaWorkflowProgressData;
   workflowData?: WorkflowRunData;
   codeRunData?: CodeRunBlockData;
+  /**
+   * C4（2026-10-30）：内部诊断文本（`[系统提示]` / `工具执行失败` / `安全检查失败` …）。
+   * 由渲染侧从 assistant 的 text 块拆出 ⇒ 气泡只显示 `summary`，`detail` 默认收起。
+   */
+  diagnosticData?: DiagnosticBlockData;
+}
+
+/** C4：诊断详情块数据 */
+export interface DiagnosticBlockData {
+  /** 一行摘要（用户可读，取自原文首行，超长截断） */
+  summary: string;
+  /** 完整诊断原文（原始报错 / steering 文案） */
+  detail: string;
 }
 
 /** Code Mode 执行块数据（CM-5 读侧：回放展示代码/状态/输出/内部调用摘要） */

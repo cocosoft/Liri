@@ -671,6 +671,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
         totalRounds={currentSession?.roundCount ?? 0}
         hasOlder={hasOlder}
         onLoadOlder={() => void loadOlderMessages()}
+        sessionId={currentSession?.id}
       />
 
       {/* T6：限额码 ⇒ 可操作卡片（非红色语义）；「预算挂起」亦复用同一张卡（挂起态优先） */}

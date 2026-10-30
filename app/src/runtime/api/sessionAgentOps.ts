@@ -66,6 +66,8 @@ import type {
   ConvertFileParams,
 } from './CoreAPI';
 import type { SessionMessagesRead } from './sessionMessagesRead';
+// B2（2026-10-30）：按轮摘要（供轮次导航补齐未加载轮次）
+import type { SessionRoundSummariesResult } from './roundSummaries';
 import type { MessageMutation } from './messageMutation';
 import type { SessionTitling } from './sessionTitling';
 import type { ToolManager } from '@modules/tools';
@@ -410,6 +412,16 @@ export class SessionAgentOps {
     return this.deps
       .getSessionMessagesRead()
       .verifySessionDerivation(sessionId);
+  }
+
+  /** B2（2026-10-30）：整会话按轮摘要（绝对轮号）—— 轮次导航一次请求补齐未加载轮次 */
+  async getSessionRoundSummaries(
+    sessionId: string,
+    query?: { limit?: number }
+  ): Promise<SessionRoundSummariesResult> {
+    return this.deps
+      .getSessionMessagesRead()
+      .getSessionRoundSummaries(sessionId, query);
   }
 
   async getSessionEvents(

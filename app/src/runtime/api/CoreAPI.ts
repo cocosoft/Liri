@@ -56,6 +56,8 @@ import type { BuddyOpsPort } from './buddyOpsPorts';
 import type { CommandsOpsPort } from './commandsOpsPorts';
 import type { WorkspaceOpsPort } from './workspaceOpsPorts';
 import type { ProjectOpsPort } from './projectOpsPorts';
+// B2（2026-10-30）：按轮摘要（供轮次导航补齐未加载轮次）
+import type { SessionRoundSummariesResult } from './roundSummaries';
 
 /** 进度事件，用于通知调用方当前 AI 处理阶段 */
 export interface ProgressEvent {
@@ -762,6 +764,17 @@ export interface CoreAPI {
     }>;
     hasMore: boolean;
   }>;
+
+  /**
+   * B2（2026-10-30）：整会话**按轮摘要**（`roundIndex` 为绝对轮号）。
+   *
+   * 供轮次导航/消息摘要**一次请求**补齐未加载轮次（尾部分页下只有最近一页有文本）。
+   * @param query.limit 只返回最近 N 轮（缺省 100，上限 500）
+   */
+  getSessionRoundSummaries(
+    sessionId: string,
+    query?: { limit?: number }
+  ): Promise<SessionRoundSummariesResult>;
 
   /**
    * M1 事件溯源：获取会话事件流

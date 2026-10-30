@@ -1889,6 +1889,19 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     );
   });
 
+  test('B5-2-69：`ROUND_SUMMARY_MAX_CHARS` 为**跨包契约常量**（门禁登记豁免 + 两侧逐字同值守卫）', () => {
+    const gate = read('../scripts/lint-consts.ts');
+    expect(gate).toContain('CROSS_PACKAGE_CONTRACT_CONSTS');
+    expect(gate).toContain('ROUND_SUMMARY_MAX_CHARS:');
+    // 两侧分属不同包（client 不依赖后端包）⇒ 无法 import，只能靠守卫钉住逐字同值
+    expect(read('src/runtime/api/roundSummaries.ts')).toContain(
+      'export const ROUND_SUMMARY_MAX_CHARS = 60;'
+    );
+    expect(read('../client/src/utils/roundSummaries.ts')).toContain(
+      'export const ROUND_SUMMARY_MAX_CHARS = 60;'
+    );
+  });
+
   test('B5-2B1：`DIR_EXISTS_GUIDANCE` 已按域消歧（异值异域：dream 目录清单 / memory 已存在提示）', () => {
     // memory 域导出真源（中文「目录已存在」提示，被 teamMemPrompts 引用）保留原名
     const mem = read('src/memory/services/MemoryPromptBuilder.ts');

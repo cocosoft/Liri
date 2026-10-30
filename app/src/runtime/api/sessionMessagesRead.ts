@@ -45,6 +45,13 @@ import {
   selectVisiblePageStart,
   withPaginationSeq,
 } from './paginationSeq';
+// B2（2026-10-30）：按轮摘要的服务端实现（与前端 `ROUND_SUMMARY_MAX_CHARS` 同口径）
+import {
+  ROUND_SUMMARY_DEFAULT_ROUNDS,
+  ROUND_SUMMARY_MAX_ROUNDS_PER_REQUEST,
+  buildSessionRoundSummaries,
+  type SessionRoundSummariesResult,
+} from './roundSummaries';
 import { LRUCache } from '../../utils/cache';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { SessionManager } from '@modules/session/types/session';
@@ -304,6 +311,31 @@ export class SessionMessagesRead {
       };
     });
     return this._paginateMessages(dedupeMessagesToolCallBlocks(mapped), query);
+  }
+
+  /**
+   * B2（2026-10-30，一致性核查 §9.4）：整会话**按轮摘要**（一次请求补齐未加载轮次）。
+   *
+   * 复用 `getSessionMessages()` 的全量读路径（事件派生 + 派生缓存 + 删除墓碑过滤 +
+   * 审批块注入），只在其结果上做"按轮切分 + 摘要" —— 不新增任何 IO，也不会触发分页。
+   * 未加载轮次因此也能拿到文本，前端不必为每轮各发一次请求。
+   *
+   * @param query.limit 只返回**最近** N 轮（缺省 {@link ROUND_SUMMARY_DEFAULT_ROUNDS}，
+   *   上限 {@link ROUND_SUMMARY_MAX_ROUNDS_PER_REQUEST}）；`roundIndex` 仍为绝对轮号
+   */
+  async getSessionRoundSummaries(
+    sessionId: string,
+    query?: { limit?: number }
+  ): Promise<SessionRoundSummariesResult> {
+    const { messages } = await this.getSessionMessages(sessionId);
+    const limit = Math.min(
+      Math.max(query?.limit ?? ROUND_SUMMARY_DEFAULT_ROUNDS, 1),
+      ROUND_SUMMARY_MAX_ROUNDS_PER_REQUEST
+    );
+    const { rounds, totalRounds } = buildSessionRoundSummaries(messages, {
+      maxRounds: limit,
+    });
+    return { rounds, totalRounds, hasMore: totalRounds > rounds.length };
   }
 
   /**

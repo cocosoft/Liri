@@ -447,6 +447,58 @@ export async function handleGetSessionMessages(
 }
 
 /**
+ * B2（2026-10-30，一致性核查 §9.4）：`GET /v1/sessions/:id/round-summaries?limit=N`
+ *
+ * 一次请求返回整会话每轮摘要（`userMsg` / `assistantMsg` 各 ≤60 字，`roundIndex` 为**绝对轮号**）。
+ * 为什么需要：消息是**尾部分页**的，前端只能对已加载的一页算摘要（26 轮会话只显示最近 9 轮），
+ * 未加载轮次没有文本 ⇒ 轮次导航退化为"只有编号"。此端点让导航器一次补齐，不必每轮各发请求。
+ */
+export async function handleGetSessionRoundSummaries(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const coreAPI = getCoreAPI();
+    await coreAPI.ensureSessionsLoaded();
+    if (!(await coreAPI.getSession(sessionId))) {
+      sendNotFound(res, 'Session not found');
+      return;
+    }
+    const url = new URL(req.url ?? '', LOCAL_REQUEST_BASE_URL);
+    const limitRaw = url.searchParams.get('limit');
+    let limit: number | undefined;
+    if (limitRaw !== null) {
+      limit = Number.parseInt(limitRaw, 10);
+      if (!Number.isFinite(limit) || limit <= 0) {
+        sendBadRequest(res, 'limit must be a positive integer');
+        return;
+      }
+    }
+    const payload = await coreAPI.getSessionRoundSummaries(sessionId, {
+      limit,
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(payload));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch (err) {
+        handleError(err, {
+          module: 'infrastructure:http:handlers:session-handlers',
+          action: 'responseAlreadyEnded',
+        });
+      } /* res可能已结束, 忽略 */
+    }
+  }
+}
+
+/**
  * 只读时间旅行（演进方案 W5）：`GET /v1/sessions/:id/timeline?untilSeq=N`
  *
  * 语义：返回「截至 `untilSeq` 的会话长什么样」——由事件日志派生，**只读**。

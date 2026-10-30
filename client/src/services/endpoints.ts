@@ -276,6 +276,9 @@ export const ENDPOINTS = {
     switchById: (id: string) => `/v1/sessions/${id}/switch`,
     current: "/v1/sessions/current",
     messages: (sessionId: string) => `/v1/sessions/${sessionId}/messages`,
+    // B2（2026-10-30）：按轮摘要（绝对轮号）—— 一次请求补齐轮次导航的未加载轮次
+    roundSummaries: (sessionId: string) =>
+      `/v1/sessions/${sessionId}/round-summaries`,
     messageById: (sessionId: string, messageId: string) =>
       `/v1/sessions/${sessionId}/messages/${messageId}`,
     messagesTruncate: (sessionId: string) =>

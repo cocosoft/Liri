@@ -81,6 +81,21 @@ export async function getSessionRuntimeStatus(
   };
 }
 
+// ─── B2（2026-10-30）：按轮摘要契约 ───
+/**
+ * 一轮的摘要（`roundIndex` 为**绝对轮号**，相对整会话历史）。
+ *
+ * 与 `client/src/utils/roundSummaries.ts` 的 `RoundSummary` 区别：后者只覆盖**已加载消息**，
+ * `roundIndex` 是相对序号；本类型的轮号由后端按全量历史给出，用于把未加载轮次补齐到导航器。
+ */
+export interface SessionRoundSummary {
+  roundIndex: number;
+  userMsgId: string;
+  userMsg: string;
+  assistantMsg: string;
+  timestamp: number;
+}
+
 // ─── 消息列表规范化：收敛后端响应包装差异 ───
 /**
  * normalizeMessageList — 把 `GET /v1/sessions/:id/messages` 的响应统一为 `Message[]`。
@@ -778,6 +793,36 @@ export const sessionService = {
         return [];
       },
     );
+  },
+
+  /**
+   * B2（2026-10-30，一致性核查 §9.4）：整会话**按轮摘要**（一次请求，绝对轮号）。
+   *
+   * 服务端复用消息派生路径（含派生缓存），只做"按轮切分 + 60 字摘要"，不新增落盘 IO。
+   * 失败时返回空数组并记 DEBUG 日志：调用方（轮次导航）回退为"只显示已加载轮次"，
+   * 不影响会话可用性。
+   */
+  getRoundSummaries: async (
+    sessionId: string,
+    limit?: number,
+  ): Promise<SessionRoundSummary[]> => {
+    try {
+      const qs = limit ? `?limit=${limit}` : "";
+      const res = await apiHttp.get<{ rounds?: SessionRoundSummary[] }>(
+        `${ENDPOINTS.session.roundSummaries(sessionId)}${qs}`,
+      );
+      if (res.ok) return res.data?.rounds ?? [];
+      logger.debug("获取按轮摘要失败（导航回退为已加载轮次）", {
+        sessionId,
+        error: res.error,
+      });
+    } catch (e) {
+      handleClientError(e, {
+        module: "services:session",
+        action: "getRoundSummaries",
+      });
+    }
+    return [];
   },
 
   /**

@@ -738,6 +738,8 @@ const enBase = {
     roundNavExpandAria: "{{count}} rounds, click to expand round navigation",
     roundNavCollapse: "Collapse round navigation",
     roundNavRoundAria: "Round {{count}}, click to jump",
+    // B2 (2026-10-30): unloaded rounds show only a summary (not clickable — the message isn't in the virtual list)
+    roundNavRoundUnloadedAria: "Round {{count}}, messages not loaded yet",
     taskPanelToggle: "Task progress details",
     roundsUnloaded: "{{count}} earlier rounds not loaded (click to load)",
     roundsUnloadedNoCount: "Earlier messages not loaded (click to load)",

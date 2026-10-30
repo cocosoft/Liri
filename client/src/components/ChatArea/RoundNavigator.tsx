@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { Message } from "../../types";
 import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import { summarizeRoundText } from "../../utils/roundSummaries";
+// B2（2026-10-30）：整会话按轮摘要（一次请求），用于补齐**未加载**轮次
+import { useSessionRoundSummaries } from "../../hooks/useSessionRoundSummaries";
 
 interface RoundNavigatorProps {
   messages: Message[];
@@ -23,6 +25,11 @@ interface RoundNavigatorProps {
   hasOlder: boolean;
   /** 加载更早消息（复用既有分页动作，CS01 不另立实现） */
   onLoadOlder: () => void;
+  /**
+   * B2（2026-10-30）：会话 id —— 拉取全量按轮摘要，让**未加载**轮次也显示摘要
+   * （此前只能对已加载的一页算摘要：真机 26 轮会话只显示最近 9 轮）。
+   */
+  sessionId?: string;
 }
 
 interface Round {
@@ -31,6 +38,19 @@ interface Round {
   userContent: string;
   isCurrentStreaming: boolean;
   /** 此轮次跨越午夜（用户消息和 AI 回复在不同日期） */
+  crossesMidnight: boolean;
+}
+
+/** 导航行：已加载轮（可点击跳转）+ 未加载轮（只有摘要，不提供点击） */
+interface NavRow {
+  /** 绝对轮号（1-based，相对整会话历史） */
+  absIndex: number;
+  /** 仅已加载轮有（点击跳转依赖它定位到虚拟列表中的消息） */
+  userMsgId?: string;
+  summary: string;
+  fullText: string;
+  loaded: boolean;
+  isCurrentStreaming: boolean;
   crossesMidnight: boolean;
 }
 
@@ -51,6 +71,9 @@ const DETAIL_SUMMARY_CHARS = 120;
  * - 保留：点击跳转（经 `chatInspectorStore.highlightedRoundId` → 虚拟列表内部滚动）、
  *   当前轮高亮、「更早 N 轮未加载」入口、流式中/跨午夜标记；
  * - 轮数多时列表**可滚动**（原"前 3 + 当前 ±5 + 后 3 + ⋯"的窗口折叠已移除）。
+ *
+ * B2（2026-10-30）：**未加载轮次也有摘要** —— 一次请求取整会话按轮摘要，
+ * 未加载行按绝对轮号渲染为只读行（不可点击：目标消息不在虚拟列表中，无法滚动定位）。
  */
 function RoundNavigator({
   messages,
@@ -59,16 +82,21 @@ function RoundNavigator({
   totalRounds,
   hasOlder,
   onLoadOlder,
+  sessionId,
 }: RoundNavigatorProps) {
   const { t } = useTranslation();
+  /** 当前活跃轮的**绝对轮号**（0 = 尚未定位） */
   const [activeRound, setActiveRound] = useState<number>(0);
-  /** 浮层当前展开的轮（-1 = 无） */
+  /** 浮层当前展开的轮（绝对轮号；-1 = 无） */
   const [detailRound, setDetailRound] = useState<number>(-1);
   const listRef = useRef<HTMLDivElement>(null);
   /** 目标消息 id → 由持有 virtualizer 的列表内部滚动（P0-6，见 handleRoundClick 注释） */
   const setHighlightedRoundId = useChatInspectorStore(
     (s) => s.setHighlightedRoundId,
   );
+
+  // B2：整会话按轮摘要（缓存 + 单次请求；失败 ⇒ 空数组 ⇒ 行为退回 B1）
+  const remoteRounds = useSessionRoundSummaries(sessionId, totalRounds);
 
   // 计算轮次
   const rounds = useMemo<Round[]>(() => {
@@ -128,12 +156,60 @@ function RoundNavigator({
 
   // P1-6a：总量口径 + 尾锚定。
   //  - 分页取的是**尾部一页** ⇒ 已加载的 user 消息即**最后** loadedRounds 轮；
-  //  - 绝对轮号 = `unloadedRounds + round.index`（round.index 为已加载内的 1-based 序）；
+  //  - 绝对轮号 = `absBase + round.index`（round.index 为已加载内的 1-based 序）；
   //  - effectiveTotal 兜底：后端 roundCount 缺失/落后于已加载轮数时，以已加载为准（不虚增）。
   const loadedRounds = rounds.length;
-  const effectiveTotal = Math.max(totalRounds, loadedRounds);
+  const remoteLastIndex = remoteRounds.length
+    ? remoteRounds[remoteRounds.length - 1].roundIndex
+    : 0;
+  const effectiveTotal = Math.max(totalRounds, loadedRounds, remoteLastIndex);
   /** 更早（未加载）的轮数 —— 仅用于展示与"尾锚定"编号，不代表可点击边界 */
   const unloadedRounds = Math.max(0, effectiveTotal - loadedRounds);
+
+  /**
+   * B2：已加载首轮的"前一轮"绝对轮号。
+   *
+   * 优先用远端摘要**校准**（同一 `userMsgId` 的绝对轮号）—— 这消除"总轮数估算"在
+   * 尾页没有 user 消息 / roundCount 落后时的偏移；拿不到远端数据时回退到原估计。
+   */
+  const absBase = useMemo(() => {
+    const firstId = rounds[0]?.userMsgId;
+    const abs = firstId
+      ? remoteRounds.find((r) => r.userMsgId === firstId)?.roundIndex
+      : undefined;
+    if (abs != null) return abs - 1;
+    return Math.max(0, effectiveTotal - loadedRounds);
+  }, [rounds, remoteRounds, effectiveTotal, loadedRounds]);
+
+  /** 导航行 = 未加载轮（远端摘要，只读）+ 已加载轮（可点击） */
+  const rows = useMemo<NavRow[]>(() => {
+    const loadedIds = new Set(rounds.map((r) => r.userMsgId));
+    const firstAbs = absBase + 1;
+    const earlier = remoteRounds
+      .filter((r) => r.roundIndex < firstAbs && !loadedIds.has(r.userMsgId))
+      .map<NavRow>((r) => ({
+        absIndex: r.roundIndex,
+        summary:
+          summarizeRoundText(r.userMsg, RAIL_SUMMARY_CHARS) ||
+          t("chatInspector.userMessageFallback"),
+        fullText: r.userMsg,
+        loaded: false,
+        isCurrentStreaming: false,
+        crossesMidnight: false,
+      }));
+    const loaded = rounds.map<NavRow>((r, i) => ({
+      absIndex: absBase + i + 1,
+      userMsgId: r.userMsgId,
+      summary:
+        summarizeRoundText(r.userContent, RAIL_SUMMARY_CHARS) ||
+        t("chatInspector.userMessageFallback"),
+      fullText: r.userContent,
+      loaded: true,
+      isCurrentStreaming: r.isCurrentStreaming,
+      crossesMidnight: r.crossesMidnight,
+    }));
+    return [...earlier, ...loaded];
+  }, [remoteRounds, rounds, absBase, t]);
 
   /**
    * 点击轮次编号，滚动到该轮第一条消息
@@ -145,18 +221,19 @@ function RoundNavigator({
    * `virtualizer.scrollToIndex` 滚动（离屏目标也能定位），并附带一次高亮闪烁。
    */
   const handleRoundClick = useCallback(
-    (round: Round) => {
-      setHighlightedRoundId(round.userMsgId);
+    (row: NavRow) => {
+      if (!row.userMsgId) return;
+      setHighlightedRoundId(row.userMsgId);
     },
     [setHighlightedRoundId],
   );
 
-  /** 消息 id → 轮次下标（避免滚动回调里对每轮各做一次 DOM 查询） */
+  /** 消息 id → 绝对轮号（避免滚动回调里对每轮各做一次 DOM 查询） */
   const roundIdxByMsgId = useMemo(() => {
     const map = new Map<string, number>();
-    rounds.forEach((r, i) => map.set(r.userMsgId, i));
+    rounds.forEach((r, i) => map.set(r.userMsgId, absBase + i + 1));
     return map;
-  }, [rounds]);
+  }, [rounds, absBase]);
 
   /**
    * 滚动时更新当前活跃轮次
@@ -197,11 +274,11 @@ function RoundNavigator({
       '[data-round-active="true"]',
     );
     el?.scrollIntoView({ block: "nearest" });
-  }, [activeRound, effectiveTotal]);
+  }, [activeRound, rows.length]);
 
   // P1-6a：渲染门槛改用**总量**口径 —— 尾页无 user 消息（loadedRounds = 0）时不再整体消失，
   // 改为渲染「更早 N 轮未加载」入口；否则长会话用户永远看不到导航器。
-  if (effectiveTotal <= 1) {
+  if (rows.length <= 1) {
     return null;
   }
 
@@ -230,68 +307,78 @@ function RoundNavigator({
           </button>
         )}
 
-        {rounds.map((round) => {
-          const idx = round.index - 1;
-          const isActive = idx === activeRound;
-          const isDetailOpen = detailRound === idx;
-          const summary =
-            summarizeRoundText(round.userContent, RAIL_SUMMARY_CHARS) ||
-            t("chatInspector.userMessageFallback");
+        {rows.map((row) => {
+          const isActive = row.absIndex === activeRound;
+          const isDetailOpen = detailRound === row.absIndex;
+          const badgeClass = row.isCurrentStreaming
+            ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700"
+            : row.crossesMidnight
+              ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400"
+              : isActive
+                ? "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 scale-110"
+                : row.loaded
+                  ? "bg-gray-200 dark:bg-gray-700/60 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600"
+                  : "bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500";
+          const badgeContent = row.isCurrentStreaming ? (
+            <span className="text-[7px]">⏳</span>
+          ) : (
+            <span className="relative">
+              {row.absIndex}
+              {row.crossesMidnight && (
+                <span className="absolute -top-1 -right-1 text-[7px] leading-none">
+                  🌙
+                </span>
+              )}
+            </span>
+          );
+          const badgeBase =
+            "w-4 h-4 shrink-0 rounded-full text-[9px] font-medium flex items-center justify-center transition-all duration-200";
 
           return (
             <div
-              key={round.index}
+              key={row.absIndex}
               data-round-active={isActive ? "true" : undefined}
+              data-round-unloaded={row.loaded ? undefined : "true"}
               className="relative flex items-center gap-1 shrink-0"
-              onMouseEnter={() => setDetailRound(idx)}
+              onMouseEnter={() => setDetailRound(row.absIndex)}
               onMouseLeave={() => setDetailRound(-1)}
             >
-              <button
-                onClick={() => handleRoundClick(round)}
-                onFocus={() => setDetailRound(idx)}
-                onBlur={() => setDetailRound(-1)}
-                aria-label={t("chat.roundNavRoundAria", {
-                  count: unloadedRounds + round.index,
-                })}
-                className={`
-                  w-4 h-4 shrink-0 rounded-full text-[9px] font-medium
-                  flex items-center justify-center
-                  transition-all duration-200 cursor-pointer border-0
-                  ${
-                    round.isCurrentStreaming
-                      ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700"
-                      : round.crossesMidnight
-                        ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400"
-                        : isActive
-                          ? "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 scale-110"
-                          : "bg-gray-200 dark:bg-gray-700/60 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600"
-                  }
-                  ${round.isCurrentStreaming ? "animate-pulse" : ""}
-                `}
-              >
-                {round.isCurrentStreaming ? (
-                  <span className="text-[7px]">⏳</span>
-                ) : (
-                  <span className="relative">
-                    {unloadedRounds + round.index}
-                    {round.crossesMidnight && (
-                      <span className="absolute -top-1 -right-1 text-[7px] leading-none">
-                        🌙
-                      </span>
-                    )}
-                  </span>
-                )}
-              </button>
+              {row.loaded ? (
+                <button
+                  onClick={() => handleRoundClick(row)}
+                  onFocus={() => setDetailRound(row.absIndex)}
+                  onBlur={() => setDetailRound(-1)}
+                  aria-label={t("chat.roundNavRoundAria", {
+                    count: row.absIndex,
+                  })}
+                  className={`${badgeBase} cursor-pointer border-0 ${badgeClass} ${
+                    row.isCurrentStreaming ? "animate-pulse" : ""
+                  }`}
+                >
+                  {badgeContent}
+                </button>
+              ) : (
+                // B2：未加载轮 —— 只有摘要，消息不在虚拟列表中 ⇒ 不提供点击（点击无法定位）
+                <span
+                  aria-label={t("chat.roundNavRoundUnloadedAria", {
+                    count: row.absIndex,
+                  })}
+                  data-round-id={row.absIndex}
+                  className={`${badgeBase} ${badgeClass}`}
+                >
+                  {badgeContent}
+                </span>
+              )}
 
               {/* B1：行内截断摘要（常显，不需要 hover） */}
               <span className="min-w-0 flex-1 truncate text-[9px] leading-none text-gray-500 dark:text-gray-400 select-none">
-                {summary}
+                {row.summary}
               </span>
 
               {/* B1：完整问题浮层（替代原生 title；只在 hover/focus 时出现） */}
-              {isDetailOpen && round.userContent.trim().length > 0 && (
+              {isDetailOpen && row.fullText.trim().length > 0 && (
                 <div className="absolute left-full ml-1 top-1/2 -translate-y-1/2 w-56 px-2 py-1 bg-gray-800 dark:bg-gray-700 text-white text-[10px] leading-snug rounded shadow-lg whitespace-normal break-words pointer-events-none z-20">
-                  {summarizeRoundText(round.userContent, DETAIL_SUMMARY_CHARS)}
+                  {summarizeRoundText(row.fullText, DETAIL_SUMMARY_CHARS)}
                   <div className="absolute left-[-3px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-gray-800 dark:bg-gray-700 rotate-45" />
                 </div>
               )}

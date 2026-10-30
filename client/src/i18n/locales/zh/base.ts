@@ -712,6 +712,8 @@ const zhBase = {
     roundNavExpandAria: "{{count}} 轮对话，点击展开轮次导航",
     roundNavCollapse: "折叠轮次导航",
     roundNavRoundAria: "第 {{count}} 轮，点击跳转",
+    // B2（2026-10-30）：未加载轮次只显示摘要（不可点击 —— 消息不在虚拟列表，无法定位）
+    roundNavRoundUnloadedAria: "第 {{count}} 轮，消息尚未加载",
     taskPanelToggle: "任务进度详情",
     roundsUnloaded: "更早 {{count}} 轮未加载（点击加载）",
     roundsUnloadedNoCount: "更早消息尚未加载（点击加载）",

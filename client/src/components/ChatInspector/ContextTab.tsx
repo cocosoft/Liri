@@ -21,6 +21,8 @@ import {
   buildRoundSummaries,
   type RoundSummary,
 } from "../../utils/roundSummaries";
+// B2（2026-10-30）：后端按轮摘要（`userMsgId → 绝对轮号`），用于统一左右轮号口径
+import { useSessionRoundSummaries } from "../../hooks/useSessionRoundSummaries";
 
 // ─── 工具函数 ─────────────────────────────────────
 
@@ -384,7 +386,27 @@ function ContextTab() {
   const realTimeSeverity = hasRealtime ? watermark.severity : undefined;
   const realTimeTokens = hasRealtime ? watermark.currentTokens : undefined;
 
-  const rounds = useMemo(() => buildRoundSummaries(messages, t), [messages, t]);
+  /**
+   * B2（2026-10-30）：轮号统一为**绝对轮号** —— 左侧导航按整会话历史编号，
+   * 本面板此前用"已加载内序号"（#1 起）⇒ 同一轮在两侧编号不一致（分页后尤其明显）。
+   * 用后端按轮摘要的 `userMsgId → roundIndex` 映射把已加载轮次换成绝对轮号；
+   * 拿不到映射（端点失败 / 会话尚未加载）时保持原相对序号，不阻断渲染。
+   */
+  const remoteRounds = useSessionRoundSummaries(
+    currentSession?.id,
+    currentSession?.roundCount ?? 0,
+  );
+  const rounds = useMemo(() => {
+    const built = buildRoundSummaries(messages, t);
+    if (remoteRounds.length === 0) return built;
+    const absById = new Map(
+      remoteRounds.map((r) => [r.userMsgId, r.roundIndex]),
+    );
+    return built.map((r) => {
+      const abs = absById.get(r.userMsgId);
+      return abs != null ? { ...r, roundIndex: abs } : r;
+    });
+  }, [messages, t, remoteRounds]);
 
   // 提取系统提示词（从第一条 system 消息）
   const systemPromptText = useMemo(() => {

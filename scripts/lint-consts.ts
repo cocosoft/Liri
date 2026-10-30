@@ -80,6 +80,11 @@ const CROSS_PACKAGE_CONTRACT_CONSTS: Record<string, string> = {
     '「未选模型」哨兵（由后端 SmartRouter 兜底）：app/src/constants/common.ts ↔ ' +
     'client/src/services/chatService.ts ↔ client/src-tauri/src/commands/chat.rs；' +
     '守卫见 app/tests/constants/sameNameConstsB2.test.ts 的 B5-2-68（三方逐字同值断言）',
+  ROUND_SUMMARY_MAX_CHARS:
+    '按轮摘要单条字符上限（B2）：app/src/runtime/api/roundSummaries.ts ↔ ' +
+    'client/src/utils/roundSummaries.ts；两侧分属不同包（client 不依赖后端包，无法 import），' +
+    '同名即契约信号；' +
+    '守卫见 app/tests/constants/sameNameConstsB2.test.ts 的 B5-2-69（两侧逐字同值断言）',
 };
 
 /**

@@ -91,6 +91,7 @@ import type { ChatManager } from '@modules/chat';
 // 或**方法内动态导入**（异步路径）⇒ 删除 `@modules/chat` 静态值导入（该「文件 × 模块」豁免对随之消失）。
 // B2（2026-10-05）：`verifySessionDerivation` 转发签名所需的类型位（实现已外迁 `sessionMessagesRead.ts`）
 import type { DerivationDiff } from '@modules/session';
+import type { SessionRoundSummariesResult } from './roundSummaries'; // B2：按轮摘要返回体
 // E-1 diff（2026-08-23）：文件变更前后 unified diff 计算
 
 import type { LiriEvent } from '@modules/session/types/events';
@@ -1666,6 +1667,13 @@ export class CoreAPIImpl implements CoreAPI {
     reason?: string;
   }> {
     return this.sessionAgentOps.verifySessionDerivation(sessionId);
+  }
+
+  getSessionRoundSummaries(
+    id: string,
+    q?: { limit?: number }
+  ): Promise<SessionRoundSummariesResult> {
+    return this.sessionAgentOps.getSessionRoundSummaries(id, q);
   }
 
   async getSessionEvents(

@@ -49,6 +49,7 @@ import {
   handleGetSession,
   handleGetSessionMemory,
   handleGetSessionMessages,
+  handleGetSessionRoundSummaries,
   handleGetSessionTimeline,
   handleGetSessionEvents,
   handleGetSessionStats,
@@ -155,6 +156,20 @@ export async function dispatchChatSessionRoutes(
     const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/messages$/, res);
     if (sid === null) return true;
     await handleGetSessionMessages(handlerCtx, req, res, sid);
+    return true;
+  }
+  // B2（2026-10-30）：按轮摘要（绝对轮号）—— 轮次导航一次请求补齐未加载轮次
+  if (
+    method === 'GET' &&
+    url.match(/^\/v1\/sessions\/(.+)\/round-summaries$/)
+  ) {
+    const sid = requireSessionId(
+      url,
+      /^\/v1\/sessions\/(.+)\/round-summaries$/,
+      res
+    );
+    if (sid === null) return true;
+    await handleGetSessionRoundSummaries(req, res, sid);
     return true;
   }
   if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/messages$/)) {

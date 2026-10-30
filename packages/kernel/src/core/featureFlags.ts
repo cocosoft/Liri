@@ -197,6 +197,20 @@ export const FEATURE_FLAGS = {
   EXPERIMENTAL_SKILL_SEARCH: false,
   /** 工具搜索 */
   TOOL_SEARCH: true,
+  /**
+   * 工具披露面**严格预算**（#26 之后的「工具与命令治理方案」P0-1，2026-10-30；**默认关**）。
+   *
+   * 背景（实测）：AC-16 的披露预算门禁只覆盖 `default`/`chat`（12 个工具 / 1.4k token）；
+   * `coding` / `agent` 任务面**没有门禁**，真机单轮下发 **68 个工具 / 105.2 KB schema**
+   * （≈30k–42k token），而 29 个会话 32 127 次调用只用到 27 个工具、前 5 个占 94%。
+   *
+   * 开 ⇒ `filterToolsByTask` 对 `coding` / `agent` 追加**优先级截断**（预算见
+   * `tools/toolCategories.ts` 的 `STRICT_DISCLOSURE_BUDGETS`）：恒集（`todo_write` / `agent`）
+   * 永远保留，其余按 `STRICT_DISCLOSURE_PRIORITY` 顺序取到预算为止；未列入者**仍注册可调用**，
+   * 模型可经 `tool_search` 检索到（与 AC-16 的"披露面收窄 ≠ 删除"同口径）。
+   * 关（默认）⇒ 与改造前逐字一致（零行为变更）。运维/灰度覆盖：`FEATURE_TOOL_DISCLOSURE_STRICT=true`。
+   */
+  TOOL_DISCLOSURE_STRICT: false,
   /** 缓存 */
   ENABLE_CACHE: true,
 

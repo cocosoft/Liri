@@ -676,7 +676,30 @@ export function filterToolsByTask<
       { taskType: taskType ?? DEFAULT_TASK_KEY, tools: newlyUnregistered }
     );
   }
-  return kept;
+
+  // P0-1（2026-10-30）：严格披露预算（`coding` / `agent` 面）—— 只收窄**下发面**，
+  // 未列入者仍注册可调用（经 `tool_search` 检索），与 AC-16 的"披露 ≠ 删除"同口径。
+  const budget = resolveDisclosureBudget(taskType);
+  if (budget === undefined || kept.length <= budget) return kept;
+
+  const nameOf = (t: T): string => t.name ?? t.function?.name ?? '';
+  const { kept: keptNames, dropped } = trimNamesToDisclosureBudget(
+    kept.map(nameOf),
+    budget
+  );
+  if (dropped.length === 0) return kept;
+  const keptSet = new Set(keptNames);
+  logger.info(
+    '严格披露预算：按优先级截断工具面（未列入者仍可经 tool_search 检索）',
+    {
+      taskType: taskType ?? DEFAULT_TASK_KEY,
+      budget,
+      before: kept.length,
+      after: keptNames.length,
+      droppedNames: dropped,
+    }
+  );
+  return kept.filter((t) => keptSet.has(nameOf(t)));
 }
 
 /**
@@ -706,5 +729,116 @@ export function getRealToolNamesForTask(
       if (!DEFAULT_DISCLOSURE_TOOLS.has(name)) names.delete(name);
     }
   }
-  return [...names];
+  // P0-1（2026-10-30）：严格披露预算同样收窄本清单（同一判据，避免第二套口径）
+  const budget = resolveDisclosureBudget(taskType);
+  if (budget === undefined) return [...names];
+  return trimNamesToDisclosureBudget([...names], budget).kept;
+}
+
+// ============================================================
+// 严格披露预算（P0-1，2026-10-30；`FEATURE_TOOL_DISCLOSURE_STRICT`，默认关）
+//
+// 背景（实测）：AC-16 的门禁只覆盖 `default`/`chat`；`coding` / `agent` 面没有上限，
+// 真机单轮 68 个工具 / 105.2 KB schema（≈30k–42k token），而 29 个会话 32 127 次调用
+// 只用到 27 个工具、前 5 个占 94%。本预算对这两类任务做**优先级截断**：
+//   - 恒集（`getMandatoryTools()`）永远保留；
+//   - 其余按 `STRICT_DISCLOSURE_PRIORITY` 顺序取到预算为止；
+//   - 未列入者**仍注册可调用**（模型可经 `tool_search` 检索），不是删除。
+// ============================================================
+
+/** 严格披露预算：任务类型 → 最多可见工具数（只对**开启开关**时生效） */
+export const STRICT_DISCLOSURE_BUDGETS: Readonly<Record<string, number>> = {
+  coding: 25,
+  agent: 25,
+};
+
+/**
+ * 严格披露下的**保留优先级**（越靠前越先保留）。
+ *
+ * 排序依据（实测，见 `dev_docs/20261030/Liri-工具与命令治理方案-20261030.md` §1.2）：
+ * 前 12 个与 `DEFAULT_DISCLOSURE_TOOLS` 同源；其后是编码/代理场景的高频与结构性必需
+ * （`glob` 21.2% / `powershell` 3.8% / `read_project_file` 1.9% / `tool_search` 0.8% …）。
+ * 未列入者一律排在最后 —— 预算吃紧时先被截断，仍可经 `tool_search` 检索到。
+ */
+export const STRICT_DISCLOSURE_PRIORITY: readonly string[] = [
+  ...DEFAULT_DISCLOSURE_TOOLS,
+  'glob',
+  'powershell',
+  'read_project_file',
+  'write_project_file',
+  'file_convert',
+  'sessions',
+  'sessions_yield',
+  'stat_vfs',
+  'notebook',
+  'skill',
+  'skills_list',
+  'plan',
+  'clipboard',
+  'brief',
+  'lsp',
+  'code_run',
+  'create_project',
+  'config',
+  'monitor',
+];
+
+/**
+ * 当前任务类型下的严格披露预算（未开开关 / 该任务无预算 ⇒ `undefined`）。
+ *
+ * 单一判定入口：`filterToolsByTask` 与 `getRealToolNamesForTask` 都走这里。
+ */
+export function resolveDisclosureBudget(
+  taskType: string | undefined
+): number | undefined {
+  if (!feature('TOOL_DISCLOSURE_STRICT')) return undefined;
+  return STRICT_DISCLOSURE_BUDGETS[taskType ?? DEFAULT_TASK_KEY];
+}
+
+/**
+ * 按预算裁剪**工具名**（纯函数，单测直接打这里）。
+ *
+ * 规则：
+ * - 数量未超预算 ⇒ 原样返回（`dropped` 为空）；
+ * - 超预算 ⇒ 恒集优先、其余按 `priority` 排名（不在名单里的排最后，按原顺序稳定）；
+ * - 恒集数量本身超预算 ⇒ **恒集全留**（预算是软上限，恒集不可裁）；
+ * - 返回值保持**原顺序**（provider 侧输出稳定）。
+ */
+export function trimNamesToDisclosureBudget(
+  names: readonly string[],
+  budget: number,
+  options: {
+    mandatory?: ReadonlySet<string>;
+    priority?: readonly string[];
+  } = {}
+): { kept: string[]; dropped: string[] } {
+  const unique = [...new Set(names)];
+  if (unique.length <= budget) return { kept: unique, dropped: [] };
+
+  const mandatory = options.mandatory ?? getMandatoryTools();
+  const priority = options.priority ?? STRICT_DISCLOSURE_PRIORITY;
+  const rankOf = new Map<string, number>();
+  priority.forEach((n, i) => {
+    if (!rankOf.has(n)) rankOf.set(n, i);
+  });
+
+  const ordered = unique
+    .map((name, index) => ({
+      name,
+      index,
+      mustKeep: mandatory.has(name) ? 0 : 1,
+      rank: rankOf.get(name) ?? Number.MAX_SAFE_INTEGER,
+    }))
+    .sort(
+      (a, b) => a.mustKeep - b.mustKeep || a.rank - b.rank || a.index - b.index
+    );
+
+  const mustKeepCount = unique.filter((n) => mandatory.has(n)).length;
+  const keepCount = Math.max(budget, mustKeepCount);
+  const keptSet = new Set(ordered.slice(0, keepCount).map((x) => x.name));
+
+  return {
+    kept: unique.filter((n) => keptSet.has(n)),
+    dropped: unique.filter((n) => !keptSet.has(n)).sort(),
+  };
 }

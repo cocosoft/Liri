@@ -122,6 +122,7 @@
     "bench:mcp-redaction": "bun run scripts/bench-mcp-redaction.ts",
     "bench:eventlog-concurrency": "bun run scripts/bench-eventlog-concurrency.ts",
     "analyze:tool-search": "bun run scripts/analyze-tool-search.ts",
+    "analyze:tool-usage": "bun run scripts/analyze-tool-usage.ts",
     "analyze:orchestration-events": "bun run scripts/analyze-orchestration-events.ts",
     "analyze:startup-graph": "bun run scripts/analyze-startup-graph.ts",
     "analyze:cpu-profile": "bun run scripts/analyze-cpu-profile.ts",

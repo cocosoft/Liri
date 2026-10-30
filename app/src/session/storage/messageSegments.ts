@@ -37,15 +37,21 @@
  */
 
 import { readdir } from 'fs/promises';
+import {
+  LINE_CHUNK_MAX_BYTES,
+  LINE_CHUNK_MAX_LINES,
+  planLineChunks,
+  type LineChunkPlan,
+} from './lineChunkPlan.js';
 
 /** 分片文件名字符模式（4 位以上零填充序号） */
 export const MESSAGE_SEGMENT_RE = /^messages\.(\d{4,})\.jsonl$/;
 
-/** 单个分片的字节上限（缺省 5 MB） */
-export const MESSAGE_SEGMENT_MAX_BYTES = 5 * 1024 * 1024;
+/** 单个分片的字节上限（缺省 5 MB；与事件分片共用 `lineChunkPlan` 的唯一实现） */
+export const MESSAGE_SEGMENT_MAX_BYTES = LINE_CHUNK_MAX_BYTES;
 
 /** 单个分片的行数上限（缺省 1000 行） */
-export const MESSAGE_SEGMENT_MAX_LINES = 1000;
+export const MESSAGE_SEGMENT_MAX_LINES = LINE_CHUNK_MAX_LINES;
 
 /** 分片文件名（`messages.0001.jsonl`） */
 export function segmentFileName(index: number): string {
@@ -56,30 +62,13 @@ export function segmentFileName(index: number): string {
  * 把「逐行字节数」切成若干块（贪心累积，受 `maxBytes` / `maxLines` 双约束）。
  *
  * **最后一块留在活动尾文件** ⇒ `segments = chunks.length - 1`。不修改入参。
+ * 切块算法已归一化到 `./lineChunkPlan.ts`（A 事件分片共用）。
  */
 export function planMessageSplit(
   lineBytes: readonly number[],
   options: { maxBytes?: number; maxLines?: number } = {}
-): { chunks: Array<{ from: number; to: number }>; segments: number } {
-  const maxBytes = Math.max(1, options.maxBytes ?? MESSAGE_SEGMENT_MAX_BYTES);
-  const maxLines = Math.max(1, options.maxLines ?? MESSAGE_SEGMENT_MAX_LINES);
-  const chunks: Array<{ from: number; to: number }> = [];
-  let from = 0;
-  let bytes = 0;
-  let lines = 0;
-  for (let i = 0; i < lineBytes.length; i++) {
-    const size = lineBytes[i];
-    if (lines > 0 && (bytes + size > maxBytes || lines >= maxLines)) {
-      chunks.push({ from, to: i });
-      from = i;
-      bytes = 0;
-      lines = 0;
-    }
-    bytes += size;
-    lines += 1;
-  }
-  if (lines > 0) chunks.push({ from, to: lineBytes.length });
-  return { chunks, segments: Math.max(0, chunks.length - 1) };
+): LineChunkPlan {
+  return planLineChunks(lineBytes, options);
 }
 
 /** 列出会话目录内的分片（按序号升序；**不含**活动尾文件 `messages.jsonl`） */

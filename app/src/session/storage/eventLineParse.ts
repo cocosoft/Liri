@@ -31,6 +31,9 @@
  */
 
 import type { LiriEvent, LiriEventType } from '@modules/session/types/events';
+import { isLiriEvent } from '@modules/session/types/events';
+import { assertEventReadable } from '@modules/session/types/knownEventTypes';
+import { sanitizeEvent } from './eventSanitize';
 
 // ─── 损坏行拆分恢复（2026-08-24 根因修复）───────────────────────────────────
 
@@ -89,6 +92,81 @@ export function splitJsonLine(line: string): unknown[] {
     cursor = consumedTo + 1;
   }
   return results;
+}
+
+/**
+ * `extractEventFromLine` 的结论。
+ *
+ * `invalid` 非空表示**整行**不可用（宿主据此告警并跳过）；`damaged` 为 true 表示走了
+ * 损坏行拆分恢复（`events` 可能 0..n 条）。
+ */
+export interface EventLineParseResult {
+  events: LiriEvent[];
+  damaged: boolean;
+  invalid?: 'not-event' | 'unreadable';
+  /** 不可读事件的定位信息（告警用） */
+  invalidEvent?: { seq: number; type: string; reason: string };
+}
+
+/**
+ * A/归一化（2026-10-30）：**单行 → 事件**的唯一实现（读路径与快照共用，CS01）。
+ *
+ * 原逻辑在 `EventLogStorage.read()` 与 `buildSnapshot()` 各写一遍（≈65 + 21 行）：
+ * 解析 → `isLiriEvent` → `assertEventReadable` → `sanitizeEvent` → 查询过滤；
+ * 解析失败则按 JSON 边界拆分恢复（见 `splitJsonLine`）。此处逐字合并，
+ * 宿主只负责告警文案与结果累积。
+ */
+export function extractEventFromLine(
+  line: string,
+  options: {
+    fromSeq?: number;
+    toSeq?: number;
+    types?: LiriEventType[];
+    excludeTypes?: LiriEventType[];
+  } = {}
+): EventLineParseResult {
+  const fromSeq = options.fromSeq ?? 1;
+  const toSeq = options.toSeq ?? Number.MAX_SAFE_INTEGER;
+  const accept = (ev: LiriEvent): boolean => {
+    if (ev.seq < fromSeq || ev.seq > toSeq) return false;
+    if (options.types && !options.types.includes(ev.type)) return false;
+    if (options.excludeTypes && options.excludeTypes.includes(ev.type)) {
+      return false;
+    }
+    return true;
+  };
+  try {
+    const event = JSON.parse(line) as unknown;
+    if (!isLiriEvent(event)) {
+      return { events: [], damaged: false, invalid: 'not-event' };
+    }
+    const readable = assertEventReadable(event);
+    if (!readable.ok) {
+      return {
+        events: [],
+        damaged: false,
+        invalid: 'unreadable',
+        invalidEvent: {
+          seq: event.seq,
+          type: event.type,
+          reason: readable.reason ?? 'unreadable',
+        },
+      };
+    }
+    // D1（2026-08-24）：读取路径同步冻结——"读取返回冻结对象"契约
+    sanitizeEvent(event);
+    return { events: accept(event) ? [event] : [], damaged: false };
+  } catch {
+    const events: LiriEvent[] = [];
+    for (const obj of splitJsonLine(line)) {
+      if (!isLiriEvent(obj)) continue;
+      if (!assertEventReadable(obj).ok) continue;
+      sanitizeEvent(obj);
+      if (!accept(obj)) continue;
+      events.push(obj);
+    }
+    return { events, damaged: true };
+  }
 }
 
 /**

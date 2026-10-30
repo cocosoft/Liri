@@ -52,7 +52,17 @@ import {
   THINKING_MERGE_MAX_BYTES,
 } from './EventLogThinkingBuffer';
 import { EventLogRepair } from './EventLogRepair';
-import { splitJsonLine, filterSnapshotEvents } from './eventLineParse';
+import {
+  eventFilePathsInOrder,
+  hasEventData,
+  iterateEventFiles,
+  readTailFirstSeq,
+} from './eventSegments';
+import {
+  extractEventFromLine,
+  splitJsonLine,
+  filterSnapshotEvents,
+} from './eventLineParse';
 import {
   assertEventReadable,
   assertEventWritable,
@@ -102,21 +112,6 @@ const SNAPSHOT_COOLDOWN_MS = 5_000;
 const IDX_BATCH_SIZE = 256;
 /** UTF-8 字节偏移累计基数（写事件前的文件起始偏移，append-only 下恒定） */
 const IDX_INIT_OFFSET = 0;
-
-/**
- * 事件行的 UTF-8 字节数（**含行尾 '\n'**）。
- *
- * 口径必须与 append 侧折叠 `events.idx` 同源（G-4：seek 偏移不允许近似）：
- * append 以 `JSON.stringify(event) + '\n'` 落盘（见 `append` 内 `const line = …`），
- * 故行字节 = JSON 文本字节数 + 1。readline 已剥离行尾换行（`crlfDelay: Infinity`
- * 下 `'\r\n'` 亦整体剥离），故读侧对 `line` 再 +1 即可与写侧一致。
- *
- * 历史 CRLF 文件会**少算** 1 字节/行（偏移偏小）——由 `isLineStart` 行边界校验
- * 拦住并回退全扫（只慢不错），见 `resolveScanStartOffset`。
- */
-function eventLineBytes(jsonText: string): number {
-  return Buffer.byteLength(jsonText, 'utf-8') + 1;
-}
 
 /** 事件字节索引区间条目（持久化为 .idx 文件行） */
 export interface EventIdxEntry {
@@ -285,6 +280,8 @@ export class EventLogStorage {
    * 即**回退 0 全扫**（只慢不错，CS03）。
    */
   private readBoundary: { afterSeq: number; byteOffset: number } | null = null;
+  /** A（2026-10-30）：活动尾文件首条事件 seq（0=未探测；append-only 下首 seq 恒定） */
+  private tailFirstSeq = 0;
   /** 快照条数上限（构造可注入，测试用小值避免写大文件） */
   private readonly maxSnapshotEvents: number;
   /** 快照字节上限（构造可注入） */
@@ -392,9 +389,12 @@ export class EventLogStorage {
     return this.backupFilePath;
   }
 
-  /** 文件是否存在 */
+  /**
+   * 文件是否存在（A：**尾文件或任一分片**存在即可 —— 分片也算"有历史事件"，
+   * 否则尾文件被外部删除后会从 seq=1 重新分配，覆盖历史序号）。
+   */
   exists(): boolean {
-    return existsSync(this.filePath);
+    return hasEventData(this.sessionDir, this.filePath);
   }
 
   /**
@@ -422,12 +422,20 @@ export class EventLogStorage {
     }
 
     // 扫描文件找最大 seq（T3-10：复用 idx 定位——从末区间起点续扫，而非自文件头全扫）
+    // A（2026-10-30）：分片布局下最大 seq **恒在最后一份文件**（活动尾；尾缺失时为末分片）
     let maxSeq = 0;
     try {
       await this.loadIdxEntries();
+      const files = eventFilePathsInOrder(this.sessionDir, this.filePath);
+      const lastFile = files[files.length - 1];
+      if (!lastFile) {
+        this.tailSeq = 0;
+        this.tailSeqInitialized = true;
+        return 0;
+      }
       const rl = this.openOffsetReadline(
-        this.filePath,
-        this.resolveTailScanStart()
+        lastFile,
+        lastFile === this.filePath ? this.resolveTailScanStart() : 0
       );
       for await (const line of rl) {
         if (!line.trim()) continue;
@@ -1191,23 +1199,30 @@ export class EventLogStorage {
       // O(N) 逐行扫描 → O(log N) 定位 + seek 段读。索引未覆盖（重启后未
       // 折叠 / idx 落后 G-2）时回退 scanStart（P0-5：上次页边界续扫；无锚点则 0）。
       await this.ensureIdxLoaded();
-      const scanStart = this.resolveScanStartOffset(fromSeq);
-      const rl = this.createReadlineInterface(this.filePath, scanStart);
-      // P0-5（L-9 残余，2026-10-10）：续页锚点记账——随扫描累积 UTF-8 字节偏移，
-      // 页满那一刻记下"**当前行起点**"（= 最后一个已返回事件之后的第一个未处理行，
-      // 该行尚未读取解析，不得越过）供下一次续页 seek。行字节口径与 append 折叠
-      // `.idx` 同源（见 `eventLineBytes`）。
-      let scanBytes = scanStart;
+      // A：分片布局「分片升序 + 尾文件」；idx 偏移只对尾文件有效 ⇒ 仅 fromSeq 落在尾文件内才走快路径
+      const files = eventFilePathsInOrder(this.sessionDir, this.filePath);
+      const tailFirstSeq = files.length > 1 ? await this.getTailFirstSeq() : 0;
+      const tailOnly =
+        files.length <= 1 || (tailFirstSeq > 0 && fromSeq >= tailFirstSeq);
+      const filesToScan = tailOnly ? [this.filePath] : files;
+      if (!tailOnly) this.readBoundary = null;
+      const scanStart = tailOnly ? this.resolveScanStartOffset(fromSeq) : 0;
+      // P0-5（L-9 残余）：续页锚点 = 页满那一刻的"当前行起点"（跨文件不通用，只对尾文件记）
       let lastReturnedSeq = 0;
-      for await (const line of rl) {
-        const lineStart = scanBytes;
-        scanBytes += eventLineBytes(line);
+      for await (const { line, lineStart, file } of iterateEventFiles(
+        filesToScan,
+        this.openReadline,
+        { startFile: this.filePath, startOffset: scanStart }
+      )) {
         if (!line.trim()) continue;
         if (results.length >= limit) {
-          this.readBoundary = {
-            afterSeq: lastReturnedSeq,
-            byteOffset: lineStart,
-          };
+          // 锚点只在同一文件内有效（跨文件续页回退逐行扫描，只慢不错）
+          if (file === this.filePath) {
+            this.readBoundary = {
+              afterSeq: lastReturnedSeq,
+              byteOffset: lineStart,
+            };
+          }
           break;
         }
 
@@ -1235,61 +1250,34 @@ export class EventLogStorage {
           }
         }
 
-        try {
-          const event = JSON.parse(line) as unknown;
-          if (!isLiriEvent(event)) {
-            logger.warn('event-log: read 跳过非事件行', {
-              sessionId: this.sessionId,
-              linePreview: line.slice(0, 100),
-            });
-            continue;
-          }
-
-          // D2（2026-08-24）：版本校验 + 未知类型处理——超前版本/未知非 ignorable 跳过并告警
-          const readable = assertEventReadable(event);
-          if (!readable.ok) {
-            logger.warn('event-log: read 跳过不可读事件', {
-              sessionId: this.sessionId,
-              eventSeq: event.seq,
-              eventType: event.type,
-              reason: readable.reason,
-            });
-            continue;
-          }
-
-          // D1（2026-08-24）：读取路径同步冻结——"读取返回冻结对象"契约
-          // （sanitizeEvent 对已冻结对象幂等跳过，历史未冻结事件在此补齐冻结）
-          sanitizeEvent(event);
-
-          // 过滤
-          if (event.seq < fromSeq || event.seq > toSeq) continue;
-          if (types && !types.includes(event.type)) continue;
-
-          results.push(event);
-          // P0-5：续页锚点的"已返回末端"（取最后一条，与磁盘字节序一致）
-          lastReturnedSeq = event.seq;
-        } catch {
+        const parsed = extractEventFromLine(line, {
+          fromSeq,
+          toSeq,
+          ...(types ? { types } : {}),
+          ...(excludeTypes ? { excludeTypes } : {}),
+        });
+        if (parsed.invalid === 'not-event') {
+          logger.warn('event-log: read 跳过非事件行', {
+            sessionId: this.sessionId,
+            linePreview: line.slice(0, 100),
+          });
+          continue;
+        }
+        if (parsed.invalid === 'unreadable') {
+          logger.warn('event-log: read 跳过不可读事件', {
+            sessionId: this.sessionId,
+            eventSeq: parsed.invalidEvent?.seq,
+            eventType: parsed.invalidEvent?.type,
+            reason: parsed.invalidEvent?.reason,
+          });
+          continue;
+        }
+        if (parsed.damaged) {
           // 损坏行（跨实例并发拼接/截断）→ 按 JSON 边界拆分恢复（2026-08-24 根因修复）
-          let recovered = 0;
-          for (const obj of splitJsonLine(line)) {
-            if (!isLiriEvent(obj)) continue;
-            const readable = assertEventReadable(obj);
-            if (!readable.ok) continue;
-            sanitizeEvent(obj);
-            if (obj.seq < fromSeq || obj.seq > toSeq) continue;
-            if (types && !types.includes(obj.type)) continue;
-            // T7/P0-4（2026-08-30）：既有 bug 修复——损坏行恢复的事件此前漏查
-            // excludeTypes，与正常行/快照路径语义不一致（恢复出的 thinking 会被多返回）
-            if (excludeTypes && excludeTypes.includes(obj.type)) continue;
-            results.push(obj);
-            recovered++;
-            // P0-5：损坏行恢复出的事件同样推进续页锚点（否则续页会重扫该行）
-            lastReturnedSeq = obj.seq;
-          }
-          if (recovered > 0) {
+          if (parsed.events.length > 0) {
             logger.warn('event-log: read 损坏行拆分恢复', {
               sessionId: this.sessionId,
-              recoveredCount: recovered,
+              recoveredCount: parsed.events.length,
               linePreview: line.slice(0, 100),
             });
           } else {
@@ -1298,6 +1286,11 @@ export class EventLogStorage {
               linePreview: line.slice(0, 100),
             });
           }
+        }
+        for (const event of parsed.events) {
+          results.push(event);
+          // P0-5：续页锚点的"已返回末端"（取最后一条，与磁盘字节序一致）
+          lastReturnedSeq = event.seq;
         }
       }
     } catch (e) {
@@ -1359,8 +1352,12 @@ export class EventLogStorage {
     try {
       const lines: string[] = [];
       let maxCopiedSeq = 0;
-      const rl = this.createReadlineInterface();
-      for await (const line of rl) {
+      // A：分片布局下前缀事件可能跨多个文件（分片升序 + 尾文件）
+      const files = eventFilePathsInOrder(this.sessionDir, this.filePath);
+      for await (const { line } of iterateEventFiles(
+        files,
+        this.openReadline
+      )) {
         if (!line.trim()) continue;
         try {
           const event = JSON.parse(line) as LiriEvent;
@@ -1740,26 +1737,15 @@ export class EventLogStorage {
           windowed = true;
         }
       };
-      const rl = this.createReadlineInterface();
-      for await (const line of rl) {
+      const files = eventFilePathsInOrder(this.sessionDir, this.filePath);
+      for await (const { line } of iterateEventFiles(
+        files,
+        this.openReadline
+      )) {
         if (!line.trim()) continue;
-        const lineLen = line.length;
-        try {
-          const event = JSON.parse(line) as unknown;
-          if (!isLiriEvent(event)) continue;
-          const readable = assertEventReadable(event);
-          if (!readable.ok) continue;
-          sanitizeEvent(event);
-          push(event, lineLen);
-        } catch {
-          // 损坏行：按 JSON 边界拆分恢复（与 read() 原路径一致）
-          for (const obj of splitJsonLine(line)) {
-            if (!isLiriEvent(obj)) continue;
-            const readable = assertEventReadable(obj);
-            if (!readable.ok) continue;
-            sanitizeEvent(obj);
-            push(obj, lineLen);
-          }
+        // A/归一化：解析 + 校验 + 冻结合并为唯一实现（与 read 同源）
+        for (const event of extractEventFromLine(line).events) {
+          push(event, line.length);
         }
       }
       if (head >= events.length) return null;
@@ -1839,6 +1825,21 @@ export class EventLogStorage {
       crlfDelay: Infinity,
     });
   }
+
+  /**
+   * A：活动尾文件首条事件 seq（缓存；`resetTailState` 时失效）。
+   * @returns `0` = 未知（调用方回退逐文件扫描，只慢不错）
+   */
+  private async getTailFirstSeq(): Promise<number> {
+    if (this.tailFirstSeq === 0) {
+      this.tailFirstSeq = readTailFirstSeq(this.filePath);
+    }
+    return this.tailFirstSeq;
+  }
+
+  /** A：多文件逐行读的读器工厂（**透传** start，与既有单文件调用形态一致） */
+  private readonly openReadline = (file: string, start?: number) =>
+    this.createReadlineInterface(file, start);
 
   // ─── A-6 平滑降级（2026-08-23）────────────────────────────────────────────
 
@@ -1970,6 +1971,7 @@ export class EventLogStorage {
     this.tailSeq = 0;
     this.tailSeqInitialized = false;
     this.maxTurn = null;
+    this.tailFirstSeq = 0; // A：尾文件可能被截断/重写，首 seq 探测结果一并失效
   }
 
   /** D4-1：检测 events.jsonl 末尾是否存在半写行（torn tail）—— 实现见 `EventLogRepair` */

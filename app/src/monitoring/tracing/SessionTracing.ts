@@ -243,24 +243,24 @@ export class SessionTracing {
 
     const parentSpanCtx = this.interactionContext.getStore();
 
+    // D5 硬切换（2026-10-30）：span 名改用 OTel 语义约定 `{gen_ai.operation.name} {gen_ai.request.model}`
+    // ⇒ `chat <model>`。同名用于**覆盖去重键**（下方 isSpanCovered/markSpanCovered），三者必须同源。
+    const llmSpanName = `chat ${model}`;
+
     const attributes = this.createSpanAttributes('llm_request', {
       model: model,
-      'llm_request.context': parentSpanCtx ? 'interaction' : 'standalone',
-      speed: options?.fastMode ? 'fast' : 'normal',
+      // D5：旧 `llm_request.context` → 应用命名空间 `liri.*`（非 semconv 属性统一归此）
+      'liri.llm_request.context': parentSpanCtx ? 'interaction' : 'standalone',
+      'liri.speed': options?.fastMode ? 'fast' : 'normal',
     });
 
     if (options?.querySource) {
-      attributes['query_source'] = options.querySource;
+      attributes['liri.query_source'] = options.querySource;
     }
 
-    // 论文 A4（2026-10-06，`.trae/specs/otel-genai-semconv-alignment.md`）：**并存新增** OTel GenAI
-    // 语义约定属性（§4.1），**不改**任何既有 `Liri.*` / `llm_request.*` 名。
+    // 论文 A4（2026-10-06）+ D5（2026-10-30 硬切换）：OTel GenAI 语义约定属性是**唯一**的 LLM 请求
+    // 语义属性；旧的 `Liri.llm_request` span 名与 `llm_request.*` 属性名已在本批**删除**。
     // 规范要求"采样相关属性 SHOULD 在 span **创建时**提供" ⇒ 这两项在此写。
-    //
-    // ⚠️ @deprecated（D5，2026-10-30 用户裁定）：旧命名 `Liri.llm_request`（span 名）与
-    // `llm_request.*`（属性名，见本文件 `endLLMRequestSpan`）**已标废弃**，目标 **v0.6.0 硬切换**：
-    // 届时删旧名写入，同批改 span 名 + 4 处覆盖去重键（`SpanCoverageRegistry`）+ 客户端 trace 视图。
-    // 切换前**保持双写**（删早了会打断客户端视图与覆盖去重键）。
     attributes['gen_ai.operation.name'] = 'chat';
     attributes['gen_ai.request.model'] = model;
 
@@ -270,17 +270,14 @@ export class SessionTracing {
       : context.active();
 
     // P2-2.9: 去重检查 — 避免与 EventBusOTelBridge 创建重复 Span
-    if (
-      parentSpanCtx &&
-      isSpanCovered(parentSpanCtx.span, 'Liri.llm_request')
-    ) {
+    if (parentSpanCtx && isSpanCovered(parentSpanCtx.span, llmSpanName)) {
       return trace.getActiveSpan() || tracer.startSpan('dummy');
     }
 
-    const span = tracer.startSpan('Liri.llm_request', { attributes }, ctx);
+    const span = tracer.startSpan(llmSpanName, { attributes }, ctx);
 
     if (parentSpanCtx) {
-      markSpanCovered(parentSpanCtx.span, 'Liri.llm_request');
+      markSpanCovered(parentSpanCtx.span, llmSpanName);
     }
 
     const spanId = this.getSpanId(span);
@@ -327,33 +324,33 @@ export class SessionTracing {
       return;
     }
 
-    const duration = Date.now() - spanContext.startTime;
-    span.setAttributes({
-      'llm_request.duration_ms': duration,
-    });
-
     if (metadata) {
+      // D5 硬切换（2026-10-30）：只写 OTel `gen_ai.*`；旧 `llm_request.input_tokens/output_tokens`
+      // 已删除（同值信息由 `gen_ai.usage.*` 承载）；时长由 span 自身 duration 表达（不再写
+      // `llm_request.duration_ms`）；成功/失败由 **span status** 表达（不再写 `llm_request.success`）。
       if (metadata.inputTokens !== undefined) {
-        span.setAttribute('llm_request.input_tokens', metadata.inputTokens);
-        // 论文 A4：OTel `gen_ai.usage.input_tokens` **并存**（规范：SHOULD 含 cache 读/建 token）
+        // 规范：SHOULD 含 cache 读/建 token
         span.setAttribute('gen_ai.usage.input_tokens', metadata.inputTokens);
       }
       if (metadata.outputTokens !== undefined) {
-        span.setAttribute('llm_request.output_tokens', metadata.outputTokens);
-        // 论文 A4：OTel `gen_ai.usage.output_tokens` **并存**（规范：SHOULD 含 reasoning token）
+        // 规范：SHOULD 含 reasoning token
         span.setAttribute('gen_ai.usage.output_tokens', metadata.outputTokens);
-      }
-      if (metadata.success !== undefined) {
-        span.setAttribute('llm_request.success', metadata.success);
       }
       if (metadata.error) {
         span.setStatus({
           code: SpanStatusCode.ERROR,
           message: metadata.error,
         });
+      } else if (metadata.success === false) {
+        // success=false 但无错误串：仍按 ERROR 标记，避免"失败"信号在删掉 success 属性后丢失
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: 'LLM request failed',
+        });
       }
       if (metadata.ttftMs !== undefined) {
-        span.setAttribute('llm_request.ttft_ms', metadata.ttftMs);
+        // 非 semconv 属性 ⇒ 应用命名空间
+        span.setAttribute('liri.ttft_ms', metadata.ttftMs);
       }
     }
 

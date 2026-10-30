@@ -3,6 +3,10 @@
 > 版本: 1.0 | 创建: 2026-09-22 | 状态: **已实施（2026-09-22）**
 > 关联: GR15（Spec-Driven）/ GR01（基础设施复用）/ CS01（复用既有 span 与去重机制）/ CS04（零 Mock）/ CS05（根因优先）/ TR-20（本项即其"启用"路径）
 > 前置：用户 2026-09-22 决策「TR-20 按**启用观测链路**处理」
+>
+> ⚠️ **命名已变更（2026-10-30，D5 硬切换）**：本文件 §1/§2 里的 span 名 `Liri.llm_request` 与属性名
+> `llm_request.*` 是**历史口径**；现行口径见 [otel-genai-semconv-alignment.md](./otel-genai-semconv-alignment.md) §D5/§6：
+> span 名 = `chat <model>`，语义属性 = `gen_ai.*`，非 semconv 属性 = `liri.*`。下文原文保留以存证。
 
 ## 1. Problem Statement
 

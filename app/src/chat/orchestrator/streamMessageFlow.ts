@@ -1371,7 +1371,7 @@ export async function* runStreamMessage(
         // **口径如实**：`ttfb` = 端到端**首块（字节）**延迟；`ttft` = 端到端**首个内容
         // chunk**（正文擦洗后非空 / thinking 有内容）延迟。两者**均含准备阶段**
         // （API 消息构建 / 压缩估算等），**不等于纯模型生成延迟** —— provider 侧的真值
-        // 见 TR-20（其 `llm_request.ttft_ms` 实为 TTFB，需另行修正）。
+        // 见 TR-20（D5 切换后该属性名为 `liri.ttft_ms`；其语义仍为 TTFB，需另行修正）。
         //
         // **只对成功请求落盘**：失败请求已有 `system/error` 事件（catch 块），且 catch 内
         // 存在 `continue`（上下文降级重试）等多条退出路径，避免重复埋点。

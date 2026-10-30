@@ -34,7 +34,7 @@ Liri 的 tracing **自带命名空间**（`Liri.*` 属性 / `Liri.*` span / `Lir
 | **G2** | 用量无 `gen_ai.usage.input_tokens` / `output_tokens`（规范：input SHOULD 含 cache 读写、output SHOULD 含 reasoning） | ✅ **T2**（`endLLMRequestSpan` 已有 token 元数据） |
 | **G3** | 无 `gen_ai.provider.name`（**Required**） | ⏸ **T4** —— 该调用点**不透传 provider**（`startLLMRequestSpan(model, options?)` 仅 model/querySource/fastMode）⇒ 需调用方透传 + **OTel 枚举映射**；而枚举是**供应商名硬编码**，与 `model-usage.md` 红线冲突 ⇒ 须先定"映射表归属（协议适配白名单 or DB `capabilities`）" |
 | **G4** | 无 `gen_ai.conversation.id` | ⏸ **T4** —— 同上，需 session id 透传 |
-| **G5** | span 名仍为 `Liri.llm_request` | ⏸ **T3** —— 改名会**同批**影响覆盖去重键（4 处字面量）与客户端 trace UI + 单测 ⇒ 须整批改 |
+| **G5** | span 名仍为 `Liri.llm_request` | ✅ **D5 已切换**（2026-10-30）⇒ `chat <model>`，覆盖去重键同源（`SessionTracing.startLLMRequestSpan`） |
 | **G6** | 指标仍为 `Liri.tokens.*` | ⏸ **T3** |
 
 **CS01 归一化**：全仓 `gen_ai.` **0 命中** ⇒ 净增量；`gen_ai.*` 字段名**逐字**取自 note §4.1/§3.x（**不臆造**）。
@@ -90,18 +90,29 @@ span.setAttribute('gen_ai.usage.output_tokens', metadata.outputTokens);
 |:--:|---|---|
 | **T1** | `SessionTracing.startLLMRequestSpan` 并存写 `gen_ai.operation.name` / `gen_ai.request.model` | ✅ 已实施 |
 | **T2** | `SessionTracing.endLLMRequestSpan` 并存写 `gen_ai.usage.input_tokens` / `output_tokens` | ✅ 已实施 |
-| **T3** | span 名与 `Liri.*` 指标**改名**（同批改覆盖去重键 4 处 + 客户端 trace UI + 单测） | ⏸ 待执行（**目标 v0.6.0**，见 D5；与"删旧名写入"同批同提交） |
+| **T3** | span 名与 `Liri.*` 指标**改名**（同批改覆盖去重键 4 处 + 客户端 trace UI + 单测） | ✅ **LLM 请求 span 部分已执行**（D5，2026-10-30）：span 名 `chat <model>`、覆盖键同源、旧属性删除；⏸ **`Liri.interaction` / `Liri.tool` span 与 `Liri.*` 指标未动**（D5 范围外，仍待裁定） |
 | **T4** | `gen_ai.provider.name` / `gen_ai.conversation.id`（须调用方透传 + D3 决策） | ⏸ 待裁定 |
 
 ---
 
-## 6. 验收（T1/T2，可证伪）
+## 6. 验收（可证伪）
+
+**T1/T2（2026-10-06，已由 D5 取代"并存"口径，原文保留以存证）**
 
 1. `bun run typecheck` → **0**；`bun run lint:arch` → **错误 0**（警告回基线）；
-2. **并存**：span 上 `llm_request.input_tokens` 与 `gen_ai.usage.input_tokens` **同值齐在**（旧属性**未消失**）；
-3. **未改名**：`grep -n "startSpan('Liri.llm_request'"` 仍 **1 命中**；4 处覆盖键字面量**逐字未变**；
-4. `grep -rn "gen_ai\." app/src` 命中**仅**本批 4 个字段名（无第 5 个臆造字段）；
-5. 全量 `bun test` → **0 fail**（当前基线：**4644 pass / 21 skip / 0 fail / 4665 tests / 492 files**）。
+2. ~~**并存**：span 上 `llm_request.input_tokens` 与 `gen_ai.usage.input_tokens` **同值齐在**（旧属性**未消失**）~~ → **D5 后失效**（旧属性已删，见下）；
+3. ~~**未改名**：`startSpan('Liri.llm_request'` 仍 1 命中~~ → **D5 后失效**（span 名已改）；
+4. `grep -rn "gen_ai\." app/src` 命中**仅**语义约定字段（无臆造字段）；
+5. 全量 `bun test` → **0 fail**。
+
+**D5 硬切换（2026-10-30，当前生效口径）**
+
+1. **span 名** = `chat <model>`（`{gen_ai.operation.name} {gen_ai.request.model}`），且**覆盖去重键与之同源**（同一 `llmSpanName` 变量）；
+2. **旧名零残留**：属性键 `grep -rn "['\"]llm_request\." app/src` **0 命中**（`liri.llm_request.context` 是**新**命名空间，不算旧键）；span 名 `grep -rn "Liri\.llm_request" app/src` 仅剩**历史注释**提及、**0 处代码引用**；
+3. **语义属性**只写 `gen_ai.*`（`operation.name` / `request.model` / `usage.input_tokens` / `usage.output_tokens`）；
+4. **非 semconv 属性**统一 `liri.*`（`liri.llm_request.context` / `liri.speed` / `liri.query_source` / `liri.ttft_ms`）；
+5. **成功/失败**由 span status 表达（`success:false` 且无错误串 ⇒ ERROR + 通用 message）；
+6. 单测锁定：`app/tests/monitoring/tracing/llmRequestSpanAttributes.test.ts`（4 例，含"旧命名零写入"回归保护）。
 
 ---
 
@@ -138,3 +149,4 @@ span.setAttribute('gen_ai.usage.output_tokens', metadata.outputTokens);
 | 2026-10-06 | **立项 + T1/T2 实施** | 用户「继续处理 A4、A5 与 A6」⇒ 在 `SessionTracing` 的 LLM 请求 span 上**并存新增** 4 个 OTel `gen_ai.*` 属性（`operation.name` / `request.model` / `usage.input_tokens` / `usage.output_tokens`），**零改名**；T3/T4 待裁定（D1=a/D2=a/D3=待裁定）。验证见 §6 |
 | 2026-10-06 | **验证（四证）** | `typecheck` **0** · `eslint` **0** · `lint:arch` **错误 0 / 警告 4（基线）**、分层 **3886 不变** · **并存实证**：`gen_ai.` 命中**恰为本批 4 个字段**（`SessionTracing.ts:259/260/334/339`，**无第 5 个臆造字段**），且 `startSpan('Liri.llm_request'` 仍 **1 命中**（**未改名**）· 全量 **4644 pass / 21 skip / 0 fail**（4665 tests / 492 files，与基线**逐数一致**） |
 | 2026-10-30 | **D5 裁定（零行为变更）** | 用户裁定：旧命名**目标 v0.6.0 硬切换**（选项 b）。本轮只做**记账**：`SessionTracing.startLLMRequestSpan` 的 A4 注释就地补 `@deprecated` 段（写死目标版本 + 一起要改的 4 处覆盖去重键与客户端 trace 视图）；D5 入决策表、T3 状态改为"待执行（目标 v0.6.0）"。**未改任何属性名/span 名/写入行为** ⇒ 双写与 `gen_ai.*` 命中数逐字不变 |
+| 2026-10-30 | **D5 硬切换执行（同一日收口）** | 按用户裁定的形态落地（"semconv + `liri.*` 前缀"）：① span 名 → `chat <model>`，覆盖去重键改用同一 `llmSpanName`（去重/标记/命名三者同源）；② 删 `llm_request.duration_ms` / `input_tokens` / `output_tokens` / `success` 写入（分别由 span duration、`gen_ai.usage.*`、span status 承载）；③ 非 semconv 属性 → `liri.llm_request.context` / `liri.speed` / `liri.query_source` / `liri.ttft_ms`；④ `success:false` 且无错误串 ⇒ span status ERROR（`LLM request failed`），避免失败信号丢失。新增 `tests/monitoring/tracing/llmRequestSpanAttributes.test.ts`（4 例）锁定契约。**未动** `Liri.interaction` / `Liri.tool` span 与 `Liri.*` 指标 |

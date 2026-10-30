@@ -142,7 +142,8 @@ const DEFAULT_TOOL_UI_MODULES: readonly ToolUIModuleEntry[] = [
   { module: './toolUIs/ConfigTool/UI', names: ['config'] },
   {
     module: './toolUIs/ChronosTool/UI',
-    names: ['cron_create', 'cron_delete', 'cron_list'],
+    // P1（2026-10-30）：cron 四件合并为 `cron`（旧名是 alias，不再是注册名）
+    names: ['cron'],
   },
   { module: './toolUIs/PowerShellTool/UI', names: ['powershell'] },
   { module: './toolUIs/TeamCreateTool/UI', names: ['team_create'] },
@@ -150,8 +151,8 @@ const DEFAULT_TOOL_UI_MODULES: readonly ToolUIModuleEntry[] = [
   { module: './toolUIs/SendMessageTool/UI', names: ['send_message'] },
   // 真实工具名是 `mcp_resource`（`mcp` 从不是工具名）
   { module: './toolUIs/MCPResourceTool/UI', names: ['mcp_resource'] },
-  { module: './toolUIs/EnterWorktreeTool/UI', names: ['enter_worktree'] },
-  { module: './toolUIs/ExitWorktreeTool/UI', names: ['exit_worktree'] },
+  // P1（2026-10-30）：worktree 进出两件合并为 `worktree`；进入/退出的专用 UI 复用 Enter 侧
+  { module: './toolUIs/EnterWorktreeTool/UI', names: ['worktree'] },
   { module: './toolUIs/ListPeersTool/UI', names: ['list_peers'] },
   { module: './toolUIs/ClipboardTool/UI', names: ['clipboard'] },
   { module: './toolUIs/ImageTool/UI', names: ['image'] },

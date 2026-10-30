@@ -31,26 +31,24 @@ afterEach(() => {
 });
 
 describe("T9' skills_list/skill_view 注册（循环根因修复回归）", () => {
-  it('getBuiltinToolLoaders 注册后 ToolRegistry 包含 skills_list/skill_view', () => {
+  it('getBuiltinToolLoaders 注册后 ToolRegistry 可解析 skill（旧名走 alias）', () => {
     const registry = setupRegistry();
 
-    expect(registry.getTool('skills_list')).toBeDefined();
-    expect(registry.getTool('skill_view')).toBeDefined();
-    // 与 SkillTool 并列存在（SKILL_TOOL_NAME = 'skill'）
+    // P1（2026-10-30）：三件合并为 `skill`（op=run|view|list）⇒ 旧名是 alias，按名解析仍命中同一工具
     expect(registry.getTool('skill')).toBeDefined();
+    expect(registry.getTool('skills_list')?.name).toBe('skill');
+    expect(registry.getTool('skill_view')?.name).toBe('skill');
   });
 
-  it('tool_search select:skills_list 可命中（模拟死循环场景）', () => {
+  it('合并后的 `skill` 非延迟工具，且登记了旧名 alias', () => {
     const registry = setupRegistry();
 
-    const allTools = Array.from(registry.getTools().values());
-    const skillsList = allTools.find((t) => t.name === 'skills_list');
-    const skillView = allTools.find((t) => t.name === 'skill_view');
-    expect(skillsList).toBeDefined();
-    expect(skillView).toBeDefined();
-    // 非延迟工具（deferred=false），走工具池常规路径
-    expect(skillsList!.getInfo().deferred).toBe(false);
-    expect(skillView!.getInfo().deferred).toBe(false);
+    const skill = registry.getTool('skill')!;
+    const info = skill.getInfo();
+    expect(info.deferred).toBe(false);
+    expect(info.aliases).toContain('skills_list');
+    expect(info.aliases).toContain('skill_view');
+    expect(info.params.map((p) => p.name)).toContain('op');
   });
 
   it('tool_search execute: select:skills_list 命中；select:不存在工具给出候选提示（A 项）', async () => {
@@ -60,14 +58,14 @@ describe("T9' skills_list/skill_view 注册（循环根因修复回归）", () =
     const context = {} as Parameters<typeof searchTool.execute>[1];
     const onProgress = undefined;
 
-    // 命中：select:skills_list
+    // 命中：select:skills_list（旧名经 alias 解析回合并名 `skill`）
     const hit = await searchTool.execute(
       { query: 'select:skills_list', max_results: 5 },
       context,
       onProgress
     );
     const hitData = hit.data as { matches: string[]; query: string };
-    expect(hitData.matches).toContain('skills_list');
+    expect(hitData.matches).toContain('skill');
 
     // 未命中：select:no_such_tool_xyz → 空 matches + 候选提示
     const miss = await searchTool.execute(

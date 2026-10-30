@@ -241,7 +241,8 @@ export class SkillInjectionService {
     }
     parts.push('</available_skills>');
     parts.push(
-      '用 skills_list 查看全部技能与描述；用 skill_view(name) 加载完整内容；用 skill 工具执行技能。'
+      // P1（2026-10-30）：`skills_list` / `skill_view` 已并入 `skill`（op=list|view|run）
+      '用 skill(op="list") 查看全部技能与描述；用 skill(op="view", name=…) 加载完整内容；用 skill(op="run", name=…) 执行技能。'
     );
 
     return parts.join('\n');

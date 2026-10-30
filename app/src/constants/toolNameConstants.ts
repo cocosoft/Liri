@@ -45,6 +45,7 @@ export const TOOL_NAME_CONSTANTS = {
   config: 'config',
   create_project: 'create_project',
   create_task_list: 'create_task_list',
+  cron: 'cron',
   cron_create: 'cron_create',
   cron_delete: 'cron_delete',
   cron_list: 'cron_list',
@@ -93,6 +94,7 @@ export const TOOL_NAME_CONSTANTS = {
   sleep_for: 'sleep_for',
   sleep_until: 'sleep_until',
   stat_vfs: 'stat_vfs',
+  task_list: 'task_list',
   task_output: 'task_output',
   task_stop: 'task_stop',
   team_create: 'team_create',
@@ -107,12 +109,49 @@ export const TOOL_NAME_CONSTANTS = {
   video_analysis: 'video_analysis',
   video_display: 'video_display',
   video_generate: 'video_generate',
+  vfs: 'vfs',
   web_fetch: 'web_fetch',
   web_search: 'web_search',
   write_project_file: 'write_project_file',
   write_vfs: 'write_vfs',
+  worktree: 'worktree',
 } as const;
 
 /** 常量表里的名字联合类型（拼错 / 不存在 ⇒ typecheck 报错） */
 export type ToolNameConstant =
   (typeof TOOL_NAME_CONSTANTS)[keyof typeof TOOL_NAME_CONSTANTS];
+
+/**
+ * **P1（2026-10-30）工具族合并后只作 alias 保留的旧名**。
+ *
+ * 六族合并（治理方案 §4.1）：`vfs` / `sleep` / `skill` / `cron` / `worktree` / `task_list`
+ * —— 旧名**不再单独注册**，但：
+ * - 仍是**合法的 wire 名**（注册表按 alias 解析回合并后的真名）；
+ * - 旧实现类/工厂仍按这些常量登记自身 `name`（本表仍是唯一来源）；
+ * - `TOOL_CATEGORIES` **不登记**它们（否则 `getRealToolNamesForTask` 会把未注册的名字
+ *   算进任务工具面）；`ALL_BUILTIN_TOOLS_CATEGORIZED` 的编译期断言据此排除本集合。
+ *
+ * @kind A
+ */
+export const LEGACY_ALIAS_TOOL_NAMES = [
+  'read_vfs',
+  'list_vfs',
+  'stat_vfs',
+  'write_vfs',
+  'sleep_for',
+  'sleep_until',
+  'skill_view',
+  'skills_list',
+  'cron_create',
+  'cron_list',
+  'cron_stop',
+  'cron_delete',
+  'enter_worktree',
+  'exit_worktree',
+  'create_task_list',
+  'get_task_list',
+  'update_task_status',
+] as const;
+
+/** 合并后旧名（alias-only）联合类型 */
+export type LegacyAliasToolName = (typeof LEGACY_ALIAS_TOOL_NAMES)[number];

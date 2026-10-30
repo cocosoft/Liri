@@ -72,7 +72,8 @@ const TOOL_ACTIONS: Record<string, { action: string; argKeys: string[] }> = {
 
   // ---- 任务类 ----
   todo_write: { action: '更新任务列表', argKeys: [] },
-  create_task_list: { action: '创建任务列表', argKeys: [] },
+  // P1（2026-10-30）：`create_task_list` 并入 `task_list`（旧名保留为 alias）
+  task_list: { action: '创建任务列表', argKeys: [] },
 };
 
 /**

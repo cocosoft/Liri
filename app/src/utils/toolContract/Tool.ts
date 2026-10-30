@@ -259,6 +259,8 @@ export interface ToolInfo {
   description: string;
   params: ToolParam[];
   aliases?: string[];
+  /** 旧名调用时的入参默认值（见 `Tool.aliasInputDefaults`；懒加载包装器据此透传） */
+  aliasInputDefaults?: Readonly<Record<string, Record<string, unknown>>>;
   searchTips?: string[];
   searchHint?: string;
   enabled: boolean;
@@ -472,6 +474,17 @@ export interface Tool<
    * 工具别名
    */
   aliases?: string[];
+
+  /**
+   * 旧名（别名）调用时的**入参默认值**（P1 工具族合并，2026-10-30）。
+   *
+   * 场景：`vfs` 合并了 `read_vfs` / `write_vfs` …，旧名保留为 alias ⇒ 模型仍可能用旧名调用，
+   * 而旧名的入参形态里没有 `op`。本表按**被调用的名字**给出缺省字段（如
+   * `{ read_vfs: { op: 'read' } }`），由执行入口在**参数校验前**合并（显式入参优先）。
+   *
+   * 仅在 `请求名 !== tool.name` 时生效（真名调用不看本表）。
+   */
+  aliasInputDefaults?: Readonly<Record<string, Record<string, unknown>>>;
 
   /**
    * 搜索提示

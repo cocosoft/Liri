@@ -20,10 +20,12 @@ import {
 } from '../../src/tools/policy/checkpointBoundary';
 
 describe('Checkpoint 边界 · 派生与判定', () => {
-  it('边界清单派生自 TOOL_EFFECTS，且与 AC-11 不可逆集一致（54 条）', () => {
+  it('边界清单派生自 TOOL_EFFECTS，且与 AC-11 不可逆集一致（50 条）', () => {
     const derived = deriveCheckpointBoundaryTools();
     expect(derived.length).toBeGreaterThan(0);
-    expect(derived.length).toBe(54);
+    // P1（2026-10-30）：工具族合并后 TOOL_EFFECTS 由「17 个旧名 + 4 个合并名」重排
+    // ⇒ 不可逆边界由 54 条降为 50 条（合并工具的副作用声明按并集保守取 LOCAL）
+    expect(derived.length).toBe(50);
     // 抽查三个代表：写盘（local）/ 命令执行（external）/ 只读（none，不应在列）
     expect(derived).toContain('file_write');
     expect(derived).toContain('bash');

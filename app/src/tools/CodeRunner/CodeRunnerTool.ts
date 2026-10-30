@@ -65,8 +65,8 @@ export const TIER2_TOOL_WHITELIST: ReadonlySet<string> = new Set([
   'web_search',
   // 工具与技能元数据（纯元数据查询）
   'tool_search',
-  'skills_list',
-  'skill_view',
+  // P1（2026-10-30）：`skills_list` / `skill_view` 并入 `skill`（op=list|view 为纯元数据查询）
+  'skill',
   // 跨会话读取（读会话/消息内容）
   'sessions',
   // 本地媒介 / 项目只读（与 Tier1 同性质）

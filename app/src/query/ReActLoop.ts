@@ -44,8 +44,7 @@ const logger = getLogger('query:reactLoop');
 export const EXTERNAL_FETCH_TOOLS = new Set([
   'web_fetch',
   'web_search',
-  'skill_view',
-  'skills_list',
+  // P1（2026-10-30）：`skill_view` / `skills_list` 并入 `skill`（op=view|list）⇒ 只保留真名
   'skill',
   'tool_search',
   // ⚠️ 2026-09-29（工具名漂移修复，台账 D-37）：原列 `'search_codebase'` —— 该名在本仓
@@ -79,7 +78,8 @@ const PRODUCTIVE_TOOLS = new Set([
   'edit_file',
   'bash',
   'BashTool',
-  'cron_create',
+  // P1（2026-10-30）：`cron_create` 并入 `cron`（op=create 为写分支）
+  'cron',
   'CronCreateTool',
 ]);
 

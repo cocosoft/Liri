@@ -14,11 +14,19 @@
  * 边界：静态只读，不实例化工具（快、无副作用）。
  */
 import { SHADOW_TOOL_DISPOSITIONS } from '../src/tools/shadowToolDispositions';
-import { TOOL_NAME_CONSTANTS } from '../src/tools/toolNameConstants';
+import {
+  LEGACY_ALIAS_TOOL_NAMES,
+  TOOL_NAME_CONSTANTS,
+} from '../src/tools/toolNameConstants';
 import { TOOL_NAMES } from '../src/constants/toolNames.generated';
 
 function main(): number {
-  const declared = new Set<string>(Object.values(TOOL_NAME_CONSTANTS));
+  // P1（2026-10-30，工具族合并）：alias-only 旧名**不是**待处置的影子工具（它们是合并工具
+  // 的可解析别名）⇒ 声明面口径同步排除，否则 17 个旧名会被误判"未登记处置"。
+  const aliases = new Set<string>(LEGACY_ALIAS_TOOL_NAMES);
+  const declared = new Set<string>(
+    Object.values(TOOL_NAME_CONSTANTS).filter((n) => !aliases.has(n))
+  );
   const registered = new Set<string>(TOOL_NAMES);
   const conditional = [...declared].filter((n) => !registered.has(n)).sort();
 

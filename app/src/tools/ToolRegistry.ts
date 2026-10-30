@@ -13,7 +13,10 @@ import {
   calculateDeferredToolDescriptionChars,
 } from './utils/toolSearch';
 import { ToolDefinitionAdapter } from './utils/ToolDefinitionAdapter';
-import { findMissingRequiredParams } from './utils/ToolUtils';
+import {
+  applyAliasInputDefaults,
+  findMissingRequiredParams,
+} from './utils/ToolUtils';
 // 2026-10-27：参数 JSON 解析失败的保留键诊断（适配器写入，缺参分支读取后剥除）
 import {
   ARG_PARSE_ERROR_KEY,
@@ -549,9 +552,15 @@ export class ToolRegistry {
     // 缺参时由工具内部裸抛运行时错误（实测 `file_write`：`path.dirname(undefined)` →
     // `The "path" property must be of type string, got undefined`），模型拿不到"缺哪个参数"
     // 也无从自纠。此处 fail-closed，返回与 `ToolExecutor.validateInput` 同口径的提示。
+    // P1（2026-10-30）：旧名（alias）调用 ⇒ 先补合并入参默认值（`op`/`mode`），再校验必填参数
+    const normalizedInput = applyAliasInputDefaults(
+      tool,
+      toolCall.toolName,
+      toolCall.input
+    );
     const missingParams = findMissingRequiredParams(
       tool.params,
-      toolCall.input
+      normalizedInput
     );
     if (missingParams.length > 0) {
       // BUG-F（2026-10-27 真机，`rawLength=12068`）：参数 JSON 被截断时适配器会以**保留键**
@@ -583,9 +592,9 @@ export class ToolRegistry {
     }
     // 保留键可能随合法参数一起出现（解析成功时不会写入；此处防御性剥除，避免污染工具入参）
     const execInput =
-      ARG_PARSE_ERROR_KEY in (toolCall.input ?? {})
-        ? stripArgParseErrorKey(toolCall.input)
-        : toolCall.input;
+      ARG_PARSE_ERROR_KEY in (normalizedInput ?? {})
+        ? stripArgParseErrorKey(normalizedInput ?? {})
+        : normalizedInput;
 
     try {
       result = await tool.execute(

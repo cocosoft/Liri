@@ -51,6 +51,9 @@ export abstract class BaseTool<
   /** 工具别名（可选） */
   aliases?: string[];
 
+  /** 旧名调用时的入参默认值（P1 工具族合并；见 `Tool.aliasInputDefaults`） */
+  aliasInputDefaults?: Readonly<Record<string, Record<string, unknown>>>;
+
   /** 搜索提示（可选） */
   searchHint?: string;
 
@@ -255,6 +258,9 @@ export abstract class BaseTool<
       description: this.description,
       params: this.params,
       aliases: this.aliases,
+      ...(this.aliasInputDefaults !== undefined
+        ? { aliasInputDefaults: this.aliasInputDefaults }
+        : {}),
       searchTips: this.searchHint ? [this.searchHint] : undefined,
       enabled: this.isEnabled(),
       readOnly: this.isReadOnly(),

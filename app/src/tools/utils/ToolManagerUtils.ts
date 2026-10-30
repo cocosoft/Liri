@@ -160,9 +160,9 @@ function buildBuiltinToolLoaders(
     byKey('createGlobTool'),
     byKey('createTodoWriteTool'),
     byKey('createTaskStopTool'),
-    byKey('createTaskCreateListTool'),
-    byKey('createTaskUpdateStatusTool'),
-    byKey('createTaskGetListTool'),
+    // P1（2026-10-30）：`create_task_list` / `get_task_list` / `update_task_status`
+    // ⇒ 合并为 `task_list`（op=create|get|update；旧名保留为 alias）
+    byKey('createTaskListFamilyTool'),
     // P4b（2026-10-16）：`task_output` 从「影子工具」接线进注册面（见 P4a 评估 §2.2(1)）——
     // 它读 `taskRegistry` 的真任务输出，且 `AgentTool/prompt.ts` 与 `ToolUIRegistry` 早已引用其名。
     byKey('createTaskOutputTool'),
@@ -170,12 +170,9 @@ function buildBuiltinToolLoaders(
     // 数据源 = SQLite `kanban_cards`（与 `/v1/kanban`、客户端 `KanbanBoard` 同源），
     // 消除原进程内 Map 双轨（模型建的卡界面看不见、重启即丢）。
     byKey('createKanbanTool'),
-    byKey('createSkillTool'),
-    // T9'（2026-08-30）：skills_list / skill_view 注册进 ToolManager loaders——
-    // 此前仅存在于 getAllBaseTools() 工具池路径，未进入 ToolRegistry，导致
-    // tool_search 搜不到 → 模型按 <available_skills> 引导反复搜索 → 工具循环
-    byKey('createSkillListTool'),
-    byKey('createSkillViewTool'),
+    // P1（2026-10-30）：`skill` / `skill_view` / `skills_list` ⇒ 合并为 `skill`（op=run|view|list）；
+    // 旧名保留为 alias（`tool_search` 的 select 与旧提示词仍可命中）。
+    byKey('createSkillFamilyTool'),
     // 2026-09-01：知识库保存核心工具（系统能力封装，非技能旁路）
     byKey('createKnowledgeSaveTool'),
     byKey('createWebFetchTool'),
@@ -196,12 +193,9 @@ function buildBuiltinToolLoaders(
     // （实测模型工具池只有 `sessions`）。此处补齐后经
     // `ToolManager.loadBuiltinTools()` → registry → 注入给模型。
     byKey('createSessionsYieldTool'),
-    // N-37（2026-09-20）：自唤醒工具（sleep_for / sleep_until）此前零注册（其
-    // SelfWakeTools.ts 只导出 schema + 执行器、全仓无引用）⇒ 调度 API 无生产者、
-    // N-26 修好的「fire → 会话续跑」无触发场景。此处登记 TIMER 类的两个；
-    // `wake_on_job` / `wake_on_event` 因无触发源**暂不注册**（CS04 禁止假能力）。
-    byKey('createSleepForTool'),
-    byKey('createSleepUntilTool'),
+    // P1（2026-10-30）：`sleep` / `sleep_for` / `sleep_until` ⇒ 合并为 `sleep`（mode=duration|wake|until）；
+    // 旧名保留为 alias。自唤醒两个分支的「无 sessionId / 服务未初始化 ⇒ 明确失败」语义未变。
+    byKey('createSleepFamilyTool'),
     byKey('createClipboardTool'),
     byKey('createDocGenerateTool'),
     byKey('createComputerUseTool'),
@@ -228,8 +222,7 @@ function buildBuiltinToolLoaders(
     // 且无条件注册导致 NOTEBOOK=false 时 notebook 仍默认可用）；notebook 只保留一条条件注册
     // Notebook 编辑工具：见下方 cond(coreFeature('NOTEBOOK'), byKey('createNotebookTool'))
 
-    // 通用工具
-    byKey('createSleepTool'),
+    // 通用工具（P1：`sleep` 已并入 sleep 族，见上方 `createSleepFamilyTool`）
     byKey('createMonitorTool'),
     byKey('createTraceRecordingTool'),
 
@@ -269,10 +262,8 @@ function buildBuiltinToolLoaders(
     byKey('createPDFTool'),
 
     // 其他条件工具
-    cond(coreFeature('AGENT_TRIGGERS'), byKey('createCronCreateTool')),
-    cond(coreFeature('AGENT_TRIGGERS'), byKey('createCronDeleteTool')),
-    cond(coreFeature('AGENT_TRIGGERS'), byKey('createCronListTool')),
-    cond(coreFeature('AGENT_TRIGGERS'), byKey('createCronStopTool')),
+    // P1（2026-10-30）：cron 四件 ⇒ 合并为 `cron`（op=create|list|stop|delete；旧名保留为 alias）
+    cond(coreFeature('AGENT_TRIGGERS'), byKey('createCronFamilyTool')),
     // S3-2（G19 / CD05，2026-10-11）：4 个**恒返回 `null`** 的死桩入口已摘除，且其实现体（步骤②）
     // 亦已删除 —— `createRemoteTriggerTool` / `createSendUserFileTool` / `createSnipTool` /
     // `createWorkflowTool` 均已从注册表与 `ToolFactory` 移除（含 `WORKFLOW_SCRIPTS`/`ENABLE_WORKFLOWS` 死特性位）。
@@ -284,8 +275,8 @@ function buildBuiltinToolLoaders(
     cond(coreFeature('KAIROS_GITHUB_WEBHOOKS'), byKey('createSubscribePRTool')),
     cond(coreFeature('UDS_INBOX'), byKey('createListPeersTool')),
     cond(coreFeature('TOOL_SEARCH'), byKey('createToolSearchTool')),
-    cond(coreFeature('WORKTREE'), byKey('createEnterWorktreeTool')),
-    cond(coreFeature('WORKTREE'), byKey('createExitWorktreeTool')),
+    // P1（2026-10-30）：worktree 进出两件 ⇒ 合并为 `worktree`（op=enter|exit；旧名保留为 alias）
+    cond(coreFeature('WORKTREE'), byKey('createWorktreeFamilyTool')),
 
     // 项目创建工具
     byKey('createProjectTool'),
@@ -294,18 +285,16 @@ function buildBuiltinToolLoaders(
     byKey('createReadProjectFileTool'),
     byKey('createWriteProjectFileTool'),
 
-    // AI-VFS 系统调用工具（2026-10-08 只读试点）：命名空间 read/list/stat/write_vfs。
-    // ⚠️ 挂载点装配在 `entrypoints/vfsWiring.ts`（组合根）—— 未装配时工具会明确返回
-    // `VFS_UNKNOWN_MOUNT`，不回退本地文件系统（CS03）。
+    // AI-VFS 系统调用工具：`vfs`（op=read|list|stat|write；旧名保留为 alias）。
+    // ⚠️ 挂载点装配在 `entrypoints/vfsWiring.ts`（组合根）—— 未装配时 read/list/stat/write
+    // 都会明确返回 `VFS_UNKNOWN_MOUNT`，不回退本地文件系统（CS03）。
     //
     // D7（2026-10-11 用户裁定「①+④ 组合」）：**文件类** VFS 工具默认**不注册**（`VFS_ENABLED=false`）
     // ⇒ 默认工具面只有 `file_read`/`file_write`/`glob`，消除与 VFS 的"事实源双轨"（G21）。
-    // `stat_vfs` **保持无条件**（元数据探测，与文件工具不重叠）。
+    // P1（2026-10-30）合并为单工具后，`stat` 不再能"单独保持无条件注册"（一个工具无法只注册一个 op）
+    // ⇒ 整族统一受 `VFS_ENABLED` 门控；这是合并的**已知代价**，回退即拆回四件。
     // 回滚（CD06）/显式启用：`FEATURE_VFS_ENABLED=true`。
-    cond(coreFeature('VFS_ENABLED'), byKey('createReadVfsTool')),
-    cond(coreFeature('VFS_ENABLED'), byKey('createListVfsTool')),
-    byKey('createStatVfsTool'),
-    cond(coreFeature('VFS_ENABLED'), byKey('createWriteVfsTool')),
+    cond(coreFeature('VFS_ENABLED'), byKey('createVfsFamilyTool')),
 
     // 通道/网关工具（2026-09-29 D-29 去重：删 `createGatewayTool` —— 它与
     // `createChannelManagerTool` **返回同一个 `new ChannelTool()`** ⇒ 同名 `channel` 注册两次）

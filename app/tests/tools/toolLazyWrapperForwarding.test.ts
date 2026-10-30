@@ -140,10 +140,10 @@ describe('ToolLazyWrapper 风险/落点根透传（PR-0 补充）', () => {
   });
 
   it('仅靠 TOOL_EFFECTS 派生的对象字面量工具也透传（无需自声明 getRiskClass）', () => {
-    // `cron_create` 在 TOOL_EFFECTS 中 sideEffect=local ⇒ write
+    // P1（2026-10-30）：`cron_create` 并入 `cron`（TOOL_EFFECTS 中 sideEffect=local ⇒ write）
     const { wrapper } = makeWrapper({
-      metadata: makeMetadata({ name: 'cron_create' }),
-      real: { name: 'cron_create' },
+      metadata: makeMetadata({ name: 'cron' }),
+      real: { name: 'cron' },
     });
 
     expect(resolveRiskClass(wrapper, {})).toBe(RiskClass.WRITE_LOCAL);

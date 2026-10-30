@@ -37,8 +37,40 @@ function findUnregisteredKeys(
  * 显式"**无 loader**"的注册表键白名单（**不得**静默扩张）。
  * `createNotebookEditTool`：P0-2 起与 `createNotebookTool`（NOTEBOOK 门控）重复，已删其无条件注册；
  * 构造入口保留在注册表以维持历史 API 形态（**对模型不可达**，属已知状态）。
+ *
+ * P1（2026-10-30，工具族合并）：以下 17 个构造入口**不再是独立注册项** —— 它们已合并进
+ * `vfs` / `sleep` / `skill` / `cron` / `worktree` / `task_list` 六个族工具（族工具直接
+ * import 旧实现类构造成员，不经注册表键）。保留这些键是为**兼容既有调用方与单测**
+ * （如 `toolOutputJsonSchema.test.ts` 直接构造 `sleep_for` 校验出参结构），对模型不可达。
  */
-const KNOWN_UNREGISTERED_KEYS = ['createNotebookEditTool'] as const;
+const KNOWN_UNREGISTERED_KEYS = [
+  'createNotebookEditTool',
+  // vfs 族
+  'createReadVfsTool',
+  'createListVfsTool',
+  'createStatVfsTool',
+  'createWriteVfsTool',
+  // sleep 族
+  'createSleepTool',
+  'createSleepForTool',
+  'createSleepUntilTool',
+  // skill 族
+  'createSkillTool',
+  'createSkillListTool',
+  'createSkillViewTool',
+  // cron 族
+  'createCronCreateTool',
+  'createCronListTool',
+  'createCronStopTool',
+  'createCronDeleteTool',
+  // worktree 族
+  'createEnterWorktreeTool',
+  'createExitWorktreeTool',
+  // task_list 族
+  'createTaskCreateListTool',
+  'createTaskGetListTool',
+  'createTaskUpdateStatusTool',
+] as const;
 
 describe('G18 注册表 ↔ loader 一致性（含门禁自证）', () => {
   const loadersCode = stripComments(readFileSync(LOADERS_SRC, 'utf-8'));

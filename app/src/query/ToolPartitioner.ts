@@ -23,8 +23,8 @@ const PARALLEL_SAFE_TOOLS = new Set([
   'glob',
   'grep',
   'session_search',
-  'skill_view',
-  'skills_list',
+  // P1（2026-10-30）：`skill_view` / `skills_list` 并入 `skill`
+  'skill',
   'vision_analyze',
   'ha_get_state',
   'ha_list_entities',

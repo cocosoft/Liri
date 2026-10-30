@@ -184,10 +184,11 @@ describe('code_run 工具清单注入（T-2 ①）', () => {
     const tier2 = whitelistForTier(2);
     // 超集：Tier1 全含
     for (const name of TIER1_TOOL_WHITELIST) expect(tier2.has(name)).toBe(true);
-    // Tier2 全部 10 项在册 + 与 Tier1 无重叠
-    expect(TIER2_TOOL_WHITELIST.size).toBe(10);
+    // Tier2 全部 9 项在册 + 与 Tier1 无重叠
+    // P1（2026-10-30）：`skills_list` / `skill_view` 并入 `skill` ⇒ Tier2 由 10 项变 9 项
+    expect(TIER2_TOOL_WHITELIST.size).toBe(9);
     for (const name of TIER2_TOOL_WHITELIST) expect(tier2.has(name)).toBe(true);
-    expect(tier2.size).toBe(13);
+    expect(tier2.size).toBe(12);
   });
 
   it('未开启（未注入运行期白名单且 env 缺省）⇒ 生效白名单 = Tier1', () => {

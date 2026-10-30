@@ -41,7 +41,10 @@ import {
 import { buildEnvironmentHints } from '../../src/ai/prompts/PlatformHints';
 import { TOOL_NAMES } from '../../src/constants/toolNames.generated';
 // D11-B（2026-10-11）：工具名单一来源 —— 声明面 = 常量表（工具类/loader/门禁共用）
-import { TOOL_NAME_CONSTANTS } from '../../src/tools/toolNameConstants';
+import {
+  LEGACY_ALIAS_TOOL_NAMES,
+  TOOL_NAME_CONSTANTS,
+} from '../../src/tools/toolNameConstants';
 import {
   FILE_EDIT_TOOL_NAME,
   FILE_READ_TOOL_NAME,
@@ -535,7 +538,11 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
    * ⚠️ 移出本集合的**唯一正规途径**是"真接线"（登记类别 + loader + 重算生成物 + 声明 effects），
    * 见 P4b；`task_output` 即首个（2026-10-16 接线，75 → 76）。
    */
-  const KNOWN_CONDITIONAL_TOOL_NAMES = ['music_generate'];
+  const KNOWN_CONDITIONAL_TOOL_NAMES = [
+    'music_generate',
+    // P1（2026-10-30，工具族合并）：17 个旧名只作 alias 保留（不再单独注册）⇒ 属**已知**差额
+    ...LEGACY_ALIAS_TOOL_NAMES,
+  ];
   // D1 接线（2026-10-11）：`TEAM_CREATE`/`TEAM_DELETE` 成为**变体默认生效**（coding）
   // ⇒ `team_create`/`team_delete` 移出本差额集（进入生成物 `TOOL_NAMES`，75 名）。
 
@@ -611,9 +618,10 @@ describe('S2-3 契约与清单门禁（G5 / G6）', () => {
       expect(TOOL_NAMES).toContain(name);
       expect(KNOWN_CONDITIONAL_TOOL_NAMES).not.toContain(name);
     }
-    // 反向自证：差额集随接线**净收缩**（15 − 已接线数 − 已下线数），而不是"新增登记"
+    // 反向自证：差额集 = 已知条件工具（music_generate）= 1 + P1 合并后的 alias-only 旧名
+    //（2026-10-30：17 个旧名不再单独注册，但仍留在声明面常量表里 ⇒ 属**已知**差额）
     expect(KNOWN_CONDITIONAL_TOOL_NAMES.length).toBe(
-      15 - P4B_WIRED_TOOL_NAMES.length - P4B_RETIRED_TOOL_NAMES.length
+      1 + LEGACY_ALIAS_TOOL_NAMES.length
     );
   });
 

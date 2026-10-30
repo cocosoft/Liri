@@ -82,6 +82,32 @@ export function isEmptyOutput(stdout: string, stderr: string): boolean {
 }
 
 /**
+ * 旧名（别名）调用 ⇒ 合并入参默认值（P1 工具族合并，2026-10-30；单一实现）。
+ *
+ * 背景：`vfs` / `sleep` / `skill` / `cron` / `worktree` / `task_list` 把同资源族的旧工具
+ * 合并为 **一个带 `op`（或 `mode`）分派**的工具，旧名保留为 alias（模型可能继续用旧名调用，
+ * 且旧名入参里没有 `op`）⇒ 各执行入口在**必填参数校验之前**用本函数补上缺省字段。
+ *
+ * 口径：
+ * - 仅当 `requestedName !== tool.name`（即经别名调用）**且**工具声明了该别名的默认值时才生效；
+ * - **显式入参优先**（`{...defaults, ...input}`）—— 模型若自己写了 `op` 不被覆盖；
+ * - 未命中 ⇒ 原样返回**同一引用**（零拷贝、零行为变更）。
+ */
+export function applyAliasInputDefaults(
+  tool: {
+    name: string;
+    aliasInputDefaults?: Readonly<Record<string, Record<string, unknown>>>;
+  },
+  requestedName: string,
+  input: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  if (requestedName === tool.name) return input;
+  const defaults = tool.aliasInputDefaults?.[requestedName];
+  if (!defaults) return input;
+  return { ...defaults, ...(input ?? {}) };
+}
+
+/**
  * 必填参数校验（单一实现：`ToolExecutor.validateInput` 与长程任务编排器共用）。
  *
  * **背景（2026-10-22 真机日志）**：PDCA 步骤内的 `file_write` 连续三次报

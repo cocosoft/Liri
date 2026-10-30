@@ -44,7 +44,8 @@ const READ_ONLY_TOOL_NAMES = [
   'web_search',
   'web_fetch',
   'sessions',
-  'get_task_list',
+  // P1（2026-10-30）：`get_task_list` 并入 `task_list`（op=get 为只读分支）
+  'task_list',
 ] as const satisfies readonly ToolName[];
 export const DREAM_READ_ONLY_TOOLS = new Set<string>(READ_ONLY_TOOL_NAMES);
 // 2026-09-29（P2-3/T2）：移除 `'file_search'` —— 它**不是**注册名（仅存在于 `ToolFactory.getAllBaseTools()`

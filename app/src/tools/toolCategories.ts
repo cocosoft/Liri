@@ -15,7 +15,10 @@
  */
 
 import { toWireToolName } from './toolNameCodec';
-import type { ToolNameConstant } from './toolNameConstants';
+import type {
+  LegacyAliasToolName,
+  ToolNameConstant,
+} from './toolNameConstants';
 import { getLogger } from '@modules/monitoring';
 import { feature } from '@openliri/kernel';
 import type { FeatureFlag } from '@openliri/kernel';
@@ -57,18 +60,16 @@ const TOOL_CATEGORY_ENTRIES = {
   file_read: 'file_read',
   glob: 'file_read',
   read_project_file: 'file_read',
-  // 2026-10-08（AI-VFS 只读试点）：`read_vfs`/`list_vfs`/`stat_vfs` 为只读系统调用 ⇒ 归 file_read
-  // （⚠️ N-44/N-45：不登记即落 misc ⇒ 不在任何任务白名单 ⇒ 被静默裁剪）。
-  read_vfs: 'file_read',
-  list_vfs: 'file_read',
-  stat_vfs: 'file_read',
   // ── file 文件写入/转换 ──
   file_write: 'file',
   file_edit: 'file',
   file_convert: 'file',
   write_project_file: 'file',
-  // 2026-10-08（AI-VFS 只读试点）：`write_vfs` 为写类系统调用 ⇒ 归 file（与 file_write 同档）
-  write_vfs: 'file',
+  // P1（2026-10-30）：VFS 四件合并为 `vfs`（op=read|list|stat|write）。
+  // 归类 `file`（写类档）—— 它含 write op，与 `file_write` 同档；只读 op 的细粒度风险
+  // 由工具自身 `riskClassFor(input)` / `isReadOnly(input)` 按 op 分档（权限面不受影响）。
+  // 注册门控沿用 `VFS_ENABLED`（见 ToolManagerUtils 注释）。
+  vfs: 'file',
 
   // ── shell 终端 ──
   bash: 'shell',
@@ -88,9 +89,9 @@ const TOOL_CATEGORY_ENTRIES = {
   web_search: 'search',
   tool_search: 'search',
   search_codebase: 'search',
+  // P1（2026-10-30）：`skill` / `skill_view` / `skills_list` 合并为 `skill`（op=run|view|list）
+  // ⇒ 只登记真名；旧名是 alias（不进类别表，否则 `getRealToolNamesForTask` 会算出未注册名）。
   skill: 'search',
-  skill_view: 'search',
-  skills_list: 'search',
 
   // ── network 网络 ──
   web_fetch: 'network',
@@ -135,19 +136,16 @@ const TOOL_CATEGORY_ENTRIES = {
   // ── task 任务/todo/cron ──
   todo_write: 'task',
   task_stop: 'task',
-  create_task_list: 'task',
-  update_task_status: 'task',
-  get_task_list: 'task',
+  // P1（2026-10-30）：长任务清单三件合并为 `task_list`（op=create|get|update）
+  task_list: 'task',
   // P4b（2026-10-16，方案 `dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md` §2.2(1)）：
   // `task_output` 原为「声明面有名、零 loader、零类别登记」的影子工具 ⇒ 即使注册也会落
   // `misc` 被裁。它读的是 `taskRegistry` 的任务输出（真实现），且 `AgentTool` 提示词已
   // 引导模型"通过 TaskOutput 工具获取后台任务结果" ⇒ 不登记即留悬空承诺。归 `task`
   // （与 `get_task_list` 同族；该类别属 coding/agent 白名单 ⇒ 与"后台任务"场景一致）。
   task_output: 'task',
-  cron_create: 'task',
-  cron_delete: 'task',
-  cron_list: 'task',
-  cron_stop: 'task',
+  // P1（2026-10-30）：cron 四件合并为 `cron`（op=create|list|stop|delete）
+  cron: 'task',
 
   // ── session 会话 ──
   save_conversation: 'session',
@@ -168,16 +166,14 @@ const TOOL_CATEGORY_ENTRIES = {
   monitor: 'system',
   trace_recording: 'system',
   time: 'system',
+  // P1（2026-10-30）：`sleep` / `sleep_for` / `sleep_until` 合并为 `sleep`（mode 分派）
+  // —— 真名仍是 `sleep`，类别口径不变（自唤醒两分支不再是独立工具名）。
   sleep: 'system',
-  // N-44 扩展（2026-09-20，用户决策）：自唤醒工具补登记 —— 与同族的阻塞式 `sleep`
-  // 保持同一类别口径（'system'，在各通用任务集内均保留），避免"注册了却永久不可见"。
-  sleep_for: 'system',
-  sleep_until: 'system',
   config: 'system',
   repl: 'system',
   notebook: 'system',
-  enter_worktree: 'system',
-  exit_worktree: 'system',
+  // P1（2026-10-30）：`enter_worktree` / `exit_worktree` 合并为 `worktree`（op=enter|exit）
+  worktree: 'system',
 
   // ── interaction 交互 ──
   ask_user_question: 'interaction',
@@ -280,7 +276,8 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
 };
 
 type MissingBuiltinToolCategory = Exclude<
-  ToolNameConstant,
+  // P1（2026-10-30）：合并后**只作 alias 保留**的旧名不要求登记类别（它们已不是注册面的工具名）
+  Exclude<ToolNameConstant, LegacyAliasToolName>,
   keyof typeof TOOL_CATEGORY_ENTRIES
 >;
 
@@ -718,29 +715,13 @@ export const CAPABILITY_PACKS: Readonly<
   },
   schedule: {
     flag: 'TOOL_PACK_SCHEDULE',
-    summary: '定时任务 / 睡眠 / 让出轮次',
-    tools: [
-      'cron_create',
-      'cron_delete',
-      'cron_list',
-      'cron_stop',
-      'sleep',
-      'sleep_for',
-      'sleep_until',
-      'sessions_yield',
-    ],
+    summary: '定时任务 / 睡眠 / 让出轮次（P1 后为合并名 cron / sleep）',
+    tools: ['cron', 'sleep', 'sessions_yield'],
   },
   workspace: {
     flag: 'TOOL_PACK_WORKSPACE',
-    summary:
-      '工作树 / 看板 / 建项目 / 存会话（VFS 三件由 VFS_ENABLED 另行门控）',
-    tools: [
-      'enter_worktree',
-      'exit_worktree',
-      'kanban',
-      'create_project',
-      'save_conversation',
-    ],
+    summary: '工作树 / 看板 / 建项目 / 存会话（P1 后 worktree 为合并名）',
+    tools: ['worktree', 'kanban', 'create_project', 'save_conversation'],
   },
   system_extra: {
     flag: 'TOOL_PACK_SYSTEM_EXTRA',
@@ -1003,10 +984,9 @@ export const STRICT_DISCLOSURE_PRIORITY: readonly string[] = [
   'file_convert',
   'sessions',
   'sessions_yield',
-  'stat_vfs',
+  'vfs',
   'notebook',
   'skill',
-  'skills_list',
   'plan',
   'clipboard',
   'brief',

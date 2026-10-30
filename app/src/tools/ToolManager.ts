@@ -7,7 +7,10 @@ import { EventEmitter } from 'events';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Tool, type ToolResult } from './types/Tool';
 import { createToolResult } from './types/ToolResult';
-import { findMissingRequiredParams } from './utils/ToolUtils';
+import {
+  applyAliasInputDefaults,
+  findMissingRequiredParams,
+} from './utils/ToolUtils';
 // 2026-10-27：缺参文案与诊断共用（含"参数 JSON 被截断"的可操作建议）
 import {
   ARG_PARSE_ERROR_KEY,
@@ -401,7 +404,12 @@ export class ToolManager extends EventEmitter {
     // `CoreAPIImpl.executeTool` 走本方法 ⇒ 此前缺参仍会进工具内部裸抛
     // （实测 `file_write`：`path.dirname(undefined)`）。此处 fail-closed，返回与
     // Registry 同口径的失败结果（缺哪个参数 + 本次收到的键），不再执行工具。
-    const missingParams = findMissingRequiredParams(tool.params, input);
+    // P1（2026-10-30）：旧名（alias）调用 ⇒ 先补合并入参默认值（`op`/`mode`），再校验必填参数
+    const normalizedInput = applyAliasInputDefaults(tool, name, input);
+    const missingParams = findMissingRequiredParams(
+      tool.params,
+      normalizedInput
+    );
     if (missingParams.length > 0) {
       // BUG-F（2026-10-27）：与 `ToolRegistry` 共用同一文案（含"参数被截断"的可操作建议）
       const detail = describeMissingRequiredParams(
@@ -429,9 +437,9 @@ export class ToolManager extends EventEmitter {
 
     // 防御性剥除解析失败保留键（合法调用不会携带；避免污染工具入参）
     const execInput =
-      ARG_PARSE_ERROR_KEY in (input ?? {})
-        ? stripArgParseErrorKey(input)
-        : input;
+      ARG_PARSE_ERROR_KEY in (normalizedInput ?? {})
+        ? stripArgParseErrorKey(normalizedInput ?? {})
+        : normalizedInput;
     try {
       const result = await optimizedExecuteTool(
         tool,

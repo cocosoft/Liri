@@ -813,6 +813,10 @@ export function shouldRunPlan(
 ): boolean {
   return (
     !ctx.host.executingPlan &&
-    (response.tool_calls?.some((tc) => tc.name === 'create_task_list') ?? false)
+    (response.tool_calls?.some(
+      // P1（2026-10-30）：`create_task_list` 并入 `task_list`（op=create）；旧名仍可能经 alias 出现
+      (tc) => tc.name === 'task_list' || tc.name === 'create_task_list'
+    ) ??
+      false)
   );
 }

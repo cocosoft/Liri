@@ -125,7 +125,17 @@ const FROZEN_TOOL_BASELINE: readonly string[] = [
  * ⚠️ 该清单当前为**空**（截至 2026-10-13 无基线后新增工具）。空 ≠ 可忽略：一旦清空机制被绕过，
  * 主门禁用例会立即失败。禁止为"抄进清单但未注册"的名字登记 —— 与 `toolNameLists.test.ts` 同口径。
  */
-const NEW_TOOL_REGISTRY: Readonly<Record<string, string>> = {};
+const NEW_TOOL_REGISTRY: Readonly<Record<string, string>> = {
+  // P1（2026-10-30，工具族合并）—— 以下 4 个是**合并入口**，不引入任何新数据源：
+  // 旧名（read_vfs/write_vfs/… / cron_* / enter|exit_worktree / *_task_list）全部保留为 alias，
+  // 实现体仍是原工具类（见 `src/tools/families/`），因此不构成"新数据源应走 VFS/MCP"的情形。
+  vfs: '合并 read_vfs/list_vfs/stat_vfs/write_vfs（同一 VFS 挂载命名空间；实现复用原四个工具）',
+  cron: '合并 cron_create/cron_list/cron_stop/cron_delete（同一 CronJobStore；实现复用原四个工具）',
+  worktree:
+    '合并 enter_worktree/exit_worktree（同一工作树状态机；实现复用原两个工具）',
+  task_list:
+    '合并 create_task_list/get_task_list/update_task_status（同一 taskRegistry；实现复用原三个工具）',
+};
 
 /** 判据（纯函数，供真实门禁与**负向自证**共用）：返回"非基线且未登记理由"的新工具名 */
 function findUnregisteredNewTools(
@@ -195,13 +205,15 @@ describe('门禁：新数据源不以新增工具承载（阶段 3.2）', () => 
 
   it('门禁自证（负向夹具）：注入探针新增工具 ⇒ 判违规 ⇒ 非恒真', () => {
     // ① 未登记 ⇒ 被捕获（证明门禁能对"新出现的工具名"给出显式拦截）
+    // P1（2026-10-30）：合并后的 4 个真名已在 NEW_TOOL_REGISTRY 登记 ⇒ 自证须带上真实登记表
     const probe = [...DECLARED, 'mysql_query'];
-    expect(findUnregisteredNewTools(probe, BASELINE, {})).toEqual([
-      'mysql_query',
-    ]);
+    expect(
+      findUnregisteredNewTools(probe, BASELINE, NEW_TOOL_REGISTRY)
+    ).toEqual(['mysql_query']);
     // ② 登记理由后 ⇒ 放行（证明拦截基于"是否登记"，而非无差别恒真）
     expect(
       findUnregisteredNewTools(probe, BASELINE, {
+        ...NEW_TOOL_REGISTRY,
         mysql_query: '挂 MCP generic client 评估中（临时登记）',
       })
     ).toEqual([]);

@@ -62,8 +62,7 @@ describe('toolCategories — P0 工具可见性回归', () => {
   });
 
   test('技能工具归 search 类别（与 tool_search 同链）', () => {
-    expect(getToolCategory('skill_view')).toBe('search');
-    expect(getToolCategory('skills_list')).toBe('search');
+    // P1（2026-10-30）：`skill_view` / `skills_list` 并入 `skill`（op=view|list）⇒ 只登记真名
     expect(getToolCategory('skill')).toBe('search');
   });
 
@@ -76,11 +75,12 @@ describe('toolCategories — P0 工具可见性回归', () => {
     }
     // 收窄 ≠ 删除：显式声明类别（等价于 profile / 带图等能力追加）即可放开
     const widened = filterToolsByTask(
-      [{ name: 'knowledge_save' }, { name: 'skill_view' }],
+      // P1（2026-10-30）：技能三件合并为 `skill`（旧名不再单独登记类别）
+      [{ name: 'knowledge_save' }, { name: 'skill' }],
       'default',
       ['knowledge', 'search']
     ).map((t) => t.name);
-    expect(widened.sort()).toEqual(['knowledge_save', 'skill_view']);
+    expect(widened.sort()).toEqual(['knowledge_save', 'skill']);
   });
 
   test('白名单自洽：12 个名字都已登记类别（拼错/改名 ⇒ 默认面对模型为空）', () => {
@@ -371,15 +371,10 @@ describe('toolCategories — P0 工具可见性回归', () => {
     expect(kept).toContain('media_video_extract_thumbnail');
   });
 
-  test('N-44 扩展: sleep_for / sleep_until 归 system；默认面收窄，coding 仍可见', () => {
-    // 与同族的阻塞式 `sleep`（亦为 'system'）保持同一类别口径。
-    expect(getToolCategory('sleep_for')).toBe('system');
-    expect(getToolCategory('sleep_until')).toBe('system');
-    const defs = [
-      { name: 'sleep_for' },
-      { name: 'sleep_until' },
-      { name: 'bash' },
-    ];
+  test('N-44 扩展: 睡眠三件合并为 `sleep` 后仍归 system；默认面收窄，coding 面受能力包门控', () => {
+    // P1（2026-10-30）：`sleep` / `sleep_for` / `sleep_until` 合并为 `sleep`（mode 分派）⇒ 只登记真名
+    expect(getToolCategory('sleep')).toBe('system');
+    const defs = [{ name: 'sleep' }, { name: 'bash' }];
     for (const taskType of ['chat', 'default', undefined]) {
       // AC-16：睡眠族不在默认披露面（默认只留 12 个）；类别映射本身不变
       expect(filterToolsByTask(defs, taskType).map((t) => t.name)).toEqual([
@@ -389,13 +384,12 @@ describe('toolCategories — P0 工具可见性回归', () => {
     const coding = filterToolsByTask(defs, 'coding').map((t) => t.name);
     // P0-2（2026-10-30）：睡眠族属 `schedule` 能力包（默认关）⇒ coding 面默认不下发；
     // 包开即恢复（证明类别映射没坏）。
-    expect(coding).not.toContain('sleep_for');
-    expect(coding).not.toContain('sleep_until');
+    expect(coding).not.toContain('sleep');
     process.env['FEATURE_TOOL_PACK_SCHEDULE'] = 'true';
     try {
-      const withPack = filterToolsByTask(defs, 'coding').map((t) => t.name);
-      expect(withPack).toContain('sleep_for');
-      expect(withPack).toContain('sleep_until');
+      expect(filterToolsByTask(defs, 'coding').map((t) => t.name)).toContain(
+        'sleep'
+      );
     } finally {
       delete process.env['FEATURE_TOOL_PACK_SCHEDULE'];
     }

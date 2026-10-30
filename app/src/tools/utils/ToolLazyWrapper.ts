@@ -19,6 +19,9 @@ export class ToolLazyWrapper implements Tool {
   readonly description: string;
   readonly params: ToolParam[];
   readonly aliases?: string[];
+  readonly aliasInputDefaults?: Readonly<
+    Record<string, Record<string, unknown>>
+  >;
   readonly searchHint?: string;
   readonly searchTips?: string[];
   readonly shouldDefer?: boolean;
@@ -42,6 +45,8 @@ export class ToolLazyWrapper implements Tool {
     this.description = metadata.description;
     this.params = metadata.params;
     this.aliases = metadata.aliases;
+    // P1（2026-10-30）：旧名入参默认值必须在**未解包**时也可见（执行入口在参数校验前用它）
+    this.aliasInputDefaults = metadata.aliasInputDefaults;
     this.searchHint = metadata.searchHint;
     this.searchTips = metadata.searchTips;
     this.shouldDefer = metadata.deferred;

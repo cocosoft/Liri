@@ -60,7 +60,10 @@ import {
   isOutsideDefaultDisclosure,
 } from './toolCategories';
 import type { ToolCategory } from './toolCategories';
-import { TOOL_NAME_CONSTANTS } from './toolNameConstants';
+import {
+  LEGACY_ALIAS_TOOL_NAMES,
+  TOOL_NAME_CONSTANTS,
+} from './toolNameConstants';
 import type { ToolVisibilityOverrides } from './toolVisibilityOverrides';
 import { deriveFromLegacyEffects } from './toolCapability';
 import { resolveToolEffect } from './toolEffects';
@@ -154,8 +157,13 @@ export interface ResolveToolVisibilityOptions {
   overrides?: ToolVisibilityOverrides;
 }
 
+/** P1：alias-only 旧名集合（报表排除它们；见 `resolveToolVisibilityReport` 注释） */
+const LEGACY_ALIAS_TOOL_NAME_SET: ReadonlySet<string> = new Set(
+  LEGACY_ALIAS_TOOL_NAMES
+);
+
 /**
- * 产出**全量**工具（名字域 = 常量表 90 个）的可见性报表；按名字升序（稳定、可 diff）。
+ * 产出**全量**工具（名字域 = 常量表去除 alias-only 旧名）的可见性报表；按名字升序（稳定、可 diff）。
  *
  * @param options.taskType 缺省 `'default'`（`getTaskToolCategories` 的兜底键）
  */
@@ -169,72 +177,78 @@ export function resolveToolVisibilityReport(
   const registered = new Set<string>(TOOL_NAMES);
   const extraCategories = options.extraCategories ?? [];
 
-  return Object.values(TOOL_NAME_CONSTANTS)
-    .map<ToolVisibilityReport>((name) => {
-      const category = getToolCategory(name);
-      const conditional = !registered.has(name);
-      const reasons: ToolVisibilityReason[] = [];
+  return (
+    Object.values(TOOL_NAME_CONSTANTS)
+      // P1（2026-10-30，工具族合并）：**alias-only 旧名不进报表** —— 它们不是"待处置的影子工具"，
+      // 而是合并工具的可解析别名（`vfs` 的 `read_vfs` 等）；报表服务设置页的"工具开关"，
+      // 展示一个"点了也没用的旧名"只会误导（`conditional` ⇒ 覆写 `on` 也无力）。
+      .filter((name) => !LEGACY_ALIAS_TOOL_NAME_SET.has(name))
+      .map<ToolVisibilityReport>((name) => {
+        const category = getToolCategory(name);
+        const conditional = !registered.has(name);
+        const reasons: ToolVisibilityReason[] = [];
 
-      // I-4（2026-10-18）：可见性**单一判定内核** = `filterToolsByTask`（真实裁剪同源）；
-      // 下面的分支只负责**解释原因**，不再各写一套判定（防两套口径漂移）。
-      if (isMandatoryTool(name)) {
-        // 恒保留：即使类别不在白名单（如 todo_write 属 'task'）也仍可见
-        reasons.push('mandatory');
-      } else if (ARCHIVED_MISC_TOOLS.has(name)) {
-        reasons.push('archived');
-      } else if (category === 'misc') {
-        reasons.push('unregistered-category');
-      } else if (!allowed.has(category)) {
-        reasons.push('not-in-task-whitelist');
-      } else if (
-        isOutsideDefaultDisclosure(name, options.taskType, extraCategories)
-      ) {
-        // AC-16（P4，2026-10-28）：类别命中却被**默认披露面白名单**收窄 ⇒ 如实给出原因
-        // （否则该工具 hidden 但 reasons 为空，违反"hidden 必带原因"的界面契约）
-        reasons.push('not-in-default-disclosure');
-      }
-      let visible =
-        filterToolsByTask([{ name }], options.taskType, [...extraCategories])
-          .length === 1;
-      // 未进生成物 ⇒ 无论类别是否命中白名单，**都不会出现在工具清单里**
-      if (conditional) {
-        visible = false;
-        reasons.push('conditional');
-      }
+        // I-4（2026-10-18）：可见性**单一判定内核** = `filterToolsByTask`（真实裁剪同源）；
+        // 下面的分支只负责**解释原因**，不再各写一套判定（防两套口径漂移）。
+        if (isMandatoryTool(name)) {
+          // 恒保留：即使类别不在白名单（如 todo_write 属 'task'）也仍可见
+          reasons.push('mandatory');
+        } else if (ARCHIVED_MISC_TOOLS.has(name)) {
+          reasons.push('archived');
+        } else if (category === 'misc') {
+          reasons.push('unregistered-category');
+        } else if (!allowed.has(category)) {
+          reasons.push('not-in-task-whitelist');
+        } else if (
+          isOutsideDefaultDisclosure(name, options.taskType, extraCategories)
+        ) {
+          // AC-16（P4，2026-10-28）：类别命中却被**默认披露面白名单**收窄 ⇒ 如实给出原因
+          // （否则该工具 hidden 但 reasons 为空，违反"hidden 必带原因"的界面契约）
+          reasons.push('not-in-default-disclosure');
+        }
+        let visible =
+          filterToolsByTask([{ name }], options.taskType, [...extraCategories])
+            .length === 1;
+        // 未进生成物 ⇒ 无论类别是否命中白名单，**都不会出现在工具清单里**
+        if (conditional) {
+          visible = false;
+          reasons.push('conditional');
+        }
 
-      // P2：叠加用户覆写（**只影响 `effective` 与原因，不改 `visibleByDefault`**）。
-      // ⚠️ `on` 对 `conditional`（未进生成物 ⇒ 根本不在注册表）**无能为力** —— 覆写层只能
-      // 改变"可见性判定"，无法凭空实例化工具 ⇒ 如实保持 hidden（不给假承诺）。
-      let effective = visible;
-      const override = options.overrides?.[name];
-      if (override === 'off') {
-        effective = false;
-        reasons.push('user-off');
-      } else if (override === 'on' && !conditional) {
-        effective = true;
-        if (!visible) reasons.push('user-on-bypass');
-      }
+        // P2：叠加用户覆写（**只影响 `effective` 与原因，不改 `visibleByDefault`**）。
+        // ⚠️ `on` 对 `conditional`（未进生成物 ⇒ 根本不在注册表）**无能为力** —— 覆写层只能
+        // 改变"可见性判定"，无法凭空实例化工具 ⇒ 如实保持 hidden（不给假承诺）。
+        let effective = visible;
+        const override = options.overrides?.[name];
+        if (override === 'off') {
+          effective = false;
+          reasons.push('user-off');
+        } else if (override === 'on' && !conditional) {
+          effective = true;
+          if (!visible) reasons.push('user-on-bypass');
+        }
 
-      // PR-4：影子工具带出"未接线原因 + 处置方向"（来自登记表；未登记则留空由门禁报错）
-      const shadow = conditional ? getShadowToolDisposition(name) : undefined;
+        // PR-4：影子工具带出"未接线原因 + 处置方向"（来自登记表；未登记则留空由门禁报错）
+        const shadow = conditional ? getShadowToolDisposition(name) : undefined;
 
-      return {
-        name,
-        category,
-        registration: conditional ? 'conditional' : 'registered',
-        visibleByDefault: visible,
-        effective: effective ? 'visible' : 'hidden',
-        reasons,
-        risk: deriveRiskOf(name),
-        ...(shadow
-          ? {
-              conditionalReason: shadow.reason,
-              disposition: shadow.disposition,
-            }
-          : {}),
-      };
-    })
-    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+        return {
+          name,
+          category,
+          registration: conditional ? 'conditional' : 'registered',
+          visibleByDefault: visible,
+          effective: effective ? 'visible' : 'hidden',
+          reasons,
+          risk: deriveRiskOf(name),
+          ...(shadow
+            ? {
+                conditionalReason: shadow.reason,
+                disposition: shadow.disposition,
+              }
+            : {}),
+        };
+      })
+      .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+  );
 }
 
 /**

@@ -123,6 +123,13 @@ import { McpAuthTool } from '../McpAuthTool/McpAuthTool';
 // ── 门控 / 守卫 / KAIROS 委托 ──
 import { isToolEnabled } from '../utils/ToolFeatureFlags';
 import { guardToolCreation } from './toolCreationGuard.js';
+// ── P1（2026-10-30）：同资源族合并工具（vfs / sleep / skill / cron / worktree / task_list） ──
+import { createVfsFamilyTool } from '../families/VfsFamilyTool';
+import { createSleepFamilyTool } from '../families/SleepFamilyTool';
+import { createSkillFamilyTool } from '../families/SkillFamilyTool';
+import { createCronFamilyTool } from '../families/CronFamilyTool';
+import { createWorktreeFamilyTool } from '../families/WorktreeFamilyTool';
+import { createTaskListFamilyTool } from '../families/TaskListFamilyTool';
 import {
   createPushNotificationTool as buildPushNotificationTool,
   createSubscribePRTool as buildSubscribePRTool,
@@ -165,6 +172,13 @@ export const BUILTIN_TOOL_FACTORIES = {
   createCronListTool: () => CronListTool.create(),
   createCronStopTool: () => CronStopTool.create(),
   createKanbanTool: () => new KanbanTool(),
+  // ── P1（2026-10-30）：同资源族合并入口（旧名保留为 alias，不再单独注册） ──
+  createVfsFamilyTool: () => createVfsFamilyTool(),
+  createSleepFamilyTool: () => createSleepFamilyTool(),
+  createSkillFamilyTool: () => createSkillFamilyTool(),
+  createCronFamilyTool: () => createCronFamilyTool(),
+  createWorktreeFamilyTool: () => createWorktreeFamilyTool(),
+  createTaskListFamilyTool: () => createTaskListFamilyTool(),
   // ── Agent / Skill / 知识 ──
   createAgentTool: () => new AgentTool(),
   createAgentsListTool: () => new AgentsListTool(),

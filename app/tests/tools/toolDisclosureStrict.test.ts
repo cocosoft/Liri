@@ -110,9 +110,9 @@ const CODING_DEFINITIONS = [
   'mcp_tool',
   'sessions',
   'sessions_yield',
-  'stat_vfs',
+  // P1（2026-10-30）：族合并后的真名（旧名不再是注册名，夹具改用合并名）
+  'vfs',
   'skill',
-  'skills_list',
   'plan',
   'clipboard',
   'config',
@@ -120,13 +120,19 @@ const CODING_DEFINITIONS = [
   'trace_recording',
   'kanban',
   'knowledge_save',
-  'create_task_list',
-  'get_task_list',
-  'update_task_status',
+  'task_list',
   'task_output',
   'task_stop',
-  'cron_create',
-  'cron_list',
+  'cron',
+  // P1 合并后新增的 coding 白名单内条目（保证夹具数量高于 strict 预算，截断路径仍被覆盖）
+  'knowledge_search',
+  'knowledge_write',
+  'knowledge_import',
+  'knowledge_export',
+  'knowledge_delete',
+  'repl',
+  'tungsten',
+  'time',
 ].map((name) => ({ name }));
 
 describe('filterToolsByTask：严格披露截断（coding 面）', () => {
@@ -159,7 +165,9 @@ describe('filterToolsByTask：严格披露截断（coding 面）', () => {
     expect(names).toContain('todo_write');
     expect(names).toContain('agent');
     // 优先级末尾 / 未登记名的工具被截断
-    expect(names).not.toContain('trace_recording');
+    // P1（2026-10-30）：`trace_recording` 已在优先级名单内（落在 25 名之内）⇒ 断言改用
+    // 明确不在优先级名单里的 `knowledge_search`（真实存在但排在最后、必被截断）。
+    expect(names).not.toContain('knowledge_search');
     // 保持原顺序（下发面稳定）
     const originalOrder = CODING_DEFINITIONS.map((t) => t.name).filter((n) =>
       names.includes(n)

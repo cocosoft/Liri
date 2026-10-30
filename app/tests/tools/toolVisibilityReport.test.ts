@@ -40,7 +40,10 @@ import {
   getMandatoryTools,
   filterToolsByTask,
 } from '../../src/tools/toolCategories';
-import { TOOL_NAME_CONSTANTS } from '../../src/tools/toolNameConstants';
+import {
+  LEGACY_ALIAS_TOOL_NAMES,
+  TOOL_NAME_CONSTANTS,
+} from '../../src/tools/toolNameConstants';
 import { TOOL_EFFECTS, resolveToolEffect } from '../../src/tools/toolEffects';
 import { TOOL_NAMES } from '../../src/constants/toolNames.generated';
 import {
@@ -51,14 +54,17 @@ import {
 import type { ToolVisibilityReport } from '../../src/tools/toolVisibilityReport';
 import type { SharedToolVisibilityEntry } from '@shared/types';
 
-const ALL_NAMES = Object.values(TOOL_NAME_CONSTANTS);
+// P1（2026-10-30）：alias-only 旧名（合并工具的旧名）不进报表 ⇒ 期望名字域同步排除
+const ALL_NAMES = Object.values(TOOL_NAME_CONSTANTS).filter(
+  (n) => !(LEGACY_ALIAS_TOOL_NAMES as readonly string[]).includes(n)
+);
 const report = resolveToolVisibilityReport();
 const byName = new Map<string, ToolVisibilityReport>(
   report.map((r) => [r.name, r])
 );
 
 describe('P1 工具可见性报表', () => {
-  it('覆盖全部常量名（90）· 名字唯一 · 升序稳定', () => {
+  it('覆盖全部常量名（排除 alias-only 旧名）· 名字唯一 · 升序稳定', () => {
     expect(report.length).toBe(ALL_NAMES.length);
     expect(new Set(report.map((r) => r.name)).size).toBe(ALL_NAMES.length);
     const sorted = [...report.map((r) => r.name)].sort();

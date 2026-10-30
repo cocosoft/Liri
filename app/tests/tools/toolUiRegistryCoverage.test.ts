@@ -30,7 +30,9 @@ describe('ToolUIRegistry 可用性与键名（U-03）', () => {
     expect(hasToolUI('mcp_resource')).toBe(true);
     expect(hasToolUI('file_read')).toBe(true);
     expect(hasToolUI('bash')).toBe(true);
-    expect(hasToolUI('cron_create')).toBe(true);
+    // P1（2026-10-30）：cron 四件合并为 `cron`（专用 UI 改挂合并名）
+    expect(hasToolUI('cron')).toBe(true);
+    expect(hasToolUI('worktree')).toBe(true);
   });
 
   it('非工具名不再注册（错配回流即红）', async () => {

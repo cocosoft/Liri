@@ -79,7 +79,10 @@ const WRITE_TOOL_NAMES = [
   // 当前无实害（`dev_docs` 为只读挂载，写在驱动层即被 `VFS_READ_ONLY_MOUNT` 前置拒绝），
   // 但**引入可写挂载后**必须正确 ⇒ 现补齐。同批传导到 `FileIOLoopDetector` /
   // `promptSuggestion.Speculation` / `tools/orchestration.SERIALIZING_TOOLS`（语义均正确）。
-  'write_vfs',
+  // P1（2026-10-30）：`write_vfs` 并入合并工具 `vfs`（op=read|list|stat|write）⇒ 写类名单改为
+  // 真名 `vfs`。⚠️ 合并后 `vfs` 的只读 op 也会被当"写类"分级（保守方向：只会**更严**，
+  // 不会放过写路径；PathGuard 的写拒绝规则因此仍然生效）。
+  'vfs',
 ] as const satisfies readonly ToolName[];
 export const WRITE_TOOLS = new Set<string>(WRITE_TOOL_NAMES);
 

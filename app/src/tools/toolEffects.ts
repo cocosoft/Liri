@@ -65,19 +65,13 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   computer_use: EXTERNAL,
   config: LOCAL,
   create_project: LOCAL,
-  create_task_list: LOCAL,
-  cron_create: LOCAL,
-  cron_delete: LOCAL,
-  cron_list: NONE,
-  cron_stop: LOCAL,
+  // P1（2026-10-30）：cron 四件合并为 `cron`（含 create/stop/delete 写操作 ⇒ LOCAL；list 只读）
+  cron: LOCAL,
   doc_generate: LOCAL,
-  enter_worktree: LOCAL,
-  exit_worktree: LOCAL,
   file_convert: NONE,
   file_edit: LOCAL,
   file_read: NONE,
   file_write: LOCAL,
-  get_task_list: NONE,
   glob: NONE,
   grep: NONE,
   image: LOCAL,
@@ -89,7 +83,6 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   kanban: LOCAL,
   knowledge_save: LOCAL,
   list_peers: NONE,
-  list_vfs: NONE,
   lsp: LOCAL,
   // Q-18（2026-10-23）：`mcp_auth` 接线 —— OAuth 授权/撤销（对外部系统可见影响）
   mcp_auth: EXTERNAL,
@@ -104,7 +97,6 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   pdf: LOCAL,
   powershell: EXTERNAL,
   read_project_file: NONE,
-  read_vfs: NONE,
   repl: LOCAL,
   save_conversation: LOCAL,
   // 2026-10-20（U-03 收口）：`send_message` 随 flag 默认开启进入生效面 ⇒ 必须显式声明。
@@ -113,13 +105,10 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   sessions: LOCAL,
   sessions_yield: LOCAL,
   skill: LOCAL,
-  skill_view: NONE,
-  skills_list: NONE,
   sleep: NONE,
-  sleep_for: NONE,
-  sleep_until: NONE,
-  stat_vfs: NONE,
   task_stop: LOCAL,
+  // P1（2026-10-30）：`task_list` = 长任务清单三件的合并体（create/update 写本地状态 ⇒ LOCAL）
+  task_list: LOCAL,
   // P4b（2026-10-16）：`task_output` 接线进生效面后须声明（`Record<ToolName,…>` 强制）。
   // 只读（`TaskOutputTool.isReadOnly() === true`，TaskOutputTool.ts:208）⇒ NONE。
   task_output: NONE,
@@ -133,15 +122,17 @@ export const TOOL_EFFECTS: Record<ToolName, ToolEffect> = {
   // Q-18（2026-10-23）：`tts` 接线 —— 朗读/落盘音频（本地、非幂等）
   tts: LOCAL,
   tungsten: LOCAL,
-  update_task_status: LOCAL,
   video: LOCAL,
   video_analysis: NONE,
   video_display: NONE,
   video_generate: LOCAL,
+  // P1（2026-10-30）：VFS 四件合并为 `vfs`（含 write ⇒ LOCAL；read/list/stat 为只读但同一工具）
+  vfs: LOCAL,
+  // P1（2026-10-30）：`enter_worktree` / `exit_worktree` 合并为 `worktree`（本地状态变更）
+  worktree: LOCAL,
   web_fetch: NONE,
   web_search: NONE,
   write_project_file: LOCAL,
-  write_vfs: LOCAL,
 };
 
 /** 取工具效果声明；未声明（MCP / 插件等外部工具）⇒ `undefined` */

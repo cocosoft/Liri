@@ -202,6 +202,7 @@ const SAFE_READ_ONLY_TOOL_NAMES = [
   'glob',
   'grep',
   'lsp',
-  'get_task_list',
+  // P1（2026-10-30）：`get_task_list` 并入 `task_list`（op=get 为只读分支）
+  'task_list',
 ] as const satisfies readonly ToolName[];
 export const SAFE_READ_ONLY_TOOLS = new Set<string>(SAFE_READ_ONLY_TOOL_NAMES);

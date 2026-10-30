@@ -9,7 +9,7 @@
  *
  * 这样"改默认值却不更新文档"或"环境覆盖失效"都会**立即变红**（对应验收：每开关一条契约用例）。
  */
-import { afterEach, describe, expect, it } from 'bun:test';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -22,6 +22,10 @@ import {
 } from '@openliri/kernel';
 // P3（2026-10-23）：构建变体层改为**宿主注入**；生成物落在 `bootstrap/`（内核不再持有）
 import { BUILD_VARIANT_FLAGS } from '../../src/bootstrap/generatedVariantFlags.js';
+// 污染治理（2026-10-30）：`TOOL_FEATURE_FLAGS` 是**开关层的投影缓存**（首次读取后不再重算）
+// ⇒ 本文件改动过开关层，必须在文件级 afterAll 里一并复位，否则后续测试文件
+// （`tests/tools/toolFamilies` 的注册面）会拿到被污染的 `cron` 等工具开关。
+import { resetToolFlags } from '../../src/tools/utils/ToolFeatureFlags';
 import { AppError } from '@openliri/kernel/errors.js';
 
 /** 与 `scripts/check-doc-code-consistency.js` 的 `SAFETY_SWITCHES` 同集的 **17 项**安全/灰度开关 */
@@ -65,6 +69,12 @@ function documentedDefault(name: string): boolean | null {
 const touched: string[] = [];
 afterEach(() => {
   for (const name of touched.splice(0)) delete process.env[`FEATURE_${name}`];
+});
+
+/** 文件级收尾：复原开关层 + 其投影缓存（防止跨文件污染，见文件头说明） */
+afterAll(() => {
+  resetBuildVariantFlags();
+  resetToolFlags();
 });
 
 describe('P1-8 配置契约 · ① 代码默认值 ⇔ 文档登记值', () => {
@@ -149,8 +159,13 @@ describe('P1-8 配置契约 · ③ `FEATURE_*` 环境覆盖生效且语义一致
  * 三层优先（高 → 低）：`FEATURE_*` env → `BUILD_VARIANT_FLAGS` → `FEATURE_FLAGS`。
  */
 describe('D1 构建变体层：feature() 三层优先', () => {
-  // P3：与生产入口一致 —— 先注入变体层，再断言三层优先
-  setBuildVariantFlags(BUILD_VARIANT_FLAGS);
+  // P3：与生产入口一致 —— 先注入变体层，再断言三层优先。
+  // 污染治理（2026-10-30）：原实现在 **describe 体**（模块加载期）注入且从不复原 ⇒
+  // 变体键（如 `CORE_MINIMAL: false`）泄漏给同进程后续测试文件，导致
+  // `tests/tools/toolFamilies` 的注册面用例缺工具族（真机：整包唯一红）。
+  // 改为 beforeAll 注入 + afterAll 复原（内核提供 `resetBuildVariantFlags`）。
+  beforeAll(() => setBuildVariantFlags(BUILD_VARIANT_FLAGS));
+  afterAll(() => resetBuildVariantFlags());
 
   /** 纯判据（抽函数以便负向夹具自证）：变体键必须是合法 FeatureFlag */
   function findUnknownVariantFlags(

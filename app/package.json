@@ -180,7 +180,8 @@
     "preview:project-backfill": "bun run scripts/preview-session-project-backfill.ts",
     "split:session-messages": "bun run scripts/split-session-messages.ts",
     "prune:event-thinking": "bun run scripts/prune-event-thinking.ts",
-    "split:session-events": "bun run scripts/split-session-events.ts"
+    "split:session-events": "bun run scripts/split-session-events.ts",
+    "prune:empty-sessions": "bun run scripts/prune-empty-sessions.ts"
   },
   "keywords": [
     "ai",

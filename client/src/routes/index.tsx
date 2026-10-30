@@ -414,9 +414,9 @@ export const routes: RouteObject[] = [
   // 通知中心为弹窗（notificationStore.openPanel），/inbox 页面零驱动方。
 
   // 任务页（2026-10-30 用户裁定）：`/tasks` 改挂「定时任务」页（CronPage）。
-  // 原因：原 `TasksPage`（任务聚合收件箱）的数据源 `GET /v1/tasks` 读的是 `tasks` 表（实测 0 行）
-  // ⇒ 进去只有空状态，用户不知道能做什么（见 issue #25）。`TasksPage` 文件保留，
-  // 待 #25 把数据源接好后再决定是否切回。
+  // 2026-10-31 用户二次裁定：原 `TasksPage`（任务聚合收件箱）**正式下线并删除** ——
+  // 其数据源 `GET /v1/tasks` 读的 `tasks` 表实测 0 行（进去只有空状态，issue #25），
+  // 且 M10-C 已裁定 `tasks` 仅保留 API + 服务层、不提供页面入口。
   {
     path: "/tasks",
     element: (

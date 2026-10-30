@@ -13,13 +13,15 @@
 | **PDCA** | 项目内的「执行计划 / 执行流程 / PDCA 检查点」编排 | `pdca_checkpoints`(184) + 项目 items | 项目详情 →「编排」 | ✅ 入口唯一；与 `/tasks` **不同源** |
 | **工作项**（work item） | 项目看板上的工作条目 | `workitems`(16) 在用 | 项目详情 → 看板 | ✅ 单表（`work_items` 空表已于 2026-10-30 下线，见 §二） |
 | **长期目标**（goal） | 长程任务的目标与执行审计痕迹 | `task_goals`(879) / `task_audit_log`(31379) | **无独立页面**（作为执行痕迹被引用） | ⚠️ 概念与「工作项/任务」重叠 |
-| **任务节点**（task node） | 项目内的人工任务条目（P0–P3 / 状态筛选） | `tasks`（0 行；唯一写入方 `workspace/TaskStore`） | API `GET /v1/tasks`；组件 `TasksPage` **未挂路由** | ✅ 语义已定（M10-C）；页面入口暂不恢复 |
+| **任务节点**（task node） | 项目内的人工任务条目（P0–P3 / 状态筛选） | `tasks`（0 行；唯一写入方 `workspace/TaskStore`） | 仅 API `GET /v1/tasks`（`TasksPage` 已于 2026-10-31 下线删除） | ✅ 语义已定（M10-C）；页面入口不恢复 |
 | **计划**（plan） | 全局「计划」= 定时任务（cron）；项目内「编排」= pdca | `cron_*` / `pdca_checkpoints` | `/plans` → `/cron`；项目详情「编排」 | ✅ 语义已定（M12-B） |
 
 ## 二、已定裁定 / 变更记录
 
 - **2026-10-30（用户裁定，见 #25 注释）**：`/tasks` 改挂「定时任务」（`CronPage`），导航名改为
-  「定时任务」；`TasksPage` 保留待数据源接好后决定是否切回。
+  「定时任务」。
+- **2026-10-31（用户裁定）**：原 `TasksPage`（任务聚合收件箱）**正式下线并删除**
+  （数据源 `tasks` 表 0 行、M10-C 已定"仅保留 API"）；`GET /v1/tasks` 与服务层保留不动。
 - **#26（本单）**：
   1. 导航 `nav.backgroundStatus` 由「后台任务」改为「运行状况」，与页面标题一致；
   2. `/plans` 重定向改为 `/cron`（此前跳 `/tasks`，而 `/tasks` 已是定时任务页 ⇒ URL 名与页面错位）；

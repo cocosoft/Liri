@@ -383,7 +383,7 @@ export class SessionAgentOps {
 
   async getSessionMessages(
     sessionId: string,
-    query?: { limit?: number; before?: number }
+    query?: { limit?: number; before?: number; maxVisible?: number }
   ): Promise<{
     messages: Array<{
       id: string;

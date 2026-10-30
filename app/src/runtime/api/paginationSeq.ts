@@ -89,3 +89,55 @@ export function alignPageStartToTurn<T extends { role?: string }>(
   }
   return start;
 }
+
+/**
+ * #27（2026-10-30）：按**可见条目**（非 `tool` 消息）倒推分页窗口起点。
+ *
+ * 背景（真机 `session_mvquoj3z9ce98e6845`）：`limit=30` 返回的 30 条里 27 条是工具记录，
+ * 首屏只看到 1 条对话 —— 分页预算按"消息条数"计，而工具记录被前端折叠进 assistant 的
+ * 工具块、**不占可见空间**。此处把预算改成"可见条目数"：
+ *
+ *   1. 从尾部向前数**非 `tool`** 条目，数到 `maxVisible` 条时把该条作为页首；
+ *   2. 若页长超过 `hardCap`（行数硬上限，防工具密集会话返回超大响应）⇒ 回退到行数窗口；
+ *   3. 最后按 `alignPageStartToTurn()` 对齐到最近一条 `user`（保持整轮不被切断）。
+ *
+ * 数不满 `maxVisible`（会话更短）⇒ 返回 0（全量）。
+ *
+ * @param list 已按权威顺序排好的消息列表
+ * @param maxVisible 可见条目预算（<=0 ⇒ 不启用，返回 0）
+ * @param options.hardCap 行数硬上限（<=0 ⇒ 不限）
+ * @param options.alignLookback 轮次对齐回看窗口（缺省 `max(hardCap, maxVisible*4)`）
+ * @returns 页首下标（0 = 全部）
+ */
+export function selectVisiblePageStart<T extends { role?: string }>(
+  list: readonly T[],
+  maxVisible: number,
+  options: { hardCap?: number; alignLookback?: number } = {}
+): number {
+  const len = list.length;
+  if (maxVisible <= 0 || len === 0) return 0;
+
+  let start = 0;
+  let visible = 0;
+  for (let i = len - 1; i >= 0; i--) {
+    if (String(list[i]?.role ?? '').toLowerCase() !== 'tool') visible++;
+    if (visible >= maxVisible) {
+      start = i;
+      break;
+    }
+  }
+
+  const hardCap = options.hardCap ?? 0;
+  if (hardCap > 0 && len - start > hardCap) start = len - hardCap;
+
+  const lookback = options.alignLookback ?? Math.max(hardCap, maxVisible * 4);
+  // 页首已经是 user ⇒ 本来就落在轮首，无需再向前扩（否则会多带一整轮、超出可见预算）
+  const atTurnStart = String(list[start]?.role ?? '').toLowerCase() === 'user';
+  const aligned = atTurnStart
+    ? start
+    : alignPageStartToTurn(list as T[], start, lookback);
+  // 硬上限优先：轮次对齐会向前扩窗口，若因此超限 ⇒ 退回纯行数窗口（不再对齐），
+  // 保证工具极密集会话的响应体有界（页首可能落在轮中，由前端按页边界残片兜底）。
+  if (hardCap > 0 && len - aligned > hardCap) return len - hardCap;
+  return aligned;
+}

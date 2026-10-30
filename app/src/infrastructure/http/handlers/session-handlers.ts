@@ -392,9 +392,12 @@ export async function handleGetSessionMessages(
     const url = new URL(req.url ?? '', LOCAL_REQUEST_BASE_URL);
     const limitParam = url.searchParams.get('limit');
     const beforeParam = url.searchParams.get('before');
+    // #27（2026-10-30）：可见条目预算（非 tool 消息条数）—— 工具记录不占首屏预算
+    const maxVisibleParam = url.searchParams.get('maxVisible');
     const result = await coreAPI.getSessionMessages(sessionId, {
       limit: limitParam ? parseInt(limitParam, 10) : undefined,
       before: beforeParam ? parseInt(beforeParam, 10) : undefined,
+      maxVisible: maxVisibleParam ? parseInt(maxVisibleParam, 10) : undefined,
     });
     // Fix1（2026-09-05）：读路径统一按 toolCallId 去重（与前端/写路径同策略）——
     // 历史双写或 SSE 重复发送导致的同 call 重复块不再外溢到接口（实测 189 块 → 186 唯一）。

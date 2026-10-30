@@ -793,7 +793,7 @@ export const sessionService = {
    */
   loadConversation: (
     sessionId: string,
-    options?: { limit?: number; before?: number },
+    options?: { limit?: number; before?: number; maxVisible?: number },
   ): Promise<{
     messages: Message[];
     source: "events" | "legacy";
@@ -811,6 +811,10 @@ export const sessionService = {
           const qs = new URLSearchParams();
           if (options?.limit != null) qs.set("limit", String(options.limit));
           if (options?.before != null) qs.set("before", String(options.before));
+          // #27（2026-10-30）：可见条目预算 —— 后端按"非 tool 消息条数"切页，
+          // 工具记录不再占首屏预算（真机 limit=30 里 27 条是 tool 记录）。
+          if (options?.maxVisible != null)
+            qs.set("maxVisible", String(options.maxVisible));
           const queryStr = qs.toString();
           const res = await apiHttp.get<
             Message[] | { messages: Message[]; hasMore: boolean }

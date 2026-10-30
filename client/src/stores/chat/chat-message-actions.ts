@@ -624,6 +624,15 @@ export function resumeRecoveryImpl(
  */
 export const MESSAGE_PAGE_LIMIT = 30;
 
+/**
+ * #27（2026-10-30）：首屏/翻页的**可见条目预算**（非 `tool` 消息条数）。
+ *
+ * 背景：真机会话 `session_mvquoj3z9ce98e6845` 的 `limit=30` 返回 30 条，其中 27 条是工具
+ * 记录（前端折叠进 assistant 的工具块、不占可见空间）⇒ 首屏只看到 1 条对话。
+ * 现按"可见条目"切页：`limit` 退化为**行数硬上限**（后端取 `max(limit, maxVisible*6)`）。
+ */
+export const MESSAGE_PAGE_VISIBLE = 10;
+
 export async function loadOlderMessagesImpl(
   set: MessageSet,
   get: MessageGet,
@@ -660,7 +669,12 @@ export async function loadOlderMessagesImpl(
   try {
     const { messages: older, hasMore } = await sessionService.loadConversation(
       sessionId,
-      { limit: MESSAGE_PAGE_LIMIT, before },
+      {
+        limit: MESSAGE_PAGE_LIMIT,
+        before,
+        // #27：翻页同样按可见条目预算（工具记录不占预算）
+        maxVisible: MESSAGE_PAGE_VISIBLE,
+      },
     );
     if (older.length > 0) {
       // U-05（2026-10-19）：复用 `setMessagesImpl` 的整表归一化（tool 结果回填 /

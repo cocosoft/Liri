@@ -40,7 +40,11 @@ import {
   type DerivedMessage,
 } from '@modules/session';
 import { dedupeMessagesToolCallBlocks } from '@modules/utils/chatBlocks';
-import { alignPageStartToTurn, withPaginationSeq } from './paginationSeq';
+import {
+  alignPageStartToTurn,
+  selectVisiblePageStart,
+  withPaginationSeq,
+} from './paginationSeq';
 import { LRUCache } from '../../utils/cache';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { SessionManager } from '@modules/session/types/session';
@@ -151,7 +155,7 @@ export class SessionMessagesRead {
 
   async getSessionMessages(
     sessionId: string,
-    query?: { limit?: number; before?: number }
+    query?: { limit?: number; before?: number; maxVisible?: number }
   ): Promise<{
     messages: Array<{
       id: string;
@@ -320,10 +324,14 @@ export class SessionMessagesRead {
     T extends { lastEventSeq?: number; timestamp?: number; role?: string },
   >(
     messages: T[],
-    query?: { limit?: number; before?: number }
+    query?: { limit?: number; before?: number; maxVisible?: number }
   ): { messages: T[]; hasMore: boolean } {
     const limit = query?.limit;
-    if (limit == null || limit <= 0) {
+    const maxVisible = query?.maxVisible;
+    if (
+      (limit == null || limit <= 0) &&
+      (maxVisible == null || maxVisible <= 0)
+    ) {
       return { messages, hasMore: false };
     }
     const normalized = withPaginationSeq(messages);
@@ -336,18 +344,29 @@ export class SessionMessagesRead {
       // 边界条目会重复返回，由前端 `loadOlderMessagesImpl` 按 id 去重消除。
       filtered = filtered.filter((m) => key(m) <= (query.before as number));
     }
-    const hasMoreByCount = filtered.length > limit;
+
+    // #27（2026-10-30）：**可见条目预算**优先 —— 工具记录会被前端折叠进 assistant 的
+    // 工具块、不占可见空间，若仍按行数切页，工具密集会话的首屏只剩 1 条对话
+    // （真机：limit=30 里 27 条 tool）。行数硬上限取 `max(limit, maxVisible*6)`，
+    // 既保证至少够 maxVisible 条可见内容，也不让工具密集页无界膨胀。
+    if (maxVisible != null && maxVisible > 0) {
+      const hardCap = Math.max(limit ?? 0, maxVisible * 6);
+      const start = selectVisiblePageStart(filtered, maxVisible, { hardCap });
+      return { messages: filtered.slice(start), hasMore: start > 0 };
+    }
+
+    const hasMoreByCount = filtered.length > limit!;
     // N-57（2026-09-20）：filtered.length <= limit 时必须返回全部 —— 原
     // `filtered.slice(filtered.length - limit)` 在"剩余条数不足一页"时退化为负索引，
     // 等价于 `slice(-|残余|)` 只取尾部若干条（实测 92 条只回 8 条）且 hasMore=false ⇒
     // 最后一页丢失、中间消息永久不可达。
-    let start = hasMoreByCount ? filtered.length - limit : 0;
+    let start = hasMoreByCount ? filtered.length - limit! : 0;
     // 2026-10-19（真机排查）：分页窗口不得从**一轮中间**开始 —— 原实现按条数硬切，
     // 实测长会话末页 30 条全是工具结果/助手续写（页内**没有任何 user 消息**），
     // 首屏既看不到提问、工具结果也与其 assistant tool_call 被切断（前端出现
     // "孤儿工具结果" + 顺序归一化告警）。向前扩到最近的 user 消息（最多回看一页），
     // 让每一页都从一轮的起点开始；扩到 0 ⇒ 没有更早历史。
-    start = alignPageStartToTurn(filtered, start, limit);
+    start = alignPageStartToTurn(filtered, start, limit!);
     const page = filtered.slice(start);
     return { messages: page, hasMore: start > 0 };
   }

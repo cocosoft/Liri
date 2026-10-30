@@ -31,6 +31,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   alignPageStartToTurn,
+  selectVisiblePageStart,
   withPaginationSeq,
 } from '../../src/runtime/api/paginationSeq';
 
@@ -194,5 +195,62 @@ describe('alignPageStartToTurn（2026-10-19 分页窗口一轮对齐）', () => 
     expect(alignPageStartToTurn(list, 1, 5)).toBe(0);
     expect(alignPageStartToTurn(list, 0, 5)).toBe(0);
     expect(alignPageStartToTurn(list, 1, 0)).toBe(1);
+  });
+});
+
+/**
+ * #27（2026-10-30）：可见条目预算 —— 工具记录不占分页预算。
+ *
+ * 真机：`limit=30` 返回 30 条里 27 条是 tool，首屏只剩 1 条对话。
+ */
+describe('selectVisiblePageStart（#27 可见条目预算）', () => {
+  /** 每轮 `1 user + 1 assistant + toolsPerTurn 条 tool` */
+  const buildTurns = (
+    turns: number,
+    toolsPerTurn: number
+  ): Array<{ role: string }> =>
+    Array.from({ length: turns }).flatMap(() => [
+      { role: 'user' },
+      { role: 'assistant' },
+      ...Array.from({ length: toolsPerTurn }, () => ({ role: 'tool' })),
+    ]);
+
+  test('工具密集会话：按可见条目切页，页首落在 user', () => {
+    // 10 轮 × (user + assistant + 8 tool) = 100 条，其中可见 20 条
+    const list = buildTurns(10, 8);
+    const start = selectVisiblePageStart(list, 4, { hardCap: 60 });
+    expect(list[start].role).toBe('user');
+    // 从 start 起只剩 4 条可见（2 轮）
+    const visibleInPage = list
+      .slice(start)
+      .filter((m) => m.role !== 'tool').length;
+    expect(visibleInPage).toBe(4);
+  });
+
+  test('行数硬上限生效（工具记录过多时回退到行数窗口）', () => {
+    const list = buildTurns(10, 20); // 220 条
+    const start = selectVisiblePageStart(list, 10, { hardCap: 30 });
+    expect(list.length - start).toBeLessThanOrEqual(30);
+  });
+
+  test('可见条目不足预算 ⇒ 返回 0（全量，无更早）', () => {
+    const list = buildTurns(2, 1); // 4 条可见
+    expect(selectVisiblePageStart(list, 10)).toBe(0);
+  });
+
+  test('maxVisible<=0 / 空列表 ⇒ 0（不启用）', () => {
+    expect(selectVisiblePageStart([], 5)).toBe(0);
+    expect(selectVisiblePageStart(buildTurns(3, 0), 0)).toBe(0);
+  });
+
+  test('role 大小写不敏感（Tool / TOOL 同样不占预算）', () => {
+    const list = [
+      { role: 'user' },
+      { role: 'Tool' },
+      { role: 'assistant' },
+      { role: 'TOOL' },
+    ];
+    // 可见 2 条 < 3 ⇒ 全量
+    expect(selectVisiblePageStart(list, 3)).toBe(0);
   });
 });

@@ -143,11 +143,12 @@ async function restoreMessagesToCurrentSession(
         // M2-3：优先从 events 派生，回退到 legacy messages
         // KB-LONG-SESSION（2026-08-29）：长会话分页——传 limit 触发后端分页，
         // hasMore=true 时前端显示"加载更早消息"（阈值：超过 MESSAGE_PAGE_LIMIT 才分页）
-        const { MESSAGE_PAGE_LIMIT } =
+        const { MESSAGE_PAGE_LIMIT, MESSAGE_PAGE_VISIBLE } =
           await import("@/stores/chat/chat-message-actions");
         const { messages, hasMore } = await sessionService.loadConversation(
           curId,
-          { limit: MESSAGE_PAGE_LIMIT },
+          // #27：按可见条目预算取首屏（工具记录不占预算）
+          { limit: MESSAGE_PAGE_LIMIT, maxVisible: MESSAGE_PAGE_VISIBLE },
         );
         if (!stillCurrent()) return; // ④ 网络 await 后校验（关键窗口）
         await chatCoordinator.loadMessages(messages);
@@ -762,7 +763,7 @@ export const createSessionSlice: StateCreator<
             // loadConversation 的 events 派生含完整首条用户消息，且 events 损坏时自动合并 legacy。
             // N-58：本分支是"刷新页面后自动恢复当前会话"的主入口，原先不传 limit
             // ⇒ 长会话刷新首屏仍全量（实测 192 条 / 742KB）。与切换路径统一取一页。
-            const { MESSAGE_PAGE_LIMIT } =
+            const { MESSAGE_PAGE_LIMIT, MESSAGE_PAGE_VISIBLE } =
               await import("@/stores/chat/chat-message-actions");
             let messages: Message[];
             let hasMore = false;
@@ -773,6 +774,8 @@ export const createSessionSlice: StateCreator<
             } else {
               const page = await sessionService.loadConversation(currentId, {
                 limit: MESSAGE_PAGE_LIMIT,
+                // #27：首屏按可见条目预算（工具记录不占预算）
+                maxVisible: MESSAGE_PAGE_VISIBLE,
               });
               messages = page.messages;
               hasMore = page.hasMore;
@@ -1137,10 +1140,12 @@ export const createSessionSlice: StateCreator<
         // A1：走 loadConversation（events 增量 → 纯函数派生），与流式渲染路径一致
         // KB-LONG-SESSION 分页：与启动恢复路径（restoreMessagesToCurrentSession）
         // 统一传 limit，长会话主链路只取最近一页，避免数百 KB 首屏响应体（N-55）。
-        const { MESSAGE_PAGE_LIMIT } =
+        const { MESSAGE_PAGE_LIMIT, MESSAGE_PAGE_VISIBLE } =
           await import("@/stores/chat/chat-message-actions");
         const loaded = await sessionService.loadConversation(id, {
           limit: MESSAGE_PAGE_LIMIT,
+          // #27：首屏按可见条目预算（工具记录不占预算）
+          maxVisible: MESSAGE_PAGE_VISIBLE,
         });
         messages = loaded.messages;
         // hasOlder 必须在 loadMessages 之前写入：setMessages 依此判定"当前是否

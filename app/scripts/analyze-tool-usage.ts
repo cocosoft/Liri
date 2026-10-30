@@ -13,7 +13,8 @@
  *
  * 口径：
  * - 样本根目录：`TOOL_USAGE_LOG_ROOT` > 第 1 个参数 > `~/.pyapp/data/sessions`；
- * - 只认名为 `events.jsonl` 的文件（`events.tail` 是不完整日志，排除）；
+ * - 只认事件文件：活动尾 `events.jsonl` + 分片 `events.<序号>.jsonl`（A 分片布局）；
+ *   `events.tail` 是不完整日志、`events.idx` 是派生物，均排除；
  * - 别名归并见 `TOOL_ALIASES`（实测：`read`/`read_file`/`read_me` 都是 `file_read` 的历史写法）。
  *
  * 用法（app 目录下）：
@@ -117,7 +118,21 @@ export function defaultRoot(argv: readonly string[] = process.argv): string {
   return join(homedir(), '.pyapp', 'data', 'sessions');
 }
 
-/** 递归收集 `events.jsonl`（深度 ≤ 3：`<root>/<partition>/<session>/events.jsonl`） */
+/**
+ * A（2026-10-30）：事件文件 = 活动尾 `events.jsonl` + 分片 `events.<序号>.jsonl`。
+ * `events.tail`（不完整日志）与 `events.idx`（派生物）排除。
+ */
+const EVENT_FILE_RE = /^events(?:\.(\d{4,}))?\.jsonl$/;
+
+/** 目录内读序：分片升序在前，活动尾最后（与原单文件布局的"按 seq 递增"一致） */
+function eventFileOrder(name: string): number {
+  const segment = EVENT_FILE_RE.exec(name)?.[1];
+  return segment === undefined
+    ? Number.MAX_SAFE_INTEGER
+    : Number.parseInt(segment, 10);
+}
+
+/** 递归收集事件文件（深度 ≤ 3：`<root>/<partition>/<session>/events*.jsonl`） */
 export function collectEventLogs(root: string, depth = 0): string[] {
   if (!existsSync(root)) return [];
   let entries: Dirent[];
@@ -126,15 +141,16 @@ export function collectEventLogs(root: string, depth = 0): string[] {
   } catch {
     return [];
   }
-  const out: string[] = [];
+  // 同一会话目录内：分片升序 → 尾文件（跨目录顺序不影响聚合口径）
+  const out: string[] = entries
+    .filter((ent) => ent.isFile() && EVENT_FILE_RE.test(ent.name))
+    .map((ent) => ent.name)
+    .sort((a, b) => eventFileOrder(a) - eventFileOrder(b))
+    .map((name) => join(root, name));
+  if (depth >= 3) return out;
   for (const ent of entries) {
-    const p = join(root, ent.name);
-    if (ent.isFile() && ent.name === 'events.jsonl') {
-      out.push(p);
-      continue;
-    }
-    if (!ent.isDirectory() || depth >= 3) continue;
-    out.push(...collectEventLogs(p, depth + 1));
+    if (!ent.isDirectory()) continue;
+    out.push(...collectEventLogs(join(root, ent.name), depth + 1));
   }
   return out;
 }

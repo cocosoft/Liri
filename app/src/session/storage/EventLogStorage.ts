@@ -1211,7 +1211,7 @@ export class EventLogStorage {
       let lastReturnedSeq = 0;
       for await (const { line, lineStart, file } of iterateEventFiles(
         filesToScan,
-        this.openReadline,
+        this.openRl,
         { startFile: this.filePath, startOffset: scanStart }
       )) {
         if (!line.trim()) continue;
@@ -1354,10 +1354,7 @@ export class EventLogStorage {
       let maxCopiedSeq = 0;
       // A：分片布局下前缀事件可能跨多个文件（分片升序 + 尾文件）
       const files = eventFilePathsInOrder(this.sessionDir, this.filePath);
-      for await (const { line } of iterateEventFiles(
-        files,
-        this.openReadline
-      )) {
+      for await (const { line } of iterateEventFiles(files, this.openRl)) {
         if (!line.trim()) continue;
         try {
           const event = JSON.parse(line) as LiriEvent;
@@ -1738,10 +1735,7 @@ export class EventLogStorage {
         }
       };
       const files = eventFilePathsInOrder(this.sessionDir, this.filePath);
-      for await (const { line } of iterateEventFiles(
-        files,
-        this.openReadline
-      )) {
+      for await (const { line } of iterateEventFiles(files, this.openRl)) {
         if (!line.trim()) continue;
         // A/归一化：解析 + 校验 + 冻结合并为唯一实现（与 read 同源）
         for (const event of extractEventFromLine(line).events) {
@@ -1826,10 +1820,7 @@ export class EventLogStorage {
     });
   }
 
-  /**
-   * A：活动尾文件首条事件 seq（缓存；`resetTailState` 时失效）。
-   * @returns `0` = 未知（调用方回退逐文件扫描，只慢不错）
-   */
+  /** A：活动尾文件首条事件 seq（缓存；0 = 未知 ⇒ 调用方回退逐文件扫描，只慢不错） */
   private async getTailFirstSeq(): Promise<number> {
     if (this.tailFirstSeq === 0) {
       this.tailFirstSeq = readTailFirstSeq(this.filePath);
@@ -1838,7 +1829,7 @@ export class EventLogStorage {
   }
 
   /** A：多文件逐行读的读器工厂（**透传** start，与既有单文件调用形态一致） */
-  private readonly openReadline = (file: string, start?: number) =>
+  private readonly openRl = (file: string, start?: number) =>
     this.createReadlineInterface(file, start);
 
   // ─── A-6 平滑降级（2026-08-23）────────────────────────────────────────────

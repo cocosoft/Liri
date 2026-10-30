@@ -71,13 +71,21 @@ describe('schemaSnapshotBytes / collectEventLogs', () => {
     );
   });
 
-  test('只收集名为 events.jsonl 的文件（排除 events.tail）', () => {
+  test('收集活动尾 + 分片（分片升序在前、尾文件最后），排除 events.tail / events.idx', () => {
     const sessionDir = join(root, 'p1', 's1');
     mkdirSync(sessionDir, { recursive: true });
     writeFileSync(join(sessionDir, 'events.jsonl'), '', 'utf8');
+    writeFileSync(join(sessionDir, 'events.0002.jsonl'), '', 'utf8');
+    writeFileSync(join(sessionDir, 'events.0010.jsonl'), '', 'utf8');
     writeFileSync(join(sessionDir, 'events.tail'), '', 'utf8');
+    writeFileSync(join(sessionDir, 'events.idx'), '', 'utf8');
 
-    expect(collectEventLogs(root)).toEqual([join(sessionDir, 'events.jsonl')]);
+    // A 分片布局：同一会话内按 seq 读序（分片升序 → 活动尾）
+    expect(collectEventLogs(root)).toEqual([
+      join(sessionDir, 'events.0002.jsonl'),
+      join(sessionDir, 'events.0010.jsonl'),
+      join(sessionDir, 'events.jsonl'),
+    ]);
   });
 });
 

@@ -73,18 +73,17 @@ export class CreateProjectTool {
         try {
           // FIX-11（2026-10-27）：名称可能是**路径**（真机：`【E:\PY\Documents\CODES\PY_APP\`）。
           // 解析出可用的目录 ⇒ 直接当沙箱根，标题改用目录名；否则只净化标题。
-          const resolved = resolveProjectIdentity(
-            String(input.name || '未命名项目'),
-            {
-              isDirectory: (p) => {
-                try {
-                  return existsSync(p) && statSync(p).isDirectory();
-                } catch {
-                  return false;
-                }
-              },
-            }
-          );
+          // #22（2026-10-30）：缺名 ⇒ 交给清洗器回落「项目 YYYY-MM-DD HH:mm」，
+          // 不再固定写成「未命名项目」（多个项目无法区分）。
+          const resolved = resolveProjectIdentity(String(input.name || ''), {
+            isDirectory: (p) => {
+              try {
+                return existsSync(p) && statSync(p).isDirectory();
+              } catch {
+                return false;
+              }
+            },
+          });
           const name = resolved.name;
           const description = String(input.description || '');
           // P0-D 配套: 优先取会话真实 workspaceId（项目模块下 = projectId，由 ChatManager

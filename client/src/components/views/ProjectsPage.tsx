@@ -540,6 +540,9 @@ export default function ProjectsPage() {
     }
 
     // 按最近一次会话时间排序（有会话的排前面）
+    // #24（2026-10-30）：同分时用 id 兜底 —— 此前只比"最近会话时间"，无会话或同一毫秒
+    // 的项目全部同分，顺序退化为 `Object.values(worktrees)` 的插入顺序（刷新/重载后可见
+    // 跳动，真机两次加载顺序不同）。加 id 次键 ⇒ 排序稳定、可复现。
     list.sort((a, b) => {
       const aSessions = sessionsOfProject(a.id);
       const bSessions = sessionsOfProject(b.id);
@@ -551,7 +554,7 @@ export default function ProjectsPage() {
         bSessions.length > 0
           ? Math.max(...bSessions.map((s) => sessionTs(s)))
           : 0;
-      return bLatest - aLatest;
+      return bLatest - aLatest || a.id.localeCompare(b.id);
     });
 
     return list;

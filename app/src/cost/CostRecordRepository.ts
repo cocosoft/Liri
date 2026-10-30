@@ -696,6 +696,71 @@ export class CostRecordRepository {
     });
   }
 
+  /** 某张表里出现过的会话 id（当前身份） */
+  private async distinctSessionIds(table: string): Promise<string[]> {
+    await this.initDatabase();
+
+    return new Promise<string[]>((resolve, reject) => {
+      this.db?.all(
+        `SELECT DISTINCT session_id AS sid FROM ${table} WHERE owner_key = ?`,
+        [this.owner()],
+        (err: Error | null, rows: Array<Record<string, unknown>>) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve((rows || []).map((row) => String(row.sid)));
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * #24（2026-10-30）：找出"会话已不存在"的成本痕迹（**只读**，dry-run 用）。
+   *
+   * 实测（本机）：`session_cost_summaries` 404 行 ≫ 磁盘 32 个会话 —— 历史删除会话时
+   * 并非所有路径都调了 `deleteSessionRecords`，孤儿行只增不减。
+   *
+   * @param keepSessionIds 仍存在的会话 id（调用方以磁盘真源为准）
+   * @returns 孤儿会话 id 及其在两表中的出现情况（供 CLI 如实报告）
+   */
+  async findOrphanSessions(keepSessionIds: ReadonlySet<string>): Promise<{
+    orphanSessionIds: string[];
+    withSummary: number;
+    withRecords: number;
+  }> {
+    const [summaryIds, recordIds] = await Promise.all([
+      this.distinctSessionIds(COST_SESSION_SUMMARY_TABLE),
+      this.distinctSessionIds(COST_RECORDS_TABLE),
+    ]);
+    const summarySet = new Set(summaryIds);
+    const recordSet = new Set(recordIds);
+    const orphanSessionIds = [...new Set([...summaryIds, ...recordIds])]
+      .filter((id) => !keepSessionIds.has(id))
+      // 稳定输出：便于 dry-run 复现同一份清单
+      .sort();
+
+    return {
+      orphanSessionIds,
+      withSummary: orphanSessionIds.filter((id) => summarySet.has(id)).length,
+      withRecords: orphanSessionIds.filter((id) => recordSet.has(id)).length,
+    };
+  }
+
+  /**
+   * #24：按给定 id 清理成本痕迹（摘要 + 明细），复用删除路径的同一语义。
+   *
+   * @returns 实际清理的会话数
+   */
+  async pruneOrphanSessions(
+    orphanSessionIds: readonly string[]
+  ): Promise<number> {
+    for (const id of orphanSessionIds) {
+      await this.deleteSessionRecords(id);
+    }
+    return orphanSessionIds.length;
+  }
+
   async endSession(sessionId: string): Promise<void> {
     await this.initDatabase();
 

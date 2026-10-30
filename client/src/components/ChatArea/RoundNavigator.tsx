@@ -2,6 +2,7 @@ import { useMemo, useCallback, useEffect, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Message } from "../../types";
 import { useChatInspectorStore } from "../../stores/chatInspectorStore";
+import { summarizeRoundText } from "../../utils/roundSummaries";
 
 interface RoundNavigatorProps {
   messages: Message[];
@@ -33,94 +34,23 @@ interface Round {
   crossesMidnight: boolean;
 }
 
-// ── 折叠模式常量 ──────────────────────────────────────────────────
+/** 行内摘要最大字符数（窄列只放得下 ~4–6 个汉字，其余由浮层给全） */
+const RAIL_SUMMARY_CHARS = 24;
 
-/** 当前轮前后各显示的轮数 */
-const NAV_WINDOW = 5;
-
-/** 顶部固定显示的轮数 */
-const HEAD_PINNED = 3;
-
-/** 底部固定显示的轮数 */
-const TAIL_PINNED = 3;
-
-/** 超过此轮数启用折叠模式 */
-const COLLAPSE_THRESHOLD = HEAD_PINNED + TAIL_PINNED + NAV_WINDOW * 2 + 2;
-
-// ── 工具类型 ─────────────────────────────────────────────────────
-
-/** 渲染项：轮次或省略号 */
-type RenderItem =
-  { type: "round"; round: Round } | { type: "ellipsis"; key: string };
+/** 浮层摘要最大字符数 */
+const DETAIL_SUMMARY_CHARS = 120;
 
 /**
- * 计算需要渲染的轮次列表（含省略号占位）
+ * 轮次导航器 — 在消息列表左侧显示对话轮次（B1，2026-10-30）。
  *
- * 当轮数超过 COLLAPSE_THRESHOLD 时：
- * 1. 始终显示前 HEAD_PINNED 轮
- * 2. 始终显示当前轮前后各 NAV_WINDOW 轮
- * 3. 始终显示后 TAIL_PINNED 轮
- * 4. 中间断开处用「···」省略
- *
- * 当前轮靠近首部或尾部时，各区段可能重叠，自动去掉多余的省略号。
- */
-function computeRenderItems(
-  rounds: Round[],
-  activeRound: number,
-): RenderItem[] {
-  if (rounds.length <= COLLAPSE_THRESHOLD) {
-    // 轮数少，全部显示
-    return rounds.map((r) => ({ type: "round" as const, round: r }));
-  }
-
-  const last = rounds.length - 1;
-  const headEnd = Math.min(HEAD_PINNED - 1, last);
-  const windowStart = Math.max(0, activeRound - NAV_WINDOW);
-  const windowEnd = Math.min(last, activeRound + NAV_WINDOW);
-  const tailStart = Math.max(0, last - TAIL_PINNED + 1);
-
-  // 收集需要显示的索引区间
-  const visibleSet = new Set<number>();
-
-  // 头部区间
-  for (let i = 0; i <= headEnd; i++) visibleSet.add(i);
-
-  // 当前轮窗口区间
-  for (let i = windowStart; i <= windowEnd; i++) visibleSet.add(i);
-
-  // 尾部区间
-  for (let i = tailStart; i <= last; i++) visibleSet.add(i);
-
-  // 排序并判断断点
-  const sorted = [...visibleSet].sort((a, b) => a - b);
-  const result: RenderItem[] = [];
-
-  for (let i = 0; i < sorted.length; i++) {
-    const idx = sorted[i];
-    result.push({ type: "round", round: rounds[idx] });
-
-    // 如果当前项与下一项不连续（有间隔），插入省略号
-    const nextIdx = sorted[i + 1];
-    if (nextIdx !== undefined && nextIdx - idx > 1) {
-      result.push({ type: "ellipsis", key: `ellipsis-${idx}-${nextIdx}` });
-    }
-  }
-
-  return result;
-}
-
-/**
- * 轮次导航器 — 在消息列表右侧显示对话轮次标记
- *
- * 将 messages 按 role: "user" 分组为多轮对话，每轮用一个灰色数字标记。
- * 点击跳转到该轮第一条用户消息；hover 显示轮摘要（前 20 字）。
- * 仅多于 1 轮时显示。
- *
- * 当轮数较多（超过 16 轮）时自动启用**折叠模式**：
- * - 头部固定显示前 3 轮
- * - 当前轮前后各显示 5 轮
- * - 尾部固定显示后 3 轮
- * - 断开处以「···」连接，高度不随轮数增长
+ * 形态（用户裁定「窄列 + 截断摘要」）：
+ * - **常显**：进入会话即可看到有哪些轮，不再折叠成 12px 胶囊、不再依赖 hover 展开；
+ * - 每行 =「轮号 + 用户问题摘要（按可用宽度截断）」——实测导航右缘 354、正文起点 398，
+ *   故列宽控制在 ~68px 内，**不遮挡正文**；
+ * - 完整问题用**自定义浮层**（hover/focus 时浮出），**移除原生 `title`**（不可控、不可聚焦）；
+ * - 保留：点击跳转（经 `chatInspectorStore.highlightedRoundId` → 虚拟列表内部滚动）、
+ *   当前轮高亮、「更早 N 轮未加载」入口、流式中/跨午夜标记；
+ * - 轮数多时列表**可滚动**（原"前 3 + 当前 ±5 + 后 3 + ⋯"的窗口折叠已移除）。
  */
 function RoundNavigator({
   messages,
@@ -132,26 +62,13 @@ function RoundNavigator({
 }: RoundNavigatorProps) {
   const { t } = useTranslation();
   const [activeRound, setActiveRound] = useState<number>(0);
-  const [hoveredRound, setHoveredRound] = useState<number>(-1);
-  /** 是否展开为完整轮次列表（默认折叠为小圆点） */
-  const [expanded, setExpanded] = useState(false);
-  const navRef = useRef<HTMLDivElement>(null);
+  /** 浮层当前展开的轮（-1 = 无） */
+  const [detailRound, setDetailRound] = useState<number>(-1);
+  const listRef = useRef<HTMLDivElement>(null);
   /** 目标消息 id → 由持有 virtualizer 的列表内部滚动（P0-6，见 handleRoundClick 注释） */
   const setHighlightedRoundId = useChatInspectorStore(
     (s) => s.setHighlightedRoundId,
   );
-
-  // 点击外部自动折叠
-  useEffect(() => {
-    if (!expanded) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) {
-        setExpanded(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [expanded]);
 
   // 计算轮次
   const rounds = useMemo<Round[]>(() => {
@@ -218,12 +135,6 @@ function RoundNavigator({
   /** 更早（未加载）的轮数 —— 仅用于展示与"尾锚定"编号，不代表可点击边界 */
   const unloadedRounds = Math.max(0, effectiveTotal - loadedRounds);
 
-  // 计算需要渲染的项（含折叠）
-  const renderItems = useMemo<RenderItem[]>(
-    () => computeRenderItems(rounds, activeRound),
-    [rounds, activeRound],
-  );
-
   /**
    * 点击轮次编号，滚动到该轮第一条消息
    *
@@ -280,6 +191,14 @@ function RoundNavigator({
     return () => container.removeEventListener("scroll", handleScroll);
   }, [containerRef, roundIdxByMsgId]);
 
+  /** B1：当前轮自动滚入窄列视野（轮数多时可滚动，不必手动找） */
+  useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>(
+      '[data-round-active="true"]',
+    );
+    el?.scrollIntoView({ block: "nearest" });
+  }, [activeRound, effectiveTotal]);
+
   // P1-6a：渲染门槛改用**总量**口径 —— 尾页无 user 消息（loadedRounds = 0）时不再整体消失，
   // 改为渲染「更早 N 轮未加载」入口；否则长会话用户永远看不到导航器。
   if (effectiveTotal <= 1) {
@@ -287,139 +206,99 @@ function RoundNavigator({
   }
 
   return (
-    <div
-      ref={navRef}
-      className="absolute left-0 top-0 bottom-0 z-10 pointer-events-none"
-    >
-      {/* 折叠模式：左侧边缘小圆点 */}
-      {!expanded && (
-        <button
-          onClick={() => setExpanded(true)}
-          onMouseEnter={() => setExpanded(true)}
-          className="absolute left-1 top-1/2 -translate-y-1/2 w-3 h-12 rounded-full bg-gray-300/60 dark:bg-gray-600/60 hover:bg-gray-400/80 dark:hover:bg-gray-500/80 transition-all duration-200 cursor-pointer pointer-events-auto flex items-center justify-center group"
-          title={t("chat.roundNavExpand", { count: effectiveTotal })}
-          aria-label={t("chat.roundNavExpandAria", { count: effectiveTotal })}
-        >
-          <span className="text-[8px] text-gray-500 dark:text-gray-400 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-            {effectiveTotal}
-          </span>
-        </button>
-      )}
-
-      {/* 展开模式：完整轮次列表 */}
-      {expanded && (
-        <div className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1.5 bg-white/95 dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg px-1 py-2 pointer-events-auto max-h-[80vh] overflow-y-auto">
-          {/* 折叠按钮 */}
+    <div className="absolute left-0 top-0 bottom-0 z-10 pointer-events-none">
+      {/* B1：常显窄列（轮号 + 截断摘要），不再折叠成胶囊 */}
+      <div
+        ref={listRef}
+        className="absolute left-1 top-1/2 -translate-y-1/2 flex flex-col gap-1 bg-white/95 dark:bg-gray-800/95 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg px-1 py-2 pointer-events-auto w-[68px] max-h-[80vh] overflow-y-auto"
+      >
+        {/* P1-6a：更早轮次未加载入口（尾部分页下，已加载的只是最后若干轮）。
+            仅在 `hasOlder`（后端确认有更早消息）时出现——避免把"总量与已加载轮数之差"
+            当成"未加载轮数"而误导（该差值只在总量=用户提问轮时等价）。 */}
+        {hasOlder && (
           <button
-            onClick={() => setExpanded(false)}
-            className="w-4 h-4 flex items-center justify-center text-[8px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors mb-0.5"
-            title={t("chat.roundNavCollapse")}
-            aria-label={t("chat.roundNavCollapse")}
-          >
-            ◀
-          </button>
-
-          {/* P1-6a：更早轮次未加载入口（尾部分页下，已加载的只是最后若干轮）。
-              仅在 `hasOlder`（后端确认有更早消息）时出现——避免把"总量与已加载轮数之差"
-              当成"未加载轮数"而误导（该差值只在总量=用户提问轮时等价）。 */}
-          {hasOlder && (
-            <>
-              <button
-                onClick={onLoadOlder}
-                className="w-5 h-4 rounded-full text-[8px] font-medium flex items-center justify-center bg-gray-100 dark:bg-gray-700/60 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
-                title={
-                  unloadedRounds > 0
-                    ? t("chat.roundsUnloaded", { count: unloadedRounds })
-                    : t("chat.roundsUnloadedNoCount")
-                }
-                aria-label={t("chat.roundsUnloadedNoCount")}
-              >
-                {unloadedRounds > 0 ? `↑${unloadedRounds}` : "↑"}
-              </button>
-              <div className="w-4 h-3 flex items-center justify-center">
-                <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 leading-none">
-                  ⋯
-                </span>
-              </div>
-            </>
-          )}
-
-          {renderItems.map((item) => {
-            if (item.type === "ellipsis") {
-              return (
-                <div
-                  key={item.key}
-                  className="w-4 h-3 flex items-center justify-center"
-                >
-                  <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 leading-none">
-                    ⋯
-                  </span>
-                </div>
-              );
+            onClick={onLoadOlder}
+            className="w-5 h-4 shrink-0 rounded-full text-[8px] font-medium flex items-center justify-center bg-gray-100 dark:bg-gray-700/60 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
+            title={
+              unloadedRounds > 0
+                ? t("chat.roundsUnloaded", { count: unloadedRounds })
+                : t("chat.roundsUnloadedNoCount")
             }
+            aria-label={t("chat.roundsUnloadedNoCount")}
+          >
+            {unloadedRounds > 0 ? `↑${unloadedRounds}` : "↑"}
+          </button>
+        )}
 
-            const round = item.round;
-            const idx = round.index - 1;
-            const isActive = idx === activeRound;
-            const isHovered = hoveredRound === idx;
+        {rounds.map((round) => {
+          const idx = round.index - 1;
+          const isActive = idx === activeRound;
+          const isDetailOpen = detailRound === idx;
+          const summary =
+            summarizeRoundText(round.userContent, RAIL_SUMMARY_CHARS) ||
+            t("chatInspector.userMessageFallback");
 
-            return (
-              <div key={round.index} className="relative">
-                <button
-                  onClick={() => handleRoundClick(round)}
-                  onMouseEnter={() => setHoveredRound(idx)}
-                  onMouseLeave={() => setHoveredRound(-1)}
-                  aria-label={t("chat.roundNavRoundAria", {
-                    count: unloadedRounds + round.index,
-                  })}
-                  className={`
-                    w-4 h-4 rounded-full text-[9px] font-medium
-                    flex items-center justify-center
-                    transition-all duration-200 cursor-pointer border-0
-                    ${
-                      round.isCurrentStreaming
-                        ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700"
-                        : round.crossesMidnight
-                          ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400"
-                          : isActive
-                            ? "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 scale-110"
-                            : "bg-gray-200 dark:bg-gray-700/60 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600"
-                    }
-                    ${round.isCurrentStreaming ? "animate-pulse" : ""}
-                  `}
-                  title={
-                    (round.crossesMidnight ? "🌙 " : "") +
-                    round.userContent.slice(0, 20) +
-                    (round.userContent.length > 20 ? "..." : "")
+          return (
+            <div
+              key={round.index}
+              data-round-active={isActive ? "true" : undefined}
+              className="relative flex items-center gap-1 shrink-0"
+              onMouseEnter={() => setDetailRound(idx)}
+              onMouseLeave={() => setDetailRound(-1)}
+            >
+              <button
+                onClick={() => handleRoundClick(round)}
+                onFocus={() => setDetailRound(idx)}
+                onBlur={() => setDetailRound(-1)}
+                aria-label={t("chat.roundNavRoundAria", {
+                  count: unloadedRounds + round.index,
+                })}
+                className={`
+                  w-4 h-4 shrink-0 rounded-full text-[9px] font-medium
+                  flex items-center justify-center
+                  transition-all duration-200 cursor-pointer border-0
+                  ${
+                    round.isCurrentStreaming
+                      ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 ring-1 ring-blue-300 dark:ring-blue-700"
+                      : round.crossesMidnight
+                        ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-500 dark:text-indigo-400"
+                        : isActive
+                          ? "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 scale-110"
+                          : "bg-gray-200 dark:bg-gray-700/60 text-gray-500 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600"
                   }
-                >
-                  {round.isCurrentStreaming ? (
-                    <span className="text-[7px]">⏳</span>
-                  ) : (
-                    <span className="relative">
-                      {unloadedRounds + round.index}
-                      {round.crossesMidnight && (
-                        <span className="absolute -top-1 -right-1 text-[7px] leading-none">
-                          🌙
-                        </span>
-                      )}
-                    </span>
-                  )}
-                </button>
-
-                {/* 悬停提示弹窗 */}
-                {isHovered && (
-                  <div className="absolute left-6 top-1/2 -translate-y-1/2 px-2 py-1 bg-gray-800 dark:bg-gray-700 text-white text-[10px] rounded shadow-lg whitespace-nowrap pointer-events-none z-20">
-                    {round.userContent.slice(0, 18)}
-                    {round.userContent.length > 18 ? "..." : ""}
-                    <div className="absolute left-[-3px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-gray-800 dark:bg-gray-700 rotate-45" />
-                  </div>
+                  ${round.isCurrentStreaming ? "animate-pulse" : ""}
+                `}
+              >
+                {round.isCurrentStreaming ? (
+                  <span className="text-[7px]">⏳</span>
+                ) : (
+                  <span className="relative">
+                    {unloadedRounds + round.index}
+                    {round.crossesMidnight && (
+                      <span className="absolute -top-1 -right-1 text-[7px] leading-none">
+                        🌙
+                      </span>
+                    )}
+                  </span>
                 )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+              </button>
+
+              {/* B1：行内截断摘要（常显，不需要 hover） */}
+              <span className="min-w-0 flex-1 truncate text-[9px] leading-none text-gray-500 dark:text-gray-400 select-none">
+                {summary}
+              </span>
+
+              {/* B1：完整问题浮层（替代原生 title；只在 hover/focus 时出现） */}
+              {isDetailOpen && round.userContent.trim().length > 0 && (
+                <div className="absolute left-full ml-1 top-1/2 -translate-y-1/2 w-56 px-2 py-1 bg-gray-800 dark:bg-gray-700 text-white text-[10px] leading-snug rounded shadow-lg whitespace-normal break-words pointer-events-none z-20">
+                  {summarizeRoundText(round.userContent, DETAIL_SUMMARY_CHARS)}
+                  <div className="absolute left-[-3px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-gray-800 dark:bg-gray-700 rotate-45" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

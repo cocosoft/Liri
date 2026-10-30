@@ -8,7 +8,6 @@
 import React from "react";
 import { useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { Message } from "../../types";
 import { useChatStore } from "../../stores/chat";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -17,6 +16,11 @@ import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import { useContextWatermarkStore } from "../../stores/contextWatermarkStore";
 import { useModelStore } from "../../stores/modelStore";
 import { currentLocale } from "../../utils/format";
+// B3（2026-10-30）：轮次摘要算法抽到 utils（左右两侧共用同一实现，CS01）
+import {
+  buildRoundSummaries,
+  type RoundSummary,
+} from "../../utils/roundSummaries";
 
 // ─── 工具函数 ─────────────────────────────────────
 
@@ -69,68 +73,6 @@ function aggregateTokens(messages: Message[]) {
     estimatedCost,
     cacheRead,
   };
-}
-
-/** 生成消息轮次摘要（合并 user+assistant 为一轮）
- *  仅处理最近 MAX_ROUNDS 轮，避免大会话卡主线程 */
-function buildRoundSummaries(
-  messages: Message[],
-  t: TFunction,
-): Array<{
-  roundIndex: number;
-  userMsg: string;
-  userMsgId: string;
-  assistantMsg: string;
-  timestamp: number;
-}> {
-  const MAX_ROUNDS = 50;
-  const rounds: Array<{
-    roundIndex: number;
-    userMsg: string;
-    userMsgId: string;
-    assistantMsg: string;
-    timestamp: number;
-  }> = [];
-  let currentRound: {
-    userMsg: string;
-    userMsgId: string;
-    assistantMsg: string;
-    timestamp: number;
-  } | null = null;
-
-  // 从尾部往前取最近的消息，构建轮次摘要
-  const recentMessages = messages.slice(-MAX_ROUNDS * 2); // 每轮约 2 条(user+assistant)
-  for (const msg of recentMessages) {
-    const content = msg.content || "";
-    if (msg.role === "user") {
-      if (currentRound) {
-        rounds.push({ ...currentRound, roundIndex: rounds.length + 1 });
-      }
-      currentRound = {
-        userMsg:
-          content.slice(0, 60).replace(/\n/g, " ") ||
-          t("chatInspector.userMessageFallback"),
-        userMsgId: msg.id,
-        assistantMsg: "",
-        timestamp: msg.timestamp,
-      };
-    } else if (msg.role === "assistant" && currentRound) {
-      const textBlocks =
-        msg.blocks
-          ?.filter((b) => b.type === "text")
-          .map((b) => b.content)
-          .join(" ") || content;
-      currentRound.assistantMsg =
-        textBlocks.slice(0, 60).replace(/\n/g, " ") ||
-        t("chatInspector.aiReplyFallback");
-    }
-  }
-
-  if (currentRound) {
-    rounds.push({ ...currentRound, roundIndex: rounds.length + 1 });
-  }
-
-  return rounds;
 }
 
 // ─── 子组件 ───────────────────────────────────────
@@ -257,7 +199,7 @@ function MessageSummaryListImpl({
   streaming,
   onRoundClick,
 }: {
-  rounds: ReturnType<typeof buildRoundSummaries>;
+  rounds: RoundSummary[];
   streaming: boolean;
   onRoundClick: (userMsgId: string) => void;
 }) {
@@ -283,13 +225,20 @@ function MessageSummaryListImpl({
             <span className="text-gray-600 dark:text-gray-300 truncate">
               {round.userMsg}
             </span>
-            {!round.assistantMsg &&
+            {/* B3（2026-10-30）：AI 回复摘要原先算出来**没渲染**（只有用户问题）。补齐第二行；
+                尚未回复时保持单行，流式中给"进行中"提示。 */}
+            {round.assistantMsg ? (
+              <div className="mt-0.5 pl-5 text-[11px] text-gray-400 dark:text-gray-500 truncate">
+                {round.assistantMsg}
+              </div>
+            ) : (
               streaming &&
               rounds.indexOf(round) === rounds.length - 1 && (
                 <span className="text-blue-500 ml-1">
                   {t("chatInspector.inProgressEllipsis")}
                 </span>
-              )}
+              )
+            )}
           </button>
         ))}
       </div>

@@ -22,6 +22,7 @@ import { useVirtualScroll } from "./VirtualScrollContext";
 import ToolResultMessage from "./ToolResultMessage";
 import BlockRenderer from "./BlockRenderer";
 import { isMediaDisplayToolName } from "../../utils/toolHumanSummary";
+import { unwrapJsonDataPayload } from "../../utils/jsonPayloadText";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useConfigStore } from "../../stores/configStore";
 import {
@@ -1316,6 +1317,15 @@ function AssistantMessage({
   blocks = ensureTextBlockFromContent(blocks, { content: message.content });
   // 历史数据清洗：同 toolCallId 的 tool_call 块去重（旧版前端重复 addToolCall 污染）
   blocks = dedupeToolCallBlocks(blocks);
+
+  // C2（2026-10-30，一致性核查 §8.1）：assistant 正文若被序列化成 `{"data":"…"}` 窄包装
+  // ⇒ 解包成可读正文（真机 18/30 条如此）。**只对 assistant 文本块**、只认窄形态；
+  // 合法 JSON 代码（多字段/非字符串 data）原样保留（见 `utils/jsonPayloadText.ts`）。
+  blocks = blocks.map((b) => {
+    if (b.type !== "text") return b;
+    const unwrapped = unwrapJsonDataPayload(b.content);
+    return unwrapped === null ? b : { ...b, content: unwrapped };
+  });
 
   // H-FIX-2 流式中断兜底：blocks 中没有 text 正文且 content 为空，
   // 但存在 thinking 块（典型的流式在思考阶段被打断场景），

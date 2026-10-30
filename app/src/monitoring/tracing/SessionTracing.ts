@@ -256,6 +256,11 @@ export class SessionTracing {
     // 论文 A4（2026-10-06，`.trae/specs/otel-genai-semconv-alignment.md`）：**并存新增** OTel GenAI
     // 语义约定属性（§4.1），**不改**任何既有 `Liri.*` / `llm_request.*` 名。
     // 规范要求"采样相关属性 SHOULD 在 span **创建时**提供" ⇒ 这两项在此写。
+    //
+    // ⚠️ @deprecated（D5，2026-10-30 用户裁定）：旧命名 `Liri.llm_request`（span 名）与
+    // `llm_request.*`（属性名，见本文件 `endLLMRequestSpan`）**已标废弃**，目标 **v0.6.0 硬切换**：
+    // 届时删旧名写入，同批改 span 名 + 4 处覆盖去重键（`SpanCoverageRegistry`）+ 客户端 trace 视图。
+    // 切换前**保持双写**（删早了会打断客户端视图与覆盖去重键）。
     attributes['gen_ai.operation.name'] = 'chat';
     attributes['gen_ai.request.model'] = model;
 

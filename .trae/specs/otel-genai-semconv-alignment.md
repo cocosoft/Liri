@@ -80,6 +80,7 @@ span.setAttribute('gen_ai.usage.output_tokens', metadata.outputTokens);
 | **D1** | 改名策略 | (a) **先新增并存，改名后置**／(b) 本批直接改名 | **(a) 已采纳** —— 论文建议 + 改名牵连覆盖键/客户端 UI/单测，风险不对称 |
 | **D2** | 内容类属性 | (a) **默认不采（合规）**／(b) 本批实现 opt-in | **(a) 已采纳** —— 规范默认即不采；U 系列要求"内容默认 opt-in"，**不实现即合规** |
 | **D3** | `gen_ai.provider.name` 如何取 | (a) 调用方透传 + 映射表／(b) 从 DB `capabilities` 派生 | ⏸ **待裁定** —— (a) 涉**硬编码供应商名**（`model-usage.md` 红线）；(b) 需先确认 DB 是否已有可映射字段 |
+| **D5** | 旧命名（span `Liri.llm_request` + 属性 `llm_request.*`）何时退场 | (a) 长期双写／(b) 设硬切换版本 | **(b) 已裁定：目标 v0.6.0 硬切换**（2026-10-30 用户裁定）。切换前**保持双写**；`SessionTracing.startLLMRequestSpan` 已就地把旧名标 `@deprecated` 并写死目标版本。切换与 **T3** 同批（删旧名写入 + 改 span 名 + 4 处覆盖去重键 + 客户端 trace 视图），**独立提交**可回滚。 |
 
 ---
 
@@ -89,7 +90,7 @@ span.setAttribute('gen_ai.usage.output_tokens', metadata.outputTokens);
 |:--:|---|---|
 | **T1** | `SessionTracing.startLLMRequestSpan` 并存写 `gen_ai.operation.name` / `gen_ai.request.model` | ✅ 已实施 |
 | **T2** | `SessionTracing.endLLMRequestSpan` 并存写 `gen_ai.usage.input_tokens` / `output_tokens` | ✅ 已实施 |
-| **T3** | span 名与 `Liri.*` 指标**改名**（同批改覆盖去重键 4 处 + 客户端 trace UI + 单测） | ⏸ 待裁定 |
+| **T3** | span 名与 `Liri.*` 指标**改名**（同批改覆盖去重键 4 处 + 客户端 trace UI + 单测） | ⏸ 待执行（**目标 v0.6.0**，见 D5；与"删旧名写入"同批同提交） |
 | **T4** | `gen_ai.provider.name` / `gen_ai.conversation.id`（须调用方透传 + D3 决策） | ⏸ 待裁定 |
 
 ---
@@ -136,3 +137,4 @@ span.setAttribute('gen_ai.usage.output_tokens', metadata.outputTokens);
 |---|---|---|
 | 2026-10-06 | **立项 + T1/T2 实施** | 用户「继续处理 A4、A5 与 A6」⇒ 在 `SessionTracing` 的 LLM 请求 span 上**并存新增** 4 个 OTel `gen_ai.*` 属性（`operation.name` / `request.model` / `usage.input_tokens` / `usage.output_tokens`），**零改名**；T3/T4 待裁定（D1=a/D2=a/D3=待裁定）。验证见 §6 |
 | 2026-10-06 | **验证（四证）** | `typecheck` **0** · `eslint` **0** · `lint:arch` **错误 0 / 警告 4（基线）**、分层 **3886 不变** · **并存实证**：`gen_ai.` 命中**恰为本批 4 个字段**（`SessionTracing.ts:259/260/334/339`，**无第 5 个臆造字段**），且 `startSpan('Liri.llm_request'` 仍 **1 命中**（**未改名**）· 全量 **4644 pass / 21 skip / 0 fail**（4665 tests / 492 files，与基线**逐数一致**） |
+| 2026-10-30 | **D5 裁定（零行为变更）** | 用户裁定：旧命名**目标 v0.6.0 硬切换**（选项 b）。本轮只做**记账**：`SessionTracing.startLLMRequestSpan` 的 A4 注释就地补 `@deprecated` 段（写死目标版本 + 一起要改的 4 处覆盖去重键与客户端 trace 视图）；D5 入决策表、T3 状态改为"待执行（目标 v0.6.0）"。**未改任何属性名/span 名/写入行为** ⇒ 双写与 `gen_ai.*` 命中数逐字不变 |

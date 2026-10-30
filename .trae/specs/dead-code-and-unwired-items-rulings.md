@@ -117,6 +117,24 @@
 **备选**：若最终判定废弃，按 CD05（先摘入口→观察→再删）+ CD06（独立提交 + 回滚）单独处理。
 **触发条件**：① 侧车化 S2（双轨收敛）落地时；② 真要启用 `requestOnDemandModule` 路径（届时需先实证运行时可达性：埋点 `requestOnDemandModule`/`requestModule`，或 `FEATURE_LSP=true` 后调 `lsp` 工具观察 `import('../lsp/index.js')` 是否求值）。
 
+### UW-6 统一危险命令规则表 `ALL_UNIFIED_RULES`（37 条）：**只被测试引用**（**2026-10-30 登记**，外部建议 #3 取证时发现）
+
+**证据（CD01–CD03 专项）**：`security/patterns/dangerousCommands.ts:386` 的 `ALL_UNIFIED_RULES`
+（= `DELETION/FORMAT/PRIVILEGE/SYSTEM/INJECTION/COMPOSITE_COMMAND_RULES`，37 条）**唯一**生产入口是
+`permission/PermissionPolicies.ts:188` 的 `checkDangerousCommand`，而它只被同文件 `:375`
+`PermissionPolicyManager.checkCommandPermission` 调用；后者全仓**零调用**（仅 `permission/index.ts:138` 再导出）。
+⇒ 该表当前**只在测试**（`tests/security/dangerousCommandRuleSamples.test.ts`）中被遍历，**不参与任何运行时判定**。
+
+**真正的运行时防护在哪**（同一风险面，已接线）：`security/BashSecurityAnalyzer`（bash）、
+`tools/PowerShellTool/PowerShellTool.ts` 的 `PowerShellSecurityAnalyzer`（PowerShell，含 `-EncodedCommand` fail-closed）、
+`sandbox/SandboxSecurityChecker.checkDangerousCommands`（token 级危险词）、`permission/classifiers/injection-rules.ts`。
+
+**影响**：零（不构成"防护缺失"，但会误导后来者以为改这张表就能生效 —— 2026-10-30 曾据此误加规则，已撤回）。
+**建议处置**：**只登记，不接线、不删除**（CD07 口径：安全域不以"静态零引用"为删据）。
+**备选**：① 若要接线，须先评估与上述四条链的**重复命中与误拒**（同一条命令被多处 ask/deny 的用户体验），并补负向对照用例；
+② 若要清理，按 CD05（先摘入口 → 观察 → 再删）+ CD06（独立提交 + 回滚）执行，且**同批**迁移测试样例到实际生效的链。
+**触发条件**：① 决定收敛"多套危险命令规则"为一套时（此时它是候选真源）；② 有人新增规则到该表却未生效时（回归信号）。
+
 ---
 
 ## §3 BR —— 品牌残留（已裁定/已在册，列出以免重复登记）

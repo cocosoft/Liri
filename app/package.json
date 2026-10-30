@@ -182,7 +182,8 @@
     "prune:event-thinking": "bun run scripts/prune-event-thinking.ts",
     "split:session-events": "bun run scripts/split-session-events.ts",
     "prune:empty-sessions": "bun run scripts/prune-empty-sessions.ts",
-    "prune:alwayson-notifications": "bun run scripts/prune-alwayson-notifications.ts"
+    "prune:alwayson-notifications": "bun run scripts/prune-alwayson-notifications.ts",
+    "prune:orphan-cost-summaries": "bun run scripts/prune-orphan-cost-summaries.ts"
   },
   "keywords": [
     "ai",

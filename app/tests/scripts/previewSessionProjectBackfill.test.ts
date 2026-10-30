@@ -7,11 +7,18 @@
  * - 无 `workspacePath` ⇒ `no-workspace`。
  */
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  applyProposals,
   normalizePathKey,
   proposeSessionBindings,
   readProjects,
@@ -159,6 +166,7 @@ describe('readSessions / readProjects：磁盘投影', () => {
         title: '示例',
         projectId: undefined,
         workspacePath: 'C:/p/proj_a',
+        filePath: join(sDir, 'session.json'),
       },
     ]);
     expect(readProjects(dir)).toEqual([
@@ -169,5 +177,86 @@ describe('readSessions / readProjects：磁盘投影', () => {
   it('数据目录不存在 ⇒ 空数组（不抛错）', () => {
     expect(readSessions(join(tmpdir(), '__no_such_dir__'))).toEqual([]);
     expect(readProjects(join(tmpdir(), '__no_such_dir__'))).toEqual([]);
+  });
+});
+
+describe('applyProposals：写入 + 备份 + 审计（幂等）', () => {
+  let dir: string;
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true });
+  });
+
+  function seed(withProjectId = false): void {
+    dir = mkdtempSync(join(tmpdir(), 'liri-backfill-apply-'));
+    const sDir = join(dir, 'sessions', 'default', 'session_x1');
+    mkdirSync(sDir, { recursive: true });
+    writeFileSync(
+      join(sDir, 'session.json'),
+      JSON.stringify({
+        id: 'session_x1',
+        title: '示例',
+        status: 'active',
+        metadata: {
+          workspacePath: 'C:/p/proj_a',
+          ...(withProjectId ? { projectId: 'proj_a' } : {}),
+        },
+      })
+    );
+    const pDir = join(dir, 'projects', 'proj_a');
+    mkdirSync(pDir, { recursive: true });
+    writeFileSync(
+      join(pDir, 'project.json'),
+      JSON.stringify({ id: 'proj_a', name: 'A', sandboxPath: 'C:/p/proj_a' })
+    );
+  }
+
+  it('写入 projectId、保留其余字段、生成备份与审计', () => {
+    seed();
+    const sessions = readSessions(dir);
+    const rows = proposeSessionBindings(sessions, readProjects(dir));
+    const result = applyProposals(dir, sessions, rows, {
+      now: new Date(2026, 9, 30, 12, 0, 0),
+    });
+
+    expect(result.applied).toEqual(['session_x1']);
+    const saved = JSON.parse(
+      readFileSync(
+        join(dir, 'sessions', 'default', 'session_x1', 'session.json'),
+        'utf-8'
+      )
+    ) as {
+      status: string;
+      metadata: { projectId?: string; workspacePath?: string };
+    };
+    expect(saved.metadata.projectId).toBe('proj_a');
+    expect(saved.metadata.workspacePath).toBe('C:/p/proj_a'); // 其余字段保留
+    expect(saved.status).toBe('active');
+
+    const backupFile = join(
+      result.backupDir,
+      'sessions',
+      'default',
+      'session_x1',
+      'session.json'
+    );
+    const backup = JSON.parse(readFileSync(backupFile, 'utf-8')) as {
+      metadata: { projectId?: string };
+    };
+    expect(backup.metadata.projectId).toBeUndefined(); // 备份是写入前的原文
+
+    const audit = readFileSync(result.auditPath, 'utf-8').trim().split('\n');
+    expect(audit).toHaveLength(1);
+    expect(JSON.parse(audit[0])).toMatchObject({
+      sessionId: 'session_x1',
+      to: 'proj_a',
+    });
+  });
+
+  it('幂等：已有 projectId ⇒ 再跑不写、不产生新备份行', () => {
+    seed(true);
+    const sessions = readSessions(dir);
+    const rows = proposeSessionBindings(sessions, readProjects(dir));
+    const result = applyProposals(dir, sessions, rows);
+    expect(result.applied).toEqual([]);
   });
 });

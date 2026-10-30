@@ -347,8 +347,21 @@ for (const [name, category] of Object.entries(TOOL_CATEGORIES)) {
  *    故该缺陷长期漏检；测试须用 `function.name`（wire 形态）覆盖。
  */
 export function getToolCategory(toolName: string): ToolCategory {
-  if (toolName.includes('__')) return 'mcp';
+  if (isDynamicToolName(toolName)) return 'mcp';
   return TOOL_CATEGORIES[toolName] ?? WIRE_KEYED_CATEGORIES[toolName] ?? 'misc';
+}
+
+/**
+ * **动态工具名**判据（唯一入口）：MCP `McpToolWrapper` 的 `${server}__${tool}`。
+ *
+ * 为什么单独抽成函数（CS01）：该判据有两处消费者 —— ① 类别归类（{@link getToolCategory}）；
+ * ② 严格披露预算的保留分级（{@link trimNamesToDisclosureBudget}）。两处若各写一份
+ * `includes('__')`，一旦判据演进就会出现"归类算 mcp、预算算静态"的第二套口径。
+ *
+ * 实测现有内置工具名**均不含 `__`** ⇒ 判据无碰撞（见 {@link getToolCategory} 注释）。
+ */
+export function isDynamicToolName(toolName: string): boolean {
+  return toolName.includes('__');
 }
 
 // ============================================================
@@ -1014,9 +1027,14 @@ export function resolveDisclosureBudget(
  *
  * 规则：
  * - 数量未超预算 ⇒ 原样返回（`dropped` 为空）；
- * - 超预算 ⇒ 恒集优先、其余按 `priority` 排名（不在名单里的排最后，按原顺序稳定）；
+ * - 超预算 ⇒ **分级**保留：恒集 → **动态工具**（MCP `${server}__${tool}`）→ 其余按 `priority` 排名；
  * - 恒集数量本身超预算 ⇒ **恒集全留**（预算是软上限，恒集不可裁）；
  * - 返回值保持**原顺序**（provider 侧输出稳定）。
+ *
+ * 为什么动态工具排在静态优先级**之前**（2026-10-30，Google 建议 #2 落地）：
+ * 它们的名字**无法预先登记**进 `STRICT_DISCLOSURE_PRIORITY` ⇒ 若一律排在最后，开关一开就会把
+ * 用户**主动安装**的 MCP/三方工具全部静默隐藏（只剩 `mcp_tool` 通用入口），与"安装即可用"相悖。
+ * 预算仍是硬开销：动态工具**占名额**，被挤掉的是静态工具（仍注册、可经 `tool_search` 检索）。
  */
 export function trimNamesToDisclosureBudget(
   names: readonly string[],
@@ -1040,12 +1058,11 @@ export function trimNamesToDisclosureBudget(
     .map((name, index) => ({
       name,
       index,
-      mustKeep: mandatory.has(name) ? 0 : 1,
+      // 分级：0 = 恒集（不可裁）｜1 = 动态工具（安装即应可见）｜2 = 静态工具（按优先级）
+      tier: mandatory.has(name) ? 0 : isDynamicToolName(name) ? 1 : 2,
       rank: rankOf.get(name) ?? Number.MAX_SAFE_INTEGER,
     }))
-    .sort(
-      (a, b) => a.mustKeep - b.mustKeep || a.rank - b.rank || a.index - b.index
-    );
+    .sort((a, b) => a.tier - b.tier || a.rank - b.rank || a.index - b.index);
 
   const mustKeepCount = unique.filter((n) => mandatory.has(n)).length;
   const keepCount = Math.max(budget, mustKeepCount);

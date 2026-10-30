@@ -62,6 +62,17 @@ describe('trimNamesToDisclosureBudget（纯函数）', () => {
     expect(r.kept).toEqual(['a', 'b']);
     expect(r.dropped).toEqual([]);
   });
+
+  it('动态工具（MCP `${server}__${tool}`）优先于未登记静态名：占预算但**不被静默隐藏**', () => {
+    const r = trimNamesToDisclosureBudget(
+      ['zzz_unknown', 'github__create_issue', 'todo_write', 'fast_tool'],
+      3,
+      { mandatory: new Set(['todo_write']), priority: ['fast_tool'] }
+    );
+    // 分级：恒集(0) → 动态(1) → 静态按优先级(2)；返回值仍保持入参原顺序
+    expect(r.kept).toEqual(['github__create_issue', 'todo_write', 'fast_tool']);
+    expect(r.dropped).toEqual(['zzz_unknown']);
+  });
 });
 
 describe('resolveDisclosureBudget（开关语义）', () => {
@@ -189,6 +200,24 @@ describe('filterToolsByTask：严格披露截断（coding 面）', () => {
       );
       expect(STRICT_DISCLOSURE_PRIORITY.indexOf(name)).toBeLessThan(12);
     }
+  });
+});
+
+describe('filterToolsByTask：动态工具（MCP）参与预算但不被静默隐藏', () => {
+  const WITH_MCP = [
+    ...CODING_DEFINITIONS.map((t) => t.name),
+    'github__create_issue',
+    'fs__read_file',
+  ].map((name) => ({ name }));
+
+  it('开关开 ⇒ 动态名保留、静态末位被挤掉（预算仍是硬上限）', () => {
+    process.env[ENV_KEY] = 'true';
+    const names = filterToolsByTask(WITH_MCP, 'coding').map((t) => t.name);
+    expect(names).toContain('github__create_issue');
+    expect(names).toContain('fs__read_file');
+    expect(names.length).toBeLessThanOrEqual(STRICT_DISCLOSURE_BUDGETS.coding);
+    // 静态末位（不在优先级名单、排最后）让位给动态工具
+    expect(names).not.toContain('knowledge_search');
   });
 });
 

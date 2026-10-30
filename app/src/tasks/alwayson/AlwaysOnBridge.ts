@@ -23,6 +23,7 @@ import {
   formatGoalAchievementLine,
   unverifiedGoal,
   type AlwaysOnGoalEvaluation,
+  type AlwaysOnGoalVerdict,
 } from './goalEvaluator';
 
 /** 用量汇总（只取桥接器关心的字段） */
@@ -140,11 +141,58 @@ export interface AlwaysOnBridgeDeps {
   }) => Promise<AlwaysOnGoalEvaluation>;
   /** 报告投递（主动通知；队列未启用/被门禁丢弃 ⇒ false） */
   notifyReport: (input: {
+    /** 归属项目（稳定去重身份的一部分，避免不同项目互相吞消息） */
+    projectId: string;
     planId: string;
+    /** 需人介入的条件（成功 ⇒ 不调用本函数） */
+    condition: AlwaysOnAttentionCondition;
     title: string;
     body: string;
     success: boolean;
   }) => Promise<boolean>;
+}
+
+/**
+ * AlwaysOn 需要**人介入**的条件（2026-10-31 根因修复）。
+ *
+ * 背景：此前每次运行（成功也）都发一条「执行完成」通知，5 分钟一拍 × 25 个项目 ⇒
+ * 671 条播报占满通知中心（95%）。运行记录本身已由 `reports/<planId>.md` 与
+ * `run-logs/*.jsonl` 承载，通知只应承载"需要用户处理/知道的状态变化"。
+ *
+ * 取值刻意避开状态机词汇（`failed`/`blocked` 等，见 `stateMachineCatalog.ts`，
+ * lint:state-ratchet）：这里是**通知条件**，不是会话/任务状态。
+ */
+export type AlwaysOnAttentionCondition =
+  | 'exec-failed'
+  | 'not-run'
+  | 'goal-unmet';
+
+/** 条件 → 通知标题后缀（极简、可预期） */
+export const ATTENTION_LABEL: Readonly<
+  Record<AlwaysOnAttentionCondition, string>
+> = {
+  'exec-failed': '需要关注（执行失败）',
+  'not-run': '需要关注（本轮未执行）',
+  'goal-unmet': '需要关注（目标未达成）',
+};
+
+/**
+ * 判定本轮是否需要通知用户（**纯函数**）。
+ *
+ * 顺序：执行失败 → 被跳过（跳过原因，如 `not_git_repo_or_dirty`）→ 自评未达成。
+ * 成功且目标达成 ⇒ `null`（不通知，报告已落盘）。
+ */
+export function resolveAttentionCondition(input: {
+  success: boolean;
+  skippedReason?: string;
+  goalVerdict?: AlwaysOnGoalVerdict;
+}): AlwaysOnAttentionCondition | null {
+  if (!input.success) return 'exec-failed';
+  if (input.skippedReason) return 'not-run';
+  if (input.goalVerdict && input.goalVerdict !== 'achieved') {
+    return 'goal-unmet';
+  }
+  return null;
 }
 
 /** 4 阶段实现（注入 `AlwaysOnRuntime`） */
@@ -552,23 +600,32 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
       projectId: deps.projectId,
       path,
     });
-    // 主动通知（队列未启用 / 门禁 drop ⇒ false，不阻断本轮）
+    // 主动通知（2026-10-31 根因修复）：**只在需要人介入时**通知；
+    // 执行成功且目标达成 ⇒ 静默（报告已落盘，run-logs 也有记录）。
+    const condition = resolveAttentionCondition({
+      success: result.success,
+      ...(reportWorkspace?.skippedReason
+        ? { skippedReason: reportWorkspace.skippedReason }
+        : {}),
+      ...(lastGoal ? { goalVerdict: lastGoal.verdict } : {}),
+    });
+    if (!condition) return markdown;
     try {
       await deps.notifyReport({
+        projectId: deps.projectId,
         planId: plan.id,
-        title: `AlwaysOn · ${deps.projectName} 执行完成`,
+        condition,
+        title: `AlwaysOn · ${deps.projectName} ${ATTENTION_LABEL[condition]}`,
         body: [
           `计划：${plan.summary}`,
           `结果：${result.success ? '成功' : '失败'}`,
           `目标达成：${lastGoal ? lastGoal.verdict : 'unverified（未自评）'}${
             lastGoal?.reason ? `（${lastGoal.reason}）` : ''
           }`,
-          `工具调用：${result.toolCalls}`,
-          `耗时：${result.durationMs}ms`,
           ...(reportWorkspace?.skippedReason
             ? [`已跳过：${reportWorkspace.skippedReason}`]
             : []),
-          ...(finishState?.patchPath ? [`补丁：${finishState.patchPath}`] : []),
+          `报告：${path}`,
         ].join('\n'),
         success: result.success,
       });

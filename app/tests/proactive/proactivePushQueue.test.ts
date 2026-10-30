@@ -138,3 +138,19 @@ describe('ProactivePushQueue：过期与保留期', () => {
     expect((await queue.stats()).total).toBe(0);
   });
 });
+
+/**
+ * 2026-10-31 根因修复：门禁的回看必须包含 **pending**。
+ *
+ * 缺陷复现口径：AlwaysOn 一个 tick 内并发为 N 个项目入队，`enqueue` 后行是 pending；
+ * 若门禁只查 delivered，这一批读到同一份"空"快照 ⇒ 去重/冷却/每小时上限被整批穿透。
+ */
+describe('listRecentCommitted（含 pending）', () => {
+  test('pending 计入"已承诺"；只查 delivered 时为空', async () => {
+    await queue.enqueue(payload('p1'), NOW);
+    const committed = await queue.listRecentCommitted(NOW - 60_000);
+    expect(committed.map((c) => c.dedupeKey)).toEqual(['task:p1']);
+    // 对照：只回看 delivered ⇒ 空（这正是旧实现的输入，导致限流失效）
+    expect(await queue.listRecentDelivered(NOW - 60_000)).toEqual([]);
+  });
+});

@@ -1175,7 +1175,7 @@ const zhWorkspace = {
   notification: {
     categoryAll: "全部",
     categorySystem: "系统",
-    categoryNotice: "日历",
+    categoryNotice: "通知",
     justNow: "刚刚",
     minutesAgo: "{{count}}分钟前",
     hoursAgo: "{{count}}小时前",

@@ -236,9 +236,54 @@ export class ProactivePushQueue {
   }
 
   /**
+   * 查询**已承诺**的近期投递记录（pending + delivered，门禁的去重 / 冷却 / 限流输入）。
+   *
+   * **为什么必须含 pending**（2026-10-31 根因修复）：AlwaysOn 一个 tick 内并发为 N 个项目
+   * 产生结果，`enqueue` 后行是 `pending`（投递循环异步、`delivered_at` 尚未写）。
+   * 若只回看 `delivered`，这一批全部读到同一份"空"快照 ⇒ 门禁的 24h 去重 / 同类冷却 /
+   * 每小时上限被**整批穿透**（真机：25 个项目同拍通过，一分钟内 3 条）。
+   * 用 `COALESCE(delivered_at, created_at)` 作为"承诺时刻"，让已排队但未投递的条目也计入预算。
+   */
+  async listRecentCommitted(
+    sinceMs: number,
+    limit = 200
+  ): Promise<
+    Array<{
+      dedupeKey: string;
+      kind: ProactiveMessagePayload['kind'];
+      deliveredAt: number;
+    }>
+  > {
+    const db = this.ensureDb();
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT dedupe_key, kind, COALESCE(delivered_at, created_at) AS at
+           FROM ${TABLE}
+          WHERE status IN ('pending', 'delivered')
+            AND COALESCE(delivered_at, created_at) >= ?
+          ORDER BY at DESC
+          LIMIT ?`,
+        [sinceMs, limit],
+        (err: Error | null, rows: Record<string, unknown>[]) => {
+          if (err) reject(err);
+          else
+            resolve(
+              rows.map((row) => ({
+                dedupeKey: row.dedupe_key as string,
+                kind: row.kind as ProactiveMessagePayload['kind'],
+                deliveredAt: row.at as number,
+              }))
+            );
+        }
+      );
+    });
+  }
+
+  /**
    * 查询近期已投递记录（门禁的去重 / 冷却 / 限流输入）。
    *
    * 只返回 `delivered` 终态；调用方仍需按自己的 TTL 口径过滤。
+   * ⚠️ 生产者接入门禁时请用 `listRecentCommitted`（含 pending），否则同批并发会穿透限流。
    */
   async listRecentDelivered(
     sinceMs: number,

@@ -70,11 +70,12 @@ describe("NotificationPanel 收件箱化（§五 前端 UI）", () => {
     });
   });
 
-  it("分类 Tab 收敛为 全部/系统/日历，无审批/待办", () => {
+  it("分类 Tab 收敛为 全部/系统/通知，无审批/待办", () => {
     render(<NotificationPanel />);
     expect(screen.getByRole("button", { name: "全部" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "系统" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "日历" })).toBeInTheDocument();
+    // 2026-10-31：`notice` 分类原被误译为「日历」（与内容不符）⇒ 改「通知」
+    expect(screen.getByRole("button", { name: "通知" })).toBeInTheDocument();
     // 无审批/待办 Tab
     expect(
       screen.queryByRole("button", { name: "审批" }),

@@ -71,7 +71,7 @@ describe('enqueueCronResultProactive', () => {
         calls.push({ now, next });
         return true;
       },
-      listRecentDelivered: async () => [],
+      listRecentCommitted: async () => [],
     };
 
     const result = await enqueueCronResultProactive(input(true), {
@@ -96,7 +96,7 @@ describe('enqueueCronResultProactive', () => {
         calls.push({ next });
         return true;
       },
-      listRecentDelivered: async () => [],
+      listRecentCommitted: async () => [],
     };
 
     // UTC 23:00，DND 22:00–08:00 ⇒ 次日 08:00
@@ -121,7 +121,7 @@ describe('enqueueCronResultProactive', () => {
         enqueued++;
         return true;
       },
-      listRecentDelivered: async () => [
+      listRecentCommitted: async () => [
         { dedupeKey: sameRunKey, kind: 'task_result', deliveredAt: NOW },
       ],
     };

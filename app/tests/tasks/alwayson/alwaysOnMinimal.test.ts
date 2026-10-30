@@ -103,8 +103,14 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
   }) {
     const sessions: string[] = [];
     const reports: Array<{ planId: string; markdown: string }> = [];
-    const notified: Array<{ planId: string; success: boolean; body?: string }> =
-      [];
+    const notified: Array<{
+      planId: string;
+      projectId: string;
+      condition: string;
+      title: string;
+      success: boolean;
+      body?: string;
+    }> = [];
     const taskTypes: string[] = [];
     const cwdCalls: Array<{ sid: string; cwd: string }> = [];
     const goalEvalCalls: Array<{ sessionId: string; goalSummary: string }> = [];
@@ -176,6 +182,9 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
       notifyReport: async (input) => {
         notified.push({
           planId: input.planId,
+          projectId: input.projectId,
+          condition: input.condition,
+          title: input.title,
           success: input.success,
           body: input.body,
         });
@@ -316,14 +325,32 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
     expect(result.errors.join()).toContain('timeout');
   });
 
-  /** v1.1：报告投递主动通知 */
-  it('report：写盘后调用 notifyReport（携带成功标记）', async () => {
-    const { bridge, notified } = makeBridge();
+  /**
+   * 2026-10-31 根因修复：成功不再发「执行完成」播报（曾使 671 条通知占满收件箱）。
+   * 运行记录由 `reports/<planId>.md` + run-logs 承载。
+   */
+  it('report：成功且目标达成 ⇒ 不通知（报告已落盘）', async () => {
+    const { bridge, notified, reports } = makeBridge();
     await bridge.discovery();
     const result = await bridge.execution(await bridge.workspace(plan));
     await bridge.report(result);
+    expect(reports).toHaveLength(1);
+    expect(notified).toHaveLength(0);
+  });
+
+  it('report：执行失败 ⇒ 通知一条（condition=failed，携带项目身份）', async () => {
+    const { bridge, notified } = makeBridge({
+      timeoutMinutes: 0.001, // 60ms ⇒ 超时失败
+      hangOnExecution: true,
+    });
+    await bridge.discovery();
+    const result = await bridge.execution(await bridge.workspace(plan));
+    expect(result.success).toBe(false);
+    await bridge.report(result);
     expect(notified).toHaveLength(1);
-    expect(notified[0]!.success).toBe(true);
+    expect(notified[0]!.condition).toBe('exec-failed');
+    expect(notified[0]!.projectId).toBe('proj-1');
+    expect(notified[0]!.title).toContain('需要关注');
   });
 
   /** v2（方案 §10.7 裁定 B）：脏仓 / 非 git ⇒ 跳过本轮，不做任何写操作 */
@@ -416,7 +443,7 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
   });
 
   /** 目标达成自评（2026-10-20 产品裁定启用） */
-  it('自评：achieved ⇒ 报告写 achieved + 理由，通知含达成结论', async () => {
+  it('自评：achieved ⇒ 报告写 achieved + 理由，且**不**发通知', async () => {
     const { bridge, goalEvalCalls, notified } = makeBridge({
       goal: 'achieved',
     });
@@ -428,7 +455,17 @@ describe('U-02 AlwaysOnBridge 四阶段', () => {
     expect(goalEvalCalls[0]!.sessionId).toBe('s1');
     expect(goalEvalCalls[0]!.goalSummary).toBe(plan.summary);
     expect(markdown).toContain('Goal Achievement**: achieved（已修好）');
-    expect(notified[0]!.body).toContain('目标达成：achieved');
+    expect(notified).toHaveLength(0);
+  });
+
+  it('自评：not_achieved（执行成功）⇒ 通知 condition=goal_unmet', async () => {
+    const { bridge, notified } = makeBridge({ goal: 'not_achieved' });
+    await bridge.discovery();
+    const result = await bridge.execution(await bridge.workspace(plan));
+    await bridge.report(result);
+    expect(notified).toHaveLength(1);
+    expect(notified[0]!.condition).toBe('goal-unmet');
+    expect(notified[0]!.body).toContain('目标达成：not_achieved');
   });
 
   it('自评：not_achieved ⇒ 报告如实写未达成（不掩盖）', async () => {

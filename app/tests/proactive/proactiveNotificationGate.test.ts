@@ -279,3 +279,103 @@ describe('createProactiveNotificationGate', () => {
     );
   });
 });
+
+/**
+ * 2026-10-31 根因修复：**来源级**预算。
+ *
+ * 真机缺陷：AlwaysOn 每 5 分钟一拍 × 25 个项目、且成功也播报 ⇒ 671 条通知
+ * 占满收件箱（95%）。全局 `maxPerHour` 无法阻止"单个机器来源吃满全局预算"，
+ * 故按 `source.type`（以 dedupeKey 前缀归属）单独限流。
+ */
+describe('来源级预算（DEFAULT_SOURCE_MAX_PER_HOUR）', () => {
+  const alwaysOn = (suffix: string) =>
+    payload({
+      id: `a-${suffix}`,
+      // 不同项目 ⇒ 不同去重身份（避免先被 ③ 去重规则 drop，测不到来源预算）
+      dedupeKey: `alwayson:proj-${suffix}:failed`,
+      title: 'AlwaysOn · demo 需要关注（执行失败）',
+      source: { type: 'alwayson', ref: `proj-${suffix}` },
+    });
+  const recentAlwaysOn = (at: number, proj = 'other') => ({
+    dedupeKey: `alwayson:proj-${proj}:failed`,
+    kind: 'task_result' as const,
+    deliveredAt: at,
+  });
+
+  it('同来源已占满默认上限（2 条/小时）⇒ queue(rate_limited)，即使全局还有余量', () => {
+    const decision = evaluateProactiveNotification(
+      alwaysOn('x'),
+      ctx({
+        recent: [
+          recentAlwaysOn(NOW - MINUTE, 'p1'),
+          recentAlwaysOn(NOW - 2 * MINUTE, 'p2'),
+        ],
+      })
+    );
+    expect(decision.action).toBe('queue');
+    expect(decision).toMatchObject({ reason: 'rate_limited' });
+  });
+
+  it('同来源只占 1 条 ⇒ 仍 deliver（未到上限）', () => {
+    expect(
+      evaluateProactiveNotification(
+        alwaysOn('y'),
+        ctx({ recent: [recentAlwaysOn(NOW - MINUTE)] })
+      )
+    ).toEqual({ action: 'deliver', reason: 'ok' });
+  });
+
+  it('其它来源的近期投递不占用 alwayson 的预算（按 dedupeKey 前缀归属）', () => {
+    const decision = evaluateProactiveNotification(
+      alwaysOn('z'),
+      ctx({
+        recent: [
+          {
+            dedupeKey: 'cron:job-1:ok:1',
+            kind: 'task_result',
+            deliveredAt: NOW - MINUTE,
+          },
+          {
+            dedupeKey: 'cron:job-2:ok:2',
+            kind: 'task_result',
+            deliveredAt: NOW - MINUTE,
+          },
+        ],
+      })
+    );
+    expect(decision).toEqual({ action: 'deliver', reason: 'ok' });
+  });
+
+  it('配置可覆盖默认上限（alwayson: 5 ⇒ 2 条仍在预算内）', () => {
+    expect(
+      evaluateProactiveNotification(
+        alwaysOn('w'),
+        ctx({
+          prefs: {
+            enabled: true,
+            maxPerHour: 20,
+            sourceMaxPerHour: { alwayson: 5 },
+          },
+          recent: [
+            recentAlwaysOn(NOW - MINUTE, 'p1'),
+            recentAlwaysOn(NOW - 2 * MINUTE, 'p2'),
+          ],
+        })
+      )
+    ).toEqual({ action: 'deliver', reason: 'ok' });
+  });
+
+  it('超出 1 小时的旧记录不计入预算', () => {
+    expect(
+      evaluateProactiveNotification(
+        alwaysOn('v'),
+        ctx({
+          recent: [
+            recentAlwaysOn(NOW - HOUR - MINUTE, 'p1'),
+            recentAlwaysOn(NOW - HOUR - 2 * MINUTE, 'p2'),
+          ],
+        })
+      )
+    ).toEqual({ action: 'deliver', reason: 'ok' });
+  });
+});

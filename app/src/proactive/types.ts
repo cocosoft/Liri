@@ -95,6 +95,12 @@ export interface ProactiveGatePrefs {
   cooldownMs?: Partial<Record<ProactiveKind, number>>;
   /** 每小时非 CRITICAL 上限；<=0 / 非法 ⇒ 视为 0（全部排队） */
   maxPerHour: number;
+  /**
+   * **来源级**每小时上限（键 = `payload.source.type`；覆盖门禁的
+   * `DEFAULT_SOURCE_MAX_PER_HOUR`）。用于给"机器高频生产者"兜底，
+   * 避免某个来源（如 5 分钟一拍的 AlwaysOn）把收件箱刷满。
+   */
+  sourceMaxPerHour?: Record<string, number>;
 }
 
 /** 门禁输入上下文 */

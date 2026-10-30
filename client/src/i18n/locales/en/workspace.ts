@@ -1205,7 +1205,7 @@ const enWorkspace = {
   notification: {
     categoryAll: "All",
     categorySystem: "System",
-    categoryNotice: "Calendar",
+    categoryNotice: "Notifications",
     justNow: "Just now",
     minutesAgo: "{{count}} min ago",
     hoursAgo: "{{count}} h ago",

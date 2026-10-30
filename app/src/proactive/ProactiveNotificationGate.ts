@@ -57,6 +57,30 @@ export const DEFAULT_PROACTIVE_COOLDOWNS_MS: Readonly<
   suggestion: PROACTIVE_SUGGESTION_COOLDOWN_MS,
 };
 
+/**
+ * **来源级**每小时预算默认值（2026-10-31 根因修复）。
+ *
+ * 背景：AlwaysOn 每 5 分钟一拍、25 个项目，且成功/失败都播报 ⇒ 收件箱被
+ * 671 条「AlwaysOn · X 执行完成」占满（占通知总数 95%）。全局 `maxPerHour`
+ * 无法约束"单个来源吃满全局预算"，故加来源级上限作为**结构性兜底**。
+ *
+ * 约定：生产者 `dedupeKey` 以 `<source.type>:` 开头（`alwayson:` / `cron:` …），
+ * 门禁据此统计同来源的已承诺投递量（`listRecentCommitted`，含 pending）。
+ */
+export const DEFAULT_SOURCE_MAX_PER_HOUR: Readonly<Record<string, number>> = {
+  alwayson: 2,
+};
+
+/** 取来源级上限（配置覆盖 > 默认表 > 0=不限制） */
+function sourceLimitOf(
+  sourceType: string,
+  overrides?: Record<string, number>
+): number {
+  const raw =
+    overrides?.[sourceType] ?? DEFAULT_SOURCE_MAX_PER_HOUR[sourceType] ?? 0;
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
+}
+
 /** `HH:MM` → 当日分钟数；非法格式 ⇒ `null`（调用方按"未配置 DND"处理） */
 function parseClockMinutes(value: string): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
@@ -207,6 +231,30 @@ export function evaluateProactiveNotification(
       reason: 'rate_limited',
       retryAt: earliest + MS_PER_HOUR,
     };
+  }
+
+  // ⑧ 来源级预算（结构性兜底，2026-10-31）：同一 `source.type` 每小时最多 N 条。
+  // 与 ⑦ 互补：⑦ 是全局预算，这里限制"单个来源"——否则一个 5 分钟一拍的机器来源
+  // 可以合法吃满全局预算（真机：25 个项目同拍、671 条播报占通知总数 95%）。
+  const sourceType = payload.source?.type;
+  if (sourceType) {
+    const sourceLimit = sourceLimitOf(sourceType, prefs.sourceMaxPerHour);
+    if (sourceLimit > 0) {
+      // 生产者约定：dedupeKey 以 `<source.type>:` 开头 ⇒ 无需额外列即可归属来源
+      const prefix = `${sourceType}:`;
+      const sameSource = recent.filter(
+        (r) =>
+          now - r.deliveredAt < MS_PER_HOUR && r.dedupeKey.startsWith(prefix)
+      );
+      if (sameSource.length >= sourceLimit) {
+        return {
+          action: 'queue',
+          reason: 'rate_limited',
+          retryAt:
+            Math.min(...sameSource.map((r) => r.deliveredAt)) + MS_PER_HOUR,
+        };
+      }
+    }
   }
 
   return { action: 'deliver', reason: 'ok' };

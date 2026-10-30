@@ -425,7 +425,9 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   };
 
   const notifyReport: AlwaysOnBridgeDeps['notifyReport'] = async ({
+    projectId,
     planId,
+    condition,
     title,
     body,
     success,
@@ -438,16 +440,19 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
       id: `proactive-alwayson-${randomUUID()}`,
       kind: 'task_result',
       priority: success ? 'low' : 'normal',
-      dedupeKey: `alwayson:${planId}`,
+      // 2026-10-31 根因修复：去重身份 = **项目 + 条件**（原为每轮唯一的 planId ⇒ 去重永不命中）。
+      // 同一项目同一条件在门禁的去重 TTL（24h）内只投递一条。
+      dedupeKey: `alwayson:${projectId}:${condition}`,
       title,
       body,
       // U-01 方案 A：显式配置了 `proactive.target.*` 才外发到通道，否则写通知中心。
       target: resolveProactiveTarget(configManager),
       createdAt: now,
       expiresAt: now + MS_PER_DAY,
-      source: { type: 'alwayson', ref: planId },
+      source: { type: 'alwayson', ref: `${projectId}:${condition}:${planId}` },
     };
-    const recent = await queue.listRecentDelivered(now - MS_PER_DAY);
+    // 含 pending 的"已承诺"回看：否则同拍并发入队会读到同一份旧快照、整批穿透限流
+    const recent = await queue.listRecentCommitted(now - MS_PER_DAY);
     const decision = evaluateProactiveNotification(payload, {
       now,
       timezone: DEFAULT_TIMEZONE,

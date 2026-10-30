@@ -37,7 +37,7 @@ export interface CronProactiveInput {
 export interface CronProactiveDeps {
   queue?: Pick<
     NonNullable<ReturnType<typeof getActiveProactiveQueue>>,
-    'enqueue' | 'listRecentDelivered'
+    'enqueue' | 'listRecentCommitted' | 'listRecentDelivered'
   > | null;
   prefs?: ProactiveGatePrefs;
   timezone?: string;
@@ -62,6 +62,9 @@ export function resolveProactiveGatePrefs(): ProactiveGatePrefs {
   const cooldownMs = configManager.getValue<
     Partial<Record<'task_result', number>>
   >('proactive.cooldownMs', {});
+  const sourceMaxPerHour = configManager.getValue<
+    Record<string, number> | undefined
+  >('proactive.sourceMaxPerHour', undefined);
   return {
     // U-01（2026-10-19）：读取 `proactive.enabled`（原硬编码 true，用户关不掉）
     enabled: enabled !== false,
@@ -69,6 +72,10 @@ export function resolveProactiveGatePrefs(): ProactiveGatePrefs {
     maxPerHour: typeof maxPerHour === 'number' ? maxPerHour : 3,
     cooldownMs:
       cooldownMs && typeof cooldownMs === 'object' ? cooldownMs : undefined,
+    // 来源级预算：未配置 ⇒ 用门禁内的默认表（`alwayson: 2`）
+    ...(sourceMaxPerHour && typeof sourceMaxPerHour === 'object'
+      ? { sourceMaxPerHour }
+      : {}),
   };
 }
 
@@ -122,8 +129,10 @@ export async function enqueueCronResultProactive(
   const target = deps.target ?? resolveProactiveTarget(configManager);
   const payload = buildCronProactivePayload(input, now, target);
 
-  // 近期投递窗口覆盖最长冷却（默认风险告警 5min；这里取 1 天以覆盖限流窗口）
-  const recent = await queue.listRecentDelivered(now - MS_PER_DAY);
+  // 近期投递窗口覆盖最长冷却（默认风险告警 5min；这里取 1 天以覆盖限流窗口）。
+  // 2026-10-31 根因修复：必须含 pending —— 只回看 delivered 时，同批并发入队
+  // 会读到同一份旧快照，导致去重/冷却/限流被整批穿透。
+  const recent = await queue.listRecentCommitted(now - MS_PER_DAY);
   const decision = evaluateProactiveNotification(payload, {
     now,
     timezone,

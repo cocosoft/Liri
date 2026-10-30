@@ -28,7 +28,11 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { EventEmitter } from 'node:events';
+import { existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
+import { fileURLToPath } from 'node:url';
 import type { ChildProcess } from 'node:child_process';
 import { context, trace, TraceFlags } from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
@@ -393,5 +397,28 @@ describe('工具侧车监督器：进程登记表（§6-#5）', () => {
     await started;
     sup.stop();
     expect(calls).toEqual([]);
+  });
+});
+
+describe('工具侧车监督器：打包面（spec §13.5）', () => {
+  it('侧车脚本不存在（--compile 未随包分发入口）⇒ 抛错 fail-closed 且**零 spawn**', async () => {
+    let spawned = 0;
+    const sup = new ToolSidecarSupervisor({
+      scriptPath: join(tmpdir(), '__no_such_sidecar_entry__.ts'),
+      spawnFn: () => {
+        spawned += 1;
+        return asChild(new FakeChild());
+      },
+    });
+    await expect(sup.start()).rejects.toThrow('工具侧车脚本不存在');
+    expect(spawned).toBe(0);
+    expect(sup.isRunning()).toBe(false);
+  });
+
+  it('默认脚本路径（同目录 lspSidecar.ts）在源码树内存在 ⇒ 不被该守卫误伤', () => {
+    const script = fileURLToPath(
+      new URL('../../../src/tools/sidecar/lspSidecar.ts', import.meta.url)
+    );
+    expect(existsSync(script)).toBe(true);
   });
 });

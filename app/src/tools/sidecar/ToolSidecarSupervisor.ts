@@ -43,6 +43,7 @@
  * 开关：`TOOL_SIDECAR_LSP`（默认关 ⇒ 本类**根本不被启动**，见 `toolSidecarLifecycle.ts`）。
  */
 import { spawn, type ChildProcess } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { getLogger, currentTraceparent } from '@modules/monitoring';
@@ -165,6 +166,13 @@ export class ToolSidecarSupervisor {
     const script =
       this.deps.scriptPath ??
       fileURLToPath(new URL('./lspSidecar.ts', import.meta.url));
+    // 打包面（spec §13.5）：`--compile` 单文件产物**不落地**侧车脚本（`import.meta.url` 指向
+    // 二进制内的虚拟路径）⇒ 此时 `spawn(process.execPath, [script])` 相当于**把宿主可执行文件
+    // 自身当运行时再拉一份应用**（等 10s 握手超时 + 重复实例副作用）。故先判脚本可执行性，
+    // 缺失即**抛错 fail-closed**（不 spawn、不静默回落），由生命周期层记 warn 并保持开关关的等价行为。
+    if (!existsSync(script)) {
+      throw new Error(`工具侧车脚本不存在（未随包分发侧车入口）：${script}`);
+    }
     const spawnFn = this.deps.spawnFn ?? spawn;
     const child = spawnFn(runtime, [script], {
       stdio: ['pipe', 'pipe', 'pipe'],

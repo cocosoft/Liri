@@ -357,7 +357,7 @@
 ## §12 下一步
 
 1. ~~**本文待用户批准**（HARD-GATE：批准前不写产品代码）~~ → **已批准并落地**（S1/S3/S5 已实现，见 §13；原文保留以存证）。
-2. 已按 §11 切片推进：S0/S1/S3/S5 完成；S2（双轨收敛）**复核后改用独立条目**（见 §13.2）；S4/S6 未做。
+2. 已按 §11 切片推进：S0/S1/S3/S4/S5 完成；S2（双轨收敛）**复核后改用独立条目**（见 §13.2）；S6 未做（依赖观察期）。
 3. 联动：S1 落地后的回填 1–4 仍未做（§11 待回填项仍未勾）；S2 观察期结束再决定 S6 删除范围。
 
 ---
@@ -372,7 +372,7 @@
 | **S3** 崩溃隔离 / 有界重启 / 取消 | ✅ | `tests/tools/sidecar/**`：含「意外退出 ⇒ 有界重启」「stop() 进程树强杀」 |
 | **S5** 媒体侧车（`vision_worker` 受管 + `sharp` 收口一处） | ✅ | `SidecarMediaAnalyzer` / `mediaSidecarLifecycle` / `ImageInputRouter` / `ImageAnalysisTool`；开关 `featureFlags.ts:680` |
 | **S2** LSP 双轨收敛 | ❌ **未做** | 见 §13.2 |
-| **S4** 与内置工具同源门禁（注册/PathGuard/权限/结果上限） | ❌ 未做 | 侧车当前不注册进 `MCPToolBridge`（待做） |
+| **S4** 与内置工具同源门禁（注册/PathGuard/权限/结果上限） | ✅ | `tests/tools/sidecar/sidecarSameSourceGate.test.ts`（「保名派」：同一 loader 链 → 同一 `ToolRegistry`；PathGuard 由 `resolveToolParamNames` 注册表驱动判定；`maxResultSizeChars` 与内置 deep-equal；Landlock 显式 N/A） |
 | **S6** 物理删除被替代实现 | ❌ 未做 | 依赖观察期结论 |
 
 ### 13.2 S2 前置的重新裁定（**关键**）
@@ -399,3 +399,21 @@
 - 依据 U-25 量化（`scripts/bench-native-sidecar.ts`）：1MB `estimateTokens` 原生 **2.04ms** vs JS **0.24ms**、
   `readFileWithEncoding` **4.68ms** vs `fs` **0.36ms**、IPC 往返 P50 **0.071ms** ⇒ 侧车化只增往返、无吞吐收益。
 - **结论：不侧车化**（以量化证据否决，符合原文"不得以 CS03 空谈直接否"的要求）。
+
+### 13.5 打包面结论（2026-10-30，收官项）
+
+**事实**：侧车入口经 `fileURLToPath(new URL('./{lsp,media}Sidecar.ts', import.meta.url))` 解析
+（`ToolSidecarSupervisor.ts:166-168`、`mediaSidecarLifecycle.ts:67`），运行时用 `process.execPath` + 该脚本路径
+`spawn`。而发布链走 **`bun build --compile`** 单文件产物（`app/package.json` 的 `build:win:*` / `build:mac` /
+`build:linux`），`app/scripts/**` 下**无**任何"copy sidecar 入口"步骤（`grep sidecar app/scripts` 仅命中 lint 豁免注释）。
+
+**风险（已消）**：编译产物里 `process.execPath` = 宿主可执行文件本身 ⇒ 缺失脚本时盲 `spawn` 等于
+**把应用自身再拉一份**（白等 10s 握手超时 + 重复实例副作用）。
+
+**处置（本切片）**：`ToolSidecarSupervisor.start()` 在 spawn **之前**判脚本存在性，缺失即
+**抛错 fail-closed（零 spawn）**，由生命周期层记 warn 并返回 `null`（与开关关的等价行为一致）。
+测试：`tests/tools/sidecar/toolSidecarSupervisor.test.ts`「打包面」两条（缺失 ⇒ 抛错且零 spawn；默认路径不被误伤）。
+
+**如实遗留**：**编译产物内不支持启用侧车**（开关默认关 ⇒ 生产零影响）。若将来要在安装版灰度侧车，
+须新增"入口派发"切片（`pyapp.ts` 早退到侧车入口 + 构建期内嵌该入口 + spawn 传子命令而不是脚本路径），
+属**独立变更**，不在本期范围。

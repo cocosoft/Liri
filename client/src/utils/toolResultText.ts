@@ -103,6 +103,19 @@ export function decodeToolResultContent(value: string): string {
 }
 
 /**
+ * #30（2026-10-30）：是否为**内部诊断提示**（模型侧提示词，不该出现在用户气泡里）。
+ *
+ * 来源：`TAORLoop` 在"工具错误后模型试图静默收尾"时向模型注入
+ * `[系统提示] 上一轮工具调用返回了错误或空结果。…`（user 角色）。该消息一旦落盘，
+ * 用户会在对话流里看到一条"自己没说过的 user 消息"（真机 C4 实证）。
+ *
+ * 这里只做**展示侧隔离**：命中即不进入消息列表（模型上下文不受影响）。
+ */
+export function isInternalNudgeMessage(content: string): boolean {
+  return content.trimStart().startsWith("[系统提示]");
+}
+
+/**
  * #28（2026-10-30）：识别"整包工具结果被当成 assistant 正文"的历史消息，并给一句可读摘要。
  *
  * 真机（`session_mvoqs1ho875ea6b95e`）：405 条 assistant 里 **144 条**正文是

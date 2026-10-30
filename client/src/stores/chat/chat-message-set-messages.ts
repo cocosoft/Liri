@@ -17,6 +17,7 @@ import {
 import { setSessionCache, enqueueSaveBlocks } from "./chat-history.slice";
 import {
   decodeToolResultContent,
+  isInternalNudgeMessage,
   summarizeSerializedToolResult,
 } from "@/utils/toolResultText";
 import { restorePlanTasks } from "@/utils/planRestore";
@@ -107,6 +108,14 @@ export function setMessagesImpl(
     const pendingToolMessages: Message[] = [];
 
     for (const msg of messages) {
+      // #30（2026-10-30）：内部诊断提示（`[系统提示] …`）是喂给模型的，不进用户消息流。
+      // 命中即丢弃 —— 否则用户会看到一条"自己没说过的 user 消息"（真机 C4 实证）。
+      if (
+        typeof msg.content === "string" &&
+        isInternalNudgeMessage(msg.content)
+      ) {
+        continue;
+      }
       if (msg.role === "tool" && msg.toolCallId) {
         const rawContent = typeof msg.content === "string" ? msg.content : "";
         // P0-2（2026-09-27 真机排查）：tool 消息 content 是"工具结果信封"JSON

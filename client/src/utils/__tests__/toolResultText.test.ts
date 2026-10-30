@@ -6,7 +6,10 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { summarizeSerializedToolResult } from '../toolResultText';
+import {
+  isInternalNudgeMessage,
+  summarizeSerializedToolResult,
+} from '../toolResultText';
 
 describe('summarizeSerializedToolResult（#28）', () => {
   it('失败结果 ⇒ 一句可读失败原因', () => {
@@ -37,5 +40,22 @@ describe('summarizeSerializedToolResult（#28）', () => {
     expect(summarizeSerializedToolResult('已完成 3/10 步')).toBeNull();
     expect(summarizeSerializedToolResult('[{"success":true}]')).toBeNull();
     expect(summarizeSerializedToolResult('{"data":')).toBeNull();
+  });
+});
+
+describe('isInternalNudgeMessage（#30 内部诊断不进用户消息流）', () => {
+  it('模型侧工具错误提醒 ⇒ true（含前导空白）', () => {
+    expect(
+      isInternalNudgeMessage(
+        '[系统提示] 上一轮工具调用返回了错误或空结果。不要直接结束对话…',
+      ),
+    ).toBe(true);
+    expect(isInternalNudgeMessage('  [系统提示] 改道继续')).toBe(true);
+  });
+
+  it('用户正常输入 / 其他文案 ⇒ false（不误伤）', () => {
+    expect(isInternalNudgeMessage('请分析这个项目的入口')).toBe(false);
+    expect(isInternalNudgeMessage('系统提示：见文档')).toBe(false);
+    expect(isInternalNudgeMessage('')).toBe(false);
   });
 });

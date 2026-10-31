@@ -19,7 +19,7 @@
 
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
-| 消息通道 | 27 | 16 | 11 |
+| 消息通道 | 27 | 18 | 9 |
 | 内建工具 | 69 | 49 | 20 |
 
 ## 消息通道
@@ -45,9 +45,9 @@
 | `msteams` | community | —（无专属测试） |
 | `zalo` | community | —（无专属测试） |
 | `yuanbao` | community | —（无专属测试） |
-| `whatsapp` | community | —（无专属测试） |
+| `whatsapp` | core | `app/tests/channels/whatsappConfig.test.ts` |
 | `signal` | core | `app/tests/tasks/swarm/AgentSwarm.test.ts` |
-| `matrix` | community | —（无专属测试） |
+| `matrix` | core | `app/tests/channels/matrixConfig.test.ts` |
 | `facebook` | community | —（无专属测试） |
 | `twitter` | community | —（无专属测试） |
 | `claude` | community | —（无专属测试） |

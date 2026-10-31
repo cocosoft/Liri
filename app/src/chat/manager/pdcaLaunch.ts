@@ -40,6 +40,31 @@ import type { PdcaLauncher } from '../launchers/PdcaLauncher';
 
 const logger = getLogger('chat:manager');
 
+/**
+ * 项目名/描述防护（2026-10-31 P1-4）：系统提示类文本（`你是 …` / `You are …` 模板句）
+ * **不得**成为项目名 —— 真机事故里垃圾项目名就是 AlwaysOn 提示词原文。
+ */
+const SYSTEM_PROMPT_LIKE_RE = /^\s*(你是|You are)/i;
+
+/** 项目名最大字符数（超出截断，避免把整段提示词落库） */
+const MAX_PROJECT_NAME_CHARS = 60;
+
+function looksLikeSystemPrompt(text: string | undefined): boolean {
+  return Boolean(text && SYSTEM_PROMPT_LIKE_RE.test(text));
+}
+
+/** 归一化项目名：空/系统提示类 ⇒ 回退；超长 ⇒ 截断 */
+function sanitizeProjectName(
+  raw: string | undefined,
+  fallback: string
+): string {
+  const text = (raw ?? '').replace(/\s+/g, ' ').trim();
+  if (!text || looksLikeSystemPrompt(text)) return fallback;
+  return text.length > MAX_PROJECT_NAME_CHARS
+    ? `${text.slice(0, MAX_PROJECT_NAME_CHARS)}…`
+    : text;
+}
+
 /** TAORLoop 上本簇唯一使用的接缝（self_verify 配方落点） */
 export interface VerifierConfigSink {
   applyVerifierConfig(config: ReturnType<typeof verifierConfigForRecipe>): void;
@@ -456,6 +481,10 @@ export class PdcaLaunchCoordinator {
   /**
    * P0: 自动建项目 — 检测到 goal + deliverables 时静默创建项目。
    * 返回值 = projectId（成功新建/关联）或 null（失败）；失败仅告警，不阻塞消息流（CS03）。
+   *
+   * 2026-10-31 P1（会话/项目隔离缺陷 R1）：归属写入**一律带守卫**，禁止无守卫覆写。
+   * 真机事故：`proj_1793402819293_54c217`（项目名 = 系统提示词原文）把 3 个不同目录的会话
+   * 全部改写成同一个 projectId。守卫见下 ①-⑤。
    */
   async autoCreateProject(
     session: ChatSession,
@@ -463,21 +492,74 @@ export class PdcaLaunchCoordinator {
     result: { hasGoal: boolean; deliverables: number; goalSummary?: string }
   ): Promise<string | null> {
     try {
+      // 守卫 ①（P1-5）：无产出物 ⇒ 不建项目（避免把"只有目标"的一轮当成项目）
+      if (!(result.deliverables > 0)) {
+        logger.warn('P0 自动建项目跳过：本轮无产出物', {
+          sessionId: session.id,
+          deliverables: result.deliverables,
+        });
+        return null;
+      }
+
       const dataDir = resolveDataDir();
       const workItemStore = new WorkItemStore(dataDir);
       const projectStore = createProjectStore(dataDir, workItemStore);
 
+      // 已有归属与会话工作区（守卫用）：metadata 优先，其次调用方传入
+      const existingProjectId =
+        typeof session.metadata?.projectId === 'string' &&
+        session.metadata.projectId.trim()
+          ? session.metadata.projectId
+          : undefined;
+      const metadataWorkspaceId =
+        typeof session.metadata?.workspaceId === 'string' &&
+        session.metadata.workspaceId.trim()
+          ? session.metadata.workspaceId
+          : undefined;
+      const bindingWorkspaceId = workspaceId ?? metadataWorkspaceId;
+
       // 项目名：优先使用引擎提取的 goal 摘要，否则用产出物数生成默认名
-      const projectName =
-        result.goalSummary || `项目 ${result.deliverables} 个产出`;
+      // 守卫 ②（P1-4）：系统提示类文本（「你是 …」模板句）不得成为项目名；超长截断
+      const fallbackName = `项目 ${result.deliverables} 个产出`;
+      const projectName = sanitizeProjectName(result.goalSummary, fallbackName);
+      const descriptionText =
+        result.goalSummary && !looksLikeSystemPrompt(result.goalSummary)
+          ? result.goalSummary
+          : `自动创建：${result.deliverables} 个产出物`;
       const newKeywords = this.extractKeywords(projectName);
       if (newKeywords.size > 0) {
-        const existingProjects = projectStore.list(workspaceId ?? 'default');
+        const existingProjects = projectStore.list(
+          bindingWorkspaceId ?? 'default'
+        );
         const matched = existingProjects.find((p) => {
           const pKeywords = this.extractKeywords(p.description ?? p.name);
           return this.jaccardSimilarity(newKeywords, pKeywords) >= 0.6;
         });
         if (matched) {
+          // 守卫 ③（P1-2）：已有归属且与命中项不一致 ⇒ **不覆盖**，保留原归属
+          if (existingProjectId && existingProjectId !== matched.id) {
+            logger.warn('项目归属冲突，保留原归属', {
+              sessionId: session.id,
+              existing: existingProjectId,
+              incoming: matched.id,
+            });
+            return existingProjectId;
+          }
+          // 守卫 ④（P1-1）：会话工作区与命中项目不一致 ⇒ 不跨工作区关联
+          if (
+            bindingWorkspaceId &&
+            matched.workspaceId !== bindingWorkspaceId
+          ) {
+            logger.warn('项目归属冲突，保留原归属', {
+              sessionId: session.id,
+              existing: existingProjectId ?? null,
+              incoming: matched.id,
+              workspaceId: bindingWorkspaceId,
+              projectWorkspaceId: matched.workspaceId,
+            });
+            return existingProjectId ?? null;
+          }
+          if (existingProjectId === matched.id) return existingProjectId;
           // 命中已有项目：关联 session，不新建
           if (!session.metadata) {
             (session as unknown as Record<string, unknown>).metadata = {};
@@ -493,11 +575,19 @@ export class PdcaLaunchCoordinator {
         }
       }
 
+      // 守卫 ⑤（P1-3）：未命中任何项目但会话已有归属 ⇒ 不新建（避免"每轮多一个项目"）
+      if (existingProjectId) {
+        logger.warn('已有项目归属，跳过自动新建', {
+          sessionId: session.id,
+          existing: existingProjectId,
+        });
+        return existingProjectId;
+      }
+
       const project = projectStore.create({
-        workspaceId: workspaceId ?? 'default',
+        workspaceId: bindingWorkspaceId ?? 'default',
         name: projectName,
-        description:
-          result.goalSummary || `自动创建：${result.deliverables} 个产出物`,
+        description: descriptionText,
         delaySandbox: true,
       });
 

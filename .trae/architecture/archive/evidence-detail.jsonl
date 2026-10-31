@@ -7158,3 +7158,13 @@
 {"id":"TAOR-OUTPUT-CAP-8192","k":"code#1","i":0,"c":"app/src/query/taor/helpers.ts"}
 {"id":"TAOR-OUTPUT-CAP-8192","k":"tests#0","i":0,"c":"app/tests/query/agentMaxOutputTokens.test.ts"}
 {"id":"TAOR-OUTPUT-CAP-8192","k":"changelog#0","i":0,"c":"修复：agent 轮默认输出上限提至 8192，大参数 file_write/file_edit 不再被 4096 截断"}
+{"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"title","i":0,"c":"写入成功后失效 grep 重复短路缓存（写后同 pattern 复查不再回陈旧零命中）"}
+{"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"source","i":0,"c":"代码可证 + 单测复现：GrepTool 以 (路径,pattern,include,输出模式,分页) 为键做 60s 短路，命中即回**上次真实结果**并置 skipped:true（正文提示\"请基于上次结果直接交付\"）。缓存不随写入失效 ⇒「写前搜 0 命中 → file_write → 写后同 pattern 复查」拿到写前的零命中，模型误判内容未写入"}
+{"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"source","i":1,"c":"。修复前新回归 1/1 失败，修复后 1/1 通过。"}
+{"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"reopenWhen","i":0,"c":"若未来把短路做成跨进程/持久缓存，需把本失效点同步进写入侧（bash/powershell 直写文件仍不失效，见台账观察项）。"}
+{"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"notes","i":0,"c":"修复：GrepTool 导出 invalidateGrepSearchCache()；file_write 成功后、file_edit 成功（replaceAll 与单次替换两处）后调用。反空转语义不变：无写入时仍短路并回上次真实结果；启动面静态图 268 未增长（两工具本就在工具面内）。"}
+{"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"code#0","i":0,"c":"app/src/tools/GrepTool/GrepTool.ts"}
+{"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"code#1","i":0,"c":"app/src/tools/FileWriteTool/FileWriteTool.ts"}
+{"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"code#2","i":0,"c":"app/src/tools/FileEditTool/FileEditTool.ts"}
+{"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"tests#0","i":0,"c":"app/tests/tools/grepSearchCacheInvalidation.test.ts"}
+{"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"changelog#0","i":0,"c":"修复：文件写入/编辑后失效 grep 重复短路缓存，写后复查不再返回陈旧零命中"}

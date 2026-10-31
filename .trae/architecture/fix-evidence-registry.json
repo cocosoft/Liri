@@ -14955,6 +14955,36 @@
       ],
       "reopenWhen": "若传输层默认 max_tokens 调整或模型支持「推理与工具参数分预算」，可回调 TAOR_DEFAULT_MAX_OUTPUT_TOKENS。（全文见 archive/evidence-detail.jsonl#TAOR-OUTPUT-CAP-8192）",
       "notes": "修复：_collectCallModel 每轮透传 resolveAgentMaxOutputTokens（有效值 > budgetConfig > 8192）；C1 翻倍改走 nextDoubledOutputCap（与默认同源，封顶 64k），去掉两处硬编码 4096/64000。未改压缩/恢复语义；用户显式 b…（全文见 archive/evidence-detail.jsonl#TAOR-OUTPUT-CAP-8192）"
+    },
+    {
+      "id": "GREP-CACHE-INVALIDATE-ON-WRITE",
+      "title": "写入成功后失效 grep 重复短路缓存（写后同 pattern 复查不再回陈旧零命中）",
+      "source": "代码可证 + 单测复现：GrepTool 以 (路径,pattern,include,输出模式,分页) 为键做 60s 短路，命中即回**上次真实结果**并置 skipped:true（正文提示\"请基于上次结果直接交付\"）。缓存不随写入失效 ⇒「写前搜 0 命中 → file_write → 写后同 pattern 复查」拿到写前的零命中，模型误判内容未写…",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/GrepTool/GrepTool.ts",
+        "app/src/tools/FileWriteTool/FileWriteTool.ts",
+        "app/src/tools/FileEditTool/FileEditTool.ts"
+      ],
+      "tests": [
+        "app/tests/tools/grepSearchCacheInvalidation.test.ts"
+      ],
+      "changelog": [
+        "修复：文件写入/编辑后失效 grep 重复短路缓存，写后复查不再返回陈旧零命中"
+      ],
+      "reopenWhen": "若未来把短路做成跨进程/持久缓存，需把本失效点同步进写入侧（bash/powershell 直写文件仍不失效，见台账观察项）。（全文见 archive/evidence-detail.jsonl#GREP-CACHE-INVALIDATE-ON-WRITE）",
+      "notes": "修复：GrepTool 导出 invalidateGrepSearchCache()；file_write 成功后、file_edit 成功（replaceAll 与单次替换两处）后调用。反空转语义不变：无写入时仍短路并回上次真实结果；启动面静态图 268 未增长（两工具本就在工具面内）。（全文见 archive/evidence-detail.jsonl#GREP-CACHE-INVALIDATE-ON-WRITE）"
     }
   ]
 }

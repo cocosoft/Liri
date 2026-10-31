@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **GREP-CACHE-INVALIDATE-ON-WRITE**：写入后失效 grep 短路缓存（写后复查不再回陈旧结果） —— 验证 tsc0|unit1|tools1347|eslint0；基线 grep 短路缓存不随写入失效 ⇒ 写后同 pattern 复查回写前零命中且提示勿再搜（详情见 archive/evidence-detail.jsonl#GREP-CACHE-INVALIDATE-ON-WRITE）
 - ✅ **TAOR-OUTPUT-CAP-8192**：TAOR 默认输出上限 4096→8192（大参数工具调用不再被截断） —— 验证 tsc0|unit5|query468|chat750|eslint0；基线 单日 80 次 file_write/file_edit 缺参：输出预算耗于推理，参数在 4096 处截断且不触发翻倍（详情见 archive/evidence-detail.jsonl#TAOR-OUTPUT-CAP-8192）
 - ✅ **TOOL-RELATIVE-PATH-CTX-CWD**：工具相对路径按上下文 cwd 解析（不再误判任务工作区目录缺失） —— 验证 tsc0|unit4|tools1346|eslint0；基线 app.log：pdca_* 步骤相对 output/01_work 被解析到代码仓根，单窗口 100+ 次「搜索目录不存在」（详情见 archive/evidence-detail.jsonl#TOOL-RELATIVE-PATH-CTX-CWD）
 - ✅ **MAIL-DELETE-AS-READ-NOTICE**：邮件删除后如实提示「仅标记已读」（前端承接 data.note） —— 验证 client-tsc0|eslint0(0 error)|backend-unchanged；基线 删除只 markRead 且前端不读 data.note ⇒ 静默"假删除"，邮件下次同步复现（详情见 archive/evidence-detail.jsonl#MAIL-DELETE-AS-READ-NOTICE）

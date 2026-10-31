@@ -19,7 +19,7 @@
 
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
-| 消息通道 | 27 | 18 | 9 |
+| 消息通道 | 27 | 27 | 0 |
 | 内建工具 | 69 | 49 | 20 |
 
 ## 消息通道
@@ -32,7 +32,7 @@
 | `qq` | core | `app/tests/channels/budgetInlineRelief.test.ts` |
 | `dingtalk` | core | `app/tests/channels/channelSecretDisplay.test.ts` |
 | `feishu` | core | `app/tests/channels/budgetInlineRelief.test.ts` |
-| `wechat` | community | —（无专属测试） |
+| `wechat` | core | `app/tests/channels/wechatConfig.test.ts` |
 | `slack` | core | `app/tests/channels/budgetInlineRelief.test.ts` |
 | `line` | core | `app/tests/channels/ChannelPrompt.test.ts` |
 | `irc` | core | `app/tests/channels/ChannelPrompt.test.ts` |
@@ -42,17 +42,17 @@
 | `webhook` | core | `app/tests/channels/channelCapabilityContract.test.ts` |
 | `wecom` | core | `app/tests/http/channelListReconciliation.test.ts` |
 | `googlechat` | core | `app/tests/channels/ChannelContract.test.ts` |
-| `msteams` | community | —（无专属测试） |
-| `zalo` | community | —（无专属测试） |
-| `yuanbao` | community | —（无专属测试） |
+| `msteams` | core | `app/tests/channels/msteamsConfig.test.ts` |
+| `zalo` | core | `app/tests/channels/zaloConfig.test.ts` |
+| `yuanbao` | core | `app/tests/channels/yuanbaoConfig.test.ts` |
 | `whatsapp` | core | `app/tests/channels/whatsappConfig.test.ts` |
 | `signal` | core | `app/tests/tasks/swarm/AgentSwarm.test.ts` |
 | `matrix` | core | `app/tests/channels/matrixConfig.test.ts` |
-| `facebook` | community | —（无专属测试） |
-| `twitter` | community | —（无专属测试） |
-| `claude` | community | —（无专属测试） |
-| `mattermost` | community | —（无专属测试） |
-| `bluebubbles` | community | —（无专属测试） |
+| `facebook` | core | `app/tests/channels/facebookmessengerConfig.test.ts` |
+| `twitter` | core | `app/tests/channels/twitterConfig.test.ts` |
+| `claude` | core | `app/tests/channels/claudeConfig.test.ts` |
+| `mattermost` | core | `app/tests/channels/mattermostConfig.test.ts` |
+| `bluebubbles` | core | `app/tests/channels/bluebubblesConfig.test.ts` |
 
 ## 内建工具
 

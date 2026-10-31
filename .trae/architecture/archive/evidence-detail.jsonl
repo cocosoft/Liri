@@ -7168,3 +7168,13 @@
 {"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"code#2","i":0,"c":"app/src/tools/FileEditTool/FileEditTool.ts"}
 {"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"tests#0","i":0,"c":"app/tests/tools/grepSearchCacheInvalidation.test.ts"}
 {"id":"GREP-CACHE-INVALIDATE-ON-WRITE","k":"changelog#0","i":0,"c":"修复：文件写入/编辑后失效 grep 重复短路缓存，写后复查不再返回陈旧零命中"}
+{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"title","i":0,"c":"崩溃修复不再给「在飞会话」合成 canceled closer（消除同一 turn 双 end）"}
+{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"source","i":0,"c":"取证 2026-10-31 真机：read() 无条件触发首读修复，_repairChecked 为实例级且实例随会话切换重建 ⇒ 其它读者给进行中的轮次补 turn/end canceled。session_mvmabftweb74e8df2e 的 turn 25：19:31 start → 19:53 合成 canceled（seq 7067）→ "}
+{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"source","i":1,"c":"19:55 真实 tool_use end（seq 7336）。同类合计 8 会话 × 各 10 次。"}
+{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"reopenWhen","i":0,"c":"若引入真正跨进程的在飞租约（写者心跳文件），可把进程内登记表替换为该租约；届时需重估 60 分钟窗口。"}
+{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"notes","i":0,"c":"口径 A（用户裁定）：EventLogStorage.append 成功后 trackTurnLifecycle（turn/start 记、turn/end 清）；commitInterruptedRepair 见窗口内未闭合轮即跳过（debug 留痕）。进程崩溃 ⇒ 表随进程消失 ⇒ 下次启动照常修复；超 60 分钟的未闭合轮按泄漏处理（异常中断不写 "}
+{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"notes","i":1,"c":"end），避免永久不修。torn-tail 截断不受影响（独立方法）。"}
+{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"code#0","i":0,"c":"app/src/session/storage/EventLogRepair.ts"}
+{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"code#1","i":0,"c":"app/src/session/storage/EventLogStorage.ts"}
+{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"tests#0","i":0,"c":"app/tests/session/eventLogRepairInFlight.test.ts"}
+{"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"changelog#0","i":0,"c":"修复：崩溃修复不再给在飞会话补 canceled 结束事件（消除同一 turn 双 end）"}

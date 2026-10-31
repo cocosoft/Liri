@@ -7199,3 +7199,12 @@
 {"id":"GREP-MATCH-LINE-CAP","k":"code#0","i":0,"c":"app/src/tools/GrepTool/grep.ts"}
 {"id":"GREP-MATCH-LINE-CAP","k":"tests#0","i":0,"c":"app/tests/tools/GrepTool/grepMatchLineCap.test.ts"}
 {"id":"GREP-MATCH-LINE-CAP","k":"changelog#0","i":0,"c":"修复：grep 命中行超过 2k 字符时按命中位置截断，单行大文件不再整行进上下文"}
+{"id":"PRE-SEND-BUDGET-GATE","k":"title","i":0,"c":"TAOR 预发送体积闸（达窗口 70% 先压缩再发，不再只靠 400 后被动恢复）"}
+{"id":"PRE-SEND-BUDGET-GATE","k":"source","i":0,"c":"取证 2026-10-31 真机：上下文溢出 400 单日 155 次、请求最大 1.79M tokens（窗口 1.05M）；此前只有事后 compact_and_retry，每轮白付一次被拒请求 + 一次全量压缩。"}
+{"id":"PRE-SEND-BUDGET-GATE","k":"reopenWhen","i":0,"c":"若工具结果预算统一层（ToolResultBudget/ToolResultStorageHook）接线完成，可把本闸降为兜底并调低触发频率。"}
+{"id":"PRE-SEND-BUDGET-GATE","k":"notes","i":0,"c":"实现：beforeReasoning 调 ensureContextWithinBudget（helpers）——发送前 estimateMessagesTokens 估算本轮 messages，达 resolveContextWindow×0.7 即先 queryEngine.compactIfNeeded；无 sessionId/窗口无效直通。顺带把 "}
+{"id":"PRE-SEND-BUDGET-GATE","k":"notes","i":1,"c":"C1 truncateHeadForRetry 外迁 helpers.truncateMessagesHead（逻辑与日志不变），TAORLoop 1990 行。"}
+{"id":"PRE-SEND-BUDGET-GATE","k":"code#0","i":0,"c":"app/src/query/TAORLoop.ts"}
+{"id":"PRE-SEND-BUDGET-GATE","k":"code#1","i":0,"c":"app/src/query/taor/helpers.ts"}
+{"id":"PRE-SEND-BUDGET-GATE","k":"tests#0","i":0,"c":"app/tests/query/preSendBudgetGate.test.ts"}
+{"id":"PRE-SEND-BUDGET-GATE","k":"changelog#0","i":0,"c":"新增：TAOR 发送前体积闸（窗口 70% 先压缩），减少上下文溢出 400 与重复压缩"}

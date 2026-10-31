@@ -289,8 +289,12 @@ describe('pruneEventThinkingFile（预演 / 执行 / 不变量）', () => {
 describe('pruneEventThinking（脚本：扫描 / 备份 / 审计）', () => {
   it('--apply 后才建备份目录并写 audit.jsonl；预演不写', () => {
     const dir = makeSession('sess_script', buildEvents(4));
-    ageFile(join(dir, 'events.jsonl'), 1);
     const now = new Date('2026-10-30T12:00:00Z');
+    // 2026-11-01 修复（时间炸弹）：原用 `ageFile(..., 1)`（相对**真实**系统时间）配固定 `now`，
+    // 系统日期一旦晚于 `now` + idleMinutes，文件就被判成"最近写入"⇒ `applied` 恒 0，
+    // 与代码无关地稳定假红。改为相对 `now` 的绝对 mtime。
+    const aged = new Date(now.getTime() - 2 * 24 * 3600 * 1000);
+    utimesSync(join(dir, 'events.jsonl'), aged, aged);
 
     const preview = pruneEventThinking(root, {
       apply: false,

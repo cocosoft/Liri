@@ -26,7 +26,7 @@
 
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
-| 消息通道 | 27 | 16 | 11 |
+| 消息通道 | 27 | 19 | 8 |
 | 内建工具 | 69 | 41 | 28 |
 
 ## 消息通道
@@ -34,13 +34,13 @@
 | 标识 | 支持等级 | 专属测试证据 |
 |---|---|---|
 | `mobile` | core | `app/tests/channels/mobileAudit.test.ts`（测试文件名） |
-| `telegram` | community | —（无专属测试） |
-| `discord` | community | —（无专属测试） |
+| `telegram` | core | `app/tests/channels/telegramRequestShape.test.ts`（测试文件名） |
+| `discord` | core | `app/tests/channels/discordRequestShape.test.ts`（测试文件名） |
 | `qq` | core | `app/tests/channels/qqFileTransferPayload.test.ts`（测试文件名） |
 | `dingtalk` | core | `app/tests/channels/dingtalkRobotMessage.test.ts`（测试文件名） |
 | `feishu` | core | `app/tests/channels/feishuCardAction.test.ts`（测试文件名） |
 | `wechat` | core | `app/tests/channels/wechatConfig.test.ts`（测试文件名） |
-| `slack` | community | —（无专属测试） |
+| `slack` | core | `app/tests/channels/slackRequestShape.test.ts`（测试文件名） |
 | `line` | community | —（无专属测试） |
 | `irc` | community | —（无专属测试） |
 | `nostr` | community | —（无专属测试） |

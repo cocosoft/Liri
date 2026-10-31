@@ -75,12 +75,13 @@ describe('按需加载器注册表：宿主生成物接线', () => {
     registerKernelLazyLoaders();
     const ids = listLazyLoaderIds();
 
-    // 开发默认（default 全量）⇒ 8 个基础 + ink/ui
+    // 开发默认（default 全量）⇒ 7 个基础 + ink/ui
+    // 2026-10-31（S6 第一步）：`lsp` 已从 BASE_LAZY_LOADERS 移除（轨 B `app/src/lsp/**` 零静态消费者，
+    // 工具面改由 `tools/lsp/validation.ts` 自持校验）⇒ 本断言同步去掉 'lsp'。
     for (const id of [
       'featureflags',
       'memory',
       'chronos',
-      'lsp',
       'mcp',
       'security',
       'sandbox',

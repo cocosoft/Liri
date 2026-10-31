@@ -1,0 +1,748 @@
+{
+  "version": 1,
+  "names": {
+    "AIContextInjector": [
+      "app/src/security/rollback/AIContextInjector.ts"
+    ],
+    "AgentRegistry": [
+      "app/src/agent/registry/AgentRegistry.ts"
+    ],
+    "AgentRoleStore": [
+      "app/src/workspace/AgentRoleStore.ts"
+    ],
+    "AnalyticsEventQueue": [
+      "app/src/analytics/AnalyticsEventQueue.ts"
+    ],
+    "AnalyticsManager": [
+      "app/src/analytics/AnalyticsManager.ts"
+    ],
+    "AnalyticsPersistenceService": [
+      "app/src/analytics/AnalyticsPersistenceService.ts"
+    ],
+    "AppCore": [
+      "app/src/bootstrap/AppCoreOTelHelper.ts"
+    ],
+    "AsyncHookRegistry": [
+      "app/src/hooks/utils/AsyncHookRegistry.ts"
+    ],
+    "AutoDream": [
+      "app/src/chronos/autoDream/AutoDream.ts"
+    ],
+    "BackupCommand": [
+      "app/src/commands/backup/BackupCommand.ts"
+    ],
+    "BootPipeline": [
+      "app/src/bootstrap/pipeline/BootPipeline.ts"
+    ],
+    "BootPipelineIntegrator": [
+      "app/src/bootstrap/pipeline/BootPipelineIntegrator.ts"
+    ],
+    "Bridge": [
+      "app/src/commands/bridge/Bridge.ts"
+    ],
+    "BriefCommand": [
+      "app/src/commands/builtin/brief.ts"
+    ],
+    "BuddyDream": [
+      "app/src/buddy/dreamIntegration.ts"
+    ],
+    "ChannelCommand": [
+      "app/src/commands/channel/ChannelCommand.ts"
+    ],
+    "Chat": [
+      "app/src/commands/builtin/chat/Chat.ts"
+    ],
+    "ChronosCLI": [
+      "app/src/chronos/cli/ChronosCLI.ts"
+    ],
+    "ChronosCleanup": [
+      "app/src/chronos/maintenance/cleanup.ts"
+    ],
+    "ChronosMonitor": [
+      "app/src/chronos/maintenance/ChronosMonitor.ts"
+    ],
+    "CleanupManager": [
+      "app/src/security/rollback/CleanupManager.ts"
+    ],
+    "CommandAliasRegistry": [
+      "app/src/cli/handlers/CommandAliasRegistry.ts"
+    ],
+    "CommandHistoryManager": [
+      "app/src/commands/history/CommandHistoryManager.ts"
+    ],
+    "CommandLoader": [
+      "app/src/commands/loader/CommandLoader.ts"
+    ],
+    "CommandManager": [
+      "app/src/commands/manager/CommandManager.ts"
+    ],
+    "CommandParser": [
+      "app/src/commands/parser/CommandParser.ts"
+    ],
+    "CommandPrompt": [
+      "app/src/commands/prompt/CommandPrompt.ts"
+    ],
+    "CommandRegistry": [
+      "app/src/commands/registry/CommandRegistry.ts"
+    ],
+    "ConsoleSink": [
+      "app/src/analytics/ConsoleSink.ts"
+    ],
+    "ConsolidationLock": [
+      "app/src/chronos/autoDream/ConsolidationLock.ts"
+    ],
+    "Coordinator": [
+      "app/src/runtime/coordinator.ts"
+    ],
+    "Copy": [
+      "app/src/commands/builtin/copy/Copy.ts"
+    ],
+    "CoreHooks": [
+      "app/src/hooks/core/CoreHooks.ts"
+    ],
+    "CouncilEngine": [
+      "app/src/workspace/CouncilEngine.ts"
+    ],
+    "CouncilOrchestrator": [
+      "app/src/workspace/CouncilOrchestrator.ts"
+    ],
+    "CronTasksLock": [
+      "app/src/chronos/CronTasksLock.ts"
+    ],
+    "DIContainer": [
+      "packages/kernel/src/core/di/ContainerScope.ts",
+      "packages/kernel/src/core/di/DIContainer.ts"
+    ],
+    "DataCollector": [
+      "app/src/analytics/DataCollector.ts"
+    ],
+    "DatadogMetricsClient": [
+      "app/src/analytics/DatadogMetricsClient.ts"
+    ],
+    "DeliveryManager": [
+      "app/src/chronos/delivery/DeliveryManager.ts"
+    ],
+    "DependencyGraphScanner": [
+      "app/src/tools/DependencyGraphScanner.ts"
+    ],
+    "DiagnosticManager": [
+      "app/src/hooks/utils/DiagnosticManager.ts"
+    ],
+    "DoctorCommand": [
+      "app/src/commands/doctor/DoctorCommand.ts"
+    ],
+    "EnhancedOAuthClient": [
+      "app/src/oauth/services/EnhancedOAuthClient.ts"
+    ],
+    "ErrorHandler": [
+      "packages/kernel/src/core/utils/ErrorHandler.ts"
+    ],
+    "FeatureCommandLoader": [
+      "app/src/commands/loader/FeatureCommandLoader.ts"
+    ],
+    "Feedback": [
+      "app/src/components/Feedback.tsx"
+    ],
+    "FileOperationTracker": [
+      "app/src/security/rollback/FileOperationTracker.ts"
+    ],
+    "FirstPartyEventLogger": [
+      "app/src/analytics/FirstPartyEventLogger.ts"
+    ],
+    "GlobalCronScheduler": [
+      "app/src/tasks/cron/GlobalCronScheduler.ts"
+    ],
+    "HookDiagnosticService": [
+      "app/src/hooks/utils/HookDiagnosticService.ts"
+    ],
+    "HookExecutor": [
+      "app/src/hooks/core/HookExecutor.ts"
+    ],
+    "HookRegistry": [
+      "app/src/hooks/core/HookRegistry.ts"
+    ],
+    "InsightsEngine": [
+      "app/src/analytics/InsightsEngine.ts"
+    ],
+    "InteractiveCommandExecutor": [
+      "app/src/commands/interactive/InteractiveCommandExecutor.ts"
+    ],
+    "LocalSettings": [
+      "app/src/config/settings/localSettings.ts"
+    ],
+    "LogsCommand": [
+      "app/src/commands/logs/LogsCommand.ts"
+    ],
+    "MDMSettings": [
+      "app/src/config/settings/mdm/settings.ts"
+    ],
+    "MemoryCLI": [
+      "app/src/memory/cli/MemoryCLI.ts"
+    ],
+    "MemoryExtractionHook": [
+      "app/src/hooks/postSampling/MemoryExtractionHook.ts"
+    ],
+    "MigrateCommand": [
+      "app/src/commands/migrate/MigrateCommand.ts"
+    ],
+    "NativeInstaller": [
+      "app/src/chronos/maintenance/nativeInstaller.ts"
+    ],
+    "OAuthDiscovery": [
+      "app/src/oauth/services/OAuthDiscovery.ts"
+    ],
+    "OAuthStorage": [
+      "app/src/oauth/services/OAuthStorage.ts"
+    ],
+    "Onboard": [
+      "app/src/commands/builtin/onboard/Onboard.ts"
+    ],
+    "OnboardHints": [
+      "app/src/commands/builtin/onboard/OnboardHints.ts"
+    ],
+    "OrchIntelligence": [
+      "app/src/workspace/OrchIntelligence.ts"
+    ],
+    "PerformanceAnalyzer": [
+      "app/src/monitoring/performance/PerformanceAnalyzer.ts"
+    ],
+    "PermissionManager": [
+      "app/src/security/PermissionManager.ts"
+    ],
+    "Plugins": [
+      "app/src/commands/builtin/plugins/Plugins.ts"
+    ],
+    "PolicySettings": [
+      "app/src/config/settings/policySettings.ts"
+    ],
+    "PostSamplingHookManager": [
+      "app/src/hooks/managers/PostSamplingHookManager.ts"
+    ],
+    "ProjectSettings": [
+      "app/src/config/settings/projectSettings.ts"
+    ],
+    "PromptSuggestion": [
+      "app/src/promptSuggestion/PromptSuggestion.ts"
+    ],
+    "PromptSuggestionAnalytics": [
+      "app/src/promptSuggestion/Analytics.ts"
+    ],
+    "PromptSuggestionConfig": [
+      "app/src/promptSuggestion/PromptSuggestionConfig.ts"
+    ],
+    "RedactMiddleware": [
+      "app/src/security/redact/RedactMiddleware.ts"
+    ],
+    "RedoManager": [
+      "app/src/security/rollback/RedoManager.ts"
+    ],
+    "RollbackIntegration": [
+      "app/src/security/rollback/RollbackIntegration.ts"
+    ],
+    "RuleEngine": [
+      "app/src/workspace/RuleEngine.ts"
+    ],
+    "SecurityManager": [
+      "app/src/hooks/utils/SecurityManager.ts"
+    ],
+    "SnapshotStorage": [
+      "app/src/security/rollback/SnapshotStorage.ts"
+    ],
+    "StateMigrator": [
+      "app/src/system/state/StateMigrator.ts"
+    ],
+    "SuggestionFilter": [
+      "app/src/promptSuggestion/SuggestionFilter.ts"
+    ],
+    "TokenManager": [
+      "app/src/oauth/services/TokenManager.ts"
+    ],
+    "ToolHookManager": [
+      "app/src/hooks/managers/ToolHookManager.ts"
+    ],
+    "ToolUseSummaryGenerator": [
+      "app/src/chat/services/ToolUseSummaryGenerator.ts"
+    ],
+    "UndoManager": [
+      "app/src/security/rollback/UndoManager.ts"
+    ],
+    "UserSettings": [
+      "app/src/config/settings/userSettings.ts"
+    ],
+    "Workspace": [
+      "app/src/workspaces/commands/lifecycle.ts",
+      "app/src/workspaces/commands/session.ts"
+    ],
+    "agent-events": [
+      "app/src/agent/events/index.ts"
+    ],
+    "agentHandler": [
+      "app/src/cli/handlers/agentHandler.ts"
+    ],
+    "agent\\auth-profiles\\index": [
+      "app/src/agent/auth-profiles/index.ts"
+    ],
+    "agent\\remote\\RemoteAgentExecutor": [
+      "app/src/agent/remote/RemoteAgentExecutor.ts"
+    ],
+    "agent\\remote\\RemoteAgentProtocol": [
+      "app/src/agent/remote/RemoteAgentProtocol.ts"
+    ],
+    "ai\\AIModelManager": [
+      "app/src/ai/AIModelManager.ts"
+    ],
+    "ai\\interfaces\\ToolExecutor": [
+      "app/src/ai/interfaces/ToolExecutor.ts"
+    ],
+    "ai\\prompts\\SystemPromptBuilder": [
+      "app/src/ai/prompts/SystemPromptBuilder.ts"
+    ],
+    "ai\\providers\\AzureOpenAIProvider": [
+      "app/src/ai/providers/AzureOpenAIProvider.ts"
+    ],
+    "ai\\providers\\BedrockProvider": [
+      "app/src/ai/providers/BedrockProvider.ts"
+    ],
+    "analytics": [
+      "app/src/analytics/AnalyticsService.ts"
+    ],
+    "api-logging": [
+      "app/src/services/api/logging.ts"
+    ],
+    "app": [
+      "app/src/utils/log.ts"
+    ],
+    "authHandler": [
+      "app/src/cli/handlers/authHandler.ts"
+    ],
+    "autoModeHandler": [
+      "app/src/cli/handlers/autoModeHandler.ts"
+    ],
+    "batch-test": [
+      "app/src/scripts/batch-test.ts"
+    ],
+    "bridge\\api\\BridgeApi": [
+      "app/src/bridge/api/BridgeApi.ts"
+    ],
+    "bridge\\api\\BridgeApiClient": [
+      "app/src/bridge/api/BridgeApiClient.ts"
+    ],
+    "bridge\\api\\SimulatedBridgeApi": [
+      "app/src/bridge/api/SimulatedBridgeApi.ts"
+    ],
+    "bridge\\messaging\\BridgeMessaging": [
+      "app/src/bridge/messaging/BridgeMessaging.ts"
+    ],
+    "buddy\\conditional": [
+      "app/src/buddy/conditional.ts"
+    ],
+    "chat\\services\\SecurityService": [
+      "app/src/chat/services/SecurityService.ts"
+    ],
+    "chat\\services\\StreamService": [
+      "app/src/chat/services/StreamService.ts"
+    ],
+    "chat\\tool\\SmartToolIntegrator": [
+      "app/src/chat/tool/SmartToolIntegrator.ts"
+    ],
+    "chronos\\ChronosDatabase": [
+      "app/src/chronos/ChronosDatabase.ts"
+    ],
+    "chronos\\heartbeat\\HeartbeatMonitor": [
+      "app/src/chronos/heartbeat/HeartbeatMonitor.ts"
+    ],
+    "chronos\\isolated-agent\\IsolatedAgentExecutor": [
+      "app/src/chronos/isolated-agent/IsolatedAgentExecutor.ts"
+    ],
+    "chronos\\service\\CronTaskStore": [
+      "app/src/chronos/service/CronTaskStore.ts"
+    ],
+    "chronos\\service\\TaskJitterService": [
+      "app/src/chronos/service/TaskJitterService.ts"
+    ],
+    "cli-interactive": [
+      "app/src/cli/interactive.ts"
+    ],
+    "cli:simple-ink-cli.tsx": [
+      "app/src/cli/simple-ink-cli.tsx"
+    ],
+    "cliHandler": [
+      "app/src/cli/handlers/cliHandler.ts"
+    ],
+    "cli\\argv\\index": [
+      "app/src/cli/argv/index.ts"
+    ],
+    "cli\\index": [
+      "app/src/cli/index.ts"
+    ],
+    "cli\\ports\\index": [
+      "app/src/cli/ports/index.ts"
+    ],
+    "cli\\program\\index": [
+      "app/src/cli/program/index.ts"
+    ],
+    "commands\\builtin\\memory\\Memory": [
+      "app/src/commands/builtin/memory/Memory.ts"
+    ],
+    "commands\\builtin\\theme\\themeManager": [
+      "app/src/commands/builtin/theme/themeManager.ts"
+    ],
+    "commands\\model\\model": [
+      "app/src/commands/model/model.ts"
+    ],
+    "commands\\pipeline\\CommandPipeline": [
+      "app/src/commands/pipeline/CommandPipeline.ts"
+    ],
+    "configHandler": [
+      "app/src/cli/handlers/configHandler.ts"
+    ],
+    "constants\\oauth": [
+      "app/src/constants/oauth.ts"
+    ],
+    "core\\di\\AutoWiringEngine": [
+      "packages/kernel/src/core/di/AutoWiringEngine.ts"
+    ],
+    "debug": [
+      "app/src/utils/debug.ts"
+    ],
+    "diagnoseHandler": [
+      "app/src/cli/handlers/diagnoseHandler.ts"
+    ],
+    "error\\api\\APISceneClassifier": [
+      "app/src/error/api/APISceneClassifier.ts"
+    ],
+    "exit": [
+      "app/src/cli/exit.ts",
+      "app/src/commands/builtin/exit/index.ts"
+    ],
+    "exitHandler": [
+      "app/src/cli/exitHandler.ts"
+    ],
+    "governance\\managers\\GovernanceManager": [
+      "app/src/governance/managers/GovernanceManager.ts"
+    ],
+    "gracefulShutdown": [
+      "app/src/utils/gracefulShutdown.ts"
+    ],
+    "healthcheck": [
+      "app/src/healthcheck.ts"
+    ],
+    "hooksSettings": [
+      "app/src/hooks/utils/hooksSettings.ts"
+    ],
+    "hooks\\managers\\HookConfigManager": [
+      "app/src/hooks/managers/HookConfigManager.ts"
+    ],
+    "ink\\ink\\focus": [
+      "app/src/ink/ink/focus.ts"
+    ],
+    "keybindings:chordInterceptor.tsx": [
+      "app/src/keybindings/ChordInterceptor.tsx"
+    ],
+    "keybindings:keybindingProviderSetup.tsx": [
+      "app/src/keybindings/KeybindingProviderSetup.tsx"
+    ],
+    "keybindings\\keybindingManager": [
+      "app/src/keybindings/keybindingManager.ts"
+    ],
+    "lsp\\EnhancedLSPManager": [
+      "app/src/lsp/EnhancedLSPManager.ts"
+    ],
+    "lsp\\LSPServerManager": [
+      "app/src/lsp/LSPServerManager.ts"
+    ],
+    "main": [
+      "app/src/bootstrap/buildVariantBanner.ts",
+      "app/src/bootstrap/preflight.ts",
+      "app/src/cli/trustLevelArgs.ts",
+      "app/src/main.ts",
+      "app/src/monitoring/logs/Logger.ts"
+    ],
+    "mcpCommand": [
+      "app/src/mcp/cli/mcpCommand.ts"
+    ],
+    "mcpHandler": [
+      "app/src/cli/handlers/mcpHandler.ts"
+    ],
+    "media\\store\\MediaStore": [
+      "app/src/media/store/MediaStore.ts"
+    ],
+    "media\\temp\\TempMediaManager": [
+      "app/src/media/temp/TempMediaManager.ts"
+    ],
+    "modules\\ModuleDefinitions": [
+      "app/src/modules/ModuleDefinitions.ts"
+    ],
+    "monitoring\\alerts\\AlertManager": [
+      "app/src/monitoring/alerts/AlertManager.ts"
+    ],
+    "monitoring\\integration\\SystemMonitor": [
+      "app/src/monitoring/integration/SystemMonitor.ts"
+    ],
+    "monitoring\\logs\\diagnostic\\LogDiagnostic": [
+      "app/src/monitoring/logs/diagnostic/LogDiagnostic.ts"
+    ],
+    "monitoring\\logs\\tail\\LogTail": [
+      "app/src/monitoring/logs/tail/LogTail.ts"
+    ],
+    "monitoring\\otel\\MetricsBridge": [
+      "app/src/monitoring/otel/MetricsBridge.ts"
+    ],
+    "monitoring\\otel\\OTelLogger": [
+      "app/src/monitoring/otel/OTelLogger.ts"
+    ],
+    "monitoring\\otel\\OTelMetrics": [
+      "app/src/monitoring/otel/OTelMetrics.ts"
+    ],
+    "monitoring\\otel\\OTelTracing": [
+      "app/src/monitoring/otel/OTelTracing.ts"
+    ],
+    "monitoring\\otel\\TraceBridge": [
+      "app/src/monitoring/otel/TraceBridge.ts"
+    ],
+    "monitoring\\tracing\\SessionTracing": [
+      "app/src/monitoring/tracing/SessionTracing.ts"
+    ],
+    "oauth\\services\\OAuthService": [
+      "app/src/oauth/services/OAuthService.ts"
+    ],
+    "oauth\\types\\OAuthTypes": [
+      "app/src/oauth/types/OAuthTypes.ts"
+    ],
+    "permission\\EnhancedPermissionEngine": [
+      "app/src/permission/EnhancedPermissionEngine.ts"
+    ],
+    "permissionsLoader": [
+      "app/src/permission/permissionsLoader.ts"
+    ],
+    "plugify": [
+      "app/src/scripts/plugify.ts"
+    ],
+    "pluginHandler": [
+      "app/src/cli/handlers/pluginHandler.ts"
+    ],
+    "plugins\\bundled\\BundledPluginManager": [
+      "app/src/plugins/bundled/BundledPluginManager.ts"
+    ],
+    "plugins\\managers\\PluginManager": [
+      "app/src/plugins/managers/PluginManager.ts"
+    ],
+    "provider": [
+      "app/src/commands/provider/provider.ts"
+    ],
+    "pyapp": [
+      "app/src/pyapp.ts"
+    ],
+    "query\\deps": [
+      "app/src/query/deps.ts"
+    ],
+    "remote\\RemoteFileSyncService": [
+      "app/src/remote/RemoteFileSyncService.ts"
+    ],
+    "repl": [
+      "app/src/entrypoints/repl.ts"
+    ],
+    "resourceGovernor": [
+      "app/src/resourceGovernor/index.ts"
+    ],
+    "safeLog": [
+      "app/src/error/safeLog.ts"
+    ],
+    "sandbox\\WorkspaceManager": [
+      "app/src/sandbox/WorkspaceManager.ts"
+    ],
+    "security-scan": [
+      "app/src/scripts/security-scan.ts"
+    ],
+    "security\\GroupPolicy": [
+      "app/src/security/GroupPolicy.ts"
+    ],
+    "security\\services\\CredentialManager": [
+      "app/src/security/services/CredentialManager.ts"
+    ],
+    "security\\services\\SensitiveDataService": [
+      "app/src/security/services/SensitiveDataService.ts"
+    ],
+    "services\\api\\errors": [
+      "app/src/services/api/errors.ts"
+    ],
+    "services\\mcp\\TransportFactory": [
+      "app/src/services/mcp/TransportFactory.ts"
+    ],
+    "services\\mcp\\transports\\HTTPTransport": [
+      "app/src/services/mcp/transports/HTTPTransport.ts"
+    ],
+    "services\\mcp\\transports\\InProcessTransport": [
+      "app/src/services/mcp/transports/InProcessTransport.ts"
+    ],
+    "services\\mcp\\transports\\MCPTransport": [
+      "app/src/services/mcp/transports/MCPTransport.ts"
+    ],
+    "services\\vcr\\SessionPlayer": [
+      "app/src/services/vcr/SessionPlayer.ts"
+    ],
+    "services\\vcr\\SessionRecorder": [
+      "app/src/services/vcr/SessionRecorder.ts"
+    ],
+    "sessionHandler": [
+      "app/src/cli/handlers/sessionHandler.ts"
+    ],
+    "session\\maintenance\\SessionMaintenance": [
+      "app/src/session/maintenance/SessionMaintenance.ts"
+    ],
+    "session\\persistence\\SessionPersistenceManager": [
+      "app/src/session/persistence/SessionPersistenceManager.ts"
+    ],
+    "session\\storage\\StorageFactory": [
+      "app/src/session/storage/StorageFactory.ts"
+    ],
+    "skills": [
+      "app/src/skills/cli/skills.ts"
+    ],
+    "subagent\\SubAgentFactory": [
+      "app/src/subagent/SubAgentFactory.ts"
+    ],
+    "subagent\\SubAgentManager": [
+      "app/src/subagent/SubAgentManager.ts"
+    ],
+    "subagent\\backends\\TeammateBackend": [
+      "app/src/subagent/backends/TeammateBackend.ts"
+    ],
+    "test-performance": [
+      "app/src/performance/test-performance.ts"
+    ],
+    "testing\\integration\\IntegrationTestRunner": [
+      "app/src/testing/integration/IntegrationTestRunner.ts"
+    ],
+    "tools:sidecar.jobs": [
+      "app/src/tools/sidecar/sidecarJobs.ts"
+    ],
+    "tools\\ChronosTool\\CronDeleteTool": [
+      "app/src/tools/ChronosTool/CronDeleteTool.ts"
+    ],
+    "tools\\ClipboardTool\\ClipboardTool": [
+      "app/src/tools/ClipboardTool/ClipboardTool.ts"
+    ],
+    "tools\\GrepTool\\schemas": [
+      "app/src/tools/GrepTool/schemas.ts"
+    ],
+    "tools\\PlanTool\\PlanTool": [
+      "app/src/tools/PlanTool/PlanTool.ts"
+    ],
+    "tools\\TaskOutputTool\\TaskOutputTool": [
+      "app/src/tools/TaskOutputTool/TaskOutputTool.ts"
+    ],
+    "tools\\TaskOutputTool\\schemas": [
+      "app/src/tools/TaskOutputTool/schemas.ts"
+    ],
+    "tools\\Toolkit": [
+      "app/src/tools/Toolkit.ts"
+    ],
+    "tools\\WebSearchTool\\providers": [
+      "app/src/tools/WebSearchTool/providers.ts"
+    ],
+    "tools\\bash\\bashOutputTruncate": [
+      "app/src/tools/bash/bashOutputTruncate.ts"
+    ],
+    "tools\\converter\\converters\\AudioConverter": [
+      "app/src/tools/converter/converters/AudioConverter.ts"
+    ],
+    "tools\\converter\\converters\\DocxConverter": [
+      "app/src/tools/converter/converters/DocxConverter.ts"
+    ],
+    "tools\\converter\\converters\\IpynbConverter": [
+      "app/src/tools/converter/converters/IpynbConverter.ts"
+    ],
+    "tools\\converter\\converters\\OutlookMsgConverter": [
+      "app/src/tools/converter/converters/OutlookMsgConverter.ts"
+    ],
+    "tools\\converter\\converters\\PptxConverter": [
+      "app/src/tools/converter/converters/PptxConverter.ts"
+    ],
+    "tools\\converter\\converters\\RssConverter": [
+      "app/src/tools/converter/converters/RssConverter.ts"
+    ],
+    "tools\\converter\\converters\\XlsConverter": [
+      "app/src/tools/converter/converters/XlsConverter.ts"
+    ],
+    "tools\\converter\\converters\\XlsxConverter": [
+      "app/src/tools/converter/converters/XlsxConverter.ts"
+    ],
+    "tools\\converter\\converters\\ZipConverter": [
+      "app/src/tools/converter/converters/ZipConverter.ts"
+    ],
+    "tools\\converter\\engine\\BaseConverter": [
+      "app/src/tools/converter/engine/BaseConverter.ts"
+    ],
+    "tools\\environments\\ExecutionEnvironment": [
+      "app/src/tools/environments/ExecutionEnvironment.ts"
+    ],
+    "tools\\environments\\PersistentTerminalVm": [
+      "app/src/tools/environments/PersistentTerminalVm.ts"
+    ],
+    "tools\\executor\\ExtendedToolExecutor": [
+      "app/src/tools/executor/ExtendedToolExecutor.ts"
+    ],
+    "tools\\lsp\\LSPServer": [
+      "app/src/tools/lsp/LSPServer.ts"
+    ],
+    "tools\\lsp\\LSPToolImpl": [
+      "app/src/tools/lsp/LSPToolImpl.ts"
+    ],
+    "tools\\lsp\\LSPToolIntegration": [
+      "app/src/tools/lsp/LSPToolIntegration.ts"
+    ],
+    "tools\\notebook\\NotebookToolImpl": [
+      "app/src/tools/notebook/NotebookToolImpl.ts"
+    ],
+    "tools\\repl\\REPLToolImpl": [
+      "app/src/tools/repl/REPLToolImpl.ts"
+    ],
+    "tools\\services\\InterruptibleToolExecutor": [
+      "app/src/tools/services/InterruptibleToolExecutor.ts"
+    ],
+    "tools\\services\\ToolOrchestration": [
+      "app/src/tools/services/ToolOrchestration.ts"
+    ],
+    "trace-recording": [
+      "app/src/bootstrap/AppCoreOTelHelper.ts"
+    ],
+    "trace-recording\\export\\ExportService": [
+      "app/src/trace-recording/export/ExportService.ts"
+    ],
+    "update": [
+      "app/src/cli/update.ts"
+    ],
+    "useMergedTools": [
+      "app/src/hooks/useMergedTools.ts"
+    ],
+    "useStartupNotification": [
+      "app/src/hooks/notifs/useStartupNotification.ts"
+    ],
+    "useTypeahead": [
+      "app/src/hooks/useTypeahead.ts"
+    ],
+    "useVoice": [
+      "app/src/hooks/useVoice.ts"
+    ],
+    "utilHandler": [
+      "app/src/cli/handlers/utilHandler.ts"
+    ],
+    "utils\\aws": [
+      "app/src/utils/aws.ts"
+    ],
+    "utils\\computerUse\\NoopAdapter": [
+      "app/src/utils/computerUse/NoopAdapter.ts"
+    ],
+    "utils\\imageValidation": [
+      "app/src/utils/imageValidation.ts"
+    ],
+    "utils\\sanitization": [
+      "app/src/utils/sanitization.ts"
+    ],
+    "x": [
+      "packages/kernel/src/core/loggerFacade.ts",
+      "packages/kernel/src/core/spi/LoggerService.ts"
+    ]
+  }
+}

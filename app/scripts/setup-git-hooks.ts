@@ -168,10 +168,10 @@ STAGED_BEFORE_FIX=$(git diff --cached --name-only --diff-filter=ACMR)
 cd "$PROJECT_DIR/app" || exit 0
 
 # ── 棘轮门禁（2026-10-26 前置）──
-# 只放**快**的（实测：state-ratchet 0.9s / fn-size 0.1s / consts 1.3s / unref 0.8s）；
+# 只放**快**的（实测：state-ratchet 0.9s / logger-name <0.5s / fn-size 0.1s / consts 1.3s / unref 0.8s）；
 # lint:complexity 约 42s，留在 CI。动机：2026-10-26 曾出现「本地 tsc/eslint/arch 全绿、
 # CI 的 lint:state-ratchet 红」——新增文件写了状态词汇裸字面量。
-for GATE in lint:state-ratchet lint:fn-size lint:consts lint:unref; do
+for GATE in lint:state-ratchet lint:logger-name lint:fn-size lint:consts lint:unref; do
   echo "  棘轮门禁: $GATE ..."
   if ! bun run "$GATE" > /dev/null 2>&1; then
     echo ""
@@ -238,7 +238,7 @@ exit 0
   writeFileSync(hookPath, hookContent, { mode: 0o755 });
   console.log(`✅ pre-commit 钩子已安装: ${hookPath}`);
   console.log(
-    '   提交前自动运行: 架构合规检查 + infra 层边界契约 + STATUS.md / 支持等级台账漂移 + 修复证据登记 + GitHub Actions YAML + 棘轮门禁(state/fn-size/consts/unref) + 生成物门禁(startup-graph/kernel/architecture-boundaries/tool-params) + 类型检查 + ESLint + 模块验证'
+    '   提交前自动运行: 架构合规检查 + infra 层边界契约 + STATUS.md / 支持等级台账漂移 + 修复证据登记 + GitHub Actions YAML + 棘轮门禁(state/logger-name/fn-size/consts/unref) + 生成物门禁(startup-graph/kernel/architecture-boundaries/tool-params) + 类型检查 + ESLint + 模块验证'
   );
 }
 

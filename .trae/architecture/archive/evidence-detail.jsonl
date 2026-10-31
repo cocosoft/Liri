@@ -7245,3 +7245,13 @@
 {"id":"ARCH-DOC-LAYER-ALIGN","k":"notes","i":1,"c":"lint:critical-modules 的棘轮口径。"}
 {"id":"ARCH-DOC-LAYER-ALIGN","k":"code#0","i":0,"c":"app/docs/概念与架构/architecture.md"}
 {"id":"ARCH-DOC-LAYER-ALIGN","k":"changelog#0","i":0,"c":"修复：架构图对齐 lint:arch 六层词汇并补 T0–T3 启动流"}
+{"id":"STATUS-DOC-CORPUS-METRIC","k":"title","i":0,"c":"STATUS 增「文档语料」指标，README 去掉写死的「143 篇」"}
+{"id":"STATUS-DOC-CORPUS-METRIC","k":"source","i":0,"c":"取证 2026-10-31：DeepSeek 建议 ⑤「动态数字抽象化」只覆盖工具/通道/模块，README 仍两处硬编码「143 篇真实文档」（:54、:281）；实测 app/docs/**/*.md = 145（按 FileDocsProvider 同口径跳隐藏目录与 raw/），静默漂移 2 篇。"}
+{"id":"STATUS-DOC-CORPUS-METRIC","k":"reopenWhen","i":0,"c":"若 docs/FileDocsProvider.scanDirectory 的跳过规则变更（隐藏目录 / raw / 扩展名），必须同批改 gen-status.countDocCorpus —— 自证用例会因两侧口径不同而红。"}
+{"id":"STATUS-DOC-CORPUS-METRIC","k":"notes","i":0,"c":"实现：gen-status.ts 新增 countDocCorpus（递归 .md，跳过隐藏目录与 raw/，计数为 0 即 fail-closed），STATUS.md 增「文档语料」行；README 两处改为「篇数见 STATUS.md」指针，由既有 lint:status 守漂移；"}
+{"id":"STATUS-DOC-CORPUS-METRIC","k":"notes","i":1,"c":"tests/docs/statusDocCorpusMetric.test.ts 交叉校验「脚本静态计数 == 生产 buildIndex() 篇数」。"}
+{"id":"STATUS-DOC-CORPUS-METRIC","k":"code#0","i":0,"c":"app/scripts/gen-status.ts"}
+{"id":"STATUS-DOC-CORPUS-METRIC","k":"code#1","i":0,"c":"STATUS.md"}
+{"id":"STATUS-DOC-CORPUS-METRIC","k":"code#2","i":0,"c":"README.md"}
+{"id":"STATUS-DOC-CORPUS-METRIC","k":"tests#0","i":0,"c":"app/tests/docs/statusDocCorpusMetric.test.ts"}
+{"id":"STATUS-DOC-CORPUS-METRIC","k":"changelog#0","i":0,"c":"修复：README 的文档语料篇数改由 STATUS.md 现算（写死 143、实际 145 的漂移）"}

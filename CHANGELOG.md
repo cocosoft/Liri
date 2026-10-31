@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **STATUS-DOC-CORPUS-METRIC**：STATUS 增文档语料指标，README 去硬编码篇数（143→145 漂移） —— 验证 tsc0|unit1|doc-code0|eslint0；基线 README 两处写死「143 篇」，实际 app/docs 语料 145 篇；该数字无门禁看守（详情见 archive/evidence-detail.jsonl#STATUS-DOC-CORPUS-METRIC）
 - ✅ **ARCH-DOC-LAYER-ALIGN**：架构图对齐六层门禁词汇 + T0–T3 启动流 —— 验证 doc-code0|doc-alias0；基线 README/门禁为六层，architecture.md 图仍是四层旧概念（图上无 service / ui）（详情见 archive/evidence-detail.jsonl#ARCH-DOC-LAYER-ALIGN）
 - ✅ **SUPPORT-LEVELS-EVIDENCE-TIGHTEN**：支持等级证据只认专属信号（文件名 / 实现类导入） —— 验证 lint:support-levels0|doc-code0|eslint0；基线 旧判据把无关测试的字符串提及当专属证据（bash←XML 解析、file_write←埋点、image←模型类型、line←inline）（详情见 archive/evidence-detail.jsonl#SUPPORT-LEVELS-EVIDENCE-TIGHTEN）
 - ✅ **CI-GATE-PARITY**：10 条本地门禁补进 CI + 元门禁 lint:gate-parity —— 验证 tsc0|unit5|gates320|eslint0；基线 package.json#ci 的 54 条门禁中 11 条 CI 零命中；台账自称「CI + pre-commit」实为仅 pre-commit（详情见 archive/evidence-detail.jsonl#CI-GATE-PARITY）

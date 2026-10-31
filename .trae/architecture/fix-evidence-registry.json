@@ -15070,6 +15070,34 @@
       ],
       "reopenWhen": "若统一工具结果预算（ToolResultBudget / ToolResultStorageHook 接线）落地，本阈值应交由预算层统一配置。（全文见 archive/evidence-detail.jsonl#BASH-OUTPUT-CAP-200K）",
       "notes": "修复：BASH_OUTPUT_SOFT_LIMIT_BYTES 2MB→200KB（对齐 file_read 200k 字符闸）；BASH_EXEC_MAX_BUFFER_BYTES 16MB 不变；tail 20KB 与截断文案（过滤/落文件后再读）不变。（全文见 archive/evidence-detail.jsonl#BASH-OUTPUT-CAP-200K）"
+    },
+    {
+      "id": "GREP-MATCH-LINE-CAP",
+      "title": "grep 匹配行加长度闸（超长单行按命中位置取窗口，不再整行灌入上下文）",
+      "source": "与 file_read/bash 同族的结构性缺口：压缩成单行的文件（minified JS / 单行 JSON）被 grep 命中时，一行可达数 MB（≈上百万 tokens）；同日真机 155 次上下文溢出 400、请求 1.79M tokens。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/GrepTool/grep.ts"
+      ],
+      "tests": [
+        "app/tests/tools/GrepTool/grepMatchLineCap.test.ts"
+      ],
+      "changelog": [
+        "修复：grep 命中行超过 2k 字符时按命中位置截断，单行大文件不再整行进上下文"
+      ],
+      "reopenWhen": "若统一工具结果预算（ToolResultBudget / ToolResultStorageHook 接线）落地，可把本上限并入预算层统一配置。（全文见 archive/evidence-detail.jsonl#GREP-MATCH-LINE-CAP）",
+      "notes": "修复：匹配行 > 2000 字符时按**命中位置**取 2000 字符窗口（命中点前留 500），两侧标注省略量并提示用更精确 pattern 或 file_read 分段；短行行为不变（含 showLineNumbers 前缀）。测试含阴性对照：未修前超长行整行返回。（全文见 archive/evidence-detail.jsonl#GREP-MATCH-LINE-CAP）"
     }
   ]
 }

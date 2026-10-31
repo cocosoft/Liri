@@ -7192,3 +7192,10 @@
 {"id":"BASH-OUTPUT-CAP-200K","k":"code#0","i":0,"c":"app/src/tools/bash/bashOutputTruncate.ts"}
 {"id":"BASH-OUTPUT-CAP-200K","k":"tests#0","i":0,"c":"app/tests/tools/bashOutputTruncate.test.ts"}
 {"id":"BASH-OUTPUT-CAP-200K","k":"changelog#0","i":0,"c":"修复：bash 大输出软截断收紧到 200KB，单条命令输出不再撑爆上下文"}
+{"id":"GREP-MATCH-LINE-CAP","k":"title","i":0,"c":"grep 匹配行加长度闸（超长单行按命中位置取窗口，不再整行灌入上下文）"}
+{"id":"GREP-MATCH-LINE-CAP","k":"source","i":0,"c":"与 file_read/bash 同族的结构性缺口：压缩成单行的文件（minified JS / 单行 JSON）被 grep 命中时，一行可达数 MB（≈上百万 tokens）；同日真机 155 次上下文溢出 400、请求 1.79M tokens。"}
+{"id":"GREP-MATCH-LINE-CAP","k":"reopenWhen","i":0,"c":"若统一工具结果预算（ToolResultBudget / ToolResultStorageHook 接线）落地，可把本上限并入预算层统一配置。"}
+{"id":"GREP-MATCH-LINE-CAP","k":"notes","i":0,"c":"修复：匹配行 > 2000 字符时按**命中位置**取 2000 字符窗口（命中点前留 500），两侧标注省略量并提示用更精确 pattern 或 file_read 分段；短行行为不变（含 showLineNumbers 前缀）。测试含阴性对照：未修前超长行整行返回。"}
+{"id":"GREP-MATCH-LINE-CAP","k":"code#0","i":0,"c":"app/src/tools/GrepTool/grep.ts"}
+{"id":"GREP-MATCH-LINE-CAP","k":"tests#0","i":0,"c":"app/tests/tools/GrepTool/grepMatchLineCap.test.ts"}
+{"id":"GREP-MATCH-LINE-CAP","k":"changelog#0","i":0,"c":"修复：grep 命中行超过 2k 字符时按命中位置截断，单行大文件不再整行进上下文"}

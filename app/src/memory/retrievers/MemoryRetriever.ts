@@ -13,6 +13,7 @@ import {
   encodePayload,
   decodePayload,
 } from '@modules/utils/MemoryFileEnvelope';
+import { writeFileAtomic } from '@modules/utils/atomicFileWrite';
 
 const logger = getLogger('memory:retriever');
 
@@ -221,11 +222,6 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    * 索引文件路径
    */
   private indexFilePath: string;
-
-  /**
-   * 索引原子写的临时名序号（并发保存时保证 tmp 名唯一，见 `saveIndex()`）
-   */
-  private indexSaveSeq = 0;
 
   /**
    * 索引保存队列（实例内串行化，避免并发 rename 覆盖，见 `saveIndex()`）
@@ -948,9 +944,8 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
    * `MemoryManager` 有 10 处 `await retriever.saveIndex()`，并发工具调用会让它们
    * **同时**进入本方法；旧实现用固定临时名 `memory-index.json.tmp` 做「写→rename」，
    * 后到者 rename 时 tmp 已被先到者消费 ⇒ ENOENT。现改为：
-   * ① 临时名每次唯一（pid + 序号）—— rename 目标只可能被本次写入消费；
-   * ② 实例内**排队写**——Windows 上并发 rename 覆盖目标会瞬时 EPERM（回归用例实测）；
-   * ③ rename 对瞬时错误有界重试（同上，属文件系统瞬时占用，非业务分支）。
+   * ① 落盘走共享原语 `writeFileAtomic`（唯一临时名 + Windows rename 瞬时错误重试）；
+   * ② 实例内**排队写**——避免并发整份快照互相覆盖（串行也更省 IO）。
    */
   async saveIndex(): Promise<void> {
     const run = this.indexSaveChain.then(() => this.writeIndexFile());
@@ -962,47 +957,21 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
   /** `saveIndex` 的实际落盘体（串行执行，不再有并发 rename） */
   private async writeIndexFile(): Promise<void> {
     try {
-      await fs.mkdir(path.dirname(this.indexFilePath), { recursive: true });
       const indexData = {
         version: '1.0',
         timestamp: new Date().toISOString(),
         memories: Array.from(this.memoryIndex.values()),
       };
 
-      this.indexSaveSeq += 1;
-      const tmpPath = `${this.indexFilePath}.${process.pid}.${this.indexSaveSeq}.tmp`;
-      await fs.writeFile(
-        tmpPath,
-        encodePayload(JSON.stringify(indexData)),
-        'utf8'
+      await writeFileAtomic(
+        this.indexFilePath,
+        encodePayload(JSON.stringify(indexData))
       );
-      await this.renameWithRetry(tmpPath, this.indexFilePath);
     } catch (error) {
       await handleError(error, {
         module: 'memory:retriever',
         action: 'save_index',
       });
-    }
-  }
-
-  /**
-   * 原子替换（rename）——对**瞬时**占用类错误有界重试。
-   *
-   * Windows 上 `rename` 覆盖被其它句柄（并发进程 / 索引器 / 杀软）短暂占用的目标时
-   * 会抛 `EPERM` / `EBUSY` / `EACCES`，重试即可成功（本仓回归用例实测出现 EPERM）。
-   * 其余错误（如 ENOENT）**不重试**，按真实失败上抛。
-   */
-  private async renameWithRetry(from: string, to: string): Promise<void> {
-    const TRANSIENT = ['EPERM', 'EBUSY', 'EACCES'];
-    for (let attempt = 1; ; attempt++) {
-      try {
-        await fs.rename(from, to);
-        return;
-      } catch (error) {
-        const code = (error as NodeJS.ErrnoException).code;
-        if (!code || !TRANSIENT.includes(code) || attempt >= 3) throw error;
-        await new Promise((resolve) => setTimeout(resolve, 10 * attempt));
-      }
     }
   }
 

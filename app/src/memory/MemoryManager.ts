@@ -45,6 +45,7 @@ import * as fs from 'fs';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { MemoryProvider } from './MemoryProvider';
 import { memoryRelationGraph } from './utils/MemoryRelationGraph';
+import { writeFileAtomic } from '@modules/utils/atomicFileWrite';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import {
   MemoryConflictDetector,
@@ -330,6 +331,9 @@ export class MemoryManagerImpl
    * 关联图文件路径
    */
   private relationGraphPath: string;
+
+  /** 关联图保存队列（实例内串行化，避免并发整份快照互相覆盖，见 `saveRelationGraph()`） */
+  private relationGraphSaveChain: Promise<void> = Promise.resolve();
 
   /**
    * 外部记忆提供者（最多 1 个）
@@ -1223,18 +1227,29 @@ export class MemoryManagerImpl
 
   /**
    * 保存关联图
+   *
+   * 2026-10-31（真机 `app.log` 实证 `[save_relation_graph] ENOENT … rename`）：
+   * 旧实现用**固定**临时名 `memory-relation-graph.json.tmp` 做「写→rename」，并发保存时
+   * 后到者 rename 的 tmp 已被先到者消费 ⇒ ENOENT（关系图保存失败）。现改为：
+   * ① 落盘走共享原语 `writeFileAtomic`（唯一临时名 + Windows rename 瞬时错误重试）；
+   * ② 实例内排队写，避免并发整份快照互相覆盖。
    */
   async saveRelationGraph(): Promise<void> {
+    const run = this.relationGraphSaveChain.then(() =>
+      this.writeRelationGraphFile()
+    );
+    this.relationGraphSaveChain = run.catch(() => undefined);
+    await run;
+  }
+
+  /** `saveRelationGraph` 的实际落盘体（串行执行，独占临时名） */
+  private async writeRelationGraphFile(): Promise<void> {
     try {
       const relations = memoryRelationGraph.serialize();
-      // 原子写入：先写 .tmp 文件，再 rename 为最终路径
-      const tmpPath = this.relationGraphPath + '.tmp';
-      await fs.promises.writeFile(
-        tmpPath,
-        encodePayload(JSON.stringify(relations)),
-        'utf8'
+      await writeFileAtomic(
+        this.relationGraphPath,
+        encodePayload(JSON.stringify(relations))
       );
-      await fs.promises.rename(tmpPath, this.relationGraphPath);
     } catch (error) {
       await handleError(error, {
         module: 'memory:manager',

@@ -14578,6 +14578,33 @@
       "changelog": [],
       "reopenWhen": "再出现 [save_index] ENOENT/EPERM，或记忆索引保存路径被改为非原子写（全文见 archive/evidence-detail.jsonl#MEM-INDEX-ATOMIC-SAVE）",
       "notes": "根因：saveIndex 用固定临时名 memory-index.json.tmp，MemoryManager 10 处 await 调用在并发工具调用下同时进入 ⇒ 后到者 rename 的 tmp 已被先到者消费。修复：① 临时名 pid+序号唯一；② 实例内保存队列串行；③ rename 对 EPERM/EBU…（全文见 archive/evidence-detail.jsonl#MEM-INDEX-ATOMIC-SAVE）"
+    },
+    {
+      "id": "PDCA-CONFIRM-NO-FAKE-SUCCESS",
+      "title": "PDCA confirm 端点不再假成功：任务不存在⇒404、能力未实现⇒501、真正执行⇒200",
+      "source": "台账「LRO 路由矩阵复核」#2：app 侧编排器无 confirm（taskOpsPorts 自述）⇒ 旧实现 confirm?.() 恒 no-op 却回 {ok:true}；编排器缺失时回 200+{error:Not available}",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/infrastructure/http/handlers/pdca-handlers.ts",
+        "app/src/runtime/api/taskOpsPorts.ts"
+      ],
+      "tests": [
+        "app/tests/http/pdca-confirm.contract.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "app 侧编排器实现 confirm 后（届时 200 分支自动生效），或再次出现「HTTP 200 但什么都没做」（全文见 archive/evidence-detail.jsonl#PDCA-CONFIRM-NO-FAKE-SUCCESS）",
+      "notes": "根因：可选方法 + 可选链把「能力缺失」折叠成「成功」。现按真实能力分档：404 not_found / 501 not_implemented（并 warn pdca:confirm_unavailable）/ 200 ok。客户端无该端点消费者（grep 0 命中）⇒ 零 UI 影响；契约测试用真实 CoreAP…（全文见 archive/evidence-detail.jsonl#PDCA-CONFIRM-NO-FAKE-SUCCESS）"
     }
   ]
 }

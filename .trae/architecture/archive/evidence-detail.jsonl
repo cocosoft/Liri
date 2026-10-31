@@ -7052,3 +7052,11 @@
 {"id":"MEM-INDEX-ATOMIC-SAVE","k":"notes","i":1,"c":"Windows 并发替换目标实测），ENOENT 不重试。"}
 {"id":"MEM-INDEX-ATOMIC-SAVE","k":"code#0","i":0,"c":"app/src/memory/retrievers/MemoryRetriever.ts"}
 {"id":"MEM-INDEX-ATOMIC-SAVE","k":"tests#0","i":0,"c":"app/tests/memory/memoryRetrieverIndexSave.test.ts"}
+{"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"title","i":0,"c":"PDCA confirm 端点不再假成功：任务不存在⇒404、能力未实现⇒501、真正执行⇒200"}
+{"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"source","i":0,"c":"台账「LRO 路由矩阵复核」#2：app 侧编排器无 confirm（taskOpsPorts 自述）⇒ 旧实现 confirm?.() 恒 no-op 却回 {ok:true}；编排器缺失时回 200+{error:Not available}"}
+{"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"reopenWhen","i":0,"c":"app 侧编排器实现 confirm 后（届时 200 分支自动生效），或再次出现「HTTP 200 但什么都没做」"}
+{"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"notes","i":0,"c":"根因：可选方法 + 可选链把「能力缺失」折叠成「成功」。现按真实能力分档：404 not_found / 501 not_implemented（并 warn pdca:confirm_unavailable）/ 200 ok。客户端无该端点消费者（grep 0 命中）⇒ 零 UI 影响；契约测试用真实 CoreAPI + 真编排器实例（无 confirm "}
+{"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"notes","i":1,"c":"⇒ 501；注入 confirm ⇒ 200 且被调用 1 次）。"}
+{"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"code#0","i":0,"c":"app/src/infrastructure/http/handlers/pdca-handlers.ts"}
+{"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"code#1","i":0,"c":"app/src/runtime/api/taskOpsPorts.ts"}
+{"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"tests#0","i":0,"c":"app/tests/http/pdca-confirm.contract.test.ts"}

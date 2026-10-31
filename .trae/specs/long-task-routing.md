@@ -249,7 +249,7 @@ ReActToolLoop.getLongTaskSignal()            ← 纯读数（todos / 已耗轮�
 | 13 | `/plan` / `/tasks` / `POST /v1/plans/*` | ❌ | 计划存储 / 本地待办（不启动循环） | — | `commands/builtin/plan/Plan.ts#L211-L235`、`plan-flow-handlers.ts#L105-L130` |
 | 14 | 研究模式（聊天自动分流） | ❌（旁路编排） | `launchResearch` | 研究意图 + `COMPETITIVE_STRATEGY`（**默认关**） | `chat/manager/pdcaLaunch.ts#L202-L324`、`PdcaLauncher.ts#L593-L694`、`kernel/core/featureFlags.ts#L543` |
 | 15 | `POST /v1/research/start` | ❌（旁路编排） | `runCompetitiveOrchestration` | **无 feature 门控**（仅会话级 `activeResearch` 幂等） | `plan-flow-routes.ts#L137-L140`、`research-handlers.ts#L38-L76` |
-| 16 | 不可达 / 非入口（如实记录） | — | `POST /v1/pdca/:id/confirm`（app 侧编排器**无** `confirm` ⇒ 恒 no-op）；`handleResumeCheckpoint` / `handlePdcaResumeCheckpoint`（**未注册路由**，其注册表是 TAORLoop） | — | `runtime/api/taskOpsPorts.ts#L175-L179`、`checkpoint-handlers.ts#L145`/`#L206` |
+| 16 | 不可达 / 非入口（如实记录） | — | `POST /v1/pdca/:id/confirm`（app 侧编排器**无** `confirm` ⇒ **2026-10-31 起如实回 501**，不再回 `{ok:true}` 假成功；任务不存在回 404）；`handleResumeCheckpoint` / `handlePdcaResumeCheckpoint`（**未注册路由**，其注册表是 TAORLoop） | — | `runtime/api/taskOpsPorts.ts#L175-L180`、`infrastructure/http/handlers/pdca-handlers.ts#L763-L820`、`checkpoint-handlers.ts#L145`/`#L206` |
 
 - **已穷尽而未发现 LRO 入口**：CLI 参数、MCP 工具、ACP、A2A、cron/定时任务、通道消息（非审批）。
 - **前端入口面（2026-10-26 复核补记）**：计划页「启动 PDCA」曾**不传 `sessionId`** ⇒ 后端 400 被 `pdcaService.start`

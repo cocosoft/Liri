@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **PDCA-CONFIRM-NO-FAKE-SUCCESS**：PDCA confirm 端点不再假成功（404/501/200 按真实能力） —— 验证 tsc0|unit3|http333|arch0|eslint0；基线 旧实现：confirm?.() 恒 no-op 却回 {ok:true}；编排器缺失回 200+{error:Not available}（详情见 archive/evidence-detail.jsonl#PDCA-CONFIRM-NO-FAKE-SUCCESS）
 - ✅ **MEM-INDEX-ATOMIC-SAVE**：记忆索引原子写并发安全（唯一临时名 + 串行 + rename 有界重试） —— 验证 tsc0|unit1|memory103|eslint0|repeat5x0；基线 app.log 2026-10-31T11:31Z 同秒 3 条 [save_index] ENOENT；用例未修前 8 并发 7 失败、修后 0（详情见 archive/evidence-detail.jsonl#MEM-INDEX-ATOMIC-SAVE）
 - ✅ **LOGGER-NAME-RATCHET**：logger 名棘轮（新增须 域:子域；存量 245 名冻结） —— 验证 unit7|neg-proof1|gate253|scripts0|tsc0；基线 app/src + packages/kernel/src 实测：非合规出现点 253 / 非合规名 245（如 AIContextInjector、CommandRegistry）（详情见 archive/evidence-detail.jsonl#LOGGER-NAME-RATCHET）
 - ✅ **POWERSHELL-TRUST-LEVEL**：PowerShell 接入工作区信任分级（仅放宽白名单未命中，危险两档不绕过） —— 验证 tsc0|unit7|tools1338|gate14|eslint0；基线 PowerShellTool 零命中 trustLevel：受信工作区里 whoami/hostname 被硬拒，而 bash 侧同命令可执行（两套姿态）（详情见 archive/evidence-detail.jsonl#POWERSHELL-TRUST-LEVEL）

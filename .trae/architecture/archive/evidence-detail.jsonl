@@ -7045,3 +7045,10 @@
 {"id":"LOGGER-NAME-RATCHET","k":"code#2","i":0,"c":"app/package.json"}
 {"id":"LOGGER-NAME-RATCHET","k":"code#3","i":0,"c":"app/scripts/setup-git-hooks.ts"}
 {"id":"LOGGER-NAME-RATCHET","k":"tests#0","i":0,"c":"app/tests/gates/loggerNameRatchet.test.ts"}
+{"id":"MEM-INDEX-ATOMIC-SAVE","k":"title","i":0,"c":"记忆索引原子写：唯一临时名 + 实例内串行 + rename 有界重试（消除并发 ENOENT/EPERM）"}
+{"id":"MEM-INDEX-ATOMIC-SAVE","k":"source","i":0,"c":"真机 app.log 取证（2026-10-31T11:31Z）：memory:retriever [save_index] ENOENT rename memory-index.json.tmp → memory-index.json，同一秒 3 条"}
+{"id":"MEM-INDEX-ATOMIC-SAVE","k":"reopenWhen","i":0,"c":"再出现 [save_index] ENOENT/EPERM，或记忆索引保存路径被改为非原子写"}
+{"id":"MEM-INDEX-ATOMIC-SAVE","k":"notes","i":0,"c":"根因：saveIndex 用固定临时名 memory-index.json.tmp，MemoryManager 10 处 await 调用在并发工具调用下同时进入 ⇒ 后到者 rename 的 tmp 已被先到者消费。修复：① 临时名 pid+序号唯一；② 实例内保存队列串行；③ rename 对 EPERM/EBUSY/EACCES 有界重试（"}
+{"id":"MEM-INDEX-ATOMIC-SAVE","k":"notes","i":1,"c":"Windows 并发替换目标实测），ENOENT 不重试。"}
+{"id":"MEM-INDEX-ATOMIC-SAVE","k":"code#0","i":0,"c":"app/src/memory/retrievers/MemoryRetriever.ts"}
+{"id":"MEM-INDEX-ATOMIC-SAVE","k":"tests#0","i":0,"c":"app/tests/memory/memoryRetrieverIndexSave.test.ts"}

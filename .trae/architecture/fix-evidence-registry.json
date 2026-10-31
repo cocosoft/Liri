@@ -14552,6 +14552,32 @@
       "changelog": [],
       "reopenWhen": "再出现「新代码 add getLogger(PascalCase)」或「module 名再次失去 域:子域 结构」（全文见 archive/evidence-detail.jsonl#LOGGER-NAME-RATCHET）",
       "notes": "口径（用户裁定「只对新代码强制」）：合规 = 至少含一个冒号且每段仅 [A-Za-z0-9_-]；存量非合规名冻结进 .trae/architecture/logger-name-baseline.json，只拦新增，不阻断存量、不批量重命名。实现：scripts/loggerNameRatchetCore.ts（纯…（全文见 archive/evidence-detail.jsonl#LOGGER-NAME-RATCHET）"
+    },
+    {
+      "id": "MEM-INDEX-ATOMIC-SAVE",
+      "title": "记忆索引原子写：唯一临时名 + 实例内串行 + rename 有界重试（消除并发 ENOENT/EPERM）",
+      "source": "真机 app.log 取证（2026-10-31T11:31Z）：memory:retriever [save_index] ENOENT rename memory-index.json.tmp → memory-index.json，同一秒 3 条",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/memory/retrievers/MemoryRetriever.ts"
+      ],
+      "tests": [
+        "app/tests/memory/memoryRetrieverIndexSave.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现 [save_index] ENOENT/EPERM，或记忆索引保存路径被改为非原子写（全文见 archive/evidence-detail.jsonl#MEM-INDEX-ATOMIC-SAVE）",
+      "notes": "根因：saveIndex 用固定临时名 memory-index.json.tmp，MemoryManager 10 处 await 调用在并发工具调用下同时进入 ⇒ 后到者 rename 的 tmp 已被先到者消费。修复：① 临时名 pid+序号唯一；② 实例内保存队列串行；③ rename 对 EPERM/EBU…（全文见 archive/evidence-detail.jsonl#MEM-INDEX-ATOMIC-SAVE）"
     }
   ]
 }

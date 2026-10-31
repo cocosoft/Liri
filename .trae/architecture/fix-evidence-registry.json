@@ -14314,6 +14314,30 @@
       "changelog": [],
       "reopenWhen": "再出现「LRO 缺参错误里出现 __liri_args_parse_error__」或「参数被截断后模型原样重试同一调用」（全文见 archive/evidence-detail.jsonl#LRO-MISSING-PARAM-PARSE-KEY）",
       "notes": "根因：tasks/lro/stepExecution.ts 自拼缺参文案，未复用 utils/toolContract/argParseError 的 describeMissingRequiredParams。后果二：① receivedKeys 把保留键 __liri_args_parse_error__ 当作模…（全文见 archive/evidence-detail.jsonl#LRO-MISSING-PARAM-PARSE-KEY）"
+    },
+    {
+      "id": "LRO-WORKSPACE-PATH-HINT",
+      "title": "LRO 步骤提示词与路径越界拒绝文案指明任务工作区根目录（模型不再盲试仓库根绝对路径）",
+      "source": "真机 app.log 单窗口统计（2026-10-31 07:0x–07:3x）：[orchestrator] 工具路径越界，已拒绝执行 211 次，argValue 恒为仓库根",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/lro/stepExecution.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "再出现「模型反复传仓库根/绝对路径被越界守卫拒绝」或「拒绝文案未给出可用路径基准」（全文见 archive/evidence-detail.jsonl#LRO-WORKSPACE-PATH-HINT）",
+      "notes": "根因：越界守卫只回「不在任务工作区内；请改用工作区内相对路径」，提示词硬约束也没给工作区根目录 ⇒ 模型无从得知基准路径，只能盲试（同窗口 211 次拒绝，期间 glob 连续返回空结果）。修法：① 步骤提示词的硬约束块前置声明相对基准 = deps.isolation.workspace；② 越界拒绝文案附同一根目…（全文见 archive/evidence-detail.jsonl#LRO-WORKSPACE-PATH-HINT）"
     }
   ]
 }

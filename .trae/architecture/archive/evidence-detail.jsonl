@@ -6962,3 +6962,9 @@
 {"id":"LRO-MISSING-PARAM-PARSE-KEY","k":"notes","i":1,"c":"参数为空，多为参数 JSON 非法」，模型无法判断是输出被截断 ⇒ 原样重试至验收失败（真机 07:19:33Z 实测 receivedKeys 仅该保留键）。修法：改用共享文案（receivedKeys 自动剔除保留键；截断时带原始长度 + 分段写入建议），并在 execute 前 stripArgParseErrorKey。验证：typecheck 绿（"}
 {"id":"LRO-MISSING-PARAM-PARSE-KEY","k":"notes","i":2,"c":"含 scripts 两个 tsconfig）、tests/tasks 577 例全绿、eslint 该文件 0 warning/0 error；未新增专属单测（行为由 argParseDiagnostics.test.ts 覆盖的同一实现提供）。"}
 {"id":"LRO-MISSING-PARAM-PARSE-KEY","k":"code#0","i":0,"c":"app/src/tasks/lro/stepExecution.ts"}
+{"id":"LRO-WORKSPACE-PATH-HINT","k":"title","i":0,"c":"LRO 步骤提示词与路径越界拒绝文案指明任务工作区根目录（模型不再盲试仓库根绝对路径）"}
+{"id":"LRO-WORKSPACE-PATH-HINT","k":"source","i":0,"c":"真机 app.log 单窗口统计（2026-10-31 07:0x–07:3x）：[orchestrator] 工具路径越界，已拒绝执行 211 次，argValue 恒为仓库根"}
+{"id":"LRO-WORKSPACE-PATH-HINT","k":"reopenWhen","i":0,"c":"再出现「模型反复传仓库根/绝对路径被越界守卫拒绝」或「拒绝文案未给出可用路径基准」"}
+{"id":"LRO-WORKSPACE-PATH-HINT","k":"notes","i":0,"c":"根因：越界守卫只回「不在任务工作区内；请改用工作区内相对路径」，提示词硬约束也没给工作区根目录 ⇒ 模型无从得知基准路径，只能盲试（同窗口 211 次拒绝，期间 glob 连续返回空结果）。修法：① 步骤提示词的硬约束块前置声明相对基准 = deps.isolation.workspace；② 越界拒绝文案附同一根目录并给出相对路径示例。守卫判定本身完全不变"}
+{"id":"LRO-WORKSPACE-PATH-HINT","k":"notes","i":1,"c":"（不放宽安全姿态）。验证：typecheck 绿（含 scripts 两个 tsconfig）、lint:prompt-budget 0 issue、lint:prompt-hardcoded --strict 0 issue、prompts:check 一致、tests/tasks 577 例全绿、eslint 0 问题。"}
+{"id":"LRO-WORKSPACE-PATH-HINT","k":"code#0","i":0,"c":"app/src/tasks/lro/stepExecution.ts"}

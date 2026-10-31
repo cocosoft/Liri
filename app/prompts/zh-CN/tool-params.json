@@ -288,7 +288,7 @@
     "sleep.seconds": "mode=wake：多少秒后自唤醒（最大 86400）",
     "sleep.when": "mode=until：自唤醒的绝对时间（ISO 8601，如 2026-10-30T12:00:00Z）",
     "task_list.op": "操作：create（建清单）| get（查询）| update（改状态）",
-    "task_list.status": "op=update：新状态（pending | in_progress | completed | failed | cancelled）",
+    "task_list.status": "op=update：新状态（合法取值沿用原 update_task_status 的校验；非法值会被明确拒绝）",
     "task_list.task_id": "op=update：要更新的任务 ID",
     "task_list.tasks": "op=create：任务项数组（字符串或 {description} 对象）",
     "task_output.block": "是否等待任务完成",

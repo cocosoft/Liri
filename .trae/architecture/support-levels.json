@@ -1,9 +1,10 @@
 {
   "version": 1,
   "recordedAt": "2026-11-01",
-  "note": "通道/工具支持等级的维护者覆盖表（`app/docs/SUPPORT-LEVELS.md` 由 `bun run gen:support-levels` 生成）。未覆盖项按「有专属信号 = core，否则 community」推导；这里只写**与推导不一致**的判断，每项必须能说清理由。等级取值：core / community / experimental。当前覆盖：`nostr` = experimental —— 该通道是遗留 EventEmitter 壳，**没有 WebSocket relay 与事件签名**，消息不会真正发出（2026-11-01 已把「恒返回成功」改为如实失败）；在补齐传输层前不应按 core 宣称「被持续验证」。",
+  "note": "通道/工具支持等级的维护者覆盖表（`app/docs/SUPPORT-LEVELS.md` 由 `bun run gen:support-levels` 生成）。未覆盖项按「有专属信号 = core，否则 community」推导；这里只写**与推导不一致**的判断，每项必须能说清理由。等级取值：core / community / experimental。当前覆盖：① `nostr` = experimental —— 遗留 EventEmitter 壳，**没有 WebSocket relay 与事件签名**，消息不会真正发出（2026-11-01 已把「恒返回成功」改为如实失败）；② `sms` = experimental —— 发送链路同为壳（`sendMessage` 只 emit 事件、不发 HTTP），2026-11-01 仅把 provider 请求**构造**抽成纯函数并可测，接线（含签名）尚未完成。两者在真正可发送前不应按 core 宣称「被持续验证」。",
   "channels": {
-    "nostr": "experimental"
+    "nostr": "experimental",
+    "sms": "experimental"
   },
   "tools": {}
 }

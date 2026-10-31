@@ -1218,32 +1218,3 @@ function rowToDeliveryRecord(row: any): DeliveryRecord {
 export function createSqliteTaskStore(dbPath?: string): SqliteTaskStore {
   return new SqliteTaskStore(dbPath);
 }
-
-/**
- * 进程级**共享**实例（惰性、按库路径分桶）—— 台账 D-100（2026-09-30 登记 / 2026-10-31 修复）。
- *
- * 背景：任务状态 / 看板 / PDCA 审计的端口实现曾逐调用 `new SqliteTaskStore()`，
- * 每次 `init()` 重跑建表 + 迁移 DDL，且**从不 `close()`** ⇒ 连接不复用也不释放。
- * 取向与 `tasks/lro/portResolvers.ts` 的 `resolveAuditStore` 一致（长连接惰性单例）；
- * 差异是**按 `dbPath` 分桶**：测试注入的临时库与真实库互不串用。
- *
- * ⚠️ 返回的实例**不要** `close()`（它被多处共享）；需要一次性实例时用 `createSqliteTaskStore()`。
- */
-const sharedStores = new Map<string, Promise<SqliteTaskStore>>();
-
-export function getSharedSqliteTaskStore(
-  dbPath: string = resolveDbPath()
-): Promise<SqliteTaskStore> {
-  const cached = sharedStores.get(dbPath);
-  if (cached) return cached;
-
-  const created = (async () => {
-    const store = new SqliteTaskStore(dbPath);
-    await store.init();
-    return store;
-  })();
-  // 初始化失败不留在缓存里，否则一次瞬时失败会固化成"永久不可用"
-  created.catch(() => sharedStores.delete(dbPath));
-  sharedStores.set(dbPath, created);
-  return created;
-}

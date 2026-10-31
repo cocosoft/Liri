@@ -945,14 +945,10 @@ export class DomainSnapshotOps {
    * 边界收窄会让返回被**推导**为 `never`，调用方随即报一片 `TS2339`（property does not exist on `never`）。
    */
   async getTaskOpsPort(): Promise<TaskOpsPort> {
-    /**
-     * 任务状态存储：走**进程级共享实例**（`getSharedSqliteTaskStore`，按库路径分桶）。
-     * 台账 D-100（2026-10-31 修复）：此前逐请求 `new` + `init()`（重跑建表 / 迁移 DDL）
-     * 且从不 `close()` ⇒ 连接不复用也不释放。
-     */
+    /** 任务状态存储：进程级共享实例（D-100；按库路径分桶） */
     const taskStore = async () => {
       const { getSharedSqliteTaskStore } =
-        await import('@modules/tasks/db/SqliteTaskStore');
+        await import('@modules/tasks/db/sharedTaskStore');
       return getSharedSqliteTaskStore();
     };
     /** `@modules/tasks` barrel 取用（P1–P3 共用入口） */
@@ -1127,10 +1123,8 @@ export class DomainSnapshotOps {
       // ---- PDCA（P3-b）----
       listPdcaDecisionRows: async (limit: number) => {
         const { getSharedSqliteTaskStore } =
-          await import('@modules/tasks/db/SqliteTaskStore');
-        // D-100（2026-10-31 修复）：原调用点为 `new SqliteTaskStore()` 但**从未 `init()`**
-        // ⇒ `withDb` 抛 "SqliteTaskStore not initialized"（该查询端点自 M3b-DB 起实际不可用）。
-        // 共享实例已 `init()`，同时消除逐请求建连接。
+          await import('@modules/tasks/db/sharedTaskStore');
+        // 原为 `new SqliteTaskStore()` 但从未 `init()` ⇒ 该端点一直抛错（D-100）
         return (await getSharedSqliteTaskStore()).listAuditLogByEvent(
           'pdca_decision',
           limit

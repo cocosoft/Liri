@@ -18,10 +18,8 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import {
-  getSharedSqliteTaskStore,
-  SqliteTaskStore,
-} from '../../src/tasks/db/SqliteTaskStore.js';
+import { getSharedSqliteTaskStore } from '../../src/tasks/db/sharedTaskStore.js';
+import { SqliteTaskStore } from '../../src/tasks/db/SqliteTaskStore.js';
 
 const dirs: string[] = [];
 

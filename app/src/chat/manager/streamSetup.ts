@@ -101,9 +101,11 @@ export class ChatStreamSetup {
     // 获取或创建会话
     const sessionId = options?.sessionId || deps.currentSessionId();
     if (!sessionId) {
+      // 与 `ChatOrchestrator.sendMessage` 同口径：缺 `session_id` = 客户端输入错误（VALIDATION），
+      // HTTP 边界据此回 400 而非 500（台账 2026-10-27 §10）。
       throw new AppError(
         'No session id provided',
-        ErrorCategory.EXECUTION,
+        ErrorCategory.VALIDATION,
         ErrorSeverity.HIGH,
         '1000'
       );

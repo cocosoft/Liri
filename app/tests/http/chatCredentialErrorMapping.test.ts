@@ -67,3 +67,17 @@ describe('mapChatErrorResponse：供应商未就绪（AI_CRED_1001）', () => {
     ]);
   });
 });
+
+describe('mapChatErrorResponse：缺 session_id（MISSING_SESSION_ID）', () => {
+  it('客户端漏传 session_id ⇒ 400（不再误报服务端故障 500）', () => {
+    const { status, body } = mapChatErrorResponse({
+      errorCode: 'MISSING_SESSION_ID',
+      errorMessage: 'No session id provided',
+    });
+
+    expect(status).toBe(400);
+    expect(body.error.type).toBe('invalid_request_error');
+    expect(body.error.code).toBe('MISSING_SESSION_ID');
+    expect(body.error.message).toContain('session_id');
+  });
+});

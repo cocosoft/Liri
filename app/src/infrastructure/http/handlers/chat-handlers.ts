@@ -220,6 +220,7 @@ const DAILY_BUDGET_RELIEF_PATH = '/v1/cost/daily-budget/relief';
  *
  * 撞限是**本机环境状态**而非服务故障（Spec §1.3）⇒ 不得再与"AI 服务错误"共用通用 500：
  * - `DAILY_BUDGET_EXCEEDED` ⇒ **429** + 结构化可操作体（真实码 + 上下文 + 放行三件套入口）；
+ * - `MISSING_SESSION_ID` ⇒ **400**（客户端漏传 `session_id`，非服务端故障）；
  * - 其余（含无码）⇒ 保持既有 **500** 通用体（**不回归**；有业务码时附带 `code` 便于排查）。
  */
 export function mapChatErrorResponse(input: {
@@ -242,6 +243,22 @@ export function mapChatErrorResponse(input: {
             path: DAILY_BUDGET_RELIEF_PATH,
             kinds: ['boost', 'waive-once', 'unlock-today'],
           },
+        },
+      },
+    };
+  }
+  // 缺 `session_id` 属**客户端输入错误**（来源 `AppError.category = VALIDATION`，
+  // 见 ChatOrchestrator.sendMessage）⇒ 400，不得与"AI 服务故障"共用 500。
+  // 台账 2026-10-27 §10（实测：原实现回 500，把调用方参数问题误报为服务端故障）。
+  if (input.errorCode === 'MISSING_SESSION_ID') {
+    return {
+      status: 400,
+      body: {
+        error: {
+          message:
+            'session_id is required: create a session first (POST /v1/sessions) and pass its id',
+          type: 'invalid_request_error',
+          code: 'MISSING_SESSION_ID',
         },
       },
     };

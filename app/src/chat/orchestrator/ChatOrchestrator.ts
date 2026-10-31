@@ -47,7 +47,12 @@ import {
 } from '@modules/utils/mermaidLint';
 import { renderGoalTemplate } from '../../constants/goalTemplates';
 import { createFragment, renderFragment } from '@modules/context';
-import { AppError, handleError } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import { getOutputGuardRegistry } from '@modules/security/outputGuardRegistry';
 import { SimpleMutex } from '@openliri/kernel';
 // PC-1（2026-10-07）：护栏命中 ⇒ 下发前端（消息级"已打码/已阻断"标注，不再静默改写）
@@ -346,7 +351,14 @@ export class ChatOrchestrator {
     // 获取或创建会话
     const sessionId = options?.sessionId || this.host.currentSessionIdRef.get();
     if (!sessionId) {
-      throw new Error('No session id provided');
+      // 缺 `session_id` 属**客户端输入错误**（不是服务端故障）：HTTP 边界据此回 400，
+      // 而非 500。台账 2026-10-27 §10。
+      throw new AppError(
+        'No session id provided',
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'MISSING_SESSION_ID'
+      );
     }
 
     // P3-4（2026-09-02）：全局急停——暂停新消息（不杀进行中的，对标 Hermes estop）

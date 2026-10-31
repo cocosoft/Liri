@@ -57,6 +57,7 @@
     "gen:toolnames": "bun run scripts/gen-tool-names.ts",
     "gen:status": "bun run scripts/gen-status.ts",
     "gen:support-levels": "bun run scripts/gen-support-levels.ts",
+    "prune:sessions": "bun run scripts/prune-sessions.ts",
     "benchmark:startup": "bun run scripts/benchmark-startup.ts",
     "benchmark:compare": "bun run ../scripts/compare-performance-baseline.ts",
     "memory": "bun run src/cli/index.ts",

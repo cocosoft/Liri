@@ -35,6 +35,16 @@ const FILE_READ_MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MiB
  *  但 offset 只读几十行）；超过此阈值整读内存不划算，一律拒绝并引导 grep。 */
 const SEGMENT_READ_HARD_LIMIT = 50 * 1024 * 1024;
 const BLOCKED_PATHS = new Set(['/dev/zero', '/dev/random', '/dev/urandom']);
+/**
+ * 单次返回的**字符**上限（2026-10-31 真机取证：上下文溢出 400 的根因之一）。
+ *
+ * 既有分页只按**行**（默认 2000 行）⇒ 挡不住"超长单行"（压缩后的 JS / 单行 JSON）：
+ * 10MiB 单行文件会整份返回 ≈250 万 tokens，直接打爆模型窗口（真机请求达 **1.79M tokens**、
+ * provider 上限 1.05M ⇒ 400）。故在行分页之外再加一道字符闸：超限返回 head+tail 与可操作提示。
+ */
+const MAX_INLINE_READ_CHARS = 200_000;
+const INLINE_READ_HEAD_CHARS = 140_000;
+const INLINE_READ_TAIL_CHARS = 60_000;
 
 export function readFile(input: FileReadInput): FileReadResult {
   const resolved = resolveFilePath(input.filePath);
@@ -141,6 +151,18 @@ export function readFile(input: FileReadInput): FileReadResult {
   if (offset > 1 || limit < totalLines) {
     result = addLineNumbers(result, startLine + 1);
   }
+  let truncated = endLine < totalLines;
+  // 2026-10-31：字符闸（行分页管不住超长单行）。超限只回 head+tail，并给出可操作方向。
+  if (result.length > MAX_INLINE_READ_CHARS) {
+    const total = result.length;
+    result =
+      result.slice(0, INLINE_READ_HEAD_CHARS) +
+      `\n\n…（输出已截断：本次共 ${total} 字符，超过单次读取上限 ${MAX_INLINE_READ_CHARS}。` +
+      '超长单行使「offset/limit 按行分页」无效 —— 请改用 grep 定位关键片段，' +
+      '或先经 file_convert / 命令行处理成多行后再按行分段读取。）…\n\n' +
+      result.slice(-INLINE_READ_TAIL_CHARS);
+    truncated = true;
+  }
 
   return {
     content: result,
@@ -150,7 +172,7 @@ export function readFile(input: FileReadInput): FileReadResult {
     lineCount: selectedLines.length,
     offset,
     sizeBytes: stat.size,
-    truncated: endLine < totalLines,
+    truncated,
   };
 }
 

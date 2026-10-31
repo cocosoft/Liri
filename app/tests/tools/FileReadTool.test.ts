@@ -81,4 +81,34 @@ describe('FileReadTool — 大文件分段读取（>10MiB）', () => {
     expect(r.content.split('\n').filter(Boolean)).toHaveLength(3);
     expect(r.truncated).toBe(false);
   });
+
+  // 2026-10-31：行分页挡不住"超长单行"（压缩 JS / 单行 JSON）⇒ 单次请求可到百万 tokens。
+  // 真机：pdca_* 请求达 1.79M tokens（provider 上限 1.05M）⇒ 400 后才压缩。
+  test('超长单行（300k 字符）⇒ 字符闸截断 + 可操作提示', () => {
+    const oneLinePath = join(dir, 'one-line.min.js');
+    writeFileSync(oneLinePath, 'x'.repeat(300_000));
+
+    const r = readFile({ filePath: oneLinePath });
+
+    expect(r.truncated).toBe(true);
+    expect(r.content).toContain('输出已截断');
+    expect(r.content).toContain('offset/limit 按行分页');
+    // head(140k) + 提示 + tail(60k) ⇒ 略高于 200k，但远小于原文 300k
+    expect(r.content.length).toBeLessThan(210_000);
+    expect(r.content.startsWith('x')).toBe(true);
+    expect(r.content.endsWith('x')).toBe(true);
+  });
+
+  test('多行文件在字符闸内不受影响（回归）', () => {
+    const manyLinesPath = join(dir, 'few-lines.txt');
+    writeFileSync(
+      manyLinesPath,
+      Array.from({ length: 120 }, () => 'y'.repeat(80)).join('\n')
+    );
+
+    const r = readFile({ filePath: manyLinesPath });
+
+    expect(r.truncated).toBe(false);
+    expect(r.content).not.toContain('输出已截断');
+  });
 });

@@ -11,12 +11,15 @@
 
 import { CONTINUATION_TEMPLATES } from '@modules/constants/goalTemplates';
 import type { ChatMessage } from '@modules/ai/models/types.js';
+import { getLogger } from '@modules/monitoring';
 import {
   createFragment,
   renderFragment,
   FRAGMENT_KIND_FIELD,
 } from '@modules/context';
 import type { SteeringEntry, TerminationReason } from '../ReActLoop.js';
+
+const logger = getLogger('query:taorLoop');
 
 /** L3（2026-09-06）：回合质量重试指令 —— **B2-3 收尾迁移（2026-09-23）**：
  *  文案唯一来源改为 `constants/goalTemplates`（2026-10-21 由 `tasks/goal/` 下沉常量层，
@@ -40,6 +43,57 @@ export function truncateForTrace(value: unknown, maxLen = 500): string {
   } catch {
     return String(value).slice(0, maxLen);
   }
+}
+
+/**
+ * 文件 IO 循环拦截的**模型可见文案**（2026-10-31，口径：维持 abort 整轮，仅补可观测）。
+ *
+ * 原文案是常量「文件IO循环已被阻止」⇒ 模型无法分辨是「同一路径重复」还是
+ * 「同一 pattern 重复」，只能原样重试。现带上检测器明细（`[IO] 连续读 … ×N`）与
+ * pattern，并给出可操作方向；**终止语义不变**（真循环仍整轮终止）。
+ *
+ * @param detail 检测器返回的明细（`FileIOBlockResult.message`）
+ * @param pattern `glob` / `grep` 的查询签名（缺省则不提）
+ */
+export function buildFileIoBlockReason(
+  detail: string,
+  pattern?: string
+): string {
+  return (
+    `文件IO循环已被阻止（本次调用未执行）：${detail}` +
+    `${pattern ? `；pattern=${pattern}` : ''}；整轮已终止 —— ` +
+    '请改用不同的 pattern/路径，或基于已有结果直接交付'
+  );
+}
+
+/**
+ * 文件 IO 循环拦截的**完整可观测产物**：日志 + 模型可见 reason（2026-10-31）。
+ *
+ * 口径（用户裁定）：**维持 abort 整轮**，只补可观测。原日志只有 `tool+path`，
+ * 模型可见文案是常量 ⇒ 模型无法分辨「同一路径重复」还是「同一 pattern 重复」，
+ * 只能原样重试。现补 `pattern` 与检测器明细（`[IO] 连续读 … ×N`）。
+ *
+ * @returns 可直接 push 进 `blocked[]` 的拦截条目
+ */
+export function toFileIoLoopBlocked(
+  call: { id: string; name: string; input?: unknown },
+  filePath: string,
+  detail?: string
+): { id: string; name: string; reason: string } {
+  const args = (call.input ?? {}) as Record<string, unknown>;
+  const pattern = typeof args.pattern === 'string' ? args.pattern : undefined;
+  const ioDetail = detail ?? '连续重复访问';
+  logger.warn('文件IO循环已被阻止', {
+    tool: call.name,
+    path: filePath,
+    pattern,
+    detail: ioDetail,
+  });
+  return {
+    id: call.id,
+    name: call.name,
+    reason: buildFileIoBlockReason(ioDetail, pattern),
+  };
 }
 
 /**

@@ -21,6 +21,7 @@ import { renderGoalTemplate } from '@modules/constants/goalTemplates';
 // 阶段 A（N-28 修复）：yield 轮次登记（与 stream 路径 ReActToolLoop 共用同一实现）
 import { registerYieldFromResults } from '../session/yield';
 import { RoundProgressTracker } from './taor/roundProgress.js';
+import { toFileIoLoopBlocked } from './taor/helpers.js';
 import {
   messageProjector,
   resolveContextWindow,
@@ -697,12 +698,9 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
           typeof args.pattern === 'string' ? args.pattern : undefined
         );
         if (ioCheck.blocked) {
-          logger.warn('文件IO循环已被阻止', { tool: tc.name, path: filePath });
-          blocked.push({
-            id: tc.id,
-            name: tc.name,
-            reason: '文件IO循环已被阻止',
-          });
+          // 2026-10-31（口径：维持 abort 整轮，仅补可观测）：明细/pattern/日志统一由
+          // `toFileIoLoopBlocked` 产出（TAORLoop 受 R04-001 行数上限约束，不再内联展开）。
+          blocked.push(toFileIoLoopBlocked(tc, filePath, ioCheck.message));
         }
       }
     }

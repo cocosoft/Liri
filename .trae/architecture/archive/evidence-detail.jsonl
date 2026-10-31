@@ -6968,3 +6968,10 @@
 {"id":"LRO-WORKSPACE-PATH-HINT","k":"notes","i":0,"c":"根因：越界守卫只回「不在任务工作区内；请改用工作区内相对路径」，提示词硬约束也没给工作区根目录 ⇒ 模型无从得知基准路径，只能盲试（同窗口 211 次拒绝，期间 glob 连续返回空结果）。修法：① 步骤提示词的硬约束块前置声明相对基准 = deps.isolation.workspace；② 越界拒绝文案附同一根目录并给出相对路径示例。守卫判定本身完全不变"}
 {"id":"LRO-WORKSPACE-PATH-HINT","k":"notes","i":1,"c":"（不放宽安全姿态）。验证：typecheck 绿（含 scripts 两个 tsconfig）、lint:prompt-budget 0 issue、lint:prompt-hardcoded --strict 0 issue、prompts:check 一致、tests/tasks 577 例全绿、eslint 0 问题。"}
 {"id":"LRO-WORKSPACE-PATH-HINT","k":"code#0","i":0,"c":"app/src/tasks/lro/stepExecution.ts"}
+{"id":"BASH-FAILURE-EXIT-CODE","k":"title","i":0,"c":"bash 失败结果回传退出码与 stdout 摘要：检索类命令「无命中」不再与真实失败同形"}
+{"id":"BASH-FAILURE-EXIT-CODE","k":"source","i":0,"c":"真机 app.log 单窗口统计（2026-10-31）：bash: execute_error 120 次，样本恒为 findstr 无匹配（exit 1 / 空 stdout / 空 stderr）"}
+{"id":"BASH-FAILURE-EXIT-CODE","k":"reopenWhen","i":0,"c":"再出现「bash 失败消息不含退出码」或「模型把检索无命中当成工具故障并重复同一调用」"}
+{"id":"BASH-FAILURE-EXIT-CODE","k":"notes","i":0,"c":"根因：commandFailedError 只产出 Command failed: <cmd>（+ stderr），BashTool 的 catch 直接把它当结果文案 ⇒ 退出码与 stdout 全丢失。对 findstr / grep 这类检索命令，退出码 1 = 无匹配（正常结局），模型却只看到失败字样 ⇒ 重复调用（与工具路径越界叠加）。修法："}
+{"id":"BASH-FAILURE-EXIT-CODE","k":"notes","i":1,"c":"catch 内从 error.code / error.stdout 取事实，追加「退出码: N；stdout: …」到结果文案，并写入 execute_error 日志（exitCode 字段）。不做语义猜测、不改退出码判定。验证：typecheck 绿（含 scripts 两个 tsconfig）、tests/tools/bash 63 例全绿、"}
+{"id":"BASH-FAILURE-EXIT-CODE","k":"notes","i":2,"c":"lint:complexity 棘轮维持、eslint 0 error。"}
+{"id":"BASH-FAILURE-EXIT-CODE","k":"code#0","i":0,"c":"app/src/tools/bash/BashTool.ts"}

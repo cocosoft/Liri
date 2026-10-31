@@ -173,8 +173,9 @@ export interface PdcaOrchestratorPort {
   reviewStep(stepId: string): Promise<unknown>;
   decideStep(stepId: string, decision: string): Promise<void>;
   /**
-   * ⚠️ **可选** —— app 侧编排器**无** `confirm` 方法（原码 `confirm?.()` 恒为 no-op）
-   * ⇒ 端口保持**可选**，缺失即 no-op（行为不变）。
+   * ⚠️ **可选** —— app 侧编排器**无** `confirm` 方法
+   * ⇒ 端口保持**可选**；`POST /v1/pdca/:taskId/confirm` 在缺失时如实回 **501**
+   * （2026-10-31 起不再回 `{ok:true}` 假成功）。
    */
   confirm?(decision?: unknown): Promise<void>;
   /** 原 `runFullPdca(description, sessionId)`（返回值原调用点仅用 `.catch()`） */

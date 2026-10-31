@@ -762,6 +762,12 @@ export async function handlePdcaMetrics(
 
 /**
  * 确认 PDCA 任务
+ *
+ * 2026-10-31（可证缺陷修复）：**不再假成功**。
+ * app 侧编排器**没有** `confirm` 方法（见 `taskOpsPorts.ts` 的端口注释），旧实现
+ * `await orchestrator.confirm?.(undefined)` 恒为 no-op，却回 `{ok:true}`；编排器缺失时
+ * 又回 `200 + {error:'Not available'}` —— 调用方无法区分"已确认"与"什么都没做"。
+ * 现按真实能力回应：任务不存在 ⇒ 404；能力未实现 ⇒ 501；真正执行 ⇒ 200。
  */
 export async function handlePdcaConfirm(
   _req: http.IncomingMessage,
@@ -781,11 +787,31 @@ export async function handlePdcaConfirm(
       });
     } /* 可选模块, 加载失败时降级 */
     if (!orchestrator) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Not available' }));
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: 'not_found',
+          taskId,
+          message: `PDCA 任务不存在或未在运行：${taskId}`,
+        })
+      );
       return;
     }
-    await orchestrator.confirm?.(undefined);
+    if (typeof orchestrator.confirm !== 'function') {
+      logger.warn('pdca:confirm_unavailable', { taskId });
+      res.writeHead(501, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          ok: false,
+          error: 'not_implemented',
+          taskId,
+          message: '当前编排器未提供 confirm 能力（尚未实现），未执行任何操作',
+        })
+      );
+      return;
+    }
+    await orchestrator.confirm();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true }));
   } catch (err) {

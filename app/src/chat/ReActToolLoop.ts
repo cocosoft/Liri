@@ -87,6 +87,8 @@ import {
 import { StreamingThinkScrubber } from '@modules/streaming';
 import { stripBareExploration } from './services/bareExplorationStripper';
 import { extractTodoData } from './services/ChatHelper';
+// 2026-11-01：工具调用纠偏（同参数重复 / 跨轮重读已读文件）外移到 manager（守 R04-001 行数）
+import { ToolCallCorrection } from './manager/toolCallCorrection';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types';
 import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
 import {
@@ -280,8 +282,22 @@ export class ReActToolLoop extends ReActLoop<
    *  长任务（有 todo 清单）自动获得更多轮次，简单对话（无 todo）保持基础阈值。 */
   /** 会话开始时间（总时长上限检查用） */
   private readonly startedAt = Date.now();
-  /** P2-3（2026-09-02）：同工具同参数重复调用纠偏——记录上一轮工具调用 key（工具名+归一化参数） */
-  private _lastToolCallKeys: string[] | null = null;
+  /** P2-3（2026-09-02）/ 2026-11-01：工具调用纠偏（同参数重复 + 跨轮重读已读文件） */
+  private readonly _toolCallCorrection = new ToolCallCorrection({
+    argsKey: _toolCallArgsKey,
+    getToolTurn: () => this.loopState.toolTurnCount,
+    getSessionId: () => this.ctx.session.id,
+    pushReminder: (text) => {
+      this.loopState.messages.push({
+        role: 'user',
+        content: renderFragment(createFragment({ kind: 'system', text })),
+        [FRAGMENT_KIND_FIELD]: 'system',
+      } as Record<string, unknown>);
+    },
+    markCorrectionPending: () => {
+      this.repeatCorrectionPending = true;
+    },
+  });
   /** R4（2026-09-16）：任务硬收敛——是否已注入强制收尾 steering（每会话仅 1 次，避免反复打扰） */
   private convergeSteeringPrompted = false;
   /** 动态上限固定基础值（构造时确定，env MAX_TOOL_TURNS/MAX_TAOR_TURNS 覆盖），
@@ -1843,52 +1859,13 @@ export class ReActToolLoop extends ReActLoop<
   // ─── 私有辅助 ───────────────────────────────────────
 
   /**
-   * P2-3（2026-09-02）：同工具同参数重复调用纠偏。
+   * 工具调用纠偏（P2-3 同参数重复；2026-11-01 跨轮重读已读文件）。
    *
-   * 实测（session_mtjj70e8qti55w79nif）：模型拿到工具结果后仍机械重调同一工具——
-   * 3 轮 file_read 结果均为全文（5415 字符），inputTokens 8378→16796 证明内容已回喂
-   * 上下文，但模型无视工具结果，循环守卫 3 轮熔断。此处检测"本轮与上一轮工具名+
-   * 参数完全相同"，向下一轮注入 user 角色强纠偏指令（比 tool 结果消息更醒目，
-   * 模型必然处理），并要求改用不同参数（offset/limit）才允许再次读取。
+   * 实现外移到 `./manager/toolCallCorrection`（守 R04-001 行数上限），本方法只做转发，
+   * 调用点与历史行为不变。
    */
   private _injectRepeatCallCorrection(calls: ToolCallEntry[]): void {
-    const currentKeys = calls.map(
-      (tc) => `${tc.name}:${_toolCallArgsKey(tc.input)}`
-    );
-    const prevKeys = this._lastToolCallKeys;
-    this._lastToolCallKeys = currentKeys;
-    if (
-      !prevKeys ||
-      currentKeys.length === 0 ||
-      currentKeys.length !== prevKeys.length ||
-      !currentKeys.every((k, i) => k === prevKeys[i])
-    ) {
-      return;
-    }
-    const names = [...new Set(calls.map((c) => c.name))].join('、');
-    this.loopState.messages.push({
-      role: 'user',
-      content: renderFragment(
-        createFragment({
-          kind: 'system',
-          text:
-            `你刚刚重复调用了与上一轮完全相同的工具（${names}，参数相同）。` +
-            `该工具的结果已在上文上下文中，请直接基于已有内容分析并作答，` +
-            `不要再调用相同的工具与参数。如确需查看不同部分，请使用不同的参数` +
-            `（例如 file_read 的 offset/limit 分页读取不同行段）。`,
-        })
-      ),
-      [FRAGMENT_KIND_FIELD]: 'system',
-    } as Record<string, unknown>);
-    logger.warn('reactToolLoop:repeat_call_correction_injected', {
-      sessionId: this.ctx.session.id,
-      toolNames: names,
-      toolTurn: this.loopState.toolTurnCount,
-      messageCount: this.loopState.messages.length,
-    });
-    // P2-3 配套（2026-09-22）：登记"本轮已注入软纠偏" ⇒ 基类无进展熔断**让路一次**。
-    // 修复前纠偏与熔断在同一轮判定、硬熔断抢先收尾，模型永远看不到纠偏指令。
-    this.repeatCorrectionPending = true;
+    this._toolCallCorrection.evaluate(calls);
   }
 
   /**

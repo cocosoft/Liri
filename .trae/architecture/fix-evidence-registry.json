@@ -15270,6 +15270,36 @@
       ],
       "reopenWhen": "若 docs/FileDocsProvider.scanDirectory 的跳过规则变更（隐藏目录 / raw / 扩展名），必须同批改 gen-status.countDocCorpus —— 自证用例会因两侧口径不同而红。（全文见 archive/evidence-detail.jsonl#STATUS-DOC-CORPUS-METRIC）",
       "notes": "实现：gen-status.ts 新增 countDocCorpus（递归 .md，跳过隐藏目录与 raw/，计数为 0 即 fail-closed），STATUS.md 增「文档语料」行；README 两处改为「篇数见 STATUS.md」指针，由既有 lint:status 守漂移；tests/docs/stat…（全文见 archive/evidence-detail.jsonl#STATUS-DOC-CORPUS-METRIC）"
+    },
+    {
+      "id": "README-DRIFT-NUMBERS",
+      "title": "README 其余写死数字核验：36→38 题入 STATUS，「5 条 WARNING」与「103 万行」去数字化",
+      "source": "核验 2026-11-01：README 写「36 题基线」，实测 src/evals/baseline.json 的 tasks = 38；写「5 条 WARNING」，实测当前 6 条（随基线与豁免变化）；写「TypeScript ≈103 万行 / ≈99.8%」，实测 1,084,082 行（app/src 879,598 + kernel 14,…",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/scripts/gen-status.ts",
+        "STATUS.md",
+        "README.md"
+      ],
+      "tests": [
+        "app/tests/evals/statusEvalBaselineMetric.test.ts"
+      ],
+      "changelog": [
+        "修复：README 的评测题数/门禁 WARNING 数/代码行数不再写死（题数并入 STATUS 现算）"
+      ],
+      "reopenWhen": "若评测基线新增/删除题目，lint:status 会因 STATUS.md 未重生成而红；若行数口径需要对外精确披露，请另设非门禁的度量脚本（百万行扫描 + CRLF/LF 差异不适合进门禁）。（全文见 archive/evidence-detail.jsonl#README-DRIFT-NUMBERS）",
+      "notes": "实现：gen-status.ts 新增「评测基线题目」指标（JSON 解析失败或 0 即 fail-closed）；README 三处改为 STATUS.md 指针或定性表述（36 题、5 条 WARNING、103 万行/99.8%）；自证用例 tests/evals/statusEvalBaselineMetri…（全文见 archive/evidence-detail.jsonl#README-DRIFT-NUMBERS）"
     }
   ]
 }

@@ -7255,3 +7255,14 @@
 {"id":"STATUS-DOC-CORPUS-METRIC","k":"code#2","i":0,"c":"README.md"}
 {"id":"STATUS-DOC-CORPUS-METRIC","k":"tests#0","i":0,"c":"app/tests/docs/statusDocCorpusMetric.test.ts"}
 {"id":"STATUS-DOC-CORPUS-METRIC","k":"changelog#0","i":0,"c":"修复：README 的文档语料篇数改由 STATUS.md 现算（写死 143、实际 145 的漂移）"}
+{"id":"README-DRIFT-NUMBERS","k":"title","i":0,"c":"README 其余写死数字核验：36→38 题入 STATUS，「5 条 WARNING」与「103 万行」去数字化"}
+{"id":"README-DRIFT-NUMBERS","k":"source","i":0,"c":"核验 2026-11-01：README 写「36 题基线」，实测 src/evals/baseline.json 的 tasks = 38；写「5 条 WARNING」，实测当前 6 条（随基线与豁免变化）；写「TypeScript ≈103 万行 / ≈99.8%」，实测 1,084,082 行（app/src 879,598 + kernel 14,"}
+{"id":"README-DRIFT-NUMBERS","k":"source","i":1,"c":"115 + client/src 190,369）。"}
+{"id":"README-DRIFT-NUMBERS","k":"reopenWhen","i":0,"c":"若评测基线新增/删除题目，lint:status 会因 STATUS.md 未重生成而红；若行数口径需要对外精确披露，请另设非门禁的度量脚本（百万行扫描 + CRLF/LF 差异不适合进门禁）。"}
+{"id":"README-DRIFT-NUMBERS","k":"notes","i":0,"c":"实现：gen-status.ts 新增「评测基线题目」指标（JSON 解析失败或 0 即 fail-closed）；README 三处改为 STATUS.md 指针或定性表述（36 题、5 条 WARNING、103 万行/99.8%）；自证用例 tests/evals/statusEvalBaselineMetric.test.ts 交叉校验 STATUS"}
+{"id":"README-DRIFT-NUMBERS","k":"notes","i":1,"c":" 数 == baseline.tasks 键数。核验为真未改：7 攻击变体 + 1 良性对照、Rust 2,471 行、版本号（version:check 已覆盖 README）。"}
+{"id":"README-DRIFT-NUMBERS","k":"code#0","i":0,"c":"app/scripts/gen-status.ts"}
+{"id":"README-DRIFT-NUMBERS","k":"code#1","i":0,"c":"STATUS.md"}
+{"id":"README-DRIFT-NUMBERS","k":"code#2","i":0,"c":"README.md"}
+{"id":"README-DRIFT-NUMBERS","k":"tests#0","i":0,"c":"app/tests/evals/statusEvalBaselineMetric.test.ts"}
+{"id":"README-DRIFT-NUMBERS","k":"changelog#0","i":0,"c":"修复：README 的评测题数/门禁 WARNING 数/代码行数不再写死（题数并入 STATUS 现算）"}

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Liri 依赖更新口径（deepseek 建议 §2）：只开 PR、不自动合并；主版本与 vite 需在 Dependency Dashboard 手动批准（client/package.json 的 overrides 钉死 vite，升级必须同批手改 overrides）；锁文件维护仅月度。",
+  "extends": ["config:recommended", ":dependencyDashboard", "schedule:weekly"],
+  "timezone": "Asia/Shanghai",
+  "rangeStrategy": "bump",
+  "rebaseWhen": "conflicted",
+  "prConcurrentLimit": 5,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on the first day of the month"]
+  },
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "matchPackageNames": ["vite"],
+      "dependencyDashboardApproval": true,
+      "description": "client/package.json 的 overrides 固定 vite 版本 —— 升级须同批改 overrides 并跑 client 测试"
+    },
+    {
+      "matchPackageNames": ["/^@opentelemetry\\//"],
+      "groupName": "OpenTelemetry"
+    },
+    {
+      "matchPackageNames": ["/^@types\\//"],
+      "groupName": "@types"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "recordedAt": "2026-10-31",
+  "note": "通道/工具支持等级的维护者覆盖表（`app/docs/SUPPORT-LEVELS.md` 由 `bun run gen:support-levels` 生成）。未覆盖项按「有专属测试 = core，否则 community」推导；这里只写**与推导不一致**的判断，每项必须能说清理由。等级取值：core / community / experimental。",
+  "channels": {},
+  "tools": {}
+}

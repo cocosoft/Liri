@@ -113,6 +113,21 @@ if [ -f "app/scripts/gen-status.ts" ]; then
   fi
 fi
 
+# ── 支持等级台账漂移门禁（2026-10-31，deepseek 建议 §2）──
+# 通道/工具的等级与「专属测试证据」由 app/docs/SUPPORT-LEVELS.md 摊开；
+# 新增通道/工具或补测试后须重新生成，否则台账与事实不符（实测 <0.5s）。
+if [ -f "app/scripts/gen-support-levels.ts" ]; then
+  echo "  检查支持等级台账..."
+  $RUNNER app/scripts/gen-support-levels.ts --check > /dev/null 2>&1
+  RESULT=$?
+  if [ $RESULT -ne 0 ]; then
+    echo ""
+    echo "❌ 支持等级台账与事实源/测试集不一致！提交已阻止。"
+    echo "   修复: cd app && bun run gen:support-levels && git add docs/SUPPORT-LEVELS.md"
+    exit 1
+  fi
+fi
+
 # ── 修复证据登记门禁（HD-INFRA-1c / Q-H6：前置，消除"推送后才发现"的滞后）──
 # 轻量但完整：JSON 可解析（含未转义 ASCII 引号的精确定位）+ 证据路径与状态自洽。
 # 规范见 .trae/rules/coding-standards.md §CS08。
@@ -208,7 +223,7 @@ exit 0
   writeFileSync(hookPath, hookContent, { mode: 0o755 });
   console.log(`✅ pre-commit 钩子已安装: ${hookPath}`);
   console.log(
-    '   提交前自动运行: 架构合规检查 + infra 层边界契约 + STATUS.md 漂移 + 修复证据登记 + GitHub Actions YAML + 棘轮门禁(state/fn-size/consts/unref) + 类型检查 + ESLint + 模块验证'
+    '   提交前自动运行: 架构合规检查 + infra 层边界契约 + STATUS.md / 支持等级台账漂移 + 修复证据登记 + GitHub Actions YAML + 棘轮门禁(state/fn-size/consts/unref) + 类型检查 + ESLint + 模块验证'
   );
 }
 

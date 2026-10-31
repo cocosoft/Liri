@@ -7345,3 +7345,14 @@
 {"id":"SMS-SEND-WIRING","k":"code#1","i":0,"c":".trae/architecture/support-levels.json"}
 {"id":"SMS-SEND-WIRING","k":"tests#0","i":0,"c":"app/tests/channels/smsSendWiring.test.ts"}
 {"id":"SMS-SEND-WIRING","k":"changelog#0","i":0,"c":"修复：SMS 接线真实发送（twilio/custom），发送与连接结果不再谎报"}
+{"id":"SMS-ALIYUN-RPC","k":"title","i":0,"c":"阿里云短信：RPC 签名请求构造 + 配置字段补齐"}
+{"id":"SMS-ALIYUN-RPC","k":"source","i":0,"c":"台账（第七批·通道 upstream 契约桩）遗留项：aliyun/tencent 分支返回「暂不可构造」；SmsConfig 无法表达 SignName / TemplateCode"}
+{"id":"SMS-ALIYUN-RPC","k":"reopenWhen","i":0,"c":"若阿里云签名机制（RPC 1.0 / HMAC-SHA1）变更，或短信模板需改为多变量（非 {content}）时重开"}
+{"id":"SMS-ALIYUN-RPC","k":"notes","i":0,"c":"按官方签名机制实现：参数按 key 排序 -> percentEncode -> stringToSign=POST&%2F&... -> HMAC-SHA1(secret+\"&\") -> Base64；用 node:crypto，无新增依赖。模板参数固定 {\"content\": text}，模板须含 ${content}。测试侧用独立 "}
+{"id":"SMS-ALIYUN-RPC","k":"notes","i":1,"c":"percentEncode + HMAC-SHA1 复算签名，并固定 now/nonce。腾讯云（TC3 / SdkAppId / TemplateId）仍明确拒绝。顺带：connect() 去掉无监听的 emit(error)，失败统一走 lastError。"}
+{"id":"SMS-ALIYUN-RPC","k":"code#0","i":0,"c":"app/src/channels/sms/providerRequests.ts"}
+{"id":"SMS-ALIYUN-RPC","k":"code#1","i":0,"c":"app/src/channels/sms/SmsChannel.ts"}
+{"id":"SMS-ALIYUN-RPC","k":"code#2","i":0,"c":"app/src/channels/sms/config-schema.ts"}
+{"id":"SMS-ALIYUN-RPC","k":"tests#0","i":0,"c":"app/tests/channels/smsProviderRequests.test.ts"}
+{"id":"SMS-ALIYUN-RPC","k":"tests#1","i":0,"c":"app/tests/channels/smsSendWiring.test.ts"}
+{"id":"SMS-ALIYUN-RPC","k":"changelog#0","i":0,"c":"SMS 通道：接入阿里云短信真实发送（RPC 签名），配置新增 signName / templateCode / regionId"}

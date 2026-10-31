@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **SMS-ALIYUN-RPC**：阿里云短信 RPC 签名请求构造与配置字段补齐 —— 验证 tsc0|unit15|channels687|eslint0|sl0|arch0；基线 阿里云短信返回「暂不可构造」；SmsConfig 无 signName/templateCode/regionId，无法表达阿里云发送（详情见 archive/evidence-detail.jsonl#SMS-ALIYUN-RPC）
 - ✅ **SMS-SEND-WIRING**：SMS 发送接线 + 两处谎报修复 —— 验证 tsc0|unit6|channels684|eslint0；基线 SMS 发送恒报成功（忽略 sendMessage 返回值）；onConnect 忽略配置且不检查 connect 结果（详情见 archive/evidence-detail.jsonl#SMS-SEND-WIRING）
 - ✅ **SMS-PROVIDER-REQUEST-PURE**：SMS provider 请求构造纯函数（未接线） —— 验证 tsc0|unit6|channels678|eslint0；基线 SMS sendMessage 只 emit 并返回 true，无任何 provider HTTP；请求形状不可测（详情见 archive/evidence-detail.jsonl#SMS-PROVIDER-REQUEST-PURE）
 - ✅ **CHANNEL-REQUEST-SHAPE-STUBS-5**：Signal 上游 CLI 参数契约 + 缺 account 如实失败 —— 验证 tsc0|unit4|channels672|eslint0；基线 Signal 发送参数形状无回归；缺 account 仍调起 signal-cli -a 空值（必然失败）（详情见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-5）

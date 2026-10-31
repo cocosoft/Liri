@@ -15553,6 +15553,37 @@
       ],
       "reopenWhen": "若扩展 SmsConfig 支持 SignName/TemplateCode 与 SdkAppId/TemplateId 并实现签名，需把 aliyun/tencent 分支从「不可构造」改为真实请求；若上游协议变（Twilio Messages.json 路径/字段），providerRequests 纯函数测试会…（全文见 archive/evidence-detail.jsonl#SMS-SEND-WIRING）",
       "notes": "修复：SmsChannel 增 configure() / lastError；sendMessage 用 buildSmsProviderRequest 构造后真实 fetch，未连接/不可构造/非 2xx/网络异常一律 false 并写原因（不可构造不 emit error，避免无监听崩溃）；插件 onConne…（全文见 archive/evidence-detail.jsonl#SMS-SEND-WIRING）"
+    },
+    {
+      "id": "SMS-ALIYUN-RPC",
+      "title": "阿里云短信：RPC 签名请求构造 + 配置字段补齐",
+      "source": "台账（第七批·通道 upstream 契约桩）遗留项：aliyun/tencent 分支返回「暂不可构造」；SmsConfig 无法表达 SignName / TemplateCode",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/sms/providerRequests.ts",
+        "app/src/channels/sms/SmsChannel.ts",
+        "app/src/channels/sms/config-schema.ts"
+      ],
+      "tests": [
+        "app/tests/channels/smsProviderRequests.test.ts",
+        "app/tests/channels/smsSendWiring.test.ts"
+      ],
+      "changelog": [
+        "SMS 通道：接入阿里云短信真实发送（RPC 签名），配置新增 signName / templateCode / regionId"
+      ],
+      "reopenWhen": "若阿里云签名机制（RPC 1.0 / HMAC-SHA1）变更，或短信模板需改为多变量（非 {content}）时重开（全文见 archive/evidence-detail.jsonl#SMS-ALIYUN-RPC）",
+      "notes": "按官方签名机制实现：参数按 key 排序 -> percentEncode -> stringToSign=POST&%2F&... -> HMAC-SHA1(secret+\"&\") -> Base64；用 node:crypto，无新增依赖。模板参数固定 {\"content\": text}，模板须含 ${conte…（全文见 archive/evidence-detail.jsonl#SMS-ALIYUN-RPC）"
     }
   ]
 }

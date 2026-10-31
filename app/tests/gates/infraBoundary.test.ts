@@ -26,6 +26,7 @@ import type { SourceFile } from '../../scripts/architectureBoundaryCore.js';
 import {
   compareApprovalOrchestration,
   compareCommonUtilsDuplicates,
+  compareDirectSqliteImports,
   compareDynamicInfraToApp,
   compareTopLevelIo,
   findTopLevelIo,
@@ -58,6 +59,7 @@ function allow(
     approvalOrchestration: [],
     dynamicInfraToApp: [],
     commonUtilsDuplicates: [],
+    sqliteDirectImports: [],
     ...overrides,
   };
 }
@@ -321,6 +323,64 @@ describe('R4 common / utils 重复导出', () => {
   });
 });
 
+describe('R5 DB 驱动唯一入口（bun:sqlite）', () => {
+  it('非包装文件直连 ⇒ 必报（静态 / require / 动态导入同口径）', () => {
+    const result = compareDirectSqliteImports(
+      [
+        file('chat/a.ts', "import { Database } from 'bun:sqlite';\n"),
+        file('tasks/b.ts', "const m = require('bun:sqlite');\n"),
+        file('tools/c.ts', "const m = await import('bun:sqlite');\n"),
+      ],
+      allow()
+    );
+    expect(result.violations).toHaveLength(3);
+    expect(result.checked).toBe(3);
+  });
+
+  it('注释提及与 require.resolve 不算直连', () => {
+    const result = compareDirectSqliteImports(
+      [
+        file(
+          'bootstrap/preflight.ts',
+          "// 检查 bun:sqlite（数据库核心依赖）\nrequire.resolve('bun:sqlite');\n"
+        ),
+      ],
+      allow()
+    );
+    expect(result.violations).toHaveLength(0);
+    expect(result.checked).toBe(0);
+  });
+
+  it('包装本体已登记 ⇒ 放行；失效后提示清理', () => {
+    const wrapper = [
+      file(
+        'external/sqlite3.ts',
+        "const { Database } = require('bun:sqlite');\n"
+      ),
+    ];
+    const registered = compareDirectSqliteImports(
+      wrapper,
+      allow({
+        sqliteDirectImports: [
+          { path: 'external/sqlite3.ts', reason: '包装本体' },
+        ],
+      })
+    );
+    expect(registered.violations).toHaveLength(0);
+
+    const dangling = compareDirectSqliteImports(
+      [file('external/sqlite3.ts', 'export const x = 1;\n')],
+      allow({
+        sqliteDirectImports: [
+          { path: 'external/sqlite3.ts', reason: '包装本体' },
+        ],
+      })
+    );
+    expect(dangling.violations).toHaveLength(0);
+    expect(dangling.hints.join('\n')).toContain('请清理');
+  });
+});
+
 describe('仓库真实白名单', () => {
   it('可解析，且每条豁免都有理由', () => {
     const path = resolve(
@@ -336,6 +396,7 @@ describe('仓库真实白名单', () => {
       ...raw.approvalOrchestration,
       ...raw.dynamicInfraToApp,
       ...raw.commonUtilsDuplicates,
+      ...raw.sqliteDirectImports,
     ];
     expect(entries.length).toBeGreaterThan(0);
     for (const entry of entries) {

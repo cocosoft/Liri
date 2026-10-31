@@ -12,9 +12,12 @@
 | 事实 | 数值 | 取证方式 |
 |---|---|---|
 | 走 infra 包装（`@modules/external`）的文件 | **56** | `Grep "from '@modules/external'" app/src` |
-| 直连 `bun:sqlite` 的文件 / 处 | **8 / 18** | `Grep "bun:sqlite" app/src` |
-| 其中包装本体（合法直连） | **2 文件 / 8 处** | `external/sqlite3.ts`（6）· `external/index.ts`（2） |
-| 其余直连（**漂移**） | **6 文件 / 10 处** | `bootstrap/preflight.ts`（3）· `evals/sandbox.ts`（2）· `tools/VideoGenerateTool/VideoTaskPersistence.ts`（2）· `tasks/PdcaWorkItemBridge.ts`（1）· `pyapp.ts`（1）· `tools/VideoGenerateTool/MediaTemplates.ts`（1） |
+| **真实**导入 `bun:sqlite` 的文件 | **1**（`external/sqlite3.ts:97`，即包装本体） | `Grep "(from\s+'bun:sqlite'\|require\(\s*'bun:sqlite')" app/src` |
+| `bun:sqlite` 的**文本**提及（含注释 / 能力探测） | **8 文件 / 18 处** | `Grep "bun:sqlite" app/src` |
+| 其中非导入用法 | 全为注释或 `require.resolve('bun:sqlite')`（`bootstrap/preflight.ts` 的运行时能力探测） | 逐处核对 |
+
+**订正（CS06）**：初版把"文本提及"当成"直连"，误报 6 个文件为漂移；按**真实导入**判定，
+全仓**没有**绕过包装的调用方 —— `external/sqlite3.ts` 是唯一驱动入口。
 
 **包装形态**（`app/src/external/sqlite3.ts` 头注）：用 Bun 内建 `bun:sqlite` 暴露 **sqlite3 回调式 API**，
 目的是避免原生 C++ 插件（`.node`）在 `bun build --compile` 单文件 exe 中加载失败；
@@ -43,13 +46,13 @@
 
 未命中任一条件 ⇒ 本 spec 保持 🟡，**不实施**。
 
-## 4. 近期动作（本 spec 不实施，按序独立变更）
+## 4. 近期动作（A2 已落地；A3 待触发）
 
-| # | 动作 | 为什么 |
+| # | 动作 | 状态 |
 |---|---|---|
-| A1 | 把 6 个文件的 `bun:sqlite` 直连改走 `@modules/external` | 直连绕过慢查询插桩与路径/目录创建约束（`preflight.ts` 甚至出现在 `pyapp.ts` 启动链上） |
-| A2 | 加门禁：新增 `bun:sqlite` 直连即红，白名单 = 2 个包装文件（A1 完成后清零） | 与 `lint:infra` 同形的"可缩小白名单"，防止直连面回涨 |
-| A3 | 若未来做抽象，**只**抽象 §2-R4 的 5 个动作 | 避免把 SQL 方言、事务语义、迁移器一并抽象成"框架" |
+| A1 | 把绕过包装的 `bun:sqlite` 直连改走 `@modules/external` | ✅ **无需实施**：实测真实导入仅包装本体 1 处（见 §1 订正） |
+| A2 | 加门禁：新增 `bun:sqlite` 直连即红，白名单 = 包装本体 | ✅ **已落地**：`lint:infra` R5（2026-10-31）；只判真实导入，注释与 `require.resolve` 不算 |
+| A3 | 若未来做抽象，**只**抽象 §2-R4 的 5 个动作 | ⏳ 待 T1–T3 任一触发 |
 
 ## 5. 明确不做（Negative list）
 
@@ -61,4 +64,4 @@
 
 1. §1 的每个数字都能用文中的 Grep 复现。
 2. 结论与 `infra-layer-boundary-contract.md §3` 判据不冲突（驱动适配留 infra、core 零 I/O）。
-3. 本批**零代码改动**：只新增本文档。
+3. A2 的门禁实现属 `lint:infra` R5（与本文同批）；其余动作零代码改动。

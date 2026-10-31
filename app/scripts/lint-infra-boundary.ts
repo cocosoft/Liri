@@ -9,6 +9,7 @@
  *   R2 security / permission 不得运行时引用上层模块（审批编排留在 app）
  *   R3 infra 动态导入上层 —— 逐条白名单，清零目标（补 R00-003 盲区）
  *   R4 common / utils 同名导出 —— infra 双包只允许一份实现
+ *   R5 `bun:sqlite` 只允许包装本体直连（`@modules/external` 是唯一驱动入口）
  *
  * 扫描面：`scripts/modules-to-layers.json` 里 `layer === "infra"` 的模块，取其
  * `app/src/<module>/**` 下的生产 `.ts`（排除 `*.test.ts` / `*.spec.ts` / `*ModuleTest.ts` / `__tests__`）。
@@ -27,6 +28,7 @@ import type { SourceFile } from './architectureBoundaryCore';
 import {
   compareApprovalOrchestration,
   compareCommonUtilsDuplicates,
+  compareDirectSqliteImports,
   compareDynamicInfraToApp,
   compareTopLevelIo,
   type BoundaryReport,
@@ -109,6 +111,7 @@ function loadAllowlist(): InfraBoundaryAllowlist {
     'approvalOrchestration',
     'dynamicInfraToApp',
     'commonUtilsDuplicates',
+    'sqliteDirectImports',
   ] as const;
   for (const key of sections) {
     if (!Array.isArray(parsed[key])) fail(`白名单缺少 ${key} 数组（fail-closed）`);
@@ -120,6 +123,7 @@ function loadAllowlist(): InfraBoundaryAllowlist {
     approvalOrchestration: parsed.approvalOrchestration!,
     dynamicInfraToApp: parsed.dynamicInfraToApp!,
     commonUtilsDuplicates: parsed.commonUtilsDuplicates!,
+    sqliteDirectImports: parsed.sqliteDirectImports!,
   };
 }
 
@@ -149,14 +153,19 @@ function main(): number {
   const commonFiles = infraFiles.filter((f) => f.path.startsWith('common/'));
   const utilsFiles = infraFiles.filter((f) => f.path.startsWith('utils/'));
 
+  // R5 的扫描面是**全 src**（驱动唯一入口属于全局约束，不限 infra 目录）
+  const allSrcFiles: SourceFile[] = [];
+  collect(SRC_DIR, allSrcFiles);
+
   const reports: BoundaryReport[] = [
     compareTopLevelIo(infraFiles, allowlist),
     compareApprovalOrchestration(infraFiles, layers, allowlist),
     compareDynamicInfraToApp(infraFiles, layers, allowlist),
     compareCommonUtilsDuplicates(commonFiles, utilsFiles, allowlist),
+    compareDirectSqliteImports(allSrcFiles, allowlist),
   ];
 
-  console.log('=== infra 层边界契约门禁（R1–R4）===');
+  console.log('=== infra 层边界契约门禁（R1–R5）===');
   console.log(
     `infra 模块 ${infraModules.length} 个（无目录 ${missing.length}）· 生产源文件 ${infraFiles.length} 个` +
       ` · common ${commonFiles.length} / utils ${utilsFiles.length}`
@@ -174,7 +183,7 @@ function main(): number {
     console.error(`\n❌ 共 ${total} 条违规（规范见 .trae/specs/infra-layer-boundary-contract.md）`);
     return 1;
   }
-  console.log('\n✅ 合规（R1–R4 无未登记违规）');
+  console.log('\n✅ 合规（R1–R5 无未登记违规）');
   return 0;
 }
 

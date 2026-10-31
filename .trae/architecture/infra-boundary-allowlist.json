@@ -19,5 +19,11 @@
       "name": "ValidationResult",
       "reason": "同名结构体各有一份（common 通用 / utils/config/ConfigValidator / utils/toolContract/Tool）；属 §6.3 归一化盘点范围。"
     }
+  ],
+  "sqliteDirectImports": [
+    {
+      "path": "external/sqlite3.ts",
+      "reason": "SQLite 包装本体：唯一允许直连 bun:sqlite 的文件（统一 PRAGMA 与慢查询插桩，见台账 D-241）。其余一律走 @modules/external。"
+    }
   ]
 }

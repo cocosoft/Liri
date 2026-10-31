@@ -58,11 +58,13 @@ export interface InfraBoundaryAllowlist {
   }>;
   /** R4：common / utils 同名导出的存量例外 */
   commonUtilsDuplicates: Array<{ name: string; reason: string }>;
+  /** R5：允许直连 `bun:sqlite` 的文件（应只剩包装本体） */
+  sqliteDirectImports: Array<{ path: string; reason: string }>;
 }
 
 /** 单条规则的检查结论 */
 export interface BoundaryReport {
-  rule: 'R1' | 'R2' | 'R3' | 'R4';
+  rule: 'R1' | 'R2' | 'R3' | 'R4' | 'R5';
   title: string;
   violations: string[];
   hints: string[];
@@ -582,5 +584,64 @@ export function compareCommonUtilsDuplicates(
     violations,
     hints,
     checked: duplicated.length,
+  };
+}
+
+// ─────────────────── R5 DB 驱动唯一入口（bun:sqlite） ───────────────────
+
+/**
+ * R5：`bun:sqlite` 只允许由包装本体（`external/sqlite3.ts`）直连。
+ *
+ * 为什么：包装层统一了 PRAGMA（`journal_mode=WAL` / `busy_timeout` / `temp_store`）与慢查询插桩；
+ * 绕过它意味着"这条连接没有这些设置"，故障时最难归因（台账 D-241 的由来）。
+ *
+ * 判据只看**真实导入**（`from 'bun:sqlite'` / `require('bun:sqlite')` / `import('bun:sqlite')`）；
+ * 注释提及与 `require.resolve('bun:sqlite')`（运行时能力探测）不算。扫描前按字面量预筛，
+ * 未提及的文件零解析成本。
+ */
+export const SQLITE_SPECIFIER = 'bun:sqlite';
+
+export function compareDirectSqliteImports(
+  files: readonly SourceFile[],
+  allowlist: InfraBoundaryAllowlist
+): BoundaryReport {
+  const violations: string[] = [];
+  const hints: string[] = [];
+  const allowed = new Map(allowlist.sqliteDirectImports.map((e) => [e.path, e]));
+  const seen = new Set<string>();
+  let checked = 0;
+
+  for (const file of files) {
+    if (!file.content.includes(SQLITE_SPECIFIER)) continue;
+    for (const ref of parseFileImports(file)) {
+      if (ref.specifier !== SQLITE_SPECIFIER) continue;
+      checked += 1;
+      seen.add(file.path);
+      if (allowed.has(file.path)) continue;
+      violations.push(
+        `${file.path}:${ref.line} 直连 \`bun:sqlite\` —— 请改用 \`@modules/external\` 的 openBunDatabase() / Database` +
+          '（统一 PRAGMA 与慢查询插桩；台账 D-241）'
+      );
+    }
+  }
+
+  for (const entry of allowlist.sqliteDirectImports) {
+    if (reasonMissing(entry.reason)) {
+      violations.push(`R5 白名单条目缺少理由：${entry.path}`);
+      continue;
+    }
+    if (!seen.has(entry.path)) {
+      hints.push(`R5 白名单已无对应直连（请清理）：${entry.path}`);
+    }
+  }
+  if (violations.length === 0) {
+    hints.push(`bun:sqlite 直连 ${checked} 处，均在白名单内（目标：仅包装本体）`);
+  }
+  return {
+    rule: 'R5',
+    title: 'DB 驱动唯一入口（bun:sqlite）',
+    violations,
+    hints,
+    checked,
   };
 }

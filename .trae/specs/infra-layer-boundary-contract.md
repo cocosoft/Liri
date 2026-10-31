@@ -123,7 +123,8 @@ infra 禁止依赖：entry、ui、app、service
 | **审批编排不得下沉** | ✅ `lint:infra` R2 | `security/**`、`permission/**` 运行时不得引用上层；**存量已清零**（`BashPermission` 改注入评估器） |
 | **infra → app 动态导入** | ✅ `lint:infra` R3（白名单清零） | **存量已清零**（0 条，2026-10-31）；后续新增即红，条目消失即提示清理 |
 | **common / utils 重复检测** | ✅ `lint:infra` R4 | 同名导出（含命名空间内导出）；4 个真重复已去重（保留 `utils/common`），剩 2 个同名不同概念已登记 |
-| **门禁接线与自证** | ✅ | `app/package.json` 的 `lint:infra` 进 pre-commit（`setup-git-hooks.ts`）+ `ci` 链；白名单 `.trae/architecture/infra-boundary-allowlist.json`（每条须带理由）；自证 `app/tests/gates/infraBoundary.test.ts`（18 例） |
+| **DB 驱动唯一入口** | ✅ `lint:infra` R5 | `bun:sqlite` 只允许 `external/sqlite3.ts` 直连（实测全仓仅此 1 处）；注释与 `require.resolve` 不算 |
+| **门禁接线与自证** | ✅ | `app/package.json` 的 `lint:infra` 进 pre-commit（`setup-git-hooks.ts`）+ `ci` 链；白名单 `.trae/architecture/infra-boundary-allowlist.json`（每条须带理由）；自证 `app/tests/gates/infraBoundary.test.ts`（21 例） |
 
 ## 9. 验收（本 spec 自身）
 

@@ -92,6 +92,7 @@
     ],
     "awaiting_approval": [
       "app/src/chat/services/ToolExecutionService.ts",
+      "app/src/query/ReActLoop.ts",
       "app/src/tasks/StageOrchestrator.ts"
     ],
     "blocked": [
@@ -300,6 +301,7 @@
       "app/src/runtime/api/todo-types.ts",
       "app/src/runtime/api/toolsPorts.ts",
       "app/src/runtime/api/workspaceOpsPorts.ts",
+      "app/src/runtime/coordinator.ts",
       "app/src/sandbox/ProcessRegistry.ts",
       "app/src/security/rollback/RedoManager.ts",
       "app/src/security/rollback/types.ts",
@@ -331,6 +333,7 @@
       "app/src/tasks/PdcaLiveEvents.ts",
       "app/src/tasks/PdcaWorkItemBridge.ts",
       "app/src/tasks/PersistentTaskQueue.ts",
+      "app/src/tasks/phases.ts",
       "app/src/tasks/PlanDrivenLoop.ts",
       "app/src/tasks/PlanReview.ts",
       "app/src/tasks/StageOrchestrator.ts",
@@ -378,10 +381,8 @@
       "app/src/workspace/WorkflowTemplateProvider.ts",
       "app/src/workspace/workflowTemplateRunner.ts",
       "app/src/workspace/workflowTemplateTool.ts",
-      "app/src/runtime/coordinator.ts",
       "packages/kernel/src/core/data-models.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "app/src/tasks/phases.ts",
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "COMPLETED": [
@@ -501,7 +502,6 @@
       "app/src/channels/zalo/monitor.ts",
       "app/src/channels/zalo/runtime.ts",
       "app/src/channels/zalo/ZaloChannel.ts",
-      "app/src/chat/ChatManager.ts",
       "app/src/chat/components/MessageSelector.tsx",
       "app/src/chat/manager/budgetResume.ts",
       "app/src/chat/manager/streamResume.ts",
@@ -960,6 +960,7 @@
       "app/src/runtime/api/taskOpsPorts.ts",
       "app/src/runtime/api/todo-types.ts",
       "app/src/runtime/api/workspaceOpsPorts.ts",
+      "app/src/runtime/coordinator.ts",
       "app/src/security/decision.ts",
       "app/src/security/rollback/RedoManager.ts",
       "app/src/security/rollback/types.ts",
@@ -999,6 +1000,7 @@
       "app/src/tasks/PdcaLiveEvents.ts",
       "app/src/tasks/PdcaWorkItemBridge.ts",
       "app/src/tasks/PersistentTaskQueue.ts",
+      "app/src/tasks/phases.ts",
       "app/src/tasks/PlanDrivenLoop.ts",
       "app/src/tasks/PlanReview.ts",
       "app/src/tasks/StageOrchestrator.ts",
@@ -1039,10 +1041,8 @@
       "app/src/workspace/WorkflowTemplateProvider.ts",
       "app/src/workspace/workflowTemplateRunner.ts",
       "app/src/workspace/WorkItemStore.ts",
-      "app/src/runtime/coordinator.ts",
       "packages/kernel/src/core/events/OrchestrationMetrics.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "app/src/tasks/phases.ts",
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "FAILED": [
@@ -1090,7 +1090,6 @@
       "app/src/channels/whatsapp/runtime.ts",
       "app/src/channels/yuanbao/runtime.ts",
       "app/src/channels/zalo/runtime.ts",
-      "app/src/chat/ChatManager.ts",
       "app/src/chat/services/NegotiationState.ts",
       "app/src/chat/streaming/AdvancedStreamingProcessor.ts",
       "app/src/chronos/reaper/SessionReaper.ts",
@@ -1146,8 +1145,8 @@
     "installed": [
       "app/src/channels/wechat/cli-manager.ts",
       "app/src/config/ConfigMigration.ts",
-      "app/src/skills/loaders/adapter/AggregatedSkillSearch.ts",
-      "app/src/environment/paths.ts"
+      "app/src/environment/paths.ts",
+      "app/src/skills/loaders/adapter/AggregatedSkillSearch.ts"
     ],
     "installing": [
       "app/src/channels/wechat/cli-manager.ts"
@@ -1214,6 +1213,7 @@
       "app/src/runtime/api/sessionMessagesRead.ts",
       "app/src/runtime/InboxManager.ts",
       "app/src/runtime/NotificationPersistence.ts",
+      "app/src/runtimeHost/ExitRecorder.ts",
       "app/src/security/bash/modeValidation.ts",
       "app/src/security/SecurityAudit.ts",
       "app/src/security/SecurityAuditLogger.ts",
@@ -1233,7 +1233,6 @@
       "app/src/tools/SendMessageTool/SendMessageTool.ts",
       "app/src/workspace/LiriConfigManager.ts",
       "app/src/workspace/types.ts",
-      "app/src/runtimeHost/ExitRecorder.ts",
       "packages/kernel/src/core/sleep/SleepMonitor.ts"
     ],
     "paused": [
@@ -1264,12 +1263,12 @@
       "app/src/subagent/types/SubAgent.ts",
       "app/src/tasks/cron/CronJobStore.ts",
       "app/src/tasks/cron/types.ts",
+      "app/src/tasks/phases.ts",
       "app/src/tools/ChronosTool/CronStopTool.ts",
       "app/src/tools/SessionsTool/SessionsTool.ts",
       "app/src/workspace/ProjectStore.ts",
       "app/src/workspace/types.ts",
       "packages/kernel/src/core/data-models.ts",
-      "app/src/tasks/phases.ts",
       "packages/kernel/src/core/sleep/SleepMonitor.ts"
     ],
     "pending": [
@@ -1342,6 +1341,7 @@
       "app/src/runtime/api/todo-types.ts",
       "app/src/runtime/api/toolsPorts.ts",
       "app/src/runtime/api/workspaceOpsPorts.ts",
+      "app/src/runtime/coordinator.ts",
       "app/src/runtime/InboxManager.ts",
       "app/src/security/SecurityAuditLogger.ts",
       "app/src/services/mcp/MCPConnectionManager.ts",
@@ -1362,6 +1362,7 @@
       "app/src/tasks/lro/resumeFromCheckpoint.ts",
       "app/src/tasks/lro/stepExecution.ts",
       "app/src/tasks/lro/stepReviewDecide.ts",
+      "app/src/tasks/phases.ts",
       "app/src/tasks/PlanDrivenLoop.ts",
       "app/src/tasks/PlanReview.ts",
       "app/src/tasks/selfwake/SelfWakeService.ts",
@@ -1394,9 +1395,7 @@
       "app/src/workspace/ProjectStore.ts",
       "app/src/workspace/types.ts",
       "app/src/workspace/WorkItemStore.ts",
-      "app/src/runtime/coordinator.ts",
       "packages/kernel/src/core/LazyModuleStrategy.ts",
-      "app/src/tasks/phases.ts",
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "QUEUED": [
@@ -1486,6 +1485,7 @@
       "app/src/runtime/api/sessionAgentOps.ts",
       "app/src/runtime/api/toolsPorts.ts",
       "app/src/runtime/api/workspaceOpsPorts.ts",
+      "app/src/runtime/coordinator.ts",
       "app/src/sandbox/ProcessRegistry.ts",
       "app/src/session/storage/EventMessageDeriver.ts",
       "app/src/session/storage/UnifiedStorageAdapter.ts",
@@ -1509,6 +1509,7 @@
       "app/src/tasks/PdcaLiveEvents.ts",
       "app/src/tasks/PdcaWorkItemBridge.ts",
       "app/src/tasks/PersistentTaskQueue.ts",
+      "app/src/tasks/phases.ts",
       "app/src/tasks/PlanDrivenLoop.ts",
       "app/src/tasks/PlanReview.ts",
       "app/src/tasks/StageOrchestrator.ts",
@@ -1536,10 +1537,8 @@
       "app/src/utils/toolContract/ToolProgress.ts",
       "app/src/workspace/ProjectStore.ts",
       "app/src/workspace/types.ts",
-      "app/src/runtime/coordinator.ts",
       "packages/kernel/src/core/data-models.ts",
       "packages/kernel/src/core/events/UiEvents.ts",
-      "app/src/tasks/phases.ts",
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "RUNNING": [
@@ -1715,6 +1714,8 @@
       "app/src/query/withRetry.ts",
       "app/src/remote/SSHKeyManager.ts",
       "app/src/runtime/api/CoreAPIImpl.ts",
+      "app/src/runtimeHost/ExitRecorder.ts",
+      "app/src/runtimeHost/health/DependencyHealthChecker.ts",
       "app/src/sandbox/docker/DockerImageManager.ts",
       "app/src/sandbox/landlock/LandlockDetector.ts",
       "app/src/sandbox/SandboxTypes.ts",
@@ -1803,8 +1804,6 @@
       "packages/kernel/src/core/errorHandler.ts",
       "packages/kernel/src/core/errors.ts",
       "packages/kernel/src/core/events/OrchestrationMetrics.ts",
-      "app/src/runtimeHost/ExitRecorder.ts",
-      "app/src/runtimeHost/health/DependencyHealthChecker.ts",
       "packages/kernel/src/core/health/types.ts"
     ],
     "WAITING_USER": [

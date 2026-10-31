@@ -1309,8 +1309,13 @@ export class ToolExecutionService {
               // B1（2026-10-30）：多根模式下越界是**可恢复**的（批准加根即可重发）
               // ⇒ 记 `workspace_escape`（不计入 environment_blocked 的 2 轮熔断）；
               // 开关关闭时保持既有 `permission_denied`（零行为变更）。
+              // 2026-10-31（台账 §16）：**已提交审批**时改记 `workspace_escape_pending_approval`
+              // —— 该态在熔断分型中为中性（同 aborted），否则「等用户批准」会烧完
+              // `consecutiveInvalidTurns`（3 轮）⇒ 审批落地时已无轮次可用。
               failureKind: (multiRootEnabled
-                ? 'workspace_escape'
+                ? approvalRequested === true
+                  ? 'workspace_escape_pending_approval'
+                  : 'workspace_escape'
                 : 'permission_denied') as ToolFailureKind,
             };
           }

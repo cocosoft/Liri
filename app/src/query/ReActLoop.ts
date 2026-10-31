@@ -343,14 +343,22 @@ const ENVIRONMENT_BLOCKING_KINDS = new Set<ToolFailureKind>([
  * - `environment_blocked`：全部失败且**每一种**失败都是环境阻塞类；
  * - `invalid`：全部失败但含未分类 / `tool_error` ⇒ 既有 invalid 预算；
  * - `aborted`（P2-2，2026-10-27）：本轮条目**全部**是外部/系统中止（`aborted` / `timeout`）
- *   ⇒ 既不算进展、也不算失败（中性）。见 `checkCircuitBreaker` 的"不清零"口径。
+ *   ⇒ 既不算进展、也不算失败（中性）。见 `checkCircuitBreaker` 的"不清零"口径；
+ * - `awaiting_approval`（2026-10-31，台账 §16）：全部失败且**都**是
+ *   `workspace_escape_pending_approval`（越界 + 已提交审批）⇒ 同为中性：用户待办未落地前
+ *   模型重试不会有不同结果，计入 invalid 会在批准前烧完 3 轮预算。
  *
  * ⚠️ 判定只看结构化字段 `status` + `failureKind`，**禁止解析 `error` 文本**（CS02）；
  * `status !== 'error'` 的条目即便被误填 `failureKind` 也不得算阻塞（负向对照见用例）。
  */
 export function classifyTurn(
   results: readonly Pick<ToolResultEntry, 'status' | 'failureKind'>[]
-): 'progress' | 'environment_blocked' | 'invalid' | 'aborted' {
+):
+  | 'progress'
+  | 'environment_blocked'
+  | 'invalid'
+  | 'aborted'
+  | 'awaiting_approval' {
   // P2-2：中止/超时是**外部因素**，与"模型是否产出有效调用"无关 ⇒ 先摘出来单独判。
   // 原实现把它们当 `progress`（因 `status !== 'error'`）⇒ 一次中止即清零两个预算，
   // 掩盖"本来在连续失败"的事实。
@@ -361,6 +369,12 @@ export function classifyTurn(
   const allFailed =
     decisive.length > 0 && decisive.every((r) => r.status === 'error');
   if (!allFailed) return 'progress';
+  // 2026-10-31（台账 §16）：全部失败且**都**是「越界 + 已提交审批」⇒ 中性。
+  // 用户侧有待办，模型重试不会有不同结果；若计 invalid（3 轮）会在批准前就熔断整轮。
+  const allAwaitingApproval = decisive.every(
+    (r) => r.failureKind === 'workspace_escape_pending_approval'
+  );
+  if (allAwaitingApproval) return 'awaiting_approval';
   const allBlocking = decisive.every(
     (r) =>
       r.failureKind !== undefined &&
@@ -834,7 +848,8 @@ export abstract class ReActLoop<
    * - `progress`（非全部失败）⇒ 两个计数器**都清零**（既有 invalid 语义不变）；
    * - `environment_blocked`（全部失败且全为环境阻塞类）⇒ `consecutiveBlockedTurns++`，
    *   `consecutiveInvalidTurns` **保持不清零**（避免掩盖上一轮模型错误）；
-   * - `invalid`（全部失败但含未分类 / tool_error）⇒ 既有 `consecutiveInvalidTurns++`。
+   * - `invalid`（全部失败但含未分类 / tool_error）⇒ 既有 `consecutiveInvalidTurns++`；
+   * - `awaiting_approval` / `aborted`（中性）⇒ **两个计数器都不动**（既不计数也不清零）。
    */
   private checkCircuitBreaker(
     result: ActResult
@@ -853,6 +868,18 @@ export abstract class ReActLoop<
         consecutiveInvalidTurns: this.consecutiveInvalidTurns,
         consecutiveBlockedTurns: this.consecutiveBlockedTurns,
         statuses: result.results.map((r) => r.status),
+      });
+      return null;
+    }
+    // 2026-10-31（台账 §16）：「越界 + 已提交审批」⇒ 中性（同 aborted：不清零、不计数）。
+    // 用户待办未落地前，模型重试必然同样失败；计 invalid 会在批准前烧完 3 轮预算。
+    if (outcome === 'awaiting_approval') {
+      logger.info('reActLoop:turn_neutral_awaiting_approval', {
+        sessionId: this.config.sessionId,
+        iteration: this.state.iteration,
+        consecutiveInvalidTurns: this.consecutiveInvalidTurns,
+        consecutiveBlockedTurns: this.consecutiveBlockedTurns,
+        toolCount: result.results.length,
       });
       return null;
     }

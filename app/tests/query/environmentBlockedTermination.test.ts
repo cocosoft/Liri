@@ -81,6 +81,45 @@ describe('classifyTurn：按结构化字段分型（不解析 error 文本）', 
     ).toBe('invalid');
   });
 
+  // ── 2026-10-31（台账 §16）：越界且**已提交审批** ⇒ 中性 ──
+  test('全 workspace_escape_pending_approval ⇒ awaiting_approval（中性）', () => {
+    expect(
+      classifyTurn([
+        { status: 'error', failureKind: 'workspace_escape_pending_approval' },
+      ])
+    ).toBe('awaiting_approval');
+    expect(
+      classifyTurn([
+        { status: 'error', failureKind: 'workspace_escape_pending_approval' },
+        { status: 'error', failureKind: 'workspace_escape_pending_approval' },
+      ])
+    ).toBe('awaiting_approval');
+  });
+
+  test('待审批 + 其它失败混合 ⇒ 仍按失败分型（不因混入待审批就中性）', () => {
+    expect(
+      classifyTurn([
+        { status: 'error', failureKind: 'workspace_escape_pending_approval' },
+        { status: 'error', failureKind: 'tool_error' },
+      ])
+    ).toBe('invalid');
+    expect(
+      classifyTurn([
+        { status: 'error', failureKind: 'workspace_escape_pending_approval' },
+        { status: 'error', failureKind: 'permission_denied' },
+      ])
+    ).toBe('invalid');
+  });
+
+  test('待审批 + 成功 ⇒ progress（本轮确有推进）', () => {
+    expect(
+      classifyTurn([
+        { status: 'error', failureKind: 'workspace_escape_pending_approval' },
+        { status: 'success' },
+      ])
+    ).toBe('progress');
+  });
+
   test('空数组 ⇒ progress（无失败可判，不得凭空计 invalid）', () => {
     expect(classifyTurn([])).toBe('progress');
   });
@@ -123,7 +162,7 @@ describe('classifyTurn：按结构化字段分型（不解析 error 文本）', 
 
 // ── 2. 双预算计数与终止 ────────────────────────────────────
 
-type RoundKind = 'blocked' | 'invalid' | 'ok' | 'aborted';
+type RoundKind = 'blocked' | 'invalid' | 'ok' | 'aborted' | 'pending';
 
 interface TestResult {
   phase: string;
@@ -209,13 +248,22 @@ class ScriptedLoop extends ReActLoop<
             error: 'Denied by rule from tool_rules.json [rule=rule_1]',
             failureKind: 'permission_denied' as const,
           }
-        : {
-            toolCallId: id,
-            name: 'powershell',
-            status: 'error' as const,
-            error: '工具内部异常',
-            failureKind: 'tool_error' as const,
-          };
+        : kind === 'pending'
+          ? {
+              // 2026-10-31（台账 §16）：越界 + **已提交审批** ⇒ 中性态
+              toolCallId: id,
+              name: 'powershell',
+              status: 'error' as const,
+              error: '路径越界……已提交审批申请，批准后本次调用会被自动重试',
+              failureKind: 'workspace_escape_pending_approval' as const,
+            }
+          : {
+              toolCallId: id,
+              name: 'powershell',
+              status: 'error' as const,
+              error: '工具内部异常',
+              failureKind: 'tool_error' as const,
+            };
     return { results: [result], allSucceeded: false, anyAborted: false };
   }
 
@@ -303,6 +351,25 @@ describe('environment_blocked：环境阻塞独立预算与终止', () => {
 
     expect(loop.actCount).toBe(3);
     expect(result.phase).toBe('completed');
+  });
+
+  // ── 2026-10-31（台账 §16）：待审批轮中性 ──
+  test('连续待审批不触发熔断（渲染 4 轮仍 completed）', async () => {
+    const loop = new ScriptedLoop(['pending', 'pending', 'pending', 'pending']);
+    const { result } = await drain(loop);
+
+    expect(loop.actCount).toBe(4);
+    expect(result.phase).toBe('completed');
+    expect(result.reason).not.toBe('circuit_breaker');
+  });
+
+  test('待审批轮不清零失败计数（1 + 中性 + 1 + 1 ⇒ 仍熔断）', async () => {
+    const loop = new ScriptedLoop(['invalid', 'pending', 'invalid', 'invalid']);
+    const { result } = await drain(loop);
+
+    // 若待审批被当成 progress 清零 ⇒ 计数只到 2 ⇒ 不熔断（本用例即为该回归的守卫）
+    expect(result.phase).toBe('circuit_breaker');
+    expect(result.reason).toBe('circuit_breaker');
   });
 
   test('终止输出：environment_blocked 属 error 族透传 lastError，且 finishReason 如实', () => {

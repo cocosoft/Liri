@@ -77,8 +77,11 @@ describe('failureKind 生产者接线（LRO-09 步骤 1b）', () => {
     // FIX-10（2026-10-27）原有三处；B1（2026-10-30，issue #35）把"工作区越界"改为
     // 随 `FEATURE_WORKSPACE_MULTI_ROOT` 分型 ⇒ 固定 permission_denied 只剩两处。
     expect(hits.length).toBe(2);
-    // 开启多根 ⇒ `workspace_escape`（可恢复，不计入 environment_blocked 的 2 轮熔断）
-    expect(EXEC_SERVICE_SRC).toContain("? 'workspace_escape'");
+    // 开启多根 ⇒ 越界按「是否已提交审批」二分（2026-10-31，台账 §16）：
+    //   已提交审批 ⇒ workspace_escape_pending_approval（熔断分型中性，等批准不烧 invalid 预算）
+    //   仅被拒     ⇒ workspace_escape（可恢复，不计入 environment_blocked 的 2 轮熔断）
+    expect(EXEC_SERVICE_SRC).toContain("? 'workspace_escape_pending_approval'");
+    expect(EXEC_SERVICE_SRC).toContain(": 'workspace_escape'");
     expect(EXEC_SERVICE_SRC).toContain(": 'permission_denied'");
   });
 

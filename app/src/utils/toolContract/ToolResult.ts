@@ -60,6 +60,14 @@ export type ToolFailureKind =
    * 因此**不得**归入 `environment_blocked`（那会在 2 轮内熔断整轮，模型没有改错机会）。
    */
   | 'workspace_escape'
+  /**
+   * 会话工作区越界**且已提交「允许访问」审批申请**（2026-10-31，台账 §16）。
+   *
+   * 与 `workspace_escape` 的区别只有一点：此态下**用户侧有待办**，模型重试不会有不同结果，
+   * 唯一出路是等审批落地后自动重试。故熔断分型把它判为**中性**（同 `aborted`：既不计数、
+   * 也不清零），避免「等批准」把 `consecutiveInvalidTurns`（3 轮）烧完导致审批落地已无轮次可用。
+   */
+  | 'workspace_escape_pending_approval'
   /** 工具自身执行失败（可能可恢复） */
   | 'tool_error';
 

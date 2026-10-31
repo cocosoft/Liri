@@ -291,7 +291,8 @@ export class BuiltinCommandLoader implements CommandLoader {
       {
         path: '../builtin/checkpoint/index.js',
         name: 'checkpoint',
-        aliases: ['cp'],
+        // 2026-10-31：`cp` 已归 `copy`（见上方 copy 条目）；此处再声明会让
+        // CommandRegistry 每次装配都报「命令别名冲突（occupiedBy=copy）」并拒绝登记。
       },
       // AI Trace 录制模块命令
       {

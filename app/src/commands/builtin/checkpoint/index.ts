@@ -82,7 +82,9 @@ const checkpointCommand: Command = {
   type: 'action',
   name: 'checkpoint',
   description: '管理会话检查点（快照与回滚）',
-  aliases: ['cp'],
+  // 2026-10-31：**不声明 `cp`** —— 该别名归 `copy`（`CommandLoader` 先注册），
+  // 声明在此会让 CommandRegistry 每次装配都报「命令别名冲突（occupiedBy=copy）」并拒绝登记
+  // （真机 app.log 单窗口 28 次 error）。`/checkpoint` 本身不受影响。
   argumentHint: '[create|list|info|rollback|delete|clean|current]',
   whenToUse: '当你需要保存会话快照或回滚到之前的会话状态时',
   load: async () => ({

@@ -14262,6 +14262,34 @@
       "changelog": [],
       "reopenWhen": "再出现「本地 pre-commit 全绿、CI 在 startup-graph / kernel / architecture-boundaries / params 之一变红」（全文见 archive/evidence-detail.jsonl#PRECOMMIT-GENERATED-GATES）",
       "notes": "7 项 CI 红里 4 项属「预存钩子不跑 ⇒ 提交后才发现」；四项实测合计 <10s；已用 STARTUP_GRAPH_BASELINE 负向自证（压低基线 ⇒ exit 1）。可逆：revert ad84dce04。（全文见 archive/evidence-detail.jsonl#PRECOMMIT-GENERATED-GATES）"
+    },
+    {
+      "id": "CHAT-MISSING-SESSION-ID-400",
+      "title": "POST /v1/chat/completions 缺 session_id 由 500 纠正为 400（客户端输入错误不得伪装服务端故障）",
+      "source": "dev_docs/error_repairs/预存错误与待处理问题.md §Liri 自分析运行期观察 10（2026-10-27 实测登记）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/orchestrator/ChatOrchestrator.ts",
+        "app/src/chat/manager/streamSetup.ts",
+        "app/src/infrastructure/http/handlers/chat-handlers.ts"
+      ],
+      "tests": [
+        "app/tests/http/chatCredentialErrorMapping.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现「缺 session_id 的 chat 请求回 500」或「客户端参数错误被折叠成 AI 服务返回错误」（全文见 archive/evidence-detail.jsonl#CHAT-MISSING-SESSION-ID-400）",
+      "notes": "根因：缺 session_id 抛的是普通 Error / EXECUTION 类 AppError ⇒ llmChatOps.chat 的 catch 原样转成 finishReason=error 且无码 ⇒ mapChatErrorResponse 只能落到通用 500。修法：抛出点改为 VALIDATION …（全文见 archive/evidence-detail.jsonl#CHAT-MISSING-SESSION-ID-400）"
     }
   ]
 }

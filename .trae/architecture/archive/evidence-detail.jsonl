@@ -6945,3 +6945,13 @@
 {"id":"PRECOMMIT-GENERATED-GATES","k":"reopenWhen","i":0,"c":"再出现「本地 pre-commit 全绿、CI 在 startup-graph / kernel / architecture-boundaries / params 之一变红」"}
 {"id":"PRECOMMIT-GENERATED-GATES","k":"notes","i":0,"c":"7 项 CI 红里 4 项属「预存钩子不跑 ⇒ 提交后才发现」；四项实测合计 <10s；已用 STARTUP_GRAPH_BASELINE 负向自证（压低基线 ⇒ exit 1）。可逆：revert ad84dce04。"}
 {"id":"PRECOMMIT-GENERATED-GATES","k":"code#0","i":0,"c":"app/scripts/setup-git-hooks.ts"}
+{"id":"CHAT-MISSING-SESSION-ID-400","k":"title","i":0,"c":"POST /v1/chat/completions 缺 session_id 由 500 纠正为 400（客户端输入错误不得伪装服务端故障）"}
+{"id":"CHAT-MISSING-SESSION-ID-400","k":"source","i":0,"c":"dev_docs/error_repairs/预存错误与待处理问题.md §Liri 自分析运行期观察 10（2026-10-27 实测登记）"}
+{"id":"CHAT-MISSING-SESSION-ID-400","k":"reopenWhen","i":0,"c":"再出现「缺 session_id 的 chat 请求回 500」或「客户端参数错误被折叠成 AI 服务返回错误」"}
+{"id":"CHAT-MISSING-SESSION-ID-400","k":"notes","i":0,"c":"根因：缺 session_id 抛的是普通 Error / EXECUTION 类 AppError ⇒ llmChatOps.chat 的 catch 原样转成 finishReason=error 且无码 ⇒ mapChatErrorResponse 只能落到通用 500。修法：抛出点改为 VALIDATION + "}
+{"id":"CHAT-MISSING-SESSION-ID-400","k":"notes","i":1,"c":"code=MISSING_SESSION_ID（ChatOrchestrator / streamSetup 同口径），映射层按码回 400 invalid_request_error 并给出可操作文案；其余码仍 500（不回归）。验证：typecheck 绿（含 scripts 两个 tsconfig）、tests/chat 750 例全绿、新增映射用例 "}
+{"id":"CHAT-MISSING-SESSION-ID-400","k":"notes","i":2,"c":"1 例。"}
+{"id":"CHAT-MISSING-SESSION-ID-400","k":"code#0","i":0,"c":"app/src/chat/orchestrator/ChatOrchestrator.ts"}
+{"id":"CHAT-MISSING-SESSION-ID-400","k":"code#1","i":0,"c":"app/src/chat/manager/streamSetup.ts"}
+{"id":"CHAT-MISSING-SESSION-ID-400","k":"code#2","i":0,"c":"app/src/infrastructure/http/handlers/chat-handlers.ts"}
+{"id":"CHAT-MISSING-SESSION-ID-400","k":"tests#0","i":0,"c":"app/tests/http/chatCredentialErrorMapping.test.ts"}

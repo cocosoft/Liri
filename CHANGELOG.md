@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **CHAT-MISSING-SESSION-ID-400**：缺 session_id 的 chat 请求由 500 纠正为 400 —— 验证 tsc0|test750|unit1；基线 实测日志 [chat] No session id provided 经 finishReason=error 落到通用 500（客户端错误被当服务端故障）（详情见 archive/evidence-detail.jsonl#CHAT-MISSING-SESSION-ID-400）
 - ✅ **PRECOMMIT-GENERATED-GATES**：4 项生成物/边界/体量门禁前移到 pre-commit，消除本地绿而 CI 红 —— 验证 hook-run|falsify|arch0；基线 7 项 CI 红里 4 项（startup-graph / kernel K08 / architecture-boundaries W4 / tool-params）在 pre-commit 不跑（详情见 archive/evidence-detail.jsonl#PRECOMMIT-GENERATED-GATES）
 - ✅ **SHARED-TASK-STORE**：任务存储逐请求建连且两处从未 init ⇒ 决策轨迹查询 / PDCA 审计落库一直是死路径 —— 验证 tsc0|arch0|unit4+333；基线 listPdcaDecisionRows 与 pdcaLaunch 的 writeAuditLogWithDetail 均抛 SqliteTaskStore not initialized（自 M3b-DB 起）（详情见 archive/evidence-detail.jsonl#SHARED-TASK-STORE）
 - ✅ **LIRI-BUG-G**：投影版本戳不够新时整条 metadata 被丢弃 ⇒ 兜底标记不可见 —— 验证 tsc0|arch0|fnsize0|state0|unit2；基线 真机 GET /v1/sessions/session_mvqstue8ecef7606df/messages 的兜底轮 assistant 返回 metadata:null（messages.jsonl 有 emptyOutputFallback:true）（详情见 archive/evidence-detail.jsonl#LIRI-BUG-G）

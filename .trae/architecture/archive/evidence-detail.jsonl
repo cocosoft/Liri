@@ -7178,3 +7178,10 @@
 {"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"code#1","i":0,"c":"app/src/session/storage/EventLogStorage.ts"}
 {"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"tests#0","i":0,"c":"app/tests/session/eventLogRepairInFlight.test.ts"}
 {"id":"EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER","k":"changelog#0","i":0,"c":"修复：崩溃修复不再给在飞会话补 canceled 结束事件（消除同一 turn 双 end）"}
+{"id":"FILEREAD-CHAR-CAP","k":"title","i":0,"c":"file_read 增加单次返回字符闸（超长单行不再把请求推到百万 tokens）"}
+{"id":"FILEREAD-CHAR-CAP","k":"source","i":0,"c":"取证 2026-10-31 真机：maximum context length 400 单日 155 次、请求体普遍 1.79M tokens（provider 上限 1.05M）；既有分页只按行（默认 2000 行）⇒ 压缩 JS / 单行 JSON 整份返回时行数上限失效（10MiB 单行 ≈250 万 tokens）。"}
+{"id":"FILEREAD-CHAR-CAP","k":"reopenWhen","i":0,"c":"若引入按 token 的工具结果预算（服务的 ToolResultStorageHook / ToolResultBudget 目前均无生产消费者），可把本字符闸收敛到统一预算层。"}
+{"id":"FILEREAD-CHAR-CAP","k":"notes","i":0,"c":"修复：readFile 在行分页之外加字符闸 200k；超限返回 head(140k) + 截断说明 + tail(60k)，说明里给出 grep 定位/先转多行两条出路。多行小文件、>10MiB 分段读取行为不变；这是「上下文溢出只恢复不预防」的预防第一步（其余工具结果预算仍待接线）。"}
+{"id":"FILEREAD-CHAR-CAP","k":"code#0","i":0,"c":"app/src/tools/FileReadTool/FileReadTool.ts"}
+{"id":"FILEREAD-CHAR-CAP","k":"tests#0","i":0,"c":"app/tests/tools/FileReadTool.test.ts"}
+{"id":"FILEREAD-CHAR-CAP","k":"changelog#0","i":0,"c":"修复：file_read 单次返回加 200k 字符闸，超长单行不再整份灌入上下文"}

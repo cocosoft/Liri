@@ -15014,6 +15014,34 @@
       ],
       "reopenWhen": "若引入真正跨进程的在飞租约（写者心跳文件），可把进程内登记表替换为该租约；届时需重估 60 分钟窗口。（全文见 archive/evidence-detail.jsonl#EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER）",
       "notes": "口径 A（用户裁定）：EventLogStorage.append 成功后 trackTurnLifecycle（turn/start 记、turn/end 清）；commitInterruptedRepair 见窗口内未闭合轮即跳过（debug 留痕）。进程崩溃 ⇒ 表随进程消失 ⇒ 下次启动照常修复；超 60 分…（全文见 archive/evidence-detail.jsonl#EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER）"
+    },
+    {
+      "id": "FILEREAD-CHAR-CAP",
+      "title": "file_read 增加单次返回字符闸（超长单行不再把请求推到百万 tokens）",
+      "source": "取证 2026-10-31 真机：maximum context length 400 单日 155 次、请求体普遍 1.79M tokens（provider 上限 1.05M）；既有分页只按行（默认 2000 行）⇒ 压缩 JS / 单行 JSON 整份返回时行数上限失效（10MiB 单行 ≈250 万 tokens）。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/FileReadTool/FileReadTool.ts"
+      ],
+      "tests": [
+        "app/tests/tools/FileReadTool.test.ts"
+      ],
+      "changelog": [
+        "修复：file_read 单次返回加 200k 字符闸，超长单行不再整份灌入上下文"
+      ],
+      "reopenWhen": "若引入按 token 的工具结果预算（服务的 ToolResultStorageHook / ToolResultBudget 目前均无生产消费者），可把本字符闸收敛到统一预算层。（全文见 archive/evidence-detail.jsonl#FILEREAD-CHAR-CAP）",
+      "notes": "修复：readFile 在行分页之外加字符闸 200k；超限返回 head(140k) + 截断说明 + tail(60k)，说明里给出 grep 定位/先转多行两条出路。多行小文件、>10MiB 分段读取行为不变；这是「上下文溢出只恢复不预防」的预防第一步（其余工具结果预算仍待接线）。（全文见 archive/evidence-detail.jsonl#FILEREAD-CHAR-CAP）"
     }
   ]
 }

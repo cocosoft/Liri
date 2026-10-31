@@ -20,8 +20,28 @@ import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { resolveMediaDir, isPathWithin } from '@modules/environment';
 import { ffmpegWrapper } from '../../../media/ffmpeg/FFmpegWrapper';
+import type { FFprobeResult } from '../../../media/ffmpeg/FFmpegWrapper';
 import { videoProcessor } from '../../../media/video/VideoProcessor';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
+
+/**
+ * 从 ffprobe 结果解析**秒**数（2026-10-31，P0 功能缺口：`duration` 不再恒 `null`）。
+ *
+ * 口径（如实）：
+ * - ffprobe 原生把 `format.duration` 输出为**字符串**（如 `"12.345000"`）⇒ 数值/字符串两型都接；
+ * - 缺失 / 非有限数 / ≤0 ⇒ `null`（**不伪造 0**，响应体以 `durationUnavailable: true` 表达）；
+ * - ffprobe 不可用 / 超时 ⇒ `probe()` 自身返回 `null`（其内部有 15s 超时与 stderr 消耗）⇒ 同样为 `null`。
+ */
+export function resolveProbeDurationSeconds(
+  probe: FFprobeResult | null
+): number | null {
+  if (!probe) return null;
+  const format = probe.format as { duration?: number | string } | undefined;
+  const videoStream = probe.streams?.find((s) => s.codec_type === 'video');
+  const raw = format?.duration ?? videoStream?.duration;
+  const seconds = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
+}
 
 /** 视频根目录（AI 生成持久化） */
 const VIDEOS_ROOT = path.join(resolveMediaDir(), 'video');
@@ -412,13 +432,20 @@ export async function handleVideoMetadata(
       });
     }
 
+    // 2026-10-31（P0 功能缺口）：时长不再恒 null —— 复用既有 `ffmpegWrapper.probe`
+    //（15s 超时 + stderr 消耗，ffprobe 缺失/超时返回 null）。不伪造 0。
+    const duration = resolveProbeDurationSeconds(
+      await ffmpegWrapper.probe(fullPath)
+    );
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
         path: fullPath,
         size: stat.size,
         format: ext,
-        duration: null, // TODO: 需要 ffprobe 获取视频时长
+        duration,
+        ...(duration === null ? { durationUnavailable: true } : {}),
         createdAt: stat.birthtimeMs,
         modifiedAt: stat.mtimeMs,
         prompt,

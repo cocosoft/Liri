@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "recordedAt": "2026-10-31",
+  "note": "infra 层边界契约门禁白名单（R1–R4）。每条必须写明理由；理由缺失本身即违规。R2/R3 为清零目标：条目消失时门禁提示清理。规范见 .trae/specs/infra-layer-boundary-contract.md §5/§8。",
+  "topLevelIo": [
+    {
+      "path": "utils/env.ts",
+      "reason": "env 模块是 process.env 的唯一再导出点（读值仍经 getEnv / isEnvTruthy）；顶层只持有引用、不触发求值。迁走需同批改全部消费方，属独立变更。"
+    }
+  ],
+  "approvalOrchestration": [
+    {
+      "path": "permission/integrations/BashPermission.ts",
+      "specifier": "@modules/tools/SmartApprovalObserver",
+      "reason": "spec §6.1 已登记的既有漂移：观察者应由 app 注入（审批编排不下沉）。当前是 lazy require，改为 spi 端口属独立变更，清零目标。"
+    }
+  ],
+  "dynamicInfraToApp": [
+    {
+      "path": "permission/integrations/BashPermission.ts",
+      "specifier": "@modules/tools/SmartApprovalObserver",
+      "reason": "同上（R2 同处）。清零方式：由 app 注入观察者回调，infra 只保留判定原语。"
+    },
+    {
+      "path": "utils/ContextWindowResolver.ts",
+      "specifier": "@modules/ai",
+      "reason": "spec §6.1：模型属性（上下文窗口）读取应由 app 注入实现；清零目标。"
+    },
+    {
+      "path": "utils/ContextWindowResolver.ts",
+      "specifier": "../ai/models/ModelPricingService.js",
+      "reason": "spec §6.1：同上，相对路径写法，与 @modules/ai 同一清零目标。"
+    }
+  ],
+  "commonUtilsDuplicates": [
+    {
+      "name": "truncate",
+      "reason": "common/utils.ts 的 StringUtils 命名空间内实现与 utils/common.ts 同名；属 spec §6.3 归一化盘点范围（合并或明确分工后删除其中一份）。"
+    },
+    {
+      "name": "deepClone",
+      "reason": "同上（common/utils.ts 命名空间内实现 vs utils/common.ts）。"
+    },
+    {
+      "name": "throttle",
+      "reason": "同上（common/utils.ts 命名空间内实现 vs utils/common.ts）。"
+    },
+    {
+      "name": "debounce",
+      "reason": "同上（common/utils.ts 命名空间内实现 vs utils/common.ts）。"
+    },
+    {
+      "name": "Option",
+      "reason": "同名不同概念（common/types.ts 的通用 Option 类型 vs utils/bash/registry.ts 的命令选项），非第二份实现；留待归一化盘重复核。"
+    },
+    {
+      "name": "ValidationResult",
+      "reason": "同名结构体各有一份（common 通用 / utils/config/ConfigValidator / utils/toolContract/Tool）；属 §6.3 归一化盘点范围。"
+    }
+  ]
+}

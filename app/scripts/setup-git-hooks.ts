@@ -82,6 +82,22 @@ if [ -f "scripts/lint-architecture.ts" ]; then
   fi
 fi
 
+# ── infra 层边界契约门禁（2026-10-31）──
+# R1 模块顶层 I/O / R2 审批编排不下沉 / R3 infra 动态导入上层（白名单清零）/ R4 common·utils 重复导出。
+# 规范见 .trae/specs/infra-layer-boundary-contract.md §5/§8；实测约 2s。
+if [ -f "app/scripts/lint-infra-boundary.ts" ]; then
+  echo "  检查 infra 层边界契约（R1–R4）..."
+  $RUNNER app/scripts/lint-infra-boundary.ts
+  RESULT=$?
+  if [ $RESULT -ne 0 ]; then
+    echo ""
+    echo "❌ infra 层边界契约门禁失败！提交已阻止。"
+    echo "   规范: .trae/specs/infra-layer-boundary-contract.md §5"
+    echo "   白名单: .trae/architecture/infra-boundary-allowlist.json"
+    exit 1
+  fi
+fi
+
 # ── 修复证据登记门禁（HD-INFRA-1c / Q-H6：前置，消除"推送后才发现"的滞后）──
 # 轻量但完整：JSON 可解析（含未转义 ASCII 引号的精确定位）+ 证据路径与状态自洽。
 # 规范见 .trae/rules/coding-standards.md §CS08。
@@ -177,7 +193,7 @@ exit 0
   writeFileSync(hookPath, hookContent, { mode: 0o755 });
   console.log(`✅ pre-commit 钩子已安装: ${hookPath}`);
   console.log(
-    '   提交前自动运行: 架构合规检查 + 修复证据登记 + GitHub Actions YAML + 棘轮门禁(state/fn-size/consts/unref) + 类型检查 + ESLint + 模块验证'
+    '   提交前自动运行: 架构合规检查 + infra 层边界契约 + 修复证据登记 + GitHub Actions YAML + 棘轮门禁(state/fn-size/consts/unref) + 类型检查 + ESLint + 模块验证'
   );
 }
 

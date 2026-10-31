@@ -1,6 +1,6 @@
 # Spec：infra 层边界契约（Infra Layer Boundary Contract）
 
-> 版本 1.0 ｜ 创建 2026-10-31 ｜ 状态：🟢 **约束与规范已立（先写规范，未改任何代码）**
+> 版本 1.1 ｜ 创建 2026-10-31 ｜ 状态：🟢 **约束与规范已立 + §8 四条建议门禁已落地**（`lint:infra`，2026-10-31）
 > 来源：用户 2026-10-31 指令「infra 层内的模块，按 core 的方式处理，先写约束、规范」。
 > 事实源：`scripts/modules-to-layers.json`（分层唯一事实源）· `.trae/rules/architecture.md` · `.trae/rules/architecture-compliance.md`
 > 同类先例：`.trae/specs/kernel-style-architecture-governance.md`（core 的 Linux 式治理）· `packages/kernel/src/core/README.md`（core 的"零 I/O"判据）
@@ -66,12 +66,13 @@ infra 禁止依赖：entry、ui、app、service
 
 ## 6. 现有漂移与待裁定（本 spec 只登记，不改代码）
 
-### 6.1 动态导入造成的 infra → app 引用（R00-003 盲区，实测 2 处）
+### 6.1 动态导入造成的 infra → app 引用（R00-003 盲区，实测 2 处文件 / 3 条导入）
 
 | 位置 | 形态 | 处置建议 |
 |---|---|---|
-| `app/src/permission/integrations/BashPermission.ts` | infra 静态链中动态导入 `@modules/tools`(app) | 改为经 `spi` 端口或由 app 注入（独立变更） |
-| `app/src/utils/ContextWindowResolver.ts` | infra 动态导入 `@modules/ai`(app) | 同上；或把"模型属性"下沉为 core 类型 + 由 app 注入实现 |
+| `app/src/permission/integrations/BashPermission.ts:121` | infra 静态链中动态 `require('@modules/tools/SmartApprovalObserver')`(app) | 改为经 `spi` 端口或由 app 注入（独立变更） |
+| `app/src/utils/ContextWindowResolver.ts:249` | infra 动态 `import('@modules/ai')`(app) | 同上；或把"模型属性"下沉为 core 类型 + 由 app 注入实现 |
+| `app/src/utils/ContextWindowResolver.ts:256` | 同上，相对路径 `../ai/models/ModelPricingService.js` | 同一清零目标（`lint:infra` R3 已逐条冻结） |
 
 ### 6.2 `security` / `permission` 的"策略 vs 原语"边界
 
@@ -115,12 +116,15 @@ infra 禁止依赖：entry、ui、app、service
 | 不得裸 `process.env` | ✅ 已检查 | `lint:arch` 的 Config/Env 检查（当前 0 处 / 0 文件） |
 | 不得自建 Logger | ✅ R11-001 | 只允许 `loggerFacade` |
 | 生命周期 disposer / LIFO | ✅ 规则 + 既有断言 | `project_rules §1.16` |
-| **"模块顶层不做 I/O"** | ⚠️ **仅约定，无独立门禁** | 目前靠代码评审；建议增加静态断言（见下） |
-| **新增建议（待触发，不在本 spec 实施）** | ⏳ | ① 为 `security/permission` 增加"审批编排不得下沉"的源码断言；② 为 `common`/`utils` 增加重复实现检测；③ 把 §6.1 两处动态导入纳入白名单清零目标；④ 增加"模块顶层禁止 I/O"静态断言 |
+| **"模块顶层不做 I/O"** | ✅ `lint:infra` R1 | AST 判定（函数 / 类体内不算）；存量 1 处 `utils/env.ts` 已登记 |
+| **审批编排不得下沉** | ✅ `lint:infra` R2 | `security/**`、`permission/**` 运行时不得引用上层；存量 1 条（`BashPermission`）已登记 |
+| **infra → app 动态导入** | ✅ `lint:infra` R3（白名单清零） | 存量 3 条（§6.1）逐条冻结；条目消失时门禁提示清理 |
+| **common / utils 重复检测** | ✅ `lint:infra` R4 | 同名导出（含命名空间内导出）；存量 6 个已登记：4 个真重复 + 2 个同名不同概念 |
+| **门禁接线与自证** | ✅ | `app/package.json` 的 `lint:infra` 进 pre-commit（`setup-git-hooks.ts`）+ `ci` 链；白名单 `.trae/architecture/infra-boundary-allowlist.json`（每条须带理由）；自证 `app/tests/gates/infraBoundary.test.ts`（18 例） |
 
 ## 9. 验收（本 spec 自身）
 
-1. 零代码改动：本批只新增本 spec（不改 `app/src`、不改事实源）。
+1. 零代码改动：规范批只新增本 spec；门禁批（v1.1）只新增 `app/scripts/lint-infra-boundary.ts` / `infraBoundaryCore.ts`、测试与白名单，不改 `app/src`、不改事实源。
 2. 28 个 infra 模块**每个都能在 §4 找到归属**（能力适配 / 机制 / 观测 / 常量 / 待裁定）。
 3. §6 的每项漂移都有**可执行处置**或**明确"待裁定 + 触发条件"**，不留悬空结论。
 4. 与 `modules-to-layers.json` 不冲突；冲突以事实源为准。

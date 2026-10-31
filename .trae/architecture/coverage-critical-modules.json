@@ -1,0 +1,20 @@
+{
+  "note": "关键模块专属行覆盖率门槛（CI 由 app/scripts/check-coverage-threshold.ts 读取）。路径相对 app/（与 bun test --coverage 生成的 lcov 中 SF 一致）。新增条目必须先实测覆盖率再写下限，禁止凭空填数；配置解析失败或缺字段一律 fail-closed。",
+  "modules": [
+    {
+      "path": "src/chat/services/toolResultContract.ts",
+      "minLineCoverage": 90,
+      "why": "工具结果三态是模型可见内容的唯一收口（成功无输出 ≠ 失败）"
+    },
+    {
+      "path": "src/chat/services/readFileAnchor.ts",
+      "minLineCoverage": 90,
+      "why": "已读文件锚定决定是否注入纠偏，直接影响空转与重复探路"
+    },
+    {
+      "path": "src/utils/toolCallKey.ts",
+      "minLineCoverage": 90,
+      "why": "工具参数归一化单一实现，循环守卫 / 纠偏 / 评测共用"
+    }
+  ]
+}

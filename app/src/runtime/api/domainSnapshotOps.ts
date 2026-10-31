@@ -946,16 +946,14 @@ export class DomainSnapshotOps {
    */
   async getTaskOpsPort(): Promise<TaskOpsPort> {
     /**
-     * 任务状态存储：原调用点均为 `new SqliteTaskStore()`（默认库路径）+ `init()` + 单次动作，
-     * 且**均未调用 `close()`** ⇒ 此处**保持不关闭**（与改动前行为逐字一致）。
-     * ⚠️ 该「未关闭」本身是**预存问题**（每条请求新建 sqlite 连接不复用），已另案登记，不在本批修复。
+     * 任务状态存储：走**进程级共享实例**（`getSharedSqliteTaskStore`，按库路径分桶）。
+     * 台账 D-100（2026-10-31 修复）：此前逐请求 `new` + `init()`（重跑建表 / 迁移 DDL）
+     * 且从不 `close()` ⇒ 连接不复用也不释放。
      */
     const taskStore = async () => {
-      const { SqliteTaskStore } =
+      const { getSharedSqliteTaskStore } =
         await import('@modules/tasks/db/SqliteTaskStore');
-      const store = new SqliteTaskStore();
-      await store.init();
-      return store;
+      return getSharedSqliteTaskStore();
     };
     /** `@modules/tasks` barrel 取用（P1–P3 共用入口） */
     const tasksModule = async () => import('@modules/tasks');
@@ -1128,11 +1126,15 @@ export class DomainSnapshotOps {
 
       // ---- PDCA（P3-b）----
       listPdcaDecisionRows: async (limit: number) => {
-        const { SqliteTaskStore } =
+        const { getSharedSqliteTaskStore } =
           await import('@modules/tasks/db/SqliteTaskStore');
-        // ⚠️ 与改动前逐字一致：**不 init、不 close**（原调用点即如此；方法内部自 ensureDb）
-        const store = new SqliteTaskStore();
-        return store.listAuditLogByEvent('pdca_decision', limit);
+        // D-100（2026-10-31 修复）：原调用点为 `new SqliteTaskStore()` 但**从未 `init()`**
+        // ⇒ `withDb` 抛 "SqliteTaskStore not initialized"（该查询端点自 M3b-DB 起实际不可用）。
+        // 共享实例已 `init()`，同时消除逐请求建连接。
+        return (await getSharedSqliteTaskStore()).listAuditLogByEvent(
+          'pdca_decision',
+          limit
+        );
       },
       // GAI-3（2026-10-05）：app 侧已迁 SQLite（async）⇒ 端口**直通**（去掉多余 Promise 包装）
       readPdcaCheckpoint: async (taskId: string) =>

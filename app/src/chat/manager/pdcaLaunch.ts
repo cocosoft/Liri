@@ -385,9 +385,11 @@ export class PdcaLaunchCoordinator {
           }
         );
       })
+      // D-100（2026-10-31 修复）：原为 `new SqliteTaskStore()` 且**从未 `init()`**
+      // ⇒ `writeAuditLogWithDetail` 走 `withDb` 抛 "SqliteTaskStore not initialized"（审计从未落库）。
       .then(() =>
-        import('../../tasks/db/SqliteTaskStore').then((mod) =>
-          new mod.SqliteTaskStore().writeAuditLogWithDetail({
+        import('../../tasks/db/SqliteTaskStore').then(async (mod) =>
+          (await mod.getSharedSqliteTaskStore()).writeAuditLogWithDetail({
             taskId: `session:${session.id}`,
             eventType: 'pdca_decision',
             oldStatus: null,

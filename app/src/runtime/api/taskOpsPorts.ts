@@ -227,7 +227,7 @@ export interface WakeEntryDto {
 
 /** 任务运维端口（P1：12 方法；P2 追加 5；P3 追加 20；P4 追加 12 + 3 类型 —— **共 49 方法**） */
 export interface TaskOpsPort {
-  // ---- 任务状态存储（P1：`SqliteTaskStore`；`new` + `init()` 内聚实现侧）----
+  // ---- 任务状态存储（P1：`SqliteTaskStore`；D-100 起经共享实例内聚实现侧）----
   /** 原 `new SqliteTaskStore()` + `init()` + `loadTaskStates()` */
   listTaskStates(): Promise<AgentTaskStateDto[]>;
   /** 原 `new SqliteTaskStore()` + `init()` + `getTaskState(taskId)`（`null` = 未找到） */

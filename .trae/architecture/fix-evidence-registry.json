@@ -14290,6 +14290,30 @@
       "changelog": [],
       "reopenWhen": "再出现「缺 session_id 的 chat 请求回 500」或「客户端参数错误被折叠成 AI 服务返回错误」（全文见 archive/evidence-detail.jsonl#CHAT-MISSING-SESSION-ID-400）",
       "notes": "根因：缺 session_id 抛的是普通 Error / EXECUTION 类 AppError ⇒ llmChatOps.chat 的 catch 原样转成 finishReason=error 且无码 ⇒ mapChatErrorResponse 只能落到通用 500。修法：抛出点改为 VALIDATION …（全文见 archive/evidence-detail.jsonl#CHAT-MISSING-SESSION-ID-400）"
+    },
+    {
+      "id": "LRO-MISSING-PARAM-PARSE-KEY",
+      "title": "LRO 步骤执行链的缺参拒绝改为复用统一文案：保留键不再被当成模型传参，截断可被模型识别",
+      "source": "真机 app.log 2026-10-31T07:19:33Z（pdca_mvw2i1oe_requirement / step_5_mvw2ia80 / file_edit）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/lro/stepExecution.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "再出现「LRO 缺参错误里出现 __liri_args_parse_error__」或「参数被截断后模型原样重试同一调用」（全文见 archive/evidence-detail.jsonl#LRO-MISSING-PARAM-PARSE-KEY）",
+      "notes": "根因：tasks/lro/stepExecution.ts 自拼缺参文案，未复用 utils/toolContract/argParseError 的 describeMissingRequiredParams。后果二：① receivedKeys 把保留键 __liri_args_parse_error__ 当作模…（全文见 archive/evidence-detail.jsonl#LRO-MISSING-PARAM-PARSE-KEY）"
     }
   ]
 }

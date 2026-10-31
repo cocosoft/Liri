@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **LRO-MISSING-PARAM-PARSE-KEY**：LRO 缺参拒绝复用统一文案（保留键不再冒充模型参数，截断可识别） —— 验证 tsc0|tasks577|eslint0；基线 app.log 2026-10-31T07:19:33Z：file_edit 因参数 JSON 解析失败被拒，missingParams 三项、receivedKeys 仅 [__liri_args_parse_error__]（详情见 archive/evidence-detail.jsonl#LRO-MISSING-PARAM-PARSE-KEY）
 - ✅ **CHAT-MISSING-SESSION-ID-400**：缺 session_id 的 chat 请求由 500 纠正为 400 —— 验证 tsc0|test750|unit1；基线 实测日志 [chat] No session id provided 经 finishReason=error 落到通用 500（客户端错误被当服务端故障）（详情见 archive/evidence-detail.jsonl#CHAT-MISSING-SESSION-ID-400）
 - ✅ **PRECOMMIT-GENERATED-GATES**：4 项生成物/边界/体量门禁前移到 pre-commit，消除本地绿而 CI 红 —— 验证 hook-run|falsify|arch0；基线 7 项 CI 红里 4 项（startup-graph / kernel K08 / architecture-boundaries W4 / tool-params）在 pre-commit 不跑（详情见 archive/evidence-detail.jsonl#PRECOMMIT-GENERATED-GATES）
 - ✅ **SHARED-TASK-STORE**：任务存储逐请求建连且两处从未 init ⇒ 决策轨迹查询 / PDCA 审计落库一直是死路径 —— 验证 tsc0|arch0|unit4+333；基线 listPdcaDecisionRows 与 pdcaLaunch 的 writeAuditLogWithDetail 均抛 SqliteTaskStore not initialized（自 M3b-DB 起）（详情见 archive/evidence-detail.jsonl#SHARED-TASK-STORE）

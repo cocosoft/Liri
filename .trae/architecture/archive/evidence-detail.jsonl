@@ -6955,3 +6955,10 @@
 {"id":"CHAT-MISSING-SESSION-ID-400","k":"code#1","i":0,"c":"app/src/chat/manager/streamSetup.ts"}
 {"id":"CHAT-MISSING-SESSION-ID-400","k":"code#2","i":0,"c":"app/src/infrastructure/http/handlers/chat-handlers.ts"}
 {"id":"CHAT-MISSING-SESSION-ID-400","k":"tests#0","i":0,"c":"app/tests/http/chatCredentialErrorMapping.test.ts"}
+{"id":"LRO-MISSING-PARAM-PARSE-KEY","k":"title","i":0,"c":"LRO 步骤执行链的缺参拒绝改为复用统一文案：保留键不再被当成模型传参，截断可被模型识别"}
+{"id":"LRO-MISSING-PARAM-PARSE-KEY","k":"source","i":0,"c":"真机 app.log 2026-10-31T07:19:33Z（pdca_mvw2i1oe_requirement / step_5_mvw2ia80 / file_edit）"}
+{"id":"LRO-MISSING-PARAM-PARSE-KEY","k":"reopenWhen","i":0,"c":"再出现「LRO 缺参错误里出现 __liri_args_parse_error__」或「参数被截断后模型原样重试同一调用」"}
+{"id":"LRO-MISSING-PARAM-PARSE-KEY","k":"notes","i":0,"c":"根因：tasks/lro/stepExecution.ts 自拼缺参文案，未复用 utils/toolContract/argParseError 的 describeMissingRequiredParams。后果二：① receivedKeys 把保留键 __liri_args_parse_error__ 当作模型参数名回显；② 截断场景只回通用提示「若"}
+{"id":"LRO-MISSING-PARAM-PARSE-KEY","k":"notes","i":1,"c":"参数为空，多为参数 JSON 非法」，模型无法判断是输出被截断 ⇒ 原样重试至验收失败（真机 07:19:33Z 实测 receivedKeys 仅该保留键）。修法：改用共享文案（receivedKeys 自动剔除保留键；截断时带原始长度 + 分段写入建议），并在 execute 前 stripArgParseErrorKey。验证：typecheck 绿（"}
+{"id":"LRO-MISSING-PARAM-PARSE-KEY","k":"notes","i":2,"c":"含 scripts 两个 tsconfig）、tests/tasks 577 例全绿、eslint 该文件 0 warning/0 error；未新增专属单测（行为由 argParseDiagnostics.test.ts 覆盖的同一实现提供）。"}
+{"id":"LRO-MISSING-PARAM-PARSE-KEY","k":"code#0","i":0,"c":"app/src/tasks/lro/stepExecution.ts"}

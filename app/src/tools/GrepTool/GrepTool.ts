@@ -21,7 +21,8 @@ import {
   createSuccessResult,
   createFailureResult,
   checkPathAccessibility,
-  normalizeToolPath,
+  getToolBaseDir,
+  resolveFilePath,
 } from '../utils/ToolUtils';
 import { grep, grepAsync } from './grep';
 import type { GrepInputType, GrepOutputType } from './schemas';
@@ -224,8 +225,14 @@ export class GrepTool extends BaseTool {
     try {
       // 验证输入
       const validated: GrepInputType = validateGrepInput(input);
-      const searchPath = normalizeToolPath(
-        validated.searchPath || context.options.cwd || process.cwd()
+      // 2026-10-31（真机 app.log 取证）：相对 `searchPath` 此前按**进程 cwd** 解析，
+      // 而 LRO 步骤的 `context.options.cwd` 是任务工作区 ⇒ 模型的 `searchPath: "output"`
+      // 被解析到代码仓根，报 `搜索目录不存在: E:\…\output` 并反复重试。
+      // 相对路径必须相对**工具上下文 cwd** 解析（与 `file_read` 的 `resolveFilePath` 同源）。
+      const baseDir = getToolBaseDir(context);
+      const searchPath = resolveFilePath(
+        validated.searchPath || baseDir || process.cwd(),
+        baseDir ?? process.cwd()
       );
 
       // 检查搜索目录可访问性

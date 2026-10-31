@@ -304,10 +304,11 @@ export class FileReadTool extends BaseTool {
       const baseDir = getToolBaseDir(context);
       const filePath = resolveFilePath(input.file_path as string, baseDir);
 
-      const pathCheck = checkPathAccessibility(
-        input.file_path as string,
-        '文件'
-      );
+      // 2026-10-31（真机 app.log 取证）：可访问性检查此前用**原始入参**（相对路径）⇒
+      // `path.resolve` 按**进程 cwd** 校验，而实际读取用 `filePath`（baseDir 下）。
+      // LRO 任务工作区里的 `output/PRD.md` 因此被判"文件不存在: E:\…\output\PRD.md"，
+      // 模型反复换写法重试直至触发 IO 循环。检查必须针对**同一个已解析绝对路径**。
+      const pathCheck = checkPathAccessibility(filePath, '文件');
       if (!pathCheck.accessible) {
         const msg = pathCheck.reason || '';
         const hint = pathCheck.suggestions?.length

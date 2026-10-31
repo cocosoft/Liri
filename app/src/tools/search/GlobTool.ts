@@ -16,7 +16,8 @@ import {
   createSuccessResult,
   createFailureResult,
   checkPathAccessibility,
-  normalizeToolPath,
+  getToolBaseDir,
+  resolveFilePath,
 } from '../utils/ToolUtils';
 import { globAsync } from '../GlobTool/GlobTool';
 import { z } from 'zod';
@@ -79,8 +80,14 @@ export class GlobTool extends BaseTool {
     const startTime = Date.now();
     try {
       const pattern = input.pattern as string;
-      const searchPath = normalizeToolPath(
-        (input.path as string) || context.options.cwd || process.cwd()
+      // 2026-10-31（真机 app.log 取证）：相对路径此前一律按**进程 cwd** 解析。LRO 步骤的
+      // `context.options.cwd` 是任务工作区（`~/.pyapp/workspaces/<taskId>`），模型按提示传
+      // `path: "output"` 却被解析到代码仓根 ⇒ `搜索目录不存在: E:\…\output`（单窗口 100+ 次，
+      // 模型反复重试直至触发 IO 循环拦截）。相对路径必须相对**工具上下文 cwd** 解析。
+      const baseDir = getToolBaseDir(context);
+      const searchPath = resolveFilePath(
+        (input.path as string) || baseDir || process.cwd(),
+        baseDir ?? process.cwd()
       );
 
       const pathCheck = checkPathAccessibility(searchPath, '搜索目录');

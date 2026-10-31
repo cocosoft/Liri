@@ -7366,3 +7366,11 @@
 {"id":"TOOL-RESULT-TRISTATE","k":"code#2","i":0,"c":"app/package.json"}
 {"id":"TOOL-RESULT-TRISTATE","k":"tests#0","i":0,"c":"app/tests/chat/toolResultContract.test.ts"}
 {"id":"TOOL-RESULT-TRISTATE","k":"changelog#0","i":0,"c":"工具结果新增 empty-success 态：成功但无输出时回灌显式说明（不再 `\"\"`/undefined），并落 metadata.toolResultState"}
+{"id":"BUG4-LOOP-GUARD-REGRESSION","k":"title","i":0,"c":"Bug 4 回归网：空结果 / 失败结果的循环守卫（仅测试，未改行为）"}
+{"id":"BUG4-LOOP-GUARD-REGRESSION","k":"source","i":0,"c":"dev_docs/20261031/deepseek建议.md Bug 4 的第二、三项（失败升级策略 / 上下文锚定）在复核中判定为「既有机制已覆盖」，但缺专属回归用例"}
+{"id":"BUG4-LOOP-GUARD-REGRESSION","k":"reopenWhen","i":0,"c":"若 LoopDetector 改为「结果内容参与 generic_repeat 判定」或阈值默认值调整时重开"}
+{"id":"BUG4-LOOP-GUARD-REGRESSION","k":"notes","i":0,"c":"正向：同工具同参数、每次结果为空 ⇒ 达阈值（2 警告 / 3 阻断）即 generic_repeat 熔断，空结果不会刷新历史。负向：同工具不同参数（同样空结果）⇒ 不熔断，正常分页读取不被误杀；失败结果同样计入重复。未改任何生产代码。"}
+{"id":"BUG4-LOOP-GUARD-REGRESSION","k":"code#0","i":0,"c":"app/src/query/LoopDetector.ts"}
+{"id":"BUG4-LOOP-GUARD-REGRESSION","k":"code#1","i":0,"c":"app/src/query/ReActLoop.ts"}
+{"id":"BUG4-LOOP-GUARD-REGRESSION","k":"tests#0","i":0,"c":"app/tests/query/loopDetectionEmptyResult.test.ts"}
+{"id":"BUG4-LOOP-GUARD-REGRESSION","k":"changelog#0","i":0,"c":"补 Bug 4 回归网：空结果与失败结果均计入无进展判定（参数级区分，不误杀分页读取）"}

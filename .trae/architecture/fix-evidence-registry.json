@@ -15614,6 +15614,35 @@
       ],
       "reopenWhen": "若工具结果新增第四态（如「部分成功」）或模型侧改读 tool_result 之外的字段时重开（全文见 archive/evidence-detail.jsonl#TOOL-RESULT-TRISTATE）",
       "notes": "判定与文案收敛到 chat/services/toolResultContract.ts（唯一收口 MessageService.createToolResultMessage 调用之）。口径刻意窄：仅 undefined/null/纯空白串算 empty-success；[]、{}、0、false 等有语义的空容器…（全文见 archive/evidence-detail.jsonl#TOOL-RESULT-TRISTATE）"
+    },
+    {
+      "id": "BUG4-LOOP-GUARD-REGRESSION",
+      "title": "Bug 4 回归网：空结果 / 失败结果的循环守卫（仅测试，未改行为）",
+      "source": "dev_docs/20261031/deepseek建议.md Bug 4 的第二、三项（失败升级策略 / 上下文锚定）在复核中判定为「既有机制已覆盖」，但缺专属回归用例",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/LoopDetector.ts",
+        "app/src/query/ReActLoop.ts"
+      ],
+      "tests": [
+        "app/tests/query/loopDetectionEmptyResult.test.ts"
+      ],
+      "changelog": [
+        "补 Bug 4 回归网：空结果与失败结果均计入无进展判定（参数级区分，不误杀分页读取）"
+      ],
+      "reopenWhen": "若 LoopDetector 改为「结果内容参与 generic_repeat 判定」或阈值默认值调整时重开（全文见 archive/evidence-detail.jsonl#BUG4-LOOP-GUARD-REGRESSION）",
+      "notes": "正向：同工具同参数、每次结果为空 ⇒ 达阈值（2 警告 / 3 阻断）即 generic_repeat 熔断，空结果不会刷新历史。负向：同工具不同参数（同样空结果）⇒ 不熔断，正常分页读取不被误杀；失败结果同样计入重复。未改任何生产代码。（全文见 archive/evidence-detail.jsonl#BUG4-LOOP-GUARD-REGRESSION）"
     }
   ]
 }

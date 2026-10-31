@@ -19,6 +19,8 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **MEDIA-SIDECAR-APPERROR**：MediaSidecarRpcError 改继承 AppError（R01-002 ERROR 阻断解除） —— 验证 tsc0|arch0|sidecar117|eslint0；基线 R01-002 ERROR：mediaCapabilities.ts 的 MediaSidecarRpcError 直接 extends Error ⇒ 提交被拦截（详情见 archive/evidence-detail.jsonl#MEDIA-SIDECAR-APPERROR）
+- ✅ **TAOR-IO-LOOP-OBSERVABILITY**：文件IO循环拦截补可观测（明细+pattern+改道建议，语义不变） —— 验证 tsc0|unit4|query459|tools1338|complexity0|eslint0；基线 单窗口 346–434 次拦截，日志仅 tool+path、模型文案为常量 ⇒ 无法区分路径重复 vs pattern 重复（详情见 archive/evidence-detail.jsonl#TAOR-IO-LOOP-OBSERVABILITY）
 - ✅ **MEM-RELATION-GRAPH-ATOMIC**：记忆关系图原子写同源修复 + 共享原语 writeFileAtomic —— 验证 tsc0|unit4|memory104|utils320|arch0|eslint0；基线 app.log：[save_relation_graph] ENOENT rename memory-relation-graph.json.tmp（与 save_index 同源）（详情见 archive/evidence-detail.jsonl#MEM-RELATION-GRAPH-ATOMIC）
 - ✅ **INBOX-PARALLEL-SUBMIT**：Inbox 并发提交串行化（并行工具调用第二张审批卡不再静默丢失） —— 验证 tsc0|unit1|runtime116|permission202|chat750|eslint0；基线 app.log 三次 cannot start a transaction within a transaction；未修前 6 并发单测仅 1 行长存（5 张卡静默丢失）（详情见 archive/evidence-detail.jsonl#INBOX-PARALLEL-SUBMIT）
 - ✅ **PDCA-CONFIRM-NO-FAKE-SUCCESS**：PDCA confirm 端点不再假成功（404/501/200 按真实能力） —— 验证 tsc0|unit3|http333|arch0|eslint0；基线 旧实现：confirm?.() 恒 no-op 却回 {ok:true}；编排器缺失回 200+{error:Not available}（详情见 archive/evidence-detail.jsonl#PDCA-CONFIRM-NO-FAKE-SUCCESS）

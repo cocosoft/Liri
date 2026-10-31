@@ -66,21 +66,48 @@ describe('SMS 发送接线', () => {
     expect(ch.getLastError()).toContain('500');
   });
 
-  it('aliyun（缺模板字段）⇒ false 且原因说明"暂不可构造"', async () => {
+  it('aliyun（缺模板字段）⇒ false 且原因点明 TemplateCode，不发请求', async () => {
     const ch = new SmsChannel({
       enabled: true,
       provider: 'aliyun',
       fromNumber: '+8613800000000',
       apiKey: 'k',
       apiSecret: 's',
+      signName: '测试签名',
       maxRetries: 3,
       timeout: 5000,
     });
     expect(await ch.connect()).toBe(true);
 
     expect(await ch.sendMessage('+8613900000000', 'hi')).toBe(false);
-    expect(ch.getLastError()).toContain('暂不可构造');
+    expect(ch.getLastError()).toContain('TemplateCode');
     expect(calls).toHaveLength(0); // 不可构造时不发请求
+  });
+
+  it('aliyun（配置完整）⇒ 真实 POST 到 dysmsapi，表单含签名', async () => {
+    const ch = new SmsChannel({
+      enabled: true,
+      provider: 'aliyun',
+      fromNumber: '+8613800000000',
+      apiKey: 'test-ak',
+      apiSecret: 'test-sk',
+      signName: '测试签名',
+      templateCode: 'SMS_0001',
+      maxRetries: 3,
+      timeout: 5000,
+    });
+    expect(await ch.connect()).toBe(true);
+
+    expect(await ch.sendMessage('+8613900000000', '你好')).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.url).toBe('https://dysmsapi.aliyuncs.com/');
+    expect(calls[0]!.init?.method).toBe('POST');
+
+    const form = new URLSearchParams(String(calls[0]!.init?.body));
+    expect(form.get('Action')).toBe('SendSms');
+    expect(form.get('SignName')).toBe('测试签名');
+    expect(form.get('TemplateCode')).toBe('SMS_0001');
+    expect(form.get('Signature')).toBeTruthy();
   });
 
   it('未连接 ⇒ false（不谎报）', async () => {

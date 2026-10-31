@@ -26,6 +26,12 @@ export interface SmsConfig {
   authToken?: string;
   apiKey?: string;
   apiSecret?: string;
+  /** 阿里云：控制台报备的短信签名 */
+  signName?: string;
+  /** 阿里云：短信模板编号 */
+  templateCode?: string;
+  /** 阿里云：地域（默认 cn-hangzhou） */
+  regionId?: string;
   fromNumber: string;
   endpoint?: string;
   maxRetries: number;
@@ -61,6 +67,9 @@ export class SmsChannel extends EventEmitter {
       authToken: config?.authToken,
       apiKey: config?.apiKey,
       apiSecret: config?.apiSecret,
+      signName: config?.signName,
+      templateCode: config?.templateCode,
+      regionId: config?.regionId,
       fromNumber: config?.fromNumber || '',
       endpoint: config?.endpoint,
       maxRetries: config?.maxRetries ?? 3,
@@ -98,9 +107,11 @@ export class SmsChannel extends EventEmitter {
       return false;
     }
 
+    // 失败原因统一走 `lastError`：本实例没有 'error' 监听者，`emit('error')` 会直接抛出
+    // （Node 对无监听的 'error' 事件抛 ERR_UNHANDLED_ERROR），把可预期的配置缺口变成崩溃，
+    // 还会盖掉插件层应给出的「SMS 连接失败：…」。
     if (!this.config.fromNumber) {
       this.lastError = '发件人号码未配置';
-      this.emit('error', { message: this.lastError });
       return false;
     }
 
@@ -109,7 +120,6 @@ export class SmsChannel extends EventEmitter {
       (!this.config.accountSid || !this.config.authToken)
     ) {
       this.lastError = 'Twilio 凭证未配置';
-      this.emit('error', { message: this.lastError });
       return false;
     }
 
@@ -119,7 +129,6 @@ export class SmsChannel extends EventEmitter {
       (!this.config.apiKey || !this.config.apiSecret)
     ) {
       this.lastError = `${this.config.provider} 凭证未配置`;
-      this.emit('error', { message: this.lastError });
       return false;
     }
 
@@ -161,6 +170,9 @@ export class SmsChannel extends EventEmitter {
         apiSecret: this.config.apiSecret,
       },
       endpoint: this.config.endpoint,
+      signName: this.config.signName,
+      templateCode: this.config.templateCode,
+      regionId: this.config.regionId,
     });
     if (!built.ok) {
       // 不 emit('error')：无监听的 'error' 事件会让 Node 直接抛出，把可预期的配置缺口
@@ -266,6 +278,9 @@ class SmsChannelPlugin extends BaseChannelPlugin {
       authToken: '',
       apiKey: '',
       apiSecret: '',
+      signName: '',
+      templateCode: '',
+      regionId: 'cn-hangzhou',
       maxRetries: 3,
       timeout: 10000,
     };
@@ -288,6 +303,9 @@ class SmsChannelPlugin extends BaseChannelPlugin {
       authToken: config['authToken'] as string | undefined,
       apiKey: config['apiKey'] as string | undefined,
       apiSecret: config['apiSecret'] as string | undefined,
+      signName: config['signName'] as string | undefined,
+      templateCode: config['templateCode'] as string | undefined,
+      regionId: config['regionId'] as string | undefined,
       endpoint: config['endpoint'] as string | undefined,
       maxRetries: (config['maxRetries'] as number) ?? 3,
       timeout: (config['timeout'] as number) ?? 10000,

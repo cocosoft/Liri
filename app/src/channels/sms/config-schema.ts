@@ -9,10 +9,16 @@ export interface SmsConfig {
   accountSid?: string;
   /** Twilio Auth Token */
   authToken?: string;
-  /** 阿里云/腾讯云等 API Key */
+  /** 阿里云/腾讯云等 API Key（阿里云为 AccessKeyId） */
   apiKey?: string;
-  /** 自定义 API Secret */
+  /** 自定义 API Secret（阿里云为 AccessKeySecret） */
   apiSecret?: string;
+  /** 阿里云：控制台报备的短信签名 */
+  signName?: string;
+  /** 阿里云：短信模板编号 */
+  templateCode?: string;
+  /** 阿里云：地域（默认 cn-hangzhou） */
+  regionId?: string;
   maxRetries?: number;
   timeout?: number;
   fromNumber: string;
@@ -29,6 +35,9 @@ export function getDefaultSmsConfig(): SmsConfig {
     authToken: '',
     apiKey: '',
     apiSecret: '',
+    signName: '',
+    templateCode: '',
+    regionId: 'cn-hangzhou',
     maxRetries: 3,
     timeout: 10000,
     fromNumber: '',

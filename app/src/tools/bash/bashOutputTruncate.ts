@@ -13,15 +13,19 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\bash\bashOutputTruncate');
 
 /**
- * K-5 P1 软截断阈值（默认 2MB）。超过此阈值后返回前缀 + 标注，避免超大输出打爆上下文/内存。
+ * K-5 P1 软截断阈值（**200KB**）。超过此阈值后返回前缀 + 标注，避免超大输出打爆上下文/内存。
  * 注意：这是工具层的"用户可见返回"截断，不等于 exec 内部的 maxBuffer；
- *       两者同时生效，双层防护（硬防线 16MB > 软截断 2MB）。
+ *       两者同时生效，双层防护（硬防线 16MB > 软截断 200KB）。
+ *
+ * 2026-10-31（真机取证，上下文溢出预防第二步）：原值 **2MB** 偏高 —— 2MB ASCII ≈ 50 万 tokens，
+ * 单条 bash 结果即可把一次请求推到模型窗口之上（真机 11 次 16.6MB → 2MB 截断，随后 400）。
+ * 现对齐 `file_read` 的 200k 字符闸（≈5 万 tokens/结果）；超限文案已提示"过滤/落文件后再读"。
  */
-export const BASH_OUTPUT_SOFT_LIMIT_BYTES = 2 * 1024 * 1024; // 2 MB
+export const BASH_OUTPUT_SOFT_LIMIT_BYTES = 200 * 1024; // 200 KB
 /**
  * K-5 P1 硬截断阈值（默认 16MB）。传给 child_process.exec 的 maxBuffer。
  * 超过此阈值底层 execAsync 会直接抛错（ERR_CHILD_PROCESS_STDIO_MAXBUFFER），
- * 因此软截断（2MB）应始终小于此值，避免"还没到软截断就先被底层打挂"。
+ * 因此软截断（200KB）应始终小于此值，避免"还没到软截断就先被底层打挂"。
  */
 export const BASH_EXEC_MAX_BUFFER_BYTES = 16 * 1024 * 1024; // 16 MB
 /** 截断时保留的尾部字节数（默认 20KB） */

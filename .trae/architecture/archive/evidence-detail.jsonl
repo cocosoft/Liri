@@ -7060,3 +7060,11 @@
 {"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"code#0","i":0,"c":"app/src/infrastructure/http/handlers/pdca-handlers.ts"}
 {"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"code#1","i":0,"c":"app/src/runtime/api/taskOpsPorts.ts"}
 {"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"tests#0","i":0,"c":"app/tests/http/pdca-confirm.contract.test.ts"}
+{"id":"INBOX-PARALLEL-SUBMIT","k":"title","i":0,"c":"Inbox 并发提交串行化：并行工具调用的第二张审批卡不再静默丢失"}
+{"id":"INBOX-PARALLEL-SUBMIT","k":"source","i":0,"c":"真机 app.log（2026-10-31 11:31:36 / 11:46:44 / 12:05:16）：runtime:inbox [submit] cannot start a transaction within a transaction，紧邻 chat:toolExecution「工作区越界审批卡提交失败（按未申请处理）」，且同一毫秒另一张卡「"}
+{"id":"INBOX-PARALLEL-SUBMIT","k":"source","i":1,"c":"Inbox item submitted」"}
+{"id":"INBOX-PARALLEL-SUBMIT","k":"reopenWhen","i":0,"c":"再出现 cannot start a transaction within a transaction，或并行工具调用的审批卡数量少于越界/审批请求数"}
+{"id":"INBOX-PARALLEL-SUBMIT","k":"notes","i":0,"c":"根因：submit() 在同一条 inbox 连接上无条件 BEGIN IMMEDIATE；reactToolLoop:parallel_batch_execute 并行提交两张卡 ⇒ 第二个 BEGIN 失败/被回滚 ⇒ 卡丢失（用户看不到卡、无从批准）。修复：实例内提交队列串行（一次失败不阻断后续）。回归阴性对照：去掉队列后 6 并发仅 1 行长存（5 "}
+{"id":"INBOX-PARALLEL-SUBMIT","k":"notes","i":1,"c":"张静默丢失，调用方仍拿到成功对象）；加队列后 6 张全落库。"}
+{"id":"INBOX-PARALLEL-SUBMIT","k":"code#0","i":0,"c":"app/src/runtime/InboxManager.ts"}
+{"id":"INBOX-PARALLEL-SUBMIT","k":"tests#0","i":0,"c":"app/tests/runtime/inboxParallelSubmit.test.ts"}

@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INBOX-PARALLEL-SUBMIT**：Inbox 并发提交串行化（并行工具调用第二张审批卡不再静默丢失） —— 验证 tsc0|unit1|runtime116|permission202|chat750|eslint0；基线 app.log 三次 cannot start a transaction within a transaction；未修前 6 并发单测仅 1 行长存（5 张卡静默丢失）（详情见 archive/evidence-detail.jsonl#INBOX-PARALLEL-SUBMIT）
 - ✅ **PDCA-CONFIRM-NO-FAKE-SUCCESS**：PDCA confirm 端点不再假成功（404/501/200 按真实能力） —— 验证 tsc0|unit3|http333|arch0|eslint0；基线 旧实现：confirm?.() 恒 no-op 却回 {ok:true}；编排器缺失回 200+{error:Not available}（详情见 archive/evidence-detail.jsonl#PDCA-CONFIRM-NO-FAKE-SUCCESS）
 - ✅ **MEM-INDEX-ATOMIC-SAVE**：记忆索引原子写并发安全（唯一临时名 + 串行 + rename 有界重试） —— 验证 tsc0|unit1|memory103|eslint0|repeat5x0；基线 app.log 2026-10-31T11:31Z 同秒 3 条 [save_index] ENOENT；用例未修前 8 并发 7 失败、修后 0（详情见 archive/evidence-detail.jsonl#MEM-INDEX-ATOMIC-SAVE）
 - ✅ **LOGGER-NAME-RATCHET**：logger 名棘轮（新增须 域:子域；存量 245 名冻结） —— 验证 unit7|neg-proof1|gate253|scripts0|tsc0；基线 app/src + packages/kernel/src 实测：非合规出现点 253 / 非合规名 245（如 AIContextInjector、CommandRegistry）（详情见 archive/evidence-detail.jsonl#LOGGER-NAME-RATCHET）

@@ -25,6 +25,8 @@ export default function OfficeMailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 中性提示（如"删除实为标记已读"）——与 error 分开，不冒充错误 */
+  const [notice, setNotice] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"inbox" | "sent">("inbox");
   const [showCompose, setShowCompose] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -178,6 +180,7 @@ export default function OfficeMailPage() {
   }
 
   async function handleDeleteMail(id: string) {
+    setNotice(null);
     try {
       const res = await officeService.deleteMail(id);
       if (res?.ok === false) {
@@ -186,6 +189,15 @@ export default function OfficeMailPage() {
             t("office.mailDeleteError", "删除失败"),
         );
         return;
+      }
+      // 2026-10-31（口径 A）：服务端「删除」目前**实为标记已读**，并在 data.note 里如实说明
+      //（IMAP delete 未实现）。此前前端只刷新列表、不承接说明 ⇒ 用户以为删掉了，下次同步又出现。
+      const note = (res as unknown as { data?: { note?: string } } | undefined)
+        ?.data?.note;
+      if (note) {
+        setNotice(
+          t("office.mailDeletedAsRead", "邮件未被真正删除（当前仅标记为已读）"),
+        );
       }
       fetchMailList();
       setSelectedMail(null);
@@ -365,6 +377,16 @@ export default function OfficeMailPage() {
           <div className="mx-4 mt-3 p-2 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-700 dark:text-red-300 flex items-center justify-between">
             <span>{error}</span>
             <button onClick={() => setError(null)} className="ml-2 underline">
+              {t("office.close", "关闭")}
+            </button>
+          </div>
+        )}
+
+        {/* 中性提示（如"删除实为标记已读"——不冒充成功/失败） */}
+        {notice && (
+          <div className="mx-4 mt-3 p-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between">
+            <span>{notice}</span>
+            <button onClick={() => setNotice(null)} className="ml-2 underline">
               {t("office.close", "关闭")}
             </button>
           </div>

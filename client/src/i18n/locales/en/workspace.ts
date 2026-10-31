@@ -837,6 +837,7 @@ const enWorkspace = {
     backToList: "Back to list",
     mailFrom: "From",
     mailDeleteError: "Failed to delete",
+    mailDeletedAsRead: "Message was not deleted (marked as read only)",
     calDeleteError: "Failed to delete event",
     docCreate: "Create Document",
     docType: "Document Type",

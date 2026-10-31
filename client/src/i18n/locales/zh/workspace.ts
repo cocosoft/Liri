@@ -796,6 +796,7 @@ const zhWorkspace = {
     backToList: "返回列表",
     mailFrom: "发件人",
     mailDeleteError: "删除失败",
+    mailDeletedAsRead: "邮件未被真正删除（当前仅标记为已读）",
     calDeleteError: "删除日程失败",
     docCreate: "创建文档",
     docType: "文档类型",
@@ -1765,7 +1766,8 @@ const zhWorkspace = {
     noDeliverables: "暂无成果。开始对话后，AI 产出物会自动出现在这里。",
     // #26（2026-10-30）：本面板列的是**文件**（含「待修复任务清单.md」这类文档），
     // 而非常规意义上的任务/工单数据 —— 加一行口径说明，避免被误读成任务列表。
-    deliverablesHint: "以下为项目产出的文件（含清单类文档），不是任务/工单数据。",
+    deliverablesHint:
+      "以下为项目产出的文件（含清单类文档），不是任务/工单数据。",
     deliverable: "成果",
     deliverableSandbox: "成果（沙箱）",
   },

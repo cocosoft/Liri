@@ -7033,3 +7033,15 @@
 {"id":"POWERSHELL-TRUST-LEVEL","k":"code#1","i":0,"c":"app/src/tools/bash/powerShellWrapper.ts"}
 {"id":"POWERSHELL-TRUST-LEVEL","k":"code#2","i":0,"c":"app/src/tools/bash/BashTool.ts"}
 {"id":"POWERSHELL-TRUST-LEVEL","k":"tests#0","i":0,"c":"app/tests/tools/powerShellTrustLevel.test.ts"}
+{"id":"LOGGER-NAME-RATCHET","k":"title","i":0,"c":"logger module 名棘轮门禁：新增必须「域:子域」，存量 245 个历史名冻结入基线（不批量改名）"}
+{"id":"LOGGER-NAME-RATCHET","k":"source","i":0,"c":"台账「logger 命名口径」取证（2026-10-31）：getLogger 名大量 PascalCase 无冒号；module 是运维检索维度，批量改名会改变检索口径"}
+{"id":"LOGGER-NAME-RATCHET","k":"reopenWhen","i":0,"c":"再出现「新代码 add getLogger(PascalCase)」或「module 名再次失去 域:子域 结构」"}
+{"id":"LOGGER-NAME-RATCHET","k":"notes","i":0,"c":"口径（用户裁定「只对新代码强制」）：合规 = 至少含一个冒号且每段仅 [A-Za-z0-9_-]；存量非合规名冻结进 .trae/architecture/logger-name-baseline.json，只拦新增，不阻断存量、不批量重命名。实现：scripts/loggerNameRatchetCore.ts（纯核心：抽取/合规判定/基线差分）+ "}
+{"id":"LOGGER-NAME-RATCHET","k":"notes","i":1,"c":"scripts/lint-logger-name.ts（CLI，--update 重生成基线，支持 LOGGER_NAME_REPO_ROOT/BASELINE 注入）+ npm script lint:logger-name，已并入 ci 链与 pre-commit 棘轮循环（<0.5s）。实测基数（与台账口径差异如实标注）：本门禁只统计 app/src "}
+{"id":"LOGGER-NAME-RATCHET","k":"notes","i":2,"c":"+ packages/kernel/src 的 getLogger/createLogger 字符串字面量 ⇒ 非合规出现点 253 / 非合规名 245（台账早期「1066」为更宽的统计口径，未作为基线依据）。验证：核心 7 例单测（合规判定 / 字面量抽取 / 棘轮差分）；负向自证 —— 在 app/src 临时写 getLogger("}
+{"id":"LOGGER-NAME-RATCHET","k":"notes","i":3,"c":"BadProbeName) ⇒ 门禁 exit 1 并点名该名；删除后恢复 exit 0；lint:scripts 0；typecheck 绿；pre-commit 钩子已重生成并含该门禁。"}
+{"id":"LOGGER-NAME-RATCHET","k":"code#0","i":0,"c":"scripts/loggerNameRatchetCore.ts"}
+{"id":"LOGGER-NAME-RATCHET","k":"code#1","i":0,"c":"scripts/lint-logger-name.ts"}
+{"id":"LOGGER-NAME-RATCHET","k":"code#2","i":0,"c":"app/package.json"}
+{"id":"LOGGER-NAME-RATCHET","k":"code#3","i":0,"c":"app/scripts/setup-git-hooks.ts"}
+{"id":"LOGGER-NAME-RATCHET","k":"tests#0","i":0,"c":"app/tests/gates/loggerNameRatchet.test.ts"}

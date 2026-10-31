@@ -14523,6 +14523,35 @@
       "changelog": [],
       "reopenWhen": "再出现「bash 可执行、PowerShell 同命令被硬拒」或「trustLevel 未传入 PowerShell 安全链」（全文见 archive/evidence-detail.jsonl#POWERSHELL-TRUST-LEVEL）",
       "notes": "改造前：PowerShellTool 内 trustLevel 零命中；受信工作区（development/work）里 whoami、hostname 这类白名单外但非危险的命令被硬拒，且无审批机会。修法：evaluatePowerShellSecurity 新增可选 trustLevel；development/…（全文见 archive/evidence-detail.jsonl#POWERSHELL-TRUST-LEVEL）"
+    },
+    {
+      "id": "LOGGER-NAME-RATCHET",
+      "title": "logger module 名棘轮门禁：新增必须「域:子域」，存量 245 个历史名冻结入基线（不批量改名）",
+      "source": "台账「logger 命名口径」取证（2026-10-31）：getLogger 名大量 PascalCase 无冒号；module 是运维检索维度，批量改名会改变检索口径",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/loggerNameRatchetCore.ts",
+        "scripts/lint-logger-name.ts",
+        "app/package.json",
+        "app/scripts/setup-git-hooks.ts"
+      ],
+      "tests": [
+        "app/tests/gates/loggerNameRatchet.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现「新代码 add getLogger(PascalCase)」或「module 名再次失去 域:子域 结构」（全文见 archive/evidence-detail.jsonl#LOGGER-NAME-RATCHET）",
+      "notes": "口径（用户裁定「只对新代码强制」）：合规 = 至少含一个冒号且每段仅 [A-Za-z0-9_-]；存量非合规名冻结进 .trae/architecture/logger-name-baseline.json，只拦新增，不阻断存量、不批量重命名。实现：scripts/loggerNameRatchetCore.ts（纯…（全文见 archive/evidence-detail.jsonl#LOGGER-NAME-RATCHET）"
     }
   ]
 }

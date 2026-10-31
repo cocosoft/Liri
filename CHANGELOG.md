@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **BASH-OUTPUT-CAP-200K**：bash 大输出软截断 2MB→200KB（单条结果不再灌入 50 万 tokens） —— 验证 tsc0|unit4|tools1353|eslint0；基线 单日 11 次 16.6MB→2MB 截断；2MB≈50 万 tokens/结果，溢出 400 单日 155 次（详情见 archive/evidence-detail.jsonl#BASH-OUTPUT-CAP-200K）
 - ✅ **FILEREAD-CHAR-CAP**：file_read 单次返回加 200k 字符闸（超长单行不再打爆上下文） —— 验证 tsc0|unit6|tools1349|eslint0；基线 单日 155 次溢出 400、请求 1.79M tokens；行分页对单行文件完全失效（详情见 archive/evidence-detail.jsonl#FILEREAD-CHAR-CAP）
 - ✅ **EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER**：崩溃修复跳过在飞会话（不再合成 canceled closer） —— 验证 tsc0|unit4|session388|chat750|eslint0；基线 单日 80 条合成 closer：8 会话各 10 次；turn 25 被 19:53 合成 canceled、19:55 才真实结束（详情见 archive/evidence-detail.jsonl#EVENTLOG-INFLIGHT-NO-SYNTH-CLOSER）
 - ✅ **GREP-CACHE-INVALIDATE-ON-WRITE**：写入后失效 grep 短路缓存（写后复查不再回陈旧结果） —— 验证 tsc0|unit1|tools1347|eslint0；基线 grep 短路缓存不随写入失效 ⇒ 写后同 pattern 复查回写前零命中且提示勿再搜（详情见 archive/evidence-detail.jsonl#GREP-CACHE-INVALIDATE-ON-WRITE）

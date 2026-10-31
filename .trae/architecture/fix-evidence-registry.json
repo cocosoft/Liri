@@ -15042,6 +15042,34 @@
       ],
       "reopenWhen": "若引入按 token 的工具结果预算（服务的 ToolResultStorageHook / ToolResultBudget 目前均无生产消费者），可把本字符闸收敛到统一预算层。（全文见 archive/evidence-detail.jsonl#FILEREAD-CHAR-CAP）",
       "notes": "修复：readFile 在行分页之外加字符闸 200k；超限返回 head(140k) + 截断说明 + tail(60k)，说明里给出 grep 定位/先转多行两条出路。多行小文件、>10MiB 分段读取行为不变；这是「上下文溢出只恢复不预防」的预防第一步（其余工具结果预算仍待接线）。（全文见 archive/evidence-detail.jsonl#FILEREAD-CHAR-CAP）"
+    },
+    {
+      "id": "BASH-OUTPUT-CAP-200K",
+      "title": "bash 大输出软截断阈值 2MB→200KB（单条结果不再灌入约 50 万 tokens）",
+      "source": "取证 2026-10-31 真机：K-5 大输出截断单日 11 次，均为 originalBytes≈16.6MB → keptBytes=2MB；2MB ASCII ≈50 万 tokens，单条 bash 结果即可把请求推到模型窗口之上（同日 155 次上下文溢出 400、请求 1.79M tokens）。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/bash/bashOutputTruncate.ts"
+      ],
+      "tests": [
+        "app/tests/tools/bashOutputTruncate.test.ts"
+      ],
+      "changelog": [
+        "修复：bash 大输出软截断收紧到 200KB，单条命令输出不再撑爆上下文"
+      ],
+      "reopenWhen": "若统一工具结果预算（ToolResultBudget / ToolResultStorageHook 接线）落地，本阈值应交由预算层统一配置。（全文见 archive/evidence-detail.jsonl#BASH-OUTPUT-CAP-200K）",
+      "notes": "修复：BASH_OUTPUT_SOFT_LIMIT_BYTES 2MB→200KB（对齐 file_read 200k 字符闸）；BASH_EXEC_MAX_BUFFER_BYTES 16MB 不变；tail 20KB 与截断文案（过滤/落文件后再读）不变。（全文见 archive/evidence-detail.jsonl#BASH-OUTPUT-CAP-200K）"
     }
   ]
 }

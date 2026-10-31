@@ -7185,3 +7185,10 @@
 {"id":"FILEREAD-CHAR-CAP","k":"code#0","i":0,"c":"app/src/tools/FileReadTool/FileReadTool.ts"}
 {"id":"FILEREAD-CHAR-CAP","k":"tests#0","i":0,"c":"app/tests/tools/FileReadTool.test.ts"}
 {"id":"FILEREAD-CHAR-CAP","k":"changelog#0","i":0,"c":"修复：file_read 单次返回加 200k 字符闸，超长单行不再整份灌入上下文"}
+{"id":"BASH-OUTPUT-CAP-200K","k":"title","i":0,"c":"bash 大输出软截断阈值 2MB→200KB（单条结果不再灌入约 50 万 tokens）"}
+{"id":"BASH-OUTPUT-CAP-200K","k":"source","i":0,"c":"取证 2026-10-31 真机：K-5 大输出截断单日 11 次，均为 originalBytes≈16.6MB → keptBytes=2MB；2MB ASCII ≈50 万 tokens，单条 bash 结果即可把请求推到模型窗口之上（同日 155 次上下文溢出 400、请求 1.79M tokens）。"}
+{"id":"BASH-OUTPUT-CAP-200K","k":"reopenWhen","i":0,"c":"若统一工具结果预算（ToolResultBudget / ToolResultStorageHook 接线）落地，本阈值应交由预算层统一配置。"}
+{"id":"BASH-OUTPUT-CAP-200K","k":"notes","i":0,"c":"修复：BASH_OUTPUT_SOFT_LIMIT_BYTES 2MB→200KB（对齐 file_read 200k 字符闸）；BASH_EXEC_MAX_BUFFER_BYTES 16MB 不变；tail 20KB 与截断文案（过滤/落文件后再读）不变。"}
+{"id":"BASH-OUTPUT-CAP-200K","k":"code#0","i":0,"c":"app/src/tools/bash/bashOutputTruncate.ts"}
+{"id":"BASH-OUTPUT-CAP-200K","k":"tests#0","i":0,"c":"app/tests/tools/bashOutputTruncate.test.ts"}
+{"id":"BASH-OUTPUT-CAP-200K","k":"changelog#0","i":0,"c":"修复：bash 大输出软截断收紧到 200KB，单条命令输出不再撑爆上下文"}

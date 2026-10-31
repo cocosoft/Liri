@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **IMAGE-AFTER-GEN-NOT-REVIEWED**：生成后图片审核如实标注未审核（reviewed:false） —— 验证 tsc0|unit4|tools39|eslint0；基线 afterGenerate 仅复用 prompt 检查即返回 passed:true（无任何图片审核），调用方会误读为已审核（详情见 archive/evidence-detail.jsonl#IMAGE-AFTER-GEN-NOT-REVIEWED）
 - ✅ **DOC-HEALTHCHECK-RECONNECT**：Doc 健康检查探测 officecli 存活并复用崩溃重连（单飞） —— 验证 tsc0|unit5|modules141|eslint0；基线 健康检查 tick 仅 debug、恒空转；崩溃后 status 仍为 FULL（详情见 archive/evidence-detail.jsonl#DOC-HEALTHCHECK-RECONNECT）
 - ✅ **MAIL-CHANNEL-HONESTY**：MailChannelHandler 去假成功/假注册（未接线⇒显式错误） —— 验证 tsc0|unit2|modules141|eslint0；基线 sendFromChannel 只 log 即返回成功；registerTools 声称已注册但零注册（详情见 archive/evidence-detail.jsonl#MAIL-CHANNEL-HONESTY）
 - ✅ **VIDEO-METADATA-FFPROBE**：视频元信息时长由 ffprobe 探测（不可用⇒null+durationUnavailable） —— 验证 tsc0|unit4|http337|eslint0；基线 duration 硬编码 null（TODO: 需要 ffprobe）；ffmpegWrapper.probe 已存在（详情见 archive/evidence-detail.jsonl#VIDEO-METADATA-FFPROBE）

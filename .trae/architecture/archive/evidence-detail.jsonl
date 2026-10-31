@@ -7119,3 +7119,9 @@
 {"id":"DOC-HEALTHCHECK-RECONNECT","k":"notes","i":1,"c":"services/mcp/types 动态导入（MCPServerManager 不转出）。"}
 {"id":"DOC-HEALTHCHECK-RECONNECT","k":"code#0","i":0,"c":"app/src/modules/doc/DocModule.ts"}
 {"id":"DOC-HEALTHCHECK-RECONNECT","k":"tests#0","i":0,"c":"app/tests/modules/docHealthCheck.test.ts"}
+{"id":"IMAGE-AFTER-GEN-NOT-REVIEWED","k":"title","i":0,"c":"生成后图片审核如实标注「未审核」（reviewed:false），不再默认冒充通过"}
+{"id":"IMAGE-AFTER-GEN-NOT-REVIEWED","k":"source","i":0,"c":"功能缺口 P3（用户 2026-10-31 裁定「先如实标注未审核」）：ImageSafetyFilter.afterGenerate 原只复用 prompt 关键词检查即返回 {passed:true}（TODO: 接入第三方内容审核 API）"}
+{"id":"IMAGE-AFTER-GEN-NOT-REVIEWED","k":"reopenWhen","i":0,"c":"接入真实审核器（第三方 SDK 或 ModelRouter moderation 能力）时，改为 reviewed:true 并按审核结论返回"}
+{"id":"IMAGE-AFTER-GEN-NOT-REVIEWED","k":"notes","i":0,"c":"SafetyCheckResult 新增 reviewed?: boolean（缺省=未知，不得视为已审核）；afterGenerate 三条路径均带 reviewed:false + 明确 reason（禁用 / 未配置审核能力 / prompt 命中黑名单）。如实记录：该方法当前零生产调用方（生成后审核整体未接线），用例锁的是\"一旦接线必须如实\"契约。"}
+{"id":"IMAGE-AFTER-GEN-NOT-REVIEWED","k":"code#0","i":0,"c":"app/src/tools/ImageGenerateTool/ImageSafetyFilter.ts"}
+{"id":"IMAGE-AFTER-GEN-NOT-REVIEWED","k":"tests#0","i":0,"c":"app/tests/tools/imageSafetyFilter.test.ts"}

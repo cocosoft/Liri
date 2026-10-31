@@ -14818,6 +14818,32 @@
       "changelog": [],
       "reopenWhen": "再出现「OfficeCLI 已死但 /v1/doc/status 仍 FULL」，或需要按需调整探测频率/存活状态集（全文见 archive/evidence-detail.jsonl#DOC-HEALTHCHECK-RECONNECT）",
       "notes": "判据抽纯函数 shouldReconnectOfficeCli：仅 FULL + 无在途重连 + 连接状态不在 {connected,connecting}（含条目缺失）⇒ 调既有 handleOfficeCLICrash（3 次退避重连→FULL/DEGRADED）。reconnectInFlight 单飞防重连风…（全文见 archive/evidence-detail.jsonl#DOC-HEALTHCHECK-RECONNECT）"
+    },
+    {
+      "id": "IMAGE-AFTER-GEN-NOT-REVIEWED",
+      "title": "生成后图片审核如实标注「未审核」（reviewed:false），不再默认冒充通过",
+      "source": "功能缺口 P3（用户 2026-10-31 裁定「先如实标注未审核」）：ImageSafetyFilter.afterGenerate 原只复用 prompt 关键词检查即返回 {passed:true}（TODO: 接入第三方内容审核 API）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/ImageGenerateTool/ImageSafetyFilter.ts"
+      ],
+      "tests": [
+        "app/tests/tools/imageSafetyFilter.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "接入真实审核器（第三方 SDK 或 ModelRouter moderation 能力）时，改为 reviewed:true 并按审核结论返回（全文见 archive/evidence-detail.jsonl#IMAGE-AFTER-GEN-NOT-REVIEWED）",
+      "notes": "SafetyCheckResult 新增 reviewed?: boolean（缺省=未知，不得视为已审核）；afterGenerate 三条路径均带 reviewed:false + 明确 reason（禁用 / 未配置审核能力 / prompt 命中黑名单）。如实记录：该方法当前零生产调用方（生成后审核整体未接线…（全文见 archive/evidence-detail.jsonl#IMAGE-AFTER-GEN-NOT-REVIEWED）"
     }
   ]
 }

@@ -85,6 +85,15 @@ export class InboxManager {
   private scopedDbs = new Map<string, Database>();
   /** 调用方显式传路径（测试隔离）⇒ 不做身份分区 */
   private readonly explicitPath: boolean;
+  /**
+   * 提交串行队列（2026-10-31 真机实证修复）。
+   *
+   * `reactToolLoop:parallel_batch_execute` 会**并行**调用 `submit()`，而每个进程只有**一条**
+   * inbox 连接：第二个 `BEGIN IMMEDIATE` 抛 `SQLiteError: cannot start a transaction within a
+   * transaction` ⇒ 该审批卡被静默丢弃（`chat:toolExecution` 记为"按未申请处理"并拒绝工具，
+   * 用户永远看不到卡片、也无处批准）。排队后两张卡都会落库。
+   */
+  private submitChain: Promise<unknown> = Promise.resolve();
 
   constructor(dbPath?: string) {
     this.explicitPath = dbPath !== undefined;
@@ -510,12 +519,31 @@ export class InboxManager {
     return row ? this._mapRow(row) : null;
   }
 
-  /** 提交 Inbox 项 */
+  /**
+   * 提交 Inbox 项
+   *
+   * 2026-10-31：并发调用**串行化**（同一连接上第二个 `BEGIN IMMEDIATE` 必失败，
+   * 真机日志实证 `parallel_batch_execute` + `cannot start a transaction within a transaction`）。
+   */
   async submit(
     item: Omit<InboxItem, 'id' | 'status' | 'createdAt' | 'updatedAt'>,
     /** 可选：关联的会话 ID，用于注入 inbox block 到聊天消息 */
     sessionId?: string,
     /** 可选：关联的消息 ID，用于注入 inbox block */
+    messageId?: string
+  ): Promise<InboxItem> {
+    const run = this.submitChain.then(() =>
+      this.submitSerialized(item, sessionId, messageId)
+    );
+    // 一次失败不阻断后续排队（失败已由调用方 try/catch 记录）
+    this.submitChain = run.catch(() => undefined);
+    return run;
+  }
+
+  /** `submit()` 的实际落库体（串行执行，独占事务） */
+  private async submitSerialized(
+    item: Omit<InboxItem, 'id' | 'status' | 'createdAt' | 'updatedAt'>,
+    sessionId?: string,
     messageId?: string
   ): Promise<InboxItem> {
     const db = await this.getDb();

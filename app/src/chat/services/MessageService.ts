@@ -22,6 +22,10 @@ import {
 import type { ToolUse, ToolResult } from '@modules/session/types/tool';
 import { runRegisteredOutputGuards } from '@modules/security/outputGuardRegistry';
 import { getLogger } from '@modules/monitoring';
+import {
+  EMPTY_SUCCESS_TOOL_RESULT_TEXT,
+  classifyToolResult,
+} from './toolResultContract';
 
 const logger = getLogger('chat:messageService');
 
@@ -497,7 +501,11 @@ export class MessageServiceImpl implements MessageService {
       });
       resultJson = gatedResult.text;
     }
-    const hasError = !!toolResult.error;
+    // 2026-11-01：三态判定收敛到 `toolResultContract`（CS01 归一化）。
+    // 此前只有「失败 / 其它」两态 ⇒ 成功但无输出时模型收到 `""` 或空，
+    // 与「调用没生效」不可区分（`undefined` 甚至直接落成 `undefined`）。
+    const tristate = classifyToolResult(toolResult);
+    const hasError = tristate === 'error';
     /**
      * FIX-7（2026-10-27）：**错误文本去重**。
      *
@@ -533,7 +541,9 @@ export class MessageServiceImpl implements MessageService {
       ? payloadText.length === 0 || payloadIsSameAsError
         ? errorPrefix
         : `${errorPrefix}\n\n---\n\n${resultJson}`
-      : resultJson;
+      : tristate === 'empty-success'
+        ? EMPTY_SUCCESS_TOOL_RESULT_TEXT
+        : resultJson;
 
     const content: ContentBlock[] = [
       {
@@ -559,12 +569,20 @@ export class MessageServiceImpl implements MessageService {
             metadata: {
               ...(options?.metadata ?? {}),
               isError: true,
+              // 2026-11-01：三态落盘为可审计标记（`error` / `success` / `empty-success`），
+              // 让"空转"可被度量（统计 empty-success 占比），而不只是靠模型行为反推。
+              toolResultState: tristate,
               ...(toolResult.failureKind
                 ? { failureKind: toolResult.failureKind }
                 : {}),
             },
           }
-        : { metadata: options?.metadata }),
+        : {
+            metadata: {
+              ...(options?.metadata ?? {}),
+              toolResultState: tristate,
+            },
+          }),
     });
   }
 

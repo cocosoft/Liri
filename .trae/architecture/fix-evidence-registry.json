@@ -15584,6 +15584,36 @@
       ],
       "reopenWhen": "若阿里云签名机制（RPC 1.0 / HMAC-SHA1）变更，或短信模板需改为多变量（非 {content}）时重开（全文见 archive/evidence-detail.jsonl#SMS-ALIYUN-RPC）",
       "notes": "按官方签名机制实现：参数按 key 排序 -> percentEncode -> stringToSign=POST&%2F&... -> HMAC-SHA1(secret+\"&\") -> Base64；用 node:crypto，无新增依赖。模板参数固定 {\"content\": text}，模板须含 ${conte…（全文见 archive/evidence-detail.jsonl#SMS-ALIYUN-RPC）"
+    },
+    {
+      "id": "TOOL-RESULT-TRISTATE",
+      "title": "工具结果三态契约：成功无输出 ≠ 失败（空/失败可区分，且三态落盘可度量）",
+      "source": "dev_docs/20261031/deepseek建议.md Bug 4：工具返回空时模型无法区分「成功无输出」与「调用没生效」，反复重试同一动作（导出 23:53–23:54 空转）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/services/toolResultContract.ts",
+        "app/src/chat/services/MessageService.ts",
+        "app/package.json"
+      ],
+      "tests": [
+        "app/tests/chat/toolResultContract.test.ts"
+      ],
+      "changelog": [
+        "工具结果新增 empty-success 态：成功但无输出时回灌显式说明（不再 `\"\"`/undefined），并落 metadata.toolResultState"
+      ],
+      "reopenWhen": "若工具结果新增第四态（如「部分成功」）或模型侧改读 tool_result 之外的字段时重开（全文见 archive/evidence-detail.jsonl#TOOL-RESULT-TRISTATE）",
+      "notes": "判定与文案收敛到 chat/services/toolResultContract.ts（唯一收口 MessageService.createToolResultMessage 调用之）。口径刻意窄：仅 undefined/null/纯空白串算 empty-success；[]、{}、0、false 等有语义的空容器…（全文见 archive/evidence-detail.jsonl#TOOL-RESULT-TRISTATE）"
     }
   ]
 }

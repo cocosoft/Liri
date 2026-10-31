@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TOOL-RESULT-TRISTATE**：工具结果三态契约（空/失败可区分）+ prepare 不再静默吞错 —— 验证 tsc0|unit9|chat759|gates680|eslint0|arch0|infra0|parity0|size0；基线 成功但无输出时模型收到空串或 undefined，与失败不可区分；prepare 静默吞掉 hook 安装失败（详情见 archive/evidence-detail.jsonl#TOOL-RESULT-TRISTATE）
 - ✅ **SMS-ALIYUN-RPC**：阿里云短信 RPC 签名请求构造与配置字段补齐 —— 验证 tsc0|unit15|channels687|eslint0|sl0|arch0；基线 阿里云短信返回「暂不可构造」；SmsConfig 无 signName/templateCode/regionId，无法表达阿里云发送（详情见 archive/evidence-detail.jsonl#SMS-ALIYUN-RPC）
 - ✅ **SMS-SEND-WIRING**：SMS 发送接线 + 两处谎报修复 —— 验证 tsc0|unit6|channels684|eslint0；基线 SMS 发送恒报成功（忽略 sendMessage 返回值）；onConnect 忽略配置且不检查 connect 结果（详情见 archive/evidence-detail.jsonl#SMS-SEND-WIRING）
 - ✅ **SMS-PROVIDER-REQUEST-PURE**：SMS provider 请求构造纯函数（未接线） —— 验证 tsc0|unit6|channels678|eslint0；基线 SMS sendMessage 只 emit 并返回 true，无任何 provider HTTP；请求形状不可测（详情见 archive/evidence-detail.jsonl#SMS-PROVIDER-REQUEST-PURE）

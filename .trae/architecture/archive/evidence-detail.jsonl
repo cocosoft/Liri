@@ -7356,3 +7356,13 @@
 {"id":"SMS-ALIYUN-RPC","k":"tests#0","i":0,"c":"app/tests/channels/smsProviderRequests.test.ts"}
 {"id":"SMS-ALIYUN-RPC","k":"tests#1","i":0,"c":"app/tests/channels/smsSendWiring.test.ts"}
 {"id":"SMS-ALIYUN-RPC","k":"changelog#0","i":0,"c":"SMS 通道：接入阿里云短信真实发送（RPC 签名），配置新增 signName / templateCode / regionId"}
+{"id":"TOOL-RESULT-TRISTATE","k":"title","i":0,"c":"工具结果三态契约：成功无输出 ≠ 失败（空/失败可区分，且三态落盘可度量）"}
+{"id":"TOOL-RESULT-TRISTATE","k":"source","i":0,"c":"dev_docs/20261031/deepseek建议.md Bug 4：工具返回空时模型无法区分「成功无输出」与「调用没生效」，反复重试同一动作（导出 23:53–23:54 空转）"}
+{"id":"TOOL-RESULT-TRISTATE","k":"reopenWhen","i":0,"c":"若工具结果新增第四态（如「部分成功」）或模型侧改读 tool_result 之外的字段时重开"}
+{"id":"TOOL-RESULT-TRISTATE","k":"notes","i":0,"c":"判定与文案收敛到 chat/services/toolResultContract.ts（唯一收口 MessageService.createToolResultMessage 调用之）。口径刻意窄：仅 undefined/null/纯空白串算 empty-success；[]、{}、0、false 等有语义的空容器原样透传（grep 零命中是结论不是无输出"}
+{"id":"TOOL-RESULT-TRISTATE","k":"notes","i":1,"c":"）。metadata.toolResultState 落盘三态，供统计空转占比。prepare 兜底文案改为显式告警 + 修复命令（仍不阻断安装，CI 由 lint:gate-parity 兜底）。"}
+{"id":"TOOL-RESULT-TRISTATE","k":"code#0","i":0,"c":"app/src/chat/services/toolResultContract.ts"}
+{"id":"TOOL-RESULT-TRISTATE","k":"code#1","i":0,"c":"app/src/chat/services/MessageService.ts"}
+{"id":"TOOL-RESULT-TRISTATE","k":"code#2","i":0,"c":"app/package.json"}
+{"id":"TOOL-RESULT-TRISTATE","k":"tests#0","i":0,"c":"app/tests/chat/toolResultContract.test.ts"}
+{"id":"TOOL-RESULT-TRISTATE","k":"changelog#0","i":0,"c":"工具结果新增 empty-success 态：成功但无输出时回灌显式说明（不再 `\"\"`/undefined），并落 metadata.toolResultState"}

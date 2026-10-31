@@ -14417,6 +14417,31 @@
       "changelog": [],
       "reopenWhen": "再出现「同目录不同 pattern 的连续检索被判定为文件IO循环」或「合法探索导致整轮 abort」（全文见 archive/evidence-detail.jsonl#FILE-IO-LOOP-QUERY-KEY）",
       "notes": "根因：FileIOLoopDetector 的判定键只有「路径 + 分页区域(offset/limit)」，glob/grep 的 pattern 不在键内 ⇒ 同一目录下 4 个不同 pattern 的检索被累计成「连续读同一文件 ×4」；TAORLoop 命中后直接 stopped=true / stopReas…（全文见 archive/evidence-detail.jsonl#FILE-IO-LOOP-QUERY-KEY）"
+    },
+    {
+      "id": "CMD-ALIAS-CP-CONFLICT",
+      "title": "命令别名 cp 双重声明：checkpoint 与 copy 撞车 ⇒ 每次装配报错并拒绝登记",
+      "source": "真机 app.log（2026-10-31T03-04 窗口）：CommandRegistry 命令别名冲突 ⇒ 拒绝登记该别名（onConflict=error）28 次，meta 恒为 command=checkpoint / alias=cp / occupiedBy=copy",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/commands/builtin/checkpoint/index.ts",
+        "app/src/commands/loader/CommandLoader.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "再出现「命令别名/命令名冲突 ⇒ 拒绝登记」的 error 级日志（全文见 archive/evidence-detail.jsonl#CMD-ALIAS-CP-CONFLICT）",
+      "notes": "根因：cp 被两处声明 —— CommandLoader 的 copy 条目（先注册）与 checkpoint 条目 + checkpoint/index.ts 的命令定义。CommandRegistry 对冲突取 onConflict=error ⇒ 每次装配都记 error 并拒绝 checkpoint 的别名登…（全文见 archive/evidence-detail.jsonl#CMD-ALIAS-CP-CONFLICT）"
     }
   ]
 }

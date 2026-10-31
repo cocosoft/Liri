@@ -6995,3 +6995,11 @@
 {"id":"FILE-IO-LOOP-QUERY-KEY","k":"code#0","i":0,"c":"app/src/query/FileIOLoopDetector.ts"}
 {"id":"FILE-IO-LOOP-QUERY-KEY","k":"code#1","i":0,"c":"app/src/query/TAORLoop.ts"}
 {"id":"FILE-IO-LOOP-QUERY-KEY","k":"tests#0","i":0,"c":"app/tests/query/FileIOLoopDetector.test.ts"}
+{"id":"CMD-ALIAS-CP-CONFLICT","k":"title","i":0,"c":"命令别名 cp 双重声明：checkpoint 与 copy 撞车 ⇒ 每次装配报错并拒绝登记"}
+{"id":"CMD-ALIAS-CP-CONFLICT","k":"source","i":0,"c":"真机 app.log（2026-10-31T03-04 窗口）：CommandRegistry 命令别名冲突 ⇒ 拒绝登记该别名（onConflict=error）28 次，meta 恒为 command=checkpoint / alias=cp / occupiedBy=copy"}
+{"id":"CMD-ALIAS-CP-CONFLICT","k":"reopenWhen","i":0,"c":"再出现「命令别名/命令名冲突 ⇒ 拒绝登记」的 error 级日志"}
+{"id":"CMD-ALIAS-CP-CONFLICT","k":"notes","i":0,"c":"根因：cp 被两处声明 —— CommandLoader 的 copy 条目（先注册）与 checkpoint 条目 + checkpoint/index.ts 的命令定义。CommandRegistry 对冲突取 onConflict=error ⇒ 每次装配都记 error 并拒绝 checkpoint 的别名登记（功能上 cp 归 copy 是正确语义"}
+{"id":"CMD-ALIAS-CP-CONFLICT","k":"notes","i":1,"c":"，产出的是持续噪音与\"声明了却不生效\"的错觉）。修法：删掉 checkpoint 侧两处 cp 声明（命令定义 + loader 条目），保留 copy 的唯一声明；/checkpoint 不受影响。验证：全仓 \"aliases: [cp]\" 只剩 copy 一处；typecheck 绿；tests/commands 56 例全绿；eslint 0。未做（如"}
+{"id":"CMD-ALIAS-CP-CONFLICT","k":"notes","i":2,"c":"实）：同窗口另有 28 次「命令名冲突」—— 内置技能 debug（BundledSkillLoader，userInvocable）与内置命令 debug（command-registry.ts）同名，谁保留 /debug 属产品命名决策，未擅改。"}
+{"id":"CMD-ALIAS-CP-CONFLICT","k":"code#0","i":0,"c":"app/src/commands/builtin/checkpoint/index.ts"}
+{"id":"CMD-ALIAS-CP-CONFLICT","k":"code#1","i":0,"c":"app/src/commands/loader/CommandLoader.ts"}

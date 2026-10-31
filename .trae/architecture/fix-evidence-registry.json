@@ -14466,6 +14466,35 @@
       "changelog": [],
       "reopenWhen": "再出现「命令名冲突 ⇒ 拒绝登记」且其中一方为技能（skill）来源（全文见 archive/evidence-detail.jsonl#CMD-NAME-DEBUG-CONFLICT）",
       "notes": "根因：BundledSkillLoader 的 debug 技能声明 userInvocable=true，SkillCommandLoader 会把它登记成斜杠命令；内置命令 /debug 已先注册同名 ⇒ CommandRegistry 取 onConflict=error，每次装配记 error 并拒绝该技能命…（全文见 archive/evidence-detail.jsonl#CMD-NAME-DEBUG-CONFLICT）"
+    },
+    {
+      "id": "TURN-AWAITING-APPROVAL-NEUTRAL",
+      "title": "越界且已提交审批的失败轮改为熔断中性态（新增 failureKind=workspace_escape_pending_approval）",
+      "source": "台账 §16；真机 app.log：reActLoop:all-tools-failed 42 次全为工作区越界（file_read/glob 指向仓库根），且错误文案已写明已提交审批申请",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/utils/toolContract/ToolResult.ts",
+        "app/src/chat/services/ToolExecutionService.ts",
+        "app/src/query/ReActLoop.ts"
+      ],
+      "tests": [
+        "app/tests/query/environmentBlockedTermination.test.ts",
+        "app/tests/chat/toolFailureKindWiring.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现「等用户批准期间 invalid 预算被耗尽导致整轮熔断」或「越界失败被当成模型无效输出计数」（全文见 archive/evidence-detail.jsonl#TURN-AWAITING-APPROVAL-NEUTRAL）",
+      "notes": "根因：ToolExecutionService 在多根模式下把越界统一记 workspace_escape；classifyTurn 的 ENVIRONMENT_BLOCKING_KINDS 不含它 ⇒ 归入 invalid，每轮 consecutiveInvalidTurns++（上限 3）。而该态下用户侧有待办，…（全文见 archive/evidence-detail.jsonl#TURN-AWAITING-APPROVAL-NEUTRAL）"
     }
   ]
 }

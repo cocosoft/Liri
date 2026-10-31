@@ -7010,3 +7010,15 @@
 {"id":"CMD-NAME-DEBUG-CONFLICT","k":"notes","i":1,"c":" 现状、不改变用户可见命令面）：把该技能改为 userInvocable=false —— 技能仍可由模型经 Skill 工具按名调用，用户侧 /debug 继续归内置命令，冲突源消除。备选（未采用）：把技能改名 debug-issue（新增一个用户可见命令）；或改内置命令名（改动面更大）。验证：typecheck 绿；tests/skills + "}
 {"id":"CMD-NAME-DEBUG-CONFLICT","k":"notes","i":2,"c":"tests/commands 136 例全绿；eslint 0。"}
 {"id":"CMD-NAME-DEBUG-CONFLICT","k":"code#0","i":0,"c":"app/src/skills/loaders/sources/BundledSkillLoader.ts"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"title","i":0,"c":"越界且已提交审批的失败轮改为熔断中性态（新增 failureKind=workspace_escape_pending_approval）"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"source","i":0,"c":"台账 §16；真机 app.log：reActLoop:all-tools-failed 42 次全为工作区越界（file_read/glob 指向仓库根），且错误文案已写明已提交审批申请"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"reopenWhen","i":0,"c":"再出现「等用户批准期间 invalid 预算被耗尽导致整轮熔断」或「越界失败被当成模型无效输出计数」"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"notes","i":0,"c":"根因：ToolExecutionService 在多根模式下把越界统一记 workspace_escape；classifyTurn 的 ENVIRONMENT_BLOCKING_KINDS 不含它 ⇒ 归入 invalid，每轮 consecutiveInvalidTurns++（上限 3）。而该态下用户侧有待办，模型重试不会有不同结果 ⇒ 批准落地前就已"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"notes","i":1,"c":"熔断，轮次白烧。修法：新增失败类型 workspace_escape_pending_approval（仅当 approvalRequested === true）；classifyTurn 新增中性分型 awaiting_approval（全部失败且全为该类）；checkCircuitBreaker 对其既不计数也不清零（同 aborted 口径）。仅被拒"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"notes","i":2,"c":"（未提交审批）仍记 workspace_escape ⇒ 仍走 invalid，行为不变。验证：environmentBlockedTermination 24 例（新增 5 例：分型 3 + 计数 2）、tests/query 455 例、tests/chat 750 例全绿；typecheck 绿；lint:state-ratchet 用 "}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"notes","i":3,"c":"--update 收编新出现点（净 -1 条陈旧项）；fn-size / complexity 棘轮维持；eslint 0 error。"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"code#0","i":0,"c":"app/src/utils/toolContract/ToolResult.ts"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"code#1","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"code#2","i":0,"c":"app/src/query/ReActLoop.ts"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"tests#0","i":0,"c":"app/tests/query/environmentBlockedTermination.test.ts"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"tests#1","i":0,"c":"app/tests/chat/toolFailureKindWiring.test.ts"}

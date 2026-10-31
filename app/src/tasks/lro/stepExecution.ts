@@ -54,6 +54,12 @@ import {
   summarizeToolOutcomes,
 } from './stepHelpers.js';
 import { findWorkspaceEscape } from './workspaceGuard.js';
+// 2026-10-31：缺参文案（含"参数 JSON 被截断"诊断）与保留键剥除的**单一实现**，
+// 主聊天链 `ToolRegistry` / `ToolManager` 亦用同一份 ⇒ 本链不再自行拼文案（CS01）。
+import {
+  describeMissingRequiredParams,
+  stripArgParseErrorKey,
+} from '../../utils/toolContract/argParseError.js';
 // LRO-13（2026-10-26）：阻塞命令台账 —— 续跑时同 (命令, cwd, 策略版本) 直接短路，不重放
 import {
   blockedReplayResult,
@@ -389,26 +395,42 @@ export async function executeSingleStep(
                 tc.arguments
               );
               if (missingParams.length > 0) {
-                const receivedKeys = Object.keys(tc.arguments ?? {});
+                // 2026-10-31：与主聊天链（`ToolRegistry` / `ToolManager`）共用同一缺参文案。
+                // 此前本链自行拼文案 ⇒ ① `receivedKeys` 把**保留键** `__liri_args_parse_error__`
+                // 当成"模型传的参数名"回显；② 真机 2026-10-31 07:19:33Z 实测 `file_edit`
+                // 参数 JSON 被截断（`receivedKeys:["__liri_args_parse_error__"]`），模型只收到
+                // 通用「若参数为空，多为参数 JSON 非法」⇒ 原样重试同一调用直至验收失败。
+                const detail = describeMissingRequiredParams(
+                  tc.arguments,
+                  missingParams,
+                  tool.params.map((p) => p.name)
+                );
                 logger.warn('[orchestrator] 工具缺少必填参数，已拒绝执行', {
                   taskId: deps.taskId,
                   stepId: step.id,
                   toolName: tc.name,
                   toolCallId: tc.id,
                   missingParams,
-                  receivedKeys,
+                  receivedKeys: detail.receivedKeys,
+                  ...(detail.parseErr
+                    ? {
+                        argsParseFailed: true,
+                        argsRawLength: detail.parseErr.rawLength,
+                      }
+                    : {}),
                 });
                 results.push({
                   toolCallId: tc.id,
                   toolName: tc.name,
-                  error:
-                    `缺少必填参数 ${missingParams.join('、')}；` +
-                    `本次收到的参数键: ${receivedKeys.length > 0 ? receivedKeys.join('、') : '（空）'}。` +
-                    '请按工具定义的参数名重新调用（若参数为空，多为参数 JSON 非法或被输出上限截断）。',
+                  error: detail.error,
                 });
                 continue;
               }
-              const toolResult = await tool.execute(tc.arguments, toolContext);
+              // 保留键可能随合法参数一起出现（解析失败时携带诊断）⇒ 执行前剥除，不污染工具入参
+              const toolResult = await tool.execute(
+                stripArgParseErrorKey(tc.arguments),
+                toolContext
+              );
               // 2026-10-08（steering）：被安全策略拦截的工具名先记账，本轮结束后统一注入改道指令
               if (isSecurityIntercepted(toolResult)) {
                 blockedBySecurity.push(tc.name);

@@ -6975,3 +6975,14 @@
 {"id":"BASH-FAILURE-EXIT-CODE","k":"notes","i":1,"c":"catch 内从 error.code / error.stdout 取事实，追加「退出码: N；stdout: …」到结果文案，并写入 execute_error 日志（exitCode 字段）。不做语义猜测、不改退出码判定。验证：typecheck 绿（含 scripts 两个 tsconfig）、tests/tools/bash 63 例全绿、"}
 {"id":"BASH-FAILURE-EXIT-CODE","k":"notes","i":2,"c":"lint:complexity 棘轮维持、eslint 0 error。"}
 {"id":"BASH-FAILURE-EXIT-CODE","k":"code#0","i":0,"c":"app/src/tools/bash/BashTool.ts"}
+{"id":"SESSION-DATA-RETENTION","k":"title","i":0,"c":"会话数据保留策略：修剪类接线（默认演练）+ 落盘联锁 + 目录型会话按真实占用与 mtime 判定"}
+{"id":"SESSION-DATA-RETENTION","k":"source","i":0,"c":"台账「数据保留策略」项；实测单会话 events.jsonl 11.6MB / messages.jsonl 9.9MB，且 SessionPruning 全仓零消费者"}
+{"id":"SESSION-DATA-RETENTION","k":"reopenWhen","i":0,"c":"再出现「会话目录无限增长且无策略」或「保留策略按大小/按天判定永不触发」"}
+{"id":"SESSION-DATA-RETENTION","k":"notes","i":0,"c":"两处缺陷：① SessionPruning 类自移植后**零消费者**（策略从未被执行）；② 目录型会话直接 statSync(dir)：Windows 上 size≈0、mtime 只在子项增删时变 ⇒ maxSizeMB 与 maxAgeDays 两档**永不触发**，实际只剩「按会话数」。修法：inspectSessionDir 递归实测占用 + 取会"}
+{"id":"SESSION-DATA-RETENTION","k":"notes","i":1,"c":"话内文件最新 mtime；新增 buildPruningConfig（缺省 enabled=false / dryRun=true）；新增 scripts/prune-sessions.ts（bun run prune:sessions，缺省演练，--apply 需 config.dataRetention.enabled=true 联锁）；删除一律软删除到"}
+{"id":"SESSION-DATA-RETENTION","k":"notes","i":2,"c":" <sessionsDir>/.trash。验证：typecheck 绿、新单测 6 例（大小/天数/软删除/会话数/缺省值/覆盖）、隔离 LIRI_HOME 端到端 apply 实移 1 个会话到 .trash、--apply 在 enabled=false 时 exit 2、lint:startup-graph 维持、lint:scripts 0。取舍（"}
+{"id":"SESSION-DATA-RETENTION","k":"notes","i":3,"c":"如实）：dataRetention 未声明进 GlobalConfig —— 该文件在启动面静态图内，新增类型会突破字节棘轮；ConfigManager 以整份已加载对象回写，未知键不被剥离。"}
+{"id":"SESSION-DATA-RETENTION","k":"code#0","i":0,"c":"app/src/session/SessionPruning.ts"}
+{"id":"SESSION-DATA-RETENTION","k":"code#1","i":0,"c":"app/scripts/prune-sessions.ts"}
+{"id":"SESSION-DATA-RETENTION","k":"code#2","i":0,"c":"app/package.json"}
+{"id":"SESSION-DATA-RETENTION","k":"tests#0","i":0,"c":"app/tests/session/sessionPruning.test.ts"}

@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **SESSION-DATA-RETENTION**：会话数据保留策略接线（默认演练 + 落盘联锁 + 软删除）并修目录型会话判定 —— 验证 tsc0|unit6|e2e-apply1|startup0|scripts-lint0；基线 单会话 events.jsonl 11.6MB / messages.jsonl 9.9MB；SessionPruning 零消费者；目录 statSync 使大小/天数两档从不触发（详情见 archive/evidence-detail.jsonl#SESSION-DATA-RETENTION）
 - ✅ **BASH-FAILURE-EXIT-CODE**：bash 失败结果补退出码与 stdout（检索无命中不再与真失败同形） —— 验证 tsc0|bashtests63|complexity0|eslint0；基线 app.log 单窗口 bash: execute_error 120 次，失败文案只有 Command failed: <cmd>，findstr 无匹配（exit 1）无法与真失败区分（详情见 archive/evidence-detail.jsonl#BASH-FAILURE-EXIT-CODE）
 - ✅ **LRO-WORKSPACE-PATH-HINT**：LRO 提示词与越界拒绝文案给出任务工作区根目录（消除盲试） —— 验证 tsc0|tasks577|promptbudget0|prompthardcoded0|eslint0；基线 app.log 单窗口 211 次「工具路径越界，已拒绝执行」，argValue=仓库根 E:/PY/Documents/CODES/PY_APP（详情见 archive/evidence-detail.jsonl#LRO-WORKSPACE-PATH-HINT）
 - ✅ **LRO-MISSING-PARAM-PARSE-KEY**：LRO 缺参拒绝复用统一文案（保留键不再冒充模型参数，截断可识别） —— 验证 tsc0|tasks577|eslint0；基线 app.log 2026-10-31T07:19:33Z：file_edit 因参数 JSON 解析失败被拒，missingParams 三项、receivedKeys 仅 [__liri_args_parse_error__]（详情见 archive/evidence-detail.jsonl#LRO-MISSING-PARAM-PARSE-KEY）

@@ -14362,6 +14362,34 @@
       "changelog": [],
       "reopenWhen": "再出现「bash 失败消息不含退出码」或「模型把检索无命中当成工具故障并重复同一调用」（全文见 archive/evidence-detail.jsonl#BASH-FAILURE-EXIT-CODE）",
       "notes": "根因：commandFailedError 只产出 Command failed: <cmd>（+ stderr），BashTool 的 catch 直接把它当结果文案 ⇒ 退出码与 stdout 全丢失。对 findstr / grep 这类检索命令，退出码 1 = 无匹配（正常结局），模型却只看到失败字样 ⇒ 重…（全文见 archive/evidence-detail.jsonl#BASH-FAILURE-EXIT-CODE）"
+    },
+    {
+      "id": "SESSION-DATA-RETENTION",
+      "title": "会话数据保留策略：修剪类接线（默认演练）+ 落盘联锁 + 目录型会话按真实占用与 mtime 判定",
+      "source": "台账「数据保留策略」项；实测单会话 events.jsonl 11.6MB / messages.jsonl 9.9MB，且 SessionPruning 全仓零消费者",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/session/SessionPruning.ts",
+        "app/scripts/prune-sessions.ts",
+        "app/package.json"
+      ],
+      "tests": [
+        "app/tests/session/sessionPruning.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现「会话目录无限增长且无策略」或「保留策略按大小/按天判定永不触发」（全文见 archive/evidence-detail.jsonl#SESSION-DATA-RETENTION）",
+      "notes": "两处缺陷：① SessionPruning 类自移植后**零消费者**（策略从未被执行）；② 目录型会话直接 statSync(dir)：Windows 上 size≈0、mtime 只在子项增删时变 ⇒ maxSizeMB 与 maxAgeDays 两档**永不触发**，实际只剩「按会话数」。修法：inspectS…（全文见 archive/evidence-detail.jsonl#SESSION-DATA-RETENTION）"
     }
   ]
 }

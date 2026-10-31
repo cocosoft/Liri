@@ -51,7 +51,7 @@ import {
   EventLogThinkingBuffer,
   THINKING_MERGE_MAX_BYTES,
 } from './EventLogThinkingBuffer';
-import { EventLogRepair } from './EventLogRepair';
+import { EventLogRepair, trackTurnLifecycle } from './EventLogRepair';
 import {
   eventFilePathsInOrder,
   hasEventData,
@@ -723,6 +723,8 @@ export class EventLogStorage {
           const line = JSON.stringify(toWrite) + '\n';
           await fs.appendFile(this.filePath, line, 'utf-8');
           this.tailSeq = toWrite.seq as number;
+          // 2026-10-31：登记进程内轮次生命周期（在飞判定见 `EventLogRepair.hasRecentInFlightTurn`）
+          trackTurnLifecycle(this.sessionId, toWrite);
           // A-6（2026-08-23）：持久化 lastKnown tailSeq（meta 写失败不影响本次写入）
           await this.writePersistedTailSeq(toWrite.seq as number);
           // A-5（2026-08-23）：写入成功 → 连续失败计数清零（熔断自动解除）

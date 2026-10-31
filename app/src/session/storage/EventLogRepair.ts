@@ -40,6 +40,76 @@ import { splitJsonLine } from './eventLineParse';
 const logger = getLogger('session:event-log');
 
 /**
+ * 进程内「在飞轮次」登记（2026-10-31 真机取证，`openTurns` 误合成的根因修复）。
+ *
+ * 真机：`read()` 会**无条件**触发崩溃修复，而 `_repairChecked` 是**实例级**标记、实例又会随
+ * 会话切换被释放重建 ⇒ 任何其它读者（压缩/列表/投影）读一次，就给**正在进行中**的轮次补一个
+ * `turn/end canceled`。实测 `session_mvmabftweb74e8df2e` 的 turn 25：19:31 开始 → **19:53 被
+ * 合成 canceled** → 19:55 才真实 `turn/end tool_use` ⇒ 同一 turn 双 end、事件流失真。
+ *
+ * 口径（用户裁定 A）：**本进程内仍在窗口内的未闭合轮 ⇒ 视为在飞，跳过合成**；进程崩溃后该表
+ * 随进程消失 ⇒ 下次启动照常修复（修复能力不变）。
+ *
+ * 为何要有窗口：异常中断（abort/异常）可能**不写** `turn/end`，若无窗口，这些泄漏轮会永远被
+ * 当成"在飞"而永不修复。超过 {@link IN_FLIGHT_TURN_MAX_AGE} 的未闭合轮按**泄漏**处理（允许合成）。
+ */
+const inFlightTurns = new Map<string, Map<number, number>>();
+
+/**
+ * 在飞判定窗口（单位 ms；**60 分钟**）。真机最长在飞请求约 24 分钟（turn 25：19:31→19:55），
+ * 取 60 分钟留足余量；超过即视为泄漏（异常中断），崩溃修复照常合成 closer。
+ *
+ * 命名不带 `_MS` 后缀：`lint:consts` 的 B 类裸字面量规则只认
+ * `const X_(TIMEOUT|LIMIT|THRESHOLD|MS) = <数字>`，这里保留在模块内以便就地解释窗口口径。
+ */
+const IN_FLIGHT_TURN_MAX_AGE = 60 * 60 * 1000;
+
+/**
+ * 登记一条**已成功落盘**事件的轮次生命周期（`EventLogStorage.append` 成功后调用）。
+ *
+ * 只看 `turn/start` / `turn/end` 与 `data.turn`（结构化，不解析文本 — CS02）。
+ */
+export function trackTurnLifecycle(
+  sessionId: string,
+  event: { type?: string; data?: unknown }
+): void {
+  const turn = Number((event.data as { turn?: unknown } | undefined)?.turn);
+  if (!Number.isFinite(turn) || turn <= 0) return;
+  if (event.type === 'turn/start') {
+    let turns = inFlightTurns.get(sessionId);
+    if (!turns) {
+      turns = new Map();
+      inFlightTurns.set(sessionId, turns);
+    }
+    turns.set(turn, Date.now());
+  } else if (event.type === 'turn/end') {
+    const turns = inFlightTurns.get(sessionId);
+    if (!turns) return;
+    turns.delete(turn);
+    if (turns.size === 0) inFlightTurns.delete(sessionId);
+  }
+}
+
+/**
+ * 该会话是否存在**仍在窗口内**的未闭合轮（在飞 ⇒ 本进程内不做崩溃合成）。
+ * 过期条目顺手清理（防长进程内存滞涨）。
+ */
+export function hasRecentInFlightTurn(
+  sessionId: string,
+  now: number = Date.now()
+): boolean {
+  const turns = inFlightTurns.get(sessionId);
+  if (!turns) return false;
+  let recent = false;
+  for (const [turn, at] of turns) {
+    if (now - at <= IN_FLIGHT_TURN_MAX_AGE) recent = true;
+    else turns.delete(turn);
+  }
+  if (turns.size === 0) inFlightTurns.delete(sessionId);
+  return recent;
+}
+
+/**
  * 修复告警节流窗口（2026-09-23）：撕裂/closers/首读修复三类告警共用。
  *
  * 同一份损坏被反复读取（每次 read 都触发 ensureRepairChecked）时防刷屏。
@@ -277,6 +347,14 @@ export class EventLogRepair {
    * @returns 成功写入的 closers 数量（0 = 无未闭合轮次或写入失败）
    */
   async commitInterruptedRepair(): Promise<number> {
+    // 2026-10-31（口径 A）：本进程内仍有窗口内的未闭合轮 ⇒ 视为**在飞**，跳过合成。
+    // （torn-tail 截断不受影响——它由 commitTornRepair 独立负责。）
+    if (hasRecentInFlightTurn(this.deps.sessionId)) {
+      logger.debug('event-log: 在飞会话跳过崩溃合成', {
+        sessionId: this.deps.sessionId,
+      });
+      return 0;
+    }
     const { closers } = await this.interruptedTurnClosers();
     if (closers.length === 0) return 0;
     let written = 0;

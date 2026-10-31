@@ -72,6 +72,8 @@ export {
 export type { TranscriptManagerConfig } from './TranscriptManager.js';
 export { SessionGateway, createSessionGateway } from './SessionGateway.js';
 export type { SessionGatewayConfig } from './SessionGateway.js';
+// 2026-10-31（隔离 P2）：`lite` 列表项类型（含作用域字段）—— CoreAPI / HTTP handler 共用同一份定义
+export type { LiteSessionSummary } from './gateway/LiteSessionLister.js';
 export {
   SessionsWebSocket,
   createSessionsWebSocket,

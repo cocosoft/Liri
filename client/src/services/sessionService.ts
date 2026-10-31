@@ -383,10 +383,31 @@ function flattenSession<S extends Session | null>(session: S): S {
  * @param options 可选：绑定模型ID、工作空间ID
  */
 export const sessionService = {
-  list: (): Promise<Session[]> => {
+  /**
+   * 列出会话。
+   *
+   * 2026-10-31（隔离缺陷 P2）：可选传入作用域 —— 后端 `applySessionScopeFilter`
+   * 是唯一实现，`lite` / 非 `lite` 同口径。**不传 = 全量**（统计页、项目计数等
+   * 依赖全量的调用方保持原行为）。
+   */
+  list: (opts?: {
+    moduleType?: string;
+    projectId?: string;
+  }): Promise<Session[]> => {
     return getOTelTracing().asyncWrap("services:session:list", async () => {
       try {
-        const res = await apiHttp.get<Session[]>(ENDPOINTS.session.base);
+        const params = new URLSearchParams();
+        if (opts?.moduleType?.trim()) {
+          params.set("moduleType", opts.moduleType.trim());
+        }
+        if (opts?.projectId?.trim()) {
+          params.set("projectId", opts.projectId.trim());
+        }
+        const query = params.toString();
+        const url = query
+          ? `${ENDPOINTS.session.base}?${query}`
+          : ENDPOINTS.session.base;
+        const res = await apiHttp.get<Session[]>(url);
         if (res.ok) {
           _isUsingFallback = false;
           return (res.data ?? []).map(flattenSession);

@@ -90,7 +90,7 @@ import type { ChatManager } from '@modules/chat';
 // `eventNotificationService` / `getCheckpointService` 分别改经 `CoreApiAppDeps` 注入（同步门面）
 // 或**方法内动态导入**（异步路径）⇒ 删除 `@modules/chat` 静态值导入（该「文件 × 模块」豁免对随之消失）。
 // B2（2026-10-05）：`verifySessionDerivation` 转发签名所需的类型位（实现已外迁 `sessionMessagesRead.ts`）
-import type { DerivationDiff } from '@modules/session';
+import type { DerivationDiff, LiteSessionSummary } from '@modules/session';
 import type { SessionRoundSummariesResult } from './roundSummaries'; // B2：按轮摘要返回体
 // E-1 diff（2026-08-23）：文件变更前后 unified diff 计算
 
@@ -1767,10 +1767,8 @@ export class CoreAPIImpl implements CoreAPI {
     );
   }
 
-  /** 轻量列出会话元数据 — 只读文件头 64KB，不加载完整会话 */
-  async listLiteSessions(): Promise<
-    Array<{ id: string; title?: string; status?: string; updatedAt?: string }>
-  > {
+  /** 轻量列出会话元数据 — 只读文件头 64KB，不加载完整会话（P2：含作用域字段） */
+  async listLiteSessions(): Promise<LiteSessionSummary[]> {
     return this.sessionAgentOps.listLiteSessions();
   }
 

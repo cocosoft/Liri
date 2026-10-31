@@ -21,6 +21,13 @@ export interface LiteSessionMeta {
   updatedAt?: string;
   /** A1 临时对话：temporary 会话不入历史列表 */
   temporary?: string | null;
+  /**
+   * 2026-10-31（隔离 P2）：列表作用域字段 —— `lite` 投影此前**完全不含**
+   * `moduleType` / `projectId`，前端只能靠 `workspaceId` 反推（`proj_*` 反推不出 ⇒ 落 chat）。
+   * 补进头部读取后，`/v1/sessions?lite=true` 也能做后端口径过滤。
+   */
+  moduleType?: string;
+  projectId?: string;
 }
 
 /**
@@ -66,6 +73,8 @@ export function readLiteSessionMeta(filePath: string): LiteSessionMeta | null {
     const status = extractJsonStringField(raw, 'status');
     const updatedAt = extractJsonStringField(raw, 'updatedAt');
     const temporary = extractJsonStringField(raw, 'temporary');
+    const moduleType = extractJsonStringField(raw, 'moduleType');
+    const projectId = extractJsonStringField(raw, 'projectId');
 
     // P2-31 修复：头部 64KB 未覆盖全部字段（messages 数组在前等布局）或字段为
     // 非字符串值（数字时间戳）时，回退全量 JSON.parse，防止列表元数据静默缺失。
@@ -74,6 +83,7 @@ export function readLiteSessionMeta(filePath: string): LiteSessionMeta | null {
         string,
         unknown
       >;
+      const md = (full['metadata'] ?? {}) as Record<string, unknown>;
       return {
         title:
           title ?? (full['title'] != null ? String(full['title']) : undefined),
@@ -84,6 +94,12 @@ export function readLiteSessionMeta(filePath: string): LiteSessionMeta | null {
           updatedAt ??
           (full['updatedAt'] != null ? String(full['updatedAt']) : undefined),
         temporary,
+        moduleType:
+          moduleType ??
+          (md['moduleType'] != null ? String(md['moduleType']) : undefined),
+        projectId:
+          projectId ??
+          (md['projectId'] != null ? String(md['projectId']) : undefined),
       };
     }
 
@@ -92,6 +108,8 @@ export function readLiteSessionMeta(filePath: string): LiteSessionMeta | null {
       status: status || undefined,
       updatedAt: updatedAt || undefined,
       temporary,
+      moduleType: moduleType || undefined,
+      projectId: projectId || undefined,
     };
   } catch {
     return null;

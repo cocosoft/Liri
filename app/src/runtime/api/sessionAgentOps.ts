@@ -41,7 +41,7 @@ import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import type { ChatManager } from '@modules/chat';
 import type { SessionManager } from '@modules/session/types/session';
-import type { DerivationDiff } from '@modules/session';
+import type { DerivationDiff, LiteSessionSummary } from '@modules/session';
 import type { LiriEvent } from '@modules/session/types/events';
 import type {
   getConverterEngine,
@@ -626,10 +626,8 @@ export class SessionAgentOps {
     }));
   }
 
-  /** 轻量列出会话元数据 — 只读文件头 64KB，不加载完整会话 */
-  async listLiteSessions(): Promise<
-    Array<{ id: string; title?: string; status?: string; updatedAt?: string }>
-  > {
+  /** 轻量列出会话元数据 — 只读文件头 64KB，不加载完整会话（P2：含作用域字段） */
+  async listLiteSessions(): Promise<LiteSessionSummary[]> {
     try {
       const gateway = this.deps.getChatManager().getSessionGateway();
       if (
@@ -638,14 +636,7 @@ export class SessionAgentOps {
       ) {
         return (
           gateway as unknown as {
-            listLiteSessions: () => Promise<
-              Array<{
-                id: string;
-                title?: string;
-                status?: string;
-                updatedAt?: string;
-              }>
-            >;
+            listLiteSessions: () => Promise<LiteSessionSummary[]>;
           }
         ).listLiteSessions();
       }
@@ -656,12 +647,17 @@ export class SessionAgentOps {
     return this.deps
       .getSessionManager()
       .getSessions()
-      .map((s) => ({
-        id: s.id,
-        title: s.title,
-        status: s.state,
-        updatedAt: s.updatedAt?.toISOString(),
-      }));
+      .map((s) => {
+        const md = (s.metadata ?? {}) as Record<string, unknown>;
+        return {
+          id: s.id,
+          title: s.title,
+          status: s.state,
+          updatedAt: s.updatedAt?.toISOString(),
+          moduleType: md.moduleType != null ? String(md.moduleType) : undefined,
+          projectId: md.projectId != null ? String(md.projectId) : undefined,
+        };
+      });
   }
 
   async deleteSession(sessionId: string): Promise<void> {

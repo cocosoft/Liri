@@ -40,6 +40,9 @@ export interface LiteSessionSummary {
   title?: string;
   status?: string;
   updatedAt?: string;
+  /** 2026-10-31（隔离 P2）：作用域字段，供 `/v1/sessions?lite=true` 过滤 */
+  moduleType?: string;
+  projectId?: string;
 }
 
 /**
@@ -111,6 +114,8 @@ export async function listLiteSessions(
       status?: string;
       updatedAt?: string;
       temporary?: string | null;
+      moduleType?: string;
+      projectId?: string;
     }
   >();
 

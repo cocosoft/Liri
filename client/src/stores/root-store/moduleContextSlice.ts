@@ -53,6 +53,9 @@ export interface ModuleContextActions {
 /** 从 workspaceId 推断 moduleType（仅用于迁移兜底 + Hub 缺失时的侧栏过滤） */
 export function inferModuleTypeFromWorkspaceId(wtId: string): ModuleType {
   if (wtId === "chat" || !wtId) return "chat";
+  // 2026-10-31（隔离缺陷 §七裁定 2，读侧兜底）：`proj_<毫秒>_<随机>` 只有
+  // "项目会话"一种含义 ⇒ 纳入推断（此前不认 ⇒ 落 chat，会话/项目两个视图都看不到）
+  if (/^proj_\d+_[a-z0-9]+$/i.test(wtId)) return "project";
   if (wtId.startsWith("project-") || wtId === "projects") return "project";
   const systemMap: Record<string, ModuleType> = {
     media: "media",

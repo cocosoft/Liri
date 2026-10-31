@@ -35,6 +35,7 @@ import {
   deriveSessionStats,
   getYieldRegistry,
   replayTimelineUntil,
+  type LiteSessionSummary,
 } from '@modules/session';
 import {
   tryParseJson,
@@ -45,6 +46,9 @@ import {
 import { LOCAL_REQUEST_BASE_URL, LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 const logger = getLogger('infra:http:session-handlers');
+
+/** 后端项目实体 id（`proj_<毫秒>_<随机>`；与 client `isProjectEntityId` 同口径） */
+const PROJECT_ENTITY_ID_RE = /^proj_\d+_[a-z0-9]+$/i;
 
 /**
  * 阶段一（2026-09-04）：项目会话判定收敛 helper。
@@ -75,6 +79,40 @@ function effectiveProjectId(
 }
 
 // ========== Session Handlers ==========
+
+/** 会话列表的作用域过滤参数（`/v1/sessions?moduleType=&projectId=`） */
+export interface SessionScopeFilter {
+  moduleType?: string;
+  projectId?: string;
+}
+
+/**
+ * 作用域过滤的**单一实现**（P2，2026-10-31）：`lite` 与非 `lite` 两个分支共用。
+ *
+ * 修掉两个既有缺陷：
+ *  ① `lite=true` 分支**完全忽略** `moduleType` / `projectId`（"看起来过滤了"更危险）；
+ *  ② 非 `lite` 分支用 `md?.moduleType || legacyProjectModuleType(md)` 与作用域比较
+ *     ⇒ 缺 `moduleType` 的会话**永远不等于 `chat`**（传 `moduleType=chat` 会返回空）。
+ *     现统一为「缺省视为 `chat`」，与搜索结果下推（本文件 `:120`）及前端
+ *     `sessionMatchesModuleScope` 同口径。
+ */
+export function applySessionScopeFilter<T>(
+  items: T[],
+  filter: SessionScopeFilter,
+  readMetadata: (item: T) => Record<string, unknown> | undefined
+): T[] {
+  const moduleType = filter.moduleType?.trim() || undefined;
+  const projectId = filter.projectId?.trim() || undefined;
+  if (!moduleType && !projectId) return items;
+  return items.filter((item) => {
+    const md = readMetadata(item);
+    if (moduleType && (legacyProjectModuleType(md) ?? 'chat') !== moduleType) {
+      return false;
+    }
+    if (projectId && effectiveProjectId(md) !== projectId) return false;
+    return true;
+  });
+}
 
 /**
  * 全文搜索历史消息（FTS5 倒排索引）
@@ -162,28 +200,29 @@ export async function handleListSessions(
     const lite = url.searchParams.get('lite') === 'true';
     const moduleType = url.searchParams.get('moduleType');
     const projectId = url.searchParams.get('projectId');
+    const scope: SessionScopeFilter = {
+      ...(moduleType ? { moduleType } : {}),
+      ...(projectId ? { projectId } : {}),
+    };
 
     let sessions: unknown;
     if (lite) {
-      sessions = await coreAPI.listLiteSessions();
+      // 2026-10-31（隔离 P2）：`lite` 之前**忽略**作用域参数，且投影里连
+      // `moduleType`/`projectId` 都没有 ⇒ 前端连兜底过滤都做不到。现两个分支共用
+      // `applySessionScopeFilter`（单一实现），lite 投影也已带作用域字段。
+      const liteItems = await coreAPI.listLiteSessions();
+      sessions = applySessionScopeFilter<LiteSessionSummary>(
+        liteItems,
+        scope,
+        (s) => ({ moduleType: s.moduleType, projectId: s.projectId })
+      );
     } else {
-      let full = await coreAPI.listSessions();
-      if (moduleType || projectId) {
-        full = full.filter((s) => {
-          const md = s.metadata as Record<string, unknown> | undefined;
-          // 阶段一（2026-09-04）：moduleType/projectId 判定收敛——
-          // metadata.projectId 优先；moduleType==='project' 或 legacy
-          // workspaceId 前缀 `project-` 兜底（兼容期双读，见 v3 方案 §四 4.2.3）
-          if (
-            moduleType &&
-            (md?.moduleType || legacyProjectModuleType(md)) !== moduleType
-          )
-            return false;
-          if (projectId && effectiveProjectId(md) !== projectId) return false;
-          return true;
-        });
-      }
-      sessions = full;
+      const full = await coreAPI.listSessions();
+      sessions = applySessionScopeFilter(
+        full,
+        scope,
+        (s) => s.metadata as Record<string, unknown> | undefined
+      );
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -248,6 +287,18 @@ export async function handleCreateSession(
     if (projectId) metadata.projectId = projectId as string;
     // A1 临时对话：temporary=true 写入 metadata 持久化标记（CS02，禁止字符串匹配）
     if (temporary === true) metadata.temporary = true;
+    // 2026-10-31（隔离缺陷 §七裁定 2，写侧补写）：调用方没给 moduleType 时按
+    // projectId / workspaceId 形态落定 —— 否则该会话在模块视图里"无家可归"，
+    // 前端只能反推（`proj_*` 反推不出 ⇒ 一律落 chat，正是缺陷 R2）。
+    if (!metadata.moduleType) {
+      const pid = typeof projectId === 'string' ? projectId.trim() : '';
+      const wid = typeof workspaceId === 'string' ? workspaceId.trim() : '';
+      const projectLike =
+        PROJECT_ENTITY_ID_RE.test(pid) ||
+        PROJECT_ENTITY_ID_RE.test(wid) ||
+        /^project-/.test(wid);
+      metadata.moduleType = projectLike ? 'project' : 'chat';
+    }
 
     const session = await coreAPI.createSession({
       title: title as string | undefined,

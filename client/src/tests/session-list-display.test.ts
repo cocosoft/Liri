@@ -26,15 +26,24 @@ describe("sessionMatchesModuleScope：列表作用域口径", () => {
     expect(sessionMatchesModuleScope(session, "media", "chat")).toBe(false);
   });
 
-  it("缺 Hub 记录时按 workspaceId 反推；项目 id（proj_*）无法反推 ⇒ 归入 chat", () => {
+  it("缺 Hub 记录时按 workspaceId 反推；proj_* 归 project（2026-10-31 §七裁定 2）", () => {
     expect(
       sessionMatchesModuleScope({ workspaceId: "media" }, undefined, "media"),
     ).toBe(true);
+    // 裁定变更：`proj_<毫秒>_<随机>` 只有"项目会话"一种含义 ⇒ 反推为 project，
+    // 不再落入 chat（原断言"proj_* 无法反推 ⇒ chat"已按裁定作废）。
     expect(
       sessionMatchesModuleScope(
         { workspaceId: "proj_1792831085133_bfc455" },
         undefined,
         "chat",
+      ),
+    ).toBe(false);
+    expect(
+      sessionMatchesModuleScope(
+        { workspaceId: "proj_1792831085133_bfc455" },
+        undefined,
+        "project",
       ),
     ).toBe(true);
     expect(

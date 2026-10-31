@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **IO-CYCLE-ABS-REL-UNIFY**：文件IO交替循环：同一文件 abs/rel 写法归一（不再误终止整轮） —— 验证 tsc0|unit3|query462|neg-proof1|eslint0；基线 app.log：[IO_CYCLE] 2 个文件交替 = C:/…/output/PRD.md 与 output/PRD.md（同一文件两种写法）（详情见 archive/evidence-detail.jsonl#IO-CYCLE-ABS-REL-UNIFY）
 - ✅ **MEDIA-SIDECAR-APPERROR**：MediaSidecarRpcError 改继承 AppError（R01-002 ERROR 阻断解除） —— 验证 tsc0|arch0|sidecar117|eslint0；基线 R01-002 ERROR：mediaCapabilities.ts 的 MediaSidecarRpcError 直接 extends Error ⇒ 提交被拦截（详情见 archive/evidence-detail.jsonl#MEDIA-SIDECAR-APPERROR）
 - ✅ **TAOR-IO-LOOP-OBSERVABILITY**：文件IO循环拦截补可观测（明细+pattern+改道建议，语义不变） —— 验证 tsc0|unit4|query459|tools1338|complexity0|eslint0；基线 单窗口 346–434 次拦截，日志仅 tool+path、模型文案为常量 ⇒ 无法区分路径重复 vs pattern 重复（详情见 archive/evidence-detail.jsonl#TAOR-IO-LOOP-OBSERVABILITY）
 - ✅ **MEM-RELATION-GRAPH-ATOMIC**：记忆关系图原子写同源修复 + 共享原语 writeFileAtomic —— 验证 tsc0|unit4|memory104|utils320|arch0|eslint0；基线 app.log：[save_relation_graph] ENOENT rename memory-relation-graph.json.tmp（与 save_index 同源）（详情见 archive/evidence-detail.jsonl#MEM-RELATION-GRAPH-ATOMIC）

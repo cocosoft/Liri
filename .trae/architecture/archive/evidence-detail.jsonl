@@ -7093,3 +7093,10 @@
 {"id":"MEDIA-SIDECAR-APPERROR","k":"code#0","i":0,"c":"app/src/tools/sidecar/mediaCapabilities.ts"}
 {"id":"MEDIA-SIDECAR-APPERROR","k":"code#1","i":0,"c":"app/src/tools/sidecar/mediaSidecar.ts"}
 {"id":"MEDIA-SIDECAR-APPERROR","k":"tests#0","i":0,"c":"app/tests/tools/sidecar/mediaSidecarFrames.test.ts"}
+{"id":"IO-CYCLE-ABS-REL-UNIFY","k":"title","i":0,"c":"文件IO交替循环：同一文件的绝对/相对写法归一，不再误判两文件交替并终止整轮"}
+{"id":"IO-CYCLE-ABS-REL-UNIFY","k":"source","i":0,"c":"真机 app.log（2026-10-31 12:44–12:46）：[IO_CYCLE] 检测到 2 个文件交替读取循环: C:/Users/…/workspaces/pdca_x/output/PRD.md, output/PRD.md —— 两个键指向同一物理文件"}
+{"id":"IO-CYCLE-ABS-REL-UNIFY","k":"reopenWhen","i":0,"c":"再出现「同一文件被判为多个文件交替」，或检测器需要按真实 cwd 做绝对化（届时改为在调用方解析）"}
+{"id":"IO-CYCLE-ABS-REL-UNIFY","k":"notes","i":0,"c":"根因：recentFiles 按原始字符串入键（仅反斜杠归一），模型在绝对/相对写法间切换 ⇒ 同一文件计成 2 个键、各 3 次 ⇒ 交替循环判定命中并 abort 整轮。修复：入键前用 isSameAccessTarget 归一到已有键（查询签名必须相同 —— 不同 pattern 是不同查询，保持 2026-10-31 既有口径；路径相等或按 / 边界"}
+{"id":"IO-CYCLE-ABS-REL-UNIFY","k":"notes","i":1,"c":"的尾部匹配）。阴性对照：还原旧行为后 abs/rel 交替 6 次被阻断（用例转红）；修复后不警告不阻断，而真正不同的两文件交替仍拦。"}
+{"id":"IO-CYCLE-ABS-REL-UNIFY","k":"code#0","i":0,"c":"app/src/query/FileIOLoopDetector.ts"}
+{"id":"IO-CYCLE-ABS-REL-UNIFY","k":"tests#0","i":0,"c":"app/tests/query/FileIOLoopDetector.test.ts"}

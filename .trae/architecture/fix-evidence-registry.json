@@ -14714,6 +14714,32 @@
       "changelog": [],
       "reopenWhen": "再出现自建 Error 子类（应用层错误一律继承 AppError），或侧车错误需要独立分类（全文见 archive/evidence-detail.jsonl#MEDIA-SIDECAR-APPERROR）",
       "notes": "改法：extends AppError(message, EXECUTION, MEDIUM, rpcCode)；RPC 码同时落在 code 与只读别名 rpcCode（帧编码直接取非空值）；唯一读取点 mediaSidecar.ts 改用 rpcCode。（全文见 archive/evidence-detail.jsonl#MEDIA-SIDECAR-APPERROR）"
+    },
+    {
+      "id": "IO-CYCLE-ABS-REL-UNIFY",
+      "title": "文件IO交替循环：同一文件的绝对/相对写法归一，不再误判两文件交替并终止整轮",
+      "source": "真机 app.log（2026-10-31 12:44–12:46）：[IO_CYCLE] 检测到 2 个文件交替读取循环: C:/Users/…/workspaces/pdca_x/output/PRD.md, output/PRD.md —— 两个键指向同一物理文件",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/FileIOLoopDetector.ts"
+      ],
+      "tests": [
+        "app/tests/query/FileIOLoopDetector.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现「同一文件被判为多个文件交替」，或检测器需要按真实 cwd 做绝对化（届时改为在调用方解析）（全文见 archive/evidence-detail.jsonl#IO-CYCLE-ABS-REL-UNIFY）",
+      "notes": "根因：recentFiles 按原始字符串入键（仅反斜杠归一），模型在绝对/相对写法间切换 ⇒ 同一文件计成 2 个键、各 3 次 ⇒ 交替循环判定命中并 abort 整轮。修复：入键前用 isSameAccessTarget 归一到已有键（查询签名必须相同 —— 不同 pattern 是不同查询，保持 2026-1…（全文见 archive/evidence-detail.jsonl#IO-CYCLE-ABS-REL-UNIFY）"
     }
   ]
 }

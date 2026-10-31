@@ -7415,3 +7415,14 @@
 {"id":"COVERAGE-CRITICAL-MODULES","k":"code#2","i":0,"c":".trae/architecture/coverage-critical-modules.json"}
 {"id":"COVERAGE-CRITICAL-MODULES","k":"tests#0","i":0,"c":"app/tests/gates/coverageCriticalModules.test.ts"}
 {"id":"COVERAGE-CRITICAL-MODULES","k":"changelog#0","i":0,"c":"CI 覆盖率新增关键模块专属下限（查不到 lcov 即失败），首版覆盖三态契约/已读锚定/参数归一化"}
+{"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"title","i":0,"c":"infra 物理包边界门禁（R6）：补\"迁出 app/src 后门禁静默失明\"的盲区"}
+{"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"source","i":0,"c":"2026-11-01 实测：把 external 真迁到 packages/infra 后，typecheck 与 8 条门禁全绿，但注入 infra→app 违规时 lint:arch 不报、R1–R5 不再扫描该目录"}
+{"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"reopenWhen","i":0,"c":"若 packages/infra 改为多包（每模块一包）或改走 workspace 依赖而非 tsconfig 别名时重开（映射规则需同步）"}
+{"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"notes","i":0,"c":"R6 判据：包内 @modules/<m> 必须已登记且只许 infra 层（core 亦不许）；包内相对路径逃逸出包即红（含落到 app/ 的段）；app 侧 @openliri/infra/<m> 必须是登记为 infra 的模块，且 core 层不得依赖 infra。同批把 R1–R5 的模块目录解析改为 packages/infra/src/<m> "}
+{"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"notes","i":1,"c":"优先、回退 app/src/<m>（未建包时行为不变），lint:state-ratchet 扫描面加 packages/infra/src（不存在则跳过）。端到端负向自证：INFRA_PACKAGE_SRC 指向临时包根 + 注入 @modules/chat 与逃逸路径 ⇒ exit 1 并点名两条。"}
+{"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"code#0","i":0,"c":"app/scripts/infraBoundaryCore.ts"}
+{"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"code#1","i":0,"c":"app/scripts/lint-infra-boundary.ts"}
+{"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"code#2","i":0,"c":"scripts/lint-state-literal-ratchet.ts"}
+{"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"code#3","i":0,"c":".trae/specs/infra-layer-boundary-contract.md"}
+{"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"tests#0","i":0,"c":"app/tests/gates/infraPackageBoundary.test.ts"}
+{"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"changelog#0","i":0,"c":"infra 门禁新增 R6 物理包边界：包内不得依赖上层、不得相对逃逸；app 侧引用须登记且 core 不得依赖 infra"}

@@ -15766,6 +15766,37 @@
       ],
       "reopenWhen": "若 lcov 生成方式变更（不再相对 app/、或改用其它 reporter），或关键模块迁路径/改名时重开（全文见 archive/evidence-detail.jsonl#COVERAGE-CRITICAL-MODULES）",
       "notes": "口径：行覆盖率 = 命中 DA 行 ÷ 该文件 DA 行；规则路径相对 app/（与 lcov SF 一致），支持目录前缀与绝对路径后缀匹配；配置里的模块在 lcov 查不到 ⇒ 失败（未被任何测试导入视为 0 覆盖），配置解析失败/缺字段 ⇒ fail-closed。首版 3 条均实测 100%，下限取 90 留余…（全文见 archive/evidence-detail.jsonl#COVERAGE-CRITICAL-MODULES）"
+    },
+    {
+      "id": "INFRA-PACKAGE-BOUNDARY-R6",
+      "title": "infra 物理包边界门禁（R6）：补\"迁出 app/src 后门禁静默失明\"的盲区",
+      "source": "2026-11-01 实测：把 external 真迁到 packages/infra 后，typecheck 与 8 条门禁全绿，但注入 infra→app 违规时 lint:arch 不报、R1–R5 不再扫描该目录",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/scripts/infraBoundaryCore.ts",
+        "app/scripts/lint-infra-boundary.ts",
+        "scripts/lint-state-literal-ratchet.ts",
+        ".trae/specs/infra-layer-boundary-contract.md"
+      ],
+      "tests": [
+        "app/tests/gates/infraPackageBoundary.test.ts"
+      ],
+      "changelog": [
+        "infra 门禁新增 R6 物理包边界：包内不得依赖上层、不得相对逃逸；app 侧引用须登记且 core 不得依赖 infra"
+      ],
+      "reopenWhen": "若 packages/infra 改为多包（每模块一包）或改走 workspace 依赖而非 tsconfig 别名时重开（映射规则需同步）（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-BOUNDARY-R6）",
+      "notes": "R6 判据：包内 @modules/<m> 必须已登记且只许 infra 层（core 亦不许）；包内相对路径逃逸出包即红（含落到 app/ 的段）；app 侧 @openliri/infra/<m> 必须是登记为 infra 的模块，且 core 层不得依赖 infra。同批把 R1–R5 的模块目录解析改为 pa…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-BOUNDARY-R6）"
     }
   ]
 }

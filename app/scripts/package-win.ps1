@@ -70,6 +70,9 @@ function Step-Build {
         bun run scripts/build-variant.ts --variant=$Variant 2>&1
         if ($LASTEXITCODE -ne 0) { throw 'build-variant failed' }
 
+        # 台账 L-12484：补 `--compile-autoload-package-json`（与 package.json 的 build:win:* 一致）——
+        # 否则 external（pdfjs-dist / sharp 等）的解析依赖**真实 cwd 能找到 node_modules**，
+        # 从任意目录启动 exe 会报 `Cannot find module 'pdfjs-dist/legacy/build/pdf.mjs'`。
         Write-Host 'Compiling Windows exe...'
         $outputExe = Join-Path $DistDir $ExeName
         bun build --compile `
@@ -79,6 +82,7 @@ function Step-Build {
             --external sqlite3 `
             --external bindings `
             --external file-uri-to-path `
+            --compile-autoload-package-json `
             --outfile $outputExe `
             src/pyapp.ts 2>&1
 

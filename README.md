@@ -138,6 +138,37 @@ T3 ── 后台批次加载 DEFERRED 模块（ON_DEMAND 首次请求时按需�
 - **DEFERRED** — 启动完成后按批次加载（chat、session、tools 等）
 - **ON_DEMAND** — 首次按需动态 import（security、sandbox、mcp、voice 等）
 
+### 六层依赖图（改代码前先定位落点）
+
+层与允许的依赖方向由唯一事实源 [`scripts/modules-to-layers.json`](./scripts/modules-to-layers.json) 声明，
+`bun run lint:arch`（R00-001）按它硬拦跨层；**箭头只允许向下**，反向即违规。
+
+```mermaid
+flowchart TB
+  E["entry 入口层<br/>pyapp.ts / main.ts / entrypoints"]
+  U["ui 界面层<br/>cli / ink / components / vim"]
+  A["app 应用层<br/>chat / tools / query / ai / skills / sandbox"]
+  S["service 服务层<br/>session / channels / infrastructure / runtime"]
+  I["infra 基础设施层<br/>external / environment / permission / security / monitoring"]
+  K["core 内核层<br/>@openliri/kernel：spi 端口 / DI / 事件 / 开关 / 错误码"]
+
+  E --> U --> A --> S --> I --> K
+```
+
+> 读法：**上层可以依赖下层，下层不得反向依赖上层**（`infra` 只能依赖 `infra` / `core`）。
+> 跨层能力要走 `core/spi` 端口或由上层注入，而不是直连实现（本仓另有三道补充门禁：
+> `lint:infra` 管 infra 边界与动态导入、`lint:kernel` 管内核零 I/O、`lint:architecture-boundaries` 管循环内核）。
+
+| 我要改的东西 | 该放哪一层 | 先看哪里 |
+|---|---|---|
+| 新增一个工具 | app | [最小可行贡献 · A](./CONTRIBUTING.md) + `tools/toolCategories.ts` |
+| 新增一条 HTTP 路由 | service | `infrastructure/http/handlers/` + `.trae/docs/api-spec.md` |
+| 新增一个消息通道 | service | `channels/ChannelCatalog.ts` + `channels/routing/` |
+| 新增内核契约/机制（零 I/O） | core | `packages/kernel/src/core/README.md` |
+| 新增目录/环境解析 | infra | `environment/paths.ts`（唯一路径入口） |
+| 新增会话存储实现 | service + infra | `session/storage/` + `external/` |
+
+
 ---
 
 ## ✨ 功能概览

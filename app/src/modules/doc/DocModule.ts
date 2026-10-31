@@ -656,6 +656,8 @@ export class DocModule {
   private startHealthCheck(): void {
     if (this.healthCheckTimer) return;
     this.healthCheckTimer = setInterval(() => {
+      // R08-002：后台循环必须留痕（debug 级，默认 INFO 下不落盘，排查时打开即可）
+      logger.debug('doc:healthCheck tick');
       void this._healthTick();
     }, 30000);
     // 不阻塞进程退出（周期性健康检查，可放弃）

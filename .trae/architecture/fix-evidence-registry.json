@@ -15467,6 +15467,34 @@
       ],
       "reopenWhen": "若补齐 relay 传输 + secp256k1 签名，应把 sendTextMessage 改为真实发布结果并撤掉 support-levels.json 的 nostr=experimental 覆盖（本用例的「未就绪必失败」断言需同步改为真实失败路径）。（全文见 archive/evidence-detail.jsonl#NOSTR-HONEST-FAILURE）",
       "notes": "修复：sendTextMessage 按 sendDirectMessage 真实返回值判定，未就绪返回 success=false + 明确原因（无 WebSocket 传输层）。新增 3 例：插件层不谎报；类层未 connect 时 publishEvent/sendDirectMessage 返回 null；c…（全文见 archive/evidence-detail.jsonl#NOSTR-HONEST-FAILURE）"
+    },
+    {
+      "id": "CHANNEL-REQUEST-SHAPE-STUBS-5",
+      "title": "Signal 通道：上游 CLI 参数契约可测化 + 缺 account 时如实失败",
+      "source": "Signal 走 execFile(signal-cli)，不便跨平台伪造可执行文件（Windows .cmd 需 shell）⇒ 此前发送参数形状无回归；且缺 account 时仍会调起 signal-cli -a 空值，必然失败却先付进程开销。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/signal/SignalChannel.ts"
+      ],
+      "tests": [
+        "app/tests/channels/signalStub.test.ts"
+      ],
+      "changelog": [
+        "修复/新增：Signal 上游 CLI 参数契约可测化，缺 account 时如实失败"
+      ],
+      "reopenWhen": "若 signal-cli 改参数顺序/旗标（-a / send / -m），本用例会先红；若改为 HTTP/JSON-RPC 传输，应改为网络桩并同步更新本项。（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-5）",
+      "notes": "实现：抽出并导出 buildSignalSendArgs(account, message, target) = [-a, account, send, -m, message, target]，文本与图片（正文加 [图片] 前缀）共用；sendText/sendImage 前置 account 校验，缺失即返回失败…（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-5）"
     }
   ]
 }

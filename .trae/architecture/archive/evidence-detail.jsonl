@@ -7319,3 +7319,11 @@
 {"id":"NOSTR-HONEST-FAILURE","k":"code#1","i":0,"c":".trae/architecture/support-levels.json"}
 {"id":"NOSTR-HONEST-FAILURE","k":"tests#0","i":0,"c":"app/tests/channels/nostrStub.test.ts"}
 {"id":"NOSTR-HONEST-FAILURE","k":"changelog#0","i":0,"c":"修复：Nostr 通道不再谎报发送成功（壳实现如实失败，等级降为 experimental）"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"title","i":0,"c":"Signal 通道：上游 CLI 参数契约可测化 + 缺 account 时如实失败"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"source","i":0,"c":"Signal 走 execFile(signal-cli)，不便跨平台伪造可执行文件（Windows .cmd 需 shell）⇒ 此前发送参数形状无回归；且缺 account 时仍会调起 signal-cli -a 空值，必然失败却先付进程开销。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"reopenWhen","i":0,"c":"若 signal-cli 改参数顺序/旗标（-a / send / -m），本用例会先红；若改为 HTTP/JSON-RPC 传输，应改为网络桩并同步更新本项。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"notes","i":0,"c":"实现：抽出并导出 buildSignalSendArgs(account, message, target) = [-a, account, send, -m, message, target]，文本与图片（正文加 [图片] 前缀）共用；sendText/sendImage 前置 account 校验，缺失即返回失败（不调起 CLI）。用例 4 例：文本参数"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"notes","i":1,"c":"、图片参数、缺 account 失败、config.validate({}) fail-closed。通道 core 16→25、community 1（sms）、experimental 1（nostr）。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"code#0","i":0,"c":"app/src/channels/signal/SignalChannel.ts"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"tests#0","i":0,"c":"app/tests/channels/signalStub.test.ts"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"changelog#0","i":0,"c":"修复/新增：Signal 上游 CLI 参数契约可测化，缺 account 时如实失败"}

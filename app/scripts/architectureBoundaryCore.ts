@@ -58,6 +58,11 @@ export interface ArchitectureBoundaries {
   };
   toolSelfCheck: {
     exemptDirs: Array<{ dir: string; reason: string }>;
+    /**
+     * 单文件豁免（2026-10-31 补）：用于「集中式可见性判定内核」这类**不是单个工具自审**的命中。
+     * 与 `exemptDirs` 同约束：`reason` 必须写明理由，理由为空本身即违规。
+     */
+    exemptFiles?: Array<{ path: string; reason: string }>;
   };
 }
 
@@ -181,7 +186,7 @@ export function findToolSelfChecks(file: SourceFile): ToolSelfCheck[] {
   return out;
 }
 
-/** W4：豁免目录（`tools/sidecar/`）之外的命中 ⇒ 违规 */
+/** W4：豁免目录（`tools/sidecar/`）与**单文件豁免**之外的命中 ⇒ 违规 */
 export function compareToolSelfChecks(
   files: SourceFile[],
   config: ArchitectureBoundaries['toolSelfCheck']
@@ -189,14 +194,18 @@ export function compareToolSelfChecks(
   const violations: string[] = [];
   const hints: string[] = [];
   const exemptDirs = config.exemptDirs.map((e) => e.dir);
+  const exemptFiles = (config.exemptFiles ?? []).map((e) => e.path);
   let checked = 0;
 
   for (const file of files) {
     for (const call of findToolSelfChecks(file)) {
       checked += 1;
-      const exempt = exemptDirs.some(
-        (dir) => file.path === dir || file.path.startsWith(`${dir.replace(/\/$/, '')}/`)
-      );
+      const exempt =
+        exemptFiles.includes(file.path) ||
+        exemptDirs.some(
+          (dir) =>
+            file.path === dir || file.path.startsWith(`${dir.replace(/\/$/, '')}/`)
+        );
       if (exempt) continue;
       violations.push(
         `${call.path}:${call.line} 工具实现内出现 \`${call.raw}\` —— 可见性只能由装配点（variant-matrix）决定`
@@ -209,8 +218,15 @@ export function compareToolSelfChecks(
       violations.push(`工具自审豁免目录缺少理由：${dir.dir}`);
     }
   }
+  for (const file of config.exemptFiles ?? []) {
+    if (file.reason.trim().length < 2) {
+      violations.push(`工具自审豁免文件缺少理由：${file.path}`);
+    }
+  }
   if (violations.length === 0) {
-    hints.push(`工具面自审命中 ${checked} 处，全部落在已登记豁免目录内`);
+    hints.push(
+      `工具面自审命中 ${checked} 处，全部落在已登记豁免目录 / 文件内`
+    );
   }
   return { violations, hints, checked };
 }

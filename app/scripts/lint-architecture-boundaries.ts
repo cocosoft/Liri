@@ -73,9 +73,13 @@ function loadConfig(path: string): ArchitectureBoundaries {
   if (
     !Array.isArray(parsed.loopBoundary?.targets) ||
     !Array.isArray(parsed.loopBoundary?.exceptions) ||
-    !Array.isArray(parsed.toolSelfCheck?.exemptDirs)
+    !Array.isArray(parsed.toolSelfCheck?.exemptDirs) ||
+    (parsed.toolSelfCheck?.exemptFiles !== undefined &&
+      !Array.isArray(parsed.toolSelfCheck.exemptFiles))
   ) {
-    throw new Error('白名单结构不完整：loopBoundary.targets / exceptions、toolSelfCheck.exemptDirs');
+    throw new Error(
+      '白名单结构不完整：loopBoundary.targets / exceptions、toolSelfCheck.exemptDirs（exemptFiles 若存在须为数组）'
+    );
   }
   return parsed;
 }

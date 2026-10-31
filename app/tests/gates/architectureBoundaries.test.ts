@@ -15,7 +15,8 @@
  * W4 断言：
  *  ⑧ 工具实现内 `feature('TOOL_*')` ⇒ 必报；
  *  ⑨ 已登记豁免目录（`tools/sidecar`）⇒ 放行；
- *  ⑩ 注释里的 `feature('TOOL_*')` 不算（说明性文字不应触发门禁）。
+ *  ⑩ 注释里的 `feature('TOOL_*')` 不算（说明性文字不应触发门禁）；
+ *  ⑪ 单文件豁免（`exemptFiles`，2026-10-31）只认**精确路径**，且理由为空必报。
  */
 import { describe, expect, it } from 'bun:test';
 
@@ -164,5 +165,45 @@ describe('W4 工具面单一事实源', () => {
     config.toolSelfCheck.exemptDirs = [{ dir: 'tools/sidecar', reason: '' }];
     const result = compareToolSelfChecks([], config.toolSelfCheck);
     expect(result.violations.some((v) => v.includes('缺少理由'))).toBe(true);
+  });
+
+  it('已登记豁免文件（精确路径）放行', () => {
+    const config = makeConfig();
+    config.toolSelfCheck.exemptFiles = [
+      { path: 'tools/toolCategories.ts', reason: '可见性单一内核' },
+    ];
+    const result = compareToolSelfChecks(
+      [file('tools/toolCategories.ts', "if (!feature('TOOL_X')) return;\n")],
+      config.toolSelfCheck
+    );
+    expect(result.violations).toHaveLength(0);
+    expect(result.checked).toBe(1);
+  });
+
+  it('单文件豁免只认精确路径（同目录其他文件仍必报）', () => {
+    const config = makeConfig();
+    config.toolSelfCheck.exemptFiles = [
+      { path: 'tools/toolCategories.ts', reason: '可见性单一内核' },
+    ];
+    const result = compareToolSelfChecks(
+      [
+        file('tools/Other.ts', "if (!feature('TOOL_X')) return;\n"),
+        file('tools/toolCategories.ts', "if (!feature('TOOL_Y')) return;\n"),
+      ],
+      config.toolSelfCheck
+    );
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toContain('tools/Other.ts');
+  });
+
+  it('豁免文件理由为空 ⇒ 必报', () => {
+    const config = makeConfig();
+    config.toolSelfCheck.exemptFiles = [
+      { path: 'tools/toolCategories.ts', reason: ' ' },
+    ];
+    const result = compareToolSelfChecks([], config.toolSelfCheck);
+    expect(result.violations.some((v) => v.includes('豁免文件缺少理由'))).toBe(
+      true
+    );
   });
 });

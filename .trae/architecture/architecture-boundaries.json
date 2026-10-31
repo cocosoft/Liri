@@ -12,6 +12,12 @@
         "dir": "tools/sidecar",
         "reason": "sidecar 生命周期开关（LSP / 媒体旁路进程要不要启动）属于基础设施装配，判的不是「某个工具是否可见」，不构成工具实现内自审。"
       }
+    ],
+    "exemptFiles": [
+      {
+        "path": "tools/toolCategories.ts",
+        "reason": "可见性判定的**单一内核**（不是单个工具自审）：`filterToolsByTask` / `resolveDisclosureBudget` / `isCapabilityPackEnabled` 都收口在此，入口另有 `toolVisibilityReport` 全量交叉断言。其 `TOOL_DISCLOSURE_STRICT` 是**请求期**开关（默认关、`FEATURE_TOOL_DISCLOSURE_STRICT` 可灰度），任务类型只有运行时才知道 ⇒ 构建装配点（variant-matrix）无法在编译期决定；把它上移会让 chat / channels / 报告四个调用点各自判一次，反而破坏单一事实源。触发再评估：若该开关改为构建期变体，本豁免应删除并回到装配点。"
+      }
     ]
   }
 }

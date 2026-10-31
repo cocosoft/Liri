@@ -2,7 +2,8 @@
   "version": 1,
   "metrics": {
     "files": 87,
-    "loc": 13727,
+    "loc": 13783,
     "dirs": 13
-  }
+  },
+  "$note": "2026-10-31 上调 loc 13727 → 13783（+56，只此一次；files/dirs 未变）。来源：packages/kernel/src/core/featureFlags.ts 新增 TOOL_DISCLOSURE_STRICT 与 8 个 TOOL_PACK_* 开关（f8a257b3c / 416e11d66，2026-10-30 工具披露治理），均为**声明 + 理由注释**，无逻辑。特征开关表按 `.trae/rules/architecture.md` §3.8 是内核的**唯一事实源**，不宜外移 ⇒ 按门禁约定手改基线并留理由。回收路径：若把能力包开关下沉为构建期变体矩阵，应同步删除这些条目并下调本基线。"
 }

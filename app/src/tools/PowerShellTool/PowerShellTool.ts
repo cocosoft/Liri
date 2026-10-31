@@ -29,7 +29,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 import { realpathSync, existsSync } from 'fs';
-import { DELETION_RULES } from '@modules/security';
+import { DELETION_RULES, securityIntegrationService } from '@modules/security';
 import { SandboxSecurityChecker } from '@modules/sandbox';
 import { completeSecuritySystem } from '@modules/security';
 import { configManager } from '@modules/config';
@@ -470,12 +470,27 @@ export interface PowerShellSecurityDecision {
  * @param command 待判定的 PowerShell 脚本（**内层**脚本，不含 `powershell -Command` 包裹）
  * @param options.workingDirectory 提供时启用 ① 的"沙箱内安全删除"例外（与 `PowerShellTool` 同口径）
  * @param options.analyzer 复用调用方的分析器实例（缺省新建；BashTool 侧用惰性单例）
+ * @param options.trustLevel 工作区信任级别（`development` / `work` 时放宽**白名单未命中**，
+ *   与 `BashTool` 同源；未传 = 既有 fail-closed 行为）
  */
 export function evaluatePowerShellSecurity(
   command: string,
   options: {
     workingDirectory?: string;
     analyzer?: PowerShellSecurityAnalyzer;
+    /**
+     * 工作区信任级别（2026-10-31，台账「PowerShell 信任分级」项）。
+     *
+     * 与 `BashTool` **同源同口径**：`securityIntegrationService.getTrustLevelForPath(cwd)`。
+     * 语义（**只管白名单未命中**，不放宽危险命令）：
+     *  - `development` / `work` ⇒ 白名单外的**非危险**命令放行（原为硬拒，模型无改错机会）；
+     *  - 其余（含未传）⇒ 保持既有硬拒（fail-closed，零行为变更）。
+     *
+     * 刻意**不放宽**的两档（与 Bash 的差异，如实）：
+     *  ① 分析器 `ask`（递归删除 / 防火墙 / 建用户 / 改密码 …）仍要求人工确认；
+     *  ② 沙箱危险命令仍拒。二者都属"真危险"，不受信任级别影响。
+     */
+    trustLevel?: string;
   } = {}
 ): PowerShellSecurityDecision {
   if (
@@ -504,8 +519,11 @@ export function evaluatePowerShellSecurity(
     };
   }
 
+  const trustedWorkspace =
+    options.trustLevel === 'development' || options.trustLevel === 'work';
   const notAllowed = explainPowerShellNotAllowed(command);
-  if (notAllowed) {
+  // 未受信 ⇒ 与改造前逐字一致：白名单未命中即硬拒（先于沙箱检查，fail-closed）。
+  if (notAllowed && !trustedWorkspace) {
     // F4（2026-10-27）：报文必须指向**真实原因与命中语句**；旧实现只回显首词
     //（`PowerShell 命令 "Select-String" 不在允许列表`），而实际原因可能是别处的方法调用。
     return {
@@ -526,6 +544,17 @@ export function evaluatePowerShellSecurity(
       behavior: 'deny',
       code: 'SANDBOX_SECURITY_DENIED',
       message: sandboxCheckResult.reason,
+    };
+  }
+
+  // 受信工作区 + 白名单未命中 + 非危险（已过分析器与沙箱两道）⇒ 放行（Bash 同款口径）
+  if (notAllowed) {
+    return {
+      allowed: true,
+      behavior: 'allow',
+      message:
+        `[信任工作区·${options.trustLevel}] 非危险命令已放行：${notAllowed.reason}` +
+        (notAllowed.verb ? `｜动词：${notAllowed.verb}` : ''),
     };
   }
 
@@ -842,9 +871,16 @@ export class PowerShellTool extends BaseTool {
       // 项目沙箱内的临时文件安全删除直接放行，其余命令走
       // 安全分析器 → 白名单 → 沙箱危险命令；`BashTool` 的 `powershell -Command` 包裹
       // 复用同一入口（`evaluatePowerShellSecurity`），避免两套判定口径。
+      // 2026-10-31（台账「PowerShell 信任分级」）：与 `BashTool` 同源取工作区信任级别 ——
+      // 此前本工具**零命中** `trustLevel` ⇒ 受信工作区里的非白名单但非危险命令（如 `whoami`）
+      // 一律硬拒，而 bash 侧同命令可执行，同一台机器出现两套姿态。
+      const trustLevel = securityIntegrationService.getTrustLevelForPath(
+        workingDirectory ?? process.cwd()
+      );
       const decision = evaluatePowerShellSecurity(command, {
         workingDirectory,
         analyzer: this.securityAnalyzer,
+        trustLevel,
       });
       if (!decision.allowed) {
         const isAsk = decision.behavior === 'ask';

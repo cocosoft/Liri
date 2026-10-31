@@ -428,7 +428,9 @@ export class BashTool extends BaseTool {
       // 的安全链（分析器 → 白名单 → 沙箱）；`-EncodedCommand` 等不可检查形态 fail-closed。
       const psWrapperBlock = checkPowerShellWrapper(
         command,
-        cwd ?? context?.options?.cwd
+        cwd ?? context?.options?.cwd,
+        // 2026-10-31：把同一信任级别交给内层 PowerShell 安全链（口径一致）
+        trustLevel
       );
       if (psWrapperBlock) {
         logger.warn('bash: powershell_wrapper_blocked', {

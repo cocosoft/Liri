@@ -203,11 +203,14 @@ function deny(message: string, reason: string): ToolResult<unknown> {
  * BashTool 硬拦截：若命令包含 `powershell/pwsh -Command` 包裹，则对**内层脚本**执行
  * `PowerShellTool` 的同一安全链（分析器 → 白名单 → 沙箱）。
  *
+ * @param trustLevel 工作区信任级别（2026-10-31）：与 `BashTool` 同源传入，使
+ *   `powershell -Command "…"` 与直接调用 PowerShellTool 的判定口径一致；未传 ⇒ 既有 fail-closed。
  * @returns 命中拦截 / 需人工确认 ⇒ 结果；通过或未包裹 ⇒ `null`
  */
 export function checkPowerShellWrapper(
   command: string,
-  workingDirectory?: string
+  workingDirectory?: string,
+  trustLevel?: string
 ): ToolResult<unknown> | null {
   const inspection = inspectPowerShellWrapper(command);
   if (!inspection.matched) return null;
@@ -223,6 +226,8 @@ export function checkPowerShellWrapper(
     const decision = evaluatePowerShellSecurity(script, {
       workingDirectory,
       analyzer: getAnalyzer(),
+      // 2026-10-31：与 BashTool 同一信任级别（未传 ⇒ undefined ⇒ 既有 fail-closed）
+      trustLevel,
     });
     if (decision.allowed) continue;
 

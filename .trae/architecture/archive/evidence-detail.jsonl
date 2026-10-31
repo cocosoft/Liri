@@ -7100,3 +7100,22 @@
 {"id":"IO-CYCLE-ABS-REL-UNIFY","k":"notes","i":1,"c":"的尾部匹配）。阴性对照：还原旧行为后 abs/rel 交替 6 次被阻断（用例转红）；修复后不警告不阻断，而真正不同的两文件交替仍拦。"}
 {"id":"IO-CYCLE-ABS-REL-UNIFY","k":"code#0","i":0,"c":"app/src/query/FileIOLoopDetector.ts"}
 {"id":"IO-CYCLE-ABS-REL-UNIFY","k":"tests#0","i":0,"c":"app/tests/query/FileIOLoopDetector.test.ts"}
+{"id":"VIDEO-METADATA-FFPROBE","k":"title","i":0,"c":"视频元信息时长改由 ffprobe 探测（不可用⇒null+durationUnavailable，不伪造 0）"}
+{"id":"VIDEO-METADATA-FFPROBE","k":"source","i":0,"c":"功能缺口 P0（台账 2026-10-31 排期）：video-handlers.ts 的 duration 硬编码 null（TODO: 需 ffprobe），而 ffmpegWrapper.probe 早已存在且 VideoProcessor 在用"}
+{"id":"VIDEO-METADATA-FFPROBE","k":"reopenWhen","i":0,"c":"再出现 duration 恒 null，或 ffprobe 输出形态变化（format.duration 类型）"}
+{"id":"VIDEO-METADATA-FFPROBE","k":"notes","i":0,"c":"复用既有 ffmpegWrapper.probe（15s 超时 + stderr 消耗）；纯函数 resolveProbeDurationSeconds 兼容字符串/数值两型，缺失/N/A/0/超时 ⇒ null 且响应体带 durationUnavailable:true。测试 4 例（字符串、数值、回落视频流、无效值）。"}
+{"id":"VIDEO-METADATA-FFPROBE","k":"code#0","i":0,"c":"app/src/infrastructure/http/handlers/video-handlers.ts"}
+{"id":"VIDEO-METADATA-FFPROBE","k":"tests#0","i":0,"c":"app/tests/http/videoMetadataDuration.test.ts"}
+{"id":"MAIL-CHANNEL-HONESTY","k":"title","i":0,"c":"MailChannelHandler 去掉假成功与假注册（未接线⇒显式 MAIL_CHANNEL_UNIMPLEMENTED）"}
+{"id":"MAIL-CHANNEL-HONESTY","k":"source","i":0,"c":"功能缺口 P0.5（排期）：sendFromChannel 只打 info 后正常返回（什么都没发）；registerTools 声称「工具已注册」但零注册"}
+{"id":"MAIL-CHANNEL-HONESTY","k":"reopenWhen","i":0,"c":"真接线渠道邮件（mail:send + ChannelRegistry.sendMessage）时改回正常路径并补用例"}
+{"id":"MAIL-CHANNEL-HONESTY","k":"notes","i":0,"c":"与 DocChannelHandler（G-12）同口径：未接线一律显式错误。sendFromChannel 抛 AppError(OPERATION, MEDIUM, MAIL_CHANNEL_UNIMPLEMENTED)；registerTools 改 warn。无生产调用方（grep 0 命中）⇒ 零回归。"}
+{"id":"MAIL-CHANNEL-HONESTY","k":"code#0","i":0,"c":"app/src/modules/mail/channel/MailChannelHandler.ts"}
+{"id":"MAIL-CHANNEL-HONESTY","k":"tests#0","i":0,"c":"app/tests/modules/mailChannelHandler.test.ts"}
+{"id":"DOC-HEALTHCHECK-RECONNECT","k":"title","i":0,"c":"Doc 健康检查探测 officecli MCP 存活并复用崩溃重连（单飞防风暴）"}
+{"id":"DOC-HEALTHCHECK-RECONNECT","k":"source","i":0,"c":"功能缺口 P1（排期）：DocModule 30s 健康检查 tick 只打 debug（TODO: 检查 OfficeCLI MCP 连接状态）⇒ 崩溃后仍自报 FULL"}
+{"id":"DOC-HEALTHCHECK-RECONNECT","k":"reopenWhen","i":0,"c":"再出现「OfficeCLI 已死但 /v1/doc/status 仍 FULL」，或需要按需调整探测频率/存活状态集"}
+{"id":"DOC-HEALTHCHECK-RECONNECT","k":"notes","i":0,"c":"判据抽纯函数 shouldReconnectOfficeCli：仅 FULL + 无在途重连 + 连接状态不在 {connected,connecting}（含条目缺失）⇒ 调既有 handleOfficeCLICrash（3 次退避重连→FULL/DEGRADED）。reconnectInFlight 单飞防重连风暴；MCP 枚举改从 "}
+{"id":"DOC-HEALTHCHECK-RECONNECT","k":"notes","i":1,"c":"services/mcp/types 动态导入（MCPServerManager 不转出）。"}
+{"id":"DOC-HEALTHCHECK-RECONNECT","k":"code#0","i":0,"c":"app/src/modules/doc/DocModule.ts"}
+{"id":"DOC-HEALTHCHECK-RECONNECT","k":"tests#0","i":0,"c":"app/tests/modules/docHealthCheck.test.ts"}

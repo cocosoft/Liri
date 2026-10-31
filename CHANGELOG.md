@@ -19,6 +19,9 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **DOC-HEALTHCHECK-RECONNECT**：Doc 健康检查探测 officecli 存活并复用崩溃重连（单飞） —— 验证 tsc0|unit5|modules141|eslint0；基线 健康检查 tick 仅 debug、恒空转；崩溃后 status 仍为 FULL（详情见 archive/evidence-detail.jsonl#DOC-HEALTHCHECK-RECONNECT）
+- ✅ **MAIL-CHANNEL-HONESTY**：MailChannelHandler 去假成功/假注册（未接线⇒显式错误） —— 验证 tsc0|unit2|modules141|eslint0；基线 sendFromChannel 只 log 即返回成功；registerTools 声称已注册但零注册（详情见 archive/evidence-detail.jsonl#MAIL-CHANNEL-HONESTY）
+- ✅ **VIDEO-METADATA-FFPROBE**：视频元信息时长由 ffprobe 探测（不可用⇒null+durationUnavailable） —— 验证 tsc0|unit4|http337|eslint0；基线 duration 硬编码 null（TODO: 需要 ffprobe）；ffmpegWrapper.probe 已存在（详情见 archive/evidence-detail.jsonl#VIDEO-METADATA-FFPROBE）
 - ✅ **IO-CYCLE-ABS-REL-UNIFY**：文件IO交替循环：同一文件 abs/rel 写法归一（不再误终止整轮） —— 验证 tsc0|unit3|query462|neg-proof1|eslint0；基线 app.log：[IO_CYCLE] 2 个文件交替 = C:/…/output/PRD.md 与 output/PRD.md（同一文件两种写法）（详情见 archive/evidence-detail.jsonl#IO-CYCLE-ABS-REL-UNIFY）
 - ✅ **MEDIA-SIDECAR-APPERROR**：MediaSidecarRpcError 改继承 AppError（R01-002 ERROR 阻断解除） —— 验证 tsc0|arch0|sidecar117|eslint0；基线 R01-002 ERROR：mediaCapabilities.ts 的 MediaSidecarRpcError 直接 extends Error ⇒ 提交被拦截（详情见 archive/evidence-detail.jsonl#MEDIA-SIDECAR-APPERROR）
 - ✅ **TAOR-IO-LOOP-OBSERVABILITY**：文件IO循环拦截补可观测（明细+pattern+改道建议，语义不变） —— 验证 tsc0|unit4|query459|tools1338|complexity0|eslint0；基线 单窗口 346–434 次拦截，日志仅 tool+path、模型文案为常量 ⇒ 无法区分路径重复 vs pattern 重复（详情见 archive/evidence-detail.jsonl#TAOR-IO-LOOP-OBSERVABILITY）

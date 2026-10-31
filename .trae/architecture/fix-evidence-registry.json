@@ -14740,6 +14740,84 @@
       "changelog": [],
       "reopenWhen": "再出现「同一文件被判为多个文件交替」，或检测器需要按真实 cwd 做绝对化（届时改为在调用方解析）（全文见 archive/evidence-detail.jsonl#IO-CYCLE-ABS-REL-UNIFY）",
       "notes": "根因：recentFiles 按原始字符串入键（仅反斜杠归一），模型在绝对/相对写法间切换 ⇒ 同一文件计成 2 个键、各 3 次 ⇒ 交替循环判定命中并 abort 整轮。修复：入键前用 isSameAccessTarget 归一到已有键（查询签名必须相同 —— 不同 pattern 是不同查询，保持 2026-1…（全文见 archive/evidence-detail.jsonl#IO-CYCLE-ABS-REL-UNIFY）"
+    },
+    {
+      "id": "VIDEO-METADATA-FFPROBE",
+      "title": "视频元信息时长改由 ffprobe 探测（不可用⇒null+durationUnavailable，不伪造 0）",
+      "source": "功能缺口 P0（台账 2026-10-31 排期）：video-handlers.ts 的 duration 硬编码 null（TODO: 需 ffprobe），而 ffmpegWrapper.probe 早已存在且 VideoProcessor 在用",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/infrastructure/http/handlers/video-handlers.ts"
+      ],
+      "tests": [
+        "app/tests/http/videoMetadataDuration.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现 duration 恒 null，或 ffprobe 输出形态变化（format.duration 类型）（全文见 archive/evidence-detail.jsonl#VIDEO-METADATA-FFPROBE）",
+      "notes": "复用既有 ffmpegWrapper.probe（15s 超时 + stderr 消耗）；纯函数 resolveProbeDurationSeconds 兼容字符串/数值两型，缺失/N/A/0/超时 ⇒ null 且响应体带 durationUnavailable:true。测试 4 例（字符串、数值、回落视频流、无…（全文见 archive/evidence-detail.jsonl#VIDEO-METADATA-FFPROBE）"
+    },
+    {
+      "id": "MAIL-CHANNEL-HONESTY",
+      "title": "MailChannelHandler 去掉假成功与假注册（未接线⇒显式 MAIL_CHANNEL_UNIMPLEMENTED）",
+      "source": "功能缺口 P0.5（排期）：sendFromChannel 只打 info 后正常返回（什么都没发）；registerTools 声称「工具已注册」但零注册",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/modules/mail/channel/MailChannelHandler.ts"
+      ],
+      "tests": [
+        "app/tests/modules/mailChannelHandler.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "真接线渠道邮件（mail:send + ChannelRegistry.sendMessage）时改回正常路径并补用例（全文见 archive/evidence-detail.jsonl#MAIL-CHANNEL-HONESTY）",
+      "notes": "与 DocChannelHandler（G-12）同口径：未接线一律显式错误。sendFromChannel 抛 AppError(OPERATION, MEDIUM, MAIL_CHANNEL_UNIMPLEMENTED)；registerTools 改 warn。无生产调用方（grep 0 命中）⇒ 零回归。（全文见 archive/evidence-detail.jsonl#MAIL-CHANNEL-HONESTY）"
+    },
+    {
+      "id": "DOC-HEALTHCHECK-RECONNECT",
+      "title": "Doc 健康检查探测 officecli MCP 存活并复用崩溃重连（单飞防风暴）",
+      "source": "功能缺口 P1（排期）：DocModule 30s 健康检查 tick 只打 debug（TODO: 检查 OfficeCLI MCP 连接状态）⇒ 崩溃后仍自报 FULL",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/modules/doc/DocModule.ts"
+      ],
+      "tests": [
+        "app/tests/modules/docHealthCheck.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现「OfficeCLI 已死但 /v1/doc/status 仍 FULL」，或需要按需调整探测频率/存活状态集（全文见 archive/evidence-detail.jsonl#DOC-HEALTHCHECK-RECONNECT）",
+      "notes": "判据抽纯函数 shouldReconnectOfficeCli：仅 FULL + 无在途重连 + 连接状态不在 {connected,connecting}（含条目缺失）⇒ 调既有 handleOfficeCLICrash（3 次退避重连→FULL/DEGRADED）。reconnectInFlight 单飞防重连风…（全文见 archive/evidence-detail.jsonl#DOC-HEALTHCHECK-RECONNECT）"
     }
   ]
 }

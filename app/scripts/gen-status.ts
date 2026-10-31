@@ -82,6 +82,31 @@ function countDocCorpus(dir: string): number {
   return count;
 }
 
+/**
+ * 评测基线题目数 —— `src/evals/baseline.json` 的 `tasks` 键数（逐题登记地板）。
+ *
+ * 为什么并入本文件（2026-11-01）：README 曾写「36 题基线」，实测基线已 38 题
+ * ⇒ 与工具/通道/文档语料同属「易漂移数字」。基线是 tracked 静态 JSON，可确定性计数。
+ */
+function countEvalBaseline(): number {
+  const file = 'src/evals/baseline.json';
+  let parsed: { tasks?: Record<string, unknown> };
+  try {
+    parsed = JSON.parse(readSource(file)) as {
+      tasks?: Record<string, unknown>;
+    };
+  } catch (err) {
+    throw new Error(
+      `评测基线 JSON 解析失败（fail-closed）: ${file} — ${String(err)}`
+    );
+  }
+  const count = Object.keys(parsed.tasks ?? {}).length;
+  if (count === 0) {
+    throw new Error(`评测基线题目计数为 0（解析失效？）: ${file}`);
+  }
+  return count;
+}
+
 function collect(): Metric[] {
   const toolNamesFile = 'src/constants/toolNames.generated.ts';
   const toolNames = readSource(toolNamesFile);
@@ -141,6 +166,12 @@ function collect(): Metric[] {
       scope:
         '与 `docs/FileDocsProvider` 同口径（递归 `.md`，跳过隐藏目录与 `raw/`）',
     },
+    {
+      label: '评测基线题目',
+      value: countEvalBaseline(),
+      source: 'app/src/evals/baseline.json',
+      scope: '`tasks` 键数（逐题登记地板）',
+    },
   ];
 }
 
@@ -153,7 +184,7 @@ function render(metrics: Metric[]): string {
   return `<!-- 由 \`bun run gen:status\` 生成，请勿手改；校验见 \`bun run lint:status\` -->
 # 仓库状态（STATUS）
 
-> README 中「多少个工具 / 多少条通道 / 多少个模块 / 多少篇文档语料」这类**易漂移数字**只在本文件出现，
+> README 中「多少个工具 / 多少条通道 / 多少个模块 / 多少篇文档语料 / 多少道评测题」这类**易漂移数字**只在本文件出现，
 > 由脚本从事实源现算，避免文档与代码脱节。
 > 更新：\`cd app && bun run gen:status\` ｜ 校验：\`bun run lint:status\`（CI 门禁，内容不一致即阻断）。
 

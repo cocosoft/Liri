@@ -7277,3 +7277,13 @@
 {"id":"GATE-RULE-WHY-COVERAGE","k":"code#2","i":0,"c":".trae/rules/architecture-compliance.md"}
 {"id":"GATE-RULE-WHY-COVERAGE","k":"tests#0","i":0,"c":"app/tests/gates/ruleWhyCoverage.test.ts"}
 {"id":"GATE-RULE-WHY-COVERAGE","k":"changelog#0","i":0,"c":"修复：门禁规则说明抽为可测模块，补齐 4 条缺失的规则定义（不编造未知说明）"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"title","i":0,"c":"通道 upstream 契约桩第一批：Telegram / Discord / Slack 的出站请求形状"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"source","i":0,"c":"现状盘点 2026-11-01：27 通道已有声明层契约（C1–C6）与投递/入站/多账号测试，但「发一条消息」的线上形状无人看守 ⇒ 上游改端点/字段或本仓误改 payload 都只能靠真机发现。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"reopenWhen","i":0,"c":"若上游改端点/字段（如 Telegram 换 sendMessage 路径、Discord 升 API 版本），桩会先红；新增通道请按同模板补一文件（文件名以通道标识开头即可被 SUPPORT-LEVELS 认作专属证据）。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"notes","i":0,"c":"实现：3 个 fetch-mock 桩（无真实 Token、无网络）—— telegramRequestShape（/bot<token>/sendMessage、HTML 转义逐字、超长分片不丢尾、ok:false 透传）、discordRequestShape（/api/v10/channels/<id>/messages、Bot 头、"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"notes","i":1,"c":"allowed_mentions 关闭自回复）、slackRequestShape（chat.postMessage、Bearer 头、channel_not_found 透传）。顺带探针核验 27 通道 config.validate({})：25 条 fail-closed，mobile / nostr 设计上允许空配置。SUPPORT-LEVELS 中"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"notes","i":2,"c":"三通道由 community 升 core（通道 core 16→19）。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"tests#0","i":0,"c":"app/tests/channels/telegramRequestShape.test.ts"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"tests#1","i":0,"c":"app/tests/channels/discordRequestShape.test.ts"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"tests#2","i":0,"c":"app/tests/channels/slackRequestShape.test.ts"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"changelog#0","i":0,"c":"新增：Telegram / Discord / Slack 出站请求形状桩（锁端点/授权头/JSON 形状）"}

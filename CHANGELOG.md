@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **CHANNEL-REQUEST-SHAPE-STUBS**：通道 upstream 契约桩第一批（Telegram/Discord/Slack 出站形状） —— 验证 unit6|channels652|eslint0；基线 27 通道仅有声明层契约，出站请求形状无回归网；上游改端点/字段只能靠真机发现（详情见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS）
 - ✅ **GATE-RULE-WHY-COVERAGE**：门禁可解释性加固：说明可测 + 4 条规则定义补齐 —— 验证 tsc0|unit4|gates324|eslint0；基线 说明表手写在门禁脚本内（漏配无门禁发现）；42 个 ruleId 中 4 个在规则文档无定义（详情见 archive/evidence-detail.jsonl#GATE-RULE-WHY-COVERAGE）
 - ✅ **README-DRIFT-NUMBERS**：README 写死数字核验：题数并入 STATUS，WARNING 与行数去数字化 —— 验证 tsc0|unit1|doc-code0|eslint0；基线 README 写 36 题（实 38）、5 条 WARNING（实 6 且浮动）、103 万行 / 99.8%（实 108 万行）（详情见 archive/evidence-detail.jsonl#README-DRIFT-NUMBERS）
 - ✅ **STATUS-DOC-CORPUS-METRIC**：STATUS 增文档语料指标，README 去硬编码篇数（143→145 漂移） —— 验证 tsc0|unit1|doc-code0|eslint0；基线 README 两处写死「143 篇」，实际 app/docs 语料 145 篇；该数字无门禁看守（详情见 archive/evidence-detail.jsonl#STATUS-DOC-CORPUS-METRIC）

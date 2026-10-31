@@ -15330,6 +15330,34 @@
       ],
       "reopenWhen": "若新增规则族（如 R16-/R17-），ruleWhyCoverage.test.ts 会因「无说明」或「文档无定义」而红 —— 需在 lib/ruleWhy.ts 与规则文档同批登记。（全文见 archive/evidence-detail.jsonl#GATE-RULE-WHY-COVERAGE）",
       "notes": "实现：① 说明文案从 lint-architecture.ts 抽到 scripts/lib/ruleWhy.ts（explainRule；精确条目优先、规则族兜底、无匹配返回 null）；② 规则文档补例外台账三条（EXC-EXPIRED/EXPIRING/COUNT-LIMIT）与 P0-5（前端高频 store…（全文见 archive/evidence-detail.jsonl#GATE-RULE-WHY-COVERAGE）"
+    },
+    {
+      "id": "CHANNEL-REQUEST-SHAPE-STUBS",
+      "title": "通道 upstream 契约桩第一批：Telegram / Discord / Slack 的出站请求形状",
+      "source": "现状盘点 2026-11-01：27 通道已有声明层契约（C1–C6）与投递/入站/多账号测试，但「发一条消息」的线上形状无人看守 ⇒ 上游改端点/字段或本仓误改 payload 都只能靠真机发现。",
+      "stages": {
+        "discovered": true,
+        "fixed": false,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": false,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [],
+      "tests": [
+        "app/tests/channels/telegramRequestShape.test.ts",
+        "app/tests/channels/discordRequestShape.test.ts",
+        "app/tests/channels/slackRequestShape.test.ts"
+      ],
+      "changelog": [
+        "新增：Telegram / Discord / Slack 出站请求形状桩（锁端点/授权头/JSON 形状）"
+      ],
+      "reopenWhen": "若上游改端点/字段（如 Telegram 换 sendMessage 路径、Discord 升 API 版本），桩会先红；新增通道请按同模板补一文件（文件名以通道标识开头即可被 SUPPORT-LEVELS 认作专属证据）。（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS）",
+      "notes": "实现：3 个 fetch-mock 桩（无真实 Token、无网络）—— telegramRequestShape（/bot<token>/sendMessage、HTML 转义逐字、超长分片不丢尾、ok:false 透传）、discordRequestShape（/api/v10/channels/<id>/mes…（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS）"
     }
   ]
 }

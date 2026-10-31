@@ -499,15 +499,32 @@ export class BashTool extends BaseTool {
       });
     } catch (error) {
       const executionTime = ToolUtils.calculateExecutionTime(startTime);
-      const msg = error instanceof Error ? error.message : String(error);
+      const rawMsg = error instanceof Error ? error.message : String(error);
       const stderr = (error as { stderr?: string }).stderr;
+      const exitCode = (error as { code?: number }).code;
+      const stdout = (error as { stdout?: string }).stdout;
+      // 2026-10-31：非 0 退出时**必须**把退出码与 stdout 摘要交回模型。
+      // 真机 app.log 单窗口 `bash: execute_error` 120 次，其中大量是
+      // `findstr` 无匹配（退出码 1、stdout 为空、stderr 为空）——原消息只有
+      // `Command failed: <cmd>`，模型无法区分「检索无命中」与「命令真的失败」，
+      // 只能重复同一调用。此处只**补充事实**（退出码 / stdout），不做语义猜测。
+      // 注意：stderr 已由 `commandFailedError` 拼进 `rawMsg`（同形 exec 语义）
+      // ⇒ 此处只补退出码与 stdout，避免重复。
+      const detail = [
+        exitCode !== undefined ? `退出码: ${exitCode}` : '',
+        stdout?.trim() ? `stdout: ${stdout.trim().slice(0, 300)}` : '',
+      ]
+        .filter(Boolean)
+        .join('；');
+      const msg = detail ? `${rawMsg}\n（${detail}）` : rawMsg;
 
       // B 类可观测性缺口 ②（2026-10-25）：执行异常此前**零 app.log** —— 只返回 failureResult
       // 给模型，排查"命令为什么失败"只能翻会话消息。现补 error 级日志（含命令摘要 + stderr 截断）。
       logger.error('bash: execute_error', {
         sessionId: context.sessionId,
         commandPreview: executedCommandPreview ?? '',
-        error: msg.slice(0, 500),
+        error: rawMsg.slice(0, 500),
+        ...(exitCode !== undefined ? { exitCode } : {}),
         ...(stderr ? { stderr: stderr.slice(0, 300) } : {}),
       });
 

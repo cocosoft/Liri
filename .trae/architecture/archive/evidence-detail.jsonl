@@ -6930,3 +6930,18 @@
 {"id":"LIRI-BUG-G","k":"notes","i":0,"c":"只补元数据，内容仍以事件聚合为准；覆盖分支本已 ...proj 带入 metadata，本处与之对齐。复验：同一接口返回 metadata.emptyOutputFallback=true，用户消息恢复 workspacePath"}
 {"id":"LIRI-BUG-G","k":"code#0","i":0,"c":"app/src/session/storage/EventMessageDeriver.ts"}
 {"id":"LIRI-BUG-G","k":"tests#0","i":0,"c":"app/tests/session/EventMessageDeriver.test.ts"}
+{"id":"SHARED-TASK-STORE","k":"title","i":0,"c":"任务存储改为进程级共享实例（按库路径分桶），并修复两处从未 init 导致的死路径"}
+{"id":"SHARED-TASK-STORE","k":"source","i":0,"c":"dev_docs/error_repairs/预存错误与待处理问题.md D-100（2026-09-30 登记 / 2026-10-31 修复）"}
+{"id":"SHARED-TASK-STORE","k":"reopenWhen","i":0,"c":"再出现 new SqliteTaskStore() 逐请求建连接与 init，或决策轨迹查询 / PDCA 审计再次抛 not initialized"}
+{"id":"SHARED-TASK-STORE","k":"notes","i":0,"c":"listPdcaDecisionRows 与 pdcaLaunch 的审计写入原为 new SqliteTaskStore() 但从未 init ⇒ withDb 抛 not initialized（该端点自 M3b-DB 起不可用）。修法：sharedTaskStore 按 dbPath 惰性缓存，初始化失败不缓存；4 例回归锁 + tests/http 333 pass。"}
+{"id":"SHARED-TASK-STORE","k":"code#0","i":0,"c":"app/src/tasks/db/sharedTaskStore.ts"}
+{"id":"SHARED-TASK-STORE","k":"code#1","i":0,"c":"app/src/runtime/api/domainSnapshotOps.ts"}
+{"id":"SHARED-TASK-STORE","k":"code#2","i":0,"c":"app/src/chat/manager/pdcaLaunch.ts"}
+{"id":"SHARED-TASK-STORE","k":"code#3","i":0,"c":"app/src/tasks/db/SqliteTaskStore.ts"}
+{"id":"SHARED-TASK-STORE","k":"code#4","i":0,"c":"app/src/runtime/api/taskOpsPorts.ts"}
+{"id":"SHARED-TASK-STORE","k":"tests#0","i":0,"c":"app/tests/tasks/sharedSqliteTaskStore.test.ts"}
+{"id":"PRECOMMIT-GENERATED-GATES","k":"title","i":0,"c":"pre-commit 前置 4 项生成物 / 边界 / 体量门禁（startup-graph / kernel / architecture-boundaries / tool-params）"}
+{"id":"PRECOMMIT-GENERATED-GATES","k":"source","i":0,"c":"app/scripts/setup-git-hooks.ts；2026-10-31 全量门禁审计"}
+{"id":"PRECOMMIT-GENERATED-GATES","k":"reopenWhen","i":0,"c":"再出现「本地 pre-commit 全绿、CI 在 startup-graph / kernel / architecture-boundaries / params 之一变红」"}
+{"id":"PRECOMMIT-GENERATED-GATES","k":"notes","i":0,"c":"7 项 CI 红里 4 项属「预存钩子不跑 ⇒ 提交后才发现」；四项实测合计 <10s；已用 STARTUP_GRAPH_BASELINE 负向自证（压低基线 ⇒ exit 1）。可逆：revert ad84dce04。"}
+{"id":"PRECOMMIT-GENERATED-GATES","k":"code#0","i":0,"c":"app/scripts/setup-git-hooks.ts"}

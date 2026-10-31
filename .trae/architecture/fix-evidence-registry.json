@@ -14208,6 +14208,60 @@
       "changelog": [],
       "reopenWhen": "再出现 messages.jsonl 带 metadata（emptyOutputFallback / workspacePath）而 GET /v1/sessions/:id/messages 返回 null（全文见 archive/evidence-detail.jsonl#LIRI-BUG-G）",
       "notes": "只补元数据，内容仍以事件聚合为准；覆盖分支本已 ...proj 带入 metadata，本处与之对齐。复验：同一接口返回 metadata.emptyOutputFallback=true，用户消息恢复 workspacePath（全文见 archive/evidence-detail.jsonl#LIRI-BUG-G）"
+    },
+    {
+      "id": "SHARED-TASK-STORE",
+      "title": "任务存储改为进程级共享实例（按库路径分桶），并修复两处从未 init 导致的死路径",
+      "source": "dev_docs/error_repairs/预存错误与待处理问题.md D-100（2026-09-30 登记 / 2026-10-31 修复）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tasks/db/sharedTaskStore.ts",
+        "app/src/runtime/api/domainSnapshotOps.ts",
+        "app/src/chat/manager/pdcaLaunch.ts",
+        "app/src/tasks/db/SqliteTaskStore.ts",
+        "app/src/runtime/api/taskOpsPorts.ts"
+      ],
+      "tests": [
+        "app/tests/tasks/sharedSqliteTaskStore.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现 new SqliteTaskStore() 逐请求建连接与 init，或决策轨迹查询 / PDCA 审计再次抛 not initialized（全文见 archive/evidence-detail.jsonl#SHARED-TASK-STORE）",
+      "notes": "listPdcaDecisionRows 与 pdcaLaunch 的审计写入原为 new SqliteTaskStore() 但从未 init ⇒ withDb 抛 not initialized（该端点自 M3b-DB 起不可用）。修法：sharedTaskStore 按 dbPath 惰性缓存，初始化失败不缓存…（全文见 archive/evidence-detail.jsonl#SHARED-TASK-STORE）"
+    },
+    {
+      "id": "PRECOMMIT-GENERATED-GATES",
+      "title": "pre-commit 前置 4 项生成物 / 边界 / 体量门禁（startup-graph / kernel / architecture-boundaries / tool-params）",
+      "source": "app/scripts/setup-git-hooks.ts；2026-10-31 全量门禁审计",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/scripts/setup-git-hooks.ts"
+      ],
+      "tests": [],
+      "changelog": [],
+      "reopenWhen": "再出现「本地 pre-commit 全绿、CI 在 startup-graph / kernel / architecture-boundaries / params 之一变红」（全文见 archive/evidence-detail.jsonl#PRECOMMIT-GENERATED-GATES）",
+      "notes": "7 项 CI 红里 4 项属「预存钩子不跑 ⇒ 提交后才发现」；四项实测合计 <10s；已用 STARTUP_GRAPH_BASELINE 负向自证（压低基线 ⇒ exit 1）。可逆：revert ad84dce04。（全文见 archive/evidence-detail.jsonl#PRECOMMIT-GENERATED-GATES）"
     }
   ]
 }

@@ -73,6 +73,7 @@ import * as ckptLifecycle from './checkpointStorageLifecycle.js';
 import type { ChatMessage } from '@modules/ai/models/types.js';
 // LRO-D5（2026-10-26）：跳过回填抽到叶子模块；结果映射用 ReActLoop.toToolResultEntries
 import { fillSkippedResults } from './taor/roundResults.js';
+import { shrinkOversizedRawResults } from './taor/toolResultBudget.js';
 import { ReActLoop, toToolResultEntries } from './ReActLoop.js';
 import type {
   ReActEvent,
@@ -807,6 +808,9 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         error: r?.error ? String(r.error).slice(0, 500) : undefined,
       });
     }
+
+    // 2026-10-31 体积闸：超单条/单轮预算的结果落盘 + 上下文留预览（详见 taor/toolResultBudget.ts）
+    await shrinkOversizedRawResults(rawResults, calls);
 
     // Loop 检测记录结果 + 工具结果消息追加
     let roundHadErrors = false;

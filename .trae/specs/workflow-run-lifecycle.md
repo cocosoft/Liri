@@ -8,7 +8,8 @@
 > `WorkflowError.ts`、`modules/doc/orchestration/DocOrchestratorProvider.ts`（**已存在**，非"从未存在"）。
 > ✅ **测试文件已迁移**：§3 #7 与 §7 所指 `WorkflowRunObserver.test.ts` 现为
 > `app/tests/modules/workflow/WorkflowStepObserver.test.ts`（取消用例：预检取消 / 宽限期强结算 / 宽限语义①②，实测在册）。
-> 📌 台账「4 份 `workflow-*` Spec 声称"已完成"」条仍适用于 `workflow-run-record.md` 的 §12 与 `workflow-template-skill-binding.md`。
+> 📌 台账「4 份 `workflow-*` Spec 声称"已完成"」条已于 **2026-10-31 标 ✅ 闭环**（`workflow-run-record.md` §12 的 `WorkflowRunCard.tsx`
+> 与 `eventTypeParity.test.ts` 均已实测在册）；`workflow-template-skill-binding.md` 如再发现缺失，按新条目登记。
 >
 > > 原始 ⚠️（2026-09-26，**系 `workflow-run-record.md` 的模板误植至此**）：部分交付物不在本仓（`modules/doc/orchestration/DocOrchestratorProvider.ts`、`metadata.workflowRun` 投影、`assistant/workflow_run_*` 事件、前端 `WorkflowRunCard`、跨端守卫 `EventSchemaConsistency.test.ts`）。
 > 关联: GR15 / R06-008（分层：取消信号由调用方提供）/ CS01 / CS03（回退最小化）/ PY_APP §2（不做投机性扩展）

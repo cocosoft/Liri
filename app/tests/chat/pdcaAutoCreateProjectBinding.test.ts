@@ -183,6 +183,23 @@ describe('P1 正常路径', () => {
     expect(session.metadata.projectId).toBe(returned);
     expect(store().list('default')).toHaveLength(1);
   });
+
+  it('仅填 name（description 为空串）的项目同样能被去重命中', async () => {
+    // 2026-10-31：原实现 `p.description ?? p.name` 对空串不兜底 ⇒ 名称永远不参与匹配。
+    // 这里刻意不传 description（`ProjectStore.create` 落空串），断言仍能命中。
+    const seeded = seedProject('数据可视化大盘');
+    const session = makeSession();
+    const { coordinator } = makeCoordinator();
+
+    const returned = await coordinator.autoCreateProject(session, undefined, {
+      hasGoal: true,
+      deliverables: 1,
+      goalSummary: '数据可视化大盘',
+    });
+
+    expect(returned).toBe(seeded.id);
+    expect(store().list('default')).toHaveLength(1);
+  });
 });
 
 describe('P1 守卫①/⑤：不做无意义的新建', () => {

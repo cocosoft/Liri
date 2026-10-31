@@ -532,7 +532,12 @@ export class PdcaLaunchCoordinator {
           bindingWorkspaceId ?? 'default'
         );
         const matched = existingProjects.find((p) => {
-          const pKeywords = this.extractKeywords(p.description ?? p.name);
+          // 2026-10-31：**名称也参与匹配** —— 原实现读 `p.description ?? p.name`，而
+          // `ProjectStore.create` 的 `description` 默认是**空串**（不是 `undefined`）⇒
+          // 只填了 name 的项目永远按空描述匹配（相似度恒 0），跨会话去重形同失效。
+          const pKeywords = this.extractKeywords(
+            `${p.name} ${p.description ?? ''}`
+          );
           return this.jaccardSimilarity(newKeywords, pKeywords) >= 0.6;
         });
         if (matched) {

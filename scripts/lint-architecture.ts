@@ -4536,6 +4536,47 @@ function checkFrontendStoreSubscription(projectDir: string): RuleViolation[] {
   return violations;
 }
 
+/**
+ * **门禁可解释性**（2026-10-31，`dev_docs/20261031/deepseek建议.md` §3）。
+ *
+ * 每条规则分组各打印一次「为什么是问题」，避免开发者只看到"某处违规"却不理解后果、
+ * 进而只想去绕过它。精确条目优先，其余按**规则族**给一句通例。
+ * 修法（`suggestion`）仍逐条给出；完整定义见 `.trae/rules/architecture-compliance.md`。
+ */
+const RULE_WHY_BY_ID: Record<string, string> = {
+  'R00-001':
+    '例：`infra` 直接 import `app` 的实现类 ⇒ 下层反向依赖上层；一旦拆分或复用（内核化 / 侧车化）就立刻卡住，且运行期难以回滚。修法：改为经 `core/spi` 端口或由上层注入实现。',
+  'R02-002':
+    '例：同一概念在 `types/` 与业务目录各定义一份 ⇒ 两侧字段漂移时编译期不报错、只能靠运行期断言兜。修法：收敛到类型中心并由一处转出。',
+};
+
+const RULE_WHY_BY_FAMILY: ReadonlyArray<[RegExp, string]> = [
+  [/^R00-/, '分层与动态盲区：跨层依赖 / 未登记目录 / 动态导入会让"架构只在文档里成立"。'],
+  [/^R01-/, '基础设施复用：自建事件总线 / 重试 / 缓存 / 错误层 ⇒ 同一能力出现两套语义，告警、追踪、降级策略随之分叉。'],
+  [/^R02-/, '数据模型统一：重复类型/重复定义会让契约出现第二个事实源。'],
+  [/^R03-/, '模块边界：绕过模块出口直连内部（或反向导入），等于是把模块的封装当装饰。'],
+  [/^R04-/, '文件体量：单文件过长 ⇒ 职责边界模糊、评审与定位成本陡增。'],
+  [/^R05-/, '文件组织：命名 / 目录 / 例外台账的约定是"能否快速找到唯一实现"的前提。'],
+  [/^R06-/, '职责单一与碎片控制：薄转发、同目录碎片、多职责文件都会让改动面不可预测。'],
+  [/^R07-/, '安全与配置访问：绕过统一入口读取配置/环境，会让开关默认值与安全姿态无法集中审计。'],
+  [/^R08-/, '后台任务可观测：跨重启状态必须持久化，任务生命周期必须留痕，否则失败不可解释。'],
+  [/^R09-/, '依赖与产物边界：越界依赖会把不该进产物的实现拖进启动面。'],
+  [/^R10-/, '并发与副作用：未声明的共享状态/副作用会在并发下互相污染。'],
+  [/^R11-/, '日志唯一入口：自建 Logger 会绕过级别、脱敏与 OTel 关联。'],
+  [/^R15-/, '注册面收敛：注册点分散会让"到底有哪些能力"无法一处回答。'],
+  [/^EXC-/, '例外治理：例外必须有到期与数量上限，否则"临时豁免"会变成永久漏洞。'],
+  [/^P0-5/, '前端订阅：高频路径的 store 全量订阅会放大重渲染，且难以定位来源。'],
+];
+
+/** 打印单条规则的「为什么是问题」（无匹配则不打印，绝不编造说明） */
+function printRuleWhy(ruleId: string): void {
+  const exact = RULE_WHY_BY_ID[ruleId];
+  const family = RULE_WHY_BY_FAMILY.find(([pattern]) => pattern.test(ruleId))?.[1];
+  const why = exact ?? family;
+  if (why) console.log(`  ℹ️ 为什么是问题: ${why}`);
+  console.log('  ℹ️ 规则定义: .trae/rules/architecture-compliance.md');
+}
+
 async function main(): Promise<void> {
   // 项目根目录解析（AR-2，2026-10-06）：
   //   ① 显式覆盖：PYAPP_PROJECT_DIR 优先（CI / 特殊布局）；
@@ -4595,6 +4636,7 @@ async function main(): Promise<void> {
     if (items.length > 5) {
       console.log(`  ... 及其他 ${items.length - 5} 条`);
     }
+    printRuleWhy(ruleId);
     console.log('');
   }
 

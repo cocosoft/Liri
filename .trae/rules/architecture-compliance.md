@@ -766,6 +766,18 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 
 ---
 
+## P0 前端高频订阅（warning）
+
+### P0-5 [SHOULD] 禁止无 selector 的 zustand 全量订阅
+
+- **触发**：`client/**` 的 `.tsx` 组件（测试文件除外）里出现 `useChatStore()` / `useVoiceStore()`（**无 selector**）。
+- **判定**：`bun run lint:arch` → 输出 `[P0-5]` 级别的 WARNING（**不阻断**，逐文件给出首次命中行）。
+- **为什么是问题**：这两个 store 在流式输出期间**每 chunk 都会更新**；无 selector 订阅 ⇒ 组件会在**任何无关字段**变化时重渲染，表现为长回复卡顿、CPU 飙高，且只能靠火焰图定位来源。
+- **修法**：改为精准 selector —— `useChatStore((s) => s.someField)` / `useVoiceStore((s) => s.someField)`。
+- **局限（如实）**：正则只认**无参数**调用；`useChatStore(s => s.x)` 与 `useChatStore(selector)` 不在判定面。
+
+---
+
 ## AR 门禁自身纪律（MUST）
 
 > **本系列口径（2026-10-14 补）**：`AR-*`（**带连字符**）是**门禁自身**的纪律，与 §R06 里括注的**旧系列** `AR01`–`AR06`（**无连字符**，已并入 `R06-001`…）**不是同一系列**，勿混。
@@ -795,6 +807,17 @@ bun run eval --model=<模型名> --k=4 --gate      # 关键任务建议 k≥4（
 1. 如必须违反某个 MUST 规则，须在 PR 描述中说明理由
 2. 理由须经过架构 review 确认
 3. 例外统一记录在本文末"已知例外"表中，注明有效期
+
+### 例外台账门禁（EXC-EXPIRED / EXC-EXPIRING / EXC-COUNT-LIMIT）
+
+例外不是"写进台账就永久豁免"，台账本身由 `bun run lint:arch` 按三条规则看守
+（数据源 `scripts/layer-exceptions.json`；`expiresAt` 与条数上限都在该文件里）：
+
+| 规则 | 触发 | 等级 | 为什么是问题 | 修法 |
+|---|---|---|---|---|
+| `EXC-EXPIRED` | 某条例外的 `expiresAt` 已早于今天 | **error（阻断）** | 过期例外=**无期限的架构债**：代码早该修，台账却仍在替它放行，读者会把"已豁免"当成"已合规" | 修掉对应违规后从台账删除；确需延期须走评审并写新日期 |
+| `EXC-EXPIRING` | 距 `expiresAt` ≤ 7 天 | warning | 到期前没有任何提醒 ⇒ 到期当天才变成阻断，打乱发布节奏 | 提前安排修复或续期 |
+| `EXC-COUNT-LIMIT` | 例外总数 > 30 | **error（阻断）** | 例外只增不减 ⇒「临时豁免」变永久漏洞；上限把"例外"逼成需要裁剪的稀缺资源 | 收敛违规、减少条目；**不得**调高上限来绕过 |
 
 ### 已知例外
 

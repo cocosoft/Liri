@@ -7327,3 +7327,12 @@
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"code#0","i":0,"c":"app/src/channels/signal/SignalChannel.ts"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"tests#0","i":0,"c":"app/tests/channels/signalStub.test.ts"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-5","k":"changelog#0","i":0,"c":"修复/新增：Signal 上游 CLI 参数契约可测化，缺 account 时如实失败"}
+{"id":"SMS-PROVIDER-REQUEST-PURE","k":"title","i":0,"c":"SMS provider 请求构造抽成纯函数（twilio/custom 完整；aliyun/tencent 明确拒绝）"}
+{"id":"SMS-PROVIDER-REQUEST-PURE","k":"source","i":0,"c":"取证 2026-11-01：SmsChannel.sendMessage 只 emit 事件并返回 true，不发任何 HTTP，endpoint 配置从未使用 ⇒ 各 provider 请求形状无处可测，也无法接线。"}
+{"id":"SMS-PROVIDER-REQUEST-PURE","k":"reopenWhen","i":0,"c":"若扩展 SmsConfig（SignName/TemplateCode / SdkAppId/TemplateId）并实现 RPC / TC3 签名，应把 aliyun/tencent 分支改为真实构造并同步撤掉 support-levels.json 的 sms=experimental；真正发包需另加 fetch/https 桩。"}
+{"id":"SMS-PROVIDER-REQUEST-PURE","k":"notes","i":0,"c":"实现：新增 app/src/channels/sms/providerRequests.ts（纯函数、零 I/O）——twilio（/Accounts/{sid}/Messages.json + Basic + form）、custom（endpoint + JSON {to,from,text}，apiKey 时 Bearer）、未知 provider 与"}
+{"id":"SMS-PROVIDER-REQUEST-PURE","k":"notes","i":1,"c":" aliyun/tencent 一律 ok:false 且说明缺什么（不返回半成品）。6 例覆盖。sendMessage 行为未改（仍不发 HTTP），overrides 把 sms 标 experimental。通道 core 25 / community 0 / experimental 2。"}
+{"id":"SMS-PROVIDER-REQUEST-PURE","k":"code#0","i":0,"c":"app/src/channels/sms/providerRequests.ts"}
+{"id":"SMS-PROVIDER-REQUEST-PURE","k":"code#1","i":0,"c":".trae/architecture/support-levels.json"}
+{"id":"SMS-PROVIDER-REQUEST-PURE","k":"tests#0","i":0,"c":"app/tests/channels/smsProviderRequests.test.ts"}
+{"id":"SMS-PROVIDER-REQUEST-PURE","k":"changelog#0","i":0,"c":"新增：SMS provider 请求构造纯函数（twilio/custom 完整，aliyun/tencent 明确拒绝）"}

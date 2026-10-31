@@ -15495,6 +15495,35 @@
       ],
       "reopenWhen": "若 signal-cli 改参数顺序/旗标（-a / send / -m），本用例会先红；若改为 HTTP/JSON-RPC 传输，应改为网络桩并同步更新本项。（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-5）",
       "notes": "实现：抽出并导出 buildSignalSendArgs(account, message, target) = [-a, account, send, -m, message, target]，文本与图片（正文加 [图片] 前缀）共用；sendText/sendImage 前置 account 校验，缺失即返回失败…（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-5）"
+    },
+    {
+      "id": "SMS-PROVIDER-REQUEST-PURE",
+      "title": "SMS provider 请求构造抽成纯函数（twilio/custom 完整；aliyun/tencent 明确拒绝）",
+      "source": "取证 2026-11-01：SmsChannel.sendMessage 只 emit 事件并返回 true，不发任何 HTTP，endpoint 配置从未使用 ⇒ 各 provider 请求形状无处可测，也无法接线。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/sms/providerRequests.ts",
+        ".trae/architecture/support-levels.json"
+      ],
+      "tests": [
+        "app/tests/channels/smsProviderRequests.test.ts"
+      ],
+      "changelog": [
+        "新增：SMS provider 请求构造纯函数（twilio/custom 完整，aliyun/tencent 明确拒绝）"
+      ],
+      "reopenWhen": "若扩展 SmsConfig（SignName/TemplateCode / SdkAppId/TemplateId）并实现 RPC / TC3 签名，应把 aliyun/tencent 分支改为真实构造并同步撤掉 support-levels.json 的 sms=experimental；真正发包需另加 fetch…（全文见 archive/evidence-detail.jsonl#SMS-PROVIDER-REQUEST-PURE）",
+      "notes": "实现：新增 app/src/channels/sms/providerRequests.ts（纯函数、零 I/O）——twilio（/Accounts/{sid}/Messages.json + Basic + form）、custom（endpoint + JSON {to,from,text}，apiKey 时 …（全文见 archive/evidence-detail.jsonl#SMS-PROVIDER-REQUEST-PURE）"
     }
   ]
 }

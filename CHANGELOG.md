@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **SMS-PROVIDER-REQUEST-PURE**：SMS provider 请求构造纯函数（未接线） —— 验证 tsc0|unit6|channels678|eslint0；基线 SMS sendMessage 只 emit 并返回 true，无任何 provider HTTP；请求形状不可测（详情见 archive/evidence-detail.jsonl#SMS-PROVIDER-REQUEST-PURE）
 - ✅ **CHANNEL-REQUEST-SHAPE-STUBS-5**：Signal 上游 CLI 参数契约 + 缺 account 如实失败 —— 验证 tsc0|unit4|channels672|eslint0；基线 Signal 发送参数形状无回归；缺 account 仍调起 signal-cli -a 空值（必然失败）（详情见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-5）
 - ✅ **NOSTR-HONEST-FAILURE**：Nostr 不再谎报成功（壳实现如实失败）+ 等级降 experimental —— 验证 tsc0|unit3|channels668|eslint0；基线 nostr sendTextMessage 恒返回 success，消息实际未发出（无 relay 传输）；台账此前按 community 呈现（详情见 archive/evidence-detail.jsonl#NOSTR-HONEST-FAILURE）
 - ✅ **CHANNEL-REQUEST-SHAPE-STUBS-4**：IRC 协议桩（握手顺序 + PRIVMSG 形状 + 分片） —— 验证 unit3|channels665|eslint0；基线 IRC 注册握手与 PRIVMSG 形状无回归；协议细节改动只能靠真实 IRC 网络发现（详情见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-4）

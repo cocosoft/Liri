@@ -98,6 +98,21 @@ if [ -f "app/scripts/lint-infra-boundary.ts" ]; then
   fi
 fi
 
+# ── STATUS.md 漂移门禁（2026-10-31，deepseek 建议 §3）──
+# README 已不再写「多少个工具/通道/模块」，数字只在 STATUS.md 出现且由事实源现算。
+# 改了事实源却忘更新 STATUS ⇒ 此处拦住（实测 <0.3s）。
+if [ -f "app/scripts/gen-status.ts" ]; then
+  echo "  检查 STATUS.md 与事实源是否一致..."
+  $RUNNER app/scripts/gen-status.ts --check > /dev/null 2>&1
+  RESULT=$?
+  if [ $RESULT -ne 0 ]; then
+    echo ""
+    echo "❌ STATUS.md 与事实源不一致！提交已阻止。"
+    echo "   修复: cd app && bun run gen:status && git add ../STATUS.md"
+    exit 1
+  fi
+fi
+
 # ── 修复证据登记门禁（HD-INFRA-1c / Q-H6：前置，消除"推送后才发现"的滞后）──
 # 轻量但完整：JSON 可解析（含未转义 ASCII 引号的精确定位）+ 证据路径与状态自洽。
 # 规范见 .trae/rules/coding-standards.md §CS08。
@@ -193,7 +208,7 @@ exit 0
   writeFileSync(hookPath, hookContent, { mode: 0o755 });
   console.log(`✅ pre-commit 钩子已安装: ${hookPath}`);
   console.log(
-    '   提交前自动运行: 架构合规检查 + infra 层边界契约 + 修复证据登记 + GitHub Actions YAML + 棘轮门禁(state/fn-size/consts/unref) + 类型检查 + ESLint + 模块验证'
+    '   提交前自动运行: 架构合规检查 + infra 层边界契约 + STATUS.md 漂移 + 修复证据登记 + GitHub Actions YAML + 棘轮门禁(state/fn-size/consts/unref) + 类型检查 + ESLint + 模块验证'
   );
 }
 

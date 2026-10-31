@@ -7,9 +7,9 @@
 > 玲珑鸟 · 你的 AI 私人助手
 > 官网：https://openliri.com
 
-**终端里的 AI 智能体 · 连接 27 个平台的智能助手**
+**终端里的 AI 智能体 · 连接主流消息平台的智能助手**
 
-一键安装 · 自然语言交互 · 82 个内置工具 · 企业级安全
+一键安装 · 自然语言交互 · 工具/通道/模块数量以 [STATUS.md](STATUS.md) 为准 · 企业级安全
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -30,13 +30,13 @@
 Liri 是一个运行在终端中的 **AI 智能助手**。你用它做什么？
 
 - **终端里的编程搭档** — 在命令行中自然语言对话，读代码、搜文件、写脚本、查文档
-- **跨平台消息机器人** — 接入 Telegram、Discord、微信、钉钉、Slack 等 27 个平台，一处部署处处可用
+- **跨平台消息机器人** — 接入 Telegram、Discord、微信、钉钉、Slack 等主流平台（全量清单见 [STATUS.md](STATUS.md)），一处部署处处可用
 - **可编程 AI 工作流** — 插件系统 + 技能系统 + 定时任务，构建属于你的自动化流程
 - **安全的命令执行环境** — Rust AST 级安全分析 + 沙箱隔离，让 AI 安全地操作你的系统
 
 > ⚡ **一行命令启动**：`cd app && bun install && cp .env.example .env` 填入 API Key，即可开始对话
 
-拥有 71 个模块化子系统、4 阶段分层启动、三级延迟加载策略、多智能体通信协议（ACP），以及完整的安全沙箱与可观测性体系。
+拥有多个模块化子系统（数量见 [STATUS.md](STATUS.md)）、4 阶段分层启动、三级延迟加载策略、多智能体通信协议（ACP），以及完整的安全沙箱与可观测性体系。
 
 ---
 
@@ -155,7 +155,9 @@ T3 ── 后台批次加载 DEFERRED 模块（ON_DEMAND 首次请求时按需�
 
 Agent 引擎内置多种检查点机制（周期性落盘、流式自动检查点、纯文本检查点、DB TAOR 检查点等），长时间运行的任务可落盘续跑；工具调用轮次、压缩、截断等关键节点均写事件日志，支持回放与审计。
 
-### 🛠 内置工具（82 个）
+### 🛠 内置工具
+
+> 全量清单与数量由 `bun run gen:status` 从事实源生成，见 [STATUS.md](STATUS.md)。
 
 | 分类 | 工具 |
 |------|------|
@@ -277,7 +279,7 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 
 ## 🌐 渠道生态
 
-一次部署，连接所有平台。Liri 支持 **27 个消息通道**，配置环境变量即可启用：
+一次部署，连接所有平台。Liri 支持**主流消息通道**（全量清单见 [STATUS.md](STATUS.md)），配置环境变量即可启用：
 
 | 区域 | 通道 |
 |------|------|
@@ -374,8 +376,8 @@ Liri/                            # 工程根目录
 │   │   ├── acp/                 # Agent Communication Protocol
 │   │   ├── ai/                  # AI 模型适配层
 │   │   ├── agent/               # AI Agent 核心
-│   │   ├── tools/               # 内置工具实现（82 个）
-│   │   ├── channels/            # 27 个消息通道
+│   │   ├── tools/               # 内置工具实现（数量见 STATUS.md）
+│   │   ├── channels/            # 消息通道（全量见 STATUS.md）
 │   │   ├── mcp/                 # MCP 协议实现
 │   │   ├── security/            # 安全防护体系（5 层）
 │   │   ├── plugins/             # 插件系统

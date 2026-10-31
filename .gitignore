@@ -256,6 +256,9 @@ codemidas_extract.md
 # 例外（2026-10-05）：`CHANGELOG.md` 是 `.trae/rules/versioning.md` §三 的**版本变更完整历史（单一事实源）**
 # —— 发版必更新（§四 步骤 3），必须入库，否则发布记录不可评审、GitHub 上也看不到
 !/CHANGELOG.md
+# 例外（2026-10-31）：`STATUS.md` 由 `bun run gen:status` 生成，是 README 中工具/通道/模块数量的
+# 唯一出口（deepseek 建议 §3）—— 必须入库，否则 README 的指针落空、门禁也无从比对
+!/STATUS.md
 # 例外（2026-10-26）：`SECURITY.md` 是漏洞披露渠道的**唯一事实源** —— 必须入库才能在
 # GitHub 的 Security 页展示、也才能被 CONTRIBUTING 引用（W26-03）
 !/SECURITY.md

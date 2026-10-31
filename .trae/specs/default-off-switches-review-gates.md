@@ -39,7 +39,7 @@
 | 6 | `UNATTENDED_MODE` | false | ① 用户要求无人值守自动运行（定时/调度驱动）；**前置**：无人在场时的审批策略须先定（与 Ch.13 HITL 冲突面） | 事件 | `featureFlags.ts:92` |
 | 7 | ~~`BASH_APPROVED_REVALIDATE`~~ | ✅ **已翻转 → `true`（安全基线）** | **不再是默认关项**；治理见 **§2.2** | — | 第九轮审查 §七（用户裁定 2026-10-09） |
 | 8 | `BASH_INTERPRETER_GUARD` | false | ① **真实事件**：出现解释器内联执行（`node -e`/`python -c`/`bun -e`）绕过白名单的证据（观测 O1-B2）；② 用户要求"解释器命令必须确认" | ② 事件 | `featureFlags.ts:292` · `project_rules.md:57` |
-| 9 | `BASH_APPROVAL_STRICT` | false | ① **真实事件**：**同名不同参**被命令名级放行（观测 O1-B3）；② 与 #7/#8 同批复评（三者构成 Bash 安全姿态一组） | 与 #7/#8 同批 | `featureFlags.ts:299` · `project_rules.md:58` |
+| 9 | ~~`BASH_APPROVAL_STRICT`~~ | ✅ **已翻转 → `true`（安全基线）** | **不再是默认关项**；治理见 **§2.2** | — | 用户裁定 2026-10-31（B3 结构化签名已收窄同名放行；真实日志「命令名级放行命中」= 0） |
 | 10 | `EXECUTION_TWO_PHASE_CANCEL` | false | ① **真实事件**：取消后底层仍写入/产生副作用（取消不彻底）；② 并发下出现"取消即释放 ⇒ 双跑/重复计费" | 事件 / 季度 | `featureFlags.ts:310` · `execution-lifecycle-ownership.md:158` |
 | 11 | `SELF_VERIFY_PATTERN` | false | 须**同时**满足：① `verify` 意图命中 **≥20 会话**（观测 O5）；② 开启后 A/B 显示质量提升**可量化**；③ 重试增量**可接受**（建议 ≤10%） | 埋点落地后下一季度 | `pattern-wiring-closure.md §9-3` |
 | 12 | `CODE_RUN_DEEP_SCAN_STRICT` | false | ① **真实事件**：深扫不可用（原生模块缺失 / 平台缺库）期间出现**危险调用漏检**；② 原生深扫在**目标交付环境**稳定可用（`scanStatus='ran'` 比例达 100%）；③ 用户要求"code_run 深扫必须完成" | 事件 / 与 P0-3 联动 | `featureFlags.ts:326` · `.trae/specs/security-decision-verdict.md` |
@@ -80,11 +80,11 @@
 > 仍需按 ask 复检"（关 ⇒ 免重复弹卡；开 ⇒ 复检）。原实现允许 env 一键回退 ⇒ DENY 可被绕过（治理缺口 G11），
 > 已修并登记（`TOOLGOV-S1-2`）。
 | `BASH_INTERPRETER_GUARD`（A4） | 灰度 | `false` | ① `ALLOWED_COMMANDS` 白名单 ② 危险命令/正则/AST 检查 ③ Landlock 沙箱 | ① **真实事件**：解释器内联执行（`node -e` / `python -c` / `bun -e`）绕过白名单；② 用户明确要求"解释器命令必须确认" | 误报率高 / 阻断正常开发流 ⇒ 维持关闭 | **2026-Q4 复评**（§2-#8） |
-| `BASH_APPROVAL_STRICT`（A5） | 灰度 | `false` | ① `DANGEROUS_BASE_NAMES` 排除（危险命令名不得走命令名级放行）② 精确 hash `isApproved` | **真实事件**：**同名不同参**被命令名级放行（观测 O1-B3） | 审批摩擦过大 ⇒ 维持关闭 | **2026-Q4 复评**（§2-#9） |
+| ~~`BASH_APPROVAL_STRICT`（A5）~~ | ✅ **已翻转（安全基线）** | `true` | ① `DANGEROUS_BASE_NAMES` 排除（危险命令名不得走命令名级放行）② 精确 hash `isApproved` | **不再是默认关项**（用户裁定 2026-10-31：B3 已把命令名级放行收窄为结构化签名；真实日志「命令名级放行命中」样本 = 0 ⇒ 摩擦 ≈ 0）；回退 `FEATURE_BASH_APPROVAL_STRICT=false` | — |
 
 **告警（§七 建议 5：不长期无告警默认关）**：`tools/bash/BashTool.ts` 的 `warnGraySecuritySwitchesOnce()` ——
-进程内**首次构造** BashTool 时，若 A4/A5 仍为 `false` ⇒ 输出**一次** `logger.warn`（列出灰度开关名 + 指向本表），
-使"当前安全姿态"可见。A2 翻转为基线后不再出现在该告警中。
+进程内**首次构造** BashTool 时，若 A4 仍为 `false` ⇒ 输出**一次** `logger.warn`（列出灰度开关名 + 指向本表），
+使"当前安全姿态"可见。A2 / **A5** 翻转为基线后不再出现在该告警中。
 
 ---
 
@@ -98,7 +98,7 @@
 |---|---|:--:|:--:|---|---|---|
 | `OUTPUT_GUARD` | 灰度（暴露类能力） | `false` | ✅ **已裁定：维持 `false`** | [`guardrails-dual-side.md §11`](./guardrails-dual-side.md)（2026-10-07 **用户裁定**；5 条依据：仅覆盖终稿 / 本仓语料 42 文件 FP / 唯一有行为后果者仅 `injection_echo` / 单机单用户边际收益低 / 与同族默认关纪律一致） | ① 覆盖范围扩至**流式 chunk / 工具返回值 / 文件写入**；② 出现"未打码导致真实泄露"事件 | **覆盖范围变更后**复评 |
 | `BASH_INTERPRETER_GUARD` | 灰度（安全姿态） | `false` | 维持 | §2.2（v7.23.0 同批：维持默认关） | 见 §2.2（解释器内联执行绕过白名单的真实事件） | **2026-Q4** |
-| `BASH_APPROVAL_STRICT` | 灰度（安全姿态） | `false` | 维持 | §2.2（同上） | 见 §2.2（**同名不同参**被命令名级放行） | **2026-Q4** |
+| ~~`BASH_APPROVAL_STRICT`~~ | ✅ **已翻转为安全基线** | `true` | ✅ **已翻转（2026-10-31 用户裁定）** | §2.2（B3 结构化签名 + 真实日志 0 样本） | 不再适用（回退开关 `FEATURE_BASH_APPROVAL_STRICT=false`） | — |
 | `EXECUTION_TWO_PHASE_CANCEL` | 灰度（执行语义） | `false` | 维持 | §2-#10 | 取消后底层仍写入/产生副作用；或并发下"取消即释放 ⇒ 双跑/重复计费" | **2026-Q4** |
 | `CODE_RUN_DEEP_SCAN_STRICT` | 灰度（安全收紧） | `false` | 维持（默认关时靠结果 `scanStatus` 可观测） | §2-#12 · [`security-decision-verdict.md`](./security-decision-verdict.md) | 深扫不可用期间出现**危险调用漏检**；或原生深扫在目标环境稳定可用（`ran` 比例 100%） | **2026-Q4**（与 P0-3 联动） |
 | `CLIENT_STREAM_EXECUTION` | 灰度（执行接入） | `false` | 维持（**翻转前置条件已满足**：handler 级用例已补，B2 / 2026-10-10） | §2-#13 · [`client-stream-execution.md §5.1`](./client-stream-execution.md) | 客户端入口出现**未记账工具调用**或崩溃后**重复副作用**；且前端回归清单通过 | **2026-Q4** |
@@ -123,7 +123,7 @@
 | 项 | 判据（§2 / §2.3） | 观测读数（2026-10-11 实测） | 结论 | 下一节奏 |
 |---|---|---|---|---|
 | `BASH_INTERPRETER_GUARD`（#8） | 出现解释器内联执行（`node -e`/`python -c`/`bun -e`）绕过白名单的**真实事件**（观测 **O1-B2**） | `interpreter_command_allowed` = **0**（真实日志 + 全量数据目录）；**且 DEBUG 未开 ⇒ 无样本** | **维持 `false`** | 2026-Q4 / 事件驱动 |
-| `BASH_APPROVAL_STRICT`（#9） | **同名不同参**被命令名级放行（观测 **O1-B3**） | `命令名级放行命中` 在**真实日志** = **0**；全量 67 次命中**全部**落在源码 `*.ts` 与 `knowledge/raw` 副本（**代码文本**，非运行期日志）⇒ 仍为**无样本**。旁证：O1-B1 `已批准命令放行`（`info`）真实日志 = **0** ⇒ 本窗**已批准放行路径未触发** | **维持 `false`** | 与 #7/#8 同批复评 |
+| `BASH_APPROVAL_STRICT`（#9） | **同名不同参**被命令名级放行（观测 **O1-B3**） | `命令名级放行命中` 在**真实日志** = **0**；全量 67 次命中**全部**落在源码 `*.ts` 与 `knowledge/raw` 副本（**代码文本**，非运行期日志）⇒ 仍为**无样本**。旁证：O1-B1 `已批准命令放行`（`info`）真实日志 = **0** ⇒ 本窗**已批准放行路径未触发** | 本窗维持 `false`；**2026-10-31 已翻转 → `true`**（用户裁定：B3 结构化签名已收窄同名放行 + 真实日志 0 样本 ⇒ 实用摩擦 ≈ 0） | — |
 | `EXECUTION_TWO_PHASE_CANCEL`（#10） | 取消后底层仍写入 / 并发下"取消即释放 ⇒ 双跑/重复计费" | **无专用观测点**；本窗无相关事件采样 | **维持 `false`**（无可判定样本） | 2026-Q4 / 事件驱动 |
 | `CODE_RUN_DEEP_SCAN_STRICT`（#12） | ① 深扫不可用期间出现危险调用漏检；② `scanStatus='ran'` 比例达 **100%** | 真实日志中 `code_run deep scan not executed/not completed` = **0**（无"深扫不可用"事件）；但 **`ran` 成功路径无显式日志 ⇒ 比例不可计算**。⚠️ **同名不同义辨析**：数据目录 `scanStatus` = `partial 630 / complete 19` 属 **rollback 快照**（`security/rollback/FileOperationTracker.ts:316`），**非**本项的 `CodeRunner` `DeepScanStatus`（`ran\|skipped\|failed`，`tools/CodeRunner/staticTypes`）⇒ **不得混算** | **维持 `false`** | 2026-Q4（与 P0-3 联动） |
 | `CLIENT_STREAM_EXECUTION`（#13） | 客户端 `/v1/chat/stream` 出现**未记账工具调用** / 崩溃后**重复副作用** | **前置已满足**（B2 补 handler 级用例，见 §2.3）；本窗无相关事件采样 | **维持 `false`**（前置就绪，待真实事件或用户裁定） | 2026-Q4 |

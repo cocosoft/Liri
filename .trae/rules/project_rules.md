@@ -59,7 +59,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 | `PRO_SECURITY_SUITE` | `false` | 高级安全套件 | `FEATURE_PRO_SECURITY_SUITE=true` | §2-#5 |
 | `BASH_APPROVED_REVALIDATE` | `true` | 已批准命令**安全复检**（**安全基线**，2026-10-09 翻转；批准只免审批交互，硬拦截仍须过；A2） | `FEATURE_BASH_APPROVED_REVALIDATE=false`（灰度回退旧行为） | — |
 | `BASH_INTERPRETER_GUARD` | `false` | 高能力**解释器命令**人工确认（node/bun/npm/python/pwsh 等；A4） | `FEATURE_BASH_INTERPRETER_GUARD=true` | §2-#8 |
-| `BASH_APPROVAL_STRICT` | `false` | 批准**严格模式**（禁用命令名级放行，仅精确 hash；A5） | `FEATURE_BASH_APPROVAL_STRICT=true` | §2-#9 |
+| `BASH_APPROVAL_STRICT` | `true` | 批准**严格模式**（禁用命令名级放行，仅精确 hash；A5）—— 2026-10-31 翻为**安全基线**（B3 已把命令名级放行收窄为结构化签名；真实日志「命令名级放行命中」= 0 ⇒ 实用摩擦 ≈ 0） | `FEATURE_BASH_APPROVAL_STRICT=false`（灰度回退旧行为） | — |
 | `EXECUTION_TWO_PHASE_CANCEL` | `false` | 两段式取消（`CANCEL_REQUESTED`→`abort()`→grace→`CANCELLED`；**未确认则保留 lease**，后续消息排队；PR2） | `FEATURE_EXECUTION_TWO_PHASE_CANCEL=true` | §2-#10 |
 | `CODE_RUN_DEEP_SCAN_STRICT` | `false` | code_run **深扫未完成即拒绝**（SWC 原生 CallExpression 深扫 `skipped`/`failed` ⇒ `security-rejected`；**默认关时保留"跳过"行为但结果带出 `scanStatus`**；P0-3） | `FEATURE_CODE_RUN_DEEP_SCAN_STRICT=true` | §2-#12 |
 | `CLIENT_STREAM_EXECUTION` | `false` | 客户端 `/v1/chat/stream` **接入 Execution**（SSE 入口 `acquire` + 注入 `executionId` ⇒ 工具写前记账 + fail-closed；终态 `complete`/`fail`；P0-2） | `FEATURE_CLIENT_STREAM_EXECUTION=true` | §2-#13 |

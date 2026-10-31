@@ -29,7 +29,7 @@
  * - TTL 过期（超时后不再放行）
  * - cleanup / clearSession / dispose
  */
-import { describe, it, expect, afterEach } from 'bun:test';
+import { describe, it, expect, afterEach, beforeAll, afterAll } from 'bun:test';
 import {
   ApprovedCommandRegistry,
   normalizeCommand,
@@ -169,7 +169,16 @@ describe('getBaseCommand（P0-3 命令名提取）', () => {
   });
 });
 
-describe('命令名级放行 isCommandNameApproved（P0-3）', () => {
+describe('命令名级放行 isCommandNameApproved（P0-3；须显式回退 A5 严格模式）', () => {
+  // A5 于 2026-10-31 翻为默认开（安全基线）⇒ 本组测的是**命令名级放行机制本身**，
+  // 故显式灰度回退；严格模式下的门控由下方「A5 批准严格模式」组覆盖。
+  beforeAll(() => {
+    process.env.FEATURE_BASH_APPROVAL_STRICT = 'false';
+  });
+  afterAll(() => {
+    delete process.env.FEATURE_BASH_APPROVAL_STRICT;
+  });
+
   it('批准非危险命令 → 同命令名参数漂移放行', () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
     const hash = hashCommand('dir /b x');
@@ -244,7 +253,7 @@ describe('命令名级放行 isCommandNameApproved（P0-3）', () => {
   });
 });
 
-describe('A5 批准严格模式 BASH_APPROVAL_STRICT（2026-10-09，默认关）', () => {
+describe('A5 批准严格模式 BASH_APPROVAL_STRICT（2026-10-09 引入，2026-10-31 翻为默认开）', () => {
   const KEY = 'FEATURE_BASH_APPROVAL_STRICT';
   const prev = process.env[KEY];
   afterEach(() => {
@@ -252,23 +261,21 @@ describe('A5 批准严格模式 BASH_APPROVAL_STRICT（2026-10-09，默认关）
     else process.env[KEY] = prev;
   });
 
-  it('默认关：命令名级放行生效（既有行为不变）', () => {
+  it('默认开（安全基线）：命令名级放行被禁用，仅精确 hash 命中', () => {
     delete process.env[KEY];
-    const reg = new ApprovedCommandRegistry(60_000, false);
-    reg.approve('session-1', hashCommand('dir /b x'), 'dir /b x');
-    expect(reg.isCommandNameApproved('session-1', 'dir /b y')).toBe(true);
-    reg.dispose();
-  });
-
-  it('开关开：命令名级放行被禁用，仅精确 hash 命中', () => {
-    process.env[KEY] = 'true';
     const reg = new ApprovedCommandRegistry(60_000, false);
     const hash = hashCommand('dir /b x');
     reg.approve('session-1', hash, 'dir /b x');
-    // 命令名级放行被门控 → 同名不同参不命中
     expect(reg.isCommandNameApproved('session-1', 'dir /b y')).toBe(false);
-    // 精确 hash 仍放行
     expect(reg.isApproved('session-1', hash)).toBe(true);
+    reg.dispose();
+  });
+
+  it('灰度回退（FEATURE_BASH_APPROVAL_STRICT=false）：命令名级放行恢复', () => {
+    process.env[KEY] = 'false';
+    const reg = new ApprovedCommandRegistry(60_000, false);
+    reg.approve('session-1', hashCommand('dir /b x'), 'dir /b x');
+    expect(reg.isCommandNameApproved('session-1', 'dir /b y')).toBe(true);
     reg.dispose();
   });
 });

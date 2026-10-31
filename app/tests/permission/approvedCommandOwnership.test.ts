@@ -54,20 +54,29 @@ describe('ApprovedCommandRegistry 归属隔离（P3）', () => {
     ).toBeUndefined();
   });
 
-  it('命令名级放行同样按归属过滤', () => {
-    const registry = makeRegistry();
-    runWithPrincipal(ALICE, () => registry.approve('s1', 'h1', 'dir /b x'));
+  it('命令名级放行同样按归属过滤（显式回退 A5 严格模式以触发该通道）', () => {
+    // A5（2026-10-31）默认开 ⇒ 严格模式直接禁用命令名级放行；本用例测的是
+    // 「该通道内部的归属过滤」，故显式灰度回退，否则断言会因为门控而恒 false。
+    const prev = process.env.FEATURE_BASH_APPROVAL_STRICT;
+    process.env.FEATURE_BASH_APPROVAL_STRICT = 'false';
+    try {
+      const registry = makeRegistry();
+      runWithPrincipal(ALICE, () => registry.approve('s1', 'h1', 'dir /b x'));
 
-    expect(
-      runWithPrincipal(ALICE, () =>
-        registry.isCommandNameApproved('s1', 'dir /b y')
-      )
-    ).toBe(true);
-    expect(
-      runWithPrincipal(BOB, () =>
-        registry.isCommandNameApproved('s1', 'dir /b y')
-      )
-    ).toBe(false);
+      expect(
+        runWithPrincipal(ALICE, () =>
+          registry.isCommandNameApproved('s1', 'dir /b y')
+        )
+      ).toBe(true);
+      expect(
+        runWithPrincipal(BOB, () =>
+          registry.isCommandNameApproved('s1', 'dir /b y')
+        )
+      ).toBe(false);
+    } finally {
+      if (prev === undefined) delete process.env.FEATURE_BASH_APPROVAL_STRICT;
+      else process.env.FEATURE_BASH_APPROVAL_STRICT = prev;
+    }
   });
 
   it('clearSession 只清当前身份可见的记录', () => {

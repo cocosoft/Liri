@@ -87,16 +87,14 @@ const logger = getLogger('tools:bash:BashTool');
  * 第九轮审查 §七 建议 5（2026-10-09）：**不让安全开关在缺少告警的情况下长期停留默认关闭**。
  *
  * 进程内**首次构造** BashTool 时打印一次"仍有 Bash 安全开关处于灰度（默认关）"的告警，
- * 使当前安全姿态可见。A2 已翻转为安全基线（默认开）；A4/A5 仍为灰度。
+ * 使当前安全姿态可见。A2 已翻转为安全基线（默认开）；**A5 于 2026-10-31 翻为安全基线**
+ * （`BASH_APPROVAL_STRICT` 默认开）⇒ 只剩 A4 仍在灰度。
  * 启用条件 / 回退条件 / 迁移期限：`.trae/specs/default-off-switches-review-gates.md §2.2`。
  */
 let graySwitchWarningEmitted = false;
 
-/** 灰度开关清单（单一事实源；A2 已翻转为安全基线，不在其中） */
-const GRAY_SECURITY_SWITCHES = [
-  'BASH_INTERPRETER_GUARD',
-  'BASH_APPROVAL_STRICT',
-] as const;
+/** 灰度开关清单（单一事实源；A2 / A5 已翻为安全基线，不在其中） */
+const GRAY_SECURITY_SWITCHES = ['BASH_INTERPRETER_GUARD'] as const;
 
 /**
  * 打印一次"灰度开关"告警（**模块私有**；外部只暴露 `resetGraySwitchWarningForTest`）。

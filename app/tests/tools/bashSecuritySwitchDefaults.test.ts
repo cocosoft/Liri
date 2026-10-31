@@ -20,13 +20,14 @@
 // SOFTWARE.
 
 /**
- * A2 翻转（安全基线）+ 灰度治理 单元测试（第九轮审查 §七，2026-10-09）
+ * A2/A5 翻转（安全基线）+ 灰度治理 单元测试（第九轮审查 §七，2026-10-09；A5 于 2026-10-31 翻转）
  *
  * 覆盖：
  * - **A2** `BASH_APPROVED_REVALIDATE` 默认 = `true`（安全基线）且可灰度回退
- * - **A4/A5** 默认 = `false`（灰度）且可显式开启
+ * - **A5** `BASH_APPROVAL_STRICT` 默认 = `true`（2026-10-31 翻为安全基线）且可灰度回退
+ * - **A4** `BASH_INTERPRETER_GUARD` 默认 = `false`（灰度）且可显式开启
  * - **§七 建议 5** 灰度告警：经「**构造 BashTool + 日志断言**」验证（**不扩大导出面**）
- *   —— 默认发一次 / 进程内只发一次 / 全开不发 / 部分关只列部分
+ *   —— 默认发一次（只剩 A4）/ 进程内只发一次 / 全开不发
  *
  * 治理口径（替代保护层 / 启用·回滚条件 / 迁移期限）：
  * `.trae/specs/default-off-switches-review-gates.md §2.2`。
@@ -99,24 +100,24 @@ describe('A2 安全基线默认值（第九轮审查 §七 翻转）', () => {
   });
 });
 
-describe('A4 / A5 灰度默认值（维持默认关）', () => {
-  it('默认（无 env）⇒ 两者均 false', () => {
+describe('A4 灰度默认关 / A5 安全基线默认开（2026-10-31 翻转）', () => {
+  it('默认（无 env）⇒ A4 false、A5 true', () => {
     delete process.env[ENV_A4];
     delete process.env[ENV_A5];
     expect(feature('BASH_INTERPRETER_GUARD')).toBe(false);
-    expect(feature('BASH_APPROVAL_STRICT')).toBe(false);
+    expect(feature('BASH_APPROVAL_STRICT')).toBe(true);
   });
 
-  it('可显式开启（=true）', () => {
+  it('两者都可显式覆盖（A4=true / A5=false）', () => {
     setEnv(ENV_A4, 'true');
-    setEnv(ENV_A5, 'true');
+    setEnv(ENV_A5, 'false');
     expect(feature('BASH_INTERPRETER_GUARD')).toBe(true);
-    expect(feature('BASH_APPROVAL_STRICT')).toBe(true);
+    expect(feature('BASH_APPROVAL_STRICT')).toBe(false);
   });
 });
 
 describe('§七 建议 5：灰度开关告警（不长期无告警默认关）', () => {
-  it('默认（A4/A5 关）⇒ 构造 BashTool 发一次告警且列出两个灰度开关', () => {
+  it('默认（只剩 A4 灰度）⇒ 构造 BashTool 发一次告警且只列 A4', () => {
     delete process.env[ENV_A4];
     delete process.env[ENV_A5];
     warnSpy = spyOn(bashLogger, 'warn');
@@ -125,9 +126,7 @@ describe('§七 建议 5：灰度开关告警（不长期无告警默认关）',
     const calls = grayWarnCalls();
     expect(calls.length).toBe(1);
     const meta = calls[0][1] as { switches?: string[] };
-    expect(meta.switches?.sort()).toEqual(
-      ['BASH_INTERPRETER_GUARD', 'BASH_APPROVAL_STRICT'].sort()
-    );
+    expect(meta.switches).toEqual(['BASH_INTERPRETER_GUARD']);
   });
 
   it('进程内只发一次（连续构造两次 ⇒ 累计仍 1 次）', () => {
@@ -141,21 +140,17 @@ describe('§七 建议 5：灰度开关告警（不长期无告警默认关）',
 
   it('A4/A5 均开启 ⇒ 不告警（无灰度项）', () => {
     setEnv(ENV_A4, 'true');
-    setEnv(ENV_A5, 'true');
+    delete process.env[ENV_A5];
     warnSpy = spyOn(bashLogger, 'warn');
     makeBashTool();
     expect(grayWarnCalls().length).toBe(0);
   });
 
-  it('仅 A5 关闭 ⇒ 告警只列出 A5', () => {
+  it('A5 显式回退（=false）不再进告警清单（已非"默认关"项）', () => {
     setEnv(ENV_A4, 'true');
     setEnv(ENV_A5, 'false');
     warnSpy = spyOn(bashLogger, 'warn');
     makeBashTool();
-
-    const calls = grayWarnCalls();
-    expect(calls.length).toBe(1);
-    const meta = calls[0][1] as { switches?: string[] };
-    expect(meta.switches).toEqual(['BASH_APPROVAL_STRICT']);
+    expect(grayWarnCalls().length).toBe(0);
   });
 });

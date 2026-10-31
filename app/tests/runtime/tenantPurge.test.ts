@@ -355,10 +355,10 @@ describe('删除租户（P5）', () => {
     expect(
       runWithPrincipal(ALICE, () => registry.isApproved('s-acme', 'h1'))
     ).toBe(false);
+    // A5 于 2026-10-31 默认开（禁用命令名级放行）⇒ 这里用**精确 hash**断言
+    // "其它租户的放行记录仍可用"，与严格模式无关。
     expect(
-      runWithPrincipal(BOB, () =>
-        registry.isCommandNameApproved('s-other', 'npm run build')
-      )
+      runWithPrincipal(BOB, () => registry.isApproved('s-other', 'h2'))
     ).toBe(true);
 
     // ⑥ 无法定位的数据面如实登记

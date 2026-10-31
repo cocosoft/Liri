@@ -137,7 +137,7 @@ CHANGELOG 中**显式边界共 20 条**（v0.4.74–v0.4.76）+ **历史 `⚠️
 
 | 类别 | 项 | 节奏 | 单一事实源 |
 |---|---|---|---|
-| **季度复评**（2026-Q4） | `BASH_INTERPRETER_GUARD` · `BASH_APPROVAL_STRICT` · `EXECUTION_TWO_PHASE_CANCEL` · `CODE_RUN_DEEP_SCAN_STRICT` · `CLIENT_STREAM_EXECUTION` · `PLAN-P2-4` ＋（§2 标 ① 季度者）`OUTPUT_GUARD`①② · `RESOURCE_GOVERNOR`① · `SELF_VERIFY_PATTERN`① | 2026-Q4 | `default-off-switches-review-gates.md §2.3` / §2 |
+| **季度复评**（2026-Q4） | `BASH_INTERPRETER_GUARD` · ~~`BASH_APPROVAL_STRICT`~~（✅ 2026-10-31 已翻为安全基线） · `EXECUTION_TWO_PHASE_CANCEL` · `CODE_RUN_DEEP_SCAN_STRICT` · `CLIENT_STREAM_EXECUTION` · `PLAN-P2-4` ＋（§2 标 ① 季度者）`OUTPUT_GUARD`①② · `RESOURCE_GOVERNOR`① · `SELF_VERIFY_PATTERN`① | 2026-Q4 | `default-off-switches-review-gates.md §2.3` / §2 |
 | **事件驱动**（即时响应） | `OUTPUT_GUARD` 系列（③④） · `RESOURCE_GOVERNOR`（②③） · `PRO_SECURITY_SUITE` · `UNATTENDED_MODE` · `SELF_VERIFY_PATTERN`（②③） | 事件触发 | `default-off-switches-review-gates.md §2` / `§2.1` |
 | **需求驱动** | `MODE-A1..A12`（除 A9）· `PLAN-P2-9` · P2-2..P2-11 | 出现真实消费者 | registry `reopenWhen` |
 | **持续**（每次发版） | `MODE-A9` 工作区干净 · `dev_docs/` 死链不新增 | 每版 | 本文件 §2-P1-4 / P0-4 |

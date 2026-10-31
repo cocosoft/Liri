@@ -468,12 +468,16 @@ export const FEATURE_FLAGS = {
    */
   BASH_INTERPRETER_GUARD: false,
   /**
-   * A5：批准**严格模式**（默认关）。
+   * A5：批准**严格模式**（2026-10-31 翻为**安全基线**，默认开）。
    *
-   * 开 ⇒ 禁用"命令名级放行"（仅保留精确 hash 命中），消除同名不同参漂移放行；
-   * 关（默认）⇒ 保留既有命令名级放行。`FEATURE_BASH_APPROVAL_STRICT=true`。
+   * 开（默认）⇒ 禁用"命令名级放行"（仅保留精确 hash 命中），消除同名不同参漂移放行；
+   * 关 ⇒ 保留既有命令名级放行（灰度回退旧行为）。`FEATURE_BASH_APPROVAL_STRICT=false`。
+   *
+   * 翻转依据：① B3（`4375f57de`）已把命令名级放行收窄为**结构化签名**（基命令 + 子命令 +
+   * 高危选项 + 目标路径）；② 真实日志中「命令名级放行命中」样本为 **0**
+   * （`.trae/specs/default-off-switches-review-gates.md §2.2`）⇒ 翻转的实用摩擦 ≈ 0。
    */
-  BASH_APPROVAL_STRICT: false,
+  BASH_APPROVAL_STRICT: true,
   /**
    * B1（2026-10-30，issue #35）：**会话工作区多根 + 越界可恢复**（默认关 = 零行为变更）。
    *

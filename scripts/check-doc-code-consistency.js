@@ -179,7 +179,11 @@ const SAFETY_SWITCHES = [
         def: false,
         why: '解释器命令人工确认须显式开启（默认关 = 白名单内直接放行）',
     },
-    { name: 'BASH_APPROVAL_STRICT', def: false, why: '批准严格模式（禁用命令名级放行）须显式开启' },
+    {
+        name: 'BASH_APPROVAL_STRICT',
+        def: true,
+        why: '批准严格模式（禁用命令名级放行）已翻为**安全基线**（2026-10-31 用户裁定）—— 回退须显式改本断言 + project_rules，并设 FEATURE_BASH_APPROVAL_STRICT=false',
+    },
     // PR2（2026-10-09）：两段式取消灰度开关（默认关 = 保留既有"超时即释放"行为）
     { name: 'EXECUTION_TWO_PHASE_CANCEL', def: false, why: '两段式取消（未确认则保留 lease）须显式开启' },
     // P0-3（2026-10-10）：code_run 深扫未完成即拒绝（默认关 = 保留既有"深扫不可用 ⇒ 跳过"行为）

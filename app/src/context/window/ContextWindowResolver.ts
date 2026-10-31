@@ -19,3 +19,7 @@
  * `已豁免` 43 → 42。
  */
 export * from '@modules/utils/ContextWindowResolver';
+
+// 2026-10-31：`calibrateContextWindow` 上移 app（读 `ModelRegistry` + 写 `model_registry` 属领域动作），
+// 由本 shim 继续对外转出 ⇒ `@modules/context` 的消费方零改动；infra 侧不再动态导入 app 层。
+export { calibrateContextWindow } from './calibrateContextWindow';

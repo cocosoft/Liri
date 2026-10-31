@@ -233,56 +233,10 @@ export function isOutputCapError(errorMessage: string): boolean {
 }
 
 /**
- * 被动校准：API 返回 context 超限错误时，把服务端真实 n_ctx 回写 DB model_registry，
- * 使应用侧 context_window 自动跟随模型真实能力（云端/Ollama/llama.cpp 通用）。
- * 仅当值不同时更新；失败静默，不阻断请求错误处理链。
- * DB 是唯一事实源，写 DB 后刷新 ModelRegistry 运行时缓存。
+ * 被动校准已上移 app（`context/window/calibrateContextWindow.ts`，2026-10-31）：
+ * 该函数读 `ModelRegistry` 并写 `model_registry`，属模型目录的领域动作，留在 infra 只能靠
+ * 动态导入 app 层（R00-003 盲区）。本文件因此保持 app-free（零上层依赖）。
  */
-export async function calibrateContextWindow(
-  model: string,
-  actualLimit: number
-): Promise<boolean> {
-  if (!model || !(actualLimit > 0)) return false;
-  try {
-    // B14b（甲′）：本函数为 async ⇒ 用**动态**导入访问 app 层注册表（静态耦合已解除）。
-    // 迁移至 utils/(infra) 后，此动态边仅进 R00-003 上报，不计入已豁免。
-    const { ModelRegistry } = await import('@modules/ai');
-    const registry = ModelRegistry.getInstance();
-    const existing = registry.getModel(model);
-    const current = existing?.contextWindow ?? 0;
-    if (current === actualLimit) return false; // 已一致
-
-    const { modelPricingService } =
-      await import('../ai/models/ModelPricingService.js');
-    await modelPricingService.initialize();
-    const rec = await modelPricingService.getPricing(model);
-    if (!rec) return false; // 模型未注册，不校准
-    // upsertPricing 更新已有记录时仅 contextWindow 生效，但 input/output 价格必填且会被覆盖，
-    // 必须传回原值，避免校准把价格清零
-    await modelPricingService.upsertPricing({
-      modelId: model,
-      contextWindow: actualLimit,
-      inputCostPerMillion: rec.inputCostPerMillion,
-      outputCostPerMillion: rec.outputCostPerMillion,
-    });
-    registry.refreshDbPricing().catch(() => {
-      // @ignore-catch: 缓存刷新失败不影响 DB 事实源
-    });
-    logger.info('contextWindow 已自动校准（API 400 回写）', {
-      model,
-      from: current,
-      to: actualLimit,
-    });
-    return true;
-  } catch (err) {
-    logger.warn('contextWindow 自动校准失败', {
-      model,
-      actualLimit,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return false;
-  }
-}
 
 export function getNextDegradationTier(currentTokens: number): number | null {
   const tiers = [...CONTEXT_PROBE_TIERS].sort((a, b) => b - a);

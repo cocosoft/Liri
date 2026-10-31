@@ -1,37 +1,15 @@
 {
   "version": 1,
   "recordedAt": "2026-10-31",
-  "note": "infra 层边界契约门禁白名单（R1–R4）。每条必须写明理由；理由缺失本身即违规。R2/R3 为清零目标：条目消失时门禁提示清理。规范见 .trae/specs/infra-layer-boundary-contract.md §5/§8。",
+  "note": "infra 层边界契约门禁白名单（R1–R4）。每条必须写明理由；理由缺失本身即违规。R2/R3 为清零目标：条目消失时门禁提示清理。2026-10-31：R2/R3 存量已清零（BashPermission 改注入评估器、calibrateContextWindow 上移 app）。规范见 .trae/specs/infra-layer-boundary-contract.md §5/§8。",
   "topLevelIo": [
     {
       "path": "utils/env.ts",
       "reason": "env 模块是 process.env 的唯一再导出点（读值仍经 getEnv / isEnvTruthy）；顶层只持有引用、不触发求值。迁走需同批改全部消费方，属独立变更。"
     }
   ],
-  "approvalOrchestration": [
-    {
-      "path": "permission/integrations/BashPermission.ts",
-      "specifier": "@modules/tools/SmartApprovalObserver",
-      "reason": "spec §6.1 已登记的既有漂移：观察者应由 app 注入（审批编排不下沉）。当前是 lazy require，改为 spi 端口属独立变更，清零目标。"
-    }
-  ],
-  "dynamicInfraToApp": [
-    {
-      "path": "permission/integrations/BashPermission.ts",
-      "specifier": "@modules/tools/SmartApprovalObserver",
-      "reason": "同上（R2 同处）。清零方式：由 app 注入观察者回调，infra 只保留判定原语。"
-    },
-    {
-      "path": "utils/ContextWindowResolver.ts",
-      "specifier": "@modules/ai",
-      "reason": "spec §6.1：模型属性（上下文窗口）读取应由 app 注入实现；清零目标。"
-    },
-    {
-      "path": "utils/ContextWindowResolver.ts",
-      "specifier": "../ai/models/ModelPricingService.js",
-      "reason": "spec §6.1：同上，相对路径写法，与 @modules/ai 同一清零目标。"
-    }
-  ],
+  "approvalOrchestration": [],
+  "dynamicInfraToApp": [],
   "commonUtilsDuplicates": [
     {
       "name": "truncate",

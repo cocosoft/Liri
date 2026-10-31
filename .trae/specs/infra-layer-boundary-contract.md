@@ -1,6 +1,6 @@
 # Spec：infra 层边界契约（Infra Layer Boundary Contract）
 
-> 版本 1.1 ｜ 创建 2026-10-31 ｜ 状态：🟢 **约束与规范已立 + §8 四条建议门禁已落地**（`lint:infra`，2026-10-31）
+> 版本 1.2 ｜ 创建 2026-10-31 ｜ 状态：🟢 **约束与规范已立 + §8 四条门禁已落地 + R2/R3 存量已清零**（`lint:infra`，2026-10-31）
 > 来源：用户 2026-10-31 指令「infra 层内的模块，按 core 的方式处理，先写约束、规范」。
 > 事实源：`scripts/modules-to-layers.json`（分层唯一事实源）· `.trae/rules/architecture.md` · `.trae/rules/architecture-compliance.md`
 > 同类先例：`.trae/specs/kernel-style-architecture-governance.md`（core 的 Linux 式治理）· `packages/kernel/src/core/README.md`（core 的"零 I/O"判据）
@@ -74,6 +74,8 @@ infra 禁止依赖：entry、ui、app、service
 | `app/src/utils/ContextWindowResolver.ts:249` | infra 动态 `import('@modules/ai')`(app) | 同上；或把"模型属性"下沉为 core 类型 + 由 app 注入实现 |
 | `app/src/utils/ContextWindowResolver.ts:256` | 同上，相对路径 `../ai/models/ModelPricingService.js` | 同一清零目标（`lint:infra` R3 已逐条冻结） |
 
+> **2026-10-31 已清零**：① `BashPermission` 改为**注入**审批评估器（`setCommandApprovalEvaluator`，未注入即询问），删掉 `require('@modules/tools/…')`；② `calibrateContextWindow` 上移 `app/src/context/window/calibrateContextWindow.ts`（读 `ModelRegistry` + 写 `model_registry` 属领域动作），`utils/ContextWindowResolver` 保持 app-free，`@modules/context` 经 shim 继续转出（消费方零改动）。`lint:infra` R2 / R3 检查数均归 0，白名单两段已清空。
+
 ### 6.2 `security` / `permission` 的"策略 vs 原语"边界
 
 - 允许：检测原语（危险命令规则、路径校验、审计留痕、审批记录存储）。
@@ -117,8 +119,8 @@ infra 禁止依赖：entry、ui、app、service
 | 不得自建 Logger | ✅ R11-001 | 只允许 `loggerFacade` |
 | 生命周期 disposer / LIFO | ✅ 规则 + 既有断言 | `project_rules §1.16` |
 | **"模块顶层不做 I/O"** | ✅ `lint:infra` R1 | AST 判定（函数 / 类体内不算）；存量 1 处 `utils/env.ts` 已登记 |
-| **审批编排不得下沉** | ✅ `lint:infra` R2 | `security/**`、`permission/**` 运行时不得引用上层；存量 1 条（`BashPermission`）已登记 |
-| **infra → app 动态导入** | ✅ `lint:infra` R3（白名单清零） | 存量 3 条（§6.1）逐条冻结；条目消失时门禁提示清理 |
+| **审批编排不得下沉** | ✅ `lint:infra` R2 | `security/**`、`permission/**` 运行时不得引用上层；**存量已清零**（`BashPermission` 改注入评估器） |
+| **infra → app 动态导入** | ✅ `lint:infra` R3（白名单清零） | **存量已清零**（0 条，2026-10-31）；后续新增即红，条目消失即提示清理 |
 | **common / utils 重复检测** | ✅ `lint:infra` R4 | 同名导出（含命名空间内导出）；存量 6 个已登记：4 个真重复 + 2 个同名不同概念 |
 | **门禁接线与自证** | ✅ | `app/package.json` 的 `lint:infra` 进 pre-commit（`setup-git-hooks.ts`）+ `ci` 链；白名单 `.trae/architecture/infra-boundary-allowlist.json`（每条须带理由）；自证 `app/tests/gates/infraBoundary.test.ts`（18 例） |
 

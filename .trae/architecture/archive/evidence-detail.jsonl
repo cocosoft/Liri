@@ -7068,3 +7068,13 @@
 {"id":"INBOX-PARALLEL-SUBMIT","k":"notes","i":1,"c":"张静默丢失，调用方仍拿到成功对象）；加队列后 6 张全落库。"}
 {"id":"INBOX-PARALLEL-SUBMIT","k":"code#0","i":0,"c":"app/src/runtime/InboxManager.ts"}
 {"id":"INBOX-PARALLEL-SUBMIT","k":"tests#0","i":0,"c":"app/tests/runtime/inboxParallelSubmit.test.ts"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"title","i":0,"c":"记忆关系图保存同源修复 + 抽出共享原子写原语 writeFileAtomic（唯一临时名 + rename 重试）"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"source","i":0,"c":"真机 app.log（2026-10-31）：memory:manager [save_relation_graph] ENOENT rename memory-relation-graph.json.tmp（与 save_index 同源：固定 .tmp + 并发保存）"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"reopenWhen","i":0,"c":"再出现 save_relation_graph / save_index 的 ENOENT，或新增落盘路径自写「固定 .tmp」（应改用 writeFileAtomic）"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"notes","i":0,"c":"修复：新增 utils/atomicFileWrite.ts（唯一临时名 pid+序号、mkdir、rename 对 EPERM/EBUSY/EACCES 有界重试 3 次；ENOENT 不重试），记忆索引与关系图两处改为复用它 + 实例内保存队列。CS01：session/persistence/AtomicWriter 属 service 层（infra"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"notes","i":1,"c":"→service 会倒挂）故未直接复用，改为同层 utils 原语。测试：原语并发 8 写 + 目录自动创建；关系图 6 并发保存零错误 + 可解码；索引用例回归。"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"code#0","i":0,"c":"app/src/utils/atomicFileWrite.ts"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"code#1","i":0,"c":"app/src/memory/retrievers/MemoryRetriever.ts"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"code#2","i":0,"c":"app/src/memory/MemoryManager.ts"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"tests#0","i":0,"c":"app/tests/utils/atomicFileWrite.test.ts"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"tests#1","i":0,"c":"app/tests/memory/memoryRelationGraphSave.test.ts"}

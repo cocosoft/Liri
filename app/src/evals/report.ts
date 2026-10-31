@@ -126,7 +126,7 @@ function toMarkdown(summary: EvalRunSummary): string {
           `${a.promptTokens !== undefined ? ` ｜ tokens ${a.promptTokens}+${a.completionTokens ?? 0}` : ''}` +
           `${a.toolCalls?.length ? ` ｜ 工具: ${a.toolCalls.join(' → ')}` : ''}` +
           // A2（2026-09-26）：行为指标（**仅观测**，不作为通过/失败判据）
-          `${a.behavior ? ` ｜ 行为: 自验证${a.behavior.selfVerificationCount}/探索${a.behavior.explorationCount}/草稿比${a.behavior.draftingRatio}` : ''}` +
+          `${a.behavior ? ` ｜ 行为: 自验证${a.behavior.selfVerificationCount}/探索${a.behavior.explorationCount}/草稿比${a.behavior.draftingRatio}/重复${a.behavior.stalledRepeatCount ?? 0}` : ''}` +
           // S2（2026-09-26）：过程断言摘要（**仅观测**）。即使 0 违规也打印规则数 ⇒ 可区分"无违规"与"未计算"。
           `${
             a.processFindings?.length

@@ -89,6 +89,7 @@ import { stripBareExploration } from './services/bareExplorationStripper';
 import { extractTodoData } from './services/ChatHelper';
 // 2026-11-01：工具调用纠偏（同参数重复 / 跨轮重读已读文件）外移到 manager（守 R04-001 行数）
 import { ToolCallCorrection } from './manager/toolCallCorrection';
+import { toolCallArgsKey } from '../utils/toolCallKey';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types';
 import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
 import {
@@ -144,22 +145,6 @@ const TRUNCATED_TAG_RE =
  * ——后者会把"未知"谎报为"正常结束"（与 AB-3 既有修复方向一致）。
  */
 const UNKNOWN_FINISH_REASON = 'unknown';
-
-/** P2-3（2026-09-02）：工具调用参数归一化——键排序 + 字符串化（截断防超长 key） */
-function _toolCallArgsKey(args: Record<string, unknown>): string {
-  try {
-    const sorted: Record<string, unknown> = {};
-    for (const k of Object.keys(args ?? {}).sort()) {
-      const v = (args as Record<string, unknown>)[k];
-      sorted[k] =
-        v !== null && typeof v === 'object' ? JSON.stringify(v) : String(v);
-    }
-    const json = JSON.stringify(sorted);
-    return json.length > 200 ? json.slice(0, 200) : json;
-  } catch {
-    return '';
-  }
-}
 
 /** M1 子类自持的跨轮状态 */
 interface ReActToolLoopState {
@@ -284,7 +269,7 @@ export class ReActToolLoop extends ReActLoop<
   private readonly startedAt = Date.now();
   /** P2-3（2026-09-02）/ 2026-11-01：工具调用纠偏（同参数重复 + 跨轮重读已读文件） */
   private readonly _toolCallCorrection = new ToolCallCorrection({
-    argsKey: _toolCallArgsKey,
+    argsKey: toolCallArgsKey,
     getToolTurn: () => this.loopState.toolTurnCount,
     getSessionId: () => this.ctx.session.id,
     pushReminder: (text) => {

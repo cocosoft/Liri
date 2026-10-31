@@ -20,7 +20,8 @@
 // SOFTWARE.
 
 /**
- * A2（2026-09-26，《Liri 优化方案》）：评测**行为指标**（三个子指标）—— 纯函数。
+ * A2（2026-09-26，《Liri 优化方案》）：评测**行为指标**（四个子指标）—— 纯函数。
+ * （④「空转重复次数」为 2026-11-01 追加，承接 Bug 4「卡死」口径。）
  *
  * **⚠️ 仅作观测信号，不得作为通过/失败判据**（方案 A2 明文）：论文自身 CI 只对"自验证"
  * 的 95% CI 不含 0；exploration / drafting 的区间**跨过 0（统计不显著）**。把它们当门禁
@@ -43,6 +44,7 @@
  */
 
 import type { BehaviorMetrics, ToolCallRecord } from './types.js';
+import { toolCallArgsKey } from '../utils/toolCallKey.js';
 
 /** 编辑类工具（"首个编辑"标记位） */
 const EDIT_TOOLS = new Set(['file_edit', 'file_write']);
@@ -109,7 +111,25 @@ export function draftingRatio(text: string, toolCallCount: number): number {
   return Number((text.trim().length / toolCallCount).toFixed(2));
 }
 
-/** 汇总三个子指标（供 `runner.ts` 单点调用） */
+/**
+ * ④ 空转重复次数（2026-11-01，承接 Bug 4「卡死」口径）：相邻两次调用**工具名 + 归一化参数完全相同**
+ * 的次数。与循环守卫 `maxRepeatedRounds: 3` 同口径（此处只统计、不判定）。
+ *
+ * 边界：分页读取（`offset/limit` 不同）不计；不同工具交替不计（那属 `ping_pong` 口径）。
+ * 同样是**观测信号**，不作通过/失败判据。
+ */
+export function countStalledRepeats(calls: ToolCallRecord[]): number {
+  let repeats = 0;
+  for (let i = 1; i < calls.length; i++) {
+    const prev = calls[i - 1];
+    const cur = calls[i];
+    if (prev.name !== cur.name) continue;
+    if (toolCallArgsKey(prev.args) === toolCallArgsKey(cur.args)) repeats += 1;
+  }
+  return repeats;
+}
+
+/** 汇总四个子指标（供 `runner.ts` 单点调用） */
 export function computeBehaviorMetrics(
   calls: ToolCallRecord[],
   text: string
@@ -118,5 +138,6 @@ export function computeBehaviorMetrics(
     selfVerificationCount: countSelfVerification(calls),
     explorationCount: countExploration(calls),
     draftingRatio: draftingRatio(text, calls.length),
+    stalledRepeatCount: countStalledRepeats(calls),
   };
 }

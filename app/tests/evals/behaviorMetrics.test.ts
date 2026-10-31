@@ -35,6 +35,7 @@ import {
   computeBehaviorMetrics,
   countExploration,
   countSelfVerification,
+  countStalledRepeats,
   draftingRatio,
 } from '../../src/evals/behaviorMetrics';
 import { writeReport } from '../../src/evals/report';
@@ -158,7 +159,7 @@ describe('A2 ③ draftingRatio', () => {
 });
 
 describe('A2 computeBehaviorMetrics：结构稳定 + 不进门禁', () => {
-  it('三字段齐备且与单项函数一致', () => {
+  it('四字段齐备且与单项函数一致', () => {
     const calls = [
       call('file_read', { file_path: '/w/a' }),
       call('file_write', { file_path: '/w/a', content: 'y'.repeat(50) }),
@@ -169,9 +170,12 @@ describe('A2 computeBehaviorMetrics：结构稳定 + 不进门禁', () => {
       selfVerificationCount: countSelfVerification(calls),
       explorationCount: countExploration(calls),
       draftingRatio: draftingRatio('y'.repeat(50), calls.length),
+      // ④（2026-11-01）：空转重复次数（观测信号，非判据）
+      stalledRepeatCount: countStalledRepeats(calls),
     });
     expect(m.explorationCount).toBe(1);
     expect(m.selfVerificationCount).toBe(1);
+    expect(m.stalledRepeatCount).toBe(0);
   });
 
   it('反向锁定：行为指标**不参与** asExpected 判定（方案 A2 明文"不得作为门禁"）', () => {

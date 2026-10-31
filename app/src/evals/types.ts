@@ -228,6 +228,11 @@ export interface BehaviorMetrics {
   explorationCount: number;
   /** ③ 草稿比 = 当轮正文长度 ÷ 工具调用数（无工具调用 ⇒ 0） */
   draftingRatio: number;
+  /**
+   * ④ 空转重复次数（2026-11-01）：相邻两次调用「工具名 + 归一化参数」完全相同的次数。
+   * 与循环守卫 `maxRepeatedRounds: 3` 同口径，**观测信号**，不作通过/失败判据。
+   */
+  stalledRepeatCount: number;
 }
 
 /** 单次执行结果 */

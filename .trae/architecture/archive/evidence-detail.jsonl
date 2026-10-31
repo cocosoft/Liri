@@ -7131,3 +7131,10 @@
 {"id":"IO-REPEAT-ONLY-RULE","k":"notes","i":0,"c":"旧启发式「最近 10 次里 2–3 个键各 ≥3 次 ⇒ 交替循环」误伤探索。新判据：单个 target 在窗口内 ≥ blockThreshold(4) 才拦，且放在连续读写判定之后（连续场景保留更具体的「连续读/写 ×N」文案）。另：裸 `.` 无 cwd 不可比较 ⇒ 不计入（漏检不误检）；前导 ./ 归一。"}
 {"id":"IO-REPEAT-ONLY-RULE","k":"code#0","i":0,"c":"app/src/query/FileIOLoopDetector.ts"}
 {"id":"IO-REPEAT-ONLY-RULE","k":"tests#0","i":0,"c":"app/tests/query/FileIOLoopDetector.test.ts"}
+{"id":"MAIL-DELETE-AS-READ-NOTICE","k":"title","i":0,"c":"邮件删除后如实提示「仅标记已读」（前端承接服务端 data.note）"}
+{"id":"MAIL-DELETE-AS-READ-NOTICE","k":"source","i":0,"c":"取证 2026-10-31：DELETE /v1/mail/:id 不删邮件、只 markRead 并回 data.note；OfficeMailPage 只判 ok===false，不读 message/note ⇒ 用户以为已删除、下次同步又出现且无任何提示"}
+{"id":"MAIL-DELETE-AS-READ-NOTICE","k":"reopenWhen","i":0,"c":"IMAP delete 真实现（服务端不再带 note）时应撤掉该提示；或前端引入统一 toast 后改用 toast"}
+{"id":"MAIL-DELETE-AS-READ-NOTICE","k":"notes","i":0,"c":"用户裁定口径 A：前端承接说明。handleDeleteMail 读 data.note 存在时置中性 notice（琥珀色横幅，与 error 分离），新增 i18n office.mailDeletedAsRead（zh/en）。服务端行为与客户端既有成功/失败分支均未改动；note 消失即自动不提示（未来真删除无需回改）。"}
+{"id":"MAIL-DELETE-AS-READ-NOTICE","k":"code#0","i":0,"c":"client/src/components/views/office/OfficeMailPage.tsx"}
+{"id":"MAIL-DELETE-AS-READ-NOTICE","k":"code#1","i":0,"c":"client/src/i18n/locales/zh/workspace.ts"}
+{"id":"MAIL-DELETE-AS-READ-NOTICE","k":"code#2","i":0,"c":"client/src/i18n/locales/en/workspace.ts"}

@@ -57,9 +57,34 @@ const logger = getLogger('doc:lifecycle');
 /** doc 模块单例 */
 let docModuleInstance: DocModule | null = null;
 
+/**
+ * 健康检查是否应触发 OfficeCLI 重连（纯判定，2026-10-31 P1 功能缺口）。
+ *
+ * 判据（全部满足）：
+ * ① 模块自认 `FULL`（DEGRADED/UNINITIALIZED 交给 `refreshMCPStatus`，避免与它互相打架）；
+ * ② 无在途重连（单飞）；
+ * ③ `MCPServerManager` 里 officecli 的连接状态**不在**"仍存活"集合内
+ *    （`CONNECTED` / `CONNECTING` 均视为存活；条目缺失 = 被 `removeServer` 摘除 ⇒ 视为失效）。
+ *
+ * 导出以便单测：避免为测一个 tick 拉起整个 DocModule 的 MCP 依赖图。
+ */
+export function shouldReconnectOfficeCli(input: {
+  moduleStatus: DocModuleStatus;
+  connStatus: string | undefined;
+  aliveStatuses: readonly string[];
+  inFlight: boolean;
+}): boolean {
+  if (input.moduleStatus !== Status.FULL) return false;
+  if (input.inFlight) return false;
+  if (!input.connStatus) return true;
+  return !input.aliveStatuses.includes(input.connStatus);
+}
+
 export class DocModule {
   private status: DocModuleStatus = Status.UNINITIALIZED;
   private healthCheckTimer: ReturnType<typeof setInterval> | null = null;
+  /** 健康检查触发的重连是否在途（单飞，防重连风暴；2026-10-31 P1） */
+  private reconnectInFlight = false;
   /** 检测到的 OfficeCLI 版本号（initFullMode 时记录） */
   private officeCLIVersion?: string;
   /** D-9：已同步的 MCP 工具数（syncMCPServerTools 时更新，getCapabilities 只读此缓存） */
@@ -631,11 +656,52 @@ export class DocModule {
   private startHealthCheck(): void {
     if (this.healthCheckTimer) return;
     this.healthCheckTimer = setInterval(() => {
-      logger.debug('Doc 模块健康检查 tick', { status: this.status });
-      // TODO: 检查 OfficeCLI MCP 连接状态
+      void this._healthTick();
     }, 30000);
     // 不阻塞进程退出（周期性健康检查，可放弃）
     this.healthCheckTimer.unref?.();
+  }
+
+  /**
+   * 健康检查 tick（2026-10-31，P1 功能缺口：原实现只打 debug、恒空转）。
+   *
+   * 判据：模块自认 `FULL` 且 `MCPServerManager`（唯一事实来源）里 officecli
+   * **不再是 CONNECTED** ⇒ 连接已死（进程崩溃 / MCP 断链），复用既有
+   * `handleOfficeCLICrash()`（3 次指数退避重连 → 成功回 FULL / 失败降级 DEGRADED）。
+   *
+   * 单飞：重连进行中的 tick 直接跳过（重连本身最长 ~1.5s + 退避，30s tick 足够收尾），
+   * 防"上一次还没回，下一次又发起"的重连风暴。
+   */
+  private async _healthTick(): Promise<void> {
+    if (this.reconnectInFlight) return;
+    try {
+      const { getMCPServerManager } =
+        await import('@modules/services/mcp/MCPServerManager');
+      const { MCPServerStatus } = await import('@modules/services/mcp/types');
+      const connStatus = getMCPServerManager()
+        .getServer('officecli')
+        ?.getStatus();
+      const should = shouldReconnectOfficeCli({
+        moduleStatus: this.status,
+        connStatus,
+        aliveStatuses: [MCPServerStatus.CONNECTED, MCPServerStatus.CONNECTING],
+        inFlight: this.reconnectInFlight,
+      });
+      if (!should) return;
+      this.reconnectInFlight = true;
+      logger.warn('OfficeCLI 连接已失效，触发重连', {
+        moduleStatus: this.status,
+        connStatus,
+      });
+      try {
+        await this.handleOfficeCLICrash();
+      } finally {
+        this.reconnectInFlight = false;
+      }
+    } catch (error) {
+      // @ignore-catch — 健康检查失败不影响文档主流程
+      logger.debug('Doc 健康检查失败（忽略）', { error: String(error) });
+    }
   }
 
   /**

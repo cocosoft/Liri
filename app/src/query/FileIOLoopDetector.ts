@@ -114,7 +114,6 @@ export class FileIOLoopDetector {
   /** 跨文件交替检测：最近访问的文件列表 */
   private recentFiles: string[] = [];
   private readonly MAX_RECENT_FILES_TRACK = 10;
-  private readonly FILE_CYCLE_THRESHOLD = 6;
 
   constructor(config?: Partial<FileIOConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -141,7 +140,10 @@ export class FileIOLoopDetector {
   ): FileIOBlockResult {
     if (!this.config.enabled) return { blocked: false, warning: false };
 
-    const normalizedPath = filePath.replace(/\\/g, '/');
+    // 去掉前导 `./`（`./a` 与 `a` 是同一目标）；裸 `.` 无法在无 cwd 时比较 ⇒ 不参与重复计数
+    const normalizedPath = filePath
+      .replace(/\\/g, '/')
+      .replace(/^(?:\.\/)+/, '');
     const isRead = READ_TOOLS.has(toolName);
     const isWrite = WRITE_TOOLS.has(toolName);
 
@@ -156,23 +158,18 @@ export class FileIOLoopDetector {
       ? `${normalizedPath}\u0000${querySignature}`
       : normalizedPath;
 
-    // 跨文件交替循环检测
-    // 2026-10-31：同一文件的绝对/相对写法归一到**已有键**（详见 `isSameAccessTarget`），
-    // 否则「同一个 PRD.md 换个写法」会被当成两个文件交替 ⇒ 误终止整轮。
-    const sameTargetKey = this.recentFiles.find((k) =>
-      isSameAccessTarget(k, accessKey)
-    );
-    this.recentFiles.push(sameTargetKey ?? accessKey);
-    if (this.recentFiles.length > this.MAX_RECENT_FILES_TRACK) {
-      this.recentFiles.shift();
-    }
-    const cycleDetected = this._detectFileCycle();
-    if (cycleDetected.detected) {
-      return this._applyObserveOnly({
-        blocked: true,
-        warning: false,
-        message: cycleDetected.message,
-      });
+    // 重复目标检测（2026-10-31 口径：**只拦同一目标重复**）
+    // ① 同一文件的绝对/相对写法归一到**已有键**（详见 `isSameAccessTarget`）；
+    // ② 裸 `.`（当前目录）无 cwd 时无法比较 ⇒ **不计入**（漏检不误检），避免
+    //    「绝对路径 vs `.`」这种同一目录的两种写法互相叠加（真机 app.log 实证误判）。
+    if (normalizedPath !== '.' && normalizedPath !== '') {
+      const sameTargetKey = this.recentFiles.find((k) =>
+        isSameAccessTarget(k, accessKey)
+      );
+      this.recentFiles.push(sameTargetKey ?? accessKey);
+      if (this.recentFiles.length > this.MAX_RECENT_FILES_TRACK) {
+        this.recentFiles.shift();
+      }
     }
 
     // ── 读循环检测 ──
@@ -246,6 +243,17 @@ export class FileIOLoopDetector {
       }
     }
 
+    // 窗口内「同一目标重复」兜底（放在连续读写判定**之后**：连续场景优先用更具体的
+    // 「连续读/写 ×N」文案；本判据只覆盖**非连续**重复，如 A、B、A、C、A、D、A）。
+    const repeatDetected = this._detectRepeatedTarget();
+    if (repeatDetected.detected) {
+      return this._applyObserveOnly({
+        blocked: true,
+        warning: false,
+        message: repeatDetected.message,
+      });
+    }
+
     return { blocked: false, warning: false };
   }
 
@@ -261,26 +269,29 @@ export class FileIOLoopDetector {
   }
 
   /**
-   * 跨文件交替循环检测
-   * 最近 N 次中，某几个文件重复出现超过阈值
+   * 同一目标在最近窗口内**重复**访问（2026-10-31 用户口径：交叉文件判定只认「同一目标重复」）。
+   *
+   * 旧启发式「最近 10 次里任意 2–3 个键各出现 ≥3 次 ⇒ 交替循环」会把**两个不同目标交替探索**
+   * （如 `output/**` 与 `01_work/**` 交替 glob）判成循环并终止整轮；交替访问不同目标本身不构成
+   * 循环（乒乓判据由 `query:loopConfig.pingPongThreshold` 负责）。
+   *
+   * 现判据：**单个** target 在窗口内出现次数 ≥ `blockThreshold`（默认 4）。
    */
-  private _detectFileCycle(): { detected: boolean; message?: string } {
-    if (this.recentFiles.length < this.FILE_CYCLE_THRESHOLD)
+  private _detectRepeatedTarget(): { detected: boolean; message?: string } {
+    if (this.recentFiles.length < this.config.blockThreshold) {
       return { detected: false };
-
-    // 统计每个文件出现次数
-    const freq = new Map<string, number>();
-    for (const f of this.recentFiles) freq.set(f, (freq.get(f) ?? 0) + 1);
-
-    // 如果有 2-3 个文件出现 ≥3 次，判定为交替循环
-    const multiHit = [...freq.entries()].filter(([, c]) => c >= 3);
-    if (multiHit.length >= 2 && multiHit.length <= 3) {
-      return {
-        detected: true,
-        message: `[IO_CYCLE] 检测到 ${multiHit.length} 个文件交替读取循环: ${multiHit.map(([f]) => f).join(', ')}`,
-      };
     }
-
+    const freq = new Map<string, number>();
+    for (const key of this.recentFiles) {
+      const n = (freq.get(key) ?? 0) + 1;
+      freq.set(key, n);
+      if (n >= this.config.blockThreshold) {
+        return {
+          detected: true,
+          message: `[IO_REPEAT] 最近 ${this.recentFiles.length} 次访问中，同一目标重复 ×${n}（${pathPartOfKey(key)}）`,
+        };
+      }
+    }
     return { detected: false };
   }
 

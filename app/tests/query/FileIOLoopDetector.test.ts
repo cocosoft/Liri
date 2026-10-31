@@ -137,7 +137,7 @@ describe('FileIOLoopDetector：同一文件的绝对/相对写法不判交替循
   // C:/Users/…/output/PRD.md, output/PRD.md` —— 两个键指向**同一个物理文件**，
   // 却被当成两个文件交替 ⇒ 整轮终止。
 
-  it('同一文件 abs/rel 交替 6 次 ⇒ 不警告也不阻断', () => {
+  it('同一文件 abs/rel 交替 ⇒ 按「同一目标重复」拦，且不再出现"2 个文件交替"判定', () => {
     const d = createFileIOLoopDetector({
       warningThreshold: 3,
       blockThreshold: 4,
@@ -145,45 +145,72 @@ describe('FileIOLoopDetector：同一文件的绝对/相对写法不判交替循
     const abs = 'C:/Users/u/.pyapp/workspaces/pdca_x/output/PRD.md';
     const rel = 'output/PRD.md';
 
-    for (let i = 0; i < 6; i++) {
-      const r = d.checkBeforeAccess('file_read', i % 2 === 0 ? abs : rel);
-      expect(r.blocked).toBe(false);
-      expect(r.warning).toBe(false);
-    }
+    // 4 次访问同一文件（两种写法交替）⇒ 归一到同一目标，达到 blockThreshold 即拦
+    const results = [0, 1, 2, 3].map((i) =>
+      d.checkBeforeAccess('file_read', i % 2 === 0 ? abs : rel)
+    );
+    expect(results.slice(0, 3).every((r) => !r.blocked)).toBe(true);
+
+    const last = results[3];
+    expect(last.blocked).toBe(true);
+    expect(String(last.message)).toContain('[IO_REPEAT]');
+    // 关键：不得再判成「两个文件交替」（那是 abs/rel 写法差异导致的误判）
+    expect(String(last.message)).not.toContain('交替');
   });
 
-  it('真正不同的两个文件交替（各 3 次）⇒ 仍判交替循环', () => {
+  it('真正不同的两个文件交替（各 3 次）⇒ **不再**判循环（2026-10-31 口径）', () => {
     const d = createFileIOLoopDetector({
       warningThreshold: 3,
       blockThreshold: 4,
     });
-    let last = { blocked: false } as { blocked: boolean };
 
+    // 口径：交叉文件判定只认「同一目标重复」；两个不同目标各 3 次属正常探索
+    //（交替/乒乓判据由 query:loopConfig.pingPongThreshold 负责，默认 10）。
     for (let i = 0; i < 3; i++) {
-      last = d.checkBeforeAccess('file_read', 'C:/ws/a.md');
-      expect(last.blocked).toBe(false);
-      last = d.checkBeforeAccess('file_read', 'C:/ws/b.md');
-      if (i < 2) expect(last.blocked).toBe(false);
+      expect(d.checkBeforeAccess('file_read', 'C:/ws/a.md').blocked).toBe(
+        false
+      );
+      expect(d.checkBeforeAccess('file_read', 'C:/ws/b.md').blocked).toBe(
+        false
+      );
     }
-
-    expect(last.blocked).toBe(true);
   });
 
-  it('同路径不同 pattern 交替（各 3 次）⇒ 不合并（查询语义不同，仍按交替循环判定）', () => {
+  it('同一目标在窗口内重复 4 次（非连续）⇒ 仍拦', () => {
+    const d = createFileIOLoopDetector({
+      warningThreshold: 3,
+      blockThreshold: 4,
+    });
+    // A、B、A、C、A、D、A ⇒ 第 4 次 A 时窗口内同一目标重复 ×4
+    for (const p of [
+      'C:/ws/a.md',
+      'C:/ws/b.md',
+      'C:/ws/a.md',
+      'C:/ws/c.md',
+      'C:/ws/a.md',
+      'C:/ws/d.md',
+    ]) {
+      expect(d.checkBeforeAccess('file_read', p).blocked).toBe(false);
+    }
+    const blocked = d.checkBeforeAccess('file_read', 'C:/ws/a.md');
+    expect(blocked.blocked).toBe(true);
+    expect(String(blocked.message)).toContain('[IO_REPEAT]');
+  });
+
+  it('同路径不同 pattern 交替（各 3 次）⇒ 不拦（查询语义不同 + 非同一目标重复）', () => {
     const d = createFileIOLoopDetector({
       warningThreshold: 3,
       blockThreshold: 4,
     });
     const p = 'C:/ws/docs';
-    let last = { blocked: false } as { blocked: boolean };
 
     for (let i = 0; i < 3; i++) {
-      last = d.checkBeforeAccess('grep', p, undefined, undefined, 'A');
-      expect(last.blocked).toBe(false);
-      last = d.checkBeforeAccess('grep', p, undefined, undefined, 'B');
-      if (i < 2) expect(last.blocked).toBe(false);
+      expect(
+        d.checkBeforeAccess('grep', p, undefined, undefined, 'A').blocked
+      ).toBe(false);
+      expect(
+        d.checkBeforeAccess('grep', p, undefined, undefined, 'B').blocked
+      ).toBe(false);
     }
-
-    expect(last.blocked).toBe(true);
   });
 });

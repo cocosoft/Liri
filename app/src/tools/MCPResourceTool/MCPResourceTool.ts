@@ -12,7 +12,7 @@ import type {
   ToolParam,
   ToolCallProgress,
   ToolProgressData,
-  ValidationResult,
+  ToolValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import { getLogger } from '@modules/monitoring';
@@ -166,7 +166,7 @@ export class MCPResourceTool extends BaseTool<
     return true;
   }
 
-  override validateInput(input: MCPResourceToolInput): ValidationResult {
+  override validateInput(input: MCPResourceToolInput): ToolValidationResult {
     const validActions = [
       'list_resources',
       'read_resource',

@@ -12,9 +12,12 @@ import type { SharedToolRiskLevel } from '@shared/types';
 export type { ToolResult };
 
 /**
- * 验证结果类型
+ * 工具参数校验结果（判别联合）
+ *
+ * 2026-10-31 由 `ValidationResult` 改名：原名与 `common/types` 的
+ * `{valid, errors}` 结构重名（`lint:infra` R4 同名导出），语义也不同 ⇒ 前缀化以消除歧义。
  */
-export type ValidationResult =
+export type ToolValidationResult =
   | { result: true }
   | {
       result: false;
@@ -630,7 +633,7 @@ export interface Tool<
   /**
    * 验证输入
    */
-  validateInput?(input: Input): ValidationResult;
+  validateInput?(input: Input): ToolValidationResult;
 
   /**
    * 带上下文的输入验证
@@ -638,7 +641,7 @@ export interface Tool<
   validateInputWithContext?(
     input: Input,
     context: ToolUseContext
-  ): Promise<ValidationResult>;
+  ): Promise<ToolValidationResult>;
 
   /**
    * 获取工具信息

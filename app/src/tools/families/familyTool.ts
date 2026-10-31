@@ -23,7 +23,7 @@ import type {
   ToolUseContext,
   ToolResult,
   ToolCallProgress,
-  ValidationResult,
+  ToolValidationResult,
 } from '../types';
 import type { ToolRiskClass } from '../../utils/toolContract/Tool';
 
@@ -195,7 +195,7 @@ export class FamilyTool extends BaseTool {
     return this.isReadOnly(input) ? 'read' : 'write';
   }
 
-  override validateInput(input: unknown): ValidationResult {
+  override validateInput(input: unknown): ToolValidationResult {
     const raw = (input ?? {}) as Record<string, unknown>;
     const member = this.resolveMember(raw);
     if (!member) {

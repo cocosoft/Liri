@@ -18,7 +18,7 @@ export interface ConfigValidationRule<T = unknown> {
   message?: string;
 }
 
-export interface ValidationResult {
+export interface ConfigValidationResult {
   valid: boolean;
   errors: ConfigValidationError[];
   warnings: ValidationWarning[];
@@ -57,7 +57,7 @@ export class ConfigValidator {
     return this.rules.get(key);
   }
 
-  validate(config: Record<string, unknown>): ValidationResult {
+  validate(config: Record<string, unknown>): ConfigValidationResult {
     const errors: ConfigValidationError[] = [];
     const warnings: ValidationWarning[] = [];
 
@@ -170,7 +170,7 @@ export function createConfigValidator(
 export function validateRequiredKeys(
   config: Record<string, unknown>,
   requiredKeys: string[]
-): ValidationResult {
+): ConfigValidationResult {
   const errors: ConfigValidationError[] = [];
 
   for (const key of requiredKeys) {
@@ -193,7 +193,7 @@ export function validateRequiredKeys(
 export function validateTypes(
   config: Record<string, unknown>,
   typeMap: Record<string, string>
-): ValidationResult {
+): ConfigValidationResult {
   const errors: ConfigValidationError[] = [];
 
   for (const [key, expectedType] of Object.entries(typeMap)) {

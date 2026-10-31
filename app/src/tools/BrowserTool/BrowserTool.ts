@@ -11,7 +11,7 @@ import type {
   ToolUseContext,
   ToolParam,
   ToolCallProgress,
-  ValidationResult,
+  ToolValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
 
@@ -144,7 +144,7 @@ export class BrowserTool extends BaseTool<BrowserToolInput, BrowserToolOutput> {
     return false;
   }
 
-  override validateInput(input: BrowserToolInput): ValidationResult {
+  override validateInput(input: BrowserToolInput): ToolValidationResult {
     const validActions = [
       'open_tab',
       'click',

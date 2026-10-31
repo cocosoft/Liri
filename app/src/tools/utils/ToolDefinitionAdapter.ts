@@ -14,7 +14,7 @@ import { randomIdSuffix } from '../../utils/common';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolExecutionStatus, type ToolResult } from '../types/ToolResult';
 import type { PermissionResult } from '../types/PermissionResult';
-import type { ValidationResult } from '../types/Tool';
+import type { ToolValidationResult } from '../types/Tool';
 import type {
   ToolDefinition,
   ToolParameter,
@@ -169,7 +169,7 @@ export class ToolDefinitionAdapter implements Tool {
     return { behavior: 'allow' };
   }
 
-  validateInput(_input: unknown): ValidationResult {
+  validateInput(_input: unknown): ToolValidationResult {
     return { result: true };
   }
 }

@@ -10,7 +10,7 @@ import type { Tool, ToolInfo, ToolParam, ToolRiskClass } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolResult } from '../types/ToolResult';
 import type { PermissionResult } from '../types/PermissionResult';
-import type { ValidationResult } from '../types/Tool';
+import type { ToolValidationResult } from '../types/Tool';
 import type { ToolCallProgress } from '../types/Tool';
 import { deriveToolRiskClass } from '../toolRiskClass';
 
@@ -185,7 +185,7 @@ export class ToolLazyWrapper implements Tool {
     return { behavior: 'allow' };
   }
 
-  validateInput?(input: any): ValidationResult {
+  validateInput?(input: any): ToolValidationResult {
     // BUG 4 修复（2026-08-27）：已加载工具委托真实校验，不再恒放行——
     // 原实现使权限/调度前置拦截层永远拿到"通过"（AgentTool 的必填校验被绕过）。
     // 懒加载未加载时仍由 execute 内部校验兜底（保持懒加载语义）。
@@ -205,7 +205,7 @@ export class ToolLazyWrapper implements Tool {
   async validateInputWithContext?(
     input: any,
     context: ToolUseContext
-  ): Promise<ValidationResult> {
+  ): Promise<ToolValidationResult> {
     const realTool = await this.loader.get();
     if (typeof realTool.validateInputWithContext === 'function') {
       return realTool.validateInputWithContext(input, context);

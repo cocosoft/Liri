@@ -9,7 +9,7 @@
  * - 支持Skill参数传递
  */
 
-import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
+import { Tool, ToolInfo, ToolTag, ToolValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { SKILL_TOOL_NAME, BUILTIN_SKILLS } from './constants';
@@ -295,7 +295,7 @@ export class SkillTool implements Tool {
    * 验证输入参数
    * @param input 输入参数
    */
-  validateInput(input: Record<string, unknown>): ValidationResult {
+  validateInput(input: Record<string, unknown>): ToolValidationResult {
     if (!input.name || typeof input.name !== 'string') {
       return {
         result: false,

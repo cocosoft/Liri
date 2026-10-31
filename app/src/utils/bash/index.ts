@@ -49,6 +49,6 @@ export {
   isCommandArgument,
   findSubcommandSpec,
 } from './registry';
-export type { CommandSpec, Argument, Option } from './registry';
+export type { CommandSpec, Argument, CommandOption } from './registry';
 
 export { getCommandPrefixStatic } from './prefix';

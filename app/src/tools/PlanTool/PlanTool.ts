@@ -12,7 +12,7 @@ import type {
   ToolParam,
   ToolCallProgress,
   ToolProgressData,
-  ValidationResult,
+  ToolValidationResult,
 } from '../types';
 import type { Tool } from '../types/Tool';
 import { ToolTag } from '../types/Tool';
@@ -188,7 +188,7 @@ export class PlanTool extends BaseTool<
     return false;
   }
 
-  override validateInput(input: PlanToolInput): ValidationResult {
+  override validateInput(input: PlanToolInput): ToolValidationResult {
     const validActions = [
       'create',
       'list',

@@ -16,7 +16,7 @@ import { ToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam, ToolTag } from '../types/Tool';
 import { PermissionResult, createAllowResult } from '../types/PermissionResult';
-import { ValidationResult } from '../types/Tool';
+import { ToolValidationResult } from '../types/Tool';
 import {
   createSuccessResult,
   createFailureResult,
@@ -366,7 +366,7 @@ export class GrepTool extends BaseTool {
     return true;
   }
 
-  override validateInput(input: Record<string, unknown>): ValidationResult {
+  override validateInput(input: Record<string, unknown>): ToolValidationResult {
     if (!input.pattern || typeof input.pattern !== 'string') {
       return {
         result: false,

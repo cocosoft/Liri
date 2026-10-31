@@ -4,7 +4,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
+import { Tool, ToolInfo, ToolTag, ToolValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_OUTPUT_TOOL_NAME } from './constants';
@@ -284,7 +284,7 @@ export class VoiceOutputTool implements Tool {
     return true;
   }
 
-  validateInput(input: Record<string, unknown>): ValidationResult {
+  validateInput(input: Record<string, unknown>): ToolValidationResult {
     if (!input.action) {
       return { result: false, message: 'Missing required parameter: action' };
     }

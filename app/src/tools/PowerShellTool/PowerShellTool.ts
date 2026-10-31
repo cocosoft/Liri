@@ -13,7 +13,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import {
   ToolParam,
   InterruptBehavior,
-  ValidationResult,
+  ToolValidationResult,
   ToolTag,
   ToolCallProgress,
 } from '../types/Tool';
@@ -719,7 +719,7 @@ export class PowerShellTool extends BaseTool {
     this.securityAnalyzer = new PowerShellSecurityAnalyzer();
   }
 
-  override validateInput(input: any): ValidationResult {
+  override validateInput(input: any): ToolValidationResult {
     const result = PowerShellInputSchema.safeParse(input);
     if (!result.success) {
       const errors = result.error.issues

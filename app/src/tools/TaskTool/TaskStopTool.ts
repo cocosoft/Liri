@@ -11,7 +11,7 @@ import type {
   ToolUseContext,
   ToolParam,
   ToolCallProgress,
-  ValidationResult,
+  ToolValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import { taskRegistry } from '@modules/tasks';
@@ -105,7 +105,7 @@ export class TaskStopTool extends BaseTool<
     return 'cancel';
   }
 
-  override validateInput(input: TaskStopToolInput): ValidationResult {
+  override validateInput(input: TaskStopToolInput): ToolValidationResult {
     if (!input.task_id || typeof input.task_id !== 'string') {
       return {
         result: false,

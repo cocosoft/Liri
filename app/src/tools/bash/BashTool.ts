@@ -14,7 +14,7 @@ import type {
   ToolParam,
   ToolCallProgress,
   PermissionResult,
-  ValidationResult,
+  ToolValidationResult,
 } from '../types';
 import { createToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { createBashProgress } from '../types/ToolProgress';

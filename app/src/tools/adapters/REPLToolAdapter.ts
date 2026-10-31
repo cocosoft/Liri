@@ -6,7 +6,7 @@ import type {
   Tool,
   ToolInfo,
   ToolParam,
-  ValidationResult,
+  ToolValidationResult,
   InterruptBehavior,
 } from '../types/Tool.js';
 import type { ToolUseContext } from '../types/ToolUseContext.js';
@@ -177,7 +177,7 @@ export class REPLToolAdapter implements Tool {
   /**
    * 验证参数
    */
-  validateParams(params: Record<string, unknown>): ValidationResult {
+  validateParams(params: Record<string, unknown>): ToolValidationResult {
     if (!params.action) {
       return { result: false, message: 'Missing required parameter: action' };
     }

@@ -7,7 +7,7 @@ import type {
   ToolInfo,
   ToolParam,
   ToolTag,
-  ValidationResult,
+  ToolValidationResult,
   InterruptBehavior,
   ToolUseContext,
   ToolResult,
@@ -215,7 +215,7 @@ export abstract class BaseTool<
    * @param input 工具输入
    * @returns 验证结果
    */
-  validateInput?(input: unknown): ValidationResult {
+  validateInput?(input: unknown): ToolValidationResult {
     return { result: true };
   }
 
@@ -229,7 +229,7 @@ export abstract class BaseTool<
   async validateInputWithContext?(
     input: unknown,
     context: ToolUseContext
-  ): Promise<ValidationResult> {
+  ): Promise<ToolValidationResult> {
     if (this.validateInput) {
       return this.validateInput(input);
     }

@@ -17,7 +17,7 @@ import {
   ToolInfo,
   ToolParam,
   ToolTag,
-  ValidationResult,
+  ToolValidationResult,
   ToolCallProgress,
 } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
@@ -551,7 +551,7 @@ export class AgentTool implements Tool {
    * 验证输入参数
    * @param input 输入参数
    */
-  validateInput(input: Record<string, unknown>): ValidationResult {
+  validateInput(input: Record<string, unknown>): ToolValidationResult {
     if (!input.description || typeof input.description !== 'string') {
       return {
         result: false,

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "recordedAt": "2026-10-31",
-  "note": "infra 层边界契约门禁白名单（R1–R4）。每条必须写明理由；理由缺失本身即违规。R2/R3 为清零目标：条目消失时门禁提示清理。2026-10-31：R2/R3 存量已清零（BashPermission 改注入评估器、calibrateContextWindow 上移 app）；R4 的 4 个真重复（truncate/deepClone/throttle/debounce）已去重（保留 utils/common 实现）。规范见 .trae/specs/infra-layer-boundary-contract.md §5/§8。",
+  "note": "infra 层边界契约门禁白名单（R1–R5）。每条必须写明理由；理由缺失本身即违规。R2/R3 为清零目标：条目消失时门禁提示清理。2026-10-31：R2/R3/R4 存量已清零（BashPermission 改注入评估器、calibrateContextWindow 上移 app、common/utils 四组同名实现去重、Option→CommandOption 与 ValidationResult→ToolValidationResult 改名）；R5 仅包装本体。规范见 .trae/specs/infra-layer-boundary-contract.md §5/§8。",
   "topLevelIo": [
     {
       "path": "utils/env.ts",
@@ -10,16 +10,7 @@
   ],
   "approvalOrchestration": [],
   "dynamicInfraToApp": [],
-  "commonUtilsDuplicates": [
-    {
-      "name": "Option",
-      "reason": "同名不同概念（common/types.ts 的通用 Option 类型 vs utils/bash/registry.ts 的命令选项），非第二份实现；留待归一化盘重复核。"
-    },
-    {
-      "name": "ValidationResult",
-      "reason": "同名结构体各有一份（common 通用 / utils/config/ConfigValidator / utils/toolContract/Tool）；属 §6.3 归一化盘点范围。"
-    }
-  ],
+  "commonUtilsDuplicates": [],
   "sqliteDirectImports": [
     {
       "path": "external/sqlite3.ts",

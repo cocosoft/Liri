@@ -15,7 +15,7 @@ import type {
   ToolParam,
   ToolCallProgress,
   InterruptBehavior,
-  ValidationResult,
+  ToolValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import { buildUserAgent } from '@modules/constants';
@@ -148,7 +148,7 @@ export class WebSearchTool extends BaseTool {
     super();
   }
 
-  override validateInput(input: any): ValidationResult {
+  override validateInput(input: any): ToolValidationResult {
     const result = WebSearchInputSchema.safeParse(input);
     if (!result.success) {
       const errors = result.error.issues

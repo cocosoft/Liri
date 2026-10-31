@@ -37,7 +37,7 @@ import type {
   Tool,
   ToolInfo,
   ToolParam,
-  ValidationResult,
+  ToolValidationResult,
   InterruptBehavior,
 } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
@@ -204,7 +204,7 @@ export class SidecarLspTool implements Tool {
   }
 
   /** 与内置 `LSPToolAdapter.validateParams` 同口径 */
-  validateParams(params: Record<string, unknown>): ValidationResult {
+  validateParams(params: Record<string, unknown>): ToolValidationResult {
     if (!params.action) {
       return { result: false, message: 'Missing required parameter: action' };
     }

@@ -21,8 +21,11 @@ export interface Argument {
 
 /**
  * 命令选项定义
+ *
+ * 2026-10-31 由 `Option` 改名：原名与 `common/types` 的 UI 选项
+ * （`{label, value}`）重名（`lint:infra` R4 同名导出），语义不同 ⇒ 前缀化。
  */
-export interface Option {
+export interface CommandOption {
   name: string | string[];
   description?: string;
   args?: Argument | Argument[];
@@ -37,7 +40,7 @@ export interface CommandSpec {
   description?: string;
   subcommands?: CommandSpec[];
   args?: Argument | Argument[];
-  options?: Option[];
+  options?: CommandOption[];
 }
 
 /**

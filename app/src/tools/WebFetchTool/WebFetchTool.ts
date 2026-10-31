@@ -15,7 +15,7 @@ import type {
   ToolParam,
   ToolCallProgress,
   InterruptBehavior,
-  ValidationResult,
+  ToolValidationResult,
 } from '../types/index';
 import { createToolResult } from '../types/ToolResult';
 import { buildUserAgent } from '@modules/constants';
@@ -138,7 +138,7 @@ export class WebFetchTool extends BaseTool {
     super();
   }
 
-  override validateInput(input: any): ValidationResult {
+  override validateInput(input: any): ToolValidationResult {
     const result = WebFetchInputSchema.safeParse(input);
     if (!result.success) {
       const errors = result.error.issues

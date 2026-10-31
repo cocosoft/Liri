@@ -7310,3 +7310,12 @@
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-4","k":"notes","i":1,"c":"稳定假红。通道 core 16→24、community 11→3。"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-4","k":"tests#0","i":0,"c":"app/tests/channels/ircStub.test.ts"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-4","k":"changelog#0","i":0,"c":"新增：IRC 协议桩（注册握手顺序 + PRIVMSG 形状 + 超长分片）"}
+{"id":"NOSTR-HONEST-FAILURE","k":"title","i":0,"c":"Nostr 通道：不再谎报发送成功（壳语义如实失败）+ 等级降为 experimental"}
+{"id":"NOSTR-HONEST-FAILURE","k":"source","i":0,"c":"取证 2026-11-01：NostrChannel 是遗留 EventEmitter 壳（connect 只置标志、publishEvent 只生成随机 id 并 emit，无 WebSocket relay 与事件签名），而 sendTextMessage 恒返回 success ⇒ 消息未发出却报成功（静默丢消息）。"}
+{"id":"NOSTR-HONEST-FAILURE","k":"reopenWhen","i":0,"c":"若补齐 relay 传输 + secp256k1 签名，应把 sendTextMessage 改为真实发布结果并撤掉 support-levels.json 的 nostr=experimental 覆盖（本用例的「未就绪必失败」断言需同步改为真实失败路径）。"}
+{"id":"NOSTR-HONEST-FAILURE","k":"notes","i":0,"c":"修复：sendTextMessage 按 sendDirectMessage 真实返回值判定，未就绪返回 success=false + 明确原因（无 WebSocket 传输层）。新增 3 例：插件层不谎报；类层未 connect 时 publishEvent/sendDirectMessage 返回 null；connect 后 DM 走 kind=4 "}
+{"id":"NOSTR-HONEST-FAILURE","k":"notes","i":1,"c":"并 emit event:published。用 overrides 把 nostr 标 experimental（不按 core 宣称）。通道 core 24、community 2、experimental 1。"}
+{"id":"NOSTR-HONEST-FAILURE","k":"code#0","i":0,"c":"app/src/channels/nostr/NostrChannel.ts"}
+{"id":"NOSTR-HONEST-FAILURE","k":"code#1","i":0,"c":".trae/architecture/support-levels.json"}
+{"id":"NOSTR-HONEST-FAILURE","k":"tests#0","i":0,"c":"app/tests/channels/nostrStub.test.ts"}
+{"id":"NOSTR-HONEST-FAILURE","k":"changelog#0","i":0,"c":"修复：Nostr 通道不再谎报发送成功（壳实现如实失败，等级降为 experimental）"}

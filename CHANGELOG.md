@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **NOSTR-HONEST-FAILURE**：Nostr 不再谎报成功（壳实现如实失败）+ 等级降 experimental —— 验证 tsc0|unit3|channels668|eslint0；基线 nostr sendTextMessage 恒返回 success，消息实际未发出（无 relay 传输）；台账此前按 community 呈现（详情见 archive/evidence-detail.jsonl#NOSTR-HONEST-FAILURE）
 - ✅ **CHANNEL-REQUEST-SHAPE-STUBS-4**：IRC 协议桩（握手顺序 + PRIVMSG 形状 + 分片） —— 验证 unit3|channels665|eslint0；基线 IRC 注册握手与 PRIVMSG 形状无回归；协议细节改动只能靠真实 IRC 网络发现（详情见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-4）
 - ✅ **CHANNEL-REQUEST-SHAPE-STUBS-3**：邮件通道 SMTP 协议桩（握手 + MIME 主题编码） —— 验证 unit1|channels662|eslint0；基线 邮件通道无投递链路回归；SMTP 握手与 MIME 头（含中文主题）只能靠真实发信验证（详情见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-3）
 - ✅ **CHANNEL-REQUEST-SHAPE-STUBS-2**：通道 upstream 契约桩第二批（LINE/企业微信/Google Chat） —— 验证 unit9|channels661|eslint0；基线 LINE / 企业微信 / Google Chat 出站请求形状无回归网；fetch 型通道此前仅覆盖 3/8（详情见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-2）

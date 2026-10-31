@@ -15438,6 +15438,35 @@
       ],
       "reopenWhen": "若改注册握手（NICK/USER/001 时序）、PRIVMSG 格式或分片策略，本桩会先红；TLS/重连分支未覆盖（桩只覆盖明文与首连）。（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-4）",
       "notes": "实现：本机临时 IRC 服务（127.0.0.1 随机端口，afterEach 先 destroy 连接再 close）+ 3 例 —— 握手顺序（NICK→USER→服务端 001 后才允许发）、PRIVMSG #test :正文 形状、超长文本拆多条且拼接逐字等于原文、未连接时明确失败。踩坑：TCP 写入异步，断…（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-4）"
+    },
+    {
+      "id": "NOSTR-HONEST-FAILURE",
+      "title": "Nostr 通道：不再谎报发送成功（壳语义如实失败）+ 等级降为 experimental",
+      "source": "取证 2026-11-01：NostrChannel 是遗留 EventEmitter 壳（connect 只置标志、publishEvent 只生成随机 id 并 emit，无 WebSocket relay 与事件签名），而 sendTextMessage 恒返回 success ⇒ 消息未发出却报成功（静默丢消息）。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/nostr/NostrChannel.ts",
+        ".trae/architecture/support-levels.json"
+      ],
+      "tests": [
+        "app/tests/channels/nostrStub.test.ts"
+      ],
+      "changelog": [
+        "修复：Nostr 通道不再谎报发送成功（壳实现如实失败，等级降为 experimental）"
+      ],
+      "reopenWhen": "若补齐 relay 传输 + secp256k1 签名，应把 sendTextMessage 改为真实发布结果并撤掉 support-levels.json 的 nostr=experimental 覆盖（本用例的「未就绪必失败」断言需同步改为真实失败路径）。（全文见 archive/evidence-detail.jsonl#NOSTR-HONEST-FAILURE）",
+      "notes": "修复：sendTextMessage 按 sendDirectMessage 真实返回值判定，未就绪返回 success=false + 明确原因（无 WebSocket 传输层）。新增 3 例：插件层不谎报；类层未 connect 时 publishEvent/sendDirectMessage 返回 null；c…（全文见 archive/evidence-detail.jsonl#NOSTR-HONEST-FAILURE）"
     }
   ]
 }

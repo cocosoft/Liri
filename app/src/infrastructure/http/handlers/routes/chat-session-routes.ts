@@ -93,6 +93,29 @@ function requireSessionId(
 }
 
 /**
+ * SSE Event Bus 路由（`/v1/events`）。
+ * @returns true = 已处理；false = 不匹配或方法不受支持（由上层继续匹配，与原内联块逐字等价）
+ */
+async function dispatchEventsRoute(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  url: string
+): Promise<boolean> {
+  if (url !== '/v1/events') return false;
+  if (req.method === 'GET') {
+    await handleEvents(req, res);
+    return true;
+  }
+  // HEAD 用于心跳保活，返回 200 即可
+  if (req.method === 'HEAD') {
+    res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+    res.end();
+    return true;
+  }
+  return false;
+}
+
+/**
  * dispatchChatSessionRoutes — chat-session-routes 领域路由分发
  * @returns true 表示已匹配并处理，false 表示未匹配
  */
@@ -104,19 +127,8 @@ export async function dispatchChatSessionRoutes(
   handlerCtx: HandlerCtx
 ): Promise<boolean> {
   const method = req.method || 'GET';
-  // ---- SSE Event Bus ----
-  if (url === '/v1/events') {
-    if (req.method === 'GET') {
-      await handleEvents(req, res);
-      return true;
-    }
-    // HEAD 用于心跳保活，返回 200 即可
-    if (req.method === 'HEAD') {
-      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
-      res.end();
-      return true;
-    }
-  }
+  // ---- SSE Event Bus（提炼为独立分发器以控制本函数圈复杂度，行为逐字不变）----
+  if (await dispatchEventsRoute(req, res, url)) return true;
 
   // ---- Chat ----
   if (method === 'POST' && url === '/v1/chat/completions') {

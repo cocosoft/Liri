@@ -32,6 +32,20 @@ export interface SignalMessage {
   groupId?: string;
 }
 
+/**
+ * `signal-cli` 发送命令的参数（**上游 CLI 契约**，2026-11-01 抽出以便单测）。
+ *
+ * 形状：`signal-cli -a <account> send -m <message> <target>`；改参数顺序/旗标
+ * 等于改上游契约，必须同步改本函数与 `signalStub.test.ts`。
+ */
+export function buildSignalSendArgs(
+  account: string,
+  message: string,
+  target: string
+): string[] {
+  return ['-a', account, 'send', '-m', message, target];
+}
+
 const SIGNAL_META: ChannelMeta = {
   id: 'signal',
   displayName: 'Signal',
@@ -94,15 +108,15 @@ export class SignalChannel extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
+    if (!this._account) {
+      // 2026-11-01：缺 account 时 `signal-cli -a ''` 必然失败 —— 提前如实失败，不调起 CLI
+      return { success: false, error: 'Signal 未连接：缺少 account' };
+    }
     try {
-      await execFileAsync(this._signalCliPath, [
-        '-a',
-        this._account,
-        'send',
-        '-m',
-        content,
-        target,
-      ]);
+      await execFileAsync(
+        this._signalCliPath,
+        buildSignalSendArgs(this._account, content, target)
+      );
       return { success: true };
     } catch (e) {
       await handleError(e, {
@@ -118,15 +132,14 @@ export class SignalChannel extends BaseChannelPlugin {
     target: string,
     imageUrl: string
   ): Promise<SendResult> {
+    if (!this._account) {
+      return { success: false, error: 'Signal 未连接：缺少 account' };
+    }
     try {
-      await execFileAsync(this._signalCliPath, [
-        '-a',
-        this._account,
-        'send',
-        '-m',
-        `[图片] ${imageUrl}`,
-        target,
-      ]);
+      await execFileAsync(
+        this._signalCliPath,
+        buildSignalSendArgs(this._account, `[图片] ${imageUrl}`, target)
+      );
       return { success: true };
     } catch (e) {
       await handleError(e, {

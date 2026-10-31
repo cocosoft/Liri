@@ -26,7 +26,7 @@
 
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
-| 消息通道 | 27 | 24 | 2 |
+| 消息通道 | 27 | 25 | 1 |
 | 内建工具 | 69 | 41 | 28 |
 
 ## 消息通道
@@ -53,7 +53,7 @@
 | `zalo` | core | `app/tests/channels/zaloConfig.test.ts`（测试文件名） |
 | `yuanbao` | core | `app/tests/channels/yuanbaoConfig.test.ts`（测试文件名） |
 | `whatsapp` | core | `app/tests/channels/whatsappConfig.test.ts`（测试文件名） |
-| `signal` | community | —（无专属测试） |
+| `signal` | core | `app/tests/channels/signalStub.test.ts`（测试文件名） |
 | `matrix` | core | `app/tests/channels/matrixConfig.test.ts`（测试文件名） |
 | `facebook` | core | `app/tests/channels/facebookmessengerConfig.test.ts`（测试文件名） |
 | `twitter` | core | `app/tests/channels/twitterConfig.test.ts`（测试文件名） |

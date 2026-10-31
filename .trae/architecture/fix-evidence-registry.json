@@ -15127,6 +15127,35 @@
       ],
       "reopenWhen": "若工具结果预算统一层（ToolResultBudget/ToolResultStorageHook）接线完成，可把本闸降为兜底并调低触发频率。（全文见 archive/evidence-detail.jsonl#PRE-SEND-BUDGET-GATE）",
       "notes": "实现：beforeReasoning 调 ensureContextWithinBudget（helpers）——发送前 estimateMessagesTokens 估算本轮 messages，达 resolveContextWindow×0.7 即先 queryEngine.compactIfNeeded；无 s…（全文见 archive/evidence-detail.jsonl#PRE-SEND-BUDGET-GATE）"
+    },
+    {
+      "id": "TOOL-RESULT-BUDGET-WIRED",
+      "title": "TAOR/LRO 工具结果入上下文前体积闸（超 50k 落盘 + 预览，复用 chat 侧同一实现）",
+      "source": "取证 2026-10-31 真机：pdca_* 大工具结果被全量 JSON.stringify 进 messages，撑爆上下文（溢出 400 单日 155 次）；同一超额结果在 chat 侧 ReActToolLoop 早已由 ToolResultPersister 替换为预览 + 落盘路径，而 TAOR/LRO 批处理路径未接线。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/TAORLoop.ts",
+        "app/src/query/taor/toolResultBudget.ts"
+      ],
+      "tests": [
+        "app/tests/query/taorToolResultBudget.test.ts"
+      ],
+      "changelog": [
+        "修复：TAOR/LRO 工具结果超预算自动落盘并回填预览，抑制大结果导致的上下文溢出"
+      ],
+      "reopenWhen": "若需按模型窗口动态调整单条/单轮阈值，或 services/toolResultStorage 两套未接线实现被正式收编（其 applyToolResultBudget 只拼「已保存到 …」文案、并不写盘 ⇒ 不可直接接线）。（全文见 archive/evidence-detail.jsonl#TOOL-RESULT-BUDGET-WIRED）",
+      "notes": "实现：TAORLoop.act() 在结果转 messages 之前调 taor/toolResultBudget.shrinkOversizedRawResults，复用 tools/services/ToolResultPersister.prepareToolResultsForContext（同 50k 单条…（全文见 archive/evidence-detail.jsonl#TOOL-RESULT-BUDGET-WIRED）"
     }
   ]
 }

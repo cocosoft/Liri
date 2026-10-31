@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TOOL-RESULT-BUDGET-WIRED**：TAOR/LRO 工具结果体积闸（超限落盘 + 预览，与 chat 同口径） —— 验证 tsc0|unit4|query478|tools1355|eslint0；基线 TAOR/LRO 结果全量进 messages：pdca_* 大结果撑爆上下文（溢出 400 单日 155 次），chat 侧同结果早已替换为预览 + 落盘路径（详情见 archive/evidence-detail.jsonl#TOOL-RESULT-BUDGET-WIRED）
 - ✅ **PRE-SEND-BUDGET-GATE**：TAOR 预发送体积闸（窗口 70% 先压缩再发） —— 验证 tsc0|unit6|query474|chat750|eslint0；基线 溢出 400 单日 155 次、最大 1.79M tokens；只有事后 compact_and_retry（详情见 archive/evidence-detail.jsonl#PRE-SEND-BUDGET-GATE）
 - ✅ **GREP-MATCH-LINE-CAP**：grep 匹配行 2k 字符闸（超长单行按命中位置取窗口） —— 验证 tsc0|unit2|tools1355|eslint0；基线 单行文件被命中时整行数 MB 进上下文；同日 155 次溢出 400（详情见 archive/evidence-detail.jsonl#GREP-MATCH-LINE-CAP）
 - ✅ **BASH-OUTPUT-CAP-200K**：bash 大输出软截断 2MB→200KB（单条结果不再灌入 50 万 tokens） —— 验证 tsc0|unit4|tools1353|eslint0；基线 单日 11 次 16.6MB→2MB 截断；2MB≈50 万 tokens/结果，溢出 400 单日 155 次（详情见 archive/evidence-detail.jsonl#BASH-OUTPUT-CAP-200K）

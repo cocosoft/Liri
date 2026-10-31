@@ -7208,3 +7208,12 @@
 {"id":"PRE-SEND-BUDGET-GATE","k":"code#1","i":0,"c":"app/src/query/taor/helpers.ts"}
 {"id":"PRE-SEND-BUDGET-GATE","k":"tests#0","i":0,"c":"app/tests/query/preSendBudgetGate.test.ts"}
 {"id":"PRE-SEND-BUDGET-GATE","k":"changelog#0","i":0,"c":"新增：TAOR 发送前体积闸（窗口 70% 先压缩），减少上下文溢出 400 与重复压缩"}
+{"id":"TOOL-RESULT-BUDGET-WIRED","k":"title","i":0,"c":"TAOR/LRO 工具结果入上下文前体积闸（超 50k 落盘 + 预览，复用 chat 侧同一实现）"}
+{"id":"TOOL-RESULT-BUDGET-WIRED","k":"source","i":0,"c":"取证 2026-10-31 真机：pdca_* 大工具结果被全量 JSON.stringify 进 messages，撑爆上下文（溢出 400 单日 155 次）；同一超额结果在 chat 侧 ReActToolLoop 早已由 ToolResultPersister 替换为预览 + 落盘路径，而 TAOR/LRO 批处理路径未接线。"}
+{"id":"TOOL-RESULT-BUDGET-WIRED","k":"reopenWhen","i":0,"c":"若需按模型窗口动态调整单条/单轮阈值，或 services/toolResultStorage 两套未接线实现被正式收编（其 applyToolResultBudget 只拼「已保存到 …」文案、并不写盘 ⇒ 不可直接接线）。"}
+{"id":"TOOL-RESULT-BUDGET-WIRED","k":"notes","i":0,"c":"实现：TAORLoop.act() 在结果转 messages 之前调 taor/toolResultBudget.shrinkOversizedRawResults，复用 tools/services/ToolResultPersister.prepareToolResultsForContext（同 50k 单条 / 200k 单轮阈值、同安全预览、同落"}
+{"id":"TOOL-RESULT-BUDGET-WIRED","k":"notes","i":1,"c":"盘目录、同路径引用文案）；未超限者引用不变、零开销。未接 services/toolResultStorage：其 ToolResultStorageHook 零消费者，且落盘只写文案不写文件（会给模型假路径）。TAORLoop 1994 行（R04-001 上限 2000）。"}
+{"id":"TOOL-RESULT-BUDGET-WIRED","k":"code#0","i":0,"c":"app/src/query/TAORLoop.ts"}
+{"id":"TOOL-RESULT-BUDGET-WIRED","k":"code#1","i":0,"c":"app/src/query/taor/toolResultBudget.ts"}
+{"id":"TOOL-RESULT-BUDGET-WIRED","k":"tests#0","i":0,"c":"app/tests/query/taorToolResultBudget.test.ts"}
+{"id":"TOOL-RESULT-BUDGET-WIRED","k":"changelog#0","i":0,"c":"修复：TAOR/LRO 工具结果超预算自动落盘并回填预览，抑制大结果导致的上下文溢出"}

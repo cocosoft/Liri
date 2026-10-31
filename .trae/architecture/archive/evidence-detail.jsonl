@@ -7303,3 +7303,10 @@
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-3","k":"notes","i":1,"c":"charset=utf-8、正文。边界：只覆盖明文 SMTP（STARTTLS 回 500 走降级），未覆盖 TLS 握手。通道 core 16→23、community 11→4；余 4 条（irc/nostr/sms/signal）桩型各异。"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-3","k":"tests#0","i":0,"c":"app/tests/channels/emailSmtpStub.test.ts"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-3","k":"changelog#0","i":0,"c":"新增：邮件通道 SMTP 协议桩（握手顺序 + MIME RFC 2047 主题 + 正文）"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-4","k":"title","i":0,"c":"非 HTTP 通道第二条：IRC 协议桩（握手顺序 + PRIVMSG 形状 + 超长分片）"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-4","k":"source","i":0,"c":"IRC 走原始 TCP（node:net），fetch mock 无效；此前注册握手顺序与 PRIVMSG 形状无回归，改协议细节只能靠真实网络发现。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-4","k":"reopenWhen","i":0,"c":"若改注册握手（NICK/USER/001 时序）、PRIVMSG 格式或分片策略，本桩会先红；TLS/重连分支未覆盖（桩只覆盖明文与首连）。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-4","k":"notes","i":0,"c":"实现：本机临时 IRC 服务（127.0.0.1 随机端口，afterEach 先 destroy 连接再 close）+ 3 例 —— 握手顺序（NICK→USER→服务端 001 后才允许发）、PRIVMSG #test :正文 形状、超长文本拆多条且拼接逐字等于原文、未连接时明确失败。踩坑：TCP 写入异步，断言前需 waitFor 轮询到桩收到，否则"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-4","k":"notes","i":1,"c":"稳定假红。通道 core 16→24、community 11→3。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-4","k":"tests#0","i":0,"c":"app/tests/channels/ircStub.test.ts"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-4","k":"changelog#0","i":0,"c":"新增：IRC 协议桩（注册握手顺序 + PRIVMSG 形状 + 超长分片）"}

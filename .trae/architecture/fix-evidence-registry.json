@@ -15412,6 +15412,32 @@
       ],
       "reopenWhen": "若改 SMTP 握手顺序（EHLO/AUTH/STARTTLS）、MIME 头（Subject 编码、Content-Type）或 STARTTLS 策略，本桩会先红；覆盖 TLS 握手需另建带证书的桩。（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-3）",
       "notes": "实现：本机临时 SMTP 服务（127.0.0.1 随机端口，afterEach 关闭）+ 1 例——断言命令顺序 EHLO→AUTH LOGIN→MAIL FROM→RCPT TO→DATA，并抓取投递报文断言 To、Subject= =?UTF-8?B?…（中文 RFC 2047）、MIME-Version、te…（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-3）"
+    },
+    {
+      "id": "CHANNEL-REQUEST-SHAPE-STUBS-4",
+      "title": "非 HTTP 通道第二条：IRC 协议桩（握手顺序 + PRIVMSG 形状 + 超长分片）",
+      "source": "IRC 走原始 TCP（node:net），fetch mock 无效；此前注册握手顺序与 PRIVMSG 形状无回归，改协议细节只能靠真实网络发现。",
+      "stages": {
+        "discovered": true,
+        "fixed": false,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": false,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [],
+      "tests": [
+        "app/tests/channels/ircStub.test.ts"
+      ],
+      "changelog": [
+        "新增：IRC 协议桩（注册握手顺序 + PRIVMSG 形状 + 超长分片）"
+      ],
+      "reopenWhen": "若改注册握手（NICK/USER/001 时序）、PRIVMSG 格式或分片策略，本桩会先红；TLS/重连分支未覆盖（桩只覆盖明文与首连）。（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-4）",
+      "notes": "实现：本机临时 IRC 服务（127.0.0.1 随机端口，afterEach 先 destroy 连接再 close）+ 3 例 —— 握手顺序（NICK→USER→服务端 001 后才允许发）、PRIVMSG #test :正文 形状、超长文本拆多条且拼接逐字等于原文、未连接时明确失败。踩坑：TCP 写入异步，断…（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-4）"
     }
   ]
 }

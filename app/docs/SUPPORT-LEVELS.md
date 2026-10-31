@@ -26,7 +26,7 @@
 
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
-| 消息通道 | 27 | 19 | 8 |
+| 消息通道 | 27 | 22 | 5 |
 | 内建工具 | 69 | 41 | 28 |
 
 ## 消息通道
@@ -41,14 +41,14 @@
 | `feishu` | core | `app/tests/channels/feishuCardAction.test.ts`（测试文件名） |
 | `wechat` | core | `app/tests/channels/wechatConfig.test.ts`（测试文件名） |
 | `slack` | core | `app/tests/channels/slackRequestShape.test.ts`（测试文件名） |
-| `line` | community | —（无专属测试） |
+| `line` | core | `app/tests/channels/lineRequestShape.test.ts`（测试文件名） |
 | `irc` | community | —（无专属测试） |
 | `nostr` | community | —（无专属测试） |
 | `email` | community | —（无专属测试） |
 | `sms` | community | —（无专属测试） |
 | `webhook` | core | `app/tests/channels/WebhookVerify.test.ts`（测试文件名） |
-| `wecom` | community | —（无专属测试） |
-| `googlechat` | community | —（无专属测试） |
+| `wecom` | core | `app/tests/channels/wecomRequestShape.test.ts`（测试文件名） |
+| `googlechat` | core | `app/tests/channels/googlechatRequestShape.test.ts`（测试文件名） |
 | `msteams` | core | `app/tests/channels/msteamsConfig.test.ts`（测试文件名） |
 | `zalo` | core | `app/tests/channels/zaloConfig.test.ts`（测试文件名） |
 | `yuanbao` | core | `app/tests/channels/yuanbaoConfig.test.ts`（测试文件名） |

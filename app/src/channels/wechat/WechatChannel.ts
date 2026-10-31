@@ -20,6 +20,8 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
+import { createHash, timingSafeEqual } from 'node:crypto';
+
 import { BaseChannelPlugin } from '@modules/channels/base';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
@@ -379,52 +381,82 @@ export const wechatChannel = createWechatChannel();
 // P1-3 单例统一：Plugin 导出为同一实例别名，避免双实例
 export const wechatChannelPlugin = wechatChannel;
 
-// 保持旧版导出兼容（**空实现**，2026-10-31 按 FIX-12 标记并在调用时告警）
-// CD01–CD04 取证：全仓无静态/动态消费者（仅本文件 + `channels/wechat/index.ts` 的 barrel 再导出）；
-// `ChannelCatalog` 直接 `import('./wechat/WechatChannel.js')` 取类，不经 barrel ⇒ 运行期不可达。
-// 处置（CD07 关键模块口径）：先 `@deprecated` + 运行期告警，观察期后删除或改为真实实现。
-let legacyStubWarned = false;
-function warnLegacyStub(name: string): void {
-  if (legacyStubWarned) return;
-  legacyStubWarned = true;
-  process.emitWarning(
-    `[channels/wechat] ${name} 是空实现（FIX-12）：verifySignature 恒 true、XML 解析恒空。` +
-      '若正在接线微信验签，请先实现真实逻辑再经 barrel 导出。',
-    'DeprecationWarning'
-  );
+// ───────────────────── 微信入站协议原语（FIX-12 收口，2026-10-31）─────────────────────
+//
+// 原 `parseWechatXML` / `buildWechatReply` 是空实现、`WechatCrypto.verifySignature()` 恒 `true`。
+// 本轮把可诚实实现的部分做实，并**删除** `WechatCrypto`：它的 `verifySignature()` 不接受参数，
+// 结构上无法验签；而「安全模式」还需 AES-256-CBC + PKCS7（本轮未做，见台账 FIX-12 剩余项）。
+//
+// 口径：只实现**明文模式**（`signature` / `timestamp` / `nonce` 的 SHA1 校验），
+// 这也是微信服务器 URL 验证与明文回调使用的模式；缺失/不匹配一律返回 false（fail-closed）。
+
+/** 明文模式签名：`sha1(sort([token, timestamp, nonce]).join(''))` */
+export function verifyWechatSignature(
+  token: string,
+  timestamp: string,
+  nonce: string,
+  signature: string
+): boolean {
+  if (!token || !timestamp || !nonce || !signature) return false;
+  const expected = createHash('sha1')
+    .update([token, timestamp, nonce].sort().join(''))
+    .digest('hex');
+  const a = Buffer.from(expected, 'utf8');
+  const b = Buffer.from(signature.toLowerCase(), 'utf8');
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
 }
 
-/** @deprecated 空实现（恒返回 `{}`）；FIX-12 待删或改为真实 XML 解析 */
-export function parseWechatXML(_xml: string): Record<string, string> {
-  warnLegacyStub('parseWechatXML');
-  return {};
+/** 把标签内的内容按 CDATA 语义还原（支持多段 CDATA 与混合文本，如 `]]>` 转义后的形态） */
+function decodeWechatInner(inner: string): string {
+  const parts: string[] = [];
+  const cdataRe = /<!\[CDATA\[([\s\S]*?)\]\]>/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  while ((match = cdataRe.exec(inner)) !== null) {
+    parts.push(inner.slice(cursor, match.index));
+    parts.push(match[1] ?? '');
+    cursor = match.index + match[0].length;
+  }
+  parts.push(inner.slice(cursor));
+  return parts.join('').trim();
 }
 
-/** @deprecated 空实现（恒返回 `''`）；FIX-12 待删或改为真实回复构造 */
+/**
+ * 解析微信入站 XML（明文语义）：扁平 `<Tag>值</Tag>` 与 `<Tag><![CDATA[值]]></Tag>`。
+ * 不是通用 XML 解析器——微信回调体是扁平结构；未知标签照常保留，畸形输入返回已解析部分。
+ */
+export function parseWechatXML(xml: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  if (!xml) return result;
+  // 先剥掉根 `<xml>`：否则下面按标签扫描时，根标签会一次性吃掉整个 body
+  const body = xml.replace(/^\s*<xml>([\s\S]*)<\/xml>\s*$/i, '$1');
+  const tagRe = /<([A-Za-z_][\w.-]*)>([\s\S]*?)<\/\1>/g;
+  let match: RegExpExecArray | null;
+  while ((match = tagRe.exec(body)) !== null) {
+    result[match[1]!] = decodeWechatInner(match[2] ?? '');
+  }
+  return result;
+}
+
+/**
+ * 构造被动回复 XML（文本消息）。`CreateTime` 取当前秒；CDATA 内的 `]]>` 会被转义，
+ * 避免回复体被注入破坏。
+ */
 export function buildWechatReply(
-  _to: string,
-  _from: string,
-  _content: string
+  to: string,
+  from: string,
+  content: string
 ): string {
-  warnLegacyStub('buildWechatReply');
-  return '';
-}
-
-/** @deprecated 空实现：`verifySignature` 恒 `true`、加解密原样返回；FIX-12 待删或按协议实现 */
-export class WechatCrypto {
-  constructor(_key: string) {
-    warnLegacyStub('WechatCrypto');
-  }
-  verifySignature(): boolean {
-    warnLegacyStub('WechatCrypto.verifySignature');
-    return true;
-  }
-  decryptMsg(e: string): string {
-    warnLegacyStub('WechatCrypto.decryptMsg');
-    return e;
-  }
-  encryptMsg(m: string): string {
-    warnLegacyStub('WechatCrypto.encryptMsg');
-    return m;
-  }
+  const cdata = (value: string): string =>
+    `<![CDATA[${value.replace(/]]>/g, ']]]]><![CDATA[>')}]]>`;
+  return [
+    '<xml>',
+    `<ToUserName>${cdata(to)}</ToUserName>`,
+    `<FromUserName>${cdata(from)}</FromUserName>`,
+    `<CreateTime>${Math.floor(Date.now() / 1000)}</CreateTime>`,
+    '<MsgType><![CDATA[text]]></MsgType>',
+    `<Content>${cdata(content)}</Content>`,
+    '</xml>',
+  ].join('');
 }

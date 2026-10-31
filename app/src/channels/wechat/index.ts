@@ -22,15 +22,17 @@
  * channels/wechat/index.ts - 微信通道导出
  */
 
+// FIX-12（2026-10-31）：`parseWechatXML` / `buildWechatReply` 已由空实现改为**真实实现**，
+// 并新增 `verifyWechatSignature`（明文模式 SHA1 验签）；半成品 `WechatCrypto` 已删除
+// （其 `verifySignature()` 不接受参数，结构上无法验签；安全模式 AES 未实现）。
 export {
   wechatChannel,
   createWechatChannel,
   wechatChannelPlugin,
+  verifyWechatSignature,
+  parseWechatXML,
+  buildWechatReply,
 } from './WechatChannel.js';
-
-// FIX-12（2026-10-31）：`parseWechatXML` / `buildWechatReply` / `WechatCrypto` 原为**空实现**
-// （验签恒 true、解析恒空），按 CD05「先摘入口 → 观察 → 再删实现」**先摘掉 barrel 出口**；
-// 实现体仍留在 `WechatChannel.ts` 并标 `@deprecated` + 首次调用告警，观察期后删除或改为真实实现。
 
 export {
   getDefaultWechatConfig,

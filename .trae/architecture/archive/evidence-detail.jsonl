@@ -7003,3 +7003,10 @@
 {"id":"CMD-ALIAS-CP-CONFLICT","k":"notes","i":2,"c":"实）：同窗口另有 28 次「命令名冲突」—— 内置技能 debug（BundledSkillLoader，userInvocable）与内置命令 debug（command-registry.ts）同名，谁保留 /debug 属产品命名决策，未擅改。"}
 {"id":"CMD-ALIAS-CP-CONFLICT","k":"code#0","i":0,"c":"app/src/commands/builtin/checkpoint/index.ts"}
 {"id":"CMD-ALIAS-CP-CONFLICT","k":"code#1","i":0,"c":"app/src/commands/loader/CommandLoader.ts"}
+{"id":"CMD-NAME-DEBUG-CONFLICT","k":"title","i":0,"c":"内置技能 debug 与内置命令 /debug 同名 ⇒ 每次装配报命令名冲突并拒绝登记（改技能不再作为斜杠命令）"}
+{"id":"CMD-NAME-DEBUG-CONFLICT","k":"source","i":0,"c":"真机 app.log（2026-10-31T03-04 窗口）：命令名冲突 ⇒ 拒绝登记（onConflict=error）28 次，meta existingFrom=builtin / incomingFrom=skill"}
+{"id":"CMD-NAME-DEBUG-CONFLICT","k":"reopenWhen","i":0,"c":"再出现「命令名冲突 ⇒ 拒绝登记」且其中一方为技能（skill）来源"}
+{"id":"CMD-NAME-DEBUG-CONFLICT","k":"notes","i":0,"c":"根因：BundledSkillLoader 的 debug 技能声明 userInvocable=true，SkillCommandLoader 会把它登记成斜杠命令；内置命令 /debug 已先注册同名 ⇒ CommandRegistry 取 onConflict=error，每次装配记 error 并拒绝该技能命令。取舍（本轮裁定口径：保持 /debug"}
+{"id":"CMD-NAME-DEBUG-CONFLICT","k":"notes","i":1,"c":" 现状、不改变用户可见命令面）：把该技能改为 userInvocable=false —— 技能仍可由模型经 Skill 工具按名调用，用户侧 /debug 继续归内置命令，冲突源消除。备选（未采用）：把技能改名 debug-issue（新增一个用户可见命令）；或改内置命令名（改动面更大）。验证：typecheck 绿；tests/skills + "}
+{"id":"CMD-NAME-DEBUG-CONFLICT","k":"notes","i":2,"c":"tests/commands 136 例全绿；eslint 0。"}
+{"id":"CMD-NAME-DEBUG-CONFLICT","k":"code#0","i":0,"c":"app/src/skills/loaders/sources/BundledSkillLoader.ts"}

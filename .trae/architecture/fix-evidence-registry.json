@@ -14844,6 +14844,32 @@
       "changelog": [],
       "reopenWhen": "接入真实审核器（第三方 SDK 或 ModelRouter moderation 能力）时，改为 reviewed:true 并按审核结论返回（全文见 archive/evidence-detail.jsonl#IMAGE-AFTER-GEN-NOT-REVIEWED）",
       "notes": "SafetyCheckResult 新增 reviewed?: boolean（缺省=未知，不得视为已审核）；afterGenerate 三条路径均带 reviewed:false + 明确 reason（禁用 / 未配置审核能力 / prompt 命中黑名单）。如实记录：该方法当前零生产调用方（生成后审核整体未接线…（全文见 archive/evidence-detail.jsonl#IMAGE-AFTER-GEN-NOT-REVIEWED）"
+    },
+    {
+      "id": "IO-REPEAT-ONLY-RULE",
+      "title": "IO 循环判据改为「只拦同一目标重复」：两目标交替交回 pingPong，消除探索误终止",
+      "source": "真机 app.log（2026-10-31，6k 行内 8 次）：[IO_CYCLE] 2 个文件交替 = output/** 与 01_work/**（两个不同目录的正常探索）、C:/…/workspace 与 .（同一目录两种写法）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/FileIOLoopDetector.ts"
+      ],
+      "tests": [
+        "app/tests/query/FileIOLoopDetector.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现「两个不同目标交替被终止整轮」，或需要把 cwd 注入检测器以归一 `.` 写法（全文见 archive/evidence-detail.jsonl#IO-REPEAT-ONLY-RULE）",
+      "notes": "旧启发式「最近 10 次里 2–3 个键各 ≥3 次 ⇒ 交替循环」误伤探索。新判据：单个 target 在窗口内 ≥ blockThreshold(4) 才拦，且放在连续读写判定之后（连续场景保留更具体的「连续读/写 ×N」文案）。另：裸 `.` 无 cwd 不可比较 ⇒ 不计入（漏检不误检）；前导 ./ 归一。（全文见 archive/evidence-detail.jsonl#IO-REPEAT-ONLY-RULE）"
     }
   ]
 }

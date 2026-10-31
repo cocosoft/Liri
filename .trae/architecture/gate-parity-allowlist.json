@@ -1,0 +1,3 @@
+{
+  "test:guarded": "CI 的 Test Suite 已直接执行全量 bun test tests/（含超时）；watchdog 包装器只用于本机长跑防护，在 CI 中不产生额外判据，故不重复执行。"
+}

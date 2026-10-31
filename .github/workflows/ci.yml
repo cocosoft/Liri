@@ -386,6 +386,36 @@ jobs:
         bun run scripts/lint-legacy-env.ts
         bun run scripts/lint-models.ts
 
+    # ══════════════════════════════════════════════
+    # 台账漂移 + 本地专属门禁补登 CI（2026-10-31，元门禁 `lint:gate-parity` 的修因段）
+    #   背景：`lint:status` / `lint:support-levels` 此前只登记在 `package.json#ci` 与
+    #   pre-commit，而本工作流是**另一份** step 列表 ⇒ 新增门禁漏登记时 CI 永远绿；
+    #   pre-commit 又可被 `--no-verify` 绕过（实测：54 条 ci 门禁中 **11 条** CI 零命中）。
+    #   现补齐，并由 `lint:gate-parity` 持续比对 —— 任一门禁只在本地/只在 CI 都算红。
+    #   逐项本机实测：exit 0 且 ≤1.6s（只扫 tracked 域，不读 dev_docs / ~/.pyapp）。
+    # ══════════════════════════════════════════════
+    - name: Ledger drift gates (STATUS / SUPPORT-LEVELS)
+      working-directory: app
+      run: |
+        bun run lint:status
+        bun run lint:support-levels
+
+    - name: Repo gates previously local-only (infra/startup-graph/kernel-surface/arch-boundaries/logger-name/paths/i18n)
+      working-directory: app
+      run: |
+        bun run lint:infra
+        bun run lint:startup-graph
+        bun run lint:critical-modules
+        bun run lint:kernel-surface
+        bun run lint:architecture-boundaries
+        bun run lint:logger-name
+        bun run check:paths
+        bun run i18n:check
+
+    - name: Gate parity (package.json#ci ↔ workflows · meta gate)
+      working-directory: .
+      run: bun run scripts/lint-gate-parity.ts
+
     - name: Tool schema gate (capability/risk 声明棘轮 · app 本地脚本)
       working-directory: app
       run: |

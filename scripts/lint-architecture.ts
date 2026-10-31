@@ -102,6 +102,15 @@ const RESERVED_WORDS = new Set([
  */
 const MAX_FILE_LINES = Number(process.env.ARCH_MAX_LINES) || 2000;
 
+/**
+ * R01-002 的**规范错误定义文件**（显式清单，与 `canonicalEntryKeys` 同构）。
+ *
+ * 禁止用 `error/` 之类的**路径子串**做判据（台账 L-9563 / D-63）：子串会随"定义被下沉或搬家"失效
+ * ——`AppError` 下沉到 `core/errors.ts` 后，规范文件自身曾被误判为「直接 extends Error」。
+ * 新增规范位置必须在此登记（两类文件：内核基座 `core/errors.ts`、门面与子类 `error/types.ts`）。
+ */
+const CANONICAL_ERROR_FILES = ['core/errors.ts', 'error/types.ts'];
+
 // ============ 类型定义 ============
 
 interface RuleViolation {
@@ -360,8 +369,9 @@ class ArchitectureLinter {
     ];
 
     for (const file of this.allFiles) {
-      // 跳过标准错误定义文件
-      if (file.includes('error\\types.ts') || file.includes('error/types.ts'))
+      // 跳过**规范错误定义文件**（显式清单，禁止路径子串 —— 见下方 CANONICAL_ERROR_FILES 注释）
+      const normalizedFile = file.replace(/\\/g, '/');
+      if (CANONICAL_ERROR_FILES.some((p) => normalizedFile.endsWith(p)))
         continue;
 
       const content = readFileSync(file, 'utf-8');
@@ -377,8 +387,8 @@ class ArchitectureLinter {
             ruleId: 'R01-002',
             severity: 'error',
             file: relative(process.cwd(), file),
-            message: `错误类 ${errName} 已在 error/types.ts 中定义，禁止重复定义`,
-            suggestion: `删除此定义，改为从 @modules/error/types 导入 ${errName}`,
+            message: `错误类 ${errName} 已在规范错误文件（core/errors.ts / error/types.ts）中定义，禁止重复定义`,
+            suggestion: `删除此定义，改为从 @modules/error 导入 ${errName}`,
           });
         }
       }
@@ -390,13 +400,7 @@ class ArchitectureLinter {
       for (const match of errorMatches) {
         const className = match[1];
 
-        // 跳过**规范错误基座文件**（⚠️ 用"显式文件清单"，**禁止**用 `error/` 之类的路径子串做判据 ——
-        // 子串判断会随"定义被下沉/搬家"而失效：AppError 下沉到 core/errors.ts 后即被误报，
-        // 见台账 D-63/D-64 与 CS02「状态检测禁止字符串匹配」）
-        const normalizedFile = file.replace(/\\/g, '/');
-        const CANONICAL_ERROR_BASE_FILES = ['core/errors.ts', 'error/types.ts'];
-        if (CANONICAL_ERROR_BASE_FILES.some((p) => normalizedFile.endsWith(p)))
-          continue;
+        // 规范错误定义文件已在循环开头按 CANONICAL_ERROR_FILES 跳过
         // 跳过压缩/打包后的文件
         if (file.includes('.min.') || file.includes('.bundle.')) continue;
         // 跳过已知的标准 Error 继承
@@ -407,7 +411,7 @@ class ArchitectureLinter {
             severity: 'error',
             file: relative(process.cwd(), file),
             message: `${className} 直接 extends Error（应继承 AppError）`,
-            suggestion: `改为 extends AppError（从 @modules/error/types 导入），或删除此文件合并到 error/types.ts`,
+            suggestion: `改为 extends AppError（从 @modules/error 导入），或删除此文件合并到规范错误文件`,
           });
           continue;
         }
@@ -417,7 +421,7 @@ class ArchitectureLinter {
           severity: 'warning',
           file: relative(process.cwd(), file),
           message: `${className} 直接 extends Error，应继承 AppError`,
-          suggestion: `改为 extends AppError（从 @modules/error/types 导入）`,
+          suggestion: `改为 extends AppError（从 @modules/error 导入）`,
         });
       }
     }

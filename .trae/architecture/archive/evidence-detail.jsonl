@@ -7138,3 +7138,13 @@
 {"id":"MAIL-DELETE-AS-READ-NOTICE","k":"code#0","i":0,"c":"client/src/components/views/office/OfficeMailPage.tsx"}
 {"id":"MAIL-DELETE-AS-READ-NOTICE","k":"code#1","i":0,"c":"client/src/i18n/locales/zh/workspace.ts"}
 {"id":"MAIL-DELETE-AS-READ-NOTICE","k":"code#2","i":0,"c":"client/src/i18n/locales/en/workspace.ts"}
+{"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"title","i":0,"c":"工具相对路径按工具上下文 cwd 解析（LRO/PDCA 工作区不再误判目录缺失）"}
+{"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"source","i":0,"c":"取证 2026-10-31 真机 app.log：pdca_* 步骤内 glob/grep 传相对 output/01_work，被 path.resolve(process.cwd()) 解析到 E:\\…\\PY_APP，单窗口 100+ 次「搜索目录不存在」；file_read 的可访问性检查同样查原始相对路径 ⇒ 任务工作区里存在的文件被判不存在。"}
+{"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"reopenWhen","i":0,"c":"若引入统一路径基准（ToolUseContext 单一 baseDir 解析入口），可删除这三处局部解析改由基座统一处理。"}
+{"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"notes","i":0,"c":"修复：GlobTool/GrepTool 相对 path/searchPath 走 resolveFilePath(…, getToolBaseDir(context))；FileReadTool 检查已解析的 filePath（与真正读取同一路径）。绝对路径与无 context cwd 时行为不变。同族未修：bash/powershell 的相对 "}
+{"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"notes","i":1,"c":"cwd/workingDirectory 入参仍按进程 cwd（真机无调用证据，记入台账观察项）。"}
+{"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"code#0","i":0,"c":"app/src/tools/search/GlobTool.ts"}
+{"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"code#1","i":0,"c":"app/src/tools/GrepTool/GrepTool.ts"}
+{"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"code#2","i":0,"c":"app/src/tools/FileReadTool/FileReadTool.ts"}
+{"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"tests#0","i":0,"c":"app/tests/tools/relativePathContextCwd.test.ts"}
+{"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"changelog#0","i":0,"c":"修复：glob/grep/file_read 的相对路径按工具上下文 cwd 解析，任务工作区内不再误报「目录/文件不存在」"}

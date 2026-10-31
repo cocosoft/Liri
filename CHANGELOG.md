@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **TOOL-RELATIVE-PATH-CTX-CWD**：工具相对路径按上下文 cwd 解析（不再误判任务工作区目录缺失） —— 验证 tsc0|unit4|tools1346|eslint0；基线 app.log：pdca_* 步骤相对 output/01_work 被解析到代码仓根，单窗口 100+ 次「搜索目录不存在」（详情见 archive/evidence-detail.jsonl#TOOL-RELATIVE-PATH-CTX-CWD）
 - ✅ **MAIL-DELETE-AS-READ-NOTICE**：邮件删除后如实提示「仅标记已读」（前端承接 data.note） —— 验证 client-tsc0|eslint0(0 error)|backend-unchanged；基线 删除只 markRead 且前端不读 data.note ⇒ 静默"假删除"，邮件下次同步复现（详情见 archive/evidence-detail.jsonl#MAIL-DELETE-AS-READ-NOTICE）
 - ✅ **IO-REPEAT-ONLY-RULE**：IO 循环只拦同一目标重复（两目标交替交回 pingPong） —— 验证 tsc0|unit18|query463|eslint0；基线 app.log 6k 行内 8 次 [IO_CYCLE]：output/** 与 01_work/** 交替、abs 与 . 同目录两写法（详情见 archive/evidence-detail.jsonl#IO-REPEAT-ONLY-RULE）
 - ✅ **IMAGE-AFTER-GEN-NOT-REVIEWED**：生成后图片审核如实标注未审核（reviewed:false） —— 验证 tsc0|unit4|tools39|eslint0；基线 afterGenerate 仅复用 prompt 检查即返回 passed:true（无任何图片审核），调用方会误读为已审核（详情见 archive/evidence-detail.jsonl#IMAGE-AFTER-GEN-NOT-REVIEWED）

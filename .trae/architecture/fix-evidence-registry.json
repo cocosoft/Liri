@@ -14896,6 +14896,36 @@
       "changelog": [],
       "reopenWhen": "IMAP delete 真实现（服务端不再带 note）时应撤掉该提示；或前端引入统一 toast 后改用 toast（全文见 archive/evidence-detail.jsonl#MAIL-DELETE-AS-READ-NOTICE）",
       "notes": "用户裁定口径 A：前端承接说明。handleDeleteMail 读 data.note 存在时置中性 notice（琥珀色横幅，与 error 分离），新增 i18n office.mailDeletedAsRead（zh/en）。服务端行为与客户端既有成功/失败分支均未改动；note 消失即自动不提示（未来真删除…（全文见 archive/evidence-detail.jsonl#MAIL-DELETE-AS-READ-NOTICE）"
+    },
+    {
+      "id": "TOOL-RELATIVE-PATH-CTX-CWD",
+      "title": "工具相对路径按工具上下文 cwd 解析（LRO/PDCA 工作区不再误判目录缺失）",
+      "source": "取证 2026-10-31 真机 app.log：pdca_* 步骤内 glob/grep 传相对 output/01_work，被 path.resolve(process.cwd()) 解析到 E:\\…\\PY_APP，单窗口 100+ 次「搜索目录不存在」；file_read 的可访问性检查同样查原始相对路径 ⇒ 任务工作区里存在的文件被判不存在。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/search/GlobTool.ts",
+        "app/src/tools/GrepTool/GrepTool.ts",
+        "app/src/tools/FileReadTool/FileReadTool.ts"
+      ],
+      "tests": [
+        "app/tests/tools/relativePathContextCwd.test.ts"
+      ],
+      "changelog": [
+        "修复：glob/grep/file_read 的相对路径按工具上下文 cwd 解析，任务工作区内不再误报「目录/文件不存在」"
+      ],
+      "reopenWhen": "若引入统一路径基准（ToolUseContext 单一 baseDir 解析入口），可删除这三处局部解析改由基座统一处理。（全文见 archive/evidence-detail.jsonl#TOOL-RELATIVE-PATH-CTX-CWD）",
+      "notes": "修复：GlobTool/GrepTool 相对 path/searchPath 走 resolveFilePath(…, getToolBaseDir(context))；FileReadTool 检查已解析的 filePath（与真正读取同一路径）。绝对路径与无 context cwd 时行为不变。同族未修：bas…（全文见 archive/evidence-detail.jsonl#TOOL-RELATIVE-PATH-CTX-CWD）"
     }
   ]
 }

@@ -15736,6 +15736,36 @@
       ],
       "reopenWhen": "若评测侧改读结果内容（而非仅工具名+参数）判定\"无进展\"，或 maxRepeatedRounds 口径变更时重开（全文见 archive/evidence-detail.jsonl#EVAL-STALLED-REPEAT）",
       "notes": "④ = 相邻两次调用「工具名 + 归一化参数」完全相同的次数，与循环守卫 maxRepeatedRounds: 3 同口径；仅观测，不接入 isAsExpected/基线（沿用 A2 明文\"不得作为门禁\"）。归一化口径收敛到 utils/toolCallKey（键排序/超长截断 200/循环引用退化为空串），ReAc…（全文见 archive/evidence-detail.jsonl#EVAL-STALLED-REPEAT）"
+    },
+    {
+      "id": "COVERAGE-CRITICAL-MODULES",
+      "title": "关键模块专属覆盖率门槛：全局 18% 不再掩盖关键模块 0 覆盖",
+      "source": "dev_docs/20261101/工作计划-20261101.md §四 原「覆盖率门禁」条目：实测全局门槛已存在（ci.yml:193-195），缺的是关键模块专属下限",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/scripts/coverageCriticalCore.ts",
+        "app/scripts/check-coverage-threshold.ts",
+        ".trae/architecture/coverage-critical-modules.json"
+      ],
+      "tests": [
+        "app/tests/gates/coverageCriticalModules.test.ts"
+      ],
+      "changelog": [
+        "CI 覆盖率新增关键模块专属下限（查不到 lcov 即失败），首版覆盖三态契约/已读锚定/参数归一化"
+      ],
+      "reopenWhen": "若 lcov 生成方式变更（不再相对 app/、或改用其它 reporter），或关键模块迁路径/改名时重开（全文见 archive/evidence-detail.jsonl#COVERAGE-CRITICAL-MODULES）",
+      "notes": "口径：行覆盖率 = 命中 DA 行 ÷ 该文件 DA 行；规则路径相对 app/（与 lcov SF 一致），支持目录前缀与绝对路径后缀匹配；配置里的模块在 lcov 查不到 ⇒ 失败（未被任何测试导入视为 0 覆盖），配置解析失败/缺字段 ⇒ fail-closed。首版 3 条均实测 100%，下限取 90 留余…（全文见 archive/evidence-detail.jsonl#COVERAGE-CRITICAL-MODULES）"
     }
   ]
 }

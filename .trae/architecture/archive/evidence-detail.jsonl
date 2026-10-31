@@ -7406,3 +7406,12 @@
 {"id":"EVAL-STALLED-REPEAT","k":"tests#0","i":0,"c":"app/tests/evals/resilienceMetric.test.ts"}
 {"id":"EVAL-STALLED-REPEAT","k":"tests#1","i":0,"c":"app/tests/evals/behaviorMetrics.test.ts"}
 {"id":"EVAL-STALLED-REPEAT","k":"changelog#0","i":0,"c":"评测行为指标新增空转重复次数（观测信号），工具参数归一化收敛为单一实现"}
+{"id":"COVERAGE-CRITICAL-MODULES","k":"title","i":0,"c":"关键模块专属覆盖率门槛：全局 18% 不再掩盖关键模块 0 覆盖"}
+{"id":"COVERAGE-CRITICAL-MODULES","k":"source","i":0,"c":"dev_docs/20261101/工作计划-20261101.md §四 原「覆盖率门禁」条目：实测全局门槛已存在（ci.yml:193-195），缺的是关键模块专属下限"}
+{"id":"COVERAGE-CRITICAL-MODULES","k":"reopenWhen","i":0,"c":"若 lcov 生成方式变更（不再相对 app/、或改用其它 reporter），或关键模块迁路径/改名时重开"}
+{"id":"COVERAGE-CRITICAL-MODULES","k":"notes","i":0,"c":"口径：行覆盖率 = 命中 DA 行 ÷ 该文件 DA 行；规则路径相对 app/（与 lcov SF 一致），支持目录前缀与绝对路径后缀匹配；配置里的模块在 lcov 查不到 ⇒ 失败（未被任何测试导入视为 0 覆盖），配置解析失败/缺字段 ⇒ fail-closed。首版 3 条均实测 100%，下限取 90 留余量；纪律为\"先实测再写下限\"。"}
+{"id":"COVERAGE-CRITICAL-MODULES","k":"code#0","i":0,"c":"app/scripts/coverageCriticalCore.ts"}
+{"id":"COVERAGE-CRITICAL-MODULES","k":"code#1","i":0,"c":"app/scripts/check-coverage-threshold.ts"}
+{"id":"COVERAGE-CRITICAL-MODULES","k":"code#2","i":0,"c":".trae/architecture/coverage-critical-modules.json"}
+{"id":"COVERAGE-CRITICAL-MODULES","k":"tests#0","i":0,"c":"app/tests/gates/coverageCriticalModules.test.ts"}
+{"id":"COVERAGE-CRITICAL-MODULES","k":"changelog#0","i":0,"c":"CI 覆盖率新增关键模块专属下限（查不到 lcov 即失败），首版覆盖三态契约/已读锚定/参数归一化"}

@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **COVERAGE-CRITICAL-MODULES**：关键模块专属覆盖率门槛（防全局达标掩盖 0 覆盖） —— 验证 unit7|real3x100%|tsc0|eslint0|scripts0|arch0|infra0；基线 只有全局 18% 门槛，关键模块 0 覆盖仍全绿；lcov 无该文件时无人发现（详情见 archive/evidence-detail.jsonl#COVERAGE-CRITICAL-MODULES）
 - ✅ **EVAL-STALLED-REPEAT**：评测新增空转重复指标（④）+ 参数归一化收敛 —— 验证 tsc0|unit7|evals+chat1039|eslint0|arch0|infra0|size0|refs0；基线 行为指标只有三项，既无「卡死/空转」信号；工具参数归一化在 ReActToolLoop 与评测侧各一份（详情见 archive/evidence-detail.jsonl#EVAL-STALLED-REPEAT）
 - ✅ **PRUNE-THINKING-TEST-TIMEBOMB**：修 pruneEventThinking 用例时间炸弹（固定 now vs 真实 mtime） —— 验证 unit11|full9512pass|eslint0；基线 用例用真实时间推导 mtime 却固定 now ⇒ 系统日期一过即稳定假红（详情见 archive/evidence-detail.jsonl#PRUNE-THINKING-TEST-TIMEBOMB）
 - ✅ **READ-FILE-ANCHOR**：已读文件锚定（跨轮重读纠偏）+ 定时器留痕 —— 验证 tsc0|unit10|chat769|arch0|infra0|size0|sr0|parity0|eslint0；基线 跨轮重读同一文件无任何提示（仅相邻轮完全一致才纠偏）；DocModule 定时器回调无日志（R08-002）（详情见 archive/evidence-detail.jsonl#READ-FILE-ANCHOR）

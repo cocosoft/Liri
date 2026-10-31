@@ -15358,6 +15358,34 @@
       ],
       "reopenWhen": "若上游改端点/字段（如 Telegram 换 sendMessage 路径、Discord 升 API 版本），桩会先红；新增通道请按同模板补一文件（文件名以通道标识开头即可被 SUPPORT-LEVELS 认作专属证据）。（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS）",
       "notes": "实现：3 个 fetch-mock 桩（无真实 Token、无网络）—— telegramRequestShape（/bot<token>/sendMessage、HTML 转义逐字、超长分片不丢尾、ok:false 透传）、discordRequestShape（/api/v10/channels/<id>/mes…（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS）"
+    },
+    {
+      "id": "CHANNEL-REQUEST-SHAPE-STUBS-2",
+      "title": "通道 upstream 契约桩第二批：LINE / 企业微信 / Google Chat（fetch 型通道全覆盖）",
+      "source": "延续 2026-11-01 第一批（telegram/discord/slack）：这三条通道仍无出站请求形状回归，上游改端点/字段或本仓误改 payload 只能靠真机发现。",
+      "stages": {
+        "discovered": true,
+        "fixed": false,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": false,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [],
+      "tests": [
+        "app/tests/channels/lineRequestShape.test.ts",
+        "app/tests/channels/wecomRequestShape.test.ts",
+        "app/tests/channels/googlechatRequestShape.test.ts"
+      ],
+      "changelog": [
+        "新增：LINE / 企业微信 / Google Chat 出站请求形状桩（fetch 型通道已全覆盖）"
+      ],
+      "reopenWhen": "若上游改端点/字段（LINE 换 push 路径、企业微信改 message/send 参数、Google Chat 升 v1/v1beta）桩会先红；新增 fetch 型通道请按同模板补一文件。（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-2）",
+      "notes": "实现 9 例：lineRequestShape（/v2/bot/message/push、Bearer、非 2xx 透传状态码+响应体）、wecomRequestShape（gettoken ↔ message/send?access_token、空目标回退 @all、2048 截断、errcode 透传）、goog…（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-2）"
     }
   ]
 }

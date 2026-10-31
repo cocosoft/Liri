@@ -7287,3 +7287,12 @@
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"tests#1","i":0,"c":"app/tests/channels/discordRequestShape.test.ts"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"tests#2","i":0,"c":"app/tests/channels/slackRequestShape.test.ts"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS","k":"changelog#0","i":0,"c":"新增：Telegram / Discord / Slack 出站请求形状桩（锁端点/授权头/JSON 形状）"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-2","k":"title","i":0,"c":"通道 upstream 契约桩第二批：LINE / 企业微信 / Google Chat（fetch 型通道全覆盖）"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-2","k":"source","i":0,"c":"延续 2026-11-01 第一批（telegram/discord/slack）：这三条通道仍无出站请求形状回归，上游改端点/字段或本仓误改 payload 只能靠真机发现。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-2","k":"reopenWhen","i":0,"c":"若上游改端点/字段（LINE 换 push 路径、企业微信改 message/send 参数、Google Chat 升 v1/v1beta）桩会先红；新增 fetch 型通道请按同模板补一文件。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-2","k":"notes","i":0,"c":"实现 9 例：lineRequestShape（/v2/bot/message/push、Bearer、非 2xx 透传状态码+响应体）、wecomRequestShape（gettoken ↔ message/send?access_token、空目标回退 @all、2048 截断、errcode 透传）、googlechatRequestShape（服务"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-2","k":"notes","i":1,"c":"账号 JWT→OAuth token→/v1/spaces/<id>/messages；RSA 私钥为测试内临时生成、无真实凭据；spaces/ 前缀不重复）。累计通道 core 16→22、community 11→5；剩余 5 条（irc/nostr/email/sms/signal）非 HTTP 通道，不在本模板内。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-2","k":"tests#0","i":0,"c":"app/tests/channels/lineRequestShape.test.ts"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-2","k":"tests#1","i":0,"c":"app/tests/channels/wecomRequestShape.test.ts"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-2","k":"tests#2","i":0,"c":"app/tests/channels/googlechatRequestShape.test.ts"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-2","k":"changelog#0","i":0,"c":"新增：LINE / 企业微信 / Google Chat 出站请求形状桩（fetch 型通道已全覆盖）"}

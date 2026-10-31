@@ -7374,3 +7374,15 @@
 {"id":"BUG4-LOOP-GUARD-REGRESSION","k":"code#1","i":0,"c":"app/src/query/ReActLoop.ts"}
 {"id":"BUG4-LOOP-GUARD-REGRESSION","k":"tests#0","i":0,"c":"app/tests/query/loopDetectionEmptyResult.test.ts"}
 {"id":"BUG4-LOOP-GUARD-REGRESSION","k":"changelog#0","i":0,"c":"补 Bug 4 回归网：空结果与失败结果均计入无进展判定（参数级区分，不误杀分页读取）"}
+{"id":"READ-FILE-ANCHOR","k":"title","i":0,"c":"已读文件锚定：跨轮重读同一文件时注入纠偏（Bug 4 第三项落地）"}
+{"id":"READ-FILE-ANCHOR","k":"source","i":0,"c":"dev_docs/20261031/deepseek建议.md Bug 4 第三项「上下文锚定」：模型把本会话已读过的文件当没读过，重新探路"}
+{"id":"READ-FILE-ANCHOR","k":"reopenWhen","i":0,"c":"若改为把「已读文件索引」常驻注入系统提示（需 prompt 预算评审）或 file_read 工具改名时重开"}
+{"id":"READ-FILE-ANCHOR","k":"notes","i":0,"c":"只做按需注入、不做常驻索引：仅当模型再次读取本会话已读路径时，向下一轮注入一条 user/system 软纠偏（每路径一次，最多点名 3 个路径），零 prompt 预算占用。口径窄：仅 file_read + 字符串 path；同轮并行重复不提示。原 _injectRepeatCallCorrection 一并无损外移到 "}
+{"id":"READ-FILE-ANCHOR","k":"notes","i":1,"c":"manager/toolCallCorrection（ReActToolLoop 2036→1899 行，守 R04-001）。另修 DocModule 定时器回调无日志（R08-002 既有 ERROR，独立提交 d83b4c12e）。"}
+{"id":"READ-FILE-ANCHOR","k":"code#0","i":0,"c":"app/src/chat/services/readFileAnchor.ts"}
+{"id":"READ-FILE-ANCHOR","k":"code#1","i":0,"c":"app/src/chat/manager/toolCallCorrection.ts"}
+{"id":"READ-FILE-ANCHOR","k":"code#2","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
+{"id":"READ-FILE-ANCHOR","k":"code#3","i":0,"c":"app/src/modules/doc/DocModule.ts"}
+{"id":"READ-FILE-ANCHOR","k":"tests#0","i":0,"c":"app/tests/chat/readFileAnchor.test.ts"}
+{"id":"READ-FILE-ANCHOR","k":"tests#1","i":0,"c":"app/tests/chat/toolCallCorrection.test.ts"}
+{"id":"READ-FILE-ANCHOR","k":"changelog#0","i":0,"c":"会话内已读文件锚定：模型重复读取已读文件时注入纠偏（每路径一次），减少重复探路"}

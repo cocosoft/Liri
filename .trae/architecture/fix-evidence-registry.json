@@ -15643,6 +15643,38 @@
       ],
       "reopenWhen": "若 LoopDetector 改为「结果内容参与 generic_repeat 判定」或阈值默认值调整时重开（全文见 archive/evidence-detail.jsonl#BUG4-LOOP-GUARD-REGRESSION）",
       "notes": "正向：同工具同参数、每次结果为空 ⇒ 达阈值（2 警告 / 3 阻断）即 generic_repeat 熔断，空结果不会刷新历史。负向：同工具不同参数（同样空结果）⇒ 不熔断，正常分页读取不被误杀；失败结果同样计入重复。未改任何生产代码。（全文见 archive/evidence-detail.jsonl#BUG4-LOOP-GUARD-REGRESSION）"
+    },
+    {
+      "id": "READ-FILE-ANCHOR",
+      "title": "已读文件锚定：跨轮重读同一文件时注入纠偏（Bug 4 第三项落地）",
+      "source": "dev_docs/20261031/deepseek建议.md Bug 4 第三项「上下文锚定」：模型把本会话已读过的文件当没读过，重新探路",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/chat/services/readFileAnchor.ts",
+        "app/src/chat/manager/toolCallCorrection.ts",
+        "app/src/chat/ReActToolLoop.ts",
+        "app/src/modules/doc/DocModule.ts"
+      ],
+      "tests": [
+        "app/tests/chat/readFileAnchor.test.ts",
+        "app/tests/chat/toolCallCorrection.test.ts"
+      ],
+      "changelog": [
+        "会话内已读文件锚定：模型重复读取已读文件时注入纠偏（每路径一次），减少重复探路"
+      ],
+      "reopenWhen": "若改为把「已读文件索引」常驻注入系统提示（需 prompt 预算评审）或 file_read 工具改名时重开（全文见 archive/evidence-detail.jsonl#READ-FILE-ANCHOR）",
+      "notes": "只做按需注入、不做常驻索引：仅当模型再次读取本会话已读路径时，向下一轮注入一条 user/system 软纠偏（每路径一次，最多点名 3 个路径），零 prompt 预算占用。口径窄：仅 file_read + 字符串 path；同轮并行重复不提示。原 _injectRepeatCallCorrection 一并无损…（全文见 archive/evidence-detail.jsonl#READ-FILE-ANCHOR）"
     }
   ]
 }

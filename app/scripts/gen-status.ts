@@ -19,12 +19,19 @@
  * 反而迫使人手改或忽略门禁。内容只随事实源变化。
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 
 const APP_DIR = resolve(import.meta.dir, '..');
 const REPO_ROOT = resolve(APP_DIR, '..');
 const OUT_FILE = join(REPO_ROOT, 'STATUS.md');
+const DOCS_DIR = join(APP_DIR, 'docs');
 
 interface Metric {
   label: string;
@@ -57,6 +64,24 @@ function countMatches(
   return count;
 }
 
+/**
+ * 文档语料篇数 —— 与 `src/docs/FileDocsProvider.scanDirectory` **同口径**：
+ * 递归 `.md`，跳过隐藏目录（`.knowledge-trash` 等）与 `raw/` 源目录。
+ *
+ * 为什么并入本文件（2026-10-31）：README 曾把「143 篇真实文档」写死在两处，
+ * 而语料实为 145 篇（新增文档后静默漂移）—— 与工具/通道数同属「易漂移数字」。
+ */
+function countDocCorpus(dir: string): number {
+  let count = 0;
+  for (const name of readdirSync(dir)) {
+    if (name.startsWith('.') || name === 'raw') continue;
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) count += countDocCorpus(full);
+    else if (name.endsWith('.md')) count += 1;
+  }
+  return count;
+}
+
 function collect(): Metric[] {
   const toolNamesFile = 'src/constants/toolNames.generated.ts';
   const toolNames = readSource(toolNamesFile);
@@ -83,6 +108,13 @@ function collect(): Metric[] {
     moduleFile
   );
 
+  const docsCount = countDocCorpus(DOCS_DIR);
+  if (docsCount <= 0) {
+    throw new Error(
+      `文档语料计数为 0（扫描失效？）: ${relative(REPO_ROOT, DOCS_DIR)}`
+    );
+  }
+
   return [
     {
       label: '内建工具',
@@ -102,17 +134,26 @@ function collect(): Metric[] {
       source: `app/${moduleFile}`,
       scope: '`MODULE_DEFINITIONS` 顶层条目',
     },
+    {
+      label: '文档语料',
+      value: docsCount,
+      source: 'app/docs/**/*.md',
+      scope:
+        '与 `docs/FileDocsProvider` 同口径（递归 `.md`，跳过隐藏目录与 `raw/`）',
+    },
   ];
 }
 
 function render(metrics: Metric[]): string {
   const rows = metrics
-    .map((m) => `| ${m.label} | **${m.value}** | \`${m.source}\` | ${m.scope} |`)
+    .map(
+      (m) => `| ${m.label} | **${m.value}** | \`${m.source}\` | ${m.scope} |`
+    )
     .join('\n');
   return `<!-- 由 \`bun run gen:status\` 生成，请勿手改；校验见 \`bun run lint:status\` -->
 # 仓库状态（STATUS）
 
-> README 中「多少个工具 / 多少条通道 / 多少个模块」这类**易漂移数字**只在本文件出现，
+> README 中「多少个工具 / 多少条通道 / 多少个模块 / 多少篇文档语料」这类**易漂移数字**只在本文件出现，
 > 由脚本从事实源现算，避免文档与代码脱节。
 > 更新：\`cd app && bun run gen:status\` ｜ 校验：\`bun run lint:status\`（CI 门禁，内容不一致即阻断）。
 

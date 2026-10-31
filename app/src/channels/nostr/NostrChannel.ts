@@ -194,8 +194,17 @@ class NostrChannelPlugin extends BaseChannelPlugin {
     content: string
   ): Promise<SendResult> {
     try {
-      await nostrChannel.sendDirectMessage(target, content);
-      return { success: true };
+      // 2026-11-01（诚实性修复）：此前**恒返回 success** —— 未就绪时 `sendDirectMessage`
+      // 返回 null（消息并未发出）却仍报成功 ⇒ 静默丢消息。现按真实返回值判定。
+      const messageId = await nostrChannel.sendDirectMessage(target, content);
+      if (!messageId) {
+        return {
+          success: false,
+          error:
+            'Nostr 通道未就绪：消息未发出（当前实现无 WebSocket 传输层，需先实现 relay 连接与事件签名）',
+        };
+      }
+      return { success: true, messageId };
     } catch (e) {
       await handleError(e, {
         module: 'channels:nostr',

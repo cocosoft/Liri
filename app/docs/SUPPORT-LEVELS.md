@@ -26,7 +26,7 @@
 
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
-| 消息通道 | 27 | 24 | 3 |
+| 消息通道 | 27 | 24 | 2 |
 | 内建工具 | 69 | 41 | 28 |
 
 ## 消息通道
@@ -43,7 +43,7 @@
 | `slack` | core | `app/tests/channels/slackRequestShape.test.ts`（测试文件名） |
 | `line` | core | `app/tests/channels/lineRequestShape.test.ts`（测试文件名） |
 | `irc` | core | `app/tests/channels/ircStub.test.ts`（测试文件名） |
-| `nostr` | community | —（无专属测试） |
+| `nostr` | experimental | `app/tests/channels/nostrStub.test.ts`（测试文件名） |
 | `email` | core | `app/tests/channels/emailSmtpStub.test.ts`（测试文件名） |
 | `sms` | community | —（无专属测试） |
 | `webhook` | core | `app/tests/channels/WebhookVerify.test.ts`（测试文件名） |

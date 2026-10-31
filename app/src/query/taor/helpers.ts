@@ -16,7 +16,10 @@ import {
   createFragment,
   renderFragment,
   FRAGMENT_KIND_FIELD,
+  messageProjector,
+  resolveContextWindow,
 } from '@modules/context';
+import { estimateMessagesTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
 import type { SteeringEntry, TerminationReason } from '../ReActLoop.js';
 
 const logger = getLogger('query:taorLoop');
@@ -273,4 +276,68 @@ export async function injectTaorSteering(
       [FRAGMENT_KIND_FIELD]: 'steering',
     } as ChatMessage);
   }
+}
+
+/** 预发送体积闸的触发阈值（窗口占比）：达到即先压缩再发 */
+export const PRE_SEND_COMPACT_RATIO = 0.7;
+
+/**
+ * 预发送体积闸（2026-10-31，用户裁定「做：预发送体积闸」）。
+ *
+ * 现状：只有**事后**恢复 —— 请求先被 provider 以 400 拒绝（单日 155 次、最大 1.79M tokens，
+ * 窗口 1.05M），再 `compact_and_retry`；每轮白付一次被拒请求 + 一次全量压缩。
+ *
+ * 口径：发送前用**本轮 messages 估算**判定，达到窗口的 {@link PRE_SEND_COMPACT_RATIO} 就先
+ * 调 `compactIfNeeded` 再发（不阻塞、不改变消息内容；压缩本身由 QueryEngine 决定是否真的动手）。
+ * 估算器与预算记账同源（`estimateMessagesTokens`），窗口与预算同源（`resolveContextWindow`）。
+ *
+ * @returns 本次判定的估算/窗口值与是否触发了压缩（供日志与单测）
+ */
+export async function ensureContextWithinBudget(params: {
+  messages: ChatMessage[];
+  model: string;
+  sessionId: string | undefined;
+  compact: (sessionId: string) => Promise<void>;
+  /** 覆盖阈值（仅单测用；生产恒用 {@link PRE_SEND_COMPACT_RATIO}） */
+  ratio?: number;
+}): Promise<{ estimated: number; window: number; compacted: boolean }> {
+  const ratio = params.ratio ?? PRE_SEND_COMPACT_RATIO;
+  const window = resolveContextWindow(params.model || '').tokens;
+  if (!params.sessionId || !Number.isFinite(window) || window <= 0) {
+    return { estimated: 0, window: 0, compacted: false };
+  }
+  const estimated = estimateMessagesTokens(params.messages);
+  if (estimated < window * ratio) {
+    return { estimated, window, compacted: false };
+  }
+  logger.warn(
+    'taorLoop: 预发送体积达窗口阈值，先压缩再发（避免 400 后被动恢复）',
+    {
+      sessionId: params.sessionId,
+      estimated,
+      window,
+      ratio,
+    }
+  );
+  await params.compact(params.sessionId);
+  return { estimated, window, compacted: true };
+}
+
+/**
+ * `prompt_too_long` 截头重试（C1；自 `TAORLoop.truncateHeadForRetry` 外迁，逻辑与日志不变）。
+ * 复用 A1 `MessageProjector.toolPairSafeTruncate`，保证截断不切断 tool 对。
+ */
+export function truncateMessagesHead(
+  messages: ChatMessage[],
+  keepRatio = 0.6
+): ChatMessage[] {
+  const keepCount = Math.max(2, Math.floor(messages.length * keepRatio));
+  const projected = messageProjector.toolPairSafeTruncate(messages, keepCount);
+  if (projected.messages.length >= messages.length) return messages;
+  logger.warn('truncate_head_and_retry applied', {
+    before: messages.length,
+    after: projected.messages.length,
+    warnings: projected.warnings.length,
+  });
+  return projected.messages;
 }

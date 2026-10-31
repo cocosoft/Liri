@@ -107,6 +107,8 @@ import {
   checkSteeringMessage,
   resolveAgentMaxOutputTokens,
   nextDoubledOutputCap,
+  ensureContextWithinBudget,
+  truncateMessagesHead,
 } from './taor/helpers.js';
 import { registerDefaultStopHooks } from './taor/stopHooks.js';
 import { extractPendingToolCallsFromMessages } from './taor/pendingToolCalls.js';
@@ -504,7 +506,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       }
       // C1：prompt 超长 → 截头重试（复用 A1 投影器的 tool 对安全截断）
       else if (recovery.action === 'truncate_head_and_retry') {
-        this.truncateHeadForRetry();
+        this.messages = truncateMessagesHead(this.messages);
         if (recovery.message) {
           this.messages.push({ role: 'user', content: recovery.message });
         }
@@ -1090,6 +1092,14 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     if (this.taorConfig.enableCheckpoint && this.shouldSaveAutoCheckpoint()) {
       await this.saveCheckpoint('auto');
     }
+    // 2026-10-31（用户裁定）：**预发送**体积闸 —— 达窗口 70% 先压缩再发，
+    // 避免"先被 provider 400 拒绝、再 compact_and_retry"的被动恢复（单日 155 次）。
+    await ensureContextWithinBudget({
+      messages: this.messages,
+      model: this.taorConfig.budgetConfig.modelName ?? '',
+      sessionId: this.taorConfig.sessionId,
+      compact: (sid) => this.queryEngine.compactIfNeeded(sid),
+    });
     const budgetState = this.tokenBudget.getCurrentBudgetState();
     const breakerLimit = this.circuitBreaker.checkHardLimits(
       this.turnCount + 1,
@@ -1367,26 +1377,6 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         .map((c) => c.toolCall) as Array<Record<string, unknown>>,
       ...lastChunk,
     };
-  }
-
-  /**
-   * C1：prompt_too_long 截头重试（保留尾部 keepRatio）
-   * 复用 A1 MessageProjector.toolPairSafeTruncate，保证截断不切断 tool 对。
-   */
-  private truncateHeadForRetry(keepRatio = 0.6): void {
-    const keepCount = Math.max(2, Math.floor(this.messages.length * keepRatio));
-    const projected = messageProjector.toolPairSafeTruncate(
-      this.messages,
-      keepCount
-    );
-    if (projected.messages.length < this.messages.length) {
-      logger.warn('truncate_head_and_retry applied', {
-        before: this.messages.length,
-        after: projected.messages.length,
-        warnings: projected.warnings.length,
-      });
-      this.messages = projected.messages;
-    }
   }
 
   /**

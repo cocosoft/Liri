@@ -7393,3 +7393,16 @@
 {"id":"PRUNE-THINKING-TEST-TIMEBOMB","k":"code#0","i":0,"c":"app/scripts/prune-event-thinking.ts"}
 {"id":"PRUNE-THINKING-TEST-TIMEBOMB","k":"tests#0","i":0,"c":"app/tests/scripts/pruneEventThinking.test.ts"}
 {"id":"PRUNE-THINKING-TEST-TIMEBOMB","k":"changelog#0","i":0,"c":"修 pruneEventThinking 用例的时间炸弹（固定时钟与真实 mtime 混用）"}
+{"id":"EVAL-STALLED-REPEAT","k":"title","i":0,"c":"评测行为指标新增第④项「空转重复次数」+ 工具参数归一化收敛单一实现"}
+{"id":"EVAL-STALLED-REPEAT","k":"source","i":0,"c":"dev_docs/20261031/deepseek建议.md 建议把「卡死」做成可判定信号（复用事件回放/评测链路，不新增框架）"}
+{"id":"EVAL-STALLED-REPEAT","k":"reopenWhen","i":0,"c":"若评测侧改读结果内容（而非仅工具名+参数）判定\"无进展\"，或 maxRepeatedRounds 口径变更时重开"}
+{"id":"EVAL-STALLED-REPEAT","k":"notes","i":0,"c":"④ = 相邻两次调用「工具名 + 归一化参数」完全相同的次数，与循环守卫 maxRepeatedRounds: 3 同口径；仅观测，不接入 isAsExpected/基线（沿用 A2 明文\"不得作为门禁\"）。归一化口径收敛到 utils/toolCallKey（键排序/超长截断 200/循环引用退化为空串），ReActToolLoop 的私有副本删除，避免多"}
+{"id":"EVAL-STALLED-REPEAT","k":"notes","i":1,"c":"处各写一份。报告行追加「重复N」。"}
+{"id":"EVAL-STALLED-REPEAT","k":"code#0","i":0,"c":"app/src/utils/toolCallKey.ts"}
+{"id":"EVAL-STALLED-REPEAT","k":"code#1","i":0,"c":"app/src/evals/behaviorMetrics.ts"}
+{"id":"EVAL-STALLED-REPEAT","k":"code#2","i":0,"c":"app/src/evals/types.ts"}
+{"id":"EVAL-STALLED-REPEAT","k":"code#3","i":0,"c":"app/src/evals/report.ts"}
+{"id":"EVAL-STALLED-REPEAT","k":"code#4","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
+{"id":"EVAL-STALLED-REPEAT","k":"tests#0","i":0,"c":"app/tests/evals/resilienceMetric.test.ts"}
+{"id":"EVAL-STALLED-REPEAT","k":"tests#1","i":0,"c":"app/tests/evals/behaviorMetrics.test.ts"}
+{"id":"EVAL-STALLED-REPEAT","k":"changelog#0","i":0,"c":"评测行为指标新增空转重复次数（观测信号），工具参数归一化收敛为单一实现"}

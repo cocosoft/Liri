@@ -15703,6 +15703,39 @@
       ],
       "reopenWhen": "若该脚本改为不支持注入 now（只能读系统时钟）时重开（全文见 archive/evidence-detail.jsonl#PRUNE-THINKING-TEST-TIMEBOMB）",
       "notes": "原用例 ageFile(...,1) 用 Date.now() 推导 mtime，却又把 now 固定成 2026-10-30T12:00Z ⇒ 系统日期一过 2026-10-30 13:00 文件就被判最近写入、applied 恒 0。改为相对 now 的绝对 mtime（utimesSync），与注入时钟同源。生…（全文见 archive/evidence-detail.jsonl#PRUNE-THINKING-TEST-TIMEBOMB）"
+    },
+    {
+      "id": "EVAL-STALLED-REPEAT",
+      "title": "评测行为指标新增第④项「空转重复次数」+ 工具参数归一化收敛单一实现",
+      "source": "dev_docs/20261031/deepseek建议.md 建议把「卡死」做成可判定信号（复用事件回放/评测链路，不新增框架）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/utils/toolCallKey.ts",
+        "app/src/evals/behaviorMetrics.ts",
+        "app/src/evals/types.ts",
+        "app/src/evals/report.ts",
+        "app/src/chat/ReActToolLoop.ts"
+      ],
+      "tests": [
+        "app/tests/evals/resilienceMetric.test.ts",
+        "app/tests/evals/behaviorMetrics.test.ts"
+      ],
+      "changelog": [
+        "评测行为指标新增空转重复次数（观测信号），工具参数归一化收敛为单一实现"
+      ],
+      "reopenWhen": "若评测侧改读结果内容（而非仅工具名+参数）判定\"无进展\"，或 maxRepeatedRounds 口径变更时重开（全文见 archive/evidence-detail.jsonl#EVAL-STALLED-REPEAT）",
+      "notes": "④ = 相邻两次调用「工具名 + 归一化参数」完全相同的次数，与循环守卫 maxRepeatedRounds: 3 同口径；仅观测，不接入 isAsExpected/基线（沿用 A2 明文\"不得作为门禁\"）。归一化口径收敛到 utils/toolCallKey（键排序/超长截断 200/循环引用退化为空串），ReAc…（全文见 archive/evidence-detail.jsonl#EVAL-STALLED-REPEAT）"
     }
   ]
 }

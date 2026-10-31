@@ -371,9 +371,9 @@
 | **S1** 侧车骨架 + `TOOL_SIDECAR_LSP` + loader 分支 | ✅ | `tools/sidecar/**`（10 文件）；开关 `featureFlags.ts:673`；loader 分支 `tools/utils/ToolManagerUtils.ts:114` |
 | **S3** 崩溃隔离 / 有界重启 / 取消 | ✅ | `tests/tools/sidecar/**`：含「意外退出 ⇒ 有界重启」「stop() 进程树强杀」 |
 | **S5** 媒体侧车（`vision_worker` 受管 + `sharp` 收口一处） | ✅ | `SidecarMediaAnalyzer` / `mediaSidecarLifecycle` / `ImageInputRouter` / `ImageAnalysisTool`；开关 `featureFlags.ts:680` |
-| **S2** LSP 双轨收敛 | ❌ **未做** | 见 §13.2 |
+| **S2** LSP 双轨收敛 | ✅ **可执行部分已完成（2026-10-31，§13.6）** | 按 §13.2 改判：不再"接线"，改为去掉轨 B 的生产依赖（校验下沉 `tools/lsp/validation.ts` + 摘 3 个运行时/构建入口） |
 | **S4** 与内置工具同源门禁（注册/PathGuard/权限/结果上限） | ✅ | `tests/tools/sidecar/sidecarSameSourceGate.test.ts`（「保名派」：同一 loader 链 → 同一 `ToolRegistry`；PathGuard 由 `resolveToolParamNames` 注册表驱动判定；`maxResultSizeChars` 与内置 deep-equal；Landlock 显式 N/A） |
-| **S6** 物理删除被替代实现 | ❌ 未做 | 依赖观察期结论 |
+| **S6** 物理删除被替代实现 | ⏳ **观察期（2026-10-31 起）** | 轨 B 已零消费者（§13.6）；观察期后按 CD06 独立删除提交 |
 
 ### 13.2 S2 前置的重新裁定（**关键**）
 
@@ -417,3 +417,26 @@
 **如实遗留**：**编译产物内不支持启用侧车**（开关默认关 ⇒ 生产零影响）。若将来要在安装版灰度侧车，
 须新增"入口派发"切片（`pyapp.ts` 早退到侧车入口 + 构建期内嵌该入口 + spawn 传子命令而不是脚本路径），
 属**独立变更**，不在本期范围。
+
+### 13.6 S2 → S6 前置：轨 B 去依赖（2026-10-31）
+
+**动机**：S2（双轨收敛）经 §13.2 复核后降级为独立技术债；其真正卡点是轨 B（`app/src/lsp/**`）
+仍有**一处生产消费者** —— `tools/lsp/LSPToolIntegration.ts` 借用它的 4 个 zod 校验器
+（`validatePosition` / `validateLocation` / `validateCompletionItem` / `validateDiagnostic`）。
+该依赖不去掉，轨 B 就永远"有消费者"，无法进入 CD05 的观察期。
+
+**本切片（已完成，`app/src/tools/lsp/validation.ts`）**：
+1. 校验下沉到工具面（Position/Range/Location/Diagnostic，逐条对齐轨 B 的 zod 约束，不引 zod、无全局缓存）；
+   `validateCompletionItem` 原本就是**未使用的导入**，直接删掉；
+2. 摘掉 3 个「运行时 / 构建」入口：`bootstrap/generatedLazyLoaders.ts`（由
+   `scripts/build-variant.ts` 的 `BASE_LAZY_LOADERS` 生成，已从源头删 `lsp` 并重生成）、
+   `modules/ImportManager.ts` 的 `@modules/lsp` 别名、`build-variant.ts` 的 `['lsp','@modules/lsp']`；
+3. **不删任何实现**（`app/src/lsp/**` 原样保留）——删实现属 S6，须观察期后按 CD06 独立提交。
+
+**复核（CD01–CD04）**：`@modules/lsp` 全仓**零代码消费者**（仅剩 `app/tsconfig.json` 路径别名与
+3 处注释）；`import('…lsp…')` 动态导入仅存在于 `app/src/lsp/` 自身；`tests/tools/lsp*` 12 pass；
+`typecheck` / `lint:arch` / `lint:variant-matrix` / `lint:refs` 全绿。
+
+**观察期口径（S6 前置）**：观察期内若出现 `@modules/lsp` 的导入需求或 LSP 工具行为异常 ⇒ 回滚本切片
+（还原 3 个入口 + 校验导入）；观察期结束、确认无消费者后，按 CD06 独立提交删除 `app/src/lsp/**` 与
+`tsconfig` 别名，并记录被删清单 + 回滚哈希。

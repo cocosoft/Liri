@@ -104,7 +104,8 @@ export class ImportManager {
         '@modules/docs': './docs',
         '@modules/error': './error',
         '@modules/hooks': './hooks',
-        '@modules/lsp': './lsp',
+        // 2026-10-31（S6 第一步）：移除 `@modules/lsp` 别名 —— 轨 B 已零消费者，
+        // 进入 CD05 观察期（工具面校验改由 `tools/lsp/validation.ts` 自持）。
         '@modules/mcp': './mcp',
         '@modules/plugins': './plugins',
         '@modules/query': './query',

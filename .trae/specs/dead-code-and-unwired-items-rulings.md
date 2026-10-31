@@ -111,6 +111,13 @@
 
 ### UW-5 轨 B 常驻 LSP `app/src/lsp/**`：**动态可发现但当前不可达**（**2026-10-13 登记**，对齐侧车化 S0）
 
+> **2026-10-31 状态更新（S6 前置已完成，观察期开始）**：工具面校验已下沉到
+> `tools/lsp/validation.ts`，并摘掉 3 个运行时/构建入口（`generatedLazyLoaders`、`ImportManager` 别名、
+> `build-variant` 的 `BASE_LAZY_LOADERS`）⇒ 轨 B 现为**零静态消费者、零外部动态导入**（见
+> `tool-sidecar-isolation.md §13.6`）。**实现仍未删**（S6 本体，待观察期后按 CD06 独立提交）。
+> 复查口径：`@modules/lsp` 仅剩 `app/tsconfig.json` 路径别名 + 3 处注释；`import('…lsp…')` 只出现在
+> `app/src/lsp/` 自身。
+
 **证据（CD01/CD02 专项）**：静态引用近零 —— `@modules/lsp` 全仓仅 4 处（`tools/lsp/LSPToolIntegration.ts:15` 取校验函数、`app/tsconfig.json:38-39` 路径别名、`modules/ImportManager.ts:107` 别名映射、`tests/tools/lspRequestTimeout.test.ts:37` 注释），且 `createLSPToolIntegration` 在 `tools/lsp/**` 外**无消费者**。**但存在字面量动态 thunk**：`core/LazyModuleStrategy.ts:364` 的 `lsp: () => import('../lsp/index.js')`（模块声明 `ON_DEMAND`，`:149-153`）；触发链 `ModuleInitializer.requestOnDemandModule()`（`:410-427`；`:402-405` 已登记 G-C5）**全仓零调用**，且 `lsp` 被 `getDeferredModuleIds` 排除（`:403-412`）。
 **影响**：零（当前无运行时接入路径）；但属 **CD01/CD02 盲区命中** —— "静态看不见动态" ⇒ **不得**以"静态零引用"为删据。
 **建议处置**：**只登记不删**（CD07：关键模块白名单；LSP 为侧车化 P1 靶点，后续可能正是要收敛/接线它）。

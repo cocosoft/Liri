@@ -10,9 +10,8 @@ import type { ToolResult } from '../types/ToolResult';
 import {
   validatePosition,
   validateLocation,
-  validateCompletionItem,
   validateDiagnostic,
-} from '@modules/lsp';
+} from './validation';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

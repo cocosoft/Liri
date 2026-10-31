@@ -77,6 +77,9 @@ client/src-tauri/target/
 
 # Application data (第二层 — 项目运行时数据，不跟踪)
 app/data/
+# 根目录 data/：本地**数据迁移/备份产物**（如 data/migrations/junk-project-*、settlement-outbox-testrows-*），
+# 只用于本机回滚取证，不入库（2026-10-31）
+/data/
 # 旧命名兼容（部分历史环境可能仍有 .py_app/ 目录）
 .py_app/
 

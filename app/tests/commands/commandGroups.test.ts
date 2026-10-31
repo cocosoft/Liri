@@ -60,6 +60,57 @@ describe('顶层清单（27 个）', () => {
   });
 });
 
+describe('2026-10-31：8 个"定义了但从未注册"的命令已接线', () => {
+  const WIRED = [
+    'balance',
+    'usagestats',
+    'provider',
+    'backup',
+    'logs',
+    'stats',
+    'migrate',
+    'channel',
+  ];
+
+  it('全部已注册，且一律隐藏（不新增顶层面）', () => {
+    expect(WIRED.filter((n) => !nameSet.has(n))).toEqual([]);
+    for (const name of WIRED) expect(isVisibleTopLevel(name)).toBe(false);
+  });
+
+  it('除刻意不设第二处入口的 channel 外，都可经分组到达', () => {
+    expect(resolveGroupDelegation('usage', 'balance')).toEqual({
+      name: 'balance',
+      args: '',
+    });
+    expect(resolveGroupDelegation('usage', 'stats')).toEqual({
+      name: 'usagestats',
+      args: '',
+    });
+    expect(resolveGroupDelegation('setup', 'provider')).toEqual({
+      name: 'provider',
+      args: '',
+    });
+    expect(resolveGroupDelegation('setup', 'backup')).toEqual({
+      name: 'backup',
+      args: '',
+    });
+    expect(resolveGroupDelegation('setup', 'migrate')).toEqual({
+      name: 'migrate',
+      args: '',
+    });
+    expect(resolveGroupDelegation('diagnose', 'logs')).toEqual({
+      name: 'logs',
+      args: '',
+    });
+    expect(resolveGroupDelegation('diagnose', 'stats')).toEqual({
+      name: 'stats',
+      args: '',
+    });
+    // `channel` 与 `/gateway` 同源重复 ⇒ 只登记理由，不做第二处入口
+    expect(HIDDEN_ONLY.channel).toContain('/gateway');
+  });
+});
+
 describe('隐藏口径：不删、不丢、可达', () => {
   it('加载器把非顶层命令标记为隐藏（顶层全部可见）', () => {
     for (const cmd of commands) {

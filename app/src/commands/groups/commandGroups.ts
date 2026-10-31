@@ -80,6 +80,9 @@ export const COMMAND_GROUPS: Readonly<Record<string, CommandGroupSpec>> = {
       insights: 'insights',
       extra: 'extra-usage',
       ratelimit: 'rate-limit-options',
+      // 2026-10-31 接线（此前"定义了但从未注册"）
+      balance: 'balance',
+      stats: 'usagestats',
     },
   },
   config: {
@@ -121,6 +124,10 @@ export const COMMAND_GROUPS: Readonly<Record<string, CommandGroupSpec>> = {
       'add-dir': 'add-dir',
       bridge: 'bridge',
       ide: 'ide',
+      // 2026-10-31 接线（此前"定义了但从未注册"）
+      provider: 'provider',
+      backup: 'backup',
+      migrate: 'migrate',
     },
   },
   diagnose: {
@@ -138,6 +145,9 @@ export const COMMAND_GROUPS: Readonly<Record<string, CommandGroupSpec>> = {
       health: 'health',
       gateway: 'gateway',
       'release-notes': 'release-notes',
+      // 2026-10-31 接线（此前"定义了但从未注册"）
+      logs: 'logs',
+      stats: 'stats',
     },
   },
   work: {
@@ -226,6 +236,11 @@ export const HIDDEN_ONLY: Readonly<Record<string, string>> = {
   notebook: '工具影子命令（模型侧走 notebook 工具）',
   'subagent-run': '工具影子命令（模型侧走 agent 工具）',
   'agent-instance': '工具影子命令（模型侧走 agent 工具）',
+  // 2026-10-31：与 `/gateway` **同源重复**（同一 `channelRegistry`；
+  // `channel list|status|connect|disconnect` ≡ `gateway list|status|start|stop`）
+  // ⇒ 只注册保证旧脚本可用，**不进分组**（避免第二处入口）。
+  channel:
+    '与 /gateway 同源重复（同一 channelRegistry，动作等价）⇒ 不设第二处入口；后续版本评估删除',
 };
 
 /** 全部可见顶层命令（分组父命令 + 独立保留） */

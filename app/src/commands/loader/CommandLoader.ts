@@ -62,10 +62,39 @@ export class BuiltinCommandLoader implements CommandLoader {
       },
       { path: '../builtin/command-registry.js', name: 'status' },
       // P3（2026-10-30）：把"定义了但没接线"的 `health` 接进来（经 `/diagnose health` 到达；
-      // 顶层隐藏）。⚠️ 其余 8 个未接线命令保留文件、登记待定，不在此批接线（用户裁定）。
+      // 顶层隐藏）。
       { path: '../builtin/command-registry.js', name: 'health' },
       // P3：`gateway` 此前从未注册（`/gateway` 直接 Command not found）—— 现经 `/diagnose gateway` 到达
       { path: '../builtin/gateway/index.js', name: 'gateway', aliases: ['gw'] },
+      // 2026-10-31（用户裁定「处理那 8 个未接线的命令」）：把**其余 8 个定义了但从未注册**的
+      // 命令全部接线 —— 一律 `isHidden`（不进 `/help` 与补全），但**可经分组到达**：
+      // `/usage balance`、`/usage stats`、`/setup provider`、`/setup backup`、`/setup migrate`、
+      // `/diagnose logs`、`/diagnose stats`。`channel` 与 `/gateway` 同源重复（同一
+      // `channelRegistry`：list/status/connect/disconnect ≡ list/status/start/stop）⇒ 只注册、
+      // 不进分组（登记在 `commandGroups.ts` 的 `HIDDEN_ONLY`）。
+      // 路径按 `LazyCommand` 的解析顺序选：优先指向**有 default 导出**的文件
+      //（`backup/` `logs/` `migrate/` `channel/` 的 index 只做具名再导出，无 default）。
+      {
+        path: '../balance/index.js',
+        name: 'balance',
+        aliases: ['bal'],
+      },
+      {
+        path: '../usagestats/index.js',
+        name: 'usagestats',
+        aliases: ['usagelog', 'stats-usage'],
+      },
+      { path: '../provider/index.js', name: 'provider', aliases: ['pv'] },
+      {
+        path: '../backup/BackupCommand.js',
+        name: 'backup',
+        aliases: ['snapshot'],
+      },
+      { path: '../logs/LogsCommand.js', name: 'logs' },
+      { path: '../stats/index.js', name: 'stats', aliases: ['statistics'] },
+      // ⚠️ `migrate` 命令自带 `upgrade` 别名，此处**刻意不登记**（`upgrade` 是另一条已注册命令）
+      { path: '../migrate/MigrateCommand.js', name: 'migrate' },
+      { path: '../channel/ChannelCommand.js', name: 'channel' },
       { path: '../builtin/clear/index.js', name: 'clear' },
       { path: '../builtin/skill/index.js', name: 'skill' },
       { path: '../builtin/config/index.js', name: 'config' },

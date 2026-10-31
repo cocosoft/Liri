@@ -15386,6 +15386,32 @@
       ],
       "reopenWhen": "若上游改端点/字段（LINE 换 push 路径、企业微信改 message/send 参数、Google Chat 升 v1/v1beta）桩会先红；新增 fetch 型通道请按同模板补一文件。（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-2）",
       "notes": "实现 9 例：lineRequestShape（/v2/bot/message/push、Bearer、非 2xx 透传状态码+响应体）、wecomRequestShape（gettoken ↔ message/send?access_token、空目标回退 @all、2048 截断、errcode 透传）、goog…（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-2）"
+    },
+    {
+      "id": "CHANNEL-REQUEST-SHAPE-STUBS-3",
+      "title": "非 HTTP 通道首条：邮件 SMTP 协议桩（握手 + MIME RFC 2047 主题）",
+      "source": "邮件通道用自研 SMTP 客户端（node:net），fetch mock 无效；此前无任何投递链路回归，主题编码/收件人/正文写错只能靠真实发信发现。",
+      "stages": {
+        "discovered": true,
+        "fixed": false,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": false,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [],
+      "tests": [
+        "app/tests/channels/emailSmtpStub.test.ts"
+      ],
+      "changelog": [
+        "新增：邮件通道 SMTP 协议桩（握手顺序 + MIME RFC 2047 主题 + 正文）"
+      ],
+      "reopenWhen": "若改 SMTP 握手顺序（EHLO/AUTH/STARTTLS）、MIME 头（Subject 编码、Content-Type）或 STARTTLS 策略，本桩会先红；覆盖 TLS 握手需另建带证书的桩。（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-3）",
+      "notes": "实现：本机临时 SMTP 服务（127.0.0.1 随机端口，afterEach 关闭）+ 1 例——断言命令顺序 EHLO→AUTH LOGIN→MAIL FROM→RCPT TO→DATA，并抓取投递报文断言 To、Subject= =?UTF-8?B?…（中文 RFC 2047）、MIME-Version、te…（全文见 archive/evidence-detail.jsonl#CHANNEL-REQUEST-SHAPE-STUBS-3）"
     }
   ]
 }

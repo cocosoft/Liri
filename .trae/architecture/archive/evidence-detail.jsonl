@@ -7296,3 +7296,10 @@
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-2","k":"tests#1","i":0,"c":"app/tests/channels/wecomRequestShape.test.ts"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-2","k":"tests#2","i":0,"c":"app/tests/channels/googlechatRequestShape.test.ts"}
 {"id":"CHANNEL-REQUEST-SHAPE-STUBS-2","k":"changelog#0","i":0,"c":"新增：LINE / 企业微信 / Google Chat 出站请求形状桩（fetch 型通道已全覆盖）"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-3","k":"title","i":0,"c":"非 HTTP 通道首条：邮件 SMTP 协议桩（握手 + MIME RFC 2047 主题）"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-3","k":"source","i":0,"c":"邮件通道用自研 SMTP 客户端（node:net），fetch mock 无效；此前无任何投递链路回归，主题编码/收件人/正文写错只能靠真实发信发现。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-3","k":"reopenWhen","i":0,"c":"若改 SMTP 握手顺序（EHLO/AUTH/STARTTLS）、MIME 头（Subject 编码、Content-Type）或 STARTTLS 策略，本桩会先红；覆盖 TLS 握手需另建带证书的桩。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-3","k":"notes","i":0,"c":"实现：本机临时 SMTP 服务（127.0.0.1 随机端口，afterEach 关闭）+ 1 例——断言命令顺序 EHLO→AUTH LOGIN→MAIL FROM→RCPT TO→DATA，并抓取投递报文断言 To、Subject= =?UTF-8?B?…（中文 RFC 2047）、MIME-Version、text/plain; "}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-3","k":"notes","i":1,"c":"charset=utf-8、正文。边界：只覆盖明文 SMTP（STARTTLS 回 500 走降级），未覆盖 TLS 握手。通道 core 16→23、community 11→4；余 4 条（irc/nostr/sms/signal）桩型各异。"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-3","k":"tests#0","i":0,"c":"app/tests/channels/emailSmtpStub.test.ts"}
+{"id":"CHANNEL-REQUEST-SHAPE-STUBS-3","k":"changelog#0","i":0,"c":"新增：邮件通道 SMTP 协议桩（握手顺序 + MIME RFC 2047 主题 + 正文）"}

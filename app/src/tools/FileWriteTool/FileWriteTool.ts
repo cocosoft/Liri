@@ -11,6 +11,7 @@ import { resolveOutputDir, resolveInboundDir } from '@modules/environment';
 import { runRegisteredOutputGuards } from '@modules/security/outputGuardRegistry';
 import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
 import { resolveIsolatedFileTarget } from '../utils/isolatedFileIo';
+import { invalidateGrepSearchCache } from '../GrepTool/GrepTool';
 import type { FileOperationResult } from '../types/ToolResult';
 
 // 懒初始化 Rust 原生模块，用于自动检测文件编码
@@ -413,6 +414,8 @@ export class FileWriteTool extends BaseTool {
 
       // 注册到 FileRegistry（异步执行，不阻塞响应返回）
       this.registerWriteToFileRegistry(input);
+      // 写成功 ⇒ grep 短路缓存失效（否则"写后同 pattern 复查"会回写前的陈旧结果）
+      invalidateGrepSearchCache();
 
       if (onProgress) {
         onProgress({

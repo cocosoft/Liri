@@ -9,6 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { resolveFilePath } from '../utils/ToolUtils';
 import { resolveIsolatedFileTarget } from '../utils/isolatedFileIo';
+import { invalidateGrepSearchCache } from '../GrepTool/GrepTool';
 import { runRegisteredOutputGuards } from '@modules/security/outputGuardRegistry';
 import type { FileOperationResult } from '../types/ToolResult';
 
@@ -418,6 +419,8 @@ export class FileEditTool extends BaseTool {
           // B1：编辑成功后更新快照
           if (cache) this.recordSnapshot(cache, resolvedPath);
         }
+        // 写成功 ⇒ grep 短路缓存失效（否则"写后同 pattern 复查"会回写前的陈旧结果）
+        invalidateGrepSearchCache();
         return createToolResult(
           { filePath: resolvedPath, replaced: true },
           {
@@ -470,6 +473,10 @@ export class FileEditTool extends BaseTool {
           replaced: result.replaced,
           oldStringFound: result.oldStringFound,
         };
+      }
+      if (outcome.replaced) {
+        // 写成功 ⇒ grep 短路缓存失效（否则"写后同 pattern 复查"会回写前的陈旧结果）
+        invalidateGrepSearchCache();
       }
 
       return createToolResult(

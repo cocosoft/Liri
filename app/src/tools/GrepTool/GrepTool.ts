@@ -59,6 +59,17 @@ const grepRecentSearches = new Map<
 >();
 
 /**
+ * 写失效（2026-10-31）：`file_write` / `file_edit` 成功后清空短路缓存。
+ *
+ * 缓存原本只按 60s 窗口过期、**不感知写入** ⇒「写前搜 0 命中 → 写文件 → 写后同 pattern
+ * 复查」会拿到写前的**陈旧零命中**（`skipped:true`，正文还提示"请基于上次结果直接交付"），
+ * 模型据此误判内容未写入。写入是"结果已改变"的确定信号 ⇒ 直接失效整个窗口缓存。
+ */
+export function invalidateGrepSearchCache(): void {
+  grepRecentSearches.clear();
+}
+
+/**
  * 构造搜索去重键：路径 + pattern + include + 输出模式 + 分页/上下文参数。
  * 纳入 offset/headLimit/contextAround：同一 pattern 的翻页续搜（不同 offset/headLimit）或
  * 不同上下文行数的展示请求不是「重复搜索」，计入键内避免被误判短路（结论2）。

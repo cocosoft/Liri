@@ -54,6 +54,8 @@ interface FileAccessRecord {
   filePath: string;
   /** 读取区域（offset + limit 组合） */
   region: string;
+  /** 查询签名（`glob` / `grep` 的 pattern；缺省=无查询语义） */
+  querySignature?: string;
   toolName: string;
   consecutiveCount: number;
   lastAccessAt: number;
@@ -94,12 +96,18 @@ export class FileIOLoopDetector {
    * @param filePath 目标文件路径
    * @param offset 分页偏移（search_files/grep 等）
    * @param limit 分页大小
+   * @param querySignature 该次调用的**查询签名**（如 `glob` / `grep` 的 `pattern`）。
+   *   2026-10-31：此前判定键只有「路径 + 分页区域」，同一目录下**不同 pattern** 的连续
+   *   检索（`**‌/*` → `package.json` → `src/**` …）被算成「连续读同一文件」，第 4 次直接
+   *   **终止整轮**（真机 app.log：单窗口 `文件IO循环已被阻止` 346–434 次，均为 `glob` 指向
+   *   同一工作区根）。不同 pattern = 不同查询 ⇒ 计入键后不再互相叠加。
    */
   checkBeforeAccess(
     toolName: string,
     filePath: string,
     offset?: number,
-    limit?: number
+    limit?: number,
+    querySignature?: string
   ): FileIOBlockResult {
     if (!this.config.enabled) return { blocked: false, warning: false };
 
@@ -113,8 +121,13 @@ export class FileIOLoopDetector {
       return { blocked: false, warning: false };
     }
 
+    /** 判定键：路径 + 查询签名（不同 pattern 不互相叠加） */
+    const accessKey = querySignature
+      ? `${normalizedPath}\u0000${querySignature}`
+      : normalizedPath;
+
     // 跨文件交替循环检测
-    this.recentFiles.push(normalizedPath);
+    this.recentFiles.push(accessKey);
     if (this.recentFiles.length > this.MAX_RECENT_FILES_TRACK) {
       this.recentFiles.shift();
     }
@@ -134,7 +147,12 @@ export class FileIOLoopDetector {
           ? `offset=${offset},limit=${limit}`
           : 'full';
       const r = this.currentRead;
-      if (r && r.filePath === normalizedPath && r.region === region) {
+      if (
+        r &&
+        r.filePath === normalizedPath &&
+        r.region === region &&
+        r.querySignature === querySignature
+      ) {
         r.consecutiveCount++;
         if (r.consecutiveCount >= this.config.blockThreshold)
           return this._applyObserveOnly({
@@ -152,6 +170,7 @@ export class FileIOLoopDetector {
         this.currentRead = {
           filePath: normalizedPath,
           region,
+          querySignature,
           toolName,
           consecutiveCount: 1,
           lastAccessAt: Date.now(),
@@ -162,7 +181,11 @@ export class FileIOLoopDetector {
     // ── 写循环检测 ──
     if (isWrite) {
       const w = this.currentWrite;
-      if (w && w.filePath === normalizedPath) {
+      if (
+        w &&
+        w.filePath === normalizedPath &&
+        w.querySignature === querySignature
+      ) {
         w.consecutiveCount++;
         if (w.consecutiveCount >= this.config.blockThreshold)
           return this._applyObserveOnly({
@@ -180,6 +203,7 @@ export class FileIOLoopDetector {
         this.currentWrite = {
           filePath: normalizedPath,
           region: 'full',
+          querySignature,
           toolName,
           consecutiveCount: 1,
           lastAccessAt: Date.now(),

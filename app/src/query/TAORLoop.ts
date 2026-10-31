@@ -690,7 +690,11 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
           tc.name,
           filePath,
           args.offset as number | undefined,
-          args.limit as number | undefined
+          args.limit as number | undefined,
+          // 2026-10-31：把 `glob` / `grep` 的 pattern 纳入判定键 —— 同一目录下不同 pattern
+          // 是**不同查询**，此前被算作「连续读同一文件」，第 4 次即终止整轮
+          // （真机单窗口 346–434 次 `文件IO循环已被阻止`，全部指向同一工作区根）。
+          typeof args.pattern === 'string' ? args.pattern : undefined
         );
         if (ioCheck.blocked) {
           logger.warn('文件IO循环已被阻止', { tool: tc.name, path: filePath });

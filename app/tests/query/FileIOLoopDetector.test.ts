@@ -62,3 +62,72 @@ describe('FileIOLoopDetector：清单与真实注册名对齐后真正生效', (
     }
   });
 });
+
+describe('FileIOLoopDetector：查询签名参与判定键（2026-10-31）', () => {
+  // 真机证据：单窗口 `文件IO循环已被阻止` 346–434 次，全部是 glob 指向**同一工作区根**
+  // 但 pattern 各不相同的合法探索；旧判定键只有「路径 + 分页区域」⇒ 第 4 次直接终止整轮。
+
+  it('同一目录、不同 pattern 连续 6 次 ⇒ 不警告也不阻断', () => {
+    const d = createFileIOLoopDetector({
+      warningThreshold: 3,
+      blockThreshold: 4,
+    });
+    const dir = 'C:/ws/proj';
+
+    const patterns = [
+      '**/*',
+      'package.json',
+      'src/**',
+      '*.md',
+      'output/**',
+      '**/*.ts',
+    ];
+    for (const pattern of patterns) {
+      const r = d.checkBeforeAccess('glob', dir, undefined, undefined, pattern);
+      expect(r.blocked).toBe(false);
+      expect(r.warning).toBe(false);
+    }
+  });
+
+  it('同一目录、同一 pattern 连续 4 次 ⇒ 仍阻断（真循环不被放过）', () => {
+    const d = createFileIOLoopDetector({
+      warningThreshold: 3,
+      blockThreshold: 4,
+    });
+    const dir = 'C:/ws/proj';
+
+    for (let i = 0; i < 3; i++) {
+      expect(
+        d.checkBeforeAccess('glob', dir, undefined, undefined, '**/*').blocked
+      ).toBe(false);
+    }
+
+    const blocked = d.checkBeforeAccess(
+      'glob',
+      dir,
+      undefined,
+      undefined,
+      '**/*'
+    );
+    expect(blocked.blocked).toBe(true);
+    expect(String(blocked.message)).toContain('连续读');
+  });
+
+  it('两个目录交替、pattern 各不同 ⇒ 不判为交替循环', () => {
+    const d = createFileIOLoopDetector({
+      warningThreshold: 3,
+      blockThreshold: 4,
+    });
+
+    for (let i = 0; i < 6; i++) {
+      expect(
+        d.checkBeforeAccess('glob', 'C:/ws/a', undefined, undefined, `a-${i}`)
+          .blocked
+      ).toBe(false);
+      expect(
+        d.checkBeforeAccess('glob', 'C:/ws/b', undefined, undefined, `b-${i}`)
+          .blocked
+      ).toBe(false);
+    }
+  });
+});

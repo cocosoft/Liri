@@ -49,7 +49,11 @@ const bundledSkills: BundledSkillDefinition[] = [
       'Enable debug logging for this session and help diagnose issues',
     allowedTools: ['file_read', 'grep', 'glob'],
     argumentHint: '[issue description]',
-    userInvocable: true,
+    // 2026-10-31：**不再作为斜杠命令登记** —— 内置命令 `/debug` 已存在
+    // （`commands/builtin/command-registry.ts`），二者同名 ⇒ `CommandRegistry` 每次装配都记
+    // `命令名冲突 ⇒ 拒绝登记（onConflict=error）`（真机 app.log 单窗口 28 次）。
+    // 保留 `name: 'debug'` 让模型仍可经 Skill 工具调用；用户侧的 `/debug` 继续归内置命令。
+    userInvocable: false,
     async getPromptForCommand(args) {
       return [
         {

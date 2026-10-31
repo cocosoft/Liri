@@ -104,9 +104,12 @@ function main(): void {
 
   if (!updateOnly) {
     // 生成启动脚本（每次打包时重新生成，确保内容与方案一致）
+    // 台账 L-12484：Bun `--compile` 的 external 依赖解析依赖**真实 cwd** 能找到 node_modules
+    // （`dist\node_modules/pdfjs-dist` 存在也要 cwd=dist 才可解析）⇒ 启动前先 `cd /d "%~dp0"`，
+    // 否则从桌面快捷方式 / 任意目录 / 命令行绝对路径启动都会报 `Cannot find module 'pdfjs-dist/...'`。
     const runBatPath = path.join(pkgDir, 'run.bat');
     const runBatContent =
-      '@echo off\r\nsetlocal\r\nset "LIRI_PROJECT_DIR=%~dp0"\r\n"%~dp0runtime\\bun.exe" run "%~dp0liri.js" %*';
+      '@echo off\r\nsetlocal\r\ncd /d "%~dp0"\r\nset "LIRI_PROJECT_DIR=%~dp0"\r\n"%~dp0runtime\\bun.exe" run "%~dp0liri.js" %*';
     fs.writeFileSync(runBatPath, runBatContent, 'utf-8');
     console.log(`[生成] run.bat`);
 

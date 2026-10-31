@@ -6986,3 +6986,12 @@
 {"id":"SESSION-DATA-RETENTION","k":"code#1","i":0,"c":"app/scripts/prune-sessions.ts"}
 {"id":"SESSION-DATA-RETENTION","k":"code#2","i":0,"c":"app/package.json"}
 {"id":"SESSION-DATA-RETENTION","k":"tests#0","i":0,"c":"app/tests/session/sessionPruning.test.ts"}
+{"id":"FILE-IO-LOOP-QUERY-KEY","k":"title","i":0,"c":"文件IO循环判定计入查询签名：同一目录下不同 glob/grep pattern 不再被判为「连续读同一文件」并终止整轮"}
+{"id":"FILE-IO-LOOP-QUERY-KEY","k":"source","i":0,"c":"真机 app.log（2026-10-31 两份窗口）：query:taorLoop 文件IO循环已被阻止 346 / 434 次，meta 恒为同一工作区根；同期 streamFlow 显示 glob 的 pattern 各不相同（**/* 与 package.json 等）"}
+{"id":"FILE-IO-LOOP-QUERY-KEY","k":"reopenWhen","i":0,"c":"再出现「同目录不同 pattern 的连续检索被判定为文件IO循环」或「合法探索导致整轮 abort」"}
+{"id":"FILE-IO-LOOP-QUERY-KEY","k":"notes","i":0,"c":"根因：FileIOLoopDetector 的判定键只有「路径 + 分页区域(offset/limit)」，glob/grep 的 pattern 不在键内 ⇒ 同一目录下 4 个不同 pattern 的检索被累计成「连续读同一文件 ×4」；TAORLoop 命中后直接 stopped=true / stopReason=aborted，整轮终止。修法："}
+{"id":"FILE-IO-LOOP-QUERY-KEY","k":"notes","i":1,"c":"checkBeforeAccess 增加可选 querySignature（跨文件交替检测的键同样带上），TAORLoop 传入 args.pattern。真循环仍被拦（同 pattern ×4 阻断用例保留）。验证：FileIOLoopDetector 单测 6 例（新增 3 例：不同 pattern 不拦 / 同 pattern 仍拦 / 两目录交替不判"}
+{"id":"FILE-IO-LOOP-QUERY-KEY","k":"notes","i":2,"c":"循环）、tests/query 450 例全绿、typecheck 绿、eslint 0 error（仅既有 complexity 警告）。"}
+{"id":"FILE-IO-LOOP-QUERY-KEY","k":"code#0","i":0,"c":"app/src/query/FileIOLoopDetector.ts"}
+{"id":"FILE-IO-LOOP-QUERY-KEY","k":"code#1","i":0,"c":"app/src/query/TAORLoop.ts"}
+{"id":"FILE-IO-LOOP-QUERY-KEY","k":"tests#0","i":0,"c":"app/tests/query/FileIOLoopDetector.test.ts"}

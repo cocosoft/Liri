@@ -14390,6 +14390,33 @@
       "changelog": [],
       "reopenWhen": "再出现「会话目录无限增长且无策略」或「保留策略按大小/按天判定永不触发」（全文见 archive/evidence-detail.jsonl#SESSION-DATA-RETENTION）",
       "notes": "两处缺陷：① SessionPruning 类自移植后**零消费者**（策略从未被执行）；② 目录型会话直接 statSync(dir)：Windows 上 size≈0、mtime 只在子项增删时变 ⇒ maxSizeMB 与 maxAgeDays 两档**永不触发**，实际只剩「按会话数」。修法：inspectS…（全文见 archive/evidence-detail.jsonl#SESSION-DATA-RETENTION）"
+    },
+    {
+      "id": "FILE-IO-LOOP-QUERY-KEY",
+      "title": "文件IO循环判定计入查询签名：同一目录下不同 glob/grep pattern 不再被判为「连续读同一文件」并终止整轮",
+      "source": "真机 app.log（2026-10-31 两份窗口）：query:taorLoop 文件IO循环已被阻止 346 / 434 次，meta 恒为同一工作区根；同期 streamFlow 显示 glob 的 pattern 各不相同（**/* 与 package.json 等）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/FileIOLoopDetector.ts",
+        "app/src/query/TAORLoop.ts"
+      ],
+      "tests": [
+        "app/tests/query/FileIOLoopDetector.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现「同目录不同 pattern 的连续检索被判定为文件IO循环」或「合法探索导致整轮 abort」（全文见 archive/evidence-detail.jsonl#FILE-IO-LOOP-QUERY-KEY）",
+      "notes": "根因：FileIOLoopDetector 的判定键只有「路径 + 分页区域(offset/limit)」，glob/grep 的 pattern 不在键内 ⇒ 同一目录下 4 个不同 pattern 的检索被累计成「连续读同一文件 ×4」；TAORLoop 命中后直接 stopped=true / stopReas…（全文见 archive/evidence-detail.jsonl#FILE-IO-LOOP-QUERY-KEY）"
     }
   ]
 }

@@ -22,6 +22,40 @@ const GREP_SKIPPED_DIR_LOG_INTERVAL_MS = 30_000;
 let skippedDirCount = 0;
 let skippedDirLastLogAt = 0;
 
+/**
+ * 单条匹配行保留的最大字符数（2026-10-31，上下文溢出预防第三步）。
+ *
+ * 压缩成单行的文件（minified JS / 单行 JSON）被 grep 命中时，**一行**就可能是数 MB
+ * （≈上百万 tokens）—— 与 `file_read` 的超长单行同族，单条结果即可把请求推过模型窗口
+ * （同日 155 次上下文溢出 400、请求达 1.79M tokens）。超限行截断并标注原始长度，
+ * 引导改用更精确的 pattern 或 `file_read` 分段查看。
+ */
+const MAX_MATCH_LINE_CHARS = 2_000;
+/** 截断窗口内**匹配点之前**保留的字符数（其余留给命中后的上下文） */
+const MATCH_LINE_LEAD_CHARS = 500;
+
+/**
+ * 超长匹配行裁剪：以**命中位置**为中心取窗口（不是简单截头），保证模型能看到真正命中的那段。
+ */
+function clipMatchLine(line: string, matchIndex: number): string {
+  if (line.length <= MAX_MATCH_LINE_CHARS) return line;
+  const start = Math.max(
+    0,
+    Math.min(
+      matchIndex - MATCH_LINE_LEAD_CHARS,
+      line.length - MAX_MATCH_LINE_CHARS
+    )
+  );
+  const window = line.slice(start, start + MAX_MATCH_LINE_CHARS);
+  const prefix = start > 0 ? `…（前 ${start} 字符已省略）` : '';
+  const omittedTail = line.length - (start + MAX_MATCH_LINE_CHARS);
+  const suffix =
+    omittedTail > 0
+      ? `…（本行共 ${line.length} 字符，已截断；请用更精确的 pattern 或 file_read 分段查看）`
+      : '';
+  return prefix + window + suffix;
+}
+
 function noteSkippedDir(dir: string, err: unknown): void {
   const code = (err as NodeJS.ErrnoException)?.code;
   if (
@@ -514,12 +548,16 @@ function searchFile(
       const line = lines[i];
       // 重置正则表达式的 lastIndex，确保每次测试从字符串开头开始（针对全局标志位的正则）
       regex.lastIndex = 0;
-      if (regex.test(line)) {
+      const hit = regex.exec(line);
+      if (hit) {
+        // 2026-10-31：单行长度闸 —— 压缩成单行的文件（minified JS / 单行 JSON）被命中时，
+        // 一行就可能是数 MB（≈上百万 tokens），直接把请求推过模型窗口（同日 155 次溢出 400）。
+        const shown = clipMatchLine(line, hit.index ?? 0);
         // 根据配置决定是否在匹配结果中包含文件名和行号前缀
         if (options.showLineNumbers !== false) {
-          matches.push(`${path.basename(filePath)}:${i + 1}:${line}`);
+          matches.push(`${path.basename(filePath)}:${i + 1}:${shown}`);
         } else {
-          matches.push(line);
+          matches.push(shown);
         }
       }
     }

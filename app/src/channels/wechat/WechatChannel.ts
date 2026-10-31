@@ -379,26 +379,52 @@ export const wechatChannel = createWechatChannel();
 // P1-3 单例统一：Plugin 导出为同一实例别名，避免双实例
 export const wechatChannelPlugin = wechatChannel;
 
-// 保持旧版导出兼容
+// 保持旧版导出兼容（**空实现**，2026-10-31 按 FIX-12 标记并在调用时告警）
+// CD01–CD04 取证：全仓无静态/动态消费者（仅本文件 + `channels/wechat/index.ts` 的 barrel 再导出）；
+// `ChannelCatalog` 直接 `import('./wechat/WechatChannel.js')` 取类，不经 barrel ⇒ 运行期不可达。
+// 处置（CD07 关键模块口径）：先 `@deprecated` + 运行期告警，观察期后删除或改为真实实现。
+let legacyStubWarned = false;
+function warnLegacyStub(name: string): void {
+  if (legacyStubWarned) return;
+  legacyStubWarned = true;
+  process.emitWarning(
+    `[channels/wechat] ${name} 是空实现（FIX-12）：verifySignature 恒 true、XML 解析恒空。` +
+      '若正在接线微信验签，请先实现真实逻辑再经 barrel 导出。',
+    'DeprecationWarning'
+  );
+}
+
+/** @deprecated 空实现（恒返回 `{}`）；FIX-12 待删或改为真实 XML 解析 */
 export function parseWechatXML(_xml: string): Record<string, string> {
+  warnLegacyStub('parseWechatXML');
   return {};
 }
+
+/** @deprecated 空实现（恒返回 `''`）；FIX-12 待删或改为真实回复构造 */
 export function buildWechatReply(
   _to: string,
   _from: string,
   _content: string
 ): string {
+  warnLegacyStub('buildWechatReply');
   return '';
 }
+
+/** @deprecated 空实现：`verifySignature` 恒 `true`、加解密原样返回；FIX-12 待删或按协议实现 */
 export class WechatCrypto {
-  constructor(_key: string) {}
+  constructor(_key: string) {
+    warnLegacyStub('WechatCrypto');
+  }
   verifySignature(): boolean {
+    warnLegacyStub('WechatCrypto.verifySignature');
     return true;
   }
   decryptMsg(e: string): string {
+    warnLegacyStub('WechatCrypto.decryptMsg');
     return e;
   }
   encryptMsg(m: string): string {
+    warnLegacyStub('WechatCrypto.encryptMsg');
     return m;
   }
 }

@@ -26,10 +26,11 @@ export {
   wechatChannel,
   createWechatChannel,
   wechatChannelPlugin,
-  parseWechatXML,
-  buildWechatReply,
-  WechatCrypto,
 } from './WechatChannel.js';
+
+// FIX-12（2026-10-31）：`parseWechatXML` / `buildWechatReply` / `WechatCrypto` 原为**空实现**
+// （验签恒 true、解析恒空），按 CD05「先摘入口 → 观察 → 再删实现」**先摘掉 barrel 出口**；
+// 实现体仍留在 `WechatChannel.ts` 并标 `@deprecated` + 首次调用告警，观察期后删除或改为真实实现。
 
 export {
   getDefaultWechatConfig,

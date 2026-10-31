@@ -10,6 +10,8 @@
  *   R3 infra 动态导入上层 —— 逐条白名单，清零目标（补 R00-003 盲区）
  *   R4 common / utils 同名导出 —— infra 双包只允许一份实现
  *   R5 `bun:sqlite` 只允许包装本体直连（`@modules/external` 是唯一驱动入口）
+ *   R6 `packages/infra/src` 物理包边界（包内不得依赖上层 / 相对路径不得逃逸到 `app/`；
+ *      app 侧 `@openliri/infra/<m>` 必须是登记为 infra 的模块，且 core 不得依赖 infra）
  *
  * 扫描面：`scripts/modules-to-layers.json` 里 `layer === "infra"` 的模块，取其
  * `app/src/<module>/**` 下的生产 `.ts`（排除 `*.test.ts` / `*.spec.ts` / `*ModuleTest.ts` / `__tests__`）。
@@ -30,6 +32,7 @@ import {
   compareCommonUtilsDuplicates,
   compareDirectSqliteImports,
   compareDynamicInfraToApp,
+  compareInfraPackageBoundary,
   compareTopLevelIo,
   type BoundaryReport,
   type InfraBoundaryAllowlist,
@@ -40,6 +43,10 @@ const REPO_ROOT = process.env['INFRA_REPO_ROOT']
   ? resolve(process.env['INFRA_REPO_ROOT'])
   : resolve(APP_DIR, '..');
 const SRC_DIR = join(REPO_ROOT, 'app', 'src');
+/** 2026-11-01：infra 物理包根（R6 扫描面 + 模块目录优先解析；可覆盖以便测试/负向自证） */
+const PACKAGE_SRC = process.env['INFRA_PACKAGE_SRC']
+  ? resolve(process.env['INFRA_PACKAGE_SRC'])
+  : join(REPO_ROOT, 'packages', 'infra', 'src');
 const LAYERS_FILE = process.env['INFRA_LAYERS']
   ? resolve(process.env['INFRA_LAYERS'])
   : join(REPO_ROOT, 'scripts', 'modules-to-layers.json');
@@ -61,17 +68,18 @@ function isProductionSource(name: string): boolean {
   return true;
 }
 
-function collect(dir: string, out: SourceFile[]): void {
+function collect(dir: string, out: SourceFile[], base: string = SRC_DIR): void {
   for (const name of readdirSync(dir).sort()) {
-    if (name === 'node_modules' || name === '__tests__' || name === 'tests') continue;
+    if (name === 'node_modules' || name === '__tests__' || name === 'tests')
+      continue;
     const full = join(dir, name);
     if (statSync(full).isDirectory()) {
-      collect(full, out);
+      collect(full, out, base);
       continue;
     }
     if (!isProductionSource(name)) continue;
     out.push({
-      path: relative(SRC_DIR, full).split(sep).join('/'),
+      path: relative(base, full).split(sep).join('/'),
       content: readFileSync(full, 'utf-8'),
     });
   }
@@ -114,7 +122,8 @@ function loadAllowlist(): InfraBoundaryAllowlist {
     'sqliteDirectImports',
   ] as const;
   for (const key of sections) {
-    if (!Array.isArray(parsed[key])) fail(`白名单缺少 ${key} 数组（fail-closed）`);
+    if (!Array.isArray(parsed[key]))
+      fail(`白名单缺少 ${key} 数组（fail-closed）`);
   }
   return {
     version: parsed.version ?? 1,
@@ -141,13 +150,25 @@ function main(): number {
   const infraFiles: SourceFile[] = [];
   const missing: string[] = [];
   for (const module of infraModules) {
-    const dir = join(SRC_DIR, module);
-    if (!existsSync(dir) || !statSync(dir).isDirectory()) {
+    // 2026-11-01：模块目录优先取物理包（`packages/infra/src/<m>`），回退 `app/src/<m>`
+    const inPackage = join(PACKAGE_SRC, module);
+    const inApp = join(SRC_DIR, module);
+    const dir = [inPackage, inApp].find(
+      (d) => existsSync(d) && statSync(d).isDirectory()
+    );
+    if (!dir) {
       // 逻辑模块 id（无同名目录，如 `logger`）属正常；只记录不判红
       missing.push(module);
       continue;
     }
     collect(dir, infraFiles);
+  }
+
+  // R6 扫描面：infra 物理包（未建包时为空数组；app 侧的 @openliri/infra/* 仍会被 R6 检查）
+  const packageFiles: SourceFile[] = [];
+  if (existsSync(PACKAGE_SRC) && statSync(PACKAGE_SRC).isDirectory()) {
+    // 包内文件用**包内相对路径**（R6 的相对逃逸判定以此为准，与仓库布局解耦）
+    collect(PACKAGE_SRC, packageFiles, PACKAGE_SRC);
   }
 
   const commonFiles = infraFiles.filter((f) => f.path.startsWith('common/'));
@@ -163,27 +184,38 @@ function main(): number {
     compareDynamicInfraToApp(infraFiles, layers, allowlist),
     compareCommonUtilsDuplicates(commonFiles, utilsFiles, allowlist),
     compareDirectSqliteImports(allSrcFiles, allowlist),
+    compareInfraPackageBoundary({
+      packageFiles,
+      appFiles: allSrcFiles,
+      layerOf: layers,
+    }),
   ];
 
-  console.log('=== infra 层边界契约门禁（R1–R5）===');
+  console.log('=== infra 层边界契约门禁（R1–R6）===');
   console.log(
     `infra 模块 ${infraModules.length} 个（无目录 ${missing.length}）· 生产源文件 ${infraFiles.length} 个` +
-      ` · common ${commonFiles.length} / utils ${utilsFiles.length}`
+      ` · common ${commonFiles.length} / utils ${utilsFiles.length}` +
+      ` · 物理包 ${packageFiles.length} 个文件`
   );
   console.log('----------------------------------------');
 
   for (const report of reports) {
-    console.log(`--- ${report.rule} ${report.title}（检查 ${report.checked} 处）---`);
+    console.log(
+      `--- ${report.rule} ${report.title}（检查 ${report.checked} 处）---`
+    );
     for (const hint of report.hints) console.log(`ℹ️ ${hint}`);
-    for (const violation of report.violations) console.error(`  ❌ ${violation}`);
+    for (const violation of report.violations)
+      console.error(`  ❌ ${violation}`);
   }
 
   const total = reports.reduce((sum, r) => sum + r.violations.length, 0);
   if (total > 0) {
-    console.error(`\n❌ 共 ${total} 条违规（规范见 .trae/specs/infra-layer-boundary-contract.md）`);
+    console.error(
+      `\n❌ 共 ${total} 条违规（规范见 .trae/specs/infra-layer-boundary-contract.md）`
+    );
     return 1;
   }
-  console.log('\n✅ 合规（R1–R5 无未登记违规）');
+  console.log('\n✅ 合规（R1–R6 无未登记违规）');
   return 0;
 }
 

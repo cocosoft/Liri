@@ -64,7 +64,7 @@ export interface InfraBoundaryAllowlist {
 
 /** 单条规则的检查结论 */
 export interface BoundaryReport {
-  rule: 'R1' | 'R2' | 'R3' | 'R4' | 'R5';
+  rule: 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6';
   title: string;
   violations: string[];
   hints: string[];
@@ -131,7 +131,11 @@ export function parseFileImports(file: SourceFile): ImportRef[] {
     if (ts.isImportDeclaration(node)) {
       const spec = node.moduleSpecifier;
       if (ts.isStringLiteral(spec)) {
-        push(spec.text, node, node.importClause?.isTypeOnly ? 'type' : 'static');
+        push(
+          spec.text,
+          node,
+          node.importClause?.isTypeOnly ? 'type' : 'static'
+        );
       }
       return;
     }
@@ -147,12 +151,16 @@ export function parseFileImports(file: SourceFile): ImportRef[] {
       return;
     }
     if (ts.isCallExpression(node)) {
-      const isDynamicImport = node.expression.kind === ts.SyntaxKind.ImportKeyword;
+      const isDynamicImport =
+        node.expression.kind === ts.SyntaxKind.ImportKeyword;
       const isRequire =
         ts.isIdentifier(node.expression) && node.expression.text === 'require';
       if ((isDynamicImport || isRequire) && node.arguments.length > 0) {
         const arg = node.arguments[0]!;
-        if (ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg)) {
+        if (
+          ts.isStringLiteral(arg) ||
+          ts.isNoSubstitutionTemplateLiteral(arg)
+        ) {
           push(arg.text, node, 'dynamic');
         } else {
           push('<动态表达式>', node, 'dynamic', false);
@@ -244,10 +252,7 @@ function collectIoBindings(sf: ts.SourceFile): IoBindings {
 }
 
 /** 调用的本地名是否来自 I/O 模块（`readFileSync` / `fs.readFileSync`） */
-function ioCallee(
-  expr: ts.Expression,
-  bindings: IoBindings
-): string | null {
+function ioCallee(expr: ts.Expression, bindings: IoBindings): string | null {
   if (ts.isIdentifier(expr) && bindings.names.has(expr.text)) return expr.text;
   if (ts.isPropertyAccessExpression(expr)) {
     const left = expr.expression;
@@ -360,7 +365,8 @@ export function compareApprovalOrchestration(
   let checked = 0;
 
   for (const file of files) {
-    if (!APPROVAL_MODULE_PREFIXES.some((p) => file.path.startsWith(p))) continue;
+    if (!APPROVAL_MODULE_PREFIXES.some((p) => file.path.startsWith(p)))
+      continue;
     for (const ref of parseFileImports(file)) {
       if (ref.kind === 'type') continue;
       const target = layerOf(ref.resolved, layers);
@@ -376,7 +382,9 @@ export function compareApprovalOrchestration(
 
   for (const entry of allowlist.approvalOrchestration) {
     if (reasonMissing(entry.reason)) {
-      violations.push(`R2 白名单条目缺少理由：${entry.path} → ${entry.specifier}`);
+      violations.push(
+        `R2 白名单条目缺少理由：${entry.path} → ${entry.specifier}`
+      );
     }
   }
   if (violations.length === 0) {
@@ -449,7 +457,9 @@ export function compareDynamicInfraToApp(
 
   for (const entry of allowlist.dynamicInfraToApp) {
     if (reasonMissing(entry.reason)) {
-      violations.push(`R3 白名单条目缺少理由：${entry.path} → ${entry.specifier}`);
+      violations.push(
+        `R3 白名单条目缺少理由：${entry.path} → ${entry.specifier}`
+      );
       continue;
     }
     if (!seen.has(`${entry.path}|${entry.specifier}`)) {
@@ -481,8 +491,9 @@ export function collectExportedNames(file: SourceFile): Set<string> {
   const names = new Set<string>();
 
   const exported = (node: ts.Node): boolean => {
-    const modifiers = (node as ts.Node & { modifiers?: ts.NodeArray<ts.ModifierLike> })
-      .modifiers;
+    const modifiers = (
+      node as ts.Node & { modifiers?: ts.NodeArray<ts.ModifierLike> }
+    ).modifiers;
     return !!modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
   };
 
@@ -534,7 +545,9 @@ export function compareCommonUtilsDuplicates(
 ): BoundaryReport {
   const violations: string[] = [];
   const hints: string[] = [];
-  const allowed = new Map(allowlist.commonUtilsDuplicates.map((e) => [e.name, e]));
+  const allowed = new Map(
+    allowlist.commonUtilsDuplicates.map((e) => [e.name, e])
+  );
 
   const index = (files: readonly SourceFile[]): Map<string, string[]> => {
     const map = new Map<string, string[]>();
@@ -600,14 +613,15 @@ export function compareCommonUtilsDuplicates(
  * 未提及的文件零解析成本。
  */
 export const SQLITE_SPECIFIER = 'bun:sqlite';
-
 export function compareDirectSqliteImports(
   files: readonly SourceFile[],
   allowlist: InfraBoundaryAllowlist
 ): BoundaryReport {
   const violations: string[] = [];
   const hints: string[] = [];
-  const allowed = new Map(allowlist.sqliteDirectImports.map((e) => [e.path, e]));
+  const allowed = new Map(
+    allowlist.sqliteDirectImports.map((e) => [e.path, e])
+  );
   const seen = new Set<string>();
   let checked = 0;
 
@@ -635,11 +649,138 @@ export function compareDirectSqliteImports(
     }
   }
   if (violations.length === 0) {
-    hints.push(`bun:sqlite 直连 ${checked} 处，均在白名单内（目标：仅包装本体）`);
+    hints.push(
+      `bun:sqlite 直连 ${checked} 处，均在白名单内（目标：仅包装本体）`
+    );
   }
   return {
     rule: 'R5',
     title: 'DB 驱动唯一入口（bun:sqlite）',
+    violations,
+    hints,
+    checked,
+  };
+}
+
+// ───────────────────────────── R6：infra 包边界（2026-11-01） ─────────────────────────────
+
+/** R6 输入：包内文件路径按**仓库相对** POSIX（如 `packages/infra/src/external/x.ts`） */
+export interface InfraPackageBoundaryInput {
+  /** `packages/infra/src/**` 下的生产文件（path = 仓库相对 POSIX） */
+  packageFiles: readonly SourceFile[];
+  /** `app/src/**` 下的生产文件（path = 相对 `app/src` 的 POSIX） */
+  appFiles: readonly SourceFile[];
+  /** 模块名 → 层 */
+  layerOf: ReadonlyMap<string, string>;
+}
+
+/** 不能被 infra 包依赖的层（core 只允许依赖 core；entry/ui/app/service 更是倒挂） */
+const PACKAGE_FORBIDDEN_TARGET_LAYERS = new Set([
+  'entry',
+  'ui',
+  'app',
+  'service',
+  'core',
+]);
+
+/** 以「包内相对路径」为基准解析相对引用；`escapes` 表示爬出了包根 */
+function resolveRelative(
+  fromFile: string,
+  spec: string
+): { path: string; escapes: boolean } {
+  const out = fromFile.split('/').slice(0, -1);
+  for (const seg of spec.split('/')) {
+    if (seg === '' || seg === '.') continue;
+    if (seg === '..') {
+      if (out.length === 0) return { path: spec, escapes: true };
+      out.pop();
+      continue;
+    }
+    out.push(seg);
+  }
+  return { path: out.join('/'), escapes: false };
+}
+
+/**
+ * R6：**infra 物理包边界**（`packages/infra/src`）。
+ *
+ * 动机（实证）：把 `external` 实际迁到 `packages/infra` 后，`lint:arch` R00-001 与 R1–R5 都**不再扫描**
+ * 该目录 —— 在包里写 `import … from '@modules/chat/…'` 也能全绿（2026-11-01 负向自证实测）。
+ * R6 把这条边界显式化，且**包内相对路径逃逸到 `app/`** 同样算违规（绕过别名的最短路径）。
+ *
+ * 判据：
+ *   ① 包内 `@modules/<m>` ⇒ `<m>` 必须已登记，且层 ∈ {infra}（core 也不允许：core 只依赖 core）；
+ *   ② 包内相对路径解析后落在 `app/` 下 ⇒ 违规（逃逸）；
+ *   ③ app 侧 `@openliri/infra/<m>` ⇒ `<m>` 必须登记为 infra；且 core 层不得依赖 infra。
+ */
+export function compareInfraPackageBoundary(
+  input: InfraPackageBoundaryInput
+): BoundaryReport {
+  const violations: string[] = [];
+  const hints = [
+    'R6 判据见 .trae/specs/infra-layer-boundary-contract.md §5：infra 包只暴露能力，不得依赖上层',
+    '包内请用 `@modules/<infra模块>`（同层）或 `@openliri/kernel/...`；禁止相对路径跳进 `app/`',
+  ];
+  let checked = 0;
+
+  for (const file of input.packageFiles) {
+    for (const ref of parseFileImports(file)) {
+      const spec = ref.specifier;
+      if (spec.startsWith('@modules/')) {
+        checked += 1;
+        const target = spec.slice('@modules/'.length).split('/')[0] ?? '';
+        const layer = input.layerOf.get(target);
+        if (!layer) {
+          violations.push(
+            `${file.path}:${ref.line} 依赖未登记模块 @modules/${target}（infra 包只允许依赖已登记的同层模块）`
+          );
+          continue;
+        }
+        if (PACKAGE_FORBIDDEN_TARGET_LAYERS.has(layer)) {
+          violations.push(
+            `${file.path}:${ref.line} infra 包依赖 ${layer} 层模块 @modules/${target}（倒挂）`
+          );
+        }
+        continue;
+      }
+      if (spec.startsWith('.')) {
+        checked += 1;
+        const rel = resolveRelative(file.path, spec);
+        const intoApp = rel.path.split('/').includes('app');
+        if (rel.escapes || intoApp) {
+          violations.push(
+            `${file.path}:${ref.line} 相对路径逃逸出 infra 包：${spec}（→ ${rel.path}）`
+          );
+        }
+      }
+    }
+  }
+
+  for (const file of input.appFiles) {
+    for (const ref of parseFileImports(file)) {
+      if (!ref.specifier.startsWith('@openliri/infra/')) continue;
+      checked += 1;
+      const target =
+        ref.specifier.slice('@openliri/infra/'.length).split('/')[0] ?? '';
+      const targetLayer = input.layerOf.get(target);
+      if (targetLayer !== 'infra') {
+        violations.push(
+          `${file.path}:${ref.line} @openliri/infra/${target} 未登记为 infra（实际：${targetLayer ?? '未登记'}）`
+        );
+        continue;
+      }
+      const importerModule = file.path.split('/')[0] ?? '';
+      if (input.layerOf.get(importerModule) === 'core') {
+        violations.push(
+          `${file.path}:${ref.line} core 层不得依赖 infra 包（@openliri/infra/${target}）`
+        );
+      }
+    }
+  }
+
+  return {
+    rule: 'R6',
+    title: 'infra 物理包边界（packages/infra）',
     violations,
     hints,
     checked,

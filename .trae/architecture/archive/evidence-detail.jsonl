@@ -7148,3 +7148,13 @@
 {"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"code#2","i":0,"c":"app/src/tools/FileReadTool/FileReadTool.ts"}
 {"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"tests#0","i":0,"c":"app/tests/tools/relativePathContextCwd.test.ts"}
 {"id":"TOOL-RELATIVE-PATH-CTX-CWD","k":"changelog#0","i":0,"c":"修复：glob/grep/file_read 的相对路径按工具上下文 cwd 解析，任务工作区内不再误报「目录/文件不存在」"}
+{"id":"TAOR-OUTPUT-CAP-8192","k":"title","i":0,"c":"TAOR 默认输出上限提至 8192（避免工具参数被传输层 4096 截断后反复缺参重试）"}
+{"id":"TAOR-OUTPUT-CAP-8192","k":"source","i":0,"c":"取证 2026-10-31 真机 app.log：单日 80 次 file_write/file_edit「缺少必填参数」，argsRawLength 416–8514、rawPreview 停在字符串中途，且该响应 outputTokens 恰为 4096；finish_reason 仍是 tool_calls ⇒ 走不到 max_output 翻倍分支，"}
+{"id":"TAOR-OUTPUT-CAP-8192","k":"source","i":1,"c":"按 4096 原样重试。"}
+{"id":"TAOR-OUTPUT-CAP-8192","k":"reopenWhen","i":0,"c":"若传输层默认 max_tokens 调整或模型支持「推理与工具参数分预算」，可回调 TAOR_DEFAULT_MAX_OUTPUT_TOKENS。"}
+{"id":"TAOR-OUTPUT-CAP-8192","k":"notes","i":0,"c":"修复：_collectCallModel 每轮透传 resolveAgentMaxOutputTokens（有效值 > budgetConfig > 8192）；C1 翻倍改走 nextDoubledOutputCap（与默认同源，封顶 64k），去掉两处硬编码 4096/64000。未改压缩/恢复语义；用户显式 "}
+{"id":"TAOR-OUTPUT-CAP-8192","k":"notes","i":1,"c":"budgetConfig.maxOutputTokens 仍优先。TAORLoop 仍为 2000 行（R04-001 上限）。"}
+{"id":"TAOR-OUTPUT-CAP-8192","k":"code#0","i":0,"c":"app/src/query/TAORLoop.ts"}
+{"id":"TAOR-OUTPUT-CAP-8192","k":"code#1","i":0,"c":"app/src/query/taor/helpers.ts"}
+{"id":"TAOR-OUTPUT-CAP-8192","k":"tests#0","i":0,"c":"app/tests/query/agentMaxOutputTokens.test.ts"}
+{"id":"TAOR-OUTPUT-CAP-8192","k":"changelog#0","i":0,"c":"修复：agent 轮默认输出上限提至 8192，大参数 file_write/file_edit 不再被 4096 截断"}

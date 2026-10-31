@@ -14926,6 +14926,35 @@
       ],
       "reopenWhen": "若引入统一路径基准（ToolUseContext 单一 baseDir 解析入口），可删除这三处局部解析改由基座统一处理。（全文见 archive/evidence-detail.jsonl#TOOL-RELATIVE-PATH-CTX-CWD）",
       "notes": "修复：GlobTool/GrepTool 相对 path/searchPath 走 resolveFilePath(…, getToolBaseDir(context))；FileReadTool 检查已解析的 filePath（与真正读取同一路径）。绝对路径与无 context cwd 时行为不变。同族未修：bas…（全文见 archive/evidence-detail.jsonl#TOOL-RELATIVE-PATH-CTX-CWD）"
+    },
+    {
+      "id": "TAOR-OUTPUT-CAP-8192",
+      "title": "TAOR 默认输出上限提至 8192（避免工具参数被传输层 4096 截断后反复缺参重试）",
+      "source": "取证 2026-10-31 真机 app.log：单日 80 次 file_write/file_edit「缺少必填参数」，argsRawLength 416–8514、rawPreview 停在字符串中途，且该响应 outputTokens 恰为 4096；finish_reason 仍是 tool_calls ⇒ 走不到 max_output 翻倍分支…",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/query/TAORLoop.ts",
+        "app/src/query/taor/helpers.ts"
+      ],
+      "tests": [
+        "app/tests/query/agentMaxOutputTokens.test.ts"
+      ],
+      "changelog": [
+        "修复：agent 轮默认输出上限提至 8192，大参数 file_write/file_edit 不再被 4096 截断"
+      ],
+      "reopenWhen": "若传输层默认 max_tokens 调整或模型支持「推理与工具参数分预算」，可回调 TAOR_DEFAULT_MAX_OUTPUT_TOKENS。（全文见 archive/evidence-detail.jsonl#TAOR-OUTPUT-CAP-8192）",
+      "notes": "修复：_collectCallModel 每轮透传 resolveAgentMaxOutputTokens（有效值 > budgetConfig > 8192）；C1 翻倍改走 nextDoubledOutputCap（与默认同源，封顶 64k），去掉两处硬编码 4096/64000。未改压缩/恢复语义；用户显式 b…（全文见 archive/evidence-detail.jsonl#TAOR-OUTPUT-CAP-8192）"
     }
   ]
 }

@@ -35,6 +35,8 @@
  * 一律 **fail-closed**（`NOT_IMPLEMENTED`，不伪造成功，CS03）。
  */
 
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+
 /** 侧车分析能力枚举（本期覆盖面） */
 export type MediaAnalysisKind = 'ocr' | 'objects' | 'similarity';
 
@@ -49,13 +51,19 @@ export function isSupportedMediaKind(kind: string): kind is MediaAnalysisKind {
   return (SUPPORTED_MEDIA_KINDS as readonly string[]).includes(kind);
 }
 
-/** 侧车 RPC 错误（携带 `code`，供 response 帧 `error.code`） */
-export class MediaSidecarRpcError extends Error {
+/**
+ * 侧车 RPC 错误（携带 `code`，供 response 帧 `error.code`）。
+ *
+ * 2026-10-31（R01-002 修复）：原 `extends Error` 属"自建错误层"⇒ 告警/追踪/降级语义与
+ * `AppError` 分叉（架构门禁 ERROR 级阻断）。现改为继承 `AppError`，RPC 码落在 `code`；
+ * 另保留只读别名 `rpcCode`（非空，供帧编码直接用）。
+ */
+export class MediaSidecarRpcError extends AppError {
   constructor(
-    readonly code: string,
+    public readonly rpcCode: string,
     message: string
   ) {
-    super(message);
+    super(message, ErrorCategory.EXECUTION, ErrorSeverity.MEDIUM, rpcCode);
     this.name = 'MediaSidecarRpcError';
   }
 }

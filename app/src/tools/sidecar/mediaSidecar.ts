@@ -240,7 +240,7 @@ async function handleRequest(
     const code = controller.signal.aborted
       ? 'CANCELLED'
       : err instanceof MediaSidecarRpcError
-        ? err.code
+        ? err.rpcCode
         : 'MEDIA_ERROR';
     const message = err instanceof Error ? err.message : String(err);
     // §6-#6：把宿主带来的 trace 关联进侧车日志（无 traceparent ⇒ traceId 缺省）

@@ -15524,6 +15524,35 @@
       ],
       "reopenWhen": "若扩展 SmsConfig（SignName/TemplateCode / SdkAppId/TemplateId）并实现 RPC / TC3 签名，应把 aliyun/tencent 分支改为真实构造并同步撤掉 support-levels.json 的 sms=experimental；真正发包需另加 fetch…（全文见 archive/evidence-detail.jsonl#SMS-PROVIDER-REQUEST-PURE）",
       "notes": "实现：新增 app/src/channels/sms/providerRequests.ts（纯函数、零 I/O）——twilio（/Accounts/{sid}/Messages.json + Basic + form）、custom（endpoint + JSON {to,from,text}，apiKey 时 …（全文见 archive/evidence-detail.jsonl#SMS-PROVIDER-REQUEST-PURE）"
+    },
+    {
+      "id": "SMS-SEND-WIRING",
+      "title": "SMS 接线真实发送，并修两处谎报（忽略返回值 / onConnect 忽略配置）",
+      "source": "取证 2026-11-01：① 插件层忽略 sendMessage 的布尔返回 ⇒ 一律报成功；② onConnect 忽略传入 config、对模块单例调 connect()（enabled=false、无发件人 ⇒ 恒 false）却无人检查 ⇒ 通道看似已连接实则发不出。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/channels/sms/SmsChannel.ts",
+        ".trae/architecture/support-levels.json"
+      ],
+      "tests": [
+        "app/tests/channels/smsSendWiring.test.ts"
+      ],
+      "changelog": [
+        "修复：SMS 接线真实发送（twilio/custom），发送与连接结果不再谎报"
+      ],
+      "reopenWhen": "若扩展 SmsConfig 支持 SignName/TemplateCode 与 SdkAppId/TemplateId 并实现签名，需把 aliyun/tencent 分支从「不可构造」改为真实请求；若上游协议变（Twilio Messages.json 路径/字段），providerRequests 纯函数测试会…（全文见 archive/evidence-detail.jsonl#SMS-SEND-WIRING）",
+      "notes": "修复：SmsChannel 增 configure() / lastError；sendMessage 用 buildSmsProviderRequest 构造后真实 fetch，未连接/不可构造/非 2xx/网络异常一律 false 并写原因（不可构造不 emit error，避免无监听崩溃）；插件 onConne…（全文见 archive/evidence-detail.jsonl#SMS-SEND-WIRING）"
     }
   ]
 }

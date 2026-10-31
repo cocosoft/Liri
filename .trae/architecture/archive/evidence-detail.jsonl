@@ -7336,3 +7336,12 @@
 {"id":"SMS-PROVIDER-REQUEST-PURE","k":"code#1","i":0,"c":".trae/architecture/support-levels.json"}
 {"id":"SMS-PROVIDER-REQUEST-PURE","k":"tests#0","i":0,"c":"app/tests/channels/smsProviderRequests.test.ts"}
 {"id":"SMS-PROVIDER-REQUEST-PURE","k":"changelog#0","i":0,"c":"新增：SMS provider 请求构造纯函数（twilio/custom 完整，aliyun/tencent 明确拒绝）"}
+{"id":"SMS-SEND-WIRING","k":"title","i":0,"c":"SMS 接线真实发送，并修两处谎报（忽略返回值 / onConnect 忽略配置）"}
+{"id":"SMS-SEND-WIRING","k":"source","i":0,"c":"取证 2026-11-01：① 插件层忽略 sendMessage 的布尔返回 ⇒ 一律报成功；② onConnect 忽略传入 config、对模块单例调 connect()（enabled=false、无发件人 ⇒ 恒 false）却无人检查 ⇒ 通道看似已连接实则发不出。"}
+{"id":"SMS-SEND-WIRING","k":"reopenWhen","i":0,"c":"若扩展 SmsConfig 支持 SignName/TemplateCode 与 SdkAppId/TemplateId 并实现签名，需把 aliyun/tencent 分支从「不可构造」改为真实请求；若上游协议变（Twilio Messages.json 路径/字段），providerRequests 纯函数测试会先红。"}
+{"id":"SMS-SEND-WIRING","k":"notes","i":0,"c":"修复：SmsChannel 增 configure() / lastError；sendMessage 用 buildSmsProviderRequest 构造后真实 fetch，未连接/不可构造/非 2xx/网络异常一律 false 并写原因（不可构造不 emit error，避免无监听崩溃）；插件 onConnect 应用配置并在 connect 失败时"}
+{"id":"SMS-SEND-WIRING","k":"notes","i":1,"c":"抛错，sendTextMessage 如实返回。新增 6 例。撤掉 overrides 的 sms=experimental（已可用）⇒ core。通道 core 26 / community 0 / experimental 1（nostr）。"}
+{"id":"SMS-SEND-WIRING","k":"code#0","i":0,"c":"app/src/channels/sms/SmsChannel.ts"}
+{"id":"SMS-SEND-WIRING","k":"code#1","i":0,"c":".trae/architecture/support-levels.json"}
+{"id":"SMS-SEND-WIRING","k":"tests#0","i":0,"c":"app/tests/channels/smsSendWiring.test.ts"}
+{"id":"SMS-SEND-WIRING","k":"changelog#0","i":0,"c":"修复：SMS 接线真实发送（twilio/custom），发送与连接结果不再谎报"}

@@ -7266,3 +7266,14 @@
 {"id":"README-DRIFT-NUMBERS","k":"code#2","i":0,"c":"README.md"}
 {"id":"README-DRIFT-NUMBERS","k":"tests#0","i":0,"c":"app/tests/evals/statusEvalBaselineMetric.test.ts"}
 {"id":"README-DRIFT-NUMBERS","k":"changelog#0","i":0,"c":"修复：README 的评测题数/门禁 WARNING 数/代码行数不再写死（题数并入 STATUS 现算）"}
+{"id":"GATE-RULE-WHY-COVERAGE","k":"title","i":0,"c":"门禁可解释性加固：规则说明抽为可测模块，并补齐 4 条「规则定义指向空条目」"}
+{"id":"GATE-RULE-WHY-COVERAGE","k":"source","i":0,"c":"核验 2026-11-01：建议 ⑥「未落地」不成立（2026-10-31 已打印每条规则的「为什么是问题」）；但说明表手写在门禁脚本内，新增 ruleId 漏配不会被发现，且实测 42 个 ruleId 中有 4 个（EXC-EXPIRED / EXC-EXPIRING / EXC-COUNT-LIMIT / P0-5）在 "}
+{"id":"GATE-RULE-WHY-COVERAGE","k":"source","i":1,"c":".trae/rules/architecture-compliance.md 无定义。"}
+{"id":"GATE-RULE-WHY-COVERAGE","k":"reopenWhen","i":0,"c":"若新增规则族（如 R16-/R17-），ruleWhyCoverage.test.ts 会因「无说明」或「文档无定义」而红 —— 需在 lib/ruleWhy.ts 与规则文档同批登记。"}
+{"id":"GATE-RULE-WHY-COVERAGE","k":"notes","i":0,"c":"实现：① 说明文案从 lint-architecture.ts 抽到 scripts/lib/ruleWhy.ts（explainRule；精确条目优先、规则族兜底、无匹配返回 null）；② 规则文档补例外台账三条（EXC-EXPIRED/EXPIRING/COUNT-LIMIT）与 P0-5（前端高频 store 全量订阅），含触发/等级/为什么/修法/"}
+{"id":"GATE-RULE-WHY-COVERAGE","k":"notes","i":1,"c":"局限；③ 自证 4 例（每个 ruleId 有说明、有文档定义、未知 id 为 null、精确优先于族）。"}
+{"id":"GATE-RULE-WHY-COVERAGE","k":"code#0","i":0,"c":"scripts/lib/ruleWhy.ts"}
+{"id":"GATE-RULE-WHY-COVERAGE","k":"code#1","i":0,"c":"scripts/lint-architecture.ts"}
+{"id":"GATE-RULE-WHY-COVERAGE","k":"code#2","i":0,"c":".trae/rules/architecture-compliance.md"}
+{"id":"GATE-RULE-WHY-COVERAGE","k":"tests#0","i":0,"c":"app/tests/gates/ruleWhyCoverage.test.ts"}
+{"id":"GATE-RULE-WHY-COVERAGE","k":"changelog#0","i":0,"c":"修复：门禁规则说明抽为可测模块，补齐 4 条缺失的规则定义（不编造未知说明）"}

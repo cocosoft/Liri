@@ -15300,6 +15300,36 @@
       ],
       "reopenWhen": "若评测基线新增/删除题目，lint:status 会因 STATUS.md 未重生成而红；若行数口径需要对外精确披露，请另设非门禁的度量脚本（百万行扫描 + CRLF/LF 差异不适合进门禁）。（全文见 archive/evidence-detail.jsonl#README-DRIFT-NUMBERS）",
       "notes": "实现：gen-status.ts 新增「评测基线题目」指标（JSON 解析失败或 0 即 fail-closed）；README 三处改为 STATUS.md 指针或定性表述（36 题、5 条 WARNING、103 万行/99.8%）；自证用例 tests/evals/statusEvalBaselineMetri…（全文见 archive/evidence-detail.jsonl#README-DRIFT-NUMBERS）"
+    },
+    {
+      "id": "GATE-RULE-WHY-COVERAGE",
+      "title": "门禁可解释性加固：规则说明抽为可测模块，并补齐 4 条「规则定义指向空条目」",
+      "source": "核验 2026-11-01：建议 ⑥「未落地」不成立（2026-10-31 已打印每条规则的「为什么是问题」）；但说明表手写在门禁脚本内，新增 ruleId 漏配不会被发现，且实测 42 个 ruleId 中有 4 个（EXC-EXPIRED / EXC-EXPIRING / EXC-COUNT-LIMIT / P0-5）在 .trae/rules/arc…",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lib/ruleWhy.ts",
+        "scripts/lint-architecture.ts",
+        ".trae/rules/architecture-compliance.md"
+      ],
+      "tests": [
+        "app/tests/gates/ruleWhyCoverage.test.ts"
+      ],
+      "changelog": [
+        "修复：门禁规则说明抽为可测模块，补齐 4 条缺失的规则定义（不编造未知说明）"
+      ],
+      "reopenWhen": "若新增规则族（如 R16-/R17-），ruleWhyCoverage.test.ts 会因「无说明」或「文档无定义」而红 —— 需在 lib/ruleWhy.ts 与规则文档同批登记。（全文见 archive/evidence-detail.jsonl#GATE-RULE-WHY-COVERAGE）",
+      "notes": "实现：① 说明文案从 lint-architecture.ts 抽到 scripts/lib/ruleWhy.ts（explainRule；精确条目优先、规则族兜底、无匹配返回 null）；② 规则文档补例外台账三条（EXC-EXPIRED/EXPIRING/COUNT-LIMIT）与 P0-5（前端高频 store…（全文见 archive/evidence-detail.jsonl#GATE-RULE-WHY-COVERAGE）"
     }
   ]
 }

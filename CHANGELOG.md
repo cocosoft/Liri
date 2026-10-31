@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **GATE-RULE-WHY-COVERAGE**：门禁可解释性加固：说明可测 + 4 条规则定义补齐 —— 验证 tsc0|unit4|gates324|eslint0；基线 说明表手写在门禁脚本内（漏配无门禁发现）；42 个 ruleId 中 4 个在规则文档无定义（详情见 archive/evidence-detail.jsonl#GATE-RULE-WHY-COVERAGE）
 - ✅ **README-DRIFT-NUMBERS**：README 写死数字核验：题数并入 STATUS，WARNING 与行数去数字化 —— 验证 tsc0|unit1|doc-code0|eslint0；基线 README 写 36 题（实 38）、5 条 WARNING（实 6 且浮动）、103 万行 / 99.8%（实 108 万行）（详情见 archive/evidence-detail.jsonl#README-DRIFT-NUMBERS）
 - ✅ **STATUS-DOC-CORPUS-METRIC**：STATUS 增文档语料指标，README 去硬编码篇数（143→145 漂移） —— 验证 tsc0|unit1|doc-code0|eslint0；基线 README 两处写死「143 篇」，实际 app/docs 语料 145 篇；该数字无门禁看守（详情见 archive/evidence-detail.jsonl#STATUS-DOC-CORPUS-METRIC）
 - ✅ **ARCH-DOC-LAYER-ALIGN**：架构图对齐六层门禁词汇 + T0–T3 启动流 —— 验证 doc-code0|doc-alias0；基线 README/门禁为六层，architecture.md 图仍是四层旧概念（图上无 service / ui）（详情见 archive/evidence-detail.jsonl#ARCH-DOC-LAYER-ALIGN）

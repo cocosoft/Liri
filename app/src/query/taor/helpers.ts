@@ -127,6 +127,51 @@ export function mapTaorStopReasonToTermination(
 }
 
 /**
+ * 输出上限翻倍的天花板（对齐 PilotDeck `OUTPUT_TOKEN_RETRY_CEILING`）。
+ */
+export const MAX_OUTPUT_TOKENS_CEILING = 64_000;
+
+/**
+ * TAOR 每轮**默认输出上限**（2026-10-31 真机取证）。
+ *
+ * 传输层缺省 `max_tokens=4096`（[`ChatCompletionsTransport`](../../ai/transports/ChatCompletionsTransport.ts)），
+ * 而 agent 轮常把预算先花在推理上，再开始写大参数（`file_write` / `file_edit` 正文）⇒
+ * 参数 JSON 在 4096 处被截断。真机单日 **80 次** `file_write`/`file_edit` 因
+ * `rawPreview` 停在字符串中途而缺参；`finish_reason` 仍是 `tool_calls`（调用确实存在），
+ * 走不到 `max_output` 重试分支（[`ErrorRecoveryManager`](../ErrorRecoveryManager.ts) 只认
+ * `finish_reason=max_tokens`）⇒ 永远按 4096 重试。
+ *
+ * 取 8192：与 `ai:maxOutputRetry` 的起始档一致；未显式配置的用户不受影响
+ * （`budgetConfig.maxOutputTokens` 仍优先）。
+ */
+export const TAOR_DEFAULT_MAX_OUTPUT_TOKENS = 8_192;
+
+/**
+ * 本轮应传给 provider 的输出上限：翻倍后的有效值 > 用户配置 > 默认（8192）。
+ * 纯函数（便于单测），不读全局状态（CS02）。
+ */
+export function resolveAgentMaxOutputTokens(
+  effective: number | undefined,
+  configured: number | undefined
+): number {
+  return effective ?? configured ?? TAOR_DEFAULT_MAX_OUTPUT_TOKENS;
+}
+
+/**
+ * C1：`max_output` 触发后的下一档输出上限（翻倍，封顶 {@link MAX_OUTPUT_TOKENS_CEILING}）。
+ * 起点与 {@link resolveAgentMaxOutputTokens} 同源，避免两处各写一份 4096/8192。
+ */
+export function nextDoubledOutputCap(
+  effective: number | undefined,
+  configured: number | undefined
+): number {
+  return Math.min(
+    resolveAgentMaxOutputTokens(effective, configured) * 2,
+    MAX_OUTPUT_TOKENS_CEILING
+  );
+}
+
+/**
  * Phase 3 Steering 安全过滤器（外迁自 `TAORLoop` 实例字段，**值逐字不变**）：
  * `maxLength` 2000 + 拦截 `system:` / `<|im_start|>` 注入构造。
  */

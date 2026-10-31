@@ -105,6 +105,8 @@ import {
   mapTaorStopReasonToTermination,
   injectTaorSteering,
   checkSteeringMessage,
+  resolveAgentMaxOutputTokens,
+  nextDoubledOutputCap,
 } from './taor/helpers.js';
 import { registerDefaultStopHooks } from './taor/stopHooks.js';
 import { extractPendingToolCallsFromMessages } from './taor/pendingToolCalls.js';
@@ -492,10 +494,9 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       }
       // C1：max_output → 单次翻倍输出上限（上限 64k，对齐 PilotDeck OUTPUT_TOKEN_RETRY_CEILING）
       else if (recovery.action === 'retry_higher_output') {
-        const base = this.taorConfig.budgetConfig.maxOutputTokens ?? 0;
-        this._effectiveMaxOutputTokens = Math.min(
-          (this._effectiveMaxOutputTokens ?? (base || 4096)) * 2,
-          64_000
+        this._effectiveMaxOutputTokens = nextDoubledOutputCap(
+          this._effectiveMaxOutputTokens,
+          this.taorConfig.budgetConfig.maxOutputTokens
         );
         if (recovery.message) {
           this.messages.push({ role: 'user', content: recovery.message });
@@ -1329,13 +1330,15 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     const chunks: Array<Record<string, unknown>> = [];
     // 每轮重置：本轮若拿不到真实用量，就不应为预算记账（避免复用上一轮的值）
     this._lastRealPromptTokens = 0;
+    // C1：输出上限（未翻倍时也不落回传输层 4096——大参数会被截断）
+    const maxOutputTokens = resolveAgentMaxOutputTokens(
+      this._effectiveMaxOutputTokens,
+      this.taorConfig.budgetConfig.maxOutputTokens
+    );
     for await (const chunk of this.deps.callModel(
       this.messages,
       this.abortController.signal,
-      // C1：max_output 翻倍后透传输出上限
-      this._effectiveMaxOutputTokens
-        ? { maxOutputTokens: this._effectiveMaxOutputTokens }
-        : undefined
+      { maxOutputTokens }
     )) {
       chunks.push(chunk);
       // 2026-09-26（预算量纲修复·batch 侧）：捕获**真实**输入量。

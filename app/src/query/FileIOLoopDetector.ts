@@ -67,6 +67,36 @@ export interface FileIOBlockResult {
   message?: string;
 }
 
+/** 访问键的**路径部分**（去掉 `\u0000<查询签名>` 尾巴） */
+function pathPartOfKey(key: string): string {
+  const i = key.indexOf('\u0000');
+  return i < 0 ? key : key.slice(0, i);
+}
+
+/** 访问键的**查询签名部分**（无签名 ⇒ 空串） */
+function signatureOfKey(key: string): string {
+  const i = key.indexOf('\u0000');
+  return i < 0 ? '' : key.slice(i + 1);
+}
+
+/**
+ * 两个访问键是否指向**同一个物理文件的同一种查询**。
+ *
+ * 2026-10-31 修（真机 `app.log` 实证）：模型会在**绝对**（`C:/…/output/PRD.md`）与
+ * **相对**（`output/PRD.md`）写法间来回切换，旧实现按原始字符串入键 ⇒ 同一文件被当成
+ * 两个文件交替，触发 `[IO_CYCLE] 检测到 2 个文件交替读取循环` 并**终止整轮**。
+ * 判据：查询签名必须相同（不同 pattern = 不同查询，见 `querySignature` 口径），
+ * 且路径相等或一方是另一方的尾部（按 `/` 边界）。
+ */
+function isSameAccessTarget(a: string, b: string): boolean {
+  if (signatureOfKey(a) !== signatureOfKey(b)) return false;
+  const pa = pathPartOfKey(a);
+  const pb = pathPartOfKey(b);
+  if (pa === pb) return true;
+  const [short, long] = pa.length <= pb.length ? [pa, pb] : [pb, pa];
+  return long.endsWith(`/${short}`);
+}
+
 const DEFAULT_CONFIG: FileIOConfig = {
   enabled: true,
   /** 文件 IO 循环警告阈值（可通过 LOOP_FILE_IO_WARNING 环境变量覆盖） */
@@ -127,7 +157,12 @@ export class FileIOLoopDetector {
       : normalizedPath;
 
     // 跨文件交替循环检测
-    this.recentFiles.push(accessKey);
+    // 2026-10-31：同一文件的绝对/相对写法归一到**已有键**（详见 `isSameAccessTarget`），
+    // 否则「同一个 PRD.md 换个写法」会被当成两个文件交替 ⇒ 误终止整轮。
+    const sameTargetKey = this.recentFiles.find((k) =>
+      isSameAccessTarget(k, accessKey)
+    );
+    this.recentFiles.push(sameTargetKey ?? accessKey);
     if (this.recentFiles.length > this.MAX_RECENT_FILES_TRACK) {
       this.recentFiles.shift();
     }

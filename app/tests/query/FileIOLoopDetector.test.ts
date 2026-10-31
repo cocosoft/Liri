@@ -131,3 +131,59 @@ describe('FileIOLoopDetector：查询签名参与判定键（2026-10-31）', () 
     }
   });
 });
+
+describe('FileIOLoopDetector：同一文件的绝对/相对写法不判交替循环（2026-10-31）', () => {
+  // 真机 app.log 实证：`[IO_CYCLE] 检测到 2 个文件交替读取循环:
+  // C:/Users/…/output/PRD.md, output/PRD.md` —— 两个键指向**同一个物理文件**，
+  // 却被当成两个文件交替 ⇒ 整轮终止。
+
+  it('同一文件 abs/rel 交替 6 次 ⇒ 不警告也不阻断', () => {
+    const d = createFileIOLoopDetector({
+      warningThreshold: 3,
+      blockThreshold: 4,
+    });
+    const abs = 'C:/Users/u/.pyapp/workspaces/pdca_x/output/PRD.md';
+    const rel = 'output/PRD.md';
+
+    for (let i = 0; i < 6; i++) {
+      const r = d.checkBeforeAccess('file_read', i % 2 === 0 ? abs : rel);
+      expect(r.blocked).toBe(false);
+      expect(r.warning).toBe(false);
+    }
+  });
+
+  it('真正不同的两个文件交替（各 3 次）⇒ 仍判交替循环', () => {
+    const d = createFileIOLoopDetector({
+      warningThreshold: 3,
+      blockThreshold: 4,
+    });
+    let last = { blocked: false } as { blocked: boolean };
+
+    for (let i = 0; i < 3; i++) {
+      last = d.checkBeforeAccess('file_read', 'C:/ws/a.md');
+      expect(last.blocked).toBe(false);
+      last = d.checkBeforeAccess('file_read', 'C:/ws/b.md');
+      if (i < 2) expect(last.blocked).toBe(false);
+    }
+
+    expect(last.blocked).toBe(true);
+  });
+
+  it('同路径不同 pattern 交替（各 3 次）⇒ 不合并（查询语义不同，仍按交替循环判定）', () => {
+    const d = createFileIOLoopDetector({
+      warningThreshold: 3,
+      blockThreshold: 4,
+    });
+    const p = 'C:/ws/docs';
+    let last = { blocked: false } as { blocked: boolean };
+
+    for (let i = 0; i < 3; i++) {
+      last = d.checkBeforeAccess('grep', p, undefined, undefined, 'A');
+      expect(last.blocked).toBe(false);
+      last = d.checkBeforeAccess('grep', p, undefined, undefined, 'B');
+      if (i < 2) expect(last.blocked).toBe(false);
+    }
+
+    expect(last.blocked).toBe(true);
+  });
+});

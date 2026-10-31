@@ -15156,6 +15156,90 @@
       ],
       "reopenWhen": "若需按模型窗口动态调整单条/单轮阈值，或 services/toolResultStorage 两套未接线实现被正式收编（其 applyToolResultBudget 只拼「已保存到 …」文案、并不写盘 ⇒ 不可直接接线）。（全文见 archive/evidence-detail.jsonl#TOOL-RESULT-BUDGET-WIRED）",
       "notes": "实现：TAORLoop.act() 在结果转 messages 之前调 taor/toolResultBudget.shrinkOversizedRawResults，复用 tools/services/ToolResultPersister.prepareToolResultsForContext（同 50k 单条…（全文见 archive/evidence-detail.jsonl#TOOL-RESULT-BUDGET-WIRED）"
+    },
+    {
+      "id": "CI-GATE-PARITY",
+      "title": "门禁对等：10 条本地门禁补进 CI + 元门禁 lint:gate-parity（漏登记即红）",
+      "source": "核验 2026-10-31：SUPPORT-LEVELS.md 自述「CI + pre-commit 门禁」，但 workflows 中 lint:status / lint:support-levels 零命中；package.json#ci 的 54 条门禁里 11 条 CI 零命中，pre-commit 又可被 --no-verify 绕过。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        ".github/workflows/ci.yml",
+        "app/package.json",
+        "scripts/lint-gate-parity.ts",
+        ".trae/architecture/gate-parity-allowlist.json"
+      ],
+      "tests": [
+        "app/tests/gates/gateParity.test.ts"
+      ],
+      "changelog": [
+        "修复：10 条本地门禁补进 CI，并新增元门禁 lint:gate-parity（漏登记即红）"
+      ],
+      "reopenWhen": "若新增门禁只在本地跑，gate-parity 会点名；若确需本地专属，必须在 gate-parity-allowlist.json 写明理由（空理由 exit 1）。（全文见 archive/evidence-detail.jsonl#CI-GATE-PARITY）",
+      "notes": "实现：① ci.yml#static-check 补齐 lint:status / lint:support-levels / lint:infra / lint:startup-graph / lint:critical-modules / lint:kernel-surface / lint:architectu…（全文见 archive/evidence-detail.jsonl#CI-GATE-PARITY）"
+    },
+    {
+      "id": "SUPPORT-LEVELS-EVIDENCE-TIGHTEN",
+      "title": "支持等级台账证据收紧：只认专属信号（文件名 / 实现类导入），提及不再计入",
+      "source": "核验 2026-10-31 实证：旧判据把 InvokeXmlParser 的 bash、analyticsIdentityBuckets 的 file_write、deriveModelType 的 image、inline 里的 line、ShortCircuit 里的 irc 都算成「专属测试」，core 被稀释。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/scripts/gen-support-levels.ts",
+        "app/docs/SUPPORT-LEVELS.md"
+      ],
+      "tests": [],
+      "changelog": [
+        "修复：支持等级台账证据收紧为专属信号，core 不再被无关字符串提及稀释"
+      ],
+      "reopenWhen": "若某通道/工具确有集成覆盖但文件名不指代，用 .trae/architecture/support-levels.json 的 overrides 显式登记（需写清理由），不要放宽判据。（全文见 archive/evidence-detail.jsonl#SUPPORT-LEVELS-EVIDENCE-TIGHTEN）",
+      "notes": "实现：gen-support-levels.ts 只认两种专属信号 —— ① 文件名归一化后以标识开头（bashPermissionInjection ⇒ bash、powerShellTrustLevel ⇒ powershell）；② 测试直接 import 实现类（FileEditTool ⇒ file_edi…（全文见 archive/evidence-detail.jsonl#SUPPORT-LEVELS-EVIDENCE-TIGHTEN）"
+    },
+    {
+      "id": "ARCH-DOC-LAYER-ALIGN",
+      "title": "架构图对齐 lint:arch 六层词汇 + T0–T3 启动流",
+      "source": "核验 2026-10-31：README 与门禁口径为 entry > ui > app > service > infra > core，而 app/docs/概念与架构/architecture.md 的 mermaid 仍是四层旧概念图（用户界面层 / 应用核心层 / AI 服务层 / 工具层）⇒ 新人按图理解会撞上图上不存在的 service → …",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": false,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": false,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/docs/概念与架构/architecture.md"
+      ],
+      "tests": [],
+      "changelog": [
+        "修复：架构图对齐 lint:arch 六层词汇并补 T0–T3 启动流"
+      ],
+      "reopenWhen": "若 scripts/modules-to-layers.json 的 layerOrder 或 allowedDependencies 变更，本图与边界表须同步改（否则再次出现两套词汇）。（全文见 archive/evidence-detail.jsonl#ARCH-DOC-LAYER-ALIGN）",
+      "notes": "实现：architecture.md 的图改为与 modules-to-layers.json（layerOrder + allowedDependencies）逐字对应的六层，并给出每层允许 import 表；新增 T0–T3 启动流（与 README「启动架构」同源，CRITICAL / DEFERRED / O…（全文见 archive/evidence-detail.jsonl#ARCH-DOC-LAYER-ALIGN）"
     }
   ]
 }

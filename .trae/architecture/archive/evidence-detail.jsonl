@@ -7217,3 +7217,31 @@
 {"id":"TOOL-RESULT-BUDGET-WIRED","k":"code#1","i":0,"c":"app/src/query/taor/toolResultBudget.ts"}
 {"id":"TOOL-RESULT-BUDGET-WIRED","k":"tests#0","i":0,"c":"app/tests/query/taorToolResultBudget.test.ts"}
 {"id":"TOOL-RESULT-BUDGET-WIRED","k":"changelog#0","i":0,"c":"修复：TAOR/LRO 工具结果超预算自动落盘并回填预览，抑制大结果导致的上下文溢出"}
+{"id":"CI-GATE-PARITY","k":"title","i":0,"c":"门禁对等：10 条本地门禁补进 CI + 元门禁 lint:gate-parity（漏登记即红）"}
+{"id":"CI-GATE-PARITY","k":"source","i":0,"c":"核验 2026-10-31：SUPPORT-LEVELS.md 自述「CI + pre-commit 门禁」，但 workflows 中 lint:status / lint:support-levels 零命中；package.json#ci 的 54 条门禁里 11 条 CI 零命中，pre-commit 又可被 --no-verify 绕过。"}
+{"id":"CI-GATE-PARITY","k":"reopenWhen","i":0,"c":"若新增门禁只在本地跑，gate-parity 会点名；若确需本地专属，必须在 gate-parity-allowlist.json 写明理由（空理由 exit 1）。"}
+{"id":"CI-GATE-PARITY","k":"notes","i":0,"c":"实现：① ci.yml#static-check 补齐 lint:status / lint:support-levels / lint:infra / lint:startup-graph / lint:critical-modules / lint:kernel-surface / lint:architecture-boundaries / "}
+{"id":"CI-GATE-PARITY","k":"notes","i":1,"c":"lint:logger-name / check:paths / i18n:check（逐项本机 exit 0 且 ≤1.6s）；② scripts/lint-gate-parity.ts 比对 package.json#ci 与 workflows（含直接调 scripts/x.ts 的实现文件），缺一即 exit 1；③ 豁免表 "}
+{"id":"CI-GATE-PARITY","k":"notes","i":2,"c":".trae/architecture/gate-parity-allowlist.json，理由非空为硬约束；④ 自证 5 例（真实仓库 / 负向点名 / 豁免 / 空理由 fail-closed / 实现文件算已进 CI）。"}
+{"id":"CI-GATE-PARITY","k":"code#0","i":0,"c":".github/workflows/ci.yml"}
+{"id":"CI-GATE-PARITY","k":"code#1","i":0,"c":"app/package.json"}
+{"id":"CI-GATE-PARITY","k":"code#2","i":0,"c":"scripts/lint-gate-parity.ts"}
+{"id":"CI-GATE-PARITY","k":"code#3","i":0,"c":".trae/architecture/gate-parity-allowlist.json"}
+{"id":"CI-GATE-PARITY","k":"tests#0","i":0,"c":"app/tests/gates/gateParity.test.ts"}
+{"id":"CI-GATE-PARITY","k":"changelog#0","i":0,"c":"修复：10 条本地门禁补进 CI，并新增元门禁 lint:gate-parity（漏登记即红）"}
+{"id":"SUPPORT-LEVELS-EVIDENCE-TIGHTEN","k":"title","i":0,"c":"支持等级台账证据收紧：只认专属信号（文件名 / 实现类导入），提及不再计入"}
+{"id":"SUPPORT-LEVELS-EVIDENCE-TIGHTEN","k":"source","i":0,"c":"核验 2026-10-31 实证：旧判据把 InvokeXmlParser 的 bash、analyticsIdentityBuckets 的 file_write、deriveModelType 的 image、inline 里的 line、ShortCircuit 里的 irc 都算成「专属测试」，core 被稀释。"}
+{"id":"SUPPORT-LEVELS-EVIDENCE-TIGHTEN","k":"reopenWhen","i":0,"c":"若某通道/工具确有集成覆盖但文件名不指代，用 .trae/architecture/support-levels.json 的 overrides 显式登记（需写清理由），不要放宽判据。"}
+{"id":"SUPPORT-LEVELS-EVIDENCE-TIGHTEN","k":"notes","i":0,"c":"实现：gen-support-levels.ts 只认两种专属信号 —— ① 文件名归一化后以标识开头（bashPermissionInjection ⇒ bash、powerShellTrustLevel ⇒ powershell）；② 测试直接 import 实现类（FileEditTool ⇒ file_edit）。附加：通道证据须在 "}
+{"id":"SUPPORT-LEVELS-EVIDENCE-TIGHTEN","k":"notes","i":1,"c":"app/tests/channels/**；单文件涉及 >5 个标识视为列举型、其 import 不作证据；同文件多命中按归一化长度最长者归属。结果：通道 core 27→16、工具 core 49→41（降级即原证据不成立）。"}
+{"id":"SUPPORT-LEVELS-EVIDENCE-TIGHTEN","k":"code#0","i":0,"c":"app/scripts/gen-support-levels.ts"}
+{"id":"SUPPORT-LEVELS-EVIDENCE-TIGHTEN","k":"code#1","i":0,"c":"app/docs/SUPPORT-LEVELS.md"}
+{"id":"SUPPORT-LEVELS-EVIDENCE-TIGHTEN","k":"changelog#0","i":0,"c":"修复：支持等级台账证据收紧为专属信号，core 不再被无关字符串提及稀释"}
+{"id":"ARCH-DOC-LAYER-ALIGN","k":"title","i":0,"c":"架构图对齐 lint:arch 六层词汇 + T0–T3 启动流"}
+{"id":"ARCH-DOC-LAYER-ALIGN","k":"source","i":0,"c":"核验 2026-10-31：README 与门禁口径为 entry > ui > app > service > infra > core，而 app/docs/概念与架构/architecture.md 的 mermaid 仍是四层旧概念图（用户界面层 / 应用核心层 / AI 服务层 / 工具层）⇒ 新人按图理解会撞上图上不存在的 service → "}
+{"id":"ARCH-DOC-LAYER-ALIGN","k":"source","i":1,"c":"ui 反向依赖。"}
+{"id":"ARCH-DOC-LAYER-ALIGN","k":"reopenWhen","i":0,"c":"若 scripts/modules-to-layers.json 的 layerOrder 或 allowedDependencies 变更，本图与边界表须同步改（否则再次出现两套词汇）。"}
+{"id":"ARCH-DOC-LAYER-ALIGN","k":"notes","i":0,"c":"实现：architecture.md 的图改为与 modules-to-layers.json（layerOrder + allowedDependencies）逐字对应的六层，并给出每层允许 import 表；新增 T0–T3 启动流（与 README「启动架构」同源，CRITICAL / DEFERRED / ON_DEMAND 三级），标注 "}
+{"id":"ARCH-DOC-LAYER-ALIGN","k":"notes","i":1,"c":"lint:critical-modules 的棘轮口径。"}
+{"id":"ARCH-DOC-LAYER-ALIGN","k":"code#0","i":0,"c":"app/docs/概念与架构/architecture.md"}
+{"id":"ARCH-DOC-LAYER-ALIGN","k":"changelog#0","i":0,"c":"修复：架构图对齐 lint:arch 六层词汇并补 T0–T3 启动流"}

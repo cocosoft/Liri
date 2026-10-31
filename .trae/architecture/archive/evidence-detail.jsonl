@@ -7022,3 +7022,14 @@
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"code#2","i":0,"c":"app/src/query/ReActLoop.ts"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"tests#0","i":0,"c":"app/tests/query/environmentBlockedTermination.test.ts"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"tests#1","i":0,"c":"app/tests/chat/toolFailureKindWiring.test.ts"}
+{"id":"POWERSHELL-TRUST-LEVEL","k":"title","i":0,"c":"PowerShell 安全链接入工作区信任分级（与 Bash 同源；只放宽白名单未命中的非危险命令）"}
+{"id":"POWERSHELL-TRUST-LEVEL","k":"source","i":0,"c":"台账「PowerShell 信任分级」取证（2026-10-31）：BashTool 传 getTrustLevelForPath，PowerShellTool 零命中 ⇒ 同一机器两套姿态"}
+{"id":"POWERSHELL-TRUST-LEVEL","k":"reopenWhen","i":0,"c":"再出现「bash 可执行、PowerShell 同命令被硬拒」或「trustLevel 未传入 PowerShell 安全链」"}
+{"id":"POWERSHELL-TRUST-LEVEL","k":"notes","i":0,"c":"改造前：PowerShellTool 内 trustLevel 零命中；受信工作区（development/work）里 whoami、hostname 这类白名单外但非危险的命令被硬拒，且无审批机会。修法：evaluatePowerShellSecurity 新增可选 trustLevel；development/work 时把「白名单未命中」由硬拒改为放"}
+{"id":"POWERSHELL-TRUST-LEVEL","k":"notes","i":1,"c":"行（与 Bash 的 applyTrustLevelBehavior 同源口径），未传/其它级别保持 fail-closed 逐字不变。刻意的两处不放宽（与 Bash 的差异，如实）：分析器命中（递归删除/防火墙/建用户/用户配置黑名单）仍 ask 或 deny；沙箱危险命令仍 deny —— 任何信任级别都不绕过。接线："}
+{"id":"POWERSHELL-TRUST-LEVEL","k":"notes","i":2,"c":"PowerShellTool.execute 与 BashTool 的 powershell -Command 包裹（checkPowerShellWrapper 新增第三参）都取 securityIntegrationService.getTrustLevelForPath(cwd)。验证：新增 powerShellTrustLevel.test.ts 7"}
+{"id":"POWERSHELL-TRUST-LEVEL","k":"notes","i":3,"c":" 例（A/B：work/development 放行 / 未受信 deny / ask 与 deny 各级别不放行 / 包裹同口径），tests/tools 1338 例全绿、powerShellWrapperGate 既有 14 例不回归、typecheck 绿、eslint 0 error。"}
+{"id":"POWERSHELL-TRUST-LEVEL","k":"code#0","i":0,"c":"app/src/tools/PowerShellTool/PowerShellTool.ts"}
+{"id":"POWERSHELL-TRUST-LEVEL","k":"code#1","i":0,"c":"app/src/tools/bash/powerShellWrapper.ts"}
+{"id":"POWERSHELL-TRUST-LEVEL","k":"code#2","i":0,"c":"app/src/tools/bash/BashTool.ts"}
+{"id":"POWERSHELL-TRUST-LEVEL","k":"tests#0","i":0,"c":"app/tests/tools/powerShellTrustLevel.test.ts"}

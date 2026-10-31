@@ -14495,6 +14495,34 @@
       "changelog": [],
       "reopenWhen": "再出现「等用户批准期间 invalid 预算被耗尽导致整轮熔断」或「越界失败被当成模型无效输出计数」（全文见 archive/evidence-detail.jsonl#TURN-AWAITING-APPROVAL-NEUTRAL）",
       "notes": "根因：ToolExecutionService 在多根模式下把越界统一记 workspace_escape；classifyTurn 的 ENVIRONMENT_BLOCKING_KINDS 不含它 ⇒ 归入 invalid，每轮 consecutiveInvalidTurns++（上限 3）。而该态下用户侧有待办，…（全文见 archive/evidence-detail.jsonl#TURN-AWAITING-APPROVAL-NEUTRAL）"
+    },
+    {
+      "id": "POWERSHELL-TRUST-LEVEL",
+      "title": "PowerShell 安全链接入工作区信任分级（与 Bash 同源；只放宽白名单未命中的非危险命令）",
+      "source": "台账「PowerShell 信任分级」取证（2026-10-31）：BashTool 传 getTrustLevelForPath，PowerShellTool 零命中 ⇒ 同一机器两套姿态",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/tools/PowerShellTool/PowerShellTool.ts",
+        "app/src/tools/bash/powerShellWrapper.ts",
+        "app/src/tools/bash/BashTool.ts"
+      ],
+      "tests": [
+        "app/tests/tools/powerShellTrustLevel.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "再出现「bash 可执行、PowerShell 同命令被硬拒」或「trustLevel 未传入 PowerShell 安全链」（全文见 archive/evidence-detail.jsonl#POWERSHELL-TRUST-LEVEL）",
+      "notes": "改造前：PowerShellTool 内 trustLevel 零命中；受信工作区（development/work）里 whoami、hostname 这类白名单外但非危险的命令被硬拒，且无审批机会。修法：evaluatePowerShellSecurity 新增可选 trustLevel；development/…（全文见 archive/evidence-detail.jsonl#POWERSHELL-TRUST-LEVEL）"
     }
   ]
 }

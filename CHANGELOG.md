@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **POWERSHELL-TRUST-LEVEL**：PowerShell 接入工作区信任分级（仅放宽白名单未命中，危险两档不绕过） —— 验证 tsc0|unit7|tools1338|gate14|eslint0；基线 PowerShellTool 零命中 trustLevel：受信工作区里 whoami/hostname 被硬拒，而 bash 侧同命令可执行（两套姿态）（详情见 archive/evidence-detail.jsonl#POWERSHELL-TRUST-LEVEL）
 - ✅ **TURN-AWAITING-APPROVAL-NEUTRAL**：越界且已提交审批 ⇒ 熔断中性（不再烧 invalid 预算） —— 验证 tsc0|unit5|query455|chat750|state-ratchet0|eslint0；基线 app.log：reActLoop:all-tools-failed 42 次全为工作区越界（错误文案已含「已提交审批申请，批准后自动重试」）（详情见 archive/evidence-detail.jsonl#TURN-AWAITING-APPROVAL-NEUTRAL）
 - ✅ **CMD-NAME-DEBUG-CONFLICT**：内置技能 debug 与 /debug 同名冲突（技能改为不登记为斜杠命令） —— 验证 tsc0|skills+cmd136|eslint0；基线 app.log 单窗口 28 次「命令名冲突 ⇒ 拒绝登记」，existingFrom=builtin / incomingFrom=skill（debug）（详情见 archive/evidence-detail.jsonl#CMD-NAME-DEBUG-CONFLICT）
 - ✅ **CMD-ALIAS-CP-CONFLICT**：cp 别名双重声明（checkpoint × copy）导致每次装配报错并拒绝登记 —— 验证 tsc0|cmdtests56|eslint0|grep-unique；基线 app.log 单窗口 28 次「命令别名冲突 ⇒ 拒绝登记该别名」，command=checkpoint / alias=cp / occupiedBy=copy（详情见 archive/evidence-detail.jsonl#CMD-ALIAS-CP-CONFLICT）

@@ -51,17 +51,8 @@ export namespace StringUtils {
     return str.charAt(0).toLowerCase() + str.slice(1);
   }
 
-  /**
-   * 截断字符串
-   */
-  export function truncate(
-    str: string,
-    maxLength: number,
-    suffix: string = '...'
-  ): string {
-    if (str.length <= maxLength) return str;
-    return str.substring(0, maxLength - suffix.length) + suffix;
-  }
+  // 截断字符串 `truncate` 已去重到 `@modules/utils/common`（2026-10-31，`lint:infra` R4）。
+  // 本命名空间不再保留第二份实现 —— 两处语义（是否可配后缀）不同，保留双份必然漂移。
 
   /**
    * 判断字符串是否为空
@@ -307,21 +298,7 @@ export namespace ObjectUtils {
     return { ...obj };
   }
 
-  /**
-   * 深拷贝
-   */
-  export function deepClone<T>(obj: T): T {
-    if (obj === null || typeof obj !== 'object') return obj;
-    if (Array.isArray(obj))
-      return obj.map((item) => deepClone(item)) as unknown as T;
-    const cloned = {} as T;
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        cloned[key] = deepClone(obj[key]);
-      }
-    }
-    return cloned;
-  }
+  // 深拷贝 `deepClone` 已去重到 `@modules/utils/common`（2026-10-31，`lint:infra` R4）。
 
   /**
    * 合并对象
@@ -700,40 +677,7 @@ export namespace NumberUtils {
  * 函数工具命名空间
  */
 export namespace FunctionUtils {
-  /**
-   * 节流函数
-   */
-  export function throttle<T extends (...args: unknown[]) => unknown>(
-    fn: T,
-    delay: number
-  ): (...args: Parameters<T>) => void {
-    let lastCall = 0;
-    return (...args: Parameters<T>) => {
-      const now = Date.now();
-      if (now - lastCall >= delay) {
-        lastCall = now;
-        fn(...args);
-      }
-    };
-  }
-
-  /**
-   * 防抖函数
-   */
-  export function debounce<T extends (...args: unknown[]) => unknown>(
-    fn: T,
-    delay: number
-  ): (...args: Parameters<T>) => void {
-    let timeoutId: NodeJS.Timeout | null = null;
-    return (...args: Parameters<T>) => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-      timeoutId = setTimeout(() => {
-        fn(...args);
-      }, delay);
-    };
-  }
+  // `throttle` / `debounce` 已去重到 `@modules/utils/common`（2026-10-31，`lint:infra` R4）。
 
   /**
    * 缓存函数结果

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "recordedAt": "2026-10-31",
-  "note": "infra 层边界契约门禁白名单（R1–R4）。每条必须写明理由；理由缺失本身即违规。R2/R3 为清零目标：条目消失时门禁提示清理。2026-10-31：R2/R3 存量已清零（BashPermission 改注入评估器、calibrateContextWindow 上移 app）。规范见 .trae/specs/infra-layer-boundary-contract.md §5/§8。",
+  "note": "infra 层边界契约门禁白名单（R1–R4）。每条必须写明理由；理由缺失本身即违规。R2/R3 为清零目标：条目消失时门禁提示清理。2026-10-31：R2/R3 存量已清零（BashPermission 改注入评估器、calibrateContextWindow 上移 app）；R4 的 4 个真重复（truncate/deepClone/throttle/debounce）已去重（保留 utils/common 实现）。规范见 .trae/specs/infra-layer-boundary-contract.md §5/§8。",
   "topLevelIo": [
     {
       "path": "utils/env.ts",
@@ -11,22 +11,6 @@
   "approvalOrchestration": [],
   "dynamicInfraToApp": [],
   "commonUtilsDuplicates": [
-    {
-      "name": "truncate",
-      "reason": "common/utils.ts 的 StringUtils 命名空间内实现与 utils/common.ts 同名；属 spec §6.3 归一化盘点范围（合并或明确分工后删除其中一份）。"
-    },
-    {
-      "name": "deepClone",
-      "reason": "同上（common/utils.ts 命名空间内实现 vs utils/common.ts）。"
-    },
-    {
-      "name": "throttle",
-      "reason": "同上（common/utils.ts 命名空间内实现 vs utils/common.ts）。"
-    },
-    {
-      "name": "debounce",
-      "reason": "同上（common/utils.ts 命名空间内实现 vs utils/common.ts）。"
-    },
     {
       "name": "Option",
       "reason": "同名不同概念（common/types.ts 的通用 Option 类型 vs utils/bash/registry.ts 的命令选项），非第二份实现；留待归一化盘重复核。"

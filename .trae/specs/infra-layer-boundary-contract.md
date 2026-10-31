@@ -84,8 +84,9 @@ infra 禁止依赖：entry、ui、app、service
 
 ### 6.3 `common` 与 `utils` 双包
 
-- 两者同为 infra、都是"无状态工具"，目前**未界定分工**。
-- 待办：做一次 CS01 归一化盘点（谁在消费、有无同名函数），再决定"合并 / 明确分工（`common`=跨域纯函数，`utils`=带 I/O 的设施）"。
+- 两者同为 infra、都是"无状态工具"，**分工已定（2026-10-31）**：`common/utils.ts` 为**零依赖命名空间**（纯函数、不 import 任何模块）；`utils/common.ts` 为**跨域工具实现的唯一出口**（可依赖 `monitoring` 等设施）。
+- 已完成的 CS01 归一化：`truncate` / `deepClone` / `throttle` / `debounce` 在 `common/utils.ts` 的命名空间副本**零消费者**，已删除（保留 `utils/common.ts` 实现），`lint:infra` R4 存量 6 → **2**。
+- 剩余 2 项为**同名不同概念**（`Option`、`ValidationResult`），已在白名单登记并写清理由，不构成第二份实现。
 
 ### 6.4 `system` 聚合容器
 
@@ -121,7 +122,7 @@ infra 禁止依赖：entry、ui、app、service
 | **"模块顶层不做 I/O"** | ✅ `lint:infra` R1 | AST 判定（函数 / 类体内不算）；存量 1 处 `utils/env.ts` 已登记 |
 | **审批编排不得下沉** | ✅ `lint:infra` R2 | `security/**`、`permission/**` 运行时不得引用上层；**存量已清零**（`BashPermission` 改注入评估器） |
 | **infra → app 动态导入** | ✅ `lint:infra` R3（白名单清零） | **存量已清零**（0 条，2026-10-31）；后续新增即红，条目消失即提示清理 |
-| **common / utils 重复检测** | ✅ `lint:infra` R4 | 同名导出（含命名空间内导出）；存量 6 个已登记：4 个真重复 + 2 个同名不同概念 |
+| **common / utils 重复检测** | ✅ `lint:infra` R4 | 同名导出（含命名空间内导出）；4 个真重复已去重（保留 `utils/common`），剩 2 个同名不同概念已登记 |
 | **门禁接线与自证** | ✅ | `app/package.json` 的 `lint:infra` 进 pre-commit（`setup-git-hooks.ts`）+ `ci` 链；白名单 `.trae/architecture/infra-boundary-allowlist.json`（每条须带理由）；自证 `app/tests/gates/infraBoundary.test.ts`（18 例） |
 
 ## 9. 验收（本 spec 自身）

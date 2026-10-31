@@ -7386,3 +7386,10 @@
 {"id":"READ-FILE-ANCHOR","k":"tests#0","i":0,"c":"app/tests/chat/readFileAnchor.test.ts"}
 {"id":"READ-FILE-ANCHOR","k":"tests#1","i":0,"c":"app/tests/chat/toolCallCorrection.test.ts"}
 {"id":"READ-FILE-ANCHOR","k":"changelog#0","i":0,"c":"会话内已读文件锚定：模型重复读取已读文件时注入纠偏（每路径一次），减少重复探路"}
+{"id":"PRUNE-THINKING-TEST-TIMEBOMB","k":"title","i":0,"c":"pruneEventThinking 用例时间炸弹：固定 now 配相对真实时间的 mtime"}
+{"id":"PRUNE-THINKING-TEST-TIMEBOMB","k":"source","i":0,"c":"2026-11-01 全量回归（bun test tests，9553 例）唯一失败项；系统日期晚于硬编码 now 后稳定假红"}
+{"id":"PRUNE-THINKING-TEST-TIMEBOMB","k":"reopenWhen","i":0,"c":"若该脚本改为不支持注入 now（只能读系统时钟）时重开"}
+{"id":"PRUNE-THINKING-TEST-TIMEBOMB","k":"notes","i":0,"c":"原用例 ageFile(...,1) 用 Date.now() 推导 mtime，却又把 now 固定成 2026-10-30T12:00Z ⇒ 系统日期一过 2026-10-30 13:00 文件就被判最近写入、applied 恒 0。改为相对 now 的绝对 mtime（utimesSync），与注入时钟同源。生产代码未改。"}
+{"id":"PRUNE-THINKING-TEST-TIMEBOMB","k":"code#0","i":0,"c":"app/scripts/prune-event-thinking.ts"}
+{"id":"PRUNE-THINKING-TEST-TIMEBOMB","k":"tests#0","i":0,"c":"app/tests/scripts/pruneEventThinking.test.ts"}
+{"id":"PRUNE-THINKING-TEST-TIMEBOMB","k":"changelog#0","i":0,"c":"修 pruneEventThinking 用例的时间炸弹（固定时钟与真实 mtime 混用）"}

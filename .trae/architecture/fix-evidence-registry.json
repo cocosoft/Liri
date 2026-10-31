@@ -15675,6 +15675,34 @@
       ],
       "reopenWhen": "若改为把「已读文件索引」常驻注入系统提示（需 prompt 预算评审）或 file_read 工具改名时重开（全文见 archive/evidence-detail.jsonl#READ-FILE-ANCHOR）",
       "notes": "只做按需注入、不做常驻索引：仅当模型再次读取本会话已读路径时，向下一轮注入一条 user/system 软纠偏（每路径一次，最多点名 3 个路径），零 prompt 预算占用。口径窄：仅 file_read + 字符串 path；同轮并行重复不提示。原 _injectRepeatCallCorrection 一并无损…（全文见 archive/evidence-detail.jsonl#READ-FILE-ANCHOR）"
+    },
+    {
+      "id": "PRUNE-THINKING-TEST-TIMEBOMB",
+      "title": "pruneEventThinking 用例时间炸弹：固定 now 配相对真实时间的 mtime",
+      "source": "2026-11-01 全量回归（bun test tests，9553 例）唯一失败项；系统日期晚于硬编码 now 后稳定假红",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/scripts/prune-event-thinking.ts"
+      ],
+      "tests": [
+        "app/tests/scripts/pruneEventThinking.test.ts"
+      ],
+      "changelog": [
+        "修 pruneEventThinking 用例的时间炸弹（固定时钟与真实 mtime 混用）"
+      ],
+      "reopenWhen": "若该脚本改为不支持注入 now（只能读系统时钟）时重开（全文见 archive/evidence-detail.jsonl#PRUNE-THINKING-TEST-TIMEBOMB）",
+      "notes": "原用例 ageFile(...,1) 用 Date.now() 推导 mtime，却又把 now 固定成 2026-10-30T12:00Z ⇒ 系统日期一过 2026-10-30 13:00 文件就被判最近写入、applied 恒 0。改为相对 now 的绝对 mtime（utimesSync），与注入时钟同源。生…（全文见 archive/evidence-detail.jsonl#PRUNE-THINKING-TEST-TIMEBOMB）"
     }
   ]
 }

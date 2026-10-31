@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **PRUNE-THINKING-TEST-TIMEBOMB**：修 pruneEventThinking 用例时间炸弹（固定 now vs 真实 mtime） —— 验证 unit11|full9512pass|eslint0；基线 用例用真实时间推导 mtime 却固定 now ⇒ 系统日期一过即稳定假红（详情见 archive/evidence-detail.jsonl#PRUNE-THINKING-TEST-TIMEBOMB）
 - ✅ **READ-FILE-ANCHOR**：已读文件锚定（跨轮重读纠偏）+ 定时器留痕 —— 验证 tsc0|unit10|chat769|arch0|infra0|size0|sr0|parity0|eslint0；基线 跨轮重读同一文件无任何提示（仅相邻轮完全一致才纠偏）；DocModule 定时器回调无日志（R08-002）（详情见 archive/evidence-detail.jsonl#READ-FILE-ANCHOR）
 - ✅ **BUG4-LOOP-GUARD-REGRESSION**：Bug 4 循环守卫回归网（空结果/失败结果，仅测试） —— 验证 tsc0|unit3|query481|eslint0；基线 空结果/失败结果的空转判定无专属回归用例（守卫存在但无网）（详情见 archive/evidence-detail.jsonl#BUG4-LOOP-GUARD-REGRESSION）
 - ✅ **TOOL-RESULT-TRISTATE**：工具结果三态契约（空/失败可区分）+ prepare 不再静默吞错 —— 验证 tsc0|unit9|chat759|gates680|eslint0|arch0|infra0|parity0|size0；基线 成功但无输出时模型收到空串或 undefined，与失败不可区分；prepare 静默吞掉 hook 安装失败（详情见 archive/evidence-detail.jsonl#TOOL-RESULT-TRISTATE）

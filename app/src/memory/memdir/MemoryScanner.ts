@@ -7,7 +7,7 @@ import { join, basename } from 'path';
 import { readdir, stat, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { type MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
-import { parseFrontmatter } from '@modules/utils/frontmatterParser';
+import { parseFrontmatter } from '@openliri/infra/utils/frontmatterParser';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveProjectRoot } from '@modules/environment';

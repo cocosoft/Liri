@@ -39,7 +39,7 @@ import {
   clearModelWindowsForOwner,
   getModelWindow,
   setModelWindow,
-} from '../../src/utils/ContextWindowResolver';
+} from '@openliri/infra/utils/ContextWindowResolver';
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
 

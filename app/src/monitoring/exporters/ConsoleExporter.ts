@@ -3,7 +3,7 @@
  * 提供指标和追踪数据的控制台输出
  */
 
-import { logForDebugging } from '@modules/utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 
 /**
  * 导出数据

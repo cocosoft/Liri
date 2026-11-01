@@ -6,7 +6,7 @@ import {
   isLinux,
   isWSL,
   getWslVersion,
-} from '../../src/utils/platform.js';
+} from '@openliri/infra/utils/platform';
 
 describe('getPlatform', () => {
   it('should return a valid platform string', () => {

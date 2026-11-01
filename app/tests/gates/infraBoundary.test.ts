@@ -309,7 +309,7 @@ describe('R4 common / utils 重复导出', () => {
     const common = [
       file(
         'common/index.ts',
-        "export { trim } from '@modules/utils/common';\n"
+        "export { trim } from '@openliri/infra/utils/common';\n"
       ),
     ];
     const utils = [

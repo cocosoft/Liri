@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 // C1（2026-10-09）：实例 id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { getLogger, getOTelTracing } from '@modules/monitoring';

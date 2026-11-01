@@ -40,7 +40,7 @@ import {
 } from '@modules/environment';
 import { configManager } from '../config/index.js';
 import { setOfflineMode } from '../entrypoints/shared-state.js';
-import { probeExternalModule } from '../utils/externalDeps.js';
+import { probeExternalModule } from '@openliri/infra/utils/externalDeps';
 import { getLogger, getMonitoringService } from '@modules/monitoring';
 import { handleError, setAPISceneEnvReader } from '@modules/error';
 import {
@@ -49,7 +49,7 @@ import {
 } from '@modules/constants';
 import { setDaemonMetricsSink } from '../daemon/metricsSink.js';
 import { setMainPermissionRuleSource } from '../security/permissionRuleSource.js';
-import { setNativeStructureCloserLoader } from '../utils/structureCut.js';
+import { setNativeStructureCloserLoader } from '@openliri/infra/utils/structureCut';
 import { setAnalyticsPricingResolver } from '../analytics/pricingSource.js';
 import { getModelPricing } from '../cost/ModelPricing.js';
 import type { NativeLib } from '../../native';

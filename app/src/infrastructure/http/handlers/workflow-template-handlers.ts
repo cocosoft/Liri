@@ -12,7 +12,7 @@
 
 import type http from 'http';
 // C1（2026-10-09）：用户模板 id 熵源改用 crypto
-import { randomIdSuffix } from '../../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';

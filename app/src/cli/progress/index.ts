@@ -23,7 +23,7 @@
  * 对标OpenClaw cli/progress.ts
  * 进度显示系统，支持spinner/progress bar/百分比
  */
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 export type ProgressMode = 'spinner' | 'bar' | 'percentage' | 'indeterminate';
 

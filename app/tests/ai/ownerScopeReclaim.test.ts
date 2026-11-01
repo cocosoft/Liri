@@ -22,7 +22,7 @@ import { resetModelPricingScopedForTest } from '../../src/ai/models/ModelPricing
 import {
   getModelWindow,
   setModelWindow,
-} from '../../src/utils/ContextWindowResolver';
+} from '@openliri/infra/utils/ContextWindowResolver';
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
 import { closeScopedResourcesForTenant } from '@openliri/kernel/identity/scopedResources';

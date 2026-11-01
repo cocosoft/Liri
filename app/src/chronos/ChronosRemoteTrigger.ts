@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 // C1（2026-10-09）：任务 id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { configManager } from '@modules/config';

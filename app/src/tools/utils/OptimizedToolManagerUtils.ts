@@ -43,7 +43,7 @@ export function loadBuiltinTools(factory: ToolFactory): Tool[] {
   return tools;
 }
 
-import { TTLCache } from '@modules/utils/cache';
+import { TTLCache } from '@openliri/infra/utils/cache';
 
 /**
  * 工具执行缓存

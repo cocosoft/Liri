@@ -3,8 +3,8 @@
  * 用于管理性能优化系统的配置参数
  */
 
-import { isEnvTruthy } from '../utils/envUtils.js';
-import { logForDebugging } from '../utils/debug.js';
+import { isEnvTruthy } from '@openliri/infra/utils/envUtils';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import { configManager } from '@modules/config';
 
 import { getLogger } from '@modules/monitoring';

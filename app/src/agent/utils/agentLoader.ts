@@ -11,8 +11,8 @@ import {
   AgentMemoryScope,
   AgentSource,
 } from '../models/types';
-import type { HooksSettings } from '@modules/utils/settings/types.js';
-import { parseFrontmatter } from '@modules/utils/frontmatterParser';
+import type { HooksSettings } from '@openliri/infra/utils/settings/types';
+import { parseFrontmatter } from '@openliri/infra/utils/frontmatterParser';
 import { parseYAML, parseJSON, AgentDefinitionFile } from './agentDefinition';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

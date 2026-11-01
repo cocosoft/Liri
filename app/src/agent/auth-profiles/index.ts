@@ -26,7 +26,7 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 // C1（2026-10-09）：凭据档案 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('agent\auth-profiles\index');

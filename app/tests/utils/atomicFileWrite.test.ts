@@ -20,7 +20,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { writeFileAtomic } from '../../src/utils/atomicFileWrite';
+import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
 
 const dirs: string[] = [];
 

@@ -4,10 +4,10 @@
  * 实现高效的缓存策略和延迟加载功能
  */
 
-import { logForDebugging } from '../utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 import { slowLogging } from './SlowOperations.js';
-import { TTLCache } from '@modules/utils/cache';
+import { TTLCache } from '@openliri/infra/utils/cache';
 
 /**
  * 缓存项

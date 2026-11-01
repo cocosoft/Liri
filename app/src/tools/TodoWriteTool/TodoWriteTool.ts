@@ -8,7 +8,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 import { BaseTool } from '../BaseTool';
 import { ToolResult, createToolResult, ErrorLevel } from '../types/ToolResult';
 // C1（2026-10-09）：todo id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam, ToolCallProgress } from '../types/Tool';
 import { pickTaskText } from '../utils/ToolUtils';

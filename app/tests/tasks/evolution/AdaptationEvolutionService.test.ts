@@ -5,7 +5,7 @@
  * 技能名越界不写、落盘失败不推进状态、LLM 无输出、异常不抛）。
  */
 import { describe, it, expect } from 'bun:test';
-import type { EvolutionState } from '../../../src/utils/promptEvolution';
+import type { EvolutionState } from '@openliri/infra/utils/promptEvolution';
 import {
   MIN_FAILURE_SAMPLES,
   buildEvolutionPrompt,

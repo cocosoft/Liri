@@ -12,6 +12,10 @@
     "./common": {
       "types": "./src/common/index.ts",
       "import": "./src/common/index.ts"
+    },
+    "./utils": {
+      "types": "./src/utils/index.ts",
+      "import": "./src/utils/index.ts"
     }
   },
   "scripts": {

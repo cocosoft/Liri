@@ -16,7 +16,7 @@ import { ReActToolLoop } from '../../src/chat/ReActToolLoop';
 import { createStreamBudget } from '../../src/chat/createAgentLoop';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import type { ChatResponse } from '@modules/ai';
-import { setModelWindow } from '../../src/utils/ContextWindowResolver';
+import { setModelWindow } from '@openliri/infra/utils/ContextWindowResolver';
 
 const MODEL = 'deepseek-v4-flash';
 // CS03 落地（2026-10-11）后必需：`createStreamBudget` 现按 `resolveContextWindow().source` 判定，

@@ -2,7 +2,7 @@ import { describe, it, expect, spyOn, afterEach } from 'bun:test';
 import {
   StartupProfiler,
   createStartupProfiler,
-} from '../../src/utils/startupProfiler.js';
+} from '@openliri/infra/utils/startupProfiler';
 
 describe('StartupProfiler', () => {
   afterEach(() => {

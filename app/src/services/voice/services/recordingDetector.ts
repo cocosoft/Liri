@@ -9,9 +9,9 @@
 import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import { readFile } from 'fs/promises';
-import { getPlatform } from '@modules/utils/platform';
+import { getPlatform } from '@openliri/infra/utils/platform';
 import { getLogger } from '@modules/monitoring';
-import { isEnvTruthy } from '@modules/utils/envUtils';
+import { isEnvTruthy } from '@openliri/infra/utils/envUtils';
 import { configManager } from '@modules/config';
 import type { VoiceDependencies } from '../models/types';
 

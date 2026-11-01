@@ -11,8 +11,8 @@
  * - 子进程 env 的**白名单构造**（宿主的 `process.env` **不整体继承**）；
  * - 子进程 → 宿主的工具声明解析。
  */
-import { parentPidEnvKey } from '@modules/utils/parentLiveness';
-import { buildRequestFrame } from '@modules/utils/sidecarIpc';
+import { parentPidEnvKey } from '@openliri/infra/utils/parentLiveness';
+import { buildRequestFrame } from '@openliri/infra/utils/sidecarIpc';
 import type { PluginToolDeclaration } from '../utils/toolRegistration';
 
 /** 子进程环境变量名（最小集；宿主不注入其它业务变量） */

@@ -14,7 +14,7 @@ import { BaseTask } from './BaseTask';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveHttpPort, LOCAL_SERVICE_HOST } from '@openliri/kernel';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 const logger = getLogger('tasks:MonitorTask');
 
 export interface MonitorTarget {

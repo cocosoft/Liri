@@ -30,7 +30,7 @@ import {
   getAllBuiltinToolLoaders,
   loadTools,
 } from '../src/tools/utils/ToolManagerUtils';
-import type { ToolParam } from '../src/utils/toolContract/Tool';
+import type { ToolParam } from '@openliri/infra/utils/toolContract/Tool';
 
 const LOCALE = 'zh-CN';
 const OUT_PATH = resolve(

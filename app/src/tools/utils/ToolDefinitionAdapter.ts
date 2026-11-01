@@ -10,7 +10,7 @@ import type {
 } from '../types/Tool';
 import { ToolTag } from '../types/Tool';
 // C1（2026-10-09）：executionId 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolExecutionStatus, type ToolResult } from '../types/ToolResult';
 import type { PermissionResult } from '../types/PermissionResult';

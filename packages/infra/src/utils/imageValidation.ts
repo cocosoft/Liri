@@ -4,7 +4,7 @@
  * 验证图片是否符合API限制。
  * 在API边界检查base64编码图片是否超过大小限制。
  */
-import { API_IMAGE_MAX_BASE64_SIZE } from '../constants/apiLimits';
+import { API_IMAGE_MAX_BASE64_SIZE } from '@modules/constants/apiLimits';
 
 /**
  * 超限图片信息

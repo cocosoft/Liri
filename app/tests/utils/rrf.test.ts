@@ -27,7 +27,7 @@
  * **零拷贝**（`item` 为原引用）、`rrfMaxScore` 归一化上界 `(0, 1]`。
  */
 import { describe, expect, it } from 'bun:test';
-import { reciprocalRankFusion, rrfMaxScore } from '../../src/utils/rrf';
+import { reciprocalRankFusion, rrfMaxScore } from '@openliri/infra/utils/rrf';
 
 /** 构造带 `id` 的简单条目 */
 const item = (id: string): { id: string } => ({ id });

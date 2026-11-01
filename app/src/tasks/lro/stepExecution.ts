@@ -17,7 +17,7 @@
 
 import { getLogger } from '@modules/monitoring';
 // #28（2026-10-30）：任务回写内容只取可读字段（工具结果契约类型，避免裸字面量）
-import type { ToolResult } from '@modules/utils/toolContract';
+import type { ToolResult } from '@openliri/infra/utils/toolContract';
 import type { AgentIsolation } from '@modules/agent';
 import {
   AppError,
@@ -59,7 +59,7 @@ import { findWorkspaceEscape } from './workspaceGuard.js';
 import {
   describeMissingRequiredParams,
   stripArgParseErrorKey,
-} from '../../utils/toolContract/argParseError.js';
+} from '@openliri/infra/utils/toolContract/argParseError';
 // LRO-13（2026-10-26）：阻塞命令台账 —— 续跑时同 (命令, cwd, 策略版本) 直接短路，不重放
 import {
   blockedReplayResult,

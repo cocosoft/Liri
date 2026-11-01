@@ -80,7 +80,7 @@ import {
   type StopHookReason,
 } from './StopHooks.js';
 import { ToolCallPartitioner } from '@modules/tools';
-import { ToolCallTracker } from '../utils/ToolCallTracker.js';
+import { ToolCallTracker } from '@openliri/infra/utils/ToolCallTracker';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { QueryLogStore, getQueryLogStore } from './QueryLogStore.js';

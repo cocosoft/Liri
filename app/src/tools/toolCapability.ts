@@ -16,13 +16,13 @@
  *   **新增**工具缺声明 ⇒ **ERROR**（棘轮）。
  */
 
-import type { ToolTag } from '../utils/toolContract/Tool';
+import type { ToolTag } from '@openliri/infra/utils/toolContract/Tool';
 import type {
   ToolCapabilityDescriptor,
   ToolCapabilityLevel,
   ToolRiskLevel,
   ToolSandboxLevel,
-} from '../utils/toolContract/Tool';
+} from '@openliri/infra/utils/toolContract/Tool';
 import type { ToolEffect } from './toolEffects';
 
 /** 派生输入：**全部来自既有元数据**（无新字段强制） */

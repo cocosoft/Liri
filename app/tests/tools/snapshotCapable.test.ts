@@ -5,7 +5,7 @@
  * 标记非字面量 `true`（如 `'yes'` / `1`）⇒ `false`；探测**不调用**任何方法（纯读、无副作用）。
  */
 import { describe, it, expect } from 'bun:test';
-import { isSnapshotCapable } from '../../src/utils/toolContract/Tool.js';
+import { isSnapshotCapable } from '@openliri/infra/utils/toolContract/Tool';
 
 function makeCapable(overrides: Record<string, unknown> = {}) {
   let frozen = 0;

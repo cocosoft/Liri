@@ -5,7 +5,7 @@
  */
 
 import { memoryManager, MemorySnapshot } from './MemoryManager';
-import { logForDebugging } from '../utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 
 import { getLogger } from '@modules/monitoring';

@@ -32,7 +32,7 @@
  * **确定性契约**（形态 + 位宽下限，可稳定守护）与**统计观察**（宽松界，**不作**零碰撞硬断言）。
  */
 import { describe, it, expect } from 'bun:test';
-import { generateId, randomIdSuffix } from '../../src/utils/common.js';
+import { generateId, randomIdSuffix } from '@openliri/infra/utils/common';
 
 describe('C1 统一 ID 熵源 —— 确定性契约', () => {
   it('generateId 保持 `prefix_timestamp_suffix` 形态', () => {

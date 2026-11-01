@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 // C1（2026-10-09）：notification id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 // 2026-10-01 数据契约专项 U5（并入 U3-② 乙）：原极简 `Tool` / `ToolPermissionContext`
 // 与 `tools/types` 的完整契约**同名不同物**（形状不兼容）⇒ 依 §9.2「一名一规范落点」**改名**
 // 为 `AppStateToolRef` / `AppStateToolPermissionContext`（本文件仅作字段声明，从不解引用字段）。

@@ -15,7 +15,7 @@
 
 import { getLogger } from '@modules/monitoring';
 // C1（2026-10-09）：实例 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { SessionLock } from '../SessionLock';
 import type { LockOptions, LockAcquireResult } from '../SessionLock';
 

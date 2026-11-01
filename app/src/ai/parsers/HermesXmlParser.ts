@@ -9,7 +9,7 @@ import { randomUUID } from 'crypto';
 import { BaseParser } from './BaseParser';
 import type { ParsedResult, ParsedToolCall } from './types';
 import { emptyParsedResult, toolCallResult } from './types';
-import { repairModelJson } from '@modules/utils/json';
+import { repairModelJson } from '@openliri/infra/utils/json';
 
 export class HermesXmlParser extends BaseParser {
   readonly name = 'hermes';

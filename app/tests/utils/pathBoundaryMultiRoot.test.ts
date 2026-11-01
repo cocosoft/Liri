@@ -15,7 +15,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   findWorkspaceEscape,
   findWorkspaceEscapeInRoots,
-} from '../../src/utils/toolContract/pathBoundary';
+} from '@openliri/infra/utils/toolContract/pathBoundary';
 
 const ROOT_A = 'C:\\Users\\csdnc\\Documents\\LiriProjects\\proj_a';
 const ROOT_B = 'E:\\PY\\Documents\\CODES\\PY_APP';

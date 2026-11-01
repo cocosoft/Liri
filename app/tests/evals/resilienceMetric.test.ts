@@ -11,7 +11,7 @@ import {
   computeBehaviorMetrics,
   countStalledRepeats,
 } from '../../src/evals/behaviorMetrics';
-import { toolCallArgsKey } from '../../src/utils/toolCallKey';
+import { toolCallArgsKey } from '@openliri/infra/utils/toolCallKey';
 
 describe('④ 空转重复次数', () => {
   it('相邻同工具同参数 ⇒ 计数；分页/换工具 ⇒ 不计', () => {

@@ -19,7 +19,7 @@ import type { MetricsService } from '@modules/monitoring';
 import { SessionManager } from '@modules/session';
 import { getAlertManager, AlertLevel } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 import {
   createVoiceService,

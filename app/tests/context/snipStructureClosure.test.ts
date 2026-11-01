@@ -27,7 +27,10 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { snipMessages } from '../../src/context/compaction/SnipEngine';
-import { bracketDelta, closeStructure } from '../../src/utils/structureCut';
+import {
+  bracketDelta,
+  closeStructure,
+} from '@openliri/infra/utils/structureCut';
 import type { ChatMessage } from '@modules/ai';
 
 /**

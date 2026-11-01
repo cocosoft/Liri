@@ -6,12 +6,12 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  */
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import { getComputerUseAdapter } from '../../utils/computerUse';
+import { getComputerUseAdapter } from '@openliri/infra/utils/computerUse/index';
 import type {
   ComputerUseAdapter,
   ScreenshotResult,
   MousePosition,
-} from '../../utils/computerUse/types';
+} from '@openliri/infra/utils/computerUse/types';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:ComputerUseTool:ComputerUseTool');

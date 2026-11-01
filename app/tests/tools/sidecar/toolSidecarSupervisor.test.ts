@@ -43,7 +43,7 @@ import {
   SIDECAR_STARTUP_TYPE,
   encodeFrame,
   decodeFrame,
-} from '../../../src/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 
 class FakeChild extends EventEmitter {
   stdout = new PassThrough();

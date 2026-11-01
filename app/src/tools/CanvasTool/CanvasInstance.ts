@@ -4,9 +4,9 @@
  * 使用 Sharp 处理图片 I/O 和格式转换，使用 SVG 层渲染图形/文字
  */
 
-import { loadSharp } from '@modules/utils/externalDeps';
+import { loadSharp } from '@openliri/infra/utils/externalDeps';
 // C1（2026-10-09）：canvas id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { resolveOutputDir } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:canvas');

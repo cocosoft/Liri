@@ -2,7 +2,7 @@
  * 分类器管理器
  * 从 AutoModeClassifier.ts 拆分而来，降低文件体积
  */
-import { TTLCache } from '@modules/utils/cache';
+import { TTLCache } from '@openliri/infra/utils/cache';
 import { AutoModeClassifier } from './AutoModeClassifier';
 import { SpanStatusCode, metrics } from '@opentelemetry/api';
 import type { Span, Counter } from '@opentelemetry/api';

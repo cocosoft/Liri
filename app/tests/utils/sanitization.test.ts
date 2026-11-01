@@ -4,7 +4,7 @@ import {
   recursivelySanitizeUnicode,
   sanitizeHTML,
   validateInput,
-} from '../../src/utils/sanitization.js';
+} from '@openliri/infra/utils/sanitization';
 
 describe('partiallySanitizeUnicode', () => {
   it('should return normal text unchanged', () => {

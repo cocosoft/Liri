@@ -22,9 +22,9 @@ import type {
 // P1-1②（2026-09-28）：输出校验问题项复用校验器的既有形状（单一来源，不复制字段定义）
 // P6（2026-11-01）：`utils` 迁入 `packages/infra` 后，infra 包的 R6 边界禁止包内引用 core
 // ⇒ 问题项接口的唯一事实源回到 `@modules/utils/mermaidLint`（`types/mermaid.ts` 已删除）。
-import type { MermaidLintIssue } from '@modules/utils/mermaidLint';
+import type { MermaidLintIssue } from '@openliri/infra/utils/mermaidLint';
 // P2-3（2026-10-27）：工具失败分类随 `tool/result` 落盘（与 `ToolResult.failureKind` 同源）
-import type { ToolFailureKind } from '@modules/utils/toolContract/ToolResult';
+import type { ToolFailureKind } from '@openliri/infra/utils/toolContract/ToolResult';
 
 /**
  * Steering 注入**来源**（2026-10-08，架构治理 P1 · §1.6 红线审计修复）。

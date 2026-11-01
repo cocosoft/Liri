@@ -140,7 +140,7 @@ import {
 import { configManager } from '@modules/config';
 import type { PermissionConfig } from '@modules/config/types';
 import { loadRules } from '@modules/config/types';
-import { matchesAnyCommandRule } from '@modules/utils/commandRuleMatch';
+import { matchesAnyCommandRule } from '@openliri/infra/utils/commandRuleMatch';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('security:bashAnalyzer');
 

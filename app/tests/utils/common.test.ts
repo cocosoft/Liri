@@ -12,7 +12,7 @@ import {
   debounce,
   throttle,
   lazySingleton,
-} from '../../src/utils/common.js';
+} from '@openliri/infra/utils/common';
 
 describe('sleep', () => {
   it('should resolve after specified ms', async () => {

@@ -43,7 +43,7 @@ import { basename, join } from 'path';
 import { resolveProjectRoot } from '@modules/environment';
 import { resolveDataDir } from '@modules/environment';
 // T-②06：经验自动演化覆盖层（受管文件；空 ⇒ 该段不注入）
-import { readPromptEvolutionOverlay } from '@modules/utils/promptEvolution';
+import { readPromptEvolutionOverlay } from '@openliri/infra/utils/promptEvolution';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';

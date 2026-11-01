@@ -19,7 +19,7 @@ import {
 import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
 import { basename, dirname, join } from 'path';
 // T-②06（2026-10-03）：演化侧车 `.evolution.md`（自动产物，**不改写**用户 SKILL.md 本体）
-import { readSkillEvolutionFromDir } from '@modules/utils/promptEvolution';
+import { readSkillEvolutionFromDir } from '@openliri/infra/utils/promptEvolution';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 const logger = getLogger('skills:fileLoader');

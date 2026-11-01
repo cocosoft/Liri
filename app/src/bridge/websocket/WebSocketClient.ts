@@ -5,7 +5,7 @@
 
 import { EventEmitter } from 'events';
 // C1（2026-10-09）：消息 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

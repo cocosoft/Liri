@@ -3,7 +3,7 @@
  */
 import { FEATURE_FLAGS } from '@openliri/kernel';
 // C1（2026-10-09）：通知 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 const feature = (name: keyof typeof FEATURE_FLAGS) =>
   FEATURE_FLAGS[name] ?? false;
 

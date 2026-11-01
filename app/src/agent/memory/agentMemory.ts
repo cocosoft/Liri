@@ -16,7 +16,7 @@ import { join } from 'path';
 import {
   encodePayload,
   decodePayload,
-} from '@modules/utils/MemoryFileEnvelope';
+} from '@openliri/infra/utils/MemoryFileEnvelope';
 
 const logger = getLogger('agent:memory:agentMemory');
 

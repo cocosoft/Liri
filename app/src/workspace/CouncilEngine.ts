@@ -37,7 +37,7 @@ import type {
   ISnapshotCapable,
   SnapshotHandle,
   SnapshotFreezeScope,
-} from '../utils/toolContract/Tool.js';
+} from '@openliri/infra/utils/toolContract/Tool';
 
 const logger = getLogger('CouncilEngine');
 

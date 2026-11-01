@@ -18,7 +18,7 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import {
   cloneFileStateCache,
   resolveReadFileState,
-} from '../../utils/fileStateCache';
+} from '@openliri/infra/utils/fileStateCache';
 import type {
   SubAgentEngine,
   SubAgentProgressEvent,

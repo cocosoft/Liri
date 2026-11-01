@@ -32,7 +32,7 @@ import {
 } from 'fs';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 import type {
   TTSProvider,
   TTSVoice,

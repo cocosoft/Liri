@@ -16,9 +16,9 @@ import {
   readdir,
   stat,
 } from 'fs/promises';
-import { logForDebugging } from '../utils/debug.js';
-import { isEnvTruthy } from '../utils/envUtils.js';
-import { readUtilEnv } from '../utils/envAccess.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
+import { isEnvTruthy } from '@openliri/infra/utils/envUtils';
+import { readUtilEnv } from '@openliri/infra/utils/envAccess';
 import { handleError } from '@modules/error';
 import { jsonStringify, jsonParse } from '../performance/SlowOperations.js';
 import {

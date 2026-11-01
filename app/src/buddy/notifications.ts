@@ -6,7 +6,7 @@
 import type { Companion } from './types';
 import { ifNotificationsEnabled } from './conditional';
 // C1（2026-10-09）：notification id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 /**
  * 通知类型

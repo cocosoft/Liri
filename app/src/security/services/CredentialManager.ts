@@ -8,7 +8,7 @@ import crypto from 'crypto';
 import { resolvePyappHome } from '@modules/environment';
 import { handleError } from '@modules/error';
 // C1（2026-10-09）：audit id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('security\services\CredentialManager');

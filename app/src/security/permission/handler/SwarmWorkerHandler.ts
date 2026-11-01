@@ -4,7 +4,7 @@
  * Swarm Worker处理器，管理子Agent/Worker的权限委托与隔离
  */
 
-import { logger } from '../../../utils/log.js';
+import { logger } from '@openliri/infra/utils/log';
 import type {
   PermissionContext,
   PermissionDecision,

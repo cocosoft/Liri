@@ -6,7 +6,7 @@
 import chalk from 'chalk';
 import { getThemeManager } from '@modules/system/theme';
 import { createInterface, Interface } from 'readline';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 /**
  * 进度条配置

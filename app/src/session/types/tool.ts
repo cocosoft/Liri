@@ -1,7 +1,7 @@
 /**
  * 工具类型
  */
-import type { ToolFailureKind } from '@modules/utils/toolContract/ToolResult';
+import type { ToolFailureKind } from '@openliri/infra/utils/toolContract/ToolResult';
 
 export enum ToolType {
   /**

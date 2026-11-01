@@ -31,8 +31,8 @@
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { getLogger } from '@modules/monitoring';
-import { killProcessTree } from '@modules/utils/killProcessTree';
-import { parentPidEnv } from '@modules/utils/parentLiveness';
+import { killProcessTree } from '@openliri/infra/utils/killProcessTree';
+import { parentPidEnv } from '@openliri/infra/utils/parentLiveness';
 
 const logger = getLogger('tools:sidecar:lspConnection');
 

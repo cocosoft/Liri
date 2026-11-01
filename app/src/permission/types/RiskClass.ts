@@ -9,7 +9,7 @@
  * 本层只做"声明优先 + 兜底"。
  */
 
-import type { ToolRiskClass } from '../../utils/toolContract/Tool';
+import type { ToolRiskClass } from '@openliri/infra/utils/toolContract/Tool';
 
 /**
  * 参与风险判定的最小工具形状（结构性；**不依赖** `tools/` 的类型）。

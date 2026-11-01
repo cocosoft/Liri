@@ -25,7 +25,7 @@ import {
   DEFAULT_MAX_CONSECUTIVE_INVALID_TURNS,
   DEFAULT_MAX_CONSECUTIVE_BLOCKED_TURNS,
 } from '@modules/query';
-import type { ToolFailureKind } from '@modules/utils/toolContract/ToolResult';
+import type { ToolFailureKind } from '@openliri/infra/utils/toolContract/ToolResult';
 // G-01（2026-10-19）：调用**前**走与 chat 同一预算收口（此前仅"事后记账" ⇒ 批次内可透支）
 import { assertEntryBudget } from '../../query/dailyBudgetGate';
 import type {
@@ -42,7 +42,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { withRetry } from '@modules/utils/withRetry';
+import { withRetry } from '@openliri/infra/utils/withRetry';
 import { trackUsage } from '@modules/ai';
 import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 import { AgentEventType } from '@modules/agent';

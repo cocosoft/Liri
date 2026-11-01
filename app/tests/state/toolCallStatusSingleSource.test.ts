@@ -26,7 +26,7 @@ const UNIFIED_MESSAGE = 'app/src/session/types/UnifiedMessage.ts';
 const CHUNK_MAPPER = 'app/src/chat/reactEventsToChunks.ts';
 const SSE_HANDLER = 'app/src/infrastructure/http/handlers/chat-handlers.ts';
 const CORE_API_IMPL = 'app/src/runtime/api/CoreAPIImpl.ts';
-const TOOL_PROGRESS = 'app/src/utils/toolContract/ToolProgress.ts';
+const TOOL_PROGRESS = 'packages/infra/src/utils/toolContract/ToolProgress.ts';
 const EXECUTION_EXIT = 'app/src/execution/index.ts';
 
 describe('工具调用状态单源守卫（阶段 2.1/2.2）', () => {

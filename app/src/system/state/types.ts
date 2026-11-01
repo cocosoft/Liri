@@ -24,7 +24,7 @@
  */
 
 // C1（2026-10-09）：会话 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 /**
  * 工具权限上下文

@@ -37,7 +37,7 @@ import {
 } from 'fs';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { getPlatform } from '@modules/utils/platform';
+import { getPlatform } from '@openliri/infra/utils/platform';
 import { resolveModelsDir } from '@modules/environment';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {

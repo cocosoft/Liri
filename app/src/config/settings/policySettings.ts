@@ -9,7 +9,7 @@ import { join } from 'path';
 import { resolvePyappHome } from '@modules/environment';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('PolicySettings');
-import { deepMerge } from '@modules/utils/common.js';
+import { deepMerge } from '@openliri/infra/utils/common';
 
 /**
  * 托管设置文件名

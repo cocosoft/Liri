@@ -7,7 +7,7 @@ import {
   formatMermaidIssues,
   hasMermaidIssues,
   lintMermaidBlocks,
-} from '@modules/utils/mermaidLint';
+} from '@openliri/infra/utils/mermaidLint';
 
 describe('mermaidLint（零依赖结构预检）', () => {
   it('合法 graph / sequenceDiagram ⇒ 无问题', () => {

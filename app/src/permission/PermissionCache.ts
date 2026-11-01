@@ -6,11 +6,11 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 // C1（2026-10-09）：缓存键熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type { PermissionDecision } from './PermissionResult';
 import type { PermissionRuleEntry } from './PermissionRule';
 import type { ICache, CacheStats } from '@modules/cache/types';
-import { TTLCache } from '@modules/utils/cache';
+import { TTLCache } from '@openliri/infra/utils/cache';
 import {
   PermissionBehavior,
   PermissionRuleSource,

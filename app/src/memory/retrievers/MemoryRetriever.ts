@@ -12,8 +12,8 @@ import { handleError } from '@modules/error/handleError';
 import {
   encodePayload,
   decodePayload,
-} from '@modules/utils/MemoryFileEnvelope';
-import { writeFileAtomic } from '@modules/utils/atomicFileWrite';
+} from '@openliri/infra/utils/MemoryFileEnvelope';
+import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
 
 const logger = getLogger('memory:retriever');
 

@@ -5,7 +5,7 @@
 
 import { handleError } from '@modules/error';
 // C1（2026-10-09）：execution id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 /**
  * 流程步骤

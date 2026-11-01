@@ -32,7 +32,7 @@ import {
   encodeFrame,
   parseTraceparent,
   traceIdOf,
-} from '../../src/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 
 const TRACE_ID = '0af7651916cd43dd8448eb211c80319c';
 const SPAN_ID = 'b7ad6b7169203331';

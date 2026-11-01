@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 // 2026-10-01（子批 B 收口）：由 `buddy/`(app) 迁入 `ui/buddy/`(ui 层) —— 原 `buddy -> components`
 // (app -> ui) 倒挂随之消失。import 的**目标模块与迁移前一致**，仅按新深度调整相对层级。
 import { Text } from '../../components/ink.js';
-import { getRainbowColor } from '../../utils/thinking';
+import { getRainbowColor } from '@openliri/infra/utils/thinking';
 import { getGlobalConfig } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ui:buddy');

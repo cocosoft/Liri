@@ -376,7 +376,7 @@ export class TeamHelper {
  * 获取团队目录
  */
 export function getTeamDir(teamName: string): string {
-  const { getEnvironmentVariable } = require('../../utils/envUtils');
+  const { getEnvironmentVariable } = require('@openliri/infra/utils/envUtils');
   const baseDir =
     configManager.env('Liri_TEAM_DIR') || join(resolvePyappHome(), 'teams');
   return join(baseDir, teamName);

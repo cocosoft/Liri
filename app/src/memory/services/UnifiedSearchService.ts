@@ -7,7 +7,7 @@ import type {
 } from '@openliri/kernel/knowledge-types';
 import type { Memory } from '../types/Memory';
 import { getLogger } from '@modules/monitoring';
-import { reciprocalRankFusion } from '@modules/utils/rrf';
+import { reciprocalRankFusion } from '@openliri/infra/utils/rrf';
 
 const logger = getLogger('memory:services:unifiedSearch');
 

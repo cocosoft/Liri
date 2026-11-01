@@ -523,7 +523,7 @@
 {"id":"RRF-CONV","k":"source","i":0,"c":"CHANGELOG v0.4.75「ℹ️ 边界（如实）」"}
 {"id":"RRF-CONV","k":"reopenWhen","i":0,"c":"修改 mergeResults 的融合/归一化、matchType 取值域或下游分档阈值时"}
 {"id":"RRF-CONV","k":"notes","i":0,"c":"值域由 Σw/(k+rank+1)（≈1/61 量级）收敛为除以 rrfMaxScore 上界的 (0,1]；重叠文档 matchType 由 keyword/semantic 收敛为 'hybrid'。"}
-{"id":"RRF-CONV","k":"code#0","i":0,"c":"app/src/utils/rrf.ts"}
+{"id":"RRF-CONV","k":"code#0","i":0,"c":"packages/infra/src/utils/rrf.ts"}
 {"id":"RRF-CONV","k":"code#1","i":0,"c":"app/src/knowledge/KnowledgeRouter.ts"}
 {"id":"RRF-CONV","k":"code#2","i":0,"c":"packages/kernel/src/core/knowledge-types.ts"}
 {"id":"RRF-CONV","k":"code#3","i":0,"c":"client/src/types/knowledge.ts"}
@@ -751,7 +751,7 @@
 {"id":"TOOLGOV-D5","k":"notes","i":5,"c":"executesCode 覆盖 / 显式 sandbox 优先 / tags=write ⇒ medium / BaseTool 集成 / sandboxLevel=execution ⇒ execute / 判据负向夹具 ×2）。e2eVerified=false。"}
 {"id":"TOOLGOV-D5","k":"code#0","i":0,"c":"app/src/tools/toolCapability.ts"}
 {"id":"TOOLGOV-D5","k":"code#1","i":0,"c":"app/src/tools/BaseTool.ts"}
-{"id":"TOOLGOV-D5","k":"code#2","i":0,"c":"app/src/utils/toolContract/Tool.ts"}
+{"id":"TOOLGOV-D5","k":"code#2","i":0,"c":"packages/infra/src/utils/toolContract/Tool.ts"}
 {"id":"TOOLGOV-D5","k":"code#3","i":0,"c":"app/scripts/lint-tool-schema.ts"}
 {"id":"TOOLGOV-D5","k":"code#4","i":0,"c":"app/package.json"}
 {"id":"TOOLGOV-D5","k":"code#5","i":0,"c":".trae/architecture/tool-capability-baseline.json"}
@@ -883,7 +883,7 @@
 {"id":"TOOLGOV-TG1","k":"notes","i":0,"c":"① **裁定**：`capabilityDigest` 是「特定会话 + 精确命令语义」的**执行授权指纹**（**权限域** `permission/`），与描述工具**静态固有属性**的 `ToolCapabilityDescriptor`（**能力域** `utils/toolContract/`）语义正交 ⇒ **保持独立、严禁并入**（CS01 /"}
 {"id":"TOOLGOV-TG1","k":"notes","i":1,"c":" R02-002 同名不同物）。② **落地**：在 `Tool.ts` 的 `ToolCapabilityDescriptor` 处 + `ApprovedCommandRegistry.ts` 的 `capabilityDigest` 字段处各加**边界守护注释**（双向交叉引用），防后续「看着像就合并」。③ **如实**：原方案拟「登记 R02-002"}
 {"id":"TOOLGOV-TG1","k":"notes","i":2,"c":" 排除表」，回仓取证后确认**无需** —— R02-002 只扫描**导出符号**，不扫描 interface 字段（`capabilityDigest` 为字段，不在其扫描面）；故本项**无测试**（纯注释/边界登记，零行为变更）。e2eVerified=false。"}
-{"id":"TOOLGOV-TG1","k":"code#0","i":0,"c":"app/src/utils/toolContract/Tool.ts"}
+{"id":"TOOLGOV-TG1","k":"code#0","i":0,"c":"packages/infra/src/utils/toolContract/Tool.ts"}
 {"id":"TOOLGOV-TG1","k":"code#1","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"TOOLGOV-TG5","k":"title","i":0,"c":"工具治理 TG-5：工具 Schema 熵阈值告警（长程第 20 轮后 >30%，只告警不阻断）"}
 {"id":"TOOLGOV-TG5","k":"source","i":0,"c":"dev_docs/20261012/工具治理方案-20261012.md §7（TG-5 裁断）→ §5 阶段 1.3"}
@@ -1111,7 +1111,7 @@
 {"id":"FSM-TOOLSTATUS-P2","k":"code#4","i":0,"c":"app/src/session/types/UnifiedMessage.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"code#5","i":0,"c":"app/src/chat/reactEventsToChunks.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"code#6","i":0,"c":"app/src/infrastructure/http/handlers/chat-handlers.ts"}
-{"id":"FSM-TOOLSTATUS-P2","k":"code#7","i":0,"c":"app/src/utils/toolContract/ToolProgress.ts"}
+{"id":"FSM-TOOLSTATUS-P2","k":"code#7","i":0,"c":"packages/infra/src/utils/toolContract/ToolProgress.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"tests#0","i":0,"c":"app/tests/state/toolCallStatusSingleSource.test.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"tests#1","i":0,"c":"app/tests/chat/reactEventsToChunks.test.ts"}
 {"id":"FSM-SESSIONSTATE-P3","k":"title","i":0,"c":"状态机规范管理 阶段 3：会话状态机 **8 态 → 3 态收敛**（用户裁定）+ 旧枚举删除 + 不可达兜底清理"}
@@ -1813,7 +1813,7 @@
 {"id":"TOOLGOV-TG2-A-SNAPSHOT-CAP","k":"notes","i":7,"c":"typecheck` 3 工程 **0 错**；`lint:arch` **0 error**（5 条**既有** warning 未增）；`lint:tool-schema` **0 ERROR**（62 存量缺声明仍在基线内）；`lint:fn-size` **未增长**；`lint:doc-code` / `lint:fix-evidence` **全"}
 {"id":"TOOLGOV-TG2-A-SNAPSHOT-CAP","k":"notes","i":8,"c":"绿**。**如实边界**：① **A 片不含**「提交→挂起→完成→续跑」端到端（= 原文验收）—— 那是 **C 片**，依赖 **B 片**（侧车作业化）；② 契约当前**无任何实现者**（**有意**：须先有 B 片作业协议；若要求先有实现者，最小候选 = 媒体侧车 `vision_worker`，见 spec §4 Q4）；③ **未接挂起点**（不"}
 {"id":"TOOLGOV-TG2-A-SNAPSHOT-CAP","k":"notes","i":9,"c":"改 `BudgetSuspendCoordinator` / `ReActToolLoop` / `TAORLoop`）；④ `e2eVerified=false`。"}
-{"id":"TOOLGOV-TG2-A-SNAPSHOT-CAP","k":"code#0","i":0,"c":"app/src/utils/toolContract/Tool.ts"}
+{"id":"TOOLGOV-TG2-A-SNAPSHOT-CAP","k":"code#0","i":0,"c":"packages/infra/src/utils/toolContract/Tool.ts"}
 {"id":"TOOLGOV-TG2-A-SNAPSHOT-CAP","k":"tests#0","i":0,"c":"app/tests/tools/snapshotCapable.test.ts"}
 {"id":"TOOLGOV-TG2-A-SNAPSHOT-CAP","k":"changelog#0","i":0,"c":"CHANGELOG.md"}
 {"id":"TOOLGOV-TG2-B1-JOB-PROTO","k":"title","i":0,"c":"T1-2② / TG-2+TG-6（**B₁ 片**）：侧车「作业化」**协议层** —— 复用既有三类帧，**零新帧型**"}
@@ -1829,7 +1829,7 @@
 {"id":"TOOLGOV-TG2-B1-JOB-PROTO","k":"notes","i":7,"c":"tests/utils` **265 pass / 0 fail**。**门禁**：`typecheck` 3 工程 **0 错**；`lint:arch` **0 error**（5 条**既有** warning 未增）；`lint:fn-size` **未增长**；`lint:doc-code` / `lint:fix-evidence` 全绿。**如"}
 {"id":"TOOLGOV-TG2-B1-JOB-PROTO","k":"notes","i":8,"c":"实边界**：① **B₁ 仅协议层**（常量 + 类型 + 纯函数）—— **主管/客户端接线未做**（= B₂：`notify` → 作业完成处理器、`submitJob()` API、`kind='tool-job'` 挂起点）；② 协议层**当前无调用方** ⇒ **零行为**（不改任何现有执行路径）；③ C 片（端到端「提交→挂起→完成→续跑」= 原"}
 {"id":"TOOLGOV-TG2-B1-JOB-PROTO","k":"notes","i":9,"c":"文验收）**未做**；④ `e2eVerified=false`。"}
-{"id":"TOOLGOV-TG2-B1-JOB-PROTO","k":"code#0","i":0,"c":"app/src/utils/sidecarIpc.ts"}
+{"id":"TOOLGOV-TG2-B1-JOB-PROTO","k":"code#0","i":0,"c":"packages/infra/src/utils/sidecarIpc.ts"}
 {"id":"TOOLGOV-TG2-B1-JOB-PROTO","k":"tests#0","i":0,"c":"app/tests/utils/sidecarJobProtocol.test.ts"}
 {"id":"TOOLGOV-TG2-B1-JOB-PROTO","k":"changelog#0","i":0,"c":"CHANGELOG.md"}
 {"id":"TOOLGOV-TG2-B2-JOB-HOST","k":"title","i":0,"c":"T1-2② / TG-2+TG-6（**B₂ 片**）：侧车作业**宿主侧接线** —— 完成通知派发 + `submitJob()` + 超时/崩溃兜底"}
@@ -3271,7 +3271,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"notes","i":5,"c":"`reopenWhen` ②。**效果（可证伪）**：`lint:consts` **250 → 249**（**−1 键**），门禁自报 `同名常量:FENCE_RE` **4 → 0** ⇒ 已 `HARDCODE_GATE_BASELINE_WRITE=1` **下调基线至 249 键**。**守卫**（第 **22** 例）：4 文件均不含 `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"notes","i":6,"c":"const FENCE_RE = ` 且各含**确切新名 + 正则字面量钉住**。**验证**：`typecheck`（app 三 tsconfig）**0** 且 `typecheck`（**client**）**0**；守卫 **22 pass / 0 fail**；app 侧相关域 **1260 pass / 0 fail**；**client 全量 "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"notes","i":7,"c":"`vitest` 73 文件全绿**；4 硬编码门禁全 **exit 0**。**如实边界**：① **未做真机走查**（`e2eVerified=false`）；② 未跑全量 `bun test`（app 侧仅相关域）；③ **双写未治理**（只记 `reopenWhen` ②）；④ 本片是 B5-2 **第六项**。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"code#0","i":0,"c":"app/src/utils/structureCut.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"code#0","i":0,"c":"packages/infra/src/utils/structureCut.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"code#1","i":0,"c":"app/src/channels/messageSplitter.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"code#2","i":0,"c":"app/src/chat/services/bareExplorationStripper.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-6-FENCE-RE","k":"code#3","i":0,"c":"client/src/stores/chat/chat-toolcall.slice.ts"}
@@ -4197,8 +4197,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"notes","i":4,"c":"`B5-2-55`（断言两文件均无旧名、新名与两处桶导出一致）。⑤ 棘轮：基线键由 2 归零。⑥ 验证：`tsc` exit 0；**75 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#0","i":0,"c":"app/src/config/managedEnv.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#1","i":0,"c":"app/src/config/index.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#2","i":0,"c":"app/src/utils/bash/ast.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#3","i":0,"c":"app/src/utils/bash/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#2","i":0,"c":"packages/infra/src/utils/bash/ast.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#3","i":0,"c":"packages/infra/src/utils/bash/index.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"title","i":0,"c":"`VALID_STATUSES` ×2 按域消歧（异值异域：task 五态含 failed/cancelled / todo 三态，取值一字未改）⇒ 同名常量:VALID_STATUSES 2>0"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-56-VALID-STATUSES","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
@@ -4638,7 +4638,7 @@
 {"id":"TOOLVIS-P3-PANEL","k":"notes","i":4,"c":"而 effective 是后端权威判定 ⇒ 分组/徽标按陈旧值渲染、误标「已开启但无效」，须手动刷新 ⇒ 改为保存成功后重拉报表（回归锁：组件测试断言第二次 visibility() 被调用且分组立即正确）。⑥ 真机取证：抽屉 tab 与 /settings?nav=tools 双路径均渲染 90 条（可见 48 / 未接线 15）；computer_use"}
 {"id":"TOOLVIS-P3-PANEL","k":"notes","i":5,"c":" 经二次确认后**无需刷新**即转「已强制开启 · 1」并显示「已被你强制可见」，复位「跟随任务」后回「不可见」；Console 无面板相关 error（仅 SSE 重连噪声）。⑦ 边界（如实）：risk 对 15 个未接线工具按 D5 原口径保守判 high。"}
 {"id":"TOOLVIS-P3-PANEL","k":"code#0","i":0,"c":"app/src/tools/toolVisibilityReport.ts"}
-{"id":"TOOLVIS-P3-PANEL","k":"code#1","i":0,"c":"app/src/utils/toolContract/Tool.ts"}
+{"id":"TOOLVIS-P3-PANEL","k":"code#1","i":0,"c":"packages/infra/src/utils/toolContract/Tool.ts"}
 {"id":"TOOLVIS-P3-PANEL","k":"code#2","i":0,"c":"shared/types/tool-visibility.ts"}
 {"id":"TOOLVIS-P3-PANEL","k":"code#3","i":0,"c":"shared/types/index.ts"}
 {"id":"TOOLVIS-P3-PANEL","k":"code#4","i":0,"c":"app/tests/tools/toolVisibilityReport.test.ts"}
@@ -5834,7 +5834,7 @@
 {"id":"A2A-SIDECAR-KILL-TREE","k":"title","i":0,"c":"U-16：A2A 发现面 sidecar 取消/超时复用进程树强杀"}
 {"id":"A2A-SIDECAR-KILL-TREE","k":"source","i":0,"c":"dev_docs/20261010/A2A-MCP网关进程级侧车隔离-设计方案-20261010.md §8.7 边界①"}
 {"id":"A2A-SIDECAR-KILL-TREE","k":"notes","i":0,"c":"killProcessTree 实现下沉 utils（infra），sandbox 侧保留再导出；stop/超时/版本不兼容均走 killTree（可注入）。"}
-{"id":"A2A-SIDECAR-KILL-TREE","k":"code#0","i":0,"c":"app/src/utils/killProcessTree.ts"}
+{"id":"A2A-SIDECAR-KILL-TREE","k":"code#0","i":0,"c":"packages/infra/src/utils/killProcessTree.ts"}
 {"id":"A2A-SIDECAR-KILL-TREE","k":"code#1","i":0,"c":"app/src/sandbox/utils/killProcessTree.ts"}
 {"id":"A2A-SIDECAR-KILL-TREE","k":"code#2","i":0,"c":"app/src/infrastructure/http/a2a/DiscoverySidecarSupervisor.ts"}
 {"id":"A2A-SIDECAR-KILL-TREE","k":"tests#0","i":0,"c":"app/tests/infrastructure/http/a2a/discoverySidecarSupervisor.test.ts"}
@@ -6018,7 +6018,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"notes","i":0,"c":"VERIFICATION_AGENT_TYPE 同模块内同值 ⇒ 收敛到 AgentTool/constants；auth 的 CONFIG_FILE 是绝对路径 ⇒ USER_CONFIG_PATH；两个 VFS 驱动的列表上限/挂载 scheme 按驱动命名；Gemini 与 OpenAI 实时适配器重连延迟按适配器加前缀；基线 141→135。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#0","i":0,"c":"app/src/tools/AgentTool/strategies/VerificationStrategy.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#1","i":0,"c":"app/src/utils/auth.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#1","i":0,"c":"packages/infra/src/utils/auth.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#2","i":0,"c":"app/src/vfs/drivers/DevDocsDriver.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#3","i":0,"c":"app/src/vfs/drivers/McpResourcesDriver.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-86","k":"code#4","i":0,"c":"app/src/voice/GeminiLiveAdapter.ts"}
@@ -6040,7 +6040,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"notes","i":0,"c":"evals 冒烟任务与批测脚本各自解析仓库根 ⇒ EVAL_/BATCH_TEST_ 前缀；utils/bash/registry 的命令名集合与 bashCommandPolicy 的字符串前缀表同名异形 ⇒ DANGEROUS_COMMAND_NAMES；ToolBuilder 本地默认值 ⇒ BUILDER_TOOL_DEFAULTS；基线 131→128。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#0","i":0,"c":"app/src/evals/tasks/smoke.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#1","i":0,"c":"app/src/scripts/batch-test-all.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#2","i":0,"c":"app/src/utils/bash/registry.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#2","i":0,"c":"packages/infra/src/utils/bash/registry.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#3","i":0,"c":"app/src/tools/ToolBuilder.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-88","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-89","k":"title","i":0,"c":"U-20/B5-2-89：client 六组同名常量按域命名"}
@@ -6285,7 +6285,7 @@
 {"id":"U17-P2-TAIL-STRUCTURE","k":"title","i":0,"c":"U-17 P2 收尾：尾部结构恢复点（findStructuralResume）与围栏补齐"}
 {"id":"U17-P2-TAIL-STRUCTURE","k":"source","i":0,"c":"dev_docs/20261010/AST语法觉知型上下文回收引擎-设计方案-20261010.md §8.6"}
 {"id":"U17-P2-TAIL-STRUCTURE","k":"notes","i":0,"c":"structureCut 新增 findStructuralResume（跳到行首 → 结构闭合则返回 → 逐行找重新闭合点 → 找不到返回原 from）与 isFenceOpen；SnipEngine.truncateUnicodeSafe 接入：头部若停在围栏内补关闭围栏，尾部按恢复点切。bench-truncation-closure 扩展尾部行首对齐/结构闭合/保留量指标（真实 321 文件语料）。补 8 例测试（6 单元 + 2 集成）。pass^k 直接证据仍缺：evals 无压缩任务且 runner 单轮、最后 user 不被截断 ⇒ 收益口径维持结构闭合代理指标。"}
-{"id":"U17-P2-TAIL-STRUCTURE","k":"code#0","i":0,"c":"app/src/utils/structureCut.ts"}
+{"id":"U17-P2-TAIL-STRUCTURE","k":"code#0","i":0,"c":"packages/infra/src/utils/structureCut.ts"}
 {"id":"U17-P2-TAIL-STRUCTURE","k":"code#1","i":0,"c":"app/src/context/compaction/SnipEngine.ts"}
 {"id":"U17-P2-TAIL-STRUCTURE","k":"code#2","i":0,"c":"app/scripts/bench-truncation-closure.ts"}
 {"id":"U17-P2-TAIL-STRUCTURE","k":"tests#0","i":0,"c":"app/tests/utils/structureCut.test.ts"}
@@ -6479,7 +6479,7 @@
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#0","i":0,"c":"app/src/query/ReActLoop.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#1","i":0,"c":"app/src/chat/toolResultPostProcess.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#2","i":0,"c":"app/src/session/types/tool.ts"}
-{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#3","i":0,"c":"app/src/utils/toolContract/ToolResult.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#3","i":0,"c":"packages/infra/src/utils/toolContract/ToolResult.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#4","i":0,"c":"app/src/permission/PermissionManager.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#5","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#6","i":0,"c":"app/src/tools/bash/BashTool.ts"}
@@ -6917,8 +6917,8 @@
 {"id":"LIRI-BUG-F","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §8.6；真机 session_mvqr6vtfe9b47d73c9（14:01:13Z）与 session_mvqstue8ecef7606df（14:46:55Z）"}
 {"id":"LIRI-BUG-F","k":"reopenWhen","i":0,"c":"再出现工具只报 Missing required parameter 而看不出参数被截断；或适配器日志再次出现未附诊断的按空参数降级"}
 {"id":"LIRI-BUG-F","k":"notes","i":0,"c":"保留键只由适配器写、执行层读，执行前 stripArgParseErrorKey；preview 仅进日志不回显给模型；真机 14:46:55Z rawLength=1805 触发后模型自述「写入被截断，分段写入」且未原样重试"}
-{"id":"LIRI-BUG-F","k":"code#0","i":0,"c":"app/src/utils/toolContract/argParseError.ts"}
-{"id":"LIRI-BUG-F","k":"code#1","i":0,"c":"app/src/utils/toolContract/index.ts"}
+{"id":"LIRI-BUG-F","k":"code#0","i":0,"c":"packages/infra/src/utils/toolContract/argParseError.ts"}
+{"id":"LIRI-BUG-F","k":"code#1","i":0,"c":"packages/infra/src/utils/toolContract/index.ts"}
 {"id":"LIRI-BUG-F","k":"code#2","i":0,"c":"app/src/ai/transports/TransportProviderAdapter.ts"}
 {"id":"LIRI-BUG-F","k":"code#3","i":0,"c":"app/src/tools/ToolRegistry.ts"}
 {"id":"LIRI-BUG-F","k":"code#4","i":0,"c":"app/src/tools/ToolManager.ts"}
@@ -7016,7 +7016,7 @@
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"notes","i":1,"c":"熔断，轮次白烧。修法：新增失败类型 workspace_escape_pending_approval（仅当 approvalRequested === true）；classifyTurn 新增中性分型 awaiting_approval（全部失败且全为该类）；checkCircuitBreaker 对其既不计数也不清零（同 aborted 口径）。仅被拒"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"notes","i":2,"c":"（未提交审批）仍记 workspace_escape ⇒ 仍走 invalid，行为不变。验证：environmentBlockedTermination 24 例（新增 5 例：分型 3 + 计数 2）、tests/query 455 例、tests/chat 750 例全绿；typecheck 绿；lint:state-ratchet 用 "}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"notes","i":3,"c":"--update 收编新出现点（净 -1 条陈旧项）；fn-size / complexity 棘轮维持；eslint 0 error。"}
-{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"code#0","i":0,"c":"app/src/utils/toolContract/ToolResult.ts"}
+{"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"code#0","i":0,"c":"packages/infra/src/utils/toolContract/ToolResult.ts"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"code#1","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"code#2","i":0,"c":"app/src/query/ReActLoop.ts"}
 {"id":"TURN-AWAITING-APPROVAL-NEUTRAL","k":"tests#0","i":0,"c":"app/tests/query/environmentBlockedTermination.test.ts"}
@@ -7072,7 +7072,7 @@
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"reopenWhen","i":0,"c":"再出现 save_relation_graph / save_index 的 ENOENT，或新增落盘路径自写「固定 .tmp」（应改用 writeFileAtomic）"}
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"notes","i":0,"c":"修复：新增 utils/atomicFileWrite.ts（唯一临时名 pid+序号、mkdir、rename 对 EPERM/EBUSY/EACCES 有界重试 3 次；ENOENT 不重试），记忆索引与关系图两处改为复用它 + 实例内保存队列。CS01：session/persistence/AtomicWriter 属 service 层（infra"}
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"notes","i":1,"c":"→service 会倒挂）故未直接复用，改为同层 utils 原语。测试：原语并发 8 写 + 目录自动创建；关系图 6 并发保存零错误 + 可解码；索引用例回归。"}
-{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"code#0","i":0,"c":"app/src/utils/atomicFileWrite.ts"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"code#0","i":0,"c":"packages/infra/src/utils/atomicFileWrite.ts"}
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"code#1","i":0,"c":"app/src/memory/retrievers/MemoryRetriever.ts"}
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"code#2","i":0,"c":"app/src/memory/MemoryManager.ts"}
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"tests#0","i":0,"c":"app/tests/utils/atomicFileWrite.test.ts"}
@@ -7397,7 +7397,7 @@
 {"id":"EVAL-STALLED-REPEAT","k":"reopenWhen","i":0,"c":"若评测侧改读结果内容（而非仅工具名+参数）判定\"无进展\"，或 maxRepeatedRounds 口径变更时重开"}
 {"id":"EVAL-STALLED-REPEAT","k":"notes","i":0,"c":"④ = 相邻两次调用「工具名 + 归一化参数」完全相同的次数，与循环守卫 maxRepeatedRounds: 3 同口径；仅观测，不接入 isAsExpected/基线（沿用 A2 明文\"不得作为门禁\"）。归一化口径收敛到 utils/toolCallKey（键排序/超长截断 200/循环引用退化为空串），ReActToolLoop 的私有副本删除，避免多"}
 {"id":"EVAL-STALLED-REPEAT","k":"notes","i":1,"c":"处各写一份。报告行追加「重复N」。"}
-{"id":"EVAL-STALLED-REPEAT","k":"code#0","i":0,"c":"app/src/utils/toolCallKey.ts"}
+{"id":"EVAL-STALLED-REPEAT","k":"code#0","i":0,"c":"packages/infra/src/utils/toolCallKey.ts"}
 {"id":"EVAL-STALLED-REPEAT","k":"code#1","i":0,"c":"app/src/evals/behaviorMetrics.ts"}
 {"id":"EVAL-STALLED-REPEAT","k":"code#2","i":0,"c":"app/src/evals/types.ts"}
 {"id":"EVAL-STALLED-REPEAT","k":"code#3","i":0,"c":"app/src/evals/report.ts"}
@@ -7510,7 +7510,7 @@
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#1","i":0,"c":"app/src/environment/index.ts"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#2","i":0,"c":"app/src/environment/paths.ts"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#3","i":0,"c":"app/src/security/identity/index.ts"}
-{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#4","i":0,"c":"app/src/utils/json.ts"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#4","i":0,"c":"packages/infra/src/utils/json.ts"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#0","i":0,"c":"app/tests/security"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#1","i":0,"c":"app/tests/environment"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#2","i":0,"c":"app/tests/utils"}
@@ -7523,10 +7523,10 @@
 {"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"reopenWhen","i":0,"c":"环成员剩 9 个（cache/chronos/config/daemon/diagnostics/memory/monitoring/permission/security）；若 utils 新增对上述模块的引用，R7 立即回退到 B4 前。"}
 {"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"notes","i":0,"c":"删除依据见 62586d6ab（CD01-06：静态/动态/构建入口/DI/测试/变体全零命中；唯一动态入口是已坏且零引用的 legacy 命令）。env 等价性由 tests/utils/envAccess.test.ts 守护（configManager.env 语义一变即红）。ICache/CacheStats 契约下沉 common，"}
 {"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"notes","i":1,"c":"cache/types.ts 同名转出。"}
-{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"code#0","i":0,"c":"app/src/utils/envAccess.ts"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"code#0","i":0,"c":"packages/infra/src/utils/envAccess.ts"}
 {"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"code#1","i":0,"c":"packages/infra/src/common/types.ts"}
 {"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"code#2","i":0,"c":"app/src/cache/types.ts"}
-{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"code#3","i":0,"c":"app/src/utils/cache.ts"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"code#3","i":0,"c":"packages/infra/src/utils/cache.ts"}
 {"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"code#4","i":0,"c":"scripts/lint-architecture.ts"}
 {"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"tests#0","i":0,"c":"app/tests/utils/envAccess.test.ts"}
 {"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"tests#1","i":0,"c":"app/tests/utils"}
@@ -7636,9 +7636,9 @@
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"notes","i":4,"c":"桶（桶↔自身环），utils/common 换门面后不再\"顺带提前求值 Logger.ts\"⇒ moduleLoggers TDZ，实测 1199 个测试文件 Unhandled error；改直连 logs/Logger 后恢复。负向自证：utils/common 注入 import ../config/ConfigManager.js ⇒ R7 判 "}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"notes","i":5,"c":"utils/config 2 成员新环；回滚后环成员 0（基线 0）。"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#0","i":0,"c":"app/scripts/lint-infra-boundary.ts"}
-{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#1","i":0,"c":"app/src/utils/common.ts"}
-{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#2","i":0,"c":"app/src/utils/debug.ts"}
-{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#3","i":0,"c":"app/src/utils/log.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#1","i":0,"c":"packages/infra/src/utils/common.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#2","i":0,"c":"packages/infra/src/utils/debug.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#3","i":0,"c":"packages/infra/src/utils/log.ts"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#4","i":0,"c":"app/src/monitoring/AlertRuleService.ts"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#5","i":0,"c":"app/src/monitoring/MonitoringService.ts"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#6","i":0,"c":"app/src/analytics/pricingSource.ts"}

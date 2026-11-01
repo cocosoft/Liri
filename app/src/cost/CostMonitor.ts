@@ -4,9 +4,9 @@
  * 用于监控成本变化，在超过阈值时发送告警
  */
 
-import { logForDebugging } from '../utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 // C1（2026-10-09）：告警 id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { formatCost } from './ModelPricing.js';
 import { handleError } from '@modules/error';
 

@@ -3,7 +3,7 @@
  * 提供更丰富的成本报告格式和分析功能
  */
 
-import { logForDebugging } from '../utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import { formatCost } from './ModelPricing.js';
 import { ModelUsage } from './CostTracker.js';
 import { canViewBillingCosts } from './BillingAccessControl.js';

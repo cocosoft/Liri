@@ -32,7 +32,7 @@
 
 import { exec as nodeExec, execFile, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
-import { getSpawnImpl } from '@modules/utils/spawnPort';
+import { getSpawnImpl } from '@openliri/infra/utils/spawnPort';
 import { createHash } from 'crypto';
 import {
   existsSync,

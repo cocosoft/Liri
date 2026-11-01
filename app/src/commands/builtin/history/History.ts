@@ -4,7 +4,7 @@
  */
 
 import type { CommandContext } from '@modules/commands';
-import { historyManager } from '@modules/utils/history.js';
+import { historyManager } from '@openliri/infra/utils/history';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:history:History');

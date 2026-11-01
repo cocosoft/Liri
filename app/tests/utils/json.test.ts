@@ -3,7 +3,7 @@ import {
   jsonStringify,
   jsonParse,
   parseModelJsonObject,
-} from '../../src/utils/json.js';
+} from '@openliri/infra/utils/json';
 
 describe('jsonStringify', () => {
   it('should stringify a basic object', () => {

@@ -30,4 +30,4 @@ export {
   killProcessTree,
   type KillableChild,
   type KillProcessTreeDeps,
-} from '../../utils/killProcessTree.js';
+} from '@openliri/infra/utils/killProcessTree';

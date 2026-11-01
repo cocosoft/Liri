@@ -6,7 +6,7 @@
 import path from 'path';
 import fs from 'fs';
 // C1（2026-10-09）：启动报告 id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { resolveDataSubDir, resolveProjectRoot } from '@modules/environment';
 
 import { getLogger } from '@modules/monitoring';

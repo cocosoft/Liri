@@ -16,7 +16,7 @@ import {
   createPendingInteractionEntry,
   hasActivePendingInteraction,
   type PendingInteractionEntry,
-} from '../../src/utils/pendingInteractions';
+} from '@openliri/infra/utils/pendingInteractions';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };

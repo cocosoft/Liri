@@ -1,7 +1,7 @@
 import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
 import { configManager } from '@modules/config';
 // C1（2026-10-09）：事件 id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { APP_VERSION } from '@modules/constants';

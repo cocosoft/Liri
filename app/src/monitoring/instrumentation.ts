@@ -38,13 +38,13 @@ import {
 } from '@opentelemetry/semantic-conventions';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
-import { getPlatform, getWslVersion } from '../utils/platform.js';
-import { isEnvTruthy } from '../utils/envUtils.js';
-import { getProxyUrl, shouldBypassProxy } from '../utils/proxy.js';
-import { getCACertificates } from '../utils/caCerts.js';
-import { getMTLSConfig } from '../utils/mtls.js';
+import { getPlatform, getWslVersion } from '@openliri/infra/utils/platform';
+import { isEnvTruthy } from '@openliri/infra/utils/envUtils';
+import { getProxyUrl, shouldBypassProxy } from '@openliri/infra/utils/proxy';
+import { getCACertificates } from '@openliri/infra/utils/caCerts';
+import { getMTLSConfig } from '@openliri/infra/utils/mtls';
 import { errorMessage } from '../error/utils.js';
-import { logForDebugging } from '../utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import { AppError, ErrorCategory, ErrorSeverity } from '../error/types.js';
 import { configManager } from '@modules/config';
 

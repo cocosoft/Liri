@@ -41,8 +41,8 @@ import type {
 import type { HookChainManager } from '@modules/hooks';
 import type { UnifiedTokenTracker } from '@modules/tokenBudget';
 import type { SimpleMutex } from '@openliri/kernel';
-import type { PendingInteractionEntry } from '@modules/utils/pendingInteractions';
-import type { SessionScopedRegistry } from '@modules/utils/SessionScopedRegistry';
+import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
+import type { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
 import { agentTelemetry } from '@modules/agent';
 import { handleError } from '@modules/error';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';

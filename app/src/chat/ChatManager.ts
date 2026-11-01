@@ -25,7 +25,7 @@ import path from 'path';
 
 import { configManager } from '@modules/config';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { repairModelJson } from '@modules/utils/json';
+import { repairModelJson } from '@openliri/infra/utils/json';
 import { resolveBaseToolTurns } from './loopTurnLimits.js';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
 import { ImageContextService } from './services/ImageContextService';
@@ -43,9 +43,9 @@ import {
 import { ChatEventLogStore } from './manager/eventLogStore';
 import { ChatRequestPrep } from './manager/requestPrep';
 import { ChatRollback } from './manager/rollback';
-import type { PendingInteractionEntry } from '@modules/utils/pendingInteractions';
+import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 // S1（2026-10-19）：会话级缓存统一 dispose 契约（会话 → 键集合）
-import { SessionScopedRegistry } from '@modules/utils/SessionScopedRegistry';
+import { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
 import { ChatPromptAssembly } from './manager/promptAssembly';
 import { ChatBootstrap } from './manager/bootstrap';
 import { ChatStreamMessageLifecycle } from './pipeline/streamMessageLifecycle';

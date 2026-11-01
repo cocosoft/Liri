@@ -21,7 +21,7 @@ import {
   SIDECAR_STARTUP_TYPE,
   decodeFrame,
   encodeFrame,
-} from '../../src/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 
 const env = {
   [PLUGIN_HOST_ENV_ID]: 'p1',

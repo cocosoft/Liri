@@ -1,6 +1,6 @@
 import { securityIntegrationService } from './SecurityIntegration';
 // C1（2026-10-09）：审计 id 熵源改用 crypto（统一 ID 工具）
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type { SecurityDecision } from './SecurityIntegration';
 import type { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
 import type { SecurityPermissionView } from './PermissionManager';

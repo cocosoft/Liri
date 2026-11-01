@@ -47,8 +47,8 @@ import { existsSync } from 'node:fs';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { getLogger, currentTraceparent } from '@modules/monitoring';
-import { killProcessTree } from '@modules/utils/killProcessTree';
-import { parentPidEnv } from '@modules/utils/parentLiveness';
+import { killProcessTree } from '@openliri/infra/utils/killProcessTree';
+import { parentPidEnv } from '@openliri/infra/utils/parentLiveness';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   SIDECAR_JOB_SUBMIT_METHOD,
@@ -59,7 +59,7 @@ import {
   decodeFrame,
   isCompatibleVersion,
   isHeartbeatFrame,
-} from '@modules/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 // T1-2② / B₂（2026-10-13）：异步作业登记表（宿主侧；协议常量仍取自唯一基座 `utils/sidecarIpc`）
 import { SidecarJobRegistry } from './sidecarJobs.js';
 import {

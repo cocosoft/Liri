@@ -11,7 +11,7 @@ import {
   installParentLivenessGuard,
   parentPidEnv,
   parentPidEnvKey,
-} from '../../../src/utils/parentLiveness';
+} from '@openliri/infra/utils/parentLiveness';
 
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));

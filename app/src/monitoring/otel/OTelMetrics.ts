@@ -20,9 +20,9 @@ import {
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
-import { logForDebugging } from '@modules/utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import { errorMessage } from '@modules/error';
-import { getPlatform, getWslVersion } from '@modules/utils/platform.js';
+import { getPlatform, getWslVersion } from '@openliri/infra/utils/platform';
 
 import { getLogger } from '@modules/monitoring';
 import { APP_VERSION } from '@modules/constants';

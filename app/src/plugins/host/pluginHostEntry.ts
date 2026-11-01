@@ -20,13 +20,13 @@
  * 那属于沙箱（Landlock 等）的职责，不在本切片承诺范围内。
  */
 import readline from 'node:readline';
-import { installParentLivenessGuard } from '@modules/utils/parentLiveness';
+import { installParentLivenessGuard } from '@openliri/infra/utils/parentLiveness';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   SIDECAR_STARTUP_TYPE,
   decodeFrame,
   encodeFrame,
-} from '@modules/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 import { createPluginContext } from '../../plugin-sdk/core';
 import type { PluginContext } from '../../plugin-sdk/types';
 import {

@@ -25,9 +25,9 @@
 import type {
   SandboxExecutionSignal,
   ToolSandboxLevel,
-} from '@modules/utils/toolContract/Tool';
-import { PATH_ARG_KEYS } from '@modules/utils/toolContract/pathArgs';
-import { findWorkspaceEscape } from '@modules/utils/toolContract/pathBoundary';
+} from '@openliri/infra/utils/toolContract/Tool';
+import { PATH_ARG_KEYS } from '@openliri/infra/utils/toolContract/pathArgs';
+import { findWorkspaceEscape } from '@openliri/infra/utils/toolContract/pathBoundary';
 
 import { RiskClass } from './types/RiskClass';
 

@@ -8,7 +8,7 @@
  */
 import { afterEach, describe, expect, it } from 'bun:test';
 import { configManager } from '@modules/config';
-import { readUtilEnv } from '@modules/utils/envAccess';
+import { readUtilEnv } from '@openliri/infra/utils/envAccess';
 
 const PROBE = 'LIRI_UTIL_ENV_PROBE';
 

@@ -3,7 +3,7 @@
  */
 
 // C1（2026-10-09）：notebook id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import {
   writeFileSync,
   readFileSync,

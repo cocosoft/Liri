@@ -13,7 +13,7 @@ import {
   IMAGE_MAX_WIDTH,
   IMAGE_MAX_HEIGHT,
   IMAGE_TARGET_RAW_SIZE,
-} from '../constants/apiLimits';
+} from '@modules/constants/apiLimits';
 
 const execAsync = promisify(exec);
 

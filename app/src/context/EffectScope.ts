@@ -10,4 +10,4 @@
  *
  * @see ../utils/EffectScope.ts 规范定义
  */
-export * from '../utils/EffectScope.js';
+export * from '@openliri/infra/utils/EffectScope';

@@ -12,7 +12,7 @@ import { join } from 'path';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/environment';
 import { configManager } from '@modules/config';
 import { getSystemCpuPercent, getDiskInfo } from '@modules/monitoring';
-import { probeExternalModule } from '@modules/utils/externalDeps';
+import { probeExternalModule } from '@openliri/infra/utils/externalDeps';
 
 const execAsync = promisify(exec);
 

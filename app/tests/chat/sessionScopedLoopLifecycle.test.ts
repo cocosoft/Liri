@@ -20,8 +20,8 @@ import type http from 'http';
 import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
 import { handleListCheckpoints } from '../../src/infrastructure/http/handlers/checkpoint-handlers';
 import type { TAORLoop } from '../../src/query/TAORLoop.js';
-import type { PendingInteractionEntry } from '../../src/utils/pendingInteractions.js';
-import { SessionScopedRegistry } from '../../src/utils/SessionScopedRegistry.js';
+import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
+import { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
 
 /** 私有成员访问（同 `taorLoopResumeWiring.test.ts` 的 Testable 写法） */
 type ChatManagerInternals = {

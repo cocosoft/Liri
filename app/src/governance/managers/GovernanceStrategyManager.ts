@@ -10,7 +10,7 @@ import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { resolveGovernanceDir } from '@modules/environment';
 // C1（2026-10-09）：strategy id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 const logger = getLogger('governance:managers:governanceStrategyManager');
 

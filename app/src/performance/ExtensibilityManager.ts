@@ -3,7 +3,7 @@
  * 用于管理性能优化系统的扩展点和插件机制
  */
 
-import { logForDebugging } from '../utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('performance:ExtensibilityManager');

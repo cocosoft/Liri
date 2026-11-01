@@ -2,7 +2,7 @@
 import emojiRegex from 'emoji-regex';
 import { eastAsianWidth } from 'get-east-asian-width';
 import stripAnsi from 'strip-ansi';
-import { getGraphemeSegmenter } from '../../utils/intl.js';
+import { getGraphemeSegmenter } from '@openliri/infra/utils/intl';
 
 const EMOJI_REGEX = emojiRegex();
 

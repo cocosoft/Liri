@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'bun:test';
-import { withRetry, RetryableError } from '../../src/utils/withRetry.js';
+import { withRetry, RetryableError } from '@openliri/infra/utils/withRetry';
 
 /** 快速退避配置：避免单测等待真实退避 */
 const FAST = {

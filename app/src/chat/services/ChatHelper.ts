@@ -28,7 +28,7 @@ import type {
 import type { SessionGateway } from '@modules/session';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import { getAIModelManager } from '@modules/ai';
-import { TOOL_RESULT_MAX_LENGTH } from '@modules/utils/toolResultLimits';
+import { TOOL_RESULT_MAX_LENGTH } from '@openliri/infra/utils/toolResultLimits';
 // BUG-C 第二轮复验（2026-10-27）：HTTP 未指定模型时填的是占位哨兵，预算归一须排除
 import { DEFAULT_MODEL_SENTINEL } from '../../constants/common.js';
 

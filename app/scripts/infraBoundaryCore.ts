@@ -789,6 +789,14 @@ const PACKAGE_FORBIDDEN_TARGET_LAYERS = new Set([
   'core',
 ]);
 
+/**
+ * P6（2026-11-01）：包内**唯一**允许的 core 目标 —— `types`。
+ *
+ * `types` 是纯类型中心（零出向依赖、编译期擦除、无值导出）⇒ infra→core 本就是层序中的合法方向，
+ * 此前一律禁 core 只是因为它物理仍在 `app/src`。按**模块名精确放行**，其余 core 模块照旧禁。
+ */
+const PACKAGE_ALLOWED_CORE_TARGETS = new Set(['types']);
+
 /** 以「包内相对路径」为基准解析相对引用；`escapes` 表示爬出了包根 */
 function resolveRelative(
   fromFile: string,
@@ -842,7 +850,10 @@ export function compareInfraPackageBoundary(
           );
           continue;
         }
-        if (PACKAGE_FORBIDDEN_TARGET_LAYERS.has(layer)) {
+        if (
+          PACKAGE_FORBIDDEN_TARGET_LAYERS.has(layer) &&
+          !(layer === 'core' && PACKAGE_ALLOWED_CORE_TARGETS.has(target))
+        ) {
           violations.push(
             `${file.path}:${ref.line} infra 包依赖 ${layer} 层模块 @modules/${target}（倒挂）`
           );

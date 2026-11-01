@@ -1077,7 +1077,8 @@ export class DomainSnapshotOps {
         return started && scheduler ? scheduler.getStatus() : null;
       },
       computeNextCronRun: async (expr: string, nowMs: number) => {
-        const { computeNextCronRun } = await import('@modules/utils/cron');
+        const { computeNextCronRun } =
+          await import('@openliri/infra/utils/cron');
         return computeNextCronRun(expr, nowMs);
       },
 

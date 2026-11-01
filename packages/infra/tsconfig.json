@@ -3,7 +3,7 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -18,9 +18,18 @@
     "paths": {
       "@openliri/kernel": ["../kernel/src/index.ts"],
       "@openliri/kernel/*": ["../kernel/src/core/*"],
+      "@openliri/infra/*": ["./src/*"],
+      "@modules/*": ["../../app/src/*"],
+      "@shared/*": ["../../shared/*"],
+      "croner": ["../../app/node_modules/croner"],
+      "lru-cache": ["../../app/node_modules/lru-cache"],
+      "zod": ["../../app/node_modules/zod"],
+      "zod/*": ["../../app/node_modules/zod/*"],
+      "js-tiktoken": ["../../app/node_modules/js-tiktoken"],
+      "sharp": ["../../app/node_modules/sharp"],
       "@opentelemetry/api": ["../../app/node_modules/@opentelemetry/api"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../../app/src/**/*.d.ts"],
   "exclude": ["dist", "**/*.test.ts", "**/*.test.tsx"]
 }

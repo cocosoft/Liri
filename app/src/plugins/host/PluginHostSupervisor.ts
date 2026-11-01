@@ -16,7 +16,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { getLogger } from '@modules/monitoring';
-import { killProcessTree } from '@modules/utils/killProcessTree';
+import { killProcessTree } from '@openliri/infra/utils/killProcessTree';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   SIDECAR_STARTUP_TYPE,
@@ -25,7 +25,7 @@ import {
   encodeFrame,
   isCompatibleVersion,
   isHeartbeatFrame,
-} from '@modules/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 import type { Tool } from '@modules/tools/types/Tool';
 import { getToolRegistry } from '../../tools/ToolRegistry';
 import { buildRegisteredTool } from '../utils/toolRegistration';

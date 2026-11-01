@@ -10,7 +10,7 @@ import { EventEmitter } from 'events';
 // 的副作用，该潜在环立即暴露为 1199 个测试文件的 Unhandled error）。
 import { getLogger } from './logs/Logger.js';
 // C1（2026-10-09）：告警规则 id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 const logger = getLogger('monitoring:alert_rule');
 
 /**

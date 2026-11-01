@@ -20,7 +20,7 @@ import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { LLMPerformanceMonitor } from '@modules/ai';
 import { handleError } from '@modules/error';
-import { LRUCache } from '@modules/utils/cache';
+import { LRUCache } from '@openliri/infra/utils/cache';
 import { enterPhase, exitPhase } from '@modules/diagnostics';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';

@@ -12,7 +12,7 @@ import {
   mediaArtifactDetail,
   primaryMediaArtifact,
   resolveMediaArtifacts,
-} from '@modules/utils/toolContract/mediaArtifacts';
+} from '@openliri/infra/utils/toolContract/mediaArtifacts';
 
 export interface ImageContext {
   lastGeneratedImage?: { filePath: string; prompt: string };

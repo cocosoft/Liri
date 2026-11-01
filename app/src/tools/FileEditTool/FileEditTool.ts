@@ -220,7 +220,7 @@ import { getLogger } from '@modules/monitoring';
 import {
   resolveReadFileState,
   type FileStateCache,
-} from '../../utils/fileStateCache';
+} from '@openliri/infra/utils/fileStateCache';
 import { getToolBaseDir } from '../utils/ToolUtils';
 import { normalizeApprovalPath } from '@modules/permission';
 const logger = getLogger('tools:FileEditTool:FileEditTool');

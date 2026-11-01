@@ -17,9 +17,9 @@
  */
 import type { BaseTransport } from './BaseTransport';
 import { getLogger } from '@modules/monitoring';
-import { parseModelJsonObject } from '../../utils/json';
+import { parseModelJsonObject } from '@openliri/infra/utils/json';
 // 参数 JSON 解析失败的保留键诊断（2026-10-27，见该文件头注）
-import { withArgParseError } from '../../utils/toolContract/argParseError';
+import { withArgParseError } from '@openliri/infra/utils/toolContract/argParseError';
 import type {
   NormalizedResponse,
   NormalizedToolCall,

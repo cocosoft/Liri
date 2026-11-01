@@ -195,7 +195,7 @@ export function registerStandardHandlers(): void {
 
       // 4. 设置优雅关闭
       const { setupGracefulShutdown } =
-        await import('@modules/utils/gracefulShutdown.js');
+        await import('@openliri/infra/utils/gracefulShutdown');
       setupGracefulShutdown();
 
       logger.info('[Phase 2] 配置加载完成');

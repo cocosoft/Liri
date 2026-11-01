@@ -5,7 +5,7 @@
  */
 
 import chalk from 'chalk';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 export interface TableColumn {
   header: string;

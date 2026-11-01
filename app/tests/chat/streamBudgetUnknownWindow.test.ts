@@ -17,7 +17,7 @@ import { createStreamBudget } from '../../src/chat/createAgentLoop';
 import {
   resolveContextWindow,
   setModelWindow,
-} from '../../src/utils/ContextWindowResolver';
+} from '@openliri/infra/utils/ContextWindowResolver';
 
 describe('createStreamBudget · 窗口回落口径（CS03：不臆造预算）', () => {
   it('模型不在窗口缓存（source=default）⇒ 不臆造预算（undefined）', () => {

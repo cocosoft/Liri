@@ -45,7 +45,7 @@ import * as fs from 'fs';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { MemoryProvider } from './MemoryProvider';
 import { memoryRelationGraph } from './utils/MemoryRelationGraph';
-import { writeFileAtomic } from '@modules/utils/atomicFileWrite';
+import { writeFileAtomic } from '@openliri/infra/utils/atomicFileWrite';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
 import {
   MemoryConflictDetector,
@@ -59,7 +59,7 @@ import { createHash } from 'crypto';
 import {
   encodePayload,
   decodePayload,
-} from '@modules/utils/MemoryFileEnvelope';
+} from '@openliri/infra/utils/MemoryFileEnvelope';
 
 // P2-6: LLM 精选记忆检索
 import {

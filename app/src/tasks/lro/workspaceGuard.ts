@@ -15,4 +15,4 @@ export {
   findWorkspaceEscape,
   type WorkspaceEscape,
   type WorkspaceGuardDeps,
-} from '@modules/utils/toolContract';
+} from '@openliri/infra/utils/toolContract';

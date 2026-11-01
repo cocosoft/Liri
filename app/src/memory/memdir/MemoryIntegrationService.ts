@@ -5,7 +5,7 @@
 
 import type { Memory, MemoryStats } from '../types/Memory';
 // C1（2026-10-09）：记忆 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type { MemoryFile, MemdirService } from './MemdirService';
 import { MemoryType, MemoryLayer } from './MemdirService';
 import type {

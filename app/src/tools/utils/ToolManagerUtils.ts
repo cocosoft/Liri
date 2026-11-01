@@ -9,7 +9,7 @@ import {
   type BuiltinToolFactoryKey,
 } from '../factories/builtinToolRegistry';
 import { feature as coreFeature } from '@openliri/kernel';
-import { isAntUser } from '@modules/utils/features.js';
+import { isAntUser } from '@openliri/infra/utils/features';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { SidecarLspTool } from '../sidecar/SidecarLspTool';

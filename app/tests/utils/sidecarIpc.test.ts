@@ -36,7 +36,7 @@ import {
   isStartupFrame,
   isHeartbeatFrame,
   buildHeartbeat,
-} from '../../src/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 import { BRIDGE_PROTOCOL_VERSION } from '../../src/ai/python/JsonRpcBridge';
 
 describe('P1 分帧（换行分隔 JSON）', () => {

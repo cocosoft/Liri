@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { getFsImplementation } from '@modules/utils/fsOperations.js';
+import { getFsImplementation } from '@openliri/infra/utils/fsOperations';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('memory:fileService');
 import {

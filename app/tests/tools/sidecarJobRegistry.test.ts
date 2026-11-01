@@ -10,7 +10,7 @@ import { SidecarJobRegistry } from '../../src/tools/sidecar/sidecarJobs.js';
 import {
   SIDECAR_JOB_COMPLETED_EVENT,
   buildJobCompleted,
-} from '../../src/utils/sidecarIpc.js';
+} from '@openliri/infra/utils/sidecarIpc';
 
 function completed(
   jobId: string,

@@ -3,7 +3,7 @@
  * 权限审计日志，记录所有权限决策供后续审查
  */
 
-import { logger } from '../../../utils/log.js';
+import { logger } from '@openliri/infra/utils/log';
 import type {
   PermissionContext,
   PermissionDecision,

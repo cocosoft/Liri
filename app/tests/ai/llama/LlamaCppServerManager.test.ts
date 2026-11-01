@@ -25,7 +25,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawn as realSpawn } from 'child_process';
-import { setSpawnImpl, type SpawnFn } from '../../../src/utils/spawnPort.js';
+import { setSpawnImpl, type SpawnFn } from '@openliri/infra/utils/spawnPort';
 import AdmZip from 'adm-zip';
 import {
   LlamaCppServerManager,

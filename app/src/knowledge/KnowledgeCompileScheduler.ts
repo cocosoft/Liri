@@ -15,7 +15,7 @@ import { sleepMonitor, SLEEP_EVENTS } from '@openliri/kernel';
 import { globalEventBus } from '@openliri/kernel/events/EventBus';
 import type { EventSubscription } from '@openliri/kernel/events/EventBus';
 import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 const logger = getLogger('knowledge:knowledgeCompileScheduler');
 

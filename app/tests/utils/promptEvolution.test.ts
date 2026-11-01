@@ -21,7 +21,7 @@ import {
   rollbackPromptEvolutionOverlay,
   writePromptEvolutionOverlay,
   writeSkillEvolution,
-} from '../../src/utils/promptEvolution';
+} from '@openliri/infra/utils/promptEvolution';
 
 let root: string;
 let env: NodeJS.ProcessEnv;

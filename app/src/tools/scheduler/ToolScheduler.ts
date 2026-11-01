@@ -6,7 +6,7 @@
 import { Tool } from '../types/Tool.js';
 import { ToolResult } from '../types/ToolResult.js';
 // C1（2026-10-09）：调度任务 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { ToolUseContext } from '../types/ToolUseContext.js';
 import { createCachedToolExecutor } from '../cache/CachedToolExecutor.js';
 

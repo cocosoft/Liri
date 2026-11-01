@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { isAntUser, isSimpleMode } from '../../src/utils/features.js';
+import { isAntUser, isSimpleMode } from '@openliri/infra/utils/features';
 
 /**
  * 恢复环境变量：原值为 `undefined` 时必须 `delete`。

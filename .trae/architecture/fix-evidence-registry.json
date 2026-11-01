@@ -1646,7 +1646,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/utils/rrf.ts",
+        "packages/infra/src/utils/rrf.ts",
         "app/src/knowledge/KnowledgeRouter.ts",
         "packages/kernel/src/core/knowledge-types.ts",
         "client/src/types/knowledge.ts",
@@ -2177,7 +2177,7 @@
       "code": [
         "app/src/tools/toolCapability.ts",
         "app/src/tools/BaseTool.ts",
-        "app/src/utils/toolContract/Tool.ts",
+        "packages/infra/src/utils/toolContract/Tool.ts",
         "app/scripts/lint-tool-schema.ts",
         "app/package.json",
         ".trae/architecture/tool-capability-baseline.json"
@@ -2508,7 +2508,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/utils/toolContract/Tool.ts",
+        "packages/infra/src/utils/toolContract/Tool.ts",
         "app/src/permission/ApprovedCommandRegistry.ts"
       ],
       "tests": [],
@@ -3001,7 +3001,7 @@
         "app/src/session/types/UnifiedMessage.ts",
         "app/src/chat/reactEventsToChunks.ts",
         "app/src/infrastructure/http/handlers/chat-handlers.ts",
-        "app/src/utils/toolContract/ToolProgress.ts"
+        "packages/infra/src/utils/toolContract/ToolProgress.ts"
       ],
       "tests": [
         "app/tests/state/toolCallStatusSingleSource.test.ts",
@@ -3906,7 +3906,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/utils/toolContract/Tool.ts"
+        "packages/infra/src/utils/toolContract/Tool.ts"
       ],
       "tests": [
         "app/tests/tools/snapshotCapable.test.ts"
@@ -3934,7 +3934,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/utils/sidecarIpc.ts"
+        "packages/infra/src/utils/sidecarIpc.ts"
       ],
       "tests": [
         "app/tests/utils/sidecarJobProtocol.test.ts"
@@ -5795,7 +5795,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/utils/structureCut.ts",
+        "packages/infra/src/utils/structureCut.ts",
         "app/src/channels/messageSplitter.ts",
         "app/src/chat/services/bareExplorationStripper.ts",
         "client/src/stores/chat/chat-toolcall.slice.ts",
@@ -7700,8 +7700,8 @@
       "code": [
         "app/src/config/managedEnv.ts",
         "app/src/config/index.ts",
-        "app/src/utils/bash/ast.ts",
-        "app/src/utils/bash/index.ts"
+        "packages/infra/src/utils/bash/ast.ts",
+        "packages/infra/src/utils/bash/index.ts"
       ],
       "tests": [
         "app/tests/constants/sameNameConstsB2.test.ts"
@@ -8486,7 +8486,7 @@
       },
       "code": [
         "app/src/tools/toolVisibilityReport.ts",
-        "app/src/utils/toolContract/Tool.ts",
+        "packages/infra/src/utils/toolContract/Tool.ts",
         "shared/types/tool-visibility.ts",
         "shared/types/index.ts",
         "app/tests/tools/toolVisibilityReport.test.ts",
@@ -10399,7 +10399,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/utils/killProcessTree.ts",
+        "packages/infra/src/utils/killProcessTree.ts",
         "app/src/sandbox/utils/killProcessTree.ts",
         "app/src/infrastructure/http/a2a/DiscoverySidecarSupervisor.ts"
       ],
@@ -11148,7 +11148,7 @@
       },
       "code": [
         "app/src/tools/AgentTool/strategies/VerificationStrategy.ts",
-        "app/src/utils/auth.ts",
+        "packages/infra/src/utils/auth.ts",
         "app/src/vfs/drivers/DevDocsDriver.ts",
         "app/src/vfs/drivers/McpResourcesDriver.ts",
         "app/src/voice/GeminiLiveAdapter.ts",
@@ -11210,7 +11210,7 @@
       "code": [
         "app/src/evals/tasks/smoke.ts",
         "app/src/scripts/batch-test-all.ts",
-        "app/src/utils/bash/registry.ts",
+        "packages/infra/src/utils/bash/registry.ts",
         "app/src/tools/ToolBuilder.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -12119,7 +12119,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/utils/structureCut.ts",
+        "packages/infra/src/utils/structureCut.ts",
         "app/src/context/compaction/SnipEngine.ts",
         "app/scripts/bench-truncation-closure.ts"
       ],
@@ -12788,7 +12788,7 @@
         "app/src/query/ReActLoop.ts",
         "app/src/chat/toolResultPostProcess.ts",
         "app/src/session/types/tool.ts",
-        "app/src/utils/toolContract/ToolResult.ts",
+        "packages/infra/src/utils/toolContract/ToolResult.ts",
         "app/src/permission/PermissionManager.ts",
         "app/src/chat/services/ToolExecutionService.ts",
         "app/src/tools/bash/BashTool.ts",
@@ -14169,8 +14169,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/utils/toolContract/argParseError.ts",
-        "app/src/utils/toolContract/index.ts",
+        "packages/infra/src/utils/toolContract/argParseError.ts",
+        "packages/infra/src/utils/toolContract/index.ts",
         "app/src/ai/transports/TransportProviderAdapter.ts",
         "app/src/tools/ToolRegistry.ts",
         "app/src/tools/ToolManager.ts"
@@ -14483,7 +14483,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/utils/toolContract/ToolResult.ts",
+        "packages/infra/src/utils/toolContract/ToolResult.ts",
         "app/src/chat/services/ToolExecutionService.ts",
         "app/src/query/ReActLoop.ts"
       ],
@@ -14648,7 +14648,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/utils/atomicFileWrite.ts",
+        "packages/infra/src/utils/atomicFileWrite.ts",
         "app/src/memory/retrievers/MemoryRetriever.ts",
         "app/src/memory/MemoryManager.ts"
       ],
@@ -15720,7 +15720,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/utils/toolCallKey.ts",
+        "packages/infra/src/utils/toolCallKey.ts",
         "app/src/evals/behaviorMetrics.ts",
         "app/src/evals/types.ts",
         "app/src/evals/report.ts",
@@ -15946,7 +15946,7 @@
         "app/src/environment/index.ts",
         "app/src/environment/paths.ts",
         "app/src/security/identity/index.ts",
-        "app/src/utils/json.ts"
+        "packages/infra/src/utils/json.ts"
       ],
       "tests": [
         "app/tests/security",
@@ -15978,10 +15978,10 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/utils/envAccess.ts",
+        "packages/infra/src/utils/envAccess.ts",
         "packages/infra/src/common/types.ts",
         "app/src/cache/types.ts",
-        "app/src/utils/cache.ts",
+        "packages/infra/src/utils/cache.ts",
         "scripts/lint-architecture.ts"
       ],
       "tests": [
@@ -16240,9 +16240,9 @@
       },
       "code": [
         "app/scripts/lint-infra-boundary.ts",
-        "app/src/utils/common.ts",
-        "app/src/utils/debug.ts",
-        "app/src/utils/log.ts",
+        "packages/infra/src/utils/common.ts",
+        "packages/infra/src/utils/debug.ts",
+        "packages/infra/src/utils/log.ts",
         "app/src/monitoring/AlertRuleService.ts",
         "app/src/monitoring/MonitoringService.ts",
         "app/src/analytics/pricingSource.ts",

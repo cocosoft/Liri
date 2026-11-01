@@ -3,7 +3,7 @@
  * 对标 CC 的测试基础设施
  */
 
-import { sleep } from '@modules/utils/common';
+import { sleep } from '@openliri/infra/utils/common';
 
 /**
  * 断言结果

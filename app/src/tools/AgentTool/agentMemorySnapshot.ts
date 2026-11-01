@@ -9,7 +9,7 @@ import type {
   AgentMemorySnapshot as SnapshotData,
 } from './agentMemory';
 // C1（2026-10-09）：快照 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 export interface SnapshotMeta {
   id: string;

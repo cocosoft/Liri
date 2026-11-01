@@ -7,7 +7,7 @@
 
 import { NotebookImpl } from './types/Notebook.js';
 // C1（2026-10-09）：notebook/cell id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { CodeCellImpl, MarkdownCellImpl } from './types/Cell.js';
 import { CellExecutionState } from './types/NotebookTool.js';
 import type {

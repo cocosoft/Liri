@@ -6,7 +6,7 @@
 import { analyticsService } from './AnalyticsService';
 import { performanceMonitoringService } from './PerformanceMonitoringService';
 // C1（2026-10-09）：分析结果 id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('analytics:intelligence');
 

@@ -93,4 +93,4 @@ export const WRITE_TOOLS = new Set<string>(WRITE_TOOL_NAMES);
  * 因 chat / tasks 也需共用，且它们反向依赖 `query` 会成环。本处保留再导出，
  * 使 `@modules/query` 的既有取用方（`PathGuard` 等）零改动。
  */
-export { PATH_ARG_KEYS } from '@modules/utils/toolContract';
+export { PATH_ARG_KEYS } from '@openliri/infra/utils/toolContract';

@@ -7,7 +7,7 @@
 //      同条 blocks 正文=2758 字符 ⇒ 旧判据"非空即采用"让短桩覆盖正文。
 
 import { describe, expect, it } from 'bun:test';
-import { pickMoreCompleteContent } from '../../src/utils/common';
+import { pickMoreCompleteContent } from '@openliri/infra/utils/common';
 
 const STUB = '## 复审结论（v1.4）\n'; // 流式前导短桩
 const FULL = '## 复审结论（v1.4）\n\n第一段完整正文……（2758 字符的量级）';

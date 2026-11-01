@@ -5,7 +5,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { TTLCache } from '@modules/utils/cache';
+import { TTLCache } from '@openliri/infra/utils/cache';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('chat:performance-optimization');

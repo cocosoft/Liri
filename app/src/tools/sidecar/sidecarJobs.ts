@@ -15,7 +15,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { parseJobCompleted } from '../../utils/sidecarIpc.js';
+import { parseJobCompleted } from '@openliri/infra/utils/sidecarIpc';
 
 const logger = getLogger('tools:sidecar.jobs');
 

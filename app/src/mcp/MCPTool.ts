@@ -7,8 +7,8 @@ import type {
   Tool,
   ToolUseContext,
   ToolResult,
-} from '@modules/utils/toolContract';
-import { createToolResult } from '@modules/utils/toolContract';
+} from '@openliri/infra/utils/toolContract';
+import { createToolResult } from '@openliri/infra/utils/toolContract';
 import { MCPServerConfig } from './types';
 import { getMCPServerManager } from '../services/mcp/MCPServerManager.js';
 // 2026-10-08（MCP 双轨收敛 C-1）：`list_tools` / `call` 两个**IO 动作**改走**已连接的 SDK `Client`**

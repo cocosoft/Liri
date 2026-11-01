@@ -39,7 +39,7 @@
  */
 
 import { getSessionTracing } from '@modules/monitoring';
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { StreamMessageOptions } from '@modules/session/types/message.js';

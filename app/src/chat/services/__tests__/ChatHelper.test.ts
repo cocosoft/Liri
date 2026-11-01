@@ -11,7 +11,7 @@ import { describe, it, expect } from 'bun:test';
 // `getAIModelManager` 回退（本文件断言与注释也已按真值 200000 写）。
 // 需驱动"DB 缓存命中"分支时，用**真实缝** `setModelWindow`（`utils/ContextWindowResolver`，见下）。
 
-import { setModelWindow } from '@modules/utils/ContextWindowResolver';
+import { setModelWindow } from '@openliri/infra/utils/ContextWindowResolver';
 import {
   toSessionMsgType,
   sanitizePass,

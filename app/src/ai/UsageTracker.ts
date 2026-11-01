@@ -33,7 +33,7 @@
 
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger.js';
 // C1（2026-10-09）：请求 id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { LogLevel } from '@modules/monitoring/logs/Logger.js';
 import { extractUsage } from './tokenizer/UsageExtractor.js';
 import { getCanonicalModelName } from '../cost/ModelPricing.js';

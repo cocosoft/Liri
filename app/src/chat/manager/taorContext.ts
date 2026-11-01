@@ -25,7 +25,7 @@ import type {
 } from '@modules/session/types/message.js';
 import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 // S4（2026-10-19）：条目形状收敛到单一真源（含 `expiresAt`）
-import type { PendingInteractionEntry } from '@modules/utils/pendingInteractions';
+import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 // 2026-10-23（`/effort` 第二步）：会话元数据 → 本轮思考配置
 import { resolveThinkingForSession } from '../replyEffort';
 

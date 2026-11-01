@@ -25,7 +25,7 @@ import { deriveToolRiskClass } from './toolRiskClass';
 import type {
   ToolCapabilityDescriptor,
   ToolRiskClass,
-} from '../utils/toolContract/Tool';
+} from '@openliri/infra/utils/toolContract/Tool';
 
 export type { ToolDef } from './types/Tool';
 export { buildTool } from './types/Tool';

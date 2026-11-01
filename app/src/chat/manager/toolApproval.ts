@@ -16,7 +16,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { isShellToolName } from '@modules/utils/toolContract/toolRoles';
+import { isShellToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 import type { ToolRegistry } from '@modules/tools';
 import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
 

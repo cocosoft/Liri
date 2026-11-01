@@ -26,7 +26,7 @@ import { contextRegistry, type ContextTypeOptions } from './ContextRegistry';
 import {
   AsyncContextStorage,
   asyncContextStorage,
-} from '@modules/utils/AsyncContextStorage';
+} from '@openliri/infra/utils/AsyncContextStorage';
 import { ContextIsolator, contextIsolator } from './ContextIsolator';
 import {
   ContextSharingManager,

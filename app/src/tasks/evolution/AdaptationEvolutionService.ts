@@ -39,7 +39,7 @@ import {
   writePromptEvolutionOverlay,
   writeSkillEvolution,
   type EvolutionState,
-} from '@modules/utils/promptEvolution';
+} from '@openliri/infra/utils/promptEvolution';
 import { goalMetricsService } from '../db/GoalMetricsService';
 import { recordEvolutionApplied } from './EvolutionAudit';
 

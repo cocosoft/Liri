@@ -16,7 +16,7 @@ import {
   isFileWriteToolName,
   isMediaOutputToolName,
   isShellToolName,
-} from '../../src/utils/toolContract/toolRoles.js';
+} from '@openliri/infra/utils/toolContract/toolRoles';
 import { BashTool } from '../../src/tools/bash/BashTool.js';
 import { ApprovedCommandRegistry } from '../../src/permission/ApprovedCommandRegistry.js';
 

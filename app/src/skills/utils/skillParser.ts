@@ -9,7 +9,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 // C1（2026-10-09）：session id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { SkillSource, SkillLoadMethod } from '../types';
 import type { Skill } from '../types';
 // Re-export for downstream consumers

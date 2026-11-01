@@ -20,7 +20,7 @@ import {
   TokenBudgetStatus,
 } from '../../src/tokenBudget/TokenBudgetController';
 import { resolveContextWindow } from '../../src/context';
-import { setModelWindow } from '../../src/utils/ContextWindowResolver';
+import { setModelWindow } from '@openliri/infra/utils/ContextWindowResolver';
 
 const MODEL = 'test-model-budget-refund';
 

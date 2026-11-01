@@ -44,7 +44,7 @@
  */
 
 import type { BehaviorMetrics, ToolCallRecord } from './types.js';
-import { toolCallArgsKey } from '../utils/toolCallKey.js';
+import { toolCallArgsKey } from '@openliri/infra/utils/toolCallKey';
 
 /** 编辑类工具（"首个编辑"标记位） */
 const EDIT_TOOLS = new Set(['file_edit', 'file_write']);

@@ -48,7 +48,7 @@ import type {
   ChatStreamChunk,
 } from '@modules/runtime/api/CoreAPI';
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants';
-import { isMediaOutputToolName } from '@modules/utils/toolContract/toolRoles';
+import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 // P0-2（2026-10-10）：客户端流式路径接入 Execution 生命周期（`service → service` 合法；
 // 见 `.trae/specs/client-stream-execution.md`）
 // 状态机方案 阶段 2.2（2026-10-12）：SSE 兜底状态改走常量（唯一事实源 = `execution/types.ts`），

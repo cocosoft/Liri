@@ -211,7 +211,7 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     id: 'toolExecutionTransient',
     title: '工具执行瞬态（requires_approval / awaiting_approval）',
     kind: 'transient',
-    sourceFile: 'app/src/utils/toolContract/ToolResult.ts',
+    sourceFile: 'packages/infra/src/utils/toolContract/ToolResult.ts',
     states: ['requires_approval', 'awaiting_approval'],
     verification: 'source-read',
     hasTransitionFn: false,

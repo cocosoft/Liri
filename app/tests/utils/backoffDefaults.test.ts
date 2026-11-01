@@ -24,7 +24,7 @@ import { describe, it, expect } from 'bun:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { DEFAULT_RETRY_CONFIG } from '../../src/utils/withRetry';
+import { DEFAULT_RETRY_CONFIG } from '@openliri/infra/utils/withRetry';
 
 const APP = join(import.meta.dir, '..', '..');
 const SRC = join(APP, 'src');
@@ -42,6 +42,8 @@ function collectTs(dir: string, out: string[]): void {
 
 const ALL: string[] = [];
 collectTs(SRC, ALL);
+// P6（2026-11-01）：`utils` 迁入 infra 物理包 ⇒ 其声明点仍在扫描面内（相对 APP 的路径带 `../`）
+collectTs(join(APP, '..', 'packages', 'infra', 'src'), ALL);
 
 const rel = (p: string) => relative(APP, p).split('\\').join('/');
 const read = (p: string) => readFileSync(p, 'utf-8');
@@ -71,10 +73,10 @@ describe('HD-P1-2 A8 · 退避/重试默认值单一真源', () => {
       hitFiles(/const DEFAULT_RETRY_CONFIG\b/),
       '新增同名默认配置前，先回台账 HARDCODE-HDP1-2-A8-BACKOFF-DEFAULTS 复核（能否复用真源？）'
     ).toEqual([
+      '../packages/infra/src/utils/withRetry.ts',
       'src/ai/providers/BaseAIProvider.ts',
       'src/query/withRetry.ts',
       'src/streaming/IncrementalRetry.ts',
-      'src/utils/withRetry.ts',
     ]);
   });
 

@@ -65,7 +65,14 @@ export interface SurfaceEntry {
 export type ApiLevel = 'stable' | 'experimental' | 'internal';
 
 /** 消费方扫描根（仓库相对；**不含测试**——测试不是 API 消费者） */
-export const CONSUMER_ROOTS = ['app/src', 'app/packages', 'scripts'] as const;
+export const CONSUMER_ROOTS = [
+  'app/src',
+  'app/packages',
+  'scripts',
+  // P6（2026-11-01）：`utils` 迁入 infra 物理包后，其内核消费点仍属真实消费方 ——
+  // 不纳入会把 `ToolResult` 等从 stable 误降为 internal（迁包被误读成"消费面消失"）。
+  'packages/infra',
+] as const;
 
 /** 从消费方源码文本中提取「引用了哪些内核符号名」 */
 export function extractConsumedNames(text: string): string[] {

@@ -18,7 +18,7 @@
  * 已改指类型中心 `'../types/context'` 后，`session -> context` 的「文件 × 模块」对方才消失，
  * `已豁免` 43 → 42。
  */
-export * from '@modules/utils/ContextWindowResolver';
+export * from '@openliri/infra/utils/ContextWindowResolver';
 
 // 2026-10-31：`calibrateContextWindow` 上移 app（读 `ModelRegistry` + 写 `model_registry` 属领域动作），
 // 由本 shim 继续对外转出 ⇒ `@modules/context` 的消费方零改动；infra 侧不再动态导入 app 层。

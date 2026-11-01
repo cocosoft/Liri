@@ -41,7 +41,7 @@ import {
   SIDECAR_STARTUP_TYPE,
   encodeFrame,
   decodeFrame,
-} from '../../../src/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 
 const tick = (ms = 10): Promise<void> => new Promise((r) => setTimeout(r, ms));
 

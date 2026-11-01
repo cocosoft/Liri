@@ -11,7 +11,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   SafeInterval,
   timerLifecycleRegistry,
-} from '@modules/utils/SafeInterval';
+} from '@openliri/infra/utils/SafeInterval';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

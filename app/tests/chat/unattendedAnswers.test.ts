@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { resolveUnattendedAnswers } from '../../src/utils/unattendedAnswers';
+import { resolveUnattendedAnswers } from '@openliri/infra/utils/unattendedAnswers';
 
 describe('U-02 无人值守自动答复', () => {
   it('confirm：优先选「确认/继续/approve」类选项', () => {

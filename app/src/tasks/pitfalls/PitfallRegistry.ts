@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
 import { resolveDataSubDir } from '@modules/environment';
 // C1（2026-10-09）：pitfall id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 /** pitfall 来源 */
 export type PitfallSource = 'pdl' | 'verifier' | 'other';

@@ -5,7 +5,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { TTLCache } from '@modules/utils/cache';
+import { TTLCache } from '@openliri/infra/utils/cache';
 
 const logger = getLogger('permission:classifiers:yoloClassifier');
 

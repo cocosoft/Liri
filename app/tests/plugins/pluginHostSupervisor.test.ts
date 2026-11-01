@@ -22,7 +22,7 @@ import {
   SIDECAR_STARTUP_TYPE,
   decodeFrame,
   encodeFrame,
-} from '../../src/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 
 const pluginId = 'p1';
 const target = {

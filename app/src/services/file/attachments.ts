@@ -15,7 +15,7 @@ import {
 } from '@modules/environment';
 import { Database } from '@openliri/infra/external';
 // C1（2026-10-09）：附件名/ID 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 // 2026-10-02 D-226（`service -> ui` 收口）：本文件（`AttachmentManager` 附件持久化服务）
 // 原寄居 `src/components/`（ui 层），但其**零 UI 依赖**（仅 fs/DB + `@modules/core` 路径 + 本模块

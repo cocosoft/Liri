@@ -10,7 +10,7 @@
 
 import { getLogger, getOTelMetrics } from '@modules/monitoring';
 // C1（2026-10-09）：hook key 熵源改用 crypto
-import { randomIdSuffix } from '../../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 const logger = getLogger('voice:metrics');
 
 /** OTel 直方图：记录各埋点耗时分布 */

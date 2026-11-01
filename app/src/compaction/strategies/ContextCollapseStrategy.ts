@@ -15,7 +15,7 @@ import {
   type CompactMetadata,
 } from '../ContextEngine';
 // C1（2026-10-09）：collapse marker id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 export interface ContextCollapseConfig extends CompactConfig {
   collapseThreshold: number;

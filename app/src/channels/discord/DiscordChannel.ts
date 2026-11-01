@@ -5,7 +5,7 @@
  */
 
 // C1（2026-10-09）：配对码熵源改用 crypto（弱随机 → 强随机）
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { splitMessage } from '../messageSplitter';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import fs from 'node:fs';
@@ -22,8 +22,8 @@ import type {
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
-import { TTLCache } from '@modules/utils/cache';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { TTLCache } from '@openliri/infra/utils/cache';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 import { getLogger } from '@modules/monitoring';
 import { DISCORD_API_BASE_URL, DISCORD_SITE_URL } from '../constants';

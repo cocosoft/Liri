@@ -22,7 +22,7 @@
  * 命令类型的类型定义
  */
 
-import type { ToolSandboxLevel } from '../../utils/toolContract/Tool';
+import type { ToolSandboxLevel } from '@openliri/infra/utils/toolContract/Tool';
 
 /**
  * 命令类型

@@ -22,7 +22,7 @@
  * Agent系统类型定义
  */
 
-import type { HooksSettings } from '@modules/utils/settings/types.js';
+import type { HooksSettings } from '@openliri/infra/utils/settings/types';
 import type { AgentMcpServerSpec } from './agentMcpServer';
 
 export type AgentMemoryScope = 'user' | 'project' | 'local';

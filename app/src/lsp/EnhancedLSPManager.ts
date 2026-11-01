@@ -8,7 +8,7 @@ import type { LSPClient, LSPServerConfig, LSPConnection } from './types.js';
 
 import type { LSPServerManager } from './LSPServerManager.js';
 // C1（2026-10-09）：LSP id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { createLSPServerManager } from './LSPServerManager.js';
 import { LSPClient as BaseLSPClient } from './LSPClient.js';
 import type { LSPServerInstance } from './LSPServerInstance.js';

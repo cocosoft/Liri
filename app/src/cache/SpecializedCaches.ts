@@ -4,7 +4,7 @@
  */
 
 import { getCacheSystem } from './CacheSystem.js';
-import { logForDebugging } from '../utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 
 /**
  * 工具模式缓存

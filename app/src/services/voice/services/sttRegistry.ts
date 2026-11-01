@@ -42,7 +42,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getMetricsService } from '@modules/monitoring';
 import type { HistogramMetric } from '@modules/monitoring';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 const logger = getLogger('voice:sttRegistry');
 

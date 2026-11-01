@@ -28,7 +28,7 @@
 import type {
   ToolRiskClass,
   ToolSandboxLevel,
-} from '../utils/toolContract/Tool';
+} from '@openliri/infra/utils/toolContract/Tool';
 import { resolveToolEffect } from './toolEffects';
 
 /** 参与风险派生的最小工具形状（避免依赖完整 `Tool` 接口） */

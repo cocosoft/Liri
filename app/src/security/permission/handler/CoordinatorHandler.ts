@@ -4,7 +4,7 @@
  * 协调处理器，管理多层权限决策的协调与聚合
  */
 
-import { logger } from '../../../utils/log.js';
+import { logger } from '@openliri/infra/utils/log';
 import type {
   PermissionContext,
   PermissionDecision,

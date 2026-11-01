@@ -6,7 +6,7 @@
 
 import os from 'os';
 import type { NetworkInterfaceInfo } from 'os';
-import { logForDebugging } from '@modules/utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import { errorMessage } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

@@ -40,7 +40,7 @@ import {
   SIDECAR_STARTUP_TYPE,
   encodeFrame,
   decodeFrame,
-} from '../../../../src/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 import type { A2ADiscoverySnapshot } from '../../../../src/infrastructure/http/a2a/discoverySurface';
 import type { A2AAgentCard } from '../../../../src/types/a2a';
 

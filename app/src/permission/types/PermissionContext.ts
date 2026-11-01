@@ -1,7 +1,7 @@
 /**
  * 权限上下文接口
  */
-import type { SandboxExecutionSignal } from '@modules/utils/toolContract/Tool';
+import type { SandboxExecutionSignal } from '@openliri/infra/utils/toolContract/Tool';
 
 export interface PermissionContext {
   /**

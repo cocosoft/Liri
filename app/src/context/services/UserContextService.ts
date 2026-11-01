@@ -9,7 +9,7 @@ import { join } from 'path';
 import { constants } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { TTLCache } from '@modules/utils/cache';
+import { TTLCache } from '@openliri/infra/utils/cache';
 import { configManager } from '@modules/config';
 
 const logger = getLogger('context:userContext');

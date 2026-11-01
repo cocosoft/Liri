@@ -6,7 +6,7 @@
  */
 
 // C1（2026-10-09）：配对码熵源改用 crypto（弱随机 → 强随机）
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { BaseChannelPlugin } from '@modules/channels/base';
 import type { RegisterFileResult } from '@modules/services/file/types';
 import type {

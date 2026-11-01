@@ -11,9 +11,9 @@ import { CustomAgentDefinition, SettingSource } from './types';
 import {
   parseAgentToolsFromFrontmatter,
   parseSlashCommandToolsFromFrontmatter,
-} from '@modules/utils/markdownConfigLoader';
-import { parsePositiveIntFromFrontmatter } from '@modules/utils/frontmatterParser';
-import { EFFORT_LEVELS, parseEffortValue } from '@modules/utils/effort';
+} from '@openliri/infra/utils/markdownConfigLoader';
+import { parsePositiveIntFromFrontmatter } from '@openliri/infra/utils/frontmatterParser';
+import { EFFORT_LEVELS, parseEffortValue } from '@openliri/infra/utils/effort';
 import { PermissionMode } from '@modules/permission';
 import { configManager } from '@modules/config';
 import { AgentMcpServerSpec } from './agentMcpServer';

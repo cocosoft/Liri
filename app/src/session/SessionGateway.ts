@@ -25,11 +25,11 @@ import { ScopedStorageRegistry } from './gateway/ScopedStorageRegistry.js';
 // 2026-10-01 B14 C′ 步：原经 `@modules/context` 桶取用 ⇒ 改指 infra（`utils/`），
 // 解除 `session -> context`(app) 倒挂的一半（另一半 resolveContextWindow 见 D 步）。
 // 依赖 A′/B′：Context 家族已下沉类型中心、AsyncContextStorage 已迁 utils/。
-import { asyncContextStorage } from '@modules/utils/AsyncContextStorage';
+import { asyncContextStorage } from '@openliri/infra/utils/AsyncContextStorage';
 // 2026-10-01 B14b 步 3：原经 `@modules/context`(app) 取用 ⇒ 改指 infra（该实现已迁
 // `utils/ContextWindowResolver`，其 app 耦合已由该文件自持的 infra 级窗口缓存解除）。
 // ⇒ 本文件的**两条 `@modules/context` 取用**清零（第三条相对路径类型导入见下方 L29）。
-import { resolveContextWindow } from '@modules/utils/ContextWindowResolver';
+import { resolveContextWindow } from '@openliri/infra/utils/ContextWindowResolver';
 // 2026-10-01（子批 F `runtime -> query` 收口）：B13 当年判定 `FileCheckpointStorage`
 // "app 耦合、不可下沉"（其引 `chat/types/checkpoint`）—— 该前提**随 B11 失效**
 // （`checkpoint.ts` 已迁 `session/types/`(service)）⇒ 该文件已**下沉本模块** `session/storage/`，

@@ -38,7 +38,7 @@ import type { SessionGateway } from '@modules/session';
 import type { Message } from '@modules/session/types/message.js';
 // S4（2026-10-19）：条目形状收敛到 `@modules/utils/pendingInteractions`（含 `expiresAt`），
 // 避免宿主 / 回滚 / 恢复 / 适配器各写一份同形声明（R02 双源）。
-import type { PendingInteractionEntry } from '@modules/utils/pendingInteractions';
+import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 import type { MessageService } from '../services/MessageService.js';
 
 const logger = getLogger('chat:manager');

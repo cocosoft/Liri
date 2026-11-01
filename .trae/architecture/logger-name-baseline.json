@@ -310,7 +310,7 @@
       "app/src/services/api/logging.ts"
     ],
     "app": [
-      "app/src/utils/log.ts"
+      "packages/infra/src/utils/log.ts"
     ],
     "authHandler": [
       "app/src/cli/handlers/authHandler.ts"
@@ -403,7 +403,7 @@
       "packages/kernel/src/core/di/AutoWiringEngine.ts"
     ],
     "debug": [
-      "app/src/utils/debug.ts"
+      "packages/infra/src/utils/debug.ts"
     ],
     "diagnoseHandler": [
       "app/src/cli/handlers/diagnoseHandler.ts"
@@ -422,7 +422,7 @@
       "app/src/governance/managers/GovernanceManager.ts"
     ],
     "gracefulShutdown": [
-      "app/src/utils/gracefulShutdown.ts"
+      "packages/infra/src/utils/gracefulShutdown.ts"
     ],
     "healthcheck": [
       "app/src/healthcheck.ts"
@@ -729,16 +729,16 @@
       "app/src/cli/handlers/utilHandler.ts"
     ],
     "utils\\aws": [
-      "app/src/utils/aws.ts"
+      "packages/infra/src/utils/aws.ts"
     ],
     "utils\\computerUse\\NoopAdapter": [
-      "app/src/utils/computerUse/NoopAdapter.ts"
+      "packages/infra/src/utils/computerUse/NoopAdapter.ts"
     ],
     "utils\\imageValidation": [
-      "app/src/utils/imageValidation.ts"
+      "packages/infra/src/utils/imageValidation.ts"
     ],
     "utils\\sanitization": [
-      "app/src/utils/sanitization.ts"
+      "packages/infra/src/utils/sanitization.ts"
     ],
     "x": [
       "packages/kernel/src/core/loggerFacade.ts",

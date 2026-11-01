@@ -8,7 +8,7 @@
  */
 
 // C1（2026-10-09）：团队 id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '@modules/monitoring';

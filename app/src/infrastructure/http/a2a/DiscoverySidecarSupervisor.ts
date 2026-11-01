@@ -42,10 +42,10 @@ import {
   decodeFrame,
   isCompatibleVersion,
   isHeartbeatFrame,
-} from '@modules/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 import type { A2ADiscoverySnapshot } from './discoverySurface';
 // U-16（2026-10-17）：取消/超时复用**进程树强杀**（复用 R21 基座；实现已在 `utils`）
-import { killProcessTree } from '@modules/utils/killProcessTree';
+import { killProcessTree } from '@openliri/infra/utils/killProcessTree';
 
 const logger = getLogger('infra:http:a2a:discoverySupervisor');
 

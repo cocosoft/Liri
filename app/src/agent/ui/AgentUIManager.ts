@@ -8,7 +8,7 @@ import {
 } from '../models/types';
 import { getLogger } from '@modules/monitoring';
 // C1（2026-10-09）：订阅/告警 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 const logger = getLogger('agent:ui:agentUIManager');
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';

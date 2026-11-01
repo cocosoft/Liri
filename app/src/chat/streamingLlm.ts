@@ -21,7 +21,7 @@
 
 import { createErrorRecoveryManager } from '@modules/query';
 // C1（2026-10-09）：turn id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type { ReActEvent, BudgetControllerLike } from '@modules/query';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
 import { trackUsage, extractModelFromResponse } from '@modules/ai';

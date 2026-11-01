@@ -6,7 +6,7 @@ import {
   decodePayload,
   MEMORY_ENVELOPE_VERSION,
   COMPRESS_THRESHOLD,
-} from '../../src/utils/MemoryFileEnvelope';
+} from '@openliri/infra/utils/MemoryFileEnvelope';
 
 describe('MemoryFileEnvelope', () => {
   it('小文件不压缩（payload <= 阈值）', () => {

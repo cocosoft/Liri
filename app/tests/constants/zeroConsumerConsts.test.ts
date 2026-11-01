@@ -95,6 +95,9 @@ function buildIdentifierCounts(): Map<string, number> {
   collectSources(join(APP_ROOT, 'tests'), files);
   collectSources(join(REPO_ROOT, 'client', 'src'), files);
   collectSources(join(REPO_ROOT, 'scripts'), files);
+  // P6（2026-11-01）：`utils` 迁入 infra 物理包 ⇒ 其内的消费点仍是真实消费者，
+  // 不纳入会把仅被 utils 使用的常量误判成"零消费者"。
+  collectSources(join(REPO_ROOT, 'packages', 'infra', 'src'), files);
 
   for (const file of files) {
     const source = readFileSync(file, 'utf-8');

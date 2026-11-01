@@ -35,7 +35,7 @@ import type {
   LiriEventType,
 } from '@modules/session/types/events.js';
 import { getLogger } from '@modules/monitoring';
-import { pickMoreCompleteContent } from '@modules/utils/common';
+import { pickMoreCompleteContent } from '@openliri/infra/utils/common';
 import { KNOWN_SESSION_EVENT_TYPES } from '@modules/session/types/knownEventTypes.js';
 // 状态块 statusType 契约（CS02）：判据的单一事实来源，与前端共用同一集合
 import { isTransientStatusType } from '@shared/types';

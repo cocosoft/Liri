@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { getGraphemeSegmenter } from '../../src/utils/intl.js';
+import { getGraphemeSegmenter } from '@openliri/infra/utils/intl';
 
 describe('getGraphemeSegmenter', () => {
   it('should return an object with a segment method', () => {

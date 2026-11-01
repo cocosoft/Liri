@@ -39,12 +39,12 @@ import { ToolUseContext } from '../tools/types/ToolUseContext';
 import { createToolManager } from '@modules/tools';
 // PR-3a（2026-10-23）：本次执行的沙箱信号（唯一解析点 = sandbox/sandboxExecutionSignal）
 import { resolveSandboxExecutionSignal } from '@modules/sandbox';
-import { createAbortController } from '../utils/abortController';
+import { createAbortController } from '@openliri/infra/utils/abortController';
 // U-20（B5-2-70，2026-10-17）：缓存容量改引 utils 单一事实源
 import {
   createFileStateCacheWithSizeLimit,
   READ_FILE_STATE_CACHE_SIZE,
-} from '../utils/fileStateCache';
+} from '@openliri/infra/utils/fileStateCache';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('entrypoints:mcp');
 
@@ -64,8 +64,8 @@ export function isMCPFastPathArgv(argv: string[]): boolean {
 import { modelManager } from '@modules/ai';
 import { hasPermissionsToUseTool } from '../permission/permissions';
 import { jsonStringify } from '@modules/performance';
-import { getErrorParts } from '../utils/toolErrors';
-import { zodToJsonSchema } from '../utils/zodToJsonSchema';
+import { getErrorParts } from '@openliri/infra/utils/toolErrors';
+import { zodToJsonSchema } from '@openliri/infra/utils/zodToJsonSchema';
 import { getDefaultAppState } from '../appState/AppState.js';
 import { reviewCommand as review } from '@modules/commands';
 import type { Command } from '../commands/types/index';

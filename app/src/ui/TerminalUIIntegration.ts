@@ -8,7 +8,7 @@ import chalk from 'chalk';
 import { TerminalComponents } from '../ui/TerminalComponents.js';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ui:TerminalUIIntegration');
-import { StartupProfiler } from '../utils/startupProfiler.js';
+import { StartupProfiler } from '@openliri/infra/utils/startupProfiler';
 
 /**
  * 终端集成器配置

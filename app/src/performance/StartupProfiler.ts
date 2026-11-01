@@ -11,8 +11,8 @@
  */
 
 import { dirname, join } from 'path';
-import { logForDebugging } from '../utils/debug.js';
-import { getConfigHomeDir, isEnvTruthy } from '../utils/envUtils.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
+import { getConfigHomeDir, isEnvTruthy } from '@openliri/infra/utils/envUtils';
 import fs from 'fs';
 
 import { getLogger } from '@modules/monitoring';

@@ -68,7 +68,7 @@ import type { ToolVisibilityOverrides } from './toolVisibilityOverrides';
 import { deriveFromLegacyEffects } from './toolCapability';
 import { resolveToolEffect } from './toolEffects';
 import { TOOL_NAMES } from '@modules/constants/toolNames.generated';
-import type { ToolRiskLevel } from '../utils/toolContract/Tool';
+import type { ToolRiskLevel } from '@openliri/infra/utils/toolContract/Tool';
 import type {
   SharedToolVisibilityReason,
   SharedShadowToolDisposition,

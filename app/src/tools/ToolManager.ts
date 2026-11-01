@@ -16,7 +16,7 @@ import {
   ARG_PARSE_ERROR_KEY,
   describeMissingRequiredParams,
   stripArgParseErrorKey,
-} from '@modules/utils/toolContract/argParseError';
+} from '@openliri/infra/utils/toolContract/argParseError';
 import { guardShieldedToolCall } from './shieldGuard';
 import { ToolFactory } from './ToolFactory';
 import { setAgentToolManager } from './AgentTool/AgentTool';

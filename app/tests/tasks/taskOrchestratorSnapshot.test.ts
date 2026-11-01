@@ -12,7 +12,7 @@ import { mkdtempSync, readdirSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { TaskOrchestrator } from '../../src/tasks/TaskOrchestrator.js';
-import { isSnapshotCapable } from '../../src/utils/toolContract/Tool.js';
+import { isSnapshotCapable } from '@openliri/infra/utils/toolContract/Tool';
 
 const dirs: string[] = [];
 

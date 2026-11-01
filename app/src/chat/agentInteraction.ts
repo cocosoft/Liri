@@ -25,11 +25,11 @@ import type {
 import type { LiriEvent } from '@modules/session/types/events';
 
 import { SUSPENSION_SETTLED_STATUS_TYPE } from './services/pendingSuspensions';
-import { withDeadline } from '@modules/utils/withDeadline';
+import { withDeadline } from '@openliri/infra/utils/withDeadline';
 import {
   createPendingInteractionEntry,
   type PendingInteractionEntry,
-} from '@modules/utils/pendingInteractions';
+} from '@openliri/infra/utils/pendingInteractions';
 
 const logger = getLogger('chat:reactToolLoop');
 

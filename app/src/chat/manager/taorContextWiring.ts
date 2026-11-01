@@ -20,8 +20,8 @@ import type {
 } from '@modules/session/types/message';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { ToolRegistry } from '@modules/tools';
-import type { PendingInteractionEntry } from '@modules/utils/pendingInteractions';
-import type { SessionScopedRegistry } from '@modules/utils/SessionScopedRegistry';
+import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
+import type { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
 import type { MessageService } from '../services/MessageService.js';
 import { buildTAORContext } from './taorContext';

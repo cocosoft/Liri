@@ -75,7 +75,7 @@ import {
   lintMermaidBlocks,
   formatMermaidIssues,
   type MermaidLintIssue,
-} from '@modules/utils/mermaidLint';
+} from '@openliri/infra/utils/mermaidLint';
 import type { LiriEvent } from '@modules/session/types/events';
 // P1-2 / P1-4（B2-4，2026-09-23）：轮级熔断 / 压缩停滞 ⇒ **落 Goal**（目标层可见"为何停下"）。
 // 注意：`tasks/` 不是 `chat/`，此处不构成"反向层依赖"（与 goalTemplates 同向）。
@@ -89,7 +89,7 @@ import { stripBareExploration } from './services/bareExplorationStripper';
 import { extractTodoData } from './services/ChatHelper';
 // 2026-11-01：工具调用纠偏（同参数重复 / 跨轮重读已读文件）外移到 manager（守 R04-001 行数）
 import { ToolCallCorrection } from './manager/toolCallCorrection';
-import { toolCallArgsKey } from '../utils/toolCallKey';
+import { toolCallArgsKey } from '@openliri/infra/utils/toolCallKey';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types';
 import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
 import {
@@ -107,7 +107,7 @@ import {
   type AgentInteractionDeps,
 } from './agentInteraction';
 // S4（2026-10-19）：待处理交互单槽的 TTL 自愈（判据处顺带清除过期条目）
-import { hasActivePendingInteraction } from '@modules/utils/pendingInteractions';
+import { hasActivePendingInteraction } from '@openliri/infra/utils/pendingInteractions';
 import { autoAnswerUnattended } from './interactionAutoApprove';
 // U-22/S1（2026-10-17）：终止输出/目标原因码外移（行为等价搬迁）
 import {

@@ -7,7 +7,7 @@
 import { describe, it, expect, mock, afterAll } from 'bun:test';
 import { EventEmitter } from 'events';
 import { spawn as realSpawn } from 'child_process';
-import { setSpawnImpl, type SpawnFn } from '../../src/utils/spawnPort.js';
+import { setSpawnImpl, type SpawnFn } from '@openliri/infra/utils/spawnPort';
 
 type FakeProc = {
   stdin: { write: ReturnType<typeof mock>; end: ReturnType<typeof mock> };

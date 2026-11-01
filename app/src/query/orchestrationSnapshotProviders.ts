@@ -13,7 +13,7 @@
 import { registerScopedSnapshotProvider } from '../state/engine/sessionSnapshot.js';
 import { getCouncilEngine } from '../workspace/CouncilEngine.js';
 import { taskOrchestrator } from '../tasks/TaskOrchestrator.js';
-import type { SnapshotHandle } from '../utils/toolContract/Tool.js';
+import type { SnapshotHandle } from '@openliri/infra/utils/toolContract/Tool';
 
 let dispose: (() => void) | null = null;
 

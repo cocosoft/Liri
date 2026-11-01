@@ -19,7 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import { deepMerge } from '../../utils/common';
+import { deepMerge } from '@openliri/infra/utils/common';
 import { applyPatch } from './PatchApplier';
 import type { LayerBundle } from './BundleManager';
 import type { LayerProfile } from './ProfileManager';

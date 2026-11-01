@@ -14,7 +14,7 @@ import {
   decodeFrame,
   encodeFrame,
   parseJobCompleted,
-} from '../../src/utils/sidecarIpc.js';
+} from '@openliri/infra/utils/sidecarIpc';
 
 describe('T1-2② B₁：侧车作业协议（复用既有帧型，零新帧）', () => {
   it('提交：payload 缺省时不塞 `payload: undefined`', () => {

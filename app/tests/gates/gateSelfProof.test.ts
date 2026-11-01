@@ -140,7 +140,7 @@ beforeAll(() => {
   // core(层 core) → utils(层 infra)：`core` 的 allowedDependencies 仅 `["core"]`
   writeFileSync(
     join(illegalDir, 'app', 'src', 'core', 'probe.ts'),
-    "import { t } from '@modules/utils/thing';\nexport const x = t;\n"
+    "import { t } from '@openliri/infra/utils/thing';\nexport const x = t;\n"
   );
   // 违规夹具同样补前置 ⇒ 让失败原因**单纯是 R00-001**（而非"缺基线"）——见上方 R05-003 注
   writeConsoleBaseline(illegalDir);

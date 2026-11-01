@@ -15,7 +15,7 @@
 import type {
   SandboxExecutionMode,
   SandboxPermissionLevel,
-} from '@modules/utils/toolContract/Tool';
+} from '@openliri/infra/utils/toolContract/Tool';
 
 import { readLandlockConfig } from './landlock/config';
 import { LandlockDetector } from './landlock/LandlockDetector';

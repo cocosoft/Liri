@@ -5,7 +5,7 @@
 import { Tool } from '../types/Tool';
 import { ToolParam } from '../types/Tool';
 // C1（2026-10-09）：工具执行 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { ToolResult } from '../types/ToolResult';
 import { ToolProgressData } from '../types/ToolProgressData';
 import * as fs from 'fs';

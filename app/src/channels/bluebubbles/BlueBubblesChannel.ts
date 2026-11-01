@@ -7,7 +7,7 @@
 
 import { BaseChannelPlugin } from '@modules/channels/base';
 // C1（2026-10-09）：guid 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type {
   IChannelPlugin,
   ChannelMeta,

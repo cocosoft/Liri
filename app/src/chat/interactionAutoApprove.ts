@@ -13,7 +13,7 @@ import { getLogger } from '@modules/monitoring';
 import {
   isUnattendedMode,
   resolveUnattendedAnswers,
-} from '@modules/utils/unattendedAnswers';
+} from '@openliri/infra/utils/unattendedAnswers';
 
 const logger = getLogger('chat:interactionAutoApprove');
 

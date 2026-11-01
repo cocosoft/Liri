@@ -1,4 +1,4 @@
-export { isEnvTruthy } from '../../utils/envUtils.js';
+export { isEnvTruthy } from '@openliri/infra/utils/envUtils';
 export function gte(a: string, b: string): boolean {
   const partsA = a.split('.').map(Number);
   const partsB = b.split('.').map(Number);

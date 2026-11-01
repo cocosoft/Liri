@@ -10,7 +10,7 @@
  * 4. 常见操作的包装（JSON序列化/反序列化、结构化克隆等）
  */
 
-import { logForDebugging } from '../utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 // 2026-10-01 D-160（`R00-001`）：存储由 `bootstrap/state.ts`（entry）归位至 performance 域
 import { addSlowOperation } from './SlowOperationStore.js';
 import { getPerformanceConfig } from './PerformanceConfig.js';

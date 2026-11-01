@@ -24,7 +24,7 @@ import { mcpConnectionManager } from './MCPConnectionManager';
 // 取用属倒挂。改**相对直连 core 模块根**（同 D-157 先例 `PermissionInterceptor.ts:40`）。
 import { dependencyRegistry } from '@openliri/kernel/DependencyRegistry.js';
 // 2026-10-01 B18-b：工具契约已下沉 `src/utils/toolContract/`（utils/infra 层）⇒ 改指新落点。
-import type { Tool } from '@modules/utils/toolContract';
+import type { Tool } from '@openliri/infra/utils/toolContract';
 
 /**
  * 2026-10-01 B18-a：工具注册**端口**。

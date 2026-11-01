@@ -4,7 +4,7 @@
  * 用于分析应用的性能指标
  */
 
-import { logForDebugging } from '../utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import os from 'os';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 import { getPhaseTimes } from './StartupProfiler.js';

@@ -5,7 +5,7 @@
  */
 import type { AuditEventType, AuditEventSeverity } from '../SecurityAudit';
 // C1（2026-10-09）：audit id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 /**
  * 审计查询过滤器

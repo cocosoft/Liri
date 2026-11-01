@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { withDeadline } from '../../src/utils/withDeadline.js';
+import { withDeadline } from '@openliri/infra/utils/withDeadline';
 
 const LONG_TIMEOUT_MS = 60_000;
 

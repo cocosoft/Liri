@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { BridgeMain } from '@modules/bridge';
 // C1（2026-10-09）：id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { type BridgeSession } from '@modules/bridge';
 import { type BridgeMessage } from '@modules/bridge';
 

@@ -45,7 +45,7 @@ import { KnowledgeGraph } from '../../src/knowledge/graph/KnowledgeGraph';
 import { getProviderManager } from '../../src/ai/providers/ProviderManager';
 import { getCredentialStore } from '../../src/ai/credentials/CredentialStore';
 import { Database } from '@openliri/infra/external';
-import { resolveContextWindowAsync } from '../../src/utils/ContextWindowResolver';
+import { resolveContextWindowAsync } from '@openliri/infra/utils/ContextWindowResolver';
 
 const ALICE: Principal = {
   tenantId: 'acme',

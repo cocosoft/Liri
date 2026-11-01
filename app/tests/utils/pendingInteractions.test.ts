@@ -11,7 +11,7 @@ import {
   createPendingInteractionEntry,
   hasActivePendingInteraction,
   type PendingInteractionEntry,
-} from '../../src/utils/pendingInteractions.js';
+} from '@openliri/infra/utils/pendingInteractions';
 
 function makeFields(): Omit<PendingInteractionEntry, 'expiresAt'> {
   return {

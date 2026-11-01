@@ -11,7 +11,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { TTLCache } from '@modules/utils/cache';
+import { TTLCache } from '@openliri/infra/utils/cache';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

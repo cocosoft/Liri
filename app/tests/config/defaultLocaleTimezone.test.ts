@@ -123,7 +123,7 @@ describe('Q-H2：默认语言 / 时区口径归一（zh-CN / Asia/Shanghai）', 
   });
 
   it('④ cron 保持"跟随系统时区"（不得误改为硬编码城市时区）', () => {
-    const code = read('utils/cron.ts');
+    const code = read('../../packages/infra/src/utils/cron.ts', APP_SRC);
     expect(code).toMatch(
       /Intl\.DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone/
     );

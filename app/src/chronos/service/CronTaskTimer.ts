@@ -4,7 +4,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 const logger = getLogger('chronos:timer');
 

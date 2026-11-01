@@ -1,1 +1,1 @@
-export { logForDebugging } from '../../utils/debug.js';
+export { logForDebugging } from '@openliri/infra/utils/debug';

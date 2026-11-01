@@ -4,10 +4,10 @@
  */
 
 import { EventEmitter } from 'events';
-import { logForDebugging } from '@modules/utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import { errorMessage } from '@modules/error';
 // C1（2026-10-09）：silence id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('monitoring\alerts\AlertManager');

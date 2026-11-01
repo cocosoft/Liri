@@ -44,7 +44,7 @@
  */
 import readline from 'node:readline';
 import { getLogger } from '@modules/monitoring';
-import { installParentLivenessGuard } from '@modules/utils/parentLiveness';
+import { installParentLivenessGuard } from '@openliri/infra/utils/parentLiveness';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   SIDECAR_JOB_SUBMIT_METHOD,
@@ -53,7 +53,7 @@ import {
   decodeFrame,
   buildHeartbeat,
   traceIdOf,
-} from '@modules/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 import {
   MediaSidecarRpcError,
   isSupportedMediaKind,

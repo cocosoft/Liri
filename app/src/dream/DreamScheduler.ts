@@ -33,7 +33,7 @@ import { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types';
 import { getLogger } from '@modules/monitoring';
 import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';
 import { SCHEDULER_CHECK_INTERVAL_MS } from '@modules/types/schedulerLifecycle';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 const logger = getLogger('dream:dreamScheduler');
 
 export type DreamTriggerCallback = (

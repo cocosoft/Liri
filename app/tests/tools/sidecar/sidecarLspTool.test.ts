@@ -44,7 +44,7 @@ import {
   SIDECAR_STARTUP_TYPE,
   encodeFrame,
   decodeFrame,
-} from '../../../src/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 import type { ToolUseContext } from '../../../src/tools/types/ToolUseContext';
 
 const ctx = {} as ToolUseContext;

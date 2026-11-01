@@ -55,7 +55,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { KnowledgeConfig } from '@modules/knowledge/KnowledgeConfig';
 import { knowledgeMonitor } from '@modules/knowledge/KnowledgeMonitor';
-import { reciprocalRankFusion, rrfMaxScore } from '@modules/utils/rrf';
+import { reciprocalRankFusion, rrfMaxScore } from '@openliri/infra/utils/rrf';
 
 const logger = new OTelAwareLogger({
   module: 'knowledge:router',

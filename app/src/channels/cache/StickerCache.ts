@@ -3,7 +3,7 @@
  * 基于 TTLCache 实现，支持容量控制和统计
  */
 
-import { TTLCache } from '@modules/utils/cache';
+import { TTLCache } from '@openliri/infra/utils/cache';
 
 /**
  * 贴纸元数据

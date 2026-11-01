@@ -7,7 +7,7 @@
 // 插件读 `process.env` **拿不到**宿主密钥 —— 其根在 `buildPluginHostEnv` 的白名单。
 import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { parentPidEnvKey } from '../../src/utils/parentLiveness';
+import { parentPidEnvKey } from '@openliri/infra/utils/parentLiveness';
 import {
   PLUGIN_HOST_ENV_DIR,
   PLUGIN_HOST_ENV_ENTRY,

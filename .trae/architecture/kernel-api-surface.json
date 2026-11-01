@@ -1871,7 +1871,7 @@
     "app/src/error/utils.ts -> @openliri/kernel/errors.js",
     "app/src/modules/index.ts -> @openliri/kernel/LazyModuleStrategy",
     "app/src/types/orchestrationEvents.ts -> @openliri/kernel/orchestrationEvents.js",
-    "app/src/utils/common.ts -> @openliri/kernel/lazySingleton.js",
+    "packages/infra/src/utils/common.ts -> @openliri/kernel/lazySingleton.js",
     "scripts/kernel-api-surface.ts -> @openliri/kernel…"
   ]
 }

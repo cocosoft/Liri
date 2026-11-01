@@ -25,8 +25,8 @@ import type { ChatSession } from '@modules/session/types/session.js';
 import type { EventLogStorage, SessionGateway } from '@modules/session';
 import { MessageToEventMigrator } from '@modules/session';
 import { shrinkToolResultMessageForPersistence } from '@modules/tools';
-import { dedupeToolCallBlocks } from '@modules/utils/chatBlocks';
-import { pickMoreCompleteContent } from '@modules/utils/common';
+import { dedupeToolCallBlocks } from '@openliri/infra/utils/chatBlocks';
+import { pickMoreCompleteContent } from '@openliri/infra/utils/common';
 import type {
   UnifiedMessage,
   FrontendMessageBlock,

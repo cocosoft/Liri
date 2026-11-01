@@ -25,13 +25,13 @@ import type {
   QuestionOption,
 } from '@modules/runtime/api/CoreAPI.js';
 import { extractTodoData, autoAnswerUnattended } from '@modules/chat';
-import { withDeadline } from '@modules/utils/withDeadline';
+import { withDeadline } from '@openliri/infra/utils/withDeadline';
 import { PENDING_INTERACTION_TTL_MS } from '@modules/constants';
 import {
   createPendingInteractionEntry,
   hasActivePendingInteraction,
   type PendingInteractionEntry,
-} from '@modules/utils/pendingInteractions';
+} from '@openliri/infra/utils/pendingInteractions';
 
 const logger = getLogger('query:chatManagerTAORAdapter');
 

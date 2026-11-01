@@ -26,7 +26,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 // A8（退避默认值合一）：重试次数默认值取自唯一真源 `utils/withRetry.ts`
-import { DEFAULT_RETRY_CONFIG } from '@modules/utils/withRetry';
+import { DEFAULT_RETRY_CONFIG } from '@openliri/infra/utils/withRetry';
 const logger = getLogger('agent:harness:index');
 
 export type HookName =

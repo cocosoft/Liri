@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 import { CouncilEngine } from '../../src/workspace/CouncilEngine.js';
-import { isSnapshotCapable } from '../../src/utils/toolContract/Tool.js';
+import { isSnapshotCapable } from '@openliri/infra/utils/toolContract/Tool';
 import type { CouncilAgentRole } from '../../src/workspace/CouncilTypes.js';
 
 const AGENTS: CouncilAgentRole[] = [

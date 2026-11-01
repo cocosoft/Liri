@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import { join } from 'path';
 // C1（2026-10-09）：诊断日志 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { getLogger } from '@modules/monitoring';
 import { resolveLogsDir } from '@modules/environment';
 import { handleError } from '@modules/error';

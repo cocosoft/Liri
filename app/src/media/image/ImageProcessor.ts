@@ -8,7 +8,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
 import fs from 'fs';
 import path from 'path';
-import { loadSharp } from '@modules/utils/externalDeps';
+import { loadSharp } from '@openliri/infra/utils/externalDeps';
 import { imageFormatDetector } from './ImageFormatDetector';
 
 const logger = getLogger('media:image');

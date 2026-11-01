@@ -24,7 +24,7 @@
 
 import { AIModelType } from '@modules/ai';
 import type { ParsedToolCall } from '@modules/ai';
-import type { HooksSettings } from '@modules/utils/settings/types.js';
+import type { HooksSettings } from '@openliri/infra/utils/settings/types';
 import type { SkillLifecycleManager } from '@modules/tools';
 
 /**

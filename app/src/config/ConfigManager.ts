@@ -38,7 +38,7 @@ import { ConfigSnapshot, createDefaultConfigSnapshot } from './ConfigSnapshot';
 import { ConfigRecovery } from './ConfigRecovery';
 import { redactConfig } from './ConfigRedactor';
 import { ConfigIO } from './io/ConfigIO';
-import { deepMerge } from '../utils/common.js';
+import { deepMerge } from '@openliri/infra/utils/common';
 import { loadUserSettings } from './settings/userSettings.js';
 import { loadProjectSettings } from './settings/projectSettings.js';
 import { loadLocalSettings } from './settings/localSettings.js';

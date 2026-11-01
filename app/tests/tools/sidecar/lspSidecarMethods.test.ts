@@ -36,7 +36,7 @@ import type {
   LspLocation,
   LspPosition,
 } from '../../../src/tools/sidecar/lspConnection';
-import { decodeFrame, encodeFrame } from '../../../src/utils/sidecarIpc';
+import { decodeFrame, encodeFrame } from '@openliri/infra/utils/sidecarIpc';
 
 const tick = (ms = 10): Promise<void> => new Promise((r) => setTimeout(r, ms));
 

@@ -16,7 +16,7 @@
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { SensitiveErrorType } from '@modules/security';
-import { recursivelySanitizeUnicode } from '@modules/utils/sanitization.js';
+import { recursivelySanitizeUnicode } from '@openliri/infra/utils/sanitization';
 import type {
   Message,
   StreamMessageOptions,

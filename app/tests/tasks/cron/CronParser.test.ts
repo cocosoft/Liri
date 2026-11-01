@@ -9,7 +9,7 @@ import {
   isValidCronExpr,
   clearCronCacheForTest,
   getCronCacheSizeForTest,
-} from '../../../src/utils/cron';
+} from '@openliri/infra/utils/cron';
 
 describe('CronParser', () => {
   // Clean cache between tests to avoid cross-test pollution

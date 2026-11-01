@@ -10,7 +10,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { handleError } from '@modules/error';
-import { TTLCache } from '@modules/utils/cache';
+import { TTLCache } from '@openliri/infra/utils/cache';
 
 import { getLogger } from '@modules/monitoring';
 import { MATRIX_SITE_URL } from '../constants';

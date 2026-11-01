@@ -7,7 +7,7 @@
 
 import { Tool } from '../types/Tool';
 // C1（2026-10-09）：会话 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam } from '../types/Tool';

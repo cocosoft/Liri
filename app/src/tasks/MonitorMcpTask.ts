@@ -4,7 +4,7 @@
 
 import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tasks:MonitorMcpTask');

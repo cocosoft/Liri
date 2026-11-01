@@ -15,14 +15,14 @@
 
 import { join } from 'path';
 // C1（2026-10-09）：plan id 熵源改用 crypto
-import { randomIdSuffix } from '../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 // PR-5：步骤结构化工具结局（类型仅在 PlanStep 上落库，无运行时依赖）
 import type { ToolOutcomeSummary } from './lro/stepHelpers';
 import type {
   ISnapshotCapable,
   SnapshotHandle,
   SnapshotFreezeScope,
-} from '../utils/toolContract/Tool.js';
+} from '@openliri/infra/utils/toolContract/Tool';
 import {
   existsSync,
   mkdirSync,

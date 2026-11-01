@@ -6,7 +6,7 @@
 
 import { Logger, LogLevel, type LoggerConfig } from '@modules/monitoring';
 // C1（2026-10-09）：traceId 熵源改用 crypto（统一 ID 工具）
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import {
   MODULE_LOG_MEMORY,
   appendLogEntry,

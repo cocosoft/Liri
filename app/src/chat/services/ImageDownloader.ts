@@ -9,7 +9,10 @@ import { getLogger } from '@modules/monitoring';
 import { buildUserAgent } from '@modules/constants';
 import { handleError } from '@modules/error/handleError';
 import { resolveCacheDir } from '@modules/environment';
-import { withRetry, DEFAULT_RETRY_CONFIG } from '@modules/utils/withRetry';
+import {
+  withRetry,
+  DEFAULT_RETRY_CONFIG,
+} from '@openliri/infra/utils/withRetry';
 import { checkSsrf, describeSsrfBlock } from '@modules/tools';
 import { imageFormatDetector } from '../../media/image/ImageFormatDetector';
 import * as crypto from 'crypto';

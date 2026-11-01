@@ -22,7 +22,7 @@ import {
   ARG_PARSE_ERROR_KEY,
   describeMissingRequiredParams,
   stripArgParseErrorKey,
-} from '@modules/utils/toolContract/argParseError';
+} from '@openliri/infra/utils/toolContract/argParseError';
 import type { ToolDefinition, ToolImplementation } from './types/ToolTypes';
 import { isWireSafeToolName, toWireToolName } from './toolNameCodec';
 import { getDefaultToolPolicyPipeline } from './policy/defaultPipeline';

@@ -4,7 +4,7 @@ import fsExtra from 'fs-extra';
 import { join, dirname, basename, resolve, normalize } from 'path';
 import matter from 'gray-matter';
 // C1（2026-10-09）：记忆 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { glob } from 'glob';
 import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
@@ -13,7 +13,7 @@ import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { resolveMemoryDir, resolveDbPath } from '@modules/environment';
 import { Database } from '@openliri/infra/external';
-import { registerShutdownHandler } from '@modules/utils/gracefulShutdown';
+import { registerShutdownHandler } from '@openliri/infra/utils/gracefulShutdown';
 import { getMemoryDriftDetector } from '../MemoryDriftDetector';
 
 const storeLogger = getLogger('memory:stores');

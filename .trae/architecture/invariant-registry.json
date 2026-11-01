@@ -240,7 +240,7 @@
       "statement": "`KnowledgeRouter.mergeResults` 对外的 `score` 必须落在 `(0, 1]`（按 `rrfMaxScore` 上界归一化、保序），且同一 `docPath` 同时被关键词路与语义路召回时 `matchType` 必须为 `'hybrid'`（单路命中保留该路原值）。",
       "sources": [
         "app/src/knowledge/KnowledgeRouter.ts",
-        "app/src/utils/rrf.ts"
+        "packages/infra/src/utils/rrf.ts"
       ],
       "tests": [
         "app/tests/utils/rrf.test.ts",

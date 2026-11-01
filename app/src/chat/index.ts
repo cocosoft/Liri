@@ -133,7 +133,7 @@ export type { FileDiffResult } from './utils/unifiedDiff';
 export {
   dedupeToolCallBlocks,
   dedupeMessagesToolCallBlocks,
-} from '@modules/utils/chatBlocks';
+} from '@openliri/infra/utils/chatBlocks';
 
 // 2026-09-24 R03-002 收敛：services/ChatHelper · yield 通路统一出口
 export { extractTodoData, repairImageUrls } from './services/ChatHelper';

@@ -6,7 +6,7 @@
  * 而非 import.meta.url 对应的虚拟路径（--compile 下形如 B:/~BUN/root/liri_terminal）。
  *
  * 用法：
- *   import { loadSharp } from '@modules/utils/externalDeps';
+ *   import { loadSharp } from '@openliri/infra/utils/externalDeps';
  *   const sharp = loadSharp();
  */
 

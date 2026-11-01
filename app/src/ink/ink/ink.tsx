@@ -17,8 +17,8 @@ const getYogaCounters = () => ({
   cacheHits: 0,
   live: 0,
 });
-import { logForDebugging, logError } from '../../utils/debug';
-import { isEnvTruthy } from '../../utils/envUtils';
+import { logForDebugging, logError } from '@openliri/infra/utils/debug';
+import { isEnvTruthy } from '@openliri/infra/utils/envUtils';
 import { configManager } from '@modules/config';
 import { colorize } from './colorize.js';
 import App from './components/App.js';

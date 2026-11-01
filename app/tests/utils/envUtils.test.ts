@@ -5,7 +5,7 @@ import {
   isDevMode,
   isProdMode,
   getConfigHomeDir,
-} from '../../src/utils/envUtils.js';
+} from '@openliri/infra/utils/envUtils';
 
 describe('isEnvTruthy', () => {
   it('should return false for undefined', () => {

@@ -18,7 +18,7 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { getPlatform } from '@modules/utils/platform';
+import { getPlatform } from '@openliri/infra/utils/platform';
 import type { AudioDevice } from './audioDeviceManager';
 import { WAV_HEADER_SIZE } from './audioUtils';
 

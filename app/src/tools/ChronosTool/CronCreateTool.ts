@@ -5,7 +5,7 @@
 
 import { Tool } from '../types/Tool';
 // C1（2026-10-09）：cron id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 import { CronCreateOutputJsonSchema } from './schemas';
@@ -188,7 +188,8 @@ export class CronCreateTool {
 
           // 解析调度
           const { parseSchedule } = await import('@modules/chronos');
-          const { computeNextCronRun } = await import('@modules/utils/cron');
+          const { computeNextCronRun } =
+            await import('@openliri/infra/utils/cron');
           const { CronJobStore } =
             await import('@modules/tasks/cron/CronJobStore');
           const { resolveDbPath } = await import('@modules/environment');

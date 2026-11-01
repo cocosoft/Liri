@@ -30,7 +30,7 @@ export {
   computeMissedRuns,
   isValidCronExpr,
   getCronDescription,
-} from '@modules/utils/cron';
+} from '@openliri/infra/utils/cron';
 export type {
   DeliveryQueueConfig,
   DeliveryQueueEntry,

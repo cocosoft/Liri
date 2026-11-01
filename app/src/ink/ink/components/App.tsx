@@ -2,8 +2,8 @@ import { configManager } from '@modules/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import React, { PureComponent, type ReactNode } from 'react';
-import { logForDebugging, logError } from '../../../utils/debug.js';
-import { isEnvTruthy } from '../../../utils/envUtils.js';
+import { logForDebugging, logError } from '@openliri/infra/utils/debug';
+import { isEnvTruthy } from '@openliri/infra/utils/envUtils';
 
 // 替换缺失的导?
 const updateLastInteractionTime = () => {};

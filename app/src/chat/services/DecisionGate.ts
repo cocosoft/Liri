@@ -14,7 +14,7 @@
 
 import { getLogger } from '@modules/monitoring';
 // C1（2026-10-09）：门控 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 const logger = getLogger('chat:decisionGate');
 

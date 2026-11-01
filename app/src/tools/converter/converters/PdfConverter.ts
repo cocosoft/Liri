@@ -8,7 +8,7 @@ import { pathToFileURL } from 'url';
 import {
   loadExternal,
   resolvePdfjsDistPath,
-} from '@modules/utils/externalDeps';
+} from '@openliri/infra/utils/externalDeps';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:converter:converters:PdfConverter');

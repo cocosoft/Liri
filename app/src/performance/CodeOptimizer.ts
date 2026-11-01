@@ -3,7 +3,7 @@
  * 提供常用的代码性能优化函数和工具
  */
 
-import { logForDebugging } from '../utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import { slowLogging } from './SlowOperations.js';
 
 import { getLogger } from '@modules/monitoring';

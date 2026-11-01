@@ -14,7 +14,7 @@ import { getLogger } from '@modules/monitoring';
 import { resolveOutputDir } from '@modules/environment';
 import { handleError } from '@modules/error/handleError';
 // C1（2026-10-09）：temp file id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 
 const logger = getLogger('media:tempFile');
 

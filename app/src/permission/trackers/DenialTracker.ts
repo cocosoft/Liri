@@ -7,7 +7,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 // C1（2026-10-09）：拒绝事件 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { metrics } from '@opentelemetry/api';
 import type { Counter } from '@opentelemetry/api';
 import { permissionMetrics } from '../metrics/PermissionMetricsStore';

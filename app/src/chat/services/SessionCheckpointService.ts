@@ -1,6 +1,6 @@
 import type { Message } from '@modules/session/types/message';
 // C1（2026-10-09）：检查点 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type {
   SessionMetadata,
   DataSessionStatus,

@@ -12,7 +12,7 @@ import { describe, it, expect } from 'bun:test';
 import { join, resolve } from 'path';
 import { tmpdir } from 'os';
 import { findWorkspaceEscape } from '../../src/tasks/lro/workspaceGuard.js';
-import { findWorkspaceEscape as fromUtils } from '../../src/utils/toolContract';
+import { findWorkspaceEscape as fromUtils } from '@openliri/infra/utils/toolContract/index';
 
 const workspace = join(tmpdir(), 'lro-ws-guard');
 

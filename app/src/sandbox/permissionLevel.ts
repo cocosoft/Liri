@@ -19,7 +19,7 @@
 
 import { configManager } from '@modules/config';
 import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
-import type { SandboxPermissionLevel } from '@modules/utils/toolContract/Tool';
+import type { SandboxPermissionLevel } from '@openliri/infra/utils/toolContract/Tool';
 
 /**
  * P1-2（2026-10-27）：权限级别 → 权限位（**单一事实源**）。

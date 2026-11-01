@@ -5,7 +5,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 // C1（2026-10-09）：规则 id 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 // B7 解环（2026-11-01）：枚举已下沉 common（security 也要按 DENY 判等），此处同名转出
 import { PermissionBehavior } from '@openliri/infra/common';
 

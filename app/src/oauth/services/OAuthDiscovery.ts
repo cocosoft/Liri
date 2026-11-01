@@ -10,7 +10,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { TTLCache } from '@modules/utils/cache';
+import { TTLCache } from '@openliri/infra/utils/cache';
 import type { OAuthServerMetadata } from '../types/OAuthDiscoveryTypes';
 
 const logger = getLogger('OAuthDiscovery');

@@ -34,13 +34,13 @@ import {
   getRequestPermissionRole,
   getRequestPrincipal,
 } from '@openliri/kernel/identity/requestScope.js';
-import { ToolExecutionStatus } from '@modules/utils/toolContract/ToolResult';
-import { isMediaOutputToolName } from '@modules/utils/toolContract/toolRoles';
+import { ToolExecutionStatus } from '@openliri/infra/utils/toolContract/ToolResult';
+import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 // U-02 v2 / P3（2026-10-20）：工作区边界判定（与 LRO 共用同一纯函数，实现落 utils 避免 chat↔tasks 环）
 import {
   findWorkspaceEscape,
   findWorkspaceEscapeInRoots,
-} from '@modules/utils/toolContract';
+} from '@openliri/infra/utils/toolContract';
 import type { ToolName } from '@modules/constants/toolNames.generated';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
@@ -62,7 +62,7 @@ import { withToolTimeout } from './ToolTimeoutWrapper.js';
 import {
   createFileStateCacheWithSizeLimit,
   type FileStateCache,
-} from '../../utils/fileStateCache';
+} from '@openliri/infra/utils/fileStateCache';
 import type {
   ToolCall,
   ToolResult,

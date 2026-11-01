@@ -44,7 +44,7 @@ import {
 import {
   lintMermaidBlocks,
   formatMermaidIssues,
-} from '@modules/utils/mermaidLint';
+} from '@openliri/infra/utils/mermaidLint';
 import { renderGoalTemplate } from '../../constants/goalTemplates';
 import { createFragment, renderFragment } from '@modules/context';
 import {
@@ -102,7 +102,7 @@ import type { SessionSummarizer } from '../services/SessionSummarizer.js';
 import type { PdcaLauncher } from '../launchers/PdcaLauncher.js';
 import type { Span } from '@opentelemetry/api';
 import { securityService } from '../services/SecurityService.js';
-import { recursivelySanitizeUnicode } from '@modules/utils/sanitization.js';
+import { recursivelySanitizeUnicode } from '@openliri/infra/utils/sanitization';
 import { SensitiveErrorType } from '@modules/security';
 import type { SessionCheckpointService } from '../services/SessionCheckpointService.js';
 import type { ChatManagerTAORContext } from '@modules/query';

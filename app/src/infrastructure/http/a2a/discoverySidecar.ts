@@ -49,7 +49,7 @@ import {
   encodeFrame,
   decodeFrame,
   buildHeartbeat,
-} from '@modules/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 import {
   handleDiscoveryRequest,
   type A2ADiscoverySnapshot,

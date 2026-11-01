@@ -611,7 +611,11 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('B5-2⑥：`FENCE_RE` ×4 已按域消歧（正则一字未改）', () => {
     // 4 处同名 `FENCE_RE`：2 处**围栏行**正则（`^\s*```）· 2 处**围栏块**正则（```…```）
     const items: Array<[string, string, string]> = [
-      ['src/utils/structureCut.ts', 'STRUCTURE_CUT_FENCE_RE', '/^\\s*```/'],
+      [
+        '../packages/infra/src/utils/structureCut.ts',
+        'STRUCTURE_CUT_FENCE_RE',
+        '/^\\s*```/',
+      ],
       [
         'src/channels/messageSplitter.ts',
         'MESSAGE_SPLITTER_FENCE_RE',
@@ -1722,10 +1726,12 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(managed).not.toMatch(/(^|[^_A-Za-z])const SAFE_ENV_VARS\s*=/);
     expect(managed).toContain('export const SAFE_MANAGED_ENV_VARS = new Set([');
     expect(read('src/config/index.ts')).toContain('SAFE_MANAGED_ENV_VARS,');
-    const bash = read('src/utils/bash/ast.ts');
+    const bash = read('../packages/infra/src/utils/bash/ast.ts');
     expect(bash).not.toMatch(/(^|[^_A-Za-z])const SAFE_ENV_VARS\s*=/);
     expect(bash).toContain('export const BASH_SAFE_ENV_VARS = new Set([');
-    expect(read('src/utils/bash/index.ts')).toContain('BASH_SAFE_ENV_VARS,');
+    expect(read('../packages/infra/src/utils/bash/index.ts')).toContain(
+      'BASH_SAFE_ENV_VARS,'
+    );
   });
 
   test('B5-2-56：`VALID_STATUSES` ×2 已按域消歧（task 五态 / todo 三态，异值异域）', () => {

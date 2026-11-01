@@ -24,7 +24,7 @@ import {
   buildJobSubmit,
   encodeFrame,
   decodeFrame,
-} from '../../../src/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 
 async function waitFor(
   cond: () => boolean,

@@ -16,7 +16,7 @@ import {
   findStructuralCut,
   closeStructure,
   inferFenceLang,
-} from '@modules/utils/structureCut';
+} from '@openliri/infra/utils/structureCut';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 

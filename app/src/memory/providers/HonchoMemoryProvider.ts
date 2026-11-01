@@ -19,7 +19,7 @@ import type {
 } from './ExternalMemoryProvider';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
-import { withRetry, RetryableError } from '@modules/utils/withRetry';
+import { withRetry, RetryableError } from '@openliri/infra/utils/withRetry';
 const logger = getLogger('memory:providers:honcho');
 
 export interface HonchoConfig {

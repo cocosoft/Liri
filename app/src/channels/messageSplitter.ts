@@ -32,7 +32,7 @@
  *   重开（每片自身围栏成对，Markdown 渲染不吞后续内容）。
  * - **内容无损**：各分片按序拼接，正文行序列与原内容一致（补的围栏除外）。
  */
-import { bracketDelta } from '@modules/utils/structureCut';
+import { bracketDelta } from '@openliri/infra/utils/structureCut';
 
 const FENCE = '```';
 const MESSAGE_SPLITTER_FENCE_RE = /^\s*```/;

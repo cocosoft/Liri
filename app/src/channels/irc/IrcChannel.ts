@@ -14,8 +14,8 @@ import type {
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
-import { TTLCache } from '@modules/utils/cache';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { TTLCache } from '@openliri/infra/utils/cache';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:irc:IrcChannel');

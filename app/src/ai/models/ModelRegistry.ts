@@ -39,7 +39,7 @@ import { registerScopedResource } from '@openliri/kernel/identity/scopedResource
 import {
   clearModelWindowsForOwner,
   setModelWindow,
-} from '@modules/utils/ContextWindowResolver';
+} from '@openliri/infra/utils/ContextWindowResolver';
 
 const logger = getLogger('ai:registry');
 

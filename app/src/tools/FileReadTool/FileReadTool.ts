@@ -12,7 +12,7 @@ import {
 } from '@modules/error';
 import { getReadProtectionService } from '@modules/security';
 import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
-import { resolveReadFileState } from '../../utils/fileStateCache';
+import { resolveReadFileState } from '@openliri/infra/utils/fileStateCache';
 import type { FileOperationResult } from '../types/ToolResult';
 
 export interface FileReadInput {

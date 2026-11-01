@@ -18,7 +18,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { TTLCache } from '@modules/utils/cache';
+import { TTLCache } from '@openliri/infra/utils/cache';
 
 import { getLogger } from '@modules/monitoring';
 import { GOOGLE_API_BASE_URL, GOOGLE_OAUTH2_BASE_URL } from '@openliri/kernel';

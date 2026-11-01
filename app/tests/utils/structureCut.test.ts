@@ -36,7 +36,7 @@ import {
   getStructureNativeStats,
   resetStructureNativeForTest,
   setNativeStructureCloserLoader,
-} from '../../src/utils/structureCut';
+} from '@openliri/infra/utils/structureCut';
 
 /** 前缀的括号是否平衡（净深度 0） */
 const balanced = (s: string): boolean =>

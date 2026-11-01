@@ -42,7 +42,7 @@ import {
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '../../error/handleError';
 // C1（2026-10-09）：traceId 熵源改用 crypto（统一 ID 工具）
-import { randomIdSuffix, sleep } from '../../utils/common';
+import { randomIdSuffix, sleep } from '@openliri/infra/utils/common';
 import {
   claimMessage,
   releaseProcessing,

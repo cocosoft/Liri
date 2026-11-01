@@ -17,7 +17,7 @@
 
 import { getToolCategory } from '../../tools/index.js';
 // PR-5：审批状态的**唯一事实源**（避免在 tasks 里裸写状态字面量，state-ratchet 门禁）
-import { ToolExecutionStatus } from '@modules/utils/toolContract/ToolResult';
+import { ToolExecutionStatus } from '@openliri/infra/utils/toolContract/ToolResult';
 
 /**
  * 安全策略拦截的**显式标记**判定（2026-10-08）。

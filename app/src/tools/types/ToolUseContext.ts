@@ -5,4 +5,4 @@
  * 依用户裁定「方案甲」明确接受本组转发文件。目标消费方
  * （`services/mcp/McpToolWrapper.ts`、`mcp/MCPTool.ts`）已直指新落点。
  */
-export * from '@modules/utils/toolContract/ToolUseContext';
+export * from '@openliri/infra/utils/toolContract/ToolUseContext';

@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { SessionScopedRegistry } from '../../src/utils/SessionScopedRegistry.js';
+import { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
 
 const SEP = '::turnsX';
 

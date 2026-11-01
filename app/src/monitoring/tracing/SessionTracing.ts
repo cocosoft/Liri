@@ -10,7 +10,7 @@ import {
   Context,
 } from '@opentelemetry/api';
 import { AsyncLocalStorage } from 'async_hooks';
-import { logForDebugging } from '@modules/utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import { errorMessage } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { APP_VERSION } from '@modules/constants';

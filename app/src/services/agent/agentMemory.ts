@@ -5,8 +5,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveDataDir, resolveProjectRoot } from '@modules/environment';
-import { getConfigHomeDir } from '@modules/utils/envUtils';
-import { getCwd } from '@modules/utils/cwd';
+import { getConfigHomeDir } from '@openliri/infra/utils/envUtils';
+import { getCwd } from '@openliri/infra/utils/cwd';
 
 import { configManager } from '@modules/config';
 

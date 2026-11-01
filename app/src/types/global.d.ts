@@ -2,7 +2,7 @@
  * 全局类型声明
  */
 
-declare module '../utils/gracefulShutdown.js' {
+declare module '@openliri/infra/utils/gracefulShutdown' {
   export function registerShutdownHandler(
     handler: () => void | Promise<void>
   ): void;

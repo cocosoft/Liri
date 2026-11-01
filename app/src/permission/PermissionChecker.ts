@@ -33,14 +33,14 @@ import {
 } from './types/RiskClass';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
-import { isShellToolName } from '@modules/utils/toolContract/toolRoles';
-import type { ToolSandboxLevel } from '@modules/utils/toolContract/Tool';
-import { findWorkspaceEscape } from '@modules/utils/toolContract/pathBoundary';
-import { PATH_ARG_KEYS } from '@modules/utils/toolContract/pathArgs';
+import { isShellToolName } from '@openliri/infra/utils/toolContract/toolRoles';
+import type { ToolSandboxLevel } from '@openliri/infra/utils/toolContract/Tool';
+import { findWorkspaceEscape } from '@openliri/infra/utils/toolContract/pathBoundary';
+import { PATH_ARG_KEYS } from '@openliri/infra/utils/toolContract/pathArgs';
 // PR-3b（2026-10-23）：沙箱豁免判定（纯函数，§3.9.4 S1–S4）
 import { resolveSandboxExemption } from './sandboxExemption';
 // Q-16（2026-10-23）：命令规则匹配语义（prefix / regex，单点实现，见 utils）
-import { matchesAnyCommandRule } from '@modules/utils/commandRuleMatch';
+import { matchesAnyCommandRule } from '@openliri/infra/utils/commandRuleMatch';
 import { feature } from '@openliri/kernel';
 const logger = getLogger('permission:checker');
 

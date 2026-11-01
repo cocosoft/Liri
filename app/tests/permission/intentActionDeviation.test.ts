@@ -13,7 +13,7 @@ import {
   classifyAction,
   classifyIntent,
   detectIntentActionDeviation,
-} from '../../src/utils/toolContract/intentActionDeviation.js';
+} from '@openliri/infra/utils/toolContract/intentActionDeviation';
 
 describe('classifyIntent：意图分类', () => {
   it('只读词命中且无变更词 ⇒ read-only（中英文）', () => {

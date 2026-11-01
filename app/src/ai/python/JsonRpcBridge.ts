@@ -24,7 +24,7 @@ import {
   encodeFrame,
   decodeFrame,
   isCompatibleVersion,
-} from '@modules/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 const logger = getLogger('ai:python:jsonRpcBridge');
 
 /** 请求默认超时 (ms) */

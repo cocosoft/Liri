@@ -8,7 +8,7 @@
  * （由调用方对 cloud Provider 放行——OpenAI Whisper API 原生支持 webm/ogg）。
  */
 
-import { getSpawnImpl } from '@modules/utils/spawnPort';
+import { getSpawnImpl } from '@openliri/infra/utils/spawnPort';
 
 import { getLogger } from '@modules/monitoring';
 import { isFFmpegAvailable } from './audioFormatConverter.js';

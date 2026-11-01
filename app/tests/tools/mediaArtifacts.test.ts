@@ -15,7 +15,7 @@ import {
   mediaArtifactDetail,
   primaryMediaArtifact,
   resolveMediaArtifacts,
-} from '../../src/utils/toolContract/mediaArtifacts.js';
+} from '@openliri/infra/utils/toolContract/mediaArtifacts';
 
 describe('mediaArtifacts 声明表', () => {
   it('未登记的工具（含 MCP / 未知名）⇒ undefined（不 fail-open）', () => {

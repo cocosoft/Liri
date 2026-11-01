@@ -58,7 +58,7 @@ import {
   SIDECAR_STARTUP_TYPE,
   decodeFrame,
   encodeFrame,
-} from '../../../src/utils/sidecarIpc';
+} from '@openliri/infra/utils/sidecarIpc';
 
 const fakeLsScript = fileURLToPath(
   new URL('../fixtures/fakeLspMethodsServer.js', import.meta.url)

@@ -39,7 +39,7 @@ import {
   type DerivationDiff,
   type DerivedMessage,
 } from '@modules/session';
-import { dedupeMessagesToolCallBlocks } from '@modules/utils/chatBlocks';
+import { dedupeMessagesToolCallBlocks } from '@openliri/infra/utils/chatBlocks';
 import {
   alignPageStartToTurn,
   extendPageStartToWholeRounds,
@@ -53,7 +53,7 @@ import {
   buildSessionRoundSummaries,
   type SessionRoundSummariesResult,
 } from './roundSummaries';
-import { LRUCache } from '../../utils/cache';
+import { LRUCache } from '@openliri/infra/utils/cache';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { SessionManager } from '@modules/session/types/session';
 import type {

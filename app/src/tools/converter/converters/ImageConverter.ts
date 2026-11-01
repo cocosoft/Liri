@@ -3,7 +3,7 @@ import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
 import { AppError, handleError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
-import { loadSharp } from '@modules/utils/externalDeps';
+import { loadSharp } from '@openliri/infra/utils/externalDeps';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:converter:converters:ImageConverter');

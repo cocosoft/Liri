@@ -28,7 +28,7 @@ import { handleError } from '@modules/error';
 import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@openliri/kernel';
 import { WeixinCliManager, type CliStatus } from './cli-manager';
 import { splitMessage } from '../messageSplitter';
-import { SafeInterval } from '@modules/utils/SafeInterval';
+import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:wechat:WechatChannel');

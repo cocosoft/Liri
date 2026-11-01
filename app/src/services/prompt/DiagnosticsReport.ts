@@ -6,7 +6,7 @@
  */
 // 2026-10-01 D-212（子批 E，`services -> ai` 倒挂收口）：`getCachedTiktokenEncoder` 实现已
 // **改归 infra**（`utils/TiktokenEstimator.ts`，`ai/tokenizer/` 仅转出）⇒ 改**相对直连 infra 模块根**。
-import { getCachedTiktokenEncoder } from '../../utils/TiktokenEstimator.js';
+import { getCachedTiktokenEncoder } from '@openliri/infra/utils/TiktokenEstimator';
 
 export interface CategoryBreakdown {
   category: string;

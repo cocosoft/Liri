@@ -13,7 +13,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   matchesAnyCommandRule,
   matchesCommandRule,
-} from '../../src/utils/commandRuleMatch.js';
+} from '@openliri/infra/utils/commandRuleMatch';
 
 describe('Q-16 命令规则匹配：prefix（默认）', () => {
   it('命令以规则开头 ⇒ 命中', () => {

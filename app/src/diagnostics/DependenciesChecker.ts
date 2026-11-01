@@ -10,7 +10,7 @@
 import { accessSync, constants, statSync } from 'fs';
 import { join } from 'path';
 import { configManager } from '@modules/config';
-import { execFileNoThrow } from '@modules/utils/execFileNoThrow';
+import { execFileNoThrow } from '@openliri/infra/utils/execFileNoThrow';
 
 /**
  * 外部命令检查项

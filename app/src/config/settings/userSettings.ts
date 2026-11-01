@@ -9,7 +9,7 @@ import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@modules/error/handleError.js';
 
 const logger = getLogger('UserSettings');
-import { deepMerge } from '@modules/utils/common.js';
+import { deepMerge } from '@openliri/infra/utils/common';
 import { resolvePyappHome } from '@modules/environment';
 
 /**

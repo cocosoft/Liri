@@ -28,7 +28,7 @@ import { configManager, enableConfigs } from '@modules/config';
 import { initializeCommands } from '@modules/commands';
 import { profileCheckpoint, profileReport } from '@modules/performance';
 // @ts-ignore
-import * as gracefulShutdownModule from '@modules/utils/gracefulShutdown.js';
+import * as gracefulShutdownModule from '@openliri/infra/utils/gracefulShutdown';
 const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
   gracefulShutdownModule as unknown as {
     gracefulShutdown: () => void;
@@ -449,7 +449,7 @@ async function startDeferredPrefetches(): Promise<void> {
       // 预加载历史管理器
       (async () => {
         try {
-          await import('../utils/history.js');
+          await import('@openliri/infra/utils/history');
         } catch (error) {
           // 忽略预加载错�?
         }

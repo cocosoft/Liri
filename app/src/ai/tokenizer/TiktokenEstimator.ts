@@ -11,4 +11,4 @@
  *
  * @see ../../utils/TiktokenEstimator.ts 规范定义
  */
-export * from '../../utils/TiktokenEstimator.js';
+export * from '@openliri/infra/utils/TiktokenEstimator';

@@ -23,7 +23,7 @@ import {
   withRetry,
   RetryableError,
   type RetryConfig,
-} from '@modules/utils/withRetry';
+} from '@openliri/infra/utils/withRetry';
 import {
   interactiveToMarkdown,
   markdownToText,

@@ -4,7 +4,7 @@
  * 用于监控和优化应用的内存使用
  */
 
-import { logForDebugging } from '../utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import { configManager } from '@modules/config';
 import {
   getPerformanceConfig,

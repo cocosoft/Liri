@@ -4,7 +4,7 @@ import {
   logForDebugging,
   getHasFormattedOutput,
   logError,
-} from '../../src/utils/debug.js';
+} from '@openliri/infra/utils/debug';
 
 describe('isDebugMode', () => {
   it('should return false when DEBUG env is not set', () => {

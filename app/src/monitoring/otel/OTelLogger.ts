@@ -5,7 +5,7 @@
 
 import { diag, DiagLogLevel } from '@opentelemetry/api';
 import type { DiagLogger } from '@opentelemetry/api';
-import { logForDebugging } from '@modules/utils/debug.js';
+import { logForDebugging } from '@openliri/infra/utils/debug';
 import { errorMessage } from '@modules/error';
 import { configManager } from '@modules/config';
 

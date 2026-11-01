@@ -23,7 +23,7 @@ import {
   getArgParseError,
   stripArgParseErrorKey,
   withArgParseError,
-} from '../../src/utils/toolContract/argParseError.js';
+} from '@openliri/infra/utils/toolContract/argParseError';
 import { TransportProviderAdapter } from '../../src/ai/transports/TransportProviderAdapter.js';
 import type { NormalizedResponse } from '../../src/ai/transports/types.js';
 

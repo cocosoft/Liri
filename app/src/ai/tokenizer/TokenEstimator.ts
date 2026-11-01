@@ -18,7 +18,7 @@ import type { ChatMessage } from '../models/types';
 import { getTiktokenCount } from './TiktokenEstimator';
 import { getCachedTiktokenEncoder } from './TiktokenEstimator';
 import { getLogger } from '@modules/monitoring';
-import { TOOL_RESULT_MAX_LENGTH } from '@modules/utils/toolResultLimits';
+import { TOOL_RESULT_MAX_LENGTH } from '@openliri/infra/utils/toolResultLimits';
 
 const logger = getLogger('ai:tokenizer');
 

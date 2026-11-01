@@ -37,7 +37,7 @@
 
 import { getLogger } from '@modules/monitoring';
 // C1（2026-10-09）：桥接 messageId 熵源改用 crypto
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import {
   routeChannelMessage,

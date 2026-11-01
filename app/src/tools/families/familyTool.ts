@@ -25,7 +25,7 @@ import type {
   ToolCallProgress,
   ToolValidationResult,
 } from '../types';
-import type { ToolRiskClass } from '../../utils/toolContract/Tool';
+import type { ToolRiskClass } from '@openliri/infra/utils/toolContract/Tool';
 
 /** 判别字段名（目前只有 `op` / `mode` 两种形态，见各族声明） */
 export type FamilyDiscriminator = 'op' | 'mode';

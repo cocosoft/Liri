@@ -48,7 +48,7 @@ import {
   type SandboxStrategy,
 } from './sandboxStrategy.js';
 import { isAsExpected, summarizeTask } from './scoring.js';
-import { withRetry, RetryableError } from '@modules/utils/withRetry';
+import { withRetry, RetryableError } from '@openliri/infra/utils/withRetry';
 import { evaluateProcessRules } from './processAssertions';
 
 /** 一次流式对话的结果 */

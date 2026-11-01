@@ -3,7 +3,7 @@
  * 将 Gemini 的 native content/parts 格式归一化为 NormalizedResponse
  */
 import { BaseTransport } from './BaseTransport';
-import { randomIdSuffix } from '../../utils/common';
+import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type {
   NormalizedResponse,
   NormalizedToolCall,

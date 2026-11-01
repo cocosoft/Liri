@@ -19,7 +19,7 @@ import {
   findStructuralResume,
   closeStructure,
   inferFenceLang,
-} from '../src/utils/structureCut';
+} from '@openliri/infra/utils/structureCut';
 
 const LIMITS = [4_000, 8_000, 16_000];
 const BENCH_MAX_FILES = 400;

@@ -22,7 +22,7 @@ import {
   isFenceOpen,
   closeStructure,
   inferFenceLang,
-} from '@modules/utils/structureCut';
+} from '@openliri/infra/utils/structureCut';
 const logger = getLogger('context:compaction:snip');
 
 export interface SnipEngineOptions {

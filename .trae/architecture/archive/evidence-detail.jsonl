@@ -7548,3 +7548,17 @@
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"tests#2","i":0,"c":"app/tests/infrastructure"}
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"tests#3","i":0,"c":"app/tests/gates"}
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"changelog#0","i":0,"c":"P1 解环 B5：config/cache/daemon 出环（日志门面 + env 等价入口 + 指标注入端口，SCC 9→6）"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"title","i":0,"c":"P1 解环 B6：monitoring 出环 —— phaseStack 归位 common、删零调用的文件级 cron 注册入口（SCC 6→2）"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"source","i":0,"c":"monitoring 只剩 2 条回环边（→diagnostics 的 withPhaseSync 插桩、→chronos 的动态 import）；清掉后 chronos / diagnostics / memory 也一并出环。"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"reopenWhen","i":0,"c":"环成员剩 permission ↔ security 两元环：permission→security（审计日志、ALL_UNIFIED_RULES 规则表）与 security→permission（RuleManager、PermissionMode）都是运行时服务，需专项设计（规则表下沉叶子或改注入），非机械替换。"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"notes","i":0,"c":"phaseStack 零依赖（仅模块内状态 + Date.now），git mv 到 common 且实现逐字未改；diagnostics 保留同名转出 ⇒ 4 处测试深路径 + loopProbe 内部 import 改指向新位置。删除 registerArchivalCronTask / unregisterArchivalCronTask（全仓含测试/"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"notes","i":1,"c":"文档零调用，CD01-06 全零命中）；本仓实际使用的是 setupArchivalScheduler（纯内存，不依赖 chronos）。同步两处基线：infra-cycle-baseline 6→2、hardcode-gate-baseline 键随改名（计数不变）。"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#0","i":0,"c":"app/src/common/phaseStack.ts"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#1","i":0,"c":"app/src/diagnostics/index.ts"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#2","i":0,"c":"app/src/monitoring/MonitoringService.ts"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#3","i":0,"c":"app/src/monitoring/archival/archivalCronTask.ts"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"tests#0","i":0,"c":"app/tests/diagnostics"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"tests#1","i":0,"c":"app/tests/chat"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"tests#2","i":0,"c":"app/tests/constants"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"tests#3","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"changelog#0","i":0,"c":"P1 解环 B6：monitoring 出环（phaseStack 归位 common + 删零调用 cron 注册，SCC 6→2）"}

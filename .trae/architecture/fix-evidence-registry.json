@@ -16029,6 +16029,40 @@
       ],
       "reopenWhen": "环成员剩 6（chronos/diagnostics/memory/monitoring/permission/security）：monitoring 只剩 2 条回环边（→diagnostics 的 withPhaseSync、→chronos 的动态 import），是下一个最小切口。（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON）",
       "notes": "日志 12 处 getLogger → @openliri/kernel/loggerFacade（config 4 / cache 5 / daemon 3）；cache 的 Liri_CACHE_DIR 改走 utils/envAccess.readUtilEnv（B4 已建等价性测试）；daemon 指标上报改…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON）"
+    },
+    {
+      "id": "INFRA-CYCLE-B6-MONITORING-EXIT",
+      "title": "P1 解环 B6：monitoring 出环 —— phaseStack 归位 common、删零调用的文件级 cron 注册入口（SCC 6→2）",
+      "source": "monitoring 只剩 2 条回环边（→diagnostics 的 withPhaseSync 插桩、→chronos 的动态 import）；清掉后 chronos / diagnostics / memory 也一并出环。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/common/phaseStack.ts",
+        "app/src/diagnostics/index.ts",
+        "app/src/monitoring/MonitoringService.ts",
+        "app/src/monitoring/archival/archivalCronTask.ts"
+      ],
+      "tests": [
+        "app/tests/diagnostics",
+        "app/tests/chat",
+        "app/tests/constants",
+        "app/tests/gates"
+      ],
+      "changelog": [
+        "P1 解环 B6：monitoring 出环（phaseStack 归位 common + 删零调用 cron 注册，SCC 6→2）"
+      ],
+      "reopenWhen": "环成员剩 permission ↔ security 两元环：permission→security（审计日志、ALL_UNIFIED_RULES 规则表）与 security→permission（RuleManager、PermissionMode）都是运行时服务，需专项设计（规则表下沉叶子或改注入），非机械替换。（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B6-MONITORING-EXIT）",
+      "notes": "phaseStack 零依赖（仅模块内状态 + Date.now），git mv 到 common 且实现逐字未改；diagnostics 保留同名转出 ⇒ 4 处测试深路径 + loopProbe 内部 import 改指向新位置。删除 registerArchivalCronTask / unregisterAr…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B6-MONITORING-EXIT）"
     }
   ]
 }

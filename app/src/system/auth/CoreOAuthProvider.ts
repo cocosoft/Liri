@@ -9,8 +9,8 @@ import {
   AuthorizeOptions,
   OAuthToken,
   UserInfo,
-} from '@modules/oauth';
-import { OAuthClient, OAuthConfig } from '@modules/oauth';
+} from '@openliri/infra/oauth';
+import { OAuthClient, OAuthConfig } from '@openliri/infra/oauth';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 import { OAUTH_AUTH_BASE_URL } from '@openliri/infra/constants';

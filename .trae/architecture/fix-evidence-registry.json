@@ -5306,9 +5306,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/oauth/utils/OAuthCrypto.ts",
-        "app/src/oauth/OAuthProviderStore.ts",
-        "app/src/oauth/services/OAuthStorage.ts",
+        "packages/infra/src/oauth/utils/OAuthCrypto.ts",
+        "packages/infra/src/oauth/OAuthProviderStore.ts",
+        "packages/infra/src/oauth/services/OAuthStorage.ts",
         "app/src/services/voice/services/audioUtils.ts",
         "app/src/services/voice/services/audioPlayer.ts",
         "app/src/services/voice/services/playbackManager.ts",

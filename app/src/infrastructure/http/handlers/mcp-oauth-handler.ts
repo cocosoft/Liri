@@ -26,7 +26,7 @@ async function resolveOAuthConfig(
   oauth: McpOAuthConfig,
   callbackBase: string
 ): Promise<MCPOAuthConfig> {
-  const { OAuthDiscovery } = await import('@modules/oauth');
+  const { OAuthDiscovery } = await import('@openliri/infra/oauth');
 
   // 通过 authServerMetadataUrl 自动发现 OAuth 端点
   const discovery = new OAuthDiscovery();

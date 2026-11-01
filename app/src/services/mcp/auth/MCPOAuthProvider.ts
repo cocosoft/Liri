@@ -9,8 +9,8 @@ import {
   AuthorizeOptions,
   OAuthToken,
   UserInfo,
-} from '@modules/oauth';
-import { OAuthClient } from '@modules/oauth';
+} from '@openliri/infra/oauth';
+import { OAuthClient } from '@openliri/infra/oauth';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('mcp:auth:oauthProvider');
 

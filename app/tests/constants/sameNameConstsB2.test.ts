@@ -97,7 +97,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B2b：AES-256-GCM 参数真源在 oauth/utils/OAuthCrypto.ts；两 store 以别名引用（加密实现逐字不动）', () => {
-    const truth = read('src/oauth/utils/OAuthCrypto.ts');
+    const truth = read('../packages/infra/src/oauth/utils/OAuthCrypto.ts');
     expect(truth).toMatch(
       /export const OAUTH_CIPHER_ALGORITHM = 'aes-256-gcm';/
     );
@@ -106,8 +106,8 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(truth).toMatch(/export const OAUTH_CIPHER_KEY_LENGTH = 32;/);
     expect(truth).toMatch(/export const OAUTH_PBKDF2_ITERATIONS = 100000;/);
     for (const rel of [
-      'src/oauth/OAuthProviderStore.ts',
-      'src/oauth/services/OAuthStorage.ts',
+      '../packages/infra/src/oauth/OAuthProviderStore.ts',
+      '../packages/infra/src/oauth/services/OAuthStorage.ts',
     ]) {
       const src = read(rel);
       // 不再各自定义参数常量...
@@ -126,12 +126,12 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain('OAUTH_PBKDF2_ITERATIONS as ITERATIONS');
     }
     // 盐已**改名消歧**但**值不变**（两处本就不同值 ⇒ 存量密文照常解密）
-    expect(read('src/oauth/OAuthProviderStore.ts')).toContain(
+    expect(read('../packages/infra/src/oauth/OAuthProviderStore.ts')).toContain(
       "'pyapp-oauth-provider-salt-v1'"
     );
-    expect(read('src/oauth/services/OAuthStorage.ts')).toContain(
-      "'pyapp-oauth-salt-v2'"
-    );
+    expect(
+      read('../packages/infra/src/oauth/services/OAuthStorage.ts')
+    ).toContain("'pyapp-oauth-salt-v2'");
   });
 
   test('B2b：WAV_HEADER_SIZE 真源在 services/voice/services/audioUtils.ts；三处消费侧改引真源', () => {

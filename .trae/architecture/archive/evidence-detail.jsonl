@@ -2909,9 +2909,9 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"notes","i":13,"c":"**202 pass / 0 fail（785 expect）**；`typecheck`（app 三 tsconfig）**0**；`eslint`（7 个改动文件）**0 问题**；4 硬编码门禁全 **exit 0**；`lint:arch` **错误 0 / 警告 5（无回归）**。**如实边界**：① `src/services/voice` **"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"notes","i":14,"c":"无既有测试**（该次合跑的 202 例全部来自 `tests/http` ⇒ voice 侧贡献 0）—— `WAV_HEADER_SIZE` 的等价性证据为「**字面值同为 44 + 纯引用替换**」+ `typecheck`，**非**行为测试；② **未做真机走查**（`e2eVerified=false`）；③ 两处加密实现仍重复（见 `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"notes","i":15,"c":"reopenWhen` ①，属需独立立项的专项）；④ 别名导入手法是本片**有意**的取舍（最小 diff vs 名称同形），已在代码注释与台账两处说明。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#0","i":0,"c":"app/src/oauth/utils/OAuthCrypto.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#1","i":0,"c":"app/src/oauth/OAuthProviderStore.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#2","i":0,"c":"app/src/oauth/services/OAuthStorage.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#0","i":0,"c":"packages/infra/src/oauth/utils/OAuthCrypto.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#1","i":0,"c":"packages/infra/src/oauth/OAuthProviderStore.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#2","i":0,"c":"packages/infra/src/oauth/services/OAuthStorage.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#3","i":0,"c":"app/src/services/voice/services/audioUtils.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#4","i":0,"c":"app/src/services/voice/services/audioPlayer.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#5","i":0,"c":"app/src/services/voice/services/playbackManager.ts"}

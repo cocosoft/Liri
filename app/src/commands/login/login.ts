@@ -5,7 +5,7 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { OAuthService } from '@modules/oauth';
+import { OAuthService } from '@openliri/infra/oauth';
 import { executePostLogin } from '@modules/system/auth/post-login.js';
 import { configManager } from '@modules/config';
 

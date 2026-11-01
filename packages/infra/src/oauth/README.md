@@ -19,7 +19,7 @@ OAuth模块已集成到Liri项目中，无需额外安装。
 ### 1. 基本使用
 
 ```typescript
-import { OAuthDiscovery, OAuthClient, OAuthTokenManager } from '@modules/oauth';
+import { OAuthDiscovery, OAuthClient, OAuthTokenManager } from '@openliri/infra/oauth';
 
 // 创建OAuth配置
 const config = {
@@ -52,7 +52,7 @@ const tokens = await client.exchangeCodeForToken({
 ### 2. 使用OAuth Discovery
 
 ```typescript
-import { OAuthDiscovery } from '@modules/oauth';
+import { OAuthDiscovery } from '@openliri/infra/oauth';
 
 const discovery = new OAuthDiscovery();
 
@@ -69,7 +69,7 @@ const config = discovery.buildOAuthConfig(result.metadata, 'your-client-id', [
 ### 3. Token持久化
 
 ```typescript
-import { createOAuthStorage } from '@modules/oauth';
+import { createOAuthStorage } from '@openliri/infra/oauth';
 
 const storage = createOAuthStorage('~/.pyapp/oauth/tokens');
 
@@ -92,7 +92,7 @@ await storage.deleteToken('server-key');
 ### 4. Token管理
 
 ```typescript
-import { OAuthTokenManager } from '@modules/oauth';
+import { OAuthTokenManager } from '@openliri/infra/oauth';
 
 const manager = new OAuthTokenManager({
   storage: createOAuthStorage(),
@@ -112,7 +112,7 @@ await manager.deleteToken('server-key');
 ### 5. 动态客户端注册
 
 ```typescript
-import { DynamicClientReg } from '@modules/oauth';
+import { DynamicClientReg } from '@openliri/infra/oauth';
 
 const clientReg = new DynamicClientReg({
   registrationEndpoint: 'https://auth.example.com/oauth/register',

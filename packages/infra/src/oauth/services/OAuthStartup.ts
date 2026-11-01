@@ -4,7 +4,7 @@
  * 实现启动时OAuth Token并行预加载策略
  */
 
-import { createOAuthStorage } from '@modules/oauth';
+import { createOAuthStorage } from './OAuthStorage';
 import { configManager } from '@modules/config';
 import { OAUTH_API_BASE_URL } from '@openliri/infra/constants';
 

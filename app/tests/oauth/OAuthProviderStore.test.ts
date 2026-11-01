@@ -9,7 +9,7 @@ import { describe, expect, it, afterAll } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createOAuthProviderStore } from '../OAuthProviderStore';
+import { createOAuthProviderStore } from '@openliri/infra/oauth/OAuthProviderStore';
 
 const tmpDirs: string[] = [];
 

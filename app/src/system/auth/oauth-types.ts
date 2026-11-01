@@ -55,7 +55,7 @@ export type SubscriptionType = 'pro' | 'max' | 'team' | 'enterprise' | null;
 export type RateLimitTier = string | null;
 export type BillingType = string | null;
 
-export type { OAuthConfig } from '@modules/oauth/types';
+export type { OAuthConfig } from '@openliri/infra/oauth/types';
 
 export interface OAuthProfileInfo {
   subscriptionType: SubscriptionType;

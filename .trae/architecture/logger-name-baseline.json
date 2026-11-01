@@ -132,7 +132,7 @@
       "app/src/commands/doctor/DoctorCommand.ts"
     ],
     "EnhancedOAuthClient": [
-      "app/src/oauth/services/EnhancedOAuthClient.ts"
+      "packages/infra/src/oauth/services/EnhancedOAuthClient.ts"
     ],
     "ErrorHandler": [
       "packages/kernel/src/core/utils/ErrorHandler.ts"
@@ -189,10 +189,10 @@
       "app/src/chronos/maintenance/nativeInstaller.ts"
     ],
     "OAuthDiscovery": [
-      "app/src/oauth/services/OAuthDiscovery.ts"
+      "packages/infra/src/oauth/services/OAuthDiscovery.ts"
     ],
     "OAuthStorage": [
-      "app/src/oauth/services/OAuthStorage.ts"
+      "packages/infra/src/oauth/services/OAuthStorage.ts"
     ],
     "Onboard": [
       "app/src/commands/builtin/onboard/Onboard.ts"
@@ -255,7 +255,7 @@
       "app/src/promptSuggestion/SuggestionFilter.ts"
     ],
     "TokenManager": [
-      "app/src/oauth/services/TokenManager.ts"
+      "packages/infra/src/oauth/services/TokenManager.ts"
     ],
     "ToolHookManager": [
       "app/src/hooks/managers/ToolHookManager.ts"
@@ -504,10 +504,10 @@
       "app/src/monitoring/tracing/SessionTracing.ts"
     ],
     "oauth\\services\\OAuthService": [
-      "app/src/oauth/services/OAuthService.ts"
+      "packages/infra/src/oauth/services/OAuthService.ts"
     ],
     "oauth\\types\\OAuthTypes": [
-      "app/src/oauth/types/OAuthTypes.ts"
+      "packages/infra/src/oauth/types/OAuthTypes.ts"
     ],
     "permission\\EnhancedPermissionEngine": [
       "app/src/permission/EnhancedPermissionEngine.ts"

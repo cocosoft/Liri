@@ -26,7 +26,7 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
-import { createOAuthProviderStore } from '@modules/oauth';
+import { createOAuthProviderStore } from '@openliri/infra/oauth';
 
 const providerStore = createOAuthProviderStore();
 

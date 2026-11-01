@@ -116,6 +116,14 @@
     "./cost/*": {
       "types": "./src/cost/*.ts",
       "import": "./src/cost/*.ts"
+    },
+    "./oauth": {
+      "types": "./src/oauth/index.ts",
+      "import": "./src/oauth/index.ts"
+    },
+    "./oauth/*": {
+      "types": "./src/oauth/*.ts",
+      "import": "./src/oauth/*.ts"
     }
   },
   "scripts": {

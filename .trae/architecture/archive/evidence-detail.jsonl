@@ -8178,3 +8178,24 @@
 {"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"tests#0","i":0,"c":"app/tests/state/stateMachineCatalog.test.ts"}
 {"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"tests#1","i":0,"c":"app/tests/state/toolCallStatusSingleSource.test.ts"}
 {"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"tests#2","i":0,"c":"app/tests/execution/executionStoreOwnerScope.test.ts"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"title","i":0,"c":"P30：services 迁入 packages/service（173 文件；aiOpsPorts 下沉 + 5 处跨层依赖反转）"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §七"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"reopenWhen","i":0,"c":"① streaming/voice/bridge 现在可迁（其 `../services/api` 等依赖已在包内）⇒ 下一批按 §七判据筛；② 若包内再需第三方依赖 ⇒ 先验「bun 经包 tsconfig paths 能否解析」（目录形态对 zod/growthbook 可用，uuid 不可 ⇒ 已改 node:crypto）；③ `ports` 目录若并入某模块 ⇒ 同步改 modules-to-layers 与 R8 归属。"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"notes","i":0,"c":"迁包：services 173 文件（18 子域）git mv 至 packages/service/src/services；**4 个目录入口**（extractMemories/mcp/mcp\\/types/voice）在 exports 单列精确条目（`./services/*` 会拼成 `*.ts`，P21 同型）。别名：87 文件改包别名；51 文件相对引用（解析进 services）同步改别名；包内自引 5 文件改相对。"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"notes","i":1,"c":"**端口下沉**：`runtime/api/aiOpsPorts.ts`（270 行纯类型，service→service 端口）下沉为 `packages/service/src/ports/aiOpsPorts.ts`，app 侧 5 处改 `@openliri/service/ports/aiOpsPorts`；modules-to-layers 新增 `ports`（virtual, service）供 R8 的 app 侧归属校验（否则报「未登记为 service」）。"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"notes","i":2,"c":"**跨层依赖反转（5 处）**：① PromptAssembler 静态 getCoreAPI ⇒ 注入 `setPromptCoreApiProvider`（未注入抛 AppError/CONFIGURATION）；② attachments 方法内动态 import knowledge ⇒ 注入 `setAttachmentIngestionPortLoader`（保持懒加载）；③ PluginMCPToolServer 的 MCPToolDefinition/PluginRegistration ⇒ 包内类型 + 最小结构契约 PluginRegistrationLike；④ MCPToolRegistry 的 Tool ⇒ RegisteredToolHandle=unknown（只存取）；⑤ FileRegistry 的 uuid ⇒ node:crypto.randomUUID()。注入点在 preflight 的 wireServiceDeps()（并入 wireUtilsDeps 调用，main.ts 零增行）。"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"notes","i":3,"c":"包 tsconfig 三个必填项：`@openliri/service/*` 自引用（否则包拉入的 app 文件用包别名即 TS2307）、第三方 paths（zod 目录形态可用；modelcontextprotocol/sdk 需指 dist/esm；growthbook 目录可用）、`../infra/src/bun-env.d.ts`。**实测**：bun 读包 tsconfig paths，目录形态对 zod/growthbook 有效、对 uuid 无效。"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"notes","i":4,"c":"资源根：PromptVersionManager 的 PROMPT_RESOURCE_ROOT 增加「上移 5 级到仓库根 /app/prompts」候选（原 3 级随迁失效 ⇒ lint:prompt-parity 报 MANIFEST_MISSING）。台账随迁 121 条 + 证据 code[] 26 + kernel-api-surface 重生成。"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"notes","i":5,"c":"读源码文本守卫随迁 6 处：sameNameConstsB2（32）· userAgentSingleSource（6）· instanceExplicitPath · sdkStdioTrackBoundary · localeParity · promptExportParity · defaultLocaleTimezone（含 VoiceProvider 双处）；sdkClientApiShape 增加包扫描面（否则受检规模 <20 空集）。校验：两侧 typecheck 绿；CI 9766 pass · 0 fail；探针通过；R8 反证点名 services/mcp/index.ts:470。"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"code#0","i":0,"c":"packages/service/src/services/mcp/index.ts"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"code#1","i":0,"c":"packages/service/src/services/prompt/PromptAssembler.ts"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"code#2","i":0,"c":"packages/service/src/services/file/attachments.ts"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"code#3","i":0,"c":"packages/service/src/services/file/FileRegistry.ts"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"code#4","i":0,"c":"packages/service/src/ports/aiOpsPorts.ts"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"code#5","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"code#6","i":0,"c":"packages/service/package.json"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"code#7","i":0,"c":"packages/service/tsconfig.json"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"code#8","i":0,"c":"scripts/modules-to-layers.json"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"tests#1","i":0,"c":"app/tests/mcp/sdkClientApiShape.test.ts"}
+{"id":"SERVICE-PACKAGE-P30-SERVICES","k":"tests#2","i":0,"c":"app/tests/config/defaultLocaleTimezone.test.ts"}

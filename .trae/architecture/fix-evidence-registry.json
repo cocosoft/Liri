@@ -17153,6 +17153,42 @@
       "changelog": [],
       "reopenWhen": "① 若继续迁 service 模块（streaming/voice/bridge）⇒ 它们有运行期同层依赖（`../services/api`、`runtime`），必须先迁被依赖方或改注入，**不能**让 service 包运行期引 app；② 若包内需要新核心类型 ⇒ 走下 core 而非放宽 forbidden…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P29-EXECUTION）",
       "notes": "为何是 execution：在 service 候选（remote/mcp/execution/streaming/voice/bridge/runtime）里唯一满足「运行期零 app 依赖」者 —— 对 `session` 的 4 处依赖全为 `import type`（LiriEvent/LiriEventMa…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P29-EXECUTION）"
+    },
+    {
+      "id": "SERVICE-PACKAGE-P30-SERVICES",
+      "title": "P30：services 迁入 packages/service（173 文件；aiOpsPorts 下沉 + 5 处跨层依赖反转）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §七",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/service/src/services/mcp/index.ts",
+        "packages/service/src/services/prompt/PromptAssembler.ts",
+        "packages/service/src/services/file/attachments.ts",
+        "packages/service/src/services/file/FileRegistry.ts",
+        "packages/service/src/ports/aiOpsPorts.ts",
+        "app/src/bootstrap/preflight.ts",
+        "packages/service/package.json",
+        "packages/service/tsconfig.json",
+        "scripts/modules-to-layers.json"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        "app/tests/mcp/sdkClientApiShape.test.ts",
+        "app/tests/config/defaultLocaleTimezone.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① streaming/voice/bridge 现在可迁（其 `../services/api` 等依赖已在包内）⇒ 下一批按 §七判据筛；② 若包内再需第三方依赖 ⇒ 先验「bun 经包 tsconfig paths 能否解析」（目录形态对 zod/growthbook 可用，uuid 不可 ⇒ 已改 node:…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P30-SERVICES）",
+      "notes": "迁包：services 173 文件（18 子域）git mv 至 packages/service/src/services；**4 个目录入口**（extractMemories/mcp/mcp\\/types/voice）在 exports 单列精确条目（`./services/*` 会拼成 `*.ts`，P21…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P30-SERVICES）"
     }
   ]
 }

@@ -15960,6 +15960,40 @@
       ],
       "reopenWhen": "utils 仍在环内（config 8 / cache 2 / security 2 + utils/config.ts）；启动面棘轮已 +1 文件（storageScope 在 paths 静态调用链上），后续再进启动面须先核对 lint:startup-graph。（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B3-ENV-SECURITY-SCOPE）",
       "notes": "storageScope 零 I/O（node:crypto / node:path + kernel principal/requestScope），security/identity 保留同名转出 ⇒ tenantPurge 与既有测试零改动；paths.ts 改本地相对导入。R7 基线 12→10：cache/…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B3-ENV-SECURITY-SCOPE）"
+    },
+    {
+      "id": "INFRA-CYCLE-B4-UTILS-EXIT",
+      "title": "P1 解环 B4：utils 出环 —— 删 4 个零引用文件、env 读取收敛、缓存契约下沉（SCC 10→9）",
+      "source": "utils 还剩 28 条出边 / 7 目标；边分析指出只有 13 条构成回环（constants 2 与 external 1 不可达 utils）。实际把 4 条随零引用文件一并删除，剩 8 条 env 读取改走等价入口、1 条缓存契约下沉。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/utils/envAccess.ts",
+        "app/src/common/types.ts",
+        "app/src/cache/types.ts",
+        "app/src/utils/cache.ts",
+        "scripts/lint-architecture.ts"
+      ],
+      "tests": [
+        "app/tests/utils/envAccess.test.ts",
+        "app/tests/utils",
+        "app/tests/gates"
+      ],
+      "changelog": [
+        "P1 解环 B4：utils 出环（删零引用文件 + env 读取收敛 + 缓存契约下沉，SCC 10→9）"
+      ],
+      "reopenWhen": "环成员剩 9 个（cache/chronos/config/daemon/diagnostics/memory/monitoring/permission/security）；若 utils 新增对上述模块的引用，R7 立即回退到 B4 前。（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B4-UTILS-EXIT）",
+      "notes": "删除依据见 62586d6ab（CD01-06：静态/动态/构建入口/DI/测试/变体全零命中；唯一动态入口是已坏且零引用的 legacy 命令）。env 等价性由 tests/utils/envAccess.test.ts 守护（configManager.env 语义一变即红）。ICache/CacheStats…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B4-UTILS-EXIT）"
     }
   ]
 }

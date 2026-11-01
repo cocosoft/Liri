@@ -7518,3 +7518,18 @@
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#4","i":0,"c":"app/tests/tasks"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"changelog#0","i":0,"c":"P1 解环 B3：storageScope 归位 environment，拆 2 元环（SCC 12→10）"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"notes","i":1,"c":"（2026-11-01 B4）其中 utils/secureStorage.ts 因**零引用**已删除 ⇒ 该路径从 code 证据中移出，改名事实仍见其余 3 个文件与提交历史。"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"title","i":0,"c":"P1 解环 B4：utils 出环 —— 删 4 个零引用文件、env 读取收敛、缓存契约下沉（SCC 10→9）"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"source","i":0,"c":"utils 还剩 28 条出边 / 7 目标；边分析指出只有 13 条构成回环（constants 2 与 external 1 不可达 utils）。实际把 4 条随零引用文件一并删除，剩 8 条 env 读取改走等价入口、1 条缓存契约下沉。"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"reopenWhen","i":0,"c":"环成员剩 9 个（cache/chronos/config/daemon/diagnostics/memory/monitoring/permission/security）；若 utils 新增对上述模块的引用，R7 立即回退到 B4 前。"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"notes","i":0,"c":"删除依据见 62586d6ab（CD01-06：静态/动态/构建入口/DI/测试/变体全零命中；唯一动态入口是已坏且零引用的 legacy 命令）。env 等价性由 tests/utils/envAccess.test.ts 守护（configManager.env 语义一变即红）。ICache/CacheStats 契约下沉 common，"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"notes","i":1,"c":"cache/types.ts 同名转出。"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"code#0","i":0,"c":"app/src/utils/envAccess.ts"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"code#1","i":0,"c":"app/src/common/types.ts"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"code#2","i":0,"c":"app/src/cache/types.ts"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"code#3","i":0,"c":"app/src/utils/cache.ts"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"code#4","i":0,"c":"scripts/lint-architecture.ts"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"tests#0","i":0,"c":"app/tests/utils/envAccess.test.ts"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"tests#1","i":0,"c":"app/tests/utils"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"tests#2","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"changelog#0","i":0,"c":"P1 解环 B4：utils 出环（删零引用文件 + env 读取收敛 + 缓存契约下沉，SCC 10→9）"}
+{"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"notes","i":1,"c":"连带：历史证据 HARDCODE-SAME-NAME-CONSTS-B5-2-79 的 code 证据含被删文件 ⇒ 已同步移出该路径并补 notes（否则 lint:fix-evidence 会阻断提交）。"}

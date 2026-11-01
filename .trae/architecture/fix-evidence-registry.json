@@ -16158,6 +16158,38 @@
       "changelog": [],
       "reopenWhen": "新增 infra 物理包子目录或新的 packages/* 源码根时，须同批确认其进入 lint:arch 扫描根（否则规则静默失焦）（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P3-ARCH-SCAN）",
       "notes": "按内核先例以**独立扫描根**再跑一遍全部规则（不并入 app 实例，否则包内文件的模块归属会按 app/src 目录结构误判、并与内核实例重复扫描）。包内文件经相对包根的路径参与判定（external/sqlite3.ts，与 lint:infra 口径一致）。A/B 实测：改动前 2 个扫描根（4107 / 89…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P3-ARCH-SCAN）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P4-GATE-SCAN",
+      "title": "P4：6 个门禁补齐 packages/kernel|infra 扫描面（门禁静默失明收口）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §四/§五；P3 之后同类的「按目录枚举」缺口",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lint-unref.ts",
+        "scripts/lint-logger-name.ts",
+        "scripts/lint-legacy-env.ts",
+        "scripts/lint-models.ts",
+        "scripts/lint-no-module-mock.ts",
+        "scripts/lint-architecture.ts",
+        "app/scripts/lint-complexity-ratchet.ts"
+      ],
+      "tests": [
+        "app/tests/gates"
+      ],
+      "changelog": [],
+      "reopenWhen": "新增 packages/* 源码根、或某个门禁新增「按目录枚举」逻辑时，须同批确认扫描根覆盖（否则静默失明、门禁照常绿）（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P4-GATE-SCAN）",
+      "notes": "a) 5 个文本型门禁（unref / logger-name / legacy-env / models / no-module-mock）补 packages/infra/src —— 它们此前含内核根但不含 infra 包。b) lint:complexity 增第二 ESLint 实例（仓根 cwd + 最小…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P4-GATE-SCAN）"
     }
   ]
 }

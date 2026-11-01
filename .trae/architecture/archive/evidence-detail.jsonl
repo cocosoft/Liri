@@ -7598,3 +7598,17 @@
 {"id":"INFRA-PACKAGE-P3-ARCH-SCAN","k":"notes","i":1,"c":" 3），错误 0、警告 5 逐字一致（零回归）。仍未覆盖（如实）：R00-001 对 `@openliri/infra/<m>` 别名的出边不解析（该方向由 lint:infra R6 守：core 不得依赖 infra）。"}
 {"id":"INFRA-PACKAGE-P3-ARCH-SCAN","k":"code#0","i":0,"c":"scripts/lint-architecture.ts"}
 {"id":"INFRA-PACKAGE-P3-ARCH-SCAN","k":"tests#0","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"title","i":0,"c":"P4：6 个门禁补齐 packages/kernel|infra 扫描面（门禁静默失明收口）"}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §四/§五；P3 之后同类的「按目录枚举」缺口"}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"reopenWhen","i":0,"c":"新增 packages/* 源码根、或某个门禁新增「按目录枚举」逻辑时，须同批确认扫描根覆盖（否则静默失明、门禁照常绿）"}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"notes","i":0,"c":"a) 5 个文本型门禁（unref / logger-name / legacy-env / models / no-module-mock）补 packages/infra/src —— 它们此前含内核根但不含 infra 包。b) lint:complexity 增第二 ESLint 实例（仓根 cwd + 最小内联配置）：flat config 以 "}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"notes","i":1,"c":"cwd 为基路径，包外文件被整体忽略（实测报 All files ... are ignored）；complexity 是纯语法规则，无需 type-aware project。c) lint:arch 的 R15-001/R15-002 由写死 app/src 改为本实例扫描根 —— 否则三个扫描根会重复上报同一孤儿，且包内 *OutputSchema "}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"notes","i":2,"c":"从未受检。未改（如实）：lint:architecture-boundaries（L1/W4 条目是 app 模块形状：agent / query/TAORLoop / tools）与 lint:entrypoints（运行入口面，内核/infra 按设计无入口）——包内无对应对象，改根只会制造空跑。"}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"code#0","i":0,"c":"scripts/lint-unref.ts"}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"code#1","i":0,"c":"scripts/lint-logger-name.ts"}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"code#2","i":0,"c":"scripts/lint-legacy-env.ts"}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"code#3","i":0,"c":"scripts/lint-models.ts"}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"code#4","i":0,"c":"scripts/lint-no-module-mock.ts"}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"code#5","i":0,"c":"scripts/lint-architecture.ts"}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"code#6","i":0,"c":"app/scripts/lint-complexity-ratchet.ts"}
+{"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"tests#0","i":0,"c":"app/tests/gates"}

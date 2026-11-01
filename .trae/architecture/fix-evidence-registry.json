@@ -16132,6 +16132,32 @@
       ],
       "reopenWhen": "P3 扩面前必须复核：lint:arch 的非分层规则（R01/R02/R04 等）仍只扫 app/src ⇒ 包内新增文件不受其约束；扩面需先补这些门禁，否则仍是静默盲区。（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P2-EXTERNAL）",
       "notes": "77 处导入改 @openliri/infra/external（74 个 src/tests + 2 个 app/scripts + 4 处相对深路径）；四处扫描面补齐：hardcodeScan SCAN_DIRS、lint-consts 的 D-2 前缀、lint:size 的 srcDirs、以及 lint:i…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P2-EXTERNAL）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P3-ARCH-SCAN",
+      "title": "P3：lint:arch 扫描面覆盖 packages/infra/src（包内文件不再失检）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §4.1 / §五-P3",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lint-architecture.ts"
+      ],
+      "tests": [
+        "app/tests/gates"
+      ],
+      "changelog": [],
+      "reopenWhen": "新增 infra 物理包子目录或新的 packages/* 源码根时，须同批确认其进入 lint:arch 扫描根（否则规则静默失焦）（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P3-ARCH-SCAN）",
+      "notes": "按内核先例以**独立扫描根**再跑一遍全部规则（不并入 app 实例，否则包内文件的模块归属会按 app/src 目录结构误判、并与内核实例重复扫描）。包内文件经相对包根的路径参与判定（external/sqlite3.ts，与 lint:infra 口径一致）。A/B 实测：改动前 2 个扫描根（4107 / 89…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P3-ARCH-SCAN）"
     }
   ]
 }

@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INFRA-PACKAGE-P3-ARCH-SCAN**：P3：lint:arch 以第三扫描根覆盖 packages/infra/src —— 验证 tsc0|tests9539|arch0|infra0|gates12；基线 lint:arch 只枚举 app/src ⇒ 迁包文件失去非分层规则覆盖（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P3-ARCH-SCAN）
 - ✅ **INFRA-PACKAGE-P2-EXTERNAL**：P2：external 迁入 packages/infra（负向自证通过） —— 验证 tsc0|tests9539|eslint0|infra0|arch0；基线 external 3 文件在 app/src，R5 扫描面只含 app/src（迁出后会「0 处」）（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P2-EXTERNAL）
 - ✅ **INFRA-CYCLE-B7-PERMISSION-SECURITY**：B7：permission/security 出环（SCC 2→0） —— 验证 tsc0|tests9539|eslint0|infra0|consts0；基线 环成员 2，security→permission 4 条 import / 3 文件（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-B7-PERMISSION-SECURITY）
 - ✅ **INFRA-CYCLE-B6-MONITORING-EXIT**：B6：monitoring 出环（SCC 6→2） —— 验证 tsc0|tests9538|eslint0|infra0|consts0；基线 环成员 6，monitoring 的回环边 2 条（diagnostics / chronos）（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-B6-MONITORING-EXIT）

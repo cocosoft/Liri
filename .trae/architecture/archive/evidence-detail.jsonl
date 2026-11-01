@@ -7687,3 +7687,24 @@
 {"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"tests#2","i":0,"c":"app/tests/constants/kindTags.test.ts"}
 {"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"tests#3","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}
 {"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"tests#4","i":0,"c":"app/tests/gates/infraPackageBoundary.test.ts"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"title","i":0,"c":"P8：environment 迁入 packages/infra（4 文件 / 560 处引用）"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.6"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"reopenWhen","i":0,"c":"① 若 core 需要路径计算 ⇒ 按 AC-09 补注入式 `core/paths` 纯子集，不得从 core 反向引用本包；② 若 `paths.ts` 再引入 `import.meta` 相对定位 ⇒ 迁移已改变仓库层级，需按 `packages/infra/src/environment` 重算。"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"notes","i":0,"c":"迁包：git mv 4 文件 + 560 处引用改 @openliri/infra/environment（包内 utils 8 处同批）；`paths.ts` 只依赖 process.cwd()/os.homedir()，无 import.meta 层级假设 ⇒ 行为不变。扫描面：lint:doc-alias 原把**任何** @openliri/x/y "}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"notes","i":1,"c":"当内核子路径（@openliri/infra/environment ⇒ head=nvironment）⇒ 按第二个路径段分流（kernel 走 KERNEL_PUBLIC_SUBPATHS，infra 走 tsconfig 键）；eslint 禁令别名、state-literal 路径键、证据 9 条 code[] 同步。main.ts 达 2000 行"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"notes","i":2,"c":"上限（R04-001 从仓根跑才暴露）⇒ 把动态 import 并入既有静态导入（同源模块，零行为变化）。负向自证：包内 import \"@modules/chat\" ⇒ R6 倒挂点名 environment/mediaRoots.ts；文档写 @openliri/infra/nonexistent ⇒ lint:doc-alias 报「infra 包未导"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"notes","i":3,"c":"出」（临时文件已删）。"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"code#0","i":0,"c":"packages/infra/src/environment/index.ts"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"code#1","i":0,"c":"packages/infra/src/environment/paths.ts"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"code#2","i":0,"c":"packages/infra/src/environment/mediaRoots.ts"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"code#3","i":0,"c":"packages/infra/src/environment/storageScope.ts"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"code#4","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"code#5","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"code#6","i":0,"c":"scripts/lint-doc-alias.ts"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"code#7","i":0,"c":"app/src/main.ts"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"code#8","i":0,"c":"app/eslint.config.js"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"code#9","i":0,"c":".trae/architecture/state-literal-baseline.json"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"code#10","i":0,"c":".trae/rules/project_rules.md"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"tests#0","i":0,"c":"app/tests/environment/pathsResolvers.test.ts"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"tests#1","i":0,"c":"app/tests/paths/resolveProjectRootRuntimeExe.test.ts"}
+{"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"tests#2","i":0,"c":"app/tests/workspace/workspaceConfigDirSingleSource.test.ts"}

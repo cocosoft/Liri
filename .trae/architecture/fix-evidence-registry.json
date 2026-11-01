@@ -16331,6 +16331,44 @@
       "changelog": [],
       "reopenWhen": "① 若 constants 需回到 app/src（如 core 层必须引用）⇒ 门禁扫描根与 3 份基线键须同批回改；② 若 constants 下再分子目录 ⇒ lint:consts 的 readdir 不递归、D-1/D-2 会漏检，须扩展扫描面。（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P7-CONSTANTS）",
       "notes": "迁包：git mv 20 文件 + 163 处引用改 @openliri/infra/constants（含 5 处包内自引）；common.ts 版本号仍读 app/package.json（上溯四级，APP_VERSION 不变）。扫描面：lint:consts 的 CONSTANTS_DIR/D-2 允许位置/…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P7-CONSTANTS）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P8-ENVIRONMENT",
+      "title": "P8：environment 迁入 packages/infra（4 文件 / 560 处引用）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.6",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/environment/index.ts",
+        "packages/infra/src/environment/paths.ts",
+        "packages/infra/src/environment/mediaRoots.ts",
+        "packages/infra/src/environment/storageScope.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json",
+        "scripts/lint-doc-alias.ts",
+        "app/src/main.ts",
+        "app/eslint.config.js",
+        ".trae/architecture/state-literal-baseline.json",
+        ".trae/rules/project_rules.md"
+      ],
+      "tests": [
+        "app/tests/environment/pathsResolvers.test.ts",
+        "app/tests/paths/resolveProjectRootRuntimeExe.test.ts",
+        "app/tests/workspace/workspaceConfigDirSingleSource.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 core 需要路径计算 ⇒ 按 AC-09 补注入式 `core/paths` 纯子集，不得从 core 反向引用本包；② 若 `paths.ts` 再引入 `import.meta` 相对定位 ⇒ 迁移已改变仓库层级，需按 `packages/infra/src/environment` 重算。（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P8-ENVIRONMENT）",
+      "notes": "迁包：git mv 4 文件 + 560 处引用改 @openliri/infra/environment（包内 utils 8 处同批）；`paths.ts` 只依赖 process.cwd()/os.homedir()，无 import.meta 层级假设 ⇒ 行为不变。扫描面：lint:doc-alias 原把…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P8-ENVIRONMENT）"
     }
   ]
 }

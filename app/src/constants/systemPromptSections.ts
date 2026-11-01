@@ -10,7 +10,7 @@
  * @kind-default A（段框架 / 缓存断点 / 段名清单 —— 协议与结构常量）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 
 const logger = getLogger('constants:systemPromptSections');
 
@@ -283,22 +283,33 @@ export async function resolveSystemPromptSections(
 /**
  * 清除所有系统提示词段落缓存
  * 在/clear和/compact时调用
+ *
+ * 2026-11-01（P1 解环）：`constants` 不再出现 `@modules/memory` 引用（静态/动态都算 R7 的边），
+ * 解冻实现改由 app 层启动期注入（`bootstrap/preflight.wireConstantsDeps`）。
  */
+let frozenSnapshotUnfreezer: () => Promise<void> = async () => {};
+
+/** 注入解冻实现（返回 disposer；未注入 ⇒ no-op） */
+export function setFrozenSnapshotUnfreezer(
+  unfreeze: () => Promise<void>
+): () => void {
+  const previous = frozenSnapshotUnfreezer;
+  frozenSnapshotUnfreezer = unfreeze;
+  return () => {
+    frozenSnapshotUnfreezer = previous;
+  };
+}
+
 export function clearSystemPromptSections(): void {
   sectionCache.clear();
   memoryContentHash = '';
   for (const clear of _sectionCacheClearers) clear();
   // 2026-10-20（静态导入图瘦身 P2 #2）：**不再静态 import `@modules/memory`**。
-  // 之前这里唯一的用途是 `getFrozenSnapshotService().unfreezeAll()`，而静态 import 会把
-  // `memory`（40 文件 / 342 KB）整个拉进启动图（它是 `constants → memory` 的**唯一**静态边）。
-  // ⇒ 改为动态 import：只在"清段落缓存"这一步才加载 memory；失败只记日志（缓存已清，属旁路动作）。
-  // 语义差异（如实）：unfreeze 由**同步**变为**随后异步**完成 —— 二者无先后依赖
-  // （下一次提示词组装本身是异步的），且该导出在全仓**当前无调用方**。
-  void import('@modules/memory')
-    .then((m) => m.getFrozenSnapshotService().unfreezeAll())
-    .catch((err: unknown) => {
-      logger.warning('清理冻结快照失败（段落缓存已清理，不影响提示词重建）', {
-        error: String(err),
-      });
+  // 2026-11-01（P1 解环）：连动态 import 也移除 —— `constants → memory` 是 R7 环里的一条边，
+  // 改由 app 层注入解冻实现；未注入时为空操作（与"无调用方"时等价）。
+  void frozenSnapshotUnfreezer().catch((err: unknown) => {
+    logger.warning('清理冻结快照失败（段落缓存已清理，不影响提示词重建）', {
+      error: String(err),
     });
+  });
 }

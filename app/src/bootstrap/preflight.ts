@@ -43,6 +43,10 @@ import { setOfflineMode } from '../entrypoints/shared-state.js';
 import { probeExternalModule } from '../utils/externalDeps.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError, setAPISceneEnvReader } from '@modules/error';
+import {
+  setConstantsEnvReader,
+  setFrozenSnapshotUnfreezer,
+} from '@modules/constants';
 
 const logger = getLogger('main');
 
@@ -112,6 +116,20 @@ function getDataDir(): string {
  */
 export function wireErrorModuleDeps(): void {
   setAPISceneEnvReader((name) => configManager.env(name));
+}
+
+/**
+ * P1 解环（2026-11-01）：把 `constants` 的两处外部能力接到 app 层。
+ *
+ * `constants` 曾直接依赖 `config`（env 读取）与 `memory`（动态 import 解冻快照），
+ * 二者都在 infra 的同一 SCC 里 ⇒ 抽出为注入，`constants` 只剩同层内部引用。
+ */
+export function wireConstantsDeps(): void {
+  setConstantsEnvReader((name) => configManager.env(name));
+  setFrozenSnapshotUnfreezer(async () => {
+    const { getFrozenSnapshotService } = await import('../memory/index.js');
+    getFrozenSnapshotService().unfreezeAll();
+  });
 }
 
 /**

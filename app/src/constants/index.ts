@@ -39,3 +39,5 @@ export * from './files.js';
 export * from './cyberRiskInstruction.js';
 export * from './outputStyles.js';
 export * from './systemPromptSections.js';
+// 2026-11-01 P1 解环：constants 的环境变量读取入口（实现由 app 层启动期注入）
+export * from './envAccess.js';

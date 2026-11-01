@@ -130,6 +130,7 @@ import {
   migrateSoulAndUserToConfigManager,
   checkFirstRunAndOnboard,
   wireErrorModuleDeps,
+  wireConstantsDeps,
 } from './bootstrap/preflight.js';
 export { isValidApiKey } from './bootstrap/preflight.js';
 const logger = getLogger('main');
@@ -1123,8 +1124,10 @@ export async function launch(options: LaunchOptions): Promise<void> {
   // 从 .env.example 自动创建，避免新环境部署时因缺少 .env 而启动失败。
   // healthcheck = 发布流水线的**干净环境只读冒烟**（便携包不得向自身目录写入）
   // ⇒ 跳过自举，避免在包内生成 app/.env 触发「包内无写入」断言（L-12.1）。
-  // P1 解环（2026-11-01）：`error` 不再 import `config`，环境变量读取由此注入（所有模式都要接）
+  // P1 解环（2026-11-01）：`error` / `constants` 不再 import `config`、`monitoring`、`memory`
+  // 的同层实现，相关能力在此注入（所有模式都要接）
   wireErrorModuleDeps();
+  wireConstantsDeps();
   if (options.mode !== LaunchMode.HEALTHCHECK) {
     ensureEnvFileExists();
   }

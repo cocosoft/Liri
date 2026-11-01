@@ -1,10 +1,9 @@
 {
-  "note": "infra 层内环（SCC>1）成员基线（R7 棘轮，只许缩小）。2026-11-01：解环前文本口径为 15 模块；把 error 的出边清零（日志改 kernel 门面、env 读取改注入）后，R7 改用 AST 解析真实 import ⇒ 当前 13（error 已出环；performance 亦不在环内 —— 文本口径曾把注释里的 @modules 命中误计为边）。新增成员进入环 ⇒ CI 红；成员离开环 ⇒ 下调本基线。",
+  "note": "infra 层内环（SCC>1）成员基线（R7 棘轮，只许缩小）。2026-11-01：初始文本口径 15 模块；error 出环后 13（AST）；constants 出环后 12。解环手法一致：日志/错误走 kernel 门面，env 读取与外部能力（memory 解冻）改为 app 层启动期注入。新增成员进入环 ⇒ CI 红；成员离开环 ⇒ 下调本基线。",
   "scc": [
     "cache",
     "chronos",
     "config",
-    "constants",
     "daemon",
     "diagnostics",
     "environment",

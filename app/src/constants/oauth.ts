@@ -1,5 +1,9 @@
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { configManager } from '@modules/config';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/kernel/errors';
+import { readConstantEnv } from './envAccess';
 import {
   DEFAULT_OAUTH_LOCAL_BASE_URL,
   DEFAULT_LOCAL_OAUTH_API_BASE,
@@ -7,7 +11,7 @@ import {
   DEFAULT_MCP_PROXY_URL,
 } from '@openliri/kernel';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('constants\oauth');
 
 /**
@@ -32,10 +36,10 @@ type OauthConfigType = 'prod' | 'staging' | 'local';
  * 根据环境变量决定使用生产、预发布还是本地配置
  */
 function getOauthConfigType(): OauthConfigType {
-  if (configManager.env('LIRI_USE_LOCAL_OAUTH') === 'true') {
+  if (readConstantEnv('LIRI_USE_LOCAL_OAUTH') === 'true') {
     return 'local';
   }
-  if (configManager.env('LIRI_USE_STAGING_OAUTH') === 'true') {
+  if (readConstantEnv('LIRI_USE_STAGING_OAUTH') === 'true') {
     return 'staging';
   }
   return 'prod';
@@ -45,7 +49,7 @@ function getOauthConfigType(): OauthConfigType {
  * 获取 OAuth 配置文件后缀
  */
 export function fileSuffixForOauthConfig(): string {
-  if (configManager.env('LIRI_CUSTOM_OAUTH_URL')) {
+  if (readConstantEnv('LIRI_CUSTOM_OAUTH_URL')) {
     return '-custom-oauth';
   }
   switch (getOauthConfigType()) {
@@ -112,10 +116,10 @@ const STAGING_OAUTH_CONFIG: OauthConfig = {
  */
 function getLocalOauthConfig(): OauthConfig {
   const api =
-    configManager.env('LIRI_LOCAL_OAUTH_API_BASE')?.replace(/\/$/, '') ??
+    readConstantEnv('LIRI_LOCAL_OAUTH_API_BASE')?.replace(/\/$/, '') ??
     DEFAULT_LOCAL_OAUTH_API_BASE;
   const apps =
-    configManager.env('LIRI_LOCAL_OAUTH_APPS_BASE')?.replace(/\/$/, '') ??
+    readConstantEnv('LIRI_LOCAL_OAUTH_APPS_BASE')?.replace(/\/$/, '') ??
     DEFAULT_LOCAL_OAUTH_APPS_BASE;
 
   return {
@@ -145,7 +149,7 @@ const OAUTH_CONFIGS: Record<OauthConfigType, OauthConfig> = {
 export function loadOauthConfig(): OauthConfig {
   let config = OAUTH_CONFIGS[getOauthConfigType()];
 
-  const oauthBaseUrl = configManager.env('LIRI_CUSTOM_OAUTH_URL');
+  const oauthBaseUrl = readConstantEnv('LIRI_CUSTOM_OAUTH_URL');
   if (oauthBaseUrl) {
     const base = oauthBaseUrl.replace(/\/$/, '');
     if (!ALLOWED_OAUTH_BASE_URLS.includes(base)) {
@@ -168,7 +172,7 @@ export function loadOauthConfig(): OauthConfig {
     };
   }
 
-  const clientIdOverride = configManager.env('LIRI_OAUTH_CLIENT_ID');
+  const clientIdOverride = readConstantEnv('LIRI_OAUTH_CLIENT_ID');
   if (clientIdOverride) {
     config = {
       ...config,

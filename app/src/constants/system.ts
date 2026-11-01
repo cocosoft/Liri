@@ -8,7 +8,7 @@
  */
 const DEFAULT_PREFIX = `你是 Liri，一个智能 CLI 助手。`;
 
-import { configManager } from '@modules/config';
+import { readConstantEnv } from './envAccess';
 
 /**
  * Agent SDK预设前缀
@@ -57,7 +57,7 @@ export function getCLISyspromptPrefix(options?: {
  * 默认启用，可通过环境变量禁用
  */
 function isAttributionHeaderEnabled(): boolean {
-  if (configManager.env('LIRI_ATTRIBUTION_HEADER') === 'false') {
+  if (readConstantEnv('LIRI_ATTRIBUTION_HEADER') === 'false') {
     return false;
   }
   return true;
@@ -74,7 +74,7 @@ export function getAttributionHeader(fingerprint: string): string {
   }
 
   const version = `1.0.0.${fingerprint}`;
-  const entrypoint = configManager.env('LIRI_ENTRYPOINT') ?? 'unknown';
+  const entrypoint = readConstantEnv('LIRI_ENTRYPOINT') ?? 'unknown';
   const header = `x-liri-billing-header: cc_version=${version}; cc_entrypoint=${entrypoint};`;
 
   return header;

@@ -8090,3 +8090,30 @@
 {"id":"INFRA-PACKAGE-P25-SECURITY","k":"tests#2","i":0,"c":"app/tests/security/invisibleUnicode.test.ts"}
 {"id":"INFRA-PACKAGE-P25-SECURITY","k":"tests#3","i":0,"c":"app/tests/security/securityPermissionViewLazySync.test.ts"}
 {"id":"INFRA-PACKAGE-P25-SECURITY","k":"tests#4","i":0,"c":"app/tests/tools/bashGateBlockLogging.test.ts"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"title","i":0,"c":"P26：config 迁入 packages/infra（55 文件；js-yaml 最小声明 + 恢复 42 例覆盖）"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.24"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"reopenWhen","i":0,"c":"① 若 `error` / `monitoring` 也迁包 ⇒ config 的出边改写成 `@openliri/infra/*`（R7 边不变）；② 若再遇到**无内置类型**的第三方依赖 ⇒ 复用本轮口径：包内 paths 指向真实包（运行期）+ 共享最小 d.ts（类型期），**不要**把裸名 paths 指向 `@types`（bun 会按包内 "}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"reopenWhen","i":1,"c":"tsconfig 解析而失败）；③ 若 app 侧新增 `js-yaml` 用法（如 `schema` / `types` 选项）⇒ 同步扩 `app/src/types/js-yaml.d.ts`，勿留第二份声明。"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"notes","i":0,"c":"迁包：config 共 55 文件（13 子域 + 根 16 文件，根有 barrel）git mv 至 packages/infra/src/config；出边全为 infra/core（kernel 33 · error 24 · environment 14 · utils 7 · types 1）。**恢复被静默遗漏的覆盖**：`"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"notes","i":1,"c":"ConfigModuleTest.ts` 名称不含 `.test`，且 app tsconfig `exclude` 显式排除 `src/**/*ModuleTest.ts` ⇒ **bun test 与 tsc 都从未纳入**；迁到 `app/tests/config/ConfigModuleTest.test.ts` 后 +42 例，并补齐 4 处 `"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"notes","i":2,"c":"unknown` 访问的类型断言（`config.nested` / `rollback.config.database` / `snap.config.settings`）。**js-yaml（无内置类型）双重解析**：运行期包内需 `paths` 指向真实包；该 `paths` 又让 tsc 走 JS 解析（TS7016）⇒ 新增 `"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"notes","i":3,"c":"app/src/types/js-yaml.d.ts`（与 `@types/js-yaml` 同形最小声明：`load<T>` / `dump` / 默认导出），由 app 三个 tsconfig（`src/**/*`）与包程序（include 含 `app/src/**/*.d.ts`）共用；**结论：单份声明，不与 @types 重复**。连锁改名：包内"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"notes","i":4,"c":" 43 处 `@modules/config` 改包别名；2 处包内自引改相对（`layers/ConfigLayersService` → `..`、`managedEnv` → `./index`）；`scripts/collect-baseline.ts` 的 `../app/src/config/*.ts` 改 `"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"notes","i":5,"c":"../packages/infra/src/config/*.ts`。联动：hardcode 3 · logger-name 5 · state-literal 14 · 证据 code[] 6 处路径键改名。运行期自证：桶 102 导出 · `/ConfigManager` 5 · `/loader/ConfigLoader` 3 · `/schema` "}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"notes","i":6,"c":"6 · `/settings` 2 · `/enterprise` 15；`js-yaml.load` 实跑返回 `probe`。负向自证：包内 `import \"@modules/chat\"` ⇒ R6 点名 `config/__neg_probe.ts`；R7 改用 **`environment` 注入**（`config` 与 `monitoring`"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"notes","i":7,"c":" 之间本无回边，注入 monitoring 不构成环）⇒ 报 3 成员环 config/environment/utils（均回滚，SCC 0）。"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"code#0","i":0,"c":"packages/infra/src/config/index.ts"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"code#1","i":0,"c":"packages/infra/src/config/ConfigManager.ts"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"code#2","i":0,"c":"packages/infra/src/config/loader/ConfigLoader.ts"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"code#3","i":0,"c":"packages/infra/src/config/layers/ConfigLayersService.ts"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"code#4","i":0,"c":"packages/infra/src/config/managedEnv.ts"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"code#5","i":0,"c":"app/src/types/js-yaml.d.ts"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"code#6","i":0,"c":"app/tests/config/ConfigModuleTest.test.ts"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"code#7","i":0,"c":"app/tests/config/ConfigMigrationV3.test.ts"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"code#8","i":0,"c":"scripts/collect-baseline.ts"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"code#9","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"code#10","i":0,"c":"packages/infra/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"code#11","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"tests#0","i":0,"c":"app/tests/config/ConfigModuleTest.test.ts"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"tests#1","i":0,"c":"app/tests/config/ConfigMigrationV3.test.ts"}
+{"id":"INFRA-PACKAGE-P26-CONFIG","k":"tests#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}

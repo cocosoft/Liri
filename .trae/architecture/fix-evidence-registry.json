@@ -17008,6 +17008,45 @@
       "changelog": [],
       "reopenWhen": "① 若 `config` / `monitoring` 也迁包 ⇒ security 的出边改写成 `@openliri/infra/*`（R7 边不变）；② 新增「原生能力」消费 ⇒ 一律走注入端口（`setNativeBashParserLoader` 式）+ `preflight.wireSecurityDep…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P25-SECURITY）",
       "notes": "迁包：security 共 100 文件（17 子域 + 根 22 文件，根有 barrel）git mv 至 packages/infra/src/security；出边全为 infra（monitoring 32 · error 22 · config 9）。**原生依赖反转（本轮核心）**：`bash/Bash…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P25-SECURITY）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P26-CONFIG",
+      "title": "P26：config 迁入 packages/infra（55 文件；js-yaml 最小声明 + 恢复 42 例覆盖）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.24",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/config/index.ts",
+        "packages/infra/src/config/ConfigManager.ts",
+        "packages/infra/src/config/loader/ConfigLoader.ts",
+        "packages/infra/src/config/layers/ConfigLayersService.ts",
+        "packages/infra/src/config/managedEnv.ts",
+        "app/src/types/js-yaml.d.ts",
+        "app/tests/config/ConfigModuleTest.test.ts",
+        "app/tests/config/ConfigMigrationV3.test.ts",
+        "scripts/collect-baseline.ts",
+        "app/tsconfig.json",
+        "packages/infra/tsconfig.json",
+        "packages/infra/package.json"
+      ],
+      "tests": [
+        "app/tests/config/ConfigModuleTest.test.ts",
+        "app/tests/config/ConfigMigrationV3.test.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `error` / `monitoring` 也迁包 ⇒ config 的出边改写成 `@openliri/infra/*`（R7 边不变）；② 若再遇到**无内置类型**的第三方依赖 ⇒ 复用本轮口径：包内 paths 指向真实包（运行期）+ 共享最小 d.ts（类型期），**不要**把裸名 paths 指…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P26-CONFIG）",
+      "notes": "迁包：config 共 55 文件（13 子域 + 根 16 文件，根有 barrel）git mv 至 packages/infra/src/config；出边全为 infra/core（kernel 33 · error 24 · environment 14 · utils 7 · types 1）。**恢复被…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P26-CONFIG）"
     }
   ]
 }

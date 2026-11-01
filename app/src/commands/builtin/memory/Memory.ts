@@ -12,7 +12,7 @@ import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
-import { DEFAULT_LOCALE } from '@modules/constants';
+import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 const logger = getLogger('commands\builtin\memory\Memory');
 
 /**

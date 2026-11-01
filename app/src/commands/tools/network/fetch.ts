@@ -23,7 +23,7 @@ import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';
-import { GITHUB_API_BASE } from '@modules/constants';
+import { GITHUB_API_BASE } from '@openliri/infra/constants';
 const logger = getLogger('commands:tools:network:fetch');
 
 /** 默认内容截断长度 */

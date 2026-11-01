@@ -39,7 +39,7 @@ import {
   PROACTIVE_RISK_ALERT_COOLDOWN_MS,
   PROACTIVE_SUGGESTION_COOLDOWN_MS,
   PROACTIVE_TASK_RESULT_COOLDOWN_MS,
-} from '@modules/constants';
+} from '@openliri/infra/constants';
 import type {
   ProactiveGateContext,
   ProactiveGateDecision,

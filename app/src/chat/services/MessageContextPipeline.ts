@@ -35,7 +35,7 @@ import type { ImageContextService } from './ImageContextService';
 import {
   DANGEROUS_uncachedSystemPromptSection,
   type SystemPromptSection,
-} from '@modules/constants';
+} from '@openliri/infra/constants';
 import { skillInjectionService } from '@modules/skills';
 import { handleError } from '@modules/error';
 // 2026-10-17（M5）：整条消息级截断同样接保留度探针（只告警、不改行为）

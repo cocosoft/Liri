@@ -45,7 +45,7 @@ import {
   TOOL_NAME_CONSTANTS,
 } from '../../src/tools/toolNameConstants';
 import { TOOL_EFFECTS, resolveToolEffect } from '../../src/tools/toolEffects';
-import { TOOL_NAMES } from '../../src/constants/toolNames.generated';
+import { TOOL_NAMES } from '@openliri/infra/constants/toolNames.generated';
 import {
   attachToolDescriptions,
   isKnownToolCategory,

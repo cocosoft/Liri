@@ -4,7 +4,7 @@
  * 同一状态机（进入/退出工作树）⇒ 合并为一个工具，旧名保留为 alias。
  * 沿用旧行为：`shouldDefer = true`，且**仅在 git 仓库内**启用（`isInsideGitRepo()`）。
  */
-import { TOOL_NAME_CONSTANTS } from '../../constants/toolNameConstants';
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants/toolNameConstants';
 import { isInsideGitRepo } from '@modules/workspaces';
 import { EnterWorktreeTool } from '../EnterWorktreeTool/EnterWorktreeTool';
 import { ExitWorktreeTool } from '../ExitWorktreeTool/ExitWorktreeTool';

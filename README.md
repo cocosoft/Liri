@@ -205,7 +205,7 @@ Agent 引擎内置多种检查点机制（周期性落盘、流式自动检查�
 
 工具按构建变体的能力开关动态注册（同一份源码，按 core / personal / coding / enterprise 裁剪），注册清单单一来源为 `app/src/tools/utils/ToolManagerUtils.ts`。
 
-> **计数事实源**：`app/src/constants/toolNames.generated.ts` 的 `TOOL_NAMES_COUNT`（由 `getAllBuiltinToolLoaders()` **全量视图**生成，含条件工具 ⇒ 与构建变体/环境无关）。改动工具清单后运行 `bun run gen:toolnames` 重新生成，本处数字随之同步。
+> **计数事实源**：`packages/infra/src/constants/toolNames.generated.ts` 的 `TOOL_NAMES_COUNT`（由 `getAllBuiltinToolLoaders()` **全量视图**生成，含条件工具 ⇒ 与构建变体/环境无关）。改动工具清单后运行 `bun run gen:toolnames` 重新生成，本处数字随之同步。
 
 ### ⏱ 长任务与等待态可见性
 

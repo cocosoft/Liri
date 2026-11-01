@@ -28,7 +28,7 @@ import { getLogger } from '@modules/monitoring';
 import {
   AGENTS_LIST_DEFAULT_LIMIT,
   AGENTS_LIST_MAX_LIMIT,
-} from '@modules/constants';
+} from '@openliri/infra/constants';
 const logger = getLogger('tools:AgentsListTool:AgentsListTool');
 
 /** 活跃代理的只读投影（**不含** `sessionId` 等控制面专有字段） */

@@ -10,7 +10,7 @@ import { SessionGateway, createSessionGateway } from '@modules/session';
 import type { UnifiedSession } from '@modules/session/types/UnifiedSession';
 import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage';
 import type { Transcript } from '@modules/session/types/Transcript';
-import { DEFAULT_LOCALE } from '@modules/constants';
+import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 
 const logger = getLogger('sessionHandler');
 

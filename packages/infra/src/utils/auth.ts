@@ -10,7 +10,7 @@ import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { USER_CONFIG_PATH, resolvePyappHome } from '@modules/environment';
 import { randomUUID } from 'crypto';
-import { OAUTH_AUTH_BASE_URL } from '@modules/constants';
+import { OAUTH_AUTH_BASE_URL } from '@openliri/infra/constants';
 import { readUtilEnv } from './envAccess';
 
 import { handleError } from '@openliri/kernel/errorHandler';

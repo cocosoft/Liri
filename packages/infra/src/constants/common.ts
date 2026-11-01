@@ -26,8 +26,10 @@ export const APP_NAME = 'Liri';
  */
 function resolveAppVersion(): string {
   try {
-    const here = dirname(fileURLToPath(import.meta.url)); // app/src/constants
-    const pkgPath = join(here, '..', '..', 'package.json'); // app/package.json
+    // P7（2026-11-01）：本文件已迁至 `packages/infra/src/constants` —— 版本号真源仍是
+    // **app/package.json**（产品版本不随 infra 包版本走），故按仓库布局上溯四级到仓库根。
+    const here = dirname(fileURLToPath(import.meta.url)); // packages/infra/src/constants
+    const pkgPath = join(here, '..', '..', '..', '..', 'app', 'package.json');
     if (existsSync(pkgPath)) {
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as {
         version?: string;

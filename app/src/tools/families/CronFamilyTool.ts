@@ -5,7 +5,7 @@
  * 同一资源（定时任务）的 CRUD ⇒ 合并为一个工具；旧名保留为 alias。
  * 缺省 `op=list`（只读兜底）—— **不**把写分支设为默认（避免缺参调用变成意外副作用）。
  */
-import { TOOL_NAME_CONSTANTS } from '../../constants/toolNameConstants';
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants/toolNameConstants';
 import { CronCreateTool } from '../ChronosTool/CronCreateTool';
 import { CronListTool } from '../ChronosTool/CronListTool';
 import { CronStopTool } from '../ChronosTool/CronStopTool';

@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@modules/constants';
+import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@openliri/infra/constants';
 import { configManager } from '@modules/config';
 import { resolveDataDir, resolveScopedDataDir } from '@modules/environment';
 import { feature } from '@openliri/kernel';

@@ -4,7 +4,7 @@ import { configManager } from '@modules/config';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { APP_VERSION } from '@modules/constants';
+import { APP_VERSION } from '@openliri/infra/constants';
 
 const logger = getLogger('FirstPartyEventLogger');
 

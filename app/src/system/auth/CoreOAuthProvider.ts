@@ -13,7 +13,7 @@ import {
 import { OAuthClient, OAuthConfig } from '@modules/oauth';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
-import { OAUTH_AUTH_BASE_URL } from '@modules/constants';
+import { OAUTH_AUTH_BASE_URL } from '@openliri/infra/constants';
 
 /**
  * Core OAuth提供者

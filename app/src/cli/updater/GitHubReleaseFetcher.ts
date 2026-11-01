@@ -4,11 +4,11 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { buildUserAgent } from '@modules/constants';
+import { buildUserAgent } from '@openliri/infra/constants';
 import {
   getGitHubReleasesUrl,
   type UpdateChannel,
-} from '../../constants/product';
+} from '@openliri/infra/constants/product';
 /**
  * 版本更新信息
  */

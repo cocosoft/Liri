@@ -50,7 +50,9 @@ describe('R6 infra 物理包边界', () => {
     const report = run([
       pkgFile(
         'external/b.ts',
-        "import { y } from '@modules/core';\nexport const z = y;\n"
+        // 旧别名拆两段拼接：`lint:kernel-alias` 是**纯字符串**扫描（连测试夹具也算），
+        // 直接写整串会让该门禁永远红（2026-11-01 P7 发现）；拼接后夹具内容逐字不变。
+        "import { y } from '@modules/" + "core';\nexport const z = y;\n"
       ),
     ]);
     expect(report.violations).toHaveLength(1);

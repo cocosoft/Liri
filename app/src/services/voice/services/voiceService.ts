@@ -32,7 +32,7 @@ import { EnvironmentDetector } from './environmentDetector';
 import { TTSRegistry } from './ttsProvider';
 import type { TTSSpeakResult } from './ttsProvider';
 // Q-H2（2026-10-13）：默认语言统一走 `constants/common.ts` 唯一真源（原写死 'zh-CN'）
-import { DEFAULT_LOCALE } from '@modules/constants';
+import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 import { TTSQueuePriority } from './ttsTypes';
 import type { TTSSpeakOptions } from './ttsTypes';
 import { STTRegistry } from './sttRegistry';

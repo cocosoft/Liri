@@ -397,7 +397,7 @@
       "app/src/cli/handlers/configHandler.ts"
     ],
     "constants\\oauth": [
-      "app/src/constants/oauth.ts"
+      "packages/infra/src/constants/oauth.ts"
     ],
     "core\\di\\AutoWiringEngine": [
       "packages/kernel/src/core/di/AutoWiringEngine.ts"

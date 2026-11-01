@@ -7,7 +7,7 @@
  * ⚠️ 注册仍沿用 D7 门控口径：整族由 `VFS_ENABLED` 控制（`stat` 的"无条件注册"在合并后
  * 不再单独成立 —— 一个工具无法只注册其中一个 op；这是合并的**已知代价**，回退即拆回四件）。
  */
-import { TOOL_NAME_CONSTANTS } from '../../constants/toolNameConstants';
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants/toolNameConstants';
 import { ReadVfsTool } from '../ReadVfsTool/ReadVfsTool';
 import { ListVfsTool } from '../ListVfsTool/ListVfsTool';
 import { StatVfsTool } from '../StatVfsTool/StatVfsTool';

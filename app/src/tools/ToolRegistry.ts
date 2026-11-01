@@ -34,7 +34,7 @@ import {
   resolveToolParam,
   resolveToolDescription,
 } from '@modules/services/prompt/PromptVersionManager';
-import { getSectionCacheLocale } from '@modules/constants';
+import { getSectionCacheLocale } from '@openliri/infra/constants';
 import { resolveConfiguredLanguage } from '@modules/system/i18n/languageProfiles';
 const logger = getLogger('tools:ToolRegistry');
 

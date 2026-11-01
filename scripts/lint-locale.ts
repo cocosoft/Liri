@@ -76,7 +76,7 @@ const LOCALE_WHITELIST = [
   'client/src/i18n/', // i18n 配置（fallbackLng 真源）
   'client/src/constants/locale.ts', // 前端 locale 真源
   'client/src/utils/format.ts', // currentLocale() 真源
-  'app/src/constants/common.ts', // 后端 locale/timezone 真源
+  'packages/infra/src/constants/common.ts', // 后端 locale/timezone 真源（P7 起物理位于 infra 包）
   'tests/', // 仓库级测试目录
   '__tests__/', // 测试目录（collectFiles 已跳过，双保险）
   '.test.', // *.test.*

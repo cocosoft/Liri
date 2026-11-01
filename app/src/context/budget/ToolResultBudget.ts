@@ -8,7 +8,7 @@
 import { getLogger } from '@modules/monitoring';
 import { estimateTokens } from '@modules/ai';
 // B5-2㉑（2026-10-14）：原为本文件私有同名副本（值 50_000，与真源同值同事实）⇒ 合一引用真源
-import { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@modules/constants';
+import { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@openliri/infra/constants';
 
 const logger = getLogger('context:budget');
 

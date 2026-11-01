@@ -41,8 +41,11 @@ import {
   findWorkspaceEscape,
   findWorkspaceEscapeInRoots,
 } from '@openliri/infra/utils/toolContract';
-import type { ToolName } from '@modules/constants/toolNames.generated';
-import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
+import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
+import {
+  FILE_WRITE_TOOL_NAME,
+  FILE_EDIT_TOOL_NAME,
+} from '@openliri/infra/constants';
 // R07-3（2026-10-07）：非幂等工具「重试」判定（唯一实现 = tools/toolEffects）
 // S2-6（2026-10-11）：工具调用统一指标（工具名/结果/耗时/入参字节/估算 tokens）—— 唯一实现 = tools/monitoring
 import {

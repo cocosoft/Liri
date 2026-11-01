@@ -39,7 +39,7 @@ import {
   PROACTIVE_QUEUE_MAX_RETRY_MS,
   PROACTIVE_QUEUE_RETENTION_DAYS,
   PROACTIVE_QUEUE_SCAN_INTERVAL_MS,
-} from '@modules/constants';
+} from '@openliri/infra/constants';
 import type { ProactiveMessagePayload } from './types';
 
 const logger = getLogger('proactive:pushQueue');

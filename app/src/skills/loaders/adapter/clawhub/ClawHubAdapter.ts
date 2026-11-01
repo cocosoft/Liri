@@ -38,7 +38,7 @@ import { ClawHubConverter } from './ClawHubConverter';
 import { ClawHubAPIClient } from './ClawHubAPIClient';
 import { ClawHubInstaller } from './ClawHubInstaller';
 import { getLogger } from '@modules/monitoring';
-import { GITEE_SITE_URL, GITHUB_RAW_BASE } from '@modules/constants';
+import { GITEE_SITE_URL, GITHUB_RAW_BASE } from '@openliri/infra/constants';
 import type { PluginRegistry } from '@modules/plugins';
 
 const logger = getLogger('skills:clawHubAdapter');

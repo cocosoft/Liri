@@ -29,7 +29,7 @@ import { usageStatsService } from '@modules/ai';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
-import { DEFAULT_LOCALE } from '@modules/constants';
+import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 const logger = getLogger('commands:usagestats:usagestats');
 
 /** 格式化货币显示 */

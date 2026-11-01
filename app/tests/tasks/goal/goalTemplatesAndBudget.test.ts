@@ -16,7 +16,7 @@ import {
   GOAL_TEMPLATES,
   getGoalTemplate,
   renderGoalTemplate,
-} from '../../../src/constants/goalTemplates';
+} from '@openliri/infra/constants/goalTemplates';
 import { chargeGoalUsage } from '../../../src/tasks/goal/goalBudget';
 import { TaskGoalStore } from '../../../src/tasks/goal/TaskGoalStore';
 

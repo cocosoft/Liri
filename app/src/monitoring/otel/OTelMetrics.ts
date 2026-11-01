@@ -25,7 +25,7 @@ import { errorMessage } from '@modules/error';
 import { getPlatform, getWslVersion } from '@openliri/infra/utils/platform';
 
 import { getLogger } from '@modules/monitoring';
-import { APP_VERSION } from '@modules/constants';
+import { APP_VERSION } from '@openliri/infra/constants';
 const logger = getLogger('monitoring\otel\OTelMetrics');
 
 /**

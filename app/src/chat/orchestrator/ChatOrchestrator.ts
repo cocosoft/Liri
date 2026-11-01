@@ -45,7 +45,7 @@ import {
   lintMermaidBlocks,
   formatMermaidIssues,
 } from '@openliri/infra/utils/mermaidLint';
-import { renderGoalTemplate } from '../../constants/goalTemplates';
+import { renderGoalTemplate } from '@openliri/infra/constants/goalTemplates';
 import { createFragment, renderFragment } from '@modules/context';
 import {
   AppError,

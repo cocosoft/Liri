@@ -17,7 +17,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { TOOL_NAMES_COUNT } from '../../src/constants/toolNames.generated';
+import { TOOL_NAMES_COUNT } from '@openliri/infra/constants/toolNames.generated';
 import {
   TOOL_EFFECTS,
   canReplayAfterUnknown,

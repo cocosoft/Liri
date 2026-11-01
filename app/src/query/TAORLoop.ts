@@ -17,7 +17,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 // B2-3（2026-09-23）：文案**唯一来源**；2026-10-21 模板下沉 `constants/goalTemplates`
 //（零依赖叶子）⇒ query 直连子路径，不再需要任何跨层例外（Spec §5.3.1）。
-import { renderGoalTemplate } from '@modules/constants/goalTemplates';
+import { renderGoalTemplate } from '@openliri/infra/constants/goalTemplates';
 // 阶段 A（N-28 修复）：yield 轮次登记（与 stream 路径 ReActToolLoop 共用同一实现）
 import { registerYieldFromResults } from '../session/yield';
 import { RoundProgressTracker } from './taor/roundProgress.js';

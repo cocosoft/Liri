@@ -21,7 +21,7 @@ import {
   DEFAULT_SESSION_TIMEOUT,
   MAX_CACHE_SIZE_BYTES,
   MAX_FILENAME_LENGTH,
-} from '@modules/constants';
+} from '@openliri/infra/constants';
 
 const APP = resolve(import.meta.dir, '../..');
 const read = (rel: string) => readFileSync(join(APP, rel), 'utf8');
@@ -35,7 +35,7 @@ const readCommon = (rel: string) =>
 
 describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('ANSI_RESET 真源存在、取值钉住、并声明为唯一真源', () => {
-    const src = read('src/constants/figures.ts');
+    const src = read('../packages/infra/src/constants/figures.ts');
     expect(src).toMatch(/export const ANSI_RESET = '\\x1b\[0m';/);
     expect(src).toContain('唯一真源');
   });
@@ -44,7 +44,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     for (const rel of ['src/cli/print.ts', 'src/commands/tasks/tasks.ts']) {
       const src = read(rel);
       expect(src).not.toMatch(/const RESET =/);
-      expect(src).toContain("from '@modules/constants'");
+      expect(src).toContain("from '@openliri/infra/constants'");
       expect(src).toContain('ANSI_RESET');
     }
     // 消费点确实用了新名（防"只改 import 未改用法"）
@@ -53,25 +53,25 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('CHANNEL_TAG 真源在 constants/xml.ts；消费侧只保留导出面（不再定义）', () => {
-    expect(read('src/constants/xml.ts')).toMatch(
+    expect(read('../packages/infra/src/constants/xml.ts')).toMatch(
       /export const CHANNEL_TAG = 'channel';/
     );
     const parser = read('src/chat/ChannelMessageParser.ts');
     expect(parser).not.toMatch(/const CHANNEL_TAG =/);
     expect(parser).toContain(
-      "import { CHANNEL_TAG } from '@modules/constants';"
+      "import { CHANNEL_TAG } from '@openliri/infra/constants';"
     );
     expect(parser).toContain('export { CHANNEL_TAG };');
   });
 
   test('BYTES_PER_TOKEN 真源在 constants/toolLimits.ts；消费侧只保留导出面（不再定义）', () => {
-    expect(read('src/constants/toolLimits.ts')).toMatch(
+    expect(read('../packages/infra/src/constants/toolLimits.ts')).toMatch(
       /export const BYTES_PER_TOKEN = 4;/
     );
     const types = read('src/services/toolResultStorage/types.ts');
     expect(types).not.toMatch(/const BYTES_PER_TOKEN =/);
     expect(types).toContain(
-      "export { BYTES_PER_TOKEN } from '@modules/constants';"
+      "export { BYTES_PER_TOKEN } from '@openliri/infra/constants';"
     );
   });
 
@@ -210,7 +210,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B3-4：`CRED_STORED_MARKER` 真源上提到 infra `constants/common.ts`（chronos 侧复刻已删；app 侧保留导出面）', () => {
-    expect(read('src/constants/common.ts')).toMatch(
+    expect(read('../packages/infra/src/constants/common.ts')).toMatch(
       /export const CRED_STORED_MARKER = '__stored__';/
     );
     expect(
@@ -219,7 +219,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const cs = read('src/ai/credentials/CredentialStore.ts');
     expect(cs).not.toMatch(/const CRED_STORED_MARKER =/);
     expect(cs).toContain(
-      "export { CRED_STORED_MARKER } from '@modules/constants';"
+      "export { CRED_STORED_MARKER } from '@openliri/infra/constants';"
     );
   });
 
@@ -414,7 +414,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`${name} = ${value};`);
     }
     // `app/src/constants/common.ts` 的该名**零消费者**（假真源）⇒ 本片**有意未动**（删除需 CD01–CD06 六步核查，属另案）
-    expect(read('src/constants/common.ts')).toContain(
+    expect(read('../packages/infra/src/constants/common.ts')).toContain(
       'export const MAX_FILE_SIZE ='
     );
   });
@@ -557,7 +557,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('B5-2④：`MAX_CACHE_SIZE` ×4 已按域消歧（取值/单位一字未改）', () => {
     // D-1：通用字节上限改为「defaults 默认值 + LIRI_* env 覆盖」⇒ 值断言
     expect(MAX_CACHE_SIZE_BYTES).toBe(100 * 1024 * 1024);
-    expect(read('src/constants/defaults.ts')).toContain(
+    expect(read('../packages/infra/src/constants/defaults.ts')).toContain(
       "envInt('LIRI_MAX_CACHE_SIZE_BYTES', 100 * 1024 * 1024)"
     );
     // 其余 3 处单位各异：条数（1000 / 10000 / 100），仍按源码形态钉住
@@ -1032,10 +1032,10 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
 
   test('B5-2⑳：`BINARY_EXTENSIONS` 已收敛为单一真源（内容一字未改）', () => {
     // 真源：`constants/files.ts`（导出 + 自带 `hasBinaryExtension` 助手）—— 本片**有意保留原名**
-    expect(read('src/constants/files.ts')).toContain(
+    expect(read('../packages/infra/src/constants/files.ts')).toContain(
       'export const BINARY_EXTENSIONS = new Set(['
     );
-    expect(read('src/constants/files.ts')).toContain(
+    expect(read('../packages/infra/src/constants/files.ts')).toContain(
       'return BINARY_EXTENSIONS.has(ext);'
     );
     // knowledge-handlers.ts：原**两处函数级同名副本**⇒ 合一为模块级单一真源
@@ -1054,24 +1054,24 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('B5-2㉑：`DEFAULT_MAX_RESULT_SIZE_CHARS` 已收敛为单一真源（重复导出面保留）', () => {
     // 真源：`constants/defaults.ts` 默认值（D-1：env 可覆盖）→ `toolLimits.ts` 具名导出
     expect(DEFAULT_MAX_RESULT_SIZE_CHARS).toBe(50_000);
-    expect(read('src/constants/defaults.ts')).toContain(
+    expect(read('../packages/infra/src/constants/defaults.ts')).toContain(
       "envInt('LIRI_TOOL_MAX_RESULT_CHARS', 50_000)"
     );
     // `context/budget`：删本地私有副本 ⇒ 改引用真源
     const budget = read('src/context/budget/ToolResultBudget.ts');
     expect(budget).not.toMatch(/const DEFAULT_MAX_RESULT_SIZE_CHARS = /);
     expect(budget).toContain(
-      "import { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@modules/constants';"
+      "import { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@openliri/infra/constants';"
     );
     // `services/toolResultStorage`：仅保留**导出面**（re-export 真源，消费者零改动）
     const storage = read('src/services/toolResultStorage/types.ts');
     expect(storage).not.toMatch(/const DEFAULT_MAX_RESULT_SIZE_CHARS = /);
     expect(storage).toContain(
-      "export { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@modules/constants';"
+      "export { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@openliri/infra/constants';"
     );
     // 同族**非本键**：`BYTES_PER_TOKEN` 的 B2 收口形态仍在（不得误伤）
     expect(storage).toContain(
-      "export { BYTES_PER_TOKEN } from '@modules/constants';"
+      "export { BYTES_PER_TOKEN } from '@openliri/infra/constants';"
     );
   });
 
@@ -1271,7 +1271,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
 
   test('B5-2㉙：`FILE_EDIT_TOOL_NAME` / `FILE_WRITE_TOOL_NAME` 已合一到 constants 真源', () => {
     // 真源：constants（带 `satisfies ToolName` 编译期约束）
-    const src = read('src/constants/tools.ts');
+    const src = read('../packages/infra/src/constants/tools.ts');
     expect(src).toContain(
       "export const FILE_EDIT_TOOL_NAME = 'file_edit' satisfies ToolName;"
     );
@@ -1282,12 +1282,12 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const edit = read('src/tools/FileEditTool/prompt.ts');
     expect(edit).not.toMatch(/(^|[^_A-Za-z])const FILE_EDIT_TOOL_NAME\s*=/);
     expect(edit).toContain(
-      "export { FILE_EDIT_TOOL_NAME } from '@modules/constants';"
+      "export { FILE_EDIT_TOOL_NAME } from '@openliri/infra/constants';"
     );
     const write = read('src/tools/FileWriteTool/prompt.ts');
     expect(write).not.toMatch(/(^|[^_A-Za-z])const FILE_WRITE_TOOL_NAME\s*=/);
     expect(write).toContain(
-      "export { FILE_WRITE_TOOL_NAME } from '@modules/constants';"
+      "export { FILE_WRITE_TOOL_NAME } from '@openliri/infra/constants';"
     );
     const agent = read('src/services/agent/parseAgent.ts');
     expect(agent).not.toMatch(
@@ -1297,9 +1297,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(agent).toContain('FILE_WRITE_TOOL_NAME,');
     expect(agent).toMatch(
       // B5-2-65 起该 import 由单行变多行（三个 `FILE_*` 名同引真源）⇒ 放宽为「同名同源」形态断言
-      /import\s*\{[\s\S]*?FILE_EDIT_TOOL_NAME[\s\S]*?FILE_WRITE_TOOL_NAME[\s\S]*?\}\s*from '@modules\/constants';/
+      /import\s*\{[\s\S]*?FILE_EDIT_TOOL_NAME[\s\S]*?FILE_WRITE_TOOL_NAME[\s\S]*?\}\s*from '@openliri\/infra\/constants';/
     );
-    expect(agent).toContain("} from '@modules/constants';");
+    expect(agent).toContain("} from '@openliri/infra/constants';");
     // 既有「桶 ↔ 真源 同值契约」守卫**必须保留**（不得为消键而删测试）
     expect(read('tests/tools/toolNameLists.test.ts')).toContain(
       'BARREL_FILE_WRITE_TOOL_NAME'
@@ -1431,10 +1431,10 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(otel).toContain('}, OTEL_HEARTBEAT_INTERVAL);');
     // D-1：通用心跳改为「defaults 默认值 + LIRI_* env 覆盖」⇒ 值断言
     expect(COMMON_HEARTBEAT_INTERVAL).toBe(30 * 1000);
-    expect(read('src/constants/defaults.ts')).toContain(
+    expect(read('../packages/infra/src/constants/defaults.ts')).toContain(
       "envInt('LIRI_HEARTBEAT_INTERVAL_MS', 30 * 1000)"
     );
-    const common = read('src/constants/common.ts');
+    const common = read('../packages/infra/src/constants/common.ts');
     expect(common).not.toMatch(/(^|[^_A-Za-z])const HEARTBEAT_INTERVAL\s*=/);
   });
 
@@ -1533,7 +1533,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('B5-2㊷：`CHANNEL_ARROW` 已按域消歧（figures ← / parser → 异值，取值一字未改）', () => {
     // 异值异域 ⇒ 消歧：figures.ts 为通用 UI 图形字符库（←）保留真源；
     // chat/ChannelMessageParser 的「消息来源箭头」（→）改名 MSG_SOURCE_ARROW
-    const figures = read('src/constants/figures.ts');
+    const figures = read('../packages/infra/src/constants/figures.ts');
     expect(figures).toContain('CHANNEL_ARROW 唯一真源');
     expect(figures).toContain("export const CHANNEL_ARROW = '←';");
     const parser = read('src/chat/ChannelMessageParser.ts');
@@ -1763,7 +1763,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     // D-1（2026-10-18）：B 类改为「defaults.ts 默认值 + LIRI_* env 覆盖」，
     // 断言从「源码字面量」升级为「运行值 + 默认值登记」——取值仍一字未改。
     expect(DEFAULT_SESSION_TIMEOUT).toBe(30 * 60 * 1000);
-    expect(read('src/constants/defaults.ts')).toContain(
+    expect(read('../packages/infra/src/constants/defaults.ts')).toContain(
       "envInt('LIRI_SESSION_TIMEOUT_MS', 30 * 60 * 1000)"
     );
     const voice = read('src/voice/VoiceSession.ts');
@@ -1777,7 +1777,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('B5-2-59：`MAX_FILENAME_LENGTH` ×2 已按域消歧（app 文件系统 255 真源保留 / client 导出名 120 改名，取值一字未改）', () => {
     // D-1：取值断言 + defaults 默认值登记（同 B5-2-58 口径）
     expect(MAX_FILENAME_LENGTH).toBe(255);
-    expect(read('src/constants/defaults.ts')).toContain(
+    expect(read('../packages/infra/src/constants/defaults.ts')).toContain(
       "envInt('LIRI_MAX_FILENAME_LENGTH', 255)"
     );
     const client = read('../client/src/utils/exportMessage.ts');
@@ -1788,13 +1788,13 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B5-2-60：`DEFAULT_MODEL` 已合一到真源（同值同事实：空串；voice 适配器改桶引用）', () => {
-    expect(read('src/constants/common.ts')).toContain(
+    expect(read('../packages/infra/src/constants/common.ts')).toContain(
       "export const DEFAULT_MODEL = '';"
     );
     const voice = read('src/voice/OpenAIRealtimeAdapter.ts');
     expect(voice).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_MODEL\s*=/);
     expect(voice).toContain(
-      "import { DEFAULT_MODEL } from '@modules/constants';"
+      "import { DEFAULT_MODEL } from '@openliri/infra/constants';"
     );
     expect(voice).toContain('this.model = model ?? DEFAULT_MODEL;');
   });
@@ -1802,7 +1802,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('B5-2-61：`DEFAULT_MAX_TOKENS` ×2 已按域消歧（通用 4096 真源保留 / evals 红队 16384 改名，取值一字未改）', () => {
     // D-1：取值断言 + defaults 默认值登记（同 B5-2-58 口径）
     expect(DEFAULT_MAX_TOKENS).toBe(4096);
-    expect(read('src/constants/defaults.ts')).toContain(
+    expect(read('../packages/infra/src/constants/defaults.ts')).toContain(
       "envInt('LIRI_DEFAULT_MAX_TOKENS', 4096)"
     );
     const evals = read('src/evals/adversarialProposer.ts');
@@ -1814,7 +1814,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B5-2-62：`MAX_TOOL_RESULT_BYTES` ×2 已按域消歧（上下文 400KB 上限 / 存储 1MB 落盘阈值，异值异域）', () => {
-    const limits = read('src/constants/toolLimits.ts');
+    const limits = read('../packages/infra/src/constants/toolLimits.ts');
     expect(limits).not.toMatch(/(^|[^_A-Za-z])const MAX_TOOL_RESULT_BYTES\s*=/);
     expect(limits).toContain('export const CONTEXT_MAX_TOOL_RESULT_BYTES =');
     const storage = read('src/services/toolResultStorage/types.ts');
@@ -1824,7 +1824,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B5-2-63：`MAX_TOOL_RESULTS_PER_MESSAGE_CHARS` 的 toolLimits 死副本已删（同名同义却值漂移：200_000 vs 活值 250_000）', () => {
-    const limits = read('src/constants/toolLimits.ts');
+    const limits = read('../packages/infra/src/constants/toolLimits.ts');
     expect(limits).not.toMatch(
       /(^|[^_A-Za-z])const MAX_TOOL_RESULTS_PER_MESSAGE_CHARS\s*=/
     );
@@ -1844,25 +1844,25 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'if (matchesWhitelist(rel, VENDORED_FRAGMENTS)) continue;'
     );
     // 仓内真源仍在（只是不再与 vendored 同名冲突）
-    expect(read('src/constants/figures.ts')).toContain(
+    expect(read('../packages/infra/src/constants/figures.ts')).toContain(
       "export const ELLIPSIS = '…';"
     );
   });
 
   test('B5-2-65：`FILE_READ_TOOL_NAME` 已合一到真源（同值同事实：`file_read`；parseAgent 补齐第三个 `FILE_*` 名）', () => {
-    expect(read('src/constants/tools.ts')).toContain(
+    expect(read('../packages/infra/src/constants/tools.ts')).toContain(
       "export const FILE_READ_TOOL_NAME = 'file_read' satisfies ToolName;"
     );
     const parse = read('src/services/agent/parseAgent.ts');
     expect(parse).not.toMatch(/(^|[^_A-Za-z])const FILE_READ_TOOL_NAME\s*=/);
     expect(parse).toContain('FILE_READ_TOOL_NAME,');
-    expect(parse).toContain("} from '@modules/constants';");
+    expect(parse).toContain("} from '@openliri/infra/constants';");
   });
 
   test('B5-2-66：`TOOL_NAMES` ×2 已按域消歧（后端生成真源保留 / client 图像视图注册表改名）', () => {
-    expect(read('src/constants/toolNames.generated.ts')).toContain(
-      'export const TOOL_NAMES = ['
-    );
+    expect(
+      read('../packages/infra/src/constants/toolNames.generated.ts')
+    ).toContain('export const TOOL_NAMES = [');
     const client = read('../client/src/components/views/image/toolRegistry.ts');
     expect(client).not.toMatch(/(^|[^_A-Za-z])const TOOL_NAMES\s*=/);
     expect(client).toContain(
@@ -1871,7 +1871,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B5-2-67：`FORK_BOILERPLATE_TAG` 的 `constants/xml.ts` 死副本已删（同义异值：`fork-boilerplate` vs 活值 `[fork-subagent]`）', () => {
-    expect(read('src/constants/xml.ts')).not.toMatch(
+    expect(read('../packages/infra/src/constants/xml.ts')).not.toMatch(
       /(^|[^_A-Za-z])const FORK_BOILERPLATE_TAG\s*=/
     );
     expect(read('src/tools/AgentTool/ForkSubagent.ts')).toContain(
@@ -1887,7 +1887,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(gate).toContain('DEFAULT_MODEL_SENTINEL:');
     expect(gate).toContain('!(def[1] in CROSS_PACKAGE_CONTRACT_CONSTS)');
     // 三方逐字同值：app TS ↔ client TS ↔ client Rust（跨包无法 import ⇒ 只靠守卫钉住）
-    expect(read('src/constants/common.ts')).toContain(
+    expect(read('../packages/infra/src/constants/common.ts')).toContain(
       "export const DEFAULT_MODEL_SENTINEL = 'pyapp-default';"
     );
     expect(read('../client/src/services/chatService.ts')).toContain(

@@ -1,7 +1,7 @@
 /**
  * D-2（2026-10-18）「零消费者常量」守卫（清单 §5 D-2 第 2 条）。
  *
- * 判据：`app/src/constants/` 的每个 `export const` 必须在**定义行之外**至少被引用一次
+ * 判据：`packages/infra/src/constants/` 的每个 `export const` 必须在**定义行之外**至少被引用一次
  * （含同目录常量之间的互相引用，如 `USER_AGENT` 用 `APP_VERSION`）；否则它是「假真源」
  * —— 承接 `common.ts` 里记录的 `DEFAULT_LOCALE`/`DEFAULT_TIMEZONE` 历史（原零消费者，改值也不生效）。
  *
@@ -33,7 +33,8 @@ import { join, resolve } from 'node:path';
 
 const APP_ROOT = resolve(import.meta.dir, '../..');
 const REPO_ROOT = resolve(APP_ROOT, '..');
-const CONSTANTS_DIR = join(APP_ROOT, 'src', 'constants');
+// P7（2026-11-01）：constants 已迁入 infra 物理包 ⇒ 定义目录同步（否则「零消费者」集合变空 ⇒ 静默全绿）
+const CONSTANTS_DIR = join(REPO_ROOT, 'packages', 'infra', 'src', 'constants');
 const BASELINE_PATH = join(import.meta.dir, 'zero-consumer-baseline.json');
 
 /** 递归收集源码文件（跳过构建产物与依赖目录；barrel / 生成文件不参与计数） */

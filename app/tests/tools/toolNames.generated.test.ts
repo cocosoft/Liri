@@ -7,7 +7,7 @@ import {
 import {
   TOOL_NAMES,
   TOOL_NAMES_COUNT,
-} from '../../src/constants/toolNames.generated';
+} from '@openliri/infra/constants/toolNames.generated';
 import { BUILD_VARIANT_FLAGS } from '../../src/bootstrap/generatedVariantFlags';
 import { setBuildVariantFlags } from '@openliri/kernel';
 import { resetToolFlags } from '../../src/tools/utils/ToolFeatureFlags';

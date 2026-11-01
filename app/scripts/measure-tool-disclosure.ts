@@ -26,7 +26,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { TOOL_NAMES_COUNT } from '../src/constants/toolNames.generated';
+import { TOOL_NAMES_COUNT } from '@openliri/infra/constants/toolNames.generated';
 import { ToolFactory } from '../src/tools/ToolFactory';
 import { ToolRegistry } from '../src/tools/ToolRegistry';
 import { filterToolsByTask } from '../src/tools/toolCategories';

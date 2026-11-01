@@ -22,7 +22,7 @@ import { parseGateArgs, reportPromptGate } from './lib/promptLintReport';
 /** T1 协议文件（显式清单 + 理由；新增需评审） */
 const T1_PROTOCOL_FILES: ReadonlyArray<{ rel: string; reason: string }> = [
   {
-    rel: 'src/constants/systemPromptSections.ts',
+    rel: '../packages/infra/src/constants/systemPromptSections.ts',
     reason: '段框架与 CACHE_BOUNDARY（缓存断点由 provider 解析）',
   },
   {
@@ -30,7 +30,7 @@ const T1_PROTOCOL_FILES: ReadonlyArray<{ rel: string; reason: string }> = [
     reason: '工具 wire 名（模型调用与策略判定共用）',
   },
   {
-    rel: 'src/utils/toolContract/Tool.ts',
+    rel: '../packages/infra/src/utils/toolContract/Tool.ts',
     reason: 'ToolInfo / schema 契约类型',
   },
   {
@@ -45,7 +45,13 @@ function scanSource(): PromptIssue[] {
   const issues: PromptIssue[] = [];
   for (const file of T1_PROTOCOL_FILES) {
     const path = join(APP_ROOT, file.rel);
-    if (!existsSync(path)) continue;
+    // fail-closed（P7，2026-11-01）：原为 `continue` —— 路径迁移后该文件被静默漏检。
+    // 实测 `src/utils/toolContract/Tool.ts` 在 utils 迁包（P6c）后已不存在，却一直"通过"。
+    if (!existsSync(path)) {
+      throw new Error(
+        `T1 协议文件不存在（路径已失效，禁止静默跳过）: ${file.rel}`
+      );
+    }
     const source = readFileSync(path, 'utf-8');
 
     // t( 调用：\b 保证不会误伤 format( / insert( 等

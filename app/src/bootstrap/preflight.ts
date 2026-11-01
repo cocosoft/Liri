@@ -46,7 +46,7 @@ import { handleError, setAPISceneEnvReader } from '@modules/error';
 import {
   setConstantsEnvReader,
   setFrozenSnapshotUnfreezer,
-} from '@modules/constants';
+} from '@openliri/infra/constants';
 import { setDaemonMetricsSink } from '../daemon/metricsSink.js';
 import { setMainPermissionRuleSource } from '../security/permissionRuleSource.js';
 import { setNativeStructureCloserLoader } from '@openliri/infra/utils/structureCut';

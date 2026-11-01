@@ -620,7 +620,7 @@
 {"id":"TOOLGOV-S2-3","k":"code#1","i":0,"c":"packages/kernel/src/core/index.ts"}
 {"id":"TOOLGOV-S2-3","k":"code#2","i":0,"c":"app/src/tools/utils/ToolFeatureFlags.ts"}
 {"id":"TOOLGOV-S2-3","k":"code#3","i":0,"c":"app/scripts/gen-tool-names.ts"}
-{"id":"TOOLGOV-S2-3","k":"code#4","i":0,"c":"app/src/constants/toolNames.generated.ts"}
+{"id":"TOOLGOV-S2-3","k":"code#4","i":0,"c":"packages/infra/src/constants/toolNames.generated.ts"}
 {"id":"TOOLGOV-S2-3","k":"tests#0","i":0,"c":"app/tests/tools/toolTypesShimGuard.test.ts"}
 {"id":"TOOLGOV-S2-3","k":"tests#1","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"TOOLGOV-S2-2","k":"title","i":0,"c":"工具治理 S2-2：取消全链路（MCP / WebFetch 接上下文取消信号）"}
@@ -734,7 +734,7 @@
 {"id":"TOOLGOV-D1","k":"code#0","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"TOOLGOV-D1","k":"code#1","i":0,"c":"app/src/bootstrap/generatedVariantFlags.ts"}
 {"id":"TOOLGOV-D1","k":"code#2","i":0,"c":"app/scripts/build-variant.ts"}
-{"id":"TOOLGOV-D1","k":"code#3","i":0,"c":"app/src/constants/toolNames.generated.ts"}
+{"id":"TOOLGOV-D1","k":"code#3","i":0,"c":"packages/infra/src/constants/toolNames.generated.ts"}
 {"id":"TOOLGOV-D1","k":"code#4","i":0,"c":"app/src/tools/toolEffects.ts"}
 {"id":"TOOLGOV-D1","k":"code#5","i":0,"c":"app/src/tools/toolCategories.ts"}
 {"id":"TOOLGOV-D1","k":"tests#0","i":0,"c":"app/tests/config/featureFlagContract.test.ts"}
@@ -1425,7 +1425,7 @@
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"notes","i":7,"c":"言钉口径）；④ cron 保留跟随系统）。**先红后绿（可证伪）**：临时把真源改回 `en-US`/`UTC` ⇒ **2 fail / 2 pass**；还原 ⇒ **4 pass / 0 fail**。**回归**：`tests/{config,voice,docs,plugins,hooks}` **336 pass / 0 fail**；`"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"notes","i":8,"c":"typecheck` 3 工程 0 错；门禁 `lint:arch` **0 error**（分层违规 0）/`fn-size`/`complexity` 未增长 /`lint:doc-code` 绿。**如实边界**：① 本轮只归一**「产品默认口径」**；`commands/**` 里大量 `toLocaleString('zh-CN')` **展示格式"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"notes","i":9,"c":"化**未动（属另一类：**格式化 locale ≠ 产品默认语言**，且改动面大 ⇒ 归 HD-P2 评估）；② 前端时区兜底仍为**前端本地常量**（≠ 引用后端真源，物理不可共享）⇒ 由测试锁同值；③ `e2eVerified=false`（口径类改动，靠单测 + 源码守卫）。"}
-{"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#0","i":0,"c":"app/src/constants/common.ts"}
+{"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#0","i":0,"c":"packages/infra/src/constants/common.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#1","i":0,"c":"app/src/docs/i18n/LanguageManager.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#2","i":0,"c":"app/src/services/voice/services/ttsConfigOverlay.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#3","i":0,"c":"app/src/services/voice/services/voiceService.ts"}
@@ -1965,7 +1965,7 @@
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#1","i":0,"c":"packages/kernel/src/core/index.ts"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#2","i":0,"c":"app/src/ai/providers/OllamaProvider.ts"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#3","i":0,"c":"app/src/channels/wechat/WechatChannel.ts"}
-{"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#4","i":0,"c":"app/src/constants/oauth.ts"}
+{"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#4","i":0,"c":"packages/infra/src/constants/oauth.ts"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"code#5","i":0,"c":"app/src/main.ts"}
 {"id":"HARDCODE-HDP0-2-ENDPOINTS","k":"tests#0","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}
 {"id":"DEBT4-USD-ENDPOINT-IO","k":"title","i":0,"c":"债四 **USD-1 / USD-2**：日预算端点补 USD 字段（**只读暴露** + **用户写入 / 清空**；无默认值）"}
@@ -2082,7 +2082,7 @@
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"notes","i":17,"c":"config.json'` 等**文件名**常量不在本片（同文件也已有一份与 `constants/common.ts` 的 `CONFIG_FILE_NAME` 重复，属另一事实源，未纳入）；④ 「一次性数据迁移已完成」这一结论**依据仓内注释 + 全仓零活动引用**得出，**未**在真实用户机器上核对 `~/.liri` 是否仍有历史残留目录（若要彻底，"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"notes","i":18,"c":"需在真机确认后由用户决定是否手工清理）。"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#0","i":0,"c":"app/src/environment/paths.ts"}
-{"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#1","i":0,"c":"app/src/constants/common.ts"}
+{"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#1","i":0,"c":"packages/infra/src/constants/common.ts"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#2","i":0,"c":"app/src/workspace/LiriConfigManager.ts"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#3","i":0,"c":"app/src/workspace/RuleEngine.ts"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#4","i":0,"c":"app/src/infrastructure/http/handlers/team-handlers.ts"}
@@ -2108,7 +2108,7 @@
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"notes","i":13,"c":"**：③ 的**初版口径过宽**（「任意 `'Liri/…'` 字面量」）⇒ 误报 4 处**不同事实源**（MCP 协议标识 ×2 + 含 `Liri/memory` 的日志文案 ×2）；已收窄为「**`User-Agent` 头的值**」并把这 4 处改为 ⑥ 的**反向钉住**。**如实边界**：① **对外标识变更**：UA 取值由 `"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"notes","i":14,"c":"Liri/1.0.0`/`Liri/2.0`/`Liri-…` 等统一为 `Liri/<真实版本> (<用途>)` ⇒ 属**线上可观测面变化**（第三方限流/统计口径会看到新串，这正是本片目标），但**若某第三方按旧串做白名单**可能受影响 ⇒ 已在 `reopenWhen` ⑤ 登记；② 本片为**源码守卫 + 值收敛**性质（无运行时端到端：未真机验证"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"notes","i":15,"c":"第三方对 UA 的接受度）；③ 未收敛 §5 `N10`/`N11`（有意）。"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#0","i":0,"c":"app/src/constants/common.ts"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#0","i":0,"c":"packages/infra/src/constants/common.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#1","i":0,"c":"app/src/services/api/client.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#2","i":0,"c":"app/src/tools/WebFetchTool/utils.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#3","i":0,"c":"app/src/tools/WebFetchTool/WebFetchTool.ts"}
@@ -2855,7 +2855,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"notes","i":14,"c":"app 三 tsconfig）**0**；`eslint`（5 个改动文件）**0 问题**；4 硬编码门禁全 **exit 0**；`lint:arch` **错误 0 / 警告 5（无回归）**。**如实边界**：① B2 本片只完成「**既有真源可直接引用**」的 3 组（消 3 键）；`TASKS_PATH` / oauth ×4 / `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"notes","i":15,"c":"WAV_HEADER_SIZE` 留 **B2b**（理由与前提见 reopenWhen）—— 因 oauth 两文件疑似**双份加密实现**，合常量前宜先裁定双轨归属（避免掩盖更大的结构问题）；② **未做真机走查**（`e2eVerified=false`）；③ 未新增运行时行为测试（本片性质为**字面量归位**，证据 = typecheck + 守卫 "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"notes","i":16,"c":"+ 门禁实跑 + 可下调键自报）。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"code#0","i":0,"c":"app/src/constants/figures.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"code#0","i":0,"c":"packages/infra/src/constants/figures.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"code#1","i":0,"c":"app/src/cli/print.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"code#2","i":0,"c":"app/src/commands/tasks/tasks.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"code#3","i":0,"c":"app/src/chat/ChannelMessageParser.ts"}
@@ -3003,7 +3003,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B3-4-CRED-MARKER","k":"notes","i":7,"c":" CRED_STORED_MARKER =`；`CredentialStore` 含确切转出形态。**验证**：守卫 **11 pass / 0 fail**；`tests/ai`+`src/ai`+`src/chronos` **250 pass / 0 fail（830 expect）**；`typecheck`（app 三 tsconfig）**0**"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B3-4-CRED-MARKER","k":"notes","i":8,"c":"；`eslint`（3 改动文件）**0 问题**；4 硬编码门禁全 **exit 0**；`lint:arch` **错误 0 / 警告 5（无回归）**。**如实边界**：① `src/chronos` **无既有测试**（该次合跑的 250 例与上一次 `tests/ai`+`src/ai` 相同 ⇒ chronos 侧贡献 0）⇒ 其等价性证据为「同"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B3-4-CRED-MARKER","k":"notes","i":9,"c":"值字符串 + 纯引用替换」+ `typecheck`；② **未做真机走查**（`e2eVerified=false`）；③ 本片只消 **1 键**。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B3-4-CRED-MARKER","k":"code#0","i":0,"c":"app/src/constants/common.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B3-4-CRED-MARKER","k":"code#0","i":0,"c":"packages/infra/src/constants/common.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B3-4-CRED-MARKER","k":"code#1","i":0,"c":"app/src/ai/credentials/CredentialStore.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B3-4-CRED-MARKER","k":"code#2","i":0,"c":"app/src/chronos/maintenance/ChronosBackgroundHousekeeping.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B3-4-CRED-MARKER","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3229,7 +3229,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"notes","i":7,"c":" `const MAX_CACHE_SIZE = ` 且各含**确切新名 + 取值钉住**。**验证**：`typecheck`（app 三 tsconfig，含 scripts）**0**（同时反证假真源零消费者）；守卫 **20 pass / 0 fail**；相关域（`tests/constants`+`tests|src` 的 `core`/`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"notes","i":8,"c":"tokenBudget`/`tools`/`memory`/`utils`/`ink` 与 5 个被改类名）**1431 pass / 0 fail**；4 硬编码门禁全 **exit 0**。**如实边界**：① **未做真机走查**（`e2eVerified=false`）；② 未跑全量 `bun test`；③ **假真源未删**（只改名）；④ "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"notes","i":9,"c":"**vendored 面已改动**（记 `reopenWhen` ②b）；⑤ 本片是 B5-2 **第四项**。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#0","i":0,"c":"app/src/constants/common.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#0","i":0,"c":"packages/infra/src/constants/common.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#1","i":0,"c":"app/src/ink/ink/line-width-cache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#2","i":0,"c":"app/src/tokenBudget/ModelContextCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-4-MAX-CACHE-SIZE","k":"code#3","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerationCache.ts"}
@@ -3690,7 +3690,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL","k":"notes","i":0,"c":"**自证**：app typecheck 0 · 守卫第 51 例（AppCoreOTelHelper / constants/common.ts 两文件无裸 `HEARTBEAT_INTERVAL =` 定义 + 新名与取值逐字钉住 + setInterval 使用落新名）51 pass · `lint:consts` 重新播种基线：`同名常量"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL","k":"notes","i":1,"c":":HEARTBEAT_INTERVAL` **2→0**（220→219 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL","k":"code#0","i":0,"c":"app/src/bootstrap/AppCoreOTelHelper.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL","k":"code#1","i":0,"c":"app/src/constants/common.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL","k":"code#1","i":0,"c":"packages/infra/src/constants/common.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-35-HEARTBEAT-INTERVAL","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3772,7 +3772,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"reopenWhen","i":2,"c":"formatForDisplay` 使用）异值 ⇒ 改名 `MSG_SOURCE_ARROW`。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"notes","i":0,"c":"**自证**：app typecheck 0 · 守卫第 58 例（figures 真源标注 + 取值 `←` 钉住 + parser 无裸 `CHANNEL_ARROW` 定义 + `MSG_SOURCE_ARROW='→'` + 使用点模板串）58 pass · `lint:consts` 重新播种基线：`同名常量:CHANNEL_ARROW` **2→"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"notes","i":1,"c":"0**（213→212 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）· 改名后取值与行为零变化；全仓 Grep 确认 `CHANNEL_ARROW` 仅 2 定义 + 2 内部使用（无外部 import 消费者）。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"code#0","i":0,"c":"app/src/constants/figures.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"code#0","i":0,"c":"packages/infra/src/constants/figures.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"code#1","i":0,"c":"app/src/chat/ChannelMessageParser.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-42-CHANNEL-ARROW","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
@@ -4271,7 +4271,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"notes","i":2,"c":"歧：上下文侧改 `CONTEXT_MAX_TOOL_RESULT_BYTES`（含 1 处文档注释改写），**存储侧保留原名**（其名与消费者/桶导出面一致，且是活的那一份）。② 取证：全仓仅 `toolResultStorage/**` 消费该名（`ToolResultBudget.ts` 从 `./types` 导入；`index.ts` 桶再导出）⇒ "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"notes","i":3,"c":"上下文侧那份**无 importer**。③ 守卫：`sameNameConstsB2.test.ts` 新增 `B5-2-62`。④ **棘轮**：基线键由 2 归零。本轮**未重跑播种命令**（该命令上轮被跳过）：改为**直接编辑基线 JSON** 删除三枚已归零的键（`DEFAULT_MODEL`、`DEFAULT_MAX_TOKENS`、本键），编辑"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"notes","i":4,"c":"后 `lint:consts` 不再输出「可下调」提示即证生效；如需回滚，`git checkout` 该文件即可。⑤ 验证：app `tsc` exit 0；`sameNameConstsB2` **81 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"code#0","i":0,"c":"app/src/constants/toolLimits.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"code#0","i":0,"c":"packages/infra/src/constants/toolLimits.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-64-LINT-CONSTS-VENDORED","k":"title","i":0,"c":"`lint:consts` 增 vendored 目录排除（`app/src/ink/ink/` 上游副本不参与本仓重复事实源治理）—— 口径修正，一次解掉 4 键假阳性（ELLIPSIS / CUSTOM_BORDER_STYLES / OSC / BEL）"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-64-LINT-CONSTS-VENDORED","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线队列中 `同名常量:ELLIPSIS`（本仓真源 vs vendored `wrap-text.ts`）引发的判据讨论"}
@@ -4295,7 +4295,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"notes","i":3,"c":"本身即未接线；(CD06) 独立提交 + `revert` 可复原。③ **同名残留说明（非违规）**：该名在存储侧作为**环境变量键字符串**继续存在（`configManager.env('MAX_TOOL_RESULTS_PER_MESSAGE_CHARS')`），删除本导出**不影响**该配置契约。④ 守卫：`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"notes","i":4,"c":"sameNameConstsB2.test.ts` 新增 `B5-2-63`（断言 toolLimits 已无该名、存储侧 250_000 与 env 键仍在）。⑤ 棘轮：基线键由 2 归零。⑥ 验证：app `tsc` exit 0；`sameNameConstsB2` **83 例全绿**；`lint:consts` / `lint:arch` / `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"notes","i":5,"c":"lint:unref` / `lint:scripts`(0 error) 全 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"code#0","i":0,"c":"app/src/constants/toolLimits.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"code#0","i":0,"c":"packages/infra/src/constants/toolLimits.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"title","i":0,"c":"`TOOL_NAMES` ×2 按域消歧（异域：后端**生成**的工具名真源 / client 图像视图注册表，取值来源与用途不同）⇒ 同名常量:TOOL_NAMES 2>0"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-66-TOOL-NAMES","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
@@ -4317,7 +4317,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":2,"c":"会把「漂移」合法化 ⇒ 删死副本。② **CD01–CD06 六步核查**：(CD01) 静态 0 importer + 字符串 `fork-boilerplate` 全仓仅 1 处（即其声明），无动态拼接/配置注册；(CD02/CD03) 无构建/插件/DI/反射入口；(CD04) 无测试引用（既有测试引用的是 `ForkSubagent` 侧同名）；("}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":3,"c":"CD05) 无注册入口可摘（本身未接线）；(CD06) 独立提交 `e464d0655` + revert 可复原。③ 守卫：新增 `B5-2-67`（断言 `xml.ts` 已无该名、`ForkSubagent.ts` 活值 `'[fork-subagent]'` 仍在）。④ 棘轮：基线键由 2 归零。⑤ 验证：app `tsc` exit 0；**110"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"notes","i":4,"c":" 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"code#0","i":0,"c":"app/src/constants/xml.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"code#0","i":0,"c":"packages/infra/src/constants/xml.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-67-FORK-BOILERPLATE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"title","i":0,"c":"`FILE_READ_TOOL_NAME` 已合一到真源（同值同事实：`file_read`；`parseAgent` 补齐第三个 `FILE_*` 名）⇒ 同名常量:FILE_READ_TOOL_NAME 2>0"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；承接既有 `B5-2㉙`（当时只收敛了 `FILE_EDIT_/FILE_WRITE_` 两名）"}
@@ -4688,7 +4688,7 @@
 {"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"code#1","i":0,"c":"app/src/tools/factories/builtinToolRegistry.ts"}
 {"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"code#2","i":0,"c":"app/src/tools/utils/ToolManagerUtils.ts"}
 {"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"code#3","i":0,"c":"app/src/tools/toolEffects.ts"}
-{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"code#4","i":0,"c":"app/src/constants/toolNames.generated.ts"}
+{"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"code#4","i":0,"c":"packages/infra/src/constants/toolNames.generated.ts"}
 {"id":"TOOLVIS-P4B-TASK-OUTPUT","k":"tests#0","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"title","i":0,"c":"P4b 接线②：propose_plan 从影子工具转为生效工具（生成物 76 → 77，conditional 差额集 14 → 13）"}
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"source","i":0,"c":"P4a 评估 dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md §2.2(2)（真实现 + 两条既有端到端测试 + 复用 ask_user_question 的 question 通道）；用户裁定 Q3"}
@@ -4704,7 +4704,7 @@
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"code#1","i":0,"c":"app/src/tools/factories/builtinToolRegistry.ts"}
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"code#2","i":0,"c":"app/src/tools/utils/ToolManagerUtils.ts"}
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"code#3","i":0,"c":"app/src/tools/toolEffects.ts"}
-{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"code#4","i":0,"c":"app/src/constants/toolNames.generated.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"code#4","i":0,"c":"packages/infra/src/constants/toolNames.generated.ts"}
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN","k":"tests#0","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"TOOLVIS-P4B-PDF","k":"title","i":0,"c":"P4b 接线③：pdf 从影子工具转为生效工具（生成物 77 → 78）+ 收口 extract/info 两个「假成功」分支"}
 {"id":"TOOLVIS-P4B-PDF","k":"source","i":0,"c":"P4a 评估 dev_docs/20261016/工具可见性治理-P4a-影子工具评估.md §2.2(3)（唯一 PDF 生成器 + prompt 已列为生成类工具；先决 = 处置 extract/info 桩，二选一取「收口」）"}
@@ -4722,7 +4722,7 @@
 {"id":"TOOLVIS-P4B-PDF","k":"code#2","i":0,"c":"app/src/tools/factories/builtinToolRegistry.ts"}
 {"id":"TOOLVIS-P4B-PDF","k":"code#3","i":0,"c":"app/src/tools/utils/ToolManagerUtils.ts"}
 {"id":"TOOLVIS-P4B-PDF","k":"code#4","i":0,"c":"app/src/tools/toolEffects.ts"}
-{"id":"TOOLVIS-P4B-PDF","k":"code#5","i":0,"c":"app/src/constants/toolNames.generated.ts"}
+{"id":"TOOLVIS-P4B-PDF","k":"code#5","i":0,"c":"packages/infra/src/constants/toolNames.generated.ts"}
 {"id":"TOOLVIS-P4B-PDF","k":"code#6","i":0,"c":"app/docs/工具参考/pdf.md"}
 {"id":"TOOLVIS-P4B-PDF","k":"tests#0","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"TOOLVIS-P4B-PDF","k":"tests#1","i":0,"c":"app/tests/tools/PDFTool.test.ts"}
@@ -4879,7 +4879,7 @@
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"code#2","i":0,"c":"app/src/tools/factories/builtinToolRegistry.ts"}
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"code#3","i":0,"c":"app/src/tools/toolCategories.ts"}
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"code#4","i":0,"c":"app/src/tools/toolEffects.ts"}
-{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"code#5","i":0,"c":"app/src/constants/toolNames.generated.ts"}
+{"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"code#5","i":0,"c":"packages/infra/src/constants/toolNames.generated.ts"}
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"tests#0","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"tests#1","i":0,"c":"app/tests/tools/toolDataSourcesNotNewTools.test.ts"}
 {"id":"TOOLVIS-P4B-PROPOSE-PLAN-RETIRE","k":"tests#2","i":0,"c":"app/tests/tools/ask-user-question.test.ts"}
@@ -5954,7 +5954,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"title","i":0,"c":"U-20/B5-2-78：删除死常量 FORK_DIRECTIVE_PREFIX 并收敛 READ_TOOLS"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"notes","i":0,"c":"xml.ts 的 FORK_DIRECTIVE_PREFIX 全仓零消费（CD01/CD02 已核查）⇒ 删除；evals 的 READ_TOOLS 与 query/tool-constants 同值 ⇒ 改由 query 桶导入；基线 167→165。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#0","i":0,"c":"app/src/constants/xml.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#0","i":0,"c":"packages/infra/src/constants/xml.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#1","i":0,"c":"app/src/query/index.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#2","i":0,"c":"app/src/evals/processAssertions.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
@@ -6097,7 +6097,7 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#2","i":0,"c":"app/src/ai/api/CapabilitiesAPI.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#3","i":0,"c":"app/src/ai/api/ProviderAPI.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#4","i":0,"c":"app/src/ai/api/TranslateAPI.ts"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#5","i":0,"c":"app/src/constants/oauth.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-93","k":"code#5","i":0,"c":"packages/infra/src/constants/oauth.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"title","i":0,"c":"U-20/B5-2-94：回环 / 通配绑定 / 本地服务默认地址收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"notes","i":0,"c":"core/endpoints 新增 WILDCARD_BIND_HOST（仅绑定语义）、DEFAULT_BLUEBUBBLES_SERVER_URL、DEFAULT_BOOTSTRAP_LLAMACPP_BASE_URL；bridge/回环判定、webhook、BlueBubbles、LiveView、MCP OAuth、引导记录 7 文件改引用；lint:endpoints 79→72。"}
@@ -6115,7 +6115,7 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"notes","i":0,"c":"core/endpoints 新增 DEFAULT_OAUTH_REDIRECT_URI；product 的本地应用基址复用本地 OAuth apps 面常量、ingress 判定改用 LOCAL_SERVICE_HOST；lint:endpoints 72→70。"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#0","i":0,"c":"packages/kernel/src/core/endpoints.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#1","i":0,"c":"app/src/cli/handlers/authHandler.ts"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#2","i":0,"c":"app/src/constants/product.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#2","i":0,"c":"packages/infra/src/constants/product.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"title","i":0,"c":"U-20/B5-2-96：绑定 host 与本机端点判定统一走常量"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-96","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；lint:endpoints 白名单收敛"}
@@ -7447,11 +7447,11 @@
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"notes","i":0,"c":"const env 读取（oauth.ts 7 处 / system.ts 2 处）改为 constants/envAccess 的注入入口，实现由 bootstrap/preflight.wireConstantsDeps 接 configManager.env；日志 2 文件改 @openliri/kernel/loggerFacade；"}
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"notes","i":1,"c":"AppError/ErrorCategory/ErrorSeverity 改 @openliri/kernel/errors；systemPromptSections 的 import(@modules/memory) 动态解冻改为注入 setFrozenSnapshotUnfreezer（未注入 = no-op，与\"该导出无调用方\"等价）。所有 env 读"}
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"notes","i":2,"c":"取点均在函数体内（调用期），启动期接线先于使用。R7 结果：SCC 13 → 12，constants 出环，基线同步下调。"}
-{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#0","i":0,"c":"app/src/constants/envAccess.ts"}
-{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#1","i":0,"c":"app/src/constants/oauth.ts"}
-{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#2","i":0,"c":"app/src/constants/system.ts"}
-{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#3","i":0,"c":"app/src/constants/systemPromptSections.ts"}
-{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#4","i":0,"c":"app/src/constants/index.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#0","i":0,"c":"packages/infra/src/constants/envAccess.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#1","i":0,"c":"packages/infra/src/constants/oauth.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#2","i":0,"c":"packages/infra/src/constants/system.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#3","i":0,"c":"packages/infra/src/constants/systemPromptSections.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#4","i":0,"c":"packages/infra/src/constants/index.ts"}
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#5","i":0,"c":"app/src/bootstrap/preflight.ts"}
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#6","i":0,"c":"app/src/main.ts"}
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#7","i":0,"c":".trae/architecture/infra-cycle-baseline.json"}
@@ -7463,11 +7463,11 @@
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"notes","i":0,"c":"const env 读取（oauth.ts 7 处 / system.ts 2 处）改为 constants/envAccess 的注入入口，实现由 bootstrap/preflight.wireConstantsDeps 接 configManager.env；日志 2 文件改 @openliri/kernel/loggerFacade；"}
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"notes","i":1,"c":"AppError/ErrorCategory/ErrorSeverity 改 @openliri/kernel/errors；systemPromptSections 的 import(@modules/memory) 动态解冻改为注入 setFrozenSnapshotUnfreezer（未注入 = no-op，与\"该导出无调用方\"等价）。所有 env 读"}
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"notes","i":2,"c":"取点均在函数体内（调用期），启动期接线先于使用。R7 结果：SCC 13 → 12，constants 出环，基线同步下调。"}
-{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#0","i":0,"c":"app/src/constants/envAccess.ts"}
-{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#1","i":0,"c":"app/src/constants/oauth.ts"}
-{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#2","i":0,"c":"app/src/constants/system.ts"}
-{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#3","i":0,"c":"app/src/constants/systemPromptSections.ts"}
-{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#4","i":0,"c":"app/src/constants/index.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#0","i":0,"c":"packages/infra/src/constants/envAccess.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#1","i":0,"c":"packages/infra/src/constants/oauth.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#2","i":0,"c":"packages/infra/src/constants/system.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#3","i":0,"c":"packages/infra/src/constants/systemPromptSections.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#4","i":0,"c":"packages/infra/src/constants/index.ts"}
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#5","i":0,"c":"app/src/bootstrap/preflight.ts"}
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#6","i":0,"c":"app/src/main.ts"}
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#7","i":0,"c":".trae/architecture/infra-cycle-baseline.json"}

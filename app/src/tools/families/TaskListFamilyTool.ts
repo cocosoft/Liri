@@ -8,7 +8,7 @@
  * 兼容口径：三个旧工具的 `params` 里都带一个**从未被读取**的 `action` 占位字段
  * （行为由工具名决定）⇒ 合并后由 `op` 正式承接该语义；缺省 `op=get`（只读兜底）。
  */
-import { TOOL_NAME_CONSTANTS } from '../../constants/toolNameConstants';
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants/toolNameConstants';
 import {
   TaskCreateListTool,
   TaskGetListTool,

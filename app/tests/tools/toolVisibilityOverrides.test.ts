@@ -45,7 +45,7 @@ import {
   filterToolsByTask,
 } from '../../src/tools/toolCategories';
 import { resolveToolVisibilityReport } from '../../src/tools/toolVisibilityReport';
-import { TOOL_NAMES } from '../../src/constants/toolNames.generated';
+import { TOOL_NAMES } from '@openliri/infra/constants/toolNames.generated';
 import { selectToolsForTurn } from '../../src/chat/orchestrator/streamMessageToolSelection';
 
 type ToolLike = { function?: { name?: string }; name?: string };

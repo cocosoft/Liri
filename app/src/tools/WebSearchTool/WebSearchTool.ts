@@ -18,7 +18,7 @@ import type {
   ToolValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { buildUserAgent } from '@modules/constants';
+import { buildUserAgent } from '@openliri/infra/constants';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type { SearchResult } from './providers';

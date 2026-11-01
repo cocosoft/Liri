@@ -3,7 +3,7 @@ import { resolvePyappHome } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 // B2-3（2026-09-23）：恢复指示文案的唯一来源（原为本文件内的硬编码，Spec §5.3.1 #3）
-import { CONTINUATION_TEMPLATES } from '@modules/constants/goalTemplates';
+import { CONTINUATION_TEMPLATES } from '@openliri/infra/constants/goalTemplates';
 
 const logger = getLogger('tools:AgentTool:resumeAgent');
 

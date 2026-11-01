@@ -5,7 +5,7 @@
 
 import type { UserInfo } from '../types/OAuthProvider';
 import { BaseOAuthProvider } from './BaseOAuthProvider';
-import { GITHUB_API_BASE } from '@modules/constants';
+import { GITHUB_API_BASE } from '@openliri/infra/constants';
 
 const GITHUB_AUTHORIZE = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN = 'https://github.com/login/oauth/access_token';

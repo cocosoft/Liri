@@ -5,7 +5,7 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { buildUserAgent } from '@modules/constants';
+import { buildUserAgent } from '@openliri/infra/constants';
 
 import { getLogger } from '@modules/monitoring';
 import {

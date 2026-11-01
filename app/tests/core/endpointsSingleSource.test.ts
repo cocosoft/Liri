@@ -88,7 +88,7 @@ describe('HD-P0-2 端点 / 本机 host 单一真源', () => {
     const OAUTH_CONST = 'DEFAULT_OAUTH_LOCAL_BASE_URL';
     // A4：两处 OAuth 白名单**均须引用**真源
     for (const rel of [
-      'src/constants/oauth.ts',
+      '../packages/infra/src/constants/oauth.ts',
       'src/system/auth/oauthConfig.ts',
     ]) {
       expect(readFileSync(join(APP, rel), 'utf8')).toContain(OAUTH_CONST);

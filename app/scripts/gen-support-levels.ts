@@ -106,7 +106,8 @@ function channelIds(): string[] {
 
 /** 工具：`TOOL_NAMES` 数组内的字符串字面量 */
 function toolIds(): string[] {
-  const text = read('src/constants/toolNames.generated.ts');
+  // P7（2026-11-01）：constants 已迁入 infra 物理包 ⇒ 事实源路径同步
+  const text = read('../packages/infra/src/constants/toolNames.generated.ts');
   const block = /export const TOOL_NAMES = \[([\s\S]*?)\] as const;/.exec(
     text
   )?.[1];

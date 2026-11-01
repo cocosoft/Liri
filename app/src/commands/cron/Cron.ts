@@ -16,7 +16,7 @@ import { resolveDbPath } from '@modules/environment';
 import { configManager } from '@modules/config';
 
 import { getLogger } from '@modules/monitoring';
-import { DEFAULT_LOCALE } from '@modules/constants';
+import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 const logger = getLogger('commands:cron:Cron');
 
 const CRON_DATA_DIR = configManager.env('CRON_DATA_DIR') || '';

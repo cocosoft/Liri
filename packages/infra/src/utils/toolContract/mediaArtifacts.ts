@@ -20,7 +20,7 @@
  *
  * 语义边界：本表只描述**产物结构**（路径字段 / 上下文槽位 / 补充字段），不参与权限与风险判定。
  */
-import type { ToolName } from '@modules/constants/toolNames.generated';
+import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
 
 /** 会话级「最近图片」槽位 */
 export type MediaContextSlot = 'generated' | 'edited' | 'analyzed';

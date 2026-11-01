@@ -13,7 +13,7 @@
 import { afterEach, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
-import { setSectionCacheLocale } from '@modules/constants';
+import { setSectionCacheLocale } from '@openliri/infra/constants';
 
 import { resolveToolParam } from '../../src/services/prompt/PromptVersionManager';
 import { resolveConfiguredLanguage } from '../../src/system/i18n/languageProfiles';

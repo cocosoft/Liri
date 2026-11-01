@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { PENDING_INTERACTION_TTL_MS } from '../../src/constants/common.js';
+import { PENDING_INTERACTION_TTL_MS } from '@openliri/infra/constants/common';
 import {
   createPendingInteractionEntry,
   hasActivePendingInteraction,

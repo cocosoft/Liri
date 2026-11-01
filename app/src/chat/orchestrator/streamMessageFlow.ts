@@ -123,7 +123,7 @@ import {
   lintMermaidBlocks,
   formatMermaidIssues,
 } from '@openliri/infra/utils/mermaidLint';
-import { renderGoalTemplate } from '../../constants/goalTemplates';
+import { renderGoalTemplate } from '@openliri/infra/constants/goalTemplates';
 // P2-2（2026-09-23）：请求边界事件（request/start；requestId = 该事件的 seq）
 import { startRequest } from '../services/requestBoundary.js';
 import type {

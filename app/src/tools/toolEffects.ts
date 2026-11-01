@@ -24,7 +24,7 @@
  * `isReadOnly({})` / `isDestructive()` 取真实返回值（脚本已删除，结论固化于下表）。
  */
 
-import type { ToolName } from '../constants/toolNames.generated';
+import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
 
 /** 副作用范围：`none` 无副作用 · `local` 本地状态 · `external` 对外部系统/用户可见 */
 export type ToolSideEffect = 'none' | 'local' | 'external';

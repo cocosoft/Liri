@@ -31,7 +31,7 @@ import {
   resolveLanguage,
   type LangKey,
 } from '@modules/system/i18n/languageProfiles';
-import { DEFAULT_LOCALE } from '@modules/constants';
+import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 const logger = getLogger('tools:DocGenerateTool');
 
 /** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：officecli 探测/调用原为 `execSync`/`spawnSync` */

@@ -55,7 +55,7 @@ export default [
         //（CS01：禁止逐字重复副本），而"续接指令"是文案常量、无法经
         // `moduleRegistry.resolve<T>()` 在模块初始化期同步取得。
         // 2026-10-21：该文件已由 `tasks/goal/goalTemplates.ts` 下沉为 `constants/goalTemplates.ts`
-        //（消费方改走 `@modules/constants` 桶；此处正则按文件名后缀匹配，仍然生效）。
+        //（消费方改走 `@openliri/infra/constants` 桶；此处正则按文件名后缀匹配，仍然生效）。
         // 见 `.trae/specs/goal-entity.md` §5.3.1 #1/#2。
         // 2026-10-21（多租户 P5）：`runtime` 模块**无 index.ts**（无统一出口），删除租户的
         // 清除入口只能按子路径取用；它是"管理维护入口"、不在任何模块的公开 API 面

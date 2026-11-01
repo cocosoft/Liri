@@ -47,7 +47,7 @@ import type {
   ChatRequest,
   ChatStreamChunk,
 } from '@modules/runtime/api/CoreAPI';
-import { DEFAULT_MODEL_SENTINEL } from '@modules/constants';
+import { DEFAULT_MODEL_SENTINEL } from '@openliri/infra/constants';
 import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 // P0-2（2026-10-10）：客户端流式路径接入 Execution 生命周期（`service → service` 合法；
 // 见 `.trae/specs/client-stream-execution.md`）

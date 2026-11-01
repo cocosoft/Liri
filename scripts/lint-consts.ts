@@ -77,7 +77,7 @@ const VENDORED_FRAGMENTS = ['app/src/ink/ink/'];
  */
 const CROSS_PACKAGE_CONTRACT_CONSTS: Record<string, string> = {
   DEFAULT_MODEL_SENTINEL:
-    '「未选模型」哨兵（由后端 SmartRouter 兜底）：app/src/constants/common.ts ↔ ' +
+    '「未选模型」哨兵（由后端 SmartRouter 兜底）：packages/infra/src/constants/common.ts ↔ ' +
     'client/src/services/chatService.ts ↔ client/src-tauri/src/commands/chat.rs；' +
     '守卫见 app/tests/constants/sameNameConstsB2.test.ts 的 B5-2-68（三方逐字同值断言）',
   ROUND_SUMMARY_MAX_CHARS:
@@ -187,8 +187,15 @@ function duplicates(
 const KIND_TAG_RE = /@kind\s+([ABCD])\b/;
 const KIND_DEFAULT_RE = /@kind-default\s+([ABCD])\b/;
 
-/** 常量所在目录（本脚本位于仓库根 `scripts/`） */
-const CONSTANTS_DIR = resolve(import.meta.dir, '../app/src/constants');
+/**
+ * 常量所在目录（本脚本位于仓库根 `scripts/`）。
+ *
+ * P7（2026-11-01）：`constants` 已物理迁入 infra 包 ⇒ 复用同一根解析，README/门禁提示统一用
+ * {@link CONSTANTS_REL}。**若此处仍指向 `app/src/constants`，迁包后 D-1 `@kind` 与 D-2 单位后缀
+ * 会因目录不存在而「读到 0 个文件 ⇒ 静默全绿」**（AR-3 同级失明），故路径与提示必须同批改名。
+ */
+const CONSTANTS_REL = 'packages/infra/src/constants';
+const CONSTANTS_DIR = resolve(import.meta.dir, '..', CONSTANTS_REL);
 
 /**
  * D-2（2026-10-18）B 类裸字面量：`const X_(TIMEOUT|LIMIT|THRESHOLD|MS) = <数字>`
@@ -196,7 +203,7 @@ const CONSTANTS_DIR = resolve(import.meta.dir, '../app/src/constants');
  * 口径（清单 §5 D-2 第 1 条）：
  * - 只匹配**数字开头**的赋值（`30_000` / `1000` / `30 * 1000`），
  *   `= B.xxx`（defaults 转发）与 `= SOME_CONST`（已归一化）不算；
- * - 允许位置：`app/src/constants/` 与任意 `defaults.ts`；
+ * - 允许位置：`packages/infra/src/constants/` 与任意 `defaults.ts`；
  * - **推进阶段 = 上报 + 棘轮**：存量进基线（只减不增），新增文件/条数 ⇒ 阻断。
  */
 const BARE_LITERAL_RE =
@@ -214,7 +221,7 @@ function scanBareNumberLiterals(files: string[]): {
     // P2（2026-11-01）：infra 物理包（packages/infra/src）与 app/src 同属生产代码 ⇒ 同口径扫描
     if (!rel.startsWith('app/src/') && !rel.startsWith('packages/infra/src/'))
       continue;
-    if (rel.startsWith('app/src/constants/')) continue;
+    if (rel.startsWith(`${CONSTANTS_REL}/`)) continue;
     if (rel.endsWith('/defaults.ts')) continue;
     let n = 0;
     for (const line of readLines(abs)) {
@@ -260,7 +267,7 @@ function checkKindTags(): string[] {
 
     if (defaultKind === 'C') {
       findings.push(
-        `src/constants/${name}:1  @kind-default C —— C 类（模型 window/价格/能力）禁止出现在 constants/`
+        `${CONSTANTS_REL}/${name}:1  @kind-default C —— C 类（模型 window/价格/能力）禁止出现在 constants/`
       );
     }
 
@@ -270,11 +277,11 @@ function checkKindTags(): string[] {
       const kind = kindOfNearestBlock(lines, i) ?? defaultKind;
       if (!kind) {
         findings.push(
-          `src/constants/${name}:${i + 1}  常量 ${def[1]} 缺少 @kind A|B|C|D 标签`
+          `${CONSTANTS_REL}/${name}:${i + 1}  常量 ${def[1]} 缺少 @kind A|B|C|D 标签`
         );
       } else if (kind === 'C') {
         findings.push(
-          `src/constants/${name}:${i + 1}  常量 ${def[1]} 为 C 类 —— 模型 window/价格/能力只允许 DB/注册表`
+          `${CONSTANTS_REL}/${name}:${i + 1}  常量 ${def[1]} 为 C 类 —— 模型 window/价格/能力只允许 DB/注册表`
         );
       }
     }
@@ -312,7 +319,7 @@ function checkUnitSuffixes(): string[] {
       const value = Number(raw.replace(/_/g, ''));
       if (value < rule.min) {
         findings.push(
-          `src/constants/${name}:${i + 1}  ${constName} = ${value} 与单位后缀不符（${rule.hint}）`
+          `${CONSTANTS_REL}/${name}:${i + 1}  ${constName} = ${value} 与单位后缀不符（${rule.hint}）`
         );
       }
     }

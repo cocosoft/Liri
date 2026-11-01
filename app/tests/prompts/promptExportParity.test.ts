@@ -166,7 +166,7 @@ describe('C-1 提示词冻结导出', () => {
 
     for (const rel of [
       'src/context/promptSections/builtinSections.ts',
-      'src/constants/systemPromptSections.ts',
+      '../packages/infra/src/constants/systemPromptSections.ts',
     ]) {
       const source = readFileSync(
         new URL(`../../${rel}`, import.meta.url),

@@ -19,7 +19,7 @@ import {
 import { basename, dirname, join } from 'node:path';
 
 import { resolvePyappHome } from '@modules/environment';
-import { DEFAULT_LOCALE } from '@modules/constants';
+import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 import {
   clearPromptCache,
   getPromptResourceRoot,

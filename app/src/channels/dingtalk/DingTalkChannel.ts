@@ -26,7 +26,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
-import { MS_PER_MINUTE } from '@modules/constants';
+import { MS_PER_MINUTE } from '@openliri/infra/constants';
 import { DINGTALK_SITE_URL } from '../constants';
 const logger = getLogger('channels:dingtalk:DingTalkChannel');
 

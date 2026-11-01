@@ -33,7 +33,7 @@ import {
   type DisclosureBaseline,
   type DisclosureSnapshot,
 } from '../../scripts/measure-tool-disclosure';
-import { TOOL_NAMES_COUNT } from '../../src/constants/toolNames.generated';
+import { TOOL_NAMES_COUNT } from '@openliri/infra/constants/toolNames.generated';
 
 const baseline = readBaseline();
 const current = measureDisclosure();

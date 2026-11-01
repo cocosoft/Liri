@@ -13,7 +13,7 @@ import {
   IMAGE_MAX_WIDTH,
   IMAGE_MAX_HEIGHT,
   IMAGE_TARGET_RAW_SIZE,
-} from '@modules/constants/apiLimits';
+} from '@openliri/infra/constants/apiLimits';
 
 const execAsync = promisify(exec);
 

@@ -6,7 +6,7 @@
 
 import { createOAuthStorage } from '@modules/oauth';
 import { configManager } from '@modules/config';
-import { OAUTH_API_BASE_URL } from '@modules/constants';
+import { OAUTH_API_BASE_URL } from '@openliri/infra/constants';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('oauth:services:OAuthStartup');

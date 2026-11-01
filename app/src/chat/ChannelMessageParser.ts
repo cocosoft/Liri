@@ -3,7 +3,7 @@
  * 实现通道消息的解析和格式化
  */
 
-import { CHANNEL_TAG } from '@modules/constants';
+import { CHANNEL_TAG } from '@openliri/infra/constants';
 
 /**
  * 通道消息标签（**真源**：`constants/xml.ts` —— 硬编码治理「同名常量」B2 收口；

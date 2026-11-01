@@ -15,11 +15,13 @@ import {
   APP_VERSION,
   USER_AGENT,
   buildUserAgent,
-} from '../../src/constants/common';
+} from '@openliri/infra/constants/common';
 
 /** `app/`（`app/tests/constants/` → 上两级） */
 const APP = join(import.meta.dir, '..', '..');
 const SRC = join(APP, 'src');
+/** P7（2026-11-01）：`constants` 已迁入 infra 物理包 ⇒ 真源与新增写死点必须同在扫描面 */
+const INFRA_SRC = join(APP, '..', 'packages', 'infra', 'src');
 
 function collectProductionTs(dir: string, out: string[]): void {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -94,10 +96,11 @@ describe('HD-P1-1 · 产品 User-Agent 单一真源', () => {
   it('③ `User-Agent` 头的值不再有产品 UA 字面量（真源除外）', () => {
     const files: string[] = [];
     collectProductionTs(SRC, files);
+    collectProductionTs(INFRA_SRC, files);
     const hits: string[] = [];
     for (const abs of files) {
       const r = rel(abs);
-      if (r === 'src/constants/common.ts') continue; // 真源
+      if (r === '../packages/infra/src/constants/common.ts') continue; // 真源
       readFileSync(abs, 'utf-8')
         .split('\n')
         .forEach((line, i) => {

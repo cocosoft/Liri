@@ -108,7 +108,8 @@ function countEvalBaseline(): number {
 }
 
 function collect(): Metric[] {
-  const toolNamesFile = 'src/constants/toolNames.generated.ts';
+  // P7（2026-11-01）：constants 已迁入 infra 物理包 ⇒ 事实源路径同步（否则本脚本 fail-closed）
+  const toolNamesFile = '../packages/infra/src/constants/toolNames.generated.ts';
   const toolNames = readSource(toolNamesFile);
   const toolCount = Number(
     /^export const TOOL_NAMES_COUNT = (\d+);/m.exec(toolNames)?.[1] ?? NaN
@@ -144,7 +145,8 @@ function collect(): Metric[] {
     {
       label: '内建工具',
       value: toolCount,
-      source: `app/${toolNamesFile}`,
+      // P7：事实源已移出 `app/src` ⇒ 统一按仓库相对路径展示（不再拼 `app/` 前缀，否则出现 `app/../`）
+      source: relative(REPO_ROOT, join(APP_DIR, toolNamesFile)).split('\\').join('/'),
       scope: '全量 ∧ 可实例化（flag-gated 且默认关闭者不计）',
     },
     {

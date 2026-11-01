@@ -32,7 +32,7 @@
  */
 
 import type { PromptMode } from './types';
-import type { StaticPromptSectionName } from '../../constants/systemPromptSections';
+import type { StaticPromptSectionName } from '@openliri/infra/constants/systemPromptSections';
 
 export type PromptLayer = 'L0' | 'L1' | 'L2' | 'L3';
 

@@ -29,7 +29,7 @@ import {
   buildChildMessage,
 } from './ForkSubagent';
 import { getLogger } from '@modules/monitoring';
-import type { ToolName } from '@modules/constants/toolNames.generated';
+import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
 
 const logger = getLogger('tools:agentTool');
 

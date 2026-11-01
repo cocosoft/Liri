@@ -4,7 +4,7 @@
  */
 
 import { configManager } from '@modules/config';
-import { ANSI_RESET } from '@modules/constants';
+import { ANSI_RESET } from '@openliri/infra/constants';
 
 export interface PrintOptions {
   bold?: boolean;

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { DEFAULT_LOCALE } from '@modules/constants';
+import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 
 export interface MessageBubbleProps {
   content: string;

@@ -16,6 +16,14 @@
     "./utils": {
       "types": "./src/utils/index.ts",
       "import": "./src/utils/index.ts"
+    },
+    "./constants": {
+      "types": "./src/constants/index.ts",
+      "import": "./src/constants/index.ts"
+    },
+    "./constants/*": {
+      "types": "./src/constants/*.ts",
+      "import": "./src/constants/*.ts"
     }
   },
   "scripts": {

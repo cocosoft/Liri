@@ -42,7 +42,7 @@ import {
   getSectionCacheLocale,
   resolveSystemPromptSections,
   type SystemPromptSection,
-} from '@modules/constants';
+} from '@openliri/infra/constants';
 import { setUserDataDirOverride } from '@modules/environment';
 
 const BUNDLED_IDENTITY = join(

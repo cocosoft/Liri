@@ -11,7 +11,7 @@ import { DEFAULT_OAUTH_LOCAL_BASE_URL } from '@openliri/kernel';
 import {
   OAUTH_API_BASE_URL,
   OAUTH_STAGING_API_BASE_URL,
-} from '@modules/constants';
+} from '@openliri/infra/constants';
 
 const Liri_INFERENCE_SCOPE = 'user:inference';
 const Liri_PROFILE_SCOPE = 'user:profile';

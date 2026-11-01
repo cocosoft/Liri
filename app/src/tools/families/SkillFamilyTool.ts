@@ -6,7 +6,7 @@
  * 兼容口径：旧调用 `skill{name,arguments}` **不带 op** ⇒ 缺省 `op=run`（`defaultKey`），
  * 与合并前逐字一致；`skill_view` / `skills_list` 经 alias 归一化补 `op`。
  */
-import { TOOL_NAME_CONSTANTS } from '../../constants/toolNameConstants';
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants/toolNameConstants';
 import { SkillTool } from '../SkillTool/SkillTool';
 import { SkillViewTool } from '../SkillTool/SkillViewTool';
 import { SkillListTool } from '../SkillTool/SkillListTool';

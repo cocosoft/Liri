@@ -1,6 +1,6 @@
 import * as https from 'https';
 import { getLogger } from '@modules/monitoring';
-import { buildUserAgent, GITHUB_API_BASE } from '@modules/constants';
+import { buildUserAgent, GITHUB_API_BASE } from '@openliri/infra/constants';
 import type {
   RegistryAdapter,
   SearchParams,

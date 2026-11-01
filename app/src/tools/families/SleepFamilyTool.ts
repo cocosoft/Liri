@@ -9,7 +9,7 @@
  * ⚠️ `wake` / `until` **不是**本地阻塞：它们依赖 `context.sessionId` 与 CG3 自唤醒服务，
  * 语义差异在参数描述与错误文案里显式写明（不合并成一个"看起来一样"的参数）。
  */
-import { TOOL_NAME_CONSTANTS } from '../../constants/toolNameConstants';
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants/toolNameConstants';
 import { SleepTool } from '../SleepTool/SleepTool';
 import {
   createSleepForTool,

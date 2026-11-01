@@ -1885,7 +1885,7 @@
         "packages/kernel/src/core/index.ts",
         "app/src/tools/utils/ToolFeatureFlags.ts",
         "app/scripts/gen-tool-names.ts",
-        "app/src/constants/toolNames.generated.ts"
+        "packages/infra/src/constants/toolNames.generated.ts"
       ],
       "tests": [
         "app/tests/tools/toolTypesShimGuard.test.ts",
@@ -2145,7 +2145,7 @@
         "packages/kernel/src/core/featureFlags.ts",
         "app/src/bootstrap/generatedVariantFlags.ts",
         "app/scripts/build-variant.ts",
-        "app/src/constants/toolNames.generated.ts",
+        "packages/infra/src/constants/toolNames.generated.ts",
         "app/src/tools/toolEffects.ts",
         "app/src/tools/toolCategories.ts"
       ],
@@ -3461,7 +3461,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/constants/common.ts",
+        "packages/infra/src/constants/common.ts",
         "app/src/docs/i18n/LanguageManager.ts",
         "app/src/services/voice/services/ttsConfigOverlay.ts",
         "app/src/services/voice/services/voiceService.ts",
@@ -4112,7 +4112,7 @@
         "packages/kernel/src/core/index.ts",
         "app/src/ai/providers/OllamaProvider.ts",
         "app/src/channels/wechat/WechatChannel.ts",
-        "app/src/constants/oauth.ts",
+        "packages/infra/src/constants/oauth.ts",
         "app/src/main.ts"
       ],
       "tests": [
@@ -4256,7 +4256,7 @@
       },
       "code": [
         "app/src/environment/paths.ts",
-        "app/src/constants/common.ts",
+        "packages/infra/src/constants/common.ts",
         "app/src/workspace/LiriConfigManager.ts",
         "app/src/workspace/RuleEngine.ts",
         "app/src/infrastructure/http/handlers/team-handlers.ts"
@@ -4285,7 +4285,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/constants/common.ts",
+        "packages/infra/src/constants/common.ts",
         "app/src/services/api/client.ts",
         "app/src/tools/WebFetchTool/utils.ts",
         "app/src/tools/WebFetchTool/WebFetchTool.ts",
@@ -5245,7 +5245,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/constants/figures.ts",
+        "packages/infra/src/constants/figures.ts",
         "app/src/cli/print.ts",
         "app/src/commands/tasks/tasks.ts",
         "app/src/chat/ChannelMessageParser.ts",
@@ -5432,7 +5432,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/constants/common.ts",
+        "packages/infra/src/constants/common.ts",
         "app/src/ai/credentials/CredentialStore.ts",
         "app/src/chronos/maintenance/ChronosBackgroundHousekeeping.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -5733,7 +5733,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/constants/common.ts",
+        "packages/infra/src/constants/common.ts",
         "app/src/ink/ink/line-width-cache.ts",
         "app/src/tokenBudget/ModelContextCache.ts",
         "app/src/tools/ImageGenerateTool/ImageGenerationCache.ts",
@@ -6707,7 +6707,7 @@
       },
       "code": [
         "app/src/bootstrap/AppCoreOTelHelper.ts",
-        "app/src/constants/common.ts",
+        "packages/infra/src/constants/common.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -6910,7 +6910,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/constants/figures.ts",
+        "packages/infra/src/constants/figures.ts",
         "app/src/chat/ChannelMessageParser.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -7886,7 +7886,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/constants/toolLimits.ts"
+        "packages/infra/src/constants/toolLimits.ts"
       ],
       "tests": [
         "app/tests/constants/sameNameConstsB2.test.ts"
@@ -7912,7 +7912,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/constants/toolLimits.ts"
+        "packages/infra/src/constants/toolLimits.ts"
       ],
       "tests": [
         "app/tests/constants/sameNameConstsB2.test.ts"
@@ -8017,7 +8017,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/constants/xml.ts"
+        "packages/infra/src/constants/xml.ts"
       ],
       "tests": [
         "app/tests/constants/sameNameConstsB2.test.ts"
@@ -8562,7 +8562,7 @@
         "app/src/tools/factories/builtinToolRegistry.ts",
         "app/src/tools/utils/ToolManagerUtils.ts",
         "app/src/tools/toolEffects.ts",
-        "app/src/constants/toolNames.generated.ts"
+        "packages/infra/src/constants/toolNames.generated.ts"
       ],
       "tests": [
         "app/tests/tools/toolNameLists.test.ts"
@@ -8592,7 +8592,7 @@
         "app/src/tools/factories/builtinToolRegistry.ts",
         "app/src/tools/utils/ToolManagerUtils.ts",
         "app/src/tools/toolEffects.ts",
-        "app/src/constants/toolNames.generated.ts"
+        "packages/infra/src/constants/toolNames.generated.ts"
       ],
       "tests": [
         "app/tests/tools/toolNameLists.test.ts"
@@ -8623,7 +8623,7 @@
         "app/src/tools/factories/builtinToolRegistry.ts",
         "app/src/tools/utils/ToolManagerUtils.ts",
         "app/src/tools/toolEffects.ts",
-        "app/src/constants/toolNames.generated.ts",
+        "packages/infra/src/constants/toolNames.generated.ts",
         "app/docs/工具参考/pdf.md"
       ],
       "tests": [
@@ -8853,7 +8853,7 @@
         "app/src/tools/factories/builtinToolRegistry.ts",
         "app/src/tools/toolCategories.ts",
         "app/src/tools/toolEffects.ts",
-        "app/src/constants/toolNames.generated.ts"
+        "packages/infra/src/constants/toolNames.generated.ts"
       ],
       "tests": [
         "app/tests/tools/toolNameLists.test.ts",
@@ -10924,7 +10924,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/constants/xml.ts",
+        "packages/infra/src/constants/xml.ts",
         "app/src/query/index.ts",
         "app/src/evals/processAssertions.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -11367,7 +11367,7 @@
         "app/src/ai/api/CapabilitiesAPI.ts",
         "app/src/ai/api/ProviderAPI.ts",
         "app/src/ai/api/TranslateAPI.ts",
-        "app/src/constants/oauth.ts"
+        "packages/infra/src/constants/oauth.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -11425,7 +11425,7 @@
       "code": [
         "packages/kernel/src/core/endpoints.ts",
         "app/src/cli/handlers/authHandler.ts",
-        "app/src/constants/product.ts",
+        "packages/infra/src/constants/product.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],
@@ -15849,11 +15849,11 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/constants/envAccess.ts",
-        "app/src/constants/oauth.ts",
-        "app/src/constants/system.ts",
-        "app/src/constants/systemPromptSections.ts",
-        "app/src/constants/index.ts",
+        "packages/infra/src/constants/envAccess.ts",
+        "packages/infra/src/constants/oauth.ts",
+        "packages/infra/src/constants/system.ts",
+        "packages/infra/src/constants/systemPromptSections.ts",
+        "packages/infra/src/constants/index.ts",
         "app/src/bootstrap/preflight.ts",
         "app/src/main.ts",
         ".trae/architecture/infra-cycle-baseline.json"

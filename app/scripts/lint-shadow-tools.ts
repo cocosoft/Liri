@@ -18,7 +18,7 @@ import {
   LEGACY_ALIAS_TOOL_NAMES,
   TOOL_NAME_CONSTANTS,
 } from '../src/tools/toolNameConstants';
-import { TOOL_NAMES } from '../src/constants/toolNames.generated';
+import { TOOL_NAMES } from '@openliri/infra/constants/toolNames.generated';
 
 function main(): number {
   // P1（2026-10-30，工具族合并）：alias-only 旧名**不是**待处置的影子工具（它们是合并工具

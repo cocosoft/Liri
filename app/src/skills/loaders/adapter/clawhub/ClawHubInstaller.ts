@@ -34,7 +34,7 @@ import {
   statSync,
 } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { GITEE_SITE_URL, GITHUB_RAW_BASE } from '@modules/constants';
+import { GITEE_SITE_URL, GITHUB_RAW_BASE } from '@openliri/infra/constants';
 import type { LocalSkillStore } from '../LocalSkillStore';
 import type { ClawHubSkillMeta, InstalledClawHubSkill } from './ClawHubMeta';
 import { ClawHubAPIClient } from './ClawHubAPIClient';

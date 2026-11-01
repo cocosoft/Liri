@@ -14,7 +14,7 @@
 
 import type { Tool } from '../types/Tool';
 import { TOOL_EFFECTS } from '../toolEffects';
-import type { ToolName } from '../../constants/toolNames.generated';
+import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
 import {
   allowResult,
   denyResult,

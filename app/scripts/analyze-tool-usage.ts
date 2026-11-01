@@ -32,7 +32,7 @@ import {
 import { createInterface } from 'node:readline';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { TOOL_NAMES } from '../src/constants/toolNames.generated';
+import { TOOL_NAMES } from '@openliri/infra/constants/toolNames.generated';
 
 export const TOOL_CALL_EVENT = 'assistant/tool_call';
 export const MODEL_INPUT_EVENT = 'context/model-input';

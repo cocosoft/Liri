@@ -27,7 +27,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 // Q-H2（2026-10-13）：默认语言统一走 `constants/common.ts` 唯一真源（原写死 'zh-CN'）
-import { DEFAULT_LOCALE } from '@modules/constants';
+import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 import { VadDetector } from '@modules/services/voice/services/vadDetector';
 import { STTRegistry } from '@modules/services/voice/services/sttRegistry';
 

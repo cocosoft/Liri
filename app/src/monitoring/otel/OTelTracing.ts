@@ -12,7 +12,7 @@ import {
 } from '@opentelemetry/api';
 
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
-import { APP_VERSION } from '@modules/constants';
+import { APP_VERSION } from '@openliri/infra/constants';
 const logger = getLogger('monitoring\otel\OTelTracing');
 
 /**

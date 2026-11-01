@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, afterEach } from 'bun:test';
 
-import { getRuntimeDefaults } from '../../src/constants/defaults';
+import { getRuntimeDefaults } from '@openliri/infra/constants/defaults';
 
 /** 本用例涉及的 env 名（afterEach 统一清理，避免污染其它测试） */
 const TOUCHED_ENV = [

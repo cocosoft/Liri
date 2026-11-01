@@ -39,7 +39,7 @@ import {
   resolveSystemPromptSections,
   resetBuiltinSectionsForTest,
   SECTION_NAMES,
-} from '../../src/constants/systemPromptSections';
+} from '@openliri/infra/constants/systemPromptSections';
 import {
   isSectionDeclared,
   isSectionVisibleIn,

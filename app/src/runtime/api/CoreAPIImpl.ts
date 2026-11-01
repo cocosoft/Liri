@@ -98,7 +98,7 @@ import type { LiriEvent } from '@modules/session/types/events';
 import type { SessionManager } from '@modules/session/types/session';
 import type { Message } from '@modules/session/types/message';
 import type { ToolManager } from '@modules/tools';
-import { TOOL_NAME_CONSTANTS } from '@modules/constants';
+import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
 import type { Coordinator } from '@modules/runtime/coordinator';
 import { coordinator as defaultCoordinator } from '@modules/runtime/coordinator';
 import { getLogger } from '@modules/monitoring';

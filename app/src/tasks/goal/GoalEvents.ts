@@ -37,7 +37,7 @@ import {
 import {
   renderGoalTemplate,
   type GoalTemplateKind,
-} from '../../constants/goalTemplates';
+} from '@openliri/infra/constants/goalTemplates';
 import type { GoalRunSettlement } from './goalSettlementTypes';
 import type { TaskGoalStatus, TaskGoalUpdateReason } from './TaskGoalStore';
 import type { GoalDeviationSeverity } from '@modules/types/goal';

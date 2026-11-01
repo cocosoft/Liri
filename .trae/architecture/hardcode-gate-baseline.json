@@ -62,7 +62,6 @@
     "app/src/commands/provider/provider.ts": 4,
     "app/src/commands/tools/file/edit.ts": 2,
     "app/src/config/ConfigModuleTest.ts": 3,
-    "app/src/constants/common.ts": 1,
     "app/src/docs/ContextHelp.ts": 2,
     "app/src/docs/ToolGuide.ts": 2,
     "app/src/entrypoints/http-server.ts": 1,

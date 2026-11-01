@@ -26,7 +26,7 @@ import type {
 } from '@modules/runtime/api/CoreAPI.js';
 import { extractTodoData, autoAnswerUnattended } from '@modules/chat';
 import { withDeadline } from '@openliri/infra/utils/withDeadline';
-import { PENDING_INTERACTION_TTL_MS } from '@modules/constants';
+import { PENDING_INTERACTION_TTL_MS } from '@openliri/infra/constants';
 import {
   createPendingInteractionEntry,
   hasActivePendingInteraction,

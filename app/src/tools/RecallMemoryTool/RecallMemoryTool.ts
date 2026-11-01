@@ -11,7 +11,7 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 
 import { getLogger } from '@modules/monitoring';
-import { DEFAULT_LOCALE } from '@modules/constants';
+import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 const logger = getLogger('tools:RecallMemoryTool:RecallMemoryTool');
 
 /** 3-2：全局记忆命中的最小接口（Memory 子集） */

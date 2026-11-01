@@ -11,7 +11,7 @@
 import { BaseTransport } from './BaseTransport';
 // C1（2026-10-09）：工具调用 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
-import { CACHE_BOUNDARY } from '@modules/constants';
+import { CACHE_BOUNDARY } from '@openliri/infra/constants';
 import {
   DEFAULT_CACHE_CONFIG,
   STRATEGY_SPEC,

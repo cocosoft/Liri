@@ -30,7 +30,7 @@
  */
 
 import { configManager } from '@modules/config';
-import { DEFAULT_MODEL_SENTINEL } from '@modules/constants';
+import { DEFAULT_MODEL_SENTINEL } from '@openliri/infra/constants';
 import { AppError, handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';

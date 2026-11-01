@@ -106,7 +106,7 @@ import {
   writeInstanceLock,
 } from '@modules/runtimeHost';
 // 版本号（唯一事实来源 app/package.json）—— 供 healthcheck 模式打印（L-12.1）
-import { APP_VERSION } from '@modules/constants';
+import { APP_VERSION } from '@openliri/infra/constants';
 
 /**
  * 当前实例的 HTTP 服务引用（AC-7）

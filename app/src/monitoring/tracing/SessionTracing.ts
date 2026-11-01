@@ -13,7 +13,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { logForDebugging } from '@openliri/infra/utils/debug';
 import { errorMessage } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
-import { APP_VERSION } from '@modules/constants';
+import { APP_VERSION } from '@openliri/infra/constants';
 import {
   isSpanCovered,
   markSpanCovered,

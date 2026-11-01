@@ -13,7 +13,7 @@ import { insightsEngine, PerformanceMonitorService } from '@modules/analytics';
 import type { InsightsResult } from '@modules/analytics';
 // 「慢操作」阈值走常量单一事实源（B 类，`LIRI_INSIGHTS_SLOW_MS` 可覆盖）——
 // 原先定义在本文件（`const ... = 1000`）会被 `lint:consts` 判为裸字面量重复事实源。
-import { INSIGHTS_SLOW_OPERATION_THRESHOLD_MS } from '@modules/constants';
+import { INSIGHTS_SLOW_OPERATION_THRESHOLD_MS } from '@openliri/infra/constants';
 
 type Role = 'user' | 'assistant' | 'system' | 'tool';
 

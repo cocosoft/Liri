@@ -14,7 +14,7 @@
 import { randomUUID } from 'crypto';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
-import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@modules/constants';
+import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@openliri/infra/constants';
 import { getActiveProactiveQueue } from './ProactiveRuntime';
 import { evaluateProactiveNotification } from './ProactiveNotificationGate';
 import { resolveProactiveTarget } from './ProactiveTargetResolver';

@@ -20,7 +20,7 @@ import { pathToFileURL } from 'node:url';
 import {
   SECTION_NAMES,
   type StaticPromptSectionName,
-} from '@modules/constants';
+} from '@openliri/infra/constants';
 import { BUILTIN_SECTIONS } from '../../src/context/promptSections/builtinSections';
 
 /** 导出根目录 = `app/prompts`（本文件位于 `app/scripts/lib/`） */

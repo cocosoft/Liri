@@ -17,7 +17,7 @@ import {
 } from '@openliri/kernel';
 
 import { getLogger } from '@modules/monitoring';
-import { GITHUB_API_BASE } from '@modules/constants';
+import { GITHUB_API_BASE } from '@openliri/infra/constants';
 const logger = getLogger('diagnostics:DiagnosticsService');
 
 const execAsync = promisify(exec);

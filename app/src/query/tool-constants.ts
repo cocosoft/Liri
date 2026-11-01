@@ -51,7 +51,7 @@
  * ⇒ 即便清单名正确，`checkBeforeAccess()` 也从未被调用。
  */
 
-import type { ToolName } from '@modules/constants/toolNames.generated';
+import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
 
 /** 整文件读工具（入参键 = `file_path`） */
 const FILE_READ_TOOL_NAMES = [

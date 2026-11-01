@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 import { getLogger } from '@modules/monitoring';
-import type { UpdateChannel } from '../constants/product';
+import type { UpdateChannel } from '@openliri/infra/constants/product';
 import { GitHubReleaseFetcher } from './updater/GitHubReleaseFetcher';
 import { UpdateDownloader } from './updater/UpdateDownloader';
 import { InstallManager } from './updater/InstallManager';

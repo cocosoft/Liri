@@ -18,7 +18,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { APP_VERSION } from '@modules/constants';
+import { APP_VERSION } from '@openliri/infra/constants';
 import { feature } from '@openliri/kernel';
 import { securityIntegrationService } from '@modules/security';
 import { RuleManager } from '@modules/permission';

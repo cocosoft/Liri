@@ -18,7 +18,7 @@
  */
 
 import { LogLevel } from '@modules/monitoring';
-import { buildUserAgent } from '@modules/constants';
+import { buildUserAgent } from '@openliri/infra/constants';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import type {
   DataSourceConnector,

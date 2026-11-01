@@ -39,7 +39,7 @@ import {
   COMPLEXITY_WRITE_TOOLS,
 } from '../../src/ai/router/TaskComplexityClassifier';
 import { buildEnvironmentHints } from '../../src/ai/prompts/PlatformHints';
-import { TOOL_NAMES } from '../../src/constants/toolNames.generated';
+import { TOOL_NAMES } from '@openliri/infra/constants/toolNames.generated';
 // D11-B（2026-10-11）：工具名单一来源 —— 声明面 = 常量表（工具类/loader/门禁共用）
 import {
   LEGACY_ALIAS_TOOL_NAMES,
@@ -49,7 +49,7 @@ import {
   FILE_EDIT_TOOL_NAME,
   FILE_READ_TOOL_NAME,
   FILE_WRITE_TOOL_NAME,
-} from '../../src/constants/tools';
+} from '@openliri/infra/constants/tools';
 // `tools/index.ts` 对外再导出的三个名字，**实际来源**是各工具的 prompt.ts
 // （直连源模块而非桶：桶会拉入 ToolFactory 等重图，本文件刻意保持轻量可单跑）
 import { FILE_WRITE_TOOL_NAME as BARREL_FILE_WRITE_TOOL_NAME } from '../../src/tools/FileWriteTool/prompt';

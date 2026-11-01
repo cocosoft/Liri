@@ -4,7 +4,7 @@
  * WebFetch工具函数集：URL处理、内容检测、响应解析
  */
 
-import { buildUserAgent as buildProductUserAgent } from '@modules/constants';
+import { buildUserAgent as buildProductUserAgent } from '@openliri/infra/constants';
 import type { PreapprovedEntry } from './preapproved.js';
 import { isUrlPreapproved, isUrlBlocked, isUrlAllowed } from './preapproved.js';
 

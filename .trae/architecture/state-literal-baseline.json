@@ -1648,7 +1648,7 @@
       "app/src/commands/tools/ai/agent.ts",
       "app/src/components/PrBadge.tsx",
       "app/src/components/ui/toolUIs/BrowserTool/UI.tsx",
-      "app/src/constants/system.ts",
+      "packages/infra/src/constants/system.ts",
       "app/src/context/GitContextService.ts",
       "app/src/context/persistence/ContextPersistence.ts",
       "app/src/context/types/GitContext.ts",

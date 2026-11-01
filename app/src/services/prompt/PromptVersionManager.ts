@@ -30,7 +30,10 @@ import {
   resolveProjectRoot,
   WORKSPACE_CONFIG_DIR_NAME,
 } from '@modules/environment';
-import { SECTION_NAMES, getSectionCacheLocale } from '@modules/constants';
+import {
+  SECTION_NAMES,
+  getSectionCacheLocale,
+} from '@openliri/infra/constants';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('prompt:version-manager');

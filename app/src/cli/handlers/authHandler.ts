@@ -19,7 +19,7 @@ import {
   GOOGLE_API_BASE_URL,
   GOOGLE_OAUTH2_BASE_URL,
 } from '@openliri/kernel';
-import { GITHUB_API_BASE } from '@modules/constants';
+import { GITHUB_API_BASE } from '@openliri/infra/constants';
 import { DEFAULT_OAUTH_REDIRECT_URI } from '@openliri/kernel';
 
 const logger = getLogger('authHandler');

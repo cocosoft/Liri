@@ -6,7 +6,7 @@
  */
 import { ApiError, ApiConnectionError, ApiTimeoutError } from './errors';
 import { configManager } from '@modules/config';
-import { USER_AGENT } from '@modules/constants';
+import { USER_AGENT } from '@openliri/infra/constants';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:api:client');

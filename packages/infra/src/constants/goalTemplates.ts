@@ -21,7 +21,7 @@
  *
  * **刻意不进 `constants/index.ts` 桶**（2026-10-21）：本文件约 9KB 提示词正文**只在对话/查询
  * 路径**使用，经桶再导出会被启动面（`src/pyapp.ts` 的 eager 图）静态拉入，触发
- * `lint:startup-graph` 棘轮增长。消费方按子路径直连：`@modules/constants/goalTemplates`
+ * `lint:startup-graph` 棘轮增长。消费方按子路径直连：`@openliri/infra/constants/goalTemplates`
  *（已在 `scripts/lint-architecture.ts` 的 `canonicalEntryKeys` 登记为规范子入口）。
  */
 

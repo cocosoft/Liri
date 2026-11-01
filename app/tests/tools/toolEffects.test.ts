@@ -20,7 +20,7 @@ import {
 import {
   TOOL_NAMES,
   TOOL_NAMES_COUNT,
-} from '../../src/constants/toolNames.generated.js';
+} from '@openliri/infra/constants/toolNames.generated';
 import { getAllBuiltinToolLoaders } from '../../src/tools/utils/ToolManagerUtils.js';
 
 /**

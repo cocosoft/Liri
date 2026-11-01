@@ -27,7 +27,7 @@
  * - 只映射白名单动作（`dismiss` 为真实动作，其余一律「查看」），不执行任何命令；
  * - `notifications.expires_at` 是**秒**，入参 `expiresAt` 是毫秒，这里显式换算。
  */
-import { MS_PER_SECOND } from '@modules/constants';
+import { MS_PER_SECOND } from '@openliri/infra/constants';
 import {
   notificationPersistence,
   type NotificationAction,

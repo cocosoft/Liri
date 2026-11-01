@@ -8,7 +8,10 @@
  * 基于 CC源码 cc_code/backend/tasks/pillLabel.ts 实现
  */
 
-import { DIAMOND_FILLED, DIAMOND_OPEN } from '../constants/figures';
+import {
+  DIAMOND_FILLED,
+  DIAMOND_OPEN,
+} from '@openliri/infra/constants/figures';
 import type { TaskState } from './types';
 import type { LocalShellTaskState } from './LocalShellTask/guards';
 import type { InProcessTeammateTaskState } from './InProcessTeammateTask';

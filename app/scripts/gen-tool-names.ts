@@ -3,7 +3,7 @@
  * 由**内建工具清单**生成编译期工具名枚举（P2-3）
  *
  * 事实源：`getAllBuiltinToolLoaders()`（**全量视图** —— 含"条件工具"、与 flag / 用户身份**无关**）
- * 产物：`src/constants/toolNames.generated.ts`（**提交到 Git**；勿手改）
+ * 产物：`packages/infra/src/constants/toolNames.generated.ts`（**提交到 Git**；勿手改）
  *
  * 用法：bun run scripts/gen-tool-names.ts
  * 或：  bun run gen:toolnames
@@ -21,9 +21,13 @@ import {
   loadTools,
 } from '../src/tools/utils/ToolManagerUtils';
 
+// P7（2026-11-01）：constants 已迁入 infra 物理包 ⇒ 生成物落点同步
 const OUT_FILE = path.resolve(
   __dirname,
   '..',
+  '..',
+  'packages',
+  'infra',
   'src',
   'constants',
   'toolNames.generated.ts'

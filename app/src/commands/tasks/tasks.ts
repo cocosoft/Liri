@@ -18,7 +18,7 @@ import type { BaseTask } from '@modules/tasks';
 
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import { ANSI_RESET } from '@modules/constants';
+import { ANSI_RESET } from '@openliri/infra/constants';
 const logger = getLogger('commands:tasks:tasks');
 
 /**

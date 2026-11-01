@@ -2122,7 +2122,7 @@ class ArchitectureLinter {
       // paths / featureFlags / DI 等启动面 ⇒ 与 `core/systemgraph`、`tasks/goal` 同属"桶精确化"的规范子路径。
       'core/identity',
       // 桶精确化（2026-10-21，W2 根治）：`constants/goalTemplates` 是**零依赖叶子**（纯文案 + 纯函数），
-      // 但其 ~9KB 提示词正文**只在对话/查询路径**使用，若从 `@modules/constants` 桶再导出，
+      // 但其 ~9KB 提示词正文**只在对话/查询路径**使用，若从 `@openliri/infra/constants` 桶再导出，
       // 会被启动面（`src/pyapp.ts` 的 eager 图）静态拉入 ⇒ `lint:startup-graph` 棘轮 +1 文件 / +9KB。
       // 故刻意**不进常量桶**，由 `query/TAORLoop`、`tools/AgentTool/ResumeAgent` 按子路径直连。
       'constants/goalTemplates',
@@ -2148,7 +2148,7 @@ class ArchitectureLinter {
       // `chat/services/ToolExecutionService` · `promptSuggestion/types` · `tasks/dream/DreamPhases`）
       // —— 后 5 者处于 tools 的**上游**（context/query/chat/promptSuggestion/tasks）。
       // 该叶子**必须**以子路径直连（与 `query/tool-constants`、`tasks/goal`、`ai/router` 同属"桶精确化"手法）：
-      // 若改走 `@modules/constants` 桶，会把整个常量面拉进这些核心路径。
+      // 若改走 `@openliri/infra/constants` 桶，会把整个常量面拉进这些核心路径。
       'constants/toolNames.generated',
       // 循环安全子入口（2026-09-30，台账 D-120）：`core/LazyModuleStrategy` 是**叶子级**懒加载策略
       // （仅依赖 `core/profilerFacade` + `core/loggerFacade`），被 `modules`(app) 与其**上游**的

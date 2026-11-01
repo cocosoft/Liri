@@ -22,13 +22,13 @@
  * 每 token 的字节数估算（**真源**：`constants/toolLimits.ts` —— 硬编码治理「同名常量」B2 收口；
  * 此处仅保留**导出面**以免影响既有消费者）。
  */
-export { BYTES_PER_TOKEN } from '@modules/constants';
+export { BYTES_PER_TOKEN } from '@openliri/infra/constants';
 
 /**
  * 工具结果默认最大字符数（**真源**：`constants/toolLimits.ts` —— 硬编码治理「同名常量」B5-2㉑；
  * 此处仅保留**导出面**以免影响既有消费者）。
  */
-export { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@modules/constants';
+export { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@openliri/infra/constants';
 
 export const MAX_TOOL_RESULT_BYTES = 1_000_000;
 

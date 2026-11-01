@@ -56,7 +56,7 @@ const logger = getLogger('ai:credentials:store');
 // 硬编码治理「同名常量」B3-4：真源**上提到 infra** `constants/common.ts`（`chronos`=infra 亦需引用
 // ⇒ 不能留在 app 层）；此处**保留导出面**（`ai/credentials/index.ts` 与 `ProviderManager` /
 // `ProviderSyncService` / `ProviderAPI` 均从此处取名）⇒ 纯转出，零消费者改动。
-export { CRED_STORED_MARKER } from '@modules/constants';
+export { CRED_STORED_MARKER } from '@openliri/infra/constants';
 
 /** HTTP 请求头可安全携带的字符：可打印 ASCII（不含空格），与 dsh normalizeApiKey 对齐 */
 const LEGAL_API_KEY = /^[\x21-\x7E]+$/;

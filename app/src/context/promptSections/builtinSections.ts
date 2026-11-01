@@ -17,7 +17,7 @@ import {
   setMemoryContentHash,
   type SystemPromptSection,
   type StaticPromptSectionName,
-} from '@modules/constants';
+} from '@openliri/infra/constants';
 import { buildSoulSection } from '@modules/services/soul/SoulReader';
 import { buildUserSection } from '@modules/services/soul/UserReader';
 // 2026-10-01 D-219（子批 E `workspaces` 组）：原经 `@modules/services/workspace` 转出 barrel

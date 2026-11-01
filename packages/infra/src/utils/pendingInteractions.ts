@@ -10,7 +10,7 @@
  * 可被 service / app 层复用。
  */
 
-import { PENDING_INTERACTION_TTL_MS } from '@modules/constants';
+import { PENDING_INTERACTION_TTL_MS } from '@openliri/infra/constants';
 import {
   canAccessOwnerKey,
   currentOwnerKey,

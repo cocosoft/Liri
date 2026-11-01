@@ -25,7 +25,10 @@
 import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { DEFAULT_LOCALE, DEFAULT_TIMEZONE } from '../../src/constants/common';
+import {
+  DEFAULT_LOCALE,
+  DEFAULT_TIMEZONE,
+} from '@openliri/infra/constants/common';
 
 const APP_SRC = join(import.meta.dir, '..', '..', 'src');
 const CLIENT_SRC = join(import.meta.dir, '..', '..', '..', 'client', 'src');
@@ -82,9 +85,9 @@ describe('Q-H2：默认语言 / 时区口径归一（zh-CN / Asia/Shanghai）', 
       expect(code, `${rel} 的默认语言决策点未引用 DEFAULT_LOCALE`).toMatch(
         decision
       );
-      // 必须：确实从 `@modules/constants` 引入（而非本文件另造常量）
+      // 必须：确实从 `@openliri/infra/constants` 引入（而非本文件另造常量）
       expect(code, `${rel} 未 import DEFAULT_LOCALE`).toMatch(
-        /import\s*\{[^}]*DEFAULT_LOCALE[^}]*\}\s*from\s*'@modules\/constants'/
+        /import\s*\{[^}]*DEFAULT_LOCALE[^}]*\}\s*from\s*'@openliri\/infra\/constants'/
       );
     }
     // VoiceProvider 原默认是 'en-US'（与口径相反）⇒ 该默认值不应再出现

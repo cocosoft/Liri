@@ -22,7 +22,7 @@ import {
   loadTools,
 } from '../../src/tools/utils/ToolManagerUtils';
 import { ToolFactory } from '../../src/tools/ToolFactory';
-import { LEGACY_ALIAS_TOOL_NAMES } from '../../src/constants/toolNameConstants';
+import { LEGACY_ALIAS_TOOL_NAMES } from '@openliri/infra/constants/toolNameConstants';
 import type { Tool } from '../../src/tools/types/Tool';
 
 const ENV_KEYS = ['FEATURE_VFS_ENABLED'];

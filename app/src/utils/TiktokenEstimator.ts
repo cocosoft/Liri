@@ -15,7 +15,8 @@
  * H5-⑥ 收口（台账 D-212，子批 E `service -> app`）：原位置 `ai/tokenizer/TiktokenEstimator.ts`
  * （app 层），而 `services/prompt/DiagnosticsReport.ts` 需要 `getCachedTiktokenEncoder`
  * ⇒ `services -> ai` 倒挂。该文件**仅依赖 `monitoring`/`error`（infra）、零 app 依赖**
- * ⇒ **改归 infra**（`utils/`）；⚠️ **不可下沉 core**（会让 core 新增 2 条 `core -> infra` 边，净变差，同 D-207）。
+ * ⇒ **改归 infra**（`utils/`）；⚠️ **当时不可下沉 core**（会让 core 新增 2 条 `core -> infra` 边，净变差，同 D-207；
+ * B2 解环后本文件已只依赖 `@openliri/kernel/*`，归属维持 `utils/` 不动，如需下沉另立批次）。
  * `ai/tokenizer/TiktokenEstimator.ts` 保留**同名转出**（既有消费方零改动）。
  */
 import { getLogger } from '@openliri/kernel/loggerFacade';

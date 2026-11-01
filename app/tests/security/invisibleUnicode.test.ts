@@ -22,7 +22,7 @@ import {
   countInvisibleChars,
   isInvisibleCodePoint,
 } from '../../src/security';
-import { CronInjectionScanner } from '../../src/chronos/CronInjectionScanner';
+import { CronInjectionScanner } from '@openliri/infra/chronos/CronInjectionScanner';
 
 /** 并集码点（原表 / 原正则各取代表 + 并集新增侧） */
 const UNION_CODE_POINTS: number[] = [

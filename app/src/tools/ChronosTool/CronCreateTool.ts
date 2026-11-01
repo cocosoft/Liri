@@ -153,7 +153,7 @@ export class CronCreateTool {
         // P2-10: Cron 防注入扫描 — 创建时即拦截恶意 prompt
         try {
           const { CronInjectionScanner } =
-            await import('../../chronos/CronInjectionScanner');
+            await import('@openliri/infra/chronos/CronInjectionScanner');
           const scanner = new CronInjectionScanner();
           const scanResult = scanner.scan(prompt, 'strict');
           if (!scanResult.safe) {
@@ -187,7 +187,7 @@ export class CronCreateTool {
           }
 
           // 解析调度
-          const { parseSchedule } = await import('@modules/chronos');
+          const { parseSchedule } = await import('@openliri/infra/chronos');
           const { computeNextCronRun } =
             await import('@openliri/infra/utils/cron');
           const { CronJobStore } =

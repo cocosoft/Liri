@@ -160,7 +160,7 @@ describe('T13：后台不并入日预算（D-j 负向夹具）', () => {
   it('边界守卫：后台模块源码不得出现日预算写入（H/I/J/N/O）', () => {
     // 无人看后台 = 不并入日预算（D-j）。若将来有人在此写入，本用例立即变红。
     const backgroundFiles = [
-      'chronos/autoDream/AutoDream.ts', // H 做梦
+      '../../packages/infra/src/chronos/autoDream/AutoDream.ts', // H 做梦
       'chat/services/SessionSummarizer.ts', // I 会话摘要
       'runtime/api/sessionTitling.ts', // J 自动标题
       'tasks/evolution/AdaptationEvolutionService.ts', // N 记忆/进化

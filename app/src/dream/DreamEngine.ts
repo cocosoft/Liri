@@ -38,7 +38,7 @@ import {
   initAutoDream,
   abortAutoDream,
   isAutoDreamRunning,
-} from '@modules/chronos';
+} from '@openliri/infra/chronos';
 import { globalEventBus, SystemEvents } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import { recordBackgroundTask } from '@modules/monitoring';

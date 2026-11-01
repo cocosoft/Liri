@@ -6,7 +6,7 @@
  *
  * 2026-11-01（B6 解环）：原「② 基于 `CronTasks.addCronTask` 的文件级持久化调度」两个入口
  * （`registerArchivalCronTask` / `unregisterArchivalCronTask`）**已删除** —— 全仓零调用方
- * （含测试与文档），且它们是 `monitoring` 唯一 `import('@modules/chronos')` 的原因，
+ * （含测试与文档），且它们是 `monitoring` 唯一 `import('@openliri/infra/chronos')` 的原因，
  * 使 `monitoring ↔ chronos` 同处 infra 的强连通分量。删除依据见 B6 提交信息（CD01–06）。
  */
 

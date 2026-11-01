@@ -456,7 +456,7 @@ export class CronScheduler implements SchedulerLifecycle {
       // P2-10: Cron 防注入扫描 — 执行前检查 prompt 安全性
       if (job.prompt) {
         const { CronInjectionScanner } =
-          await import('../../chronos/CronInjectionScanner');
+          await import('@openliri/infra/chronos/CronInjectionScanner');
         const scanner = new CronInjectionScanner();
         const scanResult = scanner.scan(job.prompt, 'strict');
         if (!scanResult.safe) {

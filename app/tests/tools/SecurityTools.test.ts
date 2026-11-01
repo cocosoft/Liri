@@ -1,7 +1,7 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { CronInjectionScanner } from '../../src/chronos/CronInjectionScanner';
+import { CronInjectionScanner } from '@openliri/infra/chronos/CronInjectionScanner';
 import {
   coerceToolArgs,
   tryCoerceToolArgs,

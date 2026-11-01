@@ -501,7 +501,7 @@ async function startDeferredPrefetches(): Promise<void> {
       (async () => {
         try {
           const { startBackgroundHousekeeping, stopBackgroundHousekeeping } =
-            await import('../chronos/maintenance/ChronosBackgroundHousekeeping.js');
+            await import('@openliri/infra/chronos/maintenance/ChronosBackgroundHousekeeping');
           const { DreamEngine } = await import('../dream/DreamEngine.js');
           // BUG-9（2026-10-19）：把“是否存在活跃流式会话”注入空闲检测 ——
           // 长任务运行中不再被误判为空闲（此前只看 USER_INTERACTION）。

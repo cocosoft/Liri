@@ -180,7 +180,7 @@ export async function handleCreateCron(
       return;
     }
 
-    const { parseSchedule } = await import('@modules/chronos');
+    const { parseSchedule } = await import('@openliri/infra/chronos');
     const { currentCronOwnerKey } = await loadCronOwnership();
     const taskOps = await getCoreAPI().getTaskOpsPort();
 

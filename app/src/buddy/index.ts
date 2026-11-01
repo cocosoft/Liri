@@ -113,4 +113,4 @@ export type {
   DreamEvent,
   DreamEventType,
   DreamEventCallback,
-} from '@modules/chronos';
+} from '@openliri/infra/chronos';

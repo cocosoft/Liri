@@ -7,7 +7,7 @@
 export const LAZY_LOADERS: Record<string, () => Promise<unknown>> = {
   featureflags: () => import('@openliri/infra/featureflags'),
   memory: () => import('@modules/memory'),
-  chronos: () => import('@modules/chronos'),
+  chronos: () => import('@openliri/infra/chronos'),
   mcp: () => import('@modules/mcp'),
   security: () => import('@modules/security'),
   sandbox: () => import('@modules/sandbox'),

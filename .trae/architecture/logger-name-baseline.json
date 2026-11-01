@@ -26,7 +26,7 @@
       "app/src/hooks/utils/AsyncHookRegistry.ts"
     ],
     "AutoDream": [
-      "app/src/chronos/autoDream/AutoDream.ts"
+      "packages/infra/src/chronos/autoDream/AutoDream.ts"
     ],
     "BackupCommand": [
       "app/src/commands/backup/BackupCommand.ts"
@@ -53,13 +53,13 @@
       "app/src/commands/builtin/chat/Chat.ts"
     ],
     "ChronosCLI": [
-      "app/src/chronos/cli/ChronosCLI.ts"
+      "packages/infra/src/chronos/cli/ChronosCLI.ts"
     ],
     "ChronosCleanup": [
-      "app/src/chronos/maintenance/cleanup.ts"
+      "packages/infra/src/chronos/maintenance/cleanup.ts"
     ],
     "ChronosMonitor": [
-      "app/src/chronos/maintenance/ChronosMonitor.ts"
+      "packages/infra/src/chronos/maintenance/ChronosMonitor.ts"
     ],
     "CleanupManager": [
       "app/src/security/rollback/CleanupManager.ts"
@@ -89,7 +89,7 @@
       "packages/infra/src/analytics/ConsoleSink.ts"
     ],
     "ConsolidationLock": [
-      "app/src/chronos/autoDream/ConsolidationLock.ts"
+      "packages/infra/src/chronos/autoDream/ConsolidationLock.ts"
     ],
     "Coordinator": [
       "app/src/runtime/coordinator.ts"
@@ -107,7 +107,7 @@
       "app/src/workspace/CouncilOrchestrator.ts"
     ],
     "CronTasksLock": [
-      "app/src/chronos/CronTasksLock.ts"
+      "packages/infra/src/chronos/CronTasksLock.ts"
     ],
     "DIContainer": [
       "packages/kernel/src/core/di/ContainerScope.ts",
@@ -120,7 +120,7 @@
       "packages/infra/src/analytics/DatadogMetricsClient.ts"
     ],
     "DeliveryManager": [
-      "app/src/chronos/delivery/DeliveryManager.ts"
+      "packages/infra/src/chronos/delivery/DeliveryManager.ts"
     ],
     "DependencyGraphScanner": [
       "app/src/tools/DependencyGraphScanner.ts"
@@ -186,7 +186,7 @@
       "app/src/commands/migrate/MigrateCommand.ts"
     ],
     "NativeInstaller": [
-      "app/src/chronos/maintenance/nativeInstaller.ts"
+      "packages/infra/src/chronos/maintenance/nativeInstaller.ts"
     ],
     "OAuthDiscovery": [
       "packages/infra/src/oauth/services/OAuthDiscovery.ts"
@@ -346,19 +346,19 @@
       "app/src/chat/tool/SmartToolIntegrator.ts"
     ],
     "chronos\\ChronosDatabase": [
-      "app/src/chronos/ChronosDatabase.ts"
+      "packages/infra/src/chronos/ChronosDatabase.ts"
     ],
     "chronos\\heartbeat\\HeartbeatMonitor": [
-      "app/src/chronos/heartbeat/HeartbeatMonitor.ts"
+      "packages/infra/src/chronos/heartbeat/HeartbeatMonitor.ts"
     ],
     "chronos\\isolated-agent\\IsolatedAgentExecutor": [
-      "app/src/chronos/isolated-agent/IsolatedAgentExecutor.ts"
+      "packages/infra/src/chronos/isolated-agent/IsolatedAgentExecutor.ts"
     ],
     "chronos\\service\\CronTaskStore": [
-      "app/src/chronos/service/CronTaskStore.ts"
+      "packages/infra/src/chronos/service/CronTaskStore.ts"
     ],
     "chronos\\service\\TaskJitterService": [
-      "app/src/chronos/service/TaskJitterService.ts"
+      "packages/infra/src/chronos/service/TaskJitterService.ts"
     ],
     "cli-interactive": [
       "app/src/cli/interactive.ts"

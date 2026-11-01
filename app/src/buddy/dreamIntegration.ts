@@ -9,8 +9,8 @@
  *   AutoDream (onDreamEvent) → 桥接层 (EventBus publish) → Buddy (subscribe)
  */
 
-import type { DreamEvent } from '@modules/chronos';
-import { offDreamEvent } from '@modules/chronos';
+import type { DreamEvent } from '@openliri/infra/chronos';
+import { offDreamEvent } from '@openliri/infra/chronos';
 import type { EventBus } from '@openliri/kernel';
 import { globalEventBus, SystemEvents } from '@openliri/kernel';
 import {

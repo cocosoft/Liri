@@ -109,7 +109,7 @@ const BASE_LAZY_LOADERS: ReadonlyArray<readonly [string, string]> = [
   // P10（2026-11-01）：featureflags 已迁入 infra 物理包 ⇒ 按需加载说明符同步
   ['featureflags', '@openliri/infra/featureflags'],
   ['memory', '@modules/memory'],
-  ['chronos', '@modules/chronos'],
+  ['chronos', '@openliri/infra/chronos'],
   // 2026-10-31（S6 第一步）：移除 `lsp` 轨 B 的按需加载入口 —— 工具面已改为
   // `tools/lsp/validation.ts` 自持校验，轨 B（`app/src/lsp/**`）**零静态消费者**，
   // 进入 CD05 观察期；后续按 CD06 独立提交物理删除（S6 本体）。

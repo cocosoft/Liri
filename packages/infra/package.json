@@ -136,6 +136,14 @@
     "./system/*": {
       "types": "./src/system/*.ts",
       "import": "./src/system/*.ts"
+    },
+    "./chronos": {
+      "types": "./src/chronos/index.ts",
+      "import": "./src/chronos/index.ts"
+    },
+    "./chronos/*": {
+      "types": "./src/chronos/*.ts",
+      "import": "./src/chronos/*.ts"
     }
   },
   "scripts": {

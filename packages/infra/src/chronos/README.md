@@ -96,9 +96,9 @@ startBackgroundHousekeeping()
 ## 使用
 
 ```typescript
-import { CronTasks } from '@modules/chronos';
-import { addCronTask, listAllCronTasks } from '@modules/chronos/CronTasks';
-import { executeAutoDream } from '@modules/chronos/autoDream';
+import { CronTasks } from '@openliri/infra/chronos';
+import { addCronTask, listAllCronTasks } from '@openliri/infra/chronos/CronTasks';
+import { executeAutoDream } from '@openliri/infra/chronos/autoDream/AutoDream';
 
 // 持久化添加 cron 任务
 await addCronTask('0 2 * * *', '每天2点执行', true, true);

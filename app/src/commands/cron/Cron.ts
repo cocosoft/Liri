@@ -11,7 +11,7 @@ import {
   parseSchedule,
   scheduleToCron,
   scheduleToDisplayText,
-} from '@modules/chronos';
+} from '@openliri/infra/chronos';
 import { resolveDbPath } from '@openliri/infra/environment';
 import { configManager } from '@modules/config';
 

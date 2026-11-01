@@ -5,7 +5,7 @@ import {
   DeliveryManager,
   type DeliveryPlan,
   type DeliveryResult,
-} from '@modules/chronos';
+} from '@openliri/infra/chronos';
 
 const logger = getLogger('tasks:deliveryAdapter');
 

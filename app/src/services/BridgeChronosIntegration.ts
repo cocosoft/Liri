@@ -1,4 +1,4 @@
-import { PushNotificationService } from '@modules/chronos';
+import { PushNotificationService } from '@openliri/infra/chronos';
 
 export interface BridgeChronosIntegration {
   notifyBridgeSessionStart(sessionId: string): Promise<boolean>;

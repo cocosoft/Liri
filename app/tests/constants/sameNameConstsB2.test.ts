@@ -214,7 +214,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       /export const CRED_STORED_MARKER = '__stored__';/
     );
     expect(
-      read('src/chronos/maintenance/ChronosBackgroundHousekeeping.ts')
+      read(
+        '../packages/infra/src/chronos/maintenance/ChronosBackgroundHousekeeping.ts'
+      )
     ).not.toMatch(/const CRED_STORED_MARKER =/);
     const cs = read('src/ai/credentials/CredentialStore.ts');
     expect(cs).not.toMatch(/const CRED_STORED_MARKER =/);
@@ -776,7 +778,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     // 4 处同名 `CLEANUP_INTERVAL_MS`：chronos 日清 24h · 临时文件 5min · 画布实例 5min · 已批准命令 30s
     const items: Array<[string, string, string]> = [
       [
-        'src/chronos/maintenance/cleanup.ts',
+        '../packages/infra/src/chronos/maintenance/cleanup.ts',
         'CHRONOS_CLEANUP_INTERVAL_MS',
         '24 * 60 * 60 * 1000',
       ],
@@ -803,7 +805,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     }
     // 同族**前缀名** `RECURRING_`/`DEFAULT_CLEANUP_INTERVAL_MS`（另两个标识符）非本键 ⇒ 有意未动
     expect(
-      read('src/chronos/maintenance/ChronosBackgroundHousekeeping.ts')
+      read(
+        '../packages/infra/src/chronos/maintenance/ChronosBackgroundHousekeeping.ts'
+      )
     ).toContain('RECURRING_CLEANUP_INTERVAL_MS');
     expect(read('src/channels/dedup/index.ts')).toContain(
       'DEFAULT_CLEANUP_INTERVAL_MS'
@@ -1679,7 +1683,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
 
   // 51+ 无圈码字形 ⇒ 沿用台账 ASCII 编号（`B5-2-<n>-<SLUG>`）
   test('B5-2-51：`TABLE` 已按域消歧（定时任务表 `scheduled_tasks`；原人设绑定表侧已随 agent/persona 死面清理删除，见台账）', () => {
-    const cron = read('src/chronos/service/SqliteCronStore.ts');
+    const cron = read(
+      '../packages/infra/src/chronos/service/SqliteCronStore.ts'
+    );
     expect(cron).not.toMatch(/(^|[^_A-Za-z])const TABLE\s*=/);
     expect(cron).toContain("const SCHEDULED_TASKS_TABLE = 'scheduled_tasks';");
     expect(cron).toContain(
@@ -1926,7 +1932,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(mem).toContain('export const DIR_EXISTS_GUIDANCE =');
     expect(mem).toContain('该目录已存在 —— 直接用 Write 工具写入即可');
     // chronos 域（dream 整合的目录内容清单）改名
-    const dream = read('src/chronos/autoDream/ConsolidationPrompt.ts');
+    const dream = read(
+      '../packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts'
+    );
     expect(dream).not.toMatch(/(^|[^_A-Za-z])const DIR_EXISTS_GUIDANCE\s*=/);
     expect(dream).toContain('const DREAM_DIR_CONTENT_GUIDANCE =');
     expect(dream).toContain('${DREAM_DIR_CONTENT_GUIDANCE}');
@@ -1940,7 +1948,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const mem = read('src/memory/services/MemoryPromptBuilder.ts');
     expect(mem).toContain("export const ENTRYPOINT_NAME = 'MEMORY.md';");
     // chronos 域（dream 记忆根，'index.md'）改名
-    const dream = read('src/chronos/autoDream/ConsolidationPrompt.ts');
+    const dream = read(
+      '../packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts'
+    );
     expect(dream).not.toMatch(/(^|[^_A-Za-z])const ENTRYPOINT_NAME\s*=/);
     expect(dream).toContain("const DREAM_ENTRYPOINT_NAME = 'index.md';");
     expect(dream).toContain('${DREAM_ENTRYPOINT_NAME}');
@@ -1953,7 +1963,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('B5-2B3：`MAX_ENTRYPOINT_LINES` 已按域消歧（异值异域：50 / 200，取值一字未改）', () => {
     const mem = read('src/memory/services/MemoryPromptBuilder.ts');
     expect(mem).toContain('export const MAX_ENTRYPOINT_LINES = 200;');
-    const dream = read('src/chronos/autoDream/ConsolidationPrompt.ts');
+    const dream = read(
+      '../packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts'
+    );
     expect(dream).not.toMatch(/(^|[^_A-Za-z])const MAX_ENTRYPOINT_LINES\s*=/);
     expect(dream).toContain('const DREAM_MAX_ENTRYPOINT_LINES = 50;');
     expect(dream).toContain('return DREAM_MAX_ENTRYPOINT_LINES;');

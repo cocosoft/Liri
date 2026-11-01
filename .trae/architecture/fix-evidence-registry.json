@@ -5160,7 +5160,7 @@
         "app/src/tools/RecallMemoryTool/RecallMemoryTool.ts",
         "app/src/tools/SaveConversationTool/SaveConversationTool.ts",
         "app/src/ui/components/MessageBubble.tsx",
-        "app/src/chronos/cron.ts",
+        "packages/infra/src/chronos/cron.ts",
         "app/src/commands/builtin/budget/Budget.ts",
         "app/src/query/dailyBudgetSnapshot.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -5434,7 +5434,7 @@
       "code": [
         "packages/infra/src/constants/common.ts",
         "app/src/ai/credentials/CredentialStore.ts",
-        "app/src/chronos/maintenance/ChronosBackgroundHousekeeping.ts",
+        "packages/infra/src/chronos/maintenance/ChronosBackgroundHousekeeping.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -5953,7 +5953,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/chronos/maintenance/cleanup.ts",
+        "packages/infra/src/chronos/maintenance/cleanup.ts",
         "packages/infra/src/media/image/TempFileManager.ts",
         "app/src/tools/CanvasTool/CanvasTool.ts",
         "app/src/permission/ApprovedCommandRegistry.ts",
@@ -7172,7 +7172,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/chronos/autoDream/ConsolidationPrompt.ts",
+        "packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts",
         "app/src/memory/services/MemoryPromptBuilder.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -7201,7 +7201,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/chronos/autoDream/ConsolidationPrompt.ts",
+        "packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts",
         "app/src/memory/services/MemoryPromptBuilder.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -7230,7 +7230,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/chronos/autoDream/ConsolidationPrompt.ts",
+        "packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts",
         "app/src/memory/services/MemoryPromptBuilder.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -7589,7 +7589,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/chronos/service/SqliteCronStore.ts"
+        "packages/infra/src/chronos/service/SqliteCronStore.ts"
       ],
       "tests": [
         "app/tests/constants/sameNameConstsB2.test.ts"

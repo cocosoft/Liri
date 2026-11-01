@@ -29,7 +29,7 @@ import {
   computeNextCronRun,
   cronToHuman,
   isValidCronExpression,
-} from '../../src/chronos/cron.js';
+} from '@openliri/infra/chronos/cron';
 
 // ─── parseSchedule ──────────────────────────────────────────────
 

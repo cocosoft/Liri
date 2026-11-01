@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer.js';
+import { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
 import { checkAstAndAnalyzer } from '../../src/tools/bash/bashSecurityGate.js';
 import { isSinglePowerShellWrapperCommand } from '../../src/tools/bash/powerShellWrapper.js';
 import type {

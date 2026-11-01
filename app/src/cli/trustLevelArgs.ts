@@ -13,7 +13,7 @@
 
 import { getLogger } from '@modules/monitoring';
 // PR-3c（2026-10-23）：全局信任级别变更落安全审计通道（`/v1/security/audit-logs` 可查）
-import { logSecurityAuditEvent } from '@modules/security';
+import { logSecurityAuditEvent } from '@openliri/infra/security';
 
 // 日志模块名沿用 `main` ⇒ 与迁移前日志输出逐字一致（便于既有排查口径）
 const logger = getLogger('main');

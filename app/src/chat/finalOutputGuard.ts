@@ -29,7 +29,7 @@ import { createHash } from 'crypto';
 
 import type { MermaidLintIssue } from '@openliri/infra/utils/mermaidLint';
 import type { LiriEventMap } from '@modules/session/types/eventPayloads.js';
-import { runOutputGuards } from '@modules/security/outputGuardRegistry';
+import { runOutputGuards } from '@openliri/infra/security/outputGuardRegistry';
 import type { OutputGuard, OutputGuardIssue } from '@openliri/kernel';
 
 /** 守卫依赖（由调用方注入，保持本模块零重依赖、可单测） */

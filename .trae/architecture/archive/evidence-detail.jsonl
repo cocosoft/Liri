@@ -1,7 +1,7 @@
 {"id":"REV9-A","k":"title","i":0,"c":"第九轮审查 专项 A：Bash/AST 五项缺陷"}
 {"id":"REV9-A","k":"source","i":0,"c":"dev_docs/20261009/openai 建议.md · 专项A / CHANGELOG v0.4.73"}
 {"id":"REV9-A","k":"reopenWhen","i":0,"c":"修改 AST 解析 / 命令规范化 / 审批哈希 / 环境清洗任一环节时"}
-{"id":"REV9-A","k":"code#0","i":0,"c":"app/src/security/bash/BashAST.ts"}
+{"id":"REV9-A","k":"code#0","i":0,"c":"packages/infra/src/security/bash/BashAST.ts"}
 {"id":"REV9-A","k":"code#1","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"REV9-A","k":"code#2","i":0,"c":"app/src/tools/bash/BashTool.ts"}
 {"id":"REV9-A","k":"tests#0","i":0,"c":"app/tests/security/bashAstHardening.test.ts"}
@@ -61,7 +61,7 @@
 {"id":"PLAN-P0-3","k":"title","i":0,"c":"方案 P0-3：统一安全决策词汇 + 消除 INDETERMINATE→ALLOW 折叠"}
 {"id":"PLAN-P0-3","k":"source","i":0,"c":"dev_docs/20261010/升级优化方案-20261010.md §3"}
 {"id":"PLAN-P0-3","k":"reopenWhen","i":0,"c":"修改深扫降级策略 / CODE_RUN_DEEP_SCAN_STRICT 默认值时"}
-{"id":"PLAN-P0-3","k":"code#0","i":0,"c":"app/src/security/decision.ts"}
+{"id":"PLAN-P0-3","k":"code#0","i":0,"c":"packages/infra/src/security/decision.ts"}
 {"id":"PLAN-P0-3","k":"code#1","i":0,"c":"app/src/tools/CodeRunner/staticValidation.ts"}
 {"id":"PLAN-P0-3","k":"tests#0","i":0,"c":"app/tests/security/securityVerdict.test.ts"}
 {"id":"PLAN-P0-3","k":"changelog#0","i":0,"c":"v0.4.76"}
@@ -461,7 +461,7 @@
 {"id":"MODE-A3","k":"source","i":0,"c":"21 模式对标复查报告 09"}
 {"id":"MODE-A3","k":"reopenWhen","i":0,"c":"合并两域裁决入口时"}
 {"id":"MODE-A3","k":"notes","i":0,"c":"报告判定 🟢 同名消除（security 侧类改名 SecurityPermissionView）。"}
-{"id":"MODE-A3","k":"code#0","i":0,"c":"app/src/security/PermissionManager.ts"}
+{"id":"MODE-A3","k":"code#0","i":0,"c":"packages/infra/src/security/PermissionManager.ts"}
 {"id":"MODE-A3","k":"code#1","i":0,"c":"packages/infra/src/permission/PermissionManager.ts"}
 {"id":"MODE-A4","k":"title","i":0,"c":"21 模式 A4：Loop/Orchestrator 家族失控"}
 {"id":"MODE-A4","k":"source","i":0,"c":"21 模式对标复查报告 11 §2.7"}
@@ -5893,8 +5893,8 @@
 {"id":"ARCH-R03-002-SECURITY-ENTRIES","k":"title","i":0,"c":"U-21 批次⑤：security patterns/redact 改走 @modules/security 桶"}
 {"id":"ARCH-R03-002-SECURITY-ENTRIES","k":"source","i":0,"c":"dev_docs/20261004/p0-pending-proposals-20261004.md P0-6；scripts/lint-architecture.ts D-3-c"}
 {"id":"ARCH-R03-002-SECURITY-ENTRIES","k":"notes","i":0,"c":"桶补 DELETION_RULES/ALL_UNIFIED_RULES/UnifiedRulePlatform/getRedactMiddleware；R03-002 0 违规。"}
-{"id":"ARCH-R03-002-SECURITY-ENTRIES","k":"code#0","i":0,"c":"app/src/security/index.ts"}
-{"id":"ARCH-R03-002-SECURITY-ENTRIES","k":"code#1","i":0,"c":"app/src/security/patterns/index.ts"}
+{"id":"ARCH-R03-002-SECURITY-ENTRIES","k":"code#0","i":0,"c":"packages/infra/src/security/index.ts"}
+{"id":"ARCH-R03-002-SECURITY-ENTRIES","k":"code#1","i":0,"c":"packages/infra/src/security/patterns/index.ts"}
 {"id":"ARCH-R03-002-SECURITY-ENTRIES","k":"code#2","i":0,"c":"scripts/lint-architecture.ts"}
 {"id":"FILE-SIZE-EXCEPTION-REFRESH","k":"title","i":0,"c":"U-22 部分：7 条文件尺寸例外 lines 刷新为实测 + 拆分计划"}
 {"id":"FILE-SIZE-EXCEPTION-REFRESH","k":"source","i":0,"c":"dev_docs/20261017/U-22-文件尺寸到期风险处置计划-20261017.md"}
@@ -5904,7 +5904,7 @@
 {"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"source","i":0,"c":"dev_docs/20261004/p0-pending-proposals-20261004.md P0-6；scripts/lint-architecture.ts D-3-c"}
 {"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"notes","i":0,"c":"保留 5 键均有环/空壳理由；复核日 2027-01-31。R03-002 0 违规。"}
 {"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"code#0","i":0,"c":"app/src/skills/index.ts"}
-{"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"code#1","i":0,"c":"app/src/security/index.ts"}
+{"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"code#1","i":0,"c":"packages/infra/src/security/index.ts"}
 {"id":"ARCH-R03-002-SKILLS-SECURITY-CLOSE","k":"code#2","i":0,"c":"scripts/lint-architecture.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"title","i":0,"c":"U-20/B5-2-69：媒体根目录 3 组同名常量收敛到 core/mediaRoots"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；.trae/architecture/hardcode-gate-baseline.json"}
@@ -5977,8 +5977,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"notes","i":0,"c":"agent frontmatter 模式清单是权限模式子集 ⇒ AGENT_PERMISSION_MODES；两处快照版本分属回滚快照与应用状态 ⇒ 各自改名；邮箱正则复用 redact 侧唯一事实源；基线 159→156。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#0","i":0,"c":"app/src/services/agent/parseAgent.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#1","i":0,"c":"packages/infra/src/state/app/AppLifecycle.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#2","i":0,"c":"app/src/security/rollback/SnapshotStorage.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#3","i":0,"c":"app/src/security/services/SensitiveDataService.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#2","i":0,"c":"packages/infra/src/security/rollback/SnapshotStorage.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#3","i":0,"c":"packages/infra/src/security/services/SensitiveDataService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"title","i":0,"c":"U-20/B5-2-82：LSM 路径 / 沙箱退出码 / 批测清单按域命名"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-82","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
@@ -6508,8 +6508,8 @@
 {"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"notes","i":0,"c":"【机制】allowlist 只认 37 条只读前缀；未命中且 trustLevel 非 work/development ⇒ 原实现 behavior=deny（早于任何审批）。危险命令在 applyAllowlistThenTrust 上方 result.behavior===deny 已短路。"}
 {"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"notes","i":1,"c":"【改法】① 新增 VERSION_ONLY_PATTERNS：只认「命令 + 版本开关」完整命令（node -v / npm --version / git --version …），解释器本身仍是未知命令；② 未受信分支由 deny 改 ask（转人工审批，文案说明不在已知安全列表）；受信路径与危险命令 deny 不变。"}
 {"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"notes","i":2,"c":"【口径变更】既有用例 toolSecurityGateWiring 曾断言 node --version 在无信任级别时 deny —— 该断言就是本次修正的\"旧行为\"，已改用 git add 继续钉\"信任级别透传\"。"}
-{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"code#0","i":0,"c":"app/src/security/BashAllowlistMatcher.ts"}
-{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"code#1","i":0,"c":"app/src/security/BashSecurityAnalyzer.ts"}
+{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"code#0","i":0,"c":"packages/infra/src/security/BashAllowlistMatcher.ts"}
+{"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"code#1","i":0,"c":"packages/infra/src/security/BashSecurityAnalyzer.ts"}
 {"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"tests#0","i":0,"c":"app/tests/security/bashAllowlistUntrusted.test.ts"}
 {"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"tests#1","i":0,"c":"app/tests/tools/toolSecurityGateWiring.test.ts"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"title","i":0,"c":"resolveProjectRoot 不再把宿主运行时当应用 exe（LRO-D4）"}
@@ -6659,8 +6659,8 @@
 {"id":"SECURITY-COMPOUND-READONLY","k":"source","i":0,"c":"Liri 报告 R1/R2 / 会话 session_mvoqs1ho875ea6b95e"}
 {"id":"SECURITY-COMPOUND-READONLY","k":"reopenWhen","i":0,"c":"出现新的仅因操作符被拒的只读串联"}
 {"id":"SECURITY-COMPOUND-READONLY","k":"notes","i":0,"c":"全段只读才放行；重定向/替换/变量/后台仍拒；deny 带 matchedRule"}
-{"id":"SECURITY-COMPOUND-READONLY","k":"code#0","i":0,"c":"app/src/security/compoundReadOnly.ts"}
-{"id":"SECURITY-COMPOUND-READONLY","k":"code#1","i":0,"c":"app/src/security/BashSecurityAnalyzer.ts"}
+{"id":"SECURITY-COMPOUND-READONLY","k":"code#0","i":0,"c":"packages/infra/src/security/compoundReadOnly.ts"}
+{"id":"SECURITY-COMPOUND-READONLY","k":"code#1","i":0,"c":"packages/infra/src/security/BashSecurityAnalyzer.ts"}
 {"id":"SECURITY-COMPOUND-READONLY","k":"code#2","i":0,"c":"app/src/tools/bash/bashSecurityGate.ts"}
 {"id":"SECURITY-COMPOUND-READONLY","k":"tests#0","i":0,"c":"app/tests/security/compoundReadOnly.test.ts"}
 {"id":"SECURITY-COMPOUND-READONLY","k":"tests#1","i":0,"c":"app/tests/tools/bashGateBlockLogging.test.ts"}
@@ -6792,7 +6792,7 @@
 {"id":"LONG-TASK-FALSE-BLOCKERS","k":"notes","i":0,"c":"grep 上限 1MiB→16MiB 且 skippedLargeFiles 计数上报；compoundReadOnly 按平台区分 &（cmd 分隔符 / POSIX 后台）；PS 提取器跳过键值行与块界符、控制流给明确改写建议、静态调用改只读类型白名单、只读表达式不再判空脚本；安全门 deny/ask 补 failureKind（safety_blocked / permission_denied）"}
 {"id":"LONG-TASK-FALSE-BLOCKERS","k":"code#0","i":0,"c":"app/src/tools/GrepTool/grep.ts"}
 {"id":"LONG-TASK-FALSE-BLOCKERS","k":"code#1","i":0,"c":"app/src/tools/GrepTool/GrepTool.ts"}
-{"id":"LONG-TASK-FALSE-BLOCKERS","k":"code#2","i":0,"c":"app/src/security/compoundReadOnly.ts"}
+{"id":"LONG-TASK-FALSE-BLOCKERS","k":"code#2","i":0,"c":"packages/infra/src/security/compoundReadOnly.ts"}
 {"id":"LONG-TASK-FALSE-BLOCKERS","k":"code#3","i":0,"c":"app/src/tools/PowerShellTool/PowerShellTool.ts"}
 {"id":"LONG-TASK-FALSE-BLOCKERS","k":"code#4","i":0,"c":"app/src/tools/bash/bashSecurityGate.ts"}
 {"id":"LONG-TASK-FALSE-BLOCKERS","k":"tests#0","i":0,"c":"app/tests/tools/GrepTool/grepLargeFile.test.ts"}
@@ -6812,7 +6812,7 @@
 {"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"reopenWhen","i":0,"c":"再现合法工具轮次被空正文守卫丢弃 / 2>nul 被拒 / 越界错误不含允许根"}
 {"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"notes","i":0,"c":"空正文守卫改纯函数并纳入 metadata.tool_calls；compoundReadOnly 放行 nul|/dev/null|&1|&2 型丢弃重定向（写文件仍拒）；工作区越界错误给出允许根并标 permission_denied"}
 {"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"code#0","i":0,"c":"app/src/chat/manager/messagePersistence.ts"}
-{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"code#1","i":0,"c":"app/src/security/compoundReadOnly.ts"}
+{"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"code#1","i":0,"c":"packages/infra/src/security/compoundReadOnly.ts"}
 {"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"code#2","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
 {"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"tests#0","i":0,"c":"app/tests/chat/emptyAssistantPersistGuard.test.ts"}
 {"id":"EMPTY-TOOL-TURN-NUL-REDIRECT","k":"tests#1","i":0,"c":"app/tests/chat/workspaceEscapeMessage.test.ts"}
@@ -6842,7 +6842,7 @@
 {"id":"PS-WRAPPER-GATE-CONFLICT","k":"code#0","i":0,"c":"app/src/tools/bash/powerShellWrapper.ts"}
 {"id":"PS-WRAPPER-GATE-CONFLICT","k":"code#1","i":0,"c":"app/src/tools/bash/bashSecurityGate.ts"}
 {"id":"PS-WRAPPER-GATE-CONFLICT","k":"code#2","i":0,"c":"app/src/tools/bash/BashTool.ts"}
-{"id":"PS-WRAPPER-GATE-CONFLICT","k":"code#3","i":0,"c":"app/src/security/BashSecurityAnalyzer.ts"}
+{"id":"PS-WRAPPER-GATE-CONFLICT","k":"code#3","i":0,"c":"packages/infra/src/security/BashSecurityAnalyzer.ts"}
 {"id":"PS-WRAPPER-GATE-CONFLICT","k":"tests#0","i":0,"c":"app/tests/security/psWrapperDelegation.test.ts"}
 {"id":"INBOX-APPROVAL-SOURCE","k":"title","i":0,"c":"审批卡缺来源模块标记 ⇒ 孤儿告警"}
 {"id":"INBOX-APPROVAL-SOURCE","k":"source","i":0,"c":"app.log 2026-10-27T10:14–10:26Z 九次 Inbox item missing source reference"}
@@ -6854,8 +6854,8 @@
 {"id":"READONLY-SINGLE-PARITY","k":"source","i":0,"c":"app.log 2026-10-27T10:14–10:26Z 十一条 security_analyzer_ask 及各条 commandPreview"}
 {"id":"READONLY-SINGLE-PARITY","k":"reopenWhen","i":0,"c":"再现单条 findstr/git log/tasklist 需审批，或只读命令被送审；或重定向/非只读段被放行"}
 {"id":"READONLY-SINGLE-PARITY","k":"notes","i":0,"c":"analyze 非管道分支复用 checkCompoundReadOnly；GIT_READ_ONLY 允许 -C/--no-pager；sensitiveDirectories 反斜杠变体仅非 win32"}
-{"id":"READONLY-SINGLE-PARITY","k":"code#0","i":0,"c":"app/src/security/BashSecurityAnalyzer.ts"}
-{"id":"READONLY-SINGLE-PARITY","k":"code#1","i":0,"c":"app/src/security/compoundReadOnly.ts"}
+{"id":"READONLY-SINGLE-PARITY","k":"code#0","i":0,"c":"packages/infra/src/security/BashSecurityAnalyzer.ts"}
+{"id":"READONLY-SINGLE-PARITY","k":"code#1","i":0,"c":"packages/infra/src/security/compoundReadOnly.ts"}
 {"id":"READONLY-SINGLE-PARITY","k":"tests#0","i":0,"c":"app/tests/security/readOnlySingleCommand.test.ts"}
 {"id":"LIRI-BUG-A","k":"title","i":0,"c":"空输出兜底文案被当作 PDCA 任务描述 ⇒ 改为结构化标记"}
 {"id":"LIRI-BUG-A","k":"source","i":0,"c":"dev_docs/20261027/Liri-bug分析报告-20261027.md §八 BUG-A；app.log 12:27:35Z runFullPdca descPreview"}
@@ -7509,7 +7509,7 @@
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#0","i":0,"c":"packages/infra/src/environment/storageScope.ts"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#1","i":0,"c":"packages/infra/src/environment/index.ts"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#2","i":0,"c":"packages/infra/src/environment/paths.ts"}
-{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#3","i":0,"c":"app/src/security/identity/index.ts"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#3","i":0,"c":"packages/infra/src/security/identity/index.ts"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#4","i":0,"c":"packages/infra/src/utils/json.ts"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#0","i":0,"c":"app/tests/security"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#1","i":0,"c":"app/tests/environment"}
@@ -7569,8 +7569,8 @@
 {"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"notes","i":1,"c":"判定才取规则；未注入返回 null 并显式告警一次（不静默放行）。另：utils 里同名但不同概念的 PermissionBehavior 改名 ToolPermissionBehavior（零外部消费方）以过 R4。"}
 {"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"code#0","i":0,"c":"packages/infra/src/common/permissionRule.ts"}
 {"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"code#1","i":0,"c":"packages/infra/src/common/permissionMode.ts"}
-{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"code#2","i":0,"c":"app/src/security/permissionRuleSource.ts"}
-{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"code#3","i":0,"c":"app/src/security/PermissionManager.ts"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"code#2","i":0,"c":"packages/infra/src/security/permissionRuleSource.ts"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"code#3","i":0,"c":"packages/infra/src/security/PermissionManager.ts"}
 {"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"code#4","i":0,"c":"app/src/bootstrap/preflight.ts"}
 {"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"tests#0","i":0,"c":"app/tests/security"}
 {"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"tests#1","i":0,"c":"app/tests/permission"}

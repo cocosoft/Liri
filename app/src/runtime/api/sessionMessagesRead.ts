@@ -65,7 +65,7 @@ import { resolveWorktreeHash } from '@openliri/infra/environment';
 import {
   canAccessSession,
   type SessionOwner,
-} from '@modules/security/identity';
+} from '@openliri/infra/security/identity';
 import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

@@ -1008,12 +1008,12 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       "const AGENT_SUBCOMMANDS = ['run', 'list', 'status', 'stop', 'bg-list'] as const;"
     );
     // 同族**非本键**名仍在（不得误伤）：git 子命令表 / git 只读子命令集
-    expect(read('src/security/git/gitSafety.ts')).toContain(
+    expect(read('../packages/infra/src/security/git/gitSafety.ts')).toContain(
       'const GIT_SUBCOMMANDS: GitSubcommandInfo[] = ['
     );
-    expect(read('src/security/readOnlyValidation.ts')).toContain(
-      'const GIT_READ_ONLY_SUBCOMMANDS = new Set(['
-    );
+    expect(
+      read('../packages/infra/src/security/readOnlyValidation.ts')
+    ).toContain('const GIT_READ_ONLY_SUBCOMMANDS = new Set([');
   });
 
   test('B5-2⑲：`COLORS` ×3 已按域消歧（取值一字未改）', () => {

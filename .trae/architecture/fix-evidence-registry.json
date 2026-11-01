@@ -38,7 +38,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/security/bash/BashAST.ts",
+        "packages/infra/src/security/bash/BashAST.ts",
         "packages/infra/src/permission/ApprovedCommandRegistry.ts",
         "app/src/tools/bash/BashTool.ts"
       ],
@@ -266,7 +266,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/security/decision.ts",
+        "packages/infra/src/security/decision.ts",
         "app/src/tools/CodeRunner/staticValidation.ts"
       ],
       "tests": [
@@ -1372,7 +1372,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/security/PermissionManager.ts",
+        "packages/infra/src/security/PermissionManager.ts",
         "packages/infra/src/permission/PermissionManager.ts"
       ],
       "tests": [],
@@ -10663,8 +10663,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/security/index.ts",
-        "app/src/security/patterns/index.ts",
+        "packages/infra/src/security/index.ts",
+        "packages/infra/src/security/patterns/index.ts",
         "scripts/lint-architecture.ts"
       ],
       "tests": [],
@@ -10714,7 +10714,7 @@
       },
       "code": [
         "app/src/skills/index.ts",
-        "app/src/security/index.ts",
+        "packages/infra/src/security/index.ts",
         "scripts/lint-architecture.ts"
       ],
       "tests": [],
@@ -11007,8 +11007,8 @@
       "code": [
         "app/src/services/agent/parseAgent.ts",
         "packages/infra/src/state/app/AppLifecycle.ts",
-        "app/src/security/rollback/SnapshotStorage.ts",
-        "app/src/security/services/SensitiveDataService.ts",
+        "packages/infra/src/security/rollback/SnapshotStorage.ts",
+        "packages/infra/src/security/services/SensitiveDataService.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],
@@ -12851,8 +12851,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/security/BashAllowlistMatcher.ts",
-        "app/src/security/BashSecurityAnalyzer.ts"
+        "packages/infra/src/security/BashAllowlistMatcher.ts",
+        "packages/infra/src/security/BashSecurityAnalyzer.ts"
       ],
       "tests": [
         "app/tests/security/bashAllowlistUntrusted.test.ts",
@@ -13252,8 +13252,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/security/compoundReadOnly.ts",
-        "app/src/security/BashSecurityAnalyzer.ts",
+        "packages/infra/src/security/compoundReadOnly.ts",
+        "packages/infra/src/security/BashSecurityAnalyzer.ts",
         "app/src/tools/bash/bashSecurityGate.ts"
       ],
       "tests": [
@@ -13744,7 +13744,7 @@
       "code": [
         "app/src/tools/GrepTool/grep.ts",
         "app/src/tools/GrepTool/GrepTool.ts",
-        "app/src/security/compoundReadOnly.ts",
+        "packages/infra/src/security/compoundReadOnly.ts",
         "app/src/tools/PowerShellTool/PowerShellTool.ts",
         "app/src/tools/bash/bashSecurityGate.ts"
       ],
@@ -13804,7 +13804,7 @@
       },
       "code": [
         "app/src/chat/manager/messagePersistence.ts",
-        "app/src/security/compoundReadOnly.ts",
+        "packages/infra/src/security/compoundReadOnly.ts",
         "app/src/chat/services/ToolExecutionService.ts"
       ],
       "tests": [
@@ -13894,7 +13894,7 @@
         "app/src/tools/bash/powerShellWrapper.ts",
         "app/src/tools/bash/bashSecurityGate.ts",
         "app/src/tools/bash/BashTool.ts",
-        "app/src/security/BashSecurityAnalyzer.ts"
+        "packages/infra/src/security/BashSecurityAnalyzer.ts"
       ],
       "tests": [
         "app/tests/security/psWrapperDelegation.test.ts"
@@ -13946,8 +13946,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/security/BashSecurityAnalyzer.ts",
-        "app/src/security/compoundReadOnly.ts"
+        "packages/infra/src/security/BashSecurityAnalyzer.ts",
+        "packages/infra/src/security/compoundReadOnly.ts"
       ],
       "tests": [
         "app/tests/security/readOnlySingleCommand.test.ts"
@@ -15945,7 +15945,7 @@
         "packages/infra/src/environment/storageScope.ts",
         "packages/infra/src/environment/index.ts",
         "packages/infra/src/environment/paths.ts",
-        "app/src/security/identity/index.ts",
+        "packages/infra/src/security/identity/index.ts",
         "packages/infra/src/utils/json.ts"
       ],
       "tests": [
@@ -16083,8 +16083,8 @@
       "code": [
         "packages/infra/src/common/permissionRule.ts",
         "packages/infra/src/common/permissionMode.ts",
-        "app/src/security/permissionRuleSource.ts",
-        "app/src/security/PermissionManager.ts",
+        "packages/infra/src/security/permissionRuleSource.ts",
+        "packages/infra/src/security/PermissionManager.ts",
         "app/src/bootstrap/preflight.ts"
       ],
       "tests": [

@@ -266,8 +266,8 @@ import {
 
 import { TaskStatus } from '@modules/tasks/types';
 
-import { RollbackIntegration } from '@modules/security';
-import type { FileOperation } from '@modules/security';
+import { RollbackIntegration } from '@openliri/infra/security';
+import type { FileOperation } from '@openliri/infra/security';
 
 /**
  * 崩溃恢复重算 `totalMessages` 是否应**落盘**？（纯判据，2026-09-26）

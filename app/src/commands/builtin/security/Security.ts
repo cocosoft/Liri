@@ -3,13 +3,16 @@
  */
 
 import type { CommandContext } from '@modules/commands';
-import { completeSecuritySystem } from '@modules/security';
+import { completeSecuritySystem } from '@openliri/infra/security';
 import type {
   SecurityAnalysisResult,
   SecurityPattern,
-} from '@modules/security';
+} from '@openliri/infra/security';
 // U-21（批次⑦）：scanners/validators 子入口收口为桶导入
-import { createSecurityScanner, inputValidator } from '@modules/security';
+import {
+  createSecurityScanner,
+  inputValidator,
+} from '@openliri/infra/security';
 
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';

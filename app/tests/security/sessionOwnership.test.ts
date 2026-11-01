@@ -17,7 +17,7 @@ import {
   canAccessSession,
   ownerOf,
   type SessionOwner,
-} from '@modules/security/identity';
+} from '@openliri/infra/security/identity';
 
 const ALICE: Principal = {
   tenantId: 'acme',

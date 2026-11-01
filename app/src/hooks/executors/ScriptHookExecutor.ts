@@ -19,7 +19,7 @@ import {
 } from '../types';
 
 import { handleError } from '@modules/error';
-import { isSensitiveEnvKey } from '@modules/security';
+import { isSensitiveEnvKey } from '@openliri/infra/security';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('hooks:executors:ScriptHookExecutor');

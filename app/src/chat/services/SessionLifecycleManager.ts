@@ -59,8 +59,8 @@ import type {
 import { DataSessionStatus } from '@openliri/kernel';
 // 多租户 P1：会话归属（创建时写入请求身份；本地身份不写）
 import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
-import { ownerOf, canAccessSession } from '@modules/security/identity';
-import type { SessionOwner } from '@modules/security/identity';
+import { ownerOf, canAccessSession } from '@openliri/infra/security/identity';
+import type { SessionOwner } from '@openliri/infra/security/identity';
 import type { Message } from '@modules/session/types/message.js';
 
 const logger = getLogger('chat:sessionLifecycle');

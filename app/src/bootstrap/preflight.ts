@@ -48,8 +48,10 @@ import {
   setFrozenSnapshotUnfreezer,
 } from '@openliri/infra/constants';
 import { setDaemonMetricsSink } from '@openliri/infra/daemon/metricsSink';
-import { setMainPermissionRuleSource } from '../security/permissionRuleSource.js';
+import { setMainPermissionRuleSource } from '@openliri/infra/security/permissionRuleSource';
 import { setNativeStructureCloserLoader } from '@openliri/infra/utils/structureCut';
+import { setNativeBashParserLoader } from '@openliri/infra/security/bash/BashAST';
+import { setNativeBashAnalyzerLoader } from '@openliri/infra/security/BashSecurityAnalyzer';
 import { setAnalyticsPricingResolver } from '@openliri/infra/analytics/pricingSource';
 import { getModelPricing } from '@openliri/infra/cost/ModelPricing';
 import type { NativeLib } from '../../native';
@@ -162,6 +164,8 @@ export function wireDaemonDeps(): void {
  */
 export function wireSecurityDeps(): void {
   setMainPermissionRuleSource(() => new RuleManager().loadRules());
+  // P25：Bash 安全桥的原生实现也在此注入（security 已迁入 packages/infra，包内不得 require app 的原生绑定）
+  wireSecurityNativeBridges();
 }
 
 /**
@@ -181,6 +185,40 @@ export function wireUtilsDeps(): void {
     } catch {
       return null;
     }
+  });
+}
+
+/**
+ * P25 解耦（2026-11-01）：把**原生 Bash 安全桥**接到 `security`。
+ *
+ * `security/bash/BashAST` 与 `security/BashSecurityAnalyzer` 曾各自 `require('../../native')`；
+ * `security` 迁入 `packages/infra` 后该相对路径落到不存在的 `packages/infra/native`（能力静默消失），
+ * 改成逃逸进 `app/` 又违反 infra 包边界（R6）⇒ 与 P6 `wireUtilsDeps` 同口径反转依赖：包内只留注入点。
+ * 原生不可用（未构建 / ABI 不匹配）⇒ 返回 `null`，两桥按既有口径降级到 TS 实现并如实自报降级。
+ */
+function wireSecurityNativeBridges(): void {
+  type NativeBashBridge = {
+    parseBashForSecurity?: (command: string) => object | null;
+    analyzeBashCommand?: (command: string) => object | null;
+  };
+  const loadNative = (): NativeBashBridge | null => {
+    try {
+      return (require('../../native') as NativeBashBridge | null) ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  setNativeBashParserLoader(() => {
+    const native = loadNative();
+    if (!native || typeof native.parseBashForSecurity !== 'function')
+      return null;
+    return (command: string) => native.parseBashForSecurity!(command);
+  });
+  setNativeBashAnalyzerLoader(() => {
+    const native = loadNative();
+    if (!native || typeof native.analyzeBashCommand !== 'function') return null;
+    return (command: string) => native.analyzeBashCommand!(command);
   });
 }
 

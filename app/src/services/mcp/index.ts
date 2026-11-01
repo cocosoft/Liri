@@ -71,7 +71,7 @@ import {
   checkToolPermission,
   isResourceAccessAllowed,
   isToolAccessAllowed,
-} from '@modules/security';
+} from '@openliri/infra/security';
 import { mcpMarketplace } from './marketplace/MCPMarketplace';
 import type { ScopedMcpServerConfig } from './types';
 
@@ -447,7 +447,7 @@ export {
   checkToolPermission,
   isResourceAccessAllowed,
   isToolAccessAllowed,
-} from '@modules/security';
+} from '@openliri/infra/security';
 export { mcpToolBridge, MCPToolBridge } from './MCPToolBridge';
 export { McpToolWrapper } from './McpToolWrapper';
 export { mcpMarketplace, MCPMarketplace } from './marketplace/MCPMarketplace';

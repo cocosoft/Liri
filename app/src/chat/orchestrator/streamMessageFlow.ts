@@ -27,7 +27,7 @@
  * 编排顺序由 runStreamMessage 控制，各阶段为纯函数。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger, getSessionTracing } from '@modules/monitoring';
 import { mergeCompactionRanges } from '@modules/session';
 import {
   handleError,
@@ -80,7 +80,6 @@ import {
   createFragment,
   renderFragment,
 } from '@modules/context';
-import { getSessionTracing } from '@modules/monitoring';
 import { agentTelemetry } from '@modules/agent';
 import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 // P2-1b（2026-10-10，`.trae/specs/stream-message-flow-split.md` §3-S1）：请求准备阶段外移为具名模块
@@ -110,7 +109,8 @@ import { buildBackgroundCompactionNotice } from './streamMessageBackgroundCompac
 import { guardFinalOutput } from '../finalOutputGuard.js';
 // B5-2㊸/㊹ 合一：THINKING_BATCH_SIZE / THINKING_BATCH_MS 唯一真源在 ../streamingLlm.js（chat 域 thinking 事件防抖参数），本处直接引用
 import { THINKING_BATCH_SIZE, THINKING_BATCH_MS } from '../streamingLlm.js';
-import { getOutputGuardRegistry, runOutputGuards } from '@modules/security';
+import { getOutputGuardRegistry } from '@openliri/infra/security';
+import { runOutputGuards } from '@openliri/infra/security';
 // PC-1（2026-10-07）：护栏命中 ⇒ 下发前端（消息级"已打码/已阻断"标注，不再静默改写）
 import {
   appendOutputGuardAudit,

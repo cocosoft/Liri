@@ -114,7 +114,7 @@ const BASE_LAZY_LOADERS: ReadonlyArray<readonly [string, string]> = [
   // `tools/lsp/validation.ts` 自持校验，轨 B（`app/src/lsp/**`）**零静态消费者**，
   // 进入 CD05 观察期；后续按 CD06 独立提交物理删除（S6 本体）。
   ['mcp', '@modules/mcp'],
-  ['security', '@modules/security'],
+  ['security', '@openliri/infra/security'],
   ['sandbox', '@modules/sandbox'],
   ['voice', '@modules/voice'],
 ];

@@ -45,7 +45,7 @@
 import type { EventLogStorage } from '@modules/session';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { LiriEventMap } from '@modules/session/types/eventPayloads';
-import { hashContent } from '@modules/security';
+import { hashContent } from '@openliri/infra/security';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('chat:request-snapshot');

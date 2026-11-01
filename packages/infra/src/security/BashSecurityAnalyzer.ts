@@ -33,14 +33,42 @@ let nativeCallCount = 0;
 /** TS 降级分析次数 */
 let tsFallbackCount = 0;
 
+/** 原生分析入口来源（app 启动期经 `wireSecurityNativeBridges` 注入；未注入 ⇒ 按"不可用"降级） */
+let nativeAnalyzerLoader:
+  | (() => ((command: string) => object | null) | null)
+  | null = null;
+
+/**
+ * 注入原生分析能力来源（app 启动期调用；`null` = 撤销，测试用）。
+ *
+ * 注入会**清空**上一次的解析结果与降级状态，避免沿用旧句柄。
+ */
+export function setNativeBashAnalyzerLoader(
+  loader: (() => ((command: string) => object | null) | null) | null
+): void {
+  nativeAnalyzerLoader = loader;
+  nativeAnalyzeSave = undefined;
+  nativeLoadFailed = false;
+}
+
 function lazyInitNative() {
   if (nativeAnalyzeSave === undefined) {
+    if (!nativeAnalyzerLoader) {
+      nativeAnalyzeSave = null;
+      nativeLoadFailed = true;
+      nativeDegraded = true;
+      nativeDegradeReason = '未注入原生分析器（app 启动期未接线）';
+      logger.warn('Rust原生安全分析器不可用，降级为TypeScript分析', {
+        reason: nativeDegradeReason,
+      });
+      return nativeAnalyzeSave;
+    }
     try {
-      const native = require('../../native');
-      if (native && typeof native.analyzeBashCommand === 'function') {
+      const analyze = nativeAnalyzerLoader();
+      if (typeof analyze === 'function') {
         nativeAnalyzeSave = (command) => {
           try {
-            return native.analyzeBashCommand(command);
+            return analyze(command);
           } catch (err) {
             return null;
           }

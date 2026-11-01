@@ -29,7 +29,7 @@ import { ToolTag } from '../types/Tool';
 import {
   BashSecurityAnalyzer,
   securityIntegrationService,
-} from '@modules/security';
+} from '@openliri/infra/security';
 import type { ExecOptions } from 'child_process';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 // S1-5（2026-10-11）：命令规范化"单一事实源" —— 审批哈希 / 安全拦截层 / 最终 spawn /
@@ -66,7 +66,7 @@ import {
   completeSecuritySystem,
   stripSensitiveEnv,
   sanitizeCallerEnv,
-} from '@modules/security';
+} from '@openliri/infra/security';
 import { feature } from '@openliri/kernel';
 
 // G18（2026-10-11）：K-5 输出截断常量/函数已抽至 `./bashOutputTruncate`（**纯搬迁**，语义不变）。
@@ -152,7 +152,7 @@ const BashInputSchema = z.strictObject({
  * `env 清洗 → 最终 spawn` 全链，避免测试复制生产逻辑）。
  *
  * 语义（第九轮审查 §五 缺陷 #5）：
- * - 先剥离**父进程**继承的敏感键（`stripSensitiveEnv`，单一事实源 `@modules/security`）；
+ * - 先剥离**父进程**继承的敏感键（`stripSensitiveEnv`，单一事实源 `@openliri/infra/security`）；
  * - 对**调用方 env**（模型可控）施加**同一套**敏感键策略 + 额外剥离**执行控制键**
  *   （`PATH`/`NODE_OPTIONS`/`LD_PRELOAD` 等）⇒ 调用方**不能覆盖**已剥离项，也不能改写执行语义；
  * - Windows 追加 `GIT_SSL_BACKEND=schannel`。
@@ -598,7 +598,7 @@ export class BashTool extends BaseTool {
     // 构建环境变量：Windows 上设置 git SSL 后端为 schannel
     // A3（2026-10-09）：剥离父进程继承的敏感 env（*_API_KEY / *SECRET* / *TOKEN* /
     // SSH_AUTH_SOCK / 云凭据等），避免密钥泄露进子进程。
-    // 剥离清单**单一事实源**：`@modules/security` 的 stripSensitiveEnv（与 hooks 侧同源，避免第二份）。
+    // 剥离清单**单一事实源**：`@openliri/infra/security` 的 stripSensitiveEnv（与 hooks 侧同源，避免第二份）。
     //
     // 第九轮审查 §五（2026-10-09，缺陷 #5 修复）：**调用方显式传入的 env 不再直接合并**
     // —— 原 `{ ...stripSensitiveEnv(process.env), ...(env || {}) }` 允许调用方（模型可控输入）

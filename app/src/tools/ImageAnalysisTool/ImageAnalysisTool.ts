@@ -22,7 +22,7 @@ import { ImageProcessor } from '@openliri/infra/media/image/ImageProcessor';
 import { imageFormatDetector } from '@openliri/infra/media/image/ImageFormatDetector';
 import { providerRegistry } from '@modules/ai';
 import { RouteKey } from '@modules/ai';
-import { imageSanitizationPolicy } from '@modules/security';
+import { imageSanitizationPolicy } from '@openliri/infra/security';
 import { KnowledgeBaseWriter } from '../../knowledge/KnowledgeBaseWriter';
 import { WorkerGuard } from '@modules/ai';
 import { imageDownloader } from '@modules/chat';

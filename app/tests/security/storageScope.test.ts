@@ -18,7 +18,7 @@ import {
   isPartitionedScope,
   safePathSegment,
   scopedDataRoot,
-} from '@modules/security/identity';
+} from '@openliri/infra/security/identity';
 
 const BASE = join('/tmp', 'liri-data');
 const ALICE: Principal = {

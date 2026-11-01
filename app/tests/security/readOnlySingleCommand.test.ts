@@ -11,7 +11,7 @@
  * 口径：单条命令复用 `compoundReadOnly` 的只读族（不再维护第二套）；负向边界保持原样。
  */
 import { describe, expect, it } from 'bun:test';
-import { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer.js';
+import { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
 
 const analyzer = new BashSecurityAnalyzer();
 

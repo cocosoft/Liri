@@ -50,7 +50,7 @@ import type {
 import type { UnifiedTokenTracker } from '@modules/tokenBudget';
 import type { HookChainManager } from '@modules/hooks';
 import { CompactServiceImpl } from '@modules/compaction';
-import type { RollbackIntegration } from '@modules/security';
+import type { RollbackIntegration } from '@openliri/infra/security';
 import type {
   ApprovalScope,
   ApprovalSnapshot,

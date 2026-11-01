@@ -20,7 +20,7 @@
 import { createHash } from 'node:crypto';
 import { APP_VERSION } from '@openliri/infra/constants';
 import { feature } from '@openliri/kernel';
-import { securityIntegrationService } from '@modules/security';
+import { securityIntegrationService } from '@openliri/infra/security';
 import { RuleManager } from '@openliri/infra/permission';
 
 /** 参与版本摘要的 Bash 安全开关（与 `BashTool` 的灰度清单同源） */

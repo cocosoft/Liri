@@ -8,8 +8,8 @@
  * 本用例同时守护**负向边界**：重定向 / 命令替换 / 后台 `&` / 变量 / 非只读段必须仍被拒。
  */
 import { describe, expect, it } from 'bun:test';
-import { checkCompoundReadOnly } from '../../src/security/compoundReadOnly';
-import { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer';
+import { checkCompoundReadOnly } from '@openliri/infra/security/compoundReadOnly';
+import { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
 
 describe('checkCompoundReadOnly：正向（全段只读）', () => {
   it('cd + dir 串联', () => {

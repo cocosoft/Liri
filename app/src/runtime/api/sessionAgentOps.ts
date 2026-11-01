@@ -35,7 +35,7 @@ import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import {
   canAccessSession,
   type SessionOwner,
-} from '@modules/security/identity';
+} from '@openliri/infra/security/identity';
 import type { Coordinator } from '@modules/runtime/coordinator';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';

@@ -197,7 +197,7 @@ export interface SecurityReport {
  * - 通道权限管理 → 委托给 policy/ChannelPermission
  * - 秘密扫描（记忆/团队记忆）→ 委托给 scanner/secret
  *
- * 外部代码应仅通过 @modules/security 导入此类的单例 completeSecuritySystem，
+ * 外部代码应仅通过 @openliri/infra/security 导入此类的单例 completeSecuritySystem，
  * 不应直接引用 SecurityIntegrationService 或其内部组件。
  */
 export class CompleteSecuritySystem implements ICompleteSecuritySystem {

@@ -44,7 +44,7 @@ import {
   resetGraySwitchWarningForTest,
 } from '../../src/tools/bash/BashTool.js';
 import { ApprovedCommandRegistry } from '@openliri/infra/permission/ApprovedCommandRegistry';
-import type { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer.js';
+import type { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
 import type { ToolUseContext } from '../../src/tools/types/Tool.js';
 
 /** 最小可用的 ToolUseContext（仅 execute 用到 sessionId） */

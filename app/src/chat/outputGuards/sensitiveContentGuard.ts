@@ -14,7 +14,10 @@
 
 import { feature } from '@openliri/kernel';
 import type { OutputGuard, OutputGuardVerdict } from '@openliri/kernel';
-import { SensitiveErrorType, sensitiveDataService } from '@modules/security';
+import {
+  SensitiveErrorType,
+  sensitiveDataService,
+} from '@openliri/infra/security';
 
 export const SENSITIVE_CONTENT_GUARD = 'sensitive_content';
 

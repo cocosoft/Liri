@@ -19,11 +19,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 // ⚠️ 必须走**模块出口**（与生产同一条求值链）：直接 import `security/PermissionManager.ts`
 // 会绕过 barrel 的求值顺序，触发 `SecurityIntegration → SecurityPermissionView` 的既存循环
 // （`SecurityIntegration.ts:39` 在模块顶层构造单例）—— 那是**另一个**既存问题，不在本测试范围。
-import { SecurityPermissionView } from '@modules/security';
+import { SecurityPermissionView } from '@openliri/infra/security';
 import {
   readMainPermissionRules,
   setMainPermissionRuleSource,
-} from '../../src/security/permissionRuleSource';
+} from '@openliri/infra/security/permissionRuleSource';
 import { RuleManager } from '@openliri/infra/permission/RuleManager';
 import {
   PermissionBehavior,

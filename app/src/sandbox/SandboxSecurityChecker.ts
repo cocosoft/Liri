@@ -4,7 +4,7 @@
  */
 
 import { SandboxExecuteOptions, SandboxConfig } from './SandboxTypes';
-import { DELETION_RULES } from '@modules/security';
+import { DELETION_RULES } from '@openliri/infra/security';
 
 /**
  * 沙箱安全检查器安全检查结果

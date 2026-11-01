@@ -21,7 +21,7 @@
  */
 import { existsSync, readdirSync, readFileSync, type Dirent } from 'node:fs';
 import { join, relative } from 'node:path';
-import { sensitiveDataService } from '../src/security/services/SensitiveDataService';
+import { sensitiveDataService } from '@openliri/infra/security/services/SensitiveDataService';
 
 /** 仓库根（脚本位于 app/scripts/，上两级即仓根） */
 const REPO_ROOT = join(__dirname, '..', '..');

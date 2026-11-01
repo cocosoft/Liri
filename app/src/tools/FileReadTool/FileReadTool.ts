@@ -10,7 +10,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { getReadProtectionService } from '@modules/security';
+import { getReadProtectionService } from '@openliri/infra/security';
 import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
 import { resolveReadFileState } from '@openliri/infra/utils/fileStateCache';
 import type { FileOperationResult } from '../types/ToolResult';

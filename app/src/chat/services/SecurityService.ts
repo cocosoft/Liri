@@ -2,8 +2,8 @@ import { EventEmitter } from 'events';
 import type {
   SensitiveDataService,
   SensitiveDataConfig,
-} from '@modules/security';
-import { SensitiveErrorType, SensitiveError } from '@modules/security';
+} from '@openliri/infra/security';
+import { SensitiveErrorType, SensitiveError } from '@openliri/infra/security';
 import { SecurityError } from '@modules/error/types';
 
 import { getLogger } from '@modules/monitoring';
@@ -24,7 +24,7 @@ function getCoreService(): SensitiveDataService {
   if (!coreBound) {
     try {
       const mod =
-        require('@modules/security') as typeof import('@modules/security');
+        require('@openliri/infra/security') as typeof import('@openliri/infra/security');
       if (mod?.sensitiveDataService) {
         coreServiceRef = mod.sensitiveDataService;
         coreServiceRef.on('securityError', (error: unknown) => {

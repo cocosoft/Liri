@@ -19,8 +19,8 @@ import {
   getRequestPrincipal,
   isLocalPrincipal,
 } from '@openliri/kernel/identity/requestScope.js';
-import { canAccessSession } from '@modules/security/identity';
-import { ownerOf } from '@modules/security/identity';
+import { canAccessSession } from '@openliri/infra/security/identity';
+import { ownerOf } from '@openliri/infra/security/identity';
 import { ScopedStorageRegistry } from './gateway/ScopedStorageRegistry.js';
 // 2026-10-01 B14 C′ 步：原经 `@modules/context` 桶取用 ⇒ 改指 infra（`utils/`），
 // 解除 `session -> context`(app) 倒挂的一半（另一半 resolveContextWindow 见 D 步）。

@@ -27,9 +27,9 @@ import {
   getManifestPath,
   getSnapshotsRoot,
   saveManifest,
-} from '../../src/security/rollback/SnapshotStorage';
-import { enforceSnapshotQuota } from '../../src/security/rollback/CleanupManager';
-import type { RoundSnapshot } from '../../src/security/rollback/types';
+} from '@openliri/infra/security/rollback/SnapshotStorage';
+import { enforceSnapshotQuota } from '@openliri/infra/security/rollback/CleanupManager';
+import type { RoundSnapshot } from '@openliri/infra/security/rollback/types';
 
 let tmpRoot = '';
 const prevDataDir = process.env.LIRI_DATA_DIR;

@@ -5,7 +5,7 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { queryAuditLogs } from '@modules/security';
+import { queryAuditLogs } from '@openliri/infra/security';
 import { denialTracker, PermissionManager } from '@openliri/infra/permission';
 import { LOCAL_REQUEST_BASE_URL, LOCAL_SERVICE_HOST } from '@openliri/kernel';
 

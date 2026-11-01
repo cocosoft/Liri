@@ -17,7 +17,7 @@ import {
   type PipelineConfig,
   MiddlewareGroup,
 } from './types';
-import { preExecutionCheck } from '@modules/security';
+import { preExecutionCheck } from '@openliri/infra/security';
 
 // ── 中间件注册表 ─────────────────────────────────────────────────────
 

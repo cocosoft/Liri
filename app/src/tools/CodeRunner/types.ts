@@ -9,7 +9,7 @@
  */
 
 // P0-3（`security-decision-verdict.md`）：深度扫描状态复用安全侧统一词汇（单一来源）
-import type { DeepScanStatus } from '@modules/security';
+import type { DeepScanStatus } from '@openliri/infra/security';
 
 // ─── 能力 API（注入到子进程全局，脚本内通过 globalThis.__liriRuntime 访问）───────
 

@@ -138,11 +138,11 @@ export {
   ChannelPermissionRelay,
   getChannelPermissionRelay,
   clearChannelPermissionRelay,
-} from '@modules/security';
+} from '@openliri/infra/security';
 export type {
   ChannelPermissionResponse,
   ChannelPermissionCallbacks,
-} from '@modules/security';
+} from '@openliri/infra/security';
 
 export {
   normalizeNameForMCP,

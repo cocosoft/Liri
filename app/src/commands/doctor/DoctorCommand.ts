@@ -6,8 +6,8 @@
 
 import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
-import { runSecurityAudit } from '@modules/security';
-import type { SecurityAuditReport } from '@modules/security';
+import { runSecurityAudit } from '@openliri/infra/security';
+import type { SecurityAuditReport } from '@openliri/infra/security';
 
 const logger = getLogger('DoctorCommand');
 

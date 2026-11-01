@@ -22,7 +22,7 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:CodeRunner:validation');
 
 import type { CodeValidationIssue, CodeValidationResult } from './types';
-import type { DeepScanStatus } from '@modules/security';
+import type { DeepScanStatus } from '@openliri/infra/security';
 
 // ─── Bun.Transpiler 最小接口（项目未显式引入 bun-types，自定义接口避免类型依赖）───
 

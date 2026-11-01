@@ -8,7 +8,7 @@
  * 迁因：本文件是**纯路径计算**（零 I/O、只依赖 kernel 的 principal/requestScope），
  * 而唯一调用方是 `environment/paths.ts`；放在 `security` 里使 `environment → security`
  * 成为唯一出边 ⇒ 与 `security → environment` 构成 2 元环。迁入后该环消失，
- * `@modules/security/identity` 保留**同名转出**（既有消费方零改动）。
+ * `@openliri/infra/security/identity` 保留**同名转出**（既有消费方零改动）。
  *
  * 三条硬约束：
  *   1. **本地零变更** —— `isLocalPrincipal` ⇒ 返回原数据根，既有数据与既有测试不受影响；

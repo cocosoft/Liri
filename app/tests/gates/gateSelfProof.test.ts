@@ -53,15 +53,15 @@ import {
   combineVerdicts,
   isPermissive,
   verdictFromScanStatus,
-} from '../../src/security/decision.js';
+} from '@openliri/infra/security/decision';
 import {
   isDangerousCommand,
   parseForSecurity,
-} from '../../src/security/bash/BashAST.js';
+} from '@openliri/infra/security/bash/BashAST';
 import {
   sanitizeCallerEnv,
   stripSensitiveEnv,
-} from '../../src/security/sensitiveEnv.js';
+} from '@openliri/infra/security/sensitiveEnv';
 
 const scriptsDir = resolve(import.meta.dir, '../../../scripts');
 

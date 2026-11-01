@@ -15,7 +15,7 @@ import {
   resolveAttachmentsDir,
   isPathWithin,
 } from '@openliri/infra/environment';
-import { logSecurityBlock } from '../../security/SecurityAuditLogger.js';
+import { logSecurityBlock } from '@openliri/infra/security/SecurityAuditLogger';
 
 /** 允许的基础目录 */
 const ALLOWED_BASE_DIRS = [

@@ -33,7 +33,7 @@ import {
   RollbackIntegration,
   FileOperationTracker,
   type FileChange,
-} from '@modules/security';
+} from '@openliri/infra/security';
 import type { SessionGateway } from '@modules/session';
 import type { Message } from '@modules/session/types/message.js';
 // S4（2026-10-19）：条目形状收敛到 `@modules/utils/pendingInteractions`（含 `expiresAt`），

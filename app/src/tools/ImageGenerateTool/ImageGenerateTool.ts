@@ -23,7 +23,7 @@ import { UUID_RE } from '@openliri/kernel';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { providerRegistry } from '@modules/ai';
 import type { AIProvider } from '@modules/ai';
-import { imageSanitizationPolicy } from '@modules/security';
+import { imageSanitizationPolicy } from '@openliri/infra/security';
 import { resolveOutputDir } from '@openliri/infra/environment';
 import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
 import { ImageGenerationRouter } from './ImageGenerationRouter';

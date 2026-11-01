@@ -38,8 +38,8 @@ import {
   ApprovedCommandRegistry,
   hashCommand,
 } from '@openliri/infra/permission/ApprovedCommandRegistry';
-import { completeSecuritySystem } from '../../src/security/CompleteSecuritySystem.js';
-import type { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer.js';
+import { completeSecuritySystem } from '@openliri/infra/security/CompleteSecuritySystem';
+import type { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
 import type { ToolUseContext } from '../../src/tools/types/Tool.js';
 
 /** 最小可用的 ToolUseContext（仅 execute 用到 sessionId） */

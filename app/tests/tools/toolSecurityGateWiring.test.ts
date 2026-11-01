@@ -25,7 +25,7 @@ import {
   explainPowerShellNotAllowed,
   isPowerShellCommandAllowed,
 } from '../../src/tools/PowerShellTool/PowerShellTool.js';
-import { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer.js';
+import { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
 import type {
   ApprovalScope,
   ApprovalSnapshot,

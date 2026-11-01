@@ -24,7 +24,7 @@ import {
   preExecutionCheck,
   isPathTraversal,
   sanitizePath,
-} from '@modules/security';
+} from '@openliri/infra/security';
 import type { ToolExecutionStats, ToolExecutionLog } from './types/ToolTypes';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { Span, SpanStatusCode } from '@opentelemetry/api';

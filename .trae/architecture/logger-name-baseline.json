@@ -2,7 +2,7 @@
   "version": 1,
   "names": {
     "AIContextInjector": [
-      "app/src/security/rollback/AIContextInjector.ts"
+      "packages/infra/src/security/rollback/AIContextInjector.ts"
     ],
     "AgentRegistry": [
       "app/src/agent/registry/AgentRegistry.ts"
@@ -62,7 +62,7 @@
       "packages/infra/src/chronos/maintenance/ChronosMonitor.ts"
     ],
     "CleanupManager": [
-      "app/src/security/rollback/CleanupManager.ts"
+      "packages/infra/src/security/rollback/CleanupManager.ts"
     ],
     "CommandAliasRegistry": [
       "app/src/cli/handlers/CommandAliasRegistry.ts"
@@ -144,7 +144,7 @@
       "app/src/components/Feedback.tsx"
     ],
     "FileOperationTracker": [
-      "app/src/security/rollback/FileOperationTracker.ts"
+      "packages/infra/src/security/rollback/FileOperationTracker.ts"
     ],
     "FirstPartyEventLogger": [
       "packages/infra/src/analytics/FirstPartyEventLogger.ts"
@@ -207,7 +207,7 @@
       "app/src/monitoring/performance/PerformanceAnalyzer.ts"
     ],
     "PermissionManager": [
-      "app/src/security/PermissionManager.ts"
+      "packages/infra/src/security/PermissionManager.ts"
     ],
     "Plugins": [
       "app/src/commands/builtin/plugins/Plugins.ts"
@@ -231,13 +231,13 @@
       "app/src/promptSuggestion/PromptSuggestionConfig.ts"
     ],
     "RedactMiddleware": [
-      "app/src/security/redact/RedactMiddleware.ts"
+      "packages/infra/src/security/redact/RedactMiddleware.ts"
     ],
     "RedoManager": [
-      "app/src/security/rollback/RedoManager.ts"
+      "packages/infra/src/security/rollback/RedoManager.ts"
     ],
     "RollbackIntegration": [
-      "app/src/security/rollback/RollbackIntegration.ts"
+      "packages/infra/src/security/rollback/RollbackIntegration.ts"
     ],
     "RuleEngine": [
       "app/src/workspace/RuleEngine.ts"
@@ -246,7 +246,7 @@
       "app/src/hooks/utils/SecurityManager.ts"
     ],
     "SnapshotStorage": [
-      "app/src/security/rollback/SnapshotStorage.ts"
+      "packages/infra/src/security/rollback/SnapshotStorage.ts"
     ],
     "StateMigrator": [
       "packages/infra/src/system/state/StateMigrator.ts"
@@ -264,7 +264,7 @@
       "app/src/chat/services/ToolUseSummaryGenerator.ts"
     ],
     "UndoManager": [
-      "app/src/security/rollback/UndoManager.ts"
+      "packages/infra/src/security/rollback/UndoManager.ts"
     ],
     "UserSettings": [
       "app/src/config/settings/userSettings.ts"
@@ -555,13 +555,13 @@
       "app/src/scripts/security-scan.ts"
     ],
     "security\\GroupPolicy": [
-      "app/src/security/GroupPolicy.ts"
+      "packages/infra/src/security/GroupPolicy.ts"
     ],
     "security\\services\\CredentialManager": [
-      "app/src/security/services/CredentialManager.ts"
+      "packages/infra/src/security/services/CredentialManager.ts"
     ],
     "security\\services\\SensitiveDataService": [
-      "app/src/security/services/SensitiveDataService.ts"
+      "packages/infra/src/security/services/SensitiveDataService.ts"
     ],
     "services\\api\\errors": [
       "app/src/services/api/errors.ts"

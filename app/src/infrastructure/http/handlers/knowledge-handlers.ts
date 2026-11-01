@@ -95,7 +95,7 @@ export async function assertDocPathWithin(
   if (isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`)) {
     // 2-1（2026-09-03）：越权拦截统一审计（docPath 逃逸知识库根目录）
     const { logSecurityBlock } =
-      await import('../../../security/SecurityAuditLogger.js');
+      await import('@openliri/infra/security/SecurityAuditLogger');
     logSecurityBlock({
       kind: 'unauthorized_path',
       requestedPath: docPath,

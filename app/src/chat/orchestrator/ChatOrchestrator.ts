@@ -53,7 +53,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { getOutputGuardRegistry } from '@modules/security/outputGuardRegistry';
+import { getOutputGuardRegistry } from '@openliri/infra/security/outputGuardRegistry';
 import { SimpleMutex } from '@openliri/kernel';
 // PC-1（2026-10-07）：护栏命中 ⇒ 下发前端（消息级"已打码/已阻断"标注，不再静默改写）
 import {
@@ -103,7 +103,7 @@ import type { PdcaLauncher } from '../launchers/PdcaLauncher.js';
 import type { Span } from '@opentelemetry/api';
 import { securityService } from '../services/SecurityService.js';
 import { recursivelySanitizeUnicode } from '@openliri/infra/utils/sanitization';
-import { SensitiveErrorType } from '@modules/security';
+import { SensitiveErrorType } from '@openliri/infra/security';
 import type { SessionCheckpointService } from '../services/SessionCheckpointService.js';
 import type { ChatManagerTAORContext } from '@modules/query';
 import type { LoopDetector } from '@modules/query';

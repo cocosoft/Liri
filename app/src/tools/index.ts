@@ -298,8 +298,8 @@ export type {
 //    `security`(infra) → `tools`(app) 倒挂）；
 // ② 经全仓核实 `checkBashAllowlist` / `isReadOnlyBashCommand` / `AllowlistResult` 在此口径下
 //    **零消费者**（唯一消费者是 `security/BashSecurityAnalyzer`，走同模块相对导入）
-//    ⇒ 保留转出会迫使 `tools` 桶反向引入 `@modules/security` **整桶**，故直接删除。
-// 需要者请从 `@modules/security` 导入。
+//    ⇒ 保留转出会迫使 `tools` 桶反向引入 `@openliri/infra/security` **整桶**，故直接删除。
+// 需要者请从 `@openliri/infra/security` 导入。
 
 // 2026-09-29（台账 D-45）：删除本文件原导出的 `getTools(): any[]`（`feature()` 门控的**类名**数组，
 // 如 `'CronCreateTool'`/`'MonitorTool'`/`'VoiceTool'`）—— 经全仓核实**零消费者**（`init.ts:411` /

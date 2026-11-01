@@ -74,7 +74,10 @@ import type {
 } from '@modules/session/types/tool.js';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
-import type { RollbackIntegration, FileOperation } from '@modules/security';
+import type {
+  RollbackIntegration,
+  FileOperation,
+} from '@openliri/infra/security';
 // S1-1（2026-10-11）：审批作用域 / 快照类型（**仅类型导入**，运行时判定在 permission 层）
 // LRO-07（2026-10-26）：deny 结构化依据（ruleId/来源/解除入口）⇒ 进工具结果 metadata
 import type {

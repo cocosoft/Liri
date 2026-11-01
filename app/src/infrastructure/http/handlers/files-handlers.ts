@@ -26,7 +26,7 @@ import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
-import { logSecurityBlock } from '../../../security/SecurityAuditLogger.js';
+import { logSecurityBlock } from '@openliri/infra/security/SecurityAuditLogger';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 const logger = getLogger('infrastructure:http:handlers:files-handlers');
 

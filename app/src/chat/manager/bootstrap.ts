@@ -31,7 +31,7 @@ import path from 'path';
 import { homedir } from 'node:os';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { RollbackIntegration } from '@modules/security';
+import { RollbackIntegration } from '@openliri/infra/security';
 import type { SessionGateway } from '@modules/session';
 import type { Message } from '@modules/session/types/message.js';
 import type { SessionCheckpoint } from '@modules/session/types/checkpoint';

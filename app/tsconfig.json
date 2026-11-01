@@ -109,6 +109,7 @@
       "commander": ["../node_modules/commander"],
       "gray-matter": ["../node_modules/gray-matter"],
       "glob": ["../node_modules/glob"],
+      "uuid": ["../node_modules/uuid"],
       "pdfjs-dist": ["../node_modules/pdfjs-dist"],
       "pdfjs-dist/*": ["../node_modules/pdfjs-dist/*"],
       "@napi-rs/canvas": ["../node_modules/@napi-rs/canvas"],
@@ -191,8 +192,13 @@
       "@openliri/infra/memory/*": ["../../packages/infra/src/memory/*"],
       "@modules/evals": ["evals"],
       "@modules/evals/*": ["evals/*"],
-      "@modules/security": ["security"],
-      "@modules/security/*": ["security/*"],
+      "@openliri/infra/security": [
+        "../../packages/infra/src/security/index.ts"
+      ],
+      "@openliri/infra/security.js": [
+        "../../packages/infra/src/security/index.ts"
+      ],
+      "@openliri/infra/security/*": ["../../packages/infra/src/security/*"],
       "@modules/config": ["config"],
       "@modules/config/*": ["config/*"],
       "@modules/context": ["context"],

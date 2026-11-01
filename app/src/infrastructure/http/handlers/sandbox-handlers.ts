@@ -39,7 +39,7 @@ import { configManager } from '@modules/config';
 // ⇒ `infrastructure -> app` 倒挂。改经 **core SPI 端口** `ISandboxPort.getRuntimeStatus()`
 // （服务层 → core 为下行，合法）；端口按 CS01 复用既有端口，不另立。
 import { resolveSandbox } from '@openliri/kernel/spi';
-import { securityIntegrationService } from '@modules/security';
+import { securityIntegrationService } from '@openliri/infra/security';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('http:sandbox-handlers');

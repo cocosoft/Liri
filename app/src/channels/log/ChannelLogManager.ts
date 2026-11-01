@@ -10,7 +10,7 @@ import { resolvePyappHome } from '@openliri/infra/environment';
 import { handleError } from '@modules/error';
 
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
-import { getRedactMiddleware } from '@modules/security';
+import { getRedactMiddleware } from '@openliri/infra/security';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:log:ChannelLogManager');

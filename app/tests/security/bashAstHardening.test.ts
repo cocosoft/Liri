@@ -37,12 +37,12 @@ import {
   getBashAstStats,
   resetBashAstForTest,
   type SimpleCommand,
-} from '../../src/security/bash/BashAST.js';
+} from '@openliri/infra/security/bash/BashAST';
 import {
   isSensitiveEnvKey,
   isExecutionControlEnvKey,
   sanitizeCallerEnv,
-} from '../../src/security/sensitiveEnv.js';
+} from '@openliri/infra/security/sensitiveEnv';
 
 function commandsOf(command: string): SimpleCommand[] {
   const r = parseForSecurity(command);

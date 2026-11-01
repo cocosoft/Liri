@@ -12,7 +12,7 @@ import {
   OperationType,
 } from '@openliri/infra/permission';
 import { permissionModeIntegrationService } from '@modules/chat';
-import { completeSecuritySystem } from '@modules/security';
+import { completeSecuritySystem } from '@openliri/infra/security';
 
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';

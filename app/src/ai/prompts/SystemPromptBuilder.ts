@@ -6,8 +6,8 @@ import {
   type ModelGuidanceConfig,
   type ModelGuidanceMode,
 } from './ModelGuidance';
-import { getPromptInjectionDetector } from '@modules/security';
-import { getUnicodeSanitizer } from '@modules/security';
+import { getPromptInjectionDetector } from '@openliri/infra/security';
+import { getUnicodeSanitizer } from '@openliri/infra/security';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ai\prompts\SystemPromptBuilder');

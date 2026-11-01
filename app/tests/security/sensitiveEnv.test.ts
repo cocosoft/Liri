@@ -30,7 +30,7 @@ import { describe, it, expect } from 'bun:test';
 import {
   isSensitiveEnvKey,
   stripSensitiveEnv,
-} from '../../src/security/sensitiveEnv.js';
+} from '@openliri/infra/security/sensitiveEnv';
 
 describe('isSensitiveEnvKey（A3）', () => {
   it('识别密钥族（大小写不敏感）', () => {

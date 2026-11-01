@@ -11,7 +11,7 @@ import {
   resolveOutputDir,
   resolveInboundDir,
 } from '@openliri/infra/environment';
-import { runRegisteredOutputGuards } from '@modules/security/outputGuardRegistry';
+import { runRegisteredOutputGuards } from '@openliri/infra/security/outputGuardRegistry';
 import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
 import { resolveIsolatedFileTarget } from '../utils/isolatedFileIo';
 import { invalidateGrepSearchCache } from '../GrepTool/GrepTool';

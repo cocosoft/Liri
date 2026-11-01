@@ -17,7 +17,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   ALL_UNIFIED_RULES,
   DANGEROUS_COMMAND_PATTERNS,
-} from '../../src/security/patterns/dangerousCommands';
+} from '@openliri/infra/security/patterns/dangerousCommands';
 
 /** 每条规则一条「应被拦截」的输入；字符串仅用于正则匹配，绝不执行 */
 const SAMPLES: Array<{ rule: string; sample: string; platform: string }> = [

@@ -10,7 +10,7 @@ import * as path from 'path';
 import { resolveFilePath } from '../utils/ToolUtils';
 import { resolveIsolatedFileTarget } from '../utils/isolatedFileIo';
 import { invalidateGrepSearchCache } from '../GrepTool/GrepTool';
-import { runRegisteredOutputGuards } from '@modules/security/outputGuardRegistry';
+import { runRegisteredOutputGuards } from '@openliri/infra/security/outputGuardRegistry';
 import type { FileOperationResult } from '../types/ToolResult';
 
 // 懒初始化 Rust 原生模块，用于自动检测文件编码

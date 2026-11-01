@@ -19,7 +19,7 @@ import {
   type ImageFormat,
   type ProcessResult,
 } from '@openliri/infra/media/image/ImageProcessor';
-import { imageSanitizationPolicy } from '@modules/security';
+import { imageSanitizationPolicy } from '@openliri/infra/security';
 
 const logger = getLogger('tools:imageTool');
 

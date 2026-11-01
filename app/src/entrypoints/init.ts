@@ -946,7 +946,8 @@ async function startDeferredPrefetches(): Promise<void> {
             await import('@openliri/infra/permission/PermissionChecker');
           // PR-3c（2026-10-23）：自动放行（沙箱豁免 / 会话 auto-local）的审计落盘。
           // 由**入口**注入 ⇒ `permission`(infra) 不静态导入 `security`（避免运行时环）。
-          const { logSecurityAuditEvent } = await import('@modules/security');
+          const { logSecurityAuditEvent } =
+            await import('@openliri/infra/security');
           setPermissionRuntimeDeps({
             unattendedMode,
             inboxManager,

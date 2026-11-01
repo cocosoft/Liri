@@ -160,6 +160,14 @@
     "./permission/*": {
       "types": "./src/permission/*.ts",
       "import": "./src/permission/*.ts"
+    },
+    "./security": {
+      "types": "./src/security/index.ts",
+      "import": "./src/security/index.ts"
+    },
+    "./security/*": {
+      "types": "./src/security/*.ts",
+      "import": "./src/security/*.ts"
     }
   },
   "scripts": {

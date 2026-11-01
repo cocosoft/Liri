@@ -26,8 +26,8 @@
  *   ✅ 类型：使用 ICompleteSecuritySystem / SecurityCheckResult 等类型接口
  *   ⚠️ 内部组件通过门面方法访问，不直接引用
  *
- *   import { completeSecuritySystem } from '@modules/security';
- *   import type { ICompleteSecuritySystem } from '@modules/security';
+ *   import { completeSecuritySystem } from '@openliri/infra/security';
+ *   import type { ICompleteSecuritySystem } from '@openliri/infra/security';
  */
 
 // ==================== 门面 API ====================

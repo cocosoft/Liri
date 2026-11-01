@@ -49,13 +49,13 @@ import {
   BashSecurityAnalyzer,
   getBashAnalyzerStats,
   resetBashAnalyzerForTest,
-} from '../../src/security/BashSecurityAnalyzer.js';
+} from '@openliri/infra/security/BashSecurityAnalyzer';
 import {
   parseForSecurity,
   isDangerousCommand,
   getBashAstStats,
   resetBashAstForTest,
-} from '../../src/security/bash/BashAST.js';
+} from '@openliri/infra/security/bash/BashAST';
 import { SandboxSecurityChecker } from '../../src/sandbox/SandboxSecurityChecker.js';
 import type { ToolUseContext } from '../../src/tools/types/Tool.js';
 import {

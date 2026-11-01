@@ -27,9 +27,9 @@ import {
   configManager,
   setConfigManagerForTest,
 } from '@modules/config';
-import { SecurityIntegrationService } from '../../src/security/SecurityIntegration';
-import { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer';
-import { DirectoryScopeRestriction } from '../../src/security/bash/DirectoryScopeRestriction';
+import { SecurityIntegrationService } from '@openliri/infra/security/SecurityIntegration';
+import { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
+import { DirectoryScopeRestriction } from '@openliri/infra/security/bash/DirectoryScopeRestriction';
 import {
   isWithinWorkingDirectory,
   isDangerousFile,
@@ -38,7 +38,7 @@ import {
 import {
   isWriteProtected,
   getCrossPlatformProtectedFiles,
-} from '../../src/security/files/ProtectedPaths';
+} from '@openliri/infra/security/files/ProtectedPaths';
 
 // ==========================================
 // L4 修复：进程隔离配置（独立临时目录，不共享 ~/.pyapp/config.json）

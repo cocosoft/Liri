@@ -45,14 +45,35 @@ export function resetBashAstForTest(): void {
   tsFallbackCount = 0;
 }
 
+/** 原生解析入口来源（app 启动期经 `wireSecurityNativeBridges` 注入；未注入 ⇒ 按"不可用"降级） */
+let nativeParserLoader: (() => NativeParseFn | null) | null = null;
+
+/**
+ * 注入原生解析能力来源（app 启动期调用；`null` = 撤销，测试用）。
+ *
+ * 注入会**清空**上一次的解析结果，避免沿用旧句柄（热重载 / 测试间隔离）。
+ */
+export function setNativeBashParserLoader(
+  loader: (() => NativeParseFn | null) | null
+): void {
+  nativeParserLoader = loader;
+  nativeParseBash = undefined;
+  nativeLoadFailed = false;
+}
+
 function lazyInitNative(): NativeParseFn | null {
   if (nativeParseBash === undefined) {
+    if (!nativeParserLoader) {
+      nativeParseBash = null;
+      nativeLoadFailed = true;
+      return nativeParseBash;
+    }
     try {
-      const native = require('../../../native');
-      if (native && typeof native.parseBashForSecurity === 'function') {
+      const parse = nativeParserLoader();
+      if (typeof parse === 'function') {
         nativeParseBash = (command) => {
           try {
-            return native.parseBashForSecurity(command);
+            return parse(command);
           } catch {
             return null;
           }

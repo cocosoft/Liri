@@ -29,9 +29,12 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 import { realpathSync, existsSync } from 'fs';
-import { DELETION_RULES, securityIntegrationService } from '@modules/security';
+import {
+  DELETION_RULES,
+  securityIntegrationService,
+} from '@openliri/infra/security';
 import { SandboxSecurityChecker } from '@modules/sandbox';
-import { completeSecuritySystem } from '@modules/security';
+import { completeSecuritySystem } from '@openliri/infra/security';
 import { configManager } from '@modules/config';
 import type { PermissionConfig } from '@modules/config/types';
 

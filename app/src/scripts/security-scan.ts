@@ -1,5 +1,5 @@
 ﻿#!/usr/bin/env bun
-import { runSecurityAudit } from '../security/audit/index.js';
+import { runSecurityAudit } from '@openliri/infra/security/audit/index';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('security-scan');

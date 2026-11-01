@@ -212,7 +212,7 @@
       "statement": "静态深扫未执行 / 失败（`scanStatus != 'ran'`）不得被视为『扫描通过』，不得折算为 ALLOW。",
       "sources": [
         "app/src/tools/CodeRunner/staticValidation.ts",
-        "app/src/security/decision.ts"
+        "packages/infra/src/security/decision.ts"
       ],
       "tests": ["app/tests/security/securityVerdict.test.ts"],
       "level": "unit",

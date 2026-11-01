@@ -34,7 +34,7 @@ import {
   getDiskInfoAsync,
 } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { queryAuditLogs } from '@modules/security';
+import { queryAuditLogs } from '@openliri/infra/security';
 
 // ── 指标数据环形缓冲区 ────────────────────────────────────────────
 

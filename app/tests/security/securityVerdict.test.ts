@@ -12,7 +12,7 @@ import {
   isPermissive,
   verdictFromBehavior,
   verdictFromScanStatus,
-} from '../../src/security/decision.js';
+} from '@openliri/infra/security/decision';
 import { validateCodeRunnerCode } from '../../src/tools/CodeRunner/staticValidation.js';
 
 describe('security/decision · 统一四态词汇', () => {

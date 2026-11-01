@@ -15,7 +15,7 @@
  */
 import { afterEach, describe, expect, it } from 'bun:test';
 
-import { sensitiveDataService } from '../../src/security/services/SensitiveDataService.js';
+import { sensitiveDataService } from '@openliri/infra/security/services/SensitiveDataService';
 
 afterEach(() => {
   // 单例：恢复默认开关，避免跨用例污染

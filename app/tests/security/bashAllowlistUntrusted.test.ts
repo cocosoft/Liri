@@ -14,8 +14,8 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import { checkBashAllowlist } from '../../src/security/BashAllowlistMatcher.js';
-import { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer.js';
+import { checkBashAllowlist } from '@openliri/infra/security/BashAllowlistMatcher';
+import { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
 
 describe('LRO-D3：只读版本查询进入 allowlist', () => {
   it('解释器/构建器的版本查询 ⇒ 已知安全', () => {

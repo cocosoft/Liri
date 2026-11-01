@@ -9,7 +9,7 @@
  *   relaxed: 含 skill 内容的组装 prompt — 4 种模式（避免误报）
  */
 import { getLogger } from '@modules/monitoring';
-import { countInvisibleChars } from '@modules/security';
+import { countInvisibleChars } from '@openliri/infra/security';
 const logger = getLogger('chronos:injectionScan');
 
 export type ScanMode = 'strict' | 'relaxed';

@@ -13,7 +13,7 @@
  */
 
 import type { OutputGuard, OutputGuardVerdict } from '@openliri/kernel';
-import { getPromptInjectionDetector } from '@modules/security';
+import { getPromptInjectionDetector } from '@openliri/infra/security';
 
 export const INJECTION_ECHO_GUARD = 'injection_echo';
 

@@ -2,7 +2,7 @@
  * 状态字面量**棘轮核心**（纯函数，零 I/O / 零依赖 —— 供 CLI 与负向自证测试复用）。
  *
  * 背景（外部建议 ⑦「Register-or-Fail」，2026-10-20 落地）：全仓状态机词汇已集中在
- * `app/src/state/engine/stateMachineCatalog.ts`（`STATE_MACHINES` 逐台登记 + `BOUNDARY_STATE_MACHINES`
+ * `packages/infra/src/state/engine/stateMachineCatalog.ts`（`STATE_MACHINES` 逐台登记 + `BOUNDARY_STATE_MACHINES`
  * 同名不同物登记），但「**新增**一个未报备的状态字面量」此前无人拦 ⇒ 本门禁扫描
  * `app/src` 的**字符串字面量**，凡取值落在已登记状态词汇表内、且 (value, file) 不在
  * 基线也不在事实源白名单 ⇒ **CI 阻断**（要么改用规范枚举/常量，要么显式登记 + 更新基线）。

@@ -13,7 +13,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { broadcastEvent } from '@modules/infrastructure';
-import { markAppError } from '../../state/app/AppLifecycle.js';
+import { markAppError } from '@openliri/infra/state/app/AppLifecycle';
 import { SessionStatus } from '../types/UnifiedSession';
 import type { UnifiedSession } from '../types/UnifiedSession';
 import type { UnifiedSessionStorage } from '../storage/UnifiedStorage';

@@ -77,7 +77,7 @@
     "app/src/sandbox/IsolationManager.ts": 5,
     "app/src/services/mcp/elicitationHandler.ts": 2,
     "app/src/services/voice/voiceKeyterms.ts": 1,
-    "app/src/state/engine/stateMachineCatalog.ts": 1,
+    "packages/infra/src/state/engine/stateMachineCatalog.ts": 1,
     "app/src/tools/AgentTool/strategies/VerificationStrategy.ts": 2,
     "app/src/tools/VideoGenerateTool/VideoGenerateTool.ts": 2,
     "app/src/tools/WebFetchTool/preapproved.ts": 4,

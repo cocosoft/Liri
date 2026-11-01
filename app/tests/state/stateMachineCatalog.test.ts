@@ -17,7 +17,7 @@ import {
   findStateMachine,
   listStateMachineIds,
   type StateMachineVerifyRef,
-} from '../../src/state/engine/stateMachineCatalog.js';
+} from '@openliri/infra/state/engine/stateMachineCatalog';
 
 const REPO_ROOT = join(import.meta.dir, '..', '..', '..');
 

@@ -29,7 +29,7 @@ import type { ExecutionStatus } from './types';
 import {
   publishStateProjection,
   type ExecutionPrimitive,
-} from '../state/engine/projectionBroker.js';
+} from '@openliri/infra/state/engine/projectionBroker';
 
 /**
  * 执行域投影表（**唯一映射事实源**；`Record` 保证 8 态全覆盖，缺一即编译失败）。

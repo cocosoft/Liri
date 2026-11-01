@@ -147,11 +147,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     id: 'appState',
     title: '应用状态（AppState 4 态）',
     kind: 'persistent',
-    sourceFile: 'app/src/state/app/types.ts',
+    sourceFile: 'packages/infra/src/state/app/types.ts',
     states: ['idle', 'busy', 'paused', 'error'],
     verification: 'runtime-import',
     verifyRef: {
-      module: 'app/src/state/app/types.ts',
+      module: 'packages/infra/src/state/app/types.ts',
       exportName: 'AppState',
       anchor: 'enum',
     },
@@ -172,11 +172,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     id: 'sessionState',
     title: '会话状态机（SessionState **3 态**）',
     kind: 'persistent',
-    sourceFile: 'app/src/state/session/types.ts',
+    sourceFile: 'packages/infra/src/state/session/types.ts',
     states: ['idle', 'running', 'requires_action'],
     verification: 'runtime-import',
     verifyRef: {
-      module: 'app/src/state/session/types.ts',
+      module: 'packages/infra/src/state/session/types.ts',
       // 3 态为**类型联合**（无 enum）⇒ 运行时锚点取转移规则表的**键**（`anchor: 'objectKeys'`）
       exportName: 'SESSION_TRANSITIONS',
       anchor: 'objectKeys',

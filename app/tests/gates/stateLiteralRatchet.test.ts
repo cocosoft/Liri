@@ -20,7 +20,7 @@ import {
   toBaselineFiles,
   type StateLiteralBaseline,
 } from '../../../scripts/stateLiteralRatchetCore.js';
-import { STATE_MACHINES } from '../../src/state/engine/stateMachineCatalog.js';
+import { STATE_MACHINES } from '@openliri/infra/state/engine/stateMachineCatalog';
 
 const REPO_ROOT = join(import.meta.dir, '..', '..', '..');
 const BASELINE_PATH = join(

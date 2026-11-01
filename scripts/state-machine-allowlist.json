@@ -144,7 +144,7 @@
       "reason": "统一会话**模型**（hydrated 持久化视图）的状态字段枚举，与 state/session 的运行时状态机非同一物"
     },
     {
-      "file": "app/src/state/background/BackgroundTaskStateMachine.ts",
+      "file": "packages/infra/src/state/background/BackgroundTaskStateMachine.ts",
       "exportName": "BackgroundTaskState",
       "reason": "后台任务状态机本体（R09-001 已接线的 state/engine 实例）：其**运行时实例**登记在 StateMachineRegistry，本目录只登记定义级清单，按方案口径不重复登记"
     },

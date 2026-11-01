@@ -312,7 +312,7 @@
       "app/src/session/types/message/enums.ts",
       "app/src/session/types/message/options.ts",
       "app/src/session/types/UnifiedSession.ts",
-      "app/src/state/background/BackgroundTaskStateMachine.ts",
+      "packages/infra/src/state/background/BackgroundTaskStateMachine.ts",
       "app/src/streaming/types.ts",
       "app/src/subagents/SubAgentEventPump.ts",
       "app/src/tasks/alwayson/AlwaysOnRuntime.ts",
@@ -977,7 +977,7 @@
       "app/src/session/types/message/blocks.ts",
       "app/src/session/types/message/enums.ts",
       "app/src/session/types/message/factories.ts",
-      "app/src/state/background/BackgroundTaskStateMachine.ts",
+      "packages/infra/src/state/background/BackgroundTaskStateMachine.ts",
       "app/src/subagents/SubAgentEventPump.ts",
       "app/src/system/state/migration/AppMigrationStore.ts",
       "app/src/system/state/migration/MigrationRegistry.ts",
@@ -1126,8 +1126,8 @@
       "app/src/session/SessionFactory.ts",
       "app/src/session/storage/UnifiedStorageAdapter.ts",
       "app/src/session/types/UnifiedSession.ts",
-      "app/src/state/background/BackgroundTaskStateMachine.ts",
-      "app/src/state/session/SessionStateMachine.ts",
+      "packages/infra/src/state/background/BackgroundTaskStateMachine.ts",
+      "packages/infra/src/state/session/SessionStateMachine.ts",
       "app/src/streaming/types.ts",
       "app/src/subagents/SubAgentEventPump.ts",
       "app/src/tasks/TaskListView.ts",
@@ -1412,7 +1412,7 @@
     ],
     "requires_action": [
       "app/src/session/types/UnifiedSession.ts",
-      "app/src/state/session/SessionStateMachine.ts",
+      "packages/infra/src/state/session/SessionStateMachine.ts",
       "packages/kernel/src/core/data-models.ts"
     ],
     "requires_approval": [
@@ -1491,8 +1491,8 @@
       "app/src/session/storage/UnifiedStorageAdapter.ts",
       "app/src/session/types/eventPayloads.ts",
       "app/src/session/types/UnifiedSession.ts",
-      "app/src/state/background/BackgroundTaskStateMachine.ts",
-      "app/src/state/session/SessionStateMachine.ts",
+      "packages/infra/src/state/background/BackgroundTaskStateMachine.ts",
+      "packages/infra/src/state/session/SessionStateMachine.ts",
       "app/src/subagent/backends/InProcessTeammateBackend.ts",
       "app/src/subagent/backends/TeammateBackend.ts",
       "app/src/subagent/TeammateManager.ts",
@@ -1548,7 +1548,7 @@
       "app/src/query/budgetSuspend.ts",
       "app/src/query/toolJobSuspend.ts",
       "app/src/runtime/api/domainSnapshotOps.ts",
-      "app/src/state/engine/projectionBroker.ts"
+      "packages/infra/src/state/engine/projectionBroker.ts"
     ],
     "STALE": [
       "app/src/execution/ExecutionManager.ts"
@@ -1758,7 +1758,7 @@
       "app/src/skills/loaders/adapter/clawhub/ClawHubInstaller.ts",
       "app/src/skills/loaders/adapter/RemoteSkillHubAdapter.ts",
       "app/src/skills/utils/skillExecution.ts",
-      "app/src/state/engine/StateMachine.ts",
+      "packages/infra/src/state/engine/StateMachine.ts",
       "app/src/streaming/IncrementalRetry.ts",
       "app/src/streaming/StreamStateMachine.ts",
       "app/src/tasks/LongRunningTaskOrchestrator.ts",

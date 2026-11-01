@@ -36,12 +36,12 @@
 
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
-import { publishStateProjection } from '../state/engine/projectionBroker.js';
+import { publishStateProjection } from '@openliri/infra/state/engine/projectionBroker';
 import {
   freezeSessionSnapshot,
   restoreSessionSnapshot,
   type SessionSnapshot,
-} from '../state/engine/sessionSnapshot.js';
+} from '@openliri/infra/state/engine/sessionSnapshot';
 import type { ReliefKind } from './DailyBudgetManager.js';
 
 const logger = getLogger('query:budgetSuspend');

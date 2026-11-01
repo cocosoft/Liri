@@ -23,7 +23,7 @@ import {
   SystemEvents,
   type EventSubscription,
 } from '@openliri/kernel/events/EventBus.js';
-import type { StateProjectionBroadcast } from '../../src/state/engine/projectionBroker.js';
+import type { StateProjectionBroadcast } from '@openliri/infra/state/engine/projectionBroker';
 
 const FLAG_ENV = 'FEATURE_STATE_PROJECTION_BROADCAST';
 

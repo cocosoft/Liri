@@ -6,9 +6,9 @@
 
 import { describe, it, expect, beforeEach } from 'bun:test';
 
-import { AppStateMachine } from '../../../src/state/app/AppStateMachine.js';
-import { AppState } from '../../../src/state/app/types.js';
-import { IllegalTransitionError } from '../../../src/state/errors.js';
+import { AppStateMachine } from '@openliri/infra/state/app/AppStateMachine';
+import { AppState } from '@openliri/infra/state/app/types';
+import { IllegalTransitionError } from '@openliri/infra/state/errors';
 
 describe('AppStateMachine', () => {
   let sm: AppStateMachine;

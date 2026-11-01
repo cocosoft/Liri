@@ -13,7 +13,7 @@
 import { describe, expect, it } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { STATE_MACHINES } from '../../src/state/engine/stateMachineCatalog.js';
+import { STATE_MACHINES } from '@openliri/infra/state/engine/stateMachineCatalog';
 
 const REPO_ROOT = join(import.meta.dir, '..', '..', '..');
 const ALLOWLIST = join(REPO_ROOT, 'scripts', 'state-machine-allowlist.json');

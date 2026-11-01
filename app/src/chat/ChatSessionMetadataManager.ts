@@ -6,7 +6,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { PermissionMode } from '../permission/PermissionMode';
-import type { RequiresActionDetails } from '../state/session/types.js';
+import type { RequiresActionDetails } from '@openliri/infra/state/session/types';
 
 const logger = getLogger('chat:chatSessionMetadataManager');
 

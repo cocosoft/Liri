@@ -18,7 +18,7 @@ import {
 import {
   EXECUTION_PRIMITIVES,
   type ExecutionPrimitive,
-} from '../../src/state/engine/projectionBroker.js';
+} from '@openliri/infra/state/engine/projectionBroker';
 
 describe('执行域四原语投影（阶段 4 / 4.1）', () => {
   it('8 个原生状态全部可投影，且取值必属四原语', () => {

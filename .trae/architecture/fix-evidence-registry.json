@@ -2883,7 +2883,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/state/engine/stateMachineCatalog.ts"
+        "packages/infra/src/state/engine/stateMachineCatalog.ts"
       ],
       "tests": [
         "app/tests/state/stateMachineCatalog.test.ts"
@@ -3028,10 +3028,10 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/state/session/types.ts",
-        "app/src/state/session/SessionStateMachine.ts",
-        "app/src/state/index.ts",
-        "app/src/state/engine/stateMachineCatalog.ts",
+        "packages/infra/src/state/session/types.ts",
+        "packages/infra/src/state/session/SessionStateMachine.ts",
+        "packages/infra/src/state/index.ts",
+        "packages/infra/src/state/engine/stateMachineCatalog.ts",
         "app/src/chat/services/EventNotificationService.ts",
         "app/src/chat/services/SessionStateBridge.ts",
         "app/src/session/models/SessionState.ts"
@@ -3061,8 +3061,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/state/engine/projectionBroker.ts",
-        "app/src/state/index.ts",
+        "packages/infra/src/state/engine/projectionBroker.ts",
+        "packages/infra/src/state/index.ts",
         "app/src/execution/executionProjection.ts",
         "app/src/execution/index.ts",
         "app/src/execution/ExecutionManager.ts",
@@ -3094,7 +3094,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/state/engine/projectionBroker.ts",
+        "packages/infra/src/state/engine/projectionBroker.ts",
         "app/src/execution/executionProjection.ts",
         "app/src/query/budgetSuspend.ts",
         "dev_docs/20261012/状态机规范管理方案-20261012.md"
@@ -3761,9 +3761,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/state/engine/projectionBroker.ts",
-        "app/src/state/engine/orchestrationProjection.ts",
-        "app/src/state/index.ts",
+        "packages/infra/src/state/engine/projectionBroker.ts",
+        "packages/infra/src/state/engine/orchestrationProjection.ts",
+        "packages/infra/src/state/index.ts",
         "app/src/chat/ChatManager.ts",
         "app/src/chat/launchers/PdcaLauncher.ts",
         "app/src/runtime/api/domainSnapshotOps.ts"
@@ -11006,7 +11006,7 @@
       },
       "code": [
         "app/src/services/agent/parseAgent.ts",
-        "app/src/state/app/AppLifecycle.ts",
+        "packages/infra/src/state/app/AppLifecycle.ts",
         "app/src/security/rollback/SnapshotStorage.ts",
         "app/src/security/services/SensitiveDataService.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -11180,8 +11180,8 @@
         "app/src/skills/BuiltinEnabledStore.ts",
         "app/src/tokenBudget/CalibrationStore.ts",
         "app/src/tasks/dream/DreamPhases.ts",
-        "app/src/state/task/TaskStateMachine.ts",
-        "app/src/state/background/BackgroundTaskStateMachine.ts",
+        "packages/infra/src/state/task/TaskStateMachine.ts",
+        "packages/infra/src/state/background/BackgroundTaskStateMachine.ts",
         "app/src/tools/utils/toolSearch.ts",
         "app/tests/tools/toolNameLists.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
@@ -13862,7 +13862,7 @@
       },
       "code": [
         "app/src/chat/orchestrator/streamMessageFlow.ts",
-        "app/src/state/app/AppLifecycle.ts",
+        "packages/infra/src/state/app/AppLifecycle.ts",
         "app/src/tools/SessionsTool/SessionsTool.ts"
       ],
       "tests": [
@@ -16278,7 +16278,7 @@
         "app/tsconfig.json",
         "app/scripts/infraBoundaryCore.ts",
         "scripts/kernel-api-surface.ts",
-        "app/src/state/engine/stateMachineCatalog.ts"
+        "packages/infra/src/state/engine/stateMachineCatalog.ts"
       ],
       "tests": [
         "app/tests/gates",

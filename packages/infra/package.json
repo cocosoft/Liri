@@ -64,6 +64,14 @@
     "./cache/*": {
       "types": "./src/cache/*.ts",
       "import": "./src/cache/*.ts"
+    },
+    "./state": {
+      "types": "./src/state/index.ts",
+      "import": "./src/state/index.ts"
+    },
+    "./state/*": {
+      "types": "./src/state/*.ts",
+      "import": "./src/state/*.ts"
     }
   },
   "scripts": {

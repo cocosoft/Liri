@@ -72,7 +72,7 @@ import { ChatStreamSetup } from './streamSetup';
 import { ChatMessagePersistence } from './messagePersistence';
 import { ChatStreamFinalize } from './streamFinalize';
 import { ChatStreamResume } from './streamResume';
-import type { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
+import type { SessionStateMachine } from '@openliri/infra/state/session/SessionStateMachine';
 import type { ChatEventLogStore } from './eventLogStore';
 import type { ChatRequestPrep } from './requestPrep';
 import { buildTAORContextFor } from './taorContextWiring';

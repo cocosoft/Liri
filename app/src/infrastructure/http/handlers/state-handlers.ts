@@ -34,7 +34,7 @@ export async function handleStateAll(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { StateMachineRegistry } = await import('../../../state');
+    const { StateMachineRegistry } = await import('@openliri/infra/state');
     const registry = StateMachineRegistry.getInstance();
     const machines = registry
       .listActive()

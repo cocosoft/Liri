@@ -15,7 +15,7 @@ import {
 import {
   registerScopedSnapshotProvider,
   resetScopedSnapshotProvidersForTest,
-} from '../../src/state/engine/sessionSnapshot.js';
+} from '@openliri/infra/state/engine/sessionSnapshot';
 
 beforeEach(() => {
   resetBudgetSuspendForTest();

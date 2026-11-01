@@ -11,7 +11,7 @@
  * 会话级挂起快照的关联键（`ownerSessionId`）逐字透传。
  */
 
-import { publishOrchestrationProjection } from '../../state/engine/orchestrationProjection.js';
+import { publishOrchestrationProjection } from '@openliri/infra/state/engine/orchestrationProjection';
 
 /** 触发 Council 辩论（异步，不阻塞主流程） */
 export async function triggerCouncilDebate(

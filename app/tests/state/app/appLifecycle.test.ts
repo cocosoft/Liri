@@ -34,9 +34,9 @@ import {
   markAppBusy,
   markAppError,
   markAppIdle,
-} from '../../../src/state/app/AppLifecycle';
-import { AppState } from '../../../src/state/app/types';
-import { StateMachine } from '../../../src/state/engine/StateMachine';
+} from '@openliri/infra/state/app/AppLifecycle';
+import { AppState } from '@openliri/infra/state/app/types';
+import { StateMachine } from '@openliri/infra/state/engine/StateMachine';
 
 let tmpDir: string;
 const originalDataDir = process.env.LIRI_DATA_DIR;

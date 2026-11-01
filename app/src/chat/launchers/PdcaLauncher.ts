@@ -24,7 +24,7 @@ import { MessageService } from '../services/MessageService.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 // T2-8 / `✅-17`（2026-10-13）：编排域只读投影（形态 A）
-import { publishOrchestrationProjection } from '../../state/engine/orchestrationProjection.js';
+import { publishOrchestrationProjection } from '@openliri/infra/state/engine/orchestrationProjection';
 
 const logger = getLogger('chat:pdcaLauncher');
 

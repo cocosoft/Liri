@@ -50,7 +50,7 @@ import {
   rejectMessage,
 } from '../dedup/index';
 // T1-9（2026-10-13）：入站 PREPARED 只读接缝（四原语投影；复用既有 `state` 出口）
-import { publishStateProjection } from '../../state/engine/projectionBroker.js';
+import { publishStateProjection } from '@openliri/infra/state/engine/projectionBroker';
 import type { MessageContext } from '../types/IChannel';
 // 运行中被预算挂起 ⇒ 追加「就地放行」卡片（Spec `channel-budget-inline-relief.md` §D2）
 import { sendBudgetReliefCard } from '../bridge/budgetReliefCard';

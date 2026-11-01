@@ -605,7 +605,7 @@ src/<module>/
 
 ### R09-006 [MUST] 状态机定义必须登记（编译期**硬门禁**，未登记 ⇒ 阻断构建）
 
-**判据**：`app/src/**`（排除测试文件）中出现的**有运行时锚点**的状态机形状导出，必须**要么**在**定义目录** `app/src/state/engine/stateMachineCatalog.ts` 登记，**要么**在 `scripts/state-machine-allowlist.json` **显式豁免**（每条附 `reason`）：
+**判据**：`app/src/**`（排除测试文件）中出现的**有运行时锚点**的状态机形状导出，必须**要么**在**定义目录** `packages/infra/src/state/engine/stateMachineCatalog.ts` 登记，**要么**在 `scripts/state-machine-allowlist.json` **显式豁免**（每条附 `reason`）：
 
 - ① `export enum <Name>`（`Name` 以 `Status` / `State` 结尾）
 - ② `export const <NAME> = [ … ]` / `= new Set([ … ])`（`NAME` 以 `_STATUSES` / `_STATES` 结尾）
@@ -616,7 +616,7 @@ src/<module>/
 
 - 配套 lint：`bun run lint:arch` → **R09-006**（error）
 - 豁免清单**缺失即 fail-closed**（报 error）——白名单型门禁若在清单缺失时静默放行，等于门禁关闭
-- **产物归属**：定义目录 = `app/src/state/engine/stateMachineCatalog.ts`；豁免清单 = `scripts/state-machine-allowlist.json`
+- **产物归属**：定义目录 = `packages/infra/src/state/engine/stateMachineCatalog.ts`（P13 起在 infra 包）；豁免清单 = `scripts/state-machine-allowlist.json`
 - ⚠️ **局限（如实）**：仅识别 **`enum` / `as const`(Set) 数组**两类有运行时锚点的形态；`type X = 'a' | 'b'` 类型联合与内联字面量**不在**门禁范围（全仓逾 150 处，逐一豁免即"噪音门禁"）⇒ 该类由目录的 `source-read` 条目 + `tests/state/stateMachineCatalog.test.ts` 人工取证覆盖。**只漏报、不误报。**
 
 ---

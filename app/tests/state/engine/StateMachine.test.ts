@@ -17,17 +17,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import {
   StateMachine,
   computeDefaultTerminal,
-} from '../../../src/state/engine/StateMachine.js';
-import { StateMachineRegistry } from '../../../src/state/engine/StateMachineRegistry.js';
+} from '@openliri/infra/state/engine/StateMachine';
+import { StateMachineRegistry } from '@openliri/infra/state/engine/StateMachineRegistry';
 import {
   IllegalTransitionError,
   InvalidSnapshotError,
-} from '../../../src/state/errors.js';
+} from '@openliri/infra/state/errors';
 import type {
   TransitionRules,
   StateSnapshot,
   TransitionRecord,
-} from '../../../src/state/engine/types.js';
+} from '@openliri/infra/state/engine/types';
 
 // ============================================================
 // 测试用状态枚举

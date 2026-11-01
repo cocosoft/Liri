@@ -7,13 +7,13 @@
  * ③ broker 开关关（默认）⇒ 无事件可转发（零行为变更）。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { publishStateProjection } from '../../src/state/engine/projectionBroker.js';
-import type { StateProjectionBroadcast } from '../../src/state/engine/projectionBroker.js';
+import { publishStateProjection } from '@openliri/infra/state/engine/projectionBroker';
+import type { StateProjectionBroadcast } from '@openliri/infra/state/engine/projectionBroker';
 import {
   getProjectionOutboundSinkCount,
   registerProjectionOutboundSink,
   resetProjectionOutboundForTest,
-} from '../../src/state/engine/projectionOutbound.js';
+} from '@openliri/infra/state/engine/projectionOutbound';
 
 const FLAG_ENV = 'FEATURE_STATE_PROJECTION_BROADCAST';
 

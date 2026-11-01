@@ -10,7 +10,7 @@
  * - **显式装配**：不在模块导入期产生副作用，由 `ChatBootstrap` 启动序列调用一次。
  */
 
-import { registerScopedSnapshotProvider } from '../state/engine/sessionSnapshot.js';
+import { registerScopedSnapshotProvider } from '@openliri/infra/state/engine/sessionSnapshot';
 import { getCouncilEngine } from '../workspace/CouncilEngine.js';
 import { taskOrchestrator } from '../tasks/TaskOrchestrator.js';
 import type { SnapshotHandle } from '@openliri/infra/utils/toolContract/Tool';

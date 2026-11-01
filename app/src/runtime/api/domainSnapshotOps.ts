@@ -1838,7 +1838,7 @@ export class DomainSnapshotOps {
         // T2-8 / `✅-17`（2026-10-13，形态 A）：编排**主循环**只读上报 `RUNNING` → `SETTLED`
         // （**不**承载"锁定"裁决；受 `STATE_PROJECTION_BROADCAST` 门控，默认关 ⇒ 零行为变更）。
         const { publishOrchestrationProjection } =
-          await import('../../state/engine/orchestrationProjection.js');
+          await import('@openliri/infra/state/engine/orchestrationProjection');
         publishOrchestrationProjection({ primitive: 'RUNNING', sessionId });
         try {
           // A10（2026-10-06）：走单一构造点 —— 原 `new CouncilOrchestrator(getCouncilEngine())`

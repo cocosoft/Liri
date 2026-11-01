@@ -863,7 +863,10 @@ export function compareInfraPackageBoundary(
       if (spec.startsWith('.')) {
         checked += 1;
         const rel = resolveRelative(file.path, spec);
-        const intoApp = rel.path.split('/').includes('app');
+        // P13（2026-11-01）：原判据是 `split('/').includes('app')` —— 把**包内子目录名为 app** 的
+        // 合法相对引用（如 `state/app/AppLifecycle.ts` 的 `./AppStateMachine`）误判为逃逸。
+        // 逃逸只可能是「包内相对路径解析后**首段**为 app」，故收窄为首段判定。
+        const intoApp = rel.path.split('/')[0] === 'app';
         if (rel.escapes || intoApp) {
           violations.push(
             `${file.path}:${ref.line} 相对路径逃逸出 infra 包：${spec}（→ ${rel.path}）`

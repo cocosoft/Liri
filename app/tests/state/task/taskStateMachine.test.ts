@@ -27,12 +27,12 @@
 
 import { afterAll, describe, expect, test } from 'bun:test';
 import { TaskStatus } from '../../../src/tasks/types';
-import { StateMachineRegistry } from '../../../src/state/engine/StateMachineRegistry';
+import { StateMachineRegistry } from '@openliri/infra/state/engine/StateMachineRegistry';
 import {
   TaskStateMachine,
   getTaskStateMachine,
-} from '../../../src/state/task/TaskStateMachine';
-import { IllegalTransitionError } from '../../../src/state/errors';
+} from '@openliri/infra/state/task/TaskStateMachine';
+import { IllegalTransitionError } from '@openliri/infra/state/errors';
 
 const TEST_TASK_ID = 'sm-test-task-001';
 

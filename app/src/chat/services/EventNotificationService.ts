@@ -8,7 +8,7 @@ import { EventEmitter } from 'events';
 import type {
   RequiresActionDetails,
   SimplifiedSessionState,
-} from '../../state/session/types.js';
+} from '@openliri/infra/state/session/types';
 import type {
   PermissionMode,
   SessionExternalMetadata,

@@ -25,7 +25,7 @@ import {
   TaskEvent,
   isTerminalTaskStatus,
 } from './types';
-import { getTaskStateMachine } from '../state/task/TaskStateMachine';
+import { getTaskStateMachine } from '@openliri/infra/state/task/TaskStateMachine';
 
 const VALID_DISPLAY_STATUSES = [
   'pending',
@@ -455,7 +455,7 @@ export class TaskRegistry {
     this.removeFromIndexes(taskId);
     // §十 阶段 C：任务移除时注销状态机（R09-002 生命周期闭环，防 Registry 泄漏）
     try {
-      const { StateMachineRegistry } = await import('../state');
+      const { StateMachineRegistry } = await import('@openliri/infra/state');
       StateMachineRegistry.getInstance().unregister(`task:${taskId}`);
     } catch (e) {
       // @ignore-catch — 注销失败不影响任务移除

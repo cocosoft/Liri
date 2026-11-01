@@ -131,7 +131,7 @@ import {
   StreamService,
   createStreamService,
 } from './services/StreamService.js';
-import { SessionStateMachine } from '../state/session/SessionStateMachine.js';
+import { SessionStateMachine } from '@openliri/infra/state/session/SessionStateMachine';
 import { eventNotificationService } from './services/EventNotificationService.js';
 import { createCheckpointService } from './services/SessionCheckpointService.js';
 import { PlainTextCheckpoint } from './services/PlainTextCheckpoint.js';

@@ -9,9 +9,9 @@
 
 import { describe, it, expect, beforeEach } from 'bun:test';
 
-import { SessionStateMachine } from '../../../src/state/session/SessionStateMachine.js';
-import { SESSION_TRANSITIONS } from '../../../src/state/session/types.js';
-import { IllegalTransitionError } from '../../../src/state/errors.js';
+import { SessionStateMachine } from '@openliri/infra/state/session/SessionStateMachine';
+import { SESSION_TRANSITIONS } from '@openliri/infra/state/session/types';
+import { IllegalTransitionError } from '@openliri/infra/state/errors';
 
 /** 构造 requires_action 所需的最小详情 */
 const actionDetails = {

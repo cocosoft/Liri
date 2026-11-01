@@ -3916,7 +3916,7 @@ class ArchitectureLinter {
    * 退化为今日 streaming 层那种裸字符串碎片（实证：`'running'`/`'completed'` 散落各层）。
    *
    * **判据**：`app/src/**`（排除测试文件）中出现的**有运行时锚点**的状态机形状导出，必须**要么**
-   * 在**定义目录** `app/src/state/engine/stateMachineCatalog.ts` 登记，**要么**在**显式豁免清单**
+   * 在**定义目录** `packages/infra/src/state/engine/stateMachineCatalog.ts` 登记，**要么**在**显式豁免清单**
    * `scripts/state-machine-allowlist.json`（每条附 `reason`）登记；否则报 error。
    *
    *   ① `export enum <Name>`（`Name` 以 `Status` / `State` 结尾）
@@ -3944,9 +3944,12 @@ class ArchitectureLinter {
     // ① 载入**定义目录**（登记唯一事实源；零依赖纯数据 ⇒ 可安全动态载入，无需源码正则解析）
     // 登记目录是**全仓唯一**的（不属于某一个扫描根）：内核自 P4 起作为第二扫描根运行时，
     // 仍须比对同一份登记表，否则内核里的状态机会因"找不到目录"而假红（AR-3 口径）。
+    // P13（2026-11-01）：`state` 已迁入 infra 物理包 ⇒ 登记目录随实现移动。
+    // 若此处不同步：`existsSync` 失败 ⇒ R09-006 直接报「定义目录缺失」（error，非静默放行）。
     const catalogPath = resolve(
       repoRoot,
-      'app',
+      'packages',
+      'infra',
       'src',
       'state',
       'engine',
@@ -3959,7 +3962,7 @@ class ArchitectureLinter {
         file: relOf(catalogPath),
         message: '状态机定义目录缺失，无法校验登记完整性',
         suggestion:
-          '恢复 app/src/state/engine/stateMachineCatalog.ts（状态机方案 阶段 1 落地物）',
+          '恢复 packages/infra/src/state/engine/stateMachineCatalog.ts（状态机方案 阶段 1 落地物；P13 起物理位于 infra 包）',
       });
       return;
     }
@@ -4108,7 +4111,7 @@ class ArchitectureLinter {
         line: u.line,
         message: `未登记的状态机定义：${u.exportName}（不在定义目录 stateMachineCatalog.ts，也不在显式豁免清单）`,
         suggestion:
-          '二选一：① 在 app/src/state/engine/stateMachineCatalog.ts 登记（`STATE_MACHINES`，含 states 取值与 sourceFile）；' +
+          '二选一：① 在 packages/infra/src/state/engine/stateMachineCatalog.ts 登记（`STATE_MACHINES`，含 states 取值与 sourceFile）；' +
           '② 若确非本方案治理对象，则在 scripts/state-machine-allowlist.json 登记并**附 reason**',
       });
     }

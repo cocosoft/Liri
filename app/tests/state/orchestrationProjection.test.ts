@@ -21,9 +21,9 @@ import {
   SystemEvents,
   type EventSubscription,
 } from '@openliri/kernel/events/EventBus.js';
-import { publishStateProjection } from '../../src/state/engine/projectionBroker.js';
-import { publishOrchestrationProjection } from '../../src/state/engine/orchestrationProjection.js';
-import type { StateProjectionBroadcast } from '../../src/state/engine/projectionBroker.js';
+import { publishStateProjection } from '@openliri/infra/state/engine/projectionBroker';
+import { publishOrchestrationProjection } from '@openliri/infra/state/engine/orchestrationProjection';
+import type { StateProjectionBroadcast } from '@openliri/infra/state/engine/projectionBroker';
 
 const FLAG_ENV = 'FEATURE_STATE_PROJECTION_BROADCAST';
 

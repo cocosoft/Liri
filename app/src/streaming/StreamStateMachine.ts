@@ -7,8 +7,11 @@
  * 监听器通知和转换历史记录能力。
  */
 
-import { StateMachine } from '../state/engine/StateMachine';
-import type { TransitionRules, TransitionRecord } from '../state/engine/types';
+import { StateMachine } from '@openliri/infra/state/engine/StateMachine';
+import type {
+  TransitionRules,
+  TransitionRecord,
+} from '@openliri/infra/state/engine/types';
 import { StreamState } from './types';
 
 /**

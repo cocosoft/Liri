@@ -2,7 +2,7 @@
 /**
  * 状态字面量**棘轮门禁**（外部建议 ⑦「Register-or-Fail」，2026-10-20）。
  *
- * 全仓状态机词汇的唯一事实源 = `app/src/state/engine/stateMachineCatalog.ts`
+ * 全仓状态机词汇的唯一事实源 = `packages/infra/src/state/engine/stateMachineCatalog.ts`（P13 起）
  * （`STATE_MACHINES` 逐台登记 + `BOUNDARY_STATE_MACHINES` 同名不同物登记）。本门禁：
  * - 扫描 `app/src` 下的 ts/tsx 源码字符串字面量，取值落在**已登记状态词汇表**内的
  *   (value, file) 对必须**已报备**（基线 或 目录事实源 `sourceFile` 豁免）；
@@ -21,7 +21,10 @@ import { relative, resolve, sep } from 'node:path';
 import {
   BOUNDARY_STATE_MACHINES,
   STATE_MACHINES,
-} from '../app/src/state/engine/stateMachineCatalog';
+  // P13（2026-11-01）：本脚本在**仓根**由 bun 直接执行，仓根无 tsconfig/paths ⇒
+  // 包别名在这里解析不到（typecheck 走 `tsconfig.root-scripts.json`，能过 ⇒ 曾一度"类型过、运行挂"）。
+  // 故对登记目录用**相对文件**导入（与 lint-architecture 的 file:// 动态导入同口径）。
+} from '../packages/infra/src/state/engine/stateMachineCatalog';
 import {
   collectHits,
   collectSourceFileWhitelist,
@@ -79,7 +82,7 @@ const CATALOG_MACHINES = [...STATE_MACHINES, ...BOUNDARY_STATE_MACHINES];
 const vocabulary = collectVocabulary(STATE_MACHINES); // 边界条目无 states，仅事实源豁免
 const whitelist = collectSourceFileWhitelist(CATALOG_MACHINES);
 // 目录自身也在白名单：`states: [...]` 数组即登记动作本体，字面量必然出现于此
-whitelist.add('app/src/state/engine/stateMachineCatalog.ts');
+whitelist.add('packages/infra/src/state/engine/stateMachineCatalog.ts');
 const hits = collectHits(collectFiles(), vocabulary, whitelist);
 
 const wantUpdate = process.argv.includes('--update');

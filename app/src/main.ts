@@ -50,7 +50,7 @@ import {
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 // P2（core 独立包）：内核按需加载清单由宿主推送（清单本体是构建期生成物）
 import { registerKernelLazyLoaders } from './bootstrap/registerKernelLazyLoaders';
-import { initAppStateMachine } from './state/app/AppLifecycle.js';
+import { initAppStateMachine } from '@openliri/infra/state/app/AppLifecycle';
 import {
   parseMaintenanceCommand,
   runMaintenanceCommand,

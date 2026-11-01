@@ -14,7 +14,7 @@ import {
   registerScopedSnapshotProvider,
   resetScopedSnapshotProvidersForTest,
   restoreSessionSnapshot,
-} from '../../src/state/engine/sessionSnapshot.js';
+} from '@openliri/infra/state/engine/sessionSnapshot';
 
 afterEach(() => {
   resetScopedSnapshotProvidersForTest();

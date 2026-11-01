@@ -1042,7 +1042,7 @@
 {"id":"FSM-CATALOG-P1","k":"notes","i":4,"c":"TOOL_CALL_STATUSES` / `AppState` / `SessionState` / `TaskStatus`）⇒ 测试**动态载入逐项比对**（防漂移，实测全等）；其余 **7 条**仅有类型联合或内联字面量 ⇒ 经**源码阅读**取证并**如实标注**（不谎称有机器校验）。另新增 `BOUNDARY_STATE_MACHINES` "}
 {"id":"FSM-CATALOG-P1","k":"notes","i":5,"c":"**4 条同名不同物登记**（UI `TaskStatus` 词汇表 / `session/models` 类 / `GoalRunSettlement` / `AcpApprovalClass`，各带不合并理由）。⑤ **阶段 1.4 硬门禁仍未做** —— 理由：把「未登记即阻断编译」翻成 error 必须**先完成全量取证 + 显式 "}
 {"id":"FSM-CATALOG-P1","k":"notes","i":6,"c":"allowlist**；本次取证另暴露 **3 项宜先修**：`appInstall` 内联字面量两处重复（无命名类型）、`awaiting_approval` 无集中常量、`budgetMode` 双事实源。⑥ **零语义变更**：不改任何域枚举 / 转移实现。e2eVerified=false。"}
-{"id":"FSM-CATALOG-P1","k":"code#0","i":0,"c":"app/src/state/engine/stateMachineCatalog.ts"}
+{"id":"FSM-CATALOG-P1","k":"code#0","i":0,"c":"packages/infra/src/state/engine/stateMachineCatalog.ts"}
 {"id":"FSM-CATALOG-P1","k":"tests#0","i":0,"c":"app/tests/state/stateMachineCatalog.test.ts"}
 {"id":"FSM-CATALOG-HYGIENE","k":"title","i":0,"c":"状态机规范管理 阶段 1.3 配套：消除取证暴露的 **3 项隐患**（命名类型 / 瞬态常量 / 去双事实源）+ 源码守卫"}
 {"id":"FSM-CATALOG-HYGIENE","k":"source","i":0,"c":"dev_docs/20261012/状态机规范管理方案-20261012.md §4 阶段 1.3（取证隐患，2026-10-12）"}
@@ -1133,10 +1133,10 @@
 {"id":"FSM-SESSIONSTATE-P3","k":"notes","i":13,"c":"举，逐数吻合）· `typecheck` 三工程全绿 · `lint:fn-size`/`lint:complexity` 未增长 · `bun test tests/state tests/chat tests/session tests/channels tests/query` **1490 pass / 0 fail**（189 文件）· `"}
 {"id":"FSM-SESSIONSTATE-P3","k":"notes","i":14,"c":"lint:invariants`/`lint:doc-code`/`version:check` 全绿。⑩ **CD05/CD06 遵从（如实）**：**本批改动在提交时应拆为两个提交** —— ①迁移（消费方改走 3 态）②删除（旧枚举/映射函数/`archive()`/不可达兜底）；**回滚路径** = 按证据 `code` 清单整体 `git "}
 {"id":"FSM-SESSIONSTATE-P3","k":"notes","i":15,"c":"revert`（**无 DB 变更、无 wire 变更、无持久化格式变更** ⇒ 可安全恢复）。e2eVerified=false（未做真实长会话的会话状态观测端到端核对）。"}
-{"id":"FSM-SESSIONSTATE-P3","k":"code#0","i":0,"c":"app/src/state/session/types.ts"}
-{"id":"FSM-SESSIONSTATE-P3","k":"code#1","i":0,"c":"app/src/state/session/SessionStateMachine.ts"}
-{"id":"FSM-SESSIONSTATE-P3","k":"code#2","i":0,"c":"app/src/state/index.ts"}
-{"id":"FSM-SESSIONSTATE-P3","k":"code#3","i":0,"c":"app/src/state/engine/stateMachineCatalog.ts"}
+{"id":"FSM-SESSIONSTATE-P3","k":"code#0","i":0,"c":"packages/infra/src/state/session/types.ts"}
+{"id":"FSM-SESSIONSTATE-P3","k":"code#1","i":0,"c":"packages/infra/src/state/session/SessionStateMachine.ts"}
+{"id":"FSM-SESSIONSTATE-P3","k":"code#2","i":0,"c":"packages/infra/src/state/index.ts"}
+{"id":"FSM-SESSIONSTATE-P3","k":"code#3","i":0,"c":"packages/infra/src/state/engine/stateMachineCatalog.ts"}
 {"id":"FSM-SESSIONSTATE-P3","k":"code#4","i":0,"c":"app/src/chat/services/EventNotificationService.ts"}
 {"id":"FSM-SESSIONSTATE-P3","k":"code#5","i":0,"c":"app/src/chat/services/SessionStateBridge.ts"}
 {"id":"FSM-SESSIONSTATE-P3","k":"code#6","i":0,"c":"app/src/session/models/SessionState.ts"}
@@ -1162,8 +1162,8 @@
 {"id":"FSM-PROJECTION-P4","k":"notes","i":14,"c":"**（开关关零发布 / 开关开 RUNNING→SETTLED / 载荷键集恒定且无原生字面量 / 订阅者抛错不回流）。⑨ **验证**：`lint:arch` **0 错**（R09-006 候选 **53 不变**）· `typecheck` 三工程全绿 · `lint:fn-size`/`lint:complexity` 未增长 · `bun test"}
 {"id":"FSM-PROJECTION-P4","k":"notes","i":15,"c":" tests/state tests/chat tests/session tests/channels tests/query tests/execution` **1572 pass / 0 fail**（199 文件）· `lint:invariants`/`lint:doc-code`/`version:check` 全绿。⑩ **零行为变更**（默"}
 {"id":"FSM-PROJECTION-P4","k":"notes","i":16,"c":"认关）：不发布任何广播；`ExecutionManager` 仅多一次常数级映射查表。e2eVerified=false（未接真实出站消费者做端到端下发核对）。"}
-{"id":"FSM-PROJECTION-P4","k":"code#0","i":0,"c":"app/src/state/engine/projectionBroker.ts"}
-{"id":"FSM-PROJECTION-P4","k":"code#1","i":0,"c":"app/src/state/index.ts"}
+{"id":"FSM-PROJECTION-P4","k":"code#0","i":0,"c":"packages/infra/src/state/engine/projectionBroker.ts"}
+{"id":"FSM-PROJECTION-P4","k":"code#1","i":0,"c":"packages/infra/src/state/index.ts"}
 {"id":"FSM-PROJECTION-P4","k":"code#2","i":0,"c":"app/src/execution/executionProjection.ts"}
 {"id":"FSM-PROJECTION-P4","k":"code#3","i":0,"c":"app/src/execution/index.ts"}
 {"id":"FSM-PROJECTION-P4","k":"code#4","i":0,"c":"app/src/execution/ExecutionManager.ts"}
@@ -1191,7 +1191,7 @@
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":14,"c":"app/tests/query/budgetSuspendProjection.test.ts`）。**故 5.1（`SUSPENDED` 投影可达）实质达成；5.2 的口径已由债二 spec §4.3 取代**（不再实现第二套）。**如实边界**：① 投影广播仍受 `FEATURE_STATE_PROJECTION_BROADCAST`（**默认关**）门"}
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":15,"c":"控 ⇒ 本条目 `e2eVerified` 保持 **false**（债二的两链续跑已 e2e，但**投影广播路径**未 e2e）；② 出站订阅面（通道阶段 2.3）**暂缓** ⇒ 投影仍**无生产消费者**（UW，已在 `projectionBroker.ts` 头注如实标注）；③ 同步订正 `projectionBroker.ts` 中「`"}
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":16,"c":"SUSPENDED` 无生产者 / 不可达」的过时注释（2026-10-13）。"}
-{"id":"FSM-SUSPENDED-P5","k":"code#0","i":0,"c":"app/src/state/engine/projectionBroker.ts"}
+{"id":"FSM-SUSPENDED-P5","k":"code#0","i":0,"c":"packages/infra/src/state/engine/projectionBroker.ts"}
 {"id":"FSM-SUSPENDED-P5","k":"code#1","i":0,"c":"app/src/execution/executionProjection.ts"}
 {"id":"FSM-SUSPENDED-P5","k":"code#2","i":0,"c":"app/src/query/budgetSuspend.ts"}
 {"id":"FSM-SUSPENDED-P5","k":"code#3","i":0,"c":"dev_docs/20261012/状态机规范管理方案-20261012.md"}
@@ -1723,9 +1723,9 @@
 {"id":"T2-8-ORCH-PROJECTION","k":"notes","i":11,"c":"typecheck` 3 工程 **0 错**；`lint:arch` **0 error**（5 条**既有** warning 未增；R09-006 候选 **53 不变**）；`lint:fn-size` **未增长**；`lint:doc-code` / `lint:fix-evidence` / `version:check` **全绿**。**如"}
 {"id":"T2-8-ORCH-PROJECTION","k":"notes","i":12,"c":"实边界**：① 形态 **B**（真状态机）/ **C**（仅登记）**未采纳**；② T2-8 原文的「断言/锁定」**语义被有意弃用**（四原语只读 ⇒ 无落点），改为**只读上报 + 只读观测**；③ `goal` 信号（CLI 入口）与 `StageOrchestrator` 逐阶段子编排**未接线**（非用户级编排触发；已入 `reopenWhen"}
 {"id":"T2-8-ORCH-PROJECTION","k":"notes","i":13,"c":"`）；④ 该域投影**当前无真实消费者**（与 `execution` 域同：出站订阅面暂缓）—— **如实标注、不伪造「已下发」**；⑤ `e2eVerified=false`；⑥ 开关 `STATE_PROJECTION_BROADCAST` **默认关** ⇒ 生产**零行为变更**。"}
-{"id":"T2-8-ORCH-PROJECTION","k":"code#0","i":0,"c":"app/src/state/engine/projectionBroker.ts"}
-{"id":"T2-8-ORCH-PROJECTION","k":"code#1","i":0,"c":"app/src/state/engine/orchestrationProjection.ts"}
-{"id":"T2-8-ORCH-PROJECTION","k":"code#2","i":0,"c":"app/src/state/index.ts"}
+{"id":"T2-8-ORCH-PROJECTION","k":"code#0","i":0,"c":"packages/infra/src/state/engine/projectionBroker.ts"}
+{"id":"T2-8-ORCH-PROJECTION","k":"code#1","i":0,"c":"packages/infra/src/state/engine/orchestrationProjection.ts"}
+{"id":"T2-8-ORCH-PROJECTION","k":"code#2","i":0,"c":"packages/infra/src/state/index.ts"}
 {"id":"T2-8-ORCH-PROJECTION","k":"code#3","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"T2-8-ORCH-PROJECTION","k":"code#4","i":0,"c":"app/src/chat/launchers/PdcaLauncher.ts"}
 {"id":"T2-8-ORCH-PROJECTION","k":"code#5","i":0,"c":"app/src/runtime/api/domainSnapshotOps.ts"}
@@ -5976,7 +5976,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"notes","i":0,"c":"agent frontmatter 模式清单是权限模式子集 ⇒ AGENT_PERMISSION_MODES；两处快照版本分属回滚快照与应用状态 ⇒ 各自改名；邮箱正则复用 redact 侧唯一事实源；基线 159→156。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#0","i":0,"c":"app/src/services/agent/parseAgent.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#1","i":0,"c":"app/src/state/app/AppLifecycle.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#1","i":0,"c":"packages/infra/src/state/app/AppLifecycle.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#2","i":0,"c":"app/src/security/rollback/SnapshotStorage.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#3","i":0,"c":"app/src/security/services/SensitiveDataService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
@@ -6030,8 +6030,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#0","i":0,"c":"app/src/skills/BuiltinEnabledStore.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#1","i":0,"c":"app/src/tokenBudget/CalibrationStore.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#2","i":0,"c":"app/src/tasks/dream/DreamPhases.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#3","i":0,"c":"app/src/state/task/TaskStateMachine.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#4","i":0,"c":"app/src/state/background/BackgroundTaskStateMachine.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#3","i":0,"c":"packages/infra/src/state/task/TaskStateMachine.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#4","i":0,"c":"packages/infra/src/state/background/BackgroundTaskStateMachine.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#5","i":0,"c":"app/src/tools/utils/toolSearch.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#6","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-87","k":"code#7","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
@@ -6830,7 +6830,7 @@
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"reopenWhen","i":0,"c":"再现切窗后工具列表无 session_lookup；或启动后应用状态恒为 error；或会话表出现固定 id 的默认会话"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"notes","i":0,"c":"FIX-12 注入移到 filterToolsByTask 之后；FIX-13 删掉 SessionsTool 建 sess_001 的分支；FIX-14 启动复位遗留 ERROR + markAppError 幂等"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"code#0","i":0,"c":"app/src/chat/orchestrator/streamMessageFlow.ts"}
-{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"code#1","i":0,"c":"app/src/state/app/AppLifecycle.ts"}
+{"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"code#1","i":0,"c":"packages/infra/src/state/app/AppLifecycle.ts"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"code#2","i":0,"c":"app/src/tools/SessionsTool/SessionsTool.ts"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"tests#0","i":0,"c":"app/tests/chat/orchestrator/sessionLookupInjection.test.ts"}
 {"id":"TOOL-TRIM-ERROR-LOCK-MOCK","k":"tests#1","i":0,"c":"app/tests/state/app/appLifecycle.test.ts"}
@@ -7658,7 +7658,7 @@
 {"id":"INFRA-PACKAGE-P6C-UTILS","k":"code#2","i":0,"c":"app/tsconfig.json"}
 {"id":"INFRA-PACKAGE-P6C-UTILS","k":"code#3","i":0,"c":"app/scripts/infraBoundaryCore.ts"}
 {"id":"INFRA-PACKAGE-P6C-UTILS","k":"code#4","i":0,"c":"scripts/kernel-api-surface.ts"}
-{"id":"INFRA-PACKAGE-P6C-UTILS","k":"code#5","i":0,"c":"app/src/state/engine/stateMachineCatalog.ts"}
+{"id":"INFRA-PACKAGE-P6C-UTILS","k":"code#5","i":0,"c":"packages/infra/src/state/engine/stateMachineCatalog.ts"}
 {"id":"INFRA-PACKAGE-P6C-UTILS","k":"tests#0","i":0,"c":"app/tests/gates"}
 {"id":"INFRA-PACKAGE-P6C-UTILS","k":"tests#1","i":0,"c":"app/tests/utils"}
 {"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"title","i":0,"c":"P7：constants 迁入 packages/infra（20 文件 / 163 处引用）"}

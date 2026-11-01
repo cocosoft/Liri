@@ -25,13 +25,13 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { StateMachineRegistry } from '../../../src/state/engine/StateMachineRegistry';
+import { StateMachineRegistry } from '@openliri/infra/state/engine/StateMachineRegistry';
 import {
   BackgroundTaskState,
   BackgroundTaskStateMachine,
   getBackgroundTaskStateMachine,
-} from '../../../src/state/background/BackgroundTaskStateMachine';
-import { IllegalTransitionError } from '../../../src/state/errors';
+} from '@openliri/infra/state/background/BackgroundTaskStateMachine';
+import { IllegalTransitionError } from '@openliri/infra/state/errors';
 
 describe('BackgroundTaskStateMachine — §十 阶段 C', () => {
   test('初始状态为 IDLE', () => {

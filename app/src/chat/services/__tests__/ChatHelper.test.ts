@@ -32,7 +32,7 @@ import { MessageRole } from '@modules/session/types/message';
 // bun 并发链接时抛 SyntaxError。mapSessionStatusToState 返回 DataSessionStatus，此处取别名保持断言不变。
 import { DataSessionStatus as SessionState } from '@modules/session/types/session';
 import { MessageType as SessionMessageType } from '@modules/session/types/UnifiedMessage';
-import { SessionStateMachine } from '../../../state/session/SessionStateMachine';
+import { SessionStateMachine } from '@openliri/infra/state/session/SessionStateMachine';
 
 describe('ChatHelper — toSessionMsgType', () => {
   it('USER 角色映射为 USER', () => {

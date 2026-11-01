@@ -114,12 +114,20 @@ beforeAll(() => {
     'export const ok = 1;\n'
   );
   // R09-006（**状态机定义必须登记**，2026-10-12 起为 error 级）要求**项目内**存在定义目录
-  // `app/src/state/engine/stateMachineCatalog.ts`，且由门禁经 file:// **动态 import**。
+  // `packages/infra/src/state/engine/stateMachineCatalog.ts`（P13 起物理在 infra 包），
+  // 且由门禁经 file:// **动态 import**。
   //
   // ⚠️ 夹具作为"合法样例"**必须满足门禁的前置**：否则它验的不是"合法性"而是"缺文件"
   //    （2026-10-13 修复 —— 该规则落地时夹具未同步更新，导致本用例恒红；**非源码缺陷**）。
   //    夹具内没有任何状态机候选（只有 core/probe.ts 一行）⇒ 空登记即满足完整性校验。
-  const legalCatalogDir = join(legalDir, 'app', 'src', 'state', 'engine');
+  const legalCatalogDir = join(
+    legalDir,
+    'packages',
+    'infra',
+    'src',
+    'state',
+    'engine'
+  );
   mkdirSync(legalCatalogDir, { recursive: true });
   writeFileSync(
     join(legalCatalogDir, 'stateMachineCatalog.ts'),

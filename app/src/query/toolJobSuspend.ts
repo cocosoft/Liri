@@ -49,7 +49,7 @@ import type {
   IToolJobSuspendPort,
   ToolJobSuspendRegisterResult,
 } from '@openliri/kernel/spi/ToolJobSuspendService.js';
-import { publishStateProjection } from '../state/engine/projectionBroker.js';
+import { publishStateProjection } from '@openliri/infra/state/engine/projectionBroker';
 import {
   getBudgetSuspendCoordinator,
   type SuspendEntry,

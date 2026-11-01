@@ -6,7 +6,7 @@
 import type { SessionLifecycleEventBus } from '@modules/session';
 import type { SessionLifecycleEvent } from '@modules/session';
 import type { EventSubscription } from '@openliri/kernel';
-import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
+import { SessionStateMachine } from '@openliri/infra/state/session/SessionStateMachine';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('chat:services:SessionStateBridge');

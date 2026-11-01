@@ -5,7 +5,7 @@
  */
 
 import { EventEmitter } from 'events';
-import type { RequiresActionDetails } from '../../state/session/types.js';
+import type { RequiresActionDetails } from '@openliri/infra/state/session/types';
 import { performanceOptimizationService } from './PerformanceOptimizationService.js';
 
 /**

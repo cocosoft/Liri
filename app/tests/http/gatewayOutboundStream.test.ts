@@ -14,11 +14,11 @@ import {
   handleGatewayOutboundStream,
   OUTBOUND_STATE_PROJECTION_EVENT,
 } from '../../src/infrastructure/http/handlers/gateway-outbound-stream.js';
-import { publishStateProjection } from '../../src/state/engine/projectionBroker.js';
+import { publishStateProjection } from '@openliri/infra/state/engine/projectionBroker';
 import {
   getProjectionOutboundSinkCount,
   resetProjectionOutboundForTest,
-} from '../../src/state/engine/projectionOutbound.js';
+} from '@openliri/infra/state/engine/projectionOutbound';
 
 const FLAG_ENV = 'FEATURE_STATE_PROJECTION_BROADCAST';
 

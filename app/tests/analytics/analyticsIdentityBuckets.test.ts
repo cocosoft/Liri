@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'bun:test';
 
-import { AnalyticsService } from '../../src/analytics/AnalyticsService.js';
+import { AnalyticsService } from '@openliri/infra/analytics/AnalyticsService';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 

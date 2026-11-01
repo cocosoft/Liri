@@ -4,7 +4,7 @@
  */
 import type { CommandContext } from '@modules/commands';
 import type { SessionMessage } from '@modules/session';
-import { insightsEngine } from '@modules/analytics';
+import { insightsEngine } from '@openliri/infra/analytics';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:brief:Brief');

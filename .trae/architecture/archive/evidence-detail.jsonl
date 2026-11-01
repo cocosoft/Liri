@@ -7641,7 +7641,7 @@
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#3","i":0,"c":"packages/infra/src/utils/log.ts"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#4","i":0,"c":"app/src/monitoring/AlertRuleService.ts"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#5","i":0,"c":"app/src/monitoring/MonitoringService.ts"}
-{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#6","i":0,"c":"app/src/analytics/pricingSource.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#6","i":0,"c":"packages/infra/src/analytics/pricingSource.ts"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#7","i":0,"c":"app/src/bootstrap/preflight.ts"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"tests#0","i":0,"c":"app/tests/gates"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"tests#1","i":0,"c":"app/tests/utils"}

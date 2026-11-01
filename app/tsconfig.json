@@ -82,6 +82,15 @@
       "@openliri/infra/performance/*": [
         "../../packages/infra/src/performance/*"
       ],
+      "@openliri/infra/analytics": [
+        "../../packages/infra/src/analytics/index.ts"
+      ],
+      "@openliri/infra/analytics.js": [
+        "../../packages/infra/src/analytics/index.ts"
+      ],
+      "@openliri/infra/analytics/*": [
+        "../../packages/infra/src/analytics/*"
+      ],
       "croner": ["../node_modules/croner"],
       "lru-cache": ["../node_modules/lru-cache"],
       "zod": ["../node_modules/zod"],
@@ -195,8 +204,6 @@
       "@modules/vfs/*": ["vfs/*"],
       "@modules/services": ["services"],
       "@modules/services/*": ["services/*"],
-      "@modules/analytics": ["analytics"],
-      "@modules/analytics/*": ["analytics/*"],
       "@modules/buddy": ["buddy"],
       "@modules/buddy/*": ["buddy/*"],
       "@modules/chronos": ["chronos"],

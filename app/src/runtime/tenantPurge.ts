@@ -203,7 +203,7 @@ export async function purgeTenant(
     const { forgetAlwaysOnQuotaForTenant } =
       await import('../tasks/alwayson/AlwaysOnQuota.js');
     const { analyticsService } =
-      await import('../analytics/AnalyticsService.js');
+      await import('@openliri/infra/analytics/AnalyticsService');
     const { forgetTraceStatsForTenant } =
       await import('@openliri/infra/trace-recording');
     let dropped = CredentialStore.forgetScopedForTenant(normalized);

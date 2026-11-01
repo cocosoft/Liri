@@ -3,14 +3,17 @@
  *
  * 2026-10-23：四个子命令改为**真实数据源**（此前全部是硬编码常量，违反 CS04）：
  * - 会话侧：`context.chatManager.getSessionMessages(sessionId)`（与 `/brief` 同源）
- * - 结构化提取：`@modules/analytics` 的 `insightsEngine`（规则化，无 LLM 调用）
+ * - 结构化提取：`@openliri/infra/analytics` 的 `insightsEngine`（规则化，无 LLM 调用）
  * - 性能侧：`PerformanceMonitorService` 的进程内真实采样（`getAllStats` / 慢操作 / 失败操作）
  *
  * 约束：无数据时**如实说明**，不回填任何常量（CS04）；也不臆造"平均响应时间/评分"这类无法观测的指标。
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { insightsEngine, PerformanceMonitorService } from '@modules/analytics';
-import type { InsightsResult } from '@modules/analytics';
+import {
+  insightsEngine,
+  PerformanceMonitorService,
+} from '@openliri/infra/analytics';
+import type { InsightsResult } from '@openliri/infra/analytics';
 // 「慢操作」阈值走常量单一事实源（B 类，`LIRI_INSIGHTS_SLOW_MS` 可覆盖）——
 // 原先定义在本文件（`const ... = 1000`）会被 `lint:consts` 判为裸字面量重复事实源。
 import { INSIGHTS_SLOW_OPERATION_THRESHOLD_MS } from '@openliri/infra/constants';

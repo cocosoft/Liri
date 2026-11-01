@@ -50,7 +50,7 @@ import {
 import { setDaemonMetricsSink } from '@openliri/infra/daemon/metricsSink';
 import { setMainPermissionRuleSource } from '../security/permissionRuleSource.js';
 import { setNativeStructureCloserLoader } from '@openliri/infra/utils/structureCut';
-import { setAnalyticsPricingResolver } from '../analytics/pricingSource.js';
+import { setAnalyticsPricingResolver } from '@openliri/infra/analytics/pricingSource';
 import { getModelPricing } from '../cost/ModelPricing.js';
 import type { NativeLib } from '../../native';
 import { RuleManager } from '@modules/permission';

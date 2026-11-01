@@ -16245,7 +16245,7 @@
         "packages/infra/src/utils/log.ts",
         "app/src/monitoring/AlertRuleService.ts",
         "app/src/monitoring/MonitoringService.ts",
-        "app/src/analytics/pricingSource.ts",
+        "packages/infra/src/analytics/pricingSource.ts",
         "app/src/bootstrap/preflight.ts"
       ],
       "tests": [

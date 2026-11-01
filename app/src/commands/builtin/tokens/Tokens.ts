@@ -133,7 +133,7 @@ function showHelp(): CommandResult {
 async function handleBreakdown(): Promise<CommandResult> {
   const { getCostRecordRepository } = await import('@modules/cost');
   const { getCostAnalyticsTracker } =
-    await import('@modules/analytics/CostAnalyticsTracker.js');
+    await import('@openliri/infra/analytics/CostAnalyticsTracker.js');
 
   const repository = getCostRecordRepository();
   const aggregation = await repository.getAggregatedCosts({});
@@ -156,7 +156,7 @@ async function handleBreakdown(): Promise<CommandResult> {
 async function handleJson(): Promise<CommandResult> {
   const { getCostRecordRepository } = await import('@modules/cost');
   const { getCostAnalyticsTracker } =
-    await import('@modules/analytics/CostAnalyticsTracker.js');
+    await import('@openliri/infra/analytics/CostAnalyticsTracker.js');
 
   const repository = getCostRecordRepository();
   const aggregation = await repository.getAggregatedCosts({});
@@ -220,7 +220,7 @@ async function handleReset(): Promise<CommandResult> {
 async function handleOverview(): Promise<CommandResult> {
   const { getCostRecordRepository } = await import('@modules/cost');
   const { getCostAnalyticsTracker } =
-    await import('@modules/analytics/CostAnalyticsTracker.js');
+    await import('@openliri/infra/analytics/CostAnalyticsTracker.js');
 
   const repository = getCostRecordRepository();
   const aggregation = await repository.getAggregatedCosts({});
@@ -312,7 +312,7 @@ const tokensCommand = {
       }
 
       try {
-        const { logEvent } = await import('@modules/analytics/index.js');
+        const { logEvent } = await import('@openliri/infra/analytics/index.js');
         logEvent('tengu_tokens_view');
       } catch (err) {
         // analytics 非关键

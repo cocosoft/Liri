@@ -239,7 +239,7 @@ const debugCommand = {
       }
 
       try {
-        const { logEvent } = await import('@modules/analytics/index.js');
+        const { logEvent } = await import('@openliri/infra/analytics/index.js');
         logEvent('tengu_debug_view', { subcommand, showJson });
       } catch (err) {
         // analytics 非关键

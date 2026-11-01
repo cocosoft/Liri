@@ -7,7 +7,7 @@
 
 import { watch, type FSWatcher } from 'fs';
 import { join } from 'path';
-import { logEvent } from '@modules/analytics';
+import { logEvent } from '@openliri/infra/analytics';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:teamMemorySync:Watcher');

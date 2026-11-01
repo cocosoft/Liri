@@ -100,6 +100,14 @@
     "./performance/*": {
       "types": "./src/performance/*.ts",
       "import": "./src/performance/*.ts"
+    },
+    "./analytics": {
+      "types": "./src/analytics/index.ts",
+      "import": "./src/analytics/index.ts"
+    },
+    "./analytics/*": {
+      "types": "./src/analytics/*.ts",
+      "import": "./src/analytics/*.ts"
     }
   },
   "scripts": {

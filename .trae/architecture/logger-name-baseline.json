@@ -11,13 +11,13 @@
       "app/src/workspace/AgentRoleStore.ts"
     ],
     "AnalyticsEventQueue": [
-      "app/src/analytics/AnalyticsEventQueue.ts"
+      "packages/infra/src/analytics/AnalyticsEventQueue.ts"
     ],
     "AnalyticsManager": [
-      "app/src/analytics/AnalyticsManager.ts"
+      "packages/infra/src/analytics/AnalyticsManager.ts"
     ],
     "AnalyticsPersistenceService": [
-      "app/src/analytics/AnalyticsPersistenceService.ts"
+      "packages/infra/src/analytics/AnalyticsPersistenceService.ts"
     ],
     "AppCore": [
       "app/src/bootstrap/AppCoreOTelHelper.ts"
@@ -86,7 +86,7 @@
       "app/src/commands/registry/CommandRegistry.ts"
     ],
     "ConsoleSink": [
-      "app/src/analytics/ConsoleSink.ts"
+      "packages/infra/src/analytics/ConsoleSink.ts"
     ],
     "ConsolidationLock": [
       "app/src/chronos/autoDream/ConsolidationLock.ts"
@@ -114,10 +114,10 @@
       "packages/kernel/src/core/di/DIContainer.ts"
     ],
     "DataCollector": [
-      "app/src/analytics/DataCollector.ts"
+      "packages/infra/src/analytics/DataCollector.ts"
     ],
     "DatadogMetricsClient": [
-      "app/src/analytics/DatadogMetricsClient.ts"
+      "packages/infra/src/analytics/DatadogMetricsClient.ts"
     ],
     "DeliveryManager": [
       "app/src/chronos/delivery/DeliveryManager.ts"
@@ -147,7 +147,7 @@
       "app/src/security/rollback/FileOperationTracker.ts"
     ],
     "FirstPartyEventLogger": [
-      "app/src/analytics/FirstPartyEventLogger.ts"
+      "packages/infra/src/analytics/FirstPartyEventLogger.ts"
     ],
     "GlobalCronScheduler": [
       "app/src/tasks/cron/GlobalCronScheduler.ts"
@@ -162,7 +162,7 @@
       "app/src/hooks/core/HookRegistry.ts"
     ],
     "InsightsEngine": [
-      "app/src/analytics/InsightsEngine.ts"
+      "packages/infra/src/analytics/InsightsEngine.ts"
     ],
     "InteractiveCommandExecutor": [
       "app/src/commands/interactive/InteractiveCommandExecutor.ts"
@@ -304,7 +304,7 @@
       "app/src/ai/providers/BedrockProvider.ts"
     ],
     "analytics": [
-      "app/src/analytics/AnalyticsService.ts"
+      "packages/infra/src/analytics/AnalyticsService.ts"
     ],
     "api-logging": [
       "app/src/services/api/logging.ts"

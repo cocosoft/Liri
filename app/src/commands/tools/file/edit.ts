@@ -202,7 +202,7 @@ const editCommand = {
     }
 
     try {
-      const { logEvent } = await import('@modules/analytics/index.js');
+      const { logEvent } = await import('@openliri/infra/analytics/index.js');
       logEvent('tengu_edit_command', {
         replaceAll: options.replaceAll,
         dryRun: options.dryRun,

@@ -96,7 +96,7 @@ class PerformanceMonitoringService {
   async collectCPUMetrics() {
     try {
       const { getSystemCpuPercent } =
-        await import('../monitoring/metrics/SystemMetricsCollector.js');
+        await import('@modules/monitoring/metrics/SystemMetricsCollector');
       const cpuUsage = getSystemCpuPercent();
       this.recordMetric('cpu_usage', 'system_cpu_usage', cpuUsage, {
         source: 'system',
@@ -145,7 +145,7 @@ class PerformanceMonitoringService {
   async collectDiskMetrics() {
     try {
       const { getDiskInfo } =
-        await import('../monitoring/metrics/SystemMetricsCollector.js');
+        await import('@modules/monitoring/metrics/SystemMetricsCollector');
       const disk = getDiskInfo();
       this.recordMetric('disk_usage', 'system_disk_usage', disk.percent, {
         source: 'system',

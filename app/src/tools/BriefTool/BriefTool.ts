@@ -9,7 +9,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolUseContext, ToolResult } from '../types';
 import { ToolParam, ToolTag } from '../types/Tool';
 import type { SessionMessage } from '@modules/session';
-import { insightsEngine } from '@modules/analytics';
+import { insightsEngine } from '@openliri/infra/analytics';
 import { loadSessionMessages } from '../sessionMessageSource';
 
 import { getLogger } from '@modules/monitoring';

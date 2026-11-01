@@ -297,7 +297,7 @@ const modelCommand = {
       if (subcommand === 'help') return showHelp();
 
       try {
-        const { logEvent } = await import('@modules/analytics/index.js');
+        const { logEvent } = await import('@openliri/infra/analytics/index.js');
         logEvent('tengu_model_command_inline', {
           subcommand: subcommand || 'list',
           showJson,

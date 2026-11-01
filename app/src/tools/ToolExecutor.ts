@@ -1004,7 +1004,7 @@ export class ToolExecutor {
   ): Promise<void> {
     try {
       const { analyticsService } =
-        await import('@modules/analytics/AnalyticsService');
+        await import('@openliri/infra/analytics/AnalyticsService');
       analyticsService.logEvent('tool_execute', {
         tool_name: toolName,
         success,

@@ -16,7 +16,7 @@ import { join } from 'path';
 import {
   AnalyticsService,
   analyticsService,
-} from '../../src/analytics/AnalyticsService.js';
+} from '@openliri/infra/analytics/AnalyticsService';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 import { setUserDataDirOverride } from '@openliri/infra/environment';

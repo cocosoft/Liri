@@ -135,7 +135,7 @@ const writeCommand = {
     const options = parseFlags(args);
 
     try {
-      const { logEvent } = await import('@modules/analytics/index.js');
+      const { logEvent } = await import('@openliri/infra/analytics/index.js');
       logEvent('tengu_write_command', {
         append: options.append,
         hasContent: options.content.length > 0,

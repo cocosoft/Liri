@@ -36,16 +36,19 @@ import {
   type CompactionContext,
 } from '@modules/context';
 import type { ChatMessage } from '@modules/ai';
-import { AnalyticsService, analyticsService } from '../analytics/index.js';
+import {
+  AnalyticsService,
+  analyticsService,
+} from '@openliri/infra/analytics/index';
 import {
   AnalyticsEventQueue,
   getGlobalAnalyticsQueue,
-} from '../analytics/AnalyticsEventQueue.js';
+} from '@openliri/infra/analytics/AnalyticsEventQueue';
 import {
   CostAnalyticsTracker,
   createCostAnalyticsTracker,
   setCostAnalyticsTracker,
-} from '../analytics/CostAnalyticsTracker.js';
+} from '@openliri/infra/analytics/CostAnalyticsTracker';
 import { createPostCallSummaryHook } from '@modules/hooks';
 import {
   withRetry,

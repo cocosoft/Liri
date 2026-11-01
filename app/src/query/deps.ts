@@ -4,8 +4,8 @@
  */
 
 import type { ChatManager } from '../chat/ChatManager';
-import type { AnalyticsService } from '../analytics';
-import type { CostAnalyticsTracker } from '../analytics/CostAnalyticsTracker';
+import type { AnalyticsService } from '@openliri/infra/analytics';
+import type { CostAnalyticsTracker } from '@openliri/infra/analytics/CostAnalyticsTracker';
 import type { PostSamplingHookManager } from '@modules/hooks';
 import type { TokenBudgetController } from '@modules/tokenBudget';
 import type { StopHookManager } from './StopHooks';

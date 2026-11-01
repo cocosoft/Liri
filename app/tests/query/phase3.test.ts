@@ -19,8 +19,8 @@ import type { ToolErrorRecord } from '../../src/query/ToolErrorCollector';
 import {
   InsightsEngine,
   insightsEngine,
-} from '../../src/analytics/InsightsEngine';
-import type { ConversationMessage } from '../../src/analytics/InsightsEngine';
+} from '@openliri/infra/analytics/InsightsEngine';
+import type { ConversationMessage } from '@openliri/infra/analytics/InsightsEngine';
 
 describe('ParallelToolExecutor', () => {
   test('executes all tools and returns results in order', async () => {

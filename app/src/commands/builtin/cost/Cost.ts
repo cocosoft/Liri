@@ -519,7 +519,7 @@ async function handleJson(context: CommandContext): Promise<CommandResult> {
  */
 async function collectCostData(): Promise<CostData> {
   const { getCostAnalyticsTracker } =
-    await import('../../../analytics/CostAnalyticsTracker.js');
+    await import('@openliri/infra/analytics/CostAnalyticsTracker');
   const { getCostRecordRepository } =
     await import('../../../cost/CostRecordRepository.js');
 

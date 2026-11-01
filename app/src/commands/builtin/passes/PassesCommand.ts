@@ -1,4 +1,4 @@
-import { PassesService } from '@modules/analytics';
+import { PassesService } from '@openliri/infra/analytics';
 
 export interface PassesCommandOutput {
   header: string;

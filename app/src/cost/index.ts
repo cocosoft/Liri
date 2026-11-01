@@ -129,7 +129,7 @@ import type { CostRecordRepository } from './CostRecordRepository.js';
 import {
   AnalyticsCategory,
   AnalyticsSeverity,
-} from '../analytics/AnalyticsSchema.js';
+} from '@openliri/infra/analytics/AnalyticsSchema';
 
 const logger = getLogger('cost:index');
 
@@ -221,9 +221,9 @@ export async function initializeCostTrackingSystem(): Promise<void> {
 
     // 初始化分析持久化服务（JSONL 文件）
     const { getGlobalAnalyticsQueue } =
-      await import('../analytics/AnalyticsEventQueue.js');
+      await import('@openliri/infra/analytics/AnalyticsEventQueue');
     const { AnalyticsPersistenceService } =
-      await import('../analytics/AnalyticsPersistenceService.js');
+      await import('@openliri/infra/analytics/AnalyticsPersistenceService');
     const analyticsPersistence = new AnalyticsPersistenceService();
     await analyticsPersistence.initialize();
     getGlobalAnalyticsQueue().attachSink({
@@ -253,7 +253,7 @@ export async function initializeCostTrackingSystem(): Promise<void> {
 
     // 确保 CostAnalyticsTracker 使用全局事件队列（含持久化 sink）
     const { getCostAnalyticsTracker } =
-      await import('../analytics/CostAnalyticsTracker.js');
+      await import('@openliri/infra/analytics/CostAnalyticsTracker');
     getCostAnalyticsTracker(getGlobalAnalyticsQueue());
 
     // P1-2.5: 注册 OTel 成本指标（ObservableGauge）

@@ -7948,3 +7948,29 @@
 {"id":"INFRA-PACKAGE-P20-OAUTH","k":"tests#0","i":0,"c":"app/tests/oauth/OAuthProviderStore.test.ts"}
 {"id":"INFRA-PACKAGE-P20-OAUTH","k":"tests#1","i":0,"c":"app/tests/tools/mcpAuthTool.test.ts"}
 {"id":"INFRA-PACKAGE-P20-OAUTH","k":"tests#2","i":0,"c":"app/tests/http/verifyRequestAuth.test.ts"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"title","i":0,"c":"P21：system 迁入 packages/infra（26 文件；无根 index ⇒ 子路径 + 目录入口显式导出）"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.19"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"reopenWhen","i":0,"c":"① 若 `error` / `monitoring` / `config` 也迁包 ⇒ `system` 的三条出边会改成 `@openliri/infra/*`（R7 边不变）；② 若新增 `system` 根 `index.ts` ⇒ 必须同批加 `./system` 导出与 tsconfig 精确键，否则 `@openliri/infra/system"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"reopenWhen","i":1,"c":"` 解析失败；③ 新增目录型消费（`@openliri/infra/system/<dir>`）⇒ 目录不自动走 `*.ts` 模式导出，必须补 `./system/<dir>` 精确条目。"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"notes","i":0,"c":"迁包：system 共 26 文件（auth 8 / i18n 6 / state 6 / theme 6）git mv 至 packages/infra/src/system；模块**无根 index** ⇒ 只设子路径别名，未造 barrel。**新类型：目录入口**——消费方按 `@modules/system/state`、`"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"notes","i":1,"c":"@modules/system/theme`（目录）导入 ⇒ exports 的 `./system/*` 会拼成 `*.ts`（非目录）⇒ 为两者单列精确条目 `./system/state` / `./system/theme` 与 tsconfig 精确键。引用改写：30 文件（`@modules/system` → `"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"notes","i":2,"c":"@openliri/infra/system`，含去掉包别名上的 `.js`）+ 4 处测试/脚本相对引用 + 3 处「读源码文本」路径（endpointsSingleSource ×2 / sameNameConstsB2 ×1）。包内自引改相对：TerminalThemeManager → `./ThemeLoader` / `./ThemeSchema"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"notes","i":3,"c":"`；languageProfiles → `./extended`（避免包内走自己的桶）。第三方依赖：`zustand`（state/buddyAppState）、`chalk`（theme/ThemeManager）迁后无法上溯 app/node_modules ⇒ 两侧 tsconfig 各补 paths。联动：hardcode-gate 1 处、"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"notes","i":4,"c":"logger-name 1 处、state-literal 7 处、证据 code[] 3 处路径键改名；kernel-surface allowlist 无改动（note 属历史叙述）。运行期自证：`import(\"@openliri/infra/system/state\")` 18 导出、`/theme` 6 导出、`/i18n/extended` 5 "}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"notes","i":5,"c":"导出、`/auth/post-login` 1 导出、`/state/Store` 9 导出（目录入口与子路径均通）。负向自证：包内 `import \"@modules/chat\"` ⇒ R6 点名 `system/__neg_probe.ts`；monitoring 临时 import `@openliri/infra/system/state` ⇒ R7"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"notes","i":6,"c":" 报 3 成员环（均回滚，SCC 0）。"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"code#0","i":0,"c":"packages/infra/src/system/state/index.ts"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"code#1","i":0,"c":"packages/infra/src/system/theme/index.ts"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"code#2","i":0,"c":"packages/infra/src/system/theme/TerminalThemeManager.ts"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"code#3","i":0,"c":"packages/infra/src/system/i18n/languageProfiles.ts"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"code#4","i":0,"c":"packages/infra/src/system/auth/AuthManager.ts"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"code#5","i":0,"c":"app/src/bootstrap/state.ts"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"code#6","i":0,"c":"app/src/ui/theme/ThemeContext.tsx"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"code#7","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"code#8","i":0,"c":"packages/infra/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"code#9","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"tests#0","i":0,"c":"app/tests/system/state/migration/appMigrationStore.test.ts"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"tests#1","i":0,"c":"app/tests/system/state/migration/migrationRegistry.test.ts"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"tests#2","i":0,"c":"app/tests/core/i18n.test.ts"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"tests#3","i":0,"c":"app/tests/prompt-locale/localeParity.test.ts"}
+{"id":"INFRA-PACKAGE-P21-SYSTEM","k":"tests#4","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}

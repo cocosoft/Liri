@@ -35,8 +35,8 @@ import {
 } from '@openliri/infra/security';
 import { SandboxSecurityChecker } from '@modules/sandbox';
 import { completeSecuritySystem } from '@openliri/infra/security';
-import { configManager } from '@modules/config';
-import type { PermissionConfig } from '@modules/config/types';
+import { configManager } from '@openliri/infra/config';
+import type { PermissionConfig } from '@openliri/infra/config/types';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:PowerShellTool:PowerShellTool');

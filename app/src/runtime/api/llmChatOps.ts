@@ -29,7 +29,7 @@
  * 避免构造期求值与循环依赖。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { DEFAULT_MODEL_SENTINEL } from '@openliri/infra/constants';
 import { AppError, handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';

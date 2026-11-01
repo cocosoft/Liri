@@ -1,6 +1,6 @@
 declare const Bun: { hash: (s: string) => bigint };
 
-import { getGlobalConfig } from '@modules/config';
+import { getGlobalConfig } from '@openliri/infra/config';
 import {
   type Companion,
   type CompanionBones,

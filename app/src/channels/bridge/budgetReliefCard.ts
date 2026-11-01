@@ -12,7 +12,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type { InteractiveCard } from '../types/IChannel';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import { channelBootstrapper } from '../bootstrap/ChannelBootstrapper';

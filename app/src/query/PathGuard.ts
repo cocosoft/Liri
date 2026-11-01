@@ -30,7 +30,7 @@
  *   - 环境变量 LOOP_PATH_DENY_LIST（JSON 数组，追加到默认列表）
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 import { isLoopObserveOnly } from './loop-config.js';
 import {

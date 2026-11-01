@@ -25,7 +25,7 @@
  *   MEM_PRESSURE_RECOVER_MB  回落判定缓冲（默认 512）
  */
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 // 以下 env 读取均经统一出入口（R05-012）
 const MEM_PRESSURE_ENABLED = configManager.env('MEM_PRESSURE') !== '0';

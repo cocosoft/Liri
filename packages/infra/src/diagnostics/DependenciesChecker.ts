@@ -9,7 +9,7 @@
 
 import { accessSync, constants, statSync } from 'fs';
 import { join } from 'path';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { execFileNoThrow } from '@openliri/infra/utils/execFileNoThrow';
 
 /**

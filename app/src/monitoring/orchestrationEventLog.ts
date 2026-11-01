@@ -21,7 +21,7 @@
 import { appendFile, mkdir, rename, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
 import { OrchestrationEventType } from '@modules/types/orchestrationEvents';

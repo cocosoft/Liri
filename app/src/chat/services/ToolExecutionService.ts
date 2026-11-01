@@ -60,7 +60,7 @@ import {
 } from '@modules/sandbox';
 import type { Tool, SandboxExecutionSignal } from '../../tools/types/Tool';
 import { estimateTokens } from '@modules/ai';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
 import {
   createFileStateCacheWithSizeLimit,

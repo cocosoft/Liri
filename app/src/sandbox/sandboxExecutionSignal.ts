@@ -17,7 +17,7 @@
  * 并在审批卡 metadata 里留证；豁免判定在 PR-3b 的 `resolveToolDecision()` 统一实现。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type {
   SandboxExecutionMode,
   SandboxExecutionSignal,

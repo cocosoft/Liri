@@ -3,7 +3,7 @@
  * 提供通用工具命令处理
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('utilHandler');

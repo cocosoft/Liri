@@ -43,7 +43,7 @@ import {
   markAsExpectedAbort,
 } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { GeminiTransport } from '../transports/GeminiTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';

@@ -2,7 +2,7 @@
  * CLI配置管理模块
  * 支持配置文件解析、验证和管理
  *
- * @deprecated 请使用 @modules/config/ConfigManager 替代。
+ * @deprecated 请使用 @openliri/infra/config/ConfigManager 替代。
  *   自 2026-06 起 I/O 已打通至主配置系统的用户设置（userSettings），
  *   不再维护独立 config.json 文件。Gateway/alias 等配置统一存储在
  *   ~/.pyapp/settings.json 的 cli 键下。此文件将在未来版本中移除。
@@ -15,7 +15,7 @@ import {
   loadUserSettings,
   saveUserSettings,
   getUserSettingsPath,
-} from '@modules/config';
+} from '@openliri/infra/config';
 
 const logger = getLogger('cli:config');
 
@@ -111,7 +111,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 /**
  * CLI 配置管理器
  *
- * @deprecated 请使用 @modules/config/ConfigManager 替代。
+ * @deprecated 请使用 @openliri/infra/config/ConfigManager 替代。
  *   自 2026-06 起 I/O 已打通至主配置系统的用户设置（userSettings），
  *   不再维护独立 config.json 文件。此文件将在未来版本中移除。
  */
@@ -305,7 +305,7 @@ export class CliConfigManager {
 /**
  * 创建 CLI 配置管理器实例
  *
- * @deprecated 请使用 @modules/config/ConfigManager 替代。
+ * @deprecated 请使用 @openliri/infra/config/ConfigManager 替代。
  */
 export function createCliConfigManager(
   options?: ConfigOptions
@@ -316,6 +316,6 @@ export function createCliConfigManager(
 /**
  * 全局 CLI 配置管理器实例
  *
- * @deprecated 请使用 @modules/config/ConfigManager 替代。
+ * @deprecated 请使用 @openliri/infra/config/ConfigManager 替代。
  */
 export const cliConfigManager = createCliConfigManager();

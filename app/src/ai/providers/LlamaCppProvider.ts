@@ -30,7 +30,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { BaseAIProvider } from './BaseAIProvider';
 import { OpenAIProvider } from './OpenAIProvider';
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';

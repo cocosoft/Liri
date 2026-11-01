@@ -41,9 +41,9 @@ import {
   ConfigManager,
   getConfigManager,
   setConfigManagerForTest,
-} from '../../src/config/index.js';
+} from '@openliri/infra/config';
 import { vfsMountRegistry } from '../../src/vfs/VfsMountRegistry.js';
-import type { VfsMountConfigEntry } from '../../src/config/types.js';
+import type { VfsMountConfigEntry } from '@openliri/infra/config/types';
 
 /** 构造"运行时非法 scheme"条目（配置来自用户 JSON ⇒ 类型联合不阻止非法值） */
 function looseEntry(entry: {

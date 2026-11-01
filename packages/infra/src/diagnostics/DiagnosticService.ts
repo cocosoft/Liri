@@ -9,7 +9,7 @@ import { homedir } from 'os';
 import { exec as nodeExec } from 'child_process';
 import { promisify } from 'util';
 import { realpath } from 'fs/promises';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('diagnostics:service');
 

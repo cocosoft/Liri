@@ -46,7 +46,7 @@ import { getMTLSConfig } from '@openliri/infra/utils/mtls';
 import { errorMessage } from '../error/utils.js';
 import { logForDebugging } from '@openliri/infra/utils/debug';
 import { AppError, ErrorCategory, ErrorSeverity } from '../error/types.js';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('monitoring:instrumentation');

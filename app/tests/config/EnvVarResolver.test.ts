@@ -6,7 +6,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   resolveEnvString,
   resolveEnvVars,
-} from '../../src/config/layers/EnvVarResolver';
+} from '@openliri/infra/config/layers/EnvVarResolver';
 
 const env = { API_KEY: 'sk-123', PORT: '8080' };
 

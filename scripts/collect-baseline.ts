@@ -75,10 +75,10 @@ async function main(): Promise<void> {
   // 阶段 1: 配置加载
   // 尝试加载配置模块（如果存在）；仅需其模块初始化副作用，不消费导出
   try {
-    await import('../app/src/config/index.ts');
+    await import('../packages/infra/src/config/index.ts');
   } catch {
     try {
-      await import('../app/src/config/ConfigManager.ts');
+      await import('../packages/infra/src/config/ConfigManager.ts');
     } catch {
       console.log('  [warn] 配置模块加载失败，跳过');
     }

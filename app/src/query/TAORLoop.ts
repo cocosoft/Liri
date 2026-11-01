@@ -8,7 +8,7 @@
  * 支持中断恢复（checkpoint/resume）机制。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 // C1（2026-10-09）：taor id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { getLogger } from '@modules/monitoring';

@@ -34,6 +34,7 @@
       "gray-matter": ["../../app/node_modules/gray-matter"],
       "glob": ["../../app/node_modules/glob"],
       "uuid": ["../../app/node_modules/uuid"],
+      "js-yaml": ["../../app/node_modules/js-yaml"],
       "pdfjs-dist": ["../../app/node_modules/pdfjs-dist"],
       "pdfjs-dist/*": ["../../app/node_modules/pdfjs-dist/*"],
       "@napi-rs/canvas": ["../../app/node_modules/@napi-rs/canvas"],

@@ -49,7 +49,7 @@ import {
   ConfigManager,
   getConfigManager,
   setConfigManagerForTest,
-} from '../../src/config/index.js';
+} from '@openliri/infra/config';
 import { vfsMountRegistry } from '../../src/vfs/VfsMountRegistry.js';
 import { mcpConnectionManager } from '../../src/services/mcp/MCPConnectionManager.js';
 import { createHandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils.js';

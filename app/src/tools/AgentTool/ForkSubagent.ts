@@ -13,7 +13,7 @@
 import { randomUUID } from 'crypto';
 import type { ChatMessage } from '@modules/ai';
 import { getSubAgentEngine } from './SubAgentEngine';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import {
   cloneFileStateCache,

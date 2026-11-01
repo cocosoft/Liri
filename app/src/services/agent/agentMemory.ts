@@ -11,7 +11,7 @@ import {
 import { getConfigHomeDir } from '@openliri/infra/utils/envUtils';
 import { getCwd } from '@openliri/infra/utils/cwd';
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:agent:agentMemory');

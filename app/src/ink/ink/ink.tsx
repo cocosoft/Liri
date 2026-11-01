@@ -19,7 +19,7 @@ const getYogaCounters = () => ({
 });
 import { logForDebugging, logError } from '@openliri/infra/utils/debug';
 import { isEnvTruthy } from '@openliri/infra/utils/envUtils';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { colorize } from './colorize.js';
 import App from './components/App.js';
 import type {

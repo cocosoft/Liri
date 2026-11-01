@@ -7,7 +7,7 @@
  * `tasks:longRunning` ⇒ 日志与错误留痕不变。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { resolveDbPath } from '@openliri/infra/environment';
 import { handleError } from '@modules/error';
 

@@ -5,7 +5,7 @@
 
 import { isEnvTruthy } from '@openliri/infra/utils/envUtils';
 import { logForDebugging } from '@openliri/infra/utils/debug';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('performance:PerformanceConfig');

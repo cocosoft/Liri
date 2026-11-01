@@ -14,7 +14,7 @@
  * **行为等价**：错误码/文案、日志字段、回填顺序与自愈语义**逐字未变**。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 

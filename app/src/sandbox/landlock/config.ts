@@ -48,7 +48,7 @@
  * （与 Linux 同口径，不静默降级）。方案见 `.trae/specs/macos-sandbox-exec.md`。
  * Windows 仍无 OS 级兜底（开启 `bashEnabled` ⇒ refuse / `platform-unsupported`）。
  */
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 export interface LandlockConfig {
   enabled: boolean;

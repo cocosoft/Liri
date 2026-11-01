@@ -3,7 +3,10 @@
 // PatchApplier 墓碑删除单测（验收标准 6：删除标记跨层测试）
 
 import { describe, expect, it } from 'bun:test';
-import { applyPatch, applyPatches } from '../../src/config/layers/PatchApplier';
+import {
+  applyPatch,
+  applyPatches,
+} from '@openliri/infra/config/layers/PatchApplier';
 
 /** 断言辅助：applyPatch 返回 Record<string, unknown>，按测试预期形状精化类型 */
 function cfg(config: Record<string, unknown>) {

@@ -4,7 +4,7 @@
  */
 
 import { randomBytes } from 'crypto';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 const TRUSTED_DEVICE_TOKEN_KEY = 'Liri_TRUSTED_DEVICE_TOKEN';
 

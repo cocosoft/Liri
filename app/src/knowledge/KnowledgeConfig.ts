@@ -14,7 +14,7 @@ import { join } from 'path';
 import { readFile } from 'fs/promises';
 import { existsSync, readFileSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { resolvePyappHome } from '@openliri/infra/environment';
 
 const logger = getLogger('knowledge:config');

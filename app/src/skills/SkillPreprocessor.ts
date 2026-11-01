@@ -4,7 +4,7 @@
  * 支持模板变量替换（如 ${SKILL_DIR}）。
  * S1-2：shell 执行已永久禁用（此前 enableShellExecution 预留入口，无真实能力需求）。
  */
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('skills:preprocessor');

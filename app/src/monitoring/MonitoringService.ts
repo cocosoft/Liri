@@ -8,7 +8,7 @@ import path from 'path';
 import { resolveLogsDir } from '@openliri/infra/environment';
 import { getPerformanceProfiler } from '@openliri/kernel';
 import { performanceUtils } from '@openliri/kernel';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 // B8（2026-11-01）：改走 core 剖析门面 —— 去掉 `monitoring → performance` 边（与
 // `performance → monitoring` 构成 R7 内环）。语义不变：SPI 由 performance 侧注册。
 import { profileCheckpoint } from '@openliri/kernel/profilerFacade';

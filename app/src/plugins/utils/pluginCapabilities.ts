@@ -17,7 +17,7 @@
  *   不做能力门控（零行为变更；仍受 P0 准入闸约束）。一旦配置 ⇒ **fail-closed**：
  *   声明了但未授权的能力 ⇒ 拒绝安装 / 拒绝加载，并回传缺哪几项。
  */
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { readCapabilityGrants } from './pluginCapabilityGrantsStore';
 
 /** 能力闭合集合（新增能力必须同时落到 P1 的提供面，否则只声明不兑现） */

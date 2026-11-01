@@ -29,7 +29,7 @@
  * - CHANNEL_RATE_LIMIT_REFILL_MS = 补充一个 token 的间隔（默认 60000，即 1 条/分钟）
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:routing:rate-limiter');
 

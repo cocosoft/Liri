@@ -43,7 +43,7 @@
  * 三者基数不同是有意的路径设计（交互响应性 vs 步骤吞吐 vs 子任务隔离），
  * 统一基数需双跑对照验证后才可评估（对标报告 L9 决策：短期不动）。
  */
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 /** 主对话基础轮次阈值默认值（2026-08-30 循环治理：防死循环，30 覆盖正常多轮任务） */
 export const DEFAULT_BASE_TOOL_TURNS = 30;

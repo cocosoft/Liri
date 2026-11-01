@@ -21,7 +21,7 @@ import {
   type ModelKey,
 } from './ModelConfigs.js';
 import { ModelRegistry } from './ModelRegistry.js';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 import { calculateTotalCost } from '@openliri/infra/cost';
 import type { ModelPricing } from '@openliri/infra/cost';

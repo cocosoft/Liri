@@ -6,7 +6,7 @@
  * 撞限时各入口的提示文案即指向本命令（G-2/M 的终端出路）。
  */
 import { getLogger } from '@modules/monitoring';
-import { setConfigValue } from '@modules/config';
+import { setConfigValue } from '@openliri/infra/config';
 import {
   DAILY_BUDGET_CONFIG_KEY,
   getDailyBudget,

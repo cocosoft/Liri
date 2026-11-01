@@ -3,7 +3,7 @@
  * 管理环境变量的安全应用，防止恶意配置劫持
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from './index';
 
 /**
  * 提供商托管的环境变量集合

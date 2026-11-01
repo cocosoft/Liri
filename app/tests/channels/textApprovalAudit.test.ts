@@ -24,7 +24,7 @@ import {
 import {
   AuditEventType,
   EnterpriseAuditService,
-} from '../../src/config/enterprise/audit/EnterpriseAuditService.js';
+} from '@openliri/infra/config/enterprise/audit/EnterpriseAuditService';
 
 const BASE: TextApprovalAuditInput = {
   channelName: 'feishu',

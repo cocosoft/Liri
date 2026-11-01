@@ -33,7 +33,7 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 // 2026-10-01 D-200（子批 C）：原**静态**导入 `@modules/sandbox`（app 层）4 个值符号
 // （`SandboxManager` · `processRegistry` · `resourceLimitManager` · `globalWorkspaceManager`）
 // ⇒ `infrastructure -> app` 倒挂。改经 **core SPI 端口** `ISandboxPort.getRuntimeStatus()`

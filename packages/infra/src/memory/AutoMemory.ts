@@ -1,7 +1,7 @@
-﻿import * as fs from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import { resolveMemoryDir } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 export function getAutoMemPath(): string {
   return path.join(resolveMemoryDir(), 'MEMORY.md');

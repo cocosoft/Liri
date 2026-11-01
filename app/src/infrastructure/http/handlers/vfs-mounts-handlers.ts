@@ -39,7 +39,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
 import { readBody, json } from './handler-utils';
-import type { VfsConfig, VfsMountConfigEntry } from '@modules/config';
+import type { VfsConfig, VfsMountConfigEntry } from '@openliri/infra/config';
 
 const logger = getLogger('http:vfsMounts');
 
@@ -164,7 +164,7 @@ export async function handleGetVfsMounts(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { configManager } = await import('@modules/config');
+    const { configManager } = await import('@openliri/infra/config');
     // 直连注册表叶子：本处只需注册表单例，**不**需要连带求值驱动图
     // （`McpResourcesDriver` → `MCPConnectionManager` → …）⇒ 叶入口更轻，取同一单例。
     // （`@modules/vfs` 桶的冷启动循环依赖 TDZ 已于 2026-10-08 修复，见
@@ -237,7 +237,7 @@ export async function handlePutVfsMounts(
 
   try {
     const mounts = parsed.mounts ?? [];
-    const { configManager } = await import('@modules/config');
+    const { configManager } = await import('@openliri/infra/config');
     // 唯一事实源 = 配置文件的 `vfs.mounts`（无热更新 ⇒ 重启后 vfsWiring 按新清单装配）
     configManager.setConfigValue('vfs', { mounts } satisfies VfsConfig);
 

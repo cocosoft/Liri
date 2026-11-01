@@ -5,7 +5,7 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   oauthService,
   TokenManager,

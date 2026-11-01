@@ -5529,7 +5529,7 @@
         "app/src/ai/models/ActiveModelService.ts",
         "app/src/ai/translation/LanguageDetector.ts",
         "app/src/chat/services/PathGuardService.ts",
-        "app/src/config/settings/CheckpointLogConfig.ts",
+        "packages/infra/src/config/settings/CheckpointLogConfig.ts",
         "app/src/services/prompt/PromptVersionManager.ts",
         "app/src/tokenBudget/ModelContextCache.ts",
         "client/src/services/imageService.ts",
@@ -7698,8 +7698,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/config/managedEnv.ts",
-        "app/src/config/index.ts",
+        "packages/infra/src/config/managedEnv.ts",
+        "packages/infra/src/config/index.ts",
         "packages/infra/src/utils/bash/ast.ts",
         "packages/infra/src/utils/bash/index.ts"
       ],
@@ -7754,8 +7754,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/config/settings/mdm/constants.ts",
-        "app/src/config/index.ts",
+        "packages/infra/src/config/settings/mdm/constants.ts",
+        "packages/infra/src/config/index.ts",
         "app/src/infrastructure/startup/MdmPrefetch.ts"
       ],
       "tests": [
@@ -16012,7 +16012,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/config/layers/ConfigLayers.ts",
+        "packages/infra/src/config/layers/ConfigLayers.ts",
         "packages/infra/src/cache/CacheSystem.ts",
         "packages/infra/src/daemon/metricsSink.ts",
         "app/src/bootstrap/preflight.ts",

@@ -3,7 +3,7 @@
  * Detects modern terminals that support ESC[3J for clearing scrollback.
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   CURSOR_HOME,
   csi,

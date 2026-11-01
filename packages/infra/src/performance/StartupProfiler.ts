@@ -29,7 +29,7 @@ let STATSIG_LOGGING_SAMPLED: boolean | undefined;
 function isDetailedProfiling(): boolean {
   if (DETAILED_PROFILING === undefined) {
     // 延迟导入 configManager 避免循环依赖
-    const { configManager } = require('@modules/config');
+    const { configManager } = require('@openliri/infra/config');
     DETAILED_PROFILING = isEnvTruthy(configManager.env('Liri_PROFILE_STARTUP'));
   }
   return DETAILED_PROFILING;
@@ -41,7 +41,7 @@ function isDetailedProfiling(): boolean {
 function isLoggingSampled(): boolean {
   if (STATSIG_LOGGING_SAMPLED === undefined) {
     // 延迟导入 configManager 避免循环依赖
-    const { configManager } = require('@modules/config');
+    const { configManager } = require('@openliri/infra/config');
     // 采样率：100% 内部用户，0.5% 外部用户
     const STATSIG_SAMPLE_RATE = 0.005;
     STATSIG_LOGGING_SAMPLED =

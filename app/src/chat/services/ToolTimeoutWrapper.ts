@@ -9,7 +9,7 @@
  */
 
 import crypto from 'crypto';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import {

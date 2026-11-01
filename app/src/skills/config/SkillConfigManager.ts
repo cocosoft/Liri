@@ -5,7 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('skills:configManager');

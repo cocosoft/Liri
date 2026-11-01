@@ -12,7 +12,7 @@ import { readFile } from 'fs/promises';
 import { getPlatform } from '@openliri/infra/utils/platform';
 import { getLogger } from '@modules/monitoring';
 import { isEnvTruthy } from '@openliri/infra/utils/envUtils';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type { VoiceDependencies } from '../models/types';
 
 const logger = getLogger('voice:recording:detector');

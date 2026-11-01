@@ -52,7 +52,7 @@ export async function ensureCheckpointBoundary(
   // ⚠️ 动态导入（**不改启动面**）：AC-28 的 eager 棘轮只允许减少；本策略是"按工具调用
   // 才需要"的配置读取，进静态图会让 eager +1 文件。ESM 缓存 ⇒ 首次之后零成本。
   const { readCheckpointBoundaryConfig } =
-    await import('@modules/config/settings/CheckpointBoundaryConfig');
+    await import('@openliri/infra/config/settings/CheckpointBoundaryConfig');
   const config = readCheckpointBoundaryConfig();
   if (!config.enabled) return null;
   const sessionId = input.currentSessionId;

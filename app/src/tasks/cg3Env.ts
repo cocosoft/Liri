@@ -9,7 +9,7 @@
 import { homedir } from 'os';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 /** 获取数据子目录路径 */
 export function cg3DataDir(sub: string): string {

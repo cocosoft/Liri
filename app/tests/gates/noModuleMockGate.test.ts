@@ -22,7 +22,7 @@ const SCRIPT = join(process.cwd(), '..', 'scripts/lint-no-module-mock.ts');
 /** 运行时拼装：等价于 `mock` + `.module(`（避免本文件自身命中门禁） */
 const CALL = ['mock', 'module('].join('.');
 /** 注释里的提及（也应被门禁忽略） */
-const IN_COMMENT = `// 原实现用 ${CALL}"@modules/config", () => ({})) 替换整个模块`;
+const IN_COMMENT = `// 原实现用 ${CALL}"@openliri/infra/config", () => ({})) 替换整个模块`;
 /** 成功时的输出标记 */
 const OK_MARK = '全仓测试零';
 
@@ -86,7 +86,7 @@ describe('测试 `mock.module` 禁用门禁 · 负向自证', () => {
     write(
       root,
       'app/src/x/__tests__/y.test.ts',
-      `${CALL}"@modules/config", () => ({}));\n`
+      `${CALL}"@openliri/infra/config", () => ({}));\n`
     );
     const r = run(root);
     expect(r.status).toBe(1);

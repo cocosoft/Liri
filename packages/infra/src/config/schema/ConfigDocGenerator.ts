@@ -229,7 +229,7 @@ export class ConfigDocGenerator {
       '示例：',
       '',
       '```typescript',
-      `import { configSchema } from '@modules/config/schema';`,
+      `import { configSchema } from '@openliri/infra/config/schema';`,
       '',
       'configSchema.registerItem("通用设置", {',
       '  key: "theme",',

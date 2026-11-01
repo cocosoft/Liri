@@ -8,7 +8,7 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { platform, homedir } from 'os';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { delimiter, join, sep } from 'path';
 
 import { getLogger } from '@modules/monitoring';

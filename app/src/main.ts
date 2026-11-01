@@ -90,7 +90,7 @@ import { modelRouter } from '@modules/ai';
 import {
   configManager,
   injectTrustedWorkspaceFromEnv,
-} from './config/index.js';
+} from '@openliri/infra/config';
 import { hydrateOnStartup, serializeOnShutdownSync } from '@modules/context';
 import { contextManager } from './context/ContextManager.js';
 // AC-7：type-only 导入，信号处理中同步强关 HTTP（零运行时依赖，无循环引用）
@@ -1592,7 +1592,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
       async () => {
         const { SmartRouter } = await import('@modules/ai');
         const { providerRegistry } = await import('@modules/ai');
-        const { configManager } = await import('@modules/config');
+        const { configManager } = await import('@openliri/infra/config');
 
         // 从 DB 动态获取 tiers 默认值（替代空字符串）
         const dbTiers = await resolveDefaultTiersFromDb();
@@ -1639,7 +1639,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
         // 从 ConfigManager 或 settings.json 恢复用户自定义数据目录
         const { loadUserSettings } =
-          await import('./config/settings/userSettings.js');
+          await import('@openliri/infra/config/settings/userSettings');
 
         // 优先读取 ConfigManager（新），fallback settings.json（旧，自动迁移）
         let dataDirectory = configManager.getConfigValue(

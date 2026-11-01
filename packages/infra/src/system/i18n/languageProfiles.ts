@@ -12,7 +12,7 @@
  * 使用：DocGenerateTool（docx/xlsx/pptx/html）与 PDFTool（pdf）共用，禁止重复实现。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { detectSystemLocale } from './extended';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';

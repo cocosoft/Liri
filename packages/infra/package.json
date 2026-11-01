@@ -168,6 +168,14 @@
     "./security/*": {
       "types": "./src/security/*.ts",
       "import": "./src/security/*.ts"
+    },
+    "./config": {
+      "types": "./src/config/index.ts",
+      "import": "./src/config/index.ts"
+    },
+    "./config/*": {
+      "types": "./src/config/*.ts",
+      "import": "./src/config/*.ts"
     }
   },
   "scripts": {

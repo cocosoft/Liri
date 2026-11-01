@@ -296,7 +296,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '30_000',
       ],
       [
-        'src/config/settings/CheckpointLogConfig.ts',
+        '../packages/infra/src/config/settings/CheckpointLogConfig.ts',
         'CHECKPOINT_LOG_CACHE_TTL_MS',
         '3_000',
       ],
@@ -1736,10 +1736,12 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B5-2-55：`SAFE_ENV_VARS` ×2 已按域消歧（托管设置白名单 / bash 继承白名单，异值异域）', () => {
-    const managed = read('src/config/managedEnv.ts');
+    const managed = read('../packages/infra/src/config/managedEnv.ts');
     expect(managed).not.toMatch(/(^|[^_A-Za-z])const SAFE_ENV_VARS\s*=/);
     expect(managed).toContain('export const SAFE_MANAGED_ENV_VARS = new Set([');
-    expect(read('src/config/index.ts')).toContain('SAFE_MANAGED_ENV_VARS,');
+    expect(read('../packages/infra/src/config/index.ts')).toContain(
+      'SAFE_MANAGED_ENV_VARS,'
+    );
     const bash = read('../packages/infra/src/utils/bash/ast.ts');
     expect(bash).not.toMatch(/(^|[^_A-Za-z])const SAFE_ENV_VARS\s*=/);
     expect(bash).toContain('export const BASH_SAFE_ENV_VARS = new Set([');
@@ -1761,15 +1763,19 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B5-2-57：`MDM_SUBPROCESS_TIMEOUT_MS` 已合一到真源（同值同事实 5000；MdmPrefetch 改桶引用）', () => {
-    const truth = read('src/config/settings/mdm/constants.ts');
+    const truth = read(
+      '../packages/infra/src/config/settings/mdm/constants.ts'
+    );
     expect(truth).toContain('export const MDM_SUBPROCESS_TIMEOUT_MS = 5000;');
-    expect(read('src/config/index.ts')).toContain('MDM_SUBPROCESS_TIMEOUT_MS,');
+    expect(read('../packages/infra/src/config/index.ts')).toContain(
+      'MDM_SUBPROCESS_TIMEOUT_MS,'
+    );
     const prefetch = read('src/infrastructure/startup/MdmPrefetch.ts');
     expect(prefetch).not.toMatch(
       /(^|[^_A-Za-z])const MDM_SUBPROCESS_TIMEOUT_MS\s*=/
     );
     expect(prefetch).toContain(
-      "import { MDM_SUBPROCESS_TIMEOUT_MS } from '@modules/config';"
+      "import { MDM_SUBPROCESS_TIMEOUT_MS } from '@openliri/infra/config';"
     );
   });
 

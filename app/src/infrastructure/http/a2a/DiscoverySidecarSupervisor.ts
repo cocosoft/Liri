@@ -34,7 +34,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   SIDECAR_STARTUP_TYPE,

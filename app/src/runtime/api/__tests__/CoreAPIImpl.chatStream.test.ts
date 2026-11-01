@@ -33,7 +33,7 @@ import { join } from 'node:path';
 
 // ⚠️ 本文件**禁止** `mock.module`（2026-10-10 去污染，L-23）：Bun 的模块 mock **进程级持久且不可
 // 撤销**（`mock.restore()` 实测无效）⇒ 一个文件替换模块会**泄漏给其后所有测试文件**（实证：本文件
-// 原先把 `@modules/config` 桩成恒 `undefined`，导致 A2A 侧车 5 例在全量 `bun test` 中失败，而隔离
+// 原先把 `@openliri/infra/config` 桩成恒 `undefined`，导致 A2A 侧车 5 例在全量 `bun test` 中失败，而隔离
 // 运行全绿）。依赖一律经**既有 DI 缝**注入：
 //   1. 构造参数 —— `new CoreAPIImpl({ chatManager })`（见下方 `setup()`）；
 //   2. app 能力 —— `setCoreApiAppDeps({ … })`（见下，D-227 引入）。

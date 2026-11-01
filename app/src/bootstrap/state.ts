@@ -8,7 +8,7 @@
 import { profileCheckpoint } from '@openliri/infra/performance/StartupProfiler';
 import { generateSystemSessionId } from '@openliri/infra/system/state/index';
 import type { SessionId } from '@openliri/infra/system/state/index';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 export type { SessionId };
 export { generateSystemSessionId };
 

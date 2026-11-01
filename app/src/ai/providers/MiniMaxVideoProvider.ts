@@ -49,7 +49,7 @@ import {
 } from './AsyncVideoTaskProvider.js';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { MINIMAX_API_V1_BASE_URL } from '@openliri/kernel';
 
 /** 官方 status 枚举 → 基类轮询状态枚举（官方为 Preparing 等大写形式，查表前转小写） */

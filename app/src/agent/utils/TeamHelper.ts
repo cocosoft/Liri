@@ -9,7 +9,7 @@ import { join, resolve } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 const logger = getLogger('agent:teamHelper');
 

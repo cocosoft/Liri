@@ -8,8 +8,8 @@ import type { SecurityDecision } from './types';
 import { resolveSandbox } from '@openliri/kernel/spi';
 import { SecurityPermissionView } from './PermissionManager';
 import { PermissionMode } from '@openliri/infra/common';
-import { configManager } from '@modules/config';
-import type { PermissionConfig } from '@modules/config/types';
+import { configManager } from '@openliri/infra/config';
+import type { PermissionConfig } from '@openliri/infra/config/types';
 import { SecurityAudit } from './SecurityAudit';
 
 import { getLogger } from '@modules/monitoring';

@@ -29,7 +29,7 @@ import {
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 const logger = getLogger('knowledge:ingestion:fileIngestionService');
 

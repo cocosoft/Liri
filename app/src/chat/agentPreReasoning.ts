@@ -18,7 +18,7 @@
  */
 
 import type { ChatMessage } from '@modules/ai';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { compactionOrchestrator } from '@modules/context';
 import { getMemoryPressureMonitor } from '@modules/monitoring';
 import { EXTERNAL_FETCH_TOOLS } from '@modules/query';

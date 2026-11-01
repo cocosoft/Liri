@@ -18,12 +18,12 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   createExecApprovalManager,
   type ExecApprovalManager,
   type ExecApprovalStatus,
-} from '@modules/config/enterprise/audit/ExecApprovalManager.js';
+} from '@openliri/infra/config/enterprise/audit/ExecApprovalManager';
 import {
   resolveInboxApproval,
   onInboxApprovalResolved,
@@ -217,7 +217,7 @@ async function recordEnterpriseApprovalAudit(input: {
 }): Promise<void> {
   try {
     const { EnterpriseAuditService, AuditEventType } =
-      await import('../config/enterprise/audit/EnterpriseAuditService.js');
+      await import('@openliri/infra/config/enterprise/audit/EnterpriseAuditService');
     await EnterpriseAuditService.getInstance().log(
       AuditEventType.APPROVAL_ACTION,
       'info',

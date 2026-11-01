@@ -1,7 +1,7 @@
 import * as path from 'path';
 import { PermissionBehavior } from './types/PermissionRule';
 import type { PermissionDecision, PermissionResult } from './PermissionResult';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { handleError } from '@modules/error';
 import {
   isPathWithin,

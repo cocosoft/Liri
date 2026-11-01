@@ -13,7 +13,7 @@ import {
   squashTextNodesToSegments,
 } from './squash-text-nodes.js';
 import type { Color } from './style-types.js';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { isXtermJs } from './terminal.js';
 import { widestLine } from './widest-line.js';
 import wrapText from './wrap-text.js';

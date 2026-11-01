@@ -169,7 +169,7 @@ export function registerStandardHandlers(): void {
       // 1. 加载用户数据目录配置
       try {
         const { loadUserSettings } =
-          await import('../../config/settings/userSettings.js');
+          await import('@openliri/infra/config/settings/userSettings');
         const { setUserDataDirOverride } =
           await import('@openliri/infra/environment');
         const settings = loadUserSettings();
@@ -187,7 +187,7 @@ export function registerStandardHandlers(): void {
       }
 
       // 2. 启用配置系统
-      const { enableConfigs } = await import('@modules/config');
+      const { enableConfigs } = await import('@openliri/infra/config');
       enableConfigs();
 
       // 3. 确保所有数据目录结构完整
@@ -225,7 +225,7 @@ export function registerStandardHandlers(): void {
 
       // 注册启动配置到日志系统（如果配置已加载）
       try {
-        const { configManager } = await import('@modules/config');
+        const { configManager } = await import('@openliri/infra/config');
         if (configManager) {
           logger.debug('[Phase 3] ConfigManager 就绪');
         }
@@ -279,7 +279,7 @@ export function registerStandardHandlers(): void {
       // T1.2: 从环境变量读取信任的工作区（仅合并 trustedWorkspaces 字段）
       try {
         const { configManager, injectTrustedWorkspaceFromEnv } =
-          await import('@modules/config');
+          await import('@openliri/infra/config');
         injectTrustedWorkspaceFromEnv(configManager);
       } catch {
         // 非致命：env 读取失败时静默跳过
@@ -363,7 +363,7 @@ export function registerStandardHandlers(): void {
       try {
         const { SmartRouter } = await import('@modules/ai');
         const { providerRegistry } = await import('@modules/ai');
-        const { configManager } = await import('@modules/config');
+        const { configManager } = await import('@openliri/infra/config');
 
         const routerCfg =
           (configManager.getConfigValue<Record<string, unknown>>(
@@ -495,7 +495,7 @@ export function registerStandardHandlers(): void {
               await import('../../runtime/api/CoreAPIImpl.js');
             getCoreAPI();
 
-            const { configManager } = await import('@modules/config');
+            const { configManager } = await import('@openliri/infra/config');
             const globalConfig = configManager.getGlobalConfig();
             const channelsConfig = globalConfig.channels;
 

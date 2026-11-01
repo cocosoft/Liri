@@ -38,7 +38,7 @@ import { getUIEnhancer } from '../ui/UIEnhancer.js';
 import { profileCheckpoint } from '@openliri/infra/performance/StartupProfiler';
 import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl.js';
-import { getConfig, configManager } from '../config/index.js';
+import { getConfig, configManager } from '@openliri/infra/config';
 import { modelRouter } from '@modules/ai';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { SubAgentManager } from '../subagent/SubAgentManager.js';

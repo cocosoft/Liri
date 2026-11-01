@@ -14,7 +14,7 @@
  * evaluated=false（"跳过结论"，不误报达成）；仅模型明确 true 才算收敛。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 import type { AgentIsolation } from '@modules/agent';
 import type { ExecutorFn } from '../lro/contracts.js';

@@ -60,7 +60,7 @@ import { ModelRegistry } from '../models/ModelRegistry';
 import type { APIProvider } from '../models/ModelConfigs';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import type { TransportStreamEvent } from '../transports/types';
-import { configManager } from '@modules/config/ConfigManager.js';
+import { configManager } from '@openliri/infra/config/ConfigManager';
 import { repairModelJson } from '@openliri/infra/utils/json';
 import {
   getCACertificates,

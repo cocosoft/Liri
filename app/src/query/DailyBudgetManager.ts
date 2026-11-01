@@ -28,7 +28,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   LOOP_MIN_TOKEN_DELTA,
   LOOP_DIMINISH_TURNS_THRESHOLD,

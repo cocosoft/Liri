@@ -26,7 +26,7 @@
  * 关闭开关 ⇒ 完全不动作（**默认零行为变更**，发现面仍由主进程路由提供）。
  */
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import {

@@ -5,7 +5,7 @@
  * 参考 CC源码 cc_code/backend/services/analytics/metadata.ts
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 export interface EventMetadata {
   sessionId?: string;

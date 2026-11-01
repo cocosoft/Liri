@@ -3,7 +3,7 @@
 // ConfigLoader YAML 解析单测（P0-1 嵌套支持升级）
 
 import { describe, expect, it } from 'bun:test';
-import { ConfigLoader } from '../../src/config/loader/ConfigLoader';
+import { ConfigLoader } from '@openliri/infra/config/loader/ConfigLoader';
 
 const loader = new ConfigLoader();
 

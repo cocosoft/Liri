@@ -24,7 +24,7 @@ import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error/handleError';
 const logger = getLogger('tasks:BaseTask');
 
-// 注意：@modules/config barrel 会拉入 tasks 相关模块（循环 import），
+// 注意：@openliri/infra/config barrel 会拉入 tasks 相关模块（循环 import），
 // 阈值读取用惰性 require（首次调用时 configManager 已初始化），避免模块加载期循环。
 let _circuitBreakerThreshold: number | undefined;
 /** P1-1（2026-08-31）：任务级熔断阈值（连续失败次数，达阈值自动置 BLOCKED）。默认 3，TASK_CIRCUIT_BREAKER_THRESHOLD 可覆盖。 */
@@ -32,7 +32,7 @@ export function getCircuitBreakerThreshold(): number {
   if (_circuitBreakerThreshold === undefined) {
     try {
       const { configManager } =
-        require('@modules/config') as typeof import('@modules/config');
+        require('@openliri/infra/config') as typeof import('@openliri/infra/config');
       _circuitBreakerThreshold =
         Number(configManager.env('TASK_CIRCUIT_BREAKER_THRESHOLD')) || 3;
     } catch {

@@ -8,7 +8,7 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { platform } from 'os';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 const execAsync = promisify(exec);
 

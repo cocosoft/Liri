@@ -2,7 +2,7 @@
  * Prompt Suggestion核心服务模块
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('PromptSuggestion');

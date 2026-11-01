@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
-import { isCheckpointLogEnabled } from '@modules/config';
+import { isCheckpointLogEnabled } from '@openliri/infra/config';
 import { randomUUID } from 'crypto';
 
 import type { TAORCheckpoint, TAORCheckpointStorage } from './types.js';

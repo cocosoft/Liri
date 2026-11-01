@@ -3,7 +3,7 @@
  * 用于检查自动内存整合是否启用
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 interface AutoDreamConfig {
   enabled: boolean;

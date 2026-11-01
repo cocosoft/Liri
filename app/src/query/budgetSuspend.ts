@@ -34,7 +34,7 @@
  *  - 新行为统一由 `FEATURE_BUDGET_SUSPEND_RESUME`（**默认开**；`=false` 即关）门控 ⇒ 关时零行为变更。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 import { publishStateProjection } from '@openliri/infra/state/engine/projectionBroker';
 import {

@@ -14,7 +14,7 @@
  * - 拒绝时**不静默**：调用方必须落 app.log 并把原因回给用户（含放行方法）。
  */
 import { feature } from '@openliri/kernel';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 /** 信任判定来源（用于日志/审计） */
 export type PluginTrustReason =

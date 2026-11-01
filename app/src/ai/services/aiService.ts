@@ -31,7 +31,7 @@ import {
   type ScrubberPipeline,
 } from '@modules/streaming';
 import { trackUsage, extractModelFromResponse } from '../UsageTracker.js';
-import { configManager } from '../../config/index.js';
+import { configManager } from '@openliri/infra/config';
 
 const logger = getLogger('ai:service');
 

@@ -24,7 +24,7 @@
  * 负责应用的初始化配置和系统设�?
  */
 
-import { configManager, enableConfigs } from '@modules/config';
+import { configManager, enableConfigs } from '@openliri/infra/config';
 import { initializeCommands } from '@modules/commands';
 import { profileCheckpoint, profileReport } from '@openliri/infra/performance';
 // @ts-ignore
@@ -89,7 +89,7 @@ profileCheckpoint('env_vars_loaded');
 async function loadUserDataDirectory(): Promise<void> {
   try {
     const { loadUserSettings } =
-      await import('../config/settings/userSettings.js');
+      await import('@openliri/infra/config/settings/userSettings');
     const { setUserDataDirOverride } =
       await import('@openliri/infra/environment');
 
@@ -320,7 +320,7 @@ export async function init(): Promise<void> {
 
         try {
           // 根据 GlobalConfig.channels 决定 Gateway 通道服务启停
-          const { configManager } = await import('@modules/config');
+          const { configManager } = await import('@openliri/infra/config');
           const globalConfig = configManager.getGlobalConfig();
           const channelsConfig = globalConfig.channels;
 

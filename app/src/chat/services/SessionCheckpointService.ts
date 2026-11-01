@@ -13,7 +13,7 @@ import type {
 } from '@modules/session/types/checkpoint';
 import type { CheckpointStorage } from '@modules/session/types/checkpoint';
 import { getLogger } from '@modules/monitoring';
-import { isCheckpointLogEnabled } from '@modules/config';
+import { isCheckpointLogEnabled } from '@openliri/infra/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = getLogger('chat:sessionCheckpoint');

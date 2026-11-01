@@ -7,7 +7,7 @@
  * 隔离：spy `getConfigManager().setConfigValue` 拦截持久化写盘（仅断言调用参数，不污染真实配置）。
  */
 import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
-import { getConfigManager } from '@modules/config';
+import { getConfigManager } from '@openliri/infra/config';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,

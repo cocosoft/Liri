@@ -21,7 +21,7 @@
  * P2 埋点（2026-08-04）：关键分支日志，环境变量 DEBUG_TOOL_SCRUBBER=1 启用。
  *   覆盖：开标签验证（通过/拒绝/pending）、模式进入/退出、pending 判定。
  */
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type { StreamChunk } from '../types';
 
 // ─── 调试日志 ────────────────────────────────────────

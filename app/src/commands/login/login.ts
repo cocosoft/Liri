@@ -7,7 +7,7 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { OAuthService } from '@openliri/infra/oauth';
 import { executePostLogin } from '@openliri/infra/system/auth/post-login';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:login:login');

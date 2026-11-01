@@ -4,7 +4,7 @@ import { ErrorCodes } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { appendFileSync } from 'fs';
 import createReconciler from 'react-reconciler';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 const logger = getLogger('ink:reconciler');
 // 替换缺失的 getYogaCounters 导入

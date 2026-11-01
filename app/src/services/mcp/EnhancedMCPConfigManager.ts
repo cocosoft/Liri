@@ -12,7 +12,7 @@ import {
 } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 // C1（2026-09-30 D-122，`R00-003` P3/G5）：插件读取改经 core SPI 端口（service → core 合法）
 import { resolvePluginSystem } from '@openliri/kernel/spi';
 

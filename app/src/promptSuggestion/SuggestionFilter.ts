@@ -3,7 +3,7 @@
  */
 
 import type { PromptVariant, SuggestionSource } from './types';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('SuggestionFilter');

@@ -11,7 +11,7 @@ import { ToolProgressData } from '../types/ToolProgressData';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import * as path from 'path';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { resolveOutputDir } from '@openliri/infra/environment';
 import { handleError } from '@modules/error';
 

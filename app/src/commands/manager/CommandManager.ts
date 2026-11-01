@@ -9,7 +9,7 @@ import { commandLoaderRegistry } from '@modules/commands';
 import { getCommandParser } from '@modules/commands';
 import { REMOTE_SAFE_COMMANDS, BRIDGE_SAFE_COMMANDS } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 // P3（2026-10-30）：分组改写（`/git commit` ⇒ `commit`）的唯一数据源
 import { resolveGroupDelegation } from '../groups/commandGroups.js';
 

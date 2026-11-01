@@ -29,7 +29,7 @@ import {
   rollbackConsolidationLock,
   recordConsolidation,
 } from './ConsolidationLock';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { buildConsolidationPrompt } from './ConsolidationPrompt';
 import { DreamAgentExecutor } from './DreamAgentExecutor';
 import type { DreamExecutionResult } from './DreamAgentExecutor';

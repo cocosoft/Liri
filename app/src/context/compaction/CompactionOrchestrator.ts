@@ -26,7 +26,7 @@
  */
 import type { ChatMessage } from '@modules/ai';
 import { estimateMessagesTokens } from '@modules/ai';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   type CompactionDecision,
   type UnifiedTokenTracker,

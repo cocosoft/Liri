@@ -7,7 +7,7 @@
  * - **C 类**：模型 window / 价格 / 能力 —— **禁止**出现在 `constants/`（只允许 DB / 注册表）；
  * - **D 类**：提示词 / 文案 —— 走工作流 C 的资源体系，不合并进常量文件。
  *
- * **零依赖 leaf**：刻意**不 import `@modules/config`** —— `config`（infra）已依赖 `constants`，
+ * **零依赖 leaf**：刻意**不 import `@openliri/infra/config`** —— `config`（infra）已依赖 `constants`，
  * 反向引用会成环（同一裁定见 `tasks/limits.ts` 头注）。因此直接用 `process.env`，
  * 语义与正例一致：**模块加载时读取 ⇒ 启动前设置生效**。
  *

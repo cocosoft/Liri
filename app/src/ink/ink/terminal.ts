@@ -1,4 +1,4 @@
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { coerce } from 'semver';
 import type { Writable } from 'stream';
 import { env } from '../utils/env.js';

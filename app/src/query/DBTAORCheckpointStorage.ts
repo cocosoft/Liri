@@ -18,7 +18,7 @@ import {
 } from '@openliri/kernel/identity/requestScope.js';
 import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
-import { isCheckpointLogEnabled } from '@modules/config';
+import { isCheckpointLogEnabled } from '@openliri/infra/config';
 import {
   AppError,
   ErrorCategory,

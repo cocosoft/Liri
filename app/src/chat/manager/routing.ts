@@ -22,7 +22,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { feature as coreFeature } from '@openliri/kernel';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   classifyTaskComplexity,
   hasDangerousToolIntent,

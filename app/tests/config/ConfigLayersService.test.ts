@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
   parseEnvLayer,
   loadHomePatch,
-} from '../../src/config/layers/ConfigLayersService';
+} from '@openliri/infra/config/layers/ConfigLayersService';
 
 // 清理 PYAPP_* 测试变量
 function setEnv(key: string, value: string | undefined) {

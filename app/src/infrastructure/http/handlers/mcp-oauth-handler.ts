@@ -12,7 +12,7 @@ import { mcpAuthManager } from '@modules/services/mcp/auth/MCPAuth';
 import type { MCPOAuthConfig } from '@modules/services/mcp/auth/types';
 import type { McpOAuthConfig } from '@modules/services/mcp/types';
 import { readMcpConfig } from '@modules/mcp';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   DEFAULT_HTTP_PORT,
   LOCAL_HTTP_HOST,

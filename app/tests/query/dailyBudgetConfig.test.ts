@@ -28,7 +28,7 @@
  *  - `applyConfig` / `setLimit` 运行时**立即生效**（无需重启），且忽略非法值。
  */
 import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
-import { getConfigManager } from '@modules/config';
+import { getConfigManager } from '@openliri/infra/config';
 import {
   createDailyBudgetManager,
   resolveDailyBudgetConfig,

@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { resolvePluginsDir } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 /**
  * 获取插件目录

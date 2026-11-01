@@ -38,7 +38,7 @@ describe('R6 infra 物理包边界', () => {
     const report = run([
       pkgFile(
         'external/a.ts',
-        "import { ChatManager } from '@modules/chat/ChatManager';\nimport { configManager } from '@modules/config';\nexport const x = [ChatManager, configManager];\n"
+        "import { ChatManager } from '@modules/chat/ChatManager';\nimport { configManager } from '@openliri/infra/config';\nexport const x = [ChatManager, configManager];\n"
       ),
     ]);
     expect(report.rule).toBe('R6');

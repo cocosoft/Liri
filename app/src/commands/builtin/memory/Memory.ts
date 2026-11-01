@@ -8,7 +8,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import type { CommandContext } from '@modules/commands';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

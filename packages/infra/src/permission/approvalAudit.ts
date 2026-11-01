@@ -19,14 +19,14 @@
  * 每条真实走 Inbox 的审批链 = 4 条 log-only 事件；开关关闭时 = 0。
  *
  * ## 开关为什么落在这里（而不是 `config/settings/*`）
- * `permission` 是 infra 层，深路径导入 `@modules/config/settings/*` 会触发
- * `lint:arch`（子模块深路径禁令）。故本模块只经 `@modules/config` 的公开出口
+ * `permission` 是 infra 层，深路径导入 `@openliri/infra/config/settings/*` 会触发
+ * `lint:arch`（子模块深路径禁令）。故本模块只经 `@openliri/infra/config` 的公开出口
  * `configManager.getConfigValue('approvalFourStage')` 读值 —— 与
  * `PermissionChecker` 读 `permission` 配置的既有手法一致。
  */
 
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type { ApprovalDecisionValue } from './approvalStages';
 
 const logger = getLogger('permission:approvalAudit');

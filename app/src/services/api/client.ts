@@ -5,7 +5,7 @@
  * 提供统一的 HTTP 请求、重试、超时和错误处理能力。
  */
 import { ApiError, ApiConnectionError, ApiTimeoutError } from './errors';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { USER_AGENT } from '@openliri/infra/constants';
 
 import { getLogger } from '@modules/monitoring';

@@ -31,7 +31,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 import {
   estimateMessagesTokens,

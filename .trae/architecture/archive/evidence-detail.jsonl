@@ -3070,7 +3070,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#0","i":0,"c":"app/src/ai/models/ActiveModelService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#1","i":0,"c":"app/src/ai/translation/LanguageDetector.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#2","i":0,"c":"app/src/chat/services/PathGuardService.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#3","i":0,"c":"app/src/config/settings/CheckpointLogConfig.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#3","i":0,"c":"packages/infra/src/config/settings/CheckpointLogConfig.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#4","i":0,"c":"app/src/services/prompt/PromptVersionManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#5","i":0,"c":"app/src/tokenBudget/ModelContextCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#6","i":0,"c":"client/src/services/imageService.ts"}
@@ -4195,8 +4195,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"notes","i":2,"c":"LC_*` / `TMPDIR` / `EDITOR`），供 AST 侧解析使用。二者判据不同、无一项清单重叠 ⇒ 合并必然改变行为 ⇒ 仅按域消歧。② **改法**：①→`SAFE_MANAGED_ENV_VARS`（含本文件 3 处内部引用 + `config/index.ts` 桶 re-export 同步）；②→`BASH_SAFE_ENV_VARS"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"notes","i":3,"c":"`（含 `utils/bash/index.ts` 桶 re-export 同步）。**两个白名单的字符串元素一字未改**。③ 取证：全仓搜索该名，除定义处与上述两个桶 re-export 外**无第三方消费者** ⇒ 改名影响面封闭（并已按 CD07 声明：本项只改名、不删除、不放宽）。④ 守卫：`sameNameConstsB2.test.ts` 新增 "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"notes","i":4,"c":"`B5-2-55`（断言两文件均无旧名、新名与两处桶导出一致）。⑤ 棘轮：基线键由 2 归零。⑥ 验证：`tsc` exit 0；**75 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#0","i":0,"c":"app/src/config/managedEnv.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#1","i":0,"c":"app/src/config/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#0","i":0,"c":"packages/infra/src/config/managedEnv.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#1","i":0,"c":"packages/infra/src/config/index.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#2","i":0,"c":"packages/infra/src/utils/bash/ast.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"code#3","i":0,"c":"packages/infra/src/utils/bash/index.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-55-SAFE-ENV-VARS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -4218,8 +4218,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-57-MDM-SUBPROCESS-TIMEOUT-MS","k":"notes","i":1,"c":"app/src/infrastructure/startup/MdmPrefetch.ts` 删除私有一份、改 `import { MDM_SUBPROCESS_TIMEOUT_MS } from '@modules/config'`（**桶引用**，避免跨模块深路径；已核实 `infrastructure → @modules/config` 是本仓既有惯"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-57-MDM-SUBPROCESS-TIMEOUT-MS","k":"notes","i":2,"c":"例，6 处先例）。③ **接线**：`app/src/config/index.ts` 的 MDM 导出块补 `MDM_SUBPROCESS_TIMEOUT_MS`（该块此前只导函数与类型，常量未随域上浮）。取值一字未改。④ 守卫：`sameNameConstsB2.test.ts` 新增 `B5-2-57`。⑤ 棘轮：基线键由 2 归零（195→192 键"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-57-MDM-SUBPROCESS-TIMEOUT-MS","k":"notes","i":3,"c":"，与本批另两簇一并播种）。⑥ 验证：app `tsc` exit 0；守卫测试文件 **78 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-57-MDM-SUBPROCESS-TIMEOUT-MS","k":"code#0","i":0,"c":"app/src/config/settings/mdm/constants.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-57-MDM-SUBPROCESS-TIMEOUT-MS","k":"code#1","i":0,"c":"app/src/config/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-57-MDM-SUBPROCESS-TIMEOUT-MS","k":"code#0","i":0,"c":"packages/infra/src/config/settings/mdm/constants.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-57-MDM-SUBPROCESS-TIMEOUT-MS","k":"code#1","i":0,"c":"packages/infra/src/config/index.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-57-MDM-SUBPROCESS-TIMEOUT-MS","k":"code#2","i":0,"c":"app/src/infrastructure/startup/MdmPrefetch.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-57-MDM-SUBPROCESS-TIMEOUT-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-58-DEFAULT-SESSION-TIMEOUT","k":"title","i":0,"c":"`DEFAULT_SESSION_TIMEOUT` ×2 按域消歧（异值异域：通用会话 30min / 语音会话 10min，取值一字未改）⇒ 同名常量:DEFAULT_SESSION_TIMEOUT 2>0"}
@@ -7538,7 +7538,7 @@
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"reopenWhen","i":0,"c":"环成员剩 6（chronos/diagnostics/memory/monitoring/permission/security）：monitoring 只剩 2 条回环边（→diagnostics 的 withPhaseSync、→chronos 的动态 import），是下一个最小切口。"}
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"notes","i":0,"c":"日志 12 处 getLogger → @openliri/kernel/loggerFacade（config 4 / cache 5 / daemon 3）；cache 的 Liri_CACHE_DIR 改走 utils/envAccess.readUtilEnv（B4 已建等价性测试）；daemon 指标上报改 daemon/metricsSink 端"}
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"notes","i":1,"c":"口，由 bootstrap/preflight.wireDaemonDeps 注入 —— 取服务仍延迟调用，未注入或未初始化时跳过，与历史 try/catch 降级语义一致。"}
-{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#0","i":0,"c":"app/src/config/layers/ConfigLayers.ts"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#0","i":0,"c":"packages/infra/src/config/layers/ConfigLayers.ts"}
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#1","i":0,"c":"packages/infra/src/cache/CacheSystem.ts"}
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#2","i":0,"c":"packages/infra/src/daemon/metricsSink.ts"}
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#3","i":0,"c":"app/src/bootstrap/preflight.ts"}

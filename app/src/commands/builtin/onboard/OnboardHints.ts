@@ -3,7 +3,7 @@
  * 首次遇到特定行为时展示一次性提示，而非在 setup 阶段追问。
  * 提示状态通过配置系统持久化，每个提示只展示一次。
  */
-import { getConfigValue, setConfigValue } from '@modules/config';
+import { getConfigValue, setConfigValue } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('OnboardHints');

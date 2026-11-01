@@ -20,7 +20,7 @@ import {
 } from 'path';
 import { homedir } from 'os';
 import { parseFrontmatter } from '@openliri/infra/utils/frontmatterParser';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 const MAX_MEMORY_CHARACTER_COUNT = 40000;
 const MAX_INCLUDE_DEPTH = 5;

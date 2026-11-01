@@ -16,7 +16,7 @@ import { describe, test, expect, beforeEach, afterEach, spyOn } from 'bun:test';
 import type http from 'http';
 import { dispatchCostChannelRoutes } from '../../src/infrastructure/http/handlers/routes/cost-channel-routes';
 import type { HandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils';
-import { getConfigManager } from '@modules/config';
+import { getConfigManager } from '@openliri/infra/config';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,

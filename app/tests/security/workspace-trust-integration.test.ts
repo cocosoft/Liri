@@ -26,7 +26,7 @@ import {
   ConfigManager,
   configManager,
   setConfigManagerForTest,
-} from '@modules/config';
+} from '@openliri/infra/config';
 import { SecurityIntegrationService } from '@openliri/infra/security/SecurityIntegration';
 import { BashSecurityAnalyzer } from '@openliri/infra/security/BashSecurityAnalyzer';
 import { DirectoryScopeRestriction } from '@openliri/infra/security/bash/DirectoryScopeRestriction';

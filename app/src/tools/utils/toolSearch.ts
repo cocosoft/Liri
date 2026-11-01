@@ -5,7 +5,7 @@
  */
 
 import type { Tool } from '../types/Tool';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getContextWindow } from '../../ai/AIModelManager.js';
 
 /**

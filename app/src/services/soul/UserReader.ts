@@ -11,7 +11,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveUserProfilePath } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 const USER_FILE_PATH = resolveUserProfilePath();
 

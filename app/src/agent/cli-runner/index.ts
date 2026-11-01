@@ -26,7 +26,7 @@
 
 import { exec, spawn, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('agent:cli-runner:index');

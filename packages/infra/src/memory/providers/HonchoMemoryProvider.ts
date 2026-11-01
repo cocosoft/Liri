@@ -17,7 +17,7 @@ import type {
   ExternalMemoryEntry,
   MemoryQuery,
 } from './ExternalMemoryProvider';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 import { withRetry, RetryableError } from '@openliri/infra/utils/withRetry';
 const logger = getLogger('memory:providers:honcho');

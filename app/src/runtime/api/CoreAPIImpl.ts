@@ -26,7 +26,7 @@
  */
 
 import * as fs from 'fs';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type { CoreAPI } from './CoreAPI';
 // C1（2026-09-30 D-98/D-101）：任务运维**服务层端口**（用于给 `getTaskOpsPort()` 显式标注返回类型）
 import type { TaskOpsPort } from './taskOpsPorts';

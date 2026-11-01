@@ -284,7 +284,7 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
         try {
           const { getCoreAPI } =
             await import('@modules/runtime/api/CoreAPIImpl');
-          const { configManager } = await import('@modules/config');
+          const { configManager } = await import('@openliri/infra/config');
           const core = getCoreAPI();
           const router = core.getSmartRouter();
           if (router) {

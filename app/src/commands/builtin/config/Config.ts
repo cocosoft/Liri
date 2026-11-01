@@ -1,7 +1,7 @@
 //
 import type { CommandContext } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
-import { ConfigDocGenerator, configSchema } from '@modules/config';
+import { ConfigDocGenerator, configSchema } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:config:Config');

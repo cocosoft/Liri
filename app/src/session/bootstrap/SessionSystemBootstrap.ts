@@ -10,7 +10,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { resolveSessionsDir } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { SessionMemoryManager } from '../memory/SessionMemoryManager';
 // 2026-10-01 D-222（子批 F `ai` 组）：原静态导入 app 层 `@modules/ai` 的 `globalEmbeddingManager`
 // ⇒ `session -> ai`(app) 倒挂；且 `getSessionMemoryManager()` 为**同步懒初始化** ⇒ 不可改异步

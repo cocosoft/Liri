@@ -36,8 +36,8 @@ import {
   enhancedMcpConfigManager,
   EnhancedMCPConfigManager,
 } from './EnhancedMCPConfigManager';
-import { ConfigReloader } from '@modules/config';
-import type { ConfigReloadTarget } from '@modules/config';
+import { ConfigReloader } from '@openliri/infra/config';
+import type { ConfigReloadTarget } from '@openliri/infra/config';
 import {
   resolvePyappHome,
   resolveProjectRoot,

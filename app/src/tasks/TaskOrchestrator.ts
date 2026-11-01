@@ -32,7 +32,7 @@ import {
   unlinkSync,
 } from 'fs';
 import { taskRegistry } from './TaskRegistry';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import {
   parseSuccessCriteria,

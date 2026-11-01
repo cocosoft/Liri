@@ -13,7 +13,7 @@ import {
   scheduleToDisplayText,
 } from '@openliri/infra/chronos';
 import { resolveDbPath } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';

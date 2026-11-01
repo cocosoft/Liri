@@ -10,7 +10,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { getMemoryPressureMonitor } from './memoryPressure/MemoryPressureMonitor.js';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 // 经统一出入口（R05-012）
 const MEM_PROFILE_ENABLED = configManager.env('MEM_PROFILE') === '1';

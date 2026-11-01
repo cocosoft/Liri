@@ -100,7 +100,7 @@ async function runResearchTask(opts: {
   });
   try {
     // 全局 AI 服务 callModel（AIService.generate 非流式；与 LRTO 默认 executor 同源）
-    const { configManager } = await import('@modules/config');
+    const { configManager } = await import('@openliri/infra/config');
     const aiOps = await getCoreAPI().getAiOpsPort();
     const service = await aiOps.createAiService({
       defaultModel: '',

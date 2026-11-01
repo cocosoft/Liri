@@ -31,7 +31,7 @@ import {
   resolveRiskClass,
   detectChainedCommand,
 } from './types/RiskClass';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 import { isShellToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 import type { ToolSandboxLevel } from '@openliri/infra/utils/toolContract/Tool';

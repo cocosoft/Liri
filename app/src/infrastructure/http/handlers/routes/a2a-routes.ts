@@ -29,7 +29,7 @@
 import type http from 'http';
 import type { HandlerCtx } from '../handler-utils';
 import { json, readBody } from '../handler-utils';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

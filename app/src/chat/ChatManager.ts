@@ -23,7 +23,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { repairModelJson } from '@openliri/infra/utils/json';
 import { resolveBaseToolTurns } from './loopTurnLimits.js';
@@ -135,7 +135,7 @@ import { SessionStateMachine } from '@openliri/infra/state/session/SessionStateM
 import { eventNotificationService } from './services/EventNotificationService.js';
 import { createCheckpointService } from './services/SessionCheckpointService.js';
 import { PlainTextCheckpoint } from './services/PlainTextCheckpoint.js';
-import { isCheckpointLogEnabled } from '@modules/config';
+import { isCheckpointLogEnabled } from '@openliri/infra/config';
 import { HookChainManager } from '@modules/hooks';
 import { toolResultRegistry } from '../tool/ToolResultRegistry.js';
 import { ToolAwareClient } from '@modules/ai';

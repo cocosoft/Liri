@@ -10,7 +10,7 @@ export type ThinkingConfig =
   | { type: 'enabled'; budgetTokens: number }
   | { type: 'disabled' };
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 export interface ThinkingOptions {
   effort?: ThinkingEffort;

@@ -42,7 +42,7 @@
  * @module
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 // 核心类型
 export type {

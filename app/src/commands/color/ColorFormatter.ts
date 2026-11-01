@@ -3,7 +3,7 @@
  * 用于在命令行中显示彩色文本
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 export interface ColorOptions {
   bold?: boolean;

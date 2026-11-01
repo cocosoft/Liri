@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 // (app -> ui) 倒挂随之消失。import 的**目标模块与迁移前一致**，仅按新深度调整相对层级。
 import { Text } from '../../components/ink.js';
 import { getRainbowColor } from '@openliri/infra/utils/thinking';
-import { getGlobalConfig } from '@modules/config';
+import { getGlobalConfig } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ui:buddy');
 

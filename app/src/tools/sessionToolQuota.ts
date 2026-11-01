@@ -8,7 +8,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 const logger = getLogger('tools:sessionQuota');
 
 /** 默认会话级工具调用总上限（env SESSION_TOOL_QUOTA 可调） */

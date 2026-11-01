@@ -1,7 +1,7 @@
 /**
  * utils 模块的环境变量读取（2026-11-01 B4 解环）
  *
- * 背景：utils 有 8 个文件曾直接 `import { configManager } from '@modules/config'` 只为读 env，
+ * 背景：utils 有 8 个文件曾直接 `import { configManager } from '@openliri/infra/config'` 只为读 env，
  * 而 `config` 又（经 monitoring / error 等）间接依赖 `utils` ⇒ 二者同处 infra 的强连通分量
  * （R7 环成员）。解环做法：utils 不再持有 `config` 依赖，env 读取收敛到本文件。
  *

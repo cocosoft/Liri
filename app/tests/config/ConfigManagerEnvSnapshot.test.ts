@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'bun:test';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 describe('ConfigManager.envSnapshot（env 统一入口的批量面）', () => {
   it('包含当前 env 值，且为**浅拷贝**（改写不回灌进程环境）', () => {

@@ -3,7 +3,7 @@
  * 提供统一的打印输出功能
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { ANSI_RESET } from '@openliri/infra/constants';
 
 export interface PrintOptions {

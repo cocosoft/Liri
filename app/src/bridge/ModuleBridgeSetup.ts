@@ -15,7 +15,7 @@ import { initModuleBridge } from './ModuleBridgeInit.js';
 import { createAcpWebSocketServer } from '@modules/acp';
 import type { ModuleBridgeDependencies } from './ModuleBridgeRuntime.js';
 import type { AcpWebSocketServerConfig } from '@modules/acp/types.js';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type { AcpRuntime } from '@modules/acp';
 import { LOCAL_HTTP_HOST, LOCAL_SERVICE_HOST } from '@openliri/kernel';
 

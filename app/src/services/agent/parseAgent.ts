@@ -15,7 +15,7 @@ import {
 import { parsePositiveIntFromFrontmatter } from '@openliri/infra/utils/frontmatterParser';
 import { EFFORT_LEVELS, parseEffortValue } from '@openliri/infra/utils/effort';
 import { PermissionMode } from '@openliri/infra/permission';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { AgentMcpServerSpec } from './agentMcpServer';
 import { loadAgentMemoryPrompt } from './agentMemory';
 // 硬编码治理 B5-2㉙ / B5-2-65：`FILE_*_TOOL_NAME` 三个名**全部**收敛到 `@openliri/infra/constants` 单一真源

@@ -15,7 +15,7 @@ import {
 } from './handler-utils';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('http:voice');

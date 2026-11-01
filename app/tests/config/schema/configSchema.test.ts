@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test';
 import {
   ConfigSchema,
   configSchema,
-} from '../../../src/config/schema/ConfigSchema.js';
+} from '@openliri/infra/config/schema/ConfigSchema';
 
 describe('ConfigSchema', () => {
   let schema: ConfigSchema;

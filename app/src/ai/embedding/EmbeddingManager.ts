@@ -12,7 +12,7 @@ import {
 import { OpenAIEmbeddingProvider } from './providers/OpenAIEmbeddingProvider';
 import { LocalEmbeddingProvider } from './providers/LocalEmbeddingProvider';
 import type { OpenAIEmbeddingConfig } from './providers/OpenAIEmbeddingProvider';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 // 模块内部引用用相对路径，避免 @modules/ai ↔ embedding 自环（导致加载顺序不定）
 import { providerRegistry } from '../providers/ProviderRegistry';
 import { resolveModelRoute, RouteKey } from '../router/resolveModelRoute';

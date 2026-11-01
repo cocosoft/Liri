@@ -36,7 +36,7 @@ import {
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 // AES-256-GCM 参数统一到真源 `utils/OAuthCrypto.ts`（硬编码治理「同名常量」B2b）——

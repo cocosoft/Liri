@@ -22,7 +22,7 @@ import type {
   ChannelId,
 } from './types/IChannel';
 import { routeChannelMessage } from './routing/messageRouter';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { feature } from '@openliri/kernel';
 import { handleError } from '@modules/error';
 import { getDeliveryRouter } from './DeliveryRouter';

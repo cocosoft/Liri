@@ -3,7 +3,7 @@
  */
 import os from 'os';
 import path from 'path';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

@@ -9,7 +9,7 @@ import { modelManager } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
 import { costTracker } from '@openliri/infra/cost';
-import { getConfig, configManager } from '@modules/config/index.js';
+import { getConfig, configManager } from '@openliri/infra/config/index';
 // 2026-10-08（架构治理 P1 · D1）：工具面统一走**全局唯一注册表 + 内置工具加载器**。
 // 原此处局部 `new ToolRegistry()` + 手工 10 工具清单已删除 —— 它绕开 `getToolRegistry()` 与
 // `ToolManagerUtils.buildBuiltinToolLoaders()` 单一事实源，必然与 `TOOL_CATEGORIES`/生成物漂移。

@@ -12,9 +12,9 @@ import { describe, expect, it, afterAll } from 'bun:test';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ConfigMigration } from '../ConfigMigration';
-import { injectTrustedWorkspaceFromEnv } from '../envInject';
-import { ConfigManager } from '../ConfigManager';
+import { ConfigMigration } from '@openliri/infra/config/ConfigMigration';
+import { injectTrustedWorkspaceFromEnv } from '@openliri/infra/config/envInject';
+import { ConfigManager } from '@openliri/infra/config/ConfigManager';
 
 const tmpDirs: string[] = [];
 

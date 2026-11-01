@@ -10,7 +10,7 @@ import {
   isAbortReason,
   markAsExpectedAbort,
 } from '@modules/error';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type {
   ChatMessage,
   ChatResponse,

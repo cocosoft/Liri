@@ -1,4 +1,4 @@
-import { getGlobalConfig } from '@modules/config';
+import { getGlobalConfig } from '@openliri/infra/config';
 import { getCompanion } from './companion';
 
 export function companionIntroText(name: string, species: string): string {

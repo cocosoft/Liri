@@ -8,7 +8,7 @@ import {
   resolvePyappHome,
   resolveMemoryDir,
 } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 export interface ProjectFiles {
   pyAppMd: string | null;

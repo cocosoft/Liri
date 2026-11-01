@@ -6,8 +6,8 @@ import { describe, expect, it } from 'bun:test';
 import {
   loadProfile,
   selectProfile,
-} from '../../src/config/layers/ProfileManager';
-import { loadBundles } from '../../src/config/layers/BundleManager';
+} from '@openliri/infra/config/layers/ProfileManager';
+import { loadBundles } from '@openliri/infra/config/layers/BundleManager';
 
 /** 断言辅助：patches 为 Record<string, unknown>，按内置 YAML 预期形状精化类型 */
 function patches(p: Record<string, unknown>) {

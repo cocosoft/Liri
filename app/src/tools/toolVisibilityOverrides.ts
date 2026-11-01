@@ -44,7 +44,7 @@
  *    （`execution/preparedSnapshot`），否则"运行期改设置 ⇒ 历史重放分叉"。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 import { isMandatoryTool } from './toolCategories';
 import { TOOL_NAME_CONSTANTS } from './toolNameConstants';

@@ -3,7 +3,7 @@
  * OSC (Operating System Command) Types and Parser
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { Buffer } from 'buffer';
 import { env } from '../../utils/env.js';
 import { execFileNoThrow } from '../../utils/execFileNoThrow.js';

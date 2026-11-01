@@ -5,7 +5,7 @@ import {
   getUserSettingsPath,
   getProjectSettingsPath,
   getLocalSettingsPath,
-} from '@modules/config';
+} from '@openliri/infra/config';
 import { PermissionRuleSource } from './types/PermissionRule';
 import type { ToolPermissionContext } from './permissions';
 import { getEmptyToolPermissionContext } from './permissions';

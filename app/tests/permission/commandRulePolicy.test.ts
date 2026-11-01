@@ -9,7 +9,7 @@
  */
 import { afterEach, describe, expect, it, spyOn } from 'bun:test';
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   evaluateCommandRules,
   readCommandRulesConfig,

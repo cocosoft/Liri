@@ -35,7 +35,7 @@
 
 import { readFileSync } from 'fs';
 import crypto from 'crypto';
-import { ConfigWatcher } from '@modules/config';
+import { ConfigWatcher } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

@@ -6,7 +6,7 @@
  * 与 `setupChannels → messageRouter` 构成静态环。开关只读 `configManager`，
  * 下沉为叶子模块后环消失；语义/默认值逐字不变。
  */
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 /** 渠道 ↔ Inbox 桥接总开关（默认开启，显式设为 'false' 时关闭） */
 export function isBridgeEnabled(): boolean {

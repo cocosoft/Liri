@@ -17,7 +17,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigManager, setConfigManagerForTest } from '@modules/config';
+import { ConfigManager, setConfigManagerForTest } from '@openliri/infra/config';
 
 import { resolveConfiguredLanguage } from '@openliri/infra/system/i18n/languageProfiles';
 import { ToolRegistry } from '../src/tools/ToolRegistry';

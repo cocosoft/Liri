@@ -1,7 +1,7 @@
 import { readdir, readFile, stat, writeFile, mkdir, unlink } from 'fs/promises';
 import { join, relative, resolve, normalize } from 'path';
 import { existsSync } from 'fs';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 import { handleError } from '@modules/error';
 

@@ -11,7 +11,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveSoulPath } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 const SOUL_FILE_PATH = resolveSoulPath();
 

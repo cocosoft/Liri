@@ -58,7 +58,7 @@ export function detectSystemLocale(): SupportedLocale {
   // 直接读 `process.env`，**不**经 `configManager.env()`。
   //
   // 理由：`configManager.env()` 的实现就是 `process.env[name] ?? defaultValue`（纯代理，
-  // 见 `config/ConfigManager.ts#env`），但 import `@modules/config` 会**连带拉起**
+  // 见 `config/ConfigManager.ts#env`），但 import `@openliri/infra/config` 会**连带拉起**
   // DB 建表（attachments_sources）/ OAuthService / TaskComplexityClassifier 等重量级初始化
   // —— 实测使 `i18n:check` 脚本启动耗时 **~9.4s**，其中绝大部分来自该 import 链；
   // 为读 3 个 locale 环境变量付出这个代价不成比例（台账 N-53）。

@@ -4,7 +4,7 @@
  * 使用 AWS SigV4 签名 + fetch API 调用 Bedrock 端点
  */
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type {
   ChatMessage,
   ChatResponse,

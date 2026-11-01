@@ -25,7 +25,7 @@
  */
 
 import type { Command } from '@modules/commands';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 /**
  * 检查是否有API Key认证

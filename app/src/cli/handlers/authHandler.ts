@@ -13,7 +13,7 @@ import { createGitHubOAuthProvider } from '@openliri/infra/oauth';
 import { createGoogleOAuthProvider } from '@openliri/infra/oauth';
 import { AuthorizationCodeFlow } from '@openliri/infra/oauth';
 import type { OAuthConfig } from '@openliri/infra/oauth/types';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   GOOGLE_ACCOUNTS_BASE_URL,
   GOOGLE_API_BASE_URL,

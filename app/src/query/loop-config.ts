@@ -21,7 +21,7 @@
  *   LOOP_NO_TOOL_CALL_CRITICAL — no_tool_call 阻断阈值，默认 5
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('query:loopConfig');
 

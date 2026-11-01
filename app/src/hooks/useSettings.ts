@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { configManager, type GlobalConfig } from '@modules/config';
+import { configManager, type GlobalConfig } from '@openliri/infra/config';
 
 /**
  * 设置变更监听器

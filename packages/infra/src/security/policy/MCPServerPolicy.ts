@@ -7,7 +7,7 @@
  * 负责 MCP 服务器的策略过滤、企业配置检测、命令/资源配置过滤。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 export interface MCPServerPolicy {
   allowedServers?: string[];

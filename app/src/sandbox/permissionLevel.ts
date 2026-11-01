@@ -17,7 +17,7 @@
  * - 未配置 / 非法值 ⇒ `standard`（不是 `full`，避免"写错一个字符就放宽到可执行"）。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
 import type { SandboxPermissionLevel } from '@openliri/infra/utils/toolContract/Tool';
 

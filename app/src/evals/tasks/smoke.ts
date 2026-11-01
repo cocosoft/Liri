@@ -28,7 +28,7 @@
 
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type { EvalTask } from '../types.js';
 import { readIfExists } from './util.js';
 

@@ -199,8 +199,13 @@
         "../../packages/infra/src/security/index.ts"
       ],
       "@openliri/infra/security/*": ["../../packages/infra/src/security/*"],
-      "@modules/config": ["config"],
-      "@modules/config/*": ["config/*"],
+      "@openliri/infra/config": [
+        "../../packages/infra/src/config/index.ts"
+      ],
+      "@openliri/infra/config.js": [
+        "../../packages/infra/src/config/index.ts"
+      ],
+      "@openliri/infra/config/*": ["../../packages/infra/src/config/*"],
       "@modules/context": ["context"],
       "@modules/context/*": ["context/*"],
       "@modules/tokenBudget": ["tokenBudget"],

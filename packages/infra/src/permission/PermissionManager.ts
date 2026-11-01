@@ -71,7 +71,7 @@ import {
 // 按**工具名 includes** 猜测（CS02 违规）。已由 `sandboxExemption`（S1–S4，信号驱动）取代并删除。
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { SpanStatusCode, metrics } from '@opentelemetry/api';
 import type { Span, Counter } from '@opentelemetry/api';
 import { PermissionAction, OperationType, RoleType } from './Permission';

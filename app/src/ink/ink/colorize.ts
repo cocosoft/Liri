@@ -1,4 +1,4 @@
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import chalk from 'chalk';
 import type { Color, TextStyles } from './style-types.js';
 

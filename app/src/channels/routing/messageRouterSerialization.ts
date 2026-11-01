@@ -3,7 +3,7 @@
 //
 // messageRouter 串行化 / 会话键 / 准入等待助手（自 `messageRouter.ts` **纯搬迁**，2026-10-09 C3-S3）。
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { SESSION_ADMISSION_WAIT_MS } from './messageRouterContract';
 
 /**

@@ -671,7 +671,7 @@ export class ModelRouter {
     svc: AppModelConfigService
   ): Promise<void> {
     try {
-      const { configManager } = await import('@modules/config');
+      const { configManager } = await import('@openliri/infra/config');
 
       const models = configManager.getConfigValue<{
         current?: string;

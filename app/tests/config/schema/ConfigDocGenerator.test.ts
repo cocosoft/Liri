@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, spyOn, afterEach } from 'bun:test';
-import { ConfigDocGenerator } from '../../../src/config/schema/ConfigDocGenerator.js';
-import { ConfigSchema } from '../../../src/config/schema/ConfigSchema.js';
+import { ConfigDocGenerator } from '@openliri/infra/config/schema/ConfigDocGenerator';
+import { ConfigSchema } from '@openliri/infra/config/schema/ConfigSchema';
 import { writeFileSync, existsSync, unlinkSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -187,7 +187,7 @@ describe('ConfigDocGenerator', () => {
   describe('generateConfigDocs', () => {
     it('should be exported as a function', async () => {
       const mod =
-        await import('../../../src/config/schema/ConfigDocGenerator.js');
+        await import('@openliri/infra/config/schema/ConfigDocGenerator');
       expect(typeof mod.generateConfigDocs).toBe('function');
       const result = mod.generateConfigDocs();
       expect(typeof result).toBe('string');

@@ -22,7 +22,7 @@ import {
   markAsExpectedAbort,
 } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { DEFAULT_OLLAMA_ENDPOINT } from '@openliri/kernel';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { OllamaTransport } from '../transports/OllamaTransport';

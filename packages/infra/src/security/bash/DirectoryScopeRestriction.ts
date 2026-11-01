@@ -5,7 +5,7 @@
 
 import { resolve, normalize, relative, sep } from 'path';
 import { existsSync, statSync } from 'fs';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

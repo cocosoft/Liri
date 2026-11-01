@@ -17,7 +17,7 @@ import { getMCPServerManager } from '../services/mcp/MCPServerManager.js';
 import { mcpConnectionManager } from '../services/mcp/MCPConnectionManager.js';
 // 2026-10-01 B18-c：**删除** `import { toolScopeManager } from '../tool/ToolScopeManager'` ——
 // 它构成 `mcp(service) -> tool(app)` 倒挂。改在唯一使用点（async `execute()` 内）**动态导入**。
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('mcp:MCPTool');

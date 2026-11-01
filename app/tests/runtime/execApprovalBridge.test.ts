@@ -19,7 +19,7 @@ import type {
   ExecApprovalManager,
   ExecApprovalRequest,
   ExecApprovalStatus,
-} from '../../src/config/enterprise/audit/ExecApprovalManager.js';
+} from '@openliri/infra/config/enterprise/audit/ExecApprovalManager';
 
 const ENV_KEY = 'LIRI_EXEC_APPROVAL_ENABLED';
 

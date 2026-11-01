@@ -116,7 +116,7 @@ if (mode === 'snapshot') {
 // 显式退出（与台账 N-16「export-dependency-snapshot.ts 缺显式退出」同类；
 // 见 development-workflow §2.15）。
 //
-// 为什么必须显式退出：本脚本经 `../src/system/i18n/extended` → `@modules/config`
+// 为什么必须显式退出：本脚本经 `../src/system/i18n/extended` → `@openliri/infra/config`
 // 拉起了 **DB 建表 / OAuthService / TaskComplexityClassifier** 等重量级初始化
 // （含定时器与打开的句柄），而正常路径（覆盖率 100% + 快照一致）**没有任何
 // `process.exit`** ⇒ 逻辑跑完后进程会一直挂着，表现为"命令卡住不返回"

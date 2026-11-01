@@ -1,4 +1,4 @@
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type {
   ContentReplacementState,
   ContentReplacementRecord,

@@ -230,8 +230,10 @@ export class ConfigHandler {
     }
 
     try {
-      const { getUnifiedConfigManager } = await import('@modules/config');
-      const { redactConfig } = await import('../../config/ConfigRedactor');
+      const { getUnifiedConfigManager } =
+        await import('@openliri/infra/config');
+      const { redactConfig } =
+        await import('@openliri/infra/config/ConfigRedactor');
       const result = await getUnifiedConfigManager().resolveLayersConfig({
         profileName,
       });
@@ -286,8 +288,10 @@ export class ConfigHandler {
     }
 
     try {
-      const { getUnifiedConfigManager } = await import('@modules/config');
-      const { redactConfig } = await import('../../config/ConfigRedactor');
+      const { getUnifiedConfigManager } =
+        await import('@openliri/infra/config');
+      const { redactConfig } =
+        await import('@openliri/infra/config/ConfigRedactor');
       const result = await getUnifiedConfigManager().resolveLayersConfig({});
 
       console.log(chalk.cyan(`config explain ${key}`));
@@ -323,7 +327,8 @@ export class ConfigHandler {
    */
   async handleReload(): Promise<void> {
     try {
-      const { getUnifiedConfigManager } = await import('@modules/config');
+      const { getUnifiedConfigManager } =
+        await import('@openliri/infra/config');
       const result = await getUnifiedConfigManager().resolveLayersConfig({});
       console.log(
         chalk.green('✓'),

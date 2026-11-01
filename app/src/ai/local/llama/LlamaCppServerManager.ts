@@ -51,7 +51,7 @@ import {
 import { basename, extname, join } from 'path';
 import { createServer, type Server } from 'net';
 import AdmZip from 'adm-zip';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 import {
   AppError,
@@ -363,11 +363,11 @@ export function resolveSafeContextWindow(
 
 /**
  * 默认配置源：从 config.json 的 llama 段读取。
- * 使用 require 按需加载 @modules/config，避免 barrel 循环依赖（paths.ts 同款约束）。
+ * 使用 require 按需加载 @openliri/infra/config，避免 barrel 循环依赖（paths.ts 同款约束）。
  */
 function defaultConfigProvider(): Partial<LlamaServerConfig> {
   try {
-    const { getConfigValue } = require('@modules/config') as {
+    const { getConfigValue } = require('@openliri/infra/config') as {
       getConfigValue: <T>(key: string) => T | undefined;
     };
     const cfg = getConfigValue<Partial<LlamaServerConfig>>('llama');
@@ -566,7 +566,7 @@ export class LlamaCppServerManager {
 
     const user = this.configProvider() ?? {};
     const merged = { ...user, ...partial };
-    const { setConfigValue } = require('@modules/config') as {
+    const { setConfigValue } = require('@openliri/infra/config') as {
       setConfigValue: (key: string, value: unknown) => void;
     };
     setConfigValue('llama', merged);

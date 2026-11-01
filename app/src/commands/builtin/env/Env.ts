@@ -3,7 +3,7 @@
  * 显示环境变量与系统信息
  */
 import { arch, platform } from 'os';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
 import { handleError } from '@modules/error';

@@ -28,7 +28,7 @@ import '../bootstrap/initVariantFlags';
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   readFileSync,
   existsSync,

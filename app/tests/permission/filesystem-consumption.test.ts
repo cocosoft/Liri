@@ -7,7 +7,7 @@
  * filesystem.ts 消费同一键：isWithinWorkingDirectory 读 permission.trustedWorkspaces，
  * isDangerousFile/isInDangerousDirectory 读 permission.customRules.directoryRules.blacklist。
  *
- * 注意：不使用 mock.module（会全局污染其他测试的 @modules/config 解析）。
+ * 注意：不使用 mock.module（会全局污染其他测试的 @openliri/infra/config 解析）。
  * 消费链的运行时端到端验证见方案 §九（PUT 整块 → GET 落盘一致），
  * 本测试固化"面板写入结构 == 消费键路径"的契约，防止再次断裂（回归防护）。
  */

@@ -168,13 +168,13 @@
       "app/src/commands/interactive/InteractiveCommandExecutor.ts"
     ],
     "LocalSettings": [
-      "app/src/config/settings/localSettings.ts"
+      "packages/infra/src/config/settings/localSettings.ts"
     ],
     "LogsCommand": [
       "app/src/commands/logs/LogsCommand.ts"
     ],
     "MDMSettings": [
-      "app/src/config/settings/mdm/settings.ts"
+      "packages/infra/src/config/settings/mdm/settings.ts"
     ],
     "MemoryCLI": [
       "packages/infra/src/memory/cli/MemoryCLI.ts"
@@ -213,13 +213,13 @@
       "app/src/commands/builtin/plugins/Plugins.ts"
     ],
     "PolicySettings": [
-      "app/src/config/settings/policySettings.ts"
+      "packages/infra/src/config/settings/policySettings.ts"
     ],
     "PostSamplingHookManager": [
       "app/src/hooks/managers/PostSamplingHookManager.ts"
     ],
     "ProjectSettings": [
-      "app/src/config/settings/projectSettings.ts"
+      "packages/infra/src/config/settings/projectSettings.ts"
     ],
     "PromptSuggestion": [
       "app/src/promptSuggestion/PromptSuggestion.ts"
@@ -267,7 +267,7 @@
       "packages/infra/src/security/rollback/UndoManager.ts"
     ],
     "UserSettings": [
-      "app/src/config/settings/userSettings.ts"
+      "packages/infra/src/config/settings/userSettings.ts"
     ],
     "Workspace": [
       "app/src/workspaces/commands/lifecycle.ts",

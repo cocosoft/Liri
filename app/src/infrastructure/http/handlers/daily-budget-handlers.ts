@@ -39,7 +39,7 @@
 import type http from 'http';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import { setConfigValue } from '@modules/config';
+import { setConfigValue } from '@openliri/infra/config';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 import { readBody, json } from './handler-utils';
 // 仅**类型位**（R00-001 口径：type-only 跨层引用不计违规）

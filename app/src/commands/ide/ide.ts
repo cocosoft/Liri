@@ -7,7 +7,7 @@ import { promisify } from 'util';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
 import { handleError } from '@modules/error';

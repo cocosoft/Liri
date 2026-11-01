@@ -12,12 +12,12 @@
 // 优先于全局开关，未注入时回退原逻辑，行为零变化）。
 
 import { describe, expect, it } from 'bun:test';
-// 必须先求值 @modules/config 依赖链：loop-config import configManager →
+// 必须先求值 @openliri/infra/config 依赖链：loop-config import configManager →
 // config 链（plugins→PluginManager→CircuitBreaker）反向 import loop-config 时若其仍在
-// 求值中（TDZ）会崩溃（V-50 预存问题）。先 import '@modules/config' 使 loop-config
+// 求值中（TDZ）会崩溃（V-50 预存问题）。先 import '@openliri/infra/config' 使 loop-config
 // 以"config 链下游"身份完整求值，后续 LoopDetector 引用即命中缓存。
-// TODO: CS05-ROOTFIX — 根因是 loop-config 与 @modules/config 循环依赖，收敛后移除
-import '@modules/config';
+// TODO: CS05-ROOTFIX — 根因是 loop-config 与 @openliri/infra/config 循环依赖，收敛后移除
+import '@openliri/infra/config';
 import { createLoopDetector } from '../../src/query/LoopDetector.js';
 
 describe('D5: LOOP_OBSERVE_ONLY 旁路 critical 阻断', () => {

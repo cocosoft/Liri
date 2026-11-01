@@ -11,7 +11,7 @@ import {
   getConfigValue,
   setConfigValue,
   resetConfigToDefaults,
-} from '@modules/config';
+} from '@openliri/infra/config';
 import type { ToolParam } from '../types';
 import { ToolTag } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';

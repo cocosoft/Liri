@@ -14,7 +14,7 @@ import {
 import { alertRuleService } from '../AlertRuleService.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 const logger = getLogger('monitoring:alert_preset');
 

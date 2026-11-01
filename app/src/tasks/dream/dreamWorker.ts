@@ -1,5 +1,5 @@
 import { parentPort } from 'worker_threads';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 const prompt = configManager.env('LIRI_DREAM_PROMPT') || '默认思考主题';
 const maxDuration = parseInt(

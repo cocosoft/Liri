@@ -22,7 +22,7 @@ import {
   ANTHROPIC_CONSOLE_URL,
 } from '@openliri/kernel';
 import { createInterface } from 'readline';
-import { setConfigValue, getConfig } from '@modules/config';
+import { setConfigValue, getConfig } from '@openliri/infra/config';
 import { writeSoulMd, readSoulMd } from '@modules/services/soul/SoulReader';
 import { writeUserMd, readUserMd } from '@modules/services/soul/UserReader';
 import { detectUnifiedProviders } from '@modules/ai';

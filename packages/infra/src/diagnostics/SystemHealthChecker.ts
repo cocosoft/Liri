@@ -13,7 +13,7 @@ import {
   resolvePyappHome,
   resolveProjectRoot,
 } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getSystemCpuPercent, getDiskInfo } from '@modules/monitoring';
 import { probeExternalModule } from '@openliri/infra/utils/externalDeps';
 

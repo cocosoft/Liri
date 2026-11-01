@@ -119,7 +119,7 @@ export async function recordMobileAudit(
   const payload = buildMobileAuditPayload(event);
   try {
     const { EnterpriseAuditService, AuditEventType } =
-      await import('../../config/enterprise/audit/EnterpriseAuditService');
+      await import('@openliri/infra/config/enterprise/audit/EnterpriseAuditService');
     const service = EnterpriseAuditService.getInstance();
     await service.log(
       payload.type === 'authentication'

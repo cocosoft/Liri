@@ -33,7 +33,7 @@ export interface RemoteSettingsPayload {
   timestamp: number;
 }
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 export interface RemoteSettingsClientConfig {
   apiUrl: string;

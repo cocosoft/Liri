@@ -24,7 +24,7 @@ import { join } from 'path';
 import { load as yamlLoad } from 'js-yaml';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { getBuildVariant } from '@openliri/kernel';
-import { configManager } from '@modules/config';
+import { configManager } from '..';
 import { resolveAiAccess } from '@openliri/kernel/spi';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { getLogger } from '@openliri/kernel/loggerFacade';

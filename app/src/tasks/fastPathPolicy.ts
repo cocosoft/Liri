@@ -15,7 +15,7 @@
  * 非法项**告警，且因记忆化而**至多告警一次**（同一配置）。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { getLogger } from '@modules/monitoring';
 import {
   buildFastPathPolicy,

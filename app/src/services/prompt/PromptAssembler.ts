@@ -16,7 +16,7 @@ import type {
   AiOpsPort,
   SystemPromptContextDto,
 } from '@modules/runtime/api/aiOpsPorts';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { providerPromptRegistry } from './ProviderPromptPlugin';
 import { getLogger } from '@modules/monitoring';
 import { setCurrentSessionContext } from './MemoryPromptProvider';

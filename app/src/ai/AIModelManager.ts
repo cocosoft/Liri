@@ -20,7 +20,7 @@ import {
 } from './models/ModelAliases.js';
 import { modelManager } from './models/ModelManager.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';
 import { MODEL_ALIASES, type ModelAlias } from './models/ModelAliases';

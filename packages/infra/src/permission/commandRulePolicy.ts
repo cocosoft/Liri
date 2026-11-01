@@ -18,7 +18,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { matchesCommandRule } from '@openliri/infra/utils/commandRuleMatch';
 
 const logger = getLogger('permission:commandRulePolicy');

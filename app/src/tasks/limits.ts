@@ -10,7 +10,7 @@
  *   TASK_MAX_SUBTASKS         → maxSubtasks       默认 5（目标分解子任务数）
  *
  * 设计约束：
- * - 本文件为零依赖 leaf（不 import @modules/config 等 barrel，避免引入模块循环
+ * - 本文件为零依赖 leaf（不 import @openliri/infra/config 等 barrel，避免引入模块循环
  *   导致 import-time 初始化 TDZ——此前 const 表 + configManager 曾触发 TaskDecomposer 顶层求值失败）。
  * - 以 getter 函数形式导出（每次读取 env），供模块顶层 const 安全求值。
  */

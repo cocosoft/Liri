@@ -6,7 +6,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { getLogger } from '../monitoring/logs/Logger.js';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import type { StartupConfig, PluginSource } from './StartupConfig.js';

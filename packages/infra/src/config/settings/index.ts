@@ -22,7 +22,7 @@
  * 多源设置管理
  * 按优先级合并各源配置：userSettings < projectSettings < localSettings < flagSettings < policySettings
  * * 本模块委托给 UnifiedConfigManager 实现，避免多源设置的重复实现。
- * 新代码应直接使用 @modules/config 中的 getUnifiedConfigManager()。
+ * 新代码应直接使用 @openliri/infra/config 中的 getUnifiedConfigManager()。
  */
 
 import {

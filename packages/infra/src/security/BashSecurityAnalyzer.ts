@@ -165,9 +165,9 @@ import {
   createDefaultPathValidator,
   isDangerousRemovalPath,
 } from './validation/PathValidator.js';
-import { configManager } from '@modules/config';
-import type { PermissionConfig } from '@modules/config/types';
-import { loadRules } from '@modules/config/types';
+import { configManager } from '@openliri/infra/config';
+import type { PermissionConfig } from '@openliri/infra/config/types';
+import { loadRules } from '@openliri/infra/config/types';
 import { matchesAnyCommandRule } from '@openliri/infra/utils/commandRuleMatch';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('security:bashAnalyzer');

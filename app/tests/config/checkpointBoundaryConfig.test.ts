@@ -9,7 +9,7 @@ import { describe, expect, it } from 'bun:test';
 import {
   DEFAULT_CHECKPOINT_BOUNDARY_CONFIG,
   parseCheckpointBoundaryConfig,
-} from '../../src/config/settings/CheckpointBoundaryConfig';
+} from '@openliri/infra/config/settings/CheckpointBoundaryConfig';
 
 describe('checkpointBoundary 配置解析', () => {
   it('缺省 / 非对象 / null ⇒ 默认关闭 + relaxed', () => {

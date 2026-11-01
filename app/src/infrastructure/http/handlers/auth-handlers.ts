@@ -461,7 +461,7 @@ async function recordTenantUserAudit(input: {
 }): Promise<void> {
   try {
     const { EnterpriseAuditService, AuditEventType } =
-      await import('../../../config/enterprise/audit/EnterpriseAuditService.js');
+      await import('@openliri/infra/config/enterprise/audit/EnterpriseAuditService');
     await EnterpriseAuditService.getInstance().record({
       type: AuditEventType.USER_MANAGEMENT,
       severity: 'warning',

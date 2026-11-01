@@ -1,4 +1,4 @@
-﻿//
+//
 import {
   describe,
   it,
@@ -8,9 +8,9 @@ import {
   beforeEach,
   mock,
 } from 'bun:test';
-import { ConfigLoader } from './loader/ConfigLoader';
-import { HotReloader } from './hotreload/HotReloader';
-import { VersionController } from './version/VersionController';
+import { ConfigLoader } from '@openliri/infra/config/loader/ConfigLoader';
+import { HotReloader } from '@openliri/infra/config/hotreload/HotReloader';
+import { VersionController } from '@openliri/infra/config/version/VersionController';
 import { writeFileSync, mkdirSync, existsSync, unlinkSync, rmSync } from 'fs';
 import { join } from 'path';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -75,7 +75,7 @@ describe('ConfigLoader', () => {
     expect(config.appName).toBe('TestApp');
     expect(config.version).toBe(1);
     expect(config.debug).toBe(true);
-    expect(config.nested.key).toBe('value');
+    expect((config.nested as { key: string }).key).toBe('value');
   });
 
   it('loads environment variables with prefix', async () => {
@@ -528,8 +528,12 @@ describe('Config Module Integration', () => {
     expect(diff!.added.some((a) => a.key === 'database.pool')).toBe(true);
 
     const rollback = versionController.rollback(1);
-    expect(rollback!.config.database.host).toBe('localhost');
-    expect(rollback!.config.database.pool).toBeUndefined();
+    expect((rollback!.config.database as { host?: string }).host).toBe(
+      'localhost'
+    );
+    expect(
+      (rollback!.config.database as { pool?: string }).pool
+    ).toBeUndefined();
   });
 
   it('hot reloader rollback preserves version history', async () => {
@@ -596,7 +600,7 @@ describe('Config Module Integration', () => {
     const original = { app: 'test', settings: { debug: true } };
     const snap = versionController.snapshot(original, 'original');
     original.settings.debug = false;
-    expect(snap.config.settings.debug).toBe(true);
+    expect((snap.config.settings as { debug: boolean }).debug).toBe(true);
   });
 });
 

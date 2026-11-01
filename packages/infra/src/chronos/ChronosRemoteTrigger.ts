@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';

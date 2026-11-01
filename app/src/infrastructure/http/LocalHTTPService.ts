@@ -15,7 +15,7 @@ import {
   analyticsService,
   PerformanceMonitorService,
 } from '@openliri/infra/analytics';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 // 3.4/P1-1：流式 STT WebSocket 端点（前端按住说话实时字幕 + 统一转录链路）
 import { upgradeSTTStreamConnection } from '../../voice/STTStreamServer';
 import { setAnalyticsDependencies } from './handlers/analytics-handlers';

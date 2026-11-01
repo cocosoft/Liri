@@ -5,7 +5,7 @@
  * Orchestrator 根据此结果决定 approve / retry / skip / escalate。
  */
 
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 
 /**
  * PR4（#8）：severity 缺省策略（决策 3）——

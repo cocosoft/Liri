@@ -24,7 +24,7 @@ import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 import { getLogger } from '@modules/monitoring';
 import { getToolRegistry } from '../ToolRegistry';
 import { PermissionManager } from '@openliri/infra/permission';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { feature } from '@openliri/kernel';
 import {
   verdictFromScanStatus,

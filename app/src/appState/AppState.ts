@@ -24,7 +24,7 @@ import type { PluginError } from '@modules/error';
 // （app→app 合法，且 `types` 段属门禁 R03-002 规范子入口）。同时消除 `system/state/types.ts`
 // 那条 `system`(infra) -> `tasks`(app) 的 re-export 边。
 import type { TaskState } from '@modules/tasks/types';
-import type { SettingsJson } from '@modules/config/types.js';
+import type { SettingsJson } from '@openliri/infra/config/types';
 import type { Command, ModelSetting } from '@modules/types/index.js';
 
 export type AgentId = string;

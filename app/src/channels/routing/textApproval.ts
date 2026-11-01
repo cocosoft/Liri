@@ -92,7 +92,7 @@ export async function recordTextApprovalAudit(
   const payload = buildTextApprovalAuditPayload(input);
   try {
     const { EnterpriseAuditService, AuditEventType } =
-      await import('../../config/enterprise/audit/EnterpriseAuditService');
+      await import('@openliri/infra/config/enterprise/audit/EnterpriseAuditService');
     await EnterpriseAuditService.getInstance().log(
       AuditEventType.APPROVAL_ACTION,
       payload.severity,

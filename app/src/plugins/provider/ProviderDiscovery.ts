@@ -7,7 +7,7 @@ import {
   type ProviderMetadata,
   type ProviderType,
 } from './ProviderCatalog.js';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { handleError } from '@modules/error';
 import { existsSync, readFileSync } from 'fs';
 

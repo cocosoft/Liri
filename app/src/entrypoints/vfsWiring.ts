@@ -36,7 +36,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import type { VfsConfig } from '@modules/config';
+import type { VfsConfig } from '@openliri/infra/config';
 
 const logger = getLogger('vfs:wiring');
 
@@ -121,7 +121,7 @@ export function buildMountPlan(vfs: VfsConfig | undefined): VfsMountPlan {
  * 明确抛错（`VFS_CONFLICT`），本装配面据此先探测，避免把幂等装配变成启动失败。
  */
 export async function registerVfsMounts(): Promise<void> {
-  const { configManager } = await import('@modules/config');
+  const { configManager } = await import('@openliri/infra/config');
   const plan = buildMountPlan(configManager.getValue<VfsConfig>('vfs'));
   for (const warning of plan.warnings) {
     logger.warn(warning);

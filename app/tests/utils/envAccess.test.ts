@@ -7,7 +7,7 @@
  * 改成启动期注入（与 `constants/envAccess` 同手法），而不是让 utils 静默读错值。
  */
 import { afterEach, describe, expect, it } from 'bun:test';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { readUtilEnv } from '@openliri/infra/utils/envAccess';
 
 const PROBE = 'LIRI_UTIL_ENV_PROBE';

@@ -36,7 +36,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
 } from '@modules/error';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { SimpleMutex } from '@openliri/kernel';
 import { StreamingThinkScrubber } from '@modules/streaming';
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';

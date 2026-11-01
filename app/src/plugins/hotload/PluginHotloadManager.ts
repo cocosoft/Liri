@@ -15,7 +15,7 @@
  */
 
 import { resolvePluginsInstalledDir } from '@openliri/infra/environment';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   watch,
   FSWatcher,

@@ -7,7 +7,7 @@
  */
 import { createSign } from 'crypto';
 import { readFileSync, existsSync } from 'fs';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import { GOOGLE_API_BASE_URL, GOOGLE_OAUTH2_BASE_URL } from '@openliri/kernel';
 import type {
   ChatMessage,

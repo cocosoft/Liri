@@ -15,7 +15,7 @@
  * also lacks bidi. We enable bidi reordering when running on Windows or
  * inside Windows Terminal (covers WSL).
  */
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import bidiFactory from 'bidi-js';
 
 type ClusteredChar = {

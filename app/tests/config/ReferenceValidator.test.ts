@@ -3,7 +3,7 @@
 // ReferenceValidator 归属校验单测（验收标准 10）
 
 import { describe, expect, it } from 'bun:test';
-import { validateReferences } from '../../src/config/layers/ReferenceValidator';
+import { validateReferences } from '@openliri/infra/config/layers/ReferenceValidator';
 
 const okCheckers = {
   providerExists: async (id: string) => ['p1', 'p2'].includes(id),

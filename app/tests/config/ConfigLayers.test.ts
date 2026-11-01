@@ -6,9 +6,9 @@ import { describe, expect, it } from 'bun:test';
 import {
   resolveConfigLayers,
   collectLeafPaths,
-} from '../../src/config/layers/ConfigLayers';
-import type { LayerProfile } from '../../src/config/layers/ProfileManager';
-import type { LayerBundle } from '../../src/config/layers/BundleManager';
+} from '@openliri/infra/config/layers/ConfigLayers';
+import type { LayerProfile } from '@openliri/infra/config/layers/ProfileManager';
+import type { LayerBundle } from '@openliri/infra/config/layers/BundleManager';
 
 /** 断言辅助：resolveConfigLayers 返回 config: Record<string, unknown>，按测试预期形状精化类型 */
 function cfg(config: Record<string, unknown>) {

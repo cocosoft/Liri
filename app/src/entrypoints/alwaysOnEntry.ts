@@ -17,7 +17,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@openliri/infra/constants';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   resolveDataDir,
   resolveScopedDataDir,

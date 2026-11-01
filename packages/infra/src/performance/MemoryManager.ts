@@ -5,7 +5,7 @@
  */
 
 import { logForDebugging } from '@openliri/infra/utils/debug';
-import { configManager } from '@modules/config';
+import { configManager } from '@openliri/infra/config';
 import {
   getPerformanceConfig,
   performanceConfigManager,

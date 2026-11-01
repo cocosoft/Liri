@@ -33,7 +33,7 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-/** 建一个会话目录；`idleHours` 拨旧目录 mtime */
+/** 建一个会话目录；`idleHours` 拨旧目录 mtime（以 `refNow` 为参考时钟，默认当前时刻） */
 function makeSession(
   sessionId: string,
   options: {
@@ -42,7 +42,8 @@ function makeSession(
     events?: number;
     meta?: Record<string, unknown> | null;
     extraFiles?: string[];
-  } = {}
+  } = {},
+  refNow: number = Date.now()
 ): string {
   const dir = join(root, 'sessions', 'p1', sessionId);
   mkdirSync(dir, { recursive: true });
@@ -73,7 +74,7 @@ function makeSession(
     writeFileSync(join(dir, name), 'x', 'utf-8');
   }
   if (options.idleHours !== undefined) {
-    const t = Date.now() - options.idleHours * 3_600_000;
+    const t = refNow - options.idleHours * 3_600_000;
     utimesSync(dir, new Date(t), new Date(t));
   }
   return dir;
@@ -140,13 +141,20 @@ describe('pruneEmptySessions（预演 / 软删除 / 备份审计）', () => {
   });
 
   it('--apply：移入分区 .trash（同 deleteSession 命名）+ 备份 session.json + 审计', () => {
-    makeSession('empty_old', {
-      idleHours: 48,
-      meta: { title: '默认会话', status: 'active' },
-    });
-    makeSession('empty_recent', { idleHours: 0 });
-    makeSession('with_msgs', { idleHours: 48, messages: 2 });
+    // 夹具 mtime 与 `now` 必须同源：固定 `now` + `Date.now()` 造的 mtime 会随真实时间漂移，
+    // 令"48h 前"逐步逼近该固定时刻 ⇒ 空闲时长跌破阈值，用例变成时间炸弹
+    // （2026-11-01 实测 `applied` 由 1 变 0）。故把 `now` 作为参考时钟传给夹具。
     const now = new Date('2026-10-31T10:00:00Z').getTime();
+    makeSession(
+      'empty_old',
+      {
+        idleHours: 48,
+        meta: { title: '默认会话', status: 'active' },
+      },
+      now
+    );
+    makeSession('empty_recent', { idleHours: 0 }, now);
+    makeSession('with_msgs', { idleHours: 48, messages: 2 }, now);
 
     const result = pruneEmptySessions(root, {
       apply: true,

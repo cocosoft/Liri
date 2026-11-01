@@ -7442,3 +7442,35 @@
 {"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#7","i":0,"c":".trae/architecture/infra-cycle-baseline.json"}
 {"id":"INFRA-CYCLE-BREAK-ERROR","k":"tests#0","i":0,"c":"app/tests/gates/infraCycleRatchet.test.ts"}
 {"id":"INFRA-CYCLE-BREAK-ERROR","k":"changelog#0","i":0,"c":"P1 解环：error 不再依赖 config/monitoring（出边清零）；新增 R7 层内环棘轮门禁"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"title","i":0,"c":"P1 解环（续）：constants 出环（env 读取 / 快照解冻改注入，日志与错误走 kernel）"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"source","i":0,"c":"R7 环棘轮：13 成员 SCC 中 constants 出边仅 7 条（config/monitoring/error/memory），是最小切割点"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"reopenWhen","i":0,"c":"utils 仍留环内（≈92 条出边，需按目标模块分批）；若 constants 新增对同层模块的引用，R7 会立即变红"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"notes","i":0,"c":"const env 读取（oauth.ts 7 处 / system.ts 2 处）改为 constants/envAccess 的注入入口，实现由 bootstrap/preflight.wireConstantsDeps 接 configManager.env；日志 2 文件改 @openliri/kernel/loggerFacade；"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"notes","i":1,"c":"AppError/ErrorCategory/ErrorSeverity 改 @openliri/kernel/errors；systemPromptSections 的 import(@modules/memory) 动态解冻改为注入 setFrozenSnapshotUnfreezer（未注入 = no-op，与\"该导出无调用方\"等价）。所有 env 读"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"notes","i":2,"c":"取点均在函数体内（调用期），启动期接线先于使用。R7 结果：SCC 13 → 12，constants 出环，基线同步下调。"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#0","i":0,"c":"app/src/constants/envAccess.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#1","i":0,"c":"app/src/constants/oauth.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#2","i":0,"c":"app/src/constants/system.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#3","i":0,"c":"app/src/constants/systemPromptSections.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#4","i":0,"c":"app/src/constants/index.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#5","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#6","i":0,"c":"app/src/main.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#7","i":0,"c":".trae/architecture/infra-cycle-baseline.json"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"tests#0","i":0,"c":"app/tests/gates/infraCycleRatchet.test.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"changelog#0","i":0,"c":"P1 解环续：constants 不再依赖 config/monitoring/error/memory（出环，SCC 13→12）"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"title","i":0,"c":"P1 解环（续）：constants 出环（env 读取 / 快照解冻改注入，日志与错误走 kernel）"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"source","i":0,"c":"R7 环棘轮：13 成员 SCC 中 constants 出边仅 7 条（config/monitoring/error/memory），是最小切割点"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"reopenWhen","i":0,"c":"utils 仍留环内（≈92 条出边，需按目标模块分批）；若 constants 新增对同层模块的引用，R7 会立即变红"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"notes","i":0,"c":"const env 读取（oauth.ts 7 处 / system.ts 2 处）改为 constants/envAccess 的注入入口，实现由 bootstrap/preflight.wireConstantsDeps 接 configManager.env；日志 2 文件改 @openliri/kernel/loggerFacade；"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"notes","i":1,"c":"AppError/ErrorCategory/ErrorSeverity 改 @openliri/kernel/errors；systemPromptSections 的 import(@modules/memory) 动态解冻改为注入 setFrozenSnapshotUnfreezer（未注入 = no-op，与\"该导出无调用方\"等价）。所有 env 读"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"notes","i":2,"c":"取点均在函数体内（调用期），启动期接线先于使用。R7 结果：SCC 13 → 12，constants 出环，基线同步下调。"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#0","i":0,"c":"app/src/constants/envAccess.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#1","i":0,"c":"app/src/constants/oauth.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#2","i":0,"c":"app/src/constants/system.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#3","i":0,"c":"app/src/constants/systemPromptSections.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#4","i":0,"c":"app/src/constants/index.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#5","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#6","i":0,"c":"app/src/main.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#7","i":0,"c":".trae/architecture/infra-cycle-baseline.json"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"tests#0","i":0,"c":"app/tests/gates/infraCycleRatchet.test.ts"}
+{"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"changelog#0","i":0,"c":"P1 解环续：constants 不再依赖 config/monitoring/error/memory（出环，SCC 13→12）"}

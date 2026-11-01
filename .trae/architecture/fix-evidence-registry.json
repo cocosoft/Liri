@@ -15832,6 +15832,41 @@
       ],
       "reopenWhen": "若继续解环（config/monitoring/constants/utils 之间），每出环一个模块需同步下调 infra-cycle-baseline.json（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-BREAK-ERROR）",
       "notes": "error 原有 4 条出边：monitoring×3（index.ts/safeLog.ts/api/APISceneClassifier.ts）→ 改走 @openliri/kernel/loggerFacade；config×1（APISceneClassifier 的 PY_APP_USE_BEDROCK）→…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-BREAK-ERROR）"
+    },
+    {
+      "id": "INFRA-CYCLE-BREAK-CONSTANTS",
+      "title": "P1 解环（续）：constants 出环（env 读取 / 快照解冻改注入，日志与错误走 kernel）",
+      "source": "R7 环棘轮：13 成员 SCC 中 constants 出边仅 7 条（config/monitoring/error/memory），是最小切割点",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/constants/envAccess.ts",
+        "app/src/constants/oauth.ts",
+        "app/src/constants/system.ts",
+        "app/src/constants/systemPromptSections.ts",
+        "app/src/constants/index.ts",
+        "app/src/bootstrap/preflight.ts",
+        "app/src/main.ts",
+        ".trae/architecture/infra-cycle-baseline.json"
+      ],
+      "tests": [
+        "app/tests/gates/infraCycleRatchet.test.ts"
+      ],
+      "changelog": [
+        "P1 解环续：constants 不再依赖 config/monitoring/error/memory（出环，SCC 13→12）"
+      ],
+      "reopenWhen": "utils 仍留环内（≈92 条出边，需按目标模块分批）；若 constants 新增对同层模块的引用，R7 会立即变红（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-BREAK-CONSTANTS）",
+      "notes": "const env 读取（oauth.ts 7 处 / system.ts 2 处）改为 constants/envAccess 的注入入口，实现由 bootstrap/preflight.wireConstantsDeps 接 configManager.env；日志 2 文件改 @openliri/kernel/…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-BREAK-CONSTANTS）"
     }
   ]
 }

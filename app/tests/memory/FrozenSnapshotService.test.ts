@@ -7,7 +7,7 @@ import {
   FrozenSnapshotService,
   resetFrozenSnapshotService,
   getFrozenSnapshotService,
-} from '../../src/memory/FrozenSnapshotService';
+} from '@openliri/infra/memory/FrozenSnapshotService';
 
 describe('FrozenSnapshotService', () => {
   let service: FrozenSnapshotService;

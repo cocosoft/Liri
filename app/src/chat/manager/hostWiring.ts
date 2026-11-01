@@ -14,7 +14,7 @@
  */
 
 import { getMemoryPressureMonitor } from '@modules/monitoring';
-import { registerSessionSummaryMemoryType } from '@modules/memory';
+import { registerSessionSummaryMemoryType } from '@openliri/infra/memory';
 import { compactionOrchestrator } from '@modules/context';
 import {
   setEvolutionAuditSink,

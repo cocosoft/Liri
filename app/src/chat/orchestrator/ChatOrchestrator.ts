@@ -193,7 +193,7 @@ export class ChatOrchestrator {
         // 且 `IdleScaleMonitor.onIdle` 每次空闲只触发一次（`idleFired` 守卫）⇒ 无需重入保护。
         void (async () => {
           try {
-            const { getMemoryManager } = await import('@modules/memory');
+            const { getMemoryManager } = await import('@openliri/infra/memory');
             const mm = getMemoryManager();
             const r = await mm.runMaintenancePass();
             if (r.removed > 0) {

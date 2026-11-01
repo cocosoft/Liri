@@ -437,7 +437,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '5 * 60 * 1000',
       ],
       [
-        'src/memory/FrozenSnapshotService.ts',
+        '../packages/infra/src/memory/FrozenSnapshotService.ts',
         'FROZEN_SNAPSHOT_TTL_MS',
         '60 * 60 * 1000',
       ],
@@ -1089,12 +1089,12 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
 
   test('B5-2㉒：`CURRENT_SCHEMA_VERSION` ×3 已按域消歧（真源保留 + 两处私有副本改名）', () => {
     // memory：导出真源，被 `MemorySchemaRegistry` 消费 ⇒ **有意保留原名**
-    expect(read('src/memory/types/MemoryMetadata.ts')).toContain(
-      'export const CURRENT_SCHEMA_VERSION = 2;'
-    );
-    expect(read('src/memory/types/MemorySchemaRegistry.ts')).toContain(
-      "import { CURRENT_SCHEMA_VERSION } from './MemoryMetadata';"
-    );
+    expect(
+      read('../packages/infra/src/memory/types/MemoryMetadata.ts')
+    ).toContain('export const CURRENT_SCHEMA_VERSION = 2;');
+    expect(
+      read('../packages/infra/src/memory/types/MemorySchemaRegistry.ts')
+    ).toContain("import { CURRENT_SCHEMA_VERSION } from './MemoryMetadata';");
     // knowledge：文件私有（值 1）⇒ 按域消歧
     const kh = read('src/knowledge/KnowledgeSchemaMigration.ts');
     expect(kh).not.toMatch(/const CURRENT_SCHEMA_VERSION = /);
@@ -1927,7 +1927,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
 
   test('B5-2B1：`DIR_EXISTS_GUIDANCE` 已按域消歧（异值异域：dream 目录清单 / memory 已存在提示）', () => {
     // memory 域导出真源（中文「目录已存在」提示，被 teamMemPrompts 引用）保留原名
-    const mem = read('src/memory/services/MemoryPromptBuilder.ts');
+    const mem = read(
+      '../packages/infra/src/memory/services/MemoryPromptBuilder.ts'
+    );
     expect(mem).toContain('唯一真源（memory 域');
     expect(mem).toContain('export const DIR_EXISTS_GUIDANCE =');
     expect(mem).toContain('该目录已存在 —— 直接用 Write 工具写入即可');
@@ -1939,13 +1941,17 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(dream).toContain('const DREAM_DIR_CONTENT_GUIDANCE =');
     expect(dream).toContain('${DREAM_DIR_CONTENT_GUIDANCE}');
     // 跨文件消费者仍引用 memory 真源
-    const team = read('src/memory/services/teamMemPrompts.ts');
+    const team = read(
+      '../packages/infra/src/memory/services/teamMemPrompts.ts'
+    );
     expect(team).toContain("from './MemoryPromptBuilder.js';");
   });
 
   test('B5-2B2：`ENTRYPOINT_NAME` 已按域消歧（异值异域：index.md / MEMORY.md，取值一字未改）', () => {
     // memory 域导出真源（'MEMORY.md'，被 MemoryFileService 引用）保留原名
-    const mem = read('src/memory/services/MemoryPromptBuilder.ts');
+    const mem = read(
+      '../packages/infra/src/memory/services/MemoryPromptBuilder.ts'
+    );
     expect(mem).toContain("export const ENTRYPOINT_NAME = 'MEMORY.md';");
     // chronos 域（dream 记忆根，'index.md'）改名
     const dream = read(
@@ -1956,12 +1962,16 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(dream).toContain('${DREAM_ENTRYPOINT_NAME}');
     expect(dream).toContain('return DREAM_ENTRYPOINT_NAME;');
     // 跨文件消费者仍引用 memory 真源
-    const fileSvc = read('src/memory/services/MemoryFileService.ts');
+    const fileSvc = read(
+      '../packages/infra/src/memory/services/MemoryFileService.ts'
+    );
     expect(fileSvc).toContain('ENTRYPOINT_NAME,');
   });
 
   test('B5-2B3：`MAX_ENTRYPOINT_LINES` 已按域消歧（异值异域：50 / 200，取值一字未改）', () => {
-    const mem = read('src/memory/services/MemoryPromptBuilder.ts');
+    const mem = read(
+      '../packages/infra/src/memory/services/MemoryPromptBuilder.ts'
+    );
     expect(mem).toContain('export const MAX_ENTRYPOINT_LINES = 200;');
     const dream = read(
       '../packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts'
@@ -1969,7 +1979,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(dream).not.toMatch(/(^|[^_A-Za-z])const MAX_ENTRYPOINT_LINES\s*=/);
     expect(dream).toContain('const DREAM_MAX_ENTRYPOINT_LINES = 50;');
     expect(dream).toContain('return DREAM_MAX_ENTRYPOINT_LINES;');
-    const fileSvc = read('src/memory/services/MemoryFileService.ts');
+    const fileSvc = read(
+      '../packages/infra/src/memory/services/MemoryFileService.ts'
+    );
     expect(fileSvc).toContain('MAX_ENTRYPOINT_LINES,');
   });
 });

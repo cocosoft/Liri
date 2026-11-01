@@ -30,7 +30,7 @@ import type {
   PostSamplingHook,
 } from '../hooks/types/PostSampling.js';
 import type { ToolUseContext } from '../tools/types/ToolUseContext.js';
-import { MemoryIntegration } from '@modules/memory';
+import { MemoryIntegration } from '@openliri/infra/memory';
 import {
   compactionOrchestrator,
   type CompactionContext,

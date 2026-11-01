@@ -3,7 +3,10 @@
  * 规格：`.trae/specs/memory-dedup-blocking-rootfix.md` §D5
  */
 import { describe, expect, it } from 'bun:test';
-import { selectEvictions, type EvictionCandidate } from '@modules/memory';
+import {
+  selectEvictions,
+  type EvictionCandidate,
+} from '@openliri/infra/memory';
 
 const DAY = 86_400_000;
 const NOW = Date.now();

@@ -14,9 +14,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-import { MemoryManagerImpl } from '@modules/memory';
-import { MemoryStoreImpl } from '../../src/memory/stores/MemoryStore.js';
-import type { Memory } from '../../src/memory/types/Memory.js';
+import { MemoryManagerImpl } from '@openliri/infra/memory';
+import { MemoryStoreImpl } from '@openliri/infra/memory/stores/MemoryStore';
+import type { Memory } from '@openliri/infra/memory/types/Memory';
 import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
 
 const createdDirs: string[] = [];

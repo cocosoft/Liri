@@ -1,4 +1,4 @@
-import { resolveDataDir } from '@openliri/infra/environment';
+import { ensureDir, resolveDataDir } from '@openliri/infra/environment';
 import type { Memory, MemoryStats } from './types/Memory';
 import { createMemory } from './types/Memory';
 // T-①07（A5 记忆分层收敛）T1-2：声明实现四个窄端口（`memory/ports/MemoryPort.ts`）。
@@ -39,7 +39,6 @@ import {
   Rule,
   Preference,
 } from './services/PYAppIntegrationService';
-import fsExtra from 'fs-extra';
 import { join } from 'path';
 import * as fs from 'fs';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -216,6 +215,16 @@ export interface EvictionCandidate {
 
 /** 永久保护的记忆类型（量小、价值高，不参与淘汰） */
 const PROTECTED_MEMORY_TYPES = new Set(['user_fact', 'session_summary']);
+
+/** 路径存在判断（等价 fs-extra 的 pathExists：不可访问即视为不存在） */
+async function pathExists(target: string): Promise<boolean> {
+  try {
+    await fs.promises.access(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * 选出需要归档的记忆 id（**纯函数**，不碰 I/O）。
@@ -1137,7 +1146,7 @@ export class MemoryManagerImpl
    * @param backupDir 备份目录
    */
   async backupMemoryData(backupDir: string = './backups'): Promise<void> {
-    await fsExtra.ensureDir(backupDir);
+    ensureDir(backupDir);
 
     // 复制记忆目录到备份目录
     const backupPath = join(
@@ -1147,7 +1156,7 @@ export class MemoryManagerImpl
 
     try {
       // 检查源目录是否存在
-      const sourceExists = await fsExtra.pathExists(this.storeDir);
+      const sourceExists = await pathExists(this.storeDir);
       if (!sourceExists) {
         throw new AppError(
           `Source memory directory ${this.storeDir} does not exist`,
@@ -1157,7 +1166,7 @@ export class MemoryManagerImpl
         );
       }
 
-      await fsExtra.copy(this.storeDir, backupPath);
+      await fs.promises.cp(this.storeDir, backupPath, { recursive: true });
     } catch (error) {
       if (error instanceof AppError) {
         throw error;
@@ -1177,7 +1186,7 @@ export class MemoryManagerImpl
    */
   async restoreMemoryData(backupDir: string): Promise<void> {
     // 检查备份目录是否存在
-    if (!(await fsExtra.pathExists(backupDir))) {
+    if (!(await pathExists(backupDir))) {
       throw new AppError(
         `Backup directory ${backupDir} does not exist`,
         ErrorCategory.EXECUTION,
@@ -1187,14 +1196,15 @@ export class MemoryManagerImpl
     }
 
     // 清空当前记忆目录
-    await fsExtra.emptyDir(this.storeDir);
+    await fs.promises.rm(this.storeDir, { recursive: true, force: true });
+    await fs.promises.mkdir(this.storeDir, { recursive: true });
 
     // 复制备份数据到当前记忆目录
-    const files = await fsExtra.readdir(backupDir);
+    const files = await fs.promises.readdir(backupDir);
     for (const file of files) {
       const srcPath = join(backupDir, file);
       const destPath = join(this.storeDir, file);
-      await fsExtra.copy(srcPath, destPath);
+      await fs.promises.cp(srcPath, destPath, { recursive: true });
     }
 
     // 重新构建索引

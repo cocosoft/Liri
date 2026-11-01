@@ -1,5 +1,5 @@
-import type { Memory } from '../../memory/types/Memory';
-import { MemoryManagerImpl } from '../../memory/MemoryManager';
+import type { Memory } from '@openliri/infra/memory/types/Memory';
+import { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
 
 /**
  * 搜索工具接口

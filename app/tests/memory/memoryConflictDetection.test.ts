@@ -9,10 +9,10 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { MemoryConflictDetector } from '../../src/memory/consolidation/MemoryConflictDetector';
-import { MemoryManagerImpl } from '../../src/memory/MemoryManager';
-import { createMemoryMetadata } from '../../src/memory/types/MemoryMetadata';
-import type { Memory } from '../../src/memory/types/Memory';
+import { MemoryConflictDetector } from '@openliri/infra/memory/consolidation/MemoryConflictDetector';
+import { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
+import { createMemoryMetadata } from '@openliri/infra/memory/types/MemoryMetadata';
+import type { Memory } from '@openliri/infra/memory/types/Memory';
 
 function mem(id: string, content: string): Memory {
   return {

@@ -6,7 +6,7 @@
 // 未选中的模块连 import() 字面量都不生成 ⇒ 变体裁剪不依赖 minifier 的副作用分析。
 export const LAZY_LOADERS: Record<string, () => Promise<unknown>> = {
   featureflags: () => import('@openliri/infra/featureflags'),
-  memory: () => import('@modules/memory'),
+  memory: () => import('@openliri/infra/memory'),
   chronos: () => import('@openliri/infra/chronos'),
   mcp: () => import('@modules/mcp'),
   security: () => import('@modules/security'),

@@ -107,6 +107,8 @@
       "zustand/*": ["../node_modules/zustand/*"],
       "chalk": ["../node_modules/chalk"],
       "commander": ["../node_modules/commander"],
+      "gray-matter": ["../node_modules/gray-matter"],
+      "glob": ["../node_modules/glob"],
       "pdfjs-dist": ["../node_modules/pdfjs-dist"],
       "pdfjs-dist/*": ["../node_modules/pdfjs-dist/*"],
       "@napi-rs/canvas": ["../node_modules/@napi-rs/canvas"],
@@ -180,8 +182,13 @@
       "@modules/compaction": ["compaction"],
       "@modules/channels": ["channels"],
       "@modules/channels/*": ["channels/*"],
-      "@modules/memory": ["memory"],
-      "@modules/memory/*": ["memory/*"],
+      "@openliri/infra/memory": [
+        "../../packages/infra/src/memory/index.ts"
+      ],
+      "@openliri/infra/memory.js": [
+        "../../packages/infra/src/memory/index.ts"
+      ],
+      "@openliri/infra/memory/*": ["../../packages/infra/src/memory/*"],
       "@modules/evals": ["evals"],
       "@modules/evals/*": ["evals/*"],
       "@modules/security": ["security"],

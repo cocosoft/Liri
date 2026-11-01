@@ -73,7 +73,7 @@ import { VoiceChannelIntegration } from './VoiceChannelIntegration';
 import type { VoiceChannelConfig } from './VoiceChannelIntegration';
 import { VoiceCommandRouter } from './VoiceCommandRouter';
 import type { VoiceCommandRouterConfig } from './VoiceCommandRouter';
-import { getMemoryManager } from '@modules/memory';
+import { getMemoryManager } from '@openliri/infra/memory';
 
 import type { VoiceServiceConfig } from '@modules/services/voice/models/types';
 import type {

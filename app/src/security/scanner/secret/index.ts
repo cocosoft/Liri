@@ -37,8 +37,8 @@ export {
   redactSecretsFully,
   scanMemoryContent,
   validateMemoryContent,
-} from '@modules/memory';
+} from '@openliri/infra/memory';
 export type {
   SecretMatch as MemorySecretMatch,
   SecretScanResult,
-} from '@modules/memory';
+} from '@openliri/infra/memory';

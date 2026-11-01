@@ -127,7 +127,7 @@ async function main(): Promise<void> {
   // 打桩完成后才动态导入被观测模块（ESM import 提升会绕过打桩）。
   // 支持指定入口：`bun scripts/probe-memory-handles.ts ../src/chat/index.js`
   // 不传则默认观测 memory 模块（附带发现 7 的原始复现入口）。
-  const target = process.argv[2] ?? '../src/memory/index.js';
+  const target = process.argv[2] ?? '@openliri/infra/memory';
   out(`[probe] 观测模块=${target}`);
   const mod = (await import(target)) as Record<string, unknown>;
   const ctor = mod.MemoryManagerImpl as

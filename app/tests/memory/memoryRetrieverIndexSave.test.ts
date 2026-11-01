@@ -43,7 +43,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getErrorStats } from '../../src/error/handleError';
-import { MemoryRetrieverImpl } from '../../src/memory/retrievers/MemoryRetriever';
+import { MemoryRetrieverImpl } from '@openliri/infra/memory/retrievers/MemoryRetriever';
 import { decodePayload } from '@openliri/infra/utils/MemoryFileEnvelope';
 
 const dirs: string[] = [];

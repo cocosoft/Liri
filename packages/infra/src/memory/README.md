@@ -88,7 +88,7 @@
 ## 使用
 
 ```typescript
-import { AutoMemory } from '@modules/memory';
+import { AutoMemory } from '@openliri/infra/memory';
 ```
 
 ## 相关文档

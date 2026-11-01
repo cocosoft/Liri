@@ -8,8 +8,8 @@ import { describe, expect, it, afterEach } from 'bun:test';
 import { mkdtempSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { MemoryManagerImpl } from '../../src/memory/MemoryManager';
-import { MemoryScannerImpl } from '../../src/memory/scanners/MemoryScanner';
+import { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
+import { MemoryScannerImpl } from '@openliri/infra/memory/scanners/MemoryScanner';
 import {
   registerSessionSummaryMemoryType,
   idempotencyKey,
@@ -19,8 +19,8 @@ import {
   clearSessionSummaries,
   SESSION_SUMMARY_MEMORY_TYPE,
   type SessionSummaryAdapterInput,
-} from '../../src/memory/adapters/SessionSummaryAdapter';
-import { isValidMemoryType } from '../../src/memory/types/MemoryType';
+} from '@openliri/infra/memory/adapters/SessionSummaryAdapter';
+import { isValidMemoryType } from '@openliri/infra/memory/types/MemoryType';
 
 const createdDirs: string[] = [];
 afterEach(() => {

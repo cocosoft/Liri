@@ -34,7 +34,7 @@ export async function extractMemoryFromChat(
   sessionId: string
 ): Promise<void> {
   try {
-    const { getMemoryManager } = await import('@modules/memory');
+    const { getMemoryManager } = await import('@openliri/infra/memory');
     const mm = getMemoryManager();
     const turnText = `用户: ${userContent}\n助手: ${assistantContent}`;
 

@@ -471,7 +471,7 @@
 {"id":"MODE-A5","k":"source","i":0,"c":"21 模式对标复查报告 09"}
 {"id":"MODE-A5","k":"reopenWhen","i":0,"c":"记忆分层再增子模块时"}
 {"id":"MODE-A5","k":"notes","i":0,"c":"报告判定 🟢 域名消除（MemoryManagerImpl / HeapMemoryManager）。"}
-{"id":"MODE-A5","k":"code#0","i":0,"c":"app/src/memory/MemoryManager.ts"}
+{"id":"MODE-A5","k":"code#0","i":0,"c":"packages/infra/src/memory/MemoryManager.ts"}
 {"id":"MODE-A5","k":"code#1","i":0,"c":"packages/infra/src/performance/MemoryManager.ts"}
 {"id":"MODE-A6","k":"title","i":0,"c":"21 模式 A6：评估可观测性割裂"}
 {"id":"MODE-A6","k":"source","i":0,"c":"21 模式对标复查报告 11 §2.2"}
@@ -3150,7 +3150,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#0","i":0,"c":"packages/infra/src/cost/DailyCostCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#1","i":0,"c":"app/src/tasks/CrossProcessLock.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#2","i":0,"c":"packages/kernel/src/core/cache/SessionCache.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#4","i":0,"c":"app/src/memory/FrozenSnapshotService.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#4","i":0,"c":"packages/infra/src/memory/FrozenSnapshotService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#5","i":0,"c":"packages/infra/src/media/image/TempFileManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#6","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#7","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerationCache.ts"}
@@ -3883,7 +3883,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"notes","i":1,"c":":DIR_EXISTS_GUIDANCE` **2→0**（204→203 键），可下调键仅此一个 · 6 门禁 exit 0（含 drift）。**定性**：chronos 侧（英文「目录内容清单」，dream 整合提示词用）与 memory 侧（中文「目录已存在，直接 Write」提示，`export` 且被 `teamMemPrompts.ts` 跨文"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"notes","i":2,"c":"件消费）**异值异域** ⇒ 保留 memory 导出真源原名（有真实消费者），chronos 本地副本改名 `DREAM_DIR_CONTENT_GUIDANCE`；取值/行为零变化。首轮守卫断言漏写注释中的反引号致 1 fail ⇒ 已修正为 `唯一真源（memory 域`。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"code#0","i":0,"c":"packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"code#1","i":0,"c":"app/src/memory/services/MemoryPromptBuilder.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"code#1","i":0,"c":"packages/infra/src/memory/services/MemoryPromptBuilder.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-51-DIR-EXISTS-GUIDANCE","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3894,7 +3894,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"notes","i":1,"c":"pass / 627 expect · `lint:consts` 重播种：`同名常量:ENTRYPOINT_NAME` **2→0**（与 B5-2-53 同批，203→201 键）· 6 门禁 exit 0（含 drift）。**定性**：chronos dream 记忆根（'index.md'，本地 const）与 memory 域（'"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"notes","i":2,"c":"MEMORY.md'，`export` 且被 `MemoryFileService` 跨文件消费）**异值异域** ⇒ memory 导出真源保名，chronos 副本改名 `DREAM_ENTRYPOINT_NAME`；取值/行为零变化。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"code#0","i":0,"c":"packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"code#1","i":0,"c":"app/src/memory/services/MemoryPromptBuilder.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"code#1","i":0,"c":"packages/infra/src/memory/services/MemoryPromptBuilder.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-52-ENTRYPOINT-NAME","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3905,7 +3905,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"notes","i":1,"c":"lint:consts` 重播种：`同名常量:MAX_ENTRYPOINT_LINES` **2→0**（**与 B5-2-52 同批提交 3878abaf7**，203→201 键；该次重播种仅此二键为可下调项，无意外新增）· 6 门禁 exit 0（含 drift）。**定性**：chronos dream 记忆根索引行上限（50）与 memory 域（"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"notes","i":2,"c":"200，`export` 且被 `MemoryFileService` 消费）**异值异域** ⇒ memory 真源保名，chronos 副本改名 `DREAM_MAX_ENTRYPOINT_LINES`；取值/行为零变化。同批 reason：两键同文件同性质、注释互指，拆两次提交会造成中间态注释指向未存在的名。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"code#0","i":0,"c":"packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"code#1","i":0,"c":"app/src/memory/services/MemoryPromptBuilder.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"code#1","i":0,"c":"packages/infra/src/memory/services/MemoryPromptBuilder.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-53-MAX-ENTRYPOINT-LINES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -5817,7 +5817,7 @@
 {"id":"SECRET-SCANNER-NEW-PREFIXES","k":"source","i":0,"c":"dev_docs/20261009/Liri-21模式完成度对照与未达标清单-20261009.md SR-1"}
 {"id":"SECRET-SCANNER-NEW-PREFIXES","k":"reopenWhen","i":0,"c":"厂商再次更换密钥前缀或引入结构化凭据时重开"}
 {"id":"SECRET-SCANNER-NEW-PREFIXES","k":"notes","i":0,"c":"保留旧 openai-api-key 规则；普通文本 sk-proj 不误报。"}
-{"id":"SECRET-SCANNER-NEW-PREFIXES","k":"code#0","i":0,"c":"app/src/memory/scanners/MemorySecretScanner.ts"}
+{"id":"SECRET-SCANNER-NEW-PREFIXES","k":"code#0","i":0,"c":"packages/infra/src/memory/scanners/MemorySecretScanner.ts"}
 {"id":"SECRET-SCANNER-NEW-PREFIXES","k":"tests#0","i":0,"c":"app/tests/memory/secretScannerPrefixes.test.ts"}
 {"id":"DOCS-SECURITY-IMPORT-FIX","k":"title","i":0,"c":"U-23：移除已删除的 getSandboxManager/getPermissionManager/getSecurityAudit 示例"}
 {"id":"DOCS-SECURITY-IMPORT-FIX","k":"source","i":0,"c":"dev_docs/dailys/20261001/pending-tasks-consolidated-20261001.md T-①05 遗留"}
@@ -7049,7 +7049,7 @@
 {"id":"MEM-INDEX-ATOMIC-SAVE","k":"reopenWhen","i":0,"c":"再出现 [save_index] ENOENT/EPERM，或记忆索引保存路径被改为非原子写"}
 {"id":"MEM-INDEX-ATOMIC-SAVE","k":"notes","i":0,"c":"根因：saveIndex 用固定临时名 memory-index.json.tmp，MemoryManager 10 处 await 调用在并发工具调用下同时进入 ⇒ 后到者 rename 的 tmp 已被先到者消费。修复：① 临时名 pid+序号唯一；② 实例内保存队列串行；③ rename 对 EPERM/EBUSY/EACCES 有界重试（"}
 {"id":"MEM-INDEX-ATOMIC-SAVE","k":"notes","i":1,"c":"Windows 并发替换目标实测），ENOENT 不重试。"}
-{"id":"MEM-INDEX-ATOMIC-SAVE","k":"code#0","i":0,"c":"app/src/memory/retrievers/MemoryRetriever.ts"}
+{"id":"MEM-INDEX-ATOMIC-SAVE","k":"code#0","i":0,"c":"packages/infra/src/memory/retrievers/MemoryRetriever.ts"}
 {"id":"MEM-INDEX-ATOMIC-SAVE","k":"tests#0","i":0,"c":"app/tests/memory/memoryRetrieverIndexSave.test.ts"}
 {"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"title","i":0,"c":"PDCA confirm 端点不再假成功：任务不存在⇒404、能力未实现⇒501、真正执行⇒200"}
 {"id":"PDCA-CONFIRM-NO-FAKE-SUCCESS","k":"source","i":0,"c":"台账「LRO 路由矩阵复核」#2：app 侧编排器无 confirm（taskOpsPorts 自述）⇒ 旧实现 confirm?.() 恒 no-op 却回 {ok:true}；编排器缺失时回 200+{error:Not available}"}
@@ -7073,8 +7073,8 @@
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"notes","i":0,"c":"修复：新增 utils/atomicFileWrite.ts（唯一临时名 pid+序号、mkdir、rename 对 EPERM/EBUSY/EACCES 有界重试 3 次；ENOENT 不重试），记忆索引与关系图两处改为复用它 + 实例内保存队列。CS01：session/persistence/AtomicWriter 属 service 层（infra"}
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"notes","i":1,"c":"→service 会倒挂）故未直接复用，改为同层 utils 原语。测试：原语并发 8 写 + 目录自动创建；关系图 6 并发保存零错误 + 可解码；索引用例回归。"}
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"code#0","i":0,"c":"packages/infra/src/utils/atomicFileWrite.ts"}
-{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"code#1","i":0,"c":"app/src/memory/retrievers/MemoryRetriever.ts"}
-{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"code#2","i":0,"c":"app/src/memory/MemoryManager.ts"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"code#1","i":0,"c":"packages/infra/src/memory/retrievers/MemoryRetriever.ts"}
+{"id":"MEM-RELATION-GRAPH-ATOMIC","k":"code#2","i":0,"c":"packages/infra/src/memory/MemoryManager.ts"}
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"tests#0","i":0,"c":"app/tests/utils/atomicFileWrite.test.ts"}
 {"id":"MEM-RELATION-GRAPH-ATOMIC","k":"tests#1","i":0,"c":"app/tests/memory/memoryRelationGraphSave.test.ts"}
 {"id":"TAOR-IO-LOOP-OBSERVABILITY","k":"title","i":0,"c":"文件IO循环拦截补可观测：模型可见明细（×N）+ pattern + 改道建议（终止语义不变）"}

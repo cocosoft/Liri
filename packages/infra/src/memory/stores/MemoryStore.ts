@@ -1,6 +1,5 @@
 import { promises as fs, constants } from 'fs';
 import { existsSync } from 'fs';
-import fsExtra from 'fs-extra';
 import { join, dirname, basename, resolve, normalize } from 'path';
 import matter from 'gray-matter';
 // C1（2026-10-09）：记忆 id 熵源改用 crypto
@@ -11,7 +10,11 @@ import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import { resolveMemoryDir, resolveDbPath } from '@openliri/infra/environment';
+import {
+  ensureDir,
+  resolveMemoryDir,
+  resolveDbPath,
+} from '@openliri/infra/environment';
 import { Database } from '@openliri/infra/external';
 import { registerShutdownHandler } from '@openliri/infra/utils/gracefulShutdown';
 import { getMemoryDriftDetector } from '../MemoryDriftDetector';
@@ -649,10 +652,10 @@ export class MemoryStoreImpl implements MemoryStore {
    * 确保记忆目录存在
    */
   async ensureMemoryDirExists(): Promise<void> {
-    await fsExtra.ensureDir(this.memoryDir);
+    ensureDir(this.memoryDir);
     // 任务 4：按 session 分目录，创建 global/ 和 sessions/ 子目录
-    await fsExtra.ensureDir(join(this.memoryDir, 'global'));
-    await fsExtra.ensureDir(join(this.memoryDir, 'sessions'));
+    ensureDir(join(this.memoryDir, 'global'));
+    ensureDir(join(this.memoryDir, 'sessions'));
     // 迁移旧扁平文件（仅首次执行）
     await this.migrateFlatFiles();
   }
@@ -724,7 +727,7 @@ export class MemoryStoreImpl implements MemoryStore {
    */
   private async migrateFlatFiles(): Promise<void> {
     const globalDir = join(this.memoryDir, 'global');
-    await fsExtra.ensureDir(globalDir);
+    ensureDir(globalDir);
 
     try {
       const files = await fs.readdir(this.memoryDir);
@@ -774,7 +777,7 @@ export class MemoryStoreImpl implements MemoryStore {
     const targetDir = sessionId
       ? join(this.memoryDir, 'sessions', sessionId)
       : join(this.memoryDir, 'global');
-    await fsExtra.ensureDir(targetDir);
+    ensureDir(targetDir);
 
     const filePath = this.getMemoryFilePath(memory.id, sessionId);
     this.filePathCache.set(memory.id, filePath);
@@ -1102,7 +1105,7 @@ export class MemoryStoreImpl implements MemoryStore {
     }
 
     // 确保导出目录存在
-    await fsExtra.ensureDir(exportDir);
+    ensureDir(exportDir);
 
     // 生成导出文件路径
     const exportPath = join(exportDir, `${memory.id}.md`);

@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'bun:test';
 import { MemoryGetTool } from '../../src/tools/memory/MemoryGetTool';
 import { MemoryTool } from '../../src/tools/memory/MemoryTool';
-import type { MemoryManagerImpl } from '../../src/memory/MemoryManager';
+import type { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
 import type { SearchTool } from '../../src/tools/memory/SearchTool';
 
 // 只测元数据，不触达依赖 —— 用最小替身即可

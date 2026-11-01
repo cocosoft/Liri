@@ -39,12 +39,12 @@
       "reason": "文档版本服务本地域状态，无跨域编排语义"
     },
     {
-      "file": "app/src/memory/services/TeamMemoryService.ts",
+      "file": "packages/infra/src/memory/services/TeamMemoryService.ts",
       "exportName": "TeamMemorySyncStatus",
       "reason": "记忆同步子系统的本地同步态，域内自管"
     },
     {
-      "file": "app/src/memory/services/TeamMemorySyncService.ts",
+      "file": "packages/infra/src/memory/services/TeamMemorySyncService.ts",
       "exportName": "SyncStatus",
       "reason": "与上一条同域（同步态）；同名不同文件，均属记忆域本地状态"
     },

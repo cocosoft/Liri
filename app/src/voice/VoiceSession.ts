@@ -34,7 +34,7 @@ import {
   MessageRole,
 } from '@modules/session/types/UnifiedMessage';
 import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage';
-import { MemoryManagerImpl } from '../memory/MemoryManager';
+import { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
 import { getAlertManager } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring';
 import { getMetricsService } from '@modules/monitoring';

@@ -144,6 +144,14 @@
     "./chronos/*": {
       "types": "./src/chronos/*.ts",
       "import": "./src/chronos/*.ts"
+    },
+    "./memory": {
+      "types": "./src/memory/index.ts",
+      "import": "./src/memory/index.ts"
+    },
+    "./memory/*": {
+      "types": "./src/memory/*.ts",
+      "import": "./src/memory/*.ts"
     }
   },
   "scripts": {

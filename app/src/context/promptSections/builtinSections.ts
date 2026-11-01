@@ -27,7 +27,7 @@ import {
   getMemoryQueryProvider,
   getCurrentSessionContext,
 } from '@modules/services/prompt/MemoryPromptProvider';
-import { getFrozenSnapshotService } from '@modules/memory';
+import { getFrozenSnapshotService } from '@openliri/infra/memory';
 import {
   getKnowledgeQueryProvider,
   getCurrentKnowledgeQuery,
@@ -36,7 +36,7 @@ import {
 import { getLogger } from '@modules/monitoring';
 import { generateDigestContext } from '@modules/knowledge';
 import { DomainManager } from '@modules/knowledge';
-import { truncateMemoryContent } from '@modules/memory';
+import { truncateMemoryContent } from '@openliri/infra/memory';
 import { getGitInfo } from '@modules/context';
 import { readProjectFiles } from '@modules/context';
 import { basename, join } from 'path';

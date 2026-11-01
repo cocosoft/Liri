@@ -3,11 +3,11 @@
  * 允许应用注入 MemoryManager 实现，供 systemPromptSection 读取记忆摘要
  */
 
-import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
+import type { MemorySessionContext } from '@openliri/infra/memory/types/SessionContext';
 // 2026-10-01 D-166（`R00-001` 倒挂收口）：`MemoryQueryResult` 已**随 memory 域下沉**
 // （其唯一消费者是 `memory`(infra) 的 `MemorySummarizer`）⇒ 此处改为**反向引用**（service→infra 合法 ✓）。
 // 与本文件既有的 `SessionContext` 引用方向一致。
-import type { MemoryQueryResult } from '@modules/memory/types/MemoryQueryResult';
+import type { MemoryQueryResult } from '@openliri/infra/memory/types/MemoryQueryResult';
 
 export type { MemoryQueryResult };
 

@@ -8,9 +8,9 @@ import {
   truncateMemoryContent,
   MAX_MEMORY_LINES,
   MAX_MEMORY_BYTES,
-} from '@modules/memory';
-import { getMemoryFreshness } from '@modules/memory';
-import { isAutoMemoryEnabled, getAutoMemPath } from '@modules/memory';
+} from '@openliri/infra/memory';
+import { getMemoryFreshness } from '@openliri/infra/memory';
+import { isAutoMemoryEnabled, getAutoMemPath } from '@openliri/infra/memory';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:memory:memoryCmd');

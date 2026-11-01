@@ -28,7 +28,7 @@ import {
   setCurrentKnowledgeQuery,
   setCurrentKnowledgeDomain,
 } from '@modules/services/prompt/KnowledgePromptProvider';
-import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
+import type { MemorySessionContext } from '@openliri/infra/memory/types/SessionContext';
 import type { ImageContextService } from './ImageContextService';
 
 // P1-3: Skills as User Message injection (not System Prompt, avoids breaking cache_control prefix)

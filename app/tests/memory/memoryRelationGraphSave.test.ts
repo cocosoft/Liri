@@ -23,7 +23,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getErrorStats } from '../../src/error/handleError';
-import { MemoryManagerImpl } from '../../src/memory/MemoryManager';
+import { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
 import { decodePayload } from '@openliri/infra/utils/MemoryFileEnvelope';
 
 const dirs: string[] = [];

@@ -13,17 +13,17 @@ import { describe, expect, it, afterEach } from 'bun:test';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { MemoryManagerImpl } from '../../src/memory/MemoryManager';
+import { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
 import type {
   MemoryReadPort,
   MemoryWritePort,
   MemorySearchPort,
   MemoryForgetPort,
-} from '../../src/memory/ports/MemoryPort';
+} from '@openliri/infra/memory/ports/MemoryPort';
 import {
   createMemoryMetadata,
   type MemoryMetadata,
-} from '../../src/memory/types/MemoryMetadata';
+} from '@openliri/infra/memory/types/MemoryMetadata';
 
 /** 四端口公共面 —— 契约用例只依赖它，不依赖 `MemoryManagerImpl` 的具体类类型 */
 type MemoryPorts = MemoryReadPort &

@@ -3,8 +3,8 @@
 
 // P1-4: 外部记忆提供商单元测试
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { HonchoMemoryProvider } from '../../src/memory/providers/HonchoMemoryProvider';
-import { Mem0MemoryProvider } from '../../src/memory/providers/Mem0MemoryProvider';
+import { HonchoMemoryProvider } from '@openliri/infra/memory/providers/HonchoMemoryProvider';
+import { Mem0MemoryProvider } from '@openliri/infra/memory/providers/Mem0MemoryProvider';
 
 describe('HonchoMemoryProvider', () => {
   let savedApiKey: string | undefined;

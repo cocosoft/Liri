@@ -4,7 +4,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import type {
   UnifiedSearchService,
   UnifiedSearchResult,
-} from '@modules/memory';
+} from '@openliri/infra/memory';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('memory:tools:UnifiedSearchTool');

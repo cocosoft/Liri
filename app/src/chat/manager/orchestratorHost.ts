@@ -46,7 +46,7 @@ import type { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedR
 import { agentTelemetry } from '@modules/agent';
 import { handleError } from '@modules/error';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
-import { rollupSessionSummaryToLongTerm } from '@modules/memory';
+import { rollupSessionSummaryToLongTerm } from '@openliri/infra/memory';
 import { contextLayeringEnabled } from '../services/MessageContextPipeline';
 import type { MessageService } from '../services/MessageService.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';

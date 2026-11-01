@@ -15,7 +15,7 @@ import { randomUUID } from 'crypto';
 import {
   MemoryDriftDetector,
   getMemoryDriftDetector,
-} from '../../src/memory/MemoryDriftDetector';
+} from '@openliri/infra/memory/MemoryDriftDetector';
 
 const testDir = join(tmpdir(), `drift-test-${randomUUID()}.d`);
 

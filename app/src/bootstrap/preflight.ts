@@ -134,7 +134,7 @@ export function wireErrorModuleDeps(): void {
 export function wireConstantsDeps(): void {
   setConstantsEnvReader((name) => configManager.env(name));
   setFrozenSnapshotUnfreezer(async () => {
-    const { getFrozenSnapshotService } = await import('../memory/index.js');
+    const { getFrozenSnapshotService } = await import('@openliri/infra/memory');
     getFrozenSnapshotService().unfreezeAll();
   });
 }

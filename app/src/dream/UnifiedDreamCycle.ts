@@ -488,7 +488,8 @@ export class UnifiedDreamCycle {
       // 冷存储归档：60 天无更新的记忆移入冷存储
       try {
         const { pruneOldMemories } = await import('./ColdStorage');
-        const { getMemoryManager } = await import('../memory/MemoryManager');
+        const { getMemoryManager } =
+          await import('@openliri/infra/memory/MemoryManager');
         const mm = getMemoryManager();
         coldArchived = await pruneOldMemories(mm);
         if (coldArchived > 0) {
@@ -709,10 +710,11 @@ export class UnifiedDreamCycle {
   /** 自动触发记忆回写 (AutoDream → MemoryDreamService) */
   private async triggerMemoryDream(): Promise<void> {
     try {
-      const { getMemoryManager } = await import('../memory/MemoryManager');
+      const { getMemoryManager } =
+        await import('@openliri/infra/memory/MemoryManager');
       const mm = getMemoryManager();
       const { runMemoryDream } =
-        await import('../memory/consolidation/MemoryDreamService');
+        await import('@openliri/infra/memory/consolidation/MemoryDreamService');
       await runMemoryDream(mm);
       logger.info('梦境后记忆回写完成');
     } catch (e) {

@@ -1,4 +1,4 @@
-import type { Memory } from '@modules/memory/types/Memory';
+import type { Memory } from '@openliri/infra/memory/types/Memory';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

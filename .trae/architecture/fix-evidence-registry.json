@@ -1419,7 +1419,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/memory/MemoryManager.ts",
+        "packages/infra/src/memory/MemoryManager.ts",
         "packages/infra/src/performance/MemoryManager.ts"
       ],
       "tests": [],
@@ -5631,7 +5631,7 @@
         "packages/infra/src/cost/DailyCostCache.ts",
         "app/src/tasks/CrossProcessLock.ts",
         "packages/kernel/src/core/cache/SessionCache.ts",
-        "app/src/memory/FrozenSnapshotService.ts",
+        "packages/infra/src/memory/FrozenSnapshotService.ts",
         "packages/infra/src/media/image/TempFileManager.ts",
         "app/src/permission/ApprovedCommandRegistry.ts",
         "app/src/tools/ImageGenerateTool/ImageGenerationCache.ts",
@@ -7173,7 +7173,7 @@
       },
       "code": [
         "packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts",
-        "app/src/memory/services/MemoryPromptBuilder.ts",
+        "packages/infra/src/memory/services/MemoryPromptBuilder.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -7202,7 +7202,7 @@
       },
       "code": [
         "packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts",
-        "app/src/memory/services/MemoryPromptBuilder.ts",
+        "packages/infra/src/memory/services/MemoryPromptBuilder.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -7231,7 +7231,7 @@
       },
       "code": [
         "packages/infra/src/chronos/autoDream/ConsolidationPrompt.ts",
-        "app/src/memory/services/MemoryPromptBuilder.ts",
+        "packages/infra/src/memory/services/MemoryPromptBuilder.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -10321,7 +10321,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/memory/scanners/MemorySecretScanner.ts"
+        "packages/infra/src/memory/scanners/MemorySecretScanner.ts"
       ],
       "tests": [
         "app/tests/memory/secretScannerPrefixes.test.ts"
@@ -14569,7 +14569,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/memory/retrievers/MemoryRetriever.ts"
+        "packages/infra/src/memory/retrievers/MemoryRetriever.ts"
       ],
       "tests": [
         "app/tests/memory/memoryRetrieverIndexSave.test.ts"
@@ -14649,8 +14649,8 @@
       },
       "code": [
         "packages/infra/src/utils/atomicFileWrite.ts",
-        "app/src/memory/retrievers/MemoryRetriever.ts",
-        "app/src/memory/MemoryManager.ts"
+        "packages/infra/src/memory/retrievers/MemoryRetriever.ts",
+        "packages/infra/src/memory/MemoryManager.ts"
       ],
       "tests": [
         "app/tests/utils/atomicFileWrite.test.ts",

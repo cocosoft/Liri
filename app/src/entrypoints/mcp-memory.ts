@@ -48,8 +48,8 @@ import {
   type ListToolsResult,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import { getMemoryManager, MemoryType } from '@modules/memory';
-import type { MemoryMetadata } from '@modules/memory/types/MemoryMetadata';
+import { getMemoryManager, MemoryType } from '@openliri/infra/memory';
+import type { MemoryMetadata } from '@openliri/infra/memory/types/MemoryMetadata';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('mcp:memory');

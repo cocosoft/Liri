@@ -26,15 +26,15 @@
  * `limit` 生效；单路检索失败降级为空而不抛。
  */
 import { describe, expect, it } from 'bun:test';
-import { UnifiedSearchService } from '../../src/memory/services/UnifiedSearchService';
-import type { MemorySearchProvider } from '../../src/memory/services/UnifiedSearchService';
+import { UnifiedSearchService } from '@openliri/infra/memory/services/UnifiedSearchService';
+import type { MemorySearchProvider } from '@openliri/infra/memory/services/UnifiedSearchService';
 import type {
   IKnowledgeSearch,
   KnowledgeRoute,
 } from '@openliri/kernel/knowledge-types';
-import { createMemory } from '../../src/memory/types/Memory';
-import type { Memory } from '../../src/memory/types/Memory';
-import { createMemoryMetadata } from '../../src/memory/types/MemoryMetadata';
+import { createMemory } from '@openliri/infra/memory/types/Memory';
+import type { Memory } from '@openliri/infra/memory/types/Memory';
+import { createMemoryMetadata } from '@openliri/infra/memory/types/MemoryMetadata';
 
 /** 构造一条知识路由 */
 const route = (docPath: string, score: number): KnowledgeRoute => ({

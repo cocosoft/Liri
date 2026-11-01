@@ -8,7 +8,7 @@
  * - stats 统计
  */
 import { describe, test, expect } from 'bun:test';
-import { SkillMemoryGraph } from '../../../src/memory/utils/SkillMemoryGraph';
+import { SkillMemoryGraph } from '@openliri/infra/memory/utils/SkillMemoryGraph';
 
 describe('SkillMemoryGraph（P1-7）', () => {
   test('addLink：技能↔记忆双向查询', () => {

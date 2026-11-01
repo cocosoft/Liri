@@ -1,8 +1,8 @@
 import type { Tool } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
-import { MemoryManagerImpl } from '../../memory/MemoryManager';
-import { Memory } from '../../memory/types/Memory';
+import { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
+import { Memory } from '@openliri/infra/memory/types/Memory';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('memory:tools:MemoryGetTool');

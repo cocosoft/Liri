@@ -5,7 +5,7 @@
  * U-27（2026-10-17）：新增 OpenAI 项目键 / Anthropic 键前缀识别。
  */
 import { describe, it, expect } from 'bun:test';
-import { scanForSecrets } from '../../src/memory/scanners/MemorySecretScanner.js';
+import { scanForSecrets } from '@openliri/infra/memory/scanners/MemorySecretScanner';
 
 describe('MemorySecretScanner 新前缀', () => {
   it('识别 sk-proj- 项目键', () => {

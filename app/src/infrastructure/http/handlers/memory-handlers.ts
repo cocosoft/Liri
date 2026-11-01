@@ -25,13 +25,13 @@ const MEMORY_TYPE_TO_FRONTEND: Record<string, string> = {
   decision: 'knowledge',
 };
 
-// ---- Memory Manager（T-①07 T1-5：统一走 `@modules/memory` 进程内共享工厂，不再自建单例）----
+// ---- Memory Manager（T-①07 T1-5：统一走 `@openliri/infra/memory` 进程内共享工厂，不再自建单例）----
 
 async function getMemoryManager(): Promise<
-  import('@modules/memory').MemoryManagerImpl
+  import('@openliri/infra/memory').MemoryManagerImpl
 > {
   const { getMemoryManager: getSharedMemoryManager } =
-    await import('@modules/memory');
+    await import('@openliri/infra/memory');
   return getSharedMemoryManager();
 }
 
@@ -448,7 +448,7 @@ export async function handleConsolidateMemories(
     const allMemories = await mm.getAllMemories();
 
     const { MemoryConsolidator } =
-      await import('@modules/memory/consolidation/MemoryConsolidator');
+      await import('@openliri/infra/memory/consolidation/MemoryConsolidator');
     const consolidator = new MemoryConsolidator({ similarityThreshold: 0.85 });
     // 用分片让出版本：`findDuplicates` 是 O(n²) 成对比较（实测 n=576 同步块 ~1.1s，库更大时增长），
     // 不能在 HTTP 请求线程上整段同步跑 —— 同 `.trae/specs/memory-dedup-blocking-rootfix.md` §2 D2
@@ -502,7 +502,7 @@ export async function handleDreamMemories(
   try {
     const mm = await getMemoryManager();
     const { runMemoryDream } =
-      await import('@modules/memory/consolidation/MemoryDreamService');
+      await import('@openliri/infra/memory/consolidation/MemoryDreamService');
     const result = await runMemoryDream(mm);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, result }));

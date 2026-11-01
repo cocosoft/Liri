@@ -24,8 +24,8 @@ process.env.PYAPP_PROJECT_DIR = process.cwd();
 
 import { join } from 'path';
 import { readFile, copyFile, rename, mkdir, writeFile } from 'fs/promises';
-import { MemoryManagerImpl } from '../src/memory/MemoryManager';
-import { MemoryType } from '../src/memory/types/MemoryType';
+import { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
+import { MemoryType } from '@openliri/infra/memory/types/MemoryType';
 
 const LEGACY_PATH = join(pyappHome, 'memories', 'MEMORY.md');
 

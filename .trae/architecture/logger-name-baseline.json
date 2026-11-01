@@ -177,7 +177,7 @@
       "app/src/config/settings/mdm/settings.ts"
     ],
     "MemoryCLI": [
-      "app/src/memory/cli/MemoryCLI.ts"
+      "packages/infra/src/memory/cli/MemoryCLI.ts"
     ],
     "MemoryExtractionHook": [
       "app/src/hooks/postSampling/MemoryExtractionHook.ts"

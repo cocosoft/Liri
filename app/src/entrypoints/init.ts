@@ -598,7 +598,7 @@ async function startDeferredPrefetches(): Promise<void> {
       // 预加载记忆管理器
       (async () => {
         try {
-          await import('../memory/MemoryManager.js');
+          await import('@openliri/infra/memory/MemoryManager');
         } catch (error) {
           // 忽略预加载错�?
         }
@@ -608,9 +608,9 @@ async function startDeferredPrefetches(): Promise<void> {
       (async () => {
         try {
           const { getMemoryManager } =
-            await import('../memory/MemoryManager.js');
+            await import('@openliri/infra/memory/MemoryManager');
           const { MemorySummarizer } =
-            await import('../memory/services/MemorySummarizer.js');
+            await import('@openliri/infra/memory/services/MemorySummarizer');
           const { setMemoryQueryProvider, getCurrentSessionContext } =
             await import('../services/prompt/MemoryPromptProvider.js');
           const memoryManager = getMemoryManager();
@@ -687,9 +687,9 @@ async function startDeferredPrefetches(): Promise<void> {
       (async () => {
         try {
           const { AutoMemoryHeartbeat } =
-            await import('../memory/AutoMemoryHeartbeat.js');
+            await import('@openliri/infra/memory/AutoMemoryHeartbeat');
           const { startAutoArchive, stopAutoArchive } =
-            await import('../memory/utils/MemoryAgeManager.js');
+            await import('@openliri/infra/memory/utils/MemoryAgeManager');
           const heartbeat = new AutoMemoryHeartbeat(async (action) => {
             try {
               switch (action.type) {

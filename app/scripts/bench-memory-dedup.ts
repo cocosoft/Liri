@@ -33,8 +33,8 @@
  *
  * 运行：`bun scripts/bench-memory-dedup.ts`
  */
-import { MemoryManagerImpl } from '../src/memory/index.js';
-import { MemoryConsolidator } from '../src/memory/consolidation/MemoryConsolidator.js';
+import { MemoryManagerImpl } from '@openliri/infra/memory';
+import { MemoryConsolidator } from '@openliri/infra/memory/consolidation/MemoryConsolidator';
 
 function out(line: string): void {
   process.stdout.write(`${line}\n`);

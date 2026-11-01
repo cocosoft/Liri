@@ -61,7 +61,7 @@ import {
 } from '@modules/session';
 // D 阶段（2026-09-02，v5 P0-⑥）：跨会话记忆适配器——静态导入保证模块加载即触发
 // session_summary 类型注册（注册动作已随 Cut C（issue #8）迁入 `manager/hostWiring.ts`）
-import { rollupSessionSummaryToLongTerm } from '@modules/memory';
+import { rollupSessionSummaryToLongTerm } from '@openliri/infra/memory';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
 import { StreamingToolCallScrubber } from '@modules/streaming';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
@@ -204,7 +204,7 @@ import type {
 } from '@modules/runtime/api/CoreAPI.js';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
-import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
+import type { MemorySessionContext } from '@openliri/infra/memory/types/SessionContext';
 import { QueryEngine, createQueryEngine } from '@modules/query';
 import {
   TokenBudgetController,

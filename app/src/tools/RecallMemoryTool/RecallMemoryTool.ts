@@ -23,7 +23,7 @@ interface GlobalMemoryHit {
 
 /**
  * 3-2（2026-09-03）：全局记忆 manager 惰性单例——复用共享 MemoryManagerImpl
- * （避免每调用 new 实例的多实例检索索引竞态；T-①07 T1-5 起统一走 `@modules/memory`
+ * （避免每调用 new 实例的多实例检索索引竞态；T-①07 T1-5 起统一走 `@openliri/infra/memory`
  * `getMemoryManager()` 进程内共享工厂）。
  */
 let _globalMemoryManager: {
@@ -37,7 +37,7 @@ async function resolveGlobalMemoryManager(): Promise<
 > {
   if (!_globalMemoryManager) {
     try {
-      const { getMemoryManager } = await import('@modules/memory');
+      const { getMemoryManager } = await import('@openliri/infra/memory');
       _globalMemoryManager = getMemoryManager();
     } catch (err) {
       logger.warn('全局记忆 manager 初始化失败，回退会话内召回', {

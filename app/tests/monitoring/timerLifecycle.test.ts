@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { FileExporter } from '../../src/monitoring/exporters/FileExporter';
-import { MemoryIntegrationService } from '../../src/memory/memdir/MemoryIntegrationService';
+import { MemoryIntegrationService } from '@openliri/infra/memory/memdir/MemoryIntegrationService';
 
 type TimerHandle = ReturnType<typeof setInterval> | null;
 

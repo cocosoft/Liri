@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { MemoryIndexer } from './indexer/MemoryIndexer';
-import type { IndexEntry } from './indexer/MemoryIndexer';
+import { MemoryIndexer } from '@openliri/infra/memory/indexer/MemoryIndexer';
+import type { IndexEntry } from '@openliri/infra/memory/indexer/MemoryIndexer';
 import {
   MemoryPriorityManager,
   PriorityTier,
   calculateScore,
   scoreToTier,
-} from './priority/MemoryPriorityManager';
-import type { PriorityFactor } from './priority/MemoryPriorityManager';
-import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
-import type { MergeCandidate } from './consolidation/MemoryConsolidator';
+} from '@openliri/infra/memory/priority/MemoryPriorityManager';
+import type { PriorityFactor } from '@openliri/infra/memory/priority/MemoryPriorityManager';
+import { MemoryConsolidator } from '@openliri/infra/memory/consolidation/MemoryConsolidator';
+import type { MergeCandidate } from '@openliri/infra/memory/consolidation/MemoryConsolidator';
 
 describe('MemoryIndexer', () => {
   let indexer: MemoryIndexer;

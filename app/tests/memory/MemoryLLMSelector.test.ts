@@ -6,7 +6,7 @@ import {
   parseSelectionResult,
   applySelection,
   type MemoryItem,
-} from '../../src/memory/MemoryLLMSelector';
+} from '@openliri/infra/memory/MemoryLLMSelector';
 
 const sampleMemories: MemoryItem[] = [
   {

@@ -173,8 +173,8 @@ export function persistMemoryFromAudit(params: {
 
       const [mm, { createMemoryMetadata }, { MemoryType }] = await Promise.all([
         resolveMemoryWritebackManager(),
-        import('../../memory/types/MemoryMetadata.js'),
-        import('../../memory/types/MemoryType.js'),
+        import('@openliri/infra/memory/types/MemoryMetadata'),
+        import('@openliri/infra/memory/types/MemoryType'),
       ]);
       if (!mm) return;
       await mm.createMemory({

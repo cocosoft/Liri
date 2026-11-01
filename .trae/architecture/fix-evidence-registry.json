@@ -16097,6 +16097,41 @@
       ],
       "reopenWhen": "infra 层已无环（基线已置空）；今后任何模块进入环，R7 立即变红 —— 不得以「临时」名义把环加回基线，须先把环拆掉再合并。（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B7-PERMISSION-SECURITY）",
       "notes": "PermissionBehavior 枚举与 PermissionMode 值域下沉 common（permission 侧同名转出、转的是同一对象 ⇒ 判等/取值不变）；security 的规则来源改端口 security/permissionRuleSource，由 bootstrap/preflight.wir…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B7-PERMISSION-SECURITY）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P2-EXTERNAL",
+      "title": "P2 物理包试点：external 迁入 packages/infra（补 4 处门禁扫描面 + 两次负向自证）",
+      "source": "§4.1 曾演练失败并回滚：先搬目录会让 lint:arch / lint:infra 静默失明。本次按「先补扫描面 → 再搬目录 → 再负向自证」执行。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/package.json",
+        "packages/infra/src/external/index.ts",
+        "app/tsconfig.json",
+        "app/scripts/lint-infra-boundary.ts",
+        "scripts/lib/hardcodeScan.ts",
+        "scripts/lint-consts.ts",
+        "scripts/lint-file-size.ts"
+      ],
+      "tests": [
+        "app/tests/gates",
+        "app/tests/scripts"
+      ],
+      "changelog": [
+        "P2：external 迁入 packages/infra（77 处导入改写 + 4 处门禁扫描面补齐 + 负向自证）"
+      ],
+      "reopenWhen": "P3 扩面前必须复核：lint:arch 的非分层规则（R01/R02/R04 等）仍只扫 app/src ⇒ 包内新增文件不受其约束；扩面需先补这些门禁，否则仍是静默盲区。（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P2-EXTERNAL）",
+      "notes": "77 处导入改 @openliri/infra/external（74 个 src/tests + 2 个 app/scripts + 4 处相对深路径）；四处扫描面补齐：hardcodeScan SCAN_DIRS、lint-consts 的 D-2 前缀、lint:size 的 srcDirs、以及 lint:i…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P2-EXTERNAL）"
     }
   ]
 }

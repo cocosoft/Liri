@@ -7576,3 +7576,18 @@
 {"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"tests#1","i":0,"c":"app/tests/permission"}
 {"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"tests#2","i":0,"c":"app/tests/gates"}
 {"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"changelog#0","i":0,"c":"P1 解环 B7：permission/security 出环（契约下沉 + 规则来源注入，SCC 2→0）"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"title","i":0,"c":"P2 物理包试点：external 迁入 packages/infra（补 4 处门禁扫描面 + 两次负向自证）"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"source","i":0,"c":"§4.1 曾演练失败并回滚：先搬目录会让 lint:arch / lint:infra 静默失明。本次按「先补扫描面 → 再搬目录 → 再负向自证」执行。"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"reopenWhen","i":0,"c":"P3 扩面前必须复核：lint:arch 的非分层规则（R01/R02/R04 等）仍只扫 app/src ⇒ 包内新增文件不受其约束；扩面需先补这些门禁，否则仍是静默盲区。"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"notes","i":0,"c":"77 处导入改 @openliri/infra/external（74 个 src/tests + 2 个 app/scripts + 4 处相对深路径）；四处扫描面补齐：hardcodeScan SCAN_DIRS、lint-consts 的 D-2 前缀、lint:size 的 srcDirs、以及 lint:infra R5（不并入包内文件会让唯一合法"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"notes","i":1,"c":"的 bun:sqlite 直连消失）。负向自证两次均变红后回滚：包内 import @modules/chat ⇒ R6 报 external/defaults.ts:31；包内 require(bun:sqlite) ⇒ R5 报同一行。"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"code#0","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"code#1","i":0,"c":"packages/infra/src/external/index.ts"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"code#2","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"code#3","i":0,"c":"app/scripts/lint-infra-boundary.ts"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"code#4","i":0,"c":"scripts/lib/hardcodeScan.ts"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"code#5","i":0,"c":"scripts/lint-consts.ts"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"code#6","i":0,"c":"scripts/lint-file-size.ts"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"tests#0","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"tests#1","i":0,"c":"app/tests/scripts"}
+{"id":"INFRA-PACKAGE-P2-EXTERNAL","k":"changelog#0","i":0,"c":"P2：external 迁入 packages/infra（77 处导入改写 + 4 处门禁扫描面补齐 + 负向自证）"}

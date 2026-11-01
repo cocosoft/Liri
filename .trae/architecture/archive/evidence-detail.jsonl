@@ -7562,3 +7562,17 @@
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"tests#2","i":0,"c":"app/tests/constants"}
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"tests#3","i":0,"c":"app/tests/gates"}
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"changelog#0","i":0,"c":"P1 解环 B6：monitoring 出环（phaseStack 归位 common + 删零调用 cron 注册，SCC 6→2）"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"title","i":0,"c":"P1 解环 B7：permission 与 security 出环（契约下沉 common + 规则来源注入端口，SCC 2→0）"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"source","i":0,"c":"最后一环是 permission ↔ security 两元环；取 security→permission 一侧（3 文件 4 条 import），因其改动面最小，且能顺带消除已登记的「RuleManager 初始化时序」脆弱点。"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"reopenWhen","i":0,"c":"infra 层已无环（基线已置空）；今后任何模块进入环，R7 立即变红 —— 不得以「临时」名义把环加回基线，须先把环拆掉再合并。"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"notes","i":0,"c":"PermissionBehavior 枚举与 PermissionMode 值域下沉 common（permission 侧同名转出、转的是同一对象 ⇒ 判等/取值不变）；security 的规则来源改端口 security/permissionRuleSource，由 bootstrap/preflight.wireSecurityDeps 注入，仍是首次"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"notes","i":1,"c":"判定才取规则；未注入返回 null 并显式告警一次（不静默放行）。另：utils 里同名但不同概念的 PermissionBehavior 改名 ToolPermissionBehavior（零外部消费方）以过 R4。"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"code#0","i":0,"c":"app/src/common/permissionRule.ts"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"code#1","i":0,"c":"app/src/common/permissionMode.ts"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"code#2","i":0,"c":"app/src/security/permissionRuleSource.ts"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"code#3","i":0,"c":"app/src/security/PermissionManager.ts"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"code#4","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"tests#0","i":0,"c":"app/tests/security"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"tests#1","i":0,"c":"app/tests/permission"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"tests#2","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-CYCLE-B7-PERMISSION-SECURITY","k":"changelog#0","i":0,"c":"P1 解环 B7：permission/security 出环（契约下沉 + 规则来源注入，SCC 2→0）"}

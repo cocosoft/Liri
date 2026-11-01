@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INFRA-CYCLE-B7-PERMISSION-SECURITY**：B7：permission/security 出环（SCC 2→0） —— 验证 tsc0|tests9539|eslint0|infra0|consts0；基线 环成员 2，security→permission 4 条 import / 3 文件（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-B7-PERMISSION-SECURITY）
 - ✅ **INFRA-CYCLE-B6-MONITORING-EXIT**：B6：monitoring 出环（SCC 6→2） —— 验证 tsc0|tests9538|eslint0|infra0|consts0；基线 环成员 6，monitoring 的回环边 2 条（diagnostics / chronos）（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-B6-MONITORING-EXIT）
 - ✅ **INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON**：B5：config/cache/daemon 出环（SCC 9→6） —— 验证 tsc0|tests9538|eslint0|arch0|infra0|startup0；基线 环内 9 成员，config/cache/daemon 的必须清边数 4/6/4（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON）
 - ✅ **INFRA-CYCLE-B4-UTILS-EXIT**：B4：utils 出环（SCC 10→9） —— 验证 tsc0|tests9538|eslint0|arch0|infra0|startup0；基线 utils 28 条出边 / 7 目标（其中 13 条构成回环）（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-B4-UTILS-EXIT）

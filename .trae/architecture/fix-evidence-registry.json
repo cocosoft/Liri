@@ -16063,6 +16063,40 @@
       ],
       "reopenWhen": "环成员剩 permission ↔ security 两元环：permission→security（审计日志、ALL_UNIFIED_RULES 规则表）与 security→permission（RuleManager、PermissionMode）都是运行时服务，需专项设计（规则表下沉叶子或改注入），非机械替换。（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B6-MONITORING-EXIT）",
       "notes": "phaseStack 零依赖（仅模块内状态 + Date.now），git mv 到 common 且实现逐字未改；diagnostics 保留同名转出 ⇒ 4 处测试深路径 + loopProbe 内部 import 改指向新位置。删除 registerArchivalCronTask / unregisterAr…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B6-MONITORING-EXIT）"
+    },
+    {
+      "id": "INFRA-CYCLE-B7-PERMISSION-SECURITY",
+      "title": "P1 解环 B7：permission 与 security 出环（契约下沉 common + 规则来源注入端口，SCC 2→0）",
+      "source": "最后一环是 permission ↔ security 两元环；取 security→permission 一侧（3 文件 4 条 import），因其改动面最小，且能顺带消除已登记的「RuleManager 初始化时序」脆弱点。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/common/permissionRule.ts",
+        "app/src/common/permissionMode.ts",
+        "app/src/security/permissionRuleSource.ts",
+        "app/src/security/PermissionManager.ts",
+        "app/src/bootstrap/preflight.ts"
+      ],
+      "tests": [
+        "app/tests/security",
+        "app/tests/permission",
+        "app/tests/gates"
+      ],
+      "changelog": [
+        "P1 解环 B7：permission/security 出环（契约下沉 + 规则来源注入，SCC 2→0）"
+      ],
+      "reopenWhen": "infra 层已无环（基线已置空）；今后任何模块进入环，R7 立即变红 —— 不得以「临时」名义把环加回基线，须先把环拆掉再合并。（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B7-PERMISSION-SECURITY）",
+      "notes": "PermissionBehavior 枚举与 PermissionMode 值域下沉 common（permission 侧同名转出、转的是同一对象 ⇒ 判等/取值不变）；security 的规则来源改端口 security/permissionRuleSource，由 bootstrap/preflight.wir…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B7-PERMISSION-SECURITY）"
     }
   ]
 }

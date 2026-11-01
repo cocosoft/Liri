@@ -1,6 +1,6 @@
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:mcp:cache');
-import type { ICache, CacheStats } from '@modules/cache/types';
+import type { ICache, CacheStats } from '@openliri/infra/cache/types';
 // 2026-10-01 D-220（子批 E `commands` 组）：原静态导入 `type Command` from `@modules/commands`，
 // 但本类中 `Command` **仅出现在类型位置、从未解引用任何字段**（本类接口层 `ICache<string, unknown>`
 // 本就擦成 `unknown`）⇒ 属**语义虚假**的跨层依赖（`services -> commands`(app)）。

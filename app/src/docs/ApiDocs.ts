@@ -124,7 +124,7 @@ gauge.inc(128);`,
     examples: [
       {
         title: '基本缓存操作',
-        code: `import { getCacheService } from '../cache';
+        code: `import { getCacheService } from '@openliri/infra/cache';
 
 const cache = getCacheService();
 

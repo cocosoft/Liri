@@ -20,7 +20,9 @@ import { logForDebugging } from '@openliri/infra/utils/debug';
 import { isEnvTruthy } from '@openliri/infra/utils/envUtils';
 import { readUtilEnv } from '@openliri/infra/utils/envAccess';
 import { handleError } from '@modules/error';
-import { jsonStringify, jsonParse } from '../performance/SlowOperations.js';
+// P12（2026-11-01）：cache 迁入物理包后，原 `../performance/SlowOperations.js` 成逃逸 ⇒
+// 走 performance 模块门面（`performance/SlowOperations` 非 canonical 子路径）；该边不入环。
+import { jsonStringify, jsonParse } from '@modules/performance';
 import {
   type PersistentCacheItem,
   type PersistentCache,

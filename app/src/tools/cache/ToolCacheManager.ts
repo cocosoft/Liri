@@ -4,7 +4,7 @@ import { resolvePyappHome } from '@openliri/infra/environment';
 import crypto from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import type { ICache, CacheStats } from '@modules/cache/types';
+import type { ICache, CacheStats } from '@openliri/infra/cache/types';
 import { TTLCache } from '@openliri/infra/utils/cache';
 
 const logger = getLogger('tools:cacheManager');

@@ -56,6 +56,14 @@
     "./daemon/*": {
       "types": "./src/daemon/*.ts",
       "import": "./src/daemon/*.ts"
+    },
+    "./cache": {
+      "types": "./src/cache/index.ts",
+      "import": "./src/cache/index.ts"
+    },
+    "./cache/*": {
+      "types": "./src/cache/*.ts",
+      "import": "./src/cache/*.ts"
     }
   },
   "scripts": {

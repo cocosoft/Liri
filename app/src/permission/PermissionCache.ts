@@ -9,7 +9,7 @@ import { handleError } from '@modules/error';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type { PermissionDecision } from './PermissionResult';
 import type { PermissionRuleEntry } from './PermissionRule';
-import type { ICache, CacheStats } from '@modules/cache/types';
+import type { ICache, CacheStats } from '@openliri/infra/cache/types';
 import { TTLCache } from '@openliri/infra/utils/cache';
 import {
   PermissionBehavior,

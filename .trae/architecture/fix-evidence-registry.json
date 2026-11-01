@@ -15980,7 +15980,7 @@
       "code": [
         "packages/infra/src/utils/envAccess.ts",
         "packages/infra/src/common/types.ts",
-        "app/src/cache/types.ts",
+        "packages/infra/src/cache/types.ts",
         "packages/infra/src/utils/cache.ts",
         "scripts/lint-architecture.ts"
       ],
@@ -16013,7 +16013,7 @@
       },
       "code": [
         "app/src/config/layers/ConfigLayers.ts",
-        "app/src/cache/CacheSystem.ts",
+        "packages/infra/src/cache/CacheSystem.ts",
         "packages/infra/src/daemon/metricsSink.ts",
         "app/src/bootstrap/preflight.ts",
         "app/src/main.ts"

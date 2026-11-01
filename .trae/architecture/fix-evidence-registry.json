@@ -16657,6 +16657,42 @@
       "changelog": [],
       "reopenWhen": "① 若将来给 media 加 `index.ts` barrel ⇒ 必须重估：它会把 sharp/pdfjs/video 整面带进任何 `@openliri/infra/media` 根桶使用者（本批刻意**不建** barrel）；② 若依赖树改由 repo 根 `node_modules` 提供 ⇒ 应删除 a…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P16-MEDIA）",
       "notes": "迁包：13 文件 git mv（base64/ffmpeg/image/mime/pdf/qr/store/temp/video）+ 31 处**相对**引用改 `@openliri/infra/media/<sub>`（24 文件；含 3 处动态 import，去 .js 后缀）。**本批新类型①：模块从无 `in…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P16-MEDIA）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P17-PERFORMANCE",
+      "title": "P17：performance 迁入 packages/infra（23 文件 / 32 处引用）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.15",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/performance/index.ts",
+        "packages/infra/src/performance/StartupProfiler.ts",
+        "packages/infra/src/performance/SlowOperations.ts",
+        "packages/infra/src/cache/CacheSystem.ts",
+        "app/src/main.ts",
+        "app/src/bootstrap/StartupChainProfiler.ts",
+        "app/src/entrypoints/spiWiring.ts",
+        "app/tests/ci/performance.test.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json"
+      ],
+      "tests": [
+        "app/tests/ci/performance.test.ts",
+        "app/tests/performance/slowOperationsInterval.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `performance` 将来反向依赖 `cache` ⇒ `cache → performance` 立即成为 2 成员环（R7 会报，本批已由负向自证证明该环可捕获）；② `modules/ImportManager.ts` 的 aliasMap 仍留 `@modules/performance → .…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P17-PERFORMANCE）",
+      "notes": "迁包：23 文件（含 README.md 与两个 `require.main` 守卫脚本 analyze-bottlenecks / test-performance）git mv 至 packages/infra/src/performance。引用改写 32 处：11 处 `@modules/performanc…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P17-PERFORMANCE）"
     }
   ]
 }

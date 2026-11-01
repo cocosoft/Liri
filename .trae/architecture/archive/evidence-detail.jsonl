@@ -7862,3 +7862,24 @@
 {"id":"INFRA-PACKAGE-P16-MEDIA","k":"tests#0","i":0,"c":"app/tests/tools/toolOutputJsonSchema.test.ts"}
 {"id":"INFRA-PACKAGE-P16-MEDIA","k":"tests#1","i":0,"c":"app/tests/tools/moduleToolLedger.test.ts"}
 {"id":"INFRA-PACKAGE-P16-MEDIA","k":"tests#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"title","i":0,"c":"P17：performance 迁入 packages/infra（23 文件 / 32 处引用）"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.15"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"reopenWhen","i":0,"c":"① 若 `performance` 将来反向依赖 `cache` ⇒ `cache → performance` 立即成为 2 成员环（R7 会报，本批已由负向自证证明该环可捕获）；② `modules/ImportManager.ts` 的 aliasMap 仍留 `@modules/performance → ./performance` 的历史条目（与"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"reopenWhen","i":1,"c":" `@modules/cache` 同批遗留），若将来真正启用该管理器需整体重写。"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"notes","i":0,"c":"迁包：23 文件（含 README.md 与两个 `require.main` 守卫脚本 analyze-bottlenecks / test-performance）git mv 至 packages/infra/src/performance。引用改写 32 处：11 处 `@modules/performance`（7 真实说明符 + 3 注释 + 1"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"notes","i":1,"c":" ImportManager 键）、10 处 app 侧相对路径（bootstrap/cli/entrypoints/main/scripts/tools）、10 处测试相对路径（ci/performance.test 8 + slowOperationsInterval 2）、1 处**包内跨子目录**（cache/CacheSystem 改 `"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"notes","i":2,"c":"../performance/index`）。**关键区分**：`app/src/monitoring/performance/*` 是**另一个模块内目录**（未迁），其 `./performance/index.js` 与 `../performance/PerformanceAnalyzer` 保持不动。包内出边：monitoring（13）· "}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"notes","i":3,"c":"config（3）· error（2）· infra utils/environment（14）· kernel（3）；**performance 不依赖 cache** ⇒ `cache → performance` 仍为单向，R7 SCC 保持 0。联动：state-literal 8 处、logger-name 1 处、证据 code[] 2 处路径键"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"notes","i":4,"c":"改名。运行期自证：import(@openliri/infra/performance) 101 导出、require(.../StartupProfiler) 正常、import(@openliri/infra/cache) 53 导出（证明 cache 的包内相对依赖在运行期成立）。"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"code#0","i":0,"c":"packages/infra/src/performance/index.ts"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"code#1","i":0,"c":"packages/infra/src/performance/StartupProfiler.ts"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"code#2","i":0,"c":"packages/infra/src/performance/SlowOperations.ts"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"code#3","i":0,"c":"packages/infra/src/cache/CacheSystem.ts"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"code#4","i":0,"c":"app/src/main.ts"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"code#5","i":0,"c":"app/src/bootstrap/StartupChainProfiler.ts"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"code#6","i":0,"c":"app/src/entrypoints/spiWiring.ts"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"code#7","i":0,"c":"app/tests/ci/performance.test.ts"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"code#8","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"code#9","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"tests#0","i":0,"c":"app/tests/ci/performance.test.ts"}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"tests#1","i":0,"c":"app/tests/performance/slowOperationsInterval.test.ts"}

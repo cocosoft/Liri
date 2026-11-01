@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INFRA-PACKAGE-P23-MEMORY**：P23：memory 迁入 packages/infra（移除 fs-extra + 补回 33 例覆盖） —— 验证 tsc0|tests9694|gates55|infra0|scc0；基线 memory 71 文件在 app/src/memory（含未被收集的内联测试）（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P23-MEMORY）
 - ✅ **INFRA-PACKAGE-P22-CHRONOS**：P22：chronos 迁入 packages/infra（基线两分节分别改名） —— 验证 tsc0|tests9661|gates55|infra0|scc0；基线 chronos 50 文件在 app/src/chronos（含根 barrel）（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P22-CHRONOS）
 - ✅ **INFRA-PACKAGE-P21-SYSTEM**：P21：system 迁入 packages/infra（目录入口显式导出） —— 验证 tsc0|tests9661|gates55|infra0|scc0；基线 system 26 文件在 app/src/system（无根 index）（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P21-SYSTEM）
 - ✅ **INFRA-PACKAGE-P20-OAUTH**：P20：oauth 迁入 packages/infra（模块内测试改归 app/tests） —— 验证 tsc0|tests9661|gates55|infra0|scc0；基线 oauth 31 文件在 app/src（含 __tests__ 内联测试）（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P20-OAUTH）

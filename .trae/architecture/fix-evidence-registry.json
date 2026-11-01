@@ -16886,6 +16886,47 @@
       "changelog": [],
       "reopenWhen": "① 若 `monitoring` / `memory` / `security` 也迁包 ⇒ `chronos` 的边会改写成 `@openliri/infra/*`（R7 边不变）；② 若新增 chronos 子目录型消费（`@openliri/infra/chronos/<dir>`）⇒ 目录不走 `*.ts` …（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P22-CHRONOS）",
       "notes": "迁包：chronos 共 50 文件（15 子域 + 根 15 文件，根有 barrel）git mv 至 packages/infra/src/chronos。引用改写：22 文件（`@modules/chronos` → `@openliri/infra/chronos`，含 `build-variant.ts`…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P22-CHRONOS）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P23-MEMORY",
+      "title": "P23：memory 迁入 packages/infra（71 文件；移除 fs-extra + 恢复 33 例未收集覆盖）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.21",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/memory/index.ts",
+        "packages/infra/src/memory/MemoryManager.ts",
+        "packages/infra/src/memory/stores/MemoryStore.ts",
+        "packages/infra/src/memory/MemoryHookDispatcher.ts",
+        "app/tests/memory/MemoryModuleTest.test.ts",
+        "app/src/bootstrap/generatedLazyLoaders.ts",
+        "app/src/entrypoints/init.ts",
+        "app/src/infrastructure/http/handlers/memory-handlers.ts",
+        "app/tsconfig.json",
+        "packages/infra/tsconfig.json",
+        "packages/infra/package.json",
+        "scripts/state-machine-allowlist.json"
+      ],
+      "tests": [
+        "app/tests/memory/MemoryModuleTest.test.ts",
+        "app/tests/memory/memoryRetentionIntegration.test.ts",
+        "app/tests/memory/MemoryPortContract.test.ts",
+        "app/tests/memory/unifiedSearchRrf.test.ts",
+        "app/tests/monitoring/timerLifecycle.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `monitoring` / `security` / `config` 也迁包 ⇒ memory 的边会改写成 `@openliri/infra/*`（R7 边不变）；② 若再引入**无自带类型**的第三方依赖 ⇒ 不要在 tsconfig 里把裸名映射到 `@types`（bun 会按包内 tsconfi…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P23-MEMORY）",
+      "notes": "迁包：memory 共 71 文件（15 子域 + 根 15 文件，根有 barrel）git mv 至 packages/infra/src/memory；出边全为 infra（monitoring 33 · error 24 · config 3）。**恢复被静默遗漏的覆盖**：根 `MemoryModuleTe…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P23-MEMORY）"
     }
   ]
 }

@@ -8003,3 +8003,32 @@
 {"id":"INFRA-PACKAGE-P22-CHRONOS","k":"tests#2","i":0,"c":"app/tests/tools/SecurityTools.test.ts"}
 {"id":"INFRA-PACKAGE-P22-CHRONOS","k":"tests#3","i":0,"c":"app/tests/budget/sideChannelGuard.test.ts"}
 {"id":"INFRA-PACKAGE-P22-CHRONOS","k":"tests#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"title","i":0,"c":"P23：memory 迁入 packages/infra（71 文件；移除 fs-extra + 恢复 33 例未收集覆盖）"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.21"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"reopenWhen","i":0,"c":"① 若 `monitoring` / `security` / `config` 也迁包 ⇒ memory 的边会改写成 `@openliri/infra/*`（R7 边不变）；② 若再引入**无自带类型**的第三方依赖 ⇒ 不要在 tsconfig 里把裸名映射到 `@types`（bun 会按包内 tsconfig 解析而失败），应先确认该依赖是否必须，"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"reopenWhen","i":1,"c":"或改用 node 内置能力；③ 新增 memory 相关状态机 ⇒ 同步 `scripts/state-machine-allowlist.json`（按文件路径登记）。"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"notes","i":0,"c":"迁包：memory 共 71 文件（15 子域 + 根 15 文件，根有 barrel）git mv 至 packages/infra/src/memory；出边全为 infra（monitoring 33 · error 24 · config 3）。**恢复被静默遗漏的覆盖**：根 `MemoryModuleTest.ts` 因文件名不含 `.test`"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"notes","i":1,"c":" 而**从未被 bun test 收集**（33 例，实测全绿）⇒ 迁到 `app/tests/memory/MemoryModuleTest.test.ts`，用例数 9705 → 9738。**移除 fs-extra**：该包无自带类型，迁包后 tsc 需 `@types/fs-extra`、bun 运行期需真实包，同一 tsconfig 无法两全（实测"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"notes","i":2,"c":"：指向 @types ⇒ bun 报 Cannot find package）⇒ 两处调用改用 `node:fs/promises`（cp/rm/mkdir/readdir/access）+ 既有 `environment.ensureDir`；全仓只剩这 2 处引用，改完归零。包内相对逃逸改别名（MemoryHookDispatcher → `"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"notes","i":3,"c":"@modules/monitoring/logs/Logger` / `@modules/error/handleError`）。**状态机台账**：`scripts/state-machine-allowlist.json` 按文件路径登记（R09-006）⇒ 两条 memory 路径同步改名，否则门禁报「未登记状态机」。**幽灵台账自检**：`"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"notes","i":4,"c":"state-literal-baseline.json` 的 `files[value]` 有「文件真实存在」断言 ⇒ 迁走的内联测试必须同步改键（本轮首跑 CI 因此 1 fail）。联动：hardcode 4 处 · logger-name 1 · state-literal 12 · 证据 code[] 9 处路径键改名；`ImportManager`"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"notes","i":5,"c":" legacy aliasMap 仍保留 `@modules/memory`（与既往批次一致）。运行期自证：桶 59 导出 · `/MemoryManager` 3 · `/stores/MemoryStore` 3 · `/types/Memory` 1 · `/consolidation/MemoryConsolidator` 1 · `"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"notes","i":6,"c":"/services/UnifiedSearchService` 2。负向自证：包内 `import \"@modules/chat\"` ⇒ R6 点名；monitoring 临时 import 桶 ⇒ R7 报 3 成员环（均回滚，SCC 0）。另：`lint:arch` R05-004 会扫描 `packages/infra/src` 下的 `.js`（本轮"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"notes","i":7,"c":"发现 476 个未跟踪编译产物，已清理；包内不得留编译输出）。"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"code#0","i":0,"c":"packages/infra/src/memory/index.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"code#1","i":0,"c":"packages/infra/src/memory/MemoryManager.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"code#2","i":0,"c":"packages/infra/src/memory/stores/MemoryStore.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"code#3","i":0,"c":"packages/infra/src/memory/MemoryHookDispatcher.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"code#4","i":0,"c":"app/tests/memory/MemoryModuleTest.test.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"code#5","i":0,"c":"app/src/bootstrap/generatedLazyLoaders.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"code#6","i":0,"c":"app/src/entrypoints/init.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"code#7","i":0,"c":"app/src/infrastructure/http/handlers/memory-handlers.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"code#8","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"code#9","i":0,"c":"packages/infra/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"code#10","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"code#11","i":0,"c":"scripts/state-machine-allowlist.json"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"tests#0","i":0,"c":"app/tests/memory/MemoryModuleTest.test.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"tests#1","i":0,"c":"app/tests/memory/memoryRetentionIntegration.test.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"tests#2","i":0,"c":"app/tests/memory/MemoryPortContract.test.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"tests#3","i":0,"c":"app/tests/memory/unifiedSearchRrf.test.ts"}
+{"id":"INFRA-PACKAGE-P23-MEMORY","k":"tests#4","i":0,"c":"app/tests/monitoring/timerLifecycle.test.ts"}

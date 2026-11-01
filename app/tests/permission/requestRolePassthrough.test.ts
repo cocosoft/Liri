@@ -12,9 +12,9 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { createPermissionManager } from '../../src/permission/PermissionManager.js';
-import { createPermissionContext } from '../../src/permission/types/PermissionContext.js';
-import type { PermissionContext } from '../../src/permission/types/PermissionContext.js';
+import { createPermissionManager } from '@openliri/infra/permission/PermissionManager';
+import { createPermissionContext } from '@openliri/infra/permission/types/PermissionContext';
+import type { PermissionContext } from '@openliri/infra/permission/types/PermissionContext';
 
 /** 捕获流经 `checkPermission` 的上下文（返回 allow，避免落到 Inbox 提交通路） */
 function captureContexts(pm: ReturnType<typeof createPermissionManager>) {

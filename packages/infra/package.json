@@ -152,6 +152,14 @@
     "./memory/*": {
       "types": "./src/memory/*.ts",
       "import": "./src/memory/*.ts"
+    },
+    "./permission": {
+      "types": "./src/permission/index.ts",
+      "import": "./src/permission/index.ts"
+    },
+    "./permission/*": {
+      "types": "./src/permission/*.ts",
+      "import": "./src/permission/*.ts"
     }
   },
   "scripts": {

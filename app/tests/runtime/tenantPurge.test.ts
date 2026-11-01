@@ -33,7 +33,7 @@ import type { Principal } from '@openliri/kernel/identity/principal.js';
 import {
   getApprovedCommandRegistry,
   type ApprovedCommandRegistry,
-} from '../../src/permission/ApprovedCommandRegistry.js';
+} from '@openliri/infra/permission/ApprovedCommandRegistry';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = {

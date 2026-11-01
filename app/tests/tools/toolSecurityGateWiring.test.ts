@@ -26,7 +26,10 @@ import {
   isPowerShellCommandAllowed,
 } from '../../src/tools/PowerShellTool/PowerShellTool.js';
 import { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer.js';
-import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
+import type {
+  ApprovalScope,
+  ApprovalSnapshot,
+} from '@openliri/infra/permission';
 
 const approvalScope: ApprovalScope = {
   platform: process.platform,

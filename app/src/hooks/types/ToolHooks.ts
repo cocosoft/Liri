@@ -1,8 +1,8 @@
 /**
  * 工具Hook类型定义
  */
-import { PermissionMode } from '@modules/permission';
-import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
+import { PermissionMode } from '@openliri/infra/permission';
+import { PermissionBehavior } from '@openliri/infra/permission/types/PermissionRule';
 
 /**
  * PreToolUse Hook输入

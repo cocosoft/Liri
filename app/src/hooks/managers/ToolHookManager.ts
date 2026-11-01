@@ -12,7 +12,7 @@ import {
   createToolHookBlockingResult,
   createToolHookCancelledResult,
 } from '../types/ToolHooks';
-import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
+import { PermissionBehavior } from '@openliri/infra/permission/types/PermissionRule';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 

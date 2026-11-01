@@ -34,7 +34,7 @@ import { sendError, readRequestBody } from './handler-utils';
 import {
   PermissionBehavior,
   PermissionRule,
-} from '@modules/permission/types/PermissionRule';
+} from '@openliri/infra/permission/types/PermissionRule';
 import {
   shadowedRuleDetector,
   permissionMetrics,
@@ -44,7 +44,7 @@ import {
   OperationType,
   PermissionAction,
   RoleType,
-} from '@modules/permission';
+} from '@openliri/infra/permission';
 
 const VALID_BEHAVIORS: string[] = ['allow', 'deny', 'ask'];
 

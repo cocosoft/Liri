@@ -911,7 +911,7 @@ async function submitStepApprovalCards(args: {
       resolveApprovalFingerprint,
       previewApprovalFingerprint,
       findPendingApprovalId,
-    } = await import('@modules/permission');
+    } = await import('@openliri/infra/permission');
 
     for (const outcome of pending) {
       const call = args.executed.find(

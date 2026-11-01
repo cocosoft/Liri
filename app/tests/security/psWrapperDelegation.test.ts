@@ -14,7 +14,10 @@ import { describe, expect, it } from 'bun:test';
 import { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer.js';
 import { checkAstAndAnalyzer } from '../../src/tools/bash/bashSecurityGate.js';
 import { isSinglePowerShellWrapperCommand } from '../../src/tools/bash/powerShellWrapper.js';
-import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
+import type {
+  ApprovalScope,
+  ApprovalSnapshot,
+} from '@openliri/infra/permission';
 
 const SINGLE =
   'powershell -Command "Get-ChildItem C:\\ -Directory -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name"';

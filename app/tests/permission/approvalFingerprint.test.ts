@@ -19,18 +19,18 @@ import {
   toolCallApprovalKey,
   getApprovedCommandRegistry,
   hashCommandForExecution,
-} from '../../src/permission/ApprovedCommandRegistry.js';
+} from '@openliri/infra/permission/ApprovedCommandRegistry';
 import {
   resolveApprovalFingerprint,
   normalizeApprovalPath,
-} from '../../src/permission/approvalFingerprint.js';
+} from '@openliri/infra/permission/approvalFingerprint';
 import {
   PermissionBehavior,
   createPermissionRule,
   isRuleMatch,
-} from '../../src/permission/types/PermissionRule.js';
-import { PermissionChecker } from '../../src/permission/PermissionChecker.js';
-import { RuleManager } from '../../src/permission/RuleManager.js';
+} from '@openliri/infra/permission/types/PermissionRule';
+import { PermissionChecker } from '@openliri/infra/permission/PermissionChecker';
+import { RuleManager } from '@openliri/infra/permission/RuleManager';
 
 /** 模拟 `file_write` 的声明（只按路径授权，不关心内容） */
 const fileWriteLike = {

@@ -39,7 +39,7 @@ import type { ToolCall } from '@modules/session/types/tool.js';
 import {
   getApprovedCommandRegistry,
   hashCommand,
-} from '../../src/permission/ApprovedCommandRegistry.js';
+} from '@openliri/infra/permission/ApprovedCommandRegistry';
 
 /** mock 权限管理器：checkPermissionForTool 返回预设决策 */
 function makePermissionManager(decision: {

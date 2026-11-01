@@ -222,7 +222,7 @@ import {
   type FileStateCache,
 } from '@openliri/infra/utils/fileStateCache';
 import { getToolBaseDir } from '../utils/ToolUtils';
-import { normalizeApprovalPath } from '@modules/permission';
+import { normalizeApprovalPath } from '@openliri/infra/permission';
 const logger = getLogger('tools:FileEditTool:FileEditTool');
 
 function normalizeQuotes(str: string): string {

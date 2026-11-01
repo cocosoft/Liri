@@ -178,7 +178,7 @@
       "statement": "已批准命令在执行前仍须满足规定的重新验证条件（批准只免审批交互，硬拦截仍须过）。",
       "sources": [
         "app/src/tools/bash/BashTool.ts",
-        "app/src/permission/ApprovedCommandRegistry.ts"
+        "packages/infra/src/permission/ApprovedCommandRegistry.ts"
       ],
       "tests": [
         "app/tests/security/crossLayerSecurityConsistency.test.ts",

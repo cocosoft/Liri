@@ -81,12 +81,12 @@ import type {
   ApprovalScope,
   ApprovalSnapshot,
   PermissionDenyInfo,
-} from '@modules/permission';
+} from '@openliri/infra/permission';
 // D2（2026-10-11）：权限管理器注入断言（生产 fail-fast，G9）
 import {
   assertPermissionManagerInjected,
   resolveApprovalFingerprint,
-} from '@modules/permission';
+} from '@openliri/infra/permission';
 
 /**
  * **工具执行瞬态**状态（状态机方案 阶段 1.3 取证抽出；消除裸字面量，CS02）。

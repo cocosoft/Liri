@@ -21,16 +21,19 @@ import { readFileSync } from 'node:fs';
 import {
   RuleManager,
   deduplicateRules,
-} from '../../src/permission/RuleManager.js';
+} from '@openliri/infra/permission/RuleManager';
 import {
   PermissionBehavior,
   createPermissionRule,
-} from '../../src/permission/types/PermissionRule.js';
-import { toolMatchesRule } from '../../src/permission/utils/RuleMatcher.js';
-import { shadowedRuleDetector } from '../../src/permission/utils/ShadowedRuleDetector.js';
+} from '@openliri/infra/permission/types/PermissionRule';
+import { toolMatchesRule } from '@openliri/infra/permission/utils/RuleMatcher';
+import { shadowedRuleDetector } from '@openliri/infra/permission/utils/ShadowedRuleDetector';
 
 const PERMISSION_MANAGER_SRC = readFileSync(
-  new URL('../../src/permission/PermissionManager.ts', import.meta.url),
+  new URL(
+    '../../../packages/infra/src/permission/PermissionManager.ts',
+    import.meta.url
+  ),
   'utf8'
 );
 

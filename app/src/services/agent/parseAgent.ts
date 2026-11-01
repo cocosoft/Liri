@@ -14,7 +14,7 @@ import {
 } from '@openliri/infra/utils/markdownConfigLoader';
 import { parsePositiveIntFromFrontmatter } from '@openliri/infra/utils/frontmatterParser';
 import { EFFORT_LEVELS, parseEffortValue } from '@openliri/infra/utils/effort';
-import { PermissionMode } from '@modules/permission';
+import { PermissionMode } from '@openliri/infra/permission';
 import { configManager } from '@modules/config';
 import { AgentMcpServerSpec } from './agentMcpServer';
 import { loadAgentMemoryPrompt } from './agentMemory';

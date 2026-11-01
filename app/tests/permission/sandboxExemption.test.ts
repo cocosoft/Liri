@@ -10,8 +10,8 @@
 
 import { describe, expect, it } from 'bun:test';
 
-import { resolveSandboxExemption } from '../../src/permission/sandboxExemption.js';
-import { RiskClass } from '../../src/permission/types/RiskClass.js';
+import { resolveSandboxExemption } from '@openliri/infra/permission/sandboxExemption';
+import { RiskClass } from '@openliri/infra/permission/types/RiskClass';
 
 const workspace = process.cwd();
 const isolated = {

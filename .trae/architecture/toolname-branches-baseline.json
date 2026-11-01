@@ -3,9 +3,9 @@
   "generatedAt": "2026-10-19",
   "total": 7,
   "files": {
-    "app/src/permission/PermissionCache.ts": 2,
-    "app/src/permission/PermissionChecker.ts": 2,
-    "app/src/permission/permissions.ts": 1,
+    "packages/infra/src/permission/PermissionCache.ts": 2,
+    "packages/infra/src/permission/PermissionChecker.ts": 2,
+    "packages/infra/src/permission/permissions.ts": 1,
     "client/src/components/views/image/useImageToolExecution.ts": 1,
     "client/src/services/chatService.ts": 1
   }

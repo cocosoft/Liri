@@ -30,8 +30,8 @@ import {
   resolveFileIoToolModeHint,
   resolveSandboxExecutionSignal,
 } from '../../src/sandbox/sandboxExecutionSignal.js';
-import { resolveSandboxExemption } from '../../src/permission/sandboxExemption.js';
-import { RiskClass } from '../../src/permission/types/RiskClass.js';
+import { resolveSandboxExemption } from '@openliri/infra/permission/sandboxExemption';
+import { RiskClass } from '@openliri/infra/permission/types/RiskClass';
 import {
   SandboxPlatform,
   SandboxPermission,

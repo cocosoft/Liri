@@ -13,12 +13,12 @@
  */
 
 import { describe, it, expect, afterEach } from 'bun:test';
-import { PermissionManager } from '../../src/permission/PermissionManager.js';
+import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
 import {
   PermissionBehavior,
   PermissionRuleSource,
-} from '../../src/permission/types/PermissionRule.js';
-import type { RuleMatcherPermissionContext } from '../../src/permission/utils/RuleMatcher.js';
+} from '@openliri/infra/permission/types/PermissionRule';
+import type { RuleMatcherPermissionContext } from '@openliri/infra/permission/utils/RuleMatcher';
 
 const manager = PermissionManager.getInstance();
 const snapshot: RuleMatcherPermissionContext =

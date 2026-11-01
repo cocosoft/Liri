@@ -44,7 +44,7 @@ import { BashTool, buildBashSpawnEnv } from '../../src/tools/bash/BashTool.js';
 import {
   ApprovedCommandRegistry,
   hashCommand,
-} from '../../src/permission/ApprovedCommandRegistry.js';
+} from '@openliri/infra/permission/ApprovedCommandRegistry';
 import {
   BashSecurityAnalyzer,
   getBashAnalyzerStats,

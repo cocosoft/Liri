@@ -51,7 +51,10 @@ import type { UnifiedTokenTracker } from '@modules/tokenBudget';
 import type { HookChainManager } from '@modules/hooks';
 import { CompactServiceImpl } from '@modules/compaction';
 import type { RollbackIntegration } from '@modules/security';
-import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
+import type {
+  ApprovalScope,
+  ApprovalSnapshot,
+} from '@openliri/infra/permission';
 import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 import type { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
 import { setStepLoopFactory } from '@modules/tasks';

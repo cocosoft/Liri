@@ -11,14 +11,17 @@
  * 回归由既有 `tests/chat/ChatManagerPermission.test.ts`（ask/deny/allow/放行缓存命中）
  * 与 `tests/chat` 全量用例兜底。
  *
- * 依赖照旧走**动态 import**（`@modules/permission` / `InboxManager`）—— 刻意不提到静态图，
+ * 依赖照旧走**动态 import**（`@openliri/infra/permission` / `InboxManager`）—— 刻意不提到静态图，
  * 以免改变启动期 eager 依赖（与迁移前一致）。
  */
 
 import { getLogger } from '@modules/monitoring';
 import { isShellToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 import type { ToolRegistry } from '@modules/tools';
-import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
+import type {
+  ApprovalScope,
+  ApprovalSnapshot,
+} from '@openliri/infra/permission';
 
 const logger = getLogger('chat:manager');
 
@@ -47,7 +50,7 @@ export async function isCommandApproved(
     // `if (!isShellToolName(toolName)) return false;` 使非命令工具的批准**永远查不到**，
     // 于是「点了批准、下一轮同一调用照样弹」。
     if (!isShellToolName(toolName)) {
-      const { isToolCallApproved } = await import('@modules/permission');
+      const { isToolCallApproved } = await import('@openliri/infra/permission');
       return (
         !!sessionId &&
         isToolCallApproved(sessionId, toolName, input, approvalFingerprint)
@@ -58,7 +61,7 @@ export async function isCommandApproved(
     // P0-2: 统一 hashCommandForExecution，与提交审批端（PermissionChecker）hash 一致
     // P0-3: 精确 hash 命中 或 命令名级放行命中（非危险命令，安全层仍兜底）→ 跳过 ask 弹卡
     const { getApprovedCommandRegistry, hashCommandForExecution } =
-      await import('@modules/permission');
+      await import('@openliri/infra/permission');
     const registry = getApprovedCommandRegistry();
     return (
       registry.isApproved(sessionId, hashCommandForExecution(command)) ||
@@ -101,7 +104,7 @@ export async function submitToolApproval(
       previewApprovalFingerprint,
       resolveRiskClass,
       findPendingApprovalId,
-    } = await import('@modules/permission');
+    } = await import('@openliri/infra/permission');
     const command = typeof input.command === 'string' ? input.command : '';
     // N1：非命令类工具（media:delete 等）改用工具调用键（toolName:稳定JSON）作为放行
     // 哈希——审批后 LLM 重发时工具内 isToolCallApproved 命中才真正执行；bash 类工具
@@ -139,7 +142,7 @@ export async function submitToolApproval(
     // 只在新卡真正要建时开链（复用既有卡的那条链已在更早的提交里落过 ①②）。
     // 开关默认关（`config.json → approvalFourStage`）⇒ 关闭时以下调用为空操作。
     const { emitApprovalAudit, newApprovalId } =
-      await import('@modules/permission');
+      await import('@openliri/infra/permission');
     const approvalId = newApprovalId();
     const risk = resolveRiskClass(tool ?? toolName, input);
     if (sessionId) {

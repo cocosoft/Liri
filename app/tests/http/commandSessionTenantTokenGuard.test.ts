@@ -30,7 +30,7 @@ import {
   handleAuthRegister,
 } from '../../src/infrastructure/http/handlers/auth-handlers.js';
 import { withRequestIdentity } from '../../src/infrastructure/http/requestIdentity.js';
-import { PermissionManager } from '@modules/permission';
+import { PermissionManager } from '@openliri/infra/permission';
 
 import type { ChatSession } from '../../src/session/types/session';
 import { DataSessionStatus } from '@openliri/kernel';

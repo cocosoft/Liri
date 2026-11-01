@@ -17,7 +17,7 @@ import {
   isApprovalExecutable,
   startApprovalChain,
   type ApprovalChainState,
-} from '../../src/permission/approvalStages';
+} from '@openliri/infra/permission/approvalStages';
 
 /** 推进到某段（测试辅助；失败即抛，避免用例里堆 result 判定） */
 function advanceTo(

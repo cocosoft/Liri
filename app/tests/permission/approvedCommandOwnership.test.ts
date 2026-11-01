@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { ApprovedCommandRegistry } from '../../src/permission/ApprovedCommandRegistry';
+import { ApprovedCommandRegistry } from '@openliri/infra/permission/ApprovedCommandRegistry';
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
 

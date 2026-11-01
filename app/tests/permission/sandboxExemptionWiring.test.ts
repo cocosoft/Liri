@@ -14,12 +14,12 @@
 
 import { afterEach, describe, expect, it } from 'bun:test';
 
-import { RuleManager } from '../../src/permission/RuleManager.js';
+import { RuleManager } from '@openliri/infra/permission/RuleManager';
 import {
   PermissionChecker,
   setPermissionRuntimeDeps,
-} from '../../src/permission/PermissionChecker.js';
-import { PermissionDecisionType } from '../../src/permission/types/PermissionDecision.js';
+} from '@openliri/infra/permission/PermissionChecker';
+import { PermissionDecisionType } from '@openliri/infra/permission/types/PermissionDecision';
 
 const workspace = process.cwd();
 const isolated = {

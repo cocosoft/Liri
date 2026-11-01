@@ -43,7 +43,7 @@ import {
   BashTool,
   resetGraySwitchWarningForTest,
 } from '../../src/tools/bash/BashTool.js';
-import { ApprovedCommandRegistry } from '../../src/permission/ApprovedCommandRegistry.js';
+import { ApprovedCommandRegistry } from '@openliri/infra/permission/ApprovedCommandRegistry';
 import type { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer.js';
 import type { ToolUseContext } from '../../src/tools/types/Tool.js';
 

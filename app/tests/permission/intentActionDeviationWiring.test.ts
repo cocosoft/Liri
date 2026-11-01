@@ -13,11 +13,11 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { join, dirname } from 'path';
 import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'fs';
-import { createPermissionManager } from '../../src/permission/PermissionManager.js';
+import { createPermissionManager } from '@openliri/infra/permission/PermissionManager';
 import { inboxManager } from '../../src/runtime/InboxManager.js';
 import { unattendedMode } from '../../src/runtime/UnattendedModeManager.js';
 import { resolvePermissionsDir } from '@openliri/infra/environment';
-import { setPermissionRuntimeDeps } from '../../src/permission/PermissionChecker.js';
+import { setPermissionRuntimeDeps } from '@openliri/infra/permission/PermissionChecker';
 
 const RULE_FILE = join(resolvePermissionsDir(), 'tool_rules.json');
 let rulesBackup: string | null = null;

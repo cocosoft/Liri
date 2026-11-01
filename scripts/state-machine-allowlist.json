@@ -74,12 +74,12 @@
       "reason": "可观测性层对通道健康度的**观测结论**（探针输出），非通道自身状态机"
     },
     {
-      "file": "app/src/permission/classifiers/AutoModeState.ts",
+      "file": "packages/infra/src/permission/classifiers/AutoModeState.ts",
       "exportName": "AutoModeState",
       "reason": "权限自动模式的分类器判定态，属安全策略域内状态（R09 治理范围为任务/连接/后台进程）"
     },
     {
-      "file": "app/src/permission/utils/BypassPermissionsKillswitch.ts",
+      "file": "packages/infra/src/permission/utils/BypassPermissionsKillswitch.ts",
       "exportName": "BypassState",
       "reason": "权限旁路熔断开关态（安全兜底，CS03 语义），属安全域而非编排域"
     },

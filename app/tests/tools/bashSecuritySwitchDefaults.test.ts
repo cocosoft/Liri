@@ -40,7 +40,7 @@ import {
   BashTool,
   resetGraySwitchWarningForTest,
 } from '../../src/tools/bash/BashTool.js';
-import { ApprovedCommandRegistry } from '../../src/permission/ApprovedCommandRegistry.js';
+import { ApprovedCommandRegistry } from '@openliri/infra/permission/ApprovedCommandRegistry';
 
 const ENV_A2 = 'FEATURE_BASH_APPROVED_REVALIDATE';
 const ENV_A4 = 'FEATURE_BASH_INTERPRETER_GUARD';

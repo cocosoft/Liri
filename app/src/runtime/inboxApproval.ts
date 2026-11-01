@@ -27,7 +27,7 @@ import {
   resolveRecordScope,
   type ApprovalScope,
   type ApprovalSnapshot,
-} from '@modules/permission';
+} from '@openliri/infra/permission';
 
 const logger = getLogger('runtime:inboxApproval');
 
@@ -65,7 +65,7 @@ export function onInboxApprovalResolved(
  * - `allowlist_call`   始终允许（持久化「工具 + 参数指纹」规则）
  * - `allowlist_tool` / `allowlist_command`：命令类的工具级 / 命令前缀级白名单
  *
- * P5-1（2026-10-28）：集合改由 `@modules/permission` 的 `APPROVAL_REPLY_TO_DECISION`
+ * P5-1（2026-10-28）：集合改由 `@openliri/infra/permission` 的 `APPROVAL_REPLY_TO_DECISION`
  * **派生**（审批四段的决策词表同源）⇒ 新增一档只改一处，受理与审计不会漂移。
  */
 const APPROVAL_REPLIES = new Set(Object.keys(APPROVAL_REPLY_TO_DECISION));
@@ -194,7 +194,7 @@ async function recordApprovalDecision(
   if (!approvalId || !sessionId) return;
 
   try {
-    const { emitApprovalAudit } = await import('@modules/permission');
+    const { emitApprovalAudit } = await import('@openliri/infra/permission');
     const decision = resolveApprovalDecision(reply, selectedOption);
     const commandHash = current.metadata?.commandHash as string | undefined;
 
@@ -491,10 +491,10 @@ async function persistFingerprintRule(current: {
   const { toolName, inputFingerprint } = target;
 
   const { PermissionManager } =
-    await import('@modules/permission/PermissionManager.js');
+    await import('@openliri/infra/permission/PermissionManager');
   // LRO-07（2026-10-26）：落盘来源标注为规则库（此前默认 userSettings ⇒ deny 文案指错地方）
   const { createPermissionRule, PermissionBehavior, PermissionRuleSource } =
-    await import('@modules/permission/types/PermissionRule.js');
+    await import('@openliri/infra/permission/types/PermissionRule');
 
   const ruleManager = PermissionManager.getInstance().getRuleManager();
   ruleManager.addRule(
@@ -537,10 +537,10 @@ async function persistAllowlistRule(
     commandLevel && command ? buildCommandContentPattern(command) : undefined;
 
   const { PermissionManager } =
-    await import('@modules/permission/PermissionManager.js');
+    await import('@openliri/infra/permission/PermissionManager');
   // LRO-07（2026-10-26）：落盘来源标注为规则库（此前默认 userSettings ⇒ deny 文案指错地方）
   const { createPermissionRule, PermissionBehavior, PermissionRuleSource } =
-    await import('@modules/permission/types/PermissionRule.js');
+    await import('@openliri/infra/permission/types/PermissionRule');
 
   const ruleManager = PermissionManager.getInstance().getRuleManager();
   ruleManager.addRule(

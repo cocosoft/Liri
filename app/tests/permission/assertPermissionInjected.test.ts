@@ -8,7 +8,7 @@
  * 测试环境（`NODE_ENV==='test'`）保留 fail-open（既有单测约定）。
  */
 import { afterEach, describe, expect, it } from 'bun:test';
-import { assertPermissionManagerInjected } from '../../src/permission/assertPermissionInjected';
+import { assertPermissionManagerInjected } from '@openliri/infra/permission/assertPermissionInjected';
 import { AppError } from '@openliri/kernel/errors.js';
 
 const prevNodeEnv = process.env.NODE_ENV;

@@ -53,7 +53,7 @@ import { setNativeStructureCloserLoader } from '@openliri/infra/utils/structureC
 import { setAnalyticsPricingResolver } from '@openliri/infra/analytics/pricingSource';
 import { getModelPricing } from '@openliri/infra/cost/ModelPricing';
 import type { NativeLib } from '../../native';
-import { RuleManager } from '@modules/permission';
+import { RuleManager } from '@openliri/infra/permission';
 
 const logger = getLogger('main');
 

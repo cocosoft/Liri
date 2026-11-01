@@ -3,7 +3,7 @@
  *
  * 为什么单独一个文件：`permission`（infra）不能静态依赖 `chat`（service，R00-001 上行依赖）。
  * 故由入口（`entrypoints/init.ts`）把本模块的 sink 注入给
- * `@modules/permission/approvalAudit`（与 2026-09-30 D-126 的 `PermissionRuntimeDeps`
+ * `@openliri/infra/permission/approvalAudit`（与 2026-09-30 D-126 的 `PermissionRuntimeDeps`
  * 同一手法）。
  *
  * 落盘口径：写**会话事件日志**（`appendStreamEvent`，`seq: 0` ⇒ 由存储层原子分配），
@@ -19,7 +19,7 @@ import type { LiriEvent } from '@modules/session/types/events';
 import type {
   ApprovalAuditEvent,
   ApprovalAuditSink,
-} from '@modules/permission';
+} from '@openliri/infra/permission';
 
 const logger = getLogger('runtime:approvalAuditSink');
 
@@ -149,7 +149,7 @@ function enqueue(sessionId: string, event: ApprovalAuditEvent): void {
  * 返回 Promise 仅为与入口其余异步注入保持一致的调用形态（内部装配本身是同步的）。
  */
 export async function installApprovalAuditSink(): Promise<void> {
-  const { setApprovalAuditSink } = await import('@modules/permission');
+  const { setApprovalAuditSink } = await import('@openliri/infra/permission');
   const sink: ApprovalAuditSink = (sessionId, event) => {
     enqueue(sessionId, event);
   };

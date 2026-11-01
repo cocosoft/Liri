@@ -131,7 +131,7 @@ export class ChatSessionTeardown {
     void (async () => {
       try {
         const { getApprovedCommandRegistry } =
-          await import('@modules/permission');
+          await import('@openliri/infra/permission');
         getApprovedCommandRegistry().clearSession(sessionId);
       } catch (e) {
         logger.warn('deleteSession:清理审批放行缓存失败', {

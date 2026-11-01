@@ -78,7 +78,7 @@ import {
   hashEnvForApproval,
   type ApprovalScope,
   type ApprovalSnapshot,
-} from '@modules/permission';
+} from '@openliri/infra/permission';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:bash:BashTool');

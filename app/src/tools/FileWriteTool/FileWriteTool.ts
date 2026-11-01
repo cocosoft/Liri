@@ -173,7 +173,7 @@ import {
 } from '../utils/ToolUtils';
 
 import { getLogger } from '@modules/monitoring';
-import { normalizeApprovalPath } from '@modules/permission';
+import { normalizeApprovalPath } from '@openliri/infra/permission';
 const logger = getLogger('tools:FileWriteTool:FileWriteTool');
 
 export class FileWriteTool extends BaseTool {

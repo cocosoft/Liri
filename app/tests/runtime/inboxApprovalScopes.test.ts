@@ -18,13 +18,13 @@ import {
 import {
   hashApprovalFingerprint,
   hashCommandForExecution,
-} from '../../src/permission/ApprovedCommandRegistry.js';
+} from '@openliri/infra/permission/ApprovedCommandRegistry';
 import {
   PermissionBehavior,
   createPermissionRule,
   isRuleMatch,
-} from '../../src/permission/types/PermissionRule.js';
-import { resolveApprovalFingerprint } from '../../src/permission/approvalFingerprint.js';
+} from '@openliri/infra/permission/types/PermissionRule';
+import { resolveApprovalFingerprint } from '@openliri/infra/permission/approvalFingerprint';
 
 describe('PR-2：档位解析', () => {
   it('approve ⇒ once；approve_session ⇒ session', () => {

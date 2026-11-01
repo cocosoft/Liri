@@ -209,8 +209,13 @@
       "@modules/knowledge/*": ["knowledge/*"],
       "@modules/bridge": ["bridge"],
       "@modules/bridge/*": ["bridge/*"],
-      "@modules/permission": ["permission"],
-      "@modules/permission/*": ["permission/*"],
+      "@openliri/infra/permission": [
+        "../../packages/infra/src/permission/index.ts"
+      ],
+      "@openliri/infra/permission.js": [
+        "../../packages/infra/src/permission/index.ts"
+      ],
+      "@openliri/infra/permission/*": ["../../packages/infra/src/permission/*"],
       "@modules/commands": ["commands"],
       "@modules/commands/*": ["commands/*"],
       "@modules/sandbox": ["sandbox"],

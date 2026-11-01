@@ -8,7 +8,7 @@ import type { ToolExecutionContext, ToolPermission } from '../types/ToolTypes';
  * 会得到"永远允许"的静默放行。按 CD07（安全/权限属关键域，禁止仅凭静态零引用删除）：
  * **暂不删除**，仅做两件事 —— ① 移除从未被读取的 `delegate`（死状态，`createPermissionManager()`
  * 实例化后无任何使用）；② 在本注释与 `validatePermission` 上标注"未接线的放行桩"，
- * 真正接线必须委托 `@modules/permission` 的真实判定，不得直接复用本实现。
+ * 真正接线必须委托 `@openliri/infra/permission` 的真实判定，不得直接复用本实现。
  */
 export interface PermissionValidationResult {
   allowed: boolean;
@@ -22,7 +22,7 @@ export class ToolPermissionManager {
   /**
    * 放行桩（零调用点；见类注释）。
    *
-   * @deprecated 未接线且恒 `allowed: true`；如需权限判定，请直接使用 `@modules/permission`
+   * @deprecated 未接线且恒 `allowed: true`；如需权限判定，请直接使用 `@openliri/infra/permission`
    * 的 `PermissionManager`，不要接线本方法。
    */
   async validatePermission(

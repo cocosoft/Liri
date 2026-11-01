@@ -18,7 +18,7 @@ import {
   DANGEROUS_DIRECTORIES,
   isDangerousFile,
   isInDangerousDirectory,
-} from '../filesystem';
+} from '@openliri/infra/permission/filesystem';
 
 describe('面板配置结构与 filesystem 消费键对齐（M0 配置打通）', () => {
   it('面板保存的 permission 整块包含 filesystem 消费键路径', () => {

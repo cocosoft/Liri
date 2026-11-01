@@ -34,7 +34,7 @@ import {
   type ApprovalScope,
   type ApprovalSnapshot,
   type CommandRulesSettings,
-} from '@modules/permission';
+} from '@openliri/infra/permission';
 import { parseForSecurity, isDangerousCommand } from '@modules/security';
 import {
   DANGEROUS_COMMANDS,

@@ -39,9 +39,9 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { mkdtempSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { loadAllPermissionSettings } from '../../src/permission/permissionsLoader';
-import { PermissionManager } from '../../src/permission/PermissionManager';
-import { PermissionRuleSource } from '../../src/permission/types/PermissionRule';
+import { loadAllPermissionSettings } from '@openliri/infra/permission/permissionsLoader';
+import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
+import { PermissionRuleSource } from '@openliri/infra/permission/types/PermissionRule';
 import {
   setUserDataDirOverride,
   getUserDataDirOverride,

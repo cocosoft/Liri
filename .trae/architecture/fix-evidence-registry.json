@@ -39,7 +39,7 @@
       },
       "code": [
         "app/src/security/bash/BashAST.ts",
-        "app/src/permission/ApprovedCommandRegistry.ts",
+        "packages/infra/src/permission/ApprovedCommandRegistry.ts",
         "app/src/tools/bash/BashTool.ts"
       ],
       "tests": [
@@ -1373,7 +1373,7 @@
       },
       "code": [
         "app/src/security/PermissionManager.ts",
-        "app/src/permission/PermissionManager.ts"
+        "packages/infra/src/permission/PermissionManager.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -1711,8 +1711,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/permission/ApprovedCommandRegistry.ts",
-        "app/src/permission/index.ts",
+        "packages/infra/src/permission/ApprovedCommandRegistry.ts",
+        "packages/infra/src/permission/index.ts",
         "app/src/tools/bash/BashTool.ts",
         "app/src/chat/services/ToolExecutionService.ts",
         "app/src/chat/ChatManager.ts",
@@ -2233,8 +2233,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/permission/assertPermissionInjected.ts",
-        "app/src/permission/index.ts",
+        "packages/infra/src/permission/assertPermissionInjected.ts",
+        "packages/infra/src/permission/index.ts",
         "app/src/chat/services/ToolExecutionService.ts"
       ],
       "tests": [
@@ -2509,7 +2509,7 @@
       },
       "code": [
         "packages/infra/src/utils/toolContract/Tool.ts",
-        "app/src/permission/ApprovedCommandRegistry.ts"
+        "packages/infra/src/permission/ApprovedCommandRegistry.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -5633,7 +5633,7 @@
         "packages/kernel/src/core/cache/SessionCache.ts",
         "packages/infra/src/memory/FrozenSnapshotService.ts",
         "packages/infra/src/media/image/TempFileManager.ts",
-        "app/src/permission/ApprovedCommandRegistry.ts",
+        "packages/infra/src/permission/ApprovedCommandRegistry.ts",
         "app/src/tools/ImageGenerateTool/ImageGenerationCache.ts",
         "app/src/services/file/FileStatsService.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -5956,7 +5956,7 @@
         "packages/infra/src/chronos/maintenance/cleanup.ts",
         "packages/infra/src/media/image/TempFileManager.ts",
         "app/src/tools/CanvasTool/CanvasTool.ts",
-        "app/src/permission/ApprovedCommandRegistry.ts",
+        "packages/infra/src/permission/ApprovedCommandRegistry.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -10898,7 +10898,7 @@
         "app/src/services/mcp/marketplace/LocalServerStore.ts",
         "packages/infra/src/media/ffmpeg/FFmpegWrapper.ts",
         "packages/infra/src/media/pdf/PdfPageExtractor.ts",
-        "app/src/permission/ApprovedCommandRegistry.ts",
+        "packages/infra/src/permission/ApprovedCommandRegistry.ts",
         "app/src/mcp/cli/mcpCommand.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -12789,7 +12789,7 @@
         "app/src/chat/toolResultPostProcess.ts",
         "app/src/session/types/tool.ts",
         "packages/infra/src/utils/toolContract/ToolResult.ts",
-        "app/src/permission/PermissionManager.ts",
+        "packages/infra/src/permission/PermissionManager.ts",
         "app/src/chat/services/ToolExecutionService.ts",
         "app/src/tools/bash/BashTool.ts",
         "app/src/chat/terminationOutput.ts",
@@ -12797,7 +12797,7 @@
         ".trae/specs/circuit-breaker-classification.md"
       ],
       "tests": [
-        "app/src/permission/__tests__/PermissionDenyLocatable.test.ts",
+        "app/tests/permission/PermissionDenyLocatable.test.ts",
         "app/tests/chat/toolFailureKindWiring.test.ts",
         "app/tests/query/environmentBlockedTermination.test.ts"
       ],
@@ -12822,10 +12822,10 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/permission/RuleManager.ts",
-        "app/src/permission/PermissionManager.ts",
-        "app/src/permission/utils/RuleMatcher.ts",
-        "app/src/permission/utils/ShadowedRuleDetector.ts"
+        "packages/infra/src/permission/RuleManager.ts",
+        "packages/infra/src/permission/PermissionManager.ts",
+        "packages/infra/src/permission/utils/RuleMatcher.ts",
+        "packages/infra/src/permission/utils/ShadowedRuleDetector.ts"
       ],
       "tests": [
         "app/tests/permission/ruleGranularity.test.ts"
@@ -13088,14 +13088,14 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/permission/types/PermissionRule.ts",
-        "app/src/permission/RuleManager.ts",
-        "app/src/permission/PermissionManager.ts",
+        "packages/infra/src/permission/types/PermissionRule.ts",
+        "packages/infra/src/permission/RuleManager.ts",
+        "packages/infra/src/permission/PermissionManager.ts",
         "app/src/runtime/inboxApproval.ts"
       ],
       "tests": [
         "app/tests/permission/ruleSourceAndRemovalHint.test.ts",
-        "app/src/permission/__tests__/PermissionDenyLocatable.test.ts"
+        "app/tests/permission/PermissionDenyLocatable.test.ts"
       ],
       "changelog": [],
       "reopenWhen": "若出现「规则列表来源显示异常」「settings 来源规则被误当成可删」「解除提示与实际接口不一致」：回看 RuleManager.loadRules 迁移段与 PermissionManager._denyByRule；回滚 = revert fa1012fba（全文见 archive/evidence-detail.jsonl#PERMISSION-RULE-SOURCE-REMOVAL-HINT）",
@@ -13118,9 +13118,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/permission/types/PermissionDecision.ts",
-        "app/src/permission/PermissionManager.ts",
-        "app/src/permission/index.ts",
+        "packages/infra/src/permission/types/PermissionDecision.ts",
+        "packages/infra/src/permission/PermissionManager.ts",
+        "packages/infra/src/permission/index.ts",
         "app/src/chat/services/ToolExecutionService.ts"
       ],
       "tests": [
@@ -13333,8 +13333,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/permission/PermissionManager.ts",
-        "app/src/permission/types/PermissionDecision.ts"
+        "packages/infra/src/permission/PermissionManager.ts",
+        "packages/infra/src/permission/types/PermissionDecision.ts"
       ],
       "tests": [
         "app/tests/permission/ruleSourceAndRemovalHint.test.ts"
@@ -13713,9 +13713,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/permission/commandRulePolicy.ts",
-        "app/src/permission/index.ts",
-        "app/src/permission/PermissionManager.ts",
+        "packages/infra/src/permission/commandRulePolicy.ts",
+        "packages/infra/src/permission/index.ts",
+        "packages/infra/src/permission/PermissionManager.ts",
         "app/src/tools/bash/bashSecurityGate.ts"
       ],
       "tests": [
@@ -13920,7 +13920,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/permission/PermissionChecker.ts"
+        "packages/infra/src/permission/PermissionChecker.ts"
       ],
       "tests": [
         "app/tests/permission/nonShellApprovalMemory.test.ts"

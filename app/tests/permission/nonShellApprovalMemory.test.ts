@@ -12,14 +12,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import {
   PermissionChecker,
   setPermissionRuntimeDeps,
-} from '../../src/permission/PermissionChecker.js';
-import { RuleManager } from '../../src/permission/RuleManager.js';
+} from '@openliri/infra/permission/PermissionChecker';
+import { RuleManager } from '@openliri/infra/permission/RuleManager';
 import {
   getApprovedCommandRegistry,
   hashCommandForExecution,
   isToolCallApproved,
   toolCallApprovalKey,
-} from '../../src/permission/ApprovedCommandRegistry.js';
+} from '@openliri/infra/permission/ApprovedCommandRegistry';
 
 const SESSION = 'sess-pr1';
 const submitted: Array<Record<string, unknown>> = [];

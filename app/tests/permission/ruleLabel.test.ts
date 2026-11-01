@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'bun:test';
 
-import { ruleLabel } from '../../src/permission/PermissionManager';
+import { ruleLabel } from '@openliri/infra/permission/PermissionManager';
 
 describe('ruleLabel：把规则对象归一为可读标签', () => {
   it('字符串原样返回', () => {

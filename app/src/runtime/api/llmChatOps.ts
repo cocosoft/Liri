@@ -35,7 +35,7 @@ import { AppError, handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { createPermissionManager } from '@modules/permission';
+import { createPermissionManager } from '@openliri/infra/permission';
 import type { ChatManager } from '@modules/chat';
 import type { ToolManager } from '@modules/tools';
 import type { SmartRouter, RouteDecision } from '@modules/ai';

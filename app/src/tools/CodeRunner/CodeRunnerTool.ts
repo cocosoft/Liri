@@ -23,7 +23,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 import { getLogger } from '@modules/monitoring';
 import { getToolRegistry } from '../ToolRegistry';
-import { PermissionManager } from '@modules/permission';
+import { PermissionManager } from '@openliri/infra/permission';
 import { configManager } from '@modules/config';
 import { feature } from '@openliri/kernel';
 import { verdictFromScanStatus, type DeepScanStatus } from '@modules/security';

@@ -35,25 +35,25 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { join, dirname } from 'path';
 import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'fs';
-import { createPermissionManager } from '../../src/permission/PermissionManager.js';
+import { createPermissionManager } from '@openliri/infra/permission/PermissionManager';
 import {
   PermissionBehavior,
   PermissionRuleSource,
   createPermissionRule,
-} from '../../src/permission/types/PermissionRule.js';
+} from '@openliri/infra/permission/types/PermissionRule';
 import {
   RuleManager,
   deduplicateRules,
-} from '../../src/permission/RuleManager.js';
+} from '@openliri/infra/permission/RuleManager';
 import { inboxManager } from '../../src/runtime/InboxManager.js';
 import { unattendedMode } from '../../src/runtime/UnattendedModeManager.js';
-import { hashCommandForExecution } from '../../src/permission/ApprovedCommandRegistry.js';
+import { hashCommandForExecution } from '@openliri/infra/permission/ApprovedCommandRegistry';
 import { configManager } from '../../src/config/index.js';
 import { resolvePermissionsDir } from '@openliri/infra/environment';
 // 2026-09-30（台账 D-132，修复 D-126 引入的 4 处回归）：`PermissionChecker` 的 runtime 依赖
 // 自 D-126 起改为**入口注入**（消除 permission→runtime 跨层）；本测试不经 DIContainer/入口
 // ⇒ 需在测试内**显式注入**（`app/tests/**` 不在门禁扫描根 `app/src` 内，此跨层导入不触发架构规则）
-import { setPermissionRuntimeDeps } from '../../src/permission/PermissionChecker.js';
+import { setPermissionRuntimeDeps } from '@openliri/infra/permission/PermissionChecker';
 
 /** 权限规则持久化文件（addRule 会写入磁盘，测试前后备份/恢复隔离） */
 const RULE_FILE = join(resolvePermissionsDir(), 'tool_rules.json');

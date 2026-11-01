@@ -8,7 +8,7 @@ import { ToolUseContext } from './types/ToolUseContext';
 import {
   PermissionManager,
   createPermissionManager,
-} from '../permission/PermissionManager';
+} from '@openliri/infra/permission/PermissionManager';
 import { GovernanceManager } from '../governance/managers/GovernanceManager';
 import { ToolHookManager } from '@modules/hooks';
 import { ToolHookContext } from '../hooks/types/ToolHooks';
@@ -730,7 +730,7 @@ export class ToolExecutor {
   ): Promise<boolean> {
     try {
       const { getStandingRuleEngine } =
-        await import('../permission/StandingRuleEngine');
+        await import('@openliri/infra/permission/StandingRuleEngine');
       const engine = getStandingRuleEngine();
       // 尝试从 input 中提取 target（常见键：file_path, path, url, email, target）
       const target =

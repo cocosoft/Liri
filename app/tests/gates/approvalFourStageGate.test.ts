@@ -25,14 +25,14 @@ import {
   resolveRecordScope,
   startApprovalChain,
   type ApprovalChainState,
-} from '../../src/permission/approvalStages';
+} from '@openliri/infra/permission/approvalStages';
 import {
   DEFAULT_APPROVAL_FOUR_STAGE_CONFIG,
   emitApprovalAudit,
   parseApprovalFourStageConfig,
   readApprovalFourStageConfig,
   setApprovalAuditSink,
-} from '../../src/permission/approvalAudit';
+} from '@openliri/infra/permission/approvalAudit';
 import { toSessionEvent } from '../../src/runtime/api/approvalAuditSink';
 
 const REPO_ROOT = join(import.meta.dir, '../../..');
@@ -264,7 +264,7 @@ describe('接线自证（三处调用点各落自己那几段）', () => {
     // issue #17 · D8（2026-10-29）：工具级审批卡提交已外移到 `chat/manager/toolApproval.ts`，
     // 扫描面随实现迁移（断言强度不变）。
     for (const file of [
-      'app/src/permission/PermissionChecker.ts',
+      'packages/infra/src/permission/PermissionChecker.ts',
       'app/src/chat/manager/toolApproval.ts',
     ]) {
       const source = readSource(file);

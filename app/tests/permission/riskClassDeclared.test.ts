@@ -13,15 +13,15 @@ import { describe, it, expect } from 'bun:test';
 import {
   RiskClass,
   resolveRiskClass,
-} from '../../src/permission/types/RiskClass.js';
+} from '@openliri/infra/permission/types/RiskClass';
 import { deriveToolRiskClass } from '../../src/tools/toolRiskClass.js';
 import { PDFTool } from '../../src/tools/PDFTool/PDFTool.js';
 import { FileReadTool } from '../../src/tools/FileReadTool/FileReadTool.js';
 import { FileWriteTool } from '../../src/tools/FileWriteTool/FileWriteTool.js';
 import { BashTool } from '../../src/tools/bash/BashTool.js';
-import { PermissionChecker } from '../../src/permission/PermissionChecker.js';
-import { RuleManager } from '../../src/permission/RuleManager.js';
-import { PermissionDecisionType } from '../../src/permission/types/PermissionDecision.js';
+import { PermissionChecker } from '@openliri/infra/permission/PermissionChecker';
+import { RuleManager } from '@openliri/infra/permission/RuleManager';
+import { PermissionDecisionType } from '@openliri/infra/permission/types/PermissionDecision';
 
 describe('PR-0：工具声明式风险（混合工具）', () => {
   it('pdf：extract / info 判 read，generate 判 write', () => {

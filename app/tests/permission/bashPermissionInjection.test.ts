@@ -14,12 +14,12 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import {
   BashPermission,
   setCommandApprovalEvaluator,
-} from '../../src/permission/integrations/BashPermission';
+} from '@openliri/infra/permission/integrations/BashPermission';
 import {
   createPermissionContext,
   type PermissionContext,
-} from '../../src/permission/types/PermissionContext';
-import { PermissionDecisionType } from '../../src/permission/types/PermissionDecision';
+} from '@openliri/infra/permission/types/PermissionContext';
+import { PermissionDecisionType } from '@openliri/infra/permission/types/PermissionDecision';
 
 function context(command: string): PermissionContext {
   return createPermissionContext({

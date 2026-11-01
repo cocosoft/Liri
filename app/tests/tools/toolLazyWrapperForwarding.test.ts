@@ -16,7 +16,7 @@ import { ToolLazyWrapper } from '../../src/tools/utils/ToolLazyWrapper';
 import {
   RiskClass,
   resolveRiskClass,
-} from '../../src/permission/types/RiskClass';
+} from '@openliri/infra/permission/types/RiskClass';
 
 function makeMetadata(overrides: Partial<ToolInfo> = {}): ToolInfo {
   return {

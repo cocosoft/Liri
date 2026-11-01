@@ -185,7 +185,8 @@ export async function purgeTenant(
   });
 
   await runStep(report, 'approvedCommands', async () => {
-    const registry = await import('../permission/ApprovedCommandRegistry.js');
+    const registry =
+      await import('@openliri/infra/permission/ApprovedCommandRegistry');
     report.removed.approvedCommands = registry
       .getApprovedCommandRegistry()
       .forgetOwnerPrefix(ownerPrefix);

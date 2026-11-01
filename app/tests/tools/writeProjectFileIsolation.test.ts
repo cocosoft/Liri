@@ -24,9 +24,9 @@ import {
   resolveFileIoToolModeHint,
   resolveSandboxExecutionSignal,
 } from '../../src/sandbox/index.js';
-import { RuleManager } from '../../src/permission/RuleManager.js';
-import { PermissionChecker } from '../../src/permission/PermissionChecker.js';
-import { PermissionDecisionType } from '../../src/permission/types/PermissionDecision.js';
+import { RuleManager } from '@openliri/infra/permission/RuleManager';
+import { PermissionChecker } from '@openliri/infra/permission/PermissionChecker';
+import { PermissionDecisionType } from '@openliri/infra/permission/types/PermissionDecision';
 import { createProjectStore } from '../../src/workspace/ProjectStore.js';
 import { WorkItemStore } from '../../src/workspace/WorkItemStore.js';
 import { WriteProjectFileTool } from '../../src/tools/WriteProjectFileTool/WriteProjectFileTool.js';

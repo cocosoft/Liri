@@ -24,7 +24,7 @@ import { sendError, readRequestBody, json } from './handler-utils';
 // C1（2026-10-09）：认证令牌属安全凭据 ⇒ 熵源改用 crypto（并提升到 32 位十六进制 ≈128bit）
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { AuthUserStore } from '../auth/AuthUserStore';
-import { PermissionManager, RoleType } from '@modules/permission';
+import { PermissionManager, RoleType } from '@openliri/infra/permission';
 // 多租户 P3：租户是**账号属性**，注册时按开关绑定，登录后随 token 传递
 import {
   LOCAL_TENANT_ID,

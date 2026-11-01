@@ -40,7 +40,7 @@ export enum PermissionType {
 /**
  * 安全模块权限规则
  *
- * @remarks 这是 security 模块的本地权限规则类型，与 @modules/permission/types/PermissionRule
+ * @remarks 这是 security 模块的本地权限规则类型，与 @openliri/infra/permission/types/PermissionRule
  * 中的领域模型不同。本类型专注于安全模块内部的条件判断与权限控制。
  * 模块间数据交换应使用 permission/types/PermissionRule 的规范类型。
  */

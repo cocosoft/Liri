@@ -17,7 +17,7 @@ import { registerMiddleware } from './PipelineBuilder';
 import {
   PermissionManager,
   createPermissionManager,
-} from '../../permission/PermissionManager';
+} from '@openliri/infra/permission/PermissionManager';
 import { ToolHookManager } from '@modules/hooks';
 import type { ToolHookContext } from '../../hooks/types/ToolHooks';
 

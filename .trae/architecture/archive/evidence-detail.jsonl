@@ -2,7 +2,7 @@
 {"id":"REV9-A","k":"source","i":0,"c":"dev_docs/20261009/openai 建议.md · 专项A / CHANGELOG v0.4.73"}
 {"id":"REV9-A","k":"reopenWhen","i":0,"c":"修改 AST 解析 / 命令规范化 / 审批哈希 / 环境清洗任一环节时"}
 {"id":"REV9-A","k":"code#0","i":0,"c":"app/src/security/bash/BashAST.ts"}
-{"id":"REV9-A","k":"code#1","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
+{"id":"REV9-A","k":"code#1","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"REV9-A","k":"code#2","i":0,"c":"app/src/tools/bash/BashTool.ts"}
 {"id":"REV9-A","k":"tests#0","i":0,"c":"app/tests/security/bashAstHardening.test.ts"}
 {"id":"REV9-A","k":"tests#1","i":0,"c":"app/tests/tools/bashSecuritySwitchDefaults.test.ts"}
@@ -462,7 +462,7 @@
 {"id":"MODE-A3","k":"reopenWhen","i":0,"c":"合并两域裁决入口时"}
 {"id":"MODE-A3","k":"notes","i":0,"c":"报告判定 🟢 同名消除（security 侧类改名 SecurityPermissionView）。"}
 {"id":"MODE-A3","k":"code#0","i":0,"c":"app/src/security/PermissionManager.ts"}
-{"id":"MODE-A3","k":"code#1","i":0,"c":"app/src/permission/PermissionManager.ts"}
+{"id":"MODE-A3","k":"code#1","i":0,"c":"packages/infra/src/permission/PermissionManager.ts"}
 {"id":"MODE-A4","k":"title","i":0,"c":"21 模式 A4：Loop/Orchestrator 家族失控"}
 {"id":"MODE-A4","k":"source","i":0,"c":"21 模式对标复查报告 11 §2.7"}
 {"id":"MODE-A4","k":"reopenWhen","i":0,"c":"出现『需在运行期统一生命周期语义』的真实需求时"}
@@ -551,8 +551,8 @@
 {"id":"TOOLGOV-S1-1","k":"notes","i":0,"c":"① hashCommand 由 djb2 32 位改为 SHA-256 前 128 bit（32 hex）；② 新增执行作用域绑定：ApprovalScope{platform,cwd,envDigest}（env 只存摘要，sanitizeCallerEnv 后取 SHA-256），isApproved 传入 scope 时必须与记录 "}
 {"id":"TOOLGOV-S1-1","k":"notes","i":1,"c":"scopeDigest 一致，缺失即 fail-closed 视为未批准；③ 新增审批快照（原始命令/规范化命令/改写项）与 capabilityDigest 预留字段，经 BashTool ask metadata → ToolExecutionService → ChatManager → inbox-handlers 全链落库；④ 作用域不一致时安全命"}
 {"id":"TOOLGOV-S1-1","k":"notes","i":2,"c":"令仍可执行（仅不复用批准），危险命令照旧被硬拦截。e2eVerified=false（未做真机端到端审批交互验证）。"}
-{"id":"TOOLGOV-S1-1","k":"code#0","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
-{"id":"TOOLGOV-S1-1","k":"code#1","i":0,"c":"app/src/permission/index.ts"}
+{"id":"TOOLGOV-S1-1","k":"code#0","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
+{"id":"TOOLGOV-S1-1","k":"code#1","i":0,"c":"packages/infra/src/permission/index.ts"}
 {"id":"TOOLGOV-S1-1","k":"code#2","i":0,"c":"app/src/tools/bash/BashTool.ts"}
 {"id":"TOOLGOV-S1-1","k":"code#3","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
 {"id":"TOOLGOV-S1-1","k":"code#4","i":0,"c":"app/src/chat/ChatManager.ts"}
@@ -774,8 +774,8 @@
 {"id":"TOOLGOV-D2","k":"notes","i":1,"c":"test'`）保持 fail-open**（既有单测约定：大量用例不注入）。② `chat/services/ToolExecutionService.ts` 的「权限管理器未注入」分支由 **fail-open（仅 warn 后照常执行，2026-10-08 语义）** 改为 **fail-fast**（warn + 断言抛错）⇒ 生产不再出现「无权限检查"}
 {"id":"TOOLGOV-D2","k":"notes","i":2,"c":"仍执行工具」。③ 生产路径已恒注入（`runtime/api/llmChatOps.ts:177` `setPermissionManager(createPermissionManager())`；`tools/ToolExecutor.ts:140` 默认自建）⇒ fail-open 仅在**误装配/测试**出现。④ 测试 3 例（非空不抛／空+test"}
 {"id":"TOOLGOV-D2","k":"notes","i":3,"c":" 不抛／空+production 抛且 code/context 正确）。e2eVerified=false。"}
-{"id":"TOOLGOV-D2","k":"code#0","i":0,"c":"app/src/permission/assertPermissionInjected.ts"}
-{"id":"TOOLGOV-D2","k":"code#1","i":0,"c":"app/src/permission/index.ts"}
+{"id":"TOOLGOV-D2","k":"code#0","i":0,"c":"packages/infra/src/permission/assertPermissionInjected.ts"}
+{"id":"TOOLGOV-D2","k":"code#1","i":0,"c":"packages/infra/src/permission/index.ts"}
 {"id":"TOOLGOV-D2","k":"code#2","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
 {"id":"TOOLGOV-D2","k":"tests#0","i":0,"c":"app/tests/permission/assertPermissionInjected.test.ts"}
 {"id":"TOOLGOV-D3","k":"title","i":0,"c":"工具治理 D3（裁定「复用既有审批/Inbox 通道」）：`unknown` 工具调用的人工介入通道"}
@@ -884,7 +884,7 @@
 {"id":"TOOLGOV-TG1","k":"notes","i":1,"c":" R02-002 同名不同物）。② **落地**：在 `Tool.ts` 的 `ToolCapabilityDescriptor` 处 + `ApprovedCommandRegistry.ts` 的 `capabilityDigest` 字段处各加**边界守护注释**（双向交叉引用），防后续「看着像就合并」。③ **如实**：原方案拟「登记 R02-002"}
 {"id":"TOOLGOV-TG1","k":"notes","i":2,"c":" 排除表」，回仓取证后确认**无需** —— R02-002 只扫描**导出符号**，不扫描 interface 字段（`capabilityDigest` 为字段，不在其扫描面）；故本项**无测试**（纯注释/边界登记，零行为变更）。e2eVerified=false。"}
 {"id":"TOOLGOV-TG1","k":"code#0","i":0,"c":"packages/infra/src/utils/toolContract/Tool.ts"}
-{"id":"TOOLGOV-TG1","k":"code#1","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
+{"id":"TOOLGOV-TG1","k":"code#1","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"TOOLGOV-TG5","k":"title","i":0,"c":"工具治理 TG-5：工具 Schema 熵阈值告警（长程第 20 轮后 >30%，只告警不阻断）"}
 {"id":"TOOLGOV-TG5","k":"source","i":0,"c":"dev_docs/20261012/工具治理方案-20261012.md §7（TG-5 裁断）→ §5 阶段 1.3"}
 {"id":"TOOLGOV-TG5","k":"reopenWhen","i":0,"c":"改熵阈值（20 轮 / 30%）、改 `turn` 口径、或把告警升级为阻断 / 触发 D4·T2 收口时"}
@@ -3152,7 +3152,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#2","i":0,"c":"packages/kernel/src/core/cache/SessionCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#4","i":0,"c":"packages/infra/src/memory/FrozenSnapshotService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#5","i":0,"c":"packages/infra/src/media/image/TempFileManager.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#6","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#6","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#7","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerationCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#8","i":0,"c":"app/src/services/file/FileStatsService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#9","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3392,7 +3392,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#0","i":0,"c":"packages/infra/src/chronos/maintenance/cleanup.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#1","i":0,"c":"packages/infra/src/media/image/TempFileManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#2","i":0,"c":"app/src/tools/CanvasTool/CanvasTool.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#3","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#3","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -5948,7 +5948,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#0","i":0,"c":"app/src/services/mcp/marketplace/LocalServerStore.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#1","i":0,"c":"packages/infra/src/media/ffmpeg/FFmpegWrapper.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#2","i":0,"c":"packages/infra/src/media/pdf/PdfPageExtractor.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#3","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#3","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#4","i":0,"c":"app/src/mcp/cli/mcpCommand.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"title","i":0,"c":"U-20/B5-2-78：删除死常量 FORK_DIRECTIVE_PREFIX 并收敛 READ_TOOLS"}
@@ -6480,13 +6480,13 @@
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#1","i":0,"c":"app/src/chat/toolResultPostProcess.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#2","i":0,"c":"app/src/session/types/tool.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#3","i":0,"c":"packages/infra/src/utils/toolContract/ToolResult.ts"}
-{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#4","i":0,"c":"app/src/permission/PermissionManager.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#4","i":0,"c":"packages/infra/src/permission/PermissionManager.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#5","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#6","i":0,"c":"app/src/tools/bash/BashTool.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#7","i":0,"c":"app/src/chat/terminationOutput.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#8","i":0,"c":"app/src/chat/ReActToolLoop.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"code#9","i":0,"c":".trae/specs/circuit-breaker-classification.md"}
-{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"tests#0","i":0,"c":"app/src/permission/__tests__/PermissionDenyLocatable.test.ts"}
+{"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"tests#0","i":0,"c":"app/tests/permission/PermissionDenyLocatable.test.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"tests#1","i":0,"c":"app/tests/chat/toolFailureKindWiring.test.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"tests#2","i":0,"c":"app/tests/query/environmentBlockedTermination.test.ts"}
 {"id":"RULE-FINGERPRINT-GRANULARITY","k":"title","i":0,"c":"指纹规则不再当工具级 + 规则键补 inputFingerprint（LRO-D1/D2）"}
@@ -6497,10 +6497,10 @@
 {"id":"RULE-FINGERPRINT-GRANULARITY","k":"notes","i":2,"c":"【D1 指纹来源】PermissionManager 用 hashApprovalFingerprint(resolveApprovalFingerprint(toolOrName,input))，与审批落盘（PermissionChecker:783 / inboxApproval）同源；不传指纹 ⇒ 指纹规则不匹配（fail-closed）。"}
 {"id":"RULE-FINGERPRINT-GRANULARITY","k":"notes","i":3,"c":"【D2 键】deduplicateRules/addRule 键补 inputFingerprint；同键不同 behavior ⇒ 替换（后写为准）+ ruleReplaced 日志。ShadowedRuleDetector 补指纹维度（事故那对冲突此前 UI 不可见）。"}
 {"id":"RULE-FINGERPRINT-GRANULARITY","k":"notes","i":4,"c":"【边界】只做\"检测 + 写入互斥\"，不改既有规则数据（不回写历史冲突）；跨来源（settings vs tool_rules.json）冲突仍由 settings 只读视图展示。"}
-{"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#0","i":0,"c":"app/src/permission/RuleManager.ts"}
-{"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#1","i":0,"c":"app/src/permission/PermissionManager.ts"}
-{"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#2","i":0,"c":"app/src/permission/utils/RuleMatcher.ts"}
-{"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#3","i":0,"c":"app/src/permission/utils/ShadowedRuleDetector.ts"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#0","i":0,"c":"packages/infra/src/permission/RuleManager.ts"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#1","i":0,"c":"packages/infra/src/permission/PermissionManager.ts"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#2","i":0,"c":"packages/infra/src/permission/utils/RuleMatcher.ts"}
+{"id":"RULE-FINGERPRINT-GRANULARITY","k":"code#3","i":0,"c":"packages/infra/src/permission/utils/ShadowedRuleDetector.ts"}
 {"id":"RULE-FINGERPRINT-GRANULARITY","k":"tests#0","i":0,"c":"app/tests/permission/ruleGranularity.test.ts"}
 {"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"title","i":0,"c":"未受信未知命令改转审批 + 版本查询进只读白名单（LRO-D3）"}
 {"id":"SECURITY-ALLOWLIST-UNTRUSTED-ASK","k":"source","i":0,"c":"2026-10-26 用户指令「把复查的合并到计划中，然后按顺序开始执行修复」；依据计划 §10-D3；实测证据 dev_docs/20261026/证据/app-log-0415-0445.raw.txt（04:15:54 单条 node -v 被 security_analyzer_deny）"}
@@ -6608,12 +6608,12 @@
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"notes","i":0,"c":"【根因】createPermissionRule 默认 source=userSettings，而三个写入口（PermissionManager.addRule、inboxApproval 始终允许/白名单）都不传 source ⇒ tool_rules.json 全标成用户设置，磁盘上没有 settings.json；deny 文案照抄该标签，指向不存在的文件。"}
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"notes","i":1,"c":"【改法】新增 PermissionRuleSource.RULE_STORE；三个写入口显式标注；loadRules 对历史数据做一次性迁移（userSettings→ruleStore 并回写，留 ruleSourceRelabeled 日志）。"}
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"notes","i":2,"c":"【解除入口】_denyByRule 增加 removableVia（面板 + DELETE /v1/permissions/rules/<id>；settings 来源指向配置文件），同时进文案、决策 context 与 permission:deny 日志 ⇒ 用户与模型都能看到怎么放行。"}
-{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#0","i":0,"c":"app/src/permission/types/PermissionRule.ts"}
-{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#1","i":0,"c":"app/src/permission/RuleManager.ts"}
-{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#2","i":0,"c":"app/src/permission/PermissionManager.ts"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#0","i":0,"c":"packages/infra/src/permission/types/PermissionRule.ts"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#1","i":0,"c":"packages/infra/src/permission/RuleManager.ts"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#2","i":0,"c":"packages/infra/src/permission/PermissionManager.ts"}
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"code#3","i":0,"c":"app/src/runtime/inboxApproval.ts"}
 {"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"tests#0","i":0,"c":"app/tests/permission/ruleSourceAndRemovalHint.test.ts"}
-{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"tests#1","i":0,"c":"app/src/permission/__tests__/PermissionDenyLocatable.test.ts"}
+{"id":"PERMISSION-RULE-SOURCE-REMOVAL-HINT","k":"tests#1","i":0,"c":"app/tests/permission/PermissionDenyLocatable.test.ts"}
 {"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"notes","i":3,"c":"【矩阵复核，2026-10-26】路由矩阵已按当前代码逐行复核并落到正式文档 `.trae/specs/long-task-routing.md` §9（唯一事实源）：原 10 行中 7 行证据引用（路径/行号）过期、3 行条件表述不完整（第 6 行兼有），均订正；补充 3 类真实入口（Inbox 审批续跑 / 远程 `/goal` 执行 / `PDCA_AUTO_REPLAN` 自动 replan）。"}
 {"id":"LONG-TASK-ROUTING-FORCE-DECOMPOSE","k":"notes","i":4,"c":"【复核附带发现】`POST /v1/pdca/:id/confirm` 恒 no-op（app 编排器无 `confirm`）；`handleResumeCheckpoint`/`handlePdcaResumeCheckpoint` 已定义但未注册路由（且其注册表是 TAORLoop）。两条均登记到预存错误文档（未修，影响低）。"}
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"title","i":0,"c":"规则拒绝的结构化依据进工具结果（denyInfo → metadata.permissionDeny）"}
@@ -6622,9 +6622,9 @@
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"notes","i":0,"c":"【根因】step1 把 ruleId 等放进 decision.context，但 `_checkPermissionForToolResult` 只回 decision{behavior,updatedInput,reason} ⇒ context 被截断；工具结果 metadata 恒为 null（LRO-05 实测「元数据为 null」）。"}
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"notes","i":1,"c":"【改法】新增 PermissionDenyInfo DTO（types/PermissionDecision.ts，经 @modules/permission 导出）；checkPermissionForTool 仅对 DENY 回传 denyInfo（从 context 提取，空则 undefined，不臆造）；DENY 分支写 metadata.permissionDeny，toolResultPostProcess 会原样展开进持久化结果。"}
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"notes","i":2,"c":"【真实数据复核】~/.pyapp/data/permissions/tool_rules.json 已是 ruleStore（1 条 deny file_write，id rule_1793016441745_a694f4d10）；用该文件副本（隔离数据目录）探针命中 ⇒ reason 含 from ruleStore + [rule=…] + DELETE 路径，重载幂等。运行中 app 未重启，app.log 尚无 permission:deny ⇒ 端到端留待重启后首次拒绝。"}
-{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#0","i":0,"c":"app/src/permission/types/PermissionDecision.ts"}
-{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#1","i":0,"c":"app/src/permission/PermissionManager.ts"}
-{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#2","i":0,"c":"app/src/permission/index.ts"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#0","i":0,"c":"packages/infra/src/permission/types/PermissionDecision.ts"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#1","i":0,"c":"packages/infra/src/permission/PermissionManager.ts"}
+{"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#2","i":0,"c":"packages/infra/src/permission/index.ts"}
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"code#3","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"tests#0","i":0,"c":"app/tests/permission/ruleSourceAndRemovalHint.test.ts"}
 {"id":"PERMISSION-DENY-STRUCTURED-TOOL-RESULT","k":"tests#1","i":0,"c":"app/tests/chat/toolFailureKindWiring.test.ts"}
@@ -6680,8 +6680,8 @@
 {"id":"PERMISSION-RULE-MATCH-SCOPE","k":"source","i":0,"c":"Liri 报告 P1-2 / 预存 §11 冲突"}
 {"id":"PERMISSION-RULE-MATCH-SCOPE","k":"reopenWhen","i":0,"c":"再现「整工具被一条 deny 笼罩」"}
 {"id":"PERMISSION-RULE-MATCH-SCOPE","k":"notes","i":0,"c":"负向用例证伪工具级笼罩；matchScope 进日志与 denyInfo"}
-{"id":"PERMISSION-RULE-MATCH-SCOPE","k":"code#0","i":0,"c":"app/src/permission/PermissionManager.ts"}
-{"id":"PERMISSION-RULE-MATCH-SCOPE","k":"code#1","i":0,"c":"app/src/permission/types/PermissionDecision.ts"}
+{"id":"PERMISSION-RULE-MATCH-SCOPE","k":"code#0","i":0,"c":"packages/infra/src/permission/PermissionManager.ts"}
+{"id":"PERMISSION-RULE-MATCH-SCOPE","k":"code#1","i":0,"c":"packages/infra/src/permission/types/PermissionDecision.ts"}
 {"id":"PERMISSION-RULE-MATCH-SCOPE","k":"tests#0","i":0,"c":"app/tests/permission/ruleSourceAndRemovalHint.test.ts"}
 {"id":"PATH-MISSING-SIBLING-HINT","k":"title","i":0,"c":"路径缺失提示不可据以改正"}
 {"id":"PATH-MISSING-SIBLING-HINT","k":"source","i":0,"c":"Liri 报告 P2-1 / 会话 5 次搜索目录不存在"}
@@ -6781,9 +6781,9 @@
 {"id":"PERMISSION-P0-STOPBLEED","k":"source","i":0,"c":"dev_docs/20261027/工具权限体系归一化方案-20261027.md §2 B1/B3/B4/B5/B6"}
 {"id":"PERMISSION-P0-STOPBLEED","k":"reopenWhen","i":0,"c":"再现 ask 却落 success / 命令级黑白名单不生效 / 静默放行无日志"}
 {"id":"PERMISSION-P0-STOPBLEED","k":"notes","i":0,"c":"ask 分支补 requireApproval+approvalReason（上层提交 Inbox 并返回 awaiting_approval）；新增 commandRulePolicy（黑名单优先、白名单命中免审批、空白名单视为未配置）并接入 bashSecurityGate；default-allow/分类器 fail-open/bypass 三处 warn 留痕（去重，不改默认行为）"}
-{"id":"PERMISSION-P0-STOPBLEED","k":"code#0","i":0,"c":"app/src/permission/commandRulePolicy.ts"}
-{"id":"PERMISSION-P0-STOPBLEED","k":"code#1","i":0,"c":"app/src/permission/index.ts"}
-{"id":"PERMISSION-P0-STOPBLEED","k":"code#2","i":0,"c":"app/src/permission/PermissionManager.ts"}
+{"id":"PERMISSION-P0-STOPBLEED","k":"code#0","i":0,"c":"packages/infra/src/permission/commandRulePolicy.ts"}
+{"id":"PERMISSION-P0-STOPBLEED","k":"code#1","i":0,"c":"packages/infra/src/permission/index.ts"}
+{"id":"PERMISSION-P0-STOPBLEED","k":"code#2","i":0,"c":"packages/infra/src/permission/PermissionManager.ts"}
 {"id":"PERMISSION-P0-STOPBLEED","k":"code#3","i":0,"c":"app/src/tools/bash/bashSecurityGate.ts"}
 {"id":"PERMISSION-P0-STOPBLEED","k":"tests#0","i":0,"c":"app/tests/permission/commandRulePolicy.test.ts"}
 {"id":"LONG-TASK-FALSE-BLOCKERS","k":"title","i":0,"c":"长程任务四类误杀：grep 大文件 / cmd 的 & / PS 键值行与控制流 / 静态调用"}
@@ -6848,7 +6848,7 @@
 {"id":"INBOX-APPROVAL-SOURCE","k":"source","i":0,"c":"app.log 2026-10-27T10:14–10:26Z 九次 Inbox item missing source reference"}
 {"id":"INBOX-APPROVAL-SOURCE","k":"reopenWhen","i":0,"c":"再现 type=approval 且无 sourceModule 的提交"}
 {"id":"INBOX-APPROVAL-SOURCE","k":"notes","i":0,"c":"_submitToInbox 的 metadata 补 sourceModule=permission（与 execution-recovery / budget-resume 同约定）；_orphan 标记当前无消费方"}
-{"id":"INBOX-APPROVAL-SOURCE","k":"code#0","i":0,"c":"app/src/permission/PermissionChecker.ts"}
+{"id":"INBOX-APPROVAL-SOURCE","k":"code#0","i":0,"c":"packages/infra/src/permission/PermissionChecker.ts"}
 {"id":"INBOX-APPROVAL-SOURCE","k":"tests#0","i":0,"c":"app/tests/permission/nonShellApprovalMemory.test.ts"}
 {"id":"READONLY-SINGLE-PARITY","k":"title","i":0,"c":"单条只读命令与复合只读不同口径 + Windows \\bin 误判敏感目录"}
 {"id":"READONLY-SINGLE-PARITY","k":"source","i":0,"c":"app.log 2026-10-27T10:14–10:26Z 十一条 security_analyzer_ask 及各条 commandPreview"}

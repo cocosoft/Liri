@@ -15,7 +15,10 @@ import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 const SRC = readFileSync(
-  new URL('../PermissionManager.ts', import.meta.url),
+  new URL(
+    '../../../packages/infra/src/permission/PermissionManager.ts',
+    import.meta.url
+  ),
   'utf8'
 );
 

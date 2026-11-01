@@ -37,7 +37,7 @@ import { BashTool } from '../../src/tools/bash/BashTool.js';
 import {
   ApprovedCommandRegistry,
   hashCommand,
-} from '../../src/permission/ApprovedCommandRegistry.js';
+} from '@openliri/infra/permission/ApprovedCommandRegistry';
 import { completeSecuritySystem } from '../../src/security/CompleteSecuritySystem.js';
 import type { BashSecurityAnalyzer } from '../../src/security/BashSecurityAnalyzer.js';
 import type { ToolUseContext } from '../../src/tools/types/Tool.js';

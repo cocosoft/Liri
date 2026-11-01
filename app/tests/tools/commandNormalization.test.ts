@@ -42,7 +42,7 @@ import {
   ApprovedCommandRegistry,
   hashCommand,
   hashCommandForExecution,
-} from '../../src/permission/ApprovedCommandRegistry.js';
+} from '@openliri/infra/permission/ApprovedCommandRegistry';
 import type { ToolUseContext } from '../../src/tools/types/Tool.js';
 
 /** 最小可用的 ToolUseContext（仅 execute 用到 sessionId） */

@@ -24,12 +24,12 @@ import {
   readMainPermissionRules,
   setMainPermissionRuleSource,
 } from '../../src/security/permissionRuleSource';
-import { RuleManager } from '../../src/permission/RuleManager';
+import { RuleManager } from '@openliri/infra/permission/RuleManager';
 import {
   PermissionBehavior,
   PermissionRuleSource,
   type PermissionRule,
-} from '../../src/permission/types/PermissionRule';
+} from '@openliri/infra/permission/types/PermissionRule';
 
 const NOW = new Date('2026-10-20T00:00:00.000Z');
 

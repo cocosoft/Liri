@@ -14,15 +14,15 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { join, dirname } from 'path';
 import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'fs';
-import { createPermissionManager } from '../../src/permission/PermissionManager.js';
-import { PermissionMode } from '../../src/permission/PermissionMode.js';
-import { PermissionBehavior } from '../../src/permission/types/PermissionRule.js';
+import { createPermissionManager } from '@openliri/infra/permission/PermissionManager';
+import { PermissionMode } from '@openliri/infra/permission/PermissionMode';
+import { PermissionBehavior } from '@openliri/infra/permission/types/PermissionRule';
 import { inboxManager } from '../../src/runtime/InboxManager.js';
 import { unattendedMode } from '../../src/runtime/UnattendedModeManager.js';
 import { resolvePermissionsDir } from '@openliri/infra/environment';
 // D-126 起 `permission/*` 的 runtime 依赖为**入口注入**；测试绕过入口 ⇒ 显式注入
 // （`app/tests/**` 不在门禁扫描根 `app/src` 内，此处跨层导入不触发架构规则）
-import { setPermissionRuntimeDeps } from '../../src/permission/PermissionChecker.js';
+import { setPermissionRuntimeDeps } from '@openliri/infra/permission/PermissionChecker';
 
 /** 权限规则持久化文件（`addRule` 会写盘 ⇒ 前后备份/恢复隔离） */
 const RULE_FILE = join(resolvePermissionsDir(), 'tool_rules.json');

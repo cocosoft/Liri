@@ -3,7 +3,7 @@
  * 定义治理闭环的类型、接口和工具执行上下文
  */
 import { Tool } from '@modules/tools/types/Tool';
-import { PermissionDecision } from '@modules/permission/types/PermissionDecision';
+import { PermissionDecision } from '@openliri/infra/permission/types/PermissionDecision';
 import { ToolHookResult } from '@modules/hooks/types/ToolHooks';
 import { SandboxCheckResult, SandboxViolationEvent } from '@modules/sandbox';
 

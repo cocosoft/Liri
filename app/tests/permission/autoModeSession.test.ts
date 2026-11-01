@@ -15,8 +15,8 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { resolve } from 'node:path';
-import { PermissionChecker } from '../../src/permission/PermissionChecker.js';
-import { RuleManager } from '../../src/permission/RuleManager.js';
+import { PermissionChecker } from '@openliri/infra/permission/PermissionChecker';
+import { RuleManager } from '@openliri/infra/permission/RuleManager';
 
 const FLAG = 'FEATURE_SESSION_AUTO_LOCAL';
 const workspace = resolve('.');

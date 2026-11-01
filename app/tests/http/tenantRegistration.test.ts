@@ -27,7 +27,7 @@ import {
   handleAuthRegister,
 } from '../../src/infrastructure/http/handlers/auth-handlers.js';
 import { resolveRequestPrincipal } from '../../src/infrastructure/http/requestIdentity.js';
-import { PermissionManager } from '@modules/permission';
+import { PermissionManager } from '@openliri/infra/permission';
 
 let root: string;
 let store: AuthUserStore;

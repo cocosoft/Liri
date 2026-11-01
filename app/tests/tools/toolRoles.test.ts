@@ -18,7 +18,7 @@ import {
   isShellToolName,
 } from '@openliri/infra/utils/toolContract/toolRoles';
 import { BashTool } from '../../src/tools/bash/BashTool.js';
-import { ApprovedCommandRegistry } from '../../src/permission/ApprovedCommandRegistry.js';
+import { ApprovedCommandRegistry } from '@openliri/infra/permission/ApprovedCommandRegistry';
 
 describe('A-4 角色集合（名称级判据单一来源）', () => {
   it('shell 组：bash / shell / command 命中（原 PermissionChecker 判据逐字等价）', () => {

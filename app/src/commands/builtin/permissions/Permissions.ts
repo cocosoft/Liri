@@ -10,7 +10,7 @@ import {
   PermissionAction,
   ResourceType,
   OperationType,
-} from '@modules/permission';
+} from '@openliri/infra/permission';
 import { permissionModeIntegrationService } from '@modules/chat';
 import { completeSecuritySystem } from '@modules/security';
 

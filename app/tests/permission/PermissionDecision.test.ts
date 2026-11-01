@@ -8,8 +8,9 @@
  * "默认放行可观测" 路径必须有断言，防止被静默改回。
  */
 
-import { PermissionManager } from '../PermissionManager';
-import { RuleManager } from '../RuleManager';
+import { afterAll, describe, expect, it } from 'bun:test';
+import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
+import { RuleManager } from '@openliri/infra/permission/RuleManager';
 import {
   PermissionBehavior,
   PermissionRuleSource,
@@ -17,8 +18,8 @@ import {
   isRuleMatch,
   isToolNameMatch,
   matchGlob,
-} from '../types/PermissionRule';
-import { PermissionDecisionType } from '../types/PermissionDecision';
+} from '@openliri/infra/permission/types/PermissionRule';
+import { PermissionDecisionType } from '@openliri/infra/permission/types/PermissionDecision';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

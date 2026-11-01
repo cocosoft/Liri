@@ -34,7 +34,7 @@ import {
   isWithinWorkingDirectory,
   isDangerousFile,
   isInDangerousDirectory,
-} from '../../src/permission/filesystem';
+} from '@openliri/infra/permission/filesystem';
 import {
   isWriteProtected,
   getCrossPlatformProtectedFiles,

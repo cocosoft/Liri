@@ -14,10 +14,13 @@ import {
   evaluateCommandRules,
   readCommandRulesConfig,
   type CommandRulesSettings,
-} from '../../src/permission/commandRulePolicy.js';
+} from '@openliri/infra/permission/commandRulePolicy';
 import { checkAstAndAnalyzer } from '../../src/tools/bash/bashSecurityGate.js';
 import type { CommandAnalyzer } from '../../src/tools/bash/bashSecurityGate.js';
-import type { ApprovalScope, ApprovalSnapshot } from '@modules/permission';
+import type {
+  ApprovalScope,
+  ApprovalSnapshot,
+} from '@openliri/infra/permission';
 
 const scope: ApprovalScope = {
   platform: process.platform,

@@ -37,7 +37,7 @@
  * 这里只做**统一规范化口径**。`preprocessed` 即最终 spawn 的字符串（保留原语义/多行），
  * `normalized` 仅用于审批哈希与展示（`normalizeCommand` 会折叠换行，**不可用于 spawn**）。
  */
-import { normalizeCommand } from '@modules/permission';
+import { normalizeCommand } from '@openliri/infra/permission';
 
 /** 平台预处理结果 */
 export interface PreprocessResult {
@@ -275,7 +275,7 @@ export function deriveBaseCommand(command: string): string {
 
 /**
  * 规范化命令（引号感知压缩空白 + 运算符贴边、保留大小写）。
- * 单一事实源 = `@modules/permission` 的 `normalizeCommand`（审批哈希同源）。
+ * 单一事实源 = `@openliri/infra/permission` 的 `normalizeCommand`（审批哈希同源）。
  */
 export { normalizeCommand };
 

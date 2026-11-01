@@ -22,12 +22,12 @@ import {
   resolvePermissionsDir,
 } from '@openliri/infra/environment';
 
-import { RuleManager } from '../../src/permission/RuleManager.js';
-import { PermissionManager } from '../../src/permission/PermissionManager.js';
+import { RuleManager } from '@openliri/infra/permission/RuleManager';
+import { PermissionManager } from '@openliri/infra/permission/PermissionManager';
 import {
   PermissionBehavior,
   PermissionRuleSource,
-} from '../../src/permission/types/PermissionRule.js';
+} from '@openliri/infra/permission/types/PermissionRule';
 
 const LEGACY_RULE_ID = 'rule_legacy_1';
 

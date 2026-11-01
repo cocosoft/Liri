@@ -21,7 +21,7 @@ import {
   resetGraySwitchWarningForTest,
 } from '../../src/tools/bash/BashTool.js';
 import { isEmptyOutput } from '../../src/tools/utils/ToolUtils.js';
-import { ApprovedCommandRegistry } from '../../src/permission/ApprovedCommandRegistry.js';
+import { ApprovedCommandRegistry } from '@openliri/infra/permission/ApprovedCommandRegistry';
 import type { ToolUseContext } from '../../src/tools/types/Tool.js';
 
 const BASH_TOOL_SRC = readFileSync(

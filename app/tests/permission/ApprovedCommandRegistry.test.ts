@@ -39,7 +39,7 @@ import {
   computeScopeDigest,
   getBaseCommand,
   commandApprovalSignature,
-} from '../../src/permission/ApprovedCommandRegistry.js';
+} from '@openliri/infra/permission/ApprovedCommandRegistry';
 
 describe('ApprovedCommandRegistry 放行缓存', () => {
   afterEach(() => {

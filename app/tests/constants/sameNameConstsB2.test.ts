@@ -447,7 +447,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '30 * 60 * 1000',
       ],
       [
-        'src/permission/ApprovedCommandRegistry.ts',
+        '../packages/infra/src/permission/ApprovedCommandRegistry.ts',
         'APPROVED_COMMAND_TTL_MS',
         '300_000',
       ],
@@ -793,7 +793,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '5 * 60 * 1000',
       ],
       [
-        'src/permission/ApprovedCommandRegistry.ts',
+        '../packages/infra/src/permission/ApprovedCommandRegistry.ts',
         'APPROVED_COMMAND_CLEANUP_INTERVAL_MS',
         '30_000',
       ],

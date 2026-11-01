@@ -62,7 +62,7 @@ export function isMCPFastPathArgv(argv: string[]): boolean {
 }
 
 import { modelManager } from '@modules/ai';
-import { hasPermissionsToUseTool } from '../permission/permissions';
+import { hasPermissionsToUseTool } from '@openliri/infra/permission/permissions';
 import { jsonStringify } from '@openliri/infra/performance';
 import { getErrorParts } from '@openliri/infra/utils/toolErrors';
 import { zodToJsonSchema } from '@openliri/infra/utils/zodToJsonSchema';

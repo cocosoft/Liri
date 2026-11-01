@@ -8136,3 +8136,24 @@
 {"id":"INFRA-PACKAGE-P27-ERROR","k":"code#7","i":0,"c":"app/tests/vfs/vfsPath.test.ts"}
 {"id":"INFRA-PACKAGE-P27-ERROR","k":"tests#0","i":0,"c":"app/tests/error/errorLogLevel.test.ts"}
 {"id":"INFRA-PACKAGE-P27-ERROR","k":"tests#1","i":0,"c":"app/tests/vfs/mountRegistry.test.ts"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"title","i":0,"c":"P28：monitoring 迁入 packages/infra（72 文件；拆 ambient shim、自引改相对）"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.26"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"reopenWhen","i":0,"c":"① 若新增 `monitoring` 子目录**目录入口**（如 `@openliri/infra/monitoring/alerts`）⇒ 需在 package.json 单列精确 exports（`./monitoring/*` 会拼成 `*.ts`）；② 若再向 barrel 增加 `export *` 且该文件反向 import barrel ⇒ 复检 ambient 遮蔽与环（本轮 `global.d.ts` 已拆）；③ 若其它包再出现 `@modules/<infra模块>` 别名 ⇒ codemod 扫描面须含 `app/packages/**`（本轮漏过一次）。"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"notes","i":0,"c":"迁包：monitoring 72 文件（根 12 + 16 子域 + 5 内层）→ packages/infra/src/monitoring；内联测试 `MonitoringModuleTest.ts` 按 P26 口径迁 `app/tests/monitoring/MonitoringModuleTest.test.ts`（tsconfig 原 exclude `src/**/*ModuleTest.ts`）。"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"notes","i":1,"c":"**本轮最大坑：ambient shim 遮蔽**。`app/src/types/global.d.ts` 里遗留 `declare module '@openliri/infra/monitoring'`（只声明 getMonitoringService/MonitoringServiceInterface）；该 d.ts 经包 include `app/src/**/*.d.ts` 进入程序后**覆盖真实模块** ⇒ 全量 216 条 TS2305（getLogger/Logger/LogLevel/createLogger/getOTelTracing…）。单文件探针不复现（!d.ts 未入程序），故必须用全量 typecheck 定位。修法：删除 shim（无消费方）。"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"notes","i":2,"c":"别名面：app 1385 文件 + 包内既有 215 文件 + `app/packages/office` 6 文件（codemod 首版漏扫 app/packages ⇒ office 6 处 TS2307）。app 侧测试 `module.test.ts` 的 `../../src/monitoring`（目录根，不带尾斜杠）再次命中 P24/P27 的 resolution 判据盲区，手工改别名。"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"notes","i":3,"c":"包内自引 30 文件改相对（根级 → `./index`、子域 → `../..`），并有 4 处旧别名注释按语义还原为 `@openliri/infra/monitoring`。exports 单列 `./monitoring/otel`（5 处目录导入）。"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"notes","i":4,"c":"第三方：`chalk` 已有 paths；新增 `https-proxy-agent` 与 `@opentelemetry/*` 通配到两侧 tsconfig（app 侧 baseUrl 为 app/src ⇒ `../node_modules/...`；包侧 `../../app/node_modules/...`）。运行期探针：桶 getLogger/Logger/LogLevel/createModule、`/logs/Logger`、`/otel/OTelTracing`、getMonitoringService 全部可用。"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"notes","i":5,"c":"台账连锁：hardcode 4（裸字面量键）· logger-name 12 · state-literal 15 · `scripts/state-machine-allowlist.json` 1 · 证据归档 code[] 9 · kernel-api-surface `--write` · SUPPORT-LEVELS 重生成（+测试文件）。读源码文本的守卫同步改路径：sameNameConstsB2（3 处 read）+ llmTrackerOwnerScope（`new URL` 1 处）。负向自证：R6 注入 `@modules/chat` 点名 `monitoring/index.ts:342`；R7 注入 `@openliri/infra/analytics` 报 2 成员环 analytics/monitoring（均回滚，SCC 0）。"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"code#0","i":0,"c":"packages/infra/src/monitoring/index.ts"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"code#1","i":0,"c":"packages/infra/src/monitoring/logs/Logger.ts"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"code#2","i":0,"c":"packages/infra/src/monitoring/instrumentation.ts"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"code#3","i":0,"c":"packages/infra/src/monitoring/BackgroundTaskEvent.ts"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"code#4","i":0,"c":"app/src/types/global.d.ts"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"code#5","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"code#6","i":0,"c":"packages/infra/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"code#7","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"code#8","i":0,"c":"app/eslint.config.js"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"tests#0","i":0,"c":"app/tests/monitoring/MonitoringModuleTest.test.ts"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"tests#1","i":0,"c":"app/tests/monitoring/llmTrackerOwnerScope.test.ts"}
+{"id":"INFRA-PACKAGE-P28-MONITORING","k":"tests#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}

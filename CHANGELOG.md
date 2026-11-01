@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INFRA-PACKAGE-P28-MONITORING**：P28：monitoring 迁入 packages/infra（拆 ambient shim） —— 验证 tsc0|tests9766|gates55|infra0|scc0；基线 monitoring 72 文件在 app/src（16 子域；无原生依赖）（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P28-MONITORING）
 - ✅ **INFRA-PACKAGE-P27-ERROR**：P27：error 迁入 packages/infra（清 @modules/errors 死别名 + 包内自引改相对） —— 验证 tsc0|tests9736|gates55|infra0|scc0；基线 error 22 文件在 app/src（barrel + api/context/network，无内联测试/无第三方依赖）（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P27-ERROR）
 - ✅ **INFRA-PACKAGE-P26-CONFIG**：P26：config 迁入 packages/infra（js-yaml 最小声明 + 补回 42 例覆盖） —— 验证 tsc0|tests9736|gates55|infra0|scc0；基线 config 55 文件在 app/src（含 1 个未被 tsc/bun 纳入的 ConfigModuleTest.ts）（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P26-CONFIG）
 - ✅ **INFRA-PACKAGE-P25-SECURITY**：P25：security 迁入 packages/infra（原生 Bash 桥改注入端口） —— 验证 tsc0|tests9694|gates55|infra0|scc0；基线 security 100 文件在 app/src（含 2 处 require app/native）（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P25-SECURITY）

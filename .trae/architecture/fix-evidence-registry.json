@@ -17081,6 +17081,42 @@
       "changelog": [],
       "reopenWhen": "① 若 `monitoring` 也迁包 ⇒ 其 `@openliri/infra/error/*` 引用已是包别名，无需再改；② 若新增 `error` 子目录入口（如 `error/api` 目录导入）⇒ 需在 package.json 单列精确 exports（`./x/*` 会拼成 `*.ts`）；③ 若再出…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P27-ERROR）",
       "notes": "迁包：error 共 22 文件（根 barrel 12 + api/4 + context/2 + network/3 + README）git mv 至 packages/infra/src/error；出边仅 kernel（errorCodes/errorHandler/errors/abortReason/l…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P27-ERROR）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P28-MONITORING",
+      "title": "P28：monitoring 迁入 packages/infra（72 文件；拆 ambient shim、自引改相对）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.26",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/monitoring/index.ts",
+        "packages/infra/src/monitoring/logs/Logger.ts",
+        "packages/infra/src/monitoring/instrumentation.ts",
+        "packages/infra/src/monitoring/BackgroundTaskEvent.ts",
+        "app/src/types/global.d.ts",
+        "app/tsconfig.json",
+        "packages/infra/tsconfig.json",
+        "packages/infra/package.json",
+        "app/eslint.config.js"
+      ],
+      "tests": [
+        "app/tests/monitoring/MonitoringModuleTest.test.ts",
+        "app/tests/monitoring/llmTrackerOwnerScope.test.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若新增 `monitoring` 子目录**目录入口**（如 `@openliri/infra/monitoring/alerts`）⇒ 需在 package.json 单列精确 exports（`./monitoring/*` 会拼成 `*.ts`）；② 若再向 barrel 增加 `export *` 且该文…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P28-MONITORING）",
+      "notes": "迁包：monitoring 72 文件（根 12 + 16 子域 + 5 内层）→ packages/infra/src/monitoring；内联测试 `MonitoringModuleTest.ts` 按 P26 口径迁 `app/tests/monitoring/MonitoringModuleTest.tes…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P28-MONITORING）"
     }
   ]
 }

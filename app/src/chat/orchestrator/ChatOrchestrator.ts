@@ -71,7 +71,7 @@ import type {
   QuestionData,
 } from '@modules/runtime/api/CoreAPI.js';
 import { compactionOrchestrator } from '@modules/context';
-import { isEstopEngaged } from '@modules/runtimeHost';
+import { isEstopEngaged } from '@openliri/infra/runtimeHost';
 import {
   TurnLivenessWatchdog,
   resolveLivenessTimeout,
@@ -171,8 +171,9 @@ export class ChatOrchestrator {
    */
   private async _ensureIdleScaleMonitor(): Promise<void> {
     if (this.idleScaleMonitor) return;
-    const { IdleScaleMonitor } = await import('@modules/runtimeHost');
-    const { cleanupStaleTempFiles } = await import('@modules/runtimeHost');
+    const { IdleScaleMonitor } = await import('@openliri/infra/runtimeHost');
+    const { cleanupStaleTempFiles } =
+      await import('@openliri/infra/runtimeHost');
     const monitor = new IdleScaleMonitor({
       activeWorkCount: () => {
         let count = 0;

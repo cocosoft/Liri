@@ -5985,7 +5985,7 @@
       },
       "code": [
         "app/src/acp/session.ts",
-        "app/src/runtimeHost/IdleScaleMonitor.ts",
+        "packages/infra/src/runtimeHost/IdleScaleMonitor.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],

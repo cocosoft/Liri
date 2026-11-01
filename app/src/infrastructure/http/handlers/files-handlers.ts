@@ -434,7 +434,7 @@ export async function handleFileHealth(
   try {
     const { FileRegistry } =
       await import('@modules/services/file/FileRegistry');
-    const { DiskSpaceMonitor } = await import('@modules/runtimeHost');
+    const { DiskSpaceMonitor } = await import('@openliri/infra/runtimeHost');
     const { resolvePyappHome } = await import('@openliri/infra/environment');
     const { existsSync } = await import('fs');
 

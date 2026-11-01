@@ -32,6 +32,14 @@
     "./environment/*": {
       "types": "./src/environment/*.ts",
       "import": "./src/environment/*.ts"
+    },
+    "./runtimeHost": {
+      "types": "./src/runtimeHost/index.ts",
+      "import": "./src/runtimeHost/index.ts"
+    },
+    "./runtimeHost/*": {
+      "types": "./src/runtimeHost/*.ts",
+      "import": "./src/runtimeHost/*.ts"
     }
   },
   "scripts": {

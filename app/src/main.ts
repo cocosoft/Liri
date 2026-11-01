@@ -46,7 +46,7 @@ import {
   logStartupContext,
   readLastExit,
   recordAbnormalExit,
-} from '@modules/runtimeHost';
+} from '@openliri/infra/runtimeHost';
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 // P2（core 独立包）：内核按需加载清单由宿主推送（清单本体是构建期生成物）
 import { registerKernelLazyLoaders } from './bootstrap/registerKernelLazyLoaders';
@@ -85,7 +85,7 @@ import {
   setUserDataDirOverride,
 } from '@openliri/infra/environment';
 // P1：首启种子同步（fs 复制）已出内核 ⇒ `@modules/runtimeHost`
-import { syncSeedData } from '@modules/runtimeHost';
+import { syncSeedData } from '@openliri/infra/runtimeHost';
 import { modelRouter } from '@modules/ai';
 import {
   configManager,
@@ -105,7 +105,7 @@ import {
   publishInstanceEndpoint,
   releaseInstanceLock,
   writeInstanceLock,
-} from '@modules/runtimeHost';
+} from '@openliri/infra/runtimeHost';
 // 版本号（唯一事实来源 app/package.json）—— 供 healthcheck 模式打印（L-12.1）
 import { APP_VERSION } from '@openliri/infra/constants';
 

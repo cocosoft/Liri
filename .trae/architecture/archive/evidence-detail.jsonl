@@ -3402,7 +3402,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"notes","i":0,"c":"**代为收尾**：原切片会话在「代码+守卫完成 → 未收紧基线/未写台账/未提交」处终止（60s 零写入 + HEAD 未前进 ⇒ 判已静止）。取证：2 处同值 30min **异事实** ⇒ 按域消歧、**数值一字未改**。效果：244 → 243 键（消陈键）。验证：守卫 28 pass / 0 fail · 5 门禁 exit 0 · "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"notes","i":1,"c":"hardcodeGateBlocking 8 pass。边界：e2eVerified=false、未跑全量。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#0","i":0,"c":"app/src/acp/session.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#1","i":0,"c":"app/src/runtimeHost/IdleScaleMonitor.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#1","i":0,"c":"packages/infra/src/runtimeHost/IdleScaleMonitor.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-12-DEFAULT-IDLE-TIMEOUT-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}

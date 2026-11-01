@@ -15,7 +15,7 @@ import {
   disengageEstop,
   isEstopEngaged,
   getEstopState,
-} from '@modules/runtimeHost';
+} from '@openliri/infra/runtimeHost';
 
 /**
  * dispatchSystemRoutes — 系统领域路由分发

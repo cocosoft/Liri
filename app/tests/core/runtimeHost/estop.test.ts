@@ -40,7 +40,7 @@ import {
   getEstopState,
   checkEstop,
   estopSentinelPath,
-} from '@modules/runtimeHost';
+} from '@openliri/infra/runtimeHost';
 
 describe('estop 全局急停', () => {
   let baseDir: string;

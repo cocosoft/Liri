@@ -40,7 +40,10 @@ import {
   getUserDataDirOverride,
   resolveTempDir,
 } from '@openliri/infra/environment';
-import { IdleScaleMonitor, cleanupStaleTempFiles } from '@modules/runtimeHost';
+import {
+  IdleScaleMonitor,
+  cleanupStaleTempFiles,
+} from '@openliri/infra/runtimeHost';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

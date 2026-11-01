@@ -7842,3 +7842,23 @@
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#9","i":0,"c":"packages/infra/package.json"}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"tests#0","i":0,"c":"app/tests/diagnostics/loopProbe.test.ts"}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"tests#1","i":0,"c":"app/tests/session/artifactRetention.test.ts"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"title","i":0,"c":"P16：media 迁入 packages/infra（13 文件 / 31 处引用，子路径-only）"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.14"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"reopenWhen","i":0,"c":"① 若将来给 media 加 `index.ts` barrel ⇒ 必须重估：它会把 sharp/pdfjs/video 整面带进任何 `@openliri/infra/media` 根桶使用者（本批刻意**不建** barrel）；② 若依赖树改由 repo 根 `node_modules` 提供 ⇒ 应删除 app/infra 两侧手工 `"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"reopenWhen","i":1,"c":"pdfjs-dist` / `@napi-rs/canvas` paths 映射。"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"notes","i":0,"c":"迁包：13 文件 git mv（base64/ffmpeg/image/mime/pdf/qr/store/temp/video）+ 31 处**相对**引用改 `@openliri/infra/media/<sub>`（24 文件；含 3 处动态 import，去 .js 后缀）。**本批新类型①：模块从无 `index.ts`** ⇒ 只设子路径别名与 "}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"notes","i":1,"c":"package exports `./media/*`，不设包根键（避免新造 barrel 造成 eager 拉入）。**新类型②：第三方依赖解析** —— 迁出 app 后 `pdfjs-dist/legacy/build/pdf.mjs` 与 `@napi-rs/canvas` 不再能沿目录上溯命中 `app/node_modules` ⇒ 两侧 "}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"notes","i":2,"c":"tsconfig 各补 paths（app 侧 `../node_modules/*`、包侧 `../../app/node_modules/*`），并实测 bun 运行期三探针通过。联动：state-literal 4 处、logger-name 2 处、hardcode-gate 3 处、证据 code[] 5 处路径键改名；`"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"notes","i":3,"c":"sameNameConstsB2.test.ts` 的 2 处读文件路径改 `../packages/infra/src/media/...`。包内出边：monitoring（10）· error（9：handleError 6 + 门面 3）· environment（3）· utils（2）；R7 SCC 仍 0。负向自证：包内 import \""}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"notes","i":4,"c":"@modules/chat\" ⇒ R6 点名；monitoring 临时 import 本包 ⇒ R7 报环（均已回滚）。"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"code#0","i":0,"c":"packages/infra/src/media/image/ImageProcessor.ts"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"code#1","i":0,"c":"packages/infra/src/media/pdf/PdfPageExtractor.ts"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"code#2","i":0,"c":"packages/infra/src/media/video/VideoProcessor.ts"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"code#3","i":0,"c":"packages/infra/src/media/store/MediaStore.ts"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"code#4","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"code#5","i":0,"c":"packages/infra/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"code#6","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"code#7","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"tests#0","i":0,"c":"app/tests/tools/toolOutputJsonSchema.test.ts"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"tests#1","i":0,"c":"app/tests/tools/moduleToolLedger.test.ts"}
+{"id":"INFRA-PACKAGE-P16-MEDIA","k":"tests#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}

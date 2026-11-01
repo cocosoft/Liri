@@ -16622,6 +16622,41 @@
       "changelog": [],
       "reopenWhen": "① 若 `diagnostics` 反向被 `monitoring` 依赖 ⇒ R7 立即报「monitoring / diagnostics 新进入环（2 成员）」（本批已实测该环可捕获）；② 若 `packages/infra/src/common/phaseStack.ts` 的同名转出被取消 ⇒ `index…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P15-DIAGNOSTICS）",
       "notes": "迁包：git mv 10 文件（含 loopProbe/）+ 20 处 `@modules/diagnostics` 改别名、6 处相对路径改别名（3 处 app 动态导入：init / main / GitHubReleaseFetcher；3 处测试：loopProbe.test ×2、artifactReten…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P15-DIAGNOSTICS）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P16-MEDIA",
+      "title": "P16：media 迁入 packages/infra（13 文件 / 31 处引用，子路径-only）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.14",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/media/image/ImageProcessor.ts",
+        "packages/infra/src/media/pdf/PdfPageExtractor.ts",
+        "packages/infra/src/media/video/VideoProcessor.ts",
+        "packages/infra/src/media/store/MediaStore.ts",
+        "app/tsconfig.json",
+        "packages/infra/tsconfig.json",
+        "packages/infra/package.json",
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "tests": [
+        "app/tests/tools/toolOutputJsonSchema.test.ts",
+        "app/tests/tools/moduleToolLedger.test.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若将来给 media 加 `index.ts` barrel ⇒ 必须重估：它会把 sharp/pdfjs/video 整面带进任何 `@openliri/infra/media` 根桶使用者（本批刻意**不建** barrel）；② 若依赖树改由 repo 根 `node_modules` 提供 ⇒ 应删除 a…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P16-MEDIA）",
+      "notes": "迁包：13 文件 git mv（base64/ffmpeg/image/mime/pdf/qr/store/temp/video）+ 31 处**相对**引用改 `@openliri/infra/media/<sub>`（24 文件；含 3 处动态 import，去 .js 后缀）。**本批新类型①：模块从无 `in…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P16-MEDIA）"
     }
   ]
 }

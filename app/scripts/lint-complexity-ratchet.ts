@@ -21,11 +21,23 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ESLint } from 'eslint';
+import tsParser from '@typescript-eslint/parser';
 // P2-6：纯比较核心（供负向自证复用，避免测试里跑 ESLint）
 import { compareComplexity } from './complexityRatchetCore';
 
 const APP_DIR = resolve(import.meta.dir, '..');
+const REPO_ROOT = resolve(APP_DIR, '..');
 const SRC_GLOB = 'src/**/*.ts';
+/**
+ * P4（2026-11-01）：物理包（内核 / infra）并入探针。
+ *
+ * 为什么不并进 app 那个实例：flat config 以 `cwd` 为基路径，包外文件会被整体忽略
+ * （实测以 `../packages/...` 形式的 glob 传入时 ESLint 直接报 "All files ... are ignored"）。
+ * 故以**仓根 cwd + 最小内联配置**另起一个实例 —— `complexity` 是纯语法规则，
+ * 不需要 type-aware project。不纳入即静默失明：迁包后这些函数整块脱离棘轮，
+ * 而棘轮只报"下降"、不会报红（等于把假绿换个位置）。
+ */
+const PKG_GLOBS = ['packages/kernel/src/**/*.ts', 'packages/infra/src/**/*.ts'];
 
 interface Baseline {
   version: number;
@@ -64,7 +76,31 @@ const eslint = new ESLint({
   cwd: APP_DIR,
   overrideConfig: { rules: { complexity: ['warn', 1] } },
 });
-const results = await eslint.lintFiles([SRC_GLOB]);
+/** P4：物理包探针（仓根 cwd + 最小内联配置，见 `PKG_GLOBS` 注释） */
+const pkgEslint = new ESLint({
+  cwd: REPO_ROOT,
+  overrideConfigFile: true,
+  overrideConfig: [
+    {
+      files: ['packages/**/*.ts'],
+      languageOptions: {
+        parser: tsParser,
+        parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+      },
+      rules: { complexity: ['warn', 1] },
+    },
+  ],
+});
+const results = [
+  ...(await eslint.lintFiles([SRC_GLOB])),
+  ...(await pkgEslint.lintFiles(PKG_GLOBS)),
+];
+// AR-3：解析失败不得当作"函数数变少"静默通过
+const fatal = results.reduce((n, r) => n + r.fatalErrorCount, 0);
+if (fatal > 0) {
+  console.error(`❌ ${fatal} 个文件解析失败（不得当作通过，见 AR-3）`);
+  process.exit(1);
+}
 
 const re = /complexity of (\d+)/;
 const values: number[] = [];

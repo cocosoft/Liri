@@ -29,6 +29,8 @@ const BASELINE = process.env.LOGGER_NAME_BASELINE
 const SCAN_ROOTS = [
   resolve(repoRoot, 'app/src'),
   resolve(repoRoot, 'packages/kernel/src'),
+  // P4（2026-11-01）：infra 物理包并入同一扫描面（不纳入则包内 getLogger 名字失检）
+  resolve(repoRoot, 'packages/infra/src'),
 ];
 const SKIP_DIRS = new Set(['node_modules', 'dist', '__tests__', 'tests']);
 const EXTS = new Set(['.ts', '.tsx']);

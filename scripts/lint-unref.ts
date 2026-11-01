@@ -43,10 +43,12 @@ import { dirname, join, relative } from 'node:path';
 /** 项目根目录（scripts/ 的父目录） */
 const PROJECT_ROOT = join(import.meta.dir, '..');
 
-/** 扫描根（运行时源码：app/src + 内核 packages/kernel/src —— P4 起内核物理独立） */
+/** 扫描根（运行时源码：app/src + 内核 packages/kernel/src + infra 包 packages/infra/src） */
 const SRC_DIRS = [
   join(PROJECT_ROOT, 'app', 'src'),
   join(PROJECT_ROOT, 'packages', 'kernel', 'src'),
+  // P4（2026-11-01）：infra 物理包同样是生产代码 —— 不纳入则迁包文件的 unref 失检。
+  join(PROJECT_ROOT, 'packages', 'infra', 'src'),
 ];
 
 /** 匹配 `setInterval(`（排除字符串字面量中的提及，见 isInsideStringLiteral） */

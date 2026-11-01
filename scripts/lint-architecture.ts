@@ -3720,7 +3720,10 @@ class ArchitectureLinter {
    */
   async checkOrphanOutputSchemas(): Promise<void> {
     const repoRoot = resolve(__dirname, '..');
-    const appSrc = resolve(repoRoot, 'app', 'src');
+    // P4（2026-11-01）：按**本实例的扫描根**取源码，而非写死 `app/src` ——
+    // 否则每个扫描根实例都会重复扫一遍 app，同一孤儿会报 2–3 次（假象），
+    // 且内核 / infra 包内的 `*OutputSchema` 从未被检查。
+    const appSrc = this.srcPath;
     const DEF_RE = /export\s+const\s+([A-Za-z_$][\w$]*OutputSchema)\b/;
     const USAGE_RE = /\b[A-Za-z_$][\w$]*OutputSchema\b/g;
 
@@ -3797,7 +3800,8 @@ class ArchitectureLinter {
    */
   async checkOrphanSchemaModules(): Promise<void> {
     const repoRoot = resolve(__dirname, '..');
-    const appSrc = resolve(repoRoot, 'app', 'src');
+    // P4（2026-11-01）：同 R15-001 —— 用本实例扫描根，避免跨实例重复上报与包内失检。
+    const appSrc = this.srcPath;
     const files = collectTsFiles(appSrc);
     const toKey = (p: string): string =>
       p.replace(/\\/g, '/').replace(/\.(ts|tsx|js)$/, '');

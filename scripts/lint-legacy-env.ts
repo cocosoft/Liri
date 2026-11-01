@@ -18,10 +18,12 @@ import { join, sep } from 'node:path';
 
 /** 项目根目录（scripts/ 的父目录） */
 const PROJECT_ROOT = join(import.meta.dir, '..');
-/** 扫描目录：运行时域 app/src + 内核 packages/kernel/src（P4 起内核物理独立） */
+/** 扫描目录：运行时域 app/src + 内核 packages/kernel/src + infra 包 packages/infra/src */
 const SCAN_DIRS = [
   join(PROJECT_ROOT, 'app', 'src'),
   join(PROJECT_ROOT, 'packages', 'kernel', 'src'),
+  // P4（2026-11-01）：infra 物理包并入同一扫描面
+  join(PROJECT_ROOT, 'packages', 'infra', 'src'),
 ];
 /** 检查的文件扩展名 */
 const CHECK_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);

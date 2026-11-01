@@ -26,6 +26,8 @@ const SCAN_DIRS = [
   join(PROJECT_ROOT, 'app', 'src'),
   // 内核自 P4 起物理独立于 `app/src`（方案 §4-P4）⇒ 硬编码模型名同样适用
   join(PROJECT_ROOT, 'packages', 'kernel', 'src'),
+  // P4（2026-11-01）：infra 物理包并入同一扫描面
+  join(PROJECT_ROOT, 'packages', 'infra', 'src'),
   join(PROJECT_ROOT, 'client', 'src'),
 ];
 /** 检查的文件扩展名 */

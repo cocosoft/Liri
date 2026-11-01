@@ -22,7 +22,7 @@
  *（否则回放必然找不到等待者）。
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('session:yield:waitingStore');

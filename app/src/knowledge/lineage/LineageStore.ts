@@ -36,7 +36,7 @@
  * 身份解析库（`resolveTenantDbPath()`）；请求作用域读路径走 `getLineageStore()`。
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
 import { resolveTenantDbPath } from '@modules/environment';
 import {

@@ -17,7 +17,7 @@
  *   console.log(result.summary);
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { existsSync, readFileSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:file:attachmentMigration');

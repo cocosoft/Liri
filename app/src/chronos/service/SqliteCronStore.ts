@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
 import { resolveDbPath } from '@modules/environment';
 import { nextCronRunMs } from '../cron';

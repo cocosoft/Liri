@@ -1,0 +1,16 @@
+{
+  "name": "@openliri/infra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri infra 包 —— 六层架构的 infra 层中**已物理独立**的模块（试点：external）。仅 infra 层与上层可依赖；内核不得依赖本包。",
+  "type": "module",
+  "exports": {
+    "./external": {
+      "types": "./src/external/index.ts",
+      "import": "./src/external/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p tsconfig.json"
+  }
+}

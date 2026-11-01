@@ -12,7 +12,7 @@
  * （对齐 InboxManager._migrateSchema 模式；存量库仅新增字段，不删结构）。
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { randomUUID } from 'crypto';
 import { resolveDbPath } from '@modules/environment';
 // 多租户 P5：用量行带归属（删除租户时可按前缀清除）

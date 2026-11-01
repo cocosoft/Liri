@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
 import { DatabaseError, handleError } from '@modules/error';
 import { resolveDbPath } from '@modules/environment';

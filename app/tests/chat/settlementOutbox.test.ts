@@ -10,7 +10,7 @@ import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { unlinkSync } from 'fs';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import {
   SettlementOutbox,
   MAX_DELIVERY_ATTEMPTS,

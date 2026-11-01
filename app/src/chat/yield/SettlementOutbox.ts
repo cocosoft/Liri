@@ -29,7 +29,7 @@
  * 连接不泄漏：单例持一个连接，`close()` 显式释放。
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { resolveTenantDbPath } from '@modules/environment';
 // 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {

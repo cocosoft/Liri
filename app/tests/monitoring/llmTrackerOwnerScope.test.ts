@@ -40,7 +40,7 @@ import { join } from 'node:path';
 
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
-import { openBunDatabase } from '@modules/external';
+import { openBunDatabase } from '@openliri/infra/external';
 import {
   getLLMTracker,
   resetLLMTrackerForTest,

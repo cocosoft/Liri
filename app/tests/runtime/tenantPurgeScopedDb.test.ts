@@ -13,7 +13,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { resolveDataDir, setUserDataDirOverride } from '@modules/environment';
 import { purgeTenant } from '../../src/runtime/tenantPurge.js';
 import {

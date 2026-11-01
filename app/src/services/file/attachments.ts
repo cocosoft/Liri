@@ -13,7 +13,7 @@ import {
   resolveDataSubDir,
   resolveDbPath,
 } from '@modules/environment';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 // C1（2026-10-09）：附件名/ID 熵源改用 crypto
 import { randomIdSuffix } from '../../utils/common';
 

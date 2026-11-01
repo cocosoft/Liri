@@ -3,7 +3,7 @@
  * 对标 openclaw src/cron/run-log.ts
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { CronJob, CronJobResult, CronRunStatus } from './types';

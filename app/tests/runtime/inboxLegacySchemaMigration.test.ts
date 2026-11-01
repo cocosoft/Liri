@@ -34,7 +34,7 @@ import { afterAll, describe, expect, it } from 'bun:test';
 import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { InboxManager } from '../../src/runtime/InboxManager';
 
 const dir = mkdtempSync(join(tmpdir(), 'inbox-legacy-'));

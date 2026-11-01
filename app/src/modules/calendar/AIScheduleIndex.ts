@@ -3,7 +3,7 @@
  * 存储 AI 对话中创建的日程元数据，用于日历面板中的"AI 提取"来源展示
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { resolveDbPath } from '@modules/environment';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 const logger = getLogger('calendar:aiScheduleIndex');

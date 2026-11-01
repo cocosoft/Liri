@@ -26,7 +26,7 @@
  * 采用双重持久化策略：YAML 基线 + 数据库覆盖层。
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { resolveDbPath, resolveProjectRoot } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

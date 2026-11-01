@@ -20,7 +20,7 @@
  *   });
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, unlink, stat, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';

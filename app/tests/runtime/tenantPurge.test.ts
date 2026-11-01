@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import {
   setUserDataDirOverride,
   resolveDataDir,

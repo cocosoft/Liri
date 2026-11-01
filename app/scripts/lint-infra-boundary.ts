@@ -9,7 +9,7 @@
  *   R2 security / permission 不得运行时引用上层模块（审批编排留在 app）
  *   R3 infra 动态导入上层 —— 逐条白名单，清零目标（补 R00-003 盲区）
  *   R4 common / utils 同名导出 —— infra 双包只允许一份实现
- *   R5 `bun:sqlite` 只允许包装本体直连（`@modules/external` 是唯一驱动入口）
+ *   R5 `bun:sqlite` 只允许包装本体直连（`@openliri/infra/external` 是唯一驱动入口）
  *   R6 `packages/infra/src` 物理包边界（包内不得依赖上层 / 相对路径不得逃逸到 `app/`；
  *      app 侧 `@openliri/infra/<m>` 必须是登记为 infra 的模块，且 core 不得依赖 infra）
  *   R7 层内**环棘轮**（infra→infra 的 SCC 只许缩小；基线 `.trae/architecture/infra-cycle-baseline.json`）
@@ -214,12 +214,16 @@ function main(): number {
   const allSrcFiles: SourceFile[] = [];
   collect(SRC_DIR, allSrcFiles);
 
+  // 2026-11-01（P2）：迁入 `packages/infra/src` 的文件同样是生产代码 —— R5 若不纳入，
+  // 包装本体（唯一合法的 `bun:sqlite` 直连）会从扫描面里消失，规则静默变成"0 处"。
+  // 包内文件沿用**包内相对路径**（与白名单口径 `external/sqlite3.ts` 一致）。
+
   const reports: BoundaryReport[] = [
     compareTopLevelIo(infraFiles, allowlist),
     compareApprovalOrchestration(infraFiles, layers, allowlist),
     compareDynamicInfraToApp(infraFiles, layers, allowlist),
     compareCommonUtilsDuplicates(commonFiles, utilsFiles, allowlist),
-    compareDirectSqliteImports(allSrcFiles, allowlist),
+    compareDirectSqliteImports([...allSrcFiles, ...packageFiles], allowlist),
     compareInfraPackageBoundary({
       packageFiles,
       appFiles: allSrcFiles,

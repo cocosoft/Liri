@@ -32,7 +32,7 @@
  *   - cleanupOrphans() 清理悬挂边
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { randomUUID } from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

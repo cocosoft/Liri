@@ -30,7 +30,7 @@
  *
  * store 模式对齐 `YieldWaitingStore` / `SettlementOutbox`（`initPromise` 失败须清空、回调式 sqlite）。
  */
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
 import { resolveDbPath } from '@modules/environment';
 

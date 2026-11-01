@@ -111,6 +111,8 @@ async function main(): Promise<void> {
     join(rootDir, 'app', 'src'),
     // 内核自 P4 起物理独立于 `app/src`（方案 §4-P4）⇒ 巨型文件规则同样适用
     join(rootDir, 'packages', 'kernel', 'src'),
+    // P2（2026-11-01）：infra 物理包试点同样适用（迁出 ≠ 免检）
+    join(rootDir, 'packages', 'infra', 'src'),
     join(rootDir, 'client', 'src'),
     join(rootDir, 'app', 'native'),
   ];

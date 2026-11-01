@@ -29,7 +29,7 @@
  * 参照 TaskStore 模式：延迟初始化 + CREATE TABLE IF NOT EXISTS
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { resolveDataDir } from '@modules/environment';
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync } from 'fs';

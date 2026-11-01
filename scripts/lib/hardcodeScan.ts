@@ -33,6 +33,8 @@ export const SCAN_DIRS = [
   join(PROJECT_ROOT, 'app', 'src'),
   // 内核自 P4 起物理独立于 `app/src`（方案 §4-P4），但仍是运行时生产代码 ⇒ 必须纳入扫描面
   join(PROJECT_ROOT, 'packages', 'kernel', 'src'),
+  // P2（2026-11-01）：infra 物理包试点 —— 迁出的模块仍是生产代码，不纳入即静默失明
+  join(PROJECT_ROOT, 'packages', 'infra', 'src'),
   join(PROJECT_ROOT, 'client', 'src'),
 ];
 

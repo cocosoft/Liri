@@ -23,7 +23,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
 import {
   getRequestPrincipal,

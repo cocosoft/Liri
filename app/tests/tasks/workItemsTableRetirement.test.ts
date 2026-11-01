@@ -14,7 +14,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { SqliteTaskStore } from '../../src/tasks/db/SqliteTaskStore.js';
 
 let root: string;

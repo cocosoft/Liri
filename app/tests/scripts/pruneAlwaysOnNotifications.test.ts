@@ -12,7 +12,7 @@ import {
   pruneAlwaysOnNotifications,
   scanAlwaysOnNotifications,
 } from '../../scripts/prune-alwayson-notifications.js';
-import { openBunDatabase } from '../../src/external/sqlite3';
+import { openBunDatabase } from '@openliri/infra/external';
 
 let root: string;
 let dbPath: string;

@@ -20,7 +20,7 @@ import {
   ChannelSecretStore,
   initRegistry,
 } from '../../src/channels/secrets/ChannelSecretStore';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };

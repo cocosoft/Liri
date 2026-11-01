@@ -1,5 +1,5 @@
 import { join } from 'path';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
 import type { CheckpointStorage } from '@modules/session/types/checkpoint';
 import {

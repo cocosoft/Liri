@@ -211,7 +211,9 @@ function scanBareNumberLiterals(files: string[]): {
   let total = 0;
   for (const abs of files) {
     const rel = toRel(abs);
-    if (!rel.startsWith('app/src/')) continue;
+    // P2（2026-11-01）：infra 物理包（packages/infra/src）与 app/src 同属生产代码 ⇒ 同口径扫描
+    if (!rel.startsWith('app/src/') && !rel.startsWith('packages/infra/src/'))
+      continue;
     if (rel.startsWith('app/src/constants/')) continue;
     if (rel.endsWith('/defaults.ts')) continue;
     let n = 0;

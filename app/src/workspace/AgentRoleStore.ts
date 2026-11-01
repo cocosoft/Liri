@@ -6,7 +6,7 @@
  * 支持前端管理页面进行增删改查。
  */
 import { randomUUID } from 'crypto';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
 import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
 import {

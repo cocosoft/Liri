@@ -44,7 +44,7 @@
 import { appendFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { openBunDatabase, type BunDatabase } from '../src/external/sqlite3';
+import { openBunDatabase, type BunDatabase } from '@openliri/infra/external';
 
 /** `.trash/<sessionId>_<epochMs>` → sessionId（去掉尾部时间戳） */
 const TRASH_NAME_RE = /^(.*)_\d+$/;

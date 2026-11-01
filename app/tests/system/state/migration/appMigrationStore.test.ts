@@ -10,7 +10,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { unlinkSync } from 'fs';
 import { AppMigrationStore, APP_MIGRATIONS_TABLE } from '@modules/system/state';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 
 const createdPaths: string[] = [];
 const opened: AppMigrationStore[] = [];

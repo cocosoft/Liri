@@ -8,7 +8,7 @@
  */
 
 // D-241（2026-10-02）：不再直连 `bun:sqlite` —— 经统一封装建立连接（PRAGMA 单一事实源）
-import { openBunDatabase, type BunDatabase } from '@modules/external';
+import { openBunDatabase, type BunDatabase } from '@openliri/infra/external';
 import { resolveDbPath } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('media:templates');

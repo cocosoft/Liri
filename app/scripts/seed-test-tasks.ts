@@ -6,7 +6,7 @@
  * 用法: bun run scripts/seed-test-tasks.ts
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import { TASKS_SCHEMA } from '../src/tasks/db/schema';

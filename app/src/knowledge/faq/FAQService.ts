@@ -20,7 +20,7 @@ import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 import { handleError } from '@modules/error';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { SimpleMutex } from '@openliri/kernel';
 import { resolveTenantDbPath } from '@modules/environment';
 import {

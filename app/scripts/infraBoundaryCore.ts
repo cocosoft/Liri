@@ -633,7 +633,7 @@ export function compareDirectSqliteImports(
       seen.add(file.path);
       if (allowed.has(file.path)) continue;
       violations.push(
-        `${file.path}:${ref.line} 直连 \`bun:sqlite\` —— 请改用 \`@modules/external\` 的 openBunDatabase() / Database` +
+        `${file.path}:${ref.line} 直连 \`bun:sqlite\` —— 请改用 \`@openliri/infra/external\` 的 openBunDatabase() / Database` +
           '（统一 PRAGMA 与慢查询插桩；台账 D-241）'
       );
     }

@@ -12,7 +12,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { resolveMemoryDir, resolveDbPath } from '@modules/environment';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { registerShutdownHandler } from '@modules/utils/gracefulShutdown';
 import { getMemoryDriftDetector } from '../MemoryDriftDetector';
 

@@ -34,7 +34,7 @@
  * 单例取用走 `getRuleStore()`（按 tenantId 分桶，删租户时释放）。
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
 import { resolveTenantDbPath } from '@modules/environment';
 import {

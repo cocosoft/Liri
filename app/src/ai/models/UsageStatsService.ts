@@ -29,7 +29,7 @@
  * - 多维度聚合统计（总览/每日趋势/模型/供应商）
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { randomUUID } from 'crypto';
 import { resolveDbPath } from '@modules/environment';
 // 多租户 P5：使用日志带归属（删除租户时可按前缀清除）

@@ -13,7 +13,7 @@ import {
   collectKnownSessionIds,
   pruneOrphanCostSummaries,
 } from '../../scripts/prune-orphan-cost-summaries.js';
-import { openBunDatabase } from '../../src/external/sqlite3';
+import { openBunDatabase } from '@openliri/infra/external';
 
 let root: string;
 let dbPath: string;

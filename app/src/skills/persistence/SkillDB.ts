@@ -31,7 +31,7 @@
  * - skill_provenance：技能溯源信息
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { resolveDbPath } from '@modules/environment';
 // 多租户 P5：技能使用记录带归属（删除租户时可按前缀清除）
 import { currentOwnerKey } from '@openliri/kernel/identity/requestScope.js';

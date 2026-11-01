@@ -49,7 +49,7 @@ import { homedir } from 'os';
 import {
   openBunDatabase,
   type BunDatabase,
-} from '../src/external/sqlite3';
+} from '@openliri/infra/external';
 
 /**
  * 匹配口径：**旧格式**的 AlwaysOn 播报（`… 执行完成`）。

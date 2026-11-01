@@ -14,7 +14,7 @@ import { ToolParam, ToolCallProgress } from '../types/Tool';
 import { pickTaskText } from '../utils/ToolUtils';
 import { feature } from '@openliri/kernel';
 import { VERIFICATION_AGENT_TYPE } from '../AgentTool/constants';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { resolveDbPath, ensureDir } from '@modules/environment';
 import { dirname } from 'path';
 import { getLogger } from '@modules/monitoring';

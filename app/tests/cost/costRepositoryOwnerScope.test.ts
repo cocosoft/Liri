@@ -30,7 +30,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CostRecordRepository } from '../../src/cost/CostRecordRepository';
-import { openBunDatabase } from '@modules/external';
+import { openBunDatabase } from '@openliri/infra/external';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal';
 

@@ -5,7 +5,7 @@
  */
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';

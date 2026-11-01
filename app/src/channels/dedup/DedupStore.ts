@@ -32,7 +32,7 @@
  * **仅新增表**（`project_rules §1.5`）。写盘为 best-effort（观测面失败仅留痕，不阻断去重判定）。
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import type { MessageProcessingState } from './types';
 
 export const DEDUP_STATES_TABLE = 'channel_message_states';

@@ -44,7 +44,7 @@
  * 可以使用不同的模型。对标 CC 源码 cc-switch/src-tauri/src/app_config.rs (AppType)
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { resolveDbPath, ensureDir } from '@modules/environment';
 import { dirname } from 'path';
 import { getLogger } from '@modules/monitoring';

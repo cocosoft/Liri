@@ -15,7 +15,7 @@
 
 import { join } from 'path';
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { resolveDbPath, resolveDataSubDir } from '@modules/environment';
 import { getLogger } from '@modules/monitoring';
 import {

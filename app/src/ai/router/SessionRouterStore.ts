@@ -27,7 +27,7 @@
  * 使用 SQLite 存储，注册在统一 app.db 中。
  */
 
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { handleError } from '@modules/error/handleError';
 
 /** sqlite3 run() 回调中的 this 上下文 */

@@ -25,6 +25,8 @@
     "jsx": "react-jsx",
     "paths": {
       "src/*": ["*"],
+      "@openliri/infra/external": ["../../packages/infra/src/external/index.ts"],
+      "@openliri/infra/external.js": ["../../packages/infra/src/external/index.ts"],
       "@openliri/kernel": ["../../packages/kernel/src"],
       "@openliri/kernel/loggerFacade": ["../../packages/kernel/src/core/loggerFacade.ts"],
       "@openliri/kernel/loggerFacade.js": ["../../packages/kernel/src/core/loggerFacade.ts"],
@@ -175,8 +177,6 @@
       "@modules/daemon/*": ["daemon/*"],
       "@modules/runtimeHost": ["runtimeHost"],
       "@modules/runtimeHost/*": ["runtimeHost/*"],
-      "@modules/external": ["external"],
-      "@modules/external/*": ["external/*"],
       "@modules/environment": ["environment"],
       "@modules/environment/*": ["environment/*"],
       "@modules/doc": ["modules/doc"],

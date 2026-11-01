@@ -37,7 +37,7 @@
  */
 
 import { readFile } from 'fs/promises';
-import { Database } from '@modules/external';
+import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
 import { resolveTenantDbPath } from '@modules/environment';
 import {

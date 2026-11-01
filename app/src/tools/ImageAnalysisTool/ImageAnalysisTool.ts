@@ -18,8 +18,8 @@ import * as path from 'path';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import { ImageProcessor } from '../../media/image/ImageProcessor';
-import { imageFormatDetector } from '../../media/image/ImageFormatDetector';
+import { ImageProcessor } from '@openliri/infra/media/image/ImageProcessor';
+import { imageFormatDetector } from '@openliri/infra/media/image/ImageFormatDetector';
 import { providerRegistry } from '@modules/ai';
 import { RouteKey } from '@modules/ai';
 import { imageSanitizationPolicy } from '@modules/security';
@@ -1085,7 +1085,7 @@ export class ImageAnalysisTool extends BaseTool {
       try {
         const pngPath = actualPath.replace(/\.svg$/i, '.png');
         const { ImageProcessor } =
-          await import('../../media/image/ImageProcessor.js');
+          await import('@openliri/infra/media/image/ImageProcessor');
         const processor = new ImageProcessor();
         const convertResult = await processor.convert(
           actualPath,
@@ -1570,7 +1570,7 @@ export class ImageAnalysisTool extends BaseTool {
   ): Promise<ToolResult> {
     try {
       const { extractPdfPages } =
-        await import('../../media/pdf/PdfPageExtractor');
+        await import('@openliri/infra/media/pdf/PdfPageExtractor');
       const pages = await extractPdfPages(params.inputPath, {
         startPage: 1,
         endPage: 1,

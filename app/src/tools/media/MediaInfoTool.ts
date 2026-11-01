@@ -14,8 +14,8 @@ import { MEDIA_INFO_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
-import { imageFormatDetector } from '../../media/image/ImageFormatDetector';
-import { mediaStore } from '../../media/store/MediaStore';
+import { imageFormatDetector } from '@openliri/infra/media/image/ImageFormatDetector';
+import { mediaStore } from '@openliri/infra/media/store/MediaStore';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

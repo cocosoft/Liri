@@ -465,10 +465,10 @@
       "app/src/cli/handlers/mcpHandler.ts"
     ],
     "media\\store\\MediaStore": [
-      "app/src/media/store/MediaStore.ts"
+      "packages/infra/src/media/store/MediaStore.ts"
     ],
     "media\\temp\\TempMediaManager": [
-      "app/src/media/temp/TempMediaManager.ts"
+      "packages/infra/src/media/temp/TempMediaManager.ts"
     ],
     "modules\\ModuleDefinitions": [
       "app/src/modules/ModuleDefinitions.ts"

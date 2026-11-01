@@ -27,6 +27,9 @@
       "zod/*": ["../../app/node_modules/zod/*"],
       "js-tiktoken": ["../../app/node_modules/js-tiktoken"],
       "sharp": ["../../app/node_modules/sharp"],
+      "pdfjs-dist": ["../../app/node_modules/pdfjs-dist"],
+      "pdfjs-dist/*": ["../../app/node_modules/pdfjs-dist/*"],
+      "@napi-rs/canvas": ["../../app/node_modules/@napi-rs/canvas"],
       "@opentelemetry/api": ["../../app/node_modules/@opentelemetry/api"]
     }
   },

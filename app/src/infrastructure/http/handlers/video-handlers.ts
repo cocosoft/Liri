@@ -19,9 +19,9 @@ import { handleError } from '@modules/error';
 // C1（2026-09-30 D-93）：工具运行时改经服务层端口（消除 service → app 跨层引用）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { resolveMediaDir, isPathWithin } from '@openliri/infra/environment';
-import { ffmpegWrapper } from '../../../media/ffmpeg/FFmpegWrapper';
-import type { FFprobeResult } from '../../../media/ffmpeg/FFmpegWrapper';
-import { videoProcessor } from '../../../media/video/VideoProcessor';
+import { ffmpegWrapper } from '@openliri/infra/media/ffmpeg/FFmpegWrapper';
+import type { FFprobeResult } from '@openliri/infra/media/ffmpeg/FFmpegWrapper';
+import { videoProcessor } from '@openliri/infra/media/video/VideoProcessor';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 /**

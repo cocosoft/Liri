@@ -36,7 +36,7 @@ import { dirname } from 'path';
 import { rm } from 'fs/promises';
 import { WorkerGuard } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
-import { extractPdfPages } from '../../../media/pdf/PdfPageExtractor';
+import { extractPdfPages } from '@openliri/infra/media/pdf/PdfPageExtractor';
 import { isKnowledgeOcrEnabled } from '@modules/knowledge/KnowledgeConfig';
 import type { ExtractedDocument } from './types';
 

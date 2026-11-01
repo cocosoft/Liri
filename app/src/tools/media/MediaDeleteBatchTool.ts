@@ -12,7 +12,7 @@ import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { MEDIA_DELETE_BATCH_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
-import { mediaStore } from '../../media/store/MediaStore';
+import { mediaStore } from '@openliri/infra/media/store/MediaStore';
 import { isToolCallApproved } from '@modules/permission';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

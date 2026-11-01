@@ -8,7 +8,7 @@ import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { MEDIA_FILE_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
-import { videoProcessor } from '../../media/video/VideoProcessor';
+import { videoProcessor } from '@openliri/infra/media/video/VideoProcessor';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import fs from 'fs';

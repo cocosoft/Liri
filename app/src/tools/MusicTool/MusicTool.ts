@@ -12,7 +12,7 @@ import * as path from 'path';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
-import { FFmpegWrapper } from '../../media/ffmpeg/FFmpegWrapper';
+import { FFmpegWrapper } from '@openliri/infra/media/ffmpeg/FFmpegWrapper';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:MusicTool:MusicTool');

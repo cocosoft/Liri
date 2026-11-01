@@ -18,7 +18,7 @@ import {
   ImageProcessor,
   type ImageFormat,
   type ProcessResult,
-} from '../../media/image/ImageProcessor';
+} from '@openliri/infra/media/image/ImageProcessor';
 import { imageSanitizationPolicy } from '@modules/security';
 
 const logger = getLogger('tools:imageTool');

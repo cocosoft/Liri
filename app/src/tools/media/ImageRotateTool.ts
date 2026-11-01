@@ -8,7 +8,7 @@ import { IMAGE_PROCESS_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
-import { imageProcessor } from '../../media/image/ImageProcessor';
+import { imageProcessor } from '@openliri/infra/media/image/ImageProcessor';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 

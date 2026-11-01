@@ -14,7 +14,7 @@ import {
   DEFAULT_RETRY_CONFIG,
 } from '@openliri/infra/utils/withRetry';
 import { checkSsrf, describeSsrfBlock } from '@modules/tools';
-import { imageFormatDetector } from '../../media/image/ImageFormatDetector';
+import { imageFormatDetector } from '@openliri/infra/media/image/ImageFormatDetector';
 import * as crypto from 'crypto';
 import * as dns from 'dns';
 import * as fs from 'fs';

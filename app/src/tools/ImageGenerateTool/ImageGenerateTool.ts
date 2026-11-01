@@ -442,7 +442,7 @@ export class ImageGenerateTool extends BaseTool {
       if (!(params as any).resolution && (params as any).inputImage) {
         try {
           const { imageFormatDetector } =
-            await import('../../media/image/ImageFormatDetector');
+            await import('@openliri/infra/media/image/ImageFormatDetector');
           const inputPath = (params as any).inputImage as string;
           if (inputPath) {
             const dims = imageFormatDetector.detectDimensions(inputPath);

@@ -5632,7 +5632,7 @@
         "app/src/tasks/CrossProcessLock.ts",
         "packages/kernel/src/core/cache/SessionCache.ts",
         "app/src/memory/FrozenSnapshotService.ts",
-        "app/src/media/image/TempFileManager.ts",
+        "packages/infra/src/media/image/TempFileManager.ts",
         "app/src/permission/ApprovedCommandRegistry.ts",
         "app/src/tools/ImageGenerateTool/ImageGenerationCache.ts",
         "app/src/services/file/FileStatsService.ts",
@@ -5954,7 +5954,7 @@
       },
       "code": [
         "app/src/chronos/maintenance/cleanup.ts",
-        "app/src/media/image/TempFileManager.ts",
+        "packages/infra/src/media/image/TempFileManager.ts",
         "app/src/tools/CanvasTool/CanvasTool.ts",
         "app/src/permission/ApprovedCommandRegistry.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -10538,7 +10538,7 @@
       },
       "code": [
         "app/package.json",
-        "app/src/media/pdf/PdfPageExtractor.ts"
+        "packages/infra/src/media/pdf/PdfPageExtractor.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -10896,8 +10896,8 @@
       },
       "code": [
         "app/src/services/mcp/marketplace/LocalServerStore.ts",
-        "app/src/media/ffmpeg/FFmpegWrapper.ts",
-        "app/src/media/pdf/PdfPageExtractor.ts",
+        "packages/infra/src/media/ffmpeg/FFmpegWrapper.ts",
+        "packages/infra/src/media/pdf/PdfPageExtractor.ts",
         "app/src/permission/ApprovedCommandRegistry.ts",
         "app/src/mcp/cli/mcpCommand.ts",
         ".trae/architecture/hardcode-gate-baseline.json"

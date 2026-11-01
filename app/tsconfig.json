@@ -72,12 +72,16 @@
       "@openliri/infra/diagnostics/*": [
         "../../packages/infra/src/diagnostics/*"
       ],
+      "@openliri/infra/media/*": ["../../packages/infra/src/media/*"],
       "croner": ["../node_modules/croner"],
       "lru-cache": ["../node_modules/lru-cache"],
       "zod": ["../node_modules/zod"],
       "zod/*": ["../node_modules/zod/*"],
       "js-tiktoken": ["../node_modules/js-tiktoken"],
       "sharp": ["../node_modules/sharp"],
+      "pdfjs-dist": ["../node_modules/pdfjs-dist"],
+      "pdfjs-dist/*": ["../node_modules/pdfjs-dist/*"],
+      "@napi-rs/canvas": ["../node_modules/@napi-rs/canvas"],
       "@openliri/kernel": ["../../packages/kernel/src"],
       "@openliri/kernel/loggerFacade": ["../../packages/kernel/src/core/loggerFacade.ts"],
       "@openliri/kernel/loggerFacade.js": ["../../packages/kernel/src/core/loggerFacade.ts"],

@@ -3151,7 +3151,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#1","i":0,"c":"app/src/tasks/CrossProcessLock.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#2","i":0,"c":"packages/kernel/src/core/cache/SessionCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#4","i":0,"c":"app/src/memory/FrozenSnapshotService.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#5","i":0,"c":"app/src/media/image/TempFileManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#5","i":0,"c":"packages/infra/src/media/image/TempFileManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#6","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#7","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerationCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#8","i":0,"c":"app/src/services/file/FileStatsService.ts"}
@@ -3390,7 +3390,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"notes","i":9,"c":"⇒ **仅改名**；`chronos/**`（后台维护）、`media/**`、`tools/**` 同属敏感面，处理同上；② **未做真机走查**（四类清理器的真实触发节奏**未验**）⇒ `e2eVerified=false`；③ 未跑全量 `bun test`（app 侧仅相关域）；④ **未跑 client**（无 client 侧改动）；⑤ 本片是"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"notes","i":10,"c":" B5-2 **第十一项**。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#0","i":0,"c":"app/src/chronos/maintenance/cleanup.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#1","i":0,"c":"app/src/media/image/TempFileManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#1","i":0,"c":"packages/infra/src/media/image/TempFileManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#2","i":0,"c":"app/src/tools/CanvasTool/CanvasTool.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#3","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-11-CLEANUP-INTERVAL-MS","k":"code#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -5868,7 +5868,7 @@
 {"id":"PDF-CANVAS-OPTIONAL-DEP","k":"source","i":0,"c":"dev_docs/20261017/未完成任务清单-20261017.md U-25（重型工具盘点 L106-107）"}
 {"id":"PDF-CANVAS-OPTIONAL-DEP","k":"notes","i":0,"c":"量化评估见 dev_docs/20261017/liri-native侧车量化评估-20261017.md（12 调用点；延迟未实测，附度量方案）。"}
 {"id":"PDF-CANVAS-OPTIONAL-DEP","k":"code#0","i":0,"c":"app/package.json"}
-{"id":"PDF-CANVAS-OPTIONAL-DEP","k":"code#1","i":0,"c":"app/src/media/pdf/PdfPageExtractor.ts"}
+{"id":"PDF-CANVAS-OPTIONAL-DEP","k":"code#1","i":0,"c":"packages/infra/src/media/pdf/PdfPageExtractor.ts"}
 {"id":"SESSION-BUDGET-PHASE-C","k":"title","i":0,"c":"U-19：会话预算阶段 C（SB06 续跑状态 + SB07 交接单 + 成本度量脚本）"}
 {"id":"SESSION-BUDGET-PHASE-C","k":"source","i":0,"c":"dev_docs/20261014/会话token预算与交接整改方案-20261014.md §5 阶段 C"}
 {"id":"SESSION-BUDGET-PHASE-C","k":"notes","i":0,"c":"台账字符为实测；toolCalls/hook/report 需会话侧采集，缺失显示 - 且判 INCOMPLETE（不臆造）。"}
@@ -5946,8 +5946,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"notes","i":0,"c":"三对同名常量语义不同（知识语义库 vs MCP 本地清单；MCP CLI vs ffprobe；pdfjs 操作码 vs shell 运算符）⇒ 按域改名；mcpCommand 的 PROBE_TIMEOUT_MS 零引用随批删除；基线 170→167。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#0","i":0,"c":"app/src/services/mcp/marketplace/LocalServerStore.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#1","i":0,"c":"app/src/media/ffmpeg/FFmpegWrapper.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#2","i":0,"c":"app/src/media/pdf/PdfPageExtractor.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#1","i":0,"c":"packages/infra/src/media/ffmpeg/FFmpegWrapper.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#2","i":0,"c":"packages/infra/src/media/pdf/PdfPageExtractor.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#3","i":0,"c":"app/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#4","i":0,"c":"app/src/mcp/cli/mcpCommand.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}

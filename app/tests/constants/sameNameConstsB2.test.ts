@@ -436,7 +436,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '60 * 60 * 1000',
       ],
       [
-        'src/media/image/TempFileManager.ts',
+        '../packages/infra/src/media/image/TempFileManager.ts',
         'TEMP_FILE_TTL_MS',
         '30 * 60 * 1000',
       ],
@@ -777,7 +777,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '24 * 60 * 60 * 1000',
       ],
       [
-        'src/media/image/TempFileManager.ts',
+        '../packages/infra/src/media/image/TempFileManager.ts',
         'TEMP_FILE_CLEANUP_INTERVAL_MS',
         '5 * 60 * 1000',
       ],

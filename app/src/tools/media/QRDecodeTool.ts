@@ -8,7 +8,7 @@ import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { MEDIA_QR_DECODE_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
-import { qrCodeManager } from '../../media/qr/QRCodeManager';
+import { qrCodeManager } from '@openliri/infra/media/qr/QRCodeManager';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import fs from 'fs';

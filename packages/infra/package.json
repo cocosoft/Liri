@@ -88,6 +88,10 @@
     "./diagnostics/*": {
       "types": "./src/diagnostics/*.ts",
       "import": "./src/diagnostics/*.ts"
+    },
+    "./media/*": {
+      "types": "./src/media/*.ts",
+      "import": "./src/media/*.ts"
     }
   },
   "scripts": {

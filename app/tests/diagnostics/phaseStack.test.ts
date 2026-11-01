@@ -14,7 +14,7 @@ import {
   resetPhaseStack,
   setPhaseStackEnabled,
   snapshotPhases,
-} from '../../src/diagnostics/loopProbe/phaseStack';
+} from '../../src/common/phaseStack';
 
 beforeEach(() => {
   setPhaseStackEnabled(true);

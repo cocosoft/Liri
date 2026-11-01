@@ -17,6 +17,12 @@
  * 归因原理（自校验）：阶段自身记 `durationMs`，心跳记 `lagMs`。若某阶段 duration ≈ lag，
  * 该阶段即阻塞源；若**没有任何**阶段与之匹配 ⇒ 阻塞来自未插桩路径或 GC/native。
  * 两把尺子互相印证，避免单点证据下结论。
+ *
+ * 2026-11-01（B6 解环）：自 `diagnostics/loopProbe/phaseStack.ts` **迁入 common**。
+ * 迁因：本文件**零依赖**（只有模块内状态与 `Date.now()`），却被 `monitoring`（阻塞心跳）
+ * 与 `diagnostics`（归因快照）双方共用 ⇒ 放在 `diagnostics` 里会让 `monitoring → diagnostics`
+ * 成为唯一出边、与 `diagnostics → monitoring` 构成回环。归位到叶子模块 `common` 后，
+ * 两侧都只依赖叶子；`@modules/diagnostics` 保留**同名转出**（既有消费方零改动）。
  */
 
 /** 活跃栈上限：超过即放弃记录（宁可不采样，也不让探针自己成为内存增长点） */

@@ -25,8 +25,9 @@ import {
   getMemoryPressureMonitor,
 } from './memoryPressure/MemoryPressureMonitor.js';
 
-// 阶段标签（阻塞探针 P2 扩展，2026-09-22）：与既有 11 处插桩同源（`@modules/diagnostics/...`）
-import { withPhaseSync } from '@modules/diagnostics';
+// 阶段标签（阻塞探针 P2 扩展，2026-09-22）：实现已归位 `common/phaseStack`（B6 解环），
+// 与既有插桩点同源（它们经 `@modules/diagnostics` 的同名转出取用同一份状态）
+import { withPhaseSync } from '@modules/common';
 
 const logger = getLogger('monitoring:service');
 

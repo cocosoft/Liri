@@ -66,5 +66,5 @@ export {
   resetPhaseStack,
   setPhaseStackEnabled,
   isPhaseStackEnabled,
-} from './loopProbe/phaseStack';
-export type { PhaseEntry, PhaseSnapshot } from './loopProbe/phaseStack';
+} from '@modules/common';
+export type { PhaseEntry, PhaseSnapshot } from '@modules/common';

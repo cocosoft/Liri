@@ -27,7 +27,7 @@ import {
   exitPhase,
   isPhaseStackEnabled,
   setPhaseStackEnabled,
-} from '../../src/diagnostics/loopProbe/phaseStack';
+} from '../../src/common/phaseStack';
 
 // 状态机用例显式固定 maxDumps=3（与默认值解耦，默认值调整不影响本文件语义）
 const CFG = { ...DEFAULT_PROBE_CONFIG, lagThresholdMs: 3000, maxDumps: 3 };

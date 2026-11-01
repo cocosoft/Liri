@@ -35,7 +35,7 @@ import {
   recentPhases,
   resetPhaseStack,
   setPhaseStackEnabled,
-} from '../../src/diagnostics/loopProbe/phaseStack';
+} from '../../src/common/phaseStack';
 
 /** Bun 运行时全局（tsc 类型面未声明 `gc`，按仓内既有约定就地声明） */
 declare const Bun: { gc(force: boolean): void };

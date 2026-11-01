@@ -42,8 +42,6 @@ export {
   executeArchivalMaintenance,
   setupArchivalScheduler,
   stopArchivalScheduler,
-  registerArchivalCronTask,
-  unregisterArchivalCronTask,
 } from './archivalCronTask.js';
 
 export type {

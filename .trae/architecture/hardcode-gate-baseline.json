@@ -174,7 +174,7 @@
     "裸字面量:app/src/cost/DailyCostCache.ts": 1,
     "裸字面量:app/src/diagnostics/CircuitBreaker.ts": 2,
     "裸字面量:app/src/diagnostics/infrastructure-diagnostics.ts": 1,
-    "裸字面量:app/src/diagnostics/loopProbe/phaseStack.ts": 1,
+    "裸字面量:app/src/common/phaseStack.ts": 1,
     "裸字面量:app/src/dream/ColdStorage.ts": 1,
     "裸字面量:app/src/dream/DreamCycleDb.ts": 2,
     "裸字面量:app/src/dream/DreamPersistence.ts": 1,

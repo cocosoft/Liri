@@ -6133,7 +6133,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/diagnostics/loopProbe/phaseStack.ts",
+        "app/src/common/phaseStack.ts",
         "app/src/commands/builtin/files/Files.ts",
         "app/src/infrastructure/http/handlers/project-artifact-handlers.ts",
         "app/tests/tools/AgentTool/agentDelegationGrant.test.ts",

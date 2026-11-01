@@ -41,7 +41,7 @@ import {
   setPhaseStackEnabled,
   snapshotPhases,
   type PhaseSnapshot,
-} from './phaseStack';
+} from '@modules/common';
 
 const logger = getLogger('diagnostics:loop-probe');
 

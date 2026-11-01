@@ -310,8 +310,6 @@ export {
   executeArchivalMaintenance,
   setupArchivalScheduler,
   stopArchivalScheduler,
-  registerArchivalCronTask,
-  unregisterArchivalCronTask,
 } from './archival/index.js';
 
 export type {

@@ -32,10 +32,7 @@ import {
   resolveIdleContinuation,
   setIdleContinuationSchedulerForTest,
 } from '../../../src/tasks/goal/goalIdleContinuation';
-import {
-  recentPhases,
-  resetPhaseStack,
-} from '../../../src/diagnostics/loopProbe/phaseStack';
+import { recentPhases, resetPhaseStack } from '../../../src/common/phaseStack';
 
 const createdPaths: string[] = [];
 const opened: TaskGoalStore[] = [];

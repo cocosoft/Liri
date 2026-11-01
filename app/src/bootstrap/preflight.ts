@@ -51,7 +51,7 @@ import { setDaemonMetricsSink } from '@openliri/infra/daemon/metricsSink';
 import { setMainPermissionRuleSource } from '../security/permissionRuleSource.js';
 import { setNativeStructureCloserLoader } from '@openliri/infra/utils/structureCut';
 import { setAnalyticsPricingResolver } from '@openliri/infra/analytics/pricingSource';
-import { getModelPricing } from '../cost/ModelPricing.js';
+import { getModelPricing } from '@openliri/infra/cost/ModelPricing';
 import type { NativeLib } from '../../native';
 import { RuleManager } from '@modules/permission';
 
@@ -187,7 +187,7 @@ export function wireUtilsDeps(): void {
 /**
  * B8 解环（2026-11-01）：把**模型定价来源**接到 `analytics`。
  *
- * `analytics/CostAnalyticsTracker` 曾直接 `import { getModelPricing } from '../cost/ModelPricing'`，
+ * `analytics/CostAnalyticsTracker` 曾直接 `import { getModelPricing } from '@openliri/infra/cost/ModelPricing'`，
  * 而 `cost` 桶又反向再导出 analytics ⇒ 二者同处 R7 的 infra 内环。解环后 analytics 只保留端口
  * （`analytics/pricingSource`），实现在此注入；未注入时退回内核默认值（不静默产出错误报价）。
  */

@@ -96,9 +96,9 @@ import { resolveWorktreeHash } from '@openliri/infra/environment';
 // 多租户 P0 阶段 2：当前会话 id 按请求身份分桶（无请求作用域 ⇒ 本地身份单桶）
 import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
 import { join } from 'path';
-import { getModelPricing } from '@modules/cost';
+import { getModelPricing } from '@openliri/infra/cost';
 
-import { calculateTotalCost } from '@modules/cost';
+import { calculateTotalCost } from '@openliri/infra/cost';
 
 import type { ChatManager } from './ChatManagerInterface.js';
 

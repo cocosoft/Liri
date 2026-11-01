@@ -11,7 +11,7 @@
  */
 import { describe, it, expect } from 'bun:test';
 
-import { resolveCostRepositoryForEvent } from '../../src/cost/index.js';
+import { resolveCostRepositoryForEvent } from '@openliri/infra/cost';
 
 // 用**本文件独有**的归属键：`getCostRecordRepository()` 的分身份实例是**进程级缓存**，
 // 借用其他用例的 `acme:alice` 会把"按别的数据根建好的实例"留给那些用例。

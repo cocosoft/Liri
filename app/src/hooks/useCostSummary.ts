@@ -19,7 +19,7 @@ import {
   getTotalCacheCreationInputTokens,
   getTotalWebSearchRequests,
   getModelUsage,
-} from './CostTracker';
+} from '@openliri/infra/cost/CostTracker';
 
 /**
  * 成本摘要信息

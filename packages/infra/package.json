@@ -108,6 +108,14 @@
     "./analytics/*": {
       "types": "./src/analytics/*.ts",
       "import": "./src/analytics/*.ts"
+    },
+    "./cost": {
+      "types": "./src/cost/index.ts",
+      "import": "./src/cost/index.ts"
+    },
+    "./cost/*": {
+      "types": "./src/cost/*.ts",
+      "import": "./src/cost/*.ts"
     }
   },
   "scripts": {

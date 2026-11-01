@@ -6,7 +6,7 @@
 import { priceManager } from './PriceManager';
 import type { ModelPriceTable, TokenUsageDetail } from './types';
 
-// 2026-09-30 直连 core（A1 倒挂收口）：原 `@modules/cost`，实体已下沉 `core/pricing.ts`
+// 2026-09-30 直连 core（A1 倒挂收口）：原 `@openliri/infra/cost`，实体已下沉 `core/pricing.ts`
 import { calculateTotalCost } from '@openliri/kernel/pricing.js';
 import type { ModelPricing } from '@openliri/kernel/pricing.js';
 

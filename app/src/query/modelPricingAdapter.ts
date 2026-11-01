@@ -7,7 +7,7 @@
  *
  * **为什么要适配器**：发送前闸门（`checkDailyBudget`）后续要按「金额(USD)」判定（S3），
  * 需在 `query` 层把"本轮模型"折算为金额。而 `query → cost` 是**分层倒挂**（R00-001）⇒
- * 本适配器**不** import `@modules/cost/**`，而是：
+ * 本适配器**不** import `@openliri/infra/cost/**`，而是：
  *   1. **取价**：经 **core SPI** `resolveAiAccess().getModelPricing()`（`spiWiring.ts:247-263` 装配）；
  *   2. **投影**：core 纯函数 `projectRegistryPricing()`（S1 下沉；与 cost 层**同源**）；
  *   3. **换算**：core 纯函数 `calculateTotalCost()`（S1 复用；零依赖）。

@@ -13,7 +13,7 @@
  */
 
 import { afterAll, describe, expect, it } from 'bun:test';
-import { CostRecordRepository } from '../../src/cost/CostRecordRepository';
+import { CostRecordRepository } from '@openliri/infra/cost/CostRecordRepository';
 
 const repo = new CostRecordRepository(':memory:');
 

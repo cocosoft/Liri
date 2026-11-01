@@ -16,13 +16,13 @@ import {
 } from '@openliri/kernel/pricing.js';
 import { resolveAiAccess } from '@openliri/kernel/spi';
 
-import { handleError } from '../error/handleError.js';
+import { handleError } from '@modules/error/handleError';
 
-import { getLogger } from '../monitoring/logs/Logger.js';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 const logger = getLogger('cost:ModelPricing');
 
 // 2026-09-30 下沉 core（A1 分层倒挂收口）：定义移至 `core/pricing.ts`，此处**原样转出**
-// ⇒ `@modules/cost` 的 `ModelPricing` 导出名与结构逐字不变。
+// ⇒ `@openliri/infra/cost` 的 `ModelPricing` 导出名与结构逐字不变。
 export type { ModelPricing };
 // 2026-10-13（债四 S1）：分时价解析下沉 core，此处**原样转出**（导出名与签名逐字不变）。
 export { resolveTimeBasedPricing } from '@openliri/kernel/pricing.js';

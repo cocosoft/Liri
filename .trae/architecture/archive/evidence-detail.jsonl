@@ -1365,7 +1365,7 @@
 {"id":"DEBT4-S1S2","k":"notes","i":7,"c":"DEBT4-USD-WIRING` 的 `recordTurnCostUsd` 复用 `estimateTurnCostUsd`；「仅有单测消费方」为**本条落地时**的状态，如实保留）⇒ **生产闸门仍走现行 Token 口径，零行为变更**（闸门改动 = S3，未做）；**未实现 U3**（`DEFAULT_MODEL_PRICING` 是既有「未知模型"}
 {"id":"DEBT4-S1S2","k":"notes","i":8,"c":"兜底单价」，**不是** USD 预算默认上限；未新增任何 USD 预算默认值）。**另注**：`RegistryPricingSource` 是为规避 core 内类型环而定义的最小结构类型，与 SPI DTO 存在字段级重复（如后续要彻底消重需评估 DTO 归位，本切片未触碰 `core/spi`）。"}
 {"id":"DEBT4-S1S2","k":"code#0","i":0,"c":"packages/kernel/src/core/pricing.ts"}
-{"id":"DEBT4-S1S2","k":"code#1","i":0,"c":"app/src/cost/ModelPricing.ts"}
+{"id":"DEBT4-S1S2","k":"code#1","i":0,"c":"packages/infra/src/cost/ModelPricing.ts"}
 {"id":"DEBT4-S1S2","k":"code#2","i":0,"c":"app/src/query/modelPricingAdapter.ts"}
 {"id":"DEBT4-S1S2","k":"code#3","i":0,"c":"app/src/query/index.ts"}
 {"id":"DEBT4-S1S2","k":"tests#0","i":0,"c":"packages/kernel/tests/pricing.test.ts"}
@@ -3147,7 +3147,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"notes","i":8,"c":"=` 且各含**确切新名 + 取值钉住**。**验证**：`typecheck`（app 三 tsconfig）**0**；相关域（`tests/constants`+`tests|src` 的 `cost`/`tasks`/`core`/`memory`/`permission`/`media`/`services` 与 8 个被改类名）**793 "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"notes","i":9,"c":"pass / 0 fail**；4 硬编码门禁全 **exit 0**。**如实边界**：① **`permission/ApprovedCommandRegistry.ts` 属权限域（CD07 关键域）⇒ 本片仅改名、未删实现、未改数值**；`core/cache`、`memory`、`tasks` 同属敏感面，处理同上（改名 + `typecheck`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"notes","i":10,"c":" + 域测试）；② **未做真机走查**（`e2eVerified=false`）；③ 未跑全量 `bun test`；④ 本片是 B5-2 **首项**（余项见 `reopenWhen` ①）。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#0","i":0,"c":"app/src/cost/DailyCostCache.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#0","i":0,"c":"packages/infra/src/cost/DailyCostCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#1","i":0,"c":"app/src/tasks/CrossProcessLock.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#2","i":0,"c":"packages/kernel/src/core/cache/SessionCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#4","i":0,"c":"app/src/memory/FrozenSnapshotService.ts"}
@@ -7896,7 +7896,7 @@
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#2","i":0,"c":"packages/infra/src/analytics/CostAnalyticsTracker.ts"}
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#3","i":0,"c":"packages/infra/src/analytics/PerformanceMonitoringService.ts"}
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#4","i":0,"c":"packages/infra/src/analytics/pricingSource.ts"}
-{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#5","i":0,"c":"app/src/cost/index.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#5","i":0,"c":"packages/infra/src/cost/index.ts"}
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#6","i":0,"c":"app/src/query/QueryEngine.ts"}
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#7","i":0,"c":"app/src/query/deps.ts"}
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#8","i":0,"c":"app/tsconfig.json"}

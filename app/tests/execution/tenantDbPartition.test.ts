@@ -24,7 +24,7 @@ import type {
   ExecutionGeneration,
   ExecutionId,
 } from '../../src/execution/types';
-import { getCostRecordRepository } from '../../src/cost/CostRecordRepository';
+import { getCostRecordRepository } from '@openliri/infra/cost/CostRecordRepository';
 import { getCheckpointDatabase } from '../../src/chat/services/CheckpointDatabase';
 import { InboxManager } from '../../src/runtime/InboxManager';
 import {

@@ -28,7 +28,7 @@ import {
   forgetScopedStoragesForTenant,
 } from '../../src/session/gateway/ScopedStorageRegistry.js';
 import type { UnifiedSessionStorage } from '../../src/session/storage/UnifiedStorage.js';
-import { costTracker } from '../../src/cost/CostTracker.js';
+import { costTracker } from '@openliri/infra/cost/CostTracker';
 import { purgeTenant } from '../../src/runtime/tenantPurge.js';
 
 /** 构造一个非本地身份（本地身份不会进按身份缓存，测不到失效逻辑） */

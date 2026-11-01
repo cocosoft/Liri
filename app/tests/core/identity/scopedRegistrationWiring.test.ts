@@ -22,7 +22,7 @@ import {
   resetScopedResourcesForTest,
   scopedResourceCount,
 } from '@openliri/kernel/identity/scopedResources.js';
-import { getCostRecordRepository } from '../../../src/cost/CostRecordRepository.js';
+import { getCostRecordRepository } from '@openliri/infra/cost/CostRecordRepository';
 import { getExecutionStore } from '../../../src/execution/ExecutionStore.js';
 import { getLLMTracker } from '../../../src/monitoring/llm/getLLMTracker.js';
 import { getCheckpointDatabase } from '../../../src/chat/services/CheckpointDatabase.js';

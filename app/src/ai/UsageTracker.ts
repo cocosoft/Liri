@@ -36,7 +36,7 @@ import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger.js';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { LogLevel } from '@modules/monitoring/logs/Logger.js';
 import { extractUsage } from './tokenizer/UsageExtractor.js';
-import { getCanonicalModelName } from '../cost/ModelPricing.js';
+import { getCanonicalModelName } from '@openliri/infra/cost/ModelPricing';
 import {
   getUserDataDirOverride,
   resolveDbPath,
@@ -71,11 +71,11 @@ async function getUsageStatsService() {
 
 async function getOrInitCostTracker(sessionId?: string) {
   if (!_costTracker) {
-    const mod = await import('@modules/cost');
+    const mod = await import('@openliri/infra/cost');
     _costTracker = mod.costTracker;
   }
   // 仓库按**调用时身份**解析（不缓存：见文件内说明）
-  const { getCostRecordRepository } = await import('@modules/cost');
+  const { getCostRecordRepository } = await import('@openliri/infra/cost');
   const repo = getCostRecordRepository();
   await repo.initDatabase();
   _costTracker.setRecordRepository(repo, sessionId);

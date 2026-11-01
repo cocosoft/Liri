@@ -181,7 +181,7 @@ async function handleHelp(): Promise<CommandResult> {
  */
 async function handleCostHistory(limit: number): Promise<CommandResult> {
   const { getCostRecordRepository } =
-    await import('../../../cost/CostRecordRepository.js');
+    await import('@openliri/infra/cost/CostRecordRepository');
 
   const repository = getCostRecordRepository();
   await repository.initDatabase();
@@ -220,7 +220,7 @@ async function handleCostHistory(limit: number): Promise<CommandResult> {
  */
 async function handleSessionCost(sessionId: string): Promise<CommandResult> {
   const { getCostRecordRepository } =
-    await import('../../../cost/CostRecordRepository.js');
+    await import('@openliri/infra/cost/CostRecordRepository');
 
   const repository = getCostRecordRepository();
   await repository.initDatabase();
@@ -281,7 +281,7 @@ async function handleSessionCost(sessionId: string): Promise<CommandResult> {
  */
 async function handleDaysCost(days: number): Promise<CommandResult> {
   const { getCostRecordRepository } =
-    await import('../../../cost/CostRecordRepository.js');
+    await import('@openliri/infra/cost/CostRecordRepository');
 
   const repository = getCostRecordRepository();
   await repository.initDatabase();
@@ -521,7 +521,7 @@ async function collectCostData(): Promise<CostData> {
   const { getCostAnalyticsTracker } =
     await import('@openliri/infra/analytics/CostAnalyticsTracker');
   const { getCostRecordRepository } =
-    await import('../../../cost/CostRecordRepository.js');
+    await import('@openliri/infra/cost/CostRecordRepository');
 
   const repository = getCostRecordRepository();
   const aggregation = await repository.getAggregatedCosts({});

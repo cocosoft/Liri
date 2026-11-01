@@ -8,7 +8,7 @@ import { describe, it, expect } from 'bun:test';
 import {
   CostMetricsBridge,
   getCostMetricsBridge,
-} from '../../src/cost/CostMetricsBridge';
+} from '@openliri/infra/cost/CostMetricsBridge';
 
 describe('CostMetricsBridge OTel 集成测试', () => {
   it('getCostMetricsBridge 返回单例', () => {

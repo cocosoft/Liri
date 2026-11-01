@@ -28,7 +28,7 @@
 import { existsSync, readdirSync, statSync, rmdirSync } from 'fs';
 import { join } from 'path';
 import { resolveDataDir, resolveDbPath } from '@openliri/infra/environment';
-import { CostRecordRepository } from '../src/cost/CostRecordRepository.js';
+import { CostRecordRepository } from '@openliri/infra/cost/CostRecordRepository';
 
 /** 单文件告警阈值（issue #24 的验收口径） */
 export const OVERSIZE_BYTES = 5 * 1024 * 1024;

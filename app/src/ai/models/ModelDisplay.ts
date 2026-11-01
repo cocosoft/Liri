@@ -16,8 +16,8 @@ import {
   getCacheEfficiency as getCacheEfficiencyFromBudget,
 } from '@modules/tokenBudget';
 
-import { calculateTotalCost } from '@modules/cost';
-import type { ModelPricing } from '@modules/cost';
+import { calculateTotalCost } from '@openliri/infra/cost';
+import type { ModelPricing } from '@openliri/infra/cost';
 
 /**
  * 格式化模型价格

@@ -17,11 +17,29 @@ import { DEFAULT_MODEL_PRICING } from '@openliri/kernel/pricing';
 import { PriceManager } from '../../src/tokenBudget/PriceManager';
 
 const SRC = join(import.meta.dir, '..', '..', 'src');
+const INFRA_SRC = join(
+  import.meta.dir,
+  '..',
+  '..',
+  '..',
+  'packages',
+  'infra',
+  'src'
+);
 
-function readSrc(rel: string): string {
-  return readFileSync(join(SRC, rel), 'utf-8')
+function readStripped(absPath: string): string {
+  return readFileSync(absPath, 'utf-8')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/.*$/gm, '');
+}
+
+function readSrc(rel: string): string {
+  return readStripped(join(SRC, rel));
+}
+
+/** 已迁入 infra 包的源码（P19 起 `cost/` 物理位置变更） */
+function readInfra(rel: string): string {
+  return readStripped(join(INFRA_SRC, rel));
 }
 
 describe('HD-P0-1：兜底价单一真源（core `DEFAULT_MODEL_PRICING`）', () => {
@@ -45,12 +63,16 @@ describe('HD-P0-1：兜底价单一真源（core `DEFAULT_MODEL_PRICING`）', ()
     for (const rel of [
       'tokenBudget/PriceManager.ts',
       'ai/prompts/PromptCacheManager.ts',
-      'cost/ModelPricing.ts',
     ]) {
       expect(readSrc(rel), `${rel} 未引用 core 兜底价真源`).toContain(
         'DEFAULT_MODEL_PRICING'
       );
     }
+    // `cost/ModelPricing.ts` 已于 P19 迁入 infra 包
+    expect(
+      readInfra('cost/ModelPricing.ts'),
+      'cost/ModelPricing.ts 未引用 core 兜底价真源'
+    ).toContain('DEFAULT_MODEL_PRICING');
   });
 
   it('③ 收编点不再各写一份数值（源码守卫：默认块内无旧字面量）', () => {

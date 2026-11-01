@@ -16,7 +16,7 @@
 import { describe, it, expect, afterEach } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CostTracker, costTracker } from '../../src/cost/CostTracker';
+import { CostTracker, costTracker } from '@openliri/infra/cost/CostTracker';
 
 describe('CostTracker.addCost — 单次调用语义', () => {
   let tracker: CostTracker;

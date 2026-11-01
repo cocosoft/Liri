@@ -20,8 +20,8 @@ import { getLogger } from '@modules/monitoring';
 import { globalEventBus, SystemEvents } from '@openliri/kernel/events/EventBus';
 import type { CostRecordedEvent } from '@openliri/kernel/events/EventBus';
 
-import { calculateTotalCost } from '@modules/cost';
-import type { ModelPricing } from '@modules/cost';
+import { calculateTotalCost } from '@openliri/infra/cost';
+import type { ModelPricing } from '@openliri/infra/cost';
 
 const logger = getLogger('session:tokenTracker');
 

@@ -144,7 +144,7 @@ async function handleTokens(): Promise<CommandResult> {
 
   let tokenInfo = 'Token usage tracking not available.';
   try {
-    const { costTracker } = await import('@modules/cost/CostTracker.js');
+    const { costTracker } = await import('@openliri/infra/cost/CostTracker.js');
     const totalInput = costTracker.getTotalInputTokens();
     const totalOutput = costTracker.getTotalOutputTokens();
     const totalCost = costTracker.getTotalCostUSD();

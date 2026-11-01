@@ -65,7 +65,7 @@ import { composeSystemPrompt } from '../services/systemPromptComposition';
 import { StreamingToolCallScrubber } from '@modules/streaming';
 import { validatePathsInOutput } from '../services/PathGuardService';
 import { trackUsage, extractModelFromResponse } from '@modules/ai';
-import { getModelPricing } from '@modules/cost';
+import { getModelPricing } from '@openliri/infra/cost';
 import { startRequest } from '../services/requestBoundary';
 // G-2/B（2026-10-11）：非流式路径的日预算闸门 —— 与流式同源（单例 + 单一收口判定）。
 import { getDailyBudget } from '../../query/DailyBudgetManager.js';
@@ -74,7 +74,7 @@ import {
   formatBudgetExhausted,
 } from '../../query/dailyBudgetGate.js';
 
-import { calculateTotalCost } from '@modules/cost';
+import { calculateTotalCost } from '@openliri/infra/cost';
 import { compactionOrchestrator } from '@modules/context';
 import { resolveOutputDir } from '@openliri/infra/environment';
 import { agentTelemetry } from '@modules/agent';

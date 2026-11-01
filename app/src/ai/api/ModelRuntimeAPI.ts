@@ -368,7 +368,7 @@ export async function handleGetCurrentModel(
     const { TASK_DEFINITIONS } = await import('../modelRouter.js');
     const { providerRegistry } =
       await import('../providers/ProviderRegistry.js');
-    const { getTotalCostUSD } = await import('@modules/cost');
+    const { getTotalCostUSD } = await import('@openliri/infra/cost');
 
     const coreAPI = getCoreAPI();
     const lastDecision = coreAPI.getLastRouteDecision();

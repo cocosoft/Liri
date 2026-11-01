@@ -596,7 +596,7 @@
       "app/src/config/securityConfig.ts",
       "app/src/context/MailboxContext.tsx",
       "app/src/context/VoiceContext.tsx",
-      "app/src/cost/PricingManager.ts",
+      "packages/infra/src/cost/PricingManager.ts",
       "packages/infra/src/daemon/IPCService.ts",
       "packages/infra/src/daemon/ProcessWatchdog.ts",
       "packages/infra/src/diagnostics/DiagnosticsService.ts",

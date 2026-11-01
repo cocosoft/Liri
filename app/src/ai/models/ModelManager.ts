@@ -23,8 +23,8 @@ import {
 import { ModelRegistry } from './ModelRegistry.js';
 import { configManager } from '@modules/config';
 
-import { calculateTotalCost } from '@modules/cost';
-import type { ModelPricing } from '@modules/cost';
+import { calculateTotalCost } from '@openliri/infra/cost';
+import type { ModelPricing } from '@openliri/infra/cost';
 
 export type SubscriptionType =
   | 'free'

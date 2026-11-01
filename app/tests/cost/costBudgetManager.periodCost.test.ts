@@ -18,9 +18,9 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { setUserDataDirOverride } from '@openliri/infra/environment';
-import { CostRecordRepository } from '../../src/cost/CostRecordRepository';
-import { costBudgetManager } from '../../src/cost/CostBudgetManager';
-import { costTracker } from '../../src/cost/CostTracker';
+import { CostRecordRepository } from '@openliri/infra/cost/CostRecordRepository';
+import { costBudgetManager } from '@openliri/infra/cost/CostBudgetManager';
+import { costTracker } from '@openliri/infra/cost/CostTracker';
 
 const dataDir = mkdtempSync(join(tmpdir(), 'cost-budget-period-'));
 

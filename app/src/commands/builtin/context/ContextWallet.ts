@@ -117,7 +117,7 @@ export async function analyzeContextUsage(
   let globalCostUsd = estimatedCostUsd;
   if (!sessionFromLLMTracker) {
     try {
-      const { costTracker } = await import('../../../cost/CostTracker');
+      const { costTracker } = await import('@openliri/infra/cost/CostTracker');
       inputTokens = costTracker.getTotalInputTokens();
       outputTokens = costTracker.getTotalOutputTokens();
       cacheReadTokens = costTracker.getTotalCacheReadInputTokens();
@@ -147,7 +147,7 @@ export async function analyzeContextUsage(
   // Session duration
   let sessionDurationSec = 0;
   try {
-    const { costTracker } = await import('../../../cost/CostTracker');
+    const { costTracker } = await import('@openliri/infra/cost/CostTracker');
     sessionDurationSec = Math.round(costTracker.getSessionDuration() / 1000);
   } catch {
     // best-effort
@@ -156,7 +156,7 @@ export async function analyzeContextUsage(
   // Per-model breakdown
   const models: ModelUsageEntry[] = [];
   try {
-    const { getModelUsage } = await import('../../../cost/CostTracker');
+    const { getModelUsage } = await import('@openliri/infra/cost/CostTracker');
     const modelUsage = getModelUsage();
     for (const [model, usage] of Object.entries(modelUsage)) {
       models.push({

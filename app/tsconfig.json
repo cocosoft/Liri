@@ -91,6 +91,9 @@
       "@openliri/infra/analytics/*": [
         "../../packages/infra/src/analytics/*"
       ],
+      "@openliri/infra/cost": ["../../packages/infra/src/cost/index.ts"],
+      "@openliri/infra/cost.js": ["../../packages/infra/src/cost/index.ts"],
+      "@openliri/infra/cost/*": ["../../packages/infra/src/cost/*"],
       "croner": ["../node_modules/croner"],
       "lru-cache": ["../node_modules/lru-cache"],
       "zod": ["../node_modules/zod"],
@@ -208,8 +211,6 @@
       "@modules/buddy/*": ["buddy/*"],
       "@modules/chronos": ["chronos"],
       "@modules/chronos/*": ["chronos/*"],
-      "@modules/cost": ["cost"],
-      "@modules/cost/*": ["cost/*"],
       "@modules/docs": ["docs"],
       "@modules/docs/*": ["docs/*"],
       "@modules/hooks": ["hooks"],

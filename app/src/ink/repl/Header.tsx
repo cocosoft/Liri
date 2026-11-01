@@ -7,7 +7,7 @@ import {
   getTotalCacheReadInputTokens,
   getTotalCacheCreationInputTokens,
   getTotalCostUSD,
-} from '@modules/cost';
+} from '@openliri/infra/cost';
 
 interface HeaderProps {
   chatManager: ChatManager;

@@ -5,8 +5,8 @@
  * 参考 CC源码 cc_code/backend/services/api/usage.ts
  */
 
-import { calculateTotalCost } from '@modules/cost';
-import type { ModelPricing } from '@modules/cost';
+import { calculateTotalCost } from '@openliri/infra/cost';
+import type { ModelPricing } from '@openliri/infra/cost';
 
 export interface TokenUsage {
   input: number;

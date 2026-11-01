@@ -9,7 +9,7 @@
  */
 import { describe, it, expect } from 'bun:test';
 
-import { CostTracker } from '../../src/cost/CostTracker.js';
+import { CostTracker } from '@openliri/infra/cost/CostTracker';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 

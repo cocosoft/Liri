@@ -28,8 +28,8 @@
  */
 
 import type { RouterTier, RouteDecision, RouterConfig } from './types.js';
-import { CostTracker } from '@modules/cost';
-import { CostRecordRepository } from '@modules/cost';
+import { CostTracker } from '@openliri/infra/cost';
+import { CostRecordRepository } from '@openliri/infra/cost';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ai:stats');
 

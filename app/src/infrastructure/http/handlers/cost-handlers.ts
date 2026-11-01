@@ -50,7 +50,7 @@ export async function handleWorkspaceCostReport(
     > = {};
 
     try {
-      const { costTracker } = await import('@modules/cost');
+      const { costTracker } = await import('@openliri/infra/cost');
       totalCostUSD = costTracker.getTotalCostUSD();
       totalInputTokens = costTracker.getTotalInputTokens();
       totalOutputTokens = costTracker.getTotalOutputTokens();
@@ -75,7 +75,7 @@ export async function handleWorkspaceCostReport(
 
     try {
       const { costBudgetManager } =
-        await import('@modules/cost/CostBudgetManager');
+        await import('@openliri/infra/cost/CostBudgetManager');
       const statuses = await costBudgetManager.getAllBudgetStatuses();
       if (statuses.length > 0) {
         // 使用第一个启用的预算状态
@@ -166,7 +166,7 @@ export async function handleWorkspaceBudgetStatus(
 
     try {
       const { costBudgetManager } =
-        await import('@modules/cost/CostBudgetManager');
+        await import('@openliri/infra/cost/CostBudgetManager');
       const statuses = await costBudgetManager.getAllBudgetStatuses();
       if (statuses.length > 0) {
         const monthlyStatus = statuses.find(
@@ -217,7 +217,7 @@ export async function handleCostReport(
   const period = urlObj.searchParams.get('period') || 'all';
 
   const { CostReportEndpoint } =
-    await import('@modules/cost/CostReportEndpoint');
+    await import('@openliri/infra/cost/CostReportEndpoint');
   const endpoint = new CostReportEndpoint();
   const result = await endpoint.handle({
     format: format as 'json' | 'text' | 'csv' | 'prometheus',
@@ -240,7 +240,7 @@ export async function handleGlobalCostSummary(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getCostRecordRepository } = await import('@modules/cost');
+    const { getCostRecordRepository } = await import('@openliri/infra/cost');
     const repo = getCostRecordRepository();
 
     const now = Date.now();
@@ -249,7 +249,8 @@ export async function handleGlobalCostSummary(
     const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
     const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
 
-    const { getDailyCostCache } = await import('@modules/cost/DailyCostCache');
+    const { getDailyCostCache } =
+      await import('@openliri/infra/cost/DailyCostCache');
     const dailyCache = getDailyCostCache();
 
     const aiOps = await getCoreAPI().getAiOpsPort();
@@ -343,7 +344,7 @@ export async function handleGlobalCostRecords(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getCostRecordRepository } = await import('@modules/cost');
+    const { getCostRecordRepository } = await import('@openliri/infra/cost');
     const repo = getCostRecordRepository();
 
     const url = new URL(req.url || '', LOCAL_REQUEST_BASE_URL);
@@ -386,7 +387,7 @@ export async function handleGlobalCostRange(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getCostRecordRepository } = await import('@modules/cost');
+    const { getCostRecordRepository } = await import('@openliri/infra/cost');
     const repo = getCostRecordRepository();
 
     const url = new URL(req.url || '', LOCAL_REQUEST_BASE_URL);
@@ -433,7 +434,7 @@ export async function handleCostReconcile(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getCostRecordRepository } = await import('@modules/cost');
+    const { getCostRecordRepository } = await import('@openliri/infra/cost');
     const repo = getCostRecordRepository();
 
     const url = new URL(req.url || '', LOCAL_REQUEST_BASE_URL);

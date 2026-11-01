@@ -343,7 +343,8 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     optionalDependencies: ['memory', 'monitoring'],
     // 初始化成本跟踪系统：注册 COST_RECORDED 事件订阅，将成本事件持久化到 cost_records 表
     initialize: async () => {
-      const { initializeCostTrackingSystem } = await import('../cost/index.js');
+      const { initializeCostTrackingSystem } =
+        await import('@openliri/infra/cost');
       await initializeCostTrackingSystem();
     },
   },

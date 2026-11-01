@@ -9,7 +9,7 @@
  * - 未知模型（lookup 返回 null）/ 零定价 ⇒ 回落 `DEFAULT_MODEL_PRICING` 且 `unknownModel: true`（Q-U5 如实标注）
  * - `estimateTurnCostUsd` = core `calculateTotalCost`（金额与 S1 同源）
  *
- * 分层断言见 `bun run lint:arch`（本适配器**不** import `@modules/cost`）。
+ * 分层断言见 `bun run lint:arch`（本适配器**不** import `@openliri/infra/cost`）。
  */
 
 import { describe, it, expect } from 'bun:test';

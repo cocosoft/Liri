@@ -1859,9 +1859,6 @@
     "app/src/agent/events/index.ts -> @openliri/kernel/events/EventBus",
     "app/src/ai/telemetry/SessionSpanTracer.ts -> @openliri/kernel/SessionSpanTracer.js",
     "app/src/context/DependencyRegistry.ts -> @openliri/kernel/DependencyRegistry.js",
-    "app/src/cost/ModelPricing.ts -> @openliri/kernel/pricing.js",
-    "app/src/cost/calculateCost.ts -> @openliri/kernel/pricing.js",
-    "app/src/cost/pricingSafety.ts -> @openliri/kernel/pricing.js",
     "app/src/docs/knowledge-types.ts -> @openliri/kernel/knowledge-types",
     "app/src/error/ErrorCodes.ts -> @openliri/kernel/errorCodes.js",
     "app/src/error/abortReason.ts -> @openliri/kernel/abortReason.js",
@@ -1871,6 +1868,9 @@
     "app/src/error/utils.ts -> @openliri/kernel/errors.js",
     "app/src/modules/index.ts -> @openliri/kernel/LazyModuleStrategy",
     "app/src/types/orchestrationEvents.ts -> @openliri/kernel/orchestrationEvents.js",
+    "packages/infra/src/cost/ModelPricing.ts -> @openliri/kernel/pricing.js",
+    "packages/infra/src/cost/calculateCost.ts -> @openliri/kernel/pricing.js",
+    "packages/infra/src/cost/pricingSafety.ts -> @openliri/kernel/pricing.js",
     "packages/infra/src/utils/common.ts -> @openliri/kernel/lazySingleton.js",
     "scripts/kernel-api-surface.ts -> @openliri/kernel…"
   ]

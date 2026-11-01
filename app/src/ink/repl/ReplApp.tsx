@@ -12,7 +12,7 @@ import {
   getTotalOutputTokens,
   getTotalCacheReadInputTokens,
   getTotalCacheCreationInputTokens,
-} from '@modules/cost';
+} from '@openliri/infra/cost';
 import type {
   DisplayMessage,
   StreamStats,

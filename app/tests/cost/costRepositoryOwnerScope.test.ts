@@ -29,7 +29,7 @@ import { afterAll, describe, expect, it } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CostRecordRepository } from '../../src/cost/CostRecordRepository';
+import { CostRecordRepository } from '@openliri/infra/cost/CostRecordRepository';
 import { openBunDatabase } from '@openliri/infra/external';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal';
@@ -211,7 +211,10 @@ describe('CostRecordRepository：对账查询（跨表也带 owner）', () => {
 describe('门禁：CostRecordRepository 的读写 SQL 不许漏 owner_key', () => {
   it('两张表的读写 SQL + 对账的字面 cost_records 都必须带 owner_key', () => {
     const src = readFileSync(
-      new URL('../../src/cost/CostRecordRepository.ts', import.meta.url),
+      new URL(
+        '../../../packages/infra/src/cost/CostRecordRepository.ts',
+        import.meta.url
+      ),
       'utf8'
     );
     const templates = [

@@ -199,7 +199,7 @@ export async function purgeTenant(
       await import('../ai/credentials/CredentialStore.js');
     const { forgetScopedStoragesForTenant } =
       await import('../session/gateway/ScopedStorageRegistry.js');
-    const { costTracker } = await import('../cost/CostTracker.js');
+    const { costTracker } = await import('@openliri/infra/cost/CostTracker');
     const { forgetAlwaysOnQuotaForTenant } =
       await import('../tasks/alwayson/AlwaysOnQuota.js');
     const { analyticsService } =

@@ -3371,7 +3371,7 @@
       },
       "code": [
         "packages/kernel/src/core/pricing.ts",
-        "app/src/cost/ModelPricing.ts",
+        "packages/infra/src/cost/ModelPricing.ts",
         "app/src/query/modelPricingAdapter.ts",
         "app/src/query/index.ts"
       ],
@@ -5628,7 +5628,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/cost/DailyCostCache.ts",
+        "packages/infra/src/cost/DailyCostCache.ts",
         "app/src/tasks/CrossProcessLock.ts",
         "packages/kernel/src/core/cache/SessionCache.ts",
         "app/src/memory/FrozenSnapshotService.ts",
@@ -16716,7 +16716,7 @@
         "packages/infra/src/analytics/CostAnalyticsTracker.ts",
         "packages/infra/src/analytics/PerformanceMonitoringService.ts",
         "packages/infra/src/analytics/pricingSource.ts",
-        "app/src/cost/index.ts",
+        "packages/infra/src/cost/index.ts",
         "app/src/query/QueryEngine.ts",
         "app/src/query/deps.ts",
         "app/tsconfig.json",

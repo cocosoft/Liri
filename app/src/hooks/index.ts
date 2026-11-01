@@ -81,13 +81,13 @@ export { useTypeahead, useCommandCompletion } from './useTypeahead';
 export { useReplBridge } from './useReplBridge';
 export { useTextInput, useSingleLineInput } from './useTextInput';
 
-// 成本相关Hook
+// 成本相关Hook（React hook 属 app 层，故与 cost 数据面分离存放）
 export {
   useCostSummary,
   useFormattedCostSummary,
   useTotalCost,
   useModelUsage,
-} from '@modules/cost';
+} from './useCostSummary';
 
 // 其他增强Hook
 export { useVoice } from './useVoice';

@@ -423,7 +423,11 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     // 8 处同名 `DEFAULT_TTL_MS` 各属**独立缓存/锁**（60_000 ×3 · 5min ×1 · 1h ×2 · 30min · 300_000）
     // （原 9 处；`core/approval/ApprovalCache.ts` 已于 2026-10-24 按方案 B 删除 ⇒ 断言同批移除）
     const items: Array<[string, string, string]> = [
-      ['src/cost/DailyCostCache.ts', 'DAILY_COST_CACHE_TTL_MS', '60_000'],
+      [
+        '../packages/infra/src/cost/DailyCostCache.ts',
+        'DAILY_COST_CACHE_TTL_MS',
+        '60_000',
+      ],
       ['src/tasks/CrossProcessLock.ts', 'CROSS_PROCESS_LOCK_TTL_MS', '60_000'],
       [
         '../packages/kernel/src/core/cache/SessionCache.ts',

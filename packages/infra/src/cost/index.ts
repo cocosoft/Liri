@@ -86,8 +86,8 @@ export * from './CostBudgetManager.js';
 // 导出成本记录存储库
 export * from './CostRecordRepository.js';
 
-// 导出React Hooks
-export * from './useCostSummary.js';
+// 注：React hooks（useCostSummary 等）已归位 app 层（`app/src/hooks/useCostSummary.ts`）——
+// infra 包不承载 UI 框架依赖（react），从本桶再导出会让 infra 运行期需要 react 解析。
 
 // 导出部门成本报表
 export {
@@ -116,7 +116,7 @@ export type {
   CostReportData,
 } from './CostReportEndpoint';
 
-import { getLogger } from '../monitoring/logs/Logger.js';
+import { getLogger } from '@modules/monitoring/logs/Logger';
 import { globalEventBus, SystemEvents } from '@openliri/kernel';
 import type { CostRecordedEvent } from '@openliri/kernel';
 import { handleError } from '@modules/error';
@@ -129,7 +129,7 @@ import type { CostRecordRepository } from './CostRecordRepository.js';
 import {
   AnalyticsCategory,
   AnalyticsSeverity,
-} from '@openliri/infra/analytics/AnalyticsSchema';
+} from '../analytics/AnalyticsSchema';
 
 const logger = getLogger('cost:index');
 
@@ -221,9 +221,9 @@ export async function initializeCostTrackingSystem(): Promise<void> {
 
     // 初始化分析持久化服务（JSONL 文件）
     const { getGlobalAnalyticsQueue } =
-      await import('@openliri/infra/analytics/AnalyticsEventQueue');
+      await import('../analytics/AnalyticsEventQueue');
     const { AnalyticsPersistenceService } =
-      await import('@openliri/infra/analytics/AnalyticsPersistenceService');
+      await import('../analytics/AnalyticsPersistenceService');
     const analyticsPersistence = new AnalyticsPersistenceService();
     await analyticsPersistence.initialize();
     getGlobalAnalyticsQueue().attachSink({
@@ -253,7 +253,7 @@ export async function initializeCostTrackingSystem(): Promise<void> {
 
     // 确保 CostAnalyticsTracker 使用全局事件队列（含持久化 sink）
     const { getCostAnalyticsTracker } =
-      await import('@openliri/infra/analytics/CostAnalyticsTracker');
+      await import('../analytics/CostAnalyticsTracker');
     getCostAnalyticsTracker(getGlobalAnalyticsQueue());
 
     // P1-2.5: 注册 OTel 成本指标（ObservableGauge）

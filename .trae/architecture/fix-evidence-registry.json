@@ -17117,6 +17117,42 @@
       "changelog": [],
       "reopenWhen": "① 若新增 `monitoring` 子目录**目录入口**（如 `@openliri/infra/monitoring/alerts`）⇒ 需在 package.json 单列精确 exports（`./monitoring/*` 会拼成 `*.ts`）；② 若再向 barrel 增加 `export *` 且该文…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P28-MONITORING）",
       "notes": "迁包：monitoring 72 文件（根 12 + 16 子域 + 5 内层）→ packages/infra/src/monitoring；内联测试 `MonitoringModuleTest.ts` 按 P26 口径迁 `app/tests/monitoring/MonitoringModuleTest.tes…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P28-MONITORING）"
+    },
+    {
+      "id": "SERVICE-PACKAGE-P29-EXECUTION",
+      "title": "P29：新建 packages/service（@openliri/service），execution 迁入；新增 R8 service 物理包边界",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §七",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/service/package.json",
+        "packages/service/tsconfig.json",
+        "packages/service/src/execution/index.ts",
+        "packages/service/src/execution/ExecutionManager.ts",
+        "packages/service/src/execution/ExecutionStore.ts",
+        "app/tsconfig.json",
+        "app/scripts/infraBoundaryCore.ts",
+        "app/scripts/lint-infra-boundary.ts",
+        ".trae/specs/infra-layer-boundary-contract.md"
+      ],
+      "tests": [
+        "app/tests/state/stateMachineCatalog.test.ts",
+        "app/tests/state/toolCallStatusSingleSource.test.ts",
+        "app/tests/execution/executionStoreOwnerScope.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若继续迁 service 模块（streaming/voice/bridge）⇒ 它们有运行期同层依赖（`../services/api`、`runtime`），必须先迁被依赖方或改注入，**不能**让 service 包运行期引 app；② 若包内需要新核心类型 ⇒ 走下 core 而非放宽 forbidden…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P29-EXECUTION）",
+      "notes": "为何是 execution：在 service 候选（remote/mcp/execution/streaming/voice/bridge/runtime）里唯一满足「运行期零 app 依赖」者 —— 对 `session` 的 4 处依赖全为 `import type`（LiriEvent/LiriEventMa…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P29-EXECUTION）"
     }
   ]
 }

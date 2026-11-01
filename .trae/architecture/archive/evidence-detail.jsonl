@@ -8157,3 +8157,24 @@
 {"id":"INFRA-PACKAGE-P28-MONITORING","k":"tests#0","i":0,"c":"app/tests/monitoring/MonitoringModuleTest.test.ts"}
 {"id":"INFRA-PACKAGE-P28-MONITORING","k":"tests#1","i":0,"c":"app/tests/monitoring/llmTrackerOwnerScope.test.ts"}
 {"id":"INFRA-PACKAGE-P28-MONITORING","k":"tests#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"title","i":0,"c":"P29：新建 packages/service（@openliri/service），execution 迁入；新增 R8 service 物理包边界"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §七"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"reopenWhen","i":0,"c":"① 若继续迁 service 模块（streaming/voice/bridge）⇒ 它们有运行期同层依赖（`../services/api`、`runtime`），必须先迁被依赖方或改注入，**不能**让 service 包运行期引 app；② 若包内需要新核心类型 ⇒ 走下 core 而非放宽 forbiddenLayers（core 只放行 `types`）；③ 若新增子目录入口（如 `@openliri/service/execution/foo` 指向目录）⇒ package.json 需单列精确 exports。"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"notes","i":0,"c":"为何是 execution：在 service 候选（remote/mcp/execution/streaming/voice/bridge/runtime）里唯一满足「运行期零 app 依赖」者 —— 对 `session` 的 4 处依赖全为 `import type`（LiriEvent/LiriEventMap）；`remote` 虽零出边但**零消费者**（LazyModuleStrategy D-133 无 index 不可懒加载）属死面，不迁。"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"notes","i":1,"c":"新包要点：`packages/service/tsconfig.json` 需复制 infra 的第三方 paths（croner/lru-cache/zod/js-tiktoken/sharp/zustand/chalk/https-proxy-agent/commander/gray-matter/glob/uuid/js-yaml/pdfjs-dist/@napi-rs/canvas/@opentelemetry/*）并 include `../infra/src/bun-env.d.ts` —— 包间引用会把被依赖包源码纳入本包程序，缺任一项即 TS2307/TS2339。"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"notes","i":2,"c":"新门禁 R8：`compareInfraPackageBoundary` 参数化（rule/packageName/packageLayer/forbiddenLayers/allowedCoreTargets），默认值保持 R6 语义不变（既有 5 例自证不受影响）；service 包 forbidden = entry/ui/app，core 仍只放行 `types`；`BoundaryReport.rule` 扩 `R8`。lint:infra 输出改 R1–R8，R5 sqlite 扫描面纳入 service 包。"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"notes","i":3,"c":"别名：40 文件（含 4 处 `await import('@openliri/service/execution')`）；app tsconfig 登记 `@openliri/service/execution{,.js,/*}`；exports 单列 `./execution` + `./execution/*`。台账：hardcode 1 · state-literal 11 · invariant-registry 8 · 证据 code[] 26 · kernel-api-surface 重生成。"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"notes","i":4,"c":"源码文本/目录锚点守卫随迁：`stateMachineCatalog`（state/verifyRef 4 处 → packages/service/...）· `executionStoreOwnerScope`（new URL 三级跳）· `toolCallStatusSingleSource`（EXECUTION_EXIT 常量）。首跑 CI 4 fail 全为此类路径断言，无行为差异。"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"notes","i":5,"c":"校验：packages/service 与 app typecheck 绿；CI 9766 pass · 44 skip · 0 fail；运行期探针桶导出与 `/ExecutionLease` 子路径可用；R8 负向自证：包内注入 `@modules/chat` ⇒ `execution/index.ts:99 service 包依赖 app 层模块（倒挂）`（回滚，检查 46 处 0 违规）。"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"code#0","i":0,"c":"packages/service/package.json"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"code#1","i":0,"c":"packages/service/tsconfig.json"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"code#2","i":0,"c":"packages/service/src/execution/index.ts"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"code#3","i":0,"c":"packages/service/src/execution/ExecutionManager.ts"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"code#4","i":0,"c":"packages/service/src/execution/ExecutionStore.ts"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"code#5","i":0,"c":"app/tsconfig.json"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"code#6","i":0,"c":"app/scripts/infraBoundaryCore.ts"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"code#7","i":0,"c":"app/scripts/lint-infra-boundary.ts"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"code#8","i":0,"c":".trae/specs/infra-layer-boundary-contract.md"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"tests#0","i":0,"c":"app/tests/state/stateMachineCatalog.test.ts"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"tests#1","i":0,"c":"app/tests/state/toolCallStatusSingleSource.test.ts"}
+{"id":"SERVICE-PACKAGE-P29-EXECUTION","k":"tests#2","i":0,"c":"app/tests/execution/executionStoreOwnerScope.test.ts"}

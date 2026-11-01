@@ -11479,7 +11479,7 @@
       "code": [
         "app/src/infrastructure/http/handlers/",
         "packages/kernel/src/core/endpoints.ts",
-        "app/src/system/auth/auth-code-listener.ts",
+        "packages/infra/src/system/auth/auth-code-listener.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],
@@ -16792,8 +16792,8 @@
         "packages/infra/src/oauth/services/OAuthStartup.ts",
         "packages/infra/src/oauth/services/OAuthStorage.ts",
         "app/tests/oauth/OAuthProviderStore.test.ts",
-        "app/src/system/auth/AuthManager.ts",
-        "app/src/system/auth/CoreOAuthProvider.ts",
+        "packages/infra/src/system/auth/AuthManager.ts",
+        "packages/infra/src/system/auth/CoreOAuthProvider.ts",
         "app/tsconfig.json",
         "packages/infra/package.json"
       ],

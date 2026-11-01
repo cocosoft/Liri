@@ -19,7 +19,7 @@ import { join } from 'node:path';
 
 import { ConfigManager, setConfigManagerForTest } from '@modules/config';
 
-import { resolveConfiguredLanguage } from '../src/system/i18n/languageProfiles';
+import { resolveConfiguredLanguage } from '@openliri/infra/system/i18n/languageProfiles';
 import { ToolRegistry } from '../src/tools/ToolRegistry';
 import { ToolFactory } from '../src/tools/ToolFactory';
 import {

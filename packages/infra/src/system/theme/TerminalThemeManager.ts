@@ -6,8 +6,8 @@
 
 // 2026-10-01（B3-1'）：`ThemeLoader` / `ThemeSchema` 已并入 canonical `system/theme`（infra）
 // ⇒ 改经其桶引用（ui -> infra 合法；直插子目录会触发 R03-002）。
-import { ThemeLoader } from '@modules/system/theme';
-import type { ThemeDefinition } from '@modules/system/theme';
+import { ThemeLoader } from './ThemeLoader';
+import type { ThemeDefinition } from './ThemeSchema';
 
 export interface ThemeColors {
   foreground: string;

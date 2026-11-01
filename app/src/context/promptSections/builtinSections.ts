@@ -51,7 +51,7 @@ import { BUILTIN_EXAMPLES, renderFewShotPrompt } from '@modules/tools';
 import {
   getPunctuationHint,
   resolveLanguage,
-} from '@modules/system/i18n/languageProfiles';
+} from '@openliri/infra/system/i18n/languageProfiles';
 
 // P1-2: 模块级单例，避免每次组装 prompt 都 new ProjectStore/WorkItemStore
 // （与 WriteProjectFileTool 的 P4-1 单例模式一致；若 dataDir 运行时变化需重新初始化）

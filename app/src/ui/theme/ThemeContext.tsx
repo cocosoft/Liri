@@ -27,9 +27,9 @@ import React, {
 } from 'react';
 // 2026-10-01（B3-1''）：原 `'../ThemeManager'`（ui 层）已共址到 canonical `system/theme`
 // 并改名 `TerminalThemeManager`（ui -> infra 合法；此处保留局部别名 `ThemeManager` 以免改动本文件其余代码）。
-import { TerminalThemeManager as ThemeManager } from '@modules/system/theme';
+import { TerminalThemeManager as ThemeManager } from '@openliri/infra/system/theme';
 // 2026-10-01（B3-1'）：`ThemeSchema` 已并入 canonical `system/theme`（infra）⇒ 改经其桶引用。
-import type { ThemeUIColorPalette } from '@modules/system/theme';
+import type { ThemeUIColorPalette } from '@openliri/infra/system/theme';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

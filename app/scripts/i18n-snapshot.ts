@@ -20,7 +20,7 @@ const PROJECT_ROOT = resolve(__dirname, '..');
 import {
   getI18nTranslationRegistry,
   initializeBuiltinTranslations,
-} from '../src/system/i18n/extended';
+} from '@openliri/infra/system/i18n/extended';
 
 const SNAPSHOT_FILE = resolve(PROJECT_ROOT, 'data', 'i18n-snapshot.json');
 

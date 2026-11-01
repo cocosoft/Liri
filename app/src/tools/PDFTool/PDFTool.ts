@@ -16,7 +16,7 @@ import {
   canUseStandardPdfFont,
   resolveLanguage,
   type LangKey,
-} from '@modules/system/i18n/languageProfiles';
+} from '@openliri/infra/system/i18n/languageProfiles';
 const logger = getLogger('tools:PDFTool:PDFTool');
 
 interface PDFInput {

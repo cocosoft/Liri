@@ -833,9 +833,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       'REPL_IDLE_TIMEOUT_MS'
     );
     // 裸 `IDLE_TIMEOUT_MS`（auth-code-listener，另一标识符）非本键 ⇒ 有意未动
-    expect(read('src/system/auth/auth-code-listener.ts')).toContain(
-      'const IDLE_TIMEOUT_MS = '
-    );
+    expect(
+      read('../packages/infra/src/system/auth/auth-code-listener.ts')
+    ).toContain('const IDLE_TIMEOUT_MS = ');
   });
 
   test('B5-2⑬：`DISPLAY_PREFIX` ×3 已按域消歧（取值一字未改）', () => {

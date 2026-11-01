@@ -103,6 +103,9 @@
       "zod/*": ["../node_modules/zod/*"],
       "js-tiktoken": ["../node_modules/js-tiktoken"],
       "sharp": ["../node_modules/sharp"],
+      "zustand": ["../node_modules/zustand"],
+      "zustand/*": ["../node_modules/zustand/*"],
+      "chalk": ["../node_modules/chalk"],
       "pdfjs-dist": ["../node_modules/pdfjs-dist"],
       "pdfjs-dist/*": ["../node_modules/pdfjs-dist/*"],
       "@napi-rs/canvas": ["../node_modules/@napi-rs/canvas"],
@@ -248,8 +251,19 @@
       "@modules/error/*": ["error/*"],
       "@modules/bootstrap": ["bootstrap"],
       "@modules/bootstrap/*": ["bootstrap/*"],
-      "@modules/system": ["system"],
-      "@modules/system/*": ["system/*"],
+      "@openliri/infra/system/state": [
+        "../../packages/infra/src/system/state/index.ts"
+      ],
+      "@openliri/infra/system/state.js": [
+        "../../packages/infra/src/system/state/index.ts"
+      ],
+      "@openliri/infra/system/theme": [
+        "../../packages/infra/src/system/theme/index.ts"
+      ],
+      "@openliri/infra/system/theme.js": [
+        "../../packages/infra/src/system/theme/index.ts"
+      ],
+      "@openliri/infra/system/*": ["../../packages/infra/src/system/*"],
       "@modules/runtime": ["runtime"],
       "@modules/runtime/*": ["runtime/*"],
       "@modules/types": ["types"],

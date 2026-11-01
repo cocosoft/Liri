@@ -28,7 +28,7 @@ import {
   MIGRATION_BACKUPS_DIRNAME,
   getAppMigrationStore,
   resetAppMigrationStore,
-} from '@modules/system/state';
+} from '@openliri/infra/system/state';
 
 let dataDir: string;
 

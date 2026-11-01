@@ -9,7 +9,10 @@ import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { unlinkSync } from 'fs';
-import { AppMigrationStore, APP_MIGRATIONS_TABLE } from '@modules/system/state';
+import {
+  AppMigrationStore,
+  APP_MIGRATIONS_TABLE,
+} from '@openliri/infra/system/state';
 import { Database } from '@openliri/infra/external';
 
 const createdPaths: string[] = [];

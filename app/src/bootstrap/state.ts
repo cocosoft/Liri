@@ -6,8 +6,8 @@
  */
 
 import { profileCheckpoint } from '@openliri/infra/performance/StartupProfiler';
-import { generateSystemSessionId } from '@modules/system/state/index.js';
-import type { SessionId } from '@modules/system/state/index.js';
+import { generateSystemSessionId } from '@openliri/infra/system/state/index';
+import type { SessionId } from '@openliri/infra/system/state/index';
 import { configManager } from '@modules/config';
 export type { SessionId };
 export { generateSystemSessionId };

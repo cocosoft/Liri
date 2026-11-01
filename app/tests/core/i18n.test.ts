@@ -5,15 +5,15 @@
 
 import { describe, it, expect } from 'bun:test';
 
-import { I18nRegistry } from '../../src/system/i18n/registry.js';
+import { I18nRegistry } from '@openliri/infra/system/i18n/registry';
 import {
   I18nTranslationRegistry,
   initializeBuiltinTranslations,
   getI18nTranslationRegistry,
   t,
-} from '../../src/system/i18n/extended.js';
-import type { Locale, TranslationMap } from '../../src/system/i18n/types.js';
-import type { TranslationEntry } from '../../src/system/i18n/extended.js';
+} from '@openliri/infra/system/i18n/extended';
+import type { Locale, TranslationMap } from '@openliri/infra/system/i18n/types';
+import type { TranslationEntry } from '@openliri/infra/system/i18n/extended';
 
 describe('I18nRegistry', () => {
   it('创建实例时使用默认 locale', () => {

@@ -124,6 +124,18 @@
     "./oauth/*": {
       "types": "./src/oauth/*.ts",
       "import": "./src/oauth/*.ts"
+    },
+    "./system/state": {
+      "types": "./src/system/state/index.ts",
+      "import": "./src/system/state/index.ts"
+    },
+    "./system/theme": {
+      "types": "./src/system/theme/index.ts",
+      "import": "./src/system/theme/index.ts"
+    },
+    "./system/*": {
+      "types": "./src/system/*.ts",
+      "import": "./src/system/*.ts"
     }
   },
   "scripts": {

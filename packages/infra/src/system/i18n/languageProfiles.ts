@@ -13,7 +13,7 @@
  */
 
 import { configManager } from '@modules/config';
-import { detectSystemLocale } from '@modules/system/i18n/extended';
+import { detectSystemLocale } from './extended';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';

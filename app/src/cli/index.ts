@@ -48,7 +48,7 @@ import { getPerformanceAnalyzer } from '../monitoring/performance';
 import { getLogger, flush } from '../monitoring/logs/Logger';
 import { handleError as recordError } from '@modules/error';
 
-import { getThemeManager } from '@modules/system/theme';
+import { getThemeManager } from '@openliri/infra/system/theme';
 import { createCLIHandler } from './handlers/cliHandler';
 import { createRemoteIO } from './remoteIO';
 import { createStructuredIO } from './structuredIO';

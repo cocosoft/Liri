@@ -30,7 +30,7 @@ import {
   cjkFontOf,
   resolveLanguage,
   type LangKey,
-} from '@modules/system/i18n/languageProfiles';
+} from '@openliri/infra/system/i18n/languageProfiles';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 const logger = getLogger('tools:DocGenerateTool');
 

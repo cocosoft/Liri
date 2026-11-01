@@ -4,7 +4,7 @@
  */
 
 import chalk from 'chalk';
-import { getThemeManager } from '@modules/system/theme';
+import { getThemeManager } from '@openliri/infra/system/theme';
 import { createInterface, Interface } from 'readline';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 

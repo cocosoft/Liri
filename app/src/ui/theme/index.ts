@@ -24,7 +24,10 @@
 
 // 2026-10-01（B3-1'）：`ThemeLoader` / `ThemeSchema` 已并入 canonical `system/theme`（infra）。
 // 本 barrel 仅保留**同名转出**以免破坏既有消费方（转发方向 ui -> infra 合法）。
-export { ThemeLoader, validateThemeDefinition } from '@modules/system/theme';
+export {
+  ThemeLoader,
+  validateThemeDefinition,
+} from '@openliri/infra/system/theme';
 export type {
   ThemeDefinition,
   ThemeTerminalColors,
@@ -32,6 +35,6 @@ export type {
   ThemeUIColorPalette,
   ThemeMetadata,
   ThemeFileFormat,
-} from '@modules/system/theme';
+} from '@openliri/infra/system/theme';
 export { ThemeBridgeProvider, useThemeContext } from './ThemeContext';
 export type { ThemeContextValue } from './ThemeContext';

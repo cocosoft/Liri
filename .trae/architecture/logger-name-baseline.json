@@ -249,7 +249,7 @@
       "app/src/security/rollback/SnapshotStorage.ts"
     ],
     "StateMigrator": [
-      "app/src/system/state/StateMigrator.ts"
+      "packages/infra/src/system/state/StateMigrator.ts"
     ],
     "SuggestionFilter": [
       "app/src/promptSuggestion/SuggestionFilter.ts"

@@ -6129,7 +6129,7 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"notes","i":0,"c":"infrastructure/http/handlers/** 占位 origin 改用 LOCAL_REQUEST_BASE_URL / LOCAL_SERVICE_HOST / LOCAL_HTTP_HOST；新增 DEFAULT_MCP_OAUTH_CALLBACK_PORT 与 DEFAULT_MCP_PROXY_URL 共用；另收敛 a2a sidecar、auth 回调、officeHandlers、evals/sandbox、bridgeConfig、mcp-oauth；lint:endpoints 67→30。"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"code#0","i":0,"c":"app/src/infrastructure/http/handlers/"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"code#1","i":1,"c":"packages/kernel/src/core/endpoints.ts"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"code#2","i":2,"c":"app/src/system/auth/auth-code-listener.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"code#2","i":2,"c":"packages/infra/src/system/auth/auth-code-listener.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-97","k":"code#3","i":3,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-CONSTS-B5-2-98","k":"title","i":0,"c":"U-20/2-98：官方供应商 API 基址收敛到 core 真源"}
 {"id":"HARDCODE-CONSTS-B5-2-98","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §8 阶段②；棘轮存量收敛"}
@@ -7941,8 +7941,8 @@
 {"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#2","i":0,"c":"packages/infra/src/oauth/services/OAuthStartup.ts"}
 {"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#3","i":0,"c":"packages/infra/src/oauth/services/OAuthStorage.ts"}
 {"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#4","i":0,"c":"app/tests/oauth/OAuthProviderStore.test.ts"}
-{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#5","i":0,"c":"app/src/system/auth/AuthManager.ts"}
-{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#6","i":0,"c":"app/src/system/auth/CoreOAuthProvider.ts"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#5","i":0,"c":"packages/infra/src/system/auth/AuthManager.ts"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#6","i":0,"c":"packages/infra/src/system/auth/CoreOAuthProvider.ts"}
 {"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#7","i":0,"c":"app/tsconfig.json"}
 {"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#8","i":0,"c":"packages/infra/package.json"}
 {"id":"INFRA-PACKAGE-P20-OAUTH","k":"tests#0","i":0,"c":"app/tests/oauth/OAuthProviderStore.test.ts"}

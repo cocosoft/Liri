@@ -22,7 +22,7 @@ import { getLogger } from '@modules/monitoring';
 import { setCurrentSessionContext } from './MemoryPromptProvider';
 import type { MemorySessionContext } from '@modules/memory/types/SessionContext';
 import { generatePromptReport, formatPromptReport } from './SystemPromptReport';
-import { resolveConfiguredLanguage } from '@modules/system/i18n/languageProfiles';
+import { resolveConfiguredLanguage } from '@openliri/infra/system/i18n/languageProfiles';
 import { resolvePrompt, getPromptAppendices } from './PromptVersionManager';
 import {
   generateDiagnosticsReport,

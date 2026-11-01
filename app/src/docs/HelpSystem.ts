@@ -10,7 +10,7 @@ import { keyboardShortcuts } from '@openliri/infra/utils/KeyboardShortcuts';
 // 2026-10-01（B3-1''）：改指 canonical `system/theme` 的 `TerminalThemeManager`
 // （原 `ui/ThemeManager`；app -> infra 合法）⇒ 连同上一行（KeyboardShortcuts → utils/），
 // 本文件**不再依赖 ui 层**（消除 `docs -> ui` 边）。
-import { TerminalThemeManager as ThemeManager } from '@modules/system/theme';
+import { TerminalThemeManager as ThemeManager } from '@openliri/infra/system/theme';
 import { exampleCommands } from './ExampleCommands';
 import { releaseNotes } from './ReleaseNotes';
 import { languageManager } from './i18n/LanguageManager';

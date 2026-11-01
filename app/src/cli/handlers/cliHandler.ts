@@ -7,7 +7,7 @@
 import chalk from 'chalk';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { t } from '@modules/system/i18n/extended';
+import { t } from '@openliri/infra/system/i18n/extended';
 import { AuthHandler, createAuthHandler } from './authHandler';
 import { AgentHandler, createAgentHandler } from './agentHandler';
 import { MCPHandler, createMCPHandler } from './mcpHandler';

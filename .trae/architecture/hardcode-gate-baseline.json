@@ -253,7 +253,7 @@
     "裸字面量:app/src/session/websocket/SessionsWebSocket.ts": 2,
     "裸字面量:app/src/skills/hotreload/SkillHotReloader.ts": 1,
     "裸字面量:app/src/subagents/SubAgentEventPump.ts": 1,
-    "裸字面量:app/src/system/auth/auth-code-listener.ts": 1,
+    "裸字面量:packages/infra/src/system/auth/auth-code-listener.ts": 1,
     "裸字面量:app/src/tasks/cron/CronScheduler.ts": 2,
     "裸字面量:app/src/tasks/cron/CronStagger.ts": 1,
     "裸字面量:app/src/tasks/cron/CronTimer.ts": 1,

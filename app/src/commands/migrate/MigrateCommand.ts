@@ -18,8 +18,11 @@ import {
   runAll,
   recover,
   getMigrationStatus,
-} from '@modules/system/state';
-import type { MigrationEntry, MigrationRunReport } from '@modules/system/state';
+} from '@openliri/infra/system/state';
+import type {
+  MigrationEntry,
+  MigrationRunReport,
+} from '@openliri/infra/system/state';
 
 const logger = getLogger('MigrateCommand');
 

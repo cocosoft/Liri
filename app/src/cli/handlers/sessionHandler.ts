@@ -4,7 +4,7 @@
  */
 
 import chalk from 'chalk';
-import { t } from '@modules/system/i18n/extended';
+import { t } from '@openliri/infra/system/i18n/extended';
 import { getLogger } from '@modules/monitoring';
 import { SessionGateway, createSessionGateway } from '@modules/session';
 import type { UnifiedSession } from '@modules/session/types/UnifiedSession';

@@ -20,7 +20,7 @@ import { join, relative } from 'node:path';
 import {
   normalizeLang,
   resolveConfiguredLanguage,
-} from '../../src/system/i18n/languageProfiles';
+} from '@openliri/infra/system/i18n/languageProfiles';
 
 const PROMPTS_ROOT = join(import.meta.dir, '../../prompts');
 const ZH_ROOT = join(PROMPTS_ROOT, 'zh-CN');

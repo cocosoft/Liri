@@ -8032,3 +8032,33 @@
 {"id":"INFRA-PACKAGE-P23-MEMORY","k":"tests#2","i":0,"c":"app/tests/memory/MemoryPortContract.test.ts"}
 {"id":"INFRA-PACKAGE-P23-MEMORY","k":"tests#3","i":0,"c":"app/tests/memory/unifiedSearchRrf.test.ts"}
 {"id":"INFRA-PACKAGE-P23-MEMORY","k":"tests#4","i":0,"c":"app/tests/monitoring/timerLifecycle.test.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"title","i":0,"c":"P24：permission 迁入 packages/infra（59 文件；内联测试迁 tests + 三处台账改名）"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.22"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"reopenWhen","i":0,"c":"① 若 `security` / `config` / `monitoring` 也迁包 ⇒ permission 的边改写成 `@openliri/infra/*`（R7 边不变）；② 新增「源码落点」类台账（invariant-registry 式）⇒ 迁包时必须同步改名，否则 `lint:invariants` 报「源码落点不存在」；③ "}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"reopenWhen","i":1,"c":"permission 属 CD07 关键域（安全/权限）：任何**删除**仍需六步核查；本次只是迁移，接线零变更。"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"notes","i":0,"c":"迁包：permission 共 59 文件（8 子域 + 根 28 文件，根有 barrel）git mv 至 packages/infra/src/permission；出边全为 infra（monitoring 25 · error 18 · config 6 · security 3）。**内联测试迁出**：`"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"notes","i":1,"c":"src/permission/__tests__/{filesystem-consumption,PermissionDecision,PermissionDenyLocatable}.test.ts` 迁到 `app/tests/permission/`（它们原本由 bun test 收集 ⇒ 进包后会静默失去覆盖）。`"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"notes","i":2,"c":"PermissionDecision.test.ts` 原先**不写 `bun:test` 导入**、靠 src 侧的测试全局量，迁入 tests 后必须显式 `import { afterAll, describe, expect, it } from \"bun:test\"`。引用改写：82 文件（53 处 `@modules/permission` 别名"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"notes","i":3,"c":" + 70 处 `../../src/permission/*` 相对 + 8 处 app 侧相对 + 去 `.js`）；`new URL(...)` 两处改为仓库相对路径（不能换别名）。**新发现的台账面**：① `.trae/architecture/invariant-registry.json` 的 INV-SEC-002「源码落点」② `"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"notes","i":4,"c":".trae/architecture/toolname-branches-baseline.json`（按文件路径计数的棘轮）——两者只在小范围门禁红时才暴露；③ `scripts/state-machine-allowlist.json` 2 处（P23 已建立认知）。证据台账：`tests[]` 中指向 `…/permission/__tests__/…"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"notes","i":5,"c":"` 的 2 条（registry）+ 2 行（detail）改到 `app/tests/permission/…`。联动：hardcode 4 · logger-name 2 · state-literal 6 · toolname-branches 3 · 证据 code[] 27 处路径键改名。运行期自证：桶 94 导出 · `"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"notes","i":6,"c":"/PermissionChecker` 4 · `/PermissionManager` 3 · `/RuleManager` 2 · `/ApprovedCommandRegistry` 12 · `/types/PermissionRule` 9。负向自证：包内 `import \"@modules/chat\"` ⇒ **R2（审批编排下沉）+ R6（倒挂"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"notes","i":7,"c":"）双报**点名 `permission/__neg_probe.ts`；monitoring 临时 import 桶 ⇒ R7 报 7 成员环（均回滚，SCC 0）。"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#0","i":0,"c":"packages/infra/src/permission/index.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#1","i":0,"c":"packages/infra/src/permission/PermissionChecker.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#2","i":0,"c":"packages/infra/src/permission/PermissionManager.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#3","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#4","i":0,"c":"packages/infra/src/permission/types/PermissionRule.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#5","i":0,"c":"app/tests/permission/PermissionDecision.test.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#6","i":0,"c":"app/tests/permission/PermissionDenyLocatable.test.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#7","i":0,"c":"app/tests/permission/filesystem-consumption.test.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#8","i":0,"c":"app/src/tools/ToolExecutor.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#9","i":0,"c":"app/src/entrypoints/init.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#10","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#11","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"code#12","i":0,"c":".trae/architecture/invariant-registry.json"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"tests#0","i":0,"c":"app/tests/permission/PermissionDecision.test.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"tests#1","i":0,"c":"app/tests/permission/bashPermissionInjection.test.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"tests#2","i":0,"c":"app/tests/permission/PermissionCheckerInbox.test.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"tests#3","i":0,"c":"app/tests/gates/approvalFourStageGate.test.ts"}
+{"id":"INFRA-PACKAGE-P24-PERMISSION","k":"tests#4","i":0,"c":"app/tests/security/securityPermissionViewLazySync.test.ts"}

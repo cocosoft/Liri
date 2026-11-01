@@ -16927,6 +16927,48 @@
       "changelog": [],
       "reopenWhen": "① 若 `monitoring` / `security` / `config` 也迁包 ⇒ memory 的边会改写成 `@openliri/infra/*`（R7 边不变）；② 若再引入**无自带类型**的第三方依赖 ⇒ 不要在 tsconfig 里把裸名映射到 `@types`（bun 会按包内 tsconfi…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P23-MEMORY）",
       "notes": "迁包：memory 共 71 文件（15 子域 + 根 15 文件，根有 barrel）git mv 至 packages/infra/src/memory；出边全为 infra（monitoring 33 · error 24 · config 3）。**恢复被静默遗漏的覆盖**：根 `MemoryModuleTe…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P23-MEMORY）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P24-PERMISSION",
+      "title": "P24：permission 迁入 packages/infra（59 文件；内联测试迁 tests + 三处台账改名）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.22",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/permission/index.ts",
+        "packages/infra/src/permission/PermissionChecker.ts",
+        "packages/infra/src/permission/PermissionManager.ts",
+        "packages/infra/src/permission/ApprovedCommandRegistry.ts",
+        "packages/infra/src/permission/types/PermissionRule.ts",
+        "app/tests/permission/PermissionDecision.test.ts",
+        "app/tests/permission/PermissionDenyLocatable.test.ts",
+        "app/tests/permission/filesystem-consumption.test.ts",
+        "app/src/tools/ToolExecutor.ts",
+        "app/src/entrypoints/init.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json",
+        ".trae/architecture/invariant-registry.json"
+      ],
+      "tests": [
+        "app/tests/permission/PermissionDecision.test.ts",
+        "app/tests/permission/bashPermissionInjection.test.ts",
+        "app/tests/permission/PermissionCheckerInbox.test.ts",
+        "app/tests/gates/approvalFourStageGate.test.ts",
+        "app/tests/security/securityPermissionViewLazySync.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `security` / `config` / `monitoring` 也迁包 ⇒ permission 的边改写成 `@openliri/infra/*`（R7 边不变）；② 新增「源码落点」类台账（invariant-registry 式）⇒ 迁包时必须同步改名，否则 `lint:invariants`…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P24-PERMISSION）",
+      "notes": "迁包：permission 共 59 文件（8 子域 + 根 28 文件，根有 barrel）git mv 至 packages/infra/src/permission；出边全为 infra（monitoring 25 · error 18 · config 6 · security 3）。**内联测试迁出**：`…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P24-PERMISSION）"
     }
   ]
 }

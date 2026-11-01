@@ -13,7 +13,7 @@ import {
 } from 'fs';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:feedbackManager');
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { sanitizeInput } from '@modules/security';
 import { resolveDataDir } from '@modules/environment';
 // C1（2026-10-09）：feedback id 熵源改用 crypto

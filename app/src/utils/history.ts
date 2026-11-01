@@ -5,7 +5,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { resolvePyappHome } from '@modules/environment';
 
 const logger = getLogger('utils:history');

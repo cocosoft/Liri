@@ -13,7 +13,7 @@ import { randomUUID } from 'crypto';
 import { configManager } from '@modules/config';
 import { OAUTH_AUTH_BASE_URL } from '@modules/constants';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:auth');
 

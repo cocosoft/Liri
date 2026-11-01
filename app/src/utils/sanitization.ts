@@ -1,4 +1,8 @@
-﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+﻿import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/kernel/errors';
 
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils\sanitization');

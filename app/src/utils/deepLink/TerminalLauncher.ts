@@ -16,7 +16,7 @@ import { spawn } from 'child_process';
 import { configManager } from '@modules/config';
 import { basename } from 'path';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:deepLink:TerminalLauncher');
 

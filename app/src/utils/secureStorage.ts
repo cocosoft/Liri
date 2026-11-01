@@ -16,7 +16,7 @@ import {
   ENCRYPTION_ALGORITHMS,
 } from '@modules/security';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:secureStorage');
 

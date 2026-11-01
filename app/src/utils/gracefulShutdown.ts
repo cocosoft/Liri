@@ -4,7 +4,7 @@
  */
 
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { timerLifecycleRegistry } from './SafeInterval';
 
 const logger = getLogger('gracefulShutdown');

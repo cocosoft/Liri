@@ -3,8 +3,12 @@
  * 用于优化网络请求，实现请求缓存、重试、超时处理等功能
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error/handleError';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/kernel/errors';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { CacheFactory } from '@modules/cache';
 
 import { getLogger } from '@openliri/kernel/loggerFacade';

@@ -10,7 +10,7 @@ import { readdir, readFile, stat } from 'fs/promises';
 import { join, resolve } from 'path';
 import { existsSync, type Dirent } from 'fs';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:git:GitFilesystem');
 

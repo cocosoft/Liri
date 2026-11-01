@@ -17,7 +17,7 @@
  * （调度器 / 重试队列 / 跨进程锁续租），显式传 `unref: false`。
  */
 
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 
 const logger = getLogger('utils:safeInterval');

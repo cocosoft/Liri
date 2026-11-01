@@ -25,7 +25,7 @@ import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:computerUse:LinuxAdapter');
 

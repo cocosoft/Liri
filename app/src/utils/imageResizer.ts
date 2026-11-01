@@ -17,9 +17,13 @@ import {
 
 const execAsync = promisify(exec);
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/kernel/errors';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:imageResizer');
 

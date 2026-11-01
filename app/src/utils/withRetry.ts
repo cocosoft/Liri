@@ -15,8 +15,12 @@
  * */
 
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error/handleError';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/kernel/errors';
+import { handleError } from '@openliri/kernel/errorHandler';
 
 const logger = getLogger('utils:withRetry');
 

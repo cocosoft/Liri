@@ -4,7 +4,7 @@
  */
 
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/kernel/errorHandler';
 const logger = getLogger('utils:memoryMonitor');
 import { MultiLevelCache } from './cache';
 

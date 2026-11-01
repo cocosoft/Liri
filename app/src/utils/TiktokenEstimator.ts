@@ -19,7 +19,7 @@
  * `ai/tokenizer/TiktokenEstimator.ts` 保留**同名转出**（既有消费方零改动）。
  */
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/kernel/errorHandler';
 
 const logger = getLogger('ai:tokenizer:tiktoken');
 

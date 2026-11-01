@@ -12,7 +12,11 @@
 import { logForDebugging } from '../debug.js';
 import { launchInTerminal } from './TerminalLauncher';
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/kernel/errors';
 
 const logger = getLogger('utils:deepLink:ProtocolHandler');
 

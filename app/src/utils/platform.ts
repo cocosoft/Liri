@@ -9,7 +9,7 @@ export type Platform = 'win32' | 'darwin' | 'linux' | 'wsl' | 'unknown';
 
 import { existsSync, readFileSync } from 'node:fs';
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/kernel/errorHandler';
 
 const logger = getLogger('utils:platform');
 

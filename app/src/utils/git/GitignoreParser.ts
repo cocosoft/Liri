@@ -11,7 +11,7 @@ import { existsSync } from 'fs';
 import { resolveGitDir } from './GitFilesystem';
 import { configManager } from '@modules/config';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:git:GitignoreParser');
 

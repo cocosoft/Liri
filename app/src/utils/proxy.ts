@@ -5,7 +5,7 @@
 import { isEnvTruthy } from './envUtils.js';
 import { configManager } from '@modules/config';
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/kernel/errorHandler';
 
 const logger = getLogger('utils:proxy');
 

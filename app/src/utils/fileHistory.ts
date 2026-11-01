@@ -10,7 +10,7 @@ import { join, dirname, relative, isAbsolute, resolve } from 'path';
 import { createHash, randomUUID } from 'crypto';
 import { resolvePyappHome } from '@modules/environment';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:fileHistory');
 

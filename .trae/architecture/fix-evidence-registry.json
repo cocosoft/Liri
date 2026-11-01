@@ -17047,6 +17047,40 @@
       "changelog": [],
       "reopenWhen": "① 若 `error` / `monitoring` 也迁包 ⇒ config 的出边改写成 `@openliri/infra/*`（R7 边不变）；② 若再遇到**无内置类型**的第三方依赖 ⇒ 复用本轮口径：包内 paths 指向真实包（运行期）+ 共享最小 d.ts（类型期），**不要**把裸名 paths 指…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P26-CONFIG）",
       "notes": "迁包：config 共 55 文件（13 子域 + 根 16 文件，根有 barrel）git mv 至 packages/infra/src/config；出边全为 infra/core（kernel 33 · error 24 · environment 14 · utils 7 · types 1）。**恢复被…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P26-CONFIG）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P27-ERROR",
+      "title": "P27：error 迁入 packages/infra（22 文件；清 @modules/errors 死别名）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.25",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/error/index.ts",
+        "packages/infra/src/error/types.ts",
+        "packages/infra/src/error/api/APISceneClassifier.ts",
+        "packages/infra/src/error/handleError.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json",
+        "scripts/lint-architecture.ts",
+        "app/tests/vfs/vfsPath.test.ts"
+      ],
+      "tests": [
+        "app/tests/error/errorLogLevel.test.ts",
+        "app/tests/vfs/mountRegistry.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `monitoring` 也迁包 ⇒ 其 `@openliri/infra/error/*` 引用已是包别名，无需再改；② 若新增 `error` 子目录入口（如 `error/api` 目录导入）⇒ 需在 package.json 单列精确 exports（`./x/*` 会拼成 `*.ts`）；③ 若再出…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P27-ERROR）",
+      "notes": "迁包：error 共 22 文件（根 barrel 12 + api/4 + context/2 + network/3 + README）git mv 至 packages/infra/src/error；出边仅 kernel（errorCodes/errorHandler/errors/abortReason/l…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P27-ERROR）"
     }
   ]
 }

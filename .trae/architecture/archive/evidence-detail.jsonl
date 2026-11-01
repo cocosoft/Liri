@@ -8117,3 +8117,22 @@
 {"id":"INFRA-PACKAGE-P26-CONFIG","k":"tests#0","i":0,"c":"app/tests/config/ConfigModuleTest.test.ts"}
 {"id":"INFRA-PACKAGE-P26-CONFIG","k":"tests#1","i":0,"c":"app/tests/config/ConfigMigrationV3.test.ts"}
 {"id":"INFRA-PACKAGE-P26-CONFIG","k":"tests#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"title","i":0,"c":"P27：error 迁入 packages/infra（22 文件；清 @modules/errors 死别名）"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.25"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"reopenWhen","i":0,"c":"① 若 `monitoring` 也迁包 ⇒ 其 `@openliri/infra/error/*` 引用已是包别名，无需再改；② 若新增 `error` 子目录入口（如 `error/api` 目录导入）⇒ 需在 package.json 单列精确 exports（`./x/*` 会拼成 `*.ts`）；③ 若再出现复数别名（如 `@modules/errors`）⇒ 前缀正则会把 `@modules/error` 的匹配吞到多出来的 `s` 上，须先列全别名再替换。"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"notes","i":0,"c":"迁包：error 共 22 文件（根 barrel 12 + api/4 + context/2 + network/3 + README）git mv 至 packages/infra/src/error；出边仅 kernel（errorCodes/errorHandler/errors/abortReason/loggerFacade 共 12 处）+ 1 处自引，无内联测试、无原生/第三方依赖。"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"notes","i":1,"c":"别名：app 侧 846 文件、包内既有 153 文件改 `@openliri/infra/error`。**踩坑**：`@modules/errors`（复数，3 个 tool 侧文件在用）被 `@modules/error` 前缀匹配误改成 `@openliri/infra/errors` ⇒ tsc TS2307 三连；逐点收敛回 `/error` 并删掉 tsconfig 里已悬空的 `@modules/errors` 映射。"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"notes","i":2,"c":"包内自引：`api/APISceneClassifier` 原 `import { APIError } from '@modules/error'` 改 `../types`（APIError 定义在 types.ts）；走 `..` 会形成 index→api→index 包内回环，故按符号真实落点取相对路径。README 与 3 处注释内的旧别名同步改名。"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"notes","i":3,"c":"**目录导入漏点**（P24 同型）：`app/tests/vfs/*.test.ts` 4 处相对导入 `../../src/error` 解析结果恰为模块根（不带尾斜杠），resolution 判据 startsWith(MOD_DIR + 斜杠) 不命中 ⇒ 手工改包别名。"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"notes","i":4,"c":"台账连锁：hardcode-gate（ErrorIds 裸字面量 4）· state-literal（4）· logger-name（2）· kernel-api-surface（--write 重生成 6 行）· 证据归档 code[]（HARDCODE-SAME-NAME-CONSTS-B5-2-70-71 1 处、INFRA-CYCLE-BREAK-ERROR 3 处）随迁改名；`scripts/lint-architecture.ts` 3 条建议文案里的旧别名同步。"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"notes","i":5,"c":"校验：两侧 typecheck 绿；`lint` 首跑 16 条 prettier 因别名变长需折行 ⇒ `lint:fix` 归一；全量 CI 9736 pass · 44 skip · 0 fail。负向自证：包内注入 `@modules/chat` ⇒ R6 点名 error/index.ts:116 依赖 app 层模块；注入 `@openliri/infra/config` ⇒ R7 报 2 成员环 config/error（均回滚，SCC 0）。"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"code#0","i":0,"c":"packages/infra/src/error/index.ts"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"code#1","i":0,"c":"packages/infra/src/error/types.ts"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"code#2","i":0,"c":"packages/infra/src/error/api/APISceneClassifier.ts"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"code#3","i":0,"c":"packages/infra/src/error/handleError.ts"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"code#4","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"code#5","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"code#6","i":0,"c":"scripts/lint-architecture.ts"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"code#7","i":0,"c":"app/tests/vfs/vfsPath.test.ts"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"tests#0","i":0,"c":"app/tests/error/errorLogLevel.test.ts"}
+{"id":"INFRA-PACKAGE-P27-ERROR","k":"tests#1","i":0,"c":"app/tests/vfs/mountRegistry.test.ts"}

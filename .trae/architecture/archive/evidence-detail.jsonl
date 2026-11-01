@@ -7800,3 +7800,25 @@
 {"id":"INFRA-PACKAGE-P13-STATE","k":"tests#0","i":0,"c":"app/tests/state/stateMachineCatalog.test.ts"}
 {"id":"INFRA-PACKAGE-P13-STATE","k":"tests#1","i":0,"c":"app/tests/gates/stateLiteralRatchet.test.ts"}
 {"id":"INFRA-PACKAGE-P13-STATE","k":"tests#2","i":0,"c":"app/tests/gates/gateSelfProof.test.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"title","i":0,"c":"P14：trace-recording 迁入 packages/infra（15 文件 / 20 处引用）"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.12"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"reopenWhen","i":0,"c":"① 打包冒烟：`bun build --compile` 期解析 tsconfig paths，本批只在 app 运行期验过 import()/require()（3 探针）⇒ 首次出包需实跑 trace 导出/查看子命令；② 若把 ExportService / ViewerService 提升到包根桶导出 ⇒ 命令/工具路径会 eager 拉入 "}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"reopenWhen","i":1,"c":"viewer+live 面（启动图 +文件数）。"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"notes","i":0,"c":"迁包：git mv 15 文件（engine/export/interceptor/live/sse/viewer 子目录）+ 20 处引用改别名。**本批新类型：该模块原先没有 @modules 别名**，全部引用是相对路径且带 `.js` 后缀，且多为 import()/require()（懒加载，避免启动面 eager 拉入）⇒ 改写为 `"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"notes","i":1,"c":"@openliri/infra/trace-recording[/sub]` 并去掉 `.js`；已在 app 根实测 bun 对 `import()` 与 `require()` 均按 tsconfig paths 解析（dynamic import / require 子路径 / require viewer 三探针全通）。ExportService /"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"notes","i":2,"c":" ViewerService 保留子路径导入（桶精确化，避免命令与工具路径 eager 拉整个模块面）。基线同步：state-literal 19 处、logger-name 1 处、hardcode 裸字面量 1 处、证据 code[] 1 处改 packages 路径。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名 "}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"notes","i":3,"c":"trace-recording/types.ts；在 `app/src/monitoring/index.ts` 临时 import 本包 ⇒ R7 报「monitoring / trace-recording 新进入环（2 成员）」（均已回滚）。"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#0","i":0,"c":"packages/infra/src/trace-recording/index.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#1","i":0,"c":"packages/infra/src/trace-recording/AITracePlugin.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#2","i":0,"c":"packages/infra/src/trace-recording/interceptor/FetchInterceptor.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#3","i":0,"c":"app/src/bootstrap/AppCoreOTelHelper.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#4","i":0,"c":"app/src/runtime/tenantPurge.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#5","i":0,"c":"app/src/infrastructure/http/handlers/trace-handlers.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#6","i":0,"c":"app/src/commands/builtin/trace-recording/TraceRecording.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#7","i":0,"c":"app/src/tools/TraceRecordingTool/TraceRecordingTool.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#8","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#9","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"tests#0","i":0,"c":"app/tests/integration/trace-recording.test.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"tests#1","i":0,"c":"app/tests/trace/traceStatsIdentity.test.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"tests#2","i":0,"c":"app/tests/trace/traceStatsForgetTenant.test.ts"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"tests#3","i":0,"c":"app/tests/trace-recording/urlMatcher.test.ts"}

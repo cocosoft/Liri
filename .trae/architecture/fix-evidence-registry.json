@@ -16548,6 +16548,44 @@
       "changelog": [],
       "reopenWhen": "① 若 `app/src` 重新出现 `state/` 同义实现 ⇒ R03-001/R09-006 会按两处定义目录各判一次，须再次合并；② 若新增状态机未登记 catalog ⇒ R09-006（error 级）阻断；未登记字面量 ⇒ lint:state-ratchet 阻断。（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P13-STATE）",
       "notes": "迁包：git mv 17 文件（app/background/engine/session/task 子目录）+ 66 处引用改 @openliri/infra/state；`@modules/state` 别名保留（它映射 system/state，与本包无关），新增 `@openliri/infra/state{…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P13-STATE）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P14-TRACE-RECORDING",
+      "title": "P14：trace-recording 迁入 packages/infra（15 文件 / 20 处引用）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.12",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/trace-recording/index.ts",
+        "packages/infra/src/trace-recording/AITracePlugin.ts",
+        "packages/infra/src/trace-recording/interceptor/FetchInterceptor.ts",
+        "app/src/bootstrap/AppCoreOTelHelper.ts",
+        "app/src/runtime/tenantPurge.ts",
+        "app/src/infrastructure/http/handlers/trace-handlers.ts",
+        "app/src/commands/builtin/trace-recording/TraceRecording.ts",
+        "app/src/tools/TraceRecordingTool/TraceRecordingTool.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json"
+      ],
+      "tests": [
+        "app/tests/integration/trace-recording.test.ts",
+        "app/tests/trace/traceStatsIdentity.test.ts",
+        "app/tests/trace/traceStatsForgetTenant.test.ts",
+        "app/tests/trace-recording/urlMatcher.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 打包冒烟：`bun build --compile` 期解析 tsconfig paths，本批只在 app 运行期验过 import()/require()（3 探针）⇒ 首次出包需实跑 trace 导出/查看子命令；② 若把 ExportService / ViewerService 提升到包根桶导出 ⇒ 命…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P14-TRACE-RECORDING）",
+      "notes": "迁包：git mv 15 文件（engine/export/interceptor/live/sse/viewer 子目录）+ 20 处引用改别名。**本批新类型：该模块原先没有 @modules 别名**，全部引用是相对路径且带 `.js` 后缀，且多为 import()/require()（懒加载，避免启动面 e…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P14-TRACE-RECORDING）"
     }
   ]
 }

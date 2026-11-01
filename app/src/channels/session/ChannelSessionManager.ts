@@ -6,7 +6,7 @@ import { EventEmitter } from 'events';
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus.js';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('channels:session');
 

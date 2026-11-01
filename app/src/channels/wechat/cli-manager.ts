@@ -18,7 +18,7 @@ import path from 'path';
 import fs from 'fs';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 const logger = getLogger('channels:wechat:cli-manager');
 
 // ─── 日志工具（独立轻量，不依赖外部 logger） ─────────────

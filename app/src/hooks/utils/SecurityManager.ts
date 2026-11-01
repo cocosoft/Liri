@@ -6,7 +6,7 @@ import {
 } from '@openliri/infra/environment';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 // ── hooks 专用安全状态（第三套实现，与 config.permission 面板配置隔离）──
 // 本模块（SecurityManager）为 hooks（HookExecutor）提供独立安全状态：

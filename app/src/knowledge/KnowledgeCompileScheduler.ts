@@ -8,7 +8,7 @@
  *   3. 提供手动触发和自动调度两种模式
  */
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { recordBackgroundTask } from '@modules/monitoring';
 import type { CompileResult } from './KnowledgeCompiler';
 import { sleepMonitor, SLEEP_EVENTS } from '@openliri/kernel';

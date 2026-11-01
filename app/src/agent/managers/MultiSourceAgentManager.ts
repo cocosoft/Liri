@@ -10,7 +10,7 @@ import { AIAgentImpl } from '../agent';
 import { AgentSourceManager } from './AgentSourceManager';
 import { AgentConfigManager } from './AgentConfigManager';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import type { HealthStatus as HealthStatusValue } from '@openliri/kernel';
 
 const logger = getLogger('agent:managers:multiSourceAgentManager');

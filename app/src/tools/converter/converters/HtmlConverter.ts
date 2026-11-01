@@ -2,8 +2,8 @@ import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_GENERIC_FILE_FORMAT } from '../engine/types';
 import { htmlToMarkdown } from '../utils/HtmlMarkdownify';
-import { AppError } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+import { AppError } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:converter:html');
 

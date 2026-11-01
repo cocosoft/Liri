@@ -9,7 +9,7 @@ import type {
   SessionListOptions,
 } from './SessionStorage';
 import { MemoryStorage } from './storage/MemoryStorage';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { SessionSource } from './key/SessionSource';
 
 import { getLogger } from '@modules/monitoring';

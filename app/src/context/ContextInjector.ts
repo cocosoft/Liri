@@ -4,7 +4,7 @@ import {
   createValidResult,
   createInvalidResult,
 } from './types/ValidationResult';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { ContextErrorCode } from './types/ContextErrorCode';
 
 import { getLogger } from '@modules/monitoring';

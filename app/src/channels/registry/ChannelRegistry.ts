@@ -23,7 +23,7 @@ import type {
 } from '../types/IChannel';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // 2026-10-01 D-205（子批 D，`channels -> context` 倒挂收口）：`DependencyRegistry` 早在
 // **D-157 即已下沉 core**（`core/DependencyRegistry.ts`，`context/` 仅为转出层）⇒ 原
 // `@modules/context`（app 层）取用属倒挂。改**相对直连 core 模块根**

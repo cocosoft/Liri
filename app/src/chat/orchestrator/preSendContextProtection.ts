@@ -63,7 +63,7 @@ import {
   formatBudgetExhausted,
 } from '../../query/dailyBudgetGate.js';
 // R16 硬阻断：预算耗尽时抛业务异常（§1.9 业务异常必须 throw new AppError）
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const logger = getLogger('chat:streamFlow');
 

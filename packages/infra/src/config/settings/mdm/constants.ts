@@ -6,7 +6,7 @@
 import { homedir, userInfo } from 'os';
 import { join } from 'path';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('config:settings:mdm:constants');
 

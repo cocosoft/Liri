@@ -15,7 +15,7 @@
 import type http from 'http';
 import * as path from 'path';
 import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // C1（2026-09-30 D-113，`workspace` 域 P1）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // HD-P1-3：工作区级 `.liri` 名的唯一事实源（`core/paths.ts`）

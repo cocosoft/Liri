@@ -51,8 +51,8 @@
 import type { AIProvider } from '../providers/AIProvider.js';
 import type { RouterTier, JudgeResult } from './types.js';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
-import { handleError } from '@modules/error/handleError.js';
-import { ValidationError, ErrorSeverity } from '@modules/error';
+import { handleError } from '@openliri/infra/error/handleError';
+import { ValidationError, ErrorSeverity } from '@openliri/infra/error';
 import { trackUsage } from '../UsageTracker.js';
 import { getTaskConcurrencyLimits } from '../../tasks/limits.js';
 // M1（2026-10-06）：分解结果结构校验（单一事实源 `decompositionSchema.ts`；CS01）

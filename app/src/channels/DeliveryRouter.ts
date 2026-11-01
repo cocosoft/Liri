@@ -18,7 +18,7 @@ import {
   recordBroadcast,
 } from './monitoring/ChannelMetrics.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   withRetry,
   RetryableError,

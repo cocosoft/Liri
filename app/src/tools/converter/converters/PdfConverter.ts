@@ -1,8 +1,8 @@
 import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
-import { AppError, handleError } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+import { AppError, handleError } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import { resolve, dirname } from 'path';
 import { pathToFileURL } from 'url';
 import {

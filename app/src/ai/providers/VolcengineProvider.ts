@@ -37,7 +37,7 @@
 
 import { readFileSync } from 'fs';
 import { extname } from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import {
   AsyncVideoTaskProvider,
   type VideoPollingConfig,

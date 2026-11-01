@@ -29,7 +29,7 @@
 
 import { describe, expect, spyOn, test } from 'bun:test';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { getErrorStats } from '../../src/error/handleError';
+import { getErrorStats } from '@openliri/infra/error/handleError';
 import { getLogger, getOTelTracing } from '../../src/monitoring';
 import { createModule } from '../../src/monitoring/module';
 

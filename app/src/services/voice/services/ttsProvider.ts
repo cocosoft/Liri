@@ -16,7 +16,7 @@
 import { createHash } from 'crypto';
 
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type {
   TTSVoice,
   TTSSpeakOptions,

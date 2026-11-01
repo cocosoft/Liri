@@ -5,7 +5,7 @@ import { MemoryManagerImpl } from '../MemoryManager';
 import { MemoryType } from '../types/MemoryType';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { clearSessionSummaries } from '../adapters/SessionSummaryAdapter';
 
 const logger = getLogger('MemoryCLI');

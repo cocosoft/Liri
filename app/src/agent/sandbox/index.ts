@@ -24,7 +24,7 @@
  * 工作区管理
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import {
   existsSync,
   mkdirSync,

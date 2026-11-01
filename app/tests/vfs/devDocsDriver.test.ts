@@ -36,7 +36,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AppError } from '../../src/error';
+import { AppError } from '@openliri/infra/error';
 import { DevDocsDriver } from '../../src/vfs/drivers/DevDocsDriver.js';
 import { parseVfsPath } from '../../src/vfs/VfsPath.js';
 

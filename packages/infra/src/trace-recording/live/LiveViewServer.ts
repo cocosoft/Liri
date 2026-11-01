@@ -13,7 +13,7 @@ import { ViewerService } from '../viewer/ViewerService';
 import { TraceEngine } from '../engine/TraceEngine';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 const logger = getLogger('trace-recording:live:LiveViewServer');
 

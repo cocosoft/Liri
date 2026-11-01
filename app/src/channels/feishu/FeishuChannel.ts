@@ -25,8 +25,8 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error';
 import { claimMessage, finalizeMessage } from '../dedup/index.js';
 // 预算挂起「就地放行」：按钮回传（`card.action.trigger` / 旧版扁平体）→ **同一**动作端口
 //（与 QQ 共用一个入口，不各平台各写一套放行逻辑）。Spec `.trae/specs/channel-budget-inline-relief.md`

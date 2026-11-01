@@ -4,7 +4,7 @@
  * 对齐 OpenClaw config/sessions/store-pruning.ts
  */
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 import { existsSync, readdirSync, statSync, renameSync, mkdirSync } from 'fs';
 import { join } from 'path';

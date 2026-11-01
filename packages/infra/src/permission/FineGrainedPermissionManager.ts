@@ -20,7 +20,7 @@ import {
 } from './Permission.js';
 import { createFilePermissionStorage } from './FilePermissionStorage.js';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { TTLCache } from '@openliri/infra/utils/cache';
 
 const logger = getLogger('permission:fineGrainedPermissionManager');

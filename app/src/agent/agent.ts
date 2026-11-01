@@ -2,10 +2,10 @@
  * AI代理
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 // C1（2026-10-09）：agent id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import {
   AIAgent,
   AgentConfig,

@@ -16,7 +16,7 @@ import {
 } from '@openliri/kernel/pricing.js';
 import { resolveAiAccess } from '@openliri/kernel/spi';
 
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 import { getLogger } from '@modules/monitoring/logs/Logger';
 const logger = getLogger('cost:ModelPricing');

@@ -5,7 +5,7 @@
 
 import { spawn } from 'child_process';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:voice:preventSleep');

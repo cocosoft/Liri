@@ -13,7 +13,7 @@
 
 import { createServer, type Server } from 'http';
 import type { AddressInfo } from 'net';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { LOCAL_HTTP_HOST, LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 /** 默认端口范围（对标 cline-main 48801-48811） */

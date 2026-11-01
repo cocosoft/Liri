@@ -20,7 +20,7 @@ import {
   // 2026-09-25 §6.8：预期中断判据（已下沉到 error/，供 providers 这类低层直接使用）
   isAbortReason,
   markAsExpectedAbort,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@openliri/infra/config';
 import { DEFAULT_OLLAMA_ENDPOINT } from '@openliri/kernel';

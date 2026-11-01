@@ -17,7 +17,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { TTLCache } from '@openliri/infra/utils/cache';
 
 import { getLogger } from '@modules/monitoring';

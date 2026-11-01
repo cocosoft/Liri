@@ -9,7 +9,7 @@
 
 import { configManager } from '@openliri/infra/config';
 import { resolveDbPath } from '@openliri/infra/environment';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 /**
  * 1-3（2026-09-03）：task_audit_log 写入面（复用 SqliteTaskStore.writeAuditLog，TaskRegistry 同模式）

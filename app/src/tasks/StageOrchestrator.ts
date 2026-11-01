@@ -13,7 +13,7 @@
  * stages[]/currentStage/phase 字段承载阶段链状态，/goal list 天然可见。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 import {
   readPdcaCheckpoint,

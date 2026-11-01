@@ -7,7 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { CouncilEngine } from '../../src/workspace/CouncilEngine';
 import type { CouncilAgentRole } from '../../src/workspace/CouncilTypes';
 import {

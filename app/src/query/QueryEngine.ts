@@ -85,7 +85,7 @@ import {
 import { ToolCallPartitioner } from '@modules/tools';
 import { ToolCallTracker } from '@openliri/infra/utils/ToolCallTracker';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { QueryLogStore, getQueryLogStore } from './QueryLogStore.js';
 
 const logger = getLogger('query:engine');

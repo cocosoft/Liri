@@ -26,8 +26,8 @@ import {
 } from '@openliri/kernel/identity/requestScope.js';
 import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '../../error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error/handleError';
 import type {
   TranslateHistoryRecord,
   TranslateHistoryQuery,

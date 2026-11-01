@@ -13,7 +13,7 @@
  */
 
 import type { Tool } from '../types/Tool';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 /**
  * 执行工具构造；失败 ⇒ 记录（`tools:factory` + `action`）并返回 `null`。

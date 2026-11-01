@@ -34,7 +34,11 @@
  */
 
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error/types';
 import type {
   WorkflowDefinition,
   WorkflowProvider,

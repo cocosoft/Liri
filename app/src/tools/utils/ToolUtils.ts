@@ -13,7 +13,7 @@ import * as fsp from 'fs/promises';
 import * as path from 'path';
 import { configManager } from '@openliri/infra/config';
 import { resolveOutputDir } from '@openliri/infra/environment';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:utils:ToolUtils');

@@ -20,7 +20,7 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { createReadStream } from 'node:fs';
 import { splitMessage } from '../messageSplitter';
 

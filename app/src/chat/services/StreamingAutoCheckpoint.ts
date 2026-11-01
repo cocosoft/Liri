@@ -13,7 +13,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { isCheckpointLogEnabled } from '@openliri/infra/config';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { SessionCheckpointService } from './SessionCheckpointService';
 import type { SessionCheckpoint } from '@modules/session/types/checkpoint';
 import type { Message } from '@modules/session/types/message';

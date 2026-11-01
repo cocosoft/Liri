@@ -5,7 +5,7 @@
  */
 
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { watch, type FSWatcher, readFileSync } from 'fs';
 import { join } from 'path';
 import { EventEmitter } from 'events';

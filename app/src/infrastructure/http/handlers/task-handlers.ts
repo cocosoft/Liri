@@ -32,7 +32,7 @@ import type http from 'http';
 import { sendError } from './handler-utils';
 // C1（2026-09-30 D-98，`tasks` 域 P1）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 export async function handleListTasks(
   req: http.IncomingMessage,

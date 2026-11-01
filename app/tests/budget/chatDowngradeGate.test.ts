@@ -22,7 +22,7 @@ import {
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AppError } from '@modules/error';
+import { AppError } from '@openliri/infra/error';
 import { createChatManager } from '../../src/chat/ChatManager';
 import {
   getDailyBudget,

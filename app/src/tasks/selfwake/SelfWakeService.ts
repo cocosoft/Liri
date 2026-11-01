@@ -11,7 +11,7 @@ import { WakeKind } from './types';
 import { WakeStore } from './WakeStore';
 import { recordSelfWake } from './SelfWakeAudit';
 import { cg3Log } from '../cg3Env';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 /**
  * 阶段 A（N-26 修复）：会话唤醒执行器

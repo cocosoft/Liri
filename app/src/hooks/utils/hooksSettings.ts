@@ -7,7 +7,7 @@
 import { getLogger } from '@modules/monitoring';
 import { IndividualHookConfig, HookEvent } from '../types';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('hooksSettings');
 

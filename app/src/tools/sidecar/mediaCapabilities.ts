@@ -35,7 +35,7 @@
  * 一律 **fail-closed**（`NOT_IMPLEMENTED`，不伪造成功，CS03）。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 /** 侧车分析能力枚举（本期覆盖面） */
 export type MediaAnalysisKind = 'ocr' | 'objects' | 'similarity';

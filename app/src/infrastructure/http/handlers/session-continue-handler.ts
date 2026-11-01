@@ -38,7 +38,7 @@
  */
 
 import type http from 'http';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { json } from './handler-utils';
 

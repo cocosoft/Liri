@@ -38,7 +38,7 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { parseRequestPriority } from '@modules/types/requestPriority';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';

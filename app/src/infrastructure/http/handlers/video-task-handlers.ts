@@ -12,7 +12,7 @@
 
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // 2026-10-01 D-197（tools 域取用面收敛）：原先**静态**导入 `getVideoTaskPersistence`（值）
 // 与 `ToolUseContext`（类型 —— 经 eslint 实证**从未使用**）⇒ `infrastructure -> app` 倒挂。
 // 二者**同删**才算消除本文件对该层的引用；实现改经 **service 侧端口**（`getCoreAPI().getToolsPort()`）。

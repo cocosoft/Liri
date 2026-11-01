@@ -25,7 +25,7 @@
  * 定义已**下沉至 core 侧** `core/errorCodes.ts`：该表为纯数据、零依赖，却被 core 侧
  * 模块系统（`modules/*`）直接引用 ⇒ 原位置构成 core → infra 倒挂（A 类台账，
  * 见 .trae/specs/layer-inversion-a-class-inventory.md §3.5.1）。
- * 本文件保留同名导出 ⇒ `@modules/error` 与 `@modules/error/ErrorCodes` 对外符号逐字不变。
+ * 本文件保留同名导出 ⇒ `@openliri/infra/error` 与 `@openliri/infra/error/ErrorCodes` 对外符号逐字不变。
  */
 
 export { ErrorCodes } from '@openliri/kernel/errorCodes.js';

@@ -4,7 +4,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 
 const logger = getLogger('bridge:error:bridgeErrorHandler');
 

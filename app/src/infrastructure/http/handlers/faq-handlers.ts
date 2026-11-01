@@ -14,7 +14,7 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // C1（2026-09-30 D-95，`knowledge` 域 P1）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';

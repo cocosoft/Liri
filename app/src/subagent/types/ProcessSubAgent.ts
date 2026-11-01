@@ -14,7 +14,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
 import { resolveProjectRoot } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const logger = getLogger('subagent:process');
 

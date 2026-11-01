@@ -5,7 +5,7 @@
 
 import { SpanStatusCode, Span } from '@opentelemetry/api';
 import { OTelTracing } from './OTelTracing.js';
-import { errorMessage } from '@modules/error';
+import { errorMessage } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('monitoring\otel\TraceBridge');

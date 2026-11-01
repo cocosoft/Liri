@@ -42,7 +42,7 @@ import { addDeletedRange, isSeqInDeletedRanges } from '@modules/session';
 import type { SessionManager } from '@modules/session/types/session';
 import type { ChatManager } from '@modules/chat';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');
 

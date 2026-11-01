@@ -14,8 +14,12 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { unlink } from 'fs/promises';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import { handleError } from '@openliri/infra/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error/types';
 import {
   RECORDING_SAMPLE_RATE,
   RECORDING_CHANNELS,

@@ -8,7 +8,7 @@ import type {
 } from '@modules/channels/types';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { ANTHROPIC_API_V1_BASE_URL } from '@openliri/kernel';
 const logger = getLogger('channels:claude:ClaudeChannel');
 

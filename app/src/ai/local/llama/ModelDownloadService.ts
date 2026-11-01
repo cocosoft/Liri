@@ -7,7 +7,11 @@
 
 import { getLogger } from '@modules/monitoring';
 import { resolveLlamaModelsDir } from '@openliri/infra/environment';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error/types';
 import { createHash } from 'crypto';
 import { stat, mkdir, writeFile, rename, open, unlink } from 'fs/promises';
 import { existsSync, statSync } from 'fs';

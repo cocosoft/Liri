@@ -17,7 +17,7 @@ import { cg3Log } from './cg3Env';
 /**
  * 惰性导入 handleError + Logger，避免 CG3 模块循环依赖。
  * cg3Env 已避开 @modules/core 和 @modules/monitoring 的循环导入链，
- * 但 handleError（@modules/error）和 Logger（@modules/monitoring）在 catch 块中是安全惰性导入的。
+ * 但 handleError（@openliri/infra/error）和 Logger（@modules/monitoring）在 catch 块中是安全惰性导入的。
  */
 async function _logAndHandle(
   level: 'warn' | 'error',
@@ -28,7 +28,7 @@ async function _logAndHandle(
 ) {
   cg3Log(module, level, msg, { error: String(error) });
   try {
-    const { handleError } = await import('@modules/error/handleError');
+    const { handleError } = await import('@openliri/infra/error/handleError');
     await handleError(error, { module, action: action ?? msg });
   } catch {
     // handleError 自身失败不阻塞

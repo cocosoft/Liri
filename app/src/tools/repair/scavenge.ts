@@ -35,7 +35,7 @@
 import type { ToolCall, ScavengeOptions, ScavengeResult } from './types';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 const logger = getLogger('tools:repair:scavenge');
 
 /** 限制 scavenge 输入大小 — 正则匹配在对抗性输入上可能产生 O(n²) */

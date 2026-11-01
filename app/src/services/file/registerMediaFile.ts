@@ -13,7 +13,7 @@ import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';
 import type { MediaType } from './types';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('services:file');
 

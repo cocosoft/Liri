@@ -18,7 +18,7 @@ import {
   HookExecutionContext,
 } from '../types';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { isSensitiveEnvKey } from '@openliri/infra/security';
 
 import { getLogger } from '@modules/monitoring';

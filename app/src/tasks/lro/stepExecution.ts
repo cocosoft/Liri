@@ -24,7 +24,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { createTAORLoopDeps } from '@modules/query';
 import type { TAORLoop } from '@modules/query';
 

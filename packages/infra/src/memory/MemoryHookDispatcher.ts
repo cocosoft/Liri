@@ -11,7 +11,7 @@ import type { Memory } from './types/Memory';
 // 属 infra -> app 倒挂）。
 import { resolveHookChain } from '@openliri/kernel/spi';
 import { getLogger } from '@modules/monitoring/logs/Logger';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('memory:memoryHookDispatcher');
 

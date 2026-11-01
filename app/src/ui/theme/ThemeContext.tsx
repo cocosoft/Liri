@@ -30,7 +30,7 @@ import React, {
 import { TerminalThemeManager as ThemeManager } from '@openliri/infra/system/theme';
 // 2026-10-01（B3-1'）：`ThemeSchema` 已并入 canonical `system/theme`（infra）⇒ 改经其桶引用。
 import type { ThemeUIColorPalette } from '@openliri/infra/system/theme';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ui:theme:ThemeContext');

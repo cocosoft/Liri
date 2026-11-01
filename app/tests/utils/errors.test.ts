@@ -9,7 +9,7 @@ import {
   SecurityError,
   ErrorCategory,
   ErrorSeverity,
-} from '../../src/error/types.js';
+} from '@openliri/infra/error/types';
 
 describe('AppError', () => {
   it('should create error with message, category, and severity', () => {

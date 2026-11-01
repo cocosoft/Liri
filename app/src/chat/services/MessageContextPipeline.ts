@@ -37,7 +37,7 @@ import {
   type SystemPromptSection,
 } from '@openliri/infra/constants';
 import { skillInjectionService } from '@modules/skills';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // 2026-10-17（M5）：整条消息级截断同样接保留度探针（只告警、不改行为）
 import {
   DEFAULT_RETENTION_WARN_RATIO,

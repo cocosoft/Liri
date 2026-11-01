@@ -15,7 +15,7 @@
  * **行为等价**：日志文案/级别、失败留痕与 `undefined` 返回语义**逐字未变**。
  */
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 
 import { getToolRegistry } from '../../tools/index.js';

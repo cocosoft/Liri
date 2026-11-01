@@ -14,7 +14,7 @@ import {
 } from './backends/TeammateBackend';
 import { InProcessTeammateBackend } from './backends/InProcessTeammateBackend';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { getTaskConcurrencyLimits } from '../tasks/limits';
 
 const logger = getLogger('subagent:teammateManager');

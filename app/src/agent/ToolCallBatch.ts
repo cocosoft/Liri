@@ -8,7 +8,7 @@ import type { ToolCallProgress } from '../tools/types/Tool';
 import type { BaseTool } from '../tools/BaseTool';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('agent:ToolCallBatch');
 
 export interface ToolCallItem {

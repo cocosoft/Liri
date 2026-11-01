@@ -11,7 +11,7 @@ import {
   isVoiceAvailable,
 } from '../services/voice/services/environmentRuntimeDetector';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('voice:channelIntegration');
 

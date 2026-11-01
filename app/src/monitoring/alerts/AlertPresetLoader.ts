@@ -13,7 +13,7 @@ import {
 } from './AlertSchema.js';
 import { alertRuleService } from '../AlertRuleService.js';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 
 const logger = getLogger('monitoring:alert_preset');

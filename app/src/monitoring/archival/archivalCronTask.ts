@@ -20,7 +20,7 @@ import type {
 // 原由 `@modules/tasks`（app）取 `computeNextCronRunMs` 构成 monitoring(infra) -> tasks(app) 倒挂
 import { computeNextCronRunMs } from '@openliri/infra/utils/cron';
 import { getLogger } from '../logs/Logger.js';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { SCHEDULER_CHECK_INTERVAL_MS } from '@modules/types/schedulerLifecycle';
 import { IncidentManager } from '../incidents/IncidentManager.js';
 

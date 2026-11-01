@@ -8,7 +8,7 @@ import { EventEmitter } from 'events';
 import type { HookEvent } from '../types';
 import { diagnosticManager } from './DiagnosticManager';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('AsyncHookRegistry');
 

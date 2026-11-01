@@ -19,7 +19,7 @@ import { REPLToolImpl } from '../repl/REPLToolImpl.js';
 import { REPLSessionStatus } from '../repl/types/index.js';
 import type { REPLSession } from '../repl/types/index.js';
 import { replSessionManager } from '../repl/REPLSessionManager';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\notebook\NotebookToolImpl');

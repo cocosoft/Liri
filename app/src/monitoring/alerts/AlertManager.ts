@@ -5,7 +5,7 @@
 
 import { EventEmitter } from 'events';
 import { logForDebugging } from '@openliri/infra/utils/debug';
-import { errorMessage } from '@modules/error';
+import { errorMessage } from '@openliri/infra/error';
 // C1（2026-10-09）：silence id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 

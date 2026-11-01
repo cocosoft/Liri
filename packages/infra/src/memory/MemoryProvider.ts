@@ -4,7 +4,7 @@
  * 定义记忆提供者的统一接口，所有具体记忆后端必须实现此接口
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { Memory, MemoryStats } from './types/Memory';
 
 import { getLogger } from '@modules/monitoring';

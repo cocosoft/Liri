@@ -2,8 +2,8 @@
 import { AgentTool } from '../models/types';
 import { AgentStrategy } from '../models/types';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error/handleError';
 import { pluginSystem } from '@modules/plugins';
 import { PluginState } from '@modules/plugins/types/PluginTypes';
 import { EffectScope } from '@modules/context';

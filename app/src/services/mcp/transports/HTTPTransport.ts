@@ -5,7 +5,7 @@
 
 import type { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { McpTlsConfig } from './McpTlsManager';
 import { getLogger, withTraceparentHeaders } from '@modules/monitoring';
 const logger = getLogger('services\mcp\transports\HTTPTransport');

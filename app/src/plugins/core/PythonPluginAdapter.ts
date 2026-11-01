@@ -18,7 +18,7 @@
  * 桥：复用 JsonRpcBridge（PY-1 泛化基类），pythonPath = venv 内解释器。
  */
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import {
   JsonRpcBridge,
   BRIDGE_PROTOCOL_VERSION,

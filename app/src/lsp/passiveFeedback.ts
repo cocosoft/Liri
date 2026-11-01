@@ -10,7 +10,7 @@ import { registerPendingLSPDiagnostic } from './LSPDiagnosticRegistry.js';
 import type { LSPServerManager } from './LSPServerManager.js';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 const logger = getLogger('lsp:passiveFeedback');
 
 function mapLSPSeverity(lspSeverity: number | undefined): string {

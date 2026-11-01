@@ -45,7 +45,7 @@ import { join } from 'path';
 import { createHash } from 'crypto';
 import { homedir } from 'os';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   loadSnapshot,
   listSessionSnapshots,

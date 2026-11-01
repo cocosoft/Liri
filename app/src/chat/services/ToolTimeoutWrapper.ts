@@ -17,7 +17,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 
 const logger = getLogger('chat:toolTimeout');

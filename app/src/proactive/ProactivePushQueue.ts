@@ -31,7 +31,7 @@
 import { Database } from '@openliri/infra/external';
 import { resolveDbPath } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   MS_PER_DAY,
   PROACTIVE_QUEUE_BASE_RETRY_MS,

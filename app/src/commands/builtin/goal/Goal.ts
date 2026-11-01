@@ -7,7 +7,7 @@ import {
   ensureGoalForBatch,
 } from '@modules/tasks';
 import { getOrCreateOrchestrator, getOrchestrator } from '@modules/tasks';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 function phaseLabel(phase: unknown): string {
   return typeof phase === 'string' && phase ? phase : 'unknown';

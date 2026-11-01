@@ -318,7 +318,7 @@ export function hasRedirects(commands: SimpleCommand[]): boolean {
 
 import type { IParsedCommand } from './ParsedCommand';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('security:bash:BashAST');
 export type CommandArg = string;

@@ -8,10 +8,10 @@ import { watch, FSWatcher } from 'fs';
 import { readdir, stat } from 'fs/promises';
 import { join, basename } from 'path';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('memory:scanners:memoryWatcher');
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 /**
  * 记忆文件变化类型

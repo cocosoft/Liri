@@ -23,8 +23,8 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+} from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('config:enterprise:audit:execApprovalManager');
 

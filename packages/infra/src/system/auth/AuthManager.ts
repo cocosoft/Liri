@@ -4,7 +4,7 @@
  * 负责管理各种认证方式（API Key、OAuth、AWS、GCP等）
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 import {
   oauthService,

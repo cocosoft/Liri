@@ -23,7 +23,7 @@ import {
   isSystemAbortReason,
 } from '../../src/query/ReActLoop.js';
 // 品牌标记是 provider 侧的包装辅助（非 `@modules/query` 出口），直接从下沉后的家引入
-import { markAsExpectedAbort } from '../../src/error/abortReason.js';
+import { markAsExpectedAbort } from '@openliri/infra/error/abortReason';
 
 describe('isAbortReason：预期中断判据（2026-09-25）', () => {
   it('系统侧中止的裸字符串形态判为预期中断（本次修复点；修复前为 false）', () => {

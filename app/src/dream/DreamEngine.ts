@@ -42,7 +42,7 @@ import {
 import { globalEventBus, SystemEvents } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import { recordBackgroundTask } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   BackgroundTaskState,
   getBackgroundTaskStateMachine,

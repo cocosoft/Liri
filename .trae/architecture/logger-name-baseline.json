@@ -409,7 +409,7 @@
       "app/src/cli/handlers/diagnoseHandler.ts"
     ],
     "error\\api\\APISceneClassifier": [
-      "app/src/error/api/APISceneClassifier.ts"
+      "packages/infra/src/error/api/APISceneClassifier.ts"
     ],
     "exit": [
       "app/src/cli/exit.ts",
@@ -546,7 +546,7 @@
       "app/src/resourceGovernor/index.ts"
     ],
     "safeLog": [
-      "app/src/error/safeLog.ts"
+      "packages/infra/src/error/safeLog.ts"
     ],
     "sandbox\\WorkspaceManager": [
       "app/src/sandbox/WorkspaceManager.ts"

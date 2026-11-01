@@ -10,7 +10,7 @@ import {
   resolveProjectRoot,
 } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('services:mcp:config');
 import {

@@ -28,7 +28,7 @@
 import { readdir, stat, readFile } from 'fs/promises';
 import { join } from 'path';
 import { resolveSessionsDir } from '@openliri/infra/environment';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { SessionDigest } from '../types';
 
 interface ReadSessionOpts {

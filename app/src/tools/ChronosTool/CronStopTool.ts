@@ -8,7 +8,7 @@ import { Tool } from '../types/Tool';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 import { CronStopOutputJsonSchema } from './schemas';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:ChronosTool:CronStopTool');

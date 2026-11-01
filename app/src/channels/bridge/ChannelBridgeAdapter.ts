@@ -43,7 +43,7 @@ import {
   routeChannelMessage,
   type RouteMessageOptions,
 } from '../routing/messageRouter';
-import { handleError } from '../../error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import type { MessageContext, ChannelId } from '../types/IChannel';
 import type { ChannelInterface } from '../registry/ChannelRegistry';
 

@@ -15,7 +15,7 @@
 import { join } from 'path';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 import { BaseThirdPartyAdapter } from './BaseThirdPartyAdapter';

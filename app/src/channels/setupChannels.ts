@@ -24,7 +24,7 @@ import type {
 import { routeChannelMessage } from './routing/messageRouter';
 import { configManager } from '@openliri/infra/config';
 import { feature } from '@openliri/kernel';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getDeliveryRouter } from './DeliveryRouter';
 import {
   CHANNEL_CATALOG,

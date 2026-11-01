@@ -11,7 +11,7 @@ import { promises as fs } from 'fs';
 import { join, extname } from 'path';
 import { getCommandManager as getCmdMgr } from '@modules/commands';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:activity:ActivityStats');
 

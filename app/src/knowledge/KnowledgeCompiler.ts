@@ -19,7 +19,7 @@ import { existsSync } from 'fs';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { LLMPerformanceMonitor } from '@modules/ai';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { LRUCache } from '@openliri/infra/utils/cache';
 import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 import type { AIService, AIMessage } from '@modules/ai';

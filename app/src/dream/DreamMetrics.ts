@@ -28,7 +28,7 @@
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { DreamTriggerSource } from './types';
 
 export interface DreamMetricsData {

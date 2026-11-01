@@ -32,7 +32,7 @@ import { json, readBody } from '../handler-utils';
 import { configManager } from '@openliri/infra/config';
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // 复用既有请求鉴权语义（`x-api-key` / `Bearer`）——GR01：不新造第二套头部解析
 import { verifyRequestAuth } from '../../LocalHTTPServiceHelpers';
 // 2026-10-01 D-204（子批 C，`agent` 域 A2A 对外面）：原 7 个符号静态导入 app 层 `@modules/agent`

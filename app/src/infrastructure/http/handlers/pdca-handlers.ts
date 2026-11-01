@@ -28,7 +28,7 @@ import { resolvePyappHome } from '@openliri/infra/environment';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 // C1（2026-09-30 D-103，`tasks` 域 P3-b）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
@@ -277,7 +277,7 @@ export async function handlePdcaStart(
 
     // 异步执行 PDCA，不阻塞 HTTP 响应
     void orchestrator.runFullPdca(description, sessionId).catch(async (e) => {
-      const { handleError } = await import('@modules/error');
+      const { handleError } = await import('@openliri/infra/error');
       handleError(e, {
         module: 'infrastructure:http:handlers:pdca-handlers',
         action: 'runFullPdca',

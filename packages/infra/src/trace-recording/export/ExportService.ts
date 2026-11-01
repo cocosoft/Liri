@@ -9,7 +9,7 @@
  * 参考：claude-tap 的 export.py (Python 实现)
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { TraceRecord, ExportFormat } from '../types';
 import { ViewerService } from '../viewer/ViewerService';
 

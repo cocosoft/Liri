@@ -6,8 +6,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 
 const logger = getLogger('tools:compatibilityValidator');

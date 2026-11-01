@@ -16,7 +16,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getDefaultConfigOverlay } from './ttsConfigOverlay';
 
 const logger = getLogger('voice:ttsPersona');

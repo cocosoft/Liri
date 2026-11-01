@@ -19,7 +19,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'http';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { STTRegistry } from '@modules/services/voice/services/sttRegistry';
 import { upgradeToVoiceConnection } from './upgrade';
 import type { VoiceConnection } from './types';

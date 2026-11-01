@@ -9,7 +9,7 @@ const logger = getLogger('EnhancedOAuthClient');
 import { OAuthDiscovery } from '../services/OAuthDiscovery.js';
 import type { OAuthServerMetadata } from '../types/OAuthDiscoveryTypes';
 import { TokenManager, type CachedToken } from '../services/TokenManager.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 /**
  * 增强版OAuth客户端配置

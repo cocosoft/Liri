@@ -16,7 +16,7 @@ import { getConfigHomeDir, isEnvTruthy } from '@openliri/infra/utils/envUtils';
 import fs from 'fs';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 const logger = getLogger('performance:StartupProfiler');
 
 // 模块级状态 - 延迟初始化避免循环依赖

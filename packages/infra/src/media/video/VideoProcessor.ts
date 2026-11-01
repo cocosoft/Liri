@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import { ffmpegWrapper } from '../ffmpeg/FFmpegWrapper';
 
 const logger = getLogger('media:video');

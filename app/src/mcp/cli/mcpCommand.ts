@@ -9,7 +9,7 @@ import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 import { MCPServerConfig } from '../types';
 import { readMcpConfig, writeMcpConfig } from '../utils/mcpConfig';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // Q-18（2026-10-23）：派生口径抽到服务层共享（`mcp_auth` 工具与 CLI 同源）
 import { deriveOAuthConfig } from '@modules/services/mcp/auth/deriveOAuthConfig.js';
 

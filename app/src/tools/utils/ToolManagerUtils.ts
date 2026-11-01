@@ -11,7 +11,7 @@ import {
 import { feature as coreFeature } from '@openliri/kernel';
 import { isAntUser } from '@openliri/infra/utils/features';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { SidecarLspTool } from '../sidecar/SidecarLspTool';
 
 const logger = getLogger('tools:managerUtils');

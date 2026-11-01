@@ -1,4 +1,4 @@
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 /**
  * Compact Hooks（Pre/Post压缩钩子集成）

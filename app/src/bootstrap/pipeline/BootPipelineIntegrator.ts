@@ -15,7 +15,7 @@ import { BootPhase } from './BootPhase';
 import { bootPipeline } from './BootPipeline';
 import type { BootContext } from './BootPipeline';
 import type { RouterTier } from '@modules/types/router';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('BootPipelineIntegrator');
 

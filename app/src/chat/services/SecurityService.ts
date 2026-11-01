@@ -4,7 +4,7 @@ import type {
   SensitiveDataConfig,
 } from '@openliri/infra/security';
 import { SensitiveErrorType, SensitiveError } from '@openliri/infra/security';
-import { SecurityError } from '@modules/error/types';
+import { SecurityError } from '@openliri/infra/error/types';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('chat\services\SecurityService');

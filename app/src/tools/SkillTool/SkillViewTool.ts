@@ -15,7 +15,7 @@ import { Tool, ToolInfo, ToolTag } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getSkillRegistryLazy } from './skillRegistryAccess';
 import { skillUsageTracker } from '@modules/skills';
 

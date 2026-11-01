@@ -10,7 +10,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // D-146（2026-10-01）：modelRouter / providerRegistry / ToolAwareClient 改经 core SPI
 // （`infra -> app` 倒挂收口）
 import { resolveAiAccess } from '@openliri/kernel/spi';

@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error/handleError.js';
+import { handleError } from '@openliri/infra/error/handleError';
 import { ConfigSnapshot } from './ConfigSnapshot';
 
 const logger = getLogger('config:recovery');

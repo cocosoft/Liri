@@ -58,8 +58,8 @@ interface SqliteRunContext {
   lastID: number;
 }
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const logger = getLogger('ai:pricing');
 

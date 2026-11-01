@@ -28,7 +28,7 @@ import { isWireSafeToolName, toWireToolName } from './toolNameCodec';
 import { getDefaultToolPolicyPipeline } from './policy/defaultPipeline';
 
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 // C-3b：模型侧参数描述走 T2 字段级资源链（用户 → 项目 → 包内 → 母语回退 → 源码兜底）
 import {
   resolveToolParam,

@@ -10,7 +10,7 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { CommandContext } from '@modules/commands';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:commit:Commit');

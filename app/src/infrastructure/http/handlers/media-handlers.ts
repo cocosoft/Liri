@@ -18,7 +18,7 @@ import {
   unlinkSync,
   mkdirSync,
 } from 'fs';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { resolveTempDir } from '@openliri/infra/environment';
 import { videoProcessor } from '@openliri/infra/media/video/VideoProcessor';
 import { MAX_HTTP_BODY_BYTES } from './handler-utils';

@@ -9,7 +9,7 @@ import { join } from 'path';
 import type { CommandContext } from '@modules/commands';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { configManager } from '@openliri/infra/config';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';

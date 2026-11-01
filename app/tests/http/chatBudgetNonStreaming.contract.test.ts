@@ -23,7 +23,7 @@ import type { SendMessageContext } from '../../src/chat/orchestrator/sendMessage
 import { buildChatErrorResponse } from '../../src/runtime/api/llmChatOps';
 import { mapChatErrorResponse } from '../../src/infrastructure/http/handlers/chat-handlers';
 import type { ToolAwareClient } from '@modules/ai';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const LIMIT = 10;
 const SESSION_ID = 'sess-t8';

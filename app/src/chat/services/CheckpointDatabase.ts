@@ -7,7 +7,7 @@ import {
   CHECKPOINT_MAX_AUTO,
 } from '@modules/session/types/checkpoint';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import {
   resolveDbPath,
   resolveTenantDbPath,

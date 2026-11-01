@@ -36,7 +36,7 @@ import {
   readFileSync,
 } from 'fs';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getPlatform } from '@openliri/infra/utils/platform';
 import { resolveModelsDir } from '@openliri/infra/environment';
 import type { STTProvider, STTStreamConnection } from './sttProvider';

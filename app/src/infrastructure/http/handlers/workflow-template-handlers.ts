@@ -14,7 +14,7 @@ import type http from 'http';
 // C1（2026-10-09）：用户模板 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 // C1（2026-09-30 D-113，`workspace` 域 P1）：**类型位**改为服务层端口**逐字镜像**类型
 // （原类型导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）

@@ -23,8 +23,8 @@ import type {
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 import { BaseChannelPlugin } from '@modules/channels/base';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error';
 import { DEFAULT_WECHAT_BOT_ENDPOINT } from '@openliri/kernel';
 import { WeixinCliManager, type CliStatus } from './cli-manager';
 import { splitMessage } from '../messageSplitter';

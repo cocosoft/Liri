@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { resolveLogsDir } from '@openliri/infra/environment';
 import { logForDebugging } from '@openliri/infra/utils/debug';
-import { errorMessage, handleError } from '@modules/error';
+import { errorMessage, handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('monitoring:exporters:FileExporter');

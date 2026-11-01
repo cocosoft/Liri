@@ -4,8 +4,8 @@
  * 支持容器生命周期管理、资源限制、卷挂载
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error/handleError';
 import type {
   Sandbox,
   SandboxConfig,

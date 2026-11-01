@@ -5,7 +5,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   OPENAI_API_BASE_URL,
   ANTHROPIC_API_BASE_URL,

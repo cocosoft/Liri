@@ -66,7 +66,7 @@ export function createModule(name: string): ModuleScope {
     async error(e: unknown, action: string): Promise<void> {
       // 惰性加载：避免 monitoring → error 静态循环依赖（monitoring/index → module → error/handleError → @modules/monitoring）
       const { handleError } =
-        require('@modules/error/handleError') as typeof import('@modules/error/handleError');
+        require('@openliri/infra/error/handleError') as typeof import('@openliri/infra/error/handleError');
       await handleError(e, { module: name, action });
     },
 

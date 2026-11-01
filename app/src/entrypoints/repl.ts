@@ -46,7 +46,7 @@ import { SubAgentFactory } from '../subagent/SubAgentFactory.js';
 import { isOfflineMode } from './shared-state.js';
 import { channelRegistry } from '../channels/index.js';
 import { channelBootstrapper } from '@modules/channels';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 
 const logger = getLogger('repl');

@@ -35,7 +35,7 @@ import {
   EmbeddingResult,
 } from '../EmbeddingBase';
 import { configManager } from '@openliri/infra/config';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { DEFAULT_OLLAMA_ENDPOINT } from '@openliri/kernel';
 
 import { getLogger } from '@modules/monitoring';

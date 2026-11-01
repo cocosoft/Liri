@@ -33,7 +33,7 @@ import {
   getSystemCpuPercentAsync,
   getDiskInfoAsync,
 } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { queryAuditLogs } from '@openliri/infra/security';
 
 // ── 指标数据环形缓冲区 ────────────────────────────────────────────

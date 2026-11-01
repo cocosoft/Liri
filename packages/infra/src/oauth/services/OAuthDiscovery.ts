@@ -9,7 +9,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { TTLCache } from '@openliri/infra/utils/cache';
 import type { OAuthServerMetadata } from '../types/OAuthDiscoveryTypes';
 

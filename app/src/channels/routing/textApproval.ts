@@ -9,7 +9,7 @@ import { isBridgeEnabled } from '../bridgeEnabled';
 import { channelSessionManager } from '../session/ChannelSessionManager';
 import { finalizeMessage } from '../dedup/index';
 import { recordMessageRejected } from '../monitoring/ChannelMetrics.js';
-import { handleError } from '../../error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import type { MessageContext } from '../types/IChannel';
 import type { RouteResult } from './messageRouterContract';
 

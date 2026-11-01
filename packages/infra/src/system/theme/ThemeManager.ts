@@ -3,7 +3,7 @@
  * 提供浅色和深色主题支持，以及自定义主题功能
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 import chalk from 'chalk';
 

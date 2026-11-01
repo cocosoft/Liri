@@ -29,7 +29,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   isTerminalState,
   type A2AArtifact,

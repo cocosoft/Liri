@@ -14,7 +14,7 @@ import {
   resolveStreamErrorCode,
   shouldPersistStreamFallback,
 } from '../../src/runtime/api/CoreAPIImpl';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 describe('D-l：流式错误码保真 + 限额提示不落盘', () => {
   it('AppError ⇒ 透出真实业务码（不再回落 UNKNOWN）', () => {

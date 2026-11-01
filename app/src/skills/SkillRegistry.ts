@@ -5,7 +5,7 @@
 
 import type { Skill } from './types';
 import { EffectScope } from '@modules/context';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('skills:SkillRegistry');

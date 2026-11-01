@@ -5916,7 +5916,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"notes","i":0,"c":"mcp 入口改用 utils 常量；error/api 复用 error/network 的 SSL 集合（同模块无环）；基线 177→175。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"code#0","i":0,"c":"app/src/entrypoints/mcp.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"code#1","i":0,"c":"app/src/error/api/errorUtils.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"code#1","i":0,"c":"packages/infra/src/error/api/errorUtils.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"code#2","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"title","i":0,"c":"U-20/B5-2-72..73：按域消歧 DEFAULT_MAX_ENTRIES 与 MAX_RECORDS"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
@@ -7431,9 +7431,9 @@
 {"id":"INFRA-CYCLE-BREAK-ERROR","k":"notes","i":0,"c":"error 原有 4 条出边：monitoring×3（index.ts/safeLog.ts/api/APISceneClassifier.ts）→ 改走 @openliri/kernel/loggerFacade；config×1（APISceneClassifier 的 PY_APP_USE_BEDROCK）→ 改为 "}
 {"id":"INFRA-CYCLE-BREAK-ERROR","k":"notes","i":1,"c":"setAPISceneEnvReader 注入，启动期由 bootstrap/preflight.wireErrorModuleDeps 接 configManager.env（main.ts 在所有模式调用）；未注入按\"变量不存在\"处理。safeLog 的死导入 LogLevel 一并移除。R7 用 AST 解析 infra→infra 边求 SCC，基线"}
 {"id":"INFRA-CYCLE-BREAK-ERROR","k":"notes","i":2,"c":"锁 13 成员（只许缩小）；缺基线/解析失败 fail-closed。"}
-{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#0","i":0,"c":"app/src/error/index.ts"}
-{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#1","i":0,"c":"app/src/error/safeLog.ts"}
-{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#2","i":0,"c":"app/src/error/api/APISceneClassifier.ts"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#0","i":0,"c":"packages/infra/src/error/index.ts"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#1","i":0,"c":"packages/infra/src/error/safeLog.ts"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#2","i":0,"c":"packages/infra/src/error/api/APISceneClassifier.ts"}
 {"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#3","i":0,"c":"app/src/bootstrap/preflight.ts"}
 {"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#4","i":0,"c":"app/src/main.ts"}
 {"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#5","i":0,"c":"app/scripts/infraBoundaryCore.ts"}

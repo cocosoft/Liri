@@ -28,7 +28,7 @@ import type {
   TranscriptSearchResult,
 } from './types/Transcript.js';
 import { isTranscriptMessage, isChainParticipant } from './types/Transcript.js';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('session:transcriptManager');
 

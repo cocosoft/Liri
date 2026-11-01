@@ -3,7 +3,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { resolveDataSubDir } from '@openliri/infra/environment';

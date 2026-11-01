@@ -22,7 +22,7 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 /**
  * 处理删除单条消息请求

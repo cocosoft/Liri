@@ -17,7 +17,7 @@ import type { MediaToolResult } from './MediaToolResult';
 import { imageFormatDetector } from '@openliri/infra/media/image/ImageFormatDetector';
 import { mediaStore } from '@openliri/infra/media/store/MediaStore';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('media:tool:info');
 

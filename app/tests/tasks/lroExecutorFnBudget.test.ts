@@ -32,7 +32,7 @@ import {
   getDailyBudget,
   resetDailyBudgetForTest,
 } from '../../src/query/DailyBudgetManager';
-import { AppError } from '@modules/error';
+import { AppError } from '@openliri/infra/error';
 
 // 隔离计划持久化目录：避免污染用户数据（~/.pyapp/data/plans/）
 taskOrchestrator.setPlansDir(mkdtempSync(join(tmpdir(), 'plans-t10-')));

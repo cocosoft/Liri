@@ -4,8 +4,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error/handleError';
 import fs from 'fs';
 import path from 'path';
 import { loadSharp } from '@openliri/infra/utils/externalDeps';

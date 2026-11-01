@@ -14,7 +14,7 @@ import { join, resolve } from 'path';
 import { resolveOutputDir } from '@openliri/infra/environment';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:trace-recording:TraceRecording');
 

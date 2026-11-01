@@ -15,7 +15,7 @@ import {
 } from './utility-helpers';
 import type { Tool } from './types/Tool';
 import { ToolTag as TT } from './types/Tool';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { readSoulMd, writeSoulMd } from '@modules/services/soul/SoulReader';
 import { readUserMd, writeUserMd } from '@modules/services/soul/UserReader';
 

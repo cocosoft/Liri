@@ -12,7 +12,7 @@ import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { createLSPServerManager } from './LSPServerManager.js';
 import { LSPClient as BaseLSPClient } from './LSPClient.js';
 import type { LSPServerInstance } from './LSPServerInstance.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('lsp\EnhancedLSPManager');

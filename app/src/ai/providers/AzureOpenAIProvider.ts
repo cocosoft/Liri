@@ -9,7 +9,7 @@ import {
   // 2026-09-25 §6.8：预期中断判据（已下沉到 error/）
   isAbortReason,
   markAsExpectedAbort,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 import type {
   ChatMessage,

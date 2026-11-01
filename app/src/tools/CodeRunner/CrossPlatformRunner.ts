@@ -19,7 +19,7 @@ import { promises as fs } from 'fs';
 import { join, isAbsolute } from 'path';
 import { resolveTempDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { generateWrapperScript } from './wrapper';
 import { CodeRunnerBridge } from './RuntimeBridge';

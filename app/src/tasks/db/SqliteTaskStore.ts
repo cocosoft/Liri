@@ -1,7 +1,7 @@
 import { join } from 'path';
 import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
-import { DatabaseError, handleError } from '@modules/error';
+import { DatabaseError, handleError } from '@openliri/infra/error';
 import { resolveDbPath } from '@openliri/infra/environment';
 import {
   TASKS_SCHEMA,

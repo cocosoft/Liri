@@ -14,7 +14,7 @@ import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // B2-3（2026-09-23）：文案**唯一来源**；2026-10-21 模板下沉 `constants/goalTemplates`
 //（零依赖叶子）⇒ query 直连子路径，不再需要任何跨层例外（Spec §5.3.1）。
 import { renderGoalTemplate } from '@openliri/infra/constants/goalTemplates';

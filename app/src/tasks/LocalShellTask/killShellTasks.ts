@@ -12,7 +12,7 @@ import { taskRegistry } from '../TaskRegistry';
 import { isLocalShellTask } from './guards';
 import type { LocalShellTaskState } from './guards';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('tasks:killShell');
 

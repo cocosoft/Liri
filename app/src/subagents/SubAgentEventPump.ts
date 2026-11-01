@@ -18,7 +18,7 @@
  * 驱动**（detectStale 不再改写）、**同一子代理仅首次进入 stale 告警一次**（心跳恢复后重置）。
  */
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 

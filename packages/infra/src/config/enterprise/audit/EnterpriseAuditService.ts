@@ -22,7 +22,7 @@ import {
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   resolveDataDir,
   resolveScopedLogsDir,

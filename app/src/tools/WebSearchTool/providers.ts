@@ -4,7 +4,7 @@
  * 支持Bing、Google、DuckDuckGo、Brave等多个搜索引擎
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { buildUserAgent } from '@openliri/infra/constants';
 
 import { getLogger } from '@modules/monitoring';

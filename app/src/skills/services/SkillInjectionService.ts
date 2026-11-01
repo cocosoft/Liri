@@ -11,7 +11,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { Skill } from '../types';
 import { SkillSource, SkillLoadMethod } from '../types';
 import { SkillRegistry } from '../SkillRegistry';

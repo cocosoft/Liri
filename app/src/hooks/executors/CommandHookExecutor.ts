@@ -12,7 +12,7 @@ import {
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('hooks:executors:CommandHookExecutor');

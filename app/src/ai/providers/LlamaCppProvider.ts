@@ -34,7 +34,11 @@ import { configManager } from '@openliri/infra/config';
 import { BaseAIProvider } from './BaseAIProvider';
 import { OpenAIProvider } from './OpenAIProvider';
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error/types';
 import type {
   ChatOptions,
   ChatMessage,

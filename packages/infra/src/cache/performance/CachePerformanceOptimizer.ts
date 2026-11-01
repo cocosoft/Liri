@@ -1,5 +1,5 @@
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('cache:performance:CachePerformanceOptimizer');
 
 export interface MemoryPool {

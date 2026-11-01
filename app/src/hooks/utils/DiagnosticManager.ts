@@ -8,7 +8,7 @@ import { join } from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('DiagnosticManager');
 

@@ -35,7 +35,7 @@ import { PermissionManager } from './PermissionManager';
 // ② 运行时判定（默认工作区是否授权）为真实依赖 ⇒ 改经 core SPI 端口 `ISandboxPort`。
 import type { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
 import { resolveSandbox } from '@openliri/kernel/spi';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 export interface ToolAccessResult {
   allowed: boolean;

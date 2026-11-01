@@ -10,8 +10,8 @@ import { getLogger } from '@modules/monitoring';
 // C1（2026-10-09）：订阅/告警 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 const logger = getLogger('agent:ui:agentUIManager');
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error/handleError';
 
 interface AgentCommand {
   type: 'start' | 'stop' | 'pause' | 'resume' | 'configure' | 'execute';

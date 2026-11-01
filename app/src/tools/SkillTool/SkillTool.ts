@@ -22,7 +22,7 @@ import type {
 } from './types';
 
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getSkillRegistryLazy } from './skillRegistryAccess';
 import { skillUsageTracker } from '@modules/skills';
 import { getToolRegistry } from '@modules/tools/ToolRegistry';

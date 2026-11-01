@@ -5,7 +5,7 @@
 
 import { MetricsService } from '../metrics/MetricsService.js';
 import { OTelMetrics } from './OTelMetrics.js';
-import { errorMessage } from '@modules/error';
+import { errorMessage } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('monitoring\otel\MetricsBridge');

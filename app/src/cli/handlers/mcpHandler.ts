@@ -6,8 +6,8 @@
 import chalk from 'chalk';
 import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 
 const logger = getLogger('mcpHandler');
 

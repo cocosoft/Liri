@@ -19,7 +19,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 // HD-P1-3：工作区级 `.liri` 名的唯一事实源（`core/paths.ts`）
 import { WORKSPACE_CONFIG_DIR_NAME } from '@openliri/infra/environment';
 

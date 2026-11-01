@@ -31,7 +31,7 @@
 import { cp, mkdir, rm, stat } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, resolve } from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { generateSnapshotCopyDiff } from '../apply/WorkspaceApply';
 import type {
   WorkspaceHandle,

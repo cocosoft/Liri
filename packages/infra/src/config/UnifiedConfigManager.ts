@@ -10,7 +10,7 @@
  */
 
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 const logger = getLogger('config:UnifiedConfigManager');
 import {
   globalEventBus,

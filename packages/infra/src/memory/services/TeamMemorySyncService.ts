@@ -6,12 +6,12 @@
 import { join } from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   MemorySecretScanner,
   defaultMemorySecretScanner,
 } from '../scanners/MemorySecretScanner';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const logger = getLogger('memory:services:teamMemorySyncService');
 

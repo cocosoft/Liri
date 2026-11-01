@@ -17,7 +17,7 @@
  * （仅把局部变量改为入参/返回值）。日志 module 名仍为 `chat:streamFlow`。
  */
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import type {
   ParsedToolCall,

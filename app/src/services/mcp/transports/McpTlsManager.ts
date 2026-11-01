@@ -1,7 +1,7 @@
 import fs from 'fs';
 import tls from 'tls';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('services:mcp:tlsManager');
 

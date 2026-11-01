@@ -26,7 +26,7 @@
  * resumeStream 生成器（深度耦合编排）仍留在 ChatManager，属后续待办。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { createCheckpointService } from './SessionCheckpointService.js';
 import { getLocalSession } from './ChatHelper';
 import type {

@@ -5,8 +5,8 @@
 
 import chalk from 'chalk';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import { resolve } from 'path';
 import { writePluginTemplate } from '@modules/plugin-sdk';
 import type { PluginScaffoldOptions } from '@modules/plugin-sdk';

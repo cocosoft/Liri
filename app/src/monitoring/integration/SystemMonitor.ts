@@ -7,7 +7,7 @@
 import os from 'os';
 import type { NetworkInterfaceInfo } from 'os';
 import { logForDebugging } from '@openliri/infra/utils/debug';
-import { errorMessage } from '@modules/error';
+import { errorMessage } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('monitoring\integration\SystemMonitor');

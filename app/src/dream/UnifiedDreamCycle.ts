@@ -43,8 +43,8 @@ import {
 } from '@openliri/infra/environment';
 import { globalEventBus, SystemEvents } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { broadcastEvent } from '@modules/infrastructure';
 import { DreamTransaction, fileTx, TxOperation } from './DreamTransaction';
 import { join } from 'path';

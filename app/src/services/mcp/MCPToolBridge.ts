@@ -10,7 +10,7 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/error';
+} from '@openliri/infra/error';
 
 const logger = getLogger('services:mcp:toolBridge');
 // 2026-10-01 B18-a：**删除** `import { getToolManager } from '@modules/tools'` ——

@@ -14,7 +14,7 @@ import type {
 } from '@modules/ai';
 import type { ImageGenerationProvider, CostEstimate } from '../types';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 

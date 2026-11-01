@@ -69,11 +69,11 @@ import { notifyYieldSettled } from '@modules/chat';
 import { agentRegistry } from '@modules/agent';
 import { taskRegistry } from '@modules/tasks';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { BackgroundAgentTask } from '@modules/tasks';
 import type { BackgroundTaskInfo } from '@modules/tasks/types';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { trackUsage } from '@modules/ai';
 // G-2/E（2026-10-11，Spec §5-D-1 E）：日预算闸门（派生前）与子代理用量计账
 import { getDailyBudget, recordDailyBudgetFromUsage } from '@modules/query';

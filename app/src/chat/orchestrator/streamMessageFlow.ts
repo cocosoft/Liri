@@ -35,7 +35,7 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 import { SimpleMutex } from '@openliri/kernel';
 import { StreamingThinkScrubber } from '@modules/streaming';

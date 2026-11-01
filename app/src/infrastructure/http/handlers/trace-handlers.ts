@@ -8,7 +8,7 @@
  * GET /v1/trace/stats  — Trace 统计快照
  */
 import type http from 'http';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { currentOwnerKey } from '@openliri/kernel/identity/requestScope.js';
 
 export async function handleTraceStats(

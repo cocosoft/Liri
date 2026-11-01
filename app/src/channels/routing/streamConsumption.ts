@@ -6,7 +6,7 @@
 // `generator` 的 `done` 分支负责 `finishExecution` 并返回最终结果。
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '../../error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import { formatToolNotifySummary } from './toolNotifySummary';
 import { ExecutionAbortedError } from '@modules/execution';
 import type { ExecutionManager, ExecutionLease } from '@modules/execution';

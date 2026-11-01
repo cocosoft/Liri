@@ -3,7 +3,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 // C1（2026-10-09）：stream id 熵源改用 crypto

@@ -9,7 +9,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { taskOrchestrator } from '../TaskOrchestrator';
 import { goalMetricsService } from '../db/GoalMetricsService';
 import { evaluateGoalDeviation } from '../review/GoalDeviation';

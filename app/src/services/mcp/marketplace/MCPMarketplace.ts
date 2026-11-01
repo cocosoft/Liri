@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager';

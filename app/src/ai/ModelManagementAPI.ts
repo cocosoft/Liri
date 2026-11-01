@@ -30,7 +30,7 @@
  */
 
 import type http from 'http';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { sendError, type RouteHandler } from './api/utils.js';
 import {
   handleListProviders,

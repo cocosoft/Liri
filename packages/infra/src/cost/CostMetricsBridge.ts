@@ -6,7 +6,7 @@ import type { TokenUsage } from './types';
 import { metrics } from '@opentelemetry/api';
 import type { ObservableGauge } from '@opentelemetry/api';
 import { createLogger, LogLevel } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { recordBackgroundTask } from '@modules/monitoring';
 
 const logger = createLogger({

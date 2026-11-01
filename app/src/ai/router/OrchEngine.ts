@@ -55,7 +55,7 @@ import type { DecompositionResult, SubTask } from './TaskDecomposer.js';
 import { scheduleTopoBatches } from '@modules/tasks';
 import { getLogger } from '@modules/monitoring';
 import { trackUsage } from '@modules/ai';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('ai:orch');
 

@@ -8,7 +8,7 @@ import { HTTPTransport } from './transports/HTTPTransport';
 import { StdioTransport } from './transports/StdioTransport';
 import { WebSocketTransport } from './transports/WebSocketTransport';
 import { SSETransport } from './transports/SSETransport';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { MCPServerConfig } from './types';
 import type { McpTlsConfig } from './transports/McpTlsManager';
 

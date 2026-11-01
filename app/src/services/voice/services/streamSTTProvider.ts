@@ -16,7 +16,7 @@
 
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { buildUserAgent } from '@openliri/infra/constants';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {

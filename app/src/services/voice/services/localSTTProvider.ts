@@ -34,7 +34,7 @@ import {
   readFileSync,
 } from 'fs';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getPlatform } from '@openliri/infra/utils/platform';
 import { resolveModelsDir } from '@openliri/infra/environment';
 // 2026-08-06 接入（3.2/P1-2）：stdin 二进制直传，需嗅探容器以决定如何打包 PCM

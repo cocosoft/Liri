@@ -27,7 +27,7 @@
 
 import type http from 'http';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
-import { handleError, AppError } from '@modules/error';
+import { handleError, AppError } from '@openliri/infra/error';
 import { parseBody, sendJson, sendError } from './utils.js';
 
 export async function handleTranslateAlternatives(

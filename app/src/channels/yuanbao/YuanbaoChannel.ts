@@ -14,7 +14,7 @@ import type {
 import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // B5-2-100+：默认 API 基址 / 厂商站点与配置默认值、Onboard 引导共用同一事实源
 import { YUANBAO_API_BASE_URL, YUANBAO_VENDOR_SITE_URL } from '../constants.js';
 const logger = getLogger('channels:yuanbao:YuanbaoChannel');

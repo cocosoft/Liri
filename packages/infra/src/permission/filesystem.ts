@@ -2,7 +2,7 @@ import * as path from 'path';
 import { PermissionBehavior } from './types/PermissionRule';
 import type { PermissionDecision, PermissionResult } from './PermissionResult';
 import { configManager } from '@openliri/infra/config';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   isPathWithin,
   containsPathTraversal,

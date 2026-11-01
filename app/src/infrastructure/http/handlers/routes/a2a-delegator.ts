@@ -17,7 +17,7 @@
 
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { setA2ADelegator, type A2ADelegator } from './a2a-routes';
 
 const logger = getLogger('http:a2a:delegator');

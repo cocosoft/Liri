@@ -6,7 +6,7 @@
 import type { Tool, ToolCall, ToolResult, ToolContext } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { createToolResult } from '../types/ToolResult';
-import { ModuleError } from '@modules/errors';
+import { ModuleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\services\ToolOrchestration');

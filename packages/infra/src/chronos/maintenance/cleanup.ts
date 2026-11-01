@@ -8,7 +8,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { Logger, LogLevel, getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('ChronosCleanup');
 

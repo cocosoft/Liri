@@ -9,7 +9,7 @@ import { existsSync } from 'fs';
 import { type MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
 import { parseFrontmatter } from '@openliri/infra/utils/frontmatterParser';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { resolveProjectRoot } from '@openliri/infra/environment';
 
 const logger = getLogger('memory:memdir:memoryScanner');

@@ -13,7 +13,7 @@ import {
 import { dirname, join } from 'path';
 import { resolveChronosDir } from '@openliri/infra/environment';
 import type { SchedulerLock } from './types';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('CronTasksLock');

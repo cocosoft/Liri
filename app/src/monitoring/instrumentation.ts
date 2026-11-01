@@ -43,9 +43,13 @@ import { isEnvTruthy } from '@openliri/infra/utils/envUtils';
 import { getProxyUrl, shouldBypassProxy } from '@openliri/infra/utils/proxy';
 import { getCACertificates } from '@openliri/infra/utils/caCerts';
 import { getMTLSConfig } from '@openliri/infra/utils/mtls';
-import { errorMessage } from '../error/utils.js';
+import { errorMessage } from '@openliri/infra/error/utils';
 import { logForDebugging } from '@openliri/infra/utils/debug';
-import { AppError, ErrorCategory, ErrorSeverity } from '../error/types.js';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error/types';
 import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';

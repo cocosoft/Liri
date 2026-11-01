@@ -122,7 +122,7 @@ import {
 } from './agentPreReasoning';
 // U-22/S1（2026-10-17）：不完整回合检测外移（行为等价搬迁）
 import { onIncompleteTurn } from './agentIncompleteTurn';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   loadNegotiationState,
   createNegotiationState,

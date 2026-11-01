@@ -26,7 +26,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { throwIfAborted } from '@modules/agent';
 

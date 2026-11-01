@@ -24,7 +24,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import type { TAORCheckpoint, TAORCheckpointStorage } from './types.js';
 
 const logger = getLogger('query:dbTAORCheckpoint');

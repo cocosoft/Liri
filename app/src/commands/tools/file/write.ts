@@ -7,7 +7,7 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:file:write');
 

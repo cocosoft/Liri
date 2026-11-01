@@ -262,7 +262,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 
 import { TaskStatus } from '@modules/tasks/types';
 

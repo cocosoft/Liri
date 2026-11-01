@@ -25,7 +25,7 @@
  * 定义已**下沉至 core 侧** `core/utils/abortReason.ts`：判据需在**所有层**使用，而 core 侧
  * 消费方（`core/exit/ExitRecorder`）直接引用 infra 层构成 core → infra 倒挂（A 类台账，
  * 见 .trae/specs/layer-inversion-a-class-inventory.md §3.5.1）。本文件保留**同名导出**
- * ⇒ `@modules/error` 对外导出名与签名**逐字不变**（CS01-ROOTFIX 收敛，无行为差异）。
+ * ⇒ `@openliri/infra/error` 对外导出名与签名**逐字不变**（CS01-ROOTFIX 收敛，无行为差异）。
  */
 
 export {

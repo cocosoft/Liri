@@ -12,7 +12,7 @@ import fs from 'fs';
 import path from 'path';
 import { getLogger } from '@modules/monitoring';
 import { resolveOutputDir } from '@openliri/infra/environment';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 // C1（2026-10-09）：temp file id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 

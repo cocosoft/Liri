@@ -14,7 +14,7 @@
  */
 import type http from 'http';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { sendError, readRequestBody } from './handler-utils';
 // C1（2026-09-30 D-104，`tasks` 域 P4）：改经服务层端口
 // C1（2026-09-30 D-117，`query` 域静态面）：编排器 / 结果 / 回调**类型位**改经服务层端口镜像

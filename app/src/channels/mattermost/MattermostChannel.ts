@@ -22,7 +22,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import {
   getDefaultMattermostConfig,
   validateMattermostConfig,

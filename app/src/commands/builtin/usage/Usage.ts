@@ -8,7 +8,7 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getCommandManager as getCmdMgr } from '@modules/commands';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:usage:Usage');

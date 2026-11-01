@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { Tool, type ToolResult } from './types/Tool';
 import { createToolResult } from './types/ToolResult';
 import {

@@ -8,7 +8,7 @@ import {
   type ProviderType,
 } from './ProviderCatalog.js';
 import { configManager } from '@openliri/infra/config';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { existsSync, readFileSync } from 'fs';
 
 import { getLogger } from '@modules/monitoring';

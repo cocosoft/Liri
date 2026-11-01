@@ -14,7 +14,7 @@ import { DiscoveryScheduler } from './DiscoveryScheduler';
 import { DiscoveryFire } from './DiscoveryFire';
 import { cg3Log } from '../cg3Env';
 import { drainManager } from '../drain/DrainManager';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   principalFromKey,
   runWithPrincipal,

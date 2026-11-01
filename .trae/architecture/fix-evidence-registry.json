@@ -10766,7 +10766,7 @@
       },
       "code": [
         "app/src/entrypoints/mcp.ts",
-        "app/src/error/api/errorUtils.ts",
+        "packages/infra/src/error/api/errorUtils.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],
@@ -15814,9 +15814,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/error/index.ts",
-        "app/src/error/safeLog.ts",
-        "app/src/error/api/APISceneClassifier.ts",
+        "packages/infra/src/error/index.ts",
+        "packages/infra/src/error/safeLog.ts",
+        "packages/infra/src/error/api/APISceneClassifier.ts",
         "app/src/bootstrap/preflight.ts",
         "app/src/main.ts",
         "app/scripts/infraBoundaryCore.ts",

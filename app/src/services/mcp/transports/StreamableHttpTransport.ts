@@ -35,8 +35,8 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@openliri/infra/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const logger = getLogger('services:mcp:streamableHttp');
 

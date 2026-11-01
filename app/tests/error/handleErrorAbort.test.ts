@@ -32,13 +32,17 @@
  * `High severity error`）⇒ 全局计数断言会假失败。故改为"只统计与本次消息匹配的事件"。
  */
 import { describe, it, expect } from 'bun:test';
-import { handleError } from '../../src/error/handleError';
-import { AppError, ErrorCategory, ErrorSeverity } from '../../src/error/types';
+import { handleError } from '@openliri/infra/error/handleError';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error/types';
 import {
   SYSTEM_ABORT_REASON,
   isAbortReason,
   markAsExpectedAbort,
-} from '../../src/error/abortReason';
+} from '@openliri/infra/error/abortReason';
 import { globalEventBus } from '@openliri/kernel/events/EventBus';
 
 /** 订阅 error:occurred，按 message 过滤（隔离安全） */

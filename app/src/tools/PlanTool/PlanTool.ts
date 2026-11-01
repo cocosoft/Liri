@@ -18,7 +18,7 @@ import type { Tool } from '../types/Tool';
 import { ToolTag } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
 import { PlanToolOutputSchema, PlanToolOutputJsonSchema } from './schemas';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\PlanTool\PlanTool');

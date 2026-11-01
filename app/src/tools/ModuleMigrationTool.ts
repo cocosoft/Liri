@@ -11,7 +11,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 
 const logger = getLogger('tools:moduleMigration');
@@ -329,7 +329,7 @@ export class ModuleMigrationTool {
 
 import { moduleRegistry } from '../modules/ModuleRegistry';
 import { MODULE_DEFINITIONS } from '../modules/ModuleDefinitions';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 /**
  * 迁移 ${moduleName} 模块到模块管理系统

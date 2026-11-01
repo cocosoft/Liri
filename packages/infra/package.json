@@ -176,6 +176,14 @@
     "./config/*": {
       "types": "./src/config/*.ts",
       "import": "./src/config/*.ts"
+    },
+    "./error": {
+      "types": "./src/error/index.ts",
+      "import": "./src/error/index.ts"
+    },
+    "./error/*": {
+      "types": "./src/error/*.ts",
+      "import": "./src/error/*.ts"
     }
   },
   "scripts": {

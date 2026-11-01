@@ -9,7 +9,7 @@ import {
   resolvePyappHome,
   resolveProjectRoot,
 } from '@openliri/infra/environment';
-import { handleError } from '@modules/error/handleError.js';
+import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('config:io:configIO');
 

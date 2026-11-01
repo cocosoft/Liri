@@ -4,7 +4,7 @@
 import os from 'os';
 import path from 'path';
 import { configManager } from '@openliri/infra/config';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('security:files:ProtectedPaths');

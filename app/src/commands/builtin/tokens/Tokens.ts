@@ -3,7 +3,7 @@
  * 显示基于真实数据的 Token 使用统计
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:tokens:Tokens');

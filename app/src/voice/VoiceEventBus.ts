@@ -9,7 +9,7 @@
 
 import { EventBusImpl } from '@openliri/kernel/events/EventBus';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import type {
   VoiceClientEvent,
   VoiceServerEvent,

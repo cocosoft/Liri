@@ -6,8 +6,8 @@
 import type { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
 import { getLogger, withTraceparentHeaders } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@openliri/infra/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { McpTlsConfig } from './McpTlsManager';
 
 const logger = getLogger('services:mcp:sseTransport');

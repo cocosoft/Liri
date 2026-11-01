@@ -1,7 +1,7 @@
 import { promises as fs, Stats } from 'fs';
 import { join, dirname } from 'path';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('memory:adapters:fileSystemAdapter');
 

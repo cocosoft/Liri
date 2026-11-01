@@ -3,7 +3,7 @@
  * P2 — 对标 OpenClaw 的流程系统
  */
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // C1（2026-10-09）：execution id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 

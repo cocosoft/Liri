@@ -7,7 +7,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { resolve, normalize } from 'path';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import {
   KernelServiceRegistry,
   KernelServiceId,

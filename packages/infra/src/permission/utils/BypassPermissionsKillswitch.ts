@@ -5,7 +5,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // C1（2026-10-09）：旁路 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 

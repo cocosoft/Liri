@@ -19,7 +19,7 @@ import { resolveDbPath, ensureDir } from '@openliri/infra/environment';
 import { dirname } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { SimpleMutex } from '@openliri/kernel';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 

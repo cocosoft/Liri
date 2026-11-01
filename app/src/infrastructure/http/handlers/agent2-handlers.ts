@@ -22,7 +22,7 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 /**
  * 任务消息**可选能力探测**（duck typing，替代原 `as any`）。

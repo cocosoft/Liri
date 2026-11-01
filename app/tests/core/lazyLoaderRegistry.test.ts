@@ -38,7 +38,7 @@ import {
   requireLazyLoader,
   resetLazyLoaders,
 } from '@openliri/kernel';
-import { AppError } from '@modules/error';
+import { AppError } from '@openliri/infra/error';
 import {
   registerKernelLazyLoaders,
   resetKernelLazyLoadersRegistration,

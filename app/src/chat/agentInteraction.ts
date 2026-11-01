@@ -15,7 +15,7 @@
  * **行为等价**：日志文案/级别、心跳间隔、超时与中止语义、`finally` 移除监听与 entry **逐字未变**。
  */
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 import type { ReActEvent } from '@modules/query';
 import type {

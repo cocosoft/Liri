@@ -64,7 +64,7 @@ import {
   SCHEMA_ENTROPY_PERCENT_THRESHOLD,
 } from '@modules/tools';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   enterPhase,
   exitPhase,

@@ -23,7 +23,7 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { Message } from '@modules/session/types/message';
 import { MessageRole } from '@modules/session/types/message';
 // 2026-10-01（子批 C 第 19 条收口）：`dedupeMessagesToolCallBlocks` 实现已**下沉** `utils/chatBlocks.ts`(infra)

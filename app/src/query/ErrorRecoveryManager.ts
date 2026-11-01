@@ -30,7 +30,7 @@ import { getLogger } from '@modules/monitoring';
 // CC-06（Spec §5.2 #10）：`[SYSTEM] ` 前缀由片段类型给出，渲染唯一走 `renderFragment()`。
 import { createFragment, renderFragment } from '@modules/context';
 // 2026-10-19：预期中断判据（单一事实源）——中止不是可恢复错误。
-import { isAbortReason } from '../error/abortReason.js';
+import { isAbortReason } from '@openliri/infra/error/abortReason';
 const logger = getLogger('query:errorRecovery');
 
 /** 恢复类型 */

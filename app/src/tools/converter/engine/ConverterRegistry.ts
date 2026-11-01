@@ -1,5 +1,5 @@
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 import type { BaseConverter } from './BaseConverter';
 import type { ConversionResult, ConversionContext, FileInfo } from './types';

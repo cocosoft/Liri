@@ -12,7 +12,7 @@
  */
 
 import type { Tool } from '../types/Tool';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { isToolEnabled } from '../utils/ToolFeatureFlags';
 import {
   sendNotification,

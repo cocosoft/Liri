@@ -3,9 +3,13 @@
  * 统一管理所有模块的注册、查找和依赖解析
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error/types';
 // 错误码表本体在内核（core 层）；这里经 `error` 模块桶转出 —— 单点出口，R03-002 口径
-import { ErrorCodes } from '@modules/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 // 2026-09-30（台账 D-131，CS01 归一化）：`BootstrapOptions` **单一来源 = `core/di/types.ts`**
 // （原在本文件重复声明，二者结构需人工同步 —— D-127 实测"仅改一处即触发 3 处 TS 报错"）

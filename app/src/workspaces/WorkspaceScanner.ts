@@ -26,7 +26,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getPromptInjectionDetector } from '@openliri/infra/security';
 import type { WorkspaceFile, WorkspaceFiles } from './types';
 

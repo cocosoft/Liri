@@ -44,7 +44,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { loadSnapshot, getSnapshotsRoot } from './SnapshotStorage';
 import { xxHash } from './xxHash';
 import type {

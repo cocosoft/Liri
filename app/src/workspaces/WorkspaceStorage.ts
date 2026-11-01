@@ -37,7 +37,7 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import type { WorkspaceMeta, WorkspaceEntry } from './types';
 import { listAll, getActive, getDefaultRoot } from './WorkspaceRegistry';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 /**
  * 生成工作空间唯一ID

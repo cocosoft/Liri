@@ -3,9 +3,13 @@
  * 统一管理模块导入，提供别名路径和批量导入功能
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error/types';
 // 错误码表本体在内核（core 层）；这里经 `error` 模块桶转出 —— 单点出口，R03-002 口径
-import { ErrorCodes } from '@modules/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import type { ModuleDefinition } from './moduleTypes';
 import { getRegistry } from './moduleTypes';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
@@ -102,7 +106,7 @@ export class ImportManager {
         '@modules/context': './context',
         '@modules/cost': './cost',
         '@modules/docs': './docs',
-        '@modules/error': './error',
+        '@openliri/infra/error': './error',
         '@modules/hooks': './hooks',
         // 2026-10-31（S6 第一步）：移除 `@modules/lsp` 别名 —— 轨 B 已零消费者，
         // 进入 CD05 观察期（工具面校验改由 `tools/lsp/validation.ts` 自持）。

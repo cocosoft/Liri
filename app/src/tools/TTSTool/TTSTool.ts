@@ -7,7 +7,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  * 同步维护 speak 队列，避免多轮会话冲突。
  */
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 import voiceService from '@modules/services/voice';

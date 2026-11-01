@@ -18,7 +18,7 @@ import {
 import { join } from 'path';
 import type { ChangeSet, FileChange, FileChangeType } from './types';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 /** 变更集存储子目录 */
 const CHANGESETS_DIR = 'changesets';

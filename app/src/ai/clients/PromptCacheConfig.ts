@@ -4,7 +4,7 @@
  * 为系统提示、消息和工具定义添加 cache_control 断点
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 /** Anthropic 对单次请求 `cache_control` 断点数的**硬上限**（超限请求会被拒绝） */
 export const MAX_BREAKPOINTS_HARD_LIMIT = 4;

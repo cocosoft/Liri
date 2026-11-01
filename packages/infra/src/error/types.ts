@@ -25,7 +25,7 @@
  * 2026-09-30（分层倒挂收口第 2 批）：错误基座 `AppError` / `ErrorCategory` / `ErrorSeverity`
  * 的定义已**下沉至 core 侧** `core/errors.ts` —— 三者被 core 层多处直接引用，
  * 原位置构成 core → infra 倒挂（A 类台账，见 .trae/specs/layer-inversion-a-class-inventory.md §3.5.1）。
- * 本文件保留同名转出 ⇒ `@modules/error` 与 `@modules/error/types` 对外符号逐字不变。
+ * 本文件保留同名转出 ⇒ `@openliri/infra/error` 与 `@openliri/infra/error/types` 对外符号逐字不变。
  */
 
 import {

@@ -68,7 +68,7 @@ import {
   type PendingRecoveryStats,
 } from '@modules/session';
 import type { LiriEvent } from '@modules/session/types/events.js';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   listNegotiationSessionIds,
   loadNegotiationState,

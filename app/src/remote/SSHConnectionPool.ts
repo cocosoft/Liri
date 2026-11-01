@@ -5,7 +5,7 @@
  */
 
 import { SSHConnection, SSHConfig, SSHConnectionStatus } from './SSHConnection';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('remote:SSHConnectionPool');

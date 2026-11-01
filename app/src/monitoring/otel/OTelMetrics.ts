@@ -21,7 +21,7 @@ import {
   ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
 import { logForDebugging } from '@openliri/infra/utils/debug';
-import { errorMessage } from '@modules/error';
+import { errorMessage } from '@openliri/infra/error';
 import { getPlatform, getWslVersion } from '@openliri/infra/utils/platform';
 
 import { getLogger } from '@modules/monitoring';

@@ -1,5 +1,5 @@
-﻿import { AppError } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+﻿import { AppError } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import type {
   ConversionResult,
   ConversionContext,

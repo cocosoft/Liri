@@ -6,7 +6,7 @@
 
 import { randomUUID } from 'crypto';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('services:mcp:connection');
 import {
@@ -24,7 +24,7 @@ import { MCPTransport } from './transports/MCPTransport';
 import { mcpAuthManager } from './auth/MCPAuth';
 import { feature } from '@openliri/infra/featureflags';
 import type { MCPOAuthConfig } from './auth/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 /**

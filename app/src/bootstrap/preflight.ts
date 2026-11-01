@@ -42,7 +42,7 @@ import { configManager } from '@openliri/infra/config';
 import { setOfflineMode } from '../entrypoints/shared-state.js';
 import { probeExternalModule } from '@openliri/infra/utils/externalDeps';
 import { getLogger, getMonitoringService } from '@modules/monitoring';
-import { handleError, setAPISceneEnvReader } from '@modules/error';
+import { handleError, setAPISceneEnvReader } from '@openliri/infra/error';
 import {
   setConstantsEnvReader,
   setFrozenSnapshotUnfreezer,

@@ -41,7 +41,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { withRetry } from '@openliri/infra/utils/withRetry';
 import { trackUsage } from '@modules/ai';
 import { globalEventBus } from '@openliri/kernel/events/EventBus.js';

@@ -23,7 +23,7 @@ import type http from 'http';
 import { randomUUID } from 'crypto';
 import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
 import { getLogger, getMetricsService } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { messageTraceBuffer } from '@modules/channels';
 import {

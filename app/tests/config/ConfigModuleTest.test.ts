@@ -13,7 +13,7 @@ import { HotReloader } from '@openliri/infra/config/hotreload/HotReloader';
 import { VersionController } from '@openliri/infra/config/version/VersionController';
 import { writeFileSync, mkdirSync, existsSync, unlinkSync, rmSync } from 'fs';
 import { join } from 'path';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const TEST_DIR = join(import.meta.dir, '.test_temp');
 const TEST_CONFIG_PATH = join(TEST_DIR, 'test_config.json');

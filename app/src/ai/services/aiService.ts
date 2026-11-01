@@ -19,10 +19,10 @@ import type {
   AIProvider,
   ThinkingProviderChunk,
 } from '../providers/AIProvider';
-import { AppError } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
-import { ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error';
+import { AppError } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
+import { ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 // A8（退避默认值合一）：重试次数默认值取自唯一真源 `utils/withRetry.ts`
 import { DEFAULT_RETRY_CONFIG } from '@openliri/infra/utils/withRetry';

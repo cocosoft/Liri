@@ -7,7 +7,7 @@
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('TokenManager');
 import { OAuthStorage, createOAuthStorage } from './OAuthStorage.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 /**
  * 缓存的Token接口

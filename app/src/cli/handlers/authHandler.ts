@@ -6,8 +6,8 @@
 import chalk from 'chalk';
 import * as readline from 'readline';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import { oauthService } from '@openliri/infra/oauth';
 import { createGitHubOAuthProvider } from '@openliri/infra/oauth';
 import { createGoogleOAuthProvider } from '@openliri/infra/oauth';

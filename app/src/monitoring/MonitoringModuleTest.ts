@@ -3,7 +3,7 @@ import { IncidentManager } from './incidents/IncidentManager';
 import type { Incident } from './incidents/IncidentManager';
 import { DashboardDataProvider } from './dashboard/DashboardDataProvider';
 import { HealthChecker } from './health/HealthChecker';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 describe('IncidentManager', () => {
   let manager: IncidentManager;

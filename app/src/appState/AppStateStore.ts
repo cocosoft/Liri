@@ -12,7 +12,7 @@ import {
   StateUpdater,
 } from './AppState';
 import { Logger, getLogger as getModuleLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 let _logger: Logger | null = null;
 function getLogger(): Logger {

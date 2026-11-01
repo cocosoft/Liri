@@ -27,7 +27,7 @@
  */
 
 import { describe, expect, it } from 'bun:test';
-import { AppError } from '../../src/error';
+import { AppError } from '@openliri/infra/error';
 import {
   formatVfsPath,
   parseVfsPath,

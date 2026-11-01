@@ -10,7 +10,7 @@
 
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // 2026-10-01 D-192（tools 域取用面收敛）：原**静态** `@modules/tools` 取 `getMediaTemplates`
 // ⇒ `infrastructure -> app` 倒挂。改经 **service 侧端口**（`getCoreAPI().getToolsPort()`）取用
 // —— 同 `file-upload-handlers.ts:29` 的既有做法（service -> service 合法）。

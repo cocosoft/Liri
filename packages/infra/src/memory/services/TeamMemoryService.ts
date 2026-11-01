@@ -21,8 +21,8 @@ import * as fs from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import matter from 'gray-matter';
 
 const logger = getLogger('memory:services:teamMemoryService');

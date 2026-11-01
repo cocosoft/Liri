@@ -16,7 +16,7 @@
  */
 
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { PCMAudioPlayer } from './audioPlayer';
 import { isFFmpegAvailable } from './audioFormatConverter';
 import { transcodeToPcm16 } from './audioNormalizer';

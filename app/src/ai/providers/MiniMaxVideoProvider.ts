@@ -48,7 +48,7 @@ import {
   type VideoTaskPollState,
 } from './AsyncVideoTaskProvider.js';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 import { MINIMAX_API_V1_BASE_URL } from '@openliri/kernel';
 

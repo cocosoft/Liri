@@ -38,7 +38,7 @@ import {
   ErrorCodes,
   ErrorSeverity,
   SecurityError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { SimpleMutex } from '@openliri/kernel';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { SessionGateway } from '@modules/session';

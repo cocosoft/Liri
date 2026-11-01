@@ -10,7 +10,7 @@ import type { PostSamplingHookManager } from '@modules/hooks';
 import type { TokenBudgetController } from '@modules/tokenBudget';
 import type { StopHookManager } from './StopHooks';
 import type { QueryConfigManager } from './config';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('query\deps');

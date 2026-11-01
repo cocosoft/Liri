@@ -26,7 +26,7 @@ import {
 } from 'fs';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 const logger = getLogger('tasks:crossProcessLock');

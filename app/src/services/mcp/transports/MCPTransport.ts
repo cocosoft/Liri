@@ -8,7 +8,7 @@ import {
   MCPClientState,
   MCPTransport as IMCPTransport,
 } from '../types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { McpTlsManager, type McpTlsConfig } from './McpTlsManager';
 
 import { getLogger } from '@modules/monitoring';

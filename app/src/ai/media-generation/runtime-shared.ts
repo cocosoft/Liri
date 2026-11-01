@@ -1,4 +1,4 @@
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type {
   MediaGenerationNormalizationMetadataInput,
   MediaNormalizationEntry,

@@ -6,7 +6,7 @@ import { arch, platform } from 'os';
 import { configManager } from '@openliri/infra/config';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:env:Env');
 

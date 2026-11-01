@@ -6,8 +6,8 @@
  * 组件通过 useVoice() hook 使用语音能力，而非直接操作 voiceService。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import {
   createContext,
   useContext,

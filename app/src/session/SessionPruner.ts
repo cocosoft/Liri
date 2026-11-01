@@ -1,4 +1,4 @@
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import type { SessionStorage } from './SessionStorage';

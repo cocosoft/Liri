@@ -3,7 +3,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { yieldToEventLoop } from '@modules/ai';
 
 import { getLogger } from '@modules/monitoring';

@@ -16,7 +16,7 @@ import { auditFilesystem } from './AuditFilesystem';
 import { auditContextVisibility } from './ContextVisibility';
 import { buildAuditReport } from './AuditReport';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { resolveProjectRoot } from '@openliri/infra/environment';
 
 const logger = getLogger('security:auditEngine');

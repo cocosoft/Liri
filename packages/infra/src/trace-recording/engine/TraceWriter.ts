@@ -25,7 +25,7 @@ import path from 'path';
 import type { TraceRecord } from '../types';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 const logger = getLogger('trace-recording:engine:TraceWriter');
 
 /** TraceWriter 统计 */

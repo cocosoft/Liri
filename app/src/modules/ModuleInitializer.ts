@@ -3,9 +3,13 @@
  * 统一管理模块的注册、初始化和生命周期
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error/types';
 // 错误码表本体在内核（core 层）；这里经 `error` 模块桶转出 —— 单点出口，R03-002 口径
-import { ErrorCodes } from '@modules/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import { type ModuleDefinition, getRegistry } from './moduleTypes';
 /**
  * 模块初始化状态与结构子集的**类型归属**已下沉到 `moduleStateTypes`

@@ -32,7 +32,7 @@
  */
 // C1（2026-09-30 D-104，`tasks` 域 P4）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 /** `pendingWake` 响应字段（多条待触发时取 `triggerAt` 最早的一条） */
 export interface PendingWakeField {

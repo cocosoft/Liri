@@ -31,7 +31,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 import { resolveLlamaModelsDir } from '@openliri/infra/environment';
 import { sendError, readRequestBody } from './handler-utils';

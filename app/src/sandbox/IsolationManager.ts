@@ -7,7 +7,7 @@
 import { resolve, normalize, sep } from 'path';
 import { existsSync, statSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import { configManager } from '@openliri/infra/config';
 
 const logger = getLogger('sandbox:isolationManager');

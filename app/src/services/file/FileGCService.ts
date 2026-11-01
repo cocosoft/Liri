@@ -16,7 +16,7 @@ import { readdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { resolveInboundBaseDir } from '@openliri/infra/environment';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';

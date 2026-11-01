@@ -4,7 +4,7 @@
  */
 
 import type { ToolCall, ToolResult, ToolContext } from '@modules/tools/types';
-import { ModuleError } from '@modules/errors';
+import { ModuleError } from '@openliri/infra/error';
 import { sessionToolQuota } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';

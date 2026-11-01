@@ -3,8 +3,8 @@
  * 实现命令执行超时控制
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error/handleError';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('sandbox:utils:TimeoutController');

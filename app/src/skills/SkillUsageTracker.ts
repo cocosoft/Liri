@@ -13,7 +13,7 @@ import type { SkillUsageRecord } from './persistence/types.js';
 //（`skills/index.ts` 等）路径不变；本文件内部直接使用该类型。
 export type { SkillUsageRecord };
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('skills:SkillUsageTracker');

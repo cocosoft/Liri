@@ -3,7 +3,7 @@
  * 用于显示监控数据和性能报告
  */
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getMonitoringService } from './monitoring/index.js';
 import { getProcessCpuPercent } from '@modules/monitoring';
 

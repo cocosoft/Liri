@@ -8,7 +8,7 @@ import type {
   Message,
 } from '@modules/session/types/message';
 import { createAssistantMessage } from '@modules/session/types/message';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('chat\services\StreamService');

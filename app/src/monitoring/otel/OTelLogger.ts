@@ -6,7 +6,7 @@
 import { diag, DiagLogLevel } from '@opentelemetry/api';
 import type { DiagLogger } from '@opentelemetry/api';
 import { logForDebugging } from '@openliri/infra/utils/debug';
-import { errorMessage } from '@modules/error';
+import { errorMessage } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';

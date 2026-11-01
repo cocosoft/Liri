@@ -3,8 +3,8 @@
  * 提供主题上下文和主题管理功能
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import React, {
   createContext,
   useContext,

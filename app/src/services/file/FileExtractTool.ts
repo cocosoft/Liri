@@ -23,7 +23,7 @@ import { readdir, stat, mkdir, readFile } from 'fs/promises';
 import { join, basename, extname } from 'path';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { resolveInboundDir } from '@openliri/infra/environment';
 import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';

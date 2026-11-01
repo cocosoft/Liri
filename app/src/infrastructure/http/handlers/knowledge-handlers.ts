@@ -14,7 +14,7 @@ import {
 import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   globalEventBus,
   LOCAL_REQUEST_BASE_URL,

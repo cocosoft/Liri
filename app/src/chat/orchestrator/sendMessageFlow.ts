@@ -35,7 +35,7 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import {
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,

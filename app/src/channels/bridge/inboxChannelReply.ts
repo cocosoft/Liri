@@ -29,7 +29,7 @@
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { withRetry, RetryableError } from '@openliri/infra/utils/withRetry';
 import type { InboxItem } from '@modules/runtime/InboxManager.js';
 // 仅类型：sqlite 连接在 `_writeDeadLetter` 里**动态** import（不进启动面），类型用擦除式导入

@@ -9,7 +9,7 @@ import { OAuthClient } from '../services/OAuthClient';
 import type { OAuthConfig, OAuthAuthResult } from '../types/OAuthTypes';
 import { OAuthError } from '../types/OAuthTypes';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('oauth:flows:deviceAuth');
 

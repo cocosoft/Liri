@@ -1,6 +1,6 @@
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { SessionStore } from './SessionStore';
 import { SessionPruner } from './SessionPruner';
 import type { PrunerOptions } from './SessionPruner';

@@ -6,7 +6,7 @@
  * （`resetMicrocompactState()`，理由见下方函数注释）；该措辞不再适用于本文件。
  */
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 /**
  * 压缩后清理：在自动压缩与手动压缩后执行，释放被追踪结构占用的内存。

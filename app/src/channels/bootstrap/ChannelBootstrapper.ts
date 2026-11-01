@@ -3,7 +3,7 @@
  * 根据配置文件自动创建并注册已启用通道到 ChannelRegistry
  */
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { channelRegistry } from '../registry/ChannelRegistry';
 // 2026-10-01 D-207（子批 D，`channels -> context` 倒挂收口）：`EffectScope` 已**改归 infra**
 // （`utils/EffectScope.ts`，`context/` 仅转出）⇒ 改**相对直连 infra 模块根**。

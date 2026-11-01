@@ -17,7 +17,7 @@
  * **不得**做成模块级单例（会跨 ChatManager 实例 / 测试串扰）。
  */
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 /** D5-A：单条对话记忆的**内容上限**（按会话聚合后必须封顶，否则单条无界增长） */
 const CONVERSATION_MEMORY_MAX_CHARS = 20_000;

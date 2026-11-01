@@ -28,7 +28,7 @@
  * - 未注册 `scheme` ⇒ `VFS_UNKNOWN_MOUNT`（**不**回退本地文件系统，CS03）。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 /** 结构化 VFS 路径：`<scheme>://<authority>[/<path>]` */
 export interface VfsPath {

@@ -8,7 +8,7 @@ import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { load, dump } from 'js-yaml';
 
-import { handleError } from '@modules/error/handleError.js';
+import { handleError } from '@openliri/infra/error/handleError';
 import { resolveProjectRoot } from '@openliri/infra/environment';
 
 export interface ModelYamlConfig {

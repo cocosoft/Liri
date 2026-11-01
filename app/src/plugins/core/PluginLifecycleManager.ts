@@ -15,7 +15,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { EffectScope } from '@modules/context';
 
 const logger = getLogger('plugins:core:pluginLifecycleManager');

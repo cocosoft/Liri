@@ -4,7 +4,7 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { RegistryType, ThirdPartyRegistry } from '@modules/services/mcp';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 

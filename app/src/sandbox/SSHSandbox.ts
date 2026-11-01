@@ -9,7 +9,7 @@ import type {
   SandboxExecuteResult,
 } from './SandboxTypes';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import { spawn, type ChildProcess } from 'child_process';
 import { appendWithinLimit, resolveOutputLimit } from './SandboxPolicy';
 

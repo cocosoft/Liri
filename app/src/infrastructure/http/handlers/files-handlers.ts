@@ -23,7 +23,7 @@ import type http from 'http';
 import type { Dirent } from 'fs';
 import path from 'path';
 import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 import { logSecurityBlock } from '@openliri/infra/security/SecurityAuditLogger';

@@ -7,7 +7,7 @@ import type {
 } from './pipeline/CommandPipeline';
 import { AdvancedCommandHistory } from './history/AdvancedCommandHistory';
 import type { HistoryEntry } from './history/AdvancedCommandHistory';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 describe('CommandPipeline', () => {
   let pipeline: CommandPipeline;

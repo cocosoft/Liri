@@ -6,7 +6,7 @@
  * 将 API 错误分类为具体场景，支持用户消息生成、重试决策和动作提示。
  */
 
-import { APIError } from '@modules/error';
+import { APIError } from '../types';
 import {
   APIConnectionError,
   APIConnectionTimeoutError,

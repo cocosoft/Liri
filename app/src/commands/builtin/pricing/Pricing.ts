@@ -6,7 +6,7 @@
 
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { modelManager } from '@modules/ai';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   readFileSync,
   writeFileSync,

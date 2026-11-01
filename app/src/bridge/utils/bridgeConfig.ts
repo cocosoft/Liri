@@ -9,7 +9,7 @@ import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { BridgeConfig, PollConfig, BackoffConfig } from '../types';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 const logger = getLogger('bridge:utils:bridgeConfig');
 

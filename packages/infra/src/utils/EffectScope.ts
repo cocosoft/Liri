@@ -27,7 +27,7 @@
  *
  * H5-⑤ 收口（台账 D-207，子批 D `service -> app`）：原位置 `context/EffectScope.ts`（app 层），
  * 而 `channels`(service) 的 `ChannelBootstrapper.ts` 需要它 ⇒ `channels -> context` 倒挂。
- * **未下沉 core**（当时该文件依赖 `@modules/error` + `@modules/monitoring`（**infra**），
+ * **未下沉 core**（当时该文件依赖 `@openliri/infra/error` + `@modules/monitoring`（**infra**），
  * 下沉 core 会新增 2 条 `core -> infra` 边 ⇒ **净零收益**；B2 解环后二者已改为
  * `@openliri/kernel/*` 门面直连，位置维持 infra 不动）⇒ 改归 **infra**（`utils/`）：
  * service/app → infra 均合法，且本文件对 error/monitoring 的依赖变为 **infra → infra**（合法）。

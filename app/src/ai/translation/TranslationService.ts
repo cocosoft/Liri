@@ -10,8 +10,12 @@
 
 import { randomUUID } from 'crypto';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '../../error/types';
-import { handleError } from '../../error/handleError';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error/types';
+import { handleError } from '@openliri/infra/error/handleError';
 import { modelRouter } from '../modelRouter';
 import { providerRegistry } from '../providers/ProviderRegistry';
 import { trackUsage, estimateMessagesTokens } from '@modules/ai';

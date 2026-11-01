@@ -5,7 +5,7 @@
 
 import type { UnifiedSessionStorage } from './UnifiedStorage.js';
 import { StorageConfig, StorageType } from './UnifiedStorage.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 // 内置存储实现（循环导入消除，2026-09-20）：**单一注册中枢** —— 工厂是唯一知道全部实现的

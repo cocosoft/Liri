@@ -5,7 +5,7 @@
 import { CostMetricsBridge, getCostMetricsBridge } from './CostMetricsBridge';
 import { getCostRecordRepository } from './CostRecordRepository';
 import { canViewBillingCosts } from './BillingAccessControl';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   DepartmentCostReporter,
   getDepartmentCostReporter,

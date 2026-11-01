@@ -8,7 +8,7 @@
 
 import { EventEmitter } from 'events';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const logger = getLogger('plugins:api:kernelServiceRegistry');
 

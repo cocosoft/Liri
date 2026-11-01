@@ -6,7 +6,7 @@ import { promisify } from 'util';
 import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('chronos:remote');
 

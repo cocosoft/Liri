@@ -11,7 +11,7 @@ import {
   PermissionHookMetadata,
 } from './types/PermissionHook';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { SpanStatusCode, metrics } from '@opentelemetry/api';
 import type { Span, Counter } from '@opentelemetry/api';
 import { permissionMetrics } from './metrics/PermissionMetricsStore';

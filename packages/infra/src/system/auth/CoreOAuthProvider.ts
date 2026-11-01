@@ -12,7 +12,7 @@ import {
 } from '@openliri/infra/oauth';
 import { OAuthClient, OAuthConfig } from '@openliri/infra/oauth';
 import { configManager } from '@openliri/infra/config';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { OAUTH_AUTH_BASE_URL } from '@openliri/infra/constants';
 
 /**

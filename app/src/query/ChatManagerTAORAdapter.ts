@@ -8,7 +8,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { messageProjector } from '@modules/context';
 import type {
   ToolCall,

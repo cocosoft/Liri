@@ -11,7 +11,7 @@ import {
   PermissionResponseEvent,
 } from '../types';
 import { debugBody, extractErrorDetail } from '../utils/debugUtils';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 // A8（退避默认值合一）：`BackoffConfig` 与 `DEFAULT_BACKOFF_CONFIG` 的**唯一声明点**在
 // `bridge/types/BridgeApiTypes.ts`（本文件原先**自带一份同值副本** ⇒ 已删，改为引用）
 import {

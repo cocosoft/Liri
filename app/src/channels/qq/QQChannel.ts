@@ -19,8 +19,8 @@ import type {
   IChannelInboundAdapter,
   InboundProtocol,
 } from '@modules/channels/types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
 import { splitMessage } from '../messageSplitter';
 // 大文件拆分（spec file-size-debt-partition-plan §40）：协议常量/类型与四个内聚簇外迁

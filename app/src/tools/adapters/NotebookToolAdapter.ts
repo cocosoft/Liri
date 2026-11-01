@@ -15,7 +15,7 @@ import { ToolTag } from '../types/Tool.js';
 import { NotebookToolImpl } from '../notebook/NotebookToolImpl.js';
 import type { Notebook, CodeCell } from '../notebook/types/index.js';
 import { notebookManager } from '../notebook/NotebookManager.js';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 /**
  * U-03（2026-10-20）：`notebook` 的**模型可见出参结构**。

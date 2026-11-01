@@ -6,7 +6,7 @@ import { ChatMessage, ChatHistoryOptions } from '../models/types';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('chat:history:chatHistory');
 

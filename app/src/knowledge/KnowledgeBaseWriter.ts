@@ -31,7 +31,7 @@ import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 
 import { Logger, getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
 import type { EventBus } from '@openliri/kernel';

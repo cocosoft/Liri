@@ -25,7 +25,7 @@
  * 按 priority 升序注册；resolve 时选第一个 isApplicable 的 provider。
  * 选择纯自动（git-worktree=1 > snapshot-copy=2），不读配置策略。
  */
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type {
   WorkspaceHandle,
   WorkspacePrepareInput,

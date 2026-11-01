@@ -28,7 +28,7 @@ import type {
 } from './security/CompleteSecuritySystem';
 import { ChatEcosystem } from './ecosystem/ChatEcosystem';
 import type { Extension } from './ecosystem/ChatEcosystem';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 describe('AdvancedStreamingProcessor', () => {
   let processor: AdvancedStreamingProcessor;

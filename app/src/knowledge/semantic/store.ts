@@ -31,7 +31,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { CodeChunk } from './chunker';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 /** 索引条目 */
 export interface IndexEntry extends CodeChunk {

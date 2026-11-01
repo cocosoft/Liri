@@ -30,7 +30,7 @@ import fs from 'fs';
 import path from 'path';
 import { homedir } from 'node:os';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { RollbackIntegration } from '@openliri/infra/security';
 import type { SessionGateway } from '@modules/session';
 import type { Message } from '@modules/session/types/message.js';

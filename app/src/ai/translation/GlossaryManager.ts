@@ -12,7 +12,7 @@ import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '../../error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('ai:glossary');
 const MAX_GLOSSARY_ENTRIES = 200;

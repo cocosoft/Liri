@@ -18,7 +18,7 @@ import { resolveDbPath } from '@openliri/infra/environment';
 // 多租户 P5：用量行带归属（删除租户时可按前缀清除）
 import { currentOwnerKey } from '@openliri/kernel/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { TASKS_SCHEMA, TABLE_NAMES } from './schema';
 
 const logger = getLogger('tasks:goalMetrics');

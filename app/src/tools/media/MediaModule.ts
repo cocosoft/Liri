@@ -9,7 +9,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { globalToolManager } from '../core/ToolManager';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { createImageConvertTool } from './ImageConvertTool';
 import { createImageResizeTool } from './ImageResizeTool';
 import { createImageCropTool } from './ImageCropTool';

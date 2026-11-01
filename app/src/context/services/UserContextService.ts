@@ -8,7 +8,7 @@ import { readFile, access } from 'fs/promises';
 import { join } from 'path';
 import { constants } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { TTLCache } from '@openliri/infra/utils/cache';
 import { configManager } from '@openliri/infra/config';
 

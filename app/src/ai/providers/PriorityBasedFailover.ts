@@ -29,7 +29,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { AIProvider, ChatOptions } from './AIProvider';
 import { providerRegistry } from './ProviderRegistry';
 import type { ProviderRecord } from './ProviderManager';

@@ -7,7 +7,7 @@
 import { getLogger } from '@modules/monitoring';
 // C1（2026-10-09）：凭据 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('ai:credentials:credentialPool');
 

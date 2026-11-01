@@ -11,7 +11,7 @@
 // **不做**任何正文文本匹配（守 CS02）。
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 import type { InteractiveCard } from '../types/IChannel';
 import { channelRegistry } from '../registry/ChannelRegistry';

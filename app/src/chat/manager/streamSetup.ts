@@ -14,7 +14,7 @@
  */
 
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { SensitiveErrorType } from '@openliri/infra/security';
 import { recursivelySanitizeUnicode } from '@openliri/infra/utils/sanitization';
 import type {

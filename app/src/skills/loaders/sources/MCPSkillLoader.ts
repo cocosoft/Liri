@@ -9,7 +9,7 @@ import {
 import { createSkillCommand } from '@modules/skills/utils/skillParser';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 const logger = getLogger('skills:mcpLoader');
 
 /**

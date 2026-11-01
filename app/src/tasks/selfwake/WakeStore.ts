@@ -18,7 +18,7 @@ import {
 import { join, basename } from 'path';
 import type { WakeEntry } from './types';
 import { cg3DataDir, cg3Log } from '../cg3Env';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 export class WakeStore {
   private dir: string;

@@ -3,7 +3,7 @@
  * 对标 CC 的日志诊断能力
  */
 import fs from 'fs';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('monitoring\logs\diagnostic\LogDiagnostic');

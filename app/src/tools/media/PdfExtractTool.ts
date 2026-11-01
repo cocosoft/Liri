@@ -11,7 +11,7 @@ import { MEDIA_PDF_EXTRACT_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { extractPdfPages } from '@openliri/infra/media/pdf/PdfPageExtractor';
 import type { PdfExtractOptions } from '@openliri/infra/media/pdf/PdfPageExtractor';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import fs from 'fs';
 
 const logger = getLogger('media:tool:pdf-extract');

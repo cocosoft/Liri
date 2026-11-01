@@ -10,7 +10,7 @@ import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { imageProcessor } from '@openliri/infra/media/image/ImageProcessor';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('media:tool:resize');
 

@@ -16,8 +16,8 @@ import type {
   IChannelPairingAdapter,
 } from '@modules/channels/types';
 import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 // B5-2-100+：厂商站点与 Onboard 引导链接共用同一事实源

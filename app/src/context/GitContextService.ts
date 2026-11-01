@@ -8,7 +8,7 @@ import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 // `MAX_STATUS_CHARS` 统一到真源 `./GitDetector`（硬编码治理「同名常量」B3-2）。
 import { MAX_STATUS_CHARS } from './GitDetector';

@@ -28,7 +28,7 @@ import type {
 } from '@modules/acp';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('bridge:ModuleBridgeRuntime');
 
 export interface ModuleBridgeDependencies {

@@ -7,7 +7,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { buildUserAgent } from '@openliri/infra/constants';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import { resolveCacheDir } from '@openliri/infra/environment';
 import {
   withRetry,

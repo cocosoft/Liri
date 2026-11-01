@@ -31,7 +31,7 @@ import { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 import { knowledgeDocsProvider } from '../../docs/FileDocsProvider';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { globalEventBus } from '@openliri/kernel';
 import { writeAuditLog } from '../KnowledgeAuditLogger';
 import { existsSync } from 'fs';

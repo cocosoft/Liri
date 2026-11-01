@@ -16,7 +16,7 @@ import { transcriptArchiver } from '@openliri/infra/runtimeHost';
 import { resolveAiAccess } from '@openliri/kernel/spi';
 import { getLogger } from '@modules/monitoring';
 import { CRED_STORED_MARKER } from '@openliri/infra/constants';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 /**
  * 梦境引擎最小契约（chronos 侧只驱动 `start`/`stop`，不引 app 实现类）

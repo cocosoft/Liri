@@ -22,7 +22,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
 import {
   DEFAULT_CN_FONT,

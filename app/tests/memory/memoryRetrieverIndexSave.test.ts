@@ -42,7 +42,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getErrorStats } from '../../src/error/handleError';
+import { getErrorStats } from '@openliri/infra/error/handleError';
 import { MemoryRetrieverImpl } from '@openliri/infra/memory/retrievers/MemoryRetriever';
 import { decodePayload } from '@openliri/infra/utils/MemoryFileEnvelope';
 

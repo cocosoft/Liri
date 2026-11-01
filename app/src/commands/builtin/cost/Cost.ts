@@ -7,7 +7,7 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';

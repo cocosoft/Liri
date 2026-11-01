@@ -11,7 +11,7 @@ import type http from 'http';
 import fs from 'fs';
 import path from 'path';
 import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { resolveMediaDir, isPathWithin } from '@openliri/infra/environment';
 
 /** 音频根目录 */

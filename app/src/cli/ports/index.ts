@@ -24,7 +24,7 @@
  * 端口检测与管理
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import * as net from 'net';
 

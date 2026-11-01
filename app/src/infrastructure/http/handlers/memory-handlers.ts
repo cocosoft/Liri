@@ -10,7 +10,7 @@ import {
   readRequestBody,
   checkFilePathPermission,
 } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
 import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';

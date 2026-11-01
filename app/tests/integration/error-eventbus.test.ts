@@ -6,8 +6,12 @@
 
 import { describe, it, expect } from 'bun:test';
 import { globalEventBus } from '@openliri/kernel/events/EventBus';
-import { handleError, getErrorStats } from '../../src/error/handleError';
-import { AppError, ErrorCategory, ErrorSeverity } from '../../src/error/types';
+import { handleError, getErrorStats } from '@openliri/infra/error/handleError';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error/types';
 
 describe('handleError EventBus 集成测试', () => {
   it('CRITICAL 错误发布 error:occurred 事件', async () => {

@@ -15,8 +15,8 @@ import type { HooksSettings } from '@openliri/infra/utils/settings/types';
 import { parseFrontmatter } from '@openliri/infra/utils/frontmatterParser';
 import { parseYAML, parseJSON, AgentDefinitionFile } from './agentDefinition';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('agent:agentLoader');
 

@@ -27,7 +27,7 @@ import { promisify } from 'util';
 import { bridgeStateStore } from './state/BridgeStateStore.js';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 const logger = getLogger('bridge:BridgeMain');
 
 // 阻塞源收敛（2026-10-04）：git 探测改用异步 exec，避免同步阻塞事件循环

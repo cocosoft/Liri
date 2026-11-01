@@ -41,7 +41,7 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import type { LiriEvent, LiriEventType } from '@modules/session/types/events';
 import { isLiriEvent } from '@modules/session/types/events';
 import { sanitizeEvent } from './eventSanitize';

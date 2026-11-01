@@ -8,7 +8,7 @@
  */
 import http from 'http';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { ServerResponse } from 'http';
 import { costTracker } from '@openliri/infra/cost';
 import {

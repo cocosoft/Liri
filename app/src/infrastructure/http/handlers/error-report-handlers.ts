@@ -9,8 +9,8 @@
 
 import type http from 'http';
 import { getLogger } from '../../../monitoring/logs/Logger';
-import { handleError } from '../../../error/handleError';
-import { getErrorStats } from '../../../error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
+import { getErrorStats } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('http:error-report');
 

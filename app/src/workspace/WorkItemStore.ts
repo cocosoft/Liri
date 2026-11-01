@@ -19,7 +19,7 @@ import { join } from 'path';
 import type { WorkItem, WorkItemStatus, WorkItemType } from './types';
 import type { LiriConfigManager } from './LiriConfigManager';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 

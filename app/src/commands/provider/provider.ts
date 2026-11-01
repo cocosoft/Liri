@@ -30,7 +30,7 @@ import { resolvePyappHome } from '@openliri/infra/environment';
 import { DEEPSEEK_API_BASE_URL } from '@openliri/kernel';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getProviderManager, type ProviderType } from '@modules/ai';
 import { testEndpoints, formatSpeedResults } from '@modules/ai';
 import { fetchModels } from '@modules/ai';

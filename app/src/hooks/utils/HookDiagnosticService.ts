@@ -9,7 +9,7 @@ import { join } from 'path';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { getLogger } from '@modules/monitoring';
 import { resolveLogsDir } from '@openliri/infra/environment';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('HookDiagnosticService');
 

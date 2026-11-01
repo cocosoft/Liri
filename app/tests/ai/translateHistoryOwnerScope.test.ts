@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { TranslateHistoryStore } from '../../src/ai/translation/TranslateHistoryStore';
-import { AppError } from '../../src/error/types';
+import { AppError } from '@openliri/infra/error/types';
 import type { Principal } from '@openliri/kernel/identity/principal';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 

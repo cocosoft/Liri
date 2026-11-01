@@ -32,8 +32,8 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/error/types.js';
-import { handleError } from '@modules/error/handleError.js';
+} from '@openliri/infra/error/types';
+import { handleError } from '@openliri/infra/error/handleError';
 import { ConfigSnapshot, createDefaultConfigSnapshot } from './ConfigSnapshot';
 import { ConfigRecovery } from './ConfigRecovery';
 import { redactConfig } from './ConfigRedactor';

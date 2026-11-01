@@ -1,5 +1,5 @@
-﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+﻿import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import type { DOMElement } from './dom-types.js';
 import { FocusEvent } from './events/focus-event.js';
 

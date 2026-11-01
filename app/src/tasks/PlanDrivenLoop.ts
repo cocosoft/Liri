@@ -16,7 +16,7 @@
  */
 
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // C1（2026-09-30 D-121，`R00-003` P2/G1）：SSE 广播改经 core SPI 端口（core 内自洽）
 import { resolveBroadcast } from '@openliri/kernel';
 import { TAORLoop } from '@modules/query/TAORLoop.js';

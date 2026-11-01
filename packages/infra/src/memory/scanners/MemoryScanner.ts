@@ -5,7 +5,7 @@ import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { isValidMemoryType } from '../types/MemoryType';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('memory:scanners:memoryScanner');
 

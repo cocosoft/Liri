@@ -3,7 +3,7 @@ import { join, relative, resolve, normalize } from 'path';
 import { existsSync } from 'fs';
 import { configManager } from '@openliri/infra/config';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('chronos:autoDream:consolidationWorker');

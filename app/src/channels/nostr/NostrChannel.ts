@@ -13,7 +13,7 @@ import type {
 } from '@modules/channels/types';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { NOSTR_SITE_URL } from '../constants';
 const logger = getLogger('channels:nostr:NostrChannel');
 

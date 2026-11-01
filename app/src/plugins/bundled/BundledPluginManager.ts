@@ -4,7 +4,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('plugins\bundled\BundledPluginManager');

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 190615273@qq.com
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import type { ToolAwareClient } from '@modules/ai';
 import type { ChatSession } from '@modules/session/types/session.js';

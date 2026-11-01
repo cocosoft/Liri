@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // 多租户 P3（2026-10-21）：内存累计按身份分桶，读侧只回当前身份
 import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
 

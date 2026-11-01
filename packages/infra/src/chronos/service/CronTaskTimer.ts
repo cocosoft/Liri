@@ -3,7 +3,7 @@
  * 对标 OpenClaw 的 timer 机制
  */
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 const logger = getLogger('chronos:timer');

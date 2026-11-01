@@ -5,7 +5,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import type { EffectScope } from '@modules/context';

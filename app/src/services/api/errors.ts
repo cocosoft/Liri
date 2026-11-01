@@ -7,7 +7,7 @@
  * 继承 AppError 接入统一错误处理体系，使用 ErrorCategory.API 分类。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services\api\errors');
@@ -15,9 +15,9 @@ const logger = getLogger('services\api\errors');
 /**
  * API 错误类
  *
- * @deprecated 请使用 @modules/error/types 中的 APIError 替代。
+ * @deprecated 请使用 @openliri/infra/error/types 中的 APIError 替代。
  *   本类为 services/api 模块自定义的 API 错误类型，与 error/types.ts 中的
- *   标准 APIError 功能重叠。新代码应直接使用 @modules/error/types 的 APIError。
+ *   标准 APIError 功能重叠。新代码应直接使用 @openliri/infra/error/types 的 APIError。
  *   此类型将在未来版本中移除。
  */
 export class ApiError extends AppError {
@@ -53,7 +53,7 @@ export class ApiError extends AppError {
 }
 
 /**
- * @deprecated 请使用 @modules/error/types 中的 NetworkError 替代。
+ * @deprecated 请使用 @openliri/infra/error/types 中的 NetworkError 替代。
  *   此类型将在未来版本中移除。
  */
 export class ApiConnectionError extends AppError {
@@ -69,7 +69,7 @@ export class ApiConnectionError extends AppError {
 }
 
 /**
- * @deprecated 请使用 @modules/error/types 中的 NetworkError 替代。
+ * @deprecated 请使用 @openliri/infra/error/types 中的 NetworkError 替代。
  *   此类型将在未来版本中移除。
  */
 export class ApiTimeoutError extends AppError {

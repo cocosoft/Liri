@@ -15,7 +15,7 @@
  * **行为等价**：提示词文案、日志字段、失败返回 `undefined` 的语义**逐字未变**。
  */
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 
 import { getRealToolNamesForTask } from '../../tools/index.js';

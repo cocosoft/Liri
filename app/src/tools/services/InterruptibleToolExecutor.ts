@@ -6,7 +6,7 @@
 import type { Tool, ToolCall, ToolResult, ToolContext } from '../types/Tool';
 import { ToolOrchestration } from './ToolOrchestration';
 import { toolResultBudgetManager } from './ToolResultBudget';
-import { ModuleError } from '@modules/errors';
+import { ModuleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\services\InterruptibleToolExecutor');

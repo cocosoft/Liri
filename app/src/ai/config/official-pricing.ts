@@ -18,7 +18,7 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { OFFICIAL_PRICING } from './official-pricing-data.js';
 import type { OfficialProviderPricing } from './official-pricing-data.js';
 

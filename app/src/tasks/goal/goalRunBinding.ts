@@ -31,7 +31,7 @@ import {
   emitGoalStatusChanged,
   emitGoalUpdated,
 } from './GoalEvents';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { chargeGoalUsage } from './goalBudget';
 import { renderGoalTemplate } from '@openliri/infra/constants/goalTemplates';
 import { enqueueIdleContinuation } from './goalIdleContinuation';

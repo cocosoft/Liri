@@ -35,8 +35,8 @@ import { resolveDbPath } from '@openliri/infra/environment';
 // 多租户 P5：使用日志带归属（删除租户时可按前缀清除）
 import { currentOwnerKey } from '@openliri/kernel/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const logger = getLogger('ai:usageStats');
 

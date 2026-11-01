@@ -16,7 +16,7 @@ import {
 } from '@modules/tasks/types.js';
 import type { BaseTask } from '@modules/tasks';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 import { ANSI_RESET } from '@openliri/infra/constants';
 const logger = getLogger('commands:tasks:tasks');

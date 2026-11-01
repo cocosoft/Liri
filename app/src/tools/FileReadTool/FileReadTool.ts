@@ -9,7 +9,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { getReadProtectionService } from '@openliri/infra/security';
 import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
 import { resolveReadFileState } from '@openliri/infra/utils/fileStateCache';

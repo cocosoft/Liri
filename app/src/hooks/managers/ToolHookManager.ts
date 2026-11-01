@@ -14,7 +14,7 @@ import {
 } from '../types/ToolHooks';
 import { PermissionBehavior } from '@openliri/infra/permission/types/PermissionRule';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('ToolHookManager');
 

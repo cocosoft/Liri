@@ -32,7 +32,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { loadSnapshot, listSessionSnapshots } from './SnapshotStorage';
 import { findDependentRounds } from './UndoManager';
 import type { RoundSnapshot, InjectStrategy } from './types';

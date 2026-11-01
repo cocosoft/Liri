@@ -25,8 +25,8 @@ import type {
 import { getLogger, Logger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error';
 import { MultiAccountManager } from '@modules/channels/accounts';
 import type { ResolvedAccount } from '@modules/channels/accounts';
 // 2026-08-06（P0-2）：授权行为与 dmPolicy 一致的默认实现

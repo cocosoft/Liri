@@ -19,7 +19,7 @@ import {
   supports1MContext as aliasSupports1MContext,
 } from './models/ModelAliases.js';
 import { modelManager } from './models/ModelManager.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';

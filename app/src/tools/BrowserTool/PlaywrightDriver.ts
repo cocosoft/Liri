@@ -7,7 +7,7 @@
  * 使用 unknown 类型避免编译时对 playwright 包的依赖。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:playwrightDriver');
 

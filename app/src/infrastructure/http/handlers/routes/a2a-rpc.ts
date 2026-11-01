@@ -37,7 +37,7 @@
 
 import type http from 'http';
 import { json, readBody } from '../handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import {
   A2A_LIST_TASKS_DEFAULT_PAGE_SIZE,

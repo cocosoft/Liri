@@ -177,7 +177,7 @@
     "裸字面量:app/src/dream/ColdStorage.ts": 1,
     "裸字面量:app/src/dream/DreamCycleDb.ts": 2,
     "裸字面量:app/src/dream/DreamPersistence.ts": 1,
-    "裸字面量:app/src/error/ErrorIds.ts": 4,
+    "裸字面量:packages/infra/src/error/ErrorIds.ts": 4,
     "裸字面量:app/src/evals/adversarialProposer.ts": 1,
     "裸字面量:app/src/evals/online/weights.ts": 4,
     "裸字面量:app/src/evals/repoSnapshot.ts": 1,

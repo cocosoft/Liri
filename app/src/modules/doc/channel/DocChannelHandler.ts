@@ -4,7 +4,7 @@
  */
 
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
-import { AppError } from '@modules/error/types';
+import { AppError } from '@openliri/infra/error/types';
 const logger = getLogger('doc:channel');
 
 /**

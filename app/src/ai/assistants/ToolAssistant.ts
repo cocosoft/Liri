@@ -3,7 +3,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { Tool, ToolInfo } from '@modules/tools/types/Tool';
 import { aiService } from '../services/aiService';
 import { AIMessage, AIMessageRole, AIResponse } from '../models/types';

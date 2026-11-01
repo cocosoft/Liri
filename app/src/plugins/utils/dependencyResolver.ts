@@ -11,7 +11,7 @@ import {
   validatePluginIdentifier,
 } from './pluginIdentifier.js';
 import type { PluginId } from './schemas.js';
-import { PluginError } from '@modules/error';
+import { PluginError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('plugins:utils:dependencyResolver');

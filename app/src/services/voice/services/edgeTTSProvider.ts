@@ -11,7 +11,7 @@
 import { createHash, randomUUID, randomBytes } from 'crypto';
 import { writeFileSync } from 'fs';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type {
   TTSProvider,
   TTSVoice,

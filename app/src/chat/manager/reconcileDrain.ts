@@ -16,7 +16,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { ReconcileService } from '@modules/session';
 import type { EventLogStorage, SessionGateway } from '@modules/session';
 

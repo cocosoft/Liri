@@ -33,7 +33,7 @@
 
 import { EventEmitter } from 'events';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
 import type { IChannelPlugin } from '../types/IChannel';

@@ -12,7 +12,7 @@ import {
   PluginEventType,
   PluginEvent,
 } from '../types/PluginTypes';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const logger = getLogger('plugins:core:pluginRegistry');
 

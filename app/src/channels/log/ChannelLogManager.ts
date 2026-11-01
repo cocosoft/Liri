@@ -7,7 +7,7 @@ import fs from 'fs';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import path from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
 import { getRedactMiddleware } from '@openliri/infra/security';

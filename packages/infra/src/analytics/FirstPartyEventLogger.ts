@@ -3,7 +3,7 @@ import { configManager } from '@openliri/infra/config';
 // C1（2026-10-09）：事件 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { APP_VERSION } from '@openliri/infra/constants';
 
 const logger = getLogger('FirstPartyEventLogger');

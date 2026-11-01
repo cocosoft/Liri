@@ -14,7 +14,7 @@ import type http from 'http';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { join } from 'path';
 import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 // C1（2026-09-30 D-114，`workspace` 域 P2）：工作空间配置 / 工作项存储改经服务层端口
 // （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）

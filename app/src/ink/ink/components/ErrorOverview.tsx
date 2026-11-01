@@ -5,7 +5,7 @@ import React from 'react';
 import Box from './Box.js';
 import Text from './Text.js';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ink:ink:components:ErrorOverview');

@@ -27,7 +27,7 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { getLogger } from '@modules/monitoring';
 import { getMonitoringService } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // C1（2026-09-30 D-108，`ai` 域 P2）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // ⚠️ **类型位** app 类型（原文由 ai 域提供）已替换为服务层端口类型。

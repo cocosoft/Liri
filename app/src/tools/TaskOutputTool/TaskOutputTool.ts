@@ -19,7 +19,7 @@ import { taskRegistry } from '@modules/tasks';
 import { TaskStatus, isTerminalTaskStatus } from '@modules/tasks/types';
 import { TaskOutputOutputSchema, TaskOutputOutputJsonSchema } from './schemas';
 import type { BaseTask } from '@modules/tasks';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\TaskOutputTool\TaskOutputTool');

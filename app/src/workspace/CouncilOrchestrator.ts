@@ -22,7 +22,7 @@ import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 import { OrchestrationEventType } from '@modules/agent';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import aiService, {
   estimateMessagesTokens,
   type AIMessage,

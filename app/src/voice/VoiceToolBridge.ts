@@ -5,7 +5,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import type { VoiceToolCallEvent, VoiceToolDeclaration } from './types';
 
 /** 活跃工具调用记录 */

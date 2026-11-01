@@ -84,13 +84,13 @@ export function detectSystemLocale(): SupportedLocale {
   } catch (err) {
     // Intl API 不可用时静默降级 —— 用**惰性** import 上报错误。
     //
-    // 理由：静态 `import { handleError } from '@modules/error'` 会**连带拉起**
+    // 理由：静态 `import { handleError } from '@openliri/infra/error'` 会**连带拉起**
     // DB 建表（attachments_sources）/ OAuthService / TaskComplexityClassifier 等
     // 重量级初始化 —— 实测 import 该模块耗时 **9.27s**（台账 N-53）。而本 catch
     // 仅在 Intl API 不可用时触发（极罕见），不值得让**每一次** import
     // `extended.ts`（如 `i18n:check` 脚本）都付出该代价。
     // 惰性 import 为 fire-and-forget：不阻塞同步的 locale 检测流程。
-    void import('@modules/error').then(({ handleError }) =>
+    void import('@openliri/infra/error').then(({ handleError }) =>
       handleError(err, { module: 'system:i18n', action: 'detectLocale' })
     );
   }

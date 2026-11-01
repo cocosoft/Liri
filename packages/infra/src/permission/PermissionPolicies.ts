@@ -4,7 +4,7 @@
  */
 
 import { join, resolve, normalize } from 'path';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { PermissionDecision } from './PermissionResult';
 import { createDenyDecision, createAskDecision } from './PermissionResult';
 import { ALL_UNIFIED_RULES, type UnifiedRulePlatform } from '@openliri/infra/security';

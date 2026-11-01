@@ -33,7 +33,7 @@ import { knowledgeRouter } from '../KnowledgeRouter';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { globalEventBus } from '@openliri/kernel';
 import { writeAuditLog } from '../KnowledgeAuditLogger';
 

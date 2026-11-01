@@ -17,7 +17,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { channelRegistry } from '@modules/channels';
 import type { ChannelId, MessageContext } from '@modules/channels/types';
 import type {

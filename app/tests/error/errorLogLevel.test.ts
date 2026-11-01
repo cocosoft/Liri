@@ -39,9 +39,12 @@
  */
 import { describe, it, expect } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { resolveErrorLogLevel } from '../../src/error/handleError';
-import { AppError, ErrorSeverity } from '../../src/error/types';
-import { ErrorCodes, type ErrorCodeDef } from '../../src/error/ErrorCodes';
+import { resolveErrorLogLevel } from '@openliri/infra/error/handleError';
+import { AppError, ErrorSeverity } from '@openliri/infra/error/types';
+import {
+  ErrorCodes,
+  type ErrorCodeDef,
+} from '@openliri/infra/error/ErrorCodes';
 import { LogLevel } from '../../src/monitoring/logs/Logger';
 
 describe('错误级别口径（附带发现 12）', () => {

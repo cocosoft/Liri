@@ -14,7 +14,7 @@ import {
   type EventSubscription,
   type EventListener as CoreEventListener,
 } from '@openliri/kernel/events/EventBus';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type {
   SessionLifecycleEvent,
   SessionEventType,

@@ -2,7 +2,7 @@
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { join, dirname } from 'path';
 import { resolveDataSubDir } from '@openliri/infra/environment';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@modules/monitoring';

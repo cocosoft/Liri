@@ -32,7 +32,7 @@
  */
 
 import { promises as fs } from 'fs';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import type { LiriEvent } from '@modules/session/types/events';
 import { splitJsonLine } from './eventLineParse';

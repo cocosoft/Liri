@@ -11,7 +11,7 @@ import {
   ServerStatus,
 } from './types';
 import { LSPClient } from './LSPClient';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\lsp\LSPToolImpl');

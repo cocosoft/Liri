@@ -14,7 +14,7 @@ import { ToolHookManager } from '@modules/hooks';
 import { ToolHookContext } from '../hooks/types/ToolHooks';
 import { v4 as uuidv4 } from 'uuid';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { tryCoerceToolArgs } from './ToolArgCoercer.js';
 import type { ToolSchema } from './ToolArgCoercer.js';
 import { findMissingRequiredParams } from './utils/ToolUtils';

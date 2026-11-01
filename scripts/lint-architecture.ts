@@ -390,7 +390,7 @@ class ArchitectureLinter {
             severity: 'error',
             file: relative(process.cwd(), file),
             message: `错误类 ${errName} 已在规范错误文件（core/errors.ts / error/types.ts）中定义，禁止重复定义`,
-            suggestion: `删除此定义，改为从 @modules/error 导入 ${errName}`,
+            suggestion: `删除此定义，改为从 @openliri/infra/error 导入 ${errName}`,
           });
         }
       }
@@ -413,7 +413,7 @@ class ArchitectureLinter {
             severity: 'error',
             file: relative(process.cwd(), file),
             message: `${className} 直接 extends Error（应继承 AppError）`,
-            suggestion: `改为 extends AppError（从 @modules/error 导入），或删除此文件合并到规范错误文件`,
+            suggestion: `改为 extends AppError（从 @openliri/infra/error 导入），或删除此文件合并到规范错误文件`,
           });
           continue;
         }
@@ -423,7 +423,7 @@ class ArchitectureLinter {
           severity: 'warning',
           file: relative(process.cwd(), file),
           message: `${className} 直接 extends Error，应继承 AppError`,
-          suggestion: `改为 extends AppError（从 @modules/error 导入）`,
+          suggestion: `改为 extends AppError（从 @openliri/infra/error 导入）`,
         });
       }
     }

@@ -3,7 +3,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import { AgentMemory, AgentMemoryScope } from '../models/types';
 import {
   writeFileSync,

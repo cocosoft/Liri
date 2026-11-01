@@ -4,7 +4,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import { AgentDefinition, AgentSource } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';
 import { loadPluginAgents as loadPluginAgentsFromPlugins } from '../utils/loadPluginAgents';

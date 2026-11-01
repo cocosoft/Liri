@@ -13,7 +13,7 @@ import type { PermissionConfig } from '@openliri/infra/config/types';
 import { SecurityAudit } from './SecurityAudit';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 const logger = getLogger('security:SecurityIntegration');
 
 // P0-3（`security-decision-verdict.md` §3.2）：`SecurityDecision` 的**唯一来源**为 `./types`

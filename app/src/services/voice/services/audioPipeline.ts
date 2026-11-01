@@ -12,7 +12,7 @@
  *   const result = await stt.transcribe(data);
  */
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { isFFmpegAvailable } from './audioFormatConverter';
 import { ffmpegPipeConvert } from './audioNormalizer';

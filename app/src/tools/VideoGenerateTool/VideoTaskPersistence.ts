@@ -13,7 +13,7 @@
 import { openBunDatabase, type BunDatabase } from '@openliri/infra/external';
 import { resolveDbPath } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('tools:videoGenerate');
 

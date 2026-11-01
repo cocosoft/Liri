@@ -13,7 +13,7 @@ import {
 } from '../persistence/ContextPersistence';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { join } from 'path';
 
 const logger = getLogger('context:persist:lifecycle');

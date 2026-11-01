@@ -25,7 +25,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { resolveProjectRoot } from '@openliri/infra/environment';
 // 多租户 P3：交互条目按归属校验（与 `canAccessOwnerKey` 同口径）
 import { canAccessOwnerKey } from '@openliri/kernel/identity/requestScope';

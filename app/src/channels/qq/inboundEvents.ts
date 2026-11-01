@@ -13,7 +13,7 @@
  */
 
 import { Logger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { MessageContext } from '@modules/channels/types';
 import type {
   RegisterFileInput,

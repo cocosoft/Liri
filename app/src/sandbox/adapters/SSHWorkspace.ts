@@ -19,7 +19,7 @@ import {
 import type { SSHSandboxConfig } from '../SSHSandbox';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('sandbox:adapters:SSHWorkspace');
 
 const execAsync = promisify(exec);

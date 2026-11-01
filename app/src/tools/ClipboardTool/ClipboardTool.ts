@@ -7,7 +7,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 
 import * as os from 'os';
 import { spawn } from 'child_process';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';

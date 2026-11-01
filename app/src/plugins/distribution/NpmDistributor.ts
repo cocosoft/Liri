@@ -18,7 +18,7 @@ import {
   readdirSync,
 } from 'fs';
 import { join } from 'path';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('plugins:distribution:npmDistributor');
 

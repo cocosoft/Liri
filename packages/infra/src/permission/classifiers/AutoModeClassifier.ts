@@ -3,7 +3,7 @@
  * 用于自动判断工具使用是否安全
  */
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { DANGEROUS_TOOL_KEYWORDS } from './dangerous-tool-keywords';
 import { DANGEROUS_COMMAND_PATTERNS } from './dangerous-command-patterns';
 import { SENSITIVE_PATH_PATTERNS } from './sensitive-path-patterns';

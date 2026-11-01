@@ -7,7 +7,7 @@ import { join } from 'path';
 import { Database } from '@openliri/infra/external';
 import { v4 as uuidv4 } from 'uuid';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import {
   resolveDbPath,
   resolveTenantDbPath,

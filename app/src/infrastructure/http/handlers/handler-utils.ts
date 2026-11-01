@@ -30,7 +30,7 @@ import http from 'http';
 import path from 'path';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   resolveOutputDir,
   resolveDownloadsDir,

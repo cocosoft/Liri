@@ -42,7 +42,7 @@ import {
   type VideoTaskPollState,
 } from './AsyncVideoTaskProvider.js';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { VIDU_API_BASE_URL } from '@openliri/kernel';
 
 /** 官方 state 枚举 → 基类轮询状态枚举 */

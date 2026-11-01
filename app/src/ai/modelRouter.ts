@@ -41,7 +41,7 @@
  *   仅由 ModelManagementAPI 使用，不参与运行时 chat 请求。
  */
 
-import { handleError } from '@modules/error/handleError.js';
+import { handleError } from '@openliri/infra/error/handleError';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 // 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
 import { UUID_RE } from '@openliri/kernel';

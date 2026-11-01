@@ -12,7 +12,7 @@
  */
 
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 const logger = getLogger('mail:channel');
 
 /**

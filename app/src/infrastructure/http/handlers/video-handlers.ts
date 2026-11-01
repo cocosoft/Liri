@@ -15,7 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // C1（2026-09-30 D-93）：工具运行时改经服务层端口（消除 service → app 跨层引用）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { resolveMediaDir, isPathWithin } from '@openliri/infra/environment';

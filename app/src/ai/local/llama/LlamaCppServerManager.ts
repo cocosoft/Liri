@@ -58,7 +58,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import {
   resolveLlamaBinaryPath,

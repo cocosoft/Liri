@@ -3,9 +3,13 @@
  * 统一定义所有模块的基本信息、依赖关系和生命周期
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@openliri/infra/error/types';
 // 错误码表本体在内核（core 层）；这里经 `error` 模块桶转出 —— 单点出口，R03-002 口径
-import { ErrorCodes } from '@modules/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import { ModuleCategory, type ModuleDefinition } from './moduleTypes';
 
 import { getLogger } from '@openliri/kernel/loggerFacade.js';

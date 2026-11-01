@@ -28,7 +28,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { SessionGateway } from '@modules/session';
 import { abortSessionPlans } from '../planAbortRegistry.js';
 import { deleteNegotiationState } from '../services/NegotiationState';

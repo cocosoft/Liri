@@ -3,7 +3,7 @@ import path from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import crypto from 'crypto';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { ICache, CacheStats } from '@openliri/infra/cache/types';
 import { TTLCache } from '@openliri/infra/utils/cache';
 

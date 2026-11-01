@@ -7,10 +7,10 @@ import { createHash, randomBytes } from 'crypto';
 import { MCPOAuthConfig, MCPOAuthToken, MCPOAuthState } from './types.js';
 import { feature } from '@openliri/infra/featureflags';
 import { OAuthDiscovery, createOAuthStorage } from '@openliri/infra/oauth';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('services:mcp:auth:MCPAuth');
 
 export class MCPAuthManager {

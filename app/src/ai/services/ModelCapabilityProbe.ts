@@ -35,7 +35,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { AIProvider } from '../providers/AIProvider';
 import { providerRegistry } from '../providers/ProviderRegistry';
 import { modelPricingService } from '../models/ModelPricingService';

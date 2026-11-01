@@ -8,7 +8,7 @@
 
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 import { resolveWorkspacePath } from './workspaces-handlers';
 // C1（2026-09-30 D-114，`workspace` 域 P2）：成本报告**类型位**改经服务层端口**逐字镜像**

@@ -16,7 +16,7 @@
 
 import { providerRegistry, ToolAwareClient } from '@modules/ai';
 import type { IToolExecutor, ToolRegistry } from '@modules/ai';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { resolveModelRoutingFailure } from '../../ai/providers/modelRoutingGuard';
 
 export interface ModelClientPorts {

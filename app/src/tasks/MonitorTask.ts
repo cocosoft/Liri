@@ -12,7 +12,7 @@ import type { TaskState } from './types';
 import { BaseTask } from './BaseTask';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { resolveHttpPort, LOCAL_SERVICE_HOST } from '@openliri/kernel';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 const logger = getLogger('tasks:MonitorTask');

@@ -26,7 +26,7 @@
  */
 
 import type http from 'http';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 import { modelPricingService } from '../models/ModelPricingService.js';
 import type { UpsertPricingParams } from '../models/ModelPricingService.js';

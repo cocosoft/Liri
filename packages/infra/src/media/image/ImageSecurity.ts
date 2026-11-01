@@ -1,6 +1,6 @@
 import { getLogger } from '@modules/monitoring';
 import fs from 'fs';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import {
   imageFormatDetector,
   ImageFormatDetector,

@@ -13,7 +13,7 @@ import { configManager } from '@openliri/infra/config';
 // `performance → monitoring` 构成 R7 内环）。语义不变：SPI 由 performance 侧注册。
 import { profileCheckpoint } from '@openliri/kernel/profilerFacade';
 import { getLogger, Logger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   AlertPresetLoader,
   createAlertPresetLoader,

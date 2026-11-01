@@ -17,7 +17,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 import { configManager } from '../../ConfigManager.js';
 

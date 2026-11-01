@@ -15,7 +15,7 @@ import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 // C1（D-117）：构件存储 / 上下文服务 / 引擎钩子 的导入已移除（改经服务层端口，见下方 C1 注释块）
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { readBody, json } from './handler-utils';
 // C1（2026-09-30 D-111，零散单点收尾）：改经服务层端口（本批仅**动态**取用面）
 // C1（2026-09-30 D-116，`workspace` 域 P4）：项目条目存储 / 类型位改经服务层端口

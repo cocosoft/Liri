@@ -18,7 +18,7 @@ import type { BashTaskOptions } from './types';
 import { taskRegistry } from './TaskRegistry';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 const logger = getLogger('tasks:LocalBashTask');
 
 /** 卡死检测间隔（毫秒） */

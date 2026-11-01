@@ -9,7 +9,7 @@ import { mkdir, readFile, writeFile, unlink, readdir, stat } from 'fs/promises';
 import { join, extname } from 'path';
 import { createHash } from 'crypto';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('channels:media');
 

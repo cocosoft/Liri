@@ -13,7 +13,7 @@
  * （`NODE_ENV==='test'`）保留 fail-open（大量单测不注入权限管理器为既有约定）。
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 /**
  * 断言权限管理器已注入（未注入 ⇒ 抛 `AppError`，**fail-fast**）。

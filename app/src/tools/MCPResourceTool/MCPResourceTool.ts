@@ -21,7 +21,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 
 const logger = getLogger('tools:mcpResource');
 // 2026-10-08（MCP 双轨收敛 C-1）：本工具的 4 个操作由**自研 `MCPServerManager` 链**

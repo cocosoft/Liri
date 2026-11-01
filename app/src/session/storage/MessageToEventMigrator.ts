@@ -26,7 +26,7 @@ import { join } from 'path';
 import * as readline from 'readline';
 import { resolveLegacySessionsDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { Message } from '@modules/session/types/message';
 // P2-3（2026-10-27）：把工具失败分类写进 `tool/result` 事件（落盘侧校验）

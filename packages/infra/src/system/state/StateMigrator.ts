@@ -4,7 +4,7 @@
  * 包括：迁移注册、版本检查、迁移执行、回滚支持
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('StateMigrator');
 

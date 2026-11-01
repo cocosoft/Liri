@@ -8,7 +8,7 @@ import type { AIProvider, ChatOptions } from '@modules/ai';
 import type { ChatMessage } from '@modules/ai';
 import { trackUsage } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 
 const logger = getLogger('tasks:cronExecutor');

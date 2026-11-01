@@ -1,5 +1,5 @@
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 // C1（2026-10-09）：mailbox id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import React, {

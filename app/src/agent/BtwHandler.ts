@@ -16,7 +16,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import type { ChatMessage } from '@modules/ai';
 import type { AIProvider } from '@modules/ai';
 import { trackUsage } from '@modules/ai';

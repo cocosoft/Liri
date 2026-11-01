@@ -12,7 +12,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import * as fs from 'fs';
 import * as path from 'path';
 

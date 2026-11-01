@@ -119,7 +119,7 @@ export type {
 import { getLogger } from '@modules/monitoring/logs/Logger';
 import { globalEventBus, SystemEvents } from '@openliri/kernel';
 import type { CostRecordedEvent } from '@openliri/kernel';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // 多租户 P5：成本事件按归属身份落库（订阅者不能依赖发布者的 ALS 作用域）
 import {
   principalFromKey,

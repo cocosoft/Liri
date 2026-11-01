@@ -110,7 +110,7 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/error';
+} from '@openliri/infra/error';
 // C3-S3（2026-10-09）：`DEFAULT_MODEL_SENTINEL` 随 `resolveSmartModel` 迁至 `llmChatOps.ts`（已移除）。
 // 状态块 statusType 契约（CS02：判据为结构化标记，勿写字面量）
 import { STATUS_TYPE } from '@shared/types';

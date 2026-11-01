@@ -8,7 +8,7 @@
  */
 
 import { getLogger, withTraceContextFromRequest } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';
 import { createHash, randomUUID } from 'crypto';

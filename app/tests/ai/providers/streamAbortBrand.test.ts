@@ -39,8 +39,8 @@
 
 import { describe, it, expect, afterEach } from 'bun:test';
 import { createSystemAbortReason } from '../../../src/query/ReActLoop.js';
-import { isAbortReason } from '../../../src/error/abortReason.js';
-import { ErrorSeverity, type AppError } from '../../../src/error/types.js';
+import { isAbortReason } from '@openliri/infra/error/abortReason';
+import { ErrorSeverity, type AppError } from '@openliri/infra/error/types';
 import { OllamaProvider } from '../../../src/ai/providers/OllamaProvider.js';
 import { GoogleProvider } from '../../../src/ai/providers/GoogleProvider.js';
 import { VertexAIProvider } from '../../../src/ai/providers/VertexAIProvider.js';

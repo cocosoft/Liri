@@ -29,7 +29,7 @@ import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { checkSsrf, describeSsrfBlock } from './ssrf.js';
 const logger = getLogger('tools:WebFetchTool:WebFetchTool');
 

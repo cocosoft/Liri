@@ -11,7 +11,7 @@
  *   4. 无 Hook → 按 Settings 规则正常判断
  */
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('hooks:guard');
 

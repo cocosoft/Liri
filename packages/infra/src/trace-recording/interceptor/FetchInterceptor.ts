@@ -16,7 +16,7 @@ import { extractModelName } from './URLMatcher';
 import crypto from 'crypto';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // 多租户 P3（2026-10-21）：录制时打归属，统计引擎据此分桶
 import { currentOwnerKey } from '@openliri/kernel/identity/requestScope.js';
 const logger = getLogger('trace-recording:interceptor:FetchInterceptor');

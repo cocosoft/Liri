@@ -44,7 +44,7 @@ import type { SimpleMutex } from '@openliri/kernel';
 import type { PendingInteractionEntry } from '@openliri/infra/utils/pendingInteractions';
 import type { SessionScopedRegistry } from '@openliri/infra/utils/SessionScopedRegistry';
 import { agentTelemetry } from '@modules/agent';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
 import { rollupSessionSummaryToLongTerm } from '@openliri/infra/memory';
 import { contextLayeringEnabled } from '../services/MessageContextPipeline';

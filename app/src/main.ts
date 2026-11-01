@@ -120,7 +120,7 @@ import { APP_VERSION } from '@openliri/infra/constants';
 let activeHttpService: LocalHTTPService | null = null;
 
 import { getLogger, Logger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 // 「预期中断」判据（与循环侧 system_aborted 判定同源；见 `isAbortReason` 注释）
 import { isAbortReason } from '@modules/query';
 // 大文件拆分（spec file-size-debt-partition-plan）：启动前检查/首次引导已外迁至
@@ -1208,7 +1208,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
       logger.error('uncaughtException', error);
 
       // 动态 import handleError（模块系统可能尚未初始化，使用动态导入降低依赖风险）
-      import('./error/handleError.js')
+      import('@openliri/infra/error/handleError')
         .then(({ handleError }) =>
           handleError(error, {
             module: 'app:top',
@@ -1253,7 +1253,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
       writeCrashDump('unhandledRejection', reason);
       logger.error('unhandledRejection', { reason: String(reason) });
 
-      import('./error/handleError.js')
+      import('@openliri/infra/error/handleError')
         .then(({ handleError }) =>
           handleError(reason, {
             module: 'app:top',
@@ -1896,7 +1896,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     });
 
     await (
-      await import('./error/handleError.js')
+      await import('@openliri/infra/error/handleError')
     ).handleError(error, { module: 'app:main', action: 'launch' });
     profileCheckpoint('launch_error');
     profileReport();

@@ -10,7 +10,7 @@ import {
   DirectConnectManager,
   parseCCProtocolUrl,
 } from './DirectConnectManager.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 /**
  * 远程会话配置

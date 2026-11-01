@@ -27,8 +27,8 @@
 ## 使用
 
 ```typescript
-import { AppError } from '@modules/error/types';
-import { ErrorCodes } from '@modules/error/ErrorCodes';
+import { AppError } from '@openliri/infra/error/types';
+import { ErrorCodes } from '@openliri/infra/error/ErrorCodes';
 
 throw AppError.fromCode(ErrorCodes.TOOL_EXEC_FAILED, {
   module: 'ToolExecutor',

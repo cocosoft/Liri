@@ -4,8 +4,8 @@
  * 跟踪应用帧率性能指标
  */
 
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import {
   createContext,
   useContext,

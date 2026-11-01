@@ -12,7 +12,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('services:mcp:connManager');
 import {
@@ -36,7 +36,7 @@ import {
   MCP_RECONNECT_MAX_BACKOFF_MS,
 } from './types';
 import type { McpCommand } from './commandManager';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { getMCPServerManager } from './MCPServerManager';
 // 2026-10-08（MCP 双轨收敛 C-1）：SDK 客户端取用的**单一入口**返回类型
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';

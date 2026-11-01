@@ -46,7 +46,7 @@ import { getPluginDevGuideSystem } from '../docs/PluginDevGuide';
 import { getApiDocSystem } from '../docs/ApiDocs';
 import { getPerformanceAnalyzer } from '../monitoring/performance';
 import { getLogger, flush } from '../monitoring/logs/Logger';
-import { handleError as recordError } from '@modules/error';
+import { handleError as recordError } from '@openliri/infra/error';
 
 import { getThemeManager } from '@openliri/infra/system/theme';
 import { createCLIHandler } from './handlers/cliHandler';

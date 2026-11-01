@@ -3,8 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BaseTool } from '../BaseTool';
 import { ToolTag } from '../types/Tool';
-import { AppError } from '../../error/types';
-import { ErrorCodes } from '../../error/ErrorCodes';
+import { AppError } from '@openliri/infra/error/types';
+import { ErrorCodes } from '@openliri/infra/error/ErrorCodes';
 import type {
   ToolParam,
   ToolUseContext,

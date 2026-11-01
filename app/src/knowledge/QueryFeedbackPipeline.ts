@@ -34,7 +34,7 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { getQueryLogStore } from '@modules/query';

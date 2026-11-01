@@ -26,7 +26,7 @@ import { resolvePyappHome } from '@openliri/infra/environment';
 import { getBuildVariant } from '@openliri/kernel';
 import { configManager } from '..';
 import { resolveAiAccess } from '@openliri/kernel/spi';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 
 import {

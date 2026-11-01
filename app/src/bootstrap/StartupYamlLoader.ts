@@ -7,8 +7,8 @@ import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { getLogger } from '../monitoring/logs/Logger.js';
 import { configManager } from '@openliri/infra/config';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error';
 import type { StartupConfig, PluginSource } from './StartupConfig.js';
 import { DEFAULT_STARTUP_CONFIG } from './StartupConfig.js';
 

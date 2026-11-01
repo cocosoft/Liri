@@ -17,14 +17,14 @@
  */
 
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
-import { handleError } from '@modules/error/handleError.js';
+import { handleError } from '@openliri/infra/error/handleError';
 // 2026-09-25 §6.8：预期中断判据（常量 / 品牌 / isAbortReason）已**下沉**到 `error/`，
 // 以供更低层共用（`handleError` 唯一错误入口、`ai/providers/*` 包装点、`core/exit/ExitRecorder`）。
 import {
   SYSTEM_ABORT_REASON,
   SYSTEM_ABORT_BRAND,
   isAbortReason,
-} from '../error/abortReason.js';
+} from '@openliri/infra/error/abortReason';
 import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
 // 2026-10-08（架构治理 P1 · §1.6 红线审计修复）：steering 来源联合的**单一事实源**在
 // `session/types/eventPayloads.ts`（service 层）⇒ app 层向下引用合法，不另立第二份联合。

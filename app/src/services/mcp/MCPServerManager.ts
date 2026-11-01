@@ -4,7 +4,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('services:mcp:serverManager');
 import {
@@ -15,7 +15,7 @@ import {
   type ScopedMcpServerConfig,
 } from './types';
 import { MCPConnection } from './MCPConnection';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 /**
  * 服务器统计信息

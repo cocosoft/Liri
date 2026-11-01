@@ -40,7 +40,7 @@ import type {
   VideoGenerationResult,
 } from './AIProvider';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { randomUUID } from 'crypto';
 import { normalizeByCaps } from '../media-generation/index.js';
 

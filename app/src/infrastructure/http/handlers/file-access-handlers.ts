@@ -31,7 +31,7 @@ import fs from 'fs';
 import path from 'path';
 import { homedir } from 'os';
 import type { HandlerCtx } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 

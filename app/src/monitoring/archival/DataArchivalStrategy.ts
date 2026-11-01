@@ -18,7 +18,7 @@ import { createGzip, createGunzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { createReadStream, createWriteStream } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { StructuredLogger } from '../logs/StructuredLogger';
 import type { StructuredLogEntry } from '../logs/LogMemory';
 import { getMetricsService } from '../metrics/MetricsService';

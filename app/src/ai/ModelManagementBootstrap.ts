@@ -32,7 +32,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { ProviderType } from '@modules/ai';
 import {
   DEFAULT_OLLAMA_ENDPOINT,

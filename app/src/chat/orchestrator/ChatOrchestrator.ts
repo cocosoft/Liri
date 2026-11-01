@@ -52,7 +52,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { getOutputGuardRegistry } from '@openliri/infra/security/outputGuardRegistry';
 import { SimpleMutex } from '@openliri/kernel';
 // PC-1（2026-10-07）：护栏命中 ⇒ 下发前端（消息级"已打码/已阻断"标注，不再静默改写）

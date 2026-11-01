@@ -28,7 +28,7 @@
 import type { SkillDB } from './persistence/SkillDB';
 import type { RegistryEventHandler, SkillRegistry } from './SkillRegistry';
 import { SkillSource } from './types/index';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('skills:SkillProvenanceTracker');

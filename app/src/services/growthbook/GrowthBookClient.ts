@@ -7,7 +7,7 @@ import type {
 import { DEFAULT_GROWTHBOOK_CONFIG } from './GrowthBookConfig';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('services:growthbook:client');
 

@@ -25,7 +25,7 @@ import type {
   SendMessageOptions,
 } from '@modules/session/types/message';
 import { messageProjector } from '@modules/context';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { resolveToolEffect } from '@modules/tools';
 import { assertEntryBudget } from '../../query/dailyBudgetGate';
 import { stripThinkResponseTags } from '../services/MessageContextPipeline';

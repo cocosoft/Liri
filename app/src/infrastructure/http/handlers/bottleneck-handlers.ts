@@ -4,7 +4,7 @@
  * POST /v1/workspaces/:id/intelligence/bottleneck
  */
 import type http from 'http';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { HandlerCtx } from './handler-utils';
 // C1（2026-09-30 D-113，`workspace` 域 P1）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';

@@ -8,7 +8,7 @@ import path from 'path';
 
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import {
   resolveSessionsDir,
   resolveDataDir,

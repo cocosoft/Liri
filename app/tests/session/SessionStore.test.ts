@@ -7,7 +7,7 @@
 //   - 网关写后 adapter 读一致（S3 验证门禁）
 
 import { describe, expect, it } from 'bun:test';
-// 必须先求值 SessionManager：SessionStore → @modules/error → ... → plugins/index.ts
+// 必须先求值 SessionManager：SessionStore → @openliri/infra/error → ... → plugins/index.ts
 // 顶层动态 import PluginManager → SessionManager → 构造内 new SessionStore()，
 // 若 SessionStore 仍处于求值中（TDZ）会崩溃。先 import SessionManager 使其完整求值
 // （含其 hoisted 的 SessionStore/SessionPruner import），后续引用即安全。

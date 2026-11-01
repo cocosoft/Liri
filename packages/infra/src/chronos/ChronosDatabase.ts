@@ -6,7 +6,7 @@ import type {
   SystemConfig,
   TaskStatus,
 } from './types';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { resolveDbPath } from '@openliri/infra/environment';
 import { SimpleMutex } from '@openliri/kernel';
 

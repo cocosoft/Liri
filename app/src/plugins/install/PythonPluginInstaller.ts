@@ -13,7 +13,7 @@ import { promisify } from 'util';
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { PythonPluginConfig } from '../core/PythonPluginAdapter';
 
 const logger = getLogger('plugins:install:pythonPluginInstaller');

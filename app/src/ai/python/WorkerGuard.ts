@@ -9,7 +9,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { StdioBridge } from './StdioBridge';
 import type { JsonRpcBridge } from './JsonRpcBridge';
 

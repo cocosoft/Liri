@@ -5,7 +5,7 @@
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('remote:DirectConnectManager');
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 
 /**

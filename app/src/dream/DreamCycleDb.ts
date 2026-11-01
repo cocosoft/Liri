@@ -33,7 +33,7 @@
 
 import { Database } from '@openliri/infra/external';
 import { resolveDbPath } from '@openliri/infra/environment';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { DreamCycleRecord } from './types';
 
 /** limit 上限（v3：缺省 50、非法(<1/NaN/0)回 50、>500 截 500） */

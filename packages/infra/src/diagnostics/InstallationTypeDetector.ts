@@ -12,7 +12,7 @@ import { configManager } from '@openliri/infra/config';
 import { delimiter, join, sep } from 'path';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 const logger = getLogger('diagnostics:InstallationTypeDetector');
 
 const execAsync = promisify(exec) as (

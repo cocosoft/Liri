@@ -9,7 +9,7 @@ import type {
   PostSamplingHookConfig,
 } from '../types/PostSampling';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('PostSamplingHookManager');
 

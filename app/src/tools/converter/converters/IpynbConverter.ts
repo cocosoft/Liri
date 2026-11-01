@@ -1,8 +1,8 @@
 import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
-import { AppError } from '@modules/error';
-import { ErrorCodes } from '@modules/error';
+import { AppError } from '@openliri/infra/error';
+import { ErrorCodes } from '@openliri/infra/error';
 import { JupyterNotebookConverter } from '../../notebook/JupyterNotebookConverter.js';
 
 import { getLogger } from '@modules/monitoring';

@@ -15,7 +15,7 @@ import { join, resolve, sep } from 'path';
 import { existsSync } from 'fs';
 import { PluginManager } from '@modules/plugins';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 const logger = getLogger('skills:pluginLoader');
 // 惰性初始化：顶层 PluginManager.getInstance() 会在 plugins 模块半初始化时触发 TDZ（循环导入）
 let _pluginManager: PluginManager | undefined;

@@ -33,7 +33,7 @@
  * 本类不做开关判定，保持纯编排职责。
  */
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
-import { handleError } from '@modules/error/handleError.js';
+import { handleError } from '@openliri/infra/error/handleError';
 import {
   ParallelAgentScheduler,
   type ScheduledAgentTask,

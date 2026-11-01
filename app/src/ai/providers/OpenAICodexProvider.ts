@@ -41,7 +41,7 @@ import type {
   ImageGenerationResult,
 } from './AIProvider';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { OPENAI_API_V1_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('ai:codex-provider');

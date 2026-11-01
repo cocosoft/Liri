@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'bun:test';
 import { UnifiedStorageAdapter } from '../../src/session/storage/UnifiedStorageAdapter';
 import type { UnifiedSessionStorage } from '../../src/session/storage/UnifiedStorage';
-import { AppError } from '../../src/error/types';
+import { AppError } from '@openliri/infra/error/types';
 import { createChatManagerTAORDeps } from '../../src/query/ChatManagerTAORAdapter';
 import type { ChatManagerTAORContext } from '../../src/query/ChatManagerTAORAdapter';
 

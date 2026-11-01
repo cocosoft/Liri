@@ -12,7 +12,7 @@ import {
 } from './SubAgent';
 import { execSync, exec } from 'child_process';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const logger = getLogger('subagent:tmux');
 

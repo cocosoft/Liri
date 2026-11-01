@@ -8,7 +8,7 @@ import {
 } from 'fs';
 import { join } from 'path';
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error/handleError.js';
+import { handleError } from '@openliri/infra/error/handleError';
 import { redactConfig } from './ConfigRedactor';
 
 const logger = getLogger('config:snapshot');

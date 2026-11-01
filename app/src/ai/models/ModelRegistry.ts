@@ -23,7 +23,7 @@ import {
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error/handleError.js';
+import { handleError } from '@openliri/infra/error/handleError';
 import type { BillingMode, TimeBasedPrice } from './ModelPricingService.js';
 // 租户库 §8-#14 A2：`model_registry` / `providers` 都是按**用户**落行（`owner_key`）
 // ⇒ 运行时缓存必须按所有者分桶，否则同租户两用户的同名模型/同一供应商类型互相覆盖。

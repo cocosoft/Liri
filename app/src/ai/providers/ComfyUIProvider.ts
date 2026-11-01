@@ -45,9 +45,9 @@ import type {
   VideoGenerationResult,
 } from './AIProvider';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { DEFAULT_COMFYUI_ENDPOINT } from '@openliri/kernel';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('ai:comfy-provider');
 

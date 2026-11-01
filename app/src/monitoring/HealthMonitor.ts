@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 // 2026-08-06（4.9/P1-6）：core/gateway 桥接层已删除，以下类型自该层内联至本地
 /** 通道状态枚举（原 core/gateway/types.ts） */

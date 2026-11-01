@@ -5,7 +5,7 @@
 
 import type { Tip, TipContext } from './types';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:tips:tipRegistry');

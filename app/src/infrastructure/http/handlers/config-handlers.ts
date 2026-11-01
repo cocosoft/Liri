@@ -22,7 +22,7 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { broadcastEvent } from './handler-utils';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { getLogger } from '@modules/monitoring';
 import { refreshCheckpointLogConfig } from '@openliri/infra/config';
 

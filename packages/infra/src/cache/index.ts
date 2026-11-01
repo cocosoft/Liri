@@ -70,7 +70,7 @@ export type {
 export type { ICache } from './types.js';
 export { CacheFactory, CacheNames } from './CacheFactory.js';
 import { getLogger } from '@openliri/kernel/loggerFacade';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('cache:index');
 

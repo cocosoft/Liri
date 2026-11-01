@@ -11,7 +11,7 @@ import {
   getModelKeyByName,
   type ModelKey,
 } from '@modules/ai';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands\model\model');

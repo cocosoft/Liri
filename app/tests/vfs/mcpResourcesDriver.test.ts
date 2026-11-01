@@ -30,7 +30,7 @@
 
 import { describe, expect, it } from 'bun:test';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { AppError } from '../../src/error';
+import { AppError } from '@openliri/infra/error';
 import { McpResourcesDriver } from '../../src/vfs/drivers/McpResourcesDriver.js';
 import { parseVfsPath } from '../../src/vfs/VfsPath.js';
 

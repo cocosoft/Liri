@@ -26,7 +26,7 @@ import type {
   SessionListOptions,
 } from '../SessionStorage.js';
 import { getLogger } from '@modules/monitoring';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const logger = getLogger('session:storage:adapter');
 

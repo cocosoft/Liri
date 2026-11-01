@@ -15,7 +15,7 @@ import {
   WHEN_TO_ACCESS_SECTION,
 } from './memoryTypes.js';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 // B5-2B2 真源标注：`ENTRYPOINT_NAME` / `MAX_ENTRYPOINT_LINES` 唯一真源（memory 域索引文件名与行上限，
 // 导出供 MemoryFileService 等引用）；chronos/autoDream 的 dream 记忆根同名常量已按域消歧改名

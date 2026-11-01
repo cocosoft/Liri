@@ -9,7 +9,7 @@ import {
   PluginDependencyResolution,
   PluginMetadata,
 } from '../types/PluginTypes';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { satisfies } from '../utils/semver';
 import { checkServiceCircularDependencies as checkServiceCircularDependenciesCore } from '../utils/dependencyResolver';
 

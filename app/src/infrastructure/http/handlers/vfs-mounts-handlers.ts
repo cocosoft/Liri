@@ -36,7 +36,7 @@
 
 import type http from 'http';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
 import { readBody, json } from './handler-utils';
 import type { VfsConfig, VfsMountConfigEntry } from '@openliri/infra/config';

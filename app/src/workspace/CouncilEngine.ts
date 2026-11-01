@@ -29,8 +29,8 @@ import type {
 } from '@modules/agent';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error/handleError';
-import { AppError } from '@modules/error';
+import { handleError } from '@openliri/infra/error/handleError';
+import { AppError } from '@openliri/infra/error';
 // G-02（2026-10-19）：轮次级 in-flight 熔断（复用 chat 的单一预算收口，不新增判定点）
 import { assertEntryBudget } from '../query/dailyBudgetGate';
 import type {

@@ -50,8 +50,8 @@ import {
   AppError,
   ErrorCategory,
   ErrorSeverity,
-} from '@modules/error/types.js';
-import { handleError } from '@modules/error/handleError.js';
+} from '@openliri/infra/error/types';
+import { handleError } from '@openliri/infra/error/handleError';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { resolveModelRoute, RouteKey } from '../router/resolveModelRoute.js';
 import type { RouteKey as RouteKeyType } from '../router/routes.js';

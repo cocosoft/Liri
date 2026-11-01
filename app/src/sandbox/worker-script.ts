@@ -8,7 +8,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('sandbox:worker-script');
 
 const execAsync = promisify(exec);

@@ -31,7 +31,7 @@ import {
   planMessageSplit,
   segmentFileName,
 } from './messageSegments.js';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';

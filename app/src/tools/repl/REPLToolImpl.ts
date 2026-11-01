@@ -12,7 +12,7 @@ import type {
   REPLExecution,
 } from './types/REPLTool.js';
 import { replSessionManager } from './REPLSessionManager';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\repl\REPLToolImpl');

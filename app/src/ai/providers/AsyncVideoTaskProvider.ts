@@ -36,8 +36,8 @@ import type {
   VideoGenerationParams,
   VideoGenerationResult,
 } from './AIProvider';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
+import { handleError } from '@openliri/infra/error';
 import { Logger, getLogger } from '@modules/monitoring';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider.js';
 

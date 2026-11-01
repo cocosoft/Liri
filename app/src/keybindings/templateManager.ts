@@ -8,7 +8,7 @@ import type { Keybindings, KeybindingTemplate, Keybinding } from './validation';
 import { validateTemplate } from './validation';
 import { templates, getTemplate, getTemplateObject } from './templates';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('keybindings:templateManager');

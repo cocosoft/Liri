@@ -11,7 +11,7 @@
 
 import type http from 'http';
 import { randomUUID } from 'crypto';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 import type { HandlerCtx } from './handler-utils';
 // C1（2026-09-30 D-114，`workspace` 域 P2）：Council 引擎 / 事件槽 / 编排器改经服务层端口
 // （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）

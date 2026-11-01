@@ -16,7 +16,7 @@ import {
   resolveDataDir,
 } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('skills');
 

@@ -8,7 +8,7 @@ import { logForDebugging } from '@openliri/infra/utils/debug';
 // C1（2026-10-09）：告警 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { formatCost } from './ModelPricing.js';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('cost:CostMonitor');

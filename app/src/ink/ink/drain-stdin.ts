@@ -44,7 +44,7 @@
  */
 
 import { closeSync, constants as fsConstants, openSync, readSync } from 'fs';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ink:ink:drain-stdin');

@@ -12,7 +12,7 @@ import type {
   InboundProtocol,
 } from '@modules/channels/types';
 import { TTLCache } from '@openliri/infra/utils/cache';
-import { handleError } from '@modules/error';
+import { handleError } from '@openliri/infra/error';
 
 import { getLogger } from '@modules/monitoring';
 import { LINE_API_BASE_URL } from '../constants';

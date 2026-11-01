@@ -8,7 +8,7 @@ import { resolveAiAccess } from '@openliri/kernel/spi';
 import { existsSync, readFileSync } from 'fs';
 import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
 import { resolveDataDir, resolvePyappHome } from '@openliri/infra/environment';
-import { handleError } from '@modules/error/handleError';
+import { handleError } from '@openliri/infra/error/handleError';
 import {
   encodePayload,
   decodePayload,

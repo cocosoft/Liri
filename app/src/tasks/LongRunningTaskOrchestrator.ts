@@ -34,7 +34,7 @@ import {
   ErrorCategory,
   ErrorSeverity,
   handleError,
-} from '@modules/error';
+} from '@openliri/infra/error';
 import { LifecycleTracker } from './LifecycleTracker';
 import type { LifecycleEvent, LifecyclePhase } from './LifecycleTracker';
 import { goalMetricsService } from './db/GoalMetricsService';

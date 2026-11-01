@@ -22,7 +22,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getErrorStats } from '../../src/error/handleError';
+import { getErrorStats } from '@openliri/infra/error/handleError';
 import { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
 import { decodePayload } from '@openliri/infra/utils/MemoryFileEnvelope';
 

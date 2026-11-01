@@ -12,7 +12,7 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import { createToolResult, type ToolResult } from '../types/ToolResult';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { AppError, handleError } from '@modules/error';
+import { AppError, handleError } from '@openliri/infra/error';
 import { parseVfsPath, vfsError, vfsMountRegistry } from '@modules/vfs';
 
 const logger = getLogger('tools:stat_vfs');

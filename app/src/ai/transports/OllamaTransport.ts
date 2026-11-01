@@ -11,7 +11,7 @@ import type {
   TransportRequestParams,
 } from './types';
 import { ModelRegistry } from '../models/ModelRegistry';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('ai:ollama-transport');
 

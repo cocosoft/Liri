@@ -4,7 +4,7 @@
  * MAIL_IMAP flag 控制
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@openliri/infra/monitoring';
 import { EmailConfigService } from './EmailConfigService';
 import { resolvePlainPassword } from './crypto';
 

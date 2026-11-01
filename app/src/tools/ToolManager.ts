@@ -47,7 +47,7 @@ import type {
   ToolRegistration,
 } from './types/ToolTypes';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { setToolInstanceResolver } from './toolInstanceResolver';
 const logger = getLogger('tools:ToolManager');
 

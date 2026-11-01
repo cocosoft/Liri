@@ -8,7 +8,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { ErrorCodes } from '@openliri/infra/error';
 import { EventEmitter } from 'events';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('security\GroupPolicy');
 
 /**

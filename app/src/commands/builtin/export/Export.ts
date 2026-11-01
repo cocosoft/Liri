@@ -11,7 +11,7 @@ import { writeFileSync } from 'fs';
 import { resolveDataDir } from '@openliri/infra/environment';
 import type { CommandContext } from '@modules/commands';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
 const logger = getLogger('commands:builtin:export:Export');
 

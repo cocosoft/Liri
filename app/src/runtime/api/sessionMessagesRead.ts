@@ -67,7 +67,7 @@ import {
   type SessionOwner,
 } from '@openliri/infra/security/identity';
 import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');

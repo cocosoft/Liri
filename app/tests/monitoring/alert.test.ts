@@ -9,11 +9,11 @@ import {
   AlertManager,
   AlertLevel,
   createAlertManager,
-} from '../../src/monitoring/alerts/AlertManager.js';
+} from '@openliri/infra/monitoring/alerts/AlertManager';
 import type {
   AlertRule,
   AlertNotification,
-} from '../../src/monitoring/alerts/AlertManager.js';
+} from '@openliri/infra/monitoring/alerts/AlertManager';
 
 describe('AlertManager', () => {
   let manager: AlertManager;

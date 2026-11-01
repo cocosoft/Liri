@@ -4,7 +4,7 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
 import { Memory } from '@openliri/infra/memory/types/Memory';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('memory:tools:MemoryGetTool');
 
 export class MemoryGetTool implements Tool {

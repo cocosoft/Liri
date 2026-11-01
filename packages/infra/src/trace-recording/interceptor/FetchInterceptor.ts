@@ -15,7 +15,7 @@ import type { TraceRecord, SSERawEvent } from '../types';
 import { extractModelName } from './URLMatcher';
 import crypto from 'crypto';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // 多租户 P3（2026-10-21）：录制时打归属，统计引擎据此分桶
 import { currentOwnerKey } from '@openliri/kernel/identity/requestScope.js';

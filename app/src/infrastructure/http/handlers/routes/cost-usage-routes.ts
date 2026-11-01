@@ -10,7 +10,7 @@
  *   ③ 遗留路径 `/api/cost/*` → 301
  */
 import type { RouteDispatchArgs } from './route-dispatch-types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   handleCostReconcile,
   handleCostReport,

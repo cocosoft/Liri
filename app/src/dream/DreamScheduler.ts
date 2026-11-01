@@ -30,7 +30,7 @@ import { DreamPersistence } from './DreamPersistence';
 import { computeNextCronRunMs } from '@modules/tasks';
 import type { DreamSchedulerConfig, DreamTriggerSource } from './types';
 import { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { SchedulerLifecycle } from '@modules/types/schedulerLifecycle';
 import { SCHEDULER_CHECK_INTERVAL_MS } from '@modules/types/schedulerLifecycle';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';

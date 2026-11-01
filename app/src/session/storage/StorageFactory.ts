@@ -7,7 +7,7 @@ import type { UnifiedSessionStorage } from './UnifiedStorage.js';
 import { StorageConfig, StorageType } from './UnifiedStorage.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // 内置存储实现（循环导入消除，2026-09-20）：**单一注册中枢** —— 工厂是唯一知道全部实现的
 // 模块，故由它 import 实现并注册；实现模块**不再反向 import 本模块**。此前每个实现模块顶层都
 // 调用 `registerStorage()`（本模块的函数）⇒ 与本模块形成循环导入，单独加载时触发 TDZ

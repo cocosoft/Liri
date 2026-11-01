@@ -11,7 +11,7 @@
  * 这是一个"1+1>2"的增值层 — Bridge 和 Channel 各自完整独立，此模块仅提供桥接编排。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   AppError,
   ErrorCategory,

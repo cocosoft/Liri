@@ -15,7 +15,7 @@
  * 工作区切换时自动加载对应上下文，工作区销毁时自动清理。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { getDefaultConfigOverlay } from './ttsConfigOverlay';
 

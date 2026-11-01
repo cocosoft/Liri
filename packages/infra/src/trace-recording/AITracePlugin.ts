@@ -20,7 +20,7 @@ import { TraceEngine } from './engine/TraceEngine';
 import { LiveViewServer } from './live/LiveViewServer';
 import { ViewerService } from './viewer/ViewerService';
 import { ExportService } from './export/ExportService';
-import { createLogger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@openliri/infra/monitoring';
 import type {
   TraceRecord,
   TraceConfig,

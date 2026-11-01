@@ -19,7 +19,7 @@
 import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:tools:network:websearch');
 
 /** 搜索结果项 */

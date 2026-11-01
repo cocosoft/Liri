@@ -15,7 +15,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { killProcessTree } from '@openliri/infra/utils/killProcessTree';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,

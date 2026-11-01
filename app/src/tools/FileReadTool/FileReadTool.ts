@@ -197,7 +197,7 @@ import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
 import { checkPathAccessibility } from '../utils/ToolUtils';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:FileReadTool:FileReadTool');
 
 /** 二进制文件转换结果最大字符数：超过则源头截断（保留头尾，中间省略提示） */

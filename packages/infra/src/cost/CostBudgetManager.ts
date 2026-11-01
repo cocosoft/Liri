@@ -5,7 +5,7 @@
 
 import { formatCost } from './ModelPricing';
 import { getCostMonitor, AlertLevel, type AlertRule } from './CostMonitor';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('cost:budgetManager');
 

@@ -17,7 +17,7 @@
  * 无需基线扫描。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 

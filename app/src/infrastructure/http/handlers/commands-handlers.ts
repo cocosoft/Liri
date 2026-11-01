@@ -30,7 +30,7 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 // C1（2026-09-30 D-111，零散单点收尾）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('http:commands');
 

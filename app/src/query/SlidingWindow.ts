@@ -10,7 +10,7 @@
  * 避免因 Token 溢出导致的请求拒决。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { ChatMessage } from '@modules/ai';
 import { extractKeyPaths } from '@modules/agent';
 

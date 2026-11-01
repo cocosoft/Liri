@@ -9,7 +9,7 @@
  */
 
 /** 默认节流间隔（毫秒） */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('channels:feishu:streaming-card');
 
 const STREAMING_UPDATE_THROTTLE_MS = 160;

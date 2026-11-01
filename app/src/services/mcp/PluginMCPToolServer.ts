@@ -24,7 +24,7 @@
  * 将已安装插件的命令/技能/代理作为 MCP 工具暴露给外部客户端。
  * 对标: openclaw plugin-tools-serve.ts
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { MCPToolDefinition } from '../../mcp/types/index.js';
 import type { PluginRegistration } from '../../plugins/types/PluginTypes.js';
 

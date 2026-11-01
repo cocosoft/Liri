@@ -8,7 +8,7 @@
  * 复杂度级别：simple → medium → complex
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai:complexity');
 
 export type Complexity = 'simple' | 'medium' | 'complex';

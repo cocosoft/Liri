@@ -6,7 +6,7 @@
 import { Command as CommanderCommand, Option } from 'commander';
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getCommandManager } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('CommandParser');
 

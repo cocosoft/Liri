@@ -10,7 +10,7 @@
  */
 import { ToolCallPartitioner } from '@modules/tools';
 import type { ToolUseBlock } from '@modules/session/types/ToolUseBlock.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 // 2026-09-25 §6.8：预期中断品牌（判据已下沉到 error/；经模块 index 出口导入，守 R03-002）
 import { markAsExpectedAbort } from '@openliri/infra/error';

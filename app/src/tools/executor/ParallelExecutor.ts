@@ -6,7 +6,7 @@
 /**
  * 并行任务选项
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:executor:ParallelExecutor');
 
 export interface ParallelTask<T> {

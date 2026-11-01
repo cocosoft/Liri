@@ -38,7 +38,7 @@
  *   `mutexHeld`/`governorAdmitted` 声明之前（二者仅为纯赋值、无副作用 ⇒ 等价）。
  */
 
-import { getSessionTracing } from '@modules/monitoring';
+import { getSessionTracing } from '@openliri/infra/monitoring';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
 import type { ChatSession } from '@modules/session/types/session.js';

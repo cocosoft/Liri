@@ -1,7 +1,7 @@
 //
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { ErrorCodes } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { appendFileSync } from 'fs';
 import createReconciler from 'react-reconciler';
 import { configManager } from '@openliri/infra/config';

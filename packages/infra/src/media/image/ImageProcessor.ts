@@ -3,7 +3,7 @@
  * 基于 Sharp 实现实际的图像处理操作（async）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { handleError } from '@openliri/infra/error/handleError';
 import fs from 'fs';

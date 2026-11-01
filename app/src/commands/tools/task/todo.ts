@@ -9,7 +9,7 @@
 import type { Command, CommandResult } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:tools:task:todo');
 
 /** 有效的 todo 状态 */

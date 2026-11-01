@@ -7,7 +7,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 import { CronListOutputJsonSchema } from './schemas';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:ChronosTool:CronListTool');
 
 export class CronListTool {

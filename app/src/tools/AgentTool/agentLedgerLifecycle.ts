@@ -29,7 +29,7 @@ import { getAgentRunStore } from './AgentRunStore';
 import { getAgentRunLedger } from './AgentRunLedger';
 // 接线期③ ③-A（2026-09-24）：未完成 run 的失败归因类型（随台账落盘）
 import type { AgentRunAttribution } from './runAttribution';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('tools:agentTool');
 

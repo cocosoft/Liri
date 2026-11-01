@@ -17,7 +17,7 @@ import { join } from 'path';
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { Database } from '@openliri/infra/external';
 import { resolveDbPath, resolveDataSubDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   type PdcaPhase,
   PDCA_TO_WORKITEM,

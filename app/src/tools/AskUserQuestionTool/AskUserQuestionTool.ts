@@ -77,7 +77,7 @@ import type {
   ToolResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('tools:askUserQuestion');
 

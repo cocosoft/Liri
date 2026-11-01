@@ -9,7 +9,7 @@ import {
 import { getPromptInjectionDetector } from '@openliri/infra/security';
 import { getUnicodeSanitizer } from '@openliri/infra/security';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai\prompts\SystemPromptBuilder');
 
 export interface SystemPromptContext {

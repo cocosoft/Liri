@@ -4,9 +4,9 @@
  * 参考CC源码 cc_code/backend/memdir/memoryAge.ts 实现
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
-import { recordBackgroundTask } from '@modules/monitoring';
+import { recordBackgroundTask } from '@openliri/infra/monitoring';
 
 const logger = getLogger('memory:utils:memoryAgeManager');
 

@@ -7,7 +7,7 @@ import type { ToolCall, ToolResult, ToolContext } from '@modules/tools/types';
 import { ModuleError } from '@openliri/infra/error';
 import { sessionToolQuota } from '@modules/tools';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai\interfaces\ToolExecutor');
 
 /**

@@ -2,7 +2,7 @@ import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
 import { ForkedDreamExecutor } from './dream/ForkedDreamExecutor';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tasks:DreamTask');
 
 export interface DreamTaskOptions {

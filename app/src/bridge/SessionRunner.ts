@@ -11,7 +11,7 @@ import { spawn, type ChildProcess } from 'child_process';
 import { createWriteStream, type WriteStream } from 'fs';
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('bridge:SessionRunner');
 
 export type SessionActivity = {

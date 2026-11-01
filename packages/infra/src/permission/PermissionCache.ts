@@ -3,7 +3,7 @@
  * 负责缓存权限检查结果和验证权限规则
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // C1（2026-10-09）：缓存键熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';

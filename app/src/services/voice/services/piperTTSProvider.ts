@@ -30,7 +30,7 @@ import {
   readdirSync,
   statSync,
 } from 'fs';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 import type {

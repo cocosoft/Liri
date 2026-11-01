@@ -16,7 +16,7 @@
  *   - 环境：`LIRI_EXEC_APPROVAL_ENABLED=1`
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 import {

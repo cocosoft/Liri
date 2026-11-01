@@ -15,7 +15,7 @@
  *   其它仍在运行的会话（这正是本模块存在的理由）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('state:sessionSnapshot');
 

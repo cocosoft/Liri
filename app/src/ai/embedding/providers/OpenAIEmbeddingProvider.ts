@@ -9,7 +9,7 @@ import {
   EmbeddingResult,
 } from '../EmbeddingBase';
 import { configManager } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { OPENAI_API_V1_BASE_URL } from '@openliri/kernel';
 
 const logger = getLogger('ai:embedding:providers:OpenAIEmbeddingProvider');

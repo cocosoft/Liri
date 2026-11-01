@@ -14,7 +14,7 @@ import { dirname, join } from 'path';
 import { resolveChronosDir } from '@openliri/infra/environment';
 import type { SchedulerLock } from './types';
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('CronTasksLock');
 

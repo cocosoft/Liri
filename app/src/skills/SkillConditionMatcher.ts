@@ -4,7 +4,7 @@
  * 评估技能文件中的 front matter 条件，决定技能是否应在当前上下文启用
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('skills:conditionMatcher');
 

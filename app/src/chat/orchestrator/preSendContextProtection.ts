@@ -30,7 +30,7 @@
  *  4. applyErrorCalibration — 400 context 超限错误 → 自动回写 DB 校准
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 import {

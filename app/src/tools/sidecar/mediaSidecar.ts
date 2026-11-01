@@ -43,7 +43,7 @@
  * 本入口**不自造**生命周期。
  */
 import readline from 'node:readline';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { installParentLivenessGuard } from '@openliri/infra/utils/parentLiveness';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,

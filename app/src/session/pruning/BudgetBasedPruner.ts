@@ -5,7 +5,7 @@ import type {
   PruningContext,
   PruningConfig,
 } from './PruningStrategy';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('session:budgetPruner');
 
 const DEFAULT_TOKEN_BUDGET = 50_000;

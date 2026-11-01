@@ -24,8 +24,8 @@ import {
   StreamPipeline,
   type PipelineContext,
 } from '../../src/chat/pipeline/StreamPipeline';
-import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
-import type { StructuredLogEntry } from '../../src/monitoring/logs/types.js';
+import { addLogHandler } from '@openliri/infra/monitoring/logs/Logger';
+import type { StructuredLogEntry } from '@openliri/infra/monitoring/logs/types';
 
 /** 捕获日志（与 tests/context/CompactionIterativeFold.test.ts 同法） */
 function captureLogs(): {

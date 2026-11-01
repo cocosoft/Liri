@@ -5,7 +5,7 @@
  * 与 InboxManager 协作：Inbox 创建/回复时同步写入通知。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { Database } from '@openliri/infra/external';
 import { resolveDbPath } from '@openliri/infra/environment';
 import { randomUUID } from 'crypto';

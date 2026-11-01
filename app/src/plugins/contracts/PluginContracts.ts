@@ -4,7 +4,7 @@
  * 对齐 OpenClaw plugins/contracts/ 设计
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   PLUGIN_CATEGORIES,
   validatePluginInterfaces,

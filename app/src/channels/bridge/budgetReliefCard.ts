@@ -10,7 +10,7 @@
 // 触发判据是**结构化信号** `finishReason === 'budget_exhausted'`（在 `messageRouter` 分流），
 // **不做**任何正文文本匹配（守 CS02）。
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 import type { InteractiveCard } from '../types/IChannel';

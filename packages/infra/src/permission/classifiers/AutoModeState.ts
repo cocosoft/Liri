@@ -3,7 +3,7 @@
  * 管理自动模式的进入/退出条件、电路断开机制
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('permission:classifiers:autoModeState');

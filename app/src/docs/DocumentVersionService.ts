@@ -3,7 +3,7 @@
  * 提供文档版本控制、历史记录和回滚功能
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import fs from 'fs';
 import path from 'path';

@@ -11,7 +11,7 @@ import {
   ToolEventType,
   ToolEventData,
 } from '../types/ToolTypes';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:monitor');
 
 /**

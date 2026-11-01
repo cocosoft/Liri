@@ -15,7 +15,7 @@ import type {
   CheckpointStorage,
 } from '@modules/session/types/checkpoint.js';
 import { CHECKPOINT_MAX_AUTO } from '@modules/session/types/checkpoint.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('session:fileCheckpointStorage');
 
 const CHECKPOINT_DIR_DEFAULT = 'checkpoints';

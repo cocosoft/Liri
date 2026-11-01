@@ -13,7 +13,7 @@
  * 3. OAuth 回调获取 access_token
  * 4. 通过 TokenManager 持久化到加密磁盘存储
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { TokenManager } from '@openliri/infra/oauth';
 
 const logger = getLogger('ai:codex-auth');

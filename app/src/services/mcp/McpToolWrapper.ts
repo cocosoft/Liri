@@ -15,7 +15,7 @@ import { ToolExecutionStatus } from '@openliri/infra/utils/toolContract';
 import type { SerializedTool } from './types';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { filterMCPToolResult, redactMcpPayload } from './MCPSecurityFilter';
 const logger = getLogger('services:mcp:McpToolWrapper');
 

@@ -20,7 +20,7 @@ import { StrategyFactory } from './strategies/agentStrategy';
 import { createAgentMemory } from './memory/agentMemory';
 import { AIModelType, AIMessageRole } from '@modules/ai';
 import aiService from '@modules/ai';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('agent:agent');
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';

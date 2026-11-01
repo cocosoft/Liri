@@ -13,7 +13,7 @@
 import { join } from 'path';
 import { readFile } from 'fs/promises';
 import { existsSync, readFileSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 import { resolvePyappHome } from '@openliri/infra/environment';
 

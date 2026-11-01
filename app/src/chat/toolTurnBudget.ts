@@ -30,7 +30,7 @@ import {
   EXTERNAL_FETCH_EXPANSION_TURNS,
   MAX_DYNAMIC_TOOL_TURNS_CAP,
 } from './loopTurnLimits.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('chat:reactToolLoop');
 

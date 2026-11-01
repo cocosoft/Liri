@@ -14,7 +14,7 @@
  * （`PDCA_GOAL_EVALUATE`）与自动 replan 开关（`PDCA_AUTO_REPLAN`）语义全部保持原样。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   AppError,
   ErrorCategory,

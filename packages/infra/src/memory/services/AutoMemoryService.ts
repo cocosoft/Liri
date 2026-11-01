@@ -14,7 +14,7 @@ interface MemoryManager {
   ): Promise<Memory>;
   getAllMemories(): Promise<Memory[]>;
 }
-import { getLogger, Logger } from '@modules/monitoring';
+import { getLogger, Logger } from '@openliri/infra/monitoring';
 // 2026-10-01 D-165（`R00-001` 倒挂收口）：原此处 `import type { KnowledgeBaseWriter }
 // from './KnowledgeBaseWriter'`。该「知识库同步」能力经取证**整条为死代码**（构造只传 1 参、
 // setter 零调用方 ⇒ 分支永不执行）⇒ 连同被引用文件 `memory/services/KnowledgeBaseWriter.ts`

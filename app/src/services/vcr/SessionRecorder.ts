@@ -5,7 +5,7 @@ import { resolveDataSubDir } from '@openliri/infra/environment';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services\vcr\SessionRecorder');
 
 export interface RecordedMessage {

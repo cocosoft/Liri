@@ -3,7 +3,7 @@
  * 实现文件系统存储和缓存机制，优化数据库访问
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import {
   readFile,

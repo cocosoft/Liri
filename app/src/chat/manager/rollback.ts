@@ -24,7 +24,7 @@
  * 跨簇共享状态（交互表 / 消息服务 / 落盘 / 回滚集成表 / 权限管理器 / 会话网关）仍归宿主所有。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolveProjectRoot } from '@openliri/infra/environment';
 // 多租户 P3：交互条目按归属校验（与 `canAccessOwnerKey` 同口径）

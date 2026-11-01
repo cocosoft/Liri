@@ -24,7 +24,7 @@ import { handleError } from '@openliri/infra/error';
 import { createReadStream } from 'node:fs';
 import { splitMessage } from '../messageSplitter';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('channels:telegram:TelegramChannel');
 
 const TELEGRAM_META: ChannelMeta = {

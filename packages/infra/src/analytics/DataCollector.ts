@@ -5,7 +5,7 @@
  */
 
 import type { AnalyticsEvent, SessionAnalytics } from './types.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('DataCollector');

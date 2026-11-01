@@ -37,7 +37,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { configManager } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 // AES-256-GCM 参数统一到真源 `utils/OAuthCrypto.ts`（硬编码治理「同名常量」B2b）——
 // 以**别名导入**保留原有局部名 ⇒ 加解密实现**逐字不动**（用法零改动，降低安全代码 review 风险）。

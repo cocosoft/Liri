@@ -2,9 +2,9 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 // P11（2026-11-01）：daemon 迁入物理包后，原先的相对出边改走 app 侧 infra 模块的**规范入口**
-// （`monitoring/logs` 为 canonicalEntryKeys 登记的窄入口；MonitoringService 走 `@modules/monitoring` 门面）
-import { getLogger } from '@modules/monitoring/logs/Logger';
-import { getMonitoringService } from '@modules/monitoring';
+// （`monitoring/logs` 为 canonicalEntryKeys 登记的窄入口；MonitoringService 走 `@openliri/infra/monitoring` 门面）
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
+import { getMonitoringService } from '@openliri/infra/monitoring';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 

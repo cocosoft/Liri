@@ -31,7 +31,7 @@
  * 借鉴: DeepSeek-Reasonix src/repair/index.ts
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { analyzeSchema, flattenSchema, nestArguments } from './flatten';
 import { scavengeToolCalls } from './scavenge';
 import { repairTruncatedJson } from './truncation';

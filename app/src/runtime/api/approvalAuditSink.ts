@@ -14,7 +14,7 @@
  * 不保证与 emit 顺序一致）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { LiriEvent } from '@modules/session/types/events';
 import type {
   ApprovalAuditEvent,

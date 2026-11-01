@@ -7,7 +7,7 @@
 import { watch, FSWatcher } from 'fs';
 import { readdir, stat } from 'fs/promises';
 import { join, basename } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('memory:scanners:memoryWatcher');

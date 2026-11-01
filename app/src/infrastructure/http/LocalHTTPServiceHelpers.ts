@@ -7,7 +7,7 @@
 import http from 'http';
 import { createHash, timingSafeEqual } from 'crypto';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { setNotifyFileChangedHandler } from './handlers/handler-utils';

@@ -7,7 +7,7 @@
  * 在应用启动时注册 16 个 media 工具到 ToolManager。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { globalToolManager } from '../core/ToolManager';
 import { handleError } from '@openliri/infra/error';
 import { createImageConvertTool } from './ImageConvertTool';

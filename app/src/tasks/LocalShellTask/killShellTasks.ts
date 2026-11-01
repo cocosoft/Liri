@@ -11,7 +11,7 @@ import { TaskStatus } from '../types';
 import { taskRegistry } from '../TaskRegistry';
 import { isLocalShellTask } from './guards';
 import type { LocalShellTaskState } from './guards';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('tasks:killShell');

@@ -193,7 +193,7 @@ describe('R2 security / permission 不得下沉审批编排', () => {
       [
         file(
           'security/audit/a.ts',
-          "import { getLogger } from '@modules/monitoring';\nimport { feature } from '@openliri/kernel';\n"
+          "import { getLogger } from '@openliri/infra/monitoring';\nimport { feature } from '@openliri/kernel';\n"
         ),
       ],
       LAYERS,

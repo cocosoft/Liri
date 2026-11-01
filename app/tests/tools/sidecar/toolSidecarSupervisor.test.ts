@@ -37,7 +37,7 @@ import type { ChildProcess } from 'node:child_process';
 import { context, trace, TraceFlags } from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import { ToolSidecarSupervisor } from '../../../src/tools/sidecar/ToolSidecarSupervisor';
-import { runWithActiveSpan } from '../../../src/monitoring/tracing/traceContextInjector';
+import { runWithActiveSpan } from '@openliri/infra/monitoring/tracing/traceContextInjector';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   SIDECAR_STARTUP_TYPE,

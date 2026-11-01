@@ -16,7 +16,7 @@ import type {
   ReActState,
 } from '../../src/query/ReActLoop';
 import { resolveTerminationOutput } from '../../src/chat/terminationOutput.js';
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 
 // ── 1. 纯判定 ──────────────────────────────────────────────
 

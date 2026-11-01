@@ -23,7 +23,7 @@ import {
 } from '../AgentTool/spawnPause';
 import { resolveAgentToolInstance } from '../utils/resolveAgentToolInstance';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // R03-002：必须走模块出口（子路径直连会判违规）
 import {
   AGENTS_LIST_DEFAULT_LIMIT,

@@ -4,7 +4,7 @@
  * 强制 TLS、频率限制、日志脱敏
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@openliri/infra/monitoring';
 import type { EmailSendArgs, EmailSendResult } from '@modules/mail/types';
 import { EmailConfigService } from './EmailConfigService';
 import type { EmailAccount } from '@modules/mail/types';

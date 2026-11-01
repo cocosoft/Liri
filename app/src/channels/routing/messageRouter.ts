@@ -31,8 +31,8 @@
  *   → ④ 会话创建/复用 → ⑤ CoreAPI.chatStream()（流式并轨 2026-08-20）→ ⑥ 出站回调 + 追踪完成
  */
 
-import { getLogger } from '@modules/monitoring';
-import { getOTelTracing } from '../../monitoring/otel/OTelTracing.js';
+import { getLogger } from '@openliri/infra/monitoring';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { messageTraceBuffer } from '../monitoring/MessageTraceBuffer';
 import {
   recordInboundMessage,

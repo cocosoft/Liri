@@ -7,7 +7,7 @@
  */
 import { randomUUID } from 'crypto';
 import { Database } from '@openliri/infra/external';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   resolveDbPath,
   resolveTenantDbPath,

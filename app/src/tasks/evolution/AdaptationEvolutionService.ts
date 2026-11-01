@@ -28,7 +28,7 @@
 import { createHash } from 'crypto';
 import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolveAiAccess } from '@openliri/kernel/spi';
 import { resolveUserSkillsDir } from '@openliri/infra/environment';

@@ -22,7 +22,7 @@ import {
 import { globAsync } from '../GlobTool/GlobTool';
 import { z } from 'zod';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:search:GlobTool');
 
 export class GlobTool extends BaseTool {

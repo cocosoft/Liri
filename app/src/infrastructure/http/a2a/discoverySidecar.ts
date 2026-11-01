@@ -40,7 +40,7 @@
  */
 import http from 'node:http';
 import readline from 'node:readline';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import { A2A_TASKS_PATH } from '@modules/types/a2a';
 import { isA2AAuthorized } from '../handlers/routes/a2a-routes';

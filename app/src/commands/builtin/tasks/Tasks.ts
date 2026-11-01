@@ -6,7 +6,7 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { taskRegistry } from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:tasks:Tasks');
 
 interface TaskItem {

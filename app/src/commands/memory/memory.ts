@@ -10,7 +10,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:memory:memory');
 
 /**

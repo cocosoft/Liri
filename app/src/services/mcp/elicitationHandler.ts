@@ -5,7 +5,7 @@
  * 在服务器连接时自动引导用户完成配置
  * */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('services:mcp:elicitation');

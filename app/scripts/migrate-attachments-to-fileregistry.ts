@@ -19,7 +19,7 @@ import { Database } from '@openliri/infra/external';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { resolveDbPath } from '@openliri/infra/environment';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { Logger, LogLevel } from '@openliri/infra/monitoring/logs/Logger';
 import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource } from '@modules/services/file/types';
 

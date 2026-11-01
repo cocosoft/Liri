@@ -8,7 +8,7 @@ import { resolveDataSubDir } from '@openliri/infra/environment';
 import { mkdir, readFile, writeFile, unlink, readdir, stat } from 'fs/promises';
 import { join, extname } from 'path';
 import { createHash } from 'crypto';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('channels:media');

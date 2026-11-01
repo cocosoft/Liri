@@ -4,7 +4,7 @@
  * 支持优先级排序、并发限制、批量处理、自动重试
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('memory:services:memoryPrefetchQueue');
 
 /**

@@ -169,7 +169,7 @@ import { configManager } from '@openliri/infra/config';
 import type { PermissionConfig } from '@openliri/infra/config/types';
 import { loadRules } from '@openliri/infra/config/types';
 import { matchesAnyCommandRule } from '@openliri/infra/utils/commandRuleMatch';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('security:bashAnalyzer');
 
 /** 标记原生分析器是否已降级 */

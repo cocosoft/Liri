@@ -28,7 +28,7 @@
 
 import type { ErrorRecoveryManager } from './ErrorRecoveryManager.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('query:ModelCallRecovery');
 
 interface RecoveryContext {

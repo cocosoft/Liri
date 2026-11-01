@@ -11,7 +11,7 @@
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { Team, TeamMember, TeamRole } from '@modules/workspace/types';
 
 const logger = getLogger('workspace:teamStore');

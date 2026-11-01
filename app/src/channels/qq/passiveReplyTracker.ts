@@ -8,7 +8,7 @@
  * 不占用主动消息每日配额。logger 由宿主注入（同一实例）⇒ 日志 module 字段与拆分前一致。
  */
 
-import { Logger } from '@modules/monitoring';
+import { Logger } from '@openliri/infra/monitoring';
 
 export class QQPassiveReplyTracker {
   /** AC-5（2026-08-20）：被动回复上下文 — target → 最近入站消息。

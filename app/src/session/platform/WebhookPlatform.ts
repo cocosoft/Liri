@@ -8,7 +8,7 @@
  * - 消息队列与批量发送
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // C1（2026-10-09）：平台消息 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type {

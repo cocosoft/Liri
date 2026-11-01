@@ -6,7 +6,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  * 参数: images (string[]) — 图片路径或 URL 列表
  * 输出: { images: DisplayImage[] } — 前端渲染缩略图网格
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { BaseTool } from '../BaseTool';
 import { ToolResult, ToolUseContext, ToolParam, ToolTag } from '../types/index';
 import { ImageUrlHelper } from '../ImageUrlHelper';

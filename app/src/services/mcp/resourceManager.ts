@@ -3,7 +3,7 @@
  * 负责处理MCP服务器的资源功能（集合管理 + 资源类型处理）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('services:mcp:resourceManager');

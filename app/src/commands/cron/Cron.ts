@@ -15,7 +15,7 @@ import {
 import { resolveDbPath } from '@openliri/infra/environment';
 import { configManager } from '@openliri/infra/config';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 const logger = getLogger('commands:cron:Cron');
 

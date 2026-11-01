@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 const logger = getLogger('security:scanner');
 
 /**

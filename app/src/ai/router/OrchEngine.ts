@@ -53,7 +53,7 @@ import type { RouteDecision, RouterTier } from './types.js';
 import { TaskDecomposer } from './TaskDecomposer.js';
 import type { DecompositionResult, SubTask } from './TaskDecomposer.js';
 import { scheduleTopoBatches } from '@modules/tasks';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { trackUsage } from '@modules/ai';
 import { handleError } from '@openliri/infra/error';
 

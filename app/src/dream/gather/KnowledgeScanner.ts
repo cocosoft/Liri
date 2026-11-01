@@ -31,7 +31,7 @@ import { createHash } from 'crypto';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { AtomicWriter } from '@modules/session';
 import type { KnowledgeDelta } from '../types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('dream:gather:knowledgeScanner');

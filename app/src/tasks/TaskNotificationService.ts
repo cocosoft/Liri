@@ -1,4 +1,4 @@
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { TaskNotifyPolicy, TaskDeliveryStatus, TaskStatus } from './types';
 import type { TaskState, DeliveryRecord } from './types';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';

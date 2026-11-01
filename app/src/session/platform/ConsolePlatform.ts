@@ -5,7 +5,7 @@
  * 是最简平台实现，作为其他平台适配器的参考。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type {
   PlatformAdapter,
   PlatformConfig,

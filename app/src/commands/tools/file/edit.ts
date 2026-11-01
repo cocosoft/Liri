@@ -8,7 +8,7 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:tools:file:edit');
 
 interface EditOptions {

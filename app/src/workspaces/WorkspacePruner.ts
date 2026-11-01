@@ -33,7 +33,7 @@ import { exec as nodeExec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, readdirSync, rmSync } from 'fs';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('workspaces:pruner');
 

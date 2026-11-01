@@ -4,7 +4,7 @@
  * 在首轮对话完成后异步生成简短标题
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('agent:titleGenerator');
 
 const TITLE_PROMPT =

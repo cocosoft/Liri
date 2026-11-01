@@ -30,7 +30,7 @@
  * 既有状态流转——非法转移仅记录 warn，任务本体不受影响。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // C1（2026-09-30 D-121，`R00-003` P2/G1）：SSE 广播改经 core SPI 端口（infra → core 合法）
 import { resolveBroadcast } from '@openliri/kernel/spi';
 // 2026-10-01 D-163（`R00-001` 倒挂收口）：原为 `'../../tasks/types'`（infra -> app 倒挂）

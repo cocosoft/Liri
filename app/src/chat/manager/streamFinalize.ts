@@ -23,7 +23,7 @@
 import { SpanStatusCode } from '@opentelemetry/api';
 
 import { agentTelemetry } from '@modules/agent';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import type { LiriEvent } from '@modules/session/types/events';
 import type {
   Message,

@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as https from 'https';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   getOfficialServers,
   getOfficialServersByCategory,

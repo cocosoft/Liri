@@ -21,7 +21,7 @@
 import type { Command } from '@modules/commands';
 import { createChatManager } from '@modules/chat';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:checkpoint:index');
 
 function getChatManager(context: any) {

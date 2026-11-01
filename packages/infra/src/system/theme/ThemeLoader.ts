@@ -15,7 +15,7 @@ import {
   unlinkSync,
 } from 'fs';
 import { join, basename, extname, dirname } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   ThemeDefinition,
   ThemeMetadata,

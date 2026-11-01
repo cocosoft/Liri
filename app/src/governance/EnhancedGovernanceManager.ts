@@ -4,7 +4,7 @@
  */
 
 import { GovernanceManager } from './managers/GovernanceManager.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('governance:enhancedGovernanceManager');
 
 /**

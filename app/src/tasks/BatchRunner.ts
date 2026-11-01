@@ -11,7 +11,7 @@
  *   - 结果聚合
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';

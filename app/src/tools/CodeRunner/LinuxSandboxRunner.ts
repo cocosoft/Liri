@@ -40,7 +40,7 @@ import type {
   LandlockConfig,
   LandlockPolicy,
 } from '@modules/sandbox';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 import {
   prepareRunDir,

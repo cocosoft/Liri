@@ -4,7 +4,7 @@
  * 动态启用或禁用特定的按键绑定
  */
 import type { KeybindingContextName, ParsedBinding } from './types.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import React from 'react';
 
 const logger = getLogger('keybindings:featureToggle');

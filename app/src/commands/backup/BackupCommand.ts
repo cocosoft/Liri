@@ -4,7 +4,7 @@
  */
 
 import type { Command, CommandContext, CommandResult } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import {

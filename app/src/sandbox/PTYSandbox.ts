@@ -8,7 +8,7 @@ import type {
   SandboxExecuteOptions,
   SandboxExecuteResult,
 } from './SandboxTypes';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { spawn, type ChildProcess } from 'child_process';
 import { appendWithinLimit, resolveOutputLimit } from './SandboxPolicy';
 

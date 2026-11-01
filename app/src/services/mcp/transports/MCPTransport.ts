@@ -11,7 +11,7 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { McpTlsManager, type McpTlsConfig } from './McpTlsManager';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services\mcp\transports\MCPTransport');
 
 /**

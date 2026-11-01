@@ -3,7 +3,7 @@
  * 参考CC源码 services/toolUseSummary/toolUseSummaryGenerator.ts 实现
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('ToolUseSummaryGenerator');
 

@@ -10,7 +10,7 @@ import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { type BridgeSession } from '@modules/bridge';
 import { type BridgeMessage } from '@modules/bridge';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('hooks:useReplBridge');
 
 /**

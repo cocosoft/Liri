@@ -25,7 +25,7 @@ import type {
   SubAgentResult,
 } from './SubAgentEngine';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:AgentTool:ForkSubagent');
 
 export const FORK_SUBAGENT_TYPE = 'fork';

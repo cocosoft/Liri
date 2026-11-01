@@ -69,7 +69,7 @@
       "reason": "同上：功能模块自身的启停/健康态"
     },
     {
-      "file": "app/src/monitoring/HealthMonitor.ts",
+      "file": "packages/infra/src/monitoring/HealthMonitor.ts",
       "exportName": "ChannelStatus",
       "reason": "可观测性层对通道健康度的**观测结论**（探针输出），非通道自身状态机"
     },

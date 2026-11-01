@@ -22,7 +22,7 @@
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolveDataDir, resolveDbPath } from '@openliri/infra/environment';
 import { safePathSegment } from '@openliri/infra/security/identity';

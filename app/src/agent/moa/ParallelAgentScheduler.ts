@@ -3,7 +3,7 @@
  * 同时调度多个 Agent 执行，收集结果，支持超时控制和并发限制
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 const logger = getLogger('agent:moa:parallelScheduler');

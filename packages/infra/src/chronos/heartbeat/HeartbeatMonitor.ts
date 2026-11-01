@@ -1,6 +1,6 @@
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('chronos\heartbeat\HeartbeatMonitor');
 /**
  * HeartbeatMonitor 心跳监控

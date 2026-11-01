@@ -18,7 +18,7 @@ import {
   profileCheckpoint,
   profileReport,
 } from '../performance/StartupProfiler.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('test-performance');
 

@@ -11,7 +11,7 @@ import { TaskType, TaskStatus } from './types';
 import type { TaskState } from './types';
 import { BaseTask } from './BaseTask';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolveHttpPort, LOCAL_SERVICE_HOST } from '@openliri/kernel';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';

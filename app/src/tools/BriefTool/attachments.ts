@@ -6,7 +6,7 @@ import { existsSync } from 'fs';
 import { stat } from 'fs/promises';
 import { extname, isAbsolute, resolve } from 'path';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:BriefTool:attachments');
 
 const BRIEF_IMAGE_EXTENSIONS = new Set([

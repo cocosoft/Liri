@@ -44,7 +44,7 @@ import { openBunDatabase } from '@openliri/infra/external';
 import {
   getLLMTracker,
   resetLLMTrackerForTest,
-} from '../../src/monitoring/llm/getLLMTracker';
+} from '@openliri/infra/monitoring/llm/getLLMTracker';
 
 const ALICE: Principal = { tenantId: 'acme', userId: 'alice', roles: ['user'] };
 const BOB: Principal = { tenantId: 'acme', userId: 'bob', roles: ['user'] };
@@ -149,7 +149,10 @@ describe('LLMTracker：行级隔离', () => {
 describe('门禁：LLMTracker 的读写 SQL 不许漏 owner_key', () => {
   it('SELECT / INSERT 模板都必须带 owner_key，且主键含 owner_key', () => {
     const src = readFileSync(
-      new URL('../../src/monitoring/llm/LLMTracker.ts', import.meta.url),
+      new URL(
+        '../../../packages/infra/src/monitoring/llm/LLMTracker.ts',
+        import.meta.url
+      ),
       'utf8'
     );
     const templates = [

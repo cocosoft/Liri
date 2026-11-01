@@ -4,7 +4,7 @@
  * 采用异步模式：beginAsyncToolCall → Agent 执行 → finishAsyncToolCall + sendToolResult
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import type { VoiceToolCallEvent, VoiceToolDeclaration } from './types';
 

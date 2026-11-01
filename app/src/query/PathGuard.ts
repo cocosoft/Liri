@@ -31,7 +31,7 @@
  */
 
 import { configManager } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { isLoopObserveOnly } from './loop-config.js';
 import {
   FILE_READ_TOOLS,

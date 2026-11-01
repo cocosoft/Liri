@@ -4,7 +4,7 @@
  * 解析服务器发送的事件流
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { StreamEvent } from './types';
 
 const logger = getLogger('streaming:sseParser');

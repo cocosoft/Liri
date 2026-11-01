@@ -14,7 +14,7 @@ import { LSPClient as BaseLSPClient } from './LSPClient.js';
 import type { LSPServerInstance } from './LSPServerInstance.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('lsp\EnhancedLSPManager');
 
 export interface EnhancedLSPManagerConfig {

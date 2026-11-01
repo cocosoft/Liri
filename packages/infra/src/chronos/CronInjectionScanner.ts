@@ -8,7 +8,7 @@
  *   strict:  用户提供的 cron prompt — 8 种威胁模式
  *   relaxed: 含 skill 内容的组装 prompt — 4 种模式（避免误报）
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { countInvisibleChars } from '@openliri/infra/security';
 const logger = getLogger('chronos:injectionScan');
 

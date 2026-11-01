@@ -4,7 +4,7 @@
  */
 
 import { spawn } from 'child_process';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('remote:SSHConnection');
 
 /**

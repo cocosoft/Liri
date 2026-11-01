@@ -32,7 +32,7 @@
  *   HALF_OPEN → 试探调用失败 → OPEN（重新计时）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   isLoopObserveOnly,
   LOOP_GLOBAL_BREAKER_THRESHOLD,

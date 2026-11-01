@@ -1,6 +1,6 @@
 import { join } from 'path';
 import { Database } from '@openliri/infra/external';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { DatabaseError, handleError } from '@openliri/infra/error';
 import { resolveDbPath } from '@openliri/infra/environment';
 import {

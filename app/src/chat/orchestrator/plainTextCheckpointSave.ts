@@ -26,7 +26,7 @@
  * PlainTextCheckpoint 保存逻辑抽离，streamMessageFlow 内仅保留一行调用。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
 import { isCheckpointLogEnabled } from '@openliri/infra/config';
 import type { ChatSession } from '@modules/session/types/session.js';

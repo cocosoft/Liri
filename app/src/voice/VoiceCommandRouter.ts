@@ -13,7 +13,7 @@ import type {
   ToolResultCallback,
   ToolProgressCallback,
 } from './VoiceToolBridge';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('voice:commandRouter');

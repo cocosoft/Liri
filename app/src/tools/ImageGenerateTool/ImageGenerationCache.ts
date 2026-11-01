@@ -11,7 +11,7 @@
 
 import type { ImageGenerationParams, ImageGenerationResult } from '@modules/ai';
 import type { GenerationCacheConfig } from './types';
-import { createLogger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@openliri/infra/monitoring';
 
 const logger = createLogger({
   level: LogLevel.DEBUG,

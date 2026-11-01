@@ -31,7 +31,7 @@ import type { CommandContext } from '../commands/types/index.js';
 import type { ChatManager } from '../chat/ChatManager.js';
 import { providerRegistry } from '@modules/ai';
 import { getToolManager } from '@modules/tools';
-import { getLogger } from '../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { historyManager } from '@openliri/infra/utils/history';
 import { commandRegistry } from '../commands/registry/index.js';
 import { getUIEnhancer } from '../ui/UIEnhancer.js';

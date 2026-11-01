@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';

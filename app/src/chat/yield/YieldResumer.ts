@@ -13,7 +13,7 @@
  * 依赖以函数注入，本模块**不直接 import `ChatManager`**，避免循环依赖。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { withPhase } from '@openliri/infra/diagnostics';
 import { getYieldRegistry, YIELD_STATUS_RESUMED } from '../../session/yield';
 import {

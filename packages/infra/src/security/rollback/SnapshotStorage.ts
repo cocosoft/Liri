@@ -46,7 +46,7 @@ import { existsSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { createHash } from 'crypto';
 import { homedir } from 'os';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { xxHash, encodeFilePath } from './xxHash';
 import type { RoundSnapshot, FileChange, SessionIndexEntry } from './types';
 

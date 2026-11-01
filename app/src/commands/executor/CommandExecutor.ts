@@ -9,7 +9,7 @@ import type {
 } from '@modules/commands';
 import { getCommandManager } from '@modules/commands';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:executor:CommandExecutor');
 
 /**

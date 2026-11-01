@@ -4,7 +4,7 @@
  * 用于跟踪和计算模型使用的成本，参考CC源码的实现
  */
 
-import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
+import { OTelAwareLogger } from '@openliri/infra/monitoring/logs/OTelAwareLogger';
 import {
   formatCost,
   getModelPricing,
@@ -28,7 +28,7 @@ import {
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
 
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 const logger = getLogger('cost:CostTracker');
 
 /**

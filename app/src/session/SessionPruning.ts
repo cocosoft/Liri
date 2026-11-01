@@ -5,7 +5,7 @@
  */
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { existsSync, readdirSync, statSync, renameSync, mkdirSync } from 'fs';
 import { join } from 'path';
 

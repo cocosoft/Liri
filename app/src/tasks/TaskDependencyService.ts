@@ -1,4 +1,4 @@
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { TaskDependency } from './types';
 import { TaskStatus } from './types';
 import type { TaskRegistry } from './TaskRegistry';

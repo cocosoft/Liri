@@ -25,7 +25,7 @@
  * 支持 claw.json（主流）、skill.yaml 两种清单格式的解析与生成。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 import type { ThirdPartySkillSearchResult } from '../ThirdPartySkillAdapter';

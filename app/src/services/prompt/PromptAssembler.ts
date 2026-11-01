@@ -18,7 +18,7 @@ import type {
 } from '@modules/runtime/api/aiOpsPorts';
 import { configManager } from '@openliri/infra/config';
 import { providerPromptRegistry } from './ProviderPromptPlugin';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { setCurrentSessionContext } from './MemoryPromptProvider';
 import type { MemorySessionContext } from '@openliri/infra/memory/types/SessionContext';
 import { generatePromptReport, formatPromptReport } from './SystemPromptReport';

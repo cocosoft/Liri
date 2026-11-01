@@ -30,7 +30,7 @@
 import type { RouterTier, RouteDecision, RouterConfig } from './types.js';
 import { CostTracker } from '@openliri/infra/cost';
 import { CostRecordRepository } from '@openliri/infra/cost';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai:stats');
 
 export interface RouterCostRecord {

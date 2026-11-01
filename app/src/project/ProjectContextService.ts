@@ -16,7 +16,7 @@ import type {
   ProjectContext,
   ProjectContextType,
 } from '@modules/workspace/types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('project:ContextService');
 
 /** type 标记正则：匹配 ### [xxx] 的内容 */

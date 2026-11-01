@@ -16,7 +16,7 @@ import {
   pluginSystem,
   validatePluginConfigPatch,
 } from '@modules/plugins';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('commands:plugin-settings:pluginSettings');
 

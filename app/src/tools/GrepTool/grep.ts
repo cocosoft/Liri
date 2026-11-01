@@ -6,7 +6,7 @@ import * as path from 'path';
 import { handleError } from '@openliri/infra/error';
 import { yieldToEventLoop } from '@modules/ai';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // 2026-09-22 归一化（CS01）：跳过清单纯量迁至 `tools/utils/searchSkipDirs`，
 // 与 glob 共用同一事实来源（原为本文件私有常量，glob 侧无任何跳过逻辑）。
 import { getSkipDirsForRoot } from '../utils/searchSkipDirs';

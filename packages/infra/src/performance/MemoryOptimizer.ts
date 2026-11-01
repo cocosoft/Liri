@@ -8,7 +8,7 @@ import { memoryManager, MemorySnapshot } from './MemoryManager';
 import { logForDebugging } from '@openliri/infra/utils/debug';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('performance:MemoryOptimizer');
 
 /**

@@ -1,6 +1,6 @@
 import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:converter:csv');
 
 export class CsvConverter extends BaseConverter {

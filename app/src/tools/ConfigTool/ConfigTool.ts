@@ -17,7 +17,7 @@ import { ToolTag } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolResult } from '../types/ToolResult';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:ConfigTool:ConfigTool');
 
 export interface ConfigToolInput {

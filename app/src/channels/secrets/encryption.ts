@@ -36,7 +36,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { configManager } from '@openliri/infra/config';
 import { resolveDataSubDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const ENC_PREFIX = 'enc:';
 

@@ -27,7 +27,7 @@
  * 会话生命周期/网关/检查点服务/事件日志缓存/轮次计数仍归宿主所有。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { SessionGateway } from '@modules/session';
 import { abortSessionPlans } from '../planAbortRegistry.js';

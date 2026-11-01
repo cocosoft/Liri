@@ -10,7 +10,7 @@ import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { ToolUseContext } from '../types/ToolUseContext.js';
 import { createCachedToolExecutor } from '../cache/CachedToolExecutor.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:scheduler:ToolScheduler');
 
 /**

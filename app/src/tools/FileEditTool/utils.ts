@@ -24,7 +24,7 @@ import {
   validateEditCommand,
 } from './types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:FileEditTool:utils');
 
 const DEFAULT_OPTIONS: Required<EditOptions> = {

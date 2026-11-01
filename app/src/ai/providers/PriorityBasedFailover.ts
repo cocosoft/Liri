@@ -28,7 +28,7 @@
  * 对标 CC 源码 cc-switch/src-tauri/src/proxy/failover_switch.rs
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { AIProvider, ChatOptions } from './AIProvider';
 import { providerRegistry } from './ProviderRegistry';

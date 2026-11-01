@@ -1,5 +1,5 @@
 import type { Memory } from '@openliri/infra/memory/types/Memory';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('services:teamMemorySync');

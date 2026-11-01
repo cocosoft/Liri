@@ -44,7 +44,7 @@ import {
   type AdversarialProposer,
   type AdversarialProposerInput,
 } from './adversarialAgent.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('evals:adversarial-proposer');
 

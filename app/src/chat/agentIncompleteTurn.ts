@@ -14,7 +14,7 @@
  * **行为等价**：文案常量、判定顺序、日志字段与阈值**逐字未变**。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { ReasonResult } from '@modules/query';
 import type { GoalTurnReason } from '@modules/tasks';
 import {

@@ -11,7 +11,7 @@ import {
 // 重新导出，供 permission/index.ts 使用
 export { containsPathTraversal };
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('permission:filesystem');
 
 export const DANGEROUS_FILES = [

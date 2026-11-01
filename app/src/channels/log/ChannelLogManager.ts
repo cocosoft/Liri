@@ -12,7 +12,7 @@ import { handleError } from '@openliri/infra/error';
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
 import { getRedactMiddleware } from '@openliri/infra/security';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('channels:log:ChannelLogManager');
 
 /**

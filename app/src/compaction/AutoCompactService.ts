@@ -21,7 +21,7 @@ import { CompactServiceImpl } from './CompactService';
 import { trySessionMemoryCompaction } from './sessionMemoryCompact';
 import { runPostCompactCleanup } from './postCompactCleanup';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:compact:AutoCompactService');
 
 /**

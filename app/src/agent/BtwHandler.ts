@@ -15,7 +15,7 @@
  * 主任务上下文仅作为背景信息传入，不影响侧问的独立性。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import type { ChatMessage } from '@modules/ai';
 import type { AIProvider } from '@modules/ai';

@@ -7,7 +7,7 @@ import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import {
   AppError,
   ErrorCategory,

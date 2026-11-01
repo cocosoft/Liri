@@ -17,7 +17,7 @@ import type {
   MemoryCommandOptions,
   MemoryCommandResult,
 } from './MemoryCommands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('memory:memdir:memoryIntegrationService');

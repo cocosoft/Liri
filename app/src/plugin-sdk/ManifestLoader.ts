@@ -17,7 +17,7 @@ import type {
   PluginValidationWarning,
 } from './types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('plugin-sdk:ManifestLoader');
 
 /** 支持的清单文件名（按优先级排序） */

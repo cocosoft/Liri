@@ -25,7 +25,7 @@
  * 处理 LLM 流式响应的工具调用增量检测与就绪判定。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('query:streamModel');

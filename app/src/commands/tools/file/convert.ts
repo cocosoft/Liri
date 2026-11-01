@@ -4,7 +4,7 @@ import { FileTypeDetector } from '@modules/tools';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:tools:file:convert');
 
 function buildHelpText(): string {

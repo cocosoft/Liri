@@ -4,7 +4,7 @@
  */
 
 import { Database } from '@openliri/infra/external';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 import type { CronJob, CronJobResult } from './types';

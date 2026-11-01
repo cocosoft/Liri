@@ -32,7 +32,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolUseContext, ToolResult, ToolParam } from '../types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';

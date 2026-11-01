@@ -15,7 +15,7 @@ import {
   ExitWorktreeOutputJsonSchema,
 } from './schemas';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:ExitWorktreeTool:ExitWorktreeTool');
 
 /**

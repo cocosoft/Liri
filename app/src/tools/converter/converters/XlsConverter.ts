@@ -4,7 +4,7 @@ import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
 import { AppError } from '@openliri/infra/error';
 import { ErrorCodes } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools\converter\converters\XlsConverter');
 
 let _depError: Error | null = null;

@@ -27,7 +27,7 @@
 | 面 | 总数 | core | community |
 |---|---:|---:|---:|
 | 消息通道 | 27 | 26 | 0 |
-| 内建工具 | 69 | 41 | 28 |
+| 内建工具 | 69 | 42 | 27 |
 
 ## 消息通道
 
@@ -101,7 +101,7 @@
 | `mcp_auth` | core | `app/tests/tools/mcpAuthTool.test.ts`（测试文件名） |
 | `mcp_resource` | core | `app/tests/vfs/mcpResourcesDriver.test.ts`（测试文件名） |
 | `mcp_tool` | core | `app/tests/mcp/mcpToolRegistrationPath.test.ts`（测试文件名） |
-| `monitor` | community | —（无专属测试） |
+| `monitor` | core | `app/tests/monitoring/MonitoringModuleTest.test.ts`（测试文件名） |
 | `music` | community | —（无专属测试） |
 | `notebook` | core | `app/tests/tools/notebook.test.ts`（测试文件名） |
 | `pdf` | core | `app/tests/tools/PDFTool.test.ts`（测试文件名） |

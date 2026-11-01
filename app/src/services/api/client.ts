@@ -8,7 +8,7 @@ import { ApiError, ApiConnectionError, ApiTimeoutError } from './errors';
 import { configManager } from '@openliri/infra/config';
 import { USER_AGENT } from '@openliri/infra/constants';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:api:client');
 
 export interface ApiClientConfig {

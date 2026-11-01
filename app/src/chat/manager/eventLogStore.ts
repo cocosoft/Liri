@@ -39,7 +39,7 @@ import {
   isLocalPrincipal,
 } from '@openliri/kernel/identity/requestScope.js';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('chat:manager');

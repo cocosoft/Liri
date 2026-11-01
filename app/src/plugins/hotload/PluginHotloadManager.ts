@@ -25,7 +25,7 @@ import {
   readFileSync,
 } from 'fs';
 import { resolve, extname, basename, dirname } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { PluginState } from '../types/PluginTypes';
 import { PluginManager } from '../managers/PluginManager';
 // 惰性初始化：顶层 PluginManager.getInstance() 会在 plugins 模块半初始化时触发 TDZ（循环导入）

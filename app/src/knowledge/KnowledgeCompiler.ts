@@ -16,8 +16,8 @@
 import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { LogLevel } from '@modules/monitoring';
-import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
+import { LogLevel } from '@openliri/infra/monitoring';
+import { OTelAwareLogger } from '@openliri/infra/monitoring/logs/OTelAwareLogger';
 import { LLMPerformanceMonitor } from '@modules/ai';
 import { handleError } from '@openliri/infra/error';
 import { LRUCache } from '@openliri/infra/utils/cache';
@@ -52,7 +52,7 @@ import {
   DOCUMENT_EXTRACT_EXTS,
 } from './ingestion/extractors/TextExtractor';
 // 内存水位（2026-09-02）：非关键后台任务在压力下暂停（OS kswapd 式分级回收）
-import { isMemoryUnderPressure } from '@modules/monitoring';
+import { isMemoryUnderPressure } from '@openliri/infra/monitoring';
 import {
   startCompileProgress,
   updateCompileProgress,

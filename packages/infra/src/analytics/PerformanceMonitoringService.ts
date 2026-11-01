@@ -7,7 +7,7 @@ import os from 'os';
 import { analyticsService } from './AnalyticsService';
 // C1（2026-10-09）：指标 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('analytics:performance');
 
 /**
@@ -96,7 +96,7 @@ class PerformanceMonitoringService {
   async collectCPUMetrics() {
     try {
       const { getSystemCpuPercent } =
-        await import('@modules/monitoring/metrics/SystemMetricsCollector');
+        await import('@openliri/infra/monitoring/metrics/SystemMetricsCollector');
       const cpuUsage = getSystemCpuPercent();
       this.recordMetric('cpu_usage', 'system_cpu_usage', cpuUsage, {
         source: 'system',
@@ -145,7 +145,7 @@ class PerformanceMonitoringService {
   async collectDiskMetrics() {
     try {
       const { getDiskInfo } =
-        await import('@modules/monitoring/metrics/SystemMetricsCollector');
+        await import('@openliri/infra/monitoring/metrics/SystemMetricsCollector');
       const disk = getDiskInfo();
       this.recordMetric('disk_usage', 'system_disk_usage', disk.percent, {
         source: 'system',

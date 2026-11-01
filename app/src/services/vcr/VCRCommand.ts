@@ -2,7 +2,7 @@ import { SessionRecorder } from './SessionRecorder';
 import { SessionPlayer } from './SessionPlayer';
 import { VCRStorage } from './VCRStorage';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:vcr:VCRCommand');
 
 export interface VCRCommandParams {

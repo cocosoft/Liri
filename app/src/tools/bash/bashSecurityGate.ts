@@ -25,7 +25,7 @@
  */
 import type { ToolResult } from '../types/ToolResult';
 import { createToolResult } from '../types/ToolResult';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { feature } from '@openliri/kernel';
 import { SandboxSecurityChecker } from '@modules/sandbox';
 import {

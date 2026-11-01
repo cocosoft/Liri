@@ -5,7 +5,7 @@
  */
 import type http from 'http';
 import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('http:steer');
 
 /** Steering 安全过滤器 */

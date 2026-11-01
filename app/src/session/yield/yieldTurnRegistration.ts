@@ -18,7 +18,7 @@
 import { getYieldRegistry, type YieldWaitingEntry } from './YieldRegistry';
 import { YIELD_TOOL_NAME } from './constants';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('session:yield:registration');
 
 /** 参与判定所需的最小工具结果形态（`ToolResultEntry` 的结构化子集，避免跨层依赖） */

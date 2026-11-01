@@ -19,7 +19,7 @@ import { handleError } from '@openliri/infra/error';
 import { readSoulMd, writeSoulMd } from '@modules/services/soul/SoulReader';
 import { readUserMd, writeUserMd } from '@modules/services/soul/UserReader';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:utility-io-tools');
 
 export function collectIoTools(tools: Tool[]): void {

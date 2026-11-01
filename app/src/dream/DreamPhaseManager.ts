@@ -25,7 +25,7 @@
  */
 
 import type { DreamPhase } from './types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('dream:dreamPhaseManager');
 
 export interface PhaseResult {

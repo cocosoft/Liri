@@ -32,7 +32,7 @@ import type { HandlerCtx } from './handler-utils';
 import { deriveYieldState } from './session-handlers';
 // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D1）：只读取本会话待触发唤醒
 import { resolvePendingWake } from './sessionWaitFields';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   handleError,
   AppError,
@@ -41,7 +41,7 @@ import {
 } from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { parseRequestPriority } from '@modules/types/requestPriority';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import type {
   ChatRequest,

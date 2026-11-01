@@ -33,7 +33,7 @@ import { getDailyBudget } from './DailyBudgetManager.js';
 import { formatBudget, formatBudgetExhausted } from './dailyBudgetSnapshot.js';
 import type { BudgetSnapshot } from './dailyBudgetSnapshot.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('query:dailyBudgetGate');
 

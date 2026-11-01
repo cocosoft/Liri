@@ -26,7 +26,7 @@ import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai\providers\AzureOpenAIProvider');
 
 export class AzureOpenAIProvider extends BaseAIProvider {

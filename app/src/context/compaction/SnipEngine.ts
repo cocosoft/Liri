@@ -13,7 +13,7 @@ import {
   // D1（2026-09-21）：按工具轮裁剪会**跨段切断配对**，需要请求侧的严格收敛
   sanitizeToolCallPairs,
 } from './toolPairIntegrity';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // ② P2（2026-10-10）：单条截断的**结构闭环**（结构安全切点 + 原生闭合后缀；不可用 ⇒ 降级）
 // ② P2 收尾（2026-10-18）：尾部结构恢复点 + 头部未闭合围栏补齐
 import {

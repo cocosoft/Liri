@@ -2,7 +2,7 @@ import type { SessionMetadata } from './SessionMetadata';
 import type { SessionMessage } from './SessionMessage';
 import type { SessionState } from './SessionState';
 import type { SessionSource } from '../key/SessionSource';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('session:models:session');
 

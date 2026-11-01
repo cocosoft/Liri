@@ -4,7 +4,7 @@
  * 包括：Token缓存、自动刷新、过期缓冲、重试机制
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('TokenManager');
 import { OAuthStorage, createOAuthStorage } from './OAuthStorage.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';

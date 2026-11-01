@@ -24,7 +24,7 @@
  * 提供性能分析、监控和优化功能
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('performance:index');
 
 // 导出启动性能分析

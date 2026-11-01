@@ -13,7 +13,7 @@
  * **行为等价**：执行顺序、日志文案、异常类型与出参**逐字未变**（仅 `this.` → 注入 deps）。
  */
 
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { SensitiveErrorType } from '@openliri/infra/security';
 import { recursivelySanitizeUnicode } from '@openliri/infra/utils/sanitization';

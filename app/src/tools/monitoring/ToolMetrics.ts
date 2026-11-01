@@ -34,12 +34,12 @@
  * 由 `AppCoreOTelHelper` 的 `MetricsBridge` 桥接 OTel。
  */
 
-import { getLogger, getMetricsService } from '@modules/monitoring';
+import { getLogger, getMetricsService } from '@openliri/infra/monitoring';
 import type {
   CounterMetric,
   GaugeMetric,
   HistogramMetric,
-} from '@modules/monitoring';
+} from '@openliri/infra/monitoring';
 
 const logger = getLogger('tools:metrics');
 

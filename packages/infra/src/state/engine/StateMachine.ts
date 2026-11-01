@@ -7,7 +7,7 @@
  * @typeParam S 状态枚举的字面量联合类型（如 'idle' | 'running' | 'completed'）
  */
 
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { IllegalTransitionError, InvalidSnapshotError } from '../errors';
 import type {
   TransitionRules,

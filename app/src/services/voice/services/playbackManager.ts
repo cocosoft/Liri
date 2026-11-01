@@ -15,7 +15,7 @@
  *   pm.destroy();
  */
 
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { PCMAudioPlayer } from './audioPlayer';
 import { isFFmpegAvailable } from './audioFormatConverter';

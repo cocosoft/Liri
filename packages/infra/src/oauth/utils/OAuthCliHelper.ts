@@ -11,7 +11,7 @@ import type { AuthorizationCodeFlow } from '../flows/AuthorizationCodeFlow';
 import type { OAuthAuthResult } from '../types/OAuthTypes';
 import type { AuthorizationCodeFlowOptions } from '../flows/AuthorizationCodeFlow';
 import { readLineFromStdin } from './OAuthIo';
-import { getLogger, Logger } from '@modules/monitoring';
+import { getLogger, Logger } from '@openliri/infra/monitoring';
 const logger = getLogger('oauth:utils:cli');
 
 /**

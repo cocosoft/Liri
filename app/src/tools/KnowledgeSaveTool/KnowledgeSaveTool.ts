@@ -33,7 +33,7 @@ import { Tool, ToolInfo, ToolTag } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { createKnowledgeBaseWriter } from '@modules/knowledge';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // CC-06（Spec §5.2 #11）：检测面前缀**从 FragmentKind 派生**，不手写前缀字面量。
 import { getAllFragmentPrefixes } from '@modules/context';
 

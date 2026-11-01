@@ -16,7 +16,7 @@ import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { imageFormatDetector } from '@openliri/infra/media/image/ImageFormatDetector';
 import { mediaStore } from '@openliri/infra/media/store/MediaStore';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('media:tool:info');

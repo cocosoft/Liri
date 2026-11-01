@@ -32,8 +32,8 @@
 import { configManager } from '@openliri/infra/config';
 import { DEFAULT_MODEL_SENTINEL } from '@openliri/infra/constants';
 import { AppError, handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { getLogger } from '@openliri/infra/monitoring';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { createPermissionManager } from '@openliri/infra/permission';
 import type { ChatManager } from '@modules/chat';

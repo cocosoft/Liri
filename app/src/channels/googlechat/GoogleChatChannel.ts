@@ -20,7 +20,7 @@ import {
 } from '@openliri/infra/error';
 import { TTLCache } from '@openliri/infra/utils/cache';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { GOOGLE_API_BASE_URL, GOOGLE_OAUTH2_BASE_URL } from '@openliri/kernel';
 const logger = getLogger('channels:googlechat:GoogleChatChannel');
 

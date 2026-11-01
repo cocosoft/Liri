@@ -37,7 +37,7 @@ import {
   writeFileSync,
 } from 'fs';
 import { resolveUserSkillsDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('skills:builtinEnabled');
 

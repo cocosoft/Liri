@@ -4,7 +4,7 @@
  * 基于纯 Node.js 实现，无第三方依赖
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('sandbox:resourceLimitManager');
 
 /**

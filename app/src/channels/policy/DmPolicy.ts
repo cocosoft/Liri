@@ -4,7 +4,7 @@
  * 对齐 OpenClaw channels/dm-policy-shared.ts
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type {
   DmPolicy,
   MessageContext,

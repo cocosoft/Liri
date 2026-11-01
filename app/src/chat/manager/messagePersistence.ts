@@ -18,7 +18,7 @@
  * `_pendingPersistPromises` 仍归宿主（`flushPendingPersists` 消费同一 Set）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { Message } from '@modules/session/types/message.js';
 import type { ChatSession } from '@modules/session/types/session.js';

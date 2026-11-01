@@ -23,7 +23,7 @@
  */
 
 import { feature } from '@openliri/kernel';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { LiriEvent } from '@modules/session/types/events.js';
 
 import { buildOutputGuardAuditPayload } from '../finalOutputGuard.js';

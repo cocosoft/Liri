@@ -14,7 +14,7 @@ import {
   renderFragment,
   FRAGMENT_KIND_FIELD,
 } from '@modules/context';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   buildRereadNotice,
   createReadFileAnchorState,

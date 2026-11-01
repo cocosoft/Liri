@@ -35,7 +35,7 @@ import type {
 import { SymbolContext as SymbolContextProvider } from '../lsp/SymbolContext.js';
 import type { SymbolContextResult } from '../lsp/SymbolContext.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:adapters:LSPToolAdapter');
 
 /**

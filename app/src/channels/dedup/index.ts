@@ -55,7 +55,7 @@
  */
 
 /** 默认去重 TTL：24 小时 */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { DedupStore } from './DedupStore';
 const logger = getLogger('channels:dedup:index');
 

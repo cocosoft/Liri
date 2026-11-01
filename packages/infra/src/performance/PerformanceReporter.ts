@@ -3,7 +3,7 @@
  * 用于生成和展示性能报告
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 
 const logger = getLogger('performance:reporter');

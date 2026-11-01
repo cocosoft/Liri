@@ -18,7 +18,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 
 import { OrchestrationEventPairer } from '@openliri/kernel/events/orchestrationPairing';
-import { orchestrationEventLogPath } from '../src/monitoring/orchestrationEventLog';
+import { orchestrationEventLogPath } from '@openliri/infra/monitoring/orchestrationEventLog';
 
 interface PersistedEvent {
   v?: number;

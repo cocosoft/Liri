@@ -19,7 +19,7 @@ import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // B5-2-100+：厂商站点与 Onboard 引导链接共用同一事实源
 import { WECOM_VENDOR_SITE_URL } from '../constants.js';
 const logger = getLogger('channels:wecom:WeComChannel');

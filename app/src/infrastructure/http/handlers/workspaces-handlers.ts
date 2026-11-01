@@ -25,7 +25,7 @@ import { randomIdSuffix } from '@openliri/infra/utils/common';
 import type { HandlerCtx } from './handler-utils';
 import type { SessionInfo } from '@modules/runtime/api/CoreAPI';
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // G-2/G（2026-10-11）：撞限响应复用非流式 chat 的**唯一映射**（429 + 真实码 + 上下文 + 放行入口）
 import { mapChatErrorResponse, type ChatErrorBody } from './chat-handlers';

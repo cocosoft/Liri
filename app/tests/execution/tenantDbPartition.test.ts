@@ -31,7 +31,7 @@ import {
   getQueryLogStore,
   resetQueryLogStore,
 } from '../../src/query/QueryLogStore';
-import { getLLMTracker } from '../../src/monitoring/llm/getLLMTracker';
+import { getLLMTracker } from '@openliri/infra/monitoring/llm/getLLMTracker';
 import { BalanceStore } from '../../src/ai/providers/BalanceStore';
 import {
   getSettlementOutbox,

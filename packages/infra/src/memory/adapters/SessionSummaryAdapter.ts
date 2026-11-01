@@ -39,7 +39,7 @@
  *  - 重建为全量对齐式（C−E 删 / E−C 写 / 交集覆盖），只增不删会越重建越膨胀
  */
 import { createHash } from 'node:crypto';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { Memory } from '../types/Memory';
 import type { MemoryMetadata } from '../types/MemoryMetadata';
 import {

@@ -28,7 +28,7 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { checkBalance, formatBalanceResult } from '@modules/ai';
 import { getProviderManager } from '@modules/ai';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { DEEPSEEK_API_BASE_URL } from '@openliri/kernel';
 const logger = getLogger('commands:balance:balance');
 

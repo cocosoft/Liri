@@ -12,7 +12,7 @@
  * （埋点据此不计入 Buddy 用户对话轮数），日志口径与模块名不变。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { ChatSession } from '@modules/session/types/session';
 import type {
   Message,

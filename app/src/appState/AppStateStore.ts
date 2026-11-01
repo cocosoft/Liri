@@ -11,7 +11,10 @@ import {
   StateChangeListener,
   StateUpdater,
 } from './AppState';
-import { Logger, getLogger as getModuleLogger } from '@modules/monitoring';
+import {
+  Logger,
+  getLogger as getModuleLogger,
+} from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
 let _logger: Logger | null = null;

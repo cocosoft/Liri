@@ -1,6 +1,6 @@
 import { MockChannel, MockChannelConfig } from './MockChannel.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('testing:channels:ChannelTestHarness');
 
 export interface TestScenario {

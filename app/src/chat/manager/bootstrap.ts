@@ -29,7 +29,7 @@
 import fs from 'fs';
 import path from 'path';
 import { homedir } from 'node:os';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { RollbackIntegration } from '@openliri/infra/security';
 import type { SessionGateway } from '@modules/session';

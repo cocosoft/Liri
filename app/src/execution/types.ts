@@ -1,7 +1,7 @@
 /**
  * Execution 生命周期 —— 类型与状态机（PR1 / 2026-10-09）
  *
- * 归属：`execution` 模块（service 层）。仅依赖 `@modules/core`（错误基座）与 `@modules/monitoring`。
+ * 归属：`execution` 模块（service 层）。仅依赖 `@modules/core`（错误基座）与 `@openliri/infra/monitoring`。
  * 见 `.trae/specs/execution-lifecycle-ownership.md`。
  */
 

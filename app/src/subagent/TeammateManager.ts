@@ -13,7 +13,7 @@ import {
   MessageHandler,
 } from './backends/TeammateBackend';
 import { InProcessTeammateBackend } from './backends/InProcessTeammateBackend';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { getTaskConcurrencyLimits } from '../tasks/limits';
 

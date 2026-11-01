@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // P26-2 P1（2026-10-07）：秘密**形态**规则复用既有唯一事实源（`memory` 侧 gitleaks 式规则表）
 // —— 不再在此维护第二套"字段名"正则（CS01）。
 import { redactSecretsFully } from '../scanner/secret/index.js';

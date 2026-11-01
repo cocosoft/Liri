@@ -14,7 +14,7 @@
  * ```
  */
 
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { buildUserAgent } from '@openliri/infra/constants';
 import { handleError } from '@openliri/infra/error';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';

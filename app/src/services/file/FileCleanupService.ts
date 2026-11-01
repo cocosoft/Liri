@@ -13,7 +13,7 @@
 
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';

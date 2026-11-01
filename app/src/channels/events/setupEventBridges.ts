@@ -33,7 +33,7 @@
  * 同时通过 handleError 的内存追踪记录，将标准化错误 publish 到 globalEventBus。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { channelEventBus, ChannelEvents } from './ChannelEventBus';
 import type { EventBus } from '@openliri/kernel/events/EventBus';
 

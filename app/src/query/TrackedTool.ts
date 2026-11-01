@@ -17,7 +17,7 @@
  * 非法状态转换会触发 logger.warning 但不抛异常（非关键路径）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('query:trackedTool');
 
 // ============================================================

@@ -50,7 +50,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { getMemoryManager, MemoryType } from '@openliri/infra/memory';
 import type { MemoryMetadata } from '@openliri/infra/memory/types/MemoryMetadata';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('mcp:memory');
 

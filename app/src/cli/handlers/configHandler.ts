@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 import { t } from '@openliri/infra/system/i18n/extended';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   CliConfigManager,
   createCliConfigManager,

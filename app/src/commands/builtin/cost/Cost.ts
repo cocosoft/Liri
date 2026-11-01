@@ -9,7 +9,7 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 const logger = getLogger('commands:builtin:cost:Cost');
 

@@ -116,7 +116,7 @@ export type {
   CostReportData,
 } from './CostReportEndpoint';
 
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { globalEventBus, SystemEvents } from '@openliri/kernel';
 import type { CostRecordedEvent } from '@openliri/kernel';
 import { handleError } from '@openliri/infra/error';

@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('context:gitDetector');
 
 /**

@@ -6,7 +6,7 @@ import React, {
   useLayoutEffect,
 } from 'react';
 import { Box, Text } from '../../ink';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('ink:repl:InputArea');
 

@@ -31,10 +31,10 @@
  *   trackUsage(response, { model, providerId, latencyMs });
  */
 
-import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger.js';
+import { OTelAwareLogger } from '@openliri/infra/monitoring/logs/OTelAwareLogger';
 // C1（2026-10-09）：请求 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
-import { LogLevel } from '@modules/monitoring/logs/Logger.js';
+import { LogLevel } from '@openliri/infra/monitoring/logs/Logger';
 import { extractUsage } from './tokenizer/UsageExtractor.js';
 import { getCanonicalModelName } from '@openliri/infra/cost/ModelPricing';
 import {
@@ -84,7 +84,7 @@ async function getOrInitCostTracker(sessionId?: string) {
 
 async function getOrInitLLMTracker() {
   // 按**调用时身份**解析（不缓存：见文件内说明）
-  const mod = await import('@modules/monitoring/llm/getLLMTracker');
+  const mod = await import('@openliri/infra/monitoring/llm/getLLMTracker');
   return mod.getLLMTracker();
 }
 

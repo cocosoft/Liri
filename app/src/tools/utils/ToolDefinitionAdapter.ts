@@ -23,7 +23,7 @@ import type {
   ToolExecutionResult,
 } from '../types/ToolTypes';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:utils:ToolDefinitionAdapter');
 
 function mapToolParam(p: ToolParameter): ToolParam {

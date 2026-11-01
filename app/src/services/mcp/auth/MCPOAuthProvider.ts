@@ -11,7 +11,7 @@ import {
   UserInfo,
 } from '@openliri/infra/oauth';
 import { OAuthClient } from '@openliri/infra/oauth';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('mcp:auth:oauthProvider');
 
 export class MCPOAuthProvider implements OAuthProvider {

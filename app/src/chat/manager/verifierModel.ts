@@ -15,7 +15,7 @@
  * 解析状态由宿主持有（实例级），以 {@link VerifierModelState} 传入。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 const logger = getLogger('chat:manager');

@@ -10,7 +10,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import {
   resolveOutputDir,

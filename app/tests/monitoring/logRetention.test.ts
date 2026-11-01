@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'bun:test';
 
-import { selectRotatedLogsToDelete } from '../../src/monitoring/MonitoringService';
+import { selectRotatedLogsToDelete } from '@openliri/infra/monitoring/MonitoringService';
 
 const rotated = (iso: string): string => `app.log.${iso}`;
 

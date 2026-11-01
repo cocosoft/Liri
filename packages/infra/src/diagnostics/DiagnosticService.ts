@@ -10,7 +10,7 @@ import { exec as nodeExec } from 'child_process';
 import { promisify } from 'util';
 import { realpath } from 'fs/promises';
 import { configManager } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('diagnostics:service');
 
 // 阻塞源收敛（2026-10-04）：安装类型探测/诊断改用异步 exec，避免同步阻塞事件循环

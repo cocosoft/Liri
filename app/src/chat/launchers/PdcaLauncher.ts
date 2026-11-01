@@ -1,9 +1,9 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
-import { getOTelTracing } from '@modules/monitoring/otel';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { configManager } from '@openliri/infra/config';
 import { PlanDrivenLoop } from '@modules/tasks';

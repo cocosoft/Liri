@@ -3,7 +3,7 @@
  * 记录安全事件和操作，便于后续分析和追�?
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('security:SecurityAudit');
 import { join, dirname } from 'path';

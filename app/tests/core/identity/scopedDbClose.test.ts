@@ -17,7 +17,7 @@ import { join } from 'path';
 import { setUserDataDirOverride } from '@openliri/infra/environment';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
-import { LLMTracker } from '../../../src/monitoring/llm/LLMTracker.js';
+import { LLMTracker } from '@openliri/infra/monitoring/llm/LLMTracker';
 import { DBTAORCheckpointStorage } from '../../../src/query/DBTAORCheckpointStorage.js';
 import { ProviderTopologyWatcher } from '../../../src/ai/providers/TopologyWatcher.js';
 import type { TAORCheckpoint } from '../../../src/query/types.js';

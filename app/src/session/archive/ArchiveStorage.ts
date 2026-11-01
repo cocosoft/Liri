@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { UnifiedSession } from '../types/UnifiedSession';
 import type { UnifiedMessage } from '../types/UnifiedMessage';
 import type { ArchiveMetadata, ArchiveConfig } from './ArchiveTypes';

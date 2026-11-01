@@ -27,7 +27,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@openliri/infra/error';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { throwIfAborted } from '@modules/agent';
 
 import { parsePlanDraft } from '../planOutputParser';

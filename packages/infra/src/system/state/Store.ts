@@ -3,7 +3,7 @@
  * 提供简单的状态管理，支持订阅/取消订阅、中间件、选择器等功能
  */
 
-import { Logger, getLogger as getModuleLogger } from '@modules/monitoring';
+import { Logger, getLogger as getModuleLogger } from '@openliri/infra/monitoring';
 
 let _logger: Logger | null = null;
 function getLogger(): Logger {

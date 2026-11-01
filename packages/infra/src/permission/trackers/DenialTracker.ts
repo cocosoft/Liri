@@ -4,7 +4,7 @@
  * 参考CC源码 cc_code/backend/utils/permissions/denialTracking.ts 实现
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // C1（2026-10-09）：拒绝事件 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';

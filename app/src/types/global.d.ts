@@ -28,13 +28,9 @@ declare module '../tools/index.js' {
 // 2026-09-30（台账 D-83）：`ExtensibilityService` 已删除 ⇒ 其 ambient 声明（遗留 shim，
 // 无其他引用方）一并移除。
 
-declare module '../monitoring/index.js' {
-  export interface MonitoringServiceInterface {
-    start(): void;
-    stop(): void;
-  }
-  export function getMonitoringService(): MonitoringServiceInterface;
-}
+// 2026-11-01（P28）：`monitoring` 迁入 packages/infra 后已是**真实模块** ⇒ 原 ambient shim
+// （`MonitoringServiceInterface` / `getMonitoringService`）会**遮蔽**真实导出面（全量 TS2305）
+// 且无其他引用方，一并移除（同 D-83 口径：shim 只服务于当时的占位）。
 
 /**
  * `bun:bundle` —— 编译期 feature 裁剪（2026-10-20，P1-0）。

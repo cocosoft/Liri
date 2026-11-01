@@ -3,7 +3,7 @@
  * 标准层实现，负责管理多个MCP服务器连接
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('services:mcp:serverManager');

@@ -13,7 +13,7 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { DoctorCheck, runDoctorChecks } from './DoctorCheck.js';
 import { detectUnifiedProviders } from '@modules/ai';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:doctor:Doctor');
 
 /**

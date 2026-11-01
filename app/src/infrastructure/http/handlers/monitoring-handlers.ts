@@ -27,12 +27,12 @@ import type http from 'http';
 import os from 'os';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { HandlerCtx } from './handler-utils';
-import { LogLevel, StructuredLogger } from '@modules/monitoring';
-import { getMonitoringService } from '@modules/monitoring';
+import { LogLevel, StructuredLogger } from '@openliri/infra/monitoring';
+import { getMonitoringService } from '@openliri/infra/monitoring';
 import {
   getSystemCpuPercentAsync,
   getDiskInfoAsync,
-} from '@modules/monitoring';
+} from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { queryAuditLogs } from '@openliri/infra/security';
 
@@ -472,7 +472,7 @@ export async function handleMonitorSessions(
 ): Promise<void> {
   try {
     const { getLLMTracker } =
-      await import('@modules/monitoring/llm/getLLMTracker');
+      await import('@openliri/infra/monitoring/llm/getLLMTracker');
     const llmTracker = getLLMTracker();
     const urlObj = new URL(req.url!, `http://${req.headers.host}`);
     const limit = parseInt(urlObj.searchParams.get('limit') || '20', 10);
@@ -507,7 +507,7 @@ export async function handleMonitorSessionDetail(
   try {
     const sessionId = params?.['$1'] || '';
     const { getLLMTracker } =
-      await import('@modules/monitoring/llm/getLLMTracker');
+      await import('@openliri/infra/monitoring/llm/getLLMTracker');
     const sessionDetail = getLLMTracker().getSessionDetail(sessionId);
     if (!sessionDetail) {
       res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -536,7 +536,7 @@ export async function handleSessionsSummary(
 ): Promise<void> {
   try {
     const { getLLMTracker } =
-      await import('@modules/monitoring/llm/getLLMTracker');
+      await import('@openliri/infra/monitoring/llm/getLLMTracker');
     const summary = getLLMTracker().getGlobalSummary();
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(summary));
@@ -560,7 +560,7 @@ export async function handleOTelMetrics(
 ): Promise<void> {
   try {
     const { getOTelMetrics } =
-      await import('@modules/monitoring/otel/OTelMetrics');
+      await import('@openliri/infra/monitoring/otel/OTelMetrics');
     const oTelMetrics = getOTelMetrics();
 
     // OTel Metrics 是 Push 模型，无法直接查询值。
@@ -661,11 +661,11 @@ export async function handleInfrastructureStatus(
     const { infraHealthChecker } =
       await import('@openliri/infra/diagnostics/infrastructure-diagnostics');
     const { getLLMTracker } =
-      await import('@modules/monitoring/llm/getLLMTracker');
+      await import('@openliri/infra/monitoring/llm/getLLMTracker');
     const { getOTelMetrics } =
-      await import('@modules/monitoring/otel/OTelMetrics');
+      await import('@openliri/infra/monitoring/otel/OTelMetrics');
     const { getHealthMonitor } =
-      await import('@modules/monitoring/HealthMonitor.js');
+      await import('@openliri/infra/monitoring/HealthMonitor');
 
     const [healthResult, llmSummary] = await Promise.allSettled([
       infraHealthChecker.runAllChecks(),

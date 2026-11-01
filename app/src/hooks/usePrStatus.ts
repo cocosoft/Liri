@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 import { configManager } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { GITHUB_API_BASE } from '@openliri/infra/constants';
 const logger = getLogger('hooks:usePrStatus');
 

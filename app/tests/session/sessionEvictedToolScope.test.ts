@@ -43,7 +43,7 @@ import {
   ToolScopeManager,
   toolScopeManager,
 } from '../../src/tool/ToolScopeManager.js';
-import { getLogger } from '../../src/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 
 const restores: Array<() => void> = [];
 

@@ -35,7 +35,7 @@
  * - 销毁时机：ChannelManager 完全退役后移除
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // C1（2026-10-09）：桥接 messageId 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { channelRegistry } from '../registry/ChannelRegistry';

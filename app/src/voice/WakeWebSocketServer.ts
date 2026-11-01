@@ -7,7 +7,10 @@
  * 零第三方依赖
  */
 
-import { getLogger, withTraceContextFromRequest } from '@modules/monitoring';
+import {
+  getLogger,
+  withTraceContextFromRequest,
+} from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';

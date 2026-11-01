@@ -12,7 +12,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { unlinkSync, writeFileSync } from 'fs';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { getPlatform } from '@openliri/infra/utils/platform';
 import type {

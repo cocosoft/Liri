@@ -19,7 +19,7 @@ import type {
   LegacyAliasToolName,
   ToolNameConstant,
 } from './toolNameConstants';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { feature } from '@openliri/kernel';
 import type { FeatureFlag } from '@openliri/kernel';
 

@@ -39,7 +39,7 @@ import { resolveDataSubDir } from '@openliri/infra/environment';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { handleError } from '@openliri/infra/error/handleError';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('dream:transaction');
 
 export interface TxOperation {

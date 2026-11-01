@@ -9,7 +9,7 @@
 import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir, rename, cp } from 'fs/promises';
 import { existsSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { SimpleMutex } from '@openliri/kernel';
 

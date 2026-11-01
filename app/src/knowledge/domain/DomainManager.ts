@@ -10,7 +10,7 @@ import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { load, dump } from 'js-yaml';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   resolveDomainsRoot,
   resolveDomainDir,

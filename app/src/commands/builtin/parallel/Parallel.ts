@@ -4,7 +4,7 @@ import { createToolScheduler } from '@modules/tools';
 import { getEmptyToolUseContext } from '@modules/tools/types/ToolUseContext.js';
 import type { ToolUseContext } from '@modules/tools/types/ToolUseContext.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:parallel:Parallel');
 
 // 惰性初始化：顶层 createToolManager() 会触发 StartupProfiler 的

@@ -13,15 +13,15 @@
  */
 
 import { modelRouter } from '@modules/ai';
-import { LogLevel } from '@modules/monitoring';
-import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
+import { LogLevel } from '@openliri/infra/monitoring';
+import { OTelAwareLogger } from '@openliri/infra/monitoring/logs/OTelAwareLogger';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
 import type { SchemaContainer } from '@modules/knowledge/schema/SchemaLoader';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
-import { memProfile } from '../../monitoring/memProfile.js';
+import { memProfile } from '@openliri/infra/monitoring/memProfile';
 
 const logger = new OTelAwareLogger({
   module: 'knowledge:graph:extract',

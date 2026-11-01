@@ -37,7 +37,7 @@ import type { ChatManager } from '@modules/chat';
 import { ExecutionPhaseTracker } from '@modules/session';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { Message } from '@modules/session/types/message';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');

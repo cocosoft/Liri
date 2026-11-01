@@ -34,7 +34,7 @@ import {
 import { getDescription } from './prompt';
 import { resolveToolPrompt } from '@modules/services/prompt/PromptVersionManager';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:GrepTool:GrepTool');
 
 /**

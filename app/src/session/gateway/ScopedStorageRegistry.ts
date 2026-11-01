@@ -13,7 +13,7 @@ import type { UnifiedSessionStorage } from '../storage/UnifiedStorage.js';
 import { StorageType } from '../storage/UnifiedStorage.js';
 import { StorageFactory } from '../storage/StorageFactory.js';
 import { resolveScopedSessionsDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   getRequestPrincipal,
   isLocalPrincipal,

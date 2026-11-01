@@ -7,7 +7,7 @@ import type { Skill, SkillContext, SkillResult } from './types';
 import { SkillRegistry } from './SkillRegistry';
 import { ParallelExecutor } from '@modules/tools';
 
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 const logger = getLogger('skills:SkillExecutor');
 
 export class SkillExecutor {

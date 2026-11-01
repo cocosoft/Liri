@@ -28,7 +28,7 @@ import type {
   YieldWaitingRecord,
   YieldWaitingStore,
 } from './YieldWaitingStore';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('session:yield:registry');
 

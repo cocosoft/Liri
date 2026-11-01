@@ -7,7 +7,7 @@
 import type { Command, CommandImplementation } from '@modules/commands';
 import { grep, type GrepOutputMode } from '@modules/tools';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:tools:system:grep');
 
 /**

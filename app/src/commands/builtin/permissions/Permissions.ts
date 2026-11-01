@@ -15,7 +15,7 @@ import { permissionModeIntegrationService } from '@modules/chat';
 import { completeSecuritySystem } from '@openliri/infra/security';
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:permissions:Permissions');
 
 const COMMON_PERMISSIONS: Record<

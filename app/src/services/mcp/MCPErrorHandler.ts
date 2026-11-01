@@ -4,7 +4,7 @@
  * 负责定义和处理MCP系统的错误
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:mcp:errorHandler');
 
 /**

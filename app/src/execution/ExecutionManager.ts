@@ -8,7 +8,7 @@
  *
  * PR1 为**进程内内存视图**（默认零行为变更）；PR5 起由 DB 派生（durable + recovery）。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 import { StaleExecutionError } from './errors';
 import { ExecutionLease } from './ExecutionLease';

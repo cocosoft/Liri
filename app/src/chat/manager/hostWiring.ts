@@ -13,7 +13,7 @@
  * 依赖一律**显式参数注入**（沿用 `chat/manager/` 既有做法，不建单例）。
  */
 
-import { getMemoryPressureMonitor } from '@modules/monitoring';
+import { getMemoryPressureMonitor } from '@openliri/infra/monitoring';
 import { registerSessionSummaryMemoryType } from '@openliri/infra/memory';
 import { compactionOrchestrator } from '@modules/context';
 import {

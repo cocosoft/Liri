@@ -5,7 +5,7 @@
  */
 
 import type { Command, CommandContext, CommandResult } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('BriefCommand');
 
 let isBriefOnly = false;

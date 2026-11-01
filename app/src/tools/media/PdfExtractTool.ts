@@ -10,7 +10,7 @@ import type { MediaToolResult } from './MediaToolResult';
 import { MEDIA_PDF_EXTRACT_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { extractPdfPages } from '@openliri/infra/media/pdf/PdfPageExtractor';
 import type { PdfExtractOptions } from '@openliri/infra/media/pdf/PdfPageExtractor';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import fs from 'fs';
 

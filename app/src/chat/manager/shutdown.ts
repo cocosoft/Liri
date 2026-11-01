@@ -14,7 +14,7 @@
  * 5. 中止/杀死全部任务 + 关闭任务注册表；重置流服务。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { taskOrchestrator, taskRegistry } from '@modules/tasks';
 import { setSelfWakeResumeHandler } from '@modules/tasks';
 import {

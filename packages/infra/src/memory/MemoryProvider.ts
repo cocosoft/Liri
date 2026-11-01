@@ -7,7 +7,7 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { Memory, MemoryStats } from './types/Memory';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('memory:MemoryProvider');
 
 /**

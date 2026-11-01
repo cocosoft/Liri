@@ -4,7 +4,7 @@
  * 提示状态通过配置系统持久化，每个提示只展示一次。
  */
 import { getConfigValue, setConfigValue } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('OnboardHints');
 

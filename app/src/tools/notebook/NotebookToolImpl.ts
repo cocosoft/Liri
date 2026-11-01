@@ -21,7 +21,7 @@ import type { REPLSession } from '../repl/types/index.js';
 import { replSessionManager } from '../repl/REPLSessionManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools\notebook\NotebookToolImpl');
 
 /**

@@ -28,7 +28,7 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { usageStatsService } from '@modules/ai';
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 const logger = getLogger('commands:usagestats:usagestats');
 

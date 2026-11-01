@@ -27,7 +27,7 @@
  * 直接读写）仍归宿主所有 —— 本模块不持有，经 getter/setter 注入。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   getYieldRegistry,
   getYieldWaitingStore,

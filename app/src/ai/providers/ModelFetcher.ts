@@ -27,7 +27,7 @@
  * 支持本地供应商（Ollama、LM Studio、LocalAI）的特殊处理。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai:providers:modelFetcher');
 
 const FETCH_TIMEOUT_MS = 15000;

@@ -3,8 +3,8 @@
  * 用于检查应用的健康状态
  */
 
-import { getLogger } from '@modules/monitoring';
-import { getMonitoringService } from './monitoring/index.js';
+import { getLogger } from '@openliri/infra/monitoring';
+import { getMonitoringService } from '@openliri/infra/monitoring';
 import { pluginSystem } from './plugins/index.js';
 
 const logger = getLogger('healthcheck');

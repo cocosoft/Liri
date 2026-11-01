@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { appStateStore } from '../../appState/AppStateStore';
 import type { Notification } from '../../appState/AppState';
 

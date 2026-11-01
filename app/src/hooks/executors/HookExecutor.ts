@@ -20,7 +20,7 @@ import { diagnosticManager } from '../utils/DiagnosticManager';
 import { securityManager } from '../utils/SecurityManager';
 import { performanceManager } from '../utils/PerformanceManager';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('hooks:executors:HookExecutor');
 
 /**

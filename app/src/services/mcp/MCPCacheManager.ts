@@ -1,4 +1,4 @@
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:mcp:cache');
 import type { ICache, CacheStats } from '@openliri/infra/cache/types';
 // 2026-10-01 D-220（子批 E `commands` 组）：原静态导入 `type Command` from `@modules/commands`，

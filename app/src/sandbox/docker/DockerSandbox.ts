@@ -14,7 +14,7 @@ import type {
   SandboxPermission,
   SandboxPlatform,
 } from '../SandboxTypes';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { DockerImageManager } from './DockerImageManager';
 import { validateDockerNetworkConfig } from './DockerNetworkPolicy';
 import type {

@@ -8,7 +8,7 @@
  * Web 工具类型
  */
 import { buildUserAgent } from '@openliri/infra/constants';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:web:WebToolProvider');
 
 export type WebToolType = 'fetch' | 'search' | 'browser' | 'screenshot';

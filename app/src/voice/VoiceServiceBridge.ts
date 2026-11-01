@@ -13,12 +13,12 @@
  * const realtimeSession = bridge.realtime.createSession(connection);
  * ```
  */
-import { getLogger } from '@modules/monitoring';
-import { getMetricsService } from '@modules/monitoring';
-import type { MetricsService } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
+import { getMetricsService } from '@openliri/infra/monitoring';
+import type { MetricsService } from '@openliri/infra/monitoring';
 import { SessionManager } from '@modules/session';
-import { getAlertManager, AlertLevel } from '@modules/monitoring';
-import { getOTelTracing } from '@modules/monitoring';
+import { getAlertManager, AlertLevel } from '@openliri/infra/monitoring';
+import { getOTelTracing } from '@openliri/infra/monitoring';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
 import {

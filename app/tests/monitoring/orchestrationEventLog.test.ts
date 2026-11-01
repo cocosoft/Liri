@@ -20,7 +20,7 @@ import {
   orchestrationEventLogPath,
   startOrchestrationEventLog,
   stopOrchestrationEventLog,
-} from '../../src/monitoring/orchestrationEventLog';
+} from '@openliri/infra/monitoring/orchestrationEventLog';
 
 interface LogLine {
   v: number;

@@ -35,8 +35,8 @@ import {
   flush,
   setGlobalConfigProvider,
   setGlobalBufferConfig,
-} from './monitoring/logs/Logger';
-import { LogConfigManager } from './monitoring/logs/config/LogConfig';
+} from '@openliri/infra/monitoring/logs/Logger';
+import { LogConfigManager } from '@openliri/infra/monitoring/logs/config/LogConfig';
 import {
   startMdmPrefetch,
   ensureMdmPrefetchCompleted,
@@ -119,7 +119,7 @@ import { APP_VERSION } from '@openliri/infra/constants';
  */
 let activeHttpService: LocalHTTPService | null = null;
 
-import { getLogger, Logger } from '@modules/monitoring';
+import { getLogger, Logger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // 「预期中断」判据（与循环侧 system_aborted 判定同源；见 `isAbortReason` 注释）
 import { isAbortReason } from '@modules/query';
@@ -1418,7 +1418,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
       'LLMTracker',
       async () => {
         const { getLLMTracker } =
-          await import('./monitoring/llm/getLLMTracker');
+          await import('@openliri/infra/monitoring/llm/getLLMTracker');
         await getLLMTracker().init();
       },
       { fallbackMsg: '使用内存模式' }

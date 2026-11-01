@@ -5,7 +5,7 @@
  * 检测未完成的会话并提供断点恢复能力。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { isCheckpointLogEnabled } from '@openliri/infra/config';
 // 多租户 P1（2026-10-21）：检查点存储按请求身份解析（模块级单例不得在 import 期定路径）

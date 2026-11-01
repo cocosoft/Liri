@@ -7,7 +7,7 @@ import type { CronJob, CronJobResult } from './types';
 import type { AIProvider, ChatOptions } from '@modules/ai';
 import type { ChatMessage } from '@modules/ai';
 import { trackUsage } from '@modules/ai';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 

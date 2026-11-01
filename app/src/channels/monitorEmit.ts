@@ -5,7 +5,7 @@
  * `catch { /* 忽略监听器异常 *​/ }` 静默吞错——任一平台心跳/事件处理故障完全不可见。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('channels:monitor');
 

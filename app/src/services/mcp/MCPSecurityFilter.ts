@@ -9,7 +9,7 @@
  *   2. _build_safe_env — 仅允许安全基线的环境变量传递给 MCP 子进程
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('mcp:securityFilter');
 
 // ==========================================

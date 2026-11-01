@@ -5,7 +5,7 @@
  */
 
 import type { CommandContext } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import clipboardy from 'clipboardy';
 
 const logger = getLogger('Copy');

@@ -12,7 +12,7 @@ import {
 } from '../utils/OAuthCrypto';
 import type { OAuthConfig, OAuthAuthResult } from '../types/OAuthTypes';
 import { OAuthError } from '../types/OAuthTypes';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('oauth:flows:authCode');
 
 export interface AuthorizationCodeFlowOptions {

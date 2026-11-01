@@ -5,7 +5,7 @@ import type {
   PruningContext,
   PruningConfig,
 } from './PruningStrategy';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('session:agePruner');
 
 const DEFAULT_MAX_MESSAGE_AGE_MS = 7 * 24 * 60 * 60 * 1000;

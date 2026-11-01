@@ -8,7 +8,7 @@
  * ⇒ 以**窄端口** `deps` 注入，宿主行为逐字不变。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { DEFAULT_STOP_HOOK_PRIORITIES, StopHookManager } from '../StopHooks.js';
 import type { StopHookContext } from '../StopHooks.js';
 

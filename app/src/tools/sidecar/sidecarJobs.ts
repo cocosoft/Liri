@@ -14,7 +14,7 @@
  * 协议（常量、载荷、解析）在唯一基座 `utils/sidecarIpc.ts`，本模块**只做登记与派发**（CS01）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { parseJobCompleted } from '@openliri/infra/utils/sidecarIpc';
 
 const logger = getLogger('tools:sidecar.jobs');

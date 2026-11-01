@@ -10,7 +10,7 @@ import type {
 } from '@modules/subagent/types/SubAgent';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('subagent\backends\TeammateBackend');
 
 export interface TeammateConfig {

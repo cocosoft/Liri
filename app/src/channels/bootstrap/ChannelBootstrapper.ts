@@ -2,7 +2,7 @@
  * ChannelBootstrapper — 通道自动注册启动器
  * 根据配置文件自动创建并注册已启用通道到 ChannelRegistry
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { channelRegistry } from '../registry/ChannelRegistry';
 // 2026-10-01 D-207（子批 D，`channels -> context` 倒挂收口）：`EffectScope` 已**改归 infra**

@@ -14,7 +14,7 @@ import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
 import { join, resolve, sep } from 'path';
 import { existsSync } from 'fs';
 import { PluginManager } from '@modules/plugins';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('skills:pluginLoader');
 // 惰性初始化：顶层 PluginManager.getInstance() 会在 plugins 模块半初始化时触发 TDZ（循环导入）

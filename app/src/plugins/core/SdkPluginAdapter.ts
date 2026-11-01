@@ -10,7 +10,7 @@
  * plugin-sdk 侧仅通过 createPluginContext 接收 services 参数，不引用核心模块。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import {
   createPluginContext,

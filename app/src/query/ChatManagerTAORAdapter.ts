@@ -7,7 +7,7 @@
  * TAORLoop 统一编排已常驻（ENABLE_LOOP_V8_PHASE2 灰度开关于阶段 3 退役，2026-09-01）——L5 注释清理 2026-09-06
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { messageProjector } from '@modules/context';
 import type {

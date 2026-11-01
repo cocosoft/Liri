@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 import * as os from 'os';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { createCliConfigManager } from '@modules/cli/config';
 import { createSessionGateway } from '@modules/session';
 import { SlowQueryDetector } from '@modules/query';

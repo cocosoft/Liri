@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import type { PdcaLauncherDeps } from '../../src/chat/launchers/PdcaLauncher.js';
 import type { PlanDrivenLoop } from '../../src/tasks/PlanDrivenLoop.js';
 import { PdcaLauncher } from '../../src/chat/launchers/PdcaLauncher.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 // Fake PlanDrivenLoop：构造时捕获 config（onStepProgress 在 launch 后手动触发），
 // run 直接返回完成结果（不真正跑编排）

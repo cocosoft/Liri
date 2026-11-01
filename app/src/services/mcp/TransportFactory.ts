@@ -12,7 +12,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { MCPServerConfig } from './types';
 import type { McpTlsConfig } from './transports/McpTlsManager';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services\mcp\TransportFactory');
 
 /**

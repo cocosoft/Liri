@@ -5,7 +5,7 @@
  * 当前仅单 Provider，后续支持 fallback 链扩展。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { VideoGenerationParams, VideoGenerationResult } from '@modules/ai';
 import { RegistryVideoProvider } from './providers/RegistryVideoProvider';
 import { handleError } from '@openliri/infra/error/handleError';

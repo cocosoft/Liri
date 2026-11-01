@@ -18,7 +18,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:KanbanTool:KanbanTool');
 
 /** 客户端看板列（与 `client/src/components/Agent/KanbanBoard.tsx` 的 `COLUMNS` 一致） */

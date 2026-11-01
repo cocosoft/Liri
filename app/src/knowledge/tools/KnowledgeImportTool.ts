@@ -32,7 +32,7 @@ import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync, statSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { globalEventBus } from '@openliri/kernel';
 

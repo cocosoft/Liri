@@ -35,7 +35,7 @@
  */
 
 import { configManager } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { publishStateProjection } from '@openliri/infra/state/engine/projectionBroker';
 import {
   freezeSessionSnapshot,

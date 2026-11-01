@@ -24,7 +24,7 @@
  * 负责创建、重命名、删除、关闭工作空间
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import * as Registry from '../WorkspaceRegistry';
 import * as Storage from '../WorkspaceStorage';
 

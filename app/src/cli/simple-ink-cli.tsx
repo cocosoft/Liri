@@ -6,7 +6,7 @@ import '../bootstrap/initVariantFlags';
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text, Newline, Spacer, render } from '../ink';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('cli:simple-ink-cli.tsx');
 
 /**

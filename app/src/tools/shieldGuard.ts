@@ -35,7 +35,7 @@
  * 判据本体（清单解析 / 比较针展开 / 命中判定）见 `pathShield.ts`；**能力边界亦见那里**
  * （不是通用沙箱：不挡变量/通配拼路径、symlink、祖先目录批量读）。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   ENV_SHIELDED_PATHS,
   findShieldedHit,

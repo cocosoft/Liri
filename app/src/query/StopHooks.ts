@@ -6,7 +6,7 @@
  * 支持同步和异步钩子，支持优先级排序
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('query:stopHooks');

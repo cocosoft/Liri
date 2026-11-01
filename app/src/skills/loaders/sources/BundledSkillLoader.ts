@@ -11,7 +11,7 @@ import {
   PROVIDER_RANK,
   toCandidates,
 } from '../SkillProvider';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('skills:bundledLoader');
 

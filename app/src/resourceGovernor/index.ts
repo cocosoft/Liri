@@ -25,7 +25,7 @@
  */
 
 import { feature } from '@openliri/kernel';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { RequestPriority } from '@modules/types/requestPriority';
 
 import type {

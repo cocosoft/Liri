@@ -15,7 +15,7 @@
  * 工具安全语义（未注册 / 路径越界 / 安全拦截上限）、证据并入与升级路径**逐字未变**。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // #28（2026-10-30）：任务回写内容只取可读字段（工具结果契约类型，避免裸字面量）
 import type { ToolResult } from '@openliri/infra/utils/toolContract';
 import type { AgentIsolation } from '@modules/agent';

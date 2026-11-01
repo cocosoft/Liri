@@ -7,7 +7,7 @@
  * ⇒ 宿主行为逐字不变。logger 沿用 `tasks:longRunning` 模块名 ⇒ 日志输出不变。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveSandboxExecutionSignal } from '@modules/sandbox';
 import { globalToolManager } from '../../tools/index.js';
 import type { ToolUseContext } from '../../tools/types/Tool.js';

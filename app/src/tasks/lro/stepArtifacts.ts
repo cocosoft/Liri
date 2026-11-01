@@ -16,7 +16,7 @@
  */
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 import { getToolRegistry } from '../../tools/index.js';
 import type { ToolUseContext } from '../../tools/types/Tool.js';

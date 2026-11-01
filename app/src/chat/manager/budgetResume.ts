@@ -17,7 +17,7 @@
  */
 
 import { feature } from '@openliri/kernel';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { buildBudgetResumePrompt } from '@modules/query';
 import type { PendingToolCallRef } from '@modules/query';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';

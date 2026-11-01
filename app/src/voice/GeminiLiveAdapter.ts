@@ -4,7 +4,7 @@
  * 实现 VoiceProviderAdapter 接口，对接 Gemini BidiGenerateContent API
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { randomUUID } from 'crypto';
 import type {

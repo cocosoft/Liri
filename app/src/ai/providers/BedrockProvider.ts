@@ -20,7 +20,7 @@ import { BedrockTransport } from '../transports/BedrockTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai\providers\BedrockProvider');
 
 export class BedrockProvider extends BaseAIProvider {

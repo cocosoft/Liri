@@ -9,7 +9,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import type { GovernanceConfig } from '../types/GovernanceTypes';
 import { createDefaultGovernanceConfig } from '../types/GovernanceTypes';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveGovernanceDir } from '@openliri/infra/environment';
 
 const logger = getLogger('governance:managers:governanceConfigManager');

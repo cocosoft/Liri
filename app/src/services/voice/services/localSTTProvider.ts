@@ -33,7 +33,7 @@ import {
   unlinkSync,
   readFileSync,
 } from 'fs';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { getPlatform } from '@openliri/infra/utils/platform';
 import { resolveModelsDir } from '@openliri/infra/environment';

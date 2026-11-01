@@ -9,7 +9,7 @@
  * 依赖方向：本模块**不被宿主以外引用**，且不反向 import 宿主 ⇒ 无循环。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';

@@ -10,7 +10,7 @@
  * 在 ChatManager.initialize() 中调用 connect()，极轻量集成。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { SessionLifecycleEventBus } from '../lifecycle/SessionLifecycleEventBus';
 import type { SessionLifecycleEvent } from '../lifecycle/SessionLifecycleEvent';
 import {

@@ -22,8 +22,8 @@ import type {
   RegisterFileInput,
   RegisterFileResult,
 } from '@modules/services/file/types';
-import { getLogger, Logger } from '@modules/monitoring';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
+import { getLogger, Logger } from '@openliri/infra/monitoring';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { handleError } from '@openliri/infra/error';

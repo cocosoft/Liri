@@ -10,7 +10,7 @@
  *   - openclaw prompt-cache.ts（TTL 检查 + 失效策略）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // 2026-10-13（硬编码治理 HD-P0-1）：prompt cache 的**默认单价**改为引用 core 唯一真源
 // （原与 `core/pricing.ts` 的兜底价各写一份数值 ⇒ 双源漂移风险）
 import { DEFAULT_MODEL_PRICING } from '@openliri/kernel/pricing.js';

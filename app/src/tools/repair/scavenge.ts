@@ -34,7 +34,7 @@
 
 import type { ToolCall, ScavengeOptions, ScavengeResult } from './types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('tools:repair:scavenge');
 

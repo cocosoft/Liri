@@ -12,7 +12,7 @@ import {
 import type { Tool } from './types/Tool';
 import { ToolTag as TT } from './types/Tool';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:utility-data-tools');
 
 export function collectDataTools(tools: Tool[]): void {

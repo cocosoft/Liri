@@ -12,7 +12,7 @@
  * - 当前会话目标提取（extract current goal）
  * - LLM 响应用量记录（record chat response usage）
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 import type { ChatSession } from '@modules/session/types/session.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';

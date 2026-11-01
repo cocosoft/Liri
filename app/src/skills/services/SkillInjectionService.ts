@@ -10,7 +10,7 @@ import { readFile, mkdir, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { Skill } from '../types';
 import { SkillSource, SkillLoadMethod } from '../types';

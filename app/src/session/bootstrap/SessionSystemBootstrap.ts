@@ -8,7 +8,7 @@
  * 极小化侵入：不修改 ChatManager 构造器，仅通过 initialize() 注册。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveSessionsDir } from '@openliri/infra/environment';
 import { configManager } from '@openliri/infra/config';
 import { SessionMemoryManager } from '../memory/SessionMemoryManager';

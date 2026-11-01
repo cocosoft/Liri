@@ -7,7 +7,7 @@ import { EventEmitter } from 'events';
 import { join } from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { mkdirSync, writeFileSync, existsSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('DiagnosticManager');

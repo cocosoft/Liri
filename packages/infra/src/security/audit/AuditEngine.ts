@@ -15,7 +15,7 @@ import { auditPlugins } from './AuditPlugins';
 import { auditFilesystem } from './AuditFilesystem';
 import { auditContextVisibility } from './ContextVisibility';
 import { buildAuditReport } from './AuditReport';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolveProjectRoot } from '@openliri/infra/environment';
 

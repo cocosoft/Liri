@@ -21,7 +21,7 @@ import {
 } from '@modules/session/types/message';
 import type { ToolUse, ToolResult } from '@modules/session/types/tool';
 import { runRegisteredOutputGuards } from '@openliri/infra/security/outputGuardRegistry';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   EMPTY_SUCCESS_TOOL_RESULT_TEXT,
   classifyToolResult,

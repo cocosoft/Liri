@@ -9,7 +9,7 @@ import { getToolManager } from '@modules/tools';
 import { feature } from '@openliri/kernel';
 import { notebookManager } from '@modules/tools';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:tools:dev:notebook');
 
 const NOTEBOOK_SUBCOMMANDS = new Set([

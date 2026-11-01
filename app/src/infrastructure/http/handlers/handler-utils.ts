@@ -29,7 +29,7 @@
 import http from 'http';
 import path from 'path';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import {
   resolveOutputDir,

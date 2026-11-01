@@ -27,7 +27,7 @@
  * 其余依赖通过委托回调注入（与 SessionLifecycleManager / ToolLoopRunner 同模式）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // 2026-10-22：`type:'prompt'` 的斜杠命令（security-review / plan / review …）展开为
 // 本轮运行时补充提示词，而不是回一段用法文案（见 promptCommand.ts 头注）。
 import { expandPromptCommand, mergeRuntimeNote } from './promptCommand.js';
@@ -476,7 +476,7 @@ export class ChatOrchestrator {
       }
       this.host.getSessionMachine(session.id).start('sendMessage');
 
-      const { getOTelTracing } = await import('@modules/monitoring');
+      const { getOTelTracing } = await import('@openliri/infra/monitoring');
       const sendSpan = getOTelTracing().startSpan('chat.sendMessage', {
         'session.id': session.id,
       });

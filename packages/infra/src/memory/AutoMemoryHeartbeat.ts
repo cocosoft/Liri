@@ -9,7 +9,7 @@
  *   - case trace 可观测（记录每次心跳的检索/提取结果）
  *   - 优雅降级（心跳失败不阻断主流程）
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('memory:heartbeat');

@@ -17,7 +17,7 @@ import {
   Logger,
   setGlobalConfigProvider,
   flush,
-} from '../../src/monitoring/logs/Logger.js';
+} from '@openliri/infra/monitoring/logs/Logger';
 
 describe('Logger 文件输出（BUG1 根因修复）', () => {
   let tempDir: string;

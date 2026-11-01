@@ -18,7 +18,7 @@ import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,
 } from '@modules/modules';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveCacheDir } from '@openliri/infra/environment';
 import { resolveProjectRoot } from '@openliri/infra/environment';
 

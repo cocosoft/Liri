@@ -7,7 +7,7 @@ import { EventLogStorage } from '../src/session/storage/EventLogStorage';
 import { MessageToEventMigrator } from '../src/session/storage/MessageToEventMigrator';
 import { resolveSessionsDir, resolveDbPath } from '@openliri/infra/environment';
 // 防止 Logger 未初始化导致报错：设置一个全局 logger fallback（用 console）
-const mod_logger = await import('../src/monitoring/logs/Logger');
+const mod_logger = await import('@openliri/infra/monitoring/logs/Logger');
 // D-137 收网（2026-09-30）：两处修正 ——
 // ① `_logger_init_flag` 是脚本自设的幂等标记，原以 `globalThis` 动态属性存取 ⇒ TS7017
 //    （globalThis 无索引签名）；改用受类型约束的引用，语义不变；

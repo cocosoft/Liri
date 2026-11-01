@@ -11,7 +11,7 @@
  */
 
 import { request as httpsRequest, RequestOptions } from 'https';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {

@@ -37,7 +37,7 @@ import type { AIService } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { resolveKnowledgeDir } from '@openliri/infra/environment';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('knowledge:tools:knowledgeSearchTool');
 
 export class KnowledgeSearchTool implements Tool {

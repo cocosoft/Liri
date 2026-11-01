@@ -17,7 +17,7 @@ import { describe, it, expect } from 'bun:test';
 import { ReActToolLoop } from '../../src/chat/ReActToolLoop.js';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import type { ChatResponse } from '@modules/ai';
-import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
+import { addLogHandler } from '@openliri/infra/monitoring/logs/Logger';
 
 const BASE_TURNS = 6;
 const TASK_KEY = 'session-task';

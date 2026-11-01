@@ -10,7 +10,7 @@ import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import { readFile } from 'fs/promises';
 import { getPlatform } from '@openliri/infra/utils/platform';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { isEnvTruthy } from '@openliri/infra/utils/envUtils';
 import { configManager } from '@openliri/infra/config';
 import type { VoiceDependencies } from '../models/types';

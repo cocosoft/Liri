@@ -11,7 +11,7 @@
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolveDataSubDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('ai:glossary');

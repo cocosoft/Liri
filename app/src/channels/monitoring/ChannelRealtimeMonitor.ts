@@ -32,7 +32,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';

@@ -4,7 +4,7 @@
  * Phase 5: 接入 Logger + handleError + scope-aware KV 存储
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // C1（2026-10-09）：context entry id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';

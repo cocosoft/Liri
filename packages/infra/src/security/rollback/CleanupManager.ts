@@ -33,7 +33,7 @@ import { readdir, unlink, stat, rm } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { homedir } from 'os';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   getSnapshotsRoot,
   getManifestPath,

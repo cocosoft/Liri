@@ -4,7 +4,7 @@
  * 负责处理MCP服务器的命令功能
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('services:mcp:commandManager');

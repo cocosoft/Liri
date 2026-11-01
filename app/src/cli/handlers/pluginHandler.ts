@@ -4,7 +4,7 @@
  */
 
 import chalk from 'chalk';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { ErrorCodes } from '@openliri/infra/error';
 import { resolve } from 'path';

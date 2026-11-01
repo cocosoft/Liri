@@ -33,7 +33,7 @@ import { configManager } from '@openliri/infra/config';
 import { buildConsolidationPrompt } from './ConsolidationPrompt';
 import { DreamAgentExecutor } from './DreamAgentExecutor';
 import type { DreamExecutionResult } from './DreamAgentExecutor';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('AutoDream');

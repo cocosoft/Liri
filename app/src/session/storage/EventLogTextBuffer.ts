@@ -31,10 +31,10 @@
  */
 
 import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
-import { getMemoryPressureMonitor } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
+import { getMemoryPressureMonitor } from '@openliri/infra/monitoring';
 import type { LiriEvent } from '@modules/session/types/events';
-import { memProfile } from '../../monitoring/memProfile.js';
+import { memProfile } from '@openliri/infra/monitoring/memProfile';
 
 const logger = getLogger('session:event-log');
 

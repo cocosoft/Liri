@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import crypto from 'crypto';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { ICache, CacheStats } from '@openliri/infra/cache/types';
 import { TTLCache } from '@openliri/infra/utils/cache';

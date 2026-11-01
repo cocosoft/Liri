@@ -4,7 +4,7 @@
  */
 
 import { LanguagePack } from './types.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('docs:I18nManager');
 
 /**

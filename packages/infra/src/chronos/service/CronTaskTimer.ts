@@ -2,7 +2,7 @@
  * CronTaskTimer 定时器管理
  * 对标 OpenClaw 的 timer 机制
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 

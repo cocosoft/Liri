@@ -31,7 +31,7 @@
  * - 与 OTel span（方案 B）互补：span 面向外部后端聚合分析，本缓冲面向应用内即时查询
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('channels:monitoring:trace');
 

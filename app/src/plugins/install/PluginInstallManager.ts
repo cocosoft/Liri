@@ -23,7 +23,7 @@ import {
 import { checkPluginSignature } from '../utils/pluginSignature.js';
 import { installPythonPlugin } from './PythonPluginInstaller.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('plugins:install:PluginInstallManager');
 
 /**

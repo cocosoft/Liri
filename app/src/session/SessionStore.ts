@@ -1,4 +1,4 @@
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { FileSystemStorage } from './storage/FileSystemStorage';
 import { Session } from './models/Session';
 import { SessionMessage } from './models/SessionMessage';

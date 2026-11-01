@@ -38,7 +38,7 @@ import { completeSecuritySystem } from '@openliri/infra/security';
 import { configManager } from '@openliri/infra/config';
 import type { PermissionConfig } from '@openliri/infra/config/types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:PowerShellTool:PowerShellTool');
 
 /** PowerShell 删除命令别名（来源：dangerousCommands.ts DELETION_RULES） */

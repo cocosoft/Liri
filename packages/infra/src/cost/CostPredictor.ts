@@ -5,7 +5,7 @@
  */
 
 import type { CostData, CostCategory, CostPeriod } from './types.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   AppError,
   ErrorCategory,

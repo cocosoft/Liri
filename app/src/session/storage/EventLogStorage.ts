@@ -35,7 +35,7 @@ import { join } from 'path';
 import * as readline from 'readline';
 import { resolveLegacySessionsDir } from '@openliri/infra/environment';
 import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import {
   handleError,
   AppError,
@@ -68,7 +68,7 @@ import {
   assertEventWritable,
 } from '@modules/session/types/knownEventTypes';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
-import { memProfile } from '../../monitoring/memProfile.js';
+import { memProfile } from '@openliri/infra/monitoring/memProfile';
 
 const logger = getLogger('session:event-log');
 

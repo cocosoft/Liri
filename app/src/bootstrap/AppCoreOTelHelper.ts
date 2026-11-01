@@ -27,28 +27,28 @@ const logger = getLogger('AppCore');
 export async function initializeOTelSystem(): Promise<void> {
   // 启动监控心跳自检（最先启动，后续各模块注册）
   const { HeartbeatMonitor } =
-    await import('@modules/monitoring/HeartbeatMonitor.js');
+    await import('@openliri/infra/monitoring/HeartbeatMonitor');
   const heartbeat = HeartbeatMonitor.getInstance();
   heartbeat.register('core:otel');
   heartbeat.start();
 
   try {
     const { initializeTelemetry } =
-      await import('@modules/monitoring/instrumentation.js');
+      await import('@openliri/infra/monitoring/instrumentation');
 
     await initializeTelemetry();
     logger.info('OTel 遥测初始化完成');
 
     // 主动创建 OTel 指标实例（注册到全局 MeterProvider）
     const { getOTelMetrics, getOTelTracing } =
-      await import('@modules/monitoring/otel/index.js');
+      await import('@openliri/infra/monitoring/otel/index');
 
     const otelMetrics = getOTelMetrics();
     const otelTracing = getOTelTracing();
 
     // 创建并启动 MetricsBridge（MetricsService → OTelMetrics）
     const { getMetricsService, createMetricsBridge } =
-      await import('@modules/monitoring/index.js');
+      await import('@openliri/infra/monitoring/index');
 
     const metricsService = getMetricsService();
     const metricsBridge = createMetricsBridge(metricsService, otelMetrics);
@@ -59,7 +59,7 @@ export async function initializeOTelSystem(): Promise<void> {
     // ⇒ 删除该死语句（`TraceBridge` 类本体保留）。
     // 初始化会话追踪
     const { getSessionTracing } =
-      await import('@modules/monitoring/tracing/SessionTracing.js');
+      await import('@openliri/infra/monitoring/tracing/SessionTracing');
 
     getSessionTracing();
 
@@ -85,7 +85,7 @@ export async function initializeOTelSystem(): Promise<void> {
 
     // H-2（2026-10-18）：编排事件持久化（独立指标日志，支撑生产流量窗口离线复算）
     const { startOrchestrationEventLog } =
-      await import('@modules/monitoring/orchestrationEventLog.js');
+      await import('@openliri/infra/monitoring/orchestrationEventLog');
     startOrchestrationEventLog();
     logger.info('编排事件持久化初始化完成');
 
@@ -93,9 +93,9 @@ export async function initializeOTelSystem(): Promise<void> {
 
     // 初始化集中日志配置（LogConfigManager 注册到 Logger）
     const { logConfigManager } =
-      await import('@modules/monitoring/logs/config/LogConfig.js');
+      await import('@openliri/infra/monitoring/logs/config/LogConfig');
     const { setGlobalConfigProvider, setGlobalBufferConfig } =
-      await import('@modules/monitoring/logs/Logger.js');
+      await import('@openliri/infra/monitoring/logs/Logger');
     const cfg = logConfigManager.get();
     setGlobalConfigProvider(() => {
       return {
@@ -112,7 +112,7 @@ export async function initializeOTelSystem(): Promise<void> {
 
     // 创建 OTel 日志适配器（将 OTel Span 上下文注入日志）
     const { createOTelLoggerAdapter, registerOTelLogHandler } =
-      await import('@modules/monitoring/otel/OTelLoggerAdapter.js');
+      await import('@openliri/infra/monitoring/otel/OTelLoggerAdapter');
     const otelAdapter = createOTelLoggerAdapter(otelTracing, {
       module: 'app',
       traceEnabled: true,
@@ -139,7 +139,7 @@ export async function initializeOTelSystem(): Promise<void> {
 
     // P3-2.12: 初始化告警桥接（抑制 + 路由 + 通道分发）
     const { getAlertBridge } =
-      await import('@modules/monitoring/alerts/AlertBridge.js');
+      await import('@openliri/infra/monitoring/alerts/AlertBridge');
     getAlertBridge().init();
     heartbeat.register('alert-bridge');
     logger.info('AlertBridge 告警桥接已初始化');

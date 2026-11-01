@@ -15,7 +15,7 @@
  */
 
 import { configManager } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { AgentIsolation } from '@modules/agent';
 import type { ExecutorFn } from '../lro/contracts.js';
 import { normalizeExecutorResult } from '../lro/contracts.js';

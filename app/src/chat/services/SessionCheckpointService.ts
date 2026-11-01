@@ -12,7 +12,7 @@ import type {
   CreateCheckpointParams,
 } from '@modules/session/types/checkpoint';
 import type { CheckpointStorage } from '@modules/session/types/checkpoint';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { isCheckpointLogEnabled } from '@openliri/infra/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 

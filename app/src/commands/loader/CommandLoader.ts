@@ -10,7 +10,7 @@ import type {
 } from '@modules/commands';
 import { feature } from '@openliri/kernel';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 import { LazyCommand } from './LazyCommand.js';
 import { resolveProjectRoot } from '@openliri/infra/environment';

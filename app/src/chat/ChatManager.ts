@@ -24,7 +24,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { configManager } from '@openliri/infra/config';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { repairModelJson } from '@openliri/infra/utils/json';
 import { resolveBaseToolTurns } from './loopTurnLimits.js';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';

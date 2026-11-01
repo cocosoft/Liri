@@ -18,7 +18,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveDataSubDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { PendingQuestion } from './DecisionGate';
 
 const logger = getLogger('chat:negotiationState');

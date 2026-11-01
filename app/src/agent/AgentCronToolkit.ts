@@ -11,7 +11,7 @@
  *   - cron_stop:   暂停/恢复任务
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // C1（2026-10-09）：cron 任务 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 const logger = getLogger('agent:cronToolkit');

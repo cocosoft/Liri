@@ -16,7 +16,7 @@ import { join } from 'path';
 import { Notebook } from './types/index.js';
 import { NotebookImpl } from './types/Notebook.js';
 import { JupyterNotebookConverter } from './JupyterNotebookConverter.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   AppError,
   ErrorCategory,

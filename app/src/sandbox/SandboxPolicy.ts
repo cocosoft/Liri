@@ -15,7 +15,7 @@
  * `appendWithinLimit` —— 消费者：`PTYSandbox` / `SSHSandbox` / `tools/bash/bashLandlockExec`。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('sandbox:policy');
 
 /**

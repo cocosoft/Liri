@@ -26,7 +26,7 @@
  * 测试一组 API 端点的响应延迟，含热身请求以避免首包惩罚。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('ai:providers:speedTestService');

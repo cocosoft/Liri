@@ -13,7 +13,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  * 缓存：prompt 精确匹配 + 归一化，TTL 默认 1 小时
  */
 
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@openliri/infra/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';

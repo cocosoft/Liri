@@ -17,7 +17,7 @@ import type {
   OAuthServiceOptions,
 } from './oauth-types.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('system:auth:AuthManager');
 
 export type OAuthTokens = OAuthTokenData;

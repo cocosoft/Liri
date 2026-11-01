@@ -1,0 +1,537 @@
+/**
+ * 会话追踪系统
+ */
+
+import {
+  trace,
+  Span,
+  SpanStatusCode,
+  context,
+  Context,
+} from '@opentelemetry/api';
+import { AsyncLocalStorage } from 'async_hooks';
+import { logForDebugging } from '@openliri/infra/utils/debug';
+import { errorMessage } from '@openliri/infra/error';
+import { getOTelTracing } from '../otel/OTelTracing';
+import { APP_VERSION } from '@openliri/infra/constants';
+import {
+  isSpanCovered,
+  markSpanCovered,
+} from './SpanCoverageRegistry';
+
+import { getLogger } from '..';
+const logger = getLogger('monitoring\tracing\SessionTracing');
+
+/**
+ * Span类型
+ */
+export type SpanType =
+  | 'interaction'
+  | 'llm_request'
+  | 'tool'
+  | 'tool.blocked_on_user'
+  | 'tool.execution'
+  | 'hook';
+
+/**
+ * Span上下文
+ */
+export interface SpanContext {
+  span: Span;
+  startTime: number;
+  attributes: Record<string, string | number | boolean>;
+  ended?: boolean;
+}
+
+/**
+ * 会话追踪配置
+ */
+export interface SessionTracingConfig {
+  enabled: boolean;
+  serviceName: string;
+  serviceVersion: string;
+  maxSpans: number;
+  spanTTL: number; // Span存活时间（毫秒）
+}
+
+/**
+ * 会话追踪系统
+ */
+export class SessionTracing {
+  private config: SessionTracingConfig;
+  private interactionContext: AsyncLocalStorage<SpanContext | undefined>;
+  private toolContext: AsyncLocalStorage<SpanContext | undefined>;
+  private activeSpans: Map<string, SpanContext>;
+  private interactionSequence: number;
+  private cleanupInterval: NodeJS.Timeout | null;
+
+  /**
+   * 构造函数
+   * @param config 配置
+   */
+  constructor(config?: Partial<SessionTracingConfig>) {
+    this.config = {
+      enabled: true,
+      serviceName: 'py-app',
+      serviceVersion: APP_VERSION,
+      maxSpans: 1000,
+      spanTTL: 30 * 60 * 1000, // 30分钟
+      ...config,
+    };
+
+    this.interactionContext = new AsyncLocalStorage<SpanContext | undefined>();
+    this.toolContext = new AsyncLocalStorage<SpanContext | undefined>();
+    this.activeSpans = new Map();
+    this.interactionSequence = 0;
+    this.cleanupInterval = null;
+
+    // 启动清理定时器
+    this.startCleanup();
+  }
+
+  /**
+   * 获取Tracer（统一使用 getOTelTracing() 单例，确保所有 Span 在同一棵树内）
+   * @returns Tracer
+   */
+  private getTracer() {
+    return getOTelTracing().getTracer();
+  }
+
+  /**
+   * 获取Span ID
+   * @param span Span
+   * @returns Span ID
+   */
+  private getSpanId(span: Span): string {
+    return span.spanContext().spanId || '';
+  }
+
+  /**
+   * 创建Span属性
+   * @param spanType Span类型
+   * @param customAttributes 自定义属性
+   * @returns Span属性
+   */
+  private createSpanAttributes(
+    spanType: SpanType,
+    customAttributes: Record<string, string | number | boolean> = {}
+  ): Record<string, string | number | boolean> {
+    return {
+      'span.type': spanType,
+      'service.name': this.config.serviceName,
+      'service.version': this.config.serviceVersion,
+      ...customAttributes,
+    };
+  }
+
+  /**
+   * 启动清理定时器
+   */
+  private startCleanup(): void {
+    if (this.cleanupInterval) {
+      return;
+    }
+
+    this.cleanupInterval = setInterval(() => {
+      const before = this.activeSpans.size;
+      this.cleanupStaleSpans();
+      logger.debug('追踪 Span 清理完成', {
+        removed: before - this.activeSpans.size,
+        remaining: this.activeSpans.size,
+      });
+    }, 60000); // 每分钟清理一次
+
+    // 防止定时器阻止进程退出
+    if (typeof this.cleanupInterval.unref === 'function') {
+      this.cleanupInterval.unref();
+    }
+  }
+
+  /**
+   * 清理过期的Span
+   */
+  private cleanupStaleSpans(): void {
+    const cutoff = Date.now() - this.config.spanTTL;
+    for (const [spanId, spanContext] of this.activeSpans) {
+      if (spanContext.startTime < cutoff) {
+        if (!spanContext.ended) {
+          spanContext.span.end();
+        }
+        this.activeSpans.delete(spanId);
+      }
+    }
+  }
+
+  /**
+   * 开始交互Span
+   * @param userPrompt 用户提示
+   * @returns Span
+   */
+  startInteractionSpan(userPrompt: string): Span {
+    if (!this.config.enabled) {
+      return trace.getActiveSpan() || this.getTracer().startSpan('dummy');
+    }
+
+    this.interactionSequence++;
+
+    const attributes = this.createSpanAttributes('interaction', {
+      user_prompt: userPrompt,
+      user_prompt_length: userPrompt.length,
+      'interaction.sequence': this.interactionSequence,
+    });
+
+    const tracer = this.getTracer();
+    const span = tracer.startSpan('Liri.interaction', {
+      attributes,
+    });
+
+    const spanId = this.getSpanId(span);
+    const spanContext: SpanContext = {
+      span,
+      startTime: Date.now(),
+      attributes,
+    };
+
+    this.activeSpans.set(spanId, spanContext);
+    this.interactionContext.enterWith(spanContext);
+
+    return span;
+  }
+
+  /**
+   * 结束交互Span
+   */
+  endInteractionSpan(): void {
+    const spanContext = this.interactionContext.getStore();
+    if (!spanContext) {
+      return;
+    }
+
+    if (spanContext.ended) {
+      return;
+    }
+
+    const duration = Date.now() - spanContext.startTime;
+    spanContext.span.setAttributes({
+      'interaction.duration_ms': duration,
+    });
+
+    spanContext.span.end();
+    spanContext.ended = true;
+
+    const spanId = this.getSpanId(spanContext.span);
+    this.activeSpans.delete(spanId);
+    this.interactionContext.enterWith(undefined);
+  }
+
+  /**
+   * 开始LLM请求Span
+   * @param model 模型名称
+   * @param options 选项
+   * @returns Span
+   */
+  startLLMRequestSpan(
+    model: string,
+    options?: {
+      querySource?: string;
+      fastMode?: boolean;
+    }
+  ): Span {
+    if (!this.config.enabled) {
+      return trace.getActiveSpan() || this.getTracer().startSpan('dummy');
+    }
+
+    const parentSpanCtx = this.interactionContext.getStore();
+
+    // D5 硬切换（2026-10-30）：span 名改用 OTel 语义约定 `{gen_ai.operation.name} {gen_ai.request.model}`
+    // ⇒ `chat <model>`。同名用于**覆盖去重键**（下方 isSpanCovered/markSpanCovered），三者必须同源。
+    const llmSpanName = `chat ${model}`;
+
+    const attributes = this.createSpanAttributes('llm_request', {
+      model: model,
+      // D5：旧 `llm_request.context` → 应用命名空间 `liri.*`（非 semconv 属性统一归此）
+      'liri.llm_request.context': parentSpanCtx ? 'interaction' : 'standalone',
+      'liri.speed': options?.fastMode ? 'fast' : 'normal',
+    });
+
+    if (options?.querySource) {
+      attributes['liri.query_source'] = options.querySource;
+    }
+
+    // 论文 A4（2026-10-06）+ D5（2026-10-30 硬切换）：OTel GenAI 语义约定属性是**唯一**的 LLM 请求
+    // 语义属性；旧的 `Liri.llm_request` span 名与 `llm_request.*` 属性名已在本批**删除**。
+    // 规范要求"采样相关属性 SHOULD 在 span **创建时**提供" ⇒ 这两项在此写。
+    attributes['gen_ai.operation.name'] = 'chat';
+    attributes['gen_ai.request.model'] = model;
+
+    const tracer = this.getTracer();
+    const ctx = parentSpanCtx
+      ? trace.setSpan(context.active(), parentSpanCtx.span)
+      : context.active();
+
+    // P2-2.9: 去重检查 — 避免与 EventBusOTelBridge 创建重复 Span
+    if (parentSpanCtx && isSpanCovered(parentSpanCtx.span, llmSpanName)) {
+      return trace.getActiveSpan() || tracer.startSpan('dummy');
+    }
+
+    const span = tracer.startSpan(llmSpanName, { attributes }, ctx);
+
+    if (parentSpanCtx) {
+      markSpanCovered(parentSpanCtx.span, llmSpanName);
+    }
+
+    const spanId = this.getSpanId(span);
+    const spanContext: SpanContext = {
+      span,
+      startTime: Date.now(),
+      attributes,
+    };
+
+    this.activeSpans.set(spanId, spanContext);
+
+    return span;
+  }
+
+  /**
+   * 结束LLM请求Span
+   * @param span Span
+   * @param metadata 元数据
+   */
+  endLLMRequestSpan(
+    span: Span,
+    metadata?: {
+      inputTokens?: number;
+      outputTokens?: number;
+      success?: boolean;
+      error?: string;
+      /**
+       * **首个 token 延迟** ms —— **必须由调用方提供真 TTFT**（首个产出可见内容的 chunk），
+       * **不得传 TTFB**（首块 / 首字节）：SSE 首 chunk 常只含 `role` / 空 delta，两者可差
+       * 数百毫秒，传错即写入错位指标（见 TR-20）。
+       * 当前唯一调用方：`chat/orchestrator/streamMessageFlow.ts`（取首个内容 chunk 时刻）。
+       */
+      ttftMs?: number;
+    }
+  ): void {
+    const spanId = this.getSpanId(span);
+    const spanContext = this.activeSpans.get(spanId);
+
+    if (!spanContext) {
+      return;
+    }
+
+    if (spanContext.ended) {
+      return;
+    }
+
+    if (metadata) {
+      // D5 硬切换（2026-10-30）：只写 OTel `gen_ai.*`；旧 `llm_request.input_tokens/output_tokens`
+      // 已删除（同值信息由 `gen_ai.usage.*` 承载）；时长由 span 自身 duration 表达（不再写
+      // `llm_request.duration_ms`）；成功/失败由 **span status** 表达（不再写 `llm_request.success`）。
+      if (metadata.inputTokens !== undefined) {
+        // 规范：SHOULD 含 cache 读/建 token
+        span.setAttribute('gen_ai.usage.input_tokens', metadata.inputTokens);
+      }
+      if (metadata.outputTokens !== undefined) {
+        // 规范：SHOULD 含 reasoning token
+        span.setAttribute('gen_ai.usage.output_tokens', metadata.outputTokens);
+      }
+      if (metadata.error) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: metadata.error,
+        });
+      } else if (metadata.success === false) {
+        // success=false 但无错误串：仍按 ERROR 标记，避免"失败"信号在删掉 success 属性后丢失
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: 'LLM request failed',
+        });
+      }
+      if (metadata.ttftMs !== undefined) {
+        // 非 semconv 属性 ⇒ 应用命名空间
+        span.setAttribute('liri.ttft_ms', metadata.ttftMs);
+      }
+    }
+
+    span.end();
+    spanContext.ended = true;
+    this.activeSpans.delete(spanId);
+  }
+
+  /**
+   * 开始工具Span
+   * @param toolName 工具名称
+   * @param options 选项
+   * @returns Span
+   */
+  startToolSpan(
+    toolName: string,
+    options?: {
+      blockedOnUser?: boolean;
+      execution?: boolean;
+    }
+  ): Span {
+    if (!this.config.enabled) {
+      return trace.getActiveSpan() || this.getTracer().startSpan('dummy');
+    }
+
+    const spanType: SpanType = options?.blockedOnUser
+      ? 'tool.blocked_on_user'
+      : options?.execution
+        ? 'tool.execution'
+        : 'tool';
+
+    const parentSpanCtx = this.interactionContext.getStore();
+
+    const attributes = this.createSpanAttributes(spanType, {
+      tool_name: toolName,
+    });
+
+    const tracer = this.getTracer();
+    const ctx = parentSpanCtx
+      ? trace.setSpan(context.active(), parentSpanCtx.span)
+      : context.active();
+
+    // P2-2.9: 去重检查 — 避免与 EventBusOTelBridge 创建重复 Span
+    if (parentSpanCtx && isSpanCovered(parentSpanCtx.span, 'Liri.tool')) {
+      return trace.getActiveSpan() || tracer.startSpan('dummy');
+    }
+
+    const span = tracer.startSpan('Liri.tool', { attributes }, ctx);
+
+    if (parentSpanCtx) {
+      markSpanCovered(parentSpanCtx.span, 'Liri.tool');
+    }
+
+    const spanId = this.getSpanId(span);
+    const spanContext: SpanContext = {
+      span,
+      startTime: Date.now(),
+      attributes,
+    };
+
+    this.activeSpans.set(spanId, spanContext);
+    this.toolContext.enterWith(spanContext);
+
+    return span;
+  }
+
+  /**
+   * 结束工具Span
+   * @param span Span
+   * @param metadata 元数据
+   */
+  endToolSpan(
+    span: Span,
+    metadata?: {
+      success?: boolean;
+      error?: string;
+    }
+  ): void {
+    const spanId = this.getSpanId(span);
+    const spanContext = this.activeSpans.get(spanId);
+
+    if (!spanContext) {
+      return;
+    }
+
+    if (spanContext.ended) {
+      return;
+    }
+
+    const duration = Date.now() - spanContext.startTime;
+    span.setAttributes({
+      'tool.duration_ms': duration,
+    });
+
+    if (metadata) {
+      if (metadata.success !== undefined) {
+        span.setAttribute('tool.success', metadata.success);
+      }
+      if (metadata.error) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: metadata.error,
+        });
+      }
+    }
+
+    span.end();
+    spanContext.ended = true;
+    this.activeSpans.delete(spanId);
+    this.toolContext.enterWith(undefined);
+  }
+
+  /**
+   * 获取活跃的Span
+   * @returns 活跃的Span映射
+   */
+  getActiveSpans(): Map<string, SpanContext> {
+    return new Map(this.activeSpans);
+  }
+
+  /**
+   * 获取活跃的交互Span
+   * @returns 活跃的交互Span
+   */
+  getActiveInteractionSpan(): Span | undefined {
+    return this.interactionContext.getStore()?.span;
+  }
+
+  /**
+   * 获取活跃的工具Span
+   * @returns 活跃的工具Span
+   */
+  getActiveToolSpan(): Span | undefined {
+    return this.toolContext.getStore()?.span;
+  }
+
+  /**
+   * 停止追踪系统
+   */
+  stop(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+
+    // 结束所有活跃的Span
+    for (const [spanId, spanContext] of this.activeSpans) {
+      if (!spanContext.ended) {
+        spanContext.span.end();
+      }
+    }
+    this.activeSpans.clear();
+  }
+}
+
+/**
+ * 全局会话追踪实例
+ */
+let sessionTracing: SessionTracing | null = null;
+
+/**
+ * 获取会话追踪实例
+ * @param config 配置
+ * @returns 会话追踪实例
+ */
+export function getSessionTracing(
+  config?: Partial<SessionTracingConfig>
+): SessionTracing {
+  if (!sessionTracing) {
+    sessionTracing = new SessionTracing(config);
+  }
+  return sessionTracing;
+}
+
+/**
+ * 创建会话追踪实例
+ * @param config 配置
+ * @returns 会话追踪实例
+ */
+export function createSessionTracing(
+  config?: Partial<SessionTracingConfig>
+): SessionTracing {
+  return new SessionTracing(config);
+}

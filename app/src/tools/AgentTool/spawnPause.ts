@@ -16,7 +16,7 @@
  * 依赖仅为模块级状态（无 IO、无 DB）⇒ 可独立单测。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('tools:AgentTool:spawnPause');
 

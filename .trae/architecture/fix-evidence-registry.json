@@ -6342,8 +6342,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/monitoring/memProfile.ts",
-        "app/src/monitoring/memoryPressure/MemoryPressureMonitor.ts",
+        "packages/infra/src/monitoring/memProfile.ts",
+        "packages/infra/src/monitoring/memoryPressure/MemoryPressureMonitor.ts",
         "app/src/query/queryProfiler.ts",
         "app/tests/evals/pathShieldSandboxE2E.test.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -6649,7 +6649,7 @@
       },
       "code": [
         "app/src/ai/providers/TopologyWatcher.ts",
-        "app/src/monitoring/archival/DataArchivalStrategy.ts",
+        "packages/infra/src/monitoring/archival/DataArchivalStrategy.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -10819,7 +10819,7 @@
       "code": [
         "app/src/types/schedulerLifecycle.ts",
         "app/src/dream/DreamScheduler.ts",
-        "app/src/monitoring/archival/archivalCronTask.ts"
+        "packages/infra/src/monitoring/archival/archivalCronTask.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -16049,8 +16049,8 @@
       "code": [
         "packages/infra/src/common/phaseStack.ts",
         "packages/infra/src/diagnostics/index.ts",
-        "app/src/monitoring/MonitoringService.ts",
-        "app/src/monitoring/archival/archivalCronTask.ts"
+        "packages/infra/src/monitoring/MonitoringService.ts",
+        "packages/infra/src/monitoring/archival/archivalCronTask.ts"
       ],
       "tests": [
         "app/tests/diagnostics",
@@ -16243,8 +16243,8 @@
         "packages/infra/src/utils/common.ts",
         "packages/infra/src/utils/debug.ts",
         "packages/infra/src/utils/log.ts",
-        "app/src/monitoring/AlertRuleService.ts",
-        "app/src/monitoring/MonitoringService.ts",
+        "packages/infra/src/monitoring/AlertRuleService.ts",
+        "packages/infra/src/monitoring/MonitoringService.ts",
         "packages/infra/src/analytics/pricingSource.ts",
         "app/src/bootstrap/preflight.ts"
       ],
@@ -16610,7 +16610,7 @@
         "app/src/main.ts",
         "app/src/entrypoints/init.ts",
         "app/src/cli/updater/GitHubReleaseFetcher.ts",
-        "app/src/monitoring/MonitoringService.ts",
+        "packages/infra/src/monitoring/MonitoringService.ts",
         "app/tests/diagnostics/loopProbe.test.ts",
         "app/tsconfig.json",
         "packages/infra/package.json"

@@ -38,7 +38,7 @@
 import { stat, readdir, readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { existsSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { xxHash, encodeFilePath } from './xxHash';
 import type { FileChange, FileChangeType, FileStat, ScanStatus } from './types';
 

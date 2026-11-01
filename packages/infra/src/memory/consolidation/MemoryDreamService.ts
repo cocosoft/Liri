@@ -9,7 +9,7 @@
  * 后者是"梦境机制产生的数据进入记忆系统"的关键桥接。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // D-146（2026-10-01）：modelRouter / providerRegistry / ToolAwareClient 改经 core SPI
 // （`infra -> app` 倒挂收口）

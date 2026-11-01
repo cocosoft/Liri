@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import { deflateSync } from 'zlib';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
 import {
   LANG_PROFILES,

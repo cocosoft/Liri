@@ -20,7 +20,7 @@
  * 且避免了模块加载早于 env 注入时读到空值）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { feature as coreFeature } from '@openliri/kernel';
 import { configManager } from '@openliri/infra/config';
 import {

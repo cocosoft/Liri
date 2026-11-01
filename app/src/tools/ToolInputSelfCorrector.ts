@@ -11,7 +11,7 @@
  * 对标：cc_code formatZodValidationError + PilotDeck jsonSelfCorrect
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:selfCorrector');
 
 // ==========================================

@@ -9,7 +9,7 @@
  *
  * 超时保护：所有 hook 调用有 3 秒超时，不阻塞主压缩流程
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('context:compaction:hooks');

@@ -38,7 +38,7 @@ import { configManager } from '@openliri/infra/config';
 import { handleError } from '@openliri/infra/error';
 import { DEFAULT_OLLAMA_ENDPOINT } from '@openliri/kernel';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai:embedding:providers:LocalEmbeddingProvider');
 
 // 本地别名常量 `DEFAULT_OLLAMA_URL` 已删除（硬编码治理「同名常量」B3-1）——

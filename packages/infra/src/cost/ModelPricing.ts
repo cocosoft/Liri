@@ -18,7 +18,7 @@ import { resolveAiAccess } from '@openliri/kernel/spi';
 
 import { handleError } from '@openliri/infra/error/handleError';
 
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 const logger = getLogger('cost:ModelPricing');
 
 // 2026-09-30 下沉 core（A1 分层倒挂收口）：定义移至 `core/pricing.ts`，此处**原样转出**

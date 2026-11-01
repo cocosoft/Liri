@@ -12,7 +12,7 @@
  * 触发入口：POST /v1/models/pricing/sync；启动时非阻塞自动同步（main.ts T1.25.3）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   handleError,
   AppError,

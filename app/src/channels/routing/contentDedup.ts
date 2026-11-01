@@ -4,7 +4,7 @@
 // 内容级去重（自 `messageRouter.ts` **内聚抽取**，2026-10-09 C3-S3）。
 // 仅搬查询/登记/清理逻辑；日志、追踪与路由返回由调用方负责（语义逐字不变）。
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { CONTENT_DEDUP_WINDOW_MS } from './messageRouterContract';
 
 const logger = getLogger('channels:routing');

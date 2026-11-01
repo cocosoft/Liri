@@ -14,7 +14,7 @@
  *   适用场景：复杂流程图执行
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { TaskFlowStatus } from './types';
 import type { TaskFlowRecord, TaskFlowSyncMode } from './types';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';

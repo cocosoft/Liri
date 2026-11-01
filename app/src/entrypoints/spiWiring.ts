@@ -66,7 +66,7 @@ export async function registerAllSpis(
   // ---- Logger SPI（三件套；2026-09-30 D-129 转推送模型）----
   {
     const { getLogger, setGlobalConfigProvider } =
-      await import('@modules/monitoring/logs/Logger');
+      await import('@openliri/infra/monitoring/logs/Logger');
     const { registerLoggerSpi } = await import('@openliri/kernel/spi');
     await registerLoggerSpi(container, {
       getLogger: (module) => getLogger(module),
@@ -78,9 +78,9 @@ export async function registerAllSpis(
   // ---- OTel Tracing SPI（三件套）----
   {
     const { getOTelTracing } =
-      await import('@modules/monitoring/otel/OTelTracing');
+      await import('@openliri/infra/monitoring/otel/OTelTracing');
     const { isSpanCovered, markSpanCovered } =
-      await import('@modules/monitoring/tracing/SpanCoverageRegistry');
+      await import('@openliri/infra/monitoring/tracing/SpanCoverageRegistry');
     const { registerOTelSpi } = await import('@openliri/kernel/spi');
     await registerOTelSpi(container, {
       getTracing: () => {
@@ -556,7 +556,8 @@ export async function registerAllSpis(
     {
       const { describeSandboxPosture } =
         await import('@modules/sandbox/sandboxPosture');
-      const { getLogger } = await import('@modules/monitoring/logs/Logger');
+      const { getLogger } =
+        await import('@openliri/infra/monitoring/logs/Logger');
       const posture = describeSandboxPosture();
       const logger = getLogger('sandbox:posture');
       logger.info('沙箱姿态（本次进程）', {

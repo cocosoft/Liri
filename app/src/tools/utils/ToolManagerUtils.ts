@@ -10,7 +10,7 @@ import {
 } from '../factories/builtinToolRegistry';
 import { feature as coreFeature } from '@openliri/kernel';
 import { isAntUser } from '@openliri/infra/utils/features';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { SidecarLspTool } from '../sidecar/SidecarLspTool';
 

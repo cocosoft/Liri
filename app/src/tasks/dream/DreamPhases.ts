@@ -1,4 +1,4 @@
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
 import { ForkedDreamExecutor } from './ForkedDreamExecutor';
 import type { ForkedDreamResult } from './ForkedDreamExecutor';

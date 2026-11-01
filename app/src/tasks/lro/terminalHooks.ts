@@ -8,7 +8,7 @@
  * ⚠️ 两个幂等 guard（`_memoryWriteDone` / `_sampleWriteDone`）**留在宿主**（写宿主状态）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { taskOrchestrator } from '../TaskOrchestrator';
 import { goalMetricsService } from '../db/GoalMetricsService';

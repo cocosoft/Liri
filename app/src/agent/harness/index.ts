@@ -23,7 +23,7 @@
  * v2 循环/注册表/生命周期/hooks 子系统
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 // A8（退避默认值合一）：重试次数默认值取自唯一真源 `utils/withRetry.ts`
 import { DEFAULT_RETRY_CONFIG } from '@openliri/infra/utils/withRetry';

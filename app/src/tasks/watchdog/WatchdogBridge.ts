@@ -9,7 +9,7 @@
  *   - 速率限制（同一模式最小通知间隔）
  *   - 全局断路器（连续告警超阈值后自动静默）
  *
- * 自身不导入 @modules/core 或 @modules/monitoring。
+ * 自身不导入 @modules/core 或 @openliri/infra/monitoring。
  */
 import { cg3Log } from '../cg3Env';
 

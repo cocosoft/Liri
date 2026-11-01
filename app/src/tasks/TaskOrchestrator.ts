@@ -47,8 +47,8 @@ import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 import { OrchestrationEventType as OrchEvent } from '@modules/agent';
 import type { PlanProgressData } from '@modules/agent';
 
-import { getLogger } from '@modules/monitoring';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { getLogger } from '@openliri/infra/monitoring';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('tasks:TaskOrchestrator');

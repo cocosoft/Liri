@@ -7,7 +7,7 @@ import { spawn } from 'child_process';
 
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:voice:preventSleep');
 
 const CAFFEINATE_TIMEOUT_SECONDS = 300;

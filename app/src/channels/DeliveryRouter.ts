@@ -10,8 +10,8 @@ import { ChannelRegistry, channelRegistry } from './registry/ChannelRegistry';
 import type { ChannelInterface } from './registry/ChannelRegistry';
 import type { ChannelId } from './types/IChannel';
 
-import { getLogger } from '@modules/monitoring';
-import { getOTelTracing } from '../monitoring/otel/OTelTracing.js';
+import { getLogger } from '@openliri/infra/monitoring';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import {
   recordDeliverySend,
   recordDeliverySendLatency,

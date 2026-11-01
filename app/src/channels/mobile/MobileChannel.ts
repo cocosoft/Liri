@@ -28,7 +28,7 @@ import type {
   SendResult,
 } from '../types';
 import { BaseChannelPlugin } from '../base/BaseChannelPlugin';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('channels:mobile:MobileChannel');
 

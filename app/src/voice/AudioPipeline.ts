@@ -4,7 +4,7 @@
  * 支持 PCM 16kHz mono 格式，与 Gemini Live API 默认输入格式一致
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('voice:audioPipeline');
 
 /** 音频格式常量 */

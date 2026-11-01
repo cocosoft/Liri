@@ -40,7 +40,7 @@
  * （用户 2026-10-13 裁定 A：不收敛两轨、不触碰其源码）。
  */
 import readline from 'node:readline';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { installParentLivenessGuard } from '@openliri/infra/utils/parentLiveness';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,

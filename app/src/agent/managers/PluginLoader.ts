@@ -1,7 +1,7 @@
 //
 import { AgentTool } from '../models/types';
 import { AgentStrategy } from '../models/types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { handleError } from '@openliri/infra/error/handleError';
 import { pluginSystem } from '@modules/plugins';

@@ -6,7 +6,7 @@
  * - 当关键词重叠率在 0.3-0.6 模糊区间时，可配置 LLM 判断器做二次确认
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { ScheduledTaskResult } from './ParallelAgentScheduler';
 
 const logger = getLogger('agent:moa:resultAggregator');

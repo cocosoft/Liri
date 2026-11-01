@@ -3531,8 +3531,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② 若三处开关日后要**集中到统一 featureFlags 真源** ⇒ 属架构选择，须单独裁定；③ 副本写回 ⇒ 守卫或棘轮（231 键）阻断。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"notes","i":0,"c":"取证：3 处同名 `ENABLED` **全为文件内私有**（无 export 面）；取值均为 **env 表达式**（`MEM_PROFILE === '1'` · `MEM_PRESSURE !== '0'` · `Liri_PROFILE_QUERY === '1'`）⇒ 按域消歧、**表达式一字未改**。含 **tests 侧同名别名**一并消歧（`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"notes","i":1,"c":"PATH_SHIELD_E2E_ENABLED`）。效果：232 → 231 键。验证：typecheck 0 · 守卫 40 pass · 域测试 378 pass · 5 门禁 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#0","i":0,"c":"app/src/monitoring/memProfile.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#1","i":0,"c":"app/src/monitoring/memoryPressure/MemoryPressureMonitor.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#0","i":0,"c":"packages/infra/src/monitoring/memProfile.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#1","i":0,"c":"packages/infra/src/monitoring/memoryPressure/MemoryPressureMonitor.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#2","i":0,"c":"app/src/query/queryProfiler.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#3","i":0,"c":"app/tests/evals/pathShieldSandboxE2E.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-24-ENABLED","k":"code#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3668,7 +3668,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS","k":"notes","i":0,"c":"**自证**：app typecheck 0 · 守卫第 49 例（TopologyWatcher / DataArchivalStrategy 两文件无 `DEFAULT_INTERVAL_MS` 定义 + 新名与取值逐字钉住 + 构造默认参数与 intervalMs 兜底均落新名）49 pass · `lint:consts` 重新播种基线：`同名常量"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS","k":"notes","i":1,"c":":DEFAULT_INTERVAL_MS` **2→0**（222→221 键），且可下调键仅此一个（无意外新增）· 门禁族 6 把 exit 0（含 drift）。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS","k":"code#0","i":0,"c":"app/src/ai/providers/TopologyWatcher.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS","k":"code#1","i":0,"c":"app/src/monitoring/archival/DataArchivalStrategy.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS","k":"code#1","i":0,"c":"packages/infra/src/monitoring/archival/DataArchivalStrategy.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-33-DEFAULT-INTERVAL-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -5929,7 +5929,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"notes","i":0,"c":"两处语义一致（cron 每分钟检查）⇒ 统一为 60s 常量；基线 173→172。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#0","i":0,"c":"app/src/types/schedulerLifecycle.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#1","i":0,"c":"app/src/dream/DreamScheduler.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#2","i":0,"c":"app/src/monitoring/archival/archivalCronTask.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"code#2","i":0,"c":"packages/infra/src/monitoring/archival/archivalCronTask.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"title","i":0,"c":"U-20/B5-2-75：MAX_FILE_CHARS 按域改名"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-75","k":"notes","i":0,"c":"两处取值不同（项目文件 10k / 工作区扫描 12k）⇒ 不改值，改名为 PROJECT_FILE_MAX_CHARS 与 WORKSPACE_FILE_MAX_CHARS；基线 172→171。"}
@@ -7555,8 +7555,8 @@
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"notes","i":1,"c":"文档零调用，CD01-06 全零命中）；本仓实际使用的是 setupArchivalScheduler（纯内存，不依赖 chronos）。同步两处基线：infra-cycle-baseline 6→2、hardcode-gate-baseline 键随改名（计数不变）。"}
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#0","i":0,"c":"packages/infra/src/common/phaseStack.ts"}
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#1","i":0,"c":"packages/infra/src/diagnostics/index.ts"}
-{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#2","i":0,"c":"app/src/monitoring/MonitoringService.ts"}
-{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#3","i":0,"c":"app/src/monitoring/archival/archivalCronTask.ts"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#2","i":0,"c":"packages/infra/src/monitoring/MonitoringService.ts"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#3","i":0,"c":"packages/infra/src/monitoring/archival/archivalCronTask.ts"}
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"tests#0","i":0,"c":"app/tests/diagnostics"}
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"tests#1","i":0,"c":"app/tests/chat"}
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"tests#2","i":0,"c":"app/tests/constants"}
@@ -7639,8 +7639,8 @@
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#1","i":0,"c":"packages/infra/src/utils/common.ts"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#2","i":0,"c":"packages/infra/src/utils/debug.ts"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#3","i":0,"c":"packages/infra/src/utils/log.ts"}
-{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#4","i":0,"c":"app/src/monitoring/AlertRuleService.ts"}
-{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#5","i":0,"c":"app/src/monitoring/MonitoringService.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#4","i":0,"c":"packages/infra/src/monitoring/AlertRuleService.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#5","i":0,"c":"packages/infra/src/monitoring/MonitoringService.ts"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#6","i":0,"c":"packages/infra/src/analytics/pricingSource.ts"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#7","i":0,"c":"app/src/bootstrap/preflight.ts"}
 {"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"tests#0","i":0,"c":"app/tests/gates"}
@@ -7752,7 +7752,7 @@
 {"id":"INFRA-PACKAGE-P11-DAEMON","k":"reopenWhen","i":0,"c":"① 若 daemon 再直接 import `@modules/monitoring` 的**实现文件**（非门面）⇒ 会与 monitoring 形成新环（R7 已实测可捕获）；② 若 install-service 需要 `.ts` 后缀解析 ⇒ 该脚本走 tsconfig.scripts，删后缀后由 paths 解析，勿再手写扩展名。"}
 {"id":"INFRA-PACKAGE-P11-DAEMON","k":"notes","i":0,"c":"迁包：git mv 7 文件（含 service/ 与 README）+ 8 处引用改 @openliri/infra/daemon；**包内相对出边**：IPCService 原 `../monitoring/...` 两条在迁包后成逃逸 ⇒ 改 `@modules/monitoring/logs/Logger`（窄入口）+ `"}
 {"id":"INFRA-PACKAGE-P11-DAEMON","k":"notes","i":1,"c":"@modules/monitoring`（门面，MonitoringService 非 canonical 子路径）；daemon→monitoring 边保留但不入环。install-service 的 `../src/daemon/service/DaemonService.ts`（带 .ts）改别名并去扩展名。同步 state-literal 6 条路"}
-{"id":"INFRA-PACKAGE-P11-DAEMON","k":"notes","i":2,"c":"径键、127.0.0.1 棘轮测试路径、1 条证据 code[]。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名 daemon/index.ts；在 `app/src/monitoring/index.ts` 临时加 `import \"@openliri/infra/daemon\"` ⇒ R7 报「"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"notes","i":2,"c":"径键、127.0.0.1 棘轮测试路径、1 条证据 code[]。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名 daemon/index.ts；在 `packages/infra/src/monitoring/index.ts` 临时加 `import \"@openliri/infra/daemon\"` ⇒ R7 报「"}
 {"id":"INFRA-PACKAGE-P11-DAEMON","k":"notes","i":3,"c":"daemon/monitoring 新进入环（2 成员）」（证明跨包边可见、环检测未失明），两处均已回滚。"}
 {"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#0","i":0,"c":"packages/infra/src/daemon/index.ts"}
 {"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#1","i":0,"c":"packages/infra/src/daemon/IPCService.ts"}
@@ -7807,7 +7807,7 @@
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"notes","i":0,"c":"迁包：git mv 15 文件（engine/export/interceptor/live/sse/viewer 子目录）+ 20 处引用改别名。**本批新类型：该模块原先没有 @modules 别名**，全部引用是相对路径且带 `.js` 后缀，且多为 import()/require()（懒加载，避免启动面 eager 拉入）⇒ 改写为 `"}
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"notes","i":1,"c":"@openliri/infra/trace-recording[/sub]` 并去掉 `.js`；已在 app 根实测 bun 对 `import()` 与 `require()` 均按 tsconfig paths 解析（dynamic import / require 子路径 / require viewer 三探针全通）。ExportService /"}
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"notes","i":2,"c":" ViewerService 保留子路径导入（桶精确化，避免命令与工具路径 eager 拉整个模块面）。基线同步：state-literal 19 处、logger-name 1 处、hardcode 裸字面量 1 处、证据 code[] 1 处改 packages 路径。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名 "}
-{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"notes","i":3,"c":"trace-recording/types.ts；在 `app/src/monitoring/index.ts` 临时 import 本包 ⇒ R7 报「monitoring / trace-recording 新进入环（2 成员）」（均已回滚）。"}
+{"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"notes","i":3,"c":"trace-recording/types.ts；在 `packages/infra/src/monitoring/index.ts` 临时 import 本包 ⇒ R7 报「monitoring / trace-recording 新进入环（2 成员）」（均已回滚）。"}
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#0","i":0,"c":"packages/infra/src/trace-recording/index.ts"}
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#1","i":0,"c":"packages/infra/src/trace-recording/AITracePlugin.ts"}
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"code#2","i":0,"c":"packages/infra/src/trace-recording/interceptor/FetchInterceptor.ts"}
@@ -7829,14 +7829,14 @@
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"notes","i":0,"c":"迁包：git mv 10 文件（含 loopProbe/）+ 20 处 `@modules/diagnostics` 改别名、6 处相对路径改别名（3 处 app 动态导入：init / main / GitHubReleaseFetcher；3 处测试：loopProbe.test ×2、artifactRetention.test ×1），另 1 处**"}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"notes","i":1,"c":"包内自引**改相对（infrastructure-diagnostics 的 SystemHealthChecker）。别名：删除 `@modules/diagnostics{,.js}`，新增 `@openliri/infra/diagnostics{,.js,/*}` + 包 exports `./diagnostics` 与 `/*`。包内出边："}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"notes","i":2,"c":"monitoring（7）· config（4）· error（2）· infra 自身（common 3 / environment 3 / constants 1 / utils 2）· kernel（4）；R7 SCC 仍 0。联动：state-literal 5 处、hardcode-gate 2 处（裸字面量/端点）、证据 code[] 1 处路径"}
-{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"notes","i":3,"c":"键；`phaseStack` 注释里的旧别名同步为新别名。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名 diagnostics/index.ts；在 `app/src/monitoring/index.ts` 临时 import 本包 ⇒ R7 报环（均已回滚）。"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"notes","i":3,"c":"键；`phaseStack` 注释里的旧别名同步为新别名。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名 diagnostics/index.ts；在 `packages/infra/src/monitoring/index.ts` 临时 import 本包 ⇒ R7 报环（均已回滚）。"}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#0","i":0,"c":"packages/infra/src/diagnostics/index.ts"}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#1","i":0,"c":"packages/infra/src/diagnostics/infrastructure-diagnostics.ts"}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#2","i":0,"c":"packages/infra/src/diagnostics/SystemHealthChecker.ts"}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#3","i":0,"c":"app/src/main.ts"}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#4","i":0,"c":"app/src/entrypoints/init.ts"}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#5","i":0,"c":"app/src/cli/updater/GitHubReleaseFetcher.ts"}
-{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#6","i":0,"c":"app/src/monitoring/MonitoringService.ts"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#6","i":0,"c":"packages/infra/src/monitoring/MonitoringService.ts"}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#7","i":0,"c":"app/tests/diagnostics/loopProbe.test.ts"}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#8","i":0,"c":"app/tsconfig.json"}
 {"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#9","i":0,"c":"packages/infra/package.json"}
@@ -7868,7 +7868,7 @@
 {"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"reopenWhen","i":1,"c":" `@modules/cache` 同批遗留），若将来真正启用该管理器需整体重写。"}
 {"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"notes","i":0,"c":"迁包：23 文件（含 README.md 与两个 `require.main` 守卫脚本 analyze-bottlenecks / test-performance）git mv 至 packages/infra/src/performance。引用改写 32 处：11 处 `@modules/performance`（7 真实说明符 + 3 注释 + 1"}
 {"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"notes","i":1,"c":" ImportManager 键）、10 处 app 侧相对路径（bootstrap/cli/entrypoints/main/scripts/tools）、10 处测试相对路径（ci/performance.test 8 + slowOperationsInterval 2）、1 处**包内跨子目录**（cache/CacheSystem 改 `"}
-{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"notes","i":2,"c":"../performance/index`）。**关键区分**：`app/src/monitoring/performance/*` 是**另一个模块内目录**（未迁），其 `./performance/index.js` 与 `../performance/PerformanceAnalyzer` 保持不动。包内出边：monitoring（13）· "}
+{"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"notes","i":2,"c":"../performance/index`）。**关键区分**：`packages/infra/src/monitoring/performance/*` 是**另一个模块内目录**（未迁），其 `./performance/index.js` 与 `../performance/PerformanceAnalyzer` 保持不动。包内出边：monitoring（13）· "}
 {"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"notes","i":3,"c":"config（3）· error（2）· infra utils/environment（14）· kernel（3）；**performance 不依赖 cache** ⇒ `cache → performance` 仍为单向，R7 SCC 保持 0。联动：state-literal 8 处、logger-name 1 处、证据 code[] 2 处路径键"}
 {"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"notes","i":4,"c":"改名。运行期自证：import(@openliri/infra/performance) 101 导出、require(.../StartupProfiler) 正常、import(@openliri/infra/cache) 53 导出（证明 cache 的包内相对依赖在运行期成立）。"}
 {"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"code#0","i":0,"c":"packages/infra/src/performance/index.ts"}

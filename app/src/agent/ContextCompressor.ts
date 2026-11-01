@@ -5,7 +5,7 @@
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import type { AIModelType } from '@modules/ai';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('agent:contextCompressor');
 
 export interface CompressibleMessage {

@@ -12,7 +12,7 @@ import { promisify } from 'util';
 import type { CommandContext } from '@modules/commands';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:commit:Commit');
 
 const execAsync = promisify(exec);

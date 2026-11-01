@@ -14,7 +14,7 @@
  *   const bySource = await svc.getStatsBySource();
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';
 import type { FileStats } from './types';

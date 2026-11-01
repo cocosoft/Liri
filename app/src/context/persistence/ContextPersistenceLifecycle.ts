@@ -12,7 +12,7 @@ import {
   type ContextSnapshot,
 } from '../persistence/ContextPersistence';
 import { resolveDataSubDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { join } from 'path';
 

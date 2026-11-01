@@ -5,7 +5,7 @@
  * S1-2：shell 执行已永久禁用（此前 enableShellExecution 预留入口，无真实能力需求）。
  */
 import { configManager } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('skills:preprocessor');
 

@@ -8,7 +8,7 @@ import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { SearchTool, AdvancedSearchOptions } from './SearchTool';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('memory:tools:MemoryTool');
 
 /**

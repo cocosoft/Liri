@@ -8,7 +8,7 @@
  * - 健康检查每 30 秒 ping 一次
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { StdioBridge } from './StdioBridge';
 import type { JsonRpcBridge } from './JsonRpcBridge';

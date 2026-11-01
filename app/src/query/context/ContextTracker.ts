@@ -2,7 +2,7 @@
  * @owner chat/ChatManager（自 2026-07-13，原属于 query/TAORLoop）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const ctxLogger = getLogger('context:tracker');
 
 export interface CompressionRecord {

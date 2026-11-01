@@ -13,7 +13,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { TraceRecord, ExportFormat } from '../types';
 import { ViewerService } from '../viewer/ViewerService';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('trace-recording\export\ExportService');
 
 /**

@@ -1,4 +1,4 @@
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import fs from 'fs';
 import { handleError } from '@openliri/infra/error/handleError';
 import {

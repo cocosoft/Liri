@@ -33,7 +33,7 @@
 
 import { promises as fs } from 'fs';
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import type { LiriEvent } from '@modules/session/types/events';
 import { splitJsonLine } from './eventLineParse';
 

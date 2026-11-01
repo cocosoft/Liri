@@ -7,7 +7,7 @@ import { parentPort, workerData } from 'worker_threads';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('sandbox:worker-script');
 

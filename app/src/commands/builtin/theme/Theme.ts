@@ -10,7 +10,7 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 // 消除 `commands -> ui` 边。⚠️ 它与同层的**语义主题** `ThemeManager` 是两个不同子系统。
 import { TerminalThemeManager as ThemeManager } from '@openliri/infra/system/theme';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:theme:Theme');
 
 export default {

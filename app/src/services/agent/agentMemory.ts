@@ -13,7 +13,7 @@ import { getCwd } from '@openliri/infra/utils/cwd';
 
 import { configManager } from '@openliri/infra/config';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:agent:agentMemory');
 
 /**

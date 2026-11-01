@@ -1,7 +1,7 @@
 import { promises as fs, existsSync } from 'fs';
 import { join, dirname, resolve, sep } from 'path';
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { Session } from '../models/Session';
 import { SessionMessage } from '../models/SessionMessage';
 import { SessionMetadata } from '../models/SessionMetadata';

@@ -268,7 +268,7 @@ describe('M3：isSuspended 计入过期 + 上限按 handler 调用数 + 唤醒�
 
   it('唤醒汇总日志带 relief kind 与 woken', async () => {
     const { addLogHandler } =
-      await import('../../src/monitoring/logs/Logger.js');
+      await import('@openliri/infra/monitoring/logs/Logger');
     const c = getBudgetSuspendCoordinator();
     c.suspend({ sessionId: 's1', chain: 'taor', reason: 'r' });
     c.setResumeHandler(async () => true);
@@ -402,7 +402,7 @@ describe('会话级收窄：放行只唤醒目标会话（其它保持挂起）'
 
   it('④ 汇总日志如实带收窄目标', async () => {
     const { addLogHandler } =
-      await import('../../src/monitoring/logs/Logger.js');
+      await import('@openliri/infra/monitoring/logs/Logger');
     const c = getBudgetSuspendCoordinator();
     c.suspend({ sessionId: 's1', chain: 'stream', reason: 'r' });
     c.setResumeHandler(async () => true);

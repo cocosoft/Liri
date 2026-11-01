@@ -38,7 +38,7 @@ import type {
 } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { handleError } from '@openliri/infra/error';
-import { Logger, getLogger } from '@modules/monitoring';
+import { Logger, getLogger } from '@openliri/infra/monitoring';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider.js';
 
 /** 轮询查询到的任务状态 */

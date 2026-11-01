@@ -32,7 +32,7 @@
  * - 有审批：硬拦截仍生效（S1-2）⇒ 同样被拦截；"安全命令 + 已批准"才真实执行
  */
 import { describe, it, expect, afterEach, spyOn } from 'bun:test';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { BashTool } from '../../src/tools/bash/BashTool.js';
 import {
   ApprovedCommandRegistry,

@@ -88,19 +88,19 @@ export default [
         paths: [
           {
             name: '@modules/utils/log',
-            message: '请使用 @modules/monitoring/logs/Logger',
+            message: '请使用 @openliri/infra/monitoring/logs/Logger',
           },
           {
             name: '@modules/utils/log.js',
-            message: '请使用 @modules/monitoring/logs/Logger',
+            message: '请使用 @openliri/infra/monitoring/logs/Logger',
           },
           {
             name: '@modules/utils/monitoring',
-            message: '日志功能已迁移至 @modules/monitoring 系列模块，metrics 功能使用 monitoring/metrics',
+            message: '日志功能已迁移至 @openliri/infra/monitoring 系列模块，metrics 功能使用 monitoring/metrics',
           },
           {
             name: '@modules/utils/monitoring.js',
-            message: '日志功能已迁移至 @modules/monitoring 系列模块，metrics 功能使用 monitoring/metrics',
+            message: '日志功能已迁移至 @openliri/infra/monitoring 系列模块，metrics 功能使用 monitoring/metrics',
           },
           {
             name: '@openliri/infra/environment',

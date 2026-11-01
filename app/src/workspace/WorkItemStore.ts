@@ -20,7 +20,7 @@ import type { WorkItem, WorkItemStatus, WorkItemType } from './types';
 import type { LiriConfigManager } from './LiriConfigManager';
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 
 /** .liri/workitems/ 子目录 */

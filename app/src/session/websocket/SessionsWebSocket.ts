@@ -3,7 +3,7 @@
  * 对标CC源码的SessionsWebSocket.ts
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('session:ws');

@@ -13,8 +13,8 @@
  * 用**假 tracer/span** 注入（不启用 exporter、不依赖外部后端），断言写入面而非导出面。
  */
 import { afterEach, describe, expect, it } from 'bun:test';
-import { SessionTracing } from '../../../src/monitoring/tracing/SessionTracing';
-import { getOTelTracing } from '../../../src/monitoring/otel/OTelTracing';
+import { SessionTracing } from '@openliri/infra/monitoring/tracing/SessionTracing';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 
 interface CapturedSpan {
   name: string;

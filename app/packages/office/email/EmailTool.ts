@@ -5,7 +5,7 @@
  * 注册到 ToolManager，供 AI Agent 调用
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@openliri/infra/monitoring';
 import { EmailSender } from './EmailSender';
 import { EmailReader } from './EmailReader';
 import { EmailConfigService } from './EmailConfigService';

@@ -13,7 +13,7 @@ import type { ReActEvent } from '../../src/query/ReActLoop.js';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
 // R2（2026-09-16）：用全局 LogHandler 捕获日志，断言 compact_steady_state_skip 分支被真实执行
-import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
+import { addLogHandler } from '@openliri/infra/monitoring/logs/Logger';
 
 // expect 的 stringContaining 类型被 src/ink/ink/global.d.ts 的旧 bun:test 声明
 // （expect(value: unknown): any）合并覆盖，运行时 bun 支持该匹配器，此处仅补类型

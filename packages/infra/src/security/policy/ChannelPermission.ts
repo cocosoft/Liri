@@ -8,7 +8,7 @@
  * 对标 CC 源码 cc_code/backend/services/mcp/channelPermissions.ts
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('security:channelPermission');
 
 export type PermissionBehavior =

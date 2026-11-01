@@ -43,7 +43,7 @@ import {
 } from '@openliri/kernel/events/EventBus.js';
 import { feature } from '@openliri/kernel';
 import { currentOwnerKey } from '@openliri/kernel/identity/requestScope';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('state:projectionBroker');
 

@@ -14,7 +14,7 @@
  * MIT License - Copyright (c) 2026 Liri
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { CrashRecoveryResult } from './CrashRecoveryManager';
 import type {
   LineageRebuildDroppedEdge,

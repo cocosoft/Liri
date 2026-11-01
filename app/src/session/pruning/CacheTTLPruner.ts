@@ -5,7 +5,7 @@ import type {
   PruningContext,
   PruningConfig,
 } from './PruningStrategy';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('session:cachePruner');
 
 export class CacheTTLPruner implements PruningStrategy {

@@ -18,7 +18,7 @@ import { globalEventBus } from '@openliri/kernel/events/EventBus.js';
 // `infrastructure -> app` 倒挂（app 层原址仍转出，其他消费方零改动）。
 import { OrchestrationEventType } from '@modules/types/orchestrationEvents';
 import { AgentEventType } from '@modules/types/agentEvents';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('http:orchHistory');
 
 /** 编排历史事件记录 */

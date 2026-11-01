@@ -26,7 +26,7 @@
  */
 
 import { globalEventBus, SystemEvents } from '@openliri/kernel';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('dream:dreamIdleDetector');
 
 export class DreamIdleDetector {

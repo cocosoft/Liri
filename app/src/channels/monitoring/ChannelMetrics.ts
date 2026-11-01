@@ -33,8 +33,11 @@
  * 指标经 MetricsService 统一管理，由 AppCoreOTelHelper 的 MetricsBridge 桥接到 OTel。
  */
 
-import { getMetricsService } from '@modules/monitoring';
-import type { CounterMetric, HistogramMetric } from '@modules/monitoring';
+import { getMetricsService } from '@openliri/infra/monitoring';
+import type {
+  CounterMetric,
+  HistogramMetric,
+} from '@openliri/infra/monitoring';
 
 // 惰性初始化：顶层 getMetricsService() 会在 monitoring 模块半初始化时触发 TDZ（循环导入）。
 // 指标在首次记录时创建并缓存。

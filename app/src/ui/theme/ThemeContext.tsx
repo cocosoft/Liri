@@ -32,7 +32,7 @@ import { TerminalThemeManager as ThemeManager } from '@openliri/infra/system/the
 import type { ThemeUIColorPalette } from '@openliri/infra/system/theme';
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ui:theme:ThemeContext');
 
 export interface ThemeContextValue {

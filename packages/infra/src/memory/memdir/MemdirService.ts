@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { mkdir, readFile, writeFile, stat, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import {
   resolvePyappHome,

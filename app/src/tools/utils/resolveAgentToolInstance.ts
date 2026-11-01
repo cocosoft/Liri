@@ -16,7 +16,7 @@
  * 能力判定解决"这一类包装" —— 以后再加包装层也不会重新断裂。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { getToolRegistry } from '../ToolRegistry';
 import { resolveToolInstanceByName } from '../toolInstanceResolver';
 import type { AgentTool } from '../AgentTool/AgentTool';

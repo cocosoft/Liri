@@ -216,7 +216,7 @@ import {
   handleError,
 } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   resolveReadFileState,
   type FileStateCache,

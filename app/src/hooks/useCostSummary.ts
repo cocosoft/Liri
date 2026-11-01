@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('cost:useCostSummary');

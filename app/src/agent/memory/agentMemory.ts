@@ -2,7 +2,7 @@
  * 代理内存
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { AgentMemory, AgentMemoryScope } from '../models/types';
 import {

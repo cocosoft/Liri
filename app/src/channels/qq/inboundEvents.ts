@@ -12,7 +12,7 @@
  * 本模块按原样保留全部四类处理函数。
  */
 
-import { Logger } from '@modules/monitoring';
+import { Logger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { MessageContext } from '@modules/channels/types';
 import type {

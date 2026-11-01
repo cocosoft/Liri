@@ -40,9 +40,9 @@ import type {
   KnowledgeRouterOptions,
   FileDocsProvider,
 } from '@modules/docs';
-import { LogLevel } from '@modules/monitoring';
-import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
+import { LogLevel } from '@openliri/infra/monitoring';
+import { OTelAwareLogger } from '@openliri/infra/monitoring/logs/OTelAwareLogger';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import type { SemanticStore } from '@modules/knowledge/semantic/store';
 import type { IVectorStore } from '@modules/knowledge/semantic/IVectorStore';
 import type { RerankService } from '@modules/knowledge/RerankService';

@@ -19,7 +19,7 @@ import type {
   ThinkingProviderChunk,
 } from '../providers/AIProvider';
 import type { ChatMessage, ChatResponse } from '../models/types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { trackUsage } from '@modules/ai';
 

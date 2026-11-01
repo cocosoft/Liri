@@ -7,9 +7,9 @@
  *   2. 调用 KnowledgeCompiler 执行编译
  *   3. 提供手动触发和自动调度两种模式
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
-import { recordBackgroundTask } from '@modules/monitoring';
+import { recordBackgroundTask } from '@openliri/infra/monitoring';
 import type { CompileResult } from './KnowledgeCompiler';
 import { sleepMonitor, SLEEP_EVENTS } from '@openliri/kernel';
 import { globalEventBus } from '@openliri/kernel/events/EventBus';

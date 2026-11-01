@@ -22,7 +22,7 @@ import { execFile } from 'child_process';
 import { readdir, stat, mkdir, readFile } from 'fs/promises';
 import { join, basename, extname } from 'path';
 import { existsSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolveInboundDir } from '@openliri/infra/environment';
 import { FileRegistry } from './FileRegistry';

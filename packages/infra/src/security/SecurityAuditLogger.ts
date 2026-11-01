@@ -16,7 +16,7 @@ import {
 } from 'fs';
 import { join, dirname } from 'path';
 import { homedir, tmpdir } from 'os';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('security:auditLogger');

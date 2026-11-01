@@ -10,7 +10,7 @@ import type {
 } from '../PermissionContext.js';
 import { globalAuditLogger } from '../logging/PermissionAuditLogger.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('security:permission:handler:InteractiveHandler');
 
 export type InteractiveResponse = 'allow' | 'deny' | 'allow_once' | 'deny_once';

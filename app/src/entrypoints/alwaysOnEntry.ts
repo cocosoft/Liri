@@ -23,7 +23,7 @@ import {
   resolveScopedDataDir,
 } from '@openliri/infra/environment';
 import { feature } from '@openliri/kernel';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { WorkItemStore, createProjectStore } from '@modules/workspace';
 import {

@@ -40,7 +40,7 @@
  * - 作为**闭包透传**给下游者（如 `startRequest` / `appendOutputGuardAudit` / ReAct 桥接的回调）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';
 
 const logger = getLogger('chat:streamFlow');

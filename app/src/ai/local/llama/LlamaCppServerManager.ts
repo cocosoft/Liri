@@ -52,7 +52,7 @@ import { basename, extname, join } from 'path';
 import { createServer, type Server } from 'net';
 import AdmZip from 'adm-zip';
 import { configManager } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   AppError,
   ErrorCategory,

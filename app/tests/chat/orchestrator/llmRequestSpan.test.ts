@@ -28,14 +28,14 @@
  * - 中断路径：span **仍被 end**（不泄漏），且 `success: false` + `error` 有值
  *
  * 替身方式：直接替换 `getSessionTracing()` 单例的这两个方法 —— 不做模块级 mock，
- * 避免波及 `@modules/monitoring` 的 logger 等既有依赖（测试基座依赖它们）。
+ * 避免波及 `@openliri/infra/monitoring` 的 logger 等既有依赖（测试基座依赖它们）。
  */
 
 import { describe, it, expect, afterEach } from 'bun:test';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createTestHost } from './helpers';
 import { runStreamMessage } from '../../../src/chat/orchestrator/streamMessageFlow.js';
-import { getSessionTracing } from '../../../src/monitoring/tracing/SessionTracing.js';
+import { getSessionTracing } from '@openliri/infra/monitoring/tracing/SessionTracing';
 
 interface SpanCall {
   name: 'start' | 'end' | 'interaction-start' | 'interaction-end';

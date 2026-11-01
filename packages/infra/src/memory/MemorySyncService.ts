@@ -11,7 +11,7 @@ import { getExternalMemoryProviderRegistry } from './providers/ExternalMemoryPro
 // C1（2026-10-09）：记忆 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('memory:MemorySyncService');
 
 /**

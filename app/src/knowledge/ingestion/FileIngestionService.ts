@@ -19,7 +19,7 @@ import {
 import { join, extname, basename, resolve } from 'path';
 import { existsSync } from 'fs';
 import { createHash } from 'crypto';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // K1b：文档类（PDF/DOCX/XLSX）摄取分类时经 extractor 取文本层，避免二进制乱码入分类 prompt
 import {

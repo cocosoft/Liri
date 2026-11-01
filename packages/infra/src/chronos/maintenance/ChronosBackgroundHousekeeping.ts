@@ -14,7 +14,7 @@ import { transcriptArchiver } from '@openliri/infra/runtimeHost';
 // `CRED_STORED_MARKER` 原为**本地复刻**（避免跨层引用）—— 硬编码治理「同名常量」B3-4 已把真源
 // **上提到 infra** `@openliri/infra/constants` ⇒ 本处改为**直接引用**（infra→infra 合法），复刻已删。
 import { resolveAiAccess } from '@openliri/kernel/spi';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { CRED_STORED_MARKER } from '@openliri/infra/constants';
 import { handleError } from '@openliri/infra/error/handleError';
 

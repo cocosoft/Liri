@@ -11,7 +11,7 @@
 
 import { CONTINUATION_TEMPLATES } from '@openliri/infra/constants/goalTemplates';
 import type { ChatMessage } from '@modules/ai/models/types.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   createFragment,
   renderFragment,

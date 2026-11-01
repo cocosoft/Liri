@@ -15,7 +15,7 @@
  * **不回灌演化**（CS03：观测面失败不得中断产物写入）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { LiriEventMap } from '@modules/session/types/eventPayloads';
 

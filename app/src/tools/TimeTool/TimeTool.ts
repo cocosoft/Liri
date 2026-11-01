@@ -8,7 +8,7 @@ import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:TimeTool:TimeTool');
 
 /**

@@ -27,7 +27,7 @@
 
 import { join } from 'path';
 import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('skills:auditService');
 
 /**

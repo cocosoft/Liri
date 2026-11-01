@@ -26,7 +26,7 @@
  * 在 LLM API 调用失败时判断恢复策略：retry / abort / compact_and_retry。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // CC-06（Spec §5.2 #10）：`[SYSTEM] ` 前缀由片段类型给出，渲染唯一走 `renderFragment()`。
 import { createFragment, renderFragment } from '@modules/context';
 // 2026-10-19：预期中断判据（单一事实源）——中止不是可恢复错误。

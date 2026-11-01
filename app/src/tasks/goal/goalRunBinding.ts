@@ -39,7 +39,7 @@ import { enqueueIdleContinuation } from './goalIdleContinuation';
 // 使事件循环阻塞转储（`loopProbe` → `summary.md` 的"最近完成阶段"）可归因到目标状态。
 // 只**新增插桩点**，不改 `phaseStack` 既有 API（Spec §5.4 / U5 已核实消费面）。
 import { withPhase } from '@openliri/infra/diagnostics';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('tasks:goal:binding');
 

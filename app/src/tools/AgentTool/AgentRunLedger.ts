@@ -19,7 +19,7 @@
  * 5. **终态幂等**：首次落定的终态不被后续上报改写（防"工作已完成、收尾组装抛错"被反向写成失败）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { AgentType } from './types';
 
 const logger = getLogger('tools:AgentTool:AgentRunLedger');

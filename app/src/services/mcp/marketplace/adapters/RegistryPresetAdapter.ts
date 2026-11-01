@@ -30,7 +30,7 @@
  * 若某市场后续开放公开搜索 API，应替换为真实 API 适配器（参照 SmitheryRegistryAdapter）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type {
   RegistryAdapter,
   SearchParams,

@@ -7,7 +7,7 @@
  *
  * 单独成文件的原因：`main.ts` 已逼近 R04-001 的 2000 行上限，启动细节应下沉。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('entrypoints:tenantChannels');
 

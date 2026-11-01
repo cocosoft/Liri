@@ -8,7 +8,7 @@
  * - 与 StreamStateMachine 集成
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { StreamState } from './types';
 import type { StreamStateMachine } from './StreamStateMachine';

@@ -17,7 +17,7 @@
  * 本模块只做纯状态搬运 + 一次审计日志，不持有状态。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { PdcaPhase } from '@modules/tasks/phases';
 import type { Plan, PlanStep } from '../TaskOrchestrator';
 import { STEP_STATUS_PENDING } from '../TaskOrchestrator';

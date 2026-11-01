@@ -8,7 +8,7 @@
  */
 
 import { EventBusImpl } from '@openliri/kernel/events/EventBus';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import type {
   VoiceClientEvent,

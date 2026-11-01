@@ -18,9 +18,9 @@ import type {
   TaskContext,
 } from './types';
 
-// 直连实现文件避免 barrel 循环（@modules/monitoring、@openliri/infra/error barrel 会拉入
+// 直连实现文件避免 barrel 循环（@openliri/infra/monitoring、@openliri/infra/error barrel 会拉入
 // tasks 相关模块 → 触发 NoteTask extends BaseTask 时的 TDZ；参照 paths.ts 先例）
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('tasks:BaseTask');
 

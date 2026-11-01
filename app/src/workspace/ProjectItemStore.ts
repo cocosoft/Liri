@@ -33,7 +33,7 @@ import { Database } from '@openliri/infra/external';
 import { resolveDataDir } from '@openliri/infra/environment';
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync } from 'fs';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import {
   AppError,

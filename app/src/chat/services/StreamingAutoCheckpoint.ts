@@ -11,7 +11,7 @@
  * 通过 metadata.streamingAutoCheckpoint 标记区分手动/自动检查点。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { isCheckpointLogEnabled } from '@openliri/infra/config';
 import { handleError } from '@openliri/infra/error';
 import type { SessionCheckpointService } from './SessionCheckpointService';

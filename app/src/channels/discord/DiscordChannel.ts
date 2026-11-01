@@ -25,7 +25,7 @@ import { handleError } from '@openliri/infra/error';
 import { TTLCache } from '@openliri/infra/utils/cache';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { DISCORD_API_BASE_URL, DISCORD_SITE_URL } from '../constants';
 const logger = getLogger('channels:discord:DiscordChannel');
 

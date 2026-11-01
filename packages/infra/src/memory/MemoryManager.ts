@@ -50,7 +50,7 @@ import {
   MemoryConflictDetector,
   type ConflictResult,
 } from './consolidation/MemoryConflictDetector';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // D-146（2026-10-01）：`trackUsage` 改经 core SPI（`infra -> app` 倒挂收口）
 import { resolveAiAccess } from '@openliri/kernel/spi';

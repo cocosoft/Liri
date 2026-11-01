@@ -7,7 +7,7 @@
  * - 与 CronScheduler 结合实现自主运行
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { FEATURE_FLAGS } from '@openliri/kernel';
 import { inboxManager } from '@modules/runtime/InboxManager.js';
 import type { InboxItemType } from '@modules/runtime/InboxManager.js';

@@ -27,7 +27,7 @@
 
 import https from 'https';
 import http from 'http';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { buildUserAgent } from '@openliri/infra/constants';
 import type { ThirdPartySkillSearchResult } from '../ThirdPartySkillAdapter';
 import type { ClawHubSkillMeta } from './ClawHubMeta';

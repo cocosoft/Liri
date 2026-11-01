@@ -52,7 +52,7 @@ import {
   ErrorSeverity,
 } from '@openliri/infra/error/types';
 import { handleError } from '@openliri/infra/error/handleError';
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { resolveModelRoute, RouteKey } from '../router/resolveModelRoute.js';
 import type { RouteKey as RouteKeyType } from '../router/routes.js';
 import type { TaskType } from '../modelRouter';

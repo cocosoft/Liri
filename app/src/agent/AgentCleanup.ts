@@ -4,7 +4,7 @@
  * 对齐 OpenClaw agents/harness/v2.ts cleanup
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';

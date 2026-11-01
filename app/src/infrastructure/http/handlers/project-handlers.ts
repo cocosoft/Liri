@@ -9,7 +9,7 @@ import type http from 'http';
 // C1（2026-09-30 D-116，`workspace` 域 P4）：项目存储改经服务层端口
 // （原具名/相对导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@openliri/infra/error';
 // C1（2026-09-30 D-117，`project` 域静态面）：迁移服务改经服务层端口

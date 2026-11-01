@@ -35,7 +35,7 @@
 
 import { afterEach, describe, expect, it, spyOn } from 'bun:test';
 import { feature } from '@openliri/kernel';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   BashTool,
   resetGraySwitchWarningForTest,

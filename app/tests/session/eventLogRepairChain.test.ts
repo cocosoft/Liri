@@ -47,7 +47,7 @@ import {
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { EventLogStorage } from '../../src/session/storage/EventLogStorage';
 import type { LiriEvent } from '@modules/session/types/events';
 

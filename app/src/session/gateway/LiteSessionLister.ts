@@ -29,7 +29,7 @@
  * （与宿主一致）⇒ 日志输出不变。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveSessionsDir } from '@openliri/infra/environment';
 
 const logger = getLogger('session:gateway');

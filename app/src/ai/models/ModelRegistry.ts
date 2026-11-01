@@ -20,8 +20,8 @@ import {
   loadModelsConfig,
   type ProviderConfig,
 } from '../config/ConfigLoader.js';
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@openliri/infra/error/handleError';
 import type { BillingMode, TimeBasedPrice } from './ModelPricingService.js';

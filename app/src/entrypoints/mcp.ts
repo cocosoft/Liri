@@ -45,7 +45,7 @@ import {
   createFileStateCacheWithSizeLimit,
   READ_FILE_STATE_CACHE_SIZE,
 } from '@openliri/infra/utils/fileStateCache';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('entrypoints:mcp');
 
 /**

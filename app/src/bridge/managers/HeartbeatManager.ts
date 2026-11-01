@@ -6,7 +6,7 @@
 import type { BridgeApiClient } from '../types/index.js';
 import { bridgeStateStore } from '../state/BridgeStateStore.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('bridge:managers:HeartbeatManager');
 

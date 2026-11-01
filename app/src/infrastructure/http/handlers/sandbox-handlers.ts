@@ -40,7 +40,7 @@ import { configManager } from '@openliri/infra/config';
 // （服务层 → core 为下行，合法）；端口按 CS01 复用既有端口，不另立。
 import { resolveSandbox } from '@openliri/kernel/spi';
 import { securityIntegrationService } from '@openliri/infra/security';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('http:sandbox-handlers');
 

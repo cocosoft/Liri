@@ -13,7 +13,7 @@ import { GovernanceManager } from '../governance/managers/GovernanceManager';
 import { ToolHookManager } from '@modules/hooks';
 import { ToolHookContext } from '../hooks/types/ToolHooks';
 import { v4 as uuidv4 } from 'uuid';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { tryCoerceToolArgs } from './ToolArgCoercer.js';
 import type { ToolSchema } from './ToolArgCoercer.js';
@@ -26,7 +26,7 @@ import {
   sanitizePath,
 } from '@openliri/infra/security';
 import type { ToolExecutionStats, ToolExecutionLog } from './types/ToolTypes';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { toolScopeManager } from '../tool/ToolScopeManager';
 

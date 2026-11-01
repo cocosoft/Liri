@@ -172,7 +172,7 @@ import {
   resolveWritableProbeDir,
 } from '../utils/ToolUtils';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { normalizeApprovalPath } from '@openliri/infra/permission';
 const logger = getLogger('tools:FileWriteTool:FileWriteTool');
 

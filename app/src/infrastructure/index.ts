@@ -18,8 +18,12 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-import { Logger, LogLevel, getLogger } from '../monitoring/logs/Logger';
-export type { LoggerConfig } from '../monitoring/logs/Logger';
+import {
+  Logger,
+  LogLevel,
+  getLogger,
+} from '@openliri/infra/monitoring/logs/Logger';
+export type { LoggerConfig } from '@openliri/infra/monitoring/logs/Logger';
 export { Logger, LogLevel };
 export const logger = getLogger();
 

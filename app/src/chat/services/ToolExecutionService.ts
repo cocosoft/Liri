@@ -16,7 +16,7 @@ import {
   getLogger,
   getOTelTracing,
   runWithActiveSpan,
-} from '@modules/monitoring';
+} from '@openliri/infra/monitoring';
 import {
   AppError,
   ErrorCategory,

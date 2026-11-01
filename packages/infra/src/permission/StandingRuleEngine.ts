@@ -7,7 +7,7 @@
  * 使用场景：自动化 cron 任务预先批准特定工具调用（如"允许向指定邮箱发送报告"），
  * 避免无人值守时触发审批阻塞。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('permission:standingRules');
 
 export interface StandingRule {

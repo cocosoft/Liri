@@ -30,7 +30,7 @@
  * 读回口径：`getMetricsService().getMetric(name, labels)`（键含排序后的标签）。
  */
 import { beforeEach, describe, expect, it } from 'bun:test';
-import { getMetricsService } from '@modules/monitoring';
+import { getMetricsService } from '@openliri/infra/monitoring';
 import {
   SCHEMA_ENTROPY_PERCENT_THRESHOLD,
   SCHEMA_ENTROPY_TURN_THRESHOLD,

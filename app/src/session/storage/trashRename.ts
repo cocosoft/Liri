@@ -10,7 +10,7 @@
  */
 
 import { promises as fs } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('session:storage');
 

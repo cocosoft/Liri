@@ -15,7 +15,7 @@ import { ToolTag } from '../types/Tool.js';
 import { REPLToolImpl } from '../repl/REPLToolImpl.js';
 import type { REPLSession } from '../repl/types/index.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:adapters:REPLToolAdapter');
 
 /**

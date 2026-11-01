@@ -5,8 +5,8 @@
  */
 
 import type { Command, CommandContext, CommandResult } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
-import { StructuredLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
+import { StructuredLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('LogsCommand');
 

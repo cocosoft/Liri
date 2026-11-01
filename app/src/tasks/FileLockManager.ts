@@ -10,7 +10,7 @@
  *   - 多 session 相同文件 → 文件级锁
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tasks:fileLock');
 
 interface LockEntry {

@@ -24,7 +24,7 @@ import {
 } from '@openliri/kernel/identity/scopedResources.js';
 import { getCostRecordRepository } from '@openliri/infra/cost/CostRecordRepository';
 import { getExecutionStore } from '../../../src/execution/ExecutionStore.js';
-import { getLLMTracker } from '../../../src/monitoring/llm/getLLMTracker.js';
+import { getLLMTracker } from '@openliri/infra/monitoring/llm/getLLMTracker';
 import { getCheckpointDatabase } from '../../../src/chat/services/CheckpointDatabase.js';
 
 const roots: string[] = [];

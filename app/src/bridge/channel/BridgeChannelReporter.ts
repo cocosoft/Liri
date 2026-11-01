@@ -8,7 +8,7 @@
  *   Bridge Worker 执行 → 结果聚合 → BridgeChannelReporter → Channel → 用户
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { channelRegistry } from '@modules/channels';
 import type { ChannelId } from '@modules/channels/types';

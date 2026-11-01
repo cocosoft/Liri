@@ -13,7 +13,7 @@
  */
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { isFFmpegAvailable } from './audioFormatConverter';
 import { ffmpegPipeConvert } from './audioNormalizer';
 

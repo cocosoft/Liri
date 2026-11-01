@@ -7,7 +7,7 @@ import type { ToolResult } from '../tools/types/ToolResult';
 import type { ToolCallProgress } from '../tools/types/Tool';
 import type { BaseTool } from '../tools/BaseTool';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('agent:ToolCallBatch');
 

@@ -18,7 +18,7 @@
  *   - forbidden-call    → 安全拒绝，不进迭代循环（原生深扫命中危险调用）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:CodeRunner:validation');
 
 import type { CodeValidationIssue, CodeValidationResult } from './types';

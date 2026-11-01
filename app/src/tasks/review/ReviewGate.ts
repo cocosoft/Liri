@@ -17,7 +17,7 @@
  *   PDCA_REVIEW_VERIFIER      = 'true' | 'false'（VerifierAgent 双指标开关，默认 true）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 // 13-P0-2（2026-10-05）：验收标准结构化（注入验证器骨架）
 import { parseSuccessCriteria } from '@modules/tasks/successCriteria';

@@ -17,7 +17,7 @@ import { handleError } from '@openliri/infra/error';
 import { TTLCache } from '@openliri/infra/utils/cache';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('channels:irc:IrcChannel');
 
 const IRC_LINE_MAX = 480;

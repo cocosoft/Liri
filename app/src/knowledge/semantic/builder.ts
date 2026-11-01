@@ -28,7 +28,7 @@
  * 借鉴: DeepSeek-Reasonix src/index/semantic/builder.ts
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { chunkDirectory } from './chunker';
 import type { ChunkOptions } from './chunker';
 import { globalEmbeddingManager } from '@modules/ai';

@@ -11,7 +11,7 @@
  *   4. 辅助 LLM 二次确认（成本 < $0.001/次）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:smartApproval');
 
 export type ApprovalDecision = 'auto_allow' | 'auto_deny' | 'needs_review';

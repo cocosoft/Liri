@@ -60,7 +60,7 @@ import {
 import { buildQQKeyboard } from './keyboard';
 import { handleBudgetReliefAction } from '../bridge/budgetReliefAction';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { QQ_API_BASE_URL, QQ_SITE_URL } from '../constants';
 const logger = getLogger('channels:qq:QQChannel');
 

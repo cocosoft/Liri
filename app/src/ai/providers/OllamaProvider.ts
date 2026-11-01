@@ -21,7 +21,7 @@ import {
   isAbortReason,
   markAsExpectedAbort,
 } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 import { DEFAULT_OLLAMA_ENDPOINT } from '@openliri/kernel';
 import { randomIdSuffix } from '@openliri/infra/utils/common';

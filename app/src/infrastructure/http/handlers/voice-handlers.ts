@@ -13,7 +13,7 @@ import {
   readRawBody,
   parseMultipartBody,
 } from './handler-utils';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';

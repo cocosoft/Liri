@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('utils:loadPluginAgents');
 // 2026-08-06 修复（Q3）：移除模块级缓存。
 // 原 pluginAgentsCache 一旦缓存（可能缓存空数组）永不失效，且 clearPluginAgentCache 无调用方，

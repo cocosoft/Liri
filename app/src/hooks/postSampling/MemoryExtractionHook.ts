@@ -11,7 +11,7 @@ import {
   extractMemories,
   type MemoryType,
 } from '@modules/services/extractMemories';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('MemoryExtractionHook');

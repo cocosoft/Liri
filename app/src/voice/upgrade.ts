@@ -3,7 +3,7 @@
  * 使用 Node.js 内置 http + crypto + net 模块实现 RFC 6455
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';

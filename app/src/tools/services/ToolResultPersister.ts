@@ -11,7 +11,7 @@
  * 原实现（ChatManager._buildToolRoundMessages）对工具结果 JSON.stringify 无截断。
  */
 import { resolveDataSubDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   findStructuralCut,
   closeStructure,

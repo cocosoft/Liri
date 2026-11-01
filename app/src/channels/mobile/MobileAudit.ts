@@ -10,7 +10,7 @@
  * ⚠️ **审计是旁路**：写入失败只告警、不阻断消息主流程（与既有审计实现一致）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('channels:mobile:audit');
 

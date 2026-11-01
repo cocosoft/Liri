@@ -9,7 +9,7 @@ import {
   resolveContextWindow,
   getEffectiveContextWindow,
 } from '../window/ContextWindowResolver';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('context:analytics:stats');
 
 export interface ContextStats {

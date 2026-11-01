@@ -5,7 +5,7 @@
  * 2. 更新知识库摘要缓存
  * 3. 执行健康检查（可选，默认仅在检查模式下执行）
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { resolvePyappHome } from '@openliri/infra/environment';
 // C1（2026-09-30 D-125，`R00-003` P6/G4）：知识运维改经 core SPI 端口（infra → core 合法）

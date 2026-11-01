@@ -26,7 +26,7 @@
 // 导出类型定义
 export type { ToolDefinition, ToolExecutionContext } from './types/ToolTypes';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('tools:index');

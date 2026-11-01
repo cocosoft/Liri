@@ -7,7 +7,7 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { ContextErrorCode } from './types/ContextErrorCode';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('context:injector');
 
 export interface IContextInjector {

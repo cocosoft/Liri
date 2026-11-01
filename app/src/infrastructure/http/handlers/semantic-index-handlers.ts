@@ -21,7 +21,7 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { randomUUID } from 'node:crypto';
 // C1（2026-09-30 D-96，`knowledge` 域 P2）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';

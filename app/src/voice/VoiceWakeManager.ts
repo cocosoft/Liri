@@ -5,7 +5,7 @@
  * 负责唤醒词配置持久化、唤醒词检测、触发路由
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { join } from 'path';
 import { mkdir, readFile, writeFile } from 'fs/promises';

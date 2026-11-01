@@ -35,7 +35,7 @@
  * **早于任何工具执行**（`read_vfs` / `list_vfs` / `stat_vfs` 依赖挂载已注册）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { VfsConfig } from '@openliri/infra/config';
 
 const logger = getLogger('vfs:wiring');

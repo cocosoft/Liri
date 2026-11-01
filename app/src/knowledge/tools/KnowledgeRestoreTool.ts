@@ -12,7 +12,7 @@ import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
 import { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 import { globalEventBus } from '@openliri/kernel';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('knowledge:tools:knowledgeRestoreTool');
 
 export class KnowledgeRestoreTool implements Tool {

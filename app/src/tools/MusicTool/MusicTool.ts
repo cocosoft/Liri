@@ -14,7 +14,7 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
 import { FFmpegWrapper } from '@openliri/infra/media/ffmpeg/FFmpegWrapper';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:MusicTool:MusicTool');
 
 /**

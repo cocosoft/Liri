@@ -38,7 +38,7 @@ import {
 } from '@openliri/infra/security/identity';
 import type { Coordinator } from '@modules/runtime/coordinator';
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { ChatManager } from '@modules/chat';
 import type { SessionManager } from '@modules/session/types/session';
 import type { DerivationDiff, LiteSessionSummary } from '@modules/session';

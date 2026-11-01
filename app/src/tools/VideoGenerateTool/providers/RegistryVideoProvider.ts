@@ -11,7 +11,7 @@ import type {
   VideoGenerationResult,
   AIProvider,
 } from '@modules/ai';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:videoGenerate');
 
 export class RegistryVideoProvider {

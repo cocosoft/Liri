@@ -101,8 +101,8 @@ import type { ToolManager } from '@modules/tools';
 import { TOOL_NAME_CONSTANTS } from '@openliri/infra/constants';
 import type { Coordinator } from '@modules/runtime/coordinator';
 import { coordinator as defaultCoordinator } from '@modules/runtime/coordinator';
-import { getLogger } from '@modules/monitoring';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { getLogger } from '@openliri/infra/monitoring';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 // D-227（2026-10-02，B12）：`AppError` / `ErrorCategory` / `ErrorSeverity` 供 `appDeps` 懒解析缺注入时抛错。
 import {

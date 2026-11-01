@@ -2,7 +2,7 @@ import { describe, it, expect, spyOn, afterEach } from 'bun:test';
 // B8（2026-11-01）：`utils/log` 改为经 **core 日志门面**取 logger（去掉 utils→monitoring 边）⇒
 // 门面在测试进程内未注册 SPI 时为 noop。本文件校验的是**输出形态**，故直接对规范 Logger 断言；
 // 兼容层本身只保证"导出同名 logger"（上方 typeof 断言）。
-import { getLogger } from '../../src/monitoring/logs/Logger';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { logger as compatLogger } from '@openliri/infra/utils/log';
 
 const logger = getLogger('app');

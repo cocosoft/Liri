@@ -5,7 +5,7 @@
 import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tasks:LocalWorkflowTask');
 
 export interface WorkflowStep {

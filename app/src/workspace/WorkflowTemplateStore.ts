@@ -36,7 +36,7 @@
  *   （与 `WorkflowTemplate` 域类型同源，避免时间戳精度/时区转换失真）
  */
 import { Database } from '@openliri/infra/external';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   resolveDbPath,
   resolveTenantDbPath,

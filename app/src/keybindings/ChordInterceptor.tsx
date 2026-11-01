@@ -7,7 +7,7 @@
  */
 import React, { useEffect } from 'react';
 import { useKeybindingContext } from './KeybindingContext.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('keybindings:chordInterceptor.tsx');
 
 /**

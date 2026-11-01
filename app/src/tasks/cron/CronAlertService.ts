@@ -3,7 +3,7 @@
  * 对标 openclaw src/cron/types.ts CronFailureAlert
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { CronJob } from './types';
 

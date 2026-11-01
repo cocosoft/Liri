@@ -16,7 +16,7 @@ import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { toWireToolName } from '../../tools/toolNameCodec';
 const logger = getLogger('agent:strategies:agentStrategy');
 

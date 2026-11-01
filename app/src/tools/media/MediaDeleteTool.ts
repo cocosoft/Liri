@@ -14,7 +14,7 @@ import type { MediaToolResult } from './MediaToolResult';
 import { MEDIA_DELETE_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { mediaStore } from '@openliri/infra/media/store/MediaStore';
 import { isToolCallApproved } from '@openliri/infra/permission';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('media:tool:delete');

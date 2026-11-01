@@ -10,7 +10,7 @@
  *   3. Hook `deny` → 立即拒绝（无论 Settings 如何）
  *   4. 无 Hook → 按 Settings 规则正常判断
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('hooks:guard');

@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getDiff } from '@modules/commands';
 import type { DiffResult } from '@modules/commands';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('hooks:useDiffData');
 
 /**

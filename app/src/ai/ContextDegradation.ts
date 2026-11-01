@@ -13,7 +13,7 @@
  * parse_context_limit_from_error: 从 API 错误消息中提取实际的上下文限制值。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('ai:contextDegradation');

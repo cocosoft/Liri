@@ -11,7 +11,7 @@ import {
   wrapForMultiplexer,
 } from './termio/osc.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ink:ink:useTerminalNotification');
 
 type WriteRaw = (data: string) => void;

@@ -17,7 +17,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { PROJECT_ROOT, LIRI_HOME } from '@openliri/infra/environment';
 import type { SessionConfirmedPaths } from './SessionConfirmedPaths';
 import { defaultWhitelist } from './PathWhitelist';

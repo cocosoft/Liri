@@ -17,7 +17,7 @@
  * 片缺失/损坏 ⇒ 跳过该片（不阻塞检索），由 `SessionGateway` 在落盘驱动 tick 中按会话重建（§8-6）。
  */
 import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   FTSIndexStore,
   type FTSShardData,

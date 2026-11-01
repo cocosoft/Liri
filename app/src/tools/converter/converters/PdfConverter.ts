@@ -10,7 +10,7 @@ import {
   resolvePdfjsDistPath,
 } from '@openliri/infra/utils/externalDeps';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:converter:converters:PdfConverter');
 
 let _depError: Error | null = null;

@@ -13,7 +13,7 @@
  *   if (!result.valid) { console.warn(result.warning); }
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:file:validator');
 
 export interface ValidationResult {

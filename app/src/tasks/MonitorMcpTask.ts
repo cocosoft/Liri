@@ -6,7 +6,7 @@ import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tasks:MonitorMcpTask');
 
 export interface McpMonitorConfig {

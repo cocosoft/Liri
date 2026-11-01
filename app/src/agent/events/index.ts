@@ -41,7 +41,7 @@ import type {
 import { AgentEventType } from './types';
 // C1（2026-10-09）：事件 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   globalEventBus,
   EventBusImpl,

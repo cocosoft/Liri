@@ -11,8 +11,8 @@
 import { configManager } from '@openliri/infra/config';
 // C1（2026-10-09）：taor id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
-import { getLogger } from '@modules/monitoring';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { getLogger } from '@openliri/infra/monitoring';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@openliri/infra/error';
 // B2-3（2026-09-23）：文案**唯一来源**；2026-10-21 模板下沉 `constants/goalTemplates`

@@ -3,8 +3,8 @@
  * 每轮记录 turnCount/tokens/toolCalls/duration
  */
 
-import { getLogger } from '@modules/monitoring';
-import { getOTelMetrics } from '../monitoring/otel/OTelMetrics.js';
+import { getLogger } from '@openliri/infra/monitoring';
+import { getOTelMetrics } from '@openliri/infra/monitoring/otel/OTelMetrics';
 
 const logger = getLogger('agent:telemetry');
 

@@ -13,7 +13,7 @@ import { readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { ListPeersOutputSchema, ListPeersOutputJsonSchema } from './schemas';
 const logger = getLogger('tools:ListPeersTool:ListPeersTool');

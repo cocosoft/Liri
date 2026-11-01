@@ -16,7 +16,7 @@
  *   - 流中断时清理未完成的工具执行
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { TrackedTool, TrackedToolState } from './TrackedTool';
 import type { TrackedToolResult } from './TrackedTool';

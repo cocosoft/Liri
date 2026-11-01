@@ -31,7 +31,7 @@
  * InjectStrategy 类型定义见 types.ts。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { loadSnapshot, listSessionSnapshots } from './SnapshotStorage';
 import { findDependentRounds } from './UndoManager';

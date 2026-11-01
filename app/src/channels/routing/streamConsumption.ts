@@ -5,7 +5,7 @@
 // 语义逐字不变：空转超时以 `ExecutionAbortedError` 抛出（由调用方的两段式取消 catch 承接）；
 // `generator` 的 `done` 分支负责 `finishExecution` 并返回最终结果。
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { formatToolNotifySummary } from './toolNotifySummary';
 import { ExecutionAbortedError } from '@modules/execution';

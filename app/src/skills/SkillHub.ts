@@ -5,7 +5,7 @@
  */
 import type { Skill, SkillSource } from './types';
 import type { SkillRegistry } from './SkillRegistry';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('skills:SkillHub');
 

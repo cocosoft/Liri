@@ -14,7 +14,7 @@
  * ⚠️ 日志 tag 由 `chat:streamFlow` 改为本模块 `chat:streamFlow:toolSelection`（新模块自有 tag）；
  * 日志**文案**与字段不变。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { estimateTokens } from '@modules/ai';
 import type { ToolDefinition } from '@modules/ai';
 import { resolveContextWindow } from '@modules/context';

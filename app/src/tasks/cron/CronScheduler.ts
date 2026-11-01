@@ -3,7 +3,7 @@
  * 基于 SQLite 持久化实现跨进程安全的任务调度与执行
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type {
   CronJob,

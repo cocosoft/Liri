@@ -26,8 +26,8 @@
  * 纯函数，无实例状态，通过 channelRegistry 获取对应通道的 OutboundAdapter。
  */
 
-import { getLogger } from '@modules/monitoring';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { getLogger } from '@openliri/infra/monitoring';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@openliri/infra/error';
 import { withRetry, RetryableError } from '@openliri/infra/utils/withRetry';

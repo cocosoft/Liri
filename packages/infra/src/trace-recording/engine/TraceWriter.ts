@@ -24,7 +24,7 @@ import fs from 'fs';
 import path from 'path';
 import type { TraceRecord } from '../types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('trace-recording:engine:TraceWriter');
 

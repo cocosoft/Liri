@@ -1,7 +1,7 @@
 import { createChatManager } from '@modules/chat';
 import type { CommandContext } from '@modules/commands';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:session:Session');
 const call = async (
   args: string,

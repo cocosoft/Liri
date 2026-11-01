@@ -21,7 +21,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { getToolRegistry } from '../ToolRegistry';
 import { PermissionManager } from '@openliri/infra/permission';
 import { configManager } from '@openliri/infra/config';

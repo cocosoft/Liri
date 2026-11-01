@@ -4,7 +4,7 @@
  */
 
 import type { Command, CommandContext, CommandResult } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { channelRegistry } from '@modules/channels';
 import type { ChannelInterface } from '@modules/channels';
 

@@ -6,7 +6,7 @@
 
 import { resolve, normalize, sep } from 'path';
 import { existsSync, statSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { configManager } from '@openliri/infra/config';
 

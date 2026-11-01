@@ -6,7 +6,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { configManager } from '@openliri/infra/config';

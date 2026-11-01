@@ -6,7 +6,7 @@ import { TTLCache } from '@openliri/infra/utils/cache';
 import { AutoModeClassifier } from './AutoModeClassifier';
 import { SpanStatusCode, metrics } from '@opentelemetry/api';
 import type { Span, Counter } from '@opentelemetry/api';
-import { getOTelTracing } from '@modules/monitoring';
+import { getOTelTracing } from '@openliri/infra/monitoring';
 import { permissionMetrics } from '../metrics/PermissionMetricsStore';
 import type {
   IAutoModeClassifier,

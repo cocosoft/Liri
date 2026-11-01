@@ -4,7 +4,7 @@
  * 集成成本跟踪和多供应商模型支持
  */
 import type { CommandContext } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { modelManager } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';

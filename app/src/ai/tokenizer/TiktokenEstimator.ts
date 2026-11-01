@@ -1,7 +1,7 @@
 /**
  * Tiktoken 估算器 —— **转出层**（H5-⑥ 收口，台账 D-212）
  *
- * 实现已**改归 infra**（`utils/TiktokenEstimator.ts`）：该文件仅依赖 `@modules/monitoring`
+ * 实现已**改归 infra**（`utils/TiktokenEstimator.ts`）：该文件仅依赖 `@openliri/infra/monitoring`
  * + `@openliri/infra/error`（**infra**）、零 app 依赖 ⇒ 原置 app 层 `ai/tokenizer/` 时，
  * `services/prompt/DiagnosticsReport.ts` 取用 `getCachedTiktokenEncoder` 构成
  * `services -> ai` 倒挂。本文件仅**原址转出**（对外导出名与签名逐字不变

@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { VoiceEventBus } from './VoiceEventBus';
 import { VoiceToolBridge } from './VoiceToolBridge';
@@ -35,10 +35,10 @@ import {
 } from '@modules/session/types/UnifiedMessage';
 import type { UnifiedMessage } from '@modules/session/types/UnifiedMessage';
 import { MemoryManagerImpl } from '@openliri/infra/memory/MemoryManager';
-import { getAlertManager } from '@modules/monitoring';
-import { getOTelTracing } from '@modules/monitoring';
-import { getMetricsService } from '@modules/monitoring';
-import type { HistogramMetric } from '@modules/monitoring';
+import { getAlertManager } from '@openliri/infra/monitoring';
+import { getOTelTracing } from '@openliri/infra/monitoring';
+import { getMetricsService } from '@openliri/infra/monitoring';
+import type { HistogramMetric } from '@openliri/infra/monitoring';
 
 /** 提供商标识到构造函数的映射 */
 const PROVIDER_ADAPTERS: Record<

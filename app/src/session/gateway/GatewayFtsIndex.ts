@@ -33,7 +33,7 @@
 
 import { join } from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   getFTS5SearchEngine,
   type FTS5SearchEngine,

@@ -8,7 +8,7 @@ import path from 'path';
 import { SkillLoader } from '../loaders/SkillLoader.js';
 import type { Skill } from '../types/index.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('skills:source:SkillSourceManager');
 
 /**

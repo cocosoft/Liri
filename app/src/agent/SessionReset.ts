@@ -4,7 +4,7 @@
  * 对齐 OpenClaw agents/harness/types.ts reset 参数
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { existsSync, unlinkSync, renameSync } from 'fs';
 import { join } from 'path';
 

@@ -6,7 +6,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  * 比调用 DALL-E 等图片 API 更经济（仅消耗文本 token）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';

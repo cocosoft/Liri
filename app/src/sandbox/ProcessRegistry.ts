@@ -9,7 +9,7 @@
  * 对齐 OpenClaw agents/bash-process-registry.ts
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('sandbox:processRegistry');
 
 export interface ProcessInfo {

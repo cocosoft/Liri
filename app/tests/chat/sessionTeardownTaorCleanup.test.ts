@@ -44,7 +44,7 @@ import {
   getBudgetSuspendCoordinator,
   resetBudgetSuspendForTest,
 } from '../../src/query/budgetSuspend.js';
-import { getLogger } from '../../src/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 
 /** 轮询等待异步 fire-and-forget 清理落地（动态 import + 清理均为异步） */
 async function waitFor(pred: () => boolean, timeoutMs = 2000): Promise<void> {

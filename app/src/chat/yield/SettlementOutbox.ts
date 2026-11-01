@@ -39,7 +39,7 @@ import {
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
 import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // B4-2（2026-09-23）：恢复通路的相位标签（`yield:*`）—— 台账认领/状态写是恢复期的
 // 两个真实阻塞点（SQLite 同步写），包相位后可由 `loopProbe` 逐条归因。
 import { withPhase } from '@openliri/infra/diagnostics';

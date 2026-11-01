@@ -31,7 +31,7 @@ import type {
 } from '@modules/channels/types';
 import type { PlatformAdapter } from './PlatformAdapter.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('channels:platform:PlatformAdapterBridge');
 
 /**

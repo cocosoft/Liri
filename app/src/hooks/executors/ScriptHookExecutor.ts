@@ -21,7 +21,7 @@ import {
 import { handleError } from '@openliri/infra/error';
 import { isSensitiveEnvKey } from '@openliri/infra/security';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('hooks:executors:ScriptHookExecutor');
 
 const execPromise = promisify(exec);

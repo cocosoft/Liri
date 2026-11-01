@@ -16,7 +16,7 @@ import { CostTracker } from './CostTracker.js';
 import { CostReporter } from './CostReporter.js';
 import { CostMonitor } from './CostMonitor.js';
 import { PricingManager } from './PricingManager.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('cost:enhancedCostManager');

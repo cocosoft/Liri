@@ -13,7 +13,7 @@
  * 一律 `reviewed: false`（明示"未审核"）。接入第三方/模型审核见台账「功能缺口排期」P3。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:imageGenerate');
 
 /** 安全过滤严格度 */

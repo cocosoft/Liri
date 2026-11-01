@@ -4,7 +4,7 @@
  * 使用内置模块实现，无第三方依赖
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { randomUUID } from 'crypto';
 import { createHash } from 'crypto';
 

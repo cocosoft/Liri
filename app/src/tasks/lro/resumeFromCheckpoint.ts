@@ -16,7 +16,7 @@
 
 import { configManager } from '@openliri/infra/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 import type { PlanReview, ReviewDecision } from '../PlanReview';
 import type { Plan, PlanStep } from '../TaskOrchestrator';

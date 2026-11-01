@@ -11,7 +11,7 @@
  * - OpenClaw main-session-restart-recovery.ts
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { broadcastEvent } from '@modules/infrastructure';
 import { markAppError } from '@openliri/infra/state/app/AppLifecycle';
 import { SessionStatus } from '../types/UnifiedSession';

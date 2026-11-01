@@ -21,7 +21,7 @@ import {
 import { resolveModelPricing } from './pricingSource.js';
 import { globalEventBus, SystemEvents } from '@openliri/kernel/events/EventBus';
 import type { CostRecordedEvent } from '@openliri/kernel/events/EventBus';
-import { createLogger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { createLogger, LogLevel } from '@openliri/infra/monitoring/logs/Logger';
 
 const logger = createLogger({
   module: 'analytics:CostAnalyticsTracker',

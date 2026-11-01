@@ -2,7 +2,7 @@
  * 代理服务
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { AgentService, AgentConfig, AIAgent } from '../models/types';
 import { AIAgentImpl } from '../agent';

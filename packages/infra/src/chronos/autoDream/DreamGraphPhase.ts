@@ -33,7 +33,7 @@
 
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join, basename } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import {
   resolveDomainDir,

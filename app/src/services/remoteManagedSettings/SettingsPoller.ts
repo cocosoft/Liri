@@ -1,6 +1,6 @@
 import type { RemoteSetting, RemoteSettingsPayload } from './types';
 import { RemoteSettingsClient } from './RemoteSettingsClient';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('services:settingsPoller');

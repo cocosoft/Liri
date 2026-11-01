@@ -4,7 +4,7 @@ import matter from 'gray-matter';
 import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { isValidMemoryType } from '../types/MemoryType';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('memory:scanners:memoryScanner');

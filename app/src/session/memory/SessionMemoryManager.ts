@@ -32,7 +32,7 @@ import { dirname, join } from 'path';
 // ② `extractPerTurn` 的轮次消息改**本服务自持的最小结构契约**（该方法全仓**零外部调用方**，
 // 实测仅定义处，故改本地契约零破坏面）。
 import type { EmbeddingRefPort } from '@modules/runtime/api/embeddingPorts';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // T-①07（A5 记忆分层收敛）T1-4 · 方案①：声明实现会话域端口（`session/memory/SessionMemoryPort.ts`）。
 // 端口只覆盖本类**真实具备**的会话记忆对外能力；`shouldExtract`/`extractPerTurn`/`getMemoryPath`
 // 及全部私有方法不属端口（判据见端口文件注释）。见 .trae/specs/memory-port-unification.md。

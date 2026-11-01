@@ -8,7 +8,10 @@
  */
 
 import type { AppState, AppStateStore } from './AppState';
-import { Logger, getLogger as getModuleLogger } from '@modules/monitoring';
+import {
+  Logger,
+  getLogger as getModuleLogger,
+} from '@openliri/infra/monitoring';
 
 let _logger: Logger | null = null;
 function getLogger(): Logger {

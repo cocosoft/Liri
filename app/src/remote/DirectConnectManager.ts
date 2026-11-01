@@ -3,7 +3,7 @@
  * 负责处理cc://协议直接连接
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('remote:DirectConnectManager');
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';

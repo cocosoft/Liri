@@ -38,7 +38,7 @@
  * `ToolSideEffectResolver` **注入**（不在本类硬编码工具名表 —— 违 model-usage 规则精神）。
  * 越界 ⇒ **显式拒绝**（`stopReason:'error'`、`completedSteps` 为空），**不静默跳过越界步骤**。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type {
   WorkflowDefinition,
   WorkflowEngine,

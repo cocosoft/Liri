@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { WILDCARD_BIND_HOST } from '@openliri/kernel';
 import {
   loadUserSettings,

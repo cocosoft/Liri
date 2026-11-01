@@ -46,7 +46,7 @@
 import { closeSync, constants as fsConstants, openSync, readSync } from 'fs';
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ink:ink:drain-stdin');
 
 export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {

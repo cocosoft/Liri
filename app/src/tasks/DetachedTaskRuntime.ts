@@ -1,5 +1,5 @@
 import { fork } from 'child_process';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { join } from 'path';
 import { resolveProjectRoot } from '@openliri/infra/environment';
 

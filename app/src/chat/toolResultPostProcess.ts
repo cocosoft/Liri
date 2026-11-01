@@ -35,7 +35,7 @@ import type { ToolLoopContext } from './ToolLoopRunner.js';
 import { extractTodoData } from './services/ChatHelper';
 import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('chat:reactToolLoop');
 

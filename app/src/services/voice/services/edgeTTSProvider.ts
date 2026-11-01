@@ -10,7 +10,7 @@
 
 import { createHash, randomUUID, randomBytes } from 'crypto';
 import { writeFileSync } from 'fs';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type {
   TTSProvider,

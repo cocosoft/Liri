@@ -45,7 +45,7 @@ import {
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
 import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   TOOL_CALL_INITIAL_STATUS,
   TOOL_CALL_UNKNOWN_STATUS,

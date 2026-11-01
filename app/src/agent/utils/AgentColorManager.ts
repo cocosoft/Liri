@@ -4,7 +4,7 @@
  * 参考CC源码 cc_code/backend/tools/AgentTool/agentColorManager.ts 实现
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('agent:utils:agentColorManager');
 
 /**

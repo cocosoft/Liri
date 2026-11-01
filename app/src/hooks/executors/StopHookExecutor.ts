@@ -16,7 +16,7 @@ import type {
   HookContext,
 } from '../types/index.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('hooks:executors:StopHookExecutor');
 

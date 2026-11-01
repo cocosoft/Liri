@@ -30,7 +30,7 @@ import { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { knowledgeDocsProvider } from '../../docs/FileDocsProvider';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';

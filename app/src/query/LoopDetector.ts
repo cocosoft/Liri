@@ -38,7 +38,7 @@ import {
   LOOP_NO_TOOL_CALL_CRITICAL,
   isLoopObserveOnly,
 } from './loop-config.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('query:loopDetector');
 
 /** 检测器类型 */

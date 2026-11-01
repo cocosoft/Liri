@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { Text } from '../../components/ink.js';
 import { getRainbowColor } from '@openliri/infra/utils/thinking';
 import { getGlobalConfig } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ui:buddy');
 
 export function isBuddyTeaserWindow(): boolean {

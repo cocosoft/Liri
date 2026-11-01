@@ -12,7 +12,7 @@
  * 集成点：在 provider.chat() 返回后检查 response.stop_reason，
  *         如为 'length' 且未达上限，加倍重试。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai:maxOutputRetry');
 
 export interface MaxOutputRetryConfig {

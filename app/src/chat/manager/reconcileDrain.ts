@@ -15,7 +15,7 @@
  * 队列本身由宿主持有（实例级），以端口传入。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { ReconcileService } from '@modules/session';
 import type { EventLogStorage, SessionGateway } from '@modules/session';

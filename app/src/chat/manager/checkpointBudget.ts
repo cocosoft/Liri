@@ -13,7 +13,7 @@
  */
 
 import { feature as coreFeature } from '@openliri/kernel';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   decideCheckpointBoundary,
   isCheckpointBoundaryTool,

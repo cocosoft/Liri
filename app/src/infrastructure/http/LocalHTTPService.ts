@@ -7,7 +7,7 @@
  * 此位置具有误导性，后续应考虑迁移至 modules/ 下的合适位置。
  */
 import http from 'http';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { ServerResponse } from 'http';
 import { costTracker } from '@openliri/infra/cost';

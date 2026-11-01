@@ -30,6 +30,7 @@
       "zustand": ["../../app/node_modules/zustand"],
       "zustand/*": ["../../app/node_modules/zustand/*"],
       "chalk": ["../../app/node_modules/chalk"],
+      "https-proxy-agent": ["../../app/node_modules/https-proxy-agent"],
       "commander": ["../../app/node_modules/commander"],
       "gray-matter": ["../../app/node_modules/gray-matter"],
       "glob": ["../../app/node_modules/glob"],
@@ -38,7 +39,8 @@
       "pdfjs-dist": ["../../app/node_modules/pdfjs-dist"],
       "pdfjs-dist/*": ["../../app/node_modules/pdfjs-dist/*"],
       "@napi-rs/canvas": ["../../app/node_modules/@napi-rs/canvas"],
-      "@opentelemetry/api": ["../../app/node_modules/@opentelemetry/api"]
+      "@opentelemetry/api": ["../../app/node_modules/@opentelemetry/api"],
+      "@opentelemetry/*": ["../../app/node_modules/@opentelemetry/*"]
     }
   },
   "include": ["src/**/*", "../../app/src/**/*.d.ts"],

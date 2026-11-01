@@ -3,7 +3,7 @@
  * 实现会话元数据的存储和变更通知
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { PermissionMode } from '@openliri/infra/permission/PermissionMode';
 import type { RequiresActionDetails } from '@openliri/infra/state/session/types';

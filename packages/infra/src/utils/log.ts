@@ -7,7 +7,7 @@
  * analytics/performance/cost 六元 SCC），且此前因 utils 内部用相对导入而**不可见**。
  *
  * 取值语义不变：门面 `resolveLogger` 走 monitoring 注册的 Logger SPI（含注册前缓冲回放），
- * 模块名仍是 `app`（日志输出字段不变）。新代码请直接用门面或 `@modules/monitoring/logs/Logger`。
+ * 模块名仍是 `app`（日志输出字段不变）。新代码请直接用门面或 `@openliri/infra/monitoring/logs/Logger`。
  */
 import { resolveLogger } from '@openliri/kernel/loggerFacade';
 

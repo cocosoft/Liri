@@ -6,7 +6,7 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 
 const logger = getLogger('voice:envRuntimeDetector');

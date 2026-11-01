@@ -8,7 +8,7 @@ import type { SessionLifecycleEvent } from '@modules/session';
 import type { EventSubscription } from '@openliri/kernel';
 import { SessionStateMachine } from '@openliri/infra/state/session/SessionStateMachine';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('chat:services:SessionStateBridge');
 
 export class SessionStateBridge {

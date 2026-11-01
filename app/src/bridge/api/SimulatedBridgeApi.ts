@@ -13,7 +13,7 @@ import type {
 } from '../types/index.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('bridge\api\SimulatedBridgeApi');
 
 /**

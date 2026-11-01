@@ -13,7 +13,7 @@ import type {
 } from '@modules/channels/types';
 import { BaseChannelPlugin } from '@modules/channels/base/BaseChannelPlugin';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('channels:zalo:ZaloChannel');
 

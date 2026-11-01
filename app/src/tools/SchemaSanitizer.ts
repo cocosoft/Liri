@@ -14,7 +14,7 @@
  *   7. 移除 patternProperties — 不可靠
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:schemaSanitizer');
 
 export interface SanitizeOptions {

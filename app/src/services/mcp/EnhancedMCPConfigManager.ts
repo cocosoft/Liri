@@ -10,7 +10,7 @@ import {
   resolveDataDir,
   resolveProjectRoot,
 } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 // C1（2026-09-30 D-122，`R00-003` P3/G5）：插件读取改经 core SPI 端口（service → core 合法）

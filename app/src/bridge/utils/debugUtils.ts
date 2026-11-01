@@ -8,7 +8,7 @@ import { BridgeConfig, PollConfig, BackoffConfig } from '../types';
 // C1（2026-10-09）：debug id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('bridge:utils:debugUtils');
 

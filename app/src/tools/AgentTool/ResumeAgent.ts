@@ -1,6 +1,6 @@
 import { join } from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // B2-3（2026-09-23）：恢复指示文案的唯一来源（原为本文件内的硬编码，Spec §5.3.1 #3）
 import { CONTINUATION_TEMPLATES } from '@openliri/infra/constants/goalTemplates';

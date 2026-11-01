@@ -29,7 +29,7 @@
  *  - 本地服务无需 API Key（validateConfig 不要求）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 import { BaseAIProvider } from './BaseAIProvider';
 import { OpenAIProvider } from './OpenAIProvider';

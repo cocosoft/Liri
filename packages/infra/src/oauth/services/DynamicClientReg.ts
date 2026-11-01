@@ -7,7 +7,7 @@
 // 2026-10-01 D-159（`R00-001` 倒挂收口）：同 `OAuthClient.ts` —— 原取自
 // `@modules/infrastructure` 的默认 logger（infra -> service 倒挂 + 偏离 §1.8），
 // 改为模块内一致的 `getLogger(module)`。
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { OAuthClient } from './OAuthClient';
 import type { OAuthServerMetadata } from '../types/OAuthDiscoveryTypes';
 

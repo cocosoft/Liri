@@ -18,7 +18,7 @@ import { AgentTool, resolveAgentToolInstance } from '@modules/tools';
 // 内置 Agent 类型名取真源（`BUILTIN_AGENTS` 的键）——此前本文件内联同值数组，属同名常量重复
 import { AGENT_TYPES } from '@modules/tools';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:tools:ai:agents');
 
 /** 子命令列表 */

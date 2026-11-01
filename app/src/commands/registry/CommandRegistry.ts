@@ -3,7 +3,7 @@
  * 管理已注册的命令
  */
 import type { Command, CommandSource } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('CommandRegistry');
 

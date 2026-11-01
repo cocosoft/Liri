@@ -4,7 +4,7 @@
  * 负责Hook配置的读写和管理
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { IndividualHookConfig, HookEvent } from '../types';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { handleError } from '@openliri/infra/error';

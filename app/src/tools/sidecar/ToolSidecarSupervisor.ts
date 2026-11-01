@@ -46,7 +46,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { getLogger, currentTraceparent } from '@modules/monitoring';
+import { getLogger, currentTraceparent } from '@openliri/infra/monitoring';
 import { killProcessTree } from '@openliri/infra/utils/killProcessTree';
 import { parentPidEnv } from '@openliri/infra/utils/parentLiveness';
 import {

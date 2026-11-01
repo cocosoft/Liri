@@ -1,7 +1,7 @@
 /**
  * daemon 的**指标上报端口**（2026-11-01 B5 解环）
  *
- * 背景：`daemon/ProcessManager.ts` 曾直接 `import { getMonitoringService } from '@modules/monitoring'`
+ * 背景：`daemon/ProcessManager.ts` 曾直接 `import { getMonitoringService } from '@openliri/infra/monitoring'`
  * 上报进程数 / 健康检查指标，而 `monitoring` 又（经 config / utils 等）可达 `daemon`
  * ⇒ 二者同处 infra 的强连通分量（R7 环成员）。解环做法与 `constants` 的
  * `setFrozenSnapshotUnfreezer` 一致：daemon 只声明端口，实现由 app 启动期注入

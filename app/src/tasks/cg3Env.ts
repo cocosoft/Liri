@@ -1,8 +1,8 @@
 /**
  * CG3 模块环境工具 — 最小化路径解析和日志
  *
- * 不依赖 @modules/core 或 @modules/monitoring 以避开循环导入链：
- *   paths.ts → @modules/monitoring → ... → plugins/index.ts → @modules/core → paths.ts
+ * 不依赖 @modules/core 或 @openliri/infra/monitoring 以避开循环导入链：
+ *   paths.ts → @openliri/infra/monitoring → ... → plugins/index.ts → @modules/core → paths.ts
  *
  * 仅在 CG3 独立模块（selfwake/alwayson）内使用。
  */

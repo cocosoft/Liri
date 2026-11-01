@@ -13,7 +13,7 @@ import type {
   MousePosition,
 } from '@openliri/infra/utils/computerUse/types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:ComputerUseTool:ComputerUseTool');
 
 /**

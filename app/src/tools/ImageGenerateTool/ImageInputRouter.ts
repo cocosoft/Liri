@@ -33,7 +33,7 @@
  * - openclaw src/media-understanding/runner.ts（vision 原生跳过优化）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { isMediaSidecarEnabled } from '../sidecar/mediaSidecarLifecycle';
 import {

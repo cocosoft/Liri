@@ -4,7 +4,7 @@ import type {
   RemoteSettingsClientConfig,
 } from './types';
 import { DEFAULT_REMOTE_SETTINGS_CONFIG } from './types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('services:remoteSettingsClient');

@@ -12,7 +12,7 @@
  *   KNOWLEDGE_LLM_HOURLY_BUDGET=20000
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('knowledge:llmBudget');
 
 interface HourlyTracker {

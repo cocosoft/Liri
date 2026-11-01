@@ -34,8 +34,8 @@
 
 import { readFile } from 'fs/promises';
 import { modelRouter } from '@modules/ai';
-import { LogLevel } from '@modules/monitoring';
-import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
+import { LogLevel } from '@openliri/infra/monitoring';
+import { OTelAwareLogger } from '@openliri/infra/monitoring/logs/OTelAwareLogger';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import type { RuleSchema } from '../schema/SchemaLoader';

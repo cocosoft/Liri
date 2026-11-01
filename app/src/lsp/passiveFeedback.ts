@@ -9,7 +9,7 @@ import type {
 import { registerPendingLSPDiagnostic } from './LSPDiagnosticRegistry.js';
 import type { LSPServerManager } from './LSPServerManager.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('lsp:passiveFeedback');
 

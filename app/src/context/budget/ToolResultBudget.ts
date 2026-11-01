@@ -5,7 +5,7 @@
  * 超限工具结果截断，防止大工具输出填满上下文窗口。
  * v2.1: 增加 token-aware 截断（在字符预算基础上增加 token 预算检查）。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { estimateTokens } from '@modules/ai';
 // B5-2㉑（2026-10-14）：原为本文件私有同名副本（值 50_000，与真源同值同事实）⇒ 合一引用真源
 import { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@openliri/infra/constants';

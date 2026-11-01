@@ -12,7 +12,7 @@
  *  - relaxed：仅 external_action 拦截
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // C1（2026-10-09）：门控 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 

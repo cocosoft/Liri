@@ -6,7 +6,7 @@
 
 import { feature, FeatureFlag } from '@openliri/kernel';
 import type { Command, CommandLoader } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('FeatureCommandLoader');
 

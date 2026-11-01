@@ -19,7 +19,7 @@
 
 import { Database } from '@openliri/infra/external';
 import { existsSync, readFileSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:file:attachmentMigration');
 
 /** attachments_sources 记录 */

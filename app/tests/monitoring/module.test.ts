@@ -30,8 +30,8 @@
 import { describe, expect, spyOn, test } from 'bun:test';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { getErrorStats } from '@openliri/infra/error/handleError';
-import { getLogger, getOTelTracing } from '../../src/monitoring';
-import { createModule } from '../../src/monitoring/module';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
+import { createModule } from '@openliri/infra/monitoring/module';
 
 describe('createModule — §十一 零样板门面', () => {
   test('logger 与 getLogger(name) 复用同一缓存实例', () => {

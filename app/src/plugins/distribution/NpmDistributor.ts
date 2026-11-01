@@ -4,7 +4,7 @@
  * 对齐 OpenClaw 插件分发机制
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolvePluginsInstalledDir } from '@openliri/infra/environment';
 import { NPM_REGISTRY_URL } from '@openliri/kernel';
 import { exec } from 'child_process';

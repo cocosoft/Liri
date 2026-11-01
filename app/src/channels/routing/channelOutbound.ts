@@ -4,7 +4,7 @@
 // 渠道出站投递（自 `messageRouter.ts` **内聚抽取**，2026-10-09 C3-S3）。
 // 语义逐字不变：文本出站失败**仍抛出**（由调用方外层 catch 承接）；文件出站失败不抛错。
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { messageTraceBuffer } from '../monitoring/MessageTraceBuffer';
 import { sendOutboundFiles } from './outboundFileRouter';
 

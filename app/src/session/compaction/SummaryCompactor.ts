@@ -3,7 +3,7 @@ import type {
   CompactionEngine,
   AutoCompactServiceRef,
 } from './CompactionTypes';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('session:summaryCompactor');
 
 const DEFAULT_SUMMARY_THRESHOLD = 100;

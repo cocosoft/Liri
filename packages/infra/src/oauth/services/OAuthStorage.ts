@@ -13,7 +13,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { readFile, writeFile, mkdir, access } from 'fs/promises';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';

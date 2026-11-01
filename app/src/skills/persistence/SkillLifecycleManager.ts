@@ -29,7 +29,7 @@
  * 返回清理函数，供应用关闭/热重置时回收事件监听（T3.7）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { SkillDB } from './SkillDB';
 import type { SkillRegistry } from '../SkillRegistry';
 import type { SkillUsageTracker } from '../SkillUsageTracker';

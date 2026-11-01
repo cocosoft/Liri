@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import { ServerStatus } from './types/index.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools\lsp\LSPServer');
 
 /**

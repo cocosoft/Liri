@@ -34,7 +34,7 @@
  *   执行端传入 scope 时必须一致，否则视为未批准（fail-closed）
  */
 import { createHash } from 'crypto';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { feature } from '@openliri/kernel';
 // 多租户 P3：放行记录带归属键，判定时 fail-closed（远端身份不得复用本机/他人记录）
 import {

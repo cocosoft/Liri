@@ -16,7 +16,7 @@
  */
 
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { setA2ADelegator, type A2ADelegator } from './a2a-routes';
 

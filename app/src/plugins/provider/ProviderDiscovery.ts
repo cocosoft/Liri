@@ -11,7 +11,7 @@ import { configManager } from '@openliri/infra/config';
 import { handleError } from '@openliri/infra/error';
 import { existsSync, readFileSync } from 'fs';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   OPENAI_API_V1_BASE_URL,
   ANTHROPIC_API_V1_BASE_URL,

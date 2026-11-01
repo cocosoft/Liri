@@ -13,7 +13,7 @@ import { join } from 'path';
 import type { CommandContext } from '@modules/commands';
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:version:Version');
 
 /**

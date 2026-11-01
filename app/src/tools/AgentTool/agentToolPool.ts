@@ -30,7 +30,7 @@ import {
 } from './AgentToolsetContract';
 import { toWireToolName } from '../toolNameCodec';
 import { isValidMcpName } from '../../services/mcp/normalization';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('tools:agentTool');
 

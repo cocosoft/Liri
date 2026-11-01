@@ -15,7 +15,7 @@ import type { SessionMessage } from '@modules/session';
 import { loadSessionMessages } from '../sessionMessageSource';
 import { resolveScopedDataDir } from '@openliri/infra/environment';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 const logger = getLogger('tools:SaveConversationTool:SaveConversationTool');
 

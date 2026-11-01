@@ -33,7 +33,7 @@
  */
 
 import { READ_TOOLS, WRITE_TOOLS } from './tool-constants.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   isLoopObserveOnly,
   LOOP_FILE_IO_WARNING,

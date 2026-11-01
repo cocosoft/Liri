@@ -33,7 +33,7 @@
 import { feature } from '@openliri/kernel';
 import type { IToolJobSuspendPort } from '@openliri/kernel/spi';
 import { resolveToolJobSuspend } from '@openliri/kernel/spi';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { MediaAnalysisKind } from './mediaCapabilities';
 import {
   isMediaSidecarEnabled,

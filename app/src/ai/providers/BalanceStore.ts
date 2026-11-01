@@ -37,7 +37,7 @@ import {
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
 import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 

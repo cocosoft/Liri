@@ -8,7 +8,7 @@
  */
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { createHash } from 'crypto';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('memory:driftDetector');
 
 export interface DriftSnapshot {

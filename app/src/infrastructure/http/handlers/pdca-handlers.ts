@@ -29,7 +29,7 @@ import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // C1（2026-09-30 D-103，`tasks` 域 P3-b）：改经服务层端口
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // ⚠️ **类型位** app 类型（原文由 tasks 域提供）已替换为服务层端口类型。

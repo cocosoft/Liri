@@ -38,7 +38,7 @@
 
 import type http from 'http';
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { setConfigValue } from '@openliri/infra/config';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 import { readBody, json } from './handler-utils';

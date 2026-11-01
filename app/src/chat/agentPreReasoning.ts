@@ -20,9 +20,9 @@
 import type { ChatMessage } from '@modules/ai';
 import { configManager } from '@openliri/infra/config';
 import { compactionOrchestrator } from '@modules/context';
-import { getMemoryPressureMonitor } from '@modules/monitoring';
+import { getMemoryPressureMonitor } from '@openliri/infra/monitoring';
 import { EXTERNAL_FETCH_TOOLS } from '@modules/query';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   createFragment,
   FRAGMENT_KIND_FIELD,
@@ -32,7 +32,7 @@ import { injectMainSessionBudgetWrapUp } from '@modules/tasks';
 import type { SteeringSource } from '@modules/session/types/eventPayloads';
 import type { ChatSession } from '@modules/session/types/session.js';
 
-import { memProfile } from '../monitoring/memProfile.js';
+import { memProfile } from '@openliri/infra/monitoring/memProfile';
 import {
   sanitizeApiMessages,
   truncateApiMessages,

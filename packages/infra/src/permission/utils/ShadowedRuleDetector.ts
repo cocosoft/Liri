@@ -4,7 +4,7 @@
  * 参考CC源码 cc_code/backend/utils/permissions/shadowedRuleDetection.ts 实现
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('permission:utils:shadowedRuleDetector');
 import { PermissionBehavior } from '../types/PermissionRule.js';
 import type { PermissionRule } from '../types/PermissionRule.js';

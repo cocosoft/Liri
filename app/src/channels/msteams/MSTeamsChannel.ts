@@ -15,7 +15,7 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { handleError } from '@openliri/infra/error';
 import { TTLCache } from '@openliri/infra/utils/cache';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@openliri/infra/monitoring';
 import path from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
 import {

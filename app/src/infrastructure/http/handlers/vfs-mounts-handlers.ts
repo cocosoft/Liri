@@ -35,7 +35,7 @@
  */
 
 import type http from 'http';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
 import { readBody, json } from './handler-utils';

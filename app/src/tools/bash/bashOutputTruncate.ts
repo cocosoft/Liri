@@ -8,7 +8,7 @@
  * 抽出目的：缩小 `BashTool.ts` 的"上帝对象"体量；语义与实现**逐字保持**（含日志文案与阈值）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('tools\bash\bashOutputTruncate');
 

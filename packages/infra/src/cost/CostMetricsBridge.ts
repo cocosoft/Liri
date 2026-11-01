@@ -5,9 +5,9 @@
 import type { TokenUsage } from './types';
 import { metrics } from '@opentelemetry/api';
 import type { ObservableGauge } from '@opentelemetry/api';
-import { createLogger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
-import { recordBackgroundTask } from '@modules/monitoring';
+import { recordBackgroundTask } from '@openliri/infra/monitoring';
 
 const logger = createLogger({
   module: 'cost:metrics-bridge',

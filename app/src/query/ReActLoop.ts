@@ -16,7 +16,7 @@
  *   }
  */
 
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { handleError } from '@openliri/infra/error/handleError';
 // 2026-09-25 §6.8：预期中断判据（常量 / 品牌 / isAbortReason）已**下沉**到 `error/`，
 // 以供更低层共用（`handleError` 唯一错误入口、`ai/providers/*` 包装点、`core/exit/ExitRecorder`）。

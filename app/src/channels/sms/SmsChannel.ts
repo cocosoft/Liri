@@ -11,7 +11,7 @@ import type {
   SendResult,
 } from '@modules/channels/types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { buildSmsProviderRequest } from './providerRequests';
 const logger = getLogger('channels:sms:SmsChannel');

@@ -11,7 +11,7 @@ import { configManager } from '@openliri/infra/config';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:ide:ide');
 
 // 阻塞源收敛（2026-10-04）：IDE 探测/启动改用异步 exec，避免同步阻塞事件循环

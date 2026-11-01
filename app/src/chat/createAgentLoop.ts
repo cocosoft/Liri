@@ -47,7 +47,7 @@ import {
 import { estimateTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
 import type { BudgetControllerLike } from '@modules/query';
 import { resolveContextWindow } from '@modules/context';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('chat:createAgentLoop');
 

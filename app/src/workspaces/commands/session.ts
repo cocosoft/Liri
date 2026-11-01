@@ -29,7 +29,7 @@ import { promisify } from 'util';
 import { existsSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('Workspace');
 
 /**

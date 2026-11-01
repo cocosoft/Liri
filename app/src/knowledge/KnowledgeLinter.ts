@@ -11,7 +11,7 @@
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, relative } from 'path';
 import { existsSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { AIService } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { resolvePyappHome } from '@openliri/infra/environment';

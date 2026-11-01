@@ -184,6 +184,18 @@
     "./error/*": {
       "types": "./src/error/*.ts",
       "import": "./src/error/*.ts"
+    },
+    "./monitoring": {
+      "types": "./src/monitoring/index.ts",
+      "import": "./src/monitoring/index.ts"
+    },
+    "./monitoring/otel": {
+      "types": "./src/monitoring/otel/index.ts",
+      "import": "./src/monitoring/otel/index.ts"
+    },
+    "./monitoring/*": {
+      "types": "./src/monitoring/*.ts",
+      "import": "./src/monitoring/*.ts"
     }
   },
   "scripts": {

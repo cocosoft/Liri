@@ -4,7 +4,7 @@
  * 实现 API Key 多凭证轮换和失败切换
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // C1（2026-10-09）：凭据 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { handleError } from '@openliri/infra/error';

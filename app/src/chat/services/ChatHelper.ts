@@ -5,7 +5,7 @@
  * 聊天辅助工具类
  * 从 ChatManager 拆分出的纯函数和轻量依赖方法，不依赖 ChatManager 的 this 上下文
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { SessionConfirmedPaths } from './SessionConfirmedPaths';
 import type { Message, UsageInfo } from '@modules/session/types/message.js';
 import { MessageRole } from '@modules/session/types/message.js';

@@ -3,7 +3,7 @@
  * 基于 ical.js (RFC 5545)
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, LogLevel } from '@openliri/infra/monitoring';
 import { EventStatus } from '@modules/calendar/types';
 import type { CalendarEvent } from '@modules/calendar/types';
 

@@ -33,7 +33,7 @@
  * 所有 git 调用使用 spawn 数组参数（非 execSync 字符串拼接），避免命令注入。
  */
 import { spawn } from 'child_process';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('workspaces:apply');
 

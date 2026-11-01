@@ -25,7 +25,7 @@ import path from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { logSecurityBlock } from '@openliri/infra/security/SecurityAuditLogger';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 const logger = getLogger('infrastructure:http:handlers:files-handlers');

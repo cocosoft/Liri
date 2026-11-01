@@ -177,7 +177,7 @@ export async function handleGetBackgroundStatus(
   try {
     const buddyOps = await getCoreAPI().getBuddyOpsPort();
     const { getBackgroundTaskLog, detectTaskAlerts } =
-      await import('@modules/monitoring');
+      await import('@openliri/infra/monitoring');
 
     // F-07（2026-10-29）：Dream 卡片原先读 **Buddy 梦境日志**
     // （buddyOps.getBuddyDreamStats/getBuddyDreamLogs，伙伴互动的独立存储，恒空），

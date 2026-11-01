@@ -11,7 +11,7 @@ import { platform, homedir } from 'os';
 import { configManager } from '@openliri/infra/config';
 import { delimiter, join, sep } from 'path';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('diagnostics:InstallationTypeDetector');
 

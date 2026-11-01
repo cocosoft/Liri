@@ -12,7 +12,7 @@ import { MemoryStorage } from './storage/MemoryStorage';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { SessionSource } from './key/SessionSource';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('session:factory');
 
 /**

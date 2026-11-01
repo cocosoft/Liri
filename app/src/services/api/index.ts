@@ -49,7 +49,7 @@ export {
   consoleLogHandler,
 } from './logging';
 export type { LogHandler } from './logging';
-export { LogLevel } from '@modules/monitoring/logs/Logger.js';
+export { LogLevel } from '@openliri/infra/monitoring/logs/Logger';
 export type { ApiLogEntry, ApiLogStats } from './ApiLogging';
 
 export {

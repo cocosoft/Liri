@@ -6,7 +6,7 @@
  * 日志文案）。logger 由调用方注入宿主同一实例 ⇒ 日志 module 字段与拆分前一致。
  */
 
-import { Logger } from '@modules/monitoring';
+import { Logger } from '@openliri/infra/monitoring';
 import { QQCloseCode, RATE_LIMIT_DELAY } from './types';
 
 /** 关闭码分析结果（重连策略） */

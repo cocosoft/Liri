@@ -29,7 +29,7 @@
  * 落盘失败只 warn，**不回灌恢复逻辑**（CS03：观测面失败不得中断恢复）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { LiriEventMap } from '@modules/session/types/eventPayloads';
 

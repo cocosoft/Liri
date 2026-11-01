@@ -7,7 +7,7 @@
 /**
  * Bridge接口定义
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('cli:remoteIO');
 
 interface Bridge {

@@ -17,7 +17,7 @@
  */
 import { spawn, type ChildProcess } from 'child_process';
 import { createInterface } from 'readline';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   SIDECAR_IPC_PROTOCOL_VERSION,
   SIDECAR_STARTUP_TYPE,

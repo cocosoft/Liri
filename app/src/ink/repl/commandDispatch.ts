@@ -9,7 +9,7 @@
  * 把"执行 + 结果整形"这唯一有分支的逻辑抽成不依赖 ink 的模块后可直接单测
  * （见 `app/tests/ink/commandDispatch.test.ts`）。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // 仅类型（编译期擦除 ⇒ 不引入运行时耦合；命令执行仍走下面的动态 import）
 import type { CommandDisplay } from '@modules/commands';
 

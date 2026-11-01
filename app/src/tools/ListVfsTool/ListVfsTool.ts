@@ -9,7 +9,7 @@
 import type { Tool } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { createToolResult, type ToolResult } from '../types/ToolResult';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { AppError, handleError } from '@openliri/infra/error';
 import { parseVfsPath, vfsError, vfsMountRegistry } from '@modules/vfs';

@@ -10,7 +10,7 @@
  * - Step 5（可选）: 消息通道配置
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { resolveUserEnvPath } from '@openliri/infra/environment';

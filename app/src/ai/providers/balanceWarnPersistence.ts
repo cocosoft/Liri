@@ -44,7 +44,7 @@
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { dirname } from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('ai:providers:balanceWarnPersistence');
 

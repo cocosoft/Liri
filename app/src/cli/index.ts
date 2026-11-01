@@ -44,8 +44,8 @@ import { getHelpSystem } from '../docs/HelpSystem';
 import { getToolGuideSystem } from '../docs/ToolGuide';
 import { getPluginDevGuideSystem } from '../docs/PluginDevGuide';
 import { getApiDocSystem } from '../docs/ApiDocs';
-import { getPerformanceAnalyzer } from '../monitoring/performance';
-import { getLogger, flush } from '../monitoring/logs/Logger';
+import { getPerformanceAnalyzer } from '@openliri/infra/monitoring/performance';
+import { getLogger, flush } from '@openliri/infra/monitoring/logs/Logger';
 import { handleError as recordError } from '@openliri/infra/error';
 
 import { getThemeManager } from '@openliri/infra/system/theme';

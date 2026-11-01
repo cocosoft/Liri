@@ -26,7 +26,7 @@
  * 不绕过体系手动注册。llama-server 就绪后由启动链调用。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import {

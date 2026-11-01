@@ -5,7 +5,7 @@ import type {
   PruningContext,
   PruningConfig,
 } from './PruningStrategy';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('session:countPruner');
 
 const DEFAULT_MAX_MESSAGES = 500;

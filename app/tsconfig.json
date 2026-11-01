@@ -160,6 +160,8 @@
       "@openliri/kernel/events/*": ["../../packages/kernel/src/core/events/*"],
       "@openliri/kernel/connections/*": ["../../packages/kernel/src/core/connections/*"],
       "@opentelemetry/api": ["../node_modules/@opentelemetry/api"],
+      "@opentelemetry/*": ["../node_modules/@opentelemetry/*"],
+      "https-proxy-agent": ["../node_modules/https-proxy-agent"],
       "@modules/plugin-sdk": ["plugin-sdk"],
       "@modules/plugin-sdk/*": ["plugin-sdk/*"],
       "@modules/ai": ["ai"],
@@ -265,8 +267,6 @@
       "@modules/ui/*": ["ui/*"],
       "@modules/ink": ["ink"],
       "@modules/ink/*": ["ink/*"],
-      "@modules/monitoring": ["monitoring"],
-      "@modules/monitoring/*": ["monitoring/*"],
       "@modules/remote": ["remote"],
       "@modules/remote/*": ["remote/*"],
       "@modules/doc": ["modules/doc"],
@@ -292,6 +292,21 @@
         "../../packages/infra/src/system/theme/index.ts"
       ],
       "@openliri/infra/system/*": ["../../packages/infra/src/system/*"],
+      "@openliri/infra/monitoring": [
+        "../../packages/infra/src/monitoring/index.ts"
+      ],
+      "@openliri/infra/monitoring.js": [
+        "../../packages/infra/src/monitoring/index.ts"
+      ],
+      "@openliri/infra/monitoring/otel": [
+        "../../packages/infra/src/monitoring/otel/index.ts"
+      ],
+      "@openliri/infra/monitoring/otel.js": [
+        "../../packages/infra/src/monitoring/otel/index.ts"
+      ],
+      "@openliri/infra/monitoring/*": [
+        "../../packages/infra/src/monitoring/*"
+      ],
       "@modules/runtime": ["runtime"],
       "@modules/runtime/*": ["runtime/*"],
       "@modules/types": ["types"],

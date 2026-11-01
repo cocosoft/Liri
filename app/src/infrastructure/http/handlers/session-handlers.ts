@@ -22,7 +22,7 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { Message } from '@modules/session/types/message';
 import { MessageRole } from '@modules/session/types/message';

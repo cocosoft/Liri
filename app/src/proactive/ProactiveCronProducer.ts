@@ -13,7 +13,7 @@
 
 import { randomUUID } from 'crypto';
 import { configManager } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@openliri/infra/constants';
 import { getActiveProactiveQueue } from './ProactiveRuntime';
 import { evaluateProactiveNotification } from './ProactiveNotificationGate';

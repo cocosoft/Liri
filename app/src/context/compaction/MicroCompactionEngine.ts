@@ -7,7 +7,7 @@
  */
 import type { ChatMessage } from '@modules/ai';
 import type { ToolName } from '@openliri/infra/constants/toolNames.generated';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('context:compaction:micro');
 
 /**

@@ -17,7 +17,7 @@ import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector'
 import { truncateToolResult, MAX_TOOL_RESULT_CHARS } from '@modules/query';
 import { z } from 'zod';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:FileConvertTool:FileConvertTool');
 
 /**

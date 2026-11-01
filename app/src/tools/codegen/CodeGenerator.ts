@@ -3,7 +3,7 @@
  * 用于生成常用的代码模板
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:codeGenerator');
 
 /**

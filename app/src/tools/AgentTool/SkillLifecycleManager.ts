@@ -11,7 +11,7 @@
  *   3. Pinned 技能跳过所有自动转换
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';

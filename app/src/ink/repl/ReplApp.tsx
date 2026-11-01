@@ -5,7 +5,7 @@ import { InputArea } from './InputArea';
 import { dispatchSlashCommand } from './commandDispatch';
 import { StatusFloatingBar } from './StatusFloatingBar';
 import { Header } from './Header';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   getTotalCostUSD,
   getTotalInputTokens,

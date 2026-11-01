@@ -30,7 +30,7 @@ import { join } from 'path';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 
-import { Logger, getLogger } from '@modules/monitoring';
+import { Logger, getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';

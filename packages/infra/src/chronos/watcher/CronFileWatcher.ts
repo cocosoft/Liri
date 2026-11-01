@@ -1,6 +1,6 @@
 import { watch, type FSWatcher } from 'fs';
 import { join, dirname } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('chronos:watcher:cronFileWatcher');
 
 export type CronFileChangeCallback = (

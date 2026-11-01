@@ -7,7 +7,7 @@ import { join } from 'path';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'fs';
 import { resolvePluginsInstalledDir } from '@openliri/infra/environment';
 import { feature } from '@openliri/kernel';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   isThirdPartyPluginTrusted,
   PLUGIN_TRUST_REMEDY,

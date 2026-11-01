@@ -32,7 +32,7 @@ import { afterAll, describe, expect, spyOn, test } from 'bun:test';
 import type http from 'http';
 import type { HandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils';
 import * as growthPersistence from '../../src/buddy/growthPersistence';
-import * as backgroundTaskEvent from '../../src/monitoring/BackgroundTaskEvent';
+import * as backgroundTaskEvent from '@openliri/infra/monitoring/BackgroundTaskEvent';
 import { CoreAPIImpl } from '../../src/runtime/api/CoreAPIImpl';
 
 // F-07（2026-10-29）：Dream 段的数据源从「Buddy 梦境日志」（恒空）改为

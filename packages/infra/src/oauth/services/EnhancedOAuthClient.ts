@@ -4,7 +4,7 @@
  * 参考CC源码的多环境配置模式
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('EnhancedOAuthClient');
 import { OAuthDiscovery } from '../services/OAuthDiscovery.js';
 import type { OAuthServerMetadata } from '../types/OAuthDiscoveryTypes';

@@ -10,7 +10,7 @@ import { handleError } from '@openliri/infra/error';
 // C1（2026-10-09）：audit id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('security\services\CredentialManager');
 
 /**

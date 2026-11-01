@@ -16,7 +16,7 @@
  */
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 import { getRealToolNamesForTask } from '../../tools/index.js';
 import { parsePlanDraft, type PlanDraft } from '../planOutputParser';

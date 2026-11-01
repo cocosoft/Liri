@@ -34,7 +34,7 @@
  * 与现有能力标签合并，不覆盖用户手动配置。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { AIProvider } from '../providers/AIProvider';
 import { providerRegistry } from '../providers/ProviderRegistry';

@@ -2,7 +2,7 @@
  * 权限行为枚举
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // C1（2026-10-09）：规则 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';

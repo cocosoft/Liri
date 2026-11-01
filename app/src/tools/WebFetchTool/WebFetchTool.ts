@@ -28,7 +28,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { checkSsrf, describeSsrfBlock } from './ssrf.js';
 const logger = getLogger('tools:WebFetchTool:WebFetchTool');

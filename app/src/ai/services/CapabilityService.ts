@@ -28,7 +28,7 @@
 
 import { Database } from '@openliri/infra/external';
 import { resolveDbPath, resolveProjectRoot } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { handleError } from '@openliri/infra/error';
 import { APP_VERSION } from '@openliri/infra/constants';

@@ -23,7 +23,7 @@
  * 退出系统
  */
 import type { Command } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('exit');
 

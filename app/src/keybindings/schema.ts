@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import type { KeybindingContextName } from './types.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('keybindings:schema');
 
 /**

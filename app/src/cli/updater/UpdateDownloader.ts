@@ -3,7 +3,7 @@
  * 下载 GitHub Release 资源包到本地临时目录
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { createWriteStream, mkdirSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

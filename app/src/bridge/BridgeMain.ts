@@ -26,7 +26,7 @@ import { exec as nodeExec } from 'child_process';
 import { promisify } from 'util';
 import { bridgeStateStore } from './state/BridgeStateStore.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('bridge:BridgeMain');
 

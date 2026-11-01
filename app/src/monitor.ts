@@ -4,8 +4,8 @@
  */
 
 import { handleError } from '@openliri/infra/error';
-import { getMonitoringService } from './monitoring/index.js';
-import { getProcessCpuPercent } from '@modules/monitoring';
+import { getMonitoringService } from '@openliri/infra/monitoring';
+import { getProcessCpuPercent } from '@openliri/infra/monitoring';
 
 function monitor() {
   console.log('=== Liri 监控面板 ===');

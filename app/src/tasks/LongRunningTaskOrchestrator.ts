@@ -12,8 +12,8 @@
  *   AgentIsolation（隔离）、TOOL_CATEGORIES（角色工具范围，经 getRealToolNamesForTask 派生）
  */
 
-import { getLogger } from '@modules/monitoring';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { getLogger } from '@openliri/infra/monitoring';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { configManager } from '@openliri/infra/config';
 import { resolveDbPath } from '@openliri/infra/environment';

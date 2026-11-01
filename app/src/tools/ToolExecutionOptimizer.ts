@@ -10,7 +10,7 @@ import { ToolExecutor, createToolExecutor } from './ToolExecutor';
 import { ParallelExecutor } from './executor/ParallelExecutor';
 import { v4 as uuidv4 } from 'uuid';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:ToolExecutionOptimizer');
 
 /**

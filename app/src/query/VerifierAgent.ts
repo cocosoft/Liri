@@ -15,7 +15,7 @@
  * VerifierAgent 本身不持有模型客户端。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import {
   alignChecksToCriteria,

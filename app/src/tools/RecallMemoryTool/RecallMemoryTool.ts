@@ -10,7 +10,7 @@ import { createToolResult } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 const logger = getLogger('tools:RecallMemoryTool:RecallMemoryTool');
 

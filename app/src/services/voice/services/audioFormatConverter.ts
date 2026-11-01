@@ -11,7 +11,7 @@ import { promisify } from 'util';
 import { existsSync } from 'fs';
 import { dirname, basename, extname, join } from 'path';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:voice:services:audioFormatConverter');
 
 /** 异步执行（阻塞源收敛 2026-10-04，台账 V-2）：`convert` 的 ffmpeg 超时 60s，原 `execSync` 会同步阻塞 */

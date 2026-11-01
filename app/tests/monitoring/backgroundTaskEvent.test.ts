@@ -27,7 +27,7 @@ import {
   detectTaskAlerts,
   getBackgroundTaskLog,
   recordBackgroundTask,
-} from '../../src/monitoring/BackgroundTaskEvent';
+} from '@openliri/infra/monitoring/BackgroundTaskEvent';
 
 let tmpDir: string;
 const originalDataDir = process.env.LIRI_DATA_DIR;

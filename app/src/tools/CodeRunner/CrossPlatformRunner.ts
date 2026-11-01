@@ -18,7 +18,7 @@ import { spawn, execFileSync, type ChildProcess } from 'child_process';
 import { promises as fs } from 'fs';
 import { join, isAbsolute } from 'path';
 import { resolveTempDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 import { generateWrapperScript } from './wrapper';

@@ -12,7 +12,7 @@
  * 其余调用方得到 `concurrent_conflict`（企业审批与 Inbox 同时批准即走此分支）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import {
   inboxManager,

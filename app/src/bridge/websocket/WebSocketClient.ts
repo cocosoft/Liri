@@ -7,7 +7,7 @@ import { EventEmitter } from 'events';
 // C1（2026-10-09）：消息 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('bridge:websocket:WebSocketClient');
 

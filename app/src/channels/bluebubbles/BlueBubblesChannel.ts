@@ -29,7 +29,7 @@ import type { BlueBubblesConfig } from './config-schema';
 import { BlueBubblesMonitor } from './monitor';
 import { BLUEBUBBLES_TOOL_HINTS } from './channel.runtime';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('channels:bluebubbles:BlueBubblesChannel');
 
 const BLUEBUBBLES_META: ChannelMeta = {

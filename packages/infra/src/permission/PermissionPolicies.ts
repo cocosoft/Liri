@@ -9,7 +9,7 @@ import type { PermissionDecision } from './PermissionResult';
 import { createDenyDecision, createAskDecision } from './PermissionResult';
 import { ALL_UNIFIED_RULES, type UnifiedRulePlatform } from '@openliri/infra/security';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('permission:PermissionPolicies');
 
 const PROTECTED_PATHS = [

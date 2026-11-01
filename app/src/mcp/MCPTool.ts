@@ -19,7 +19,7 @@ import { mcpConnectionManager } from '../services/mcp/MCPConnectionManager.js';
 // 它构成 `mcp(service) -> tool(app)` 倒挂。改在唯一使用点（async `execute()` 内）**动态导入**。
 import { configManager } from '@openliri/infra/config';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('mcp:MCPTool');
 
 /** 自动审批白名单缓存 */

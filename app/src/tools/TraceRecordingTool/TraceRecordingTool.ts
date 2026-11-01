@@ -7,7 +7,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 import { BaseTool } from '../BaseTool.js';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:TraceRecordingTool:TraceRecordingTool');
 
 /**

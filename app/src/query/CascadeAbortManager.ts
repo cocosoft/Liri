@@ -10,7 +10,7 @@
  * 目标：Bash 错误触发后，所有兄弟调用在 ≤500ms 内中止，0 个漏网工具。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('query:cascadeAbort');
 
 // ==========================================

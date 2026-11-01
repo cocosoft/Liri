@@ -27,7 +27,7 @@
  * 编排顺序由 runStreamMessage 控制，各阶段为纯函数。
  */
 
-import { getLogger, getSessionTracing } from '@modules/monitoring';
+import { getLogger, getSessionTracing } from '@openliri/infra/monitoring';
 import { mergeCompactionRanges } from '@modules/session';
 import {
   handleError,

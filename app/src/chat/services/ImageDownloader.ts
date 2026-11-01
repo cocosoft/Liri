@@ -5,7 +5,7 @@
  * 对标 Hermes vision_tools.py 的 _download_image() + _ssrf_redirect_guard()
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { buildUserAgent } from '@openliri/infra/constants';
 import { handleError } from '@openliri/infra/error/handleError';
 import { resolveCacheDir } from '@openliri/infra/environment';

@@ -23,9 +23,9 @@
 import { modelRouter } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import type { RerankRequest, RerankResult } from '@modules/ai';
-import { LogLevel } from '@modules/monitoring';
-import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
+import { LogLevel } from '@openliri/infra/monitoring';
+import { OTelAwareLogger } from '@openliri/infra/monitoring/logs/OTelAwareLogger';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 
 const logger = new OTelAwareLogger({
   module: 'knowledge:rerank',

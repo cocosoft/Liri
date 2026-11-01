@@ -7,7 +7,7 @@
 import {
   getLogger,
   withTraceContextFromRequestResult,
-} from '@modules/monitoring';
+} from '@openliri/infra/monitoring';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { upgradeToVoiceConnection } from './upgrade';
 import { VoiceSession } from './VoiceSession';

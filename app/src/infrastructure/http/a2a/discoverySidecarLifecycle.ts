@@ -25,7 +25,7 @@
  * 由 `LocalHTTPService` 调用：`A2A_DISCOVERY_SIDECAR==='true'` 时拉起独立进程并推送卡片快照；
  * 关闭开关 ⇒ 完全不动作（**默认零行为变更**，发现面仍由主进程路由提供）。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 import { LOCAL_HTTP_HOST } from '@openliri/kernel';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';

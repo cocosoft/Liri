@@ -9,7 +9,7 @@ import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus, isTerminalTaskStatus } from './types';
 import type { AgentDefinition, AgentProgress, ToolActivity } from './types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('tasks:InProcessTeammateTask');
 

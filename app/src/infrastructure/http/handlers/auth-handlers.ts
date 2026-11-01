@@ -31,7 +31,7 @@ import {
   parseTenantId,
 } from '@openliri/kernel/identity/principal';
 import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('http:auth');
 

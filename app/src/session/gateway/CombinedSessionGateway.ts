@@ -13,7 +13,7 @@
  * - 按 updatedAt 最新胜出
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { SessionGateway } from '../SessionGateway';
 import type { SessionGatewayConfig } from '../SessionGateway';

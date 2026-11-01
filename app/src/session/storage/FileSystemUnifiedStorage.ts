@@ -33,7 +33,7 @@ import {
 } from './messageSegments.js';
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 import { renameToTrashWithRetry } from './trashRename';
 const logger = getLogger('session:storage:FileSystemUnifiedStorage');

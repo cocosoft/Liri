@@ -27,7 +27,7 @@ import {
   resolveContextWindowAsync,
   type ContextualFragment,
 } from '@modules/context';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   AgentSwarm,
   ensureGoalForBatch,

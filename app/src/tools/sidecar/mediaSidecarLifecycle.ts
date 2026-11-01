@@ -31,7 +31,7 @@
  */
 import { fileURLToPath } from 'node:url';
 import { feature } from '@openliri/kernel';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   ToolSidecarSupervisor,
   type ToolSidecarDeps,

@@ -38,7 +38,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { EffectScope } from '@modules/context';
 import { handleError } from '@openliri/infra/error/handleError';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tool:scope');
 
 export class ToolScopeManager {

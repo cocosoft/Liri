@@ -25,7 +25,7 @@
  * `PermissionChecker` 读 `permission` 配置的既有手法一致。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 import type { ApprovalDecisionValue } from './approvalStages';
 

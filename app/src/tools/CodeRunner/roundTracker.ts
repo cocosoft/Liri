@@ -8,7 +8,7 @@
  *     恢复时从事件流重建——首版提供 setBaseline 接口，由 CM-5 接线后从事件流重建。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:CodeRunner:rounds');
 
 /** 默认轮次上限（hard limit；soft limit 由调用方 prompt 约束） */

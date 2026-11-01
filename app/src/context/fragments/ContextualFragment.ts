@@ -23,7 +23,7 @@
  * 用自身 `kind` 拼装；`goal_instruction`（tool_result 通道）与 `steering` 则自带前缀。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // type-only：类型导入被擦除 ⇒ 不产生运行期依赖/循环（运行期估算走下方动态 import）
 import type { ChatMessage } from '@modules/ai';
 

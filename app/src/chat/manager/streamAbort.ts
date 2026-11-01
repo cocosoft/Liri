@@ -13,7 +13,7 @@
  * 3. 中止后**同实例**才删除条目（防止误删新一代流的 controller）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { createSystemAbortReason } from '@modules/query';
 import { abortSessionPlans } from '../planAbortRegistry.js';
 

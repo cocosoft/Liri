@@ -10,7 +10,7 @@ import {
   ScrollBox,
   AlternateScreen,
 } from '@modules/ink';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { SkillRegistry } from '@modules/skills';
 import { BundledSkillLoader } from '@modules/skills';
 import { getToolManager } from '@modules/tools';

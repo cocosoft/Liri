@@ -2,7 +2,7 @@
  * 工具助手
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { Tool, ToolInfo } from '@modules/tools/types/Tool';
 import { aiService } from '../services/aiService';

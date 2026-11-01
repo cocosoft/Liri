@@ -16,7 +16,7 @@
  * 行为不变红线（issue #8）：不新增配置项、不改默认值、不改事件名；日志模块名仍为 `chat:manager`。
  */
 
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import type {
   ParsedToolCall,
   ToolAwareClient,

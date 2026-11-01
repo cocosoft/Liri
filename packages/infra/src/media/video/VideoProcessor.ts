@@ -5,7 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { ffmpegWrapper } from '../ffmpeg/FFmpegWrapper';
 

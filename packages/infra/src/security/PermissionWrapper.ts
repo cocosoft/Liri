@@ -5,7 +5,7 @@
  * 包装权限检查函数，自动收集非 allow 行为的拒绝记录，
  * 用于审计追踪和 SDK 上报。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('security:permissionWrapper');
 
 /**

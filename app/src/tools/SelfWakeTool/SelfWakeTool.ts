@@ -25,7 +25,7 @@ import {
 } from '@modules/tasks';
 import { getCg3SelfWakeService } from '@modules/tasks';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:SelfWakeTool');
 
 /** 本文件支持的两个工具名（均为 TIMER 类，见文件头说明） */

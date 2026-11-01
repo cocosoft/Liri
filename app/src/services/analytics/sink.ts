@@ -8,7 +8,7 @@
 import { isAnalyticsDisabled } from './config';
 import { attachAnalyticsSink } from './index';
 import type { AnalyticsSink } from './index';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 
 const logger = getLogger('services:analytics:sink');

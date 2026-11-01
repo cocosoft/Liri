@@ -28,7 +28,7 @@
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import { join } from 'path';
 import { readdir, readFile, unlink } from 'fs/promises';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { isCheckpointLogEnabled } from '@openliri/infra/config';
 import type { DreamCycleRecord } from './types';

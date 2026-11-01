@@ -19,7 +19,7 @@ import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import type { ChatResponse } from '@modules/ai';
 import { StreamingAutoCheckpoint } from '../../src/chat/services/StreamingAutoCheckpoint.js';
 import { toStreamingCheckpointPort } from '../../src/chat/orchestrator/streamMessageToolLoopContext.js';
-import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
+import { addLogHandler } from '@openliri/infra/monitoring/logs/Logger';
 import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
 import {
   getDailyBudget,

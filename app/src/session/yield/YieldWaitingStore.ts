@@ -23,7 +23,7 @@
  */
 
 import { Database } from '@openliri/infra/external';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('session:yield:waitingStore');
 

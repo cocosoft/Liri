@@ -10,7 +10,7 @@ import type { Memory } from './types/Memory';
 // 端口返回最小投影 `{ blocked }`（原先直连 `@modules/hooks` 的 `HookChainManager`，
 // 属 infra -> app 倒挂）。
 import { resolveHookChain } from '@openliri/kernel/spi';
-import { getLogger } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('memory:memoryHookDispatcher');

@@ -8,7 +8,7 @@ import { ToolOrchestration } from './ToolOrchestration';
 import { toolResultBudgetManager } from './ToolResultBudget';
 import { ModuleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools\services\InterruptibleToolExecutor');
 
 export interface InterruptibleExecutorConfig {

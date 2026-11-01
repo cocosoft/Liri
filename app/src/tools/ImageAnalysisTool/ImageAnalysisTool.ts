@@ -10,7 +10,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  * L2 在 Python 进程不可用时自动降级到 L1+L3
  */
 
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@openliri/infra/error/handleError';
 import * as fs from 'fs';

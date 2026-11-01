@@ -12,7 +12,7 @@
  * 数据结构独立（不依赖记忆系统内部实现），内存图谱；持久化由调用方按需落盘。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('memory:utils:skillMemoryGraph');
 

@@ -11,7 +11,7 @@
  * 由恢复器（`YieldResumer`）据此判定等待中的父会话是否可以继续。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('chat:yield:settlementBridge');
 
 export interface YieldSettlementSignal {

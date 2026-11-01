@@ -29,7 +29,7 @@
 
 import { join, isAbsolute, resolve } from 'path';
 import { existsSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   handleError,
   AppError,

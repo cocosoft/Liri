@@ -5,7 +5,7 @@
  *（`DAILY_BUDGET_CONFIG_KEY`）；CLI 是**进程内**入口 ⇒ 改动**当场生效**并持久化（重启后仍生效）。
  * 撞限时各入口的提示文案即指向本命令（G-2/M 的终端出路）。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { setConfigValue } from '@openliri/infra/config';
 import {
   DAILY_BUDGET_CONFIG_KEY,

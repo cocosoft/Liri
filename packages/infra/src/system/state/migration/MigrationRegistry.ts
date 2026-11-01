@@ -43,7 +43,7 @@ import {
   writeFileSync,
 } from 'fs';
 import { basename, join } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import {

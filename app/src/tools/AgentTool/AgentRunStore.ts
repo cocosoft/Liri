@@ -26,7 +26,7 @@
 import { Database } from '@openliri/infra/external';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveDbPath } from '@openliri/infra/environment';
 
 import type { AgentRunAttribution } from './runAttribution';

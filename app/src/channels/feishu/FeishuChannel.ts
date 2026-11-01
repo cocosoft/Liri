@@ -37,7 +37,7 @@ import {
 } from './cardActionPayload.js';
 import { handleBudgetReliefAction } from '../bridge/budgetReliefAction';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { RegisterFileResult } from '@modules/services/file/types';
 import type {
   Client as LarkClient,

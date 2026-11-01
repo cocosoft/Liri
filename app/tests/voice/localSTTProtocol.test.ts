@@ -10,7 +10,7 @@ import {
   buildWorkerScript,
   assertAudioInputSize,
 } from '../../src/services/voice/services/localSTTProvider.js';
-import { logRedact } from '../../src/monitoring/logs/redact/LogRedact.js';
+import { logRedact } from '@openliri/infra/monitoring/logs/redact/LogRedact';
 
 /**
  * 构造标准 44 字节 WAV 头（PCM16）

@@ -16,7 +16,7 @@ import {
   NPM_SITE_URL,
 } from '@openliri/kernel';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { GITHUB_API_BASE } from '@openliri/infra/constants';
 const logger = getLogger('diagnostics:DiagnosticsService');
 

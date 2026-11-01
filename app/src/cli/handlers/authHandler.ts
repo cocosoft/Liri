@@ -5,7 +5,7 @@
 
 import chalk from 'chalk';
 import * as readline from 'readline';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { ErrorCodes } from '@openliri/infra/error';
 import { oauthService } from '@openliri/infra/oauth';

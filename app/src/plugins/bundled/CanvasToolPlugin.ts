@@ -5,7 +5,7 @@
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import type { IPluginAPI } from '../api/PluginAPI.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { CanvasTool } from '@modules/tools';
 
 const logger = getLogger('plugins:bundled:canvasToolPlugin');

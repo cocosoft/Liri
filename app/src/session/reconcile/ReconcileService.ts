@@ -36,7 +36,7 @@
  * 上报（`event-missing` + 反向补全候选）。
  */
 
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { handleError } from '@openliri/infra/error';
 import { promises as fs } from 'fs';
 import type { LiriEvent } from '@modules/session/types/events';

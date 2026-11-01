@@ -4,7 +4,7 @@
  */
 import { cpus } from 'node:os';
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { getSystemCpuPercent } from '@modules/monitoring';
+import { getSystemCpuPercent } from '@openliri/infra/monitoring';
 
 interface HealthCheckResult {
   name: string;

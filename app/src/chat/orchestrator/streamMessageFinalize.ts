@@ -20,7 +20,7 @@
  * - 顺序即契约：第 1 步不可因第 4 步 append 失败而跳过（见原实现注释）。
  */
 
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import type { ChatSession } from '@modules/session/types/session.js';
 import type { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
 import type { ChatOrchestratorHost } from './ChatOrchestratorHost.js';

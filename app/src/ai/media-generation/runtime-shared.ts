@@ -6,7 +6,7 @@ import type {
   ParsedProviderModelRef,
 } from './types.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai:media-generation:runtime-shared');
 
 export type {

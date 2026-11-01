@@ -20,7 +20,7 @@ import { AGENT_TYPES } from '@modules/tools';
 import type { BaseTask } from '@modules/tasks';
 import { getSubAgentEngine } from '@modules/tools';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:tools:ai:agent');
 
 /** 可用子命令列表 */

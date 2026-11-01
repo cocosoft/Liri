@@ -42,10 +42,10 @@
  */
 
 import { handleError } from '@openliri/infra/error/handleError';
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 // 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
 import { UUID_RE } from '@openliri/kernel';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { ModelRegistry } from './models/ModelRegistry.js';
 import type { APIProvider } from './models/ModelConfigs.js';

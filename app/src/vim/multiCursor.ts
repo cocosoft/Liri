@@ -3,7 +3,7 @@
  * 支持多光标同时编辑
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('vim:multiCursor');
 
 export interface CursorPosition {

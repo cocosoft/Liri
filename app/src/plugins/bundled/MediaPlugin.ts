@@ -6,7 +6,7 @@
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import type { IPluginAPI } from '../api/PluginAPI.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { ImageGenerateTool, ImageAnalysisTool } from '@modules/tools';
 import type { ToolUseContext } from '../../tools/types/ToolUseContext';
 

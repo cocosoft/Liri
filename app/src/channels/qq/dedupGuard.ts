@@ -9,7 +9,7 @@
  * logger 由宿主注入（同一实例）⇒ 日志 module 字段与拆分前逐字一致。
  */
 
-import { Logger } from '@modules/monitoring';
+import { Logger } from '@openliri/infra/monitoring';
 
 export class QQDedupGuard {
   /** 消息去重缓存：message_id → 时间戳 */

@@ -30,7 +30,7 @@
  *   语言→命令映射在此**最小复刻**（与 `tools/lsp/LSPToolImpl.ts:274-337` 同口径，仅供 LS 拉起）。
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { killProcessTree } from '@openliri/infra/utils/killProcessTree';
 import { parentPidEnv } from '@openliri/infra/utils/parentLiveness';
 

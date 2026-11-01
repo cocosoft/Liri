@@ -5,7 +5,7 @@
  */
 
 import chalk from 'chalk';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { t } from '@openliri/infra/system/i18n/extended';
 import { AuthHandler, createAuthHandler } from './authHandler';

@@ -12,7 +12,7 @@
  * 本函数保持**同步签名**（事件落盘 fire-and-forget，失败只记日志）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { LiriEvent } from '@modules/session/types/events';
 import { chargeSessionGoalUsage } from '@modules/tasks';
 import { buildRequestTimingData } from '../services/timingEvent';

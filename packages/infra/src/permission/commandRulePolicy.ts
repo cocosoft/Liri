@@ -17,7 +17,7 @@
  * 纯函数（除 `readCommandRulesConfig` 的配置读取）⇒ 可直接单测。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 import { matchesCommandRule } from '@openliri/infra/utils/commandRuleMatch';
 

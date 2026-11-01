@@ -7,7 +7,7 @@
  * 避免"单会话工具爆炸"把对话轮次与 Token 预算一次性打穿。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 const logger = getLogger('tools:sessionQuota');
 

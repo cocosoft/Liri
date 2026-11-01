@@ -50,7 +50,7 @@ import {
   isLocalPrincipal,
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('ai:credentials:store');

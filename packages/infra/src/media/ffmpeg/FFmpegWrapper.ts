@@ -3,7 +3,7 @@
  * 对标 OpenClaw 的 FFmpeg 集成
  */
 import { spawn } from 'child_process';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('media:ffmpeg');

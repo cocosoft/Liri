@@ -34,7 +34,7 @@
 
 import { EventEmitter } from 'events';
 import { existsSync, renameSync, rmSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 import {

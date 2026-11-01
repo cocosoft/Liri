@@ -9,7 +9,7 @@ import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { MEDIA_FILE_OUTPUT_JSON_SCHEMA } from './mediaOutputSchemas';
 import { qrCodeManager } from '@openliri/infra/media/qr/QRCodeManager';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import fs from 'fs';
 

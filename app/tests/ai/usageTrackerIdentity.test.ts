@@ -17,7 +17,7 @@ import { setUserDataDirOverride } from '@openliri/infra/environment';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 import { trackUsage } from '../../src/ai/UsageTracker.js';
-import { getLLMTracker } from '../../src/monitoring/llm/getLLMTracker.js';
+import { getLLMTracker } from '@openliri/infra/monitoring/llm/getLLMTracker';
 
 // 用**本文件独有**的租户标识：`getLLMTracker()` 的分身份实例是**进程级缓存**，
 // 若借用其他用例的 `acme:alice`，会把"库已按别的临时数据根开过"的实例带进那些用例

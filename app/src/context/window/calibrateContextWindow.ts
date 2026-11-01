@@ -12,7 +12,7 @@
  * DB 是唯一事实源，写 DB 后刷新 ModelRegistry 运行时缓存。
  */
 import { ModelRegistry, modelPricingService } from '@modules/ai';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('context:window');
 

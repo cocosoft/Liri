@@ -10,7 +10,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { resolveDbPath } from '@openliri/infra/environment';
 import { SimpleMutex } from '@openliri/kernel';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('chronos\ChronosDatabase');
 
 /**

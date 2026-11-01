@@ -27,7 +27,7 @@ import type http from 'http';
 import fs from 'fs';
 import path from 'path';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { ThirdPartySkillAdapterPort } from '@modules/runtime/api/thirdPartySkillPorts';
 import { broadcastEvent, readRequestBody, sendError } from './handler-utils';

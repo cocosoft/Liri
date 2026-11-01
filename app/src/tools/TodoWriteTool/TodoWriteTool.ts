@@ -17,7 +17,7 @@ import { VERIFICATION_AGENT_TYPE } from '../AgentTool/constants';
 import { Database } from '@openliri/infra/external';
 import { resolveDbPath, ensureDir } from '@openliri/infra/environment';
 import { dirname } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { SimpleMutex } from '@openliri/kernel';
 import { handleError } from '@openliri/infra/error';
 import { randomUUID } from 'crypto';

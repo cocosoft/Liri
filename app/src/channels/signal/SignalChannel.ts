@@ -9,7 +9,7 @@ import type {
   SendResult,
 } from '@modules/channels/types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { SIGNAL_SERVICE_URL, SIGNAL_SITE_URL } from '../constants';
 const logger = getLogger('channels:signal:SignalChannel');

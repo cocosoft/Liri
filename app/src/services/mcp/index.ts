@@ -24,7 +24,7 @@
  * 整合所有MCP系统模块
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import {
   profilePhaseStart,

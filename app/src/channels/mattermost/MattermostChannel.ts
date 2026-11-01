@@ -31,7 +31,7 @@ import type { MattermostConfig } from './config-schema';
 import { MattermostMonitor } from './monitor';
 import { MATTERMOST_TOOL_HINTS } from './channel.runtime';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('channels:mattermost:MattermostChannel');
 
 const MATTERMOST_META: ChannelMeta = {

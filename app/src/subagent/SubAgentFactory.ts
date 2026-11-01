@@ -17,7 +17,7 @@ import { TmuxSubAgent } from './types/TmuxSubAgent';
 import { ITermSubAgent } from './types/ITermSubAgent';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('subagent\SubAgentFactory');
 
 /**

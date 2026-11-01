@@ -5,7 +5,7 @@ import {
   resolveSecurityDir,
 } from '@openliri/infra/environment';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 // ── hooks 专用安全状态（第三套实现，与 config.permission 面板配置隔离）──

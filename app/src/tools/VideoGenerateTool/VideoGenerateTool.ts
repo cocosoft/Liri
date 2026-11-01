@@ -17,7 +17,7 @@ import { BaseTool } from '../BaseTool';
 import { UUID_RE } from '@openliri/kernel';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { providerRegistry } from '@modules/ai';

@@ -34,7 +34,7 @@ import {
   currentTraceparent,
   runWithActiveSpan,
   withTraceparentHeaders,
-} from '../../../src/monitoring/tracing/traceContextInjector';
+} from '@openliri/infra/monitoring/tracing/traceContextInjector';
 
 // `@opentelemetry/api` 默认 ContextManager 是 noop（`context.with` 不生效），
 // 与 `bootstrapTelemetry()` 注册的实现保持同一份契约。

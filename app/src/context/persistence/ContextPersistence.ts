@@ -1,7 +1,7 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 import type { Context } from '../types/Context';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { Database } from '@openliri/infra/external';
 import { resolveDbPath } from '@openliri/infra/environment';

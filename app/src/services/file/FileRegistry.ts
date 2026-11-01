@@ -24,7 +24,7 @@ import { Database } from '@openliri/infra/external';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, unlink, stat, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { SimpleMutex } from '@openliri/kernel';

@@ -14,7 +14,7 @@
 
 import { getDefaultDigestService } from '@modules/knowledge/KnowledgeDigestService';
 import type { DocDigest } from '@modules/knowledge/KnowledgeDigestService';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('knowledge:digestInjector');
 
 export type DigestSelectionStrategy = 'freshness' | 'importance' | 'combined';

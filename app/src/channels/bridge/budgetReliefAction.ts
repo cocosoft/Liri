@@ -11,7 +11,7 @@
 // 分层（R01-007）：channels **不得** import `query/**` ⇒ 放行链经**注入**到达（先例：
 // `ChatManager` 注入 `coordinator.setResumeHandler` / `ChatBootstrapDeps.installBudgetSuspendResume`）。
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('channels:budgetReliefAction');

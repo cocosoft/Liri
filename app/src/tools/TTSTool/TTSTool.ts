@@ -6,7 +6,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  * 实际调用 voiceService → TTS Provider → PCMAudioPlayer 完整链路。
  * 同步维护 speak 队列，避免多轮会话冲突。
  */
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';

@@ -14,7 +14,7 @@
  * - 解析失败 ⇒ 回落历史行为（`resolveProjectRoot`），只 warn、不阻塞工具执行。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveDataDir } from '@openliri/infra/environment';
 
 const logger = getLogger('chat:manager');

@@ -18,7 +18,7 @@ import {
   type ReplyEffortLevel,
 } from '@modules/chat';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:effort:Effort');
 
 export type EffortLevel = ReplyEffortLevel;

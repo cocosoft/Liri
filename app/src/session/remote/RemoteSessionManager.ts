@@ -17,7 +17,7 @@ import type {
 } from '../types/UnifiedMessage.js';
 import type { UnifiedSession } from '../types/UnifiedSession.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('session:remote');
 
 /** 权限请求超时（毫秒）：超时未响应的挂起请求自动取消，防止永久挂起 */

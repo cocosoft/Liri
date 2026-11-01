@@ -5,7 +5,7 @@
 
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('plugins:bundled:statusPlugin');
 
 export interface SystemStatus {

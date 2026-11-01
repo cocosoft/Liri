@@ -11,7 +11,7 @@ import { SoftTrimmer } from './SoftTrimmer';
 import { AgeBasedPruner } from './AgeBasedPruner';
 import { CountBasedPruner } from './CountBasedPruner';
 import { BudgetBasedPruner } from './BudgetBasedPruner';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('session:pruningDecider');
 
 export interface PruningDecision {

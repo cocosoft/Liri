@@ -17,7 +17,7 @@ import {
   resolveProjectRoot,
 } from '@openliri/infra/environment';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:agents:Subagent');
 
 /**

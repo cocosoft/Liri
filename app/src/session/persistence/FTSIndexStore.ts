@@ -47,7 +47,7 @@
  */
 import fs from 'fs/promises';
 import path from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   computeMd5,
   sanitizeFileName,

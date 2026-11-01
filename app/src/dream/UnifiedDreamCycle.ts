@@ -42,7 +42,7 @@ import {
   resolvePyappHome,
 } from '@openliri/infra/environment';
 import { globalEventBus, SystemEvents } from '@openliri/kernel';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { broadcastEvent } from '@modules/infrastructure';

@@ -12,7 +12,7 @@
 // 补齐 per-connection `busy_timeout`/`temp_store`）
 import { openBunDatabase, type BunDatabase } from '@openliri/infra/external';
 import { resolveDbPath } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('tools:videoGenerate');

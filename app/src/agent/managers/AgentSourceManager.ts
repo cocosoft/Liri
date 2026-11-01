@@ -3,7 +3,7 @@
  * 负责从不同来源加载Agent定义，支持热加载
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { AgentDefinition, AgentSource } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';

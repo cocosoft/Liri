@@ -17,7 +17,7 @@ import type { TaskState } from './types';
 import type { BashTaskOptions } from './types';
 import { taskRegistry } from './TaskRegistry';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('tasks:LocalBashTask');
 

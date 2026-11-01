@@ -4,7 +4,7 @@
  * 来源通过 PluginSource 元数据标注
  */
 
-import type { Logger } from '@modules/monitoring';
+import type { Logger } from '@openliri/infra/monitoring';
 
 /**
  * 第三方市场类型（仅用于标注，不影响分类）

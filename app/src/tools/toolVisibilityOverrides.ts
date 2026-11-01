@@ -45,7 +45,7 @@
  */
 
 import { configManager } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { isMandatoryTool } from './toolCategories';
 import { TOOL_NAME_CONSTANTS } from './toolNameConstants';
 

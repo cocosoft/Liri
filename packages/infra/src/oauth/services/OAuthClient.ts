@@ -9,7 +9,7 @@ import { request as httpRequest } from 'http';
 // 2026-10-01 D-159（`R00-001` 倒挂收口）：原取自 `@modules/infrastructure`（HTTP 服务层桶）的
 // **默认 logger** ⇒ 既构成 `oauth`(infra) -> `infrastructure`(service)
 // 倒挂，又偏离 §1.8「日志唯一入口」。改为与 oauth 模块其余文件一致的 `getLogger(module)`。
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { OAuthConfig } from '../types/OAuthTypes';
 import { OAuthError } from '../types/OAuthTypes';
 

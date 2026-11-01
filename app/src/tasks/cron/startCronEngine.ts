@@ -5,7 +5,7 @@
  * 无可用 provider 时自动降级为默认执行器（不依赖 AI），不阻塞调用方。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { buildCronDeliveryMessage } from './cronDeliveryMessage';
 

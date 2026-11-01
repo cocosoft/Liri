@@ -32,7 +32,7 @@
  * ≈ n 份候选生成 + n 次对抗批评；默认 perspectiveCount=2（成本护栏）。
  * 本类不做开关判定，保持纯编排职责。
  */
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { handleError } from '@openliri/infra/error/handleError';
 import {
   ParallelAgentScheduler,

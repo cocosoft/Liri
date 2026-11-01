@@ -32,7 +32,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveLlamaModelsDir } from '@openliri/infra/environment';
 import { sendError, readRequestBody } from './handler-utils';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';

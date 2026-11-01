@@ -26,7 +26,7 @@
  * 系统会独立回答该问题而不干扰主任务的进行。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('agent:btw:index');

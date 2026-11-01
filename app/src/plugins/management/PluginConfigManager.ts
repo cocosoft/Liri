@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { resolvePluginsConfigDir } from '@openliri/infra/environment';
 import { PluginConfig } from '../types/PluginTypes';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('plugins:management:pluginConfigManager');
 
 /*

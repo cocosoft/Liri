@@ -3,7 +3,7 @@
  * 插件管理和状态查看
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { NpmDistributor } from '@modules/plugins';
 
 const logger = getLogger('Plugins');

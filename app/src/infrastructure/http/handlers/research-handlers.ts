@@ -13,7 +13,7 @@
  *     不经 ChatManager——端点自包含，无会话上下文依赖。
  */
 import type http from 'http';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { sendError, readRequestBody } from './handler-utils';
 // C1（2026-09-30 D-104，`tasks` 域 P4）：改经服务层端口

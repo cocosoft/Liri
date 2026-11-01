@@ -8,7 +8,7 @@
  */
 
 import type http from 'http';
-import { getLogger } from '../../../monitoring/logs/Logger';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { handleError } from '@openliri/infra/error/handleError';
 import { getErrorStats } from '@openliri/infra/error/handleError';
 

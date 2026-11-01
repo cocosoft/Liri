@@ -12,7 +12,7 @@ import { configManager } from '@openliri/infra/config';
 import type { PermissionConfig } from '@openliri/infra/config/types';
 import { SecurityAudit } from './SecurityAudit';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('security:SecurityIntegration');
 

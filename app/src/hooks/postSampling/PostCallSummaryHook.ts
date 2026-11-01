@@ -9,7 +9,7 @@ import type {
   PostSamplingHook,
   PostSamplingHookContext,
 } from '../types/PostSampling';
-import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger.js';
+import { OTelAwareLogger } from '@openliri/infra/monitoring/logs/OTelAwareLogger';
 
 const logger = new OTelAwareLogger({ module: 'hooks:postCallSummary' });
 

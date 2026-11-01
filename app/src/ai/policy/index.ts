@@ -24,7 +24,7 @@
  * 故障转移策略管理
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai:policy:index');
 
 export type FailoverReason =

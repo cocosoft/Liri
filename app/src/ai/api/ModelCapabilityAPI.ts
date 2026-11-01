@@ -29,7 +29,7 @@
 
 import type http from 'http';
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { parseBody, sendJson, sendError } from './utils.js';
 import { getModelCapabilityProbe } from '../services/ModelCapabilityProbe.js';
 

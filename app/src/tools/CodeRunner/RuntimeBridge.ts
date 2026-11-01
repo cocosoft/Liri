@@ -12,7 +12,7 @@
  * 依赖注入：避免 tools 层依赖 ChatManager 具体类（方案 CM-2 六轮评审）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:CodeRunner:bridge');
 
 import type { CodeRpcRequest, CodeRpcResponse } from './types';

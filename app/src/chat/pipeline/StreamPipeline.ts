@@ -15,9 +15,9 @@
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { resolveOutputDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
-import { getOTelTracing } from '@modules/monitoring/otel';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel';
 import { trackUsage, extractModelFromResponse } from '@modules/ai';
 import { estimateMessagesTokens } from '@modules/ai';
 // 2026-09-27：`resolveEffectiveTurnModel` —— 发送前解析"本轮实际会用的模型"

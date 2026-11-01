@@ -24,7 +24,7 @@ import { SessionGateway, createSessionGateway } from '../../session/index';
 import type { SessionGatewayConfig } from '../../session/index';
 import { SessionType, SessionStatus } from '../../session/types/UnifiedSession';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:SessionsTool:SessionsTool');
 
 /**

@@ -36,7 +36,7 @@ import {
   type EventListener,
   type EventSubscription,
 } from '@openliri/kernel/events/EventBus';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('channels:events');
 
 /** 通道域事件总线单例（惰性化，H-2 2026-09-03）

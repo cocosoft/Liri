@@ -17,7 +17,7 @@ import { describe, it, expect } from 'bun:test';
 import { ReActToolLoop } from '../../src/chat/ReActToolLoop.js';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
-import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
+import { addLogHandler } from '@openliri/infra/monitoring/logs/Logger';
 
 /** 基础轮次上限（测试用短基数，扩容判据按 base 续期） */
 const BASE_TURNS = 6;

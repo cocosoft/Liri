@@ -9,7 +9,7 @@ import { feature } from '@openliri/infra/featureflags';
 import { OAuthDiscovery, createOAuthStorage } from '@openliri/infra/oauth';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('services:mcp:auth:MCPAuth');
 

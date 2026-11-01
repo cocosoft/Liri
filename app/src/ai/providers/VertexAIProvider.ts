@@ -24,7 +24,7 @@ import {
   isAbortReason,
   markAsExpectedAbort,
 } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { GeminiTransport } from '../transports/GeminiTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';

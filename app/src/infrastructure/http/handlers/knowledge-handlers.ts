@@ -1546,7 +1546,7 @@ export async function handleImportFromFile(
     try {
       const { FileRegistry } =
         await import('@modules/services/file/FileRegistry');
-      const { getLogger } = await import('@modules/monitoring');
+      const { getLogger } = await import('@openliri/infra/monitoring');
       await FileRegistry.getInstance().linkKnowledgeBySavedPath(filePath);
       getLogger('knowledge:http:import').info('文件已标记入知识库', {
         filePath,

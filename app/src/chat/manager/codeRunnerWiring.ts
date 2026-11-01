@@ -15,7 +15,7 @@
 
 import { feature as coreFeature } from '@openliri/kernel';
 import { configureCodeRunner } from '@modules/tools';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { EventLogStorage } from '@modules/session';
 import type { LiriEvent } from '@modules/session/types/events';
 

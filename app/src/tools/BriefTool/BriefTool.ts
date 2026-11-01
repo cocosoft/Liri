@@ -12,7 +12,7 @@ import type { SessionMessage } from '@modules/session';
 import { insightsEngine } from '@openliri/infra/analytics';
 import { loadSessionMessages } from '../sessionMessageSource';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:BriefTool:BriefTool');
 
 /**

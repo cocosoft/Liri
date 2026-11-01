@@ -39,7 +39,7 @@ import {
   DepRegistry,
 } from '@openliri/kernel/DependencyRegistry.js';
 import { createDenyDecision } from '../PermissionResult.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('permission:intercept');
 

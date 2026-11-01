@@ -1139,12 +1139,12 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     // 3 处同名 `ENABLED`（各模块自己的开关）全为文件内私有，取值均为 env 表达式
     const items: Array<[string, string, string]> = [
       [
-        'src/monitoring/memProfile.ts',
+        '../packages/infra/src/monitoring/memProfile.ts',
         'MEM_PROFILE_ENABLED',
         "configManager.env('MEM_PROFILE') === '1'",
       ],
       [
-        'src/monitoring/memoryPressure/MemoryPressureMonitor.ts',
+        '../packages/infra/src/monitoring/memoryPressure/MemoryPressureMonitor.ts',
         'MEM_PRESSURE_ENABLED',
         "configManager.env('MEM_PRESSURE') !== '0'",
       ],
@@ -1408,7 +1408,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(topo).toContain(
       'private intervalMs: number = TOPOLOGY_WATCH_INTERVAL_MS'
     );
-    const archival = read('src/monitoring/archival/DataArchivalStrategy.ts');
+    const archival = read(
+      '../packages/infra/src/monitoring/archival/DataArchivalStrategy.ts'
+    );
     expect(archival).not.toMatch(/(^|[^_A-Za-z])const DEFAULT_INTERVAL_MS\s*=/);
     expect(archival).toContain('const ARCHIVAL_INTERVAL_MS = 60 * 60 * 1000;');
     expect(archival).toContain(

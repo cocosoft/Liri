@@ -6,7 +6,7 @@
 /**
  * 模板变量类型
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('docs:TemplateService');
 
 export type TemplateVariableType =

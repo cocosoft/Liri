@@ -7,7 +7,7 @@ import readline from 'readline';
 import { commandHistory } from './history';
 import { commandCompleter } from './completion';
 import chalk from 'chalk';
-import { getLogger } from '../monitoring/logs/Logger';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 
 const logger = getLogger('cli-interactive');
 

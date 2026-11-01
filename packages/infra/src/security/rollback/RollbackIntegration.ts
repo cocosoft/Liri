@@ -46,7 +46,7 @@
  *   await integration.onRoundEnd(messageSummary);
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { FileOperationTracker } from './FileOperationTracker';
 import {
   createRoundSnapshot,

@@ -2,7 +2,7 @@
  * Cron任务持久化管理
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { randomUUID } from 'crypto';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';

@@ -7,7 +7,7 @@
  *   /context snapshot — 当前上下文快照
  *   /context debug    — 压缩决策树打印
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { getModelThresholds } from '@modules/tokenBudget';
 import type { RetentionResult } from './retentionProbe';
 const logger = getLogger('context:compaction:diag');

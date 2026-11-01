@@ -38,7 +38,7 @@ import {
 } from '@modules/streaming';
 import { repairImageUrls, resolveMaxOutputTokens } from './services/ChatHelper';
 import { startRequest } from './services/requestBoundary';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('chat:reactToolLoop');
 

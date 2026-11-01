@@ -1,5 +1,5 @@
 import * as https from 'https';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { buildUserAgent } from '@openliri/infra/constants';
 import { NPM_REGISTRY_URL } from '@openliri/kernel';
 import type {

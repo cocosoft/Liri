@@ -28,7 +28,7 @@
  * 借鉴: DeepSeek-Reasonix src/context-manager.ts
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { RepairChatMessage as ChatMessage } from '@modules/tools';
 import { healLoadedMessages } from './healing';
 import { looksLikeCompleteJson } from './shrink';

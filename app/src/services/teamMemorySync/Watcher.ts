@@ -9,7 +9,7 @@ import { watch, type FSWatcher } from 'fs';
 import { join } from 'path';
 import { logEvent } from '@openliri/infra/analytics';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:teamMemorySync:Watcher');
 
 const DEBOUNCE_MS = 2000;

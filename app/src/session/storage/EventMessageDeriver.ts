@@ -34,7 +34,7 @@ import type {
   LiriEvent,
   LiriEventType,
 } from '@modules/session/types/events.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { pickMoreCompleteContent } from '@openliri/infra/utils/common';
 import { KNOWN_SESSION_EVENT_TYPES } from '@modules/session/types/knownEventTypes.js';
 // 状态块 statusType 契约（CS02）：判据的单一事实来源，与前端共用同一集合

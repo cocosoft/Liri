@@ -38,7 +38,7 @@
  * 的 `warn`（同一 logger 单例），按消息 key 过滤。
  */
 import { afterEach, describe, expect, it, spyOn } from 'bun:test';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   BashTool,
   resetGraySwitchWarningForTest,

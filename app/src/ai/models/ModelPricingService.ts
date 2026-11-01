@@ -57,7 +57,7 @@ interface SqliteRunContext {
   changes: number;
   lastID: number;
 }
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 

@@ -27,7 +27,7 @@ import type {
   AcpRuntimeDoctorReport,
 } from '@modules/acp';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 const logger = getLogger('bridge:ModuleBridgeRuntime');
 

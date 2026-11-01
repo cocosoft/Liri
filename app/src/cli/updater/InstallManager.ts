@@ -3,7 +3,7 @@
  * 处理更新包的校验、备份和安装
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { join } from 'path';
 import { accessSync, constants, copyFileSync, unlinkSync } from 'fs';
 import { resolveProjectRoot } from '@openliri/infra/environment';

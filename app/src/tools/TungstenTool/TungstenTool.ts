@@ -12,7 +12,7 @@ import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolParam } from '../types/Tool';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:TungstenTool:TungstenTool');
 
 /**

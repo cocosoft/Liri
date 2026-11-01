@@ -6,7 +6,7 @@
 
 import { readFile, readdir } from 'fs/promises';
 import { join, relative } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('plugins:utils:pluginSecurityScanner');
 
 /**

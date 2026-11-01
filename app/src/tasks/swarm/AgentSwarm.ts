@@ -35,7 +35,7 @@
  *     ⇒ worker 连只读检索都不可用；现按类别过滤后真正注入。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { AgentIsolation } from '@modules/agent';
 import { randomIdSuffix } from '@openliri/kernel';
 import { getOrchestrationMetrics } from '@openliri/kernel/events/OrchestrationMetrics';

@@ -16,7 +16,7 @@ import { resolveDataSubDir } from '@openliri/infra/environment';
 import { configManager } from '@openliri/infra/config';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { TeamCreateOutputSchema, TeamCreateOutputJsonSchema } from './schemas';
 const logger = getLogger('tools:TeamCreateTool:TeamCreateTool');
 

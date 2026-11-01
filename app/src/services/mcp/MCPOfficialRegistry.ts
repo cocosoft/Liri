@@ -9,7 +9,7 @@
  * 仅含活跃服务器，安装命令与官方 README 完全一致。
  * */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { ANTHROPIC_API_BASE_URL } from '@openliri/kernel';
 const logger = getLogger('services:mcp:officialRegistry');
 

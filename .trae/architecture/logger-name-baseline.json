@@ -204,7 +204,7 @@
       "app/src/workspace/OrchIntelligence.ts"
     ],
     "PerformanceAnalyzer": [
-      "app/src/monitoring/performance/PerformanceAnalyzer.ts"
+      "packages/infra/src/monitoring/performance/PerformanceAnalyzer.ts"
     ],
     "PermissionManager": [
       "packages/infra/src/security/PermissionManager.ts"
@@ -456,7 +456,7 @@
       "app/src/bootstrap/preflight.ts",
       "app/src/cli/trustLevelArgs.ts",
       "app/src/main.ts",
-      "app/src/monitoring/logs/Logger.ts"
+      "packages/infra/src/monitoring/logs/Logger.ts"
     ],
     "mcpCommand": [
       "app/src/mcp/cli/mcpCommand.ts"
@@ -474,34 +474,34 @@
       "app/src/modules/ModuleDefinitions.ts"
     ],
     "monitoring\\alerts\\AlertManager": [
-      "app/src/monitoring/alerts/AlertManager.ts"
+      "packages/infra/src/monitoring/alerts/AlertManager.ts"
     ],
     "monitoring\\integration\\SystemMonitor": [
-      "app/src/monitoring/integration/SystemMonitor.ts"
+      "packages/infra/src/monitoring/integration/SystemMonitor.ts"
     ],
     "monitoring\\logs\\diagnostic\\LogDiagnostic": [
-      "app/src/monitoring/logs/diagnostic/LogDiagnostic.ts"
+      "packages/infra/src/monitoring/logs/diagnostic/LogDiagnostic.ts"
     ],
     "monitoring\\logs\\tail\\LogTail": [
-      "app/src/monitoring/logs/tail/LogTail.ts"
+      "packages/infra/src/monitoring/logs/tail/LogTail.ts"
     ],
     "monitoring\\otel\\MetricsBridge": [
-      "app/src/monitoring/otel/MetricsBridge.ts"
+      "packages/infra/src/monitoring/otel/MetricsBridge.ts"
     ],
     "monitoring\\otel\\OTelLogger": [
-      "app/src/monitoring/otel/OTelLogger.ts"
+      "packages/infra/src/monitoring/otel/OTelLogger.ts"
     ],
     "monitoring\\otel\\OTelMetrics": [
-      "app/src/monitoring/otel/OTelMetrics.ts"
+      "packages/infra/src/monitoring/otel/OTelMetrics.ts"
     ],
     "monitoring\\otel\\OTelTracing": [
-      "app/src/monitoring/otel/OTelTracing.ts"
+      "packages/infra/src/monitoring/otel/OTelTracing.ts"
     ],
     "monitoring\\otel\\TraceBridge": [
-      "app/src/monitoring/otel/TraceBridge.ts"
+      "packages/infra/src/monitoring/otel/TraceBridge.ts"
     ],
     "monitoring\\tracing\\SessionTracing": [
-      "app/src/monitoring/tracing/SessionTracing.ts"
+      "packages/infra/src/monitoring/tracing/SessionTracing.ts"
     ],
     "oauth\\services\\OAuthService": [
       "packages/infra/src/oauth/services/OAuthService.ts"

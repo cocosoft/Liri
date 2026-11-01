@@ -15,7 +15,7 @@
  * **行为等价**：全部文案、日志字段、`concurrentReasons` 并列上报与判定顺序**逐字未变**。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { TerminationReason } from '@modules/query';
 import type { GoalTurnReason } from '@modules/tasks';
 // BUG-E 第二轮复验（2026-10-27）：可见性判定需先剥离 `<think>`（与终稿校验同源，CS01）

@@ -35,8 +35,8 @@ const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
     setupGracefulShutdown: () => void;
     registerShutdownHandler: (handler: () => void) => void;
   };
-import { getMonitoringService } from '@modules/monitoring/index.js';
-import { getLogger } from '@modules/monitoring';
+import { getMonitoringService } from '@openliri/infra/monitoring/index';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   resolvePyappHome,
   ensureDataDirectories,

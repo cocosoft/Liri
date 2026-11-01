@@ -95,7 +95,7 @@ export class ImportManager {
         // 系统模块别名
         '@modules/security': './security',
         '@modules/performance': './performance',
-        '@modules/monitoring': './monitoring',
+        '@openliri/infra/monitoring': './monitoring',
 
         // 其他模块别名
         '@modules/analytics': './analytics',

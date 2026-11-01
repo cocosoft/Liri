@@ -10,7 +10,7 @@
 
 import { getSpawnImpl } from '@openliri/infra/utils/spawnPort';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { isFFmpegAvailable } from './audioFormatConverter.js';
 
 const logger = getLogger('services:voice:services:audioNormalizer');

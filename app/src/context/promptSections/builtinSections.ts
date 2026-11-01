@@ -33,7 +33,7 @@ import {
   getCurrentKnowledgeQuery,
   getCurrentKnowledgeDomain,
 } from '@modules/services/prompt/KnowledgePromptProvider';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { generateDigestContext } from '@modules/knowledge';
 import { DomainManager } from '@modules/knowledge';
 import { truncateMemoryContent } from '@openliri/infra/memory';

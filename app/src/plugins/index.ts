@@ -39,7 +39,7 @@ import {
 import type { IPluginAPI } from './api/index.js';
 import { BundledPluginManager } from './bundled/BundledPluginManager';
 import { registerPluginConfigManagerProvider } from './host/pluginConfigPort';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import {
   PluginState,

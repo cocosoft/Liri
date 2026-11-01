@@ -12,7 +12,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { PythonPluginConfig } from '../core/PythonPluginAdapter';
 

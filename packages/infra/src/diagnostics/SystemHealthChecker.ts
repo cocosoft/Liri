@@ -14,7 +14,7 @@ import {
   resolveProjectRoot,
 } from '@openliri/infra/environment';
 import { configManager } from '@openliri/infra/config';
-import { getSystemCpuPercent, getDiskInfo } from '@modules/monitoring';
+import { getSystemCpuPercent, getDiskInfo } from '@openliri/infra/monitoring';
 import { probeExternalModule } from '@openliri/infra/utils/externalDeps';
 
 const execAsync = promisify(exec);

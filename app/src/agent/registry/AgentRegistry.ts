@@ -7,7 +7,7 @@
  * （链式编排只有 `CHAIN_*` 事件，**无** `AgentChain` 类；`SwarmCoordinator` 亦不存在——2026-10-13 订正）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import {
   SystemGraph,

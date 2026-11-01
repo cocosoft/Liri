@@ -12,7 +12,7 @@
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:curatorReview');
 
 export interface FileReviewTarget {

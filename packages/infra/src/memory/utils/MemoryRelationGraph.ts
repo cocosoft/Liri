@@ -3,7 +3,7 @@
  * 管理记忆之间的关联关系，支持递归检索关联记忆
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('memory:utils:memoryRelationGraph');
 
 /**

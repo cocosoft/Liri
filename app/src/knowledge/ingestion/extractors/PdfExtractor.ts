@@ -33,7 +33,7 @@ import {
   GlobalWorkerOptions,
 } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { ExtractedDocument, DocumentExtractor } from './types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { isPdfOcrEnabled, ocrExtractPdf, requiresOcr } from './PdfOcrExtractor';
 
 const logger = getLogger('knowledge:ingest:pdf');

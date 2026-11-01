@@ -37,7 +37,7 @@ import {
   type PathLike,
   type MakeDirectoryOptions,
 } from 'fs';
-import { getLogger } from './monitoring/logs/Logger';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { createRequire } from 'module';
 // type-only import：编译期擦除，不产生运行时 require，不会提前拉入 paths.ts
 import type { handleError as HandleErrorFn } from '@openliri/infra/error';
@@ -45,7 +45,7 @@ import type { handleError as HandleErrorFn } from '@openliri/infra/error';
 const bootLogger = getLogger('pyapp');
 
 // 延迟加载 handleError——禁止静态 import '@openliri/infra/error'：
-// 其 barrel 会拉入 @modules/monitoring → MonitoringService → @modules/core → paths.ts，
+// 其 barrel 会拉入 @openliri/infra/monitoring → MonitoringService → @modules/core → paths.ts，
 // 在 LIRI_HOME 设置前触发 paths.ts 模块级常量求值，导致 SOUL_PATH/USER_PROFILE_PATH
 // 按错误路径求值（Program Files 安装下数据分散）。首次调用时 LIRI_HOME 已设置。
 let lazyHandleError: typeof HandleErrorFn | undefined;

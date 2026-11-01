@@ -43,7 +43,7 @@
 import type { Tool, ToolUseContext } from '@modules/tools/types/Tool';
 import { ToolExecutionStatus } from '@modules/tools/types/ToolResult';
 import { getToolRegistry, globalToolManager } from '@modules/tools';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   createRunRecordCollector,
   getWorkflowEngine,

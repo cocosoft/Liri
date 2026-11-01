@@ -6,7 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('plugins\bundled\BundledPluginManager');
 
 /**

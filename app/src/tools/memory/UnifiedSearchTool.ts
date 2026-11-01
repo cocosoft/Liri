@@ -6,7 +6,7 @@ import type {
   UnifiedSearchResult,
 } from '@openliri/infra/memory';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('memory:tools:UnifiedSearchTool');
 
 export class UnifiedSearchTool implements Tool {

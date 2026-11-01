@@ -14,7 +14,7 @@
  * 这是一个已知的权衡：保持泛型签名可以在调用方减少断言代码。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { StateMachine } from './StateMachine';
 
 const logger = getLogger('state:registry');

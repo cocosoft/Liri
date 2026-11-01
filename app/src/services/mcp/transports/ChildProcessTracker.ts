@@ -9,7 +9,7 @@
  * 与 hermes 的区别：我们持有 ChildProcess 引用，不需要 PID 快照。
  */
 import { type ChildProcess } from 'child_process';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:mcp:process-tracker');
 
 /** 单个进程追踪条目 */

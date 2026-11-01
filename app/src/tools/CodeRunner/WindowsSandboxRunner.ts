@@ -51,7 +51,7 @@ import {
 } from '@modules/sandbox';
 import type { WindowsSandboxCapability } from '@modules/sandbox';
 import type { LandlockConfig } from '@modules/sandbox';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 import {
   prepareRunDir,

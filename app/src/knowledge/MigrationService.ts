@@ -16,9 +16,9 @@
  *   启动时检测 from 有数据且 to 为空 → 自动提示用户迁移
  */
 
-import { LogLevel } from '@modules/monitoring';
-import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
+import { LogLevel } from '@openliri/infra/monitoring';
+import { OTelAwareLogger } from '@openliri/infra/monitoring/logs/OTelAwareLogger';
+import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { handleError } from '@openliri/infra/error';
 import type {
   IVectorStore,

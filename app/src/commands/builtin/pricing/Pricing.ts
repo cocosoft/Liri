@@ -18,7 +18,7 @@ import { join } from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { load, dump } from 'js-yaml';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:pricing:Pricing');
 
 interface PricingEntry {

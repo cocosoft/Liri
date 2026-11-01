@@ -21,7 +21,7 @@ import { deflateRawSync } from 'zlib';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
 import {

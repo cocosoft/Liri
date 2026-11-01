@@ -8,7 +8,7 @@ import { readdir, stat, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { type MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
 import { parseFrontmatter } from '@openliri/infra/utils/frontmatterParser';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolveProjectRoot } from '@openliri/infra/environment';
 

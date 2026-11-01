@@ -5,7 +5,7 @@
 
 import type { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
-import { getLogger, withTraceparentHeaders } from '@modules/monitoring';
+import { getLogger, withTraceparentHeaders } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type { McpTlsConfig } from './McpTlsManager';

@@ -14,7 +14,7 @@ import type {
 } from '@modules/commands';
 import type { CompactArtifact } from '@modules/compaction';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:compact');
 
 export interface CompactCommandOptions {

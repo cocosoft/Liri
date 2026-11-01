@@ -12,7 +12,7 @@ import {
   type ContextSnapshot,
 } from './persistence/ContextPersistence';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('context:store');
 
 export interface IContextStore {

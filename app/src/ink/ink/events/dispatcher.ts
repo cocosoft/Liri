@@ -5,7 +5,7 @@ import {
   DiscreteEventPriority,
   NoEventPriority,
 } from 'react-reconciler/constants.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ink:events:dispatcher');
 import { HANDLER_FOR_EVENT } from './event-handlers.js';
 import type { EventTarget, TerminalEvent } from './terminal-event.js';

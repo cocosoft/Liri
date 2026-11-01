@@ -9,7 +9,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname } from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('buddy:growthPersistence');
 
 /** 成长状态快照（可序列化） */

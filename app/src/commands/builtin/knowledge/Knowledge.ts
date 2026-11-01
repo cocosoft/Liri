@@ -12,7 +12,7 @@ import { writeFile, unlink, mkdir, readFile } from 'fs/promises';
 import { join, basename, dirname, extname } from 'path';
 import { existsSync } from 'fs';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 const logger = getLogger('commands:builtin:knowledge:Knowledge');
 

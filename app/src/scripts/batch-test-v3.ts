@@ -5,7 +5,7 @@
 import { init } from '../entrypoints/init.js';
 import { commandExecutor } from '../commands/executor/index.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('scripts:batch-test-v3');
 
 const V3_TEST_COMMANDS = [

@@ -8,7 +8,7 @@ import { commandExecutor } from '../commands/executor/index.js';
 import { initializeChatManager } from '../entrypoints/repl.js';
 import type { CommandContext } from '../commands/types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('scripts:batch-test-v2');
 
 const V2_TEST_COMMANDS = [

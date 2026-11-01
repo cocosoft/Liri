@@ -4,7 +4,7 @@
  * P3-6: 对标 hermes-agent ContextEngine ABC。
  * 允许通过 config 切换不同的上下文压缩策略引擎（内置 CompactionOrchestrator / 第三方 LCM 等）。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('context:enginePlugin');
 
 /** 上下文压缩请求 */

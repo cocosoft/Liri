@@ -37,7 +37,7 @@ import {
   getCredentialStore,
   CRED_STORED_MARKER,
 } from '../credentials/CredentialStore';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   AppError,
   ErrorCategory,

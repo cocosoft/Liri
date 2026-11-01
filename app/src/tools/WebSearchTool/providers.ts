@@ -7,7 +7,7 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { buildUserAgent } from '@openliri/infra/constants';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   BING_SEARCH_BASE_URL,
   GOOGLE_SEARCH_BASE_URL,

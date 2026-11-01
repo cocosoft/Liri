@@ -5,7 +5,7 @@
  * 设计文档：dev_docs/20260819/llama_cpp模型目录配置与迁移功能设计方案.md
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveLlamaModelsDir } from '@openliri/infra/environment';
 import {
   AppError,

@@ -10,7 +10,7 @@
 import { readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('knowledge:schemaMigration');
 
 const KNOWLEDGE_SCHEMA_VERSION = 1;

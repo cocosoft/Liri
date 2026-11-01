@@ -3,7 +3,7 @@
  * 从 GitHub Releases API 获取最新版本信息
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { buildUserAgent } from '@openliri/infra/constants';
 import {
   getGitHubReleasesUrl,

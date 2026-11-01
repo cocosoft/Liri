@@ -7,7 +7,7 @@ import { estimateMessagesTokens } from '@modules/ai';
 import type { ContextSnapshot } from '@modules/context';
 import { analyzeContextUsage, formatWalletBreakdown } from './ContextWallet';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:context:Context');
 
 interface ChatManagerLike {

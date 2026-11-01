@@ -30,7 +30,7 @@ import { WeixinCliManager, type CliStatus } from './cli-manager';
 import { splitMessage } from '../messageSplitter';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('channels:wechat:WechatChannel');
 
 const WECHAT_META: ChannelMeta = {

@@ -4,7 +4,7 @@
  * 分析对话内容，提取关键决策、重要变更、风险提示
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('agent:insightGenerator');
 
 export interface ConversationInsight {

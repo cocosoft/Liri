@@ -7,7 +7,7 @@ import { profileReport } from '@openliri/infra/performance/StartupProfiler';
 import { SkillRegistry } from '../skills/SkillRegistry';
 import { BundledSkillLoader } from '@modules/skills';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('cli:cli');
 
 const ui = getUIEnhancer();

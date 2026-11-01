@@ -4,7 +4,7 @@
  *
  * 结构化收集工具执行过程中的错误信息，支持按轮次查询和汇总统计。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('query:toolErrorCollector');
 
 /**

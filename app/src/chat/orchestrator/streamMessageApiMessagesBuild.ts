@@ -33,7 +33,7 @@
  *  3. 失败（超时/构建失败）仍以 `throw` 上抛，由外层 `finally` 统一收口；
  *  4. 日志 module 复用 `chat:streamFlow` ⇒ 与拆分前逐字一致。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { Message } from '@modules/session/types/message.js';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import { sleep, sanitizeHistoryPollution } from './streamMessageHelpers.js';

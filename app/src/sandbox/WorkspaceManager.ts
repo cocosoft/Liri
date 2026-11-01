@@ -23,7 +23,7 @@ import {
   readSandboxPermissionLevel,
 } from './permissionLevel';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('sandbox\WorkspaceManager');
 
 const WORKSPACE_MODULE = 'WorkspaceManager';

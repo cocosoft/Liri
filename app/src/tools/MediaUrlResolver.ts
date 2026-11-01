@@ -17,7 +17,7 @@ import { copyFileSync, mkdirSync } from 'fs';
 import { randomUUID } from 'crypto';
 import path from 'path';
 import { isPathWithin } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('tools:mediaUrlResolver');
 

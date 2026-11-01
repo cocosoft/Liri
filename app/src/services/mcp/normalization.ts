@@ -3,7 +3,7 @@
  * 负责MCP工具/服务器名称的标准化处理
  * */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('mcp:normalization');
 
 const CLAUDEAI_SERVER_PREFIX = 'claude.ai ';

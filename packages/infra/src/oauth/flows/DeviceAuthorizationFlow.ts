@@ -8,7 +8,7 @@ import { request as httpRequest } from 'http';
 import { OAuthClient } from '../services/OAuthClient';
 import type { OAuthConfig, OAuthAuthResult } from '../types/OAuthTypes';
 import { OAuthError } from '../types/OAuthTypes';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 
 const logger = getLogger('oauth:flows:deviceAuth');

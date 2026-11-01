@@ -31,7 +31,7 @@
 import fs from 'fs';
 import path from 'path';
 import { resolveDataSubDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // C1（2026-09-30 D-121，`R00-003` P2/G1）：SSE 广播改经 core SPI 端口（infra → core 合法）
 import { resolveBroadcast } from '@openliri/kernel/spi';
 import { StateMachine } from '../engine/StateMachine';

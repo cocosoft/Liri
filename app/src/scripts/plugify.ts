@@ -8,7 +8,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('plugify');
 
@@ -53,7 +53,7 @@ function generatePluginCode(moduleName: string, description: string): string {
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import type { IPluginAPI } from '../api/PluginAPI.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('plugify');
 

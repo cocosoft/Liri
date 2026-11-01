@@ -1,6 +1,6 @@
 import { join } from 'path';
 import { getFsImplementation } from '@openliri/infra/utils/fsOperations';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('memory:fileService');
 import {
   ENTRYPOINT_NAME,

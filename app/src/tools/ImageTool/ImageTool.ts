@@ -5,7 +5,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  * 支持 resize / crop / rotate / flip / watermark / adjust / convert / grayscale / info / batch
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import * as fs from 'fs';
 import * as path from 'path';

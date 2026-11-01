@@ -56,7 +56,7 @@ import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
 import type { Message } from '@modules/session/types/message.js';
 import { getToolCallName } from '@modules/session/types/tool.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // B3-2（2026-09-23）：注入片段统一类型 —— 通道前缀由类型给出（唯一渲染入口 renderFragment）
 import {
   createFragment,

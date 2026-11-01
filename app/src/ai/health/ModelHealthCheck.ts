@@ -4,7 +4,7 @@
  * 对齐 OpenClaw agents/auth-health.ts
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import {
   OPENAI_API_BASE_URL,

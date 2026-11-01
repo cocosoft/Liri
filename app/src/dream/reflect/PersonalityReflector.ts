@@ -33,7 +33,7 @@ import {
 } from '@openliri/infra/environment';
 import { AtomicWriter } from '@modules/session';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('dream:reflect:personality');
 
 export interface SoulAlignmentResult {

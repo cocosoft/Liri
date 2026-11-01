@@ -15,7 +15,7 @@
  * 以免改变启动期 eager 依赖（与迁移前一致）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { isShellToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 import type { ToolRegistry } from '@modules/tools';
 import type {

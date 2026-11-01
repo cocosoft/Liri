@@ -10,7 +10,7 @@
  * 帮助用户了解上下文消费情况并做出优化决策。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:builtin:context:wallet');
 
 // ============================================================
@@ -93,7 +93,7 @@ export async function analyzeContextUsage(
 
   try {
     const { getLLMTracker } =
-      await import('@modules/monitoring/llm/getLLMTracker');
+      await import('@openliri/infra/monitoring/llm/getLLMTracker');
     const tracker = getLLMTracker();
     const stats = tracker.getSessionStats(sessionId);
     if (stats) {

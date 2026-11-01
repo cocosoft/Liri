@@ -4,7 +4,7 @@
  * 一次启动应用，测试多个命令
  */
 import { executeOnce } from '../entrypoints/repl.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('batch-test');
 

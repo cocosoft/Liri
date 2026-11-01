@@ -28,7 +28,7 @@ import {
 import { join, dirname } from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('session:activity:SessionActivityTracker');
 

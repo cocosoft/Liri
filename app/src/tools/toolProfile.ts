@@ -19,7 +19,7 @@
  * 见 `.trae/specs/execution-prepared-snapshot-persistence.md` §10。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { ToolCategory } from './toolCategories';
 
 const logger = getLogger('tools:profile');

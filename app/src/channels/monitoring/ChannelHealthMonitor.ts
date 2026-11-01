@@ -3,13 +3,13 @@
  * 基于 HealthChecker 实现通道级健康检查与告警
  */
 import { EventEmitter } from 'events';
-import { HealthChecker } from '../../monitoring/health/HealthChecker';
+import { HealthChecker } from '@openliri/infra/monitoring/health/HealthChecker';
 import type {
   HealthCheckResult,
   HealthStatus,
-} from '../../monitoring/health/HealthChecker';
+} from '@openliri/infra/monitoring/health/HealthChecker';
 import { ChannelRegistry } from '../registry/ChannelRegistry';
-import { getLogger } from '../../monitoring/logs/Logger';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 const logger = getLogger('channels:health');
 
 export interface HealthAlert {

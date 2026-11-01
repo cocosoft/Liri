@@ -461,7 +461,7 @@ export function registerStandardHandlers(): void {
         (async () => {
           try {
             const { getMonitoringService } =
-              await import('@modules/monitoring/index.js');
+              await import('@openliri/infra/monitoring/index');
             const monitoringService = getMonitoringService();
             monitoringService.start();
             logger.info('[Phase 6] 监控服务已启动');

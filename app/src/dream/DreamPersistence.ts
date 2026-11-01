@@ -28,7 +28,7 @@ import { resolveDataSubDir } from '@openliri/infra/environment';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import type { DreamRecord, DreamCycleRecord, DreamCycleSummary } from './types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('dream:dreamPersistence');

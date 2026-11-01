@@ -6,7 +6,7 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
  * 参数: audios (string[]) — 音频路径或 URL 列表
  * 输出: { audios: DisplayAudio[] } — 前端渲染音频播放器
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { BaseTool } from '../BaseTool';
 import { ToolResult, ToolUseContext, ToolParam, ToolTag } from '../types/index';
 import { AudioUrlHelper } from '../AudioUrlHelper';

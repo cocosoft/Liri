@@ -23,7 +23,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { patternFeatureFlag, selectPattern } from '@modules/query/patterns';
 import { feature as coreFeature } from '@openliri/kernel';
 import { instantiatePattern, verifierConfigForRecipe } from '@modules/query';

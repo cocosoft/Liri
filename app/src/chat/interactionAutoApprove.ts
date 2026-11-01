@@ -9,7 +9,7 @@
  * - 生效时**不挂起、不发 question 事件**，直接把答复写进工具入参 `_userAnswers`（注入前做冻结保护）；
  * - 普通路径（开关默认关）返回 `false`，调用方照旧等待用户。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   isUnattendedMode,
   resolveUnattendedAnswers,

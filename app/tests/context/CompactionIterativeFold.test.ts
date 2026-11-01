@@ -19,7 +19,7 @@ import {
   renderCompactionSummary,
 } from '../../src/context/compaction/StructuredCompactionPrompt';
 // R1（2026-09-16）：捕获 tier3_fold_batch_error 日志，断言失败分支被真实执行
-import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
+import { addLogHandler } from '@openliri/infra/monitoring/logs/Logger';
 // R6（2026-09-21）：请求侧配对完整性（严格 provider 回归）
 import { unpairedToolCallIds } from '../../src/context/compaction/toolPairIntegrity';
 

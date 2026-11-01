@@ -7,7 +7,7 @@
 /**
  * 健康检查结果
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { OPENAI_API_V1_BASE_URL } from '@openliri/kernel';
 const logger = getLogger('ai:credentials:CredentialHealth');
 

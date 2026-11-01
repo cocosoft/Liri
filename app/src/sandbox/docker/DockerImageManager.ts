@@ -11,7 +11,7 @@
  * 事件循环不被阻塞"以及各方法的成败分支（无需本机安装 Docker）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { defaultDockerCliRunner, type DockerCliRunner } from './dockerCli';
 

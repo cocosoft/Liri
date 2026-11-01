@@ -2,7 +2,7 @@ import type { Memory } from '../types/Memory';
 import { MemoryScannerImpl } from '../scanners/MemoryScanner';
 import fs from 'fs/promises';
 import path from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // D-146（2026-10-01）：embedding 管理器改经 core SPI（`infra -> app` 倒挂收口）
 import { resolveAiAccess } from '@openliri/kernel/spi';
 import { existsSync, readFileSync } from 'fs';

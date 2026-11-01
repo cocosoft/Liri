@@ -50,7 +50,7 @@ import {
   isAbortReason,
   markAsExpectedAbort,
 } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';

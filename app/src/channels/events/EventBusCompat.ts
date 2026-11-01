@@ -41,7 +41,7 @@ import type {
   EventListener,
   EventSubscription,
 } from '@openliri/kernel/events/EventBus';
-import { createLogger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@openliri/infra/monitoring';
 
 const logger = createLogger({
   level: LogLevel.DEBUG,

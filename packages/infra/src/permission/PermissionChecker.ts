@@ -32,7 +32,7 @@ import {
   detectChainedCommand,
 } from './types/RiskClass';
 import { configManager } from '@openliri/infra/config';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { isShellToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 import type { ToolSandboxLevel } from '@openliri/infra/utils/toolContract/Tool';
 import { findWorkspaceEscape } from '@openliri/infra/utils/toolContract/pathBoundary';

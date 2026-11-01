@@ -9,7 +9,7 @@
  */
 
 import { isIP } from 'node:net';
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { handleError } from '@openliri/infra/error/handleError';
 import { initModuleBridge } from './ModuleBridgeInit.js';
 import { createAcpWebSocketServer } from '@modules/acp';

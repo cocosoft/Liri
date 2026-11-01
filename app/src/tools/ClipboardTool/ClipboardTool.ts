@@ -13,7 +13,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import type { ClipboardOutput } from '../types/ToolOutputs';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools\ClipboardTool\ClipboardTool');
 
 /**

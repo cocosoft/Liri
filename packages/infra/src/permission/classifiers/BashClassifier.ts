@@ -3,7 +3,7 @@
  * 专门用于分类Bash命令的安全性
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('permission:classifiers:bashClassifier');
 
 /**

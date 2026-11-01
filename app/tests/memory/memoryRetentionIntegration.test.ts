@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { MemoryManagerImpl } from '@openliri/infra/memory';
 import { MemoryStoreImpl } from '@openliri/infra/memory/stores/MemoryStore';
 import type { Memory } from '@openliri/infra/memory/types/Memory';
-import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
+import { addLogHandler } from '@openliri/infra/monitoring/logs/Logger';
 
 const createdDirs: string[] = [];
 

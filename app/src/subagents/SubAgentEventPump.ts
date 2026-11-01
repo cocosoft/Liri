@@ -17,7 +17,7 @@
  * 现口径：**阈值默认 60s（可配置，按"单步最长耗时"量级）**、`status` **只由 heartbeat/complete/fail
  * 驱动**（detectStale 不再改写）、**同一子代理仅首次进入 stale 告警一次**（心跳恢复后重置）。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 import { globalEventBus } from '@openliri/kernel/events/EventBus.js';

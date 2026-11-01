@@ -7,7 +7,7 @@
  *   - 发布端价格更新自动回填历史成本（update_model_pricing）
  *   - 估算 vs 实际值偏差告警
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('context:cost:multiplier');
 
 export interface CostMultiplierConfig {

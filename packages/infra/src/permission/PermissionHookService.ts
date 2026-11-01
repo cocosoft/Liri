@@ -10,7 +10,7 @@ import {
   RegisteredPermissionHook,
   PermissionHookMetadata,
 } from './types/PermissionHook';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { SpanStatusCode, metrics } from '@opentelemetry/api';
 import type { Span, Counter } from '@opentelemetry/api';

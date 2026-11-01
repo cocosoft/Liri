@@ -5,7 +5,7 @@ import { AppError, handleError } from '@openliri/infra/error';
 import { ErrorCodes } from '@openliri/infra/error';
 import { loadSharp } from '@openliri/infra/utils/externalDeps';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:converter:converters:ImageConverter');
 
 let _loaded = false;

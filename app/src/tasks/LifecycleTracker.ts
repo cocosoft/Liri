@@ -6,7 +6,7 @@
  */
 
 import { TaskStatus } from './types';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tasks:lifecycle');
 
 /** 生命周期阶段 */

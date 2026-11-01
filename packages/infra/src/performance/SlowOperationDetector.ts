@@ -4,7 +4,7 @@
  * 用于检测和记录执行时间超过阈值的操作
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveLogsDir } from '@openliri/infra/environment';
 // C1（2026-10-09）：慢操作 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';

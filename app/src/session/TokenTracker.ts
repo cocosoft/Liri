@@ -16,7 +16,7 @@ import {
   createEmptyTokenUsage,
   accumulateTokenUsage,
 } from './models/SessionTokenUsage';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { globalEventBus, SystemEvents } from '@openliri/kernel/events/EventBus';
 import type { CostRecordedEvent } from '@openliri/kernel/events/EventBus';
 

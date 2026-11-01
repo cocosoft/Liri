@@ -11,7 +11,7 @@
  * 外移原因：`main.ts` 已触 R04-001 的 2000 行上限；本模块只做纯参数解析 + 审计留痕。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // PR-3c（2026-10-23）：全局信任级别变更落安全审计通道（`/v1/security/audit-logs` 可查）
 import { logSecurityAuditEvent } from '@openliri/infra/security';
 

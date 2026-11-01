@@ -14,7 +14,7 @@
  */
 import { KnowledgeGraph } from './KnowledgeGraph.js';
 import { resolveTenantDbPath } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   getRequestPrincipal,
   isLocalPrincipal,

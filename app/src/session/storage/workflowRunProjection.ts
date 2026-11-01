@@ -14,7 +14,7 @@
  * **不合成、不编造**（CS06）：字段缺失/类型不符时**跳过该条并告警**，不填默认值。
  */
 
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import type { LiriEvent } from '@modules/session/types/events';
 
 const logger = getLogger('session:workflow-run-projection');

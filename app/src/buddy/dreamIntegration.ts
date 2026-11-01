@@ -18,7 +18,7 @@ import {
   createAchievementNotification,
   createLevelUpNotification,
 } from './notifications';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   type GrowthState,
   loadGrowthState,

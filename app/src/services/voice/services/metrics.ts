@@ -8,7 +8,7 @@
  * 埋点位置由 MetricsHook 枚举定义，统一管理。
  */
 
-import { getLogger, getOTelMetrics } from '@modules/monitoring';
+import { getLogger, getOTelMetrics } from '@openliri/infra/monitoring';
 // C1（2026-10-09）：hook key 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 const logger = getLogger('voice:metrics');

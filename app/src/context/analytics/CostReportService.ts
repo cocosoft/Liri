@@ -7,7 +7,7 @@
  *
  * v2.1: buildTierStats 修复 — 从 CompactionHistoryEntry 计算真实的 tokens/cost 节省量
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   compactionMetricsTracker,
   type CompactionHistoryEntry,

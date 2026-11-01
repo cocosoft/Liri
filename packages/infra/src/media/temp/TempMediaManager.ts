@@ -7,7 +7,7 @@ import path from 'path';
 import os from 'os';
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('media\temp\TempMediaManager');
 
 export interface TempFileConfig {

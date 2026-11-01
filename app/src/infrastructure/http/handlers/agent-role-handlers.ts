@@ -10,7 +10,7 @@
  */
 
 import type http from 'http';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // C1（2026-09-30 D-113，`workspace` 域 P1）：`getAgentRoleStore` 改经服务层端口句柄
 // （原具名导入**不在此处复写** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 // C1（2026-09-30 D-109，`ai` 域 P3）：改经服务层端口

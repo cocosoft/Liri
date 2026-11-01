@@ -7,7 +7,7 @@ import { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
 import { profileCheckpoint } from '@openliri/infra/performance';
 import { loadBuiltinTools as loadBuiltinToolsFromUtils } from './ToolManagerUtils.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 
 const logger = getLogger('tools:optimizedUtils');

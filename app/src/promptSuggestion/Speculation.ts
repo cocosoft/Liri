@@ -2,7 +2,7 @@
  * Speculation 超前执行模块
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { configManager } from '@openliri/infra/config';
 import { randomUUID } from 'crypto';
 import { join } from 'path';

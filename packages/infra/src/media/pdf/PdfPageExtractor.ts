@@ -28,7 +28,7 @@
  * 参照 cc_code backend/utils/pdf.ts
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';

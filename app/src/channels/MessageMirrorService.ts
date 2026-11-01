@@ -9,7 +9,7 @@ import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { getDeliveryRouter } from './DeliveryRouter';
 import { DeliveryTarget } from './DeliveryTarget';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('channels:MessageMirrorService');
 
 /**

@@ -9,7 +9,7 @@
  */
 
 /** 默认节流间隔（毫秒） */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('channels:matrix:streaming-message');
 
 const MATRIX_DEFAULT_THROTTLE_MS = 1000;

@@ -26,10 +26,13 @@
  * 切窗标记与当前会话 ID 仍归宿主所有（被 `streamMessageFlow` / 事件日志 store 读取）。
  */
 
-import { getLogger, getMemoryPressureMonitor } from '@modules/monitoring';
+import {
+  getLogger,
+  getMemoryPressureMonitor,
+} from '@openliri/infra/monitoring';
 import { yieldToEventLoop } from '@modules/ai';
 import type { ParsedToolCall } from '@modules/ai';
-import { memProfile } from '../../monitoring/memProfile.js';
+import { memProfile } from '@openliri/infra/monitoring/memProfile';
 import type { Message } from '@modules/session/types/message.js';
 import type { ToolCall, ToolResult } from '@modules/session/types/tool.js';
 import {

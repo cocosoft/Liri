@@ -8,7 +8,7 @@
  * 类型统一: 使用 types/OAuthDiscoveryTypes.ts 中的 OAuthServerMetadata（唯一来源）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { TTLCache } from '@openliri/infra/utils/cache';
 import type { OAuthServerMetadata } from '../types/OAuthDiscoveryTypes';

@@ -4,7 +4,7 @@
  * 参考CC源码的记忆年龄管理思路实现
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('memory:utils:memoryForgetter');
 
 /**

@@ -8,7 +8,7 @@ import { loadSharp } from '@openliri/infra/utils/externalDeps';
 // C1（2026-10-09）：canvas id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { resolveOutputDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:canvas');
 
 /** 惰性加载 sharp（编译产物中 external，不能顶层 import） */

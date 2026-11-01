@@ -10,7 +10,7 @@ import { CronAlertService } from './CronAlertService';
 import { runInCronOwnerScope } from './cronOwnership';
 import type { CronJob, CronJobResult } from './types';
 import type { SchedulerCallbacks } from './CronScheduler';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('GlobalCronScheduler');
 

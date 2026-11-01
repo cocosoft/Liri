@@ -11,7 +11,7 @@ import { SSEParser } from './SSEParser';
 import type { StreamChunk, StreamEvent } from './types';
 import { ApiError, ApiConnectionError } from '../services/api';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('streaming:apiStream');
 
 export class ApiStream {

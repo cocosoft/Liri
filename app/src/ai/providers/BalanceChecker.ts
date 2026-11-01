@@ -29,7 +29,7 @@
  * - OpenRouter: GET /api/v1/credits
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   loadBalanceWarnState,
   saveBalanceWarnState,

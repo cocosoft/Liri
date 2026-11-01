@@ -11,7 +11,7 @@ import type { DreamEvent } from '@openliri/infra/chronos';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname } from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('buddy:dreamLog');
 
 export interface DreamLogEntry {

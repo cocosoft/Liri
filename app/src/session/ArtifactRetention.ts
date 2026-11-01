@@ -33,7 +33,7 @@
 
 import { readdir, stat, rm, rmdir } from 'fs/promises';
 import { join } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { MS_PER_DAY } from '@openliri/infra/constants';
 import {
   resolveDataSubDir,

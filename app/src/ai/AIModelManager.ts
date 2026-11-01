@@ -22,7 +22,7 @@ import { modelManager } from './models/ModelManager.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { MODEL_ALIASES, type ModelAlias } from './models/ModelAliases';
 const logger = getLogger('ai\AIModelManager');
 

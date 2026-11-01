@@ -8,7 +8,7 @@ import { join, relative, basename, dirname } from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
 import { parseTags } from '@modules/knowledge/frontmatter';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 const logger = getLogger('docs:FileDocsProvider');
 

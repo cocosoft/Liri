@@ -17,7 +17,7 @@ import { ResumeManager } from '../../src/query/ResumeManager.js';
 import { MemoryCheckpointStorage } from '../../src/query/taor/MemoryCheckpointStorage.js';
 import { TAORPhase } from '../../src/query/types.js';
 import type { TAORCheckpoint } from '../../src/query/types.js';
-import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
+import { addLogHandler } from '@openliri/infra/monitoring/logs/Logger';
 import { TokenBudgetStatus } from '../../src/tokenBudget/TokenBudgetController.js';
 import type { TokenBudgetState } from '../../src/tokenBudget/TokenBudgetController.js';
 

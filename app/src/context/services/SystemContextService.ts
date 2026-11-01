@@ -6,7 +6,7 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { TTLCache } from '@openliri/infra/utils/cache';
 import { configManager } from '@openliri/infra/config';

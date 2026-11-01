@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { ReActToolLoop } from '../../src/chat/ReActToolLoop.js';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import type { ChatResponse } from '@modules/ai';
-import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
+import { addLogHandler } from '@openliri/infra/monitoring/logs/Logger';
 import {
   getDailyBudget,
   resetDailyBudgetForTest,

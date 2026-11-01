@@ -30,7 +30,7 @@
  *     model_registry 中"归属本 provider 但本地已不存在"的模型，保证 DB 只有真实可用的模型。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { DEFAULT_OLLAMA_ENDPOINT } from '@openliri/kernel';
 

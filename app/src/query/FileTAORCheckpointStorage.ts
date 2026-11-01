@@ -10,7 +10,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveDataDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { isCheckpointLogEnabled } from '@openliri/infra/config';
 import { randomUUID } from 'crypto';
 

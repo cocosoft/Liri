@@ -7,7 +7,7 @@ import type { SessionMessage } from '@modules/session';
 import type { CompactionResult } from './types';
 import type { CompactServiceImpl } from './CompactService';
 import { roughTokenCountEstimationForMessages } from './utils';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:compact:reactive');
 
 /**

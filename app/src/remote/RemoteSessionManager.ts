@@ -3,7 +3,7 @@
  * 负责管理远程会话的连接、消息发送和接收
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('remote:RemoteSessionManager');
 import { SSHConnection, SSHConfig } from './SSHConnection.js';
 import {

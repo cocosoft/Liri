@@ -4,7 +4,7 @@
  * 实现 VoiceProviderAdapter 接口，对接 OpenAI Realtime API
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import type {
   VoiceSessionConfigEvent,

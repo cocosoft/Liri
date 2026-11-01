@@ -40,7 +40,7 @@ import type {
   ImageGenerationParams,
   ImageGenerationResult,
 } from './AIProvider';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { OPENAI_API_V1_BASE_URL } from '@openliri/kernel';
 

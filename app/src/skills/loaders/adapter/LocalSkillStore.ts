@@ -29,7 +29,7 @@
 import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolveVendorSkillsDir } from '@openliri/infra/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { InstalledThirdPartySkill, LocalSkillSearchResult } from './types';
 

@@ -13,7 +13,7 @@ import type {
   GovernanceExecutionResult,
   GovernanceEventType,
 } from '../types/GovernanceTypes';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveGovernanceDir } from '@openliri/infra/environment';
 // C1（2026-10-09）：audit id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';

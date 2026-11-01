@@ -22,7 +22,7 @@
 import type { ChatSession } from '@modules/session/types/session';
 import type { Message } from '@modules/session/types/message';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { isFileWriteToolName } from '@openliri/infra/utils/toolContract/toolRoles';
 const logger = getLogger('session:hydration:SessionStateHydrator');
 

@@ -31,7 +31,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolUseContext, ToolResult, ToolParam } from '../types';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveTempDir } from '@openliri/infra/environment';
 import { DEFAULT_CDP_ENDPOINT } from '@openliri/kernel';
 import * as path from 'path';

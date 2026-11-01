@@ -30,7 +30,7 @@
  * 对齐 spec §3-D4），而非 A2A 的裸 env 读取。
  */
 import { feature } from '@openliri/kernel';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   ToolSidecarSupervisor,
   type ToolSidecarDeps,

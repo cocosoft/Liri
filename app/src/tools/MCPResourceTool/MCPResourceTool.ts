@@ -15,7 +15,7 @@ import type {
   ToolValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   AppError,
   ErrorCategory,

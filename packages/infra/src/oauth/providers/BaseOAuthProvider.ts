@@ -18,7 +18,7 @@ import type { OAuthProviderConfig } from '../types/OAuthProvider';
 import { OAuthClient } from '../services/OAuthClient';
 import { AuthorizationCodeFlow } from '../flows/AuthorizationCodeFlow';
 import { OAuthError } from '../types/OAuthTypes';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('oauth:providers:base');
 
 export abstract class BaseOAuthProvider implements OAuthProvider {

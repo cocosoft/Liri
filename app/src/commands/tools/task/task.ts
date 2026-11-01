@@ -9,7 +9,7 @@ import { TaskStatus } from '@modules/tasks/types.js';
 import { BaseTask } from '@modules/tasks';
 import { NoteTask } from '@modules/tasks';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:tools:task:task');
 
 const TASK_VALID_STATUSES = [

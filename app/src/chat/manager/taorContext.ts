@@ -15,7 +15,7 @@
  */
 
 import { messageProjector } from '@modules/context';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { ChatMessage, ParsedToolCall, ToolDefinition } from '@modules/ai';
 import type { ChatManagerTAORContext } from '@modules/query';
 import type { LiriEvent } from '@modules/session/types/events';

@@ -1,5 +1,5 @@
 import { PerformanceOptimizer } from './PerformanceOptimizer.js';
-import { getProcessCpuPercent } from '@modules/monitoring';
+import { getProcessCpuPercent } from '@openliri/infra/monitoring';
 
 export interface EnhancedPerformanceMetrics {
   timestamp: Date;

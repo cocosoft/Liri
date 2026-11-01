@@ -24,7 +24,7 @@ import { deriveOAuthConfig } from '@modules/services/mcp/auth/deriveOAuthConfig.
 import type { MCPServerConfig } from '@modules/services/mcp/types';
 import type { MCPOAuthConfig } from '@modules/services/mcp/auth/types.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:McpAuthTool:McpAuthTool');
 
 /** 服务器管理器的最小依赖面（测试可注入替身） */

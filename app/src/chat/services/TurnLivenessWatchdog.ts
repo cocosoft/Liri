@@ -36,7 +36,7 @@
  *   TURN_LIVENESS_POLL_MS     采样间隔（默认 15000，最小 1000）
  *   STREAM_HEARTBEAT_MS       静默心跳间隔（默认 45000，见 resolveStreamHeartbeatMs，T-⑥11）
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('chat:TurnLivenessWatchdog');
 
 export const DEFAULT_LIVENESS_TIMEOUT_MS = 600_000;

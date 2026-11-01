@@ -44,7 +44,7 @@ import type {
   VideoGenerationParams,
   VideoGenerationResult,
 } from './AIProvider';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { DEFAULT_COMFYUI_ENDPOINT } from '@openliri/kernel';
 import { handleError } from '@openliri/infra/error';

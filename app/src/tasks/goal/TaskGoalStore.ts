@@ -35,7 +35,7 @@ import {
   principalKeyOf,
 } from '@openliri/kernel/identity/requestScope.js';
 import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // 2026-10-01 B11 前置 P1（D-223）：`TaskGoalStatus` / `TaskGoalUpdateReason` 词表已下沉
 // **类型中心** `@modules/types/goal`（core —— 二者均为纯字面量联合、零出向依赖）⇒ 解除
 // `session/types/eventPayloads.ts` 经 `@modules/tasks` 取用时对 B11 的传递阻断。

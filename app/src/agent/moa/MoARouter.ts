@@ -4,7 +4,7 @@
  */
 import { buildAggregatorPrompt } from './AggregatorPrompt';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('agent:moa:MoARouter');
 
 export interface MoARequest {

@@ -15,7 +15,7 @@ export type { ModelConfig, ModelKey, APIProvider };
 export { API_PROVIDER_KEYS };
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('ai:models:configs');
 

@@ -50,7 +50,7 @@
 
 import type { AIProvider } from '../providers/AIProvider.js';
 import type { RouterTier, JudgeResult } from './types.js';
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/infra/monitoring/logs/Logger';
 import { handleError } from '@openliri/infra/error/handleError';
 import { ValidationError, ErrorSeverity } from '@openliri/infra/error';
 import { trackUsage } from '../UsageTracker.js';

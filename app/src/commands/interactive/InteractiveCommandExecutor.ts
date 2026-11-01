@@ -7,7 +7,7 @@
 import readline from 'readline';
 import { getCommandManager } from '@modules/commands';
 import { getEnhancedCommandHistory } from '@modules/commands';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('InteractiveCommandExecutor');
 

@@ -17,7 +17,7 @@
  */
 import { existsSync, mkdirSync } from 'fs';
 import { isAbsolute } from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import {
   isCompiledRuntime,
   isPathWithin,

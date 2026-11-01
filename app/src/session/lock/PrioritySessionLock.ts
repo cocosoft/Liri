@@ -13,7 +13,7 @@
  * - 优雅退出时释放所有锁
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 // C1（2026-10-09）：实例 id 熵源改用 crypto
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { SessionLock } from '../SessionLock';

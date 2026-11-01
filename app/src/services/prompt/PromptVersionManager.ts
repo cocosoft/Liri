@@ -34,7 +34,7 @@ import {
   SECTION_NAMES,
   getSectionCacheLocale,
 } from '@openliri/infra/constants';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('prompt:version-manager');
 

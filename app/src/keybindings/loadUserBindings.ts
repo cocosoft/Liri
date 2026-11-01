@@ -14,7 +14,7 @@ import type {
 import { validateKeybindings } from './schema.js';
 import { parseChord, formatChord } from './parser.js';
 import type { KeybindingContextName } from './types.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('keybindings:loadUserBindings');
 
 /**

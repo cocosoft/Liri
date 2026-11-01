@@ -9,7 +9,7 @@ import { OAuthService } from '@openliri/infra/oauth';
 import { executePostLogin } from '@openliri/infra/system/auth/post-login';
 import { configManager } from '@openliri/infra/config';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('commands:login:login');
 
 /**

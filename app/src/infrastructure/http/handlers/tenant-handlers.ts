@@ -13,7 +13,7 @@
 
 import type http from 'http';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { getRequestPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import {
   purgeTenant,

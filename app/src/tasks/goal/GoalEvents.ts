@@ -25,7 +25,7 @@
  * 事件落盘失败只 warn，**不回灌业务**（CS03：目标状态迁移与指令注入不得因观测面失败而中断）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import type { LiriEvent } from '@modules/session/types/events';
 import type { LiriEventMap } from '@modules/session/types/eventPayloads';
 // B3-2（2026-09-23）：注入片段**统一类型** —— 通道前缀由类型给出（调用方不再手写 `[SYSTEM] `）

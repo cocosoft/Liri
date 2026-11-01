@@ -45,7 +45,7 @@ import {
   ErrorCodes,
   type ErrorCodeDef,
 } from '@openliri/infra/error/ErrorCodes';
-import { LogLevel } from '../../src/monitoring/logs/Logger';
+import { LogLevel } from '@openliri/infra/monitoring/logs/Logger';
 
 describe('错误级别口径（附带发现 12）', () => {
   it('severity → 日志级别映射（CRITICAL/HIGH→error，MEDIUM/LOW→warn）', () => {

@@ -7,7 +7,7 @@ import type { Tip, TipContext } from './types';
 
 import { handleError } from '@openliri/infra/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('services:tips:tipRegistry');
 
 const externalTips: Tip[] = [

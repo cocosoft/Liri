@@ -29,7 +29,7 @@
 
 import { ProviderRegistry } from '@modules/ai';
 import type { RouterConfig, RouterTier, RouteDecision } from './types.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('ai:tier');
 
 export class TierResolver {

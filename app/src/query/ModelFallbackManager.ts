@@ -28,7 +28,7 @@
  */
 
 /** 故障转移配置 */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { resolveContextWindowAsync } from '@modules/context';
 const logger = getLogger('query:ModelFallbackManager');
 

@@ -31,7 +31,7 @@
  * 不再依赖 registerDefaultProviders。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import type { ProviderType } from '@modules/ai';
 import {

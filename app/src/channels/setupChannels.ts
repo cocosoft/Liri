@@ -3,7 +3,7 @@
  * 将 channels/ 各平台实现自动注册到 ChannelRegistry
  * 优化：先检查环境变量配置，仅导入已启用的通道模块
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 import { channelBootstrapper } from './bootstrap/ChannelBootstrapper';
 import type { ChannelBootstrapConfig } from './bootstrap/ChannelBootstrapper';
 import { channelRegistry } from './registry/ChannelRegistry';

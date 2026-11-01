@@ -14,7 +14,7 @@ import type http from 'http';
 import { currentOwnerKey } from '@openliri/kernel/identity/requestScope';
 import { registerProjectionOutboundSink } from '@openliri/infra/state/engine/projectionOutbound';
 import type { StateProjectionBroadcast } from '@openliri/infra/state/engine/projectionBroker';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('infrastructure:http:gatewayOutbound');
 

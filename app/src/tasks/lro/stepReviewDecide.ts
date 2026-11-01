@@ -19,7 +19,7 @@
 import { SpanStatusCode } from '@opentelemetry/api';
 
 import { handleError } from '@openliri/infra/error';
-import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { throwIfAborted } from '@modules/agent';
 
 import { emitPdcaLiveEvent } from '../PdcaLiveEvents';

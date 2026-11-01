@@ -16969,6 +16969,45 @@
       "changelog": [],
       "reopenWhen": "① 若 `security` / `config` / `monitoring` 也迁包 ⇒ permission 的边改写成 `@openliri/infra/*`（R7 边不变）；② 新增「源码落点」类台账（invariant-registry 式）⇒ 迁包时必须同步改名，否则 `lint:invariants`…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P24-PERMISSION）",
       "notes": "迁包：permission 共 59 文件（8 子域 + 根 28 文件，根有 barrel）git mv 至 packages/infra/src/permission；出边全为 infra（monitoring 25 · error 18 · config 6 · security 3）。**内联测试迁出**：`…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P24-PERMISSION）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P25-SECURITY",
+      "title": "P25：security 迁入 packages/infra（100 文件；原生 Bash 桥改注入端口）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.23",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/security/index.ts",
+        "packages/infra/src/security/bash/BashAST.ts",
+        "packages/infra/src/security/BashSecurityAnalyzer.ts",
+        "packages/infra/src/security/permissionRuleSource.ts",
+        "app/src/bootstrap/preflight.ts",
+        "app/src/chat/orchestrator/streamMessageFlow.ts",
+        "app/tsconfig.json",
+        "packages/infra/tsconfig.json",
+        "packages/infra/package.json",
+        ".trae/architecture/invariant-registry.json"
+      ],
+      "tests": [
+        "app/tests/security/bashAstHardening.test.ts",
+        "app/tests/security/crossLayerSecurityConsistency.test.ts",
+        "app/tests/security/invisibleUnicode.test.ts",
+        "app/tests/security/securityPermissionViewLazySync.test.ts",
+        "app/tests/tools/bashGateBlockLogging.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `config` / `monitoring` 也迁包 ⇒ security 的出边改写成 `@openliri/infra/*`（R7 边不变）；② 新增「原生能力」消费 ⇒ 一律走注入端口（`setNativeBashParserLoader` 式）+ `preflight.wireSecurityDep…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P25-SECURITY）",
+      "notes": "迁包：security 共 100 文件（17 子域 + 根 22 文件，根有 barrel）git mv 至 packages/infra/src/security；出边全为 infra（monitoring 32 · error 22 · config 9）。**原生依赖反转（本轮核心）**：`bash/Bash…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P25-SECURITY）"
     }
   ]
 }

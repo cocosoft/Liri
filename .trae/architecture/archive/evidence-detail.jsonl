@@ -8062,3 +8062,31 @@
 {"id":"INFRA-PACKAGE-P24-PERMISSION","k":"tests#2","i":0,"c":"app/tests/permission/PermissionCheckerInbox.test.ts"}
 {"id":"INFRA-PACKAGE-P24-PERMISSION","k":"tests#3","i":0,"c":"app/tests/gates/approvalFourStageGate.test.ts"}
 {"id":"INFRA-PACKAGE-P24-PERMISSION","k":"tests#4","i":0,"c":"app/tests/security/securityPermissionViewLazySync.test.ts"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"title","i":0,"c":"P25：security 迁入 packages/infra（100 文件；原生 Bash 桥改注入端口）"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.23"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"reopenWhen","i":0,"c":"① 若 `config` / `monitoring` 也迁包 ⇒ security 的出边改写成 `@openliri/infra/*`（R7 边不变）；② 新增「原生能力」消费 ⇒ 一律走注入端口（`setNativeBashParserLoader` 式）+ `preflight.wireSecurityDeps()` 接线，**禁止**包内 `"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"reopenWhen","i":1,"c":"require` app 的 native 绑定；③ security 属 CD07 关键域：改动原生桥/审批链路时须走 CD01–CD06，并在证据里给出\"运行时可证\"的观察；④ 若 app/src/main.ts 再逼近 2000 行 ⇒ 新增启动接线一律下沉到 `preflight`，不要加调用点。"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"notes","i":0,"c":"迁包：security 共 100 文件（17 子域 + 根 22 文件，根有 barrel）git mv 至 packages/infra/src/security；出边全为 infra（monitoring 32 · error 22 · config 9）。**原生依赖反转（本轮核心）**：`bash/BashAST.ts` 与 `"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"notes","i":1,"c":"BashSecurityAnalyzer.ts` 原先各自 `require(\"../../native\")`（app 根原生绑定）；进包后该相对路径落到不存在的 `packages/infra/native`，逃逸进 app 又违反 R6 ⇒ 按 P6 `wireUtilsDeps` 同口径改为**注入端口**：`"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"notes","i":2,"c":"setNativeBashParserLoader` / `setNativeBashAnalyzerLoader`，由 `preflight.wireSecurityDeps()` 注入 app 原生绑定（并入既有接线，**main.ts 未新增调用点、行数仍 1999**）。未注入 ⇒ 两桥如实降级（`nativeLoadFailed=true` / `"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"notes","i":3,"c":"degraded=true` + reason），探针实测：未注入 `tsFallbackCount=1`；注入后 `nativeLoaded=true, nativeCallCount=1, degraded=false`。引用改写：85 文件（61 `@modules/security` + 11 `/outputGuardRegistry` + 9 `"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"notes","i":4,"c":"/identity`、app 侧相对 5 处、去 `.js`）；`tests/security/invisibleUnicode.test.ts` 的**目录导入** `../../src/security` 改桶别名。包内自洽：6 处 `@modules/security` 改 `@openliri/infra/security`（"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"notes","i":5,"c":"chronos/permission/environment 等跨模块引用）；2 处 `../../monitoring/logs/Logger` 逃逸改别名。第三方依赖：`uuid`（types 自带）两侧补 paths。**行数棘轮**：`app/src/chat/orchestrator/streamMessageFlow.ts` 因别名变长 +3 行"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"notes","i":6,"c":"（1929 → 1932）⇒ 拆成两条单行 import + 合并两处 monitoring import 抵消，保持 1929 不增长。联动：hardcode 2 · logger-name 12 · state-literal 29 · invariant-registry 1（INV-SEC-002 等源码落点）· 证据 code[] 20 处路径键改"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"notes","i":7,"c":"名。运行期自证：桶 109 导出 · `/BashSecurityAnalyzer` 4 · `/identity` 6 · `/outputGuardRegistry` 5。负向自证：包内 `import \"@modules/chat\"` ⇒ **R2 + R6 双报**点名 `security/__neg_probe.ts`；monitoring 临时 "}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"notes","i":8,"c":"import 桶 ⇒ R7 报 4 成员环（均回滚，SCC 0）。"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"code#0","i":0,"c":"packages/infra/src/security/index.ts"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"code#1","i":0,"c":"packages/infra/src/security/bash/BashAST.ts"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"code#2","i":0,"c":"packages/infra/src/security/BashSecurityAnalyzer.ts"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"code#3","i":0,"c":"packages/infra/src/security/permissionRuleSource.ts"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"code#4","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"code#5","i":0,"c":"app/src/chat/orchestrator/streamMessageFlow.ts"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"code#6","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"code#7","i":0,"c":"packages/infra/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"code#8","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"code#9","i":0,"c":".trae/architecture/invariant-registry.json"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"tests#0","i":0,"c":"app/tests/security/bashAstHardening.test.ts"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"tests#1","i":0,"c":"app/tests/security/crossLayerSecurityConsistency.test.ts"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"tests#2","i":0,"c":"app/tests/security/invisibleUnicode.test.ts"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"tests#3","i":0,"c":"app/tests/security/securityPermissionViewLazySync.test.ts"}
+{"id":"INFRA-PACKAGE-P25-SECURITY","k":"tests#4","i":0,"c":"app/tests/tools/bashGateBlockLogging.test.ts"}

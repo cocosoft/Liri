@@ -7766,3 +7766,18 @@
 {"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#9","i":0,"c":"packages/infra/package.json"}
 {"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#10","i":0,"c":".trae/architecture/state-literal-baseline.json"}
 {"id":"INFRA-PACKAGE-P11-DAEMON","k":"tests#0","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"title","i":0,"c":"P12：cache 迁入 packages/infra（14 文件 / 4 处引用）"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.10"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"reopenWhen","i":0,"c":"① 若 `@modules/performance` 将来反向依赖 cache ⇒ R7 会立即判 `cache ↔ performance` 环（本批已实测该环可捕获）；② 若希望 `CacheModule.test.ts` 真正执行 ⇒ 应迁入 `app/tests/cache/` 并确认其定时器用例稳定，勿只在包内改名。"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"notes","i":0,"c":"迁包：git mv 14 文件（含 monitor/performance/strategy 子目录）+ 4 处引用改 @openliri/infra/cache（1 处相对 `../cache`、3 处 `@modules/cache/types`）。**包内相对出边**：CacheSystem 的 `"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"notes","i":1,"c":"../performance/SlowOperations.js` 迁后成逃逸 ⇒ 改 `@modules/performance` 门面（`performance/SlowOperations` 非 canonical 子路径，直连会被 R00-001 判违规）。**类型环境**：`CacheModuleTest.ts` 实为 bun:test 文件却放在"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"notes","i":2,"c":"生产目录 ⇒ 包内 tsc 报 `bun:test` 无 `it`；按内容改名为 `CacheModule.test.ts`（包 tsconfig 的 `**/*.test.ts` 排除命中，零代码改动）。同步 state-literal 2 条路径键、2 条证据 code[]。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名 "}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"notes","i":3,"c":"cache/types.ts；在 `app/src/performance/index.ts` 临时加 `import \"@openliri/infra/cache\"` ⇒ R7 报「cache / performance 新进入环（2 成员）」（均已回滚）。"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"code#0","i":0,"c":"packages/infra/src/cache/index.ts"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"code#1","i":0,"c":"packages/infra/src/cache/CacheSystem.ts"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"code#2","i":0,"c":"packages/infra/src/cache/types.ts"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"code#3","i":0,"c":"packages/infra/src/cache/strategy/CacheStrategyManager.ts"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"code#4","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"code#5","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"code#6","i":0,"c":".trae/architecture/state-literal-baseline.json"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"tests#0","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}

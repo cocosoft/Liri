@@ -7904,3 +7904,27 @@
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"tests#0","i":0,"c":"app/tests/analytics/analyticsIdentityBuckets.test.ts"}
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"tests#1","i":0,"c":"app/tests/analytics/analyticsForgetTenant.test.ts"}
 {"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"tests#2","i":0,"c":"app/tests/query/phase3.test.ts"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"title","i":0,"c":"P19：cost 迁入 packages/infra（20 文件 + React hook 归位 app）"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.17"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"reopenWhen","i":0,"c":"① 若宿主（app）以后把 react 装进 repo 根 `node_modules` ⇒ 可重新评估把 React hook 放回包内（当前**不建议**：infra 不应依赖 UI 框架）；② 若 `analytics` 反向依赖 `cost` ⇒ `cost → analytics` 立即成环（R7 会报）。"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"notes","i":0,"c":"迁包：cost 共 21 文件 —— **20 个数据面文件** git mv 至 packages/infra/src/cost；`useCostSummary.ts`（React hook）**归位 app 层** `app/src/hooks/`。**为什么拆**：hook 静态 `import react`，迁入后 `"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"notes","i":1,"c":"packages/infra/src` 上溯不到 `app/node_modules`（typecheck TS2307 + 运行期解析失败）；给 infra 配 react paths 等于让 infra 依赖 UI 框架 ⇒ 选择按层归位，并从 cost 桶摘除该再导出。引用改写：49 处 `@modules/cost`、31 处相对路径（含目录导入与 "}
+{"id":"INFRA-PACKAGE-P19-COST","k":"notes","i":2,"c":"`index.js`）、6 处包内逃逸改规范别名（`monitoring/logs` ×4、`OTelAwareLogger`、`error/handleError`）、4 处 analytics 别名改包内相对。**门禁用例修正**：两个\"读源码文本\"的守卫用例按新物理位置取值 —— `costRepositoryOwnerScope`（`new URL("}
+{"id":"INFRA-PACKAGE-P19-COST","k":"notes","i":3,"c":"...)` 路径）、`fallbackPricingSingleSource`（新增 `readInfra()` 读 `packages/infra/src/cost/ModelPricing.ts`）。**快照类门禁**：`lint:kernel-api` 的 `reexportFacades` 存 `文件 -> 内核说明符` 字面串 ⇒ 迁包后 3 条 "}
+{"id":"INFRA-PACKAGE-P19-COST","k":"notes","i":4,"c":"cost 转出面按新路径重写（`--write`，实测 diff 仅 3 行路径、符号数 709 不变）。包内出边：error（10）· monitoring（14：桶 9 + logs 5）· kernel（17）· utils（5）· environment（1）· external（1）· analytics（4，包内相对）；R7 SCC 仍 0。运行"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"notes","i":5,"c":"期自证：import(@openliri/infra/cost) 94 导出、require(@openliri/infra/cost/CostRecordRepository) 正常。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名；monitoring 临时 import 本包 ⇒ R7 报环（均已回滚）。"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"code#0","i":0,"c":"packages/infra/src/cost/index.ts"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"code#1","i":0,"c":"packages/infra/src/cost/CostTracker.ts"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"code#2","i":0,"c":"packages/infra/src/cost/CostRecordRepository.ts"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"code#3","i":0,"c":"packages/infra/src/cost/ModelPricing.ts"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"code#4","i":0,"c":"app/src/hooks/useCostSummary.ts"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"code#5","i":0,"c":"app/src/hooks/index.ts"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"code#6","i":0,"c":"app/tests/cost/fallbackPricingSingleSource.test.ts"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"code#7","i":0,"c":"app/tests/cost/costRepositoryOwnerScope.test.ts"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"code#8","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"code#9","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"code#10","i":0,"c":".trae/architecture/kernel-api-surface.json"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"tests#0","i":0,"c":"app/tests/cost/calculate.test.ts"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"tests#1","i":0,"c":"app/tests/cost/costRepositoryOwnerScope.test.ts"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"tests#2","i":0,"c":"app/tests/cost/fallbackPricingSingleSource.test.ts"}
+{"id":"INFRA-PACKAGE-P19-COST","k":"tests#3","i":0,"c":"app/tests/integration/cost-metrics.test.ts"}

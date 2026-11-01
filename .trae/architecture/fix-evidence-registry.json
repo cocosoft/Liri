@@ -16730,6 +16730,45 @@
       "changelog": [],
       "reopenWhen": "① 若 `cost` 反向被 `analytics` 依赖 ⇒ 现为 `cost → analytics` 单向，反向即进环（R7 会报）；② 若把 `monitoring/metrics/SystemMetricsCollector` 提升为监控桶可用的规范子入口 ⇒ 可去掉 analytics 的两处子路径动态导…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P18-ANALYTICS）",
       "notes": "迁包：24 文件 git mv（含 `AnalyticsService.d.ts`）。引用改写 43 处：24 处 `@modules/analytics`、15 处相对路径（cost/query/commands/runtime/bootstrap/tests，含目录导入 `../analytics`）、4 处**…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P18-ANALYTICS）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P19-COST",
+      "title": "P19：cost 迁入 packages/infra（20 文件 + React hook 归位 app）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.17",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/cost/index.ts",
+        "packages/infra/src/cost/CostTracker.ts",
+        "packages/infra/src/cost/CostRecordRepository.ts",
+        "packages/infra/src/cost/ModelPricing.ts",
+        "app/src/hooks/useCostSummary.ts",
+        "app/src/hooks/index.ts",
+        "app/tests/cost/fallbackPricingSingleSource.test.ts",
+        "app/tests/cost/costRepositoryOwnerScope.test.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json",
+        ".trae/architecture/kernel-api-surface.json"
+      ],
+      "tests": [
+        "app/tests/cost/calculate.test.ts",
+        "app/tests/cost/costRepositoryOwnerScope.test.ts",
+        "app/tests/cost/fallbackPricingSingleSource.test.ts",
+        "app/tests/integration/cost-metrics.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若宿主（app）以后把 react 装进 repo 根 `node_modules` ⇒ 可重新评估把 React hook 放回包内（当前**不建议**：infra 不应依赖 UI 框架）；② 若 `analytics` 反向依赖 `cost` ⇒ `cost → analytics` 立即成环（R7 会报）。（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P19-COST）",
+      "notes": "迁包：cost 共 21 文件 —— **20 个数据面文件** git mv 至 packages/infra/src/cost；`useCostSummary.ts`（React hook）**归位 app 层** `app/src/hooks/`。**为什么拆**：hook 静态 `import react`，…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P19-COST）"
     }
   ]
 }

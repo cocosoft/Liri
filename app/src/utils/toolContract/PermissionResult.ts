@@ -4,9 +4,14 @@
  */
 
 /**
- * 权限行为类型
+ * 工具结果侧的权限行为（**与 `permission` 的 `PermissionBehavior` 枚举不同**：这里没有
+ * `passthrough`，是工具返回值的最小判别集合）
+ *
+ * 2026-11-01（B7）：`PermissionBehavior` 这个名字已随枚举下沉到 `common`（security 需要按
+ * `DENY` 判等），而 R4「common / utils 不允许同名导出」要求两处不同概念消歧 ⇒
+ * 按仓内既有惯例（`Option→CommandOption`、`ValidationResult→ToolValidationResult`）改名。
  */
-export type PermissionBehavior = 'allow' | 'deny' | 'ask';
+export type ToolPermissionBehavior = 'allow' | 'deny' | 'ask';
 
 /**
  * 权限结果类型
@@ -15,7 +20,7 @@ export interface PermissionResult {
   /**
    * 权限行为
    */
-  behavior: PermissionBehavior;
+  behavior: ToolPermissionBehavior;
 
   /**
    * 更新后的输入（可选）

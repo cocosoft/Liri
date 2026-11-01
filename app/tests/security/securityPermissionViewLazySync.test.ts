@@ -6,10 +6,13 @@
  * 把 `chronos` 移出启动图后实测触发 `ReferenceError: Cannot access 'RuleManager' before initialization`，
  * 异常被 catch 吞掉 ⇒ deny 规则**静默未同步**、退回默认放行（安全姿态被悄悄削弱）。
  *
- * 本测试钉住改后的语义：
- *  ① **构造期不读**主模块（消除顺序依赖）；
+ * 2026-11-01（B7）：规则来源已改为**注入端口**（`security/permissionRuleSource`，
+ * 生产由 `bootstrap/preflight.wireSecurityDeps` 注入）⇒ 静态依赖消失、环消失。
+ * 本测试钉住的语义不变，只是把"注入"这一步显式做出来：
+ *  ① **构造期不读**主模块；
  *  ② **判定前一定已同步**（deny 规则生效 ⇒ 判定返回 false）；
- *  ③ **幂等**（多次判定只同步一次）。
+ *  ③ **幂等**（多次判定只同步一次）；
+ *  ④ **未注入 ⇒ 端口返回 null**（调用方据此告警，不静默放行）。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 
@@ -17,6 +20,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 // 会绕过 barrel 的求值顺序，触发 `SecurityIntegration → SecurityPermissionView` 的既存循环
 // （`SecurityIntegration.ts:39` 在模块顶层构造单例）—— 那是**另一个**既存问题，不在本测试范围。
 import { SecurityPermissionView } from '@modules/security';
+import {
+  readMainPermissionRules,
+  setMainPermissionRuleSource,
+} from '../../src/security/permissionRuleSource';
 import { RuleManager } from '../../src/permission/RuleManager';
 import {
   PermissionBehavior,
@@ -43,6 +50,7 @@ type LoadRulesFn = () => PermissionRule[];
 const proto = RuleManager.prototype as unknown as { loadRules: LoadRulesFn };
 let original: LoadRulesFn;
 let calls = 0;
+let disposeSource: () => void;
 
 beforeEach(() => {
   original = proto.loadRules;
@@ -51,10 +59,15 @@ beforeEach(() => {
     calls++;
     return [denyRule('bash')];
   };
+  // 与生产同一接线方式（B7）：端口注入 ⇒ 首次判定时才 new RuleManager()
+  disposeSource = setMainPermissionRuleSource(() =>
+    new RuleManager().loadRules()
+  );
 });
 
 afterEach(() => {
   proto.loadRules = original;
+  disposeSource();
 });
 
 describe('SecurityPermissionView · 惰性同步主模块规则', () => {
@@ -87,5 +100,11 @@ describe('SecurityPermissionView · 惰性同步主模块规则', () => {
     expect(view.getRule('deny:bash')?.allowed).toBe(false);
     expect(view.exportRules().length).toBe(1);
     expect(calls).toBe(1);
+  });
+
+  it('未注入规则源 ⇒ 端口返回 null（调用方据此告警，不静默放行）', () => {
+    disposeSource(); // 模拟 bootstrap 未执行
+    expect(readMainPermissionRules()).toBeNull();
+    expect(calls).toBe(0);
   });
 });

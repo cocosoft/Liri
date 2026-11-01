@@ -26,36 +26,15 @@
  * - type PermissionMode           → 字符串联合类型（用于类型注解）
  * - PermissionMode.DEFAULT        → 枚举式值访问（用于 switch 等场景）
  * - PERMISSION_MODES              → 可迭代数组（用于验证/循环）
+ *
+ * 2026-11-01（B7 解环）：值域（`PERMISSION_MODES` / `PermissionMode` 类型与 const 对象）
+ * 已下沉叶子模块 `common/permissionMode`（security 侧也要用），此处**同名转出**；
+ * 中文名 / 符号映射与描述函数仍归本模块（属展示层，security 不需要）。
  */
 
-/** 权限模式 ALL 值数组（用于迭代和验证） */
-export const PERMISSION_MODES = [
-  'default',
-  'acceptEdits',
-  'plan',
-  'bypass',
-  'dontAsk',
-  'auto',
-  'ask',
-  'alwaysAsk',
-  'strict',
-] as const;
+import { PERMISSION_MODES, PermissionMode } from '@modules/common';
 
-/** 权限模式字符串联合类型 */
-export type PermissionMode = (typeof PERMISSION_MODES)[number];
-
-/** 权限模式 const 对象（枚举式访问） */
-export const PermissionMode = {
-  DEFAULT: 'default',
-  ACCEPT_EDITS: 'acceptEdits',
-  PLAN: 'plan',
-  BYPASS: 'bypass',
-  DONT_ASK: 'dontAsk',
-  AUTO: 'auto',
-  ASK: 'ask',
-  ALWAYS_ASK: 'alwaysAsk',
-  STRICT: 'strict',
-} as const satisfies Record<string, PermissionMode>;
+export { PERMISSION_MODES, PermissionMode };
 
 /** 权限模式中文名称映射 */
 export const PERMISSION_MODE_NAMES: Record<PermissionMode, string> = {

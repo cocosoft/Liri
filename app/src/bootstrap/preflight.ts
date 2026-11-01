@@ -48,6 +48,8 @@ import {
   setFrozenSnapshotUnfreezer,
 } from '@modules/constants';
 import { setDaemonMetricsSink } from '../daemon/metricsSink.js';
+import { setMainPermissionRuleSource } from '../security/permissionRuleSource.js';
+import { RuleManager } from '@modules/permission';
 
 const logger = getLogger('main');
 
@@ -145,6 +147,17 @@ export function wireDaemonDeps(): void {
   setDaemonMetricsSink((name, value) => {
     getMonitoringService().addMetric(name, value);
   });
+}
+
+/**
+ * B7 解环（2026-11-01）：把 `security` 的「主权限规则来源」接到 `permission`。
+ *
+ * `security/PermissionManager.ts` 曾直接 `new RuleManager().loadRules()`，与 `permission → security`
+ * 构成 infra 内最后的两元环。解环后 security 只保留端口（`security/permissionRuleSource`），
+ * 实现在此注入。取规则保持**延迟**（首次判定时才新建 `RuleManager`），与历史"惰性同步"同口径。
+ */
+export function wireSecurityDeps(): void {
+  setMainPermissionRuleSource(() => new RuleManager().loadRules());
 }
 
 /**

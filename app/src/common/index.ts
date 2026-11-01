@@ -25,3 +25,5 @@
 export * from './utils.js';
 export * from './types.js';
 export * from './phaseStack.js';
+export * from './permissionRule.js';
+export * from './permissionMode.js';

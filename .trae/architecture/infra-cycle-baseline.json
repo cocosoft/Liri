@@ -1,7 +1,4 @@
 {
-  "note": "infra 层内环（SCC>1）成员基线（R7 棘轮，只许缩小）。2026-11-01 当日轨迹：初始文本口径 15 → error 出环 13（AST）→ constants 出环 12 → B3 拆 environment↔security 2 元环后 environment、runtimeHost 出环 10 → B4 utils 出环 9 → B5 日志门面 + 注入端口后 config、cache、daemon 出环 6 → B6 把零依赖的 phaseStack 归位 common、删除零调用的文件级 cron 注册入口（monitoring 唯一的 chronos 动态 import），连带 chronos、diagnostics、memory、monitoring 出环 ⇒ 2（仅 permission ↔ security：双方互引的是运行时服务 RuleManager / 审计日志，属真实耦合）。新增成员进入环 ⇒ CI 红；成员离开环 ⇒ 下调本基线。",
-  "scc": [
-    "permission",
-    "security"
-  ]
+  "note": "infra 层内环（SCC>1）成员基线（R7 棘轮，只许缩小）。2026-11-01 当日轨迹：初始文本口径 15 → error 出环 13（AST）→ constants 出环 12 → B3 拆 environment↔security 2 元环后 environment、runtimeHost 出环 10 → B4 utils 出环 9 → B5 日志门面 + 注入端口后 config、cache、daemon 出环 6 → B6 phaseStack 归位 common + 删零调用 cron 注册后 chronos、diagnostics、memory、monitoring 出环 2 → B7 权限枚举下沉 common + 规则来源改注入后 permission、security 出环 ⇒ **0（infra 层已无环）**。解环手法沉淀：日志/错误走 kernel 门面；env 读取收敛到等价入口；服务类能力（解冻 / 指标 / 规则来源）改 app 启动期注入；纯计算与共享契约归位到叶子模块（common）。今后任何模块进入环 ⇒ CI 红，必须先把环拆掉再合并。",
+  "scc": []
 }

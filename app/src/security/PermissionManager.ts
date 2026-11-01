@@ -5,8 +5,9 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { RuleManager } from '@modules/permission';
-import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
+// B7 解环（2026-11-01）：枚举下沉 common；规则来源改注入（见 ./permissionRuleSource）
+import { PermissionBehavior } from '@modules/common';
+import { readMainPermissionRules } from './permissionRuleSource.js';
 
 const logger = getLogger('PermissionManager');
 
@@ -132,13 +133,12 @@ export class SecurityPermissionView {
     this.defaultAllow = defaultAllow;
     // P0-3：从主权限模块（permission_rules.json）同步 deny 规则，消除"空壳恒放行"。
     //
-    // ⚠️ 2026-10-20（静态导入图瘦身 P2）：**不再在构造期同步**。
-    // `security ↔ permission` 是**循环依赖**，构造期 `new RuleManager()` 的成败取决于
-    // import 求值顺序 —— 把 `chronos` 移出启动图后即实测到
-    // `ReferenceError: Cannot access 'RuleManager' before initialization` ⇒ 规则同步被
-    // catch 吞掉、静默退回默认放行（安全姿态被悄悄削弱，属 CD07 类问题）。
-    // ⇒ 改为**首次判定时惰性同步**（`ensureRulesSynced()`）：语义不变（判定前规则必已就绪）、
-    //    且与 import 顺序无关。见 `dev_docs/20261020/静态导入图瘦身-方案.md` §4.3。
+    // ⚠️ 历史上这里是**构造期**同步，而 `security ↔ permission` 是循环依赖 ⇒ 成败取决于
+    // import 求值顺序（实测过 `Cannot access 'RuleManager' before initialization`，异常被
+    // catch 吞掉 ⇒ 静默退回默认放行）。2026-10-20 先改成**首次判定时惰性同步**；
+    // 2026-11-01（B7）进一步把规则来源改为**注入端口**（`./permissionRuleSource`，
+    // 由 `bootstrap/preflight.wireSecurityDeps` 接 `RuleManager.loadRules`）⇒
+    // `security → permission` 的静态依赖被彻底移除，环消失，且"未接入"会显式告警。
   }
 
   /**
@@ -160,7 +160,14 @@ export class SecurityPermissionView {
    */
   private syncRulesFromMainModule(): boolean {
     try {
-      const mainRules = new RuleManager().loadRules();
+      const mainRules = readMainPermissionRules();
+      if (mainRules === null) {
+        // 未注入 ⇒ 显式披露（幂等：rulesSyncAttempted 保证只告警一次）
+        logger.warn(
+          '主权限模块规则源未接入 ⇒ 保持默认行为（请确认 bootstrap 的 wireSecurityDeps 已执行）'
+        );
+        return false;
+      }
       for (const rule of mainRules) {
         if (rule.behavior === PermissionBehavior.DENY && rule.toolName) {
           this.rules.set(`deny:${rule.toolName}`, {

@@ -132,6 +132,7 @@ import {
   wireErrorModuleDeps,
   wireConstantsDeps,
   wireDaemonDeps,
+  wireSecurityDeps,
 } from './bootstrap/preflight.js';
 export { isValidApiKey } from './bootstrap/preflight.js';
 const logger = getLogger('main');
@@ -1130,6 +1131,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
   wireErrorModuleDeps();
   wireConstantsDeps();
   wireDaemonDeps();
+  wireSecurityDeps();
   if (options.mode !== LaunchMode.HEALTHCHECK) {
     ensureEnvFileExists();
   }

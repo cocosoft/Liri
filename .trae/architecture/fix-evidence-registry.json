@@ -1420,7 +1420,7 @@
       },
       "code": [
         "app/src/memory/MemoryManager.ts",
-        "app/src/performance/MemoryManager.ts"
+        "packages/infra/src/performance/MemoryManager.ts"
       ],
       "tests": [],
       "changelog": [],

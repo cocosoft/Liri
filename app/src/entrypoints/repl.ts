@@ -35,7 +35,7 @@ import { getLogger } from '../monitoring/logs/Logger.js';
 import { historyManager } from '@openliri/infra/utils/history';
 import { commandRegistry } from '../commands/registry/index.js';
 import { getUIEnhancer } from '../ui/UIEnhancer.js';
-import { profileCheckpoint } from '../performance/StartupProfiler.js';
+import { profileCheckpoint } from '@openliri/infra/performance/StartupProfiler';
 import { getStartupChainProfiler } from '../bootstrap/StartupChainProfiler.js';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl.js';
 import { getConfig, configManager } from '../config/index.js';

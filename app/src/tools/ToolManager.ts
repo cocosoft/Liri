@@ -21,7 +21,7 @@ import { guardShieldedToolCall } from './shieldGuard';
 import { ToolFactory } from './ToolFactory';
 import { setAgentToolManager } from './AgentTool/AgentTool';
 import { ToolRegistry, getToolRegistry } from './ToolRegistry';
-import { profileCheckpoint } from '../performance/StartupProfiler.js';
+import { profileCheckpoint } from '@openliri/infra/performance/StartupProfiler';
 import { optimizedExecuteTool } from './utils/OptimizedToolManagerUtils.js';
 import {
   isDeferredTool,

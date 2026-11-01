@@ -6,7 +6,7 @@
 import type {
   PerformancePhase,
   SLORreport,
-} from '../performance/SprintPerformanceChecker.js';
+} from '@openliri/infra/performance/SprintPerformanceChecker';
 import { STARTUP_PHASES } from './StartupChainProfiler';
 
 /** 启动报告条目 */

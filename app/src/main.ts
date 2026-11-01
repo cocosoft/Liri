@@ -30,7 +30,7 @@ import {
   profilePhaseStart,
   profilePhaseEnd,
   getPhaseSummary,
-} from './performance/StartupProfiler.js';
+} from '@openliri/infra/performance/StartupProfiler';
 import {
   flush,
   setGlobalConfigProvider,

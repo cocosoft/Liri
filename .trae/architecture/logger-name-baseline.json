@@ -609,7 +609,7 @@
       "app/src/subagent/backends/TeammateBackend.ts"
     ],
     "test-performance": [
-      "app/src/performance/test-performance.ts"
+      "packages/infra/src/performance/test-performance.ts"
     ],
     "testing\\integration\\IntegrationTestRunner": [
       "app/src/testing/integration/IntegrationTestRunner.ts"

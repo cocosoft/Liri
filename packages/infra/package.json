@@ -92,6 +92,14 @@
     "./media/*": {
       "types": "./src/media/*.ts",
       "import": "./src/media/*.ts"
+    },
+    "./performance": {
+      "types": "./src/performance/index.ts",
+      "import": "./src/performance/index.ts"
+    },
+    "./performance/*": {
+      "types": "./src/performance/*.ts",
+      "import": "./src/performance/*.ts"
     }
   },
   "scripts": {

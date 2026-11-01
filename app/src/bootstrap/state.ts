@@ -5,7 +5,7 @@
  * 此处保留导出以保持向后兼容
  */
 
-import { profileCheckpoint } from '../performance/StartupProfiler.js';
+import { profileCheckpoint } from '@openliri/infra/performance/StartupProfiler';
 import { generateSystemSessionId } from '@modules/system/state/index.js';
 import type { SessionId } from '@modules/system/state/index.js';
 import { configManager } from '@modules/config';

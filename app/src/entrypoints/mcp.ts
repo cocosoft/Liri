@@ -63,13 +63,13 @@ export function isMCPFastPathArgv(argv: string[]): boolean {
 
 import { modelManager } from '@modules/ai';
 import { hasPermissionsToUseTool } from '../permission/permissions';
-import { jsonStringify } from '@modules/performance';
+import { jsonStringify } from '@openliri/infra/performance';
 import { getErrorParts } from '@openliri/infra/utils/toolErrors';
 import { zodToJsonSchema } from '@openliri/infra/utils/zodToJsonSchema';
 import { getDefaultAppState } from '../appState/AppState.js';
 import { reviewCommand as review } from '@modules/commands';
 import type { Command } from '../commands/types/index';
-import { profileCheckpoint } from '../performance/StartupProfiler.js';
+import { profileCheckpoint } from '@openliri/infra/performance/StartupProfiler';
 
 // 定义MCP命令列表
 const MCP_COMMANDS: Command[] = [review];

@@ -4,27 +4,27 @@ import {
   profilePhaseStart,
   profilePhaseEnd,
   profileReport,
-} from '../../src/performance/StartupProfiler.js';
+} from '@openliri/infra/performance/StartupProfiler';
 import {
   slowLogging,
   slowLoggingWithType,
   withSlowOperationDetection,
   getSlowOperationStats,
-} from '../../src/performance/SlowOperations.js';
+} from '@openliri/infra/performance/SlowOperations';
 import {
   getPerformanceConfig,
   updatePerformanceConfig,
-} from '../../src/performance/PerformanceConfig.js';
+} from '@openliri/infra/performance/PerformanceConfig';
 import {
   analyzePerformance,
   getPerformanceSuggestions,
   recordResponseTime,
-} from '../../src/performance/PerformanceAnalyzer.js';
+} from '@openliri/infra/performance/PerformanceAnalyzer';
 import {
   generateMemoryReport,
   optimizeMemory,
   getMemoryOptimizationSuggestions,
-} from '../../src/performance/MemoryManager.js';
+} from '@openliri/infra/performance/MemoryManager';
 import {
   getCache,
   setCache,
@@ -32,7 +32,7 @@ import {
   clearCache,
   lazyLoad,
   preload,
-} from '../../src/performance/CacheAndLazyLoading.js';
+} from '@openliri/infra/performance/CacheAndLazyLoading';
 import {
   throttle,
   debounce,
@@ -40,11 +40,11 @@ import {
   batchProcess,
   timeout,
   retry,
-} from '../../src/performance/CodeOptimizer.js';
+} from '@openliri/infra/performance/CodeOptimizer';
 import {
   initializePerformanceSystem,
   shutdownPerformanceSystem,
-} from '../../src/performance/index.js';
+} from '@openliri/infra/performance/index';
 
 /**
  * 延迟函数

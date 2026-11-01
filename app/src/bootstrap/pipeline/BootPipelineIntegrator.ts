@@ -592,7 +592,7 @@ export function registerStandardHandlers(): void {
       }
 
       try {
-        const { profileReport } = await import('@modules/performance');
+        const { profileReport } = await import('@openliri/infra/performance');
         profileReport();
       } catch {
         // profiler 可能未启用，跳过

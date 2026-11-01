@@ -73,6 +73,15 @@
         "../../packages/infra/src/diagnostics/*"
       ],
       "@openliri/infra/media/*": ["../../packages/infra/src/media/*"],
+      "@openliri/infra/performance": [
+        "../../packages/infra/src/performance/index.ts"
+      ],
+      "@openliri/infra/performance.js": [
+        "../../packages/infra/src/performance/index.ts"
+      ],
+      "@openliri/infra/performance/*": [
+        "../../packages/infra/src/performance/*"
+      ],
       "croner": ["../node_modules/croner"],
       "lru-cache": ["../node_modules/lru-cache"],
       "zod": ["../node_modules/zod"],
@@ -234,8 +243,6 @@
       "@modules/system/*": ["system/*"],
       "@modules/runtime": ["runtime"],
       "@modules/runtime/*": ["runtime/*"],
-      "@modules/performance": ["performance"],
-      "@modules/performance/*": ["performance/*"],
       "@modules/types": ["types"],
       "@modules/types/*": ["types/*"],
       "@modules/subagent": ["subagent"],

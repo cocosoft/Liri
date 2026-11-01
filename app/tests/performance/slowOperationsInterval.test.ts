@@ -5,11 +5,11 @@
  * “创建定时器”的 ~0ms，interval 慢操作指标全是噪声。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { setIntervalWithLogging } from '../../src/performance/SlowOperations';
+import { setIntervalWithLogging } from '@openliri/infra/performance/SlowOperations';
 import {
   clearSlowOperations,
   getSlowOperations,
-} from '../../src/performance/SlowOperationStore';
+} from '@openliri/infra/performance/SlowOperationStore';
 
 /** 忙等模拟慢回调（阈值在 test/development 下均 ≤300ms） */
 function busyWait(ms: number): void {

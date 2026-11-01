@@ -14,7 +14,7 @@ import { getLogger } from '@modules/monitoring';
 import { SkillRegistry } from '@modules/skills';
 import { BundledSkillLoader } from '@modules/skills';
 import { getToolManager } from '@modules/tools';
-import { profileReport } from '@modules/performance';
+import { profileReport } from '@openliri/infra/performance';
 // 2026-10-01（子批 B 收口）：`CompanionSprite` / `useBuddyNotification` 的实现已由 `buddy/`(app)
 // 迁入本层 `ui/buddy/` ⇒ 改经 `@modules/ui` 桶出口取用（原为 `@modules/buddy/*` 子路径）。
 import { CompanionSprite, useBuddyNotification } from '@modules/ui';

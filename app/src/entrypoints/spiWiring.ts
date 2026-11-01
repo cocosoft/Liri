@@ -104,7 +104,7 @@ export async function registerAllSpis(
   // ---- 启动剖析 SPI（三件套）----
   {
     const { profileCheckpoint, profilePhaseStart, profilePhaseEnd } =
-      await import('@modules/performance/StartupProfiler');
+      await import('@openliri/infra/performance/StartupProfiler');
     const { registerStartupProfilerSpi } = await import('@openliri/kernel/spi');
     await registerStartupProfilerSpi(container, {
       profileCheckpoint: (name) => profileCheckpoint(name),

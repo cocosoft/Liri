@@ -6,16 +6,16 @@
  */
 // P1（2026-10-28）：`SprintPerformanceChecker`（含 fs 读数）已出内核 ⇒ 与下面
 // `StartupProfiler` 同样按**同域相对路径**引用 performance 模块（entry → infra 合法；
-// 不走 `@modules/performance` 桶，避免把整个性能面拉进启动图 —— AC-28）。
+// 不走 `@openliri/infra/performance` 桶，避免把整个性能面拉进启动图 —— AC-28）。
 import {
   SprintPerformanceChecker,
   DEFAULT_REDLINES,
   type PerformancePhase,
-} from '../performance/SprintPerformanceChecker.js';
+} from '@openliri/infra/performance/SprintPerformanceChecker';
 import {
   profilePhaseStart,
   profilePhaseEnd,
-} from '../performance/StartupProfiler.js';
+} from '@openliri/infra/performance/StartupProfiler';
 
 export interface StartupPhase {
   name: PerformancePhase;

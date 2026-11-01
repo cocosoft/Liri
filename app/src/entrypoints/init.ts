@@ -26,7 +26,7 @@
 
 import { configManager, enableConfigs } from '@modules/config';
 import { initializeCommands } from '@modules/commands';
-import { profileCheckpoint, profileReport } from '@modules/performance';
+import { profileCheckpoint, profileReport } from '@openliri/infra/performance';
 // @ts-ignore
 import * as gracefulShutdownModule from '@openliri/infra/utils/gracefulShutdown';
 const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =

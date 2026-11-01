@@ -472,7 +472,7 @@
 {"id":"MODE-A5","k":"reopenWhen","i":0,"c":"记忆分层再增子模块时"}
 {"id":"MODE-A5","k":"notes","i":0,"c":"报告判定 🟢 域名消除（MemoryManagerImpl / HeapMemoryManager）。"}
 {"id":"MODE-A5","k":"code#0","i":0,"c":"app/src/memory/MemoryManager.ts"}
-{"id":"MODE-A5","k":"code#1","i":0,"c":"app/src/performance/MemoryManager.ts"}
+{"id":"MODE-A5","k":"code#1","i":0,"c":"packages/infra/src/performance/MemoryManager.ts"}
 {"id":"MODE-A6","k":"title","i":0,"c":"21 模式 A6：评估可观测性割裂"}
 {"id":"MODE-A6","k":"source","i":0,"c":"21 模式对标复查报告 11 §2.2"}
 {"id":"MODE-A6","k":"reopenWhen","i":0,"c":"出现『单 agent / 工具路径需查同源质量』的真实需求时（见方案 P2-9）"}
@@ -7772,7 +7772,7 @@
 {"id":"INFRA-PACKAGE-P12-CACHE","k":"notes","i":0,"c":"迁包：git mv 14 文件（含 monitor/performance/strategy 子目录）+ 4 处引用改 @openliri/infra/cache（1 处相对 `../cache`、3 处 `@modules/cache/types`）。**包内相对出边**：CacheSystem 的 `"}
 {"id":"INFRA-PACKAGE-P12-CACHE","k":"notes","i":1,"c":"../performance/SlowOperations.js` 迁后成逃逸 ⇒ 改 `@modules/performance` 门面（`performance/SlowOperations` 非 canonical 子路径，直连会被 R00-001 判违规）。**类型环境**：`CacheModuleTest.ts` 实为 bun:test 文件却放在"}
 {"id":"INFRA-PACKAGE-P12-CACHE","k":"notes","i":2,"c":"生产目录 ⇒ 包内 tsc 报 `bun:test` 无 `it`；按内容改名为 `CacheModule.test.ts`（包 tsconfig 的 `**/*.test.ts` 排除命中，零代码改动）。同步 state-literal 2 条路径键、2 条证据 code[]。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名 "}
-{"id":"INFRA-PACKAGE-P12-CACHE","k":"notes","i":3,"c":"cache/types.ts；在 `app/src/performance/index.ts` 临时加 `import \"@openliri/infra/cache\"` ⇒ R7 报「cache / performance 新进入环（2 成员）」（均已回滚）。"}
+{"id":"INFRA-PACKAGE-P12-CACHE","k":"notes","i":3,"c":"cache/types.ts；在 `packages/infra/src/performance/index.ts` 临时加 `import \"@openliri/infra/cache\"` ⇒ R7 报「cache / performance 新进入环（2 成员）」（均已回滚）。"}
 {"id":"INFRA-PACKAGE-P12-CACHE","k":"code#0","i":0,"c":"packages/infra/src/cache/index.ts"}
 {"id":"INFRA-PACKAGE-P12-CACHE","k":"code#1","i":0,"c":"packages/infra/src/cache/CacheSystem.ts"}
 {"id":"INFRA-PACKAGE-P12-CACHE","k":"code#2","i":0,"c":"packages/infra/src/cache/types.ts"}

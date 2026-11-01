@@ -2,7 +2,7 @@
 /**
  * 高效批量命令测试脚本（单进程，初始化一次测试多个命令）
  */
-import { profileCheckpoint } from '../performance/StartupProfiler.js';
+import { profileCheckpoint } from '@openliri/infra/performance/StartupProfiler';
 import { init } from '../entrypoints/init.js';
 import { commandExecutor } from '../commands/executor/index.js';
 import { initializeChatManager } from '../entrypoints/repl.js';

@@ -7883,3 +7883,24 @@
 {"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"code#9","i":0,"c":"packages/infra/package.json"}
 {"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"tests#0","i":0,"c":"app/tests/ci/performance.test.ts"}
 {"id":"INFRA-PACKAGE-P17-PERFORMANCE","k":"tests#1","i":0,"c":"app/tests/performance/slowOperationsInterval.test.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"title","i":0,"c":"P18：analytics 迁入 packages/infra（24 文件 / 43 处引用）"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.16"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"reopenWhen","i":0,"c":"① 若 `cost` 反向被 `analytics` 依赖 ⇒ 现为 `cost → analytics` 单向，反向即进环（R7 会报）；② 若把 `monitoring/metrics/SystemMetricsCollector` 提升为监控桶可用的规范子入口 ⇒ 可去掉 analytics 的两处子路径动态导入。"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"notes","i":0,"c":"迁包：24 文件 git mv（含 `AnalyticsService.d.ts`）。引用改写 43 处：24 处 `@modules/analytics`、15 处相对路径（cost/query/commands/runtime/bootstrap/tests，含目录导入 `../analytics`）、4 处**漏点补修**。**漏点三类（本批教训）**"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"notes","i":1,"c":"：① 静态相对出边 `../monitoring/logs/Logger.js`（改规范子入口 `@modules/monitoring/logs/Logger`）；② **动态**相对出边 `import(\"../monitoring/metrics/SystemMetricsCollector.js\")` ×2（改 `"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"notes","i":2,"c":"@modules/monitoring/metrics/SystemMetricsCollector`，保留按文件粒度）；③ **目录导入** `from \"../analytics\"`（无子路径，正则未覆盖）。包内出边：monitoring（15：桶 12 + logs 1 + metrics 2）· error（5）· config（3）· infra "}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"notes","i":3,"c":"utils（3）· kernel（5）· constants（1）· environment（1）；R7 SCC 仍 0。联动：state-literal 11 处、logger-name 9 处、证据 code[] 1 处路径键改名。运行期自证：import(@openliri/infra/analytics) 27 导出、require("}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"notes","i":4,"c":"@openliri/infra/analytics/CostAnalyticsTracker) 正常。"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#0","i":0,"c":"packages/infra/src/analytics/index.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#1","i":0,"c":"packages/infra/src/analytics/AnalyticsService.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#2","i":0,"c":"packages/infra/src/analytics/CostAnalyticsTracker.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#3","i":0,"c":"packages/infra/src/analytics/PerformanceMonitoringService.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#4","i":0,"c":"packages/infra/src/analytics/pricingSource.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#5","i":0,"c":"app/src/cost/index.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#6","i":0,"c":"app/src/query/QueryEngine.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#7","i":0,"c":"app/src/query/deps.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#8","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"code#9","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"tests#0","i":0,"c":"app/tests/analytics/analyticsIdentityBuckets.test.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"tests#1","i":0,"c":"app/tests/analytics/analyticsForgetTenant.test.ts"}
+{"id":"INFRA-PACKAGE-P18-ANALYTICS","k":"tests#2","i":0,"c":"app/tests/query/phase3.test.ts"}

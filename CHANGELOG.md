@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INFRA-PACKAGE-P18-ANALYTICS**：P18：analytics 迁入 packages/infra（静态/动态/目录导入三类漏点补齐） —— 验证 tsc0|tests9539|gates55|infra0|scc0；基线 analytics 24 文件在 app/src；出边含静态/动态两条 monitoring 相对路径（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P18-ANALYTICS）
 - ✅ **INFRA-PACKAGE-P17-PERFORMANCE**：P17：performance 迁入 packages/infra（含包内跨子目录改相对） —— 验证 tsc0|tests9539|gates55|infra0|scc0；基线 performance 23 文件在 app/src；cache 经 @modules/performance 门面取其工具函数（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P17-PERFORMANCE）
 - ✅ **INFRA-PACKAGE-P16-MEDIA**：P16：media 迁入 packages/infra（无 barrel 子路径 + 第三方依赖 paths） —— 验证 tsc0|tests9539|gates55|infra0|scc0；基线 media 13 文件在 app/src；全仓 31 处相对引用，无 @modules 别名（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P16-MEDIA）
 - ✅ **INFRA-PACKAGE-P15-DIAGNOSTICS**：P15：diagnostics 迁入 packages/infra（别名替换 + 包内自引改相对） —— 验证 tsc0|tests9539|gates55|infra0|scc0；基线 diagnostics 10 文件在 app/src；引用走 @modules/diagnostics 与相对动态导入（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P15-DIAGNOSTICS）

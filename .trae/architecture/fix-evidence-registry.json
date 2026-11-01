@@ -16693,6 +16693,43 @@
       "changelog": [],
       "reopenWhen": "① 若 `performance` 将来反向依赖 `cache` ⇒ `cache → performance` 立即成为 2 成员环（R7 会报，本批已由负向自证证明该环可捕获）；② `modules/ImportManager.ts` 的 aliasMap 仍留 `@modules/performance → .…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P17-PERFORMANCE）",
       "notes": "迁包：23 文件（含 README.md 与两个 `require.main` 守卫脚本 analyze-bottlenecks / test-performance）git mv 至 packages/infra/src/performance。引用改写 32 处：11 处 `@modules/performanc…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P17-PERFORMANCE）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P18-ANALYTICS",
+      "title": "P18：analytics 迁入 packages/infra（24 文件 / 43 处引用）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.16",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/analytics/index.ts",
+        "packages/infra/src/analytics/AnalyticsService.ts",
+        "packages/infra/src/analytics/CostAnalyticsTracker.ts",
+        "packages/infra/src/analytics/PerformanceMonitoringService.ts",
+        "packages/infra/src/analytics/pricingSource.ts",
+        "app/src/cost/index.ts",
+        "app/src/query/QueryEngine.ts",
+        "app/src/query/deps.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json"
+      ],
+      "tests": [
+        "app/tests/analytics/analyticsIdentityBuckets.test.ts",
+        "app/tests/analytics/analyticsForgetTenant.test.ts",
+        "app/tests/query/phase3.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `cost` 反向被 `analytics` 依赖 ⇒ 现为 `cost → analytics` 单向，反向即进环（R7 会报）；② 若把 `monitoring/metrics/SystemMetricsCollector` 提升为监控桶可用的规范子入口 ⇒ 可去掉 analytics 的两处子路径动态导…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P18-ANALYTICS）",
+      "notes": "迁包：24 文件 git mv（含 `AnalyticsService.d.ts`）。引用改写 43 处：24 处 `@modules/analytics`、15 处相对路径（cost/query/commands/runtime/bootstrap/tests，含目录导入 `../analytics`）、4 处**…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P18-ANALYTICS）"
     }
   ]
 }

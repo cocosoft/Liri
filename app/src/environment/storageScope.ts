@@ -4,11 +4,17 @@
  * 目标（`变体矩阵方案.md` §2.7.3 P1）：非本地身份的数据落在
  * `<data>/tenants/<tenantId>/users/<userId>/…`，本地身份（桌面 / CLI / 后台）**路径完全不变**。
  *
+ * 2026-11-01（B3 解环）：自 `security/identity/storageScope.ts` **迁入 environment**。
+ * 迁因：本文件是**纯路径计算**（零 I/O、只依赖 kernel 的 principal/requestScope），
+ * 而唯一调用方是 `environment/paths.ts`；放在 `security` 里使 `environment → security`
+ * 成为唯一出边 ⇒ 与 `security → environment` 构成 2 元环。迁入后该环消失，
+ * `@modules/security/identity` 保留**同名转出**（既有消费方零改动）。
+ *
  * 三条硬约束：
  *   1. **本地零变更** —— `isLocalPrincipal` ⇒ 返回原数据根，既有数据与既有测试不受影响；
  *   2. **路径注入防护** —— 租户/用户标识来自外部（注册用户名），必须经 `safePathSegment`
  *      规范化，禁止 `..`、分隔符、空段；
- *   3. **本模块纯函数、无 IO、不读 env** —— 基目录由调用方（`core/paths.ts`）传入。
+ *   3. **本模块纯函数、无 IO、不读 env** —— 基目录由调用方（`paths.ts`）传入。
  */
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';

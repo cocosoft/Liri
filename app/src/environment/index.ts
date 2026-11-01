@@ -41,3 +41,4 @@
 
 export * from './paths';
 export * from './mediaRoots';
+export * from './storageScope';

@@ -1,4 +1,4 @@
-import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@openliri/kernel/errorHandler';
 
 const logger = getLogger('utils:json');

@@ -1,17 +1,16 @@
 {
   "version": 1,
-  "recordedAt": "2026-10-31T05:52:11.539Z",
-  "$note": "2026-10-31 收编 +1903 B（1045314 → 1047217）：非本轮引入，来自基线 2026-10-28 之后的两笔功能提交 —— constants +1351（97e137eb7 工具族 op dispatcher 的工具名常量）、monitoring +541（9f511472a OTel GenAI semconv 属性名），另有 environment +9 / diagnostics +7 / config -5。三者均为启动期同步读取的数据（常量表 / span 属性名），无法改为动态导入 ⇒ 按门禁约定收编；后续若要回收，应优先拆分 dispatch* 路由与常量表按需加载。",
+  "recordedAt": "2026-11-01T01:07:17.784Z",
   "entry": "src/pyapp.ts",
   "eager": {
-    "total": 268,
+    "total": 134,
     "app": {
-      "files": 155,
-      "bytes": 1047217
+      "files": 28,
+      "bytes": 210693
     },
     "nodeModules": {
-      "files": 50,
-      "bytes": 209112
+      "files": 44,
+      "bytes": 73118
     }
   },
   "byTopDir": {
@@ -20,48 +19,16 @@
       "bytes": 21523
     },
     "monitoring": {
-      "files": 56,
-      "bytes": 364862
+      "files": 5,
+      "bytes": 22656
     },
     "error": {
       "files": 18,
-      "bytes": 109738
+      "bytes": 110873
     },
     "environment": {
-      "files": 3,
-      "bytes": 51896
-    },
-    "security": {
-      "files": 3,
-      "bytes": 6944
-    },
-    "config": {
-      "files": 39,
-      "bytes": 298448
-    },
-    "performance": {
-      "files": 1,
-      "bytes": 11796
-    },
-    "diagnostics": {
-      "files": 7,
-      "bytes": 76640
-    },
-    "utils": {
-      "files": 5,
-      "bytes": 18406
-    },
-    "external": {
-      "files": 3,
-      "bytes": 20520
-    },
-    "constants": {
-      "files": 17,
-      "bytes": 58959
-    },
-    "types": {
-      "files": 2,
-      "bytes": 7485
+      "files": 4,
+      "bytes": 55641
     }
   },
   "declaredOnDemandInEager": {},

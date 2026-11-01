@@ -22,9 +22,11 @@
 /**
  * security/identity — **身份化存储策略**（infra · zone: control，v3 §6.1 P2）
  *
- * 从内核迁出的两个**策略**实现：
- * - `storageScope`：按身份（租户/用户）派生存储分区根与 db 路径；
- * - `sessionOwnership`：会话归属判定（谁能访问哪个会话）。
+ * 从内核迁出的**策略**实现：
+ * - `sessionOwnership`：会话归属判定（谁能访问哪个会话）；
+ * - `storageScope`：**已迁入 `@modules/environment`**（2026-11-01 B3 解环：纯路径计算，
+ *   `environment/paths.ts` 是唯一调用方；放在 security 会让 `environment → security`
+ *   成为唯一出边、与 `security → environment` 成 2 元环）。此处保留**同名转出**。
  *
  * 为什么它们出 core：二者是「谁被允许用哪块存储」的**策略**（Q2：契约在 core，判定点落
  * infra/control），且实现会随多租户策略调整而变；同时它们**零 I/O**（仅 `node:crypto` /
@@ -34,5 +36,10 @@
  * （请求作用域，`AsyncLocalStorage`）、`identity/scopedResources`（只记账、不碰 IO 的资源登记表）。
  */
 
-export * from './storageScope';
+export {
+  isPartitionedScope,
+  safePathSegment,
+  scopedDataRoot,
+  tenantScopedDataRoot,
+} from '@modules/environment';
 export * from './sessionOwnership';

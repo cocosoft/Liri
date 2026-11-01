@@ -29,15 +29,12 @@ import * as os from 'os';
 // 代理（注册前缓冲、注册后回放），**无静态 monitoring 依赖** ⇒ 原「barrel 拉入
 // MonitoringService/BackupManager 触发 paths TDZ」的隐患随之消除。
 import { getLogger } from '@openliri/kernel/loggerFacade';
-// 多租户 P1：身份化存储根（纯计算在 storageScope，本文件只接 env / 请求身份）
+// 多租户 P1：身份化存储根（纯计算在同模块 `storageScope`，本文件只接 env / 请求身份）
 import {
   getRequestPrincipal,
   isLocalPrincipal,
 } from '@openliri/kernel/identity/requestScope';
-import {
-  scopedDataRoot,
-  tenantScopedDataRoot,
-} from '@modules/security/identity';
+import { scopedDataRoot, tenantScopedDataRoot } from './storageScope';
 import type { Principal } from '@openliri/kernel/identity/principal';
 
 const pathsLogger = getLogger('core:paths');

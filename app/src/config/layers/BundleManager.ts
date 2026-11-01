@@ -23,7 +23,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { load as yamlLoad } from 'js-yaml';
 import { resolveProjectRoot, resolvePyappHome } from '@modules/environment';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 
 const logger = getLogger('config:layers:BundleManager');
 

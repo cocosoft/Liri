@@ -1,5 +1,5 @@
-import { getLogger } from '@modules/monitoring';
-import { getMonitoringService } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
+import { reportDaemonMetric } from './metricsSink';
 import type { HealthStatus as HealthStatusValue } from '@openliri/kernel';
 import type { IPCService } from './IPCService';
 // D-147（2026-10-01）：任务登记改经 core SPI（`infra -> app` 倒挂收口）
@@ -334,30 +334,19 @@ export class ProcessManager {
   }
 
   private reportProcessCount(): void {
-    try {
-      const monitoring = getMonitoringService();
-      const running = Array.from(this.processes.values()).filter(
-        (s) => s.status === 'running'
-      ).length;
-      const stopped = Array.from(this.processes.values()).filter(
-        (s) => s.status === 'stopped'
-      ).length;
-      const total = this.processes.size;
-      monitoring.addMetric('daemon.processes.running', running);
-      monitoring.addMetric('daemon.processes.stopped', stopped);
-      monitoring.addMetric('daemon.processes.total', total);
-    } catch (err) {
-      // MonitoringService not available, skip metric reporting
-    }
+    const running = Array.from(this.processes.values()).filter(
+      (s) => s.status === 'running'
+    ).length;
+    const stopped = Array.from(this.processes.values()).filter(
+      (s) => s.status === 'stopped'
+    ).length;
+    reportDaemonMetric('daemon.processes.running', running);
+    reportDaemonMetric('daemon.processes.stopped', stopped);
+    reportDaemonMetric('daemon.processes.total', this.processes.size);
   }
 
   private reportHealthCheckResult(name: string, alive: boolean): void {
-    try {
-      const monitoring = getMonitoringService();
-      monitoring.addMetric(`daemon.healthcheck.${name}`, alive ? 1 : 0);
-    } catch (err) {
-      // MonitoringService not available, skip metric reporting
-    }
+    reportDaemonMetric(`daemon.healthcheck.${name}`, alive ? 1 : 0);
   }
 }
 

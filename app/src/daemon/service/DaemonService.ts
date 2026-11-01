@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('daemon:service:DaemonService');
 // 阻塞源收敛：同步子进程调用改为 promisify 后的异步 exec
 const execAsync = promisify(exec);

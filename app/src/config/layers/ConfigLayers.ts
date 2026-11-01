@@ -23,7 +23,7 @@ import { deepMerge } from '../../utils/common';
 import { applyPatch } from './PatchApplier';
 import type { LayerBundle } from './BundleManager';
 import type { LayerProfile } from './ProfileManager';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 
 const logger = getLogger('config:layers:ConfigLayers');
 

@@ -10,7 +10,7 @@
  *   - 回调通知
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('daemon:watchdog');
 
 // ==========================================

@@ -1,10 +1,7 @@
 {
-  "note": "infra 层内环（SCC>1）成员基线（R7 棘轮，只许缩小）。2026-11-01：初始文本口径 15 模块；error 出环后 13（AST）；constants 出环后 12；B3 拆 environment↔security 2 元环（storageScope 纯路径计算归位 environment）后 environment、runtimeHost 一并出环 ⇒ 10；B4 清 utils 剩余出边（删 4 个零引用文件 + 8 处 env 读取收敛 utils/envAccess + ICache/CacheStats 契约下沉 common）后 utils 出环 ⇒ 9。解环手法：日志/错误走 kernel 门面，env 读取收敛到门面或等价入口，纯计算文件归位到真正的调用方模块。新增成员进入环 ⇒ CI 红；成员离开环 ⇒ 下调本基线。",
+  "note": "infra 层内环（SCC>1）成员基线（R7 棘轮，只许缩小）。2026-11-01 当日轨迹：初始文本口径 15 → error 出环 13（AST）→ constants 出环 12 → B3 拆 environment↔security 2 元环后 environment、runtimeHost 出环 10 → B4 utils 出环 9 → B5 日志改 kernel 门面（config 4 / cache 5 / daemon 3）+ cache 的 env 读取走 utils/envAccess + daemon 指标上报改注入端口，config、cache、daemon 一并出环 ⇒ 6。解环手法：日志/错误走 kernel 门面；env 读取收敛到等价入口；服务类能力（解冻、指标上报）改 app 启动期注入；纯计算文件归位到真正的调用方模块。新增成员进入环 ⇒ CI 红；成员离开环 ⇒ 下调本基线。",
   "scc": [
-    "cache",
     "chronos",
-    "config",
-    "daemon",
     "diagnostics",
     "memory",
     "monitoring",

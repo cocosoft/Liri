@@ -18,7 +18,7 @@ import {
 } from 'fs/promises';
 import { logForDebugging } from '../utils/debug.js';
 import { isEnvTruthy } from '../utils/envUtils.js';
-import { configManager } from '@modules/config';
+import { readUtilEnv } from '../utils/envAccess.js';
 import { handleError } from '@modules/error';
 import { jsonStringify, jsonParse } from '../performance/SlowOperations.js';
 import {
@@ -28,7 +28,7 @@ import {
   type CacheVersion,
 } from './types.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('cache:CacheSystem');
 
 /**
@@ -625,7 +625,7 @@ let globalCacheSystem: CacheSystem | null = null;
  */
 export function getCacheSystem(): CacheSystem {
   if (!globalCacheSystem) {
-    const cacheDir = configManager.env('Liri_CACHE_DIR') || resolveCacheDir();
+    const cacheDir = readUtilEnv('Liri_CACHE_DIR') || resolveCacheDir();
     globalCacheSystem = createCacheSystem({ cacheDir });
   }
   return globalCacheSystem;

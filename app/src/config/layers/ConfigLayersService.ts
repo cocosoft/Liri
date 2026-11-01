@@ -27,7 +27,7 @@ import { getBuildVariant } from '@openliri/kernel';
 import { configManager } from '@modules/config';
 import { resolveAiAccess } from '@openliri/kernel/spi';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 
 import {
   selectProfile,

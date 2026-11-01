@@ -1,5 +1,5 @@
 //
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('cache:strategy:cacheStrategyManager');

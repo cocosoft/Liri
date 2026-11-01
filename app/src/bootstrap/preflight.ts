@@ -41,12 +41,13 @@ import {
 import { configManager } from '../config/index.js';
 import { setOfflineMode } from '../entrypoints/shared-state.js';
 import { probeExternalModule } from '../utils/externalDeps.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger, getMonitoringService } from '@modules/monitoring';
 import { handleError, setAPISceneEnvReader } from '@modules/error';
 import {
   setConstantsEnvReader,
   setFrozenSnapshotUnfreezer,
 } from '@modules/constants';
+import { setDaemonMetricsSink } from '../daemon/metricsSink.js';
 
 const logger = getLogger('main');
 
@@ -129,6 +130,20 @@ export function wireConstantsDeps(): void {
   setFrozenSnapshotUnfreezer(async () => {
     const { getFrozenSnapshotService } = await import('../memory/index.js');
     getFrozenSnapshotService().unfreezeAll();
+  });
+}
+
+/**
+ * B5 解环（2026-11-01）：把 `daemon` 的指标上报接到 monitoring 服务。
+ *
+ * `daemon/ProcessManager.ts` 曾直接 `import { getMonitoringService } from '@modules/monitoring'`
+ * ⇒ `daemon ↔ monitoring` 同处 infra 的强连通分量。解环后 daemon 只保留端口
+ * （`daemon/metricsSink`），实现在此注入。取服务保持**延迟**（调用时才 getMonitoringService），
+ * 未初始化时的抛错由端口吞掉 —— 与既有 try/catch 降级语义一致。
+ */
+export function wireDaemonDeps(): void {
+  setDaemonMetricsSink((name, value) => {
+    getMonitoringService().addMetric(name, value);
   });
 }
 

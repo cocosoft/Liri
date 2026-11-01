@@ -131,6 +131,7 @@ import {
   checkFirstRunAndOnboard,
   wireErrorModuleDeps,
   wireConstantsDeps,
+  wireDaemonDeps,
 } from './bootstrap/preflight.js';
 export { isValidApiKey } from './bootstrap/preflight.js';
 const logger = getLogger('main');
@@ -1128,6 +1129,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
   // 的同层实现，相关能力在此注入（所有模式都要接）
   wireErrorModuleDeps();
   wireConstantsDeps();
+  wireDaemonDeps();
   if (options.mode !== LaunchMode.HEALTHCHECK) {
     ensureEnvFileExists();
   }

@@ -7747,3 +7747,22 @@
 {"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#6","i":0,"c":"app/src/services/mcp/MCPConnection.ts"}
 {"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#7","i":0,"c":"app/src/services/mcp/auth/MCPAuth.ts"}
 {"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"tests#0","i":0,"c":"app/tests/core/lazyLoaderRegistry.test.ts"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"title","i":0,"c":"P11：daemon 迁入 packages/infra（7 文件 / 8 处引用）"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.9"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"reopenWhen","i":0,"c":"① 若 daemon 再直接 import `@modules/monitoring` 的**实现文件**（非门面）⇒ 会与 monitoring 形成新环（R7 已实测可捕获）；② 若 install-service 需要 `.ts` 后缀解析 ⇒ 该脚本走 tsconfig.scripts，删后缀后由 paths 解析，勿再手写扩展名。"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"notes","i":0,"c":"迁包：git mv 7 文件（含 service/ 与 README）+ 8 处引用改 @openliri/infra/daemon；**包内相对出边**：IPCService 原 `../monitoring/...` 两条在迁包后成逃逸 ⇒ 改 `@modules/monitoring/logs/Logger`（窄入口）+ `"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"notes","i":1,"c":"@modules/monitoring`（门面，MonitoringService 非 canonical 子路径）；daemon→monitoring 边保留但不入环。install-service 的 `../src/daemon/service/DaemonService.ts`（带 .ts）改别名并去扩展名。同步 state-literal 6 条路"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"notes","i":2,"c":"径键、127.0.0.1 棘轮测试路径、1 条证据 code[]。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名 daemon/index.ts；在 `app/src/monitoring/index.ts` 临时加 `import \"@openliri/infra/daemon\"` ⇒ R7 报「"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"notes","i":3,"c":"daemon/monitoring 新进入环（2 成员）」（证明跨包边可见、环检测未失明），两处均已回滚。"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#0","i":0,"c":"packages/infra/src/daemon/index.ts"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#1","i":0,"c":"packages/infra/src/daemon/IPCService.ts"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#2","i":0,"c":"packages/infra/src/daemon/ProcessManager.ts"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#3","i":0,"c":"packages/infra/src/daemon/ProcessWatchdog.ts"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#4","i":0,"c":"packages/infra/src/daemon/metricsSink.ts"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#5","i":0,"c":"packages/infra/src/daemon/service/DaemonService.ts"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#6","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#7","i":0,"c":"app/scripts/install-service.ts"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#8","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#9","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"code#10","i":0,"c":".trae/architecture/state-literal-baseline.json"}
+{"id":"INFRA-PACKAGE-P11-DAEMON","k":"tests#0","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}

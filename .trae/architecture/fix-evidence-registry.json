@@ -16443,6 +16443,42 @@
       "changelog": [],
       "reopenWhen": "① 若新增按需加载模块 ⇒ 必须同时改 build-variant 的 BASE/UI_LAZY_LOADERS 与重生成 generatedLazyLoaders；② 若 ModuleDefinitions 的 featureflags 条目将来携带物理路径字段 ⇒ 需同批改到 @openliri/infra/fe…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P10-FEATUREFLAGS）",
       "notes": "迁包：git mv 2 文件 + 3 处引用改 @openliri/infra/featureflags。**注册面是本批重点**（CD02/CD03）：① build-variant 的 BASE_LAZY_LOADERS 说明符；② 生成物 generatedLazyLoaders 的同名字面量（手改单行，不动时…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P10-FEATUREFLAGS）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P11-DAEMON",
+      "title": "P11：daemon 迁入 packages/infra（7 文件 / 8 处引用）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.9",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/daemon/index.ts",
+        "packages/infra/src/daemon/IPCService.ts",
+        "packages/infra/src/daemon/ProcessManager.ts",
+        "packages/infra/src/daemon/ProcessWatchdog.ts",
+        "packages/infra/src/daemon/metricsSink.ts",
+        "packages/infra/src/daemon/service/DaemonService.ts",
+        "app/src/bootstrap/preflight.ts",
+        "app/scripts/install-service.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json",
+        ".trae/architecture/state-literal-baseline.json"
+      ],
+      "tests": [
+        "app/tests/core/endpointsSingleSource.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 daemon 再直接 import `@modules/monitoring` 的**实现文件**（非门面）⇒ 会与 monitoring 形成新环（R7 已实测可捕获）；② 若 install-service 需要 `.ts` 后缀解析 ⇒ 该脚本走 tsconfig.scripts，删后缀后由 paths…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P11-DAEMON）",
+      "notes": "迁包：git mv 7 文件（含 service/ 与 README）+ 8 处引用改 @openliri/infra/daemon；**包内相对出边**：IPCService 原 `../monitoring/...` 两条在迁包后成逃逸 ⇒ 改 `@modules/monitoring/logs/Logger`（…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P11-DAEMON）"
     }
   ]
 }

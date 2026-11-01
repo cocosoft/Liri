@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INFRA-PACKAGE-P11-DAEMON**：P11：daemon 迁入 packages/infra（含相对出边改门面入口） —— 验证 tsc0|tests9539|gates55|infra0|scc0；基线 daemon 7 文件在 app/src；IPCService 经相对路径 ../monitoring/** 出边（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P11-DAEMON）
 - ✅ **INFRA-PACKAGE-P10-FEATUREFLAGS**：P10：featureflags 迁入 packages/infra（含按需加载注册面） —— 验证 tsc0|tests9539|gates55|infra0|lazy-ok；基线 featureflags 2 文件在 app/src；按需加载说明符写死 @modules/featureflags（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P10-FEATUREFLAGS）
 - ✅ **INFRA-PACKAGE-P9-RUNTIMEHOST**：P9：runtimeHost 迁入 packages/infra（13 文件 / 13 处引用） —— 验证 tsc0|tests9539|gates55|infra0|scc0；基线 runtimeHost 13 文件在 app/src；@modules/runtimeHost 为唯一入口（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P9-RUNTIMEHOST）
 - ✅ **INFRA-PACKAGE-P8-ENVIRONMENT**：P8：environment 迁入 packages/infra（4 文件 / 560 处引用） —— 验证 tsc0|tests9539|gates55|infra0|doc-alias0；基线 environment 4 文件在 app/src；lint:doc-alias 把 @openliri/* 一律当内核子路径（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P8-ENVIRONMENT）

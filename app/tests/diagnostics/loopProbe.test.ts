@@ -17,11 +17,11 @@ import {
   resolveProbeMode,
   summarizeProfile,
   type CpuProfileLike,
-} from '../../src/diagnostics/loopProbe/loopProbeCore';
+} from '@openliri/infra/diagnostics/loopProbe/loopProbeCore';
 import {
   LoopProbe,
   resetLoopProbeForTest,
-} from '../../src/diagnostics/loopProbe/loopProbe';
+} from '@openliri/infra/diagnostics/loopProbe/loopProbe';
 import {
   enterPhase,
   exitPhase,

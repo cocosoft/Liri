@@ -63,6 +63,15 @@
       "@openliri/infra/trace-recording/*": [
         "../../packages/infra/src/trace-recording/*"
       ],
+      "@openliri/infra/diagnostics": [
+        "../../packages/infra/src/diagnostics/index.ts"
+      ],
+      "@openliri/infra/diagnostics.js": [
+        "../../packages/infra/src/diagnostics/index.ts"
+      ],
+      "@openliri/infra/diagnostics/*": [
+        "../../packages/infra/src/diagnostics/*"
+      ],
       "croner": ["../node_modules/croner"],
       "lru-cache": ["../node_modules/lru-cache"],
       "zod": ["../node_modules/zod"],
@@ -203,8 +212,6 @@
       "@modules/ink/*": ["ink/*"],
       "@modules/monitoring": ["monitoring"],
       "@modules/monitoring/*": ["monitoring/*"],
-      "@modules/diagnostics": ["diagnostics"],
-      "@modules/diagnostics/*": ["diagnostics/*"],
       "@modules/remote": ["remote"],
       "@modules/remote/*": ["remote/*"],
       "@modules/doc": ["modules/doc"],

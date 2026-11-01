@@ -39,7 +39,7 @@ import type { IndexEntry } from '@modules/knowledge/semantic/store';
 import type { IVectorStore } from '@modules/knowledge/semantic/IVectorStore';
 import { createVectorStore } from '@modules/knowledge/semantic/VectorStoreFactory';
 import { JsonlVectorStore } from '@modules/knowledge/semantic/JsonlVectorStore';
-import { enterPhase, exitPhase } from '@modules/diagnostics';
+import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 
 const logger = new OTelAwareLogger({
   module: 'knowledge:semantic:updater',

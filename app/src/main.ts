@@ -584,7 +584,7 @@ async function gracefulProactiveShutdown(): Promise<void> {
 async function displayStartupHealthReport(): Promise<void> {
   try {
     const { systemHealthChecker, formatHealthReport } =
-      await import('./diagnostics/SystemHealthChecker');
+      await import('@openliri/infra/diagnostics/SystemHealthChecker');
     const report = await systemHealthChecker.performFullCheck();
     console.log(formatHealthReport(report));
   } catch (err) {

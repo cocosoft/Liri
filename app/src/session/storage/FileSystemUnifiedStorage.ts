@@ -34,7 +34,7 @@ import {
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
-import { enterPhase, exitPhase } from '@modules/diagnostics';
+import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 import { renameToTrashWithRetry } from './trashRename';
 const logger = getLogger('session:storage:FileSystemUnifiedStorage');
 

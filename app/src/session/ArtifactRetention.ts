@@ -39,7 +39,7 @@ import {
   resolveDataSubDir,
   resolveSnapshotsDir,
 } from '@openliri/infra/environment';
-import { enterPhase, exitPhase } from '@modules/diagnostics';
+import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 
 const logger = getLogger('session:artifact-retention');
 

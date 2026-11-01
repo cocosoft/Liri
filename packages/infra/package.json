@@ -80,6 +80,14 @@
     "./trace-recording/*": {
       "types": "./src/trace-recording/*.ts",
       "import": "./src/trace-recording/*.ts"
+    },
+    "./diagnostics": {
+      "types": "./src/diagnostics/index.ts",
+      "import": "./src/diagnostics/index.ts"
+    },
+    "./diagnostics/*": {
+      "types": "./src/diagnostics/*.ts",
+      "import": "./src/diagnostics/*.ts"
     }
   },
   "scripts": {

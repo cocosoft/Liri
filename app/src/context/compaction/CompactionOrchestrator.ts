@@ -65,7 +65,11 @@ import {
 } from '@modules/tools';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { enterPhase, exitPhase, currentPhase } from '@modules/diagnostics';
+import {
+  enterPhase,
+  exitPhase,
+  currentPhase,
+} from '@openliri/infra/diagnostics';
 import type {
   parseCompactionSummary as ParseCompactionSummaryFn,
   renderCompactionSummary as RenderCompactionSummaryFn,

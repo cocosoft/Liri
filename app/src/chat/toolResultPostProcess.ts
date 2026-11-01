@@ -33,7 +33,7 @@ import type {
 import type { Message } from '@modules/session/types/message.js';
 import type { ToolLoopContext } from './ToolLoopRunner.js';
 import { extractTodoData } from './services/ChatHelper';
-import { enterPhase, exitPhase } from '@modules/diagnostics';
+import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types';
 import { getLogger } from '@modules/monitoring';
 

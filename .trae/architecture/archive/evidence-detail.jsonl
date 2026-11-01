@@ -7554,7 +7554,7 @@
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"notes","i":0,"c":"phaseStack 零依赖（仅模块内状态 + Date.now），git mv 到 common 且实现逐字未改；diagnostics 保留同名转出 ⇒ 4 处测试深路径 + loopProbe 内部 import 改指向新位置。删除 registerArchivalCronTask / unregisterArchivalCronTask（全仓含测试/"}
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"notes","i":1,"c":"文档零调用，CD01-06 全零命中）；本仓实际使用的是 setupArchivalScheduler（纯内存，不依赖 chronos）。同步两处基线：infra-cycle-baseline 6→2、hardcode-gate-baseline 键随改名（计数不变）。"}
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#0","i":0,"c":"packages/infra/src/common/phaseStack.ts"}
-{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#1","i":0,"c":"app/src/diagnostics/index.ts"}
+{"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#1","i":0,"c":"packages/infra/src/diagnostics/index.ts"}
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#2","i":0,"c":"app/src/monitoring/MonitoringService.ts"}
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"code#3","i":0,"c":"app/src/monitoring/archival/archivalCronTask.ts"}
 {"id":"INFRA-CYCLE-B6-MONITORING-EXIT","k":"tests#0","i":0,"c":"app/tests/diagnostics"}

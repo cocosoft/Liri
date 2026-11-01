@@ -30,7 +30,7 @@
  * （与宿主一致）⇒ 日志输出不变。
  */
 
-import { enterPhase, exitPhase } from '@modules/diagnostics';
+import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { getMemoryPressureMonitor } from '@modules/monitoring';
 import type { LiriEvent } from '@modules/session/types/events';

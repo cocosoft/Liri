@@ -16,7 +16,7 @@
  * **读取侧**：会话内检索 = 1 片；全局检索 = 按清单扇出（并发上限 + 总超时，超时返回部分结果）。
  * 片缺失/损坏 ⇒ 跳过该片（不阻塞检索），由 `SessionGateway` 在落盘驱动 tick 中按会话重建（§8-6）。
  */
-import { enterPhase, exitPhase } from '@modules/diagnostics';
+import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 import { getLogger } from '@modules/monitoring';
 import {
   FTSIndexStore,

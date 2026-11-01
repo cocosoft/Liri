@@ -22,7 +22,7 @@
  * 迁因：本文件**零依赖**（只有模块内状态与 `Date.now()`），却被 `monitoring`（阻塞心跳）
  * 与 `diagnostics`（归因快照）双方共用 ⇒ 放在 `diagnostics` 里会让 `monitoring → diagnostics`
  * 成为唯一出边、与 `diagnostics → monitoring` 构成回环。归位到叶子模块 `common` 后，
- * 两侧都只依赖叶子；`@modules/diagnostics` 保留**同名转出**（既有消费方零改动）。
+ * 两侧都只依赖叶子；`@openliri/infra/diagnostics` 保留**同名转出**（既有消费方零改动）。
  */
 
 /** 活跃栈上限：超过即放弃记录（宁可不采样，也不让探针自己成为内存增长点） */

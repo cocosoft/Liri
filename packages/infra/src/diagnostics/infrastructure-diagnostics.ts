@@ -8,7 +8,7 @@
  */
 
 import { HealthChecker } from '@modules/monitoring/health/HealthChecker.js';
-import { systemHealthChecker } from '@modules/diagnostics/SystemHealthChecker.js';
+import { systemHealthChecker } from './SystemHealthChecker.js';
 // C1（2026-09-30 D-123，`R00-003` P4/G3）：provider 快照改经 core SPI 端口（infra → core 合法）
 import { resolveDiagnosticsProbe } from '@openliri/kernel/spi';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';

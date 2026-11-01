@@ -659,7 +659,7 @@ export async function handleInfrastructureStatus(
 ): Promise<void> {
   try {
     const { infraHealthChecker } =
-      await import('@modules/diagnostics/infrastructure-diagnostics');
+      await import('@openliri/infra/diagnostics/infrastructure-diagnostics');
     const { getLLMTracker } =
       await import('@modules/monitoring/llm/getLLMTracker');
     const { getOTelMetrics } =
@@ -685,7 +685,7 @@ export async function handleInfrastructureStatus(
     let sysHealth = null;
     try {
       const { systemHealthChecker } =
-        await import('@modules/diagnostics/SystemHealthChecker');
+        await import('@openliri/infra/diagnostics/SystemHealthChecker');
       const cached = systemHealthChecker.getLastReport();
       sysHealth =
         cached && Date.now() - cached.timestamp < HEALTH_REPORT_REUSE_MS

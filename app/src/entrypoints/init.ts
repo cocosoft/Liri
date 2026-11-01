@@ -303,7 +303,7 @@ export async function init(): Promise<void> {
 
         // 检查 Gateway 断路器状态
         const { CircuitBreaker } =
-          await import('../diagnostics/CircuitBreaker.js');
+          await import('@openliri/infra/diagnostics/CircuitBreaker');
         const gatewayBreaker = CircuitBreaker.getOrCreate('gateway-init', {
           maxFailures: 2,
           baseDelayMs: 10000,

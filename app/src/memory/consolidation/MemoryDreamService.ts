@@ -15,7 +15,7 @@ import { handleError } from '@modules/error';
 // （`infra -> app` 倒挂收口）
 import { resolveAiAccess } from '@openliri/kernel/spi';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { enterPhase, exitPhase } from '@modules/diagnostics';
+import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 import { join } from 'path';
 import {
   readdirSync,

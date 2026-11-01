@@ -32,7 +32,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
-import { enterPhase, exitPhase } from '@modules/diagnostics';
+import { enterPhase, exitPhase } from '@openliri/infra/diagnostics';
 import {
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,

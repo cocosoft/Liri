@@ -7822,3 +7822,23 @@
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"tests#1","i":0,"c":"app/tests/trace/traceStatsIdentity.test.ts"}
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"tests#2","i":0,"c":"app/tests/trace/traceStatsForgetTenant.test.ts"}
 {"id":"INFRA-PACKAGE-P14-TRACE-RECORDING","k":"tests#3","i":0,"c":"app/tests/trace-recording/urlMatcher.test.ts"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"title","i":0,"c":"P15：diagnostics 迁入 packages/infra（10 文件 / 27 处引用）"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.13"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"reopenWhen","i":0,"c":"① 若 `diagnostics` 反向被 `monitoring` 依赖 ⇒ R7 立即报「monitoring / diagnostics 新进入环（2 成员）」（本批已实测该环可捕获）；② 若 `packages/infra/src/common/phaseStack.ts` 的同名转出被取消 ⇒ `index.ts` 的 `"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"reopenWhen","i":1,"c":"@openliri/infra/common` 类型导出会失效。"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"notes","i":0,"c":"迁包：git mv 10 文件（含 loopProbe/）+ 20 处 `@modules/diagnostics` 改别名、6 处相对路径改别名（3 处 app 动态导入：init / main / GitHubReleaseFetcher；3 处测试：loopProbe.test ×2、artifactRetention.test ×1），另 1 处**"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"notes","i":1,"c":"包内自引**改相对（infrastructure-diagnostics 的 SystemHealthChecker）。别名：删除 `@modules/diagnostics{,.js}`，新增 `@openliri/infra/diagnostics{,.js,/*}` + 包 exports `./diagnostics` 与 `/*`。包内出边："}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"notes","i":2,"c":"monitoring（7）· config（4）· error（2）· infra 自身（common 3 / environment 3 / constants 1 / utils 2）· kernel（4）；R7 SCC 仍 0。联动：state-literal 5 处、hardcode-gate 2 处（裸字面量/端点）、证据 code[] 1 处路径"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"notes","i":3,"c":"键；`phaseStack` 注释里的旧别名同步为新别名。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名 diagnostics/index.ts；在 `app/src/monitoring/index.ts` 临时 import 本包 ⇒ R7 报环（均已回滚）。"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#0","i":0,"c":"packages/infra/src/diagnostics/index.ts"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#1","i":0,"c":"packages/infra/src/diagnostics/infrastructure-diagnostics.ts"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#2","i":0,"c":"packages/infra/src/diagnostics/SystemHealthChecker.ts"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#3","i":0,"c":"app/src/main.ts"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#4","i":0,"c":"app/src/entrypoints/init.ts"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#5","i":0,"c":"app/src/cli/updater/GitHubReleaseFetcher.ts"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#6","i":0,"c":"app/src/monitoring/MonitoringService.ts"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#7","i":0,"c":"app/tests/diagnostics/loopProbe.test.ts"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#8","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"code#9","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"tests#0","i":0,"c":"app/tests/diagnostics/loopProbe.test.ts"}
+{"id":"INFRA-PACKAGE-P15-DIAGNOSTICS","k":"tests#1","i":0,"c":"app/tests/session/artifactRetention.test.ts"}

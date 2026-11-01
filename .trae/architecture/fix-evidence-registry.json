@@ -16586,6 +16586,42 @@
       "changelog": [],
       "reopenWhen": "① 打包冒烟：`bun build --compile` 期解析 tsconfig paths，本批只在 app 运行期验过 import()/require()（3 探针）⇒ 首次出包需实跑 trace 导出/查看子命令；② 若把 ExportService / ViewerService 提升到包根桶导出 ⇒ 命…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P14-TRACE-RECORDING）",
       "notes": "迁包：git mv 15 文件（engine/export/interceptor/live/sse/viewer 子目录）+ 20 处引用改别名。**本批新类型：该模块原先没有 @modules 别名**，全部引用是相对路径且带 `.js` 后缀，且多为 import()/require()（懒加载，避免启动面 e…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P14-TRACE-RECORDING）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P15-DIAGNOSTICS",
+      "title": "P15：diagnostics 迁入 packages/infra（10 文件 / 27 处引用）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.13",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/diagnostics/index.ts",
+        "packages/infra/src/diagnostics/infrastructure-diagnostics.ts",
+        "packages/infra/src/diagnostics/SystemHealthChecker.ts",
+        "app/src/main.ts",
+        "app/src/entrypoints/init.ts",
+        "app/src/cli/updater/GitHubReleaseFetcher.ts",
+        "app/src/monitoring/MonitoringService.ts",
+        "app/tests/diagnostics/loopProbe.test.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json"
+      ],
+      "tests": [
+        "app/tests/diagnostics/loopProbe.test.ts",
+        "app/tests/session/artifactRetention.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `diagnostics` 反向被 `monitoring` 依赖 ⇒ R7 立即报「monitoring / diagnostics 新进入环（2 成员）」（本批已实测该环可捕获）；② 若 `packages/infra/src/common/phaseStack.ts` 的同名转出被取消 ⇒ `index…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P15-DIAGNOSTICS）",
+      "notes": "迁包：git mv 10 文件（含 loopProbe/）+ 20 处 `@modules/diagnostics` 改别名、6 处相对路径改别名（3 处 app 动态导入：init / main / GitHubReleaseFetcher；3 处测试：loopProbe.test ×2、artifactReten…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P15-DIAGNOSTICS）"
     }
   ]
 }

@@ -16190,6 +16190,37 @@
       "changelog": [],
       "reopenWhen": "新增 packages/* 源码根、或某个门禁新增「按目录枚举」逻辑时，须同批确认扫描根覆盖（否则静默失明、门禁照常绿）（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P4-GATE-SCAN）",
       "notes": "a) 5 个文本型门禁（unref / logger-name / legacy-env / models / no-module-mock）补 packages/infra/src —— 它们此前含内核根但不含 infra 包。b) lint:complexity 增第二 ESLint 实例（仓根 cwd + 最小…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P4-GATE-SCAN）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P5-COMMON",
+      "title": "P5：common 迁入 packages/infra，并把 @openliri/infra 别名纳入分层/环检测",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五（拓扑顺序扩面：common → utils）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "scripts/lint-architecture.ts",
+        "app/scripts/lint-infra-boundary.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json",
+        "packages/infra/src/common/index.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "tests": [
+        "app/tests/gates"
+      ],
+      "changelog": [],
+      "reopenWhen": "新增 infra 物理包模块（如 utils）时，须同批确认别名解析与模块目录基准都生效；否则门禁再次静默失明（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P5-COMMON）",
+      "notes": "别名覆盖（前置）：lint:arch 的 parseModuleImports / parseValueModuleImports / parseDynamicImports 与 lint:infra 的 R7 边构建都补 @openliri/infra/<m>；否则迁包模块的边从分层图与环检测里消失（假绿）。顺带修…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P5-COMMON）"
     }
   ]
 }

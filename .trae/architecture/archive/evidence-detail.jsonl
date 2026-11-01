@@ -7612,3 +7612,17 @@
 {"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"code#5","i":0,"c":"scripts/lint-architecture.ts"}
 {"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"code#6","i":0,"c":"app/scripts/lint-complexity-ratchet.ts"}
 {"id":"INFRA-PACKAGE-P4-GATE-SCAN","k":"tests#0","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"title","i":0,"c":"P5：common 迁入 packages/infra，并把 @openliri/infra 别名纳入分层/环检测"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五（拓扑顺序扩面：common → utils）"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"reopenWhen","i":0,"c":"新增 infra 物理包模块（如 utils）时，须同批确认别名解析与模块目录基准都生效；否则门禁再次静默失明"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"notes","i":0,"c":"别名覆盖（前置）：lint:arch 的 parseModuleImports / parseValueModuleImports / parseDynamicImports 与 lint:infra 的 R7 边构建都补 @openliri/infra/<m>；否则迁包模块的边从分层图与环检测里消失（假绿）。顺带修 lint:infra 模块目录基准：物理"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"notes","i":1,"c":"包模块此前用 app/src 基准收集，路径为 ../../packages/...，R7 的 from 恒为 \"..\"，common 曾被计 0 / 边全丢。迁移：6 文件 git mv（代码逐字未改），20 处 @modules/common[/*] + 4 处相对导入改写为 @openliri/infra/common；删除 "}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"notes","i":2,"c":"@modules/common 别名，新增 @openliri/infra/common、.js、/* 三条；包 exports 增 ./common。基线联动：hardcode-gate-baseline 的「裸字面量:…/phaseStack.ts」键改名（计数不变）、state-literal-baseline 的 4 条 types.ts 路径改名；"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"notes","i":3,"c":"历史证据 5 条 code 路径同步更新。负向自证（均回滚）：types(core) 引 @openliri/infra/common ⇒ R00-001「分层违规: types (core) → common (infra)」；common↔external 互引 ⇒ R7 判「新进入 infra 层内环（2 成员）」。"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"code#0","i":0,"c":"scripts/lint-architecture.ts"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"code#1","i":0,"c":"app/scripts/lint-infra-boundary.ts"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"code#2","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"code#3","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"code#4","i":0,"c":"packages/infra/src/common/index.ts"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"code#5","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"INFRA-PACKAGE-P5-COMMON","k":"tests#0","i":0,"c":"app/tests/gates"}

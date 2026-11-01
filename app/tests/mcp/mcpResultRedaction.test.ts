@@ -14,13 +14,13 @@
  */
 import { afterEach, describe, expect, it } from 'bun:test';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { McpToolWrapper } from '../../src/services/mcp/McpToolWrapper.js';
-import { StdioTransport } from '../../src/services/mcp/transports/StdioTransport.js';
+import { McpToolWrapper } from '@openliri/service/services/mcp/McpToolWrapper';
+import { StdioTransport } from '@openliri/service/services/mcp/transports/StdioTransport';
 import {
   auditExplicitEnv,
   redactMcpPayload,
   stripCredentials,
-} from '../../src/services/mcp/MCPSecurityFilter.js';
+} from '@openliri/service/services/mcp/MCPSecurityFilter';
 
 /** OpenAI 风格密钥（命中 `/sk-(?:ant|proj)-[A-Za-z0-9_-]{32,}/`） */
 const OPENAI_KEY = `sk-proj-${'A'.repeat(40)}`;

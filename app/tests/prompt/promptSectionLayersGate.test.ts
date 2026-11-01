@@ -43,7 +43,7 @@ import {
 import {
   isSectionDeclared,
   isSectionVisibleIn,
-} from '../../src/services/prompt/promptSectionLayers';
+} from '@openliri/service/services/prompt/promptSectionLayers';
 import { registerPromptSections } from '../../src/context/promptSections';
 
 describe('提示词段落登记门禁', () => {

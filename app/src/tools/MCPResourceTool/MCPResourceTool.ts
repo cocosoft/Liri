@@ -27,7 +27,7 @@ const logger = getLogger('tools:mcpResource');
 // 2026-10-08（MCP 双轨收敛 C-1）：本工具的 4 个操作由**自研 `MCPServerManager` 链**
 // 改走**已连接的 SDK `Client`** —— 与 `mcp__*` 主路径（`MCPToolBridge`/`McpToolWrapper`）**同一条链**。
 // 取客户端统一走 `mcpConnectionManager.getSdkClient()`（单一入口，见该方法注释）。
-import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
+import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { McpResourcesDriver, type VfsEntry } from '@modules/vfs';
 import { MCPResourceOutputSchema } from './schemas';

@@ -5,8 +5,8 @@ import path from 'node:path';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
-import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager';
+import { enhancedMcpConfigManager } from '../EnhancedMCPConfigManager';
+import { getMCPServerManager } from '../MCPServerManager';
 import { LocalServerStore } from './LocalServerStore';
 import { ConfigWriter } from './ConfigWriter';
 import { RegistryHub } from './RegistryHub';
@@ -18,8 +18,8 @@ import type {
   InstalledMCPServer,
   ThirdPartyRegistry,
 } from './types';
-import type { ScopedMcpServerConfig } from '@modules/services/mcp/types';
-import { MCPServerStatus } from '@modules/services/mcp/types';
+import type { ScopedMcpServerConfig } from '../types';
+import { MCPServerStatus } from '../types';
 
 const logger = getLogger('services:mcp:marketplace');
 

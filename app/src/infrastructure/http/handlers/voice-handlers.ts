@@ -121,18 +121,18 @@ export async function handleSTTTranscribe(
     }
 
     const { STTRegistry } =
-      await import('../../../services/voice/services/sttRegistry');
+      await import('@openliri/service/services/voice/services/sttRegistry');
 
     // 自动注册 STT 提供者（如尚未注册）
     if (STTRegistry.getAllProviders().length === 0) {
       const { LocalSTTProvider } =
-        await import('../../../services/voice/services/localSTTProvider');
+        await import('@openliri/service/services/voice/services/localSTTProvider');
       STTRegistry.register(new LocalSTTProvider());
 
       const openAIApiKey = configManager.env('OPENAI_API_KEY');
       if (openAIApiKey) {
         const { CloudSTTProvider } =
-          await import('../../../services/voice/services/cloudSTTProvider');
+          await import('@openliri/service/services/voice/services/cloudSTTProvider');
         STTRegistry.register(new CloudSTTProvider({ apiKey: openAIApiKey }));
       }
     }
@@ -237,7 +237,8 @@ export async function handleGetVoiceSettings(
     }
 
     // 回退到 VoiceService（兼容旧数据）
-    const { createVoiceService } = await import('../../../services/voice');
+    const { createVoiceService } =
+      await import('@openliri/service/services/voice');
     const voiceService = createVoiceService();
     const config = voiceService.getConfig();
 
@@ -284,7 +285,8 @@ export async function handleUpdateVoiceSettings(
     configManager.setConfigValue('settings.voice', settings);
 
     // 同步到 VoiceService（保持运行时兼容）
-    const { createVoiceService } = await import('../../../services/voice');
+    const { createVoiceService } =
+      await import('@openliri/service/services/voice');
     const voiceService = createVoiceService();
     voiceService.updateConfig({
       language:
@@ -468,7 +470,7 @@ export async function handleTTSSynthesize(
     const { text, voiceId, provider, format } = JSON.parse(body);
 
     const { TTSRegistry, EdgeTTSProvider } =
-      await import('../../../services/voice/services/ttsProvider');
+      await import('@openliri/service/services/voice/services/ttsProvider');
 
     if (TTSRegistry.getProviderNames().length === 0) {
       TTSRegistry.register(new EdgeTTSProvider(), true);
@@ -514,18 +516,18 @@ export async function handleListVoiceProviders(
 ): Promise<void> {
   try {
     const { STTRegistry } =
-      await import('../../../services/voice/services/sttRegistry');
+      await import('@openliri/service/services/voice/services/sttRegistry');
 
     // 自动注册默认 STT 提供者（如尚未注册）
     if (STTRegistry.getAllProviders().length === 0) {
       const { LocalSTTProvider } =
-        await import('../../../services/voice/services/localSTTProvider');
+        await import('@openliri/service/services/voice/services/localSTTProvider');
       STTRegistry.register(new LocalSTTProvider());
 
       // SenseVoice（中文优化，sherpa-onnx）
       try {
         const { SenseVoiceSTTProvider } =
-          await import('../../../services/voice/services/senseVoiceSTTProvider');
+          await import('@openliri/service/services/voice/services/senseVoiceSTTProvider');
         const svProvider = new SenseVoiceSTTProvider();
         if (await svProvider.isAvailable()) {
           STTRegistry.register(svProvider);
@@ -536,13 +538,13 @@ export async function handleListVoiceProviders(
 
       // 注册流式 STT 提供者
       const { StreamSTTProvider } =
-        await import('../../../services/voice/services/streamSTTProvider');
+        await import('@openliri/service/services/voice/services/streamSTTProvider');
       STTRegistry.register(new StreamSTTProvider({}));
 
       const openAIApiKey = configManager.env('OPENAI_API_KEY');
       if (openAIApiKey) {
         const { CloudSTTProvider } =
-          await import('../../../services/voice/services/cloudSTTProvider');
+          await import('@openliri/service/services/voice/services/cloudSTTProvider');
         STTRegistry.register(new CloudSTTProvider({ apiKey: openAIApiKey }));
       }
     }
@@ -566,9 +568,9 @@ export async function handleVoiceHealth(
 ): Promise<void> {
   try {
     const { TTSRegistry } =
-      await import('../../../services/voice/services/ttsProvider');
+      await import('@openliri/service/services/voice/services/ttsProvider');
     const { STTRegistry } =
-      await import('../../../services/voice/services/sttRegistry');
+      await import('@openliri/service/services/voice/services/sttRegistry');
 
     const ttsProviders = TTSRegistry.getProviderNames();
     const sttProviders = STTRegistry.getProviderIds();
@@ -605,7 +607,7 @@ export async function handleListVoices(
 ): Promise<void> {
   try {
     const { TTSRegistry, EdgeTTSProvider } =
-      await import('../../../services/voice/services/ttsProvider');
+      await import('@openliri/service/services/voice/services/ttsProvider');
 
     if (TTSRegistry.getProviderNames().length === 0) {
       TTSRegistry.register(new EdgeTTSProvider(), true);
@@ -648,7 +650,7 @@ export async function handleTestWakeWord(
     }
 
     const { STTRegistry } =
-      await import('../../../services/voice/services/sttRegistry');
+      await import('@openliri/service/services/voice/services/sttRegistry');
     const { detectWakeWord } = await import('../../../voice/VoiceWakeManager');
 
     // 使用该唤醒词作为 keyterms 进行 STT 转写
@@ -757,7 +759,7 @@ export async function handleListTTSProviders(
 ): Promise<void> {
   try {
     const { TTSRegistry, EdgeTTSProvider } =
-      await import('../../../services/voice/services/ttsProvider');
+      await import('@openliri/service/services/voice/services/ttsProvider');
 
     if (TTSRegistry.getProviderNames().length === 0) {
       TTSRegistry.register(new EdgeTTSProvider(), true);
@@ -789,7 +791,7 @@ export async function handleSaveProviderConfig(
     const config = JSON.parse(body);
 
     const { TTSRegistry } =
-      await import('../../../services/voice/services/ttsProvider');
+      await import('@openliri/service/services/voice/services/ttsProvider');
 
     const provider = TTSRegistry.getProvider(providerName);
     if (!provider) {
@@ -839,7 +841,7 @@ export async function handleListPersonas(
 ): Promise<void> {
   try {
     const { TTSPersonaManager } =
-      await import('../../../services/voice/services/ttsPersonaManager');
+      await import('@openliri/service/services/voice/services/ttsPersonaManager');
 
     const personas = TTSPersonaManager.listDetail();
 
@@ -863,7 +865,7 @@ export async function handleCreatePersona(
     const options = JSON.parse(body);
 
     const { TTSPersonaManager } =
-      await import('../../../services/voice/services/ttsPersonaManager');
+      await import('@openliri/service/services/voice/services/ttsPersonaManager');
 
     const persona = TTSPersonaManager.create(options);
 
@@ -885,7 +887,7 @@ export async function handleGetPersona(
 ): Promise<void> {
   try {
     const { TTSPersonaManager } =
-      await import('../../../services/voice/services/ttsPersonaManager');
+      await import('@openliri/service/services/voice/services/ttsPersonaManager');
 
     const persona = TTSPersonaManager.get(personaId);
     if (!persona) {
@@ -917,7 +919,7 @@ export async function handleUpdatePersona(
     const partial = JSON.parse(body);
 
     const { TTSPersonaManager } =
-      await import('../../../services/voice/services/ttsPersonaManager');
+      await import('@openliri/service/services/voice/services/ttsPersonaManager');
 
     const success = TTSPersonaManager.update(personaId, partial);
     if (!success) {
@@ -947,7 +949,7 @@ export async function handleDeletePersona(
 ): Promise<void> {
   try {
     const { TTSPersonaManager } =
-      await import('../../../services/voice/services/ttsPersonaManager');
+      await import('@openliri/service/services/voice/services/ttsPersonaManager');
 
     const success = TTSPersonaManager.delete(personaId);
     if (!success) {
@@ -990,7 +992,7 @@ export async function handleTTSStop(
 ): Promise<void> {
   try {
     const { TTSRegistry } =
-      await import('../../../services/voice/services/ttsProvider');
+      await import('@openliri/service/services/voice/services/ttsProvider');
 
     TTSRegistry.stopAll();
 
@@ -1012,7 +1014,7 @@ export async function handleTTSHealth(
 ): Promise<void> {
   try {
     const { TTSRegistry, EdgeTTSProvider } =
-      await import('../../../services/voice/services/ttsProvider');
+      await import('@openliri/service/services/voice/services/ttsProvider');
 
     if (TTSRegistry.getProviderNames().length === 0) {
       TTSRegistry.register(new EdgeTTSProvider(), true);
@@ -1044,7 +1046,7 @@ export async function handleGetDefaultPersona(
 ): Promise<void> {
   try {
     const { TTSPersonaManager } =
-      await import('../../../services/voice/services/ttsPersonaManager');
+      await import('@openliri/service/services/voice/services/ttsPersonaManager');
 
     const defaultPersona = TTSPersonaManager.getDefault();
 
@@ -1071,7 +1073,7 @@ export async function handleListPersonaBindings(
 ): Promise<void> {
   try {
     const { TTSPersonaManager } =
-      await import('../../../services/voice/services/ttsPersonaManager');
+      await import('@openliri/service/services/voice/services/ttsPersonaManager');
 
     const flatBindings = TTSPersonaManager.listBindings();
 
@@ -1113,7 +1115,7 @@ export async function handleSetDefaultPersona(
 ): Promise<void> {
   try {
     const { TTSPersonaManager } =
-      await import('../../../services/voice/services/ttsPersonaManager');
+      await import('@openliri/service/services/voice/services/ttsPersonaManager');
 
     const body = await readRequestBody(req);
     const { setDefault } = JSON.parse(body);
@@ -1163,7 +1165,7 @@ export async function handleBindPersona(
     }
 
     const { TTSPersonaManager } =
-      await import('../../../services/voice/services/ttsPersonaManager');
+      await import('@openliri/service/services/voice/services/ttsPersonaManager');
 
     const success = TTSPersonaManager.bindToAgent(agentId, personaId);
     if (!success) {
@@ -1201,7 +1203,7 @@ export async function handleUnbindPersona(
     }
 
     const { TTSPersonaManager } =
-      await import('../../../services/voice/services/ttsPersonaManager');
+      await import('@openliri/service/services/voice/services/ttsPersonaManager');
 
     TTSPersonaManager.unbindFromAgent(agentId);
 

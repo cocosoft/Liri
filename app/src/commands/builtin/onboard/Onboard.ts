@@ -23,8 +23,14 @@ import {
 } from '@openliri/kernel';
 import { createInterface } from 'readline';
 import { setConfigValue, getConfig } from '@openliri/infra/config';
-import { writeSoulMd, readSoulMd } from '@modules/services/soul/SoulReader';
-import { writeUserMd, readUserMd } from '@modules/services/soul/UserReader';
+import {
+  writeSoulMd,
+  readSoulMd,
+} from '@openliri/service/services/soul/SoulReader';
+import {
+  writeUserMd,
+  readUserMd,
+} from '@openliri/service/services/soul/UserReader';
 import { detectUnifiedProviders } from '@modules/ai';
 // B5-2-100+：引导页厂商链接与通道实现共用同一事实源
 import {

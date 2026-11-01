@@ -26,7 +26,7 @@
 import {
   filterMCPToolResult,
   redactMcpPayload,
-} from '../src/services/mcp/MCPSecurityFilter';
+} from '@openliri/service/services/mcp/MCPSecurityFilter';
 
 const KB = 1024;
 const MB = 1024 * 1024;
@@ -99,7 +99,7 @@ const MCP_CONFIG = {
 /** 轮询等待 SDK 客户端就绪（`initialize` 内部批量刷新 clientCache，存在时序窗口） */
 async function waitForClient(timeoutMs = 60_000) {
   const { mcpConnectionManager } =
-    await import('../src/services/mcp/MCPConnectionManager.js');
+    await import('@openliri/service/services/mcp/MCPConnectionManager');
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     const client = mcpConnectionManager.getSdkClient(MCP_SERVER);
@@ -118,7 +118,7 @@ async function benchRoundTrip(
 ): Promise<Map<string, Stat> | null> {
   try {
     const { mcpConnectionManager } =
-      await import('../src/services/mcp/MCPConnectionManager.js');
+      await import('@openliri/service/services/mcp/MCPConnectionManager');
     await mcpConnectionManager.initialize({
       [MCP_SERVER]: MCP_CONFIG as never,
     });

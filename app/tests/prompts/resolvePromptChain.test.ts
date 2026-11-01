@@ -34,7 +34,7 @@ import {
   resolveToolParam,
   getPromptAppendices,
   clearPromptCache,
-} from '../../src/services/prompt/PromptVersionManager';
+} from '@openliri/service/services/prompt/PromptVersionManager';
 import {
   sectionCache,
   sectionCacheKey,

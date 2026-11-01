@@ -202,8 +202,8 @@ import type {
   ChatStreamChunk,
   QuestionData,
 } from '@modules/runtime/api/CoreAPI.js';
-import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
-import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
+import { assembleSystemPrompt } from '@openliri/service/services/prompt/PromptAssembler';
+import { setCurrentKnowledgeQuery } from '@openliri/service/services/prompt/KnowledgePromptProvider';
 import type { MemorySessionContext } from '@openliri/infra/memory/types/SessionContext';
 import { QueryEngine, createQueryEngine } from '@modules/query';
 import {

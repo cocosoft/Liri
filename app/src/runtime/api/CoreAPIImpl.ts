@@ -31,7 +31,7 @@ import type { CoreAPI } from './CoreAPI';
 // C1（2026-09-30 D-98/D-101）：任务运维**服务层端口**（用于给 `getTaskOpsPort()` 显式标注返回类型）
 import type { TaskOpsPort } from './taskOpsPorts';
 // C1（2026-09-30 D-106）：AI 运维**服务层端口**（用于给 `getAiOpsPort()` 显式标注返回类型）
-import type { AiOpsPort } from './aiOpsPorts';
+import type { AiOpsPort } from '@openliri/service/ports/aiOpsPorts';
 // C1（2026-09-30 D-111）：三个小域**服务层端口**（用于给 `getXxxOpsPort()` 显式标注返回类型）
 import type { QueryOpsPort } from './queryOpsPorts';
 import type { BuddyOpsPort } from './buddyOpsPorts';
@@ -1469,7 +1469,7 @@ export class CoreAPIImpl implements CoreAPI {
    * 压缩域**同步**门面（2026-10-01 D-217，子批 E `chat` 组）
    *
    * `session/compaction/ServiceAdapters.ts`（service）原先**静态**导入
-   * `@modules/services/compact/AutoCompactService`；该目录**改归 app**（现为独立模块
+   * `@openliri/service/services/compact/AutoCompactService`；该目录**改归 app**（现为独立模块
    * `@modules/compaction`，见 spec §3.5 D-217 方案乙）后会构成 `session -> app` 倒挂 ⇒ 改经本门面取用。
    *
    * ⚠️ **为何同步而非端口 Promise**：调用点在 `SessionGateway` 的**构造函数**与

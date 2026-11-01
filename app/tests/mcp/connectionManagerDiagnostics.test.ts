@@ -29,13 +29,13 @@
  */
 
 import { afterAll, describe, expect, it } from 'bun:test';
-import { mcpConnectionManager } from '../../src/services/mcp/MCPConnectionManager.js';
-import { getMCPServerManager } from '../../src/services/mcp/MCPServerManager.js';
+import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
+import { getMCPServerManager } from '@openliri/service/services/mcp/MCPServerManager';
 import type {
   ConnectedMCPServer,
   MCPServerConnection,
   ScopedMcpServerConfig,
-} from '../../src/services/mcp/types';
+} from '@openliri/service/services/mcp/types';
 
 /** 仅注册、**不连接**的探针服务器名 */
 const PROBE = 'guard-probe';

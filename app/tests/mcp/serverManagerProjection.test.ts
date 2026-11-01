@@ -34,9 +34,9 @@
  * 本测试用**独立实例**（`new MCPServerManager()`），不污染全局单例。
  */
 import { describe, expect, it } from 'bun:test';
-import { MCPServerManager } from '../../src/services/mcp/MCPServerManager';
-import { MCPServerStatus } from '../../src/services/mcp/types';
-import type { MCPServerConfig } from '../../src/services/mcp/types';
+import { MCPServerManager } from '@openliri/service/services/mcp/MCPServerManager';
+import { MCPServerStatus } from '@openliri/service/services/mcp/types';
+import type { MCPServerConfig } from '@openliri/service/services/mcp/types';
 
 /** 最小 stdio 配置（connect 从未被调用 ⇒ transport 不会 spawn 子进程） */
 const STDIO_CFG: MCPServerConfig = { type: 'stdio', command: 'noop' };

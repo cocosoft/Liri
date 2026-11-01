@@ -10,7 +10,7 @@
 import {
   validatePromptResources,
   type PromptIssue,
-} from '../src/services/prompt/PromptValidator';
+} from '@openliri/service/services/prompt/PromptValidator';
 import {
   parseGateArgs,
   reportPromptGate,

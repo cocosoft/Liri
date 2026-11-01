@@ -7,7 +7,7 @@ import type { AgentTask, AgentResponse, AgentContext } from '../models/types';
 import { AgentState } from '../models/types';
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
-import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
+import { assembleSystemPrompt } from '@openliri/service/services/prompt/PromptAssembler';
 
 /**
  * 通用代理策略

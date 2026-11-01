@@ -68,7 +68,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(read('../packages/infra/src/constants/toolLimits.ts')).toMatch(
       /export const BYTES_PER_TOKEN = 4;/
     );
-    const types = read('src/services/toolResultStorage/types.ts');
+    const types = read(
+      '../packages/service/src/services/toolResultStorage/types.ts'
+    );
     expect(types).not.toMatch(/const BYTES_PER_TOKEN =/);
     expect(types).toContain(
       "export { BYTES_PER_TOKEN } from '@openliri/infra/constants';"
@@ -135,13 +137,13 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   });
 
   test('B2b：WAV_HEADER_SIZE 真源在 services/voice/services/audioUtils.ts；三处消费侧改引真源', () => {
-    expect(read('src/services/voice/services/audioUtils.ts')).toMatch(
-      /export const WAV_HEADER_SIZE = 44;/
-    );
+    expect(
+      read('../packages/service/src/services/voice/services/audioUtils.ts')
+    ).toMatch(/export const WAV_HEADER_SIZE = 44;/);
     for (const rel of [
-      'src/services/voice/services/audioPlayer.ts',
-      'src/services/voice/services/playbackManager.ts',
-      'src/services/voice/services/ttsProvider.ts',
+      '../packages/service/src/services/voice/services/audioPlayer.ts',
+      '../packages/service/src/services/voice/services/playbackManager.ts',
+      '../packages/service/src/services/voice/services/ttsProvider.ts',
     ]) {
       const src = read(rel);
       expect(src).not.toMatch(/const WAV_HEADER_SIZE =/);
@@ -301,7 +303,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '3_000',
       ],
       [
-        'src/services/prompt/PromptVersionManager.ts',
+        '../packages/service/src/services/prompt/PromptVersionManager.ts',
         'PROMPT_VERSION_CACHE_TTL_MS',
         '30_000',
       ],
@@ -353,7 +355,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '30_000',
       ],
       [
-        'src/services/mcp/transports/StreamableHttpTransport.ts',
+        '../packages/service/src/services/mcp/transports/StreamableHttpTransport.ts',
         'MCP_TRANSPORT_DEFAULT_TIMEOUT_MS',
         '30_000',
       ],
@@ -457,7 +459,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '3600 * 1000',
       ],
       [
-        'src/services/file/FileStatsService.ts',
+        '../packages/service/src/services/file/FileStatsService.ts',
         'FILE_STATS_CACHE_TTL_MS',
         '60_000',
       ],
@@ -543,12 +545,12 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '15000',
       ],
       [
-        'src/services/voice/services/senseVoiceSTTProvider.ts',
+        '../packages/service/src/services/voice/services/senseVoiceSTTProvider.ts',
         'SENSEVOICE_STT_REQUEST_TIMEOUT_MS',
         '60_000',
       ],
       [
-        'src/services/voice/services/localSTTProvider.ts',
+        '../packages/service/src/services/voice/services/localSTTProvider.ts',
         'LOCAL_STT_REQUEST_TIMEOUT_MS',
         '30_000',
       ],
@@ -753,11 +755,15 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
         '5',
       ],
       [
-        'src/services/mcp/MCPConnectionManager.ts',
+        '../packages/service/src/services/mcp/MCPConnectionManager.ts',
         'MCP_MANAGER_MAX_RECONNECT_ATTEMPTS',
         '5',
       ],
-      ['src/services/mcp/client.ts', 'MCP_CLIENT_MAX_RECONNECT_ATTEMPTS', '5'],
+      [
+        '../packages/service/src/services/mcp/client.ts',
+        'MCP_CLIENT_MAX_RECONNECT_ATTEMPTS',
+        '5',
+      ],
     ];
     for (const [rel, name, value] of items) {
       const src = read(rel);
@@ -1076,7 +1082,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       "import { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@openliri/infra/constants';"
     );
     // `services/toolResultStorage`：仅保留**导出面**（re-export 真源，消费者零改动）
-    const storage = read('src/services/toolResultStorage/types.ts');
+    const storage = read(
+      '../packages/service/src/services/toolResultStorage/types.ts'
+    );
     expect(storage).not.toMatch(/const DEFAULT_MAX_RESULT_SIZE_CHARS = /);
     expect(storage).toContain(
       "export { DEFAULT_MAX_RESULT_SIZE_CHARS } from '@openliri/infra/constants';"
@@ -1173,17 +1181,17 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     // ⇒ 本键的 3 个命中文件 = 三家 STT 提供者的默认配置
     const items: Array<[string, string, string]> = [
       [
-        'src/services/voice/services/cloudSTTProvider.ts',
+        '../packages/service/src/services/voice/services/cloudSTTProvider.ts',
         'CLOUD_STT_DEFAULT_CONFIG',
         "model: 'whisper-1'",
       ],
       [
-        'src/services/voice/services/localSTTProvider.ts',
+        '../packages/service/src/services/voice/services/localSTTProvider.ts',
         'LOCAL_STT_DEFAULT_CONFIG',
         "model: 'base'",
       ],
       [
-        'src/services/voice/services/senseVoiceSTTProvider.ts',
+        '../packages/service/src/services/voice/services/senseVoiceSTTProvider.ts',
         'SENSE_VOICE_STT_DEFAULT_CONFIG',
         "model: 'SenseVoiceSmall'",
       ],
@@ -1196,9 +1204,11 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).toContain(`{ ...${name}, ...config }`);
     }
     // ⚠️ 同族**盲区观察**（仅登记，本片未动）：带类型写法 ⇒ 门禁正则看不见
-    expect(read('src/services/voice/services/streamSTTProvider.ts')).toContain(
-      'const DEFAULT_CONFIG: StreamSTTConfig = {'
-    );
+    expect(
+      read(
+        '../packages/service/src/services/voice/services/streamSTTProvider.ts'
+      )
+    ).toContain('const DEFAULT_CONFIG: StreamSTTConfig = {');
   });
 
   test('B5-2㉖：`DEFAULT_TIMEOUT` ×3 已按域消歧（取值一字未改）', () => {
@@ -1261,7 +1271,10 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       ['src/acp/websocket.ts', 'MAGIC_GUID'],
       ['src/voice/upgrade.ts', 'MAGIC_GUID'],
       ['src/voice/WakeWebSocketServer.ts', 'MAGIC_GUID'],
-      ['src/services/voice/services/edgeTTSTransport.ts', 'WS_GUID'],
+      [
+        '../packages/service/src/services/voice/services/edgeTTSTransport.ts',
+        'WS_GUID',
+      ],
     ];
     for (const [rel, oldName] of consumers) {
       const consumer = read(rel);
@@ -1301,7 +1314,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(write).toContain(
       "export { FILE_WRITE_TOOL_NAME } from '@openliri/infra/constants';"
     );
-    const agent = read('src/services/agent/parseAgent.ts');
+    const agent = read('../packages/service/src/services/agent/parseAgent.ts');
     expect(agent).not.toMatch(
       /(^|[^_A-Za-z])const FILE_(EDIT|WRITE)_TOOL_NAME\s*=/
     );
@@ -1839,7 +1852,9 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     const limits = read('../packages/infra/src/constants/toolLimits.ts');
     expect(limits).not.toMatch(/(^|[^_A-Za-z])const MAX_TOOL_RESULT_BYTES\s*=/);
     expect(limits).toContain('export const CONTEXT_MAX_TOOL_RESULT_BYTES =');
-    const storage = read('src/services/toolResultStorage/types.ts');
+    const storage = read(
+      '../packages/service/src/services/toolResultStorage/types.ts'
+    );
     expect(storage).toContain(
       'export const MAX_TOOL_RESULT_BYTES = 1_000_000;'
     );
@@ -1850,12 +1865,16 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(limits).not.toMatch(
       /(^|[^_A-Za-z])const MAX_TOOL_RESULTS_PER_MESSAGE_CHARS\s*=/
     );
-    const storage = read('src/services/toolResultStorage/types.ts');
+    const storage = read(
+      '../packages/service/src/services/toolResultStorage/types.ts'
+    );
     expect(storage).toContain(
       'export const MAX_TOOL_RESULTS_PER_MESSAGE_CHARS = 250_000;'
     );
     expect(
-      read('src/services/toolResultStorage/ContentReplacementStore.ts')
+      read(
+        '../packages/service/src/services/toolResultStorage/ContentReplacementStore.ts'
+      )
     ).toContain("configManager.env('MAX_TOOL_RESULTS_PER_MESSAGE_CHARS')");
   });
 
@@ -1875,7 +1894,7 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
     expect(read('../packages/infra/src/constants/tools.ts')).toContain(
       "export const FILE_READ_TOOL_NAME = 'file_read' satisfies ToolName;"
     );
-    const parse = read('src/services/agent/parseAgent.ts');
+    const parse = read('../packages/service/src/services/agent/parseAgent.ts');
     expect(parse).not.toMatch(/(^|[^_A-Za-z])const FILE_READ_TOOL_NAME\s*=/);
     expect(parse).toContain('FILE_READ_TOOL_NAME,');
     expect(parse).toContain("} from '@openliri/infra/constants';");

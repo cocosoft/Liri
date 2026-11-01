@@ -12,7 +12,7 @@ import { resolveDataDir } from '@openliri/infra/environment';
 import type { CommandContext } from '@modules/commands';
 
 import { getLogger } from '@openliri/infra/monitoring';
-import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
+import { sanitizeFileName as sanitizeFileNameBase } from '@openliri/service/services/file/fileNaming';
 const logger = getLogger('commands:builtin:export:Export');
 
 interface MsgLike {
@@ -257,7 +257,7 @@ async function handleJsonExport(context: CommandContext) {
     encoding: 'utf-8',
   });
 
-  (await import('@modules/services/analytics/index.js')).logEvent(
+  (await import('@openliri/service/services/analytics/index')).logEvent(
     'tengu_export_created',
     {
       format: 'json',
@@ -303,7 +303,7 @@ async function handleExport(filenameArg: string, context: CommandContext) {
 
   writeFileSync(filepath, content, { encoding: 'utf-8' });
 
-  (await import('@modules/services/analytics/index.js')).logEvent(
+  (await import('@openliri/service/services/analytics/index')).logEvent(
     'tengu_export_created',
     {
       format: 'text',

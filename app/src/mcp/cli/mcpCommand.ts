@@ -5,13 +5,13 @@
 
 import { Command } from 'commander';
 import { configManager } from '@openliri/infra/config';
-import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
+import { getMCPServerManager } from '@openliri/service/services/mcp/MCPServerManager';
 import { MCPServerConfig } from '../types';
 import { readMcpConfig, writeMcpConfig } from '../utils/mcpConfig';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 // Q-18（2026-10-23）：派生口径抽到服务层共享（`mcp_auth` 工具与 CLI 同源）
-import { deriveOAuthConfig } from '@modules/services/mcp/auth/deriveOAuthConfig.js';
+import { deriveOAuthConfig } from '@openliri/service/services/mcp/auth/deriveOAuthConfig';
 
 const logger = getLogger('mcpCommand');
 
@@ -296,7 +296,7 @@ export function createMcpCommand(): Command {
 
         // 使用 MCPAuthManager 发起 OAuth 流程（基于已归一的 OAuth 体系）
         const { mcpAuthManager } =
-          await import('@modules/services/mcp/auth/MCPAuth.js');
+          await import('@openliri/service/services/mcp/auth/MCPAuth');
         const result = await mcpAuthManager.initiateAuth(oauthConfig);
         console.log(
           `Please open the following URL in your browser:\n${result.authUrl}\n`

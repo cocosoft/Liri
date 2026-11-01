@@ -3,11 +3,11 @@ import * as path from 'path';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
+import { enhancedMcpConfigManager } from '../EnhancedMCPConfigManager';
 import type {
   ScopedMcpServerConfig,
   MCPServerConfig,
-} from '@modules/services/mcp/types';
+} from '../types';
 import type { ServerInstallConfig } from './types';
 
 const logger = getLogger('services:mcp:configWriter');

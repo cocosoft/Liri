@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { listToolResourceOverrides } from '../../src/services/prompt/PromptVersionManager';
+import { listToolResourceOverrides } from '@openliri/service/services/prompt/PromptVersionManager';
 
 const ROOT = mkdtempSync(join(tmpdir(), 'tool-res-overrides-'));
 

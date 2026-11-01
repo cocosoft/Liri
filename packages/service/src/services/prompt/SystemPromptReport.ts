@@ -4,7 +4,7 @@ import type { PromptMode } from './types';
 // ① `getCachedTiktokenEncoder` 实现已改归 infra（D-212）⇒ 相对直连 infra 模块根；
 // ② `estimateTokens` 改经服务层端口（D-214 已加 `AiOpsPort.estimateTokensOf`，同步）⇒ 由调用方下传。
 import { getCachedTiktokenEncoder } from '@openliri/infra/utils/TiktokenEstimator';
-import type { AiOpsPort } from '@modules/runtime/api/aiOpsPorts';
+import type { AiOpsPort } from '../../ports/aiOpsPorts';
 
 export interface SectionReportEntry {
   name: string;

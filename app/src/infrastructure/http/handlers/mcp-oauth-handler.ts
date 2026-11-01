@@ -8,9 +8,9 @@
  * 对标 hermes: mcp_oauth_manager.py 的 OAuth 回调处理
  */
 import type http from 'http';
-import { mcpAuthManager } from '@modules/services/mcp/auth/MCPAuth';
-import type { MCPOAuthConfig } from '@modules/services/mcp/auth/types';
-import type { McpOAuthConfig } from '@modules/services/mcp/types';
+import { mcpAuthManager } from '@openliri/service/services/mcp/auth/MCPAuth';
+import type { MCPOAuthConfig } from '@openliri/service/services/mcp/auth/types';
+import type { McpOAuthConfig } from '@openliri/service/services/mcp/types';
 import { readMcpConfig } from '@modules/mcp';
 import { configManager } from '@openliri/infra/config';
 import {

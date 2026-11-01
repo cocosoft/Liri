@@ -29,8 +29,8 @@ import {
   resolveDataSubDir,
 } from '@openliri/infra/environment';
 import { globalEventBus } from '@openliri/kernel';
-import { FileRegistry } from '@modules/services/file/FileRegistry';
-import { FileSource } from '@modules/services/file/types';
+import { FileRegistry } from '@openliri/service/services/file/FileRegistry';
+import { FileSource } from '@openliri/service/services/file/types';
 import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
 import { providerRegistry, modelRouter } from '@modules/ai';

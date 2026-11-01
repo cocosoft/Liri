@@ -23,11 +23,11 @@ import {
 } from '@modules/ai';
 import { isLocalLlmEndpoint, sanitizePass } from './ChatHelper';
 import { buildReplyEffortPrompt } from '../replyEffort';
-import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
+import { assembleSystemPrompt } from '@openliri/service/services/prompt/PromptAssembler';
 import {
   setCurrentKnowledgeQuery,
   setCurrentKnowledgeDomain,
-} from '@modules/services/prompt/KnowledgePromptProvider';
+} from '@openliri/service/services/prompt/KnowledgePromptProvider';
 import type { MemorySessionContext } from '@openliri/infra/memory/types/SessionContext';
 import type { ImageContextService } from './ImageContextService';
 

@@ -23,6 +23,31 @@ import { randomIdSuffix } from '@openliri/infra/utils/common';
 // ⇒ 原位置造成 `infrastructure -> components`（service -> ui）倒挂。
 // **处置**：物理归位至 `services/file/`（**service 层**，与 `fileNaming` 同域）—— 消费方
 // `infrastructure`(service) → `services`(service) 属**同层**，边消失（CS01 归一化：未新建重复实现）。
+/**
+ * 知识库自动摄取端口（P30）。
+ *
+ * 本文件原在方法内 `await import('../../knowledge/ingestion/FileIngestionService')`（app 层
+ * `knowledge`）。`services` 迁入 `packages/service` 后该相对路径会落到不存在的包内目录
+ * （能力静默消失），改成逃逸进 `app/` 又违反 service 包边界（R8）⇒ 与 P6/P25 同口径反转依赖：
+ * 包内只留注入点，实现由 app 启动期提供（见 `bootstrap/preflight.ts`）。
+ * 未注入 ⇒ 跳过自动摄取（附件保存本身不受影响）。
+ */
+export interface AttachmentIngestionPort {
+  /** 摄取来源固定为附件（由 app 侧实现映射到其 `IngestionSource` 枚举） */
+  ingestFile(path: string, meta: { description: string }): Promise<unknown>;
+}
+
+let ingestionPortLoader:
+  | (() => Promise<AttachmentIngestionPort | null>)
+  | null = null;
+
+/** 由 app 启动期注入（懒加载知识库摄取实现） */
+export function setAttachmentIngestionPortLoader(
+  loader: () => Promise<AttachmentIngestionPort | null>
+): void {
+  ingestionPortLoader = loader;
+}
+
 const logger = getLogger('services:file:attachments');
 /**
  * 附件类型
@@ -535,10 +560,9 @@ export class AttachmentManager {
   private autoIngestAttachment(attachment: Attachment): void {
     Promise.resolve().then(async () => {
       try {
-        const { getDefaultIngestionService } =
-          await import('../../knowledge/ingestion/FileIngestionService');
-        const service = getDefaultIngestionService();
-        await service.ingestFile(attachment.path, 'attachment', {
+        const port = ingestionPortLoader ? await ingestionPortLoader() : null;
+        if (!port) return;
+        await port.ingestFile(attachment.path, {
           description: `附件类型: ${attachment.type}, MIME: ${attachment.mimeType}`,
         });
         logger.info('附件已自动摄取到知识库', {
@@ -609,8 +633,8 @@ export class AttachmentManager {
     Promise.resolve().then(async () => {
       try {
         const { FileRegistry } =
-          await import('@modules/services/file/FileRegistry');
-        const { FileSource } = await import('@modules/services/file/types');
+          await import('./FileRegistry');
+        const { FileSource } = await import('./types');
 
         const metadata = attachment.metadata;
         const source =

@@ -10,11 +10,11 @@ import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
-import voiceService from '@modules/services/voice';
+import voiceService from '@openliri/service/services/voice';
 import { globalEventBus } from '@openliri/kernel';
 import type { EventSubscription } from '@openliri/kernel';
 import { parse, join } from 'path';
-import { sanitizeFileName } from '@modules/services/file/fileNaming';
+import { sanitizeFileName } from '@openliri/service/services/file/fileNaming';
 
 const logger = getLogger('tools:tts');
 

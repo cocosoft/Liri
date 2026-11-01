@@ -95,7 +95,7 @@ const vimCommand = {
         editorMode: newMode,
       }));
 
-      (await import('@modules/services/analytics/index.js')).logEvent(
+      (await import('@openliri/service/services/analytics/index')).logEvent(
         'tengu_editor_mode_changed',
         {
           mode: newMode,

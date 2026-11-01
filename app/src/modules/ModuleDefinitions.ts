@@ -423,7 +423,7 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     optionalDependencies: ['memory', 'monitoring'],
     // 2026-08-06 P0-1：补模块生命周期接线（原仅元数据、无 instance → 注册后 initialize 空操作，MCP 从未实际初始化）
     async initialize() {
-      const { mcpSystem } = await import('@modules/services/mcp');
+      const { mcpSystem } = await import('@openliri/service/services/mcp');
       // 2026-10-01 B18-a：**工具注册端口的组合根注入**。
       // `MCPToolBridge`(service) 已删除对 `@modules/tools`(app) 的静态依赖；本文件属 **app 层**
       // （见 `scripts/modules-to-layers.json`）⇒ `modules -> tools` **同层合法**。
@@ -446,7 +446,7 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
       });
     },
     async destroy() {
-      const { mcpSystem } = await import('@modules/services/mcp');
+      const { mcpSystem } = await import('@openliri/service/services/mcp');
       await mcpSystem.cleanup();
     },
   },

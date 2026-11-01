@@ -28,7 +28,7 @@ import {
   MCPServerConfig as _MCPServerConfig,
 } from './MCPTypes.js';
 
-import { ServerResource as _ServerResource } from '@modules/services/mcp/types/index.js';
+import { ServerResource as _ServerResource } from '@openliri/service/services/mcp/types/index';
 
 export { MCP_PROTOCOL_VERSION, MCPServerStatus } from './MCPTypes.js';
 

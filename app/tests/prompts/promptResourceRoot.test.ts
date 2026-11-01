@@ -26,7 +26,7 @@ import { join } from 'node:path';
 import {
   getPromptResourceRoot,
   resolvePromptResourceRoot,
-} from '../../src/services/prompt/PromptVersionManager';
+} from '@openliri/service/services/prompt/PromptVersionManager';
 
 const tempDirs: string[] = [];
 

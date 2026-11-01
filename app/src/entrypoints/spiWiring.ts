@@ -429,11 +429,11 @@ export async function registerAllSpis(
   // ---- 诊断采集 SPI（2026-09-30 D-123；D-128 转推送模型）----
   {
     const { STTRegistry } =
-      await import('@modules/services/voice/services/sttRegistry');
+      await import('@openliri/service/services/voice/services/sttRegistry');
     const { TTSRegistry } =
-      await import('@modules/services/voice/services/ttsProvider');
+      await import('@openliri/service/services/voice/services/ttsProvider');
     const { channelRegistry } = await import('@modules/channels');
-    const { mcpSystem } = await import('@modules/services/mcp');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
     const { registerDiagnosticsProbeSpi } =
       await import('@openliri/kernel/spi');
 

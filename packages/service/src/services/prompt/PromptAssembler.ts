@@ -11,11 +11,11 @@ import {
 // + 类型 `SystemPromptContext`）⇒ 改经 **服务层端口** `getCoreAPI().getAiOpsPort()`
 // （service→service 合法；⚠️ 4 个能力在 app 侧是**同步**的 ⇒ 端口方法亦同步，
 // 在**异步入口**取一次句柄后**显式下传**给同步 helper —— 方案 A）。
-import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import type {
   AiOpsPort,
   SystemPromptContextDto,
-} from '@modules/runtime/api/aiOpsPorts';
+} from '../../ports/aiOpsPorts';
 import { configManager } from '@openliri/infra/config';
 import { providerPromptRegistry } from './ProviderPromptPlugin';
 import { getLogger } from '@openliri/infra/monitoring';
@@ -32,6 +32,38 @@ import type { PromptMode } from './types';
 export type { PromptMode };
 // P0-2（提示词分层治理）：声明式层/可见性元数据（替代 CORE/CONVERSATION/LOCAL 手工 Set）
 import { isSectionVisibleIn, getSectionLayer } from './promptSectionLayers';
+
+/**
+ * CoreAPI 端口（P30）。
+ *
+ * 原为 `import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl'`（app 层 `runtime`）。
+ * `services` 迁入 `packages/service` 后该**运行期**依赖会把 app 源码整条拉进包程序
+ * （连锁 TS2307），改道包外又违反 service 包边界（R8）⇒ 与 P6/P25 同口径反转依赖：
+ * 包内只留注入点，实现由 app 启动期提供（`bootstrap/preflight.ts`）。
+ */
+export interface PromptCoreApiPort {
+  getAiOpsPort(): Promise<AiOpsPort>;
+}
+
+let coreApiProvider: (() => PromptCoreApiPort) | null = null;
+
+/** 由 app 启动期注入（传 `() => getCoreAPI()`） */
+export function setPromptCoreApiProvider(
+  provider: () => PromptCoreApiPort
+): void {
+  coreApiProvider = provider;
+}
+
+function requireCoreApi(): PromptCoreApiPort {
+  if (!coreApiProvider) {
+    throw new AppError(
+      '提示词组装缺少 CoreAPI 端口注入（启动期未接线）',
+      ErrorCategory.CONFIGURATION,
+      ErrorSeverity.HIGH
+    );
+  }
+  return coreApiProvider();
+}
 
 const logger = getLogger('prompt:assembler');
 
@@ -168,7 +200,7 @@ export async function assembleSystemPrompt(
   setSectionCacheLocale(resolvedLocale);
   const resolvedMode: PromptMode = mode ?? 'full';
   // D-214（方案 A）：端口**在异步入口取一次**，再显式下传给下方同步 helper/循环
-  const ai = await getCoreAPI().getAiOpsPort();
+  const ai = await requireCoreApi().getAiOpsPort();
 
   const baseSections = sections ?? getRegisteredSections();
   const providerSections = providerPromptRegistry.applyOverrides(

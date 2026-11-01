@@ -32,7 +32,7 @@ import type {
   AiOpsPort,
   LlamaDownloadProgressDto,
   SystemPromptContextDto,
-} from './aiOpsPorts';
+} from '@openliri/service/ports/aiOpsPorts';
 import type {
   QueryOpsPort,
   ResearchOrchestrationConfigDto,

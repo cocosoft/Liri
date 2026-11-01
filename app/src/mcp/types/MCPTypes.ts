@@ -20,12 +20,12 @@ import type {
   MCPEvent as _MCPEvent,
   MCPTransport as _MCPTransport,
   MCPServerConnectionInfo as _MCPServerConnectionInfo,
-} from '../../services/mcp/types/index.js';
+} from '@openliri/service/services/mcp/types/index';
 
 export {
   MCP_PROTOCOL_VERSION,
   MCPServerStatus,
-} from '../../services/mcp/types/index.js';
+} from '@openliri/service/services/mcp/types/index';
 
 export type { _MCPServerConfig as MCPServerConfig };
 export type { _ScopedMcpServerConfigExt as ScopedMcpServerConfig };
@@ -48,7 +48,7 @@ export type { _MCPServerConnectionInfo as MCPServerConnectionInfo };
 export type {
   ConfigScope,
   MCPServerType,
-} from '../../services/mcp/types/index.js';
+} from '@openliri/service/services/mcp/types/index';
 
 /**
  * MCP客户端接口

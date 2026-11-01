@@ -21,7 +21,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import type { PromptIssue } from '../src/services/prompt/PromptValidator';
+import type { PromptIssue } from '@openliri/service/services/prompt/PromptValidator';
 import {
   parseGateArgs,
   reportPromptGate,

@@ -18,10 +18,10 @@ import {
   type McpAuthManagerLike,
   type McpServerManagerLike,
 } from '../../src/tools/McpAuthTool/McpAuthTool';
-import { deriveOAuthConfig } from '../../src/services/mcp/auth/deriveOAuthConfig';
+import { deriveOAuthConfig } from '@openliri/service/services/mcp/auth/deriveOAuthConfig';
 import { deriveToolRiskClass } from '../../src/tools/toolRiskClass';
-import type { MCPServerConfig } from '../../src/services/mcp/types';
-import type { MCPOAuthConfig } from '../../src/services/mcp/auth/types';
+import type { MCPServerConfig } from '@openliri/service/services/mcp/types';
+import type { MCPOAuthConfig } from '@openliri/service/services/mcp/auth/types';
 
 const OAUTH_SERVER: MCPServerConfig = {
   name: 'octo',

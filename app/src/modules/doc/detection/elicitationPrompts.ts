@@ -16,7 +16,7 @@ export function registerOfficeCLIInstallPrompt(): void {
   void (async () => {
     try {
       const { registerElicitationPrompts } =
-        await import('@modules/services/mcp/elicitationHandler');
+        await import('@openliri/service/services/mcp/elicitationHandler');
       registerElicitationPrompts('officecli', [
         {
           type: 'confirm',

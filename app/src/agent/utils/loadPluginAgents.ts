@@ -10,11 +10,11 @@ const logger = getLogger('utils:loadPluginAgents');
 // 2026-08-06 修复（Q3）：移除模块级缓存。
 // 原 pluginAgentsCache 一旦缓存（可能缓存空数组）永不失效，且 clearPluginAgentCache 无调用方，
 // 导致插件加载后 Agent 列表不刷新。loadPluginAgents 由 Agent 源在加载时低频调用，实时读取成本可忽略。
-import { PluginAgentDefinition } from '@modules/services/agent/types';
+import { PluginAgentDefinition } from '@openliri/service/services/agent/types';
 import {
   parseAgentFromMarkdown,
   parseAgentsFromJson,
-} from '@modules/services/agent/parseAgent';
+} from '@openliri/service/services/agent/parseAgent';
 import type { LoadedPlugin } from '@modules/plugins/types/PluginTypes.js';
 // C1（2026-09-30 D-122，`R00-003` P3/G5）：插件读取改经 core SPI 端口（infra → core 合法）
 import { resolvePluginSystem } from '@openliri/kernel/spi';

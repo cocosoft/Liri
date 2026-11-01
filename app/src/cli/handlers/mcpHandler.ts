@@ -4,7 +4,7 @@
  */
 
 import chalk from 'chalk';
-import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
+import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
 import { getLogger } from '@openliri/infra/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import { ErrorCodes } from '@openliri/infra/error';

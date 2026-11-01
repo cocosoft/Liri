@@ -157,7 +157,7 @@ describe('C-1 提示词冻结导出', () => {
     // PromptVersionManager（PROMPT_RESOURCE_ROOT），其余文件仍禁止直接读资源。
     const managerSource = readFileSync(
       new URL(
-        '../../src/services/prompt/PromptVersionManager.ts',
+        '../../../packages/service/src/services/prompt/PromptVersionManager.ts',
         import.meta.url
       ),
       'utf8'

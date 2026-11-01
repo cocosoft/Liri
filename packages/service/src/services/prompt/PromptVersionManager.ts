@@ -63,6 +63,9 @@ export function resolvePromptResourceRoot(candidates: string[]): string {
 }
 
 const PROMPT_RESOURCE_ROOT = resolvePromptResourceRoot([
+  // P30（2026-11-02）：本文件迁入 `packages/service/src/services/prompt` 后，源码候选需上移 5 级
+  // 回到仓库根再进 `app/prompts`（原 `app/src/services/prompt` 只需 3 级）。保留后两项以兼容打包布局。
+  resolve(import.meta.dir, '../../../../../app/prompts'),
   resolve(import.meta.dir, '../../../prompts'),
   resolve(import.meta.dir, 'prompts'),
   resolve(process.execPath, '..', 'prompts'),

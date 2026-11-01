@@ -173,7 +173,7 @@ async function handleToggle(
     [FAST_MODE_KEY]: enabled,
   }));
 
-  (await import('@modules/services/analytics/index.js')).logEvent(
+  (await import('@openliri/service/services/analytics/index')).logEvent(
     'tengu_fast_mode_toggled',
     {
       enabled,

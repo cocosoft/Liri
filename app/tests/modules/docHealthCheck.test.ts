@@ -13,7 +13,7 @@
 import { describe, expect, it } from 'bun:test';
 import { shouldReconnectOfficeCli } from '../../src/modules/doc/DocModule';
 import { DocModuleStatus } from '../../src/modules/doc/types';
-import { MCPServerStatus } from '../../src/services/mcp/types';
+import { MCPServerStatus } from '@openliri/service/services/mcp/types';
 
 const ALIVE = [MCPServerStatus.CONNECTED, MCPServerStatus.CONNECTING];
 

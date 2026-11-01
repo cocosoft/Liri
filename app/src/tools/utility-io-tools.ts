@@ -16,8 +16,14 @@ import {
 import type { Tool } from './types/Tool';
 import { ToolTag as TT } from './types/Tool';
 import { handleError } from '@openliri/infra/error';
-import { readSoulMd, writeSoulMd } from '@modules/services/soul/SoulReader';
-import { readUserMd, writeUserMd } from '@modules/services/soul/UserReader';
+import {
+  readSoulMd,
+  writeSoulMd,
+} from '@openliri/service/services/soul/SoulReader';
+import {
+  readUserMd,
+  writeUserMd,
+} from '@openliri/service/services/soul/UserReader';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:utility-io-tools');

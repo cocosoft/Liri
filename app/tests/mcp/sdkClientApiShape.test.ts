@@ -85,7 +85,12 @@ function walk(dir: string, out: string[] = []): string[] {
 
 describe('SDK 客户端 API 形状守卫（C-1 防回流）', () => {
   const srcDir = join(import.meta.dir, '../../src');
-  const files = SCAN_DIRS.flatMap((d) => walk(join(srcDir, d)));
+  // P30：`services/mcp` 已迁入 packages/service —— 同一守卫覆盖两处物理位置
+  const pkgServiceDir = join(import.meta.dir, '../../../packages/service/src');
+  const files = [
+    ...SCAN_DIRS.flatMap((d) => walk(join(srcDir, d))),
+    ...walk(join(pkgServiceDir, 'services/mcp')),
+  ];
 
   it('受检规模符合预期（防止扫描路径写错导致空集通过）', () => {
     expect(files.length).toBeGreaterThan(20);

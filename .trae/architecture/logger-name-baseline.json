@@ -307,7 +307,7 @@
       "packages/infra/src/analytics/AnalyticsService.ts"
     ],
     "api-logging": [
-      "app/src/services/api/logging.ts"
+      "packages/service/src/services/api/logging.ts"
     ],
     "app": [
       "packages/infra/src/utils/log.ts"
@@ -564,25 +564,25 @@
       "packages/infra/src/security/services/SensitiveDataService.ts"
     ],
     "services\\api\\errors": [
-      "app/src/services/api/errors.ts"
+      "packages/service/src/services/api/errors.ts"
     ],
     "services\\mcp\\TransportFactory": [
-      "app/src/services/mcp/TransportFactory.ts"
+      "packages/service/src/services/mcp/TransportFactory.ts"
     ],
     "services\\mcp\\transports\\HTTPTransport": [
-      "app/src/services/mcp/transports/HTTPTransport.ts"
+      "packages/service/src/services/mcp/transports/HTTPTransport.ts"
     ],
     "services\\mcp\\transports\\InProcessTransport": [
-      "app/src/services/mcp/transports/InProcessTransport.ts"
+      "packages/service/src/services/mcp/transports/InProcessTransport.ts"
     ],
     "services\\mcp\\transports\\MCPTransport": [
-      "app/src/services/mcp/transports/MCPTransport.ts"
+      "packages/service/src/services/mcp/transports/MCPTransport.ts"
     ],
     "services\\vcr\\SessionPlayer": [
-      "app/src/services/vcr/SessionPlayer.ts"
+      "packages/service/src/services/vcr/SessionPlayer.ts"
     ],
     "services\\vcr\\SessionRecorder": [
-      "app/src/services/vcr/SessionRecorder.ts"
+      "packages/service/src/services/vcr/SessionRecorder.ts"
     ],
     "sessionHandler": [
       "app/src/cli/handlers/sessionHandler.ts"

@@ -5,11 +5,11 @@
  * 提供 TTS 语音消息发送、语音可用性查询等通道级能力
  */
 
-import { TTSRegistry } from '../services/voice/services/ttsProvider';
+import { TTSRegistry } from '@openliri/service/services/voice/services/ttsProvider';
 import {
   detectRuntimeEnvironment,
   isVoiceAvailable,
-} from '../services/voice/services/environmentRuntimeDetector';
+} from '@openliri/service/services/voice/services/environmentRuntimeDetector';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 

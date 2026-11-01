@@ -7,7 +7,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createFeishuChannel } from '../../src/channels/feishu/FeishuChannel';
 import type { MessageContext } from '../../src/channels/types';
-import type { RegisterFileResult } from '../../src/services/file/types';
+import type { RegisterFileResult } from '@openliri/service/services/file/types';
 
 type DownloadFn = (
   key: string,

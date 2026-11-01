@@ -56,7 +56,7 @@ afterAll(() => {
 import {
   transcodeToPcm16,
   ffmpegPipeConvert,
-} from '../../src/services/voice/services/audioNormalizer.js';
+} from '@openliri/service/services/voice/services/audioNormalizer';
 
 describe('ffmpegPipeConvert（参数化管道转码）', () => {
   it('组装 ffmpeg 管道参数并写入 stdin', async () => {

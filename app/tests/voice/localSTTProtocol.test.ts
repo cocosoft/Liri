@@ -9,7 +9,7 @@ import {
   parseWavHeader,
   buildWorkerScript,
   assertAudioInputSize,
-} from '../../src/services/voice/services/localSTTProvider.js';
+} from '@openliri/service/services/voice/services/localSTTProvider';
 import { logRedact } from '@openliri/infra/monitoring/logs/redact/LogRedact';
 
 /**

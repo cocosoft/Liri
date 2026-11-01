@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import {
   resolveToolPrompt,
   clearPromptCache,
-} from '../../src/services/prompt/PromptVersionManager';
+} from '@openliri/service/services/prompt/PromptVersionManager';
 
 const PROMPTS_ROOT = join(import.meta.dir, '../../prompts/zh-CN');
 const MANIFEST_PATH = join(PROMPTS_ROOT, 'manifest.json');

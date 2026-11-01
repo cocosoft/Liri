@@ -32,7 +32,7 @@ import { handleError } from '@openliri/infra/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // ⚠️ **类型位** app 类型（原文由 ai 域提供）已替换为服务层端口类型。
 // 此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活（见台账 D-77）
-import type { LatencyStatsDto } from '@modules/runtime/api/aiOpsPorts';
+import type { LatencyStatsDto } from '@openliri/service/ports/aiOpsPorts';
 // C1（2026-09-30 D-111，零散单点收尾）：`query` 域类型位改为服务层端口类型
 // （原文由 query 域提供；此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活，见台账 D-77）
 import type {

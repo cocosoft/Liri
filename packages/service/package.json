@@ -12,6 +12,30 @@
     "./execution/*": {
       "types": "./src/execution/*.ts",
       "import": "./src/execution/*.ts"
+    },
+    "./services/extractMemories": {
+      "types": "./src/services/extractMemories/index.ts",
+      "import": "./src/services/extractMemories/index.ts"
+    },
+    "./services/mcp": {
+      "types": "./src/services/mcp/index.ts",
+      "import": "./src/services/mcp/index.ts"
+    },
+    "./services/mcp/types": {
+      "types": "./src/services/mcp/types/index.ts",
+      "import": "./src/services/mcp/types/index.ts"
+    },
+    "./services/voice": {
+      "types": "./src/services/voice/index.ts",
+      "import": "./src/services/voice/index.ts"
+    },
+    "./services/*": {
+      "types": "./src/services/*.ts",
+      "import": "./src/services/*.ts"
+    },
+    "./ports/aiOpsPorts": {
+      "types": "./src/ports/aiOpsPorts.ts",
+      "import": "./src/ports/aiOpsPorts.ts"
     }
   },
   "scripts": {

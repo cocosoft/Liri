@@ -36,7 +36,7 @@
 import { afterAll, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { MCPResourceTool } from '../../../src/tools/MCPResourceTool/MCPResourceTool.js';
-import { mcpConnectionManager } from '../../../src/services/mcp/MCPConnectionManager';
+import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
 import type { ToolUseContext } from '../../../src/tools/types/ToolUseContext.js';
 
 /** 桩资源条目（驱动 `list()` 读取 uri/mimeType/description） */

@@ -9,9 +9,9 @@ import {
   registerBuiltinSections,
   registerSectionCacheClearers,
 } from '@openliri/infra/constants';
-import { clearSoulCache } from '@modules/services/soul/SoulReader';
-import { clearUserCache } from '@modules/services/soul/UserReader';
-// 2026-10-01 D-219（子批 E `workspaces` 组）：原经 `@modules/services/workspace`
+import { clearSoulCache } from '@openliri/service/services/soul/SoulReader';
+import { clearUserCache } from '@openliri/service/services/soul/UserReader';
+// 2026-10-01 D-219（子批 E `workspaces` 组）：原经 `@openliri/service/services/workspace`
 // 转出 barrel 取用（该 barrel 属 service 层、仅本模块与 builtinSections 消费）
 // ⇒ 改**直连 app 同层** `@modules/workspaces`，barrel 随之删除（零端口、零白名单）。
 import { clearWorkspaceCache } from '@modules/workspaces';

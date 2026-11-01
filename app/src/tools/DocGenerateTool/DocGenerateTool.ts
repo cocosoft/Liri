@@ -23,7 +23,7 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
-import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
+import { sanitizeFileName as sanitizeFileNameBase } from '@openliri/service/services/file/fileNaming';
 import {
   DEFAULT_CN_FONT,
   LANG_PROFILES,

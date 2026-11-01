@@ -196,7 +196,7 @@ async function handleOverallUsage(): Promise<CommandResult> {
   const cmdMgr = getCmdMgr();
   const uptime = process.uptime();
 
-  (await import('@modules/services/analytics/index.js')).logEvent(
+  (await import('@openliri/service/services/analytics/index')).logEvent(
     'tengu_usage_overview',
     {
       totalTokens: usageStats.totalTokens,

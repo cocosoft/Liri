@@ -38,7 +38,7 @@ const FAKE_RECORD = {
 // 真 FileRegistry + spy 单例替换：不用 mock.module（模块级 mock 会污染同 worker 其它
 // 真用 FileRegistry 的测试文件——如 notebook.test spyOn(FileRegistry.prototype,...)——
 // 且 bun mock.module 单次注册无法在文件内恢复；spy 在 beforeAll/afterAll 内成对隔离）。
-import { FileRegistry } from '../../src/services/file/FileRegistry.js';
+import { FileRegistry } from '@openliri/service/services/file/FileRegistry';
 
 let getInstanceSpy: ReturnType<typeof spyOn> | undefined;
 beforeAll(() => {

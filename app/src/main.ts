@@ -554,7 +554,7 @@ async function gracefulLlamaShutdown(): Promise<void> {
  */
 async function gracefulMcpShutdown(): Promise<void> {
   try {
-    const { mcpSystem } = await import('@modules/services/mcp');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
     await mcpSystem.cleanup();
   } catch (err) {
     // @ignore-catch — MCP 清理失败不阻塞应用退出

@@ -23,7 +23,7 @@ import {
   setCurrentKnowledgeQuery,
   setCurrentKnowledgeDomain,
   setKnowledgeQueryProvider,
-} from '../../src/services/prompt/KnowledgePromptProvider';
+} from '@openliri/service/services/prompt/KnowledgePromptProvider';
 import { BUILTIN_SECTIONS } from '../../src/context/promptSections/builtinSections';
 
 const HOME_KEY = 'LIRI_HOME';

@@ -31,7 +31,7 @@ import { REPLToolImpl } from '../../src/tools/repl/REPLToolImpl.js';
 import { REPLSessionStatus } from '../../src/tools/repl/types/REPLTool.js';
 import { replSessionManager } from '../../src/tools/repl/REPLSessionManager';
 import { NotebookToolAdapter } from '../../src/tools/adapters/NotebookToolAdapter.js';
-import { FileRegistry } from '../../src/services/file/FileRegistry.js';
+import { FileRegistry } from '@openliri/service/services/file/FileRegistry';
 import { notebookManager } from '../../src/tools/notebook/NotebookManager.js';
 import { JupyterNotebookConverter } from '../../src/tools/notebook/JupyterNotebookConverter.js';
 import { notebookCommand } from '../../src/commands/tools/dev/notebook.js';

@@ -150,7 +150,8 @@ function showHelp(): CommandResult {
  */
 async function handleList(context: CommandContext): Promise<CommandResult> {
   try {
-    const { logEvent } = await import('@modules/services/analytics/index.js');
+    const { logEvent } =
+      await import('@openliri/service/services/analytics/index');
     logEvent('tengu_permissions_list');
   } catch (err) {
     // analytics 非关键
@@ -349,7 +350,8 @@ async function handleStatus(
   };
 
   try {
-    const { logEvent } = await import('@modules/services/analytics/index.js');
+    const { logEvent } =
+      await import('@openliri/service/services/analytics/index');
     logEvent('tengu_permissions_status', {
       total: totalCount,
       enabled: enabledCount,

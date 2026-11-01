@@ -4,7 +4,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 import {
   getOfficialServers,
   getOfficialServersByCategory,
-} from '@modules/services/mcp/MCPOfficialRegistry';
+} from '../../MCPOfficialRegistry';
 import type {
   RegistryAdapter,
   SearchParams,

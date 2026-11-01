@@ -5,7 +5,10 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { handleError } from '@openliri/infra/error';
-import type { RegistryType, ThirdPartyRegistry } from '@modules/services/mcp';
+import type {
+  RegistryType,
+  ThirdPartyRegistry,
+} from '@openliri/service/services/mcp';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 
 /**
@@ -28,7 +31,7 @@ export async function handleMCPMarketplaceSearch(
       (parsedUrl.searchParams.get('sourceRegistry') as ThirdPartyRegistry) ||
       undefined;
 
-    const { mcpSystem } = await import('@modules/services/mcp');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
 
     if (!mcpSystem || !mcpSystem.marketplace) {
       res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -77,7 +80,7 @@ export async function handleMCPMarketplaceRegistries(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { mcpSystem } = await import('@modules/services/mcp');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
 
     if (!mcpSystem || !mcpSystem.marketplace) {
       res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -131,7 +134,7 @@ export async function handleMCPMarketplaceCategories(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { mcpSystem } = await import('@modules/services/mcp');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
 
     if (!mcpSystem || !mcpSystem.marketplace) {
       res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -175,7 +178,7 @@ export async function handleMCPMarketplaceServerDetail(
   serverId: string
 ): Promise<void> {
   try {
-    const { mcpSystem } = await import('@modules/services/mcp');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
 
     if (!mcpSystem || !mcpSystem.marketplace) {
       res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -218,7 +221,7 @@ export async function handleMCPInstalledServers(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { mcpSystem } = await import('@modules/services/mcp');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
 
     if (!mcpSystem || !mcpSystem.marketplace) {
       res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -270,7 +273,7 @@ export async function handleMCPInstallServer(
   serverId: string
 ): Promise<void> {
   try {
-    const { mcpSystem } = await import('@modules/services/mcp');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
 
     if (!mcpSystem || !mcpSystem.marketplace) {
       res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -309,7 +312,7 @@ export async function handleMCPUninstallServer(
   serverId: string
 ): Promise<void> {
   try {
-    const { mcpSystem } = await import('@modules/services/mcp');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
 
     if (!mcpSystem || !mcpSystem.marketplace) {
       res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -362,7 +365,7 @@ export async function handleMCPToggleServer(
       return;
     }
 
-    const { mcpSystem } = await import('@modules/services/mcp');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
 
     if (!mcpSystem || !mcpSystem.marketplace) {
       res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -402,8 +405,8 @@ export async function handleMCPVerifyServer(
 ): Promise<void> {
   try {
     const { getMCPServerManager } =
-      await import('@modules/services/mcp/MCPServerManager');
-    const { mcpSystem } = await import('@modules/services/mcp');
+      await import('@openliri/service/services/mcp/MCPServerManager');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
 
     const manager = getMCPServerManager();
     const detail = mcpSystem.marketplace.getInstalledServerDetail(serverId);
@@ -469,8 +472,8 @@ export async function handleMCPListTools(
 ): Promise<void> {
   try {
     const { getMCPServerManager } =
-      await import('@modules/services/mcp/MCPServerManager');
-    const { mcpSystem } = await import('@modules/services/mcp');
+      await import('@openliri/service/services/mcp/MCPServerManager');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
     const manager = getMCPServerManager();
     // TODO: CS05-ROOTFIX — bun 并发测试下动态 import 偶发返回未完成模块实例
     // （getServerInfos 缺失，预存第五十八次登记），防御降级为空列表避免 500；
@@ -537,7 +540,7 @@ export async function handleMCPToggleTool(
     }
 
     // 工具级启用/禁用通过 marketplace 的 tool toggle 实现
-    const { mcpSystem } = await import('@modules/services/mcp');
+    const { mcpSystem } = await import('@openliri/service/services/mcp');
     await mcpSystem.marketplace.toggleTool(
       serverName || toolName,
       toolName,

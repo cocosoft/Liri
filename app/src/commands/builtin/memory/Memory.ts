@@ -267,7 +267,7 @@ const memoryCommand = {
     const content = `# ${name}\n\n创建时间: ${new Date().toISOString()}\n\n`;
     await writeFile(filePath, content, 'utf8');
 
-    (await import('@modules/services/analytics/index.js')).logEvent(
+    (await import('@openliri/service/services/analytics/index')).logEvent(
       'tengu_memory_created',
       {
         name,
@@ -368,7 +368,7 @@ const memoryCommand = {
 
     await unlink(filePath);
 
-    (await import('@modules/services/analytics/index.js')).logEvent(
+    (await import('@openliri/service/services/analytics/index')).logEvent(
       'tengu_memory_deleted',
       {
         name,

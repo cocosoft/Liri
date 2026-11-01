@@ -7,7 +7,7 @@ import { MCPServerConfig } from '../types';
 import {
   enhancedMcpConfigManager,
   EnhancedMCPConfigManager,
-} from '@modules/services/mcp/EnhancedMCPConfigManager.js';
+} from '@openliri/service/services/mcp/EnhancedMCPConfigManager';
 
 /**
  * 读取MCP配置

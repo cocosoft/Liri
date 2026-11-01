@@ -26,7 +26,7 @@ interface ServerInfo {
 async function getServers(): Promise<ServerInfo[]> {
   try {
     const { mcpConnectionManager } =
-      await import('@modules/services/mcp/MCPConnectionManager.js');
+      await import('@openliri/service/services/mcp/MCPConnectionManager');
     const connections = mcpConnectionManager.getServers();
 
     return connections.map((conn: any) => ({
@@ -55,7 +55,7 @@ async function getServers(): Promise<ServerInfo[]> {
 async function getServerTools(serverName: string): Promise<string[]> {
   try {
     const { mcpConnectionManager } =
-      await import('@modules/services/mcp/MCPConnectionManager.js');
+      await import('@openliri/service/services/mcp/MCPConnectionManager');
     const tools = mcpConnectionManager.getServerTools(serverName);
     return tools.map((t: any) => t.name);
   } catch {
@@ -167,7 +167,7 @@ const mcpCommand = {
    */
   async installServer(serverName: string) {
     try {
-      const { mcpSystem } = await import('@modules/services/mcp');
+      const { mcpSystem } = await import('@openliri/service/services/mcp');
       if (!mcpSystem || !mcpSystem.marketplace) {
         return { success: false, message: 'MCP 市场服务未初始化' };
       }
@@ -273,7 +273,7 @@ const mcpCommand = {
       }
     }
 
-    (await import('@modules/services/analytics/index.js')).logEvent(
+    (await import('@openliri/service/services/analytics/index')).logEvent(
       'tengu_mcp_list',
       {
         total: data.servers.length,
@@ -307,7 +307,7 @@ const mcpCommand = {
       }
     }
 
-    (await import('@modules/services/analytics/index.js')).logEvent(
+    (await import('@openliri/service/services/analytics/index')).logEvent(
       'tengu_mcp_tools',
       {
         total: data.totalTools,
@@ -328,7 +328,7 @@ const mcpCommand = {
 
     const passed = results.filter((r) => r.status === '通过').length;
 
-    (await import('@modules/services/analytics/index.js')).logEvent(
+    (await import('@openliri/service/services/analytics/index')).logEvent(
       'tengu_mcp_test',
       {
         total: results.length,

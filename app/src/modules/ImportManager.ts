@@ -114,7 +114,7 @@ export class ImportManager {
         '@modules/plugins': './plugins',
         '@modules/query': './query',
         '@modules/sandbox': './sandbox',
-        '@modules/services': './services',
+        '@openliri/service/services': './services',
       },
       defaultOptions: {
         cache: true,

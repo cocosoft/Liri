@@ -285,12 +285,12 @@ export async function handleMediaSubtitleGenerate(
       const audioData = readFileSync(audioPath);
 
       const { STTRegistry } =
-        await import('../../../services/voice/services/sttRegistry');
+        await import('@openliri/service/services/voice/services/sttRegistry');
 
       // 确保默认提供者已注册
       if (STTRegistry.getAllProviders().length === 0) {
         const { LocalSTTProvider } =
-          await import('../../../services/voice/services/localSTTProvider');
+          await import('@openliri/service/services/voice/services/localSTTProvider');
         STTRegistry.register(new LocalSTTProvider());
       }
 

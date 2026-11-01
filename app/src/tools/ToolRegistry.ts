@@ -33,7 +33,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';
 import {
   resolveToolParam,
   resolveToolDescription,
-} from '@modules/services/prompt/PromptVersionManager';
+} from '@openliri/service/services/prompt/PromptVersionManager';
 import { getSectionCacheLocale } from '@openliri/infra/constants';
 import { resolveConfiguredLanguage } from '@openliri/infra/system/i18n/languageProfiles';
 const logger = getLogger('tools:ToolRegistry');

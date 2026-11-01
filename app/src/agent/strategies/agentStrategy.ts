@@ -14,7 +14,7 @@ import { AgentState } from '../models/types';
 import type { ToolDefinition } from '@modules/ai';
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
-import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
+import { assembleSystemPrompt } from '@openliri/service/services/prompt/PromptAssembler';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { toWireToolName } from '../../tools/toolNameCodec';

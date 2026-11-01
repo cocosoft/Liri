@@ -31,12 +31,12 @@ import {
   readSoulMd,
   writeSoulMd,
   ensureDefaultSoulMd,
-} from '@modules/services/soul/SoulReader';
+} from '@openliri/service/services/soul/SoulReader';
 import {
   readUserMd,
   writeUserMd,
   ensureDefaultUserMd,
-} from '@modules/services/soul/UserReader';
+} from '@openliri/service/services/soul/UserReader';
 import { parseBody, sendJson, sendError } from './utils.js';
 
 export async function handleListAppConfigs(

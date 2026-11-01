@@ -10,11 +10,11 @@ import type {
 } from '@openliri/infra/utils/toolContract';
 import { createToolResult } from '@openliri/infra/utils/toolContract';
 import { MCPServerConfig } from './types';
-import { getMCPServerManager } from '../services/mcp/MCPServerManager.js';
+import { getMCPServerManager } from '@openliri/service/services/mcp/MCPServerManager';
 // 2026-10-08（MCP 双轨收敛 C-1）：`list_tools` / `call` 两个**IO 动作**改走**已连接的 SDK `Client`**
 // —— 与 `mcp__*` 主路径同一条链；`list_servers` / `connect` 两个**状态动作**仍用 `MCPServerManager`
 // （它们操作的是自研链的连接对象，属 C-3 范围，本轮不动）。
-import { mcpConnectionManager } from '../services/mcp/MCPConnectionManager.js';
+import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
 // 2026-10-01 B18-c：**删除** `import { toolScopeManager } from '../tool/ToolScopeManager'` ——
 // 它构成 `mcp(service) -> tool(app)` 倒挂。改在唯一使用点（async `execute()` 内）**动态导入**。
 import { configManager } from '@openliri/infra/config';
@@ -268,7 +268,7 @@ export const MCPTool: Tool = {
             } else {
               // P2-4: 凭据剥离
               const { stripCredentials } =
-                await import('../services/mcp/MCPSecurityFilter');
+                await import('@openliri/service/services/mcp/MCPSecurityFilter');
               const connErr = stripCredentials(
                 connection.getError() || 'unknown'
               ).cleaned;
@@ -370,7 +370,7 @@ export const MCPTool: Tool = {
     } catch (error: unknown) {
       // P2-4: 凭据剥离
       const { stripCredentials } =
-        await import('../services/mcp/MCPSecurityFilter');
+        await import('@openliri/service/services/mcp/MCPSecurityFilter');
       const cleaned = stripCredentials(
         (error as Error).message || String(error)
       ).cleaned;

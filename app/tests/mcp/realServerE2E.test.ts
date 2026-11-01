@@ -39,9 +39,9 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { mcpConnectionManager } from '../../src/services/mcp/MCPConnectionManager.js';
-import { McpToolWrapper } from '../../src/services/mcp/McpToolWrapper.js';
-import type { ScopedMcpServerConfig } from '../../src/services/mcp/types';
+import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
+import { McpToolWrapper } from '@openliri/service/services/mcp/McpToolWrapper';
+import type { ScopedMcpServerConfig } from '@openliri/service/services/mcp/types';
 import { MCPTool, type MCPToolParams } from '../../src/mcp/MCPTool.js';
 import { MCPResourceTool } from '../../src/tools/MCPResourceTool/MCPResourceTool.js';
 import { ListVfsTool } from '../../src/tools/ListVfsTool/ListVfsTool.js';

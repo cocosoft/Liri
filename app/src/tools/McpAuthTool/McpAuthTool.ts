@@ -18,11 +18,11 @@ import { TOOL_NAME_CONSTANTS } from '../toolNameConstants';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { feature } from '@openliri/kernel';
-import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
-import { mcpAuthManager } from '@modules/services/mcp/auth/MCPAuth.js';
-import { deriveOAuthConfig } from '@modules/services/mcp/auth/deriveOAuthConfig.js';
-import type { MCPServerConfig } from '@modules/services/mcp/types';
-import type { MCPOAuthConfig } from '@modules/services/mcp/auth/types.js';
+import { getMCPServerManager } from '@openliri/service/services/mcp/MCPServerManager';
+import { mcpAuthManager } from '@openliri/service/services/mcp/auth/MCPAuth';
+import { deriveOAuthConfig } from '@openliri/service/services/mcp/auth/deriveOAuthConfig';
+import type { MCPServerConfig } from '@openliri/service/services/mcp/types';
+import type { MCPOAuthConfig } from '@openliri/service/services/mcp/auth/types';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:McpAuthTool:McpAuthTool');

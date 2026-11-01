@@ -651,7 +651,7 @@ async function runDetailedDiagnosticChecks(): Promise<SystemDiagnosis> {
 async function handleFullDiagnosis(): Promise<CommandResult> {
   const diagnosis = await runDiagnosticChecks();
 
-  (await import('@modules/services/analytics/index.js')).logEvent(
+  (await import('@openliri/service/services/analytics/index')).logEvent(
     'tengu_doctor_full',
     {
       totalChecks: diagnosis.stats.totalChecks,

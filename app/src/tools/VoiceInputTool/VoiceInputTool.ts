@@ -9,7 +9,7 @@ import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_INPUT_TOOL_NAME } from './constants';
 import { VoiceInputOutputSchema } from './schemas';
-import voiceService from '@modules/services/voice';
+import voiceService from '@openliri/service/services/voice';
 
 const logger = getLogger('tools:voiceInput');
 

@@ -397,7 +397,7 @@
 {"id":"PLAN-P2-8","k":"notes","i":2,"c":")` → `killOrphanedProcesses(true)` 后两 PID 均死、计数归 0）。**e2e 已实测**：④ 例（免门控，默认套件）4 pass；真实 server 端到端由**既有** `realServerE2E.test.ts`（官方 `server-everything`，`MCP_E2E=1` 门控）**13 pass** 复"}
 {"id":"PLAN-P2-8","k":"notes","i":3,"c":"核关闭（CS01：未新增同类 e2e）。如实边界：真实协议 server 上**同时挂两轨**未跑；硬崩溃场景两轨同等残留（非 SDK 轨独有）。"}
 {"id":"PLAN-P2-8","k":"code#0","i":0,"c":".trae/specs/mcp-client-dual-track-convergence-assessment.md"}
-{"id":"PLAN-P2-8","k":"code#1","i":0,"c":"app/src/services/mcp/index.ts"}
+{"id":"PLAN-P2-8","k":"code#1","i":0,"c":"packages/service/src/services/mcp/index.ts"}
 {"id":"PLAN-P2-8","k":"tests#0","i":0,"c":"app/tests/mcp/sdkStdioTrackBoundary.test.ts"}
 {"id":"PLAN-P2-8","k":"tests#1","i":0,"c":"app/tests/mcp/realServerE2E.test.ts"}
 {"id":"PLAN-P2-8","k":"changelog#0","i":0,"c":"v0.4.76"}
@@ -631,7 +631,7 @@
 {"id":"TOOLGOV-S2-2","k":"notes","i":2,"c":"externalSignal])` 合并「超时」与「上下文取消」；③ WebFetch 的 `AbortError` catch 分支区分「用户取消」（报 `Request canceled`）与「超时」（报 `Request timed out after Xms`）—— 原实现一律报超时 ⇒ 误导（此为消除新语义回归的必要改动）；④ 测试 `"}
 {"id":"TOOLGOV-S2-2","k":"notes","i":3,"c":"toolCancellation.test.ts` 打桩 fetch / 假 SDK client，断言「取消 ⇒ 捕获到的 signal.aborted === true」。e2eVerified=false。"}
 {"id":"TOOLGOV-S2-2","k":"code#0","i":0,"c":"app/src/mcp/MCPTool.ts"}
-{"id":"TOOLGOV-S2-2","k":"code#1","i":0,"c":"app/src/services/mcp/McpToolWrapper.ts"}
+{"id":"TOOLGOV-S2-2","k":"code#1","i":0,"c":"packages/service/src/services/mcp/McpToolWrapper.ts"}
 {"id":"TOOLGOV-S2-2","k":"code#2","i":0,"c":"app/src/tools/WebFetchTool/WebFetchTool.ts"}
 {"id":"TOOLGOV-S2-2","k":"tests#0","i":0,"c":"app/tests/tools/toolCancellation.test.ts"}
 {"id":"TOOLGOV-S2-6","k":"title","i":0,"c":"工具治理 S2-6：工具调用可观测性补全（统一指标 + Tool-Use Context Entropy）"}
@@ -863,9 +863,9 @@
 {"id":"MCP-SEC-G1","k":"notes","i":2,"c":"脱敏），并把 `MCPServerManager` 的内联 JSON 脱敏收敛到同一 helper（消除重复实现）。③ **`sessionId` 不外传**（同批核查）：wrapper 只发 `{name, arguments}` + `{signal}`；`MCPTool` 的 `context.sessionId` 仅用于本地会话级 dispose "}
 {"id":"MCP-SEC-G1","k":"notes","i":3,"c":"scope。④ 测试新增 `app/tests/mcp/mcpResultRedaction.test.ts`（文本脱敏 / 结构化脱敏 / 无密钥零变更 / `redactMcpPayload` 单元）。⑤ CHANGELOG 已在 `## [未发布]` 段记录本条；`postReleaseReviewed` 待正式发版 + tag 后按 `"}
 {"id":"MCP-SEC-G1","k":"notes","i":4,"c":".trae/rules/versioning.md` 判据置位。e2eVerified=false（未接真实外部 MCP server 做端到端验证）。"}
-{"id":"MCP-SEC-G1","k":"code#0","i":0,"c":"app/src/services/mcp/McpToolWrapper.ts"}
-{"id":"MCP-SEC-G1","k":"code#1","i":0,"c":"app/src/services/mcp/MCPSecurityFilter.ts"}
-{"id":"MCP-SEC-G1","k":"code#2","i":0,"c":"app/src/services/mcp/MCPServerManager.ts"}
+{"id":"MCP-SEC-G1","k":"code#0","i":0,"c":"packages/service/src/services/mcp/McpToolWrapper.ts"}
+{"id":"MCP-SEC-G1","k":"code#1","i":0,"c":"packages/service/src/services/mcp/MCPSecurityFilter.ts"}
+{"id":"MCP-SEC-G1","k":"code#2","i":0,"c":"packages/service/src/services/mcp/MCPServerManager.ts"}
 {"id":"MCP-SEC-G1","k":"tests#0","i":0,"c":"app/tests/mcp/mcpResultRedaction.test.ts"}
 {"id":"MCP-SEC-G2","k":"title","i":0,"c":"MCP 安全 G-2：Stdio 子进程显式 env 审计收紧（消除「声称拦截却透传」矛盾）"}
 {"id":"MCP-SEC-G2","k":"source","i":0,"c":"dev_docs/20261012/五方案总览-20261012.md §6.3；用户裁定「需要收紧」（2026-10-12）"}
@@ -874,8 +874,8 @@
 {"id":"MCP-SEC-G2","k":"notes","i":1,"c":"...options.env` **原样透传** ⇒ **语义自相矛盾**（声称已拦、实际放行）。② **收紧**：宿主继承与显式配置**分离** —— 宿主只取白名单基线 `buildSafeEnv()`；显式配置经新增 `auditExplicitEnv()` **审计后合并**（按设计放行 MCP server 自身凭据，**不按名硬拦**以免破坏正常"}
 {"id":"MCP-SEC-G2","k":"notes","i":2,"c":"接入；命中敏感名 ⇒ `mcp:explicit_env_sensitive` 告警；值与同名宿主变量一致 ⇒ `mcp:explicit_env_value_from_host` 高信号告警；**告警只含键名、绝不含值**）。③ 测试：宿主非白名单变量不被隐式继承 + 显式配置放行 + 白名单变量正常继承。④ CHANGELOG 已在 `## [未发布]`"}
 {"id":"MCP-SEC-G2","k":"notes","i":3,"c":" 段记录本条。e2eVerified=false。"}
-{"id":"MCP-SEC-G2","k":"code#0","i":0,"c":"app/src/services/mcp/transports/StdioTransport.ts"}
-{"id":"MCP-SEC-G2","k":"code#1","i":0,"c":"app/src/services/mcp/MCPSecurityFilter.ts"}
+{"id":"MCP-SEC-G2","k":"code#0","i":0,"c":"packages/service/src/services/mcp/transports/StdioTransport.ts"}
+{"id":"MCP-SEC-G2","k":"code#1","i":0,"c":"packages/service/src/services/mcp/MCPSecurityFilter.ts"}
 {"id":"MCP-SEC-G2","k":"tests#0","i":0,"c":"app/tests/mcp/mcpResultRedaction.test.ts"}
 {"id":"TOOLGOV-TG1","k":"title","i":0,"c":"工具治理 TG-1：capabilityDigest 归属边界登记（权限域 ≠ 能力域，严禁并入工具契约）"}
 {"id":"TOOLGOV-TG1","k":"source","i":0,"c":"dev_docs/20261012/工具治理方案-20261012.md §7（TG-1 裁断）→ §5 阶段 1.1"}
@@ -1427,9 +1427,9 @@
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"notes","i":9,"c":"化**未动（属另一类：**格式化 locale ≠ 产品默认语言**，且改动面大 ⇒ 归 HD-P2 评估）；② 前端时区兜底仍为**前端本地常量**（≠ 引用后端真源，物理不可共享）⇒ 由测试锁同值；③ `e2eVerified=false`（口径类改动，靠单测 + 源码守卫）。"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#0","i":0,"c":"packages/infra/src/constants/common.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#1","i":0,"c":"app/src/docs/i18n/LanguageManager.ts"}
-{"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#2","i":0,"c":"app/src/services/voice/services/ttsConfigOverlay.ts"}
-{"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#3","i":0,"c":"app/src/services/voice/services/voiceService.ts"}
-{"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#4","i":0,"c":"app/src/services/voice/VoiceProvider.ts"}
+{"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#2","i":0,"c":"packages/service/src/services/voice/services/ttsConfigOverlay.ts"}
+{"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#3","i":0,"c":"packages/service/src/services/voice/services/voiceService.ts"}
+{"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#4","i":0,"c":"packages/service/src/services/voice/VoiceProvider.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#5","i":0,"c":"app/src/voice/WakeWordEngine.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#6","i":0,"c":"app/src/hooks/useVoice.ts"}
 {"id":"HARDCODE-QH2-LOCALE-TZ","k":"code#7","i":0,"c":"app/src/plugins/bundled/SettingsPlugin.ts"}
@@ -2109,20 +2109,20 @@
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"notes","i":14,"c":"Liri/1.0.0`/`Liri/2.0`/`Liri-…` 等统一为 `Liri/<真实版本> (<用途>)` ⇒ 属**线上可观测面变化**（第三方限流/统计口径会看到新串，这正是本片目标），但**若某第三方按旧串做白名单**可能受影响 ⇒ 已在 `reopenWhen` ⑤ 登记；② 本片为**源码守卫 + 值收敛**性质（无运行时端到端：未真机验证"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"notes","i":15,"c":"第三方对 UA 的接受度）；③ 未收敛 §5 `N10`/`N11`（有意）。"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#0","i":0,"c":"packages/infra/src/constants/common.ts"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#1","i":0,"c":"app/src/services/api/client.ts"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#1","i":0,"c":"packages/service/src/services/api/client.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#2","i":0,"c":"app/src/tools/WebFetchTool/utils.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#3","i":0,"c":"app/src/tools/WebFetchTool/WebFetchTool.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#4","i":0,"c":"app/src/tools/WebSearchTool/WebSearchTool.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#5","i":0,"c":"app/src/tools/WebSearchTool/providers.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#6","i":0,"c":"app/src/tools/web/WebToolProvider.ts"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#7","i":0,"c":"app/src/services/voice/services/streamSTTProvider.ts"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#7","i":0,"c":"packages/service/src/services/voice/services/streamSTTProvider.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#8","i":0,"c":"app/src/cli/updater/GitHubReleaseFetcher.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#9","i":0,"c":"app/src/chat/services/ImageDownloader.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#10","i":0,"c":"app/src/skills/loaders/adapter/clawhub/ClawHubAPIClient.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#11","i":0,"c":"app/src/knowledge/datasource/RSSConnector.ts"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#12","i":0,"c":"app/src/services/mcp/marketplace/adapters/SmitheryRegistryAdapter.ts"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#13","i":0,"c":"app/src/services/mcp/marketplace/adapters/NPMRegistryAdapter.ts"}
-{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#14","i":0,"c":"app/src/services/mcp/marketplace/adapters/GitHubRegistryAdapter.ts"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#12","i":0,"c":"packages/service/src/services/mcp/marketplace/adapters/SmitheryRegistryAdapter.ts"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#13","i":0,"c":"packages/service/src/services/mcp/marketplace/adapters/NPMRegistryAdapter.ts"}
+{"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"code#14","i":0,"c":"packages/service/src/services/mcp/marketplace/adapters/GitHubRegistryAdapter.ts"}
 {"id":"HARDCODE-HDP1-1-UA-SINGLE-SOURCE","k":"tests#0","i":0,"c":"app/tests/constants/userAgentSingleSource.test.ts"}
 {"id":"HARDCODE-HDP2-2-FORMAT-I18N","k":"title","i":0,"c":"硬编码治理 **HD-P2-2**（优先项）：`formatRelativeTime` 文案入 i18n + 时间/日期格式随语言（原**写死 `zh-CN`**）"}
 {"id":"HARDCODE-HDP2-2-FORMAT-I18N","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §3 + §7.2（HD-P2-2）"}
@@ -2859,7 +2859,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"code#1","i":0,"c":"app/src/cli/print.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"code#2","i":0,"c":"app/src/commands/tasks/tasks.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"code#3","i":0,"c":"app/src/chat/ChannelMessageParser.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"code#4","i":0,"c":"app/src/services/toolResultStorage/types.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"code#4","i":0,"c":"packages/service/src/services/toolResultStorage/types.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2-PROTOCOL-CONSTS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B-A2A-TASKS-PATH","k":"title","i":0,"c":"硬编码治理 · **「同名常量」B2b**：`TASKS_PATH` → 唯一真源 **`types/a2a.ts` 的 `A2A_TASKS_PATH`**（与既有 `A2A_RPC_PATH` 同处）⇒ `lint:consts` **274 → 273 键（−1）**"}
@@ -2912,10 +2912,10 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#0","i":0,"c":"packages/infra/src/oauth/utils/OAuthCrypto.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#1","i":0,"c":"packages/infra/src/oauth/OAuthProviderStore.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#2","i":0,"c":"packages/infra/src/oauth/services/OAuthStorage.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#3","i":0,"c":"app/src/services/voice/services/audioUtils.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#4","i":0,"c":"app/src/services/voice/services/audioPlayer.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#5","i":0,"c":"app/src/services/voice/services/playbackManager.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#6","i":0,"c":"app/src/services/voice/services/ttsProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#3","i":0,"c":"packages/service/src/services/voice/services/audioUtils.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#4","i":0,"c":"packages/service/src/services/voice/services/audioPlayer.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#5","i":0,"c":"packages/service/src/services/voice/services/playbackManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#6","i":0,"c":"packages/service/src/services/voice/services/ttsProvider.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#7","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"code#8","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B2B2-OAUTH-VOICE-PARAMS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3058,7 +3058,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"reopenWhen","i":2,"c":"巧合 ⇒ 若将来要做 TTL 集中配置（如统一可配置项），须先证「同一失效时机」；③ 副本写回 ⇒ 守卫或棘轮门禁（基线 257）立即阻断。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":0,"c":"**取证（CS06）**：`CACHE_TTL_MS` ×7 —— `app/src/ai/models/ActiveModelService.ts:41` `30_000`（启用模型定价记录缓存）· `app/src/ai/translation/LanguageDetector.ts:33` `5 * 60 * 1000`（语种检测结果缓存）· `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":1,"c":"app/src/chat/services/PathGuardService.ts:47` `30_000`（路径存在性缓存）· `app/src/config/settings/CheckpointLogConfig.ts:32` `3_000`（config.json 读取缓存）· `"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":2,"c":"app/src/services/prompt/PromptVersionManager.ts:26` `30_000`（prompt overrides 缓存）· `app/src/tokenBudget/ModelContextCache.ts:20` `5 * 60 * 1000`（模型上下文窗口缓存）· `"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":2,"c":"packages/service/src/services/prompt/PromptVersionManager.ts:26` `30_000`（prompt overrides 缓存）· `app/src/tokenBudget/ModelContextCache.ts:20` `5 * 60 * 1000`（模型上下文窗口缓存）· `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":3,"c":"client/src/services/imageService.ts:350` `30_000`（前端图片请求缓存）。**判定**：**无一处是同一事实的副本**（缓存对象与失效语义各不相同；数值相同属巧合）⇒ 属「**命名太泛**」⇒ 处置 = **按域改名消歧**、**不强行合一**（对齐 B5-1①② 判定）。**落地**（7 文件各 2 处裸 "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":4,"c":"token；全仓核验更长名 `DEFAULT_CACHE_TTL_MS` / `TOOL_SUPPORT_CACHE_TTL_MS` / `SEARCH_CACHE_TTL_MS` **不含**裸 token ⇒ `replace_all` 不误伤）：`ACTIVE_MODEL_CACHE_TTL_MS` · `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"notes","i":5,"c":"LANGUAGE_DETECTION_CACHE_TTL_MS` · `PATH_GUARD_CACHE_TTL_MS` · `CHECKPOINT_LOG_CACHE_TTL_MS` · `PROMPT_VERSION_CACHE_TTL_MS` · `MODEL_CONTEXT_CACHE_TTL_MS` · `"}
@@ -3071,7 +3071,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#1","i":0,"c":"app/src/ai/translation/LanguageDetector.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#2","i":0,"c":"app/src/chat/services/PathGuardService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#3","i":0,"c":"packages/infra/src/config/settings/CheckpointLogConfig.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#4","i":0,"c":"app/src/services/prompt/PromptVersionManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#4","i":0,"c":"packages/service/src/services/prompt/PromptVersionManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#5","i":0,"c":"app/src/tokenBudget/ModelContextCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#6","i":0,"c":"client/src/services/imageService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-CACHE-TTL-MS","k":"code#7","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3100,7 +3100,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#3","i":0,"c":"app/src/sandbox/utils/TimeoutController.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#4","i":0,"c":"app/src/sandbox/SandboxManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#5","i":0,"c":"app/src/session/lock/PrioritySessionLock.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#6","i":0,"c":"app/src/services/mcp/transports/StreamableHttpTransport.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#6","i":0,"c":"packages/service/src/services/mcp/transports/StreamableHttpTransport.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#7","i":0,"c":"app/src/tools/CodeRunner/CrossPlatformRunner.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#8","i":0,"c":"app/src/tools/CodeRunner/CodeRunnerTool.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-1-DEFAULT-TIMEOUT-MS","k":"code#9","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3154,7 +3154,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#5","i":0,"c":"packages/infra/src/media/image/TempFileManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#6","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#7","i":0,"c":"app/src/tools/ImageGenerateTool/ImageGenerationCache.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#8","i":0,"c":"app/src/services/file/FileStatsService.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#8","i":0,"c":"packages/service/src/services/file/FileStatsService.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#9","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"code#10","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-1-DEFAULT-TTL-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3207,8 +3207,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#0","i":0,"c":"app/src/ai/providers/BalanceChecker.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#1","i":0,"c":"app/src/channels/bluebubbles/BlueBubblesChannel.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#2","i":0,"c":"app/src/channels/mattermost/MattermostChannel.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#3","i":0,"c":"app/src/services/voice/services/senseVoiceSTTProvider.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#4","i":0,"c":"app/src/services/voice/services/localSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#3","i":0,"c":"packages/service/src/services/voice/services/senseVoiceSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#4","i":0,"c":"packages/service/src/services/voice/services/localSTTProvider.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#5","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"code#6","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-3-REQUEST-TIMEOUT-MS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3367,8 +3367,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#0","i":0,"c":"app/src/channels/qq/types.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#1","i":0,"c":"app/src/channels/qq/QQChannel.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#2","i":0,"c":"app/src/session/websocket/SessionsWebSocket.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#3","i":0,"c":"app/src/services/mcp/MCPConnectionManager.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#4","i":0,"c":"app/src/services/mcp/client.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#3","i":0,"c":"packages/service/src/services/mcp/MCPConnectionManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#4","i":0,"c":"packages/service/src/services/mcp/client.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#5","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"code#6","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-10-MAX-RECONNECT-ATTEMPTS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3501,7 +3501,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-21-DEFAULT-MAX-RESULT-SIZE-CHARS","k":"notes","i":0,"c":"取证：三处**同值同事实**（50_000）。处置：① `constants/toolLimits.ts` = **真源**（保留）；② `context/budget/ToolResultBudget.ts` 私有副本 ⇒ 删本地、**引用真源**；③ `services/toolResultStorage/types.ts` ⇒ **保留导出面**（"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-21-DEFAULT-MAX-RESULT-SIZE-CHARS","k":"notes","i":1,"c":"re-export 真源，消费者零改动）。效果：235 → 234 键。验证：typecheck 0 · 守卫 37 pass · 5 门禁 exit 0。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-21-DEFAULT-MAX-RESULT-SIZE-CHARS","k":"code#0","i":0,"c":"app/src/context/budget/ToolResultBudget.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-21-DEFAULT-MAX-RESULT-SIZE-CHARS","k":"code#1","i":0,"c":"app/src/services/toolResultStorage/types.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-21-DEFAULT-MAX-RESULT-SIZE-CHARS","k":"code#1","i":0,"c":"packages/service/src/services/toolResultStorage/types.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-21-DEFAULT-MAX-RESULT-SIZE-CHARS","k":"code#2","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-21-DEFAULT-MAX-RESULT-SIZE-CHARS","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-21-DEFAULT-MAX-RESULT-SIZE-CHARS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3543,9 +3543,9 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","k":"reopenWhen","i":0,"c":"① 承接 **B5-2 续项**（先全仓 grep，整键改完才消键）；② **门禁盲区**（带类型同名定义：全仓 16+ 处）是否扩门禁正则 / 单独批次统一 ⇒ 须用户裁定；③ 副本写回 ⇒ 守卫或棘轮（230 键）阻断。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","k":"notes","i":0,"c":"取证：门禁正则**只认无类型标注**的同类定义 ⇒ 本键恰为 3 家 STT 提供者（形状各异）⇒ 按域消歧、**内容一字未改**（`{ ...新名, ...config }` 用法同步）。⚠️ **盲区**：带类型写法（`const X: T =`）门禁看不见，全仓仍有 16+ 处 ⇒ 已登记、本片未动。效果：231 → 230 键。验证："}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","k":"notes","i":1,"c":"typecheck 0 · 守卫 41 pass · 域测试 201 pass · 5 门禁 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","k":"code#0","i":0,"c":"app/src/services/voice/services/cloudSTTProvider.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","k":"code#1","i":0,"c":"app/src/services/voice/services/localSTTProvider.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","k":"code#2","i":0,"c":"app/src/services/voice/services/senseVoiceSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","k":"code#0","i":0,"c":"packages/service/src/services/voice/services/cloudSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","k":"code#1","i":0,"c":"packages/service/src/services/voice/services/localSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","k":"code#2","i":0,"c":"packages/service/src/services/voice/services/senseVoiceSTTProvider.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-25-DEFAULT-CONFIG","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3585,7 +3585,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#2","i":0,"c":"app/src/acp/websocket.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#3","i":0,"c":"app/src/voice/upgrade.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#4","i":0,"c":"app/src/voice/WakeWebSocketServer.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#5","i":0,"c":"app/src/services/voice/services/edgeTTSTransport.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#5","i":0,"c":"packages/service/src/services/voice/services/edgeTTSTransport.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#6","i":0,"c":"app/tests/voice/upgrade.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"code#7","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-28-MAGIC-GUID","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -3598,7 +3598,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES","k":"notes","i":2,"c":"tools/FileWriteTool/prompt.ts` **保留导出面**、改为**转发导出** —— 因其导出**有真实消费方**：`tools/index.ts` barrel 与 `tests/tools/toolNameLists.test.ts`（专测「桶 ↔ 真源 同值契约」）。**未删该测试**（不得为消键而删契约守卫）。效果：`"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES","k":"notes","i":3,"c":"lint:consts` 227 → **225 键**（两键 3→0）。验证：typecheck 0（证明 re-export 与两侧消费面均解析成功）· 守卫 45 pass · `tests/tools` **853 pass / 0 fail** · `lint:arch` exit 0（R03-002 0 违规 · R07-003 薄桶 **0**"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES","k":"notes","i":4,"c":" · R06-009-1 仍 3 条**未增**）· 5 门禁 exit 0。**如实边界**：本片属**同值合一**（非改名消歧），值未改 ⇒ 零行为变化；`e2eVerified=false`。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES","k":"code#0","i":0,"c":"app/src/services/agent/parseAgent.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES","k":"code#0","i":0,"c":"packages/service/src/services/agent/parseAgent.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES","k":"code#1","i":0,"c":"app/src/tools/FileEditTool/prompt.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES","k":"code#2","i":0,"c":"app/src/tools/FileWriteTool/prompt.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-29-FILE-TOOL-NAMES","k":"code#3","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
@@ -4267,7 +4267,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"reopenWhen","i":0,"c":"① 若「上下文上限」与「落盘阈值」确需联动（例如按同一比例派生），须先在共享层（`constants/`）建真源、再由存储侧引用，**不得**让 `constants` 反向依赖 `services`（层级违规）；② 若存储侧阈值改为走配置项已有 `persistenceThreshold` 选项（`ToolResultBudget.ts`），本项改名不动该"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"reopenWhen","i":1,"c":"契约；③ 若 `CONTEXT_MAX_TOOL_RESULT_BYTES` 长期无消费者，按 CD05 先标记观察（当前全仓**无 importer**，与 `MAX_TOOL_RESULTS_PER_MESSAGE_CHARS` 同），再定去留。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"notes","i":0,"c":"① **判据**：两处同名但**语义与取值都不同** —— `app/src/constants/toolLimits.ts` 的 `MAX_TOOL_RESULT_BYTES = MAX_TOOL_RESULT_TOKENS(100_000) * BYTES_PER_TOKEN(4)` = **400_000**（工具结果**注入上下文**的上限，由 "}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"notes","i":1,"c":"token 限制推导）；`app/src/services/toolResultStorage/types.ts` 的 `MAX_TOOL_RESULT_BYTES = 1_000_000`（**落盘阈值**：`ToolResultBudget` 以此为 `persistenceThreshold` 缺省，超过则持久化并替换为预览）。⇒ 异值异域 ⇒ 按域消"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"notes","i":1,"c":"token 限制推导）；`packages/service/src/services/toolResultStorage/types.ts` 的 `MAX_TOOL_RESULT_BYTES = 1_000_000`（**落盘阈值**：`ToolResultBudget` 以此为 `persistenceThreshold` 缺省，超过则持久化并替换为预览）。⇒ 异值异域 ⇒ 按域消"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"notes","i":2,"c":"歧：上下文侧改 `CONTEXT_MAX_TOOL_RESULT_BYTES`（含 1 处文档注释改写），**存储侧保留原名**（其名与消费者/桶导出面一致，且是活的那一份）。② 取证：全仓仅 `toolResultStorage/**` 消费该名（`ToolResultBudget.ts` 从 `./types` 导入；`index.ts` 桶再导出）⇒ "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"notes","i":3,"c":"上下文侧那份**无 importer**。③ 守卫：`sameNameConstsB2.test.ts` 新增 `B5-2-62`。④ **棘轮**：基线键由 2 归零。本轮**未重跑播种命令**（该命令上轮被跳过）：改为**直接编辑基线 JSON** 删除三枚已归零的键（`DEFAULT_MODEL`、`DEFAULT_MAX_TOKENS`、本键），编辑"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-62-MAX-TOOL-RESULT-BYTES","k":"notes","i":4,"c":"后 `lint:consts` 不再输出「可下调」提示即证生效；如需回滚，`git checkout` 该文件即可。⑤ 验证：app `tsc` exit 0；`sameNameConstsB2` **81 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
@@ -4289,7 +4289,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"source","i":0,"c":"硬编码统一治理方案（`dev_docs/20261013/硬编码统一治理方案-20261013.md`）B5-2 同名常量续号；基线 `.trae/architecture/hardcode-gate-baseline.json` 队列"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"reopenWhen","i":0,"c":"① **回滚路径**：本删除落**独立提交** `22a2012f5`（1 file, -7），如需恢复执行 `git revert 22a2012f5` 即可整笔回滚（符合 CD06「删除独立提交 + 保留可回滚点」）；② 若日后确需在**上下文域**也暴露该名（例如新入口按消息字符预算拒发），必须**从存储侧真源派生**而非再抄数值，且先在 `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"reopenWhen","i":1,"c":"constants/` 建真源（`constants` 不得反向依赖 `services`）；③ 若存储侧 250_000 与环境变量 `MAX_TOOL_RESULTS_PER_MESSAGE_CHARS` 的默认值关系变化，另立条目。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"notes","i":0,"c":"① **判据（为何不是消歧而是删除）**：两处**同名、同义、异值** —— `app/src/constants/toolLimits.ts` = `200_000`，`app/src/services/toolResultStorage/types.ts` = `250_000`；且**两处文档注释描述的行为一字不差**（「单个用户消息中工具结果块的最大"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"notes","i":0,"c":"① **判据（为何不是消歧而是删除）**：两处**同名、同义、异值** —— `app/src/constants/toolLimits.ts` = `200_000`，`packages/service/src/services/toolResultStorage/types.ts` = `250_000`；且**两处文档注释描述的行为一字不差**（「单个用户消息中工具结果块的最大"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"notes","i":1,"c":"总字符数；超过则该块持久化到磁盘并替换为预览」）。⇒ 这是**同一旋钮的重复定义**，不是两个域各自的限额 ⇒ 按域改名会把「漂移」合法化（错误方向），故删死副本。② **CD01–CD06 六步核查**：(CD01) 全仓搜索该名：仅两处声明 + `toolResultStorage/**` 的消费（`ToolResultBudget.ts` 从 `"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"notes","i":2,"c":"./types` 导入、`index.ts` 桶再导出、`ContentReplacementStore.ts` 导入并叠加 env 覆盖）⇒ **`toolLimits` 那份 0 importer**；(CD02/CD03) 该常量无构建/插件/DI/反射入口；(CD04) 无测试引用该导出（既有测试引用的是存储侧同名）；(CD05) 无注册入口可摘——"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS","k":"notes","i":3,"c":"本身即未接线；(CD06) 独立提交 + `revert` 可复原。③ **同名残留说明（非违规）**：该名在存储侧作为**环境变量键字符串**继续存在（`configManager.env('MAX_TOOL_RESULTS_PER_MESSAGE_CHARS')`），删除本导出**不影响**该配置契约。④ 守卫：`"}
@@ -4327,7 +4327,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"notes","i":1,"c":"` 已补导出 `export const FILE_READ_TOOL_NAME = 'file_read' satisfies ToolName;` ⇒ 本项补齐第三个名，删除私有副本、并入既有 `@modules/constants` import。③ **顺带修既有守卫**：`B5-2㉙` 用单行正则钉住该 import 形态（`import { "}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"notes","i":2,"c":"FILE_EDIT_TOOL_NAME, FILE_WRITE_TOOL_NAME } from …`）；并入三个名后 prettier 折成多行 ⇒ 该断言失效。已把断言放宽为「同名同源」形态（以跨行通配占位替代原文的固定换行，未改判据），**未删任何既有断言**（其中「桶 ↔ 真源 同值契约」一行仍在）。④ 守卫：新增 `B5-2-65`。⑤ 棘轮：基线"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"notes","i":3,"c":"键由 2 归零。⑥ 验证：app + client `tsc` exit 0；守卫测试 `sameNameConstsB2` + 桶契约 `toolNameLists` **110 例全绿**；`lint:consts` / `lint:arch` / `lint:unref` 全 exit 0。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"code#0","i":0,"c":"app/src/services/agent/parseAgent.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"code#0","i":0,"c":"packages/service/src/services/agent/parseAgent.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-65-FILE-READ-TOOL-NAME","k":"tests#1","i":0,"c":"app/tests/tools/toolNameLists.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-68-MODEL-SENTINEL-CONTRACT","k":"title","i":0,"c":"`DEFAULT_MODEL_SENTINEL` 跨包契约一等公民化：门禁增 `CROSS_PACKAGE_CONTRACT_CONSTS`（准入三条）保留同名，并加三方逐字同值守卫（app TS ↔ client TS ↔ client Rust）⇒ 同名常量 2>0"}
@@ -5039,7 +5039,7 @@
 {"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"reopenWhen","i":1,"c":"tracked 的 `capabilities.default.yaml:467-473`），(b) 在门禁里显式登记「该 task 故意无模型」，(c) 不管它（当前即为「降级为告警」后的默认）；③ **禁止**为了消告警而新增一个「假 TTS/STT 模型」—— 该子系统不读 `model_registry`，配了也不会被用（等于造数据，违 CS04）；"}
 {"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"reopenWhen","i":2,"c":"④ 若某个 TTS/STT Provider 的注册条件变化（见 `VoiceServiceBridge.ts:375-404` 的 openAIApiKey / piper.modelDir 分支）：本条目列的「怎么配才真的生效」一段须同步。"}
 {"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":0,"c":"【问题】门禁 `lint-models` 的「能力覆盖」子检查报两条断链：`task=tts 能力=text_to_speech`、`task=stt 能力=speech_recognition` 各 `0 个 enabled 模型`（第 8 轮修好该检查的本地可用性后**首次**可见）。用户问：该配哪个模型。【三条证据（结论：不需要配）】**① 语音走独立"}
-{"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":1,"c":"子系统，完全不查 `model_registry`**：`app/src/services/voice/**` 全目录检索 `model_registry` / `ModelRegistry` / `ModelPricingService` / `text_to_speech` / `speech_recognition` / `capabilit` ⇒ "}
+{"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":1,"c":"子系统，完全不查 `model_registry`**：`packages/service/src/services/voice/**` 全目录检索 `model_registry` / `ModelRegistry` / `ModelPricingService` / `text_to_speech` / `speech_recognition` / `capabilit` ⇒ "}
 {"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":2,"c":"**0 处命中**。TTS Provider 的注册条件是**语音服务配置**而非模型（`app/src/voice/VoiceServiceBridge.ts:375-404`）：`EdgeTTSProvider`（**始终注册**，免费、微软在线音色）→ `CommandTTSProvider`（系统可用时）→ `OpenAITTSProvider`（需"}
 {"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":3,"c":" `service.openAIApiKey`，模型 `tts-1`/`tts-1-hd`）→ `PiperTTSProvider`（需 `service.piper.modelDir`）；STT 侧为 `SenseVoiceSTTProvider`（本地、中文优化）/ 本地 faster-whisper / `cloudSTTProvider`（需 key"}
 {"id":"VOICE-TTS-STT-NO-MODEL-NEEDED","k":"notes","i":4,"c":"）。工具侧亦同：`tools/TTSTool/TTSTool.ts:314,364` 与 `tools/VoiceOutputTool/VoiceOutputTool.ts` 都调 `voiceService.synthesizeSpeech/speak`，**不按任务类型取模型**。**② `tts`/`stt` 任务类型在路由面没有消费者**：`"}
@@ -5945,7 +5945,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"title","i":0,"c":"U-20/B5-2-77：STORE_VERSION / PROBE_TIMEOUT_MS / OPS 按域消歧"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"notes","i":0,"c":"三对同名常量语义不同（知识语义库 vs MCP 本地清单；MCP CLI vs ffprobe；pdfjs 操作码 vs shell 运算符）⇒ 按域改名；mcpCommand 的 PROBE_TIMEOUT_MS 零引用随批删除；基线 170→167。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#0","i":0,"c":"app/src/services/mcp/marketplace/LocalServerStore.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#0","i":0,"c":"packages/service/src/services/mcp/marketplace/LocalServerStore.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#1","i":0,"c":"packages/infra/src/media/ffmpeg/FFmpegWrapper.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#2","i":0,"c":"packages/infra/src/media/pdf/PdfPageExtractor.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#3","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
@@ -5967,15 +5967,15 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"title","i":0,"c":"U-20/B5-2-80：MCP 重连退避收敛与 PathGuard 别名集按域命名"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"notes","i":0,"c":"INITIAL/MAX_BACKOFF_MS 收敛到 services/mcp/types（client 侧原为零引用死常量）；PathGuard 的 SEARCH/WRITE_TOOL_NAMES 是含别名的本地集合，改名 *_ALIASES 以免与注册名清单混淆；基线 163→159。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#0","i":0,"c":"app/src/services/mcp/types/index.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#1","i":0,"c":"app/src/services/mcp/MCPConnectionManager.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#2","i":0,"c":"app/src/services/mcp/client.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#0","i":0,"c":"packages/service/src/services/mcp/types/index.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#1","i":0,"c":"packages/service/src/services/mcp/MCPConnectionManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#2","i":0,"c":"packages/service/src/services/mcp/client.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#3","i":0,"c":"app/src/query/PathGuard.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"code#4","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"title","i":0,"c":"U-20/B5-2-81：PERMISSION_MODES / SCHEMA_VERSION 按域命名，EMAIL_PATTERN 收敛"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"notes","i":0,"c":"agent frontmatter 模式清单是权限模式子集 ⇒ AGENT_PERMISSION_MODES；两处快照版本分属回滚快照与应用状态 ⇒ 各自改名；邮箱正则复用 redact 侧唯一事实源；基线 159→156。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#0","i":0,"c":"app/src/services/agent/parseAgent.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#0","i":0,"c":"packages/service/src/services/agent/parseAgent.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#1","i":0,"c":"packages/infra/src/state/app/AppLifecycle.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#2","i":0,"c":"packages/infra/src/security/rollback/SnapshotStorage.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-81","k":"code#3","i":0,"c":"packages/infra/src/security/services/SensitiveDataService.ts"}
@@ -5995,15 +5995,15 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"notes","i":0,"c":"orchestration 的搜索集用于并发分区 ⇒ PARTITIONER_SEARCH_TOOLS（守卫用例同步）；流式 STT 的 30s 滑窗 ⇒ STT_MAX_TRANSCRIBE_SECONDS；两家 STT 提供者标识各自加域前缀；基线 153→149。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#0","i":0,"c":"app/src/tools/orchestration/types.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#1","i":0,"c":"app/src/voice/STTStreamServer.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#2","i":0,"c":"app/src/services/voice/services/localSTTProvider.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#3","i":0,"c":"app/src/services/voice/services/senseVoiceSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#2","i":0,"c":"packages/service/src/services/voice/services/localSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#3","i":0,"c":"packages/service/src/services/voice/services/senseVoiceSTTProvider.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#4","i":0,"c":"app/tests/tools/orchestration/toolCallPartitionerToolNames.test.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-83","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"title","i":0,"c":"U-20/B5-2-84：STT 提供者进程常量按域命名"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"notes","i":0,"c":"Local Whisper 与 SenseVoice 是同形两实现，但模型白名单不同 ⇒ 不做跨实现合一，按提供者加前缀（LOCAL_STT_*/SENSEVOICE_*）；基线 149→145。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"code#0","i":0,"c":"app/src/services/voice/services/localSTTProvider.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"code#1","i":0,"c":"app/src/services/voice/services/senseVoiceSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"code#0","i":0,"c":"packages/service/src/services/voice/services/localSTTProvider.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"code#1","i":0,"c":"packages/service/src/services/voice/services/senseVoiceSTTProvider.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-84","k":"code#2","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"title","i":0,"c":"U-20/B5-2-85：压缩阈值 / 记忆模板与文件 / PDCA 表名按域命名"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-85","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
@@ -6107,7 +6107,7 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#3","i":0,"c":"app/src/channels/webhook/config-schema.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#4","i":0,"c":"app/src/channels/bluebubbles/config-schema.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#5","i":0,"c":"packages/infra/src/trace-recording/live/LiveViewServer.ts"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#6","i":0,"c":"app/src/services/mcp/MCPConnection.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#6","i":0,"c":"packages/service/src/services/mcp/MCPConnection.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#7","i":0,"c":"app/src/ai/ModelManagementBootstrap.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#8","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-95","k":"title","i":0,"c":"U-20/B5-2-95：CLI OAuth 回调与本地应用基址收敛"}
@@ -7744,8 +7744,8 @@
 {"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#3","i":0,"c":"app/src/bootstrap/generatedLazyLoaders.ts"}
 {"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#4","i":0,"c":"app/tsconfig.json"}
 {"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#5","i":0,"c":"packages/infra/package.json"}
-{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#6","i":0,"c":"app/src/services/mcp/MCPConnection.ts"}
-{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#7","i":0,"c":"app/src/services/mcp/auth/MCPAuth.ts"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#6","i":0,"c":"packages/service/src/services/mcp/MCPConnection.ts"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#7","i":0,"c":"packages/service/src/services/mcp/auth/MCPAuth.ts"}
 {"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"tests#0","i":0,"c":"app/tests/core/lazyLoaderRegistry.test.ts"}
 {"id":"INFRA-PACKAGE-P11-DAEMON","k":"title","i":0,"c":"P11：daemon 迁入 packages/infra（7 文件 / 8 处引用）"}
 {"id":"INFRA-PACKAGE-P11-DAEMON","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.9"}

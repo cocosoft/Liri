@@ -21,17 +21,20 @@
 /**
  * MCP 增强层统一入口
  * 引用标准层 (services/mcp/) 接口和类型，提供增强层功能
- * 标准层功能请从 @modules/services/mcp 导入
+ * 标准层功能请从 @openliri/service/services/mcp 导入
  */
 
 // ── 认证 ──
-export { MCPAuthManager, mcpAuthManager } from '../services/mcp/auth/index.js';
+export {
+  MCPAuthManager,
+  mcpAuthManager,
+} from '@openliri/service/services/mcp/auth/index';
 export type {
   MCPOAuthConfig,
   MCPOAuthToken,
   MCPOAuthState,
   MCPOAuthDiscoveryState,
-} from '../services/mcp/auth/index.js';
+} from '@openliri/service/services/mcp/auth/index';
 
 // ── 类型 ──
 export { MCP_PROTOCOL_VERSION, MCPServerStatus } from './types/index.js';
@@ -64,16 +67,16 @@ export type {
 } from './types/index.js';
 
 // ── 传输层（直接引用 services/mcp/transports/）──
-export { MCPTransport as MCPTransportBase } from '../services/mcp/transports/MCPTransport.js';
-export { TransportFactory } from '../services/mcp/TransportFactory.js';
-export { SSETransport } from '../services/mcp/transports/SSETransport.js';
-export { WebSocketTransport } from '../services/mcp/transports/WebSocketTransport.js';
-export { HTTPTransport } from '../services/mcp/transports/HTTPTransport.js';
-export { StdioTransport } from '../services/mcp/transports/StdioTransport.js';
+export { MCPTransport as MCPTransportBase } from '@openliri/service/services/mcp/transports/MCPTransport';
+export { TransportFactory } from '@openliri/service/services/mcp/TransportFactory';
+export { SSETransport } from '@openliri/service/services/mcp/transports/SSETransport';
+export { WebSocketTransport } from '@openliri/service/services/mcp/transports/WebSocketTransport';
+export { HTTPTransport } from '@openliri/service/services/mcp/transports/HTTPTransport';
+export { StdioTransport } from '@openliri/service/services/mcp/transports/StdioTransport';
 export {
   createLinkedTransportPair,
   InProcessTransportFactory,
-} from '../services/mcp/transports/InProcessTransport.js';
+} from '@openliri/service/services/mcp/transports/InProcessTransport';
 
 // ── 客户端（C3）──
 // 2026-10-08（MCP 双轨收敛 C-3）：原 `export { MCPClientImpl }`（增强层自建客户端，
@@ -87,12 +90,12 @@ export {
 export {
   MCPServerManager,
   getMCPServerManager,
-} from '../services/mcp/MCPServerManager.js';
-export { MCPConnection as MCPServerConnection } from '../services/mcp/MCPConnection.js';
+} from '@openliri/service/services/mcp/MCPServerManager';
+export { MCPConnection as MCPServerConnection } from '@openliri/service/services/mcp/MCPConnection';
 
 // ── 工具注册表 ──
-export { MCPToolRegistry } from '../services/mcp/MCPToolRegistry.js';
-export type { MCPToolInfo } from '../services/mcp/MCPToolRegistry.js';
+export { MCPToolRegistry } from '@openliri/service/services/mcp/MCPToolRegistry';
+export type { MCPToolInfo } from '@openliri/service/services/mcp/MCPToolRegistry';
 
 // ── 工具 ──
 export { MCPTool } from './MCPTool.js';
@@ -119,12 +122,12 @@ export {
   getOfficialServersByCategory,
   getOfficialServer,
   getCategories,
-} from '../services/mcp/MCPOfficialRegistry.js';
+} from '@openliri/service/services/mcp/MCPOfficialRegistry';
 
 export {
   MCPResourceManager,
   mcpResourceManager,
-} from '../services/mcp/resourceManager.js';
+} from '@openliri/service/services/mcp/resourceManager';
 export type {
   MCPResourceType,
   MCPResource,
@@ -132,7 +135,7 @@ export type {
   MCPImageResource,
   MCPBinaryResource,
   ResourceProcessingConfig,
-} from '../services/mcp/resourceManager.js';
+} from '@openliri/service/services/mcp/resourceManager';
 
 export {
   ChannelPermissionRelay,
@@ -154,7 +157,7 @@ export {
   needsNormalization,
   denormalizeMcpName,
   isValidMcpName,
-} from '../services/mcp/normalization.js';
+} from '@openliri/service/services/mcp/normalization';
 
 export {
   mcpElicitationQueue,
@@ -163,7 +166,7 @@ export {
   buildElicitResponse,
   getElicitInputType,
   validateElicitParams,
-} from '../services/mcp/elicitationHandler.js';
+} from '@openliri/service/services/mcp/elicitationHandler';
 export type {
   ElicitationRequestEvent,
   ElicitResponseType,
@@ -173,7 +176,7 @@ export type {
   ElicitationWaitingState,
   MCPElicitHandler,
   ElicitToolParams,
-} from '../services/mcp/elicitationHandler.js';
+} from '@openliri/service/services/mcp/elicitationHandler';
 
 // ── CLI ──
 export { createMcpCommand } from './cli/mcpCommand.js';
@@ -182,5 +185,5 @@ export { createMcpCommand } from './cli/mcpCommand.js';
 export {
   createPluginMCPTools,
   getPluginSummary,
-} from '../services/mcp/PluginMCPToolServer.js';
-export type { PluginMCPToolOptions } from '../services/mcp/PluginMCPToolServer.js';
+} from '@openliri/service/services/mcp/PluginMCPToolServer';
+export type { PluginMCPToolOptions } from '@openliri/service/services/mcp/PluginMCPToolServer';

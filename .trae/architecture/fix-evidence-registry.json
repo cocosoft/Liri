@@ -1201,7 +1201,7 @@
       },
       "code": [
         ".trae/specs/mcp-client-dual-track-convergence-assessment.md",
-        "app/src/services/mcp/index.ts"
+        "packages/service/src/services/mcp/index.ts"
       ],
       "tests": [
         "app/tests/mcp/sdkStdioTrackBoundary.test.ts",
@@ -1913,7 +1913,7 @@
       },
       "code": [
         "app/src/mcp/MCPTool.ts",
-        "app/src/services/mcp/McpToolWrapper.ts",
+        "packages/service/src/services/mcp/McpToolWrapper.ts",
         "app/src/tools/WebFetchTool/WebFetchTool.ts"
       ],
       "tests": [
@@ -2453,9 +2453,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/services/mcp/McpToolWrapper.ts",
-        "app/src/services/mcp/MCPSecurityFilter.ts",
-        "app/src/services/mcp/MCPServerManager.ts"
+        "packages/service/src/services/mcp/McpToolWrapper.ts",
+        "packages/service/src/services/mcp/MCPSecurityFilter.ts",
+        "packages/service/src/services/mcp/MCPServerManager.ts"
       ],
       "tests": [
         "app/tests/mcp/mcpResultRedaction.test.ts"
@@ -2481,8 +2481,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/services/mcp/transports/StdioTransport.ts",
-        "app/src/services/mcp/MCPSecurityFilter.ts"
+        "packages/service/src/services/mcp/transports/StdioTransport.ts",
+        "packages/service/src/services/mcp/MCPSecurityFilter.ts"
       ],
       "tests": [
         "app/tests/mcp/mcpResultRedaction.test.ts"
@@ -3463,9 +3463,9 @@
       "code": [
         "packages/infra/src/constants/common.ts",
         "app/src/docs/i18n/LanguageManager.ts",
-        "app/src/services/voice/services/ttsConfigOverlay.ts",
-        "app/src/services/voice/services/voiceService.ts",
-        "app/src/services/voice/VoiceProvider.ts",
+        "packages/service/src/services/voice/services/ttsConfigOverlay.ts",
+        "packages/service/src/services/voice/services/voiceService.ts",
+        "packages/service/src/services/voice/VoiceProvider.ts",
         "app/src/voice/WakeWordEngine.ts",
         "app/src/hooks/useVoice.ts",
         "app/src/plugins/bundled/SettingsPlugin.ts"
@@ -4286,20 +4286,20 @@
       },
       "code": [
         "packages/infra/src/constants/common.ts",
-        "app/src/services/api/client.ts",
+        "packages/service/src/services/api/client.ts",
         "app/src/tools/WebFetchTool/utils.ts",
         "app/src/tools/WebFetchTool/WebFetchTool.ts",
         "app/src/tools/WebSearchTool/WebSearchTool.ts",
         "app/src/tools/WebSearchTool/providers.ts",
         "app/src/tools/web/WebToolProvider.ts",
-        "app/src/services/voice/services/streamSTTProvider.ts",
+        "packages/service/src/services/voice/services/streamSTTProvider.ts",
         "app/src/cli/updater/GitHubReleaseFetcher.ts",
         "app/src/chat/services/ImageDownloader.ts",
         "app/src/skills/loaders/adapter/clawhub/ClawHubAPIClient.ts",
         "app/src/knowledge/datasource/RSSConnector.ts",
-        "app/src/services/mcp/marketplace/adapters/SmitheryRegistryAdapter.ts",
-        "app/src/services/mcp/marketplace/adapters/NPMRegistryAdapter.ts",
-        "app/src/services/mcp/marketplace/adapters/GitHubRegistryAdapter.ts"
+        "packages/service/src/services/mcp/marketplace/adapters/SmitheryRegistryAdapter.ts",
+        "packages/service/src/services/mcp/marketplace/adapters/NPMRegistryAdapter.ts",
+        "packages/service/src/services/mcp/marketplace/adapters/GitHubRegistryAdapter.ts"
       ],
       "tests": [
         "app/tests/constants/userAgentSingleSource.test.ts"
@@ -5249,7 +5249,7 @@
         "app/src/cli/print.ts",
         "app/src/commands/tasks/tasks.ts",
         "app/src/chat/ChannelMessageParser.ts",
-        "app/src/services/toolResultStorage/types.ts",
+        "packages/service/src/services/toolResultStorage/types.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [
@@ -5309,10 +5309,10 @@
         "packages/infra/src/oauth/utils/OAuthCrypto.ts",
         "packages/infra/src/oauth/OAuthProviderStore.ts",
         "packages/infra/src/oauth/services/OAuthStorage.ts",
-        "app/src/services/voice/services/audioUtils.ts",
-        "app/src/services/voice/services/audioPlayer.ts",
-        "app/src/services/voice/services/playbackManager.ts",
-        "app/src/services/voice/services/ttsProvider.ts",
+        "packages/service/src/services/voice/services/audioUtils.ts",
+        "packages/service/src/services/voice/services/audioPlayer.ts",
+        "packages/service/src/services/voice/services/playbackManager.ts",
+        "packages/service/src/services/voice/services/ttsProvider.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -5530,7 +5530,7 @@
         "app/src/ai/translation/LanguageDetector.ts",
         "app/src/chat/services/PathGuardService.ts",
         "packages/infra/src/config/settings/CheckpointLogConfig.ts",
-        "app/src/services/prompt/PromptVersionManager.ts",
+        "packages/service/src/services/prompt/PromptVersionManager.ts",
         "app/src/tokenBudget/ModelContextCache.ts",
         "client/src/services/imageService.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -5566,7 +5566,7 @@
         "app/src/sandbox/utils/TimeoutController.ts",
         "app/src/sandbox/SandboxManager.ts",
         "app/src/session/lock/PrioritySessionLock.ts",
-        "app/src/services/mcp/transports/StreamableHttpTransport.ts",
+        "packages/service/src/services/mcp/transports/StreamableHttpTransport.ts",
         "app/src/tools/CodeRunner/CrossPlatformRunner.ts",
         "app/src/tools/CodeRunner/CodeRunnerTool.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -5635,7 +5635,7 @@
         "packages/infra/src/media/image/TempFileManager.ts",
         "packages/infra/src/permission/ApprovedCommandRegistry.ts",
         "app/src/tools/ImageGenerateTool/ImageGenerationCache.ts",
-        "app/src/services/file/FileStatsService.ts",
+        "packages/service/src/services/file/FileStatsService.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -5704,8 +5704,8 @@
         "app/src/ai/providers/BalanceChecker.ts",
         "app/src/channels/bluebubbles/BlueBubblesChannel.ts",
         "app/src/channels/mattermost/MattermostChannel.ts",
-        "app/src/services/voice/services/senseVoiceSTTProvider.ts",
-        "app/src/services/voice/services/localSTTProvider.ts",
+        "packages/service/src/services/voice/services/senseVoiceSTTProvider.ts",
+        "packages/service/src/services/voice/services/localSTTProvider.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -5924,8 +5924,8 @@
         "app/src/channels/qq/types.ts",
         "app/src/channels/qq/QQChannel.ts",
         "app/src/session/websocket/SessionsWebSocket.ts",
-        "app/src/services/mcp/MCPConnectionManager.ts",
-        "app/src/services/mcp/client.ts",
+        "packages/service/src/services/mcp/MCPConnectionManager.ts",
+        "packages/service/src/services/mcp/client.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -6255,7 +6255,7 @@
       },
       "code": [
         "app/src/context/budget/ToolResultBudget.ts",
-        "app/src/services/toolResultStorage/types.ts",
+        "packages/service/src/services/toolResultStorage/types.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -6373,9 +6373,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/services/voice/services/cloudSTTProvider.ts",
-        "app/src/services/voice/services/localSTTProvider.ts",
-        "app/src/services/voice/services/senseVoiceSTTProvider.ts",
+        "packages/service/src/services/voice/services/cloudSTTProvider.ts",
+        "packages/service/src/services/voice/services/localSTTProvider.ts",
+        "packages/service/src/services/voice/services/senseVoiceSTTProvider.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -6467,7 +6467,7 @@
         "app/src/acp/websocket.ts",
         "app/src/voice/upgrade.ts",
         "app/src/voice/WakeWebSocketServer.ts",
-        "app/src/services/voice/services/edgeTTSTransport.ts",
+        "packages/service/src/services/voice/services/edgeTTSTransport.ts",
         "app/tests/voice/upgrade.test.ts",
         "app/tests/constants/sameNameConstsB2.test.ts"
       ],
@@ -6496,7 +6496,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/services/agent/parseAgent.ts",
+        "packages/service/src/services/agent/parseAgent.ts",
         "app/src/tools/FileEditTool/prompt.ts",
         "app/src/tools/FileWriteTool/prompt.ts",
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -7919,7 +7919,7 @@
       ],
       "changelog": [],
       "reopenWhen": "① **回滚路径**：本删除落**独立提交** `22a2012f5`（1 file, -7），如需恢复执行 `git revert 22a2012f5` 即可整笔回滚（符合 CD06「删除独立提交 + 保留可回滚点」）；② 若日后确需在**上下文域**也暴露该名（例如新入口按消息字符预算拒发），必须**从存储侧真源…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS）",
-      "notes": "① **判据（为何不是消歧而是删除）**：两处**同名、同义、异值** —— `app/src/constants/toolLimits.ts` = `200_000`，`app/src/services/toolResultStorage/types.ts` = `250_000`；且**两处文档注释描述的行为一字…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS）"
+      "notes": "① **判据（为何不是消歧而是删除）**：两处**同名、同义、异值** —— `app/src/constants/toolLimits.ts` = `200_000`，`packages/service/src/services/toolResultStorage/types.ts` = `250_000`；且**…（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-63-MAX-TOOL-RESULTS-CHARS）"
     },
     {
       "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-64-LINT-CONSTS-VENDORED",
@@ -7964,7 +7964,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/services/agent/parseAgent.ts"
+        "packages/service/src/services/agent/parseAgent.ts"
       ],
       "tests": [
         "app/tests/constants/sameNameConstsB2.test.ts",
@@ -10895,7 +10895,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/services/mcp/marketplace/LocalServerStore.ts",
+        "packages/service/src/services/mcp/marketplace/LocalServerStore.ts",
         "packages/infra/src/media/ffmpeg/FFmpegWrapper.ts",
         "packages/infra/src/media/pdf/PdfPageExtractor.ts",
         "packages/infra/src/permission/ApprovedCommandRegistry.ts",
@@ -10977,9 +10977,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/services/mcp/types/index.ts",
-        "app/src/services/mcp/MCPConnectionManager.ts",
-        "app/src/services/mcp/client.ts",
+        "packages/service/src/services/mcp/types/index.ts",
+        "packages/service/src/services/mcp/MCPConnectionManager.ts",
+        "packages/service/src/services/mcp/client.ts",
         "app/src/query/PathGuard.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -11005,7 +11005,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/services/agent/parseAgent.ts",
+        "packages/service/src/services/agent/parseAgent.ts",
         "packages/infra/src/state/app/AppLifecycle.ts",
         "packages/infra/src/security/rollback/SnapshotStorage.ts",
         "packages/infra/src/security/services/SensitiveDataService.ts",
@@ -11065,8 +11065,8 @@
       "code": [
         "app/src/tools/orchestration/types.ts",
         "app/src/voice/STTStreamServer.ts",
-        "app/src/services/voice/services/localSTTProvider.ts",
-        "app/src/services/voice/services/senseVoiceSTTProvider.ts",
+        "packages/service/src/services/voice/services/localSTTProvider.ts",
+        "packages/service/src/services/voice/services/senseVoiceSTTProvider.ts",
         "app/tests/tools/orchestration/toolCallPartitionerToolNames.test.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -11092,8 +11092,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/services/voice/services/localSTTProvider.ts",
-        "app/src/services/voice/services/senseVoiceSTTProvider.ts",
+        "packages/service/src/services/voice/services/localSTTProvider.ts",
+        "packages/service/src/services/voice/services/senseVoiceSTTProvider.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],
@@ -11397,7 +11397,7 @@
         "app/src/channels/webhook/config-schema.ts",
         "app/src/channels/bluebubbles/config-schema.ts",
         "packages/infra/src/trace-recording/live/LiveViewServer.ts",
-        "app/src/services/mcp/MCPConnection.ts",
+        "packages/service/src/services/mcp/MCPConnection.ts",
         "app/src/ai/ModelManagementBootstrap.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
@@ -16434,8 +16434,8 @@
         "app/src/bootstrap/generatedLazyLoaders.ts",
         "app/tsconfig.json",
         "packages/infra/package.json",
-        "app/src/services/mcp/MCPConnection.ts",
-        "app/src/services/mcp/auth/MCPAuth.ts"
+        "packages/service/src/services/mcp/MCPConnection.ts",
+        "packages/service/src/services/mcp/auth/MCPAuth.ts"
       ],
       "tests": [
         "app/tests/core/lazyLoaderRegistry.test.ts"

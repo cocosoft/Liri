@@ -258,7 +258,7 @@ const hooksCommand = {
       }
     }
 
-    (await import('@modules/services/analytics/index.js')).logEvent(
+    (await import('@openliri/service/services/analytics/index')).logEvent(
       'tengu_hooks_list',
       {
         total: hooks.length,
@@ -309,7 +309,7 @@ const hooksCommand = {
       return { success: false, message: `钩子 "${name}" 不存在。` };
     }
 
-    (await import('@modules/services/analytics/index.js')).logEvent(
+    (await import('@openliri/service/services/analytics/index')).logEvent(
       'tengu_hooks_execute',
       {
         name,
@@ -388,7 +388,7 @@ const hooksCommand = {
 
     const passed = results.filter((r) => r.status === '通过').length;
 
-    (await import('@modules/services/analytics/index.js')).logEvent(
+    (await import('@openliri/service/services/analytics/index')).logEvent(
       'tengu_hooks_test',
       {
         total: results.length,

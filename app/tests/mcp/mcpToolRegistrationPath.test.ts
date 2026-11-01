@@ -18,9 +18,9 @@
  */
 import { afterEach, describe, expect, it } from 'bun:test';
 
-import { McpToolWrapper } from '../../src/services/mcp/McpToolWrapper';
-import { mcpToolRegistry } from '../../src/services/mcp/MCPToolRegistry';
-import type { SerializedTool } from '../../src/services/mcp/types';
+import { McpToolWrapper } from '@openliri/service/services/mcp/McpToolWrapper';
+import { mcpToolRegistry } from '@openliri/service/services/mcp/MCPToolRegistry';
+import type { SerializedTool } from '@openliri/service/services/mcp/types';
 import { ToolManager } from '../../src/tools/ToolManager';
 import {
   getToolRegistry,

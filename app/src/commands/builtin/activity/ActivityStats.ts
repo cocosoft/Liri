@@ -345,7 +345,7 @@ async function handleSummary(): Promise<CommandResult> {
   const sessionStats = await getSessionStats();
   const codeStats = await scanProjectCode();
 
-  (await import('@modules/services/analytics/index.js')).logEvent(
+  (await import('@openliri/service/services/analytics/index')).logEvent(
     'tengu_activity_summary',
     {
       sessionCount: sessionStats.totalSessions,

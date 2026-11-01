@@ -9,7 +9,7 @@ import {
   detectAudioContainer,
   normalizeAudioForSTT,
   limitPcmDuration,
-} from '../../src/services/voice/services/audioNormalizer.js';
+} from '@openliri/service/services/voice/services/audioNormalizer';
 
 describe('detectAudioContainer（magic bytes 嗅探）', () => {
   it('识别 WAV（RIFF....WAVE）', () => {

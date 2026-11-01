@@ -612,7 +612,7 @@ async function startDeferredPrefetches(): Promise<void> {
           const { MemorySummarizer } =
             await import('@openliri/infra/memory/services/MemorySummarizer');
           const { setMemoryQueryProvider, getCurrentSessionContext } =
-            await import('../services/prompt/MemoryPromptProvider.js');
+            await import('@openliri/service/services/prompt/MemoryPromptProvider');
           const memoryManager = getMemoryManager();
           const summarizer = new MemorySummarizer(memoryManager);
           setMemoryQueryProvider({
@@ -724,7 +724,7 @@ async function startDeferredPrefetches(): Promise<void> {
           const { KnowledgeSummarizer } =
             await import('../knowledge/KnowledgeSummarizer.js');
           const { setKnowledgeQueryProvider } =
-            await import('../services/prompt/KnowledgePromptProvider.js');
+            await import('@openliri/service/services/prompt/KnowledgePromptProvider');
           const { createVectorStore } =
             await import('@modules/knowledge/semantic/VectorStoreFactory.js');
           const { SemanticIndexUpdater } =

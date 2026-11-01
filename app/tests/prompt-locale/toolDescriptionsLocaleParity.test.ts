@@ -16,7 +16,7 @@ import { describe, it, expect } from 'bun:test';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { resolveToolDescription } from '../../src/services/prompt/PromptVersionManager';
+import { resolveToolDescription } from '@openliri/service/services/prompt/PromptVersionManager';
 
 const PROMPTS_ROOT = join(import.meta.dir, '../../prompts');
 const ZH_PATH = join(PROMPTS_ROOT, 'zh-CN', 'tool-descriptions.json');

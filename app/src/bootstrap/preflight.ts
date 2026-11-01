@@ -53,6 +53,9 @@ import { setNativeStructureCloserLoader } from '@openliri/infra/utils/structureC
 import { setNativeBashParserLoader } from '@openliri/infra/security/bash/BashAST';
 import { setNativeBashAnalyzerLoader } from '@openliri/infra/security/BashSecurityAnalyzer';
 import { setAnalyticsPricingResolver } from '@openliri/infra/analytics/pricingSource';
+import { setAttachmentIngestionPortLoader } from '@openliri/service/services/file/attachments';
+import { setPromptCoreApiProvider } from '@openliri/service/services/prompt/PromptAssembler';
+import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
 import { getModelPricing } from '@openliri/infra/cost/ModelPricing';
 import type { NativeLib } from '../../native';
 import { RuleManager } from '@openliri/infra/permission';
@@ -177,6 +180,8 @@ export function wireSecurityDeps(): void {
  * 原生不可用（未构建 / ABI 不匹配）⇒ 返回 `null`，`structureCut` 按既有口径降级到 P0。
  */
 export function wireUtilsDeps(): void {
+  // P30：service 包的注入端口也在此接线（避免 main.ts 增行；与 utils 同属启动期能力注入）
+  wireServiceDeps();
   setNativeStructureCloserLoader(() => {
     try {
       const native = require('../../native') as NativeLib | null;
@@ -185,6 +190,29 @@ export function wireUtilsDeps(): void {
     } catch {
       return null;
     }
+  });
+}
+
+/**
+ * P30 解耦（2026-11-02）：把 service 包的两处上层能力接到 app。
+ *
+ * ① `services/prompt/PromptAssembler` 原静态 `import { getCoreAPI }`（app `runtime`）；
+ * ② `services/file/attachments` 原在方法内 `await import('../../knowledge/…')`（app `knowledge`）。
+ * `services` 迁入 `packages/service` 后二者分别会「拉整个 app 源码进包程序」与「相对路径失效」
+ * ⇒ 与 P6/P25 同口径反转依赖（包内只留端口）。② 保持**懒加载**：只有真正保存附件时才解析
+ * 知识库实现，启动期零额外开销。
+ */
+function wireServiceDeps(): void {
+  // 提示词组装：CoreAPI 端口（P30，原 `services/prompt` 静态 import app 的 runtime）
+  setPromptCoreApiProvider(() => getCoreAPI());
+  // 附件自动摄取：知识库实现（P30，原 `services/file/attachments` 方法内动态 import app 的 knowledge）
+  setAttachmentIngestionPortLoader(async () => {
+    const { getDefaultIngestionService } =
+      await import('../knowledge/ingestion/FileIngestionService');
+    return {
+      ingestFile: (path, meta) =>
+        getDefaultIngestionService().ingestFile(path, 'attachment', meta),
+    };
   });
 }
 

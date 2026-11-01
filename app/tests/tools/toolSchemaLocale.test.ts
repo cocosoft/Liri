@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 
 import { setSectionCacheLocale } from '@openliri/infra/constants';
 
-import { resolveToolParam } from '../../src/services/prompt/PromptVersionManager';
+import { resolveToolParam } from '@openliri/service/services/prompt/PromptVersionManager';
 import { resolveConfiguredLanguage } from '@openliri/infra/system/i18n/languageProfiles';
 import { ToolRegistry } from '../../src/tools/ToolRegistry';
 import { ToolFactory } from '../../src/tools/ToolFactory';

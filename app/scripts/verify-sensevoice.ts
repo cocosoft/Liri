@@ -12,7 +12,7 @@
 
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
-import { SenseVoiceSTTProvider } from '../src/services/voice/services/senseVoiceSTTProvider';
+import { SenseVoiceSTTProvider } from '@openliri/service/services/voice/services/senseVoiceSTTProvider';
 
 /** 本环境 sherpa-onnx 装在项目 venv（真实部署用系统 Python，这里显式指定） */
 function resolveVenvPython(): string | undefined {

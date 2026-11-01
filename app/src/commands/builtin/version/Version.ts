@@ -125,7 +125,7 @@ const versionCommand = {
 async function handleVersion() {
   const info = getVersionInfo();
 
-  (await import('@modules/services/analytics/index.js')).logEvent(
+  (await import('@openliri/service/services/analytics/index')).logEvent(
     'tengu_version_checked',
     {
       version: info.version as string,

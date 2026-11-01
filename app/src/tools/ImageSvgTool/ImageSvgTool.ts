@@ -20,7 +20,7 @@ import {
   resolveOutputDir,
   resolveDownloadsDir,
 } from '@openliri/infra/environment';
-import { sanitizeFileName } from '@modules/services/file/fileNaming';
+import { sanitizeFileName } from '@openliri/service/services/file/fileNaming';
 
 const logger = getLogger('tools:imageSvg');
 

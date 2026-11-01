@@ -32,7 +32,7 @@ import {
   GrepOutputJsonSchema,
 } from './schemas';
 import { getDescription } from './prompt';
-import { resolveToolPrompt } from '@modules/services/prompt/PromptVersionManager';
+import { resolveToolPrompt } from '@openliri/service/services/prompt/PromptVersionManager';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('tools:GrepTool:GrepTool');

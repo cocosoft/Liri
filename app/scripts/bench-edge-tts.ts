@@ -11,7 +11,7 @@
  */
 
 import { performance } from 'node:perf_hooks';
-import { EdgeTTSProvider } from '../src/services/voice/services/edgeTTSProvider';
+import { EdgeTTSProvider } from '@openliri/service/services/voice/services/edgeTTSProvider';
 
 const TEXT =
   '大家好，欢迎使用 Liri 语音助手。今天天气晴朗，气温舒适，适合出门散步。';

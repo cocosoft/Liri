@@ -162,6 +162,9 @@
       "@opentelemetry/api": ["../node_modules/@opentelemetry/api"],
       "@opentelemetry/*": ["../node_modules/@opentelemetry/*"],
       "https-proxy-agent": ["../node_modules/https-proxy-agent"],
+      "@modelcontextprotocol/sdk/*": [
+        "../node_modules/@modelcontextprotocol/sdk/dist/esm/*"
+      ],
       "@modules/plugin-sdk": ["plugin-sdk"],
       "@modules/plugin-sdk/*": ["plugin-sdk/*"],
       "@modules/ai": ["ai"],
@@ -236,8 +239,12 @@
       "@modules/sandbox/*": ["sandbox/*"],
       "@modules/vfs": ["vfs"],
       "@modules/vfs/*": ["vfs/*"],
-      "@modules/services": ["services"],
-      "@modules/services/*": ["services/*"],
+      "@openliri/service/services/*": [
+        "../../packages/service/src/services/*"
+      ],
+      "@openliri/service/ports/*": [
+        "../../packages/service/src/ports/*"
+      ],
       "@modules/buddy": ["buddy"],
       "@modules/buddy/*": ["buddy/*"],
       "@openliri/infra/chronos": [

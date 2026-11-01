@@ -29,7 +29,7 @@ import {
   validateToolsetRequest,
 } from './AgentToolsetContract';
 import { toWireToolName } from '../toolNameCodec';
-import { isValidMcpName } from '../../services/mcp/normalization';
+import { isValidMcpName } from '@openliri/service/services/mcp/normalization';
 import { getLogger } from '@openliri/infra/monitoring';
 
 const logger = getLogger('tools:agentTool');

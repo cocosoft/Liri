@@ -60,7 +60,7 @@ const DISGUISE_UA: Array<{ rel: string; site: RegExp; label: string }> = [
     label: '抓 HTML 的反爬伪装 UA（Chrome）',
   },
   {
-    rel: 'src/services/voice/services/edgeTTSProvider.ts',
+    rel: '../packages/service/src/services/voice/services/edgeTTSProvider.ts',
     site: /CHROMIUM_FULL_VERSION = '\d+\.\d+\.\d+\.\d+'/,
     label: 'edge-tts 协议要求的 Chromium 版本',
   },
@@ -130,20 +130,20 @@ describe('HD-P1-1 · 产品 User-Agent 单一真源', () => {
 
   it('⑤ 14 个消费点均引用真源（不漏改）', () => {
     const consumers = [
-      'src/services/api/client.ts',
+      '../packages/service/src/services/api/client.ts',
       'src/tools/WebFetchTool/utils.ts',
       'src/tools/WebFetchTool/WebFetchTool.ts',
       'src/tools/WebSearchTool/WebSearchTool.ts',
       'src/tools/WebSearchTool/providers.ts',
       'src/tools/web/WebToolProvider.ts',
-      'src/services/voice/services/streamSTTProvider.ts',
+      '../packages/service/src/services/voice/services/streamSTTProvider.ts',
       'src/cli/updater/GitHubReleaseFetcher.ts',
       'src/chat/services/ImageDownloader.ts',
       'src/skills/loaders/adapter/clawhub/ClawHubAPIClient.ts',
       'src/knowledge/datasource/RSSConnector.ts',
-      'src/services/mcp/marketplace/adapters/SmitheryRegistryAdapter.ts',
-      'src/services/mcp/marketplace/adapters/NPMRegistryAdapter.ts',
-      'src/services/mcp/marketplace/adapters/GitHubRegistryAdapter.ts',
+      '../packages/service/src/services/mcp/marketplace/adapters/SmitheryRegistryAdapter.ts',
+      '../packages/service/src/services/mcp/marketplace/adapters/NPMRegistryAdapter.ts',
+      '../packages/service/src/services/mcp/marketplace/adapters/GitHubRegistryAdapter.ts',
     ];
     // 只看**用法**（排除 import 行）—— 否则"只 import 不引用"也会蒙混过关
     const missing = consumers.filter((r) => {

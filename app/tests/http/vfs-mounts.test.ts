@@ -51,7 +51,7 @@ import {
   setConfigManagerForTest,
 } from '@openliri/infra/config';
 import { vfsMountRegistry } from '../../src/vfs/VfsMountRegistry.js';
-import { mcpConnectionManager } from '../../src/services/mcp/MCPConnectionManager.js';
+import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
 import { createHandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils.js';
 import {
   handleGetVfsMounts,

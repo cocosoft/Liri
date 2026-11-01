@@ -49,7 +49,7 @@ import type { KnowledgeOpsPort } from './knowledgeOpsPorts';
 // C1（2026-09-30 D-98）：任务运维 P1**服务层端口**（见同目录 taskOpsPorts.ts）
 import type { TaskOpsPort } from './taskOpsPorts';
 // C1（2026-09-30 D-106）：AI 运维 P1**服务层端口**（见同目录 aiOpsPorts.ts）
-import type { AiOpsPort } from './aiOpsPorts';
+import type { AiOpsPort } from '@openliri/service/ports/aiOpsPorts';
 // C1（2026-09-30 D-111，零散单点收尾）：三个小域**服务层端口**
 import type { QueryOpsPort } from './queryOpsPorts';
 import type { BuddyOpsPort } from './buddyOpsPorts';

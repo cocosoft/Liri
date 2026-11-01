@@ -27,11 +27,11 @@ import {
   listToolResourceOverrides,
   readPromptManifest,
   TOOL_RESOURCE_FILES,
-} from '@modules/services/prompt/PromptVersionManager';
+} from '@openliri/service/services/prompt/PromptVersionManager';
 import {
   validatePromptResources,
   formatPromptIssues,
-} from '@modules/services/prompt/PromptValidator';
+} from '@openliri/service/services/prompt/PromptValidator';
 
 interface ParsedArgs {
   locale: string;

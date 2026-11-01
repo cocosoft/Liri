@@ -5,12 +5,12 @@
 
 import { describe, it, expect, afterEach } from 'bun:test';
 
-import { TTSRegistry } from '../../src/services/voice/services/ttsProvider.js';
+import { TTSRegistry } from '@openliri/service/services/voice/services/ttsProvider';
 import type {
   TTSSpeakOptions,
   TTSSpeakResult,
   TTSProvider,
-} from '../../src/services/voice/services/ttsTypes.js';
+} from '@openliri/service/services/voice/services/ttsTypes';
 
 /** 记录调用与文本的 mock Provider */
 interface SpeakCall {

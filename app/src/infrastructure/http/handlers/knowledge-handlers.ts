@@ -12,7 +12,7 @@ import {
 } from './handler-utils';
 // 2026-10-01 D-186（子批 C）：`SandboxPermission` 是 core 叶子 ⇒ 相对直连，消除 `infrastructure -> app`。
 import { SandboxPermission } from '@openliri/kernel/sandboxPermission.js';
-import { sanitizeFileName } from '@modules/services/file/fileNaming';
+import { sanitizeFileName } from '@openliri/service/services/file/fileNaming';
 
 import { handleError } from '@openliri/infra/error';
 import {
@@ -1545,7 +1545,7 @@ export async function handleImportFromFile(
     // P1-2：登记原文件「已入知识库」（原文件在 FileRegistry 登记过才命中；失败不影响导入）
     try {
       const { FileRegistry } =
-        await import('@modules/services/file/FileRegistry');
+        await import('@openliri/service/services/file/FileRegistry');
       const { getLogger } = await import('@openliri/infra/monitoring');
       await FileRegistry.getInstance().linkKnowledgeBySavedPath(filePath);
       getLogger('knowledge:http:import').info('文件已标记入知识库', {

@@ -43,7 +43,7 @@
  */
 
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { mcpConnectionManager } from '@modules/services/mcp/MCPConnectionManager.js';
+import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
 import {
   vfsError,
   type IVfsDriver,

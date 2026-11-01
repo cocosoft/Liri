@@ -386,7 +386,7 @@ export async function handleFileRegistryList(
       `http://${req.headers.host || LOCAL_SERVICE_HOST}`
     );
     const { FileRegistry } =
-      await import('@modules/services/file/FileRegistry');
+      await import('@openliri/service/services/file/FileRegistry');
 
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
@@ -433,7 +433,7 @@ export async function handleFileHealth(
 ): Promise<void> {
   try {
     const { FileRegistry } =
-      await import('@modules/services/file/FileRegistry');
+      await import('@openliri/service/services/file/FileRegistry');
     const { DiskSpaceMonitor } = await import('@openliri/infra/runtimeHost');
     const { resolvePyappHome } = await import('@openliri/infra/environment');
     const { existsSync } = await import('fs');
@@ -539,7 +539,7 @@ export async function handleFileRegistryDetail(
     }
 
     const { FileRegistry } =
-      await import('@modules/services/file/FileRegistry');
+      await import('@openliri/service/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
 
@@ -580,7 +580,7 @@ export async function handleFileRegistrySearch(
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
 
     const { FileRegistry } =
-      await import('@modules/services/file/FileRegistry');
+      await import('@openliri/service/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
 
@@ -634,7 +634,7 @@ export async function handleFileRegistryStats(
 ): Promise<void> {
   try {
     const { FileRegistry } =
-      await import('@modules/services/file/FileRegistry');
+      await import('@openliri/service/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
 
@@ -688,7 +688,7 @@ export async function handleFileRegistryDelete(
       .filter(Boolean);
 
     const { FileRegistry } =
-      await import('@modules/services/file/FileRegistry');
+      await import('@openliri/service/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     await registry.initDatabase();
 

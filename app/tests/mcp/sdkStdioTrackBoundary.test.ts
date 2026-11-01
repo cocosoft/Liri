@@ -27,8 +27,8 @@ import {
   clearAllTracking,
   getActiveProcessCount,
   killOrphanedProcesses,
-} from '../../src/services/mcp/transports/ChildProcessTracker';
-import { StdioTransport } from '../../src/services/mcp/transports/StdioTransport';
+} from '@openliri/service/services/mcp/transports/ChildProcessTracker';
+import { StdioTransport } from '@openliri/service/services/mcp/transports/StdioTransport';
 
 const CHILD = join(import.meta.dir, 'fixtures/mcpIdleChild.js');
 
@@ -102,7 +102,10 @@ describe('P2-8 MCP 双轨子进程 · SDK 轨回收边界', () => {
   it('边界登记：`cleanup()` 中 SDK 轨关闭（`closeAll`）先于自研轨兜底（`killOrphanedProcesses`）', () => {
     // 顺序即「SDK 轨由 closeAll 承接、自研轨由追踪器兜底」这一裁定的代码落点。
     const src = readFileSync(
-      join(import.meta.dir, '../../src/services/mcp/index.ts'),
+      join(
+        import.meta.dir,
+        '../../../packages/service/src/services/mcp/index.ts'
+      ),
       'utf-8'
     );
     const iSdkClose = src.indexOf('await mcpConnectionManager.closeAll()');

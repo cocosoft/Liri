@@ -51,7 +51,7 @@ import { getLogger } from '@openliri/infra/monitoring';
 import {
   computeMd5,
   sanitizeFileName,
-} from '@modules/services/file/fileNaming';
+} from '@openliri/service/services/file/fileNaming';
 import { AtomicWriter } from './AtomicWriter.js';
 import type { FTSDocument } from './ftsTypes.js';
 

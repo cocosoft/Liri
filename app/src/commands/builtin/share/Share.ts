@@ -263,7 +263,7 @@ async function handleJsonShare(context: CommandContext) {
   const mdPath = await saveToFile(mdContent, mdFilename);
   const jsonPath = await saveToFile(jsonContent, jsonFilename);
 
-  (await import('@modules/services/analytics/index.js')).logEvent(
+  (await import('@openliri/service/services/analytics/index')).logEvent(
     'tengu_share_created',
     {
       format: 'both',
@@ -296,7 +296,7 @@ async function handleShare(filenameArg: string, context: CommandContext) {
     filepath = await saveToFile(content, filename);
   }
 
-  (await import('@modules/services/analytics/index.js')).logEvent(
+  (await import('@openliri/service/services/analytics/index')).logEvent(
     'tengu_share_created',
     {
       format: 'markdown',

@@ -23,7 +23,7 @@ import {
   resolveDownloadsDir,
   resolveInboundDir,
 } from '@openliri/infra/environment';
-import { sanitizeFileName } from '@modules/services/file/fileNaming';
+import { sanitizeFileName } from '@openliri/service/services/file/fileNaming';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -534,8 +534,9 @@ export class WebFetchTool extends BaseTool {
 
       // 注册到 FileRegistry
       const { FileRegistry } =
-        await import('@modules/services/file/FileRegistry');
-      const { FileSource } = await import('@modules/services/file/types');
+        await import('@openliri/service/services/file/FileRegistry');
+      const { FileSource } =
+        await import('@openliri/service/services/file/types');
       const registry = FileRegistry.getInstance();
       await registry.initDatabase();
       await registry.registerFile({

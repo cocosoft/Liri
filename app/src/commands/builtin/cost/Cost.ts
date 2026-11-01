@@ -365,7 +365,7 @@ async function handleStatus(): Promise<CommandResult> {
 async function handleTotalCost(): Promise<CommandResult> {
   const costData = await collectCostData();
 
-  (await import('@modules/services/analytics/index.js')).logEvent(
+  (await import('@openliri/service/services/analytics/index')).logEvent(
     'tengu_cost_overview',
     {
       totalCost: costData.totalCost,

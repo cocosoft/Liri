@@ -6,7 +6,7 @@
  *
  * 用法：`bun run scripts/lint-prompt-budget.ts [--strict] [--json]`
  */
-import { validatePromptResources } from '../src/services/prompt/PromptValidator';
+import { validatePromptResources } from '@openliri/service/services/prompt/PromptValidator';
 import {
   parseGateArgs,
   reportPromptGate,

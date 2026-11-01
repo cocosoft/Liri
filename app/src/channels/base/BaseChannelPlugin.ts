@@ -21,7 +21,7 @@ import type {
 import type {
   RegisterFileInput,
   RegisterFileResult,
-} from '@modules/services/file/types';
+} from '@openliri/service/services/file/types';
 import { getLogger, Logger } from '@openliri/infra/monitoring';
 import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -523,7 +523,7 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
     }
   ): Promise<RegisterFileResult> {
     const { FileRegistry } =
-      await import('@modules/services/file/FileRegistry');
+      await import('@openliri/service/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     return registry.registerFile({
       content: input.content,

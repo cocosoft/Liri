@@ -5,11 +5,11 @@
  * 将 API 客户端与流式输出模块连接，支持实时流式请求。
  * 使用原生 fetch API 读取 ReadableStream 并通过 Stream 类传递。
  */
-import { ApiClient } from '../services/api';
+import { ApiClient } from '@openliri/service/services/api';
 import { Stream } from './Stream';
 import { SSEParser } from './SSEParser';
 import type { StreamChunk, StreamEvent } from './types';
-import { ApiError, ApiConnectionError } from '../services/api';
+import { ApiError, ApiConnectionError } from '@openliri/service/services/api';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('streaming:apiStream');

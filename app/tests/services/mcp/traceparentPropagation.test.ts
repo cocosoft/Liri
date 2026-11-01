@@ -28,9 +28,12 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { context, trace, TraceFlags } from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
-import { HTTPTransport } from '../../../src/services/mcp/transports/HTTPTransport';
+import { HTTPTransport } from '@openliri/service/services/mcp/transports/HTTPTransport';
 import { runWithActiveSpan } from '@openliri/infra/monitoring/tracing/traceContextInjector';
-import type { MCPRequest, MCPResponse } from '../../../src/services/mcp/types';
+import type {
+  MCPRequest,
+  MCPResponse,
+} from '@openliri/service/services/mcp/types';
 
 const cm = new AsyncLocalStorageContextManager();
 cm.enable();

@@ -8,7 +8,7 @@ import net from 'net';
 import http from 'http';
 
 // patch STTRegistry.transcribe（模块单例），避免触发真实本地模型
-import { STTRegistry } from '../../src/services/voice/services/sttRegistry.js';
+import { STTRegistry } from '@openliri/service/services/voice/services/sttRegistry';
 import {
   upgradeSTTStreamConnection,
   closeAllSTTStreamSessions,

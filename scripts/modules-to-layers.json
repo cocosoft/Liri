@@ -81,6 +81,7 @@
     "infrastructure": { "layer": "service", "description": "HTTP 服务层（LocalHTTPService + handlers + 17 路由子域）" },
     "remote":   { "layer": "service", "description": "远程接入（SSH 连接池/远程会话/文件同步）" },
     "runtime":  { "layer": "service", "description": "运行时 API（CoreAPI/Inbox/通知持久化）" },
+    "ports":    { "layer": "service", "virtual": true, "description": "service 包的公共端口契约目录（`packages/service/src/ports`，2026-11-02 P30 由 `runtime/api/aiOpsPorts` 下沉；**无 app 同名目录**，仅供 R8 的 app 侧别名归属校验）" },
 
     "config":   { "layer": "infra", "description": "配置管理" },
     "error":    { "layer": "infra", "description": "错误处理" },

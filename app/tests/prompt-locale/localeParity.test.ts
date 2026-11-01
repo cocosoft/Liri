@@ -285,7 +285,10 @@ describe('C-4 locale 解析入口', () => {
 describe('C-4 接线守卫', () => {
   it('PromptAssembler 的 locale 缺省解析走 resolveConfiguredLanguage（单一来源）', () => {
     const source = readFileSync(
-      join(import.meta.dir, '../../src/services/prompt/PromptAssembler.ts'),
+      join(
+        import.meta.dir,
+        '../../../packages/service/src/services/prompt/PromptAssembler.ts'
+      ),
       'utf-8'
     );
     expect(source).toContain('resolveConfiguredLanguage');

@@ -10,7 +10,7 @@ import { join, resolve } from 'path';
 import { deflateSync } from 'zlib';
 
 import { getLogger } from '@openliri/infra/monitoring';
-import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
+import { sanitizeFileName as sanitizeFileNameBase } from '@openliri/service/services/file/fileNaming';
 import {
   LANG_PROFILES,
   canUseStandardPdfFont,

@@ -42,7 +42,7 @@ import {
   resolveProjectRoot,
 } from '@openliri/infra/environment';
 import { join, delimiter } from 'path';
-import { trackProcess } from '../../services/mcp/transports/ChildProcessTracker';
+import { trackProcess } from '@openliri/service/services/mcp/transports/ChildProcessTracker';
 import { globalEventBus } from '@openliri/kernel/events/EventBus';
 
 const logger = getLogger('plugins:core:pythonPluginAdapter');

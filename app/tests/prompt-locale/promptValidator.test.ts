@@ -18,7 +18,7 @@ import {
   extractPromptT1Markers,
   estimatePromptTokens,
   type PromptIssue,
-} from '../../src/services/prompt/PromptValidator';
+} from '@openliri/service/services/prompt/PromptValidator';
 
 const FIXTURE_ROOT = mkdtempSync(join(tmpdir(), 'c5-prompts-'));
 

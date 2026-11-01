@@ -565,7 +565,7 @@ export class FileReadTool extends BaseTool {
   private async resolveFileId(fileId: string): Promise<string | null> {
     try {
       const { FileRegistry } =
-        await import('@modules/services/file/FileRegistry');
+        await import('@openliri/service/services/file/FileRegistry');
       const registry = FileRegistry.getInstance();
       await registry.initDatabase();
       const record = await registry.getFileDetail(fileId);
@@ -645,7 +645,7 @@ export class FileReadTool extends BaseTool {
 
         // Step 1: 注册到 FileRegistry
         const { FileRegistry } =
-          await import('@modules/services/file/FileRegistry');
+          await import('@openliri/service/services/file/FileRegistry');
         const registry = FileRegistry.getInstance();
         const { readFile } = await import('fs/promises');
         const { basename } = await import('path');

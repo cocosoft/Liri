@@ -34,7 +34,10 @@ const TARGETS = [
     name: 'AppModelConfigService',
     path: 'src/ai/models/AppModelConfigService.ts',
   },
-  { name: 'FileRegistry', path: 'src/services/file/FileRegistry.ts' },
+  {
+    name: 'FileRegistry',
+    path: '../packages/service/src/services/file/FileRegistry.ts',
+  },
 ] as const;
 
 describe('显式 dbPath 分桶（8 处同构单例，覆盖全部 `getInstance(dbPath?)`）', () => {

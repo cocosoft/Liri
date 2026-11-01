@@ -20,7 +20,7 @@ import {
   afterEach,
   spyOn,
 } from 'bun:test';
-import voiceService from '@modules/services/voice';
+import voiceService from '@openliri/service/services/voice';
 
 // ============================================================
 // Mock voiceService：模拟录音、识别、依赖检查
@@ -60,10 +60,10 @@ const mockVoiceService = {
 };
 
 /**
- * P0-8（2026-10-04）：原实现用 `mock.module('@modules/services/voice', …)` **替换整个模块**
+ * P0-8（2026-10-04）：原实现用 `mock.module('@openliri/service/services/voice', …)` **替换整个模块**
  * —— bun 的模块 mock 为**进程级全局且不可撤销**（`mock.restore()` 无效）⇒ 会泄漏给同进程
  * 后续文件。改用 `spyOn`：把**真实默认单例**（`VoiceInputTool` 以
- * `import voiceService from '@modules/services/voice'` 使用的**同一对象**）的各方法**重定向**到
+ * `import voiceService from '@openliri/service/services/voice'` 使用的**同一对象**）的各方法**重定向**到
  * 本文件的 mock 对象（对象成员级、`afterEach` 还原；同 `resolveModelRoute.test.ts` 先例）。
  * 保留 `mockVoiceService.*` 的 `mockClear` / `mockImplementationOnce` / `toHaveBeenCalled` 用法不变。
  */

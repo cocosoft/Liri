@@ -48,8 +48,8 @@ export interface ArtifactConfig {
 }
 
 import { resolveArtifactsDir } from '@openliri/infra/environment';
-import { FileRegistry } from '@modules/services/file/FileRegistry';
-import { FileSource } from '@modules/services/file/types';
+import { FileRegistry } from '@openliri/service/services/file/FileRegistry';
+import { FileSource } from '@openliri/service/services/file/types';
 
 const DEFAULT_CONFIG: ArtifactConfig = {
   artifactsDir: resolveArtifactsDir(),

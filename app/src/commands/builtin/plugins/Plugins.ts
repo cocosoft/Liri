@@ -164,7 +164,8 @@ const pluginsCommand = {
     const data = await this.collectPluginsData();
 
     try {
-      const { logEvent } = await import('@modules/services/analytics/index.js');
+      const { logEvent } =
+        await import('@openliri/service/services/analytics/index');
       logEvent('tengu_plugins_status', {
         total: data.total,
         enabled: data.enabledCount,
@@ -224,7 +225,8 @@ const pluginsCommand = {
     const data = await this.collectPluginsData();
 
     try {
-      const { logEvent } = await import('@modules/services/analytics/index.js');
+      const { logEvent } =
+        await import('@openliri/service/services/analytics/index');
       logEvent('tengu_plugins_list', { total: data.total });
     } catch (err) {
       // analytics 非关键
@@ -267,7 +269,8 @@ const pluginsCommand = {
     const data = await this.collectPluginsData();
 
     try {
-      const { logEvent } = await import('@modules/services/analytics/index.js');
+      const { logEvent } =
+        await import('@openliri/service/services/analytics/index');
       logEvent('tengu_plugins_test', { total: data.total });
     } catch (err) {
       // analytics 非关键

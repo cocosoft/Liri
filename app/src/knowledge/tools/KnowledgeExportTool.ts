@@ -33,7 +33,7 @@ import { join } from 'path';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { sanitizeFileName } from '@modules/services/file/fileNaming';
+import { sanitizeFileName } from '@openliri/service/services/file/fileNaming';
 
 const logger = getLogger('knowledge:tools:knowledgeExportTool');
 

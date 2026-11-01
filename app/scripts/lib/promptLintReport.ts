@@ -11,7 +11,7 @@
 import {
   formatPromptIssues,
   type PromptIssue,
-} from '../../src/services/prompt/PromptValidator';
+} from '@openliri/service/services/prompt/PromptValidator';
 
 export interface PromptGateOptions {
   /** `--strict`：warning 也阻断（推进到「阻断」阶段后使用） */

@@ -16,7 +16,7 @@ import { BaseTool } from '../BaseTool';
 // 硬编码治理 B5-2㉛：UUID 形态判定收敛到 `@modules/core` 单一真源（原为 8 份副本）
 import { UUID_RE } from '@openliri/kernel';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
+import { registerGeneratedMedia } from '@openliri/service/services/file/registerMediaFile';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@openliri/infra/error';

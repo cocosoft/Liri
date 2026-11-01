@@ -36,7 +36,7 @@ import type { IKnowledgeSearch, KnowledgeRoute } from '../docs/knowledge-types';
 import type {
   KnowledgeSummary,
   KnowledgeQueryResult as KQR,
-} from '../services/prompt/KnowledgePromptProvider';
+} from '@openliri/service/services/prompt/KnowledgePromptProvider';
 
 const logger = getLogger('knowledge:summarizer');
 

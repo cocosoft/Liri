@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import {
   validatePromptResources,
   type PromptIssue,
-} from '../src/services/prompt/PromptValidator';
+} from '@openliri/service/services/prompt/PromptValidator';
 import { parseGateArgs, reportPromptGate } from './lib/promptLintReport';
 
 /** T1 协议文件（显式清单 + 理由；新增需评审） */

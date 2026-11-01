@@ -507,8 +507,9 @@ export class FileWriteTool extends BaseTool {
     Promise.resolve().then(async () => {
       try {
         const { FileRegistry } =
-          await import('@modules/services/file/FileRegistry');
-        const { FileSource } = await import('@modules/services/file/types');
+          await import('@openliri/service/services/file/FileRegistry');
+        const { FileSource } =
+          await import('@openliri/service/services/file/types');
 
         const resolved = resolveFilePath(filePath);
         const registry = FileRegistry.getInstance();

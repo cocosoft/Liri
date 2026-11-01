@@ -24,29 +24,29 @@ import { SafeInterval } from '@openliri/infra/utils/SafeInterval';
 import {
   createVoiceService,
   VoiceService,
-} from '@modules/services/voice/services/voiceService';
+} from '@openliri/service/services/voice/services/voiceService';
 import {
   TTSRegistry,
   EdgeTTSProvider,
-} from '@modules/services/voice/services/ttsProvider';
-import { OpenAITTSProvider } from '@modules/services/voice/services/openAITTSProvider';
-import { CommandTTSProvider } from '@modules/services/voice/services/commandTTSProvider';
-import { PiperTTSProvider } from '@modules/services/voice/services/piperTTSProvider';
-import { STTRegistry } from '@modules/services/voice/services/sttRegistry';
-import { LocalSTTProvider } from '@modules/services/voice/services/localSTTProvider';
-import { CloudSTTProvider } from '@modules/services/voice/services/cloudSTTProvider';
-import { StreamSTTProvider } from '@modules/services/voice/services/streamSTTProvider';
-import { VadDetector } from '@modules/services/voice/services/vadDetector';
-import { EnvironmentDetector } from '@modules/services/voice/services/environmentDetector';
+} from '@openliri/service/services/voice/services/ttsProvider';
+import { OpenAITTSProvider } from '@openliri/service/services/voice/services/openAITTSProvider';
+import { CommandTTSProvider } from '@openliri/service/services/voice/services/commandTTSProvider';
+import { PiperTTSProvider } from '@openliri/service/services/voice/services/piperTTSProvider';
+import { STTRegistry } from '@openliri/service/services/voice/services/sttRegistry';
+import { LocalSTTProvider } from '@openliri/service/services/voice/services/localSTTProvider';
+import { CloudSTTProvider } from '@openliri/service/services/voice/services/cloudSTTProvider';
+import { StreamSTTProvider } from '@openliri/service/services/voice/services/streamSTTProvider';
+import { VadDetector } from '@openliri/service/services/voice/services/vadDetector';
+import { EnvironmentDetector } from '@openliri/service/services/voice/services/environmentDetector';
 import {
   detectRuntimeEnvironment,
   isVoiceAvailable,
-} from '@modules/services/voice/services/environmentRuntimeDetector';
-import { getVoiceKeyterms } from '@modules/services/voice/voiceKeyterms';
+} from '@openliri/service/services/voice/services/environmentRuntimeDetector';
+import { getVoiceKeyterms } from '@openliri/service/services/voice/voiceKeyterms';
 import {
   startPreventSleep,
   stopPreventSleep,
-} from '@modules/services/voice/preventSleep';
+} from '@openliri/service/services/voice/preventSleep';
 
 import { VoiceSession } from './VoiceSession';
 import { GeminiLiveAdapter } from './GeminiLiveAdapter';
@@ -75,7 +75,7 @@ import { VoiceCommandRouter } from './VoiceCommandRouter';
 import type { VoiceCommandRouterConfig } from './VoiceCommandRouter';
 import { getMemoryManager } from '@openliri/infra/memory';
 
-import type { VoiceServiceConfig } from '@modules/services/voice/models/types';
+import type { VoiceServiceConfig } from '@openliri/service/services/voice/models/types';
 import type {
   VoiceClientEvent,
   VoiceServerEvent,

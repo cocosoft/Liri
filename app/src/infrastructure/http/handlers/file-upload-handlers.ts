@@ -27,7 +27,7 @@ import type { HandlerCtx } from './handler-utils';
 import {
   attachmentManager,
   AttachmentSource,
-} from '@modules/services/file/attachments';
+} from '@openliri/service/services/file/attachments';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // 2026-10-01 D-201（chat 域取用面收敛）：原**静态**导入 app 层 `@modules/chat` 的
 // `createChatManager()` ⇒ `infrastructure -> app` 倒挂。

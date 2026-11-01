@@ -129,7 +129,7 @@
       "reason": "SSH 连接态 —— 属 R09-001 明确列出的「Connection 域待专项」，本方案不扩大范围"
     },
     {
-      "file": "app/src/services/mcp/types/index.ts",
+      "file": "packages/service/src/services/mcp/types/index.ts",
       "exportName": "MCPServerStatus",
       "reason": "MCP 服务端连接态（外部进程管理），属集成域而非编排状态机"
     },

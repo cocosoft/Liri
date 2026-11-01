@@ -12,7 +12,7 @@ import {
   VoiceOutputOutputJsonSchema,
   VoiceOutputOutputSchema,
 } from './schemas';
-import voiceService from '@modules/services/voice';
+import voiceService from '@openliri/service/services/voice';
 
 const logger = getLogger('tools:voiceOutput');
 

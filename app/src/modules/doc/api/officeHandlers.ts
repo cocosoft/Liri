@@ -211,7 +211,7 @@ export async function handleDocStatus(
     // 诊断：输出 MCPServerManager 中所有已注册服务器
     try {
       const { getMCPServerManager } =
-        await import('@modules/services/mcp/MCPServerManager');
+        await import('@openliri/service/services/mcp/MCPServerManager');
       const mgr = getMCPServerManager();
       const serverNames = mgr.listServers();
       const officecliServer = mgr.getServer('officecli');

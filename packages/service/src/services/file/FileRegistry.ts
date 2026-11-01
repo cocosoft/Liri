@@ -21,7 +21,7 @@
  */
 
 import { Database } from '@openliri/infra/external';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { writeFile, unlink, stat, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { getLogger } from '@openliri/infra/monitoring';
@@ -267,7 +267,7 @@ export class FileRegistry {
     }
 
     // Step 5: 写 DB 记录
-    const fileId = uuidv4().slice(0, 8);
+    const fileId = randomUUID().slice(0, 8);
     try {
       // 方案六 P1-4：按 saved_path 查重（覆盖大文件/显式跳过去重场景），
       // 避免重复注册同路径文件触发唯一索引冲突（SQLITE_CONSTRAINT_UNIQUE）
@@ -723,7 +723,7 @@ export class FileRegistry {
       subDir
     );
 
-    const fileId = uuidv4().slice(0, 8);
+    const fileId = randomUUID().slice(0, 8);
 
     // 写 DB 记录（大文件模式，MD5 为空）
     try {

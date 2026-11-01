@@ -720,7 +720,7 @@ export class NotebookToolAdapter implements Tool {
     format: string
   ): Promise<void> {
     const { FileRegistry } =
-      await import('@modules/services/file/FileRegistry');
+      await import('@openliri/service/services/file/FileRegistry');
     const registry = FileRegistry.getInstance();
     const extMap: Record<string, string> = {
       markdown: '.md',

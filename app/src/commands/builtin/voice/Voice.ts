@@ -140,7 +140,7 @@ async function handleDisable(config: any) {
     voiceEnabled: false,
   }));
 
-  (await import('@modules/services/analytics/index.js')).logEvent(
+  (await import('@openliri/service/services/analytics/index')).logEvent(
     'tengu_voice_toggled',
     {
       enabled: false,
@@ -192,7 +192,7 @@ async function handleEnable(config: any) {
     voiceEnabled: true,
   }));
 
-  (await import('@modules/services/analytics/index.js')).logEvent(
+  (await import('@openliri/service/services/analytics/index')).logEvent(
     'tengu_voice_toggled',
     {
       enabled: true,

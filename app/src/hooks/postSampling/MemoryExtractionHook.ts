@@ -10,7 +10,7 @@ import type {
 import {
   extractMemories,
   type MemoryType,
-} from '@modules/services/extractMemories';
+} from '@openliri/service/services/extractMemories';
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 

@@ -40,7 +40,7 @@ import {
   getActiveProcessCount,
   getOrphanPids,
   clearAllTracking,
-} from '../../src/services/mcp/transports/ChildProcessTracker';
+} from '@openliri/service/services/mcp/transports/ChildProcessTracker';
 
 interface FakeProc {
   emitter: ChildProcess;

@@ -442,7 +442,7 @@ export class DocModule {
 
     try {
       const { getMCPServerManager } =
-        await import('@modules/services/mcp/MCPServerManager');
+        await import('@openliri/service/services/mcp/MCPServerManager');
       const manager = getMCPServerManager();
 
       if (manager.getServer('officecli')) {
@@ -462,9 +462,9 @@ export class DocModule {
   private async tryDirectMcpConnect(): Promise<boolean> {
     try {
       const { getMcpToolsCommandsAndResources } =
-        await import('@modules/services/mcp/client');
+        await import('@openliri/service/services/mcp/client');
       const { getMCPServerManager } =
-        await import('@modules/services/mcp/MCPServerManager');
+        await import('@openliri/service/services/mcp/MCPServerManager');
 
       let connected = false;
 
@@ -506,9 +506,9 @@ export class DocModule {
       });
 
       const { getMcpToolsCommandsAndResources } =
-        await import('@modules/services/mcp/client');
+        await import('@openliri/service/services/mcp/client');
       const { mcpConnectionManager } =
-        await import('@modules/services/mcp/MCPConnectionManager');
+        await import('@openliri/service/services/mcp/MCPConnectionManager');
 
       // 通过 MCP 客户端连接 officecli 并获取工具列表
       await getMcpToolsCommandsAndResources(
@@ -524,7 +524,7 @@ export class DocModule {
       );
 
       // 触发 MCPToolBridge 从 toolsCache 同步到 ToolManager
-      const { mcpSystem } = await import('@modules/services/mcp');
+      const { mcpSystem } = await import('@openliri/service/services/mcp');
       const count = await mcpSystem.refreshAllTools();
       // D-9：同步成功后缓存工具数，供 getCapabilities 只读
       this.toolCount = count;
@@ -579,7 +579,7 @@ export class DocModule {
   } | null> {
     try {
       const { getMCPServerManager } =
-        await import('@modules/services/mcp/MCPServerManager');
+        await import('@openliri/service/services/mcp/MCPServerManager');
       const manager = getMCPServerManager();
       const server = manager.getServer('officecli');
 
@@ -607,7 +607,7 @@ export class DocModule {
     try {
       // 动态导入 MCP 服务（避免循环依赖）
       const { getMCPServerManager } =
-        await import('@modules/services/mcp/MCPServerManager');
+        await import('@openliri/service/services/mcp/MCPServerManager');
       const manager = getMCPServerManager();
 
       // 注册 OfficeCLI 为 MCP Server
@@ -678,8 +678,9 @@ export class DocModule {
     if (this.reconnectInFlight) return;
     try {
       const { getMCPServerManager } =
-        await import('@modules/services/mcp/MCPServerManager');
-      const { MCPServerStatus } = await import('@modules/services/mcp/types');
+        await import('@openliri/service/services/mcp/MCPServerManager');
+      const { MCPServerStatus } =
+        await import('@openliri/service/services/mcp/types');
       const connStatus = getMCPServerManager()
         .getServer('officecli')
         ?.getStatus();

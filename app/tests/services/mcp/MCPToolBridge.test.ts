@@ -20,14 +20,14 @@ import { afterAll, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import {
   MCPToolBridge,
   type McpToolRegistrationPort,
-} from '../../../src/services/mcp/MCPToolBridge';
-import { mcpConnectionManager } from '../../../src/services/mcp/MCPConnectionManager';
-import { mcpToolRegistry } from '../../../src/services/mcp/MCPToolRegistry';
+} from '@openliri/service/services/mcp/MCPToolBridge';
+import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
+import { mcpToolRegistry } from '@openliri/service/services/mcp/MCPToolRegistry';
 import { dependencyRegistry } from '@openliri/kernel/DependencyRegistry';
 import type {
   MCPServerConnection,
   SerializedTool,
-} from '../../../src/services/mcp/types';
+} from '@openliri/service/services/mcp/types';
 
 /** 当前 `getAllTools()` 的返回值（每个用例前重置） */
 let allTools = new Map<

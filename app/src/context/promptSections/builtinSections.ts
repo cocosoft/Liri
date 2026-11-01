@@ -18,21 +18,21 @@ import {
   type SystemPromptSection,
   type StaticPromptSectionName,
 } from '@openliri/infra/constants';
-import { buildSoulSection } from '@modules/services/soul/SoulReader';
-import { buildUserSection } from '@modules/services/soul/UserReader';
-// 2026-10-01 D-219（子批 E `workspaces` 组）：原经 `@modules/services/workspace` 转出 barrel
+import { buildSoulSection } from '@openliri/service/services/soul/SoulReader';
+import { buildUserSection } from '@openliri/service/services/soul/UserReader';
+// 2026-10-01 D-219（子批 E `workspaces` 组）：原经 `@openliri/service/services/workspace` 转出 barrel
 // ⇒ 改直连 app 同层 `@modules/workspaces`（见 `promptSections/index.ts` 同批说明）。
 import { readAgentsMd, readToolsMd } from '@modules/workspaces';
 import {
   getMemoryQueryProvider,
   getCurrentSessionContext,
-} from '@modules/services/prompt/MemoryPromptProvider';
+} from '@openliri/service/services/prompt/MemoryPromptProvider';
 import { getFrozenSnapshotService } from '@openliri/infra/memory';
 import {
   getKnowledgeQueryProvider,
   getCurrentKnowledgeQuery,
   getCurrentKnowledgeDomain,
-} from '@modules/services/prompt/KnowledgePromptProvider';
+} from '@openliri/service/services/prompt/KnowledgePromptProvider';
 import { getLogger } from '@openliri/infra/monitoring';
 import { generateDigestContext } from '@modules/knowledge';
 import { DomainManager } from '@modules/knowledge';

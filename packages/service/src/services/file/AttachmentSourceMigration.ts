@@ -78,7 +78,7 @@ export class AttachmentSourceMigration {
     };
 
     const { FileRegistry } =
-      await import('@modules/services/file/FileRegistry');
+      await import('./FileRegistry');
 
     // 检查附件记录表是否存在
     const db = new Database(this.dbPath);

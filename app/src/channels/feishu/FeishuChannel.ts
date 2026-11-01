@@ -38,7 +38,7 @@ import {
 import { handleBudgetReliefAction } from '../bridge/budgetReliefAction';
 
 import { getLogger } from '@openliri/infra/monitoring';
-import type { RegisterFileResult } from '@modules/services/file/types';
+import type { RegisterFileResult } from '@openliri/service/services/file/types';
 import type {
   Client as LarkClient,
   DefaultCache as LarkTokenCache,

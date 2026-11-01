@@ -55,15 +55,16 @@ describe('Q-H2：默认语言 / 时区口径归一（zh-CN / Asia/Shanghai）', 
         decision: /private currentLanguage: string = DEFAULT_LOCALE/,
       },
       {
-        rel: 'services/voice/services/ttsConfigOverlay.ts',
+        // P30：`services` 已迁入 packages/service（相对 APP_SRC 上跳两级到仓库根）
+        rel: '../../packages/service/src/services/voice/services/ttsConfigOverlay.ts',
         decision: /defaultLanguage: DEFAULT_LOCALE/,
       },
       {
-        rel: 'services/voice/services/voiceService.ts',
+        rel: '../../packages/service/src/services/voice/services/voiceService.ts',
         decision: /language: config\.language \|\| DEFAULT_LOCALE/,
       },
       {
-        rel: 'services/voice/VoiceProvider.ts',
+        rel: '../../packages/service/src/services/voice/VoiceProvider.ts',
         decision: /language: DEFAULT_LOCALE/,
       },
       {
@@ -91,9 +92,9 @@ describe('Q-H2：默认语言 / 时区口径归一（zh-CN / Asia/Shanghai）', 
       );
     }
     // VoiceProvider 原默认是 'en-US'（与口径相反）⇒ 该默认值不应再出现
-    expect(read('services/voice/VoiceProvider.ts')).not.toMatch(
-      /language: 'en-US'/
-    );
+    expect(
+      read('../../packages/service/src/services/voice/VoiceProvider.ts')
+    ).not.toMatch(/language: 'en-US'/);
   });
 
   it('③ 跨部署单元同值契约：客户端时区真源与后端同值，且兜底点只引用真源', () => {

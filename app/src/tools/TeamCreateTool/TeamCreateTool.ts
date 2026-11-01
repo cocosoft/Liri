@@ -14,7 +14,7 @@ import { join } from 'path';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolveDataSubDir } from '@openliri/infra/environment';
 import { configManager } from '@openliri/infra/config';
-import { sanitizeFileName } from '@modules/services/file/fileNaming';
+import { sanitizeFileName } from '@openliri/service/services/file/fileNaming';
 
 import { getLogger } from '@openliri/infra/monitoring';
 import { TeamCreateOutputSchema, TeamCreateOutputJsonSchema } from './schemas';

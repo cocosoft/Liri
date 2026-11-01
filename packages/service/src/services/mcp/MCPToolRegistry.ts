@@ -24,14 +24,21 @@
  * 管理和注册所有可用的MCP工具
  */
 
-import type { Tool } from '@modules/tools/types';
+/**
+ * 被注册工具的**不透明句柄**（P30）。
+ *
+ * 原为 `import type { Tool } from '@modules/tools/types'`（app 层）。`services` 迁入
+ * `packages/service` 后该类型依赖会把 app 源码链条拉进包程序；本模块只**存取**句柄、
+ * 从不读取其字段 ⇒ 用 `unknown` 承载（与 P25 最小契约同口径）。
+ */
+export type RegisteredToolHandle = unknown;
 
 export interface MCPToolInfo {
   name: string;
   server: string;
   description: string;
   inputSchema: Record<string, unknown>;
-  tool: Tool;
+  tool: RegisteredToolHandle;
 }
 
 export class MCPToolRegistry {
@@ -43,7 +50,7 @@ export class MCPToolRegistry {
     name: string,
     description: string,
     inputSchema: Record<string, unknown>,
-    tool: Tool
+    tool: RegisteredToolHandle
   ): void {
     const toolInfo: MCPToolInfo = {
       name,

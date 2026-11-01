@@ -18,7 +18,7 @@ import type { MessageContext } from '@modules/channels/types';
 import type {
   RegisterFileInput,
   RegisterFileResult,
-} from '@modules/services/file/types';
+} from '@openliri/service/services/file/types';
 import type { QQDedupGuard } from './dedupGuard';
 import type { QQPassiveReplyTracker } from './passiveReplyTracker';
 import type {

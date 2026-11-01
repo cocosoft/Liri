@@ -25,8 +25,27 @@
  * 对标: openclaw plugin-tools-serve.ts
  */
 import { getLogger } from '@openliri/infra/monitoring';
-import type { MCPToolDefinition } from '../../mcp/types/index.js';
-import type { PluginRegistration } from '../../plugins/types/PluginTypes.js';
+import type { MCPToolDefinition } from './types';
+
+/**
+ * 插件注册信息的最小结构契约（P30）。
+ *
+ * 原为 `import type { PluginRegistration }`（app 层 `plugins` 模块）。`services` 迁入
+ * `packages/service` 后，这类跨层类型依赖会把 app 源码整条拉进包程序（连锁 TS2307）；
+ * 这里只声明本文件**实际读取**的字段 —— 结构化类型 ⇒ app 侧真实对象天然兼容，
+ * 与 P25 `NativeBashBridge` 同口径（边界用最小契约，不复制业务数据模型）。
+ */
+export interface PluginRegistrationLike {
+  id: string;
+  name: string;
+  version: string;
+  enabled: boolean;
+  manifest?: {
+    commands?: unknown;
+    skills?: unknown;
+    agents?: unknown;
+  };
+}
 
 const logger = getLogger('mcp:plugin-tools');
 
@@ -43,7 +62,7 @@ export interface PluginMCPToolOptions {
  * 每个插件的命令/技能/代理各生成一个 MCP 工具条目。
  */
 export function createPluginMCPTools(
-  plugins: readonly PluginRegistration[]
+  plugins: readonly PluginRegistrationLike[]
 ): MCPToolDefinition[] {
   const tools: MCPToolDefinition[] = [];
 
@@ -118,7 +137,7 @@ export function createPluginMCPTools(
  * 获取已安装插件的概要信息（供 MCP tools/list 展示）。
  */
 export function getPluginSummary(
-  plugins: readonly PluginRegistration[]
+  plugins: readonly PluginRegistrationLike[]
 ): Record<string, unknown>[] {
   return plugins
     .filter((p) => p.enabled)

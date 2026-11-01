@@ -73,8 +73,8 @@ import {
   setUnifiedTokenTracker,
 } from '@modules/tokenBudget';
 import { ContextTracker } from './context/ContextTracker.js';
-import { getTokenCountFromUsage } from '../services/tokenManagement/TokenCounter.js';
-import type { TokenUsage } from '../services/tokenManagement/TokenCounter.js';
+import { getTokenCountFromUsage } from '@openliri/service/services/tokenManagement/TokenCounter';
+import type { TokenUsage } from '@openliri/service/services/tokenManagement/TokenCounter';
 import {
   StopHookManager,
   createStopHookManager,

@@ -17,7 +17,7 @@ import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 // ⚠️ **类型位** app 类型（原文由 ai 域提供）已替换为服务层端口类型。
 // 此处**故意不写完整导入路径** —— 门禁不剥离注释，写了会让「对」复活（见台账 D-77）
-import type { TranslateRequestDto } from '@modules/runtime/api/aiOpsPorts';
+import type { TranslateRequestDto } from '@openliri/service/ports/aiOpsPorts';
 
 /**
  * POST /v1/translate

@@ -37,7 +37,7 @@ import { writeAuditLog } from '../KnowledgeAuditLogger';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@openliri/infra/environment';
-import { sanitizeFileName } from '@modules/services/file/fileNaming';
+import { sanitizeFileName } from '@openliri/service/services/file/fileNaming';
 
 const logger = getLogger('knowledge:tools:knowledgeWriteTool');
 

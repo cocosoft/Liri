@@ -8199,3 +8199,18 @@
 {"id":"SERVICE-PACKAGE-P30-SERVICES","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"SERVICE-PACKAGE-P30-SERVICES","k":"tests#1","i":0,"c":"app/tests/mcp/sdkClientApiShape.test.ts"}
 {"id":"SERVICE-PACKAGE-P30-SERVICES","k":"tests#2","i":0,"c":"app/tests/config/defaultLocaleTimezone.test.ts"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"title","i":0,"c":"P31：streaming 迁入 packages/service（14 文件；出边仅 infra + 包内 services/api）"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §7.2（结论段随本提交回填）"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"reopenWhen","i":0,"c":"① 下一批 voice/bridge/mcp 按 §七判据筛（streaming 已迁入，`services/api` 现处包内）；② streaming 后续若需 app 侧能力 ⇒ 走 P30 注入范式（set*Provider/Loader），禁静态 import；③ 新增目录入口且有外部消费者 ⇒ exports 必须单列精确条目（`/*` 会拼成 `*.ts`，P21/P30 同型）。"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"notes","i":0,"c":"迁包：14 文件（含 `scrubbers/` 子目录）git mv 至 packages/service/src/streaming；exports 为 `./streaming`（桶 index.ts）+ `./streaming/*`（子路径，`*` 可跨 `/` 命中 `scrubbers/Xxx.ts`）；外部无目录入口消费者（7 处消费均为文件级子路径），故未单列精确条目。"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"notes","i":1,"c":"别名：14 文件改 `@openliri/service/streaming*`（app/src 7 · app/tests 7，含 4 个非 .test 脚本）；包内自引 1 文件改相对；app/tsconfig 删 `@modules/streaming{,.js,/*}`。"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"notes","i":2,"c":"出边仅 infra（error/monitoring/config/state/engine）+ 包内 `services/api` ⇒ 零 app 依赖：本批无跨层反转、无端口注入、无第三方新增（对比 P30 的 5 处反转）。"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"notes","i":3,"c":"守卫：`backoffDefaults.test.ts` 扫描面补 `packages/service/src`（迁移后声明点仍在面内）+ 期望数组按 `.sort()` 实际序（`../…` 在 `src/…` 之前）；state-literal 11 条 + state-machine-allowlist 1 条随迁；其余读源码守卫本批零命中。"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"notes","i":4,"c":"校验：两侧 typecheck 绿；CI 9766 pass / 44 skip / 0 fail；探针（桶 31 导出 · `backpressure` 子路径 · `scrubbers` 目录入口 7 导出 · StreamStateMachine idle→streaming→completed）通过；R8 反证点名 `streaming/backpressure.ts:1`（回滚后 697 处 0 违规）。"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"code#0","i":0,"c":"packages/service/src/streaming/index.ts"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"code#1","i":0,"c":"packages/service/src/streaming/StreamStateMachine.ts"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"code#2","i":0,"c":"packages/service/src/streaming/scrubbers/index.ts"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"code#3","i":0,"c":"packages/service/package.json"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"code#4","i":0,"c":"app/tsconfig.json"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"tests#0","i":0,"c":"app/tests/utils/backoffDefaults.test.ts"}
+{"id":"SERVICE-PACKAGE-P31-STREAMING","k":"tests#1","i":0,"c":"app/tests/streaming/StreamingThinkScrubber.test.ts"}

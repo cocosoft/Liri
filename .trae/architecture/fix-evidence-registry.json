@@ -17189,6 +17189,37 @@
       "changelog": [],
       "reopenWhen": "① streaming/voice/bridge 现在可迁（其 `../services/api` 等依赖已在包内）⇒ 下一批按 §七判据筛；② 若包内再需第三方依赖 ⇒ 先验「bun 经包 tsconfig paths 能否解析」（目录形态对 zod/growthbook 可用，uuid 不可 ⇒ 已改 node:…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P30-SERVICES）",
       "notes": "迁包：services 173 文件（18 子域）git mv 至 packages/service/src/services；**4 个目录入口**（extractMemories/mcp/mcp\\/types/voice）在 exports 单列精确条目（`./services/*` 会拼成 `*.ts`，P21…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P30-SERVICES）"
+    },
+    {
+      "id": "SERVICE-PACKAGE-P31-STREAMING",
+      "title": "P31：streaming 迁入 packages/service（14 文件；出边仅 infra + 包内 services/api）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §7.2（结论段随本提交回填）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/service/src/streaming/index.ts",
+        "packages/service/src/streaming/StreamStateMachine.ts",
+        "packages/service/src/streaming/scrubbers/index.ts",
+        "packages/service/package.json",
+        "app/tsconfig.json"
+      ],
+      "tests": [
+        "app/tests/utils/backoffDefaults.test.ts",
+        "app/tests/streaming/StreamingThinkScrubber.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 下一批 voice/bridge/mcp 按 §七判据筛（streaming 已迁入，`services/api` 现处包内）；② streaming 后续若需 app 侧能力 ⇒ 走 P30 注入范式（set*Provider/Loader），禁静态 import；③ 新增目录入口且有外部消费者 ⇒ expor…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P31-STREAMING）",
+      "notes": "迁包：14 文件（含 `scrubbers/` 子目录）git mv 至 packages/service/src/streaming；exports 为 `./streaming`（桶 index.ts）+ `./streaming/*`（子路径，`*` 可跨 `/` 命中 `scrubbers/Xxx.ts`）；…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P31-STREAMING）"
     }
   ]
 }

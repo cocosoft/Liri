@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **SERVICE-PACKAGE-P31-STREAMING**：P31：streaming 迁入 packages/service —— 验证 tsc0|tests9766|gates55|infra0|scc0；基线 streaming 14 文件在 app/src（出边仅 infra + 包内 services/api）（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P31-STREAMING）
 - ✅ **SERVICE-PACKAGE-P30-SERVICES**：P30：services 迁入 packages/service（端口下沉 + 5 处跨层反转） —— 验证 tsc0|tests9766|gates55|infra0|scc0；基线 services 173 文件在 app/src（18 子域；1 处运行期 app 依赖 + 2 处类型）（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P30-SERVICES）
 - ✅ **SERVICE-PACKAGE-P29-EXECUTION**：P29：新建 packages/service，execution 迁入（含新门禁 R8） —— 验证 tsc0|tests9766|gates55|infra0|scc0；基线 execution 10 文件在 app/src（service 层，零 app 运行期依赖）（详情见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P29-EXECUTION）
 - ✅ **INFRA-PACKAGE-P28-MONITORING**：P28：monitoring 迁入 packages/infra（拆 ambient shim） —— 验证 tsc0|tests9766|gates55|infra0|scc0；基线 monitoring 72 文件在 app/src（16 子域；无原生依赖）（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P28-MONITORING）

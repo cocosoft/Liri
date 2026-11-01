@@ -28,6 +28,10 @@ const read = (rel: string) => readFileSync(join(APP, rel), 'utf8');
 /** 内核已物理迁出 `app/src/core` ⇒ 仓库根 `packages/kernel/src/core`（方案 §4-P4） */
 const KERNEL = resolve(APP, '..', 'packages', 'kernel', 'src', 'core');
 const readKernel = (rel: string) => readFileSync(join(KERNEL, rel), 'utf8');
+/** P5（2026-11-01）：`common` 已迁入 infra 物理包 ⇒ 仓库根 `packages/infra/src/common` */
+const INFRA_COMMON = resolve(APP, '..', 'packages', 'infra', 'src', 'common');
+const readCommon = (rel: string) =>
+  readFileSync(join(INFRA_COMMON, rel), 'utf8');
 
 describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('ANSI_RESET 真源存在、取值钉住、并声明为唯一真源', () => {
@@ -941,7 +945,6 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
   test('B5-2⑰：`MAX_DEPTH` ×3 已按域消歧（取值一字未改）', () => {
     // 3 处同名 `MAX_DEPTH`（深度上限）分属三个独立域，取值 2 种、全为文件内私有
     const items: Array<[string, string, string]> = [
-      ['src/common/phaseStack.ts', 'PHASE_STACK_MAX_DEPTH', '64'],
       ['src/commands/builtin/files/Files.ts', 'FILES_MAX_DEPTH', '4'],
       [
         'src/infrastructure/http/handlers/project-artifact-handlers.ts',
@@ -954,6 +957,10 @@ describe('同名常量 B2 · 协议/格式常量唯一真源', () => {
       expect(src).not.toMatch(/const MAX_DEPTH = /);
       expect(src).toContain(`${name} = ${value};`);
     }
+    // P5：`common/phaseStack.ts` 已随 common 迁入 infra 包
+    const phaseStack = readCommon('phaseStack.ts');
+    expect(phaseStack).not.toMatch(/const MAX_DEPTH = /);
+    expect(phaseStack).toContain('PHASE_STACK_MAX_DEPTH = 64;');
     // 同族**非本键**名仍在（不得误伤）：`DEFAULT_ROOT_CAUSE_MAX_DEPTH`（systemgraph 导出真源）
     expect(readKernel('systemgraph/SystemGraph.ts')).toContain(
       'export const DEFAULT_ROOT_CAUSE_MAX_DEPTH = 5;'

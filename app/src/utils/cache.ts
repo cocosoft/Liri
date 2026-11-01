@@ -8,7 +8,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { jsonStringify } from './json.js';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@openliri/kernel/errorHandler';
-import type { ICache, CacheStats } from '@modules/common';
+import type { ICache, CacheStats } from '@openliri/infra/common';
 
 const logger = getLogger('utils:cache');
 

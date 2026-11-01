@@ -6,7 +6,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 // B7 解环（2026-11-01）：枚举下沉 common；规则来源改注入（见 ./permissionRuleSource）
-import { PermissionBehavior } from '@modules/common';
+import { PermissionBehavior } from '@openliri/infra/common';
 import { readMainPermissionRules } from './permissionRuleSource.js';
 
 const logger = getLogger('PermissionManager');

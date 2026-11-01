@@ -1,4 +1,4 @@
-import type { ValidationResult } from '@modules/common/types';
+import type { ValidationResult } from '@openliri/infra/common/types';
 
 export type { ValidationResult };
 

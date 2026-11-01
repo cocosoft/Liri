@@ -7,7 +7,7 @@ import { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
 import type { SecurityDecision } from './types';
 import { resolveSandbox } from '@openliri/kernel/spi';
 import { SecurityPermissionView } from './PermissionManager';
-import { PermissionMode } from '@modules/common';
+import { PermissionMode } from '@openliri/infra/common';
 import { configManager } from '@modules/config';
 import type { PermissionConfig } from '@modules/config/types';
 import { SecurityAudit } from './SecurityAudit';

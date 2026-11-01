@@ -2661,6 +2661,19 @@ class ArchitectureLinter {
   }
 
   /**
+   * infra 物理包名 → 模块名（P5，2026-11-01）。
+   *
+   * `@openliri/infra/common` ⇒ `common`；`@openliri/infra/utils/fs` ⇒ `utils`
+   * （包内二级目录尚未登记层表 ⇒ 不臆造 `<m>/<sub>`，退回首段）。
+   * 不能复用 `kernelModuleName`：内核整包映射到 `core`，而 infra 包**逐模块**登记，路径首段即模块名。
+   */
+  infraPackageModuleName(spec: string): string | null {
+    const rest = spec.slice('@openliri/infra/'.length).replace(/\.js$/, '');
+    const first = rest.split('/')[0];
+    return first || null;
+  }
+
+  /**
    * 剥离注释（**保留字符串字面量**）—— 2026-10-01 台账 D-190（门禁口径裁定 ①）
    *
    * **为什么**：`parseModuleImports` / `parseDynamicImports` 用正则扫**原始文本**，而**不剥离注释**
@@ -2755,6 +2768,14 @@ class ArchitectureLinter {
       imports.add(this.kernelModuleName(match[1]));
     }
 
+    // P5（2026-11-01）：infra 物理包 `@openliri/infra/<m>` 与内核同理 —— 不解析会让
+    // 迁包模块（common/utils…）的依赖边**从分层图里消失**（R00-001 假绿，AR-3 同类）。
+    const infraPkgRegex = /from\s+['"](@openliri\/infra\/[^'"]+)['"]/g;
+    while ((match = infraPkgRegex.exec(content)) !== null) {
+      const name = this.infraPackageModuleName(match[1]);
+      if (name) imports.add(name);
+    }
+
     // 匹配相对路径 import，解析目标模块
     const relImportRegex = /from\s+['"](\.[^'"]+)['"]/g;
     while ((match = relImportRegex.exec(content)) !== null) {
@@ -2815,6 +2836,14 @@ class ArchitectureLinter {
       imports.add(this.kernelModuleName(match[1]));
     }
 
+    // P5：infra 物理包（同 parseModuleImports；type-only 同样排除）
+    const infraPkgRegex = /from\s+['"](@openliri\/infra\/[^'"]+)['"]/g;
+    while ((match = infraPkgRegex.exec(content)) !== null) {
+      if (isTypeStatement(match.index)) continue;
+      const name = this.infraPackageModuleName(match[1]);
+      if (name) imports.add(name);
+    }
+
     // 匹配相对路径 import，解析目标模块
     const relImportRegex = /from\s+['"](\.[^'"]+)['"]/g;
     while ((match = relImportRegex.exec(content)) !== null) {
@@ -2862,6 +2891,9 @@ class ArchitectureLinter {
         moduleName = this.kernelModuleName(
           spec.slice('@openliri/kernel'.length).replace(/^\//, '')
         );
+      } else if (spec.startsWith('@openliri/infra/')) {
+        // P5：infra 物理包（同 parseModuleImports 口径）
+        moduleName = this.infraPackageModuleName(spec);
       } else if (spec.startsWith('.')) {
         const resolved = resolve(dirname(filePath), spec);
         if (resolved.startsWith(this.srcPath)) {

@@ -79,7 +79,7 @@ export interface CacheConfig {
  * 契约下沉到叶子模块 `common` 后，两侧都只依赖 `common`，本文件保留**同名转出**
  * （`@modules/cache` 与 `@modules/cache/types` 的导出面逐字不变）。
  */
-export type { CacheStats, ICache } from '@modules/common';
+export type { CacheStats, ICache } from '@openliri/infra/common';
 
 // ───── 持久化缓存类型（源自 CacheSystem） ─────
 

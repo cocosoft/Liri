@@ -42,7 +42,7 @@ import {
   resolveKnowledgeDir,
   resolveDomainSchemaDir,
 } from '@modules/environment';
-import type { ValidationResult } from '@modules/common/types';
+import type { ValidationResult } from '@openliri/infra/common/types';
 import type { ConstraintStrength } from '../rule/types';
 
 const logger = getLogger('knowledge:schema:schemaLoader');

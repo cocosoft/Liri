@@ -153,9 +153,21 @@ function buildInfraEdges(
   for (const file of files) {
     const from = file.path.split('/')[0] ?? '';
     for (const ref of parseFileImports(file)) {
-      if (!ref.specifier.startsWith('@modules/')) continue;
-      const to = ref.specifier.slice('@modules/'.length).split('/')[0] ?? '';
-      edges.push({ from, to });
+      if (ref.specifier.startsWith('@modules/')) {
+        const to = ref.specifier.slice('@modules/'.length).split('/')[0] ?? '';
+        edges.push({ from, to });
+        continue;
+      }
+      // P5（2026-11-01）：模块物理迁入 `packages/infra` 后，同层引用改走 `@openliri/infra/<m>`；
+      // 不解析该别名 ⇒ 迁包模块的边从环检测里消失（R7 对它们形同关闭）。
+      if (ref.specifier.startsWith('@openliri/infra/')) {
+        const to =
+          ref.specifier
+            .slice('@openliri/infra/'.length)
+            .replace(/\.js$/, '')
+            .split('/')[0] ?? '';
+        if (to) edges.push({ from, to });
+      }
     }
   }
   return edges;
@@ -197,7 +209,10 @@ function main(): number {
       missing.push(module);
       continue;
     }
-    collect(dir, infraFiles);
+    // P5（2026-11-01）：物理包内的模块目录以**包根**为基准收集 —— 否则路径变成
+    // `../../packages/infra/src/common/x.ts`，首段不是模块名 ⇒ R7 的 `from` 恒为 `..`、
+    // 该模块的所有边整块丢失（环检测与 R2/R3 对包内文件形同关闭）。
+    collect(dir, infraFiles, dir === inPackage ? PACKAGE_SRC : SRC_DIR);
   }
 
   // R6 扫描面：infra 物理包（未建包时为空数组；app 侧的 @openliri/infra/* 仍会被 R6 检查）

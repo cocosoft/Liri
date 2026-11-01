@@ -32,7 +32,10 @@ import {
   resolveIdleContinuation,
   setIdleContinuationSchedulerForTest,
 } from '../../../src/tasks/goal/goalIdleContinuation';
-import { recentPhases, resetPhaseStack } from '../../../src/common/phaseStack';
+import {
+  recentPhases,
+  resetPhaseStack,
+} from '@openliri/infra/common/phaseStack';
 
 const createdPaths: string[] = [];
 const opened: TaskGoalStore[] = [];

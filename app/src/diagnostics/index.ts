@@ -66,5 +66,5 @@ export {
   resetPhaseStack,
   setPhaseStackEnabled,
   isPhaseStackEnabled,
-} from '@modules/common';
-export type { PhaseEntry, PhaseSnapshot } from '@modules/common';
+} from '@openliri/infra/common';
+export type { PhaseEntry, PhaseSnapshot } from '@openliri/infra/common';

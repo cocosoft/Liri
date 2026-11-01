@@ -32,7 +32,7 @@
  * 中文名 / 符号映射与描述函数仍归本模块（属展示层，security 不需要）。
  */
 
-import { PERMISSION_MODES, PermissionMode } from '@modules/common';
+import { PERMISSION_MODES, PermissionMode } from '@openliri/infra/common';
 
 export { PERMISSION_MODES, PermissionMode };
 

@@ -4,7 +4,7 @@ import { randomIdSuffix } from '../utils/common';
 import type { SecurityDecision } from './SecurityIntegration';
 import type { BashSecurityAnalyzer } from './BashSecurityAnalyzer';
 import type { SecurityPermissionView } from './PermissionManager';
-import type { PermissionMode } from '@modules/common';
+import type { PermissionMode } from '@openliri/infra/common';
 import {
   filterMcpServersByPolicy as filterMcpPolicy,
   doesEnterpriseMcpConfigExist as checkEnterpriseMcpConfig,

@@ -14,7 +14,7 @@ import {
   resetPhaseStack,
   setPhaseStackEnabled,
   snapshotPhases,
-} from '../../src/common/phaseStack';
+} from '@openliri/infra/common/phaseStack';
 
 beforeEach(() => {
   setPhaseStackEnabled(true);

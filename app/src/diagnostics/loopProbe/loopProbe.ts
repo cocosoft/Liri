@@ -41,7 +41,7 @@ import {
   setPhaseStackEnabled,
   snapshotPhases,
   type PhaseSnapshot,
-} from '@modules/common';
+} from '@openliri/infra/common';
 
 const logger = getLogger('diagnostics:loop-probe');
 

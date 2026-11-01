@@ -6133,7 +6133,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/common/phaseStack.ts",
+        "packages/infra/src/common/phaseStack.ts",
         "app/src/commands/builtin/files/Files.ts",
         "app/src/infrastructure/http/handlers/project-artifact-handlers.ts",
         "app/tests/tools/AgentTool/agentDelegationGrant.test.ts",
@@ -15979,7 +15979,7 @@
       },
       "code": [
         "app/src/utils/envAccess.ts",
-        "app/src/common/types.ts",
+        "packages/infra/src/common/types.ts",
         "app/src/cache/types.ts",
         "app/src/utils/cache.ts",
         "scripts/lint-architecture.ts"
@@ -16047,7 +16047,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/common/phaseStack.ts",
+        "packages/infra/src/common/phaseStack.ts",
         "app/src/diagnostics/index.ts",
         "app/src/monitoring/MonitoringService.ts",
         "app/src/monitoring/archival/archivalCronTask.ts"
@@ -16081,8 +16081,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/common/permissionRule.ts",
-        "app/src/common/permissionMode.ts",
+        "packages/infra/src/common/permissionRule.ts",
+        "packages/infra/src/common/permissionMode.ts",
         "app/src/security/permissionRuleSource.ts",
         "app/src/security/PermissionManager.ts",
         "app/src/bootstrap/preflight.ts"

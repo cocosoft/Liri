@@ -4,5 +4,5 @@
 
 export { SecretContract } from './SecretContract.js';
 export type { SecretSpec } from './SecretContract.js';
-export type { ValidationResult } from '@modules/common/types';
+export type { ValidationResult } from '@openliri/infra/common/types';
 export { ChannelSecretStore } from './ChannelSecretStore.js';

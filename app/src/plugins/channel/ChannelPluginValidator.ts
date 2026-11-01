@@ -4,7 +4,7 @@
  */
 
 import type { ChannelPlugin } from './ChannelPluginCatalog.js';
-import type { ValidationResult } from '@modules/common/types';
+import type { ValidationResult } from '@openliri/infra/common/types';
 
 /**
  * 验证规则

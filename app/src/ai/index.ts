@@ -185,7 +185,7 @@ export type {
 } from './MaxOutputRetryHandler';
 
 export { LLMInputValidator } from './utils/LLMInputValidator';
-export type { ValidationResult as LLMValidationResult } from '@modules/common/types';
+export type { ValidationResult as LLMValidationResult } from '@openliri/infra/common/types';
 export { LLMOutputValidator } from './utils/LLMOutputValidator';
 export type { OutputValidationResult } from './utils/LLMOutputValidator';
 export { LLMPerformanceMonitor } from './utils/LLMPerformanceMonitor';

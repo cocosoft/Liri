@@ -4,7 +4,7 @@
  * 统一管理通道所需的 API 密钥、Token、密码等敏感信息
  */
 
-import type { ValidationResult } from '@modules/common/types';
+import type { ValidationResult } from '@openliri/infra/common/types';
 
 /** 密钥规格定义 */
 export interface SecretSpec {

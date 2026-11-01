@@ -4,7 +4,7 @@
  */
 
 import type { ChatMessage, ToolDefinition } from '../models/types';
-import type { ValidationResult } from '@modules/common/types';
+import type { ValidationResult } from '@openliri/infra/common/types';
 
 /**
  * LLM输入验证器

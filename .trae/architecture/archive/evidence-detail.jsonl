@@ -7626,3 +7626,22 @@
 {"id":"INFRA-PACKAGE-P5-COMMON","k":"code#4","i":0,"c":"packages/infra/src/common/index.ts"}
 {"id":"INFRA-PACKAGE-P5-COMMON","k":"code#5","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
 {"id":"INFRA-PACKAGE-P5-COMMON","k":"tests#0","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"title","i":0,"c":"B8：让 R7 看见相对导入边，并解 utils↔config↔monitoring↔analytics↔performance↔cost 内环"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"source","i":0,"c":"P6 utils 迁包被 R7 拦下（六元环）后的回滚 + 解环；dev_docs/20261101/infra包化可行性-20261101.md"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"reopenWhen","i":0,"c":"新增 infra 模块内的相对导入写法时，R7 已能看见（B8 起）；若出现新环，须按本批口径解边而非抬基线"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"notes","i":0,"c":"可见性（前置）：buildInfraEdges 此前只解析 @modules/@openliri 别名 ⇒ 模块内部 ../xxx 的相对出边整块不可见，六元环一直被\"藏\"着（迁包把相对写法统一成别名后立刻暴露）。补相对解析后 R7 首次看见 6 个成员。解环：utils→monitoring（common/debug/log 改 core 日志门面）、"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"notes","i":1,"c":"utils→config（debug 改 readUtilEnv，等价性见 envAccess.ts）、utils→analytics（sinks.ts 零消费者，删）、utils→performance（slowOperations 转发壳零剩余消费者，删；mcp.ts 走 @modules/performance）；config→monitoring（"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"notes","i":2,"c":"22 文件 getLogger 走 core 门面；RuntimeConfigSnapshot 自定义 logger 收敛为门面，debug 级日志会被过滤，已如实标注）、monitoring→performance（profileCheckpoint 走 core 剖析门面）、analytics→cost（"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"notes","i":3,"c":"calculateTotalCost/ModelPricing 走 kernel；getModelPricing 改 analytics/pricingSource 端口 + wireAnalyticsDeps，未注入回退内核默认定价）。连带修 TDZ：AlertRuleService 顶层 getLogger 原经 @modules/monitoring "}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"notes","i":4,"c":"桶（桶↔自身环），utils/common 换门面后不再\"顺带提前求值 Logger.ts\"⇒ moduleLoggers TDZ，实测 1199 个测试文件 Unhandled error；改直连 logs/Logger 后恢复。负向自证：utils/common 注入 import ../config/ConfigManager.js ⇒ R7 判 "}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"notes","i":5,"c":"utils/config 2 成员新环；回滚后环成员 0（基线 0）。"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#0","i":0,"c":"app/scripts/lint-infra-boundary.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#1","i":0,"c":"app/src/utils/common.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#2","i":0,"c":"app/src/utils/debug.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#3","i":0,"c":"app/src/utils/log.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#4","i":0,"c":"app/src/monitoring/AlertRuleService.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#5","i":0,"c":"app/src/monitoring/MonitoringService.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#6","i":0,"c":"app/src/analytics/pricingSource.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"code#7","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"tests#0","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-CYCLE-B8-UTILS-SCC","k":"tests#1","i":0,"c":"app/tests/utils"}

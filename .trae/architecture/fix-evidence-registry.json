@@ -16221,6 +16221,40 @@
       "changelog": [],
       "reopenWhen": "新增 infra 物理包模块（如 utils）时，须同批确认别名解析与模块目录基准都生效；否则门禁再次静默失明（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P5-COMMON）",
       "notes": "别名覆盖（前置）：lint:arch 的 parseModuleImports / parseValueModuleImports / parseDynamicImports 与 lint:infra 的 R7 边构建都补 @openliri/infra/<m>；否则迁包模块的边从分层图与环检测里消失（假绿）。顺带修…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P5-COMMON）"
+    },
+    {
+      "id": "INFRA-CYCLE-B8-UTILS-SCC",
+      "title": "B8：让 R7 看见相对导入边，并解 utils↔config↔monitoring↔analytics↔performance↔cost 内环",
+      "source": "P6 utils 迁包被 R7 拦下（六元环）后的回滚 + 解环；dev_docs/20261101/infra包化可行性-20261101.md",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/scripts/lint-infra-boundary.ts",
+        "app/src/utils/common.ts",
+        "app/src/utils/debug.ts",
+        "app/src/utils/log.ts",
+        "app/src/monitoring/AlertRuleService.ts",
+        "app/src/monitoring/MonitoringService.ts",
+        "app/src/analytics/pricingSource.ts",
+        "app/src/bootstrap/preflight.ts"
+      ],
+      "tests": [
+        "app/tests/gates",
+        "app/tests/utils"
+      ],
+      "changelog": [],
+      "reopenWhen": "新增 infra 模块内的相对导入写法时，R7 已能看见（B8 起）；若出现新环，须按本批口径解边而非抬基线（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B8-UTILS-SCC）",
+      "notes": "可见性（前置）：buildInfraEdges 此前只解析 @modules/@openliri 别名 ⇒ 模块内部 ../xxx 的相对出边整块不可见，六元环一直被\"藏\"着（迁包把相对写法统一成别名后立刻暴露）。补相对解析后 R7 首次看见 6 个成员。解环：utils→monitoring（common/debu…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B8-UTILS-SCC）"
     }
   ]
 }

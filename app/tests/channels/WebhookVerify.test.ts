@@ -29,6 +29,17 @@ import { verifyWebhookRequest } from '../../src/channels/webhook/WebhookChannel'
 
 const SECRET = 'whsec_test_123';
 
+/**
+ * 共享模块级 `replayCache`（键 = `时间戳_sha256(body)`）跨用例存活：
+ * 两个防重放用例都用 `{"a":1}`，若各自随机时间戳撞到同一值 ⇒ 后者被误判 409（CI 偶发红灯）。
+ * 故时间戳按**严格递增**分配：`Date.now()` 非降 + 序号严格增 ⇒ 各用例取值必然互不相同。
+ */
+let tsSeq = 0;
+function freshTs(): string {
+  tsSeq += 1;
+  return String(Date.now() + tsSeq);
+}
+
 describe('verifyWebhookRequest（4.2）', () => {
   it('未配置 secret 时放行（兼容无凭据回调）', () => {
     const r = verifyWebhookRequest({}, '{"a":1}');
@@ -77,7 +88,7 @@ describe('verifyWebhookRequest（4.2）', () => {
   });
 
   it('时间戳有效但同 body 重放 → 拒绝 409', () => {
-    const ts = String(Date.now() + Math.floor(Math.random() * 1000));
+    const ts = freshTs();
     const body = '{"a":1}';
     const first = verifyWebhookRequest({ 'x-webhook-timestamp': ts }, body);
     expect(first.ok).toBe(true);
@@ -87,7 +98,7 @@ describe('verifyWebhookRequest（4.2）', () => {
   });
 
   it('时间戳有效 + 不同 body → 放行', () => {
-    const ts = String(Date.now() + Math.floor(Math.random() * 1000));
+    const ts = freshTs();
     const first = verifyWebhookRequest(
       { 'x-webhook-timestamp': ts },
       '{"a":1}'

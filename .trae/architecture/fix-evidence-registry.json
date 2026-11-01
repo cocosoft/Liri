@@ -15994,6 +15994,41 @@
       ],
       "reopenWhen": "环成员剩 9 个（cache/chronos/config/daemon/diagnostics/memory/monitoring/permission/security）；若 utils 新增对上述模块的引用，R7 立即回退到 B4 前。（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B4-UTILS-EXIT）",
       "notes": "删除依据见 62586d6ab（CD01-06：静态/动态/构建入口/DI/测试/变体全零命中；唯一动态入口是已坏且零引用的 legacy 命令）。env 等价性由 tests/utils/envAccess.test.ts 守护（configManager.env 语义一变即红）。ICache/CacheStats…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B4-UTILS-EXIT）"
+    },
+    {
+      "id": "INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON",
+      "title": "P1 解环 B5：config / cache / daemon 一并出环（日志门面 + env 等价入口 + 指标注入端口，SCC 9→6）",
+      "source": "环内 9 成员中 config/cache/daemon 的「必须清」边数最少（4 / 6 / 4）；模拟删边证实清掉这 4 个模块级出边即可三者同批出环（config、cache、daemon 同时离开 SCC）。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/config/layers/ConfigLayers.ts",
+        "app/src/cache/CacheSystem.ts",
+        "app/src/daemon/metricsSink.ts",
+        "app/src/bootstrap/preflight.ts",
+        "app/src/main.ts"
+      ],
+      "tests": [
+        "app/tests/config",
+        "app/tests/bootstrap",
+        "app/tests/infrastructure",
+        "app/tests/gates"
+      ],
+      "changelog": [
+        "P1 解环 B5：config/cache/daemon 出环（日志门面 + env 等价入口 + 指标注入端口，SCC 9→6）"
+      ],
+      "reopenWhen": "环成员剩 6（chronos/diagnostics/memory/monitoring/permission/security）：monitoring 只剩 2 条回环边（→diagnostics 的 withPhaseSync、→chronos 的动态 import），是下一个最小切口。（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON）",
+      "notes": "日志 12 处 getLogger → @openliri/kernel/loggerFacade（config 4 / cache 5 / daemon 3）；cache 的 Liri_CACHE_DIR 改走 utils/envAccess.readUtilEnv（B4 已建等价性测试）；daemon 指标上报改…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON）"
     }
   ]
 }

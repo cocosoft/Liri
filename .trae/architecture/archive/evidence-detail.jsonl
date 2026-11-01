@@ -7533,3 +7533,18 @@
 {"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"tests#2","i":0,"c":"app/tests/gates"}
 {"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"changelog#0","i":0,"c":"P1 解环 B4：utils 出环（删零引用文件 + env 读取收敛 + 缓存契约下沉，SCC 10→9）"}
 {"id":"INFRA-CYCLE-B4-UTILS-EXIT","k":"notes","i":1,"c":"连带：历史证据 HARDCODE-SAME-NAME-CONSTS-B5-2-79 的 code 证据含被删文件 ⇒ 已同步移出该路径并补 notes（否则 lint:fix-evidence 会阻断提交）。"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"title","i":0,"c":"P1 解环 B5：config / cache / daemon 一并出环（日志门面 + env 等价入口 + 指标注入端口，SCC 9→6）"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"source","i":0,"c":"环内 9 成员中 config/cache/daemon 的「必须清」边数最少（4 / 6 / 4）；模拟删边证实清掉这 4 个模块级出边即可三者同批出环（config、cache、daemon 同时离开 SCC）。"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"reopenWhen","i":0,"c":"环成员剩 6（chronos/diagnostics/memory/monitoring/permission/security）：monitoring 只剩 2 条回环边（→diagnostics 的 withPhaseSync、→chronos 的动态 import），是下一个最小切口。"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"notes","i":0,"c":"日志 12 处 getLogger → @openliri/kernel/loggerFacade（config 4 / cache 5 / daemon 3）；cache 的 Liri_CACHE_DIR 改走 utils/envAccess.readUtilEnv（B4 已建等价性测试）；daemon 指标上报改 daemon/metricsSink 端"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"notes","i":1,"c":"口，由 bootstrap/preflight.wireDaemonDeps 注入 —— 取服务仍延迟调用，未注入或未初始化时跳过，与历史 try/catch 降级语义一致。"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#0","i":0,"c":"app/src/config/layers/ConfigLayers.ts"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#1","i":0,"c":"app/src/cache/CacheSystem.ts"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#2","i":0,"c":"app/src/daemon/metricsSink.ts"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#3","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#4","i":0,"c":"app/src/main.ts"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"tests#0","i":0,"c":"app/tests/config"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"tests#1","i":0,"c":"app/tests/bootstrap"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"tests#2","i":0,"c":"app/tests/infrastructure"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"tests#3","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"changelog#0","i":0,"c":"P1 解环 B5：config/cache/daemon 出环（日志门面 + env 等价入口 + 指标注入端口，SCC 9→6）"}

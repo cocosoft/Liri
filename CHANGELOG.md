@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON**：B5：config/cache/daemon 出环（SCC 9→6） —— 验证 tsc0|tests9538|eslint0|arch0|infra0|startup0；基线 环内 9 成员，config/cache/daemon 的必须清边数 4/6/4（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON）
 - ✅ **INFRA-CYCLE-B4-UTILS-EXIT**：B4：utils 出环（SCC 10→9） —— 验证 tsc0|tests9538|eslint0|arch0|infra0|startup0；基线 utils 28 条出边 / 7 目标（其中 13 条构成回环）（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-B4-UTILS-EXIT）
 - ✅ **INFRA-CYCLE-B3-ENV-SECURITY-SCOPE**：B3：storageScope 归位 environment（SCC 12→10） —— 验证 tsc0|tests1453|eslint0|arch0|infra0|startup0；基线 environment 唯一出边 →security；security→environment 12 条（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-B3-ENV-SECURITY-SCOPE）
 - ✅ **INFRA-CYCLE-B2-UTILS-ERROR**：P1 解环 B2：utils→error 出边清零（28 文件） —— 验证 tsc0|utils320|gates308|eslint0|arch0|infra0；基线 utils 28 文件 32 处 @modules/error 出边（SCC 内），错误基座在同层转出（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-B2-UTILS-ERROR）

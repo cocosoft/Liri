@@ -7502,3 +7502,19 @@
 {"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"tests#1","i":0,"c":"app/tests/gates"}
 {"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"changelog#0","i":0,"c":"P1 解环 B2：utils 的 28 个文件错误出口改走 kernel 门面（清 32 处 error 出边）"}
 {"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"notes","i":1,"c":"R7 仍报 12 成员（utils 经 config/environment/cache/security 留在 SCC）⇒ 基线不动。"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"title","i":0,"c":"P1 解环 B3：storageScope 归位 environment，拆掉 environment↔security 2 元环（SCC 12→10）"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"source","i":0,"c":"原定 B3（utils→environment 11 + config 9）经边分析证伪为最贵路径：environment 只有 1 条出边，清它即可让 environment 与 runtimeHost 一并出环，而 utils 的 11 条 environment 出边无需改动。"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"reopenWhen","i":0,"c":"utils 仍在环内（config 8 / cache 2 / security 2 + utils/config.ts）；启动面棘轮已 +1 文件（storageScope 在 paths 静态调用链上），后续再进启动面须先核对 lint:startup-graph。"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"notes","i":0,"c":"storageScope 零 I/O（node:crypto / node:path + kernel principal/requestScope），security/identity 保留同名转出 ⇒ tenantPurge 与既有测试零改动；paths.ts 改本地相对导入。R7 基线 12→10："}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"notes","i":1,"c":"cache/chronos/config/daemon/diagnostics/memory/monitoring/permission/security/utils。另：utils/json.ts 日志改 kernel loggerFacade（清 utils→monitoring 最后 1 条）。"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#0","i":0,"c":"app/src/environment/storageScope.ts"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#1","i":0,"c":"app/src/environment/index.ts"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#2","i":0,"c":"app/src/environment/paths.ts"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#3","i":0,"c":"app/src/security/identity/index.ts"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#4","i":0,"c":"app/src/utils/json.ts"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#0","i":0,"c":"app/tests/security"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#1","i":0,"c":"app/tests/environment"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#2","i":0,"c":"app/tests/utils"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#3","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#4","i":0,"c":"app/tests/tasks"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"changelog#0","i":0,"c":"P1 解环 B3：storageScope 归位 environment，拆 2 元环（SCC 12→10）"}

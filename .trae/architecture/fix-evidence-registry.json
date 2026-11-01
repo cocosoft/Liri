@@ -15925,6 +15925,42 @@
       ],
       "reopenWhen": "utils 仍在环内（environment 11 / config 9 / constants 2 / cache 2 / security 2 / external 1）；若 utils 新增 @modules/error 引用，R7 立即回到 B2 前（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B2-UTILS-ERROR）",
       "notes": "28 文件 32 处 import：handleError → @openliri/kernel/errorHandler；AppError/ErrorCategory/ErrorSeverity → @openliri/kernel/errors。app 侧二者本就是 kernel 纯转出（kernel 内联 re…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B2-UTILS-ERROR）"
+    },
+    {
+      "id": "INFRA-CYCLE-B3-ENV-SECURITY-SCOPE",
+      "title": "P1 解环 B3：storageScope 归位 environment，拆掉 environment↔security 2 元环（SCC 12→10）",
+      "source": "原定 B3（utils→environment 11 + config 9）经边分析证伪为最贵路径：environment 只有 1 条出边，清它即可让 environment 与 runtimeHost 一并出环，而 utils 的 11 条 environment 出边无需改动。",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/environment/storageScope.ts",
+        "app/src/environment/index.ts",
+        "app/src/environment/paths.ts",
+        "app/src/security/identity/index.ts",
+        "app/src/utils/json.ts"
+      ],
+      "tests": [
+        "app/tests/security",
+        "app/tests/environment",
+        "app/tests/utils",
+        "app/tests/gates",
+        "app/tests/tasks"
+      ],
+      "changelog": [
+        "P1 解环 B3：storageScope 归位 environment，拆 2 元环（SCC 12→10）"
+      ],
+      "reopenWhen": "utils 仍在环内（config 8 / cache 2 / security 2 + utils/config.ts）；启动面棘轮已 +1 文件（storageScope 在 paths 静态调用链上），后续再进启动面须先核对 lint:startup-graph。（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B3-ENV-SECURITY-SCOPE）",
+      "notes": "storageScope 零 I/O（node:crypto / node:path + kernel principal/requestScope），security/identity 保留同名转出 ⇒ tenantPurge 与既有测试零改动；paths.ts 改本地相对导入。R7 基线 12→10：cache/…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B3-ENV-SECURITY-SCOPE）"
     }
   ]
 }

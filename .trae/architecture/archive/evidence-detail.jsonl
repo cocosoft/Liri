@@ -7661,3 +7661,29 @@
 {"id":"INFRA-PACKAGE-P6C-UTILS","k":"code#5","i":0,"c":"app/src/state/engine/stateMachineCatalog.ts"}
 {"id":"INFRA-PACKAGE-P6C-UTILS","k":"tests#0","i":0,"c":"app/tests/gates"}
 {"id":"INFRA-PACKAGE-P6C-UTILS","k":"tests#1","i":0,"c":"app/tests/utils"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"title","i":0,"c":"P7：constants 迁入 packages/infra（20 文件 / 163 处引用）"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.5"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"reopenWhen","i":0,"c":"① 若 constants 需回到 app/src（如 core 层必须引用）⇒ 门禁扫描根与 3 份基线键须同批回改；② 若 constants 下再分子目录 ⇒ lint:consts 的 readdir 不递归、D-1/D-2 会漏检，须扩展扫描面。"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"notes","i":0,"c":"迁包：git mv 20 文件 + 163 处引用改 @openliri/infra/constants（含 5 处包内自引）；common.ts 版本号仍读 app/package.json（上溯四级，APP_VERSION 不变）。扫描面：lint:consts 的 CONSTANTS_DIR/D-2 允许位置/提示路径全改包内，lint:locale "}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"notes","i":1,"c":"真源改名；lint:prompt-t1 由「文件缺失静默 continue」改 fail-closed（实测暴露 utils 迁包遗留的失效路径）。负向自证：包内加入 NEG_PROOF_MS = 5 ⇒ D-2 单位后缀点名 packages/infra/src/constants/figures.ts（exit 1）；包内 import \""}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"notes","i":2,"c":"@modules/chat\" ⇒ lint:infra R6 判倒挂（exit 1）。"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#0","i":0,"c":"packages/infra/src/constants/index.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#1","i":0,"c":"packages/infra/src/constants/common.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#2","i":0,"c":"packages/infra/src/constants/defaults.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#3","i":0,"c":"packages/infra/src/constants/toolNames.generated.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#4","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#5","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#6","i":0,"c":"scripts/lint-consts.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#7","i":0,"c":"scripts/lint-locale.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#8","i":0,"c":"app/scripts/lint-prompt-t1.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#9","i":0,"c":"app/scripts/gen-tool-names.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#10","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#11","i":0,"c":".trae/architecture/state-literal-baseline.json"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#12","i":0,"c":".trae/architecture/logger-name-baseline.json"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#13","i":0,"c":"app/tests/constants/zeroConsumerConsts.test.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"code#14","i":0,"c":"app/tests/constants/userAgentSingleSource.test.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"tests#0","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"tests#1","i":0,"c":"app/tests/constants/zeroConsumerConsts.test.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"tests#2","i":0,"c":"app/tests/constants/kindTags.test.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"tests#3","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}
+{"id":"INFRA-PACKAGE-P7-CONSTANTS","k":"tests#4","i":0,"c":"app/tests/gates/infraPackageBoundary.test.ts"}

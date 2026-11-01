@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INFRA-PACKAGE-P7-CONSTANTS**：P7：constants 迁入 packages/infra（20 文件 / 163 处引用） —— 验证 tsc0|tests9539|gates55|infra0|consts0；基线 constants 20 文件在 app/src；lint:consts 的 D-1/D-2 根写死 app/src/constants（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P7-CONSTANTS）
 - ✅ **INFRA-PACKAGE-P6C-UTILS**：P6c：utils 迁入 packages/infra（114 文件 / 507 引用） —— 验证 tsc0|tests9539|gates30|infra0|scc0；基线 utils 117(现114) 文件在 app/src；@modules/utils 别名为唯一入口（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P6C-UTILS）
 - ✅ **INFRA-CYCLE-B8-UTILS-SCC**：B8：R7 看见相对边 + 解 infra 六元环 —— 验证 tsc0|tests9539|gates30|infra0|scc0；基线 R7 只解析别名 ⇒ 六元环不可见（环成员 0 是假绿）（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-B8-UTILS-SCC）
 - ✅ **INFRA-PACKAGE-P5-COMMON**：P5：common 迁入 packages/infra（含别名边纳入门禁） —— 验证 tsc0|tests9580|gates30|arch0|infra0；基线 common 6 文件在 app/src；@openliri/infra 别名不在分层/环解析面（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P5-COMMON）

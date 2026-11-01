@@ -16287,6 +16287,50 @@
       "changelog": [],
       "reopenWhen": "继续迁其它 infra 模块（如 environment/constants）时复用本批口径；若新增包内裸依赖，须同批补 tsconfig paths（包外文件无法回溯 app/node_modules）（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P6C-UTILS）",
       "notes": "迁移：114 文件 git mv（代码逐字未改）；507 处 @openliri/infra/utils（186 文件别名 + 268 处相对导入，含 .js 归一）；删 @modules/utils 别名、增 @openliri/infra/utils{,.js,/*}；包 exports 增 ./utils。包内…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P6C-UTILS）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P7-CONSTANTS",
+      "title": "P7：constants 迁入 packages/infra（20 文件 / 163 处引用）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.5",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/constants/index.ts",
+        "packages/infra/src/constants/common.ts",
+        "packages/infra/src/constants/defaults.ts",
+        "packages/infra/src/constants/toolNames.generated.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json",
+        "scripts/lint-consts.ts",
+        "scripts/lint-locale.ts",
+        "app/scripts/lint-prompt-t1.ts",
+        "app/scripts/gen-tool-names.ts",
+        ".trae/architecture/hardcode-gate-baseline.json",
+        ".trae/architecture/state-literal-baseline.json",
+        ".trae/architecture/logger-name-baseline.json",
+        "app/tests/constants/zeroConsumerConsts.test.ts",
+        "app/tests/constants/userAgentSingleSource.test.ts"
+      ],
+      "tests": [
+        "app/tests/constants/sameNameConstsB2.test.ts",
+        "app/tests/constants/zeroConsumerConsts.test.ts",
+        "app/tests/constants/kindTags.test.ts",
+        "app/tests/core/endpointsSingleSource.test.ts",
+        "app/tests/gates/infraPackageBoundary.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 constants 需回到 app/src（如 core 层必须引用）⇒ 门禁扫描根与 3 份基线键须同批回改；② 若 constants 下再分子目录 ⇒ lint:consts 的 readdir 不递归、D-1/D-2 会漏检，须扩展扫描面。（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P7-CONSTANTS）",
+      "notes": "迁包：git mv 20 文件 + 163 处引用改 @openliri/infra/constants（含 5 处包内自引）；common.ts 版本号仍读 app/package.json（上溯四级，APP_VERSION 不变）。扫描面：lint:consts 的 CONSTANTS_DIR/D-2 允许位置/…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P7-CONSTANTS）"
     }
   ]
 }

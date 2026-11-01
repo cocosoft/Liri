@@ -9,7 +9,7 @@
  *   3. 默认 200K
  * 说明：context_window 为模型注册数据（DB model_registry），代码不维护硬编码模型名表。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { Database } from '@modules/external';
 import { resolveTenantDbPath } from '@modules/environment';
 // 租户库 §8-#14 A2：窗口缓存按 `<owner>\0<model>` 分桶（无请求作用域 ⇒ `local:local`）

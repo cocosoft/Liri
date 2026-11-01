@@ -11,7 +11,7 @@
  */
 
 import { Cron } from 'croner';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:cron');
 
 const CRON_EVAL_CACHE_MAX = 512;

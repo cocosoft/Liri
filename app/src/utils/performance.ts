@@ -3,7 +3,7 @@
  * 提供性能监控、分析和优化工具
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:performance');
 
 /**

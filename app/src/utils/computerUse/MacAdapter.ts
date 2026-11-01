@@ -20,7 +20,7 @@ import type {
 import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:computerUse:MacAdapter');
 
 const execAsync = promisify(execFile);

@@ -18,7 +18,7 @@
  * ⇒ **改归 infra**（`utils/`）；⚠️ **不可下沉 core**（会让 core 新增 2 条 `core -> infra` 边，净变差，同 D-207）。
  * `ai/tokenizer/TiktokenEstimator.ts` 保留**同名转出**（既有消费方零改动）。
  */
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('ai:tokenizer:tiktoken');

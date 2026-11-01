@@ -26,7 +26,7 @@ import { promisify } from 'util';
 import * as fs from 'fs';
 
 import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:computerUse:LinuxAdapter');
 
 const execAsync = promisify(execFile);

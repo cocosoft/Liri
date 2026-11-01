@@ -11,7 +11,7 @@
 
 import { logForDebugging } from '../debug.js';
 import { launchInTerminal } from './TerminalLauncher';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = getLogger('utils:deepLink:ProtocolHandler');

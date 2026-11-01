@@ -14,7 +14,7 @@ import { configManager } from '@modules/config';
 import { OAUTH_AUTH_BASE_URL } from '@modules/constants';
 
 import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:auth');
 
 export interface AuthSession {

@@ -11,7 +11,7 @@ import { randomUUID } from 'crypto';
 import { resolvePyappHome } from '@modules/environment';
 
 import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:telemetry');
 
 export type TelemetryLevel = 'off' | 'basic' | 'full';

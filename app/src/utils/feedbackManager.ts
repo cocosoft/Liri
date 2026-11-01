@@ -11,7 +11,7 @@ import {
   writeFileSync,
   appendFileSync,
 } from 'fs';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:feedbackManager');
 import { handleError } from '@modules/error/handleError';
 import { sanitizeInput } from '@modules/security';

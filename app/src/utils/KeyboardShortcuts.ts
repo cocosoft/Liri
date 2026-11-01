@@ -20,7 +20,7 @@ export interface KeySequence {
 // 2026-10-01 D-182（B3-2 前置）：4 处占位动作原用 `console.log`（违 §1.8「日志唯一入口」+
 // eslint `no-console`，导致归位 `utils/` 被 pre-commit 拒绝）⇒ 改走 `getLogger`。
 // 这些 action 本身是**占位实现**（只打印一句），改 debug 级日志不改变其「未真实执行」的语义。
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 
 const logger = getLogger('utils:keyboardShortcuts');
 

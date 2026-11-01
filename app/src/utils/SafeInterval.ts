@@ -18,7 +18,7 @@
  */
 
 import { handleError } from '@modules/error/handleError';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 
 const logger = getLogger('utils:safeInterval');
 

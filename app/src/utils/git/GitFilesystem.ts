@@ -11,7 +11,7 @@ import { join, resolve } from 'path';
 import { existsSync, type Dirent } from 'fs';
 
 import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:git:GitFilesystem');
 
 const resolveGitDirCache = new Map<string, string | null>();

@@ -6,7 +6,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 import { jsonStringify } from './json.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@modules/error/handleError';
 import type { ICache, CacheStats } from '@modules/cache/types';
 

@@ -14,7 +14,7 @@
  * - bridge/api/BridgeApi.ts — Bridge API 内部重试
  * */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
 

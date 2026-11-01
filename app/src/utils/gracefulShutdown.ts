@@ -3,7 +3,7 @@
  * 处理应用的优雅关闭流程
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@modules/error/handleError';
 import { timerLifecycleRegistry } from './SafeInterval';
 

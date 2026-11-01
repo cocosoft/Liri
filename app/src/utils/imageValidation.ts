@@ -16,7 +16,7 @@ export interface OversizedImage {
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils\imageValidation');
 
 /**

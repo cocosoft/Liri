@@ -45,7 +45,7 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('context:effectScope');
 
 export interface EffectContext {

@@ -18,7 +18,7 @@ import type {
 } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils\computerUse\NoopAdapter');
 
 const NOOP_CAPABILITIES: ComputerUseCapabilities = {

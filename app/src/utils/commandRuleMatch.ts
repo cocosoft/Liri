@@ -18,7 +18,7 @@
  * 的反向依赖变成环；`utils` 是最低层中性位置（与 `toolContract/pathArgs` 同口径）。
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 
 const logger = getLogger('utils:commandRuleMatch');
 

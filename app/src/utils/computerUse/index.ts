@@ -32,7 +32,7 @@
 import type { ComputerUseAdapter } from './types';
 import { NoopComputerUseAdapter } from './NoopAdapter';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:computerUse:index');
 
 let adapter: ComputerUseAdapter | null = null;

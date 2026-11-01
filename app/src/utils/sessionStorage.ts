@@ -10,7 +10,7 @@ import { existsSync } from 'fs';
 import { resolvePyappHome } from '@modules/environment';
 
 import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:sessionStorage');
 
 export interface SessionData<T = unknown> {

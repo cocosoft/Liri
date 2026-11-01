@@ -4,7 +4,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/environment';
 

@@ -12,7 +12,7 @@ import { resolveGitDir } from './GitFilesystem';
 import { configManager } from '@modules/config';
 
 import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:git:GitignoreParser');
 
 export interface IgnoreRule {

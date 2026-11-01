@@ -19,7 +19,7 @@ import type {
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('utils:computerUse:WindowsAdapter');
 
 const execAsync = promisify(execFile);

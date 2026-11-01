@@ -7781,3 +7781,22 @@
 {"id":"INFRA-PACKAGE-P12-CACHE","k":"code#5","i":0,"c":"packages/infra/package.json"}
 {"id":"INFRA-PACKAGE-P12-CACHE","k":"code#6","i":0,"c":".trae/architecture/state-literal-baseline.json"}
 {"id":"INFRA-PACKAGE-P12-CACHE","k":"tests#0","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"title","i":0,"c":"P13：state 迁入 packages/infra（17 文件 / 66 处引用）"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.11"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"reopenWhen","i":0,"c":"① 若 `app/src` 重新出现 `state/` 同义实现 ⇒ R03-001/R09-006 会按两处定义目录各判一次，须再次合并；② 若新增状态机未登记 catalog ⇒ R09-006（error 级）阻断；未登记字面量 ⇒ lint:state-ratchet 阻断。"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"notes","i":0,"c":"迁包：git mv 17 文件（app/background/engine/session/task 子目录）+ 66 处引用改 @openliri/infra/state；`@modules/state` 别名保留（它映射 system/state，与本包无关），新增 `@openliri/infra/state{,.js,/*}`。**真源路径同批改**"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"notes","i":1,"c":"：catalog 的 sourceFile/verifyRef、R09-006 登记目录、state-machine-allowlist、stateLiteralRatchetCore 的导入与白名单、规则文档 R09-006 —— 否则棘轮把事实源当未登记字面量。**仓根脚本运行时**：lint-state-literal-ratchet 由 bun 直跑"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"notes","i":2,"c":"、无 tsconfig paths ⇒ 导入必须相对路径。**R6 判据修复**：`state/app/AppLifecycle.ts` 的 `./AppStateMachine` 曾被 `split(\"/\").includes(\"app\")` 误判逃逸，收窄为 `split(\"/\")[0] === \"app\"`。"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"code#0","i":0,"c":"packages/infra/src/state/index.ts"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"code#1","i":0,"c":"packages/infra/src/state/engine/stateMachineCatalog.ts"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"code#2","i":0,"c":"scripts/lint-architecture.ts"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"code#3","i":0,"c":"scripts/lint-state-literal-ratchet.ts"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"code#4","i":0,"c":"scripts/stateLiteralRatchetCore.ts"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"code#5","i":0,"c":"scripts/state-machine-allowlist.json"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"code#6","i":0,"c":"app/scripts/infraBoundaryCore.ts"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"code#7","i":0,"c":"app/tests/gates/gateSelfProof.test.ts"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"code#8","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"code#9","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"tests#0","i":0,"c":"app/tests/state/stateMachineCatalog.test.ts"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"tests#1","i":0,"c":"app/tests/gates/stateLiteralRatchet.test.ts"}
+{"id":"INFRA-PACKAGE-P13-STATE","k":"tests#2","i":0,"c":"app/tests/gates/gateSelfProof.test.ts"}

@@ -16255,6 +16255,38 @@
       "changelog": [],
       "reopenWhen": "新增 infra 模块内的相对导入写法时，R7 已能看见（B8 起）；若出现新环，须按本批口径解边而非抬基线（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B8-UTILS-SCC）",
       "notes": "可见性（前置）：buildInfraEdges 此前只解析 @modules/@openliri 别名 ⇒ 模块内部 ../xxx 的相对出边整块不可见，六元环一直被\"藏\"着（迁包把相对写法统一成别名后立刻暴露）。补相对解析后 R7 首次看见 6 个成员。解环：utils→monitoring（common/debu…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B8-UTILS-SCC）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P6C-UTILS",
+      "title": "P6c：utils 迁入 packages/infra（114 文件 / 507 处引用），并补齐包化所需的扫描面",
+      "source": "B8 解环后重试；dev_docs/20261101/infra包化可行性-20261101.md §五-4.3 / P6c",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/package.json",
+        "packages/infra/tsconfig.json",
+        "app/tsconfig.json",
+        "app/scripts/infraBoundaryCore.ts",
+        "scripts/kernel-api-surface.ts",
+        "app/src/state/engine/stateMachineCatalog.ts"
+      ],
+      "tests": [
+        "app/tests/gates",
+        "app/tests/utils"
+      ],
+      "changelog": [],
+      "reopenWhen": "继续迁其它 infra 模块（如 environment/constants）时复用本批口径；若新增包内裸依赖，须同批补 tsconfig paths（包外文件无法回溯 app/node_modules）（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P6C-UTILS）",
+      "notes": "迁移：114 文件 git mv（代码逐字未改）；507 处 @openliri/infra/utils（186 文件别名 + 268 处相对导入，含 .js 归一）；删 @modules/utils 别名、增 @openliri/infra/utils{,.js,/*}；包 exports 增 ./utils。包内…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P6C-UTILS）"
     }
   ]
 }

@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INFRA-PACKAGE-P9-RUNTIMEHOST**：P9：runtimeHost 迁入 packages/infra（13 文件 / 13 处引用） —— 验证 tsc0|tests9539|gates55|infra0|scc0；基线 runtimeHost 13 文件在 app/src；@modules/runtimeHost 为唯一入口（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P9-RUNTIMEHOST）
 - ✅ **INFRA-PACKAGE-P8-ENVIRONMENT**：P8：environment 迁入 packages/infra（4 文件 / 560 处引用） —— 验证 tsc0|tests9539|gates55|infra0|doc-alias0；基线 environment 4 文件在 app/src；lint:doc-alias 把 @openliri/* 一律当内核子路径（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P8-ENVIRONMENT）
 - ✅ **INFRA-PACKAGE-P7-CONSTANTS**：P7：constants 迁入 packages/infra（20 文件 / 163 处引用） —— 验证 tsc0|tests9539|gates55|infra0|consts0；基线 constants 20 文件在 app/src；lint:consts 的 D-1/D-2 根写死 app/src/constants（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P7-CONSTANTS）
 - ✅ **INFRA-PACKAGE-P6C-UTILS**：P6c：utils 迁入 packages/infra（114 文件 / 507 引用） —— 验证 tsc0|tests9539|gates30|infra0|scc0；基线 utils 117(现114) 文件在 app/src；@modules/utils 别名为唯一入口（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P6C-UTILS）

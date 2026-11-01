@@ -16369,6 +16369,47 @@
       "changelog": [],
       "reopenWhen": "① 若 core 需要路径计算 ⇒ 按 AC-09 补注入式 `core/paths` 纯子集，不得从 core 反向引用本包；② 若 `paths.ts` 再引入 `import.meta` 相对定位 ⇒ 迁移已改变仓库层级，需按 `packages/infra/src/environment` 重算。（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P8-ENVIRONMENT）",
       "notes": "迁包：git mv 4 文件 + 560 处引用改 @openliri/infra/environment（包内 utils 8 处同批）；`paths.ts` 只依赖 process.cwd()/os.homedir()，无 import.meta 层级假设 ⇒ 行为不变。扫描面：lint:doc-alias 原把…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P8-ENVIRONMENT）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P9-RUNTIMEHOST",
+      "title": "P9：runtimeHost 迁入 packages/infra（13 文件 / 13 处引用）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.7",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/runtimeHost/index.ts",
+        "packages/infra/src/runtimeHost/instanceLock.ts",
+        "packages/infra/src/runtimeHost/seedSync.ts",
+        "packages/infra/src/runtimeHost/estop.ts",
+        "packages/infra/src/runtimeHost/ExitRecorder.ts",
+        "packages/infra/src/runtimeHost/IdleScaleMonitor.ts",
+        "packages/infra/src/runtimeHost/health/DependencyHealthChecker.ts",
+        "packages/infra/src/runtimeHost/delivery/index.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json",
+        ".trae/architecture/state-literal-baseline.json",
+        ".trae/rules/architecture-compliance.md",
+        "app/tests/core/endpointsSingleSource.test.ts"
+      ],
+      "tests": [
+        "app/tests/core/runtimeHost/instanceLock.test.ts",
+        "app/tests/core/runtimeHost/estop.test.ts",
+        "app/tests/core/runtimeHost/exitRecorder.test.ts",
+        "app/tests/core/runtimeHost/idleScaleMonitor.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `runtimeHost` 需被 core 引用（如健康检查契约回灌）⇒ 只能在 kernel 保留纯契约，禁止 core→infra 反向依赖；② 若新增 `runtimeHost/*` 顶层文件 ⇒ 本模块是 eager 启动面（main.ts 静态加载），须先跑 lint:startup-graph。（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P9-RUNTIMEHOST）",
+      "notes": "迁包：git mv 13 文件（含 delivery/** 与 health/）+ 13 处引用改 @openliri/infra/runtimeHost；P8 已把 environment 收进包 ⇒ 本模块 out 边 0，迁入不新增任何跨模块边（R7 SCC 仍 0）。注册面核查（CD02/CD03）：不在 `…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P9-RUNTIMEHOST）"
     }
   ]
 }

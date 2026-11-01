@@ -7708,3 +7708,27 @@
 {"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"tests#0","i":0,"c":"app/tests/environment/pathsResolvers.test.ts"}
 {"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"tests#1","i":0,"c":"app/tests/paths/resolveProjectRootRuntimeExe.test.ts"}
 {"id":"INFRA-PACKAGE-P8-ENVIRONMENT","k":"tests#2","i":0,"c":"app/tests/workspace/workspaceConfigDirSingleSource.test.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"title","i":0,"c":"P9：runtimeHost 迁入 packages/infra（13 文件 / 13 处引用）"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.7"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"reopenWhen","i":0,"c":"① 若 `runtimeHost` 需被 core 引用（如健康检查契约回灌）⇒ 只能在 kernel 保留纯契约，禁止 core→infra 反向依赖；② 若新增 `runtimeHost/*` 顶层文件 ⇒ 本模块是 eager 启动面（main.ts 静态加载），须先跑 lint:startup-graph。"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"notes","i":0,"c":"迁包：git mv 13 文件（含 delivery/** 与 health/）+ 13 处引用改 @openliri/infra/runtimeHost；P8 已把 environment 收进包 ⇒ 本模块 out 边 0，迁入不新增任何跨模块边（R7 SCC 仍 0）。注册面核查（CD02/CD03）：不在 `generatedLazyLoaders`"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"notes","i":1,"c":"（eager）、不在 ModuleDefinitions、不在 DependencyGraphScanner 映射、无 lazy loader 条目 ⇒ 仅 tsconfig paths / 包 exports 两处入口。同步 state-literal 3 条路径键、两处测试写死路径（sameNameConstsB2 的 "}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"notes","i":2,"c":"IDLE_SCALE_TIMEOUT_MS、endpointsSingleSource 的 127.0.0.1 棘轮）、R03-001 豁免表说明与 1 条证据 code[]。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名 runtimeHost/seedSync.ts；包内写裸字面量 installed ⇒ "}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"notes","i":3,"c":"lint:state-ratchet 点名 packages/infra/src/runtimeHost/defaults.ts。"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#0","i":0,"c":"packages/infra/src/runtimeHost/index.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#1","i":0,"c":"packages/infra/src/runtimeHost/instanceLock.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#2","i":0,"c":"packages/infra/src/runtimeHost/seedSync.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#3","i":0,"c":"packages/infra/src/runtimeHost/estop.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#4","i":0,"c":"packages/infra/src/runtimeHost/ExitRecorder.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#5","i":0,"c":"packages/infra/src/runtimeHost/IdleScaleMonitor.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#6","i":0,"c":"packages/infra/src/runtimeHost/health/DependencyHealthChecker.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#7","i":0,"c":"packages/infra/src/runtimeHost/delivery/index.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#8","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#9","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#10","i":0,"c":".trae/architecture/state-literal-baseline.json"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#11","i":0,"c":".trae/rules/architecture-compliance.md"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"code#12","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"tests#0","i":0,"c":"app/tests/core/runtimeHost/instanceLock.test.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"tests#1","i":0,"c":"app/tests/core/runtimeHost/estop.test.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"tests#2","i":0,"c":"app/tests/core/runtimeHost/exitRecorder.test.ts"}
+{"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"tests#3","i":0,"c":"app/tests/core/runtimeHost/idleScaleMonitor.test.ts"}

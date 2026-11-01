@@ -16,8 +16,8 @@
 {"id":"REV9-B","k":"title","i":0,"c":"第九轮审查 专项 B：执行生命周期 B-01–B-05"}
 {"id":"REV9-B","k":"source","i":0,"c":"dev_docs/20261009/openai 建议.md §十一–§十六 / CHANGELOG v0.4.73"}
 {"id":"REV9-B","k":"reopenWhen","i":0,"c":"修改 acquire/recover/generation fencing/工具记账时"}
-{"id":"REV9-B","k":"code#0","i":0,"c":"app/src/execution/ExecutionManager.ts"}
-{"id":"REV9-B","k":"code#1","i":0,"c":"app/src/execution/ExecutionStore.ts"}
+{"id":"REV9-B","k":"code#0","i":0,"c":"packages/service/src/execution/ExecutionManager.ts"}
+{"id":"REV9-B","k":"code#1","i":0,"c":"packages/service/src/execution/ExecutionStore.ts"}
 {"id":"REV9-B","k":"code#2","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"REV9-B","k":"tests#0","i":0,"c":"app/tests/execution/executionReviewBatchB.test.ts"}
 {"id":"REV9-B","k":"tests#1","i":0,"c":"app/tests/chat/chatManagerToolLedgerFailClosed.test.ts"}
@@ -25,7 +25,7 @@
 {"id":"REV9-B17","k":"title","i":0,"c":"专项 B §十七-5：恢复故障注入（含**真实进程级崩溃注入**）"}
 {"id":"REV9-B17","k":"source","i":0,"c":"CHANGELOG v0.4.74 + 本轮 P0-1"}
 {"id":"REV9-B17","k":"reopenWhen","i":0,"c":"修改 recover() 顺序 / STALE 判定 / 心跳阈值时"}
-{"id":"REV9-B17","k":"code#0","i":0,"c":"app/src/execution/ExecutionManager.ts"}
+{"id":"REV9-B17","k":"code#0","i":0,"c":"packages/service/src/execution/ExecutionManager.ts"}
 {"id":"REV9-B17","k":"tests#0","i":0,"c":"app/tests/execution/recoveryFaultInjection.test.ts"}
 {"id":"REV9-B17","k":"tests#1","i":0,"c":"app/tests/execution/processCrashInjection.test.ts"}
 {"id":"REV9-B17","k":"changelog#0","i":0,"c":"v0.4.74"}
@@ -33,8 +33,8 @@
 {"id":"REV9-C","k":"source","i":0,"c":"dev_docs/20261009/openai 建议.md §2.2 / CHANGELOG v0.4.74"}
 {"id":"REV9-C","k":"reopenWhen","i":0,"c":"修改事件 seq 分配 / 恢复幂等 / 未知调用处理时"}
 {"id":"REV9-C","k":"notes","i":0,"c":"C-04/C-05（会话消息↔事件一致性 / 回放语义）仍属**待验证设计边界**，非确认缺陷。"}
-{"id":"REV9-C","k":"code#0","i":0,"c":"app/src/execution/ExecutionStore.ts"}
-{"id":"REV9-C","k":"code#1","i":0,"c":"app/src/execution/ExecutionManager.ts"}
+{"id":"REV9-C","k":"code#0","i":0,"c":"packages/service/src/execution/ExecutionStore.ts"}
+{"id":"REV9-C","k":"code#1","i":0,"c":"packages/service/src/execution/ExecutionManager.ts"}
 {"id":"REV9-C","k":"tests#0","i":0,"c":"app/tests/execution/specialCResilience.test.ts"}
 {"id":"REV9-C","k":"changelog#0","i":0,"c":"v0.4.74"}
 {"id":"REV9-9","k":"title","i":0,"c":"第九轮审查 §九：沙箱执行测试组"}
@@ -69,7 +69,7 @@
 {"id":"PLAN-P0-4","k":"source","i":0,"c":"dev_docs/20261010/升级优化方案-20261010.md §3"}
 {"id":"PLAN-P0-4","k":"reopenWhen","i":0,"c":"扩展恢复策略（如新增『可查询远端』档）时"}
 {"id":"PLAN-P0-4","k":"code#0","i":0,"c":"app/src/tools/toolEffects.ts"}
-{"id":"PLAN-P0-4","k":"code#1","i":0,"c":"app/src/execution/ExecutionManager.ts"}
+{"id":"PLAN-P0-4","k":"code#1","i":0,"c":"packages/service/src/execution/ExecutionManager.ts"}
 {"id":"PLAN-P0-4","k":"tests#0","i":0,"c":"app/tests/tools/toolRecoveryPolicy.test.ts"}
 {"id":"PLAN-P0-4","k":"tests#1","i":0,"c":"app/tests/execution/ExecutionManagerRecovery.test.ts"}
 {"id":"PLAN-P0-4","k":"changelog#0","i":0,"c":"v0.4.76"}
@@ -574,7 +574,7 @@
 {"id":"TOOLGOV-S1-3","k":"notes","i":2,"c":"recordToolCall 幂等判据由「已有未结算行」放宽为「已有任意行」，与 settleToolCall 一致，避免唯一索引生效后正常重放触发 UNIQUE 冲突导致 beginToolCall=false 误 fail-closed。e2eVerified=false。"}
 {"id":"TOOLGOV-S1-3","k":"code#0","i":0,"c":"app/src/ai/transports/GeminiTransport.ts"}
 {"id":"TOOLGOV-S1-3","k":"code#1","i":0,"c":"app/src/ai/providers/OllamaProvider.ts"}
-{"id":"TOOLGOV-S1-3","k":"code#2","i":0,"c":"app/src/execution/ExecutionStore.ts"}
+{"id":"TOOLGOV-S1-3","k":"code#2","i":0,"c":"packages/service/src/execution/ExecutionStore.ts"}
 {"id":"TOOLGOV-S1-3","k":"tests#0","i":0,"c":"app/tests/ai/transports/geminiToolCallIdEntropy.test.ts"}
 {"id":"TOOLGOV-S1-3","k":"tests#1","i":0,"c":"app/tests/execution/ExecutionStore.test.ts"}
 {"id":"TOOLGOV-S1-4","k":"title","i":0,"c":"工具治理 S1-4：删死常量 BashOutputSchema + 工具结算改可等待（G16/G17）"}
@@ -584,7 +584,7 @@
 {"id":"TOOLGOV-S1-4","k":"notes","i":1,"c":"观测面，失败内部 catch 留痕不抛），`ChatManager.executeTool` 由 fire-and-forget 的 `settleToolCall` 改为 `await endToolCall`，消除「工具已返回、DB 仍在写」的观测窗口；③ `settleToolCall`（void）保留，供其它非关键路径使用。"}
 {"id":"TOOLGOV-S1-4","k":"notes","i":2,"c":"e2eVerified=false。"}
 {"id":"TOOLGOV-S1-4","k":"code#0","i":0,"c":"app/src/tools/bash/BashTool.ts"}
-{"id":"TOOLGOV-S1-4","k":"code#1","i":0,"c":"app/src/execution/ExecutionManager.ts"}
+{"id":"TOOLGOV-S1-4","k":"code#1","i":0,"c":"packages/service/src/execution/ExecutionManager.ts"}
 {"id":"TOOLGOV-S1-4","k":"code#2","i":0,"c":"app/src/chat/ChatManager.ts"}
 {"id":"TOOLGOV-S1-4","k":"tests#0","i":0,"c":"app/tests/chat/chatManagerToolLedgerFailClosed.test.ts"}
 {"id":"TOOLGOV-S1-5","k":"title","i":0,"c":"工具治理 S1-5：命令规范化单一事实源 + Windows Unix 敏感目录探测（G22/G10 同根）"}
@@ -605,9 +605,9 @@
 {"id":"TOOLGOV-S2-1","k":"notes","i":2,"c":"recordToolCall/settleToolCall 插入 `running`、markUnsettledToolCallsUnknown 的 `unknown` ⇒ 绑定参数）；`PersistedToolCall.status` 由 `string` 收窄为 `ToolCallStatus`；③ `settleToolCall`/`"}
 {"id":"TOOLGOV-S2-1","k":"notes","i":3,"c":"finishToolCall` 仅接受终态（非终态忽略并留痕），`listToolCalls` 读回经 `isToolCallStatus` 边界校验（非法值归 `unknown` + 留痕）；④ **取值修正（如实）**：方案原列 `prepared`/`succeeded` 未采纳 —— `prepared` 无生产者（`recordToolCall` "}
 {"id":"TOOLGOV-S2-1","k":"notes","i":4,"c":"落盘即 `running`），`completed` 与 `executions` 的 `COMPLETED` 同源、改名需数据迁移且破坏「数出同源」；实际枚举 = running/completed/failed/unknown。e2eVerified=false。"}
-{"id":"TOOLGOV-S2-1","k":"code#0","i":0,"c":"app/src/execution/types.ts"}
-{"id":"TOOLGOV-S2-1","k":"code#1","i":0,"c":"app/src/execution/ExecutionStore.ts"}
-{"id":"TOOLGOV-S2-1","k":"code#2","i":0,"c":"app/src/execution/ExecutionManager.ts"}
+{"id":"TOOLGOV-S2-1","k":"code#0","i":0,"c":"packages/service/src/execution/types.ts"}
+{"id":"TOOLGOV-S2-1","k":"code#1","i":0,"c":"packages/service/src/execution/ExecutionStore.ts"}
+{"id":"TOOLGOV-S2-1","k":"code#2","i":0,"c":"packages/service/src/execution/ExecutionManager.ts"}
 {"id":"TOOLGOV-S2-1","k":"tests#0","i":0,"c":"app/tests/execution/ExecutionStore.test.ts"}
 {"id":"TOOLGOV-S2-3","k":"title","i":0,"c":"工具治理 S2-3：契约与清单门禁（部分：G7/G4/G8/G6 落地，G5 待设计）"}
 {"id":"TOOLGOV-S2-3","k":"source","i":0,"c":"工具治理方案-20261011 §4 阶段 2（G7/G8/G5/G6/G4）"}
@@ -801,8 +801,8 @@
 {"id":"TOOLGOV-D6","k":"notes","i":0,"c":"① 新增 `ExecutionStore.transaction<T>(fn)`：`BEGIN IMMEDIATE` → `fn()` → `COMMIT`；失败 `ROLLBACK`（回滚再失败仅记 warn，不掩盖原始错误；CS03-002）。② `ExecutionManager.recover()` 的**恢复两步**（`"}
 {"id":"TOOLGOV-D6","k":"notes","i":1,"c":"markUnsettledToolCallsUnknown` → `markStale`，B-02 的倒序）由**两条独立 `run()`** 改为**同一事务** ⇒ 消除「只落其一」的残留窗口。③ **`RECOVERY_PENDING` 中间态未引入**（用户裁定「仅事务化」；该中间态须扩 `TOOL_CALL_STATUSES`/转移表，属另案）。④"}
 {"id":"TOOLGOV-D6","k":"notes","i":2,"c":" 测试 +2 例（COMMIT 落盘／fn 抛错 ⇒ ROLLBACK 且不落盘）。e2eVerified=false。"}
-{"id":"TOOLGOV-D6","k":"code#0","i":0,"c":"app/src/execution/ExecutionStore.ts"}
-{"id":"TOOLGOV-D6","k":"code#1","i":0,"c":"app/src/execution/ExecutionManager.ts"}
+{"id":"TOOLGOV-D6","k":"code#0","i":0,"c":"packages/service/src/execution/ExecutionStore.ts"}
+{"id":"TOOLGOV-D6","k":"code#1","i":0,"c":"packages/service/src/execution/ExecutionManager.ts"}
 {"id":"TOOLGOV-D6","k":"tests#0","i":0,"c":"app/tests/execution/ExecutionStore.test.ts"}
 {"id":"TOOLGOV-D8","k":"title","i":0,"c":"工具治理 D8（裁定「采纳形态（N3）+ 独立 spec」）：工具级配额与熔断 + 两阶段异步工具"}
 {"id":"TOOLGOV-D8","k":"source","i":0,"c":"工具治理方案-20261011 §4 阶段 4 D8（用户裁定「采纳推荐形态（N3）+ 独立 spec」，2026-10-11）；google A2/A3 + 第 3 批 N3"}
@@ -1104,8 +1104,8 @@
 {"id":"FSM-TOOLSTATUS-P2","k":"notes","i":8,"c":" 不变**）· `typecheck` **三工程全绿** · `lint:fn-size` / `lint:complexity` 未增长 · `bun test tests/state tests/chat tests/channels tests/query tests/session` **1496 pass / 0 fail**（189 文件）· "}
 {"id":"FSM-TOOLSTATUS-P2","k":"notes","i":9,"c":"受影响面 `src/runtime|infrastructure|session|execution` **40 pass / 0 fail**。⑦ **零行为变更**：wire 取值未变（`running`/`completed`/`failed`；常量取值由测试锁定），无 DB / 无迁移 / 无 wire 字段变更。e2eVerified=false（"}
 {"id":"FSM-TOOLSTATUS-P2","k":"notes","i":10,"c":"未做真实浏览器长会话的 SSE 端到端核对）。"}
-{"id":"FSM-TOOLSTATUS-P2","k":"code#0","i":0,"c":"app/src/execution/types.ts"}
-{"id":"FSM-TOOLSTATUS-P2","k":"code#1","i":0,"c":"app/src/execution/index.ts"}
+{"id":"FSM-TOOLSTATUS-P2","k":"code#0","i":0,"c":"packages/service/src/execution/types.ts"}
+{"id":"FSM-TOOLSTATUS-P2","k":"code#1","i":0,"c":"packages/service/src/execution/index.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"code#2","i":0,"c":"app/src/runtime/api/CoreAPI.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"code#3","i":0,"c":"app/src/runtime/api/CoreAPIImpl.ts"}
 {"id":"FSM-TOOLSTATUS-P2","k":"code#4","i":0,"c":"app/src/session/types/UnifiedMessage.ts"}
@@ -1164,9 +1164,9 @@
 {"id":"FSM-PROJECTION-P4","k":"notes","i":16,"c":"认关）：不发布任何广播；`ExecutionManager` 仅多一次常数级映射查表。e2eVerified=false（未接真实出站消费者做端到端下发核对）。"}
 {"id":"FSM-PROJECTION-P4","k":"code#0","i":0,"c":"packages/infra/src/state/engine/projectionBroker.ts"}
 {"id":"FSM-PROJECTION-P4","k":"code#1","i":0,"c":"packages/infra/src/state/index.ts"}
-{"id":"FSM-PROJECTION-P4","k":"code#2","i":0,"c":"app/src/execution/executionProjection.ts"}
-{"id":"FSM-PROJECTION-P4","k":"code#3","i":0,"c":"app/src/execution/index.ts"}
-{"id":"FSM-PROJECTION-P4","k":"code#4","i":0,"c":"app/src/execution/ExecutionManager.ts"}
+{"id":"FSM-PROJECTION-P4","k":"code#2","i":0,"c":"packages/service/src/execution/executionProjection.ts"}
+{"id":"FSM-PROJECTION-P4","k":"code#3","i":0,"c":"packages/service/src/execution/index.ts"}
+{"id":"FSM-PROJECTION-P4","k":"code#4","i":0,"c":"packages/service/src/execution/ExecutionManager.ts"}
 {"id":"FSM-PROJECTION-P4","k":"code#5","i":0,"c":"packages/kernel/src/core/events/EventBus.ts"}
 {"id":"FSM-PROJECTION-P4","k":"code#6","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
 {"id":"FSM-PROJECTION-P4","k":"tests#0","i":0,"c":"app/tests/execution/executionProjection.test.ts"}
@@ -1192,7 +1192,7 @@
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":15,"c":"控 ⇒ 本条目 `e2eVerified` 保持 **false**（债二的两链续跑已 e2e，但**投影广播路径**未 e2e）；② 出站订阅面（通道阶段 2.3）**暂缓** ⇒ 投影仍**无生产消费者**（UW，已在 `projectionBroker.ts` 头注如实标注）；③ 同步订正 `projectionBroker.ts` 中「`"}
 {"id":"FSM-SUSPENDED-P5","k":"notes","i":16,"c":"SUSPENDED` 无生产者 / 不可达」的过时注释（2026-10-13）。"}
 {"id":"FSM-SUSPENDED-P5","k":"code#0","i":0,"c":"packages/infra/src/state/engine/projectionBroker.ts"}
-{"id":"FSM-SUSPENDED-P5","k":"code#1","i":0,"c":"app/src/execution/executionProjection.ts"}
+{"id":"FSM-SUSPENDED-P5","k":"code#1","i":0,"c":"packages/service/src/execution/executionProjection.ts"}
 {"id":"FSM-SUSPENDED-P5","k":"code#2","i":0,"c":"app/src/query/budgetSuspend.ts"}
 {"id":"FSM-SUSPENDED-P5","k":"code#3","i":0,"c":"dev_docs/20261012/状态机规范管理方案-20261012.md"}
 {"id":"FSM-SUSPENDED-P5","k":"tests#0","i":0,"c":"app/tests/query/budgetSuspendProjection.test.ts"}
@@ -1630,7 +1630,7 @@
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"notes","i":0,"c":"**能力本体（用户裁定 (a) 的第一步）**：执行域新增 `execution/prepared` **durable 会话事件** + emit / 读回 API ⇒ 与四原语**遥测广播**（`state/engine/projectionBroker.ts`，受 `FEATURE_STATE_PROJECTION_BROADCAST` **默认关**"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"notes","i":1,"c":"门控）**语义分离**：本事件是**落盘事实**，**不受**该开关门控。**实现**：① 事件名**三处登记**（`shared/events/eventNames.ts` → 后端 `LiriEventMap`（`session/types/eventPayloads.ts`）→ `ALL_SESSION_EVENT_TYPES`，漏一即**编译失败**"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"notes","i":2,"c":"）；**副产物（如实）**：`client/src/types/events.ts` 的**前端自有** `LiriEventMap` 镜像需同步补键 —— `app` 工程 `tsc` 先报 `TS2536: Type 'T' cannot be used to index type 'LiriEventMap'`，补齐后**三工程 0 错**；② 新增 "}
-{"id":"PREPARED-SNAPSHOT-PERSIST","k":"notes","i":3,"c":"`app/src/execution/preparedSnapshot.ts`：`emitPreparedSnapshot({sessionId, executionId, messageId?, visibleTools, taskType?})` —— `generation` 由 `getExecutionManager().get("}
+{"id":"PREPARED-SNAPSHOT-PERSIST","k":"notes","i":3,"c":"`packages/service/src/execution/preparedSnapshot.ts`：`emitPreparedSnapshot({sessionId, executionId, messageId?, visibleTools, taskType?})` —— `generation` 由 `getExecutionManager().get("}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"notes","i":4,"c":"executionId)` **补齐**（记录缺失 ⇒ **不臆造**、如实 warn 后**不落盘**，CS04）；`visibleTools` **去重 + 稳定排序**且**只存工具名**（schema 正文仍归 `context/model-input`，避免双份体积；CS01 已核 ⇒ 与 `RequestSnapshotService` **不合"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"notes","i":5,"c":"并不替换**）；③ **复用**既有 `execution/eventSink.ts`（仅扩展 `ExecutionEventType` 联合）⇒ **不新建事件通道 / 不新建总线**（与 `execution/status_changed` / `execution/recovery` 同族）；④ 读回：纯函数 `pickPreparedSnapshot"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"notes","i":6,"c":"(events)` 取**最近一条**（供重放读落盘快照；以 `LiriEvent<'execution/prepared'>` **类型守卫**收窄，无裸断言）。**落点（P-B，用户裁定）**：`chat/orchestrator/streamMessageToolSelectionFlow.ts` 的 `"}
@@ -1646,9 +1646,9 @@
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#0","i":0,"c":"shared/events/eventNames.ts"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#1","i":0,"c":"app/src/session/types/eventPayloads.ts"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#2","i":0,"c":"app/src/session/types/knownEventTypes.ts"}
-{"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#3","i":0,"c":"app/src/execution/preparedSnapshot.ts"}
-{"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#4","i":0,"c":"app/src/execution/eventSink.ts"}
-{"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#5","i":0,"c":"app/src/execution/index.ts"}
+{"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#3","i":0,"c":"packages/service/src/execution/preparedSnapshot.ts"}
+{"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#4","i":0,"c":"packages/service/src/execution/eventSink.ts"}
+{"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#5","i":0,"c":"packages/service/src/execution/index.ts"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#6","i":0,"c":"app/src/chat/orchestrator/streamMessageToolSelectionFlow.ts"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"code#7","i":0,"c":"client/src/types/events.ts"}
 {"id":"PREPARED-SNAPSHOT-PERSIST","k":"tests#0","i":0,"c":"app/tests/execution/preparedSnapshot.test.ts"}
@@ -1697,8 +1697,8 @@
 {"id":"PREPARED-REPLAY-FORCE","k":"notes","i":11,"c":"lint:fix-evidence` / `version:check` **全绿**。**如实边界**：① **只覆盖会重算工具面的分支**（R-B「每轮覆盖」**未采纳** —— 会波及正常对话每一轮，代价更大）；② `e2eVerified=false`（未做真实崩溃 → 续跑端到端）；③ 开关**默认关** ⇒ 生产行为不变；④ 强制集与当前注册表的"}
 {"id":"PREPARED-REPLAY-FORCE","k":"notes","i":12,"c":"交集语义（点名但已下线者**静默缺席**，不报错）为**有意设计**（重放应还原当时可见面，而非复活已删工具）。"}
 {"id":"PREPARED-REPLAY-FORCE","k":"code#0","i":0,"c":"packages/kernel/src/core/featureFlags.ts"}
-{"id":"PREPARED-REPLAY-FORCE","k":"code#1","i":0,"c":"app/src/execution/preparedSnapshot.ts"}
-{"id":"PREPARED-REPLAY-FORCE","k":"code#2","i":0,"c":"app/src/execution/index.ts"}
+{"id":"PREPARED-REPLAY-FORCE","k":"code#1","i":0,"c":"packages/service/src/execution/preparedSnapshot.ts"}
+{"id":"PREPARED-REPLAY-FORCE","k":"code#2","i":0,"c":"packages/service/src/execution/index.ts"}
 {"id":"PREPARED-REPLAY-FORCE","k":"code#3","i":0,"c":"app/src/session/types/message/options.ts"}
 {"id":"PREPARED-REPLAY-FORCE","k":"code#4","i":0,"c":"app/src/chat/orchestrator/streamMessageToolSelection.ts"}
 {"id":"PREPARED-REPLAY-FORCE","k":"code#5","i":0,"c":"app/src/chat/orchestrator/streamMessageToolSelectionFlow.ts"}
@@ -5758,7 +5758,7 @@
 {"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"reopenWhen","i":0,"c":"渠道交互问答 Stage 2 或占位配额策略变化时重开"}
 {"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"notes","i":0,"c":"新增 ABORT_REASONS.CHANNEL_INTERACTION_UNSUPPORTED；占位定时器在 finally 清理并等待发送完成。"}
 {"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"code#0","i":0,"c":"app/src/channels/routing/streamConsumption.ts"}
-{"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"code#1","i":0,"c":"app/src/execution/types.ts"}
+{"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"code#1","i":0,"c":"packages/service/src/execution/types.ts"}
 {"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"tests#0","i":0,"c":"app/tests/channels/streamConsumptionQuestion.test.ts"}
 {"id":"CHANNEL-QUESTION-FAIL-CLOSED-TIMER","k":"tests#1","i":0,"c":"app/tests/channels/streamConsumptionPlaceholder.test.ts"}
 {"id":"CHANNEL-MESSAGEID-PASSTHROUGH","k":"title","i":0,"c":"U-07：messageRouter 向 chatStream 透传入站 messageId；契约补字段"}
@@ -5923,7 +5923,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"notes","i":0,"c":"语义/取值不同 ⇒ 不改值、按域改名（APPROVAL/SESSION_CACHE_MAX_ENTRIES、DREAM/EXECUTION_MAX_RECORDS）；基线 175→173。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#1","i":0,"c":"packages/kernel/src/core/cache/SessionCache.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#2","i":0,"c":"app/src/dream/DreamPersistence.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#3","i":0,"c":"app/src/execution/ExecutionManager.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-72-73","k":"code#3","i":0,"c":"packages/service/src/execution/ExecutionManager.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"title","i":0,"c":"U-20/B5-2-74：SCHEDULER_CHECK_INTERVAL_MS 收敛到 types/schedulerLifecycle"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-74","k":"notes","i":0,"c":"两处语义一致（cron 每分钟检查）⇒ 统一为 60s 常量；基线 173→172。"}

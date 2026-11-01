@@ -35,7 +35,7 @@ export interface ChannelSession {
   messageCount: number;
   metadata: Record<string, unknown>;
   /**
-   * PR3（2026-10-09）：当前占用本会话的 Execution（`@modules/execution`）。
+   * PR3（2026-10-09）：当前占用本会话的 Execution（`@openliri/service/execution`）。
    *
    * 语义边界（见 spec §3-PR3）：Session **只**据此避免被 idle 清理误回收；
    * generation / heartbeat / cancel **不**由 Session 承担（归 `ExecutionManager`）。

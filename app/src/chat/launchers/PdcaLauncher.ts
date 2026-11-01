@@ -522,7 +522,8 @@ export class PdcaLauncher {
         });
         if (!warnedNoParentExecution.has(sessionId)) {
           try {
-            const { getExecutionManager } = await import('@modules/execution');
+            const { getExecutionManager } =
+              await import('@openliri/service/execution');
             if (!getExecutionManager().getBySession(sessionId)) {
               warnedNoParentExecution.add(sessionId);
               logger.warn(

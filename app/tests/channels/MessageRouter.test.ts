@@ -30,7 +30,7 @@ import {
   routeChannelMessage,
   validateInboundFrame,
 } from '../../src/channels/routing/messageRouter';
-import { getExecutionManager } from '../../src/execution/index.js';
+import { getExecutionManager } from '@openliri/service/execution';
 
 /** 构造合法消息（messageId/sender 唯一，content 可变避免内容级去重） */
 let seq = 0;

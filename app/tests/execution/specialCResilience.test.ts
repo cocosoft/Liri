@@ -45,11 +45,11 @@ import {
   EXECUTION_EVENTS_TABLE,
   EXECUTIONS_TABLE,
   TOOL_CALLS_TABLE,
-} from '../../src/execution/index.js';
+} from '@openliri/service/execution';
 import type {
   ExecutionGeneration,
   ExecutionId,
-} from '../../src/execution/types.js';
+} from '@openliri/service/execution/types';
 
 const eid = (s: string): ExecutionId => s as ExecutionId;
 const gen = (n: number): ExecutionGeneration => n as ExecutionGeneration;

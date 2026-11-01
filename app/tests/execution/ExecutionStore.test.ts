@@ -29,19 +29,19 @@ import { describe, it, expect, afterAll } from 'bun:test';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { unlinkSync, existsSync } from 'fs';
-import { ExecutionStore } from '../../src/execution/index.js';
+import { ExecutionStore } from '@openliri/service/execution';
 import { Database } from '@openliri/infra/external';
 import {
   TOOL_CALL_STATUSES,
   TOOL_CALL_TERMINAL_STATUSES,
   canTransitionToolCall,
   isToolCallStatus,
-} from '../../src/execution/types.js';
+} from '@openliri/service/execution/types';
 import type {
   ExecutionGeneration,
   ExecutionId,
   ExecutionStatus,
-} from '../../src/execution/types.js';
+} from '@openliri/service/execution/types';
 
 const dbPath = join(
   tmpdir(),

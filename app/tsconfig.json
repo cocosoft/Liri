@@ -325,8 +325,15 @@
       "@modules/workspaces/*": ["workspaces/*"],
       "@modules/resourceGovernor": ["resourceGovernor"],
       "@modules/resourceGovernor/*": ["resourceGovernor/*"],
-      "@modules/execution": ["execution"],
-      "@modules/execution/*": ["execution/*"],
+      "@openliri/service/execution": [
+        "../../packages/service/src/execution/index.ts"
+      ],
+      "@openliri/service/execution.js": [
+        "../../packages/service/src/execution/index.ts"
+      ],
+      "@openliri/service/execution/*": [
+        "../../packages/service/src/execution/*"
+      ],
       "@shared/*": ["../../shared/*"]
     }
   },

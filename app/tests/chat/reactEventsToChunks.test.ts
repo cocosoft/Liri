@@ -12,7 +12,7 @@ import {
   TOOL_CALL_INITIAL_STATUS,
   TOOL_CALL_COMPLETED_STATUS,
   TOOL_CALL_FAILED_STATUS,
-} from '@modules/execution';
+} from '@openliri/service/execution';
 
 describe('reactEventsToChunks：suspension_settled（A1 T5）', () => {
   it('映射为 status chunk，statusType=suspension_settled', () => {

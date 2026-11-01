@@ -296,7 +296,8 @@ export async function resolveReplayForcedTools(
 ): Promise<string[] | undefined> {
   if (!feature('PREPARED_SNAPSHOT_REPLAY')) return undefined;
   try {
-    const { resolveReplayVisibleTools } = await import('@modules/execution');
+    const { resolveReplayVisibleTools } =
+      await import('@openliri/service/execution');
     // 只读该类型事件（每执行一条 ⇒ 结果集极小；`limit` 取上限以覆盖长会话）
     const events = await deps.readSessionEvents(sessionId, {
       types: ['execution/prepared'],

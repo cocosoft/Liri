@@ -14,7 +14,7 @@ import {
   isTerminalStatus,
   projectExecutionStatus,
   type ExecutionStatus,
-} from '../../src/execution/index.js';
+} from '@openliri/service/execution';
 import {
   EXECUTION_PRIMITIVES,
   type ExecutionPrimitive,

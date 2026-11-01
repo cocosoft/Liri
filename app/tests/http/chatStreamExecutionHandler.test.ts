@@ -62,7 +62,7 @@ import type {
   ChatRequest,
   ChatStreamChunk,
 } from '../../src/runtime/api/CoreAPI';
-import { getExecutionManager } from '../../src/execution/index.js';
+import { getExecutionManager } from '@openliri/service/execution';
 
 const ENV_FLAG = 'FEATURE_CLIENT_STREAM_EXECUTION';
 

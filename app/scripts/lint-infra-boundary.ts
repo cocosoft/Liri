@@ -52,6 +52,12 @@ const SRC_DIR = join(REPO_ROOT, 'app', 'src');
 const PACKAGE_SRC = process.env['INFRA_PACKAGE_SRC']
   ? resolve(process.env['INFRA_PACKAGE_SRC'])
   : join(REPO_ROOT, 'packages', 'infra', 'src');
+/** 2026-11-02：service 物理包根（R8 扫描面；与 R6 同判据，层不同） */
+const SERVICE_PACKAGE_SRC = process.env['SERVICE_PACKAGE_SRC']
+  ? resolve(process.env['SERVICE_PACKAGE_SRC'])
+  : join(REPO_ROOT, 'packages', 'service', 'src');
+/** service 包可依赖 service / infra / core；entry/ui/app 为倒挂 */
+const SERVICE_FORBIDDEN_TARGET_LAYERS = new Set(['entry', 'ui', 'app']);
 const LAYERS_FILE = process.env['INFRA_LAYERS']
   ? resolve(process.env['INFRA_LAYERS'])
   : join(REPO_ROOT, 'scripts', 'modules-to-layers.json');
@@ -239,6 +245,15 @@ function main(): number {
     collect(PACKAGE_SRC, packageFiles, PACKAGE_SRC);
   }
 
+  // R8 扫描面：service 物理包（未建包时为空数组）
+  const servicePackageFiles: SourceFile[] = [];
+  if (
+    existsSync(SERVICE_PACKAGE_SRC) &&
+    statSync(SERVICE_PACKAGE_SRC).isDirectory()
+  ) {
+    collect(SERVICE_PACKAGE_SRC, servicePackageFiles, SERVICE_PACKAGE_SRC);
+  }
+
   const commonFiles = infraFiles.filter((f) => f.path.startsWith('common/'));
   const utilsFiles = infraFiles.filter((f) => f.path.startsWith('utils/'));
 
@@ -255,11 +270,23 @@ function main(): number {
     compareApprovalOrchestration(infraFiles, layers, allowlist),
     compareDynamicInfraToApp(infraFiles, layers, allowlist),
     compareCommonUtilsDuplicates(commonFiles, utilsFiles, allowlist),
-    compareDirectSqliteImports([...allSrcFiles, ...packageFiles], allowlist),
+    compareDirectSqliteImports(
+      [...allSrcFiles, ...packageFiles, ...servicePackageFiles],
+      allowlist
+    ),
     compareInfraPackageBoundary({
       packageFiles,
       appFiles: allSrcFiles,
       layerOf: layers,
+    }),
+    compareInfraPackageBoundary({
+      packageFiles: servicePackageFiles,
+      appFiles: allSrcFiles,
+      layerOf: layers,
+      rule: 'R8',
+      packageName: 'service',
+      packageLayer: 'service',
+      forbiddenLayers: SERVICE_FORBIDDEN_TARGET_LAYERS,
     }),
     compareInfraCycles(
       findInfraCycleMembers(buildInfraEdges(infraFiles), infraModules),
@@ -267,11 +294,11 @@ function main(): number {
     ),
   ];
 
-  console.log('=== infra 层边界契约门禁（R1–R7）===');
+  console.log('=== infra 层边界契约门禁（R1–R8）===');
   console.log(
     `infra 模块 ${infraModules.length} 个（无目录 ${missing.length}）· 生产源文件 ${infraFiles.length} 个` +
       ` · common ${commonFiles.length} / utils ${utilsFiles.length}` +
-      ` · 物理包 ${packageFiles.length} 个文件`
+      ` · infra 包 ${packageFiles.length} 个文件 · service 包 ${servicePackageFiles.length} 个文件`
   );
   console.log('----------------------------------------');
 
@@ -291,7 +318,7 @@ function main(): number {
     );
     return 1;
   }
-  console.log('\n✅ 合规（R1–R7 无未登记违规）');
+  console.log('\n✅ 合规（R1–R8 无未登记违规）');
   return 0;
 }
 

@@ -22,7 +22,7 @@ import {
   recordToolSchemaEntropy,
   readToolVisibilityOverrides,
 } from '@modules/tools';
-import { emitPreparedSnapshot } from '@modules/execution';
+import { emitPreparedSnapshot } from '@openliri/service/execution';
 import { guardSuspendFromEntropy } from '../../query/guardSuspend.js';
 import { lastUserMessageText } from '../taskIntent.js';
 import { selectToolsForTurn } from './streamMessageToolSelection.js';

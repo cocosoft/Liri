@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from 'bun:test';
 import { selectToolsForTurn } from '../../../src/chat/orchestrator/streamMessageToolSelection.js';
-import { pickPreparedSnapshot } from '../../../src/execution/index.js';
+import { pickPreparedSnapshot } from '@openliri/service/execution';
 import type { LiriEvent } from '../../../src/session/types/events.js';
 
 type ToolLike = { function?: { name?: string } };

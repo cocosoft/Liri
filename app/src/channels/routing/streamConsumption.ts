@@ -8,8 +8,11 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error/handleError';
 import { formatToolNotifySummary } from './toolNotifySummary';
-import { ExecutionAbortedError } from '@modules/execution';
-import type { ExecutionManager, ExecutionLease } from '@modules/execution';
+import { ExecutionAbortedError } from '@openliri/service/execution';
+import type {
+  ExecutionManager,
+  ExecutionLease,
+} from '@openliri/service/execution';
 import {
   STREAM_IDLE_TIMEOUT_MS,
   LONG_TASK_PLACEHOLDER_AFTER_MS,

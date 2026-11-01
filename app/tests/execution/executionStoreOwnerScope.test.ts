@@ -27,11 +27,11 @@
  */
 import { afterAll, describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { ExecutionStore } from '../../src/execution/ExecutionStore';
+import { ExecutionStore } from '@openliri/service/execution/ExecutionStore';
 import type {
   ExecutionId,
   ExecutionGeneration,
-} from '../../src/execution/types';
+} from '@openliri/service/execution/types';
 import {
   runWithPrincipal,
   getRequestPrincipalKey,
@@ -148,7 +148,10 @@ describe('ExecutionStore：行级隔离（三张表）', () => {
 describe('门禁：ExecutionStore 的读写 SQL 不许漏 owner_key', () => {
   it('三张表的每个 SELECT/INSERT/DELETE/UPDATE 模板都必须带 owner_key', () => {
     const src = readFileSync(
-      new URL('../../src/execution/ExecutionStore.ts', import.meta.url),
+      new URL(
+        '../../../packages/service/src/execution/ExecutionStore.ts',
+        import.meta.url
+      ),
       'utf8'
     );
     const templates = [

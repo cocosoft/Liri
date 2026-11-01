@@ -35,7 +35,7 @@ import type { LiriEvent } from '@modules/session/types/events';
 import type { RequestPriority } from '@modules/types/requestPriority';
 // 状态机方案 阶段 2.1（2026-10-12）：工具调用状态**唯一事实源** = `execution/types.ts`（G14 收敛）。
 // 本门面（chunk / SSE / 前端契约）**引用同一类型**，不再自定义 `'running'|'completed'|'failed'` 联合。
-import type { ToolCallStatus } from '@modules/execution';
+import type { ToolCallStatus } from '@openliri/service/execution';
 // P2-7 / G4（2026-09-25）：派生一致性校验结果
 import type { DerivationDiff } from '@modules/session';
 // C1 站点 7（2026-09-30 D-90）：第三方技能适配器**服务层端口**（见同目录 thirdPartySkillPorts.ts）
@@ -117,7 +117,7 @@ export interface ChatRequest {
    */
   priority?: RequestPriority;
   /**
-   * 执行标识（PR1，2026-10-09；`@modules/execution`）
+   * 执行标识（PR1，2026-10-09；`@openliri/service/execution`）
    *
    * 由调用方（如渠道 `messageRouter`）在 `ExecutionManager.acquire()` 后注入，
    * 用于把一次 Agent 运行与 Execution 生命周期关联（ownership / generation fencing）。

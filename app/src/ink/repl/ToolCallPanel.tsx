@@ -6,7 +6,7 @@ import { summarizeToolResult } from './toolResultPreview';
 import {
   TOOL_CALL_FAILED_STATUS,
   TOOL_CALL_UNKNOWN_STATUS,
-} from '@modules/execution';
+} from '@openliri/service/execution';
 
 interface ToolCallPanelProps {
   activeToolCalls: ActiveToolCall[];

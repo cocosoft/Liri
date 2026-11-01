@@ -63,7 +63,7 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     id: 'execution',
     title: '执行状态机（Execution）',
     kind: 'persistent',
-    sourceFile: 'app/src/execution/types.ts',
+    sourceFile: 'packages/service/src/execution/types.ts',
     states: [
       'QUEUED',
       'RUNNING',
@@ -76,7 +76,7 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     ],
     verification: 'runtime-import',
     verifyRef: {
-      module: 'app/src/execution/types.ts',
+      module: 'packages/service/src/execution/types.ts',
       exportName: 'EXECUTION_STATUSES',
       anchor: 'array',
     },
@@ -86,11 +86,11 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     id: 'toolCall',
     title: '工具调用状态机（ToolCall）',
     kind: 'persistent',
-    sourceFile: 'app/src/execution/types.ts',
+    sourceFile: 'packages/service/src/execution/types.ts',
     states: ['running', 'completed', 'failed', 'unknown'],
     verification: 'runtime-import',
     verifyRef: {
-      module: 'app/src/execution/types.ts',
+      module: 'packages/service/src/execution/types.ts',
       exportName: 'TOOL_CALL_STATUSES',
       anchor: 'array',
     },

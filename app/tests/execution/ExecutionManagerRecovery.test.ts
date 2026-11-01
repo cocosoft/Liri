@@ -30,12 +30,12 @@ import { describe, it, expect, afterAll } from 'bun:test';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { unlinkSync, existsSync } from 'fs';
-import { ExecutionManager } from '../../src/execution/ExecutionManager.js';
-import { ExecutionStore } from '../../src/execution/ExecutionStore.js';
+import { ExecutionManager } from '@openliri/service/execution/ExecutionManager';
+import { ExecutionStore } from '@openliri/service/execution/ExecutionStore';
 import type {
   ExecutionGeneration,
   ExecutionId,
-} from '../../src/execution/types.js';
+} from '@openliri/service/execution/types';
 
 let dbSeq = 0;
 const open: Array<{ store: ExecutionStore; dbPath: string }> = [];

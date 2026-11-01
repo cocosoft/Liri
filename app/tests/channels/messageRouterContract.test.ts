@@ -37,7 +37,7 @@
 import { describe, expect, it, spyOn } from 'bun:test';
 import type { MessageContext } from '../../src/channels/types/IChannel';
 import { routeChannelMessage } from '../../src/channels/routing/messageRouter';
-import { getExecutionManager } from '../../src/execution/index.js';
+import { getExecutionManager } from '@openliri/service/execution';
 
 let seq = 0;
 function makeMessage(overrides: Partial<MessageContext> = {}): MessageContext {

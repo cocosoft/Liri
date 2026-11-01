@@ -17,7 +17,7 @@ import {
   expect,
   it,
 } from 'bun:test';
-import { ExecutionManager } from '../../src/execution/index.js';
+import { ExecutionManager } from '@openliri/service/execution';
 import {
   globalEventBus,
   SystemEvents,

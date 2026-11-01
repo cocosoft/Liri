@@ -40,11 +40,11 @@ import { afterEach, describe, expect, it, spyOn } from 'bun:test';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ExecutionManager, ExecutionStore } from '../../src/execution/index.js';
+import { ExecutionManager, ExecutionStore } from '@openliri/service/execution';
 import type {
   ExecutionGeneration,
   ExecutionId,
-} from '../../src/execution/types.js';
+} from '@openliri/service/execution/types';
 
 const eid = (s: string): ExecutionId => s as ExecutionId;
 const gen = (n: number): ExecutionGeneration => n as ExecutionGeneration;

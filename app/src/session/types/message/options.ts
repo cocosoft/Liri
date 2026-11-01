@@ -52,7 +52,7 @@ export interface SendMessageOptions {
   priority?: RequestPriority;
 
   /**
-   * 执行标识（B-05 跨层下传，2026-10-09；`@modules/execution`）
+   * 执行标识（B-05 跨层下传，2026-10-09；`@openliri/service/execution`）
    *
    * 由入口（如渠道 `messageRouter`）在 `ExecutionManager.acquire()` 后经
    * `ChatRequest.executionId` 透传 ⇒ `ChatManager` 按会话记录 ⇒ **工具执行器**据此

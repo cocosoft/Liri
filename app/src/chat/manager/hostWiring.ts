@@ -22,7 +22,7 @@ import {
   setSelfWakeAuditSink,
 } from '@modules/tasks';
 import { setWorkflowRunEventSink } from '@modules/workflow';
-import { setExecutionEventSink } from '@modules/execution';
+import { setExecutionEventSink } from '@openliri/service/execution';
 import {
   finishRequest,
   startRequest,

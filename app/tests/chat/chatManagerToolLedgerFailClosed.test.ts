@@ -30,7 +30,7 @@
  */
 
 import { describe, expect, it, spyOn } from 'bun:test';
-import { getExecutionManager } from '@modules/execution';
+import { getExecutionManager } from '@openliri/service/execution';
 import { ChatManagerImpl } from '../../src/chat/ChatManager.js';
 import type { ToolResult } from '../../src/session/types/tool.js';
 

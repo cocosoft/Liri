@@ -83,7 +83,7 @@ import { applyAttachmentPolicy } from './attachmentPolicy';
 import {
   getExecutionManager,
   isExecutionAbortedError,
-} from '@modules/execution';
+} from '@openliri/service/execution';
 // PR2（2026-10-09）：两段式取消灰度开关（默认关 = 保留既有"超时即释放"行为）
 import { feature } from '@openliri/kernel';
 // ── C3-S3（2026-10-09）：自本文件迁出的契约 / 助手 / 帧验证 / 内容去重 / 出站 / 流式消费 ──

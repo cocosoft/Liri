@@ -19,11 +19,11 @@ import { runWithPrincipal } from '@openliri/kernel/identity/requestScope';
 import {
   getExecutionStore,
   resetExecutionStore,
-} from '../../src/execution/ExecutionStore';
+} from '@openliri/service/execution/ExecutionStore';
 import type {
   ExecutionGeneration,
   ExecutionId,
-} from '../../src/execution/types';
+} from '@openliri/service/execution/types';
 import { getCostRecordRepository } from '@openliri/infra/cost/CostRecordRepository';
 import { getCheckpointDatabase } from '../../src/chat/services/CheckpointDatabase';
 import { InboxManager } from '../../src/runtime/InboxManager';

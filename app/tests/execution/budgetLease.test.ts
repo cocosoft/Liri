@@ -15,7 +15,7 @@ import {
   shouldRejectNextTurn,
   summarizeLeases,
   type BudgetLease,
-} from '../../src/execution/budgetLease';
+} from '@openliri/service/execution/budgetLease';
 
 const NOW = 1_000_000;
 const TTL = 5 * 60 * 1000;

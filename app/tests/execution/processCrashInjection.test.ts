@@ -21,12 +21,12 @@ import { tmpdir } from 'os';
 import { existsSync, unlinkSync } from 'fs';
 import { spawnSync } from 'child_process';
 
-import { ExecutionManager } from '../../src/execution/ExecutionManager.js';
-import { ExecutionStore } from '../../src/execution/ExecutionStore.js';
+import { ExecutionManager } from '@openliri/service/execution/ExecutionManager';
+import { ExecutionStore } from '@openliri/service/execution/ExecutionStore';
 import type {
   ExecutionGeneration,
   ExecutionId,
-} from '../../src/execution/types.js';
+} from '@openliri/service/execution/types';
 import { resolveToolRecoveryPolicy } from '../../src/tools/toolEffects.js';
 
 const CHILD = join(

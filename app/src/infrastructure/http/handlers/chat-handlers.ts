@@ -57,7 +57,7 @@ import {
   getExecutionManager,
   TOOL_CALL_INITIAL_STATUS,
   type ExecutionLease,
-} from '@modules/execution';
+} from '@openliri/service/execution';
 import { feature } from '@openliri/kernel';
 
 const logger = getLogger('http:chat');

@@ -131,8 +131,8 @@
       "app/src/ink/ink/hooks/use-tab-status.ts"
     ],
     "CANCEL_REQUESTED": [
-      "app/src/execution/ExecutionManager.ts",
-      "app/src/execution/ExecutionStore.ts"
+      "packages/service/src/execution/ExecutionManager.ts",
+      "packages/service/src/execution/ExecutionStore.ts"
     ],
     "cancelled": [
       "app/src/acp/AcpWebSocketServer.ts",
@@ -189,7 +189,7 @@
       "packages/kernel/src/core/events/UiEvents.ts"
     ],
     "CANCELLED": [
-      "app/src/execution/ExecutionManager.ts",
+      "packages/service/src/execution/ExecutionManager.ts",
       "app/src/tools/sidecar/lspSidecar.ts",
       "app/src/tools/sidecar/mediaCapabilities.ts",
       "app/src/tools/sidecar/mediaSidecar.ts"
@@ -388,7 +388,7 @@
     "COMPLETED": [
       "app/src/ai/providers/FALProvider.ts",
       "app/src/ai/providers/OpenAIProvider.ts",
-      "app/src/execution/ExecutionManager.ts"
+      "packages/service/src/execution/ExecutionManager.ts"
     ],
     "error": [
       "app/src/acp/AcpWebSocketServer.ts",
@@ -1049,7 +1049,7 @@
       "app/src/ai/providers/FALProvider.ts",
       "app/src/ai/providers/OpenAIProvider.ts",
       "app/src/commands/builtin/plugins/Plugins.ts",
-      "app/src/execution/ExecutionManager.ts"
+      "packages/service/src/execution/ExecutionManager.ts"
     ],
     "idle": [
       "app/src/agent/display/index.ts",
@@ -1399,7 +1399,7 @@
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "QUEUED": [
-      "app/src/execution/ExecutionManager.ts"
+      "packages/service/src/execution/ExecutionManager.ts"
     ],
     "RECEIVED": [
       "app/src/channels/dedup/index.ts"
@@ -1542,16 +1542,16 @@
       "packages/kernel/src/core/spi/TaskRegistryService.ts"
     ],
     "RUNNING": [
-      "app/src/execution/ExecutionManager.ts",
-      "app/src/execution/executionProjection.ts",
-      "app/src/execution/ExecutionStore.ts",
+      "packages/service/src/execution/ExecutionManager.ts",
+      "packages/service/src/execution/executionProjection.ts",
+      "packages/service/src/execution/ExecutionStore.ts",
       "app/src/query/budgetSuspend.ts",
       "app/src/query/toolJobSuspend.ts",
       "app/src/runtime/api/domainSnapshotOps.ts",
       "packages/infra/src/state/engine/projectionBroker.ts"
     ],
     "STALE": [
-      "app/src/execution/ExecutionManager.ts"
+      "packages/service/src/execution/ExecutionManager.ts"
     ],
     "unknown": [
       "app/src/acp/AcpWebSocketServer.ts",
@@ -1807,7 +1807,7 @@
       "packages/kernel/src/core/health/types.ts"
     ],
     "WAITING_USER": [
-      "app/src/execution/ExecutionStore.ts"
+      "packages/service/src/execution/ExecutionStore.ts"
     ]
   }
 }

@@ -17,7 +17,7 @@ import {
   getExecutionManager,
   setExecutionEventSink,
   resolveReplayVisibleTools,
-} from '../../../src/execution/index.js';
+} from '@openliri/service/execution';
 import type { LiriEvent } from '../../../src/session/types/events.js';
 import {
   resumeSuspendedStream,

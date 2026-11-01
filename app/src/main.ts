@@ -1715,7 +1715,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
       // **启动期恢复** —— 陈旧心跳的"孤儿执行" ⇒ `STALE` + `generation++`（不注入 owner，
       // 该 session 下次 acquire 视为空闲）；否则保留。DB 写入失败仅留痕，不阻断内存状态机。
       const { getExecutionManager, getExecutionStore } =
-        await import('@modules/execution');
+        await import('@openliri/service/execution');
       const executionManager = getExecutionManager();
       executionManager.attachStore(getExecutionStore());
       const recovery = await executionManager.recover();

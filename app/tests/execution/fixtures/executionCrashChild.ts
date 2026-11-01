@@ -10,11 +10,11 @@
  * 该夹具**只写真实 SQLite 文件**（`ExecutionStore` 公共 API），不 mock 任何存储。
  */
 
-import { ExecutionStore } from '../../../src/execution/ExecutionStore.js';
+import { ExecutionStore } from '@openliri/service/execution/ExecutionStore';
 import type {
   ExecutionGeneration,
   ExecutionId,
-} from '../../../src/execution/types.js';
+} from '@openliri/service/execution/types';
 
 const [, , dbPath, scenario] = process.argv;
 const eid = (s: string): ExecutionId => s as ExecutionId;

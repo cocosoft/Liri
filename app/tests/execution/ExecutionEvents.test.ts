@@ -29,8 +29,8 @@ import { describe, it, expect, afterAll } from 'bun:test';
 import {
   ExecutionManager,
   setExecutionEventSink,
-} from '../../src/execution/index.js';
-import type { ExecutionId } from '../../src/execution/types.js';
+} from '@openliri/service/execution';
+import type { ExecutionId } from '@openliri/service/execution/types';
 
 const eid = (s: string): ExecutionId => s as ExecutionId;
 

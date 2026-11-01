@@ -27,10 +27,10 @@ const CHUNK_MAPPER = 'app/src/chat/reactEventsToChunks.ts';
 const SSE_HANDLER = 'app/src/infrastructure/http/handlers/chat-handlers.ts';
 const CORE_API_IMPL = 'app/src/runtime/api/CoreAPIImpl.ts';
 const TOOL_PROGRESS = 'packages/infra/src/utils/toolContract/ToolProgress.ts';
-const EXECUTION_EXIT = 'app/src/execution/index.ts';
+const EXECUTION_EXIT = 'packages/service/src/execution/index.ts';
 
 describe('工具调用状态单源守卫（阶段 2.1/2.2）', () => {
-  it('唯一事实源出口：`@modules/execution` 暴露工具调用状态类型与常量（R03-002）', () => {
+  it('唯一事实源出口：`@openliri/service/execution` 暴露工具调用状态类型与常量（R03-002）', () => {
     const src = read(EXECUTION_EXIT);
     for (const symbol of [
       'TOOL_CALL_STATUSES',
@@ -47,7 +47,7 @@ describe('工具调用状态单源守卫（阶段 2.1/2.2）', () => {
   it('HTTP 门面契约 `ToolCallSpec.status` 引用共享类型（不再自定义联合）', () => {
     const src = read(CORE_API);
     expect(src).toContain('status?: ToolCallStatus;');
-    expect(src).toContain("from '@modules/execution'");
+    expect(src).toContain("from '@openliri/service/execution'");
     // 旧的独立字面量联合与裸值写法均不得回流
     expect(countOccurrences(src, "status?: 'running'")).toBe(0);
     expect(countOccurrences(src, "'running' | 'completed' | 'failed'")).toBe(0);
@@ -86,7 +86,7 @@ describe('工具调用状态单源守卫（阶段 2.1/2.2）', () => {
   it('`SubAgentProgress.status` 保持独立：不跨层引用 execution，且有裁定注释', () => {
     const src = read(TOOL_PROGRESS);
     // 分层：utils(infra) 不得依赖 execution(service)
-    expect(countOccurrences(src, '@modules/execution')).toBe(0);
+    expect(countOccurrences(src, '@openliri/service/execution')).toBe(0);
     // 裁定显式化（防"看着像就合并"）
     expect(src).toContain('≠ 工具调用状态');
     expect(src).toContain("status: 'running' | 'completed' | 'failed';");

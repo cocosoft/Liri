@@ -38,7 +38,7 @@ import {
   isActiveStatus,
   isExecutionAbortedError,
   isTerminalStatus,
-} from '../../src/execution/index.js';
+} from '@openliri/service/execution';
 
 describe('PR1 Execution 状态机', () => {
   it('合法/非法转移', () => {

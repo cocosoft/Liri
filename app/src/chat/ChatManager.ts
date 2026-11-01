@@ -2092,7 +2092,8 @@ export class ChatManagerImpl implements ChatManager {
       this._currentSessionId ?? ''
     );
     if (executionId) {
-      const { getExecutionManager } = await import('@modules/execution');
+      const { getExecutionManager } =
+        await import('@openliri/service/execution');
       type ExecId = Parameters<
         ReturnType<typeof getExecutionManager>['beginToolCall']
       >[0];

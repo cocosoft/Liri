@@ -1,0 +1,20 @@
+{
+  "name": "@openliri/service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Liri service 包 —— 六层架构 service 层中**已物理独立**的模块。仅 service 层与上层可依赖；infra / kernel 不得依赖本包。",
+  "type": "module",
+  "exports": {
+    "./execution": {
+      "types": "./src/execution/index.ts",
+      "import": "./src/execution/index.ts"
+    },
+    "./execution/*": {
+      "types": "./src/execution/*.ts",
+      "import": "./src/execution/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "bun ../../app/node_modules/typescript/bin/tsc -p tsconfig.json"
+  }
+}

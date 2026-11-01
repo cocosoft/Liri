@@ -48,7 +48,7 @@ import {
   EXECUTION_STATUSES,
   canTransition,
   isTerminalStatus,
-} from '../../src/execution/types.js';
+} from '@openliri/service/execution/types';
 import {
   combineVerdicts,
   isPermissive,

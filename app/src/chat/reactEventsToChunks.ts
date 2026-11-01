@@ -14,7 +14,7 @@ import {
   TOOL_CALL_INITIAL_STATUS,
   TOOL_CALL_COMPLETED_STATUS,
   TOOL_CALL_FAILED_STATUS,
-} from '@modules/execution';
+} from '@openliri/service/execution';
 
 /**
  * BUG-10 审查补充（2026-08-23）：tool_progress 透传节流。

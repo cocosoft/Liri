@@ -1,0 +1,52 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "typeRoots": ["../../app/node_modules/@types"],
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@openliri/kernel": ["../kernel/src/index.ts"],
+      "@openliri/kernel/*": ["../kernel/src/core/*"],
+      "@openliri/infra/*": ["../infra/src/*"],
+      "@modules/*": ["../../app/src/*"],
+      "@shared/*": ["../../shared/*"],
+      "croner": ["../../app/node_modules/croner"],
+      "lru-cache": ["../../app/node_modules/lru-cache"],
+      "zod": ["../../app/node_modules/zod"],
+      "zod/*": ["../../app/node_modules/zod/*"],
+      "js-tiktoken": ["../../app/node_modules/js-tiktoken"],
+      "sharp": ["../../app/node_modules/sharp"],
+      "zustand": ["../../app/node_modules/zustand"],
+      "zustand/*": ["../../app/node_modules/zustand/*"],
+      "chalk": ["../../app/node_modules/chalk"],
+      "https-proxy-agent": ["../../app/node_modules/https-proxy-agent"],
+      "commander": ["../../app/node_modules/commander"],
+      "gray-matter": ["../../app/node_modules/gray-matter"],
+      "glob": ["../../app/node_modules/glob"],
+      "uuid": ["../../app/node_modules/uuid"],
+      "js-yaml": ["../../app/node_modules/js-yaml"],
+      "pdfjs-dist": ["../../app/node_modules/pdfjs-dist"],
+      "pdfjs-dist/*": ["../../app/node_modules/pdfjs-dist/*"],
+      "@napi-rs/canvas": ["../../app/node_modules/@napi-rs/canvas"],
+      "@opentelemetry/api": ["../../app/node_modules/@opentelemetry/api"],
+      "@opentelemetry/*": ["../../app/node_modules/@opentelemetry/*"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "../../app/src/**/*.d.ts",
+    "../infra/src/bun-env.d.ts"
+  ],
+  "exclude": ["dist", "**/*.test.ts", "**/*.test.tsx"]
+}

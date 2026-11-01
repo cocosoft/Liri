@@ -95,8 +95,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/execution/ExecutionManager.ts",
-        "app/src/execution/ExecutionStore.ts",
+        "packages/service/src/execution/ExecutionManager.ts",
+        "packages/service/src/execution/ExecutionStore.ts",
         "app/src/chat/ChatManager.ts"
       ],
       "tests": [
@@ -125,7 +125,7 @@
         "e2eVerified": true
       },
       "code": [
-        "app/src/execution/ExecutionManager.ts"
+        "packages/service/src/execution/ExecutionManager.ts"
       ],
       "tests": [
         "app/tests/execution/recoveryFaultInjection.test.ts",
@@ -153,8 +153,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/execution/ExecutionStore.ts",
-        "app/src/execution/ExecutionManager.ts"
+        "packages/service/src/execution/ExecutionStore.ts",
+        "packages/service/src/execution/ExecutionManager.ts"
       ],
       "tests": [
         "app/tests/execution/specialCResilience.test.ts"
@@ -295,7 +295,7 @@
       },
       "code": [
         "app/src/tools/toolEffects.ts",
-        "app/src/execution/ExecutionManager.ts"
+        "packages/service/src/execution/ExecutionManager.ts"
       ],
       "tests": [
         "app/tests/tools/toolRecoveryPolicy.test.ts",
@@ -1771,7 +1771,7 @@
       "code": [
         "app/src/ai/transports/GeminiTransport.ts",
         "app/src/ai/providers/OllamaProvider.ts",
-        "app/src/execution/ExecutionStore.ts"
+        "packages/service/src/execution/ExecutionStore.ts"
       ],
       "tests": [
         "app/tests/ai/transports/geminiToolCallIdEntropy.test.ts",
@@ -1799,7 +1799,7 @@
       },
       "code": [
         "app/src/tools/bash/BashTool.ts",
-        "app/src/execution/ExecutionManager.ts",
+        "packages/service/src/execution/ExecutionManager.ts",
         "app/src/chat/ChatManager.ts"
       ],
       "tests": [
@@ -1853,9 +1853,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/execution/types.ts",
-        "app/src/execution/ExecutionStore.ts",
-        "app/src/execution/ExecutionManager.ts"
+        "packages/service/src/execution/types.ts",
+        "packages/service/src/execution/ExecutionStore.ts",
+        "packages/service/src/execution/ExecutionManager.ts"
       ],
       "tests": [
         "app/tests/execution/ExecutionStore.test.ts"
@@ -2313,8 +2313,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/execution/ExecutionStore.ts",
-        "app/src/execution/ExecutionManager.ts"
+        "packages/service/src/execution/ExecutionStore.ts",
+        "packages/service/src/execution/ExecutionManager.ts"
       ],
       "tests": [
         "app/tests/execution/ExecutionStore.test.ts"
@@ -2994,8 +2994,8 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/execution/types.ts",
-        "app/src/execution/index.ts",
+        "packages/service/src/execution/types.ts",
+        "packages/service/src/execution/index.ts",
         "app/src/runtime/api/CoreAPI.ts",
         "app/src/runtime/api/CoreAPIImpl.ts",
         "app/src/session/types/UnifiedMessage.ts",
@@ -3063,9 +3063,9 @@
       "code": [
         "packages/infra/src/state/engine/projectionBroker.ts",
         "packages/infra/src/state/index.ts",
-        "app/src/execution/executionProjection.ts",
-        "app/src/execution/index.ts",
-        "app/src/execution/ExecutionManager.ts",
+        "packages/service/src/execution/executionProjection.ts",
+        "packages/service/src/execution/index.ts",
+        "packages/service/src/execution/ExecutionManager.ts",
         "packages/kernel/src/core/events/EventBus.ts",
         "packages/kernel/src/core/featureFlags.ts"
       ],
@@ -3095,7 +3095,7 @@
       },
       "code": [
         "packages/infra/src/state/engine/projectionBroker.ts",
-        "app/src/execution/executionProjection.ts",
+        "packages/service/src/execution/executionProjection.ts",
         "app/src/query/budgetSuspend.ts",
         "dev_docs/20261012/状态机规范管理方案-20261012.md"
       ],
@@ -3662,9 +3662,9 @@
         "shared/events/eventNames.ts",
         "app/src/session/types/eventPayloads.ts",
         "app/src/session/types/knownEventTypes.ts",
-        "app/src/execution/preparedSnapshot.ts",
-        "app/src/execution/eventSink.ts",
-        "app/src/execution/index.ts",
+        "packages/service/src/execution/preparedSnapshot.ts",
+        "packages/service/src/execution/eventSink.ts",
+        "packages/service/src/execution/index.ts",
         "app/src/chat/orchestrator/streamMessageToolSelectionFlow.ts",
         "client/src/types/events.ts"
       ],
@@ -3728,8 +3728,8 @@
       },
       "code": [
         "packages/kernel/src/core/featureFlags.ts",
-        "app/src/execution/preparedSnapshot.ts",
-        "app/src/execution/index.ts",
+        "packages/service/src/execution/preparedSnapshot.ts",
+        "packages/service/src/execution/index.ts",
         "app/src/session/types/message/options.ts",
         "app/src/chat/orchestrator/streamMessageToolSelection.ts",
         "app/src/chat/orchestrator/streamMessageToolSelectionFlow.ts",
@@ -10102,7 +10102,7 @@
       },
       "code": [
         "app/src/channels/routing/streamConsumption.ts",
-        "app/src/execution/types.ts"
+        "packages/service/src/execution/types.ts"
       ],
       "tests": [
         "app/tests/channels/streamConsumptionQuestion.test.ts",
@@ -10793,7 +10793,7 @@
       "code": [
         "packages/kernel/src/core/cache/SessionCache.ts",
         "app/src/dream/DreamPersistence.ts",
-        "app/src/execution/ExecutionManager.ts"
+        "packages/service/src/execution/ExecutionManager.ts"
       ],
       "tests": [],
       "changelog": [],

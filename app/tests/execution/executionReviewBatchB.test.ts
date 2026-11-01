@@ -34,12 +34,12 @@ import { afterAll, describe, expect, it, spyOn } from 'bun:test';
 import { existsSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { ExecutionManager, ExecutionStore } from '../../src/execution/index.js';
+import { ExecutionManager, ExecutionStore } from '@openliri/service/execution';
 import type {
   ExecutionGeneration,
   ExecutionId,
   ExecutionStatus,
-} from '../../src/execution/types.js';
+} from '@openliri/service/execution/types';
 
 const eid = (s: string): ExecutionId => s as ExecutionId;
 const gen = (n: number): ExecutionGeneration => n as ExecutionGeneration;

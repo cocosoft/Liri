@@ -62,9 +62,12 @@ export interface InfraBoundaryAllowlist {
   sqliteDirectImports: Array<{ path: string; reason: string }>;
 }
 
+/** 边界门禁的规则号 */
+export type BoundaryRule = 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7' | 'R8';
+
 /** 单条规则的检查结论 */
 export interface BoundaryReport {
-  rule: 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7';
+  rule: BoundaryRule;
   title: string;
   violations: string[];
   hints: string[];
@@ -772,12 +775,22 @@ export function compareInfraCycles(
 
 /** R6 输入：包内文件路径按**仓库相对** POSIX（如 `packages/infra/src/external/x.ts`） */
 export interface InfraPackageBoundaryInput {
-  /** `packages/infra/src/**` 下的生产文件（path = 仓库相对 POSIX） */
+  /** `packages/<pkg>/src/**` 下的生产文件（path = 仓库相对 POSIX） */
   packageFiles: readonly SourceFile[];
   /** `app/src/**` 下的生产文件（path = 相对 `app/src` 的 POSIX） */
   appFiles: readonly SourceFile[];
   /** 模块名 → 层 */
   layerOf: ReadonlyMap<string, string>;
+  /** 报告规则号（默认 `R6`；service 包用 `R8` 以便与 infra 报告区分） */
+  rule?: BoundaryRule;
+  /** 包名（`packages/<name>` 与 `@openliri/<name>/` 前缀；默认 `infra`） */
+  packageName?: string;
+  /** 包自身所属层（app 侧别名归属校验；默认 `infra`） */
+  packageLayer?: string;
+  /** 包内不得依赖的层（默认 infra 口径：entry/ui/app/service/core 全禁） */
+  forbiddenLayers?: ReadonlySet<string>;
+  /** 允许的 core 目标（默认仅 `types`） */
+  allowedCoreTargets?: ReadonlySet<string>;
 }
 
 /** 不能被 infra 包依赖的层（core 只允许依赖 core；entry/ui/app/service 更是倒挂） */
@@ -830,10 +843,15 @@ function resolveRelative(
 export function compareInfraPackageBoundary(
   input: InfraPackageBoundaryInput
 ): BoundaryReport {
+  const pkgName = input.packageName ?? 'infra';
+  const pkgLayer = input.packageLayer ?? 'infra';
+  const rule = input.rule ?? 'R6';
+  const forbidden = input.forbiddenLayers ?? PACKAGE_FORBIDDEN_TARGET_LAYERS;
+  const allowedCore = input.allowedCoreTargets ?? PACKAGE_ALLOWED_CORE_TARGETS;
   const violations: string[] = [];
   const hints = [
-    'R6 判据见 .trae/specs/infra-layer-boundary-contract.md §5：infra 包只暴露能力，不得依赖上层',
-    '包内请用 `@modules/<infra模块>`（同层）或 `@openliri/kernel/...`；禁止相对路径跳进 `app/`',
+    `R6 判据见 .trae/specs/infra-layer-boundary-contract.md §5：${pkgName} 包只暴露能力，不得依赖上层`,
+    `包内请用 \`@modules/<同层模块>\` 或 \`@openliri/kernel/...\`；禁止相对路径跳进 \`app/\``,
   ];
   let checked = 0;
 
@@ -846,16 +864,13 @@ export function compareInfraPackageBoundary(
         const layer = input.layerOf.get(target);
         if (!layer) {
           violations.push(
-            `${file.path}:${ref.line} 依赖未登记模块 @modules/${target}（infra 包只允许依赖已登记的同层模块）`
+            `${file.path}:${ref.line} 依赖未登记模块 @modules/${target}（${pkgName} 包只允许依赖已登记的同层模块）`
           );
           continue;
         }
-        if (
-          PACKAGE_FORBIDDEN_TARGET_LAYERS.has(layer) &&
-          !(layer === 'core' && PACKAGE_ALLOWED_CORE_TARGETS.has(target))
-        ) {
+        if (forbidden.has(layer) && !(layer === 'core' && allowedCore.has(target))) {
           violations.push(
-            `${file.path}:${ref.line} infra 包依赖 ${layer} 层模块 @modules/${target}（倒挂）`
+            `${file.path}:${ref.line} ${pkgName} 包依赖 ${layer} 层模块 @modules/${target}（倒挂）`
           );
         }
         continue;
@@ -869,38 +884,38 @@ export function compareInfraPackageBoundary(
         const intoApp = rel.path.split('/')[0] === 'app';
         if (rel.escapes || intoApp) {
           violations.push(
-            `${file.path}:${ref.line} 相对路径逃逸出 infra 包：${spec}（→ ${rel.path}）`
+            `${file.path}:${ref.line} 相对路径逃逸出 ${pkgName} 包：${spec}（→ ${rel.path}）`
           );
         }
       }
     }
   }
 
+  const aliasPrefix = `@openliri/${pkgName}/`;
   for (const file of input.appFiles) {
     for (const ref of parseFileImports(file)) {
-      if (!ref.specifier.startsWith('@openliri/infra/')) continue;
+      if (!ref.specifier.startsWith(aliasPrefix)) continue;
       checked += 1;
-      const target =
-        ref.specifier.slice('@openliri/infra/'.length).split('/')[0] ?? '';
+      const target = ref.specifier.slice(aliasPrefix.length).split('/')[0] ?? '';
       const targetLayer = input.layerOf.get(target);
-      if (targetLayer !== 'infra') {
+      if (targetLayer !== pkgLayer) {
         violations.push(
-          `${file.path}:${ref.line} @openliri/infra/${target} 未登记为 infra（实际：${targetLayer ?? '未登记'}）`
+          `${file.path}:${ref.line} ${aliasPrefix}${target} 未登记为 ${pkgLayer}（实际：${targetLayer ?? '未登记'}）`
         );
         continue;
       }
       const importerModule = file.path.split('/')[0] ?? '';
       if (input.layerOf.get(importerModule) === 'core') {
         violations.push(
-          `${file.path}:${ref.line} core 层不得依赖 infra 包（@openliri/infra/${target}）`
+          `${file.path}:${ref.line} core 层不得依赖 ${pkgName} 包（${aliasPrefix}${target}）`
         );
       }
     }
   }
 
   return {
-    rule: 'R6',
-    title: 'infra 物理包边界（packages/infra）',
+    rule,
+    title: `${pkgName} 物理包边界（packages/${pkgName}）`,
     violations,
     hints,
     checked,

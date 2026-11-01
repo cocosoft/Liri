@@ -7974,3 +7974,32 @@
 {"id":"INFRA-PACKAGE-P21-SYSTEM","k":"tests#2","i":0,"c":"app/tests/core/i18n.test.ts"}
 {"id":"INFRA-PACKAGE-P21-SYSTEM","k":"tests#3","i":0,"c":"app/tests/prompt-locale/localeParity.test.ts"}
 {"id":"INFRA-PACKAGE-P21-SYSTEM","k":"tests#4","i":0,"c":"app/tests/core/endpointsSingleSource.test.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"title","i":0,"c":"P22：chronos 迁入 packages/infra（50 文件；基线含两个分节需分别改名）"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.20"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"reopenWhen","i":0,"c":"① 若 `monitoring` / `memory` / `security` 也迁包 ⇒ `chronos` 的边会改写成 `@openliri/infra/*`（R7 边不变）；② 若新增 chronos 子目录型消费（`@openliri/infra/chronos/<dir>`）⇒ 目录不走 `*.ts` 模式导出，必须补 `./chronos/<"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"reopenWhen","i":1,"c":"dir>` 精确条目；③ `ImportManager` 的 legacy `aliasMap` 仍留 `@modules/chronos`（与 cost/analytics/performance 同状，未接线）。"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"notes","i":0,"c":"迁包：chronos 共 50 文件（15 子域 + 根 15 文件，根有 barrel）git mv 至 packages/infra/src/chronos。引用改写：22 文件（`@modules/chronos` → `@openliri/infra/chronos`，含 `build-variant.ts` 的变体表）+ 3 处 app 侧相对引用"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"notes","i":1,"c":"（init / CronScheduler / CronCreateTool）+ 2 处测试相对引用 + README 3 例。包内自引改相对：`cli/ChronosCLI.ts` → `../CronTasks` / `../index`（包内不走自己的桶）。第三方依赖：`commander`（ChronosCLI）、`chalk` 迁后需两侧 "}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"notes","i":2,"c":"tsconfig 补 paths（chalk 已在 P21 补）。**新类型：基线同名文件的两个分节**——`hardcode-gate-baseline.json` 同时存 `裸字面量:app/src/...` 与 `lint:locale` 的 `app/src/...` 键，只改前者会让 `lint:locale` 以「新增键」阻断；两节分别改名后才绿"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"notes","i":3,"c":"。测试内**非 import 的路径字符串**：`sideChannelGuard` 的后台模块清单（join 到 app/src，需 `../../packages/...`）、`sameNameConstsB2` 的元组项，均需手工改。README 示例：`@openliri/infra/chronos/autoDream`（目录）在 `*.ts` 模式"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"notes","i":4,"c":"导出下不可解析 ⇒ 改为 `.../autoDream/AutoDream`（真实代码无目录导入）。联动：hardcode 7 处（含 locale 分节 1）· logger-name 13 · state-literal 38 · 证据 code[] 7 处路径键改名。运行期自证：桶 85 导出 · `/cron` 9 · `/CronTasks` 13"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"notes","i":5,"c":" · `/CronInjectionScanner` 1 · `/maintenance/ChronosBackgroundHousekeeping` 7 · `/autoDream/AutoDream` 16。负向自证：包内 `import \"@modules/chat\"` ⇒ R6 点名；monitoring 临时 import 桶 ⇒ R7 报 6 成"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"notes","i":6,"c":"员环（均回滚，SCC 0）。"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#0","i":0,"c":"packages/infra/src/chronos/index.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#1","i":0,"c":"packages/infra/src/chronos/CronTasks.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#2","i":0,"c":"packages/infra/src/chronos/cron.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#3","i":0,"c":"packages/infra/src/chronos/CronInjectionScanner.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#4","i":0,"c":"packages/infra/src/chronos/cli/ChronosCLI.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#5","i":0,"c":"packages/infra/src/chronos/maintenance/ChronosBackgroundHousekeeping.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#6","i":0,"c":"app/src/entrypoints/init.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#7","i":0,"c":"app/src/tasks/cron/CronScheduler.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#8","i":0,"c":"app/src/bootstrap/generatedLazyLoaders.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#9","i":0,"c":"app/scripts/build-variant.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#10","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#11","i":0,"c":"packages/infra/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"code#12","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"tests#0","i":0,"c":"app/tests/chronos/cron.test.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"tests#1","i":0,"c":"app/tests/security/invisibleUnicode.test.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"tests#2","i":0,"c":"app/tests/tools/SecurityTools.test.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"tests#3","i":0,"c":"app/tests/budget/sideChannelGuard.test.ts"}
+{"id":"INFRA-PACKAGE-P22-CHRONOS","k":"tests#4","i":0,"c":"app/tests/constants/sameNameConstsB2.test.ts"}

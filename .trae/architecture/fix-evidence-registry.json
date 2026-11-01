@@ -16844,6 +16844,48 @@
       "changelog": [],
       "reopenWhen": "① 若 `error` / `monitoring` / `config` 也迁包 ⇒ `system` 的三条出边会改成 `@openliri/infra/*`（R7 边不变）；② 若新增 `system` 根 `index.ts` ⇒ 必须同批加 `./system` 导出与 tsconfig 精确键，否则 `@…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P21-SYSTEM）",
       "notes": "迁包：system 共 26 文件（auth 8 / i18n 6 / state 6 / theme 6）git mv 至 packages/infra/src/system；模块**无根 index** ⇒ 只设子路径别名，未造 barrel。**新类型：目录入口**——消费方按 `@modules/system…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P21-SYSTEM）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P22-CHRONOS",
+      "title": "P22：chronos 迁入 packages/infra（50 文件；基线含两个分节需分别改名）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.20",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/chronos/index.ts",
+        "packages/infra/src/chronos/CronTasks.ts",
+        "packages/infra/src/chronos/cron.ts",
+        "packages/infra/src/chronos/CronInjectionScanner.ts",
+        "packages/infra/src/chronos/cli/ChronosCLI.ts",
+        "packages/infra/src/chronos/maintenance/ChronosBackgroundHousekeeping.ts",
+        "app/src/entrypoints/init.ts",
+        "app/src/tasks/cron/CronScheduler.ts",
+        "app/src/bootstrap/generatedLazyLoaders.ts",
+        "app/scripts/build-variant.ts",
+        "app/tsconfig.json",
+        "packages/infra/tsconfig.json",
+        "packages/infra/package.json"
+      ],
+      "tests": [
+        "app/tests/chronos/cron.test.ts",
+        "app/tests/security/invisibleUnicode.test.ts",
+        "app/tests/tools/SecurityTools.test.ts",
+        "app/tests/budget/sideChannelGuard.test.ts",
+        "app/tests/constants/sameNameConstsB2.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `monitoring` / `memory` / `security` 也迁包 ⇒ `chronos` 的边会改写成 `@openliri/infra/*`（R7 边不变）；② 若新增 chronos 子目录型消费（`@openliri/infra/chronos/<dir>`）⇒ 目录不走 `*.ts` …（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P22-CHRONOS）",
+      "notes": "迁包：chronos 共 50 文件（15 子域 + 根 15 文件，根有 barrel）git mv 至 packages/infra/src/chronos。引用改写：22 文件（`@modules/chronos` → `@openliri/infra/chronos`，含 `build-variant.ts`…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P22-CHRONOS）"
     }
   ]
 }

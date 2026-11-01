@@ -40,6 +40,14 @@
     "./runtimeHost/*": {
       "types": "./src/runtimeHost/*.ts",
       "import": "./src/runtimeHost/*.ts"
+    },
+    "./featureflags": {
+      "types": "./src/featureflags/index.ts",
+      "import": "./src/featureflags/index.ts"
+    },
+    "./featureflags/*": {
+      "types": "./src/featureflags/*.ts",
+      "import": "./src/featureflags/*.ts"
     }
   },
   "scripts": {

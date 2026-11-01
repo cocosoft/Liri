@@ -22,7 +22,7 @@ import {
 import { TransportFactory } from './TransportFactory';
 import { MCPTransport } from './transports/MCPTransport';
 import { mcpAuthManager } from './auth/MCPAuth';
-import { feature } from '@modules/featureflags';
+import { feature } from '@openliri/infra/featureflags';
 import type { MCPOAuthConfig } from './auth/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';

@@ -5,7 +5,7 @@
 
 import { createHash, randomBytes } from 'crypto';
 import { MCPOAuthConfig, MCPOAuthToken, MCPOAuthState } from './types.js';
-import { feature } from '@modules/featureflags';
+import { feature } from '@openliri/infra/featureflags';
 import { OAuthDiscovery, createOAuthStorage } from '@modules/oauth';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 

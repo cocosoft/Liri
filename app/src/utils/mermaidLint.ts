@@ -14,13 +14,23 @@
  * 纯函数、不碰 I/O 与 DOM ⇒ 前后端都可复用（前端解析器仍是最终真相，本预检只做前置拦截）。
  */
 
-// 2026-10-01 B11 前置 P1（D-223）：`MermaidLintIssue` 接口已下沉**类型中心**
-// `@modules/types/mermaid`（core —— 3 字段纯接口、零出向依赖）⇒ 使
-// `session/types/eventPayloads.ts` 成为**纯 core 引用**的契约文件（解除 B11 方案甲的 `core -> infra`）。
-// 本文件按 R05-013 口径**再导出**，既有消费方（`chat/ReActToolLoop.ts` 等）零改动。
-import type { MermaidLintIssue } from '@modules/types/mermaid';
-
-export type { MermaidLintIssue };
+/**
+ * 问题项接口（**唯一事实源**）。
+ *
+ * P6（2026-11-01）：原先定义在 `@modules/types/mermaid`(core)，为让
+ * `session/types/eventPayloads.ts` 成为"纯 core 引用"的契约文件；但 `utils` 要迁入
+ * `packages/infra`，而 infra 包的 R6 边界**禁止包内引用 core**（`@modules/types/*`）
+ * ⇒ 契约改由本模块持有，`types/mermaid.ts` 已删除；消费方（chat / session / tests）
+ * 一律从 `@modules/utils/mermaidLint` 取（迁包后为 `@openliri/infra/utils/mermaidLint`）。
+ */
+export interface MermaidLintIssue {
+  /** 第几个 mermaid 块（从 0 起；文本中有多块时用于定位） */
+  blockIndex: number;
+  /** 该块起始行号（1 起，便于日志定位） */
+  line: number;
+  /** 判为问题的原因（中文、不含技术黑话，可直接回喂给模型） */
+  reason: string;
+}
 
 /** mermaid 已知图类型关键字（比较时统一小写；`stateDiagram-v2` 之类连字符原样保留） */
 const KNOWN_DIAGRAM_TYPES = new Set([
@@ -54,8 +64,6 @@ const KNOWN_DIAGRAM_TYPES = new Set([
   'radar-beta',
   'treemap-beta',
 ]);
-
-/** 问题项接口 —— 定义已下沉 `@modules/types/mermaid`（本文件再导出，见文件头）。 */
 
 interface MermaidBlock {
   code: string;

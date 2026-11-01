@@ -49,6 +49,8 @@ import {
 } from '@modules/constants';
 import { setDaemonMetricsSink } from '../daemon/metricsSink.js';
 import { setMainPermissionRuleSource } from '../security/permissionRuleSource.js';
+import { setNativeStructureCloserLoader } from '../utils/structureCut.js';
+import type { NativeLib } from '../../native';
 import { RuleManager } from '@modules/permission';
 
 const logger = getLogger('main');
@@ -158,6 +160,26 @@ export function wireDaemonDeps(): void {
  */
 export function wireSecurityDeps(): void {
   setMainPermissionRuleSource(() => new RuleManager().loadRules());
+}
+
+/**
+ * P6 解耦（2026-11-01）：把**原生结构闭合**能力接到 `utils`。
+ *
+ * `utils/structureCut` 曾直接 `require('../../native')`（app 根的原生绑定）。`utils` 迁入
+ * `packages/infra` 后该相对路径会落到不存在的 `packages/infra/native`（能力静默消失），
+ * 改成逃逸进 `app/` 又违反 infra 包边界（R6）⇒ 反转依赖：包内只留注入点，实现由 app 提供。
+ * 原生不可用（未构建 / ABI 不匹配）⇒ 返回 `null`，`structureCut` 按既有口径降级到 P0。
+ */
+export function wireUtilsDeps(): void {
+  setNativeStructureCloserLoader(() => {
+    try {
+      const native = require('../../native') as NativeLib | null;
+      if (!native || typeof native.closeStructure !== 'function') return null;
+      return (code: string, lang: string) => native.closeStructure(code, lang);
+    } catch {
+      return null;
+    }
+  });
 }
 
 /**

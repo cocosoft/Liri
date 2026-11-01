@@ -27,7 +27,7 @@
 
 import { createHash } from 'crypto';
 
-import type { MermaidLintIssue } from '@modules/types/mermaid';
+import type { MermaidLintIssue } from '@modules/utils/mermaidLint';
 import type { LiriEventMap } from '@modules/session/types/eventPayloads.js';
 import { runOutputGuards } from '@modules/security/outputGuardRegistry';
 import type { OutputGuard, OutputGuardIssue } from '@openliri/kernel';

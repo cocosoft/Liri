@@ -20,9 +20,9 @@ import type {
   GoalDeviationSeverity,
 } from '@modules/types/goal';
 // P1-1②（2026-09-28）：输出校验问题项复用校验器的既有形状（单一来源，不复制字段定义）
-// 2026-10-01 B11 前置 P1（D-223）：同上，问题项接口已下沉 `@modules/types/mermaid`(core)
-// ⇒ 本文件不再依赖 `@modules/utils/mermaidLint`(infra)，成为**纯 core 引用**的契约文件。
-import type { MermaidLintIssue } from '@modules/types/mermaid';
+// P6（2026-11-01）：`utils` 迁入 `packages/infra` 后，infra 包的 R6 边界禁止包内引用 core
+// ⇒ 问题项接口的唯一事实源回到 `@modules/utils/mermaidLint`（`types/mermaid.ts` 已删除）。
+import type { MermaidLintIssue } from '@modules/utils/mermaidLint';
 // P2-3（2026-10-27）：工具失败分类随 `tool/result` 落盘（与 `ToolResult.failureKind` 同源）
 import type { ToolFailureKind } from '@modules/utils/toolContract/ToolResult';
 
@@ -626,7 +626,7 @@ export interface LiriEventMap {
     kind: 'mermaid';
     /**
      * 未通过的结构性问题（结构化可判定，不依赖日志文本）。
-     * 形状与 `@modules/types/mermaid` 的 `MermaidLintIssue` **同源**（单一事实来源）。
+     * 形状与 `@modules/utils/mermaidLint` 的 `MermaidLintIssue` **同源**（单一事实来源）。
      */
     issues: MermaidLintIssue[];
     /** 回喂通道：经循环内 steering 队列在**下一轮请求前**注入 */

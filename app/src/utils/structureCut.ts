@@ -34,7 +34,6 @@
  *   误判只会**少选**安全点（退回既有行边界/硬切），**不劣化**既有行为。
  * - P0 **不注入**闭括号（避免改坏代码）；"补齐闭合后缀"属 P1（Rust `py_close_structure`）。
  */
-import type { NativeLib } from '../../native';
 
 /** 代码围栏行（行首可含空格后接三个反引号） */
 const STRUCTURE_CUT_FENCE_RE = /^\s*```/;
@@ -191,12 +190,19 @@ export function findStructuralResume(
 
 // ─────────────────────────────────────────────────────────────
 // P1（2026-10-10）：Rust 结构闭合（`py_close_structure`）—— 三态懒加载 + 降级
+//
+// P6（2026-11-01）：原生能力改为**app 启动期注入**，本文件不再 `require('../../native')`。
+// 原因：`utils` 要迁入 `packages/infra`，该相对路径在包内指向不存在的 `packages/infra/native`
+// （能力静默消失），改成逃逸到 `app/` 又违反 infra 包边界（R6）⇒ 按仓内既有注入端口口径反转依赖。
 // ─────────────────────────────────────────────────────────────
 
-type NativeCloseFn = (code: string, lang: string) => unknown;
+/** 原生闭合入口（`py_close_structure` 的 TS 侧签名） */
+export type NativeStructureCloser = (code: string, lang: string) => unknown;
+
+type NativeCloseFn = NativeStructureCloser;
 
 /**
- * 原生闭合句柄。**三态**：`undefined` = 未尝试加载；`null` = 不可用；函数 = 可用。
+ * 原生闭合句柄。**三态**：`undefined` = 未尝试获取；`null` = 不可用；函数 = 可用。
  * （同 `security/bash/BashAST.ts` 口径；防"哨兵恒假 ⇒ 原生永不加载"。）
  */
 let nativeClose: NativeCloseFn | null | undefined;
@@ -204,17 +210,35 @@ let nativeLoadFailed = false;
 let nativeCallCount = 0;
 let tsFallbackCount = 0;
 
+/** 原生能力来源（app 启动期经 `wireUtilsDeps` 注入；未注入 ⇒ 按"不可用"降级） */
+let nativeCloserLoader: (() => NativeStructureCloser | null) | null = null;
+
+/**
+ * 注入原生闭合能力来源（app 启动期调用；`null` = 撤销，测试用）。
+ *
+ * 注入会**清空**上一次的解析结果，避免沿用旧句柄（热重载 / 测试间隔离）。
+ */
+export function setNativeStructureCloserLoader(
+  loader: (() => NativeStructureCloser | null) | null
+): void {
+  nativeCloserLoader = loader;
+  nativeClose = undefined;
+  nativeLoadFailed = false;
+}
+
 function lazyInitNative(): NativeCloseFn | null {
   if (nativeClose !== undefined) return nativeClose;
+  if (!nativeCloserLoader) {
+    nativeClose = null;
+    nativeLoadFailed = true;
+    return nativeClose;
+  }
   try {
-    const native = require('../../native') as NativeLib | null;
-    if (native && typeof native.closeStructure === 'function') {
-      nativeClose = (code, lang) => native.closeStructure(code, lang);
-    } else {
-      nativeClose = null;
-      nativeLoadFailed = true;
-    }
+    nativeClose = nativeCloserLoader();
   } catch {
+    nativeClose = null;
+  }
+  if (typeof nativeClose !== 'function') {
     nativeClose = null;
     nativeLoadFailed = true;
   }

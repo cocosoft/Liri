@@ -133,6 +133,7 @@ import {
   wireConstantsDeps,
   wireDaemonDeps,
   wireSecurityDeps,
+  wireUtilsDeps,
 } from './bootstrap/preflight.js';
 export { isValidApiKey } from './bootstrap/preflight.js';
 const logger = getLogger('main');
@@ -1132,6 +1133,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
   wireConstantsDeps();
   wireDaemonDeps();
   wireSecurityDeps();
+  // P6（2026-11-01）：`utils/structureCut` 的原生闭合能力由 app 注入（包化后不再 require app/native）
+  wireUtilsDeps();
   if (options.mode !== LaunchMode.HEALTHCHECK) {
     ensureEnvFileExists();
   }

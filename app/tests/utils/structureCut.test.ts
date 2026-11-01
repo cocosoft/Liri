@@ -35,6 +35,7 @@ import {
   closeStructure,
   getStructureNativeStats,
   resetStructureNativeForTest,
+  setNativeStructureCloserLoader,
 } from '../../src/utils/structureCut';
 
 /** 前缀的括号是否平衡（净深度 0） */
@@ -102,6 +103,32 @@ describe('P1 结构闭合（原生桥 + 降级契约）', () => {
     expect(stats.nativeLoaded || stats.nativeLoadFailed).toBe(true);
     if (r) expect(typeof r.closureSuffix).toBe('string');
     else expect(r).toBeNull();
+  });
+
+  it('P6 注入端口：注入后走注入实现；未注入即降级（不静默）', () => {
+    // 未注入 ⇒ 不可用（nativeLoadFailed 必为真，防"静默无能力"）
+    resetStructureNativeForTest();
+    setNativeStructureCloserLoader(null);
+    expect(closeStructure('function f() {', 'ts')).toBeNull();
+    expect(getStructureNativeStats().nativeLoadFailed).toBe(true);
+
+    // 注入 ⇒ 由注入实现给出后缀
+    setNativeStructureCloserLoader(() => (code, lang) => ({
+      balanced: false,
+      closureSuffix: `/*${lang}*/${code.length}`,
+      openCount: 1,
+    }));
+    const r = closeStructure('function f() {', 'ts');
+    expect(r).toEqual({
+      balanced: false,
+      closureSuffix: '/*ts*/14',
+      openCount: 1,
+    });
+    expect(getStructureNativeStats().nativeLoaded).toBe(true);
+
+    // 复位，避免影响其它用例
+    setNativeStructureCloserLoader(null);
+    resetStructureNativeForTest();
   });
 });
 

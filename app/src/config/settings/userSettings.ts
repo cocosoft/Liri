@@ -5,7 +5,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { getLogger } from '../../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@modules/error/handleError.js';
 
 const logger = getLogger('UserSettings');

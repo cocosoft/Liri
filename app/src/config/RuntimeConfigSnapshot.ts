@@ -7,12 +7,12 @@
  */
 
 import { createHash } from 'crypto';
-import { createLogger, LogLevel } from '../monitoring/logs/Logger.js';
+// B8（2026-11-01）：改走 core 日志门面（同文件其它 config 模块口径）—— 去掉 `config → monitoring` 边，
+// 该边与 `monitoring → config` 构成 R7 内环。**行为差异（如实）**：原 `createLogger` 自定义
+// `level: DEBUG`，门面默认 INFO ⇒ 该模块的 debug 级日志将被过滤（属 R11-001 建议的"默认形态"收敛）。
+import { getLogger } from '@openliri/kernel/loggerFacade';
 
-const logger = createLogger({
-  module: 'config:runtimeConfigSnapshot',
-  level: LogLevel.DEBUG,
-});
+const logger = getLogger('config:runtimeConfigSnapshot');
 
 // ─── 类型定义 ─────────────────────────────────
 

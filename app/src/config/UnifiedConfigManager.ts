@@ -9,7 +9,7 @@
  * @see ConfigManager.loadSyncSources / getMergedConfig / getSettingWithSource
  */
 
-import { getLogger } from '../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@modules/error';
 const logger = getLogger('config:UnifiedConfigManager');
 import {

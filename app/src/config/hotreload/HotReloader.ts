@@ -7,7 +7,7 @@ import {
   handleError,
 } from '@modules/error';
 
-import { getLogger } from '../../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('config:hotreload:HotReloader');
 
 export type ReloadStrategy = 'watch' | 'poll' | 'manual';

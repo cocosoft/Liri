@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { getLogger } from '../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@modules/error/handleError.js';
 import { ConfigSnapshot } from './ConfigSnapshot';
 

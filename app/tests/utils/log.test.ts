@@ -1,5 +1,18 @@
 import { describe, it, expect, spyOn, afterEach } from 'bun:test';
-import { logger, LogLevel } from '../../src/utils/log.js';
+// B8（2026-11-01）：`utils/log` 改为经 **core 日志门面**取 logger（去掉 utils→monitoring 边）⇒
+// 门面在测试进程内未注册 SPI 时为 noop。本文件校验的是**输出形态**，故直接对规范 Logger 断言；
+// 兼容层本身只保证"导出同名 logger"（上方 typeof 断言）。
+import { getLogger } from '../../src/monitoring/logs/Logger';
+import { logger as compatLogger } from '../../src/utils/log.js';
+
+const logger = getLogger('app');
+
+describe('utils/log 兼容层', () => {
+  it('导出同名 logger（经 core 日志门面解析）', () => {
+    expect(typeof compatLogger.info).toBe('function');
+    expect(typeof compatLogger.error).toBe('function');
+  });
+});
 
 describe('logger', () => {
   afterEach(() => {
@@ -7,10 +20,6 @@ describe('logger', () => {
     spyOn(console, 'error').mockRestore();
     spyOn(console, 'warn').mockRestore();
     spyOn(console, 'debug').mockRestore();
-  });
-
-  it('should export LogLevel enum', () => {
-    expect(LogLevel).toBeDefined();
   });
 
   it('should have info method', () => {

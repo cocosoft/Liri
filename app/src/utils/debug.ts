@@ -3,8 +3,8 @@
  */
 
 import { isEnvTruthy } from './envUtils.js';
-import { configManager } from '../config/ConfigManager.js';
-import { getLogger } from '../monitoring/logs/Logger.js';
+import { readUtilEnv } from './envAccess.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 
 const logger = getLogger('debug');
 
@@ -13,8 +13,7 @@ const logger = getLogger('debug');
  */
 export function isDebugMode(): boolean {
   return (
-    isEnvTruthy(configManager.env('DEBUG')) ||
-    isEnvTruthy(configManager.env('Liri_DEBUG'))
+    isEnvTruthy(readUtilEnv('DEBUG')) || isEnvTruthy(readUtilEnv('Liri_DEBUG'))
   );
 }
 
@@ -52,7 +51,7 @@ export function logForDebugging(
  * 检查是否需要格式化输出
  */
 export function getHasFormattedOutput(): boolean {
-  return !isEnvTruthy(configManager.env('Liri_STREAM_JSON'));
+  return !isEnvTruthy(readUtilEnv('Liri_STREAM_JSON'));
 }
 
 /**

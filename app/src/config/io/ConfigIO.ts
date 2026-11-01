@@ -4,7 +4,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { getLogger } from '../../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/environment';
 import { handleError } from '@modules/error/handleError.js';
 

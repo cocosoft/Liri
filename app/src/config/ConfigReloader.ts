@@ -4,7 +4,7 @@
  * 对齐 OpenClaw config/config-reload.ts
  */
 
-import { getLogger } from '../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@modules/error';
 import { watch, type FSWatcher, readFileSync } from 'fs';
 import { join } from 'path';

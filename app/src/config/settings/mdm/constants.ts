@@ -7,7 +7,7 @@ import { homedir, userInfo } from 'os';
 import { join } from 'path';
 
 import { handleError } from '@modules/error';
-import { getLogger } from '../../../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('config:settings:mdm:constants');
 
 /**

@@ -63,7 +63,7 @@ export function isMCPFastPathArgv(argv: string[]): boolean {
 
 import { modelManager } from '@modules/ai';
 import { hasPermissionsToUseTool } from '../permission/permissions';
-import { jsonStringify } from '../utils/slowOperations';
+import { jsonStringify } from '@modules/performance';
 import { getErrorParts } from '../utils/toolErrors';
 import { zodToJsonSchema } from '../utils/zodToJsonSchema';
 import { getDefaultAppState } from '../appState/AppState.js';

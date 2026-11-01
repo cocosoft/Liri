@@ -1,4 +1,4 @@
-import { getLogger } from '../monitoring/logs/Logger';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 // C1（2026-10-09）：统一 ID 熵源定义在 **core**（全层可用，含 core 自身）；此处**再导出**
 import { randomIdSuffix } from '@openliri/kernel/ids';
 

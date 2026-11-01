@@ -18,7 +18,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { getLogger } from '../../../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { configManager } from '../../ConfigManager.js';
 
 const logger = getLogger('config:authChain');

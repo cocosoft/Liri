@@ -4,9 +4,9 @@
   "fileCount": 87,
   "symbolCount": 709,
   "levelCounts": {
-    "stable": 207,
+    "stable": 208,
     "experimental": 128,
-    "internal": 374
+    "internal": 373
   },
   "entries": [
     {
@@ -1509,7 +1509,7 @@
     "productIdentity.ts#legacyProductEnvKey": "stable",
     "productIdentity.ts#productEnvKey": "stable",
     "productIdentity.ts#resetProductIdentity": "stable",
-    "profilerFacade.ts#profileCheckpoint": "internal",
+    "profilerFacade.ts#profileCheckpoint": "stable",
     "profilerFacade.ts#profilePhaseEnd": "stable",
     "profilerFacade.ts#profilePhaseStart": "stable",
     "protocol/websocket.ts#SEC_WEBSOCKET_ACCEPT_HEADER": "internal",

@@ -7,7 +7,7 @@
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/environment';
-import { getLogger } from '../../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('PolicySettings');
 import { deepMerge } from '@modules/utils/common.js';
 

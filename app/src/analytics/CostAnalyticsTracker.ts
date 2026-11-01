@@ -13,9 +13,12 @@
  */
 
 import { AnalyticsEventQueue } from './AnalyticsEventQueue';
-import { calculateTotalCost } from '../cost/calculateCost.js';
-import { getModelPricing } from '../cost/ModelPricing.js';
-import type { ModelPricing } from '../cost/ModelPricing.js';
+// B8（2026-11-01）：定价计算走内核契约 + 端口注入，去掉 `analytics → cost` 边（R7 四元环）
+import {
+  calculateTotalCost,
+  type ModelPricing,
+} from '@openliri/kernel/pricing';
+import { resolveModelPricing } from './pricingSource.js';
 import { globalEventBus, SystemEvents } from '@openliri/kernel/events/EventBus';
 import type { CostRecordedEvent } from '@openliri/kernel/events/EventBus';
 import { createLogger, LogLevel } from '../monitoring/logs/Logger.js';
@@ -194,7 +197,7 @@ export class CostAnalyticsTracker {
 
     // 无配置时回退到 ModelPricing 统一定价（含 Registry 兜底）
     if (!configPricing) {
-      const pricing = getModelPricing(model);
+      const pricing = resolveModelPricing(model);
       return calculateTotalCost(
         pricing,
         usage.inputTokens,

@@ -25,7 +25,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, resolve, sep } from 'node:path';
+import { dirname, join, posix, relative, resolve, sep } from 'node:path';
 
 import type { SourceFile } from './architectureBoundaryCore';
 import {
@@ -166,6 +166,23 @@ function buildInfraEdges(
             .slice('@openliri/infra/'.length)
             .replace(/\.js$/, '')
             .split('/')[0] ?? '';
+        if (to) edges.push({ from, to });
+        continue;
+      }
+      // B8（2026-11-01）：**相对导入**同样产生 infra→infra 边。
+      //
+      // 此前只解析 `@modules/*` / `@openliri/infra/*` ⇒ 模块内部用 `../monitoring/...` 这类相对
+      // 写法时，其**出边整块不可见**：`utils ↔ {config,monitoring,analytics,performance}` 的五元环
+      // 一直被"藏"着（迁包把相对写法统一成别名后立刻暴露）。这里按文件所在模块解析相对路径。
+      if (ref.specifier.startsWith('.')) {
+        const joined = posix.normalize(
+          posix.join(
+            dirname(file.path),
+            ref.specifier.replace(/\.jsx?$/, '')
+          )
+        );
+        if (joined.startsWith('..')) continue; // 逃逸扫描根 ⇒ 不属于任何模块
+        const to = joined.split('/')[0] ?? '';
         if (to) edges.push({ from, to });
       }
     }

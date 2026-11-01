@@ -11,7 +11,7 @@
 
 import { randomUUID } from 'crypto';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { getLogger } from '../../../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 import { ErrorCodes } from '@modules/error';
 import {
   EnterpriseAuditService,

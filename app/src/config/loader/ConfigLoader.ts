@@ -9,7 +9,7 @@ import {
 } from '@modules/error';
 import { resolvePyappHome } from '@modules/environment';
 
-import { getLogger } from '../../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('config:loader:ConfigLoader');
 
 export type ConfigFormat = 'json' | 'yaml' | 'env';

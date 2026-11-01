@@ -59,7 +59,7 @@ import {
   registerRuntimeConfigWriteListener,
 } from './RuntimeConfigSnapshot.js';
 
-import { getLogger } from '../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('config:ConfigManager');
 
 /**

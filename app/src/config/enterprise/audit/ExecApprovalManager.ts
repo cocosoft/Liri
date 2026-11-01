@@ -25,7 +25,7 @@ import {
   handleError,
 } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
-import { getLogger } from '../../../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('config:enterprise:audit:execApprovalManager');
 
 /** 审批状态 */

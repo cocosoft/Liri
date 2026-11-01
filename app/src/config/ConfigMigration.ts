@@ -4,7 +4,7 @@
  */
 
 import { GlobalConfig, createDefaultGlobalConfig } from './types.js';
-import { getLogger } from '../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('config:ConfigMigration');
 
 /**

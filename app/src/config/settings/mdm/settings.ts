@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { resolvePyappHome } from '@modules/environment';
-import { getLogger } from '../../../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('MDMSettings');
 import {
   WINDOWS_REGISTRY_KEY_PATH_HKCU,

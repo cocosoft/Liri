@@ -5,7 +5,7 @@
  * 每条策略包含多个规则，规则按优先级排序。
  */
 
-import { getLogger } from '../../../monitoring/logs/Logger.js';
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('config:enterprise:sandbox:sandboxPolicy');
 
 /** 策略规则条件操作符 */

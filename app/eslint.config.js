@@ -8,7 +8,6 @@ export default [
     ignores: [
       '**/hooks/**/*.js',
       '**/config.d.ts',
-      'src/utils/sinks.d.ts',
       'src/analytics/AnalyticsService.d.ts'
     ]
   },

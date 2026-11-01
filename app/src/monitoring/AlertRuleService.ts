@@ -4,7 +4,11 @@
  */
 
 import { EventEmitter } from 'events';
-import { getLogger } from '@modules/monitoring';
+// B8（2026-11-01）：改**直连** `logs/Logger`（原经 `@modules/monitoring` 桶）。
+// 桶 → AlertRuleService → 桶 构成模块级环；顶层 `getLogger(...)` 会在 `Logger.ts` 尚未求值时执行
+// ⇒ `moduleLoggers` TDZ（实测：utils/common 改走 core 日志门面后，去掉了"顺带提前求值 Logger.ts"
+// 的副作用，该潜在环立即暴露为 1199 个测试文件的 Unhandled error）。
+import { getLogger } from './logs/Logger.js';
 // C1（2026-10-09）：告警规则 id 熵源改用 crypto
 import { randomIdSuffix } from '../utils/common';
 const logger = getLogger('monitoring:alert_rule');

@@ -99,6 +99,9 @@ infra 禁止依赖：entry、ui、app、service
 - 2026-10-31 已去掉唯一生产消费者（`tools/lsp/LSPToolIntegration` 的校验改为 `tools/lsp/validation.ts`），
   并摘掉懒加载 / ImportManager 别名 / build-variant 三个入口（`dabb97a82`）。
 - 现状：**零静态消费者、零外部动态导入**，进入 **CD05 观察期**；观察期后按 CD06 独立删除（S6）。
+- 2026-11-02 复核（CD01–CD04）：代码面仍零消费者，但**测试** `tests/performance/benchmark.test.ts:12`
+  仍导入 `LSPServerConfigRegistry` ⇒ 删除前置未满足，**观察期延长、不删**
+  （详见 `tool-sidecar-isolation.md §13.7`）。
 
 ## 7. 升降级规则（未来变更的判据）
 

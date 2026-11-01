@@ -373,7 +373,7 @@
 | **S5** 媒体侧车（`vision_worker` 受管 + `sharp` 收口一处） | ✅ | `SidecarMediaAnalyzer` / `mediaSidecarLifecycle` / `ImageInputRouter` / `ImageAnalysisTool`；开关 `featureFlags.ts:680` |
 | **S2** LSP 双轨收敛 | ✅ **可执行部分已完成（2026-10-31，§13.6）** | 按 §13.2 改判：不再"接线"，改为去掉轨 B 的生产依赖（校验下沉 `tools/lsp/validation.ts` + 摘 3 个运行时/构建入口） |
 | **S4** 与内置工具同源门禁（注册/PathGuard/权限/结果上限） | ✅ | `tests/tools/sidecar/sidecarSameSourceGate.test.ts`（「保名派」：同一 loader 链 → 同一 `ToolRegistry`；PathGuard 由 `resolveToolParamNames` 注册表驱动判定；`maxResultSizeChars` 与内置 deep-equal；Landlock 显式 N/A） |
-| **S6** 物理删除被替代实现 | ⏳ **观察期（2026-10-31 起）** | 轨 B 已零消费者（§13.6）；观察期后按 CD06 独立删除提交 |
+| **S6** 物理删除被替代实现 | ⏳ **观察期（2026-10-31 起，2026-11-02 复核后延长）** | 轨 B 零代码消费者（§13.6 + §13.7 复核）；**尚有 1 处测试消费者**（`tests/performance/benchmark.test.ts` 的 `LSPServerConfigRegistry`）⇒ 不满足删除前置；观察期后按 CD06 独立删除提交 |
 
 ### 13.2 S2 前置的重新裁定（**关键**）
 
@@ -440,3 +440,24 @@
 **观察期口径（S6 前置）**：观察期内若出现 `@modules/lsp` 的导入需求或 LSP 工具行为异常 ⇒ 回滚本切片
 （还原 3 个入口 + 校验导入）；观察期结束、确认无消费者后，按 CD06 独立提交删除 `app/src/lsp/**` 与
 `tsconfig` 别名，并记录被删清单 + 回滚哈希。
+
+> **2026-11-02 复核结论：延长观察、不删**（详见 §13.7）。
+
+### 13.7 S6 观察期复核（2026-11-02，CD01–CD04）
+
+**结论：延长观察期，不删除 `app/src/lsp/**`**（删除前置未满足：仍有 1 处**测试**消费者）。
+
+| 核查项 | 结果 |
+|---|---|
+| CD01 静态/动态导入 | `@modules/lsp` **0 处代码导入**（仅 `app/tsconfig.json:171-172` 别名 + 3 处注释）；`import('…lsp…')` 仅存在于 `app/src/lsp/` 自身 |
+| CD02 构建 / 懒加载入口 | `bootstrap/generatedLazyLoaders.ts` 已无 lsp 条目（仅变体注释）；`app/scripts/build-variant.ts` 的 `BASE_LAZY_LOADERS` 已删 lsp；`modules/ImportManager.ts` 别名已删；`packages/kernel/src/core/LazyModuleStrategy.ts:155` 的 `lsp` **仅剩元数据**（`priority`/`trigger`/`loadMode`），**无 loader thunk** |
+| CD03 DI / 反射 / 协议入口 | 无（无注册表、无 decorator、无 HTTP/IPC 路由指向轨 B） |
+| CD04 测试 / 变体 / 运行模式 | **唯一消费者 = 测试**：`tests/performance/benchmark.test.ts:12` 相对导入 `LSPServerConfigRegistry`；`tests/tools/lsp*` 12 pass；`lsp` 工具面走轨 A（`byKey('createLSPTool')`）或 `SidecarLspTool`，与轨 B 无关 |
+| 工具面门控 | `coreFeature('LSP')` / `TOOL_SIDECAR_LSP` 仍在用（属工具面，不属轨 B） |
+
+**删除前置（下次复核按此判定）**：
+1. 摘掉 `benchmark.test.ts` 对 `LSPServerConfigRegistry` 的引用（换等价基准对象或改测 `tools/lsp`）；
+2. 删除 `app/tsconfig.json` 的 `@modules/lsp` 别名；
+3. 按 CD06 **独立提交**删除 `app/src/lsp/**`，提交信息附被删清单 + 回滚哈希；
+4. 同批评估 `packages/kernel/src/core/LazyModuleStrategy.ts` 的 `lsp` 元数据条目与
+   `app/src/modules/ModuleDefinitions.ts` 的 `lsp` 模块声明是否一并清理。

@@ -4,7 +4,7 @@
 
 /* eslint-disable no-console -- 调试脚本：有意直接打印到终端（非生产代码） */
 
-import { StreamingToolCallScrubber } from '../../src/streaming/scrubbers/StreamingToolCallScrubber.js';
+import { StreamingToolCallScrubber } from '@openliri/service/streaming/scrubbers/StreamingToolCallScrubber';
 
 const RESET = '\x1b[0m';
 const CYAN = '\x1b[36m';

@@ -63,7 +63,7 @@ import {
 // session_summary 类型注册（注册动作已随 Cut C（issue #8）迁入 `manager/hostWiring.ts`）
 import { rollupSessionSummaryToLongTerm } from '@openliri/infra/memory';
 import type { LiriEvent, LiriEventData } from '@modules/session/types/events';
-import { StreamingToolCallScrubber } from '@modules/streaming';
+import { StreamingToolCallScrubber } from '@openliri/service/streaming';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
 import { SessionLifecycleManager } from './services/SessionLifecycleManager.js';
 import { ResumeCoordinator } from './services/ResumeCoordinator.js';

@@ -35,7 +35,7 @@ import {
 import {
   StreamingToolCallScrubber,
   StreamingThinkScrubber,
-} from '@modules/streaming';
+} from '@openliri/service/streaming';
 import { repairImageUrls, resolveMaxOutputTokens } from './services/ChatHelper';
 import { startRequest } from './services/requestBoundary';
 import { getLogger } from '@openliri/infra/monitoring';

@@ -36,6 +36,14 @@
     "./ports/aiOpsPorts": {
       "types": "./src/ports/aiOpsPorts.ts",
       "import": "./src/ports/aiOpsPorts.ts"
+    },
+    "./streaming": {
+      "types": "./src/streaming/index.ts",
+      "import": "./src/streaming/index.ts"
+    },
+    "./streaming/*": {
+      "types": "./src/streaming/*.ts",
+      "import": "./src/streaming/*.ts"
     }
   },
   "scripts": {

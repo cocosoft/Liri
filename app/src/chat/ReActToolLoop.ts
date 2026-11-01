@@ -84,7 +84,7 @@ import {
   prepareToolResultsForContext,
   resolveToolParamNames,
 } from '@modules/tools';
-import { StreamingThinkScrubber } from '@modules/streaming';
+import { StreamingThinkScrubber } from '@openliri/service/streaming';
 import { stripBareExploration } from './services/bareExplorationStripper';
 import { extractTodoData } from './services/ChatHelper';
 // 2026-11-01：工具调用纠偏（同参数重复 / 跨轮重读已读文件）外移到 manager（守 R04-001 行数）

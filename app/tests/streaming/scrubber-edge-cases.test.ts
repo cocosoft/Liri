@@ -7,7 +7,7 @@
  * 验证修复后不存在导致输出截断的残留风险。
  */
 import { describe, it, expect } from 'bun:test';
-import { StreamingToolCallScrubber } from '../../src/streaming/scrubbers/StreamingToolCallScrubber.js';
+import { StreamingToolCallScrubber } from '@openliri/service/streaming/scrubbers/StreamingToolCallScrubber';
 
 function simulate(chunks: string[], flush = true): string {
   const s = new StreamingToolCallScrubber();

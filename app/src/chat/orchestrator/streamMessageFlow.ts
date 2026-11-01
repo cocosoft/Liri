@@ -38,7 +38,7 @@ import {
 } from '@openliri/infra/error';
 import { configManager } from '@openliri/infra/config';
 import { SimpleMutex } from '@openliri/kernel';
-import { StreamingThinkScrubber } from '@modules/streaming';
+import { StreamingThinkScrubber } from '@openliri/service/streaming';
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import {
   createMaxOutputRetryState,

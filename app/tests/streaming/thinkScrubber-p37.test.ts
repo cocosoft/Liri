@@ -12,7 +12,7 @@
  *   作为最终正文交付（实测最终消息 251 字符纯 think）。
  */
 import { describe, it, expect } from 'bun:test';
-import { StreamingThinkScrubber } from '../../src/streaming/scrubbers/StreamingThinkScrubber.js';
+import { StreamingThinkScrubber } from '@openliri/service/streaming/scrubbers/StreamingThinkScrubber';
 import { stripThinkResponseTags } from '../../src/chat/services/MessageContextPipeline.js';
 
 describe('P3-7c StreamingThinkScrubber 半截闭合标签', () => {

@@ -6,7 +6,7 @@
  * 构造包含干扰标签的完整 AI 输出，分 chunk 推送，观察每个 chunk 的输出。
  */
 import { describe, it, expect } from 'bun:test';
-import { StreamingToolCallScrubber } from '../../src/streaming/scrubbers/StreamingToolCallScrubber.js';
+import { StreamingToolCallScrubber } from '@openliri/service/streaming/scrubbers/StreamingToolCallScrubber';
 
 /** 模拟流式推送：逐 chunk 输入，收集所有输出 */
 function simulateStream(chunks: string[]): string[] {

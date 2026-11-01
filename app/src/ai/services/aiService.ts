@@ -29,7 +29,7 @@ import { DEFAULT_RETRY_CONFIG } from '@openliri/infra/utils/withRetry';
 import {
   createDefaultScrubberPipeline,
   type ScrubberPipeline,
-} from '@modules/streaming';
+} from '@openliri/service/streaming';
 import { trackUsage, extractModelFromResponse } from '../UsageTracker.js';
 import { configManager } from '@openliri/infra/config';
 

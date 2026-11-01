@@ -7,7 +7,7 @@
  * 运行时日志验证脚本
  * 输出 scrubber 每次状态转换的详细信息
  */
-import { StreamingToolCallScrubber } from '../../src/streaming/scrubbers/StreamingToolCallScrubber.js';
+import { StreamingToolCallScrubber } from '@openliri/service/streaming/scrubbers/StreamingToolCallScrubber';
 
 const RESET = '\x1b[0m';
 const GREEN = '\x1b[32m';

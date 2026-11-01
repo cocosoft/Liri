@@ -62,7 +62,7 @@ import {
 } from '../services/MessageContextPipeline';
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import { composeSystemPrompt } from '../services/systemPromptComposition';
-import { StreamingToolCallScrubber } from '@modules/streaming';
+import { StreamingToolCallScrubber } from '@openliri/service/streaming';
 import { validatePathsInOutput } from '../services/PathGuardService';
 import { trackUsage, extractModelFromResponse } from '@modules/ai';
 import { getModelPricing } from '@openliri/infra/cost';

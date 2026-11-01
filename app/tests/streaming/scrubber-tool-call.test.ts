@@ -7,7 +7,7 @@
  * 验证正文中出现工具调用标签时不会被误擦除。
  */
 import { describe, it, expect } from 'bun:test';
-import { StreamingToolCallScrubber } from '../../src/streaming/scrubbers/StreamingToolCallScrubber.js';
+import { StreamingToolCallScrubber } from '@openliri/service/streaming/scrubbers/StreamingToolCallScrubber';
 
 function scrubText(text: string): string {
   const scrubber = new StreamingToolCallScrubber();

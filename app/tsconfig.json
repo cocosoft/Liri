@@ -266,8 +266,15 @@
       "@modules/state/*": ["system/state/*"],
       "@modules/appState": ["appState"],
       "@modules/appState/*": ["appState/*"],
-      "@modules/streaming": ["streaming"],
-      "@modules/streaming/*": ["streaming/*"],
+      "@openliri/service/streaming": [
+        "../../packages/service/src/streaming/index.ts"
+      ],
+      "@openliri/service/streaming.js": [
+        "../../packages/service/src/streaming/index.ts"
+      ],
+      "@openliri/service/streaming/*": [
+        "../../packages/service/src/streaming/*"
+      ],
       "@modules/tasks": ["tasks"],
       "@modules/tasks/*": ["tasks/*"],
       "@modules/ui": ["ui"],

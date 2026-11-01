@@ -149,7 +149,7 @@
       "reason": "后台任务状态机本体（R09-001 已接线的 state/engine 实例）：其**运行时实例**登记在 StateMachineRegistry，本目录只登记定义级清单，按方案口径不重复登记"
     },
     {
-      "file": "app/src/streaming/types.ts",
+      "file": "packages/service/src/streaming/types.ts",
       "exportName": "StreamState",
       "reason": "流式管线（G14 相关）的管线态枚举；阶段 2 将处理 chunk/SSE 裸字符串，此处枚举本身不在 1.4 范围"
     },

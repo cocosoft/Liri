@@ -8,7 +8,7 @@
  * 同名的**同族变体**（形状各不相同 ⇒ **未合并**，合并=改字段名=行为面）：
  * - `app/src/query/withRetry.ts`（多 `jitterFactor`，查询层专用，文件自述「已知变体（待合并）」）
  * - `app/src/ai/providers/BaseAIProvider.ts`（用 `baseDelayMs` 而非 `initialDelayMs`）
- * - `app/src/streaming/IncrementalRetry.ts`（`IncrementalRetryConfig`，流式增量重试）
+ * - `packages/service/src/streaming/IncrementalRetry.ts`（`IncrementalRetryConfig`，流式增量重试；P31 迁入 service 物理包）
  *
  * **Bridge API 退避** —— 唯一真源 `app/src/bridge/types/BridgeApiTypes.ts` 的
  * `DEFAULT_BACKOFF_CONFIG`（`bridge/api/BridgeApi.ts` 原先**自带同值副本** ⇒ 已删）。
@@ -44,6 +44,8 @@ const ALL: string[] = [];
 collectTs(SRC, ALL);
 // P6（2026-11-01）：`utils` 迁入 infra 物理包 ⇒ 其声明点仍在扫描面内（相对 APP 的路径带 `../`）
 collectTs(join(APP, '..', 'packages', 'infra', 'src'), ALL);
+// P31（2026-11-02）：`streaming` 迁入 service 物理包 ⇒ 其声明点同样须留在扫描面内
+collectTs(join(APP, '..', 'packages', 'service', 'src'), ALL);
 
 const rel = (p: string) => relative(APP, p).split('\\').join('/');
 const read = (p: string) => readFileSync(p, 'utf-8');
@@ -73,10 +75,11 @@ describe('HD-P1-2 A8 · 退避/重试默认值单一真源', () => {
       hitFiles(/const DEFAULT_RETRY_CONFIG\b/),
       '新增同名默认配置前，先回台账 HARDCODE-HDP1-2-A8-BACKOFF-DEFAULTS 复核（能否复用真源？）'
     ).toEqual([
+      // 顺序按 `hitFiles` 的 `.sort()`（`../…` 字典序在 `src/…` 之前）
       '../packages/infra/src/utils/withRetry.ts',
+      '../packages/service/src/streaming/IncrementalRetry.ts',
       'src/ai/providers/BaseAIProvider.ts',
       'src/query/withRetry.ts',
-      'src/streaming/IncrementalRetry.ts',
     ]);
   });
 

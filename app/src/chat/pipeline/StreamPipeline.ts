@@ -34,7 +34,7 @@ import {
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import { composeSystemPrompt } from '../services/systemPromptComposition';
 import { repairImageUrls } from '../services/ChatHelper';
-import { StreamingToolCallScrubber } from '@modules/streaming';
+import { StreamingToolCallScrubber } from '@openliri/service/streaming';
 import { getModelPricing } from '@openliri/infra/cost';
 import { calculateTotalCost } from '@openliri/infra/cost';
 import {

@@ -27,7 +27,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { StreamingThinkScrubber } from '../../src/streaming/scrubbers/StreamingThinkScrubber';
+import { StreamingThinkScrubber } from '@openliri/service/streaming/scrubbers/StreamingThinkScrubber';
 
 function scrubStream(
   scrubber: StreamingThinkScrubber,

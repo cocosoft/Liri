@@ -71,45 +71,15 @@ export interface CacheConfig {
 }
 
 /**
- * 缓存统计信息
+ * 缓存统计信息 / 统一缓存接口 —— **契约已迁至 `@modules/common`**
+ *
+ * 2026-11-01（B4 解环）：`ICache` / `CacheStats` 是**跨层共享契约**，此前定义在本文件里，
+ * 使 `utils/cache.ts`（通用 TTL/LRU 实现）必须 `import type … from '@modules/cache/types'`
+ * ⇒ `utils → cache` 出边，与 `cache → utils` 无关但把 utils 拖进 infra 的强连通分量。
+ * 契约下沉到叶子模块 `common` 后，两侧都只依赖 `common`，本文件保留**同名转出**
+ * （`@modules/cache` 与 `@modules/cache/types` 的导出面逐字不变）。
  */
-export interface CacheStats {
-  /**
-   * 缓存项数量
-   */
-  size: number;
-  /**
-   * 命中次数
-   */
-  hits: number;
-  /**
-   * 未命中次数
-   */
-  misses: number;
-  /**
-   * 过期次数
-   */
-  expirations: number;
-  /**
-   * 清理次数
-   */
-  cleanups: number;
-}
-
-/**
- * 统一缓存接口
- * 所有缓存实现必须遵循此接口
- * 缓存键命名规范: 模块名:子模块:具体键名
- */
-export interface ICache<K = string, V = unknown> {
-  get(key: K): V | null;
-  set(key: K, value: V, ttl?: number): void;
-  delete(key: K): boolean;
-  clear(): void;
-  has(key: K): boolean;
-  size(): number;
-  getStats(): CacheStats;
-}
+export type { CacheStats, ICache } from '@modules/common';
 
 // ───── 持久化缓存类型（源自 CacheSystem） ─────
 

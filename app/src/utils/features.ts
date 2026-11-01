@@ -5,19 +5,18 @@
  */
 
 import { isEnvTruthy } from './envUtils.js';
-
-import { configManager } from '@modules/config';
+import { readUtilEnv } from './envAccess';
 
 /**
  * 检查是否为 ANT 用户类型
  */
 export function isAntUser(): boolean {
-  return configManager.env('USER_TYPE') === 'ant';
+  return readUtilEnv('USER_TYPE') === 'ant';
 }
 
 /**
  * 检查是否为简单模式
  */
 export function isSimpleMode(): boolean {
-  return isEnvTruthy(configManager.env('PYAPP_SIMPLE_MODE'));
+  return isEnvTruthy(readUtilEnv('PYAPP_SIMPLE_MODE'));
 }

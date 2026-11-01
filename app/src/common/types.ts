@@ -450,3 +450,38 @@ export interface Observable<T = unknown> {
   unsubscribe(observer: Observer<T>): void;
   notify(data: T): void;
 }
+
+/**
+ * 缓存统计信息
+ *
+ * 2026-11-01（B4 解环）：自 `cache/types.ts` 下沉至此 —— 它被 `utils/cache.ts`（通用实现）
+ * 与 `cache`（缓存子系统）两侧共用，放在 `cache` 里会让 `utils → cache` 成为出边、
+ * 把 utils 拖进 infra 的强连通分量。`cache/types.ts` 保留同名转出。
+ */
+export interface CacheStats {
+  /** 缓存项数量 */
+  size: number;
+  /** 命中次数 */
+  hits: number;
+  /** 未命中次数 */
+  misses: number;
+  /** 过期次数 */
+  expirations: number;
+  /** 清理次数 */
+  cleanups: number;
+}
+
+/**
+ * 统一缓存接口
+ * 所有缓存实现必须遵循此接口
+ * 缓存键命名规范: 模块名:子模块:具体键名
+ */
+export interface ICache<K = string, V = unknown> {
+  get(key: K): V | null;
+  set(key: K, value: V, ttl?: number): void;
+  delete(key: K): boolean;
+  clear(): void;
+  has(key: K): boolean;
+  size(): number;
+  getStats(): CacheStats;
+}

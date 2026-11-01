@@ -4,7 +4,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { configManager } from '@modules/config/ConfigManager.js';
+import { readUtilEnv } from './envAccess';
 
 /**
  * 查找可用的 CA 证书文件路径（供 Bun fetch 的 tls.ca 注入使用）。
@@ -18,7 +18,7 @@ import { configManager } from '@modules/config/ConfigManager.js';
  * @returns CA 证书文件绝对路径；未找到返回 undefined
  */
 export function findCACertFilePath(): string | undefined {
-  const caCertEnv = configManager.env('NODE_EXTRA_CA_CERTS');
+  const caCertEnv = readUtilEnv('NODE_EXTRA_CA_CERTS');
   if (caCertEnv && fs.existsSync(caCertEnv)) {
     return caCertEnv;
   }
@@ -38,7 +38,7 @@ export function findCACertFilePath(): string | undefined {
 export function getCACertificates(): string[] | undefined {
   try {
     // 检查环境变量
-    const caCertEnv = configManager.env('NODE_EXTRA_CA_CERTS');
+    const caCertEnv = readUtilEnv('NODE_EXTRA_CA_CERTS');
     if (caCertEnv) {
       const caCertPath = caCertEnv;
       if (fs.existsSync(caCertPath)) {

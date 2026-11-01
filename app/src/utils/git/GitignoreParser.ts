@@ -9,7 +9,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname, join, relative, normalize } from 'path';
 import { existsSync } from 'fs';
 import { resolveGitDir } from './GitFilesystem';
-import { configManager } from '@modules/config';
+import { readUtilEnv } from '../envAccess';
 
 import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
@@ -26,7 +26,7 @@ export interface IgnoreRule {
 const GLOBAL_GITIGNORE_BASE =
   process.platform === 'win32'
     ? (() => {
-        const userProfile = configManager.env('USERPROFILE');
+        const userProfile = readUtilEnv('USERPROFILE');
         if (userProfile && userProfile !== 'C:\\Users\\Default') {
           return join(userProfile, '.config', 'git', 'ignore');
         }
@@ -34,7 +34,7 @@ const GLOBAL_GITIGNORE_BASE =
         const { resolveProjectRoot } = require('@openliri/kernel');
         return join(resolveProjectRoot(), '.config', 'git', 'ignore');
       })()
-    : join(configManager.env('HOME') || '/root', '.config', 'git', 'ignore');
+    : join(readUtilEnv('HOME') || '/root', '.config', 'git', 'ignore');
 
 function getGlobalGitignorePath(): string {
   return GLOBAL_GITIGNORE_BASE;

@@ -13,8 +13,8 @@
  */
 
 import { spawn } from 'child_process';
-import { configManager } from '@modules/config';
 import { basename } from 'path';
+import { readUtilEnv } from '../envAccess';
 
 import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
@@ -289,14 +289,14 @@ export async function detectTerminal(): Promise<TerminalInfo | null> {
       return { name: 'Windows Terminal', command: 'wt.exe' };
     }
     // Check if running in Windows Terminal via env
-    if (configManager.env('WT_SESSION')) {
+    if (readUtilEnv('WT_SESSION')) {
       return { name: 'Windows Terminal', command: 'wt.exe' };
     }
     return { name: 'PowerShell', command: 'powershell.exe' };
   }
 
   if (process.platform === 'darwin') {
-    const termProgram = configManager.env('TERM_PROGRAM');
+    const termProgram = readUtilEnv('TERM_PROGRAM');
     if (termProgram) {
       const normalized = termProgram.replace(/\.app$/i, '').toLowerCase();
       const match = MACOS_TERMINALS.find(
@@ -308,7 +308,7 @@ export async function detectTerminal(): Promise<TerminalInfo | null> {
   }
 
   if (process.platform === 'linux') {
-    const term = configManager.env('TERM') || configManager.env('TERMINAL');
+    const term = readUtilEnv('TERM') || readUtilEnv('TERMINAL');
     if (term) {
       for (const t of LINUX_TERMINALS) {
         if (t === term || basename(term) === t) {

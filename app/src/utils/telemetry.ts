@@ -4,7 +4,7 @@
  * 提供遥测数据收集和上报功能。
  * 包含用户许可检查、事件采样和批量上报。
  */
-import { configManager } from '@modules/config';
+import { readUtilEnv } from './envAccess';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
@@ -70,8 +70,7 @@ export class TelemetryService {
         this.level = data.trim() as TelemetryLevel;
       } else {
         this.level =
-          (configManager.env('Liri_TELEMETRY_LEVEL') as TelemetryLevel) ||
-          'basic';
+          (readUtilEnv('Liri_TELEMETRY_LEVEL') as TelemetryLevel) || 'basic';
       }
     } catch {
       this.level = 'basic';

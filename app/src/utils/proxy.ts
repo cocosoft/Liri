@@ -3,7 +3,7 @@
  */
 
 import { isEnvTruthy } from './envUtils.js';
-import { configManager } from '@modules/config';
+import { readUtilEnv } from './envAccess';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 import { handleError } from '@openliri/kernel/errorHandler';
 
@@ -14,16 +14,16 @@ const logger = getLogger('utils:proxy');
  */
 export function getProxyUrl(): string | undefined {
   // 优先使用HTTPS代理
-  if (configManager.env('HTTPS_PROXY')) {
-    return configManager.env('HTTPS_PROXY');
+  if (readUtilEnv('HTTPS_PROXY')) {
+    return readUtilEnv('HTTPS_PROXY');
   }
   // 其次使用HTTP代理
-  if (configManager.env('HTTP_PROXY')) {
-    return configManager.env('HTTP_PROXY');
+  if (readUtilEnv('HTTP_PROXY')) {
+    return readUtilEnv('HTTP_PROXY');
   }
   // 最后使用ALL_PROXY
-  if (configManager.env('ALL_PROXY')) {
-    return configManager.env('ALL_PROXY');
+  if (readUtilEnv('ALL_PROXY')) {
+    return readUtilEnv('ALL_PROXY');
   }
   return undefined;
 }
@@ -33,7 +33,7 @@ export function getProxyUrl(): string | undefined {
  */
 export function shouldBypassProxy(url: string): boolean {
   // 检查是否在NO_PROXY环境变量中
-  const noProxy = configManager.env('NO_PROXY');
+  const noProxy = readUtilEnv('NO_PROXY');
   if (!noProxy) {
     return false;
   }

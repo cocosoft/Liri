@@ -10,8 +10,8 @@ import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { USER_CONFIG_PATH, resolvePyappHome } from '@modules/environment';
 import { randomUUID } from 'crypto';
-import { configManager } from '@modules/config';
 import { OAUTH_AUTH_BASE_URL } from '@modules/constants';
+import { readUtilEnv } from './envAccess';
 
 import { handleError } from '@openliri/kernel/errorHandler';
 import { getLogger } from '@openliri/kernel/loggerFacade';
@@ -38,9 +38,7 @@ const CONFIG_DIR = resolvePyappHome();
 const SESSION_FILE = join(CONFIG_DIR, 'session.json');
 
 function resolveApiKeyFromEnv(): string | undefined {
-  return (
-    configManager.env('LIRI_AI_API_KEY') || configManager.env('Liri_API_KEY')
-  );
+  return readUtilEnv('LIRI_AI_API_KEY') || readUtilEnv('Liri_API_KEY');
 }
 
 function resolveApiKeyFromConfig(config: AuthConfig): string | undefined {

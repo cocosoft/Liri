@@ -7928,3 +7928,23 @@
 {"id":"INFRA-PACKAGE-P19-COST","k":"tests#1","i":0,"c":"app/tests/cost/costRepositoryOwnerScope.test.ts"}
 {"id":"INFRA-PACKAGE-P19-COST","k":"tests#2","i":0,"c":"app/tests/cost/fallbackPricingSingleSource.test.ts"}
 {"id":"INFRA-PACKAGE-P19-COST","k":"tests#3","i":0,"c":"app/tests/integration/cost-metrics.test.ts"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"title","i":0,"c":"P20：oauth 迁入 packages/infra（30 文件 + 模块内测试改归 app/tests）"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.18"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"reopenWhen","i":0,"c":"① 若 `system` 迁包 ⇒ 它是 `oauth` 的消费者之一（`system/auth/*`），`system → oauth` 为 app→package，合法；② 若模块内再出现 `__tests__/`（包内测试）⇒ `bun test`（cwd=app）不再收集，必须迁回 `app/tests/<module>/`，否则静默失去覆盖。"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"notes","i":0,"c":"迁包：oauth 共 31 文件 —— 30 个生产文件（index / flows / providers / services / types / utils / README）git mv 至 packages/infra/src/oauth；**模块内测试 `__tests__/OAuthProviderStore.test.ts` 迁到 `"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"notes","i":1,"c":"app/tests/oauth/`**：留在包内会让 `bun test`（cwd=app）不再收集（P12 是反向问题：包内 tsc 排除了 test）⇒ 静默失去 5 个用例。引用改写：22 处 `@modules/oauth`（含 README 示例 5 处）、1 处**包内自引**改相对（`OAuthStartup` → `"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"notes","i":2,"c":"./OAuthStorage`，避免服务层反向依赖桶）。别名：删除 `@modules/oauth{,.js}`，新增 `@openliri/infra/oauth{,.js,/*}` + 包 exports `./oauth` 与 `/*`。包内出边：monitoring（14）· error（8）· config（3）· constants（2）· "}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"notes","i":3,"c":"environment（2）· utils（1）· kernel（1）；R7 SCC 仍 0。联动：state-literal 3 处、logger-name 6 处、证据 code[] 3 处路径键改名；kernel-api 快照无需变动（oauth 无内核转出面）。运行期自证：import(@openliri/infra/oauth) 26 导出（并触发"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"notes","i":4,"c":" OAuthService 初始化日志）、require(@openliri/infra/oauth/OAuthProviderStore) 正常。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名；monitoring 临时 import 本包 ⇒ R7 报环（均已回滚）。"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#0","i":0,"c":"packages/infra/src/oauth/index.ts"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#1","i":0,"c":"packages/infra/src/oauth/OAuthProviderStore.ts"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#2","i":0,"c":"packages/infra/src/oauth/services/OAuthStartup.ts"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#3","i":0,"c":"packages/infra/src/oauth/services/OAuthStorage.ts"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#4","i":0,"c":"app/tests/oauth/OAuthProviderStore.test.ts"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#5","i":0,"c":"app/src/system/auth/AuthManager.ts"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#6","i":0,"c":"app/src/system/auth/CoreOAuthProvider.ts"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#7","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"code#8","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"tests#0","i":0,"c":"app/tests/oauth/OAuthProviderStore.test.ts"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"tests#1","i":0,"c":"app/tests/tools/mcpAuthTool.test.ts"}
+{"id":"INFRA-PACKAGE-P20-OAUTH","k":"tests#2","i":0,"c":"app/tests/http/verifyRequestAuth.test.ts"}

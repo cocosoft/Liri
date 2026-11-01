@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INFRA-PACKAGE-P20-OAUTH**：P20：oauth 迁入 packages/infra（模块内测试改归 app/tests） —— 验证 tsc0|tests9661|gates55|infra0|scc0；基线 oauth 31 文件在 app/src（含 __tests__ 内联测试）（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P20-OAUTH）
 - ✅ **INFRA-PACKAGE-P19-COST**：P19：cost 迁入 packages/infra（React hook 按层归位 app） —— 验证 tsc0|tests9539|gates55|infra0|scc0；基线 cost 21 文件在 app/src；useCostSummary 静态依赖 react（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P19-COST）
 - ✅ **INFRA-PACKAGE-P18-ANALYTICS**：P18：analytics 迁入 packages/infra（静态/动态/目录导入三类漏点补齐） —— 验证 tsc0|tests9539|gates55|infra0|scc0；基线 analytics 24 文件在 app/src；出边含静态/动态两条 monitoring 相对路径（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P18-ANALYTICS）
 - ✅ **INFRA-PACKAGE-P17-PERFORMANCE**：P17：performance 迁入 packages/infra（含包内跨子目录改相对） —— 验证 tsc0|tests9539|gates55|infra0|scc0；基线 performance 23 文件在 app/src；cache 经 @modules/performance 门面取其工具函数（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P17-PERFORMANCE）

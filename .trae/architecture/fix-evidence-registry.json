@@ -16769,6 +16769,42 @@
       "changelog": [],
       "reopenWhen": "① 若宿主（app）以后把 react 装进 repo 根 `node_modules` ⇒ 可重新评估把 React hook 放回包内（当前**不建议**：infra 不应依赖 UI 框架）；② 若 `analytics` 反向依赖 `cost` ⇒ `cost → analytics` 立即成环（R7 会报）。（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P19-COST）",
       "notes": "迁包：cost 共 21 文件 —— **20 个数据面文件** git mv 至 packages/infra/src/cost；`useCostSummary.ts`（React hook）**归位 app 层** `app/src/hooks/`。**为什么拆**：hook 静态 `import react`，…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P19-COST）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P20-OAUTH",
+      "title": "P20：oauth 迁入 packages/infra（30 文件 + 模块内测试改归 app/tests）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.18",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/oauth/index.ts",
+        "packages/infra/src/oauth/OAuthProviderStore.ts",
+        "packages/infra/src/oauth/services/OAuthStartup.ts",
+        "packages/infra/src/oauth/services/OAuthStorage.ts",
+        "app/tests/oauth/OAuthProviderStore.test.ts",
+        "app/src/system/auth/AuthManager.ts",
+        "app/src/system/auth/CoreOAuthProvider.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json"
+      ],
+      "tests": [
+        "app/tests/oauth/OAuthProviderStore.test.ts",
+        "app/tests/tools/mcpAuthTool.test.ts",
+        "app/tests/http/verifyRequestAuth.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若 `system` 迁包 ⇒ 它是 `oauth` 的消费者之一（`system/auth/*`），`system → oauth` 为 app→package，合法；② 若模块内再出现 `__tests__/`（包内测试）⇒ `bun test`（cwd=app）不再收集，必须迁回 `app/tests/<m…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P20-OAUTH）",
+      "notes": "迁包：oauth 共 31 文件 —— 30 个生产文件（index / flows / providers / services / types / utils / README）git mv 至 packages/infra/src/oauth；**模块内测试 `__tests__/OAuthProviderSt…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P20-OAUTH）"
     }
   ]
 }

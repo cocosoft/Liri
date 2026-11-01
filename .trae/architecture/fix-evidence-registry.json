@@ -16410,6 +16410,39 @@
       "changelog": [],
       "reopenWhen": "① 若 `runtimeHost` 需被 core 引用（如健康检查契约回灌）⇒ 只能在 kernel 保留纯契约，禁止 core→infra 反向依赖；② 若新增 `runtimeHost/*` 顶层文件 ⇒ 本模块是 eager 启动面（main.ts 静态加载），须先跑 lint:startup-graph。（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P9-RUNTIMEHOST）",
       "notes": "迁包：git mv 13 文件（含 delivery/** 与 health/）+ 13 处引用改 @openliri/infra/runtimeHost；P8 已把 environment 收进包 ⇒ 本模块 out 边 0，迁入不新增任何跨模块边（R7 SCC 仍 0）。注册面核查（CD02/CD03）：不在 `…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P9-RUNTIMEHOST）"
+    },
+    {
+      "id": "INFRA-PACKAGE-P10-FEATUREFLAGS",
+      "title": "P10：featureflags 迁入 packages/infra（2 文件 / 3 处引用）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §五-4.8",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/infra/src/featureflags/index.ts",
+        "packages/infra/src/featureflags/types.ts",
+        "app/scripts/build-variant.ts",
+        "app/src/bootstrap/generatedLazyLoaders.ts",
+        "app/tsconfig.json",
+        "packages/infra/package.json",
+        "app/src/services/mcp/MCPConnection.ts",
+        "app/src/services/mcp/auth/MCPAuth.ts"
+      ],
+      "tests": [
+        "app/tests/core/lazyLoaderRegistry.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 若新增按需加载模块 ⇒ 必须同时改 build-variant 的 BASE/UI_LAZY_LOADERS 与重生成 generatedLazyLoaders；② 若 ModuleDefinitions 的 featureflags 条目将来携带物理路径字段 ⇒ 需同批改到 @openliri/infra/fe…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P10-FEATUREFLAGS）",
+      "notes": "迁包：git mv 2 文件 + 3 处引用改 @openliri/infra/featureflags。**注册面是本批重点**（CD02/CD03）：① build-variant 的 BASE_LAZY_LOADERS 说明符；② 生成物 generatedLazyLoaders 的同名字面量（手改单行，不动时…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-P10-FEATUREFLAGS）"
     }
   ]
 }

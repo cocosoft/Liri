@@ -7732,3 +7732,18 @@
 {"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"tests#1","i":0,"c":"app/tests/core/runtimeHost/estop.test.ts"}
 {"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"tests#2","i":0,"c":"app/tests/core/runtimeHost/exitRecorder.test.ts"}
 {"id":"INFRA-PACKAGE-P9-RUNTIMEHOST","k":"tests#3","i":0,"c":"app/tests/core/runtimeHost/idleScaleMonitor.test.ts"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"title","i":0,"c":"P10：featureflags 迁入 packages/infra（2 文件 / 3 处引用）"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §五-4.8"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"reopenWhen","i":0,"c":"① 若新增按需加载模块 ⇒ 必须同时改 build-variant 的 BASE/UI_LAZY_LOADERS 与重生成 generatedLazyLoaders；② 若 ModuleDefinitions 的 featureflags 条目将来携带物理路径字段 ⇒ 需同批改到 @openliri/infra/featureflags。"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"notes","i":0,"c":"迁包：git mv 2 文件 + 3 处引用改 @openliri/infra/featureflags。**注册面是本批重点**（CD02/CD03）：① build-variant 的 BASE_LAZY_LOADERS 说明符；② 生成物 generatedLazyLoaders 的同名字面量（手改单行，不动时间戳）；③ "}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"notes","i":1,"c":"ModuleDefinitions / DependencyGraphScanner 只有模块 id 名字、无物理路径 ⇒ 无需改。运行时自证：`await LAZY_LOADERS.featureflags()` 返回 clearFeatureCache/conditionalImport/feature/getFeatureList/setFeature"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"notes","i":2,"c":" 五导出。负向自证：包内 import \"@modules/chat\" ⇒ R6 点名 featureflags/types.ts（exit 1 后回滚）。包内 0 出边（feature → @openliri/kernel，非 @modules 边），R7 SCC 仍 0。"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#0","i":0,"c":"packages/infra/src/featureflags/index.ts"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#1","i":0,"c":"packages/infra/src/featureflags/types.ts"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#2","i":0,"c":"app/scripts/build-variant.ts"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#3","i":0,"c":"app/src/bootstrap/generatedLazyLoaders.ts"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#4","i":0,"c":"app/tsconfig.json"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#5","i":0,"c":"packages/infra/package.json"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#6","i":0,"c":"app/src/services/mcp/MCPConnection.ts"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"code#7","i":0,"c":"app/src/services/mcp/auth/MCPAuth.ts"}
+{"id":"INFRA-PACKAGE-P10-FEATUREFLAGS","k":"tests#0","i":0,"c":"app/tests/core/lazyLoaderRegistry.test.ts"}

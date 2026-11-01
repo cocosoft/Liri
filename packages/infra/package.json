@@ -72,6 +72,14 @@
     "./state/*": {
       "types": "./src/state/*.ts",
       "import": "./src/state/*.ts"
+    },
+    "./trace-recording": {
+      "types": "./src/trace-recording/index.ts",
+      "import": "./src/trace-recording/index.ts"
+    },
+    "./trace-recording/*": {
+      "types": "./src/trace-recording/*.ts",
+      "import": "./src/trace-recording/*.ts"
     }
   },
   "scripts": {

@@ -5,7 +5,7 @@
  * 产生 `trace:ai_call` + `model="unknown"`。非 AI 业务路径必须先排除。
  */
 import { describe, expect, it } from 'bun:test';
-import { isAIApiUrl } from '../../src/trace-recording/interceptor/URLMatcher';
+import { isAIApiUrl } from '@openliri/infra/trace-recording/interceptor/URLMatcher';
 
 describe('isAIApiUrl', () => {
   it('识别真实 AI 端点', () => {

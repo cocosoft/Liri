@@ -6106,7 +6106,7 @@
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#2","i":0,"c":"app/src/channels/webhook/WebhookChannel.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#3","i":0,"c":"app/src/channels/webhook/config-schema.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#4","i":0,"c":"app/src/channels/bluebubbles/config-schema.ts"}
-{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#5","i":0,"c":"app/src/trace-recording/live/LiveViewServer.ts"}
+{"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#5","i":0,"c":"packages/infra/src/trace-recording/live/LiveViewServer.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#6","i":0,"c":"app/src/services/mcp/MCPConnection.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#7","i":0,"c":"app/src/ai/ModelManagementBootstrap.ts"}
 {"id":"HARDCODE-ENDPOINTS-B5-2-94","k":"code#8","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}

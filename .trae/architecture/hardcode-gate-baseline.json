@@ -281,7 +281,7 @@
     "裸字面量:app/src/tools/sidecar/lspConnection.ts": 1,
     "裸字面量:app/src/tools/sidecar/lspSidecar.ts": 1,
     "裸字面量:app/src/tools/sidecar/mediaSidecar.ts": 1,
-    "裸字面量:app/src/trace-recording/viewer/ViewerService.ts": 1,
+    "裸字面量:packages/infra/src/trace-recording/viewer/ViewerService.ts": 1,
     "裸字面量:app/src/types/schedulerLifecycle.ts": 1,
     "裸字面量:app/src/ui/buddy/CompanionSprite.tsx": 2,
     "裸字面量:packages/infra/src/utils/MemoryFileEnvelope.ts": 1,

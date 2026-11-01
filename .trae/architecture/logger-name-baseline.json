@@ -708,7 +708,7 @@
       "app/src/bootstrap/AppCoreOTelHelper.ts"
     ],
     "trace-recording\\export\\ExportService": [
-      "app/src/trace-recording/export/ExportService.ts"
+      "packages/infra/src/trace-recording/export/ExportService.ts"
     ],
     "update": [
       "app/src/cli/update.ts"

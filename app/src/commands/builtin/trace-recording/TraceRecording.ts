@@ -23,7 +23,7 @@ const logger = getLogger('commands:builtin:trace-recording:TraceRecording');
  */
 function getAITracePlugin(): any {
   try {
-    const { getAITracePlugin } = require('../../../trace-recording/index.js');
+    const { getAITracePlugin } = require('@openliri/infra/trace-recording');
     return getAITracePlugin();
   } catch {
     return null;
@@ -369,7 +369,7 @@ const traceRecordingCommand = {
 
       const {
         ExportService,
-      } = require('../../../trace-recording/export/ExportService.js');
+      } = require('@openliri/infra/trace-recording/export/ExportService');
       const exportService = new ExportService();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const outputFile = join(outputDir, `trace-export-${timestamp}.${format}`);
@@ -436,7 +436,7 @@ const traceRecordingCommand = {
 
       const {
         ViewerService,
-      } = require('../../../trace-recording/viewer/ViewerService.js');
+      } = require('@openliri/infra/trace-recording/viewer/ViewerService');
       const viewer = new ViewerService();
 
       if (typeof viewer.generateHtml === 'function') {

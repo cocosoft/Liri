@@ -15,10 +15,10 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { StatsEngine } from '../../src/trace-recording/engine/StatsEngine.js';
-import { TraceEngine } from '../../src/trace-recording/engine/TraceEngine.js';
-import { FetchInterceptor } from '../../src/trace-recording/interceptor/FetchInterceptor.js';
-import type { TraceRecord } from '../../src/trace-recording/types.js';
+import { StatsEngine } from '@openliri/infra/trace-recording/engine/StatsEngine';
+import { TraceEngine } from '@openliri/infra/trace-recording/engine/TraceEngine';
+import { FetchInterceptor } from '@openliri/infra/trace-recording/interceptor/FetchInterceptor';
+import type { TraceRecord } from '@openliri/infra/trace-recording/types';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 

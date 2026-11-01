@@ -17,7 +17,7 @@ export async function handleTraceStats(
 ): Promise<void> {
   try {
     const { getAITracePlugin } =
-      await import('../../../trace-recording/index.js');
+      await import('@openliri/infra/trace-recording');
     const plugin = getAITracePlugin();
     if (!plugin) {
       res.writeHead(503, { 'Content-Type': 'application/json' });

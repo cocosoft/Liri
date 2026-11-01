@@ -5,13 +5,13 @@
  */
 
 import { describe, it, expect, afterEach } from 'bun:test';
-import { AITracePlugin } from '../../src/trace-recording/AITracePlugin';
+import { AITracePlugin } from '@openliri/infra/trace-recording/AITracePlugin';
 import {
   isAIApiUrl,
   sanitizeHeaders,
   sanitizeUrl,
-} from '../../src/trace-recording/interceptor/URLMatcher';
-import type { TraceConfig } from '../../src/trace-recording/types';
+} from '@openliri/infra/trace-recording/interceptor/URLMatcher';
+import type { TraceConfig } from '@openliri/infra/trace-recording/types';
 import { existsSync, mkdirSync, rmSync, readFileSync } from 'fs';
 import { join } from 'path';
 

@@ -11396,7 +11396,7 @@
         "app/src/channels/webhook/WebhookChannel.ts",
         "app/src/channels/webhook/config-schema.ts",
         "app/src/channels/bluebubbles/config-schema.ts",
-        "app/src/trace-recording/live/LiveViewServer.ts",
+        "packages/infra/src/trace-recording/live/LiveViewServer.ts",
         "app/src/services/mcp/MCPConnection.ts",
         "app/src/ai/ModelManagementBootstrap.ts",
         ".trae/architecture/hardcode-gate-baseline.json"

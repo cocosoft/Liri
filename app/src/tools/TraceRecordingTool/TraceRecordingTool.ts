@@ -15,7 +15,7 @@ const logger = getLogger('tools:TraceRecordingTool:TraceRecordingTool');
  */
 function getAITracePlugin(): any {
   try {
-    const { getAITracePlugin } = require('../../trace-recording/index.js');
+    const { getAITracePlugin } = require('@openliri/infra/trace-recording');
     return getAITracePlugin();
   } catch {
     return null;
@@ -433,7 +433,7 @@ export class TraceRecordingTool extends BaseTool {
 
       const {
         ExportService,
-      } = require('../../trace-recording/export/ExportService.js');
+      } = require('@openliri/infra/trace-recording/export/ExportService');
       const exportService = new ExportService();
       const content = await exportService.export(
         allRecords,

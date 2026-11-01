@@ -13,10 +13,10 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { StatsEngine } from '../../src/trace-recording/engine/StatsEngine.js';
-import { TraceEngine } from '../../src/trace-recording/engine/TraceEngine.js';
-import { forgetTraceStatsForTenant } from '../../src/trace-recording/index.js';
-import type { TraceRecord } from '../../src/trace-recording/types.js';
+import { StatsEngine } from '@openliri/infra/trace-recording/engine/StatsEngine';
+import { TraceEngine } from '@openliri/infra/trace-recording/engine/TraceEngine';
+import { forgetTraceStatsForTenant } from '@openliri/infra/trace-recording';
+import type { TraceRecord } from '@openliri/infra/trace-recording/types';
 
 const tempDirs: string[] = [];
 

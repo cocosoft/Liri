@@ -169,7 +169,8 @@ async function startAITracePlugin(
   heartbeat: { register: (m: string, o?: { degraded?: boolean }) => void }
 ): Promise<void> {
   try {
-    const { createAITracePlugin } = await import('../trace-recording/index.js');
+    const { createAITracePlugin } =
+      await import('@openliri/infra/trace-recording');
     const { resolveDataSubDir } = await import('@openliri/infra/environment');
 
     // 2026-10-09 lint 清理（台账 L-5）：返回值从未被使用；但 `createAITracePlugin` 有**全局注册副作用**

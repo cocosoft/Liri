@@ -205,7 +205,7 @@ export async function purgeTenant(
     const { analyticsService } =
       await import('../analytics/AnalyticsService.js');
     const { forgetTraceStatsForTenant } =
-      await import('../trace-recording/index.js');
+      await import('@openliri/infra/trace-recording');
     let dropped = CredentialStore.forgetScopedForTenant(normalized);
     dropped += await forgetScopedStoragesForTenant(normalized);
     dropped += costTracker.forgetBucketsForTenant(normalized);

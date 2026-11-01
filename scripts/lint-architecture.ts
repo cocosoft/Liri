@@ -4584,6 +4584,14 @@ async function main(): Promise<void> {
     const kernelLinter = new ArchitectureLinter(kernelSrcPath, projectDir);
     violations.push(...(await kernelLinter.runAll()));
   }
+  // infra 物理包（P3，2026-11-01）：与内核同口径 —— **独立扫描根再跑一遍**全部规则。
+  // 不并入 app 实例：包内文件的模块归属须相对包根解析（`external/sqlite3.ts`，与 `lint:infra`
+  // 同口径），并入后会被按 `app/src/<模块>` 目录结构误判；独立根下 `relative(srcPath)` 天然正确。
+  const infraPkgSrcPath = resolve(projectDir, 'packages', 'infra', 'src');
+  if (existsSync(infraPkgSrcPath)) {
+    const infraLinter = new ArchitectureLinter(infraPkgSrcPath, projectDir);
+    violations.push(...(await infraLinter.runAll()));
+  }
   // P0-5: 前端高频路径 store 订阅检查（独立扫描 client/src，不并入 app/src 扫描集）
   violations.push(...checkFrontendStoreSubscription(projectDir));
 

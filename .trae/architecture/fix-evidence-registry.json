@@ -15797,6 +15797,41 @@
       ],
       "reopenWhen": "若 packages/infra 改为多包（每模块一包）或改走 workspace 依赖而非 tsconfig 别名时重开（映射规则需同步）（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-BOUNDARY-R6）",
       "notes": "R6 判据：包内 @modules/<m> 必须已登记且只许 infra 层（core 亦不许）；包内相对路径逃逸出包即红（含落到 app/ 的段）；app 侧 @openliri/infra/<m> 必须是登记为 infra 的模块，且 core 层不得依赖 infra。同批把 R1–R5 的模块目录解析改为 pa…（全文见 archive/evidence-detail.jsonl#INFRA-PACKAGE-BOUNDARY-R6）"
+    },
+    {
+      "id": "INFRA-CYCLE-BREAK-ERROR",
+      "title": "P1 解环：error 出边清零（日志走 kernel、env 读取注入）+ R7 层内环棘轮",
+      "source": "2026-11-01 infra 打包取证：SCC 实测 infra 内部 15 模块成环（config↔error 只是表象），任何\"抽模块成包\"都会撞环",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/error/index.ts",
+        "app/src/error/safeLog.ts",
+        "app/src/error/api/APISceneClassifier.ts",
+        "app/src/bootstrap/preflight.ts",
+        "app/src/main.ts",
+        "app/scripts/infraBoundaryCore.ts",
+        "app/scripts/lint-infra-boundary.ts",
+        ".trae/architecture/infra-cycle-baseline.json"
+      ],
+      "tests": [
+        "app/tests/gates/infraCycleRatchet.test.ts"
+      ],
+      "changelog": [
+        "P1 解环：error 不再依赖 config/monitoring（出边清零）；新增 R7 层内环棘轮门禁"
+      ],
+      "reopenWhen": "若继续解环（config/monitoring/constants/utils 之间），每出环一个模块需同步下调 infra-cycle-baseline.json（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-BREAK-ERROR）",
+      "notes": "error 原有 4 条出边：monitoring×3（index.ts/safeLog.ts/api/APISceneClassifier.ts）→ 改走 @openliri/kernel/loggerFacade；config×1（APISceneClassifier 的 PY_APP_USE_BEDROCK）→…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-BREAK-ERROR）"
     }
   ]
 }

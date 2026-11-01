@@ -7426,3 +7426,19 @@
 {"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"code#3","i":0,"c":".trae/specs/infra-layer-boundary-contract.md"}
 {"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"tests#0","i":0,"c":"app/tests/gates/infraPackageBoundary.test.ts"}
 {"id":"INFRA-PACKAGE-BOUNDARY-R6","k":"changelog#0","i":0,"c":"infra 门禁新增 R6 物理包边界：包内不得依赖上层、不得相对逃逸；app 侧引用须登记且 core 不得依赖 infra"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"title","i":0,"c":"P1 解环：error 出边清零（日志走 kernel、env 读取注入）+ R7 层内环棘轮"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"source","i":0,"c":"2026-11-01 infra 打包取证：SCC 实测 infra 内部 15 模块成环（config↔error 只是表象），任何\"抽模块成包\"都会撞环"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"reopenWhen","i":0,"c":"若继续解环（config/monitoring/constants/utils 之间），每出环一个模块需同步下调 infra-cycle-baseline.json"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"notes","i":0,"c":"error 原有 4 条出边：monitoring×3（index.ts/safeLog.ts/api/APISceneClassifier.ts）→ 改走 @openliri/kernel/loggerFacade；config×1（APISceneClassifier 的 PY_APP_USE_BEDROCK）→ 改为 "}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"notes","i":1,"c":"setAPISceneEnvReader 注入，启动期由 bootstrap/preflight.wireErrorModuleDeps 接 configManager.env（main.ts 在所有模式调用）；未注入按\"变量不存在\"处理。safeLog 的死导入 LogLevel 一并移除。R7 用 AST 解析 infra→infra 边求 SCC，基线"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"notes","i":2,"c":"锁 13 成员（只许缩小）；缺基线/解析失败 fail-closed。"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#0","i":0,"c":"app/src/error/index.ts"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#1","i":0,"c":"app/src/error/safeLog.ts"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#2","i":0,"c":"app/src/error/api/APISceneClassifier.ts"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#3","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#4","i":0,"c":"app/src/main.ts"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#5","i":0,"c":"app/scripts/infraBoundaryCore.ts"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#6","i":0,"c":"app/scripts/lint-infra-boundary.ts"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"code#7","i":0,"c":".trae/architecture/infra-cycle-baseline.json"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"tests#0","i":0,"c":"app/tests/gates/infraCycleRatchet.test.ts"}
+{"id":"INFRA-CYCLE-BREAK-ERROR","k":"changelog#0","i":0,"c":"P1 解环：error 不再依赖 config/monitoring（出边清零）；新增 R7 层内环棘轮门禁"}

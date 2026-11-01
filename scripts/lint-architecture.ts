@@ -1572,7 +1572,7 @@ class ArchitectureLinter {
       'security/PermissionManager.ts',
       // 2026-08-29 R05-013 治理（二）：模块事实源 vs 类型中心死类型——冲突根源在类型中心
       //   - session/types/message.ts 是会话消息事实规范（@deprecated 迁 DataMessage 中），不应被报
-      //   - utils/config.d.ts|config.ts 是 AppConfig 配置事实源；utils/settings/types.ts 是 HooksSettings 事实源（类型中心版为空壳/同构副本）
+      //   - utils/config.d.ts 是 AppConfig 配置事实源（同目录 config.ts 已于 2026-11-01 B4 删除：零引用）；utils/settings/types.ts 是 HooksSettings 事实源（类型中心版为空壳/同构副本）
       //   - plugin-sdk/types.ts|plugins/types/Plugin.ts|plugins/utils/schemas.ts：PluginManifest/CommandMetadata 插件清单，schemas 为 zod 校验事实源
       //   - session/types/UnifiedMessage.ts：会话存储消息模型；plugins/PluginLoader.ts：插件加载器（与已豁免的 plugins/core 同类）
       //   待专项：清理类型中心零消费死类型（Message/ContentBlock/Tool/Session/Command/AppConfig/HooksSettings 等），使 @modules/types 收缩
@@ -1583,7 +1583,6 @@ class ArchitectureLinter {
       'plugins/utils/schemas.ts',
       'plugins/PluginLoader.ts',
       'utils/config.d.ts',
-      'utils/config.ts',
       'utils/settings/types.ts',
     ];
 

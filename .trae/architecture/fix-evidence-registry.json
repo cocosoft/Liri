@@ -10952,14 +10952,13 @@
       },
       "code": [
         "app/src/hooks/executors/ScriptHookExecutor.ts",
-        "app/src/utils/secureStorage.ts",
         "app/src/query/FileTAORCheckpointStorage.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],
       "changelog": [],
       "reopenWhen": "（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-79）",
-      "notes": "hook 脚本硬拦截正则 vs bash 工具静态策略；安全存储绝对路径 vs TAOR 子目录名 ⇒ 分别改名（仅重命名，不改判定）；基线 165→163。（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-79）"
+      "notes": "hook 脚本硬拦截正则 vs bash 工具静态策略；安全存储绝对路径 vs TAOR 子目录名 ⇒ 分别改名（仅重命名，不改判定）；基线 165→163。（2026-11-01 B4）其中 utils/secureStorage.ts 因**零引用**已删除 ⇒ 该路径从 code 证据中移出，改名事实仍见其余 …（全文见 archive/evidence-detail.jsonl#HARDCODE-SAME-NAME-CONSTS-B5-2-79）"
     },
     {
       "id": "HARDCODE-SAME-NAME-CONSTS-B5-2-80",

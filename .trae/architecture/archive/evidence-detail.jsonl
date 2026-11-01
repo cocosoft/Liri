@@ -5962,9 +5962,8 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"notes","i":0,"c":"hook 脚本硬拦截正则 vs bash 工具静态策略；安全存储绝对路径 vs TAOR 子目录名 ⇒ 分别改名（仅重命名，不改判定）；基线 165→163。"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#0","i":0,"c":"app/src/hooks/executors/ScriptHookExecutor.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#1","i":0,"c":"app/src/utils/secureStorage.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#2","i":0,"c":"app/src/query/FileTAORCheckpointStorage.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#3","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#1","i":0,"c":"app/src/query/FileTAORCheckpointStorage.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"code#2","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"title","i":0,"c":"U-20/B5-2-80：MCP 重连退避收敛与 PathGuard 别名集按域命名"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-80","k":"notes","i":0,"c":"INITIAL/MAX_BACKOFF_MS 收敛到 services/mcp/types（client 侧原为零引用死常量）；PathGuard 的 SEARCH/WRITE_TOOL_NAMES 是含别名的本地集合，改名 *_ALIASES 以免与注册名清单混淆；基线 163→159。"}
@@ -7518,3 +7517,4 @@
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#3","i":0,"c":"app/tests/gates"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#4","i":0,"c":"app/tests/tasks"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"changelog#0","i":0,"c":"P1 解环 B3：storageScope 归位 environment，拆 2 元环（SCC 12→10）"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-79","k":"notes","i":1,"c":"（2026-11-01 B4）其中 utils/secureStorage.ts 因**零引用**已删除 ⇒ 该路径从 code 证据中移出，改名事实仍见其余 3 个文件与提交历史。"}

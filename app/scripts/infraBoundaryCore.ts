@@ -64,7 +64,7 @@ export interface InfraBoundaryAllowlist {
 
 /** 单条规则的检查结论 */
 export interface BoundaryReport {
-  rule: 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6';
+  rule: 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7';
   title: string;
   violations: string[];
   hints: string[];
@@ -662,7 +662,113 @@ export function compareDirectSqliteImports(
   };
 }
 
-// ───────────────────────────── R6：infra 包边界（2026-11-01） ─────────────────────────────
+// ───────────────────────────── R7：层内环棘轮（2026-11-01） ─────────────────────────────
+
+/** R7 基线：当前已知处于环（SCC>1）中的 infra 模块名 */
+export interface InfraCycleBaseline {
+  note?: string;
+  /** 基线成员（只许缩小；新成员进入环即违规） */
+  scc: string[];
+}
+
+/**
+ * 求 infra 层内**强连通分量**成员（Tarjan；只返回 size>1 的成员，平铺成集合）。
+ * `edges` 只应包含 infra→infra 的边。
+ */
+export function findInfraCycleMembers(
+  edges: ReadonlyArray<{ from: string; to: string }>,
+  modules: readonly string[]
+): string[] {
+  const g = new Map<string, string[]>();
+  for (const m of modules) g.set(m, []);
+  for (const e of edges) {
+    const list = g.get(e.from);
+    if (list && g.has(e.to) && e.from !== e.to) list.push(e.to);
+  }
+
+  let index = 0;
+  const idx = new Map<string, number>();
+  const low = new Map<string, number>();
+  const onStack = new Set<string>();
+  const stack: string[] = [];
+  const result = new Set<string>();
+
+  const dfs = (v: string): void => {
+    idx.set(v, index);
+    low.set(v, index);
+    index += 1;
+    stack.push(v);
+    onStack.add(v);
+    for (const w of g.get(v) ?? []) {
+      if (!idx.has(w)) {
+        dfs(w);
+        low.set(v, Math.min(low.get(v) as number, low.get(w) as number));
+      } else if (onStack.has(w)) {
+        low.set(v, Math.min(low.get(v) as number, idx.get(w) as number));
+      }
+    }
+    if (low.get(v) === idx.get(v)) {
+      const comp: string[] = [];
+      let w: string;
+      do {
+        w = stack.pop() as string;
+        onStack.delete(w);
+        comp.push(w);
+      } while (w !== v);
+      if (comp.length > 1) for (const c of comp) result.add(c);
+    }
+  };
+
+  for (const m of modules) if (!idx.has(m)) dfs(m);
+  return [...result].sort();
+}
+
+/**
+ * R7：层内环**棘轮**（只许缩小）。
+ *
+ * 动机：`config ↔ error` 只是表象 —— 2026-11-01 实测 infra 内部是一个
+ * **15 模块的强连通分量**（config/error/monitoring/constants/utils/… 互相可达），
+ * 任何"抽一个模块成包"的尝试都会撞上环。解环需分步推进，因此用棘轮锁住已有战果：
+ * 新模块进入环 ⇒ 红；某模块离开环 ⇒ 提示下调基线。
+ */
+export function compareInfraCycles(
+  cycleMembers: readonly string[],
+  baseline: InfraCycleBaseline | null
+): BoundaryReport {
+  if (!baseline || !Array.isArray(baseline.scc)) {
+    return {
+      rule: 'R7',
+      title: 'infra 层内环棘轮（SCC 只许缩小）',
+      violations: [
+        '缺少环基线（.trae/architecture/infra-cycle-baseline.json，fail-closed）',
+      ],
+      hints: [],
+      checked: cycleMembers.length,
+    };
+  }
+  const known = new Set(baseline.scc);
+  const current = new Set(cycleMembers);
+  const joined = cycleMembers.filter((m) => !known.has(m));
+  const left = baseline.scc.filter((m) => !current.has(m)).sort();
+
+  const violations = joined.map(
+    (m) =>
+      `模块 ${m} **新进入** infra 层内环（当前环成员 ${cycleMembers.length} 个）`
+  );
+  const hints = [
+    `当前环成员 ${cycleMembers.length} 个（基线 ${baseline.scc.length} 个）`,
+    ...(left.length > 0
+      ? [`已离开环：${left.join(',')} ⇒ 可下调基线（解锁的成果请同步更新基线）`]
+      : []),
+  ];
+  return {
+    rule: 'R7',
+    title: 'infra 层内环棘轮（SCC 只许缩小）',
+    violations,
+    hints,
+    checked: cycleMembers.length,
+  };
+}
 
 /** R6 输入：包内文件路径按**仓库相对** POSIX（如 `packages/infra/src/external/x.ts`） */
 export interface InfraPackageBoundaryInput {

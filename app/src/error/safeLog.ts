@@ -3,7 +3,9 @@
  * 提供安全的错误记录功能，自动清理敏感信息
  */
 
-import { getLogger, LogLevel } from '@modules/monitoring';
+// 2026-11-01 P1 解环：基础模块改走 kernel 日志门面（原先直接依赖 monitoring，造成同层环；
+// `LogLevel` 在该文件内无使用，属死导入，一并移除）。
+import { getLogger } from '@openliri/kernel/loggerFacade';
 
 const logger = getLogger('safeLog');
 import {

@@ -42,7 +42,7 @@ import { configManager } from '../config/index.js';
 import { setOfflineMode } from '../entrypoints/shared-state.js';
 import { probeExternalModule } from '../utils/externalDeps.js';
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { handleError, setAPISceneEnvReader } from '@modules/error';
 
 const logger = getLogger('main');
 
@@ -101,6 +101,17 @@ function getOnboardRetryFlagPath(): string {
  */
 function getDataDir(): string {
   return resolveDataDir();
+}
+
+/**
+ * P1 解环（2026-11-01）：把 `error` 模块的环境变量读取接到 ConfigManager。
+ *
+ * `error` 曾直接 `import { configManager } from '@modules/config'`，与 `config → error` 构成
+ * 同层环（infra 内强连通分量之一）。解环后 `error` 只依赖 kernel 门面，env 读取由启动期注入；
+ * 未注入时按"变量不存在"处理（与变量未设置时的原有行为一致）。
+ */
+export function wireErrorModuleDeps(): void {
+  setAPISceneEnvReader((name) => configManager.env(name));
 }
 
 /**

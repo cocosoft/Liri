@@ -12,6 +12,7 @@
  *   R5 `bun:sqlite` 只允许包装本体直连（`@modules/external` 是唯一驱动入口）
  *   R6 `packages/infra/src` 物理包边界（包内不得依赖上层 / 相对路径不得逃逸到 `app/`；
  *      app 侧 `@openliri/infra/<m>` 必须是登记为 infra 的模块，且 core 不得依赖 infra）
+ *   R7 层内**环棘轮**（infra→infra 的 SCC 只许缩小；基线 `.trae/architecture/infra-cycle-baseline.json`）
  *
  * 扫描面：`scripts/modules-to-layers.json` 里 `layer === "infra"` 的模块，取其
  * `app/src/<module>/**` 下的生产 `.ts`（排除 `*.test.ts` / `*.spec.ts` / `*ModuleTest.ts` / `__tests__`）。
@@ -32,10 +33,14 @@ import {
   compareCommonUtilsDuplicates,
   compareDirectSqliteImports,
   compareDynamicInfraToApp,
+  compareInfraCycles,
   compareInfraPackageBoundary,
   compareTopLevelIo,
+  findInfraCycleMembers,
+  parseFileImports,
   type BoundaryReport,
   type InfraBoundaryAllowlist,
+  type InfraCycleBaseline,
 } from './infraBoundaryCore';
 
 const APP_DIR = resolve(import.meta.dir, '..');
@@ -53,6 +58,10 @@ const LAYERS_FILE = process.env['INFRA_LAYERS']
 const ALLOWLIST_FILE = process.env['INFRA_ALLOWLIST']
   ? resolve(process.env['INFRA_ALLOWLIST'])
   : join(REPO_ROOT, '.trae', 'architecture', 'infra-boundary-allowlist.json');
+/** R7 环基线（2026-11-01；只许缩小） */
+const CYCLE_BASELINE_FILE = process.env['INFRA_CYCLE_BASELINE']
+  ? resolve(process.env['INFRA_CYCLE_BASELINE'])
+  : join(REPO_ROOT, '.trae', 'architecture', 'infra-cycle-baseline.json');
 
 function fail(message: string): never {
   console.error(`❌ ${message}`);
@@ -136,6 +145,33 @@ function loadAllowlist(): InfraBoundaryAllowlist {
   };
 }
 
+/** 从 infra 生产文件抽取 `infra → infra` 边（AST 解析；注释里的同名字样不算） */
+function buildInfraEdges(
+  files: readonly SourceFile[]
+): Array<{ from: string; to: string }> {
+  const edges: Array<{ from: string; to: string }> = [];
+  for (const file of files) {
+    const from = file.path.split('/')[0] ?? '';
+    for (const ref of parseFileImports(file)) {
+      if (!ref.specifier.startsWith('@modules/')) continue;
+      const to = ref.specifier.slice('@modules/'.length).split('/')[0] ?? '';
+      edges.push({ from, to });
+    }
+  }
+  return edges;
+}
+
+function loadCycleBaseline(): InfraCycleBaseline | null {
+  if (!existsSync(CYCLE_BASELINE_FILE)) return null;
+  try {
+    return JSON.parse(
+      readFileSync(CYCLE_BASELINE_FILE, 'utf-8')
+    ) as InfraCycleBaseline;
+  } catch (err) {
+    fail(`环基线解析失败（fail-closed）: ${String(err)}`);
+  }
+}
+
 function main(): number {
   if (!existsSync(SRC_DIR)) fail(`源码根不存在: ${SRC_DIR}`);
 
@@ -189,9 +225,13 @@ function main(): number {
       appFiles: allSrcFiles,
       layerOf: layers,
     }),
+    compareInfraCycles(
+      findInfraCycleMembers(buildInfraEdges(infraFiles), infraModules),
+      loadCycleBaseline()
+    ),
   ];
 
-  console.log('=== infra 层边界契约门禁（R1–R6）===');
+  console.log('=== infra 层边界契约门禁（R1–R7）===');
   console.log(
     `infra 模块 ${infraModules.length} 个（无目录 ${missing.length}）· 生产源文件 ${infraFiles.length} 个` +
       ` · common ${commonFiles.length} / utils ${utilsFiles.length}` +
@@ -215,7 +255,7 @@ function main(): number {
     );
     return 1;
   }
-  console.log('\n✅ 合规（R1–R6 无未登记违规）');
+  console.log('\n✅ 合规（R1–R7 无未登记违规）');
   return 0;
 }
 

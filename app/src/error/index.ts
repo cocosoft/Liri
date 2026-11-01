@@ -94,7 +94,8 @@ export * from './context';
 export { handleError, resolveErrorLogLevel } from './handleError';
 export type { HandleErrorOptions } from './handleError';
 
-import { getLogger } from '@modules/monitoring';
+// 2026-11-01 P1 解环：`error` 只依赖 kernel 门面（原先直接依赖 monitoring 与 config，同层成环）
+import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('error:system');
 
 // 高级错误分析（预留）

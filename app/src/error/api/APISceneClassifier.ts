@@ -13,10 +13,28 @@ import {
   APIErrorWithHeaders,
 } from './ApiError';
 import { extractConnectionErrorDetails } from './errorUtils';
-import { configManager } from '@modules/config';
+// 2026-11-01 P1 解环：`error` 是基础模块，不得依赖 `config` / `monitoring`（同层环）
+// ⇒ 日志走 kernel 门面，环境变量读取改**注入**（由 app 层启动期接线，见 bootstrap/preflight）。
+import { getLogger } from '@openliri/kernel/loggerFacade';
 
-import { getLogger } from '@modules/monitoring';
-const logger = getLogger('error\api\APISceneClassifier');
+const logger = getLogger('error:api:APISceneClassifier');
+
+/** 环境变量读取器（默认读不到 ⇒ 与"变量未设置"等价） */
+let envReader: (name: string) => string | undefined = () => undefined;
+
+/**
+ * 注入环境变量读取器（返回 disposer；app 层启动期接 `configManager.env`）。
+ * 未注入时按"变量不存在"处理 —— 与既有分支在变量未设置时的行为一致。
+ */
+export function setAPISceneEnvReader(
+  reader: (name: string) => string | undefined
+): () => void {
+  const previous = envReader;
+  envReader = reader;
+  return () => {
+    envReader = previous;
+  };
+}
 
 /**
  * API 错误场景枚举
@@ -531,9 +549,9 @@ function classifyErrorByMessage(error: Error): APISceneResult {
     };
   }
 
-  // Bedrock 模型访问
+  // Bedrock 模型访问（环境变量经注入读取，见文件头 P1 解环说明）
   if (
-    configManager.env('PY_APP_USE_BEDROCK') &&
+    envReader('PY_APP_USE_BEDROCK') &&
     error.message.toLowerCase().includes('model id')
   ) {
     return {

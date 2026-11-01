@@ -1,6 +1,6 @@
 # Spec：infra 层边界契约（Infra Layer Boundary Contract）
 
-> 版本 1.3 ｜ 创建 2026-10-31 ｜ 状态：🟢 **约束与规范已立 + §8 五条门禁已落地 + R2/R3 存量已清零**（`lint:infra`，2026-10-31）；**R6 物理包边界 2026-11-01 追加**
+> 版本 1.4 ｜ 创建 2026-10-31 ｜ 状态：🟢 **约束与规范已立 + R1–R7 门禁已落地 + R2/R3 存量已清零**（`lint:infra`）；**R6 物理包边界 / R7 层内环棘轮 2026-11-01 追加**
 > 来源：用户 2026-10-31 指令「infra 层内的模块，按 core 的方式处理，先写约束、规范」。
 > 事实源：`scripts/modules-to-layers.json`（分层唯一事实源）· `.trae/rules/architecture.md` · `.trae/rules/architecture-compliance.md`
 > 同类先例：`.trae/specs/kernel-style-architecture-governance.md`（core 的 Linux 式治理）· `packages/kernel/src/core/README.md`（core 的"零 I/O"判据）
@@ -126,6 +126,7 @@ infra 禁止依赖：entry、ui、app、service
 | **common / utils 重复检测** | ✅ `lint:infra` R4 | 同名导出（含命名空间内导出）；**存量已清零**（4 组去重 + 3 组改名，白名单为空） |
 | **DB 驱动唯一入口** | ✅ `lint:infra` R5 | `bun:sqlite` 只允许 `external/sqlite3.ts` 直连（实测全仓仅此 1 处）；注释与 `require.resolve` 不算 |
 | **infra 物理包边界** | ✅ `lint:infra` R6（2026-11-01） | `packages/infra/src` 建包后：包内 `@modules/<m>` 必须已登记且**只许 infra 层**（core 亦不许）；包内相对路径**逃逸出包**即红；app 侧 `@openliri/infra/<m>` 必须是登记为 infra 的模块，且 **core 不得依赖 infra**。**动机（实证）**：`external` 真迁出后 `lint:arch` R00-001 与 R1–R5 **不再扫描**该目录（注入 `infra→app` 也能全绿）；R6 补此盲区。自证 `app/tests/gates/infraPackageBoundary.test.ts`（5 例） |
+| **infra 层内环棘轮** | ✅ `lint:infra` R7（2026-11-01） | infra→infra 的 **SCC 只许缩小**（基线 `.trae/architecture/infra-cycle-baseline.json`）。实测：解环前 15 模块成环；把 `error` 出边清零（日志改 kernel 门面 + env 读取改注入）后 **error 出环**，AST 口径当前 **13**（`performance` 系文本口径把注释误计）。新成员进入环即红；成员离开环 ⇒ 提示下调基线。自证 `app/tests/gates/infraCycleRatchet.test.ts`（4 例） |
 | **门禁接线与自证** | ✅ | `app/package.json` 的 `lint:infra` 进 pre-commit（`setup-git-hooks.ts`）+ `ci` 链；白名单 `.trae/architecture/infra-boundary-allowlist.json`（每条须带理由）；自证 `app/tests/gates/infraBoundary.test.ts`（21 例） |
 
 > **R6 与 R1–R5 的扫描面差异（必须知道）**：R1–R5 的模块目录解析已改为

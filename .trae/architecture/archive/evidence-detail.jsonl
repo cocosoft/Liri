@@ -7474,3 +7474,21 @@
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"code#7","i":0,"c":".trae/architecture/infra-cycle-baseline.json"}
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"tests#0","i":0,"c":"app/tests/gates/infraCycleRatchet.test.ts"}
 {"id":"INFRA-CYCLE-BREAK-CONSTANTS","k":"changelog#0","i":0,"c":"P1 解环续：constants 不再依赖 config/monitoring/error/memory（出环，SCC 13→12）"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"title","i":0,"c":"P1 解环 B1：utils 的日志改走 kernel 门面（清 37 处 utils→monitoring 出边）"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"source","i":0,"c":"utils 出边共约 92 条（B1 monitoring 37 / B2 error 28 / B3 environment 11 + config 9 / B4 零头 7）；B1 是最机械的一批"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"reopenWhen","i":0,"c":"B2（error 28）需逐处核对 handleError 语义后继续；utils 要全部清零才出环（R7 仍记 12）"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"notes","i":0,"c":"35 个文件、37 处 import 由 @modules/monitoring 改为 @openliri/kernel/loggerFacade（仅 getLogger 单一符号；kernel ILogger 已含 debug/info/warn/warning/error/fatal）。SCC 成员不变（utils 仍经 "}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"notes","i":1,"c":"error/environment/config/constants/cache/security 留在环内）⇒ 基线不动。"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"code#0","i":0,"c":"app/src/utils"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"tests#0","i":0,"c":"app/tests/utils"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"tests#1","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"changelog#0","i":0,"c":"P1 解环 B1：utils 的 35 个文件日志改走 kernel 门面（清 37 处 monitoring 出边）"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"title","i":0,"c":"P1 解环 B1：utils 的日志改走 kernel 门面（清 37 处 utils→monitoring 出边）"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"source","i":0,"c":"utils 出边共约 92 条（B1 monitoring 37 / B2 error 28 / B3 environment 11 + config 9 / B4 零头 7）；B1 是最机械的一批"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"reopenWhen","i":0,"c":"B2（error 28）需逐处核对 handleError 语义后继续；utils 要全部清零才出环（R7 仍记 12）"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"notes","i":0,"c":"35 个文件、37 处 import 由 @modules/monitoring 改为 @openliri/kernel/loggerFacade（仅 getLogger 单一符号；kernel ILogger 已含 debug/info/warn/warning/error/fatal）。SCC 成员不变（utils 仍经 "}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"notes","i":1,"c":"error/environment/config/constants/cache/security 留在环内）⇒ 基线不动。"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"code#0","i":0,"c":"app/src/utils"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"tests#0","i":0,"c":"app/tests/utils"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"tests#1","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"changelog#0","i":0,"c":"P1 解环 B1：utils 的 35 个文件日志改走 kernel 门面（清 37 处 monitoring 出边）"}

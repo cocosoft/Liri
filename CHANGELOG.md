@@ -19,6 +19,7 @@
 
 ## [未发布]
 <!-- EVIDENCE-VIEWS:BEGIN（生成物：未发布段。改 fix-evidence-log.jsonl 后跑 gen-evidence-views.ts 重新生成） -->
+- ✅ **INFRA-CYCLE-B1-UTILS-MONITORING**：P1 解环 B1：utils→monitoring 出边清零（35 文件 / 37 处） —— 验证 tsc0|utils320|gates308|eslint0|arch0|infra0；基线 utils 有 37 处 @modules/monitoring 出边（SCC 内），日志实现绑在 infra 同层（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-B1-UTILS-MONITORING）
 - ✅ **INFRA-CYCLE-BREAK-CONSTANTS**：P1 解环续：constants 出环（SCC 13→12） —— 验证 tsc0|gates308|constants101|config129|eslint0|arch0|infra0；基线 constants 出边 7 条（config/monitoring/error/memory）⇒ 留在 13 成员 SCC 内（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-BREAK-CONSTANTS）
 - ✅ **INFRA-CYCLE-BREAK-ERROR**：P1 解环：error 出边清零 + R7 层内环棘轮 —— 验证 tsc0|unit4|gates308|error11|bootstrap4|eslint0|arch0|infra0|refs0|size0；基线 infra 内部 15 模块成环（config↔error 等），抽包即撞环；环无门禁守护（详情见 archive/evidence-detail.jsonl#INFRA-CYCLE-BREAK-ERROR）
 - ✅ **INFRA-PACKAGE-BOUNDARY-R6**：infra 物理包边界门禁 R6（补迁移盲区） —— 验证 unit5|gates304|tsc0|eslint0|infra0|arch0|refs0|size0|consts0|sr0|scripts0|parity0；基线 迁出 app/src 后 lint:arch 与 lint:infra 静默不扫新包；注入 infra→app 仍全绿（详情见 archive/evidence-detail.jsonl#INFRA-PACKAGE-BOUNDARY-R6）

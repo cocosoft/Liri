@@ -7492,3 +7492,13 @@
 {"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"tests#0","i":0,"c":"app/tests/utils"}
 {"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"tests#1","i":0,"c":"app/tests/gates"}
 {"id":"INFRA-CYCLE-B1-UTILS-MONITORING","k":"changelog#0","i":0,"c":"P1 解环 B1：utils 的 35 个文件日志改走 kernel 门面（清 37 处 monitoring 出边）"}
+{"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"title","i":0,"c":"P1 解环 B2：utils 的 handleError 与错误基座改走 kernel 门面（清 28 文件 / 32 处 utils→error 出边）"}
+{"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"source","i":0,"c":"B1 之后 utils 仍留 error 出边 28 文件 32 处；原计划假设 handleError 含 app 侧 ErrorTracker 需注入端口，实测 app/src/error/handleError.ts 与 types.ts 均为纯转出 kernel ⇒ 可直连"}
+{"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"reopenWhen","i":0,"c":"utils 仍在环内（environment 11 / config 9 / constants 2 / cache 2 / security 2 / external 1）；若 utils 新增 @modules/error 引用，R7 立即回到 B2 前"}
+{"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"notes","i":0,"c":"28 文件 32 处 import：handleError → @openliri/kernel/errorHandler；AppError/ErrorCategory/ErrorSeverity → @openliri/kernel/errors。app 侧二者本就是 kernel 纯转出（kernel 内联 recordError 统计 + OTel +"}
+{"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"notes","i":1,"c":" EventBus）⇒ 行为与错误追踪逐字不变；故原计划的 errorHandlerPort 注入作废。"}
+{"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"code#0","i":0,"c":"app/src/utils"}
+{"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"tests#0","i":0,"c":"app/tests/utils"}
+{"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"tests#1","i":0,"c":"app/tests/gates"}
+{"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"changelog#0","i":0,"c":"P1 解环 B2：utils 的 28 个文件错误出口改走 kernel 门面（清 32 处 error 出边）"}
+{"id":"INFRA-CYCLE-B2-UTILS-ERROR","k":"notes","i":1,"c":"R7 仍报 12 成员（utils 经 config/environment/cache/security 留在 SCC）⇒ 基线不动。"}

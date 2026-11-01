@@ -15896,6 +15896,35 @@
       ],
       "reopenWhen": "B2（error 28）需逐处核对 handleError 语义后继续；utils 要全部清零才出环（R7 仍记 12）（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B1-UTILS-MONITORING）",
       "notes": "35 个文件、37 处 import 由 @modules/monitoring 改为 @openliri/kernel/loggerFacade（仅 getLogger 单一符号；kernel ILogger 已含 debug/info/warn/warning/error/fatal）。SCC 成员不变（util…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B1-UTILS-MONITORING）"
+    },
+    {
+      "id": "INFRA-CYCLE-B2-UTILS-ERROR",
+      "title": "P1 解环 B2：utils 的 handleError 与错误基座改走 kernel 门面（清 28 文件 / 32 处 utils→error 出边）",
+      "source": "B1 之后 utils 仍留 error 出边 28 文件 32 处；原计划假设 handleError 含 app 侧 ErrorTracker 需注入端口，实测 app/src/error/handleError.ts 与 types.ts 均为纯转出 kernel ⇒ 可直连",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "app/src/utils"
+      ],
+      "tests": [
+        "app/tests/utils",
+        "app/tests/gates"
+      ],
+      "changelog": [
+        "P1 解环 B2：utils 的 28 个文件错误出口改走 kernel 门面（清 32 处 error 出边）"
+      ],
+      "reopenWhen": "utils 仍在环内（environment 11 / config 9 / constants 2 / cache 2 / security 2 / external 1）；若 utils 新增 @modules/error 引用，R7 立即回到 B2 前（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B2-UTILS-ERROR）",
+      "notes": "28 文件 32 处 import：handleError → @openliri/kernel/errorHandler；AppError/ErrorCategory/ErrorSeverity → @openliri/kernel/errors。app 侧二者本就是 kernel 纯转出（kernel 内联 re…（全文见 archive/evidence-detail.jsonl#INFRA-CYCLE-B2-UTILS-ERROR）"
     }
   ]
 }

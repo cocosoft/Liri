@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { resolveLogsDir } from '@modules/environment';
+import { resolveLogsDir } from '@openliri/infra/environment';
 import { logForDebugging } from '@openliri/infra/utils/debug';
 import { errorMessage, handleError } from '@modules/error';
 

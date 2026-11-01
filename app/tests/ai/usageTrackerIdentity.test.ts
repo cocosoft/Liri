@@ -13,7 +13,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { setUserDataDirOverride } from '@modules/environment';
+import { setUserDataDirOverride } from '@openliri/infra/environment';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 import { trackUsage } from '../../src/ai/UsageTracker.js';

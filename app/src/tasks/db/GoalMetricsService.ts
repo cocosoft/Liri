@@ -14,7 +14,7 @@
 
 import { Database } from '@openliri/infra/external';
 import { randomUUID } from 'crypto';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 // 多租户 P5：用量行带归属（删除租户时可按前缀清除）
 import { currentOwnerKey } from '@openliri/kernel/identity/requestScope.js';
 import { getLogger } from '@modules/monitoring';

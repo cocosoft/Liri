@@ -12,7 +12,10 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { resolvePyappHome, resolveProjectRoot } from '@modules/environment';
+import {
+  resolvePyappHome,
+  resolveProjectRoot,
+} from '@openliri/infra/environment';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:agents:Subagent');

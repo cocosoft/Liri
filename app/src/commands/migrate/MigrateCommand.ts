@@ -11,7 +11,7 @@ import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'fs';
 import { join } from 'path';
-import { resolveProjectRoot } from '@modules/environment';
+import { resolveProjectRoot } from '@openliri/infra/environment';
 import {
   registerMigration,
   listRegistered,

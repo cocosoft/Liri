@@ -8,7 +8,10 @@ import { Database } from '@openliri/infra/external';
 import { v4 as uuidv4 } from 'uuid';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
+import {
+  resolveDbPath,
+  resolveTenantDbPath,
+} from '@openliri/infra/environment';
 import { SimpleMutex } from '@openliri/kernel';
 // 租户级 DB 试点（基础设施专项 §6.1 期 2，2026-10-24）：库按**租户**分，用户靠 owner_key 行级隔离
 import {

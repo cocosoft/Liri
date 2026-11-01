@@ -5,7 +5,7 @@
 
 **唯一纳入判据：零 I/O。** core 只回答「有哪些契约、怎么装配、错误/开关/身份怎么定位」；
 一旦需要读磁盘 / 网络 / 数据库 / 环境变量，就不属于 core —— 例如目录解析已整体迁到
-`@modules/environment`（2026-10-28），内核不再持有 `resolveDataDir` / `resolveDbPath`。
+`@openliri/infra/environment`（2026-10-28 迁出内核；2026-11-01 起物理位于 `packages/infra`），内核不再持有 `resolveDataDir` / `resolveDbPath`。
 
 分层事实源：`scripts/modules-to-layers.json`（本目录固定为 `core`）；治理目标与 Linux 内核映射见
 `.trae/specs/kernel-style-architecture-governance.md`。
@@ -26,7 +26,7 @@
 - 业务域：`session` / `chat` / `query` / `tools` / `channels` / `runtime` / `infrastructure`（service / app 层）；
 - 安全实现：`sandbox` / `security` / `permission`（app / infra 层，只以 `spi` 端口暴露契约）；
 - 资源与模型：`vfs`（app 层，驱动契约也在 app）、`ai` / provider 协议（app 层）；
-- 环境相关：目录与路径解析（`@modules/environment`）、配置落盘、数据库访问。
+- 环境相关：目录与路径解析（`@openliri/infra/environment`）、配置落盘、数据库访问。
 
 ## 使用
 

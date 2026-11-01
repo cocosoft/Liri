@@ -19,7 +19,7 @@ import {
   readFileSync,
   readdirSync,
 } from 'fs';
-import { resolveDataSubDir } from '@modules/environment';
+import { resolveDataSubDir } from '@openliri/infra/environment';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';

@@ -2081,7 +2081,7 @@
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"notes","i":16,"c":".md` §2）；② **未改名任何目录/文件**（`.liri` 名、`com.liri.client`、`.liri.lock` 全部保持原值）⇒ 对既有用户项目**零影响**（这正是「改名会污染用户仓库」的规避）；③ 仅处理**工作区级 `.liri` 名**这一事实源；`LiriConfigManager` 内的 `CONFIG_FILE='"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"notes","i":17,"c":"config.json'` 等**文件名**常量不在本片（同文件也已有一份与 `constants/common.ts` 的 `CONFIG_FILE_NAME` 重复，属另一事实源，未纳入）；④ 「一次性数据迁移已完成」这一结论**依据仓内注释 + 全仓零活动引用**得出，**未**在真实用户机器上核对 `~/.liri` 是否仍有历史残留目录（若要彻底，"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"notes","i":18,"c":"需在真机确认后由用户决定是否手工清理）。"}
-{"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#0","i":0,"c":"app/src/environment/paths.ts"}
+{"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#0","i":0,"c":"packages/infra/src/environment/paths.ts"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#1","i":0,"c":"packages/infra/src/constants/common.ts"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#2","i":0,"c":"app/src/workspace/LiriConfigManager.ts"}
 {"id":"HARDCODE-HDP1-3-LIRI-SINGLE-SOURCE","k":"code#3","i":0,"c":"app/src/workspace/RuleEngine.ts"}
@@ -5909,7 +5909,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"title","i":0,"c":"U-20/B5-2-69：媒体根目录 3 组同名常量收敛到 core/mediaRoots"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；.trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"notes","i":0,"c":"lint:consts 180→177 键；解析时机与拼接逐字保留（零行为变化）。"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#0","i":0,"c":"app/src/environment/mediaRoots.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#0","i":0,"c":"packages/infra/src/environment/mediaRoots.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#1","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-69","k":"code#2","i":0,"c":".trae/architecture/hardcode-progress.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-70-71","k":"title","i":0,"c":"U-20/B5-2-70..71：readFile 缓存容量与 SSL 错误码收敛"}
@@ -6301,7 +6301,7 @@
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"title","i":0,"c":"T25-08 P2：随包分发官方插件公钥（信任锚三处并集，私钥不入库）"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"source","i":0,"c":"dev_docs/20261025/待完成工作任务清单-20261025.md §33"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"reopenWhen","i":0,"c":"官方公钥 *.pem 由发布方发版前放入 app/trusted-keys；若需密钥轮换/吊销，先补轮换机制再开"}
-{"id":"T25-08-P2-BUNDLED-KEYS","k":"code#0","i":0,"c":"app/src/environment/paths.ts"}
+{"id":"T25-08-P2-BUNDLED-KEYS","k":"code#0","i":0,"c":"packages/infra/src/environment/paths.ts"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"code#1","i":0,"c":"app/src/plugins/utils/pluginSignature.ts"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"code#2","i":0,"c":"app/scripts/copy-seed-data.ts"}
 {"id":"T25-08-P2-BUNDLED-KEYS","k":"code#3","i":0,"c":"app/scripts/plugin-sign.ts"}
@@ -6467,7 +6467,7 @@
 {"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":1,"c":"本次改判依据：该报告属**本地不推送**域（`.gitignore:262` 的 `dev_docs/*`），非仓内契约；代码侧唯一真实引用是 `app/src/environment/paths.ts:264` 的注释 ⇒ 按 CD05 先改写该注释（不再点名脚本），引用归零后再删文件。"}
 {"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":2,"c":"【核查 CD01–CD04】全仓 grep `probe_sessions` 仅命中：脚本自身、paths.ts 注释、上述本地报告、台账历史记录；无 import / 构建入口 / 插件注册表 / DI / 运行时发现。脚本内容佐证「非产品代码」：一次性扫描候选会话目录并统计 events.jsonl / messages.jsonl。"}
 {"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"notes","i":3,"c":"【回滚与边界】脚本为**已跟踪**文件 ⇒ git 历史即回滚点（CD06）；取回命令写进本地报告的更新提示。无测试改动（文件级清理，无运行时行为面）⇒ testVerified=false、e2eVerified=false。"}
-{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"code#0","i":0,"c":"app/src/environment/paths.ts"}
+{"id":"ROOTCLEAN-PROBE-SCRIPT-RETIRED","k":"code#0","i":0,"c":"packages/infra/src/environment/paths.ts"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"title","i":0,"c":"熔断分型：environment_blocked 与 circuit_breaker 分流（LRO-09 步骤 1a–4）"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"source","i":0,"c":"用户 2026-10-26 指令「好的，从 LRO-01 开始」/「好的，执行吧」；依据 dev_docs/20261026/长程任务失败排查工作计划-20261026.md §3-R3；实测证据 dev_docs/20261026/证据/（04:17:23-27 日志 + tool_rules.json 同指纹 allow+deny）"}
 {"id":"CIRCUIT-BREAKER-CLASSIFICATION","k":"reopenWhen","i":0,"c":"若出现「环境阻塞未按 2 轮收口」或「模型无效输出被误判为环境阻塞」：回看 app/src/query/ReActLoop.ts 的 classifyTurn() 与各 failureKind 生产者；回滚按提交粒度 779101f5c / a74e973f6 / 27b2460b3 / 71b0ba812 逐条 revert"}
@@ -6519,7 +6519,7 @@
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"notes","i":1,"c":"【改法】新增 isRuntimeExecutable（bun/bunx/node/npx/npm/pnpm/yarn/deno/tsx/ts-node 的 .exe）；resolveProjectRoot 的 exe 分支加 !isRuntimeExecutable 守卫，落到 INIT_CWD / process.cwd()。应用自身 exe 行为不变。"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"notes","i":2,"c":"【闸门配套】K08 体量棘轮 loc 18828→18857（note 追加 ⑪ 理由）；导出面快照 kernel-api-surface.json 以 --write 重生成（新增 1 符号）。"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"notes","i":3,"c":"【边界】\"工具 cwd 锚定用户项目\"未做：本地身份下会话工作区缺省时仍回落 resolveProjectRoot，哪个目录算\"用户项目\"属产品决策，留 LRO-06 实测后定。"}
-{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#0","i":0,"c":"app/src/environment/paths.ts"}
+{"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#0","i":0,"c":"packages/infra/src/environment/paths.ts"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#1","i":0,"c":".trae/architecture/kernel-size-baseline.json"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"code#2","i":0,"c":".trae/architecture/kernel-api-surface.json"}
 {"id":"PROJECT-ROOT-RUNTIME-EXE","k":"tests#0","i":0,"c":"app/tests/paths/resolveProjectRootRuntimeExe.test.ts"}
@@ -6753,7 +6753,7 @@
 {"id":"BARE-SESSION-COMPILED-CWD","k":"source","i":0,"c":"排查计划 §11.2 P2-4（裸会话回落 resolveProjectRoot）"}
 {"id":"BARE-SESSION-COMPILED-CWD","k":"reopenWhen","i":0,"c":"再现安装版裸会话把产物写进安装目录"}
 {"id":"BARE-SESSION-COMPILED-CWD","k":"notes","i":0,"c":"编译版+无 projectId ⇒ <data>/workspace/sessions/<safeId>（惰性创建）；开发入口仍仓库根；显式 workspacePath 恒优先；sessionId 做路径安全化"}
-{"id":"BARE-SESSION-COMPILED-CWD","k":"code#0","i":0,"c":"app/src/environment/paths.ts"}
+{"id":"BARE-SESSION-COMPILED-CWD","k":"code#0","i":0,"c":"packages/infra/src/environment/paths.ts"}
 {"id":"BARE-SESSION-COMPILED-CWD","k":"code#1","i":0,"c":"app/src/chat/services/toolCwdScope.ts"}
 {"id":"BARE-SESSION-COMPILED-CWD","k":"code#2","i":0,"c":"app/src/chat/services/ToolExecutionService.ts"}
 {"id":"BARE-SESSION-COMPILED-CWD","k":"tests#0","i":0,"c":"app/tests/chat/toolCwdScope.test.ts"}
@@ -7506,9 +7506,9 @@
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"reopenWhen","i":0,"c":"utils 仍在环内（config 8 / cache 2 / security 2 + utils/config.ts）；启动面棘轮已 +1 文件（storageScope 在 paths 静态调用链上），后续再进启动面须先核对 lint:startup-graph。"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"notes","i":0,"c":"storageScope 零 I/O（node:crypto / node:path + kernel principal/requestScope），security/identity 保留同名转出 ⇒ tenantPurge 与既有测试零改动；paths.ts 改本地相对导入。R7 基线 12→10："}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"notes","i":1,"c":"cache/chronos/config/daemon/diagnostics/memory/monitoring/permission/security/utils。另：utils/json.ts 日志改 kernel loggerFacade（清 utils→monitoring 最后 1 条）。"}
-{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#0","i":0,"c":"app/src/environment/storageScope.ts"}
-{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#1","i":0,"c":"app/src/environment/index.ts"}
-{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#2","i":0,"c":"app/src/environment/paths.ts"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#0","i":0,"c":"packages/infra/src/environment/storageScope.ts"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#1","i":0,"c":"packages/infra/src/environment/index.ts"}
+{"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#2","i":0,"c":"packages/infra/src/environment/paths.ts"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#3","i":0,"c":"app/src/security/identity/index.ts"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"code#4","i":0,"c":"packages/infra/src/utils/json.ts"}
 {"id":"INFRA-CYCLE-B3-ENV-SECURITY-SCOPE","k":"tests#0","i":0,"c":"app/tests/security"}

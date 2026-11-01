@@ -20,7 +20,7 @@
 
 import { cpSync, existsSync, mkdirSync, renameSync } from 'fs';
 import { dirname, join } from 'path';
-import { resolveDomainDir, resolveKnowledgeDir } from '@modules/environment';
+import { resolveDomainDir, resolveKnowledgeDir } from '@openliri/infra/environment';
 
 /** 参与迁移的全局项（顺序即列出顺序） */
 export const MIGRATION_ITEMS = ['wiki', 'index.md', 'log.md', '.schema'] as const;

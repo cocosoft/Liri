@@ -6,7 +6,10 @@
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
-import { resolveProjectRoot, resolveDataSubDir } from '@modules/environment';
+import {
+  resolveProjectRoot,
+  resolveDataSubDir,
+} from '@openliri/infra/environment';
 import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,

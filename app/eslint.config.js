@@ -103,7 +103,7 @@ export default [
             message: '日志功能已迁移至 @modules/monitoring 系列模块，metrics 功能使用 monitoring/metrics',
           },
           {
-            name: '@modules/environment',
+            name: '@openliri/infra/environment',
             importNames: ['resolveSoulDir'],
             message: '[路径规范] resolveSoulDir() 指向 data/soul/（第二层），SOUL.md 应使用 resolveSoulPath()，USER.md 应使用 resolveUserProfilePath()',
           },
@@ -231,8 +231,8 @@ export default [
       'src/ui/buddy/useBuddyNotification.tsx',
       'src/query/queryProfiler.ts',
       'src/query/SlowQueryDetector.ts',
-      // P1（2026-10-28）：paths 已迁至 infra 的 environment 模块
-      'src/environment/paths.ts',
+      // P8（2026-11-01）：`environment` 已迁入 `packages/infra/src`（本实例只 lint `src tests`
+      // ⇒ 该文件不再属于本 override 的作用域，条目随迁包删除以免留下死路径）
       'src/utils/errorHintManager.ts',
       'src/analytics/AnalyticsService.ts',
       'src/analytics/IntelligentAnalysisService.ts',

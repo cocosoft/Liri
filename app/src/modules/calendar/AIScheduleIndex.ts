@@ -4,7 +4,7 @@
  */
 
 import { Database } from '@openliri/infra/external';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 const logger = getLogger('calendar:aiScheduleIndex');
 

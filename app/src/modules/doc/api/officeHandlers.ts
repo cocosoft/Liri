@@ -658,7 +658,7 @@ export async function handleMailConfigDelete(
   try {
     const fs = await import('fs');
     const path = await import('path');
-    const { resolvePyappHome } = await import('@modules/environment');
+    const { resolvePyappHome } = await import('@openliri/infra/environment');
 
     const officeDir = path.join(resolvePyappHome(), 'office');
     const configPath = path.join(officeDir, 'config', 'email.json');
@@ -1101,7 +1101,7 @@ export async function handleDocCreate(
 async function assertDocPathWithin(fileName: string): Promise<string> {
   const path = await import('path');
   const { resolveOutputDir, isPathWithin } =
-    await import('@modules/environment');
+    await import('@openliri/infra/environment');
   const base = path.resolve(resolveOutputDir());
   const target = path.resolve(path.join(base, fileName));
   if (!isPathWithin(base, target)) {
@@ -1263,7 +1263,7 @@ export async function handleDocDownload(
     const path = await import('path');
     const fs = await import('fs');
     const { resolveOutputDir, isPathWithin } =
-      await import('@modules/environment');
+      await import('@openliri/infra/environment');
 
     const filePath = path.join(resolveOutputDir(), file);
 

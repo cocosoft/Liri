@@ -1,6 +1,6 @@
 ﻿import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
-import { resolveDataSubDir } from '@modules/environment';
+import { resolveDataSubDir } from '@openliri/infra/environment';
 import type { RecordedSession, RecordedMessage } from './SessionRecorder';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 

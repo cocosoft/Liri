@@ -17,7 +17,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { resolveDomainsRoot } from '../../src/environment/paths';
+import { resolveDomainsRoot } from '@openliri/infra/environment/paths';
 import { DomainManager } from '../../src/knowledge/domain';
 import { BUILTIN_SECTIONS } from '../../src/context/promptSections/builtinSections';
 

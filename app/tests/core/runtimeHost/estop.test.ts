@@ -32,7 +32,7 @@ import { join } from 'node:path';
 import {
   setUserDataDirOverride,
   getUserDataDirOverride,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 import {
   engageEstop,
   disengageEstop,

@@ -17,7 +17,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { setUserDataDirOverride } from '@modules/environment';
+import { setUserDataDirOverride } from '@openliri/infra/environment';
 import {
   validatePurgeableTenantId,
   type TenantPurgeReport,

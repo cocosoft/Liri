@@ -38,7 +38,10 @@ import { join } from 'path';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 
-import { resolveKnowledgeDir, resolveDomainDir } from '@modules/environment';
+import {
+  resolveKnowledgeDir,
+  resolveDomainDir,
+} from '@openliri/infra/environment';
 import { EmbeddingManager, globalEmbeddingManager } from '@modules/ai';
 import { IndexManager } from './IndexManager';
 import { cosineSimilarity } from '@modules/knowledge/semantic/store';

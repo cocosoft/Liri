@@ -17,7 +17,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveDataSubDir } from '@modules/environment';
+import { resolveDataSubDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
 import type { PendingQuestion } from './DecisionGate';
 

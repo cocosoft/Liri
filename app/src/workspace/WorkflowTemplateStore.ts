@@ -37,7 +37,10 @@
  */
 import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
+import {
+  resolveDbPath,
+  resolveTenantDbPath,
+} from '@openliri/infra/environment';
 import {
   getRequestPrincipal,
   getRequestPrincipalKey,

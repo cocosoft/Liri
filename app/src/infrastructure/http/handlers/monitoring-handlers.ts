@@ -833,7 +833,7 @@ export async function handleStartupError(
   try {
     const { readFileSync, existsSync } = await import('fs');
     const { join } = await import('path');
-    const { resolveLogsDir } = await import('@modules/environment');
+    const { resolveLogsDir } = await import('@openliri/infra/environment');
     const logPath = join(resolveLogsDir(), 'startup-error.log');
 
     if (!existsSync(logPath)) {

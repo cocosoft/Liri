@@ -4,7 +4,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveDataDir, resolveProjectRoot } from '@modules/environment';
+import {
+  resolveDataDir,
+  resolveProjectRoot,
+} from '@openliri/infra/environment';
 import { getConfigHomeDir } from '@openliri/infra/utils/envUtils';
 import { getCwd } from '@openliri/infra/utils/cwd';
 

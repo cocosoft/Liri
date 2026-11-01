@@ -10,7 +10,7 @@ import { handleError } from '@modules/error';
 import {
   resolvePyappHome,
   resolveKnowledgeBaseDir,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 
 const logger = getLogger('knowledge:knowledgeMigration');
 

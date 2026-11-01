@@ -12,7 +12,7 @@
 import { getLogger } from '@modules/monitoring';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 import { taskOrchestrator } from '../TaskOrchestrator';
 import type { PlanProgress, PlanStep } from '../TaskOrchestrator';
 import { generateAuditReport } from '../AuditReport';

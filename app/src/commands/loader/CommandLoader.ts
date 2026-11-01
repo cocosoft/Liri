@@ -13,7 +13,7 @@ import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 
 import { LazyCommand } from './LazyCommand.js';
-import { resolveProjectRoot } from '@modules/environment';
+import { resolveProjectRoot } from '@openliri/infra/environment';
 // P3（2026-10-30）：顶层收敛的唯一判定（可见 = 8 个分组父命令 + 16 个独立保留）
 import { isVisibleTopLevel } from '../groups/commandGroups.js';
 

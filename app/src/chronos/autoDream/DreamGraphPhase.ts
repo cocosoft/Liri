@@ -40,7 +40,7 @@ import {
   resolveKnowledgeDir,
   resolveDbPath,
   resolveDomainsRoot,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 // D-148（2026-10-01）：知识图谱改经 core SPI（`infra -> app` 倒挂收口）
 import { resolveKnowledgeGraph } from '@openliri/kernel/spi';
 

@@ -10,7 +10,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveUserProfilePath } from '@modules/environment';
+import { resolveUserProfilePath } from '@openliri/infra/environment';
 import { configManager } from '@modules/config';
 
 const USER_FILE_PATH = resolveUserProfilePath();

@@ -4,7 +4,10 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome, resolveMemoryDir } from '@modules/environment';
+import {
+  resolvePyappHome,
+  resolveMemoryDir,
+} from '@openliri/infra/environment';
 import { configManager } from '@modules/config';
 
 export interface ProjectFiles {

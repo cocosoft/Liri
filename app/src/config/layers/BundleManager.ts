@@ -22,7 +22,10 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { load as yamlLoad } from 'js-yaml';
-import { resolveProjectRoot, resolvePyappHome } from '@modules/environment';
+import {
+  resolveProjectRoot,
+  resolvePyappHome,
+} from '@openliri/infra/environment';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 
 const logger = getLogger('config:layers:BundleManager');

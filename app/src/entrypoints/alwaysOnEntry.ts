@@ -18,7 +18,10 @@ import { dirname, join } from 'node:path';
 
 import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@openliri/infra/constants';
 import { configManager } from '@modules/config';
-import { resolveDataDir, resolveScopedDataDir } from '@modules/environment';
+import {
+  resolveDataDir,
+  resolveScopedDataDir,
+} from '@openliri/infra/environment';
 import { feature } from '@openliri/kernel';
 import { getLogger } from '@modules/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';

@@ -26,7 +26,7 @@ import type {
   TAORCheckpoint,
   TAORCheckpointStorage,
 } from '../../src/query/types.js';
-import { setUserDataDirOverride } from '@modules/environment';
+import { setUserDataDirOverride } from '@openliri/infra/environment';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 import { resetScopedResourcesForTest } from '@openliri/kernel/identity/scopedResources.js';

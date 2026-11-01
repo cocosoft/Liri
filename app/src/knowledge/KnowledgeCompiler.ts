@@ -24,7 +24,10 @@ import { LRUCache } from '@openliri/infra/utils/cache';
 import { enterPhase, exitPhase } from '@modules/diagnostics';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
-import { resolvePyappHome, resolveDataSubDir } from '@modules/environment';
+import {
+  resolvePyappHome,
+  resolveDataSubDir,
+} from '@openliri/infra/environment';
 import { globalEventBus } from '@openliri/kernel';
 import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource } from '@modules/services/file/types';

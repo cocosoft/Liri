@@ -4,7 +4,7 @@
  */
 import path from 'path';
 import os from 'os';
-import { resolveProjectRoot } from '@modules/environment';
+import { resolveProjectRoot } from '@openliri/infra/environment';
 
 /**
  * 内部缓存文件模式（禁止 Agent 读取）

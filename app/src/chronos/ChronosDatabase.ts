@@ -7,7 +7,7 @@ import type {
   TaskStatus,
 } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 import { SimpleMutex } from '@openliri/kernel';
 
 import { getLogger } from '@modules/monitoring';

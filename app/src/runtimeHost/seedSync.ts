@@ -37,7 +37,7 @@ import {
   getProductIdentity,
   resolveProjectRoot,
   resolvePyappHome,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 
 /** 种子白名单（与 app/seed/pyapp 模板结构保持一致） */
 const SEED_ENTRIES: readonly string[] = [

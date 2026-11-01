@@ -34,7 +34,7 @@ import {
   configureProductIdentity,
   resetProductIdentity,
 } from '@openliri/kernel';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 
 describe('产品身份注入 ⇒ 路径解析联动', () => {
   it('注入 envPrefix 后，路径解析改用新前缀；reset 后恢复', () => {

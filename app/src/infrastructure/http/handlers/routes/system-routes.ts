@@ -9,7 +9,7 @@ import type { HandlerCtx } from '../handler-utils';
 import { readBody, json } from '../handler-utils';
 import { sleepMonitor } from '@openliri/kernel';
 import { APP_VERSION } from '@openliri/infra/constants';
-import { resolveDataDir, resolvePyappHome } from '@modules/environment';
+import { resolveDataDir, resolvePyappHome } from '@openliri/infra/environment';
 import {
   engageEstop,
   disengageEstop,

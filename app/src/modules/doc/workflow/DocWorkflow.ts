@@ -11,7 +11,7 @@
 
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import { handleError } from '@modules/error/handleError';
-import { resolveOutputDir } from '@modules/environment';
+import { resolveOutputDir } from '@openliri/infra/environment';
 import type {
   DocFormat,
   DocOutline,

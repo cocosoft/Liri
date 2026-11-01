@@ -11,7 +11,7 @@ import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import { resolveMemoryDir, resolveDbPath } from '@modules/environment';
+import { resolveMemoryDir, resolveDbPath } from '@openliri/infra/environment';
 import { Database } from '@openliri/infra/external';
 import { registerShutdownHandler } from '@openliri/infra/utils/gracefulShutdown';
 import { getMemoryDriftDetector } from '../MemoryDriftDetector';

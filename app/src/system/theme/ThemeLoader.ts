@@ -21,7 +21,7 @@ import {
   ThemeMetadata,
   validateThemeDefinition,
 } from './ThemeSchema';
-import { resolvePyappHome } from '@modules/environment';
+import { resolvePyappHome } from '@openliri/infra/environment';
 
 const logger = getLogger('ui:themeLoader');
 

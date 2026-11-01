@@ -3,7 +3,10 @@ import { PermissionBehavior } from './types/PermissionRule';
 import type { PermissionDecision, PermissionResult } from './PermissionResult';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
-import { isPathWithin, containsPathTraversal } from '@modules/environment';
+import {
+  isPathWithin,
+  containsPathTraversal,
+} from '@openliri/infra/environment';
 
 // 重新导出，供 permission/index.ts 使用
 export { containsPathTraversal };

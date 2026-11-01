@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { resolvePyappHome } from '@modules/environment';
+import { resolvePyappHome } from '@openliri/infra/environment';
 import crypto from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

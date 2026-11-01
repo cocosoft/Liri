@@ -11,7 +11,7 @@ import {
   mkdirSync,
 } from 'fs';
 import { dirname, join } from 'path';
-import { resolveChronosDir } from '@modules/environment';
+import { resolveChronosDir } from '@openliri/infra/environment';
 import type { SchedulerLock } from './types';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';

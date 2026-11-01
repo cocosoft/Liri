@@ -24,7 +24,7 @@ import {
   resolveProjectRoot,
   resolveScopedWorkspaceRoot,
   resolveSessionWorkspaceDir,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 import {
   getRequestPrincipal,
   isLocalPrincipal,

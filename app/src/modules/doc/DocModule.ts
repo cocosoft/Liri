@@ -4,7 +4,7 @@
  */
 
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
-import { resolveOutputDir } from '@modules/environment';
+import { resolveOutputDir } from '@openliri/infra/environment';
 import { feature } from '@openliri/kernel';
 import { globalToolManager } from '@modules/tools';
 import { join } from 'path';

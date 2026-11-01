@@ -15,7 +15,7 @@ import {
 } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 
 const logger = getLogger('chronos:storage');
 

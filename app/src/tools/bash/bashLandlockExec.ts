@@ -87,7 +87,7 @@ import {
   resolveDownloadsDir,
   resolveOutputDir,
   resolveTempDir,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 import { reportBashLandlockGapOnce } from './bashLandlockGap';
 
 const logger = getLogger('tools:bash:landlock-exec');

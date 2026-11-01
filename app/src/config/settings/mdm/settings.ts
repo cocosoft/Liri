@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync } from 'fs';
-import { resolvePyappHome } from '@modules/environment';
+import { resolvePyappHome } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('MDMSettings');
 import {

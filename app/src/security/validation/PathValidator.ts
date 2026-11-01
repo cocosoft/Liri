@@ -5,7 +5,7 @@
 
 import { homedir } from 'os';
 import { isAbsolute, resolve, dirname } from 'path';
-import { resolveProjectRoot } from '@modules/environment';
+import { resolveProjectRoot } from '@openliri/infra/environment';
 import {
   PathValidationRule,
   ValidationResult,

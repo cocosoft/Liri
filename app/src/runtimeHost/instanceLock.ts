@@ -22,7 +22,7 @@
 
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 
 /** 锁文件名（位于数据目录下） */
 export const INSTANCE_LOCK_FILE_NAME = '.liri.lock';

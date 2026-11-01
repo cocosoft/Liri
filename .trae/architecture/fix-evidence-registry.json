@@ -4255,7 +4255,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/environment/paths.ts",
+        "packages/infra/src/environment/paths.ts",
         "packages/infra/src/constants/common.ts",
         "app/src/workspace/LiriConfigManager.ts",
         "app/src/workspace/RuleEngine.ts",
@@ -10739,7 +10739,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/environment/mediaRoots.ts",
+        "packages/infra/src/environment/mediaRoots.ts",
         ".trae/architecture/hardcode-gate-baseline.json",
         ".trae/architecture/hardcode-progress.json"
       ],
@@ -12194,7 +12194,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/environment/paths.ts",
+        "packages/infra/src/environment/paths.ts",
         "app/src/plugins/utils/pluginSignature.ts",
         "app/scripts/copy-seed-data.ts",
         "app/scripts/plugin-sign.ts",
@@ -12761,7 +12761,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/environment/paths.ts"
+        "packages/infra/src/environment/paths.ts"
       ],
       "tests": [],
       "changelog": [],
@@ -12879,7 +12879,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/environment/paths.ts",
+        "packages/infra/src/environment/paths.ts",
         ".trae/architecture/kernel-size-baseline.json",
         ".trae/architecture/kernel-api-surface.json"
       ],
@@ -13605,7 +13605,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/environment/paths.ts",
+        "packages/infra/src/environment/paths.ts",
         "app/src/chat/services/toolCwdScope.ts",
         "app/src/chat/services/ToolExecutionService.ts"
       ],
@@ -15942,9 +15942,9 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/environment/storageScope.ts",
-        "app/src/environment/index.ts",
-        "app/src/environment/paths.ts",
+        "packages/infra/src/environment/storageScope.ts",
+        "packages/infra/src/environment/index.ts",
+        "packages/infra/src/environment/paths.ts",
         "app/src/security/identity/index.ts",
         "packages/infra/src/utils/json.ts"
       ],

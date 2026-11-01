@@ -292,7 +292,7 @@ export class DomainSnapshotOps {
       const { existsSync, readFileSync } = await import('node:fs');
       const { join } = await import('node:path');
       const { resolvePluginsInstalledDir } =
-        await import('@modules/environment');
+        await import('@openliri/infra/environment');
       const dir = loaded?.path ?? join(resolvePluginsInstalledDir(), pluginId);
       const manifestPath = join(dir, 'plugin.json');
       if (!existsSync(manifestPath)) return undefined;
@@ -1023,7 +1023,8 @@ export class DomainSnapshotOps {
         const { CronJobStore } =
           await import('@modules/tasks/cron/CronJobStore');
         // T25-02 补（2026-10-25）：按**当前身份**取库（此前钉死 `resolveDbPath()` ⇒ 租户读到本地库）。
-        const { resolveTenantDbPath } = await import('@modules/environment');
+        const { resolveTenantDbPath } =
+          await import('@openliri/infra/environment');
         const store = new CronJobStore(resolveTenantDbPath());
         return {
           init: () => store.init(),
@@ -1050,7 +1051,8 @@ export class DomainSnapshotOps {
       createCronRunLog: async () => {
         const { CronRunLog } = await import('@modules/tasks/cron/CronRunLog');
         // T25-02 补（2026-10-25）：同 `createCronJobStore`，库路径随当前身份。
-        const { resolveTenantDbPath } = await import('@modules/environment');
+        const { resolveTenantDbPath } =
+          await import('@openliri/infra/environment');
         const runLog = new CronRunLog(resolveTenantDbPath());
         return {
           init: () => runLog.init(),
@@ -1499,7 +1501,7 @@ export class DomainSnapshotOps {
 
   async getWorkspaceOpsPort(): Promise<WorkspaceOpsPort> {
     /** `@modules/core/paths` 取用（原调用点由 handler 自行 `resolveDataDir()`） */
-    const paths = async () => import('@modules/environment');
+    const paths = async () => import('@openliri/infra/environment');
 
     return {
       listProjectItemArtifacts: async (projectId: string) => {

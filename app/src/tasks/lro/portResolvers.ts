@@ -8,7 +8,7 @@
  */
 
 import { configManager } from '@modules/config';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 import { handleError } from '@modules/error';
 
 /**

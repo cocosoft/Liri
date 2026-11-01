@@ -12,7 +12,10 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { Database } from '@openliri/infra/external';
-import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
+import {
+  resolveDbPath,
+  resolveTenantDbPath,
+} from '@openliri/infra/environment';
 // 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {
   getRequestPrincipal,

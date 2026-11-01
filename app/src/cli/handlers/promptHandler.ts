@@ -18,7 +18,7 @@ import {
 } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
-import { resolvePyappHome } from '@modules/environment';
+import { resolvePyappHome } from '@openliri/infra/environment';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';
 import {
   clearPromptCache,

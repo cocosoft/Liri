@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolvePyappHome } from '@modules/environment';
+import { resolvePyappHome } from '@openliri/infra/environment';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager';
 import { LocalServerStore } from './LocalServerStore';

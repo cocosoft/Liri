@@ -12,7 +12,7 @@ import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { join, relative } from 'path';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
-import { resolvePyappHome } from '@modules/environment';
+import { resolvePyappHome } from '@openliri/infra/environment';
 
 const logger = getLogger('knowledge:knowledgeDigestService');
 

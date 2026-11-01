@@ -9,7 +9,7 @@
 
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 import { randomUUID } from 'crypto';
 import type { ProjectContextType } from '@modules/workspace/types';
 import { createProjectHistoryStore } from './ProjectHistoryStore';

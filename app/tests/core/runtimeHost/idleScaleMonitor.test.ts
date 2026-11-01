@@ -39,7 +39,7 @@ import {
   setUserDataDirOverride,
   getUserDataDirOverride,
   resolveTempDir,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 import { IdleScaleMonitor, cleanupStaleTempFiles } from '@modules/runtimeHost';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

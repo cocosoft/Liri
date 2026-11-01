@@ -24,7 +24,7 @@
 
 import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 import { resolveProjectIdentity } from '../src/tools/CreateProjectTool/projectName.js';
 
 export const PROJECTS_DIR = 'projects';

@@ -19,7 +19,7 @@ import {
   setUserDataDirOverride,
   resolveDataDir,
   resolveOnboardedFlagPath,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 import { checkFirstRunAndOnboard } from '../../src/bootstrap/preflight.js';
 
 let root: string;

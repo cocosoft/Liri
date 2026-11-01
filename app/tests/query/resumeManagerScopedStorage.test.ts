@@ -16,7 +16,10 @@ import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { resolveDataDir, setUserDataDirOverride } from '@modules/environment';
+import {
+  resolveDataDir,
+  setUserDataDirOverride,
+} from '@openliri/infra/environment';
 import { runWithPrincipal } from '@openliri/kernel/identity/requestScope.js';
 import type { Principal } from '@openliri/kernel/identity/principal.js';
 import { resetScopedResourcesForTest } from '@openliri/kernel/identity/scopedResources.js';

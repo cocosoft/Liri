@@ -24,6 +24,14 @@
     "./constants/*": {
       "types": "./src/constants/*.ts",
       "import": "./src/constants/*.ts"
+    },
+    "./environment": {
+      "types": "./src/environment/index.ts",
+      "import": "./src/environment/index.ts"
+    },
+    "./environment/*": {
+      "types": "./src/environment/*.ts",
+      "import": "./src/environment/*.ts"
     }
   },
   "scripts": {

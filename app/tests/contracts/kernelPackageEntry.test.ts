@@ -34,11 +34,11 @@
 import { describe, expect, it } from 'bun:test';
 
 import { KERNEL_PACKAGE_NAME, KERNEL_PACKAGE_VERSION } from '@openliri/kernel';
-import { resolveDbPath, resolvePyappHome } from '@modules/environment';
+import { resolveDbPath, resolvePyappHome } from '@openliri/infra/environment';
 import {
   resolveDbPath as subpathResolveDbPath,
   resolvePyappHome as subpathResolvePyappHome,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 
 describe('内核包入口契约', () => {
   it('包名与版本符合约定', () => {

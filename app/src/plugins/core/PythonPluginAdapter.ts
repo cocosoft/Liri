@@ -37,7 +37,10 @@ import {
   type PluginConfigPort,
 } from '../host/pluginConfigPort';
 import { migrateLegacyPythonConfig } from './pythonPluginConfigMigration';
-import { resolveDataSubDir, resolveProjectRoot } from '@modules/environment';
+import {
+  resolveDataSubDir,
+  resolveProjectRoot,
+} from '@openliri/infra/environment';
 import { join, delimiter } from 'path';
 import { trackProcess } from '../../services/mcp/transports/ChildProcessTracker';
 import { globalEventBus } from '@openliri/kernel/events/EventBus';

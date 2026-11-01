@@ -1,7 +1,7 @@
 import { fork } from 'child_process';
 import { getLogger } from '@modules/monitoring';
 import { join } from 'path';
-import { resolveProjectRoot } from '@modules/environment';
+import { resolveProjectRoot } from '@openliri/infra/environment';
 
 const logger = getLogger('tasks:detachedRuntime');
 

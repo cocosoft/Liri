@@ -39,7 +39,7 @@ import {
   resolveScopedDbPath,
   resolveTenantDataRoot,
   resolveTenantDbPath,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 
 const dataDir = join(tmpdir(), 'pyapp-kernel-tenant-paths');
 const env = { LIRI_DATA_DIR: dataDir } as NodeJS.ProcessEnv;

@@ -6,7 +6,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome } from '@modules/environment';
+import { resolvePyappHome } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 const logger = getLogger('doc:document');
 

@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { resolvePyappHome } from '@modules/environment';
+import { resolvePyappHome } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('CommandHistoryManager');

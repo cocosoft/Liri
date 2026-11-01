@@ -54,7 +54,9 @@ function resolveStorePath(rawPath: string): string {
       (() => {
         // 从已知解析函数回退
         try {
-          const { resolveAttachmentsDir } = require('@modules/environment');
+          const {
+            resolveAttachmentsDir,
+          } = require('@openliri/infra/environment');
           return resolveAttachmentsDir();
         } catch {
           return undefined;
@@ -68,7 +70,7 @@ function resolveStorePath(rawPath: string): string {
     const rest = rawPath.slice(firstSegment.length).replace(/^[/\\]/, '');
     const resolved = rest ? join(base, rest) : base;
     // 安全校验：确保 path.join 没有被跨盘符绝对路径覆盖（BUG02修复）
-    const { isPathWithin } = require('@modules/environment');
+    const { isPathWithin } = require('@openliri/infra/environment');
     const resolvedBase = base;
     if (!isPathWithin(resolvedBase, resolved)) {
       // 2-1（2026-09-03）：越权拦截统一审计
@@ -97,7 +99,7 @@ function resolveStorePath(rawPath: string): string {
   // 页面于是把整个 ~/.pyapp 根目录当成该分区内容（relPath 仍标 `memory/…`），
   // 目录树里除 output/downloads/attachments 外的顶级目录全部不可达。
   const fallback = isAbsolute(rawPath) ? rawPath : resolve(home, rawPath);
-  const { isPathWithin } = require('@modules/environment');
+  const { isPathWithin } = require('@openliri/infra/environment');
   if (!isPathWithin(home, fallback)) {
     // 2-1（2026-09-03）：越权拦截统一审计
     logSecurityBlock({
@@ -433,7 +435,7 @@ export async function handleFileHealth(
     const { FileRegistry } =
       await import('@modules/services/file/FileRegistry');
     const { DiskSpaceMonitor } = await import('@modules/runtimeHost');
-    const { resolvePyappHome } = await import('@modules/environment');
+    const { resolvePyappHome } = await import('@openliri/infra/environment');
     const { existsSync } = await import('fs');
 
     const checks: Record<

@@ -30,7 +30,7 @@
  */
 
 import { Database } from '@openliri/infra/external';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync } from 'fs';
 import { getLogger, getOTelTracing } from '@modules/monitoring';

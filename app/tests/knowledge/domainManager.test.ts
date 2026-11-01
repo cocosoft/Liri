@@ -9,7 +9,7 @@
  *   `getDomainsRoot` / `ensureRoot` / `list` / `create` / `getConfig`
  *
  * 隔离方式：`DomainManager` 内部经由 `resolveDomainDir()` → `resolvePyappHome(process.env)`
- * 解析路径（`app/src/environment/paths.ts:111` 优先 `LIRI_HOME`），所以把 `LIRI_HOME`
+ * 解析路径（`packages/infra/src/environment/paths.ts` 优先 `LIRI_HOME`），所以把 `LIRI_HOME`
  * 指向 `mkdtemp` 出来的临时目录即可全量隔离，不碰真实 `~/.pyapp`。
  * `beforeEach` 里带**安全护栏**：若环境覆盖未生效（例如 `userDataDirOverride` 被设置），
  * 直接抛错，绝不在真实目录上跑。
@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { resolveDomainsRoot } from '../../src/environment/paths';
+import { resolveDomainsRoot } from '@openliri/infra/environment/paths';
 import { DomainManager } from '../../src/knowledge/domain';
 
 const HOME_KEY = 'LIRI_HOME';

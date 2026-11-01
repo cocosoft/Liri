@@ -33,7 +33,7 @@ import {
   handleError,
 } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import { resolveLlamaModelsDir } from '@modules/environment';
+import { resolveLlamaModelsDir } from '@openliri/infra/environment';
 import { sendError, readRequestBody } from './handler-utils';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 

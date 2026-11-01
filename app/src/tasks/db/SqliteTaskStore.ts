@@ -2,7 +2,7 @@ import { join } from 'path';
 import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
 import { DatabaseError, handleError } from '@modules/error';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 import {
   TASKS_SCHEMA,
   FTS5_SCHEMA,

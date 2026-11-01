@@ -87,7 +87,7 @@ gci -Recurse -Include *.ts,*.tsx | % { if ($(gc $_.FullName -Raw) -notmatch "MIT
 **本地身份（桌面 / CLI / 后台）**：所有模块共用唯一 `app.db`，通过 `resolveDbPath()` 获取。
 
 ```typescript
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 constructor(dbPath: string = resolveDbPath()) { this.dbPath = dbPath; }
 ```
 
@@ -96,7 +96,7 @@ constructor(dbPath: string = resolveDbPath()) { this.dbPath = dbPath; }
 **每条读都必须带 `owner_key` 过滤**（漏一处即租户内跨用户越权），并配「漏过滤」门禁。
 
 ```typescript
-import { resolveTenantDbPath } from '@modules/environment';
+import { resolveTenantDbPath } from '@openliri/infra/environment';
 constructor(dbPath: string = resolveTenantDbPath()) { this.dbPath = dbPath; }
 ```
 
@@ -273,10 +273,10 @@ try { nonCriticalOp(); } catch { /* @ignore-catch 缺注释 */ }
 
 ### 1.13 路径与依赖管理规范
 
-**路径注册表唯一入口**：`environment/paths.ts`，所有路径通过 `@modules/environment` 获取。❌ 禁止 `@modules/config/paths`（已删除）、`path.join(homedir(), '.pyapp')`、`process.cwd()` 拼路径、`join(resolveDataDir(), 'xxx')` 绕过已有函数、在 constants.ts 中自建路径常量。
+**路径注册表唯一入口**：`packages/infra/src/environment/paths.ts`，所有路径通过 `@openliri/infra/environment` 获取。❌ 禁止 `@modules/config/paths`（已删除）、`path.join(homedir(), '.pyapp')`、`process.cwd()` 拼路径、`join(resolveDataDir(), 'xxx')` 绕过已有函数、在 constants.ts 中自建路径常量。
 
 ```typescript
-import { resolveOutputDir, resolveDbPath } from '@modules/environment';  // ✅
+import { resolveOutputDir, resolveDbPath } from '@openliri/infra/environment';  // ✅
 ```
 
 **三层路径**：

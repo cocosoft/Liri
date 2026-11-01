@@ -33,7 +33,7 @@
 
 import { readdir, stat, unlink } from 'fs/promises';
 import { join } from 'path';
-import { resolveTempDir } from '@modules/environment';
+import { resolveTempDir } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 import {
   DEFAULT_POLL_MS,

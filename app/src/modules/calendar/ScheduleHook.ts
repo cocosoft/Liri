@@ -12,7 +12,7 @@
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import type { EventSubscription } from '@openliri/kernel/events/EventBus';
 import { CronJobStore } from '@modules/tasks';
-import { resolveTenantDbPath } from '@modules/environment';
+import { resolveTenantDbPath } from '@openliri/infra/environment';
 import {
   getCalendarEventBus,
   CalendarEvents,

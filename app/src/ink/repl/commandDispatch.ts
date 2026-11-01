@@ -28,7 +28,7 @@ export async function dispatchSlashCommand(
   try {
     const { commandExecutor, formatCommandResult } =
       await import('@modules/commands');
-    const { resolveProjectRoot } = await import('@modules/environment');
+    const { resolveProjectRoot } = await import('@openliri/infra/environment');
     const result = await commandExecutor.execute(command, {
       sessionId: sessionId ?? 'ink-session',
       cwd: resolveProjectRoot(),

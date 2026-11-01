@@ -4,7 +4,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { resolvePyappHome } from '@modules/environment';
+import { resolvePyappHome } from '@openliri/infra/environment';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 

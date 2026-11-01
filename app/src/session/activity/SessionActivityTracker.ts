@@ -26,7 +26,7 @@ import {
   readdirSync,
 } from 'fs';
 import { join, dirname } from 'path';
-import { resolvePyappHome } from '@modules/environment';
+import { resolvePyappHome } from '@openliri/infra/environment';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

@@ -4,7 +4,7 @@ import type { Context } from '../types/Context';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { Database } from '@openliri/infra/external';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 
 const logger = getLogger('context:persistence');
 

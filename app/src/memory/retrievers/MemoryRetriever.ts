@@ -7,7 +7,7 @@ import { getLogger } from '@modules/monitoring';
 import { resolveAiAccess } from '@openliri/kernel/spi';
 import { existsSync, readFileSync } from 'fs';
 import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
-import { resolveDataDir, resolvePyappHome } from '@modules/environment';
+import { resolveDataDir, resolvePyappHome } from '@openliri/infra/environment';
 import { handleError } from '@modules/error/handleError';
 import {
   encodePayload,

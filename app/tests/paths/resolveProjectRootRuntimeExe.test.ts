@@ -11,11 +11,11 @@
 
 import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
-import { isRuntimeExecutable } from '@modules/environment';
+import { isRuntimeExecutable } from '@openliri/infra/environment';
 
 const PATHS_SRC = readFileSync(
   // P1（2026-10-28）：paths 已从内核迁至 `@modules/environment`
-  new URL('../../src/environment/paths.ts', import.meta.url),
+  new URL('../../../packages/infra/src/environment/paths.ts', import.meta.url),
   'utf8'
 );
 

@@ -60,7 +60,7 @@ const ROLLBACK_SCHEMA_VERSION = 1;
  */
 function getSnapshotsRoot(): string {
   try {
-    const { resolveSnapshotsDir } = require('@modules/environment');
+    const { resolveSnapshotsDir } = require('@openliri/infra/environment');
     return resolveSnapshotsDir();
   } catch {
     return join(homedir(), '.pyapp', 'data', 'snapshots');

@@ -1145,7 +1145,7 @@
     "installed": [
       "app/src/channels/wechat/cli-manager.ts",
       "app/src/config/ConfigMigration.ts",
-      "app/src/environment/paths.ts",
+      "packages/infra/src/environment/paths.ts",
       "app/src/skills/loaders/adapter/AggregatedSkillSearch.ts"
     ],
     "installing": [

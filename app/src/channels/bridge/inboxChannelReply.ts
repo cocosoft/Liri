@@ -321,7 +321,7 @@ async function _writeDeadLetter(inboxItem: InboxItem): Promise<void> {
   // 运行时仍是动态 import；`import type` 只在编译期取类型（擦除后无静态依赖）。
   let db: DatabaseConnection | null = null;
   try {
-    const { resolveTenantDbPath } = await import('@modules/environment');
+    const { resolveTenantDbPath } = await import('@openliri/infra/environment');
     const { Database } = await import('@openliri/infra/external');
     const { getRequestPrincipalKey } =
       await import('@openliri/kernel/identity/requestScope.js');

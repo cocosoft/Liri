@@ -26,7 +26,7 @@ import type { KnowledgeRouterOptions } from '../../src/docs/knowledge-types';
 import {
   resolveDomainDir,
   resolveKnowledgeDir,
-} from '../../src/environment/paths';
+} from '@openliri/infra/environment/paths';
 import { KnowledgeSummarizer } from '../../src/knowledge/KnowledgeSummarizer';
 import { KnowledgeDigestService } from '../../src/knowledge/KnowledgeDigestService';
 import type { IKnowledgeSearch } from '../../src/docs/knowledge-types';

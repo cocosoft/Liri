@@ -40,7 +40,7 @@ import {
   resolveAttachmentsDir,
   resolveDownloadsDir,
   resolveOutputDir,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('channels:routing');

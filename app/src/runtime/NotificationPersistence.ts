@@ -7,7 +7,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { Database } from '@openliri/infra/external';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 import { randomUUID } from 'crypto';
 import { broadcastEvent } from '@modules/infrastructure';
 

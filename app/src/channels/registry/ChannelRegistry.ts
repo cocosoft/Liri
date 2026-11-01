@@ -13,7 +13,7 @@
 
 import { EventEmitter } from 'events';
 import { Database } from '@openliri/infra/external';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 // 多租户 P3：通道配置/凭据按归属（租户）映射（本地身份 ⇒ 空键，零变更）
 import { currentOwnerKey } from '@openliri/kernel/identity/requestScope';
 import type {

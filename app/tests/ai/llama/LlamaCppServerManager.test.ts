@@ -36,7 +36,10 @@ import {
   buildArgs,
   type LlamaServerConfig,
 } from '../../../src/ai/local/llama/LlamaCppServerManager.js';
-import { resolveLlamaBinaryPath, resolveLlamaDir } from '@modules/environment';
+import {
+  resolveLlamaBinaryPath,
+  resolveLlamaDir,
+} from '@openliri/infra/environment';
 
 // ── 假 child_process.spawn（经 DI 端口注入）────────────────────
 

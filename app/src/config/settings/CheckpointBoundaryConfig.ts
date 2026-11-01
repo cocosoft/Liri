@@ -18,7 +18,7 @@
  */
 
 import { existsSync, readFileSync } from 'fs';
-import { resolveUserConfigPath } from '@modules/environment';
+import { resolveUserConfigPath } from '@openliri/infra/environment';
 
 export interface CheckpointBoundaryConfig {
   /** 是否启用边界检查（默认 false） */

@@ -4,7 +4,7 @@
  */
 
 import { join } from 'path';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import {

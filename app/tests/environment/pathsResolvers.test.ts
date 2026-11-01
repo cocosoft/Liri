@@ -26,7 +26,7 @@ import {
   ensureDataDirectories,
   LIRI_HOME,
   PROJECT_ROOT,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 
 describe('setUserDataDirOverride / getUserDataDirOverride', () => {
   afterEach(() => {

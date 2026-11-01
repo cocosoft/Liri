@@ -70,7 +70,7 @@ export class CronStopTool {
         try {
           const { CronJobStore } =
             await import('@modules/tasks/cron/CronJobStore');
-          const { resolveDbPath } = await import('@modules/environment');
+          const { resolveDbPath } = await import('@openliri/infra/environment');
           const store = new CronJobStore(resolveDbPath());
           await store.init();
 

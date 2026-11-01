@@ -45,7 +45,7 @@ import { PermissionRuleSource } from '../../src/permission/types/PermissionRule'
 import {
   setUserDataDirOverride,
   getUserDataDirOverride,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 
 const USER = PermissionRuleSource.USER_SETTINGS;
 

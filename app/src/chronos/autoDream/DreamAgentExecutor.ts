@@ -2,7 +2,7 @@ import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import { EventEmitter } from 'events';
 import { getLogger } from '@modules/monitoring';
-import { resolveProjectRoot } from '@modules/environment';
+import { resolveProjectRoot } from '@openliri/infra/environment';
 import type { ManagedProcess } from '@modules/daemon';
 
 const logger = getLogger('chronos:autoDream:dreamAgentExecutor');

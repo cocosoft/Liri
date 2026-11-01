@@ -83,12 +83,28 @@ function checkAlias(alias: string, keys: Set<string>): string | null {
   if (/^(my|your|example|sample)-/i.test(seg)) return null;
   const root = `@${alias.split('/')[0]!.slice(1)}`;
   if (root === '@openliri') {
-    if (alias === '@openliri/kernel') return null;
-    const sub = alias.slice('@openliri/kernel/'.length).replace(/\.js$/, '');
-    const head = sub.split('/')[0]!;
-    return (KERNEL_PUBLIC_SUBPATHS as readonly string[]).includes(head)
-      ? null
-      : `内核子路径 \`${head}\` 不在公开清单（KERNEL_PUBLIC_SUBPATHS）`;
+    // P8（2026-11-01）：`@openliri/*` 不止内核一个包 —— 原实现把**任何** `@openliri/x/y`
+    // 都当内核子路径（`@openliri/infra/environment` ⇒ head 取成 `nvironment`），迁包后文档
+    // 一写新别名就误报。改为按**第二个路径段**分流：kernel 走内核公开清单，infra 走 tsconfig 键。
+    const pkg = alias.split('/')[1] ?? '';
+    if (pkg === 'kernel') {
+      if (alias === '@openliri/kernel') return null;
+      const sub = alias.slice('@openliri/kernel/'.length).replace(/\.js$/, '');
+      const head = sub.split('/')[0]!;
+      return (KERNEL_PUBLIC_SUBPATHS as readonly string[]).includes(head)
+        ? null
+        : `内核子路径 \`${head}\` 不在公开清单（KERNEL_PUBLIC_SUBPATHS）`;
+    }
+    if (pkg === 'infra') {
+      if (alias === '@openliri/infra') return null;
+      const sub = alias.slice('@openliri/infra/'.length).replace(/\.js$/, '');
+      const head = sub.split('/')[0]!;
+      if (!head) return null;
+      return keys.has(`@openliri/infra/${head}`)
+        ? null
+        : `infra 包未导出 \`${head}\`（见 packages/infra/package.json exports / app/tsconfig.json paths）`;
+    }
+    return `未知的 @openliri 子包 \`${pkg}\``;
   }
   if (keys.has(`@${alias.split('/')[0]!.slice(1)}/${seg}`)) return null;
   return `tsconfig paths 里没有 \`${root}/${seg}\``;

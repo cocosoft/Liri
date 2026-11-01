@@ -24,7 +24,7 @@ import type http from 'http';
 import { randomIdSuffix } from '@openliri/infra/utils/common';
 import { join } from 'path';
 import { existsSync, writeFileSync, readFileSync } from 'fs';
-import { resolvePyappHome } from '@modules/environment';
+import { resolvePyappHome } from '@openliri/infra/environment';
 import { LOCAL_REQUEST_BASE_URL } from '@openliri/kernel';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 

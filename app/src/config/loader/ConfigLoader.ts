@@ -7,7 +7,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { resolvePyappHome } from '@modules/environment';
+import { resolvePyappHome } from '@openliri/infra/environment';
 
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('config:loader:ConfigLoader');

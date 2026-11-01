@@ -14,7 +14,7 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { resolveUserConfigPath } from '@modules/environment';
+import { resolveUserConfigPath } from '@openliri/infra/environment';
 
 /**
  * 惰性解析配置路径。

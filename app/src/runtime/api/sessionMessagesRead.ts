@@ -61,7 +61,7 @@ import type {
   FrontendMessageBlock,
 } from '@modules/session/types/UnifiedMessage';
 import type { ChatManager } from '@modules/chat';
-import { resolveWorktreeHash } from '@modules/environment';
+import { resolveWorktreeHash } from '@openliri/infra/environment';
 import {
   canAccessSession,
   type SessionOwner,

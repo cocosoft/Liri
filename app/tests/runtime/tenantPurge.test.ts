@@ -20,7 +20,7 @@ import {
   setUserDataDirOverride,
   resolveDataDir,
   resolveDbPath,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 import { purgeTenant } from '../../src/runtime/tenantPurge.js';
 import { CronJobStore } from '../../src/tasks/cron/CronJobStore.js';
 import { SqliteTaskStore } from '../../src/tasks/db/SqliteTaskStore.js';

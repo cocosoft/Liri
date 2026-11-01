@@ -17,7 +17,7 @@ import { handleError } from '@modules/error';
 import { TTLCache } from '@openliri/infra/utils/cache';
 import { Logger, LogLevel } from '@modules/monitoring';
 import path from 'path';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 import {
   MICROSOFT_LOGIN_BASE_URL,
   MSTEAMS_BOT_FRAMEWORK_BASE_URL,

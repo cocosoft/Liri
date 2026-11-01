@@ -13,7 +13,7 @@ import {
   resolveSessionsDir,
   resolveDataDir,
   resolveWorktreeHash,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 // 多租户 P1：按请求身份选择存储实例（本地身份 ⇒ 原实例，零变更）
 import {
   getRequestPrincipal,

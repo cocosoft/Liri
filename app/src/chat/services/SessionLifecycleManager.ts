@@ -40,7 +40,7 @@ import {
   SecurityError,
 } from '@modules/error';
 import { SimpleMutex } from '@openliri/kernel';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 import { SessionGateway } from '@modules/session';
 import { HookChainManager } from '@modules/hooks';
 import { SessionAccessFacade } from './SessionAccessFacade';

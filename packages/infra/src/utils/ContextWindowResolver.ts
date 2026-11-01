@@ -11,7 +11,7 @@
  */
 import { getLogger } from '@openliri/kernel/loggerFacade';
 import { Database } from '@openliri/infra/external';
-import { resolveTenantDbPath } from '@modules/environment';
+import { resolveTenantDbPath } from '@openliri/infra/environment';
 // 租户库 §8-#14 A2：窗口缓存按 `<owner>\0<model>` 分桶（无请求作用域 ⇒ `local:local`）
 import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
 // 2026-10-01 B14b（甲′）：原静态导入 app 层 `@modules/ai` 的 ModelRegistry（同步路径读取）

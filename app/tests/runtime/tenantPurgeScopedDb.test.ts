@@ -14,7 +14,10 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import { Database } from '@openliri/infra/external';
-import { resolveDataDir, setUserDataDirOverride } from '@modules/environment';
+import {
+  resolveDataDir,
+  setUserDataDirOverride,
+} from '@openliri/infra/environment';
 import { purgeTenant } from '../../src/runtime/tenantPurge.js';
 import {
   registerScopedResource,

@@ -33,7 +33,7 @@ import {
 } from 'fs';
 import { taskRegistry } from './TaskRegistry';
 import { configManager } from '@modules/config';
-import { resolveDataSubDir } from '@modules/environment';
+import { resolveDataSubDir } from '@openliri/infra/environment';
 import {
   parseSuccessCriteria,
   type SuccessCriteria,

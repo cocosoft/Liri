@@ -48,7 +48,7 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { resolveDbPath, resolvePyappHome } from '@modules/environment';
+import { resolveDbPath, resolvePyappHome } from '@openliri/infra/environment';
 import { createSandbox } from './sandbox.js';
 import type { EvalSandbox } from './sandbox.js';
 import {

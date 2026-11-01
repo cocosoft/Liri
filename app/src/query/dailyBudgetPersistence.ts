@@ -34,7 +34,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { readFileSync } from 'fs';
 import { dirname } from 'path';
-import { resolveScopedDataDir } from '@modules/environment';
+import { resolveScopedDataDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('query:dailyBudgetPersistence');

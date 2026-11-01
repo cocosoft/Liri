@@ -8,7 +8,10 @@ import { randomUUID } from 'crypto';
 import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
+import {
+  resolveDbPath,
+  resolveTenantDbPath,
+} from '@openliri/infra/environment';
 import { SimpleMutex } from '@openliri/kernel';
 // 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import {

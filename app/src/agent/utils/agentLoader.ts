@@ -199,7 +199,10 @@ export async function loadUserAgents(): Promise<AgentDefinition[]> {
   return loadAgentsFromDir(userAgentsDir);
 }
 
-import { resolveDataSubDir, resolvePyappHome } from '@modules/environment';
+import {
+  resolveDataSubDir,
+  resolvePyappHome,
+} from '@openliri/infra/environment';
 
 /**
  * 加载项目级Agent

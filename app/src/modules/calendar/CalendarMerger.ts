@@ -10,7 +10,7 @@
 
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
 import { CronJobStore } from '@modules/tasks';
-import { resolveTenantDbPath } from '@modules/environment';
+import { resolveTenantDbPath } from '@openliri/infra/environment';
 import { computeNextCronRunMs } from '@modules/tasks';
 import { AIScheduleIndex, type AIScheduleEvent } from './AIScheduleIndex';
 import { EventStatus } from './types';

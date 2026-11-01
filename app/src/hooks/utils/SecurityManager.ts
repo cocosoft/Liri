@@ -1,6 +1,9 @@
 import { EventEmitter } from 'events';
 import { join, resolve, dirname } from 'path';
-import { resolveProjectRoot, resolveSecurityDir } from '@modules/environment';
+import {
+  resolveProjectRoot,
+  resolveSecurityDir,
+} from '@openliri/infra/environment';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

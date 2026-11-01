@@ -12,7 +12,7 @@ import {
 } from './SubAgent';
 import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
-import { resolveProjectRoot } from '@modules/environment';
+import { resolveProjectRoot } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 

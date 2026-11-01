@@ -28,7 +28,7 @@
 
 import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { resolveVendorSkillsDir } from '@modules/environment';
+import { resolveVendorSkillsDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { InstalledThirdPartySkill, LocalSkillSearchResult } from './types';

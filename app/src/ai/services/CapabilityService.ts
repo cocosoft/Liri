@@ -27,7 +27,7 @@
  */
 
 import { Database } from '@openliri/infra/external';
-import { resolveDbPath, resolveProjectRoot } from '@modules/environment';
+import { resolveDbPath, resolveProjectRoot } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';

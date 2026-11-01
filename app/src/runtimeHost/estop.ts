@@ -33,7 +33,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/kernel/loggerFacade';
 const logger = getLogger('core:estop');
 

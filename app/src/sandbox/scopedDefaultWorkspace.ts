@@ -15,7 +15,7 @@
  * `WorkspaceManager.createSync()`（适配器创建无 IO，见其文档）。
  */
 
-import { resolveScopedWorkspaceRoot } from '@modules/environment';
+import { resolveScopedWorkspaceRoot } from '@openliri/infra/environment';
 import {
   getRequestPrincipal,
   isLocalPrincipal,

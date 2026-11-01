@@ -92,7 +92,7 @@ import { recordChatResponseUsage as recordChatResponseUsageImpl } from './manage
 const logger = getLogger('chat:manager');
 
 import { SimpleMutex } from '@openliri/kernel';
-import { resolveWorktreeHash } from '@modules/environment';
+import { resolveWorktreeHash } from '@openliri/infra/environment';
 // 多租户 P0 阶段 2：当前会话 id 按请求身份分桶（无请求作用域 ⇒ 本地身份单桶）
 import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
 import { join } from 'path';

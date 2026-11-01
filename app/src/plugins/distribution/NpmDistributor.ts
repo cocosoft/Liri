@@ -5,7 +5,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { resolvePluginsInstalledDir } from '@modules/environment';
+import { resolvePluginsInstalledDir } from '@openliri/infra/environment';
 import { NPM_REGISTRY_URL } from '@openliri/kernel';
 import { exec } from 'child_process';
 import { promisify } from 'util';

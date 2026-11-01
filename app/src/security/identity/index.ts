@@ -41,5 +41,5 @@ export {
   safePathSegment,
   scopedDataRoot,
   tenantScopedDataRoot,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 export * from './sessionOwnership';

@@ -40,8 +40,8 @@ import { truncateMemoryContent } from '@modules/memory';
 import { getGitInfo } from '@modules/context';
 import { readProjectFiles } from '@modules/context';
 import { basename, join } from 'path';
-import { resolveProjectRoot } from '@modules/environment';
-import { resolveDataDir } from '@modules/environment';
+import { resolveProjectRoot } from '@openliri/infra/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 // T-②06：经验自动演化覆盖层（受管文件；空 ⇒ 该段不注入）
 import { readPromptEvolutionOverlay } from '@openliri/infra/utils/promptEvolution';
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs';

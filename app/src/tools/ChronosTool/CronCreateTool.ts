@@ -192,7 +192,7 @@ export class CronCreateTool {
             await import('@openliri/infra/utils/cron');
           const { CronJobStore } =
             await import('@modules/tasks/cron/CronJobStore');
-          const { resolveDbPath } = await import('@modules/environment');
+          const { resolveDbPath } = await import('@openliri/infra/environment');
 
           const parsed: any = parseSchedule(expression) || {
             kind: 'cron',

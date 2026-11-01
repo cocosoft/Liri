@@ -12,7 +12,10 @@
  *   {pyappHome}  → resolvePyappHome()
  */
 import * as path from 'path';
-import { resolveProjectRoot, resolvePyappHome } from '@modules/environment';
+import {
+  resolveProjectRoot,
+  resolvePyappHome,
+} from '@openliri/infra/environment';
 
 export interface WhitelistConfig {
   /** 允许 AI 引用的目录路径（绝对路径，支持模板变量） */

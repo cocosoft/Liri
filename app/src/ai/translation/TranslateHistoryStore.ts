@@ -14,7 +14,10 @@
 
 import { Database } from '@openliri/infra/external';
 import { randomUUID } from 'crypto';
-import { resolveDbPath, resolveTenantDbPath } from '@modules/environment';
+import {
+  resolveDbPath,
+  resolveTenantDbPath,
+} from '@openliri/infra/environment';
 import {
   getRequestPrincipal,
   getRequestPrincipalKey,

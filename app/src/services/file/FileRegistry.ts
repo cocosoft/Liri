@@ -32,7 +32,7 @@ import {
   resolveDbPath,
   resolveInboundDir,
   resolveMediaDir,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 import {
   getCreateTableSqlList,
   FILES_TABLE,

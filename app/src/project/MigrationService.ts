@@ -14,7 +14,7 @@ import {
 } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 import { createProjectStore } from '../workspace/ProjectStore.js';
 import { WorkItemStore } from '../workspace/WorkItemStore.js';
 import { getLogger } from '@modules/monitoring';

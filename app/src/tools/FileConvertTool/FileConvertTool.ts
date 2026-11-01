@@ -208,7 +208,7 @@ export class FileConvertTool extends BaseTool {
       if (targetFormat === 'docx') {
         const fullMarkdown = result.markdown;
         const outputDir = (
-          await import('@modules/environment')
+          await import('@openliri/infra/environment')
         ).resolveOutputDir();
         const baseName = path.basename(filePath, path.extname(filePath));
         const { createWithOfficeCLI, createNativeDocx, isOfficeCLIAvailable } =

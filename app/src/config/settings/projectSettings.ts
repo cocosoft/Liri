@@ -10,7 +10,7 @@ import { handleError } from '@modules/error/handleError.js';
 
 const logger = getLogger('ProjectSettings');
 import { deepMerge } from '@openliri/infra/utils/common';
-import { resolveProjectSettingsPath } from '@modules/environment';
+import { resolveProjectSettingsPath } from '@openliri/infra/environment';
 
 /**
  * 获取项目设置文件路径

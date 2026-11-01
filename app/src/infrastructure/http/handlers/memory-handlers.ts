@@ -644,7 +644,7 @@ export async function handleFileOpen(
 
     // 安全校验：路径必须在 pyappHome 范围内
     const { isPathWithin, resolvePyappHome } =
-      await import('@modules/environment');
+      await import('@openliri/infra/environment');
     const home = resolvePyappHome();
     if (!isPathWithin(home, filePath)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
@@ -733,7 +733,7 @@ export async function handleFileRead(
 
     // 安全校验：路径必须在 pyappHome 范围内
     const { isPathWithin, resolvePyappHome } =
-      await import('@modules/environment');
+      await import('@openliri/infra/environment');
     const home = resolvePyappHome();
     if (!isPathWithin(home, filePath)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
@@ -924,7 +924,7 @@ export async function handleFilePaths(
     resolveDownloadsDir,
     resolveDataDir,
     resolveDocsDir,
-  } = await import('@modules/environment');
+  } = await import('@openliri/infra/environment');
   const projectRoot = resolveProjectRoot();
   const basePaths = {
     projectRoot,
@@ -1044,7 +1044,7 @@ export async function handleFileStream(
 
     // 安全校验
     const { isPathWithin, resolvePyappHome } =
-      await import('@modules/environment');
+      await import('@openliri/infra/environment');
     const home = resolvePyappHome();
     if (!isPathWithin(home, filePath)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });

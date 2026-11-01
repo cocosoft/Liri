@@ -32,7 +32,7 @@
  */
 import { Database } from '@openliri/infra/external';
 import { getLogger } from '@modules/monitoring';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 
 const logger = getLogger('system:state:migration:store');
 

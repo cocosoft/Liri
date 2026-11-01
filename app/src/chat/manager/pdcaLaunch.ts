@@ -34,7 +34,7 @@ import { hasResearchIntent, hasVerifyIntent } from '../taskIntent';
 import { shouldEscalateLongTask } from '../longTaskEscalation';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import type { PdcaLauncher } from '../launchers/PdcaLauncher';
 

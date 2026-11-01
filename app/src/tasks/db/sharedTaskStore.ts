@@ -11,7 +11,7 @@
  *
  * ⚠️ 返回的实例**不要** `close()`（被多处共享）；需要一次性实例请用 `createSqliteTaskStore()`。
  */
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 
 import { SqliteTaskStore } from './SqliteTaskStore';
 

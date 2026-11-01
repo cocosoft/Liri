@@ -5,7 +5,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { extname, resolve } from 'path';
-import { resolveProjectRoot } from '@modules/environment';
+import { resolveProjectRoot } from '@openliri/infra/environment';
 import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
 import { feature } from '@openliri/kernel';

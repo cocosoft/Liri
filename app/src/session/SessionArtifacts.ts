@@ -47,7 +47,7 @@ export interface ArtifactConfig {
   maxTotalSize: number;
 }
 
-import { resolveArtifactsDir } from '@modules/environment';
+import { resolveArtifactsDir } from '@openliri/infra/environment';
 import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource } from '@modules/services/file/types';
 

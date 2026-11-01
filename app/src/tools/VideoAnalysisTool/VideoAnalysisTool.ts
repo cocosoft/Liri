@@ -38,7 +38,7 @@ import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
-import { resolveTempDir } from '@modules/environment';
+import { resolveTempDir } from '@openliri/infra/environment';
 
 const logger = getLogger('tools:video-analysis');
 

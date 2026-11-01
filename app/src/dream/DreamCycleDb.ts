@@ -32,7 +32,7 @@
  */
 
 import { Database } from '@openliri/infra/external';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 import { handleError } from '@modules/error';
 import type { DreamCycleRecord } from './types';
 

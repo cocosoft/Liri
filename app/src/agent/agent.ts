@@ -24,7 +24,7 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('agent:agent');
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { resolveSessionsDir } from '@modules/environment';
+import { resolveSessionsDir } from '@openliri/infra/environment';
 import { CuratorScheduler } from '@modules/tools';
 import { SkillLifecycleManager } from '@modules/tools';
 import { InternalEventBus } from './events';

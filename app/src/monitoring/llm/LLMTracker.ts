@@ -11,7 +11,7 @@ import {
   type LogSource,
 } from '../logs/LogMemory.js';
 import { Database } from '@openliri/infra/external';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 // 租户级 DB（基础设施专项 §6.1 期 3）：库按**租户**分，用户靠 `owner_key` 行级隔离
 import { getRequestPrincipalKey } from '@openliri/kernel/identity/requestScope.js';
 

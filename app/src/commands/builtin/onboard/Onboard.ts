@@ -13,7 +13,7 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
-import { resolveUserEnvPath } from '@modules/environment';
+import { resolveUserEnvPath } from '@openliri/infra/environment';
 import {
   OPENAI_API_V1_BASE_URL,
   ANTHROPIC_API_V1_BASE_URL,

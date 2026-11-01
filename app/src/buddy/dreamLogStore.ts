@@ -10,7 +10,7 @@
 import type { DreamEvent } from '@modules/chronos';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname } from 'path';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('buddy:dreamLog');
 

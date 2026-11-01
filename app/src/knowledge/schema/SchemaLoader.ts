@@ -41,7 +41,7 @@ import { handleError } from '@modules/error';
 import {
   resolveKnowledgeDir,
   resolveDomainSchemaDir,
-} from '@modules/environment';
+} from '@openliri/infra/environment';
 import type { ValidationResult } from '@openliri/infra/common/types';
 import type { ConstraintStrength } from '../rule/types';
 

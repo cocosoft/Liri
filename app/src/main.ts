@@ -82,7 +82,8 @@ import {
   resolvePyappHome,
   ensureDataDirectories,
   validatePathConsistency,
-} from '@modules/environment';
+  setUserDataDirOverride,
+} from '@openliri/infra/environment';
 // P1：首启种子同步（fs 复制）已出内核 ⇒ `@modules/runtimeHost`
 import { syncSeedData } from '@modules/runtimeHost';
 import { modelRouter } from '@modules/ai';
@@ -1639,7 +1640,6 @@ export async function launch(options: LaunchOptions): Promise<void> {
         // 从 ConfigManager 或 settings.json 恢复用户自定义数据目录
         const { loadUserSettings } =
           await import('./config/settings/userSettings.js');
-        const { setUserDataDirOverride } = await import('@modules/environment');
 
         // 优先读取 ConfigManager（新），fallback settings.json（旧，自动迁移）
         let dataDirectory = configManager.getConfigValue(
@@ -1905,7 +1905,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     try {
       const { writeFileSync } = await import('fs');
       const { join } = await import('path');
-      const { resolveLogsDir } = await import('@modules/environment');
+      const { resolveLogsDir } = await import('@openliri/infra/environment');
       const logPath = join(resolveLogsDir(), 'startup-error.log');
       writeFileSync(
         logPath,

@@ -13,7 +13,7 @@ import type { ToolUseContext, ToolResult } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import type { SessionMessage } from '@modules/session';
 import { loadSessionMessages } from '../sessionMessageSource';
-import { resolveScopedDataDir } from '@modules/environment';
+import { resolveScopedDataDir } from '@openliri/infra/environment';
 
 import { getLogger } from '@modules/monitoring';
 import { DEFAULT_LOCALE } from '@openliri/infra/constants';

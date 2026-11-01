@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import {
   resolveSessionsDir,
   resolveUserConfigPath,
-} from '../src/environment/paths';
+} from '@openliri/infra/environment/paths';
 import {
   DEFAULT_DATA_RETENTION,
   SessionPruning,

@@ -29,7 +29,7 @@
  * - **不写 `events.jsonl`**、不触碰 `SUSPENDED` 投影（草案 §5/§6）。
  */
 import { Database } from '@openliri/infra/external';
-import { resolveDbPath } from '@modules/environment';
+import { resolveDbPath } from '@openliri/infra/environment';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import {

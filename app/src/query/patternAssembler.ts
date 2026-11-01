@@ -43,7 +43,7 @@ import {
   resolvePattern,
 } from './patterns';
 import { feature } from '@openliri/kernel';
-import { resolveDataSubDir } from '@modules/environment';
+import { resolveDataSubDir } from '@openliri/infra/environment';
 import { mkdir, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
 

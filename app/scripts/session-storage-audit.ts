@@ -27,7 +27,7 @@
 
 import { existsSync, readdirSync, statSync, rmdirSync } from 'fs';
 import { join } from 'path';
-import { resolveDataDir, resolveDbPath } from '@modules/environment';
+import { resolveDataDir, resolveDbPath } from '@openliri/infra/environment';
 import { CostRecordRepository } from '../src/cost/CostRecordRepository.js';
 
 /** 单文件告警阈值（issue #24 的验收口径） */

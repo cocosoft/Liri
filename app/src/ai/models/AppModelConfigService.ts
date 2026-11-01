@@ -45,7 +45,7 @@
  */
 
 import { Database } from '@openliri/infra/external';
-import { resolveDbPath, ensureDir } from '@modules/environment';
+import { resolveDbPath, ensureDir } from '@openliri/infra/environment';
 import { dirname } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

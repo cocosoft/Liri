@@ -15,7 +15,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { resolveDataDir } from '@modules/environment';
+import { resolveDataDir } from '@openliri/infra/environment';
 
 const logger = getLogger('chat:manager');
 

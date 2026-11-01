@@ -48,6 +48,14 @@
     "./featureflags/*": {
       "types": "./src/featureflags/*.ts",
       "import": "./src/featureflags/*.ts"
+    },
+    "./daemon": {
+      "types": "./src/daemon/index.ts",
+      "import": "./src/daemon/index.ts"
+    },
+    "./daemon/*": {
+      "types": "./src/daemon/*.ts",
+      "import": "./src/daemon/*.ts"
     }
   },
   "scripts": {

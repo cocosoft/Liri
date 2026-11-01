@@ -22,8 +22,8 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DaemonService } from '../src/daemon/service/DaemonService.ts';
-import type { ServiceConfig } from '../src/daemon/service/DaemonService.ts';
+import { DaemonService } from '@openliri/infra/daemon/service/DaemonService';
+import type { ServiceConfig } from '@openliri/infra/daemon/service/DaemonService';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

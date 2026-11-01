@@ -47,7 +47,7 @@ import {
   setConstantsEnvReader,
   setFrozenSnapshotUnfreezer,
 } from '@openliri/infra/constants';
-import { setDaemonMetricsSink } from '../daemon/metricsSink.js';
+import { setDaemonMetricsSink } from '@openliri/infra/daemon/metricsSink';
 import { setMainPermissionRuleSource } from '../security/permissionRuleSource.js';
 import { setNativeStructureCloserLoader } from '@openliri/infra/utils/structureCut';
 import { setAnalyticsPricingResolver } from '../analytics/pricingSource.js';

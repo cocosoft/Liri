@@ -7540,7 +7540,7 @@
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"notes","i":1,"c":"口，由 bootstrap/preflight.wireDaemonDeps 注入 —— 取服务仍延迟调用，未注入或未初始化时跳过，与历史 try/catch 降级语义一致。"}
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#0","i":0,"c":"app/src/config/layers/ConfigLayers.ts"}
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#1","i":0,"c":"app/src/cache/CacheSystem.ts"}
-{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#2","i":0,"c":"app/src/daemon/metricsSink.ts"}
+{"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#2","i":0,"c":"packages/infra/src/daemon/metricsSink.ts"}
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#3","i":0,"c":"app/src/bootstrap/preflight.ts"}
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"code#4","i":0,"c":"app/src/main.ts"}
 {"id":"INFRA-CYCLE-B5-CONFIG-CACHE-DAEMON","k":"tests#0","i":0,"c":"app/tests/config"}

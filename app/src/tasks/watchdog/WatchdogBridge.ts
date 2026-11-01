@@ -37,7 +37,8 @@ export class WatchdogBridge {
     line: string
   ): Promise<Array<{ pattern: string; severity: string }>> {
     try {
-      const { ProcessWatchdog } = await import('../../daemon/ProcessWatchdog');
+      const { ProcessWatchdog } =
+        await import('@openliri/infra/daemon/ProcessWatchdog');
       const { getGlobalWatchdog } = await import('./globalWatchdog');
       const wd = getGlobalWatchdog(ProcessWatchdog);
       return wd.feed(line);
@@ -52,7 +53,8 @@ export class WatchdogBridge {
   /** 获取统计 */
   async getStats(): Promise<WatchdogStats> {
     try {
-      const { ProcessWatchdog } = await import('../../daemon/ProcessWatchdog');
+      const { ProcessWatchdog } =
+        await import('@openliri/infra/daemon/ProcessWatchdog');
       const { getGlobalWatchdog } = await import('./globalWatchdog');
       return getGlobalWatchdog(ProcessWatchdog).getStats();
     } catch {
@@ -68,7 +70,8 @@ export class WatchdogBridge {
   /** 重置统计 */
   async reset(): Promise<void> {
     try {
-      const { ProcessWatchdog } = await import('../../daemon/ProcessWatchdog');
+      const { ProcessWatchdog } =
+        await import('@openliri/infra/daemon/ProcessWatchdog');
       const { getGlobalWatchdog } = await import('./globalWatchdog');
       getGlobalWatchdog(ProcessWatchdog).reset();
     } catch {

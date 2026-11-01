@@ -3,7 +3,7 @@ import path from 'path';
 import { EventEmitter } from 'events';
 import { getLogger } from '@modules/monitoring';
 import { resolveProjectRoot } from '@openliri/infra/environment';
-import type { ManagedProcess } from '@modules/daemon';
+import type { ManagedProcess } from '@openliri/infra/daemon';
 
 const logger = getLogger('chronos:autoDream:dreamAgentExecutor');
 

@@ -16014,7 +16014,7 @@
       "code": [
         "app/src/config/layers/ConfigLayers.ts",
         "app/src/cache/CacheSystem.ts",
-        "app/src/daemon/metricsSink.ts",
+        "packages/infra/src/daemon/metricsSink.ts",
         "app/src/bootstrap/preflight.ts",
         "app/src/main.ts"
       ],

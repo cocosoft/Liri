@@ -80,6 +80,19 @@ export function createTriggerTicketSink(
         origin: { threadId: trigger.threadKey },
         triggerId: trigger.triggerId,
         payload: trigger.payload,
+        // P34：触发即"输入 + 订阅"（后续执行/唤醒按这两个事实回放上下文）
+        inputs: [
+          {
+            kind: 'trigger',
+            triggerId: trigger.triggerId,
+            type: trigger.type,
+            at: trigger.receivedAt,
+            payload: trigger.payload,
+          },
+        ],
+        subscriptions: [
+          { source: trigger.sourceId, threadId: trigger.threadKey },
+        ],
         createdAt,
         updatedAt: new Date(now()).toISOString(),
         lastAction: 'trigger_received',

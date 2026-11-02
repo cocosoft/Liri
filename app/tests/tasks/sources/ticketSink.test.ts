@@ -59,6 +59,20 @@ describe('Trigger→Ticket sink', () => {
       origin: { threadId: 'cron:job-1' },
       triggerId: 'tg1-abc',
       lastAction: 'trigger_received',
+      subscriptions: [{ source: 'cron', threadId: 'cron:job-1' }],
+      inputs: [
+        {
+          kind: 'trigger',
+          triggerId: 'tg1-abc',
+          type: 'cron_tick',
+          at: 1000,
+          payload: {
+            jobId: 'job-1',
+            name: '每日巡检',
+            message: '检查构建',
+          },
+        },
+      ],
     });
   });
 

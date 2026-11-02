@@ -251,7 +251,9 @@ export async function startCronTriggerPipeline(
             ...existing,
             id,
             status: result.success ? 'completed' : 'failed',
-            ...(tokens > 0 ? { costTokens: tokens } : {}),
+            ...(tokens > 0
+              ? { costTokens: tokens, budgetUsedTokens: tokens }
+              : {}),
             ...(job.workdir ? { workspaceDir: job.workdir } : {}),
             ...(result.error ? { lastError: result.error } : {}),
             updatedAt: new Date(now()).toISOString(),

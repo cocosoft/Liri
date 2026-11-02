@@ -122,6 +122,7 @@ describe('cron Trigger→Ticket 接线', () => {
         status: 'completed',
         sourceId: 'cron',
         costTokens: 15,
+        budgetUsedTokens: 15,
         lastAction: 'cron_executed',
       });
       expect(await store.countTriggers('cron')).toBe(1);

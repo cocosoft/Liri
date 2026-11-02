@@ -48,11 +48,37 @@ const WORK_ITEM_COLUMNS: ReadonlyArray<readonly [string, string]> = [
   ['parent_id', 'TEXT'],
   ['artifacts', 'TEXT'],
   ['mandate', 'TEXT'],
+  // P34（2026-11-02）：订阅 / 输入 / 预算（触发→工单的授权与成本事实）
+  ['subscriptions', 'TEXT'],
+  ['inputs', 'TEXT'],
+  ['budget_max_tokens', 'INTEGER'],
+  ['budget_used_tokens', 'INTEGER'],
+  ['budget_max_usd', 'REAL'],
+  ['budget_used_usd', 'REAL'],
 ];
 
 /** 从记录中取非空字符串（否则 null，用于提升列） */
 function strOrNull(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null;
+}
+
+/** 列值 → 数字（仅接受有限数字；SQLite NULL/文本 ⇒ undefined） */
+function numberOrUndefined(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+/** 有限数字 → INTEGER 列；非法/缺省 ⇒ null（用于提升列） */
+function intOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.trunc(value)
+    : null;
+}
+
+/** 有限数字 → REAL 列；非法/缺省 ⇒ null（用于提升列） */
+function realOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 /** 对象/数组 → JSON 文本；空值 ⇒ null（用于提升列） */
@@ -482,8 +508,10 @@ class PdcaCheckpointStore {
         `INSERT INTO ${WORKITEM_TABLE} (
            work_item_id, data, status, updated_at,
            source_id, origin_channel, origin_thread_id, workspace_dir,
-           session_id, policy_id, parent_id, artifacts, mandate
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           session_id, policy_id, parent_id, artifacts, mandate,
+           subscriptions, inputs, budget_max_tokens, budget_used_tokens,
+           budget_max_usd, budget_used_usd
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(work_item_id) DO UPDATE SET
            data = excluded.data,
            status = excluded.status,
@@ -496,7 +524,13 @@ class PdcaCheckpointStore {
            policy_id = excluded.policy_id,
            parent_id = excluded.parent_id,
            artifacts = excluded.artifacts,
-           mandate = excluded.mandate`,
+           mandate = excluded.mandate,
+           subscriptions = excluded.subscriptions,
+           inputs = excluded.inputs,
+           budget_max_tokens = excluded.budget_max_tokens,
+           budget_used_tokens = excluded.budget_used_tokens,
+           budget_max_usd = excluded.budget_max_usd,
+           budget_used_usd = excluded.budget_used_usd`,
         [
           workItemId,
           JSON.stringify(record),
@@ -511,6 +545,12 @@ class PdcaCheckpointStore {
           strOrNull(record.parentId),
           jsonOrNull(record.artifacts),
           jsonOrNull(record.mandate),
+          jsonOrNull(record.subscriptions),
+          jsonOrNull(record.inputs),
+          intOrNull(record.budgetMaxTokens),
+          intOrNull(record.budgetUsedTokens),
+          realOrNull(record.budgetMaxUsd),
+          realOrNull(record.budgetUsedUsd),
         ]
       )
     );
@@ -565,6 +605,12 @@ class PdcaCheckpointStore {
         : data.origin;
     const artifacts = parseJsonColumn(row.artifacts);
     const mandate = parseJsonColumn(row.mandate);
+    const subscriptions = parseJsonColumn(row.subscriptions);
+    const inputs = parseJsonColumn(row.inputs);
+    const budgetMaxTokens = numberOrUndefined(row.budget_max_tokens);
+    const budgetUsedTokens = numberOrUndefined(row.budget_used_tokens);
+    const budgetMaxUsd = numberOrUndefined(row.budget_max_usd);
+    const budgetUsedUsd = numberOrUndefined(row.budget_used_usd);
     return {
       ...data,
       id: String(row.work_item_id ?? data.id ?? ''),
@@ -578,6 +624,12 @@ class PdcaCheckpointStore {
       ...(row.parent_id ? { parentId: row.parent_id } : {}),
       ...(artifacts !== undefined ? { artifacts } : {}),
       ...(mandate !== undefined ? { mandate } : {}),
+      ...(subscriptions !== undefined ? { subscriptions } : {}),
+      ...(inputs !== undefined ? { inputs } : {}),
+      ...(budgetMaxTokens !== undefined ? { budgetMaxTokens } : {}),
+      ...(budgetUsedTokens !== undefined ? { budgetUsedTokens } : {}),
+      ...(budgetMaxUsd !== undefined ? { budgetMaxUsd } : {}),
+      ...(budgetUsedUsd !== undefined ? { budgetUsedUsd } : {}),
     };
   }
 }

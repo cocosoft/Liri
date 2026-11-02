@@ -50,9 +50,7 @@ import { ModelRouter, type PhaseContext } from '@modules/ai';
 import { JudgeService } from './JudgeService.js';
 import { TierResolver } from './TierResolver.js';
 import { SessionRouterStore } from './SessionRouterStore.js';
-import { executeFallbackChain } from './FallbackChain.js';
-import type { FallbackChainOptions } from './FallbackChain.js';
-import { executeWithRetry } from './RetryPolicy.js';
+import { executeWithRetryThenFallback } from './RetryPolicy.js';
 import type { RetryableResponse } from './RetryPolicy.js';
 import { TaskDecomposer } from './TaskDecomposer.js';
 import { OrchEngine } from './OrchEngine.js';
@@ -357,12 +355,17 @@ export class SmartRouter {
   }
 
   /**
-   * 执行路由决策（带 FallbackChain + RetryPolicy）
+   * 执行路由决策（带 RetryPolicy → FallbackChain）
    *
-   * 统一入口：通过 RouteKey 解析模型决策，再包裹 FallbackChain + RetryPolicy 执行。
+   * 统一入口：通过 RouteKey 解析模型决策，再包裹 RetryPolicy + FallbackChain 执行。
    * 替代各处散落的"先 resolve 再手动执行"模式。
    *
-   * 管线：resolve(route) → FallbackChain → RetryPolicy → executeFn
+   * 管线：resolve(route) → **RetryPolicy（同路径重试）** → **FallbackChain（重试耗尽才回退）** → executeFn
+   *
+   * 2026-11-02 根因修复：此前管线是 `FallbackChain → RetryPolicy`，且回退链的 `execute`
+   * 只构造决策、从不真正调用 provider ⇒ 恒在首项"成功" ⇒ 回退链**从不生效**，
+   * 同时顺序与「瞬态失败先同路径重试」相反。现改为 `executeWithRetryThenFallback`：
+   * 一次瞬时 429 只会在同路径退避重试，重试耗尽后才换模型。
    *
    * @param route - 路由键（chat/image/embedding/...）
    * @param executeFn - 实际调用 provider 的函数，接收决策返回可重试响应
@@ -382,88 +385,19 @@ export class SmartRouter {
     didFallback: boolean;
     retryCount: number;
   }> {
-    // 1. 通过统一路由入口获取主决策
+    // 通过统一路由入口获取主决策
     const primaryDecision = await this.resolve(route, {
       message: options?.message,
       sessionId: options?.sessionId,
     });
 
-    // 2. 如果启用了 fallback 链，构建回退执行
-    if (
-      this.config.fallback &&
-      this.config.fallback.length > 0 &&
-      !primaryDecision.fastPath
-    ) {
-      // 为回退链构造执行函数
-      const executeForFallback: FallbackChainOptions['execute'] = async (
-        ref,
-        tier
-      ) => {
-        const fallbackDecision: RouteDecision = {
-          provider: ref.provider,
-          model: ref.model,
-          tier,
-          reason: `回退: ${ref.provider}/${ref.model}`,
-        };
-        return fallbackDecision;
-      };
-
-      try {
-        const fallbackResult = await executeFallbackChain({
-          fallbacks: this.config.fallback,
-          tier: primaryDecision.tier,
-          execute: executeForFallback,
-          timeoutMs: 30000,
-        });
-
-        if (fallbackResult.didFallback) {
-          logger.info('SmartRouter: 回退执行成功', {
-            from: `${primaryDecision.provider}/${primaryDecision.model}`,
-            to: `${fallbackResult.decision.provider}/${fallbackResult.decision.model}`,
-          });
-        }
-
-        // 用回退后的决策执行
-        const decision = fallbackResult.didFallback
-          ? fallbackResult.decision
-          : primaryDecision;
-
-        // 3. 带重试策略执行
-        const retryResult = await executeWithRetry(decision, {
-          config: this.config,
-          execute: executeFn,
-        });
-
-        return {
-          decision,
-          response: retryResult.response,
-          didFallback: fallbackResult.didFallback,
-          retryCount: retryResult.retryCount,
-        };
-      } catch (fallbackError) {
-        // 回退链全部失败 → 用主决策 + 重试兜底
-        await handleError(fallbackError, {
-          module: 'ai:smartRouter',
-          action: 'execute',
-        });
-        logger.warning('SmartRouter: 回退链全部失败，使用主决策重试', {
-          error: (fallbackError as Error).message,
-        });
-      }
-    }
-
-    // 3. 无 fallback 或 fallback 失败：主决策 + 重试
-    const retryResult = await executeWithRetry(primaryDecision, {
+    // 先同路径重试；重试仍失败才按配置逐项回退（fastPath 不参与回退，保持既有语义）
+    return executeWithRetryThenFallback(primaryDecision, {
       config: this.config,
       execute: executeFn,
+      fallbacks: this.config.fallback ?? [],
+      allowFallback: !primaryDecision.fastPath,
     });
-
-    return {
-      decision: primaryDecision,
-      response: retryResult.response,
-      didFallback: false,
-      retryCount: retryResult.retryCount,
-    };
   }
 
   /**

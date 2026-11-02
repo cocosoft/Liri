@@ -151,6 +151,30 @@ export function shouldBlindRetryTool(name: string): boolean {
   return resolveToolEffect(name)?.idempotent === true;
 }
 
+/** 幂等工具的执行失败**盲目重试**上限（`ErrorHandler.handleAsync` 口径：最多 2 次） */
+export const BLIND_RETRY_MAX_ATTEMPTS = 2;
+
+/** 工具级重试预算（`ErrorHandler` 选项子集；非幂等/未声明 ⇒ 不重试） */
+export interface ToolRetryBudget {
+  recoveryStrategy: 'retry' | 'ignore';
+  maxRetries: number;
+}
+
+/**
+ * **工具级重试的策略输入**（2026-11-02 接线修复）。
+ *
+ * 此前 `ToolExecutionService` 对所有工具写死 `{ recoveryStrategy: 'retry', maxRetries: 2 }`
+ * ⇒ 非幂等工具（bash / file_write / 发消息）在**已产生副作用后抛错**时会被原样重放
+ * （文件头 §「重试策略输入」名实不符）。现统一由此函数派生：
+ * - 幂等（`shouldBlindRetryTool` 为真）⇒ 允许 `BLIND_RETRY_MAX_ATTEMPTS` 次；
+ * - 非幂等 / **未声明**（MCP·插件）⇒ `maxRetries: 0`（保守：无法证明幂等 ⇒ 不自动重放）。
+ */
+export function resolveToolRetryBudget(name: string): ToolRetryBudget {
+  return shouldBlindRetryTool(name)
+    ? { recoveryStrategy: 'retry', maxRetries: BLIND_RETRY_MAX_ATTEMPTS }
+    : { recoveryStrategy: 'ignore', maxRetries: 0 };
+}
+
 /** 供门禁/测试断言的声明总数（漂移守护：只增不减，新增工具必须显式声明） */
 export const TOOL_EFFECTS_COUNT = Object.keys(TOOL_EFFECTS).length;
 

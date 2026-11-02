@@ -378,6 +378,9 @@ export {
   TOOL_EFFECTS_COUNT,
   resolveToolEffect,
   shouldBlindRetryTool,
+  // 2026-11-02：工具级重试预算（唯一判定；`ToolExecutionService` 的盲目重试接入幂等声明）
+  resolveToolRetryBudget,
+  BLIND_RETRY_MAX_ATTEMPTS,
   // R07-3（2026-10-07）：非幂等工具「重试」判定（执行前主动分流为审批）
   isNonIdempotentRetry,
   // P0-4（2026-10-10）：崩溃恢复后 `unknown` 工具调用的重放策略（幂等 ⇒ 可重放；否则人工）
@@ -391,6 +394,7 @@ export type {
   ToolSideEffect,
   PriorToolCall,
   ToolRecoveryPolicy,
+  ToolRetryBudget,
 } from './toolEffects';
 // wire codec（工具名两种语义：内部标识 `模块:动作` vs OpenAI wire 安全名）
 export {

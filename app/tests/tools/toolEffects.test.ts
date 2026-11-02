@@ -16,6 +16,8 @@ import {
   resolveToolEffect,
   shouldBlindRetryTool,
   isNonIdempotentRetry,
+  resolveToolRetryBudget,
+  BLIND_RETRY_MAX_ATTEMPTS,
 } from '../../src/tools/toolEffects.js';
 import {
   TOOL_NAMES,
@@ -109,6 +111,31 @@ describe('shouldBlindRetryTool（非幂等禁盲重试）', () => {
     expect(resolveToolEffect('bash')?.sideEffect).toBe('external');
     expect(resolveToolEffect('file_write')?.sideEffect).toBe('local');
     expect(resolveToolEffect('file_read')?.sideEffect).toBe('none');
+  });
+});
+
+describe('resolveToolRetryBudget（工具级盲目重试必须过幂等声明）', () => {
+  it('幂等工具 ⇒ 允许重试，预算为上限值', () => {
+    expect(resolveToolRetryBudget('file_read')).toEqual({
+      recoveryStrategy: 'retry',
+      maxRetries: BLIND_RETRY_MAX_ATTEMPTS,
+    });
+  });
+
+  it('非幂等工具 ⇒ 不重试（maxRetries=0）', () => {
+    for (const name of ['bash', 'file_write', 'send_message', 'agent']) {
+      expect(resolveToolRetryBudget(name)).toEqual({
+        recoveryStrategy: 'ignore',
+        maxRetries: 0,
+      });
+    }
+  });
+
+  it('**未声明**（MCP / 插件）⇒ 保守不重试', () => {
+    expect(resolveToolRetryBudget('mcp__srv__do')).toEqual({
+      recoveryStrategy: 'ignore',
+      maxRetries: 0,
+    });
   });
 });
 

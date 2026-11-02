@@ -52,6 +52,8 @@ import {
   isBlockedForUntrustedOrigin,
   isNonIdempotentRetry,
   recordToolInvocation,
+  // 2026-11-02：工具级重试预算（幂等声明 ⇒ 允许盲目重试；非幂等/未声明 ⇒ 禁止）
+  resolveToolRetryBudget,
 } from '@modules/tools';
 // PR-3a（2026-10-23）：本次执行的沙箱信号（唯一解析点 = sandbox/sandboxExecutionSignal）
 import {
@@ -543,10 +545,18 @@ export class ToolExecutionService {
       // Phase 2: ErrorHandler 双路径
       if (opts?.useErrorHandler && this.deps.enableErrorHandler) {
         try {
+          // 2026-11-02 根因修复：盲目重试必须过「幂等声明」闸门（唯一事实源 = tools/toolEffects）。
+          // 此前对所有工具写死 retry×2 ⇒ bash / file_write 等**已产生副作用后抛错**会被原样重放。
+          const retryBudget = resolveToolRetryBudget(toolCall.name);
           const handled = await ErrorHandler.handleAsync(
             () => withToolTimeout(runTool, toolCall),
-            { recoveryStrategy: 'retry', maxRetries: 2 }
+            retryBudget
           );
+          if (!handled.success && retryBudget.maxRetries === 0) {
+            logger.warn('工具执行失败，且按幂等声明不自动重试', {
+              toolName: toolCall.name,
+            });
+          }
           const resolved: ToolResult =
             handled.success && handled.result
               ? handled.result

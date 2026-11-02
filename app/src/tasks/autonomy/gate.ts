@@ -199,3 +199,32 @@ export function evaluateAutonomyTrigger(input: {
     },
   };
 }
+
+/**
+ * 决策日志字段（唯一组装点）。
+ *
+ * 调用方只负责 `logger.info('autonomy.policy.decision', toAutonomyDecisionLog(...))`；
+ * cron 与 fs 两个入口共用，避免字段名漂移。
+ */
+export function toAutonomyDecisionLog(input: {
+  source: string;
+  trigger: AutonomyTriggerFacts;
+  policy: AutonomyPolicyConfig;
+  policyId: string;
+  decision: AutonomyGateDecision;
+}): Record<string, unknown> {
+  const { source, trigger, policy, policyId, decision } = input;
+  return {
+    source,
+    sourceId: trigger.sourceId,
+    threadKey: trigger.threadKey,
+    triggerId: trigger.triggerId,
+    mode: policy.acceptMode,
+    ...(decision.strength ? { strength: decision.strength } : {}),
+    ...(decision.via ? { via: decision.via } : {}),
+    wouldAccept: decision.wouldAccept,
+    ...(decision.reason ? { reason: decision.reason } : {}),
+    policyId,
+    matchedRuleIds: decision.matchedRuleIds,
+  };
+}

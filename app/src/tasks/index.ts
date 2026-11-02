@@ -302,6 +302,8 @@ export * from './PdcaWorkItemBridge.js';
 
 // P33（2026-11-02）：已结束工作项的 Mandate 重校验（消息唤醒前）
 export * from './autonomy/revalidate.js';
+// P33/P35：自治策略读取（入口侧按 `sources.fs` 决定是否注册 fs 来源）
+export { loadAutonomyPolicy } from './autonomy/policyConfig';
 
 // P34（2026-11-02）：工单阶段派生 + 派工记录（方案 §5 P34）
 export {

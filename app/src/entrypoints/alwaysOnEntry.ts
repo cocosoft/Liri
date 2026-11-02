@@ -42,6 +42,7 @@ import {
   bootstrapAlwaysOn,
   buildGoalEvaluationPrompt,
   createAlwaysOnBridge,
+  loadAutonomyPolicy,
   parseGoalEvaluation,
   readPdcaWorkItem,
   unverifiedGoal,
@@ -129,6 +130,27 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   const dataDir = resolveDataDir();
   const projectStore = createProjectStore(dataDir, new WorkItemStore(dataDir));
   const projects = await collectProjects(projectStore);
+
+  // P35（2026-11-02）：文件信号来源 —— 仅在策略显式开启 `sources.fs` 时注册。
+  // 默认 `false` ⇒ 不建 watcher、不产生 Ticket，现有行为零变更。
+  const autonomyPolicy = loadAutonomyPolicy();
+  if (autonomyPolicy.config.sources.fs === true) {
+    const watchPaths = projects
+      .map((project) => project.path)
+      .filter((path): path is string => !!path);
+    if (watchPaths.length > 0) {
+      try {
+        const { startFsSignalPipeline } =
+          await import('../tasks/sources/fsWiring');
+        await startFsSignalPipeline({ watchPaths });
+        logger.info('FS Source 注册完成', { watchPaths: watchPaths.length });
+      } catch (error) {
+        logger.warn('FS Source 注册失败（不影响 AlwaysOn）', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  }
 
   // P4（2026-10-20）：回收上次进程崩溃/异常退出残留的 `alwayson-*` worktree。
   // 这类是**已注册**的 worktree，`pruneOrphanWorktrees()` 不会清 ⇒ 按命名空间单独回收。

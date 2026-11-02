@@ -43,7 +43,10 @@ import {
   type Trigger,
 } from '../sources/types';
 import { readPdcaWorkItem, writePdcaWorkItem } from '../PdcaWorkItemBridge';
-import { evaluateAutonomyTrigger } from '../autonomy/gate';
+import {
+  evaluateAutonomyTrigger,
+  toAutonomyDecisionLog,
+} from '../autonomy/gate';
 import {
   loadAutonomyPolicy,
   type LoadedAutonomyPolicy,
@@ -182,19 +185,20 @@ export async function startCronTriggerPipeline(
 
       // P33-a：仅在策略启用时记录决策（enabled=false ⇒ 不制造噪声）
       if (loaded.config.enabled) {
-        logger.info('autonomy.policy.decision', {
-          source: loaded.source,
-          sourceId: trigger.sourceId,
-          threadKey: trigger.threadKey,
-          triggerId: trigger.triggerId,
-          mode: loaded.config.acceptMode,
-          ...(decision.strength ? { strength: decision.strength } : {}),
-          ...(decision.via ? { via: decision.via } : {}),
-          wouldAccept: decision.wouldAccept,
-          ...(decision.reason ? { reason: decision.reason } : {}),
-          policyId: decision.policyId,
-          matchedRuleIds: decision.matchedRuleIds,
-        });
+        logger.info(
+          'autonomy.policy.decision',
+          toAutonomyDecisionLog({
+            source: loaded.source,
+            trigger: {
+              sourceId: trigger.sourceId,
+              threadKey: trigger.threadKey,
+              triggerId: trigger.triggerId,
+            },
+            policy: loaded.config,
+            policyId: decision.policyId,
+            decision,
+          })
+        );
       }
 
       // observe / off / 来源关闭 / 规则未命中 ⇒ 不发 Trigger、不建 Ticket（零副作用）

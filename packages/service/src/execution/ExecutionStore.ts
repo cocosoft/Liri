@@ -82,6 +82,10 @@ export interface PersistedExecution {
   startedAt: number;
   updatedAt: number;
   heartbeatAt: number;
+  /** P34：所属工作项（缺省 = 不属于任何工作项） */
+  workItemId?: string;
+  /** P34：本次执行的工作目录（隔离区时为隔离目录） */
+  workspaceDir?: string;
 }
 
 /** 持久化的执行事件 */
@@ -116,6 +120,9 @@ interface ExecutionRow {
   started_at: number;
   updated_at: number;
   heartbeat_at: number;
+  /** P34：存量库补列（`undefined` 表示该列不存在 ⇒ 旧行） */
+  work_item_id?: string | null;
+  workspace_dir?: string | null;
 }
 
 interface EventRow {
@@ -148,6 +155,8 @@ function rowToExecution(row: ExecutionRow): PersistedExecution {
     startedAt: row.started_at,
     updatedAt: row.updated_at,
     heartbeatAt: row.heartbeat_at,
+    ...(row.work_item_id ? { workItemId: row.work_item_id } : {}),
+    ...(row.workspace_dir ? { workspaceDir: row.workspace_dir } : {}),
   };
 }
 
@@ -215,10 +224,13 @@ export class ExecutionStore {
         started_at   INTEGER NOT NULL,
         updated_at   INTEGER NOT NULL,
         heartbeat_at INTEGER NOT NULL,
-        owner_key    TEXT NOT NULL DEFAULT 'local:local'
+        owner_key    TEXT NOT NULL DEFAULT 'local:local',
+        work_item_id TEXT,
+        workspace_dir TEXT
       )`
     );
     await this.ensureOwnerColumn(EXECUTIONS_TABLE);
+    await this.ensureWorkItemColumns();
     await this.run(
       `CREATE INDEX IF NOT EXISTS idx_executions_session
        ON ${EXECUTIONS_TABLE} (session_id, status)`
@@ -308,6 +320,22 @@ export class ExecutionStore {
     );
   }
 
+  /**
+   * P34（2026-11-02）：存量库补"工作项 / 工作目录"两列。
+   *
+   * 只增不改、可重入；旧行两列为 NULL ⇒ 读回时字段缺省（表示"不属于任何工作项"）。
+   */
+  private async ensureWorkItemColumns(): Promise<void> {
+    const columns = await this.all<{ name: string }>(
+      `PRAGMA table_info(${EXECUTIONS_TABLE})`
+    );
+    const existing = new Set(columns.map((c) => c.name));
+    for (const name of ['work_item_id', 'workspace_dir']) {
+      if (existing.has(name)) continue;
+      await this.run(`ALTER TABLE ${EXECUTIONS_TABLE} ADD COLUMN ${name} TEXT`);
+    }
+  }
+
   /** 当前写入/查询的归属键（本地 ⇒ `local:local`；租户内 ⇒ `<tenant>:<user>`） */
   private owner(): string {
     return getRequestPrincipalKey();
@@ -319,13 +347,16 @@ export class ExecutionStore {
     await this.run(
       `INSERT INTO ${EXECUTIONS_TABLE}
         (execution_id, session_id, message_id, generation, status,
-         started_at, updated_at, heartbeat_at, owner_key)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         started_at, updated_at, heartbeat_at, owner_key,
+         work_item_id, workspace_dir)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(execution_id) DO UPDATE SET
          status = excluded.status,
          generation = excluded.generation,
          updated_at = excluded.updated_at,
-         heartbeat_at = excluded.heartbeat_at`,
+         heartbeat_at = excluded.heartbeat_at,
+         work_item_id = COALESCE(excluded.work_item_id, ${EXECUTIONS_TABLE}.work_item_id),
+         workspace_dir = COALESCE(excluded.workspace_dir, ${EXECUTIONS_TABLE}.workspace_dir)`,
       [
         rec.executionId,
         rec.sessionId,
@@ -336,6 +367,8 @@ export class ExecutionStore {
         rec.updatedAt,
         rec.heartbeatAt,
         this.owner(),
+        rec.workItemId ?? null,
+        rec.workspaceDir ?? null,
       ]
     );
   }

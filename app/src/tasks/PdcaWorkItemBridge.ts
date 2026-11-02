@@ -32,9 +32,50 @@ const logger = getLogger('tasks:pdcaBridge');
 const PDCA_CHECKPOINT_TABLE = 'pdca_checkpoints';
 const WORKITEM_TABLE = 'workitems';
 
+/**
+ * P34（2026-11-02）：工作项语义列（全部可空，存量行不受影响）。
+ *
+ * 这些列只做**查询与索引**用途；完整记录仍以 `data` JSON 为准（单一事实源不变）。
+ * 新增列必须同时扩 `writeWorkItem` 的 INSERT 与 `WORK_ITEM_COLUMN_FIELDS` 的映射。
+ */
+const WORK_ITEM_COLUMNS: ReadonlyArray<readonly [string, string]> = [
+  ['source_id', 'TEXT'],
+  ['origin_channel', 'TEXT'],
+  ['origin_thread_id', 'TEXT'],
+  ['workspace_dir', 'TEXT'],
+  ['session_id', 'TEXT'],
+  ['policy_id', 'TEXT'],
+  ['parent_id', 'TEXT'],
+  ['artifacts', 'TEXT'],
+  ['mandate', 'TEXT'],
+];
+
 /** 从记录中取非空字符串（否则 null，用于提升列） */
 function strOrNull(value: unknown): string | null {
   return typeof value === 'string' && value ? value : null;
+}
+
+/** 对象/数组 → JSON 文本；空值 ⇒ null（用于提升列） */
+function jsonOrNull(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  if (Array.isArray(value) && value.length === 0) return null;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    // @ignore-catch — 不可序列化（循环引用等）时放弃提升列，data 仍完整落库
+    return null;
+  }
+}
+
+/** 列里的 JSON 文本 → 值；损坏/为空 ⇒ undefined（不抛，`data` 仍是事实源） */
+function parseJsonColumn(value: unknown): unknown {
+  if (typeof value !== 'string' || !value) return undefined;
+  try {
+    return JSON.parse(value);
+  } catch {
+    // @ignore-catch — 提升列损坏不影响读取（data 完整）
+    return undefined;
+  }
 }
 
 /** 解析 ISO 时间戳；无法解析返回 null */
@@ -138,6 +179,39 @@ class PdcaCheckpointStore {
     for (const sql of ddl) {
       await new Promise<void>((resolve, reject) => {
         db.run(sql, (err) => (err ? reject(err) : resolve()));
+      });
+    }
+    // P34（2026-11-02）：工作项语义列（来源/归属/目录/授权/产物）。
+    // 存量库只有 (work_item_id, data, status, updated_at) ⇒ 幂等补列，**只增不改**。
+    await this.ensureColumns(db, WORKITEM_TABLE, WORK_ITEM_COLUMNS);
+  }
+
+  /**
+   * 幂等补列：`PRAGMA table_info` 查已有列，缺哪列补哪列。
+   *
+   * 不用 `MigrationRegistry`（那是跨版本结构迁移的中枢）：本表由本模块独占，
+   * 补列可重入、无数据改写，符合 `project_rules §1.5`「仅新增」。
+   */
+  private async ensureColumns(
+    db: Database,
+    table: string,
+    columns: ReadonlyArray<readonly [string, string]>
+  ): Promise<void> {
+    const rows = await new Promise<Array<Record<string, unknown>>>(
+      (resolve, reject) => {
+        db.all(`PRAGMA table_info(${table})`, (err, result) => {
+          if (err) reject(err);
+          else resolve((result as Array<Record<string, unknown>>) ?? []);
+        });
+      }
+    );
+    const existing = new Set(rows.map((r) => String(r.name)));
+    for (const [name, type] of columns) {
+      if (existing.has(name)) continue;
+      await new Promise<void>((resolve, reject) => {
+        db.run(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`, (err) =>
+          err ? reject(err) : resolve()
+        );
       });
     }
   }
@@ -393,22 +467,91 @@ class PdcaCheckpointStore {
       parseTimestampMs(record.updatedAt) === null
         ? new Date().toISOString()
         : (record.updatedAt as string);
+    const origin = (record.origin ?? {}) as Record<string, unknown>;
+    // P34（2026-11-02）：语义列与 data 同事务写入；缺字段写 NULL（存量调用方零改动）
     await this.enqueue(() =>
       this.run(
-        `INSERT INTO ${WORKITEM_TABLE} (work_item_id, data, status, updated_at)
-         VALUES (?, ?, ?, ?)
+        `INSERT INTO ${WORKITEM_TABLE} (
+           work_item_id, data, status, updated_at,
+           source_id, origin_channel, origin_thread_id, workspace_dir,
+           session_id, policy_id, parent_id, artifacts, mandate
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(work_item_id) DO UPDATE SET
            data = excluded.data,
            status = excluded.status,
-           updated_at = excluded.updated_at`,
+           updated_at = excluded.updated_at,
+           source_id = excluded.source_id,
+           origin_channel = excluded.origin_channel,
+           origin_thread_id = excluded.origin_thread_id,
+           workspace_dir = excluded.workspace_dir,
+           session_id = excluded.session_id,
+           policy_id = excluded.policy_id,
+           parent_id = excluded.parent_id,
+           artifacts = excluded.artifacts,
+           mandate = excluded.mandate`,
         [
           workItemId,
           JSON.stringify(record),
           strOrNull(record.status),
           updatedAt,
+          strOrNull(record.sourceId),
+          strOrNull(origin.channel),
+          strOrNull(origin.threadId),
+          strOrNull(record.workspaceDir),
+          strOrNull(record.sessionId),
+          strOrNull(record.policyId),
+          strOrNull(record.parentId),
+          jsonOrNull(record.artifacts),
+          jsonOrNull(record.mandate),
         ]
       )
     );
+  }
+
+  /**
+   * 列出工作项（P34）。
+   *
+   * 返回 `data` 与**语义列**合并后的视图（列值优先，`data` 兜底），供 stage 派生 /
+   * 面板按来源与归属筛选。`status` 过滤可选（`undefined` = 全部）。
+   */
+  async listWorkItems(
+    status?: string
+  ): Promise<Array<Record<string, unknown>>> {
+    const rows = await this.allRows(
+      status === undefined
+        ? `SELECT * FROM ${WORKITEM_TABLE} ORDER BY updated_at DESC`
+        : `SELECT * FROM ${WORKITEM_TABLE} WHERE status = ? ORDER BY updated_at DESC`,
+      status === undefined ? [] : [status]
+    );
+    return rows.map((row) => {
+      const data = parseCheckpointData(row.data) ?? {};
+      const origin =
+        row.origin_channel || row.origin_thread_id
+          ? {
+              ...((data.origin as Record<string, unknown> | undefined) ?? {}),
+              ...(row.origin_channel ? { channel: row.origin_channel } : {}),
+              ...(row.origin_thread_id
+                ? { threadId: row.origin_thread_id }
+                : {}),
+            }
+          : data.origin;
+      const artifacts = parseJsonColumn(row.artifacts);
+      const mandate = parseJsonColumn(row.mandate);
+      return {
+        ...data,
+        id: String(row.work_item_id ?? data.id ?? ''),
+        status: (row.status ?? data.status) as unknown,
+        updatedAt: row.updated_at ?? data.updatedAt,
+        ...(row.source_id ? { sourceId: row.source_id } : {}),
+        ...(origin ? { origin } : {}),
+        ...(row.workspace_dir ? { workspaceDir: row.workspace_dir } : {}),
+        ...(row.session_id ? { sessionId: row.session_id } : {}),
+        ...(row.policy_id ? { policyId: row.policy_id } : {}),
+        ...(row.parent_id ? { parentId: row.parent_id } : {}),
+        ...(artifacts !== undefined ? { artifacts } : {}),
+        ...(mandate !== undefined ? { mandate } : {}),
+      };
+    });
   }
 }
 
@@ -474,6 +617,17 @@ export function writePdcaWorkItem(
   record: Record<string, unknown>
 ): Promise<void> {
   return getStore().writeWorkItem(record);
+}
+
+/**
+ * 列出工作项（P34）：`data` 与语义列（来源/归属/目录/授权/产物）合并后的视图。
+ *
+ * @param status 可选状态过滤（`undefined` = 全部）
+ */
+export function listPdcaWorkItems(
+  status?: string
+): Promise<Array<Record<string, unknown>>> {
+  return getStore().listWorkItems(status);
 }
 
 /**

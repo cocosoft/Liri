@@ -104,6 +104,24 @@ describe('PR5-S1 ExecutionStore', () => {
     expect(await store.getExecution(eid('nope'))).toBeNull();
   });
 
+  it('P34：工作项 / 工作目录可持久化，且后续更新不抹掉（COALESCE）', async () => {
+    await store.upsertExecution({
+      ...rec('exec-wi', { status: 'RUNNING' }),
+      workItemId: 'w-1',
+      workspaceDir: '/tmp/ws-1',
+    });
+    const got = await store.getExecution(eid('exec-wi'));
+    expect(got?.workItemId).toBe('w-1');
+    expect(got?.workspaceDir).toBe('/tmp/ws-1');
+
+    // 心跳 / 状态推进通常不带这两列 ⇒ 旧值必须保留
+    await store.upsertExecution(rec('exec-wi', { status: 'COMPLETED' }));
+    const after = await store.getExecution(eid('exec-wi'));
+    expect(after?.status).toBe('COMPLETED');
+    expect(after?.workItemId).toBe('w-1');
+    expect(after?.workspaceDir).toBe('/tmp/ws-1');
+  });
+
   it('listActive 仅返回占用中（RUNNING/WAITING_USER/CANCEL_REQUESTED）', async () => {
     await store.upsertExecution(rec('a-run', { status: 'RUNNING' }));
     await store.upsertExecution(

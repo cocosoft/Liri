@@ -243,3 +243,36 @@ export {
   PermissionAction,
   RoleType,
 } from './Permission';
+
+// P33（2026-11-02）：授权强度模型（准入判定，与上面的动作拦截正交）
+export {
+  STRENGTH_RANK,
+  ADMISSION_DEFAULTS,
+  isInferred,
+  resolveAdmissionCell,
+  resolveAdmission,
+  evaluateGate,
+  admitsInferred,
+  decideAcceptance,
+  revalidateMandate,
+  diffPolicyEffects,
+  buildPolicyVersion,
+} from './policyStrength';
+export type {
+  Strength,
+  AdmissionCell,
+  AdmissionDecision,
+  AcceptMode,
+  AdmissionTable,
+  GateReason,
+  GateFacts,
+  GateResult,
+  MandateBasis,
+  Mandate,
+  RevalidationFacts,
+  RevalidationFailure,
+  RevalidationResult,
+  PolicySnapshot,
+  PolicyEffect,
+  AcceptanceDecision,
+} from './types/PolicyStrength';

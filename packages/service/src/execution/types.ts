@@ -182,6 +182,15 @@ export interface ExecutionRecord {
   startedAt: number;
   updatedAt: number;
   heartbeatAt: number;
+  /**
+   * P34（2026-11-02）：本次执行所属的**工作项**（`workitems.work_item_id`）。
+   *
+   * 缺省 ⇒ 该执行不属于任何工作项（普通对话）。只做记录，不参与租约语义
+   * （同 session 仍不允许两个 RUNNING）。
+   */
+  workItemId?: string;
+  /** P34：本次执行的实际工作目录（隔离区时为隔离目录；普通会话可缺省） */
+  workspaceDir?: string;
 }
 
 /**

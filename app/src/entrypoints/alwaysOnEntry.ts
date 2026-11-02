@@ -47,6 +47,8 @@ import {
   type AlwaysOnProject,
 } from '@modules/tasks';
 import { checkDailyBudget } from '../query/dailyBudgetGate';
+// P34（2026-11-02）：派工生命周期落库
+import { upsertTicketAssignment } from '../tasks/ticketAssignmentStore';
 import { getActiveProactiveQueue } from '../proactive/ProactiveRuntime';
 import { resolveProactiveTarget } from '../proactive/ProactiveTargetResolver';
 import { resolveProactiveGatePrefs } from '../proactive/ProactiveCronProducer';
@@ -524,6 +526,25 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
           return file;
         },
         notifyReport,
+        // P34（2026-11-02）：派工生命周期落库（`ticket_assignments`）。
+        // 与 `reports/<planId>.md` 互补：报告是人读的产物，派工记录是机器读的事实
+        // （stage 派生 / 面板 / 恢复统计都读它）。
+        recordAssignment: async (record) => {
+          await upsertTicketAssignment({
+            assignmentId: record.assignmentId,
+            workItemId: record.workItemId,
+            executor: record.executor,
+            state: record.state,
+            ...(record.reportState ? { reportState: record.reportState } : {}),
+            ...(record.reportText ? { reportText: record.reportText } : {}),
+            ...(record.sessionId ? { sessionId: record.sessionId } : {}),
+            startedAt: record.startedAt,
+            ...(record.endedAt !== undefined
+              ? { endedAt: record.endedAt }
+              : {}),
+            updatedAt: Date.now(),
+          });
+        },
       }),
   });
 

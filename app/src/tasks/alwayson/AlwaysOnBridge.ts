@@ -25,6 +25,8 @@ import {
   type AlwaysOnGoalEvaluation,
   type AlwaysOnGoalVerdict,
 } from './goalEvaluator';
+// P34：派工汇报状态与持久层的**同一套取值**（只引类型，不引入运行时依赖）
+import type { ReportState } from '../ticketAssignmentStore';
 
 /** 用量汇总（只取桥接器关心的字段） */
 export interface AlwaysOnUsage {
@@ -150,6 +152,34 @@ export interface AlwaysOnBridgeDeps {
     body: string;
     success: boolean;
   }) => Promise<boolean>;
+  /**
+   * P34（2026-11-02）：**派工（Assignment）生命周期记录**。
+   *
+   * 与 `notifyReport` 同层：任务层只产出事实，落库由宿主决定（未注入 ⇒ 不记录，
+   * 既有部署零影响）。语义见参考实现 `docs/001-domain.md:36`：Assignment 独立于
+   * 工作项生命周期，一个工作项先后可有多次派工。
+   */
+  recordAssignment?: (record: AlwaysOnAssignmentRecord) => Promise<void>;
+}
+
+/**
+ * 派工记录载荷（`assignmentId` = 本轮计划 id，天然唯一）
+ *
+ * 词汇说明（`lint:state-ratchet`）：`pending/running/blocked/failed` 复用已登记词汇
+ * （`task` 状态机），与 `ticketAssignmentStore` 的 `state`/`reportState` 同源；
+ * 出现点按门禁提示 `--update` 收编基线。
+ */
+export interface AlwaysOnAssignmentRecord {
+  assignmentId: string;
+  workItemId: string;
+  executor: 'alwayson';
+  state: 'pending' | 'running' | 'ended';
+  reportState?: ReportState;
+  reportText?: string;
+  /** 本轮实际使用的会话 id（供"工作项 → 会话 → 产物"反查） */
+  sessionId?: string;
+  startedAt: number;
+  endedAt?: number;
 }
 
 /**
@@ -201,6 +231,27 @@ export interface AlwaysOnBridge {
   workspace: (plan: DiscoveryPlan) => Promise<string>;
   execution: (workspacePath: string) => Promise<ExecutionResult>;
   report: (result: ExecutionResult) => Promise<string>;
+}
+
+/**
+ * P34（2026-11-02）：把"本轮结果"映射为派工**汇报状态**（纯函数）。
+ *
+ * 与 `resolveAttentionCondition` 同源的判据顺序：
+ * 执行失败 → `failed`；未执行（工作区不可用/脏仓）→ `blocked`（等人处理环境）；
+ * 自评未达成 → `blocked`；其余（成功且达成/未自评）→ `ready`。
+ *
+ * ⚠️ 不映射为 `waiting`：AlwaysOn 一轮结束即释放，不存在"等下一个 Trigger"的常驻态；
+ * 该语义留给后续 Source 层（P35）。
+ */
+export function resolveAssignmentReportState(input: {
+  success: boolean;
+  skippedReason?: string;
+  goalVerdict?: AlwaysOnGoalVerdict;
+}): ReportState {
+  if (!input.success) return 'failed';
+  if (input.skippedReason) return 'blocked';
+  if (input.goalVerdict === 'not_achieved') return 'blocked';
+  return 'ready';
 }
 
 /** discovery 阶段的只读探针 prompt */
@@ -327,6 +378,47 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
   let reportWorkspace: AlwaysOnReportWorkspace | undefined;
   /** 本轮目标达成自评（未评估 ⇒ undefined，报告按 `unverified` 陈述） */
   let lastGoal: AlwaysOnGoalEvaluation | undefined;
+  /** P34：本轮派工开始时刻（`0` = 尚未开始；供 ended 记录复用） */
+  let assignmentStartedAt = 0;
+  /** P34：本轮实际使用的会话（execution 写入，report 读；每轮计划重置） */
+  let turnSessionId: string | undefined;
+
+  /**
+   * P34：写一条派工记录（**未注入 ⇒ 静默跳过**；失败只告警，不影响编排）。
+   *
+   * 只记录事实，不做状态推导 —— stage 派生由 `ticketStage.ts` 在读侧计算。
+   */
+  const recordAssignment = async (
+    state: 'pending' | 'running' | 'ended',
+    extra: {
+      reportState?: ReportState;
+      reportText?: string;
+      sessionId?: string;
+      endedAt?: number;
+    } = {}
+  ): Promise<void> => {
+    const sink = deps.recordAssignment;
+    const plan = lastPlan;
+    if (!sink || !plan) return;
+    try {
+      await sink({
+        assignmentId: plan.id,
+        workItemId: plan.id,
+        executor: 'alwayson',
+        state,
+        startedAt: assignmentStartedAt || Date.now(),
+        ...extra,
+      });
+    } catch (error) {
+      // @ignore-catch — 派工记录失败不阻断本轮执行
+      cg3Log('tasks:alwayson:bridge', 'warn', 'assignment:record-failed', {
+        projectId: deps.projectId,
+        planId: plan.id,
+        state,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
 
   const ensureSession = async (): Promise<string> => {
     if (sessionId) return sessionId;
@@ -366,6 +458,9 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
       return null;
     }
     lastPlan = plan;
+    // P34：新一轮计划 ⇒ 重置派工计时与会话（同一 plan 的重试不重置）
+    assignmentStartedAt = 0;
+    turnSessionId = undefined;
     cg3Log('tasks:alwayson:bridge', 'info', 'discovery:plan-ready', {
       projectId: deps.projectId,
       actions: plan.actions.length,
@@ -443,10 +538,12 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
     let toolCalls = 0;
     let success = true;
     let output = '';
-    let turnSessionId: string | undefined;
     lastUsage = {};
     lastGoal = undefined;
     const errors: string[] = [];
+
+    // P34：派工进入执行态（记录 startedAt 供 ended 复用；未注入 ⇒ 不记录）
+    assignmentStartedAt = assignmentStartedAt || start;
 
     const hooks: AlwaysOnPromptHooks = {
       onToolCall: (phase) => {
@@ -471,6 +568,8 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
     try {
       const sid = await ensureSession();
       turnSessionId = sid;
+      // P34：会话确定后再记 running（记录里带上 sessionId，供产物归属反查）
+      await recordAssignment('running', { sessionId: sid });
       // v2 P1：本轮工具 cwd = 隔离区（工具执行侧读 `metadata.workspacePath`）。
       await deps.setSessionWorkspace(sid, ws.cwd);
       output = await deps.sendPrompt(
@@ -608,6 +707,19 @@ export function createAlwaysOnBridge(deps: AlwaysOnBridgeDeps): AlwaysOnBridge {
         ? { skippedReason: reportWorkspace.skippedReason }
         : {}),
       ...(lastGoal ? { goalVerdict: lastGoal.verdict } : {}),
+    });
+    // P34：派工结束（覆盖"工作区未隔离而未执行"的路径）；汇报状态与通知判据同源
+    await recordAssignment('ended', {
+      reportState: resolveAssignmentReportState({
+        success: result.success,
+        ...(reportWorkspace?.skippedReason
+          ? { skippedReason: reportWorkspace.skippedReason }
+          : {}),
+        ...(lastGoal ? { goalVerdict: lastGoal.verdict } : {}),
+      }),
+      reportText: path,
+      ...(turnSessionId ? { sessionId: turnSessionId } : {}),
+      endedAt: Date.now(),
     });
     if (!condition) return markdown;
     try {

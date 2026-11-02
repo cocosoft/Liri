@@ -455,6 +455,14 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
       createdAt: now,
       expiresAt: now + MS_PER_DAY,
       source: { type: 'alwayson', ref: `${projectId}:${condition}:${planId}` },
+      // P37：结构化注意力事实（跑到这里必是"需人介入"，成功时另带可用成果）
+      attention: {
+        humanWaiting: false,
+        needsDecision: true,
+        usableOutput: success,
+      },
+      // P37：以**计划**为工作项口径 —— 同一计划最多打扰 2 次（台账 = 主动队列）
+      ticketId: planId,
     };
     // 含 pending 的"已承诺"回看：否则同拍并发入队会读到同一份旧快照、整批穿透限流
     const recent = await queue.listRecentCommitted(now - MS_PER_DAY);
@@ -465,6 +473,11 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
       recent,
     });
     if (decision.action === 'drop') return false;
+    // P37：过程性进展只写日志，不进收件箱（三档里的 silent）
+    if (decision.tier === 'silent') {
+      logger.info('alwayson:report:silent', { projectId, planId, condition });
+      return false;
+    }
     return queue.enqueue(
       payload,
       now,

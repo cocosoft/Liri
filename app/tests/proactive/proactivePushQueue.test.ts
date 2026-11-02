@@ -85,6 +85,20 @@ describe('ProactivePushQueue：入队与取件', () => {
       { dedupeKey: 'task:recent', kind: 'task_result', deliveredAt: NOW },
     ]);
   });
+
+  test('P37：listRecentCommitted 透出 ticketId（门禁的每工作项预算输入）', async () => {
+    await queue.enqueue(payload('t1', { ticketId: 'plan-1' }), NOW);
+    await queue.enqueue(payload('t2', { ticketId: 'plan-1' }), NOW);
+
+    const committed = await queue.listRecentCommitted(NOW - 1);
+    const withTicket = committed.filter((r) => r.ticketId === 'plan-1');
+    expect(withTicket).toHaveLength(2);
+    // 未带 ticketId 的载荷 ⇒ 字段缺省（不臆造）
+    await queue.enqueue(payload('t3'), NOW);
+    const again = await queue.listRecentCommitted(NOW - 1);
+    const plain = again.find((r) => r.dedupeKey === 'task:t3');
+    expect(plain?.ticketId).toBeUndefined();
+  });
 });
 
 describe('ProactivePushQueue：投递与重试', () => {

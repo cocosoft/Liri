@@ -42,10 +42,17 @@ import {
 } from '@openliri/infra/constants';
 import type {
   ProactiveGateContext,
+  ProactiveGateAction,
   ProactiveGateDecision,
   ProactiveKind,
   ProactiveMessagePayload,
 } from './types';
+// P37（2026-11-02）：结构化 Attention —— 三档判定 + 每工作项打扰预算
+import {
+  MAX_TICKET_INTERRUPTIONS,
+  isTicketBudgetExhausted,
+  resolveAttentionTier,
+} from './attention';
 
 /** 默认冷却（用户未配置时生效） */
 export const DEFAULT_PROACTIVE_COOLDOWNS_MS: Readonly<
@@ -158,6 +165,21 @@ export function evaluateProactiveNotification(
   payload: ProactiveMessagePayload,
   ctx: ProactiveGateContext
 ): ProactiveGateDecision {
+  const action = evaluateGate(payload, ctx);
+  // P37：只有**提供了结构化事实**才附三档；否则保持既有返回形状（旧消费者零感知）
+  return payload.attention
+    ? {
+        ...action,
+        tier: resolveAttentionTier(payload.attention, action.action),
+      }
+    : action;
+}
+
+/** 门禁主体（P37 重构：只产动作，三档由调用入口统一附加） */
+function evaluateGate(
+  payload: ProactiveMessagePayload,
+  ctx: ProactiveGateContext
+): ProactiveGateAction {
   const { now, prefs, timezone, recent } = ctx;
 
   // ① 总开关
@@ -176,6 +198,23 @@ export function evaluateProactiveNotification(
   // ④ CRITICAL 例外：唯一可穿透 DND / 冷却 / 速率限制的路径
   if (payload.priority === 'critical') {
     return { action: 'deliver', reason: 'critical_bypass' };
+  }
+
+  // ④-b（P37）每工作项打扰预算：超过上限即**静默**（CRITICAL 已在 ④ 豁免）。
+  // 为什么是 drop 而不是 queue：排队只会在稍后再叫一次人，仍会突破「同一件事 ≤2 次」。
+  if (payload.ticketId) {
+    // 计数即台账：`recent` 来自队列（含 pending），同一 ticketId 的条目数 = 已打扰次数
+    const notices = recent.filter(
+      (r) => r.ticketId === payload.ticketId
+    ).length;
+    if (
+      isTicketBudgetExhausted(
+        notices,
+        prefs.maxPerTicket ?? MAX_TICKET_INTERRUPTIONS
+      )
+    ) {
+      return { action: 'drop', reason: 'ticket_budget' };
+    }
   }
 
   // ⑤ 免打扰

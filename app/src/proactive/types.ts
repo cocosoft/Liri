@@ -24,7 +24,11 @@
  *
  * 设计真源：`dev_docs/20261019/proactive-draft.md` §2/§3。
  * 本文件只定义 DTO 与门禁上下文/决定；**不含**队列、通道投递或任何执行副作用。
+ *
+ * P37（2026-11-02）：补结构化 Attention（`attention` / `ticketId` / `ticketNoticeCount`）
+ * 与三档 `tier`；字段均可选 ⇒ 未提供时行为与改造前逐字相同。
  */
+import type { AttentionFacts, AttentionTier } from './attention';
 
 /** 主动消息类别（决定默认冷却与优先级） */
 export type ProactiveKind =
@@ -78,6 +82,13 @@ export interface ProactiveMessagePayload {
   expiresAt: number;
   /** 可追溯来源（任务/执行/规则 id；不得放敏感内容） */
   source?: { type: string; ref: string };
+  /**
+   * P37：结构化注意力事实。**缺省 ⇒ 沿用既有行为**（deliver 即 speak）；
+   * 提供时由门禁推导三档，过程性进展可在消费侧按 `tier==='silent'` 只写日志。
+   */
+  attention?: AttentionFacts;
+  /** P37：所属工作项（参与"每工作项打扰 ≤2 次"的预算判定；缺省 ⇒ 不参与） */
+  ticketId?: string;
 }
 
 /** 免打扰窗口（本地时间 `HH:MM`，支持跨午夜；如 22:00–08:00） */
@@ -101,6 +112,12 @@ export interface ProactiveGatePrefs {
    * 避免某个来源（如 5 分钟一拍的 AlwaysOn）把收件箱刷满。
    */
   sourceMaxPerHour?: Record<string, number>;
+  /**
+   * P37：**每工作项**的打扰次数上限（缺省 2；`<=0`/非法 ⇒ 不设限）。
+   *
+   * 与来源级预算互补：来源级限制"一个来源每小时几条"，这里限制"同一件事总共叫几次人"。
+   */
+  maxPerTicket?: number;
 }
 
 /** 门禁输入上下文 */
@@ -118,11 +135,18 @@ export interface ProactiveGateContext {
     dedupeKey: string;
     kind: ProactiveKind;
     deliveredAt: number;
+    /**
+     * P37：该投递所属工作项（来自队列载荷 `payload.ticketId`）。
+     *
+     * 门禁据此统计"同一工作项已打扰几次"——**计数即队列台账**（`pending_proactive_pushes`），
+     * 不再维护第二份内存计数。
+     */
+    ticketId?: string;
   }>;
 }
 
-/** 门禁决定（`queue` 时给出最早可重试时刻） */
-export type ProactiveGateDecision =
+/** 门禁动作（`queue` 时给出最早可重试时刻） */
+export type ProactiveGateAction =
   | { action: 'deliver'; reason: 'ok' | 'critical_bypass' }
   | {
       action: 'queue';
@@ -131,5 +155,16 @@ export type ProactiveGateDecision =
     }
   | {
       action: 'drop';
-      reason: 'disabled' | 'expired' | 'duplicate';
+      reason: 'disabled' | 'expired' | 'duplicate' | 'ticket_budget';
     };
+
+/** 门禁决定 = 动作 + 可选的三档结果（P37） */
+export type ProactiveGateDecision = ProactiveGateAction & {
+  /**
+   * 三档结果（`speak | queue | silent`）。
+   *
+   * 仅当载荷提供 `attention` 事实时出现 —— 缺省时**不改变**既有消费者的行为；
+   * 消费侧可据此对 `silent` 只写日志、不进收件箱。
+   */
+  tier?: AttentionTier;
+};

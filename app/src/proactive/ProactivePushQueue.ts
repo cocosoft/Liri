@@ -252,12 +252,16 @@ export class ProactivePushQueue {
       dedupeKey: string;
       kind: ProactiveMessagePayload['kind'];
       deliveredAt: number;
+      /** P37：所属工作项（门禁的"每工作项打扰预算"输入） */
+      ticketId?: string;
     }>
   > {
     const db = this.ensureDb();
     return new Promise((resolve, reject) => {
       db.all(
-        `SELECT dedupe_key, kind, COALESCE(delivered_at, created_at) AS at
+        // P37：`ticketId` 随载荷落盘 ⇒ 台账即计数（不做第二份内存计数）
+        `SELECT dedupe_key, kind, COALESCE(delivered_at, created_at) AS at,
+                json_extract(payload_json, '$.ticketId') AS ticket_id
            FROM ${TABLE}
           WHERE status IN ('pending', 'delivered')
             AND COALESCE(delivered_at, created_at) >= ?
@@ -272,6 +276,9 @@ export class ProactivePushQueue {
                 dedupeKey: row.dedupe_key as string,
                 kind: row.kind as ProactiveMessagePayload['kind'],
                 deliveredAt: row.at as number,
+                ...(typeof row.ticket_id === 'string'
+                  ? { ticketId: row.ticket_id }
+                  : {}),
               }))
             );
         }

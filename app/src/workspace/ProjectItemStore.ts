@@ -64,6 +64,14 @@ export interface ProjectItem {
   summary?: string;
   sessionId?: string;
   messageId?: string;
+  /**
+   * P34（2026-11-02）：条目所属**工作项** / **派工**。
+   *
+   * 由写入点按 `sessionId → ticket_assignments` 反查得到；缺省 ⇒ 普通对话条目
+   * （读取侧不做任何假设，行为与改造前一致）。
+   */
+  workItemId?: string;
+  assignmentId?: string;
   refIds?: string[];
   phase?: PdcaPhase;
   tags?: string[];
@@ -82,6 +90,8 @@ interface ItemRow {
   summary: string | null;
   session_id: string | null;
   message_id: string | null;
+  work_item_id: string | null;
+  assignment_id: string | null;
   ref_ids: string | null;
   phase: string | null;
   tags: string | null;
@@ -150,6 +160,8 @@ function rowToItem(row: ItemRow): ProjectItem {
     summary: row.summary ?? undefined,
     sessionId: row.session_id ?? undefined,
     messageId: row.message_id ?? undefined,
+    workItemId: row.work_item_id ?? undefined,
+    assignmentId: row.assignment_id ?? undefined,
     refIds: parseJsonArray(row.ref_ids),
     phase: (row.phase as PdcaPhase) ?? undefined,
     tags: parseJsonArray(row.tags),
@@ -172,6 +184,8 @@ const CREATE_TABLE_SQL = `CREATE TABLE IF NOT EXISTS ${PROJECT_ITEMS_TABLE_NAME}
   summary     TEXT,
   session_id  TEXT,
   message_id  TEXT,
+  work_item_id TEXT,
+  assignment_id TEXT,
   ref_ids     TEXT,
   phase       TEXT,
   tags        TEXT,
@@ -181,8 +195,9 @@ const CREATE_TABLE_SQL = `CREATE TABLE IF NOT EXISTS ${PROJECT_ITEMS_TABLE_NAME}
 
 const UPSERT_SQL = `INSERT INTO ${PROJECT_ITEMS_TABLE_NAME}
   (id, project_id, kind, type, title, content, summary,
-   session_id, message_id, ref_ids, phase, tags, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+   session_id, message_id, work_item_id, assignment_id, ref_ids, phase, tags,
+   created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(id) DO UPDATE SET
   kind = excluded.kind,
   type = excluded.type,
@@ -191,6 +206,8 @@ ON CONFLICT(id) DO UPDATE SET
   summary = excluded.summary,
   session_id = excluded.session_id,
   message_id = excluded.message_id,
+  work_item_id = excluded.work_item_id,
+  assignment_id = excluded.assignment_id,
   ref_ids = excluded.ref_ids,
   phase = excluded.phase,
   tags = excluded.tags,
@@ -268,6 +285,15 @@ export class ProjectItemStore {
         });
       });
 
+      // P34（2026-11-02）：存量库补列（幂等，只增不改）；索引必须在补列之后建。
+      await this.ensureColumns();
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          `CREATE INDEX IF NOT EXISTS idx_items_work_item ON ${PROJECT_ITEMS_TABLE_NAME}(work_item_id)`,
+          (err: Error | null) => (err ? reject(err) : resolve())
+        );
+      });
+
       // FTS5 失败不阻塞
       try {
         await new Promise<void>((resolve, reject) => {
@@ -309,6 +335,37 @@ export class ProjectItemStore {
       );
     }
     return this.db;
+  }
+
+  /**
+   * P34：存量库补列（本表首版无工作项绑定列）。
+   *
+   * 先 `PRAGMA table_info` 探测再 `ALTER TABLE ADD COLUMN`（幂等），
+   * 避免重复建列报错；只增不改，不触碰既有数据。
+   */
+  private async ensureColumns(): Promise<void> {
+    const rows = await new Promise<Array<{ name: string }>>(
+      (resolve, reject) => {
+        this.db!.all(
+          `PRAGMA table_info(${PROJECT_ITEMS_TABLE_NAME})`,
+          (err: Error | null, r: Array<{ name: string }>) =>
+            err ? reject(err) : resolve(r)
+        );
+      }
+    );
+    const existing = new Set(rows.map((r) => r.name));
+    for (const [column, type] of [
+      ['work_item_id', 'TEXT'],
+      ['assignment_id', 'TEXT'],
+    ] as const) {
+      if (existing.has(column)) continue;
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          `ALTER TABLE ${PROJECT_ITEMS_TABLE_NAME} ADD COLUMN ${column} ${type}`,
+          (err: Error | null) => (err ? reject(err) : resolve())
+        );
+      });
+    }
   }
 
   // ─── FTS 同步 ───
@@ -416,6 +473,8 @@ export class ProjectItemStore {
             item.summary ?? null,
             item.sessionId ?? null,
             item.messageId ?? null,
+            item.workItemId ?? null,
+            item.assignmentId ?? null,
             toJsonStr(item.refIds),
             item.phase ?? null,
             toJsonStr(item.tags),

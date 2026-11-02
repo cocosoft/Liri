@@ -63,6 +63,17 @@ describe('resolveSessionOwner（读侧投影）', () => {
     expect(owner).toEqual({ kind: 'autonomous', ticketId: 'w-2' });
   });
 
+  it('派工 id 随持有者下发（P34 产物绑定用）', async () => {
+    const owner = await resolveSessionOwner('s1', async () => [
+      assignment({ workItemId: 'w-3', assignmentId: 'as-3' }),
+    ]);
+    expect(owner).toEqual({
+      kind: 'autonomous',
+      ticketId: 'w-3',
+      assignmentId: 'as-3',
+    });
+  });
+
   it('executor=manual ⇒ manual', async () => {
     const owner = await resolveSessionOwner('s1', async () => [
       assignment({ executor: 'manual' }),

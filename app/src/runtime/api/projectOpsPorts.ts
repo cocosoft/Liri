@@ -41,6 +41,9 @@ export interface ProjectArtifactDto {
   kind: ArtifactKindDto;
   sessionId?: string | undefined;
   refId?: string | undefined;
+  /** P34：产物所属工作项 / 派工（写入点按会话反查；缺省 = 普通对话产物） */
+  workItemId?: string | undefined;
+  assignmentId?: string | undefined;
   title: string;
   content: string;
   createdAt: string;

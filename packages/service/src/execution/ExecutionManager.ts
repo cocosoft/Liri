@@ -193,7 +193,9 @@ export class ExecutionManager {
     sessionId: string,
     messageId?: string,
     /** P36-b：本次执行所属工作项（只做记录，**不参与租约语义**） */
-    workItemId?: string
+    workItemId?: string,
+    /** P34：本次执行的实际工作目录（只做记录，**不参与租约语义**） */
+    workspaceDir?: string
   ): ExecutionLease {
     this.sweep();
 
@@ -223,6 +225,8 @@ export class ExecutionManager {
       heartbeatAt: now,
       // P36-b：归属工作项（缺省 ⇒ 不属于任何工作项，普通对话零变更）
       ...(workItemId ? { workItemId } : {}),
+      // P34：实际工作目录（缺省 ⇒ 不知道/普通会话，零变更）
+      ...(workspaceDir ? { workspaceDir } : {}),
     };
     this.records.set(executionId, record);
     if (!occupied) this.owner.set(sessionId, executionId);

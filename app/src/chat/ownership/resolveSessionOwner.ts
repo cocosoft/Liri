@@ -27,6 +27,8 @@ export interface AssignmentLike {
   executor: string;
   state: string;
   workItemId: string;
+  /** P34：派工 id（产物绑定用；缺省 ⇒ 产物只绑工作项） */
+  assignmentId?: string;
 }
 
 /** 派工读取器（缺省走真实存储；测试注入假实现） */
@@ -69,6 +71,7 @@ export async function resolveSessionOwner(
     return {
       kind: row.executor === 'manual' ? 'manual' : 'autonomous',
       ...(row.workItemId ? { ticketId: row.workItemId } : {}),
+      ...(row.assignmentId ? { assignmentId: row.assignmentId } : {}),
     };
   }
   return { kind: 'none' };

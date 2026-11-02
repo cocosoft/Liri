@@ -26,6 +26,15 @@ export interface ProjectArtifact {
   sessionId?: string;
   /** 来源消息 ID */
   refId?: string;
+  /**
+   * P34（2026-11-02）：产物所属**工作项**（`workitems.work_item_id`）。
+   *
+   * 由写入点按 `sessionId → ticket_assignments` 反查得到；缺省 ⇒ 不属于任何工作项
+   * （普通对话产物，行为与改造前一致）。
+   */
+  workItemId?: string;
+  /** P34：产出该产物的**派工**（`ticket_assignments.assignment_id`） */
+  assignmentId?: string;
   /** 标题 */
   title: string;
   /** 内容摘要 */

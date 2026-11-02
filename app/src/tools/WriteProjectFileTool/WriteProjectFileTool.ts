@@ -23,6 +23,7 @@ import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@openliri/infra/error';
 import { resolveDataDir } from '@openliri/infra/environment';
+import { getSessionOwner } from '@openliri/service/execution';
 import { resolveIsolatedFileTarget } from '../utils/isolatedFileIo';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
@@ -418,12 +419,19 @@ export class WriteProjectFileTool {
               const artifactStore = new ProjectArtifactStore(
                 join(resolveDataDir(), 'projects')
               );
+              // P34（2026-11-02）：按会话反查持有者 ⇒ 产物绑定到工作项 / 派工。
+              // 普通对话（无 running 派工）⇒ 两者皆缺省，行为与改造前一致。
+              const owner = await getSessionOwner(context.sessionId ?? '');
               artifactStore.save({
                 // 以「write + projectId + 相对路径」为稳定 id，重复写同路径走 upsert 更新
                 id: `write:${projectId}:${targetRelative}`,
                 projectId,
                 kind: 'output',
                 sessionId: context.sessionId,
+                ...(owner.ticketId ? { workItemId: owner.ticketId } : {}),
+                ...(owner.assignmentId
+                  ? { assignmentId: owner.assignmentId }
+                  : {}),
                 title: basename(targetRelative),
                 content: targetRelative,
                 createdAt: new Date().toISOString(),

@@ -11,6 +11,7 @@ import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { resolveDataDir } from '@openliri/infra/environment';
+import { getSessionOwner } from '@openliri/service/execution';
 import { LOCAL_SERVICE_HOST } from '@openliri/kernel';
 // C1（D-117）：构件存储 / 上下文服务 / 引擎钩子 的导入已移除（改经服务层端口，见下方 C1 注释块）
 import { getLogger, getOTelTracing } from '@openliri/infra/monitoring';
@@ -191,6 +192,14 @@ export async function handleSaveArtifact(
       createdAt: data.createdAt || new Date().toISOString(),
     };
 
+    // P34（2026-11-02）：按会话反查持有者 ⇒ 构件绑定到工作项 / 派工。
+    // 无 running 派工（普通对话）⇒ 两者皆缺省，写入行为与改造前一致。
+    if (artifact.sessionId) {
+      const owner = await getSessionOwner(artifact.sessionId);
+      if (owner.ticketId) artifact.workItemId = owner.ticketId;
+      if (owner.assignmentId) artifact.assignmentId = owner.assignmentId;
+    }
+
     // E-1 修复：按迁移状态分流写入，避免 artifacts.json ↔ items.db 双写分裂。
     // input 型 items.db 不承载（kind 仅 context/artifact），始终写 artifacts.json；
     // output 型已迁移（rules.md 不存在 → items.db 为当前存储）写 items.db，
@@ -211,6 +220,10 @@ export async function handleSaveArtifact(
           content: artifact.content,
           sessionId: artifact.sessionId,
           messageId: artifact.refId,
+          ...(artifact.workItemId ? { workItemId: artifact.workItemId } : {}),
+          ...(artifact.assignmentId
+            ? { assignmentId: artifact.assignmentId }
+            : {}),
           createdAt: artifact.createdAt,
           updatedAt: new Date().toISOString(),
         });

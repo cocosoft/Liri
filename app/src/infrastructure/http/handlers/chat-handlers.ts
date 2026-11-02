@@ -747,7 +747,8 @@ async function handleStreamingChat(
         ? executionManager.acquire(
             clientSessionId,
             request.message_id,
-            ownershipOwner?.ticketId
+            ownershipOwner?.ticketId,
+            request.workspace_path
           )
         : undefined;
     if (ownershipOwner && executionLease && clientSessionId) {

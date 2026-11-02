@@ -30,10 +30,12 @@ export type OwnershipReason =
   | 'owner_manual'
   | 'occupied_unknown';
 
-/** 会话持有者（`ticketId` 仅在自主持有时有值） */
+/** 会话持有者（`ticketId` / `assignmentId` 仅在自主持有时有值） */
 export interface SessionOwner {
   kind: SessionOwnerKind;
   ticketId?: string;
+  /** P34：产出物绑定所需的派工 id（`ticket_assignments.assignment_id`） */
+  assignmentId?: string;
 }
 
 /** 宿主注入的持有者读取器（缺省/未注入 ⇒ 一律 `none`，行为等于改造前） */

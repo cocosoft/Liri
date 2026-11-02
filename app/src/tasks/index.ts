@@ -329,6 +329,28 @@ export type {
   TicketAssignmentRecord,
 } from './ticketAssignmentStore';
 
+// P38（2026-11-02）：统一 effects 队列（方案 §5 P38）——只导出内核，不接线具体分域台账
+export { EffectQueue, EFFECT_QUEUE_TABLE } from './effects';
+export {
+  EFFECT_DEFAULT_LATER_MS,
+  EFFECT_FAILURES_BEFORE_ERROR,
+  EFFECT_KINDS,
+  EFFECT_MAX_RETRY_MS,
+  EFFECT_RETRY_BASE_MS,
+  EFFECT_STATUSES,
+  EFFECT_STATUS_FAILED,
+  EFFECT_STATUS_PENDING,
+  EFFECT_STATUS_SETTLED,
+  effectRetryDelay,
+} from './effects';
+export type {
+  ClaimedEffect,
+  EffectEntry,
+  EffectKind,
+  EffectOutcome,
+  EffectStatus,
+} from './effects';
+
 // P35（2026-11-02）：Source / Trigger / Thread（方案 §5 P35）。
 // 只导出实现，不在此处接线任何来源 —— 生产接线需先补消费者登记（CD02）。
 export {

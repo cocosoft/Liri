@@ -222,12 +222,7 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     title: 'PDCA 步骤结论标记（StepVerdict 4 值）',
     kind: 'persistent',
     sourceFile: 'app/src/tasks/stepVerdict.ts',
-    states: [
-      'step_done',
-      'step_blocked',
-      'step_partial',
-      'step_unverified',
-    ],
+    states: ['step_done', 'step_blocked', 'step_partial', 'step_unverified'],
     verification: 'runtime-import',
     verifyRef: {
       module: 'app/src/tasks/stepVerdict.ts',
@@ -236,6 +231,21 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     },
     hasTransitionFn: false,
     note: '2026-11-02 新增：编排步骤的**目标达成判定**（与 `PlanStep.status` 正交 —— 前者是"目标是否达成"，后者是"执行到哪一步"）。来源是步骤产出末行的结构化标记，**不对自然语言做关键词匹配**（CS02）。`step_unverified` = 未提供标记，既有计划沿用 completed 口径但**不计入"执行完成"播报**。取值带 `step_` 前缀：`done/blocked/partial` 是跨域通用词，直接登记会把 dream/sandbox/compaction 等既有出现点一并划入词汇表。',
+  },
+  {
+    id: 'effectQueue',
+    title: '统一 effects 队列条目状态（3 值）',
+    kind: 'persistent',
+    sourceFile: 'app/src/tasks/effects/types.ts',
+    states: ['effect_pending', 'effect_settled', 'effect_failed'],
+    verification: 'runtime-import',
+    verifyRef: {
+      module: 'app/src/tasks/effects/types.ts',
+      exportName: 'EFFECT_STATUSES',
+      anchor: 'array',
+    },
+    hasTransitionFn: false,
+    note: 'P38（2026-11-02）：`effect_pending → effect_settled | effect_failed`。`later` **不是状态**（只前移 due，仍 pending）；连续失败达 `FAILURES_BEFORE_ERROR` 才进入 failed。取值带 `effect_` 前缀：`pending/settled/failed` 是跨域通用词，直接登记会把 chat/query/utils 既有 `settled` 出现点一并划入词汇表（与 P33 的 `step_` 同款教训）。',
   },
 ];
 

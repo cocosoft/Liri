@@ -110,6 +110,14 @@ export const PROACTIVE_QUEUE_BASE_RETRY_MS = 30_000;
 export const PROACTIVE_QUEUE_MAX_RETRY_MS = 30 * MS_PER_MINUTE;
 /** 终态记录保留天数（`delivered/dropped/expired`） @kind A */
 export const PROACTIVE_QUEUE_RETENTION_DAYS = 7;
+/** P38：effects 队列连续失败达到该次数才升级为 `effect_failed`（此前只退避重排） @kind A */
+export const EFFECT_FAILURES_BEFORE_ERROR = 3;
+/** P38：`later`（暂停/槽位满）缺省推迟时长 —— 只重排，不计失败 @kind A */
+export const EFFECT_DEFAULT_LATER_MS = MS_PER_MINUTE;
+/** P38：effects 失败退避基数（第 n 次失败 ⇒ base * 2^(n-1)） @kind A */
+export const EFFECT_RETRY_BASE_MS = 30_000;
+/** P38：effects 失败退避封顶 @kind A */
+export const EFFECT_MAX_RETRY_MS = 30 * MS_PER_MINUTE;
 
 /**
  * 产品默认语言 / 时区（**唯一真源**）。

@@ -15,7 +15,7 @@
  * 为什么放在 `chat/services` 而不是 `core/paths`：`core/paths` 只做路径计算（无副作用，
  * 也不该知道"cwd 要怎么兜底"这一策略）；目录创建属于执行侧职责。
  */
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, statSync } from 'fs';
 import { isAbsolute } from 'path';
 import { getLogger } from '@openliri/infra/monitoring';
 import {
@@ -101,6 +101,38 @@ export function resolveRequestWorkspaceUpdate(input: {
 }
 
 /**
+ * P0（2026-11-03，`dev_docs/20261103/工具cwd无效根因与修复方案-20261103.md`）：
+ * **会话工作区可用性**判定（缺失 / 不是目录 / 无法 stat）。
+ *
+ * 为什么必须判：spawn 类工具（bash / powershell / grep…）都以 `options.cwd` 启动子进程；
+ * 目录不存在时 `exec` 抛 `ENOENT … uv_spawn 'cmd.exe'` —— **把"cwd 无效"误报成"可执行文件缺失"**。
+ * 真机一次会话里因此连续失败 ≥12 次，`bash` 工具被整体误判为"坏了"。
+ *
+ * 处置口径：**先判后用**（调用方在 spawn 前给出可操作错误），**不**静默换目录执行
+ * （那会把产物写到错误位置，LRO-06 同类事故）。
+ */
+function isUsableDirectory(dir: string): boolean {
+  try {
+    return statSync(dir).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/** 已告警过的无效工作区（避免每次工具调用都刷同一条 warn；上限 100 条防无界增长） */
+const warnedInvalidWorkspaces = new Set<string>();
+
+function warnInvalidWorkspaceOnce(dir: string): void {
+  if (warnedInvalidWorkspaces.has(dir)) return;
+  if (warnedInvalidWorkspaces.size >= 100) warnedInvalidWorkspaces.clear();
+  warnedInvalidWorkspaces.add(dir);
+  logger.warning(
+    '会话工作区不存在或不是目录：工具将以该无效 cwd 启动 ⇒ 子进程会失败（请修正项目 sandboxPath / 会话 metadata.workspacePath）',
+    { sessionWorkspacePath: dir }
+  );
+}
+
+/**
  * 解析一次工具执行的 cwd。
  *
  * P2-4（2026-10-27）口径：**本地身份的裸会话按运行形态分流**
@@ -108,6 +140,9 @@ export function resolveRequestWorkspaceUpdate(input: {
  *   编译版的 `resolveProjectRoot()` 是 exe 所在目录（安装目录不可写 / 不该写）；
  * - 开发入口（非编译）：保持 `resolveProjectRoot()`（代码仓根，便于调试）；
  * - 已显式给出会话工作区 ⇒ 恒用会话工作区（任何形态都不覆盖用户的显式选择）。
+ *
+ * P0（2026-11-03）：显式工作区**存在性**判定 —— 无效时仍原样返回（读侧不猜、不改写用户选择），
+ * 但会记一条**去重告警**；spawn 类工具据此在执行前给出可操作错误（见 `BashTool`）。
  *
  * @param sessionWorkspacePath 会话元数据里的工作区（可能来自请求体，未经验证）
  * @param principal 当前请求身份（缺省取 ALS）
@@ -120,6 +155,9 @@ export function resolveToolCwd(
 ): ToolCwdDecision {
   if (isLocalPrincipal(principal)) {
     if (sessionWorkspacePath) {
+      if (!isUsableDirectory(sessionWorkspacePath)) {
+        warnInvalidWorkspaceOnce(sessionWorkspacePath);
+      }
       return { cwd: sessionWorkspacePath, rejectedSessionWorkspace: false };
     }
     const compiled = options.compiled ?? isCompiledRuntime();
@@ -137,6 +175,9 @@ export function resolveToolCwd(
 
   const root = resolveScopedWorkspaceRoot(principal);
   if (sessionWorkspacePath && isPathWithin(root, sessionWorkspacePath)) {
+    if (!isUsableDirectory(sessionWorkspacePath)) {
+      warnInvalidWorkspaceOnce(sessionWorkspacePath);
+    }
     return { cwd: sessionWorkspacePath, rejectedSessionWorkspace: false };
   }
 

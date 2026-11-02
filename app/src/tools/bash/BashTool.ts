@@ -23,6 +23,8 @@ import {
   ToolUtils,
   isEmptyOutput,
   EMPTY_OUTPUT_HINT,
+  checkPathAccessibility,
+  isDirectoryPath,
 } from '../utils/ToolUtils';
 import type { InterruptBehavior } from '../types/Tool';
 import { ToolTag } from '../types/Tool';
@@ -518,7 +520,14 @@ export class BashTool extends BaseTool {
       ]
         .filter(Boolean)
         .join('；');
-      const msg = detail ? `${rawMsg}\n（${detail}）` : rawMsg;
+      // P0（2026-11-03）：spawn ENOENT 的双因提示 —— cwd 已在执行前校验，仍出现 ENOENT
+      // 时最可能是 shell/可执行文件缺失或竞态删除；给出明确分流，避免再次把人带偏。
+      const enoentHint =
+        (error as NodeJS.ErrnoException).code === 'ENOENT'
+          ? '\n提示: spawn ENOENT 可能来自「cwd 不存在」或「shell 可执行文件缺失」；' +
+            '本工具已在执行前校验 cwd，若仍失败请检查 shell 与 PATH。'
+          : '';
+      const msg = (detail ? `${rawMsg}\n（${detail}）` : rawMsg) + enoentHint;
 
       // B 类可观测性缺口 ②（2026-10-25）：执行异常此前**零 app.log** —— 只返回 failureResult
       // 给模型，排查"命令为什么失败"只能翻会话消息。现补 error 级日志（含命令摘要 + stderr 截断）。
@@ -593,6 +602,46 @@ export class BashTool extends BaseTool {
       // G3：cwd 隔离——工具参数未指定 cwd 时，回退上下文 options.cwd
       //（worktree 隔离 / 会话工作目录），使 bash 在隔离目录内执行。
       execOptions.cwd = context.options.cwd;
+    }
+
+    // P0（2026-11-03，`dev_docs/20261103/工具cwd无效根因与修复方案-20261103.md`）：
+    // **spawn 前 cwd 先验**。会话/项目工作目录指向不存在的路径时，`exec` 的 spawn 会抛
+    // `ENOENT … uv_spawn 'C:\Windows\system32\cmd.exe'` —— 把"cwd 无效"误报成"可执行文件缺失"，
+    // 实测一次会话里因此连续失败 ≥12 次并带偏排查方向。这里复用统一的可访问性判定
+    // （含"盘符不一致 / 上级目录缺失"诊断），在 spawn 之前给出**可操作**的失败。
+    // **不**静默降级到别的目录执行：那会在错误目录产生副作用（LRO-06 的同类事故）。
+    // `ExecOptions.cwd` 的类型是 `string | URL`；本工具只写字符串 ⇒ 这里收窄
+    const effectiveCwd =
+      typeof execOptions.cwd === 'string' ? execOptions.cwd : undefined;
+    if (effectiveCwd) {
+      const cwdCheck = checkPathAccessibility(effectiveCwd, 'Bash 工作目录');
+      // 存在性（checkPathAccessibility）+ **可作 cwd**（必须是目录）两道；缺任一道都会让
+      // spawn 抛 ENOENT / ENOTDIR，且报错指向 shell 而不是路径。
+      const exists = cwdCheck.accessible;
+      const usableAsCwd = exists && isDirectoryPath(cwdCheck.resolvedPath);
+      if (!usableAsCwd) {
+        const suggestions = cwdCheck.suggestions?.length
+          ? `\n建议: ${cwdCheck.suggestions.join('; ')}`
+          : '';
+        const message =
+          (exists
+            ? `Bash 工作目录不是目录: ${cwdCheck.resolvedPath}`
+            : (cwdCheck.reason ?? '工作目录不可访问')) +
+          suggestions +
+          '\n（这不是 cmd.exe 缺失：可用 cwd 参数指定真实存在的目录后重试）';
+        logger.warn('bash: cwd_inaccessible', {
+          sessionId: context.sessionId,
+          cwd: effectiveCwd,
+          reason: cwdCheck.reason ?? '',
+        });
+        return createToolResult(message, {
+          status: ToolExecutionStatus.FAILURE,
+          error: message,
+          // 可恢复：模型可用显式 cwd 重试 ⇒ 走 invalid 预算，避免熔断把恢复机会掐掉
+          failureKind: 'tool_error',
+          newMessages: [{ role: 'system', content: `Error: ${message}` }],
+        });
+      }
     }
 
     // 构建环境变量：Windows 上设置 git SSL 后端为 schannel

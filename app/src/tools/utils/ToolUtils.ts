@@ -642,6 +642,21 @@ export function checkPathAccessibility(
 }
 
 /**
+ * P0（2026-11-03）：路径是否为**已存在的目录**（`false` = 不存在 / 是文件 / 无法 stat）。
+ *
+ * 与 `checkPathAccessibility` 的分工：后者判"存在"，本函数判"能用作 cwd"。
+ * spawn 类工具必须两者都过 —— 目录不存在 ⇒ `ENOENT`（且误导为可执行文件缺失）；
+ * 是文件 ⇒ `ENOTDIR`。
+ */
+export function isDirectoryPath(targetPath: string): boolean {
+  try {
+    return fs.statSync(targetPath).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 异步检查目标路径是否可访问（不阻塞事件循环）
  *
  * 用于批量路径校验等异步场景。与同步版本相比，仅将 fs.existsSync 替换为

@@ -21,6 +21,8 @@ import {
   createSuccessResult,
   createFailureResult,
   checkPathAccessibility,
+  // P0（2026-11-03）：cwd 必须"存在且是目录"（与 BashTool 同一口径）
+  isDirectoryPath,
   // LRO-10（2026-10-26）：空输出判定/文案与 BashTool 同一口径（禁止双轨）
   isEmptyOutput,
   EMPTY_OUTPUT_HINT,
@@ -835,9 +837,13 @@ export class PowerShellTool extends BaseTool {
         workingDirectory,
         'PowerShell 工作目录'
       );
-      if (!workingDirCheck.accessible) {
+      // P0（2026-11-03）：存在 ≠ 可作 cwd（可能是文件）⇒ 与 BashTool 同口径拦在 spawn 之前
+      if (
+        !workingDirCheck.accessible ||
+        !isDirectoryPath(workingDirCheck.resolvedPath)
+      ) {
         return createFailureResult(
-          `${workingDirCheck.reason}${workingDirCheck.suggestions?.length ? `\n建议: ${workingDirCheck.suggestions.join('; ')}` : ''}`,
+          `${workingDirCheck.accessible ? `PowerShell 工作目录不是目录: ${workingDirCheck.resolvedPath}` : workingDirCheck.reason}${workingDirCheck.suggestions?.length ? `\n建议: ${workingDirCheck.suggestions.join('; ')}` : ''}`,
           {
             executionTime: Date.now() - startTime,
             errorLevel: ErrorLevel.RECOVERABLE,

@@ -171,3 +171,39 @@ export interface PolicyEffect {
 export type AcceptanceDecision =
   | { action: 'accept' }
   | { action: 'ignore'; wouldAccept: boolean };
+
+/**
+ * P33-a（2026-11-02）：自主触发策略的**规则**。
+ *
+ * 推断类工作至少命中一条 `enabled` 规则才可接单；`sources` 缺省/空 = 适用于全部来源。
+ */
+export interface AutonomyPolicyRule {
+  id: string;
+  text: string;
+  enabled: boolean;
+  /** 适用来源（如 `alwayson` / `cron`；缺省/空 = 全部） */
+  sources?: string[];
+}
+
+/**
+ * P33-a：`autonomy.policy` 配置结构（用户可写 + 托管可覆盖）。
+ *
+ * 只描述**准入策略**，不替代既有 `PermissionChecker`（动作拦截）。
+ * 缺省值见 `app/src/tasks/autonomy/policyConfig.ts#DEFAULT_AUTONOMY_POLICY`。
+ */
+export interface AutonomyPolicyConfig {
+  /** 总开关；`false` ⇒ 不判定、不记录、行为与改造前逐字一致 */
+  enabled: boolean;
+  /** 接单模式（`off` / `observe` / `auto`） */
+  acceptMode: AcceptMode;
+  /** 来源开关（内部来源无人类发送者 ⇒ 兼作"机器发送者白名单"） */
+  sources: Record<string, boolean>;
+  /** 准入表（键 = 来源） */
+  admission: AdmissionTable;
+  /** 主动（推断）规则 */
+  rules: AutonomyPolicyRule[];
+  /** 预留：外部来源的发送者 / bot 白名单 */
+  allowlist?: { senders?: string[]; bots?: string[] };
+  /** 预留：线程前缀 / 工作区过滤 */
+  filters?: { threadPrefixes?: string[]; workspaceIds?: string[] };
+}

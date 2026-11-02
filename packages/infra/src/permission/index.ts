@@ -275,4 +275,6 @@ export type {
   PolicySnapshot,
   PolicyEffect,
   AcceptanceDecision,
+  AutonomyPolicyRule,
+  AutonomyPolicyConfig,
 } from './types/PolicyStrength';

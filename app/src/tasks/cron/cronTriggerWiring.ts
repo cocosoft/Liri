@@ -43,6 +43,11 @@ import {
   type Trigger,
 } from '../sources/types';
 import { readPdcaWorkItem, writePdcaWorkItem } from '../PdcaWorkItemBridge';
+import { evaluateAutonomyTrigger } from '../autonomy/gate';
+import {
+  loadAutonomyPolicy,
+  type LoadedAutonomyPolicy,
+} from '../autonomy/policyConfig';
 import type { CronJob, CronJobResult } from './types';
 
 const logger = getLogger('tasks:cron:trigger-wiring');
@@ -54,6 +59,8 @@ export interface CronTriggerPipelineOptions {
   readTicket?: TicketSinkDeps['read'];
   writeTicket?: TicketSinkDeps['write'];
   now?: () => number;
+  /** 注入策略读取（测试用；缺省读 `autonomy.policy` 配置） */
+  loadPolicy?: () => LoadedAutonomyPolicy;
 }
 
 /** 供 `CronScheduler` 调用的作业生命周期钩子 */
@@ -113,7 +120,17 @@ export async function startCronTriggerPipeline(
   const store = options.store ?? new SourceCursorStore();
   const read = options.readTicket ?? readPdcaWorkItem;
   const write = options.writeTicket ?? writePdcaWorkItem;
-  const rawSink = createTriggerTicketSink({ read, write, now });
+  const loadPolicy = options.loadPolicy ?? loadAutonomyPolicy;
+  /** 本进程内**已准入**的 Trigger（observe/off 不进入 ⇒ 零副作用） */
+  const admitted = new Set<string>();
+  /** 准入时派生的策略元数据（随 Ticket 同一写入落库） */
+  const policyMeta = new Map<string, Record<string, unknown>>();
+  const rawSink = createTriggerTicketSink({
+    read,
+    write,
+    now,
+    annotate: (trigger) => policyMeta.get(trigger.triggerId),
+  });
 
   /** Ticket 写入串行链：sink 的 create-if-absent 与 onJobEnd 的终态推进互不覆盖 */
   let chain: Promise<unknown> = Promise.resolve();
@@ -136,6 +153,46 @@ export async function startCronTriggerPipeline(
 
   return {
     async onJobStart(job, scheduledAt) {
+      const trigger = cronTriggerOf(job, scheduledAt);
+      const loaded = loadPolicy();
+      const decision = evaluateAutonomyTrigger({
+        policy: loaded.config,
+        policyId: loaded.policyId,
+        trigger: {
+          sourceId: trigger.sourceId,
+          threadKey: trigger.threadKey,
+          triggerId: trigger.triggerId,
+        },
+      });
+
+      // P33-a：仅在策略启用时记录决策（enabled=false ⇒ 不制造噪声）
+      if (loaded.config.enabled) {
+        logger.info('autonomy.policy.decision', {
+          source: loaded.source,
+          sourceId: trigger.sourceId,
+          threadKey: trigger.threadKey,
+          triggerId: trigger.triggerId,
+          mode: loaded.config.acceptMode,
+          ...(decision.strength ? { strength: decision.strength } : {}),
+          ...(decision.via ? { via: decision.via } : {}),
+          wouldAccept: decision.wouldAccept,
+          ...(decision.reason ? { reason: decision.reason } : {}),
+          policyId: decision.policyId,
+          matchedRuleIds: decision.matchedRuleIds,
+        });
+      }
+
+      // observe / off / 来源关闭 / 规则未命中 ⇒ 不发 Trigger、不建 Ticket（零副作用）
+      if (decision.action === 'ignore') return;
+
+      admitted.add(trigger.triggerId);
+      if (loaded.config.enabled) {
+        policyMeta.set(trigger.triggerId, {
+          policyId: decision.policyId,
+          ...(decision.mandate ? { mandate: decision.mandate } : {}),
+        });
+      }
+
       // 发出即返回：落库/串行由 Registry 负责（不阻塞调度器）
       for (const listener of listeners) {
         listener({
@@ -149,29 +206,41 @@ export async function startCronTriggerPipeline(
 
     async onJobEnd(job, result, scheduledAt) {
       const trigger = cronTriggerOf(job, scheduledAt);
-      await withTicketWrite(async () => {
-        // 先确保 Ticket 存在（create-if-absent；已存在则不动）
-        await rawSink(trigger.threadKey, [trigger]);
-        const id = triggerTicketId(trigger.triggerId);
+      const wasAdmitted = admitted.delete(trigger.triggerId);
+      const id = triggerTicketId(trigger.triggerId);
+
+      // 未准入且从未落 Ticket ⇒ 不写（observe/off 的零副作用保证）
+      if (!wasAdmitted) {
         const existing = await read(id);
-        if (!existing) {
-          logger.warn('Trigger Ticket 在终态推进时仍缺失（记录未写入?）', {
-            jobId: job.id,
-            ticketId: id,
+        if (!existing) return;
+      }
+
+      await withTicketWrite(async () => {
+        try {
+          // 先确保 Ticket 存在（create-if-absent；已存在则不动）
+          await rawSink(trigger.threadKey, [trigger]);
+          const existing = await read(id);
+          if (!existing) {
+            logger.warn('Trigger Ticket 在终态推进时仍缺失（记录未写入?）', {
+              jobId: job.id,
+              ticketId: id,
+            });
+            return;
+          }
+          const tokens = (result.inputTokens ?? 0) + (result.outputTokens ?? 0);
+          await write({
+            ...existing,
+            id,
+            status: result.success ? 'completed' : 'failed',
+            ...(tokens > 0 ? { costTokens: tokens } : {}),
+            ...(job.workdir ? { workspaceDir: job.workdir } : {}),
+            ...(result.error ? { lastError: result.error } : {}),
+            updatedAt: new Date(now()).toISOString(),
+            lastAction: 'cron_executed',
           });
-          return;
+        } finally {
+          policyMeta.delete(trigger.triggerId);
         }
-        const tokens = (result.inputTokens ?? 0) + (result.outputTokens ?? 0);
-        await write({
-          ...existing,
-          id,
-          status: result.success ? 'completed' : 'failed',
-          ...(tokens > 0 ? { costTokens: tokens } : {}),
-          ...(job.workdir ? { workspaceDir: job.workdir } : {}),
-          ...(result.error ? { lastError: result.error } : {}),
-          updatedAt: new Date(now()).toISOString(),
-          lastAction: 'cron_executed',
-        });
       });
     },
 

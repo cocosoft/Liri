@@ -19,6 +19,12 @@ export interface TicketSinkDeps {
   write: (record: Record<string, unknown>) => Promise<void>;
   /** 可注入时钟（测试用） */
   now?: () => number;
+  /**
+   * P33-a：按 Trigger 追加字段（如 `policyId` / `mandate`）。
+   *
+   * 返回 `undefined` ⇒ 不追加；追加字段参与同一次写入，避免"先建后补"的可见空窗。
+   */
+  annotate?: (trigger: Trigger) => Record<string, unknown> | undefined;
 }
 
 /** Trigger 对应的稳定 Ticket id（唯一组装点） */
@@ -63,6 +69,7 @@ export function createTriggerTicketSink(
       if (existing) continue;
 
       const createdAt = new Date(trigger.receivedAt).toISOString();
+      const extra = deps.annotate?.(trigger);
       await deps.write({
         id,
         title: ticketTitle(trigger),
@@ -76,6 +83,7 @@ export function createTriggerTicketSink(
         createdAt,
         updatedAt: new Date(now()).toISOString(),
         lastAction: 'trigger_received',
+        ...(extra ?? {}),
       });
     }
   };

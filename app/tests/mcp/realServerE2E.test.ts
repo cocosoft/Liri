@@ -42,7 +42,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
 import { McpToolWrapper } from '@openliri/service/services/mcp/McpToolWrapper';
 import type { ScopedMcpServerConfig } from '@openliri/service/services/mcp/types';
-import { MCPTool, type MCPToolParams } from '../../src/mcp/MCPTool.js';
+import { MCPTool, type MCPToolParams } from '@openliri/service/mcp/MCPTool.js';
 import { MCPResourceTool } from '../../src/tools/MCPResourceTool/MCPResourceTool.js';
 import { ListVfsTool } from '../../src/tools/ListVfsTool/ListVfsTool.js';
 import { ReadVfsTool } from '../../src/tools/ReadVfsTool/ReadVfsTool.js';

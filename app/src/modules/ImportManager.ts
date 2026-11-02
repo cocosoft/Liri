@@ -110,7 +110,7 @@ export class ImportManager {
         '@modules/hooks': './hooks',
         // 2026-10-31（S6 第一步）：移除 `@modules/lsp` 别名 —— 轨 B 已零消费者，
         // 进入 CD05 观察期（工具面校验改由 `tools/lsp/validation.ts` 自持）。
-        '@modules/mcp': './mcp',
+        '@openliri/service/mcp': './mcp',
         '@modules/plugins': './plugins',
         '@modules/query': './query',
         '@modules/sandbox': './sandbox',

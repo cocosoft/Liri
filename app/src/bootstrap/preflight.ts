@@ -55,6 +55,7 @@ import { setNativeBashAnalyzerLoader } from '@openliri/infra/security/BashSecuri
 import { setAnalyticsPricingResolver } from '@openliri/infra/analytics/pricingSource';
 import { setAttachmentIngestionPortLoader } from '@openliri/service/services/file/attachments';
 import { setPromptCoreApiProvider } from '@openliri/service/services/prompt/PromptAssembler';
+import { setMcpToolScopePortLoader } from '@openliri/service/mcp/MCPTool';
 import { getCoreAPI } from '../runtime/api/CoreAPIImpl';
 import { getModelPricing } from '@openliri/infra/cost/ModelPricing';
 import type { NativeLib } from '../../native';
@@ -213,6 +214,11 @@ function wireServiceDeps(): void {
       ingestFile: (path, meta) =>
         getDefaultIngestionService().ingestFile(path, 'attachment', meta),
     };
+  });
+  // MCP 会话级 scope（P32，原 `mcp/MCPTool` 动态 import app 的 tool/ToolScopeManager）
+  setMcpToolScopePortLoader(async () => {
+    const { toolScopeManager } = await import('../tool/ToolScopeManager');
+    return toolScopeManager;
   });
 }
 

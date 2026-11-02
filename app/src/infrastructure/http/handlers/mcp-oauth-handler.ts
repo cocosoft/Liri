@@ -11,7 +11,7 @@ import type http from 'http';
 import { mcpAuthManager } from '@openliri/service/services/mcp/auth/MCPAuth';
 import type { MCPOAuthConfig } from '@openliri/service/services/mcp/auth/types';
 import type { McpOAuthConfig } from '@openliri/service/services/mcp/types';
-import { readMcpConfig } from '@modules/mcp';
+import { readMcpConfig } from '@openliri/service/mcp';
 import { configManager } from '@openliri/infra/config';
 import {
   DEFAULT_HTTP_PORT,

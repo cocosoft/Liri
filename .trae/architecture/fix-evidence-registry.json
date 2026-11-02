@@ -1912,7 +1912,7 @@
         "e2eVerified": false
       },
       "code": [
-        "app/src/mcp/MCPTool.ts",
+        "packages/service/src/mcp/MCPTool.ts",
         "packages/service/src/services/mcp/McpToolWrapper.ts",
         "app/src/tools/WebFetchTool/WebFetchTool.ts"
       ],
@@ -10899,7 +10899,7 @@
         "packages/infra/src/media/ffmpeg/FFmpegWrapper.ts",
         "packages/infra/src/media/pdf/PdfPageExtractor.ts",
         "packages/infra/src/permission/ApprovedCommandRegistry.ts",
-        "app/src/mcp/cli/mcpCommand.ts",
+        "packages/service/src/mcp/cli/mcpCommand.ts",
         ".trae/architecture/hardcode-gate-baseline.json"
       ],
       "tests": [],

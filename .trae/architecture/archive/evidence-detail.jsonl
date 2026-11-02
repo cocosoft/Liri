@@ -630,7 +630,7 @@
 {"id":"TOOLGOV-S2-2","k":"notes","i":1,"c":" shared/protocol.d.ts）；`McpToolWrapper` 形参由弃用的 `_context` 改回 `context`；② `WebFetchTool.fetchWithRedirectGuard` 增 `externalSignal` 参，用 `AbortSignal.any([timeoutController.signal, "}
 {"id":"TOOLGOV-S2-2","k":"notes","i":2,"c":"externalSignal])` 合并「超时」与「上下文取消」；③ WebFetch 的 `AbortError` catch 分支区分「用户取消」（报 `Request canceled`）与「超时」（报 `Request timed out after Xms`）—— 原实现一律报超时 ⇒ 误导（此为消除新语义回归的必要改动）；④ 测试 `"}
 {"id":"TOOLGOV-S2-2","k":"notes","i":3,"c":"toolCancellation.test.ts` 打桩 fetch / 假 SDK client，断言「取消 ⇒ 捕获到的 signal.aborted === true」。e2eVerified=false。"}
-{"id":"TOOLGOV-S2-2","k":"code#0","i":0,"c":"app/src/mcp/MCPTool.ts"}
+{"id":"TOOLGOV-S2-2","k":"code#0","i":0,"c":"packages/service/src/mcp/MCPTool.ts"}
 {"id":"TOOLGOV-S2-2","k":"code#1","i":0,"c":"packages/service/src/services/mcp/McpToolWrapper.ts"}
 {"id":"TOOLGOV-S2-2","k":"code#2","i":0,"c":"app/src/tools/WebFetchTool/WebFetchTool.ts"}
 {"id":"TOOLGOV-S2-2","k":"tests#0","i":0,"c":"app/tests/tools/toolCancellation.test.ts"}
@@ -5949,7 +5949,7 @@
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#1","i":0,"c":"packages/infra/src/media/ffmpeg/FFmpegWrapper.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#2","i":0,"c":"packages/infra/src/media/pdf/PdfPageExtractor.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#3","i":0,"c":"packages/infra/src/permission/ApprovedCommandRegistry.ts"}
-{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#4","i":0,"c":"app/src/mcp/cli/mcpCommand.ts"}
+{"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#4","i":0,"c":"packages/service/src/mcp/cli/mcpCommand.ts"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-77","k":"code#5","i":0,"c":".trae/architecture/hardcode-gate-baseline.json"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"title","i":0,"c":"U-20/B5-2-78：删除死常量 FORK_DIRECTIVE_PREFIX 并收敛 READ_TOOLS"}
 {"id":"HARDCODE-SAME-NAME-CONSTS-B5-2-78","k":"source","i":0,"c":"dev_docs/20261013/硬编码统一治理方案-20261013.md §7.2；lint:consts 同名常量组"}

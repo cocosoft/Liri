@@ -44,6 +44,14 @@
     "./streaming/*": {
       "types": "./src/streaming/*.ts",
       "import": "./src/streaming/*.ts"
+    },
+    "./mcp": {
+      "types": "./src/mcp/index.ts",
+      "import": "./src/mcp/index.ts"
+    },
+    "./mcp/*": {
+      "types": "./src/mcp/*.ts",
+      "import": "./src/mcp/*.ts"
     }
   },
   "scripts": {

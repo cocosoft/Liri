@@ -1690,7 +1690,7 @@
       "app/src/knowledge/KnowledgeCompiler.ts",
       "app/src/lsp/IntelligentLSPAnalyzer.ts",
       "app/src/lsp/LSPDiagnosticRegistry.ts",
-      "app/src/mcp/MCPTool.ts",
+      "packages/service/src/mcp/MCPTool.ts",
       "packages/infra/src/media/video/VideoProcessor.ts",
       "packages/infra/src/memory/consolidation/MemoryDreamService.ts",
       "packages/infra/src/memory/MemoryManager.ts",

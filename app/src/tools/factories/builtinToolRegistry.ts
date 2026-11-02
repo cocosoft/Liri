@@ -116,7 +116,7 @@ import { MusicTool } from '../MusicTool/MusicTool';
 import { createTTSTool } from '../TTSTool/TTSTool';
 import { CanvasTool } from '../CanvasTool/CanvasTool';
 // ── MCP（三方工具面） ──
-import { MCPTool } from '../../mcp/MCPTool';
+import { MCPTool } from '@openliri/service/mcp/MCPTool';
 import { MCPResourceTool } from '../MCPResourceTool/MCPResourceTool';
 // Q-18（2026-10-23）：`mcp_auth` 由影子工具接线（经 mcpAuthManager；受 MCP_OAUTH 门控）
 import { McpAuthTool } from '../McpAuthTool/McpAuthTool';

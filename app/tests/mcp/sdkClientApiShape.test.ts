@@ -90,6 +90,8 @@ describe('SDK 客户端 API 形状守卫（C-1 防回流）', () => {
   const files = [
     ...SCAN_DIRS.flatMap((d) => walk(join(srcDir, d))),
     ...walk(join(pkgServiceDir, 'services/mcp')),
+    // P32：增强层 `mcp`（MCPTool 等）已迁入 packages/service —— 继续受检
+    ...walk(join(pkgServiceDir, 'mcp')),
   ];
 
   it('受检规模符合预期（防止扫描路径写错导致空集通过）', () => {

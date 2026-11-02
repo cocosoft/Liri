@@ -16,11 +16,30 @@ import { getMCPServerManager } from '@openliri/service/services/mcp/MCPServerMan
 // （它们操作的是自研链的连接对象，属 C-3 范围，本轮不动）。
 import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
 // 2026-10-01 B18-c：**删除** `import { toolScopeManager } from '../tool/ToolScopeManager'` ——
-// 它构成 `mcp(service) -> tool(app)` 倒挂。改在唯一使用点（async `execute()` 内）**动态导入**。
+// 它构成 `mcp(service) -> tool(app)` 倒挂。P32 迁包后进一步收口为下方注入端口。
 import { configManager } from '@openliri/infra/config';
 
 import { getLogger } from '@openliri/infra/monitoring';
 const logger = getLogger('mcp:MCPTool');
+
+// ─── P32（2026-11-02）：ToolScope 端口 ─────────────────────────────────────
+// 本模块迁入 packages/service 物理包后，`../tool/*`（app 层）不可达 ⇒ 按既有
+// 注入范式（P30 attachments/prompt 同款）改为**启动期注入** app 层
+// `toolScopeManager`；未注入 ⇒ scope 登记降级跳过（进程级兜底 ChildProcessTracker
+// 仍在，语义不变；与 B18-c 的「倒挂」裁定一致，且连动态跨层引用也不留）。
+/** 会话级 scope 端口（结构子集，与 app `ToolScopeManager` 同形） */
+export interface McpToolScopePort {
+  getSessionScope(sessionId: string): {
+    onDispose(cb: () => void): void;
+  };
+}
+let mcpToolScopePortLoader: (() => Promise<McpToolScopePort>) | null = null;
+/** 启动期注入（`preflight.wireServiceDeps()`） */
+export function setMcpToolScopePortLoader(
+  loader: () => Promise<McpToolScopePort>
+): void {
+  mcpToolScopePortLoader = loader;
+}
 
 /** 自动审批白名单缓存 */
 let _autoApproveCache: Map<string, string[]> | null = null;
@@ -239,14 +258,14 @@ export const MCPTool: Tool = {
               // 登记到会话级 scope，会话销毁时断开连接（防泄漏）；
               // 进程级兜底由 ChildProcessTracker（stdio 两阶段终止）承担，二者共存。
               if (context.sessionId) {
-                // 2026-10-01 B18-c：`toolScopeManager`（`tool` 模块，app 层）原为**静态**导入，
-                // 构成 `mcp(service) -> tool(app)` 倒挂。本处位于 **async** `execute()` 内 ⇒
-                // 改**方法内动态导入**（同 F 尾批 `runtime -> agent` 手法）：静态边消失，
-                // 仅余「动态跨层引用」（R00-003 上报，可见不隐藏），并附懒加载收益。
-                const { toolScopeManager } =
-                  await import('../tool/ToolScopeManager');
-                toolScopeManager
-                  .getSessionScope(context.sessionId)
+                // P32（2026-11-02）：迁入 packages/service 后 `../tool/ToolScopeManager`
+                // 不可达 ⇒ 走注入端口（原 B18-c 动态导入的收口；未注入时降级跳过，
+                // 进程级兜底 ChildProcessTracker 仍在）。
+                const port = mcpToolScopePortLoader
+                  ? await mcpToolScopePortLoader()
+                  : null;
+                port
+                  ?.getSessionScope(context.sessionId)
                   .onDispose(() => {
                     try {
                       connection.disconnect();

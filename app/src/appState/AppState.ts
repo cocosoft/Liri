@@ -16,7 +16,7 @@ import type {
 import type {
   MCPServerConnectionInfo,
   ServerResource,
-} from '@modules/mcp/types/index.js';
+} from '@openliri/service/mcp/types/index.js';
 import type { LoadedPlugin } from '@modules/plugins/types/PluginTypes.js';
 import type { PluginError } from '@openliri/infra/error';
 // 2026-10-01 D-164（`R00-001`）：本文件由 `system/state/`（infra）改归 **app 层** `appState/`

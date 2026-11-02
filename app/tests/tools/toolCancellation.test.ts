@@ -33,7 +33,7 @@ import { describe, it, expect, afterEach, spyOn } from 'bun:test';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { WebFetchTool } from '../../src/tools/WebFetchTool/WebFetchTool.js';
 import { McpToolWrapper } from '@openliri/service/services/mcp/McpToolWrapper';
-import { MCPTool } from '../../src/mcp/MCPTool.js';
+import { MCPTool } from '@openliri/service/mcp/MCPTool.js';
 import { mcpConnectionManager } from '@openliri/service/services/mcp/MCPConnectionManager';
 
 /** 最小可用上下文（仅取 abortController；`toolUseId` 供进度回调） */

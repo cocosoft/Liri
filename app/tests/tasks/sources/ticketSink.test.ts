@@ -58,6 +58,7 @@ describe('Trigger→Ticket sink', () => {
       sourceId: 'cron',
       origin: { threadId: 'cron:job-1' },
       triggerId: 'tg1-abc',
+      execution: 'external',
       lastAction: 'trigger_received',
       subscriptions: [{ source: 'cron', threadId: 'cron:job-1' }],
       inputs: [
@@ -94,6 +95,21 @@ describe('Trigger→Ticket sink', () => {
 
     expect(writes).toEqual([]);
     expect(store.rows.get(id)?.status).toBe('completed');
+  });
+
+  it('execution 选项 ⇒ 写入 Ticket（fs 交给消费者）', async () => {
+    const store = makeStore();
+    const sink = createTriggerTicketSink({
+      read: store.read,
+      write: store.write,
+      execution: 'ticket',
+    });
+
+    await sink('cron:job-1' as Trigger['threadKey'], [trigger()]);
+
+    expect(store.rows.get(triggerTicketId('tg1-abc'))?.execution).toBe(
+      'ticket'
+    );
   });
 
   it('同批次多条 ⇒ 各建一条', async () => {

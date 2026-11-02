@@ -493,6 +493,31 @@ class PdcaCheckpointStore {
     return row ? parseCheckpointData(row.data) : null;
   }
 
+  /**
+   * P33/P35（2026-11-02）：**原子领取**（仅当当前 status 等于 `from` 时置 `to`）。
+   *
+   * 单条 `UPDATE ... WHERE status = ?` ⇒ 多消费者竞争时只有一个成功（changes>0）。
+   */
+  async claimWorkItem(
+    workItemId: string,
+    from: string,
+    to: string
+  ): Promise<boolean> {
+    const db = await this.init();
+    return new Promise<boolean>((resolve, reject) => {
+      db.run(
+        `UPDATE ${WORKITEM_TABLE}
+            SET status = ?, updated_at = ?
+          WHERE work_item_id = ? AND status = ?`,
+        [to, new Date().toISOString(), workItemId, from],
+        function (this: { changes: number }, err: Error | null) {
+          if (err) reject(err);
+          else resolve(this.changes > 0);
+        }
+      );
+    });
+  }
+
   /** WorkItem UPSERT（`work_item_id` = 记录 `id`） */
   async writeWorkItem(record: Record<string, unknown>): Promise<void> {
     const workItemId = strOrNull(record.id);
@@ -726,6 +751,15 @@ export function listPdcaWorkItemsBySession(
   sessionId: string
 ): Promise<Array<Record<string, unknown>>> {
   return getStore().listWorkItemsBySession(sessionId);
+}
+
+/** P35：原子领取工作项（`from → to`；返回是否抢到） */
+export function claimPdcaWorkItem(
+  workItemId: string,
+  from: string,
+  to: string
+): Promise<boolean> {
+  return getStore().claimWorkItem(workItemId, from, to);
 }
 
 /**

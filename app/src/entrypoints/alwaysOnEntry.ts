@@ -14,8 +14,8 @@
  * - 项目来源覆盖**所有工作空间**（`listAll()` + `default`，按项目 id 去重）。
  */
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import { DEFAULT_TIMEZONE, MS_PER_DAY } from '@openliri/infra/constants';
 import { configManager } from '@openliri/infra/config';
@@ -130,27 +130,6 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
   const dataDir = resolveDataDir();
   const projectStore = createProjectStore(dataDir, new WorkItemStore(dataDir));
   const projects = await collectProjects(projectStore);
-
-  // P35（2026-11-02）：文件信号来源 —— 仅在策略显式开启 `sources.fs` 时注册。
-  // 默认 `false` ⇒ 不建 watcher、不产生 Ticket，现有行为零变更。
-  const autonomyPolicy = loadAutonomyPolicy();
-  if (autonomyPolicy.config.sources.fs === true) {
-    const watchPaths = projects
-      .map((project) => project.path)
-      .filter((path): path is string => !!path);
-    if (watchPaths.length > 0) {
-      try {
-        const { startFsSignalPipeline } =
-          await import('../tasks/sources/fsWiring');
-        await startFsSignalPipeline({ watchPaths });
-        logger.info('FS Source 注册完成', { watchPaths: watchPaths.length });
-      } catch (error) {
-        logger.warn('FS Source 注册失败（不影响 AlwaysOn）', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-  }
 
   // P4（2026-10-20）：回收上次进程崩溃/异常退出残留的 `alwayson-*` worktree。
   // 这类是**已注册**的 worktree，`pruneOrphanWorktrees()` 不会清 ⇒ 按命名空间单独回收。
@@ -391,6 +370,75 @@ export async function startAlwaysOn(): Promise<AlwaysOnStartResult> {
     const content = step.value?.content;
     return typeof content === 'string' ? content : '';
   };
+
+  // P35（2026-11-02）：fs 来源 + 执行消费 —— 仅在策略显式开启 `sources.fs` 时注册。
+  // 默认 `false` ⇒ 不建 watcher、不产生/执行 Ticket，现有行为零变更。
+  // 执行消费另有闸门：策略 `enabled=true && acceptMode='auto'`（见 ticketRunConsumer）。
+  const autonomyPolicy = loadAutonomyPolicy();
+  if (autonomyPolicy.config.sources.fs === true) {
+    const watchPaths = projects
+      .map((project) => project.path)
+      .filter((path): path is string => !!path);
+    if (watchPaths.length > 0) {
+      try {
+        const { startFsSignalPipeline } =
+          await import('../tasks/sources/fsWiring');
+        await startFsSignalPipeline({
+          watchPaths,
+          executeTicket: async (ticket) => {
+            const payload = (ticket.payload ?? {}) as Record<string, unknown>;
+            const path = typeof payload.path === 'string' ? payload.path : '';
+            const kind =
+              typeof payload.kind === 'string' ? payload.kind : 'change';
+            // 会话 cwd 指向变更所在目录（文件 ⇒ dirname，目录 ⇒ 自身；严格边界）
+            let workspacePath: string | undefined;
+            if (path) {
+              try {
+                workspacePath =
+                  existsSync(path) && statSync(path).isDirectory()
+                    ? path
+                    : dirname(path);
+              } catch {
+                workspacePath = dirname(path);
+              }
+            }
+            const session = await chatManager.createSession({
+              title: `触发 · ${path ? (path.split(/[\\/]/).pop() ?? 'fs') : 'fs'}`,
+              description: '文件变更触发的只读检查会话',
+              tags: ['trigger', 'fs'],
+              ...(workspacePath
+                ? {
+                    metadata: {
+                      workspacePath,
+                      workspaceStrict: true,
+                    },
+                  }
+                : {}),
+            });
+            let tokens = 0;
+            const output = await sendPrompt(
+              session.id,
+              `文件变更：${path}（${kind}）。只做只读检查并给出结论与建议；不要修改任何文件。`,
+              {
+                onUsage: (usage) => {
+                  tokens += usage.totalTokens ?? 0;
+                },
+              },
+              { taskType: 'alwayson_discovery' }
+            );
+            return { success: true, output, tokens, sessionId: session.id };
+          },
+        });
+        logger.info('FS Source 注册完成', {
+          watchPaths: watchPaths.length,
+        });
+      } catch (error) {
+        logger.warn('FS Source 注册失败（不影响 AlwaysOn）', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+  }
 
   /**
    * 目标达成自评（2026-10-20 产品裁定启用）：多一次**只读**模型调用。

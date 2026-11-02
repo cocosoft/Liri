@@ -116,6 +116,7 @@ describe('fsSignalSource 生产接线', () => {
 
       expect(tickets.rows.get(TICKET_ID)).toMatchObject({
         status: 'queued',
+        execution: 'ticket',
         sourceId: 'fs',
         triggerId: computeTriggerId('fs', {
           externalId: EVENT.externalId,
@@ -209,6 +210,56 @@ describe('fsSignalSource 生产接线', () => {
 
       expect(await store.countTriggers('fs')).toBe(1);
       expect(tickets.rows.size).toBe(1);
+    } finally {
+      await pipeline.stop();
+      store.close();
+    }
+  });
+
+  it('auto + 注入执行器 ⇒ Ticket 被消费并置 completed', async () => {
+    const store = new SourceCursorStore(':memory:');
+    const tickets = makeTicketStore();
+    const fake = fakeSource();
+    const executed: Array<Record<string, unknown>> = [];
+    const pipeline = await startFsSignalPipeline({
+      watchPaths: [],
+      source: fake.source,
+      store,
+      readTicket: tickets.read,
+      writeTicket: tickets.write,
+      listWorkItems: async () => [...tickets.rows.values()],
+      claimWorkItem: async (id, from, to) => {
+        const row = tickets.rows.get(id);
+        if (!row || row.status !== from) return false;
+        tickets.rows.set(id, { ...row, status: to });
+        return true;
+      },
+      loadPolicy: () => policy(),
+      executeTicket: async (ticket) => {
+        executed.push(ticket);
+        return {
+          success: true,
+          output: 'checked',
+          tokens: 7,
+          sessionId: 's-exec',
+        };
+      },
+      observePolicyChange: async () => null,
+    });
+
+    try {
+      await fake.emit();
+      await settle();
+
+      expect(executed).toHaveLength(1);
+      expect(tickets.rows.get(TICKET_ID)).toMatchObject({
+        status: 'completed',
+        execution: 'ticket',
+        sessionId: 's-exec',
+        budgetUsedTokens: 7,
+        costTokens: 7,
+        lastAction: 'ticket_executed',
+      });
     } finally {
       await pipeline.stop();
       store.close();

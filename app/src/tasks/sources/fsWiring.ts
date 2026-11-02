@@ -24,6 +24,11 @@ import {
   type LoadedAutonomyPolicy,
 } from '../autonomy/policyConfig';
 import type { PolicyChangeDelivery } from '../autonomy/policyChange';
+import {
+  createTicketRunConsumer,
+  type TicketExecutionResult,
+  type TicketRunConsumerOptions,
+} from '../autonomy/ticketRunConsumer';
 import { readPdcaWorkItem, writePdcaWorkItem } from '../PdcaWorkItemBridge';
 import { SourceCursorStore } from './cursor';
 import { createFsSignalSource, type FsSignalSource } from './fsSignalSource';
@@ -45,6 +50,14 @@ export interface FsSignalPipelineOptions {
   ) => Promise<PolicyChangeDelivery | null>;
   /** 注入来源（测试；缺省 `createFsSignalSource({ watchPaths })`） */
   source?: EventSource & { stop?: () => void };
+  /** P35 执行消费：宿主注入执行器（缺省 ⇒ 只记录、不执行） */
+  executeTicket?: (
+    ticket: Record<string, unknown>
+  ) => Promise<TicketExecutionResult>;
+  /** 执行消费的读/领取（测试注入；缺省走 workitems） */
+  listWorkItems?: TicketRunConsumerOptions['listWorkItems'];
+  claimWorkItem?: TicketRunConsumerOptions['claimWorkItem'];
+  now?: () => number;
 }
 
 export interface FsSignalPipeline {
@@ -70,6 +83,8 @@ export async function startFsSignalPipeline(
   const sink = createTriggerTicketSink({
     read,
     write,
+    // fs 无外部执行器 ⇒ Ticket 交给消费者
+    execution: 'ticket',
     annotate: (trigger) => {
       const policyId = trigger.payload.policyId;
       if (typeof policyId !== 'string' || !policyId) return undefined;
@@ -81,7 +96,31 @@ export async function startFsSignalPipeline(
     },
   });
 
-  const registry = new SourceRegistry({ store, handleTriggers: sink });
+  const consumer = createTicketRunConsumer({
+    listWorkItems: options.listWorkItems,
+    claimWorkItem: options.claimWorkItem,
+    readWorkItem: read,
+    writeWorkItem: write,
+    loadPolicy: options.loadPolicy,
+    execute: options.executeTicket,
+    now: options.now,
+  });
+  const runConsumer = (): void => {
+    void consumer.runOnce().catch((error) => {
+      logger.warn('Ticket 执行消费失败（不阻断来源）', {
+        error: String(error),
+      });
+    });
+  };
+
+  const registry = new SourceRegistry({
+    store,
+    handleTriggers: async (threadKey, triggers) => {
+      await sink(threadKey, triggers);
+      // 建完 Ticket 立即尝试消费（串行、原子领取；非 auto ⇒ 内部直接返回）
+      runConsumer();
+    },
+  });
   const base =
     options.source ?? createFsSignalSource({ watchPaths: options.watchPaths });
   const gated = withPolicyGate(base, {
@@ -90,6 +129,9 @@ export async function startFsSignalPipeline(
   });
   registry.register(gated);
   await registry.start();
+
+  // 启动恢复：上次进程遗留的 queued Ticket 也尝试消费一次
+  runConsumer();
 
   logger.info('FS Source 已启动', {
     sourceId: gated.id,

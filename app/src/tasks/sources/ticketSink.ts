@@ -13,12 +13,17 @@
  */
 import type { ThreadKey, Trigger } from './types';
 
+/** P35：Ticket 由谁执行（`external` = 来源自身已执行，如 cron；`ticket` = 交给消费者） */
+export type TicketExecutionMode = 'ticket' | 'external';
+
 /** 读/写工作项（生产注入 `readPdcaWorkItem` / `writePdcaWorkItem`） */
 export interface TicketSinkDeps {
   read: (workItemId: string) => Promise<Record<string, unknown> | null>;
   write: (record: Record<string, unknown>) => Promise<void>;
   /** 可注入时钟（测试用） */
   now?: () => number;
+  /** 执行归属（缺省 `external`；fs 等无外部执行器的来源传 `ticket`） */
+  execution?: TicketExecutionMode | ((trigger: Trigger) => TicketExecutionMode);
   /**
    * P33-a：按 Trigger 追加字段（如 `policyId` / `mandate`）。
    *
@@ -76,6 +81,10 @@ export function createTriggerTicketSink(
         description: ticketDescription(trigger),
         // 由 Trigger 产生、尚未被执行侧领取（执行侧随后推进到 active/completed/failed）
         status: 'queued',
+        execution:
+          typeof deps.execution === 'function'
+            ? deps.execution(trigger)
+            : (deps.execution ?? 'external'),
         sourceId: trigger.sourceId,
         origin: { threadId: trigger.threadKey },
         triggerId: trigger.triggerId,

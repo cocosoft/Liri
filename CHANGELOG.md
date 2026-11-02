@@ -196,6 +196,13 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.24 (2026-11-02)  长程任务正确性：PDCA 终态、重试链路与工单归属
+
+- ✅ **PDCA 不再「流程走完 = 目标达成」**：新增 `[STEP_STATUS: step_done|step_blocked|step_partial]` 结构化步骤结论（缺失/非法 ⇒ `unverified`），受阻或部分完成即记失败且不重试；连续 2 步受阻熔断剩余步；计划终态与 `PdcaLauncher` 播报均由步骤事实派生（只有全部达成且零失败/零取消才说「执行完成」）。
+- ✅ **重试链路三处 P0**：零用量重试与瞬态重试**配额分离**（此前共用一个计数，零用量会吃掉瞬态配额）；退避从 `2^0` 起（此前 `baseDelayMs=1000` 实际首轮等 2000ms）并加 0–30% 抖动、支持 `Retry-After`；路由改为**先同路径重试、耗尽后才回退**（原回退链的 `execute` 只构造决策、从不调用 provider ⇒ 实际从未生效）；工具级盲目重试接入幂等声明（`resolveToolRetryBudget`：非幂等 / 未声明工具 0 次重试，此前对所有工具写死 `retry × 2`）。
+- ✅ **常驻自主执行 P33 / P34**：授权强度（`explicit|inferred`、`AcceptMode=off|observe|auto`，默认 observe 只记录零副作用、门控短路链、重校验不得降级、配置变更只产 `PolicyEffect`）；工单阶段由事实派生（不写状态位）+ `ticket_assignments` 作业记录（幂等补列，存量库可迁移）+ 工作项补来源/归属 9 列 + 执行记录补 `work_item_id` / `workspace_dir`。
+- ✅ **测试与门禁**：新增 PDCA（10 例）、授权强度（29）、工单阶段（11）、工单/作业存储（16）、重试策略（13）等用例；全量 CI **9849 pass / 0 fail**，`version:check` 全绿。
+
 #### v0.5.23 (2026-11-02)  infra/service 物理包化推进（error/monitoring/execution/services/streaming/mcp）
 
 - ✅ **service 物理包落地**：新建 `packages/service`，`execution` / `services`（173 文件）/ `streaming` / `mcp` 依次迁入；新增 R8 service 包边界门禁，6 批均零 app 静态依赖（`services` 5 处跨层反转走注入端口，`mcp` ToolScope 端口注入），`streaming` 零反转。

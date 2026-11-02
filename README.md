@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.23-blue)
+![Version](https://img.shields.io/badge/version-0.5.24-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -459,7 +459,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.23**
+当前版本：**v0.5.24**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -468,12 +468,12 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.23 (2026-11-02)
-infra/service 物理包化推进
+#### v0.5.24 (2026-11-02)
+长程任务正确性：PDCA 终态、重试链路与工单归属
 
-- ✅ **service 包落地** - 新建 `packages/service`，`execution`/`services`（173 文件）/`streaming`/`mcp` 迁入，新增 R8 边界门禁；`error`/`monitoring` 收尾迁入 `packages/infra`
-- ✅ **跨层反转注入化** - 5 处 service→app 依赖统一为 `set*Provider/Loader` 端口（CoreAPI/附件摄取/MCP ToolScope），`preflight` 启动期接线，`main.ts` 零增行
-- ✅ **门禁随迁** - 台账/守卫逐批改名补面，6 批 CI 均 9766 pass / 0 fail，R8 负向自证通过
+- ✅ **PDCA 终态如实** - 步骤结论结构化标记（`step_done|step_blocked|step_partial`），受阻/部分完成记失败、连续受阻熔断；计划终态与播报只在全部达成时说「执行完成」
+- ✅ **重试链路三处 P0** - 零用量/瞬态配额分离、退避从 `2^0` 起 + 抖动 + `Retry-After`；路由先同路径重试、耗尽才回退（原回退链实际从未生效）；工具级重试接入幂等声明
+- ✅ **常驻自主执行 P33/P34** - 授权强度（`explicit|inferred`、默认 observe 零副作用）+ 工单阶段派生 + `ticket_assignments` 作业记录与工作项归属列
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

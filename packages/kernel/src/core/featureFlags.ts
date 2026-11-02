@@ -522,6 +522,19 @@ export const FEATURE_FLAGS = {
    */
   STATE_PROJECTION_BROADCAST: false,
 
+  // ───── effects 队列迁移（P38-b，2026-11-02；默认关 = 零行为变更的灰度开关）─────
+  /**
+   * P38-b-2：**`reply` 域迁移影子双跑**（默认关）。
+   *
+   * 关（默认）⇒ 真实回传链路**逐字不变**，只在回传结束后**影子入队**
+   * （`effect_queue` 只写不派发），用于对照「队列是否与真实投递一一对应」；
+   * 差异只记 `effects:reply:shadow-diff`，影子写失败仅 warn（不影响真实回传）。
+   * 开 ⇒ 影子写停止（b-3 切换真实链路为「入队 → 领取 → 回传」后由队列自身入队）。
+   * ⚠️ b-3 落地前开启**不会**改变投递行为，只会失去对照数据。
+   * `FEATURE_EFFECT_REPLY_MIGRATION=true`。
+   */
+  EFFECT_REPLY_MIGRATION: false,
+
   // ───── 安全姿态（P0-3，2026-10-10；默认关 = 零行为变更的灰度开关）─────
   /**
    * P0-3：**code_run 深扫未完成即拒绝**（默认关）。

@@ -40,6 +40,45 @@ import { isReplyEnabled } from '../setupChannels';
 
 const logger = getLogger('channels:inboxReply');
 
+/**
+ * P38-b-2（2026-11-02）：影子队列的**注入端口**。
+ *
+ * `channels` 属 service 层，`tasks/effects` 属 app 层 ⇒ 不得反向 import（R00-001）。
+ * 由宿主（`bootstrap/pipeline` 的 domain_init）在启动期注入；未注入 ⇒ 不写影子（零行为）。
+ */
+export type ReplyShadowPort = (input: {
+  inboxItemId: string;
+  channelId: string;
+  channelSessionId?: string;
+  conversationId?: string;
+  reply?: string;
+  /** 真实投递是否成功（含内部重试成功后成功的场景） */
+  delivered: boolean;
+}) => void | Promise<void>;
+
+let replyShadowPort: ReplyShadowPort | null = null;
+
+/** 注入/复位影子端口（宿主启动期调用一次；`null` ⇒ 关闭影子写） */
+export function setReplyShadowPort(port: ReplyShadowPort | null): void {
+  replyShadowPort = port;
+}
+
+/** 通知影子端口（异常只 warn：对照数据缺失不得影响真实回传） */
+async function notifyReplyShadow(
+  input: Parameters<ReplyShadowPort>[0]
+): Promise<void> {
+  if (!replyShadowPort) return;
+  try {
+    await replyShadowPort(input);
+  } catch (err) {
+    // @ignore-catch: 影子写失败不得影响真实回传（CS03）
+    logger.warn('reply shadow port failed', {
+      inboxItemId: input.inboxItemId,
+      error: String(err),
+    });
+  }
+}
+
 /** 死信写入用的连接类型别名（`Database` 运行时是按需加载的） */
 type DatabaseConnection = Database;
 
@@ -60,6 +99,8 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
     'inbox.channelId': inboxItem.channelId ?? 'unknown',
     'inbox.traceId': inboxItem.traceId ?? '',
   });
+  /** 真实投递结果（影子对照的 `real` 侧；只有实际发出才可能为 true） */
+  let delivered = false;
 
   try {
     if (!inboxItem.channelSessionId || !inboxItem.channelId) {
@@ -102,6 +143,7 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
         return;
       }
       await regChannel.sendMessage(target, content);
+      delivered = true;
     } else {
       let sent = false;
 
@@ -154,6 +196,7 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
           inboxId: inboxItem.id,
         });
       }
+      delivered = sent;
     }
 
     logger.info('Inbox reply relayed to channel', {
@@ -163,6 +206,15 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
       traceId: inboxItem.traceId,
     });
     otel.endSpan(span, SpanStatusCode.OK);
+    // P38-b-2 影子对照：只写队列、不派发；异常在端口内吞掉（不影响真实回传）
+    await notifyReplyShadow({
+      inboxItemId: inboxItem.id,
+      channelId: channelName,
+      channelSessionId: inboxItem.channelSessionId,
+      conversationId: inboxItem.channelConversationId,
+      reply: inboxItem.reply,
+      delivered,
+    });
   } catch (err) {
     // @ignore-catch: 回传失败不阻塞 Inbox 主流程
     // ── 指数退避重试 + 死信队列 ──
@@ -184,6 +236,15 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
         channelName: inboxItem.channelId,
       });
     }
+    // P38-b-2 影子对照（含重试成功的情形）：只写队列、不派发
+    await notifyReplyShadow({
+      inboxItemId: inboxItem.id,
+      channelId: inboxItem.channelId ?? 'unknown',
+      channelSessionId: inboxItem.channelSessionId,
+      conversationId: inboxItem.channelConversationId,
+      reply: inboxItem.reply,
+      delivered: retryResult.success,
+    });
     otel.recordError(span, err instanceof Error ? err : new Error(String(err)));
     otel.endSpan(span, SpanStatusCode.ERROR, String(err));
   }

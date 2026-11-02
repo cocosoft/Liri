@@ -406,6 +406,21 @@ export function registerStandardHandlers(): void {
         });
       }
 
+      // P38-b-2（2026-11-02）：`reply` 影子队列端口注入 —— `channels`(service) 不反向依赖
+      // `tasks`(app)，由宿主在启动期注入「回传结束后写影子」的实现。未注入 ⇒ 不写影子
+      // （零行为）；影子写失败只 warn，不影响真实回传。
+      try {
+        const { setReplyShadowPort } =
+          await import('@modules/channels/bridge/inboxChannelReply.js');
+        const { shadowReplyRelay } = await import('@modules/tasks');
+        setReplyShadowPort((input) => shadowReplyRelay(input));
+      } catch (e) {
+        void handleError(e, {
+          module: 'boot:phase5',
+          action: 'wireReplyShadowPort',
+        });
+      }
+
       logger.info('[Phase 5] 领域模块初始化完成');
     },
     priority: 0,

@@ -348,6 +348,13 @@ export type { CockpitSourceDeps } from './cockpit';
 
 // P38（2026-11-02）：统一 effects 队列（方案 §5 P38）——只导出内核，不接线具体分域台账
 export { EffectQueue, EFFECT_QUEUE_TABLE } from './effects';
+// P38-b-2：`reply` 影子队列（只写不派发；由宿主注入 channels 的影子端口）
+export { REPLY_EFFECT_KIND, replyEffectKey, shadowReplyRelay } from './effects';
+export type {
+  ReplyEffectPayload,
+  ReplyShadowInput,
+  ReplyShadowQueue,
+} from './effects';
 export {
   EFFECT_CLAIM_STALE_MS,
   EFFECT_DEFAULT_LATER_MS,

@@ -6,6 +6,17 @@
  * 见方案 §5 P38「先迁一类，其余保持原样」。
  */
 export { EffectQueue, EFFECT_QUEUE_TABLE } from './EffectQueue';
+// P38-b-2：`reply` 影子队列（只写不派发；由宿主注入 channels 的影子端口）
+export {
+  REPLY_EFFECT_KIND,
+  replyEffectKey,
+  shadowReplyRelay,
+} from './replyShadow';
+export type {
+  ReplyEffectPayload,
+  ReplyShadowInput,
+  ReplyShadowQueue,
+} from './replyShadow';
 export {
   EFFECT_CLAIM_STALE_MS,
   EFFECT_DEFAULT_LATER_MS,

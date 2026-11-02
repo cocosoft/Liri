@@ -10,8 +10,11 @@
 import { describe, it, expect } from 'bun:test';
 
 import {
+  ExecutionManager,
+  emitOwnershipDecision,
   getSessionOwner,
   resolveMessageOwnership,
+  setExecutionEventSink,
   setSessionOwnerLoader,
 } from '@openliri/service/execution';
 import {
@@ -130,5 +133,112 @@ describe('getSessionOwner（宿主注入端口）', () => {
     });
     expect(await getSessionOwner('s1')).toEqual({ kind: 'none' });
     setSessionOwnerLoader(null);
+  });
+});
+
+/**
+ * P36 验收用例（2026-11-02）：**stop → 承接**
+ *
+ * 用真实 `ExecutionManager`（租约）+ 派工投影（持有者）+ 判定表（动作）串成一条完整链路：
+ * ① 执行器持有期间，人的消息只能 `queue`（accept 被拒）；
+ * ② 人喊停（`requestCancel` → `confirmCancel`）+ 执行器交还（派工写 `ended`）；
+ * ③ 交还后的下一条消息 ⇒ `accept`（主循环承接），且两次判定都留在 `execution/ownership_decision`。
+ */
+describe('stop → 承接（P36 用例）', () => {
+  it('持有期只能排队；喊停交还后下一条消息被承接', async () => {
+    const events: Array<{
+      type: string;
+      action?: unknown;
+      reason?: unknown;
+    }> = [];
+    setExecutionEventSink(async (_sessionId, event) => {
+      // 同一 sink 也承接 `execution/status_changed`；本用例只关心归属判定
+      if (event.type !== 'execution/ownership_decision') {
+        return { ok: true, tailSeq: 0 };
+      }
+      const data = event.data as { action?: unknown; reason?: unknown };
+      events.push({
+        type: event.type,
+        action: data.action,
+        reason: data.reason,
+      });
+      return { ok: true, tailSeq: 0 };
+    });
+
+    try {
+      const manager = new ExecutionManager();
+      // 派工投影的假实现：`running` → 人喊停后由执行器改写 `ended`
+      let assignmentState: 'running' | 'ended' = 'running';
+      const load = async () => [
+        { executor: 'alwayson', state: assignmentState, workItemId: 'w-1' },
+      ];
+
+      // ① 执行器持有：执行 RUNNING + 派工 running
+      const executorLease = manager.acquire('s1', 'alwayson-turn', 'w-1');
+      expect(executorLease.isCurrent()).toBe(true);
+
+      // ② 持有期间人的消息：领取失败（QUEUED）⇒ 判定 queue（accept 被拒）
+      const humanLease1 = manager.acquire('s1', 'human-1');
+      const owner1 = await resolveSessionOwner('s1', load);
+      const decision1 = resolveMessageOwnership({
+        occupied: !humanLease1.isCurrent(),
+        ownerKind: owner1.kind,
+      });
+      emitOwnershipDecision({
+        sessionId: 's1',
+        executionId: humanLease1.executionId,
+        decision: decision1,
+        ownerKind: owner1.kind,
+        ownerTicketId: owner1.ticketId,
+        messageId: 'human-1',
+      });
+      expect(owner1).toEqual({ kind: 'autonomous', ticketId: 'w-1' });
+      expect(decision1).toEqual({
+        action: 'queue',
+        reason: 'owner_autonomous',
+      });
+
+      // ③ 人喊停：两段式取消确认 ⇒ 所有权释放；执行器交还（派工 ended）
+      expect(
+        manager.requestCancel(executorLease.executionId, 'user_stop')
+      ).toBe(true);
+      expect(manager.confirmCancel(executorLease.executionId)).toBe(true);
+      assignmentState = 'ended';
+
+      // ④ 交还后的下一条消息：领取成功 ⇒ accept（承接）
+      const humanLease2 = manager.acquire('s1', 'human-2');
+      const owner2 = await resolveSessionOwner('s1', load);
+      const decision2 = resolveMessageOwnership({
+        occupied: !humanLease2.isCurrent(),
+        ownerKind: owner2.kind,
+      });
+      emitOwnershipDecision({
+        sessionId: 's1',
+        executionId: humanLease2.executionId,
+        decision: decision2,
+        ownerKind: owner2.kind,
+        messageId: 'human-2',
+      });
+      expect(owner2).toEqual({ kind: 'none' });
+      expect(decision2).toEqual({ action: 'accept', reason: 'session_free' });
+
+      // ⑤ 审计链完整：queue（持有期）→ accept（交还后）
+      expect(events).toEqual([
+        {
+          type: 'execution/ownership_decision',
+          action: 'queue',
+          reason: 'owner_autonomous',
+        },
+        {
+          type: 'execution/ownership_decision',
+          action: 'accept',
+          reason: 'session_free',
+        },
+      ]);
+
+      humanLease2.release();
+    } finally {
+      setExecutionEventSink(null);
+    }
   });
 });

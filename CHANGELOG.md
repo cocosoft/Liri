@@ -196,6 +196,13 @@
 - ✅ **macOS 假红** - `mobilePairing` 用例不再用 1ms TTL 与 runner 时钟赛跑
 <!-- EVIDENCE-VIEWS:END -->
 
+#### v0.5.23 (2026-11-02)  infra/service 物理包化推进（error/monitoring/execution/services/streaming/mcp）
+
+- ✅ **service 物理包落地**：新建 `packages/service`，`execution` / `services`（173 文件）/ `streaming` / `mcp` 依次迁入；新增 R8 service 包边界门禁，6 批均零 app 静态依赖（`services` 5 处跨层反转走注入端口，`mcp` ToolScope 端口注入），`streaming` 零反转。
+- ✅ **infra 收尾两批**：`error`（22 文件）、`monitoring`（72 文件）迁入 `packages/infra`，清 ambient shim 与死别名，包内自引改相对。
+- ✅ **端口下沉与注入范式**：`aiOpsPorts` 从 `app/runtime/api` 下沉到 `packages/service/src/ports`；跨层反转统一为 `set*Provider/Loader` 注入点（`PromptCoreApi` / `AttachmentIngestion` / `McpToolScope`），启动期 `preflight.wireServiceDeps()` 接线，`main.ts` 零增行。
+- ✅ **门禁与台账随迁**：state-literal / state-machine-allowlist / 证据 code[] 逐批改名；`backoffDefaults` / `sdkClientApiShape` 等读源码守卫补包路径扫描面；CI 每批 9766 pass / 0 fail，R8 负向自证通过。
+
 #### v0.5.22 (2026-10-28)  内核外移落定 + 门禁基线同步
 
 - ✅ **内核外移（`packages/kernel/src/core` → `app/src`）**：37 个不满足「零 I/O / 零上层依赖」的模块下沉到应用层 ——

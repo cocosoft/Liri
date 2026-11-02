@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.5.22-blue)
+![Version](https://img.shields.io/badge/version-0.5.23-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -459,7 +459,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.5.22**
+当前版本：**v0.5.23**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -468,12 +468,12 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 🚀 版本更新记录
 
-#### v0.5.22 (2026-10-28)
-内核外移落定 + 门禁基线同步
+#### v0.5.23 (2026-11-02)
+infra/service 物理包化推进
 
-- ✅ **内核外移** - 37 个不满足「零 I/O / 零上层依赖」的模块从 `packages/kernel/src/core` 下沉到 `app/src`（`environment`/`external`/`runtimeHost`/`query`/`security`/`tasks`），同步 470+ 处 import，内核公开面随之收窄
-- ✅ **门禁基线同步** - 内核导出面 / 体量 / 白名单 / 启动图 / 状态字面量基线按新布局重生成，证据归档与修复证据台账一并重生成
-- ✅ **CI 两处红修复** - 产物冒烟改断言仍在内核的公开子路径（`core/paths.js` 已下沉）；`scopedResources` 用例改 `beforeEach` 重置 + 独有租户前缀，消除跨文件登记污染
+- ✅ **service 包落地** - 新建 `packages/service`，`execution`/`services`（173 文件）/`streaming`/`mcp` 迁入，新增 R8 边界门禁；`error`/`monitoring` 收尾迁入 `packages/infra`
+- ✅ **跨层反转注入化** - 5 处 service→app 依赖统一为 `set*Provider/Loader` 端口（CoreAPI/附件摄取/MCP ToolScope），`preflight` 启动期接线，`main.ts` 零增行
+- ✅ **门禁随迁** - 台账/守卫逐批改名补面，6 批 CI 均 9766 pass / 0 fail，R8 负向自证通过
 
 > 📚 **完整版本历史见 [CHANGELOG.md](./CHANGELOG.md)** —— 本处仅保留最新一版摘要（单一事实源：变更记录不在两处重复维护）。
 

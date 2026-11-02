@@ -19,3 +19,9 @@ export type {
 } from './cockpitSnapshot';
 export { loadCockpitItems } from './cockpitSource';
 export type { CockpitSourceDeps } from './cockpitSource';
+export { buildCockpitHistory, pickTakeoverSessionId } from './cockpitHistory';
+export type {
+  CockpitExecutionFact,
+  CockpitHistory,
+  CockpitWorkItemFact,
+} from './cockpitHistory';

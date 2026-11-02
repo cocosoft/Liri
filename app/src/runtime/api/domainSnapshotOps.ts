@@ -28,6 +28,8 @@
 
 import type http from 'http';
 import type { TaskOpsPort } from './taskOpsPorts';
+// P39-b-2：驾驶舱端口实现单列（本文件已近 2000 行上限）
+import { createCockpitOps } from './cockpitOps';
 import type {
   AiOpsPort,
   LlamaDownloadProgressDto,
@@ -971,6 +973,8 @@ export class DomainSnapshotOps {
       (await import('@modules/tasks/TaskFlowRegistry')).taskFlowRegistry;
 
     return {
+      // P39-b-2：驾驶舱只读聚合（`/v1/cockpit`；实现见 `cockpitOps.ts`）
+      ...createCockpitOps(),
       // ---- 任务状态存储 ----
       listTaskStates: async () => (await taskStore()).loadTaskStates(),
       getTaskState: async (taskId: string) =>

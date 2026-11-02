@@ -235,6 +235,12 @@ export class ExecutionStore {
       `CREATE INDEX IF NOT EXISTS idx_executions_session
        ON ${EXECUTIONS_TABLE} (session_id, status)`
     );
+    // P39-b-2（2026-11-02）：驾驶舱「一件工作项的完整历史」按工作项取执行记录。
+    // 必须放在 `ensureWorkItemColumns()` 之后 —— 旧库缺列时先建索引会整段初始化失败。
+    await this.run(
+      `CREATE INDEX IF NOT EXISTS idx_executions_work_item
+       ON ${EXECUTIONS_TABLE} (work_item_id, started_at)`
+    );
 
     await this.run(
       `CREATE TABLE IF NOT EXISTS ${EXECUTION_EVENTS_TABLE} (
@@ -407,6 +413,22 @@ export class ExecutionStore {
       [sessionId, this.owner()]
     );
     return row?.max_gen ?? 0;
+  }
+
+  /**
+   * 某工作项的执行记录（P39-b-2 驾驶舱历史；按开始时刻升序）。
+   *
+   * 只返回**本 owner** 的行（租户库 §6.1）；缺 `work_item_id` 的旧执行不会被匹配。
+   */
+  async listByWorkItem(workItemId: string): Promise<PersistedExecution[]> {
+    await this.init();
+    const rows = await this.all<ExecutionRow>(
+      `SELECT * FROM ${EXECUTIONS_TABLE}
+        WHERE work_item_id = ? AND owner_key = ?
+        ORDER BY started_at ASC`,
+      [workItemId, this.owner()]
+    );
+    return rows.map(rowToExecution);
   }
 
   /**

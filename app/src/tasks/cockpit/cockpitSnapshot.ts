@@ -32,6 +32,8 @@ export interface CockpitItem {
   succeeded?: boolean;
   /** 最后一次动作（展示用，不参与判定） */
   lastAction?: string;
+  /** 可接管会话（P39-b-2：最新派工 / 工作项行上的 `session_id`；缺省 ⇒ 无可接管） */
+  sessionId?: string;
 }
 
 /** 分组（`key` 与 `ticketStageKey()` 同源） */

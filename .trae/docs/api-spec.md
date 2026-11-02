@@ -460,6 +460,9 @@ body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数
 | GET | `/v1/buddy/dreams` | ✅ | `dreamService.getDreamLogs` |
 | GET | `/v1/background/status` | ✅ | `backgroundStatusService.getStatus`（运行状况面板） |
 | GET | `/v1/state/all` | ✅ | `backgroundStatusService.getStateAll`（运行状况面板 · 应用状态区，§十 阶段 D） |
+| GET | `/v1/cockpit` | ✅ | `cockpitService.getSnapshot`（运行状况页 · 工作项驾驶舱，P39-b-2；含 stage 分组 / 指标 / 投递计数） |
+| GET | `/v1/cockpit/{id}/history` | ✅ | `cockpitService.getHistory`（卡片「详情」：派工 + 执行；无工作项 ⇒ 404） |
+| POST | `/v1/cockpit/{id}/takeover` | ✅ | `cockpitService.takeover`（返回 `{ sessionId, workspaceId? }`；无可用会话 ⇒ 409 `no_takeover_session`，**不自动建会话**） |
 
 ### §3.13 定时任务 (Cron)
 
@@ -1012,6 +1015,9 @@ data: {"type":"done","result":{...}}
 |  | `get` | `GET /v1/inbox/:id` ✅ | — | ✅ |
 |  | `count` | `GET /v1/inbox/count` ✅ | — | ✅ |
 |  | `reply` | `POST /v1/inbox/:id/reply` ✅ | — | ✅ |
+| **cockpitService** | `getSnapshot` | `GET /v1/cockpit` ✅ | — | ✅ (P39-b-2) |
+|  | `getHistory` | `GET /v1/cockpit/:id/history` ✅ | — | ✅ |
+|  | `takeover` | `POST /v1/cockpit/:id/takeover` ✅ | — | ✅ |
 | **pricingService** | 全部 3 个方法 | 全部 ✅ | — | ✅ (HTTP only) |
 | **balanceService** | `check` | `POST /v1/balance` ✅ | — | ✅ (HTTP only) |
 | | `batchCheck` | `GET /v1/balances` ✅ **新增** | — | ✅ (HTTP only) |

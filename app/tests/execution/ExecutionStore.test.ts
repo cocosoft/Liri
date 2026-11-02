@@ -122,6 +122,25 @@ describe('PR5-S1 ExecutionStore', () => {
     expect(after?.workspaceDir).toBe('/tmp/ws-1');
   });
 
+  it('P39-b-2：listByWorkItem 只返回该工作项的执行，并按开始时刻升序', async () => {
+    await store.upsertExecution({
+      ...rec('wi-late', { startedAt: 200 }),
+      workItemId: 'w-hist',
+    });
+    await store.upsertExecution({
+      ...rec('wi-early', { startedAt: 100 }),
+      workItemId: 'w-hist',
+    });
+    await store.upsertExecution({
+      ...rec('wi-other'),
+      workItemId: 'w-other',
+    });
+
+    const rows = await store.listByWorkItem('w-hist');
+    expect(rows.map((r) => r.executionId)).toEqual(['wi-early', 'wi-late']);
+    expect(await store.listByWorkItem('w-missing')).toEqual([]);
+  });
+
   it('listActive 仅返回占用中（RUNNING/WAITING_USER/CANCEL_REQUESTED）', async () => {
     await store.upsertExecution(rec('a-run', { status: 'RUNNING' }));
     await store.upsertExecution(

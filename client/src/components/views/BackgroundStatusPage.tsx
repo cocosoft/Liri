@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import StateMachinePanel from "../common/StateMachinePanel";
+import WorkItemCockpit from "./background/WorkItemCockpit";
 import {
   backgroundStatusService,
   type BackgroundStatus,
@@ -13,6 +14,8 @@ function BackgroundStatusPage() {
   const [data, setData] = useState<BackgroundStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** P39-b-2：工作项驾驶舱的刷新令牌（页面刷新时一并重拉） */
+  const [cockpitRefreshToken, setCockpitRefreshToken] = useState(0);
 
   const load = async () => {
     setIsLoading(true);
@@ -25,6 +28,12 @@ function BackgroundStatusPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  /** 页面级刷新：后台状态 + 工作项驾驶舱（驾驶舱可独立刷新） */
+  const refreshAll = () => {
+    void load();
+    setCockpitRefreshToken((n) => n + 1);
   };
 
   useEffect(() => {
@@ -55,7 +64,7 @@ function BackgroundStatusPage() {
             </p>
           </div>
           <button
-            onClick={() => void load()}
+            onClick={refreshAll}
             className="px-3 py-1.5 text-xs rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
           >
             {t("common.refresh")}
@@ -72,7 +81,7 @@ function BackgroundStatusPage() {
           <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm mb-4">
             {t("backgroundStatus.loadFailed", { error })}
             <button
-              onClick={() => void load()}
+              onClick={refreshAll}
               className="ml-2 underline hover:no-underline"
             >
               {t("common.retry")}
@@ -110,6 +119,11 @@ function BackgroundStatusPage() {
             ))}
           </div>
         )}
+
+        {/* P39-b-2：工作项驾驶舱（嵌入本页，不新增页面） */}
+        <div className="mb-6">
+          <WorkItemCockpit refreshToken={cockpitRefreshToken} />
+        </div>
 
         {data && (
           <div className="space-y-6">

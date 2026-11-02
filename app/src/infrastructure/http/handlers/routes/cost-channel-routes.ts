@@ -45,6 +45,8 @@ import {
 } from './cost-usage-routes';
 import { dispatchDailyBudgetRoutes } from './daily-budget-routes';
 import { dispatchWorkspaceItemRoutes } from './workspace-item-routes';
+// P39-b-2：驾驶舱只读聚合（/v1/cockpit）
+import { dispatchCockpitRoutes } from './cockpit-routes';
 import { dispatchBuddyRoutes } from './buddy-routes';
 import { dispatchCronRoutes } from './cron-routes';
 import { dispatchChannelSurfaceRoutes } from './channel-surface-routes';
@@ -76,6 +78,7 @@ export async function dispatchCostChannelRoutes(
   if (await dispatchCostUsageRoutes(args)) return true;
   if (await dispatchDailyBudgetRoutes(args)) return true;
   if (await dispatchLegacyCostRedirects(args)) return true;
+  if (await dispatchCockpitRoutes(args)) return true;
   if (await dispatchWorkspaceItemRoutes(args)) return true;
   if (await dispatchBuddyRoutes(args)) return true;
   if (await dispatchCronRoutes(args)) return true;

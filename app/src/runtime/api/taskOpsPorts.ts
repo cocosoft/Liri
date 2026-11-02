@@ -226,6 +226,49 @@ export interface WakeEntryDto {
   createdAt: number;
 }
 
+/** 投递计数（P39-b-2；`null` = 读不到 ⇒ 面板显示 —） */
+export interface CockpitEffectCountsDto {
+  pending: number;
+  attempting: number;
+  settled: number;
+  failed: number;
+}
+
+/** 驾驶舱快照（P39-b-2：stage 分组 + 指标 + 投递观测） */
+export interface CockpitSnapshotDto {
+  generatedAt: number;
+  /** 分组按展示顺序；空分组不出现（stage 键与 app 侧 `ticketStageKey()` 同源） */
+  groups: Array<{
+    key: string;
+    label: string;
+    items: Array<Record<string, unknown>>;
+  }>;
+  metrics: {
+    total: number;
+    personCount: number;
+    humanInterventionRate: number;
+    endedCount: number;
+    /** 无已结束样本 ⇒ 缺省（面板显示 —，不按 0 计） */
+    completionRate?: number | undefined;
+    avgCostTokens?: number | undefined;
+  };
+  /** `null` = 计数读取失败（缺失不等于 0） */
+  effects: CockpitEffectCountsDto | null;
+}
+
+/** 工作项完整历史（P39-b-2） */
+export interface CockpitHistoryDto {
+  workItem: Record<string, unknown>;
+  assignments: Array<Record<string, unknown>>;
+  executions: Array<Record<string, unknown>>;
+}
+
+/** 接管候选（P39-b-2：只取事实；会话是否存在由 HTTP 层校验，**不新建会话**） */
+export interface CockpitTakeoverCandidateDto {
+  itemFound: boolean;
+  sessionId?: string | undefined;
+}
+
 /** 任务运维端口（P1：12 方法；P2 追加 5；P3 追加 20；P4 追加 12 + 3 类型 —— **共 49 方法**） */
 export interface TaskOpsPort {
   // ---- 任务状态存储（P1：`SqliteTaskStore`；D-100 起经共享实例内聚实现侧）----
@@ -433,4 +476,14 @@ export interface TaskOpsPort {
     };
     reason: string;
   }): Promise<void>;
+
+  // ---- 驾驶舱（P39-b-2：`/v1/cockpit` 只读聚合；不新建页面）----
+  /** stage 分组快照 + 指标 + 投递计数（P34 事实派生） */
+  getCockpitSnapshot(): Promise<CockpitSnapshotDto>;
+  /** 一件工作的完整历史（工作项 + 派工 + 执行）；不存在 ⇒ `null` */
+  getCockpitHistory(workItemId: string): Promise<CockpitHistoryDto | null>;
+  /** 接管候选会话（最新派工优先，其次工作项行；**不校验存在、不新建**） */
+  getCockpitTakeoverCandidate(
+    workItemId: string
+  ): Promise<CockpitTakeoverCandidateDto>;
 }

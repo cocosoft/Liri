@@ -92,6 +92,25 @@ describe('loadCockpitItems', () => {
     expect('title' in items[2]).toBe(false);
   });
 
+  it('P39-b-2：接管会话取最新派工，缺省回落工作项行', async () => {
+    const items = await loadCockpitItems(
+      deps(
+        [
+          { id: 'w1', status: 'in_progress', sessionId: 'row-s' },
+          { id: 'w2', status: 'in_progress' },
+          { id: 'w3', status: 'in_progress', sessionId: 'row-s3' },
+        ],
+        {
+          w1: [assignment({ workItemId: 'w1', sessionId: 'assign-s' })],
+        }
+      )
+    );
+
+    expect(items[0].sessionId).toBe('assign-s');
+    expect(items[1].sessionId).toBeUndefined();
+    expect(items[2].sessionId).toBe('row-s3');
+  });
+
   it('装配 + 快照：分组自洽、数字=列表长度', async () => {
     const items = await loadCockpitItems(
       deps(

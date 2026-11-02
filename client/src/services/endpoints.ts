@@ -111,6 +111,12 @@ export const ENDPOINTS = {
   background: {
     status: "/v1/background/status",
   },
+  // P39-b-2：驾驶舱只读聚合（嵌在「运行状况」页，不新增页面）
+  cockpit: {
+    snapshot: "/v1/cockpit",
+    history: (id: string) => `/v1/cockpit/${encodeURIComponent(id)}/history`,
+    takeover: (id: string) => `/v1/cockpit/${encodeURIComponent(id)}/takeover`,
+  },
   state: {
     all: "/v1/state/all",
   },

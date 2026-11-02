@@ -65,6 +65,12 @@ export async function loadCockpitItems(
       ...(typeof row.lastAction === 'string'
         ? { lastAction: row.lastAction }
         : {}),
+      // P39-b-2：接管目标 —— 最新派工优先，其次工作项行自身的 `session_id`
+      ...(latest?.sessionId
+        ? { sessionId: latest.sessionId }
+        : typeof row.sessionId === 'string' && row.sessionId
+          ? { sessionId: row.sessionId }
+          : {}),
     });
   }
 

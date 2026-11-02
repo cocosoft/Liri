@@ -345,6 +345,13 @@ export type {
 } from './cockpit';
 export { loadCockpitItems } from './cockpit';
 export type { CockpitSourceDeps } from './cockpit';
+// P39-b-2：完整历史 / 一键接管判定（纯函数）
+export { buildCockpitHistory, pickTakeoverSessionId } from './cockpit';
+export type {
+  CockpitExecutionFact,
+  CockpitHistory,
+  CockpitWorkItemFact,
+} from './cockpit';
 
 // P38（2026-11-02）：统一 effects 队列（方案 §5 P38）——只导出内核，不接线具体分域台账
 export { EffectQueue, EFFECT_QUEUE_TABLE } from './effects';
@@ -365,6 +372,13 @@ export {
   startReplyEffectDispatcher,
 } from './effects';
 export type { ReplyDispatchDeps } from './effects';
+// P39-b-2：effects 计数（面板观测面；单例连接）
+export {
+  getEffectCounts,
+  setEffectCountsQueueForTest,
+  toEffectCountsSummary,
+} from './effects';
+export type { EffectCountsSummary } from './effects';
 export {
   EFFECT_CLAIM_STALE_MS,
   EFFECT_DEFAULT_LATER_MS,

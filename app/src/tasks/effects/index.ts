@@ -27,6 +27,13 @@ export {
   startReplyEffectDispatcher,
 } from './replyEffectRuntime';
 export type { ReplyDispatchDeps } from './replyEffectRuntime';
+// P39-b-2：effects 计数（面板观测面；单例连接）
+export {
+  getEffectCounts,
+  setEffectCountsQueueForTest,
+  toEffectCountsSummary,
+} from './effectCounts';
+export type { EffectCountsSummary } from './effectCounts';
 export {
   EFFECT_CLAIM_STALE_MS,
   EFFECT_DEFAULT_LATER_MS,

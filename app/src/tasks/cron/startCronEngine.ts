@@ -8,6 +8,10 @@
 import { getLogger } from '@openliri/infra/monitoring';
 import { handleError } from '@openliri/infra/error';
 import { buildCronDeliveryMessage } from './cronDeliveryMessage';
+import {
+  startCronTriggerPipeline,
+  type CronTriggerPipeline,
+} from './cronTriggerWiring';
 
 const logger = getLogger('cron:startEngine');
 
@@ -166,7 +170,31 @@ function createCronDispatchDelivery(): (
   };
 }
 
+/**
+ * P35（2026-11-02）：Trigger→Ticket 流水线（进程内单例）。
+ *
+ * 启动失败只告警 ⇒ 旧轨（cron 执行器）继续，不影响调度与投递。
+ */
+let cronTriggerPipeline: Promise<CronTriggerPipeline | null> | null = null;
+function ensureCronTriggerPipeline(): Promise<CronTriggerPipeline | null> {
+  cronTriggerPipeline ??= startCronTriggerPipeline().catch((err) => {
+    logger.warn('Cron Trigger→Ticket 流水线启动失败（旧轨继续）', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  });
+  return cronTriggerPipeline;
+}
+
 export async function startCronEngine(): Promise<StartCronEngineResult> {
+  const triggerPipeline = await ensureCronTriggerPipeline();
+  const triggerHooks = triggerPipeline
+    ? {
+        onJobStart: triggerPipeline.onJobStart,
+        onJobEnd: triggerPipeline.onJobEnd,
+      }
+    : {};
+
   try {
     const { ensureGlobalCronSchedulerStarted } =
       await import('./GlobalCronScheduler');
@@ -207,6 +235,7 @@ export async function startCronEngine(): Promise<StartCronEngineResult> {
       // U-01：即使无 AI Provider，也必须汇报 Cron 完成/失败（投递器不依赖 Provider）
       await ensureGlobalCronSchedulerStarted({
         dispatchDelivery: createCronDispatchDelivery(),
+        ...triggerHooks,
       });
       return { realExecutor: false };
     }
@@ -223,7 +252,7 @@ export async function startCronEngine(): Promise<StartCronEngineResult> {
     const dispatchDelivery = createCronDispatchDelivery();
 
     await ensureGlobalCronSchedulerStarted(
-      { executeJob: realExecutor, dispatchDelivery },
+      { executeJob: realExecutor, dispatchDelivery, ...triggerHooks },
       deliveryQueue
     );
     logger.info('Cron 调度器已启动（AI 执行引擎就绪）', {
@@ -242,6 +271,7 @@ export async function startCronEngine(): Promise<StartCronEngineResult> {
       // U-01：AI 初始化失败也不能静默 —— 仍注入投递器汇报任务结果
       await ensureGlobalCronSchedulerStarted({
         dispatchDelivery: createCronDispatchDelivery(),
+        ...triggerHooks,
       });
       logger.info('Cron 调度器已启动（默认执行模式）');
     } catch (err) {

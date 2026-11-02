@@ -55,10 +55,31 @@ export type DeliveryDispatcher = (
   result: CronJobResult
 ) => Promise<void>;
 
+/** 作业开始回调（P35：观测/落 Ticket；失败不影响执行） */
+export type JobStartHook = (
+  job: CronJob,
+  scheduledAt: number
+) => void | Promise<void>;
+
+/** 作业结束回调（P35：把同一 Ticket 推进到终态） */
+export type JobEndHook = (
+  job: CronJob,
+  result: CronJobResult,
+  scheduledAt: number
+) => void | Promise<void>;
+
 /** 调度回调 */
 export interface SchedulerCallbacks {
   executeJob: JobExecutor;
   dispatchDelivery?: DeliveryDispatcher;
+  /**
+   * P35（2026-11-02）：作业生命周期钩子。
+   *
+   * `scheduledAt` = 本次**计划时刻**（`job.nextRunAt`，执行期间尚未更新）
+   * ⇒ 开始/结束两处可算出同一个 Trigger/Ticket id。
+   */
+  onJobStart?: JobStartHook;
+  onJobEnd?: JobEndHook;
 }
 
 /** 调度锁管理器 */
@@ -446,6 +467,8 @@ export class CronScheduler implements SchedulerLifecycle {
 
     const startTime = runningAtMs;
     let result: CronJobResult;
+    /** 本次触发所对应的计划时刻（仅在真正进入执行时赋值 ⇒ 注入拦截/抢锁失败不触发钩子） */
+    let scheduledAt: number | undefined;
 
     try {
       logger.info('[CronScheduler] 开始执行作业', {
@@ -508,6 +531,18 @@ export class CronScheduler implements SchedulerLifecycle {
       });
       heartbeatTimer.start(JOB_HEARTBEAT_INTERVAL_MS);
 
+      // P35：作业开始钩子（发出 Trigger；回调失败不阻断执行）
+      const parsed = job.nextRunAt ? Date.parse(job.nextRunAt) : NaN;
+      scheduledAt = Number.isFinite(parsed) ? parsed : startTime;
+      try {
+        await this.callbacks.onJobStart?.(job, scheduledAt);
+      } catch (hookErr) {
+        logger.warn('[CronScheduler] onJobStart 回调失败（继续执行）', {
+          jobId: job.id,
+          error: hookErr instanceof Error ? hookErr.message : String(hookErr),
+        });
+      }
+
       // 调用外部执行器
       try {
         result = await this.executeWithTimeout(job);
@@ -532,6 +567,18 @@ export class CronScheduler implements SchedulerLifecycle {
     } finally {
       this.activeJobs--;
       this.inFlightJobs.delete(job.id);
+    }
+
+    // P35：作业结束钩子（把同一 Ticket 推进到终态；失败不阻断结果落盘）
+    if (scheduledAt !== undefined) {
+      try {
+        await this.callbacks.onJobEnd?.(job, result, scheduledAt);
+      } catch (hookErr) {
+        logger.warn('[CronScheduler] onJobEnd 回调失败（结果仍落盘）', {
+          jobId: job.id,
+          error: hookErr instanceof Error ? hookErr.message : String(hookErr),
+        });
+      }
     }
 
     // KB-CRON-STORE（2026-08-29）：store 写段（getJob/markJobRun/updateConsecutiveErrors/

@@ -75,6 +75,9 @@ export async function ensureGlobalCronSchedulerStarted(
       executeJob: (job: CronJob) =>
         runInCronOwnerScope(job, () => baseExecutor(job)),
       dispatchDelivery: callbacks?.dispatchDelivery,
+      // P35：作业生命周期钩子（Trigger→Ticket 流水线；未注入 ⇒ 零行为变更）
+      onJobStart: callbacks?.onJobStart,
+      onJobEnd: callbacks?.onJobEnd,
     },
     {
       checkIntervalMs: undefined, // CronTimer 自己管理

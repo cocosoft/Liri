@@ -144,7 +144,10 @@ function computeMetrics(
   const ended = items.filter(
     (i) => deriveTicketStage(i.facts).stage === 'ended'
   );
-  const succeededEnded = ended.filter((i) => i.succeeded === true).length;
+  // 完成率只在**有 `succeeded` 事实**的已结束项上计算：缺该字段的项既不算成功也不算失败，
+  // 否则会把"未记录结果"误报成 0%（CS06：不臆造）。
+  const endedKnown = ended.filter((i) => typeof i.succeeded === 'boolean');
+  const succeededEnded = endedKnown.filter((i) => i.succeeded === true).length;
 
   const costs = items
     .map((i) => i.costTokens)
@@ -155,8 +158,8 @@ function computeMetrics(
     personCount,
     humanInterventionRate: total === 0 ? 0 : personCount / total,
     endedCount: ended.length,
-    ...(ended.length > 0
-      ? { completionRate: succeededEnded / ended.length }
+    ...(endedKnown.length > 0
+      ? { completionRate: succeededEnded / endedKnown.length }
       : {}),
     ...(costs.length > 0
       ? { avgCostTokens: costs.reduce((a, b) => a + b, 0) / costs.length }

@@ -343,6 +343,8 @@ export type {
   CockpitMetrics,
   CockpitSnapshot,
 } from './cockpit';
+export { loadCockpitItems } from './cockpit';
+export type { CockpitSourceDeps } from './cockpit';
 
 // P38（2026-11-02）：统一 effects 队列（方案 §5 P38）——只导出内核，不接线具体分域台账
 export { EffectQueue, EFFECT_QUEUE_TABLE } from './effects';

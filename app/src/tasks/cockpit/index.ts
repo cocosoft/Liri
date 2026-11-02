@@ -17,3 +17,5 @@ export type {
   CockpitMetrics,
   CockpitSnapshot,
 } from './cockpitSnapshot';
+export { loadCockpitItems } from './cockpitSource';
+export type { CockpitSourceDeps } from './cockpitSource';

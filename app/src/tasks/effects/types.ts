@@ -80,6 +80,16 @@ export type EffectOutcome =
   /** 失败：累计 attempts，连续 `FAILURES_BEFORE_ERROR` 次才升级 */
   | { kind: 'failed'; error?: string };
 
+/**
+ * `EffectOutcome.kind` 的**值位置**唯一事实源。
+ *
+ * `failed` 是跨域通用词：其它文件裸写会被 `lint:state-ratchet` 判为"未报备状态字面量"
+ * （本文件是 `effectQueue` 状态机的登记源，值字面量在此集中定义）。
+ */
+export const EFFECT_OUTCOME_DONE = 'done';
+export const EFFECT_OUTCOME_LATER = 'later';
+export const EFFECT_OUTCOME_FAILED = 'failed';
+
 /** 队列中的一条 effect（读侧视图） */
 export interface EffectEntry {
   kind: EffectKind;

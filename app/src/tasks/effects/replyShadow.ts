@@ -13,7 +13,6 @@
  * - 幂等键 `channelId:inboxItemId` ⇒ 同一 Inbox 项在同一渠道只有一行（重复入队 ⇒ generation+1）。
  */
 import { feature } from '@openliri/kernel';
-import { resolveTenantDbPath } from '@openliri/infra/environment';
 import { getLogger } from '@openliri/infra/monitoring';
 
 import { EffectQueue } from './EffectQueue';
@@ -49,8 +48,8 @@ export type ReplyShadowQueue = Pick<EffectQueue, 'enqueue'>;
 let shadowQueue: ReplyShadowQueue | null = null;
 
 function getShadowQueue(): ReplyShadowQueue {
-  // 租户库：本地身份与 `resolveDbPath()` 同一文件；已认证身份落到租户库（与 Inbox 台账同源）
-  shadowQueue ??= new EffectQueue(resolveTenantDbPath());
+  // 本地共享库（与 P38 队列 / `SettlementOutbox` 同口径）：本队列不做租户分库与行级隔离
+  shadowQueue ??= new EffectQueue();
   return shadowQueue;
 }
 

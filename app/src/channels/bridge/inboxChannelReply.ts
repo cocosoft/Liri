@@ -27,6 +27,7 @@
  */
 
 import { getLogger } from '@openliri/infra/monitoring';
+import { feature } from '@openliri/kernel';
 import { getOTelTracing } from '@openliri/infra/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@openliri/infra/error';
@@ -41,35 +42,46 @@ import { isReplyEnabled } from '../setupChannels';
 const logger = getLogger('channels:inboxReply');
 
 /**
- * P38-b-2（2026-11-02）：影子队列的**注入端口**。
+ * P38-b（2026-11-02）：effects 队列的**注入端口**。
  *
  * `channels` 属 service 层，`tasks/effects` 属 app 层 ⇒ 不得反向 import（R00-001）。
- * 由宿主（`bootstrap/pipeline` 的 domain_init）在启动期注入；未注入 ⇒ 不写影子（零行为）。
+ * 由宿主（`bootstrap/pipeline` 的 domain_init）在启动期注入；未注入 ⇒ 不启用迁移（零行为）。
  */
-export type ReplyShadowPort = (input: {
+export interface ReplyEffectPort {
+  /**
+   * 开关开启时：入队（`true` = 已交给队列，调用方不得再直接回传；
+   * `false` = 开关关闭或入队失败 ⇒ 回落直接回传）。
+   */
+  enqueue?: (input: ReplyEffectPayload) => Promise<boolean>;
+  /** 开关关闭时：影子写（只写不派发；仅用于对照） */
+  shadow?: (input: ReplyShadowPayload) => Promise<void>;
+}
+
+/** 回传所需的最小事实（入队 / 影子共用） */
+export interface ReplyEffectPayload {
   inboxItemId: string;
   channelId: string;
   channelSessionId?: string;
   conversationId?: string;
   reply?: string;
-  /** 真实投递是否成功（含内部重试成功后成功的场景） */
-  delivered: boolean;
-}) => void | Promise<void>;
-
-let replyShadowPort: ReplyShadowPort | null = null;
-
-/** 注入/复位影子端口（宿主启动期调用一次；`null` ⇒ 关闭影子写） */
-export function setReplyShadowPort(port: ReplyShadowPort | null): void {
-  replyShadowPort = port;
 }
 
-/** 通知影子端口（异常只 warn：对照数据缺失不得影响真实回传） */
-async function notifyReplyShadow(
-  input: Parameters<ReplyShadowPort>[0]
-): Promise<void> {
-  if (!replyShadowPort) return;
+/** 影子写输入：附真实投递结果 */
+export type ReplyShadowPayload = ReplyEffectPayload & { delivered: boolean };
+
+let replyEffectPort: ReplyEffectPort | null = null;
+
+/** 注入/复位 effects 端口（宿主启动期调用一次；`null` ⇒ 关闭迁移与影子写） */
+export function setReplyEffectPort(port: ReplyEffectPort | null): void {
+  replyEffectPort = port;
+}
+
+/** 通知影子写（异常只 warn：对照数据缺失不得影响真实回传） */
+async function notifyReplyShadow(input: ReplyShadowPayload): Promise<void> {
+  const shadow = replyEffectPort?.shadow;
+  if (!shadow) return;
   try {
-    await replyShadowPort(input);
+    await shadow(input);
   } catch (err) {
     // @ignore-catch: 影子写失败不得影响真实回传（CS03）
     logger.warn('reply shadow port failed', {
@@ -88,9 +100,12 @@ type DatabaseConnection = Database;
  * 根据渠道能力降级选择通知方式：
  *   InteractiveCard（按钮审批） > Markdown > 纯文本
  */
-export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
+export async function relayReplyToChannel(
+  inboxItem: InboxItem,
+  options: { fromQueue?: boolean } = {}
+): Promise<boolean> {
   if (!isReplyEnabled()) {
-    return;
+    return false;
   }
 
   const otel = getOTelTracing();
@@ -99,7 +114,7 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
     'inbox.channelId': inboxItem.channelId ?? 'unknown',
     'inbox.traceId': inboxItem.traceId ?? '',
   });
-  /** 真实投递结果（影子对照的 `real` 侧；只有实际发出才可能为 true） */
+  /** 真实投递结果（影子对照的 `delivered` 侧；只有实际发出才可能为 true） */
   let delivered = false;
 
   try {
@@ -108,7 +123,20 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
         inboxId: inboxItem.id,
       });
       otel.endSpan(span, SpanStatusCode.OK);
-      return;
+      return false;
+    }
+
+    // P38-b-3：开关开启且**不是**队列派发 ⇒ 入队后立即返回（真实投递交给扫描器）。
+    // 入队失败 ⇒ 回落直接回传（不丢用户可见回复）。
+    if (!options.fromQueue && feature('EFFECT_REPLY_MIGRATION')) {
+      if (await tryEnqueueReplyEffect(inboxItem)) {
+        logger.info('Inbox reply queued for delivery (effects)', {
+          inboxId: inboxItem.id,
+          channelName: inboxItem.channelId,
+        });
+        otel.endSpan(span, SpanStatusCode.OK);
+        return true;
+      }
     }
 
     const channelName = inboxItem.channelId;
@@ -120,7 +148,7 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
         inboxId: inboxItem.id,
       });
       otel.endSpan(span, SpanStatusCode.ERROR, 'channel_not_found');
-      return;
+      return false;
     }
 
     // 查找对应的 IChannelPlugin 实例获取 OutboundAdapter
@@ -140,7 +168,7 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
           inboxId: inboxItem.id,
         });
         otel.endSpan(span, SpanStatusCode.ERROR, 'channel_not_found');
-        return;
+        return false;
       }
       await regChannel.sendMessage(target, content);
       delivered = true;
@@ -215,6 +243,7 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
       reply: inboxItem.reply,
       delivered,
     });
+    return delivered;
   } catch (err) {
     // @ignore-catch: 回传失败不阻塞 Inbox 主流程
     // ── 指数退避重试 + 死信队列 ──
@@ -247,6 +276,35 @@ export async function relayReplyToChannel(inboxItem: InboxItem): Promise<void> {
     });
     otel.recordError(span, err instanceof Error ? err : new Error(String(err)));
     otel.endSpan(span, SpanStatusCode.ERROR, String(err));
+    return retryResult.success;
+  }
+}
+
+/**
+ * 入队 `reply` effect（开关开启且端口已注入）。
+ *
+ * @returns `true` = 已入队（本次不再直发）；`false` = 端口未注入 / 开关关闭 / 入队失败
+ *          ⇒ 调用方回落直接回传
+ */
+async function tryEnqueueReplyEffect(inboxItem: InboxItem): Promise<boolean> {
+  const enqueue = replyEffectPort?.enqueue;
+  if (!enqueue) return false;
+  try {
+    return await enqueue({
+      inboxItemId: inboxItem.id,
+      channelId: inboxItem.channelId ?? '',
+      channelSessionId: inboxItem.channelSessionId,
+      conversationId: inboxItem.channelConversationId,
+      reply: inboxItem.reply,
+    });
+  } catch (err) {
+    // @ignore-catch: 入队失败 ⇒ 回落直接回传（不丢用户可见回复）
+    logger.warn('reply effect enqueue failed; falling back to direct relay', {
+      inboxItemId: inboxItem.id,
+      channelId: inboxItem.channelId,
+      error: String(err),
+    });
+    return false;
   }
 }
 

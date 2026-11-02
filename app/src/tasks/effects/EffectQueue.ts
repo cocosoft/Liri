@@ -259,6 +259,23 @@ export class EffectQueue {
   }
 
   /**
+   * 派发候选（只读）：到期 `pending` **或**"超过陈旧窗口的 `attempting`"（崩溃自愈）。
+   *
+   * 扫描器据此取键，再逐条 `claimOne()`（原子单胜者）；本方法**不改状态**。
+   */
+  async listDueCandidates(now: number, limit = 20): Promise<EffectEntry[]> {
+    const rows = await this.allRows(
+      `SELECT * FROM ${EFFECT_QUEUE_TABLE}
+        WHERE (status = '${EFFECT_STATUS_PENDING}' AND due_at <= ?)
+           OR (status = '${EFFECT_STATUS_ATTEMPTING}'
+               AND COALESCE(claimed_at, 0) + ? <= ?)
+        ORDER BY due_at ASC LIMIT ?`,
+      [now, EFFECT_CLAIM_STALE_MS, now, limit]
+    );
+    return rows.map((row) => toEntry(row));
+  }
+
+  /**
    * **原子领取**（P38-b）：`effect_pending`（到期）或"陈旧 `effect_attempting`" → `effect_attempting`。
    *
    * - 单胜者：`UPDATE … WHERE … AND generation/status`，命中 0 行即领取失败（并发不双投）；

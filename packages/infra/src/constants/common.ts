@@ -123,6 +123,11 @@ export const EFFECT_MAX_RETRY_MS = 30 * MS_PER_MINUTE;
  * 与 `SettlementOutbox.CLAIM_STALE_MS` 同值，保持两套投递台账的语义一致。 @kind A
  */
 export const EFFECT_CLAIM_STALE_MS = MS_PER_MINUTE;
+/**
+ * P38-b-3：`reply` effect 派发扫描周期 —— 只影响**重试唤醒**（新入队在回传调用点即时触发一次）。
+ * 15s 足够快（用户可见回传），且不抢占后台调度节奏。 @kind A
+ */
+export const EFFECT_REPLY_POLL_MS = 15_000;
 
 /**
  * 产品默认语言 / 时区（**唯一真源**）。

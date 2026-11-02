@@ -11,6 +11,7 @@
  */
 
 import { getLogger } from '@openliri/kernel/loggerFacade.js';
+import { feature } from '@openliri/kernel';
 import { BootPhase } from './BootPhase';
 import { bootPipeline } from './BootPipeline';
 import type { BootContext } from './BootPipeline';
@@ -406,18 +407,35 @@ export function registerStandardHandlers(): void {
         });
       }
 
-      // P38-b-2（2026-11-02）：`reply` 影子队列端口注入 —— `channels`(service) 不反向依赖
-      // `tasks`(app)，由宿主在启动期注入「回传结束后写影子」的实现。未注入 ⇒ 不写影子
-      // （零行为）；影子写失败只 warn，不影响真实回传。
+      // P38-b（2026-11-02）：`reply` effects 端口注入 + 派发扫描器 —— `channels`(service) 不
+      // 反向依赖 `tasks`(app)，由宿主在启动期注入「入队 / 影子写」两个实现。
+      // 开关关闭 ⇒ 入队返回 false（回落原链路）、扫描器不启动（回滚即回到现状）。
       try {
-        const { setReplyShadowPort } =
+        const { setReplyEffectPort } =
           await import('@modules/channels/bridge/inboxChannelReply.js');
-        const { shadowReplyRelay } = await import('@modules/tasks');
-        setReplyShadowPort((input) => shadowReplyRelay(input));
+        const {
+          createDefaultReplyDispatchDeps,
+          enqueueReplyEffect,
+          kickReplyEffectDispatcher,
+          shadowReplyRelay,
+          startReplyEffectDispatcher,
+        } = await import('@modules/tasks');
+        setReplyEffectPort({
+          enqueue: async (input) => {
+            const queued = await enqueueReplyEffect(input);
+            if (queued) kickReplyEffectDispatcher();
+            return queued;
+          },
+          shadow: (input) => shadowReplyRelay(input),
+        });
+        if (feature('EFFECT_REPLY_MIGRATION')) {
+          const deps = await createDefaultReplyDispatchDeps();
+          startReplyEffectDispatcher(deps);
+        }
       } catch (e) {
         void handleError(e, {
           module: 'boot:phase5',
-          action: 'wireReplyShadowPort',
+          action: 'wireReplyEffectRuntime',
         });
       }
 

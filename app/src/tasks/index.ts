@@ -355,6 +355,16 @@ export type {
   ReplyShadowInput,
   ReplyShadowQueue,
 } from './effects';
+// P38-b-3：`reply` 派发运行时（开关开启时由宿主启动扫描器）
+export {
+  createDefaultReplyDispatchDeps,
+  dispatchDueReplies,
+  enqueueReplyEffect,
+  kickReplyEffectDispatcher,
+  setReplyEffectQueueForTest,
+  startReplyEffectDispatcher,
+} from './effects';
+export type { ReplyDispatchDeps } from './effects';
 export {
   EFFECT_CLAIM_STALE_MS,
   EFFECT_DEFAULT_LATER_MS,

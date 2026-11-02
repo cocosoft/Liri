@@ -300,6 +300,70 @@ export * from './cron';
 
 export * from './PdcaWorkItemBridge.js';
 
+// P34（2026-11-02）：工单阶段派生 + 派工记录（方案 §5 P34）
+export {
+  deriveTicketStage,
+  isPersonStage,
+  ticketStageKey,
+} from './ticketStage';
+export type {
+  AssignmentStateLike,
+  PersonAction,
+  ReportStateLike,
+  TicketFacts,
+  TicketStage,
+} from './ticketStage';
+export {
+  closeTicketAssignmentStore,
+  findWorkItemIdBySession,
+  latestTicketAssignment,
+  listTicketAssignments,
+  listTicketAssignmentsBySession,
+  upsertTicketAssignment,
+  TICKET_ASSIGNMENTS_TABLE,
+} from './ticketAssignmentStore';
+export type {
+  AssignmentState,
+  ReportState,
+  TicketAssignmentRecord,
+} from './ticketAssignmentStore';
+
+// P35（2026-11-02）：Source / Trigger / Thread（方案 §5 P35）。
+// 只导出实现，不在此处接线任何来源 —— 生产接线需先补消费者登记（CD02）。
+export {
+  SourceCursorStore,
+  SOURCE_CURSORS_TABLE,
+  SOURCE_TRIGGERS_TABLE,
+} from './sources/cursor';
+export { SourceRegistry } from './sources/registry';
+export type { SourceRegistryOptions, TriggerHandler } from './sources/registry';
+export {
+  createCronSource,
+  cronTickToInbound,
+  CRON_SOURCE_ID,
+} from './sources/cronSource';
+export type { CronTick, CronTickFeed } from './sources/cronSource';
+export {
+  createFsSignalSource,
+  fileSignalToInbound,
+  FS_SOURCE_ID,
+} from './sources/fsSignalSource';
+export type { FileSignal, FsSignalSource } from './sources/fsSignalSource';
+export {
+  asThreadKey,
+  computeTriggerId,
+  toTrigger,
+  SOURCE_EVENT_TYPES,
+  THREAD_KEY_PREFIX,
+} from './sources/types';
+export type {
+  EventSource,
+  InboundEvent,
+  SourceEventType,
+  ThreadKey,
+  Trigger,
+} from './sources/types';
+
 // 2026-09-24 R03-002 收敛：goal / swarm / selfwake 子目录统一出口
 export {
   getTaskGoalStore,

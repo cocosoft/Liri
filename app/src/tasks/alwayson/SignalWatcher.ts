@@ -5,7 +5,15 @@
  * 用于 DiscoveryGate.dormant_no_signal 判断：项目闲置但有文件变更 → 值得探查。
  */
 import { watch, statSync } from 'fs';
+import { join } from 'path';
 import { cg3Log } from '../cg3Env';
+
+/** 一次文件信号的结构化事实（P35：Source 层消费；`hasSignal()` 语义不变） */
+export interface SignalDetail {
+  path: string;
+  kind: 'change' | 'rename' | 'poll';
+  at: number;
+}
 
 export class SignalWatcher {
   private debounceMs: number;
@@ -16,10 +24,17 @@ export class SignalWatcher {
   private pollIntervalMs = 30_000;
   private pollTimer: NodeJS.Timeout | null = null;
   private usePolling: boolean;
+  /** 可选的信号回调（P35；缺省 ⇒ 行为与改造前逐字相同） */
+  private readonly onSignal?: (signal: SignalDetail) => void;
 
-  constructor(debounceMs = 2000, watchPaths: string[] = []) {
+  constructor(
+    debounceMs = 2000,
+    watchPaths: string[] = [],
+    onSignal?: (signal: SignalDetail) => void
+  ) {
     this.debounceMs = debounceMs;
     this.watchPaths = watchPaths;
+    this.onSignal = onSignal;
     // Windows 上 fs.watch 有已知限制，优先用 polling
     this.usePolling = process.platform === 'win32';
   }
@@ -42,9 +57,13 @@ export class SignalWatcher {
   private startFileWatch(): void {
     for (const p of this.watchPaths) {
       try {
-        const w = watch(p, { recursive: false }, (eventType) => {
+        const w = watch(p, { recursive: false }, (eventType, filename) => {
           if (eventType === 'change' || eventType === 'rename') {
-            this.recordSignal();
+            this.recordSignal({
+              path: filename ? join(p, filename) : p,
+              kind: eventType,
+              at: Date.now(),
+            });
           }
         });
         w.on('error', (err) => {
@@ -81,20 +100,23 @@ export class SignalWatcher {
     let lastMtimes = new Map<string, number>();
 
     const poll = () => {
-      let changed = false;
+      const changedPaths: string[] = [];
       for (const p of this.watchPaths) {
         try {
           const stat = statSync(p);
           const prev = lastMtimes.get(p) ?? 0;
           if (stat.mtimeMs > prev) {
-            changed = true;
+            changedPaths.push(p);
             lastMtimes.set(p, stat.mtimeMs);
           }
         } catch {
           /* path may not exist */
         }
       }
-      if (changed) this.recordSignal();
+      for (const p of changedPaths) {
+        this.recordSignal({ path: p, kind: 'poll', at: Date.now() });
+      }
+      const changed = changedPaths.length > 0;
 
       if (changed) {
         // 检测到变更后加快轮询频率
@@ -107,8 +129,22 @@ export class SignalWatcher {
     poll();
   }
 
-  private recordSignal(): void {
-    this.lastSignal = Date.now();
+  /**
+   * 记录一次信号（`hasSignal()` 语义保持：只看最近一次信号是否在去抖窗口内）。
+   *
+   * 回调失败只留痕，**不得**中断 watcher（否则一次消费方异常就把信号源打死）。
+   */
+  private recordSignal(detail: SignalDetail): void {
+    this.lastSignal = detail.at;
+    if (!this.onSignal) return;
+    try {
+      this.onSignal(detail);
+    } catch (err) {
+      cg3Log('tasks:alwayson:signal', 'warn', 'signalHandlerFailed', {
+        path: detail.path,
+        error: String(err),
+      });
+    }
   }
 
   /** 是否有近期信号（debounce 窗口内） */

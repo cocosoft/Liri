@@ -25,6 +25,7 @@ import {
   findToolsOutsideRole,
   isToolAllowedByRole,
 } from '../../../src/tools/AgentTool/routerRole';
+import { getBuiltinAllowedTools } from '../../../src/tools/AgentTool/builtinAgentDefinitions';
 
 /** 参考实现 → Liri 的四个动作（与 `routerRole.ts` 的映射注释同源） */
 const EXPECTED_ROUTER_TOOLS = [
@@ -70,6 +71,13 @@ describe('router 白名单（恰 4 个）', () => {
     expect(ROUTER_AGENT_DEFINITION.agentType).toBe(ROUTER_ROLE_ID);
     expect(ROUTER_AGENT_DEFINITION.tools).toEqual(EXPECTED_ROUTER_TOOLS);
     expect(ROUTER_AGENT_DEFINITION.disallowedTools).toBeUndefined();
+  });
+
+  it('运行时白名单可被 getBuiltinAllowedTools 读到（防"只写 tools 不下发"回归）', () => {
+    expect(getBuiltinAllowedTools(ROUTER_ROLE_ID)).toEqual(
+      EXPECTED_ROUTER_TOOLS
+    );
+    expect(getBuiltinAllowedTools('unknown-type')).toBeUndefined();
   });
 
   it('数量守卫：白名单必须是 4（新增/删除都得改测试与文档）', () => {

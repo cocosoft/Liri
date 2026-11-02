@@ -59,6 +59,9 @@ export const ROUTER_AGENT_DEFINITION: BuiltInAgentDefinition = {
   color: 'cyan',
   background: false,
   tools: [...ROUTER_ROLE_TOOL_NAMES],
+  // P36 修复（2026-11-02）：`getBuiltinAllowedTools` 读的是 `allowedTools`，此前只填了
+  // `tools` ⇒ 内置 router 的白名单在运行时为 `undefined`（收窄未生效）。两者同源，防止漂移。
+  allowedTools: [...ROUTER_ROLE_TOOL_NAMES],
   source: 'built-in',
   baseDir: 'built-in',
   model: 'inherit',

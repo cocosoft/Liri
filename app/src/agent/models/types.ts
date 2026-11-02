@@ -267,6 +267,14 @@ export interface BaseAgentDefinition {
   agentType: string;
   whenToUse: string;
   tools?: string[];
+  /**
+   * 定义侧**工具白名单**（P36，只减不增）。
+   *
+   * 与 `tools` 的区别：`tools` 是展示/提示层面的能力清单；本字段是运行时
+   * 子代理工具池的**收窄依据**（`AgentTool` → `AgentDescriptorResolver` →
+   * `getBuiltinAllowedTools`）。未声明 ⇒ 不限制默认面（回退现状）。
+   */
+  allowedTools?: string[];
   disallowedTools?: string[];
   skills?: string[];
   mcpServers?: unknown[];

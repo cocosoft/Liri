@@ -28,6 +28,11 @@ import {
 } from '@modules/ai/router/TaskDecomposer.js';
 import type { DecompositionResult } from '@modules/ai/router/TaskDecomposer.js';
 import { taskOrchestrator } from './TaskOrchestrator.js';
+import {
+  parseStepVerdict,
+  STEP_VERDICT_BLOCKED,
+  STEP_VERDICT_PARTIAL,
+} from './stepVerdict.js';
 import { emitPdcaLiveEvent } from './PdcaLiveEvents.js';
 import { writePdcaCheckpoint } from './PdcaWorkItemBridge.js';
 import { goalMetricsService } from './db/GoalMetricsService.js';
@@ -159,6 +164,15 @@ export interface PlanDrivenLoopConfig {
    */
   onModeDecided?: (mode: 'simple' | 'decomposed' | 'direct') => void;
 }
+
+/**
+ * 2026-11-02：**连续自述受阻熔断阈值**。
+ *
+ * 触发场景（会话导出实证）：编排被无目标消息触发 ⇒ 分解出 5 个"澄清型"步骤 ⇒
+ * 每步都完整跑一次模型循环、都自述"信息不足/阻塞"，最终仍播报"执行完成"。
+ * 连续 2 步受阻已足以判定"缺的是同一个前提"，继续跑只会等比例浪费 token 与时间。
+ */
+const MAX_CONSECUTIVE_BLOCKED_STEPS = 2;
 
 /**
  * PR8（#9）：PDL run 级 token 总账上限——多步任务各 step 独立满额预算会导致
@@ -397,6 +411,8 @@ export class PlanDrivenLoop {
   private aborted: boolean = false;
   /** PR8（#9）：run 级 token 预算耗尽标志（成本护栏中止，按 failed 收尾） */
   private budgetExhausted: boolean = false;
+  /** 2026-11-02：连续自述"受阻"的步数（达 `MAX_CONSECUTIVE_BLOCKED_STEPS` ⇒ 熔断剩余步骤） */
+  private _consecutiveBlockedSteps: number = 0;
 
   constructor(config: PlanDrivenLoopConfig) {
     this.taorLoop = config.taorLoop;
@@ -848,6 +864,10 @@ export class PlanDrivenLoop {
     const stepOutputs = new Map<string, string>();
     // 13-P1-1 Step 2（2026-10-06，§20.6）：被阻断步骤明细 —— 回灌为模型可见内容（见 `_buildResult`）
     const blockedSteps: BlockedStepInfo[] = [];
+    // 2026-11-02（长程任务空转熔断）：连续自述受阻的步数达到阈值 ⇒ 提前终止剩余步骤。
+    // 依据（会话导出实证）：编排被一个无目标消息（"请继续"）触发后，5 步全部是"需要补充
+    // 信息"的澄清步骤，每步都完整跑一次模型循环，最后还播报"执行完成"。
+    let cascadeAborted = false;
 
     // B5（架构归一 Step4）：计划已创建，进入执行前切回 phase:'execute'。
     if (this.taskId) {
@@ -861,6 +881,11 @@ export class PlanDrivenLoop {
     }
     for (const batch of topoBatches) {
       if (this.aborted) break;
+      // 2026-11-02：连续自述受阻达阈值 ⇒ 不再开新批次（熔断；剩余步下面统一置 cancelled）
+      if (this._consecutiveBlockedSteps >= MAX_CONSECUTIVE_BLOCKED_STEPS) {
+        cascadeAborted = true;
+        break;
+      }
       // PR8（#9）：累计 token 达 run 级上限 → 不再执行后续批次（预算告警）
       if (runTokenCap > 0 && this.totalTokens >= runTokenCap) {
         budgetExhausted = true;
@@ -944,6 +969,11 @@ export class PlanDrivenLoop {
       } else {
         for (const r of runnable) {
           if (this.aborted) break;
+          // 2026-11-02：串行批次内同样熔断（同一批常包含多个"澄清型"步骤）
+          if (this._consecutiveBlockedSteps >= MAX_CONSECUTIVE_BLOCKED_STEPS) {
+            cascadeAborted = true;
+            break;
+          }
           const st = await this._executeOneStep(
             r.task,
             subtasks,
@@ -956,6 +986,28 @@ export class PlanDrivenLoop {
           depStatusById.set(r.task.id, st);
         }
       }
+    }
+
+    if (cascadeAborted) {
+      // 2026-11-02：剩余步骤**不执行**（不是"完成"，也不是"尝试后失败"）⇒ 置 cancelled 并写明原因。
+      // 这样收尾汇报能如实区分：达成 N 步 / 受阻 M 步 / 因空转熔断未执行 K 步。
+      if (this.plan) {
+        const stepTotal = this.plan.steps.length;
+        this.plan.steps.forEach((s, idx) => {
+          if (s.status === 'pending' || s.status === 'running') {
+            taskOrchestrator.markStepCancelled(
+              s.id,
+              `[STEP_CASCADE_BLOCKED] 连续 ${MAX_CONSECUTIVE_BLOCKED_STEPS} 步自述受阻，提前终止剩余步骤`
+            );
+            this._broadcastStepProgress(s.id, 'cancelled', idx, stepTotal);
+          }
+        });
+      }
+      logger.warn('连续步骤自述受阻 ⇒ 熔断剩余步骤', {
+        sessionId: this.sessionId,
+        planId: this.plan?.id,
+        threshold: MAX_CONSECUTIVE_BLOCKED_STEPS,
+      });
     }
 
     if (budgetExhausted) {
@@ -1165,6 +1217,63 @@ export class PlanDrivenLoop {
           // P0-1（2026-09-06）：步骤产出捕获——末条 assistant 文本作为本步真实结论，
           // 落 plan step.result + stepOutputs（供前驱注入/审计）；无文本时回退占位
           const stepText = stepLoop.getLastAssistantText();
+
+          // 2026-11-02（根因修复）：**目标是否达成**由本步结论标记判定，不由"LLM 回合是否
+          // 正常返回文本"判定。此前 5 步全自述"信息不足/阻塞"仍被记为 completed，
+          // 最终播报"✅ 执行完成：5/5 步"（会话导出实证）。
+          const verdict = parseStepVerdict(stepText);
+          const verdictNote =
+            verdict.verdict === STEP_VERDICT_BLOCKED
+              ? `[STEP_BLOCKED] ${verdict.reason ?? '模型自述本步受阻'}`
+              : verdict.verdict === STEP_VERDICT_PARTIAL
+                ? '[STEP_PARTIAL] 本步仅部分达成'
+                : '';
+
+          if (
+            verdict.verdict === STEP_VERDICT_BLOCKED ||
+            verdict.verdict === STEP_VERDICT_PARTIAL
+          ) {
+            // 目标未达成 ⇒ 记 failed（不计完成）。不重试：缺信息/需人决策重跑同一 prompt
+            // 不会改变结论，重试只会放大空转（会话导出实证：同一空转 × 5 步）。
+            const failureText = degradedNote
+              ? `${degradedNote}\n${verdictNote}`
+              : verdictNote;
+            taskOrchestrator.markStepFailed(stepId, failureText, {
+              partialOutput: stepText.slice(0, 2000) || undefined,
+              terminationReason: result.terminationReason,
+            });
+            stepOutputs.set(stepId, stepText);
+            this.totalTokens += result.totalTokens;
+            this.stepResults.push({
+              stepId,
+              description: task.description,
+              state: 'failed',
+              output: stepText.slice(0, 2000),
+              error: failureText,
+              partialOutput: stepText.slice(0, 2000) || undefined,
+              durationMs: duration,
+              turnCount: result.turnCount,
+              tokenCount: result.totalTokens,
+            });
+            this._broadcastStepProgress(stepId, 'failed', i, subtasks.length);
+            this._notifyProgress();
+            logger.warn('步骤目标未达成（结论标记）', {
+              sessionId: this.sessionId,
+              stepId,
+              verdict: verdict.verdict,
+              reason: verdict.reason,
+              turnCount: result.turnCount,
+            });
+            this._consecutiveBlockedSteps =
+              verdict.verdict === STEP_VERDICT_BLOCKED
+                ? this._consecutiveBlockedSteps + 1
+                : 0;
+            return 'failed';
+          }
+
+          // done / unverified：沿用既有 completed 口径（unverified 不臆测为达成，
+          // 但也不追溯改红；收尾由 `PlanDrivenLoopResult` 如实标注条数）
+          this._consecutiveBlockedSteps = 0;
           // 13-P1-1 Step 1（2026-10-06）：降级输入需**留痕**在 plan 步 result（与
           // [DEPENDENCY_BLOCKED] 对称，供用户/审计可见）；⚠️ 不并入 stepOutputs——避免降级
           // 标注污染下游注入与审计所读的"前驱正文"。
@@ -1357,6 +1466,12 @@ export class PlanDrivenLoop {
 
     return [
       `你正在执行一个多步骤任务。当前是步骤 ${index + 1}/${total}。`,
+      // 2026-11-02：**总体目标锚点**。此前步骤只拿到"本步描述"与已完成步骤，
+      // 分解失准（例如被无目标消息触发而分解出"澄清型"步骤）时，每步都会重新向用户
+      // 要信息（会话导出实证：5 步全部"信息不足"）⇒ 用计划描述把每步锚回原始目标。
+      this.plan?.description
+        ? `本次任务总体目标：${this.plan.description}`
+        : '',
       '',
       // Teamwork P2b（2026-09-06）：首步注入同类历史 pitfall（避免重蹈覆辙；仅首步一次）
       index === 0 && this._pitfallContext
@@ -1373,6 +1488,15 @@ export class PlanDrivenLoop {
       retryError
         ? `[上一步尝试失败] ${retryError.slice(0, 800)}\n请勿重复失败路线；若不可行请给出替代方案，或明确告知 blocker。`
         : '请只执行当前步骤，完成后汇报结果。不要执行后续步骤。',
+      '',
+      // 2026-11-02（长程任务"假成功"根因修复）：结论标记是**必填契约**。
+      // 此前步骤终态只由"LLM 回合是否正常返回文本"决定 ⇒ 自述"信息不足/阻塞"的步骤
+      // 也被记为 completed，5 步全空转仍播报"执行完成"。判定改读此结构化标记（非关键词匹配）。
+      '[结论标记（必填，放在回答最后一行）]',
+      '[STEP_STATUS: step_done]    ← 本步目标已达成',
+      '[STEP_STATUS: step_blocked] [STEP_BLOCKED: 缺什么信息 / 需要谁决策 / 哪个工具不可用]',
+      '[STEP_STATUS: step_partial] ← 只完成了一部分，并说明还差什么',
+      '注意：目标未达成时**不得**标 step_done（缺信息就用 step_blocked，不要用"已完成"掩盖）。',
     ].join('\n');
   }
 
@@ -1462,16 +1586,26 @@ export class PlanDrivenLoop {
     const completed = stepResults.filter((r) => r.state === 'completed').length;
     const failed = stepResults.filter((r) => r.state === 'failed').length;
     const blocked = blockedSteps.length;
+    // 2026-11-02：因"连续受阻熔断"**未执行**的步骤（既不在 stepResults，也不在依赖阻断明细）
+    const cascadeSkipped = Math.max(
+      0,
+      totalSteps - stepResults.length - blocked
+    );
 
     let summary: string;
     if (decomposed) {
       // 轮数/总 token 等内部指标不进入 summary（用户可见），仅留在 StepResult 字段与日志
       // 13-P1-1 Step 2（2026-10-06）：分母改用**真实子任务数**——被阻断步骤不进 stepResults，
       // 原 `stepResults.length` 会把"2/4 被阻断"粉饰成"2/2 步骤成功"（CS06：不粉饰）。
+      // 2026-11-02：**只有全部达成才可用"执行完成"** —— 0/2 步达成还说"执行完成"是新的一层粉饰。
+      const allAchieved = totalSteps > 0 && completed === totalSteps;
       const parts = [
-        `任务分解执行完成：${completed}/${totalSteps} 步骤成功`,
-        failed > 0 ? `，${failed} 步骤失败` : '',
+        allAchieved
+          ? `任务分解执行完成：${completed}/${totalSteps} 步骤成功`
+          : `任务分解执行结束：${completed}/${totalSteps} 步骤达成`,
+        failed > 0 ? `，${failed} 步骤未达成` : '',
         blocked > 0 ? `，${blocked} 步骤因依赖阻断未执行` : '',
+        cascadeSkipped > 0 ? `，${cascadeSkipped} 步骤因连续受阻提前终止` : '',
         `。总耗时 ${((Date.now() - this.startTime) / 1000).toFixed(1)}s`,
       ];
       summary = parts.join('');

@@ -217,6 +217,26 @@ export const STATE_MACHINES: readonly StateMachineEntry[] = [
     hasTransitionFn: false,
     note: '按方案阶段 2.3 裁断：**工具执行瞬态**，**不进** `ToolCallStatus` 持久化枚举。**已于 2026-10-12 消除裸字面量（阶段 1.3 隐患修复）**：`awaiting_approval` 唯一事实源 = `ToolExecutionService.ts` 的 `TRANSIENT_AWAITING_APPROVAL` 常量（原 2 处裸字面量已替换）；`requires_approval` 唯一事实源 = `ToolExecutionStatus.REQUIRES_APPROVAL`（`ToolResult.ts:12`，原比较处的裸字符串已替换）。',
   },
+  {
+    id: 'stepVerdict',
+    title: 'PDCA 步骤结论标记（StepVerdict 4 值）',
+    kind: 'persistent',
+    sourceFile: 'app/src/tasks/stepVerdict.ts',
+    states: [
+      'step_done',
+      'step_blocked',
+      'step_partial',
+      'step_unverified',
+    ],
+    verification: 'runtime-import',
+    verifyRef: {
+      module: 'app/src/tasks/stepVerdict.ts',
+      exportName: 'STEP_VERDICTS',
+      anchor: 'array',
+    },
+    hasTransitionFn: false,
+    note: '2026-11-02 新增：编排步骤的**目标达成判定**（与 `PlanStep.status` 正交 —— 前者是"目标是否达成"，后者是"执行到哪一步"）。来源是步骤产出末行的结构化标记，**不对自然语言做关键词匹配**（CS02）。`step_unverified` = 未提供标记，既有计划沿用 completed 口径但**不计入"执行完成"播报**。取值带 `step_` 前缀：`done/blocked/partial` 是跨域通用词，直接登记会把 dream/sandbox/compaction 等既有出现点一并划入词汇表。',
+  },
 ];
 
 /**

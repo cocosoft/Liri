@@ -233,7 +233,15 @@ export class PdcaLauncher {
               const total = progress.total || progress.completed;
               // LRO-12（2026-10-26）：**报完成必须有产物支撑** —— 步骤全打勾但零产物时
               // `percent` 被产物门压住（`artifactGated`），不得据此宣布"PDCA 执行完成"。
-              const isDone = progress.percent >= 100;
+              // 2026-11-02（根因修复）：**"步骤跑完" ≠ "目标达成"** —— 必须同时满足
+              // 无失败/无未执行、达成步数=总步数、且未被产物门压住。此前只看
+              // `percent >= 100`，导致 5 步全部自述"信息不足/阻塞"仍播报"执行完成"。
+              const isDone =
+                progress.percent >= 100 &&
+                progress.failed === 0 &&
+                progress.cancelled === 0 &&
+                progress.completed === total &&
+                !progress.artifactGated;
               const bucket = isDone
                 ? 4
                 : Math.min(3, Math.floor((progress.completed / total) * 4));
@@ -288,18 +296,23 @@ export class PdcaLauncher {
                 // LRO-12（2026-10-26）：正文用**产物门后的 percent**（不再自算 completed/total）
                 const pct = progress.percent;
                 const failedNote =
-                  progress.failed > 0 ? `，${progress.failed} 步失败` : '';
+                  progress.failed > 0 ? `，${progress.failed} 步未达成` : '';
+                // 2026-11-02：因空转熔断/依赖阻断**未执行**的步骤也要如实出现
+                const skippedNote =
+                  progress.cancelled > 0
+                    ? `，${progress.cancelled} 步未执行`
+                    : '';
                 // 步骤都打勾但零产物 ⇒ 如实说明"进度不计"，避免用户以为卡死
                 const gatedNote = progress.artifactGated
                   ? '（本任务尚未产出任何产物，进度不计）'
                   : '';
                 const summary = isDone
                   ? `PDCA 执行完成：${progress.completed}/${total} 步${failedNote}`
-                  : `已完成 ${progress.completed}/${total} 步（进度 ${pct}%）${failedNote}${gatedNote}`;
+                  : `⚠️ PDCA 未完全达成：${progress.completed}/${total} 步达成${failedNote}${skippedNote}（进度 ${pct}%）${gatedNote}`;
                 this.deps.persistMessage(
                   sessionId,
                   this.deps.messageService.createAssistantMessage(
-                    `${isDone ? '✅' : '🔁'} ${summary}`,
+                    `${isDone ? '✅ ' : ''}${summary}`,
                     {
                       sessionId,
                       metadata: {

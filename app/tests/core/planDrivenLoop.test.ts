@@ -360,7 +360,8 @@ describe('13-P1-1 Step 2: 缺省 hard 翻转后 PDL 阻断行为', () => {
       expect(result.blockedSteps[0]!.description).toBe('步骤B');
       expect(result.blockedSteps[0]!.reason).toContain('step-1');
       // ③ 分母为真实子任务数（2），且阻断原因可见
-      expect(result.summary).toContain('0/2 步骤成功');
+      // 2026-11-02：0 步达成时不得再用"步骤成功/执行完成"框架（如实为"步骤达成"）
+      expect(result.summary).toContain('0/2 步骤达成');
       expect(result.summary).toContain('1 步骤因依赖阻断未执行');
       expect(result.summary).toContain('[依赖阻断明细]');
       expect(result.summary).toContain('步骤B');

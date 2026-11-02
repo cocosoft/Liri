@@ -698,17 +698,8 @@ export class TaskOrchestrator implements ISnapshotCapable {
       task.setStatusDirect(TaskStatus.COMPLETED);
     }
 
-    // 检查是否所有步骤都已完成
-    const allDone = plan.steps.every(
-      (s) =>
-        s.status === 'completed' ||
-        s.status === 'failed' ||
-        s.status === 'cancelled'
-    );
-    if (allDone) {
-      plan.status = 'completed';
-      plan.completedAt = new Date().toISOString();
-    }
+    // 2026-11-02（根因修复）：终态**如实化** —— "步骤都到达终态" ≠ "目标达成"
+    const allDone = this._settlePlanFinalStatus(plan);
 
     this.savePlan(plan);
 
@@ -770,16 +761,7 @@ export class TaskOrchestrator implements ISnapshotCapable {
       task.setStatusDirect(TaskStatus.FAILED, error);
     }
 
-    const allDone = plan.steps.every(
-      (s) =>
-        s.status === 'completed' ||
-        s.status === 'failed' ||
-        s.status === 'cancelled'
-    );
-    if (allDone) {
-      plan.status = 'completed';
-      plan.completedAt = new Date().toISOString();
-    }
+    const allDone = this._settlePlanFinalStatus(plan);
 
     this.savePlan(plan);
 
@@ -824,16 +806,7 @@ export class TaskOrchestrator implements ISnapshotCapable {
       task.setStatusDirect(TaskStatus.KILLED);
     }
 
-    const allDone = plan.steps.every(
-      (s) =>
-        s.status === 'completed' ||
-        s.status === 'failed' ||
-        s.status === 'cancelled'
-    );
-    if (allDone) {
-      plan.status = 'completed';
-      plan.completedAt = new Date().toISOString();
-    }
+    const allDone = this._settlePlanFinalStatus(plan);
 
     this.savePlan(plan);
 
@@ -849,6 +822,34 @@ export class TaskOrchestrator implements ISnapshotCapable {
     }
 
     return step;
+  }
+
+  /**
+   * 2026-11-02（长程任务"假成功"根因修复）：**计划终态如实化**。
+   *
+   * 缺陷实证：`markStep{Failed,Cancelled}` 在"所有步骤到达终态"时**一律**把 plan 置
+   * `completed` —— 于是 5 步全部失败/受阻的计划也算"完成"。这与
+   * `architecture-compliance.md` AR-3「检查器崩溃不得当通过」同源：
+   * 把"流程走完"当成"目标达成"。
+   *
+   * 现口径：全部 `completed` ⇒ `completed`；否则 ⇒ `failed`
+   * （用户中止已置 `aborted` 的保持不动，不覆盖）。
+   *
+   * @returns 所有步骤是否已到达终态（供调用方决定是否发 `PLAN_COMPLETED`）
+   */
+  private _settlePlanFinalStatus(plan: Plan): boolean {
+    const settled = plan.steps.every(
+      (s) =>
+        s.status === 'completed' ||
+        s.status === 'failed' ||
+        s.status === 'cancelled'
+    );
+    if (!settled) return false;
+    if (plan.status === 'aborted') return true;
+    const allAchieved = plan.steps.every((s) => s.status === 'completed');
+    plan.status = allAchieved ? 'completed' : 'failed';
+    plan.completedAt = new Date().toISOString();
+    return true;
   }
 
   /**

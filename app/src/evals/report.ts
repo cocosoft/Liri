@@ -56,6 +56,21 @@ function toMarkdown(summary: EvalRunSummary): string {
       `> **环境噪声**：${noise.attempts} 次 attempt / ${noise.tasks} 个任务（超时·限流·网络中断；**不计入** pass 指标分子分母）`
     );
   }
+  // P39（2026-11-02）：两次运行 ±10% 可复现性（仅 `--check-variance` 时出现）
+  if (summary.variance) {
+    const v = summary.variance;
+    lines.push(
+      `**两次运行（P39）**：pass^1 均值 ${(v.firstMean * 100).toFixed(1)}% → ${(v.secondMean * 100).toFixed(1)}%` +
+        `（相对差 ${v.relativeDelta === undefined ? 'n/a' : `${(v.relativeDelta * 100).toFixed(1)}%`}，容差 ${(v.tolerance * 100).toFixed(0)}%）` +
+        ` ｜ 稳定 ${v.stable}/${v.compared} 题 ｜ 超出容差 ${v.drifted.length} 题` +
+        ` ｜ 结论：${v.withinTolerance ? '✅ 在容差内' : '⚠️ 超出容差'}`
+    );
+    if (v.drifted.length > 0) {
+      lines.push(
+        `> 漂移题（需解释；噪声次数见 JSON）：${v.drifted.join(', ')}`
+      );
+    }
+  }
   if (summary.security) {
     const sec = summary.security;
     // A4（2026-09-26）：分母为**已完成** attempt；为 0 时显式标注 n/a，不给"0% 的假安全感"

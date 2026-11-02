@@ -30,6 +30,9 @@
  * 指标：`pass^1`（单次通过率）与 `pass^k`（k 次全通过才算通过）—— 后者才是可用性门槛。
  */
 
+// P39（2026-11-02）：两次运行 ±10% 报告的类型与判定同源（`import type` ⇒ 运行期无依赖）
+import type { RunVarianceReport } from './runVariance.js';
+
 /** 断言结果（L1/L2 均为确定性判据） */
 export interface AssertResult {
   /** 是否通过 */
@@ -370,6 +373,13 @@ export interface EvalRunSummary {
   judgeSanityOk: boolean;
   /** 安全鲁棒性汇总（D9；仅当题集中存在成对安全任务时给出） */
   security?: SecuritySummary;
+  /**
+   * P39（2026-11-02）：**两次运行 ±10% 可复现性**报告（`--check-variance` 时给出）。
+   *
+   * 与 `environmentNoise` 同取向：只在开启该开关时出现（缺省 ⇒ 旧报告逐字不变）。
+   * 类型与判定同源：`runVariance.ts#compareRunVariance`（唯一实现）。
+   */
+  variance?: RunVarianceReport;
 }
 
 /**

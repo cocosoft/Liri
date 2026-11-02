@@ -10,12 +10,12 @@
  * 只有把 DB 当事实源，才能证明面板没有多算/少算行（`docs/005:56` 诚实状态）。
  */
 import { afterAll, beforeAll, describe, it, expect } from 'bun:test';
-import { Database } from 'bun:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { resolveDbPath } from '@openliri/infra/environment';
+import { Database } from '@openliri/infra/external';
 
 import {
   PDCA_TERMINAL_STATUSES,
@@ -38,20 +38,22 @@ const ROOT = mkdtempSync(join(tmpdir(), 'p39-cockpit-db-'));
 const PREVIOUS_DATA_DIR = process.env.LIRI_DATA_DIR;
 
 /** 直接对库做计数（与面板无关的第二条路径 ⇒ 才能互为校验） */
-function count(sql: string, params: unknown[] = []): number {
-  const db = new Database(resolveDbPath(), { readonly: true });
+async function count(sql: string, params: unknown[] = []): Promise<number> {
+  const db = await new Promise<Database>((resolve, reject) => {
+    const opened = new Database(resolveDbPath(), (err) => {
+      if (err) reject(err);
+      else resolve(opened);
+    });
+  });
   try {
-    const statement = db.prepare(sql);
-    try {
-      const row = statement.get(...(params as never[])) as
-        | { n?: number }
-        | undefined;
-      return Number(row?.n ?? 0);
-    } finally {
-      statement.finalize();
-    }
+    return await new Promise<number>((resolve, reject) => {
+      db.get(sql, params, (err, row) => {
+        if (err) reject(err);
+        else resolve(Number((row as { n?: number } | undefined)?.n ?? 0));
+      });
+    });
   } finally {
-    db.close();
+    await new Promise<void>((resolve) => db.close(() => resolve()));
   }
 }
 
@@ -112,7 +114,7 @@ async function snapshotOfDb() {
 
 describe('P39 · 面板数字与 DB 计数一致', () => {
   it('total = workitems 行数（SQL 计数）', async () => {
-    const dbRows = count('SELECT COUNT(*) AS n FROM workitems');
+    const dbRows = await count('SELECT COUNT(*) AS n FROM workitems');
     const { snapshot } = await snapshotOfDb();
 
     expect(dbRows).toBe(3);
@@ -122,7 +124,7 @@ describe('P39 · 面板数字与 DB 计数一致', () => {
   it('endedCount = 终态 status 的 SQL 计数', async () => {
     const terminal = [...PDCA_TERMINAL_STATUSES];
     const placeholders = terminal.map(() => '?').join(', ');
-    const dbEnded = count(
+    const dbEnded = await count(
       `SELECT COUNT(*) AS n FROM workitems WHERE status IN (${placeholders})`,
       terminal
     );
@@ -140,13 +142,13 @@ describe('P39 · 面板数字与 DB 计数一致', () => {
     );
 
     expect(inGroups).toBe(items.length);
-    expect(inGroups).toBe(count('SELECT COUNT(*) AS n FROM workitems'));
+    expect(inGroups).toBe(await count('SELECT COUNT(*) AS n FROM workitems'));
     expect(checkCockpitInvariants(snapshot, items)).toEqual([]);
   });
 
   it('派工来自 DB（ticket_assignments）⇒ 有派工项进入 working', async () => {
     const { snapshot } = await snapshotOfDb();
-    const dbAssignments = count(
+    const dbAssignments = await count(
       'SELECT COUNT(*) AS n FROM ticket_assignments WHERE work_item_id = ?',
       ['w-queued']
     );

@@ -29,6 +29,9 @@
  *   bun run eval -- --model=<模型名> --repeat-fresh=2   # 每个 attempt 重建沙箱（A3-a；治"抖动"，成本高）
  *   bun run eval -- --model=<模型名> --fresh-per-task   # 每个任务重建沙箱（A3-b；治"状态污染"）
  *   bun run eval -- --model=<模型名> --check-order      # 正序+倒序各跑一轮并比对（A3-b；耗时翻倍）
+ *   bun run eval -- --model=<模型名> --check-variance   # 同题集连跑两轮并按 ±10% 比对（P39；耗时翻倍）
+ *   bun run eval -- --compare-runs=<a.json> --compare-runs=<b.json>   # 只对比两份已有报告（不调模型；P39）
+ *   #   可选：--variance-tolerance=0.1（容差，缺省 10%）
  *   bun run eval -- --model=<模型名> --keep     # 保留沙箱目录（默认评测结束即删；沙箱内含凭据副本）
  *   bun run eval -- --model=<模型名> --gate     # R12-001 门禁：与基线比对，有回归则退出码 1
  *   bun run eval -- --model=<模型名> --baseline=<file.json>   # 指定基线（按模型分档时用）
@@ -62,6 +65,13 @@ import {
   formatOrderInvariance,
   type OrderInvarianceReport,
 } from './orderInvariance.js';
+// P39（2026-11-02）：两次运行 ±10% 可复现性对比（纯函数 + CLI 两个入口）
+import {
+  DEFAULT_VARIANCE_TOLERANCE,
+  compareRunVariance,
+  formatRunVariance,
+  type RunVarianceReport,
+} from './runVariance.js';
 import {
   checkInitialState,
   type InitialStateVerdict,
@@ -111,7 +121,7 @@ import {
 } from './fixTaskMaterialize.js';
 import { checkGate, summarizeRun, summarizeSignal } from './scoring.js';
 import type { Baseline } from './scoring.js';
-import type { EvalTask, EvalTaskResult } from './types.js';
+import type { EvalAttempt, EvalTask, EvalTaskResult } from './types.js';
 
 /**
  * P0-4 ②（2026-10-04）：评测期**请求**「强制 bash 走 Landlock」。
@@ -199,6 +209,22 @@ if (freshPerTask && repeatFresh >= 1) {
 }
 /** A3-b：正序 + 倒序各跑一轮并比对结论（代价 = 评测耗时翻倍，默认关闭） */
 const checkOrder = process.argv.includes('--check-order');
+/**
+ * P39（2026-11-02）：**两次运行 ±10% 可复现性**校验。
+ *
+ * 与 `--check-order` 同取向但比的是"同一题集连跑两轮"的 `pass^1` 漂移（顺序不变），
+ * 用于回答验收问题"两次运行差异是否可解释"。代价同样 = 耗时翻倍，默认关闭。
+ */
+const checkVariance = process.argv.includes('--check-variance');
+/** 容差（缺省 10%；非法/越界 ⇒ 回落缺省，不静默改判据） */
+const varianceTolerance = ((): number => {
+  const raw = argValue('variance-tolerance');
+  if (!raw) return DEFAULT_VARIANCE_TOLERANCE;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 1
+    ? parsed
+    : DEFAULT_VARIANCE_TOLERANCE;
+})();
 /**
  * P1-1 形态 A（2026-10-04，`.trae/specs/adversarial-agent-form-a.md`）：**对抗提案相位**开关。
  *
@@ -377,6 +403,77 @@ if (process.argv.includes('--screen-fix-tasks')) {
 }
 
 const repoRoot = resolveEvalRepoRoot().replace(/\\/g, '/');
+
+/**
+ * P39（2026-11-02）：`--compare-runs=<a.json> --compare-runs=<b.json>` —— 只对比**两份已有报告**。
+ *
+ * 不调模型、不建沙箱 ⇒ 在模型校验之前处理并立即退出（与 `--audit-assertions` 同性取向）。
+ * 用于回看历史运行的可复现性（例：登记基线的两轮），也便于在无模型额度时验收对比逻辑。
+ * 退出码：0 = 总体差异在容差内；1 = 超出容差/题集不一致；2 = 报告不可读。
+ *
+ * **为什么是"重复两个同名旗标"而不是逗号分隔**：Windows PowerShell 会把 `a,b` 拆成数组
+ * 再拼成空格交给原生命令 ⇒ 逗号形式在 PowerShell 下必然被拆坏（实测）。同名旗标无歧义。
+ */
+const compareRunPaths = process.argv
+  .filter((a) => a.startsWith('--compare-runs='))
+  .map((a) => a.slice('--compare-runs='.length).trim())
+  .filter(Boolean);
+if (compareRunPaths.length > 0) {
+  if (compareRunPaths.length !== 2) {
+    err(
+      `--compare-runs 需要恰好两个报告路径（重复同名旗标），收到 ${compareRunPaths.length} 个：${compareRunPaths.join(' | ')}`
+    );
+    process.exit(2);
+  }
+  /**
+   * 报告 JSON 的 `tasks` 是**拍平**的条目（`{ id, pass1, attempts, … }`），不是内存里的
+   * `EvalTaskResult`（后者把任务嵌在 `task` 下）⇒ 这里统一归一成 `EvalTaskResult`。
+   * 噪声数从 `attempts[].failureKind === 'infra'` 现算（与 G-08 同一判据，不依赖报告是否带汇总字段）。
+   */
+  const readTasks = (path: string): EvalTaskResult[] => {
+    try {
+      const parsed = JSON.parse(readFileSync(path, 'utf-8')) as {
+        tasks?: unknown;
+      };
+      if (!Array.isArray(parsed.tasks)) throw new Error('报告缺少 tasks 数组');
+      return parsed.tasks.map((raw, index): EvalTaskResult => {
+        const entry = raw as Record<string, unknown>;
+        const nested = entry.task as { id?: unknown } | undefined;
+        const id = String(nested?.id ?? entry.id ?? '');
+        const pass1 = entry.pass1;
+        if (!id || typeof pass1 !== 'number' || !Number.isFinite(pass1)) {
+          throw new Error(`tasks[${index}] 缺少 id/pass1`);
+        }
+        const attempts = Array.isArray(entry.attempts)
+          ? (entry.attempts as EvalAttempt[])
+          : [];
+        const noise = attempts.filter((a) => a?.failureKind === 'infra').length;
+        return {
+          task: { id } as EvalTask,
+          attempts,
+          assertPassCount: Number(entry.assertPassCount ?? 0),
+          pass1,
+          passK: entry.passK === true,
+          ...(noise > 0 ? { environmentNoiseAttempts: noise } : {}),
+        };
+      });
+    } catch (e) {
+      err(
+        `报告不可读/不可解析：${path}（${e instanceof Error ? e.message : String(e)}）`
+      );
+      process.exit(2);
+    }
+  };
+  const firstTasks = readTasks(compareRunPaths[0]);
+  const secondTasks = readTasks(compareRunPaths[1]);
+  out('\n[两次运行对比 P39]');
+  out(`  第一轮=${compareRunPaths[0]}`);
+  out(`  第二轮=${compareRunPaths[1]}`);
+  const report = compareRunVariance(firstTasks, secondTasks, varianceTolerance);
+  for (const line of formatRunVariance(report)) out(line);
+  process.exit(report.withinTolerance ? 0 : 1);
+}
+
 const outDir = argValue('out') ?? resolve(repoRoot, 'dev_docs', 'evals');
 
 if (!model) {
@@ -757,6 +854,8 @@ if (initialStateFailures.length === 0) {
 const startedAt = new Date().toISOString();
 let results: EvalTaskResult[] = [];
 let orderReport: OrderInvarianceReport | undefined;
+/** P39：两次运行对比报告（`--check-variance`；缺省不跑第二轮） */
+let varianceReport: RunVarianceReport | undefined;
 
 try {
   results = await runPass(tasks);
@@ -767,20 +866,35 @@ try {
     orderReport = compareOrderInvariance(results, reversedResults);
     for (const line of formatOrderInvariance(orderReport)) out(line);
   }
+  // P39：可复现性校验 —— 同题集再跑一轮并逐题比对 pass^1（±10%）
+  if (checkVariance) {
+    out('\n[两次运行对比 P39] 开始同题集第二轮（--check-variance）…');
+    const secondResults = await runPass(tasks);
+    varianceReport = compareRunVariance(
+      results,
+      secondResults,
+      varianceTolerance
+    );
+    for (const line of formatRunVariance(varianceReport)) out(line);
+  }
 } finally {
   // 共享模式：沙箱由本文件统一收尾；两条 fresh 路径已在各自边界 stop()
   if (baseSandbox) await baseSandbox.stop();
 }
 
-const summary = summarizeRun({
-  startedAt,
-  finishedAt: new Date().toISOString(),
-  model,
-  k,
-  tasks: results,
-  // 用 --task= 只跑子集时，子集里没有控制任务属正常，不应判为"判分器自检失败"
-  expectControls: !taskFilter,
-});
+const summary = {
+  ...summarizeRun({
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    model,
+    k,
+    tasks: results,
+    // 用 --task= 只跑子集时，子集里没有控制任务属正常，不应判为"判分器自检失败"
+    expectControls: !taskFilter,
+  }),
+  // P39：两次运行对比随报告落盘（缺省不出现，旧报告逐字不变）
+  ...(varianceReport ? { variance: varianceReport } : {}),
+};
 
 const { jsonPath, mdPath } = writeReport(summary, outDir);
 
@@ -914,6 +1028,8 @@ if (process.argv.includes('--keep')) {
 const failed = results.filter((r) => !r.passK);
 // A3-b：--check-order 检测到顺序依赖即判失败（须先定位污染源再采基线）
 const orderFailed = orderReport ? !orderReport.invariant : false;
+// P39：--check-variance 超出 ±10% 容差即判失败（差异未解释前不采信基线）
+const varianceFailed = varianceReport ? !varianceReport.withinTolerance : false;
 // A4：起始态校验失败（positive 题起始态就通过 / 断言抛错）即判失败（题集无效）
 /**
  * `--gate-only`（2026-09-26）：**只把"门禁 / 自检 / 题集有效性"计入退出码**，忽略"任务级不符合预期"。
@@ -929,6 +1045,7 @@ process.exit(
     summary.judgeSanityOk &&
     gateFailures.length === 0 &&
     !orderFailed &&
+    !varianceFailed &&
     initialStateFailures.length === 0
     ? 0
     : 1

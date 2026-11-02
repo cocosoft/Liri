@@ -106,6 +106,7 @@
     "security": { "layer": "infra", "description": "安全模块" },
     "oauth":    { "layer": "infra", "description": "OAuth 认证" },
     "permission": { "layer": "infra", "description": "权限控制" },
+    "attention": { "layer": "infra", "description": "结构化注意力（Inbox 元数据键 + 打扰档位纯函数；P37）" },
 
     "diagnostics": { "layer": "infra", "description": "诊断/健康检查（与 monitoring 同类）" },
     "featureflags": { "layer": "infra", "description": "特性开关" },

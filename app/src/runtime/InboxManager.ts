@@ -26,9 +26,11 @@ import {
   runWithPrincipal,
 } from '@openliri/kernel/identity/requestScope.js';
 import { registerScopedResource } from '@openliri/kernel/identity/scopedResources.js';
+import { getSessionOwner } from '@openliri/service/execution';
 import { randomUUID } from 'crypto';
 import { broadcastEvent } from '@modules/infrastructure';
 import type { FrontendMessageBlock } from '@modules/session/types/UnifiedMessage.js';
+import { toInboxMetadata } from '@openliri/infra/attention';
 
 const logger = getLogger('runtime:inbox');
 
@@ -73,6 +75,30 @@ export interface InboxItem {
   /** 全链路追踪 ID */
   traceId?: string;
 }
+
+/**
+ * P37（2026-11-02）：结构化注意力载荷（可选）。
+ *
+ * 生产者只需给事实，`submit()` 统一转成 `inbox_items.metadata` 的固定键
+ * （`attentionKind/attentionQuestion/ticketId/triggerId`），面板与 SQL 直接读；
+ * 无需再从 `title` / `message` 做关键词判断（CS02）。
+ */
+export interface InboxAttentionInput {
+  /** 需要人回答/确认的问题（缺省用 `message`） */
+  question?: string;
+  /** 所属工作项（缺省按 `sessionId` 反查当前持有者） */
+  ticketId?: string;
+  /** 触发该工作项的 Trigger id（P35；可选） */
+  triggerId?: string;
+}
+
+/** `submit()` 入参（在既有条目字段上追加可选注意力载荷） */
+export type InboxSubmitInput = Omit<
+  InboxItem,
+  'id' | 'status' | 'createdAt' | 'updatedAt'
+> & {
+  attention?: InboxAttentionInput;
+};
 
 // ─── InboxManager ──────────────────────────────────────
 
@@ -529,7 +555,7 @@ export class InboxManager {
    * 真机日志实证 `parallel_batch_execute` + `cannot start a transaction within a transaction`）。
    */
   async submit(
-    item: Omit<InboxItem, 'id' | 'status' | 'createdAt' | 'updatedAt'>,
+    item: InboxSubmitInput,
     /** 可选：关联的会话 ID，用于注入 inbox block 到聊天消息 */
     sessionId?: string,
     /** 可选：关联的消息 ID，用于注入 inbox block */
@@ -545,7 +571,7 @@ export class InboxManager {
 
   /** `submit()` 的实际落库体（串行执行，独占事务） */
   private async submitSerialized(
-    item: Omit<InboxItem, 'id' | 'status' | 'createdAt' | 'updatedAt'>,
+    item: InboxSubmitInput,
     sessionId?: string,
     messageId?: string
   ): Promise<InboxItem> {
@@ -574,6 +600,25 @@ export class InboxManager {
 
     try {
       const now = Date.now();
+      // P37（2026-11-02）：统一写**结构化** attention 元数据。
+      // `ticketId` 未显式给出时按会话反查当前持有者（缺省 ⇒ 不绑定，普通对话零变更）；
+      // 显式 `metadata` 排在后面 ⇒ 既有写入方的同名字段优先，不被覆盖。
+      const owner = await getSessionOwner(item.sessionId);
+      const ticketId = item.attention?.ticketId ?? owner.ticketId;
+      item.metadata = {
+        ...toInboxMetadata({
+          kind: item.type,
+          question: item.attention?.question ?? (item.message || item.title),
+          ...(ticketId ? { ticketId } : {}),
+          ...(item.attention?.triggerId
+            ? { triggerId: item.attention.triggerId }
+            : {}),
+          ...(item.options ? { options: item.options } : {}),
+          createdAt: now,
+        }),
+        ...(item.metadata ?? {}),
+      };
+
       const id = randomUUID();
       const full: InboxItem = {
         ...item,
@@ -918,6 +963,30 @@ export class InboxManager {
         if (err) reject(err);
         else resolve(row);
       });
+    });
+    return row.cnt;
+  }
+
+  /**
+   * P37（2026-11-02）：某工作项已产生的 Inbox 打扰次数（**从 DB 复算**）。
+   *
+   * 与 `proactive/attention.ts#isTicketBudgetExhausted` 配合使用（默认上限 2）。
+   * 口径：该 `ticketId` 在 `inbox_items.metadata` 中的**全部**条目数（含已回复/已过期），
+   * 即"已经叫过人的次数"；不维护第二份内存计数（避免与 DB 漂移）。
+   */
+  async countByTicket(ticketId: string): Promise<number> {
+    if (!ticketId) return 0;
+    const db = await this.getDb();
+    const row = await new Promise<{ cnt: number }>((resolve, reject) => {
+      db.get(
+        `SELECT COUNT(*) as cnt FROM inbox_items
+          WHERE owner_key = ? AND json_extract(metadata, '$.ticketId') = ?`,
+        [this.owner(), ticketId],
+        (err: Error | null, row: { cnt: number }) => {
+          if (err) reject(err);
+          else resolve(row);
+        }
+      );
     });
     return row.cnt;
   }

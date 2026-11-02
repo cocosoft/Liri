@@ -153,6 +153,10 @@
       "types": "./src/memory/*.ts",
       "import": "./src/memory/*.ts"
     },
+    "./attention": {
+      "types": "./src/attention/index.ts",
+      "import": "./src/attention/index.ts"
+    },
     "./permission": {
       "types": "./src/permission/index.ts",
       "import": "./src/permission/index.ts"

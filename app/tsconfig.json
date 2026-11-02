@@ -224,6 +224,13 @@
       "@modules/knowledge/*": ["knowledge/*"],
       "@modules/bridge": ["bridge"],
       "@modules/bridge/*": ["bridge/*"],
+      "@openliri/infra/attention": [
+        "../../packages/infra/src/attention/index.ts"
+      ],
+      "@openliri/infra/attention.js": [
+        "../../packages/infra/src/attention/index.ts"
+      ],
+      "@openliri/infra/attention/*": ["../../packages/infra/src/attention/*"],
       "@openliri/infra/permission": [
         "../../packages/infra/src/permission/index.ts"
       ],

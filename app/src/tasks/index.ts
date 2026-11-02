@@ -329,6 +329,21 @@ export type {
   TicketAssignmentRecord,
 } from './ticketAssignmentStore';
 
+// P39（2026-11-02）：驾驶舱读侧聚合（方案 §5 P39）——纯函数；UI/评测集不在本批
+export {
+  COCKPIT_GROUP_LABELS,
+  COCKPIT_GROUP_ORDER,
+  buildCockpitSnapshot,
+  checkCockpitInvariants,
+  isPersonGroupKey,
+} from './cockpit';
+export type {
+  CockpitGroup,
+  CockpitItem,
+  CockpitMetrics,
+  CockpitSnapshot,
+} from './cockpit';
+
 // P38（2026-11-02）：统一 effects 队列（方案 §5 P38）——只导出内核，不接线具体分域台账
 export { EffectQueue, EFFECT_QUEUE_TABLE } from './effects';
 export {

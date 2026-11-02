@@ -87,6 +87,13 @@ export function isPersonStage(
   return stage.stage === 'person';
 }
 
+/**
+ * `idle` 的键常量（`lint:state-ratchet`）。
+ *
+ * 消费方（如驾驶舱分组表）需要按此键索引时必须引用本常量，不得裸写状态词。
+ */
+export const TICKET_STAGE_IDLE_KEY = 'idle';
+
 /** 阶段标识（日志/指标/筛选键；不含展示文案） */
 export function ticketStageKey(stage: TicketStage): string {
   if (stage.stage === 'person') return `person:${stage.action}`;

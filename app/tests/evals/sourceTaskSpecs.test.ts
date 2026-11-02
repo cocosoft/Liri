@@ -20,9 +20,10 @@
 // SOFTWARE.
 
 /**
- * A7：已登记**任务源规格**的防漂移守卫（12 条）。
+ * A7：已登记**任务源规格**的防漂移守卫（24 条）。
  *
- * 计数沿革：第二批 10 条 + 第三批 3 条 = 13 条；2026-10-02（D-237）**废弃 1 条**
+ * 计数沿革：第一批 12 条 + P39（2026-11-02）**新增 12 条** = 24 条。
+ * 旧沿革：第二批 10 条 + 第三批 3 条 = 13 条；2026-10-02（D-237）**废弃 1 条**
  * `src-dedupe-tool-call-blocks` —— 其源文件 `chatBlocks.ts` 经分层治理下沉至 `app/src/utils/`，
  * 已落在 `DEFAULT_SOURCE_DIRS`（`app/src/{chat,query,tools}`）之外 ⇒ 规格前提消失（详见 spec
  * `pending` 记录与 `dev_docs/error_repairs/预存错误与待处理问题.md` D-237）。
@@ -47,9 +48,9 @@ import { sourceTaskSpecs } from '../../src/evals/tasks/source-derived';
 
 const repoRoot = resolveEvalRepoRoot();
 
-describe('A7 任务源规格（12 条）：结构与资格线防漂移', () => {
-  test('规格数量与唯一 id（第二批 10 条 + 第三批 3 条 − 已废弃 1 条 = 12 条）', () => {
-    expect(sourceTaskSpecs.length).toBe(12);
+describe('A7 任务源规格（24 条）：结构与资格线防漂移', () => {
+  test('规格数量与唯一 id（第一批 12 条 + P39 新增 12 条 = 24 条）', () => {
+    expect(sourceTaskSpecs.length).toBe(24);
     const ids = sourceTaskSpecs.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
   });

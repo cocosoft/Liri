@@ -29,7 +29,12 @@
  * （含其直接父目录）的调用，并做 fail-closed 校验（见 [`pathShield.ts`](../../tools/pathShield.ts)、
  * [`shieldPlan.ts`](../shieldPlan.ts)）。
  *
- * ⬆️ **规格数量：12 条**（第二批 2026-09-26：方案要求"先人工挑 10 条跑通流水线"；
+ * ⬆️ **规格数量：24 条**（2026-11-02 P39 工作项评测集 **+12 条**；其余为第一批累计）。
+ * ⚠️ **新增 12 条尚未登记 `baseline.json`**：`--source-tasks --gate` 会按既有语义拒绝
+ * "未登记基线"的任务 ⇒ 需先用 **k≥4 真实 rollout** 测出地板后再登记（禁止凭空写阈值，CS04/CS06）。
+ * 不带 `--gate` 时可直接 `--list-source-tasks` 干跑 / `--source-tasks` 运行。
+ *
+ * ⬆️ **第一批：12 条**（第二批 2026-09-26：方案要求"先人工挑 10 条跑通流水线"；
  * 第三批同日 **+3 条**：为**补区分度**按上一条口径新选 —— 合并/组合语义、精确格式化契约、
  * 输入解析边界，均为**逻辑复杂但签名可机械提取**的纯函数；
  * 2026-10-02（D-237）**废弃 1 条** `src-dedupe-tool-call-blocks` —— 其源文件 `chatBlocks.ts`
@@ -456,6 +461,294 @@ export const sourceTaskSpecs: SourceTaskSpec[] = [
       { name: 'exactly-one-minute', args: [60000] },
       { name: 'minute-plus-fraction', args: [90500] },
       { name: 'no-carry', args: [119700] },
+    ],
+  },
+
+  // ── P39（2026-11-02）：工作项评测集扩充（第二批 12 条；累计 24 条）──
+  // 选取口径与第一批一致：零运行时 import、`export function`、参数/返回可由 JSON 表达、
+  // 输入小、行为可用散文写清（不抄实现内的正则/常量表）；源路径必须在
+  // `DEFAULT_SOURCE_DIRS`（`app/src/{chat,query,tools}`）内，否则规格守卫会判"资格线消失"。
+  {
+    id: 'src-parse-slash-command',
+    name: 'A7 派生：拆分斜杠命令名与参数',
+    sourcePath: 'app/src/chat/orchestrator/promptCommand.ts',
+    exportName: 'parseSlashCommand',
+    behavior: [
+      '输入一行文本，返回 `{ name, args }` 或 `null`。',
+      '先对输入做**首尾空白裁剪**；裁剪后必须以 `/` 开头，且 `/` 后至少有一个非空白字符，否则返回 `null`。',
+      '`name` = `/` 之后**第一段连续非空白**字符；`args` = 其后剩余全部内容再做首尾空白裁剪（内部空白**原样保留**）。',
+      '没有剩余内容时 `args` 为空串。',
+    ],
+    cases: [
+      { name: 'slash-with-args', args: ['/deploy  --force   now'] },
+      { name: 'no-args', args: [' /help '] },
+      { name: 'not-a-command', args: ['hello world'] },
+      { name: 'slash-only', args: ['/'] },
+    ],
+  },
+
+  {
+    id: 'src-decide-truncation-step',
+    name: 'A7 派生：max_tokens 截断后的重试决策',
+    sourcePath: 'app/src/chat/orchestrator/streamMessageTruncationStep.ts',
+    exportName: 'decideTruncationStep',
+    behavior: [
+      '输入 `{ stopReason, hasContent, degradeTried, currentMaxTokens }`，返回判别式对象 `{ kind, ... }`。',
+      '`stopReason` 不是 `max_tokens` ⇒ `{ kind: "stop" }`。',
+      '是 `max_tokens` 且 `hasContent` 为真 ⇒ `{ kind: "grow" }`。',
+      '是 `max_tokens`、无正文且**已降级过** ⇒ `{ kind: "give-up" }`。',
+      '是 `max_tokens`、无正文且**未降级过** ⇒ `{ kind: "degrade", maxTokens }`；' +
+        '`maxTokens = max(256, floor(currentMaxTokens / 2))`。',
+    ],
+    cases: [
+      {
+        name: 'not-truncated',
+        args: [
+          {
+            stopReason: 'end_turn',
+            hasContent: false,
+            degradeTried: false,
+            currentMaxTokens: 4096,
+          },
+        ],
+      },
+      {
+        name: 'has-content',
+        args: [
+          {
+            stopReason: 'max_tokens',
+            hasContent: true,
+            degradeTried: false,
+            currentMaxTokens: 4096,
+          },
+        ],
+      },
+      {
+        name: 'already-degraded',
+        args: [
+          {
+            stopReason: 'max_tokens',
+            hasContent: false,
+            degradeTried: true,
+            currentMaxTokens: 4096,
+          },
+        ],
+      },
+      {
+        name: 'first-degrade-floor',
+        args: [
+          {
+            stopReason: 'max_tokens',
+            hasContent: false,
+            degradeTried: false,
+            currentMaxTokens: 300,
+          },
+        ],
+      },
+    ],
+  },
+
+  {
+    id: 'src-is-repeated-loop',
+    name: 'A7 派生：无进展循环判定',
+    sourcePath: 'app/src/query/loopGuard.ts',
+    exportName: 'isRepeatedLoop',
+    behavior: [
+      '输入「最近若干轮签名」与阈值，返回布尔：窗口内是否存在出现次数 **≥ 阈值** 的同一签名。',
+      '阈值 ≤ 0，或窗口长度 < 阈值 ⇒ `false`。',
+      '同一签名**不要求连续**（窗口内累计计数）。',
+    ],
+    cases: [
+      { name: 'window-hit', args: [['a', 'b', 'a'], 2] },
+      { name: 'below-threshold', args: [['a', 'b', 'a'], 3] },
+      { name: 'too-short-window', args: [['a'], 2] },
+      { name: 'zero-threshold', args: [['a', 'a'], 0] },
+    ],
+  },
+
+  {
+    id: 'src-format-usd-amount',
+    name: 'A7 派生：USD 金额展示串',
+    sourcePath: 'app/src/query/dailyBudgetSnapshot.ts',
+    exportName: 'formatUsdAmount',
+    behavior: [
+      '输入数字，返回 `$` 开头的金额串，固定使用 **en-US** 数字格式（千分位逗号 + 小数点）。',
+      '小数位：**最少 2 位、最多 4 位**（超出 4 位按四舍五入到 4 位；不足 2 位补零）。',
+      '格式**不随进程 locale 变化**（硬编码 en-US）。',
+    ],
+    cases: [
+      { name: 'zero', args: [0] },
+      { name: 'one-and-half', args: [1.5] },
+      { name: 'thousands', args: [1234.5] },
+      { name: 'four-decimals', args: [12.34567] },
+    ],
+  },
+
+  {
+    id: 'src-format-budget',
+    name: 'A7 派生：预算已用量的单位化展示',
+    sourcePath: 'app/src/query/dailyBudgetSnapshot.ts',
+    exportName: 'formatBudget',
+    behavior: [
+      '输入已用量与单位（`"tokens"` 或 `"usd"`），返回展示串。',
+      '`usd` ⇒ 与 `formatUsdAmount` 相同口径（`$` + en-US 千分位 + 2~4 位小数）。',
+      '`tokens` 且已用量 **< 1000** ⇒ `${已用量} Tokens`（不换算）。',
+      '`tokens` 且已用量 **≥ 1000** ⇒ `${(已用量 / 1000).toFixed(1)} K Tokens`（保留 1 位小数）。',
+    ],
+    cases: [
+      { name: 'zero-tokens', args: [0, 'tokens'] },
+      { name: 'below-thousand', args: [999, 'tokens'] },
+      { name: 'thousands', args: [1500, 'tokens'] },
+      { name: 'usd', args: [12.5, 'usd'] },
+    ],
+  },
+
+  {
+    id: 'src-parse-shielded-paths',
+    name: 'A7 派生：解析屏蔽路径环境变量',
+    sourcePath: 'app/src/tools/pathShield.ts',
+    exportName: 'parseShieldedPaths',
+    behavior: [
+      '输入字符串或空值，返回字符串数组。',
+      '空值 / 空串 / 全空白 ⇒ 空数组。',
+      '否则按 JSON 解析：结果必须是**字符串数组**，元素原样返回（保持顺序）。',
+      '非法 JSON / 非数组 / 含非字符串元素 ⇒ **抛出错误**（fail-closed；本条只要求可观察的正常路径）。',
+    ],
+    cases: [
+      { name: 'null', args: [null] },
+      { name: 'empty', args: [''] },
+      { name: 'blank', args: ['   '] },
+      { name: 'two-paths', args: ['["E:/a.ts","E:/b.ts"]'] },
+    ],
+  },
+
+  {
+    id: 'src-fold-dot-segments',
+    name: 'A7 派生：纯字符串折叠 `.` / `..` 段',
+    sourcePath: 'app/src/tools/pathShield.ts',
+    exportName: 'foldDotSegments',
+    behavior: [
+      '输入以 `/` 分段的路径字符串，返回折叠后的字符串（**不碰文件系统、不依赖 OS**）。',
+      '前导 `/` 若存在则**保留**；空段与 `.` 段丢弃。',
+      '`..` 段回退上一段；若上一段是**盘符**（形如 `c:`）或已无上一段 ⇒ 丢弃该 `..`。',
+      '结果用 `/` 连接；输入已规整时原样返回。',
+    ],
+    cases: [
+      { name: 'plain', args: ['a/b'] },
+      { name: 'dot-segment', args: ['a/./b'] },
+      { name: 'parent-segment', args: ['a/../b'] },
+      { name: 'drive-clamped', args: ['c:/a/../b'] },
+    ],
+  },
+
+  {
+    id: 'src-normalize-shield-path',
+    name: 'A7 派生：屏蔽路径规整',
+    sourcePath: 'app/src/tools/pathShield.ts',
+    exportName: 'normalizeShieldPath',
+    behavior: [
+      '输入路径字符串，返回可比较的规整形式。',
+      '依次：首尾去空白 → `\\` 统一为 `/` → **转小写** → 连续 `/` 折叠为单个 → 去掉末尾 `/` → 折叠 `.` / `..` 段（语义同 `foldDotSegments`）。',
+      '输出中**不含** `.` / `..` 段；对已规整输入幂等。',
+    ],
+    cases: [
+      { name: 'windows', args: ['C:\\\\Repo\\\\Src\\\\'] },
+      { name: 'double-slash', args: ['a//b/'] },
+      { name: 'dot-dot', args: ['./a/../b'] },
+      { name: 'upper-absolute', args: ['/A/B/'] },
+    ],
+  },
+
+  {
+    id: 'src-is-wire-safe-tool-name',
+    name: 'A7 派生：工具名是否已是 wire 安全名',
+    sourcePath: 'app/src/tools/toolNameCodec.ts',
+    exportName: 'isWireSafeToolName',
+    behavior: [
+      '输入字符串，判断它是否**整体**只由 ASCII 字母、数字、下划线、连字符组成（即符合 `^[a-zA-Z0-9_-]+$` 且非空）。',
+      '空串、含冒号 / 点 / 斜杠 / 空格 / 非 ASCII 字符 ⇒ `false`。',
+      '只校验字符集与非空，**不要求**首字符是字母（数字或下划线开头同样算安全）。',
+    ],
+    cases: [
+      { name: 'snake', args: ['calendar_add'] },
+      { name: 'colon', args: ['calendar:add'] },
+      { name: 'empty', args: [''] },
+      { name: 'space', args: ['a b'] },
+    ],
+  },
+
+  {
+    id: 'src-to-wire-tool-name',
+    name: 'A7 派生：内部工具名转 wire 安全名',
+    sourcePath: 'app/src/tools/toolNameCodec.ts',
+    exportName: 'toWireToolName',
+    behavior: [
+      '输入工具名，返回 wire 安全名：若已经是安全名（字母 / 数字 / 下划线 / 连字符且非空）⇒ **原样返回**。',
+      '否则把**每一个**非法字符替换为下划线 `_`（不是删除、不是折叠）。',
+      '转换结果**幂等**：再次调用时必定原样返回。',
+    ],
+    cases: [
+      { name: 'colon', args: ['calendar:add'] },
+      { name: 'multi-colon', args: ['media:image:convert'] },
+      { name: 'already-safe', args: ['already_safe'] },
+      { name: 'dot-and-slash', args: ['a.b/c'] },
+    ],
+  },
+
+  {
+    id: 'src-format-location',
+    name: 'A7 派生：LSP 位置格式化',
+    sourcePath: 'app/src/tools/LSPTool/formatters.ts',
+    exportName: 'formatLocation',
+    behavior: [
+      '输入 `{ file, line, column?, text }`，返回单行字符串。',
+      `位置串：有 \`column\` ⇒ \`<line>:<column>\`；缺省 ⇒ \`<line>\`。`,
+      '返回格式固定为 `<file>:<位置串> — <text 去首尾空白>`（短横线是 U+2014 em dash，两侧各一个空格）。',
+    ],
+    cases: [
+      {
+        name: 'with-column',
+        args: [{ file: 'a.ts', line: 3, column: 7, text: '  const x  ' }],
+      },
+      {
+        name: 'without-column',
+        args: [{ file: 'a.ts', line: 9, text: 'fn' }],
+      },
+      {
+        name: 'empty-text',
+        args: [{ file: 'a.ts', line: 1, column: 1, text: '' }],
+      },
+      {
+        name: 'unicode-path',
+        args: [{ file: '目录/b.ts', line: 2, text: ' x ' }],
+      },
+    ],
+  },
+
+  {
+    id: 'src-format-definition',
+    name: 'A7 派生：LSP 定义格式化',
+    sourcePath: 'app/src/tools/LSPTool/formatters.ts',
+    exportName: 'formatDefinition',
+    behavior: [
+      '输入 `{ file, line, column?, text }`，返回两行字符串。',
+      '第一行固定为 `Definition: <file>:<位置串>`；位置串有 `column` ⇒ `<line>:<column>`，缺省 ⇒ `<line>`。',
+      '第二行为**两个空格** + `text` 去首尾空白；两行用单个 `\\n` 连接。',
+    ],
+    cases: [
+      {
+        name: 'with-column',
+        args: [{ file: 'a.ts', line: 3, column: 7, text: ' function f() ' }],
+      },
+      { name: 'without-column', args: [{ file: 'a.ts', line: 9, text: 'x' }] },
+      {
+        name: 'empty-text',
+        args: [{ file: 'a.ts', line: 1, column: 1, text: '' }],
+      },
+      {
+        name: 'unicode-path',
+        args: [{ file: '目录/b.ts', line: 2, text: ' y ' }],
+      },
     ],
   },
 ];

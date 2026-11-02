@@ -50,9 +50,13 @@ import { getSettlementOutbox } from '@modules/chat';
 import { isAncestorSession } from '@modules/session';
 import type { AgentToolProgress } from '../types/ToolProgress';
 import { VERIFICATION_SYSTEM_PROMPT } from './strategies/VerificationStrategy';
-import { VERIFICATION_AGENT_DEFINITION } from './strategies/VerificationStrategy';
 import { STATUSLINE_SYSTEM_PROMPT } from './strategies/StatuslineStrategy';
-import { STATUSLINE_SETUP_AGENT_DEFINITION } from './strategies/StatuslineStrategy';
+// P36（2026-11-02）：定义侧工具声明索引 + 分诊角色 fail-closed 文案
+import {
+  getBuiltinAllowedTools,
+  getBuiltinDisallowedTools,
+} from './builtinAgentDefinitions';
+import { describeRoleToolViolation } from './routerRole';
 import { FORK_SUBAGENT_TYPE, isForkSubagentEnabled } from './ForkSubagent';
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
 // B-4（2026-09-20）：并行执行统一走 AgentSwarm 单引擎（原 ParallelOrchestrator 已删除），
@@ -259,21 +263,6 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
   maxConcurrentAgents: getTaskConcurrencyLimits().agentConcurrency,
   timeoutMs: 600000,
   allowBackground: true,
-};
-
-/**
- * 内置子代理定义（仅收录携带 `disallowedTools` 的策略定义）。
- *
- * 键 = `BUILTIN_AGENTS` 的键（= `subagent_type` 归一后的**小写名**），与解析链 ③ 分支
- * 传入的 `key` 口径一致；未收录/未声明者取不到 ⇒ `undefined`（不抛错）。
- */
-const BUILTIN_AGENT_DEFINITIONS_BY_TYPE: Record<
-  string,
-  { disallowedTools?: string[] }
-> = {
-  [VERIFICATION_AGENT_DEFINITION.agentType]: VERIFICATION_AGENT_DEFINITION,
-  [STATUSLINE_SETUP_AGENT_DEFINITION.agentType]:
-    STATUSLINE_SETUP_AGENT_DEFINITION,
 };
 
 /**
@@ -530,10 +519,10 @@ export class AgentTool implements Tool {
             .find((a) => a.name === raw || a.role === raw) ??
           null,
         builtinTypeNames: Object.keys(BUILTIN_AGENTS),
-        // 定义侧裁剪来源：内置定义的 `disallowedTools`（如 verification ⇒ ['agent','notebook']）。
+        // 定义侧声明来源：`builtinAgentDefinitions`（verification 黑名单 / router 白名单）；
         // 取不到返回 undefined（本函数不抛错），与 `BUILTIN_AGENTS` 的键（小写名）同口径。
-        getBuiltinDisallowedTools: (typeName) =>
-          BUILTIN_AGENT_DEFINITIONS_BY_TYPE[typeName]?.disallowedTools,
+        getBuiltinDisallowedTools,
+        getBuiltinAllowedTools,
       },
     });
   }
@@ -825,7 +814,10 @@ export class AgentTool implements Tool {
    * （实现已外迁 `AgentToolPool#getInheritableToolPool`，故本转发非僵尸方法）。
    */
   private getInheritableToolPool(
-    options: { allowDelegation?: boolean } = {}
+    options: {
+      allowDelegation?: boolean;
+      allowedTools?: readonly string[];
+    } = {}
   ): Tool[] {
     return this.agentToolPool.getInheritableToolPool(options);
   }
@@ -884,7 +876,9 @@ export class AgentTool implements Tool {
      * 追加在参数末尾且有默认值 ⇒ 既有调用方位置参数不变。与调用侧 `deniedTools` **取并集**
      * 后作黑名单 —— **只收窄，不扩权**。
      */
-    definitionDeniedTools: string[] = []
+    definitionDeniedTools: string[] = [],
+    /** 定义侧白名单（P36）：与可继承池取交集；空数组 ⇒ 不限制（既有角色行为不变） */
+    definitionAllowedTools: string[] = []
   ): Promise<{
     result: string;
     // N1 修复（2026-08-27）：透出 engine 完成状态——原只返回 result/tokenUsage，
@@ -901,11 +895,11 @@ export class AgentTool implements Tool {
   }> {
     // 缺陷 3 修复（2026-08-26）：子 agent 工具池排除 AgentTool 自身——
     // 原注入全量工具（含 AgentTool），子 agent 可再调 agent 工具无限嵌套，
-    // 每层独立 LLM 调用 + teammate 注册 + 工具实例，资源消耗无上限
-    // O7：可继承池为**单一入口**（`getInheritableToolPool`），且**定义侧与执行侧同源** ——
-    // 修复前 `toolInstances` 用的是**未过滤**的全池，模型凭旧上下文里的工具名仍可执行
-    // 未授权工具（"定义侧过滤、执行侧放行"），使两段校验形同虚设。
-    const subAgentPool = this.getInheritableToolPool({ allowDelegation });
+    // O7：可继承池单一入口，且定义侧与执行侧**同源**（防"定义侧过滤、执行侧放行"）
+    const subAgentPool = this.getInheritableToolPool({
+      allowDelegation,
+      allowedTools: definitionAllowedTools,
+    });
     // 定义侧 `disallowedTools` 与调用侧 `deniedTools` 合取（只收窄，不扩权）
     const deniedTools = resolveDeniedTools(
       input.deniedTools,
@@ -1073,7 +1067,9 @@ export class AgentTool implements Tool {
     agentId: string,
     systemPrompt: string,
     /** T9：该子代理是否被授权再委派（角色策略 × 深度） */
-    allowDelegation = false
+    allowDelegation = false,
+    /** P36：定义侧白名单（`descriptor.allowedTools`）；空 ⇒ 不限制 */
+    definitionAllowedTools: string[] = []
   ): Promise<{ result: string; completed: true }> {
     const { providerRegistry } = await import('@modules/ai');
     const agentModel = await resolveModelRoute(RouteKey.CHAT);
@@ -1095,7 +1091,10 @@ export class AgentTool implements Tool {
       .buildToolDefinitions(
         input.allowedTools,
         input.deniedTools,
-        this.getInheritableToolPool({ allowDelegation })
+        this.getInheritableToolPool({
+          allowDelegation,
+          allowedTools: definitionAllowedTools,
+        })
       )
       .map((t) => ({
         type: 'function' as const,
@@ -1248,6 +1247,18 @@ export class AgentTool implements Tool {
           agentId
         );
       }
+      // P36 fail-closed：请求越出角色白名单 ⇒ 明确报错（不静默取交集，见 routerRole.ts）
+      const roleViolation = describeRoleToolViolation(
+        agentInput.subagent_type ?? effectiveType,
+        descriptor.allowedTools,
+        Array.isArray(agentInput.allowedTools)
+          ? agentInput.allowedTools
+          : undefined
+      );
+      if (roleViolation) {
+        await this.agentLedgerLifecycle.settleRun(agentId, 'failed');
+        return this.agentLedgerLifecycle.failureResult(roleViolation, agentId);
+      }
       systemPrompt = descriptor.systemPrompt;
       if (descriptor.model && !agentInput.model) {
         agentInput.model = descriptor.model;
@@ -1311,6 +1322,8 @@ export class AgentTool implements Tool {
             canDelegate,
             // 定义侧裁剪（descriptor 命中来源的 disallowedTools ⇒ 只收窄工具池）
             definitionDisallowedTools: descriptor.disallowedTools ?? [],
+            // P36：定义侧白名单（router ⇒ 恰 4 个工具）
+            definitionAllowedTools: descriptor.allowedTools ?? [],
             onProgress,
           });
         } catch (err) {
@@ -1340,6 +1353,8 @@ export class AgentTool implements Tool {
         canDelegate,
         // 定义侧裁剪（descriptor 命中来源的 disallowedTools ⇒ 只收窄工具池）
         definitionDisallowedTools: descriptor.disallowedTools ?? [],
+        // P36：定义侧白名单（router ⇒ 恰 4 个工具）
+        definitionAllowedTools: descriptor.allowedTools ?? [],
         onProgress,
       });
     } catch (error) {
@@ -1438,6 +1453,8 @@ export class AgentTool implements Tool {
     canDelegate: boolean;
     /** 定义侧禁用工具（`descriptor.disallowedTools`）；缺省 = 不额外收窄 */
     definitionDisallowedTools?: string[];
+    /** 定义侧白名单（`descriptor.allowedTools`，P36）；缺省 = 不限制默认面 */
+    definitionAllowedTools?: string[];
     onProgress?: ToolCallProgress<AgentToolProgress>;
   }): Promise<ToolResult<unknown>> {
     const {
@@ -1451,6 +1468,7 @@ export class AgentTool implements Tool {
       context,
       canDelegate,
       definitionDisallowedTools,
+      definitionAllowedTools,
       onProgress,
     } = params;
 
@@ -1491,7 +1509,9 @@ export class AgentTool implements Tool {
       // T9：授权位（后台路径同前台口径）
       canDelegate,
       // 定义侧裁剪（后台路径同前台口径）：与 input.deniedTools 合取，只收窄
-      definitionDisallowedTools ?? []
+      definitionDisallowedTools ?? [],
+      // P36：定义侧白名单（后台路径同前台口径）
+      definitionAllowedTools ?? []
     )
       .then(async (runResult) => {
         // N1 修复（2026-08-27）：按 engine 真实结果置状态——原无条件置
@@ -1582,6 +1602,8 @@ export class AgentTool implements Tool {
     canDelegate: boolean;
     /** 定义侧禁用工具（`descriptor.disallowedTools`）；缺省 = 不额外收窄 */
     definitionDisallowedTools?: string[];
+    /** 定义侧白名单（`descriptor.allowedTools`，P36）；缺省 = 不限制默认面 */
+    definitionAllowedTools?: string[];
     onProgress?: ToolCallProgress<AgentToolProgress>;
   }): Promise<ToolResult<unknown>> {
     const {
@@ -1598,6 +1620,7 @@ export class AgentTool implements Tool {
       isSimpleTaskNow,
       canDelegate,
       definitionDisallowedTools,
+      definitionAllowedTools,
       onProgress,
     } = params;
 
@@ -1615,7 +1638,9 @@ export class AgentTool implements Tool {
         agentInput,
         agentId,
         systemPrompt,
-        canDelegate
+        canDelegate,
+        // P36：直调路径同样按角色白名单收窄（否则简单任务会把全量工具暴露给 router）
+        definitionAllowedTools ?? []
       );
       logger.info('Agent direct call completed', {
         agentId,
@@ -1635,7 +1660,9 @@ export class AgentTool implements Tool {
         // T9：授权位（角色策略 × 深度已在 execute 内合取）
         canDelegate,
         // 定义侧裁剪：与 input.deniedTools 合取，只收窄
-        definitionDisallowedTools ?? []
+        definitionDisallowedTools ?? [],
+        // P36：定义侧白名单
+        definitionAllowedTools ?? []
       );
       logger.info('Agent engine execution completed', {
         agentId,

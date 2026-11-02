@@ -26,6 +26,7 @@ import type { AgentInput } from './types';
 import {
   ALWAYS_BLOCKED_TOOLS,
   DELEGATE_BLOCKED_TOOLS,
+  grantsDelegationEntry,
   validateToolsetRequest,
 } from './AgentToolsetContract';
 import { toWireToolName } from '../toolNameCodec';
@@ -144,10 +145,26 @@ export class AgentToolPool {
    * 修复前只有 `runWithEngine` 内联排除了 `agent`/`Task`，而 `runDirectCall` 传的是
    * **全量池**（含 `agent`/`Task`/`sessions_yield`）—— 同一契约两处实现、且其中一处漏排除。
    */
-  getInheritableToolPool(options: { allowDelegation?: boolean } = {}): Tool[] {
+  getInheritableToolPool(
+    options: {
+      allowDelegation?: boolean;
+      /**
+       * P36：角色白名单（定义侧"默认面"）。
+       *
+       * 缺省/空 ⇒ 行为与改造前逐字相同（全量 − 阻断）；非空 ⇒ 再取交集，
+       * 新增内置工具**不会**自动落进该角色的工具面。
+       */
+      allowedTools?: readonly string[];
+    } = {}
+  ): Tool[] {
     // T9：被授权的角色不再剔除**委派入口**（`agent`/`Task`）；`sessions_yield` 等
-    // `ALWAYS_BLOCKED_TOOLS` 与授权无关，**始终**剔除（yield 属会话级语义）
-    const blockedNames = options.allowDelegation
+    // `ALWAYS_BLOCKED_TOOLS` 与授权无关，**始终**剔除（yield 属会话级语义）。
+    // P36：角色白名单**显式包含**委派入口（如 router）⇒ 等价于"该角色要派工"，
+    // 同样不剔除 —— 否则白名单声明了 `agent` 却拿不到，自相矛盾。
+    const allowDelegation =
+      options.allowDelegation === true ||
+      grantsDelegationEntry(options.allowedTools);
+    const blockedNames = allowDelegation
       ? ALWAYS_BLOCKED_TOOLS
       : DELEGATE_BLOCKED_TOOLS;
     const blocked = new Set(blockedNames.map((n) => n.toLowerCase()));
@@ -169,9 +186,14 @@ export class AgentToolPool {
         }
       );
     }
-    return all.filter(
+    const inheritable = all.filter(
       (t) => !blocked.has(t.name.toLowerCase()) && isValidMcpName(t.name)
     );
+    // P36：角色白名单（定义侧默认面收窄）。缺省 ⇒ 原样返回（行为不变）
+    const roleAllowed = options.allowedTools;
+    if (!roleAllowed || roleAllowed.length === 0) return inheritable;
+    const allowedSet = new Set(roleAllowed.map((n) => n.toLowerCase()));
+    return inheritable.filter((t) => allowedSet.has(t.name.toLowerCase()));
   }
 
   /**

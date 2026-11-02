@@ -57,6 +57,21 @@ export const DELEGATE_BLOCKED_TOOLS: readonly string[] = [
   ...ALWAYS_BLOCKED_TOOLS,
 ];
 
+/**
+ * 角色**白名单显式包含**委派入口 ⇒ 该角色需要拿到 `agent`（P36）。
+ *
+ * 用途：`router` 这类"只做分诊"的角色，其白名单里就有 `agent`；
+ * 若仍按 `canDelegate` 剔除委派入口，白名单会自相矛盾（声明了却拿不到）。
+ * 注意：这只放宽**池可见性**，实际调用仍由 `executeGuard` 的深度守卫把关。
+ */
+export function grantsDelegationEntry(
+  toolNames: readonly string[] | undefined
+): boolean {
+  if (!toolNames || toolNames.length === 0) return false;
+  const granted = new Set(toolNames.map((n) => n.trim().toLowerCase()));
+  return DELEGATION_ENTRY_TOOLS.some((n) => granted.has(n.toLowerCase()));
+}
+
 export interface ToolsetContract {
   /** 父级当前可见的**全部**工具名 */
   parentToolNames: readonly string[];

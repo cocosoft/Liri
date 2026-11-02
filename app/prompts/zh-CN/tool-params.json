@@ -16,7 +16,7 @@
     "agent.name": "所创建子代理的名称。使其可通过 SendMessage 寻址",
     "agent.prompt": "子代理要执行的任务",
     "agent.run_in_background": "设为 true 以在后台运行此代理",
-    "agent.subagent_type": "要使用的专用代理类型。可用值：general, explore, plan, verification, code-guide, statusline-setup （内置）。留空以使用默认值。",
+    "agent.subagent_type": "要使用的专用代理类型。可用值：general, explore, plan, verification, code-guide, statusline-setup, router （内置）。留空以使用默认值。",
     "agent.synthesize": "并行执行后，将所有 worker 的结果综合为单一报告。默认 false。",
     "agent.verify": "并行执行后，对每个 worker 的结果运行验证关卡（每个 worker 的 verified + allPassed）。默认 false。",
     "agents_list.limit": "本页最大条数（默认 50，上限 200）",

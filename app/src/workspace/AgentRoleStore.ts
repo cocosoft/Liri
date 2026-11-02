@@ -42,6 +42,10 @@ export interface AgentRoleRow {
   model: string | null;
   /** T9：能否再委派子代理（0/1；缺省 0 = 不可委派） */
   can_delegate: number;
+  /** P36：定义侧工具白名单（JSON 数组字符串；NULL = 不限制） */
+  allowed_tools: string | null;
+  /** P36：定义侧工具黑名单（JSON 数组字符串；NULL = 不额外排除） */
+  disallowed_tools: string | null;
   /** 图标 emoji */
   icon: string;
   /** 排序序号 */
@@ -72,9 +76,31 @@ export interface AgentRoleConfig {
    * 自选该授权（它只能选择用户已授权的角色）。
    */
   canDelegate?: boolean;
+  /**
+   * P36：定义侧工具**白名单**（空/缺省 ⇒ 不限制，沿用"全量 − 阻断"）。
+   *
+   * 与 `disallowedTools` 的分工：白名单决定默认面（新增内置工具不会自动获得），
+   * 黑名单在白名单之外再排除个别工具。两者都只收窄、不扩权
+   * （见 `tools/AgentTool/AgentDescriptorResolver.ts` 的同名字段）。
+   */
+  allowedTools?: string[];
+  /** P36：定义侧工具**黑名单**（在可继承池中再排除这些名字） */
+  disallowedTools?: string[];
   icon: string;
   sortOrder: number;
   enabled: boolean;
+}
+
+/** 解析 JSON 工具名清单（DB 边界校验：非数组/坏 JSON ⇒ `undefined`，不猜） */
+function parseToolList(value: string | null | undefined): string[] | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return undefined;
+    return parsed.filter((v): v is string => typeof v === 'string');
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -90,6 +116,9 @@ function rowToConfig(row: AgentRoleRow): AgentRoleConfig {
     systemPrompt: row.system_prompt,
     model: row.model ?? undefined,
     canDelegate: row.can_delegate === 1,
+    // P36：工具声明（坏 JSON ⇒ undefined，按"未声明"处理，不猜）
+    allowedTools: parseToolList(row.allowed_tools),
+    disallowedTools: parseToolList(row.disallowed_tools),
     icon: row.icon,
     sortOrder: row.sort_order,
     enabled: row.enabled === 1,
@@ -188,6 +217,8 @@ export class AgentRoleStore {
           system_prompt TEXT NOT NULL DEFAULT '',
           model       TEXT,
           can_delegate INTEGER NOT NULL DEFAULT 0,
+          allowed_tools    TEXT,
+          disallowed_tools TEXT,
           icon        TEXT NOT NULL DEFAULT '🤖',
           sort_order  INTEGER NOT NULL DEFAULT 0,
           enabled     INTEGER NOT NULL DEFAULT 1,
@@ -266,6 +297,29 @@ export class AgentRoleStore {
         );
       });
       logger.info('AgentRoleStore 已补齐 can_delegate 列', {
+        table: AGENT_ROLES_TABLE,
+      });
+    }
+
+    // P36：定义侧工具声明两列（NULL = 未声明 ⇒ 各自回退既有行为）
+    for (const [column, type] of [
+      ['allowed_tools', 'TEXT'],
+      ['disallowed_tools', 'TEXT'],
+    ] as const) {
+      if (columns.length === 0 || columns.includes(column)) continue;
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          `ALTER TABLE ${AGENT_ROLES_TABLE} ADD COLUMN ${column} ${type}`,
+          (err: Error | null) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
+          }
+        );
+      });
+      logger.info(`AgentRoleStore 已补齐 ${column} 列`, {
         table: AGENT_ROLES_TABLE,
       });
     }
@@ -401,8 +455,9 @@ export class AgentRoleStore {
       this.db!.run(
         `
         INSERT INTO ${AGENT_ROLES_TABLE}
-          (id, agent_id, name, expertise, weight, system_prompt, model, can_delegate, icon, sort_order, enabled, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, agent_id, name, expertise, weight, system_prompt, model, can_delegate,
+           allowed_tools, disallowed_tools, icon, sort_order, enabled, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
           id,
@@ -415,6 +470,11 @@ export class AgentRoleStore {
           config.model ?? null,
           // T9：缺省 0 = 不可委派（fail-closed）
           config.canDelegate ? 1 : 0,
+          // P36：工具声明（未声明 ⇒ NULL = 各自回退既有行为）
+          config.allowedTools ? JSON.stringify(config.allowedTools) : null,
+          config.disallowedTools
+            ? JSON.stringify(config.disallowedTools)
+            : null,
           config.icon,
           config.sortOrder,
           config.enabled ? 1 : 0,
@@ -469,6 +529,23 @@ export class AgentRoleStore {
       // T9：策略位（显式提交才改；缺省保持原值）
       sets.push('can_delegate = ?');
       params.push(config.canDelegate ? 1 : 0);
+    }
+    // P36：工具声明（显式提交才改；空数组 ⇒ 写 NULL = 撤销声明）
+    if (config.allowedTools !== undefined) {
+      sets.push('allowed_tools = ?');
+      params.push(
+        config.allowedTools.length > 0
+          ? JSON.stringify(config.allowedTools)
+          : null
+      );
+    }
+    if (config.disallowedTools !== undefined) {
+      sets.push('disallowed_tools = ?');
+      params.push(
+        config.disallowedTools.length > 0
+          ? JSON.stringify(config.disallowedTools)
+          : null
+      );
     }
     if (config.icon !== undefined) {
       sets.push('icon = ?');

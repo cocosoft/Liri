@@ -45,6 +45,14 @@ export interface AgentDescriptorRole {
    * 不参与 `allowedTools` 白名单，故不可能扩权。
    */
   disallowedTools?: string[];
+  /**
+   * **定义侧工具池白名单**（P36，只减不增）：该角色允许持有的工具名。
+   *
+   * 与 `disallowedTools` 的分工：白名单决定"默认面"（新增内置工具**不会**自动获得），
+   * 黑名单用于"在白名单之外再排除个别工具"。两者都不参与扩权：
+   * 白名单与父级可继承池取交集，模型显式请求越出白名单时由 `AgentTool` fail-closed 拒绝。
+   */
+  allowedTools?: string[];
 }
 
 /**
@@ -67,6 +75,8 @@ export interface AgentDescriptorRegistered {
   model?: string;
   /** 定义侧工具池收窄（只减不增）：见 `AgentDescriptorRole.disallowedTools` 说明 */
   disallowedTools?: string[];
+  /** 定义侧工具白名单（只减不增）：见 `AgentDescriptorRole.allowedTools` 说明 */
+  allowedTools?: string[];
 }
 
 /** 解析链依赖（由调用方注入真实取数逻辑） */
@@ -84,6 +94,12 @@ export interface AgentDescriptorDeps {
    * 取不到必须返回 `undefined`，不得抛错。
    */
   getBuiltinDisallowedTools?: (typeName: string) => string[] | undefined;
+  /**
+   * 按内置类型名读取其定义侧**白名单**（P36；如 `router` 的 4 个工具）。
+   *
+   * **可选**：未注入 ⇒ 内置分支不下发白名单（保持既有调用方可编译与行为不变）。
+   */
+  getBuiltinAllowedTools?: (typeName: string) => string[] | undefined;
 }
 
 /** 解析来源（写入日志，便于排障"这个提示词到底从哪来"） */
@@ -114,6 +130,8 @@ export type AgentDescriptorResult =
        * 不参与白名单，故不构成扩权路径。
        */
       disallowedTools?: string[];
+      /** 定义侧白名单（P36）：命中来源声明的"允许持有"工具；缺省 ⇒ 不限制默认面 */
+      allowedTools?: string[];
     }
   | { ok: false; error: string };
 
@@ -218,6 +236,8 @@ export async function resolveAgentDescriptor(params: {
       canDelegate: role.canDelegate === true,
       // 定义侧裁剪（只减不增）：随角色下发，由 AgentTool 与调用侧黑名单取并集
       disallowedTools: role.disallowedTools,
+      // 定义侧白名单（P36）：与父级可继承池取交集，只收窄
+      allowedTools: role.allowedTools,
     };
   }
 
@@ -231,6 +251,7 @@ export async function resolveAgentDescriptor(params: {
       model: registered.model,
       // 定义侧裁剪（只减不增）：运行时注册的 agent 同样可声明禁用项
       disallowedTools: registered.disallowedTools,
+      allowedTools: registered.allowedTools,
     };
   }
 
@@ -242,6 +263,8 @@ export async function resolveAgentDescriptor(params: {
       systemPrompt: params.baseSystemPrompt,
       // 定义侧裁剪（只减不增）：取自内置定义（如 verification 的 ['agent','notebook']）
       disallowedTools: params.deps.getBuiltinDisallowedTools?.(key),
+      // 定义侧白名单（P36）：如 router 的 4 个工具
+      allowedTools: params.deps.getBuiltinAllowedTools?.(key),
     };
   }
 

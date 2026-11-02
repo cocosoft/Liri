@@ -33,6 +33,8 @@ export type AgentType =
   | 'verification'
   | 'code-guide'
   | 'statusline-setup'
+  // P36（2026-11-02）：分诊角色 —— 只持有「派工/问人/看单/关单」四个工具
+  | 'router'
   | 'custom';
 
 /**

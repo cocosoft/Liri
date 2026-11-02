@@ -2,6 +2,9 @@
  * AgentTool常量定义
  */
 
+// P36（2026-11-02）：分诊角色的提示词与白名单同源（`routerRole.ts` 只依赖类型 ⇒ 无运行时环）
+import { ROUTER_SYSTEM_PROMPT } from './routerRole';
+
 /**
  * AgentTool名称
  */
@@ -74,6 +77,14 @@ export const BUILTIN_AGENTS = {
     type: 'statusline-setup' as const,
     description: 'Configure terminal status line display',
     supportBackground: false,
+  },
+  // P36（2026-11-02）：分诊角色 —— 工具面在 `routerRole.ts` 用**白名单**裁到 4 个
+  router: {
+    name: 'Router',
+    type: 'router' as const,
+    description: 'Triage only: delegate, ask human, read/close tickets',
+    supportBackground: false,
+    systemPrompt: ROUTER_SYSTEM_PROMPT,
   },
 };
 

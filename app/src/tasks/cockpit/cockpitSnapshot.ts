@@ -19,6 +19,20 @@ import {
   type TicketFacts,
 } from '../ticketStage';
 
+/**
+ * P33（2026-11-02）：策略变更对**在途**工作项的影响。
+ *
+ * 由 `autonomy/policyChange.ts` 写入 `workitems.policyEffect`；面板只展示、不判定。
+ */
+export interface CockpitPolicyEffect {
+  rules?: Array<{ id: string; change: 'changed' | 'disabled' }>;
+  requesterAllowed?: false;
+  proactive?: false;
+  fromPolicyId?: string;
+  toPolicyId?: string;
+  at?: string;
+}
+
 /** 面板卡片的最小输入（由调用方从 workitems / assignments / executions 组装） */
 export interface CockpitItem {
   /** 工作项 id（唯一；重复会被 `checkCockpitInvariants` 报出） */
@@ -34,6 +48,8 @@ export interface CockpitItem {
   lastAction?: string;
   /** 可接管会话（P39-b-2：最新派工 / 工作项行上的 `session_id`；缺省 ⇒ 无可接管） */
   sessionId?: string;
+  /** P33：策略变更影响（存在即在卡片上提示；缺省 ⇒ 无变更） */
+  policyEffect?: CockpitPolicyEffect;
 }
 
 /** 分组（`key` 与 `ticketStageKey()` 同源） */

@@ -18,6 +18,15 @@ export interface CockpitItemDto {
   succeeded?: boolean;
   lastAction?: string;
   sessionId?: string;
+  /** P33：策略变更影响（存在即提示；缺省 ⇒ 无变更） */
+  policyEffect?: {
+    rules?: Array<{ id: string; change: "changed" | "disabled" }>;
+    requesterAllowed?: false;
+    proactive?: false;
+    fromPolicyId?: string;
+    toPolicyId?: string;
+    at?: string;
+  };
 }
 
 export interface CockpitGroupDto {

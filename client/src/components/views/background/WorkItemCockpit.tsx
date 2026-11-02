@@ -139,6 +139,29 @@ export default function WorkItemCockpit({
     return key ? t(`backgroundStatus.workItems.${key}`) : staged.fallbackLabel;
   };
 
+  /** P33：策略变更提示文案（三类效果拼成一句；无效果 ⇒ null） */
+  const policyEffectOf = (item: CockpitItemDto): string | null => {
+    const effect = item.policyEffect;
+    if (!effect) return null;
+    const parts: string[] = [];
+    if (effect.rules?.length) {
+      parts.push(
+        t("backgroundStatus.workItems.policyEffectRules", {
+          ids: effect.rules
+            .map((rule) => `${rule.id}(${rule.change})`)
+            .join(", "),
+        }),
+      );
+    }
+    if (effect.requesterAllowed === false) {
+      parts.push(t("backgroundStatus.workItems.policyEffectRequester"));
+    }
+    if (effect.proactive === false) {
+      parts.push(t("backgroundStatus.workItems.policyEffectProactive"));
+    }
+    return parts.length > 0 ? parts.join(" · ") : null;
+  };
+
   const handleTakeover = async (item: CockpitItemDto): Promise<void> => {
     setBusyId(item.id);
     setTakeoverErrors((prev) => {
@@ -290,6 +313,7 @@ export default function WorkItemCockpit({
               {itemsByTab[tab].map((staged) => {
                 const item = staged.item;
                 const expanded = expandedId === item.id;
+                const policyDetail = policyEffectOf(item);
                 return (
                   <li
                     key={item.id}
@@ -319,6 +343,14 @@ export default function WorkItemCockpit({
                             {t("backgroundStatus.workItems.lastAction", {
                               action: item.lastAction,
                             })}
+                          </div>
+                        )}
+                        {policyDetail && (
+                          <div className="mt-1 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 min-w-0">
+                            <span className="px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex-shrink-0">
+                              {t("backgroundStatus.workItems.policyEffect")}
+                            </span>
+                            <span className="truncate">{policyDetail}</span>
                           </div>
                         )}
                       </div>

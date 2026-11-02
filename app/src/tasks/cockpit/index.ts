@@ -15,6 +15,7 @@ export type {
   CockpitGroup,
   CockpitItem,
   CockpitMetrics,
+  CockpitPolicyEffect,
   CockpitSnapshot,
 } from './cockpitSnapshot';
 export { loadCockpitItems, markActionableAttention } from './cockpitSource';

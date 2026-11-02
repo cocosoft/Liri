@@ -16,7 +16,43 @@
  */
 import type { TicketAssignmentRecord } from '../ticketAssignmentStore';
 import type { TicketFacts } from '../ticketStage';
-import type { CockpitItem } from './cockpitSnapshot';
+import type { CockpitItem, CockpitPolicyEffect } from './cockpitSnapshot';
+
+/** P33：把 `workitems.policyEffect` 收敛为面板展示结构（非法 ⇒ undefined，不猜） */
+function toPolicyEffect(raw: unknown): CockpitPolicyEffect | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const record = raw as Record<string, unknown>;
+  const rules = Array.isArray(record.rules)
+    ? record.rules
+        .filter(
+          (entry): entry is Record<string, unknown> =>
+            typeof entry === 'object' && entry !== null
+        )
+        .filter(
+          (entry) =>
+            typeof entry.id === 'string' &&
+            (entry.change === 'changed' || entry.change === 'disabled')
+        )
+        .map((entry) => ({
+          id: String(entry.id),
+          change: entry.change as 'changed' | 'disabled',
+        }))
+    : [];
+
+  const effect: CockpitPolicyEffect = {
+    ...(rules.length > 0 ? { rules } : {}),
+    ...(record.requesterAllowed === false ? { requesterAllowed: false } : {}),
+    ...(record.proactive === false ? { proactive: false } : {}),
+    ...(typeof record.fromPolicyId === 'string'
+      ? { fromPolicyId: record.fromPolicyId }
+      : {}),
+    ...(typeof record.toPolicyId === 'string'
+      ? { toPolicyId: record.toPolicyId }
+      : {}),
+    ...(typeof record.at === 'string' ? { at: record.at } : {}),
+  };
+  return Object.keys(effect).length > 0 ? effect : undefined;
+}
 
 export interface CockpitSourceDeps {
   /** 读取工作项行（`listPdcaWorkItems()` 的返回值） */
@@ -42,6 +78,7 @@ export async function loadCockpitItems(
 
     const assignments = await deps.listAssignments(id);
     const latest = assignments.at(-1);
+    const policyEffect = toPolicyEffect(row.policyEffect);
 
     const facts: TicketFacts = {
       ...(deps.isEndedStatus(String(row.status ?? '')) ? { ended: true } : {}),
@@ -65,6 +102,7 @@ export async function loadCockpitItems(
       ...(typeof row.lastAction === 'string'
         ? { lastAction: row.lastAction }
         : {}),
+      ...(policyEffect ? { policyEffect } : {}),
       // P39-b-2：接管目标 —— 最新派工优先，其次工作项行自身的 `session_id`
       ...(latest?.sessionId
         ? { sessionId: latest.sessionId }

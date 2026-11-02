@@ -175,3 +175,40 @@ describe('P37 · 面板四条件标记', () => {
     expect(snapshot.groups[0]!.items.map((item) => item.id)).toEqual(['w1']);
   });
 });
+
+describe('P33 · 策略变更标记', () => {
+  it('合法 policyEffect ⇒ 透出；非法 ⇒ 缺省（不猜）', async () => {
+    const items = await loadCockpitItems(
+      deps(
+        [
+          {
+            id: 'w1',
+            status: 'active',
+            title: 'a',
+            policyEffect: {
+              rules: [{ id: 'r1', change: 'disabled' }],
+              proactive: false,
+              fromPolicyId: 'p1',
+              toPolicyId: 'p2',
+            },
+          },
+          {
+            id: 'w2',
+            status: 'active',
+            title: 'b',
+            policyEffect: { rules: 'bad' },
+          },
+        ],
+        {}
+      )
+    );
+
+    expect(items[0]!.policyEffect).toEqual({
+      rules: [{ id: 'r1', change: 'disabled' }],
+      proactive: false,
+      fromPolicyId: 'p1',
+      toPolicyId: 'p2',
+    });
+    expect(items[1]!.policyEffect).toBeUndefined();
+  });
+});

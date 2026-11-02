@@ -59,6 +59,10 @@ function snapshot() {
             costTokens: 1200,
             lastAction: "等待授权",
             sessionId: "s1",
+            policyEffect: {
+              rules: [{ id: "r1", change: "disabled" }],
+              proactive: false,
+            },
           },
         ],
       },
@@ -108,6 +112,18 @@ describe("WorkItemCockpit（P39-b-2）", () => {
 
     fireEvent.click(screen.getByText("backgroundStatus.workItems.tabEnded"));
     expect(await screen.findByText("已结束项")).toBeTruthy();
+  });
+
+  it("策略变更 ⇒ 卡片显示提示（P33）", async () => {
+    render(<WorkItemCockpit />);
+    await screen.findByText("修复 CI 失败");
+
+    expect(
+      screen.getByText("backgroundStatus.workItems.policyEffect"),
+    ).toBeTruthy();
+    // 详情由三类效果拼接：mock 的 t 返回 key
+    expect(screen.getByText(/policyEffectRules/)).toBeTruthy();
+    expect(screen.getByText(/policyEffectProactive/)).toBeTruthy();
   });
 
   it("缺样本指标显示 —（不把未知当 0）", async () => {

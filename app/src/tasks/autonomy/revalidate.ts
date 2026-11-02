@@ -51,7 +51,7 @@ export interface RevalidateOptions {
 }
 
 /** 解析 `workitems.mandate`（不合法 ⇒ `undefined`，不猜） */
-function parseMandate(raw: unknown): Mandate | undefined {
+export function parseMandate(raw: unknown): Mandate | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined;
   const record = raw as Record<string, unknown>;
 

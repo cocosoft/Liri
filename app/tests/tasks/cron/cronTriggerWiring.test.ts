@@ -109,6 +109,7 @@ describe('cron Trigger→Ticket 接线', () => {
       writeTicket: tickets.write,
       now: () => AT + 1,
       loadPolicy: disabledPolicy,
+      observePolicyChange: async () => null,
     });
 
     try {
@@ -139,6 +140,7 @@ describe('cron Trigger→Ticket 接线', () => {
       writeTicket: tickets.write,
       now: () => AT + 1,
       loadPolicy: disabledPolicy,
+      observePolicyChange: async () => null,
     });
 
     try {
@@ -179,6 +181,7 @@ describe('cron Trigger→Ticket 接线', () => {
       writeTicket: tickets.write,
       now: () => AT + 1,
       loadPolicy: disabledPolicy,
+      observePolicyChange: async () => null,
     });
 
     try {
@@ -204,6 +207,7 @@ describe('P33-a 策略接入 cron sink', () => {
       writeTicket: tickets.write,
       now: () => AT + 1,
       loadPolicy: () => enabledPolicy({ acceptMode: 'observe' }),
+      observePolicyChange: async () => null,
     });
 
     try {
@@ -228,6 +232,7 @@ describe('P33-a 策略接入 cron sink', () => {
       writeTicket: tickets.write,
       now: () => AT + 1,
       loadPolicy: () => enabledPolicy(),
+      observePolicyChange: async () => null,
     });
 
     try {
@@ -258,6 +263,7 @@ describe('P33-a 策略接入 cron sink', () => {
       writeTicket: tickets.write,
       now: () => AT + 1,
       loadPolicy: () => enabledPolicy({ rules: [] }),
+      observePolicyChange: async () => null,
     });
 
     try {

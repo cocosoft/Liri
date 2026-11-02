@@ -48,6 +48,10 @@ import {
   loadAutonomyPolicy,
   type LoadedAutonomyPolicy,
 } from '../autonomy/policyConfig';
+import {
+  getPolicyChangeTracker,
+  type PolicyChangeDelivery,
+} from '../autonomy/policyChange';
 import type { CronJob, CronJobResult } from './types';
 
 const logger = getLogger('tasks:cron:trigger-wiring');
@@ -61,6 +65,10 @@ export interface CronTriggerPipelineOptions {
   now?: () => number;
   /** 注入策略读取（测试用；缺省读 `autonomy.policy` 配置） */
   loadPolicy?: () => LoadedAutonomyPolicy;
+  /** 注入配置变更观察（测试用；缺省进程级单例，仅 `policyId` 变化时做 IO） */
+  observePolicyChange?: (
+    loaded: LoadedAutonomyPolicy
+  ) => Promise<PolicyChangeDelivery | null>;
 }
 
 /** 供 `CronScheduler` 调用的作业生命周期钩子 */
@@ -121,6 +129,10 @@ export async function startCronTriggerPipeline(
   const read = options.readTicket ?? readPdcaWorkItem;
   const write = options.writeTicket ?? writePdcaWorkItem;
   const loadPolicy = options.loadPolicy ?? loadAutonomyPolicy;
+  const observePolicyChange =
+    options.observePolicyChange ??
+    ((loaded: LoadedAutonomyPolicy) =>
+      getPolicyChangeTracker().observe(loaded));
   /** 本进程内**已准入**的 Trigger（observe/off 不进入 ⇒ 零副作用） */
   const admitted = new Set<string>();
   /** 准入时派生的策略元数据（随 Ticket 同一写入落库） */
@@ -155,6 +167,9 @@ export async function startCronTriggerPipeline(
     async onJobStart(job, scheduledAt) {
       const trigger = cronTriggerOf(job, scheduledAt);
       const loaded = loadPolicy();
+      // P33：先观察配置变更（仅 policyId 变化时做 IO；失败不阻断本 tick）
+      await observePolicyChange(loaded);
+
       const decision = evaluateAutonomyTrigger({
         policy: loaded.config,
         policyId: loaded.policyId,

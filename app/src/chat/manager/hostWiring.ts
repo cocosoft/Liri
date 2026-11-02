@@ -13,10 +13,14 @@
  * 依赖一律**显式参数注入**（沿用 `chat/manager/` 既有做法，不建单例）。
  */
 
-import { getMemoryPressureMonitor } from '@openliri/infra/monitoring';
+import {
+  getLogger,
+  getMemoryPressureMonitor,
+} from '@openliri/infra/monitoring';
 import { registerSessionSummaryMemoryType } from '@openliri/infra/memory';
 import { compactionOrchestrator } from '@modules/context';
 import {
+  revalidateEndedTicketsForSession,
   setEvolutionAuditSink,
   setGoalEventSink,
   setSelfWakeAuditSink,
@@ -34,6 +38,8 @@ import {
   type RequestEventAppender,
 } from '../services/requestBoundary';
 import { setYieldRecoveryAuditSink } from '../yield';
+
+const logger = getLogger('chat:host-wiring');
 
 export interface HostWiringPorts {
   /** 会话事件日志的唯一写入出口（`chat` 层持有；多方 sink 共用同一实现） */
@@ -100,7 +106,20 @@ export function installHostWiring(ports: HostWiringPorts): void {
   setExecutionEventSink((sid, event) => ports.appendStreamEvent(sid, event));
   // P36-b（2026-11-02）：消息归属的持有者读取端口 —— 同上手法：`execution`（service）不读
   // app 的派工表，由宿主注入「最新 running 派工」投影（未注入 ⇒ 一律 none，行为等于改造前）。
-  setSessionOwnerLoader(resolveSessionOwner);
+  // P33（2026-11-02）：会话**当前无人持有**时，对已结束且带 Mandate 的工作项做唤醒前重校验
+  // （策略默认 `enabled=false` ⇒ 内部直接返回，零行为变更）。
+  setSessionOwnerLoader(async (sessionId) => {
+    const owner = await resolveSessionOwner(sessionId);
+    if (owner.kind === 'none') {
+      await revalidateEndedTicketsForSession(sessionId).catch((error) => {
+        logger.warn('Mandate 重校验失败（不影响消息处理）', {
+          sessionId,
+          error: String(error),
+        });
+      });
+    }
+    return owner;
+  });
   // D 阶段（v5 P0-⑥）：session_summary 自定义类型注册——构造期即执行（早于任何
   // memory scanner/memdir 扫描与压缩触发；registerMemoryType 幂等，重复调用安全）
   registerSessionSummaryMemoryType();

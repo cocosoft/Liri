@@ -184,6 +184,14 @@ class PdcaCheckpointStore {
     // P34（2026-11-02）：工作项语义列（来源/归属/目录/授权/产物）。
     // 存量库只有 (work_item_id, data, status, updated_at) ⇒ 幂等补列，**只增不改**。
     await this.ensureColumns(db, WORKITEM_TABLE, WORK_ITEM_COLUMNS);
+    // P33：按会话查"已结束且带 Mandate"的工作项（唤醒前重校验）。
+    // ⚠️ 索引必须**在补列之后**建：新库首版表无 session_id，先建索引会初始化失败。
+    await new Promise<void>((resolve, reject) => {
+      db.run(
+        `CREATE INDEX IF NOT EXISTS idx_workitems_session ON ${WORKITEM_TABLE}(session_id)`,
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
   }
 
   /**
@@ -523,35 +531,54 @@ class PdcaCheckpointStore {
         : `SELECT * FROM ${WORKITEM_TABLE} WHERE status = ? ORDER BY updated_at DESC`,
       status === undefined ? [] : [status]
     );
-    return rows.map((row) => {
-      const data = parseCheckpointData(row.data) ?? {};
-      const origin =
-        row.origin_channel || row.origin_thread_id
-          ? {
-              ...((data.origin as Record<string, unknown> | undefined) ?? {}),
-              ...(row.origin_channel ? { channel: row.origin_channel } : {}),
-              ...(row.origin_thread_id
-                ? { threadId: row.origin_thread_id }
-                : {}),
-            }
-          : data.origin;
-      const artifacts = parseJsonColumn(row.artifacts);
-      const mandate = parseJsonColumn(row.mandate);
-      return {
-        ...data,
-        id: String(row.work_item_id ?? data.id ?? ''),
-        status: (row.status ?? data.status) as unknown,
-        updatedAt: row.updated_at ?? data.updatedAt,
-        ...(row.source_id ? { sourceId: row.source_id } : {}),
-        ...(origin ? { origin } : {}),
-        ...(row.workspace_dir ? { workspaceDir: row.workspace_dir } : {}),
-        ...(row.session_id ? { sessionId: row.session_id } : {}),
-        ...(row.policy_id ? { policyId: row.policy_id } : {}),
-        ...(row.parent_id ? { parentId: row.parent_id } : {}),
-        ...(artifacts !== undefined ? { artifacts } : {}),
-        ...(mandate !== undefined ? { mandate } : {}),
-      };
-    });
+    return rows.map((row) => this.toWorkItemView(row));
+  }
+
+  /**
+   * P33（2026-11-02）：按**会话**列出工作项（Mandate 重校验的唯一读入口）。
+   *
+   * 走 `session_id` 列索引 ⇒ 消息热路径不扫全表。
+   */
+  async listWorkItemsBySession(
+    sessionId: string
+  ): Promise<Array<Record<string, unknown>>> {
+    if (!sessionId) return [];
+    const rows = await this.allRows(
+      `SELECT * FROM ${WORKITEM_TABLE} WHERE session_id = ? ORDER BY updated_at DESC`,
+      [sessionId]
+    );
+    return rows.map((row) => this.toWorkItemView(row));
+  }
+
+  /** `data` 与语义列合并视图（唯一映射点；`listWorkItems*` 共用） */
+  private toWorkItemView(
+    row: Record<string, unknown>
+  ): Record<string, unknown> {
+    const data = parseCheckpointData(row.data) ?? {};
+    const origin =
+      row.origin_channel || row.origin_thread_id
+        ? {
+            ...((data.origin as Record<string, unknown> | undefined) ?? {}),
+            ...(row.origin_channel ? { channel: row.origin_channel } : {}),
+            ...(row.origin_thread_id ? { threadId: row.origin_thread_id } : {}),
+          }
+        : data.origin;
+    const artifacts = parseJsonColumn(row.artifacts);
+    const mandate = parseJsonColumn(row.mandate);
+    return {
+      ...data,
+      id: String(row.work_item_id ?? data.id ?? ''),
+      status: (row.status ?? data.status) as unknown,
+      updatedAt: row.updated_at ?? data.updatedAt,
+      ...(row.source_id ? { sourceId: row.source_id } : {}),
+      ...(origin ? { origin } : {}),
+      ...(row.workspace_dir ? { workspaceDir: row.workspace_dir } : {}),
+      ...(row.session_id ? { sessionId: row.session_id } : {}),
+      ...(row.policy_id ? { policyId: row.policy_id } : {}),
+      ...(row.parent_id ? { parentId: row.parent_id } : {}),
+      ...(artifacts !== undefined ? { artifacts } : {}),
+      ...(mandate !== undefined ? { mandate } : {}),
+    };
   }
 }
 
@@ -640,6 +667,13 @@ export function listPdcaWorkItems(
   status?: string
 ): Promise<Array<Record<string, unknown>>> {
   return getStore().listWorkItems(status);
+}
+
+/** P33：按会话列出工作项（Mandate 重校验） */
+export function listPdcaWorkItemsBySession(
+  sessionId: string
+): Promise<Array<Record<string, unknown>>> {
+  return getStore().listWorkItemsBySession(sessionId);
 }
 
 /**

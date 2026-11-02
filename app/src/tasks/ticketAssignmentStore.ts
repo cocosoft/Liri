@@ -225,6 +225,40 @@ class TicketAssignmentStore {
     );
   }
 
+  /**
+   * P36-b（2026-11-02）：启动期**孤儿派工收尾**（读侧投影的"永不解除持有"根因修复）。
+   *
+   * 背景：`resolveSessionOwner` 以"最新一条 `running` 派工"判定会话持有者；进程崩溃时
+   * 派工走不到 `ended`（`AlwaysOnBridge.report` 未执行）⇒ 重启后该会话被**永久**判为自主持有
+   * （`MESSAGE_OWNERSHIP` 开启时消息只会排队/超时拒绝，永远拿不到所有权）。
+   *
+   * 判据：**单进程 + SQLite 是既有上限**（`消息归属与交还方案` §9.1）⇒ 启动瞬间不可能有本进程
+   * 的执行在跑，所有 `state='running'` 的行都是**上一进程遗留** ⇒ 统一收尾为
+   * `ended` + `reportState='dropped'`（"执行器未产出结果"），读侧随即返回 `none`。
+   *
+   * 幂等：只改 `running`；再调一次返回 0。
+   *
+   * @returns 本次收尾的行数（供启动日志）
+   */
+  async closeOrphanRunning(now: number): Promise<number> {
+    const db = await this.init();
+    return new Promise<number>((resolve, reject) => {
+      db.run(
+        `UPDATE ${TICKET_ASSIGNMENTS_TABLE}
+            SET state = 'ended',
+                report_state = 'dropped',
+                ended_at = COALESCE(ended_at, ?),
+                updated_at = ?
+          WHERE state = 'running'`,
+        [now, now],
+        function (this: { changes: number }, err: Error | null) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        }
+      );
+    });
+  }
+
   /** 按工作项列出派工（时间正序；"最新"即末条） */
   async listByWorkItem(workItemId: string): Promise<TicketAssignmentRecord[]> {
     const rows = await this.allRows(
@@ -318,6 +352,20 @@ export function listTicketAssignmentsBySession(
   sessionId: string
 ): Promise<TicketAssignmentRecord[]> {
   return getStore().listBySession(sessionId);
+}
+
+/**
+ * P36-b（2026-11-02）：**启动期**收尾上一进程遗留的 `running` 派工。
+ *
+ * 只在启动链里显式调用一次（`main.ts` 的 `Recovery`，紧跟 `executionManager.recover()`）——
+ * 不挂定时器、不在读路径隐式改写（CS03：不做没有真实场景的兜底）。
+ *
+ * @returns 收尾行数（0 = 无遗留，正常关机的常态）
+ */
+export function closeOrphanRunningAssignments(
+  now: number = Date.now()
+): Promise<number> {
+  return getStore().closeOrphanRunning(now);
 }
 
 /**

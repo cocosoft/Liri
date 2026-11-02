@@ -321,6 +321,8 @@ export type {
 export {
   ASSIGNMENT_STATE_RUNNING,
   isActiveAssignmentState,
+  // P36-b（2026-11-02）：启动期收尾遗留 running 派工（ownership 投影的根因修复）
+  closeOrphanRunningAssignments,
   closeTicketAssignmentStore,
   findWorkItemIdBySession,
   latestTicketAssignment,
@@ -334,6 +336,8 @@ export type {
   ReportState,
   TicketAssignmentRecord,
 } from './ticketAssignmentStore';
+// P36-b（2026-11-02）：装配期收尾遗留 running 派工（ownership 投影的"永不解除持有"根因修复）
+export { sweepOrphanAssignments } from './ticketAssignmentRecovery';
 
 // P39（2026-11-02）：驾驶舱读侧聚合（方案 §5 P39）——纯函数；UI/评测集不在本批
 export {

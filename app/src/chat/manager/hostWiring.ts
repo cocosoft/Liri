@@ -24,6 +24,7 @@ import {
   setEvolutionAuditSink,
   setGoalEventSink,
   setSelfWakeAuditSink,
+  sweepOrphanAssignments,
 } from '@modules/tasks';
 import { setWorkflowRunEventSink } from '@modules/workflow';
 import {
@@ -120,6 +121,10 @@ export function installHostWiring(ports: HostWiringPorts): void {
     }
     return owner;
   });
+  // P36-b（2026-11-02）：装配期收尾上一进程遗留的 `running` 派工 —— 否则上面的读侧投影会把
+  // 该会话永久判为自主持有（`MESSAGE_OWNERSHIP` 开启时消息只会排队/超时）。wiring 是同步函数
+  // ⇒ 不阻塞装配；失败只留痕（最坏与修复前一致，由下一轮 report 兜底）。
+  void sweepOrphanAssignments();
   // D 阶段（v5 P0-⑥）：session_summary 自定义类型注册——构造期即执行（早于任何
   // memory scanner/memdir 扫描与压缩触发；registerMemoryType 幂等，重复调用安全）
   registerSessionSummaryMemoryType();

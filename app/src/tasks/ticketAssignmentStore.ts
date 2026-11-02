@@ -30,6 +30,12 @@ export const TICKET_ASSIGNMENTS_TABLE = 'ticket_assignments';
 /** 派工状态（与参考实现一致：独立于 Ticket 生命周期） */
 export type AssignmentState = 'pending' | 'running' | 'ended';
 
+/**
+ * 状态字面量的**唯一事实源**（`lint:state-ratchet` Register-or-Fail）：
+ * 判定"派工是否在跑"必须引用本常量，不得再裸写 `'running'`（CS02）。
+ */
+export const ASSIGNMENT_STATE_RUNNING: AssignmentState = 'running';
+
 /** 最新一次汇报的状态（6 态；未知一律不猜） */
 export type ReportState =
   | 'progress'

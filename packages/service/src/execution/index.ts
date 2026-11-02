@@ -80,6 +80,23 @@ export type {
 // PR5-S3（2026-10-09）：execution 生命周期会话事件发射器（宿主经 setExecutionEventSink 注入）
 export { setExecutionEventSink, emitExecutionEvent } from './eventSink';
 export type { ExecutionEventAppender, ExecutionEventType } from './eventSink';
+// P36-b（2026-11-02）：消息归属判定（纯函数 + 宿主注入的持有者读取端口）
+export {
+  emitOwnershipDecision,
+  getSessionOwner,
+  resolveMessageOwnership,
+  setSessionOwnerLoader,
+} from './ownership';
+export type {
+  MainLoopAction,
+  OwnershipDecision,
+  OwnershipEventInput,
+  OwnershipInput,
+  OwnershipReason,
+  SessionOwner,
+  SessionOwnerKind,
+  SessionOwnerLoader,
+} from './ownership';
 // 阶段 4（2026-10-12）：执行域「原生状态 → 四原语」**只读投影**（映射纯函数 + 广播出口）
 export {
   projectExecutionStatus,

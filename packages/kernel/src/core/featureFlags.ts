@@ -545,6 +545,15 @@ export const FEATURE_FLAGS = {
    * `FEATURE_CLIENT_STREAM_EXECUTION=true`。
    */
   CLIENT_STREAM_EXECUTION: false,
+  /**
+   * P36-b（2026-11-02）：**消息归属判定**（默认关 = 零行为变更）。
+   *
+   * 开 ⇒ 人工消息进入前读会话持有者（`ticket_assignments` 最新 running 派工）：
+   * 空闲 ⇒ `accept`；被自主/人工持有 ⇒ `queue`（不顶替执行器）。判定落
+   * `execution/ownership_decision`，并把 `work_item_id` 带到执行记录。
+   * 关 ⇒ 不读派工表、不发事件（与改造前逐字相同）。`FEATURE_MESSAGE_OWNERSHIP=true`。
+   */
+  MESSAGE_OWNERSHIP: false,
 
   // ───── 暴露面鉴权（2026-10-24；默认开 = 安全基线）─────
   /**

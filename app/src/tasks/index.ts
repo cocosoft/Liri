@@ -314,6 +314,7 @@ export type {
   TicketStage,
 } from './ticketStage';
 export {
+  ASSIGNMENT_STATE_RUNNING,
   closeTicketAssignmentStore,
   findWorkItemIdBySession,
   latestTicketAssignment,

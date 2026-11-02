@@ -22,7 +22,12 @@ import {
   setSelfWakeAuditSink,
 } from '@modules/tasks';
 import { setWorkflowRunEventSink } from '@modules/workflow';
-import { setExecutionEventSink } from '@openliri/service/execution';
+import {
+  setExecutionEventSink,
+  setSessionOwnerLoader,
+} from '@openliri/service/execution';
+// P36-b（2026-11-02）：会话持有者的读侧投影（读 `ticket_assignments`；service 不反向依赖 app）
+import { resolveSessionOwner } from '../ownership/resolveSessionOwner';
 import {
   finishRequest,
   startRequest,
@@ -93,6 +98,9 @@ export function installHostWiring(ports: HostWiringPorts): void {
   // —— 同上手法的唯一写入出口（`execution/status_changed` / `execution/recovery`）。
   // `execution` 模块不持有会话事件日志 ⇒ 经注入避免反向依赖；未注入 ⇒ 如实不落。
   setExecutionEventSink((sid, event) => ports.appendStreamEvent(sid, event));
+  // P36-b（2026-11-02）：消息归属的持有者读取端口 —— 同上手法：`execution`（service）不读
+  // app 的派工表，由宿主注入「最新 running 派工」投影（未注入 ⇒ 一律 none，行为等于改造前）。
+  setSessionOwnerLoader(resolveSessionOwner);
   // D 阶段（v5 P0-⑥）：session_summary 自定义类型注册——构造期即执行（早于任何
   // memory scanner/memdir 扫描与压缩触发；registerMemoryType 幂等，重复调用安全）
   registerSessionSummaryMemoryType();

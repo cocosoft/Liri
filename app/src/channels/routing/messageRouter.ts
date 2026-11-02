@@ -81,8 +81,11 @@ import { applyAttachmentPolicy } from './attachmentPolicy';
 // PR1（2026-10-09）：Execution 生命周期（ownership + generation fencing；详见 spec）
 // PR2（2026-10-09）：类型化中止原因（替代 error.message 文案匹配；CS02）
 import {
+  emitOwnershipDecision,
   getExecutionManager,
+  getSessionOwner,
   isExecutionAbortedError,
+  resolveMessageOwnership,
 } from '@openliri/service/execution';
 // PR2（2026-10-09）：两段式取消灰度开关（默认关 = 保留既有"超时即释放"行为）
 import { feature } from '@openliri/kernel';
@@ -579,7 +582,32 @@ async function routeChannelMessageInner(
       // 完成/失败经 `ExecutionManager` 的 fencing 判定，被顶替（STALE）时静默忽略，
       // 绝不改写新执行的 session 状态。
       const executionManager = getExecutionManager();
-      let lease = executionManager.acquire(safeSessionId, message.messageId);
+      // P36-b（2026-11-02）：入场时读"谁持有会话"（只读投影；灰度关 ⇒ 零开销/零行为）
+      const ownershipOwner = feature('MESSAGE_OWNERSHIP')
+        ? await getSessionOwner(safeSessionId)
+        : undefined;
+      let lease = executionManager.acquire(
+        safeSessionId,
+        message.messageId,
+        ownershipOwner?.ticketId
+      );
+      if (ownershipOwner) {
+        // `isCurrent()` 才是权威的"是否被占"：领取失败 ⇒ 本条以 QUEUED 排队（既有语义）
+        const decision = resolveMessageOwnership({
+          occupied: !lease.isCurrent(),
+          ownerKind: ownershipOwner.kind,
+        });
+        emitOwnershipDecision({
+          sessionId: safeSessionId,
+          executionId: lease.executionId,
+          decision,
+          ownerKind: ownershipOwner.kind,
+          ...(ownershipOwner.ticketId
+            ? { ownerTicketId: ownershipOwner.ticketId }
+            : {}),
+          ...(message.messageId ? { messageId: message.messageId } : {}),
+        });
+      }
       // PR2 遗留-2（2026-10-09）：**Router 级准入** —— 本执行以 QUEUED 创建（会话仍被"未确认
       // 取消"的上一执行占用）⇒ 有界等待所有权；超时 ⇒ 放弃本次执行（不启动 LLM）。
       // 由 `EXECUTION_TWO_PHASE_CANCEL` 门控（默认关 ⇒ 行为不变）。
@@ -588,7 +616,11 @@ async function routeChannelMessageInner(
         while (!lease.isCurrent() && Date.now() < admissionDeadline) {
           lease.release(); // 释放本次 QUEUED 尝试（避免堆积记录）
           await sleep(ADMISSION_POLL_MS);
-          lease = executionManager.acquire(safeSessionId, message.messageId);
+          lease = executionManager.acquire(
+            safeSessionId,
+            message.messageId,
+            ownershipOwner?.ticketId
+          );
         }
         if (!lease.isCurrent()) {
           lease.release();

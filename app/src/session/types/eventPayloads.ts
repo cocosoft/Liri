@@ -1174,6 +1174,31 @@ export interface LiriEventMap {
     taskType?: string;
   };
 
+  /**
+   * P36-b（2026-11-02）：**消息归属判定**（log-only，不进消息 surface）。
+   *
+   * 记"这条消息进入时，会话被谁持有、判定为什么动作"——用于审计与面板复算，
+   * 不驱动状态机（归属是**派生视图**，不写状态位）。
+   */
+  'execution/ownership_decision': {
+    /** 本次执行标识（判定发生在 acquire 之后 ⇒ 必有） */
+    executionId: string;
+    /** 判定动作（当前策略只有 accept / queue；严格模式留作后续开关） */
+    action: 'accept' | 'queue';
+    /** 判定理由（闭集，禁止自由文本） */
+    reason:
+      | 'session_free'
+      | 'owner_autonomous'
+      | 'owner_manual'
+      | 'occupied_unknown';
+    /** 会话当前的持有者类别 */
+    ownerKind: 'none' | 'autonomous' | 'manual';
+    /** 持有者的工作项（自主持有时有值） */
+    ownerTicketId?: string;
+    /** 归属消息 id（入口未下传则省略） */
+    messageId?: string;
+  };
+
   // ─── 审批四段（P5-1，2026-10-28；规格 `.trae/specs/p5-runtime-hardening-specs.md` §1） ───
   // 四段是**同一条审批链的四个可观测点**。顺序判据在判定内核
   // `app/src/permission/approvalStages.ts`（本映射只描述"每一段留什么"）。

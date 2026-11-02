@@ -109,6 +109,8 @@ const ALL_SESSION_EVENT_TYPES = [
   'execution/recovery',
   // T1-13 / `✅-4`（2026-10-13）：PREPARED 快照 durable 落盘（写前持久化，非遥测广播）
   'execution/prepared',
+  // P36-b（2026-11-02）：消息归属判定（log-only；谁持有会话 / 本次消息如何处置）
+  'execution/ownership_decision',
   // ─── 审批四段（P5-1，2026-10-28；log-only，顺序判据在 permission/approvalStages） ───
   'approval/requested',
   'approval/presented',

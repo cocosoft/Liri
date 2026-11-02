@@ -189,7 +189,12 @@ export class ExecutionManager {
    * 若该 session 已有"占用中"的执行，则本执行以 `QUEUED` 创建且**不取得所有权**
    * （调用方据此排队，绝不允许两个 RUNNING 并存）。
    */
-  acquire(sessionId: string, messageId?: string): ExecutionLease {
+  acquire(
+    sessionId: string,
+    messageId?: string,
+    /** P36-b：本次执行所属工作项（只做记录，**不参与租约语义**） */
+    workItemId?: string
+  ): ExecutionLease {
     this.sweep();
 
     const generation = ((this.lastGeneration.get(sessionId) ?? 0) +
@@ -216,6 +221,8 @@ export class ExecutionManager {
       startedAt: now,
       updatedAt: now,
       heartbeatAt: now,
+      // P36-b：归属工作项（缺省 ⇒ 不属于任何工作项，普通对话零变更）
+      ...(workItemId ? { workItemId } : {}),
     };
     this.records.set(executionId, record);
     if (!occupied) this.owner.set(sessionId, executionId);

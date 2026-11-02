@@ -56,6 +56,11 @@ import { isMediaOutputToolName } from '@openliri/infra/utils/toolContract/toolRo
 import {
   getExecutionManager,
   TOOL_CALL_INITIAL_STATUS,
+  // P36-b（2026-11-02）：消息归属判定（纯函数 + 宿主注入的持有者读取端口；
+  // 灰度 `MESSAGE_OWNERSHIP` 默认关）。走 service 出口 ⇒ infrastructure 不反向 import chat。
+  emitOwnershipDecision,
+  getSessionOwner,
+  resolveMessageOwnership,
   type ExecutionLease,
 } from '@openliri/service/execution';
 import { feature } from '@openliri/kernel';
@@ -732,10 +737,36 @@ async function handleStreamingChat(
       feature('CLIENT_STREAM_EXECUTION') && clientSessionId
         ? getExecutionManager()
         : undefined;
+    // P36-b（2026-11-02）：入场时读"谁持有会话"（只读投影；灰度关 ⇒ 零开销/零行为）
+    const ownershipOwner =
+      feature('MESSAGE_OWNERSHIP') && clientSessionId
+        ? await getSessionOwner(clientSessionId)
+        : undefined;
     const executionLease: ExecutionLease | undefined =
       executionManager && clientSessionId
-        ? executionManager.acquire(clientSessionId, request.message_id)
+        ? executionManager.acquire(
+            clientSessionId,
+            request.message_id,
+            ownershipOwner?.ticketId
+          )
         : undefined;
+    if (ownershipOwner && executionLease && clientSessionId) {
+      // `isCurrent()` 才是权威的"是否被占"：领取失败 ⇒ 本条以 QUEUED 排队（既有语义）
+      const decision = resolveMessageOwnership({
+        occupied: !executionLease.isCurrent(),
+        ownerKind: ownershipOwner.kind,
+      });
+      emitOwnershipDecision({
+        sessionId: clientSessionId,
+        executionId: executionLease.executionId,
+        decision,
+        ownerKind: ownershipOwner.kind,
+        ...(ownershipOwner.ticketId
+          ? { ownerTicketId: ownershipOwner.ticketId }
+          : {}),
+        ...(request.message_id ? { messageId: request.message_id } : {}),
+      });
+    }
     let executionSettled = false;
     /** 结算本次执行（幂等；fencing：被顶替/已终结 ⇒ 忽略，绝不改写新执行） */
     settleExecution = (ok: boolean, reason?: string): void => {

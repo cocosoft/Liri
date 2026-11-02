@@ -47,7 +47,9 @@ export type ExecutionEventType =
   | 'execution/status_changed'
   | 'execution/recovery'
   // T1-13 / `✅-4`（2026-10-13）：PREPARED 快照 durable 落盘（非遥测广播）
-  | 'execution/prepared';
+  | 'execution/prepared'
+  // P36-b（2026-11-02）：消息归属判定（log-only）
+  | 'execution/ownership_decision';
 
 let sink: ExecutionEventAppender | null = null;
 

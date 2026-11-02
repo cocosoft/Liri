@@ -133,6 +133,10 @@ export const LIRI_EVENT_NAMES = [
   // 记「本次执行 PREPARED 时点的最终可见工具名」，供重放**读落盘快照**而非直读当前运行时 Profile。
   // 见 `.trae/specs/execution-prepared-snapshot-persistence.md`。
   'execution/prepared',
+  // P36-b（2026-11-02）：**消息归属判定**（log-only）—— 记"这条消息进入时会话被谁持有、
+  // 判定为 accept / queue 及理由"。归属是派生视图，不写状态位；见
+  // `dev_docs/20261102/消息归属与交还方案-20261102.md`。
+  'execution/ownership_decision',
   // ─── 审批四段（P5-1，2026-10-28） ───
   // 规格：`.trae/specs/p5-runtime-hardening-specs.md` §1.2 A1。
   // 四段 = **同一条审批链的四个可观测点**（不是四次独立询问）：

@@ -8214,3 +8214,18 @@
 {"id":"SERVICE-PACKAGE-P31-STREAMING","k":"code#4","i":0,"c":"app/tsconfig.json"}
 {"id":"SERVICE-PACKAGE-P31-STREAMING","k":"tests#0","i":0,"c":"app/tests/utils/backoffDefaults.test.ts"}
 {"id":"SERVICE-PACKAGE-P31-STREAMING","k":"tests#1","i":0,"c":"app/tests/streaming/StreamingThinkScrubber.test.ts"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"title","i":0,"c":"P32：mcp（增强层）迁入 packages/service（6 文件；1 处跨层反转：ToolScope 注入端口）"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"source","i":0,"c":"dev_docs/20261101/infra包化可行性-20261101.md §7.3（结论段随证据提交回填）"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"reopenWhen","i":0,"c":"① 后续 voice/bridge 仍卡 runtime/channels/acp（§七 判据）；② `setMcpToolScopePortLoader` 未注入 ⇒ scope 登记跳过属**既定降级语义**（ChildProcessTracker 进程级兜底仍在），若改为 fail-closed 需同步守卫；③ 新增目录入口消费者 ⇒ exports 单列精确条目。"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"notes","i":0,"c":"迁包：6 文件（`types/` `cli/` `utils/` 子目录保留）git mv 至 packages/service/src/mcp；exports `./mcp`（桶）+ `./mcp/*`（`types/index.js` 等由 `*` 命中，外部无目录名 import ⇒ 未单列）。"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"notes","i":1,"c":"别名：8 处外部消费改 `@openliri/service/mcp*`（AppState `types/index.js` · mcp-oauth-handler 桶 · generatedLazyLoaders · build-variant 懒加载清单 · ImportManager 别名表 · builtinToolRegistry 相对路径 · 2 测试相对路径）+ 包内 MCPConnection 注释 1 处。"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"notes","i":2,"c":"跨层反转（1 处）：`MCPTool.execute()` 原方法内动态 import `../tool/ToolScopeManager`（B18-c 遗留，迁包后不可达）⇒ 端口 `McpToolScopePort` + `setMcpToolScopePortLoader()`；未注入 ⇒ scope 登记降级跳过（进程级兜底仍在）；preflight.wireServiceDeps() 注入，main.ts 零增行（1999）。"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"notes","i":3,"c":"codemod 教训（新）：相对路径→别名规则必须排除**模块内部**文件（桶内 `./types` 等自引被误改）与**非 import 语境**（`'./mcp.config.json'` 运行时路径默认值被误改）；本批两处均手工还原。"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"notes","i":4,"c":"校验：两侧 typecheck 绿；CI 9766 pass / 44 skip / 0 fail；探针（桶 56 导出 · MCPTool 为 Tool 常量 · createMcpCommand/readMcpConfig/types|cli|utils 子路径/setMcpToolScopePortLoader）通过；R8 反证点名 `mcp/utils/mcpConfig.ts:1`（回滚后 682 处 0 违规）。台账：state-literal 1 条；证据 code[] 2 处（TOOLGOV-S2-2 · HARDCODE-SAME-NAME-CONSTS-B5-2-77）随迁。"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"code#0","i":0,"c":"packages/service/src/mcp/index.ts"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"code#1","i":0,"c":"packages/service/src/mcp/MCPTool.ts"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"code#2","i":0,"c":"packages/service/package.json"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"code#3","i":0,"c":"app/tsconfig.json"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"code#4","i":0,"c":"app/src/bootstrap/preflight.ts"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"tests#0","i":0,"c":"app/tests/mcp/sdkClientApiShape.test.ts"}
+{"id":"SERVICE-PACKAGE-P32-MCP","k":"tests#1","i":0,"c":"app/tests/mcp/realServerE2E.test.ts"}

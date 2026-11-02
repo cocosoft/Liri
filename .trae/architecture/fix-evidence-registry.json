@@ -17220,6 +17220,37 @@
       "changelog": [],
       "reopenWhen": "① 下一批 voice/bridge/mcp 按 §七判据筛（streaming 已迁入，`services/api` 现处包内）；② streaming 后续若需 app 侧能力 ⇒ 走 P30 注入范式（set*Provider/Loader），禁静态 import；③ 新增目录入口且有外部消费者 ⇒ expor…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P31-STREAMING）",
       "notes": "迁包：14 文件（含 `scrubbers/` 子目录）git mv 至 packages/service/src/streaming；exports 为 `./streaming`（桶 index.ts）+ `./streaming/*`（子路径，`*` 可跨 `/` 命中 `scrubbers/Xxx.ts`）；…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P31-STREAMING）"
+    },
+    {
+      "id": "SERVICE-PACKAGE-P32-MCP",
+      "title": "P32：mcp（增强层）迁入 packages/service（6 文件；1 处跨层反转：ToolScope 注入端口）",
+      "source": "dev_docs/20261101/infra包化可行性-20261101.md §7.3（结论段随证据提交回填）",
+      "stages": {
+        "discovered": true,
+        "fixed": true,
+        "testVerified": true,
+        "postReleaseReviewed": false
+      },
+      "flags": {
+        "designed": true,
+        "coded": true,
+        "unitTested": true,
+        "e2eVerified": false
+      },
+      "code": [
+        "packages/service/src/mcp/index.ts",
+        "packages/service/src/mcp/MCPTool.ts",
+        "packages/service/package.json",
+        "app/tsconfig.json",
+        "app/src/bootstrap/preflight.ts"
+      ],
+      "tests": [
+        "app/tests/mcp/sdkClientApiShape.test.ts",
+        "app/tests/mcp/realServerE2E.test.ts"
+      ],
+      "changelog": [],
+      "reopenWhen": "① 后续 voice/bridge 仍卡 runtime/channels/acp（§七 判据）；② `setMcpToolScopePortLoader` 未注入 ⇒ scope 登记跳过属**既定降级语义**（ChildProcessTracker 进程级兜底仍在），若改为 fail-closed 需同步守卫；③…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P32-MCP）",
+      "notes": "迁包：6 文件（`types/` `cli/` `utils/` 子目录保留）git mv 至 packages/service/src/mcp；exports `./mcp`（桶）+ `./mcp/*`（`types/index.js` 等由 `*` 命中，外部无目录名 import ⇒ 未单列）。别名：8 处外部…（全文见 archive/evidence-detail.jsonl#SERVICE-PACKAGE-P32-MCP）"
     }
   ]
 }
